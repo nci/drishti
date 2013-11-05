@@ -1,0 +1,1004 @@
+#begin
+tempdir
+tempdir/resettempdir
+Set temporary directory to store temporary files created by the program.
+When not set (which is default), these files are stored in the directory where .pvl.nc file resides.
+Give "resettempdir" to reset temporary directory.
+#end
+
+#begin
+jitter
+jitter <val>
+Jitter the texture coordinates so as to reduce aliasing artifacts.
+The parameter val controls the amount of jittering.  It takes integer values.
+Default value of val is 0 - i.e. no jittering.
+
+Example :
+jitter 5
+jitter 10
+
+#end
+
+#begin
+resettempdir
+tempdir/resettempdir
+Set temporary directory to store temporary files created by the program.
+When not set (which is default), these files are stored in the directory where .pvl.nc file resides.
+Give "resettempdir" to reset temporary directory.
+#end
+
+#begin
+point
+point x y z
+Add a point at the given x,y,z coordinates.
+
+Example : point 10 20.5 123
+
+Users can also add points by using Shift+Left click on visible region of the volume.
+#end
+
+#begin
+loadpoints
+loadpoints/loadpoint
+Load points from a file. User will be asked for the text file name from which the points will be loaded. This file should specify number of points on a single line followed by all point coordinates with one point (i.e. 3 values) per line.
+
+Example :
+  4
+  0.5 1.0 4.0
+  3.5 1.0 1.0
+  2.5 1.0 4.0
+  0.5 1.5 6.0
+
+Once loaded these points can be edited.
+#end
+
+#begin
+setlod
+setlod lod
+Set the highest Level of Detail (lod) to load in hires mode. The highest level of detail is the amount of subsampling needed to fit the selected subvolume in the available texture memory. Default value is 1 (i.e. no subsampling required - load full resolution whenever possible). The program will automatically calculate level of detail that is needed taking into account the user defined limit. For e.g.
+To set level 3 subsampled volume as the most detailed version : setlod 3
+#end
+
+#begin
+savepoints
+Save points into a file. User will be asked for the text file name into which the points will be saved. This file will have number of points at the top followed by one point (i.e. 3 values) per line.
+#end
+
+#begin
+geosteps
+geosteps <int>
+The rendering of meshes becomes slowers when "merge with volume" is switched on in the mesh dialog.  This happens because the mesh is diced up into several slabs which results in coarse level sorting of triangles in that mesh.  These mesh slabs are then rendered with the volume (if available).  Higher number of slabs result in slower rendering.  The parameter "geosteps" controls the number of slabs that are rendered.  Higher value results in lesses number of slabs (coarser sorting) and faster rendering.
+Default value is 1.
+#end
+
+#begin
+grid
+grid <columns> <rows>
+Add a grid using the selected set of points in column mahor fashion. If none of the points is selected, the grid is created using all the available points.
+The order of selection of points affects the grid.
+
+Once a grid is created, points used for creating the grid are removed. The grid can be modified after it has been created - rows or columns of points can be added and removed from the grid.  Individual points on the grid can be moved.
+#end
+
+#begin
+path
+Add a path going through the selected set of points. If none of the points is selected, the path is created through all the available points.
+The order of selection of points affects the path.
+
+Path consists of atleast 2 points.
+
+Once a path is created points used for creating the path are removed. The path can be modified after it has been created - points can be added, moved and removed from the path.
+#end
+
+#begin
+loadvector
+Load vector field from a text file.
+User will be asked for the text file name from which the points and vectors will be loaded. This file must be a text file with number of points at the top followed by point and vector per line.  Each line must have atleast 4 values and upto 6 values.  The first 3 values will be treated as position.  The missing vector values will be filled with 0.
+
+Once loaded user can assign colour gradient based on vector length.
+
+The vectors are treated just as a special case of pathgroups.
+
+Example :
+4
+10.5 1.0 4.0  0.0 1.0 0.0
+13.5 1.0 1.0  0.3 0.5 0.0
+12.5 1.0 4.0  0.0 0.8 2.0
+10.5 1.5 6.0  0.4 1.3 0.7
+
+Another example (here the missing y & z vector values will be taken as 0.0)
+Users can use this format for loading scatter plot data - pos and value.
+4
+10.5 1.0 4.0  0.9
+13.5 1.0 1.0  0.3
+12.5 1.0 4.0  1.0
+10.5 1.5 6.0  0.4
+
+#end
+
+#begin
+loadpathgroup
+Load paths from a file.  All the paths in the file are treated as a single entity.  Points cannot be added or removed from a pathgroup.
+Users can also load indexed paths.
+More information can be found under loadpath help.
+#end
+
+#begin
+loadpath
+Load a path from a file. User will be asked for the text file name from which the points will be loaded. This file must be a text file with number of points at the top followed by one point (i.e. 3 values) per line. The file may contain multiple paths, as shown in the example below.
+Once created a path can be edited.
+
+Example :
+4
+0.5 1.0 4.0
+3.5 1.0 1.0
+2.5 1.0 4.0
+0.5 1.5 6.0
+3
+1.5 19.0 21.0
+2.5 10.0 42.0
+0.5 12.5 16.0
+
+Paths can also use indexed coordinates.  In this case the first line should be "#indexed".  The next line specifies the number of points followed by coordinates of each point on a separate line.  After all the points have been specified, list point number for the individual paths on separate line.
+
+Example :
+#indexed
+8
+75.9695 211.301 2.95066 
+62.4697 211.301 2.98529 
+82.5082 211.141 18.0185 
+76.5653 210.904 40.2637 
+75.5968 210.772 52.5721 
+64.0969 210.772 52.6016 
+74.7241 210.244 102.195 
+76.5653 210.904 40.2637 
+0 7
+1 3
+0 1 2
+4 5 6 7 3
+#end
+
+#begin
+loadgrid
+Load grid from a file. User will be asked for the text file name from which the points will be loaded. This file must be a text file with number of points in column and row  at the top followed by one point (i.e. 3 values) per line. The file may contain multiple grids, as shown in the example below.
+Once created a grid can be edited.
+
+Example :
+2   2
+34.5303 20.1612 9.31844
+41.9833 21.8794 4.20507
+26.2442 17.2637 21.2988
+35.3462 19.1446 19.023
+5   3
+271.732 218.195 222.585
+295.348 195.691 225.244
+324.001 175.675 233.581
+365.62 170.704 230.079
+412.551 186.984 229.766
+288.938 238.488 198.753
+305.034 223.429 200.204
+334.305 211.594 202.559
+358.957 207.566 203.925
+397.39 219.637 199.611
+308.406 259.479 172.502
+331.812 250.454 173.442
+350.776 237.703 181.048
+373.104 249.167 176.439
+397.585 256.729 169.862
+#end
+
+#begin
+savepath
+Save all paths into a file. User will be asked for the text file name into which the path points will be saved. For each path this file will have number of coordinates at the top followed by point coordinates.
+#end
+
+#begin
+floatprecision
+floatprecision value
+Sets the precision for displaying floating point numbers - i.e. maximum number of significant digits.
+Default value is 2 - i.e. 2 digits after decimal point.
+#end
+
+#begin
+caption
+caption
+Opens up dialog to add caption.  Once the captions are added, they can be edited, moved and animated. Hover over a caption to activate it and press spacebar to edit it.
+
+Users can display text embedded with frame number - $#f, time step number in volume - $#v[0-3], interpolated values - $n(value) and dial - $d(value), within caption.
+
+For $n(v) & $d(v), the values v will be interpolated for inbetween frames.  In the case of $n, these values will be displayed as numbers, where as in the case of $d, these values will be displayed as a pie (0-360 degrees).  The values for pie can be greater than 360 or less than 0 - the pie displayed will change accordingly.  Caption halocolor is used as background and color is used as foreground for the pie, but these colors flip with the number of complete turns.
+
+Dial will always be shown at the start of the text.
+
+Example :
+$4f will display frame numbers with padded 0s.
+$3v0 will display time step number for volume 0.
+$2v1 will display time step number for volume 1.
+$d(90) will display quarter dial with halocolor as background.
+$d(450) will also display quarter dial with halocolor as foreground.
+"Temperature : $n(3.032)" will display "Temperature : 3.03" if "floatprecision" is set to 2.
+"Temperature : $n(3.032)" will display "Temperature : 3" if "floatprecision" is set to 0.
+If one keyframe has $n(val1) and subsequent keyframe has $n(val2) then the intermediate frames will have interpolated values between val1 and val2.
+
+#end
+
+#begin
+clip
+When three points are specified a clip plane can be added.
+Clip plane allow users to cull regions in the volume. When the clip plane widget is visible press spacebar while hovering on the widget to change clip plane parameters via a parameter dialog.
+#end
+
+#begin
+crop
+When two points are specified a crop widget can be added. Crops allow users to cull regions in the volume. When the crop widget is visible press spacebar while hovering on the widget to change crop parameters via a parameter dialog.
+
+Crop can be morphed into dissect/blend/glow/displace.
+#end
+
+#begin
+dissect
+When two points are specified a dissect widget can be added. Dissect allow users to cut open regions in the volume. When the dissect widget is visible press spacebar while hovering on the widget to change dissect parameters via a parameter dialog.
+
+Dissect can be morphed into crop/blend/glow/displace.
+#end
+
+#begin
+blend
+When two points are specified a blend widget can be added. Blend allow users to blend different transfer functions within the selected region. When the blend widget is visible press spacebar while hovering on the widget to change blend parameters via a parameter dialog.
+
+Blend can be morphed into crop/dissect/glow/displace.
+#end
+
+#begin
+glow
+When two points are specified a glow widget can be added. Glow allow users to emissive glow within the selected region. When the glow widget is visible press spacebar while hovering on the widget to change glow parameters via a parameter dialog.
+
+Glow can be morphed into crop/dissect/blend/displace.
+#end
+
+#begin
+displace
+When two points are specified a displace widget can be added. Displace allow users to move parts within the selected region. When the displace widget is visible press spacebar while hovering on the widget to change displace parameters via a parameter dialog.
+
+Displace can be morphed into crop/dissect/blend/glow.
+#end
+
+#begin
+enablevolumeupdates
+Enable texture updates whenever subvolume is changed.
+By default subvolume updates are enabled.
+#end
+
+#begin
+disablevolumeupdates
+Do not upload a new texture even when subvolume is changed.
+By default, texture is updated whenever subvolume is changed.
+#end
+
+#begin
+interpolatevolumes
+interpolatevolumes [no|color|value]
+Linearly interpolates color/voxel values between two volumes in double volume.  The interpolation ratio varies between 0.0 and 1.0 : color/val = (1-frc)*volume1 + frc*volume2.  This ratio is automatically determined based on the frame number and the timestep number of the first volume.  At keyframes this value is always 0.0.
+Default is no interpolation between the volumes.
+#end
+
+#begin
+colorbar
+Adds color legend / colormap to the display.
+By default color legend will display colormap from set 0 transfer functions.
+Multiple color legends can be added.
+
+The color legend can be moved around using left mouse button.  It can be scaled using right mouse button.
+
+Hover over the colorbar to select and change it.
+Press 0,1,.. to change transfer function set.
+Press h/v to change the style - horizontal/vertical.
+Press DEL to remove it.
+#end
+
+#begin
+scalebar
+scalebar [voxels/voxelunit]
+Adds scale bar to the display.
+Multiple scale bars can be added.
+
+By default scalebar will display 100 voxels/voxelunits across. If the dataset has voxelunits specified in the volume information, then the number is taken in voxelunits (i.e. micron, cm, mm etc), otherwise it is taken to mean number of voxels.
+
+The scale is correct for orthographic projection.
+For perspective projection the scale is correct for the central portion of the object.  In perspective projection, the object scaling will be larger for closer regions than for the away regions.  Hence the scalebar displays the scale that is correct at the center of the object.
+
+Hover over scalebar to activate it.
+The scalebar can be moved around.
+Press h/v to change the style - horizontal/vertical.
+Press u/d/l/r to change the text position - up/down/left/right for appropriate style.
+Press DEL to remove it.
+
+Scalebars positions can be animated.
+
+Examples :
+scalebar 10 - If voxelunits are specified then the scalebar is drawn such that it shows 10 voxelunits across otherwise it will be 10 voxels across.
+#end
+
+#begin
+addrotationanimation
+addrotationanimation [x/y/z] [angle] [frames]
+Simplest way to add rotation animation to keyframe editor.  Two keyframes will be added to the keyframe editor.  First frame with rotation angle 0 and second frame is set at frame number [frames] with rotation angle set to [angle].
+
+Default value for axis is x-axis, angle is 360 degrees and frames is also 360.
+
+Examples :
+addrotationanimation
+addrotationanimation y 90 400
+#end
+
+#begin
+mix
+mix [0|1|2] [no|color|opacity|color opacity|tag|tag no]
+
+During handling of multiple volumes, "mix" influences the rendering of volume specified by the volume number in the mix command.
+
+The second parameter is volume number.  If not specified volume 0 is assumed.  Color and opacity for all volumes below the volume number are not affected - For example when volume number is 1, color and opacity for volume 0 is not affected.
+
+Default style is "mix no" - volumes are composite in normal way.
+
+When "color" is specified, affected volume is tinged with colors from transfer functions defined for volume numbers above it.  The opacity/transparency is not modulated.  Volume numbers above the affected volume are not rendered.
+
+When "opacity" is specified, transparency for the affected volume is modulated with transparency from transfer functions defined for volume numbers above it.  The color is not modulated.  Volume numbers above the affected volume are not rendered.
+
+When both "color" and "opacity" are specified both of these are modulated for the affected volume.
+
+When "tag" is specified, affected volume is tinged with tag colors.  Volume 1 voxel value is used as tag value to choose appropriate tag color.
+
+Examples :
+mix no - switch of the mixing.
+
+mix color - modulate color for volume 0 by the colors from volumes 1,2,...
+
+mix 1 color opacity - modulate color and opacity for volume 1 by color and opacity from volumes 2,...  Volume 0 remains unaffected.
+
+mix tag - modulate color for volume 0 by tag colors chosen using volume 1 values.
+mix tag no - turn of tagging.
+
+#end
+
+#begin
+texsizereducefraction
+texsizereducefraction frc
+The volume data is loaded in 2D textures on graphics card. Sometime (seen on cards allowing 8Kx8K textures) the volume data does not get loaded properly onto the texture memory. Use this option to restrict the size of 2D textures that Drishti can use. Default value is 1.0.
+
+Example :
+To reduce texturesize by half : texsizereducefraction 0.5
+#end
+
+#begin
+loadbarepoints
+Load points from a file.  These points will be shown as tiny green dots.  Bare points cannot be selected and edited.  They can only be removed all at once.
+
+User will be asked for the text file name from which the points will be loaded. This file should specify number of points on a single line followed by all point coordinates with one point (i.e. 3 values) per line.
+
+Example :
+  4
+  0.5 1.0 4.0
+  3.5 1.0 1.0
+  2.5 1.0 4.0
+  0.5 1.5 6.0
+
+**Once loaded these points cannot be edited.**
+#end
+
+#begin
+removebarepoints
+Remove all points that were loaded as bare points.
+#end
+
+#begin
+pointsize
+pointsize [size]
+Set the point size for display.
+Default value is 20 pixels.
+#end
+
+#begin
+pointcolor
+Set the point color for display.  A color dialog will pop via which color can be selected.
+#end
+
+#begin
+enablegrabpoints
+Enable mouse grabbing for points.  Mouse grabbing for points will remain enabled till it is switched off with "disablegrabpoints".
+By default mouse grabbing is enabled for points.
+#end
+
+#begin
+disablegrabpoints
+Disable mouse grabbing for points.  Mouse grabbing for points will remain disabled till it is switched on with "enablegrabpoints".
+By default mouse grabbing is enabled for points.
+When there is many points, it might happen that while draggning the mouse across the screen, a point might get activated and moved around quite unintentionally.  This option is to avoid that.
+This option also helps in slightly increasing rendering speeds while rendering large point clouds.  When mouse grabbing is enabled, before each frame is rendered, a search is performed to find any grabbable object below the current mouse position.  Reducing the number of grabbable object will reduce this search time.
+#end
+
+#begin
+deselectall
+Deselect all selected/active points.
+#end
+
+#begin
+removepoints
+removepoints [all | selected]
+
+Removes all points or the selected set of points.
+
+Example :
+removepoints all
+removepoints selected
+#end
+
+#begin
+loadimage
+Load background image from a file. User will be asked for the image file. This image will be drawn for the background instead of background color.
+#end
+
+#begin
+resetcamera
+Reset camera to examine mode.  Show entire scene.
+#end
+
+#begin
+resetimage
+Reset background image. No background image will be drawn, instead the background color will be used to the fill the background.
+#end
+
+#begin
+setfov
+setfov fov
+
+Set (vertical) field of view, fov, in degrees. Default value is 45 degrees.
+#end
+
+#begin
+resetfov
+Reset the (vertical) field of view to default value. Default value is 45 degrees.
+#end
+
+#begin
+search
+search text
+Search keyframes for text within captions. The captions could be either normal caption on screen or those that are added using paths. If found, first keyframe with given search text within captions is displayed and current frame is set to that keyframe.
+#end
+
+#begin
+countcells
+Count the number of isolated regions, as defined by the transfer function. Only those voxels that have opacity greater than zero according to the current transfer function will be considered for locating isolated regions.
+#end
+
+#begin
+savevolume
+User is given an option to save the processed volume (.pvl.nc) or opacity (.raw) of voxels as volume data. Voxels in the selected subvolume are tested for clipping, cropping and mop operations. When saving processed volume (.pvl.nc), unchanged values are saved for voxels that pass this test, otherwise 0 is saved.  In the case of opacity volume (.raw), opacity issaved to a raw file.  Opacity is calculated using the current transfer function for those voxels that pass the test, otherwise it taken as 0.
+#end
+
+#begin
+maskrawvolume
+Save original raw volume into another raw file using opacity of voxels to mask regions in the volume data. Voxels in the selected subvolume are tested for clipping. For voxels that pass this test, opacity is calculated using the current transfer function. This opacity is then used for masking voxels in the original raw volume. If the opacity is zero - i.e. voxel is transparent - voxel value in the new raw volume will be set to mask value (which is supplied by the user at the start of this process). Voxels that have non-zero opacity - i.e. visible voxels - are stored at their original voxel value in the new raw file.
+
+When the volume is of RGB/RGBA type, the data will be saved in as an image sequence.  Transparent voxels will have black color.
+#end
+
+#begin
+getvolume
+getvolume [tag]
+Calculate volume by counting voxels that have non-zero opacity, i.e. count voxels that are shown.  When getvolume is supplied with tag, only those voxels that have the given tag value are counted.
+#end
+
+#begin
+getsurfacearea
+getsurfacearea [tag]
+Calculate surface area by counting surface voxels (similar to getvolume).  When getsurfacearea is supplied with tag, only those surface voxels that have the given tag value are counted.
+#end
+
+#begin
+getangle
+Given three points calculate angle in degrees.
+#end
+
+#begin
+backgroundrender
+backgroundrender [no]
+Toggle rendering to framebuffer object. Default is render to framebuffer object. By rendering to framebuffer object, the image is drawn and saved properly even when other windows overlap the render window.
+
+When backgroundrender is switched off, regions of the render window occluded by other overlapping windows are not drawn, consequently the images may be saved with parts of overlapping windows.
+
+When users want to save images with transparent background - set the background colour to black and switch off backgroundrender.
+#end
+
+#begin
+translate
+translate x y z
+
+Translate camera to the x,y,z position.
+
+Example :
+translate 200 250 200
+#end
+
+#begin
+translatex
+translatex x
+
+Translate camera to the x,0,0 position.
+
+Example : translatex 200
+#end
+
+#begin
+translatey
+translatey y
+
+Translate camera to the 0,y,0 position.
+#end
+
+#begin
+translatez
+translatez z
+
+Translate camera to the 0,0,z position.
+#end
+
+#begin
+move
+move x y z
+
+Move camera from the current position by x,y,z units.
+
+Example : move 50 20 20
+#end
+
+#begin
+movex
+movex x
+
+Move camera from the current position by x,0,0 units.
+
+Example : movex 50
+#end
+
+#begin
+movey
+movey y
+
+Move camera from the current position by 0,y,0 units.
+#end
+
+#begin
+movez
+movez z
+
+Move camera from the current position by 0,0,z units.
+#end
+
+#begin
+movescreenx
+movescreenx x
+
+Move camera horizontally as seen by the viewer from the current position by x units.
+
+Example : movescreenx 10
+#end
+
+#begin
+movescreeny
+movescreeny y
+
+Move camera vertically as seen by the viewer from the current position by y units.
+#end
+
+#begin
+movescreenz
+movescreenz z
+
+Move camera in/out as seen by the viewer from the current position by z units.
+#end
+
+#begin
+rotate
+rotate x y z a
+
+Rotate camera by a degrees about the axis defined by vector x,y,z. The vector x,y,z is internally normalized.
+
+Example : rotate 0.1 1.0 0.5 40
+#end
+
+#begin
+rotatex
+rotatex a
+
+Rotate camera by a degrees about X-axis.
+
+Example : rotatex 30
+#end
+
+#begin
+rotatey
+rotatey a
+
+Rotate camera by a degrees about Y-axis.
+#end
+
+#begin
+rotatez
+rotatez a
+
+Rotate camera by a degrees about Z-axis.
+#end
+
+#begin
+addrotation
+addrotation x y z a
+
+Rotate camera by a degrees about the axis defined by vector x,y,z from its current orientation. The vector x,y,z is internally normalized.
+
+Example :
+addrotation 0.1 1.0 0.5 40
+#end
+
+#begin
+addrotationx
+addrotationx a
+
+Rotate camera by a degrees about X-axis from its current orientation.
+
+Example :
+addrotationx 30
+#end
+
+#begin
+addrotationy
+addrotationy a
+
+Rotate camera by a degrees about Y-axis from its current orientation.
+#end
+
+#begin
+addrotationz
+addrotationz a
+
+Rotate camera by a degrees about Z-axis from its current orientation.
+#end
+
+#begin
+rotatescreenx
+rotatescreenx a
+
+Rotate camera by a degrees about horizontal screen axis from its current orientation.
+
+Example :
+rotatescreenx 30
+#end
+
+#begin
+rotatescreeny
+rotatescreeny a
+
+Rotate camera by a degrees about vertical screen axis from its current orientation.
+#end
+
+#begin
+rotatescreenz
+rotatescreenz a
+
+Rotate camera by a degrees about axis perpendicular to screen from its current orientation.
+#end
+
+#begin
+loadtriset
+Load .triset file.
+#end
+
+#begin
+loadply
+Load .ply Stanford formatted polygon file.
+#end
+
+#begin
+loadnetwork
+Load network file.
+#end
+
+#begin
+autospin
+autospin [off]
+When left mouse button is quickly dragged and released, model goes into auto-spin mode.
+autospin off : switch off auto-spin
+autospin : switch on auto-spin
+#end
+
+#begin
+masktf
+masktf [tfset]
+Used for creating the empty space skipping volume.  This volume is used as a mask.  The rendering is limited to within the non-zero regions of this mask.
+#end
+
+#begin
+mop
+mop
+mop [option] [parameters]
+
+When only mop is specified, command dialog for mop will open up.
+More information on the following options available in MOP command dialog.
+
+Supported options :
+average
+carve
+carverad
+chessboard
+cityblock
+close
+copy
+copyfromsaved
+copytosaved
+dilate
+dilateedge
+edge
+erode
+fusepatch
+histogram
+invert
+localmax
+localthickness
+masktf
+max
+maxvalue
+min
+nop
+open
+paint
+rdilate
+removepatch
+sat0
+sat1
+save
+setvalue
+shrinkwrap
+smoothchannel
+swap
+tag
+thicken
+update
+xor
+#end
+
+#begin
+keyboard
+Start Keyboard help
+#end
+
+#begin
+F2
+Toggle between Hires and Lowres modes.
+#end
+
+#begin
+Spacebar
+Bring up command input dialog.
+#end
+
+#begin
+Esc
+Quit Drishti.
+#end
+
+#begin
+?
+Toggle information text at the bottom in image window.
+#end
+
+#begin
+a
+Toggle axis display.
+#end
+
+#begin
+b
+Toggle bounding box.
+#end
+
+#begin
+c
+Add a clip plane.
+Clip plane is always added in the center of the volume.
+#end
+
+#begin
+s
+Toggle stereo display in Hires mode. Operational only when activated using -stereo command line option.
+
+Users can also get stereo-like results by switching to red-cyan/blue anaglyph mode by pressing 2 or 3.
+#end
+
+#begin
+t
+Add captions.
+Once the captions are added, they can be edited, moved and animated. Hover over a caption to activate it and press spacebar to edit it.
+Users can display frame number - $#f, time step number in volume - $#v[0-3] or interpolated values - $n(value),  within caption.
+
+Example :
+$4f will display frame numbers with padded 0s.
+$3v0 will display time step number for volume 0.
+$2v1 will display time step number for volume 1.
+"Temperature : $n(3.032)" will display "Temperature : 3.03" if "floatprecision" is set to 2.
+"Temperature : $n(3.032)" will display "Temperature : 3" if "floatprecision" is set to 0.
+If one keyframe has $n(val1) and subsequent keyframe has $n(val2) then the intermediate frames will have interpolated values between val1 and val2.
+#end
+
+#begin
+v
+Toggle visibility of widgets - networks, clipplanes, crop, dissect, blend, displace.
+#end
+
+#begin
+g
+Toggle mouse grab for widgets - trisets, networks, paths, clipplanes, crop, dissect, blend, displace.
+#end
+
+#begin
+Ctrl+c
+Copy a snapshot to clipboard.
+#end
+
+#begin
+Ctrl+s
+Save project.
+#end
+
+#begin
+Alt+s
+Save single image. If any of the Red-Cyan or Red-Blue anaglyph modes are active, anaglyph image will be saved. Same goes for image sequences and movies.
+#end
+
+#begin
+Alt+f
+Toggle between examine and fly mode for camera.
+Default is examine mode.
+#end
+
+#begin
+Ctrl+z
+Undo last camera position/rotation change.
+Users can perform unlimited undo.
+#end
+
+#begin
+Ctrl+y
+Redo the last undone camera position/rotation change.
+Users can perform unlimited redo.
+#end
+
+#begin
+Ctrl+h
+When keyboard focus is any of the editors under "View" menu, show help for that editor.
+#end
+
+#begin
+Alt+Return
+Toggle full screen display. 
+#end
+
+#begin
+PageUp/Pagedown/Shift+Up/Shift+Down
+Change still image stepsize.
+#end
+
+#begin
+Home/End/Shift+Left/Shift+Right
+Change drag image stepsize.
+#end
+
+#begin
+0
+Set render resolution to normal - image is rendered at full resolution of the renderwindow.
+#end
+
+#begin
+9
+Set render resolution to low - image is rendered at half resolution of the renderwindow.
+#end
+
+#begin
+8
+Set render resolution to very low - image is rendered at quarter resolution of the renderwindow.
+#end
+
+#begin
+1
+Toggle shadows.
+#end
+
+#begin
+2
+Toggle Red-Cyan anaglyph mode.
+
+Use Focus Distance slider in Stereo tab within the Preferences panel under View to change the focus.
+#end
+
+#begin
+3
+Toggle Red-Blue anaglyph mode.
+
+Use Focus Distance slider in Stereo tab within the Preferences panel under View to change the focus.
+#end
+
+#begin
+4
+Toggle Crosseye stereo mode.
+
+Use Focus Distance slider in Stereo tab within the Preferences panel under View to change the focus.
+#end
+
+#begin
+5
+Toggle Crosseye stereo mode compatible with 3D TVs - this will create a squashed image by 50% for each eye.  When displayed on 3D capable TV, the images will be stretched out properly.
+
+Use Focus Distance slider in Stereo tab within the Preferences panel under View to change the focus.
+#end
+
+#begin
+l
+Toggle use of drag volume for render.
+#end
+
+#begin
+e
+Toggle use of prune texture to skip rendering empty (transparent) spaces in the data.
+#end
+
+#begin
+j
+Toggle use of drag volume for shadow render.
+#end
+
+#begin
+h
+Force normal render even for mouse drags.
+
+If drag mode is not active, force to use higher resolution volume even for mouse drags.
+#end
+
+#begin
+d
+Depthcueing - darking of image depending on distance to the viewer.
+By default depthcueing is enabled.
+#end
+
+#begin
+Mouse wheel/middle button drag
+Zoom camera.
+#end
+
+#begin
+Mouse right button drag
+Translate camera.
+#end
+
+#begin
+Mouse left button drag
+Rotate object
+#end
+
+#begin
+Mouse left double click
+Align camera.
+#end
+
+#begin
+Mouse middle double click
+Center scene.
+#end
+
+#begin
+Mouse right double click
+Center object.
+#end
+
+#begin
+Mouse left + middle drag
+Rotate object about the axis perpendicular to the screen.
+#end

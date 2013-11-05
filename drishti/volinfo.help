@@ -1,0 +1,19 @@
+#begin
+ General Help
+Volume Information Editor displays information about the loaded volumes.
+
+If a time series of volumes is loaded, then changing the "Volume Number" will update the displayed information for the current volume in the loaded set.
+
+Volume number repeat type specifies, in case of time series, how the volume numbers are calculated for numbers greater than the loaded volumes.  When checked, the numbers are calculated using the formula (n % N) - N being total loaded volumes.  This will give 0..N-1,0..N-1,0..N-1,... i.e. last volume will be followed by the first volume, like a cycle.  When unchecked, the numbers calculated will be 0,1,..,N-2,N-1,N-2,..,1,0,1,..,N-2,N-1,N-2,.. - i.e. like a wave.
+
+If there are more than one volumes are loaded, additional tab will display details about the other volumes.
+
+Description, Voxel Unit, Voxel Size and Box Size values can be changed.
+
+Voxel Size and Box Size are related - changing one changes the other.
+
+Voxel Unit is reflected in distance and volume calculations.
+
+Mapping show the mapping used during import to scale the voxel values.
+
+#end

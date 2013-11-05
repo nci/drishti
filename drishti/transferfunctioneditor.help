@@ -1,0 +1,145 @@
+#begin
+General Help
+Transfer functions map voxel information to optical properties. Drishti implements transfer function as 256x256 lookup table of colors and opacities. Users are presented with a plotting interface in the transfer function widget. Horizontal axis represents the voxel intensities and vertical axis represents the rate of change of voxel intensity (gradient magnitude). When 2D occlusion spectrum transfer functions is chosen via Toggle menu, the vertical axis represent the filter values.
+
+Transfer Function Editor has 3 sections - manager, plotting interface and color-opacity gradient interface.
+
+Users can undo/redo changes made to the individual transfer functions.
+#end
+
+#begin
+Manager
+With New create new transfer functions, Remove to delete the selected transfer function. Refresh to regenerate image using the current settings in the transfer function manager.
+
+Use Ctrl+D to duplicate existing transfer functions.
+
+The transfer function manager lists the transfer functions and transfer function sets. Users can change the names of transfer functions. By default the transfer functions are named TF0, TF1 and so on. Use the checkboxes to put transfer functions in various transfer function sets. A transfer function can be put in multiple sets. When multiple volumes are loaded, set 0 transfer functions are applied to volume 0, and so on. When RGB volume is loaded, set 0 controls opacity for red-green channel, set 1 controls opacity for green-blue channel, set 2 controls opacity for blue-red channel. If RGBA volume is loaded, set 3 controls opacity for alpha channel using alpha-max(RGB) histogram.
+
+When Replace existing transfer functions at keyframes is switched on, the transfer functions in the manager will be replaced by the ones at the keyframes, these are the transfer functions that were in the manager when that particular keyframe was generated. Transfer functions will not be replaced for inbetween keyframes.
+
+When a keyframe is generated with Morph transfer function during keyframe animation switched on, the transfer functions will be morphed (instead of interpolated) for inbetween keyframes.
+#end
+
+#begin
+Plotting Interface
+The horizontal axis represents voxel intensities and vertical axis represents gradient magnitude. When 2D occlusion spectrum transfer functions is chosen via Toggle menu, the vertical axis represent the filter values. There are two sliders with a text box at either side of the plotting area. The values [0-1] in the text boxes modulate the opacity at either ends of the transfer function spine. Default values in the text box are 1. Use the slider to define the endpoints along the spine between which the opacities will be modulated.
+
+When both the values are set to 0.5, the opacity is modulated radially - i.e. max opacity at the center. 
+#end
+
+#begin
+Gradient Interface
+The vertical axis in this interface represents the opacity. Higher values represent more opacity.
+
+The color and opacities are mapped across the transfer function spline.
+#end
+
+#begin
+keyboard
+Start Keyboard Help
+#end
+
+#begin
+(Manager Interface) Ctrl + D
+Duplicate current transfer function.
+#end
+
+#begin
+(Plotting Interface) Mouse Left
+Add transfer function spline point.
+Move an existing spline point.
+Move spline-normal independently.
+#end
+
+#begin
+(Plotting Interface) Mouse Middle
+Move entire transfer function spline.
+#end
+
+#begin
+(Plotting Interface) Mouse Right
+Remove transfer function spline point.
+#end
+
+#begin
+(Plotting Interface) Shift + Mouse Left
+If clicked on spline point, move an existing spline point vertically.
+
+If clicked on spline normal point, move spline-normal points together.
+#end
+
+#begin
+(Plotting Interface) Ctrl + Mouse Left
+Rotate spline-normal.
+#end
+
+#begin
+(Plotting Interface) Alt + Mouse Left
+Move an existing spline point horizontally.
+#end
+
+#begin
+(Plotting Interface) Spacebar
+Toggle overlay values.
+#end
+
+#begin
+(PlottingInterface) g
+Toggle grid.
+#end
+
+#begin
+Left
+(Gradient Interface) Add gradient point.
+Move an existing gradient point.
+The two end gradient points can only be moved vertically.
+#end
+
+#begin
+(Gradient Interface) Mouse Right
+Remove gradient point.
+The two end gradient points cannot be removed.
+#end
+
+#begin
+(Gradient Interface) Shift + Mouse Left
+Move an existing gradient point vertically.
+#end
+
+#begin
+(Gradient Interface) Alt + Mouse Left
+Move an existing gradient point horizontally.
+#end
+
+#begin
+(Gradient Interface) Double Click
+When clicked on existing gradient point, open colour editor.
+#end
+
+#begin
+(Gradient Interface) Spacebar
+Open colour-gradient library.
+#end
+
+#begin
+(Gradient Interface) s
+Save current colour-gradient settings to the library.
+#end
+
+#begin
+(Gradient Interface) f
+Flip gradient points.
+#end
+
+
+#begin
+Ctrl+z
+Undo last change - works in both Plotting and Gradient Interfaces.
+Users can perform unlimited undo.
+#end
+
+#begin
+Ctrl+y
+Redo the last undone change - works in both Plotting and Gradient Interfaces.
+Users can perform unlimited redo.
+#end

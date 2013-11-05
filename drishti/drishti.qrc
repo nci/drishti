@@ -1,0 +1,31 @@
+<!DOCTYPE RCC><RCC version="1.0">
+<qresource>
+  <file>images/animation-pause.png</file>
+  <file>images/animation-reset.png</file>
+  <file>images/animation-start.png</file>
+  <file>images/resetproperty.png</file>
+  <file>images/zoomin.png</file>
+  <file>images/zoomout.png</file>
+  <file>images/drishti_32.png</file>
+  <file>images/drishti-idle.png</file>
+  <file>images/drishti-run.png</file>
+  <file>images/splashscreen.png</file>
+  <file>images/gradientstops.xml</file>
+  <file>images/sizegrip.png</file>
+  <file>general.help</file>
+  <file>grids.help</file>
+  <file>viewer.help</file>
+  <file>clipobject.help</file>
+  <file>paths.help</file>
+  <file>pathgroups.help</file>
+  <file>crops.help</file>
+  <file>keyframeeditor.help</file>
+  <file>transferfunctioneditor.help</file>
+  <file>shader.help</file>
+  <file>brick.help</file>
+  <file>preferences.help</file>
+  <file>volinfo.help</file>
+  <file>trisets.help</file>
+  <file>mops.help</file>
+</qresource>
+</RCC>

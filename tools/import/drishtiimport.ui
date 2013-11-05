@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>DrishtiImport</class>
+ <widget class="QMainWindow" name="DrishtiImport">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>554</width>
+    <height>550</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Drishti - Import</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QVBoxLayout"/>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>554</width>
+     <height>24</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menuFiles">
+    <property name="title">
+     <string>Files</string>
+    </property>
+    <widget class="QMenu" name="menuLoad">
+     <property name="title">
+      <string>Load</string>
+     </property>
+    </widget>
+    <addaction name="menuLoad"/>
+    <addaction name="actionTimeSeries"/>
+    <addaction name="separator"/>
+    <addaction name="saveImage"/>
+    <addaction name="actionSave_As"/>
+    <addaction name="actionBatch_Process"/>
+    <addaction name="actionSave_Isosurface_As"/>
+    <addaction name="actionSave_Images"/>
+    <addaction name="separator"/>
+    <addaction name="loadLimits"/>
+    <addaction name="saveLimits"/>
+    <addaction name="separator"/>
+    <addaction name="actionExit"/>
+   </widget>
+   <widget class="QMenu" name="menuOutput_Type">
+    <property name="title">
+     <string>Output Type</string>
+    </property>
+    <addaction name="action8_bit"/>
+    <addaction name="action16_bit"/>
+   </widget>
+   <addaction name="menuFiles"/>
+   <addaction name="menuOutput_Type"/>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+  <action name="actionRAW">
+   <property name="text">
+    <string>raw</string>
+   </property>
+  </action>
+  <action name="actionNetCDF">
+   <property name="text">
+    <string>netCDF</string>
+   </property>
+  </action>
+  <action name="actionImage_directory">
+   <property name="text">
+    <string>standard image directory</string>
+   </property>
+  </action>
+  <action name="actionDicom_directory">
+   <property name="text">
+    <string>dicom image directory</string>
+   </property>
+  </action>
+  <action name="actionSave_As">
+   <property name="text">
+    <string>Save As (S)</string>
+   </property>
+  </action>
+  <action name="actionBatch_Process">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Batch Process </string>
+   </property>
+   <property name="visible">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionSave_Isosurface_As">
+   <property name="text">
+    <string>Save Isosurface (I)</string>
+   </property>
+  </action>
+  <action name="actionSave_Images">
+   <property name="text">
+    <string>Save Images</string>
+   </property>
+  </action>
+  <action name="actionExit">
+   <property name="text">
+    <string>Exit</string>
+   </property>
+  </action>
+  <action name="actionImageMagick_directory">
+   <property name="text">
+    <string>16/32 bit grayscale image directory</string>
+   </property>
+  </action>
+  <action name="actionTOM">
+   <property name="text">
+    <string>tom (QMUL)</string>
+   </property>
+  </action>
+  <action name="actionHelp">
+   <property name="text">
+    <string>Help</string>
+   </property>
+  </action>
+  <action name="actionSave_RGB">
+   <property name="text">
+    <string>Save RGB Volume</string>
+   </property>
+  </action>
+  <action name="actionRGB_directory">
+   <property name="text">
+    <string>image directory for RGB volumes</string>
+   </property>
+  </action>
+  <action name="actionAnalyze">
+   <property name="text">
+    <string>Analyze</string>
+   </property>
+  </action>
+  <action name="actionHDF4_directory">
+   <property name="text">
+    <string>hdf4 directory</string>
+   </property>
+  </action>
+  <action name="saveImage">
+   <property name="text">
+    <string>Save Image (Alt+S)</string>
+   </property>
+  </action>
+  <action name="saveLimits">
+   <property name="text">
+    <string>Save Limits</string>
+   </property>
+  </action>
+  <action name="loadLimits">
+   <property name="text">
+    <string>Load Limits</string>
+   </property>
+  </action>
+  <action name="actionRaw_slices">
+   <property name="text">
+    <string>raw slices</string>
+   </property>
+  </action>
+  <action name="actionTimeSeries">
+   <property name="text">
+    <string>Import Time Series</string>
+   </property>
+  </action>
+  <action name="actionConvert">
+   <property name="text">
+    <string>Convert</string>
+   </property>
+   <property name="toolTip">
+    <string>Conver old style processed volume to new style.</string>
+   </property>
+   <property name="statusTip">
+    <string>Conver old style processed volume to new style.</string>
+   </property>
+   <property name="whatsThis">
+    <string>Conver old style processed volume to new style.</string>
+   </property>
+   <property name="visible">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="action8_bit">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>8-bit</string>
+   </property>
+  </action>
+  <action name="action16_bit">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>16-bit</string>
+   </property>
+  </action>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

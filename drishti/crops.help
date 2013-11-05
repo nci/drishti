@@ -1,0 +1,169 @@
+#begin
+mop crop
+Apply crop operations to the mask buffer.  This will set the crop voxels in the mask to 0.  The crop widget can now be removed.
+
+** The cropped voxels are restored with next mask buffer update.
+#end
+
+#begin
+point
+point num x y z
+
+num can either be 0 or 1
+Example :
+point 0 220 320 100
+#end
+
+#begin
+radius
+radius num rad
+radius rad
+
+If num is specified then s and t radius for that point is set to rad.
+If num is not specified then s and t radius for both the points is set to rad.
+#end
+
+#begin
+lift
+lift num val
+lift val
+
+If num is specified then lift-value for that point is set to val.
+If num is not specified then lift-value for both the points is set to val.
+
+Lift is used to distort the selected region. "val" can be both positive as well as negative.
+
+Examples :
+lift 0 -20
+lift 1 50
+lift 30
+#end
+
+#begin
+normalize
+Point coordinates are normalize i.e. coordinates are truncated.
+#end
+
+#begin
+rads
+rads num rad
+rads rad
+
+Specify the size for red handle
+
+If num is specified then s (red-axis) radius for that point is set to rad.
+If num is not specified then s radius for both the points is set to rad.
+
+#end
+
+#begin
+radt
+radt num rad
+radt rad
+
+Specify the size for green handle
+
+If num is specified then t (green-axis) radius for that point is set to rad.
+If num is not specified then t radius for both the points is set to rad.
+
+#end
+
+#begin
+angle
+angle degrees
+Set angle of rotation about blue axis.
+#end
+
+#begin
+save
+Save two end points to a text file.
+#end
+
+
+#begin
+moves
+moves [-]
+
+Move the widget in the direction of S-axis (red).
+
+"moves -" will move the widget in the opposite direction of S-axis (red).
+#end
+
+#begin
+movet
+movet [-]
+
+Move the widget in the direction of T-axis (green).
+
+"movet -" will move the widget in the opposite direction of T-axis (green).
+#end
+
+#begin
+keyboard
+Start Keyboard help
+#end
+
+#begin
+x
+Red handle selected.
+#end
+
+#begin
+y
+Green handle selected.
+#end
+
+#begin
+z
+Blue handle selected.
+#end
+
+#begin
+f
+Flip endpoints.
+#end
+
+#begin
+v
+Hide widget.
+#end
+
+#begin
+DEL
+Delete the widget
+#end
+
+#begin
+Up/Down
+Move widget in the currently selected handle direction.
+#end
+
+#begin
+Shift + Up/Down
+Move in larger steps.
+#end
+
+#begin
+Left/Right
+Rotate widget about the currently selected handle.
+#end
+
+#begin
+Shift + Left/Right
+Rotate with larger angles.
+#end
+
+#begin
+Mouse right/middle button drag
+Translate whole widget or either point depending upon where the drag started.
+#end
+
+#begin
+Mouse Ctrl + right/middle button drag
+Change the size of the widget.
+#end
+
+#begin
+Mouse left drag
+Rotate widget about selected axis.
+#end

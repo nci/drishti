@@ -1,0 +1,92 @@
+#begin
+save
+Save grid coordinates to file.
+#end
+
+#begin
+normalize
+Convert coordinates for all points into integers.
+#end
+
+#begin
+sticktosurface
+sticktosurface <steps>
+Tries to move points on the grid so that they lie on the surface.  A search will be made on either side of the grid along the direction of normal.  The search is limited to maximum of <steps>.
+#end
+
+#begin
+insertrow
+insertrow <row number>
+Insert a row after the specified <row number>.
+#end
+
+#begin
+removerow
+removerow <row number>
+Remove row at the specified <row number>.
+#end
+
+#begin
+insertcol
+insertcol <col number>
+Insert a col after the specified <col number>.
+#end
+
+#begin
+removecol
+removecol <col number>
+Remove col at the specified <col number>.
+#end
+
+
+#begin
+keyboard
+Start Keyboard help
+#end
+
+#begin
+ General Help
+Grids are created using addgrid command from the points. Grids can be created using all the points or the selected set of points. Grid consists of atleast 2 points. Once a grid is created points used for creating the grid are removed. The grid can be modified after it has been created - rows or columns of points can be added and removed from the grid.  Individual points on the grid can be moved.
+
+Users can add, load and save grid data via command dialog. 
+
+Left mouse drag will move the selected point. Middle mouse drag will move the entire grid.
+
+Users can undo/redo changes made to the grids.
+
+Mouse grab for crop/dissect/blend/displace/networks/paths/grids/clipplanes is switched off when project is first loaded and when playing keyframes. Toggle mouse grab with g or toggle via Toggle menu.
+#end
+
+#begin
+DEL
+Delete grid.
+#end
+
+#begin
+p
+Toggle display of path points as big dots on the path.
+#end
+
+#begin
+n
+Toggle display of path points numbers.
+#end
+
+#begin
+x/y/z/w
+Constrain movement of point in x/y/z direction.
+Make it free in all directions with w.
+#end
+
+#begin
+Ctrl+z
+Undo last position change.
+Users can perform unlimited undo.
+#end
+
+#begin
+Ctrl+y
+Redo the last undone position change.
+Users can perform unlimited redo.
+#end
+

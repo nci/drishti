@@ -1,0 +1,587 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>570</width>
+    <height>558</height>
+   </rect>
+  </property>
+  <property name="cursor">
+   <cursorShape>ArrowCursor</cursorShape>
+  </property>
+  <property name="windowTitle">
+   <string>MainWindow</string>
+  </property>
+  <property name="unifiedTitleAndToolBarOnMac">
+   <bool>false</bool>
+  </property>
+  <widget class="QWidget" name="centralwidget"/>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>570</width>
+     <height>24</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menuFile">
+    <property name="title">
+     <string>File</string>
+    </property>
+    <widget class="QMenu" name="menuLoad_Volume">
+     <property name="title">
+      <string>Load Volume</string>
+     </property>
+     <addaction name="actionLoad_1_Volume"/>
+     <addaction name="actionLoad_2_Volumes"/>
+     <addaction name="actionLoad_3_Volumes"/>
+     <addaction name="actionLoad_4_Volumes"/>
+    </widget>
+    <widget class="QMenu" name="menuLoad_Geometry">
+     <property name="title">
+      <string>Load Geometry</string>
+     </property>
+     <addaction name="actionNetwork"/>
+     <addaction name="actionTriset"/>
+     <addaction name="actionPoints"/>
+     <addaction name="actionPaths"/>
+     <addaction name="actionGrids"/>
+    </widget>
+    <addaction name="menuLoad_Volume"/>
+    <addaction name="actionLoad_Project"/>
+    <addaction name="menuLoad_Geometry"/>
+    <addaction name="actionLoad_TFfromproject"/>
+    <addaction name="actionImport_Keyframes"/>
+    <addaction name="separator"/>
+    <addaction name="actionSave_Project"/>
+    <addaction name="actionSave_ProjectAs"/>
+    <addaction name="separator"/>
+    <addaction name="actionSave_Image"/>
+    <addaction name="actionSave_ImageSequence"/>
+    <addaction name="actionSave_Movie"/>
+    <addaction name="separator"/>
+    <addaction name="actionExit"/>
+   </widget>
+   <widget class="QMenu" name="menuView">
+    <property name="title">
+     <string>View</string>
+    </property>
+   </widget>
+   <widget class="QMenu" name="menuImage_Size">
+    <property name="title">
+     <string>Image Size</string>
+    </property>
+    <addaction name="actionImage_Size"/>
+   </widget>
+   <widget class="QMenu" name="menuToggle">
+    <property name="tearOffEnabled">
+     <bool>true</bool>
+    </property>
+    <property name="title">
+     <string>Toggle</string>
+    </property>
+    <widget class="QMenu" name="menuFlip_Texture_Coordinates">
+     <property name="title">
+      <string>Flip Texture Coordinates</string>
+     </property>
+     <addaction name="actionFlip_ImageX"/>
+     <addaction name="actionFlip_ImageY"/>
+     <addaction name="actionFlip_ImageZ"/>
+    </widget>
+    <widget class="QMenu" name="menuRender_Quality">
+     <property name="title">
+      <string>Render Quality</string>
+     </property>
+     <addaction name="actionNormal"/>
+     <addaction name="actionLow"/>
+     <addaction name="actionVeryLow"/>
+    </widget>
+    <widget class="QMenu" name="menuAnaglyph_Stereo_2">
+     <property name="title">
+      <string>Stereo</string>
+     </property>
+     <addaction name="actionRedCyan"/>
+     <addaction name="actionRedBlue"/>
+     <addaction name="actionCrosseye"/>
+     <addaction name="actionFor3DTV"/>
+    </widget>
+    <widget class="QMenu" name="menuCamera_Type">
+     <property name="title">
+      <string>Camera Type</string>
+     </property>
+     <addaction name="actionPerspective"/>
+     <addaction name="actionOrthographic"/>
+    </widget>
+    <addaction name="actionStatusBar"/>
+    <addaction name="separator"/>
+    <addaction name="actionHiresMode"/>
+    <addaction name="separator"/>
+    <addaction name="actionShadowRender"/>
+    <addaction name="menuCamera_Type"/>
+    <addaction name="menuAnaglyph_Stereo_2"/>
+    <addaction name="actionAxes"/>
+    <addaction name="actionBoundingBox"/>
+    <addaction name="actionDepthcue"/>
+    <addaction name="actionMouse_Grab"/>
+    <addaction name="actionVisibility"/>
+    <addaction name="separator"/>
+    <addaction name="actionSwitch_To1D"/>
+    <addaction name="actionEnable_Mask"/>
+    <addaction name="separator"/>
+    <addaction name="actionLinear_TextureInterpolation"/>
+    <addaction name="actionSpline_PositionInterpolation"/>
+    <addaction name="actionBottom_Text"/>
+    <addaction name="separator"/>
+    <addaction name="actionEmptySpaceSkip"/>
+    <addaction name="menuRender_Quality"/>
+    <addaction name="separator"/>
+    <addaction name="actionUse_stillvolume"/>
+    <addaction name="actionUse_dragvolume"/>
+    <addaction name="actionUse_dragvolumeforshadows"/>
+    <addaction name="separator"/>
+    <addaction name="menuFlip_Texture_Coordinates"/>
+   </widget>
+   <widget class="QMenu" name="menuHelp">
+    <property name="title">
+     <string>Help</string>
+    </property>
+    <addaction name="actionAbout"/>
+   </widget>
+   <widget class="QMenu" name="menuPlugins">
+    <property name="title">
+     <string>Plugins</string>
+    </property>
+   </widget>
+   <addaction name="menuFile"/>
+   <addaction name="menuView"/>
+   <addaction name="menuImage_Size"/>
+   <addaction name="menuToggle"/>
+   <addaction name="menuPlugins"/>
+   <addaction name="menuHelp"/>
+  </widget>
+  <widget class="QStatusBar" name="statusBar">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="sizeGripEnabled">
+    <bool>false</bool>
+   </property>
+  </widget>
+  <action name="actionLoad_1_Volume">
+   <property name="text">
+    <string>Load 1 Volume</string>
+   </property>
+   <property name="whatsThis">
+    <string/>
+   </property>
+  </action>
+  <action name="actionLoad_2_Volumes">
+   <property name="text">
+    <string>Load 2 Volumes</string>
+   </property>
+  </action>
+  <action name="actionLoad_3_Volumes">
+   <property name="text">
+    <string>Load 3 Volumes</string>
+   </property>
+  </action>
+  <action name="actionLoad_4_Volumes">
+   <property name="text">
+    <string>Load 4 Volumes</string>
+   </property>
+  </action>
+  <action name="actionLoad_Project">
+   <property name="text">
+    <string>Load Project</string>
+   </property>
+  </action>
+  <action name="actionLoad_TFfromproject">
+   <property name="text">
+    <string>Import transfer functions from project</string>
+   </property>
+  </action>
+  <action name="actionSave_Project">
+   <property name="text">
+    <string>Save Project</string>
+   </property>
+   <property name="iconText">
+    <string>Save Project (Ctrl + S)</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+S</string>
+   </property>
+  </action>
+  <action name="actionSave_ProjectAs">
+   <property name="text">
+    <string>Save Project As</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+S</string>
+   </property>
+  </action>
+  <action name="actionSave_ImageSequence">
+   <property name="text">
+    <string>Save Image Sequence</string>
+   </property>
+  </action>
+  <action name="actionSave_Movie">
+   <property name="text">
+    <string>Save Movie</string>
+   </property>
+  </action>
+  <action name="actionExit">
+   <property name="text">
+    <string>Exit</string>
+   </property>
+  </action>
+  <action name="actionImage_Size">
+   <property name="text">
+    <string>Image Size</string>
+   </property>
+  </action>
+  <action name="actionHelp">
+   <property name="text">
+    <string>Help</string>
+   </property>
+  </action>
+  <action name="actionMouse_Grab">
+   <property name="text">
+    <string>Mouse Grab (g)</string>
+   </property>
+  </action>
+  <action name="actionSwitch_To1D">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>1D Transfer Functions</string>
+   </property>
+  </action>
+  <action name="actionEnable_Mask">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Enable Mask</string>
+   </property>
+   <property name="visible">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionLinear_TextureInterpolation">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Linear Texture Interpolation</string>
+   </property>
+  </action>
+  <action name="actionFlip_ImageX">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>X</string>
+   </property>
+  </action>
+  <action name="actionFlip_ImageY">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Y</string>
+   </property>
+  </action>
+  <action name="actionFlip_ImageZ">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Z</string>
+   </property>
+  </action>
+  <action name="actionImport_Keyframes">
+   <property name="text">
+    <string>Import Keyframes</string>
+   </property>
+  </action>
+  <action name="actionNetwork">
+   <property name="text">
+    <string>Network (Graph)</string>
+   </property>
+  </action>
+  <action name="actionTriset">
+   <property name="text">
+    <string>Triset</string>
+   </property>
+  </action>
+  <action name="actionPoints">
+   <property name="text">
+    <string>Points</string>
+   </property>
+  </action>
+  <action name="actionPaths">
+   <property name="text">
+    <string>Paths/Vectors</string>
+   </property>
+  </action>
+  <action name="actionGrids">
+   <property name="text">
+    <string>Grids</string>
+   </property>
+  </action>
+  <action name="actionSpline_PositionInterpolation">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Spline Position Interpolation</string>
+   </property>
+  </action>
+  <action name="actionDepthcue">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Depthcue (d)</string>
+   </property>
+  </action>
+  <action name="actionUse_dragvolumeforshadows">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Use dragvolume for shadows (j)</string>
+   </property>
+  </action>
+  <action name="actionUse_dragvolume">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Use dragvolume (l)</string>
+   </property>
+  </action>
+  <action name="actionBottom_Text">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Bottom Text (?)</string>
+   </property>
+  </action>
+  <action name="actionVeryLowQuality">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Very Low Quality Render</string>
+   </property>
+  </action>
+  <action name="actionLowQuality">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Low Quality Render</string>
+   </property>
+  </action>
+  <action name="actionNormalRender">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Normal Render</string>
+   </property>
+  </action>
+  <action name="actionNormal">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Normal (0)</string>
+   </property>
+  </action>
+  <action name="actionLow">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Low (9)</string>
+   </property>
+  </action>
+  <action name="actionVeryLow">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Very Low (8)</string>
+   </property>
+  </action>
+  <action name="actionUse_stillvolume">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Always high quality render (h)</string>
+   </property>
+  </action>
+  <action name="actionEmptySpaceSkip">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Skip Empty Region (e)</string>
+   </property>
+  </action>
+  <action name="actionShadowRender">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Shadow Render (1)</string>
+   </property>
+  </action>
+  <action name="actionVisibility">
+   <property name="checkable">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Visibility (v)</string>
+   </property>
+  </action>
+  <action name="actionAxes">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Axes (a)</string>
+   </property>
+  </action>
+  <action name="actionBoundingBox">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Bounding Box (b)</string>
+   </property>
+  </action>
+  <action name="actionStatusBar">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Status Bar</string>
+   </property>
+   <property name="visible">
+    <bool>true</bool>
+   </property>
+  </action>
+  <action name="actionRedBlue">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Red-Blue (3)</string>
+   </property>
+  </action>
+  <action name="actionRedCyan">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Red-Cyan (2)</string>
+   </property>
+  </action>
+  <action name="actionPerspective">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Perspective</string>
+   </property>
+  </action>
+  <action name="actionOrthographic">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Orthographic</string>
+   </property>
+  </action>
+  <action name="actionCrosseye">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Crosseye (4)</string>
+   </property>
+  </action>
+  <action name="actionAbout">
+   <property name="text">
+    <string>About</string>
+   </property>
+  </action>
+  <action name="actionSave_Image">
+   <property name="text">
+    <string>Save Image</string>
+   </property>
+   <property name="shortcut">
+    <string>Alt+S</string>
+   </property>
+  </action>
+  <action name="actionFor3DTV">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>3D TV (5)</string>
+   </property>
+  </action>
+  <action name="actionHiresMode">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Hires Mode (F2)</string>
+   </property>
+  </action>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

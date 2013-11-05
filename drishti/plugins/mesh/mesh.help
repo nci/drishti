@@ -1,0 +1,110 @@
+#begin
+ General Help
+Mesh Generator.
+
+Uses marching cubes algorithm written by
+Thomas Lewiner <thomas.lewiner@polytechnique.org>
+Math Dept, PUC-Rio
+
+Users can generate water-tight surface mesh using either voxel values or voxel opacities.  Surfaces can be coloured using variety of options.
+
+Volume can be clipped and cropped before surface mesh generation.   The clipped and cropped region are capped in order to maintain water-tightness.
+
+Surfaces are suitable for 3D printing.
+
+User can specify how much memory is available for mesh generation.  If not enough memory is available to accommodate all the required data, then the mesh will be generated in several slabs.  These slabs are then joined together to form the complete mesh.
+#end
+
+#begin
+use opacity
+use opacity
+When surface is generated using voxel opacity a binary volume is first generated.  This binary volume has 1 for those voxels that have non-zero opacity and 0 otherwise.  This binary volume is then smoothed using 5x5x5 kernel, resulting in gray volume having values [0,1].  User choose an appropriate isosurface value between 0 to 1.  Values closer to 0 therefore result in dilated surface, whereas those closer to 1 result in eroded surface.
+#end
+
+#begin
+average color
+average color
+When generating surface color in the case of "Lut Color" and "VR Lut Color", a ray is shot inside the surface to collect color samples along that ray.  These color samples are then combined to generate the surface color.  The parameter maximum intensity specifies the colour composition method.  By default this switch is off - i.e. the colours will be composited in front-to-back manner.  When switched on, average colour along the ray will be the final colour.
+
+#end
+
+#begin
+isosurface value
+isosurface value
+When not using opacity for surface generation, isosurface value represents value of the voxel to be used for mesh generation.
+
+When using opacity for surface generation, isosurface value represents gray voxel value of the smoothed volume generated from binary opacity volume.
+#end
+
+#begin
+spread
+spread
+Value of spread greater than zero turns on ambient occlusion.
+
+Ambient Occlusion will generate approximate soft shadows assuming diffuse sky light.  A box of size 2*spread is placed above each surface point.  Ratio of interior voxel with respect to all voxels in the box is calculated.  This ratio is used to darken the surface color at that point.  Large spread value will therefore result in softer shadows.
+
+When "Occlusion Color" is selected under "color gradient", the value of spread has to greater than 0.  For "Lut Color" and "VR Lut Color", spread can be 0.  If it is greater than 0, then ambient occlusion is calculated and surface color is modified.
+#end
+
+#begin
+depth
+depth
+When generating surface color in the case of "Lut Color" and "VR Lut Color", a ray is shot inside the surface to collect color samples along that ray.  These color samples are then combined to generate the surface color.  The parameter depth specifies how deep the ray can go.
+
+The ray is always aligned with surface normal.
+
+This ability to shoot ray into the surface gives the user a possibility to texture the surface with the inside structure - it reveals what is beneath the skin.
+#end
+
+#begin
+fillvalue
+fillvalue
+When volume is clipped or cropped, the region removed by this process needs to be filled with certain value (default is 0).  The value is specified by fillvalue.
+#end
+
+#begin
+greater
+greater
+This parameter decides what constitutes as inside and outside regions.  By default higher (greater) values are supposed to lie inside the surface and lower values outside.
+#end
+
+#begin
+look inside
+look inside
+When modulating surface color by ambient occlusion, a box is placed above the surface point under consideration.  Surface normal decides the direction in which the box is placed.  The parameter look inside flips this direction.
+#end
+
+#begin
+color gradient
+color gradient
+Specify color gradient to color the mesh surface with.
+#end
+
+#begin
+color type
+color type
+Users can color the mesh surface in a variety of ways - 
+
+Fixed Color
+  Mesh is colored with single color based on isosurface value - 0 is colored with left most color in color gradient, 0.5 with a middle color and 1 with the right most color.
+
+Normal Color
+  Surface normal values are used as red, green and blue components for the surface color.
+
+Position Color
+  Surface color is chosen based on surface position, where x,y,z coordinates are treated as red, green and blue components.
+
+Occlusion Color
+  Take surface color based on ratio of outside voxels Vs total voxels from color gradient.  Surface points that are fully exposed will have higher ratios resulting in colors taken from right side of the color gradient.
+
+Lut Color
+  Take surface color from color gradient based on voxel/voxel opacity value.
+
+If the value of spread is greater than 0, ambient occlusion will be used to darken the surface.
+
+VR Lut Color
+  Take surface color from original lookup table (i.e. the one used for volume rendering)  based on voxel/voxel opacity value.
+
+If the value of spread is greater than 0, ambient occlusion will be used to darken the surface.
+#end
+

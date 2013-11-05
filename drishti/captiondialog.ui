@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>CaptionInputDialog</class>
+ <widget class="QDialog" name="CaptionInputDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>390</width>
+    <height>200</height>
+   </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>390</width>
+    <height>110</height>
+   </size>
+  </property>
+  <property name="maximumSize">
+   <size>
+    <width>390</width>
+    <height>200</height>
+   </size>
+  </property>
+  <property name="windowTitle">
+   <string>CaptionDialog</string>
+  </property>
+  <property name="toolTip">
+   <string>Add captions.
+Once the captions are added, they can be edited, moved and animated.
+Hover over a caption to activate it and press spacebar to edit it.
+Users can display frame number - $#f, time step number in volume - $#v[0-3],
+interpolated values - $n(value) and dial $d(value), within caption.
+
+For $n(val) and $d(val), the values val will be interpolated for
+inbetween frames.  In the case of $n, these values will be displayed
+as numbers, where as in the case of $d, these values will be displayed
+as a pie (0-360 degrees).  The values for pie can be greater than 360
+or less than 0 - the pie displayed will change accordingly.  Caption
+halocolor is used as background and color is used as foreground for
+the pie, but these colors flip with the number of complete turns.
+
+Dial will always be shown at the start of the text.
+
+Example :
+$4f will display frame numbers with padded 0s.
+$3v0 will display time step number for volume 0.
+$2v1 will display time step number for volume 1.
+$d(90) will display quarter dial with halocolor as background.
+$d(450) will also display quarter dial with halocolor as foreground.
+&quot;Temperature : $n(3.032)&quot; will display &quot;Temperature :3.03&quot;
+                    if &quot;floatprecision&quot; is set to 2.
+&quot;Temperature : $n(3.032)&quot; will display &quot;Temperature :3&quot;
+                    if &quot;floatprecision&quot; is set to 0.
+If one keyframe has $n(val1) or $d(val1) and subsequent keyframe has
+$n(val2) or $d(val2) then the intermediate frames will have interpolated
+values between val1 and val2.
+</string>
+  </property>
+  <property name="whatsThis">
+   <string>Add captions.
+Once the captions are added, they can be edited, moved and animated.
+Hover over a caption to activate it and press spacebar to edit it.
+Users can display frame number - $#f, time step number in volume - $#v[0-3],
+interpolated values - $n(value) and dial $d(value), within caption.
+
+For $n(val) and $d(val), the values val will be interpolated for
+inbetween frames.  In the case of $n, these values will be displayed
+as numbers, where as in the case of $d, these values will be displayed
+as a pie (0-360 degrees).  The values for pie can be greater than 360
+or less than 0 - the pie displayed will change accordingly.  Caption
+halocolor is used as background and color is used as foreground for
+the pie, but these colors flip with the number of complete turns.
+
+Dial will always be shown at the start of the text.
+
+Example :
+$4f will display frame numbers with padded 0s.
+$3v0 will display time step number for volume 0.
+$2v1 will display time step number for volume 1.
+$d(90) will display quarter dial with halocolor as background.
+$d(450) will also display quarter dial with halocolor as foreground.
+&quot;Temperature : $n(3.032)&quot; will display &quot;Temperature :3.03&quot;
+                    if &quot;floatprecision&quot; is set to 2.
+&quot;Temperature : $n(3.032)&quot; will display &quot;Temperature :3&quot;
+                    if &quot;floatprecision&quot; is set to 0.
+If one keyframe has $n(val1) or $d(val1) and subsequent keyframe has
+$n(val2) or $d(val2) then the intermediate frames will have interpolated
+values between val1 and val2.
+</string>
+  </property>
+  <layout class="QGridLayout" name="gridLayout">
+   <item row="0" column="0" colspan="4">
+    <widget class="QLabel" name="opacityLabel">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="text">
+      <string>Opacity</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+     </property>
+     <property name="indent">
+      <number>0</number>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="0">
+    <widget class="QPushButton" name="font">
+     <property name="text">
+      <string>Font</string>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="1">
+    <widget class="QLineEdit" name="text"/>
+   </item>
+   <item row="1" column="2">
+    <widget class="QPushButton" name="color">
+     <property name="text">
+      <string>Color</string>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="3">
+    <widget class="QDoubleSpinBox" name="opacity">
+     <property name="decimals">
+      <number>1</number>
+     </property>
+     <property name="maximum">
+      <double>1.000000000000000</double>
+     </property>
+     <property name="singleStep">
+      <double>0.100000000000000</double>
+     </property>
+     <property name="value">
+      <double>1.000000000000000</double>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="2">
+    <widget class="QPushButton" name="haloColor">
+     <property name="text">
+      <string>Halo Color</string>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="0" colspan="4">
+    <spacer>
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>40</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+   <item row="4" column="0" colspan="4">
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="0">
+    <widget class="QLabel" name="angleLabel">
+     <property name="layoutDirection">
+      <enum>Qt::RightToLeft</enum>
+     </property>
+     <property name="text">
+      <string>Rotation Angle</string>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="1">
+    <widget class="QDoubleSpinBox" name="angle">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="decimals">
+      <number>1</number>
+     </property>
+     <property name="maximum">
+      <double>360.000000000000000</double>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>accepted()</signal>
+   <receiver>CaptionInputDialog</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>259</x>
+     <y>188</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>157</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>rejected()</signal>
+   <receiver>CaptionInputDialog</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>327</x>
+     <y>188</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>286</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+</ui>

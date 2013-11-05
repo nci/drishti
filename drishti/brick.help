@@ -1,0 +1,35 @@
+#begin
+ General Help
+Bricks Editor allows users in translations, rotations and scaling of regions within the volume.
+
+The volume data can be subdivided into smaller subvolumes. These subvolumes are called bricks. The entire selected volume and/or bricks can be translated/rotated/scaled.
+#end
+
+#begin
+Bricking
+Use Add button at the top to add a brick. This creates a brick (shown by a box widget) that encloses the complete subvolume. Users can move/resize the box widget to select portion of the volume as a brick. The bricks can overlap each other.
+
+The list on left-side of the dialog lists all the bricks. The brick numbers start with 0. The zeroeth brick is complete volume. This allows users to rotate/translate/scale the volume while the individual bricks are also being animated. Brick numbers 1 and above are the actual sudivisions of the volume that the user has created.  When user selects a brick from the list, the parameters for that brick are loaded and box widget for that brick is shown.
+
+Use Show Axis to see the axis of rotation. 
+
+Use Remove button to delete the selected brick.  Brick 0 cannot be deleted.
+#end
+
+#begin
+Brick Parameters
+Each brick can be rendered using different set of transfer functions as specified in TF Set.  Brick 0 transfer function set is used for rendering the "unbricked" portion of the volume.
+
+The selected volume data is fitted such that the longest axes is 1. Thus the volume extents are almost always between 0.0 and 1.0.  Users should therefore use normalized coordinates for Translate, Rotation Pivot and Scale Pivot.  For example, translate by (1,0,0), will result in translation along X-axis by the length of the volume along X-axis.  Rotation Pivot of (0.5,0.5,0.5) will fix the pivot in the center of the brick box.
+
+Rotation Angle is specified in degrees.
+
+Bricks are always rotated first and then translated
+
+Users can make use of "H" button besides the Rotation Pivot, Rotation Axis and Scale Pivot to specify those values using points on volume. 
+To set pivots, first select a point on the volume (use Shift+left click to add point on the volume) and then press appropriate "H" button and the coordinates will be updated.
+In order to set Rotation Axis, again select a point on the volume (not the pivot point) which the rotation axis should pass through, the press "H" button besides the Rotation Axis.  The coordinates will be appropriately updated.
+
+
+Clip planes can be selectively enabled for the bricks.  By default all clip planes affect all the bricks.
+#end

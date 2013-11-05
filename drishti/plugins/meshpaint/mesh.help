@@ -1,0 +1,73 @@
+#begin
+ General Help
+Mesh Repaint.
+
+Allow repainting of previously generated surfaces using variety of options.
+
+Current volume is used for colouring the surface.  Clip, crop and blend operations affect the colour application.
+
+User can specify how much memory is available for mesh generation.  If not enough memory is available to accommodate all the required data, then the mesh will be generated in several slabs.  These slabs are then joined together to form the complete mesh.
+#end
+
+#begin
+average color
+average color
+When switched on the original surface colour will be mixed with the current colour.
+#end
+
+#begin
+depth
+depth
+When generating surface color in the case of "Lut Color" and "VR Lut Color", a ray is shot inside the surface to collect color samples along that ray.  These color samples are then combined to generate the surface color.  The parameter depth specifies how deep the ray can go.
+
+The ray is always aligned with surface normal.
+
+This ability to shoot ray into the surface gives the user a possibility to texture the surface with the inside structure - it reveals what is beneath the skin.
+#end
+
+#begin
+fillvalue
+fillvalue
+When volume is clipped or cropped, the region removed by this process needs to be filled with certain value (default is 0).  The value is specified by fillvalue.
+#end
+
+#begin
+greater
+greater
+This parameter decides what constitutes as inside and outside regions.  By default higher (greater) values are supposed to lie inside the surface and lower values outside.
+#end
+
+#begin
+look inside
+look inside
+When modulating surface color by ambient occlusion, a box is placed above the surface point under consideration.  Surface normal decides the direction in which the box is placed.  The parameter look inside flips this direction.
+#end
+
+#begin
+color gradient
+color gradient
+Specify color gradient to color the mesh surface with.
+#end
+
+#begin
+color type
+color type
+Users can color the mesh surface in a variety of ways - 
+
+Normal Color
+  Surface normal values are used as red, green and blue components for the surface color.
+
+Position Color
+  Surface color is chosen based on surface position, where x,y,z coordinates are treated as red, green and blue components.
+
+Lut Color
+  Take surface color from color gradient based on voxel/voxel opacity value.
+
+If the value of spread is greater than 0, ambient occlusion will be used to darken the surface.
+
+VR Lut Color
+  Take surface color from original lookup table (i.e. the one used for volume rendering)  based on voxel/voxel opacity value.
+
+If the value of spread is greater than 0, ambient occlusion will be used to darken the surface.
+#end
+

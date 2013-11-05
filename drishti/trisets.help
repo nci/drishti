@@ -1,0 +1,108 @@
+#begin
+ General Help
+Users can load triangular meshes in Stanford Polygon file format (.ply).  The mesh can have color and normal definitions per vertex.
+
+Meshes generated using the mesh generator plugin can also be loaded.
+
+When a mesh is loaded it is always shown as blue colored point set.  The number is points is selected such that it does not slow down the rendering.
+
+Hover over the mesh and press spacebar to bring up the command dialog.
+
+Crops can be used for cropping portions of the mesh (just like volumetric data).  Blends can be used for making certain parts of the mesh transparent using screendoor transparency.
+
+Users can reposition the meshes by dragging or specifying position.  While dragging mesh movement can be restricted to specific axis by pressing x/w/z.  Pressing "w" will make it free to move in any direction.
+
+Users can apply color to mesh.  Press Tab to go to 2.5D paint interface and start applying color.  Press spacebar in this mode to change color and other parameters.
+
+Mesh can be saved in Stanford Polygon Format to a .ply file.
+
+Press DEL to delete mesh.
+#end
+
+#begin
+Color
+Change color of the mesh.  By default blue color is selected for the mesh.  When black color is selected, the original color of the mesh is displayed.
+#end
+
+#begin
+Crop Border Color
+Change color of the mesh at the crop border.  Useful to demarcate the crop boundary when using crops.
+Default border color is black.
+#end
+
+#begin
+Screendoor Transparency
+Screendoor transparency makes the front surfaces transparent by not rendering alternate pixels on the screen.  The front surface is determined by the direction of surface normal.
+#end
+
+#begin
+Flip Normal
+Flip the direction of the surface normal.  Useful for screendoor transparency.
+#end
+
+#begin
+Opacity
+Change the transparency of the mesh.
+#end
+
+#begin
+Ambient/Diffuse/Specular
+Change lighting setup.
+#end
+
+#begin
+Pointmode
+When a mesh is first loaded, it is displayed as a set of points.  Deselect to show the mesh as a solid object.
+#end
+
+#begin
+Pointstep
+Select stride to select vertices to display when in point mode.
+#end
+
+#begin
+Pointsize
+Select size of points to display when in point mode.
+#end
+
+#begin
+Shadows
+When embedded with volumetric data, select it to cast shadows.
+#end
+
+#begin
+Merge with volume
+When embedded with volumetric data, composite properly.
+#end
+
+#begin
+Position
+Change the position of the mesh.  Default value is 0 0 0.
+#end
+
+#begin
+Scale
+Change the scaling of the mesh.  Default value is 1 1 1.
+#end
+
+#begin
+keyboard
+Start Keyboard help
+#end
+
+#begin
+DEL
+Delete the mesh.
+#end
+
+#begin
+s
+Save the mesh in Stanford Polygon Format to a .ply file.
+#end
+
+#begin
+x/y/z/w
+Constrain movement of the mesh in x/y/z direction.
+Make it free in all directions with w.
+#end
+

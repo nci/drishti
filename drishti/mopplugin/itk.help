@@ -1,0 +1,57 @@
+#begin
+skeletonize
+skeletonize
+Opacity values are used for Binary Thinning.
+Data for skeletonization is taken from Channel 1 and results are returned in Channel 2.
+#end
+
+#begin
+connectedcomponent
+connectedcomponent
+Opacity values are used for segmentation.
+Data for segmentation is taken from Channel 1 and results are returned in Channel 2.
+
+Each distinct object is assigned a unique label.  The label numbers are consecutive and are sorted based on the size of the object.  The largest object will have label #1, the second largest will have label #2 and so on.
+#end
+
+#begin
+connectedthreshold
+connectedthreshold [tag] [lower] [upper]
+Opacity values are used for segmentation.
+Data for segmentation is taken from Channel 1 and results are returned in Channel 2.
+
+This region growing method labels all voxels that lie within the lower and upper bounds and are connected to the seed using floodfill.  The tag value is used as the label.
+
+Default values for tag, lower and upper are 1, 5 and 255 respectively.
+#end
+
+#begin
+neighborhoodconnected
+neighborhoodconnected [tag] [lower] [upper] [radius]
+Opacity values are used for segmentation.
+Data for segmentation is taken from Channel 1 and results are returned in Channel 2.
+
+This region growing method labels all voxels that are connected to the seed and lie within the neighborhood radius and within the lower and upper bounds.  The tag value is used as the label.
+
+Default values for tag, lower, upper and radius are 1, 5, 255 and 2 respectively.
+#end
+
+#begin
+confidenceconnected
+confidenceconnected [tag] [radius] [multiplier] [iterations]
+Opacity values are used for segmentation.
+Segment voxels with similar statistics using connectivity.
+Data for segmentation is taken from Channel 1 and results are returned in Channel 2.
+
+This filter extracts a connected set of voxels whose opacities are consistent with the voxel statistics of a seed point. The mean and variance across a neighborhood (8-connected, 26-connected, etc.) are calculated for a seed point. Then voxels connected to this seed point whose values are within the confidence interval for the seed point are grouped. The width of the confidence interval is controlled by the multiplier (the confidence interval is the mean plus or minus the multiplier times the standard deviation). If the intensity variations across a segment were gaussian, a multiplier setting of 2.5 would define a confidence interval wide enough to capture 99% of samples in the segment.
+
+After this initial segmentation is calculated, the mean and variance are re-calculated. All the voxels in the previous segmentation are used to calculate the mean the standard deviation (as opposed to using the voxels in the neighborhood of the seed point). The segmentation is then recalculated using these refined estimates for the mean and variance of the voxel values. This process is repeated for the specified number of iterations. Setting the iterations to zero stops the algorithm after the initial segmentation from the seed point.
+
+Default values for tag, radius, multiplier and iterations are 1, 2, 2.5 and 5 respectively.
+#end
+
+#begin
+keyboard
+Start Keyboard help
+#end
+

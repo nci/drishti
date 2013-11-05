@@ -1,0 +1,41 @@
+#begin
+ General Help
+Preferences editor allows users to change some global settings.
+#end
+
+#begin
+Texture Memory Size
+Set 3D texture memory size (in MB) for the graphics card.
+#end
+
+#begin
+Image Quality
+Drag slider governs the sampling rate when the mouse is in drag mode, otherwise value from Still slider is used.  In order to maintain interactivity Drag slider is always set lower than Still slider.
+#end
+
+#begin
+Background Color
+Set background color.
+
+If user wants to save transparent background, first set background color to black.  Next turn off background rendering, by specifying command "backgroundrender no" in the Command dialog.  Now the images saved will have transparent background.
+#end
+
+#begin
+Axis Labels
+Tick Size governs length of tickmarks when bounding box is shown.  Size 0 implies no tickmarks are displayed.
+
+Tick Step controls the distance between tickmarks (if shown) in voxels.  If set to 0, then only labels will be shown.
+
+X/Y/Z Labels are displayed along the respective axes.  The size of the text is controlled by the "Tick Size".
+#end
+
+#begin
+Stereo
+Focus Distance controls the focal point for stereo/anaglyph rendering.
+#end
+
+#begin
+Tag Colors
+Tag color and opacity for volume masks.
+"New Color Set" assigns random colors to tags.
+#end

@@ -1,0 +1,47 @@
+#begin
+ General Help
+Users can control lighting, shadows and reveal options via the Shader Widget.
+#end
+
+#begin
+Light Position
+
+Light position controls the position of light.  Drag mouse over the target to change the light direction.  Press "space bar" to bring the light direction to the center of the target.
+
+Press "-Z" checkbox to position light behind the object.
+"Distance" controls the distance of light from the object.
+#end
+
+#begin
+Emissive
+Emissive is used to apply (OpenGL style) emissive type lighting.  The transfer functions from the last set are used for performing emissive style rendering.
+#end
+
+#begin
+Reveal
+Reveal is useful for revealing regions underneath the top skin/surface. There are 3 Reveal options - Peel, Keep Inside and Use Shadows.
+
+Peel is usful for making the front facing surfaces transparent to show the insides more clearly.  It works the surface facing by surface normals.  If the normals are facing towards the viewer then it will be treated as frontface otherwise backface.  "frontface" and "backface" sliders can be manipulated to modulate the surface transparency.  Users can mix to original surface opacity using "Mix" slider.
+
+Keep Inside works in a very similar fashion to Peel.
+
+Use Shadows makes use of shadow buffer, so will work only if the shadows are enabled.
+#end
+
+#begin
+Shadows
+Shadows are enabled when the "Shadows" checkbox is ticked.  The effect of shadows is visible when user presses "1".  The key "1" toggles rendering modes between default and user selected.
+
+Shadow blur controls the smoothness of the shadows.
+#end
+
+#begin
+Shadow Color Attenuation
+Modulate shadow color
+#end
+
+#begin
+Backplane
+Cast shadow of the object on the background.
+Shadow is cast only background is not black or we have a background image.
+#end

@@ -1,0 +1,182 @@
+#begin
+normalize
+Convert coordinates for all points into integers.
+#end
+
+#begin
+setscale/scale
+setscale/scale minscale maxscale
+When ARROW cap style is selected, points/arrows glyphs are displayed with scaling. The points/arrows are scaled between min and max pixels when relative scaling type is active (i.e. Scale Type check box is unchecked).  In the case of absolute scaling type (Scale Type checkbox checked), max scale value will be applied to all point glyphs - point sizes are still in pixels, but arrows lengths are product of max scale value and pathlengths.
+
+Useful when displaying scatter plots and vector plots.
+
+For example :
+scale 10 50 - if Scale Type is checked (absolute scaling) then all the vector will be scaled by 50,
+            - if Scale Type is unchecked (relative scalint) then vectors/points having lengths <= min filter bound will have length/point size 10 pixels.  The size will increase linearly to 50 for vector/points having lengths >= max filter bound.
+#end
+
+#begin
+radius
+setradius/radius r
+
+Set radius for the cross-sectional circle to the given value r for all the points in the path - i.e. set radius S (red axis) and T (green axis)to be same.
+#end
+
+#begin
+height
+height h
+
+Set height for the caption text or image texture.
+#end
+
+#begin
+rads
+rads s
+
+Set radius S (red axis) for the cross-sectional ellipse to the given value s for all the points in the path.
+#end
+
+#begin
+radt
+radt t
+
+Set radius T (green axis) for the cross-sectional ellipse to the given value t for all the points in the path.
+#end
+
+#begin
+angle
+angle a
+
+Set rotation angle for the cross-sectional ellipse to the given value a for all the points in the path. This also affects the angle for caption and image.
+#end
+
+#begin
+disableundo
+disableundo
+Turn off the ability to save undo information.  This option is provided only as a memory saving measure.
+By default undo information is stored.
+#end
+
+#begin
+enableundo
+enableundo
+Turn on the ability to save undo information.
+#end
+
+#begin
+shift
+shift x y z
+Move the path lines by the <x,y,z> amount.
+#end
+
+#begin
+keyboard
+Start Keyboard help
+#end
+
+#begin
+ General Help
+Pathgroups are groups of paths.  Pathgroups are useful for display of vector data as well as scatter plots (by changing display glyph to circles)
+
+Users can add, load and save pathgroup data via command dialog. 
+
+Left click on the path curve will add a point and right click on a point will remove the point. Left mouse drag will move the selected point. Middle mouse drag will move the entire path.
+
+Users can undo/redo changes made to the paths.
+
+----------------------------------------------------------
+Parameters :
+Color is applied based on path length.
+
+Opacity changes transparency of the path.
+
+Filter on Length when checked will ignore any path that does not fit within the Length Bounds.  When not checked, then all paths having lengths less than the min length bound will have the left most colour in the colour gradient, and paths having lengths greater than the max length bound will have right most colour in the colour gradient.
+
+Length Bounds define the path length limits for colour application purposes and for filtering of paths based on their lengths.
+
+Scale Type (applicable only when ARROW cap style is selected and points are displayed) when checked will scale the points based on paths absolute path length.  When unchecked will scale based on relative path lengths.  Useful when displaying scatter plots.
+
+Smoothness controls spline interpolation for intermediate points. Value of 1 implies linear interpolation.
+
+Sections controls the number of facets when rendered as tube.
+
+Sparseness acts as step size - i.e. take every "sparseness" element.
+
+Screen Separation controls how elements are drawn on screen. Elements are that too close to already drawn elements are ignored.  This parameter helps in reducing clutter on screen.
+
+Cap Style : flat/round/arrow
+
+Arrow Direction : forward/backward - when cap style is arrow.
+
+Clip : Enable clipping, cropping and honour selected volume limits.
+
+Allow Editing : Allow changing points of elements.
+----------------------------------------------------------
+
+Mouse grab for crop/dissect/blend/displace/networks/paths/clipplanes is switched off when project is first loaded and when playing keyframes. Toggle mouse grab with g or toggle via Toggle menu.
+#end
+
+#begin
+DEL
+Delete path.
+#end
+
+#begin
+t
+When no point on path is selected, toggle display of path as tube or line.
+
+When a point of the path is pressed, change radius T of cross-sectional ellipse for tube.
+#end
+
+#begin
+Shift + t
+When no point on path is selected, bring up caption dialog.
+
+When a point of the path is pressed, change radius T of cross-sectional ellipse for tube.
+#end
+
+#begin
+c
+Toggle connection of the two ends of path - making a closed or open path.
+#end
+
+#begin
+p
+Toggle display of path points as big dots on the path.
+#end
+
+#begin
+l
+Toggle display of path length.
+#end
+
+#begin
+s
+s/Shift + s
+Only when a point of the path is pressed, change radius S of cross-sectional ellipse for tube.
+#end
+
+#begin
+a
+a/Shift + a
+Only when a point of the path is pressed, change rotation angle (twist) of cross-sectional ellipse for tube.
+#end
+
+#begin
+x/y/z/w
+Constrain movement of point in x/y/z direction.
+Make it free in all directions with w.
+#end
+
+#begin
+Ctrl+z
+Undo last position change.
+Users can perform unlimited undo.
+#end
+
+#begin
+Ctrl+y
+Redo the last undone position change.
+Users can perform unlimited redo.
+#end
+

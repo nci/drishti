@@ -1,0 +1,307 @@
+#begin
+addcamerapath
+Add a new animation keyframe for each point on path.  Each keyframe will have camera pointing in the direction along the path.  The keyframes are added 10 frames apart, these can then be moved in order to speedup or slow the animation.
+An example where this option of adding keyframes could be used is when one wants to follow a tubular structure.  In this case rather than actually repositioning the camera at each point of interest, user can just create a path and make the camera follow this path by using "addcamerapath" command.
+#end
+
+#begin
+save
+Save path coordinates to file.
+#end
+
+#begin
+normalize
+Convert coordinates for all points into integers.
+#end
+
+#begin
+radius
+setradius/radius r
+
+Set radius for the cross-sectional circle to the given value r for all the points in the path - i.e. set radius S (red axis) and T (green axis)to be same.
+#end
+
+#begin
+height
+height h
+
+Set height for the caption text or image texture.
+#end
+
+#begin
+rads
+rads s
+rads pt s
+
+rads s : Set radius S (red axis) for the cross-sectional ellipse to the given value s for all the points in the path.
+rads pt s : Set radius s for the point pt in the path.
+#end
+
+#begin
+radt
+radt t
+radt pt t
+
+radt t : Set radius T (green axis) for the cross-sectional ellipse to the given value t for all the points in the path.
+radt pt t : Set radius t for the point pt in the path.
+
+#end
+
+#begin
+angle
+angle a
+angle pt a
+
+angle a : Set rotation angle for the cross-sectional ellipse to the given value a for all the points in the path. This also affects the angle for caption and image.
+angle pt a : Set angle a for the point pt in the path.
+#end
+
+#begin
+showprofile
+showprofile [v]
+
+Get raw data values along the path. When raw file is not available data from .pvl.nc. files would be used. User is asked for a text file name to store these coordinates and values. User can choose not to save the values in a text file by pressing Cancel for the dialog for save file.
+
+The values are shown as a profile curve. When only showprofile is used, raw data values are extracted for voxels on the path. When showprofile is used with an integer value v, this value is used for placing a cube of size 2*v+1 centered on each voxel on the path. Raw values are extracted for all voxels in the cube. The average, minimum and maximum values are found at each point on the path. Three profile curves are drawn - one for each average value, minimum value and maximum value.
+#end
+
+#begin
+showthicknessprofile
+showthicknessprofile [0|1]
+
+Get thickness profile for a surface.
+
+The thickness is calculated for surface below the spine of the path. The thickness calculation starts at the nodal points on the path spine. Search starts from the nodal point in the direction of red axis of the path crosssection. See image on the left. The first point to have non-zero opacity is saved.
+
+If "showthicknessprofile" or "showthicknessprofile 0" is given then the search continues along the red axis to find the first point with zero opacity. The search terminates either when such a point is found or if the search reaches the end of red axis. The thickness of the surface is then given by distance between these two points. See image in the middle.
+
+If "showthicknessprofile 1" is specified then the search to find the second point start from the end of the red inwards - in the opposite direction. First point with non-zero opacity is located. The surface thickness is given by distance between these two points. See image on the right.
+
+Users can choose to save these points to a .path file. This text file lists the points at either end of the surface used for calculating the thickness. The file can be loaded or drag-and-dropped as pathgroup to display the thickness information. The parameters for pathgroup can be changed - they are a subset of path parameters.
+
+Users can use the smoothness parameter to include additional inbetween points for thickness calculation.
+The thickness values can be saved in a text file.
+#end
+
+#begin
+caption
+caption [no]
+nocaption
+
+Bring up caption dialog. Caption is enabled. When caption is enabled, pressing "t" will render caption text instead of tube.
+
+"caption no"/nocaption will turn off caption for this path.
+#end
+
+#begin
+image
+image [no]
+noimage
+
+Image texturing is enabled. User is asked for the image file name. When image is enabled, pressing "t" will render image texture instead of tube.
+
+"image no"/noimage will turn off image for this path.
+#end
+
+#begin
+moves
+moves [-]
+
+Move the path in the direction of S-axis (red).
+
+"moves -" will move the path in the opposite direction of S-axis (red).
+#end
+
+#begin
+movet
+movet [-]
+
+Move the path in the direction of T-axis (green).
+"movet -" will move the path in the opposite direction of T-axis (green).
+#end
+
+#begin
+mop
+mop patch [thick] [val]
+mop paint [tag]
+mop paintpatch [thick] [tag]
+mop [carve|restore|set] [radius] [decay]
+
+mop patch [thick] [val]
+patch will patchup the region encircled by the closed path - if the path is not closed it will be treated as closed path of this operation.  The patch will be of thickness "thick" and filled with value "val".
+Default values for thick and val are 1 and 255 respectively.
+For example 
+mop patch : fill 1 voxel thick patch with value 255
+mop patch 5 120 : fill 5 voxel thick patch with value 120
+
+These patches can be removed using "mop removepatch" via main command dialog.
+
+
+mop paint [tag]
+Apply paint operation using nodal points of the path.
+tag value is painted within the spherical region defined by radius of the first node. 
+If no tag value is specified, 0 is assumed.
+
+
+mop paintpatch [thick] [tag]
+patch will paint the region encircled by the closed path - if the path is not closed it will be treated as closed path of this operation.  The patch will be of thickness "thick" and tagged with value "tag".
+Default values for thick and tag are 1 and 0 respectively.
+For example 
+mop paintpatch : fill 1 voxel thick patch with value 0
+mop paintpatch 5 1 : fill 5 voxel thick patch with value 1
+
+mop [carve|restore|set] [radius] [decay]
+Apply carving/restore/set operation using nodal points of the path.
+carve/restore/set operations are applied within the spherical region defined by radius parameter. 
+
+carve sets the mask buffer values within the target zone to 0 smoothsteping to original values near the edge of sphere based on decay parameter.  When the value of decay is 0, there is a sharp cut.  Value of decay lies between 0 and radius.
+
+restore will restore mask buffer values within the target zone to original. Decay parameter need not be specified for this operation.
+
+set will replace the mask buffer values within the target zone to 255.  One of the uses of this operation could be to fillup large holes and then apply say shrinkwrap. Decay parameter need not be specified for this operation.
+#end
+
+#begin
+keyboard
+Start Keyboard help
+#end
+
+#begin
+ General Help
+Paths are created using addpath command from the points. Paths can be created using all the points or the selected set of points. Path consists of atleast 2 points. Once a path is created points used for creating the path are removed. The path can be modified after it has been created - points can be added, moved and removed from the path.
+
+Paths can be employed for cropping and blending transfer functions.  Volumes can be cropped along a given path.  Thick slices can also be viewed along a given path.
+
+Users can add, load and save path data via command dialog. 
+
+Left click on the path curve will add a point and right click on a point will remove the point. Left mouse drag will move the selected point. Middle mouse drag will move the entire path.
+
+Users can undo/redo changes made to the paths.
+
+----------------------------------------------------------
+Parameters :
+Color is applied to path.
+
+Opacity changes transparency of the path.
+
+Smoothness controls spline interpolation for intermediate points. Value of 1 implies linear interpolation.
+
+Sections controls the number of facets when rendered as tube.
+
+Cap Style : flat/round/arrow
+
+Arrow Direction : forward/backward - when cap style is arrow.
+
+Arrows For All : applicable only when cap style is arrow.
+
+Arrow Length : controls length of arrows - when cap style is arrow.
+
+Display Angle : show angle between first 3 points of the path.
+
+Display Path Length : show length of the path besides the path.
+
+Text Color : path length text color.
+
+Length Text Distance : display length of the path at a distance in screen pixels away from path.
+
+Same For All : set radii and angles to be the same for all points on the path.
+
+Use For : switch on crop/blend options.
+
+KeepInside : flip the direction of crop/blend.
+
+TFset : choose transfer function set when applying blending option.
+
+Interpolate : interpolate this path between keyframes.  Path points, radii and angle are interpolated only if the two paths at the keyframes have identical number of points.
+----------------------------------------------------------
+
+Mouse grab for crop/dissect/blend/displace/networks/paths/clipplanes is switched off when project is first loaded and when playing keyframes. Toggle mouse grab with g or toggle via Toggle menu.
+#end
+
+#begin
+DEL
+Delete path.
+#end
+
+#begin
+t
+When no point on path is selected, toggle display of path as caption/image/tube or line.
+If caption is enabled, then caption text is rendered.  If image is enabled, then image texture is rendered.  If neither is enabled then a tube is drawn.
+
+When a point of the path is pressed, change radius T of cross-sectional ellipse for tube.
+#end
+
+#begin
+Shift + t
+When no point on path is selected, bring up caption dialog. Caption is enabled.
+When caption is enabled, pressing t will render caption text instead of tube.
+
+When a point of the path is pressed, change radius T of cross-sectional ellipse for tube.
+#end
+
+#begin
+c
+Toggle connection of the two ends of path - making a closed or open path.
+#end
+
+#begin
+f
+Flip two ends of path.
+#end
+
+#begin
+p
+Toggle display of path points as big dots on the path.
+#end
+
+#begin
+n
+Toggle display of path points numbers.
+#end
+
+#begin
+l
+Toggle display of path length.
+#end
+
+#begin
+Shift+l
+Toggle display of caption beside the path or on the path.
+When displaying caption beside the path, the caption text is always displayed at one end of the path.  This end can be changed by changing the arrow direction (forward/backward).
+
+When displaying caption on the path, the caption text is displayed all along the path.  The text is displayed only while in tube mode.  The height of the text can be changed by "height" command.  The angle of the text can be changed by "angle" command.  The direction of the text can be changed by changing the arrow direction (forward/backward).
+#end
+
+#begin
+s
+s/Shift + s
+Only when a point of the path is pressed, change radius S of cross-sectional ellipse for tube.
+#end
+
+#begin
+a
+a/Shift + a
+If no point on the path is pressed, toggle display of angle between first 3 points.
+
+Only when a point of the path is pressed, change rotation angle (twist) of cross-sectional ellipse for tube.
+#end
+
+#begin
+x/y/z/w
+Constrain movement of point in red/green/tangent directions.
+When moving the entire path with middle mouse button, x/y/z contrain movement along global x/y/z directions.
+Make it free in all directions with w.
+#end
+
+#begin
+Ctrl+z
+Undo last position change.
+Users can perform unlimited undo.
+#end
+
+#begin
+Ctrl+y
+Redo the last undone position change.
+Users can perform unlimited redo.
+#end
+

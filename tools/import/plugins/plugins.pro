@@ -1,8 +1,6 @@
 TEMPLATE = subdirs
 
 SUBDIRS = analyze \
-	  nifti \
-	  nrrd \
 	  grd \
 	  imagestack \
 	  dicom \
@@ -14,3 +12,8 @@ SUBDIRS = analyze \
 	  tiff \
 	  tom \
           vgi
+
+win32 {
+    SUBDIRS += nifti \
+               nrrd
+}

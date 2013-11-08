@@ -1270,6 +1270,30 @@ Volume::countIsolatedRegions(uchar *lut,
 }
 
 
+void
+Volume::extractPath(uchar *lut,
+		    QList<Vec> clipPos,
+		    QList<Vec> clipNormal,
+		    QList<CropObject> crops,
+		    QList<PathObject> paths,
+		    QList<Vec> points,
+		    QList<Vec> pathPoints, QList<float> pathAngles,
+		    int rads, int radt, bool nearest)
+{
+  if (Global::volumeType() == Global::SingleVolume)
+    m_volume[0]->extractPath(lut,
+			     clipPos, clipNormal,
+			     crops,
+			     paths,
+			     points,
+			     pathPoints, pathAngles,
+			     rads, radt, nearest);
+  else
+    QMessageBox::critical(0, "Error",
+			  "Extract path possible only for single volumes");
+}
+
+
 QBitArray
 Volume::getBitmask(uchar *lut,
 		   QList<Vec> clipPos,

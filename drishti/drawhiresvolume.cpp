@@ -3391,231 +3391,6 @@ DrawHiresVolume::drawPathInViewport(int pathOffset, Vec lpos, float depthcue,
     glUniform1iARB(parm[24], 0); // zoffset    
 }
 
-//void
-//DrawHiresVolume::drawPathInViewport(int pathOffset, Vec lpos, float depthcue,
-//				    int lenx2, int leny2, int lod,
-//				    Vec dragTexsize,
-//				    bool defaultShader)
-//{
-//  if (GeometryObjects::paths()->count() == 0)
-//    return;
-//
-//  if (! GeometryObjects::paths()->viewportsVisible())
-//    return; // no path to render in a viewport
-//
-//  int slabstart, slabend;
-//  slabstart = 1;
-//  slabend = m_dataTexSize;
-//  if (m_dataTexSize == 1)
-//    {
-//      slabstart = 0;
-//      slabend = 1;
-//    }
-//
-//  GLint *parm; 
-//  if (defaultShader)
-//    parm = m_defaultParm;
-//  else
-//    parm = m_highqualityParm;
-//
-//  glUniform3fARB(parm[6], lpos.x, lpos.y, lpos.z);
-//
-//  if (slabend > 1)
-//    setShader2DTextureParameter(true, defaultShader);
-//  else
-//    setShader2DTextureParameter(false, defaultShader);
-//  
-//  int ow = m_Viewer->width();
-//  int oh = m_Viewer->height();
-//
-//  m_Viewer->startScreenCoordinatesSystem();
-//  glBlendFunc(GL_ONE_MINUS_DST_ALPHA, GL_ONE); // for frontlit volume
-//  //glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); // back to front
-//
-//  //glDisable(GL_DEPTH_TEST);
-//  //glDepthMask(GL_FALSE);
-//
-//  Vec voxelScaling = VolumeInformation::volumeInformation().voxelSize;
-//  QList<PathObject> po;
-//  po = GeometryObjects::paths()->paths();
-//  int npaths = po.count();
-//  for (int i=0; i<npaths; i++)
-//    {
-//      QVector4D vp = po[i].viewport();
-//      // render only when textured plane and viewport active
-//      if (po[i].viewportTF() >= 0 &&
-//	  po[i].viewportTF() < Global::lutSize() &&
-//	  vp.x() >= 0.0)
-//	{
-//	  glBlendFunc(GL_ONE_MINUS_DST_ALPHA, GL_ONE); // front to back
-//
-//	  int vx, vy, vh, vw;
-//	  int mh, mw;
-//	  int shiftx;
-//	  vx = vp.x()*ow;
-//	  vy = oh-vp.y()*oh;
-//	  vw = vp.z()*ow;
-//	  vh = vp.w()*oh;
-//	  vx+=1; vy+=1;
-//	  vw-=2; vh-=2;
-//	  mh = vy-vh/2;
-//	  mw = vx+vw/2;
-//	  shiftx = 5;
-//
-//	  float pathLength = po[i].length();
-//	  QList<Vec> pathPoints = po[i].pathPoints();
-//	  QList<Vec> pathX = po[i].pathX();
-//	  QList<Vec> pathY = po[i].pathY();
-//	  QList<float> radX = po[i].pathradX();
-//	  QList<float> radY = po[i].pathradY();
-//
-//	  for(int np=0; np<pathPoints.count(); np++)
-//	    pathPoints[np] = VECPRODUCT(voxelScaling,pathPoints[np]);
-//	  for(int np=0; np<pathPoints.count(); np++)
-//	    pathX[np] = VECPRODUCT(voxelScaling,pathX[np]);
-//	  for(int np=0; np<pathPoints.count(); np++)
-//	    pathY[np] = VECPRODUCT(voxelScaling,pathY[np]);
-//
-//
-//	  int maxthick = radY[0];
-//	  for(int np=0; np<pathPoints.count(); np++)
-//	    maxthick = max(maxthick, (int)radY[np]);
-//	  maxthick /= Global::stepsizeStill();
-//
-//	  float maxheight = 0;
-//	  for(int np=0; np<pathPoints.count(); np++)
-//	    {
-//	      float ht = (pathX[np]*radX[np]).norm();
-//	      maxheight = max(maxheight, ht);
-//	    }
-//
-//	  float scale = (float)(vw-11)/pathLength;
-//	  if (2*maxheight*scale > vh-21)
-//	    scale = (float)(vh-21)/(2*maxheight);
-//
-//	  shiftx = 5 + ((vw-11) - (pathLength*scale))*0.5;
-//
-//	  if (Global::volumeType() != Global::RGBVolume &&
-//	      Global::volumeType() != Global::RGBAVolume)
-//	    glUniform1fARB(parm[3], (float)po[i].viewportTF()/(float)Global::lutSize());
-//	  else
-//	    {
-//	      float frc = Global::stepsizeStill();
-//	      glUniform1fARB(parm[3], frc);
-//	    }	      
-//
-//	  for(int nt=0; nt<maxthick; nt++)
-//	    {
-//	      float tk = (float)nt/(float)(maxthick-1);
-//	      glUniform1fARB(parm[18], 1.0-0.8*tk);	  
-//	      
-//	      for(int b=slabstart; b<slabend; b++)
-//		{
-//		  bindDataTextures(b);
-//		  
-//		  float tminz = m_dataMin.z;
-//		  float tmaxz = m_dataMax.z;
-//		  if (slabend > 1)
-//		    {
-//		      tminz = m_textureSlab[b].y;
-//		      tmaxz = m_textureSlab[b].z;
-//
-//		      glUniform1iARB(parm[24], (tminz-m_dataMin.z)/lod); // zoffset
-//		      glUniform1iARB(parm[27], tminz);
-//		    }
-//
-//		  
-//		  if (Global::interpolationType(Global::TextureInterpolation)) // linear
-//		    {
-//		      glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,
-//				      GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-//		      glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,
-//				      GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-//		    }
-//		  else
-//		    {
-//		      glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,
-//				      GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-//		      glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,
-//				      GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-//		    }
-//		  
-//		  glBegin(GL_TRIANGLE_STRIP);
-//		  float clen = 0;
-//		  for(int np=0; np<pathPoints.count(); np++)
-//		    {
-//		      if (np > 0)
-//			clen += (pathPoints[np]-pathPoints[np-1]).norm();
-//		      float frc = clen;
-//		      
-//		      float lenradx = pathX[np].norm()*radX[np];
-//		      Vec tv0 = pathPoints[np];
-//		      Vec tv1 = pathPoints[np]+pathX[np]*radX[np];
-//		      Vec tv2 = pathPoints[np]-pathX[np]*radX[np];
-//		      tv1 += pathY[np]*radY[np]*tk;
-//		      tv2 += pathY[np]*radY[np]*tk;
-//		      tv1 = VECDIVIDE(tv1, voxelScaling);
-//		      tv2 = VECDIVIDE(tv2, voxelScaling);
-//
-//		      Vec v0 = Vec(frc, 0.0, 0.0);
-//		      Vec v1 = v0 - Vec(0.0,lenradx,0.0);
-//		      Vec v2 = v0 + Vec(0.0,lenradx,0.0);
-//		      
-//		      v1 *= scale;
-//		      v2 *= scale;
-//		      v1 += Vec(shiftx, mh, 0.0);
-//		      v2 += Vec(shiftx, mh, 0.0);
-//		      
-//		      glMultiTexCoord3dv(GL_TEXTURE0, tv1);
-//		      glVertex3f((float)v1.x, (float)v1.y, 0.0);
-//
-//		      glMultiTexCoord3dv(GL_TEXTURE0, tv2);
-//		      glVertex3f((float)v2.x, (float)v2.y, 0.0);
-//		    }
-//		  glEnd();
-//
-//		} // slabs
-//	    } // depth slices
-//
-//	  disableTextureUnits();  
-//	  glUseProgramObjectARB(0);
-//	  
-//	  glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); // back to front
-//	  po[i].drawViewportLineDots(m_Viewer, shiftx, scale, mh, vh);
-//	  po[i].drawViewportLine(shiftx, scale, mh, vh);	  
-//	}
-//    }
-//  m_Viewer->stopScreenCoordinatesSystem();
-//
-//
-//  //glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-//  // --------------------------------
-//  // draw viewport borders
-//  disableTextureUnits();  
-//  glUseProgramObjectARB(0);  
-//  glDisable(GL_DEPTH_TEST);
-//
-//  GeometryObjects::paths()->drawViewportBorders(m_Viewer);
-//
-//  enableTextureUnits();
-//  if (defaultShader)
-//    glUseProgramObjectARB(m_defaultShader);
-//  else
-//    glUseProgramObjectARB(m_highqualityShader);  
-//  glEnable(GL_DEPTH_TEST);
-//
-//  if (!m_backlit)
-//    glBlendFunc(GL_ONE_MINUS_DST_ALPHA, GL_ONE); // for frontlit volume
-//  else
-//    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); // back to front
-//  // --------------------------------
-//
-//  glDepthMask(GL_TRUE);
-//
-//  if (slabend > 1) // reset it to 0
-//    glUniform1iARB(parm[24], 0); // zoffset    
-//}
-
 void
 DrawHiresVolume::drawClipPlaneInViewport(int clipOffset, Vec lpos, float depthcue,
 					 int lenx2, int leny2, int lod,
@@ -5920,4 +5695,279 @@ DrawHiresVolume::drawBackground()
 
   disableTextureUnits();
   glUseProgramObjectARB(0);
+}
+
+void
+DrawHiresVolume::resliceVolume(Vec pos,
+			       Vec normal, Vec xaxis, Vec yaxis,
+			       int step1, int step2)
+{
+  //--- drop perpendiculars onto normal from all 8 vertices of the subvolume 
+  Vec box[8];
+  box[0] = Vec(m_dataMin.x, m_dataMin.y, m_dataMin.z);
+  box[1] = Vec(m_dataMin.x, m_dataMin.y, m_dataMax.z);
+  box[2] = Vec(m_dataMin.x, m_dataMax.y, m_dataMax.z);
+  box[3] = Vec(m_dataMin.x, m_dataMax.y, m_dataMin.z);
+  box[4] = Vec(m_dataMax.x, m_dataMin.y, m_dataMin.z);
+  box[5] = Vec(m_dataMax.x, m_dataMin.y, m_dataMax.z);
+  box[6] = Vec(m_dataMax.x, m_dataMax.y, m_dataMax.z);
+  box[7] = Vec(m_dataMax.x, m_dataMax.y, m_dataMin.z);
+  float boxdist[8];
+
+  // get number of slices
+  for (int i=0; i<8; i++) boxdist[i] = (box[i] - pos)*normal;
+  float dmin = boxdist[0];
+  for (int i=1; i<8; i++) dmin = qMin(dmin, boxdist[i]);
+  float dmax = boxdist[0];
+  for (int i=1; i<8; i++) dmax = qMax(dmax, boxdist[i]);
+  //------------------------
+
+  // get width
+  for (int i=0; i<8; i++) boxdist[i] = (box[i] - pos)*xaxis;
+  float wmin = boxdist[0];
+  for (int i=1; i<8; i++) wmin = qMin(wmin, boxdist[i]);
+  float wmax = boxdist[0];
+  for (int i=1; i<8; i++) wmax = qMax(wmax, boxdist[i]);
+  //------------------------
+
+  // get height
+  for (int i=0; i<8; i++) boxdist[i] = (box[i] - pos)*yaxis;
+  float hmin = boxdist[0];
+  for (int i=1; i<8; i++) hmin = qMin(hmin, boxdist[i]);
+  float hmax = boxdist[0];
+  for (int i=1; i<8; i++) hmax = qMax(hmax, boxdist[i]);
+  //------------------------
+
+
+  int vlod = m_Volume->getSubvolumeSubsamplingLevel();
+
+  int nslices = (dmax-dmin)/step2;
+  int wd = (wmax-wmin)/step1;
+  int ht = (hmax-hmin)/step1;
+  Vec sliceZero = pos + dmin*normal + wmin*xaxis + hmin*yaxis;
+
+  //----------------
+  QFileDialog fdialog(0,
+		      "Save Resliced Volume",
+		      Global::previousDirectory(),
+		      "Processed (*.pvl.nc)");
+
+  fdialog.setAcceptMode(QFileDialog::AcceptSave);
+
+  if (!fdialog.exec() == QFileDialog::Accepted)
+    return;
+
+  QString pFile = fdialog.selectedFiles().value(0);
+  if (!pFile.endsWith(".pvl.nc"))
+    pFile += ".pvl.nc";
+
+
+  VolumeFileManager pFileManager;
+  int slabSize = nslices+1;
+  if (QFile::exists(pFile)) QFile::remove(pFile);	
+  pFileManager.setBaseFilename(pFile);
+  pFileManager.setDepth(nslices);
+  pFileManager.setWidth(ht);
+  pFileManager.setHeight(wd);
+  pFileManager.setHeaderSize(13);
+  pFileManager.setSlabSize(slabSize);
+
+  pFileManager.removeFile();
+
+  pFileManager.setBaseFilename(pFile);
+  pFileManager.setDepth(nslices);
+  pFileManager.setWidth(ht);
+  pFileManager.setHeight(wd);
+  pFileManager.setHeaderSize(13);
+  pFileManager.setSlabSize(slabSize);
+  pFileManager.createFile(true);
+
+
+  VolumeInformation pvlInfo = VolumeInformation::volumeInformation();
+  int vtype = VolumeInformation::_UChar;
+  float vx = pvlInfo.voxelSize.x;
+  float vy = pvlInfo.voxelSize.y;
+  float vz = pvlInfo.voxelSize.z;
+  QList<float> rawMap;
+  QList<int> pvlMap;
+  for(int i=0; i<pvlInfo.mapping.count(); i++)
+    {
+      float f = pvlInfo.mapping[i].x();
+      int b = pvlInfo.mapping[i].y();
+      rawMap << f;
+      pvlMap << b;
+    }
+  StaticFunctions::savePvlHeader(pFile,
+				 false, "",
+				 vtype,vtype, pvlInfo.voxelUnit,
+				 nslices, ht, wd,
+				 vx, vy, vz,
+				 rawMap, pvlMap,
+				 pvlInfo.description,
+				 slabSize);
+  //----------------
+
+  uchar *slice = new uchar[wd*ht];
+
+
+  // save slices to shadowbuffer
+  GLuint target = GL_TEXTURE_RECTANGLE_EXT;
+  if (m_shadowBuffer) delete m_shadowBuffer;
+  glActiveTexture(GL_TEXTURE3);
+  m_shadowBuffer = new QGLFramebufferObject(QSize(wd, ht),
+					    QGLFramebufferObject::NoAttachment,
+					    GL_TEXTURE_RECTANGLE_EXT);
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_shadowBuffer->texture());
+  glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+
+  m_shadowBuffer->bind();
+  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
+
+  glDisable(GL_DEPTH_TEST);
+
+  enableTextureUnits();
+  setRenderDefault();
+
+  emptySpaceSkip();
+
+  Vec dragTexsize;
+  int lenx2, leny2, lod;
+  getDragRenderInfo(dragTexsize, lenx2, leny2, lod);
+
+  int slabstart, slabend;
+  slabstart = 1;
+  slabend = m_dataTexSize;
+  if (m_dataTexSize == 1)
+    {
+      slabstart = 0;
+      slabend = 1;
+    }
+
+  if (slabend > 1)
+    setShader2DTextureParameter(true, true);
+  else
+    setShader2DTextureParameter(false, true);
+  
+  StaticFunctions::pushOrthoView(0, 0, wd, ht);
+  glBlendFunc(GL_ONE_MINUS_DST_ALPHA, GL_ONE); // for frontlit volume
+
+  Vec voxelScaling = VolumeInformation::volumeInformation().voxelSize;
+
+  GLint *parm = m_defaultParm;
+
+  if (Global::volumeType() != Global::RGBVolume &&
+      Global::volumeType() != Global::RGBAVolume)
+    glUniform1fARB(parm[3], 0.0); // tfset
+  else
+    {
+      float frc = Global::stepsizeStill();
+      glUniform1fARB(parm[3], frc);
+    }	      
+
+  glUniform1fARB(parm[18], 1.0); // depthcue
+
+  glUniform3fARB(parm[4], 0,0,0); // delta
+
+  QProgressDialog progress("Reslicing volume",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setCancelButton(0);
+
+  glDisable(GL_DEPTH_TEST);
+
+  glClearDepth(0);
+  glClearColor(0,0,0,0);
+  
+  for(int sl=0; sl<nslices; sl++)
+    {
+      Vec po = (sliceZero + sl*normal*step2);
+      progress.setValue(100*(float)sl/(float)nslices);
+
+      glClear(GL_DEPTH_BUFFER_BIT);
+      glClear(GL_COLOR_BUFFER_BIT);
+
+      for(int b=slabstart; b<slabend; b++)
+	{
+	  float tminz = m_dataMin.z;
+	  float tmaxz = m_dataMax.z;
+	  if (slabend > 1)
+	    {
+	      tminz = m_textureSlab[b].y;
+	      tmaxz = m_textureSlab[b].z;
+	      
+	      glUniform1iARB(parm[24], (tminz-m_dataMin.z)/lod); // zoffset
+	      glUniform1iARB(parm[27], tminz);
+	    }		  
+	  
+	  glUniform3fARB(parm[42], m_dataMin.x, m_dataMin.y, tminz);
+	  glUniform3fARB(parm[43], m_dataMax.x, m_dataMax.y, tmaxz);
+	  
+	  bindDataTextures(b);
+	  
+	  if (Global::interpolationType(Global::TextureInterpolation)) // linear
+	    {
+	      glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,
+			      GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	      glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,
+			      GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	    }
+	  else
+	    {
+	      glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,
+			      GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	      glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,
+			      GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	    }
+	  
+	  glBegin(GL_QUADS);
+
+	  Vec v = po;
+	  v = VECDIVIDE(v, voxelScaling);
+	  glMultiTexCoord3dv(GL_TEXTURE0, v);
+	  glVertex3f(0, 0, 0);
+
+	  v = po + wd*xaxis*step1;
+	  v = VECDIVIDE(v, voxelScaling);
+	  glMultiTexCoord3dv(GL_TEXTURE0, v);
+	  glVertex3f(wd, 0, 0);
+
+	  v = po + wd*xaxis*step1 + ht*yaxis*step1;
+	  v = VECDIVIDE(v, voxelScaling);
+	  glMultiTexCoord3dv(GL_TEXTURE0, v);
+	  glVertex3f(wd, ht, 0);
+
+	  v = po + ht*yaxis*step1;
+	  v = VECDIVIDE(v, voxelScaling);
+	  glMultiTexCoord3dv(GL_TEXTURE0, v);
+	  glVertex3f(0, ht, 0);
+
+	  glEnd();
+
+
+	  glReadPixels(0, 0, wd, ht, GL_RED, GL_UNSIGNED_BYTE, slice);
+	  pFileManager.setSlice(sl, slice);
+	}
+    }
+
+  m_shadowBuffer->release();
+
+  progress.setValue(100);
+
+  delete [] slice;
+
+  glUseProgramObjectARB(0);
+  disableTextureUnits();  
+
+  StaticFunctions::popOrthoView();
+
+  // restore shadow buffer
+  initShadowBuffers(true);
+
+  glEnable(GL_DEPTH_TEST);
+
+  QMessageBox::information(0, "Saved Resliced Volume",
+			   QString("Resliced volume saved to %1 and %1.001").arg(pFile));
 }

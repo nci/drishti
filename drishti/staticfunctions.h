@@ -101,6 +101,15 @@ class StaticFunctions
   static QString replaceDirectory(QString, QString);
 
   static void convertFromGLImage(QImage&, int, int);
+
+  static void savePvlHeader(QString,
+			    bool, QString,
+			    int, int, int,
+			    int, int, int,
+			    float, float, float,
+			    QList<float>, QList<int>,
+			    QString,
+			    int);
 };
 
 #endif

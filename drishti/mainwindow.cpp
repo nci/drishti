@@ -4233,7 +4233,8 @@ MainWindow::resliceVolume(int cp, int step1, int step2)
       scaley = qAbs(scaley);
     }
 
-  m_Volume->resliceVolume(pos, tang, xaxis, yaxis, scalex, scaley, step1, step2);
+  //m_Volume->resliceVolume(pos, tang, xaxis, yaxis, scalex, scaley, step1, step2);
+  m_Hires->resliceVolume(pos, tang, xaxis, yaxis, step1, step2);
 }
 
 void
@@ -4373,18 +4374,27 @@ MainWindow::pathExtractRaw(QList<Vec> points,
   QList<Vec> clipPos;
   QList<Vec> clipNormal;
   m_Hires->getClipForMask(clipPos, clipNormal);
-  Vec bmin = m_Hires->volumeMin();
-  Vec bmax = m_Hires->volumeMax();
 
-  QBitArray bitmask = m_Volume->getBitmask(m_Viewer->lookupTable(),
-					   clipPos, clipNormal,
-					   GeometryObjects::crops()->crops(),
-					   GeometryObjects::paths()->paths());
-
-  RawVolume::extractPath(points,
-			 pathPoints, pathAngles,
-			 rads, radt, nearest,
-			 bmin, bmax, bitmask);
+  m_Volume->extractPath(m_Viewer->lookupTable(),
+			clipPos, clipNormal,
+			GeometryObjects::crops()->crops(),
+			GeometryObjects::paths()->paths(),
+			points,
+			pathPoints, pathAngles,
+			rads, radt, nearest);
+  
+//  Vec bmin = m_Hires->volumeMin();
+//  Vec bmax = m_Hires->volumeMax();
+//
+//  QBitArray bitmask = m_Volume->getBitmask(m_Viewer->lookupTable(),
+//					   clipPos, clipNormal,
+//					   GeometryObjects::crops()->crops(),
+//					   GeometryObjects::paths()->paths());
+//
+//  RawVolume::extractPath(points,
+//			 pathPoints, pathAngles,
+//			 rads, radt, nearest,
+//			 bmin, bmax, bitmask);
 }
 void
 MainWindow::patchExtractRaw(QList<Vec> points,

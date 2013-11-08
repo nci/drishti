@@ -134,6 +134,8 @@ class DrawHiresVolume : public QObject
   void runLutShader(bool);
   
   int dataTexSize() { return m_dataTexSize; }
+  
+  void resliceVolume(Vec, Vec, Vec, Vec, int, int);
 
  signals :
   void histogramUpdated(QImage, QImage);

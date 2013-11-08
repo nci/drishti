@@ -148,6 +148,15 @@ class Volume : public QObject
 			    QList<CropObject>,
 			    QList<PathObject>);
 
+  void extractPath(uchar *lut,
+		   QList<Vec> clipPos,
+		   QList<Vec> clipNormal,
+		   QList<CropObject> crops,
+		   QList<PathObject> paths,
+		   QList<Vec>,
+		   QList<Vec>, QList<float>,
+		   int, int, bool);
+
  private :
   QList<VolumeSingle*> m_volume;
 

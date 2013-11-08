@@ -119,6 +119,15 @@ class VolumeSingle : public VolumeBase
 			    QList<CropObject>,
 			    QList<PathObject>);
 
+  void extractPath(uchar*,
+		   QList<Vec>,
+		   QList<Vec>,
+		   QList<CropObject>,
+		   QList<PathObject>,
+		   QList<Vec>,
+		   QList<Vec>, QList<float>,
+		   int, int, bool);
+
  private :
   VolumeFileManager m_pvlFileManager;
   VolumeFileManager m_gradFileManager;
@@ -181,15 +190,6 @@ class VolumeSingle : public VolumeBase
   void calculateGradientsForDragTexture();
 
   void setBasicInformation(int);
-
-  void savePvlHeader(QString,
-		     bool, QString,
-		     int, int, int,
-		     int, int, int,
-		     float, float, float,
-		     QList<float>, QList<int>,
-		     QString,
-		     int);
 };
 
 #endif

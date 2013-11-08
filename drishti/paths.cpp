@@ -1151,8 +1151,8 @@ Paths::processCommand(int idx, QString cmd)
 	  else
 	    m_paths[idx]->translate(false, true);
 	}
-      else if (list[li] == "extractrawfast" ||  // nearest neighbour interpolationco
-	       list[li] == "extractraw") // nearest neighbour interpolationco
+      else if (list[li] == "extractpathfast" ||  // nearest neighbour interpolationco
+	       list[li] == "extractpath") // nearest neighbour interpolationco
 	{
 	  int rads = m_paths[idx]->getRadX(0);
 	  int radt = m_paths[idx]->getRadY(0);

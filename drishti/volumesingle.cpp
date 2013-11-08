@@ -866,175 +866,6 @@ VolumeSingle::findConnectedRegion(QList<Vec> pos,
 }
 
 void
-VolumeSingle::savePvlHeader(QString pvlFilename,
-			    bool saveRawFile, QString rawfile,
-			    int voxelType, int pvlVoxelType, int voxelUnit,
-			    int d, int w, int h,
-			    float vx, float vy, float vz,
-			    QList<float> rawMap, QList<int> pvlMap,
-			    QString description,
-			    int slabSize)
-{
-  enum VoxelUnit {
-    _Nounit = 0,
-    _Angstrom,
-    _Nanometer,
-    _Micron,
-    _Millimeter,
-    _Centimeter,
-    _Meter,
-    _Kilometer,
-    _Parsec,
-    _Kiloparsec
-  };
-
-  QString xmlfile = pvlFilename;
-
-  QDomDocument doc("Drishti_Header");
-
-  QDomElement topElement = doc.createElement("PvlDotNcFileHeader");
-  doc.appendChild(topElement);
-
-  {      
-    QString vstr;
-    if (saveRawFile)
-      {
-	// save relative path for the rawfile
-	QFileInfo fileInfo(pvlFilename);
-	QDir direc = fileInfo.absoluteDir();
-	vstr = direc.relativeFilePath(rawfile);
-      }
-    else
-      vstr = "";
-
-    QDomElement de0 = doc.createElement("rawfile");
-    QDomText tn0;
-    tn0 = doc.createTextNode(QString("%1").arg(vstr));
-    de0.appendChild(tn0);
-    topElement.appendChild(de0);
-  }
-      
-  {      
-    QString vstr;
-    if (voxelType ==      VolumeFileManager::_UChar) vstr = "unsigned char";
-    else if (voxelType == VolumeFileManager::_Char)  vstr = "char";
-    else if (voxelType == VolumeFileManager::_UShort)vstr = "unsigned short";
-    else if (voxelType == VolumeFileManager::_Short) vstr = "short";
-    else if (voxelType == VolumeFileManager::_Int)   vstr = "int";
-    else if (voxelType == VolumeFileManager::_Float) vstr = "float";
-    
-    QDomElement de0 = doc.createElement("voxeltype");
-    QDomText tn0;
-    tn0 = doc.createTextNode(QString("%1").arg(vstr));
-    de0.appendChild(tn0);
-    topElement.appendChild(de0);
-  }
-
-
-  {      
-    QString vstr;
-    if (pvlVoxelType ==      VolumeFileManager::_UChar) vstr = "unsigned char";
-    else if (pvlVoxelType == VolumeFileManager::_Char)  vstr = "char";
-    else if (pvlVoxelType == VolumeFileManager::_UShort)vstr = "unsigned short";
-    else if (pvlVoxelType == VolumeFileManager::_Short) vstr = "short";
-    else if (pvlVoxelType == VolumeFileManager::_Int)   vstr = "int";
-    else if (pvlVoxelType == VolumeFileManager::_Float) vstr = "float";
-    
-    QDomElement de0 = doc.createElement("pvlvoxeltype");
-    QDomText tn0;
-    tn0 = doc.createTextNode(QString("%1").arg(vstr));
-    de0.appendChild(tn0);
-    topElement.appendChild(de0);
-  }
-
-
-  {      
-    QDomElement de0 = doc.createElement("gridsize");
-    QDomText tn0;
-    tn0 = doc.createTextNode(QString("%1 %2 %3").arg(d).arg(w).arg(h));
-    de0.appendChild(tn0);
-    topElement.appendChild(de0);
-  }
-
-  {      
-    QString vstr;
-    if (voxelUnit ==      _Nounit)    vstr = "no units";
-    else if (voxelUnit == _Angstrom)  vstr = "angstrom";
-    else if (voxelUnit == _Nanometer) vstr = "nanometer";
-    else if (voxelUnit == _Micron)    vstr = "micron";
-    else if (voxelUnit == _Millimeter)vstr = "millimeter";
-    else if (voxelUnit == _Centimeter)vstr = "centimeter";
-    else if (voxelUnit == _Meter)     vstr = "meter";
-    else if (voxelUnit == _Kilometer) vstr = "kilometer";
-    else if (voxelUnit == _Parsec)    vstr = "parsec";
-    else if (voxelUnit == _Kiloparsec)vstr = "kiloparsec";
-    
-    QDomElement de0 = doc.createElement("voxelunit");
-    QDomText tn0;
-    tn0 = doc.createTextNode(QString("%1").arg(vstr));
-    de0.appendChild(tn0);
-    topElement.appendChild(de0);
-  }
-
-  {      
-    QDomElement de0 = doc.createElement("voxelsize");
-    QDomText tn0;
-    tn0 = doc.createTextNode(QString("%1 %2 %3").arg(vx).arg(vy).arg(vz));
-    de0.appendChild(tn0);
-    topElement.appendChild(de0);
-  }
-  
-  {
-    QString vstr = description.trimmed();
-    QDomElement de0 = doc.createElement("description");
-    QDomText tn0;
-    tn0 = doc.createTextNode(QString("%1").arg(vstr));
-    de0.appendChild(tn0);
-    topElement.appendChild(de0);
-  }
-
-  {      
-    QDomElement de0 = doc.createElement("slabsize");
-    QDomText tn0;
-    tn0 = doc.createTextNode(QString("%1").arg(slabSize));
-    de0.appendChild(tn0);
-    topElement.appendChild(de0);
-  }
-  
-  {      
-    QString vstr;
-    for(int i=0; i<rawMap.size(); i++)
-      vstr += QString("%1 ").arg(rawMap[i]);
-    
-    QDomElement de0 = doc.createElement("rawmap");
-    QDomText tn0;
-    tn0 = doc.createTextNode(QString("%1").arg(vstr));
-    de0.appendChild(tn0);
-    topElement.appendChild(de0);
-  }
-
-  {      
-    QString vstr;
-    for(int i=0; i<pvlMap.size(); i++)
-      vstr += QString("%1 ").arg(pvlMap[i]);
-    
-    QDomElement de0 = doc.createElement("pvlmap");
-    QDomText tn0;
-    tn0 = doc.createTextNode(QString("%1").arg(vstr));
-    de0.appendChild(tn0);
-    topElement.appendChild(de0);
-  }
-  
-  QFile f(xmlfile.toAscii().data());
-  if (f.open(QIODevice::WriteOnly))
-    {
-      QTextStream out(&f);
-      doc.save(out, 2);
-      f.close();
-    }
-}
-
-void
 VolumeSingle::saveVolume(uchar *lut,
 			 QList<Vec> clipPos,
 			 QList<Vec> clipNormal,
@@ -1188,14 +1019,16 @@ VolumeSingle::saveVolume(uchar *lut,
 	  rawMap << f;
 	  pvlMap << b;
 	}
-      savePvlHeader(opFile,
-		    false, "",
-		    pvlInfo.voxelType, m_pvlVoxelType, pvlInfo.voxelUnit,
-		    nz, ny, nx,
-		    vx, vy, vz,
-		    rawMap, pvlMap,
-		    pvlInfo.description,
-		    opslabSize);
+      StaticFunctions::savePvlHeader(opFile,
+				     false, "",
+				     pvlInfo.voxelType,
+				     m_pvlVoxelType,
+				     pvlInfo.voxelUnit,
+				     nz, ny, nx,
+				     vx, vy, vz,
+				     rawMap, pvlMap,
+				     pvlInfo.description,
+				     opslabSize);
     }
       
 
@@ -3044,3 +2877,263 @@ VolumeSingle::countIsolatedRegions(uchar *lut,
 
   QMessageBox::information(0, "", QString("Number of cells : %1").arg(ncells));
 }
+
+void
+VolumeSingle::extractPath(uchar *lut,
+			  QList<Vec> clipPos,
+			  QList<Vec> clipNormal,
+			  QList<CropObject> crops,
+			  QList<PathObject> paths,
+			  QList<Vec> points,
+			  QList<Vec> pathPoints,
+			  QList<float> pathAngle,
+			  int rads, int radt,
+			  bool nearest)
+{
+  QFileDialog fdialog(0,
+		      "Save Volume",
+		      Global::previousDirectory(),
+		      "Processed (*.pvl.nc)");
+
+  fdialog.setAcceptMode(QFileDialog::AcceptSave);
+
+  if (!fdialog.exec() == QFileDialog::Accepted)
+    return;
+
+  QString pFile = fdialog.selectedFiles().value(0);
+  if (!pFile.endsWith(".pvl.nc"))
+    pFile += ".pvl.nc";
+
+
+  VolumeInformation pvlInfo = VolumeInformation::volumeInformation();
+  int vtype = pvlInfo.voxelType;
+  int skipheaderbytes = pvlInfo.skipheaderbytes;
+  Vec grid = pvlInfo.dimensions;
+  int depth = grid.x;
+  int width = grid.y;
+  int height = grid.z;
+
+  int bpv = 1;
+  if (m_pvlVoxelType > 0) bpv = 2;
+
+  int nZ = 0;
+  int nY = 2*radt+1;
+  int nX = 2*rads+1;
+
+  int npaths = pathPoints.count();  
+  for(int ip=0; ip<npaths-1; ip++)
+    {
+      int st = 0;
+      if (ip > 0) st = 1;
+      
+      Vec v0 = pathPoints[ip];
+      Vec v1 = pathPoints[ip+1];
+
+      QList<Vec>voxels = StaticFunctions::voxelizeLine(v0, v1);
+      int vcount = voxels.count();
+      for(int iv=st; iv<vcount; iv++)
+      nZ++;
+    }
+
+  VolumeFileManager pFileManager;
+
+  {
+    int slabSize = nZ+1;
+    if (QFile::exists(pFile)) QFile::remove(pFile);	
+    float vx = pvlInfo.voxelSize.x;
+    float vy = pvlInfo.voxelSize.y;
+    float vz = pvlInfo.voxelSize.z;
+    QList<float> rawMap;
+    QList<int> pvlMap;
+    for(int i=0; i<pvlInfo.mapping.count(); i++)
+      {
+	  float f = pvlInfo.mapping[i].x();
+	  int b = pvlInfo.mapping[i].y();
+	  rawMap << f;
+	  pvlMap << b;
+	}
+    StaticFunctions::savePvlHeader(pFile,
+				   false, "",
+				   vtype, m_pvlVoxelType, pvlInfo.voxelUnit,
+				   nZ, nY, nX,
+				   vx, vy, vz,
+				   rawMap, pvlMap,
+				   pvlInfo.description,
+				   slabSize);
+
+      pFileManager.setBaseFilename(pFile);
+      pFileManager.setDepth(nZ);
+      pFileManager.setWidth(nY);
+      pFileManager.setHeight(nX);
+      pFileManager.setHeaderSize(13);
+      if (m_pvlVoxelType > 0)
+	pFileManager.setVoxelType(m_pvlVoxelType);
+      pFileManager.setSlabSize(slabSize);
+      pFileManager.createFile(true);
+    }
+
+  uchar *pathraw = new uchar[nY*nX*bpv];
+
+  int minx = m_dataMin.x;
+  int maxx = m_dataMax.x;
+  int miny = m_dataMin.y;
+  int maxy = m_dataMax.y;
+  int minz = m_dataMin.z;
+  int maxz = m_dataMax.z;
+
+  int bnx = maxx-minx+1;
+  int bny = maxy-miny+1;
+  int bnz = maxz-minz+1;
+
+  createBitmask(minx, maxx,
+		miny, maxy,
+		minz, maxz,
+		lut,
+		clipPos, clipNormal,
+		crops,
+		paths);
+
+
+  float maskval = 0;
+  maskval = (float) QInputDialog::getDouble(0, "Voxel value in transparent region",
+					    "Voxel value", 0);
+
+  QProgressDialog progress("Straightening volume along path",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setCancelButton(0);
+  
+
+  m_pvlFileManager.startBlockInterpolation();
+
+
+  Vec ptang, pxaxis;
+  ptang = Vec(0,0,1);
+  pxaxis = Vec(1,0,0);
+  nZ = 0;
+  for(int ip=0; ip<npaths-1; ip++)
+    {
+      progress.setValue((int)(100*(float)ip/(float)npaths));
+      qApp->processEvents();
+      
+      Vec tang, xaxis, yaxis;
+
+      if (ip== 0)
+	tang = points[1]-points[0];
+      else if (ip== npaths-1)
+	tang = pathPoints[ip]-pathPoints[ip-1];
+      else
+	tang = pathPoints[ip+1]-pathPoints[ip-1];
+
+      if (tang.norm() > 0)
+	tang.normalize();
+      else
+	tang = Vec(0,0,1); // should really scold the user
+
+
+      //----------------
+      Vec axis;
+      float angle;      
+      StaticFunctions::getRotationBetweenVectors(ptang, tang, axis, angle);
+      if (qAbs(angle) > 0.0 && qAbs(angle) < 3.1415)
+	{
+	  Quaternion q(axis, angle);	  
+	  xaxis = q.rotate(pxaxis);
+	}
+      else
+	xaxis = pxaxis;
+
+      //apply offset rotation
+      angle = pathAngle[ip];
+      if (ip > 0) angle = pathAngle[ip]-pathAngle[ip-1];
+      Quaternion q = Quaternion(tang, angle);
+      xaxis = q.rotate(xaxis);
+
+      yaxis = tang^xaxis;
+
+      pxaxis = xaxis;
+      ptang = tang;
+      //----------------
+
+      Vec v0 = pathPoints[ip];
+      Vec v1 = pathPoints[ip+1];
+
+      QList<Vec>voxels = StaticFunctions::voxelizeLine(v0, v1);
+      
+      int st = 0;
+      if (ip > 0) st = 1;
+
+      int vcount = voxels.count();
+      for(int iv=st; iv<vcount; iv++)
+	{
+	  Vec pos = voxels[iv];
+	  float angle = (pathAngle[ip+1]-pathAngle[ip])*((float)iv/(float)(vcount-1));
+	  
+	  Vec vxaxis = xaxis;
+	  if (fabs(angle) > 0.0f)
+	    {
+	      Quaternion q = Quaternion(tang, angle);
+	      vxaxis = q.rotate(xaxis);
+	    }
+	  Vec vyaxis = tang^vxaxis;
+
+	  memset(pathraw, 0, bpv*nY*nX);
+	  if (fabs(maskval) > 0)
+	    {
+	      if (m_pvlVoxelType == 0)
+		{
+		  uchar *mr = pathraw;
+		  for(int i=0; i<nY*nX; i++) mr[i] = maskval;
+		}
+	      else
+		{
+		  ushort *mr = (ushort*)pathraw;
+		  for(int i=0; i<nY*nX; i++) mr[i] = maskval;
+		}
+	    }
+
+	  int idx = 0;
+	  for (int iy=-radt; iy<=radt; iy++)
+	    for (int ix=-rads; ix<=rads; ix++)
+	      {
+		Vec vox = pos + iy*vyaxis + ix*vxaxis;
+		int x = vox.x;
+		int y = vox.y;
+		int z = vox.z;
+		
+		bool ok = false;
+		if (x >= minx && x <= maxx &&
+		    y >= miny && y <= maxy &&
+		    z >= minz && z <= maxz)
+		  {
+		    int bidx = (z-minz)*bny*bnx +
+		      (y-miny)*bnx + (x-minx);
+		    if (m_bitmask.testBit(bidx))
+		      ok = true;
+		  }
+      	    
+		if (ok)
+		  {		    
+		    uchar *v = m_pvlFileManager.blockInterpolatedRawValue(z,y,x);
+		    memcpy(pathraw+bpv*idx, v, bpv);
+		  }
+		
+		idx++;
+	      } // loop over x and y
+
+	  pFileManager.setSlice(nZ, pathraw);
+	  nZ++;
+	}
+    }
+
+  delete [] pathraw;
+
+  m_pvlFileManager.endBlockInterpolation();
+
+  progress.setValue(100);
+
+  QMessageBox::information(0, "Save straightened volume",
+			   QString("Saved straightened volume to")+pFile);
+}
+

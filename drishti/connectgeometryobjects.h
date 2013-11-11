@@ -38,6 +38,9 @@
 	    this,
 	    SLOT(sculpt(int, QList<Vec>, float, float, int)));
 
+    connect(GeometryObjects::paths(), SIGNAL(extractPath(int, bool)),
+	    this, SLOT(extractPath(int, bool)));
+
     connect(GeometryObjects::paths(),
 	    SIGNAL(pathExtractRaw(QList<Vec>,
 				  QList<Vec>, QList<float>,

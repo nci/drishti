@@ -3325,7 +3325,21 @@ Viewer::processCommand(QString cmd)
   cmd = cmd.toLower();
   QStringList list = cmd.split(" ", QString::SkipEmptyParts);
  
-  if (list[0] == "depthcue")
+  if (list[0] == "reslice")
+    {
+      int step1, step2;
+      step1 = step2 = 1;
+      if (list.size() > 1) step1 = qMax(1, list[1].toInt(&ok));
+      if (list.size() > 2) step2 = qMax(1, list[2].toInt(&ok));
+
+      m_hiresVolume->resliceVolume(camera()->position(),
+				   camera()->viewDirection(),
+				   camera()->rightVector(),
+				   camera()->upVector(),
+				   step1,
+				   step2);
+    }
+  else if (list[0] == "depthcue")
     {
       bool flag = true;
       if (list.size() > 1)

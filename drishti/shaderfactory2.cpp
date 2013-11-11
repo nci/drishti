@@ -375,6 +375,9 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
   shader += "uniform int tminz;\n";
 
   shader += "uniform int lod;\n";
+  shader += "uniform vec3 dirFront;\n";
+  shader += "uniform vec3 dirUp;\n";
+  shader += "uniform vec3 dirRight;\n";
       
   shader += "uniform float interpVol;\n";
   shader += "uniform bool mixTag;\n";
@@ -690,6 +693,9 @@ ShaderFactory2::genHighQualitySliceShaderString(bool lighting,
   shader += "uniform int tminz;\n";
 
   shader += "uniform int lod;\n";
+  shader += "uniform vec3 dirFront;\n";
+  shader += "uniform vec3 dirUp;\n";
+  shader += "uniform vec3 dirRight;\n";
 
   shader += "uniform float interpVol;\n";
   shader += "uniform bool mixTag;\n";
@@ -1029,6 +1035,9 @@ ShaderFactory2::genSliceShadowShaderString(float shadowintensity,
   shader += "uniform int tminz;\n";
 
   shader += "uniform int lod;\n";
+  shader += "uniform vec3 dirFront;\n";
+  shader += "uniform vec3 dirUp;\n";
+  shader += "uniform vec3 dirRight;\n";
 
   shader += "uniform float interpVol;\n";
   shader += "uniform bool mixTag;\n";

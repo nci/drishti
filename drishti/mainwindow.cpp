@@ -4365,6 +4365,12 @@ MainWindow::on_actionSpline_PositionInterpolation_triggered()
 }
 
 void
+MainWindow::extractPath(int pathIdx, bool fullThickness)
+{
+  m_Hires->resliceUsingPath(pathIdx, fullThickness);
+}
+
+void
 MainWindow::pathExtractRaw(QList<Vec> points,
 			   QList<Vec> pathPoints,
 			   QList<float> pathAngles,

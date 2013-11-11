@@ -1151,26 +1151,38 @@ Paths::processCommand(int idx, QString cmd)
 	  else
 	    m_paths[idx]->translate(false, true);
 	}
-      else if (list[li] == "extractpathfast" ||  // nearest neighbour interpolationco
-	       list[li] == "extractpath") // nearest neighbour interpolationco
+      else if (list[li] == "reslice")
 	{
-	  int rads = m_paths[idx]->getRadX(0);
-	  int radt = m_paths[idx]->getRadY(0);
+	  bool fullThickness = false;
+	  if (list.size()-li > 1)
+	    {
+	      if (list[li+1] == "full")
+		fullThickness = true;
+	      li++;
+	    }
 
-	  int segments = m_paths[idx]->segments();
-	  QList<Vec> points = m_paths[idx]->points();
-	  QList<Vec> pathPoints = m_paths[idx]->pathPoints();
-	  QList<float> pathAngles = m_paths[idx]->pathAngles();
-
-	  if (list[li] == "extractrawfast") // nearest neighbour interpolation
-	    emit pathExtractRaw(points,
-				pathPoints, pathAngles,
-				rads, radt, true);
-	  else // linear interpolation
-	    emit pathExtractRaw(points,
-				pathPoints, pathAngles,
-				rads, radt, false);
+	  emit extractPath(idx, fullThickness);
 	}
+//      else if (list[li] == "extractpathfast" ||  // nearest neighbour interpolationco
+//	       list[li] == "extractpath") // nearest neighbour interpolationco
+//	{
+//	  int rads = m_paths[idx]->getRadX(0);
+//	  int radt = m_paths[idx]->getRadY(0);
+//
+//	  int segments = m_paths[idx]->segments();
+//	  QList<Vec> points = m_paths[idx]->points();
+//	  QList<Vec> pathPoints = m_paths[idx]->pathPoints();
+//	  QList<float> pathAngles = m_paths[idx]->pathAngles();
+//
+//	  if (list[li] == "extractrawfast") // nearest neighbour interpolation
+//	    emit pathExtractRaw(points,
+//				pathPoints, pathAngles,
+//				rads, radt, true);
+//	  else // linear interpolation
+//	    emit pathExtractRaw(points,
+//				pathPoints, pathAngles,
+//				rads, radt, false);
+//	}
       else if (list[li] == "extractrawhalfpatchfast" ||
 	       list[li] == "extractrawhalfpatch" ||
 	       list[li] == "extractrawfullpatchfast" ||

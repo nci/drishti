@@ -236,7 +236,11 @@ ShaderFactoryRGB::genDefaultSliceShaderString(bool lighting,
   shader += "uniform vec2 dataMin;\n";
   shader += "uniform vec2 dataSize;\n";
   shader += "uniform int tminz;\n";
+
   shader += "uniform int lod;\n";
+  shader += "uniform vec3 dirFront;\n";
+  shader += "uniform vec3 dirUp;\n";
+  shader += "uniform vec3 dirRight;\n";
 
   shader += "uniform vec3 brickMin;\n";
   shader += "uniform vec3 brickMax;\n";
@@ -414,7 +418,11 @@ ShaderFactoryRGB::genHighQualitySliceShaderString(bool lighting,
   shader += "uniform vec2 dataMin;\n";
   shader += "uniform vec2 dataSize;\n";
   shader += "uniform int tminz;\n";
+
   shader += "uniform int lod;\n";
+  shader += "uniform vec3 dirFront;\n";
+  shader += "uniform vec3 dirUp;\n";
+  shader += "uniform vec3 dirRight;\n";
 
   shader += "uniform vec3 brickMin;\n";
   shader += "uniform vec3 brickMax;\n";
@@ -694,7 +702,11 @@ ShaderFactoryRGB::genSliceShadowShaderString(float r, float g, float b,
   shader += "uniform vec2 dataMin;\n";
   shader += "uniform vec2 dataSize;\n";
   shader += "uniform int tminz;\n";
+
   shader += "uniform int lod;\n";
+  shader += "uniform vec3 dirFront;\n";
+  shader += "uniform vec3 dirUp;\n";
+  shader += "uniform vec3 dirRight;\n";
 
   shader += "uniform vec3 brickMin;\n";
   shader += "uniform vec3 brickMax;\n";

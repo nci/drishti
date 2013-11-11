@@ -136,7 +136,8 @@ class DrawHiresVolume : public QObject
   int dataTexSize() { return m_dataTexSize; }
   
   void resliceVolume(Vec, Vec, Vec, Vec, int, int);
-
+  void resliceUsingPath(int, bool);
+  
  signals :
   void histogramUpdated(QImage, QImage);
 

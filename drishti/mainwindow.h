@@ -194,6 +194,7 @@ class MainWindow : public QMainWindow
    void viewProfile(int, int, QList<Vec>);
    void viewThicknessProfile(int, int, QList< QPair<Vec, Vec> >);
 
+   void extractPath(int, bool);
    void pathExtractRaw(QList<Vec>,
 		       QList<Vec>, QList<float>,
 		       int, int, bool);

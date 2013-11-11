@@ -901,6 +901,9 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
   shader += "uniform int tminz;\n";
 
   shader += "uniform int lod;\n";
+  shader += "uniform vec3 dirFront;\n";
+  shader += "uniform vec3 dirUp;\n";
+  shader += "uniform vec3 dirRight;\n";
 
   shader += "uniform vec3 brickMin;\n";
   shader += "uniform vec3 brickMax;\n";
@@ -1129,7 +1132,11 @@ ShaderFactory::genHighQualitySliceShaderString(bool bit16,
   shader += "uniform vec2 dataMin;\n";
   shader += "uniform vec2 dataSize;\n";
   shader += "uniform int tminz;\n";
+
   shader += "uniform int lod;\n";
+  shader += "uniform vec3 dirFront;\n";
+  shader += "uniform vec3 dirUp;\n";
+  shader += "uniform vec3 dirRight;\n";
 
   shader += "uniform vec3 brickMin;\n";
   shader += "uniform vec3 brickMax;\n";
@@ -1367,7 +1374,11 @@ ShaderFactory::genSliceShadowShaderString(bool bit16,
   shader += "uniform vec2 dataMin;\n";
   shader += "uniform vec2 dataSize;\n";
   shader += "uniform int tminz;\n";
+
   shader += "uniform int lod;\n";
+  shader += "uniform vec3 dirFront;\n";
+  shader += "uniform vec3 dirUp;\n";
+  shader += "uniform vec3 dirRight;\n";
 
   shader += "uniform vec3 brickMin;\n";
   shader += "uniform vec3 brickMax;\n";

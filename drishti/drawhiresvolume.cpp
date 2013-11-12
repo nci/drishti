@@ -6010,7 +6010,6 @@ DrawHiresVolume::resliceUsingPath(int pathIdx, bool fullThickness)
   int maxthick = radY[0];
   for(int np=0; np<pathPoints.count(); np++)
     maxthick = max(maxthick, (int)radY[np]);
-  //maxthick /= Global::stepsizeStill();
 
   float maxheight = 0;
   for(int np=0; np<pathPoints.count(); np++)
@@ -6042,7 +6041,8 @@ DrawHiresVolume::resliceUsingPath(int pathIdx, bool fullThickness)
 
   VolumeFileManager pFileManager;
   int slabSize = nslices+1;
-  if (QFile::exists(pFile)) QFile::remove(pFile);	
+  if (QFile::exists(pFile)) QFile::remove(pFile);
+
   pFileManager.setBaseFilename(pFile);
   pFileManager.setDepth(nslices);
   pFileManager.setWidth(ht);
@@ -6156,6 +6156,8 @@ DrawHiresVolume::resliceUsingPath(int pathIdx, bool fullThickness)
   glClearDepth(0);
   glClearColor(0,0,0,0);
   
+  glTranslatef(0.0, maxheight, 0.0);
+
   for(int sl=0; sl<nslices; sl++)
     {
       float tk = (float)sl/(float)(nslices-1);
@@ -6201,6 +6203,7 @@ DrawHiresVolume::resliceUsingPath(int pathIdx, bool fullThickness)
 	  float clen = 0;
 	  for(int np=0; np<pathPoints.count(); np++)
 	    {
+
 	      if (np > 0)
 		clen += (pathPoints[np]-pathPoints[np-1]).norm();
 	      
@@ -6222,9 +6225,9 @@ DrawHiresVolume::resliceUsingPath(int pathIdx, bool fullThickness)
 	      tv1 = VECDIVIDE(tv1, voxelScaling);
 	      tv2 = VECDIVIDE(tv2, voxelScaling);
 	      
-	      Vec v1 = Vec(clen, 0.0, 0.0);
-	      Vec v2 = Vec(clen,2*lenradx,0.0);
-	      
+	      Vec v1 = Vec(clen,-lenradx,0.0);
+	      Vec v2 = Vec(clen,lenradx,0.0);
+
 	      glMultiTexCoord3dv(GL_TEXTURE0, tv1);
 	      glVertex3f((float)v1.x, (float)v1.y, 0.0);
 	      

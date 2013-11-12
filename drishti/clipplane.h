@@ -82,7 +82,7 @@ class ClipPlanes : public QObject
   void mopClip(Vec, Vec);
   void reorientCameraUsingClipPlane(int);
   void saveSliceImage(int, int);
-  void resliceVolume(int, int, int);
+  void extractClip(int);
 
  public slots :
   void set(ClipInformation);

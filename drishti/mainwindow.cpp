@@ -4212,32 +4212,6 @@ MainWindow::reorientCameraUsingClipPlane(int cp)
 }
 
 void
-MainWindow::resliceVolume(int cp, int step1, int step2)
-{
-  ClipInformation clipInfo = GeometryObjects::clipplanes()->clipInfo();
-
-  Vec pos = clipInfo.pos[cp];
-  Vec tang  = clipInfo.rot[cp].rotate(Vec(0,0,1));
-  Vec xaxis = clipInfo.rot[cp].rotate(Vec(1,0,0));
-  Vec yaxis = clipInfo.rot[cp].rotate(Vec(0,1,0));
-  float scalex = clipInfo.scale1[cp];
-  float scaley = clipInfo.scale2[cp];
-
-  if (scalex > 0 || scaley > 0)
-    {
-      scalex = scaley = 100;
-    }
-  else
-    {
-      scalex = qAbs(scalex);
-      scaley = qAbs(scaley);
-    }
-
-  //m_Volume->resliceVolume(pos, tang, xaxis, yaxis, scalex, scaley, step1, step2);
-  m_Hires->resliceVolume(pos, tang, xaxis, yaxis, step1, step2);
-}
-
-void
 MainWindow::saveSliceImage(int cp, int step)
 {
   ClipInformation clipInfo = GeometryObjects::clipplanes()->clipInfo();
@@ -4368,6 +4342,22 @@ void
 MainWindow::extractPath(int pathIdx, bool fullThickness)
 {
   m_Hires->resliceUsingPath(pathIdx, fullThickness);
+}
+
+void
+MainWindow::extractClip(int clipIdx)
+{
+  ClipInformation clipInfo = GeometryObjects::clipplanes()->clipInfo();
+
+  Vec cpos = clipInfo.pos[clipIdx];
+  Quaternion rot = clipInfo.rot[clipIdx];
+  int thickness = clipInfo.thickness[clipIdx];
+  QVector4D vp = clipInfo.viewport[clipIdx];
+  float viewportScale = clipInfo.viewportScale[clipIdx];
+  int tfSet = clipInfo.tfSet[clipIdx];
+
+  m_Hires->resliceUsingClipPlane(cpos, rot, thickness,
+				 vp, viewportScale, tfSet);
 }
 
 void

@@ -1057,7 +1057,7 @@ ClipObject::processCommand(QString cmd)
       if (list.size() == 2) m_step1 = qMax(1, list[1].toInt(&ok));
       return true;
     }
-  else if (list[0] == "reslicevolume")
+  else if (list[0] == "reslice")
     {
       m_step1 = 1;
       m_step2 = 1;
@@ -1423,7 +1423,7 @@ ClipObject::commandEditor()
   vlist << QVariant("double");
   vlist << QVariant(m_viewportScale);
   vlist << QVariant(0.5);
-  vlist << QVariant(10.0);
+  vlist << QVariant(30.0);
   vlist << QVariant(0.1); // singlestep
   vlist << QVariant(1); // decimals
   plist["viewport scale"] = vlist;  

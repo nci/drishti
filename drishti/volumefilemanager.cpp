@@ -78,7 +78,7 @@ VolumeFileManager::removeFile()
       m_filename = m_baseFilename +
 	QString(".%1").arg(ns+1, 3, 10, QChar('0'));
 
-      QFile::remove(m_filename);
+      if (QFile::exists(m_filename)) QFile::remove(m_filename);
     }
 
   reset();

@@ -298,7 +298,7 @@ ClipPlanes::modViewportScale(int i, float v)
   if (i>= 0 && i<m_clips.count())
     {
       float vps = m_clips[i]->viewportScale();
-      vps = qBound(0.5f, vps+v*0.01f, 10.0f);
+      vps = qBound(0.5f, vps+v*0.01f, 30.0f);
       m_clips[i]->setViewportScale(vps);
     }
 }
@@ -657,9 +657,7 @@ ClipPlanes::viewportKeypressEvent(int i, QKeyEvent *event)
 	  if (m_clips[i]->saveSliceImage())
 	    emit saveSliceImage(i, m_clips[i]->step1());
 	  else if (m_clips[i]->resliceVolume())
-	    emit resliceVolume(i,
-			       m_clips[i]->step1(),
-			       m_clips[i]->step2());
+	    emit extractClip(i);
 	  else if (m_clips[i]->reorientCamera())
 	    emit reorientCameraUsingClipPlane(i);
 	}

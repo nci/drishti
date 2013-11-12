@@ -182,7 +182,6 @@ class MainWindow : public QMainWindow
    void mopCrop(int);
    void reorientCameraUsingClipPlane(int);
    void saveSliceImage(int, int);
-   void resliceVolume(int, int, int);
    void saveVolume();
    void maskRawVolume();
    void countIsolatedRegions();
@@ -194,6 +193,7 @@ class MainWindow : public QMainWindow
    void viewProfile(int, int, QList<Vec>);
    void viewThicknessProfile(int, int, QList< QPair<Vec, Vec> >);
 
+   void extractClip(int);
    void extractPath(int, bool);
    void pathExtractRaw(QList<Vec>,
 		       QList<Vec>, QList<float>,

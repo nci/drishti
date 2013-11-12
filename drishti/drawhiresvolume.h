@@ -11,6 +11,7 @@ using namespace qglviewer;
 #include "bricks.h"
 #include "cropobject.h"
 #include "pathobject.h"
+#include "volumefilemanager.h"
 
 #include <QGLWidget>
 #include <QGLFramebufferObject>
@@ -137,7 +138,9 @@ class DrawHiresVolume : public QObject
   
   void resliceVolume(Vec, Vec, Vec, Vec, int, int);
   void resliceUsingPath(int, bool);
-  
+  void resliceUsingClipPlane(Vec, Quaternion, int,
+			     QVector4D, float, int);
+
  signals :
   void histogramUpdated(QImage, QImage);
 
@@ -324,6 +327,8 @@ class DrawHiresVolume : public QObject
   
   void setShader2DTextureParameter(bool, bool);
   void setRenderDefault();
+
+  QString saveReslicedVolume(int, int, int, VolumeFileManager&);
 };
 
 #endif

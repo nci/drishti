@@ -78,8 +78,8 @@
     connect(GeometryObjects::clipplanes(), SIGNAL(saveSliceImage(int, int)),
 	    this, SLOT(saveSliceImage(int, int)));
 
-    connect(GeometryObjects::clipplanes(), SIGNAL(resliceVolume(int, int, int)),
-	this, SLOT(resliceVolume(int, int, int)));
+    connect(GeometryObjects::clipplanes(), SIGNAL(extractClip(int)),
+	this, SLOT(extractClip(int)));
 
     connect(GeometryObjects::clipplanes(), SIGNAL(reorientCameraUsingClipPlane(int)),
 	    this, SLOT(reorientCameraUsingClipPlane(int)));

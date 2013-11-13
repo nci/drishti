@@ -821,7 +821,7 @@ ShaderFactory::genVgx()
       shader += "  if (prunefeather.x < 0.005) discard;\n";
 
       // delta condition added for reslicing/ option
-      //shader += "  if (delta.x > 0.0001 && prunefeather.x < 0.005) discard;\n";
+      //shader += "  if (delta.x < 1.0 && prunefeather.x < 0.005) discard;\n";
 
       // tag values should be non interpolated - nearest neighbour
       shader += "  prunefeather.z = texture2DRect(pruneTex, vec2(floor(pvg0.x)+0.5,floor(pvg0.y)+0.5)).z;\n";
@@ -1007,10 +1007,6 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
     }
 
 
-//---------------------------------
-  shader += "if (delta.x < 0.0001) { gl_FragColor = vec4(vg.x, vg.x, vg.x, 1.0); return; }\n";
-//---------------------------------
-
   shader += "  vg1 = vg;\n";
   shader += "  vg.y += tfSet;\n";
   shader += "  gl_FragColor = texture2D(lutTex, vg.xy);\n";
@@ -1032,6 +1028,11 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
   
   if (pathViewPresent) shader += "pathblend(otexCoord, vg, gl_FragColor);\n";
   
+
+//---------------------------------
+  shader += "if (delta.x > 1.0)\n";
+  shader += "  { gl_FragColor = vec4(vg.x, gl_FragColor.a, vg.x, 1.0); return; }\n";
+//---------------------------------
 
 //------------------------------------
   shader += "gl_FragColor = 1.0-pow((vec4(1,1,1,1)-gl_FragColor),";

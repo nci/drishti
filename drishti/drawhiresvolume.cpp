@@ -5753,24 +5753,26 @@ DrawHiresVolume::resliceVolume(Vec pos,
 
   int vlod = m_Volume->getSubvolumeSubsamplingLevel();
 
-  int nslices = (dmax-dmin)/subsample/vlod;
-  int wd = (wmax-wmin)/subsample/vlod;
-  int ht = (hmax-hmin)/subsample/vlod;
+  int nslices = (dmax-dmin+1)/subsample/vlod;
+  int wd = (wmax-wmin+1)/subsample/vlod;
+  int ht = (hmax-hmin+1)/subsample/vlod;
 
   Vec sliceStart = pos + dmin*normal + wmin*xaxis + hmin*yaxis;
   Vec sliceEnd = pos + dmax*normal + wmin*xaxis + hmin*yaxis;
-  Vec endW = (wmax-wmin)*xaxis;
-  Vec endWH = (wmax-wmin)*xaxis + (hmax-hmin)*yaxis;
-  Vec endH = (hmax-hmin)*yaxis;
+  Vec endW = (wmax-wmin+1)*xaxis;
+  Vec endWH = (wmax-wmin+1)*xaxis + (hmax-hmin+1)*yaxis;
+  Vec endH = (hmax-hmin+1)*yaxis;
 
   VolumeFileManager pFileManager;
   
-  QString pFile = saveReslicedVolume(nslices, wd, ht, pFileManager);
+  QPair<QString, bool> srv = saveReslicedVolume(nslices, wd, ht, pFileManager);
+  QString pFile = srv.first;
+  bool saveValue = srv.second;
+
   if (pFile.isEmpty())
     return;
 
   uchar *slice = new uchar[wd*ht];
-
 
   // save slices to shadowbuffer
   GLuint target = GL_TEXTURE_RECTANGLE_EXT;
@@ -5830,7 +5832,7 @@ DrawHiresVolume::resliceVolume(Vec pos,
 
   glUniform1fARB(parm[18], 1.0); // depthcue
 
-  glUniform3fARB(parm[4], 0,0,0); // delta
+  glUniform3fARB(parm[4], 2,2,2); // delta
 
   QProgressDialog progress("Reslicing volume",
 			   QString(),
@@ -5911,7 +5913,11 @@ DrawHiresVolume::resliceVolume(Vec pos,
 	  glEnd();
 	} // slabs
 
-      glReadPixels(0, 0, wd, ht, GL_RED, GL_UNSIGNED_BYTE, slice);
+      if (saveValue)
+	glReadPixels(0, 0, wd, ht, GL_RED, GL_UNSIGNED_BYTE, slice);
+      else
+	glReadPixels(0, 0, wd, ht, GL_GREEN, GL_UNSIGNED_BYTE, slice);
+
       pFileManager.setSlice(nslices-1-sl, slice);
     }
 
@@ -5976,7 +5982,10 @@ DrawHiresVolume::resliceUsingPath(int pathIdx, bool fullThickness)
 
   VolumeFileManager pFileManager;
   
-  QString pFile = saveReslicedVolume(nslices, wd, ht, pFileManager);
+  QPair<QString, bool> srv = saveReslicedVolume(nslices, wd, ht, pFileManager);
+  QString pFile = srv.first;
+  bool saveValue = srv.second;
+
   if (pFile.isEmpty())
     return;
 
@@ -6044,7 +6053,7 @@ DrawHiresVolume::resliceUsingPath(int pathIdx, bool fullThickness)
 
   glUniform1fARB(parm[18], 1.0); // depthcue
 
-  glUniform3fARB(parm[4], 0,0,0); // delta
+  glUniform3fARB(parm[4], 2,2,2); // delta
 
   QProgressDialog progress("Reslicing volume",
 			   QString(),
@@ -6139,7 +6148,11 @@ DrawHiresVolume::resliceUsingPath(int pathIdx, bool fullThickness)
 	  
 	} // slabs
 
-      glReadPixels(0, 0, wd, ht, GL_RED, GL_UNSIGNED_BYTE, slice);
+      if (saveValue)
+	glReadPixels(0, 0, wd, ht, GL_RED, GL_UNSIGNED_BYTE, slice);
+      else
+	glReadPixels(0, 0, wd, ht, GL_GREEN, GL_UNSIGNED_BYTE, slice);
+
       pFileManager.setSlice(nslices-1-sl, slice);
     } // depth slices
 
@@ -6188,7 +6201,10 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
 
   VolumeFileManager pFileManager;
   
-  QString pFile = saveReslicedVolume(nslices, wd, ht, pFileManager);
+  QPair<QString, bool> srv = saveReslicedVolume(nslices, wd, ht, pFileManager);
+  QString pFile = srv.first;
+  bool saveValue = srv.second;
+
   if (pFile.isEmpty())
     return;
 
@@ -6256,7 +6272,7 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
 
   glUniform1fARB(parm[18], 1.0); // depthcue
 
-  glUniform3fARB(parm[4], 0,0,0); // delta
+  glUniform3fARB(parm[4], 2,2,2); // delta
 
   QProgressDialog progress("Reslicing volume",
 			   QString(),
@@ -6335,7 +6351,11 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
 	  glEnd();
 	} // slabs
 
-      glReadPixels(0, 0, wd, ht, GL_RED, GL_UNSIGNED_BYTE, slice);
+      if (saveValue)
+	glReadPixels(0, 0, wd, ht, GL_RED, GL_UNSIGNED_BYTE, slice);
+      else
+	glReadPixels(0, 0, wd, ht, GL_GREEN, GL_UNSIGNED_BYTE, slice);
+
       pFileManager.setSlice(sl, slice);
     }
 
@@ -6359,26 +6379,26 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
 			   QString("Resliced volume saved to %1 and %1.001").arg(pFile));
 }
 
-QString
+QPair<QString, bool>
 DrawHiresVolume::saveReslicedVolume(int nslices, int wd, int ht,
 				    VolumeFileManager &pFileManager)
 {
   QFileDialog fdialog(0,
-		      "Save Resliced Volume",
+		      QString("Save Resliced Volume (volume size : %1 %2 %3)").
+		      arg(wd).arg(ht).arg(nslices),
 		      Global::previousDirectory(),
 		      "Processed (*.pvl.nc)");
   
   fdialog.setAcceptMode(QFileDialog::AcceptSave);
   
   if (!fdialog.exec() == QFileDialog::Accepted)
-    return QString();
+    return qMakePair(QString(), true);
   
   QString pFile = fdialog.selectedFiles().value(0);
   if (!pFile.endsWith(".pvl.nc"))
     pFile += ".pvl.nc";
   
   
-  //VolumeFileManager pFileManager;
   int slabSize = nslices+1;
   if (QFile::exists(pFile)) QFile::remove(pFile);
   
@@ -6423,5 +6443,18 @@ DrawHiresVolume::saveReslicedVolume(int nslices, int wd, int ht,
 				 pvlInfo.description,
 				 slabSize);
 
-  return pFile;
+
+
+  QStringList items;
+  items << "value" << "opacity";
+  QString yn = QInputDialog::getItem(0, "Save Volume",
+				     "Save Value or Opacity ?",
+				     items,
+				     0,
+				     false);
+
+  bool saveValue = true;
+  if (yn == "opacity") saveValue = false;
+
+  return qMakePair(pFile, saveValue) ;
 }

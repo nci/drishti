@@ -3327,17 +3327,14 @@ Viewer::processCommand(QString cmd)
  
   if (list[0] == "reslice")
     {
-      int step1, step2;
-      step1 = step2 = 1;
-      if (list.size() > 1) step1 = qMax(1, list[1].toInt(&ok));
-      if (list.size() > 2) step2 = qMax(1, list[2].toInt(&ok));
+      int subsample = 1;
+      if (list.size() > 1) subsample = qMax(1, list[1].toInt(&ok));
 
       m_hiresVolume->resliceVolume(camera()->position(),
 				   camera()->viewDirection(),
 				   camera()->rightVector(),
 				   camera()->upVector(),
-				   step1,
-				   step2);
+				   subsample);
     }
   else if (list[0] == "depthcue")
     {

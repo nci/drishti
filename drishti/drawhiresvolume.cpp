@@ -5712,7 +5712,7 @@ DrawHiresVolume::drawBackground()
 void
 DrawHiresVolume::resliceVolume(Vec pos,
 			       Vec normal, Vec xaxis, Vec yaxis,
-			       int step1, int step2)
+			       int subsample)
 {
   //--- drop perpendiculars onto normal from all 8 vertices of the subvolume 
   Vec box[8];
@@ -5753,10 +5753,15 @@ DrawHiresVolume::resliceVolume(Vec pos,
 
   int vlod = m_Volume->getSubvolumeSubsamplingLevel();
 
-  int nslices = (dmax-dmin)/step2;
-  int wd = (wmax-wmin)/step1;
-  int ht = (hmax-hmin)/step1;
-  Vec sliceZero = pos + dmin*normal + wmin*xaxis + hmin*yaxis;
+  int nslices = (dmax-dmin)/subsample/vlod;
+  int wd = (wmax-wmin)/subsample/vlod;
+  int ht = (hmax-hmin)/subsample/vlod;
+
+  Vec sliceStart = pos + dmin*normal + wmin*xaxis + hmin*yaxis;
+  Vec sliceEnd = pos + dmax*normal + wmin*xaxis + hmin*yaxis;
+  Vec endW = (wmax-wmin)*xaxis;
+  Vec endWH = (wmax-wmin)*xaxis + (hmax-hmin)*yaxis;
+  Vec endH = (hmax-hmin)*yaxis;
 
   VolumeFileManager pFileManager;
   
@@ -5840,7 +5845,9 @@ DrawHiresVolume::resliceVolume(Vec pos,
   
   for(int sl=0; sl<nslices; sl++)
     {
-      Vec po = (sliceZero + sl*normal*step2);
+      float sf = (float)sl/(float)(nslices-1);
+      Vec po = (1.0-sf)*sliceStart + sf*sliceEnd;
+
       progress.setValue(100*(float)sl/(float)nslices);
 
       glClear(GL_DEPTH_BUFFER_BIT);
@@ -5882,22 +5889,22 @@ DrawHiresVolume::resliceVolume(Vec pos,
 	  glBegin(GL_QUADS);
 
 	  Vec v = po;
-	  v = VECDIVIDE(v, voxelScaling);
+	  //v = VECDIVIDE(v, voxelScaling);
 	  glMultiTexCoord3dv(GL_TEXTURE0, v);
 	  glVertex3f(0, 0, 0);
 
-	  v = po + wd*xaxis*step1;
-	  v = VECDIVIDE(v, voxelScaling);
+	  v = po + endW;
+	  //v = VECDIVIDE(v, voxelScaling);
 	  glMultiTexCoord3dv(GL_TEXTURE0, v);
 	  glVertex3f(wd, 0, 0);
 
-	  v = po + wd*xaxis*step1 + ht*yaxis*step1;
-	  v = VECDIVIDE(v, voxelScaling);
+	  v = po + endWH;
+	  //v = VECDIVIDE(v, voxelScaling);
 	  glMultiTexCoord3dv(GL_TEXTURE0, v);
 	  glVertex3f(wd, ht, 0);
 
-	  v = po + ht*yaxis*step1;
-	  v = VECDIVIDE(v, voxelScaling);
+	  v = po + endH;
+	  //v = VECDIVIDE(v, voxelScaling);
 	  glMultiTexCoord3dv(GL_TEXTURE0, v);
 	  glVertex3f(0, ht, 0);
 

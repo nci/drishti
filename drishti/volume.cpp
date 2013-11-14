@@ -1175,23 +1175,6 @@ uchar* Volume::getLowresTextureVolume()
 }
 
 void
-Volume::getVolume(uchar *lut,
-		  QList<Vec> clipPos,
-		  QList<Vec> clipNormal,
-		  QList<CropObject> crops,
-		  QList<PathObject> paths)
-{
-  if (Global::volumeType() == Global::SingleVolume)
-    m_volume[0]->getVolume(lut,
-			   clipPos, clipNormal,
-			   crops,
-			   paths);
-  else
-    QMessageBox::critical(0, "Error",
-			  "Volume calculations possible only for single volumes");
-}
-
-void
 Volume::getSurfaceArea(uchar *lut,
 		       QList<Vec> clipPos,
 		       QList<Vec> clipNormal,
@@ -1268,31 +1251,6 @@ Volume::countIsolatedRegions(uchar *lut,
     QMessageBox::critical(0, "Error",
 			  "Save masked raw volume possible only for single volumes");
 }
-
-
-void
-Volume::extractPath(uchar *lut,
-		    QList<Vec> clipPos,
-		    QList<Vec> clipNormal,
-		    QList<CropObject> crops,
-		    QList<PathObject> paths,
-		    QList<Vec> points,
-		    QList<Vec> pathPoints, QList<float> pathAngles,
-		    int rads, int radt, bool nearest)
-{
-  if (Global::volumeType() == Global::SingleVolume)
-    m_volume[0]->extractPath(lut,
-			     clipPos, clipNormal,
-			     crops,
-			     paths,
-			     points,
-			     pathPoints, pathAngles,
-			     rads, radt, nearest);
-  else
-    QMessageBox::critical(0, "Error",
-			  "Extract path possible only for single volumes");
-}
-
 
 QBitArray
 Volume::getBitmask(uchar *lut,

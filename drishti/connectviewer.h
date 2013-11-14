@@ -31,12 +31,6 @@
   connect(m_Viewer, SIGNAL(countIsolatedRegions()),
 	  this, SLOT(countIsolatedRegions()));
 
-  connect(m_Viewer, SIGNAL(getVolume()),
-	  this, SLOT(getVolume()));
-
-  connect(m_Viewer, SIGNAL(getVolume(unsigned char)),
-	  this, SLOT(getVolume(unsigned char)));
-
   connect(m_Viewer, SIGNAL(getSurfaceArea()),
 	  this, SLOT(getSurfaceArea()));
 

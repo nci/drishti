@@ -5712,7 +5712,8 @@ DrawHiresVolume::drawBackground()
 void
 DrawHiresVolume::resliceVolume(Vec pos,
 			       Vec normal, Vec xaxis, Vec yaxis,
-			       int subsample)
+			       int subsample,
+			       bool getVolume, int tagValue)
 {
   //--- drop perpendiculars onto normal from all 8 vertices of the subvolume 
   Vec box[8];
@@ -5764,15 +5765,24 @@ DrawHiresVolume::resliceVolume(Vec pos,
   Vec endH = (hmax-hmin+1)*yaxis;
 
   VolumeFileManager pFileManager;
-  
-  QPair<QString, bool> srv = saveReslicedVolume(nslices, wd, ht, pFileManager);
-  QString pFile = srv.first;
-  bool saveValue = srv.second;
+  QString pFile;
+  bool saveValue=true;
 
-  if (pFile.isEmpty())
-    return;
+  if (!getVolume)
+    {
+      QPair<QString, bool> srv = saveReslicedVolume(nslices, wd, ht, pFileManager);
+      pFile = srv.first;
+      saveValue = srv.second;
+      if (pFile.isEmpty())
+	return;
+    }
+  else
+    saveValue = false; // for getVolume we need opacity
 
   uchar *slice = new uchar[wd*ht];
+  uchar *tag = 0;
+  if (tagValue >= 0)
+    tag = new uchar[wd*ht];
 
   // save slices to shadowbuffer
   GLuint target = GL_TEXTURE_RECTANGLE_EXT;
@@ -5844,6 +5854,8 @@ DrawHiresVolume::resliceVolume(Vec pos,
 
   glClearDepth(0);
   glClearColor(0,0,0,0);
+
+  qint64 nonZeroVoxels=0;
   
   for(int sl=0; sl<nslices; sl++)
     {
@@ -5891,22 +5903,18 @@ DrawHiresVolume::resliceVolume(Vec pos,
 	  glBegin(GL_QUADS);
 
 	  Vec v = po;
-	  //v = VECDIVIDE(v, voxelScaling);
 	  glMultiTexCoord3dv(GL_TEXTURE0, v);
 	  glVertex3f(0, 0, 0);
 
 	  v = po + endW;
-	  //v = VECDIVIDE(v, voxelScaling);
 	  glMultiTexCoord3dv(GL_TEXTURE0, v);
 	  glVertex3f(wd, 0, 0);
 
 	  v = po + endWH;
-	  //v = VECDIVIDE(v, voxelScaling);
 	  glMultiTexCoord3dv(GL_TEXTURE0, v);
 	  glVertex3f(wd, ht, 0);
 
 	  v = po + endH;
-	  //v = VECDIVIDE(v, voxelScaling);
 	  glMultiTexCoord3dv(GL_TEXTURE0, v);
 	  glVertex3f(0, ht, 0);
 
@@ -5918,7 +5926,24 @@ DrawHiresVolume::resliceVolume(Vec pos,
       else
 	glReadPixels(0, 0, wd, ht, GL_GREEN, GL_UNSIGNED_BYTE, slice);
 
-      pFileManager.setSlice(nslices-1-sl, slice);
+      if (tagValue >= 0)
+	{
+	  glReadPixels(0, 0, wd, ht, GL_BLUE, GL_UNSIGNED_BYTE, tag);
+	  for(int p=0; p<wd*ht; p++)
+	    {
+	      if (tag[p] != tagValue) slice[p] = 0;
+	    }
+	}
+
+      if (!getVolume)
+	pFileManager.setSlice(nslices-1-sl, slice);
+      else
+	{
+	  for(int p=0; p<wd*ht; p++)
+	    {
+	      if (slice[p] > 0) nonZeroVoxels++;
+	    }
+	}
     }
 
   m_shadowBuffer->release();
@@ -5926,6 +5951,8 @@ DrawHiresVolume::resliceVolume(Vec pos,
   progress.setValue(100);
 
   delete [] slice;
+  if (tagValue >= 0)
+    delete [] tag;
 
   glUseProgramObjectARB(0);
   disableTextureUnits();  
@@ -5937,8 +5964,34 @@ DrawHiresVolume::resliceVolume(Vec pos,
 
   glEnable(GL_DEPTH_TEST);
 
-  QMessageBox::information(0, "Saved Resliced Volume",
-			   QString("Resliced volume saved to %1 and %1.001").arg(pFile));
+  if (getVolume)
+    {
+      VolumeInformation pvlInfo = VolumeInformation::volumeInformation();
+      Vec voxelSize = pvlInfo.voxelSize;
+      float voxvol = nonZeroVoxels*voxelSize.x*voxelSize.y*voxelSize.z*vlod*vlod*vlod;
+
+      QString str;
+      str = QString("Subsampling Level : %1 - ").arg(vlod);
+      if (vlod==1) str += " (i.e. full resolution)\n";
+      else str += QString(" (i.e. every %1 voxel)\n").arg(vlod);
+      str += QString("\nNon-Zero Voxels : %1\n").arg(nonZeroVoxels);
+      str += QString("Non-Zero Voxel Volume : %1 %2\n").	\
+	arg(voxvol).						\
+	arg(pvlInfo.voxelUnitStringShort());
+      
+      float totvol = (dmax-dmin+1);
+      totvol *= (wmax-wmin+1);
+      totvol *= (hmax-hmin+1);
+      float percent = (float)nonZeroVoxels*vlod*vlod*vlod/totvol;
+      percent *= 100.0;
+      str += QString("Percent Non-Zero Voxels : %1\n").arg(percent);
+      
+      QMessageBox::information(0, "Volume Calculation", str);
+    }
+  else
+    QMessageBox::information(0, "Saved Resliced Volume",
+			     QString("Resliced volume saved to %1 and %1.001").\
+			     arg(pFile));
 }
 
 void

@@ -4292,19 +4292,6 @@ MainWindow::countIsolatedRegions()
 }
 
 void
-MainWindow::getVolume()
-{
-  QList<Vec> clipPos;
-  QList<Vec> clipNormal;
-  m_Hires->getClipForMask(clipPos, clipNormal);
-
-  m_Volume->getVolume(m_Viewer->lookupTable(),
-		      clipPos, clipNormal,
-		      GeometryObjects::crops()->crops(),
-		      GeometryObjects::paths()->paths());
-}
-
-void
 MainWindow::getSurfaceArea()
 {
   QList<Vec> clipPos;
@@ -4317,7 +4304,6 @@ MainWindow::getSurfaceArea()
 			   GeometryObjects::paths()->paths());
 }
 
-void MainWindow::getVolume(unsigned char tag) { }
 void MainWindow::getSurfaceArea(unsigned char tag) { }
 
 void
@@ -4359,65 +4345,6 @@ MainWindow::extractClip(int clipIdx)
   m_Hires->resliceUsingClipPlane(cpos, rot, thickness,
 				 vp, viewportScale, tfSet);
 }
-
-void
-MainWindow::pathExtractRaw(QList<Vec> points,
-			   QList<Vec> pathPoints,
-			   QList<float> pathAngles,
-			   int rads, int radt,
-			   bool nearest)			   
-{
-  QList<Vec> clipPos;
-  QList<Vec> clipNormal;
-  m_Hires->getClipForMask(clipPos, clipNormal);
-
-  m_Volume->extractPath(m_Viewer->lookupTable(),
-			clipPos, clipNormal,
-			GeometryObjects::crops()->crops(),
-			GeometryObjects::paths()->paths(),
-			points,
-			pathPoints, pathAngles,
-			rads, radt, nearest);
-  
-//  Vec bmin = m_Hires->volumeMin();
-//  Vec bmax = m_Hires->volumeMax();
-//
-//  QBitArray bitmask = m_Volume->getBitmask(m_Viewer->lookupTable(),
-//					   clipPos, clipNormal,
-//					   GeometryObjects::crops()->crops(),
-//					   GeometryObjects::paths()->paths());
-//
-//  RawVolume::extractPath(points,
-//			 pathPoints, pathAngles,
-//			 rads, radt, nearest,
-//			 bmin, bmax, bitmask);
-}
-void
-MainWindow::patchExtractRaw(QList<Vec> points,
-			    QList<Vec> pathPoints,
-			    QList<float> pathAngles,
-			    int rads, int radt,
-			    bool nearest,
-			    bool dohalf, int godeep)			   
-{
-  QList<Vec> clipPos;
-  QList<Vec> clipNormal;
-  m_Hires->getClipForMask(clipPos, clipNormal);
-  Vec bmin = m_Hires->volumeMin();
-  Vec bmax = m_Hires->volumeMax();
-
-  QBitArray bitmask = m_Volume->getBitmask(m_Viewer->lookupTable(),
-					   clipPos, clipNormal,
-					   GeometryObjects::crops()->crops(),
-					   GeometryObjects::paths()->paths());
-
-  RawVolume::extractPatch(points,
-			  pathPoints, pathAngles,
-			  rads, radt, nearest,
-			  dohalf, godeep,
-			  bmin, bmax, bitmask);
-}
-
 
 void
 MainWindow::viewProfile(int segments,

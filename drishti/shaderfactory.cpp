@@ -1030,8 +1030,16 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
   
 
 //---------------------------------
-  shader += "if (delta.x > 1.0)\n";
-  shader += "  { gl_FragColor = vec4(vg.x, gl_FragColor.a, vg.x, 1.0); return; }\n";
+  if (Global::emptySpaceSkip())
+    {
+      shader += "if (delta.x > 1.0)\n";
+      shader += "  { gl_FragColor = vec4(vg.x, gl_FragColor.a, prunefeather.z, 1.0); return; }\n";
+    }
+  else
+    {
+      shader += "if (delta.x > 1.0)\n";
+      shader += "  { gl_FragColor = vec4(vg.x, gl_FragColor.a, 0.0, 1.0); return; }\n";
+    }
 //---------------------------------
 
 //------------------------------------

@@ -73,13 +73,6 @@ class VolumeSingle : public VolumeBase
 
   VolumeInformation volInfo(int vnum=0);
 
-
-  void getVolume(unsigned char*,
-		 QList<Vec>,
-		 QList<Vec>,
-		 QList<CropObject>,
-		 QList<PathObject>);
-  
   void getSurfaceArea(unsigned char*,
 		      QList<Vec>,
 		      QList<Vec>,
@@ -118,15 +111,6 @@ class VolumeSingle : public VolumeBase
 			    QList<Vec>,
 			    QList<CropObject>,
 			    QList<PathObject>);
-
-  void extractPath(uchar*,
-		   QList<Vec>,
-		   QList<Vec>,
-		   QList<CropObject>,
-		   QList<PathObject>,
-		   QList<Vec>,
-		   QList<Vec>, QList<float>,
-		   int, int, bool);
 
  private :
   VolumeFileManager m_pvlFileManager;

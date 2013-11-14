@@ -3328,13 +3328,17 @@ Viewer::processCommand(QString cmd)
   if (list[0] == "reslice")
     {
       int subsample = 1;
+      int tagvalue = -1;
       if (list.size() > 1) subsample = qMax(1, list[1].toInt(&ok));
+      if (list.size() > 2) tagvalue = list[2].toInt(&ok);
 
       m_hiresVolume->resliceVolume(camera()->position(),
 				   camera()->viewDirection(),
 				   camera()->rightVector(),
 				   camera()->upVector(),
-				   subsample);
+				   subsample,
+				   false, tagvalue);
+      return;
     }
   else if (list[0] == "depthcue")
     {
@@ -4108,26 +4112,6 @@ Viewer::processCommand(QString cmd)
       else
 	QMessageBox::critical(0, "Error", "Need 3 points to add clipplane"); 
     }
-  else if (list[0] == "savevolume")
-    {
-      if (! m_hiresVolume->raised())
-	{
-	  emit showMessage("Cannot apply command in Lowres mode", true);
-	  return;
-	}
-
-      emit saveVolume();
-    }
-  else if (list[0] == "maskrawvolume")
-    {
-      if (! m_hiresVolume->raised())
-	{
-	  emit showMessage("Cannot apply command in Lowres mode", true);
-	  return;
-	}
-
-      emit maskRawVolume();
-    }
   else if (list[0] == "countcells")
     {
       if (! m_hiresVolume->raised())
@@ -4147,14 +4131,21 @@ Viewer::processCommand(QString cmd)
 	  return;
 	}
 
+      Vec smin = m_lowresVolume->volumeMin();
+      Vec smax = m_lowresVolume->volumeMax();
       if (list.size() == 1)
-	emit getVolume();
+	m_hiresVolume->resliceVolume((smax+smin)*0.5,
+				     Vec(0,0,1), Vec(1,0,0), Vec(0,1,0),
+				     1,
+				     true, -1); // use opacity to getVolume
       else
 	{
 	  int tag = list[1].toInt(&ok);
-	  if (ok &&
-	      tag >= 0 && tag <= 255)
-	    emit getVolume((unsigned char)tag);
+	  if (ok && tag >= 0 && tag <= 255)
+	    m_hiresVolume->resliceVolume((smax+smin)*0.5,
+					 Vec(0,0,1), Vec(1,0,0), Vec(0,1,0),
+					 1,
+					 true, tag); // use opacity to getVolume
 	  else
 	    QMessageBox::critical(0, "Error",
 				     "Tag value should be between 0 and 255");

@@ -89,12 +89,6 @@ class Volume : public QObject
   int* getLowres2dHistogram();
   unsigned char* getLowresTextureVolume();
 
-  void getVolume(unsigned char*,
-		 QList<Vec>,
-		 QList<Vec>,
-		 QList<CropObject>,
-		 QList<PathObject>);
-
   void getSurfaceArea(unsigned char*,
 		      QList<Vec>,
 		      QList<Vec>,
@@ -147,15 +141,6 @@ class Volume : public QObject
 			    QList<Vec>,
 			    QList<CropObject>,
 			    QList<PathObject>);
-
-  void extractPath(uchar *lut,
-		   QList<Vec> clipPos,
-		   QList<Vec> clipNormal,
-		   QList<CropObject> crops,
-		   QList<PathObject> paths,
-		   QList<Vec>,
-		   QList<Vec>, QList<float>,
-		   int, int, bool);
 
  private :
   QList<VolumeSingle*> m_volume;

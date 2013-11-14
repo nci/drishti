@@ -185,9 +185,7 @@ class MainWindow : public QMainWindow
    void saveVolume();
    void maskRawVolume();
    void countIsolatedRegions();
-   void getVolume();
    void getSurfaceArea();
-   void getVolume(unsigned char);
    void getSurfaceArea(unsigned char);
 
    void viewProfile(int, int, QList<Vec>);
@@ -195,13 +193,6 @@ class MainWindow : public QMainWindow
 
    void extractClip(int);
    void extractPath(int, bool);
-   void pathExtractRaw(QList<Vec>,
-		       QList<Vec>, QList<float>,
-		       int, int, bool);
-   void patchExtractRaw(QList<Vec>,
-			QList<Vec>, QList<float>,
-			int, int, bool,
-			bool, int);
 
    void addRotationAnimation(int, float, int);
 

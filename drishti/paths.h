@@ -72,13 +72,6 @@ class Paths : public QObject
   void showThicknessProfile(int, int, QList< QPair<Vec, Vec> >);
 
   void extractPath(int, bool);
-  void pathExtractRaw(QList<Vec>,
-		      QList<Vec>, QList<float>,
-		      int, int, bool);
-  void patchExtractRaw(QList<Vec>,
-		       QList<Vec>, QList<float>,
-		       int, int, bool,
-		       bool, int);
 
   void sculpt(int, QList<Vec>, float, float, int);
   void fillPathPatch(QList<Vec>, int, int);

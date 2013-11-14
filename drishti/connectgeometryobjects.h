@@ -41,26 +41,6 @@
     connect(GeometryObjects::paths(), SIGNAL(extractPath(int, bool)),
 	    this, SLOT(extractPath(int, bool)));
 
-    connect(GeometryObjects::paths(),
-	    SIGNAL(pathExtractRaw(QList<Vec>,
-				  QList<Vec>, QList<float>,
-				  int, int, bool)),
-	    this,
-	    SLOT(pathExtractRaw(QList<Vec>,
-				QList<Vec>, QList<float>,
-				int, int, bool)));
-
-    connect(GeometryObjects::paths(),
-	    SIGNAL(patchExtractRaw(QList<Vec>,
-				   QList<Vec>, QList<float>,
-				   int, int, bool,
-				   bool, int)),
-	    this,
-	    SLOT(patchExtractRaw(QList<Vec>,
-				 QList<Vec>, QList<float>,
-				 int, int, bool,
-				 bool, int)));
-
     connect(GeometryObjects::paths(), SIGNAL(updateGL()),
 	    m_Viewer, SLOT(updateGL()));
 

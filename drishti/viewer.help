@@ -1,4 +1,21 @@
 #begin
+reslice
+reslice
+reslice [subsample] [tag]
+
+Save resliced volume as defined by the current orientation. The selected subvolume is resliced along the view direction.  Users can save value or opacity using this option.
+
+The amount of subsampling is governed by the parameter subsample.  Default value is 1 - i.e. take every voxel.
+
+The tag parameter controls the tagged voxels that are saved.  Default value is -1 - i.e. save all voxels whether they are tagged or not.
+
+Example :
+reslice 2 : save with factor of 2 reduction, save all voxels.
+reslice 2 0 : save with factor of 2 reduction, save only voxels that are tagged 0.
+reslice 2 1 : save with factor of 2 reduction, save only voxels that are tagged 1.
+#end
+
+#begin
 tempdir
 tempdir/resettempdir
 Set temporary directory to store temporary files created by the program.

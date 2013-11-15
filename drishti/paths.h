@@ -71,7 +71,7 @@ class Paths : public QObject
   void showProfile(int, int, QList<Vec>);
   void showThicknessProfile(int, int, QList< QPair<Vec, Vec> >);
 
-  void extractPath(int, bool);
+  void extractPath(int, bool, int, int);
 
   void sculpt(int, QList<Vec>, float, float, int);
   void fillPathPatch(QList<Vec>, int, int);

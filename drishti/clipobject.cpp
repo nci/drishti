@@ -144,8 +144,8 @@ bool ClipObject::mopClip() { return m_mopClip; }
 bool ClipObject::reorientCamera() { return m_reorientCamera; }
 bool ClipObject::saveSliceImage() { return m_saveSliceImage; }
 bool ClipObject::resliceVolume() { return m_resliceVolume; }
-int ClipObject::step1() { return m_step1; }
-int ClipObject::step2() { return m_step2; }
+int ClipObject::resliceSubsample() { return m_resliceSubsample; }
+int ClipObject::resliceTag() { return m_resliceTag; }
 
 void ClipObject::setGridX(int g) { m_gridX = g; }
 void ClipObject::setGridY(int g) { m_gridY = g; }
@@ -160,8 +160,8 @@ ClipObject::ClipObject()
   m_reorientCamera = false;
   m_saveSliceImage = false;
   m_resliceVolume = false;
-  m_step1 = 1;
-  m_step2 = 1;
+  m_resliceSubsample = 1;
+  m_resliceTag = -1;
 
   m_solidColor = false;
   m_show = true;
@@ -1052,18 +1052,18 @@ ClipObject::processCommand(QString cmd)
     }
   else if (list[0] == "savesliceimage")
     {
-      m_step1 = 1;
+      m_resliceSubsample = 1;
       m_saveSliceImage = true;
-      if (list.size() == 2) m_step1 = qMax(1, list[1].toInt(&ok));
+      if (list.size() == 2) m_resliceSubsample = qMax(1, list[1].toInt(&ok));
       return true;
     }
   else if (list[0] == "reslice")
     {
-      m_step1 = 1;
-      m_step2 = 1;
+      m_resliceSubsample = 1;
+      m_resliceTag = -1;
       m_resliceVolume = true;
-      if (list.size() > 1) m_step1 = qMax(1, list[1].toInt(&ok));
-      if (list.size() > 2) m_step2 = qMax(1, list[2].toInt(&ok));
+      if (list.size() > 1) m_resliceSubsample = qMax(1, list[1].toInt(&ok));
+      if (list.size() > 2) m_resliceTag = list[2].toInt(&ok);
       return true;
     }
   else if (list[0] == "grid")

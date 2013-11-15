@@ -1154,14 +1154,40 @@ Paths::processCommand(int idx, QString cmd)
       else if (list[li] == "reslice")
 	{
 	  bool fullThickness = false;
+	  int subsample = 1;
 	  if (list.size()-li > 1)
 	    {
-	      if (list[li+1] == "full")
-		fullThickness = true;
+	      subsample = qMax(1, list[li+1].toInt(&ok));
 	      li++;
 	    }
 
-	  emit extractPath(idx, fullThickness);
+	  int tagvalue = -1;
+	  if (list.size()-li > 1)
+	    {
+	      tagvalue = list[li+1].toInt(&ok);
+	      li++;
+	    }
+
+	  emit extractPath(idx, fullThickness, subsample, tagvalue);
+	}
+      else if (list[li] == "reslicefull")
+	{
+	  bool fullThickness = true;
+	  int subsample = 1;
+	  if (list.size()-li > 1)
+	    {
+	      subsample = qMax(1, list[li+1].toInt(&ok));
+	      li++;
+	    }
+
+	  int tagvalue = -1;
+	  if (list.size()-li > 1)
+	    {
+	      tagvalue = list[li+1].toInt(&ok);
+	      li++;
+	    }
+
+	  emit extractPath(idx, fullThickness, subsample, tagvalue);
 	}
       else if (list[li] == "nocaption")
 	{

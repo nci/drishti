@@ -32,19 +32,22 @@ savesliceimage 2 : save a quarter sized image.
 #end
 
 #begin
-reslicevolume
-reslicevolume
-reslicevolume step1 step2
+reslice
+reslice
+reslice [subsample] [tag]
 
-Save resliced volume as defined by the clip plane. The selected subvolume is resliced along the normal of the clip plane and using the dimensions of the clip plane. The dimensions for the clipplane are given by the scale parameter.
+Save resliced volume as defined by the clip plane. The selected subvolume is resliced along the normal direction.  The extent and thickness parameter of the clip plane defines the extend of the volume saved.  The viewport needs to be active in order to save the volume using this option.  The transfer function set used for viewport governs the voxels saved.  Users can save value or opacity using this option.
 
-step1 and step2 parameters can be used to reduce the dimensions of the resliced volume, while still covering the same area. step1 is used for in-plane reduction and step2 is used for reduction along the clipplane normal direction. The normal direction is the slowest varying index for the volume saved. The volume is saved as unsigned char per voxel in the .raw format. The resulting volume may be split among multiple files.
+The amount of subsampling is governed by the parameter subsample.  Default value is 1 - i.e. take every voxel.
+
+The tag parameter controls the tagged voxels that are saved.  Default value is -1 - i.e. save all voxels whether they are tagged or not.
 
 Example :
-reslicevolume 2 1: save with factor of 2 reduction in the plane and no reduction along the normal direction.
-
-reslicevolume can be very slow for large volumes.
+reslice 2 : save with factor of 2 reduction, save all voxels.
+reslice 2 0 : save with factor of 2 reduction, save only voxels that are tagged 0.
+reslice 2 1 : save with factor of 2 reduction, save only voxels that are tagged 1.
 #end
+
 
 #begin
 solidcolor

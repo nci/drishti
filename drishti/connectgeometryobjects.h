@@ -38,8 +38,8 @@
 	    this,
 	    SLOT(sculpt(int, QList<Vec>, float, float, int)));
 
-    connect(GeometryObjects::paths(), SIGNAL(extractPath(int, bool)),
-	    this, SLOT(extractPath(int, bool)));
+connect(GeometryObjects::paths(), SIGNAL(extractPath(int, bool, int, int)),
+	    this, SLOT(extractPath(int, bool, int, int)));
 
     connect(GeometryObjects::paths(), SIGNAL(updateGL()),
 	    m_Viewer, SLOT(updateGL()));
@@ -58,8 +58,8 @@
     connect(GeometryObjects::clipplanes(), SIGNAL(saveSliceImage(int, int)),
 	    this, SLOT(saveSliceImage(int, int)));
 
-    connect(GeometryObjects::clipplanes(), SIGNAL(extractClip(int)),
-	this, SLOT(extractClip(int)));
+    connect(GeometryObjects::clipplanes(), SIGNAL(extractClip(int, int, int)),
+	    this, SLOT(extractClip(int, int, int)));
 
     connect(GeometryObjects::clipplanes(), SIGNAL(reorientCameraUsingClipPlane(int)),
 	    this, SLOT(reorientCameraUsingClipPlane(int)));

@@ -1,4 +1,37 @@
 #begin
+reslice
+reslice
+reslice [subsample] [tag]
+
+Save resliced volume as defined by the path. The selected subvolume is resliced along theview direction as seen in the path viewport.  The length of green axis defines depth, the length of path defines width and height of the volume saved is twice the length of red axis.
+
+The viewport needs to be active in order to save the volume using this option.  The transfer function set used for viewport governs the voxels saved.  Users can save value or opacity using this option. 
+
+The amount of subsampling is governed by the parameter subsample.  Default value is 1 - i.e. take every voxel.
+
+The tag parameter controls the tagged voxels that are saved.  Default value is -1 - i.e. save all voxels whether they are tagged or not.
+
+Example :
+reslice 2 : save with factor of 2 reduction, save all voxels.
+reslice 2 0 : save with factor of 2 reduction, save only voxels that are tagged 0.
+reslice 2 1 : save with factor of 2 reduction, save only voxels that are tagged 1.
+#end
+
+#begin
+reslicefull
+reslicefull
+reslicefull [subsample] [tag]
+
+Save resliced volume as defined by the path. The only difference between reslice and reslicefull is that in the case of reslicefull, the depth of the volume saved is twice the length of green axis.  The depth and width are same as with reslice option.
+
+Example :
+reslicefull 2 : save with factor of 2 reduction, save all voxels.
+reslicefull 2 0 : save with factor of 2 reduction, save only voxels that are tagged 0.
+reslicefull 2 1 : save with factor of 2 reduction, save only voxels that are tagged 1.
+#end
+
+
+#begin
 addcamerapath
 Add a new animation keyframe for each point on path.  Each keyframe will have camera pointing in the direction along the path.  The keyframes are added 10 frames apart, these can then be moved in order to speedup or slow the animation.
 An example where this option of adding keyframes could be used is when one wants to follow a tubular structure.  In this case rather than actually repositioning the camera at each point of interest, user can just create a path and make the camera follow this path by using "addcamerapath" command.

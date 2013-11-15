@@ -5995,7 +5995,9 @@ DrawHiresVolume::resliceVolume(Vec pos,
 }
 
 void
-DrawHiresVolume::resliceUsingPath(int pathIdx, bool fullThickness)
+DrawHiresVolume::resliceUsingPath(int pathIdx, bool fullThickness,
+				  int subsample, int tagValue)
+
 {
   Vec voxelScaling = VolumeInformation::volumeInformation().voxelSize;
 
@@ -6028,10 +6030,11 @@ DrawHiresVolume::resliceUsingPath(int pathIdx, bool fullThickness)
       maxheight = max(maxheight, ht);
     }
 
-  int nslices = maxthick;
-  if (fullThickness) nslices = 2*maxthick;
-  int wd = pathLength;
-  int ht = 2*maxheight;
+  int vlod = m_Volume->getSubvolumeSubsamplingLevel();
+  int nslices = maxthick/subsample/vlod;
+  if (fullThickness) nslices = 2*maxthick/subsample/vlod;
+  int wd = pathLength/subsample/vlod;
+  int ht = 2*maxheight/subsample/vlod;
 
   VolumeFileManager pFileManager;
   
@@ -6043,6 +6046,9 @@ DrawHiresVolume::resliceUsingPath(int pathIdx, bool fullThickness)
     return;
 
   uchar *slice = new uchar[wd*ht];
+  uchar *tag = 0;
+  if (tagValue >= 0)
+    tag = new uchar[wd*ht];
 
   // save slices to shadowbuffer
   GLuint target = GL_TEXTURE_RECTANGLE_EXT;
@@ -6119,7 +6125,7 @@ DrawHiresVolume::resliceUsingPath(int pathIdx, bool fullThickness)
   glClearDepth(0);
   glClearColor(0,0,0,0);
   
-  glTranslatef(0.0, maxheight, 0.0);
+  glTranslatef(0.0, maxheight/subsample/vlod, 0.0);
 
   for(int sl=0; sl<nslices; sl++)
     {
@@ -6170,7 +6176,7 @@ DrawHiresVolume::resliceUsingPath(int pathIdx, bool fullThickness)
 	      if (np > 0)
 		clen += (pathPoints[np]-pathPoints[np-1]).norm();
 	      
-	      float lenradx = pathX[np].norm()*radX[np];
+	      float lenradx = pathX[np].norm()*radX[np]/subsample/vlod;
 	      Vec tv0 = pathPoints[np];
 	      Vec tv1 = pathPoints[np]-pathX[np]*radX[np];
 	      Vec tv2 = pathPoints[np]+pathX[np]*radX[np];
@@ -6188,8 +6194,9 @@ DrawHiresVolume::resliceUsingPath(int pathIdx, bool fullThickness)
 	      tv1 = VECDIVIDE(tv1, voxelScaling);
 	      tv2 = VECDIVIDE(tv2, voxelScaling);
 	      
-	      Vec v1 = Vec(clen,-lenradx,0.0);
-	      Vec v2 = Vec(clen,lenradx,0.0);
+	      float x0 = clen/subsample/vlod;
+	      Vec v1 = Vec(x0,-lenradx,0.0);
+	      Vec v2 = Vec(x0, lenradx,0.0);
 
 	      glMultiTexCoord3dv(GL_TEXTURE0, tv1);
 	      glVertex3f((float)v1.x, (float)v1.y, 0.0);
@@ -6206,6 +6213,15 @@ DrawHiresVolume::resliceUsingPath(int pathIdx, bool fullThickness)
       else
 	glReadPixels(0, 0, wd, ht, GL_GREEN, GL_UNSIGNED_BYTE, slice);
 
+      if (tagValue >= 0)
+	{
+	  glReadPixels(0, 0, wd, ht, GL_BLUE, GL_UNSIGNED_BYTE, tag);
+	  for(int p=0; p<wd*ht; p++)
+	    {
+	      if (tag[p] != tagValue) slice[p] = 0;
+	    }
+	}
+
       pFileManager.setSlice(nslices-1-sl, slice);
     } // depth slices
 
@@ -6214,6 +6230,8 @@ DrawHiresVolume::resliceUsingPath(int pathIdx, bool fullThickness)
   progress.setValue(100);
 
   delete [] slice;
+  if (tagValue >= 0)
+    delete [] tag;
 
   glUseProgramObjectARB(0);
   disableTextureUnits();  
@@ -6231,13 +6249,14 @@ DrawHiresVolume::resliceUsingPath(int pathIdx, bool fullThickness)
 
 void
 DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
-				       QVector4D vp, float viewportScale, int tfSet)
+				       QVector4D vp, float viewportScale, int tfSet,
+				       int subsample, int tagValue)
 {
   Vec voxelScaling = VolumeInformation::volumeInformation().voxelSize;
 
   Vec pos = VECPRODUCT(cpos, voxelScaling);
 
-  Vec normal = rot.rotate(Vec(0,0,1));
+  Vec normal =rot.rotate(Vec(0,0,1));
   Vec xaxis = rot.rotate(Vec(1,0,0));
   Vec yaxis = rot.rotate(Vec(0,1,0));
 
@@ -6247,10 +6266,16 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
   float ydist = cdist*tan(fov*0.5); // orthographic
   float xdist = ydist*aspectRatio;
 
-  int nslices = 2*thickness;
-  int wd = 2*xdist;
-  int ht = 2*ydist;
-  Vec sliceZero = pos - thickness*normal - xdist*xaxis - ydist*yaxis;
+  int vlod = m_Volume->getSubvolumeSubsamplingLevel();
+  int nslices = 2*thickness/subsample/vlod;
+  int wd = 2*xdist/subsample/vlod;
+  int ht = 2*ydist/subsample/vlod;
+
+  Vec sliceStart = pos - thickness*normal - xdist*xaxis - ydist*yaxis;
+  Vec sliceEnd = pos + thickness*normal - xdist*xaxis - ydist*yaxis;
+  Vec endW = 2*xdist*xaxis;
+  Vec endWH = 2*xdist*xaxis + 2*ydist*yaxis;
+  Vec endH = 2*ydist*yaxis;
 
   VolumeFileManager pFileManager;
   
@@ -6262,6 +6287,9 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
     return;
 
   uchar *slice = new uchar[wd*ht];
+  uchar *tag = 0;
+  if (tagValue >= 0)
+    tag = new uchar[wd*ht];
 
   // save slices to shadowbuffer
   GLuint target = GL_TEXTURE_RECTANGLE_EXT;
@@ -6340,7 +6368,10 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
   
   for(int sl=0; sl<nslices; sl++)
     {
-      Vec po = (sliceZero + sl*normal);
+      //Vec po = (sliceZero + sl*normal);
+      float sf = (float)sl/(float)(nslices-1);
+      Vec po = (1.0-sf)*sliceStart + sf*sliceEnd;
+
       progress.setValue(100*(float)sl/(float)nslices);
 
       glClear(GL_DEPTH_BUFFER_BIT);
@@ -6382,22 +6413,18 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
 	  glBegin(GL_QUADS);
 
 	  Vec v = po;
-	  v = VECDIVIDE(v, voxelScaling);
 	  glMultiTexCoord3dv(GL_TEXTURE0, v);
 	  glVertex3f(0, 0, 0);
 
-	  v = po + wd*xaxis;
-	  v = VECDIVIDE(v, voxelScaling);
+	  v = po + endW;
 	  glMultiTexCoord3dv(GL_TEXTURE0, v);
 	  glVertex3f(wd, 0, 0);
 
-	  v = po + wd*xaxis + ht*yaxis;
-	  v = VECDIVIDE(v, voxelScaling);
+	  v = po + endWH;
 	  glMultiTexCoord3dv(GL_TEXTURE0, v);
 	  glVertex3f(wd, ht, 0);
 
-	  v = po + ht*yaxis;
-	  v = VECDIVIDE(v, voxelScaling);
+	  v = po + endH;
 	  glMultiTexCoord3dv(GL_TEXTURE0, v);
 	  glVertex3f(0, ht, 0);
 
@@ -6409,6 +6436,15 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
       else
 	glReadPixels(0, 0, wd, ht, GL_GREEN, GL_UNSIGNED_BYTE, slice);
 
+      if (tagValue >= 0)
+	{
+	  glReadPixels(0, 0, wd, ht, GL_BLUE, GL_UNSIGNED_BYTE, tag);
+	  for(int p=0; p<wd*ht; p++)
+	    {
+	      if (tag[p] != tagValue) slice[p] = 0;
+	    }
+	}
+
       pFileManager.setSlice(sl, slice);
     }
 
@@ -6417,6 +6453,8 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
   progress.setValue(100);
 
   delete [] slice;
+  if (tagValue >= 0)
+    delete [] tag;
 
   glUseProgramObjectARB(0);
   disableTextureUnits();  

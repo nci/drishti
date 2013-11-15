@@ -4325,13 +4325,13 @@ MainWindow::on_actionSpline_PositionInterpolation_triggered()
 }
 
 void
-MainWindow::extractPath(int pathIdx, bool fullThickness)
+MainWindow::extractPath(int pathIdx, bool fullThickness, int subsample, int tagvalue)
 {
-  m_Hires->resliceUsingPath(pathIdx, fullThickness);
+  m_Hires->resliceUsingPath(pathIdx, fullThickness, subsample, tagvalue);
 }
 
 void
-MainWindow::extractClip(int clipIdx)
+MainWindow::extractClip(int clipIdx, int subsample, int tagvalue)
 {
   ClipInformation clipInfo = GeometryObjects::clipplanes()->clipInfo();
 
@@ -4343,7 +4343,8 @@ MainWindow::extractClip(int clipIdx)
   int tfSet = clipInfo.tfSet[clipIdx];
 
   m_Hires->resliceUsingClipPlane(cpos, rot, thickness,
-				 vp, viewportScale, tfSet);
+				 vp, viewportScale, tfSet,
+				 subsample, tagvalue);
 }
 
 void

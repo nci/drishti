@@ -132,9 +132,9 @@ class ClipObject
   bool mopClip();
   bool reorientCamera();
   bool saveSliceImage();
-  bool resliceVolume();
-  int step1();
-  int step2();
+  bool resliceVolume();  
+  int resliceSubsample();
+  int resliceTag();
 
   enum MoveAxis
   {
@@ -156,7 +156,7 @@ class ClipObject
   bool m_mopClip;
   bool m_reorientCamera;
   bool m_saveSliceImage, m_resliceVolume;
-  int m_step1, m_step2;
+  int m_resliceSubsample, m_resliceTag;
 
   bool m_solidColor;
   bool m_show;

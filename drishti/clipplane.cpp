@@ -655,9 +655,13 @@ ClipPlanes::viewportKeypressEvent(int i, QKeyEvent *event)
 	      emit mopClip(pos, normal);
 	    }
 	  if (m_clips[i]->saveSliceImage())
-	    emit saveSliceImage(i, m_clips[i]->step1());
+	    emit saveSliceImage(i, m_clips[i]->resliceSubsample());
 	  else if (m_clips[i]->resliceVolume())
-	    emit extractClip(i);
+	    {
+	      int subsample = m_clips[i]->resliceSubsample();
+	      int tagvalue = m_clips[i]->resliceTag();
+	      emit extractClip(i, subsample, tagvalue);
+	    }
 	  else if (m_clips[i]->reorientCamera())
 	    emit reorientCameraUsingClipPlane(i);
 	}

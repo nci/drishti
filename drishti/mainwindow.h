@@ -191,8 +191,8 @@ class MainWindow : public QMainWindow
    void viewProfile(int, int, QList<Vec>);
    void viewThicknessProfile(int, int, QList< QPair<Vec, Vec> >);
 
-   void extractClip(int);
-   void extractPath(int, bool);
+   void extractClip(int, int, int);
+   void extractPath(int, bool, int, int);
 
    void addRotationAnimation(int, float, int);
 

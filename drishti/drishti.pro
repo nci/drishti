@@ -237,7 +237,14 @@ HEADERS += boundingbox.h \
 	   16bit/remaphistogramline.h \
 	   16bit/remaphistogramwidget.h \
 	   mopplugininterface.h \
-	   itksegmentation.h
+	   itksegmentation.h \
+           lighthandler.h \
+           lightshaderfactory.h \
+	   gilights.h \
+	   gilightgrabber.h \
+	   gilightobject.h \
+	   gilightinfo.h \
+	   gilightobjectinfo.h
 
 SOURCES += boundingbox.cpp \
            blendshaderfactory.cpp \
@@ -356,4 +363,11 @@ SOURCES += boundingbox.cpp \
 	   xmlheaderfunctions.cpp \
 	   16bit/remaphistogramline.cpp \
 	   16bit/remaphistogramwidget.cpp \
-	   itksegmentation.cpp
+	   itksegmentation.cpp \
+           lighthandler.cpp \
+           lightshaderfactory.cpp \
+	   gilights.cpp \
+	   gilightgrabber.cpp \
+	   gilightobject.cpp \
+	   gilightinfo.cpp \
+	   gilightobjectinfo.cpp

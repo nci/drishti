@@ -363,6 +363,14 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
   shader += "uniform int tsizey;\n";
   shader += "uniform float depthcue;\n";
 
+  shader += "uniform sampler2DRect lightTex;\n";
+  shader += "uniform int lightgridx;\n";
+  shader += "uniform int lightgridy;\n";
+  shader += "uniform int lightgridz;\n";
+  shader += "uniform int lightnrows;\n";
+  shader += "uniform int lightncols;\n";
+  shader += "uniform int lightlod;\n";
+
   shader += "uniform sampler2DRect pruneTex;\n";
   shader += "uniform int prunegridx;\n";
   shader += "uniform int prunetsizex;\n";
@@ -396,6 +404,8 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
   shader += "void main(void)\n";
   shader += "{\n";
   
+  shader += "  vec3 lightcol = vec3(1.0,1.0,1.0);\n";
+
   shader += "  vec3 texCoord = gl_TexCoord[0].xyz;\n";
 
   shader += "if (any(lessThan(texCoord,brickMin)) || any(greaterThan(texCoord, brickMax)))\n";
@@ -429,6 +439,25 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
   shader += "texCoord.z = 1.0 + (texCoord.z-float(tminz))/float(lod);\n";
 
   shader += genVgx(nvol);
+
+  //----------------------------------
+  shader += " if (lightlod > 0)\n";
+  shader += "   {\n"; // calculate light color
+  shader += "     vec3 lc;\n";
+  shader += "     vec2 pvg = texCoord.xy / prunelod;\n";
+  shader += "     pvg /= vec2(lightlod,lightlod);\n";
+  shader += "     vec2 pvg0 = getTextureCoordinate(int(float(zoffset+slice)/prunelod)/lightlod, ";
+  shader += "            lightncols, lightgridx, lightgridy, pvg);\n";
+  shader += "     vec2 pvg1 = getTextureCoordinate(int(float(zoffset+slice+1)/prunelod)/lightlod, ";
+  shader += "            lightncols, lightgridx, lightgridy, pvg);\n";
+  shader += "     vec3 lc0 = texture2DRect(lightTex, pvg0).xyz;\n";
+  shader += "     vec3 lc1 = texture2DRect(lightTex, pvg1).xyz;\n";
+  shader += "     lightcol = mix(lc0, lc1, slicef);\n";
+  shader += "     lightcol = 1.0-pow((vec3(1,1,1)-lightcol),vec3(lod,lod,lod));\n";
+  shader += "   }\n";
+  shader += " else\n";
+  shader += "   lightcol = vec3(1.0,1.0,1.0);\n";
+  //----------------------------------
 
   if (peel || lighting || !Global::use1D())
     shader += getNormal(nvol);
@@ -681,6 +710,14 @@ ShaderFactory2::genHighQualitySliceShaderString(bool lighting,
   shader += "uniform float depthcue;\n";
   shader += "\n";
 
+  shader += "uniform sampler2DRect lightTex;\n";
+  shader += "uniform int lightgridx;\n";
+  shader += "uniform int lightgridy;\n";
+  shader += "uniform int lightgridz;\n";
+  shader += "uniform int lightnrows;\n";
+  shader += "uniform int lightncols;\n";
+  shader += "uniform int lightlod;\n";
+
   shader += "uniform sampler2DRect pruneTex;\n";
   shader += "uniform int prunegridx;\n";
   shader += "uniform int prunetsizex;\n";
@@ -714,27 +751,7 @@ ShaderFactory2::genHighQualitySliceShaderString(bool lighting,
   shader += "void main(void)\n";
   shader += "{\n";
 
-  //------------------------
-  if (shadows && peel && peelType == 2)
-    {
-      float peelfeather = qBound(0.0f, (peelMax+1.0f)*0.5f, 1.0f);
-      shader += "  float peelfeather = texture2DRect(shadowTex, gl_TexCoord[1].xy).a;\n";
-      if (peelMix < 0.001)
-	{
-	  shader += QString("  if (peelfeather < %1) discard;\n").arg(peelfeather);
-	  shader += QString("  peelfeather = smoothstep(float(%1), peelfeather, float(%2));\n"). \
-	    arg(peelfeather).arg(peelfeather+0.2);
-	}
-      else
-	{
-	  shader += QString("    peelfeather = smoothstep(float(%1), peelfeather, float(%2));\n"). \
-	    arg(peelfeather).arg(peelfeather+0.2);
-	  shader += QString("    peelfeather = max((1.0-peelfeather)*float(%1), peelfeather);\n"). \
-	    arg(peelMix);
-	}
-	
-    }
-  //------------------------
+  shader += "  vec3 lightcol = vec3(1.0,1.0,1.0);\n";
 
   shader += "  vec3 texCoord = gl_TexCoord[0].xyz;\n";
 
@@ -768,6 +785,25 @@ ShaderFactory2::genHighQualitySliceShaderString(bool lighting,
   shader += "texCoord.z = 1.0 + (texCoord.z-float(tminz))/float(lod);\n";
 
   shader += genVgx(nvol);
+
+  //----------------------------------
+  shader += " if (lightlod > 0)\n";
+  shader += "   {\n"; // calculate light color
+  shader += "     vec3 lc;\n";
+  shader += "     vec2 pvg = texCoord.xy / prunelod;\n";
+  shader += "     pvg /= vec2(lightlod,lightlod);\n";
+  shader += "     vec2 pvg0 = getTextureCoordinate(int(float(zoffset+slice)/prunelod)/lightlod, ";
+  shader += "            lightncols, lightgridx, lightgridy, pvg);\n";
+  shader += "     vec2 pvg1 = getTextureCoordinate(int(float(zoffset+slice+1)/prunelod)/lightlod, ";
+  shader += "            lightncols, lightgridx, lightgridy, pvg);\n";
+  shader += "     vec3 lc0 = texture2DRect(lightTex, pvg0).xyz;\n";
+  shader += "     vec3 lc1 = texture2DRect(lightTex, pvg1).xyz;\n";
+  shader += "     lightcol = mix(lc0, lc1, slicef);\n";
+  shader += "     lightcol = 1.0-pow((vec3(1,1,1)-lightcol),vec3(lod,lod,lod));\n";
+  shader += "   }\n";
+  shader += " else\n";
+  shader += "   lightcol = vec3(1.0,1.0,1.0);\n";
+  //----------------------------------
 
   if (peel || lighting || !Global::use1D())
     shader += getNormal(nvol);

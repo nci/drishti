@@ -102,7 +102,7 @@ bool Global::m_bottomText = true;
 bool Global::bottomText() { return m_bottomText; }
 void Global::setBottomText(bool flag) { m_bottomText = flag; }
 
-bool Global::m_depthcue = true;
+bool Global::m_depthcue = false;
 bool Global::depthcue() { return m_depthcue; }
 void Global::setDepthcue(bool flag) { m_depthcue = flag; }
 

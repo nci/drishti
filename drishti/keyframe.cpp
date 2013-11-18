@@ -6,6 +6,7 @@
 #include "prunehandler.h"
 #include "enums.h"
 #include "mainwindowui.h"
+#include "lighthandler.h"
 
 int KeyFrame::numberOfKeyFrames() { return m_keyFrameInfo.count(); }
 
@@ -146,6 +147,7 @@ KeyFrame::saveProject(Vec pos, Quaternion rot,
   m_savedKeyFrame.setLut(lut);
   m_savedKeyFrame.setTagColors(Global::tagColors());
   m_savedKeyFrame.setLightInfo(lightInfo);
+  m_savedKeyFrame.setGiLightInfo(LightHandler::giLightInfo());
   m_savedKeyFrame.setClipInfo(GeometryObjects::clipplanes()->clipInfo());
   m_savedKeyFrame.setBrickInfo(brickInfo);
   m_savedKeyFrame.setTick(sz, st, xl, yl, zl);
@@ -271,6 +273,7 @@ KeyFrame::setKeyFrame(Vec pos, Quaternion rot,
   kfi->setLut(lut);
   kfi->setTagColors(Global::tagColors());
   kfi->setLightInfo(lightInfo);
+  kfi->setGiLightInfo(LightHandler::giLightInfo());
   kfi->setClipInfo(GeometryObjects::clipplanes()->clipInfo());
   kfi->setBrickInfo(brickInfo);
   kfi->setVolumeBounds(bmin, bmax);
@@ -609,6 +612,15 @@ KeyFrame::interpolateAt(int kf, float frc,
   //-------------------------------  
 
   //-------------------------------  
+  rfrc = StaticFunctions::remapKeyframe(m_keyFrameInfo[kf]->interpGiLightInfo(), frc);
+  GiLightInfo giLightInfo;
+  GiLightInfo giLightInfo1 = m_keyFrameInfo[kf]->giLightInfo();
+  GiLightInfo giLightInfo2 = m_keyFrameInfo[kf+1]->giLightInfo();
+  giLightInfo = GiLightInfo::interpolate(giLightInfo1, giLightInfo2, rfrc);
+  kfi.setGiLightInfo(giLightInfo);
+  //-------------------------------  
+
+  //-------------------------------  
   rfrc = StaticFunctions::remapKeyframe(m_keyFrameInfo[kf]->interpClipInfo(), frc);
   ClipInformation clipInfo;
   ClipInformation clipInfo1 = m_keyFrameInfo[kf]->clipInfo();
@@ -839,10 +851,14 @@ KeyFrame::playSavedKeyFrame()
   float es = m_savedKeyFrame.eyeSeparation();
   emit updateFocus(focusDistance, es);
   emit updateLookFrom(pos, rot, focusDistance, es);
-  if (m_savedKeyFrame.lut())
-    emit updateLookupTable(m_savedKeyFrame.lut());
+
+  LightHandler::setGiLightInfo(m_savedKeyFrame.giLightInfo());
+
   emit updateBrickInfo(m_savedKeyFrame.brickInfo());
   emit updateLightInfo(m_savedKeyFrame.lightInfo());
+
+  if (m_savedKeyFrame.lut())
+    emit updateLookupTable(m_savedKeyFrame.lut());
 
   bool drawBox = m_savedKeyFrame.drawBox();
   bool drawAxis = m_savedKeyFrame.drawAxis();
@@ -950,6 +966,26 @@ KeyFrame::playFrameNumber(int fno)
 	      emit updateVolumeBounds(volnum1, volnum2, volnum3, volnum4, bmin, bmax);
 	    }
 	  
+	  GeometryObjects::captions()->setCaptions(m_keyFrameInfo[kf]->captions());
+	  GeometryObjects::colorbars()->setColorBars(m_keyFrameInfo[kf]->colorbars());
+	  GeometryObjects::scalebars()->setScaleBars(m_keyFrameInfo[kf]->scalebars());
+	  GeometryObjects::hitpoints()->setPoints(m_keyFrameInfo[kf]->points());
+	  GeometryObjects::hitpoints()->setBarePoints(m_keyFrameInfo[kf]->barepoints());
+	  GeometryObjects::hitpoints()->setPointSize(m_keyFrameInfo[kf]->pointSize());
+	  GeometryObjects::hitpoints()->setPointColor(m_keyFrameInfo[kf]->pointColor());
+	  GeometryObjects::paths()->setPaths(m_keyFrameInfo[kf]->paths());
+	  GeometryObjects::grids()->setGrids(m_keyFrameInfo[kf]->grids());
+	  GeometryObjects::crops()->setCrops(m_keyFrameInfo[kf]->crops());
+	  GeometryObjects::pathgroups()->setPaths(m_keyFrameInfo[kf]->pathgroups());
+	  GeometryObjects::trisets()->set(m_keyFrameInfo[kf]->trisets());
+	  GeometryObjects::networks()->set(m_keyFrameInfo[kf]->networks());
+	  GeometryObjects::clipplanes()->set(m_keyFrameInfo[kf]->clipInfo());
+
+	  LightHandler::setGiLightInfo(m_keyFrameInfo[kf]->giLightInfo());
+
+	  emit updateBrickInfo(m_keyFrameInfo[kf]->brickInfo());
+	  emit updateLightInfo(m_keyFrameInfo[kf]->lightInfo());
+	  
 	  emit updateMorph(m_keyFrameInfo[kf]->morphTF());
 
 	  if (m_keyFrameInfo[kf]->splineInfo().size() == 0 ||
@@ -968,26 +1004,6 @@ KeyFrame::playFrameNumber(int fno)
 	  Global::setTagColors(m_keyFrameInfo[kf]->tagColors());
 	  emit updateTagColors();
 
-
-	  GeometryObjects::captions()->setCaptions(m_keyFrameInfo[kf]->captions());
-	  GeometryObjects::colorbars()->setColorBars(m_keyFrameInfo[kf]->colorbars());
-	  GeometryObjects::scalebars()->setScaleBars(m_keyFrameInfo[kf]->scalebars());
-	  GeometryObjects::hitpoints()->setPoints(m_keyFrameInfo[kf]->points());
-	  GeometryObjects::hitpoints()->setBarePoints(m_keyFrameInfo[kf]->barepoints());
-	  GeometryObjects::hitpoints()->setPointSize(m_keyFrameInfo[kf]->pointSize());
-	  GeometryObjects::hitpoints()->setPointColor(m_keyFrameInfo[kf]->pointColor());
-	  GeometryObjects::paths()->setPaths(m_keyFrameInfo[kf]->paths());
-	  GeometryObjects::grids()->setGrids(m_keyFrameInfo[kf]->grids());
-	  GeometryObjects::crops()->setCrops(m_keyFrameInfo[kf]->crops());
-	  GeometryObjects::pathgroups()->setPaths(m_keyFrameInfo[kf]->pathgroups());
-	  GeometryObjects::trisets()->set(m_keyFrameInfo[kf]->trisets());
-	  GeometryObjects::networks()->set(m_keyFrameInfo[kf]->networks());
-	  GeometryObjects::clipplanes()->set(m_keyFrameInfo[kf]->clipInfo());
-
-
-	  emit updateBrickInfo(m_keyFrameInfo[kf]->brickInfo());
-	  emit updateLightInfo(m_keyFrameInfo[kf]->lightInfo());
-	  
 	  bool drawBox = m_keyFrameInfo[kf]->drawBox();
 	  bool drawAxis = m_keyFrameInfo[kf]->drawAxis();
 	  Vec backgroundColor = m_keyFrameInfo[kf]->backgroundColor();
@@ -1102,6 +1118,23 @@ KeyFrame::playFrameNumber(int fno)
       emit updateVolumeBounds(volnum1, volnum2, volnum3, volnum4, bmin, bmax);
     }
 
+  GeometryObjects::captions()->setCaptions(keyFrameInfo.captions());
+  GeometryObjects::colorbars()->setColorBars(keyFrameInfo.colorbars());
+  GeometryObjects::scalebars()->setScaleBars(keyFrameInfo.scalebars());
+  GeometryObjects::hitpoints()->setPoints(keyFrameInfo.points());
+  GeometryObjects::hitpoints()->setBarePoints(keyFrameInfo.barepoints());
+  GeometryObjects::hitpoints()->setPointSize(keyFrameInfo.pointSize());
+  GeometryObjects::hitpoints()->setPointColor(keyFrameInfo.pointColor());
+  GeometryObjects::paths()->setPaths(keyFrameInfo.paths());
+  GeometryObjects::grids()->setGrids(keyFrameInfo.grids());
+  GeometryObjects::crops()->setCrops(keyFrameInfo.crops());
+  GeometryObjects::pathgroups()->setPaths(keyFrameInfo.pathgroups());
+  GeometryObjects::trisets()->set(keyFrameInfo.trisets());
+  GeometryObjects::networks()->set(keyFrameInfo.networks());
+  GeometryObjects::clipplanes()->set(keyFrameInfo.clipInfo());
+
+  LightHandler::setGiLightInfo(keyFrameInfo.giLightInfo());
+
   emit updateLightInfo(keyFrameInfo.lightInfo());
   emit updateBrickInfo(keyFrameInfo.brickInfo());
 
@@ -1122,22 +1155,6 @@ KeyFrame::playFrameNumber(int fno)
 
   Global::setTagColors(keyFrameInfo.tagColors());
   emit updateTagColors();
-
-  GeometryObjects::captions()->setCaptions(keyFrameInfo.captions());
-  GeometryObjects::colorbars()->setColorBars(keyFrameInfo.colorbars());
-  GeometryObjects::scalebars()->setScaleBars(keyFrameInfo.scalebars());
-  GeometryObjects::hitpoints()->setPoints(keyFrameInfo.points());
-  GeometryObjects::hitpoints()->setBarePoints(keyFrameInfo.barepoints());
-  GeometryObjects::hitpoints()->setPointSize(keyFrameInfo.pointSize());
-  GeometryObjects::hitpoints()->setPointColor(keyFrameInfo.pointColor());
-  GeometryObjects::paths()->setPaths(keyFrameInfo.paths());
-  GeometryObjects::grids()->setGrids(keyFrameInfo.grids());
-  GeometryObjects::crops()->setCrops(keyFrameInfo.crops());
-  GeometryObjects::pathgroups()->setPaths(keyFrameInfo.pathgroups());
-  GeometryObjects::trisets()->set(keyFrameInfo.trisets());
-  GeometryObjects::networks()->set(keyFrameInfo.networks());
-  GeometryObjects::clipplanes()->set(keyFrameInfo.clipInfo());
-
 
   bool drawBox = keyFrameInfo.drawBox();
   bool drawAxis = keyFrameInfo.drawAxis();
@@ -1420,6 +1437,7 @@ KeyFrame::editFrameInterpolation(int kfn)
   keys << "brick information";
   keys << "clip planes";
   keys << "lighting";
+  keys << "gi lighting";
   keys << "transfer functions";
   keys << "crop/dissect/blend/displace";
   keys << "mop";
@@ -1443,6 +1461,7 @@ KeyFrame::editFrameInterpolation(int kfn)
 	  else if (keys[ik] == "brick information") vlist << kfi->interpBrickInfo();
 	  else if (keys[ik] == "clip planes") vlist << kfi->interpClipInfo();
 	  else if (keys[ik] == "lighting") vlist << kfi->interpLightInfo();
+	  else if (keys[ik] == "gi lighting") vlist << kfi->interpGiLightInfo();
 	  else if (keys[ik] == "transfer functions") vlist << kfi->interpTF();
 	  else if (keys[ik] == "crop/dissect/blend/displace") vlist << kfi->interpCrop();
 	  else if (keys[ik] == "mop") vlist << kfi->interpMop();
@@ -1495,6 +1514,7 @@ KeyFrame::editFrameInterpolation(int kfn)
 	  else if (keys[ik] == "brick information") kfi->setInterpBrickInfo(flag);
 	  else if (keys[ik] == "clip planes") kfi->setInterpClipInfo(flag);
 	  else if (keys[ik] == "lighting") kfi->setInterpLightInfo(flag);
+	  else if (keys[ik] == "gi lighting") kfi->setInterpGiLightInfo(flag);
 	  else if (keys[ik] == "transfer functions") kfi->setInterpTF(flag);
 	  else if (keys[ik] == "crop/dissect/blend/displace") kfi->setInterpCrop(flag);
 	  else if (keys[ik] == "mop") kfi->setInterpMop(flag);
@@ -1568,6 +1588,8 @@ KeyFrame::pasteFrameOnTop(int keyFrameNumber)
 	    }
 	  else if (keys[ik] == "lighting")
 	    kfi->setLightInfo(m_copyKeyFrame.lightInfo());  
+	  else if (keys[ik] == "gi lighting")
+	    kfi->setGiLightInfo(m_copyKeyFrame.giLightInfo());  
 	  else if (keys[ik] == "paths")
 	    {
 	      kfi->setPaths(m_copyKeyFrame.paths());  
@@ -1688,6 +1710,8 @@ KeyFrame::pasteFrameOnTop(int startKF, int endKF)
 		}
 	      else if (keys[ik] == "lighting")
 		kfi->setLightInfo(m_copyKeyFrame.lightInfo());  
+	      else if (keys[ik] == "gi lighting")
+		kfi->setGiLightInfo(m_copyKeyFrame.giLightInfo());  
 	      else if (keys[ik] == "paths")
 		{
 		  kfi->setPaths(m_copyKeyFrame.paths());  
@@ -1824,6 +1848,11 @@ KeyFrame::copyProperties(QString title)
   vlist.clear();
   vlist << QVariant("checkbox");
   vlist << QVariant(false);
+  plist["gi lighting"] = vlist;
+
+  vlist.clear();
+  vlist << QVariant("checkbox");
+  vlist << QVariant(false);
   plist["paths"] = vlist;
 
   vlist.clear();
@@ -1901,6 +1930,7 @@ KeyFrame::copyProperties(QString title)
   keys << "brick information";
   keys << "clip planes";
   keys << "lighting";
+  keys << "gi lighting";
   keys << "transfer functions";
   keys << "separator";
   keys << "paths";
@@ -2124,6 +2154,11 @@ KeyFrame::import(QString flnm)
 		{
 		  kfi->setLightInfo(ckf->lightInfo());  
 		  kfi->setInterpLightInfo(ckf->interpLightInfo());
+		}
+	      else if (keys[ik] == "gi lighting")
+		{
+		  kfi->setGiLightInfo(ckf->giLightInfo());  
+		  kfi->setInterpGiLightInfo(ckf->interpGiLightInfo());
 		}
 	      else if (keys[ik] == "paths")
 		{

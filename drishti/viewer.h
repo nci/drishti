@@ -242,6 +242,7 @@ class Viewer : public QGLViewer
   void loadLookupTable(unsigned char*);
 
   void processCommand(QString);
+  void processLight(QStringList);
 
   void saveSnapshot(QString);
   void fboToMovieFrame();

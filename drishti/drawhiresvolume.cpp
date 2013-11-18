@@ -10,6 +10,7 @@
 #include "shaderfactoryrgb.h"
 #include "global.h"
 #include "geometryobjects.h"
+#include "lighthandler.h"
 #include "tick.h"
 #include "enums.h"
 #include "prunehandler.h"
@@ -106,6 +107,9 @@ DrawHiresVolume::loadVolume()
   PruneHandler::createPruneShader((m_Volume->pvlVoxelType(0) > 0));
   PruneHandler::createMopShaders();
   
+  LightHandler::createOpacityShader((m_Volume->pvlVoxelType(0) > 0));
+  LightHandler::createLightShaders();
+
   createShaders();
 
   m_bricks->reset();
@@ -545,6 +549,8 @@ DrawHiresVolume::postUpdateSubvolume(Vec boxMin, Vec boxMax)
 
   if (Global::volumeType() != Global::DummyVolume)
     {
+      updateAndLoadLightTexture();
+
       generateHistogramImage();
 
       if (!Global::useDragVolume())
@@ -582,7 +588,34 @@ DrawHiresVolume::updateAndLoadPruneTexture()
 					  m_Viewer->lookupTable());
 
   MainWindowUI::mainWindowUI()->menubar->parentWidget()->\
-    setWindowTitle("Drishti");
+    setWindowTitle(Global::DrishtiVersion());
+}
+
+void
+DrawHiresVolume::updateAndLoadLightTexture()
+{
+  if (LightHandler::basicLight())
+    return;
+
+  if (Global::volumeType() == Global::DummyVolume)
+    return;
+
+  int dtextureX, dtextureY;
+  m_Volume->getDragTextureSize(dtextureX, dtextureY);
+
+  Vec dragInfo = m_Volume->getDragTextureInfo();
+  Vec subVolSize = m_Volume->getSubvolumeSize();
+
+  QList<Vec> cpos, cnorm;
+  getClipForMask(cpos, cnorm);
+  LightHandler::setClips(cpos, cnorm);
+ 
+  LightHandler::updateAndLoadLightTexture(m_dataTex[0],
+					  dtextureX, dtextureY,
+					  dragInfo,
+					  m_dataMin, m_dataMax,
+					  subVolSize,
+					  m_Viewer->lookupTable());
 }
 
 void
@@ -906,7 +939,6 @@ DrawHiresVolume::createHighQualityShader()
   m_highqualityParm[11] = glGetUniformLocationARB(m_highqualityShader, "paintCenter");
   m_highqualityParm[12] = glGetUniformLocationARB(m_highqualityShader, "paintSize");
 
-  m_highqualityParm[13] = glGetUniformLocationARB(m_highqualityShader, "maskTex");
   m_highqualityParm[14] = glGetUniformLocationARB(m_highqualityShader, "paintTex");
 
   m_highqualityParm[15] = glGetUniformLocationARB(m_highqualityShader, "gridx");
@@ -934,8 +966,13 @@ DrawHiresVolume::createHighQualityShader()
   m_highqualityParm[32] = glGetUniformLocationARB(m_highqualityShader, "interpVol");
   m_highqualityParm[33] = glGetUniformLocationARB(m_highqualityShader, "mixTag");
 
-
-
+  m_highqualityParm[34] = glGetUniformLocationARB(m_highqualityShader, "lightTex");
+  m_highqualityParm[35] = glGetUniformLocationARB(m_highqualityShader, "lightgridx");
+  m_highqualityParm[36] = glGetUniformLocationARB(m_highqualityShader, "lightgridy");
+  m_highqualityParm[37] = glGetUniformLocationARB(m_highqualityShader, "lightgridz");
+  m_highqualityParm[38] = glGetUniformLocationARB(m_highqualityShader, "lightnrows");
+  m_highqualityParm[39] = glGetUniformLocationARB(m_highqualityShader, "lightncols");
+  m_highqualityParm[40] = glGetUniformLocationARB(m_highqualityShader, "lightlod");
 
   m_highqualityParm[42] = glGetUniformLocationARB(m_highqualityShader, "brickMin");
   m_highqualityParm[43] = glGetUniformLocationARB(m_highqualityShader, "brickMax");
@@ -1173,7 +1210,6 @@ DrawHiresVolume::createDefaultShader()
   m_defaultParm[11] = glGetUniformLocationARB(m_defaultShader, "paintCenter");
   m_defaultParm[12] = glGetUniformLocationARB(m_defaultShader, "paintSize");
 
-  m_defaultParm[13] = glGetUniformLocationARB(m_defaultShader, "maskTex");
   m_defaultParm[14] = glGetUniformLocationARB(m_defaultShader, "paintTex");
 
   m_defaultParm[15] = glGetUniformLocationARB(m_defaultShader, "gridx");
@@ -1201,8 +1237,13 @@ DrawHiresVolume::createDefaultShader()
   m_defaultParm[32] = glGetUniformLocationARB(m_defaultShader, "interpVol");
   m_defaultParm[33] = glGetUniformLocationARB(m_defaultShader, "mixTag");
 
-
-
+  m_defaultParm[34] = glGetUniformLocationARB(m_defaultShader, "lightTex");
+  m_defaultParm[35] = glGetUniformLocationARB(m_defaultShader, "lightgridx");
+  m_defaultParm[36] = glGetUniformLocationARB(m_defaultShader, "lightgridy");
+  m_defaultParm[37] = glGetUniformLocationARB(m_defaultShader, "lightgridz");
+  m_defaultParm[38] = glGetUniformLocationARB(m_defaultShader, "lightnrows");
+  m_defaultParm[39] = glGetUniformLocationARB(m_defaultShader, "lightncols");
+  m_defaultParm[40] = glGetUniformLocationARB(m_defaultShader, "lightlod");
 
   m_defaultParm[42] = glGetUniformLocationARB(m_defaultShader, "brickMin");
   m_defaultParm[43] = glGetUniformLocationARB(m_defaultShader, "brickMax");
@@ -1298,12 +1339,12 @@ DrawHiresVolume::enableTextureUnits()
   glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-  glActiveTexture(GL_TEXTURE6);
+  glActiveTexture(GL_TEXTURE4);
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
   glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-  glActiveTexture(GL_TEXTURE7);
+  glActiveTexture(GL_TEXTURE6);
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
   glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -1327,9 +1368,6 @@ DrawHiresVolume::disableTextureUnits()
   glDisable(GL_TEXTURE_RECTANGLE_ARB);
 
   glActiveTexture(GL_TEXTURE6);
-  glDisable(GL_TEXTURE_RECTANGLE_ARB);
-
-  glActiveTexture(GL_TEXTURE7);
   glDisable(GL_TEXTURE_RECTANGLE_ARB);
 }
 
@@ -1818,6 +1856,7 @@ DrawHiresVolume::draw(float stepsize,
   m_drawGeometryPresent |= (GeometryObjects::crops()->count() > 0);
   m_drawGeometryPresent |= (GeometryObjects::pathgroups()->count() > 0);
   m_drawGeometryPresent |= (GeometryObjects::hitpoints()->count() > 0);
+  m_drawGeometryPresent |= (LightHandler::giLights()->count() > 0);
 
   if (!stillimage || m_renderQuality == Enums::RenderDefault)
     drawDefault(pn, minvert, maxvert, layers, stepsize);
@@ -2310,6 +2349,9 @@ DrawHiresVolume::drawGeometry(float pnear, float pfar, Vec step,
   GeometryObjects::pathgroups()->draw(m_Viewer, m_backlit, m_lightPosition, true);
   GeometryObjects::hitpoints()->draw(m_Viewer, m_backlit);
 
+  LightHandler::giLights()->draw(m_Viewer, m_backlit);
+
+
   //-----------------------------------------
   //----- apply brick0 transformation -------
   glPopMatrix();
@@ -2433,7 +2475,6 @@ DrawHiresVolume::setRenderDefault()
 			m_dataTexSize == 1);
       setShader2DTextureParameter(useAllTex, true);
 
-      glUniform1iARB(m_defaultParm[13], 4);
       glUniform1iARB(m_defaultParm[14], 5);
 
       glUniform2fARB(m_defaultParm[25], m_dataMin.x, m_dataMin.y);
@@ -2457,6 +2498,27 @@ DrawHiresVolume::setRenderDefault()
 
   glUniform1fARB(m_defaultParm[32], m_interpVol);
   glUniform1iARB(m_defaultParm[33], m_mixTag);
+
+  if (!LightHandler::basicLight())
+    {
+      int lightgridx, lightgridy, lightgridz, lightncols, lightnrows, lightlod;
+      LightHandler::lightBufferInfo(lightgridx, lightgridy, lightgridz,
+				    lightnrows, lightncols, lightlod);
+      glUniform1iARB(m_defaultParm[34], 4); // lightTex
+      glUniform1iARB(m_defaultParm[35], lightgridx); // lightgridx
+      glUniform1iARB(m_defaultParm[36], lightgridy); // lightgridy
+      glUniform1iARB(m_defaultParm[37], lightgridz); // lightgridz
+      glUniform1iARB(m_defaultParm[38], lightnrows); // lightnrows
+      glUniform1iARB(m_defaultParm[39], lightncols); // lightncols
+      glUniform1iARB(m_defaultParm[40], lightlod); // lightlod
+    }
+  else
+    {
+      // lightlod 0 means use basic lighting model
+      int lightlod = 0;
+      glUniform1iARB(m_defaultParm[40], lightlod); // lightlod
+    }
+
 
   if (Global::volumeType() == Global::RGBVolume ||
       Global::volumeType() == Global::RGBAVolume)
@@ -2704,6 +2766,10 @@ DrawHiresVolume::emptySpaceSkip()
       glEnable(GL_TEXTURE_RECTANGLE_ARB);
       glBindTexture(GL_TEXTURE_RECTANGLE_ARB, PruneHandler::texture());
     }
+
+  glActiveTexture(GL_TEXTURE4);
+  glEnable(GL_TEXTURE_RECTANGLE_ARB);
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, LightHandler::texture());
 }
 
 void
@@ -4062,9 +4128,30 @@ DrawHiresVolume::setRenderToScreen(Vec defaultCamPos,
   glUniform1fARB(m_highqualityParm[32], m_interpVol);
   glUniform1iARB(m_highqualityParm[33], m_mixTag);
 
+  if (!LightHandler::basicLight())
+    {
+      int lightgridx, lightgridy, lightgridz, lightncols, lightnrows, lightlod;
+      LightHandler::lightBufferInfo(lightgridx, lightgridy, lightgridz,
+				    lightnrows, lightncols, lightlod);
+      glUniform1iARB(m_highqualityParm[34], 4); // lightTex
+      glUniform1iARB(m_highqualityParm[35], lightgridx); // lightgridx
+      glUniform1iARB(m_highqualityParm[36], lightgridy); // lightgridy
+      glUniform1iARB(m_highqualityParm[37], lightgridz); // lightgridz
+      glUniform1iARB(m_highqualityParm[38], lightnrows); // lightnrows
+      glUniform1iARB(m_highqualityParm[39], lightncols); // lightncols
+      glUniform1iARB(m_highqualityParm[40], lightlod); // lightlod
+    }
+  else
+    {
+      // lightlod 0 means use basic lighting model
+      int lightlod = 0;
+      glUniform1iARB(m_highqualityParm[40], lightlod); // lightlod
+    }
+
+  glActiveTexture(GL_TEXTURE2);
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_blurredBuffer->texture());
   glUniform1iARB(m_highqualityParm[2], 2); // blurredTex
 
-  glUniform1iARB(m_highqualityParm[13], 4);
   glUniform1iARB(m_highqualityParm[14], 5);
 
   // -- m_highqualityParm[3] -- tfSet for bricks --
@@ -5402,12 +5489,19 @@ DrawHiresVolume::keyPressEvent(QKeyEvent *event)
 
   if (event->key() == Qt::Key_G)
     {
-      // toggle mouse grabs
+      // toggle mouse grabs for geometry objects
       GeometryObjects::inPool = ! GeometryObjects::inPool;
       if (GeometryObjects::inPool)
 	GeometryObjects::addInMouseGrabberPool();
       else
 	GeometryObjects::removeFromMouseGrabberPool();
+
+      // toggle mouse grabs for light objects
+      LightHandler::inPool = ! LightHandler::inPool;
+      if (LightHandler::inPool)
+	LightHandler::addInMouseGrabberPool();
+      else
+	LightHandler::removeFromMouseGrabberPool();
     }
 
   // change empty space skip
@@ -5575,6 +5669,13 @@ DrawHiresVolume::keyPressEvent(QKeyEvent *event)
 	GeometryObjects::show();
       else
 	GeometryObjects::hide();
+
+      LightHandler::showLights = ! LightHandler::showLights;
+      if (LightHandler::showLights)
+	LightHandler::show();
+      else
+	LightHandler::hide();
+
       return true;
     }
 

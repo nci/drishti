@@ -12,6 +12,7 @@ using namespace std;
 #include "camerapathnode.h"
 #include "clipinformation.h"
 #include "lightinginformation.h"
+#include "gilightinfo.h"
 #include "brickinformation.h"
 #include "splineinformation.h"
 #include "captionobject.h"
@@ -53,6 +54,7 @@ class KeyFrameInformation
   void setOrientation(Quaternion);
   void setLut(uchar*);
   void setLightInfo(LightingInformation);
+  void setGiLightInfo(GiLightInfo);
   void setClipInfo(ClipInformation);
   void setBrickInfo(QList<BrickInformation>);
   void setVolumeBounds(Vec, Vec);
@@ -91,6 +93,7 @@ class KeyFrameInformation
   Quaternion orientation();
   uchar* lut();
   LightingInformation lightInfo();
+  GiLightInfo giLightInfo();
   ClipInformation clipInfo();
   QList<BrickInformation> brickInfo();
   void volumeBounds(Vec&, Vec&);
@@ -128,6 +131,7 @@ class KeyFrameInformation
   void setInterpBrickInfo(int);
   void setInterpClipInfo(int);
   void setInterpLightInfo(int);
+  void setInterpGiLightInfo(int);
   void setInterpTF(int);
   void setInterpCrop(int);
   void setInterpMop(int);
@@ -143,6 +147,7 @@ class KeyFrameInformation
   int interpBrickInfo();
   int interpClipInfo();
   int interpLightInfo();
+  int interpGiLightInfo();
   int interpTF();
   int interpCrop();
   int interpMop();
@@ -159,6 +164,7 @@ class KeyFrameInformation
   Quaternion m_rotation;
   uchar *m_lut;
   LightingInformation m_lightInfo;
+  GiLightInfo m_giLightInfo;
   ClipInformation m_clipInfo;
   QList<BrickInformation> m_brickInfo;
   Vec m_volMin, m_volMax;
@@ -201,6 +207,7 @@ class KeyFrameInformation
   int m_interpBrickInfo;
   int m_interpClipInfo;
   int m_interpLightInfo;
+  int m_interpGiLightInfo;
   int m_interpTF;
   int m_interpCrop;
   int m_interpMop;

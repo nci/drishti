@@ -1,6 +1,7 @@
 #include "viewer.h"
 #include "global.h"
 #include "geometryobjects.h"
+#include "lighthandler.h"
 #include "staticfunctions.h"
 #include "dialogs.h"
 #include "captiondialog.h"
@@ -270,6 +271,7 @@ Viewer::switchDrawVolume()
       //GeometryObjects::hitpoints()->ignore(false);
 
       GeometryObjects::removeFromMouseGrabberPool();
+      LightHandler::removeFromMouseGrabberPool();
 
       m_lowresVolume->raise();
       m_hiresVolume->lower();
@@ -802,60 +804,82 @@ Viewer::updateLookupTable(unsigned char *kflut)
 void
 Viewer::updateLookupTable()
 {
-  if (Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
-    {
-      loadLookupTable(m_lut);
-      return;
-    }
-
   //--------------
   // check whether emptyspaceskip data structure
   // needs to be reevaluated
   bool prune = false;
+  if (Global::volumeType() != Global::RGBVolume &&
+      Global::volumeType() != Global::RGBAVolume)
+    {
+      for (int i=0; i<Global::lutSize()*256*256; i++)
+	{
+	  bool pl = m_prevLut[4*i+3] > 0;
+	  bool ml = m_lut[4*i+3] > 0;
+	  if (pl != ml)
+	    {
+	      prune = true;
+	      break;
+	    }
+	}
+    }
+
+  //--------------
+  // check whether light data structure
+  // needs to be reevaluated
+  bool gilite = false;
   for (int i=0; i<Global::lutSize()*256*256; i++)
     {
-      bool pl = m_prevLut[4*i+3] > 0;
-      bool ml = m_lut[4*i+3] > 0;
-      if (pl != ml)
+      if (fabs((float)(m_prevLut[4*i+0] - m_lut[4*i+0])) > 2 ||
+	  fabs((float)(m_prevLut[4*i+1] - m_lut[4*i+1])) > 2 ||
+	  fabs((float)(m_prevLut[4*i+2] - m_lut[4*i+2])) > 2 ||
+	  fabs((float)(m_prevLut[4*i+3] - m_lut[4*i+3])) > 1)
 	{
-	  prune = true;
+	  gilite = true;
 	  break;
 	}
     }
   memcpy(m_prevLut, m_lut, Global::lutSize()*4*256*256);
   //--------------
 
-  float frc = Global::stepsizeStill();
-  frc = qMax(0.2f, frc);
   unsigned char *lut;
-
   lut = new unsigned char[Global::lutSize()*256*256*4];
   memset(lut, 0, Global::lutSize()*256*256*4);      
-  for (int i=0; i<Global::lutSize()*256*256; i++)
-    {      
-      qreal r,g,b,a;
-      
-      r = (float)m_lut[4*i+0]/255.0f;
-      g = (float)m_lut[4*i+1]/255.0f;
-      b = (float)m_lut[4*i+2]/255.0f;
-      a = (float)m_lut[4*i+3]/255.0f;	  
 
-      r*=a; g*=a; b*=a;
-      r = 1-pow((float)(1-r), (float)frc);
-      g = 1-pow((float)(1-g), (float)frc);
-      b = 1-pow((float)(1-b), (float)frc);
-      a = 1-pow((float)(1-a), (float)frc);	  
+  if (Global::volumeType() != Global::RGBVolume &&
+      Global::volumeType() != Global::RGBAVolume)
+    {
+      float frc = Global::stepsizeStill();
+      frc = qMax(0.2f, frc);
 
-      lut[4*i+0] = 255*r;
-      lut[4*i+1] = 255*g;
-      lut[4*i+2] = 255*b;
-      lut[4*i+3] = 255*a;
+      for (int i=0; i<Global::lutSize()*256*256; i++)
+	{      
+	  qreal r,g,b,a;
+	  
+	  r = (float)m_lut[4*i+0]/255.0f;
+	  g = (float)m_lut[4*i+1]/255.0f;
+	  b = (float)m_lut[4*i+2]/255.0f;
+	  a = (float)m_lut[4*i+3]/255.0f;	  
+	  
+	  r*=a; g*=a; b*=a;
+	  r = 1-pow((float)(1-r), (float)frc);
+	  g = 1-pow((float)(1-g), (float)frc);
+	  b = 1-pow((float)(1-b), (float)frc);
+	  a = 1-pow((float)(1-a), (float)frc);	  
+	  
+	  lut[4*i+0] = 255*r;
+	  lut[4*i+1] = 255*g;
+	  lut[4*i+2] = 255*b;
+	  lut[4*i+3] = 255*a;
+	}
     }
-  loadLookupTable(lut);
+  else 
+    memcpy(lut, m_lut, Global::lutSize()*4*256*256);
   
-  delete [] lut;
 
+  if (m_hiresVolume->raised() &&
+      (gilite || !LightHandler::willUpdateLightBuffers()))
+    LightHandler::setLut(m_lut);
+  
   if (Global::emptySpaceSkip() &&
       m_hiresVolume->raised() &&
       prune)
@@ -864,22 +888,91 @@ Viewer::updateLookupTable()
 	m_hiresVolume->updateAndLoadPruneTexture();
 
       dummydraw();
-      if (!savingImages()) updateGL();
     }
+
+  loadLookupTable(lut);
+
+  delete [] lut;
 }
+
+//void
+//Viewer::updateLookupTable()
+//{
+//  if (Global::volumeType() == Global::RGBVolume ||
+//      Global::volumeType() == Global::RGBAVolume)
+//    {
+//      loadLookupTable(m_lut);
+//      return;
+//    }
+//
+//  //--------------
+//  // check whether emptyspaceskip data structure
+//  // needs to be reevaluated
+//  bool prune = false;
+//  for (int i=0; i<Global::lutSize()*256*256; i++)
+//    {
+//      bool pl = m_prevLut[4*i+3] > 0;
+//      bool ml = m_lut[4*i+3] > 0;
+//      if (pl != ml)
+//	{
+//	  prune = true;
+//	  break;
+//	}
+//    }
+//  memcpy(m_prevLut, m_lut, Global::lutSize()*4*256*256);
+//  //--------------
+//
+//  float frc = Global::stepsizeStill();
+//  frc = qMax(0.2f, frc);
+//  unsigned char *lut;
+//
+//  lut = new unsigned char[Global::lutSize()*256*256*4];
+//  memset(lut, 0, Global::lutSize()*256*256*4);      
+//  for (int i=0; i<Global::lutSize()*256*256; i++)
+//    {      
+//      qreal r,g,b,a;
+//      
+//      r = (float)m_lut[4*i+0]/255.0f;
+//      g = (float)m_lut[4*i+1]/255.0f;
+//      b = (float)m_lut[4*i+2]/255.0f;
+//      a = (float)m_lut[4*i+3]/255.0f;	  
+//
+//      r*=a; g*=a; b*=a;
+//      r = 1-pow((float)(1-r), (float)frc);
+//      g = 1-pow((float)(1-g), (float)frc);
+//      b = 1-pow((float)(1-b), (float)frc);
+//      a = 1-pow((float)(1-a), (float)frc);	  
+//
+//      lut[4*i+0] = 255*r;
+//      lut[4*i+1] = 255*g;
+//      lut[4*i+2] = 255*b;
+//      lut[4*i+3] = 255*a;
+//    }
+//  loadLookupTable(lut);
+//  
+//  delete [] lut;
+//
+//  if (Global::emptySpaceSkip() &&
+//      m_hiresVolume->raised() &&
+//      prune)
+//    {
+//      if (Global::updatePruneTexture())
+//	m_hiresVolume->updateAndLoadPruneTexture();
+//
+//      dummydraw();
+//      if (!savingImages()) updateGL();
+//    }
+//}
 
 void
 Viewer::enableTextureUnits()
 {
-//  if (Global::useMask())
-//  {
   if (m_paintTex)
     {
       glActiveTexture(GL_TEXTURE5);
       glBindTexture(GL_TEXTURE_1D, m_paintTex);
       glEnable(GL_TEXTURE_1D);
     }
-//  }
 
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, m_lutTex);
@@ -889,11 +982,8 @@ Viewer::enableTextureUnits()
 void
 Viewer::disableTextureUnits()
 {
-//  if (Global::useMask())
-//    {
-      glActiveTexture(GL_TEXTURE5);
-      glDisable(GL_TEXTURE_1D);
-//    }
+  glActiveTexture(GL_TEXTURE5);
+  glDisable(GL_TEXTURE_1D);
 
   glActiveTexture(GL_TEXTURE0);
   glDisable(GL_TEXTURE_2D);
@@ -1399,6 +1489,7 @@ Viewer::drawInHires(int imagequality)
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // blend on top
 
+  LightHandler::giLights()->postdraw(this);
 
   if (carveHitPointOK)
     drawCarveCircle();
@@ -2163,9 +2254,20 @@ Viewer::draw()
       return;
     }
 
-  if ((m_saveSnapshots || m_saveMovie) &&
-      m_hiresVolume->raised())
+  //-----------------
+  // update lightbuffer
+  QList<Vec> cpos, cnorm;
+  m_hiresVolume->getClipForMask(cpos, cnorm);
+  bool redolighting = LightHandler::checkClips(cpos, cnorm);
+  redolighting = redolighting || LightHandler::checkCrops();
+  if (redolighting || LightHandler::updateOnlyLightBuffers())
+    LightHandler::updateLightBuffers();
+  //-----------------
+
+  
+  if (m_saveSnapshots || m_saveMovie || redolighting)
     dummydraw();
+
 
   setBackgroundColor(QColor(0, 0, 0, 0));
 
@@ -2721,7 +2823,15 @@ Viewer::mouseReleaseEvent(QMouseEvent *event)
   GeometryObjects::clipplanes()->resetViewportGrabbed();
   GeometryObjects::paths()->resetViewportGrabbed();
 
+  LightHandler::mouseReleaseEvent(event, camera());
+
   m_undo.append(camera()->position(), camera()->orientation());
+
+  if (LightHandler::lightsChanged())
+    {
+      LightHandler::updateLightBuffers();
+      updateGL();
+    }
 }
 
 void
@@ -2860,6 +2970,17 @@ Viewer::keyPressEvent(QKeyEvent *event)
     {
       if (GeometryObjects::keyPressEvent(event))
 	{
+	  updateGL();
+	  return;
+	}
+    }
+	    
+  if (LightHandler::grabsMouse())
+    {
+      if (LightHandler::keyPressEvent(event))
+	{
+	  if (LightHandler::lightsChanged())
+	    LightHandler::updateLightBuffers();
 	  updateGL();
 	  return;
 	}
@@ -3088,6 +3209,13 @@ Viewer::keyPressEvent(QKeyEvent *event)
     }
   else if (m_hiresVolume->raised())
     {
+      if (event->key() == Qt::Key_Tab)
+	{
+	  if (LightHandler::openPropertyEditor())
+	    updateGL();
+	  return;
+	}
+
       if (m_hiresVolume->keyPressEvent(event))
 	{
 	  updateGL();
@@ -3318,6 +3446,34 @@ QString Viewer::helpString() const
 }
 
 void
+Viewer::processLight(QStringList list)
+{
+  if (list[0] == "addplight" ||
+      list[0] == "adddlight")
+    {
+      QList<Vec> pts;
+      if (GeometryObjects::hitpoints()->activeCount())
+	pts = GeometryObjects::hitpoints()->activePoints();
+      else
+	pts = GeometryObjects::hitpoints()->points();
+      
+      if (list[0] == "addplight")
+	LightHandler::giLights()->addGiPointLight(pts);
+      else
+	LightHandler::giLights()->addGiDirectionLight(pts);
+      
+      // now remove points that were used to make the path
+      if (GeometryObjects::hitpoints()->activeCount())
+	GeometryObjects::hitpoints()->removeActive();
+      else
+	GeometryObjects::hitpoints()->clear();
+      
+      LightHandler::updateLightBuffers();
+      updateGL();
+    }
+}
+
+void
 Viewer::processCommand(QString cmd)
 {
   bool ok;
@@ -3325,7 +3481,12 @@ Viewer::processCommand(QString cmd)
   cmd = cmd.toLower();
   QStringList list = cmd.split(" ", QString::SkipEmptyParts);
  
-  if (list[0] == "reslice")
+  if (list[0].contains("light"))
+    {
+      processLight(list);
+      return;
+    }
+  else if (list[0] == "reslice")
     {
       int subsample = 1;
       int tagvalue = -1;

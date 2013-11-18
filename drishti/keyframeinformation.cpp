@@ -21,6 +21,7 @@ void KeyFrameInformation::setLut(unsigned char* lut)
   memcpy(m_lut, lut, Global::lutSize()*256*256*4);
 }
 void KeyFrameInformation::setLightInfo(LightingInformation li) { m_lightInfo = li; }
+void KeyFrameInformation::setGiLightInfo(GiLightInfo li) { m_giLightInfo = li; }
 void KeyFrameInformation::setClipInfo(ClipInformation ci) { m_clipInfo = ci; }
 void KeyFrameInformation::setVolumeBounds(Vec bmin, Vec bmax) { m_volMin = bmin; m_volMax = bmax; }
 void KeyFrameInformation::setImage(QImage pix) { m_image = pix; }
@@ -78,6 +79,7 @@ Vec KeyFrameInformation::position() { return m_position; }
 Quaternion KeyFrameInformation::orientation() { return m_rotation; }
 unsigned char* KeyFrameInformation::lut() { return m_lut; }
 LightingInformation KeyFrameInformation::lightInfo() { return m_lightInfo; }
+GiLightInfo KeyFrameInformation::giLightInfo() { return m_giLightInfo; }
 ClipInformation KeyFrameInformation::clipInfo() { return m_clipInfo; }
 void KeyFrameInformation::volumeBounds(Vec &bmin, Vec &bmax) { bmin = m_volMin; bmax = m_volMax; }
 QImage KeyFrameInformation::image() { return m_image; }
@@ -130,6 +132,7 @@ void KeyFrameInformation::setInterpCameraOrientation(int i) {m_interpCameraOrien
 void KeyFrameInformation::setInterpBrickInfo(int i) {m_interpBrickInfo = i;}
 void KeyFrameInformation::setInterpClipInfo(int i) {m_interpClipInfo = i;}
 void KeyFrameInformation::setInterpLightInfo(int i) {m_interpLightInfo = i;}
+void KeyFrameInformation::setInterpGiLightInfo(int i) {m_interpGiLightInfo = i;}
 void KeyFrameInformation::setInterpTF(int i) {m_interpTF = i;}
 void KeyFrameInformation::setInterpCrop(int i) {m_interpCrop = i;}
 void KeyFrameInformation::setInterpMop(int i) {m_interpMop = i;}
@@ -145,6 +148,7 @@ int KeyFrameInformation::interpCameraOrientation() { return m_interpCameraOrient
 int KeyFrameInformation::interpBrickInfo() { return m_interpBrickInfo; }
 int KeyFrameInformation::interpClipInfo() { return m_interpClipInfo; }
 int KeyFrameInformation::interpLightInfo() { return m_interpLightInfo; }
+int KeyFrameInformation::interpGiLightInfo() { return m_interpGiLightInfo; }
 int KeyFrameInformation::interpTF() { return m_interpTF; }
 int KeyFrameInformation::interpCrop() { return m_interpCrop; }
 int KeyFrameInformation::interpMop() { return m_interpMop; }
@@ -223,6 +227,7 @@ KeyFrameInformation::KeyFrameInformation()
   m_interpBrickInfo = Enums::KFIT_Linear;
   m_interpClipInfo = Enums::KFIT_Linear;
   m_interpLightInfo = Enums::KFIT_Linear;
+  m_interpGiLightInfo = Enums::KFIT_None;
   m_interpTF = Enums::KFIT_Linear;
   m_interpCrop = Enums::KFIT_Linear;
   m_interpMop = Enums::KFIT_None;
@@ -254,6 +259,7 @@ KeyFrameInformation::clear()
   m_volMin = m_volMax = Vec(0,0,0);
   m_image = QImage(100, 100, QImage::Format_RGB32);
   m_lightInfo.clear();
+  m_giLightInfo.clear();
   m_clipInfo.clear();
   m_brickInfo.clear();
   m_tickSize = 6;
@@ -292,6 +298,7 @@ KeyFrameInformation::clear()
   m_interpBrickInfo = Enums::KFIT_Linear;
   m_interpClipInfo = Enums::KFIT_Linear;
   m_interpLightInfo = Enums::KFIT_Linear;
+  m_interpGiLightInfo = Enums::KFIT_None;
   m_interpTF = Enums::KFIT_Linear;
   m_interpCrop = Enums::KFIT_Linear;
   m_interpMop = Enums::KFIT_None;
@@ -328,6 +335,7 @@ KeyFrameInformation::KeyFrameInformation(const KeyFrameInformation& kfi)
   m_pruneBlend = kfi.m_pruneBlend;
 
   m_lightInfo = kfi.m_lightInfo;
+  m_giLightInfo = kfi.m_giLightInfo;
   m_clipInfo = kfi.m_clipInfo;
 
   m_volMin = kfi.m_volMin;
@@ -376,6 +384,7 @@ KeyFrameInformation::KeyFrameInformation(const KeyFrameInformation& kfi)
   m_interpBrickInfo = kfi.m_interpBrickInfo;
   m_interpClipInfo = kfi.m_interpClipInfo;
   m_interpLightInfo = kfi.m_interpLightInfo;
+  m_interpGiLightInfo = kfi.m_interpGiLightInfo;
   m_interpTF = kfi.m_interpTF;
   m_interpCrop = kfi.m_interpCrop;
   m_interpMop = kfi.m_interpMop;
@@ -440,6 +449,7 @@ KeyFrameInformation::operator=(const KeyFrameInformation& kfi)
   m_pruneBlend = kfi.m_pruneBlend;
 
   m_lightInfo = kfi.m_lightInfo;
+  m_giLightInfo = kfi.m_giLightInfo;
   m_clipInfo = kfi.m_clipInfo;
 
   m_volMin = kfi.m_volMin;
@@ -488,6 +498,7 @@ KeyFrameInformation::operator=(const KeyFrameInformation& kfi)
   m_interpBrickInfo = kfi.m_interpBrickInfo;
   m_interpClipInfo = kfi.m_interpClipInfo;
   m_interpLightInfo = kfi.m_interpLightInfo;
+  m_interpGiLightInfo = kfi.m_interpGiLightInfo;
   m_interpTF = kfi.m_interpTF;
   m_interpCrop = kfi.m_interpCrop;
   m_interpMop = kfi.m_interpMop;
@@ -521,6 +532,7 @@ KeyFrameInformation::load(fstream &fin)
   m_interpBrickInfo = Enums::KFIT_Linear;
   m_interpClipInfo = Enums::KFIT_Linear;
   m_interpLightInfo = Enums::KFIT_Linear;
+  m_interpGiLightInfo = Enums::KFIT_None;
   m_interpTF = Enums::KFIT_Linear;
   m_interpCrop = Enums::KFIT_Linear;
   m_interpMop = Enums::KFIT_None;
@@ -610,6 +622,8 @@ KeyFrameInformation::load(fstream &fin)
 	}
       else if (strcmp(keyword, "lightinginformation") == 0)
 	m_lightInfo.load(fin);
+      else if (strcmp(keyword, "gilightinfo") == 0)
+	m_giLightInfo.load(fin);
       else if (strcmp(keyword, "clipinformation") == 0)
 	m_clipInfo.load(fin);
       else if (strcmp(keyword, "tickinfo") == 0)
@@ -793,6 +807,8 @@ KeyFrameInformation::load(fstream &fin)
 	fin.read((char*)&m_interpClipInfo, sizeof(int));
       else if (strcmp(keyword, "interplightinfo") == 0)
 	fin.read((char*)&m_interpLightInfo, sizeof(int));
+      else if (strcmp(keyword, "interpgilightinfo") == 0)
+	fin.read((char*)&m_interpGiLightInfo, sizeof(int));
       else if (strcmp(keyword, "interptf") == 0)
 	fin.read((char*)&m_interpTF, sizeof(int));
       else if (strcmp(keyword, "interpcrop") == 0)
@@ -953,6 +969,7 @@ KeyFrameInformation::save(fstream &fout)
 
 
   m_lightInfo.save(fout);
+  m_giLightInfo.save(fout);
   m_clipInfo.save(fout);
 
   memset(keyword, 0, 100);
@@ -1146,6 +1163,11 @@ KeyFrameInformation::save(fstream &fout)
   sprintf(keyword, "interplightinfo");
   fout.write((char*)keyword, strlen(keyword)+1);
   fout.write((char*)&m_interpLightInfo, sizeof(int));
+
+  memset(keyword, 0, 100);
+  sprintf(keyword, "interpgilightinfo");
+  fout.write((char*)keyword, strlen(keyword)+1);
+  fout.write((char*)&m_interpGiLightInfo, sizeof(int));
 
   memset(keyword, 0, 100);
   sprintf(keyword, "interptf");

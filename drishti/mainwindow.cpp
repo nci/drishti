@@ -2,6 +2,7 @@
 #include "mainwindow.h"
 #include "mainwindowui.h"
 #include "geometryobjects.h"
+#include "lighthandler.h"
 #include "dialogs.h"
 #include "staticfunctions.h"
 #include "rawvolume.h"
@@ -1001,6 +1002,8 @@ MainWindow::closeEvent(QCloseEvent *)
 
   m_Volume->clearVolumes();
   
+  LightHandler::reset();
+
   GeometryObjects::captions()->clear();
   GeometryObjects::hitpoints()->clear();
   GeometryObjects::paths()->clear();
@@ -1626,7 +1629,10 @@ MainWindow::loadSingleVolume(QStringList flnm)
   // reset
   m_bricks->reset();
   m_bricksWidget->refresh();
+
+  LightHandler::reset();
   GeometryObjects::clear();
+
   m_keyFrame->clear();
   m_keyFrameEditor->clear();
   m_gallery->clear();
@@ -1694,7 +1700,10 @@ MainWindow::on_actionLoad_2_Volumes_triggered()
   // reset
   m_bricks->reset();
   m_bricksWidget->refresh();
+
+  LightHandler::reset();
   GeometryObjects::clear();
+
   m_keyFrame->clear();
   m_keyFrameEditor->clear();
   m_gallery->clear();
@@ -1746,7 +1755,10 @@ MainWindow::on_actionLoad_3_Volumes_triggered()
   // reset
   m_bricks->reset();
   m_bricksWidget->refresh();
+
+  LightHandler::reset();
   GeometryObjects::clear();
+
   m_keyFrame->clear();
   m_keyFrameEditor->clear();
   m_gallery->clear();
@@ -1805,7 +1817,10 @@ MainWindow::on_actionLoad_4_Volumes_triggered()
   // reset
   m_bricks->reset();
   m_bricksWidget->refresh();
+
+  LightHandler::reset();
   GeometryObjects::clear();
+
   m_keyFrame->clear();
   m_keyFrameEditor->clear();
   m_gallery->clear();
@@ -2223,6 +2238,8 @@ void
 MainWindow::preLoadVolume()
 {
   RawVolume::reset();
+  LightHandler::reset();
+
   GeometryObjects::captions()->clear();
   GeometryObjects::hitpoints()->clear();
   GeometryObjects::paths()->clear();
@@ -2997,6 +3014,8 @@ MainWindow::loadProject(const char* flnm)
   GeometryObjects::inPool = false;
   GeometryObjects::removeFromMouseGrabberPool();
 
+  LightHandler::removeFromMouseGrabberPool();
+
   m_keyFrame->playSavedKeyFrame();
   
   m_Viewer->updateLookupTable();
@@ -3338,6 +3357,8 @@ MainWindow::setVolumeNumber(int vol, int vnum)
 void
 MainWindow::updateScaling()
 {
+  LightHandler::giLights()->updateScaling();
+
   GeometryObjects::paths()->updateScaling();
   GeometryObjects::grids()->updateScaling();
   GeometryObjects::pathgroups()->updateScaling();
@@ -3507,6 +3528,7 @@ MainWindow::updateParameters(float stepStill, float stepDrag,
 
   // remove all geometry from mousegrab pool
   GeometryObjects::removeFromMouseGrabberPool();
+  LightHandler::removeFromMouseGrabberPool();
 }
 
 // called from keyframeeditor
@@ -3533,6 +3555,7 @@ MainWindow::updateParameters(bool drawBox, bool drawAxis,
 
   // remove all geometry from mousegrab pool
   GeometryObjects::removeFromMouseGrabberPool();
+  LightHandler::removeFromMouseGrabberPool();
 
   if (pruneblend != PruneHandler::blend())
     {
@@ -4669,6 +4692,20 @@ MainWindow::on_actionVisibility_triggered()
 
   QStringList keys;
 
+  for(int i=0; i<LightHandler::giLights()->count(); i++)
+    {
+      bool flag = LightHandler::giLights()->show(i);
+      QString name = QString("light %1").arg(i);
+      vlist.clear();
+      vlist << QVariant("checkbox");
+      vlist << QVariant(flag);
+      plist[name] = vlist;
+
+      keys << name;
+    }
+  if (LightHandler::giLights()->count())
+    keys << "gap";
+
   for(int i=0; i<GeometryObjects::networks()->count(); i++)
     {
       bool flag = GeometryObjects::networks()->show(i);
@@ -4743,7 +4780,9 @@ MainWindow::on_actionVisibility_triggered()
       int idx = slist[1].toInt();
       if (pair.second)
 	{	  
-	  if (name == "network")
+	  if (name == "light")
+	    LightHandler::giLights()->setShow(idx, pair.first.toBool());
+	  else if (name == "network")
 	    GeometryObjects::networks()->setShow(idx, pair.first.toBool());
 	  else if (name == "clipplane")
 	    GeometryObjects::clipplanes()->setShow(idx, pair.first.toBool());
@@ -4766,6 +4805,20 @@ MainWindow::on_actionMouse_Grab_triggered()
   QVariantList vlist;
 
   QStringList keys;
+
+  for(int i=0; i<LightHandler::giLights()->count(); i++)
+    {
+      bool flag = LightHandler::giLights()->isInMouseGrabberPool(i);
+      QString name = QString("light %1").arg(i);
+      vlist.clear();
+      vlist << QVariant("checkbox");
+      vlist << QVariant(flag);
+      plist[name] = vlist;
+
+      keys << name;
+    }
+  if (LightHandler::giLights()->count())
+    keys << "gap";
 
   for(int i=0; i<GeometryObjects::trisets()->count(); i++)
     {
@@ -4903,14 +4956,21 @@ MainWindow::on_actionMouse_Grab_triggered()
       int idx = slist[1].toInt();
       if (pair.second)
 	{	  
-	  if (name == "triset")
+	  if (name == "light")
+	    {
+	      if (pair.first.toBool())
+		LightHandler::giLights()->addInMouseGrabberPool(idx);
+	      else
+		LightHandler::giLights()->removeFromMouseGrabberPool(idx);
+	    }
+	  else if (name == "triset")
 	    {
 	      if (pair.first.toBool())
 		GeometryObjects::trisets()->addInMouseGrabberPool(idx);
 	      else
 		GeometryObjects::trisets()->removeFromMouseGrabberPool(idx);
 	    }
-	  if (name == "network")
+	  else if (name == "network")
 	    {
 	      if (pair.first.toBool())
 		GeometryObjects::networks()->addInMouseGrabberPool(idx);

@@ -93,6 +93,7 @@ class DrawHiresVolume : public QObject
  public slots :
   void collectBrickInformation(bool force=false);
   void updateAndLoadPruneTexture();
+  void updateAndLoadLightTexture();
   void loadTextureMemory();  
   void loadDragTexture();  
   void updateScaling();

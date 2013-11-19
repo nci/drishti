@@ -209,7 +209,7 @@ CropShaderFactory::applyTubeCropping(bool keepInside,
   shader += "vec3 v0 = vpos-p0;\n";
   shader += "float pvlen = dot(pvec, v0);\n";
 
-  shader += "float c = 2.0*(pvlen/plen - 0.5);\n";
+  shader += "float c = 2*(pvlen/plen - 0.5);\n";
   shader += "float c2 = c*c;\n";
 
   shader += "vec3 pv = vpos - (p0 + pvlen*pvec);\n";

@@ -670,7 +670,7 @@ ShaderFactoryRGB::addLighting()
 {
   QString shader;
 
-  shader = "  vec3 lightcol = vec3(1.0,1.0,1.0);\n";
+  //shader = "  vec3 lightcol = vec3(1.0,1.0,1.0);\n";
   shader += "  vec3 voxpos = pointpos;\n";
   shader += "  vec3 I = voxpos - eyepos;\n";
   shader += "  vec3 lightvec = voxpos - lightpos;\n";

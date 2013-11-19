@@ -695,6 +695,7 @@ ShaderFactoryRGB::addLighting()
   shader += "        frgb = gl_FragColor.aaa;\n";
   shader += "     gl_FragColor.rgb = frgb;\n";
   shader += "   }\n";
+  shader += "  gl_FragColor.rgb *= lightcol;\n";
 
   return shader;
 }

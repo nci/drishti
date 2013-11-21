@@ -6589,6 +6589,15 @@ DrawHiresVolume::saveReslicedVolume(int nslices, int wd, int ht,
     return qMakePair(QString(), true);
   
   QString pFile = fdialog.selectedFiles().value(0);
+
+  // mac sometimes adds on extra extensions at the end
+  if (pFile.endsWith(".pvl.nc.pvl.nc"))
+    pFile.chop(7);
+
+  // yes again - remove extra extensions at the end
+  if (pFile.endsWith(".pvl.nc.pvl.nc"))
+    pFile.chop(7);
+
   if (!pFile.endsWith(".pvl.nc"))
     pFile += ".pvl.nc";
   

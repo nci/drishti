@@ -3486,21 +3486,6 @@ Viewer::processCommand(QString cmd)
       processLight(list);
       return;
     }
-  else if (list[0] == "reslice")
-    {
-      int subsample = 1;
-      int tagvalue = -1;
-      if (list.size() > 1) subsample = qMax(1, list[1].toInt(&ok));
-      if (list.size() > 2) tagvalue = list[2].toInt(&ok);
-
-      m_hiresVolume->resliceVolume(camera()->position(),
-				   camera()->viewDirection(),
-				   camera()->rightVector(),
-				   camera()->upVector(),
-				   subsample,
-				   false, tagvalue);
-      return;
-    }
   else if (list[0] == "depthcue")
     {
       bool flag = true;
@@ -4283,6 +4268,21 @@ Viewer::processCommand(QString cmd)
 
       emit countIsolatedRegions();
     }
+  else if (list[0] == "reslice")
+    {
+      int subsample = 1;
+      int tagvalue = -1;
+      if (list.size() > 1) subsample = qMax(1, list[1].toInt(&ok));
+      if (list.size() > 2) tagvalue = list[2].toInt(&ok);
+
+      m_hiresVolume->resliceVolume(camera()->position(),
+				   camera()->viewDirection(),
+				   camera()->rightVector(),
+				   camera()->upVector(),
+				   subsample,
+				   false, tagvalue);
+      return;
+    }
   else if (list[0] == "getvolume" &&
 	   list.size() <= 2)
     {
@@ -4295,10 +4295,13 @@ Viewer::processCommand(QString cmd)
       Vec smin = m_lowresVolume->volumeMin();
       Vec smax = m_lowresVolume->volumeMax();
       if (list.size() == 1)
-	m_hiresVolume->resliceVolume((smax+smin)*0.5,
-				     Vec(0,0,1), Vec(1,0,0), Vec(0,1,0),
-				     1,
-				     true, -1); // use opacity to getVolume
+	{
+	  Vec pos = Vec((smax.x+smin.x)*0.5,(smax.y+smin.y)*0.5,smax.z+10);
+	  m_hiresVolume->resliceVolume(pos,
+				       Vec(0,0,-1), Vec(1,0,0), Vec(0,1,0),
+				       1,
+				       true, -1); // use opacity to getVolume
+	}
       else
 	{
 	  int tag = list[1].toInt(&ok);

@@ -1501,8 +1501,8 @@ ClipObject::commandEditor()
   keys << "color";
   keys << "opacity";
   keys << "gap";
-  keys << "tfset";
   keys << "viewport";
+  keys << "tfset";
   keys << "thickness";
   keys << "viewport scale";
   keys << "camera type";

@@ -1161,7 +1161,7 @@ LightHandler::dilateEmissiveTexture()
   glUniform1iARB(m_diffuseLightParm[2], m_gridy); // gridy
   glUniform1iARB(m_diffuseLightParm[3], m_gridz); // gridz
   glUniform1iARB(m_diffuseLightParm[5], m_ncols); // ncols
-  glUniform1fARB(m_diffuseLightParm[6], 1.0 + 0.1*m_emisBoost); // boost
+  glUniform1fARB(m_diffuseLightParm[6], 1.0 + 0.05*m_emisBoost); // boost
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_lightBuffer);
   glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
 			 GL_COLOR_ATTACHMENT0_EXT,
@@ -2377,7 +2377,7 @@ LightHandler::openPropertyEditor()
   vlist << QVariant("int");
   vlist << QVariant(m_aoRad);
   vlist << QVariant(1);
-  vlist << QVariant(10);
+  vlist << QVariant(7);
   plist["ao size"] = vlist;
 
   vlist.clear();
@@ -2475,23 +2475,23 @@ LightHandler::openPropertyEditor()
   keys << "light diffusion";
   keys << "opacity tfset";
   keys << "gap";
-  keys << "emis tfset";
-  keys << "emis falloff";
-  keys << "emis smoothing";
-  keys << "emis boost";
-  keys << "gap";
   keys << "ao color";
   keys << "ao size";
   keys << "ao fraction";
   keys << "ao dark level";
   keys << "ao bright level";
   keys << "ao smoothing";
+  keys << "gap";
+  keys << "emis tfset";
+  keys << "emis falloff";
+  keys << "emis smoothing";
+  keys << "emis boost";
   //keys << "command";
   //keys << "commandhelp";
   
   
   propertyEditor.set("GI Light Parameters", plist, keys);
-  propertyEditor.resize(300, 400);  
+  propertyEditor.resize(300, 500);  
   
   QMap<QString, QPair<QVariant, bool> > vmap;
   

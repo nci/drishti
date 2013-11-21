@@ -5961,7 +5961,10 @@ DrawHiresVolume::resliceVolume(Vec pos,
   for(int sl=0; sl<nslices; sl++)
     {
       float sf = (float)sl/(float)(nslices-1);
-      Vec po = (1.0-sf)*sliceStart + sf*sliceEnd;
+      Vec po = pos +
+	       (1-sf)*dmax*normal + sf*dmin*normal +
+	       wmin*xaxis +
+	       hmin*yaxis;
 
       progress.setValue(100*(float)sl/(float)nslices);
 
@@ -6037,7 +6040,7 @@ DrawHiresVolume::resliceVolume(Vec pos,
 	}
 
       if (!getVolume)
-	pFileManager.setSlice(nslices-1-sl, slice);
+	pFileManager.setSlice(sl, slice);
       else
 	{
 	  for(int p=0; p<wd*ht; p++)
@@ -6091,7 +6094,7 @@ DrawHiresVolume::resliceVolume(Vec pos,
     }
   else
     QMessageBox::information(0, "Saved Resliced Volume",
-			     QString("Resliced volume saved to %1 and %1.001").\
+			     QString("Resliced volume saved to %1 and %1.001").	\
 			     arg(pFile));
 }
 
@@ -6469,7 +6472,6 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
   
   for(int sl=0; sl<nslices; sl++)
     {
-      //Vec po = (sliceZero + sl*normal);
       float sf = (float)sl/(float)(nslices-1);
       Vec po = (1.0-sf)*sliceStart + sf*sliceEnd;
 

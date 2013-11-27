@@ -5868,10 +5868,33 @@ DrawHiresVolume::resliceVolume(Vec pos,
   VolumeFileManager pFileManager;
   QString pFile;
   bool saveValue=true;
+  bool tightFit = false;
 
   if (!getVolume)
-    {
-      QPair<QString, bool> srv = saveReslicedVolume(nslices, wd, ht, pFileManager);
+    {      
+      //------------------
+      // get tightFit first
+      QStringList items;
+      items << "Yes" << "No";
+      bool ok;
+      QString item = QInputDialog::getItem(0,
+					   "Tight Fit",
+					   "Want a tight fit - volume bounds tightly fitting visible voxels ? Default is tight fit.",
+					   items,
+					   0,
+					   false,
+					   &ok);
+      
+      if (!ok || item == "Yes")
+	tightFit = true;
+      //------------------
+
+      //------------------
+      // now get the filename
+      int tmpfile = 0;
+      if (tightFit) tmpfile = 1;
+      QPair<QString, bool> srv = saveReslicedVolume(nslices, wd, ht, pFileManager,
+						    tmpfile);
       pFile = srv.first;
       saveValue = srv.second;
       if (pFile.isEmpty())
@@ -5956,8 +5979,17 @@ DrawHiresVolume::resliceVolume(Vec pos,
   glClearDepth(0);
   glClearColor(0,0,0,0);
 
+  //----------------------------
+  // parameters for tightFit
+  int xmin, xmax, ymin, ymax, zmin, zmax;
+  xmax = ymax = 0;
+  xmin = wd-1;
+  ymin = ht-1;
+  zmin = 0; zmax = nslices-1;
+  bool zmindone = false;
+  //----------------------------
+
   qint64 nonZeroVoxels=0;
-  
   for(int sl=0; sl<nslices; sl++)
     {
       float sf = (float)sl/(float)(nslices-1);
@@ -5966,6 +5998,7 @@ DrawHiresVolume::resliceVolume(Vec pos,
 	       wmin*xaxis +
 	       hmin*yaxis;
 
+      progress.setLabelText(QString("%1").arg(sl));
       progress.setValue(100*(float)sl/(float)nslices);
 
       glClear(GL_DEPTH_BUFFER_BIT);
@@ -6048,11 +6081,86 @@ DrawHiresVolume::resliceVolume(Vec pos,
 	      if (slice[p] > 0) nonZeroVoxels++;
 	    }
 	}
+
+      //----------------------------
+      // find bounds for tightFit
+      //----------------------------
+      if (tightFit)
+	{
+	  // find zmin, zmax
+	  if (!zmindone)
+	    {
+	      for(int p=0; p<wd*ht; p++)
+		if (slice[p] > 0)
+		  {
+		    zmin = sl;
+		    zmax = sl;
+		    zmindone = true;
+		    break;
+		  }
+	    }
+	  else
+	    {
+	      for(int p=0; p<wd*ht; p++)
+		if (slice[p] > 0)
+		  {
+		    zmax = sl;
+		    break;
+		  }
+	    }
+	  
+	  // find xmin, xmax
+	  for(int y=0; y<ht; y++)
+	    {
+	      for(int x=0; x<xmin; x++)
+		{
+		  if (slice[y*wd+x] > 0)
+		    {
+		      xmin = qMin(xmin, x);
+		      break;
+		    }
+		}
+	    }
+	  for(int y=0; y<ht; y++)
+	    {
+	      for(int x=wd-1; x>xmax; x--)
+		{
+		  if (slice[y*wd+x] > 0)
+		    {
+		      xmax = qMax(xmax, x);
+		      break;
+		    }
+		}
+	    }
+	  
+	  // find ymin, ymax
+	  for(int x=0; x<wd; x++)
+	    {
+	      for(int y=0; y<ymin; y++)
+		{
+		  if (slice[y*wd+x] > 0)
+		    {
+		      ymin = qMin(ymin, y);
+		      break;
+		    }
+		}
+	    }
+	  for(int x=0; x<wd; x++)
+	    {
+	      for(int y=ht-1; y>ymax; y--)
+		{
+		  if (slice[y*wd+x] > 0)
+		    {
+		      ymax = qMax(ymax, y);
+		      break;
+		    }
+		}
+	    }
+	}
+      //----------------------------
     }
 
   m_shadowBuffer->release();
-
-  progress.setValue(100);
 
   delete [] slice;
   if (tagValue >= 0)
@@ -6067,6 +6175,46 @@ DrawHiresVolume::resliceVolume(Vec pos,
   initShadowBuffers(true);
 
   glEnable(GL_DEPTH_TEST);
+
+  //----------------------------
+  if (tightFit)
+    {
+      xmin = qMax(0, xmin-1);
+      ymin = qMax(0, ymin-1);
+      zmin = qMax(0, zmin-1);
+      xmax = qMin(wd-1, xmax+1);
+      ymax = qMin(ht-1, ymax+1);
+      zmax = qMin(nslices-1, zmax+1);
+      int newd = zmax-zmin+1;
+      int neww = ymax-ymin+1;
+      int newh = xmax-xmin+1;
+      
+      VolumeFileManager newManager;
+      QString newFile;
+      QPair<QString, bool> srv = saveReslicedVolume(newd, newh, neww, newManager, 2);
+      newFile = srv.first;
+      if (!newFile.isEmpty())
+	{
+	  uchar *slice = new uchar[wd*ht];
+	  for(int sl=zmin; sl<=zmax; sl++)
+	    {
+	      memcpy(slice, pFileManager.getSlice(sl), wd*ht);
+	      for(int y=ymin; y<=ymax; y++)
+		for(int x=xmin; x<=xmax; x++)
+		  slice[(y-ymin)*newh+(x-xmin)] = slice[y*wd+x];
+	      
+	      newManager.setSlice(sl-zmin, slice);
+	      progress.setLabelText(QString("%1").arg(sl-zmin));
+	      progress.setValue(100*(float)(sl-zmin)/(float)newd);
+	    }
+	}
+
+      pFileManager.removeFile(); // remove temporary file
+    }
+  //----------------------------
+
+  progress.setValue(100);
+
 
   if (getVolume)
     {
@@ -6234,6 +6382,7 @@ DrawHiresVolume::resliceUsingPath(int pathIdx, bool fullThickness,
   for(int sl=0; sl<nslices; sl++)
     {
       float tk = (float)sl/(float)(nslices-1);
+      progress.setLabelText(QString("%1").arg(sl));
       progress.setValue(100*(float)sl/(float)nslices);
       
       glClear(GL_DEPTH_BUFFER_BIT);
@@ -6475,6 +6624,7 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
       float sf = (float)sl/(float)(nslices-1);
       Vec po = (1.0-sf)*sliceStart + sf*sliceEnd;
 
+      progress.setLabelText(QString("%1").arg(sl));
       progress.setValue(100*(float)sl/(float)nslices);
 
       glClear(GL_DEPTH_BUFFER_BIT);
@@ -6575,32 +6725,39 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
 
 QPair<QString, bool>
 DrawHiresVolume::saveReslicedVolume(int nslices, int wd, int ht,
-				    VolumeFileManager &pFileManager)
+				    VolumeFileManager &pFileManager,
+				    int tmpfile)
 {
-  QFileDialog fdialog(0,
-		      QString("Save Resliced Volume (volume size : %1 %2 %3)").
-		      arg(wd).arg(ht).arg(nslices),
-		      Global::previousDirectory(),
-		      "Processed (*.pvl.nc)");
-  
-  fdialog.setAcceptMode(QFileDialog::AcceptSave);
-  
-  if (!fdialog.exec() == QFileDialog::Accepted)
-    return qMakePair(QString(), true);
-  
-  QString pFile = fdialog.selectedFiles().value(0);
+  QString pFile;
 
-  // mac sometimes adds on extra extensions at the end
-  if (pFile.endsWith(".pvl.nc.pvl.nc"))
-    pFile.chop(7);
+  if (tmpfile == 1)
+    pFile = QTemporaryFile("tmp").fileName();
+  else
+    {
+      QFileDialog fdialog(0,
+			  QString("Save Resliced Volume (volume size : %1 %2 %3)").
+			  arg(wd).arg(ht).arg(nslices),
+			  Global::previousDirectory(),
+			  "Processed (*.pvl.nc)");
+      
+      fdialog.setAcceptMode(QFileDialog::AcceptSave);
+      
+      if (!fdialog.exec() == QFileDialog::Accepted)
+	return qMakePair(QString(), true);
+      
+      pFile = fdialog.selectedFiles().value(0);
 
-  // yes again - remove extra extensions at the end
-  if (pFile.endsWith(".pvl.nc.pvl.nc"))
-    pFile.chop(7);
+      // mac sometimes adds on extra extensions at the end
+      if (pFile.endsWith(".pvl.nc.pvl.nc"))
+	pFile.chop(7);
 
+      // yes again - remove extra extensions at the end
+      if (pFile.endsWith(".pvl.nc.pvl.nc"))
+	pFile.chop(7);
+    }
+  
   if (!pFile.endsWith(".pvl.nc"))
     pFile += ".pvl.nc";
-  
   
   int slabSize = nslices+1;
   if (QFile::exists(pFile)) QFile::remove(pFile);
@@ -6623,41 +6780,47 @@ DrawHiresVolume::saveReslicedVolume(int nslices, int wd, int ht,
   pFileManager.createFile(true);
   
   
-  VolumeInformation pvlInfo = VolumeInformation::volumeInformation();
-  int vtype = VolumeInformation::_UChar;
-  float vx = pvlInfo.voxelSize.x;
-  float vy = pvlInfo.voxelSize.y;
-  float vz = pvlInfo.voxelSize.z;
-  QList<float> rawMap;
-  QList<int> pvlMap;
-  for(int i=0; i<pvlInfo.mapping.count(); i++)
+  if (tmpfile != 1)
     {
-      float f = pvlInfo.mapping[i].x();
-      int b = pvlInfo.mapping[i].y();
-      rawMap << f;
-      pvlMap << b;
+      VolumeInformation pvlInfo = VolumeInformation::volumeInformation();
+      int vtype = VolumeInformation::_UChar;
+      float vx = pvlInfo.voxelSize.x;
+      float vy = pvlInfo.voxelSize.y;
+      float vz = pvlInfo.voxelSize.z;
+      QList<float> rawMap;
+      QList<int> pvlMap;
+      for(int i=0; i<pvlInfo.mapping.count(); i++)
+	{
+	  float f = pvlInfo.mapping[i].x();
+	  int b = pvlInfo.mapping[i].y();
+	  rawMap << f;
+	  pvlMap << b;
+	}
+      StaticFunctions::savePvlHeader(pFile,
+				     false, "",
+				     vtype,vtype, pvlInfo.voxelUnit,
+				     nslices, ht, wd,
+				     vx, vy, vz,
+				     rawMap, pvlMap,
+				     pvlInfo.description,
+				     slabSize);
+      
+      
     }
-  StaticFunctions::savePvlHeader(pFile,
-				 false, "",
-				 vtype,vtype, pvlInfo.voxelUnit,
-				 nslices, ht, wd,
-				 vx, vy, vz,
-				 rawMap, pvlMap,
-				 pvlInfo.description,
-				 slabSize);
-
-
-
-  QStringList items;
-  items << "value" << "opacity";
-  QString yn = QInputDialog::getItem(0, "Save Volume",
-				     "Save Value or Opacity ?",
-				     items,
-				     0,
-				     false);
-
+  
   bool saveValue = true;
-  if (yn == "opacity") saveValue = false;
+  if (tmpfile < 2)
+    {
+      QStringList items;
+      items << "value" << "opacity";
+      QString yn = QInputDialog::getItem(0, "Save Volume",
+					 "Save Value or Opacity ?",
+					 items,
+					 0,
+					 false);
+  
+      if (yn == "opacity") saveValue = false;
+    }
 
   return qMakePair(pFile, saveValue) ;
 }

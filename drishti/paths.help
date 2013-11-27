@@ -211,6 +211,8 @@ Left click on the path curve will add a point and right click on a point will re
 
 Users can undo/redo changes made to the paths.
 
+Viewport functionality adds a multiperspective camera.  Viewing direction for the multiperspective camera is along the green axis.  The up-vector for the camera is the red axis.  Snapshot are taken along the path and are joined together to form a single cohesive image.  Near and far cutting planes is controlled by the green axis length.  Users can press spacebar while in viewport window to bring up the path dialog.
+
 ----------------------------------------------------------
 Parameters :
 Color is applied to path.
@@ -254,6 +256,7 @@ Mouse grab for crop/dissect/blend/displace/networks/paths/clipplanes is switched
 #begin
 DEL
 Delete path.
+If the DEL is pressed when cursor is within the viewport then the viewport will be switched off.
 #end
 
 #begin
@@ -336,5 +339,60 @@ Users can perform unlimited undo.
 Ctrl+y
 Redo the last undone position change.
 Users can perform unlimited redo.
+#end
+
+#begin
+viewport
+Viewport functionality adds a multiperspective camera.  Viewing direction for the multiperspective camera is along the green axis.  The up-vector for the camera is the red axis.  Snapshot are taken along the path and are joined together to form a single cohesive image.  Near and far cutting planes is controlled by the green axis length.  Users can press spacebar while in viewport window to bring up the path dialog.
+
+When the transfer function is set for the path using "viewport tfset" parameter, the viewport will be visible.  Viewport is specified by three parameters - x,y,wd and ht.  x,y specify the lower left corner of the viewport; wd and ht specify the width and height of viewport.  The x,y,wd and ht all are normalized values and should be between 0.0 and 1.0.  This is done so that viewport scales with the size of rendering window.
+
+When only 3 values are provided height is set to equal width.
+When only 2 values are provided width and height are set to 0.5.
+When less than 2 values are supplied the viewport is disabled.
+
+Viewport is active only when "viewport tfset" parameter is between 0 and max TFsets.  Viewport renders view from the camera placed at the multiple positions along the path - based on length of red axis you either get a single slice or a volume rendered slab.
+
+Viewport is switched off by removing all the viewport parameters
+
+Users can interact with a path from its viewport.  Mouse and keypress commands can be issued to a path via its viewport.  Following is the mouse and keystrokes that are recognized from viewport :
+
+--------------------
+Mouse
+--------------------
+Mouse click -
+  show points at the top of the viewport.
+
+Left Mouse drag -
+  When not under any point in viewport, the entire path is affected.  When under a point only the point is affected.
+  Left mouse horizontal drag - translate along path spine.
+  Left mouse vertical drag -  translate along green axis - i.e. depth.
+
+Shift+Left Mouse drag
+  When not under any point in viewport, the entire path is affected.  When under a point only the point is affected.  This operation results in increasing/decreasing the length of red axis - i.e. height.
+
+Ctrl+Left Mouse drag -
+  Same as Shift+Left Mouse drag (i.e. increasing/decreasing the height) but exaggerated.
+    
+Alt+Left Mouse drag
+  When not under any point in viewport, the entire path is affected.  When under a point only the point is affected.  This operation results in rotation about the path spine.
+  
+Mouse wheel - 
+  When not under any point in viewport, the entire path is affected.  When under a point only the point is affected.  This operation results in translation along red axis - i.e. move along vertical direction.
+
+Ctrl + Mouse wheel -
+  Same as Ctrl+Mouse wheel but exaggerated.
+
+Shift + Mouse wheel -
+  When not under any point in viewport, the entire path is affected.  When under a point only the point is affected.  This operation results in increasing/decreasing thickness of slab in viewport.
+--------------------
+
+--------------------
+KeyPress
+--------------------
+Space - Opens path dialog.
+
+DEL - delete viewport - set viewport parameters to (-1,-1,-1,-1)
+--------------------
 #end
 

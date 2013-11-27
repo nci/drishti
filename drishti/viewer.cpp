@@ -878,7 +878,11 @@ Viewer::updateLookupTable()
 
   if (m_hiresVolume->raised() &&
       (gilite || !LightHandler::willUpdateLightBuffers()))
-    LightHandler::setLut(m_lut);
+    {
+      LightHandler::setLut(m_lut);
+      m_hiresVolume->initShadowBuffers(true);
+      dummydraw();
+    }
   
   if (Global::emptySpaceSkip() &&
       m_hiresVolume->raised() &&
@@ -894,75 +898,6 @@ Viewer::updateLookupTable()
 
   delete [] lut;
 }
-
-//void
-//Viewer::updateLookupTable()
-//{
-//  if (Global::volumeType() == Global::RGBVolume ||
-//      Global::volumeType() == Global::RGBAVolume)
-//    {
-//      loadLookupTable(m_lut);
-//      return;
-//    }
-//
-//  //--------------
-//  // check whether emptyspaceskip data structure
-//  // needs to be reevaluated
-//  bool prune = false;
-//  for (int i=0; i<Global::lutSize()*256*256; i++)
-//    {
-//      bool pl = m_prevLut[4*i+3] > 0;
-//      bool ml = m_lut[4*i+3] > 0;
-//      if (pl != ml)
-//	{
-//	  prune = true;
-//	  break;
-//	}
-//    }
-//  memcpy(m_prevLut, m_lut, Global::lutSize()*4*256*256);
-//  //--------------
-//
-//  float frc = Global::stepsizeStill();
-//  frc = qMax(0.2f, frc);
-//  unsigned char *lut;
-//
-//  lut = new unsigned char[Global::lutSize()*256*256*4];
-//  memset(lut, 0, Global::lutSize()*256*256*4);      
-//  for (int i=0; i<Global::lutSize()*256*256; i++)
-//    {      
-//      qreal r,g,b,a;
-//      
-//      r = (float)m_lut[4*i+0]/255.0f;
-//      g = (float)m_lut[4*i+1]/255.0f;
-//      b = (float)m_lut[4*i+2]/255.0f;
-//      a = (float)m_lut[4*i+3]/255.0f;	  
-//
-//      r*=a; g*=a; b*=a;
-//      r = 1-pow((float)(1-r), (float)frc);
-//      g = 1-pow((float)(1-g), (float)frc);
-//      b = 1-pow((float)(1-b), (float)frc);
-//      a = 1-pow((float)(1-a), (float)frc);	  
-//
-//      lut[4*i+0] = 255*r;
-//      lut[4*i+1] = 255*g;
-//      lut[4*i+2] = 255*b;
-//      lut[4*i+3] = 255*a;
-//    }
-//  loadLookupTable(lut);
-//  
-//  delete [] lut;
-//
-//  if (Global::emptySpaceSkip() &&
-//      m_hiresVolume->raised() &&
-//      prune)
-//    {
-//      if (Global::updatePruneTexture())
-//	m_hiresVolume->updateAndLoadPruneTexture();
-//
-//      dummydraw();
-//      if (!savingImages()) updateGL();
-//    }
-//}
 
 void
 Viewer::enableTextureUnits()
@@ -2260,8 +2195,12 @@ Viewer::draw()
   m_hiresVolume->getClipForMask(cpos, cnorm);
   bool redolighting = LightHandler::checkClips(cpos, cnorm);
   redolighting = redolighting || LightHandler::checkCrops();
-  if (redolighting || LightHandler::updateOnlyLightBuffers())
-    LightHandler::updateLightBuffers();
+  redolighting = redolighting || LightHandler::updateOnlyLightBuffers();
+  if (redolighting)
+    {
+      LightHandler::updateLightBuffers();
+      m_hiresVolume->initShadowBuffers(true);
+    }
   //-----------------
 
   
@@ -2830,6 +2769,7 @@ Viewer::mouseReleaseEvent(QMouseEvent *event)
   if (LightHandler::lightsChanged())
     {
       LightHandler::updateLightBuffers();
+      m_hiresVolume->initShadowBuffers(true);
       updateGL();
     }
 }
@@ -2980,8 +2920,11 @@ Viewer::keyPressEvent(QKeyEvent *event)
       if (LightHandler::keyPressEvent(event))
 	{
 	  if (LightHandler::lightsChanged())
-	    LightHandler::updateLightBuffers();
-	  updateGL();
+	    {
+	      LightHandler::updateLightBuffers();
+	      m_hiresVolume->initShadowBuffers(true);
+	      updateGL();
+	    }
 	  return;
 	}
     }
@@ -3212,7 +3155,10 @@ Viewer::keyPressEvent(QKeyEvent *event)
       if (event->key() == Qt::Key_Tab)
 	{
 	  if (LightHandler::openPropertyEditor())
-	    updateGL();
+	    {
+	      m_hiresVolume->initShadowBuffers(true);
+	      updateGL();
+	    }
 	  return;
 	}
 
@@ -3469,6 +3415,8 @@ Viewer::processLight(QStringList list)
 	GeometryObjects::hitpoints()->clear();
       
       LightHandler::updateLightBuffers();
+      m_hiresVolume->initShadowBuffers(true);
+
       updateGL();
     }
 }
@@ -4260,16 +4208,22 @@ Viewer::processCommand(QString cmd)
     }
   else if (list[0] == "countcells")
     {
-      if (! m_hiresVolume->raised())
+      if (!m_hiresVolume->raised())
 	{
-	  emit showMessage("Cannot apply command in Lowres mode", true);
+	  QMessageBox::critical(0, "Error", "Cannot apply command in Lowres mode");
 	  return;
 	}
 
       emit countIsolatedRegions();
     }
-  else if (list[0] == "reslice")
+  else if (list[0].contains("reslice"))
     {
+      if (!m_hiresVolume->raised())
+	{
+	  QMessageBox::critical(0, "Error", "Cannot apply command in Lowres mode");
+	  return;
+	}
+
       int subsample = 1;
       int tagvalue = -1;
       if (list.size() > 1) subsample = qMax(1, list[1].toInt(&ok));
@@ -4286,12 +4240,12 @@ Viewer::processCommand(QString cmd)
   else if (list[0] == "getvolume" &&
 	   list.size() <= 2)
     {
-      if (! m_hiresVolume->raised())
+      if (!m_hiresVolume->raised())
 	{
-	  emit showMessage("Cannot apply command in Lowres mode", true);
+	  QMessageBox::critical(0, "Error", "Cannot apply command in Lowres mode");
 	  return;
 	}
-
+	      
       Vec smin = m_lowresVolume->volumeMin();
       Vec smax = m_lowresVolume->volumeMax();
       if (list.size() == 1)

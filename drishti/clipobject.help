@@ -453,12 +453,8 @@ Shift + Y/Ctrl+Y key - rotate plane 10 degrees about the Green(X) axis.
 --------------------
 
 Example :
-viewport 0 0 0.5 : show the textured plane in the lower left corner at half the height of the rendering window.
+viewport 0 0 0.5 : show the textured plane in the lower left corner at half the width and height of the rendering window.
 
-viewport 0 0.5 0.5 : viewport is set in the upper left corner
-viewport 0.5 0 0.5 : viewport is set in the lower right corner
-
-viewport : switch off viewport
-
+viewport 0 0.5 0.5 : viewport is set in the upper left corner at half width and height of the rendering window.
 #end
 

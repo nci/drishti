@@ -1,4 +1,17 @@
 #begin
+addplight
+Add point/string light source.
+
+If there is a single point then a point light source is added.  When multiple points are available then string light is added.  A string light is nothing but multiple light sources at the nodal points on a path.
+
+Once added the light source can be manipulated.  Hover over the light source and press space bar to bring up the parameter dialog for that light source.  Users can change light buffer size, light colour, shadows etc for the light source.
+
+Press DEL while hovering over the light source to remove it.
+
+Light sources are animatable.
+#end
+
+#begin
 reslice
 reslice
 reslice [subsample] [tag]
@@ -791,6 +804,11 @@ Start Keyboard help
 #begin
 F2
 Toggle between Hires and Lowres modes.
+#end
+
+#begin
+Tab
+Bring up dialog for GiLighting.
 #end
 
 #begin

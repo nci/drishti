@@ -94,9 +94,9 @@ bool LightHandler::m_applyCrop = false;
 int LightHandler::m_opacityTF=0;
 
 int LightHandler::m_emisTF=-1;
-float LightHandler::m_emisDecay=0.9;
-float LightHandler::m_emisBoost=1.0;
-int LightHandler::m_emisTimes=3;
+float LightHandler::m_emisDecay=1.0;
+float LightHandler::m_emisBoost=2.0;
+int LightHandler::m_emisTimes=15;
 
 int LightHandler::m_dilatedEmisTex;
 int LightHandler::m_origEmisTex;
@@ -2355,7 +2355,7 @@ LightHandler::openPropertyEditor()
   vlist << QVariant("int");
   vlist << QVariant(m_emisTimes);
   vlist << QVariant(1);
-  vlist << QVariant(20);
+  vlist << QVariant(30);
   plist["emis smoothing"] = vlist;
 
   vlist.clear();

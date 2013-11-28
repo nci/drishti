@@ -1063,12 +1063,14 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
   if (Global::emptySpaceSkip())
     {
       shader += "if (delta.x > 1.0)\n";
-      shader += "  { gl_FragColor = vec4(vg.x, gl_FragColor.a, prunefeather.z, 1.0); return; }\n";
+      shader += "  { gl_FragColor = vec4(vg.x*step(0.001,gl_FragColor.a),";
+      shader += "gl_FragColor.a, prunefeather.z, 1.0); return; }\n";
     }
   else
     {
       shader += "if (delta.x > 1.0)\n";
-      shader += "  { gl_FragColor = vec4(vg.x, gl_FragColor.a, 0.0, 1.0); return; }\n";
+      shader += "  { gl_FragColor = vec4(vg.x*step(0.001,gl_FragColor.a),";
+      shader += "gl_FragColor.a, 0.0, 1.0); return; }\n";
     }
 //---------------------------------
 

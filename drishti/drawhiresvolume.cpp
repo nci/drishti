@@ -6216,6 +6216,10 @@ DrawHiresVolume::resliceVolume(Vec pos,
 	}
 
       pFileManager.removeFile(); // remove temporary file
+
+      QMessageBox::information(0, "Saved Resliced Volume",
+			       QString("Resliced volume saved to %1 and %1.001"). \
+			       arg(newFile));
     }
   //----------------------------
 
@@ -6247,9 +6251,12 @@ DrawHiresVolume::resliceVolume(Vec pos,
       QMessageBox::information(0, "Volume Calculation", str);
     }
   else
-    QMessageBox::information(0, "Saved Resliced Volume",
-			     QString("Resliced volume saved to %1 and %1.001").	\
-			     arg(pFile));
+    {
+      if (!tightFit)
+	QMessageBox::information(0, "Saved Resliced Volume",
+				 QString("Resliced volume saved to %1 and %1.001"). \
+				 arg(pFile));
+    }
 }
 
 void

@@ -4229,12 +4229,24 @@ Viewer::processCommand(QString cmd)
       if (list.size() > 1) subsample = qMax(1, list[1].toInt(&ok));
       if (list.size() > 2) tagvalue = list[2].toInt(&ok);
 
-      m_hiresVolume->resliceVolume(camera()->position(),
-				   camera()->viewDirection(),
-				   camera()->rightVector(),
-				   camera()->upVector(),
-				   subsample,
-				   false, tagvalue);
+      if (list[0] != "reslicenormal")      
+	m_hiresVolume->resliceVolume(camera()->position(),
+				     camera()->viewDirection(),
+				     camera()->rightVector(),
+				     camera()->upVector(),
+				     subsample,
+				     false, tagvalue);
+      else
+	{
+	  Vec smin = m_lowresVolume->volumeMin();
+	  Vec smax = m_lowresVolume->volumeMax();
+	  Vec pos = Vec((smax.x+smin.x)*0.5,(smax.y+smin.y)*0.5,smax.z+10);
+	  m_hiresVolume->resliceVolume(pos,
+				       Vec(0,0,-1), Vec(1,0,0), Vec(0,1,0),
+				       subsample,
+				       false, tagvalue);
+	}
+
       return;
     }
   else if (list[0] == "getvolume" &&

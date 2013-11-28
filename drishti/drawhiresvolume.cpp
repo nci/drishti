@@ -5869,7 +5869,7 @@ DrawHiresVolume::resliceVolume(Vec pos,
   QString pFile;
   bool saveValue=true;
   bool tightFit = false;
-
+  int clearance = 0;
   if (!getVolume)
     {      
       //------------------
@@ -5886,7 +5886,13 @@ DrawHiresVolume::resliceVolume(Vec pos,
 					   &ok);
       
       if (!ok || item == "Yes")
-	tightFit = true;
+	{
+	  tightFit = true;
+	  clearance = QInputDialog::getInt(0,
+					   "Clearance for tight fit",
+					   "Gap from edge to first contributing voxel",
+					   0, 0, 20);
+	}
       //------------------
 
       //------------------
@@ -6179,12 +6185,12 @@ DrawHiresVolume::resliceVolume(Vec pos,
   //----------------------------
   if (tightFit)
     {
-      xmin = qMax(0, xmin-1);
-      ymin = qMax(0, ymin-1);
-      zmin = qMax(0, zmin-1);
-      xmax = qMin(wd-1, xmax+1);
-      ymax = qMin(ht-1, ymax+1);
-      zmax = qMin(nslices-1, zmax+1);
+      xmin = qMax(0, xmin-clearance);
+      ymin = qMax(0, ymin-clearance);
+      zmin = qMax(0, zmin-clearance);
+      xmax = qMin(wd-1, xmax+clearance);
+      ymax = qMin(ht-1, ymax+clearance);
+      zmax = qMin(nslices-1, zmax+clearance);
       int newd = zmax-zmin+1;
       int neww = ymax-ymin+1;
       int newh = xmax-xmin+1;

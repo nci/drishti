@@ -29,6 +29,15 @@ reslice 2 1 : save with factor of 2 reduction, save only voxels that are tagged 
 #end
 
 #begin
+reslicenormal
+reslicenormal
+reslicenormal [subsample] [tag]
+
+Same as reslice, except the data is saved in the original orientation. 
+
+#end
+
+#begin
 tempdir
 tempdir/resettempdir
 Set temporary directory to store temporary files created by the program.

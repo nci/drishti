@@ -330,7 +330,8 @@ class DrawHiresVolume : public QObject
   void setShader2DTextureParameter(bool, bool);
   void setRenderDefault();
 
-  QPair<QString, bool> saveReslicedVolume(int, int, int, VolumeFileManager&, int tmpfile=0);
+  QPair<QString, bool> saveReslicedVolume(int, int, int, VolumeFileManager&,
+					  int tmpfile=0, bool rv=false);
 };
 
 #endif

@@ -2471,7 +2471,7 @@ Viewer::mouseMoveEventInPathViewport(int ip, QMouseEvent *event)
     }
   else if (!(event->modifiers() & Qt::AltModifier))
     {
-      int magx = scr.x() - m_mousePrevPos.x();
+      int magx = (scr.x() - m_mousePrevPos.x());
 //  do not magnify sideways movement
 //      if (event->modifiers() & Qt::ControlModifier ||
 //	  event->modifiers() & Qt::MetaModifier)

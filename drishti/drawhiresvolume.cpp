@@ -3243,12 +3243,8 @@ DrawHiresVolume::drawPathInViewport(int pathOffset, Vec lpos, float depthcue,
 
   m_Viewer->startScreenCoordinatesSystem();
   glBlendFunc(GL_ONE_MINUS_DST_ALPHA, GL_ONE); // for frontlit volume
-  //glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); // back to front
 
-  //glDisable(GL_DEPTH_TEST);
-  //glDepthMask(GL_FALSE);
-
-  Vec voxelScaling = VolumeInformation::volumeInformation().voxelSize;
+  Vec voxelSize = VolumeInformation::volumeInformation().voxelSize;
   QList<PathObject> po;
   po = GeometryObjects::paths()->paths();
   int npaths = po.count();
@@ -3265,15 +3261,6 @@ DrawHiresVolume::drawPathInViewport(int pathOffset, Vec lpos, float depthcue,
 	  int vx, vy, vh, vw;
 	  int mh, mw;
 	  int shiftx;
-//	  vx = vp.x()*ow;
-//	  vy = oh-vp.y()*oh;
-//	  vw = vp.z()*ow;
-//	  vh = vp.w()*oh;
-//	  vx+=1; vy+=1;
-//	  vw-=2; vh-=2;
-//	  mh = vy-vh/2;
-//	  mw = vx+vw/2;
-//	  shiftx = 5;
 
 	  vx = 0;
 	  vy = 0;
@@ -3301,7 +3288,6 @@ DrawHiresVolume::drawPathInViewport(int pathOffset, Vec lpos, float depthcue,
 	  int offsetx = vp.x()*ow;
 	  int offsety = oh-vp.y()*oh;
 
-	  float pathLength = po[i].length();
 	  QList<Vec> pathPoints = po[i].pathPoints();
 	  QList<Vec> pathX = po[i].pathX();
 	  QList<Vec> pathY = po[i].pathY();
@@ -3309,12 +3295,9 @@ DrawHiresVolume::drawPathInViewport(int pathOffset, Vec lpos, float depthcue,
 	  QList<float> radY = po[i].pathradY();
 
 	  for(int np=0; np<pathPoints.count(); np++)
-	    pathPoints[np] = VECPRODUCT(voxelScaling,pathPoints[np]);
+	    pathX[np] = VECPRODUCT(voxelSize,pathX[np]);
 	  for(int np=0; np<pathPoints.count(); np++)
-	    pathX[np] = VECPRODUCT(voxelScaling,pathX[np]);
-	  for(int np=0; np<pathPoints.count(); np++)
-	    pathY[np] = VECPRODUCT(voxelScaling,pathY[np]);
-
+	    pathY[np] = VECPRODUCT(voxelSize,pathY[np]);
 
 	  int maxthick = radY[0];
 	  for(int np=0; np<pathPoints.count(); np++)
@@ -3328,11 +3311,19 @@ DrawHiresVolume::drawPathInViewport(int pathOffset, Vec lpos, float depthcue,
 	      maxheight = max(maxheight, ht);
 	    }
 
-	  float scale = (float)(vw-11)/pathLength;
+
+	  float imglength = 0;
+	  for(int np=1; np<pathPoints.count(); np++)
+	    {
+	      Vec p0 = VECPRODUCT(voxelSize,pathPoints[np]);
+	      Vec p1 = VECPRODUCT(voxelSize,pathPoints[np-1]);
+	      imglength += (p0-p1).norm();
+	    }
+	  float scale = (float)(vw-11)/imglength;
 	  if (2*maxheight*scale > vh-21)
 	    scale = (float)(vh-21)/(2*maxheight);
 
-	  shiftx = 5 + ((vw-11) - (pathLength*scale))*0.5;
+	  shiftx = 5 + ((vw-11) - (imglength*scale))*0.5;
 
 	  glMatrixMode(GL_MODELVIEW);
 	  glPushMatrix();
@@ -3346,6 +3337,12 @@ DrawHiresVolume::drawPathInViewport(int pathOffset, Vec lpos, float depthcue,
 	  else
 	    glTranslatef(offsetx+shiftx, offsety-mh, 0);
 	  
+	  enableTextureUnits();
+	  if (defaultShader)
+	    glUseProgramObjectARB(m_defaultShader);
+	  else
+	    glUseProgramObjectARB(m_highqualityShader);  
+
 	  if (Global::volumeType() != Global::RGBVolume &&
 	      Global::volumeType() != Global::RGBAVolume)
 	    glUniform1fARB(parm[3], (float)po[i].viewportTF()/(float)Global::lutSize());
@@ -3398,7 +3395,11 @@ DrawHiresVolume::drawPathInViewport(int pathOffset, Vec lpos, float depthcue,
 		  for(int np=0; np<pathPoints.count(); np++)
 		    {
 		      if (np > 0)
-			clen += (pathPoints[np]-pathPoints[np-1]).norm();
+			{
+			  Vec p0 = VECPRODUCT(voxelSize,pathPoints[np]);
+			  Vec p1 = VECPRODUCT(voxelSize,pathPoints[np-1]);
+			  clen += (p0-p1).norm();
+			}
 		      float frc = clen;
 		      
 		      float lenradx = pathX[np].norm()*radX[np];
@@ -3407,8 +3408,8 @@ DrawHiresVolume::drawPathInViewport(int pathOffset, Vec lpos, float depthcue,
 		      Vec tv2 = pathPoints[np]-pathX[np]*radX[np];
 		      tv1 += pathY[np]*radY[np]*tk;
 		      tv2 += pathY[np]*radY[np]*tk;
-		      tv1 = VECDIVIDE(tv1, voxelScaling);
-		      tv2 = VECDIVIDE(tv2, voxelScaling);
+		      tv1 = VECDIVIDE(tv1, voxelSize);
+		      tv2 = VECDIVIDE(tv2, voxelSize);
 
 		      Vec v0 = Vec(frc, 0.0, 0.0);
 		      Vec v1 = v0 - Vec(0.0,lenradx,0.0);
@@ -5900,7 +5901,7 @@ DrawHiresVolume::resliceVolume(Vec pos,
       int tmpfile = 0;
       if (tightFit) tmpfile = 1;
       QPair<QString, bool> srv = saveReslicedVolume(nslices, wd, ht, pFileManager,
-						    tmpfile);
+						    tmpfile, true);
       pFile = srv.first;
       saveValue = srv.second;
       if (pFile.isEmpty())
@@ -6197,7 +6198,8 @@ DrawHiresVolume::resliceVolume(Vec pos,
       
       VolumeFileManager newManager;
       QString newFile;
-      QPair<QString, bool> srv = saveReslicedVolume(newd, newh, neww, newManager, 2);
+      QPair<QString, bool> srv = saveReslicedVolume(newd, newh, neww, newManager,
+						    2, true);
       newFile = srv.first;
       if (!newFile.isEmpty())
 	{
@@ -6264,12 +6266,15 @@ DrawHiresVolume::resliceUsingPath(int pathIdx, bool fullThickness,
 				  int subsample, int tagValue)
 
 {
-  Vec voxelScaling = VolumeInformation::volumeInformation().voxelSize;
+//  Vec voxelScaling = VolumeInformation::volumeInformation().voxelSize;
+//  float mvs = qMax(voxelScaling.x, qMax(voxelScaling.y, voxelScaling.z));
+//  voxelScaling /= mvs;
+
+  Vec voxelScaling = Global::voxelScaling();
 
   PathObject po;
   po = GeometryObjects::paths()->paths()[pathIdx];
 
-  float pathLength = po.length();
   QList<Vec> pathPoints = po.pathPoints();
   QList<Vec> pathX = po.pathX();
   QList<Vec> pathY = po.pathY();
@@ -6277,12 +6282,17 @@ DrawHiresVolume::resliceUsingPath(int pathIdx, bool fullThickness,
   QList<float> radY = po.pathradY();
 
   for(int np=0; np<pathPoints.count(); np++)
-    pathPoints[np] = VECPRODUCT(voxelScaling,pathPoints[np]);
-  for(int np=0; np<pathPoints.count(); np++)
     pathX[np] = VECPRODUCT(voxelScaling,pathX[np]);
   for(int np=0; np<pathPoints.count(); np++)
     pathY[np] = VECPRODUCT(voxelScaling,pathY[np]);
-  
+
+  float pathLength = 0;
+  for(int np=1; np<pathPoints.count(); np++)
+    {
+      Vec p0 = VECPRODUCT(voxelScaling,pathPoints[np]);
+      Vec p1 = VECPRODUCT(voxelScaling,pathPoints[np-1]);
+      pathLength += (p0-p1).norm();
+    }
 
   int maxthick = radY[0];
   for(int np=0; np<pathPoints.count(); np++)
@@ -6440,8 +6450,12 @@ DrawHiresVolume::resliceUsingPath(int pathIdx, bool fullThickness,
 	    {
 
 	      if (np > 0)
-		clen += (pathPoints[np]-pathPoints[np-1]).norm();
-	      
+	      {
+		Vec p0 = VECPRODUCT(voxelScaling,pathPoints[np]);
+		Vec p1 = VECPRODUCT(voxelScaling,pathPoints[np-1]);
+		clen += (p0-p1).norm();
+	      }
+
 	      float lenradx = pathX[np].norm()*radX[np]/subsample/vlod;
 	      Vec tv0 = pathPoints[np];
 	      Vec tv1 = pathPoints[np]-pathX[np]*radX[np];
@@ -6518,13 +6532,19 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
 				       QVector4D vp, float viewportScale, int tfSet,
 				       int subsample, int tagValue)
 {
-  Vec voxelScaling = VolumeInformation::volumeInformation().voxelSize;
+  Vec voxelScaling = Global::voxelScaling();
 
-  Vec pos = VECPRODUCT(cpos, voxelScaling);
+  Vec normal= Vec(0,0,1);
+  Vec xaxis = Vec(1,0,0);
+  Vec yaxis = Vec(0,1,0);
+  normal= rot.rotate(normal);
+  xaxis = rot.rotate(xaxis);
+  yaxis = rot.rotate(yaxis);
 
-  Vec normal =rot.rotate(Vec(0,0,1));
-  Vec xaxis = rot.rotate(Vec(1,0,0));
-  Vec yaxis = rot.rotate(Vec(0,1,0));
+  normal= VECDIVIDE(normal,voxelScaling);
+  xaxis = VECDIVIDE(xaxis, voxelScaling);
+  yaxis = VECDIVIDE(yaxis, voxelScaling);
+
 
   float aspectRatio = vp.z()/vp.w(); 
   float cdist = 2*m_Viewer->sceneRadius()/viewportScale; 
@@ -6537,10 +6557,9 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
   int wd = 2*xdist/subsample/vlod;
   int ht = 2*ydist/subsample/vlod;
 
-  Vec sliceStart = pos - thickness*normal - xdist*xaxis - ydist*yaxis;
-  Vec sliceEnd = pos + thickness*normal - xdist*xaxis - ydist*yaxis;
+  Vec sliceStart = cpos - thickness*normal - xdist*xaxis - ydist*yaxis;
+  Vec sliceEnd = cpos + thickness*normal - xdist*xaxis - ydist*yaxis;
   Vec endW = 2*xdist*xaxis;
-  Vec endWH = 2*xdist*xaxis + 2*ydist*yaxis;
   Vec endH = 2*ydist*yaxis;
 
   VolumeFileManager pFileManager;
@@ -6686,7 +6705,7 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
 	  glMultiTexCoord3dv(GL_TEXTURE0, v);
 	  glVertex3f(wd, 0, 0);
 
-	  v = po + endWH;
+	  v = po + endW + endH;
 	  glMultiTexCoord3dv(GL_TEXTURE0, v);
 	  glVertex3f(wd, ht, 0);
 
@@ -6739,7 +6758,7 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
 QPair<QString, bool>
 DrawHiresVolume::saveReslicedVolume(int nslices, int wd, int ht,
 				    VolumeFileManager &pFileManager,
-				    int tmpfile)
+				    int tmpfile, bool rv)
 {
   QString pFile;
 
@@ -6800,6 +6819,8 @@ DrawHiresVolume::saveReslicedVolume(int nslices, int wd, int ht,
       float vx = pvlInfo.voxelSize.x;
       float vy = pvlInfo.voxelSize.y;
       float vz = pvlInfo.voxelSize.z;
+      if (!rv) // if not resliceVolume set voxelsize to 1
+	{ vx = vy = vz = 1.0; }
       QList<float> rawMap;
       QList<int> pvlMap;
       for(int i=0; i<pvlInfo.mapping.count(); i++)

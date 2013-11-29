@@ -3871,6 +3871,7 @@ void PathObject::drawViewportLine(float scale, int vh)
   if (!m_viewportGrabbed)
     return;
 
+  Vec voxelSize = VolumeInformation::volumeInformation().voxelSize;
   float clen = 0;
   glColor4f(m_color.x*m_opacity,
 	    m_color.y*m_opacity,
@@ -3880,7 +3881,11 @@ void PathObject::drawViewportLine(float scale, int vh)
   for(int np=0; np<m_path.count(); np++)
     {
       if (np > 0)
-	clen += (m_path[np]-m_path[np-1]).norm();
+	{
+	  Vec p0 = VECPRODUCT(voxelSize,m_path[np]);
+	  Vec p1 = VECPRODUCT(voxelSize,m_path[np-1]);
+	  clen += (p0-p1).norm();
+	}
       
       glVertex3f(clen*scale, -vh/2+5, 0.0);
     }
@@ -3891,13 +3896,15 @@ void PathObject::drawViewportLineDots(QGLViewer *viewer, float scale, int vh)
   if (!m_viewportGrabbed)
     return;
 
+  Vec voxelSize = VolumeInformation::volumeInformation().voxelSize;
+
   glEnable(GL_BLEND);
 
   glColor3f(0,0,0);
   glBegin(GL_QUADS);
   glVertex2f(-5, -vh/2);
-  glVertex2f(+m_length*scale+5, -vh/2);
-  glVertex2f(+m_length*scale+5, -vh/2+20);
+  glVertex2f(m_length*scale+5, -vh/2);
+  glVertex2f(m_length*scale+5, -vh/2+20);
   glVertex2f(-5, -vh/2+20);
   glEnd();
 
@@ -3920,15 +3927,22 @@ void PathObject::drawViewportLineDots(QGLViewer *viewer, float scale, int vh)
 	    m_opacity);
   glPointSize(10);
   glBegin(GL_POINTS);
+
+  QString str;
   clen = 0;
   for(int np=0; np<m_path.count(); np++)
     {
       if (np > 0)
-	clen += (m_path[np]-m_path[np-1]).norm();
+	{
+	  Vec p0 = VECPRODUCT(voxelSize,m_path[np]);
+	  Vec p1 = VECPRODUCT(voxelSize,m_path[np-1]);
+	  clen += (p0-p1).norm();
+	}
      
       glVertex3f(clen*scale, -vh/2+5, 0.0);
     }
   glEnd();
+
 
   glColor4f(0.5,0.5,0.5,0.5);
   glPointSize(15);
@@ -3937,7 +3951,11 @@ void PathObject::drawViewportLineDots(QGLViewer *viewer, float scale, int vh)
   for(int np=0; np<m_path.count(); np++)
     {
       if (np > 0)
-	clen += (m_path[np]-m_path[np-1]).norm();
+	{
+	  Vec p0 = VECPRODUCT(voxelSize,m_path[np]);
+	  Vec p1 = VECPRODUCT(voxelSize,m_path[np-1]);
+	  clen += (p0-p1).norm();
+	}
       
       if (np%m_segments == 0)
 	glVertex3f(clen*scale, -vh/2+5, 0.0);
@@ -3951,13 +3969,17 @@ void PathObject::drawViewportLineDots(QGLViewer *viewer, float scale, int vh)
       for(int np=0; np<m_path.count(); np++)
 	{
 	  if (np > 0)
-	    clen += (m_path[np]-m_path[np-1]).norm();
+	    {
+	      Vec p0 = VECPRODUCT(voxelSize,m_path[np]);
+	      Vec p1 = VECPRODUCT(voxelSize,m_path[np-1]);
+	      clen += (p0-p1).norm();
+	    }
 	  
 	  if (np%m_segments == 0 && np/m_segments == m_pointPressed)
 	    {
 	      glPointSize(20);
 	      glBegin(GL_POINTS);
-	      glVertex3f(+clen*scale, -vh/2+5, 0.0);
+	      glVertex3f(clen*scale, -vh/2+5, 0.0);
 	      glEnd();
 	    }
 	}
@@ -3974,7 +3996,11 @@ void PathObject::drawViewportLineDots(QGLViewer *viewer, float scale, int vh)
     for(int np=0; np<m_path.count(); np++)
       {
 	if (np > 0)
-	  clen += (m_path[np]-m_path[np-1]).norm();
+	  {
+	    Vec p0 = VECPRODUCT(voxelSize,m_path[np]);
+	    Vec p1 = VECPRODUCT(voxelSize,m_path[np-1]);
+	    clen += (p0-p1).norm();
+	  }
 	
 	if (np%m_segments == 0)
 	  {
@@ -3991,130 +4017,3 @@ void PathObject::drawViewportLineDots(QGLViewer *viewer, float scale, int vh)
   }
 
 }
-
-//void PathObject::drawViewportLine(int shiftx, float scale,
-//				  int mh, int vh)
-//{
-//  if (!m_viewportGrabbed)
-//    return;
-//
-//  float clen = 0;
-//  glColor4f(m_color.x*m_opacity,
-//	    m_color.y*m_opacity,
-//	    m_color.z*m_opacity,
-//	    m_opacity);
-//  glBegin(GL_LINE_STRIP);
-//  for(int np=0; np<m_path.count(); np++)
-//    {
-//      if (np > 0)
-//	clen += (m_path[np]-m_path[np-1]).norm();
-//      
-//      glVertex3f(shiftx+clen*scale, mh-vh/2+5, 0.0);
-//    }
-//  glEnd();
-//}
-//void PathObject::drawViewportLineDots(QGLViewer *viewer,
-//				      int shiftx, float scale,
-//				      int mh, int vh)
-//{
-//  if (!m_viewportGrabbed)
-//    return;
-//
-//  glEnable(GL_BLEND);
-//
-//  glColor3f(0,0,0);
-//  glBegin(GL_QUADS);
-//  glVertex2f(shiftx-5, mh-vh/2);
-//  glVertex2f(shiftx+m_length*scale+5, mh-vh/2);
-//  glVertex2f(shiftx+m_length*scale+5, mh-vh/2+20);
-//  glVertex2f(shiftx-5, mh-vh/2+20);
-//  glEnd();
-//
-//  glActiveTexture(GL_TEXTURE0);
-//  glEnable(GL_TEXTURE_2D);
-//  glEnable(GL_POINT_SPRITE);
-//  //glBindTexture(GL_TEXTURE_2D, Global::hollowSpriteTexture());
-//  glBindTexture(GL_TEXTURE_2D, Global::spriteTexture());
-//  glTexEnvf(GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE );
-//  glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-//  glHint(GL_POINT_SMOOTH_HINT, GL_NICEST);
-//  glEnable(GL_POINT_SMOOTH);
-//
-//  float clen = 0;
-//
-//  glColor4f(m_color.x*m_opacity,
-//	    m_color.y*m_opacity,
-//	    m_color.z*m_opacity,
-//	    m_opacity);
-//  glPointSize(10);
-//  glBegin(GL_POINTS);
-//  clen = 0;
-//  for(int np=0; np<m_path.count(); np++)
-//    {
-//      if (np > 0)
-//	clen += (m_path[np]-m_path[np-1]).norm();
-//     
-//      glVertex3f(shiftx+clen*scale, mh-vh/2+5, 0.0);
-//    }
-//  glEnd();
-//
-//  glColor4f(0.5,0.5,0.5,0.5);
-//  glPointSize(15);
-//  glBegin(GL_POINTS);
-//  clen = 0;
-//  for(int np=0; np<m_path.count(); np++)
-//    {
-//      if (np > 0)
-//	clen += (m_path[np]-m_path[np-1]).norm();
-//      
-//      if (np%m_segments == 0)
-//	glVertex3f(shiftx+clen*scale, mh-vh/2+5, 0.0);
-//    }
-//  glEnd();
-//    
-//  if (m_pointPressed > -1)
-//    {
-//      glColor4f(0.0,0.8,0.0,0.8);
-//      clen = 0;
-//      for(int np=0; np<m_path.count(); np++)
-//	{
-//	  if (np > 0)
-//	    clen += (m_path[np]-m_path[np-1]).norm();
-//	  
-//	  if (np%m_segments == 0 && np/m_segments == m_pointPressed)
-//	    {
-//	      glPointSize(20);
-//	      glBegin(GL_POINTS);
-//	      glVertex3f(shiftx+clen*scale, mh-vh/2+5, 0.0);
-//	      glEnd();
-//	    }
-//	}
-//    }
-//
-//  glDisable(GL_POINT_SPRITE);
-//
-//  {
-//    glColor3f(1,1,1);
-//    float clen = 0;
-//    for(int np=0; np<m_path.count(); np++)
-//      {
-//	if (np > 0)
-//	  clen += (m_path[np]-m_path[np-1]).norm();
-//	
-//	if (np%m_segments == 0)
-//	  {
-//	    // render with default font
-//	    viewer->renderText(shiftx+clen*scale, mh-vh/2+15,
-//			       QString("%1").arg(np/m_segments));
-//	  }
-//      }
-//  }
-//
-//
-//  glDisable(GL_TEXTURE_2D);  
-//  glDisable(GL_POINT_SMOOTH);
-//
-//  glPointSize(10);
-//
-//  glColor3f(1,1,1);
-//}

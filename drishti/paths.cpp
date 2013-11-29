@@ -816,7 +816,7 @@ Paths::openPropertyEditor(int i)
 					     QString("Values for viewport must be between 0.0 and 1.0 : %1 %2"). \
 					     arg(x).arg(y));
 		  else
-		    vp = QVector4D(x,y,0.5,0.5);
+		    vp = QVector4D(x,y,1.0,0.5);
 		}
 	      else
 		{
@@ -1376,7 +1376,7 @@ Paths::viewportGrabbed()
 
 void
 Paths::getRequiredParameters(int i,
-			     Vec voxelScaling,
+			     Vec voxelSize,
 			     int ow, int oh,
 			     int& vx, int& vy, int& vh, int& vw,
 			     int& mh, int& mw,
@@ -1393,15 +1393,12 @@ Paths::getRequiredParameters(int i,
   mw = vx+vw/2;
   shiftx = 5;
 
-  float pathLength = m_paths[i]->length();
   QList<Vec> pathPoints = m_paths[i]->pathPoints();
   QList<Vec> pathX = m_paths[i]->pathX();
   QList<float> radX = m_paths[i]->pathradX();
   
   for(int np=0; np<pathPoints.count(); np++)
-    pathPoints[np] = VECPRODUCT(voxelScaling,pathPoints[np]);
-  for(int np=0; np<pathPoints.count(); np++)
-    pathX[np] = VECPRODUCT(voxelScaling,pathX[np]);
+    pathX[np] = VECPRODUCT(voxelSize,pathX[np]);
     
   float maxheight = 0;
   for(int np=0; np<pathPoints.count(); np++)
@@ -1410,15 +1407,23 @@ Paths::getRequiredParameters(int i,
       maxheight = max(maxheight, ht);
     }
   
-  scale = (float)(vw-11)/pathLength;
+  float imglength = 0;
+  for(int np=1; np<pathPoints.count(); np++)
+    {
+      Vec p0 = VECPRODUCT(voxelSize,pathPoints[np]);
+      Vec p1 = VECPRODUCT(voxelSize,pathPoints[np-1]);
+      imglength += (p0-p1).norm();
+    }
+  scale = (float)(vw-11)/imglength;
+
   if (2*maxheight*scale > vh-21)
     scale = (float)(vh-21)/(2*maxheight);
-  
-  shiftx = 5 + ((vw-11) - (pathLength*scale))*0.5;
+
+  shiftx = 5 + ((vw-11) - (imglength*scale))*0.5;
 }
 
 int
-Paths::getPointPressed(int i,
+Paths::getPointPressed(int i, Vec voxelSize,
 		       QList<Vec> pathPoints,
 		       QPoint scr,
 		       int mh, int vh, int shiftx, float scale)
@@ -1441,7 +1446,9 @@ Paths::getPointPressed(int i,
 	  for (int s=0; s<nseg; s++)
 	    {
 	      ptn++;
-	      clen += (pathPoints[ptn]-pathPoints[ptn-1]).norm();		
+	      Vec p0 = VECPRODUCT(voxelSize,pathPoints[ptn]);
+	      Vec p1 = VECPRODUCT(voxelSize,pathPoints[ptn-1]);
+	      clen += (p0-p1).norm();
 	    }
 	  if (fabs(shiftx+clen*scale - scr.x()) < 20)
 	    {
@@ -1457,7 +1464,7 @@ Paths::getPointPressed(int i,
 bool
 Paths::viewportKeypressEvent(int i, QKeyEvent *event,
 			     QPoint scr,
-			     Vec voxelScaling,
+			     Vec voxelSize,
 			     int ow, int oh)
 {
   if (i < 0 || i > m_paths.count())
@@ -1492,12 +1499,11 @@ Paths::viewportKeypressEvent(int i, QKeyEvent *event,
   int mh, mw;
   int shiftx;
   float scale;
-  getRequiredParameters(i, voxelScaling, ow, oh,
+  getRequiredParameters(i, voxelSize, ow, oh,
 			vx, vy, vh, vw,
 			mh, mw,
 			shiftx, scale);
 
-  float pathLength = m_paths[i]->length();
   QList<Vec> pathPoints = m_paths[i]->pathPoints();
   QList<Vec> pathX = m_paths[i]->pathX();
   QList<Vec> pathY = m_paths[i]->pathY();
@@ -1505,13 +1511,11 @@ Paths::viewportKeypressEvent(int i, QKeyEvent *event,
   QList<float> radY = m_paths[i]->pathradY();
   
   for(int np=0; np<pathPoints.count(); np++)
-    pathPoints[np] = VECPRODUCT(voxelScaling,pathPoints[np]);
+    pathX[np] = VECPRODUCT(voxelSize,pathX[np]);
   for(int np=0; np<pathPoints.count(); np++)
-    pathX[np] = VECPRODUCT(voxelScaling,pathX[np]);
-  for(int np=0; np<pathPoints.count(); np++)
-    pathY[np] = VECPRODUCT(voxelScaling,pathY[np]);  
+    pathY[np] = VECPRODUCT(voxelSize,pathY[np]);  
     
-  int idx = getPointPressed(i,
+  int idx = getPointPressed(i, voxelSize,
 			    pathPoints,
 			    scr,
 			    mh, vh, shiftx, scale);
@@ -1576,7 +1580,7 @@ void
 Paths::modThickness(bool radT,
 		    int i, int mag,
 		    QPoint scr,
-		    Vec voxelScaling,
+		    Vec voxelSize,
 		    int ow, int oh)
 {
   if (i < 0 || i > m_paths.count())
@@ -1586,18 +1590,14 @@ Paths::modThickness(bool radT,
   int mh, mw;
   int shiftx;
   float scale;
-  getRequiredParameters(i, voxelScaling, ow, oh,
+  getRequiredParameters(i, voxelSize, ow, oh,
 			vx, vy, vh, vw,
 			mh, mw,
 			shiftx, scale);
 			  
-  float pathLength = m_paths[i]->length();
   QList<Vec> pathPoints = m_paths[i]->pathPoints();
   
-  for(int np=0; np<pathPoints.count(); np++)
-    pathPoints[np] = VECPRODUCT(voxelScaling,pathPoints[np]);
-  
-  int idx = getPointPressed(i,
+  int idx = getPointPressed(i, voxelSize,
 			    pathPoints,
 			    scr,
 			    mh, vh, shiftx, scale);
@@ -1638,7 +1638,7 @@ Paths::modThickness(bool radT,
 void
 Paths::translate(int i, int mag, int moveType,
 		 QPoint scr,
-		 Vec voxelScaling,
+		 Vec voxelSize,
 		 int ow, int oh)
 {
   if (i < 0 || i > m_paths.count())
@@ -1648,18 +1648,14 @@ Paths::translate(int i, int mag, int moveType,
   int mh, mw;
   int shiftx;
   float scale;
-  getRequiredParameters(i, voxelScaling, ow, oh,
+  getRequiredParameters(i, voxelSize, ow, oh,
 			vx, vy, vh, vw,
 			mh, mw,
 			shiftx, scale);
 			  
-  float pathLength = m_paths[i]->length();
   QList<Vec> pathPoints = m_paths[i]->pathPoints();
-  
-  for(int np=0; np<pathPoints.count(); np++)
-    pathPoints[np] = VECPRODUCT(voxelScaling,pathPoints[np]);
 
-  int idx = getPointPressed(i,
+  int idx = getPointPressed(i, voxelSize,
 			    pathPoints,
 			    scr,
 			    mh, vh, shiftx, scale);
@@ -1672,7 +1668,7 @@ Paths::translate(int i, int mag, int moveType,
 void
 Paths::rotate(int i, int mag,
 	      QPoint scr,
-	      Vec voxelScaling,
+	      Vec voxelSize,
 	      int ow, int oh)
 {
   if (i < 0 || i > m_paths.count())
@@ -1682,18 +1678,14 @@ Paths::rotate(int i, int mag,
   int mh, mw;
   int shiftx;
   float scale;
-  getRequiredParameters(i, voxelScaling, ow, oh,
+  getRequiredParameters(i, voxelSize, ow, oh,
 			vx, vy, vh, vw,
 			mh, mw,
 			shiftx, scale);
 			  
-  float pathLength = m_paths[i]->length();
   QList<Vec> pathPoints = m_paths[i]->pathPoints();
   
-  for(int np=0; np<pathPoints.count(); np++)
-    pathPoints[np] = VECPRODUCT(voxelScaling,pathPoints[np]);
-
-  int idx = getPointPressed(i,
+  int idx = getPointPressed(i, voxelSize,
 			    pathPoints,
 			    scr,
 			    mh, vh, shiftx, scale);

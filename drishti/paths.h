@@ -102,7 +102,7 @@ class Paths : public QObject
 			     int&, int&, int&, int&,
 			     int&, int&,
 			     int&, float&);
-  int getPointPressed(int,
+  int getPointPressed(int, Vec,
 		      QList<Vec>,
 		      QPoint,
 		      int, int, int, float);

@@ -348,7 +348,7 @@ Viewport functionality adds a multiperspective camera.  Viewing direction for th
 When the transfer function is set for the path using "viewport tfset" parameter, the viewport will be visible.  Viewport is specified by three parameters - x,y,wd and ht.  x,y specify the lower left corner of the viewport; wd and ht specify the width and height of viewport.  The x,y,wd and ht all are normalized values and should be between 0.0 and 1.0.  This is done so that viewport scales with the size of rendering window.
 
 When only 3 values are provided height is set to equal width.
-When only 2 values are provided width and height are set to 0.5.
+When only 2 values are provided width is set to 1.0 and height is set to 0.5.
 When less than 2 values are supplied the viewport is disabled.
 
 Viewport is active only when "viewport tfset" parameter is between 0 and max TFsets.  Viewport renders view from the camera placed at the multiple positions along the path - based on length of red axis you either get a single slice or a volume rendered slab.

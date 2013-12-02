@@ -36,11 +36,17 @@ reslice
 reslice
 reslice [subsample] [tag]
 
+** When thickness is 0, this option gives cross sectional area of visible region in viewport.
+
 Save resliced volume as defined by the clip plane. The selected subvolume is resliced along the normal direction.  The extent and thickness parameter of the clip plane defines the extend of the volume saved.  The viewport needs to be active in order to save the volume using this option.  The transfer function set used for viewport governs the voxels saved.  Users can save value or opacity using this option.
 
 The amount of subsampling is governed by the parameter subsample.  Default value is 1 - i.e. take every voxel.
 
 The tag parameter controls the tagged voxels that are saved.  Default value is -1 - i.e. save all voxels whether they are tagged or not.
+
+***
+When thickness parameter is 0, cross sectional area will be calculated for the region visible in viewport.  For cross sectional area, only opacity is considered, not value - all non-zero opacity voxel lying in the clip plane will be added up to give cross sectional area.
+***
 
 Example :
 reslice 2 : save with factor of 2 reduction, save all voxels.

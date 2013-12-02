@@ -133,7 +133,7 @@ ShaderFactory2::addLighting(int nvol)
       shader += QString("     normal%1 = vec3(0.0,0.0,0.0);\n").arg(i);
     }
 
-  shader += "  vec3 lightcol = vec3(1.0,1.0,1.0);\n";
+  //shader += "  vec3 lightcol = vec3(1.0,1.0,1.0);\n";
   shader += "  vec3 voxpos = pointpos;\n";
   shader += "  vec3 I = voxpos - eyepos;\n";
   shader += "  vec3 lightvec = voxpos - lightpos;\n";
@@ -626,6 +626,47 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
   if (tearPresent || cropPresent || pathCropPresent)
     shader += "  gl_FragColor.rgba = mix(gl_FragColor.rgba, vec4(0.0,0.0,0.0,0.0), feather);\n";
 
+
+//---------------------------------
+  if (Global::emptySpaceSkip())
+    {
+      shader += "if (delta.x > 1.0)\n";
+      shader += "{\n";
+      shader += "  float v1 = vol1.x*step(0.001, color1.a);\n";
+      shader += "  float v2 = vol2.x*step(0.001, color2.a);\n";
+      shader += "  float r = v1;\n";
+      shader += "  if (delta.x < 2.0) r = max(0.0,v1-v2);\n"; // A-B
+      shader += "  else if (delta.x < 3.0) r = abs(v1-v2);\n"; // ||A-B||
+      shader += "  else if (delta.x < 4.0) r = min(1.0,v1+v2);\n"; // A+B
+      shader += "  else if (delta.x < 5.0) r = max(v1,v2);\n"; // max(A,B)
+      shader += "  else if (delta.x < 6.0) r = min(v1,v2);\n"; // min(A,B)
+      shader += "  else if (delta.x < 7.0) r = min(1.0,v1/v2);\n"; // A/B
+      shader += "  else if (delta.x < 8.0) r = v1*v2;\n"; // A*B
+      shader += "  r *= step(0.001,gl_FragColor.a);\n";
+      shader += "  gl_FragColor = vec4(r,gl_FragColor.a, prunefeather.z, 1.0);\n";
+      shader += "  return;\n";
+      shader += "}\n";
+    }
+  else
+    {
+      shader += "if (delta.x > 1.0)\n";
+      shader += "{\n";
+      shader += "  float v1 = vol1.x*step(0.001, color1.a);\n";
+      shader += "  float v2 = vol2.x*step(0.001, color2.a);\n";
+      shader += "  float r = v1;\n";
+      shader += "  if (delta.x < 2.0) r = max(0.0,v1-v2);\n"; // A-B
+      shader += "  else if (delta.x < 3.0) r = abs(v1-v2);\n"; // ||A-B||
+      shader += "  else if (delta.x < 4.0) r = min(1.0,v1+v2);\n"; // A+B
+      shader += "  else if (delta.x < 5.0) r = max(v1,v2);\n"; // max(A,B)
+      shader += "  else if (delta.x < 6.0) r = min(v1,v2);\n"; // min(A,B)
+      shader += "  else if (delta.x < 7.0) r = min(1.0,v1/v2);\n"; // A/B
+      shader += "  else if (delta.x < 8.0) r = v1*v2;\n"; // A*B
+      shader += "  r *= step(0.001,gl_FragColor.a);\n";
+      shader += "  gl_FragColor = vec4(r,gl_FragColor.a, 0.0, 1.0);\n";
+      shader += "  return;\n";
+      shader += "}\n";
+    }
+//---------------------------------
 
 //------------------------------------
   shader += "gl_FragColor = 1.0-pow((vec4(1,1,1,1)-gl_FragColor),";

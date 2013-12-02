@@ -5917,6 +5917,39 @@ DrawHiresVolume::resliceVolume(Vec pos,
   else
     saveValue = false; // for getVolume we need opacity
 
+
+  //-------------------
+  // delta
+  float delta = 2.0;
+  if (Global::volumeType() == Global::DoubleVolume)
+    {
+      QStringList items;
+      items << "A-B"
+	    << "|A-B|"
+	    <<"A+B"
+	    << "max(A,B)"
+	    << "min(A,B)"
+	    << "A/B"
+	    << "A*B";
+      bool ok;
+      QString item = QInputDialog::getItem(0,
+					   "Volume operations",
+					   "Default is A-B.",
+					   items,
+					   0,
+					   false,
+					   &ok);
+      
+      if (!ok || item == "A-B") delta = 1.5;
+      else if (!ok || item == "|A-B|") delta = 2.5;
+      else if (item == "A+B") delta = 3.5;
+      else if (item == "max(A,B)") delta = 4.5;
+      else if (item == "min(A,B)") delta = 5.5;
+      else if (item == "A/B") delta = 6.5;
+      else if (item == "A*B") delta = 7.5;
+    }
+  //-------------------
+
   uchar *slice = new uchar[wd*ht];
   uchar *tag = 0;
   if (tagValue >= 0)
@@ -5980,7 +6013,7 @@ DrawHiresVolume::resliceVolume(Vec pos,
 
   glUniform1fARB(parm[18], 1.0); // depthcue
 
-  glUniform3fARB(parm[4], 2,2,2); // delta
+  glUniform3fARB(parm[4], delta, delta, delta); // delta
 
   QProgressDialog progress("Reslicing volume",
 			   QString(),
@@ -6246,13 +6279,13 @@ DrawHiresVolume::resliceVolume(Vec pos,
       if (vlod==1) str += " (i.e. full resolution)\n";
       else str += QString(" (i.e. every %1 voxel)\n").arg(vlod);
       str += QString("\nNon-Zero Voxels : %1\n").arg(nonZeroVoxels);
-      str += QString("Non-Zero Voxel Volume : %1 %2\n").	\
+      str += QString("Non-Zero Voxel Volume : %1 %2^3\n").	\
 	arg(voxvol).						\
 	arg(pvlInfo.voxelUnitStringShort());
       
       float totvol = (dmax-dmin+1);
-      totvol *= (wmax-wmin+1);
-      totvol *= (hmax-hmin+1);
+      totvol *= (wmax-wmin); 
+      totvol *= (hmax-hmin);
       float percent = (float)nonZeroVoxels*vlod*vlod*vlod/totvol;
       percent *= 100.0;
       str += QString("Percent Non-Zero Voxels : %1\n").arg(percent);
@@ -6561,6 +6594,7 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
 
   int vlod = m_Volume->getSubvolumeSubsamplingLevel();
   int nslices = 2*thickness/subsample/vlod;
+  if (nslices == 0) nslices = 1;
   int wd = 2*xdist/subsample/vlod;
   int ht = 2*ydist/subsample/vlod;
 
@@ -6571,13 +6605,20 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
 
   VolumeFileManager pFileManager;
   
-  QPair<QString, bool> srv = saveReslicedVolume(nslices, wd, ht, pFileManager);
-  QString pFile = srv.first;
-  bool saveValue = srv.second;
-
-  if (pFile.isEmpty())
-    return;
-
+  QPair<QString, bool> srv;
+  QString pFile;
+  bool saveValue;
+  if (nslices > 1)
+    {
+      srv = saveReslicedVolume(nslices, wd, ht, pFileManager);
+      QString pFile = srv.first;
+      bool saveValue = srv.second;
+      if (pFile.isEmpty())
+	return;
+    }
+  else
+    saveValue = false;
+  
   uchar *slice = new uchar[wd*ht];
   uchar *tag = 0;
   if (tagValue >= 0)
@@ -6658,9 +6699,14 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
   glClearDepth(0);
   glClearColor(0,0,0,0);
   
+  qint64 nonZeroVoxels=0;
   for(int sl=0; sl<nslices; sl++)
     {
-      float sf = (float)sl/(float)(nslices-1);
+      float sf;
+      if (nslices > 1)
+	sf = (float)sl/(float)(nslices-1);
+      else
+	sf = 0.0;
       Vec po = (1.0-sf)*sliceStart + sf*sliceEnd;
 
       progress.setLabelText(QString("%1").arg(sl));
@@ -6737,7 +6783,15 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
 	    }
 	}
 
-      pFileManager.setSlice(sl, slice);
+      if (nslices == 1)
+	{
+	  for(int p=0; p<wd*ht; p++)
+	    {
+	      if (slice[p] > 0) nonZeroVoxels++;
+	    }
+	}
+      else
+	pFileManager.setSlice(sl, slice);
     }
 
   m_shadowBuffer->release();
@@ -6758,8 +6812,31 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
 
   glEnable(GL_DEPTH_TEST);
 
-  QMessageBox::information(0, "Saved Resliced Volume",
-			   QString("Resliced volume saved to %1 and %1.001").arg(pFile));
+  if (nslices == 1)
+    {
+      VolumeInformation pvlInfo = VolumeInformation::volumeInformation();
+      Vec vs;
+      vs.x = VECPRODUCT(xaxis, pvlInfo.voxelSize).norm();
+      vs.y = VECPRODUCT(yaxis, pvlInfo.voxelSize).norm();
+      vs *= subsample*vlod;
+      float voxarea = nonZeroVoxels*vs.x*vs.y;
+
+      QString str;
+      str = "Opacity is used to calculate cross sectional area.\n";
+      str += "Only non-zero opacity voxel are counted for the calculation.\n\n";
+      str += QString("Subsampling Level : %1 - ").arg(vlod);
+      if (vlod==1) str += " (i.e. full resolution)\n";
+      else str += QString(" (i.e. every %1 voxel)\n").arg(vlod);
+      str += QString("\nNon-Zero Voxels : %1\n").arg(nonZeroVoxels);
+      str += QString("Cross sectional Area : %1 %2^2\n").	\
+	arg(voxarea).						\
+	arg(pvlInfo.voxelUnitStringShort());
+      
+      QMessageBox::information(0, "Volume Calculation", str);
+    }
+  else
+    QMessageBox::information(0, "Saved Resliced Volume",
+			     QString("Resliced volume saved to %1 and %1.001").arg(pFile));
 }
 
 QPair<QString, bool>
@@ -6826,13 +6903,6 @@ DrawHiresVolume::saveReslicedVolume(int nslices, int wd, int ht,
       float vx = vs.x;
       float vy = vs.y;
       float vz = vs.z;
-
-      //float vx = pvlInfo.voxelSize.x;
-      //float vy = pvlInfo.voxelSize.y;
-      //float vz = pvlInfo.voxelSize.z;
-      //if (!rv) // if not resliceVolume set voxelsize to 1
-      //  { vx = vy = vz = 1.0; }
-
       QList<float> rawMap;
       QList<int> pvlMap;
       for(int i=0; i<pvlInfo.mapping.count(); i++)
@@ -6855,6 +6925,11 @@ DrawHiresVolume::saveReslicedVolume(int nslices, int wd, int ht,
     }
   
   bool saveValue = true;
+
+  if (Global::volumeType() == Global::RGBVolume ||
+      Global::volumeType() == Global::RGBAVolume)
+    saveValue = false;
+
   if (tmpfile < 2)
     {
       QStringList items;
@@ -6864,7 +6939,7 @@ DrawHiresVolume::saveReslicedVolume(int nslices, int wd, int ht,
 					 items,
 					 0,
 					 false);
-  
+      
       if (yn == "opacity") saveValue = false;
     }
 

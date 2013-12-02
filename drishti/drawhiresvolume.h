@@ -331,7 +331,7 @@ class DrawHiresVolume : public QObject
   void setRenderDefault();
 
   QPair<QString, bool> saveReslicedVolume(int, int, int, VolumeFileManager&,
-					  int tmpfile=0, bool rv=false);
+					  int tmpfile=0, Vec vs=Vec(1,1,1));
 };
 
 #endif

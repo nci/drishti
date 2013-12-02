@@ -5866,6 +5866,13 @@ DrawHiresVolume::resliceVolume(Vec pos,
   Vec endWH = (wmax-wmin+1)*xaxis + (hmax-hmin+1)*yaxis;
   Vec endH = (hmax-hmin+1)*yaxis;
 
+  VolumeInformation pvlInfo = VolumeInformation::volumeInformation();
+  Vec vs;
+  vs.x = VECPRODUCT(xaxis, pvlInfo.voxelSize).norm();
+  vs.y = VECPRODUCT(yaxis, pvlInfo.voxelSize).norm();
+  vs.z = VECPRODUCT(normal,pvlInfo.voxelSize).norm();
+  vs *= subsample*vlod;
+
   VolumeFileManager pFileManager;
   QString pFile;
   bool saveValue=true;
@@ -5901,7 +5908,7 @@ DrawHiresVolume::resliceVolume(Vec pos,
       int tmpfile = 0;
       if (tightFit) tmpfile = 1;
       QPair<QString, bool> srv = saveReslicedVolume(nslices, wd, ht, pFileManager,
-						    tmpfile, true);
+						    tmpfile, vs);
       pFile = srv.first;
       saveValue = srv.second;
       if (pFile.isEmpty())
@@ -6199,7 +6206,7 @@ DrawHiresVolume::resliceVolume(Vec pos,
       VolumeFileManager newManager;
       QString newFile;
       QPair<QString, bool> srv = saveReslicedVolume(newd, newh, neww, newManager,
-						    2, true);
+						    2, vs);
       newFile = srv.first;
       if (!newFile.isEmpty())
 	{
@@ -6215,13 +6222,13 @@ DrawHiresVolume::resliceVolume(Vec pos,
 	      progress.setLabelText(QString("%1").arg(sl-zmin));
 	      progress.setValue(100*(float)(sl-zmin)/(float)newd);
 	    }
+
+	  QMessageBox::information(0, "Saved Resliced Volume",
+				   QString("Resliced volume saved to %1 and %1.001"). \
+				   arg(newFile));
 	}
 
       pFileManager.removeFile(); // remove temporary file
-
-      QMessageBox::information(0, "Saved Resliced Volume",
-			       QString("Resliced volume saved to %1 and %1.001"). \
-			       arg(newFile));
     }
   //----------------------------
 
@@ -6758,7 +6765,7 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
 QPair<QString, bool>
 DrawHiresVolume::saveReslicedVolume(int nslices, int wd, int ht,
 				    VolumeFileManager &pFileManager,
-				    int tmpfile, bool rv)
+				    int tmpfile, Vec vs)
 {
   QString pFile;
 
@@ -6816,11 +6823,16 @@ DrawHiresVolume::saveReslicedVolume(int nslices, int wd, int ht,
     {
       VolumeInformation pvlInfo = VolumeInformation::volumeInformation();
       int vtype = VolumeInformation::_UChar;
-      float vx = pvlInfo.voxelSize.x;
-      float vy = pvlInfo.voxelSize.y;
-      float vz = pvlInfo.voxelSize.z;
-      if (!rv) // if not resliceVolume set voxelsize to 1
-	{ vx = vy = vz = 1.0; }
+      float vx = vs.x;
+      float vy = vs.y;
+      float vz = vs.z;
+
+      //float vx = pvlInfo.voxelSize.x;
+      //float vy = pvlInfo.voxelSize.y;
+      //float vz = pvlInfo.voxelSize.z;
+      //if (!rv) // if not resliceVolume set voxelsize to 1
+      //  { vx = vy = vz = 1.0; }
+
       QList<float> rawMap;
       QList<int> pvlMap;
       for(int i=0; i<pvlInfo.mapping.count(); i++)

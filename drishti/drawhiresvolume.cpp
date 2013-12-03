@@ -6160,19 +6160,21 @@ DrawHiresVolume::resliceVolume(Vec pos,
       else if (getVolumeSurfaceArea == 1) // volume calculation
 	{
 	  for(int p=0; p<wd*ht; p++)
-	    {
-	      if (slice[p] > 0) nonZeroVoxels++;
-	    }
+	    if (slice[p] > 0) nonZeroVoxels++;
 	}
       else if (getVolumeSurfaceArea == 2) // surface area calculations
-	calculateSurfaceArea(neighbours,
-			     sl, nslices,
-			     slice0, slice1, slice, slice2,
-			     wd, ht,
-			     !pFile.isEmpty(),
-			     pFileManager,
-			     nonZeroVoxels);
-      
+	{
+	  calculateSurfaceArea(neighbours,
+			       sl, nslices,
+			       slice0, slice1, slice, slice2,
+			       wd, ht,
+			       !pFile.isEmpty(),
+			       pFileManager);
+	  
+	  for(int p=0; p<wd*ht; p++)
+	    if (slice2[p] > 0) nonZeroVoxels++;
+	}
+
       
       //----------------------------
       // find bounds for tightFit
@@ -6281,8 +6283,6 @@ DrawHiresVolume::resliceVolume(Vec pos,
     }
   else if (getVolumeSurfaceArea == 2)
     {
-      float voxarea = nonZeroVoxels;
-
       QString str;
       str = QString("Subsampling Level : %1 - ").arg(vlod);
       if (vlod==1) str += " (i.e. full resolution)\n";
@@ -6786,9 +6786,7 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
       if (nslices == 1)
 	{
 	  for(int p=0; p<wd*ht; p++)
-	    {
-	      if (slice[p] > 0) nonZeroVoxels++;
-	    }
+	    if (slice[p] > 0) nonZeroVoxels++;
 	}
       else
 	pFileManager.setSlice(sl, slice);
@@ -6797,6 +6795,39 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
   m_shadowBuffer->release();
 
   progress.setValue(100);
+
+  if (nslices == 1)
+    {
+      // ask user whether they want to save the slice.
+      QFileDialog fdialog(0,
+			  "Save cross section as an image",
+			  Global::previousDirectory(),
+			  "Processed (*.png)");
+      fdialog.setAcceptMode(QFileDialog::AcceptSave);
+      
+      if (fdialog.exec() == QFileDialog::Accepted)
+	{
+	  QString sfile = fdialog.selectedFiles().value(0);
+	  if (!sfile.isEmpty())
+	    {
+	      if (sfile.endsWith(".png.png")) sfile.chop(4); // remove extra extensions
+	      if (!sfile.endsWith(".png")) sfile += ".png"; // add if extension not present
+	      uchar* rgba = new uchar[4*wd*ht];
+	      for(int i=0; i<wd*ht; i++)
+		{
+		  rgba[4*i+0] = slice[i];
+		  rgba[4*i+1] = slice[i];
+		  rgba[4*i+2] = slice[i];
+		  rgba[4*i+3] = 255;
+		}
+	      QImage simg = QImage(rgba, wd, ht, QImage::Format_RGB32);
+	      simg = simg.mirrored(false, true);
+	      simg.save(sfile);
+	      QMessageBox::information(0, "Save cross section",
+				   "Cross section saved in "+sfile);
+	    }
+	}
+    }
 
   delete [] slice;
   if (tagValue >= 0)
@@ -7049,8 +7080,7 @@ DrawHiresVolume::calculateSurfaceArea(int neighbours,
 				      uchar* slice2,
 				      int wd, int ht,
 				      bool pFilePresent,
-				      VolumeFileManager& pFileManager,
-				      qint64& nonZeroVoxels)
+				      VolumeFileManager& pFileManager)
 {
   memset(slice2, 0, wd*ht);
   if (sl==0)
@@ -7082,10 +7112,7 @@ DrawHiresVolume::calculateSurfaceArea(int neighbours,
 		    else if (slice0[y*wd+x] == 0) bordervoxel = true;
 		    else if (slice[y*wd+x] == 0) bordervoxel = true;
 		    if (bordervoxel)
-		      {
-			nonZeroVoxels++;
-			slice2[y*wd+x] = 128;
-		      }
+		      slice2[y*wd+x] = 128;
 		  }
 	      }
 	}
@@ -7125,10 +7152,7 @@ DrawHiresVolume::calculateSurfaceArea(int neighbours,
 		      }
 
 		    if (bordervoxel)
-		      {
-			nonZeroVoxels++;
-			slice2[y*wd+x] = 128;
-		      }
+		      slice2[y*wd+x] = 128;
 		  }
 	      }
 	}
@@ -7157,10 +7181,7 @@ DrawHiresVolume::calculateSurfaceArea(int neighbours,
 			    }
 		      }
 		    if (bordervoxel)
-		      {
-			nonZeroVoxels++;
-			slice2[y*wd+x] = 128;
-		      }
+		      slice2[y*wd+x] = 128;
 		  }
 	      }
 	} // 26 neighbour

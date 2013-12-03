@@ -341,8 +341,7 @@ class DrawHiresVolume : public QObject
 			    uchar*, uchar*, uchar*, uchar*,
 			    int, int,
 			    bool,
-			    VolumeFileManager&,
-			    qint64&);
+			    VolumeFileManager&);
 };
 
 #endif

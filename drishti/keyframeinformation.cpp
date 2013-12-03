@@ -697,7 +697,7 @@ KeyFrameInformation::load(fstream &fin)
 	      Vec v;
 	      float f[3];
 	      fin.read((char*)&f, 3*sizeof(float));
-	      v = Vec(f[0],f[1],f[3]);
+	      v = Vec(f[0],f[1],f[2]);
 	      m_points.append(v);
 	    }
 	  // "pointsend"
@@ -712,7 +712,7 @@ KeyFrameInformation::load(fstream &fin)
 	      Vec v;
 	      float f[3];
 	      fin.read((char*)&f, 3*sizeof(float));
-	      v = Vec(f[0],f[1],f[3]);
+	      v = Vec(f[0],f[1],f[2]);
 	      m_barepoints.append(v);
 	    }
 	  // "barepointsend"
@@ -728,7 +728,7 @@ KeyFrameInformation::load(fstream &fin)
 	{
 	  float f[3];
 	  fin.read((char*)&f, 3*sizeof(float));
-	  m_pointColor = Vec(f[0],f[1],f[3]);
+	  m_pointColor = Vec(f[0],f[1],f[2]);
 	}
       else if (strcmp(keyword, "pathobjectstart") == 0)
 	{

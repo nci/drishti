@@ -4249,7 +4249,8 @@ Viewer::processCommand(QString cmd)
 
       return;
     }
-  else if (list[0] == "getvolume" &&
+  else if ((list[0] == "getvolume" ||
+	    list[0] == "getsurfacearea") &&
 	   list.size() <= 2)
     {
       if (!m_hiresVolume->raised())
@@ -4257,6 +4258,10 @@ Viewer::processCommand(QString cmd)
 	  QMessageBox::critical(0, "Error", "Cannot apply command in Lowres mode");
 	  return;
 	}
+
+      int getVolume = 1;
+      if (list[0] == "getsurfacearea")
+	getVolume = 2;
 	      
       Vec smin = m_lowresVolume->volumeMin();
       Vec smax = m_lowresVolume->volumeMax();
@@ -4266,7 +4271,7 @@ Viewer::processCommand(QString cmd)
 	  m_hiresVolume->resliceVolume(pos,
 				       Vec(0,0,-1), Vec(1,0,0), Vec(0,1,0),
 				       1,
-				       true, -1); // use opacity to getVolume
+				       getVolume, -1); // use opacity to getVolume/SurfaceArea
 	}
       else
 	{
@@ -4275,34 +4280,34 @@ Viewer::processCommand(QString cmd)
 	    m_hiresVolume->resliceVolume((smax+smin)*0.5,
 					 Vec(0,0,1), Vec(1,0,0), Vec(0,1,0),
 					 1,
-					 true, tag); // use opacity to getVolume
+					 getVolume, tag); // use opacity to getVolume/SurfaceArea
 	  else
 	    QMessageBox::critical(0, "Error",
 				     "Tag value should be between 0 and 255");
 	}
     }
-  else if (list[0] == "getsurfacearea" &&
-	   list.size() <= 2)
-    {
-      if (! m_hiresVolume->raised())
-	{
-	  emit showMessage("Cannot apply command in Lowres mode", true);
-	  return;
-	}
-
-      if (list.size() == 1)
-	emit getSurfaceArea();
-      else
-	{
-	  int tag = list[1].toInt(&ok);
-	  if (ok &&
-	      tag >= 0 && tag <= 255)
-	    emit getSurfaceArea((unsigned char)tag);
-	  else
-	    QMessageBox::critical(0, "Error",
-				     "Tag value should be between 0 and 255");
-	}
-    }
+//  else if (list[0] == "getsurfacearea" &&
+//	   list.size() <= 2)
+//    {
+//      if (! m_hiresVolume->raised())
+//	{
+//	  emit showMessage("Cannot apply command in Lowres mode", true);
+//	  return;
+//	}
+//
+//      if (list.size() == 1)
+//	emit getSurfaceArea();
+//      else
+//	{
+//	  int tag = list[1].toInt(&ok);
+//	  if (ok &&
+//	      tag >= 0 && tag <= 255)
+//	    emit getSurfaceArea((unsigned char)tag);
+//	  else
+//	    QMessageBox::critical(0, "Error",
+//				     "Tag value should be between 0 and 255");
+//	}
+//    }
   else if (list[0] == "caption")
     {
       CaptionDialog cd(0,

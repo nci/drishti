@@ -5815,7 +5815,7 @@ void
 DrawHiresVolume::resliceVolume(Vec pos,
 			       Vec normal, Vec xaxis, Vec yaxis,
 			       int subsample,
-			       bool getVolume, int tagValue)
+			       int getVolumeSurfaceArea, int tagValue)
 {
   //--- drop perpendiculars onto normal from all 8 vertices of the subvolume 
   Vec box[8];
@@ -5878,10 +5878,11 @@ DrawHiresVolume::resliceVolume(Vec pos,
   bool saveValue=true;
   bool tightFit = false;
   int clearance = 0;
-  if (!getVolume)
+  int neighbours = 26;
+  if (getVolumeSurfaceArea == 0)
     {      
-      //------------------
-      // get tightFit first
+      //-----------------------
+      // get tightFit
       QStringList items;
       items << "Yes" << "No";
       bool ok;
@@ -5891,8 +5892,7 @@ DrawHiresVolume::resliceVolume(Vec pos,
 					   items,
 					   0,
 					   false,
-					   &ok);
-      
+					   &ok);      
       if (!ok || item == "Yes")
 	{
 	  tightFit = true;
@@ -5913,10 +5913,36 @@ DrawHiresVolume::resliceVolume(Vec pos,
       saveValue = srv.second;
       if (pFile.isEmpty())
 	return;
+      //-----------------------
     }
-  else
-    saveValue = false; // for getVolume we need opacity
+  else if (getVolumeSurfaceArea == 1) // volume calculations
+    saveValue = false; // for volume calculation we need opacity    
+  else if (getVolumeSurfaceArea == 2)
+    {      
+      //-----------------------
+      // get neighbourhood type
+      QStringList items;
+      items << "26" << "18" << "6";
+      bool ok;
+      QString item = QInputDialog::getItem(0,
+					   "Neighbourhood type",
+					   "Select neighbourhood for surface voxel selection",
+					   items,
+					   0,
+					   false,
+					   &ok);      
+      if (item == "18") neighbours = 18;
+      if (item == "6") neighbours = 6;
+      //-----------------------
 
+      //-----------------------
+      // now get the filename
+      QPair<QString, bool> srv = saveReslicedVolume(nslices, wd, ht, pFileManager,
+						    3, vs);
+      pFile = srv.first;
+      saveValue = false; // for surface area calculation we need opacity
+      //-----------------------    }
+    }
 
   //-------------------
   // delta
@@ -5951,6 +5977,16 @@ DrawHiresVolume::resliceVolume(Vec pos,
   //-------------------
 
   uchar *slice = new uchar[wd*ht];
+
+  uchar *slice0, *slice1, *slice2;
+  slice0 = slice1 = slice2 = 0;
+  if (getVolumeSurfaceArea == 2) // surface area calculation
+    {
+      slice0 = new uchar[wd*ht];
+      slice1 = new uchar[wd*ht];
+      slice2 = new uchar[wd*ht];
+    }
+
   uchar *tag = 0;
   if (tagValue >= 0)
     tag = new uchar[wd*ht];
@@ -6119,91 +6155,35 @@ DrawHiresVolume::resliceVolume(Vec pos,
 	    }
 	}
 
-      if (!getVolume)
+      if (getVolumeSurfaceArea == 0)
 	pFileManager.setSlice(sl, slice);
-      else
+      else if (getVolumeSurfaceArea == 1) // volume calculation
 	{
 	  for(int p=0; p<wd*ht; p++)
 	    {
 	      if (slice[p] > 0) nonZeroVoxels++;
 	    }
 	}
-
+      else if (getVolumeSurfaceArea == 2) // surface area calculations
+	calculateSurfaceArea(neighbours,
+			     sl, nslices,
+			     slice0, slice1, slice, slice2,
+			     wd, ht,
+			     !pFile.isEmpty(),
+			     pFileManager,
+			     nonZeroVoxels);
+      
+      
       //----------------------------
       // find bounds for tightFit
-      //----------------------------
       if (tightFit)
-	{
-	  // find zmin, zmax
-	  if (!zmindone)
-	    {
-	      for(int p=0; p<wd*ht; p++)
-		if (slice[p] > 0)
-		  {
-		    zmin = sl;
-		    zmax = sl;
-		    zmindone = true;
-		    break;
-		  }
-	    }
-	  else
-	    {
-	      for(int p=0; p<wd*ht; p++)
-		if (slice[p] > 0)
-		  {
-		    zmax = sl;
-		    break;
-		  }
-	    }
-	  
-	  // find xmin, xmax
-	  for(int y=0; y<ht; y++)
-	    {
-	      for(int x=0; x<xmin; x++)
-		{
-		  if (slice[y*wd+x] > 0)
-		    {
-		      xmin = qMin(xmin, x);
-		      break;
-		    }
-		}
-	    }
-	  for(int y=0; y<ht; y++)
-	    {
-	      for(int x=wd-1; x>xmax; x--)
-		{
-		  if (slice[y*wd+x] > 0)
-		    {
-		      xmax = qMax(xmax, x);
-		      break;
-		    }
-		}
-	    }
-	  
-	  // find ymin, ymax
-	  for(int x=0; x<wd; x++)
-	    {
-	      for(int y=0; y<ymin; y++)
-		{
-		  if (slice[y*wd+x] > 0)
-		    {
-		      ymin = qMin(ymin, y);
-		      break;
-		    }
-		}
-	    }
-	  for(int x=0; x<wd; x++)
-	    {
-	      for(int y=ht-1; y>ymax; y--)
-		{
-		  if (slice[y*wd+x] > 0)
-		    {
-		      ymax = qMax(ymax, y);
-		      break;
-		    }
-		}
-	    }
-	}
+	getTightFit(sl,
+		    slice, wd, ht,
+		    zmindone,
+		    xmin, xmax,
+		    ymin, ymax,
+		    zmin, zmax);
+      
       //----------------------------
     }
 
@@ -6212,6 +6192,13 @@ DrawHiresVolume::resliceVolume(Vec pos,
   delete [] slice;
   if (tagValue >= 0)
     delete [] tag;
+
+  if (getVolumeSurfaceArea == 2)
+    {
+      delete [] slice0;
+      delete [] slice1;
+      delete [] slice2;
+    }
 
   glUseProgramObjectARB(0);
   disableTextureUnits();  
@@ -6268,7 +6255,7 @@ DrawHiresVolume::resliceVolume(Vec pos,
   progress.setValue(100);
 
 
-  if (getVolume)
+  if (getVolumeSurfaceArea == 1)
     {
       VolumeInformation pvlInfo = VolumeInformation::volumeInformation();
       Vec voxelSize = pvlInfo.voxelSize;
@@ -6292,6 +6279,23 @@ DrawHiresVolume::resliceVolume(Vec pos,
       
       QMessageBox::information(0, "Volume Calculation", str);
     }
+  else if (getVolumeSurfaceArea == 2)
+    {
+      float voxarea = nonZeroVoxels;
+
+      QString str;
+      str = QString("Subsampling Level : %1 - ").arg(vlod);
+      if (vlod==1) str += " (i.e. full resolution)\n";
+      else str += QString(" (i.e. every %1 voxel)\n").arg(vlod);
+      str += QString("\nNon-Zero Voxels : %1\n").arg(nonZeroVoxels);
+
+      QMessageBox::information(0, "Surface Area Calculation", str);
+
+      if (!pFile.isEmpty())
+	QMessageBox::information(0, "Saved Border Voxels",
+				 QString("Border voxels saved to %1 and %1.001"). \
+				 arg(pFile));
+    }
   else
     {
       if (!tightFit)
@@ -6306,10 +6310,6 @@ DrawHiresVolume::resliceUsingPath(int pathIdx, bool fullThickness,
 				  int subsample, int tagValue)
 
 {
-//  Vec voxelScaling = VolumeInformation::volumeInformation().voxelSize;
-//  float mvs = qMax(voxelScaling.x, qMax(voxelScaling.y, voxelScaling.z));
-//  voxelScaling /= mvs;
-
   Vec voxelScaling = Global::voxelScaling();
 
   PathObject po;
@@ -6850,9 +6850,27 @@ DrawHiresVolume::saveReslicedVolume(int nslices, int wd, int ht,
     pFile = QTemporaryFile("tmp").fileName();
   else
     {
+
+      QString header = "Save Resliced Volume ";
+      if (tmpfile == 3)
+	{
+	  QStringList items;
+	  items << "no" << "yes";
+	  QString yn = QInputDialog::getItem(0, "Save Border Voxels to Volume",
+					     "Want to save border voxels to volume ?",
+					     items,
+					     0,
+					     false);
+      
+	  if (yn == "no") 
+	    return qMakePair(QString(), false);
+	  
+	  header = "Save border voxels to volume ";
+	}
+      header += QString("(volume size : %1 %2 %3)").arg(wd).arg(ht).arg(nslices);
+
       QFileDialog fdialog(0,
-			  QString("Save Resliced Volume (volume size : %1 %2 %3)").
-			  arg(wd).arg(ht).arg(nslices),
+			  header,
 			  Global::previousDirectory(),
 			  "Processed (*.pvl.nc)");
       
@@ -6943,5 +6961,222 @@ DrawHiresVolume::saveReslicedVolume(int nslices, int wd, int ht,
       if (yn == "opacity") saveValue = false;
     }
 
-  return qMakePair(pFile, saveValue) ;
+  return qMakePair(pFile, saveValue);
+}
+
+void
+DrawHiresVolume::getTightFit(int sl,
+			     uchar* slice, int wd, int ht,
+			     bool& zmindone,
+			     int& xmin, int& xmax,
+			     int& ymin, int& ymax,
+			     int& zmin, int& zmax)
+{
+  if (!zmindone)
+    {
+      for(int p=0; p<wd*ht; p++)
+	if (slice[p] > 0)
+	  {
+	    zmin = sl;
+	    zmax = sl;
+	    zmindone = true;
+	    break;
+	  }
+    }
+  else
+    {
+      for(int p=0; p<wd*ht; p++)
+	if (slice[p] > 0)
+	  {
+	    zmax = sl;
+	    break;
+	  }
+    }
+  
+  // find xmin, xmax
+  for(int y=0; y<ht; y++)
+    {
+      for(int x=0; x<xmin; x++)
+	{
+	  if (slice[y*wd+x] > 0)
+	    {
+	      xmin = qMin(xmin, x);
+	      break;
+	    }
+	}
+    }
+  for(int y=0; y<ht; y++)
+    {
+      for(int x=wd-1; x>xmax; x--)
+	{
+	  if (slice[y*wd+x] > 0)
+	    {
+	      xmax = qMax(xmax, x);
+	      break;
+	    }
+	}
+    }
+  
+  // find ymin, ymax
+  for(int x=0; x<wd; x++)
+    {
+      for(int y=0; y<ymin; y++)
+	{
+	  if (slice[y*wd+x] > 0)
+	    {
+	      ymin = qMin(ymin, y);
+	      break;
+	    }
+	}
+    }
+  for(int x=0; x<wd; x++)
+    {
+      for(int y=ht-1; y>ymax; y--)
+	{
+	  if (slice[y*wd+x] > 0)
+	    {
+	      ymax = qMax(ymax, y);
+	      break;
+	    }
+	}
+    }
+}
+
+void
+DrawHiresVolume::calculateSurfaceArea(int neighbours,
+				      int sl, int nslices,
+				      uchar* slice0, uchar* slice1, uchar* slice,
+				      uchar* slice2,
+				      int wd, int ht,
+				      bool pFilePresent,
+				      VolumeFileManager& pFileManager,
+				      qint64& nonZeroVoxels)
+{
+  memset(slice2, 0, wd*ht);
+  if (sl==0)
+    {
+      memcpy(slice0, slice, wd*ht);
+      memcpy(slice1, slice, wd*ht);
+      if (pFilePresent)
+	pFileManager.setSlice(sl, slice2);
+    }
+  else if (sl==1)
+    {
+      memcpy(slice1, slice, wd*ht);
+    }
+  else // start surface area calculation from second slice
+    {
+      if (neighbours == 6)
+	{
+	  // count border voxels using 6 neighbours
+	  for(int y=1; y<ht-1; y++)
+	    for(int x=1; x<wd-1; x++)
+	      {
+		if (slice1[y*wd+x] > 0) // this is middle slice
+		  {
+		    bool bordervoxel = false;
+		    if (slice1[(y-1)*wd+x] == 0) bordervoxel = true;
+		    else if (slice1[y*wd+(x-1)] == 0) bordervoxel = true;
+		    else if (slice1[(y+1)*wd+x] == 0) bordervoxel = true;
+		    else if (slice1[y*wd+(x+1)] == 0) bordervoxel = true;
+		    else if (slice0[y*wd+x] == 0) bordervoxel = true;
+		    else if (slice[y*wd+x] == 0) bordervoxel = true;
+		    if (bordervoxel)
+		      {
+			nonZeroVoxels++;
+			slice2[y*wd+x] = 128;
+		      }
+		  }
+	      }
+	}
+      else if (neighbours == 18)
+	{
+	  // count border voxels using 6 neighbours
+	  for(int y=1; y<ht-1; y++)
+	    for(int x=1; x<wd-1; x++)
+	      {
+		if (slice1[y*wd+x] > 0) // this is middle slice
+		  {
+		    bool bordervoxel = false;
+		    for(int yy=y-1; yy<=y+1; yy++)
+		      for(int xx=x-1; xx<=x+1; xx++)
+			{
+			  if (slice1[yy*wd+xx] == 0) // central voxel is on border
+			    {
+			      bordervoxel = true;
+			      break;
+			    }
+			}
+		    if (!bordervoxel)
+		      {
+			if (slice0[(y-1)*wd+x] == 0) bordervoxel = true;
+			else if (slice0[y*wd+(x-1)] == 0) bordervoxel = true;
+			else if (slice0[(y+1)*wd+x] == 0) bordervoxel = true;
+			else if (slice0[y*wd+(x+1)] == 0) bordervoxel = true;
+			else if (slice0[y*wd+x] == 0) bordervoxel = true;
+		      }
+		    if (!bordervoxel)
+		      {
+			if (slice[(y-1)*wd+x] == 0) bordervoxel = true;
+			else if (slice[y*wd+(x-1)] == 0) bordervoxel = true;
+			else if (slice[(y+1)*wd+x] == 0) bordervoxel = true;
+			else if (slice[y*wd+(x+1)] == 0) bordervoxel = true;
+			else if (slice[y*wd+x] == 0) bordervoxel = true;
+		      }
+
+		    if (bordervoxel)
+		      {
+			nonZeroVoxels++;
+			slice2[y*wd+x] = 128;
+		      }
+		  }
+	      }
+	}
+      else
+	{
+	  // count border voxels using 26 neighbours
+	  for(int y=1; y<ht-1; y++)
+	    for(int x=1; x<wd-1; x++)
+	      {
+		if (slice1[y*wd+x] > 0) // this is middle slice
+		  {
+		    bool bordervoxel = false;
+		    for(int zz=0; zz<3; zz++)
+		      {
+			uchar *s = slice0;
+			if (zz==1) s = slice1;
+			if (zz==2) s = slice;
+			for(int yy=y-1; yy<=y+1; yy++)
+			  for(int xx=x-1; xx<=x+1; xx++)
+			    {
+			      if (s[yy*wd+xx] == 0) // central voxel is on border
+				{
+				  bordervoxel = true;
+				  break;
+				}
+			    }
+		      }
+		    if (bordervoxel)
+		      {
+			nonZeroVoxels++;
+			slice2[y*wd+x] = 128;
+		      }
+		  }
+	      }
+	} // 26 neighbour
+
+      if (pFilePresent)
+	{
+	  pFileManager.setSlice(sl-1, slice2);
+	  if (sl == nslices-1)
+	    {
+	      memset(slice2, 0, wd*ht);
+	      pFileManager.setSlice(sl, slice2);
+	    }
+	}
+      
+      memcpy(slice0, slice1, wd*ht);
+      memcpy(slice1, slice, wd*ht);
+    }
+
 }

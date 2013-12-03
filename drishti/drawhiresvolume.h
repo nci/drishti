@@ -137,7 +137,7 @@ class DrawHiresVolume : public QObject
   
   int dataTexSize() { return m_dataTexSize; }
   
-  void resliceVolume(Vec, Vec, Vec, Vec, int, bool, int);
+  void resliceVolume(Vec, Vec, Vec, Vec, int, int, int);
   void resliceUsingPath(int, bool, int, int);
   void resliceUsingClipPlane(Vec, Quaternion, int,
 			     QVector4D, float, int,
@@ -332,6 +332,17 @@ class DrawHiresVolume : public QObject
 
   QPair<QString, bool> saveReslicedVolume(int, int, int, VolumeFileManager&,
 					  int tmpfile=0, Vec vs=Vec(1,1,1));
+
+  void getTightFit(int, uchar*, int, int,
+		   bool&, int&, int&, int&, int&, int&, int&);
+
+  void calculateSurfaceArea(int,
+			    int, int,
+			    uchar*, uchar*, uchar*, uchar*,
+			    int, int,
+			    bool,
+			    VolumeFileManager&,
+			    qint64&);
 };
 
 #endif

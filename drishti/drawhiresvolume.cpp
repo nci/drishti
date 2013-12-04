@@ -5875,6 +5875,7 @@ DrawHiresVolume::resliceVolume(Vec pos,
 
   VolumeFileManager pFileManager;
   QString pFile;
+  QString newFile;
   bool saveValue=true;
   bool tightFit = false;
   int clearance = 0;
@@ -5905,15 +5906,28 @@ DrawHiresVolume::resliceVolume(Vec pos,
 
       //------------------
       // now get the filename
-      int tmpfile = 0;
-      if (tightFit) tmpfile = 1;
-      QPair<QString, bool> srv = saveReslicedVolume(nslices, wd, ht, pFileManager,
-						    tmpfile, vs);
-      pFile = srv.first;
-      saveValue = srv.second;
-      if (pFile.isEmpty())
-	return;
-      //-----------------------
+      if (tightFit)
+	{
+	  QFileInfo finfo(Global::previousDirectory(), "temporaryVolumeFile");
+	  pFile = finfo.absoluteFilePath();
+	  newFile = getResliceFileName(); // now get tightFit file name
+	  if (newFile.isEmpty())
+	    return;
+	  saveReslicedVolume(pFile,
+			     nslices, wd, ht, pFileManager,
+			     true, vs);
+	}
+      else
+	{
+	  pFile = getResliceFileName();
+	  if (pFile.isEmpty())
+	    return;
+	  saveReslicedVolume(pFile,
+			     nslices, wd, ht, pFileManager,
+			     false, vs);
+	}
+
+      saveValue = getSaveValue();
     }
   else if (getVolumeSurfaceArea == 1) // volume calculations
     saveValue = false; // for volume calculation we need opacity    
@@ -5937,9 +5951,11 @@ DrawHiresVolume::resliceVolume(Vec pos,
 
       //-----------------------
       // now get the filename
-      QPair<QString, bool> srv = saveReslicedVolume(nslices, wd, ht, pFileManager,
-						    3, vs);
-      pFile = srv.first;
+      pFile = getResliceFileName(true);
+      if (!pFile.isEmpty())
+	saveReslicedVolume(pFile,
+			   nslices, wd, ht, pFileManager,
+			   false, vs);
       saveValue = false; // for surface area calculation we need opacity
       //-----------------------    }
     }
@@ -5999,8 +6015,16 @@ DrawHiresVolume::resliceVolume(Vec pos,
 					    QGLFramebufferObject::NoAttachment,
 					    GL_TEXTURE_RECTANGLE_EXT);
   glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_shadowBuffer->texture());
-  glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  if (getVolumeSurfaceArea == 0)
+    {
+      glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+  else
+    {
+      glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+      glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    }
 
 
   m_shadowBuffer->bind();
@@ -6105,7 +6129,8 @@ DrawHiresVolume::resliceVolume(Vec pos,
 	  
 	  bindDataTextures(b);
 	  
-	  if (Global::interpolationType(Global::TextureInterpolation)) // linear
+	  if (getVolumeSurfaceArea == 0 &&
+	      Global::interpolationType(Global::TextureInterpolation)) // linear
 	    {
 	      glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,
 			      GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -6226,30 +6251,26 @@ DrawHiresVolume::resliceVolume(Vec pos,
       int newh = xmax-xmin+1;
       
       VolumeFileManager newManager;
-      QString newFile;
-      QPair<QString, bool> srv = saveReslicedVolume(newd, newh, neww, newManager,
-						    2, vs);
-      newFile = srv.first;
-      if (!newFile.isEmpty())
+      saveReslicedVolume(newFile,
+			 newd, newh, neww, newManager,
+			 false, vs);
+      uchar *slice = new uchar[wd*ht];
+      for(int sl=zmin; sl<=zmax; sl++)
 	{
-	  uchar *slice = new uchar[wd*ht];
-	  for(int sl=zmin; sl<=zmax; sl++)
-	    {
-	      memcpy(slice, pFileManager.getSlice(sl), wd*ht);
-	      for(int y=ymin; y<=ymax; y++)
-		for(int x=xmin; x<=xmax; x++)
-		  slice[(y-ymin)*newh+(x-xmin)] = slice[y*wd+x];
-	      
-	      newManager.setSlice(sl-zmin, slice);
-	      progress.setLabelText(QString("%1").arg(sl-zmin));
-	      progress.setValue(100*(float)(sl-zmin)/(float)newd);
-	    }
-
-	  QMessageBox::information(0, "Saved Resliced Volume",
-				   QString("Resliced volume saved to %1 and %1.001"). \
-				   arg(newFile));
+	  memcpy(slice, pFileManager.getSlice(sl), wd*ht);
+	  for(int y=ymin; y<=ymax; y++)
+	    for(int x=xmin; x<=xmax; x++)
+	      slice[(y-ymin)*newh+(x-xmin)] = slice[y*wd+x];
+	  
+	  newManager.setSlice(sl-zmin, slice);
+	  progress.setLabelText(QString("%1").arg(sl-zmin));
+	  progress.setValue(100*(float)(sl-zmin)/(float)newd);
 	}
-
+      
+      QMessageBox::information(0, "Saved Resliced Volume",
+			       QString("Resliced volume saved to %1 and %1.001"). \
+			       arg(newFile));
+      
       pFileManager.removeFile(); // remove temporary file
     }
   //----------------------------
@@ -6353,9 +6374,12 @@ DrawHiresVolume::resliceUsingPath(int pathIdx, bool fullThickness,
 
   VolumeFileManager pFileManager;
   
-  QPair<QString, bool> srv = saveReslicedVolume(nslices, wd, ht, pFileManager);
-  QString pFile = srv.first;
-  bool saveValue = srv.second;
+  QString pFile = getResliceFileName();
+  if (pFile.isEmpty())
+    return;
+  saveReslicedVolume(pFile,
+		     nslices, wd, ht, pFileManager);
+  bool saveValue = getSaveValue();
 
   if (pFile.isEmpty())
     return;
@@ -6607,17 +6631,16 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
   
   QPair<QString, bool> srv;
   QString pFile;
-  bool saveValue;
+  bool saveValue = false;
   if (nslices > 1)
     {
-      srv = saveReslicedVolume(nslices, wd, ht, pFileManager);
-      QString pFile = srv.first;
-      bool saveValue = srv.second;
+      pFile = getResliceFileName();
       if (pFile.isEmpty())
 	return;
+      saveReslicedVolume(pFile,
+			 nslices, wd, ht, pFileManager);
+      saveValue = getSaveValue();
     }
-  else
-    saveValue = false;
   
   uchar *slice = new uchar[wd*ht];
   uchar *tag = 0;
@@ -6632,8 +6655,16 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
 					    QGLFramebufferObject::NoAttachment,
 					    GL_TEXTURE_RECTANGLE_EXT);
   glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_shadowBuffer->texture());
-  glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  if (nslices > 1)
+    {
+      glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+  else // cross sectional area
+    {
+      glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+      glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    }
 
 
   m_shadowBuffer->bind();
@@ -6733,7 +6764,8 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
 	  
 	  bindDataTextures(b);
 	  
-	  if (Global::interpolationType(Global::TextureInterpolation)) // linear
+	  if (nslices > 1 &&
+	      Global::interpolationType(Global::TextureInterpolation)) // linear
 	    {
 	      glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,
 			      GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -6870,60 +6902,83 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
 			     QString("Resliced volume saved to %1 and %1.001").arg(pFile));
 }
 
-QPair<QString, bool>
-DrawHiresVolume::saveReslicedVolume(int nslices, int wd, int ht,
-				    VolumeFileManager &pFileManager,
-				    int tmpfile, Vec vs)
+QString
+DrawHiresVolume::getResliceFileName(bool border)
 {
   QString pFile;
 
-  if (tmpfile == 1)
-    pFile = QTemporaryFile("tmp").fileName();
-  else
+  QString header = "Save Resliced Volume";
+  if (border) // for surface voxels
     {
-
-      QString header = "Save Resliced Volume ";
-      if (tmpfile == 3)
-	{
-	  QStringList items;
-	  items << "no" << "yes";
-	  QString yn = QInputDialog::getItem(0, "Save Border Voxels to Volume",
-					     "Want to save border voxels to volume ?",
-					     items,
-					     0,
-					     false);
+      QStringList items;
+      items << "no" << "yes";
+      QString yn = QInputDialog::getItem(0, "Save Border Voxels to Volume",
+					 "Want to save border voxels to volume ?",
+					 items,
+					 0,
+					 false);
       
-	  if (yn == "no") 
-	    return qMakePair(QString(), false);
-	  
-	  header = "Save border voxels to volume ";
-	}
-      header += QString("(volume size : %1 %2 %3)").arg(wd).arg(ht).arg(nslices);
-
-      QFileDialog fdialog(0,
-			  header,
-			  Global::previousDirectory(),
-			  "Processed (*.pvl.nc)");
+      if (yn == "no") 
+	return QString();
       
-      fdialog.setAcceptMode(QFileDialog::AcceptSave);
-      
-      if (!fdialog.exec() == QFileDialog::Accepted)
-	return qMakePair(QString(), true);
-      
-      pFile = fdialog.selectedFiles().value(0);
-
-      // mac sometimes adds on extra extensions at the end
-      if (pFile.endsWith(".pvl.nc.pvl.nc"))
-	pFile.chop(7);
-
-      // yes again - remove extra extensions at the end
-      if (pFile.endsWith(".pvl.nc.pvl.nc"))
-	pFile.chop(7);
+      header = "Save border voxels to volume";
     }
+  //header += QString("(volume size : %1 %2 %3)").arg(wd).arg(ht).arg(nslices);
   
+  QFileDialog fdialog(0,
+		      header,
+		      Global::previousDirectory(),
+		      "Processed (*.pvl.nc)");
+  
+  fdialog.setAcceptMode(QFileDialog::AcceptSave);
+  
+  if (!fdialog.exec() == QFileDialog::Accepted)
+    return QString();
+  
+  pFile = fdialog.selectedFiles().value(0);
+  
+  // mac sometimes adds on extra extensions at the end
+  if (pFile.endsWith(".pvl.nc.pvl.nc"))
+    pFile.chop(7);
+  
+  // yes again - remove extra extensions at the end
+  if (pFile.endsWith(".pvl.nc.pvl.nc"))
+    pFile.chop(7);
+
   if (!pFile.endsWith(".pvl.nc"))
     pFile += ".pvl.nc";
   
+  return pFile;
+}
+
+bool
+DrawHiresVolume::getSaveValue()
+{
+  bool saveValue = true;
+
+  if (Global::volumeType() == Global::RGBVolume ||
+      Global::volumeType() == Global::RGBAVolume)
+    saveValue = false;
+
+  QStringList items;
+  items << "value" << "opacity";
+  QString yn = QInputDialog::getItem(0, "Save Volume",
+				     "Save Value or Opacity ?",
+				     items,
+				     0,
+				     false);
+  
+  if (yn == "opacity") saveValue = false;
+  
+  return saveValue;
+}
+
+void
+DrawHiresVolume::saveReslicedVolume(QString pFile,
+				    int nslices, int wd, int ht,
+				    VolumeFileManager &pFileManager,
+				    bool tmpfile, Vec vs)
+{
   int slabSize = nslices+1;
   if (QFile::exists(pFile)) QFile::remove(pFile);
   
@@ -6945,7 +7000,7 @@ DrawHiresVolume::saveReslicedVolume(int nslices, int wd, int ht,
   pFileManager.createFile(true);
   
   
-  if (tmpfile != 1)
+  if (!tmpfile)
     {
       VolumeInformation pvlInfo = VolumeInformation::volumeInformation();
       int vtype = VolumeInformation::_UChar;
@@ -6972,27 +7027,6 @@ DrawHiresVolume::saveReslicedVolume(int nslices, int wd, int ht,
       
       
     }
-  
-  bool saveValue = true;
-
-  if (Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
-    saveValue = false;
-
-  if (tmpfile < 2)
-    {
-      QStringList items;
-      items << "value" << "opacity";
-      QString yn = QInputDialog::getItem(0, "Save Volume",
-					 "Save Value or Opacity ?",
-					 items,
-					 0,
-					 false);
-      
-      if (yn == "opacity") saveValue = false;
-    }
-
-  return qMakePair(pFile, saveValue);
 }
 
 void

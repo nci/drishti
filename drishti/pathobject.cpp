@@ -3871,7 +3871,9 @@ void PathObject::drawViewportLine(float scale, int vh)
   if (!m_viewportGrabbed)
     return;
 
-  Vec voxelSize = VolumeInformation::volumeInformation().voxelSize;
+  //Vec voxelSize = VolumeInformation::volumeInformation().voxelSize;
+  Vec voxelSize = Global::voxelScaling();
+
   float clen = 0;
   glColor4f(m_color.x*m_opacity,
 	    m_color.y*m_opacity,
@@ -3896,7 +3898,8 @@ void PathObject::drawViewportLineDots(QGLViewer *viewer, float scale, int vh)
   if (!m_viewportGrabbed)
     return;
 
-  Vec voxelSize = VolumeInformation::volumeInformation().voxelSize;
+  //Vec voxelSize = VolumeInformation::volumeInformation().voxelSize;
+  Vec voxelSize = Global::voxelScaling();
 
   glEnable(GL_BLEND);
 

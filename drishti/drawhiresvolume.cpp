@@ -3244,7 +3244,9 @@ DrawHiresVolume::drawPathInViewport(int pathOffset, Vec lpos, float depthcue,
   m_Viewer->startScreenCoordinatesSystem();
   glBlendFunc(GL_ONE_MINUS_DST_ALPHA, GL_ONE); // for frontlit volume
 
-  Vec voxelSize = VolumeInformation::volumeInformation().voxelSize;
+  //Vec voxelSize = VolumeInformation::volumeInformation().voxelSize;
+  Vec voxelSize = Global::voxelScaling();
+  
   QList<PathObject> po;
   po = GeometryObjects::paths()->paths();
   int npaths = po.count();

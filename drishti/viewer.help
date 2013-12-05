@@ -22,6 +22,8 @@ The amount of subsampling is governed by the parameter subsample.  Default value
 
 The tag parameter controls the tagged voxels that are saved.  Default value is -1 - i.e. save all voxels whether they are tagged or not.
 
+Applying this operation to double volumes gives the ability to perform volume calculations such as A-B, |A-B|, A+B, min(A,B), max(A,B), A*B and A/B, where A and B are voxel value/opacity of respective volumes.
+
 Example :
 reslice 2 : save with factor of 2 reduction, save all voxels.
 reslice 2 0 : save with factor of 2 reduction, save only voxels that are tagged 0.
@@ -34,6 +36,9 @@ reslicenormal
 reslicenormal [subsample] [tag]
 
 Same as reslice, except the data is saved in the original orientation. 
+
+
+Applying this operation to double volumes gives the ability to perform volume calculations such as A-B, |A-B|, A+B, min(A,B), max(A,B), A*B and A/B, where A and B are voxel value/opacity of respective volumes.
 
 #end
 

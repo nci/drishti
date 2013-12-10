@@ -505,7 +505,7 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
     shader += addLighting(nvol);
 
   //------------------
-  if (peel && peelType!=2)
+  if (peel)
     {
       if (!lighting) 
 	{
@@ -564,11 +564,6 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
 	  shader += QString("  val1 = one-smoothstep(peelMinSub, peelMin, vIdotN);\n");
 	  shader += QString("  val1 *= smoothstep(peelMax, peelMaxPlus, vIdotN);\n");
 	}
-//      else
-//	{ //---- keep outside
-//	  shader += QString("  val1 = smoothstep(peelMinSub, peelMin, vIdotN);\n");
-//	  shader += QString("  val1 = max(val1, (one - smoothstep(peelMax, peelMaxPlus, vIdotN)));\n");
-//	}
 
       shader += QString("  vIdotN = mix(val1, one, peelMix);\n").arg(peelMix);
 
@@ -897,7 +892,7 @@ ShaderFactory2::genHighQualitySliceShaderString(bool lighting,
     shader += addLighting(nvol);
 
   //------------------
-  if (peel && peelType!=2)
+  if (peel)
     {
       if (!lighting) 
 	{
@@ -956,11 +951,6 @@ ShaderFactory2::genHighQualitySliceShaderString(bool lighting,
 	  shader += QString("  val1 = one-smoothstep(peelMinSub, peelMin, vIdotN);\n");
 	  shader += QString("  val1 *= smoothstep(peelMax, peelMaxPlus, vIdotN);\n");
 	}
-//      else
-//	{ //---- keep outside
-//	  shader += QString("  val1 = smoothstep(peelMinSub, peelMin, vIdotN);\n");
-//	  shader += QString("  val1 = max(val1, (one - smoothstep(peelMax, peelMaxPlus, vIdotN)));\n");
-//	}
 
       shader += QString("  vIdotN = mix(val1, one, peelMix);\n").arg(peelMix);
 
@@ -1018,9 +1008,6 @@ ShaderFactory2::genHighQualitySliceShaderString(bool lighting,
   // -- apply feather
   if (tearPresent || cropPresent || pathCropPresent)
     shader += "  gl_FragColor.rgba = mix(gl_FragColor.rgba, vec4(0.0,0.0,0.0,0.0), feather);\n";
-
-  if (shadows && peel && peelType == 2)
-    shader += "  gl_FragColor.rgba *= peelfeather;\n";
 
 //------------------------------------
   shader += "gl_FragColor = 1.0-pow((vec4(1,1,1,1)-gl_FragColor),";
@@ -1210,7 +1197,7 @@ ShaderFactory2::genSliceShadowShaderString(float shadowintensity,
 
 
   //------------------
-  if (peel && peelType!=2)
+  if (peel)
     {
 
       shader += QString("  if (grad1 > 0.0)\n");
@@ -1267,11 +1254,6 @@ ShaderFactory2::genSliceShadowShaderString(float shadowintensity,
 	  shader += QString("  val1 = one-smoothstep(peelMinSub, peelMin, vIdotN);\n");
 	  shader += QString("  val1 *= smoothstep(peelMax, peelMaxPlus, vIdotN);\n");
 	}
-//      else
-//	{ //---- keep outside
-//	  shader += QString("  val1 = smoothstep(peelMinSub, peelMin, vIdotN);\n");
-//	  shader += QString("  val1 = max(val1, (one - smoothstep(peelMax, peelMaxPlus, vIdotN)));\n");
-//	}
 
       shader += QString("  vIdotN = mix(val1, one, peelMix);\n").arg(peelMix);
 
@@ -1336,12 +1318,6 @@ ShaderFactory2::genSliceShadowShaderString(float shadowintensity,
   if (tearPresent || cropPresent || pathCropPresent)
     shader += "  gl_FragColor.rgba = mix(gl_FragColor.rgba, vec4(0.0,0.0,0.0,0.0), feather);\n";
 
-  if (peel && peelType==2)
-    {
-      float reduceShadow = 1.0f - qBound(0.0f, (peelMin+1.0f)*0.5f, 1.0f);
-      shader += QString("  gl_FragColor.rgba = mix(gl_FragColor.rgba, vec4(0.0,0.0,0.0,0.0), float(%1));\n").\
-	        arg(reduceShadow);
-    }
 
 //------------------------------------
   shader += "gl_FragColor = 1.0-pow((vec4(1,1,1,1)-gl_FragColor),";

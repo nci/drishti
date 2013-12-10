@@ -3403,6 +3403,12 @@ Viewer::processLight(QStringList list)
       else
 	pts = GeometryObjects::hitpoints()->points();
       
+      if (pts.count() == 0)
+	{
+	  QMessageBox::information(0, "Error", "Need atleast one point to add a light");
+	  return;
+	}
+	
       if (list[0] == "addplight")
 	LightHandler::giLights()->addGiPointLight(pts);
       else

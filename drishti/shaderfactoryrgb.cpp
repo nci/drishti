@@ -354,7 +354,7 @@ ShaderFactoryRGB::genDefaultSliceShaderString(bool lighting,
     shader += addLighting();
 
   //------------------
-  if (peel && peelType!=2)
+  if (peel)
     {
       if (!lighting) 
 	{
@@ -376,11 +376,6 @@ ShaderFactoryRGB::genDefaultSliceShaderString(bool lighting,
 	  shader += QString("  float val1 = 1.0-smoothstep(float(%1)-0.1, float(%1), IdotN);\n").arg(peelMin);
 	  shader += QString("  val1 *= smoothstep(float(%1), float(%1)+0.1, IdotN);\n").arg(peelMax);
 	}
-//      else
-//	{ //---- keep outside
-//	  shader += QString("  float val1 = smoothstep(float(%1)-0.1, float(%1), IdotN);\n").arg(peelMin);
-//	  shader += QString("  val1 = max(val1, (1.0 - smoothstep(float(%1), float(%1)+0.1, IdotN)));\n").arg(peelMax);
-//	}
 
       shader += QString("  IdotN = mix(val1, 1.0, float(%1));\n").arg(peelMix);
       shader += "  gl_FragColor.rgba *= IdotN;\n";
@@ -564,7 +559,7 @@ ShaderFactoryRGB::genHighQualitySliceShaderString(bool lighting,
     shader += addLighting();
 
   //------------------
-  if (peel && peelType!=2)
+  if (peel)
     {
       if (!lighting) 
 	{
@@ -586,11 +581,6 @@ ShaderFactoryRGB::genHighQualitySliceShaderString(bool lighting,
 	  shader += QString("  float val1 = 1.0-smoothstep(float(%1)-0.1, float(%1), IdotN);\n").arg(peelMin);
 	  shader += QString("  val1 *= smoothstep(float(%1), float(%1)+0.1, IdotN);\n").arg(peelMax);
 	}
-//      else
-//	{ //---- keep outside
-//	  shader += QString("  float val1 = smoothstep(float(%1)-0.1, float(%1), IdotN);\n").arg(peelMin);
-//	  shader += QString("  val1 = max(val1, (1.0 - smoothstep(float(%1), float(%1)+0.1, IdotN)));\n").arg(peelMax);
-//	}
 
       shader += QString("  IdotN = mix(val1, 1.0, float(%1));\n").arg(peelMix);
       shader += "  gl_FragColor.rgba *= IdotN;\n";
@@ -816,7 +806,7 @@ ShaderFactoryRGB::genSliceShadowShaderString(float r, float g, float b,
     shader += "  gl_FragColor.rgba = mix(gl_FragColor.rgba, vec4(0.0,0.0,0.0,0.0), feather);\n";  
   //---------------------
 
-  if (peel && peelType!=2)
+  if (peel)
     {
       shader += getNormal();
       shader += "  vec3 voxpos = pointpos;\n";
@@ -836,23 +826,11 @@ ShaderFactoryRGB::genSliceShadowShaderString(float r, float g, float b,
 	  shader += QString("  float val1 = 1.0-smoothstep(float(%1)-0.1, float(%1), IdotN);\n").arg(peelMin);
 	  shader += QString("  val1 *= smoothstep(float(%1), float(%1)+0.1, IdotN);\n").arg(peelMax);
 	}
-//      else
-//	{ //---- keep outside
-//	  shader += QString("  float val1 = smoothstep(float(%1)-0.1, float(%1), IdotN);\n").arg(peelMin);
-//	  shader += QString("  val1 = max(val1, (1.0 - smoothstep(float(%1), float(%1)+0.1, IdotN)));\n").arg(peelMax);
-//	}
 
       shader += QString("  IdotN = mix(val1, 1.0, float(%1));\n").arg(peelMix);
       shader += "  gl_FragColor.rgba *= IdotN;\n";
     }
   //------------------
-
-  if (peel && peelType==2)
-    {
-      float reduceShadow = 1.0f - qBound(0.0f, (peelMin+1.0f)*0.5f, 1.0f);
-      shader += QString("  gl_FragColor.rgba = mix(gl_FragColor.rgba, vec4(0.0,0.0,0.0,0.0), float(%1));\n").\
-	        arg(reduceShadow);
-    }
 
 
   shader += QString("  gl_FragColor.rgba *= vec4(%1, %2, %3, %4);\n").\

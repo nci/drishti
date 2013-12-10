@@ -1295,12 +1295,6 @@ ShaderFactory::genHighQualitySliceShaderString(bool bit16,
 
   if (tearPresent || cropPresent || pathCropPresent)
     shader += "  gl_FragColor.rgba = mix(gl_FragColor.rgba, vec4(0.0,0.0,0.0,0.0), feather);\n";
-
-  if (shadows && peel && peelType == 2)
-    {
-      shader += QString("  vg1.y += float(%1);\n").arg(lastSet);
-      shader += "  gl_FragColor = mix(texture2D(lutTex, vg1.xy), gl_FragColor, peelfeather);\n";
-    }
   
   if (viewPresent) shader += "blend(otexCoord, vg, gl_FragColor);\n";
   if (pathViewPresent) shader += "pathblend(otexCoord, vg, gl_FragColor);\n";
@@ -1524,13 +1518,6 @@ ShaderFactory::genSliceShadowShaderString(bool bit16,
 
   if (tearPresent || cropPresent || pathCropPresent)
     shader += "  gl_FragColor.rgba = mix(gl_FragColor.rgba, vec4(0.0,0.0,0.0,0.0), feather);\n";
-
-  if (peel && peelType==2)
-    {
-      float reduceShadow = 1.0f - qBound(0.0f, (peelMin+1.0f)*0.5f, 1.0f);
-      shader += QString("  gl_FragColor.rgba = mix(gl_FragColor.rgba, vec4(0.0,0.0,0.0,0.0), float(%1));\n").\
-	        arg(reduceShadow);
-    }
 
   if (viewPresent) shader += "blend(otexCoord, vg, gl_FragColor);\n";
   if (pathViewPresent) shader += "pathblend(otexCoord, vg, gl_FragColor);\n";

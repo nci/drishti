@@ -1,4 +1,8 @@
 TEMPLATE = lib
+
+DRISHTI_DEFINES = NETCDF
+include(../../../../drishti.pri )
+
 CONFIG += release plugin
 
 TARGET = ncplugin
@@ -6,10 +10,7 @@ TARGET = ncplugin
 include(../plugins.pri)
 
 win32 {
-  INCLUDEPATH += ../../ \
-	         c:\drishtilib\netcdf\include \
-
-  QMAKE_LIBDIR += c:\drishtilib\netcdf\lib
+  INCLUDEPATH += ../../
 
   LIBS += netcdf.lib
 
@@ -17,10 +18,7 @@ win32 {
 
 unix {
 !macx {
-  INCLUDEPATH += ../../ \
-              /usr/include/netcdf-3
-
-  QMAKE_LIBDIR += /usr/lib /usr/lib/x86_64-linux-gnu
+  INCLUDEPATH += ../../
 
   LIBS += -lnetcdf_c++ \
           -lnetcdf \
@@ -28,11 +26,9 @@ unix {
 }
 
 macx {
+  DRISHTI_DEFINES = IMPORT
 
-  INCLUDEPATH += ../../ \
-               /usr/local/include 
-	
-  QTMAKE_LIBDIR += /usr/local/lib 
+  INCLUDEPATH += ../../
 
   LIBS += -lnetcdf \
 	  -lnetcdf_c++ \

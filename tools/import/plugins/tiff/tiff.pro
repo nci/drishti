@@ -1,4 +1,8 @@
 TEMPLATE = lib
+
+DRISHTI_DEFINES = TIFF
+include(../../../../drishti.pri )
+
 CONFIG += release plugin
 
 TARGET = tiffplugin
@@ -49,7 +53,6 @@ unix {
  !macx {
   INCLUDEPATH += ../../
 
-  QMAKE_LIBDIR += /usr/lib/x86_64-linux-gnu
   LIBS += -ltiff
   
   SOURCES = tiffplugin.cpp
@@ -57,9 +60,7 @@ unix {
 }
 
 macx {
-  INCLUDEPATH += ./ ../../ /usr/local/include
-
-  QMAKE_LIBDIR += /usr/local/lib
+  INCLUDEPATH += /usr/local/include
 
   LIBS += -ltiff
   

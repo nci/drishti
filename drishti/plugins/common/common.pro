@@ -1,6 +1,7 @@
 TEMPLATE = lib
 
-include( ../../../version.pri )
+DRISHTI_DEFINES = RENDERER NETCDF
+include( ../../../drishti.pri )
 
 QT += opengl xml network
 
@@ -13,20 +14,9 @@ FORMS += ../../propertyeditor.ui
 win32 {
   DESTDIR = ../common
 
-  INCLUDEPATH +=  . \
-		  ../../ \
-		  ..\..\..\glmedia \
-		  c:\Qt\include \
-		  c:\drishtilib\netcdf\include \
-		  c:\drishtilib \
-		  c:\drishtilib\glew-1.5.4\include
+  INCLUDEPATH += ../../  ..\..\..\glmedia
 
-  QMAKE_LIBDIR += ..\..\..\glmedia \
-		  c:\Qt\lib \
-		  c:\drishtilib\netcdf\lib \
-		  c:\drishtilib\GL \
-		  c:\drishtilib\glew-1.5.4\lib
-
+  QMAKE_LIBDIR += ..\..\..\glmedia
 
   LIBS += QGLViewer2.lib \
 	  netcdf.lib \
@@ -37,18 +27,13 @@ win32 {
 macx {
   DESTDIR = ../common
 
-  INCLUDEPATH += . \
-                 ../../ \
-	         ../../../../Library/Frameworks/QGLViewer.framework/Headers \
-	         /usr/local/include 
-	
-  LIBS += -L/usr/local/lib -F../../../../Library/Frameworks -L../../../../Library/Frameworks
-  LIBS += \
-	-lGLEW \
-	-lnetcdf \
-	-lnetcdf_c++ \
-        -framework QGLViewer \
-        -framework GLUT
+  INCLUDEPATH += ../../
+
+  LIBS += -lGLEW \
+	  -lnetcdf \
+	  -lnetcdf_c++ \
+          -framework QGLViewer \
+          -framework GLUT
 }
 
 HEADERS = ..\..\mainwindowui.h \

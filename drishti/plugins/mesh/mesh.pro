@@ -1,5 +1,8 @@
 TEMPLATE = lib
 
+DRISHTI_DEFINES = RENDERER
+include( ../../../drishti.pri )
+
 RESOURCES = mesh.qrc
 
 QT += opengl xml network
@@ -14,21 +17,9 @@ FORMS += ../../propertyeditor.ui
 win32 {
   DESTDIR = ../../../bin/renderplugins
 
-  INCLUDEPATH +=  . \
-		  ../../ \
-		  ..\..\..\glmedia \
-		  c:\Qt\include \
-		  c:\drishtilib\netcdf\include \
-		  c:\drishtilib \
-		  c:\drishtilib\glew-1.5.4\include
+  INCLUDEPATH += ../../ ..\..\..\glmedia
 
-  QMAKE_LIBDIR += ..\common \
-	          ..\..\..\glmedia \
-		  c:\Qt\lib \
-		  c:\drishtilib\netcdf\lib \
-		  c:\drishtilib\GL \
-		  c:\drishtilib\glew-1.5.4\lib
-
+  QMAKE_LIBDIR += ..\common ..\..\..\glmedia
 
   LIBS += common.lib \
 	  QGLViewer2.lib \
@@ -42,9 +33,9 @@ unix {
 
 DESTDIR = ../../../bin/renderplugins
 
-INCLUDEPATH += ../../ \
+INCLUDEPATH += ../../
 
-QMAKE_LIBDIR += ../common /usr/lib /usr/lib/x86_64-linux-gnu
+QMAKE_LIBDIR += ../common
 
 LIBS += -lcommon \
 	-lQGLViewer \
@@ -59,12 +50,10 @@ LIBS += -lcommon \
 macx {
   DESTDIR = ../../../bin/drishti.app/renderplugins
 
-  INCLUDEPATH += . \
-                 ../../ \
-	         ../../../../Library/Frameworks/QGLViewer.framework/Headers \
-	         /usr/local/include 
-	
-  LIBS += -L../common -L/usr/local/lib -F../../../../Library/Frameworks -L../../../../Library/Frameworks
+  INCLUDEPATH += ../../
+
+  LIBS += -L../common 
+
   LIBS += -lcommon \
 	-lGLEW \
 	-lnetcdf \

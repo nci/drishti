@@ -327,8 +327,8 @@ DColorWheel::setButtonColors()
 		"QPushButton:pressed {"					\
 		"background-color: qradialgradient("			\
 		"cx: 0.5, cy: 0.5, radius: 0.5, fx: 0.5, fy:0.8 "	\
-		"stop: 0 #ffffff, stop: 0.5 %1 );"		\
-		"}" ).arg(color.name()).arg(color.darker().name());
+		"stop: 0 #ffffff, stop: 0.5 %2 );"		\
+		"}" ).arg(color.name()).arg(color.lighter().name());
   this->setStyleSheet(str);
 }
 

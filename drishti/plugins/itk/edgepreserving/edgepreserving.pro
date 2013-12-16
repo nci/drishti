@@ -1,5 +1,8 @@
 TEMPLATE = lib
 
+DRISHTI_DEFINES = RENDERER ITK
+include( ../../../../drishti.pri )
+
 QT += opengl xml network
 
 CONFIG += release plugin
@@ -13,11 +16,7 @@ FORMS += ../../../propertyeditor.ui
 win32 {
 DESTDIR = ../../../../bin/renderplugins/ITK/Smoothing
 
-INCLUDEPATH +=  . \
- 	../../../ \
-	c:\Qt\include \
-	c:\drishtilib \
-	c:\drishtilib\glew-1.5.4\include \
+INCLUDEPATH += ../../../ \
 	$$InsightToolkit\Modules\Video\Filtering\include \
 	$$InsightToolkit\Modules\Video\IO\include \
 	$$InsightToolkit\Modules\Video\Core\include \
@@ -162,10 +161,7 @@ o	$$InsightToolkit\Modules\IO\Siemens\include \
 	$$ITK\Modules\ThirdParty\VNL\src\vxl\vcl \
 	$$ITK\Modules\ThirdParty\VNL\src\vxl\v3p\netlib
 
-QMAKE_LIBDIR += ..\..\common \
-	c:\Qt\lib \
-	c:\drishtilib\GL \ 
-	c:\drishtilib\glew-1.5.4\lib
+QMAKE_LIBDIR += ..\..\common
 
 LIBS += common.lib \
 	QGLViewer2.lib \
@@ -295,7 +291,7 @@ INCLUDEPATH += ../../../ \
 	$$ITK/Modules/ThirdParty/MetaIO/src/MetaIO \
 	$$ITK/Modules/ThirdParty/ZLIB/src
 
-  QMAKE_LIBDIR += ../../common /usr/lib /usr/lib/x86_64-linux-gnu
+  QMAKE_LIBDIR += ../../common
 
   LIBS += -lcommon \
 	 -lQGLViewer \
@@ -387,13 +383,9 @@ INCLUDEPATH += ../../../ \
 }
 
 macx {
-  QMAKE_CFLAGS_X86_64 += -mmacosx-version-min=10.7
-  QMAKE_CXXFLAGS_X86_64 = $$QMAKE_CFLAGS_X86_64
-
   DESTDIR = ../../../../bin/drishti.app/renderplugins/ITK/Smoothing
 
   INCLUDEPATH += ../../../ \
-        ../../../../../Library/Frameworks/QGLViewer.framework/Headers \
 	/usr/local/include \
 	$$InsightToolkit/Modules/Core/Common/include \
 	$$InsightToolkit/Modules/Core/FiniteDifference/include \
@@ -431,8 +423,7 @@ macx {
 	$$ITK/Modules/ThirdParty/ZLIB/src
 
 
-  LIBS += -framework ApplicationServices
-  LIBS += -L../../common -L/usr/local/lib -F../../../../../Library/Frameworks -L../../../../../Library/Frameworks
+  LIBS += -L../../common
   LIBS += -lcommon -lGLEW -framework QGLViewer -framework GLUT
 
   LIBS += -lm -lstdc++ \

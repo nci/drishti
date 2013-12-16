@@ -1,6 +1,7 @@
 TEMPLATE = lib
 
-include( ../../version.pri )
+DRISHTI_DEFINES = RENDERER ITK
+include( ../../drishti.pri )
 
 QT += opengl xml network
 
@@ -15,18 +16,7 @@ RESOURCES = mopplugin.qrc
 win32 {
 DESTDIR = ../../bin/mopplugins
 
-ITKVer = 4.3
-InsightToolkit = D:\InsightToolkit-$${ITKVer}.1
-ITK = D:\ITK
-
-message(ITK version $$ITKVer)
-message(ITK $$InsightToolkit)
-
-INCLUDEPATH +=  . \
- 	../ \
-	c:\Qt\include \
-	c:\drishtilib \
-	c:\drishtilib\glew-1.5.4\include \
+INCLUDEPATH += ../ \
 	$$InsightToolkit\Modules\Video\Filtering\include \
 	$$InsightToolkit\Modules\Video\IO\include \
 	$$InsightToolkit\Modules\Video\Core\include \
@@ -171,11 +161,6 @@ INCLUDEPATH +=  . \
 	$$ITK\Modules\ThirdParty\VNL\src\vxl\vcl \
 	$$ITK\Modules\ThirdParty\VNL\src\vxl\v3p\netlib
 
-QMAKE_LIBDIR += d:\ITK\lib\Release \
-	c:\Qt\lib \
-	c:\drishtilib\GL \ 
-	c:\drishtilib\glew-1.5.4\lib
-
 LIBS += QGLViewer2.lib \
 	glew32.lib \
  	Advapi32.lib \
@@ -266,13 +251,6 @@ unix {
 
 DESTDIR = ../../bin/mopplugins
 
-ITKVer = 4.3
-InsightToolkit = /home/acl900/InsightToolkit-$${ITKVer}.1
-ITK = /home/acl900/ITK
-
-message(ITK version $$ITKVer)
-message(ITK $$InsightToolkit)
-
 INCLUDEPATH += ../ \
 	/usr/local/include \
 	$$InsightToolkit/Modules/Core/Common/include \
@@ -309,9 +287,6 @@ INCLUDEPATH += ../ \
 	$$ITK/Modules/ThirdParty/VNL/src/vxl/vcl \
 	$$ITK/Modules/ThirdParty/MetaIO/src/MetaIO \
 	$$ITK/Modules/ThirdParty/ZLIB/src
-
-  QMAKE_LIBDIR += /usr/lib /usr/lib/x86_64-linux-gnu
-  QMAKE_LIBDIR += /home/acl900/ITK/lib
 
   LIBS += -lQGLViewer \
         -lGLEW \
@@ -402,17 +377,9 @@ INCLUDEPATH += ../ \
 }
 
 macx {
-  QMAKE_CFLAGS_X86_64 += -mmacosx-version-min=10.7
-  QMAKE_CXXFLAGS_X86_64 = $$QMAKE_CFLAGS_X86_64
-
-  ITKVer = 4.3
-  InsightToolkit = /Users/acl900/InsightToolkit-$${ITKVer}.1
-  ITK = /Users/acl900/ITK
-
   DESTDIR = ../../bin/drishti.app/mopplugins
 
   INCLUDEPATH += ../ \
-        ../../../Library/Frameworks/QGLViewer.framework/Headers \
 	/usr/local/include \
 	$$InsightToolkit/Modules/Core/Common/include \
 	$$InsightToolkit/Modules/IO/GDCM/include \
@@ -449,10 +416,6 @@ macx {
 	$$ITK/Modules/ThirdParty/MetaIO/src/MetaIO \
 	$$ITK/Modules/ThirdParty/ZLIB/src
 
-  QMAKE_LIBDIR += /Users/acl900/ITK/lib
-
-  LIBS += -framework ApplicationServices
-  LIBS += -L/usr/local/lib -F../../../Library/Frameworks -L../../../Library/Frameworks
   LIBS += -lGLEW -framework QGLViewer -framework GLUT
 
   LIBS += -lm -lstdc++ \

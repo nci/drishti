@@ -1,4 +1,8 @@
 TEMPLATE = lib
+
+DRISHTI_DEFINES = ITK
+include(../../../../drishti.pri )
+
 CONFIG += release plugin
 
 TARGET = dicomplugin
@@ -274,8 +278,6 @@ INCLUDEPATH += ../../ \
 	$$ITK/Modules/ThirdParty/MetaIO/src/MetaIO \
 	$$ITK/Modules/ThirdParty/ZLIB/src
 
-  QMAKE_LIBDIR += /usr/lib /usr/lib/x86_64-linux-gnu
-
   LIBS += -lm -lstdc++ \
         -litksys-$$ITKVer \        
 	-litkzlib-$$ITKVer \
@@ -360,9 +362,6 @@ INCLUDEPATH += ../../ \
 }
 
 macx {
-  QMAKE_CFLAGS_X86_64 += -mmacosx-version-min=10.7
-  QMAKE_CXXFLAGS_X86_64 = $$QMAKE_CFLAGS_X86_64
-
   INCLUDEPATH += ../../ \
 	$$InsightToolkit/Modules/Core/Common/include \
 	$$InsightToolkit/Modules/IO/GDCM/include \

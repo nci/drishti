@@ -325,7 +325,7 @@ MainWindow::MainWindow(QWidget *parent) :
   #include "connecttfeditor.h"
   #include "connecttfmanager.h"
   #include "connectviewer.h"
-  #include "connectviewseditor.h"
+  //#include "connectviewseditor.h"
   #include "connectvolinfowidget.h"
   #include "connectgeometryobjects.h"
 
@@ -626,6 +626,11 @@ MainWindow::setTextureMemory()
   texlist << "1.5 Gb";
   texlist << "2.0 Gb";
   texlist << "4.0 Gb";
+  texlist << "6.0 Gb";
+  texlist << "8.0 Gb";
+  texlist << "10.0 Gb";
+  texlist << "12.0 Gb";
+  texlist << "16.0 Gb";
   QString texstr = QInputDialog::getItem(0,
 					 "Texture Memory",
 					 "Texture Memory Size",
@@ -641,8 +646,13 @@ MainWindow::setTextureMemory()
       if (lst[0] == "768") texmem = 768;
       if (lst[0] == "1") texmem = 1024;
       if (lst[0] == "1.5") texmem = 1536;
-      if (lst[0] == "2.0") texmem = 2048;
-      if (lst[0] == "4.0") texmem = 4096;
+      if (lst[0] == "2.0") texmem = 2*1024;
+      if (lst[0] == "4.0") texmem = 4*1024;
+      if (lst[0] == "6.0") texmem = 6*1024;
+      if (lst[0] == "8.0") texmem = 8*1024;
+      if (lst[0] == "10.0") texmem = 10*1024;
+      if (lst[0] == "12.0") texmem = 12*1024;
+      if (lst[0] == "16.0") texmem = 16*1024;
     }
   Global::setTextureMemorySize(texmem);
   Global::calculate3dTextureSize();

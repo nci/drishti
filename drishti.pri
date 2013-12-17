@@ -72,7 +72,7 @@ macx {
 #----------------------------------------------------------------
 #Linux setup
 
-Facilty_Name = MassiveAtMonashUniversity
+Facility_Name = MassiveAtMonashUniversity
 
 contains(Facility_Name, VirtualBox) {
   message(VirtualBox setup)

@@ -9,8 +9,6 @@ CONFIG += release plugin
 
 TARGET = smoothingplugin
 
-include(../itk.pri)
-
 FORMS += ../../../propertyeditor.ui
 
 win32 {

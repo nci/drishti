@@ -9,8 +9,6 @@ CONFIG += release plugin
 
 TARGET = distancemapplugin
 
-include(../itk.pri)
-
 FORMS += ../../../propertyeditor.ui
 
 win32 {

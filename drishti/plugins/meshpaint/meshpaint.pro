@@ -1,6 +1,6 @@
 TEMPLATE = lib
 
-DRISHTI_DEFINES = RENDERER
+DRISHTI_DEFINES = RENDERER NETCDF
 include( ../../../drishti.pri )
 
 

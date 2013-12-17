@@ -9,8 +9,6 @@ CONFIG += release plugin
 
 TARGET = connectedcomponentplugin
 
-include(../itk.pri)
-
 FORMS += ../../../propertyeditor.ui
 
 win32 {

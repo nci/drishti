@@ -60,7 +60,7 @@ unix {
 }
 
 macx {
-  INCLUDEPATH += ../../
+  INCLUDEPATH += /usr/local/include
 
   LIBS += -ltiff
   

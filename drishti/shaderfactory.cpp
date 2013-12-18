@@ -933,7 +933,8 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
 
   shader += "  vec3 texCoord = gl_TexCoord[0].xyz;\n";
 
-  shader += "if (any(lessThan(texCoord,brickMin)) || any(greaterThan(texCoord, brickMax)))\n";
+  shader += "if (any(lessThan(texCoord,brickMin-vec3(0.5,0.5,0.5))) || ";
+  shader += "any(greaterThan(texCoord, brickMax+vec3(0.5,0.5,0.5))))\n";
   shader += "  discard;\n";
 
   if (crops.count() > 0)
@@ -1206,9 +1207,9 @@ ShaderFactory::genHighQualitySliceShaderString(bool bit16,
 
   shader += "  vec3 texCoord = gl_TexCoord[0].xyz;\n";
 
-  shader += "if (any(lessThan(texCoord,brickMin)) || any(greaterThan(texCoord, brickMax)))\n";
+  shader += "if (any(lessThan(texCoord,brickMin-vec3(0.5,0.5,0.5))) || ";
+  shader += "any(greaterThan(texCoord, brickMax+vec3(0.5,0.5,0.5))))\n";
   shader += "  discard;\n";
-
 
   if (crops.count() > 0)
     {
@@ -1438,7 +1439,8 @@ ShaderFactory::genSliceShadowShaderString(bool bit16,
 
   shader += "  vec3 texCoord = gl_TexCoord[0].xyz;\n";
 
-  shader += "if (any(lessThan(texCoord,brickMin)) || any(greaterThan(texCoord, brickMax)))\n";
+  shader += "if (any(lessThan(texCoord,brickMin-vec3(0.5,0.5,0.5))) || ";
+  shader += "any(greaterThan(texCoord, brickMax+vec3(0.5,0.5,0.5))))\n";
   shader += "  discard;\n";
 
   if (crops.count() > 0)

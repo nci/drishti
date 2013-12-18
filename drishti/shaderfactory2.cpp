@@ -408,8 +408,8 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
 
   shader += "  vec3 texCoord = gl_TexCoord[0].xyz;\n";
 
-  shader += "if (any(lessThan(texCoord,brickMin-vec3(0.5,0.5,0.5))) || ";
-  shader += "any(greaterThan(texCoord, brickMax+vec3(0.5,0.5,0.5))))\n";
+  shader += "if (any(lessThan(texCoord,brickMin)) || ";
+  shader += "any(greaterThan(texCoord, brickMax)))\n";
   shader += "  discard;\n";
 
   if (crops.count() > 0)
@@ -798,8 +798,8 @@ ShaderFactory2::genHighQualitySliceShaderString(bool lighting,
 
   shader += "  vec3 texCoord = gl_TexCoord[0].xyz;\n";
 
-  shader += "if (any(lessThan(texCoord,brickMin-vec3(0.5,0.5,0.5))) || ";
-  shader += "any(greaterThan(texCoord, brickMax+vec3(0.5,0.5,0.5))))\n";
+  shader += "if (any(lessThan(texCoord,brickMin)) || ";
+  shader += "any(greaterThan(texCoord, brickMax)))\n";
   shader += "  discard;\n";
 
   if (crops.count() > 0)
@@ -1130,8 +1130,8 @@ ShaderFactory2::genSliceShadowShaderString(float shadowintensity,
 
   shader += "  vec3 texCoord = gl_TexCoord[0].xyz;\n";
 
-  shader += "if (any(lessThan(texCoord,brickMin-vec3(0.5,0.5,0.5))) || ";
-  shader += "any(greaterThan(texCoord, brickMax+vec3(0.5,0.5,0.5))))\n";
+  shader += "if (any(lessThan(texCoord,brickMin)) || ";
+  shader += "any(greaterThan(texCoord, brickMax)))\n";
   shader += "  discard;\n";
 
   if (crops.count() > 0)

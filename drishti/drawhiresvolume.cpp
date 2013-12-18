@@ -2831,8 +2831,8 @@ DrawHiresVolume::renderSlicedSlice(int type,
 	glUniform1iARB(m_shadowParm[14], (tminz-m_dataMin.z)/lod); // zoffset
     }
 			  
-  Vec vp0 = Vec(0, 0, tminz);
-  Vec vp1 = Vec(0, 0, tmaxz);
+  Vec vp0 = Vec(0, 0, tminz-lod);
+  Vec vp1 = Vec(0, 0, tmaxz+lod);
 			  
   clipSlab(vp0, vp1, edges, poly, tex, sha);
 			  

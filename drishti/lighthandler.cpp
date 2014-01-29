@@ -171,11 +171,13 @@ LightHandler::checkClips(QList<Vec> cpos, QList<Vec> cnorm)
 	}
     }
 
-  if (doit)
-    {
-      m_clipPos = cpos;
-      m_clipNorm = cnorm;
-    }
+  m_clipPos = cpos;
+  m_clipNorm = cnorm;
+//  if (doit)
+//    {
+//      m_clipPos = cpos;
+//      m_clipNorm = cnorm;
+//    }
 
   return doit;
 }
@@ -616,7 +618,11 @@ LightHandler::createCropShader()
   m_cropShader = glCreateProgramObjectARB();
   if (! ShaderFactory::loadShader(m_cropShader,
 				  shaderString))
-    exit(0);
+    {
+      QMessageBox::critical(0, "Error",
+			    "Cannot create CropShader for lighting calculations");
+      exit(0);
+    }
 
   m_cropParm[0] = glGetUniformLocationARB(m_cropShader, "pruneTex");
   m_cropParm[1] = glGetUniformLocationARB(m_cropShader, "gridx");
@@ -640,7 +646,11 @@ LightHandler::createClipShader()
   m_clipShader = glCreateProgramObjectARB();
   if (! ShaderFactory::loadShader(m_clipShader,
 				  shaderString))
-    exit(0);
+    {
+      QMessageBox::critical(0, "Error",
+			    "Cannot create ClipShader for lighting calculations");
+      exit(0);
+    }
 
   m_clipParm[0] = glGetUniformLocationARB(m_clipShader, "pruneTex");
   m_clipParm[1] = glGetUniformLocationARB(m_clipShader, "gridx");
@@ -1435,6 +1445,9 @@ LightHandler::updateOpacityTexture(GLuint dataTex,
 int
 LightHandler::applyClipping(int ct)
 {
+//  MainWindowUI::mainWindowUI()->menubar->parentWidget()->\
+//    setWindowTitle("----------apply clipping----------");
+
   Vec voxelScaling = Global::voxelScaling();
   int sX = m_pruneBuffer->width();
   int sY = m_pruneBuffer->height();
@@ -1471,8 +1484,8 @@ LightHandler::applyClipping(int ct)
 			     m_lightTex[(ct+1)%2],
 			     0);
 
-      glActiveTexture(GL_TEXTURE2);
-      glEnable(GL_TEXTURE_RECTANGLE_ARB);
+      //glActiveTexture(GL_TEXTURE2);
+      //glEnable(GL_TEXTURE_RECTANGLE_ARB);
       glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_lightTex[ct]);      
       
       StaticFunctions::pushOrthoView(0, 0, sX, sY);
@@ -1487,6 +1500,8 @@ LightHandler::applyClipping(int ct)
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
   glUseProgramObjectARB(0);
 
+  //glDisable(GL_TEXTURE_RECTANGLE_ARB);
+
   return ct;
 }
 
@@ -1495,6 +1510,9 @@ LightHandler::applyCropping(int ct)
 {
   if (!m_cropShader)
     return ct;
+
+//  MainWindowUI::mainWindowUI()->menubar->parentWidget()->\
+//    setWindowTitle("----------Updating crop buffers----------");
 
   Vec voxelScaling = Global::voxelScaling();
   int sX = m_pruneBuffer->width();
@@ -1596,18 +1614,33 @@ LightHandler::mergeOpPruneBuffers(int ct)
 void
 LightHandler::updatePruneBuffer()
 {
-  glActiveTexture(GL_TEXTURE2);
-  glEnable(GL_TEXTURE_RECTANGLE_ARB);
+  // clear both buffer attachments
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_lightBuffer);
-  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
-			 GL_COLOR_ATTACHMENT0_EXT,
-			 GL_TEXTURE_RECTANGLE_ARB,
-			 m_lightTex[0],
-			 0);
-  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
-  glClearColor(1,1,1,1);
-  glClear(GL_COLOR_BUFFER_BIT);
-  glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
+  for(int i=0; i<2; i++)
+    {
+      glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			     GL_COLOR_ATTACHMENT0_EXT,
+			     GL_TEXTURE_RECTANGLE_ARB,
+			     m_lightTex[i],
+			     0);
+      glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
+      glClearColor(1,1,1,1);
+      glClear(GL_COLOR_BUFFER_BIT);
+    }
+
+//  glActiveTexture(GL_TEXTURE2);
+//  glEnable(GL_TEXTURE_RECTANGLE_ARB);
+//  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_lightBuffer);
+//  glClearColor(1,1,1,1);
+//  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+//			 GL_COLOR_ATTACHMENT0_EXT,
+//			 GL_TEXTURE_RECTANGLE_ARB,
+//			 m_lightTex[0],
+//			 0);
+//  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
+//  glClear(GL_COLOR_BUFFER_BIT);
+
+//  glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
 
   glClearColor(0,0,0,0);
 
@@ -2096,6 +2129,7 @@ LightHandler::updatePointLightBuffer(QList<Vec> olpos, float lradius,
   int ct = 1;
   if (doshadows)
     {
+      //int ntimes = qSqrt(lgridx*lgridx+lgridy*lgridy+lgridz*lgridz);
       int maxtimes = qMax(lgridx, qMax(lgridy, lgridz));
       int ntimes = maxtimes;
       //  if (ldecay < 1.0)

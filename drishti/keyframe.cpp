@@ -886,6 +886,8 @@ KeyFrame::playSavedKeyFrame()
   MainWindowUI::changeDrishtiIcon(true);
   Global::setPlayFrames(true);
 
+  emit updateLightBuffers();
+
   emit updateGL();
   qApp->processEvents();  
 
@@ -1029,6 +1031,8 @@ KeyFrame::playFrameNumber(int fno)
 	  Global::enableViewerUpdate();
 	  MainWindowUI::changeDrishtiIcon(true);
 	  Global::setPlayFrames(true);
+
+	  emit updateLightBuffers();
 
 	  emit updateGL();
 	  qApp->processEvents();
@@ -1180,6 +1184,8 @@ KeyFrame::playFrameNumber(int fno)
   Global::enableViewerUpdate();
   MainWindowUI::changeDrishtiIcon(true);
   Global::setPlayFrames(true);
+
+  emit updateLightBuffers();
 
   emit updateGL();
   qApp->processEvents();

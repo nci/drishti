@@ -881,7 +881,9 @@ Viewer::updateLookupTable()
     {
       LightHandler::setLut(m_lut);
       m_hiresVolume->initShadowBuffers(true);
-      dummydraw();
+      //dummydraw();
+      bool fboBound = bindFBOs(Enums::StillImage);
+      if (fboBound) releaseFBOs(Enums::StillImage);
     }
   
   if (Global::emptySpaceSkip() &&
@@ -891,7 +893,9 @@ Viewer::updateLookupTable()
       if (Global::updatePruneTexture())
 	m_hiresVolume->updateAndLoadPruneTexture();
 
-      dummydraw();
+      //dummydraw();
+      bool fboBound = bindFBOs(Enums::StillImage);
+      if (fboBound) releaseFBOs(Enums::StillImage);
     }
 
   loadLookupTable(lut);
@@ -2158,6 +2162,23 @@ Viewer::fastDraw()
   grabBackBufferImage();
 }
 
+void
+Viewer::updateLightBuffers()
+{
+  QList<Vec> cpos, cnorm;
+  m_hiresVolume->getClipForMask(cpos, cnorm);
+  bool redolighting = LightHandler::checkClips(cpos, cnorm);
+  redolighting = redolighting || LightHandler::checkCrops();
+  redolighting = redolighting || LightHandler::updateOnlyLightBuffers();
+  if (redolighting)
+    {
+      LightHandler::updateLightBuffers();
+      m_hiresVolume->initShadowBuffers(true);
+      bool fboBound = bindFBOs(Enums::StillImage);
+      if (fboBound) releaseFBOs(Enums::StillImage);
+    }
+}
+
 void 
 Viewer::dummydraw()
 {
@@ -2200,13 +2221,17 @@ Viewer::draw()
     {
       LightHandler::updateLightBuffers();
       m_hiresVolume->initShadowBuffers(true);
+      if (!(m_saveSnapshots || m_saveMovie || Global::playFrames()))
+	dummydraw();
     }
   //-----------------
-
   
-  if (m_saveSnapshots || m_saveMovie || redolighting)
-    dummydraw();
+//  if (m_saveSnapshots || m_saveMovie || redolighting)
+//    dummydraw();
+  
 
+  if (m_saveSnapshots || m_saveMovie || Global::playFrames())
+    dummydraw();
 
   setBackgroundColor(QColor(0, 0, 0, 0));
 

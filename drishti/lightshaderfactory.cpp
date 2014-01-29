@@ -29,6 +29,18 @@ LightShaderFactory::genOpacityShader(bool bit16)
   shader += "  float x = tc.x - float(lcol*lgridx);\n";
   shader += "  float y = tc.y - float(lrow*lgridy);\n";
   shader += "  float z = float(lrow*lncols + lcol);\n";
+
+  //-----------------------------------------
+  // set border voxels to 0 opacity
+  {
+    shader += "  vec3 pos = vec3(x,y,z);\n";
+    shader += "  bvec3 pless = lessThan(pos, vec3(1.5,1.5,1.5));\n";
+    shader += "  bvec3 pgret = greaterThan(pos, vec3(float(lgridx)-2.5,float(lgridy)-2.5,float(lgridz)-2.5));\n";
+    shader += "  if (any(pless) || any(pgret)) \n";
+    shader += "    { gl_FragColor = vec4(0.0,0.0,0.0,0.0); return; }\n";
+  }
+  //-----------------------------------------
+
   shader += "  x *= float(llod);\n";
   shader += "  y *= float(llod);\n";
   shader += "  z *= float(llod);\n";
@@ -142,6 +154,18 @@ LightShaderFactory::genOpacityShader2(int nvol)
   shader += "  float x = tc.x - float(lcol*lgridx);\n";
   shader += "  float y = tc.y - float(lrow*lgridy);\n";
   shader += "  float z = float(lrow*lncols + lcol);\n";
+
+  //-----------------------------------------
+  // set every border voxel to 0
+  {
+    shader += "  vec3 pos = vec3(x,y,z);\n";
+    shader += "  bvec3 pless = lessThan(pos, vec3(1.5,1.5,1.5));\n";
+    shader += "  bvec3 pgret = greaterThan(pos, vec3(float(lgridx)-2.5,float(lgridy)-2.5,float(lgridz)-2.5));\n";
+    shader += "  if (any(pless) || any(pgret)) \n";
+    shader += "    { gl_FragColor = vec4(0.0,0.0,0.0,0.0); return; }\n";
+  }
+  //-----------------------------------------
+
   shader += "  x *= float(llod);\n";
   shader += "  y *= float(llod);\n";
   shader += "  z *= float(llod);\n";
@@ -531,8 +555,8 @@ LightShaderFactory::genInitDLightShader() // directional shader
 
   //shader += "  vec3 orig = vec3(x,y,z);\n";
   shader += "  vec3 pos = orig + ldir;\n";
-  shader += "  bvec3 pless = lessThan(pos, vec3(0.0,0.0,0.0));\n";
-  shader += "  bvec3 pgret = greaterThan(pos, vec3(gridx-1,gridy-1,gridz-1));\n";
+  shader += "  bvec3 pless = lessThan(pos, vec3(0.5,0.5,0.5));\n";
+  shader += "  bvec3 pgret = greaterThan(pos, vec3(gridx-1.5,gridy-1.5,gridz-1.5));\n";
   shader += "  float den = 0.0;\n";
   shader += "  if (any(pless) || any(pgret)) \n";
   shader += "    den = 1.0;\n";  
@@ -597,7 +621,7 @@ LightShaderFactory::genDLightShader() // directional shader
   shader += "          {\n";
   shader += "            dr /= vec3(len,len,len);\n";  
   shader += "            float dotdl = dot(dr,ldir);\n";
-  shader += "            if (dotdl > cangle)\n"; // angle less than 60 deg
+  shader += "            if (dotdl > cangle)\n"; // angle less than cangle
   shader += "              {\n";
   shader += "                float x1 = float(col+x+i)+0.5;\n";
   shader += "                float y1 = float(row+y+j)+0.5;\n";
@@ -716,9 +740,6 @@ LightShaderFactory::genInitTubeLightShader() // point shader
   shader += "  float z = float(row*ncols + col);\n";
   shader += "  vec3 p = vec3(x,y,z);\n";
 
-//  shader += "  if (any(greaterThan(p, vec3(gridx-1,gridy-1,gridz-1)))) \n";
-//  shader += "  { gl_FragColor = vec4(0.0,0.0,0.0,1.0); return; }\n";
-
   // convert x,y,z to optexture space
   shader += "  float xo = x/oplod;\n";
   shader += "  float yo = y/oplod;\n";
@@ -758,17 +779,17 @@ LightShaderFactory::genInitTubeLightShader() // point shader
   shader += "     }\n";
   shader += "   else\n";
   shader += "     {\n";
-  shader += "       bvec3 pless = lessThan(closestpt, vec3(0.0,0.0,0.0));\n";
-  shader += "       bvec3 pgret = greaterThan(closestpt, vec3(gridx-1,gridy-1,gridz-1));\n";
+  shader += "       bvec3 pless = lessThan(closestpt, vec3(0.5,0.5,0.5));\n";
+  shader += "       bvec3 pgret = greaterThan(closestpt, vec3(gridx-1.5,gridy-1.5,gridz-1.5));\n";
   // if light is outside the box
   shader += "       if (!doshadows || any(pless) || any(pgret)) \n";
   shader += "        {\n";
   shader += "          vec3 ldir = normalize(closestpt-p);\n";
-  shader += "          vec3 pos = p + ldir;\n";
-  shader += "          bvec3 pless = lessThan(pos, vec3(0.0,0.0,0.0));\n";
-  shader += "          bvec3 pgret = greaterThan(pos, vec3(gridx-1,gridy-1,gridz-1));\n";
+  shader += "          vec3 pos = p + 2*ldir;\n";
+  shader += "          bvec3 spless = lessThan(pos, vec3(0.0,0.0,0.0));\n";
+  shader += "          bvec3 spgret = greaterThan(pos, vec3(gridx-1.0,gridy-1.0,gridz-1.0));\n";
  // light border voxels and interior as well in case doshadows is false
-  shader += "          if (!doshadows || any(pless) || any(pgret)) \n";
+  shader += "          if (!doshadows || any(spless) || any(spgret)) \n";
   shader += "           {\n";
   shader += "             len -= lradius;\n";
   shader += "             float den = pow(ldecay, len);\n"; // apply appropriate decay
@@ -890,7 +911,7 @@ LightShaderFactory::genTubeLightShader() // point shader
   shader += "          {\n";
   shader += "            dr /= vec3(len,len,len);\n";  
   shader += "            float dotdl = dot(dr,ldir);\n";
-  shader += "            if (dotdl > cangle)\n"; // angle less than 60 deg
+  shader += "            if (dotdl > cangle)\n"; // angle less than cangle
   shader += "              {\n";
   shader += "                float x1 = float(col+x+i)+0.5;\n";
   shader += "                float y1 = float(row+y+j)+0.5;\n";

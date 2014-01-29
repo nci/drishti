@@ -73,6 +73,7 @@ class KeyFrame : public QObject
   void playSavedKeyFrame();
 
  signals :
+  void updateLightBuffers();
   void updateParameters(bool, bool, Vec, QString,
 			int, int, QString, QString, QString,
 			int, bool, bool, float, bool, bool);

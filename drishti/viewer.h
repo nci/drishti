@@ -76,6 +76,7 @@ class Viewer : public QGLViewer
 
   void setUseFBO(bool);
  public slots :
+  void updateLightBuffers();
   void displayMessage(QString, bool);
   void showFullScene();
   void updateStereoSettings(float, float, float);

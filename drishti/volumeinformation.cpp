@@ -86,7 +86,8 @@ VolumeInformation::VolumeInformation()
   m_voxelUnitStringsShort << "";
   m_voxelUnitStringsShort << "A";
   m_voxelUnitStringsShort << "nm";
-  m_voxelUnitStringsShort << QString("%1m").arg(QChar(0xB5));
+  //m_voxelUnitStringsShort << QString("%1m").arg(QChar(0xB5));
+  m_voxelUnitStringsShort << "um";
   m_voxelUnitStringsShort << "mm";
   m_voxelUnitStringsShort << "cm";
   m_voxelUnitStringsShort << "m";

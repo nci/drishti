@@ -332,16 +332,20 @@ ShaderFactoryRGB::genDefaultSliceShaderString(bool lighting,
   //----------------------------------
   shader += " if (lightlod > 0)\n";
   shader += "   {\n"; // calculate light color
-  shader += "     vec3 lc;\n";
-  shader += "     vec2 pvg = texCoord.xy / prunelod;\n";
-  shader += "     pvg /= vec2(lightlod,lightlod);\n";
-  shader += "     vec2 pvg0 = getTextureCoordinate(int(float(zoffset+slice)/prunelod)/lightlod, ";
-  shader += "            lightncols, lightgridx, lightgridy, pvg);\n";
-  shader += "     vec2 pvg1 = getTextureCoordinate(int(float(zoffset+slice+1)/prunelod)/lightlod, ";
-  shader += "            lightncols, lightgridx, lightgridy, pvg);\n";
+  shader += "     vec2 pvg = texCoord.xy/(prunelod*lightlod);\n";
+
+  shader += "     int lbZslc = int(float(zoffset+slice)/float(prunelod*lightlod));\n";
+  shader += "     float lbZslcf = fract(float(zoffset+slice)/float(prunelod*lightlod));\n";
+
+  shader += "     vec2 pvg0 = getTextureCoordinate(lbZslc, ";
+  shader += "                   lightncols, lightgridx, lightgridy, pvg);\n";
+  shader += "     vec2 pvg1 = getTextureCoordinate(lbZslc+1, ";
+  shader += "                   lightncols, lightgridx, lightgridy, pvg);\n";
+
   shader += "     vec3 lc0 = texture2DRect(lightTex, pvg0).xyz;\n";
   shader += "     vec3 lc1 = texture2DRect(lightTex, pvg1).xyz;\n";
-  shader += "     lightcol = mix(lc0, lc1, slicef);\n";
+  shader += "     lightcol = mix(lc0, lc1, lbZslcf);\n";
+
   shader += "     lightcol = 1.0-pow((vec3(1,1,1)-lightcol),vec3(lod,lod,lod));\n";
   shader += "   }\n";
   shader += " else\n";
@@ -536,24 +540,49 @@ ShaderFactoryRGB::genHighQualitySliceShaderString(bool lighting,
   if (cropPresent || tearPresent || pathCropPresent)
     shader += "  gl_FragColor.rgba = mix(gl_FragColor.rgba, vec4(0.0,0.0,0.0,0.0), feather);\n";  
 
+  shader += "  if (gl_FragColor.a < 0.005)\n";
+  shader += "	discard;\n";
+
   //----------------------------------
   shader += " if (lightlod > 0)\n";
   shader += "   {\n"; // calculate light color
-  shader += "     vec3 lc;\n";
-  shader += "     vec2 pvg = texCoord.xy / prunelod;\n";
-  shader += "     pvg /= vec2(lightlod,lightlod);\n";
-  shader += "     vec2 pvg0 = getTextureCoordinate(int(float(zoffset+slice)/prunelod)/lightlod, ";
-  shader += "            lightncols, lightgridx, lightgridy, pvg);\n";
-  shader += "     vec2 pvg1 = getTextureCoordinate(int(float(zoffset+slice+1)/prunelod)/lightlod, ";
-  shader += "            lightncols, lightgridx, lightgridy, pvg);\n";
+  shader += "     vec2 pvg = texCoord.xy/(prunelod*lightlod);\n";
+
+  shader += "     int lbZslc = int(float(zoffset+slice)/float(prunelod*lightlod));\n";
+  shader += "     float lbZslcf = fract(float(zoffset+slice)/float(prunelod*lightlod));\n";
+
+  shader += "     vec2 pvg0 = getTextureCoordinate(lbZslc, ";
+  shader += "                   lightncols, lightgridx, lightgridy, pvg);\n";
+  shader += "     vec2 pvg1 = getTextureCoordinate(lbZslc+1, ";
+  shader += "                   lightncols, lightgridx, lightgridy, pvg);\n";
+
   shader += "     vec3 lc0 = texture2DRect(lightTex, pvg0).xyz;\n";
   shader += "     vec3 lc1 = texture2DRect(lightTex, pvg1).xyz;\n";
-  shader += "     lightcol = mix(lc0, lc1, slicef);\n";
+  shader += "     lightcol = mix(lc0, lc1, lbZslcf);\n";
+
   shader += "     lightcol = 1.0-pow((vec3(1,1,1)-lightcol),vec3(lod,lod,lod));\n";
   shader += "   }\n";
   shader += " else\n";
   shader += "   lightcol = vec3(1.0,1.0,1.0);\n";
   //----------------------------------
+//  //----------------------------------
+//  shader += " if (lightlod > 0)\n";
+//  shader += "   {\n"; // calculate light color
+//  shader += "     vec3 lc;\n";
+//  shader += "     vec2 pvg = texCoord.xy / prunelod;\n";
+//  shader += "     pvg /= vec2(lightlod,lightlod);\n";
+//  shader += "     vec2 pvg0 = getTextureCoordinate(int(float(zoffset+slice)/prunelod)/lightlod, ";
+//  shader += "            lightncols, lightgridx, lightgridy, pvg);\n";
+//  shader += "     vec2 pvg1 = getTextureCoordinate(int(float(zoffset+slice+1)/prunelod)/lightlod, ";
+//  shader += "            lightncols, lightgridx, lightgridy, pvg);\n";
+//  shader += "     vec3 lc0 = texture2DRect(lightTex, pvg0).xyz;\n";
+//  shader += "     vec3 lc1 = texture2DRect(lightTex, pvg1).xyz;\n";
+//  shader += "     lightcol = mix(lc0, lc1, slicef);\n";
+//  shader += "     lightcol = 1.0-pow((vec3(1,1,1)-lightcol),vec3(lod,lod,lod));\n";
+//  shader += "   }\n";
+//  shader += " else\n";
+//  shader += "   lightcol = vec3(1.0,1.0,1.0);\n";
+//  //----------------------------------
 
   if (peel || lighting)
     shader += getNormal();

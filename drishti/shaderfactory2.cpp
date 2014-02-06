@@ -260,21 +260,48 @@ ShaderFactory2::genVgx(int nvol)
     {      
       shader += "  vec2 pvg = texCoord.xy / prunelod;\n";
 
-      shader += "  vec2 pvg0 = getTextureCoordinate(int(float(zoffset+slice)/prunelod), ";
-      shader += "              prunegridx, prunetsizex, prunetsizey, pvg);\n";
-      shader += "  vec4 pf0 = texture2DRect(pruneTex, pvg0);\n";
-      
-      shader += "  vec2 pvg1 = getTextureCoordinate(int(float(zoffset+slice+1)/prunelod), ";
-      shader += "              prunegridx, prunetsizex, prunetsizey, pvg);\n";
-      shader += "  vec4 pf1 = texture2DRect(pruneTex, pvg1);\n";
+      shader += "  int pZslc = int(float(zoffset+slice)/float(prunelod));\n";
+      shader += "  float pZslcf = fract(float(zoffset+slice)/float(prunelod));\n";
 
-      shader += "  pf0 = mix(pf0, pf1, slicef);\n";
+      shader += "  vec2 pvg0 = getTextureCoordinate(pZslc, ";
+      shader += "              prunegridx, prunetsizex, prunetsizey, pvg);\n";      
+      shader += "  vec2 pvg1 = getTextureCoordinate(pZslc+1, ";
+      shader += "              prunegridx, prunetsizex, prunetsizey, pvg);\n";
+
+      shader += "  vec4 pf0 = texture2DRect(pruneTex, pvg0);\n";
+      shader += "  vec4 pf1 = texture2DRect(pruneTex, pvg1);\n";
+      shader += "  pf0 = mix(pf0, pf1, pZslcf);\n";
+
       shader += "  vec4 prunefeather = pf0;\n";
-      shader += "  if ( prunefeather.x < 0.005) discard;\n";
+      shader += "  if (prunefeather.x < 0.005) discard;\n";
+
+      // delta condition added for reslicing/ option
+      //shader += "  if (delta.x < 1.0 && prunefeather.x < 0.005) discard;\n";
 
       // tag values should be non interpolated - nearest neighbour
       shader += "  prunefeather.z = texture2DRect(pruneTex, vec2(floor(pvg0.x)+0.5,floor(pvg0.y)+0.5)).z;\n";
     }
+  //---------------------------------------------------------------------
+  //---------------------------------------------------------------------
+//  if (Global::emptySpaceSkip())
+//    {      
+//      shader += "  vec2 pvg = texCoord.xy / prunelod;\n";
+//
+//      shader += "  vec2 pvg0 = getTextureCoordinate(int(float(zoffset+slice)/prunelod), ";
+//      shader += "              prunegridx, prunetsizex, prunetsizey, pvg);\n";
+//      shader += "  vec4 pf0 = texture2DRect(pruneTex, pvg0);\n";
+//      
+//      shader += "  vec2 pvg1 = getTextureCoordinate(int(float(zoffset+slice+1)/prunelod), ";
+//      shader += "              prunegridx, prunetsizex, prunetsizey, pvg);\n";
+//      shader += "  vec4 pf1 = texture2DRect(pruneTex, pvg1);\n";
+//
+//      shader += "  pf0 = mix(pf0, pf1, slicef);\n";
+//      shader += "  vec4 prunefeather = pf0;\n";
+//      shader += "  if ( prunefeather.x < 0.005) discard;\n";
+//
+//      // tag values should be non interpolated - nearest neighbour
+//      shader += "  prunefeather.z = texture2DRect(pruneTex, vec2(floor(pvg0.x)+0.5,floor(pvg0.y)+0.5)).z;\n";
+//    }
   //---------------------------------------------------------------------
 
 
@@ -444,16 +471,20 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
   //----------------------------------
   shader += " if (lightlod > 0)\n";
   shader += "   {\n"; // calculate light color
-  shader += "     vec3 lc;\n";
-  shader += "     vec2 pvg = texCoord.xy / prunelod;\n";
-  shader += "     pvg /= vec2(lightlod,lightlod);\n";
-  shader += "     vec2 pvg0 = getTextureCoordinate(int(float(zoffset+slice)/prunelod)/lightlod, ";
-  shader += "            lightncols, lightgridx, lightgridy, pvg);\n";
-  shader += "     vec2 pvg1 = getTextureCoordinate(int(float(zoffset+slice+1)/prunelod)/lightlod, ";
-  shader += "            lightncols, lightgridx, lightgridy, pvg);\n";
+  shader += "     vec2 pvg = texCoord.xy/(prunelod*lightlod);\n";
+
+  shader += "     int lbZslc = int(float(zoffset+slice)/float(prunelod*lightlod));\n";
+  shader += "     float lbZslcf = fract(float(zoffset+slice)/float(prunelod*lightlod));\n";
+
+  shader += "     vec2 pvg0 = getTextureCoordinate(lbZslc, ";
+  shader += "                   lightncols, lightgridx, lightgridy, pvg);\n";
+  shader += "     vec2 pvg1 = getTextureCoordinate(lbZslc+1, ";
+  shader += "                   lightncols, lightgridx, lightgridy, pvg);\n";
+
   shader += "     vec3 lc0 = texture2DRect(lightTex, pvg0).xyz;\n";
   shader += "     vec3 lc1 = texture2DRect(lightTex, pvg1).xyz;\n";
-  shader += "     lightcol = mix(lc0, lc1, slicef);\n";
+  shader += "     lightcol = mix(lc0, lc1, lbZslcf);\n";
+
   shader += "     lightcol = 1.0-pow((vec3(1,1,1)-lightcol),vec3(lod,lod,lod));\n";
   shader += "   }\n";
   shader += " else\n";
@@ -833,16 +864,20 @@ ShaderFactory2::genHighQualitySliceShaderString(bool lighting,
   //----------------------------------
   shader += " if (lightlod > 0)\n";
   shader += "   {\n"; // calculate light color
-  shader += "     vec3 lc;\n";
-  shader += "     vec2 pvg = texCoord.xy / prunelod;\n";
-  shader += "     pvg /= vec2(lightlod,lightlod);\n";
-  shader += "     vec2 pvg0 = getTextureCoordinate(int(float(zoffset+slice)/prunelod)/lightlod, ";
-  shader += "            lightncols, lightgridx, lightgridy, pvg);\n";
-  shader += "     vec2 pvg1 = getTextureCoordinate(int(float(zoffset+slice+1)/prunelod)/lightlod, ";
-  shader += "            lightncols, lightgridx, lightgridy, pvg);\n";
+  shader += "     vec2 pvg = texCoord.xy/(prunelod*lightlod);\n";
+
+  shader += "     int lbZslc = int(float(zoffset+slice)/float(prunelod*lightlod));\n";
+  shader += "     float lbZslcf = fract(float(zoffset+slice)/float(prunelod*lightlod));\n";
+
+  shader += "     vec2 pvg0 = getTextureCoordinate(lbZslc, ";
+  shader += "                   lightncols, lightgridx, lightgridy, pvg);\n";
+  shader += "     vec2 pvg1 = getTextureCoordinate(lbZslc+1, ";
+  shader += "                   lightncols, lightgridx, lightgridy, pvg);\n";
+
   shader += "     vec3 lc0 = texture2DRect(lightTex, pvg0).xyz;\n";
   shader += "     vec3 lc1 = texture2DRect(lightTex, pvg1).xyz;\n";
-  shader += "     lightcol = mix(lc0, lc1, slicef);\n";
+  shader += "     lightcol = mix(lc0, lc1, lbZslcf);\n";
+
   shader += "     lightcol = 1.0-pow((vec3(1,1,1)-lightcol),vec3(lod,lod,lod));\n";
   shader += "   }\n";
   shader += " else\n";

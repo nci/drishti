@@ -5816,7 +5816,7 @@ DrawHiresVolume::drawBackground()
 void
 DrawHiresVolume::resliceVolume(Vec pos,
 			       Vec normal, Vec xaxis, Vec yaxis,
-			       int subsample,
+			       float subsample,
 			       int getVolumeSurfaceArea, int tagValue)
 {
   //--- drop perpendiculars onto normal from all 8 vertices of the subvolume 
@@ -5861,6 +5861,35 @@ DrawHiresVolume::resliceVolume(Vec pos,
   int nslices = (dmax-dmin+1)/subsample/vlod;
   int wd = (wmax-wmin+1)/subsample/vlod;
   int ht = (hmax-hmin+1)/subsample/vlod;
+
+  if (normal*Vec(0,0,-1) > 0.999)
+    {
+      bool ok;
+      QString text;
+      text = QInputDialog::getText(0,
+				   "New Volume Size",
+				   QString("Original Volume Size : %1 %2 %3\nNew Volume Size").\
+				   arg(wmax-wmin+1).\
+				   arg(hmax-hmin+1).\
+				   arg(dmax-dmin+1),
+				   QLineEdit::Normal,
+				   QString("%1 %2 %3").\
+				   arg(wd).arg(ht).arg(nslices),
+				   &ok);
+      QStringList list = text.split(" ", QString::SkipEmptyParts);
+      if (list.size() == 3)
+	{
+	  int a1 = list[0].toInt();
+	  int a2 = list[1].toInt();
+	  int a3 = list[2].toInt();
+	  if (a1 > 0 && a2 > 0 && a3 > 0)
+	    {
+	      ht = a1;
+	      wd = a2;
+	      nslices = a3;
+	    }
+	}
+    }
 
   Vec sliceStart = pos + dmin*normal + wmin*xaxis + hmin*yaxis;
   Vec sliceEnd = pos + dmax*normal + wmin*xaxis + hmin*yaxis;
@@ -6017,10 +6046,16 @@ DrawHiresVolume::resliceVolume(Vec pos,
 					    QGLFramebufferObject::NoAttachment,
 					    GL_TEXTURE_RECTANGLE_EXT);
   glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_shadowBuffer->texture());
-  if (getVolumeSurfaceArea == 0)
+//  if (getVolumeSurfaceArea == 0)
+//    {
+//	glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+//	glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+//    }
+  if (getVolumeSurfaceArea == 0 &&
+      Global::interpolationType(Global::TextureInterpolation)) // linear
     {
-      glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-      glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     }
   else
     {

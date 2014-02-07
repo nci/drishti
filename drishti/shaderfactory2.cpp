@@ -165,6 +165,7 @@ ShaderFactory2::addLighting(int nvol)
       shader += QString("        frgb = color%1.aaa;\n").arg(i);
       shader += QString("     color%1.rgb = frgb;\n").arg(i);
       shader += "   }\n";
+      shader += QString("  color%1.rgb *= lightcol;\n").arg(i);
     }
 
   return shader;

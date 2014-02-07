@@ -14,29 +14,34 @@ Light sources are animatable.
 #begin
 reslice
 reslice
-reslice [subsample] [tag]
+reslice [sampling] [tag]
 
 Save resliced volume as defined by the current orientation. The selected subvolume is resliced along the view direction.  Users can save value or opacity using this option.
 
-The amount of subsampling is governed by the parameter subsample.  Default value is 1 - i.e. take every voxel.
+The amount of sampling is governed by the sampling parameter.  Default value is 1 - i.e. take every voxel.  Sampling parameter can take real values - for e.g. 0.5 (upscale by factor of 2), 0.25 (upscale by factor of 4), 2.5 (downsample by factor of 2.5) etc.  Values greater than 1 will result in downscaling the volume and those less than 1 will result in upscaled volume.
 
 The tag parameter controls the tagged voxels that are saved.  Default value is -1 - i.e. save all voxels whether they are tagged or not.
 
 Applying this operation to double volumes gives the ability to perform volume calculations such as A-B, |A-B|, A+B, min(A,B), max(A,B), A*B and A/B, where A and B are voxel value/opacity of respective volumes.
 
 Example :
-reslice 2 : save with factor of 2 reduction, save all voxels.
-reslice 2 0 : save with factor of 2 reduction, save only voxels that are tagged 0.
-reslice 2 1 : save with factor of 2 reduction, save only voxels that are tagged 1.
+reslice 2 : downsample by factor of 2, save all voxels.
+reslice 2 0 : downsample by factor of 2, save only voxels that are tagged 0.
+reslice 2 1 : downsample by factor of 2, save only voxels that are tagged 1.
+reslice 0.5 : upsample by factor of 2, save all voxels.
+reslice 0.25 : upsample by factor of 4, save all voxels.
 #end
 
 #begin
 reslicenormal
 reslicenormal
-reslicenormal [subsample] [tag]
+reslicenormal [sampling] [tag]
 
 Same as reslice, except the data is saved in the original orientation. 
 
+The amount of sampling is governed by the sampling parameter.  Default value is 1 - i.e. take every voxel.  Sampling parameter can take real values - for e.g. 0.5 (upscale by factor of 2), 0.25 (upscale by factor of 4), 2.5 (downsample by factor of 2.5) etc.  Values greater than 1 will result in downscaling the volume and those less than 1 will result in upscaled volume.
+
+User will be asked to check and set new volume size.  This facility can be used to upscale as well as downscale the volumes along any of the dimensions.
 
 Applying this operation to double volumes gives the ability to perform volume calculations such as A-B, |A-B|, A+B, min(A,B), max(A,B), A*B and A/B, where A and B are voxel value/opacity of respective volumes.
 

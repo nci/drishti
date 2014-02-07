@@ -137,7 +137,7 @@ class DrawHiresVolume : public QObject
   
   int dataTexSize() { return m_dataTexSize; }
   
-  void resliceVolume(Vec, Vec, Vec, Vec, int, int, int);
+  void resliceVolume(Vec, Vec, Vec, Vec, float, int, int);
   void resliceUsingPath(int, bool, int, int);
   void resliceUsingClipPlane(Vec, Quaternion, int,
 			     QVector4D, float, int,

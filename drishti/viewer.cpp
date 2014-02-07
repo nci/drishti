@@ -4255,9 +4255,9 @@ Viewer::processCommand(QString cmd)
 	  return;
 	}
 
-      int subsample = 1;
+      float subsample = 1;
       int tagvalue = -1;
-      if (list.size() > 1) subsample = qMax(1, list[1].toInt(&ok));
+      if (list.size() > 1) subsample = qMax(0.0f, list[1].toFloat(&ok));
       if (list.size() > 2) tagvalue = list[2].toInt(&ok);
 
       if (list[0] != "reslicenormal")      

@@ -785,7 +785,7 @@ LightShaderFactory::genInitTubeLightShader() // point shader
   shader += "       if (!doshadows || any(pless) || any(pgret)) \n";
   shader += "        {\n";
   shader += "          vec3 ldir = normalize(closestpt-p);\n";
-  shader += "          vec3 pos = p + 2*ldir;\n";
+  shader += "          vec3 pos = p + 2.0*ldir;\n";
   shader += "          bvec3 spless = lessThan(pos, vec3(0.0,0.0,0.0));\n";
   shader += "          bvec3 spgret = greaterThan(pos, vec3(float(gridx)-1.5,float(gridy)-1.5,float(gridz)-1.5));\n";
  // light border voxels and interior as well in case doshadows is false

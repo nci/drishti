@@ -479,10 +479,10 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
   //----------------------------------
   shader += " if (lightlod > 0)\n";
   shader += "   {\n"; // calculate light color
-  shader += "     vec2 pvg = texCoord.xy/(prunelod*lightlod);\n";
+  shader += "     vec2 pvg = texCoord.xy/(prunelod*float(lightlod));\n";
 
-  shader += "     int lbZslc = int(float(zoffset+slice)/float(prunelod*lightlod));\n";
-  shader += "     float lbZslcf = fract(float(zoffset+slice)/float(prunelod*lightlod));\n";
+  shader += "     int lbZslc = int(float(zoffset+slice)/(prunelod*float(lightlod)));\n";
+  shader += "     float lbZslcf = fract(float(zoffset+slice)/(prunelod*float(lightlod)));\n";
 
   shader += "     vec2 pvg0 = getTextureCoordinate(lbZslc, ";
   shader += "                   lightncols, lightgridx, lightgridy, pvg);\n";
@@ -872,10 +872,10 @@ ShaderFactory2::genHighQualitySliceShaderString(bool lighting,
   //----------------------------------
   shader += " if (lightlod > 0)\n";
   shader += "   {\n"; // calculate light color
-  shader += "     vec2 pvg = texCoord.xy/(prunelod*lightlod);\n";
+  shader += "     vec2 pvg = texCoord.xy/(prunelod*float(lightlod));\n";
 
-  shader += "     int lbZslc = int(float(zoffset+slice)/float(prunelod*lightlod));\n";
-  shader += "     float lbZslcf = fract(float(zoffset+slice)/float(prunelod*lightlod));\n";
+  shader += "     int lbZslc = int(float(zoffset+slice)/(prunelod*float(lightlod)));\n";
+  shader += "     float lbZslcf = fract(float(zoffset+slice)/(prunelod*float(lightlod)));\n";
 
   shader += "     vec2 pvg0 = getTextureCoordinate(lbZslc, ";
   shader += "                   lightncols, lightgridx, lightgridy, pvg);\n";

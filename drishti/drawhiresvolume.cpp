@@ -6108,7 +6108,11 @@ DrawHiresVolume::resliceVolume(Vec pos,
       glUniform1fARB(parm[3], frc);
     }	      
 
-  glUniform1fARB(parm[18], 1.0); // depthcue
+  if (getVolumeSurfaceArea == 0 &&
+      Global::interpolationType(Global::TextureInterpolation)) // linear
+    glUniform1fARB(parm[18], 1.0); // depthcue
+  else
+    glUniform1fARB(parm[18], 2.0); // depthcue + additional info to do nearest neighbour interpolation.
 
   glUniform3fARB(parm[4], delta, delta, delta); // delta
 

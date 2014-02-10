@@ -333,6 +333,13 @@ ShaderFactory2::genVgx(int nvol)
   shader += "  val1 = (texture2DRect(dataTex, t1))."+xyzw+";\n";
   shader += "  vg = mix(val0, val1, slicef);\n";
 
+  // if mixTag then perform nearest neighbour interpolation
+  shader += "  if (mixTag) \n";
+  if (nvol == 2)
+    shader += "    vg.y = texture2DRect(dataTex, floor(t0)+vec2(0.5,0.5)).w;\n";
+  else
+    shader += "    vg.y = texture2DRect(dataTex, floor(t0)+vec2(0.5,0.5)).y;\n";
+
   return shader;
 }
 

@@ -556,7 +556,7 @@ LightShaderFactory::genInitDLightShader() // directional shader
   //shader += "  vec3 orig = vec3(x,y,z);\n";
   shader += "  vec3 pos = orig + ldir;\n";
   shader += "  bvec3 pless = lessThan(pos, vec3(0.5,0.5,0.5));\n";
-  shader += "  bvec3 pgret = greaterThan(pos, vec3(gridx-1.5,gridy-1.5,gridz-1.5));\n";
+  shader += "  bvec3 pgret = greaterThan(pos, vec3(float(gridx)-1.5,float(gridy)-1.5,float(gridz)-1.5));\n";
   shader += "  float den = 0.0;\n";
   shader += "  if (any(pless) || any(pgret)) \n";
   shader += "    den = 1.0;\n";  
@@ -780,14 +780,14 @@ LightShaderFactory::genInitTubeLightShader() // point shader
   shader += "   else\n";
   shader += "     {\n";
   shader += "       bvec3 pless = lessThan(closestpt, vec3(0.5,0.5,0.5));\n";
-  shader += "       bvec3 pgret = greaterThan(closestpt, vec3(gridx-1.5,gridy-1.5,gridz-1.5));\n";
+  shader += "  bvec3 pgret = greaterThan(closestpt, vec3(float(gridx)-1.5,float(gridy)-1.5,float(gridz)-1.5));\n";
   // if light is outside the box
   shader += "       if (!doshadows || any(pless) || any(pgret)) \n";
   shader += "        {\n";
   shader += "          vec3 ldir = normalize(closestpt-p);\n";
   shader += "          vec3 pos = p + 2*ldir;\n";
   shader += "          bvec3 spless = lessThan(pos, vec3(0.0,0.0,0.0));\n";
-  shader += "          bvec3 spgret = greaterThan(pos, vec3(gridx-1.0,gridy-1.0,gridz-1.0));\n";
+  shader += "          bvec3 spgret = greaterThan(pos, vec3(float(gridx)-1.5,float(gridy)-1.5,float(gridz)-1.5));\n";
  // light border voxels and interior as well in case doshadows is false
   shader += "          if (!doshadows || any(spless) || any(spgret)) \n";
   shader += "           {\n";

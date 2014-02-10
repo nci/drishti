@@ -1002,6 +1002,12 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
   shader += genVgx();
 
   //----------------------------------
+  // this is specifically for nearest neighbour interpolating when upscaling
+  // or volume and surface area calculations
+  shader += "  if (depthcue > 1.0) vg.x = val0;\n";
+  //----------------------------------
+
+  //----------------------------------
   shader += " if (lightlod > 0)\n";
   shader += "   {\n"; // calculate light color
   shader += "     vec2 pvg = texCoord.xy/(prunelod*lightlod);\n";
@@ -1107,7 +1113,7 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
     }
 
   // -- depth cueing
-  shader += "  gl_FragColor.rgb *= depthcue;\n";
+  shader += "  gl_FragColor.rgb *= min(1.0,depthcue);\n";
 
   if (glowPresent) shader += "  gl_FragColor.rgb += glow(otexCoord);\n";
 

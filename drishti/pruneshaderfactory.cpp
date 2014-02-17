@@ -1003,7 +1003,7 @@ PruneShaderFactory::crop(QString cropShader)
   shader += "vec3 v = vec3(ox,oy,oz);\n";
   shader += "v = v * vec3(lod,lod,lod);\n";
   shader += "v = v + dmin;\n";
-  shader += "v = v * voxelScaling;\n";
+  //shader += "v = v * voxelScaling;\n";
 
   shader += "gl_FragColor.x = min(gl_FragColor.x, 1.0-crop(v, false));\n";
 

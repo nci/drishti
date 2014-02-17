@@ -33,11 +33,14 @@ reslice 0.25 : upsample by factor of 4, save all voxels.
 #end
 
 #begin
-reslicenormal
-reslicenormal
-reslicenormal [sampling] [tag]
+rescale
+rescale
+rescale [sampling] [tag]
 
-Same as reslice, except the data is saved in the original orientation. 
+Similar to reslice, except the data is saved in the original orientation.
+
+User can specify new volume size.
+This facility can be used to upscale as well as downscale the volumes along any of the dimensions.
 
 The amount of sampling is governed by the sampling parameter.  Default value is 1 - i.e. take every voxel.  Sampling parameter can take real values - for e.g. 0.5 (upscale by factor of 2), 0.25 (upscale by factor of 4), 2.5 (downsample by factor of 2.5) etc.  Values greater than 1 will result in downscaling the volume and those less than 1 will result in upscaled volume.
 

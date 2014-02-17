@@ -1468,7 +1468,8 @@ LightHandler::applyClipping(int ct)
   lod *= m_lightLod;
   for(int i=0; i<m_clipPos.count(); i++)
     {
-      Vec p = VECDIVIDE(m_clipPos[i], voxelScaling);
+      //Vec p = VECDIVIDE(m_clipPos[i], voxelScaling);
+      Vec p = m_clipPos[i];
       p -= m_dataMin;
       p /= lod;
 

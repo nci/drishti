@@ -6,6 +6,7 @@ QString
 BlendShaderFactory::generateBlend(QList<CropObject> crops,
 				  int nvol)
 {
+  Vec voxelScaling = Global::voxelScaling();
   QString shader;
 
   if (nvol < 2) shader +=  "void blend(vec3 otexCoord, vec2 vg, inout vec4 fragColor)\n";
@@ -19,6 +20,9 @@ BlendShaderFactory::generateBlend(QList<CropObject> crops,
   shader += "  vec3 p0, pvec, saxis, taxis;\n";
   shader += "  vec3 op0, opvec, osaxis, otaxis;\n";
   shader += "  float plen, srad1, srad2, trad1, trad2;\n";
+
+  shader += QString("  otexCoord *= vec3(%1,%2,%3);\n").\
+    arg(voxelScaling.x).arg(voxelScaling.y).arg(voxelScaling.z);
 
   if (crops.count() > 0)
     {

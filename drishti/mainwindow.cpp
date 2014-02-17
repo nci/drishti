@@ -114,7 +114,6 @@ MainWindow::MainWindow(QWidget *parent) :
 {
   ui.setupUi(this);
 
-
   Global::setStatusBar(ui.statusBar, ui.actionStatusBar);
 
   ui.statusBar->setEnabled(true);
@@ -268,7 +267,7 @@ MainWindow::MainWindow(QWidget *parent) :
   //----------------------------------------------------------
   m_dockKeyframe = new QDockWidget("KeyFrame Editor", this);
   m_dockKeyframe->setAllowedAreas(Qt::BottomDockWidgetArea | 
-				  Qt::TopDockWidgetArea);
+        			  Qt::TopDockWidgetArea);
   m_keyFrameEditor = new KeyFrameEditor();
   m_dockKeyframe->setWidget(m_keyFrameEditor);
   m_dockKeyframe->hide();

@@ -95,6 +95,13 @@ CaptionObject::createImage()
 	}
     }
 
+  // replace symbol for micron
+    if (finalText.endsWith(" um"))
+      {
+	finalText.chop(2);
+	finalText += QChar(0xB5);
+	finalText += "m";
+      }
 
   QFontMetrics metric(m_font);
   m_width = metric.width(finalText);

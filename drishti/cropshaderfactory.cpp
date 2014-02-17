@@ -1,3 +1,4 @@
+#include "global.h"
 #include "staticfunctions.h"
 #include "cropshaderfactory.h"
 
@@ -11,6 +12,7 @@ CropShaderFactory::generateCropping(QList<CropObject> crops)
 	ncrops ++;
     }
 
+  Vec voxelScaling = Global::voxelScaling();
   QString shader;
 
   shader += "float crop(vec3 vpos, bool reject)\n";
@@ -24,6 +26,9 @@ CropShaderFactory::generateCropping(QList<CropObject> crops)
   shader += "  float plen, srad1, srad2, trad1, trad2;\n";
   shader += "  bool hatch, hatchGrid;\n";
   shader += "  int xn, xd, yn, yd, zn, zd;\n";
+
+  shader += QString("  vpos *= vec3(%1,%2,%3);\n").\
+    arg(voxelScaling.x).arg(voxelScaling.y).arg(voxelScaling.z);
 
   if (crops.count() > 0)
     {
@@ -40,6 +45,9 @@ CropShaderFactory::generateCropping(QList<CropObject> crops)
 	  radX = crops[ci].radX();
 	  radY = crops[ci].radY();
 	  lift = crops[ci].lift();
+
+	  pts[0] = VECPRODUCT(pts[0], voxelScaling);
+	  pts[1] = VECPRODUCT(pts[1], voxelScaling);
 
 	  pvec = pts[1]-pts[0];
 	  plen = pvec.norm();

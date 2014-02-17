@@ -7,6 +7,7 @@ GlowShaderFactory::generateGlow(QList<CropObject> crops,
 				int nvol,
 				QString fragColor)
 {
+  Vec voxelScaling = Global::voxelScaling();
   QString shader;
 
   shader += "vec3 glow(vec3 otexCoord)\n";
@@ -16,6 +17,9 @@ GlowShaderFactory::generateGlow(QList<CropObject> crops,
   shader += "  vec3 p0, pvec, saxis, taxis;\n";
   shader += "  vec3 op0, opvec, osaxis, otaxis;\n";
   shader += "  float plen, srad1, srad2, trad1, trad2;\n";
+
+  shader += QString("  otexCoord *= vec3(%1,%2,%3);\n").\
+    arg(voxelScaling.x).arg(voxelScaling.y).arg(voxelScaling.z);
 
   if (crops.count() > 0)
     {

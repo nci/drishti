@@ -862,39 +862,8 @@ CropObject::computeTangents()
   m_xaxis = q.rotate(m_oxaxis);
   m_yaxis = m_tang^m_xaxis;
   
-  m_xaxis = VECPRODUCT(m_xaxis, voxelScaling);
-  m_yaxis = VECPRODUCT(m_yaxis, voxelScaling);
   m_xaxis.normalize();
   m_yaxis.normalize();
-
-//  //----------------
-//  // calculate new vectors from scratch
-//  m_tang = m_points[1]-m_points[0];
-//  if (m_tang.norm() > 0)
-//    m_tang.normalize();
-//  else
-//    m_tang = Vec(1,0,0); // should really scold the user
-//  
-//  Vec axis;
-//  float angle;
-//  StaticFunctions::getRotationBetweenVectors(Vec(0,0,1),
-//					     m_tang,
-//					     axis, angle);
-//  if (qAbs(angle) > 0.0 && qAbs(angle) < 3.1415)
-//    {
-//      Quaternion q(axis, angle);
-//      m_xaxis = q.rotate(Vec(1,0,0));
-//    }
-//  else
-//    m_xaxis = Vec(1,0,0);
-//
-//  // apply offset rotation
-//  angle = DEG2RAD(m_pointAngle);
-//  Quaternion q = Quaternion(m_tang, angle);
-//  m_xaxis = q.rotate(m_xaxis);
-//  
-//  m_yaxis = m_tang^m_xaxis;
-//  //----------------
 }
 
 Vec

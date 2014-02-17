@@ -213,6 +213,16 @@ PathObject::loadCaption(QString ct, QFont cf,
   int fht = metric.height();
   int fwd = metric.width(m_captionText)+2;
 
+  // replace symbol for micron
+  QString ctstr = m_captionText;
+  if (ctstr.endsWith(" um"))
+    {
+      ctstr.chop(2);
+      ctstr += QChar(0xB5);
+      ctstr += "m";
+    }
+
+
   //-------------------
   QImage bImage = QImage(fwd, fht, QImage::Format_ARGB32);
   bImage.fill(0);
@@ -227,8 +237,9 @@ PathObject::loadCaption(QString ct, QFont cf,
     // opacity will be modulated using clip-plane's opacity parameter  
     bpainter.setPen(penColor);
     bpainter.setFont(m_captionFont);
-    bpainter.drawText(1, fht-mde, m_captionText);
-
+    //bpainter.drawText(1, fht-mde, m_captionText);
+    bpainter.drawText(1, fht-mde, ctstr);
+    
     uchar *dbits = new uchar[4*fht*fwd];
     uchar *bits = bImage.bits();
     for(int nt=0; nt < 4; nt++)
@@ -271,7 +282,8 @@ PathObject::loadCaption(QString ct, QFont cf,
   // opacity will be modulated using clip-plane's opacity parameter  
   cpainter.setPen(penColor);
   cpainter.setFont(m_captionFont);
-  cpainter.drawText(1, fht-mde, m_captionText);  
+  //cpainter.drawText(1, fht-mde, m_captionText);  
+  cpainter.drawText(1, fht-mde, ctstr);
 
   m_textureWidth = fwd;
   m_textureHeight = fht;
@@ -2778,7 +2790,7 @@ PathObject::postdrawLength(QGLViewer *viewer)
   VolumeInformation pvlInfo = VolumeInformation::volumeInformation();
   QString str = QString("%1 %2").					\
                          arg(length(), 0, 'f', Global::floatPrecision()).\
-                         arg(pvlInfo.voxelUnitStringShort());      
+                         arg(pvlInfo.voxelUnitStringShort()); 
   int len = str.length();
   int width = glutStrokeLength(GLUT_STROKE_ROMAN,
 			       (unsigned char*)(str.toAscii().data()));
@@ -2918,9 +2930,15 @@ PathObject::postdrawGrab(QGLViewer *viewer,
 {
   VolumeInformation pvlInfo = VolumeInformation::volumeInformation();
   float len = length();
-  QString str = QString("%1 %2").			\
+  QString str = QString("%1 %2").\
 	                    arg(len, 0, 'f', Global::floatPrecision()).\
 	                    arg(pvlInfo.voxelUnitStringShort());      
+  if (str.endsWith("um"))
+    {
+      str.chop(2);
+      str += QChar(0xB5);
+      str += "m";
+    }
   QFont font = QFont();
   QFontMetrics metric(font);
   int ht = metric.height();

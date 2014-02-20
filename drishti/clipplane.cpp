@@ -1,6 +1,7 @@
 #include "global.h"
 #include "clipplane.h"
 #include "staticfunctions.h"
+#include <QMessageBox>
 
 int ClipPlanes::count() { return m_clips.count(); }
 

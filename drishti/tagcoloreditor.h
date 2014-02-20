@@ -1,7 +1,9 @@
 #ifndef TAGCOLOREDITOR_H
 #define TAGCOLOREDITOR_H
 
-#include <QtGui>
+#include "commonqtclasses.h"
+#include <QTableWidget>
+#include <QTableWidgetItem>
 
 class TagColorEditor : public QWidget
 {

@@ -13,7 +13,6 @@ using namespace qglviewer;
 #include "pathobject.h"
 #include "volumefilemanager.h"
 
-#include <QGLWidget>
 #include <QGLFramebufferObject>
 
 class Viewer;
@@ -267,11 +266,11 @@ class DrawHiresVolume : public QObject
   void draw(float, bool);
   void drawDefault(Vec, Vec, Vec, int, float);
   void drawHighQuality(Vec, Vec, Vec, int, float);
-  void setRenderToScreen(Vec, Vec, int, int, float);
+  void setRenderToScreen(Quaternion,Vec, Vec, int, int, float);
   void setViewFromLight();
   void setRenderToShadowBuffer();
   void blurShadows(int, int, int, int);
-  void drawBackplane(Camera*, Vec, Vec, int, int, float);
+  void drawBackplane(Quaternion, Vec, Vec, int, int, float);
   void captureToShadowBuffer();
   void releaseShadowBuffer();
 

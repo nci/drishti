@@ -1,6 +1,6 @@
+#include "global.h"
 #include "preferenceswidget.h"
 #include "tick.h"
-#include "global.h"
 #include "dcolordialog.h"
 #include "propertyeditor.h"
 

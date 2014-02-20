@@ -1,4 +1,5 @@
 #include "remaphistogramline.h"
+#include <QMessageBox>
 
 RemapHistogramLine::RemapHistogramLine()
 {

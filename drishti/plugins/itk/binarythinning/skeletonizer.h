@@ -1,7 +1,6 @@
 #ifndef SKELETONIZER_H
 #define SKELETONIZER_H
 
-#include <QtGui>
 #include "volumefilemanager.h"
 #include "propertyeditor.h"
 #include "cropobject.h"
@@ -9,6 +8,11 @@
 
 #include <QGLViewer/vec.h>
 using namespace qglviewer;
+
+#include <QProgressBar>
+#include <QTextEdit>
+#include <QInputDialog>
+#include <QFileDialog>
 
 class Skeletonizer
 {

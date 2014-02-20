@@ -1,7 +1,6 @@
-#include <QtGui>
+#include "global.h"
 
 #include "volume.h"
-#include "global.h"
 #include "staticfunctions.h"
 #include "xmlheaderfunctions.h"
 

@@ -176,7 +176,3 @@ MeshPaintPlugin::start()
 
   delete fileManager;
 }
-
-//-------------------------------
-//-------------------------------
-Q_EXPORT_PLUGIN2(meshpaintplugin, MeshPaintPlugin);

@@ -1,7 +1,6 @@
 #include <stdlib.h>
 #include "drawhiresvolume.h"
 #include "viewer.h"
-#include <QGLWidget>
 #include "volume.h"
 #include "staticfunctions.h"
 #include "matrix.h"
@@ -15,6 +14,9 @@
 #include "enums.h"
 #include "prunehandler.h"
 #include "mainwindowui.h"
+
+#include <QInputDialog>
+#include <QFileDialog>
 
 void DrawHiresVolume::disableSubvolumeUpdates() { m_updateSubvolume = false; }
 void DrawHiresVolume::enableSubvolumeUpdates() { m_updateSubvolume = true; }
@@ -1739,9 +1741,19 @@ DrawHiresVolume::draw(float stepsize,
       MainWindowUI::mainWindowUI()->actionRedCyan->isChecked())
     {
       if (Global::saveImageType() == Global::LeftImageAnaglyph)
-	glColorMask(GL_TRUE, GL_FALSE, GL_FALSE, GL_TRUE);
+	{
+	  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+	  glClearColor(0, 0, 0, 0);
+	  glClear(GL_COLOR_BUFFER_BIT);
+
+	  glColorMask(GL_TRUE, GL_FALSE, GL_FALSE, GL_TRUE);
+	}
       else // right image
 	{
+	  glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE);
+	  glClearColor(0, 0, 0, 0);
+	  glClear(GL_COLOR_BUFFER_BIT);
+
 	  if (MainWindowUI::mainWindowUI()->actionRedBlue->isChecked())
 	    glColorMask(GL_FALSE, GL_FALSE, GL_TRUE, GL_TRUE);
 	  else
@@ -1779,7 +1791,6 @@ DrawHiresVolume::draw(float stepsize,
     m_lightVector = (m_lightInfo.userLightVector.x * m_Viewer->camera()->rightVector() +
 		     m_lightInfo.userLightVector.y * m_Viewer->camera()->upVector() +
 		     m_lightInfo.userLightVector.z * m_Viewer->camera()->viewDirection());
-
   float camdist = m_Viewer->camera()->sceneRadius();
 
   if ( Global::saveImageType() >= Global::CubicFrontImage)
@@ -1789,8 +1800,7 @@ DrawHiresVolume::draw(float stepsize,
 		       (3.0f + m_lightInfo.lightDistanceOffset)*camdist*m_lightVector);  
 
 
-  Camera defaultCam = *(m_Viewer->camera());
-
+  Quaternion defaultCamRot = m_Viewer->camera()->orientation();
   Vec defaultCamPos = m_Viewer->camera()->position();
   Vec defaultViewDirection = m_Viewer->camera()->viewDirection();
   Vec midCamPos = defaultCamPos;
@@ -1809,7 +1819,6 @@ DrawHiresVolume::draw(float stepsize,
 	  Vec vdir = (m_lightVector-defaultViewDirection).unit();
 	  midCamPos = m_Viewer->camera()->position() + camdist*vdir;
 	}
-
       m_Viewer->camera()->setPosition(midCamPos);
       m_Viewer->camera()->lookAt(m_Viewer->sceneCenter());
       m_Viewer->camera()->loadProjectionMatrix(true);
@@ -1819,8 +1828,8 @@ DrawHiresVolume::draw(float stepsize,
 
   getMinMaxVertices(zdepth, minvert, maxvert);
   
-  *(m_Viewer->camera()) = defaultCam;
   m_Viewer->camera()->setPosition(defaultCamPos);
+  m_Viewer->camera()->setOrientation(defaultCamRot);
   m_Viewer->camera()->setViewDirection(defaultViewDirection);
   loadCameraMatrices();
 
@@ -1858,7 +1867,7 @@ DrawHiresVolume::draw(float stepsize,
   m_drawGeometryPresent |= (GeometryObjects::hitpoints()->count() > 0);
   m_drawGeometryPresent |= (LightHandler::giLights()->count() > 0);
 
-  if (!stillimage || m_renderQuality == Enums::RenderDefault)
+   if (!stillimage || m_renderQuality == Enums::RenderDefault)
     drawDefault(pn, minvert, maxvert, layers, stepsize);
   else if (m_renderQuality == Enums::RenderHighQuality)
     drawHighQuality(pn, minvert, maxvert, layers, stepsize);
@@ -4028,7 +4037,8 @@ DrawHiresVolume::drawHighQuality(Vec pn,
 
 
 void
-DrawHiresVolume::setRenderToScreen(Vec defaultCamPos,
+DrawHiresVolume::setRenderToScreen(Quaternion defaultCamRot,
+				   Vec defaultCamPos,
 				   Vec defaultViewDirection,
 				   int camWidth, int camHeight,
 				   float defaultFov)
@@ -4049,6 +4059,7 @@ DrawHiresVolume::setRenderToScreen(Vec defaultCamPos,
   //---------------------------------
 
   m_Viewer->camera()->setPosition(defaultCamPos);
+  m_Viewer->camera()->setOrientation(defaultCamRot);
   m_Viewer->camera()->setViewDirection(defaultViewDirection);
   m_Viewer->camera()->setScreenWidthAndHeight(camWidth, camHeight);
   m_Viewer->camera()->setFieldOfView(defaultFov);
@@ -4349,7 +4360,8 @@ DrawHiresVolume::drawSlicesHighQuality(Vec pn, Vec minvert, Vec maxvert,
   ScreenXMin = ScreenYMin = 100000;
   ScreenXMax = ScreenYMax = 0;
 
-  Camera defaultCam = *(m_Viewer->camera());
+  //Camera defaultCam = *(m_Viewer->camera());
+  Quaternion defaultCamRot = m_Viewer->camera()->orientation();
   Vec defaultCamPos = m_Viewer->camera()->position();
   Vec defaultViewDirection = m_Viewer->camera()->viewDirection();
   int camWidth = m_Viewer->camera()->screenWidth();
@@ -4491,8 +4503,9 @@ DrawHiresVolume::drawSlicesHighQuality(Vec pn, Vec minvert, Vec maxvert,
 
   //-------------------------------
   {
-    *(m_Viewer->camera()) = defaultCam;
-    setRenderToScreen(defaultCamPos,
+    //*(m_Viewer->camera()) = defaultCam;
+    setRenderToScreen(defaultCamRot,
+		      defaultCamPos,
 		      defaultViewDirection,
 		      camWidth, camHeight,
 		      defaultFov);
@@ -4591,8 +4604,9 @@ DrawHiresVolume::drawSlicesHighQuality(Vec pn, Vec minvert, Vec maxvert,
       if (m_lightInfo.applyShadows)
 	{
 	  // set view from eye
-	  *(m_Viewer->camera()) = defaultCam;
-	  setRenderToScreen(defaultCamPos,
+	  //*(m_Viewer->camera()) = defaultCam;
+	  setRenderToScreen(defaultCamRot,
+			    defaultCamPos,
 			    defaultViewDirection,
 			    camWidth, camHeight,
 			    defaultFov);
@@ -4793,8 +4807,9 @@ DrawHiresVolume::drawSlicesHighQuality(Vec pn, Vec minvert, Vec maxvert,
      } // loop over layers
 
   //----------------------------------------------------------------
-  *(m_Viewer->camera()) = defaultCam;
-  setRenderToScreen(defaultCamPos,
+  //*(m_Viewer->camera()) = defaultCam;
+  setRenderToScreen(defaultCamRot,
+		    defaultCamPos,
 		    defaultViewDirection,
 		    camWidth, camHeight,
 		    defaultFov);
@@ -4825,13 +4840,14 @@ DrawHiresVolume::drawSlicesHighQuality(Vec pn, Vec minvert, Vec maxvert,
 
 
   if (m_lightInfo.applyShadows && m_lightInfo.applyBackplane)
-    drawBackplane(&defaultCam, defaultCamPos, defaultViewDirection,
+    drawBackplane(defaultCamRot, defaultCamPos, defaultViewDirection,
 		  camWidth, camHeight, defaultFov);
 
   //-------------------------------------------------------
   // -- reset default camera settings
-  *(m_Viewer->camera()) = defaultCam;
+  //*(m_Viewer->camera()) = defaultCam;
   m_Viewer->camera()->setPosition(defaultCamPos);      
+  m_Viewer->camera()->setOrientation(defaultCamRot);
   m_Viewer->camera()->setViewDirection(defaultViewDirection);
   m_Viewer->camera()->setScreenWidthAndHeight(camWidth, camHeight);
   m_Viewer->camera()->setFieldOfView(defaultFov);
@@ -4916,7 +4932,7 @@ DrawHiresVolume::blurShadows(int ScreenXMin, int ScreenXMax,
 
 
 void
-DrawHiresVolume::drawBackplane(Camera *defaultCam,
+DrawHiresVolume::drawBackplane(Quaternion defaultCamRot,
 			       Vec defaultCamPos,
 			       Vec defaultViewDirection,
 			       int camWidth, int camHeight,
@@ -4928,8 +4944,8 @@ DrawHiresVolume::drawBackplane(Camera *defaultCam,
   glDepthMask(GL_FALSE); // disable writing to depth buffer
 
 
-  *(m_Viewer->camera()) = *defaultCam;
   m_Viewer->camera()->setPosition(defaultCamPos);
+  m_Viewer->camera()->setOrientation(defaultCamRot);
   m_Viewer->camera()->setViewDirection(defaultViewDirection);
   m_Viewer->camera()->setScreenWidthAndHeight(camWidth, camHeight);
   m_Viewer->camera()->setFieldOfView(defaultFov);
@@ -5010,10 +5026,10 @@ DrawHiresVolume::drawBackplane(Camera *defaultCam,
   
   //-------------------------------------------------------
   // -- now render polygon to screen using shadow texture coordinates
-  *(m_Viewer->camera()) = *defaultCam;
   float zClippingCoeff = m_Viewer->camera()->zClippingCoefficient();  
   m_Viewer->camera()->setZClippingCoefficient(2*zClippingCoeff);  
   m_Viewer->camera()->setPosition(defaultCamPos);
+  m_Viewer->camera()->setOrientation(defaultCamRot);
   m_Viewer->camera()->setViewDirection(defaultViewDirection);
   m_Viewer->camera()->setScreenWidthAndHeight(camWidth, camHeight);
   m_Viewer->camera()->setFieldOfView(defaultFov);
@@ -5065,7 +5081,7 @@ DrawHiresVolume::drawBackplane(Camera *defaultCam,
       int ht = bgImage.height();
       int wd = bgImage.width();
 
-      int nbytes = bgImage.numBytes();
+      int nbytes = bgImage.byteCount();
       int rgb = nbytes/(wd*ht);
 
       GLuint fmt;
@@ -5751,7 +5767,7 @@ DrawHiresVolume::drawBackground()
       int ht = bgImage.height();
       int wd = bgImage.width();
 
-      int nbytes = bgImage.numBytes();
+      int nbytes = bgImage.byteCount();
       int rgb = nbytes/(wd*ht);
 
       GLuint fmt;

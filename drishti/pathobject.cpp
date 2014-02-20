@@ -3,7 +3,9 @@
 #include "staticfunctions.h"
 #include "volumeinformation.h"
 
-#ifdef Q_WS_MAC
+#include <QFileDialog>
+
+#ifdef Q_OS_OSX
 #include <GLUT/glut.h>
 #else
 #include <GL/glut.h>
@@ -403,7 +405,7 @@ PathObject::loadImage(QString imgFile)
   mapImage = mapImage.convertToFormat(QImage::Format_ARGB32);
   m_textureHeight = mapImage.height();
   m_textureWidth = mapImage.width();
-  int nbytes = mapImage.numBytes();
+  int nbytes = mapImage.byteCount();
   int rgb = nbytes/(m_textureWidth*m_textureHeight);
 
   m_image = mapImage;
@@ -1886,7 +1888,7 @@ PathObject::drawTube(QGLViewer *viewer,
 
       if (m_imagePresent)
 	{
-	  int nbytes = m_image.numBytes();
+	  int nbytes = m_image.byteCount();
 	  int rgb = nbytes/(m_textureWidth*m_textureHeight);
 	  GLuint fmt;
 	  if (rgb == 1) fmt = GL_LUMINANCE;
@@ -2664,7 +2666,7 @@ PathObject::postdrawAngle(QGLViewer *viewer)
   QString str = QString("%1").arg(pangle, 0, 'f', Global::floatPrecision());      
   int len = str.length();
   int width = glutStrokeLength(GLUT_STROKE_ROMAN,
-			       (unsigned char*)(str.toAscii().data()));
+			       (unsigned char*)(str.toLatin1().data()));
   
   Vec vm = (v0+v2)*0.5;
   float perpx = vm.y-v1.y;
@@ -2702,7 +2704,7 @@ PathObject::postdrawAngle(QGLViewer *viewer)
   glRotatef(180, 0, 0, 1);
   glRotatef(180, 1, 0, 0);
   for (int i = 0; i < len; i++)
-    glutStrokeCharacter(GLUT_STROKE_ROMAN, (str[i].toAscii()));  
+    glutStrokeCharacter(GLUT_STROKE_ROMAN, (str[i].toLatin1()));  
   
   glTranslatef(10, 70, 0);
   glutStrokeCharacter(GLUT_STROKE_ROMAN, 'o');  
@@ -2793,7 +2795,7 @@ PathObject::postdrawLength(QGLViewer *viewer)
                          arg(pvlInfo.voxelUnitStringShort()); 
   int len = str.length();
   int width = glutStrokeLength(GLUT_STROKE_ROMAN,
-			       (unsigned char*)(str.toAscii().data()));
+			       (unsigned char*)(str.toLatin1().data()));
   
   if (m_lengthTextDistance < 0)
     {
@@ -2820,7 +2822,7 @@ PathObject::postdrawLength(QGLViewer *viewer)
   glRotatef(180, 0, 0, 1);
   glRotatef(180, 1, 0, 0);
   for (int i = 0; i < len; i++)
-    glutStrokeCharacter(GLUT_STROKE_ROMAN, (str[i].toAscii()));  
+    glutStrokeCharacter(GLUT_STROKE_ROMAN, (str[i].toLatin1()));  
   
   glPopMatrix();
 }
@@ -3161,7 +3163,7 @@ PathObject::save(fstream& fout)
   len = m_captionText.size()+1;
   fout.write((char*)&len, sizeof(int));
   if (len > 0)
-    fout.write((char*)m_captionText.toAscii().data(), len*sizeof(char));
+    fout.write((char*)m_captionText.toLatin1().data(), len*sizeof(char));
 
   memset(keyword, 0, 100);
   sprintf(keyword, "captionfont");
@@ -3170,7 +3172,7 @@ PathObject::save(fstream& fout)
   len = fontStr.size()+1;
   fout.write((char*)&len, sizeof(int));
   if (len > 0)	
-    fout.write((char*)fontStr.toAscii().data(), len*sizeof(char));
+    fout.write((char*)fontStr.toLatin1().data(), len*sizeof(char));
   
   memset(keyword, 0, 100);
   sprintf(keyword, "captioncolor");
@@ -3207,7 +3209,7 @@ PathObject::save(fstream& fout)
   len = m_imageName.size()+1;
   fout.write((char*)&len, sizeof(int));
   if (len > 0)
-    fout.write((char*)m_imageName.toAscii().data(), len*sizeof(char));
+    fout.write((char*)m_imageName.toLatin1().data(), len*sizeof(char));
 
   memset(keyword, 0, 100);
   sprintf(keyword, "viewportstyle");
@@ -4031,7 +4033,7 @@ void PathObject::drawViewportLineDots(QGLViewer *viewer, float scale, int vh)
 	    glTranslatef(clen*scale-2, -vh/2+20, 0);
 	    glScalef(0.1, -0.1, 0.1);
 	    for (int i = 0; i < len; i++)
-	      glutStrokeCharacter(GLUT_STROKE_ROMAN, (str[i].toAscii()));  
+	      glutStrokeCharacter(GLUT_STROKE_ROMAN, (str[i].toLatin1()));  
 	    glPopMatrix();
 	  }
       }

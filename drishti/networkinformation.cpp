@@ -173,7 +173,7 @@ NetworkInformation::save(fstream &fout)
   int len = filename.size()+1;
   fout.write((char*)&len, sizeof(int));
   if (len > 0)
-    fout.write((char*)filename.toAscii().data(), len*sizeof(char));
+    fout.write((char*)filename.toLatin1().data(), len*sizeof(char));
 
   memset(keyword, 0, 100);
   sprintf(keyword, "vopacity");

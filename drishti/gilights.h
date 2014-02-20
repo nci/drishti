@@ -1,7 +1,6 @@
 #ifndef GILIGHTS_H
 #define GILIGHTS_H
 
-#include <QtGui>
 #include "gilightgrabber.h"
 
 class GiLights : public QObject

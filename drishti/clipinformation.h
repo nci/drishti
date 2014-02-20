@@ -3,6 +3,8 @@
 
 #include <GL/glew.h>
 
+#include "commonqtclasses.h"
+
 #include <QGLViewer/vec.h>
 #include <QGLViewer/quaternion.h>
 using namespace qglviewer;

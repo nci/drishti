@@ -1,12 +1,13 @@
 #ifndef PROPERTYEDITOR_H
 #define PROPERTYEDITOR_H
 
-#include "ui_propertyeditor.h"
+#include "commonqtclasses.h"
 #include <QSignalMapper>
 #include <QTextEdit>
 #include <QListWidget>
 #include <QCheckBox>
 #include <QGridLayout>
+#include "ui_propertyeditor.h"
 
 class PropertyEditor : public QDialog
 {

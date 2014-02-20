@@ -1,7 +1,6 @@
 #include "volumeinformationwidget.h"
 #include "global.h"
 #include "staticfunctions.h"
-#include <QtGui>
 #include "propertyeditor.h"
 #include "xmlheaderfunctions.h"
 

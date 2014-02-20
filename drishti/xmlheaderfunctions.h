@@ -1,7 +1,7 @@
 #ifndef XMLHEADERFUNCTION_H
 #define XMLHEADERFUNCTION_H
 
-#include <QtGui>
+#include "commonqtclasses.h"
 
 class XmlHeaderFunctions
 {

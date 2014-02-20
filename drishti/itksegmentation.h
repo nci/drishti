@@ -1,9 +1,10 @@
 #ifndef ITKSEGMENTATION_H
 #define ITKSEGMENTATION_H
 
-#include <QtGui>
 #include <QGLViewer/qglviewer.h>
 using namespace qglviewer;
+
+#include "commonqtclasses.h"
 
 class ITKSegmentation
 {

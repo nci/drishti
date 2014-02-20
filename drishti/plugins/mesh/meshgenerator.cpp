@@ -1692,7 +1692,7 @@ MeshGenerator::generateMesh(int nSlabs,
 	  QString plyfl = flnm;
 	  plyfl.chop(4);
 	  plyfl += QString(".%1.ply").arg(nb);
-	  mc.writePLY(plyfl.toAscii().data(), true);
+	  mc.writePLY(plyfl.toLatin1().data(), true);
 	}
       else
 	{
@@ -1897,7 +1897,7 @@ MeshGenerator::saveMesh(QString flnm,
 
 
   PlyFile    *ply;
-  FILE       *fp = fopen(flnm.toAscii().data(),
+  FILE       *fp = fopen(flnm.toLatin1().data(),
 			 bin ? "wb" : "w");
 
   PlyFace     face ;

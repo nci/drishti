@@ -1,7 +1,6 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-#include <QtGui>
 #include "ui_mainwindow.h"
 
 #include "viewer.h"
@@ -16,7 +15,6 @@
 #include "brickswidget.h"
 #include "volumeinformationwidget.h"
 #include "preferenceswidget.h"
-#include "checkupdates.h"
 #include "classes.h"
 
 class MainWindow : public QMainWindow
@@ -118,7 +116,6 @@ class MainWindow : public QMainWindow
    void on_actionVeryLow_triggered();
 
    void quitDrishti();
-   void killCheckUpdates();
    void changeTransferFunctionDisplay(int, QList<bool>);
    void updateComposite();
    void checkStateChanged(int, int, bool);
@@ -205,8 +202,6 @@ class MainWindow : public QMainWindow
 
  private :
    Ui::MainWindow ui;
-
-   CheckUpdate *m_checkUpdate;
 
    Volume *m_Volume;
 

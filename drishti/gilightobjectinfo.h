@@ -1,13 +1,14 @@
 #ifndef GILIGHTOBJECTINFO_H
 #define GILIGHTOBJECTINFO_H
 
-#include <QtGui>
 
 #include <QGLViewer/qglviewer.h>
 using namespace qglviewer;
 
 #include <fstream>
 using namespace std;
+
+#include "commonqtclasses.h"
 
 class GiLightObjectInfo
 {

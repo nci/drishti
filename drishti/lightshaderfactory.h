@@ -1,9 +1,9 @@
 #ifndef LIGHTSHADERFACTORY_H
 #define LIGHTSHADERFACTORY_H
 
+#include "commonqtclasses.h"
 
 #include <GL/glew.h>
-#include <QtGui>
 
 class LightShaderFactory
 {

@@ -1,4 +1,3 @@
-#include <QtGui>
 #include "meshplugin.h"
 #include "meshgenerator.h"
 
@@ -154,7 +153,3 @@ MeshPlugin::start()
   delete [] lut;
   lut = 0;
 }
-
-//-------------------------------
-//-------------------------------
-Q_EXPORT_PLUGIN2(meshplugin, MeshPlugin);

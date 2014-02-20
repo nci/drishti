@@ -6,6 +6,8 @@
 #include "matrix.h"
 #include "volumeinformation.h"
 
+#include <QFileDialog>
+
 void
 TrisetObject::gridSize(int &nx, int &ny, int &nz)
 {
@@ -135,7 +137,7 @@ TrisetObject::loadPLY(QString flnm)
 
 
   /*** Read in the original PLY object ***/
-  FILE *fp = fopen(flnm.toAscii().data(), "rb");
+  FILE *fp = fopen(flnm.toLatin1().data(), "rb");
 
   in_ply  = read_ply (fp);
 
@@ -1268,7 +1270,7 @@ TrisetObject::save()
 
 
   PlyFile    *ply;
-  FILE       *fp = fopen(flnm.toAscii().data(),
+  FILE       *fp = fopen(flnm.toLatin1().data(),
 			 bin ? "wb" : "w");
 
   PlyFace     face ;

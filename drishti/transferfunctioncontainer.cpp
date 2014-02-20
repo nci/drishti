@@ -1,5 +1,5 @@
-#include "transferfunctioncontainer.h"
 #include "global.h"
+#include "transferfunctioncontainer.h"
 
 int TransferFunctionContainer::count() { return m_splineTF.count(); }
 int TransferFunctionContainer::maxSets() { return m_maxSets; }

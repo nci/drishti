@@ -1,10 +1,11 @@
 #ifndef CAPTIONGRABBER_H
 #define CAPTIONGRABBER_H
 
+#include "captionobject.h"
+
+#include <QGLViewer/mouseGrabber.h>
 #include <QGLViewer/qglviewer.h>
 using namespace qglviewer;
-
-#include "captionobject.h"
 
 class CaptionGrabber : public MouseGrabber, public CaptionObject
 {

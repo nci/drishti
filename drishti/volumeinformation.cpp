@@ -1,5 +1,6 @@
 #include "volumeinformation.h"
-#include <QtGui>
+
+#include <QMessageBox>
 
 VolumeInformation VolumeInformation::m_volInfo[4];
 void
@@ -169,7 +170,7 @@ VolumeInformation::checkRGB(QString volfile)
     }
 
   QDomDocument document;
-  QFile f(volfile.toAscii().data());
+  QFile f(volfile.toLatin1().data());
   if (f.open(QIODevice::ReadOnly))
     {
       document.setContent(&f);
@@ -202,7 +203,7 @@ VolumeInformation::checkRGBA(QString volfile)
     }
 
   QDomDocument document;
-  QFile f(volfile.toAscii().data());
+  QFile f(volfile.toLatin1().data());
   if (f.open(QIODevice::ReadOnly))
     {
       document.setContent(&f);
@@ -243,7 +244,7 @@ VolumeInformation::volInfo(QString volfile,
   std::vector<float> rawmap;
 
   QDomDocument document;
-  QFile f(volfile.toAscii().data());
+  QFile f(volfile.toLatin1().data());
   if (f.open(QIODevice::ReadOnly))
     {
       document.setContent(&f);

@@ -4,7 +4,6 @@
 #include "glewinitialisation.h"
 #include "viewinformation.h"
 
-#include <QtGui>
 #include "ui_viewseditor.h"
 
 class ViewsEditor : public QWidget

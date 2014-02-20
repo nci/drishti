@@ -1,7 +1,8 @@
 #ifndef LIGHTDISC_H
 #define LIGHTDISC_H
 
-#include <QtGui>
+#include <QWidget>
+#include "commonqtclasses.h"
 
 class LightDisc : public QWidget
 {

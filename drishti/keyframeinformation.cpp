@@ -861,7 +861,7 @@ KeyFrameInformation::save(fstream &fout)
   int len;
   len = m_backgroundImageFile.size()+1;
   fout.write((char*)&len, sizeof(int));
-  fout.write((char*)m_backgroundImageFile.toAscii().data(), len*sizeof(char));
+  fout.write((char*)m_backgroundImageFile.toLatin1().data(), len*sizeof(char));
 
 
   memset(keyword, 0, 100);
@@ -979,13 +979,13 @@ KeyFrameInformation::save(fstream &fout)
   fout.write((char*)&m_tickStep, sizeof(int));
   len = m_labelX.size()+1;
   fout.write((char*)&len, sizeof(int));
-  fout.write((char*)m_labelX.toAscii().data(), len*sizeof(char));
+  fout.write((char*)m_labelX.toLatin1().data(), len*sizeof(char));
   len = m_labelY.size()+1;
   fout.write((char*)&len, sizeof(int));
-  fout.write((char*)m_labelY.toAscii().data(), len*sizeof(char));
+  fout.write((char*)m_labelY.toLatin1().data(), len*sizeof(char));
   len = m_labelZ.size()+1;
   fout.write((char*)&len, sizeof(int));
-  fout.write((char*)m_labelZ.toAscii().data(), len*sizeof(char));
+  fout.write((char*)m_labelZ.toLatin1().data(), len*sizeof(char));
 
 
   memset(keyword, 0, 100);

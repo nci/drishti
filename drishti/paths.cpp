@@ -4,6 +4,8 @@
 #include "propertyeditor.h"
 #include "captiondialog.h"
 
+#include <QFileDialog>
+
 int Paths::count() { return m_paths.count(); }
 
 Paths::Paths()
@@ -280,7 +282,7 @@ Paths::postdrawInViewport(QGLViewer *viewer,
     {
       int x,y;
       m_paths[i]->mousePosition(x,y);
-      float textscale = 1.0/qMax(0.01, qMin(vp.z(), vp.w()));
+      float textscale = 1.0/qMax(0.01f, qMin(vp.z(), vp.w()));
       m_paths[i]->postdrawInViewport(viewer,
 				     x, y,
 				     m_paths[i]->grabsMouse(),

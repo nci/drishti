@@ -2913,7 +2913,7 @@ PathGroupObject::save(fstream& fout)
   int len = fontStr.size()+1;
   fout.write((char*)&len, sizeof(int));
   if (len > 0)	
-    fout.write((char*)fontStr.toAscii().data(), len*sizeof(char));
+    fout.write((char*)fontStr.toLatin1().data(), len*sizeof(char));
   
   memset(keyword, 0, 100);
   sprintf(keyword, "captioncolor");

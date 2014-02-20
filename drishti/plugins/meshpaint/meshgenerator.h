@@ -1,7 +1,12 @@
 #ifndef MESHGENERATOR_H
 #define MESHGENERATOR_H
 
-#include <QtGui>
+#include "commonqtclasses.h"
+#include <QProgressBar>
+#include <QTextEdit>
+#include <QInputDialog>
+#include <QFileDialog>
+
 #include "volumefilemanager.h"
 #include "ply.h"
 #include "dcolordialog.h"

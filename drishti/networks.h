@@ -1,8 +1,6 @@
 #ifndef NETWORKS_H
 #define NETWORKS_H
 
-#include <QtGui>
-
 #include <GL/glew.h>
 #include "networkgrabber.h"
 

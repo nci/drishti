@@ -1,6 +1,7 @@
 #ifndef DOUBLESPINBOXDELEGATE_H
 #define DOUBLESPINBOXDELEGATE_H
 
+#include "commonqtclasses.h"
 #include <QItemDelegate>
 #include <QModelIndex>
 #include <QObject>

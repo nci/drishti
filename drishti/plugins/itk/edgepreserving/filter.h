@@ -1,11 +1,15 @@
 #ifndef SMOOTHINGFILTER_H
 #define SMOOTHINGFILTER_H
 
-#include <QtGui>
 #include "volumefilemanager.h"
 #include "propertyeditor.h"
 #include "cropobject.h"
 #include "pathobject.h"
+
+#include <QProgressBar>
+#include <QTextEdit>
+#include <QInputDialog>
+#include <QFileDialog>
 
 #include <QGLViewer/vec.h>
 using namespace qglviewer;

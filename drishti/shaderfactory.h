@@ -2,7 +2,6 @@
 #define SHADERFACTORY_H
 
 #include <GL/glew.h>
-#include <QtGui>
 #include "cropobject.h"
 
 class ShaderFactory

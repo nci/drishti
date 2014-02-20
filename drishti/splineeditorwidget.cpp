@@ -1,11 +1,14 @@
-#include "splineeditorwidget.h"
 #include "global.h"
+#include "splineeditorwidget.h"
 
 #include <math.h>
 
 #include <QDomDocument>
 #include <QTextStream>
 #include <QFile>
+#include <QButtonGroup>
+#include <QHBoxLayout>
+#include <QVBoxLayout>
 
 SplineEditorWidget::SplineEditorWidget(QWidget *parent) :
   QWidget(parent)

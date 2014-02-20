@@ -3,6 +3,8 @@
 #include "staticfunctions.h"
 #include "propertyeditor.h"
 
+#include <QFileDialog>
+
 int Crops::count() { return m_crops.count(); }
 
 void

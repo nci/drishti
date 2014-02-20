@@ -19,9 +19,12 @@
 #include <fstream>
 #include <time.h>
 
-#ifdef Q_WS_X11
+#ifdef Q_OS_LINUX
 #include <GL/glut.h>
 #endif
+
+#include <QInputDialog>
+#include <QFileDialog>
 
 using namespace std;
 
@@ -1627,7 +1630,7 @@ Viewer::startMovie(QString flnm,
   }
 
   if (glmedia_movie_writer_start(m_movieWriterLeft,
-				 movieFile.toAscii().data(),
+				 movieFile.toLatin1().data(),
 				 m_imageWidth,
 				 m_imageHeight,
 				 fps,
@@ -1656,7 +1659,7 @@ Viewer::startMovie(QString flnm,
       }
       
       if (glmedia_movie_writer_start(m_movieWriterRight,
-				     movieFile.toAscii().data(),
+				     movieFile.toLatin1().data(),
 				     m_imageWidth,
 				     m_imageHeight,
 				     fps,
@@ -3320,7 +3323,7 @@ void
 Viewer::init()
 {
 
-#ifdef Q_WS_X11
+#ifdef Q_OS_LINUX
    int t_argc = 1;
    char *t_argv[] = { "./drishti" };
    glutInit(&t_argc, t_argv);

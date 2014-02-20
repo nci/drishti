@@ -1,8 +1,8 @@
 #include <math.h>
 
-#include "splinetransferfunction.h"
-#include "staticfunctions.h"
 #include "global.h"
+#include "staticfunctions.h"
+#include "splinetransferfunction.h"
 
 #define qClamp(val, min, max) qMin(qMax(val, min), max)
 

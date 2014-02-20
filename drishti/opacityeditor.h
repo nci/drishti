@@ -1,6 +1,7 @@
 #ifndef OPACITYEDITOR_H
 #define OPACITYEDITOR_H
 
+#include "commonqtclasses.h"
 #include <QDoubleSpinBox>
 
 class QWidget;

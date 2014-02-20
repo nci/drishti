@@ -4,7 +4,7 @@
 #include "captiondialog.h"
 #include "volumeinformation.h"
 
-#ifdef Q_WS_MAC
+#ifdef Q_OS_OSX
 #include <GLUT/glut.h>
 #else
 #include <GL/glut.h>

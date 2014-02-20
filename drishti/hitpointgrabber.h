@@ -1,10 +1,12 @@
 #ifndef HITPOINTGRABBER_H
 #define HITPOINTGRABBER_H
 
-#include <QtGui>
-
+#include <QGLViewer/manipulatedCameraFrame.h>
+#include <QGLViewer/mouseGrabber.h>
 #include <QGLViewer/qglviewer.h>
 using namespace qglviewer;
+
+#include "commonqtclasses.h"
 
 class HitPointGrabber : public QObject, public MouseGrabber
 {

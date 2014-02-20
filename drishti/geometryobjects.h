@@ -1,6 +1,8 @@
 #ifndef GEOMETRYOBJECTS_H
 #define GEOMETRYOBJECTS_H
 
+#include <GL/glew.h>
+
 #include "clipplane.h"
 #include "networks.h"
 #include "trisets.h"

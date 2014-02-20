@@ -1,7 +1,6 @@
 #ifndef TEARSHADERFACTORY_H
 #define TEARSHADERFACTORY_H
 
-#include <QtGui>
 #include "cropobject.h"
 
 class TearShaderFactory

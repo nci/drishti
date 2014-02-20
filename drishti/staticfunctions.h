@@ -2,11 +2,13 @@
 #define STATICFUNCTIONS_H
 
 #include <GL/glew.h>
-#include <QtGui>
 #include <QGLViewer/qglviewer.h>
 using namespace qglviewer;
 
 #include "classes.h"
+
+#include <QMessageBox>
+
 
 #define DEG2RAD(angle) angle*3.1415926535897931/180.0
 #define RAD2DEG(angle) angle*180.0/3.1415926535897931

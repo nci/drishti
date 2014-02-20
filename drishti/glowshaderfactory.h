@@ -1,7 +1,6 @@
 #ifndef GLOWSHADERFACTORY_H
 #define GLOWSHADERFACTORY_H
 
-#include <QtGui>
 #include "cropobject.h"
 
 class GlowShaderFactory

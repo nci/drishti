@@ -1,8 +1,6 @@
 #ifndef PATHSHADERFACTORY_H
 #define PATHSHADERFACTORY_H
 
-#include <QtGui>
-
 class PathShaderFactory
 {
  public :

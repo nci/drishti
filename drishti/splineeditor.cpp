@@ -1,7 +1,9 @@
+#include "global.h"
 #include "splineeditor.h"
 #include "dcolordialog.h"
-#include "global.h"
 #include "propertyeditor.h"
+
+#include <QFileDialog>
 
 QPointF
 SplineEditor::convertLocalToWidget(QPointF p)

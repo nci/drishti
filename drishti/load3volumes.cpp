@@ -1,6 +1,7 @@
-#include <QtGui>
-#include "load3volumes.h"
 #include "global.h"
+#include "load3volumes.h"
+
+#include <QFileDialog>
 
 QStringList Load3Volumes::volume1Files() { return m_vol1Files; }
 QStringList Load3Volumes::volume2Files() { return m_vol2Files; }

@@ -6,11 +6,13 @@
 #include "propertyeditor.h"
 #include "enums.h"
 
-#ifdef Q_WS_MAC
+#ifdef Q_OS_OSX
 #include <GLUT/glut.h>
 #else
 #include <GL/glut.h>
 #endif
+
+#include <QFileDialog>
 
 //------------------------------------------------------------------
 ClipObjectUndo::ClipObjectUndo() { clear(); }
@@ -460,7 +462,7 @@ ClipObject::loadImage(QString imgFile, int imgFrame)
   QImage mapImage(movie.currentImage());
   m_textureHeight = mapImage.height();
   m_textureWidth = mapImage.width();
-  int nbytes = mapImage.numBytes();
+  int nbytes = mapImage.byteCount();
   int rgb = nbytes/(m_textureWidth*m_textureHeight);
 
   unsigned char *image = new unsigned char[rgb*m_textureWidth*m_textureHeight];

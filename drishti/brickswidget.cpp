@@ -2,7 +2,7 @@
 #include "global.h"
 #include "geometryobjects.h"
 #include "staticfunctions.h"
-#include <QtGui>
+#include "commonqtclasses.h"
 #include "propertyeditor.h"
 
 BricksWidget::BricksWidget(QWidget *parent,
@@ -106,7 +106,7 @@ BricksWidget::updateClipTable(int bno)
     return;
 
   ui.m_clipTable->setColumnCount(clippers.size());
-  ui.m_clipTable->horizontalHeader()->setResizeMode(QHeaderView::Fixed);
+  ui.m_clipTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Fixed);
   ui.m_clipTable->verticalHeader()->hide();
 
   QStringList item;

@@ -1,7 +1,6 @@
 #ifndef CLIPPLANES_H
 #define CLIPPLANES_H
 
-#include <QtGui>
 #include "clipgrabber.h"
 #include "clipinformation.h"
 

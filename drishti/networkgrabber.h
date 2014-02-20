@@ -1,7 +1,10 @@
 #ifndef NETWORKGRABBER_H
 #define NETWORKGRABBER_H
 
-#include <QtGui>
+#include <QGLViewer/mouseGrabber.h>
+#include <QGLViewer/manipulatedCameraFrame.h>
+using namespace qglviewer;
+
 #include "networkobject.h"
 
 class NetworkGrabber : public QObject, public MouseGrabber, public NetworkObject

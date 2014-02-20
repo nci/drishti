@@ -1,8 +1,10 @@
+#include "global.h"
 #include "gradienteditor.h"
 #include "dcolordialog.h"
-#include "global.h"
 #include "propertyeditor.h"
 #include "mainwindowui.h"
+
+#include <QInputDialog>
 
 int GradientEditor::border() const { return m_border; }
 void GradientEditor::setBorder(const int border) { m_border = border; }

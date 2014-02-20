@@ -30,7 +30,8 @@ FORMS += mainwindow.ui \
 
 TEMPLATE = app
 
-DESTDIR = ../bin
+#DESTDIR = ../bin
+DESTDIR = ../5.2.1
 
 TARGET = drishti
 DEPENDPATH += .
@@ -96,7 +97,6 @@ HEADERS += boundingbox.h \
 	   colorbar.h \
 	   colorbargrabber.h \
 	   colorbarobject.h \
-	   checkupdates.h \
            classes.h \
            clipinformation.h \
            clipplane.h \
@@ -240,7 +240,6 @@ SOURCES += boundingbox.cpp \
 	   colorbar.cpp \
 	   colorbargrabber.cpp \
 	   colorbarobject.cpp \
-	   checkupdates.cpp \
            clipinformation.cpp \
            clipplane.cpp \
 	   clipobject.cpp \

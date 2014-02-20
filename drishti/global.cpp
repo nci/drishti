@@ -1,7 +1,7 @@
 #include "global.h"
 #include <QFileDialog>
 #include <QCoreApplication>
-#include <QMessageBox>
+#include <QAction>
 
 QString Global::DrishtiVersion() { return QString(DRISHTI_VERSION); }
 

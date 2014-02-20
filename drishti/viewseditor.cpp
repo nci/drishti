@@ -473,7 +473,7 @@ ViewsEditor::save(fstream &fout)
 {
   QString keyword;
   keyword = "views";
-  fout.write((char*)(keyword.toAscii().data()), keyword.length()+1);  
+  fout.write((char*)(keyword.toLatin1().data()), keyword.length()+1);  
 
   int n = m_viewInfo.count();
   fout.write((char*)&n, sizeof(int));
@@ -482,5 +482,5 @@ ViewsEditor::save(fstream &fout)
     m_viewInfo[vi]->save(fout);
 
   keyword = "done";
-  fout.write((char*)(keyword.toAscii().data()), keyword.length()+1);  
+  fout.write((char*)(keyword.toLatin1().data()), keyword.length()+1);  
 }

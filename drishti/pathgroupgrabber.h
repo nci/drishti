@@ -1,7 +1,10 @@
 #ifndef PATHGROUPGRABBER_H
 #define PATHGROUPGRABBER_H
 
-#include <QtGui>
+
+#include <QGLViewer/mouseGrabber.h>
+#include <QGLViewer/manipulatedCameraFrame.h>
+using namespace qglviewer;
 
 #include "pathgroupobject.h"
 

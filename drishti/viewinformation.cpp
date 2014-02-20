@@ -391,60 +391,60 @@ ViewInformation::save(fstream &fout)
   float f[3];
 
   keyword = "viewstart";
-  fout.write((char*)(keyword.toAscii().data()), keyword.length()+1);  
+  fout.write((char*)(keyword.toLatin1().data()), keyword.length()+1);  
 
   keyword = "volumenumber";
-  fout.write((char*)(keyword.toAscii().data()), keyword.length()+1);  
+  fout.write((char*)(keyword.toLatin1().data()), keyword.length()+1);  
   fout.write((char*)&m_volumeNumber, sizeof(int));
 
 
   keyword = "volumenumber2";
-  fout.write((char*)(keyword.toAscii().data()), keyword.length()+1);  
+  fout.write((char*)(keyword.toLatin1().data()), keyword.length()+1);  
   fout.write((char*)&m_volumeNumber2, sizeof(int));
 
 
   keyword = "volumenumber3";
-  fout.write((char*)(keyword.toAscii().data()), keyword.length()+1);  
+  fout.write((char*)(keyword.toLatin1().data()), keyword.length()+1);  
   fout.write((char*)&m_volumeNumber3, sizeof(int));
 
 
   keyword = "volumenumber4";
-  fout.write((char*)(keyword.toAscii().data()), keyword.length()+1);  
+  fout.write((char*)(keyword.toLatin1().data()), keyword.length()+1);  
   fout.write((char*)&m_volumeNumber4, sizeof(int));
 
 
   keyword = "stepsizestill";
-  fout.write((char*)(keyword.toAscii().data()), keyword.length()+1);  
+  fout.write((char*)(keyword.toLatin1().data()), keyword.length()+1);  
   fout.write((char*)&m_stepsizeStill, sizeof(float));
 
   keyword = "stepsizedrag";
-  fout.write((char*)(keyword.toAscii().data()), keyword.length()+1);  
+  fout.write((char*)(keyword.toLatin1().data()), keyword.length()+1);  
   fout.write((char*)&m_stepsizeDrag, sizeof(float));
 
   keyword = "drawbox";
-  fout.write((char*)(keyword.toAscii().data()), keyword.length()+1);  
+  fout.write((char*)(keyword.toLatin1().data()), keyword.length()+1);  
   fout.write((char*)&m_drawBox, sizeof(bool));
 
   keyword = "drawaxis";
-  fout.write((char*)(keyword.toAscii().data()), keyword.length()+1);  
+  fout.write((char*)(keyword.toLatin1().data()), keyword.length()+1);  
   fout.write((char*)&m_drawAxis, sizeof(bool));
 
   keyword = "backgroundcolor";
-  fout.write((char*)(keyword.toAscii().data()), keyword.length()+1);  
+  fout.write((char*)(keyword.toLatin1().data()), keyword.length()+1);  
   f[0] = m_backgroundColor.x;
   f[1] = m_backgroundColor.y;
   f[2] = m_backgroundColor.z;
   fout.write((char*)&f, 3*sizeof(float));
 
   keyword = "backgroundimage";
-  fout.write((char*)(keyword.toAscii().data()), keyword.length()+1);  
+  fout.write((char*)(keyword.toLatin1().data()), keyword.length()+1);  
   int len;
   len = m_backgroundImageFile.size()+1;
   fout.write((char*)&len, sizeof(int));
-  fout.write((char*)m_backgroundImageFile.toAscii().data(), len*sizeof(char));
+  fout.write((char*)m_backgroundImageFile.toLatin1().data(), len*sizeof(char));
 
   keyword = "position";
-  fout.write((char*)(keyword.toAscii().data()), keyword.length()+1);  
+  fout.write((char*)(keyword.toLatin1().data()), keyword.length()+1);  
   f[0] = m_position.x;
   f[1] = m_position.y;
   f[2] = m_position.z;
@@ -452,7 +452,7 @@ ViewInformation::save(fstream &fout)
 
 
   keyword = "rotation";
-  fout.write((char*)(keyword.toAscii().data()), keyword.length()+1);  
+  fout.write((char*)(keyword.toLatin1().data()), keyword.length()+1);  
   Vec axis;
   float angle;
   m_rotation.getAxisAngle(axis, angle);
@@ -464,12 +464,12 @@ ViewInformation::save(fstream &fout)
 
 
   keyword = "focusdistance";
-  fout.write((char*)(keyword.toAscii().data()), keyword.length()+1);  
+  fout.write((char*)(keyword.toLatin1().data()), keyword.length()+1);  
   fout.write((char*)&m_focusDistance, sizeof(float));
 
 
   keyword = "image";
-  fout.write((char*)(keyword.toAscii().data()), keyword.length()+1);  
+  fout.write((char*)(keyword.toLatin1().data()), keyword.length()+1);  
   QByteArray bytes;
   QBuffer buffer(&bytes);
   buffer.open(QIODevice::WriteOnly);
@@ -480,7 +480,7 @@ ViewInformation::save(fstream &fout)
 
 
   keyword = "renderquality";
-  fout.write((char*)(keyword.toAscii().data()), keyword.length()+1);  
+  fout.write((char*)(keyword.toLatin1().data()), keyword.length()+1);  
   fout.write((char*)&m_renderQuality, sizeof(int));
 
 
@@ -491,7 +491,7 @@ ViewInformation::save(fstream &fout)
     m_brickInfo[i].save(fout);
 
   keyword = "volmin";
-  fout.write((char*)(keyword.toAscii().data()), keyword.length()+1);  
+  fout.write((char*)(keyword.toLatin1().data()), keyword.length()+1);  
   f[0] = m_volMin.x;
   f[1] = m_volMin.y;
   f[2] = m_volMin.z;
@@ -499,7 +499,7 @@ ViewInformation::save(fstream &fout)
 
 
   keyword = "volmax";
-  fout.write((char*)(keyword.toAscii().data()), keyword.length()+1);  
+  fout.write((char*)(keyword.toLatin1().data()), keyword.length()+1);  
   f[0] = m_volMax.x;
   f[1] = m_volMax.y;
   f[2] = m_volMax.z;
@@ -515,7 +515,7 @@ ViewInformation::save(fstream &fout)
 
 
   keyword = "pointsstart";
-  fout.write((char*)(keyword.toAscii().data()), keyword.length()+1);  
+  fout.write((char*)(keyword.toLatin1().data()), keyword.length()+1);  
   int npts = m_points.count();
   fout.write((char*)&npts, sizeof(int));
   for(int i=0; i<m_points.size(); i++)
@@ -526,7 +526,7 @@ ViewInformation::save(fstream &fout)
       fout.write((char*)&f, 3*sizeof(float));
     }
   keyword = "pointsend";
-  fout.write((char*)(keyword.toAscii().data()), keyword.length()+1);  
+  fout.write((char*)(keyword.toLatin1().data()), keyword.length()+1);  
 
 
   for(int i=0; i<m_paths.size(); i++)
@@ -545,27 +545,27 @@ ViewInformation::save(fstream &fout)
 
 
   keyword = "tickinfo";
-  fout.write((char*)(keyword.toAscii().data()), keyword.length()+1);  
+  fout.write((char*)(keyword.toLatin1().data()), keyword.length()+1);  
   fout.write((char*)&m_tickSize, sizeof(int));
   fout.write((char*)&m_tickStep, sizeof(int));
   len = m_labelX.size()+1;
   fout.write((char*)&len, sizeof(int));
-  fout.write((char*)m_labelX.toAscii().data(), len*sizeof(char));
+  fout.write((char*)m_labelX.toLatin1().data(), len*sizeof(char));
   len = m_labelY.size()+1;
   fout.write((char*)&len, sizeof(int));
-  fout.write((char*)m_labelY.toAscii().data(), len*sizeof(char));
+  fout.write((char*)m_labelY.toLatin1().data(), len*sizeof(char));
   len = m_labelZ.size()+1;
   fout.write((char*)&len, sizeof(int));
-  fout.write((char*)m_labelZ.toAscii().data(), len*sizeof(char));
+  fout.write((char*)m_labelZ.toLatin1().data(), len*sizeof(char));
 
 
   keyword = "tagcolors";
-  fout.write((char*)(keyword.toAscii().data()), keyword.length()+1);  
+  fout.write((char*)(keyword.toLatin1().data()), keyword.length()+1);  
   int tcn = 1024;
   fout.write((char*)&tcn, sizeof(int));
   fout.write((char*)m_tagColors, 1024);
 
 
   keyword = "viewend";
-  fout.write((char*)(keyword.toAscii().data()), keyword.length()+1);  
+  fout.write((char*)(keyword.toLatin1().data()), keyword.length()+1);  
 }

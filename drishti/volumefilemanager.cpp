@@ -1,5 +1,5 @@
 #include "volumefilemanager.h"
-#include <QtGui>
+#include <QProgressDialog>
 
 VolumeFileManager::VolumeFileManager()
 {
@@ -618,7 +618,7 @@ VolumeFileManager::save(fstream &fout)
   int len;
   len = m_baseFilename.size()+1;
   fout.write((char*)&len, sizeof(int));
-  fout.write((char*)m_baseFilename.toAscii().data(), len*sizeof(char));
+  fout.write((char*)m_baseFilename.toLatin1().data(), len*sizeof(char));
 
   memset(keyword, 0, 100);
   sprintf(keyword, "filenames");
@@ -629,7 +629,7 @@ VolumeFileManager::save(fstream &fout)
     {
       len = m_filenames[i].size()+1;
       fout.write((char*)&len, sizeof(int));
-      fout.write((char*)m_filenames[i].toAscii().data(), len*sizeof(char));
+      fout.write((char*)m_filenames[i].toLatin1().data(), len*sizeof(char));
     }
 
   memset(keyword, 0, 100);

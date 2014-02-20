@@ -6,7 +6,11 @@
 #include <QGLViewer/qglviewer.h>
 using namespace qglviewer;
 
-#include <QtGui>
+#include "commonqtclasses.h"
+#include <QStatusBar>
+#include <QProgressBar>
+#include <QProgressDialog>
+#include <QMessageBox>
 
 class Global
 {

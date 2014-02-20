@@ -6,6 +6,9 @@
 #include "shaderfactory2.h"
 #include "mainwindowui.h"
 
+#include <QFileDialog>
+#include <QInputDialog>
+
 #define VECDIVIDE(a, b) Vec(a.x/b.x, a.y/b.y, a.z/b.z)
 
 QGLFramebufferObject *PruneHandler::m_pruneBuffer=0;

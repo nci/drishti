@@ -3,6 +3,8 @@
 #include "staticfunctions.h"
 #include "propertyeditor.h"
 
+#include <QFileDialog>
+
 int Grids::count() { return m_grids.count(); }
 
 Grids::Grids()

@@ -1,7 +1,6 @@
 #ifndef RAWVOLUME_H
 #define RAWVOLUME_H
 
-#include <QtGui>
 #include <QGLViewer/qglviewer.h>
 using namespace qglviewer;
 

@@ -1993,7 +1993,7 @@ KeyFrame::import(QString flnm)
 
 
   //--------------------------------
-  fstream fin(flnm.toAscii().data(), ios::binary|ios::in);
+  fstream fin(flnm.toLatin1().data(), ios::binary|ios::in);
 
   char keyword[100];
   fin.getline(keyword, 100, 0);

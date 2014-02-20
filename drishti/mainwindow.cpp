@@ -20,6 +20,10 @@
 #include "xmlheaderfunctions.h"
 #include "cropshaderfactory.h"
 
+#include <QDockWidget>
+#include <QFileDialog>
+#include <QInputDialog>
+
 //-------------------------------------------------------------------------------
 // -- turn off OpenGL rendering when menus are triggered --
 //-------------------------------------------------------------------------------
@@ -136,20 +140,6 @@ MainWindow::MainWindow(QWidget *parent) :
   m_Viewer = new Viewer();
   setCentralWidget(m_Viewer);
 
-//  QMdiArea *mdiArea = new QMdiArea();
-//  setCentralWidget(mdiArea);
-//  mdiArea->tileSubWindows();
-//  mdiArea->addSubWindow(m_Viewer);
-
-  //setCentralWidget(m_Viewer);
-
-
-//  // Before doing anything else check for updates
-//  //--------------------------------------------
-//  m_checkUpdate = new CheckUpdate("19-06-09");
-//  QTimer::singleShot(10000, this, SLOT(killCheckUpdates()));
-//  //--------------------------------------------
-  
   Global::setBatchMode(false);
   Global::setEmptySpaceSkip(true);
   Global::setImageQuality(Global::_NormalQuality);
@@ -601,12 +591,6 @@ MainWindow::initTagColors()
 }
 
 void
-MainWindow::killCheckUpdates()
-{
-  m_checkUpdate->kill();
-}
-
-void
 MainWindow::setTextureMemory()
 {
   QString homePath = QDir::homePath();
@@ -869,7 +853,7 @@ MainWindow::loadProjectRunKeyframesAndExit()
       Global::setStepsizeStill(bj.stepSize);
       Global::setDepthcue(bj.depthcue);
 
-      loadProject(bj.projectFilename.toAscii().data());
+      loadProject(bj.projectFilename.toLatin1().data());
 //
 //      m_Viewer->updateLookupTable();
 //
@@ -1631,7 +1615,7 @@ MainWindow::loadSingleVolume(QStringList flnm)
   createHiresLowresWindows();
 
   if (VolumeInformation::checkRGB(flnm[0]))
-    loadVolumeRGB(flnm[0].toAscii().data());
+    loadVolumeRGB(flnm[0].toLatin1().data());
   else
     loadVolumeList(flnm, false);
 
@@ -1922,7 +1906,7 @@ MainWindow::openRecentFile()
 	  Global::addRecentFile(filename);
 	  updateRecentFileAction();
 	  createHiresLowresWindows();
-	  loadProject(filename.toAscii().data());
+	  loadProject(filename.toLatin1().data());
 	}
     }
 }
@@ -1959,7 +1943,7 @@ MainWindow::dropEvent(QDropEvent *event)
 		  Global::addRecentFile(url.toLocalFile());
 		  updateRecentFileAction();
 		  createHiresLowresWindows();
-		  loadProject(url.toLocalFile().toAscii().data());
+		  loadProject(url.toLocalFile().toLatin1().data());
 		}
 	      else if (StaticFunctions::checkExtension(url.toLocalFile(), ".keyframes"))
 		{
@@ -2235,7 +2219,7 @@ MainWindow::loadVolumeList(QList<QString> files, bool flag)
 
   QList<QString> volfiles;
   for(int i=0; i<files.count(); i++)
-    volfiles.append(files[i].toAscii().data());
+    volfiles.append(files[i].toLatin1().data());
 
   QList<int> vsizes;
   vsizes << volfiles.size();
@@ -2348,7 +2332,7 @@ MainWindow::loadVolumeRGBFromUrls(QList<QUrl> urls)
       for(int i=0; i<urls.count(); i++)
 	files.append(urls[i].toLocalFile());
 
-      loadVolumeRGB(files[0].toAscii().data());
+      loadVolumeRGB(files[0].toLatin1().data());
     }
 }
 
@@ -2449,11 +2433,11 @@ MainWindow::loadVolume2List(QList<QString> files1,
 
   QList<QString> volfiles1;
   for(int i=0; i<files1.count(); i++)
-    volfiles1.append(files1[i].toAscii().data());
+    volfiles1.append(files1[i].toLatin1().data());
 
   QList<QString> volfiles2;
   for(int i=0; i<files2.count(); i++)
-    volfiles2.append(files2[i].toAscii().data());
+    volfiles2.append(files2[i].toLatin1().data());
 
   QList<int> vsizes;
   vsizes << volfiles1.size();
@@ -2540,15 +2524,15 @@ MainWindow::loadVolume3List(QList<QString> files1,
 
   QList<QString> volfiles1;
   for(int i=0; i<files1.count(); i++)
-    volfiles1.append(files1[i].toAscii().data());
+    volfiles1.append(files1[i].toLatin1().data());
 
   QList<QString> volfiles2;
   for(int i=0; i<files2.count(); i++)
-    volfiles2.append(files2[i].toAscii().data());
+    volfiles2.append(files2[i].toLatin1().data());
 
   QList<QString> volfiles3;
   for(int i=0; i<files3.count(); i++)
-    volfiles3.append(files3[i].toAscii().data());
+    volfiles3.append(files3[i].toLatin1().data());
 
   QList<int> vsizes;
   vsizes << volfiles1.size();
@@ -2659,19 +2643,19 @@ MainWindow::loadVolume4List(QList<QString> files1,
 
   QList<QString> volfiles1;
   for(int i=0; i<files1.count(); i++)
-    volfiles1.append(files1[i].toAscii().data());
+    volfiles1.append(files1[i].toLatin1().data());
 
   QList<QString> volfiles2;
   for(int i=0; i<files2.count(); i++)
-    volfiles2.append(files2[i].toAscii().data());
+    volfiles2.append(files2[i].toLatin1().data());
 
   QList<QString> volfiles3;
   for(int i=0; i<files3.count(); i++)
-    volfiles3.append(files3[i].toAscii().data());
+    volfiles3.append(files3[i].toLatin1().data());
 
   QList<QString> volfiles4;
   for(int i=0; i<files4.count(); i++)
-    volfiles4.append(files4[i].toAscii().data());
+    volfiles4.append(files4[i].toLatin1().data());
 
 
   QList<int> vsizes;
@@ -2820,7 +2804,7 @@ MainWindow::saveSettings()
   QFileInfo settingsFile(homePath, ".drishti.xml");
   QString flnm = settingsFile.absoluteFilePath();  
 
-  QFile f(flnm.toAscii().data());
+  QFile f(flnm.toLatin1().data());
   if (f.open(QIODevice::WriteOnly))
     {
       QTextStream out(&f);
@@ -2828,10 +2812,10 @@ MainWindow::saveSettings()
       f.close();
     }
   else
-    QMessageBox::information(0, "Cannot save ", flnm.toAscii().data());
+    QMessageBox::information(0, "Cannot save ", flnm.toLatin1().data());
 
 
-  m_preferencesWidget->save(flnm.toAscii().data());
+  m_preferencesWidget->save(flnm.toLatin1().data());
 }
 
 void
@@ -2847,7 +2831,7 @@ MainWindow::loadSettings()
 
 
   QDomDocument document;
-  QFile f(flnm.toAscii().data());
+  QFile f(flnm.toLatin1().data());
   if (f.open(QIODevice::ReadOnly))
     {
       document.setContent(&f);
@@ -2899,7 +2883,7 @@ MainWindow::loadSettings()
 	}
     }
   m_preferencesWidget->updateTextureMemory();
-  m_preferencesWidget->load(flnm.toAscii().data());
+  m_preferencesWidget->load(flnm.toLatin1().data());
   updateRecentFileAction();
 }
 
@@ -2952,7 +2936,7 @@ MainWindow::loadProject(const char* flnm)
     loadVolume4List(m_volFiles1, m_volFiles2, m_volFiles3, m_volFiles4, false);
   else if (projectType == Global::RGBVolume ||
 	   projectType == Global::RGBAVolume)
-    loadVolumeRGB(m_volFiles1[0].toAscii().data());
+    loadVolumeRGB(m_volFiles1[0].toLatin1().data());
 
 
   m_bricks->reset();
@@ -3102,7 +3086,7 @@ MainWindow::on_actionLoad_Project_triggered()
 
   Global::addRecentFile(flnm);
   updateRecentFileAction();
-  loadProject(flnm.toAscii().data());
+  loadProject(flnm.toLatin1().data());
 }
 
 void
@@ -3120,7 +3104,7 @@ MainWindow::on_actionLoad_TFfromproject_triggered()
   if (flnm.isEmpty())
     return;
 
-  loadTransferFunctionsOnly(flnm.toAscii().data());
+  loadTransferFunctionsOnly(flnm.toLatin1().data());
 }
 
 void
@@ -3170,7 +3154,7 @@ MainWindow::on_actionSave_Project_triggered()
   if (!StaticFunctions::checkExtension(flnm, ".xml"))
     flnm += ".xml";
   
-  saveProject(flnm.toAscii().data());
+  saveProject(flnm.toLatin1().data());
 }
 void
 MainWindow::on_actionSave_ProjectAs_triggered()
@@ -3190,7 +3174,7 @@ MainWindow::on_actionSave_ProjectAs_triggered()
   if (!StaticFunctions::checkExtension(flnm, ".xml"))
     flnm += ".xml";
 
-  saveProject(flnm.toAscii().data());
+  saveProject(flnm.toLatin1().data());
 }
 
 void
@@ -3583,7 +3567,7 @@ MainWindow::loadViewsAndKeyFrames(const char* flnm)
   if (! fileInfo.exists())
     return;
 
-  fstream fin(sflnm.toAscii().data(), ios::binary|ios::in);
+  fstream fin(sflnm.toLatin1().data(), ios::binary|ios::in);
 
   char keyword[100];
   fin.getline(keyword, 100, 0);
@@ -3611,11 +3595,11 @@ MainWindow::saveViewsAndKeyFrames(const char* flnm)
   QString sflnm(flnm);
   sflnm.replace(QString(".xml"), QString(".keyframes"));
 
-  fstream fout(sflnm.toAscii().data(), ios::binary|ios::out);
+  fstream fout(sflnm.toLatin1().data(), ios::binary|ios::out);
 
   QString keyword;
   keyword = "Drishti Keyframes";
-  fout.write((char*)(keyword.toAscii().data()), keyword.length()+1);  
+  fout.write((char*)(keyword.toLatin1().data()), keyword.length()+1);  
 
   m_gallery->save(fout);
   m_keyFrame->save(fout);

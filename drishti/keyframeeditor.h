@@ -1,7 +1,9 @@
 #ifndef KEYFRAMEEDITOR_H
 #define KEYFRAMEEDITOR_H
 
-#include <QtGui>
+#include <QWidget>
+#include <QPushButton>
+#include "commonqtclasses.h"
 
 class SelectRegion
 {

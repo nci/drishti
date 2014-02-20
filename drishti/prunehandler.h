@@ -2,7 +2,6 @@
 #define PRUNEHANDLER_H
 
 #include <GL/glew.h>
-#include <QtGui>
 
 #include <QGLViewer/qglviewer.h>
 using namespace qglviewer;

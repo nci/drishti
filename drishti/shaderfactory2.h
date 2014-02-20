@@ -2,7 +2,6 @@
 #define SHADERFACTORY2_H
 
 #include <GL/glew.h>
-#include <QtGui>
 
 class ShaderFactory2
 {

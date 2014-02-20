@@ -6,6 +6,10 @@
 #include <fstream>
 using namespace std;
 
+#include <QLineEdit>
+#include <QInputDialog>
+#include <QTextStream>
+
 int HitPoints::bareCount() { return m_barePoints.count(); }
 QList<Vec> HitPoints::barePoints() { return m_barePoints; }
 void HitPoints::setBarePoints(QList<Vec> pts) { m_barePoints = pts; }
@@ -238,7 +242,7 @@ void
 HitPoints::savePoints(QString flnm)
 {
   int npts = m_points.count();
-  fstream fp(flnm.toAscii().data(), ios::out);
+  fstream fp(flnm.toLatin1().data(), ios::out);
   fp << npts << "\n";
   for(int i=0; i<npts; i++)
     {

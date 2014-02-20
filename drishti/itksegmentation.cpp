@@ -1,5 +1,6 @@
 #include "itksegmentation.h"
 #include "mopplugininterface.h"
+#include <QMessageBox>
 
 bool
 ITKSegmentation::applyITKFilter(int nx, int ny, int nz,

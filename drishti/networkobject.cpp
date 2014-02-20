@@ -476,7 +476,7 @@ NetworkObject::loadNetCDF(QString flnm)
 
   NcError err(NcError::verbose_nonfatal);
 
-  NcFile ncfFile(flnm.toAscii().data(), NcFile::ReadOnly);
+  NcFile ncfFile(flnm.toLatin1().data(), NcFile::ReadOnly);
   NcAtt *att;
   NcVar *var;
 
@@ -1747,7 +1747,7 @@ NetworkObject::loadGraphML(QString flnm)
   m_fileName = flnm;
 
   QDomDocument doc;
-  QFile f(flnm.toAscii().data());
+  QFile f(flnm.toLatin1().data());
   if (f.open(QIODevice::ReadOnly))
     {
       doc.setContent(&f);

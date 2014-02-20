@@ -1,7 +1,9 @@
 #ifndef SPLINE_EDITOR_H
 #define SPLINE_EDITOR_H
 
-#include <QtGui>
+#include <QWidget>
+#include <QAction>
+
 #include "splinetransferfunction.h"
 
 class SplineEditor : public QWidget

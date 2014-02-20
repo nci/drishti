@@ -34,12 +34,12 @@ void
 SaveMovieDialog::on_m_file_pressed()
 {
   QString flnm;
-#if defined(Q_WS_WIN32)
+#if defined(Q_OS_WIN)
   flnm = QFileDialog::getSaveFileName(0,
 				      "Save Movie",
 				      m_dir,
 				      "Movie Files (*.wmv)");
-#elif defined(Q_WS_MAC)
+#elif defined(Q_OS_OSX)
   flnm = QFileDialog::getSaveFileName(0,
 				      "Save Movie",
 				      m_dir,

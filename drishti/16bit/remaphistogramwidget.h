@@ -2,6 +2,9 @@
 #define REMAPHISTOGRAMWIDGET_H
 
 #include "remaphistogramline.h"
+#include <QWidget>
+#include <QGraphicsEllipseItem>
+#include <QGraphicsLineItem>
 
 class RemapHistogramWidget : public QWidget
 {

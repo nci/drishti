@@ -2,7 +2,6 @@
 #define MESSAGEDISPLAYER_H
 
 #include <QObject>
-#include <QtGui>
 #include <QGLViewer/qglviewer.h>
 using namespace qglviewer;
 

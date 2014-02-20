@@ -1,9 +1,11 @@
 #ifndef CLIPGRABBER_H
 #define CLIPGRABBER_H
 
-#include <QtGui>
-
 #include "clipobject.h"
+
+#include <QGLViewer/mouseGrabber.h>
+#include <QGLViewer/manipulatedCameraFrame.h>
+using namespace qglviewer;
 
 class ClipGrabber : public QObject, public MouseGrabber, public ClipObject
 {

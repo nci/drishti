@@ -1,7 +1,10 @@
 #ifndef TRANSFERFUNCTIONMANAGER_H
 #define TRANSFERFUNCTIONMANAGER_H
 
-#include <QtGui>
+#include <QWidget>
+#include <QGroupBox>
+#include <QTableWidget>
+#include <QCheckBox>
 
 #include "transferfunctioncontainer.h"
 

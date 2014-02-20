@@ -1,7 +1,6 @@
 #ifndef MESHGENERATOR_H
 #define MESHGENERATOR_H
 
-#include <QtGui>
 #include "marchingcubes.h"
 #include "volumefilemanager.h"
 #include "ply.h"

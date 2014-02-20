@@ -5,6 +5,10 @@
 #include "global.h"
 #include <QtGlobal>
 
+#include <QMessageBox>
+#include <QLineEdit>
+#include <QInputDialog>
+
 bool PaintBall::grabsMouse() { return m_frame.grabsMouse(); }
 
 PaintBall::PaintBall()

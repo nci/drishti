@@ -1,7 +1,7 @@
 #ifndef PATHOBJECT_H
 #define PATHOBJECT_H
 
-#include <QVector4D>
+#include "commonqtclasses.h"
 
 #include <QGLViewer/qglviewer.h>
 using namespace qglviewer;

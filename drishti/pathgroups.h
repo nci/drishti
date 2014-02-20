@@ -1,7 +1,6 @@
 #ifndef PATHGROUPS_H
 #define PATHGROUPS_H
 
-#include <QtGui>
 #include "pathgroupgrabber.h"
 #include "cropobject.h"
 

@@ -570,7 +570,3 @@ ITKSegmentation::binaryThinning(int nx, int ny, int nz, uchar* inVol)
       QMessageBox::information(0, "", "Error : cannot run the filter");
     }
 }
-
-//-------------------------------
-//-------------------------------
-Q_EXPORT_PLUGIN2(itkplugin, ITKSegmentation);

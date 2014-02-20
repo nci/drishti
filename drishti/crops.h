@@ -1,7 +1,6 @@
 #ifndef CROPS_H
 #define CROPS_H
 
-#include <QtGui>
 #include "cropgrabber.h"
 
 class Crops : public QObject

@@ -139,7 +139,3 @@ BinaryThinning::start()
   delete [] lut;
   lut = 0;
 }
-
-//-------------------------------
-//-------------------------------
-Q_EXPORT_PLUGIN2(binarythinning, BinaryThinning);

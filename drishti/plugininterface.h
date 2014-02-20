@@ -2,6 +2,9 @@
 #define RENDERPLUGININTERFACE_H
 
 #include <QtCore>
+#include <QProgressDialog>
+#include <QMessageBox>
+#include <QInputDialog>
 
 #include "volumefilemanager.h"
 #include "cropobject.h"
@@ -33,10 +36,8 @@ class RenderPluginInterface
   virtual void start() = 0;
 };
 
-QT_BEGIN_NAMESPACE
 Q_DECLARE_INTERFACE(RenderPluginInterface,
 		    "drishti.render.Plugin.PluginInterface/1.0");
-QT_END_NAMESPACE
 
 #endif
 

@@ -1,7 +1,11 @@
 #ifndef TRISETGRABBER_H
 #define TRISETGRABBER_H
 
-#include <QtGui>
+
+#include <QGLViewer/mouseGrabber.h>
+#include <QGLViewer/manipulatedCameraFrame.h>
+using namespace qglviewer;
+
 #include "trisetobject.h"
 
 class TrisetGrabber : public QObject, public MouseGrabber, public TrisetObject

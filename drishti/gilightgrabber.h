@@ -1,7 +1,9 @@
 #ifndef GILIGHTGRABBER_H
 #define GILIGHTGRABBER_H
 
-#include <QtGui>
+#include <QGLViewer/mouseGrabber.h>
+#include <QGLViewer/manipulatedCameraFrame.h>
+using namespace qglviewer;
 
 #include "gilightobject.h"
 

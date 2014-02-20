@@ -1,18 +1,7 @@
 #ifndef TICK_H
 #define TICK_H
 
-#include <QtGui>
 #include <GL/glew.h>
-
-#ifdef Q_WS_MAC
-#include <GLUT/glut.h>
-#endif
-#ifdef Q_WS_WIN
-#include <GL/glut.h>
-#endif
-#ifdef Q_WS_X11
-#include <GL/freeglut.h>
-#endif
 
 #include <QGLViewer/qglviewer.h>
 using namespace qglviewer;

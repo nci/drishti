@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "glewinitialisation.h"
+#include <QMessageBox>
 
 bool GlewInit::glew_initialised = false;
 bool GlewInit::fbo_ok = false;

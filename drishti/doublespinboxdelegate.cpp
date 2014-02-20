@@ -1,5 +1,3 @@
-#include <QtGui>
-
 #include "doublespinboxdelegate.h"
 
 DoubleSpinBoxDelegate::DoubleSpinBoxDelegate(QObject *parent)

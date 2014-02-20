@@ -7,6 +7,7 @@
 class ITKSegmentation : public QObject, MopPluginInterface
 {
   Q_OBJECT
+  Q_PLUGIN_METADATA(IID "drishti.mop.Plugin.PluginInterface/1.0")
   Q_INTERFACES(MopPluginInterface)  
 
  public :

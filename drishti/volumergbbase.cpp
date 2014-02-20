@@ -1,7 +1,5 @@
-#include <QtGui>
-
-#include "volumergbbase.h"
 #include "global.h"
+#include "volumergbbase.h"
 #include "staticfunctions.h"
 #include "volumefilemanager.h"
 #include "mainwindowui.h"

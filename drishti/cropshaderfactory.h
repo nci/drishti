@@ -1,7 +1,6 @@
 #ifndef CROPSHADERFACTORY_H
 #define CROPSHADERFACTORY_H
 
-#include <QtGui>
 #include "cropobject.h"
 
 class CropShaderFactory

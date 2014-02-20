@@ -1,10 +1,10 @@
 #ifndef CAPTIONOBJECT_H
 #define CAPTIONOBJECT_H
 
-#include <QtGui>
-
 #include <fstream>
 using namespace std;
+
+#include "commonqtclasses.h"
 
 class CaptionObject
 {

@@ -1,7 +1,6 @@
 #ifndef PATHS_H
 #define PATHS_H
 
-#include <QtGui>
 #include "pathgrabber.h"
 
 class Paths : public QObject

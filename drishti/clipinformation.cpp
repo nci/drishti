@@ -1,4 +1,4 @@
-#include <QtGui>
+#include <GL/glew.h>
 #include "clipinformation.h"
 
 ClipInformation::ClipInformation() { clear(); }
@@ -660,7 +660,7 @@ ClipInformation::save(fstream &fout)
       int len = imageName[i].size()+1;
       fout.write((char*)&len, sizeof(int));
       if (len > 0)
-	fout.write((char*)imageName[i].toAscii().data(), len*sizeof(char));
+	fout.write((char*)imageName[i].toLatin1().data(), len*sizeof(char));
     }
 
   memset(keyword, 0, 100);
@@ -678,7 +678,7 @@ ClipInformation::save(fstream &fout)
       int len = captionText[i].size()+1;
       fout.write((char*)&len, sizeof(int));
       if (len > 0)
-	fout.write((char*)captionText[i].toAscii().data(), len*sizeof(char));
+	fout.write((char*)captionText[i].toLatin1().data(), len*sizeof(char));
     }
 
   memset(keyword, 0, 100);
@@ -690,7 +690,7 @@ ClipInformation::save(fstream &fout)
       int len = fontStr.size()+1;
       fout.write((char*)&len, sizeof(int));
       if (len > 0)	
-	fout.write((char*)fontStr.toAscii().data(), len*sizeof(char));
+	fout.write((char*)fontStr.toLatin1().data(), len*sizeof(char));
     }
   
   memset(keyword, 0, 100);

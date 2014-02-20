@@ -1,7 +1,6 @@
 #ifndef TRISETS_H
 #define TRISETS_H
 
-#include <QtGui>
 
 #include <GL/glew.h>
 #include "trisetgrabber.h"

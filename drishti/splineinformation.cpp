@@ -1,6 +1,5 @@
-#include "splineinformation.h"
-
 #include "staticfunctions.h"
+#include "splineinformation.h"
 
 void SplineInformation::setName(QString str) {m_name = str; };
 void SplineInformation::setOn(QList<bool> flags) { m_on = flags; };
@@ -187,7 +186,7 @@ SplineInformation::save(fstream &fout)
   fout.write((char*)keyword, strlen(keyword)+1);
   len = m_name.size()+1;
   fout.write((char*)&len, sizeof(int));
-  fout.write((char*)m_name.toAscii().data(), len*sizeof(char));
+  fout.write((char*)m_name.toLatin1().data(), len*sizeof(char));
 
   memset(keyword, 0, 100);
   sprintf(keyword, "on");

@@ -1,5 +1,8 @@
-#include "profileviewer.h"
 #include "global.h"
+#include "profileviewer.h"
+
+#include <QGraphicsTextItem>
+#include <QFileDialog>
 
 ProfileViewer::ProfileViewer(QWidget *parent) :
   QWidget(parent)

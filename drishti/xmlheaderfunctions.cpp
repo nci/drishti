@@ -1,5 +1,5 @@
 #include "xmlheaderfunctions.h"
-
+#include <QMessageBox>
 #include <QDomDocument>
 
 void
@@ -59,7 +59,7 @@ XmlHeaderFunctions::getDimensionsFromHeader(QString pvlFilename,
 					 int &d, int &w, int &h)
 {
   QDomDocument document;
-  QFile f(pvlFilename.toAscii().data());
+  QFile f(pvlFilename.toLatin1().data());
   if (f.open(QIODevice::ReadOnly))
     {
       document.setContent(&f);
@@ -85,7 +85,7 @@ int
 XmlHeaderFunctions::getSlabsizeFromHeader(QString pvlFilename)
 {
   QDomDocument document;
-  QFile f(pvlFilename.toAscii().data());
+  QFile f(pvlFilename.toLatin1().data());
   if (f.open(QIODevice::ReadOnly))
     {
       document.setContent(&f);
@@ -106,7 +106,7 @@ int
 XmlHeaderFunctions::getPvlVoxelTypeFromHeader(QString pvlFilename)
 {
   QDomDocument document;
-  QFile f(pvlFilename.toAscii().data());
+  QFile f(pvlFilename.toLatin1().data());
   if (f.open(QIODevice::ReadOnly))
     {
       document.setContent(&f);
@@ -134,7 +134,7 @@ int
 XmlHeaderFunctions::getPvlHeadersizeFromHeader(QString pvlFilename)
 {
   QDomDocument document;
-  QFile f(pvlFilename.toAscii().data());
+  QFile f(pvlFilename.toLatin1().data());
   if (f.open(QIODevice::ReadOnly))
     {
       document.setContent(&f);
@@ -157,7 +157,7 @@ int
 XmlHeaderFunctions::getRawHeadersizeFromHeader(QString pvlFilename)
 {
   QDomDocument document;
-  QFile f(pvlFilename.toAscii().data());
+  QFile f(pvlFilename.toLatin1().data());
   if (f.open(QIODevice::ReadOnly))
     {
       document.setContent(&f);
@@ -182,7 +182,7 @@ XmlHeaderFunctions::getPvlNamesFromHeader(QString pvlFilename)
   QStringList filenames;
 
   QDomDocument document;
-  QFile f(pvlFilename.toAscii().data());
+  QFile f(pvlFilename.toLatin1().data());
   if (f.open(QIODevice::ReadOnly))
     {
       document.setContent(&f);
@@ -219,7 +219,7 @@ XmlHeaderFunctions::getRawNamesFromHeader(QString pvlFilename)
   QStringList filenames;
 
   QDomDocument document;
-  QFile f(pvlFilename.toAscii().data());
+  QFile f(pvlFilename.toLatin1().data());
   if (f.open(QIODevice::ReadOnly))
     {
       document.setContent(&f);

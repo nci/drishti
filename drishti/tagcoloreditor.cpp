@@ -1,8 +1,14 @@
 #include "global.h"
+#include "staticfunctions.h"
 #include "tagcoloreditor.h"
 #include "coloreditor.h"
 #include "opacityeditor.h"
-#include "staticfunctions.h"
+
+#include <QInputDialog>
+#include <QItemEditorFactory>
+#include <QItemEditorCreatorBase>
+#include <QItemDelegate>
+#include <QVBoxLayout>
 
 TagColorEditor::TagColorEditor()
 {

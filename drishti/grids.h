@@ -1,7 +1,6 @@
 #ifndef GRIDS_H
 #define GRIDS_H
 
-#include <QtGui>
 #include "gridgrabber.h"
 
 class Grids : public QObject

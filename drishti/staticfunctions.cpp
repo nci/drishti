@@ -6,6 +6,8 @@
 #include <fstream>
 using namespace std;
 
+#include <QColorDialog>
+#include <QInputDialog>
 
 Vec
 StaticFunctions::getVec(QString str)
@@ -708,7 +710,7 @@ StaticFunctions::checkExtension(QString flnm, const char *ext)
 //  QFileInfo info(flnm);
 //  if (info.exists() && info.isFile())
     {
-      QByteArray exten = flnm.toAscii().right(extlen);
+      QByteArray exten = flnm.toLatin1().right(extlen);
       if (exten != ext)
 	ok = false;
     }
@@ -730,7 +732,7 @@ StaticFunctions::checkURLs(QList<QUrl> urls, const char *ext)
       QFileInfo info(url.toLocalFile());
       if (info.exists() && info.isFile())
 	{
-	  QByteArray exten = url.toLocalFile().toAscii().right(extlen);
+	  QByteArray exten = url.toLocalFile().toLatin1().right(extlen);
 	  if (exten != ext)
 	    {
 	      ok = false;
@@ -1427,7 +1429,7 @@ StaticFunctions::savePvlHeader(QString pvlFilename,
     topElement.appendChild(de0);
   }
   
-  QFile f(xmlfile.toAscii().data());
+  QFile f(xmlfile.toLatin1().data());
   if (f.open(QIODevice::WriteOnly))
     {
       QTextStream out(&f);

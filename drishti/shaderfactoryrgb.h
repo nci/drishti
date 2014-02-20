@@ -2,7 +2,6 @@
 #define SHADERFACTORYRGB_H
 
 #include <GL/glew.h>
-#include <QtGui>
 
 class ShaderFactoryRGB
 {

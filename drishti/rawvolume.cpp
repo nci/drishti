@@ -4,6 +4,9 @@
 #include "volumeinformation.h"
 #include "xmlheaderfunctions.h"
 
+#include <QFileDialog>
+#include <QInputDialog>
+
 QString RawVolume::m_rawFileName = "";
 int RawVolume::m_depth=0;
 int RawVolume::m_width=0;
@@ -553,7 +556,7 @@ RawVolume::extractPath(QList<Vec> points,
   if (rawFile.isEmpty())
     return;
 
-  fstream fin((char *)m_rawFileName.toAscii().data(),
+  fstream fin((char *)m_rawFileName.toLatin1().data(),
 	      ios::in|ios::binary);
 
   if (fin.fail())
@@ -584,7 +587,7 @@ RawVolume::extractPath(QList<Vec> points,
   int nY = 2*radt+1;
   int nX = 2*rads+1;
 
-  fstream fout((char *)rawFile.toAscii().data(),
+  fstream fout((char *)rawFile.toLatin1().data(),
 	      ios::out|ios::binary);
 
   fout.write((char*)&vtype, 1);
@@ -876,7 +879,7 @@ RawVolume::extractPatch(QList<Vec> points,
   if (rawFile.isEmpty())
     return;
 
-  fstream fin((char *)m_rawFileName.toAscii().data(),
+  fstream fin((char *)m_rawFileName.toLatin1().data(),
 	      ios::in|ios::binary);
 
   if (fin.fail())
@@ -912,7 +915,7 @@ RawVolume::extractPatch(QList<Vec> points,
   // go deep along the patch notmals
   int nX = godeep;
 
-  fstream fout((char *)rawFile.toAscii().data(),
+  fstream fout((char *)rawFile.toLatin1().data(),
 	      ios::out|ios::binary);
 
   fout.write((char*)&vtype, 1);

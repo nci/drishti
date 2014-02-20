@@ -1,13 +1,10 @@
-#include <QtGui>
-
-#include "volumebase.h"
 #include "global.h"
+#include "volumebase.h"
 #include "staticfunctions.h"
 #include "volumefilemanager.h"
 #include "mainwindowui.h"
 #include "xmlheaderfunctions.h"
 #include "volumeinformation.h"
-
 
 int VolumeBase::pvlVoxelType() { return m_pvlVoxelType; }
 Vec VolumeBase::getFullVolumeSize() { return m_fullVolumeSize; }

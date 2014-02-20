@@ -1,7 +1,9 @@
 #ifndef GRADIENTEDITOR_H
 #define GRADIENTEDITOR_H
 
-#include <QtGui>
+#include "commonqtclasses.h"
+
+#include <QWidget>
 
 class GradientEditor : public QWidget
 {

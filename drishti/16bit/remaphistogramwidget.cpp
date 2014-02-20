@@ -1,5 +1,6 @@
 #include "remaphistogramwidget.h"
 #include <math.h>
+#include <QMessageBox>
 
 RemapHistogramWidget::RemapHistogramWidget(QWidget *parent) :
   QWidget(parent)

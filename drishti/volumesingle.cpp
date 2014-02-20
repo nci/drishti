@@ -1,7 +1,5 @@
-#include <QtGui>
-
-#include "volumesingle.h"
 #include "global.h"
+#include "volumesingle.h"
 #include "staticfunctions.h"
 #include "rawvolume.h"
 #include "enums.h"
@@ -9,6 +7,9 @@
 #include "prunehandler.h"
 #include "mainwindowui.h"
 #include "xmlheaderfunctions.h"
+
+#include <QFileDialog>
+#include <QInputDialog>
 
 VolumeFileManager* VolumeSingle::pvlFileManager() { return &m_pvlFileManager; }
 VolumeFileManager* VolumeSingle::gradFileManager() { return &m_gradFileManager; }
@@ -146,7 +147,7 @@ VolumeSingle::loadVolume(QList<QString> vfiles, bool redo)
   VolumeInformation vInfo = volInfo(0);
   VolumeInformation::setVolumeInformation(vInfo);
   
-  bool ok = VolumeBase::loadVolume(m_volumeFiles[0].toAscii().data(),
+  bool ok = VolumeBase::loadVolume(m_volumeFiles[0].toLatin1().data(),
 				   redo);
 
   int bpv = 1;
@@ -365,7 +366,7 @@ VolumeSingle::volInfo(int vnum1)
       return pvlInfo;
     }
 
-  if (VolumeInformation::volInfo(m_volumeFiles[vnum].toAscii().data(),
+  if (VolumeInformation::volInfo(m_volumeFiles[vnum].toLatin1().data(),
 			       pvlInfo) == false)
     {
       QMessageBox::information(0, "Volume Information",

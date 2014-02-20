@@ -1,7 +1,7 @@
 #ifndef SPLINEINFORMATION_H
 #define SPLINEINFORMATION_H
 
-#include <QtGui>
+#include "commonqtclasses.h"
 #include <QDomDocument>
 
 #include <fstream>

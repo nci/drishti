@@ -3,6 +3,8 @@
 #include "staticfunctions.h"
 #include "propertyeditor.h"
 
+#include <QFileDialog>
+
 int GiLights::count() { return m_giLights.count(); }
 
 GiLights::GiLights()

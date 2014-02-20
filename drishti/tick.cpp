@@ -1,8 +1,18 @@
-#include "tick.h"
 #include "global.h"
+#include "tick.h"
 #include "volumeinformation.h"
 #include "matrix.h"
 #include "enums.h"
+
+#ifdef Q_OS_OSX
+#include <GLUT/glut.h>
+#endif
+#ifdef Q_OS_WIN
+#include <GL/glut.h>
+#endif
+#ifdef Q_OS_LINUX
+#include <GL/freeglut.h>
+#endif
 
 QString Tick::m_labelX = "Height";
 void Tick::setLabelX(QString lbl) { m_labelX = lbl; }
@@ -273,7 +283,7 @@ Tick::drawGlutText(QString str,
     return false;
 
   int width = glutStrokeLength(GLUT_STROKE_ROMAN,
-			       (unsigned char*)(str.toAscii().data()));
+			       (unsigned char*)(str.toLatin1().data()));
 
   int x = (xc0+xc1)/2;
   int y = (yc0+yc1)/2;
@@ -291,7 +301,7 @@ Tick::drawGlutText(QString str,
   glRotatef(angle, 0, 0, 1);
   glTranslatef(-width/2, 0, 0);
   for (int i = 0; i < len; i++)
-    glutStrokeCharacter(GLUT_STROKE_ROMAN, (str[i].toAscii()));
+    glutStrokeCharacter(GLUT_STROKE_ROMAN, (str[i].toLatin1()));
   glPopMatrix();
   
   return true;
@@ -300,7 +310,7 @@ Tick::drawGlutText(QString str,
 #define DRAWENDVALUE()							\
 {									\
   width = glutStrokeLength(GLUT_STROKE_ROMAN,				\
-			   (unsigned char*)(str.toAscii().data()));	\
+			   (unsigned char*)(str.toLatin1().data()));	\
   len = str.length();							\
   x += perpx*2;								\
   y += perpy*2;								\
@@ -313,7 +323,7 @@ Tick::drawGlutText(QString str,
     glRotatef(angle+flip*90, 0, 0, 1);					\
   glTranslatef(-width/2, 0, 0);						\
   for (i = 0; i < len; i++)						\
-    glutStrokeCharacter(GLUT_STROKE_ROMAN, (str[i].toAscii()));		\
+    glutStrokeCharacter(GLUT_STROKE_ROMAN, (str[i].toLatin1()));		\
   glPopMatrix();							\
 }
 

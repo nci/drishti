@@ -1,10 +1,10 @@
-#include <QtGui>
-
-#include "volumergb.h"
 #include "global.h"
+#include "volumergb.h"
 #include "staticfunctions.h"
 #include "mainwindowui.h"
 #include "xmlheaderfunctions.h"
+
+#include <QFileDialog>
 
 Vec VolumeRGB::getSubvolumeMin() { return m_dataMin; }
 Vec VolumeRGB::getSubvolumeMax() { return m_dataMax; }
@@ -356,7 +356,7 @@ VolumeRGB::volInfo(int vnum)
     }
 
 
-  if (VolumeInformation::volInfo(m_volumeFiles[vnum].toAscii().data(),
+  if (VolumeInformation::volInfo(m_volumeFiles[vnum].toLatin1().data(),
 				 pvlInfo) == false)
     {
       QMessageBox::information(0, "Volume Information",

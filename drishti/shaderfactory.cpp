@@ -8,6 +8,9 @@
 #include "global.h"
 #include "prunehandler.h"
 
+#include <QTextEdit>
+#include <QVBoxLayout>
+
 QString
 ShaderFactory::tagVolume()
 {
@@ -108,7 +111,7 @@ ShaderFactory::loadShader(GLhandleARB &progObj,
     
     int len = qstr.length();
     char *tbuffer = new char[len+1];
-    sprintf(tbuffer, qstr.toAscii().data());
+    sprintf(tbuffer, qstr.toLatin1().data());
     const char *sstr = tbuffer;
     glShaderSourceARB(vertObj, 1, &sstr, NULL);
     delete [] tbuffer;
@@ -138,7 +141,7 @@ ShaderFactory::loadShader(GLhandleARB &progObj,
   { // fragObj
     int len = shaderString.length();
     char *tbuffer = new char[len+1];
-    sprintf(tbuffer, shaderString.toAscii().data());
+    sprintf(tbuffer, shaderString.toLatin1().data());
     const char *sstr = tbuffer;
     glShaderSourceARB(fragObj, 1, &sstr, NULL);
     delete [] tbuffer;
@@ -160,7 +163,7 @@ ShaderFactory::loadShader(GLhandleARB &progObj,
 	//-----------------------------------
 	// display error
 	
-	qApp->beep();
+	//qApp->beep();
 	
 	QString estr;
 	QStringList slist = shaderString.split("\n");

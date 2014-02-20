@@ -1,7 +1,7 @@
 #ifndef COLORBAROBJECT_H
 #define COLORBAROBJECT_H
 
-#include <QtGui>
+#include "commonqtclasses.h"
 
 #include <fstream>
 using namespace std;

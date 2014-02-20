@@ -2,6 +2,7 @@
 #define VOLUMEINFORMATION_H
 
 #include <GL/glew.h>
+#include "commonqtclasses.h"
 
 #include <QGLViewer/vec.h>
 using namespace qglviewer;

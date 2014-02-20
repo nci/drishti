@@ -1,6 +1,7 @@
 #ifndef VOLUMEFILEMANAGER_H
 #define VOLUMEFILEMANAGER_H
 
+#include "commonqtclasses.h"
 #include <QStringList>
 #include <QFile>
 

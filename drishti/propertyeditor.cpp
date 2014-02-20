@@ -1,10 +1,17 @@
-#include <QtGui>
 #include "propertyeditor.h"
 #include "dcolordialog.h"
 #include "gradienteditorwidget.h"
 
 #include <QGLViewer/vec.h>
 using namespace qglviewer;
+
+#include <QMessageBox>
+#include <QComboBox>
+#include <QSpinBox>
+#include <QDoubleSpinBox>
+#include <QLabel>
+#include <QScrollArea>
+
 
 PropertyEditor::PropertyEditor(QWidget *parent) :
   QDialog(parent)

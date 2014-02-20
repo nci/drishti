@@ -1,7 +1,6 @@
 #include "glewinitialisation.h"
 
 #include <QObject>
-#include <QtGui>
 
 #include <QUdpSocket>
 

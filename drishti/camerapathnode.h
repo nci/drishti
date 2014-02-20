@@ -1,10 +1,12 @@
 #ifndef CAMERAPATHNODE_H
 #define CAMERAPATHNODE_H
 
-#include <QtGui>
 #include <QObject>
+#include <QGLViewer/manipulatedFrame.h>
 #include <QGLViewer/qglviewer.h>
 using namespace qglviewer;
+
+#include "commonqtclasses.h"
 
 class CameraPathNode : public QObject
 {

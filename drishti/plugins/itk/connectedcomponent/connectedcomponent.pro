@@ -12,7 +12,7 @@ TARGET = connectedcomponentplugin
 FORMS += ../../../propertyeditor.ui
 
 win32 {
-DESTDIR = ../../../../bin/renderplugins/ITK
+DESTDIR = ../../../../5.2.1/renderplugins/ITK
 
 INCLUDEPATH += ../../../ \
 	$$InsightToolkit\Modules\Video\Filtering\include \

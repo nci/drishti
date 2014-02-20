@@ -12,7 +12,7 @@ TARGET = edgepreservingsmoothingplugin
 FORMS += ../../../propertyeditor.ui
 
 win32 {
-DESTDIR = ../../../../bin/renderplugins/ITK/Smoothing
+DESTDIR = ../../../../5.2.1/renderplugins/ITK/Smoothing
 
 INCLUDEPATH += ../../../ \
 	$$InsightToolkit\Modules\Video\Filtering\include \

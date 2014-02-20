@@ -3,6 +3,8 @@
 #include "tearshaderfactory.h"
 #include "global.h"
 
+#include <QMessageBox>
+
 bool
 GeoShaderFactory::loadShader(GLhandleARB &progObj,
 			     QString shaderString)
@@ -33,7 +35,7 @@ GeoShaderFactory::loadShader(GLhandleARB &progObj,
 
     int len = qstr.length();
     char *tbuffer = new char[len+1];
-    sprintf(tbuffer, qstr.toAscii().data());
+    sprintf(tbuffer, qstr.toLatin1().data());
     const char *sstr = tbuffer;
     glShaderSourceARB(vertObj, 1, &sstr, NULL);
     delete [] tbuffer;
@@ -62,7 +64,7 @@ GeoShaderFactory::loadShader(GLhandleARB &progObj,
   { // fragObj
     int len = shaderString.length();
     char *tbuffer = new char[len+1];
-    sprintf(tbuffer, shaderString.toAscii().data());
+    sprintf(tbuffer, shaderString.toLatin1().data());
     const char *sstr = tbuffer;
     glShaderSourceARB(fragObj, 1, &sstr, NULL);
     delete [] tbuffer;

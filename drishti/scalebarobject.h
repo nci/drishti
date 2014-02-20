@@ -1,13 +1,13 @@
 #ifndef SCALEBAROBJECT_H
 #define SCALEBAROBJECT_H
 
-#include <QtGui>
-
 #include <QGLViewer/qglviewer.h>
 using namespace qglviewer;
 
 #include <fstream>
 using namespace std;
+
+#include "commonqtclasses.h"
 
 class ScaleBarObject
 {

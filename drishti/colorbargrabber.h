@@ -1,6 +1,7 @@
 #ifndef COLORBARGRABBER_H
 #define COLORBARGRABBER_H
 
+#include <QGLViewer/mouseGrabber.h>
 #include <QGLViewer/qglviewer.h>
 using namespace qglviewer;
 

@@ -1182,7 +1182,7 @@ MeshGenerator::savePLY(QString flnm)
 
 
   PlyFile    *ply;
-  FILE    *fp = fopen(flnm.toAscii().data(), "wb");
+  FILE    *fp = fopen(flnm.toLatin1().data(), "wb");
 
   Face     face ;
   int      verts[3] ;
@@ -1260,7 +1260,7 @@ MeshGenerator::loadPLY(QString flnm)
 
 
   /*** Read in the original PLY object ***/
-  FILE *fp = fopen(flnm.toAscii().data(), "rb");
+  FILE *fp = fopen(flnm.toLatin1().data(), "rb");
 
   in_ply  = read_ply (fp);
 

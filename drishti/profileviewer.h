@@ -1,7 +1,6 @@
 #ifndef PROFILEVIEWER_H
 #define PROFILEVIEWER_H
 
-#include <QtGui>
 #include "ui_profileviewer.h"
 
 class ProfileViewer : public QWidget

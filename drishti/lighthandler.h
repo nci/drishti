@@ -2,12 +2,10 @@
 #define LIGHTHANDLER_H
 
 #include <GL/glew.h>
-#include <QtGui>
 
 #include <QGLViewer/qglviewer.h>
 using namespace qglviewer;
 
-#include <QGLWidget>
 #include <QGLFramebufferObject>
 
 #include "gilights.h"

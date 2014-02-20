@@ -1,7 +1,6 @@
 #ifndef BLENDSHADERFACTORY_H
 #define BLENDSHADERFACTORY_H
 
-#include <QtGui>
 #include "cropobject.h"
 
 class BlendShaderFactory

@@ -14,7 +14,9 @@ FORMS += ../propertyeditor.ui
 RESOURCES = mopplugin.qrc
 
 win32 {
-DESTDIR = ../../bin/mopplugins
+DESTDIR = ../../5.2.1/mopplugins
+
+QMAKE_LIBDIR += ../plugins/common
 
 INCLUDEPATH += ../ \
 	$$InsightToolkit\Modules\Video\Filtering\include \
@@ -161,7 +163,8 @@ INCLUDEPATH += ../ \
 	$$ITK\Modules\ThirdParty\VNL\src\vxl\vcl \
 	$$ITK\Modules\ThirdParty\VNL\src\vxl\v3p\netlib
 
-LIBS += QGLViewer2.lib \
+LIBS += common.lib \
+	QGLViewer2.lib \
 	glew32.lib \
  	Advapi32.lib \
 	User32.lib \
@@ -288,7 +291,10 @@ INCLUDEPATH += ../ \
 	$$ITK/Modules/ThirdParty/MetaIO/src/MetaIO \
 	$$ITK/Modules/ThirdParty/ZLIB/src
 
-  LIBS += -lQGLViewer \
+  QMAKE_LIBDIR += ../plugins/common
+
+  LIBS += -lcommon \
+	-lQGLViewer \
         -lGLEW \
  	-lglut \
 	-lGLU
@@ -416,7 +422,9 @@ macx {
 	$$ITK/Modules/ThirdParty/MetaIO/src/MetaIO \
 	$$ITK/Modules/ThirdParty/ZLIB/src
 
-  LIBS += -lGLEW -framework QGLViewer -framework GLUT
+  LIBS += -L../plugins/common 
+
+  LIBS += -lcommon -lGLEW -framework QGLViewer -framework GLUT
 
   LIBS += -lm -lstdc++ \
         -litksys-$$ITKVer \        
@@ -500,35 +508,7 @@ macx {
 }
 
 
-HEADERS = ..\mainwindowui.h \
-	..\cropobject.h \	 
-	..\pathobject.h \	 
-	..\dcolordialog.h \
-	..\dcolorwheel.h \
-	..\propertyeditor.h \
-	..\staticfunctions.h \
-	..\volumefilemanager.h \
-	..\volumeinformation.h \
-	..\gradienteditorwidget.h \
-	..\gradienteditor.h \
-	..\classes.h \
-	..\matrix.h \
-	..\global.h \
-	itksegmentation.h \
-	itkBinaryThinningImageFilter3D.h
+HEADERS = itksegmentation.h \
+	  itkBinaryThinningImageFilter3D.h
 
-SOURCES = ..\mainwindowui.cpp \
-	..\cropobject.cpp \	 
-	..\pathobject.cpp \	 
-	..\dcolordialog.cpp \
-	..\dcolorwheel.cpp \
-	..\propertyeditor.cpp \
-	..\staticfunctions.cpp \
-	..\volumefilemanager.cpp \
-	..\volumeinformation.cpp \
-	..\gradienteditorwidget.cpp \
-	..\gradienteditor.cpp \
-	..\classes.cpp \
-	..\matrix.cpp \
-	..\global.cpp \
-	itksegmentation.cpp
+SOURCES = itksegmentation.cpp

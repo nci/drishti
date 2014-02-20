@@ -2,7 +2,7 @@
 #define PRUNESHADERFACTORY_H
 
 #include <GL/glew.h>
-#include <QtGui>
+#include "commonqtclasses.h"
 
 class PruneShaderFactory
 {

@@ -1,14 +1,20 @@
 include(version.pri)
 
+QT += widgets core gui
+
+HEADERS += commonqtclasses.h
+
 #----------------------------------------------------------------
 # Windows setup
 win32 {
   contains(DRISHTI_DEFINES, RENDERER) {
-    INCLUDEPATH += c:\Qt\include \
+    INCLUDEPATH += c:\Qt\5.2.1\include \
+	c:\Qt\libQGLViewer-2.5.1 \
 	c:\drishtilib \
 	c:\drishtilib\glew-1.5.4\include
 
-    QMAKE_LIBDIR += c:\Qt\lib \
+    QMAKE_LIBDIR += c:\Qt\5.2.1\lib \
+	c:\Qt\libQGLViewer-2.5.1\lib \
 	c:\drishtilib\GL \
 	c:\drishtilib\glew-1.5.4\lib
   }
@@ -32,6 +38,39 @@ win32 {
   }
 }
 #----------------------------------------------------------------
+
+###----------------------------------------------------------------
+### Windows setup
+##win32 {
+##  contains(DRISHTI_DEFINES, RENDERER) {
+##    INCLUDEPATH += c:\Qt\include \
+##	c:\drishtilib \
+##	c:\drishtilib\glew-1.5.4\include
+##
+##    QMAKE_LIBDIR += c:\Qt\lib \
+##	c:\drishtilib\GL \
+##	c:\drishtilib\glew-1.5.4\lib
+##  }
+##
+##  contains(DRISHTI_DEFINES, IMPORT) {
+##    INCLUDEPATH += c:\drishtilib\netcdf\include
+##    QMAKE_LIBDIR += c:\drishtilib\netcdf\lib
+##  }
+##
+##  contains(DRISHTI_DEFINES, NETCDF) {
+##     INCLUDEPATH += c:\drishtilib\netcdf\include
+##     QMAKE_LIBDIR += c:\drishtilib\netcdf\lib
+##  }
+##
+##  contains(DRISHTI_DEFINES, ITK) {
+##    ITKVer = 4.3
+##    InsightToolkit = D:\InsightToolkit-$${ITKVer}.1
+##    ITK = D:\ITK
+##
+##    QMAKE_LIBDIR += d:\ITK\lib\Release
+##  }
+##}
+###----------------------------------------------------------------
 
 #----------------------------------------------------------------
 # MacOSX setup
@@ -75,9 +114,9 @@ macx {
 Facility_Name = MassiveAtMonashUniversity
 
 contains(Facility_Name, VirtualBox) {
-  message(VirtualBox setup)
   unix {
    !macx {
+    message(VirtualBox setup)
     contains(DRISHTI_DEFINES, RENDERER) {
       QMAKE_LFLAGS += -Xlinker -rpath -Xlinker \'\$\$ORIGIN/sharedlibs\' 
       QMAKE_LFLAGS += -Xlinker -rpath -Xlinker \'\$\$ORIGIN/ITK\' 
@@ -117,9 +156,9 @@ contains(Facility_Name, VirtualBox) {
 }
 
 contains(Facility_Name, MassiveAtMonashUniversity) {
-  message(MASSIVE facility at Monash University setup)
   unix {
    !macx {
+    message(MASSIVE facility at Monash University setup)
     contains(DRISHTI_DEFINES, RENDERER) {
      INCLUDEPATH += /usr/local/libqglviewer/2.4.0/include \
                     /usr/local/glut/3.7/include \

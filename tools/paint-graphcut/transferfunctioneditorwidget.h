@@ -4,6 +4,9 @@
 #include "splineeditorwidget.h"
 #include "gradienteditorwidget.h"
 
+#include <QSplitter>
+#include <QVBoxLayout>
+
 class TransferFunctionEditorWidget : public QSplitter
 {
   Q_OBJECT

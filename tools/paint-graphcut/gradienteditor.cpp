@@ -2,6 +2,9 @@
 #include "dcolordialog.h"
 #include <QDomDocument>
 
+#include <QMessageBox>
+#include <QInputDialog>
+#include <QLineEdit>
 
 int GradientEditor::border() const { return m_border; }
 void GradientEditor::setBorder(const int border) { m_border = border; }

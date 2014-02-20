@@ -2,6 +2,11 @@
 #include "global.h"
 #include "staticfunctions.h"
 
+#include <QDockWidget>
+#include <QFileDialog>
+#include <QInputDialog>
+#include <QScrollArea>
+
 void
 DrishtiPaint::initTagColors()
 {
@@ -555,7 +560,7 @@ DrishtiPaint::setFile(QString filename)
     }
   else
     {
-      flnm = loadVolumeFromProject(filename.toAscii().data());
+      flnm = loadVolumeFromProject(filename.toLatin1().data());
 
       if (flnm.isEmpty())
 	{
@@ -599,7 +604,7 @@ DrishtiPaint::setFile(QString filename)
       
   if (StaticFunctions::checkExtension(filename, ".xml"))
     {
-      m_tfManager->load(filename.toAscii().data());
+      m_tfManager->load(filename.toLatin1().data());
       m_pvlFile = flnm;
       m_xmlFile = filename;
     }
@@ -621,7 +626,7 @@ DrishtiPaint::loadSettings()
     return;
 
   QDomDocument document;
-  QFile f(flnm.toAscii().data());
+  QFile f(flnm.toLatin1().data());
   if (f.open(QIODevice::ReadOnly))
     {
       document.setContent(&f);
@@ -716,7 +721,7 @@ DrishtiPaint::saveSettings()
   QFileInfo settingsFile(homePath, ".drishti.paint");
   QString flnm = settingsFile.absoluteFilePath();  
 
-  QFile f(flnm.toAscii().data());
+  QFile f(flnm.toLatin1().data());
   if (f.open(QIODevice::WriteOnly))
     {
       QTextStream out(&f);
@@ -724,7 +729,7 @@ DrishtiPaint::saveSettings()
       f.close();
     }
   else
-    QMessageBox::information(0, "Cannot save ", flnm.toAscii().data());
+    QMessageBox::information(0, "Cannot save ", flnm.toLatin1().data());
 }
 
 void
@@ -1351,7 +1356,7 @@ DrishtiPaint::savePvlHeader(QString volfile,
   QString rawmap;
 
   QDomDocument document;
-  QFile f(volfile.toAscii().data());
+  QFile f(volfile.toLatin1().data());
   if (f.open(QIODevice::ReadOnly))
     {
       document.setContent(&f);
@@ -1458,7 +1463,7 @@ DrishtiPaint::savePvlHeader(QString volfile,
     topElement.appendChild(de0);
   }
       
-  QFile pf(pvlfile.toAscii().data());
+  QFile pf(pvlfile.toLatin1().data());
   if (pf.open(QIODevice::WriteOnly))
     {
       QTextStream out(&pf);

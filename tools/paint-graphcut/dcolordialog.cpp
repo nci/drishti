@@ -1,4 +1,6 @@
 #include "dcolordialog.h"
+#include <QColorDialog>
+#include <QVBoxLayout>
 
 DColorDialog::DColorDialog(QColor color,
 			 QWidget *parent,

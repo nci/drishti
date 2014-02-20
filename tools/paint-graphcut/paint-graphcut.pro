@@ -7,11 +7,11 @@ RESOURCES = paint.qrc
 TARGET = 
 DEPENDPATH += .
 
-QT += xml
+QT += widgets core gui xml
 
 CONFIG += release
 
-DESTDIR = ../../bin
+DESTDIR = ../../5.2.1
 
 TARGET = drishtipaint
 
@@ -20,7 +20,8 @@ INCLUDEPATH += graphcut
 # Input
 FORMS += drishtipaint.ui
 
-HEADERS += drishtipaint.h \
+HEADERS += commonqtclasses.h \
+	drishtipaint.h \
 	bitmapthread.h \
 	dcolordialog.h \
 	dcolorwheel.h \

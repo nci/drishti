@@ -1,8 +1,6 @@
 #ifndef VOLUME_H
 #define VOLUME_H
 
-#include <QtGui>
-
 #include "volumemask.h"
 #include "volumefilemanager.h"
 #include "bitmapthread.h"

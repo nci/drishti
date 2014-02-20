@@ -1,6 +1,4 @@
-#include <QtGui>
 #include "dcolordialog.h"
-
 #include "coloreditor.h"
 
 ColorEditor::ColorEditor(QWidget *widget) : QLabel(widget)

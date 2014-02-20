@@ -2,6 +2,7 @@
 #define COLOREDITOR_H
 
 #include <QLabel>
+#include <QWidget>
 
 class QColor;
 class QWidget;

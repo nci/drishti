@@ -1,8 +1,10 @@
 #ifndef DCOLORWHEEL_H
 #define DCOLORWHEEL_H
 
+#include <QWidget>
+#include <QPushButton>
 
-#include <QtGui>
+#include "commonqtclasses.h"
 
 class DColorWheel : public QWidget
 {

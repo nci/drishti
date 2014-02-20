@@ -2,6 +2,11 @@
 #include "global.h"
 #include <QDomDocument>
 
+#include <QPushButton>
+#include <QFileDialog>
+#include <QHBoxLayout>
+#include <QHeaderView>
+
 TransferFunctionManager::TransferFunctionManager(QWidget *parent) :
   QFrame(parent)
 {
@@ -36,10 +41,10 @@ TransferFunctionManager::TransferFunctionManager(QWidget *parent) :
 
 
   m_tableWidget = new QTableWidget();
-  m_tableWidget->horizontalHeader()->setMovable(true);
-  m_tableWidget->horizontalHeader()->setClickable(true);
+  m_tableWidget->horizontalHeader()->setSectionsMovable(true);
+  m_tableWidget->horizontalHeader()->setSectionsClickable(true);
   m_tableWidget->verticalHeader()->hide();
-  m_tableWidget->horizontalHeader()->setResizeMode(QHeaderView::Fixed);
+  m_tableWidget->horizontalHeader()->setSectionResizeMode(QHeaderView::Fixed);
   m_tableWidget->setShowGrid(false);
   m_tableWidget->setAlternatingRowColors(true);
   m_tableWidget->setSelectionMode(QAbstractItemView::SingleSelection);
@@ -153,7 +158,7 @@ TransferFunctionManager::modifyTableWidget()
   for (int i=0; i<maxSets; i++)
     m_tableWidget->setColumnWidth(i+1, 20);
 
-  m_tableWidget->horizontalHeader()->setResizeMode(0, QHeaderView::Interactive);
+  m_tableWidget->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Interactive);
 }
 
 void

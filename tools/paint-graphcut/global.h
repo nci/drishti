@@ -1,7 +1,11 @@
 #ifndef GLOBAL_H
 #define GLOBAL_H
 
-#include <QtGui>
+#include "commonqtclasses.h"
+#include <QStatusBar>
+#include <QProgressBar>
+#include <QProgressDialog>
+#include <QMessageBox>
 
 class Global
 {

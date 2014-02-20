@@ -2,7 +2,8 @@
 #define DCOLORDIALOG_H
 
 #include "dcolorwheel.h"
-
+#include <QDialog>
+#include <QDialogButtonBox>
 
 class DColorDialog : public QDialog
 {

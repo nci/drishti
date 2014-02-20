@@ -1,7 +1,14 @@
 #ifndef IMAGEWIDGET_H
 #define IMAGEWIDGET_H
 
-#include <QtGui>
+#include <QWidget>
+#include "commonqtclasses.h"
+#include <QStatusBar>
+#include <QScrollBar>
+#include <QFileDialog>
+#include <QInputDialog>
+#include <QTextEdit>
+#include <QVBoxLayout>
 
 class ImageWidget : public QWidget
 {

@@ -108,7 +108,7 @@ StaticFunctions::checkExtension(QString flnm, const char *ext)
   QFileInfo info(flnm);
   if (info.exists() && info.isFile())
     {
-      QByteArray exten = flnm.toAscii().right(extlen);
+      QByteArray exten = flnm.toLatin1().right(extlen);
       if (exten != ext)
 	ok = false;
     }
@@ -130,7 +130,7 @@ StaticFunctions::checkURLs(QList<QUrl> urls, const char *ext)
       QFileInfo info(url.toLocalFile());
       if (info.exists() && info.isFile())
 	{
-	  QByteArray exten = url.toLocalFile().toAscii().right(extlen);
+	  QByteArray exten = url.toLocalFile().toLatin1().right(extlen);
 	  if (exten != ext)
 	    {
 	      ok = false;
@@ -157,7 +157,7 @@ StaticFunctions::checkRGB(QString volfile)
     }
 
   QDomDocument document;
-  QFile f(volfile.toAscii().data());
+  QFile f(volfile.toLatin1().data());
   if (f.open(QIODevice::ReadOnly))
     {
       document.setContent(&f);
@@ -190,7 +190,7 @@ StaticFunctions::checkRGBA(QString volfile)
     }
 
   QDomDocument document;
-  QFile f(volfile.toAscii().data());
+  QFile f(volfile.toLatin1().data());
   if (f.open(QIODevice::ReadOnly))
     {
       document.setContent(&f);
@@ -272,7 +272,7 @@ StaticFunctions::getDimensionsFromHeader(QString pvlFilename,
 					 int &d, int &w, int &h)
 {
   QDomDocument document;
-  QFile f(pvlFilename.toAscii().data());
+  QFile f(pvlFilename.toLatin1().data());
   if (f.open(QIODevice::ReadOnly))
     {
       document.setContent(&f);
@@ -298,7 +298,7 @@ int
 StaticFunctions::getSlabsizeFromHeader(QString pvlFilename)
 {
   QDomDocument document;
-  QFile f(pvlFilename.toAscii().data());
+  QFile f(pvlFilename.toLatin1().data());
   if (f.open(QIODevice::ReadOnly))
     {
       document.setContent(&f);
@@ -319,7 +319,7 @@ int
 StaticFunctions::getPvlHeadersizeFromHeader(QString pvlFilename)
 {
   QDomDocument document;
-  QFile f(pvlFilename.toAscii().data());
+  QFile f(pvlFilename.toLatin1().data());
   if (f.open(QIODevice::ReadOnly))
     {
       document.setContent(&f);
@@ -342,7 +342,7 @@ int
 StaticFunctions::getRawHeadersizeFromHeader(QString pvlFilename)
 {
   QDomDocument document;
-  QFile f(pvlFilename.toAscii().data());
+  QFile f(pvlFilename.toLatin1().data());
   if (f.open(QIODevice::ReadOnly))
     {
       document.setContent(&f);
@@ -367,7 +367,7 @@ StaticFunctions::getPvlNamesFromHeader(QString pvlFilename)
   QStringList filenames;
 
   QDomDocument document;
-  QFile f(pvlFilename.toAscii().data());
+  QFile f(pvlFilename.toLatin1().data());
   if (f.open(QIODevice::ReadOnly))
     {
       document.setContent(&f);
@@ -404,7 +404,7 @@ StaticFunctions::getRawNamesFromHeader(QString pvlFilename)
   QStringList filenames;
 
   QDomDocument document;
-  QFile f(pvlFilename.toAscii().data());
+  QFile f(pvlFilename.toLatin1().data());
   if (f.open(QIODevice::ReadOnly))
     {
       document.setContent(&f);

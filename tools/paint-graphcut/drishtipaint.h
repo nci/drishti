@@ -1,7 +1,6 @@
 #ifndef DRISHTIPAINT_H
 #define DRISHTIPAINT_H
 
-#include <QtGui>
 #include "ui_drishtipaint.h"
 
 #include "tagcoloreditor.h"

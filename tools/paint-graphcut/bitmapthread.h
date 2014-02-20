@@ -1,7 +1,6 @@
 #ifndef BITMAPTHREAD_H
 #define BITMAPTHREAD_H
 
-#include <QtGui>
 #include <QMutex>
 #include <QThread>
 #include <QWaitCondition>

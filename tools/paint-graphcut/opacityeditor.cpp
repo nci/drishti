@@ -1,5 +1,3 @@
-#include <QtGui>
-
 #include "opacityeditor.h"
 
 OpacityEditor::OpacityEditor(QWidget *widget) : QDoubleSpinBox(widget)

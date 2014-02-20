@@ -1,9 +1,11 @@
 #ifndef SPLINEEDITORWIDGET_H
 #define SPLINEEDITORWIDGET_H
 
-#include <QtGui>
-
 #include "splineeditor.h"
+
+#include <QRadioButton>
+#include <QLineEdit>
+#include <QSlider>
 
 class SplineEditorWidget : public QWidget
 {

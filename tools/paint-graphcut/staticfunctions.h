@@ -1,7 +1,12 @@
 #ifndef STATICFUNCTIONS_H
 #define STATICFUNCTIONS_H
 
-#include <QtGui>
+#include "commonqtclasses.h"
+
+#include <QProgressDialog>
+#include <QColorDialog>
+#include <QInputDialog>
+#include <QMessageBox>
 #include <QDomDocument>
 
 #define DEG2RAD(angle) angle*3.1415926535897931/180.0

@@ -145,7 +145,7 @@ VolumeMask::checkMaskFile()
       QString pvlfile = m_maskfile;
       //pvlfile.chop(4);
       pvlfile += ".pvl.nc";
-      QFile pf(pvlfile.toAscii().data());
+      QFile pf(pvlfile.toLatin1().data());
       if (pf.open(QIODevice::WriteOnly))
 	{
 	  QTextStream out(&pf);

@@ -7,6 +7,9 @@
 #include <QDomDocument>
 #include <QTextStream>
 #include <QFile>
+#include <QButtonGroup>
+#include <QHBoxLayout>
+#include <QVBoxLayout>
 
 SplineEditorWidget::SplineEditorWidget(QWidget *parent) :
   QWidget(parent)

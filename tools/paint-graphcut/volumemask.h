@@ -1,8 +1,6 @@
 #ifndef VOLUMEMASK_H
 #define VOLUMEMASK_H
 
-#include <QtGui>
-
 #include "volumefilemanager.h"
 
 class VolumeMask : public QObject

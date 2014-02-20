@@ -5,6 +5,13 @@
 #include "staticfunctions.h"
 #include <QTime>
 
+#include <QInputDialog>
+#include <QItemEditorFactory>
+#include <QItemEditorCreatorBase>
+#include <QItemDelegate>
+#include <QVBoxLayout>
+#include <QHeaderView>
+
 TagColorEditor::TagColorEditor()
 {
   createGUI();

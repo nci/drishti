@@ -1,7 +1,8 @@
 #ifndef MYSLIDER_H
 #define MYSLIDER_H
 
-#include <QtGui>
+#include <QWidget>
+#include "commonqtclasses.h"
 
 class MySlider : public QWidget
 {

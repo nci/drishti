@@ -1,7 +1,14 @@
 #ifndef REMAPIMAGE_H
 #define REMAPIMAGE_H
 
-#include <QtGui>
+#include <QWidget>
+#include "commonqtclasses.h"
+#include <QStatusBar>
+#include <QScrollBar>
+#include <QFileDialog>
+#include <QInputDialog>
+#include <QTextEdit>
+#include <QVBoxLayout>
 
 class RemapImage : public QWidget
 {

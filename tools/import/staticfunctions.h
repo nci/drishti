@@ -1,7 +1,11 @@
 #ifndef STATICFUNCTIONS_H
 #define STATICFUNCTIONS_H
 
-#include <QtGui>
+#include "commonqtclasses.h"
+#include <QProgressDialog>
+#include <QColorDialog>
+#include <QInputDialog>
+#include <QMessageBox>
 
 class StaticFunctions 
 {

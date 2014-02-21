@@ -1,7 +1,7 @@
 #ifndef DRISHTIIMPORT
 #define DRISHTIIMPORT
 
-#include <QtGui>
+#include "commonqtclasses.h"
 #include "ui_drishtiimport.h"
 
 class RemapWidget;

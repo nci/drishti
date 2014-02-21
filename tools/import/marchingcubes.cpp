@@ -14,7 +14,6 @@
 #pragma implementation
 #endif // WIN32
 
-#include <QtGui>
 
 #include <math.h>
 #include <time.h>

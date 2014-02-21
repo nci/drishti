@@ -30,8 +30,7 @@ FORMS += mainwindow.ui \
 
 TEMPLATE = app
 
-#DESTDIR = ../bin
-DESTDIR = ../5.2.1
+DESTDIR = ../bin
 
 TARGET = drishti
 DEPENDPATH += .

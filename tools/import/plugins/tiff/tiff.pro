@@ -10,6 +10,8 @@ TARGET = tiffplugin
 include(../plugins.pri)
 
 win32 {
+  DEFINES += Z_PREFIX
+  
   INCLUDEPATH += ./ ../../
 
   SOURCES = tiffplugin.cpp \

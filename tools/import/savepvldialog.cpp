@@ -1,5 +1,4 @@
 #include "savepvldialog.h"
-#include <QtGui>
 
 SavePvlDialog::SavePvlDialog(QWidget *parent) :
   QDialog(parent)

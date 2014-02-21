@@ -1,7 +1,8 @@
 #ifndef REMAPHISTOGRAMLINE_H
 #define REMAPHISTOGRAMLINE_H
 
-#include <QtGui>
+#include "commonqtclasses.h"
+#include <QMessageBox>
 
 class RemapHistogramLine : public QObject
 {

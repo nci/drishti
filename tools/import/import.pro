@@ -7,7 +7,7 @@ RESOURCES = import.qrc
 
 DEPENDPATH += .
 
-QT += xml
+QT += widgets core gui xml
 
 CONFIG += release
 

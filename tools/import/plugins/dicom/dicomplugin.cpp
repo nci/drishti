@@ -120,7 +120,7 @@ DicomPlugin::setFile(QStringList files)
       nameGenerator->SetUseSeriesDetails( true );
       //nameGenerator->AddSeriesRestriction("0008|0021" );
 
-      nameGenerator->SetDirectory(m_fileName[0].toAscii().data() );
+      nameGenerator->SetDirectory(m_fileName[0].toLatin1().data() );
 
       typedef std::vector< std::string >    SeriesIdContainer;      
       const SeriesIdContainer & seriesUID = nameGenerator->GetSeriesUIDs();
@@ -499,7 +499,3 @@ DicomPlugin::saveTrimmed(QString trimFile,
 
   m_headerBytes = 13; // to be used for applyMapping function
 }
-
-//-------------------------------
-//-------------------------------
-Q_EXPORT_PLUGIN2(magickplugin, DicomPlugin);

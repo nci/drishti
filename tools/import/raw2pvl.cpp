@@ -16,7 +16,7 @@
 #include "volumefilemanager.h"
 #include "marchingcubes.h"
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 #include <float.h>
 #define ISNAN(v) _isnan(v)
 #else
@@ -1467,7 +1467,7 @@ Raw2Pvl::savePvlHeader(QString pvlFilename,
     topElement.appendChild(de0);
   }
   
-  QFile f(xmlfile.toAscii().data());
+  QFile f(xmlfile.toLatin1().data());
   if (f.open(QIODevice::WriteOnly))
     {
       QTextStream out(&f);
@@ -1879,7 +1879,7 @@ Raw2Pvl::Old2New(QString oldflnm, QString direc)
 {
   NcError err(NcError::verbose_nonfatal);
 
-  NcFile pvlFile(oldflnm.toAscii().data(), NcFile::ReadOnly);
+  NcFile pvlFile(oldflnm.toLatin1().data(), NcFile::ReadOnly);
 
   if (!pvlFile.is_valid())
     {
@@ -2354,7 +2354,7 @@ Raw2Pvl::saveIsosurface(VolumeData* volData,
 					      0,
 					      QFileDialog::DontUseNativeDialog);
   if (flnm.size() != 0)
-    mc.writePLY(flnm.toAscii().data(), true); // write binary .ply file
+    mc.writePLY(flnm.toLatin1().data(), true); // write binary .ply file
   //----------------------------
 
   mc.clean_all() ;

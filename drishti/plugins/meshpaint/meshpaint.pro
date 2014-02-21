@@ -16,7 +16,7 @@ TARGET = meshpaintplugin
 FORMS += ../../propertyeditor.ui
 
 win32 {
-  DESTDIR = ../../../5.2.1/renderplugins
+  DESTDIR = ../../../bin/renderplugins
 
   INCLUDEPATH += ../../ ..\..\..\glmedia
 

@@ -12,7 +12,7 @@ TARGET = smoothingplugin
 FORMS += ../../../propertyeditor.ui
 
 win32 {
-DESTDIR = ../../../../5.2.1/renderplugins/ITK/Smoothing
+DESTDIR = ../../../../bin/renderplugins/ITK/Smoothing
 
 INCLUDEPATH += ../../../ \
 	$$InsightToolkit\Modules\Video\Filtering\include \

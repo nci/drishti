@@ -99,7 +99,7 @@ NcPlugin::listAllVariables()
 
   NcError err(NcError::verbose_nonfatal);
 
-  NcFile dataFile((char*)m_fileName[0].toAscii().data(),
+  NcFile dataFile((char*)m_fileName[0].toLatin1().data(),
 		  NcFile::ReadOnly);
 
   if (!dataFile.is_valid())
@@ -136,7 +136,7 @@ NcPlugin::listAllAttributes()
 
   NcError err(NcError::verbose_nonfatal);
 
-  NcFile dataFile((char*)m_fileName[0].toAscii().data(),
+  NcFile dataFile((char*)m_fileName[0].toLatin1().data(),
 		  NcFile::ReadOnly);
 
   if (!dataFile.is_valid())
@@ -216,7 +216,7 @@ NcPlugin::setFile(QStringList files)
 
   NcError err(NcError::verbose_nonfatal);
 
-  NcFile dataFile((char*)m_fileName[0].toAscii().data(),
+  NcFile dataFile((char*)m_fileName[0].toLatin1().data(),
 		  NcFile::ReadOnly);
 
   if (!dataFile.is_valid())
@@ -232,7 +232,7 @@ NcPlugin::setFile(QStringList files)
   for(uint i=0; i<allVars.size(); i++)
     {
       NcVar *ncvar;
-      ncvar = dataFile.get_var((char *)allVars[i].toAscii().data());
+      ncvar = dataFile.get_var((char *)allVars[i].toLatin1().data());
       if (ncvar->num_dims() == 3)
 	varNames.append(allVars[i]);
     }
@@ -269,7 +269,7 @@ NcPlugin::setFile(QStringList files)
   //---------------------------------------------------------
 
   NcVar *ncvar;
-  ncvar = dataFile.get_var((char *)m_varName.toAscii().data());
+  ncvar = dataFile.get_var((char *)m_varName.toLatin1().data());
 
   m_voxelType = _UChar;
   switch (ncvar->type())
@@ -335,7 +335,7 @@ NcPlugin::setFile(QStringList files)
       m_depthList.clear();
       for(uint i=0; i<m_fileName.size(); i++)
 	{
-	  NcFile ncfile((char*)m_fileName[i].toAscii().data(),
+	  NcFile ncfile((char*)m_fileName[i].toLatin1().data(),
 			NcFile::ReadOnly);
 	  
 	  if (!ncfile.is_valid())
@@ -346,7 +346,7 @@ NcPlugin::setFile(QStringList files)
 	      return false;
 	    }
 	  NcVar *ncvar;
-	  ncvar = ncfile.get_var((char *)m_varName.toAscii().data());
+	  ncvar = ncfile.get_var((char *)m_varName.toLatin1().data());
 	  m_depth += ncvar->get_dim(0)->size();
 	  m_depthList.append(m_depth);
 	  ncfile.close();
@@ -440,11 +440,11 @@ NcPlugin::findMinMaxandGenerateHistogram()
     {
       progress.setLabelText(m_fileName[nf]);
 
-      NcFile dataFile((char *)m_fileName[nf].toAscii().data(),
+      NcFile dataFile((char *)m_fileName[nf].toLatin1().data(),
 		      NcFile::ReadOnly);
 
       NcVar *ncvar;
-      ncvar = dataFile.get_var((char *)m_varName.toAscii().data());
+      ncvar = dataFile.get_var((char *)m_varName.toLatin1().data());
       
       int iEnd = ncvar->get_dim(0)->size();
       for(uint i=0; i<iEnd; i++)
@@ -548,11 +548,11 @@ NcPlugin::findMinMax()
   for(uint nf=0; nf<nfls; nf++)
   //for(uint nf=0; nf<m_fileName.size(); nf++)
     {
-      NcFile dataFile((char *)m_fileName[nf].toAscii().data(),
+      NcFile dataFile((char *)m_fileName[nf].toLatin1().data(),
 		      NcFile::ReadOnly);
 
       NcVar *ncvar;
-      ncvar = dataFile.get_var((char *)m_varName.toAscii().data());
+      ncvar = dataFile.get_var((char *)m_varName.toLatin1().data());
 
       int iEnd = ncvar->get_dim(0)->size();
       for(uint i=0; i<iEnd; i++)
@@ -664,11 +664,11 @@ NcPlugin::generateHistogram()
   for(uint nf=0; nf<nfls; nf++)
   //for(uint nf=0; nf<m_fileName.size(); nf++)
     {
-      NcFile dataFile((char *)m_fileName[nf].toAscii().data(),
+      NcFile dataFile((char *)m_fileName[nf].toLatin1().data(),
 		      NcFile::ReadOnly);
 
       NcVar *ncvar;
-      ncvar = dataFile.get_var((char *)m_varName.toAscii().data());
+      ncvar = dataFile.get_var((char *)m_varName.toLatin1().data());
       
       int iEnd = ncvar->get_dim(0)->size();
       for(uint i=0; i<iEnd; i++)
@@ -759,10 +759,10 @@ NcPlugin::getDepthSlice(int slc,
 	}
     }
 
-  NcFile dataFile((char *)m_fileName[nf].toAscii().data(),
+  NcFile dataFile((char *)m_fileName[nf].toLatin1().data(),
 		  NcFile::ReadOnly);
   NcVar *ncvar;
-  ncvar = dataFile.get_var((char *)m_varName.toAscii().data());
+  ncvar = dataFile.get_var((char *)m_varName.toLatin1().data());
   ncvar->set_cur(slcno, 0, 0);
   if (ncvar->type() == ncByte || ncvar->type() == ncChar)
     ncvar->get((ncbyte*)slice, 1, m_width, m_height);
@@ -785,10 +785,10 @@ NcPlugin::getWidthSlice(int slc,
 
   for(uint nf=0; nf<m_fileName.size(); nf++)
     {
-      NcFile dataFile((char *)m_fileName[nf].toAscii().data(),
+      NcFile dataFile((char *)m_fileName[nf].toLatin1().data(),
 		      NcFile::ReadOnly);
       NcVar *ncvar;
-      ncvar = dataFile.get_var((char *)m_varName.toAscii().data());
+      ncvar = dataFile.get_var((char *)m_varName.toLatin1().data());
       ncvar->set_cur(0, slc, 0);
 
       int depth;
@@ -826,10 +826,10 @@ NcPlugin::getHeightSlice(int slc,
 
   for(uint nf=0; nf < m_fileName.size(); nf++)
     {
-      NcFile dataFile((char *)m_fileName[nf].toAscii().data(),
+      NcFile dataFile((char *)m_fileName[nf].toLatin1().data(),
 		      NcFile::ReadOnly);
       NcVar *ncvar;
-      ncvar = dataFile.get_var((char *)m_varName.toAscii().data());
+      ncvar = dataFile.get_var((char *)m_varName.toLatin1().data());
       ncvar->set_cur(0, 0, slc);
       
       int depth;
@@ -892,10 +892,10 @@ NcPlugin::rawValue(int d, int w, int h)
 
 
   NcError err(NcError::verbose_nonfatal);
-  NcFile dataFile((char *)m_fileName[nf].toAscii().data(),
+  NcFile dataFile((char *)m_fileName[nf].toLatin1().data(),
 		  NcFile::ReadOnly);
   NcVar *ncvar;
-  ncvar = dataFile.get_var((char *)m_varName.toAscii().data());
+  ncvar = dataFile.get_var((char *)m_varName.toLatin1().data());
   ncvar->set_cur(slcno, w, h);
 
   if (m_voxelType == _UChar)
@@ -1015,10 +1015,10 @@ NcPlugin::saveTrimmed(QString trimFile,
   uint nslc = 0;
   for(uint nf=nfStart; nf<=nfEnd; nf++)
     {
-      NcFile dataFile((char *)m_fileName[nf].toAscii().data(),
+      NcFile dataFile((char *)m_fileName[nf].toLatin1().data(),
 		      NcFile::ReadOnly);
       NcVar *ncvar;
-      ncvar = dataFile.get_var((char *)m_varName.toAscii().data());
+      ncvar = dataFile.get_var((char *)m_varName.toLatin1().data());
 
       uint dStart, dEnd;
       dStart = 0;
@@ -1061,6 +1061,3 @@ NcPlugin::saveTrimmed(QString trimFile,
 
   m_headerBytes = 13; // to be used in applyMapping
 }
-//-------------------------------
-//-------------------------------
-Q_EXPORT_PLUGIN2(ncplugin, NcPlugin);

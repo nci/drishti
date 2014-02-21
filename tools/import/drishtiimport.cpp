@@ -332,7 +332,7 @@ DrishtiImport::loadSettings()
     return;
 
   QDomDocument document;
-  QFile f(flnm.toAscii().data());
+  QFile f(flnm.toLatin1().data());
   if (f.open(QIODevice::ReadOnly))
     {
       document.setContent(&f);
@@ -372,7 +372,7 @@ DrishtiImport::saveSettings()
   QFileInfo settingsFile(homePath, ".drishti.import");
   QString flnm = settingsFile.absoluteFilePath();  
 
-  QFile f(flnm.toAscii().data());
+  QFile f(flnm.toLatin1().data());
   if (f.open(QIODevice::WriteOnly))
     {
       QTextStream out(&f);
@@ -380,7 +380,7 @@ DrishtiImport::saveSettings()
       f.close();
     }
   else
-    QMessageBox::information(0, "Cannot save ", flnm.toAscii().data());
+    QMessageBox::information(0, "Cannot save ", flnm.toLatin1().data());
 }
 
 void

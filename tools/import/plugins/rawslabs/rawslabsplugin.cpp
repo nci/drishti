@@ -814,8 +814,3 @@ RawSlabsPlugin::saveTrimmed(QString trimFile,
   QMessageBox::information(0, "", "not implemented");
   return;
 }
-
-
-//-------------------------------
-//-------------------------------
-Q_EXPORT_PLUGIN2(rawslabsplugin, RawSlabsPlugin);

@@ -1,7 +1,6 @@
 #ifndef RAW2PVL_H
 #define RAW2PVL_H
 
-#include <QtGui>
 #include "volumedata.h"
 
 class Raw2Pvl

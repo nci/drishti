@@ -3,6 +3,8 @@
 
 #include "ui_savepvldialog.h"
 
+#include "commonqtclasses.h"
+
 class SavePvlDialog : public QDialog
 {
   Q_OBJECT

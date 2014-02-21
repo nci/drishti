@@ -1,5 +1,6 @@
 #include "volumefilemanager.h"
 #include <QtGui>
+#include <QProgressDialog>
 
 VolumeFileManager::VolumeFileManager()
 {

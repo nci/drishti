@@ -112,7 +112,7 @@ NrrdPlugin::readSlice(int idx[3], int sz[3],
 
   typedef itk::ImageFileReader<ImageType> ReaderType;
   ReaderType::Pointer reader = ReaderType::New();
-  reader->SetFileName(m_fileName[0].toAscii().data());
+  reader->SetFileName(m_fileName[0].toLatin1().data());
   typedef itk::NrrdImageIO NrrdIOType;
   NrrdIOType::Pointer nrrdIO = NrrdIOType::New();
   reader->SetImageIO(nrrdIO);
@@ -149,7 +149,7 @@ NrrdPlugin::setFile(QStringList files)
   typedef itk::Image<unsigned char, 3> ImageType;
   typedef itk::ImageFileReader<ImageType> ReaderType;
   ReaderType::Pointer reader = ReaderType::New();
-  reader->SetFileName(m_fileName[0].toAscii().data());
+  reader->SetFileName(m_fileName[0].toLatin1().data());
 
   typedef itk::NrrdImageIO NrrdIOType;
   NrrdIOType::Pointer nrrdIO = NrrdIOType::New();
@@ -803,7 +803,3 @@ NrrdPlugin::saveTrimmed(QString trimFile,
 
   m_headerBytes = 13; // to be used for applyMapping function
 }
-
-//-------------------------------
-//-------------------------------
-Q_EXPORT_PLUGIN2(nrrdplugin, NrrdPlugin);

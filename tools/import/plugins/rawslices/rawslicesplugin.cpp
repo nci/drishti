@@ -133,7 +133,7 @@ RawSlicesPlugin::setFile(QStringList files)
 
   // --- load various parameters from the raw file ---
   LoadRawDialog loadRawDialog(0,
-			      (char *)m_imageList[0].toAscii().data());
+			      (char *)m_imageList[0].toLatin1().data());
   loadRawDialog.exec();
   if (loadRawDialog.result() == QDialog::Rejected)
     return false;
@@ -693,7 +693,3 @@ RawSlicesPlugin::saveTrimmed(QString trimFile,
 
   m_headerBytes = 13; // to be used for applyMapping function
 }
-
-//-------------------------------
-//-------------------------------
-Q_EXPORT_PLUGIN2(rawslicesplugin, RawSlicesPlugin);

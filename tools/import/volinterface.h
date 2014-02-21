@@ -2,6 +2,13 @@
 #define VOLINTERFACE_H
 
 #include <QtCore>
+#include "commonqtclasses.h"
+#include <QStatusBar>
+#include <QProgressBar>
+#include <QProgressDialog>
+#include <QMessageBox>
+#include <QInputDialog>
+#include <QFileDialog>
 
 class VolInterface
 {
@@ -53,9 +60,7 @@ class VolInterface
 
 };
 
-QT_BEGIN_NAMESPACE
 Q_DECLARE_INTERFACE(VolInterface,
 		    "drishti.import.Plugin.VolInterface/1.0");
-QT_END_NAMESPACE
 
 #endif

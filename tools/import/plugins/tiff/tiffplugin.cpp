@@ -125,7 +125,7 @@ TiffPlugin::setImageFiles(QStringList files)
   m_depth = m_imageList.size();
 
   TIFF *image;
-  image = TIFFOpen((char*)m_imageList[0].toAscii().data(), "r");
+  image = TIFFOpen((char*)m_imageList[0].toLatin1().data(), "r");
   TIFFGetField(image, TIFFTAG_IMAGEWIDTH, &m_width);
   TIFFGetField(image, TIFFTAG_IMAGELENGTH, &m_height);
 
@@ -265,7 +265,7 @@ void
 TiffPlugin::loadTiffImage(int i, uchar* tmp)
 {
   TIFF *image;
-  image = TIFFOpen((char*)m_imageList[i].toAscii().data(), "r");
+  image = TIFFOpen((char*)m_imageList[i].toLatin1().data(), "r");
 
   uint16 photo, bps, spp, fillorder;
   uint32 width;
@@ -854,7 +854,3 @@ TiffPlugin::saveTrimmed(QString trimFile,
 
   m_headerBytes = 13; // to be used for applyMapping function
 }
-
-//-------------------------------
-//-------------------------------
-Q_EXPORT_PLUGIN2(tiffplugin, TiffPlugin);

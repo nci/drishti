@@ -7,6 +7,7 @@
 #include "remapimage.h"
 #include "gradienteditorwidget.h"
 #include "myslider.h"
+#include <QScrollArea>
 
 class RemapWidget : public QWidget
 {

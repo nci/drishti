@@ -1,3 +1,5 @@
+QT += widgets core gui
+
 win32 {
   DESTDIR = ../../../../bin/importplugins
 }

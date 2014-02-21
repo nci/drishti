@@ -17,6 +17,13 @@
 #pragma interface
 #endif // WIN32
 
+#include "commonqtclasses.h"
+#include <QTextEdit>
+#include <QInputDialog>
+#include <QFileDialog>
+#include <QProgressDialog>
+#include <QMessageBox>
+
 
 //_____________________________________________________________________________
 // types

@@ -1,7 +1,9 @@
 #ifndef VOLUMEFILEMANAGER_H
 #define VOLUMEFILEMANAGER_H
 
+#include "commonqtclasses.h"
 #include <QFile>
+#include <QProgressDialog>
 
 class VolumeFileManager
 {

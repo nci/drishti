@@ -1,7 +1,5 @@
-#include <QtGui>
 #include "common.h"
 #include "volumedata.h"
-
 
 VolumeData::VolumeData()
 {

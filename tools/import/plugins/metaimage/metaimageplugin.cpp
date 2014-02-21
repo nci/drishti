@@ -106,7 +106,7 @@ MetaImagePlugin::setFile(QStringList files)
 {
   m_fileName = files;
 
-  MetaImage metaImageReader(m_fileName[0].toAscii().data());
+  MetaImage metaImageReader(m_fileName[0].toLatin1().data());
   int *dims;
   dims = (int*)metaImageReader.DimSize();
   m_height = dims[0];
@@ -225,7 +225,7 @@ MetaImagePlugin::findMinMaxandGenerateHistogram()
   int nbytes = nY*nZ*m_bytesPerVoxel;
   uchar *tmp = new uchar[nbytes];
 
-  MetaImage metaImageReader(m_fileName[0].toAscii().data());
+  MetaImage metaImageReader(m_fileName[0].toLatin1().data());
   int mind[3];
   int maxd[3];
   mind[0] = mind[1] = mind[2] = 0;
@@ -316,7 +316,7 @@ MetaImagePlugin::findMinMax()
   int nbytes = nY*nZ*m_bytesPerVoxel;
   uchar *tmp = new uchar[nbytes];
 
-  MetaImage metaImageReader(m_fileName[0].toAscii().data());
+  MetaImage metaImageReader(m_fileName[0].toLatin1().data());
   int mind[3];
   int maxd[3];
   mind[0] = mind[1] = mind[2] = 0;
@@ -420,7 +420,7 @@ MetaImagePlugin::generateHistogram()
 
   int histogramSize = m_histogram.size()-1;
 
-  MetaImage metaImageReader(m_fileName[0].toAscii().data());
+  MetaImage metaImageReader(m_fileName[0].toLatin1().data());
   int mind[3];
   int maxd[3];
   mind[0] = mind[1] = mind[2] = 0;
@@ -494,7 +494,7 @@ MetaImagePlugin::getDepthSlice(int slc,
       return;
     }
 
-  MetaImage metaImageReader(m_fileName[0].toAscii().data());
+  MetaImage metaImageReader(m_fileName[0].toLatin1().data());
   int mind[3];
   int maxd[3];
   mind[0] = 0;
@@ -517,7 +517,7 @@ MetaImagePlugin::getWidthSlice(int slc,
       return;
     }
 
-  MetaImage metaImageReader(m_fileName[0].toAscii().data());
+  MetaImage metaImageReader(m_fileName[0].toLatin1().data());
   int mind[3];
   int maxd[3];
   mind[0] = 0;
@@ -540,7 +540,7 @@ MetaImagePlugin::getHeightSlice(int slc,
       return;
     }
 
-  MetaImage metaImageReader(m_fileName[0].toAscii().data());
+  MetaImage metaImageReader(m_fileName[0].toLatin1().data());
   int mind[3];
   int maxd[3];
   mind[0] = slc;
@@ -565,7 +565,7 @@ MetaImagePlugin::rawValue(int d, int w, int h)
       return v;
     }
 
-  MetaImage metaImageReader(m_fileName[0].toAscii().data());
+  MetaImage metaImageReader(m_fileName[0].toLatin1().data());
   int mind[3];
   int maxd[3];
   mind[0] = h;
@@ -656,7 +656,7 @@ MetaImagePlugin::saveTrimmed(QString trimFile,
   fout.write((char*)&mY, 4);
   fout.write((char*)&mZ, 4);
 
-  MetaImage metaImageReader(m_fileName[0].toAscii().data());
+  MetaImage metaImageReader(m_fileName[0].toLatin1().data());
   int mind[3];
   int maxd[3];
   mind[0] = hmin;
@@ -680,7 +680,3 @@ MetaImagePlugin::saveTrimmed(QString trimFile,
 
   m_headerBytes = 13; // to be used for applyMapping function
 }
-
-//-------------------------------
-//-------------------------------
-Q_EXPORT_PLUGIN2(metaimageplugin, MetaImagePlugin);

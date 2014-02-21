@@ -452,7 +452,7 @@ ImageStackPlugin::savePvlHeader(QString pvlFilename,
     topElement.appendChild(de0);
   }  
   
-  QFile f(xmlfile.toAscii().data());
+  QFile f(xmlfile.toLatin1().data());
   if (f.open(QIODevice::WriteOnly))
     {
       QTextStream out(&f);
@@ -641,7 +641,3 @@ ImageStackPlugin::saveTrimmedRGB(QString trimFile,
 
   progress.setValue(100);
 }
-
-//-------------------------------
-//-------------------------------
-Q_EXPORT_PLUGIN2(imagestackplugin, ImageStackPlugin);

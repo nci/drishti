@@ -14,6 +14,7 @@
 class DicomPlugin : public QObject, VolInterface
 {
   Q_OBJECT
+  Q_PLUGIN_METADATA(IID "drishti.import.Plugin.VolInterface/1.0")
   Q_INTERFACES(VolInterface)
 
  public :

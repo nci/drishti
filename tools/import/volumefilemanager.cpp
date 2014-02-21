@@ -1,5 +1,4 @@
 #include "volumefilemanager.h"
-#include <QtGui>
 
 VolumeFileManager::VolumeFileManager()
 {

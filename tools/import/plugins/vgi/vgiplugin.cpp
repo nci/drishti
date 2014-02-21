@@ -139,7 +139,7 @@ VgiPlugin::setFile(QStringList files)
 	gotfile1 = true;      
       
       words[0] = words[0].simplified();
-      if (gotfile1)
+      if (gotfile1 && words.count() > 1)
 	{	  
 	  words[1] = words[1].simplified();
 	  if (words[0] == "size")
@@ -153,7 +153,7 @@ VgiPlugin::setFile(QStringList files)
 	    }
 	  else if (words[0] == "datatype")
 	    {
-	      vtp = words[1];
+	      vtp = words[1].toLower();
 	    }
 	  else if (words[0] == "bitsperelement")
 	    {
@@ -210,7 +210,7 @@ VgiPlugin::setFile(QStringList files)
 	break;
     }
   file.close();
-
+      
   m_skipBytes = 0;
   m_headerBytes = m_skipBytes;
   //------------------------------
@@ -785,7 +785,7 @@ VgiPlugin::checkExtension(QString flnm, const char *ext)
   QFileInfo info(flnm);
   if (info.exists() && info.isFile())
     {
-      QByteArray exten = flnm.toAscii().right(extlen);
+      QByteArray exten = flnm.toLatin1().right(extlen);
       if (exten != ext)
 	ok = false;
     }
@@ -824,7 +824,3 @@ VgiPlugin::swapbytes(uchar *ptr, int bpv, int nbytes)
     }
 
 }
-
-//-------------------------------
-//-------------------------------
-Q_EXPORT_PLUGIN2(vgiplugin, VgiPlugin);

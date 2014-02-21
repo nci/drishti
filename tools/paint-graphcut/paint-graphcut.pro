@@ -11,7 +11,7 @@ QT += widgets core gui xml
 
 CONFIG += release
 
-DESTDIR = ../../5.2.1
+DESTDIR = ../../bin
 
 TARGET = drishtipaint
 

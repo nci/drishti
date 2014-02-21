@@ -1,4 +1,3 @@
-#include <QtGui>
 #include "common.h"
 #include "analyzeplugin.h"
 
@@ -787,7 +786,7 @@ AnalyzePlugin::checkExtension(QString flnm, const char *ext)
   QFileInfo info(flnm);
   if (info.exists() && info.isFile())
     {
-      QByteArray exten = flnm.toAscii().right(extlen);
+      QByteArray exten = flnm.toLatin1().right(extlen);
       if (exten != ext)
 	ok = false;
     }
@@ -826,7 +825,3 @@ AnalyzePlugin::swapbytes(uchar *ptr, int bpv, int nbytes)
     }
 
 }
-
-//-------------------------------
-//-------------------------------
-Q_EXPORT_PLUGIN2(analyzeplugin, AnalyzePlugin);

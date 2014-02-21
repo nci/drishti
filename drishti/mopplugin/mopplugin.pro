@@ -14,7 +14,7 @@ FORMS += ../propertyeditor.ui
 RESOURCES = mopplugin.qrc
 
 win32 {
-DESTDIR = ../../5.2.1/mopplugins
+DESTDIR = ../../bin/mopplugins
 
 QMAKE_LIBDIR += ../plugins/common
 

@@ -3,8 +3,6 @@
 
 #include "volinterface.h"
 
-#include <QObject>
-
 class VolumeData : public QObject
 {
   Q_OBJECT

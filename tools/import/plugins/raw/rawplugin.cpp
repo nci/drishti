@@ -104,7 +104,7 @@ RawPlugin::setFile(QStringList files)
   {
     // --- load various parameters from the raw file ---
     LoadRawDialog loadRawDialog(0,
-				(char *)m_fileName[0].toAscii().data());
+				(char *)m_fileName[0].toLatin1().data());
 
     if (!m_4dvol)
       {
@@ -722,7 +722,3 @@ RawPlugin::saveTrimmed(QString trimFile,
 
   m_headerBytes = 13; // to be used for applyMapping function
 }
-
-//-------------------------------
-//-------------------------------
-Q_EXPORT_PLUGIN2(rawplugin, RawPlugin);

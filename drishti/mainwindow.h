@@ -170,6 +170,7 @@ class MainWindow : public QMainWindow
    void switchAxis();
    void searchCaption(QStringList);  
 
+   void addImageCaption(Vec);
    void sculpt(int, QList<Vec>, float, float, int);
    void fillPathPatch(QList<Vec>, int, int);
    void paintPathPatch(QList<Vec>, int, int);

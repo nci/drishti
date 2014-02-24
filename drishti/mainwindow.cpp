@@ -997,6 +997,7 @@ MainWindow::closeEvent(QCloseEvent *)
   
   LightHandler::reset();
 
+  GeometryObjects::imageCaptions()->clear();
   GeometryObjects::captions()->clear();
   GeometryObjects::hitpoints()->clear();
   GeometryObjects::paths()->clear();
@@ -2233,6 +2234,7 @@ MainWindow::preLoadVolume()
   RawVolume::reset();
   LightHandler::reset();
 
+  GeometryObjects::imageCaptions()->clear();
   GeometryObjects::captions()->clear();
   GeometryObjects::hitpoints()->clear();
   GeometryObjects::paths()->clear();
@@ -3020,6 +3022,9 @@ MainWindow::loadProject(const char* flnm)
       else
 	emit showMessage("Project loaded", false);
     }
+
+  // always keep image captions in mouse grabber pool
+  GeometryObjects::imageCaptions()->addInMouseGrabberPool();
 }
 
 void
@@ -3522,6 +3527,9 @@ MainWindow::updateParameters(float stepStill, float stepDrag,
   // remove all geometry from mousegrab pool
   GeometryObjects::removeFromMouseGrabberPool();
   LightHandler::removeFromMouseGrabberPool();
+
+  // always keep image captions in mouse grabber pool
+  GeometryObjects::imageCaptions()->addInMouseGrabberPool();
 }
 
 // called from keyframeeditor
@@ -3555,6 +3563,9 @@ MainWindow::updateParameters(bool drawBox, bool drawAxis,
       PruneHandler::setBlend(pruneblend);
       m_Hires->genDefaultHighShadow();
     }
+
+  // always keep image captions in mouse grabber pool
+  GeometryObjects::imageCaptions()->addInMouseGrabberPool();
 }
 
 void
@@ -4146,6 +4157,13 @@ MainWindow::mopCrop(int cidx)
   Vec dmin = m_Hires->volumeMin();
   PruneHandler::crop(shaderString, dmin);
 }
+
+void
+MainWindow::addImageCaption(Vec pt)
+{
+  GeometryObjects::imageCaptions()->add(pt);
+}
+
 
 void
 MainWindow::sculpt(int docarve, QList<Vec> ppos, float rad, float decay, int tag)

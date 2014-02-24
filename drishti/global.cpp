@@ -478,6 +478,39 @@ GLuint Global::spriteTexture()
   return m_spriteTexture;
 }
 
+GLuint Global::m_infoSpriteTexture = 0;
+void Global::removeInfoSpriteTexture()
+{
+  if (m_infoSpriteTexture)
+    glDeleteTextures( 1, &m_infoSpriteTexture );
+  m_infoSpriteTexture = 0;
+}
+GLuint Global::infoSpriteTexture()
+{
+  if (m_infoSpriteTexture)
+    return m_infoSpriteTexture;
+
+  glGenTextures( 1, &m_infoSpriteTexture );
+
+  QImage info(":/images/info-icon.png");
+  int texsize = info.height();
+  glEnable(GL_TEXTURE_2D);
+  glBindTexture(GL_TEXTURE_2D, m_infoSpriteTexture);
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+	       texsize, texsize, 0,
+	       GL_BGRA, GL_UNSIGNED_BYTE,
+	       info.bits());
+  glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
+  glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+
+  return m_infoSpriteTexture;
+}
+
 GLuint Global::m_hollowSpriteTexture = 0;
 void Global::removeHollowSpriteTexture()
 {
@@ -509,6 +542,7 @@ GLuint Global::hollowSpriteTexture()
 
   uchar *thetexture = new uchar[2*texsize*texsize];
   const uchar *bits = texImage.bits();
+  //const uchar *bits = info.bits();
   for(int i=0; i<texsize*texsize; i++)
     {
       uchar lum = 255;

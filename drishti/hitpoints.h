@@ -53,6 +53,7 @@ class HitPoints : public QObject
   void mouseReleaseEvent(QMouseEvent*, Camera*);
 
  signals :
+  void addImageCaption(Vec);
   void sculpt(int, QList<Vec>, float, float, int);
 
  public slots :

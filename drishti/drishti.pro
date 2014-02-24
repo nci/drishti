@@ -142,6 +142,9 @@ HEADERS += boundingbox.h \
 	   gridobject.h \
 	   hitpoints.h \
 	   hitpointgrabber.h \
+	   imagecaptions.h \
+	   imagecaptiongrabber.h \
+	   imagecaptionobject.h \
            keyframe.h \
            keyframeeditor.h \
            keyframeinformation.h \
@@ -268,6 +271,9 @@ SOURCES += boundingbox.cpp \
 	   gridobject.cpp \
 	   hitpoints.cpp \
 	   hitpointgrabber.cpp \
+	   imagecaptions.cpp \
+	   imagecaptiongrabber.cpp \
+	   imagecaptionobject.cpp \
            keyframe.cpp \
            keyframeeditor.cpp \
            keyframeinformation.cpp \

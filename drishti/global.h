@@ -225,6 +225,9 @@ class Global
   static GLuint hollowSpriteTexture();
   static void removeHollowSpriteTexture();
 
+  static GLuint infoSpriteTexture();
+  static void removeInfoSpriteTexture();
+
   static GLuint boxTexture();
   static void removeBoxTexture();
 
@@ -324,6 +327,7 @@ class Global
 
   static GLuint m_spriteTexture;
   static GLuint m_hollowSpriteTexture;
+  static GLuint m_infoSpriteTexture;
   static GLuint m_boxTexture;
   static GLuint m_sphereTexture;
   static GLuint m_cylinderTexture;

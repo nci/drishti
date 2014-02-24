@@ -54,6 +54,10 @@ connect(GeometryObjects::paths(), SIGNAL(extractPath(int, bool, int, int)),
     connect(GeometryObjects::crops(), SIGNAL(mopCrop(int)),
 	    this, SLOT(mopCrop(int)));
 
+    connect(GeometryObjects::hitpoints(),
+	    SIGNAL(addImageCaption(Vec)),
+	    this,
+	    SLOT(addImageCaption(Vec)));
 
     connect(GeometryObjects::clipplanes(), SIGNAL(saveSliceImage(int, int)),
 	    this, SLOT(saveSliceImage(int, int)));

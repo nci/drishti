@@ -16,6 +16,7 @@ using namespace std;
 #include "brickinformation.h"
 #include "splineinformation.h"
 #include "captionobject.h"
+#include "imagecaptionobject.h"
 #include "colorbarobject.h"
 #include "scalebarobject.h"
 #include "pathobject.h"
@@ -64,6 +65,7 @@ class KeyFrameInformation
   void setSplineInfo(QList<SplineInformation>);
   void setMorphTF(bool);
   void setCaptions(QList<CaptionObject>);
+  void setImageCaptions(QList<ImageCaptionObject>);
   void setColorBars(QList<ColorBarObject>);
   void setScaleBars(QList<ScaleBarObject>);
   void setPoints(QList<Vec>, QList<Vec>, int, Vec);
@@ -103,6 +105,7 @@ class KeyFrameInformation
   QList<SplineInformation> splineInfo();
   bool morphTF();
   QList<CaptionObject> captions();
+  QList<ImageCaptionObject> imageCaptions();
   QList<ColorBarObject> colorbars();
   QList<ScaleBarObject> scalebars();
   QList<Vec> points();
@@ -179,6 +182,7 @@ class KeyFrameInformation
   QList<SplineInformation> m_splineInfo;
   bool m_morphTF;
   QList<CaptionObject> m_captions;
+  QList<ImageCaptionObject> m_imageCaptions;
   QList<ColorBarObject> m_colorbars;
   QList<ScaleBarObject> m_scalebars;
   QList<Vec> m_points;

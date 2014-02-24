@@ -673,7 +673,17 @@ HitPoints::keyPressEvent(QKeyEvent *event)
     {
       if (m_points[i]->grabsMouse())
 	{
-	  if (event->key() == Qt::Key_N)
+	  if (event->key() == Qt::Key_I)
+	    {
+	      emit addImageCaption(m_points[i]->point());
+
+	      m_points[i]->removeFromActivePool();
+	      m_points[i]->removeFromMouseGrabberPool();	      
+	      m_points.removeAt(i);
+	      updatePointDialog();
+	      return true;
+	    }
+	  else if (event->key() == Qt::Key_N)
 	    {
 	      m_showPoints = !m_showPoints;
 	    }

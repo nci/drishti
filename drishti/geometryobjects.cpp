@@ -9,6 +9,7 @@ void GeometryObjects::init()
     return;
   
   m_captions = new Captions();
+  m_imageCaptions = new ImageCaptions();
   m_colorbars = new ColorBars();
   m_scalebars = new ScaleBars();
   m_hitpoints = new HitPoints();
@@ -27,6 +28,7 @@ void GeometryObjects::clear()
 {
   m_mgType = NOGEO;
   m_captions->clear();
+  m_imageCaptions->clear();
   m_colorbars->clear();
   m_scalebars->clear();
   m_hitpoints->clear();
@@ -42,6 +44,7 @@ void GeometryObjects::clear()
 bool GeometryObjects::grabsMouse()
 {
   return (GeometryObjects::captions()->grabsMouse() ||
+	  GeometryObjects::imageCaptions()->grabsMouse() ||
 	  GeometryObjects::colorbars()->grabsMouse() ||
 	  GeometryObjects::scalebars()->grabsMouse() ||
 	  GeometryObjects::hitpoints()->grabsMouse() ||
@@ -59,6 +62,9 @@ GeometryObjects::keyPressEvent(QKeyEvent *event)
 {
   if (captions()->grabsMouse())
     return captions()->keyPressEvent(event);
+
+  if (imageCaptions()->grabsMouse())
+    return imageCaptions()->keyPressEvent(event);
 
   if (colorbars()->grabsMouse())
     return colorbars()->keyPressEvent(event);
@@ -98,6 +104,13 @@ Captions* GeometryObjects::captions()
 { 
   if(!GeometryObjects::m_initialized) GeometryObjects::init();
   return m_captions; 
+}
+
+ImageCaptions* GeometryObjects::m_imageCaptions = NULL;
+ImageCaptions* GeometryObjects::imageCaptions() 
+{ 
+  if(!GeometryObjects::m_initialized) GeometryObjects::init();
+  return m_imageCaptions; 
 }
 
 ColorBars* GeometryObjects::m_colorbars = NULL;

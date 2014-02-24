@@ -7,6 +7,7 @@
 #include "networks.h"
 #include "trisets.h"
 #include "captions.h"
+#include "imagecaptions.h"
 #include "colorbar.h"
 #include "scalebar.h"
 #include "hitpoints.h"
@@ -37,6 +38,7 @@ class GeometryObjects
   static void clear();
   static bool grabsMouse();
   static Captions* captions();
+  static ImageCaptions* imageCaptions();
   static ColorBars* colorbars();
   static ScaleBars* scalebars();
   static HitPoints* hitpoints();
@@ -67,6 +69,7 @@ class GeometryObjects
   static bool m_initialized;
   static int m_mgType;
   static Captions* m_captions;
+  static ImageCaptions* m_imageCaptions;
   static ColorBars* m_colorbars;
   static ScaleBars* m_scalebars;
   static HitPoints* m_hitpoints;

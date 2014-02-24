@@ -1,7 +1,7 @@
 TEMPLATE = subdirs
 SUBDIRS = drishti \
-          drishti\mopplugin \
           drishti\plugins \
+          drishti\mopplugin \
           tools\import \
           tools\import\plugins \
           tools\paint-graphcut

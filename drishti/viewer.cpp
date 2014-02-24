@@ -239,6 +239,9 @@ Viewer::switchToHires()
 
   if (GlewInit::initialised())
     m_hiresVolume->initShadowBuffers(true);
+
+  // always keep image captions in mouse grabber pool
+  GeometryObjects::imageCaptions()->addInMouseGrabberPool();
 }
 
 void
@@ -1458,6 +1461,7 @@ Viewer::drawInHires(int imagequality)
   GeometryObjects::trisets()->postdraw(this);
   GeometryObjects::networks()->postdraw(this);
   GeometryObjects::captions()->draw(this);
+  GeometryObjects::imageCaptions()->postdraw(this);
 
   GeometryObjects::scalebars()->draw(this,
 				     GeometryObjects::clipplanes()->clipInfo());

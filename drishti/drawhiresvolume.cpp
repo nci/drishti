@@ -1865,6 +1865,7 @@ DrawHiresVolume::draw(float stepsize,
   m_drawGeometryPresent |= (GeometryObjects::crops()->count() > 0);
   m_drawGeometryPresent |= (GeometryObjects::pathgroups()->count() > 0);
   m_drawGeometryPresent |= (GeometryObjects::hitpoints()->count() > 0);
+  m_drawGeometryPresent |= (GeometryObjects::imageCaptions()->count() > 0);
   m_drawGeometryPresent |= (LightHandler::giLights()->count() > 0);
 
    if (!stillimage || m_renderQuality == Enums::RenderDefault)
@@ -2351,12 +2352,15 @@ DrawHiresVolume::drawGeometry(float pnear, float pfar, Vec step,
 	    axis.z);
   glTranslatef(-pivot.x, -pivot.y, -pivot.z);
   //-----------------------------------------
-  
+
   GeometryObjects::crops()->draw(m_Viewer, m_backlit);
   GeometryObjects::paths()->draw(m_Viewer, m_backlit, m_lightPosition);
   GeometryObjects::grids()->draw(m_Viewer, m_backlit, m_lightPosition);
   GeometryObjects::pathgroups()->draw(m_Viewer, m_backlit, m_lightPosition, true);
   GeometryObjects::hitpoints()->draw(m_Viewer, m_backlit);
+  
+  if (m_drawImageType == Enums::StillImage)
+    GeometryObjects::imageCaptions()->draw(m_Viewer, m_backlit);
 
   LightHandler::giLights()->draw(m_Viewer, m_backlit);
 

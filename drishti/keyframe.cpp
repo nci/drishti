@@ -155,6 +155,7 @@ KeyFrame::saveProject(Vec pos, Quaternion rot,
   m_savedKeyFrame.setVolumeBounds(bmin, bmax);
   m_savedKeyFrame.setImage(image);
   m_savedKeyFrame.setCaptions(GeometryObjects::captions()->captions());
+  m_savedKeyFrame.setImageCaptions(GeometryObjects::imageCaptions()->imageCaptions());
   m_savedKeyFrame.setColorBars(GeometryObjects::colorbars()->colorbars());
   m_savedKeyFrame.setScaleBars(GeometryObjects::scalebars()->scalebars());
   m_savedKeyFrame.setPoints(GeometryObjects::hitpoints()->points(),
@@ -283,6 +284,7 @@ KeyFrame::setKeyFrame(Vec pos, Quaternion rot,
   kfi->setSplineInfo(splineInfo);
   kfi->setMorphTF(Global::morphTF());
   kfi->setCaptions(GeometryObjects::captions()->captions());
+  kfi->setImageCaptions(GeometryObjects::imageCaptions()->imageCaptions());
   kfi->setColorBars(GeometryObjects::colorbars()->colorbars());
   kfi->setScaleBars(GeometryObjects::scalebars()->scalebars());
   kfi->setPoints(GeometryObjects::hitpoints()->points(),
@@ -677,6 +679,8 @@ KeyFrame::interpolateAt(int kf, float frc,
   kfi.setMix(mv, mc, mo, mt);
   //-------------------------------  
 
+  // no interpolation for image captions
+  kfi.setImageCaptions(m_keyFrameInfo[kf]->imageCaptions());
 
   //-------------------------------  
   rfrc = StaticFunctions::remapKeyframe(m_keyFrameInfo[kf]->interpCaptions(), frc);
@@ -833,6 +837,7 @@ KeyFrame::playSavedKeyFrame()
   emit updateTagColors();
 
   GeometryObjects::captions()->setCaptions(m_savedKeyFrame.captions());
+  GeometryObjects::imageCaptions()->setImageCaptions(m_savedKeyFrame.imageCaptions());
   GeometryObjects::colorbars()->setColorBars(m_savedKeyFrame.colorbars());
   GeometryObjects::scalebars()->setScaleBars(m_savedKeyFrame.scalebars());
   GeometryObjects::hitpoints()->setPoints(m_savedKeyFrame.points());
@@ -969,6 +974,7 @@ KeyFrame::playFrameNumber(int fno)
 	    }
 	  
 	  GeometryObjects::captions()->setCaptions(m_keyFrameInfo[kf]->captions());
+	  GeometryObjects::imageCaptions()->setImageCaptions(m_keyFrameInfo[kf]->imageCaptions());
 	  GeometryObjects::colorbars()->setColorBars(m_keyFrameInfo[kf]->colorbars());
 	  GeometryObjects::scalebars()->setScaleBars(m_keyFrameInfo[kf]->scalebars());
 	  GeometryObjects::hitpoints()->setPoints(m_keyFrameInfo[kf]->points());
@@ -1123,6 +1129,7 @@ KeyFrame::playFrameNumber(int fno)
     }
 
   GeometryObjects::captions()->setCaptions(keyFrameInfo.captions());
+  GeometryObjects::imageCaptions()->setImageCaptions(keyFrameInfo.imageCaptions());
   GeometryObjects::colorbars()->setColorBars(keyFrameInfo.colorbars());
   GeometryObjects::scalebars()->setScaleBars(keyFrameInfo.scalebars());
   GeometryObjects::hitpoints()->setPoints(keyFrameInfo.points());
@@ -1581,6 +1588,8 @@ KeyFrame::pasteFrameOnTop(int keyFrameNumber)
 	    }
 	  else if (keys[ik] == "captions")
 	    kfi->setCaptions(m_copyKeyFrame.captions());  
+	  else if (keys[ik] == "image captions")
+	    kfi->setImageCaptions(m_copyKeyFrame.imageCaptions());  
 	  else if (keys[ik] == "colorbars")
 	    kfi->setColorBars(m_copyKeyFrame.colorbars());  
 	  else if (keys[ik] == "scalebars")
@@ -1703,6 +1712,8 @@ KeyFrame::pasteFrameOnTop(int startKF, int endKF)
 		}
 	      else if (keys[ik] == "captions")
 		kfi->setCaptions(m_copyKeyFrame.captions());  
+	      else if (keys[ik] == "image captions")
+		kfi->setImageCaptions(m_copyKeyFrame.imageCaptions());  
 	      else if (keys[ik] == "colorbars")
 		kfi->setColorBars(m_copyKeyFrame.colorbars());  
 	      else if (keys[ik] == "scalebars")
@@ -1829,6 +1840,11 @@ KeyFrame::copyProperties(QString title)
   vlist.clear();
   vlist << QVariant("checkbox");
   vlist << QVariant(false);
+  plist["image captions"] = vlist;
+
+  vlist.clear();
+  vlist << QVariant("checkbox");
+  vlist << QVariant(false);
   plist["colorbars"] = vlist;
 
   vlist.clear();
@@ -1923,6 +1939,7 @@ KeyFrame::copyProperties(QString title)
   keys << "background color";
   keys << "bounding box";
   keys << "captions";
+  keys << "image captions";
   keys << "colorbars";
   keys << "scalebars";
   keys << "focus";
@@ -2136,6 +2153,10 @@ KeyFrame::import(QString flnm)
 		{
 		  kfi->setCaptions(ckf->captions());  
 		  kfi->setInterpCaptions(ckf->interpCaptions());
+		}
+	      else if (keys[ik] == "image captions")
+		{
+		  kfi->setImageCaptions(ckf->imageCaptions());  
 		}
 	      else if (keys[ik] == "colorbars")
 		{

@@ -49,6 +49,7 @@ void KeyFrameInformation::setBrickInfo(QList<BrickInformation> bi)
 }
 void KeyFrameInformation::setMorphTF(bool flag) { m_morphTF = flag; }
 void KeyFrameInformation::setCaptions(QList<CaptionObject> co) { m_captions = co; }
+void KeyFrameInformation::setImageCaptions(QList<ImageCaptionObject> co) { m_imageCaptions = co; }
 void KeyFrameInformation::setColorBars(QList<ColorBarObject> co) { m_colorbars = co; }
 void KeyFrameInformation::setScaleBars(QList<ScaleBarObject> co) { m_scalebars = co; }
 void KeyFrameInformation::setPoints(QList<Vec> pts, QList<Vec> bpts, int psz, Vec pcol)
@@ -103,6 +104,7 @@ void KeyFrameInformation::getMix(int &mv, bool &mc, bool &mo, bool &mt)
 QList<BrickInformation> KeyFrameInformation::brickInfo() { return m_brickInfo; }
 bool KeyFrameInformation::morphTF() { return m_morphTF; }
 QList<CaptionObject> KeyFrameInformation::captions() { return m_captions; }
+QList<ImageCaptionObject> KeyFrameInformation::imageCaptions() { return m_imageCaptions; }
 QList<ColorBarObject> KeyFrameInformation::colorbars() { return m_colorbars; }
 QList<ScaleBarObject> KeyFrameInformation::scalebars() { return m_scalebars; }
 QList<Vec> KeyFrameInformation::points() { return m_points; }
@@ -203,6 +205,7 @@ KeyFrameInformation::KeyFrameInformation()
   m_splineInfo.clear();
   m_morphTF = false;
   m_captions.clear();
+  m_imageCaptions.clear();
   m_colorbars.clear();
   m_scalebars.clear();
   m_points.clear();
@@ -274,6 +277,7 @@ KeyFrameInformation::clear()
   m_splineInfo.clear();
   m_morphTF = false;
   m_captions.clear();
+  m_imageCaptions.clear();
   m_colorbars.clear();
   m_scalebars.clear();
   m_points.clear();
@@ -360,6 +364,7 @@ KeyFrameInformation::KeyFrameInformation(const KeyFrameInformation& kfi)
   m_morphTF = kfi.m_morphTF;
 
   m_captions = kfi.m_captions;
+  m_imageCaptions = kfi.m_imageCaptions;
   m_colorbars = kfi.m_colorbars;
   m_scalebars = kfi.m_scalebars;
   m_points = kfi.m_points;
@@ -403,6 +408,7 @@ KeyFrameInformation::~KeyFrameInformation()
   m_labelZ.clear();
   m_splineInfo.clear();
   m_captions.clear();
+  m_imageCaptions.clear();
   m_colorbars.clear();
   m_scalebars.clear();
   m_points.clear();
@@ -474,6 +480,7 @@ KeyFrameInformation::operator=(const KeyFrameInformation& kfi)
   m_morphTF = kfi.m_morphTF;
 
   m_captions = kfi.m_captions;
+  m_imageCaptions = kfi.m_imageCaptions;
   m_colorbars = kfi.m_colorbars;
   m_scalebars = kfi.m_scalebars;
   m_points = kfi.m_points;
@@ -675,6 +682,12 @@ KeyFrameInformation::load(fstream &fin)
 	  CaptionObject co;
 	  co.load(fin);
 	  m_captions.append(co);
+	}
+      else if (strcmp(keyword, "imagecaptionobjectstart") == 0)
+	{
+	  ImageCaptionObject co;
+	  co.load(fin);
+	  m_imageCaptions.append(co);
 	}
       else if (strcmp(keyword, "colorbarobjectstart") == 0)
 	{
@@ -1011,6 +1024,9 @@ KeyFrameInformation::save(fstream &fout)
 
   for(int i=0; i<m_captions.size(); i++)
     m_captions[i].save(fout);
+
+  for(int i=0; i<m_imageCaptions.size(); i++)
+    m_imageCaptions[i].save(fout);
 
   for(int i=0; i<m_colorbars.size(); i++)
     m_colorbars[i].save(fout);

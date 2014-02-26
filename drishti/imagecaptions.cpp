@@ -16,19 +16,9 @@ using namespace qglviewer;
 #endif
 
 
-ImageCaptions::ImageCaptions()
-{
-  glGenTextures(1, &m_imageTex);
-  m_imageCaptions.clear();
-}
+ImageCaptions::ImageCaptions() { m_imageCaptions.clear(); }
 
-ImageCaptions::~ImageCaptions()
-{
-  clear();
-
-  glDeleteTextures(1, &m_imageTex);
-  m_imageTex = 0;
-}
+ImageCaptions::~ImageCaptions() { clear(); }
 
 void
 ImageCaptions::addInMouseGrabberPool()
@@ -54,7 +44,7 @@ ImageCaptions::imageCaptions()
 {
   QList<ImageCaptionObject> caplist;
   for(int i=0; i<m_imageCaptions.count(); i++)
-    caplist.append(m_imageCaptions[i]->imageCaption());
+    caplist << m_imageCaptions[i]->imageCaption();
 
   return caplist;
 }
@@ -75,9 +65,9 @@ void
 ImageCaptions::add(Vec pt)
 {
   QString imgFile = QFileDialog::getOpenFileName(0,
-                                 QString("Load image to map on the clip plane"),
+                                 QString("Load image/movie/text/html"),
                                  Global::previousDirectory(),
-                                 "Image Files (*.png *.tif *.bmp *.jpg *.gif)");
+                                 "Files (*.*)");
 	      
   if (imgFile.isEmpty()) return;
   QFileInfo f(imgFile);
@@ -85,7 +75,7 @@ ImageCaptions::add(Vec pt)
   
   ImageCaptionGrabber *cmg = new ImageCaptionGrabber();
   cmg->set(pt, imgFile);
-  m_imageCaptions.append(cmg);
+  m_imageCaptions << cmg;
 }
 
 void
@@ -93,7 +83,7 @@ ImageCaptions::add(ImageCaptionObject cap)
 {
   ImageCaptionGrabber *cmg = new ImageCaptionGrabber();
   cmg->setImageCaption(cap);
-  m_imageCaptions.append(cmg);
+  m_imageCaptions << cmg;
 }
 
 void
@@ -186,120 +176,139 @@ ImageCaptions::draw(QGLViewer *viewer, bool backToFront)
 void
 ImageCaptions::postdraw(QGLViewer *viewer)
 {
-  Vec voxelScaling = Global::voxelScaling();
-
-  glDisable(GL_DEPTH_TEST);
-
-  int screenWidth = viewer->size().width();
-  int screenHeight = viewer->size().height();
-
-  // splat the caption images
-  viewer->startScreenCoordinatesSystem();
-
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); // blend on top
-
-  glLineWidth(2);
-  for(int i=0; i<m_imageCaptions.count(); i++)
-    {
-      ImageCaptionGrabber *cmg = m_imageCaptions[i];
-      if (m_imageCaptions[i]->active())
-	{
-	  Vec pt = cmg->position();
-
-	  Vec spt = VECPRODUCT(pt, voxelScaling);
-	  Vec scr = viewer->camera()->projectedCoordinatesOf(spt);
-	  int x = scr.x;
-	  int y = scr.y;
-
-	  //---------------------
-	  //x *= viewer->size().width()/viewer->camera()->screenWidth();
-	  //y *= viewer->size().height()/viewer->camera()->screenHeight();
-	  //---------------------
-	  
-	  int wd = cmg->width();
-	  int ht = cmg->height();
-	  
-	  QImage cimage = cmg->image();
-
-	  int xpos = x+20;
-	  if (xpos + cimage.width() > screenWidth)
-	    {
-	      xpos -= cimage.width();
-	      xpos -= 40;
-	    }
-	  int ypos = y+cimage.height()/2;
-	  ypos = qMin(ypos, screenHeight);
-	  if (ypos - cimage.height() < 0)
-	    ypos = cimage.height();
-//	  const uchar *bits = cimage.bits();	  
-//	  glRasterPos2i(xpos, ypos);
-//	  glDrawPixels(cimage.width(), cimage.height(),
-//		       GL_BGRA,
-//		       GL_UNSIGNED_BYTE,
-//		       bits);
-	  
-	  int px = xpos;
-	  int py = ypos;
-	  if (px < 0 || py > screenHeight)
-	    {
-	      int wd = cimage.width();
-	      int ht = cimage.height();
-	      int sx = 0;
-	      int sy = 0;
-	      if (px < 0)
-		{
-		  wd = cimage.width()+px;
-		  sx = -px;
-		  px = 0;
-		}
-	      if (py > screenHeight)
-		{
-		  ht = cimage.height()-(py-screenHeight);
-		  sy = (py-screenHeight);
-		  py = screenHeight;
-		}
-	      
-	      cimage = cimage.copy(sx, sy, wd, ht);
-	    }
-	  
-	  cimage = cimage.scaled(cimage.width()*viewer->camera()->screenWidth()/
-				 viewer->size().width(),
-				 cimage.height()*viewer->camera()->screenHeight()/
-				 viewer->size().height());
-	  
-	  
-	  wd = cimage.width();
-	  ht = cimage.height();
-	  glActiveTexture(GL_TEXTURE0);
-	  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_imageTex);
-	  glTexParameterf(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
-	  glTexParameterf(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
-	  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	  glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,
-		       0,
-		       4,
-		       wd,
-		       ht,
-		       0,
-		       GL_BGRA,
-		       GL_UNSIGNED_BYTE,
-		       cimage.bits());
-	  glEnable(GL_TEXTURE_RECTANGLE_ARB);
-	  glColor3f(1,1,1);
-	  glBegin(GL_QUADS);
-	  glTexCoord2f(0, 0);      glVertex2f(xpos, ypos);
-	  glTexCoord2f(wd, 0);     glVertex2f(xpos+wd, ypos);
-	  glTexCoord2f(wd, ht);    glVertex2f(xpos+wd, ypos-ht);
-	  glTexCoord2f(0, ht);     glVertex2f(xpos, ypos-ht);
-	  glEnd();
-	  glDisable(GL_TEXTURE_RECTANGLE_ARB);
-	}
-    }
-  viewer->stopScreenCoordinatesSystem();
-  
-  glEnable(GL_DEPTH_TEST);
+//  Vec voxelScaling = Global::voxelScaling();
+//
+//  glDisable(GL_DEPTH_TEST);
+//
+//  int screenWidth = viewer->size().width();
+//  int screenHeight = viewer->size().height();
+//
+//  // splat the caption images
+//  viewer->startScreenCoordinatesSystem();
+//
+//  glEnable(GL_BLEND);
+//  glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); // blend on top
+//
+//  glLineWidth(2);
+//  for(int i=0; i<m_imageCaptions.count(); i++)
+//    {
+//      ImageCaptionGrabber *cmg = m_imageCaptions[i];
+//      if (m_imageCaptions[i]->active())
+//	{
+//	  Vec pt = cmg->position();
+//
+//	  Vec spt = VECPRODUCT(pt, voxelScaling);
+//	  Vec scr = viewer->camera()->projectedCoordinatesOf(spt);
+//	  int x = scr.x;
+//	  int y = scr.y;
+//
+//	  //---------------------
+//	  //x *= viewer->size().width()/viewer->camera()->screenWidth();
+//	  //y *= viewer->size().height()/viewer->camera()->screenHeight();
+//	  //---------------------
+//	  
+//	  int wd = cmg->width();
+//	  int ht = cmg->height();
+//	  
+//	  QImage cimage = cmg->image();
+//
+//	  int xpos = x;
+//	  int ypos = y;
+//
+//	  if (m_imageCaptions[i]->labelPresent())
+//	    {
+////	      QPoint p = viewer->mapToGlobal(QPoint(0,0));
+////	      xpos += p.x();
+////	      ypos += p.y();
+//	    }
+//	  else
+//	    {
+//	      xpos = x+20;
+//	      if (xpos + wd > screenWidth)
+//		{
+//		  xpos -= wd;
+//		  xpos -= 40;
+//		}
+//	      ypos = y+ht/2;
+//	      ypos = qMin(ypos, screenHeight);
+//	      if (ypos - ht < 0)
+//		ypos = ht;
+//	    }
+//
+////	  const uchar *bits = cimage.bits();	  
+////	  glRasterPos2i(xpos, ypos);
+////	  glDrawPixels(cimage.width(), cimage.height(),
+////		       GL_BGRA,
+////		       GL_UNSIGNED_BYTE,
+////		       bits);
+////	  
+////	  int px = xpos;
+////	  int py = ypos;
+////
+////	  if (px < 0 || py > screenHeight)
+////	    {
+////	      int sx = 0;
+////	      int sy = 0;
+////	      if (px < 0)
+////		{
+////		  wd += px;
+////		  sx = -px;
+////		  px = 0;
+////		}
+////	      if (py > screenHeight)
+////		{
+////		  ht -= (py-screenHeight);
+////		  sy = (py-screenHeight);
+////		  py = screenHeight;
+////		}
+////	      
+////	      cimage = cimage.copy(sx, sy, wd, ht);
+////	    }
+//	  
+//	  if (m_imageCaptions[i]->labelPresent())
+//	    {
+//	      //m_imageCaptions[i]->setCaptionPosition(xpos, ypos);
+//	    }
+//	  else
+//	    {
+//	      cimage = cimage.scaled(cimage.width()*viewer->camera()->screenWidth()/
+//				     viewer->size().width(),
+//				     cimage.height()*viewer->camera()->screenHeight()/
+//				     viewer->size().height());
+//	      
+//	      
+//	      wd = cimage.width();
+//	      ht = cimage.height();
+//	      glActiveTexture(GL_TEXTURE0);
+//	      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_imageTex);
+//	      glTexParameterf(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+//	      glTexParameterf(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
+//	      glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+//	      glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+//	      glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,
+//			   0,
+//			   4,
+//			   wd,
+//			   ht,
+//			   0,
+//			   GL_BGRA,
+//			   GL_UNSIGNED_BYTE,
+//			   cimage.bits());
+//	      glEnable(GL_TEXTURE_RECTANGLE_ARB);
+//	      glColor3f(1,1,1);
+//	      glBegin(GL_QUADS);
+//	      glTexCoord2f(0, 0);      glVertex2f(xpos, ypos);
+//	      glTexCoord2f(wd, 0);     glVertex2f(xpos+wd, ypos);
+//	      glTexCoord2f(wd, ht);    glVertex2f(xpos+wd, ypos-ht);
+//	      glTexCoord2f(0, ht);     glVertex2f(xpos, ypos-ht);
+//	      glEnd();
+//	      glDisable(GL_TEXTURE_RECTANGLE_ARB);
+//	    }
+//	}
+//    }
+//  viewer->stopScreenCoordinatesSystem();
+//  
+//  glEnable(GL_DEPTH_TEST);
 }
 
 bool
@@ -316,14 +325,17 @@ ImageCaptions::keyPressEvent(QKeyEvent *event)
 	      m_imageCaptions.removeAt(i);
 	      return true;
 	    }
+	  if (event->key() == Qt::Key_S)
+	    {
+	      m_imageCaptions[i]->saveSize();
+	    }
 	  if (event->key() == Qt::Key_Space)
 	    {
 	      ImageCaptionObject* cmg = m_imageCaptions[i];
 	      QString imgFile = QFileDialog::getOpenFileName(0,
-                                 QString("Load image to map on the clip plane"),
+                                 QString("Load image/movie/text/html"),
                                  Global::previousDirectory(),
-                                 "Image Files (*.png *.tif *.bmp *.jpg *.gif)");
-	      
+                                 "Files (*.*)");	      
 	      if (imgFile.isEmpty())
 		return false;
 	      

@@ -6,8 +6,8 @@ ImageCaptionObject
 ImageCaptionGrabber::imageCaption()
 {
   ImageCaptionObject co;
-  co.set(position(),
-	 imageFile());
+  co.set(position(), imageFile(),
+	 width(), height());
   return co;
 }
 
@@ -36,7 +36,7 @@ ImageCaptionGrabber::checkIfGrabsMouse(int x, int y,
 
 void
 ImageCaptionGrabber::mousePressEvent(QMouseEvent* const event,
-				 Camera* const camera)
+				     Camera* const camera)
 {
   m_pressed = true;
   setActive(!active());

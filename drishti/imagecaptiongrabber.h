@@ -8,8 +8,6 @@ using namespace qglviewer;
 
 #include "imagecaptionobject.h"
 
-#include "commonqtclasses.h"
-
 class ImageCaptionGrabber : public MouseGrabber, public ImageCaptionObject
 {
  public :

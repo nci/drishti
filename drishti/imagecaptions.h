@@ -28,7 +28,6 @@ class ImageCaptions
 
  private :
   QList<ImageCaptionGrabber*> m_imageCaptions;
-  GLuint m_imageTex;
 };
 
 #endif

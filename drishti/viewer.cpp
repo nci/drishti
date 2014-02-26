@@ -1461,7 +1461,7 @@ Viewer::drawInHires(int imagequality)
   GeometryObjects::trisets()->postdraw(this);
   GeometryObjects::networks()->postdraw(this);
   GeometryObjects::captions()->draw(this);
-  GeometryObjects::imageCaptions()->postdraw(this);
+  //GeometryObjects::imageCaptions()->postdraw(this);
 
   GeometryObjects::scalebars()->draw(this,
 				     GeometryObjects::clipplanes()->clipInfo());

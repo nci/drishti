@@ -7,6 +7,7 @@ DRISHTI_DEFINES = RENDERER NETCDF
 RESOURCES = drishti.qrc
 
 QT += opengl xml network
+QT += multimedia multimediawidgets
 
 CONFIG += release
 
@@ -226,7 +227,9 @@ HEADERS += boundingbox.h \
 	   gilightgrabber.h \
 	   gilightobject.h \
 	   gilightinfo.h \
-	   gilightobjectinfo.h
+	   gilightobjectinfo.h \
+	   videoplayer.h
+
 
 SOURCES += boundingbox.cpp \
            blendshaderfactory.cpp \
@@ -354,4 +357,5 @@ SOURCES += boundingbox.cpp \
 	   gilightgrabber.cpp \
 	   gilightobject.cpp \
 	   gilightinfo.cpp \
-	   gilightobjectinfo.cpp
+	   gilightobjectinfo.cpp \
+	   videoplayer.cpp

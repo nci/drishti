@@ -6,6 +6,10 @@ using namespace std;
 
 #include "commonqtclasses.h"
 
+#include <QTextEdit>
+
+#include "videoplayer.h"
+
 class ImageCaptionObject
 {
  public :
@@ -20,27 +24,33 @@ class ImageCaptionObject
   bool hasCaption(QStringList);
 
   void set(Vec, QString);
+  void set(Vec, QString, int, int);
   void setImageCaption(ImageCaptionObject);
   void setPosition(Vec);
   void setImageFileName(QString);
-  void setActive(bool b) { m_active = b; }
-  void toggleActive() { m_active = !m_active; }
+  void setActive(bool);
+  bool labelPresent() { return (m_label != 0); }
   
-  QImage image() { return m_image; }
+  void setCaptionPosition(int, int);
+  void saveSize();
+
   QString imageFile() { return m_imageFile; }
   Vec position() { return m_pos; }
-  int height() { return m_height; }
-  int width() { return m_width; }
+  int height();
+  int width();
   bool active() { return m_active; }
 
  private :
-  QImage m_image;
   Vec m_pos;
   QString m_imageFile;
   int m_height, m_width;
   bool m_active;
+  bool m_redo;
 
-  void loadImage();
+  QTextEdit *m_label;
+  VideoPlayer *m_videoPlayer;
+  
+  void loadCaption();
 };
 
 #endif

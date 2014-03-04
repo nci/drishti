@@ -28,7 +28,7 @@ ImageCaptionGrabber::checkIfGrabsMouse(int x, int y,
   Vec pos = VECPRODUCT(position(), voxelSize);
   pos = camera->projectedCoordinatesOf(pos);
   QPoint hp(pos.x, pos.y);
-  if ((hp-QPoint(x,y)).manhattanLength() < 10)
+  if ((hp-QPoint(x,y)).manhattanLength() < 50)
     setGrabsMouse(true);
   else
     setGrabsMouse(false);
@@ -39,6 +39,7 @@ ImageCaptionGrabber::mousePressEvent(QMouseEvent* const event,
 				     Camera* const camera)
 {
   m_pressed = true;
+  if (!active()) emit activated();
   setActive(!active());
 }
 

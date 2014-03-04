@@ -2778,6 +2778,9 @@ Viewer::mouseMoveEvent(QMouseEvent *event)
       return;
     }
   
+  if (m_mouseDrag && GeometryObjects::imageCaptions()->isActive())
+    GeometryObjects::imageCaptions()->setActive(false);
+
   QGLViewer::mouseMoveEvent(event);
   m_mousePrevPos = event->pos();
 }

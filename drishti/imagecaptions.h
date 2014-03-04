@@ -3,11 +3,16 @@
 
 #include "imagecaptiongrabber.h"
 
-class ImageCaptions
+class ImageCaptions : public QObject
 {
+ Q_OBJECT
+
  public :
   ImageCaptions();
   ~ImageCaptions();
+
+  void setActive(bool);
+  bool isActive();
 
   bool grabsMouse();
   void addInMouseGrabberPool();
@@ -22,12 +27,16 @@ class ImageCaptions
   void setImageCaptions(QList<ImageCaptionObject>);
 
   void draw(QGLViewer*, bool);
-  void postdraw(QGLViewer*);
 
   bool keyPressEvent(QKeyEvent*);
 
+ public slots :
+  void activated();
+ 
  private :
   QList<ImageCaptionGrabber*> m_imageCaptions;
+
+  void updateConnections();
 };
 
 #endif

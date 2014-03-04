@@ -8,8 +8,10 @@ using namespace qglviewer;
 
 #include "imagecaptionobject.h"
 
-class ImageCaptionGrabber : public MouseGrabber, public ImageCaptionObject
+class ImageCaptionGrabber : public QObject, public MouseGrabber, public ImageCaptionObject
 {
+ Q_OBJECT
+
  public :
   ImageCaptionGrabber();
   ~ImageCaptionGrabber();
@@ -20,6 +22,11 @@ class ImageCaptionGrabber : public MouseGrabber, public ImageCaptionObject
   void mousePressEvent(QMouseEvent* const, Camera* const);
   void mouseMoveEvent(QMouseEvent* const, Camera* const);
   void mouseReleaseEvent(QMouseEvent* const, Camera* const);
+
+  bool pressed() {return m_pressed;}
+
+ signals :
+  void activated();
 
  private :
   bool m_pressed;    

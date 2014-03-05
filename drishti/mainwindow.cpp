@@ -3028,9 +3028,13 @@ MainWindow::loadProject(const char* flnm)
 }
 
 void
-MainWindow::saveProject(const char* flnm)
+MainWindow::saveProject(QString xmlflnm, QString dtvfile)
 {
-  //m_Viewer->saveProject();
+  int flnmlen = xmlflnm.length()+1;
+  char *flnm = new char[flnmlen];
+  memset(flnm, 0, flnmlen);
+  memcpy(flnm, xmlflnm.toLatin1().data(), flnmlen);
+
   Vec bmin, bmax;
   m_Lowres->subvolumeBounds(bmin, bmax);
   QImage image = m_Viewer->grabFrameBuffer();
@@ -3059,13 +3063,13 @@ MainWindow::saveProject(const char* flnm)
 			  PruneHandler::getPruneBuffer());
 
 
-
-  saveVolumeIntoProject(flnm);
+  saveVolumeIntoProject(flnm, dtvfile);
   m_Lowres->save(flnm);
   m_preferencesWidget->save(flnm);
-  //GeometryObjects::trisets()->save(flnm);
   m_tfManager->save(flnm);
   saveViewsAndKeyFrames(flnm);
+
+  m_Hires->saveForDrishtiTouch(dtvfile);
 
   QFileInfo f(flnm);
   Global::setPreviousDirectory(f.absolutePath());
@@ -3159,7 +3163,7 @@ MainWindow::on_actionSave_Project_triggered()
   if (!StaticFunctions::checkExtension(flnm, ".xml"))
     flnm += ".xml";
   
-  saveProject(flnm.toLatin1().data());
+  saveProject(flnm, QString());
 }
 void
 MainWindow::on_actionSave_ProjectAs_triggered()
@@ -3172,14 +3176,26 @@ MainWindow::on_actionSave_ProjectAs_triggered()
 				      0,
 				      QFileDialog::DontUseNativeDialog);
 
+  QMessageBox::information(0, "", flnm);
 
   if (flnm.isEmpty())
     return;
 
-  if (!StaticFunctions::checkExtension(flnm, ".xml"))
-    flnm += ".xml";
-
-  saveProject(flnm.toLatin1().data());
+  if (!StaticFunctions::checkExtension(flnm, ".xml") &&
+      !StaticFunctions::checkExtension(flnm, ".dtxml"))
+    {
+      flnm += ".xml";
+      
+      saveProject(flnm.toLatin1().data(), QString());
+    }
+  else if (StaticFunctions::checkExtension(flnm, ".dtxml"))
+    {
+      QString dtvfile = flnm;
+      dtvfile.chop(5);
+      dtvfile += "drishtitouch";
+      
+      saveProject(flnm, dtvfile);
+    }
 }
 
 void
@@ -3604,7 +3620,10 @@ void
 MainWindow::saveViewsAndKeyFrames(const char* flnm)
 {
   QString sflnm(flnm);
-  sflnm.replace(QString(".xml"), QString(".keyframes"));
+  if (sflnm.contains(".dtxml", Qt::CaseInsensitive))
+    sflnm.replace(QString(".dtxml"), QString(".keyframes"));
+  else
+    sflnm.replace(QString(".xml"), QString(".keyframes"));
 
   fstream fout(sflnm.toLatin1().data(), ios::binary|ios::out);
 
@@ -3619,7 +3638,7 @@ MainWindow::saveViewsAndKeyFrames(const char* flnm)
 }
 
 void
-MainWindow::saveVolumeIntoProject(const char *flnm)
+MainWindow::saveVolumeIntoProject(const char *flnm, QString dtvfile)
 {
   QString str;
 
@@ -3724,12 +3743,24 @@ MainWindow::saveVolumeIntoProject(const char *flnm)
     QDir direc = fileInfo.absoluteDir();
 
     QDomElement dev = doc.createElement("volumefiles");
-    QList<QString> files = m_Volume->volumeFiles();
-    for(int i=0; i<files.count(); i++)
+    if (dtvfile.isEmpty())
+      {
+	QList<QString> files = m_Volume->volumeFiles();
+	for(int i=0; i<files.count(); i++)
+	  {
+	    QDomElement de0 = doc.createElement("name");
+	    // saving volume filenames relative to the project file path
+	    QString relFile = direc.relativeFilePath(files[i]);
+	    QDomText tn0 = doc.createTextNode(relFile);
+	    de0.appendChild(tn0);
+	    dev.appendChild(de0);
+	  }
+      }
+    else
       {
 	QDomElement de0 = doc.createElement("name");
 	// saving volume filenames relative to the project file path
-	QString relFile = direc.relativeFilePath(files[i]);
+	QString relFile = direc.relativeFilePath(dtvfile);
 	QDomText tn0 = doc.createTextNode(relFile);
 	de0.appendChild(tn0);
 	dev.appendChild(de0);

@@ -3,6 +3,7 @@
 #include "global.h"
 #include "staticfunctions.h"
 #include "imagecaptions.h"
+#include "volumeinformation.h"
 
 #include <QGLViewer/qglviewer.h>
 using namespace qglviewer;
@@ -91,6 +92,10 @@ ImageCaptions::add(Vec pt)
   QFileInfo f(imgFile);
   if (f.exists() == false) return;
   
+  VolumeInformation pvlInfo = VolumeInformation::volumeInformation();
+  QFileInfo fileInfo(pvlInfo.pvlFile);
+  imgFile = fileInfo.absoluteDir().relativeFilePath(imgFile);
+
   ImageCaptionGrabber *cmg = new ImageCaptionGrabber();
   cmg->set(pt, imgFile);
   m_imageCaptions << cmg;
@@ -227,6 +232,10 @@ ImageCaptions::keyPressEvent(QKeyEvent *event)
 	      QFileInfo f(imgFile);
 	      if (f.exists() == false)
 		return false;
+
+	      VolumeInformation pvlInfo = VolumeInformation::volumeInformation();
+	      QFileInfo fileInfo(pvlInfo.pvlFile);
+	      imgFile = fileInfo.absoluteDir().relativeFilePath(imgFile);
 
 	      cmg->setImageFileName(imgFile);
 	    }

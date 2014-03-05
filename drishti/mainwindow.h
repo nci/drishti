@@ -122,7 +122,7 @@ class MainWindow : public QMainWindow
    void openRecentFile();   
    void loadProject(const char*);
    void loadTransferFunctionsOnly(const char*);
-   void saveProject(const char*);
+   void saveProject(QString, QString);
    void GlewInit();
    void loadLookupTable();
    void lightDirectionChanged(Vec);
@@ -282,7 +282,7 @@ class MainWindow : public QMainWindow
    bool loadVolume4(QList<QString>, QList<QString>,
 		    QList<QString>, QList<QString>);
 
-   void saveVolumeIntoProject(const char*);
+   void saveVolumeIntoProject(const char*, QString);
    int loadVolumeFromProject(const char*);
 
    void setTextureMemory();

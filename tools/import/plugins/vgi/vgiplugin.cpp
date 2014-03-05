@@ -554,12 +554,12 @@ void
 VgiPlugin::getDepthSlice(int slc,
 			    uchar *slice)
 {
-  int nbytes = m_width*m_height*m_bytesPerVoxel;
+  qint64 nbytes = m_width*m_height*m_bytesPerVoxel;
 
   QFile fin(m_imgFile);
   fin.open(QFile::ReadOnly);
-  fin.seek(m_skipBytes + nbytes*slc);
-  fin.read((char*)slice, nbytes);
+  fin.seek((qint64)(m_skipBytes + nbytes*slc));
+  fin.read((char*)slice, (qint64)(nbytes));
   fin.close();
 
   if (m_byteSwap && m_bytesPerVoxel > 1)
@@ -575,13 +575,14 @@ VgiPlugin::getWidthSlice(int slc,
   QFile fin(m_imgFile);
   fin.open(QFile::ReadOnly);
 
-  for(uint k=0; k<m_depth; k++)
+  for(int k=0; k<m_depth; k++)
     {
-      fin.seek(m_skipBytes +
-	       (slc*m_height + k*m_width*m_height)*m_bytesPerVoxel);
+      fin.seek((qint64)(m_skipBytes +
+			((qint64)slc*m_height +
+			 (qint64)k*m_width*m_height*m_bytesPerVoxel)));
 
-      fin.read((char*)(slice+k*m_height*m_bytesPerVoxel),
-	       m_height*m_bytesPerVoxel);
+      fin.read((char*)(slice+(qint64)(k*m_height*m_bytesPerVoxel)),
+	       (qint64)(m_height*m_bytesPerVoxel));
     }
   fin.close();
 
@@ -635,10 +636,10 @@ VgiPlugin::rawValue(int d, int w, int h)
 
   QFile fin(m_imgFile);
   fin.open(QFile::ReadOnly);
-  fin.seek(m_skipBytes +
+  fin.seek((qint64)(m_skipBytes +
 	   m_bytesPerVoxel*(d*m_width*m_height +
 			    w*m_height +
-			    h));
+			    h)));
 
   if (m_voxelType == _UChar)
     {
@@ -744,11 +745,11 @@ VgiPlugin::saveTrimmed(QString trimFile,
 
   QFile fin(m_imgFile);
   fin.open(QFile::ReadOnly);
-  fin.seek(m_skipBytes + nbytes*dmin);
+  fin.seek((qint64)(m_skipBytes + nbytes*dmin));
 
   for(uint i=dmin; i<=dmax; i++)
     {
-      fin.read((char*)tmp, nbytes);
+      fin.read((char*)tmp, (qint64)(nbytes));
 
       for(uint j=wmin; j<=wmax; j++)
 	{
@@ -762,7 +763,7 @@ VgiPlugin::saveTrimmed(QString trimFile,
 		  m_bytesPerVoxel,
 		  mY*mZ*m_bytesPerVoxel);      
 
-      fout.write((char*)tmp, mY*mZ*m_bytesPerVoxel);
+      fout.write((char*)tmp, (qint64)(mY*mZ*m_bytesPerVoxel));
 
       progress.setValue((int)(100*(float)(i-dmin)/(float)mX));
       qApp->processEvents();

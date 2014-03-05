@@ -17,6 +17,7 @@
 
 #include <QInputDialog>
 #include <QFileDialog>
+#include <QDataStream>
 
 void DrawHiresVolume::disableSubvolumeUpdates() { m_updateSubvolume = false; }
 void DrawHiresVolume::enableSubvolumeUpdates() { m_updateSubvolume = true; }
@@ -7295,4 +7296,110 @@ DrawHiresVolume::calculateSurfaceArea(int neighbours,
       memcpy(slice1, slice, wd*ht);
     }
 
+}
+
+void
+DrawHiresVolume::saveForDrishtiTouch(QString sfile)
+{
+  fstream fout(sfile.toLatin1().data(), ios::binary|ios::out);
+
+  char keyword[100];
+
+  sprintf(keyword, "drishtiTouch v1.0");
+  fout.write((char*)keyword, strlen(keyword)+1);
+
+  int ncols, nrows;
+  sprintf(keyword, "columnsrows");
+  fout.write((char*)keyword, strlen(keyword)+1);
+  m_Volume->getColumnsAndRows(ncols, nrows);
+  fout.write((char*)&ncols, sizeof(int));
+  fout.write((char*)&nrows, sizeof(int));
+
+  int stexX, stexY;
+  sprintf(keyword, "slicetexturesize");
+  fout.write((char*)keyword, strlen(keyword)+1);
+  m_Volume->getSliceTextureSize(stexX, stexY);
+  fout.write((char*)&stexX, sizeof(int));
+  fout.write((char*)&stexY, sizeof(int));
+
+  Vec dragInfo = m_Volume->getDragTextureInfo();
+  float f[3];
+  f[0] = dragInfo.x;
+  f[1] = dragInfo.y;
+  f[2] = dragInfo.z;
+  sprintf(keyword, "dragtextureinfo");
+  fout.write((char*)keyword, strlen(keyword)+1);
+  fout.write((char*)&f, 3*sizeof(float));
+
+  int dtexX, dtexY;
+  sprintf(keyword, "dragtexturesize");
+  fout.write((char*)keyword, strlen(keyword)+1);
+  m_Volume->getDragTextureSize(dtexX, dtexY);
+  fout.write((char*)&dtexX, sizeof(int));
+  fout.write((char*)&dtexY, sizeof(int));
+ 
+  sprintf(keyword, "slicetexturesizeslabs");
+  fout.write((char*)keyword, strlen(keyword)+1);
+  fout.write((char*)&m_dataTexSize, sizeof(int));
+  for(int i=0; i<m_dataTexSize; i++)
+    {
+      f[0] = m_textureSlab[i].x;
+      f[1] = m_textureSlab[i].y;
+      f[2] = m_textureSlab[i].z;
+      fout.write((char*)&f, 3*sizeof(float));
+    }
+
+  glActiveTexture(GL_TEXTURE1);
+  glEnable(GL_TEXTURE_RECTANGLE_ARB);	    
+  int nbytes = qMax(stexX*stexY, dtexX*dtexY);
+  uchar *imgData = new uchar[nbytes];
+  sprintf(keyword, "slicetextureslabs");
+  fout.write((char*)keyword, strlen(keyword)+1);
+  for(int i=0; i<m_dataTexSize; i++)
+    {
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_dataTex[i]);
+      glGetTexImage(GL_TEXTURE_RECTANGLE_ARB,
+		    0,
+		    GL_RED,
+		    GL_UNSIGNED_BYTE,
+		    imgData);
+      if (i > 0 || m_dataTexSize <= 1)  //slice texture
+	fout.write((char *)imgData, stexX*stexY);
+      else // drag texture
+	fout.write((char *)imgData, dtexX*dtexY);
+    }
+  delete [] imgData;
+  glDisable(GL_TEXTURE_RECTANGLE_ARB);	    
+
+  sprintf(keyword, "fullvolumesize");
+  fout.write((char*)keyword, strlen(keyword)+1);
+  Vec fullVolSize = m_Volume->getFullVolumeSize();
+  f[0] = fullVolSize.x;
+  f[1] = fullVolSize.y;
+  f[2] = fullVolSize.z;
+  fout.write((char*)&f, 3*sizeof(float));
+
+  sprintf(keyword, "subvolumesize");
+  fout.write((char*)keyword, strlen(keyword)+1);
+  Vec subVolSize = m_Volume->getSubvolumeSize();
+  f[0] = subVolSize.x;
+  f[1] = subVolSize.y;
+  f[2] = subVolSize.z;
+  fout.write((char*)&f, 3*sizeof(float));
+
+  sprintf(keyword, "subvolumetexturesize");
+  fout.write((char*)keyword, strlen(keyword)+1);
+  Vec textureSize = m_Volume->getSubvolumeTextureSize();
+  f[0] = textureSize.x;
+  f[1] = textureSize.y;
+  f[2] = textureSize.z;
+  fout.write((char*)&f, 3*sizeof(float));
+
+  sprintf(keyword, "subvolumesubsamplinglevel");
+  int subsamplingLevel = m_Volume->getSubvolumeSubsamplingLevel();
+  fout.write((char*)keyword, strlen(keyword)+1);
+  fout.write((char*)&subsamplingLevel, sizeof(int));
+
+  sprintf(keyword, "enddrishtitouch");
+  fout.write((char*)keyword, strlen(keyword)+1);
 }

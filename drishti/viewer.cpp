@@ -973,7 +973,7 @@ Viewer::splashScreen()
       int wd = img.width();
       int px = qMax(1, (width()-img.width())/2);
       int py = qMin(height(), (height()-img.height())/2+40);
-      int nbytes = img.numBytes();
+      int nbytes = img.byteCount();
       int rgb = nbytes/(wd*ht);
       GLuint fmt;
       if (rgb == 1) fmt = GL_LUMINANCE;

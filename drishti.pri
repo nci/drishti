@@ -90,6 +90,11 @@ macx {
     QMAKE_LIBDIR += /usr/local/lib
   }
 
+  contains(DRISHTI_DEFINES, NETCDF) {
+    INCLUDEPATH += /usr/local/include	
+    QMAKE_LIBDIR += /usr/local/lib
+  }
+
   contains(DRISHTI_DEFINES, TIFF) {
     INCLUDEPATH += /usr/local/include
     QMAKE_LIBDIR += /usr/local/lib

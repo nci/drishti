@@ -26,7 +26,6 @@ unix {
 }
 
 macx {
-  DRISHTI_DEFINES = IMPORT
 
   INCLUDEPATH += ../../
 

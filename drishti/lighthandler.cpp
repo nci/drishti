@@ -8,6 +8,7 @@
 #include "propertyeditor.h"
 #include "pruneshaderfactory.h"
 #include "cropshaderfactory.h"
+#include "blendshaderfactory.h"
 
 #define VECDIVIDE(a, b) Vec(a.x/b.x, a.y/b.y, a.z/b.z)
 
@@ -46,6 +47,8 @@ GLhandleARB LightHandler::m_clipShader=0;
 GLint LightHandler::m_clipParm[20];
 GLhandleARB LightHandler::m_cropShader=0;
 GLint LightHandler::m_cropParm[20];
+GLhandleARB LightHandler::m_blendShader=0;
+GLint LightHandler::m_blendParm[20];
 
 GLint LightHandler::m_opacityParm[20];
 GLint LightHandler::m_mergeOpPruneParm[20];
@@ -140,6 +143,7 @@ LightHandler::checkCrops()
       m_crops = GeometryObjects::crops()->crops();    
 
       createCropShader();
+      createBlendShader();
     }
 
   return doit;
@@ -472,8 +476,8 @@ void LightHandler::clean()
   if (m_emisTex[0]) glDeleteTextures(2, m_emisTex);
   m_emisTex[0] = m_emisTex[1] = 0;
 
-  if (m_lutTex) glDeleteTextures(1, &m_lutTex);
-  m_lutTex = 0;
+  //if (m_lutTex) glDeleteTextures(1, &m_lutTex);
+  //m_lutTex = 0;
 
   if (m_opacityShader) glDeleteObjectARB(m_opacityShader);
   if (m_mergeOpPruneShader) glDeleteObjectARB(m_mergeOpPruneShader);
@@ -576,6 +580,7 @@ LightHandler::createOpacityShader(bool bit16)
   m_opacityParm[10] = glGetUniformLocationARB(m_opacityShader, "lgridz");
   m_opacityParm[12] = glGetUniformLocationARB(m_opacityShader, "lncols");
   m_opacityParm[13] = glGetUniformLocationARB(m_opacityShader, "opshader");
+  m_opacityParm[14] = glGetUniformLocationARB(m_opacityShader, "tfSet");
   //---------------------------
 }
 
@@ -636,6 +641,54 @@ LightHandler::createCropShader()
 }
 
 void
+LightHandler::createBlendShader()
+{
+  if (m_blendShader)
+    glDeleteObjectARB(m_blendShader);
+  m_blendShader = 0;
+  
+  if (m_crops.count() == 0)
+    return;
+
+  int nblends = 0;
+  for (int ci=0; ci<m_crops.count(); ci++)
+    {
+      if (m_crops[ci].cropType() >= CropObject::View_Tear &&
+	  m_crops[ci].cropType() < CropObject::Glow_Ball)
+	nblends ++;
+    }
+  if (nblends == 0)
+    return;
+
+  QString blendShaderString = BlendShaderFactory::generateBlend(m_crops);
+  QString shaderString = LightShaderFactory::blend(blendShaderString);
+
+  m_blendShader = glCreateProgramObjectARB();
+  if (! ShaderFactory::loadShader(m_blendShader,
+				  shaderString))
+    {
+      QMessageBox::critical(0, "Error",
+			    "Cannot create BlendShader for lighting calculations");
+      exit(0);
+    }
+
+  m_blendParm[0] = glGetUniformLocationARB(m_blendShader, "pruneTex");
+  m_blendParm[1] = glGetUniformLocationARB(m_blendShader, "gridx");
+  m_blendParm[2] = glGetUniformLocationARB(m_blendShader, "gridy");
+  m_blendParm[3] = glGetUniformLocationARB(m_blendShader, "gridz");
+  m_blendParm[4] = glGetUniformLocationARB(m_blendShader, "nrows");
+  m_blendParm[5] = glGetUniformLocationARB(m_blendShader, "ncols");
+  m_blendParm[6] = glGetUniformLocationARB(m_blendShader, "lod");
+  m_blendParm[7] = glGetUniformLocationARB(m_blendShader, "voxelScaling");
+  m_blendParm[8] = glGetUniformLocationARB(m_blendShader, "dmin");
+  m_blendParm[9] = glGetUniformLocationARB(m_blendShader, "opTex");
+  m_blendParm[10] = glGetUniformLocationARB(m_blendShader, "lutTex");
+  m_blendParm[11] = glGetUniformLocationARB(m_blendShader, "eyepos");
+  m_blendParm[12] = glGetUniformLocationARB(m_blendShader, "dirUp");
+  m_blendParm[13] = glGetUniformLocationARB(m_blendShader, "dirRight");
+}
+
+void
 LightHandler::createClipShader()
 {
   QString shaderString = PruneShaderFactory::clip();
@@ -660,6 +713,85 @@ LightHandler::createClipShader()
   m_clipParm[5] = glGetUniformLocationARB(m_clipShader, "ncols");
   m_clipParm[6] = glGetUniformLocationARB(m_clipShader, "pos");
   m_clipParm[7] = glGetUniformLocationARB(m_clipShader, "normal");
+}
+
+int
+LightHandler::applyBlending(int ct)
+{
+  if (!m_blendShader)
+    return ct;
+
+//  MainWindowUI::mainWindowUI()->menubar->parentWidget()->\
+//    setWindowTitle("----------Updating crop buffers----------");
+
+  Vec voxelScaling = Global::voxelScaling();
+  int sX = m_pruneBuffer->width();
+  int sY = m_pruneBuffer->height();
+
+  int lod = m_dragInfo.z;
+  lod *= m_lightLod;
+
+  glUseProgramObjectARB(m_blendShader);
+  glUniform1iARB(m_blendParm[0], 2); // lightbuffer
+  glUniform1iARB(m_blendParm[1], m_gridx); // gridx
+  glUniform1iARB(m_blendParm[2], m_gridy); // gridy
+  glUniform1iARB(m_blendParm[3], m_gridz); // gridz
+  glUniform1iARB(m_blendParm[4], m_nrows); // nrows
+  glUniform1iARB(m_blendParm[5], m_ncols); // ncols
+  glUniform1iARB(m_blendParm[6], lod); // lod
+  glUniform3fARB(m_blendParm[7], voxelScaling.x, voxelScaling.y, voxelScaling.z);
+  glUniform3fARB(m_blendParm[8], m_dataMin.x, m_dataMin.y, m_dataMin.z);
+  glUniform1iARB(m_blendParm[9], 3); // opacity buffer
+  glUniform1iARB(m_blendParm[10], 0); // lookup table
+  glUniform3fARB(m_blendParm[11], 0, 0, -1000); // eyepos
+  glUniform3fARB(m_blendParm[12], 0, 1, 0); // up
+  glUniform3fARB(m_blendParm[13], 1, 0, 0); // right
+
+  // enable lookup texture
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, m_lutTex);
+  glEnable(GL_TEXTURE_2D);
+
+  // enable opacity texture
+  glActiveTexture(GL_TEXTURE3);
+  glEnable(GL_TEXTURE_RECTANGLE_ARB);
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_opacityBuffer->texture());
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+  glActiveTexture(GL_TEXTURE2);
+  glEnable(GL_TEXTURE_RECTANGLE_ARB);
+  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_lightBuffer);
+
+
+  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			 GL_COLOR_ATTACHMENT0_EXT,
+			 GL_TEXTURE_RECTANGLE_ARB,
+			 m_lightTex[(ct+1)%2],
+			 0);
+  
+  glActiveTexture(GL_TEXTURE2);
+  glEnable(GL_TEXTURE_RECTANGLE_ARB);
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_lightTex[ct]);      
+  
+  StaticFunctions::pushOrthoView(0, 0, sX, sY);
+  StaticFunctions::drawQuad(0, 0, sX, sY, 1.0);
+  StaticFunctions::popOrthoView();
+  
+  glFinish();
+
+  ct = (ct+1)%2;
+
+  glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
+  glUseProgramObjectARB(0);
+
+  glActiveTexture(GL_TEXTURE0);
+  glDisable(GL_TEXTURE_2D);
+
+  glActiveTexture(GL_TEXTURE3);
+  glDisable(GL_TEXTURE_RECTANGLE_ARB);
+
+  return ct;
 }
 
 void
@@ -905,47 +1037,52 @@ LightHandler::generateOpacityTexture()
   if (m_basicLight)
     return;
 
-  int nvol = 1;
-  if (Global::volumeType() == Global::DoubleVolume) nvol = 2;
-  if (Global::volumeType() == Global::TripleVolume) nvol = 3;
-  if (Global::volumeType() == Global::QuadVolume) nvol = 4;
+//  int nvol = 1;
+//  if (Global::volumeType() == Global::DoubleVolume) nvol = 2;
+//  if (Global::volumeType() == Global::TripleVolume) nvol = 3;
+//  if (Global::volumeType() == Global::QuadVolume) nvol = 4;
+//
+//  if (Global::volumeType() == Global::RGBVolume ||
+//      Global::volumeType() == Global::RGBAVolume) nvol = 3;
+//  
+//  uchar *lut = new uchar[nvol*4*256*256];
+//  memset(lut, 0, nvol*4*256*256);
+//
+//  int lsize = m_opacityTF*256*256*4;
+//  for(int i=0; i<nvol*256*256; i++)
+//    {
+//      lut[4*i+0] = m_lut[lsize + 4*i+0];
+//      lut[4*i+1] = m_lut[lsize + 4*i+1];
+//      lut[4*i+2] = m_lut[lsize + 4*i+2];
+//      lut[4*i+3] = m_lut[lsize + 4*i+3];
+//    }
+//
+//
+//  // load lookup table
+//  if (!m_lutTex) glGenTextures(1, &m_lutTex);
+//  glActiveTexture(GL_TEXTURE2);
+//  glBindTexture(GL_TEXTURE_2D, m_lutTex); //max values from all tfsets
+//  glEnable(GL_TEXTURE_2D);
+//  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+//  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
+//  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,GL_NEAREST);
+//  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,GL_NEAREST);
+//  glTexImage2D(GL_TEXTURE_2D,
+//	       0, // single resolution
+//	       GL_RGBA,
+//	       //1,
+//	       256, nvol*256, // width, height
+//	       0, // no border
+//	       //GL_LUMINANCE,
+//	       GL_RGBA,
+//	       GL_UNSIGNED_BYTE,
+//	       lut);
+//  delete [] lut;
 
-  if (Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume) nvol = 3;
-  
-  uchar *lut = new uchar[nvol*4*256*256];
-  memset(lut, 0, nvol*4*256*256);
-
-  int lsize = m_opacityTF*256*256*4;
-  for(int i=0; i<nvol*256*256; i++)
-    {
-      lut[4*i+0] = m_lut[lsize + 4*i+0];
-      lut[4*i+1] = m_lut[lsize + 4*i+1];
-      lut[4*i+2] = m_lut[lsize + 4*i+2];
-      lut[4*i+3] = m_lut[lsize + 4*i+3];
-    }
-
-
-  // load lookup table
-  if (!m_lutTex) glGenTextures(1, &m_lutTex);
-  glActiveTexture(GL_TEXTURE2);
-  glBindTexture(GL_TEXTURE_2D, m_lutTex); //max values from all tfsets
+  // enable lookup texture
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, m_lutTex);
   glEnable(GL_TEXTURE_2D);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,GL_NEAREST);
-  glTexImage2D(GL_TEXTURE_2D,
-	       0, // single resolution
-	       GL_RGBA,
-	       //1,
-	       256, nvol*256, // width, height
-	       0, // no border
-	       //GL_LUMINANCE,
-	       GL_RGBA,
-	       GL_UNSIGNED_BYTE,
-	       lut);
-  delete [] lut;
 
   // enable drag texture
   glActiveTexture(GL_TEXTURE1);
@@ -973,8 +1110,9 @@ LightHandler::generateOpacityTexture()
   int gridy = m_dtexY/nrows;
   int gridz = m_subVolSize.z/lod;
   bool opshader = true;
+  float tfSet = (float)m_opacityTF/(float)Global::lutSize();
 
-  glUniform1iARB(m_opacityParm[0], 2); // lutTex
+  glUniform1iARB(m_opacityParm[0], 0); // lutTex
   glUniform1iARB(m_opacityParm[1], 1); // dragTex
   glUniform1iARB(m_opacityParm[2], gridx); // gridx
   glUniform1iARB(m_opacityParm[3], gridy); // gridy
@@ -986,6 +1124,7 @@ LightHandler::generateOpacityTexture()
   glUniform1iARB(m_opacityParm[10], m_gridz); // light gridz
   glUniform1iARB(m_opacityParm[12], m_ncols); // light ncols
   glUniform1iARB(m_opacityParm[13], opshader); // opacity shader
+  glUniform1fARB(m_opacityParm[14], tfSet); // opacity tfSet
 
   StaticFunctions::pushOrthoView(0, 0, sX, sY);
   StaticFunctions::drawQuad(0, 0, sX, sY, 1.0);
@@ -1024,45 +1163,50 @@ LightHandler::generateEmissiveTexture()
   if (m_emisTF < 0 || m_emisTF >= Global::lutSize())
     return;
 
-  int nvol = 1;
-  if (Global::volumeType() == Global::DoubleVolume) nvol = 2;
-  if (Global::volumeType() == Global::TripleVolume) nvol = 3;
-  if (Global::volumeType() == Global::QuadVolume) nvol = 4;
-  
-  if (Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume) nvol = 3;
-  
-  uchar *lut = new uchar[nvol*4*256*256];
-  memset(lut, 0, nvol*4*256*256);
+//  int nvol = 1;
+//  if (Global::volumeType() == Global::DoubleVolume) nvol = 2;
+//  if (Global::volumeType() == Global::TripleVolume) nvol = 3;
+//  if (Global::volumeType() == Global::QuadVolume) nvol = 4;
+//  
+//  if (Global::volumeType() == Global::RGBVolume ||
+//      Global::volumeType() == Global::RGBAVolume) nvol = 3;
+//  
+//  uchar *lut = new uchar[nvol*4*256*256];
+//  memset(lut, 0, nvol*4*256*256);
+//
+//  int lsize = m_emisTF*256*256*4;
+//  for(int i=0; i<nvol*256*256; i++)
+//    {
+//      lut[4*i+0] = m_lut[lsize + 4*i+0];
+//      lut[4*i+1] = m_lut[lsize + 4*i+1];
+//      lut[4*i+2] = m_lut[lsize + 4*i+2];
+//      lut[4*i+3] = m_lut[lsize + 4*i+3];
+//    }
+//
+//
+//  // load lookup table
+//  if (!m_lutTex) glGenTextures(1, &m_lutTex);
+//  glActiveTexture(GL_TEXTURE2);
+//  glBindTexture(GL_TEXTURE_2D, m_lutTex); //max values from all tfsets
+//  glEnable(GL_TEXTURE_2D);
+//  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+//  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
+//  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,GL_NEAREST);
+//  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,GL_NEAREST);
+//  glTexImage2D(GL_TEXTURE_2D,
+//	       0, // single resolution
+//	       GL_RGBA,
+//	       256, nvol*256, // width, height
+//	       0, // no border
+//	       GL_RGBA,
+//	       GL_UNSIGNED_BYTE,
+//	       lut);
+//  delete [] lut;
 
-  int lsize = m_emisTF*256*256*4;
-  for(int i=0; i<nvol*256*256; i++)
-    {
-      lut[4*i+0] = m_lut[lsize + 4*i+0];
-      lut[4*i+1] = m_lut[lsize + 4*i+1];
-      lut[4*i+2] = m_lut[lsize + 4*i+2];
-      lut[4*i+3] = m_lut[lsize + 4*i+3];
-    }
-
-
-  // load lookup table
-  if (!m_lutTex) glGenTextures(1, &m_lutTex);
-  glActiveTexture(GL_TEXTURE2);
-  glBindTexture(GL_TEXTURE_2D, m_lutTex); //max values from all tfsets
+  // enable lookup texture
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, m_lutTex);
   glEnable(GL_TEXTURE_2D);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,GL_NEAREST);
-  glTexImage2D(GL_TEXTURE_2D,
-	       0, // single resolution
-	       GL_RGBA,
-	       256, nvol*256, // width, height
-	       0, // no border
-	       GL_RGBA,
-	       GL_UNSIGNED_BYTE,
-	       lut);
-  delete [] lut;
 
   // enable drag texture
   glActiveTexture(GL_TEXTURE1);
@@ -1097,8 +1241,9 @@ LightHandler::generateEmissiveTexture()
   int gridy = m_dtexY/nrows;
   int gridz = m_subVolSize.z/lod;
   bool opshader = false;
+  float tfSet = (float)m_emisTF/(float)Global::lutSize();
 
-  glUniform1iARB(m_opacityParm[0], 2); // lutTex
+  glUniform1iARB(m_opacityParm[0], 0); // lutTex
   glUniform1iARB(m_opacityParm[1], 1); // dragTex
   glUniform1iARB(m_opacityParm[2], gridx); // gridx
   glUniform1iARB(m_opacityParm[3], gridy); // gridy
@@ -1110,6 +1255,7 @@ LightHandler::generateEmissiveTexture()
   glUniform1iARB(m_opacityParm[10], m_gridz); // light gridz
   glUniform1iARB(m_opacityParm[12], m_ncols); // light ncols
   glUniform1iARB(m_opacityParm[13], opshader); // opacity shader
+  glUniform1fARB(m_opacityParm[14], tfSet); // emissive tfSet
 
   StaticFunctions::pushOrthoView(0, 0, sX, sY);
   StaticFunctions::drawQuad(0, 0, sX, sY, 1.0);
@@ -1650,7 +1796,10 @@ LightHandler::updatePruneBuffer()
     ct = applyClipping(ct);
 
   if (m_applyCrop)
-    ct = applyCropping(ct);
+    {
+      ct = applyCropping(ct);
+      ct = applyBlending(ct);
+    }
 
   mergeOpPruneBuffers(ct);
 

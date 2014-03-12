@@ -1,3 +1,4 @@
+#include "global.h"
 #include "lightshaderfactory.h"
 
 QString
@@ -18,6 +19,7 @@ LightShaderFactory::genOpacityShader(bool bit16)
   shader += "uniform int lgridz;\n";
   shader += "uniform int lncols;\n";
   shader += "uniform bool opshader;\n";
+  shader += "uniform float tfSet;\n";
 
   shader += "void main(void)\n";
   shader += "{\n";
@@ -95,8 +97,17 @@ LightShaderFactory::genOpacityShader(bool bit16)
       shader += "vg.xy = vec2(fh0, fh1);\n";
     }
 
+  shader += "float val = vg.x;\n";
+  shader += "float grad = vg.y;\n";
+
+  shader += QString("  vg.y = tfSet + vg.y*%1;\n").arg(1.0/Global::lutSize());
+
   shader += " if (opshader)\n";
-  shader += "   gl_FragColor = texture2D(lutTex, vg.xy).aaaa;\n";  
+  //shader += "   gl_FragColor = texture2D(lutTex, vg.xy).aaaa;\n";  
+  shader += "   {\n";
+  shader += "     float alpha = texture2D(lutTex, vg.xy).a;\n";
+  shader += "     gl_FragColor = vec4(val, grad, alpha, 1.0);\n"; 
+  shader += "   }\n";
   shader += " else\n";
   shader += "   {\n";
   shader += "     gl_FragColor = texture2D(lutTex, vg.xy);\n";  
@@ -137,6 +148,7 @@ LightShaderFactory::genOpacityShader2(int nvol)
   shader += "uniform int lgridz;\n";
   shader += "uniform int lncols;\n";
   shader += "uniform bool opshader;\n";
+  shader += "uniform float tfSet;\n";
   
   shader += "void main(void)\n";
   shader += "{\n";
@@ -218,7 +230,8 @@ LightShaderFactory::genOpacityShader2(int nvol)
       shader += QString("  sample1 = vec3(samplex1.%1, sampley1.%1, samplez1.%1);\n").arg(c);
       shader += QString("  sample2 = vec3(samplex2.%1, sampley2.%1, samplez2.%1);\n").arg(c);
       shader += "  g = distance(sample1, sample2);\n";
-      shader += QString("  g = (float(%1) + g)/float(%2);\n").arg(i-1).arg(nvol);
+      //shader += QString("  g = (float(%1) + g)/float(%2);\n").arg(i-1).arg(nvol);
+      shader += QString("  g = tfSet + (float(%1) + g)/float(%2);\n").arg(i-1).arg(Global::lutSize());
       shader += QString("  color = texture2D(lutTex, vec2(val.%1,g));\n").arg(c);
       shader += "  rgb += color.rgb;\n";
       shader += "  alpha = max(alpha, color.a);\n";
@@ -499,7 +512,8 @@ LightShaderFactory::genMergeOpPruneShader()
   
   shader += "void main(void)\n";
   shader += "{\n";
-  shader += "  vec4 op = texture2DRect(opTex, gl_TexCoord[0].xy);\n";
+  //shader += "  vec4 op = texture2DRect(opTex, gl_TexCoord[0].xy);\n";
+  shader += "  vec4 op = texture2DRect(opTex, gl_TexCoord[0].xy).bbbb;\n";
   shader += "  op.rgb *= texture2DRect(lightTex, gl_TexCoord[0].xy).xxx;\n";
   shader += "  gl_FragColor = op;\n";
   shader += "}\n";
@@ -970,6 +984,59 @@ LightShaderFactory::genExpandLightShader()
 
 
   shader += "  gl_FragColor = vec4(texture2DRect(lightTex, ltc).rgb, 1.0);\n";   
+
+  shader += "}\n";
+
+  return shader;
+}
+
+QString
+LightShaderFactory::blend(QString blendShader)
+{
+  QString shader;
+
+  shader =  "#extension GL_ARB_texture_rectangle : enable\n";
+  shader += "uniform sampler2DRect pruneTex;\n";
+  shader += "uniform int gridx;\n";
+  shader += "uniform int gridy;\n";
+  shader += "uniform int gridz;\n";
+  shader += "uniform int nrows;\n";
+  shader += "uniform int ncols;\n";
+  shader += "uniform int lod;\n";
+  shader += "uniform vec3 voxelScaling;\n";
+  shader += "uniform vec3 dmin;\n";
+  shader += "uniform sampler2DRect opTex;\n";
+  shader += "uniform sampler2D lutTex;\n";
+
+  shader += "uniform vec3 eyepos;\n";
+  shader += "uniform vec3 dirUp;\n";
+  shader += "uniform vec3 dirRight;\n";
+
+  shader += blendShader;
+  
+  shader += "void main(void)\n";
+  shader += "{\n";
+  shader += "int ocol = int(gl_TexCoord[0].x)/gridx;\n";
+  shader += "int orow = int(gl_TexCoord[0].y)/gridy;\n";
+  shader += "int ox = int(gl_TexCoord[0].x) - ocol*gridx;\n";
+  shader += "int oy = int(gl_TexCoord[0].y) - orow*gridy;\n";
+  shader += "int oz = orow*ncols + ocol;\n";
+
+  shader += "vec2 vg = texture2DRect(opTex, gl_TexCoord[0].xy).xy;\n";
+
+  shader += "vec4 fc = texture2DRect(pruneTex, gl_TexCoord[0].xy);\n";
+  shader += "gl_FragColor = fc;\n";
+
+  shader += "vec3 v = vec3(ox,oy,oz);\n";
+  shader += "v = v * vec3(lod,lod,lod);\n";
+  shader += "v = v + dmin;\n";
+  //shader += "v = v * voxelScaling;\n";
+
+  shader += "vec4 fcol = gl_FragColor;\n";
+  shader += "blend(v, vg, fcol);\n";
+
+ // modify only x value
+  shader += "gl_FragColor.x = min(gl_FragColor.x, fcol.a);\n";
 
   shader += "}\n";
 

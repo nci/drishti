@@ -31,6 +31,8 @@ class LightShaderFactory
   static QString genDiffuseLightShader();
 
   static QString genMergeOpPruneShader();
+
+  static QString blend(QString);
 };
 
 #endif

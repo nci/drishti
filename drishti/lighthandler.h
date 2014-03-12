@@ -19,6 +19,8 @@ class LightHandler
     static void reset();
     static void clean();
 
+    static void setLutTex(GLuint lt) { m_lutTex = lt; }
+
     static bool basicLight() { return m_basicLight; }
 
     static bool openPropertyEditor();
@@ -162,8 +164,12 @@ class LightHandler
     static GLint m_clipParm[20];
 
     static QList<CropObject> m_crops;
+
     static GLhandleARB m_cropShader;
     static GLint m_cropParm[20];
+
+    static GLhandleARB m_blendShader;
+    static GLint m_blendParm[20];
 
     static void generateOpacityTexture();
 
@@ -183,6 +189,7 @@ class LightHandler
     static void createMergeOpPruneShader();
     static void createClipShader();
     static void createCropShader();
+    static void createBlendShader();
 
     static void updatePruneBuffer();
 
@@ -210,6 +217,7 @@ class LightHandler
 
     static int applyClipping(int);
     static int applyCropping(int);
+    static int applyBlending(int);
 };
 
 #endif

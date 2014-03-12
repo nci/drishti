@@ -487,6 +487,8 @@ Viewer::Viewer(QWidget *parent) :
   m_paintTex = 0;
   glGenTextures(1, &m_lutTex);
 
+  LightHandler::setLutTex(m_lutTex);
+
   m_lutImage = QImage(256, 256, QImage::Format_RGB32);
 
   setMinimumSize(200, 200); 
@@ -797,6 +799,8 @@ Viewer::loadLookupTable(unsigned char *lut)
 	       GL_RGBA,
 	       GL_UNSIGNED_BYTE,
 	       lut);
+
+  LightHandler::setLutTex(m_lutTex);
 }
 
 void

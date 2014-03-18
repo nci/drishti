@@ -3172,7 +3172,7 @@ MainWindow::on_actionSave_ProjectAs_triggered()
   flnm = QFileDialog::getSaveFileName(0,
 				      "Save Project As",
 				      Global::previousDirectory(),
-				      "xml Files (*.xml)",
+				      "xml Files (*.xml) | dtxml Files (*.dtxml)",
 				      0,
 				      QFileDialog::DontUseNativeDialog);
 

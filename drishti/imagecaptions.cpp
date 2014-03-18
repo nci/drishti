@@ -217,6 +217,7 @@ ImageCaptions::keyPressEvent(QKeyEvent *event)
 	    }
 	  if (event->key() == Qt::Key_S)
 	    {
+	      m_imageCaptions[i]->setActive(false);
 	      m_imageCaptions[i]->saveSize();
 	    }
 	  if (event->key() == Qt::Key_Space)
@@ -238,6 +239,9 @@ ImageCaptions::keyPressEvent(QKeyEvent *event)
 	      imgFile = fileInfo.absoluteDir().relativeFilePath(imgFile);
 
 	      cmg->setImageFileName(imgFile);
+
+	      QMessageBox::information(0, "Information Captions",
+				       "Once you have set the size for the information display, to fix the size for subsequent displays, hover over information icon and press \"s\" to save size.");
 	    }
 	}
     }

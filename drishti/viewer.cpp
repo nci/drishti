@@ -886,16 +886,6 @@ Viewer::updateLookupTable()
     memcpy(lut, m_lut, Global::lutSize()*4*256*256);
   
 
-  if (m_hiresVolume->raised() &&
-      (gilite || !LightHandler::willUpdateLightBuffers()))
-    {
-      LightHandler::setLut(m_lut);
-      m_hiresVolume->initShadowBuffers(true);
-      //dummydraw();
-      bool fboBound = bindFBOs(Enums::StillImage);
-      if (fboBound) releaseFBOs(Enums::StillImage);
-    }
-  
   if (Global::emptySpaceSkip() &&
       m_hiresVolume->raised() &&
       prune)
@@ -910,6 +900,16 @@ Viewer::updateLookupTable()
 
   loadLookupTable(lut);
 
+  if (m_hiresVolume->raised() &&
+      (gilite || !LightHandler::willUpdateLightBuffers()))
+    {
+      LightHandler::setLut(m_lut);
+      m_hiresVolume->initShadowBuffers(true);
+      //dummydraw();
+      bool fboBound = bindFBOs(Enums::StillImage);
+      if (fboBound) releaseFBOs(Enums::StillImage);
+    }
+  
   delete [] lut;
 }
 

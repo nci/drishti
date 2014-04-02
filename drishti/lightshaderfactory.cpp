@@ -272,6 +272,7 @@ LightShaderFactory::genOpacityShaderRGB()
   shader += "uniform int lgridz;\n";
   shader += "uniform int lncols;\n";
   shader += "uniform bool opshader;\n";
+  shader += "uniform float tfSet;\n";
   
   shader += "void main(void)\n";
   shader += "{\n";
@@ -296,18 +297,20 @@ LightShaderFactory::genOpacityShaderRGB()
 
   shader += "  vec4 colOp = vec4(texture2DRect(dragTex, tc).rgb, 1.0);\n";
 
-  //float lutStep = 1.0/3.0;
   float lutStep = 1.0/(float)Global::lutSize();
   shader += "  vec2 rgLut = colOp.rg;\n";
   shader += QString("  rgLut.y *= %1;\n").arg(lutStep);
+  shader += "  rgLut.y += tfSet;\n";
 
   shader += "  vec2 gbLut = colOp.gb;\n";
   shader += QString("  gbLut.y *= %1;\n").arg(lutStep);
   shader += QString("  gbLut.y += %1;\n").arg(lutStep);
+  shader += "  gbLut.y += tfSet;\n";
 
   shader += "  vec2 brLut = colOp.br;\n";
   shader += QString("  brLut.y *= %1;\n").arg(lutStep);
   shader += QString("  brLut.y += %1;\n").arg(2*lutStep);
+  shader += "  brLut.y += tfSet;\n";
 
   shader += "  float rg = texture2D(lutTex, rgLut).a;\n";
   shader += "  float gb = texture2D(lutTex, gbLut).a;\n";

@@ -296,7 +296,8 @@ LightShaderFactory::genOpacityShaderRGB()
 
   shader += "  vec4 colOp = vec4(texture2DRect(dragTex, tc).rgb, 1.0);\n";
 
-  float lutStep = 1.0/3.0;
+  //float lutStep = 1.0/3.0;
+  float lutStep = 1.0/(float)Global::lutSize();
   shader += "  vec2 rgLut = colOp.rg;\n";
   shader += QString("  rgLut.y *= %1;\n").arg(lutStep);
 

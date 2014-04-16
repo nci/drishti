@@ -211,6 +211,7 @@ ImageCaptions::keyPressEvent(QKeyEvent *event)
 	      event->key() == Qt::Key_Backspace ||
 	      event->key() == Qt::Key_Backtab)
 	    {
+	      m_imageCaptions[i]->removeFromMouseGrabberPool();
 	      m_imageCaptions.removeAt(i);
 	      updateConnections();
 	      return true;

@@ -7299,14 +7299,23 @@ DrawHiresVolume::calculateSurfaceArea(int neighbours,
 }
 
 void
-DrawHiresVolume::saveForDrishtiTouch(QString sfile)
+DrawHiresVolume::saveForDrishtiPrayog(QString sfile)
 {
   fstream fout(sfile.toLatin1().data(), ios::binary|ios::out);
 
   char keyword[100];
 
-  sprintf(keyword, "drishtiTouch v1.0");
+  sprintf(keyword, "drishtiPrayog v1.0");
   fout.write((char*)keyword, strlen(keyword)+1);
+
+  Vec voxelScaling = Global::voxelScaling();
+  float f[3];
+  f[0] = voxelScaling.x;
+  f[1] = voxelScaling.y;
+  f[2] = voxelScaling.z;
+  sprintf(keyword, "voxelscaling");
+  fout.write((char*)keyword, strlen(keyword)+1);
+  fout.write((char*)&f, 3*sizeof(float));
 
   int ncols, nrows;
   sprintf(keyword, "columnsrows");
@@ -7323,7 +7332,7 @@ DrawHiresVolume::saveForDrishtiTouch(QString sfile)
   fout.write((char*)&stexY, sizeof(int));
 
   Vec dragInfo = m_Volume->getDragTextureInfo();
-  float f[3];
+  //float f[3];
   f[0] = dragInfo.x;
   f[1] = dragInfo.y;
   f[2] = dragInfo.z;
@@ -7400,6 +7409,6 @@ DrawHiresVolume::saveForDrishtiTouch(QString sfile)
   fout.write((char*)keyword, strlen(keyword)+1);
   fout.write((char*)&subsamplingLevel, sizeof(int));
 
-  sprintf(keyword, "enddrishtitouch");
+  sprintf(keyword, "enddrishtiprayog");
   fout.write((char*)keyword, strlen(keyword)+1);
 }

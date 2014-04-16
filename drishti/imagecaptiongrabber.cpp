@@ -12,7 +12,7 @@ ImageCaptionGrabber::imageCaption()
 }
 
 ImageCaptionGrabber::ImageCaptionGrabber() { m_pressed = false; }
-ImageCaptionGrabber::~ImageCaptionGrabber() { removeFromMouseGrabberPool(); }
+ImageCaptionGrabber::~ImageCaptionGrabber() {}
 
 void
 ImageCaptionGrabber::checkIfGrabsMouse(int x, int y,

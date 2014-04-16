@@ -3069,7 +3069,7 @@ MainWindow::saveProject(QString xmlflnm, QString dtvfile)
   m_tfManager->save(flnm);
   saveViewsAndKeyFrames(flnm);
 
-  m_Hires->saveForDrishtiTouch(dtvfile);
+  m_Hires->saveForDrishtiPrayog(dtvfile);
 
   QFileInfo f(flnm);
   Global::setPreviousDirectory(f.absolutePath());
@@ -3172,7 +3172,7 @@ MainWindow::on_actionSave_ProjectAs_triggered()
   flnm = QFileDialog::getSaveFileName(0,
 				      "Save Project As",
 				      Global::previousDirectory(),
-				      "xml Files (*.xml) | dtxml Files (*.dtxml)",
+				      "Drishti Project - xml Files (*.xml) ;; Drishti Prayog - dpxml Files (*.dpxml)",
 				      0,
 				      QFileDialog::DontUseNativeDialog);
 
@@ -3182,17 +3182,17 @@ MainWindow::on_actionSave_ProjectAs_triggered()
     return;
 
   if (!StaticFunctions::checkExtension(flnm, ".xml") &&
-      !StaticFunctions::checkExtension(flnm, ".dtxml"))
+      !StaticFunctions::checkExtension(flnm, ".dpxml"))
     {
       flnm += ".xml";
       
       saveProject(flnm.toLatin1().data(), QString());
     }
-  else if (StaticFunctions::checkExtension(flnm, ".dtxml"))
+  else if (StaticFunctions::checkExtension(flnm, ".dpxml"))
     {
       QString dtvfile = flnm;
       dtvfile.chop(5);
-      dtvfile += "drishtitouch";
+      dtvfile += "drishtiprayog";
       
       saveProject(flnm, dtvfile);
     }
@@ -3620,8 +3620,8 @@ void
 MainWindow::saveViewsAndKeyFrames(const char* flnm)
 {
   QString sflnm(flnm);
-  if (sflnm.contains(".dtxml", Qt::CaseInsensitive))
-    sflnm.replace(QString(".dtxml"), QString(".keyframes"));
+  if (sflnm.contains(".dpxml", Qt::CaseInsensitive))
+    sflnm.replace(QString(".dpxml"), QString(".keyframes"));
   else
     sflnm.replace(QString(".xml"), QString(".keyframes"));
 

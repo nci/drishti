@@ -142,7 +142,7 @@ class DrawHiresVolume : public QObject
 			     QVector4D, float, int,
 			     int, int);
 
-  void saveForDrishtiTouch(QString);
+  void saveForDrishtiPrayog(QString);
 
  signals :
   void histogramUpdated(QImage, QImage);

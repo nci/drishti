@@ -7308,6 +7308,12 @@ DrawHiresVolume::saveForDrishtiPrayog(QString sfile)
   sprintf(keyword, "drishtiPrayog v1.0");
   fout.write((char*)keyword, strlen(keyword)+1);
 
+  VolumeInformation pvlInfo = VolumeInformation::volumeInformation();
+  int vu = pvlInfo.voxelUnit;
+  sprintf(keyword, "voxelunit");
+  fout.write((char*)keyword, strlen(keyword)+1);
+  fout.write((char*)&vu, sizeof(int));
+
   Vec voxelScaling = Global::voxelScaling();
   float f[3];
   f[0] = voxelScaling.x;

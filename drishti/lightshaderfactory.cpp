@@ -98,9 +98,12 @@ LightShaderFactory::genOpacityShader(bool bit16)
     }
 
   shader += "float val = vg.x;\n";
-  shader += "float grad = vg.y;\n";
+  //shader += "float grad = vg.y;\n";
 
-  shader += QString("  vg.y = tfSet + vg.y*%1;\n").arg(1.0/Global::lutSize());
+  //shader += QString("  vg.y = tfSet + vg.y*%1;\n").arg(1.0/Global::lutSize());
+
+  shader += QString("float grad = vg.y*%1;\n").arg(1.0/Global::lutSize());
+  shader += "vg.y = tfSet + grad;\n";
 
   shader += " if (opshader)\n";
   //shader += "   gl_FragColor = texture2D(lutTex, vg.xy).aaaa;\n";  
@@ -998,9 +1001,8 @@ QString
 LightShaderFactory::blend(QString blendShader)
 {
   QString shader;
-
   shader =  "#extension GL_ARB_texture_rectangle : enable\n";
-  shader += "uniform sampler2DRect pruneTex;\n";
+  shader += "uniform sampler2DRect opTex;\n";
   shader += "uniform int gridx;\n";
   shader += "uniform int gridy;\n";
   shader += "uniform int gridz;\n";
@@ -1009,7 +1011,7 @@ LightShaderFactory::blend(QString blendShader)
   shader += "uniform int lod;\n";
   shader += "uniform vec3 voxelScaling;\n";
   shader += "uniform vec3 dmin;\n";
-  shader += "uniform sampler2DRect opTex;\n";
+  shader += "uniform sampler2DRect lightTex;\n";
   shader += "uniform sampler2D lutTex;\n";
 
   shader += "uniform vec3 eyepos;\n";
@@ -1020,29 +1022,28 @@ LightShaderFactory::blend(QString blendShader)
   
   shader += "void main(void)\n";
   shader += "{\n";
-  shader += "int ocol = int(gl_TexCoord[0].x)/gridx;\n";
-  shader += "int orow = int(gl_TexCoord[0].y)/gridy;\n";
-  shader += "int ox = int(gl_TexCoord[0].x) - ocol*gridx;\n";
-  shader += "int oy = int(gl_TexCoord[0].y) - orow*gridy;\n";
-  shader += "int oz = orow*ncols + ocol;\n";
+  shader += "  int ocol = int(gl_TexCoord[0].x)/gridx;\n";
+  shader += "  int orow = int(gl_TexCoord[0].y)/gridy;\n";
+  shader += "  int ox = int(gl_TexCoord[0].x) - ocol*gridx;\n";
+  shader += "  int oy = int(gl_TexCoord[0].y) - orow*gridy;\n";
+  shader += "  int oz = orow*ncols + ocol;\n";
 
-  shader += "vec2 vg = texture2DRect(opTex, gl_TexCoord[0].xy).xy;\n";
+  shader += "  vec4 op = texture2DRect(opTex, gl_TexCoord[0].xy);\n";
+  shader += "  vec2 vg = op.xy;\n";
 
-  shader += "vec4 fc = texture2DRect(pruneTex, gl_TexCoord[0].xy);\n";
-  shader += "gl_FragColor = fc;\n";
+  shader += "  vec3 v = vec3(ox,oy,oz);\n";
+  shader += "  v = v * vec3(lod,lod,lod);\n";
+  shader += "  v = v + dmin;\n";
 
-  shader += "vec3 v = vec3(ox,oy,oz);\n";
-  shader += "v = v * vec3(lod,lod,lod);\n";
-  shader += "v = v + dmin;\n";
-  //shader += "v = v * voxelScaling;\n";
+  shader += "  vec4 fcol = op.bbbb;\n";
+  shader += "  blend(v, vg, fcol);\n";
+  shader += "  op.rgb = fcol.aaa;\n";
 
-  shader += "vec4 fcol = gl_FragColor;\n";
-  shader += "blend(v, vg, fcol);\n";
-
- // modify only x value
-  shader += "gl_FragColor.x = min(gl_FragColor.x, fcol.a);\n";
+  shader += "  op.rgb *= texture2DRect(lightTex, gl_TexCoord[0].xy).xxx;\n";
+  shader += "  gl_FragColor = op;\n";
 
   shader += "}\n";
 
   return shader;
 }
+

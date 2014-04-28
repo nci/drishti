@@ -315,44 +315,59 @@ LightHandler::setLut(uchar *vlut)
   if (m_lut)
     {
 
-      int nvol = 1;
-      if (Global::volumeType() == Global::DoubleVolume) nvol = 2;
-      if (Global::volumeType() == Global::TripleVolume) nvol = 3;
-      if (Global::volumeType() == Global::QuadVolume) nvol = 4;  
-      if (Global::volumeType() == Global::RGBVolume ||
-	  Global::volumeType() == Global::RGBAVolume) nvol = 3;  
-
-      int lsize = m_opacityTF*256*256*4;
-      for (int i=0; i<nvol*256*256; i++)
+      // check for any change is transfer functions
+      for (int i=0; i<Global::lutSize()*256*256; i++)
 	{
-	  if (fabs((float)(vlut[lsize+4*i+0] - m_lut[lsize+4*i+0])) > 2 ||
-	      fabs((float)(vlut[lsize+4*i+1] - m_lut[lsize+4*i+1])) > 2 ||
-	      fabs((float)(vlut[lsize+4*i+2] - m_lut[lsize+4*i+2])) > 2 ||
-	      fabs((float)(vlut[lsize+4*i+3] - m_lut[lsize+4*i+3])) > 1)
+	  if (fabs((float)(vlut[4*i+0] - m_lut[4*i+0])) > 2 ||
+	      fabs((float)(vlut[4*i+1] - m_lut[4*i+1])) > 2 ||
+	      fabs((float)(vlut[4*i+2] - m_lut[4*i+2])) > 2 ||
+	      fabs((float)(vlut[4*i+3] - m_lut[4*i+3])) > 1)
 	    {
 	      gilite = true;
 	      break;
 	    }
 	}
-      
-      if (!gilite) // opacity tf has not changed
-	{
-	  if (m_emisTF >= 0 && m_emisTF < Global::lutSize())
-	    {	  
-	      int lsize = m_emisTF*256*256*4;
-	      for (int i=0; i<nvol*256*256; i++)
-		{
-		  if (fabs((float)(vlut[lsize+4*i+0] - m_lut[lsize+4*i+0])) > 2 ||
-		      fabs((float)(vlut[lsize+4*i+1] - m_lut[lsize+4*i+1])) > 2 ||
-		      fabs((float)(vlut[lsize+4*i+2] - m_lut[lsize+4*i+2])) > 2 ||
-		      fabs((float)(vlut[lsize+4*i+3] - m_lut[lsize+4*i+3])) > 1)
-		    {
-		      gilite = true;
-		      break;
-		    }
-		}
-	    }
-	}
+
+
+
+//      int nvol = 1;
+//      if (Global::volumeType() == Global::DoubleVolume) nvol = 2;
+//      if (Global::volumeType() == Global::TripleVolume) nvol = 3;
+//      if (Global::volumeType() == Global::QuadVolume) nvol = 4;  
+//      if (Global::volumeType() == Global::RGBVolume ||
+//	  Global::volumeType() == Global::RGBAVolume) nvol = 3;  
+//
+//      int lsize = m_opacityTF*256*256*4;
+//      for (int i=0; i<nvol*256*256; i++)
+//	{
+//	  if (fabs((float)(vlut[lsize+4*i+0] - m_lut[lsize+4*i+0])) > 2 ||
+//	      fabs((float)(vlut[lsize+4*i+1] - m_lut[lsize+4*i+1])) > 2 ||
+//	      fabs((float)(vlut[lsize+4*i+2] - m_lut[lsize+4*i+2])) > 2 ||
+//	      fabs((float)(vlut[lsize+4*i+3] - m_lut[lsize+4*i+3])) > 1)
+//	    {
+//	      gilite = true;
+//	      break;
+//	    }
+//	}
+//      
+//      if (!gilite) // opacity tf has not changed
+//	{
+//	  if (m_emisTF >= 0 && m_emisTF < Global::lutSize())
+//	    {	  
+//	      int lsize = m_emisTF*256*256*4;
+//	      for (int i=0; i<nvol*256*256; i++)
+//		{
+//		  if (fabs((float)(vlut[lsize+4*i+0] - m_lut[lsize+4*i+0])) > 2 ||
+//		      fabs((float)(vlut[lsize+4*i+1] - m_lut[lsize+4*i+1])) > 2 ||
+//		      fabs((float)(vlut[lsize+4*i+2] - m_lut[lsize+4*i+2])) > 2 ||
+//		      fabs((float)(vlut[lsize+4*i+3] - m_lut[lsize+4*i+3])) > 1)
+//		    {
+//		      gilite = true;
+//		      break;
+//		    }
+//		}
+//	    }
+//	}
     }
   else
     gilite = true;
@@ -672,7 +687,7 @@ LightHandler::createBlendShader()
       exit(0);
     }
 
-  m_blendParm[0] = glGetUniformLocationARB(m_blendShader, "pruneTex");
+  m_blendParm[0] = glGetUniformLocationARB(m_blendShader, "opTex");
   m_blendParm[1] = glGetUniformLocationARB(m_blendShader, "gridx");
   m_blendParm[2] = glGetUniformLocationARB(m_blendShader, "gridy");
   m_blendParm[3] = glGetUniformLocationARB(m_blendShader, "gridz");
@@ -681,7 +696,7 @@ LightHandler::createBlendShader()
   m_blendParm[6] = glGetUniformLocationARB(m_blendShader, "lod");
   m_blendParm[7] = glGetUniformLocationARB(m_blendShader, "voxelScaling");
   m_blendParm[8] = glGetUniformLocationARB(m_blendShader, "dmin");
-  m_blendParm[9] = glGetUniformLocationARB(m_blendShader, "opTex");
+  m_blendParm[9] = glGetUniformLocationARB(m_blendShader, "lightTex");
   m_blendParm[10] = glGetUniformLocationARB(m_blendShader, "lutTex");
   m_blendParm[11] = glGetUniformLocationARB(m_blendShader, "eyepos");
   m_blendParm[12] = glGetUniformLocationARB(m_blendShader, "dirUp");
@@ -732,7 +747,7 @@ LightHandler::applyBlending(int ct)
   lod *= m_lightLod;
 
   glUseProgramObjectARB(m_blendShader);
-  glUniform1iARB(m_blendParm[0], 2); // lightbuffer
+  glUniform1iARB(m_blendParm[0], 2); // opacitybuffer
   glUniform1iARB(m_blendParm[1], m_gridx); // gridx
   glUniform1iARB(m_blendParm[2], m_gridy); // gridy
   glUniform1iARB(m_blendParm[3], m_gridz); // gridz
@@ -741,7 +756,7 @@ LightHandler::applyBlending(int ct)
   glUniform1iARB(m_blendParm[6], lod); // lod
   glUniform3fARB(m_blendParm[7], voxelScaling.x, voxelScaling.y, voxelScaling.z);
   glUniform3fARB(m_blendParm[8], m_dataMin.x, m_dataMin.y, m_dataMin.z);
-  glUniform1iARB(m_blendParm[9], 3); // opacity buffer
+  glUniform1iARB(m_blendParm[9], 1); // light buffer
   glUniform1iARB(m_blendParm[10], 0); // lookup table
   glUniform3fARB(m_blendParm[11], 0, 0, -1000); // eyepos
   glUniform3fARB(m_blendParm[12], 0, 1, 0); // up
@@ -752,27 +767,27 @@ LightHandler::applyBlending(int ct)
   glBindTexture(GL_TEXTURE_2D, m_lutTex);
   glEnable(GL_TEXTURE_2D);
 
+  // enable prune texture
+  glActiveTexture(GL_TEXTURE1);
+  glEnable(GL_TEXTURE_RECTANGLE_ARB);
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_lightTex[ct]);
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
+
   // enable opacity texture
-  glActiveTexture(GL_TEXTURE3);
+  glActiveTexture(GL_TEXTURE2);
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
   glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_opacityBuffer->texture());
   glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
   glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-  glActiveTexture(GL_TEXTURE2);
-  glEnable(GL_TEXTURE_RECTANGLE_ARB);
-  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_lightBuffer);
+  // multiply opacity by pruned data into pruneBuffer
+  m_pruneBuffer->bind();
+  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
 
-
-  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
-			 GL_COLOR_ATTACHMENT0_EXT,
-			 GL_TEXTURE_RECTANGLE_ARB,
-			 m_lightTex[(ct+1)%2],
-			 0);
-  
-  glActiveTexture(GL_TEXTURE2);
-  glEnable(GL_TEXTURE_RECTANGLE_ARB);
-  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_lightTex[ct]);      
+  // first clear prune buffer
+  glClearColor(0, 0, 0, 0);
+  glClear(GL_COLOR_BUFFER_BIT);
   
   StaticFunctions::pushOrthoView(0, 0, sX, sY);
   StaticFunctions::drawQuad(0, 0, sX, sY, 1.0);
@@ -780,15 +795,16 @@ LightHandler::applyBlending(int ct)
   
   glFinish();
 
-  ct = (ct+1)%2;
-
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
   glUseProgramObjectARB(0);
 
   glActiveTexture(GL_TEXTURE0);
   glDisable(GL_TEXTURE_2D);
 
-  glActiveTexture(GL_TEXTURE3);
+  glActiveTexture(GL_TEXTURE1);
+  glDisable(GL_TEXTURE_RECTANGLE_ARB);
+
+  glActiveTexture(GL_TEXTURE2);
   glDisable(GL_TEXTURE_RECTANGLE_ARB);
 
   return ct;
@@ -1775,20 +1791,6 @@ LightHandler::updatePruneBuffer()
       glClear(GL_COLOR_BUFFER_BIT);
     }
 
-//  glActiveTexture(GL_TEXTURE2);
-//  glEnable(GL_TEXTURE_RECTANGLE_ARB);
-//  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_lightBuffer);
-//  glClearColor(1,1,1,1);
-//  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
-//			 GL_COLOR_ATTACHMENT0_EXT,
-//			 GL_TEXTURE_RECTANGLE_ARB,
-//			 m_lightTex[0],
-//			 0);
-//  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
-//  glClear(GL_COLOR_BUFFER_BIT);
-
-//  glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
-
   glClearColor(0,0,0,0);
 
   int ct = 0;
@@ -1796,32 +1798,12 @@ LightHandler::updatePruneBuffer()
     ct = applyClipping(ct);
 
   if (m_applyCrop)
-    {
-      ct = applyCropping(ct);
-      ct = applyBlending(ct);
-    }
+    ct = applyCropping(ct);
 
-  mergeOpPruneBuffers(ct);
-
-
-//  glActiveTexture(GL_TEXTURE2);
-//  glEnable(GL_TEXTURE_RECTANGLE_ARB);
-//  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_lightBuffer);
-//  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
-//			 GL_COLOR_ATTACHMENT0_EXT,
-//			 GL_TEXTURE_RECTANGLE_ARB,
-//			 m_lightTex[1],
-//			 0);
-//  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
-//  glClear(GL_COLOR_BUFFER_BIT);
-//  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
-//			 GL_COLOR_ATTACHMENT0_EXT,
-//			 GL_TEXTURE_RECTANGLE_ARB,
-//			 m_lightTex[0],
-//			 0);
-//  glClear(GL_COLOR_BUFFER_BIT);
-//  glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
-//  glDisable(GL_TEXTURE_RECTANGLE_ARB);
+  if (m_applyCrop && m_blendShader)
+    applyBlending(ct);
+  else
+    mergeOpPruneBuffers(ct);
 
 //  QImage bimg = m_pruneBuffer->toImage();
 //  bimg.save("prunebuffer.png");

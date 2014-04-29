@@ -481,12 +481,16 @@ MeshGenerator::start(VolumeFileManager *vfm,
   QString flnm = QFileDialog::getSaveFileName(0,
 					      "Export mesh to file",
 					      prevDir,
-					      "*.ply");
+					      "*.ply ;; *.stl");
   if (flnm.size() == 0)
     {
       meshWindow->close();
       return "";
     }
+
+  if (!StaticFunctions::checkExtension(flnm, ".ply") &&
+      !StaticFunctions::checkExtension(flnm, ".stl"))
+    flnm += ".ply";
   //----------------------------
 
   int nSlabs = 1;
@@ -952,7 +956,7 @@ MeshGenerator::smoothData(uchar *gData,
 			  int spread)
 {
   m_meshLog->moveCursor(QTextCursor::End);
-  m_meshLog->insertPlainText("Smoothing data for color generation ...\n");
+  m_meshLog->insertPlainText("Smoothing data ...\n");
 
   uchar *tmp = new uchar[qMax(dlen, qMax(nY, nZ))];
 
@@ -1327,6 +1331,8 @@ MeshGenerator::generateMesh(int nSlabs,
 			    int chan,
 			    bool avgColor)
 {
+  bool savePLY = StaticFunctions::checkExtension(flnm, ".ply");
+
   bool saveIntermediate = false;
 
   int bpv = 1;
@@ -1705,21 +1711,33 @@ MeshGenerator::generateMesh(int nSlabs,
 	    QFile fout(mflnm);
 	    fout.open(QFile::WriteOnly);
 	    fout.write((char*)&ntrigs, 4);
-	    for(int ni=0; ni<ntrigs; ni++)
+	    if (savePLY) // save modified triangle vertex numbers only for PLY files
 	      {
-		int v[3];
-		v[0] = triangles[ni].v1 + nvertices;
-		v[1] = triangles[ni].v2 + nvertices;
-		v[2] = triangles[ni].v3 + nvertices;
-		fout.write((char*)v, 12);
+		for(int ni=0; ni<ntrigs; ni++)
+		  {
+		    int v[3];
+		    v[0] = triangles[ni].v1 + nvertices;
+		    v[1] = triangles[ni].v2 + nvertices;
+		    v[2] = triangles[ni].v3 + nvertices;
+		    fout.write((char*)v, 12);
+		  }
+	      }
+	    else // saving stl formatted output
+	      {
+		for(int ni=0; ni<ntrigs; ni++)
+		  {
+		    int v[3];
+		    v[0] = triangles[ni].v1;
+		    v[1] = triangles[ni].v2;
+		    v[2] = triangles[ni].v3;
+		    fout.write((char*)v, 12);
+		  }
 	      }
 	    fout.close();
 	    ntriangles += ntrigs;
 	  }
 	  
 	  {
-	    m_meshLog->moveCursor(QTextCursor::End);
-	    m_meshLog->insertPlainText("Generating Color ...\n");
 	    QString mflnm = flnm + QString(".%1.vert").arg(nb);
 	    int nverts = mc.nverts();
 	    Vertex *vertices = mc.vertices();
@@ -1752,81 +1770,86 @@ MeshGenerator::generateMesh(int nSlabs,
 		v[1] = vertices[ni].y;
 		v[2] = vertices[ni].z + d0;
 
-		uchar c[3];
-		float r,g,b;
-		if (useColor == _FixedColor)
+		if (savePLY) // do colour calculations only for PLY files
 		  {
-		    QColor col = vstops[isoval].second;
-		    r = col.red()/255.0;
-		    g = col.green()/255.0;
-		    b = col.blue()/255.0;
-		  }
-		else if (useColor == _NormalColor)
-		  {
-		    r = v[3];
-		    g = v[4];
-		    b = v[5];
-		  }
-		else if (useColor == _PositionColor)
-		  {
-		    r = v[0]/m_nZ;
-		    g = v[1]/m_nY;
-		    b = v[2]/m_nX;
-		  }
-		else if (useColor >= _OcclusionColor)
-		  {
-		    uchar *volData = extData;
-		    if (useOpacity && useColor < _LutColor)
-		      volData = gData;
-		    QColor col;
-		    QVector3D pos, normal;
-		    pos = QVector3D(vertices[ni].x,
-				    vertices[ni].y,
-				    vertices[ni].z + nextra);
-		    normal = QVector3D(vertices[ni].nx,
-				       vertices[ni].ny,
-				       vertices[ni].nz);
-		    if (useColor == _OcclusionColor)
-		      col = getOcclusionColor(oData,
-					      dlen,
-					      spread, nextra,
-					      isoval,
-					      pos, normal,
-					      vstops,
-					      lookInside);
-		    else if (useColor == _LutColor)
-		      col = getLutColor(volData,
-					oData,
-					dlen,
-					depth, spread, nextra,
-					isoval,
-					pos, normal,
-					vstops,
-					lookInside,
-					avgColor);
-		    else if (useColor == _VRLutColor)
-		      col = getLutColor(volData,
-					oData,
-					dlen,
-					depth, spread, nextra,
-					isoval,
-					pos, normal,
-					lut,
-					lookInside,
-					QVector3D(vertices[ni].x,
-						  vertices[ni].y,
-						  vertices[ni].z+d0),
-					avgColor);
-
-		    r = col.red()/255.0;
-		    g = col.green()/255.0;
-		    b = col.blue()/255.0;
-		  }
-
-		c[0] = r*255;
-		c[1] = g*255;
-		c[2] = b*255;
-		fout.write((char*)c, 3);
+		    m_meshLog->moveCursor(QTextCursor::End);
+		    m_meshLog->insertPlainText("Generating Color ...\n");
+		    uchar c[3];
+		    float r,g,b;
+		    if (useColor == _FixedColor)
+		      {
+			QColor col = vstops[isoval].second;
+			r = col.red()/255.0;
+			g = col.green()/255.0;
+			b = col.blue()/255.0;
+		      }
+		    else if (useColor == _NormalColor)
+		      {
+			r = v[3];
+			g = v[4];
+			b = v[5];
+		      }
+		    else if (useColor == _PositionColor)
+		      {
+			r = v[0]/m_nZ;
+			g = v[1]/m_nY;
+			b = v[2]/m_nX;
+		      }
+		    else if (useColor >= _OcclusionColor)
+		      {
+			uchar *volData = extData;
+			if (useOpacity && useColor < _LutColor)
+			  volData = gData;
+			QColor col;
+			QVector3D pos, normal;
+			pos = QVector3D(vertices[ni].x,
+					vertices[ni].y,
+					vertices[ni].z + nextra);
+			normal = QVector3D(vertices[ni].nx,
+					   vertices[ni].ny,
+					   vertices[ni].nz);
+			if (useColor == _OcclusionColor)
+			  col = getOcclusionColor(oData,
+						  dlen,
+						  spread, nextra,
+						  isoval,
+						  pos, normal,
+						  vstops,
+						  lookInside);
+			else if (useColor == _LutColor)
+			  col = getLutColor(volData,
+					    oData,
+					    dlen,
+					    depth, spread, nextra,
+					    isoval,
+					    pos, normal,
+					    vstops,
+					    lookInside,
+					    avgColor);
+			else if (useColor == _VRLutColor)
+			  col = getLutColor(volData,
+					    oData,
+					    dlen,
+					    depth, spread, nextra,
+					    isoval,
+					    pos, normal,
+					    lut,
+					    lookInside,
+					    QVector3D(vertices[ni].x,
+						      vertices[ni].y,
+						      vertices[ni].z+d0),
+					    avgColor);
+			
+			r = col.red()/255.0;
+			g = col.green()/255.0;
+			b = col.blue()/255.0;
+		      }
+		    
+		    c[0] = r*255;
+		    c[1] = g*255;
+		    c[2] = b*255;
+		    fout.write((char*)c, 3);
+		  } // if (savePLY)
 	      }
 	    fout.close();
 	    nvertices += nverts;
@@ -1843,10 +1866,18 @@ MeshGenerator::generateMesh(int nSlabs,
   // Files are not collated together to create
   // a unified mesh for the whole sample
   if (!saveIntermediate)
-    saveMesh(flnm,
-	     nSlabs,
-	     nvertices, ntriangles,
-	     true);
+    {
+      if (savePLY)
+	saveMeshToPLY(flnm,
+		      nSlabs,
+		      nvertices, ntriangles,
+		      true);
+      else
+	saveMeshToSTL(flnm,
+		      nSlabs,
+		      nvertices, ntriangles,
+		      true);
+    }
 
   m_meshLog->moveCursor(QTextCursor::End);
   m_meshLog->insertPlainText("Mesh saved in "+flnm);
@@ -1856,13 +1887,13 @@ MeshGenerator::generateMesh(int nSlabs,
 
 }
 void
-MeshGenerator::saveMesh(QString flnm,
-			int nSlabs,
-			int nvertices, int ntriangles,
-			bool bin)
+MeshGenerator::saveMeshToPLY(QString flnm,
+			     int nSlabs,
+			     int nvertices, int ntriangles,
+			     bool bin)
 {
   m_meshLog->moveCursor(QTextCursor::End);
-  m_meshLog->insertPlainText("Saving Mesh");
+  m_meshLog->insertPlainText("Saving Mesh " + flnm);
 
   typedef struct PlyFace
   {
@@ -1997,6 +2028,114 @@ MeshGenerator::saveMesh(QString flnm,
   free_ply ( ply );
 
   //fclose( fp ) ; // done with close_ply(ply);
+  m_meshProgress->setValue(100);
+}
+
+void
+MeshGenerator::saveMeshToSTL(QString flnm,
+			     int nSlabs,
+			     int nvertices, int ntriangles,
+			     bool bin)
+{
+  m_meshLog->moveCursor(QTextCursor::End);
+  m_meshLog->insertPlainText("Saving Mesh " + flnm);
+
+  // calculate number of triangles
+  int ntri = 0;
+  for (int nb=0; nb<nSlabs; nb++)
+    {
+      QString tflnm = flnm + QString(".%1.tri").arg(nb);
+      QFile tfin(tflnm);
+      tfin.open(QFile::ReadOnly);
+      int ntrigs;
+      tfin.read((char*)&ntrigs, 4);
+      tfin.close();
+      ntri += ntrigs;
+    }
+
+  char header[80];
+  sprintf(header, "Drishti generated STL file.");
+  QFile fstl(flnm);
+  fstl.open(QFile::WriteOnly);
+  fstl.write((char*)&header, 80); // 80 byte header
+  fstl.write((char*)&ntri, 4); // number of triangles
+
+  for (int nb=0; nb<nSlabs; nb++)
+    {
+      m_meshProgress->setValue((int)(100.0*(float)nb/(float)nSlabs));
+      qApp->processEvents();
+
+      int ntrigs;
+      QString tflnm = flnm + QString(".%1.tri").arg(nb);
+      QFile tfin(tflnm);
+      tfin.open(QFile::ReadOnly);
+      tfin.read((char*)&ntrigs, 4);      
+      int *tri;
+      tri = new int[3*ntrigs];
+      tfin.read((char*)tri, 4*3*ntrigs);
+
+      int nverts;
+      QString vflnm = flnm + QString(".%1.vert").arg(nb);
+      QFile vfin(vflnm);
+      vfin.open(QFile::ReadOnly);
+      vfin.read((char*)&nverts, 4);
+
+      float *vert;
+      vert = new float[6*nverts];
+      vfin.read((char*)vert, 4*6*nverts);
+
+      for(int ni=0; ni<ntrigs; ni++)
+	{
+	  float v[12];
+	  int i = tri[3*ni+2];
+	  int j = tri[3*ni+1];
+	  int k = tri[3*ni+0];
+
+	  v[0] = vert[6*i+3];
+	  v[1] = vert[6*i+4];
+	  v[2] = vert[6*i+5];
+	  v[0] += vert[6*j+3];
+	  v[1] += vert[6*j+4];
+	  v[2] += vert[6*j+5];
+	  v[0] += vert[6*k+3];
+	  v[1] += vert[6*k+4];
+	  v[2] += vert[6*k+5];
+	  float mag = sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
+	  v[0]/=mag;
+	  v[1]/=mag;
+	  v[2]/=mag;
+	  v[0] = -v[0];
+	  v[1] = -v[1];
+	  v[2] = -v[2];
+
+	  v[3] = vert[6*i+0];
+	  v[4] = vert[6*i+1];
+	  v[5] = vert[6*i+2];
+
+	  v[6] = vert[6*j+0];
+	  v[7] = vert[6*j+1];
+	  v[8] = vert[6*j+2];
+
+	  v[9]  = vert[6*k+0];
+	  v[10] = vert[6*k+1];
+	  v[11] = vert[6*k+2];
+
+	  fstl.write((char*)&v, 12*4);
+
+	  ushort abc = 0; // attribute byte count
+	  fstl.write((char*)&abc, 2);
+	}
+
+      vfin.close();
+      tfin.close();
+      vfin.remove();
+      tfin.remove();
+
+      delete [] vert;
+      delete [] tri;
+    }
+
+  fstl.close();
   m_meshProgress->setValue(100);
 }
 

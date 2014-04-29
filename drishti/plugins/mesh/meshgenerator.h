@@ -85,7 +85,9 @@ class MeshGenerator
 		    bool, bool, uchar*,
 		    int, bool);
 
-  void saveMesh(QString, int, int, int, bool);
+
+  void saveMeshToPLY(QString, int, int, int, bool);
+  void saveMeshToSTL(QString, int, int, int, bool);
 
   bool getValues(int&, float&,
 		 int&, int&, int&, int&,

@@ -40,6 +40,8 @@ class GiLightInfo
   int aoRad, aoTimes;
   float aoFrac, aoDensity1, aoDensity2;
   
+  int opacityTF;
+
   int emisTF;
   float emisDecay;
   float emisBoost;

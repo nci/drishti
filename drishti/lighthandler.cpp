@@ -237,6 +237,7 @@ LightHandler::giLightInfo()
   gi.aoFrac = m_aoFrac;
   gi.aoDensity1 = m_aoDensity1;
   gi.aoDensity2 = m_aoDensity2;
+  gi.opacityTF = m_opacityTF;
   gi.emisTF = m_emisTF;
   gi.emisDecay = m_emisDecay;
   gi.emisBoost = m_emisBoost;
@@ -267,6 +268,7 @@ LightHandler::setGiLightInfo(GiLightInfo gi)
   if (fabs(gi.aoFrac-m_aoFrac) > 0.001) lightsChanged = true;
   if (fabs(gi.aoDensity1-m_aoDensity1) > 0.001) lightsChanged = true;
   if (fabs(gi.aoDensity2-m_aoDensity2) > 0.001) lightsChanged = true;
+  if (gi.opacityTF != m_opacityTF) lodChanged = true;
   if (gi.emisTF != m_emisTF) lodChanged = true;
   if (fabs(gi.emisDecay-m_emisDecay) > 0.001) lightsChanged = true;
   if (gi.emisBoost != m_emisBoost) lightsChanged = true;
@@ -284,6 +286,7 @@ LightHandler::setGiLightInfo(GiLightInfo gi)
   m_aoFrac = gi.aoFrac;
   m_aoDensity1 = gi.aoDensity1;
   m_aoDensity2 = gi.aoDensity2;
+  m_opacityTF = gi.opacityTF;
   m_emisTF = gi.emisTF;
   m_emisDecay = gi.emisDecay;
   m_emisBoost = gi.emisBoost;
@@ -314,7 +317,6 @@ LightHandler::setLut(uchar *vlut)
 
   if (m_lut)
     {
-
       // check for any change is transfer functions
       for (int i=0; i<Global::lutSize()*256*256; i++)
 	{
@@ -327,47 +329,6 @@ LightHandler::setLut(uchar *vlut)
 	      break;
 	    }
 	}
-
-
-
-//      int nvol = 1;
-//      if (Global::volumeType() == Global::DoubleVolume) nvol = 2;
-//      if (Global::volumeType() == Global::TripleVolume) nvol = 3;
-//      if (Global::volumeType() == Global::QuadVolume) nvol = 4;  
-//      if (Global::volumeType() == Global::RGBVolume ||
-//	  Global::volumeType() == Global::RGBAVolume) nvol = 3;  
-//
-//      int lsize = m_opacityTF*256*256*4;
-//      for (int i=0; i<nvol*256*256; i++)
-//	{
-//	  if (fabs((float)(vlut[lsize+4*i+0] - m_lut[lsize+4*i+0])) > 2 ||
-//	      fabs((float)(vlut[lsize+4*i+1] - m_lut[lsize+4*i+1])) > 2 ||
-//	      fabs((float)(vlut[lsize+4*i+2] - m_lut[lsize+4*i+2])) > 2 ||
-//	      fabs((float)(vlut[lsize+4*i+3] - m_lut[lsize+4*i+3])) > 1)
-//	    {
-//	      gilite = true;
-//	      break;
-//	    }
-//	}
-//      
-//      if (!gilite) // opacity tf has not changed
-//	{
-//	  if (m_emisTF >= 0 && m_emisTF < Global::lutSize())
-//	    {	  
-//	      int lsize = m_emisTF*256*256*4;
-//	      for (int i=0; i<nvol*256*256; i++)
-//		{
-//		  if (fabs((float)(vlut[lsize+4*i+0] - m_lut[lsize+4*i+0])) > 2 ||
-//		      fabs((float)(vlut[lsize+4*i+1] - m_lut[lsize+4*i+1])) > 2 ||
-//		      fabs((float)(vlut[lsize+4*i+2] - m_lut[lsize+4*i+2])) > 2 ||
-//		      fabs((float)(vlut[lsize+4*i+3] - m_lut[lsize+4*i+3])) > 1)
-//		    {
-//		      gilite = true;
-//		      break;
-//		    }
-//		}
-//	    }
-//	}
     }
   else
     gilite = true;
@@ -1178,46 +1139,6 @@ LightHandler::generateEmissiveTexture()
   
   if (m_emisTF < 0 || m_emisTF >= Global::lutSize())
     return;
-
-//  int nvol = 1;
-//  if (Global::volumeType() == Global::DoubleVolume) nvol = 2;
-//  if (Global::volumeType() == Global::TripleVolume) nvol = 3;
-//  if (Global::volumeType() == Global::QuadVolume) nvol = 4;
-//  
-//  if (Global::volumeType() == Global::RGBVolume ||
-//      Global::volumeType() == Global::RGBAVolume) nvol = 3;
-//  
-//  uchar *lut = new uchar[nvol*4*256*256];
-//  memset(lut, 0, nvol*4*256*256);
-//
-//  int lsize = m_emisTF*256*256*4;
-//  for(int i=0; i<nvol*256*256; i++)
-//    {
-//      lut[4*i+0] = m_lut[lsize + 4*i+0];
-//      lut[4*i+1] = m_lut[lsize + 4*i+1];
-//      lut[4*i+2] = m_lut[lsize + 4*i+2];
-//      lut[4*i+3] = m_lut[lsize + 4*i+3];
-//    }
-//
-//
-//  // load lookup table
-//  if (!m_lutTex) glGenTextures(1, &m_lutTex);
-//  glActiveTexture(GL_TEXTURE2);
-//  glBindTexture(GL_TEXTURE_2D, m_lutTex); //max values from all tfsets
-//  glEnable(GL_TEXTURE_2D);
-//  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
-//  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
-//  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,GL_NEAREST);
-//  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,GL_NEAREST);
-//  glTexImage2D(GL_TEXTURE_2D,
-//	       0, // single resolution
-//	       GL_RGBA,
-//	       256, nvol*256, // width, height
-//	       0, // no border
-//	       GL_RGBA,
-//	       GL_UNSIGNED_BYTE,
-//	       lut);
-//  delete [] lut;
 
   // enable lookup texture
   glActiveTexture(GL_TEXTURE0);

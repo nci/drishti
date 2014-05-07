@@ -23,6 +23,7 @@ GiLightInfo::clear()
   aoDensity1 = 0.3;
   aoDensity2 = 1.0;
   
+  opacityTF = -1;
   emisTF = -1;
   emisDecay = 1.0;
   emisBoost = 1;
@@ -48,6 +49,7 @@ GiLightInfo::operator=(const GiLightInfo& gi)
   aoDensity1 = gi.aoDensity1;
   aoDensity2 = gi.aoDensity2;
   
+  opacityTF = gi.opacityTF;
   emisTF = gi.emisTF;
   emisDecay = gi.emisDecay;
   emisBoost = gi.emisBoost;
@@ -82,6 +84,7 @@ GiLightInfo::interpolate(const GiLightInfo gi1,
   gi.aoDensity1 = (1.0-frc)*gi1.aoDensity1 + frc*gi2.aoDensity1;
   gi.aoDensity2 = (1.0-frc)*gi1.aoDensity2 + frc*gi2.aoDensity2;
 
+  gi.opacityTF = gi1.opacityTF;
   gi.emisTF = gi1.emisTF;
   gi.emisDecay = (1.0-frc)*gi1.emisDecay + frc*gi2.emisDecay;
   gi.emisBoost = (1.0-frc)*gi1.emisBoost + frc*gi2.emisBoost;
@@ -167,6 +170,11 @@ GiLightInfo::save(fstream &fout)
   fout.write((char*)&aoDensity2, sizeof(float));
 
   memset(keyword, 0, 100);
+  sprintf(keyword, "opacitytf");
+  fout.write((char*)keyword, strlen(keyword)+1);
+  fout.write((char*)&opacityTF, sizeof(int));
+
+  memset(keyword, 0, 100);
   sprintf(keyword, "emistf");
   fout.write((char*)keyword, strlen(keyword)+1);
   fout.write((char*)&emisTF, sizeof(int));
@@ -238,6 +246,8 @@ GiLightInfo::load(fstream &fin)
 	fin.read((char*)&aoDensity1, sizeof(float));
       else if (strcmp(keyword, "aodensity2") == 0)
 	fin.read((char*)&aoDensity2, sizeof(float));
+      else if (strcmp(keyword, "opacitytf") == 0)
+	fin.read((char*)&opacityTF, sizeof(int));
       else if (strcmp(keyword, "emistf") == 0)
 	fin.read((char*)&emisTF, sizeof(int));
       else if (strcmp(keyword, "emisdecay") == 0)

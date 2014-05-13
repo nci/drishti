@@ -77,6 +77,7 @@ class MainWindow : public QMainWindow
    void on_actionLoad_Project_triggered();
    void on_actionLoad_TFfromproject_triggered();
    void on_actionImport_Keyframes_triggered();
+   void on_actionSave_InformationForDrishtiPrayog_triggered();
    void on_actionSave_Project_triggered();
    void on_actionSave_ProjectAs_triggered();
    void on_actionSave_Image_triggered();

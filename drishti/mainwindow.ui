@@ -60,6 +60,7 @@
     <addaction name="separator"/>
     <addaction name="actionSave_Project"/>
     <addaction name="actionSave_ProjectAs"/>
+    <addaction name="actionSave_InformationForDrishtiPrayog"/>
     <addaction name="separator"/>
     <addaction name="actionSave_Image"/>
     <addaction name="actionSave_ImageSequence"/>
@@ -579,6 +580,11 @@
    </property>
    <property name="text">
     <string>Hires Mode (F2)</string>
+   </property>
+  </action>
+  <action name="actionSave_InformationForDrishtiPrayog">
+   <property name="text">
+    <string>Save Information For Drishti Prayog</string>
    </property>
   </action>
  </widget>

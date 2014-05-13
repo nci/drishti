@@ -3166,35 +3166,46 @@ MainWindow::on_actionSave_Project_triggered()
   saveProject(flnm, QString());
 }
 void
+MainWindow::on_actionSave_InformationForDrishtiPrayog_triggered()
+{
+  QString flnm;
+  flnm = QFileDialog::getSaveFileName(0,
+				      "Save Information for Drishti-Prayog",
+				      Global::previousDirectory(),
+				      "DrishtiPrayog Files (*.drishtiprayog)",
+				      0,
+				      QFileDialog::DontUseNativeDialog);
+
+  if (!StaticFunctions::checkExtension(flnm, ".drishtiprayog"))
+    {
+      flnm += ".drishtiprayog";
+      
+      m_Hires->saveForDrishtiPrayog(flnm);
+
+      QMessageBox::information(0, "Drishti-Prayog information saved",
+			       "Drishti-Prayog information data saved to " + flnm);
+    }
+}
+
+void
 MainWindow::on_actionSave_ProjectAs_triggered()
 {
   QString flnm;
   flnm = QFileDialog::getSaveFileName(0,
 				      "Save Project As",
 				      Global::previousDirectory(),
-				      "Drishti Project - xml Files (*.xml) ;; Drishti Prayog - dpxml Files (*.dpxml)",
+				      "Drishti Project - xml Files (*.xml)",
 				      0,
 				      QFileDialog::DontUseNativeDialog);
-
-  QMessageBox::information(0, "", flnm);
 
   if (flnm.isEmpty())
     return;
 
-  if (!StaticFunctions::checkExtension(flnm, ".xml") &&
-      !StaticFunctions::checkExtension(flnm, ".dpxml"))
+  if (!StaticFunctions::checkExtension(flnm, ".xml"))
     {
       flnm += ".xml";
       
       saveProject(flnm.toLatin1().data(), QString());
-    }
-  else if (StaticFunctions::checkExtension(flnm, ".dpxml"))
-    {
-      QString dtvfile = flnm;
-      dtvfile.chop(5);
-      dtvfile += "drishtiprayog";
-      
-      saveProject(flnm, dtvfile);
     }
 }
 

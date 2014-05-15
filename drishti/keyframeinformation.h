@@ -40,6 +40,7 @@ class KeyFrameInformation
   void load(fstream&);
   void save(fstream&);
 
+  void setTitle(QString);
   void setDrawBox(bool);
   void setDrawAxis(bool);
   void setBackgroundColor(Vec);
@@ -79,6 +80,7 @@ class KeyFrameInformation
   void setPruneBuffer(QByteArray);
   void setPruneBlend(bool);
   
+  QString title();
   bool hasCaption(QStringList);
   bool drawBox();
   bool drawAxis();
@@ -156,6 +158,7 @@ class KeyFrameInformation
   int interpMop();
 
  private :
+  QString m_title;
   int m_frameNumber;
   float m_focusDistance;
   float m_eyeSeparation;

@@ -8,6 +8,8 @@
 #include "mainwindowui.h"
 #include "lighthandler.h"
 
+#include <QInputDialog>
+
 int KeyFrame::numberOfKeyFrames() { return m_keyFrameInfo.count(); }
 
 KeyFrame::KeyFrame()
@@ -258,7 +260,14 @@ KeyFrame::setKeyFrame(Vec pos, Quaternion rot,
   
   cam->setPosition(pos);
   cam->setOrientation(rot);
-  
+
+  QString title;
+  title = QInputDialog::getText(0, "Keyframe Title",
+				QString("Title").arg(frameNumber),
+				QLineEdit::Normal,
+				QString("Keyframe %1").arg(frameNumber));
+
+  kfi->setTitle(title);
   kfi->setFrameNumber(frameNumber);
   kfi->setDrawBox(Global::drawBox());
   kfi->setDrawAxis(Global::drawAxis());
@@ -1437,6 +1446,7 @@ KeyFrame::editFrameInterpolation(int kfn)
   QMap<QString, QVariantList> plist;
   
   QStringList keys;
+  keys << "title";
   keys << "background color";
   keys << "captions";
   keys << "focus";
@@ -1461,29 +1471,37 @@ KeyFrame::editFrameInterpolation(int kfn)
 	{
 	  QVariantList vlist;  
 	  vlist.clear();
-	  vlist << QVariant("combobox");
+	  if (keys[ik] == "title")
+	    {
+	      vlist << QVariant("string");
+	      vlist << kfi->title();
+	    }
+	  else
+	    {
+	      vlist << QVariant("combobox");
 
-	  if (keys[ik] == "background color") vlist << kfi->interpBGColor();
-	  else if (keys[ik] == "captions") vlist << kfi->interpCaptions();
-	  else if (keys[ik] == "focus") vlist << kfi->interpFocus();
-	  else if (keys[ik] == "tag colors") vlist << kfi->interpTagColors();
-	  else if (keys[ik] == "tick information") vlist << kfi->interpTickInfo();
-	  else if (keys[ik] == "volume bounds") vlist << kfi->interpVolumeBounds();
-	  else if (keys[ik] == "camera position") vlist << kfi->interpCameraPosition();
-	  else if (keys[ik] == "camera orientation") vlist << kfi->interpCameraOrientation();
-	  else if (keys[ik] == "brick information") vlist << kfi->interpBrickInfo();
-	  else if (keys[ik] == "clip planes") vlist << kfi->interpClipInfo();
-	  else if (keys[ik] == "lighting") vlist << kfi->interpLightInfo();
-	  else if (keys[ik] == "gi lighting") vlist << kfi->interpGiLightInfo();
-	  else if (keys[ik] == "transfer functions") vlist << kfi->interpTF();
-	  else if (keys[ik] == "crop/dissect/blend/displace") vlist << kfi->interpCrop();
-	  else if (keys[ik] == "mop") vlist << kfi->interpMop();
-	  
-	  vlist << QVariant("linear");
-	  vlist << QVariant("smoothstep");
-	  vlist << QVariant("easein");
-	  vlist << QVariant("easeout");
-	  vlist << QVariant("none");
+	      if (keys[ik] == "background color") vlist << kfi->interpBGColor();
+	      else if (keys[ik] == "captions") vlist << kfi->interpCaptions();
+	      else if (keys[ik] == "focus") vlist << kfi->interpFocus();
+	      else if (keys[ik] == "tag colors") vlist << kfi->interpTagColors();
+	      else if (keys[ik] == "tick information") vlist << kfi->interpTickInfo();
+	      else if (keys[ik] == "volume bounds") vlist << kfi->interpVolumeBounds();
+	      else if (keys[ik] == "camera position") vlist << kfi->interpCameraPosition();
+	      else if (keys[ik] == "camera orientation") vlist << kfi->interpCameraOrientation();
+	      else if (keys[ik] == "brick information") vlist << kfi->interpBrickInfo();
+	      else if (keys[ik] == "clip planes") vlist << kfi->interpClipInfo();
+	      else if (keys[ik] == "lighting") vlist << kfi->interpLightInfo();
+	      else if (keys[ik] == "gi lighting") vlist << kfi->interpGiLightInfo();
+	      else if (keys[ik] == "transfer functions") vlist << kfi->interpTF();
+	      else if (keys[ik] == "crop/dissect/blend/displace") vlist << kfi->interpCrop();
+	      else if (keys[ik] == "mop") vlist << kfi->interpMop();
+	      
+	      vlist << QVariant("linear");
+	      vlist << QVariant("smoothstep");
+	      vlist << QVariant("easein");
+	      vlist << QVariant("easeout");
+	      vlist << QVariant("none");
+	    }
 
 	  plist[keys[ik]] = vlist;
 	}
@@ -1515,22 +1533,30 @@ KeyFrame::editFrameInterpolation(int kfn)
       
       if (pair.second)
 	{
-	  int flag = pair.first.toInt();
-	  if (keys[ik] == "background color") kfi->setInterpBGColor(flag);
-	  else if (keys[ik] == "captions") kfi->setInterpCaptions(flag);
-	  else if (keys[ik] == "focus") kfi->setInterpFocus(flag);
-	  else if (keys[ik] == "tag colors") kfi->setInterpTagColors(flag);
-	  else if (keys[ik] == "tick information") kfi->setInterpTickInfo(flag);
-	  else if (keys[ik] == "volume bounds") kfi->setInterpVolumeBounds(flag);
-	  else if (keys[ik] == "camera position") kfi->setInterpCameraPosition(flag);
-	  else if (keys[ik] == "camera orientation") kfi->setInterpCameraOrientation(flag);
-	  else if (keys[ik] == "brick information") kfi->setInterpBrickInfo(flag);
-	  else if (keys[ik] == "clip planes") kfi->setInterpClipInfo(flag);
-	  else if (keys[ik] == "lighting") kfi->setInterpLightInfo(flag);
-	  else if (keys[ik] == "gi lighting") kfi->setInterpGiLightInfo(flag);
-	  else if (keys[ik] == "transfer functions") kfi->setInterpTF(flag);
-	  else if (keys[ik] == "crop/dissect/blend/displace") kfi->setInterpCrop(flag);
-	  else if (keys[ik] == "mop") kfi->setInterpMop(flag);
+	  if (keys[ik] == "title")
+	    {
+	      QString title = pair.first.toString();
+	      kfi->setTitle(title);
+	    }
+	  else
+	    {
+	      int flag = pair.first.toInt();
+	      if (keys[ik] == "background color") kfi->setInterpBGColor(flag);
+	      else if (keys[ik] == "captions") kfi->setInterpCaptions(flag);
+	      else if (keys[ik] == "focus") kfi->setInterpFocus(flag);
+	      else if (keys[ik] == "tag colors") kfi->setInterpTagColors(flag);
+	      else if (keys[ik] == "tick information") kfi->setInterpTickInfo(flag);
+	      else if (keys[ik] == "volume bounds") kfi->setInterpVolumeBounds(flag);
+	      else if (keys[ik] == "camera position") kfi->setInterpCameraPosition(flag);
+	      else if (keys[ik] == "camera orientation") kfi->setInterpCameraOrientation(flag);
+	      else if (keys[ik] == "brick information") kfi->setInterpBrickInfo(flag);
+	      else if (keys[ik] == "clip planes") kfi->setInterpClipInfo(flag);
+	      else if (keys[ik] == "lighting") kfi->setInterpLightInfo(flag);
+	      else if (keys[ik] == "gi lighting") kfi->setInterpGiLightInfo(flag);
+	      else if (keys[ik] == "transfer functions") kfi->setInterpTF(flag);
+	      else if (keys[ik] == "crop/dissect/blend/displace") kfi->setInterpCrop(flag);
+	      else if (keys[ik] == "mop") kfi->setInterpMop(flag);
+	    }
 	}
     }
 

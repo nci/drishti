@@ -2,6 +2,7 @@
 #include "global.h"
 #include "enums.h"
 
+void KeyFrameInformation::setTitle(QString s) { m_title = s; }
 void KeyFrameInformation::setDrawBox(bool flag) { m_drawBox = flag; }
 void KeyFrameInformation::setDrawAxis(bool flag) { m_drawAxis = flag; }
 void KeyFrameInformation::setBackgroundColor(Vec col) { m_backgroundColor = col; }
@@ -65,6 +66,7 @@ void KeyFrameInformation::setPruneBuffer(QByteArray pb) { m_pruneBuffer = pb; }
 void KeyFrameInformation::setPruneBlend(bool pb) { m_pruneBlend = pb; }
 
 
+QString KeyFrameInformation::title() { return m_title; }
 bool KeyFrameInformation::drawBox() { return m_drawBox; }
 bool KeyFrameInformation::drawAxis() { return m_drawAxis; }
 Vec KeyFrameInformation::backgroundColor() { return m_backgroundColor; }
@@ -171,6 +173,7 @@ KeyFrameInformation::hasCaption(QStringList str)
 
 KeyFrameInformation::KeyFrameInformation()
 {
+  m_title.clear();
   m_drawBox = false;
   m_drawAxis = false;
   m_backgroundColor = Vec(0,0,0);
@@ -239,6 +242,7 @@ KeyFrameInformation::KeyFrameInformation()
 void
 KeyFrameInformation::clear()
 {
+  m_title.clear();
   m_drawBox = false;
   m_drawAxis = false;
   m_backgroundColor = Vec(0,0,0);
@@ -310,6 +314,8 @@ KeyFrameInformation::clear()
 
 KeyFrameInformation::KeyFrameInformation(const KeyFrameInformation& kfi)
 {
+  m_title = kfi.m_title;
+
   m_drawBox = kfi.m_drawBox;
   m_drawAxis = kfi.m_drawAxis;
 
@@ -397,6 +403,7 @@ KeyFrameInformation::KeyFrameInformation(const KeyFrameInformation& kfi)
 
 KeyFrameInformation::~KeyFrameInformation()
 {
+  m_title.clear();
   if (m_lut)
     delete [] m_lut;
   if (m_tagColors)
@@ -426,6 +433,8 @@ KeyFrameInformation::~KeyFrameInformation()
 KeyFrameInformation&
 KeyFrameInformation::operator=(const KeyFrameInformation& kfi)
 {
+  m_title = kfi.m_title;
+
   m_drawBox = kfi.m_drawBox;
   m_drawAxis = kfi.m_drawAxis;
 
@@ -524,6 +533,7 @@ KeyFrameInformation::load(fstream &fin)
   char keyword[100];
   float f[3];
 
+  m_title.clear();
   m_brickInfo.clear();
   m_pruneBuffer.clear();
   m_pruneBlend = false;
@@ -550,6 +560,15 @@ KeyFrameInformation::load(fstream &fin)
 
       if (strcmp(keyword, "keyframeend") == 0)
 	done = true;
+      else if (strcmp(keyword, "title") == 0)
+	{
+	  int len;
+	  fin.read((char*)&len, sizeof(int));
+	  char *str = new char[len];
+	  fin.read((char*)str, len*sizeof(char));
+	  m_title = QString(str);
+	  delete [] str;
+	}
       else if (strcmp(keyword, "drawbox") == 0)
 	fin.read((char*)&m_drawBox, sizeof(bool));
       else if (strcmp(keyword, "drawaxis") == 0)
@@ -836,10 +855,18 @@ KeyFrameInformation::save(fstream &fout)
 {
   char keyword[100];
   float f[3];
+  int len;
 
   memset(keyword, 0, 100);
   sprintf(keyword, "keyframestart");
   fout.write((char*)keyword, strlen(keyword)+1);
+
+  memset(keyword, 0, 100);
+  sprintf(keyword, "title");
+  fout.write((char*)keyword, strlen(keyword)+1);
+  len = m_title.size()+1;
+  fout.write((char*)&len, sizeof(int));
+  fout.write((char*)m_title.toLatin1().data(), len*sizeof(char));
 
 
   memset(keyword, 0, 100);
@@ -871,7 +898,6 @@ KeyFrameInformation::save(fstream &fout)
   memset(keyword, 0, 100);
   sprintf(keyword, "backgroundimage");
   fout.write((char*)keyword, strlen(keyword)+1);
-  int len;
   len = m_backgroundImageFile.size()+1;
   fout.write((char*)&len, sizeof(int));
   fout.write((char*)m_backgroundImageFile.toLatin1().data(), len*sizeof(char));

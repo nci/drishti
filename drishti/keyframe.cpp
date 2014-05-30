@@ -241,6 +241,10 @@ KeyFrame::setKeyFrame(Vec pos, Quaternion rot,
 
   CameraPathNode *cam;
   KeyFrameInformation *kfi;
+  QString title;
+  title = QString("Keyframe %1").arg(frameNumber);
+  if (found)
+    title = m_keyFrameInfo[kfn]->title();
 
   if (!found)
     { // append a new node
@@ -261,11 +265,10 @@ KeyFrame::setKeyFrame(Vec pos, Quaternion rot,
   cam->setPosition(pos);
   cam->setOrientation(rot);
 
-  QString title;
   title = QInputDialog::getText(0, "Keyframe Title",
 				QString("Title").arg(frameNumber),
 				QLineEdit::Normal,
-				QString("Keyframe %1").arg(frameNumber));
+				title);
 
   kfi->setTitle(title);
   kfi->setFrameNumber(frameNumber);

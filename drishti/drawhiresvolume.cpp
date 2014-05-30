@@ -5311,7 +5311,8 @@ DrawHiresVolume::setLightInfo(LightingInformation lightInfo)
   if (qAbs(m_lightInfo.peelMin - lightInfo.peelMin) > 0.001 ||
       qAbs(m_lightInfo.peelMax - lightInfo.peelMax) > 0.001 ||
       qAbs(m_lightInfo.peelMix - lightInfo.peelMix) > 0.001 ||
-      m_lightInfo.peelType != lightInfo.peelType)
+      m_lightInfo.peelType != lightInfo.peelType ||
+      m_lightInfo.peel != lightInfo.peel)
     {
       doDS = true;
       doHQS = true;

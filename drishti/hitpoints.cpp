@@ -737,7 +737,14 @@ HitPoints::keyPressEvent(QKeyEvent *event)
 	      QString mesg;
 	      mesg = "deselectall, removepoints, addpoint, setpoint, normalize/se\n";
 	      mesg += "mop [carve|restore|set] <rad> <decay>\n";
-	      mesg += "mop paint <tag> <rad>\n";
+	      mesg += "mop paint <tag> <rad>\n\n\n";
+	      mesg += "Keyboard Options :\n";
+	      mesg += "c : toggle coordinate display\n";
+	      mesg += "i : create image caption\n";
+	      mesg += "n : toggle point numbers\n";
+	      mesg += "r : toggle raw value display\n";
+	      mesg += "t : toggle tag value display\n";
+	      mesg += "space bar : bring up this dialog\n";
 	      cmd = QInputDialog::getText(0,
 					  "Point Commands",
 					  mesg,

@@ -254,7 +254,10 @@ Default value is 2 - i.e. 2 digits after decimal point.
 #begin
 caption
 caption
-Opens up dialog to add caption.  Once the captions are added, they can be edited, moved and animated. Hover over a caption to activate it and press spacebar to edit it.
+Opens up dialog to add caption.  Once the captions are added, they can be edited, moved and animated.
+
+Hover over a caption to activate it and press spacebar to edit text, colour and rotation.
+Also when activated and press "c" to specify normalised screen position for the caption - (0,0) is top left and (1,1) is bottom right corners.
 
 Users can display text embedded with frame number - $#f, time step number in volume - $#v[0-3], interpolated values - $n(value) and dial - $d(value), within caption.
 

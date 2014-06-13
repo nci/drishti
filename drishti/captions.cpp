@@ -2,6 +2,7 @@
 
 #include "captions.h"
 #include "captiondialog.h"
+#include <QInputDialog>
 
 #include <QGLViewer/qglviewer.h>
 using namespace qglviewer;
@@ -218,7 +219,7 @@ Captions::keyPressEvent(QKeyEvent *event)
 	      m_captions.removeAt(i);
 	      return true;
 	    }
-	  if (event->key() == Qt::Key_Space)
+	  else if (event->key() == Qt::Key_Space)
 	    {
 	      CaptionObject* cmg = m_captions[i];
 	      CaptionDialog cd(0,
@@ -236,6 +237,29 @@ Captions::keyPressEvent(QKeyEvent *event)
 		  cmg->setColor(cd.color());
 		  cmg->setHaloColor(cd.haloColor());
 		  cmg->setAngle(cd.angle());
+		}
+	    }
+	  else if (event->key() == Qt::Key_C)
+	    {
+	      QPointF pos = m_captions[i]->position();
+	      bool ok;
+	      QString text;
+	      text = QString("%1 %2").arg(pos.x()).arg(pos.y());
+
+	      text = QInputDialog::getText(0,
+					   "Coordinates",
+					   "Coordinates",
+					   QLineEdit::Normal,
+					   text,
+					   &ok);
+	      if (ok && !text.isEmpty())
+		{
+		  float x,y;
+		  x=y=0;
+		  QStringList list = text.split(" ", QString::SkipEmptyParts);
+		  if (list.count() > 0) x = qBound(0.0f, list[0].toFloat(), 1.0f);
+		  if (list.count() > 1) y = qBound(0.0f, list[1].toFloat(), 1.0f);
+		  m_captions[i]->setPosition(QPointF(x,y));
 		}
 	    }
 	}

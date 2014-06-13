@@ -27,6 +27,7 @@ class ImageCaptions : public QObject
   void setImageCaptions(QList<ImageCaptionObject>);
 
   void draw(QGLViewer*, bool);
+  void postdraw(QGLViewer*);
 
   bool keyPressEvent(QKeyEvent*);
 

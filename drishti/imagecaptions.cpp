@@ -9,6 +9,7 @@
 using namespace qglviewer;
 
 #include <QFileDialog>
+#include <QInputDialog>
 
 #ifdef Q_OS_OSX
 #include <GLUT/glut.h>
@@ -122,6 +123,103 @@ ImageCaptions::setImageCaptions(QList<ImageCaptionObject> caps)
     add(caps[i]);
 }
 
+
+void
+ImageCaptions::postdraw(QGLViewer *viewer)
+{
+  int pointSize = 30;
+
+  glEnable(GL_POINT_SPRITE);
+  glActiveTexture(GL_TEXTURE0);
+  glEnable(GL_TEXTURE_2D);
+  glBindTexture(GL_TEXTURE_2D, Global::infoSpriteTexture());
+  glTexEnvf( GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE );
+  glHint(GL_POINT_SMOOTH_HINT, GL_NICEST);
+  glEnable(GL_POINT_SMOOTH);
+
+  glDisable(GL_DEPTH_TEST);
+  viewer->startScreenCoordinatesSystem();
+
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); // blend on top
+
+  int wd = viewer->size().width();
+  int ht = viewer->size().height();
+  //--------------------
+  // draw grabbed point
+  glColor3f(0, 1, 0.3);
+  glPointSize(pointSize+10);
+  glBegin(GL_POINTS);
+  for(int i=0; i<m_imageCaptions.count(); i++)
+    {
+      if (m_imageCaptions[i]->grabsMouse())
+	{
+	  Vec pt = m_imageCaptions[i]->position();
+	  if (pt.z < -100000)
+	    {
+	      float x = pt.x * wd;
+	      float y = pt.y * ht;
+	      glVertex2f(x,y);
+	    }
+	}
+    }
+  glEnd();
+
+  //--------------------
+
+  //--------------------
+  // draw active points
+  glColor3f(1, 1, 1);
+  glPointSize(pointSize+20);
+  glBegin(GL_POINTS);
+  for(int i=0; i<m_imageCaptions.count(); i++)
+    {
+      if (m_imageCaptions[i]->active())
+	{
+	  Vec pt = m_imageCaptions[i]->position();
+	  if (pt.z < -100000)
+	    {
+	      float x = pt.x * wd;
+	      float y = pt.y * ht;
+	      glVertex2f(x,y);
+	    }
+	}
+    }
+  glEnd();
+  //--------------------
+
+  //--------------------
+  // draw rest of the points
+  glColor3f(1,1,1);
+  glPointSize(pointSize);
+  glBegin(GL_POINTS);
+  for(int i=0; i<m_imageCaptions.count(); i++)
+    {
+      if (! m_imageCaptions[i]->grabsMouse() &&
+	  ! m_imageCaptions[i]->active())
+	{
+	  Vec pt = m_imageCaptions[i]->position();
+	  if (pt.z < -100000)
+	    {
+	      float x = pt.x * wd;
+	      float y = pt.y * ht;
+	      glVertex2f(x,y);
+	    }
+	}
+    }
+  glEnd();
+
+  glPointSize(1);
+
+  glDisable(GL_POINT_SPRITE);
+  glActiveTexture(GL_TEXTURE0);
+  glDisable(GL_TEXTURE_2D);
+  
+
+  viewer->stopScreenCoordinatesSystem();
+  glEnable(GL_DEPTH_TEST);
+}
+
 void
 ImageCaptions::draw(QGLViewer *viewer, bool backToFront)
 {
@@ -148,8 +246,11 @@ ImageCaptions::draw(QGLViewer *viewer, bool backToFront)
       if (m_imageCaptions[i]->grabsMouse())
 	{
 	  Vec pt = m_imageCaptions[i]->position();
-	  pt = VECPRODUCT(pt, voxelScaling);
-	  glVertex3fv(pt);
+	  if (pt.z > -100000)
+	    {
+	      pt = VECPRODUCT(pt, voxelScaling);
+	      glVertex3fv(pt);
+	    }
 	}
     }
   glEnd();
@@ -165,9 +266,11 @@ ImageCaptions::draw(QGLViewer *viewer, bool backToFront)
       if (m_imageCaptions[i]->active())
 	{
 	  Vec pt = m_imageCaptions[i]->position();
-	  pt = VECPRODUCT(pt, voxelScaling);
-	  
-	  glVertex3fv(pt);
+	  if (pt.z > -100000)
+	    {
+	      pt = VECPRODUCT(pt, voxelScaling);	  
+	      glVertex3fv(pt);
+	    }
 	}
     }
   glEnd();
@@ -184,9 +287,11 @@ ImageCaptions::draw(QGLViewer *viewer, bool backToFront)
 	  ! m_imageCaptions[i]->active())
 	{
 	  Vec pt = m_imageCaptions[i]->position();
-	  pt = VECPRODUCT(pt, voxelScaling);
-
-	  glVertex3fv(pt);
+	  if (pt.z > -100000)
+	    {
+	      pt = VECPRODUCT(pt, voxelScaling);
+	      glVertex3fv(pt);
+	    }
 	}
     }
   glEnd();
@@ -221,7 +326,35 @@ ImageCaptions::keyPressEvent(QKeyEvent *event)
 	      m_imageCaptions[i]->setActive(false);
 	      m_imageCaptions[i]->saveSize();
 	    }
-	  if (event->key() == Qt::Key_Space)
+	  else if (event->key() == Qt::Key_Space)
+	    {
+	      Vec pos = m_imageCaptions[i]->position();
+	      bool ok;
+	      QString text;
+	      if (pos.z > -100000)
+		text = QString("%1 %2 %3").arg(pos.x).arg(pos.y).arg(pos.z);
+	      else
+		text = QString("%1 %2").arg(pos.x).arg(pos.y);
+
+	      text = QInputDialog::getText(0,
+					   "Coordinates",
+					   "Coordinates",
+					   QLineEdit::Normal,
+					   text,
+					   &ok);
+	      if (ok && !text.isEmpty())
+		{
+		  float x,y,z;
+		  x=y=0;
+		  z=-1000000;
+		  QStringList list = text.split(" ", QString::SkipEmptyParts);
+		  if (list.count() > 0) x = list[0].toFloat();
+		  if (list.count() > 1) y = list[1].toFloat();
+		  if (list.count() > 2) z = list[2].toFloat();
+		  m_imageCaptions[i]->setPosition(Vec(x,y,z));
+		}
+	    }
+	  else if (event->key() == Qt::Key_L)
 	    {
 	      ImageCaptionObject* cmg = m_imageCaptions[i];
 	      QString imgFile = QFileDialog::getOpenFileName(0,

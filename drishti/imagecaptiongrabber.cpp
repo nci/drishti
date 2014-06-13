@@ -16,7 +16,7 @@ ImageCaptionGrabber::~ImageCaptionGrabber() {}
 
 void
 ImageCaptionGrabber::checkIfGrabsMouse(int x, int y,
-				   const Camera* const camera)
+				       const Camera* const camera)
 {
   if (m_pressed)
     {
@@ -25,8 +25,18 @@ ImageCaptionGrabber::checkIfGrabsMouse(int x, int y,
       return;
     }
   Vec voxelSize = Global::voxelScaling();
-  Vec pos = VECPRODUCT(position(), voxelSize);
-  pos = camera->projectedCoordinatesOf(pos);
+  Vec pos = position();
+  if (pos.z > -100000)
+    {
+      pos = VECPRODUCT(pos, voxelSize);  
+      pos = camera->projectedCoordinatesOf(pos);
+    }
+  else
+    {
+      pos.x = camera->screenWidth()*pos.x;
+      pos.y = camera->screenHeight()*pos.y;
+      //QPoint scr = mapFromGlobal(pos);
+    }
   QPoint hp(pos.x, pos.y);
   if ((hp-QPoint(x,y)).manhattanLength() < 50)
     setGrabsMouse(true);
@@ -45,7 +55,7 @@ ImageCaptionGrabber::mousePressEvent(QMouseEvent* const event,
 
 void
 ImageCaptionGrabber::mouseMoveEvent(QMouseEvent* const event,
-				Camera* const camera)
+				    Camera* const camera)
 { 
   // do not move
 }

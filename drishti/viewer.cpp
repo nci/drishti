@@ -19,10 +19,6 @@
 #include <fstream>
 #include <time.h>
 
-#ifdef Q_OS_LINUX
-#include <GL/glut.h>
-#endif
-
 #include <QInputDialog>
 #include <QFileDialog>
 
@@ -576,7 +572,8 @@ Viewer::checkPointSelected(const QMouseEvent *event)
 {
   bool found;
   QPoint scr = event->pos();
-  Vec target = camera()->pointUnderPixel(scr, found);
+  //Vec target = camera()->pointUnderPixel(scr, found);
+  Vec target = m_hiresVolume->pointUnderPixel(scr, found);
 
   if (found)
     {
@@ -1137,17 +1134,20 @@ Viewer::releaseFBOs(int imagequality)
   if (m_lowresVolume->raised())
     return;
 
-  if (imagequality != Enums::DragImage &&
-      Global::imageQuality() == Global::_NormalQuality &&
-      !drawToFBO())
+  if (!m_lowresBuffer->isBound() &&
+      !m_imageBuffer->isBound())
     return;
 
-  if (m_imageBuffer->isBound())
+  bool imgBound = m_imageBuffer->isBound();
+  bool lowBound = m_lowresBuffer->isBound();
+
+  if (imgBound)
     m_imageBuffer->release();
 
-  if (m_lowresBuffer->isBound())
+  if (lowBound)
     m_lowresBuffer->release();
 
+  glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
   makeCurrent();
 
   int ow = QGLViewer::size().width();
@@ -1162,7 +1162,8 @@ Viewer::releaseFBOs(int imagequality)
 
   int wd, ht;
 
-  if (imagequality == Enums::DragImage)
+  //if (imagequality == Enums::DragImage)
+  if (lowBound)
     {
       glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_lowresBuffer->texture());
       wd = m_lowresBuffer->width();
@@ -1220,7 +1221,7 @@ Viewer::drawInfoString(int imagequality,
 		       float stepsize)
 {
   int posx = 10;
-  int posy = size().height()-10;
+  int posy = size().height()-3;
   int screenWidth = size().width();
   int screenHeight = size().height();
 
@@ -1233,16 +1234,13 @@ Viewer::drawInfoString(int imagequality,
     {
       glColor4f(0, 0, 0, 0.8f);
       glBegin(GL_QUADS);
-      glVertex2f(0, posy-45);
+      glVertex2f(0, posy-55);
       glVertex2f(0, screenHeight);
       glVertex2f(screenWidth, screenHeight);
-      glVertex2f(screenWidth, posy-45);
+      glVertex2f(screenWidth, posy-55);
       glEnd();
     }
 
-  stopScreenCoordinatesSystem();
-
-  glEnable(GL_DEPTH_TEST);
   QFont tfont = QFont("Helvetica", 8);
   tfont.setStyleStrategy(QFont::PreferAntialias);  
 
@@ -1256,9 +1254,6 @@ Viewer::drawInfoString(int imagequality,
   maxY = dataMax.y;
   maxZ = dataMax.z;
 
-
-  glActiveTexture(GL_TEXTURE0);
-  glEnable(GL_TEXTURE_2D);
 
   int gimgq = Global::imageQuality();
   int dragvolume = (Global::loadDragOnly() ||
@@ -1295,8 +1290,7 @@ Viewer::drawInfoString(int imagequality,
     {
       msg = "mop "+msg;
       tfont.setPointSize(12*fscl);
-      glColor3f(0.8f,0.8f,0.8f);
-      drawText(10, 30, msg, tfont);
+      StaticFunctions::renderText(10, 30, msg, tfont, Qt::black, Qt::white);
     }
 
   if (!Global::bottomText())
@@ -1314,19 +1308,24 @@ Viewer::drawInfoString(int imagequality,
   if (Global::useDragVolumeforShadows()) msg += "+dshadows";
 
   tfont.setPointSize(8*fscl);
-  glColor3f(0.6f,0.6f,0.6f);
-  drawText(posx, posy-33,
-	   QString("HiRes : image (%1) : stepsize(%2)").\
-	   arg(msg).arg(stepsize),
-	   tfont);
+
+  StaticFunctions::renderText(posx, posy-28*fscl,
+			      QString("HiRes : image (%1) : stepsize(%2)"). \
+			      arg(msg).arg(stepsize),
+			      tfont,
+			      Qt::transparent,
+			      Qt::lightGray);
+
 
   tfont.setPointSize(10*fscl);
-  glColor3f(0.8f,0.8f,0.8f);
-  drawText(posx, posy-18,
-	   QString("Bounds : %1-%2, %3-%4, %5-%6").	\
-	   arg(minX).arg(maxX).arg(minY).		\
-	   arg(maxY).arg(minZ).arg(maxZ),
-	   tfont);
+
+  StaticFunctions::renderText(posx, posy-16*fscl,
+			      QString("Bounds : %1-%2, %3-%4, %5-%6").	\
+			      arg(minX).arg(maxX).arg(minY).		\
+			      arg(maxY).arg(minZ).arg(maxZ),
+			      tfont,
+			      Qt::transparent,
+			      Qt::lightGray);
 
   tfont.setPointSize(12*fscl);
   glColor3f(1,1,1);
@@ -1345,20 +1344,18 @@ Viewer::drawInfoString(int imagequality,
       ntex = 1;
     }
 
+  QString lodMesg;
   if (lod == 1)
-      drawText(posx, posy,
-	   QString("LoD(%1) : Size : %2x%3x%4 (%5:%6x%7)").\
+    lodMesg = QString("LoD(%1) : Size : %2x%3x%4 (%5:%6x%7)").			\
 	   arg(lod).							\
 	   arg(maxX-minX+1).						\
 	   arg(maxY-minY+1).						\
 	   arg(maxZ-minZ+1).						\
 	   arg(ntex).							\
 	   arg(textureX).						\
-	   arg(textureY),
-	   tfont);
+           arg(textureY);
   else
-      drawText(posx, posy,
-	   QString("LoD(%1) : Size : %2x%3x%4 (%5x%6x%7 - %8:%9x%10)").\
+    lodMesg = QString("LoD(%1) : Size : %2x%3x%4 (%5x%6x%7 - %8:%9x%10)").	\
 	   arg(lod).							\
 	   arg(maxX-minX+1).						\
 	   arg(maxY-minY+1).						\
@@ -1368,10 +1365,13 @@ Viewer::drawInfoString(int imagequality,
 	   arg((maxZ-minZ+1)/lod).					\
 	   arg(ntex).							\
 	   arg(textureX).						\
-	   arg(textureY),
-	   tfont);
+           arg(textureY);
 
-  glDisable(GL_TEXTURE_2D);
+  StaticFunctions::renderText(posx, posy,
+			      lodMesg, tfont,
+			      Qt::transparent, Qt::white);
+
+  stopScreenCoordinatesSystem();
 }
 
 void
@@ -1576,7 +1576,8 @@ Viewer::renderVolume(int imagequality)
 	}
     }
 
-  if (fboBound) releaseFBOs(imagequality);
+  //if (fboBound) releaseFBOs(imagequality);
+  releaseFBOs(imagequality);
 
   //if (Global::bottomText() && m_hiresVolume->raised())
   if (m_hiresVolume->raised())
@@ -2652,7 +2653,8 @@ Viewer::mouseMoveEvent(QMouseEvent *event)
 	      return;
 	    }
 	  
-	  target = camera()->pointUnderPixel(scr, found);
+	  //target = camera()->pointUnderPixel(scr, found);
+	  target = m_hiresVolume->pointUnderPixel(scr, found);
 	}
     }
 
@@ -2883,29 +2885,9 @@ Viewer::showBackBufferImage()
 
   tfont.setPointSize(20*fscl);
 
-  glColor4f(0.6f, 0.6f, 0.6f, 0.6f);
-  drawText(10, size().height()/2-19,
-	   toggleUpdates,
-	   tfont);  
-  glColor4f(0.9f, 0.9f, 0.9f, 0.9f);
-  drawText(10, size().height()/2-21,
-	   toggleUpdates,
-	   tfont);
-  
-  glColor4f(0.8f, 0.8f, 0.8f, 0.8f);
-  drawText(9, size().height()/2-20,
-	   toggleUpdates,
-	   tfont);
-  
-  glColor4f(0.6f, 0.6f, 0.6f, 0.6f);
-  drawText(11, size().height()/2-20,
-	   toggleUpdates,
-	   tfont);
-  
-  glColor4f(0, 0, 0, 1);
-  drawText(10, size().height()/2-20,
-	   toggleUpdates,
-	   tfont);
+  StaticFunctions::renderText(10, size().height()/2,
+			      toggleUpdates, tfont,
+			      Qt::transparent, Qt::lightGray);
 }
 
 void Viewer::enterEvent(QEvent *e) { setFocus(); grabKeyboard(); }
@@ -3333,13 +3315,6 @@ Viewer::grabScreenShot()
 void
 Viewer::init()
 {
-
-#ifdef Q_OS_LINUX
-   int t_argc = 1;
-   char *t_argv[] = { "./drishti" };
-   glutInit(&t_argc, t_argv);
-#endif
-
   // remove keyboards shortcuts
   setPathKey(-Qt::Key_F1);
   setPathKey(-Qt::Key_F2);

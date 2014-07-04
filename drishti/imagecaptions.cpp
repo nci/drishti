@@ -11,12 +11,6 @@ using namespace qglviewer;
 #include <QFileDialog>
 #include <QInputDialog>
 
-#ifdef Q_OS_OSX
-#include <GLUT/glut.h>
-#else
-#include <GL/glut.h>
-#endif
-
 
 ImageCaptions::ImageCaptions() { m_imageCaptions.clear(); }
 

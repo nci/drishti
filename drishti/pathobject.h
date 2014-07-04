@@ -311,8 +311,6 @@ class PathObject
   int m_textureHeight;
   int m_textureWidth;
 
-  float m_glutTextScale;
-
   bool m_viewportStyle;
   int m_viewportTF;
   QVector4D m_viewport;

@@ -5,12 +5,6 @@
 
 #include <QFileDialog>
 
-#ifdef Q_OS_OSX
-#include <GLUT/glut.h>
-#else
-#include <GL/glut.h>
-#endif
-
 //------------------------------------------------------------------
 PathObjectUndo::PathObjectUndo() { clear(); }
 PathObjectUndo::~PathObjectUndo() { clear(); }
@@ -2639,15 +2633,15 @@ PathObject::postdrawAngle(QGLViewer *viewer)
   Vec v01 = v0-v1;
   Vec v21 = v2-v1;
   
-  float l01 = v01.norm();
-  float l21 = v21.norm();
+  float vl01 = v01.norm();
+  float vl21 = v21.norm();
   
   v01.normalize();
   v21.normalize();
   
-  l01 = qMin(100.0f, l01*0.8f);
-  l21 = qMin(100.0f, l21*0.8f);
-  float l = qMin(l01, l21);
+  vl01 = qMin(100.0f, vl01*0.5f);
+  vl21 = qMin(100.0f, vl21*0.5f);
+  float l = qMin(vl01, vl21);
   v01 *= l;
   v21 *= l;
   
@@ -2664,51 +2658,19 @@ PathObject::postdrawAngle(QGLViewer *viewer)
 						 m_points[1],
 						 m_points[2]);
   QString str = QString("%1").arg(pangle, 0, 'f', Global::floatPrecision());      
-  int len = str.length();
-  int width = glutStrokeLength(GLUT_STROKE_ROMAN,
-			       (unsigned char*)(str.toLatin1().data()));
-  
-  Vec vm = (v0+v2)*0.5;
-  float perpx = vm.y-v1.y;
-  float perpy = -(vm.x-v1.x);
-  float dlen = sqrt(perpx*perpx + perpy*perpy);
-  float angle = 0.0f;
-  bool angleFixed = false;
-  if (dlen > 0.0)
-    {
-      perpx/=dlen; perpy/=dlen;
-      angle = atan2(perpx, -perpy);
-      angle *= 180.0/3.1415926535;
-      if (perpy < 0) { angle = 180+angle; angleFixed = true; }
-    }
-  
-  
-  float px = perpx*10;
-  float py = perpy*10;
-  
-  glColor4f(m_lengthColor.x*0.9,
-	    m_lengthColor.y*0.9,
-	    m_lengthColor.z*0.9,
-	    0.9);
   
   glPushMatrix();
   glLoadIdentity();
   
-  glTranslatef(v1.x, v1.y, 0.5f);
-  glScaled(m_glutTextScale, m_glutTextScale, m_glutTextScale);
-  glRotatef(angle, 0, 0, 1);
-  if (vm.x < v1.x)
-    glTranslatef(width+200, -20, 0);
-  else
-    glTranslatef(-200, -20, 0);
-  glRotatef(180, 0, 0, 1);
-  glRotatef(180, 1, 0, 0);
-  for (int i = 0; i < len; i++)
-    glutStrokeCharacter(GLUT_STROKE_ROMAN, (str[i].toLatin1()));  
-  
-  glTranslatef(10, 70, 0);
-  glutStrokeCharacter(GLUT_STROKE_ROMAN, 'o');  
-  
+  str += QChar(0xB0);
+  float fscl = 120.0/Global::dpi();
+  QFont font = QFont("Helvetica");
+  font.setStyleStrategy(QFont::PreferAntialias);
+  font.setPointSize(12*fscl);
+  StaticFunctions::renderText(v1.x, v1.y,
+			       str, font,
+			       Qt::transparent, Qt::white);
+
   glPopMatrix();
 }
 
@@ -2746,13 +2708,13 @@ PathObject::postdrawLength(QGLViewer *viewer)
   float dlen = sqrt(perpx*perpx + perpy*perpy);
   perpx/=dlen; perpy/=dlen;
   
-  float angle = atan2(perpx, -perpy);
+  float angle = atan2(-perpx, perpy);
   bool angleFixed = false;
   angle *= 180.0/3.1415926535;
   if (perpy < 0) { angle = 180+angle; angleFixed = true; }
   
-  float px = perpx * m_lengthTextDistance*(m_glutTextScale/0.15);
-  float py = perpy * m_lengthTextDistance*(m_glutTextScale/0.15);
+  float px = perpx * m_lengthTextDistance;
+  float py = perpy * m_lengthTextDistance;
   
   glLineWidth(3);
   glEnable(GL_LINE_STIPPLE);
@@ -2793,37 +2755,28 @@ PathObject::postdrawLength(QGLViewer *viewer)
   QString str = QString("%1 %2").					\
                          arg(length(), 0, 'f', Global::floatPrecision()).\
                          arg(pvlInfo.voxelUnitStringShort()); 
-  int len = str.length();
-  int width = glutStrokeLength(GLUT_STROKE_ROMAN,
-			       (unsigned char*)(str.toLatin1().data()));
-  
-  if (m_lengthTextDistance < 0)
-    {
-      perpx = -perpx;
-      perpy = -perpy;
-      angleFixed = !angleFixed;
-    }
   
   glPushMatrix();
   glLoadIdentity();
-  
-  if (angleFixed)
-    glTranslatef((x0+x1)/2+px+5*perpx,
-		 (y0+y1)/2+py+5*perpy,
-		 0.5f);
-  else
-    glTranslatef((x0+x1)/2+px+20*perpx,
-		 (y0+y1)/2+py+20*perpy,
-		 0.5f);
-  
-  glScaled(m_glutTextScale, m_glutTextScale, m_glutTextScale);
-  glRotatef(angle, 0, 0, 1);
-  glTranslatef(width/2, 0, 0);
-  glRotatef(180, 0, 0, 1);
-  glRotatef(180, 1, 0, 0);
-  for (int i = 0; i < len; i++)
-    glutStrokeCharacter(GLUT_STROKE_ROMAN, (str[i].toLatin1()));  
-  
+
+  if (str.endsWith("um"))
+    {
+      str.chop(2);
+      str += QChar(0xB5);
+      str += "m";
+    }
+  float fscl = 120.0/Global::dpi();
+  QFont font = QFont("Helvetica");
+  font.setStyleStrategy(QFont::PreferAntialias);
+  font.setPointSize(12*fscl);
+  int x = (x0+x1)/2 + px*1.1;
+  int y = (y0+y1)/2 + py*1.1;
+  StaticFunctions::renderRotatedText(x,y,
+				     str, font,
+				     Qt::transparent, Qt::white,
+				     -angle,
+				     true); // (0,0) is bottom left
+    
   glPopMatrix();
 }
 
@@ -2850,16 +2803,7 @@ PathObject::postdrawPointNumbers(QGLViewer *viewer)
       int wd = metric.width(str);
       y += ht/2;
       
-      glColor4f(0,0,0,0.8f);
-      glBegin(GL_QUADS);
-      glVertex2f(x, y+2);
-      glVertex2f(x+wd+5, y+2);
-      glVertex2f(x+wd+5, y-ht);
-      glVertex2f(x, y-ht);
-      glEnd();
-      
-      glColor3f(1,1,1);
-      viewer->renderText(x+2, y-metric.descent(), str);
+      StaticFunctions::renderText(x+2, y, str, font, Qt::black, Qt::yellow);
     }
 }
 
@@ -2947,16 +2891,7 @@ PathObject::postdrawGrab(QGLViewer *viewer,
   int wd = metric.width(str);
   x += 10;
   
-  glColor4f(0,0,0,0.8f);
-  glBegin(GL_QUADS);
-  glVertex2f(x, y+2);
-  glVertex2f(x+wd+5, y+2);
-  glVertex2f(x+wd+5, y-ht);
-  glVertex2f(x, y-ht);
-  glEnd();
-  
-  glColor3f(1,1,1);
-  viewer->renderText(x+2, y-metric.descent(), str);
+  StaticFunctions::renderText(x+2, y, str, font, Qt::black, Qt::yellow);
 }
 
 
@@ -2972,8 +2907,6 @@ PathObject::postdraw(QGLViewer *viewer,
       !m_showAngle &&
       !(m_captionPresent && m_captionLabel))
     return;
-
-  m_glutTextScale = scale;
 
   glEnable(GL_LINE_SMOOTH);
   glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
@@ -4014,6 +3947,11 @@ void PathObject::drawViewportLineDots(QGLViewer *viewer, float scale, int vh)
   glPointSize(10);
 
   {
+    float fscl = 120.0/Global::dpi();
+    QFont font = QFont();
+    QFontMetrics metric(font);
+    int fht = metric.height();
+    int fwd = metric.width("0")/2;
     glColor3f(1,1,1);
     float clen = 0;
     for(int np=0; np<m_path.count(); np++)
@@ -4028,13 +3966,9 @@ void PathObject::drawViewportLineDots(QGLViewer *viewer, float scale, int vh)
 	if (np%m_segments == 0)
 	  {
 	    QString str = QString("%1").arg(np/m_segments);
-	    int len = str.length();
-	    glPushMatrix();
-	    glTranslatef(clen*scale-2, -vh/2+20, 0);
-	    glScalef(0.1, -0.1, 0.1);
-	    for (int i = 0; i < len; i++)
-	      glutStrokeCharacter(GLUT_STROKE_ROMAN, (str[i].toLatin1()));  
-	    glPopMatrix();
+	    StaticFunctions::renderText(clen*scale-fwd, -vh/2+2*fht,
+					str, font,
+					Qt::transparent, Qt::white);
 	  }
       }
   }

@@ -150,6 +150,12 @@ DrawHiresVolume::DrawHiresVolume(Viewer *viewer,
   m_backplaneShader1=0;
   m_backplaneShader2=0;
 
+  m_useScreenShadows = false;
+  m_shadowLod = 1;
+  m_shdBuffer = 0;
+  m_shdTex[0] = 0;
+  m_shdTex[1] = 0;
+
   renew();
 }
 
@@ -162,6 +168,7 @@ void
 DrawHiresVolume::renew()
 {
   m_showing = true;
+  m_forceBackToFront = false;
 
   m_loadingData = false;
 
@@ -217,11 +224,21 @@ DrawHiresVolume::renew()
   m_mixTag = false;
 
   Global::setUpdatePruneTexture(true);
+
+  if (m_shdBuffer) glDeleteFramebuffers(1, &m_shdBuffer);
+  if (m_shdTex[0]) glDeleteTextures(2, m_shdTex);  
+  m_shdBuffer = 0;
+  m_shdTex[0] = m_shdTex[1] = 0;
 }
 
 void
 DrawHiresVolume::cleanup()
 {
+  if (m_shdBuffer) glDeleteFramebuffers(1, &m_shdBuffer);
+  if (m_shdTex[0]) glDeleteTextures(2, m_shdTex);  
+  m_shdBuffer = 0;
+  m_shdTex[0] = m_shdTex[1] = 0;
+
   if (m_histData1D) delete [] m_histData1D;
   if (m_histData2D) delete [] m_histData2D;
   if (m_histDragData1D) delete [] m_histDragData1D;
@@ -358,48 +375,68 @@ DrawHiresVolume::generateDragHistogramImage()
 void
 DrawHiresVolume::initShadowBuffers(bool force)
 {
-  int shdSizeW = m_Viewer->camera()->screenWidth()*m_lightInfo.shadowScale;
-  int shdSizeH = m_Viewer->camera()->screenHeight()*m_lightInfo.shadowScale;
-  shdSizeW *= 2;
-  shdSizeH *= 2;
-  if (!force &&
-      m_shadowWidth == shdSizeW &&
-      m_shadowHeight == shdSizeH)
-    return; // no need to resize shadow buffers
+//  int shdSizeW = m_Viewer->camera()->screenWidth()*m_lightInfo.shadowScale;
+//  int shdSizeH = m_Viewer->camera()->screenHeight()*m_lightInfo.shadowScale;
+//  shdSizeW *= 2;
+//  shdSizeH *= 2;
+//  if (!force &&
+//      m_shadowWidth == shdSizeW &&
+//      m_shadowHeight == shdSizeH)
+//    return; // no need to resize shadow buffers
 
+  int shdSizeW = m_Viewer->camera()->screenWidth();
+  int shdSizeH = m_Viewer->camera()->screenHeight();
   m_shadowWidth = shdSizeW;
   m_shadowHeight = shdSizeH;
 
   GLuint target = GL_TEXTURE_RECTANGLE_EXT;
 
-  if (Global::useFBO())
+  m_shadowLod = 2;
+  if (m_shdBuffer) glDeleteFramebuffers(1, &m_shdBuffer);
+  if (m_shdTex[0]) glDeleteTextures(2, m_shdTex);  
+  glGenFramebuffers(1, &m_shdBuffer);
+  glGenTextures(2, m_shdTex);
+  for(int i=0; i<2; i++)
     {
-      if (m_shadowBuffer) delete m_shadowBuffer;
-      if (m_blurredBuffer) delete m_blurredBuffer;
-
-      glActiveTexture(GL_TEXTURE3);
-      m_shadowBuffer = new QGLFramebufferObject(QSize(m_shadowWidth,
-						      m_shadowHeight),
-						QGLFramebufferObject::NoAttachment,
-						target);
-      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_shadowBuffer->texture());
-      glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-      glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-      m_shadowBuffer->release();
-
-
-      glActiveTexture(GL_TEXTURE2);
-      m_blurredBuffer = new QGLFramebufferObject(QSize(m_shadowWidth,
-						       m_shadowHeight),
-						 QGLFramebufferObject::NoAttachment,
-						 target);
-      glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-      glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_blurredBuffer->texture());
-
-      m_blurredBuffer->release();
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_shdTex[i]);
+      glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,
+		   0,
+		   GL_RGBA,
+		   m_shadowWidth/2, m_shadowHeight/2,
+		   0,
+		   GL_RGBA,
+		   GL_UNSIGNED_BYTE,
+		   0);
     }
+
+//  if (Global::useFBO())
+//    {
+//      if (m_shadowBuffer) delete m_shadowBuffer;
+//      if (m_blurredBuffer) delete m_blurredBuffer;
+//
+//      glActiveTexture(GL_TEXTURE3);
+//      m_shadowBuffer = new QGLFramebufferObject(QSize(m_shadowWidth,
+//						      m_shadowHeight),
+//						QGLFramebufferObject::NoAttachment,
+//						target);
+//      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_shadowBuffer->texture());
+//      glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+//      glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+//
+//      m_shadowBuffer->release();
+//
+//
+//      glActiveTexture(GL_TEXTURE2);
+//      m_blurredBuffer = new QGLFramebufferObject(QSize(m_shadowWidth,
+//						       m_shadowHeight),
+//						 QGLFramebufferObject::NoAttachment,
+//						 target);
+//      glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+//      glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+//      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_blurredBuffer->texture());
+//
+//      m_blurredBuffer->release();
+//    }
 }
 
 void
@@ -1250,6 +1287,9 @@ DrawHiresVolume::createDefaultShader()
 
   m_defaultParm[42] = glGetUniformLocationARB(m_defaultShader, "brickMin");
   m_defaultParm[43] = glGetUniformLocationARB(m_defaultShader, "brickMax");
+
+  m_defaultParm[46] = glGetUniformLocationARB(m_defaultShader, "shdlod");
+  m_defaultParm[47] = glGetUniformLocationARB(m_defaultShader, "shdTex");
 }
 
 void
@@ -1270,6 +1310,26 @@ DrawHiresVolume::createCopyShader()
   GLint copyParm[5];
   copyParm[0] = glGetUniformLocationARB(Global::copyShader(), "shadowTex");
   Global::setCopyParm(copyParm, 1);
+}
+
+void
+DrawHiresVolume::createReduceShader()
+{
+  QString shaderString;
+
+  if (Global::reduceShader())
+    return;
+
+  shaderString = ShaderFactory::genReduceShaderString();
+  Global::setReduceShader(glCreateProgramObjectARB());
+  GLhandleARB cs = Global::reduceShader();
+  if (! ShaderFactory::loadShader(cs, shaderString))
+    exit(0);
+
+  GLint reduceParm[5];
+  reduceParm[0] = glGetUniformLocationARB(Global::reduceShader(), "rtex");
+  reduceParm[1] = glGetUniformLocationARB(Global::reduceShader(), "lod");
+  Global::setReduceParm(reduceParm, 2);
 }
 
 void
@@ -1313,6 +1373,7 @@ DrawHiresVolume::createShaders()
 { 
   createPassThruShader();
   createCopyShader();
+  createReduceShader();
 
   createDefaultShader();
   createHighQualityShader();
@@ -1852,6 +1913,7 @@ DrawHiresVolume::draw(float stepsize,
 
   layers = zdepth/stepsize;
 
+  Global::setGeoRenderSteps(qMax(1, (int)(1.0/stepsize)));
 
   glLineWidth(1);
 
@@ -1869,10 +1931,15 @@ DrawHiresVolume::draw(float stepsize,
   m_drawGeometryPresent |= (GeometryObjects::imageCaptions()->count() > 0);
   m_drawGeometryPresent |= (LightHandler::giLights()->count() > 0);
 
-   if (!stillimage || m_renderQuality == Enums::RenderDefault)
-    drawDefault(pn, minvert, maxvert, layers, stepsize);
+  m_useScreenShadows = false;
+  if (!stillimage || m_renderQuality == Enums::RenderDefault)
+     drawDefault(pn, minvert, maxvert, layers, stepsize);
   else if (m_renderQuality == Enums::RenderHighQuality)
-    drawHighQuality(pn, minvert, maxvert, layers, stepsize);
+    {
+      m_useScreenShadows = true;
+      drawDefault(pn, minvert, maxvert, layers, stepsize);
+      //drawHighQuality(pn, minvert, maxvert, layers, stepsize);
+    }
 
   drawBackground();
   
@@ -2549,15 +2616,86 @@ DrawHiresVolume::drawDefault(Vec pn,
 {
   glEnable(GL_DEPTH_TEST);
 
-//  m_backlit = false; // going to render front to back
-//  glDepthFunc(GL_GEQUAL); // front to back rendering
-//  glClearDepth(0);
-//  glClear(GL_DEPTH_BUFFER_BIT);
+  if (! m_forceBackToFront)
+    {
+      m_backlit = false; // going to render front to back
+      glDepthFunc(GL_GEQUAL); // front to back rendering
+      glClearDepth(0);
+      glClear(GL_DEPTH_BUFFER_BIT);
+    }
+  else
+    {
+      m_backlit = true; // going to render back to front
+      glDepthFunc(GL_LEQUAL); // back to front rendering
+      glClearDepth(1);
+      glClear(GL_DEPTH_BUFFER_BIT);
+    }  
 
-  m_backlit = true; // going to render back to front
-  glDepthFunc(GL_LEQUAL); // back to front rendering
-  glClearDepth(1);
-  glClear(GL_DEPTH_BUFFER_BIT);
+  if (m_Viewer->imageBuffer()->isBound() ||
+      m_useScreenShadows && !m_forceBackToFront)
+    {
+      if (! m_Viewer->imageBuffer()->isBound())
+	m_Viewer->imageBuffer()->bind();
+
+      int camWidth = m_Viewer->camera()->screenWidth();
+      int camHeight = m_Viewer->camera()->screenHeight();
+      if (MainWindowUI::mainWindowUI()->actionFor3DTV->isChecked())
+	{
+	  if (Global::saveImageType() == Global::LeftImage)
+	    {
+	      //glScissor(0,0, camWidth/2, camHeight);
+	      glClear(GL_DEPTH_BUFFER_BIT);
+	      glClearColor(0, 0, 0, 0);
+	      glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
+	      glClear(GL_COLOR_BUFFER_BIT);
+	    }
+	  else
+	    {
+	      //glScissor(camWidth/2,0, camWidth/2, camHeight);
+	    }
+	}
+      else
+	{
+	  if (MainWindowUI::mainWindowUI()->actionCrosseye->isChecked() &&
+	      Global::saveImageType() == Global::LeftImage)
+	    {
+	      //glScissor(camWidth,0, camWidth, camHeight);
+	    }
+	  else
+	    {
+	      //glScissor(0,0, camWidth, camHeight);
+	      glClear(GL_DEPTH_BUFFER_BIT);
+	      glClearColor(0, 0, 0, 0);
+	      glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
+	      glClear(GL_COLOR_BUFFER_BIT);
+	    }
+	}
+
+      //glScissor(0,0, camWidth, camHeight);
+
+      // clear shadow buffer
+      glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_shdBuffer);
+      for(int fbn=0; fbn<2; fbn++)
+	{
+	  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+				 GL_COLOR_ATTACHMENT0_EXT,
+				 GL_TEXTURE_RECTANGLE_ARB,
+				 m_shdTex[fbn],
+				 0);
+	  glClearColor(0, 0, 0, 0);
+	  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
+	  glClear(GL_COLOR_BUFFER_BIT);
+	}
+
+      glActiveTexture(GL_TEXTURE3);
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_shdTex[0]);
+
+      m_Viewer->imageBuffer()->bind();
+      glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
+      glActiveTexture(GL_TEXTURE2);
+      glEnable(GL_TEXTURE_RECTANGLE_ARB);
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_Viewer->imageBuffer()->texture());
+    }
   
 
   enableTextureUnits();
@@ -2578,6 +2716,505 @@ DrawHiresVolume::drawDefault(Vec pn,
   glUseProgramObjectARB(0);
 
   m_bricks->draw();
+}
+
+void
+DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
+				   int layers, float stepsize)
+{
+  //----------------------------------------------------------------
+  if (m_useScreenShadows)
+    {	  
+      glUniform1iARB(m_defaultParm[46], m_shadowLod);
+      glUniform1iARB(m_defaultParm[47], 3);
+    }
+  else
+    {	  
+      glUniform1iARB(m_defaultParm[46], 0);
+      glUniform1iARB(m_defaultParm[47], 3);
+    }
+  //----------------------------------------------------------------
+	  
+
+  //----------------------------------------------------------------
+  // for polygons generated from bricks
+  for(int bno=0; bno<m_polygon.size(); bno++)
+    delete m_polygon[bno];
+  m_polygon.clear();  
+  //----------------------------------------------------------------
+
+  Vec step = stepsize*pn;
+  Vec poStart;
+  if (!m_backlit)
+    poStart = maxvert;
+  else
+    poStart = maxvert+layers*step;
+
+  GeometryObjects::trisets()->predraw(m_Viewer,
+				      m_bricks->getMatrix(0),
+				      pn,
+				      false,
+				      m_shadowWidth,
+				      m_shadowHeight);
+
+  //----------------------------------------------------------------
+  QList<Vec> clipGeoPos;
+  QList<Vec> clipGeoNormal;  
+  getClipForMask(clipGeoPos, clipGeoNormal);
+
+  GeometryObjects::pathgroups()->predraw(m_Viewer, m_backlit,
+					 clipGeoPos,
+					 clipGeoNormal,
+					 m_crops);
+
+  GeometryObjects::networks()->predraw(m_Viewer,
+				       m_bricks->getMatrix(0),
+				       pn,
+				       clipGeoPos,
+				       clipGeoNormal,
+				       m_crops,
+				       m_lightInfo.userLightVector);
+  //----------------------------------------------------------------
+
+  enableTextureUnits();
+  glUseProgramObjectARB(m_defaultShader);
+
+  //----------------------------------------------------------------
+  QList<int> tfSet;
+  QList<float> tfSetF;
+
+  tfSet = getSlices(poStart, step, pn, layers);
+
+  for (int s=0; s<tfSet.count(); s++)
+    tfSetF.append((float)tfSet[s]/(float)Global::lutSize());
+
+
+  int slabstart, slabend;
+  if (Global::volumeType() != Global::DummyVolume)
+    {
+      if (m_drawImageType != Enums::DragImage &&
+	  m_dataTexSize > 1)
+	{
+	  slabstart = 1;
+	  slabend = m_dataTexSize;
+	}
+      else
+	{
+	  slabstart = 0;
+	  slabend = 1;
+	}
+    }
+
+  Vec dragTexsize;
+  int lenx2, leny2, lod;
+  if (Global::volumeType() != Global::DummyVolume)
+    getDragRenderInfo(dragTexsize, lenx2, leny2, lod);
+
+
+  //-- adjust light position based on brick transforms
+  int numGhostBricks = m_bricks->ghostBricks().size();  
+  double XformInv[16];
+  QList<Vec> lpos;
+  for (int bn=0; bn<m_numBricks; bn++)
+    {
+      Vec lp = m_lightPosition;
+      if (bn >= numGhostBricks)
+	{
+	  int bo = bn - numGhostBricks + 1;
+	  memcpy(XformInv, m_bricks->getMatrixInv(bo), 16*sizeof(double));
+	}
+      else
+	memcpy(XformInv, m_bricks->getMatrixInv(0), 16*sizeof(double));
+      lp = Matrix::xformVec(XformInv, lp);
+      lpos.append(lp);
+    }
+  //--
+
+  emptySpaceSkip();
+
+  //-------------------------------
+  //-- for depthcue calculation --
+  Vec cpos = m_Viewer->camera()->position();
+  float deplen = (m_Viewer->camera()->sceneCenter() - maxvert).norm();
+  if (deplen < m_Viewer->camera()->sceneRadius())
+    deplen += m_Viewer->camera()->sceneRadius();
+  else
+    deplen = 2*m_Viewer->camera()->sceneRadius();
+  //-------------------------------
+
+
+  //-------------------------------
+  drawClipPlaneInViewport(m_numBricks*layers,
+			  lpos[0],
+			  1.0,
+			  lenx2, leny2, lod,
+			  dragTexsize,
+			  true); // defaultShader
+
+  drawPathInViewport(m_numBricks*layers,
+		     lpos[0],
+		     1.0,
+		     lenx2, leny2, lod,
+		     dragTexsize,
+		     true); // defaultShader
+
+
+  // if viewport occupies full screen do not render any further
+  if (GeometryObjects::clipplanes()->viewportsVisible())
+    {
+      ClipInformation clipInfo = GeometryObjects::clipplanes()->clipInfo();
+      for (int ic=0; ic<clipInfo.viewport.count(); ic++)
+	{
+	  QVector4D vp = clipInfo.viewport[ic];
+	  // render only when textured plane and viewport active
+	  if (clipInfo.tfSet[ic] >= 0 &&
+	      clipInfo.tfSet[ic] < Global::lutSize() &&
+	      vp.x() >= 0.0)
+	    {
+	      if (vp.z() > 0.97 && vp.w() > 0.97)
+		return;
+	    }
+	}
+
+      // some shader parameters might have changed so reset them
+      setRenderDefault();
+    }
+
+  if (GeometryObjects::paths()->viewportsVisible())
+    setRenderDefault();
+
+  //-------------------------------
+
+
+  bool validTF = false;
+  for (int bno=0; bno<m_numBricks; bno++)
+    validTF |= (tfSet[bno] < Global::lutSize());
+  if (!validTF)
+    {
+      renderGeometry(0, layers,
+		     poStart, pn, layers*step,
+		     false, false, Vec(0,0,0),
+		     false);
+
+      enableTextureUnits();
+      glUseProgramObjectARB(m_defaultShader);
+      drawClipPlaneDefault(0, layers,
+			   poStart, pn, layers*step,
+			   m_numBricks*layers,
+			   lpos[0],
+			   1.0,
+			   slabstart, slabend,
+			   lenx2, leny2, lod,
+			   dragTexsize);
+      layers = 0;
+    }
+
+
+  int ScreenXMin, ScreenXMax, ScreenYMin, ScreenYMax;
+  ScreenXMin = ScreenYMin = 100000;
+  ScreenXMax = ScreenYMax = 0;
+
+  int shadowRenderSteps = qMax(1, (int)(1.0/stepsize));
+
+  Vec pnDir = step;
+  if (m_backlit)
+    pnDir = -step;
+  int pno = 0;
+  Vec po = poStart;
+  for(int s=0; s<layers; s++)
+    {
+      po += pnDir;
+
+      float depthcue = 1;     
+      if (Global::depthcue())
+	{
+	  float sdist = qAbs((maxvert - po)*pn);
+	  depthcue = 1.0 - qBound(0.0f, sdist/deplen, 0.95f);
+	}
+
+      //-------------------------------------------
+      if (m_useScreenShadows &&
+	  !m_forceBackToFront &&
+	  s > 0 &&
+	  s%shadowRenderSteps == 0)
+	{
+	  glDisable(GL_BLEND);
+	  screenShadow(ScreenXMin, ScreenXMax, ScreenYMin, ScreenYMax);
+	  glEnable(GL_BLEND);
+	}
+
+      if (m_drawGeometryPresent &&
+	  (s%Global::geoRenderSteps() == 0 || s == layers-1))
+	{
+	  renderGeometry(s, layers,
+			 po, pn, Global::geoRenderSteps()*step,
+			 false, false, Vec(0,0,0),
+			 false);
+	  glBlendFunc(GL_ONE_MINUS_DST_ALPHA, GL_ONE);
+	}		     
+      //------------------------------------------------------
+      if (Global::volumeType() != Global::DummyVolume)
+	{
+	  enableTextureUnits();
+	  glUseProgramObjectARB(m_defaultShader);
+      
+	  for (int bno=0; bno<m_numBricks; bno++)
+	    {
+	      Vec lp = lpos[bno];
+	      glUniform3fARB(m_defaultParm[6], lp.x, lp.y, lp.z);
+
+	      QList<bool> clips;
+	      int tfset;
+	      Vec subvol[8],texture[8], subcorner, subdim;
+	      Vec brickPivot, brickScale;
+	      
+	      m_drawBrickInformation.get(bno, 
+					 tfset,
+					 subvol, texture,
+					 subcorner, subdim,
+					 clips,
+					 brickPivot, brickScale);
+	  
+	      ViewAlignedPolygon *vap = m_polygon[pno];
+	      pno++;
+	  
+	      //---------------------------------
+	      for(int pi=0; pi<vap->edges; pi++)
+		{  
+		  Vec scr = m_Viewer->camera()->projectedCoordinatesOf(vap->vertex[pi]);
+		  scr.y = m_shadowHeight - scr.y;
+		  ScreenXMin = qMin(ScreenXMin, (int)scr.x);
+		  ScreenXMax = qMax(ScreenXMax, (int)scr.x);
+		  ScreenYMin = qMin(ScreenYMin, (int)scr.y);
+		  ScreenYMax = qMax(ScreenYMax, (int)scr.y);
+		}
+	      //--------------------------------
+
+	      if (tfSet[bno] < Global::lutSize())
+		{
+		  if (Global::volumeType() != Global::RGBVolume &&
+		      Global::volumeType() != Global::RGBAVolume)
+		    glUniform1fARB(m_defaultParm[3], tfSetF[bno]);
+		  
+		  glUniform1fARB(m_defaultParm[18], depthcue);
+
+		  for(int b=slabstart; b<slabend; b++)
+		    {
+		      float tminz = m_dataMin.z;
+		      float tmaxz = m_dataMax.z;
+		      if (slabend > 1)
+			{
+			  tminz = m_textureSlab[b].y;
+			  tmaxz = m_textureSlab[b].z;
+			}
+		      glUniform3fARB(m_defaultParm[42], m_dataMin.x, m_dataMin.y, tminz);
+		      glUniform3fARB(m_defaultParm[43], m_dataMax.x, m_dataMax.y, tmaxz);
+
+		      bindDataTextures(b);
+
+		      if (Global::interpolationType(Global::TextureInterpolation)) // linear
+			{
+			  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,
+					  GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,
+					  GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			}
+		      else
+			{
+			  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,
+					  GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+			  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,
+					  GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+			}
+    
+		      if (m_drawImageType != Enums::DragImage ||
+			  m_dataTexSize == 1)
+			renderSlicedSlice(0,
+					  vap, false,
+					  lenx2, leny2, b, lod);
+		      else
+			renderDragSlice(vap, false, dragTexsize);
+		      
+		    } // loop over b
+		}
+	    } // loop over bricks
+
+
+	  //--- for drawing clip planes if any
+	  drawClipPlaneDefault(s, layers,
+			       po, pn, step,
+			       m_numBricks*layers,
+			       lpos[0],
+			       depthcue,
+			       slabstart, slabend,
+			       lenx2, leny2, lod,
+			       dragTexsize);
+  
+	} // not DummyVolume
+      //------------------------------------------------------
+    } // loop over s
+
+
+  //------------------------------------------------------
+  glUseProgramObjectARB(0);
+  disableTextureUnits();	  
+  Vec voxelScaling = Global::voxelScaling();
+  Vec bpos = VECPRODUCT(m_bricks->getTranslation(0), voxelScaling);
+  Vec bpivot = VECPRODUCT(m_bricks->getPivot(0),voxelScaling);
+  Vec baxis = m_bricks->getAxis(0);
+  float bangle = m_bricks->getAngle(0);
+  Quaternion q(baxis, -DEG2RAD(bangle));    
+  Vec eyepos = m_Viewer->camera()->position();
+  eyepos -= bpos;
+  eyepos -= bpivot;
+  eyepos = q.rotate(eyepos);
+  eyepos += bpivot; 
+  glEnable(GL_DEPTH_TEST);
+  GeometryObjects::trisets()->draw(m_Viewer,
+				   m_lightPosition,
+				   0, 0, Vec(0,0,0),
+				   false, false,
+				   eyepos,
+				   m_clipPos, m_clipNormal,
+				   false);
+
+  GeometryObjects::pathgroups()->draw(m_Viewer,
+				      m_backlit,
+				      m_lightPosition,
+				      false);
+  //------------------------------------------------------ 
+
+  glUseProgramObjectARB(0);
+  disableTextureUnits();	  
+}
+
+void
+DrawHiresVolume::screenShadow(int ScreenXMin, int ScreenXMax,
+			      int ScreenYMin, int ScreenYMax)
+{
+  int g = 3;
+
+//  int xmin = g;
+//  int ymin = g;
+//  int xmax = m_shadowWidth/2-g;
+//  int ymax = m_shadowHeight/2-g;
+//
+//  int txmin = 0;
+//  int tymin = 0;
+//  int txmax = m_shadowWidth/2;
+//  int tymax = m_shadowHeight/2;
+
+  int xmin = qMax(g, ScreenXMin/2+g);
+  int ymin = qMax(g, ScreenYMin/2+g);
+  int xmax = qMin(m_shadowWidth/2-g, ScreenXMax/2-g);
+  int ymax = qMin(m_shadowHeight/2-g, ScreenYMax/2-g);
+
+  int txmin = qMax(0, ScreenXMin/2);
+  int tymin = qMax(0, ScreenYMin/2);
+  int txmax = qMin(m_shadowWidth/2, ScreenXMax/2);
+  int tymax = qMin(m_shadowHeight/2, ScreenYMax/2);
+
+  int camWidth = m_Viewer->camera()->screenWidth();
+  int camHeight = m_Viewer->camera()->screenHeight();
+  if (MainWindowUI::mainWindowUI()->actionFor3DTV->isChecked())
+    {
+      xmin = g;
+      ymin = g;
+      xmax = m_shadowWidth/2-g;
+      ymax = m_shadowHeight/2-g;
+      
+      txmin = 0;
+      tymin = 0;
+      txmax = m_shadowWidth/2;
+      tymax = m_shadowHeight/2;
+    }
+  else
+    {
+      if (MainWindowUI::mainWindowUI()->actionCrosseye->isChecked() &&
+	  Global::saveImageType() == Global::LeftImage)
+	{
+	  xmin += camWidth/2;
+	  xmax += camWidth/2;
+	  txmin += camWidth/2;
+	  txmax += camWidth/2;
+	}
+    }
+
+  // update shadow texture
+  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_shdBuffer);
+  StaticFunctions::pushOrthoView(0, 0, m_shadowWidth, m_shadowHeight);
+  glUseProgramObjectARB(Global::reduceShader());
+
+  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			 GL_COLOR_ATTACHMENT0_EXT,
+			 GL_TEXTURE_RECTANGLE_ARB,
+			 m_shdTex[0],
+			 0);
+  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
+  glUniform1iARB(Global::reduceParm(0), 2); // copy from imageBuffer to shadowbuffer[0]
+  glUniform1iARB(Global::reduceParm(1), 2); // reduction factor
+  glBegin(GL_QUADS);
+  glTexCoord2f(xmin, ymin); glVertex2f(txmin, tymin);
+  glTexCoord2f(xmax, ymin); glVertex2f(txmax, tymin);
+  glTexCoord2f(xmax, ymax); glVertex2f(txmax, tymax);
+  glTexCoord2f(xmin, ymax); glVertex2f(txmin, tymax);
+  glEnd();
+
+  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			 GL_COLOR_ATTACHMENT0_EXT,
+			 GL_TEXTURE_RECTANGLE_ARB,
+			 m_shdTex[1],
+			 0);
+  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
+  glActiveTexture(GL_TEXTURE3);
+  glEnable(GL_TEXTURE_RECTANGLE_ARB);
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_shdTex[0]);
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glUniform1iARB(Global::reduceParm(0), 3); // copy from shadowBuffer[0] to shadowbuffer[1]
+  glUniform1iARB(Global::reduceParm(1), 1); // reduction factor
+  glBegin(GL_QUADS);
+  glTexCoord2f(xmin, ymin); glVertex2f(txmin, tymin);
+  glTexCoord2f(xmax, ymin); glVertex2f(txmax, tymin);
+  glTexCoord2f(xmax, ymax); glVertex2f(txmax, tymax);
+  glTexCoord2f(xmin, ymax); glVertex2f(txmin, tymax);
+  glEnd();
+  
+  glUseProgramObjectARB(0); // disable shaders 
+  StaticFunctions::popOrthoView();
+  
+  m_Viewer->imageBuffer()->bind();
+  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
+
+  // shadow texture
+  glActiveTexture(GL_TEXTURE3);
+  glEnable(GL_TEXTURE_RECTANGLE_ARB);
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_shdTex[1]);
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  //-------------------------------------------
+  
+  if (MainWindowUI::mainWindowUI()->actionFor3DTV->isChecked())
+    {
+      if (Global::saveImageType() == Global::LeftImage)
+	glViewport(0,0, camWidth/2, camHeight);
+      else
+	glViewport(camWidth/2,0, camWidth/2, camHeight);
+    }
+  else
+    {
+      if (MainWindowUI::mainWindowUI()->actionCrosseye->isChecked() &&
+	  Global::saveImageType() == Global::LeftImage)
+	glViewport(camWidth,0, camWidth, camHeight);
+      else
+	glViewport(0,0, camWidth, camHeight);
+    }
+  
+  glUseProgramObjectARB(m_defaultShader);
 }
 
 
@@ -2898,327 +3535,6 @@ DrawHiresVolume::getDragRenderInfo(Vec &dragTexsize,
 }
 
 void
-DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
-				   int layers, float stepsize)
-{
-  //----------------------------------------------------------------
-  // for polygons generated from bricks
-  for(int bno=0; bno<m_polygon.size(); bno++)
-    delete m_polygon[bno];
-  m_polygon.clear();  
-  //----------------------------------------------------------------
-
-  Vec step = stepsize*pn;
-  Vec poStart;
-  if (!m_backlit)
-    poStart = maxvert;
-  else
-    poStart = maxvert+layers*step;
-
-  GeometryObjects::trisets()->predraw(m_Viewer,
-				      m_bricks->getMatrix(0),
-				      pn,
-				      false,
-				      m_shadowWidth,
-				      m_shadowHeight);
-
-  //----------------------------------------------------------------
-  QList<Vec> clipGeoPos;
-  QList<Vec> clipGeoNormal;  
-  getClipForMask(clipGeoPos, clipGeoNormal);
-
-  GeometryObjects::pathgroups()->predraw(m_Viewer, m_backlit,
-					 clipGeoPos,
-					 clipGeoNormal,
-					 m_crops);
-
-  GeometryObjects::networks()->predraw(m_Viewer,
-				       m_bricks->getMatrix(0),
-				       pn,
-				       clipGeoPos,
-				       clipGeoNormal,
-				       m_crops,
-				       m_lightInfo.userLightVector);
-  //----------------------------------------------------------------
-
-  enableTextureUnits();
-  glUseProgramObjectARB(m_defaultShader);
-
-  //----------------------------------------------------------------
-  QList<int> tfSet;
-  QList<float> tfSetF;
-
-  tfSet = getSlices(poStart, step, pn, layers);
-
-  for (int s=0; s<tfSet.count(); s++)
-    tfSetF.append((float)tfSet[s]/(float)Global::lutSize());
-
-
-  int slabstart, slabend;
-  if (Global::volumeType() != Global::DummyVolume)
-    {
-      if (m_drawImageType != Enums::DragImage &&
-	  m_dataTexSize > 1)
-	{
-	  slabstart = 1;
-	  slabend = m_dataTexSize;
-	}
-      else
-	{
-	  slabstart = 0;
-	  slabend = 1;
-	}
-    }
-
-  Vec dragTexsize;
-  int lenx2, leny2, lod;
-  if (Global::volumeType() != Global::DummyVolume)
-    getDragRenderInfo(dragTexsize, lenx2, leny2, lod);
-
-
-  //-- adjust light position based on brick transforms
-  int numGhostBricks = m_bricks->ghostBricks().size();  
-  double XformInv[16];
-  QList<Vec> lpos;
-  for (int bn=0; bn<m_numBricks; bn++)
-    {
-      Vec lp = m_lightPosition;
-      if (bn >= numGhostBricks)
-	{
-	  int bo = bn - numGhostBricks + 1;
-	  memcpy(XformInv, m_bricks->getMatrixInv(bo), 16*sizeof(double));
-	}
-      else
-	memcpy(XformInv, m_bricks->getMatrixInv(0), 16*sizeof(double));
-      lp = Matrix::xformVec(XformInv, lp);
-      lpos.append(lp);
-    }
-  //--
-
-  emptySpaceSkip();
-
-  //-------------------------------
-  //-- for depthcue calculation --
-  Vec cpos = m_Viewer->camera()->position();
-  float deplen = (m_Viewer->camera()->sceneCenter() - maxvert).norm();
-  if (deplen < m_Viewer->camera()->sceneRadius())
-    deplen += m_Viewer->camera()->sceneRadius();
-  else
-    deplen = 2*m_Viewer->camera()->sceneRadius();
-  //-------------------------------
-
-
-  //-------------------------------
-  drawClipPlaneInViewport(m_numBricks*layers,
-			  lpos[0],
-			  1.0,
-			  lenx2, leny2, lod,
-			  dragTexsize,
-			  true); // defaultShader
-
-  drawPathInViewport(m_numBricks*layers,
-		     lpos[0],
-		     1.0,
-		     lenx2, leny2, lod,
-		     dragTexsize,
-		     true); // defaultShader
-
-
-  // if viewport occupies full screen do not render any further
-  if (GeometryObjects::clipplanes()->viewportsVisible())
-    {
-      ClipInformation clipInfo = GeometryObjects::clipplanes()->clipInfo();
-      for (int ic=0; ic<clipInfo.viewport.count(); ic++)
-	{
-	  QVector4D vp = clipInfo.viewport[ic];
-	  // render only when textured plane and viewport active
-	  if (clipInfo.tfSet[ic] >= 0 &&
-	      clipInfo.tfSet[ic] < Global::lutSize() &&
-	      vp.x() >= 0.0)
-	    {
-	      if (vp.z() > 0.97 && vp.w() > 0.97)
-		return;
-	    }
-	}
-
-      // some shader parameters might have changed so reset them
-      setRenderDefault();
-    }
-
-  if (GeometryObjects::paths()->viewportsVisible())
-    setRenderDefault();
-
-  //-------------------------------
-
-
-  bool validTF = false;
-  for (int bno=0; bno<m_numBricks; bno++)
-    validTF |= (tfSet[bno] < Global::lutSize());
-  if (!validTF)
-    {
-      renderGeometry(0, layers,
-		     poStart, pn, layers*step,
-		     false, false, Vec(0,0,0),
-		     false);
-
-      enableTextureUnits();
-      glUseProgramObjectARB(m_defaultShader);
-      drawClipPlaneDefault(0, layers,
-			   poStart, pn, layers*step,
-			   m_numBricks*layers,
-			   lpos[0],
-			   1.0,
-			   slabstart, slabend,
-			   lenx2, leny2, lod,
-			   dragTexsize);
-      layers = 0;
-    }
-
-
-  Vec pnDir = step;
-  if (m_backlit)
-    pnDir = -step;
-  int pno = 0;
-  Vec po = poStart;
-  for(int s=0; s<layers; s++)
-    {
-      po += pnDir;
-
-      float depthcue = 1;     
-      if (Global::depthcue())
-	{
-	  float sdist = qAbs((maxvert - po)*pn);
-	  depthcue = 1.0 - qBound(0.0f, sdist/deplen, 0.95f);
-	}
-
-      if (s%Global::geoRenderSteps() == 0 || s == layers-1)
-	renderGeometry(s, layers,
-		       po, pn, Global::geoRenderSteps()*step,
-		       false, false, Vec(0,0,0),
-		       false);
-		     
-      //------------------------------------------------------
-      if (Global::volumeType() != Global::DummyVolume)
-	{
-	  enableTextureUnits();
-	  glUseProgramObjectARB(m_defaultShader);
-      
-	  for (int bno=0; bno<m_numBricks; bno++)
-	    {
-	      Vec lp = lpos[bno];
-	      glUniform3fARB(m_defaultParm[6], lp.x, lp.y, lp.z);
-
-	      QList<bool> clips;
-	      int tfset;
-	      Vec subvol[8],texture[8], subcorner, subdim;
-	      Vec brickPivot, brickScale;
-	      
-	      m_drawBrickInformation.get(bno, 
-					 tfset,
-					 subvol, texture,
-					 subcorner, subdim,
-					 clips,
-					 brickPivot, brickScale);
-	  
-	      ViewAlignedPolygon *vap = m_polygon[pno];
-	      pno++;
-	  
-	      if (tfSet[bno] < Global::lutSize())
-		{
-		  if (Global::volumeType() != Global::RGBVolume &&
-		      Global::volumeType() != Global::RGBAVolume)
-		    glUniform1fARB(m_defaultParm[3], tfSetF[bno]);
-		  
-		  glUniform1fARB(m_defaultParm[18], depthcue);
-
-		  for(int b=slabstart; b<slabend; b++)
-		    {
-		      float tminz = m_dataMin.z;
-		      float tmaxz = m_dataMax.z;
-		      if (slabend > 1)
-			{
-			  tminz = m_textureSlab[b].y;
-			  tmaxz = m_textureSlab[b].z;
-			}
-		      glUniform3fARB(m_defaultParm[42], m_dataMin.x, m_dataMin.y, tminz);
-		      glUniform3fARB(m_defaultParm[43], m_dataMax.x, m_dataMax.y, tmaxz);
-
-		      bindDataTextures(b);
-
-		      if (Global::interpolationType(Global::TextureInterpolation)) // linear
-			{
-			  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,
-					  GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-			  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,
-					  GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-			}
-		      else
-			{
-			  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,
-					  GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-			  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,
-					  GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-			}
-    
-		      if (m_drawImageType != Enums::DragImage ||
-			  m_dataTexSize == 1)
-			renderSlicedSlice(0,
-					  vap, false,
-					  lenx2, leny2, b, lod);
-		      else
-			renderDragSlice(vap, false, dragTexsize);
-		      
-		    } // loop over b
-		}
-	    } // loop over bricks
-
-
-	  //--- for drawing clip planes if any
-	  drawClipPlaneDefault(s, layers,
-			       po, pn, step,
-			       m_numBricks*layers,
-			       lpos[0],
-			       depthcue,
-			       slabstart, slabend,
-			       lenx2, leny2, lod,
-			       dragTexsize);
-  
-	} // not DummyVolume
-      //------------------------------------------------------
-    } // loop over s
-
-
-  //------------------------------------------------------
-  glUseProgramObjectARB(0);
-  disableTextureUnits();	  
-  Vec voxelScaling = Global::voxelScaling();
-  Vec bpos = VECPRODUCT(m_bricks->getTranslation(0), voxelScaling);
-  Vec bpivot = VECPRODUCT(m_bricks->getPivot(0),voxelScaling);
-  Vec baxis = m_bricks->getAxis(0);
-  float bangle = m_bricks->getAngle(0);
-  Quaternion q(baxis, -DEG2RAD(bangle));    
-  Vec eyepos = m_Viewer->camera()->position();
-  eyepos -= bpos;
-  eyepos -= bpivot;
-  eyepos = q.rotate(eyepos);
-  eyepos += bpivot; 
-  glEnable(GL_DEPTH_TEST);
-  GeometryObjects::trisets()->draw(m_Viewer,
-				   m_lightPosition,
-				   0, 0, Vec(0,0,0),
-				   false, false,
-				   eyepos,
-				   m_clipPos, m_clipNormal,
-				   false);
-
-  GeometryObjects::pathgroups()->draw(m_Viewer,
-				      m_backlit,
-				      m_lightPosition,
-				      false);
-  //------------------------------------------------------ 
-}
-
-void
 DrawHiresVolume::drawPathInViewport(int pathOffset, Vec lpos, float depthcue,
 				    int lenx2, int leny2, int lod,
 				    Vec dragTexsize,
@@ -3370,8 +3686,8 @@ DrawHiresVolume::drawPathInViewport(int pathOffset, Vec lpos, float depthcue,
 
 	  for(int nt=0; nt<maxthick; nt++)
 	    {
-	      float tk = (float)nt/(float)(maxthick-1);
-	      glUniform1fARB(parm[18], 1.0-0.8*tk); 
+	      float tk = 1.0 - (float)nt/(float)(maxthick-1);
+	      glUniform1fARB(parm[18], 0.2+0.8*tk); 
 	      
 	      for(int b=slabstart; b<slabend; b++)
 		{
@@ -3595,7 +3911,7 @@ DrawHiresVolume::drawClipPlaneInViewport(int clipOffset, Vec lpos, float depthcu
 
 	  QList<bool> dummyclips;
 	  ViewAlignedPolygon *vap = new ViewAlignedPolygon;
-	  for (int sl = -clipInfo.thickness[ic]; sl<=clipInfo.thickness[ic]; sl++)
+	  for (int sl = clipInfo.thickness[ic]; sl>=-clipInfo.thickness[ic]; sl--)
 	    {
 	      int sls = sl;
 	      if (!defaultShader && !m_backlit) sls = -sl;
@@ -3641,13 +3957,9 @@ DrawHiresVolume::drawClipPlaneInViewport(int clipOffset, Vec lpos, float depthcu
 				      GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		    }
 		  
-//		  if (m_drawImageType != Enums::DragImage ||
-//		      m_dataTexSize == 1)
 		    renderSlicedSlice((defaultShader ? 0 : 1),
 				      vap, false,
 				      lenx2, leny2, b, lod);
-//		  else
-//		    renderDragSlice(vap, false, dragTexsize);		  
 		} // loop over b
 	    } // loop over clip slab
 	  delete vap;
@@ -7418,4 +7730,36 @@ DrawHiresVolume::saveForDrishtiPrayog(QString sfile)
 
   sprintf(keyword, "enddrishtiprayog");
   fout.write((char*)keyword, strlen(keyword)+1);
+}
+
+Vec
+DrawHiresVolume::pointUnderPixel(QPoint scr, bool& found)
+{
+  int sw = m_Viewer->camera()->screenWidth();
+  int sh = m_Viewer->camera()->screenHeight();  
+
+  Vec pos;
+  int cx = scr.x();
+  int cy = scr.y();
+  GLfloat depth = 0;
+  
+  m_forceBackToFront = true;
+  glEnable(GL_SCISSOR_TEST);
+  glScissor(cx, sh-1-cy, 1, 1);
+  drawDragImage(5.0);
+  glDisable(GL_SCISSOR_TEST);
+  m_forceBackToFront = false;
+
+  glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
+  glReadPixels(cx, sh-1-cy, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &depth);
+  glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
+
+  found = false;
+  if (depth > 0.0 && depth < 1.0)
+    {
+      pos = m_Viewer->camera()->unprojectedCoordinatesOf(Vec(cx, cy, depth));
+      found = true;
+    }
+
+  return pos;
 }

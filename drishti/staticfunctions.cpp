@@ -1438,3 +1438,53 @@ StaticFunctions::savePvlHeader(QString pvlFilename,
     }
 }
 
+void
+StaticFunctions::renderText(int x, int y,
+			    QString str, QFont font,
+			    QColor bcolor, QColor color)
+{
+  QFontMetrics metric(font);
+  int ht = metric.height()+4;
+  int wd = metric.width(str)+6;
+  QImage img(wd, ht, QImage::Format_ARGB32);
+  img.fill(bcolor);
+  QPainter p(&img);
+  p.setRenderHints(QPainter::TextAntialiasing);
+  p.setPen(color);
+  p.setFont(font);
+  p.drawText(3, ht-metric.descent()-2, str);
+  QImage mimg = img.mirrored();
+  glRasterPos2i(x, y);
+  glDrawPixels(wd, ht, GL_RGBA, GL_UNSIGNED_BYTE, mimg.bits());
+}
+
+void
+StaticFunctions::renderRotatedText(int x, int y,
+				   QString str, QFont font,
+				   QColor bcolor, QColor color,
+				   float angle, bool ydir)
+{
+  QFontMetrics metric(font);
+  int ht = metric.height()+4;
+  int wd = metric.width(str)+6;
+  QImage img(wd, ht, QImage::Format_ARGB32);
+  img.fill(bcolor);
+  QPainter p(&img);
+  p.setRenderHints(QPainter::TextAntialiasing);
+  p.setPen(color);
+  p.setFont(font);
+  p.drawText(3, ht-metric.descent()-2, str);
+  QImage mimg = img.mirrored();
+  QMatrix mat;
+  mat.rotate(angle);
+  QImage pimg = mimg.transformed(mat, Qt::SmoothTransformation);
+  float px = pimg.width()*cos(DEG2RAD(angle))/2;
+  float py = pimg.height()*sin(DEG2RAD(angle))/2;
+  if (ydir) // (0,0) is bottom left
+    glRasterPos2i(x-pimg.width()/2, y+pimg.height()/2);
+  else // (0,0) is top left
+    glRasterPos2i(x-pimg.width()/2, y-pimg.height()/2);
+  glDrawPixels(pimg.width(), pimg.height(),
+	       GL_RGBA, GL_UNSIGNED_BYTE,
+	       pimg.bits());
+}

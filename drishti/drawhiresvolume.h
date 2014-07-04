@@ -28,6 +28,8 @@ class DrawHiresVolume : public QObject
   ~DrawHiresVolume();
 
   bool loadingData() { return m_loadingData; }
+  
+  Vec pointUnderPixel(QPoint, bool&);
 
   int numOfTextureSlabs() { return m_textureSlab.count(); }
   int getSubvolumeSubsamplingLevel();
@@ -149,7 +151,13 @@ class DrawHiresVolume : public QObject
 
  private :
   bool m_showing;
+  bool m_forceBackToFront;
   
+  bool m_useScreenShadows;
+  int m_shadowLod;
+  GLuint m_shdBuffer;
+  GLuint m_shdTex[2];
+
   int m_currentVolume;
 
   GLint m_currentDrawbuf;
@@ -246,6 +254,7 @@ class DrawHiresVolume : public QObject
 
   void createPassThruShader();
   void createCopyShader();
+  void createReduceShader();
   void createDefaultShader();
   void createHighQualityShader();
   void createBlurShader(bool, int, float);
@@ -346,6 +355,8 @@ class DrawHiresVolume : public QObject
 			    int, int,
 			    bool,
 			    VolumeFileManager&);
+
+  void screenShadow(int, int, int, int);
 };
 
 #endif

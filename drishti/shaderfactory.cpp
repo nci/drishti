@@ -671,6 +671,34 @@ ShaderFactory::genCopyShaderString()
 
 
 QString
+ShaderFactory::genReduceShaderString()
+{
+  QString shader;
+
+  shader = "#extension GL_ARB_texture_rectangle : enable\n";
+  shader += "uniform sampler2DRect rtex;\n";
+  shader += "uniform int lod;\n";
+  shader += "void main(void)\n";
+  shader += "{\n";
+  shader += "  vec2 spos = gl_TexCoord[0].xy*lod;\n";
+  shader += "  vec4 sum = vec4(0,0,0,0);\n";
+  shader += "  sum += texture2DRect(rtex, spos.xy);\n";
+  shader += "  sum += texture2DRect(rtex, spos.xy + lod*vec2(0,1));\n";
+  shader += "  sum += texture2DRect(rtex, spos.xy + lod*vec2(1,0));\n";
+  shader += "  sum += texture2DRect(rtex, spos.xy - lod*vec2(0,1));\n";
+  shader += "  sum += texture2DRect(rtex, spos.xy - lod*vec2(1,0));\n";
+  shader += "  sum += texture2DRect(rtex, spos.xy + lod*vec2(1,1));\n";
+  shader += "  sum += texture2DRect(rtex, spos.xy + lod*vec2(1,-1));\n";
+  shader += "  sum += texture2DRect(rtex, spos.xy - lod*vec2(1,1));\n";
+  shader += "  sum += texture2DRect(rtex, spos.xy - lod*vec2(1,-1));\n";
+  shader += "  gl_FragColor = sum/9;\n";
+  shader += "}\n";
+
+  return shader;
+}
+
+
+QString
 ShaderFactory::genBackplaneShaderString1(float scale)
 {
   QString shader;
@@ -925,6 +953,9 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
   shader += "uniform vec3 brickMin;\n";
   shader += "uniform vec3 brickMax;\n";
 
+  shader += "uniform int shdlod;\n";
+  shader += "uniform sampler2DRect shdTex;\n";
+
   shader += genTextureCoordinate();
 
   if (tearPresent) shader += TearShaderFactory::generateTear(crops);
@@ -968,38 +999,7 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
   if (pathCropPresent) shader += "feather *= pathcrop(texCoord, true);\n";
 
   shader += "texCoord.x = 1.0 + float(tsizex-2)*(texCoord.x-dataMin.x)/dataSize.x;\n";
-  shader += "texCoord.y = 1.0 + float(tsizey-2)*(texCoord.y-dataMin.y)/dataSize.y;\n";
-
-//----------------------------------------------------------
-// Manipulate z-coordinate for non linear depth levels
-//  int levels = 4;
-//  float origT[10], newT[10];
-//  origT[0] = 00.00;  newT[0] = 00.0;
-//  origT[1] = 01.20;  newT[1] = 11.0;
-//  origT[2] = 04.00;  newT[2] = 23.0;
-//  origT[3] = 37.62;  newT[3] = 56.0;
-//  origT[4] = 62.00;  newT[4] = 62.0;
-//
-//  for(int o=0; o<levels; o++)
-//    {
-//      if (o > 0)
-//	shader += "else ";
-//      shader += QString("if (texCoord.z >= float(%1) && texCoord.z < float(%2))\n").\
-//	arg(origT[o]).\
-//	arg(origT[o+1]);
-//      shader += "  {\n"; 
-//
-//      shader += QString("    float tz = (texCoord.z-float(%1))/(float(%2)-float(%1));\n").\
-//	arg(origT[o]).							\
-//	arg(origT[o+1]);
-//
-//      shader += QString("    texCoord.z = float(%1) + tz * (float(%2)-float(%1));\n").\
-//	arg(newT[o]).\
-//	arg(newT[o+1]);
-//      shader += "  }\n";
-//    }
-//----------------------------------------------------------
-  
+  shader += "texCoord.y = 1.0 + float(tsizey-2)*(texCoord.y-dataMin.y)/dataSize.y;\n";  
   shader += "texCoord.z = 1.0 + (texCoord.z-float(tminz))/float(lod);\n";
 
   shader += genVgx();
@@ -1011,27 +1011,55 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
   //----------------------------------
 
   //----------------------------------
-  shader += " if (lightlod > 0)\n";
-  shader += "   {\n"; // calculate light color
-  shader += "     vec2 pvg = texCoord.xy/(prunelod*float(lightlod));\n";
-
-  shader += "     int lbZslc = int(float(zoffset+slice)/(prunelod*float(lightlod)));\n";
-  shader += "     float lbZslcf = fract(float(zoffset+slice)/(prunelod*float(lightlod)));\n";
-
-  shader += "     vec2 pvg0 = getTextureCoordinate(lbZslc, ";
-  shader += "                   lightncols, lightgridx, lightgridy, pvg);\n";
-  shader += "     vec2 pvg1 = getTextureCoordinate(lbZslc+1, ";
-  shader += "                   lightncols, lightgridx, lightgridy, pvg);\n";
-
-  shader += "     vec3 lc0 = texture2DRect(lightTex, pvg0).xyz;\n";
-  shader += "     vec3 lc1 = texture2DRect(lightTex, pvg1).xyz;\n";
-  shader += "     lightcol = mix(lc0, lc1, lbZslcf);\n";
-
-  shader += "     lightcol = 1.0-pow((vec3(1,1,1)-lightcol),vec3(lod,lod,lod));\n";
-  shader += "   }\n";
-  shader += " else\n";
-  shader += "   lightcol = vec3(1.0,1.0,1.0);\n";
+  //------------------------------------
+  shader += "if (shdlod > 0)\n";
+  shader += "  {\n";
+  shader += "     vec4 shadow = texture2DRect(shdTex, gl_FragCoord.xy/shdlod);\n";
+  shader += "     lightcol = 1.0-smoothstep(0.0, 2.0, shadow.a);\n";
+  shader += "  }\n";
+  shader += "else\n";
+  shader += "  {\n";
+  shader += "    if (lightlod > 0)\n";
+  shader += "     {\n"; // calculate light color
+  shader += "       vec2 pvg = texCoord.xy/(prunelod*float(lightlod));\n";	       
+  shader += "       int lbZslc = int(float(zoffset+slice)/(prunelod*float(lightlod)));\n";
+  shader += "       float lbZslcf = fract(float(zoffset+slice)/(prunelod*float(lightlod)));\n";
+  shader += "       vec2 pvg0 = getTextureCoordinate(lbZslc, ";
+  shader += "                     lightncols, lightgridx, lightgridy, pvg);\n";
+  shader += "       vec2 pvg1 = getTextureCoordinate(lbZslc+1, ";
+  shader += "                     lightncols, lightgridx, lightgridy, pvg);\n";	       
+  shader += "       vec3 lc0 = texture2DRect(lightTex, pvg0).xyz;\n";
+  shader += "       vec3 lc1 = texture2DRect(lightTex, pvg1).xyz;\n";
+  shader += "       lightcol = mix(lc0, lc1, lbZslcf);\n";
+  shader += "       lightcol = 1.0-pow((vec3(1,1,1)-lightcol),vec3(lod,lod,lod));\n";
+  shader += "     }\n";
+  shader += "    else\n";
+  shader += "     lightcol = vec3(1.0,1.0,1.0);\n";
+  shader += "  }\n";
   //----------------------------------
+
+//  //----------------------------------
+//  shader += " if (lightlod > 0)\n";
+//  shader += "   {\n"; // calculate light color
+//  shader += "     vec2 pvg = texCoord.xy/(prunelod*float(lightlod));\n";
+//
+//  shader += "     int lbZslc = int(float(zoffset+slice)/(prunelod*float(lightlod)));\n";
+//  shader += "     float lbZslcf = fract(float(zoffset+slice)/(prunelod*float(lightlod)));\n";
+//
+//  shader += "     vec2 pvg0 = getTextureCoordinate(lbZslc, ";
+//  shader += "                   lightncols, lightgridx, lightgridy, pvg);\n";
+//  shader += "     vec2 pvg1 = getTextureCoordinate(lbZslc+1, ";
+//  shader += "                   lightncols, lightgridx, lightgridy, pvg);\n";
+//
+//  shader += "     vec3 lc0 = texture2DRect(lightTex, pvg0).xyz;\n";
+//  shader += "     vec3 lc1 = texture2DRect(lightTex, pvg1).xyz;\n";
+//  shader += "     lightcol = mix(lc0, lc1, lbZslcf);\n";
+//
+//  shader += "     lightcol = 1.0-pow((vec3(1,1,1)-lightcol),vec3(lod,lod,lod));\n";
+//  shader += "   }\n";
+//  shader += " else\n";
+//  shader += "   lightcol = vec3(1.0,1.0,1.0);\n";
+//  //----------------------------------
 
   if (peel || lighting || !Global::use1D())
     shader += getNormal();

@@ -1,4 +1,5 @@
 #include "viewer.h"
+#include "staticfunctions.h"
 #include "messagedisplayer.h"
  
 bool MessageDisplayer::renderScene() { return (!m_mesgShowing || m_firstTime); }
@@ -122,10 +123,9 @@ MessageDisplayer::renderMessage(QSize isize)
     for (int si=0; si<nlines; si++)
       {
 	int ht = ht0 + (si+1)*hi;
-	glColor4f(0.9f, 0.85f, 0.7f, 0.9f*dim);
-	m_Viewer->renderText(lft+5, ht-mde,
-			     strlist[si],
-			     font);
+	StaticFunctions::renderText(lft+5, ht,
+				    strlist[si], font,
+				    Qt::black, Qt::white);
       }
   m_Viewer->stopScreenCoordinatesSystem();
   

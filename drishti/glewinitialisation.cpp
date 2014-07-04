@@ -41,8 +41,6 @@ GlewInit::initialise()
 	}
       else
 	fbo_ok = true;
-
-//      glutInit(&glew_argc, glew_argv);
     }
 
   return true;

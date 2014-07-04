@@ -1,16 +1,11 @@
 #include "global.h"
+#include "staticfunctions.h"
 #include "clipobject.h"
 #include "volumeinformation.h"
 #include "captiondialog.h"
 #include "dcolordialog.h"
 #include "propertyeditor.h"
 #include "enums.h"
-
-#ifdef Q_OS_OSX
-#include <GLUT/glut.h>
-#else
-#include <GL/glut.h>
-#endif
 
 #include <QFileDialog>
 
@@ -915,22 +910,7 @@ ClipObject::postdraw(QGLViewer *viewer,
       int wd = metric.width(str);
       x += 10;
 
-      glColor4f(0,0,0,0.8f);
-      glBegin(GL_QUADS);
-      glVertex2f(x, y+2);
-      glVertex2f(x+wd+5, y+2);
-      glVertex2f(x+wd+5, y-ht);
-      glVertex2f(x, y-ht);
-      glEnd();
-      
-      glActiveTexture(GL_TEXTURE0);
-      glEnable(GL_TEXTURE_2D);
-
-      glColor3f(1,1,1);
-      viewer->renderText(x+2, y-metric.descent(), str);
-
-      glActiveTexture(GL_TEXTURE0);
-      glDisable(GL_TEXTURE_2D);
+      StaticFunctions::renderText(x+2, y, str, font, Qt::black, Qt::white);
     }
 
   glEnable(GL_DEPTH_TEST);

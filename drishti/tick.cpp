@@ -3,16 +3,7 @@
 #include "volumeinformation.h"
 #include "matrix.h"
 #include "enums.h"
-
-#ifdef Q_OS_OSX
-#include <GLUT/glut.h>
-#endif
-#ifdef Q_OS_WIN
-#include <GL/glut.h>
-#endif
-#ifdef Q_OS_LINUX
-#include <GL/freeglut.h>
-#endif
+#include "staticfunctions.h"
 
 QString Tick::m_labelX = "Height";
 void Tick::setLabelX(QString lbl) { m_labelX = lbl; }
@@ -272,18 +263,21 @@ Tick::findMaxDistance(int pairs[4][2],
 }
 
 bool
-Tick::drawGlutText(QString str,
-		   int xc0, int xc1, int yc0, int yc1,
-		   float sclx, float scly,
-		   float perpx, float perpy,
-		   float angle, bool angleFixed, float pshift)
+Tick::drawText(QString str,
+	       int xc0, int xc1, int yc0, int yc1,
+	       float perpx, float perpy,
+	       float angle, bool angleFixed, float pshift,
+	       int fsize)
 {
   int len = str.length();
   if (len <= 0)
     return false;
 
-  int width = glutStrokeLength(GLUT_STROKE_ROMAN,
-			       (unsigned char*)(str.toLatin1().data()));
+  float fscl = 120.0/Global::dpi();
+  QFont font = QFont();  
+  font.setPointSize(fsize*fscl);
+  QFontMetrics metric(font);
+  int fht = metric.height();
 
   int x = (xc0+xc1)/2;
   int y = (yc0+yc1)/2;
@@ -295,36 +289,12 @@ Tick::drawGlutText(QString str,
       y += 0.9*perpy;
     }
 
-  glPushMatrix();
-  glTranslatef(x, y, 0);
-  glScaled(sclx, scly, 1);
-  glRotatef(angle, 0, 0, 1);
-  glTranslatef(-width/2, 0, 0);
-  for (int i = 0; i < len; i++)
-    glutStrokeCharacter(GLUT_STROKE_ROMAN, (str[i].toLatin1()));
-  glPopMatrix();
-  
+  StaticFunctions::renderRotatedText(x, y,
+				     str, font,
+				     Qt::transparent, Qt::white,
+				     angle,
+				     false); // (0,0) is top left
   return true;
-}
-
-#define DRAWENDVALUE()							\
-{									\
-  width = glutStrokeLength(GLUT_STROKE_ROMAN,				\
-			   (unsigned char*)(str.toLatin1().data()));	\
-  len = str.length();							\
-  x += perpx*2;								\
-  y += perpy*2;								\
-  glPushMatrix();							\
-  glTranslatef(x, y, 0);						\
-  glScaled(sclx, scly, 1);						\
-  if (angleFixed)							\
-    glRotatef(angle-flip*90, 0, 0, 1);					\
-  else									\
-    glRotatef(angle+flip*90, 0, 0, 1);					\
-  glTranslatef(-width/2, 0, 0);						\
-  for (i = 0; i < len; i++)						\
-    glutStrokeCharacter(GLUT_STROKE_ROMAN, (str[i].toLatin1()));		\
-  glPopMatrix();							\
 }
 
 void
@@ -333,6 +303,7 @@ Tick::drawTick(int tickstep,
 	       float ox, float oy, int axis, float sclx, float scly,
 	       GLdouble* OModel, GLdouble *OProj, GLint *Oviewport)
 {
+
   int i, nvox, nsteps;
   float dlen, perpx, perpy;
   Vec step;  
@@ -474,12 +445,11 @@ Tick::drawTick(int tickstep,
   else if (axis == 1) str = Tick::labelY();
   else if (axis == 2) str = Tick::labelZ();
 
-  if (Tick::drawGlutText(str,
-			 xc0, xc1, yc0, yc1,
-			 1.5*sclx, 1.5*scly,
-			 perpx, perpy,
-			 angle, angleFixed, pshift))
-    pshift += 1.5;
+  if (Tick::drawText(str,
+		     xc0, xc1, yc0, yc1,
+		     perpx, perpy,
+		     angle, angleFixed, pshift, 12))
+    pshift += 1.9;
 
 
   int flip = 1;
@@ -493,12 +463,38 @@ Tick::drawTick(int tickstep,
       str = QString("%1").arg(dataMin[axis]);
       x = xc0;
       y = yc0;
-      DRAWENDVALUE();
+      x += perpx*2;
+      y += perpy*2;
+      float fangle = angle;
+      if (angleFixed)
+	fangle = angle-flip*90;
+      else
+	fangle = angle+flip*90;
+      float fscl = 120.0/Global::dpi();
+      QFont font = QFont();  
+      font.setPointSize(10*fscl);
+      StaticFunctions::renderRotatedText(x, y,
+					 str, font,
+					 Qt::transparent, Qt::white,
+					 fangle,
+					 false); // (0,0) is top left
 
+      
       str = QString("%1").arg(dataMax[axis]);
       x = xc1;
       y = yc1;
-      DRAWENDVALUE();
+      x += perpx*2;
+      y += perpy*2;
+      fangle = angle;
+      if (angleFixed)
+	fangle = angle-flip*90;
+      else
+	fangle = angle+flip*90;
+      StaticFunctions::renderRotatedText(x, y,
+					 str, font,
+					 Qt::transparent, Qt::white,
+					 fangle,
+					 false); // (0,0) is top left
     }
 
 
@@ -510,12 +506,11 @@ Tick::drawTick(int tickstep,
 	            arg(nvox*pvlInfo.voxelSize[axis], 0, 'f', Global::floatPrecision()). \
 	            arg(pvlInfo.voxelUnitStringShort());
 
-      if (Tick::drawGlutText(str,
-			     xc0, xc1, yc0, yc1,
-			     sclx, scly,
-			     perpx, perpy,
-			     angle, angleFixed, pshift))
-	pshift += 0.7;
+      if (Tick::drawText(str,
+			 xc0, xc1, yc0, yc1,
+			 perpx, perpy,
+			 angle, angleFixed, pshift, 11))
+	pshift += 1.3;
     }
 
 
@@ -530,11 +525,10 @@ Tick::drawTick(int tickstep,
       else
 	str = QString("ticks at %1 voxels").arg(tickstep);
 
-      Tick::drawGlutText(str,
-			 xc0, xc1, yc0, yc1,
-			 sclx, scly,
-			 perpx, perpy,
-			 angle, angleFixed, pshift);
+      Tick::drawText(str,
+		     xc0, xc1, yc0, yc1,
+		     perpx, perpy,
+		     angle, angleFixed, pshift, 10);
     }
 }
 

@@ -1,15 +1,10 @@
 #include "global.h"
+#include "staticfunctions.h"
 #include "gridobject.h"
 #include "volumeinformation.h"
 #include "enums.h"
 
 #include <QMessageBox>
-
-#ifdef Q_OS_OSX
-#include <GLUT/glut.h>
-#else
-#include <GL/glut.h>
-#endif
 
 //------------------------------------------------------------------
 GridObjectUndo::GridObjectUndo() { clear(); }
@@ -526,16 +521,7 @@ GridObject::postdrawPointNumbers(QGLViewer *viewer)
       int wd = metric.width(str);
       y += ht/2;
       
-      glColor4f(0,0,0,0.8f);
-      glBegin(GL_QUADS);
-      glVertex2f(x, y+2);
-      glVertex2f(x+wd+5, y+2);
-      glVertex2f(x+wd+5, y-ht);
-      glVertex2f(x, y-ht);
-      glEnd();
-      
-      glColor3f(1,1,1);
-      viewer->renderText(x+2, y-metric.descent(), str);
+      StaticFunctions::renderText(x+2, y, str, font, Qt::black, Qt::white);
     }
 }
 

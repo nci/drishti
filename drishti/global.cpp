@@ -143,8 +143,8 @@ Global::max2dTextureSize()
   GLint texSize;
   glGetIntegerv(GL_MAX_RECTANGLE_TEXTURE_SIZE_ARB, &texSize);
   texSize = qMin(8192, texSize);
-  //return texSize;
-  return texSize*m_texSizeReduceFraction;
+  return texSize;
+  //return texSize*m_texSizeReduceFraction;
 }
 
 int Global::m_textureSize = 25; // 512x256x256 (9+8+8)
@@ -958,6 +958,14 @@ GLhandleARB Global::copyShader() { return m_copyShader; }
 void Global::setCopyParm(GLint *cp, int n) { memcpy(m_copyParm, cp, qMin(n,4)*sizeof(GLint));}
 GLint Global::copyParm(int i) { return m_copyParm[qBound(0,i,4)]; }
 GLint* Global::copyParm() { return &m_copyParm[0]; }
+
+GLhandleARB Global::m_reduceShader=0;
+GLint Global::m_reduceParm[5];
+void Global::setReduceShader(GLhandleARB h) { m_reduceShader = h; }
+GLhandleARB Global::reduceShader() { return m_reduceShader; }
+void Global::setReduceParm(GLint *cp, int n) { memcpy(m_reduceParm, cp, qMin(n,4)*sizeof(GLint));}
+GLint Global::reduceParm(int i) { return m_reduceParm[qBound(0,i,4)]; }
+GLint* Global::reduceParm() { return &m_reduceParm[0]; }
 
 int Global::m_dpi = -1;
 int Global::dpi()

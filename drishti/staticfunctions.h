@@ -112,6 +112,14 @@ class StaticFunctions
 			    QList<float>, QList<int>,
 			    QString,
 			    int);
+
+  static void renderText(int, int,
+			 QString, QFont,
+			 QColor, QColor);
+  static void renderRotatedText(int, int,
+				QString, QFont,
+				QColor, QColor,
+				float, bool);
 };
 
 #endif

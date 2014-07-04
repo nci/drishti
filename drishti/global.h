@@ -273,6 +273,12 @@ class Global
   static GLint copyParm(int);
   static GLint* copyParm();
 
+  static void setReduceShader(GLhandleARB); 
+  static GLhandleARB reduceShader(); 
+  static void setReduceParm(GLint*, int);
+  static GLint reduceParm(int);
+  static GLint* reduceParm();
+
   static int dpi();
 
   static void setPvlVoxelType(int);
@@ -372,6 +378,9 @@ class Global
 
   static GLhandleARB m_copyShader;
   static GLint m_copyParm[5];
+
+  static GLhandleARB m_reduceShader;
+  static GLint m_reduceParm[5];
 
   static int m_dpi;
 

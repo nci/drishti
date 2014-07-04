@@ -256,6 +256,9 @@ ShaderFactoryRGB::genDefaultSliceShaderString(bool lighting,
   shader += "uniform float prunelod;\n";
   shader += "uniform int zoffset;\n";
 
+  shader += "uniform int shdlod;\n";
+  shader += "uniform sampler2DRect shdTex;\n";
+
   shader += ShaderFactory::genTextureCoordinate();
 
   if (tearPresent) shader += TearShaderFactory::generateTear(crops);
@@ -330,27 +333,54 @@ ShaderFactoryRGB::genDefaultSliceShaderString(bool lighting,
   shader += "	discard;\n";
 
   //----------------------------------
-  shader += " if (lightlod > 0)\n";
-  shader += "   {\n"; // calculate light color
-  shader += "     vec2 pvg = texCoord.xy/(prunelod*float(lightlod));\n";
-
-  shader += "     int lbZslc = int(float(zoffset+slice)/(prunelod*float(lightlod)));\n";
-  shader += "     float lbZslcf = fract(float(zoffset+slice)/(prunelod*float(lightlod)));\n";
-
-  shader += "     vec2 pvg0 = getTextureCoordinate(lbZslc, ";
-  shader += "                   lightncols, lightgridx, lightgridy, pvg);\n";
-  shader += "     vec2 pvg1 = getTextureCoordinate(lbZslc+1, ";
-  shader += "                   lightncols, lightgridx, lightgridy, pvg);\n";
-
-  shader += "     vec3 lc0 = texture2DRect(lightTex, pvg0).xyz;\n";
-  shader += "     vec3 lc1 = texture2DRect(lightTex, pvg1).xyz;\n";
-  shader += "     lightcol = mix(lc0, lc1, lbZslcf);\n";
-
-  shader += "     lightcol = 1.0-pow((vec3(1,1,1)-lightcol),vec3(lod,lod,lod));\n";
-  shader += "   }\n";
-  shader += " else\n";
-  shader += "   lightcol = vec3(1.0,1.0,1.0);\n";
+  shader += "if (shdlod > 0)\n";
+  shader += "  {\n";
+  shader += "     vec4 shadow = texture2DRect(shdTex, gl_FragCoord.xy/shdlod);\n";
+  shader += "     lightcol = 1.0-smoothstep(0.0, 2.0, shadow.a);\n";
+  shader += "  }\n";
+  shader += "else\n";
+  shader += "  {\n";
+  shader += "    if (lightlod > 0)\n";
+  shader += "     {\n"; // calculate light color
+  shader += "       vec2 pvg = texCoord.xy/(prunelod*float(lightlod));\n";	       
+  shader += "       int lbZslc = int(float(zoffset+slice)/(prunelod*float(lightlod)));\n";
+  shader += "       float lbZslcf = fract(float(zoffset+slice)/(prunelod*float(lightlod)));\n";
+  shader += "       vec2 pvg0 = getTextureCoordinate(lbZslc, ";
+  shader += "                     lightncols, lightgridx, lightgridy, pvg);\n";
+  shader += "       vec2 pvg1 = getTextureCoordinate(lbZslc+1, ";
+  shader += "                     lightncols, lightgridx, lightgridy, pvg);\n";	       
+  shader += "       vec3 lc0 = texture2DRect(lightTex, pvg0).xyz;\n";
+  shader += "       vec3 lc1 = texture2DRect(lightTex, pvg1).xyz;\n";
+  shader += "       lightcol = mix(lc0, lc1, lbZslcf);\n";	       
+  shader += "       lightcol = 1.0-pow((vec3(1,1,1)-lightcol),vec3(lod,lod,lod));\n";
+  shader += "     }\n";
+  shader += "    else\n";
+  shader += "     lightcol = vec3(1.0,1.0,1.0);\n";
+  shader += "  }\n";
   //----------------------------------
+
+//  //----------------------------------
+//  shader += " if (lightlod > 0)\n";
+//  shader += "   {\n"; // calculate light color
+//  shader += "     vec2 pvg = texCoord.xy/(prunelod*float(lightlod));\n";
+//
+//  shader += "     int lbZslc = int(float(zoffset+slice)/(prunelod*float(lightlod)));\n";
+//  shader += "     float lbZslcf = fract(float(zoffset+slice)/(prunelod*float(lightlod)));\n";
+//
+//  shader += "     vec2 pvg0 = getTextureCoordinate(lbZslc, ";
+//  shader += "                   lightncols, lightgridx, lightgridy, pvg);\n";
+//  shader += "     vec2 pvg1 = getTextureCoordinate(lbZslc+1, ";
+//  shader += "                   lightncols, lightgridx, lightgridy, pvg);\n";
+//
+//  shader += "     vec3 lc0 = texture2DRect(lightTex, pvg0).xyz;\n";
+//  shader += "     vec3 lc1 = texture2DRect(lightTex, pvg1).xyz;\n";
+//  shader += "     lightcol = mix(lc0, lc1, lbZslcf);\n";
+//
+//  shader += "     lightcol = 1.0-pow((vec3(1,1,1)-lightcol),vec3(lod,lod,lod));\n";
+//  shader += "   }\n";
+//  shader += " else\n";
+//  shader += "   lightcol = vec3(1.0,1.0,1.0);\n";
+//  //----------------------------------
 
   if (peel || lighting)
     shader += getNormal();

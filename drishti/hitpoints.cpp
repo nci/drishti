@@ -642,16 +642,7 @@ HitPoints::postdraw(QGLViewer *viewer)
 
 	  y += ht/2;
 
-	  glColor4f(0,0,0,0.8f);
-	  glBegin(GL_QUADS);
-	  glVertex2f(x+10, y+2);
-	  glVertex2f(x+wd+15, y+2);
-	  glVertex2f(x+wd+15, y-ht);
-	  glVertex2f(x+10, y-ht);
-	  glEnd();
-
-	  glColor3f(1,1,1);
-	  viewer->renderText(x+12, y-metric.descent(), str, font);
+	  StaticFunctions::renderText(x+12, y, str, font, Qt::black, Qt::cyan);
 	}
     }
   viewer->stopScreenCoordinatesSystem();

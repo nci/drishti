@@ -39,11 +39,11 @@ class Tick
   static QString m_labelY;
   static QString m_labelZ;
 
-  static bool drawGlutText(QString,
-			   int, int, int, int,
-			   float, float,
-			   float, float,
-			   float, bool, float);
+  static bool drawText(QString,
+		       int, int, int, int,
+		       float, float,
+		       float, bool, float,
+		       int);
 };
 
 #endif

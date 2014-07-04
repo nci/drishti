@@ -14,6 +14,7 @@ class ShaderFactory
   static QString genBlurShaderString(bool, int, float);
   static QString genRectBlurShaderString(int);
   static QString genCopyShaderString();
+  static QString genReduceShaderString();
   static QString genBackplaneShaderString1(float);
   static QString genBackplaneShaderString2(float);
 

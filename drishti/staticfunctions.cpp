@@ -1441,7 +1441,8 @@ StaticFunctions::savePvlHeader(QString pvlFilename,
 void
 StaticFunctions::renderText(int x, int y,
 			    QString str, QFont font,
-			    QColor bcolor, QColor color)
+			    QColor bcolor, QColor color,
+			    bool useTextPath)
 {
   QFontMetrics metric(font);
   int ht = metric.height()+4;
@@ -1449,10 +1450,20 @@ StaticFunctions::renderText(int x, int y,
   QImage img(wd, ht, QImage::Format_ARGB32);
   img.fill(bcolor);
   QPainter p(&img);
-  p.setRenderHints(QPainter::TextAntialiasing);
-  p.setPen(color);
+  p.setRenderHints(QPainter::TextAntialiasing, true);
+  //p.setPen(color);
+  p.setPen(QPen(color, 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
   p.setFont(font);
-  p.drawText(3, ht-metric.descent()-2, str);
+
+  if (!useTextPath)
+    p.drawText(3, ht-metric.descent()-2, str);
+  else
+    {
+      QPainterPath textPath;
+      textPath.addText(3, ht-metric.descent()-2, font, str);
+      p.drawPath(textPath);
+    }
+
   QImage mimg = img.mirrored();
   glRasterPos2i(x, y);
   glDrawPixels(wd, ht, GL_RGBA, GL_UNSIGNED_BYTE, mimg.bits());
@@ -1462,7 +1473,8 @@ void
 StaticFunctions::renderRotatedText(int x, int y,
 				   QString str, QFont font,
 				   QColor bcolor, QColor color,
-				   float angle, bool ydir)
+				   float angle, bool ydir,
+				   bool useTextPath)
 {
   QFontMetrics metric(font);
   int ht = metric.height()+4;

@@ -115,11 +115,13 @@ class StaticFunctions
 
   static void renderText(int, int,
 			 QString, QFont,
-			 QColor, QColor);
+			 QColor, QColor,
+			 bool useTextPath = false);
   static void renderRotatedText(int, int,
 				QString, QFont,
 				QColor, QColor,
-				float, bool);
+				float, bool,
+				bool useTextPath = false);
 };
 
 #endif

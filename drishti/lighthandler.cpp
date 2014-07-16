@@ -1014,48 +1014,6 @@ LightHandler::generateOpacityTexture()
   if (m_basicLight)
     return;
 
-//  int nvol = 1;
-//  if (Global::volumeType() == Global::DoubleVolume) nvol = 2;
-//  if (Global::volumeType() == Global::TripleVolume) nvol = 3;
-//  if (Global::volumeType() == Global::QuadVolume) nvol = 4;
-//
-//  if (Global::volumeType() == Global::RGBVolume ||
-//      Global::volumeType() == Global::RGBAVolume) nvol = 3;
-//  
-//  uchar *lut = new uchar[nvol*4*256*256];
-//  memset(lut, 0, nvol*4*256*256);
-//
-//  int lsize = m_opacityTF*256*256*4;
-//  for(int i=0; i<nvol*256*256; i++)
-//    {
-//      lut[4*i+0] = m_lut[lsize + 4*i+0];
-//      lut[4*i+1] = m_lut[lsize + 4*i+1];
-//      lut[4*i+2] = m_lut[lsize + 4*i+2];
-//      lut[4*i+3] = m_lut[lsize + 4*i+3];
-//    }
-//
-//
-//  // load lookup table
-//  if (!m_lutTex) glGenTextures(1, &m_lutTex);
-//  glActiveTexture(GL_TEXTURE2);
-//  glBindTexture(GL_TEXTURE_2D, m_lutTex); //max values from all tfsets
-//  glEnable(GL_TEXTURE_2D);
-//  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
-//  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
-//  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,GL_NEAREST);
-//  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,GL_NEAREST);
-//  glTexImage2D(GL_TEXTURE_2D,
-//	       0, // single resolution
-//	       GL_RGBA,
-//	       //1,
-//	       256, nvol*256, // width, height
-//	       0, // no border
-//	       //GL_LUMINANCE,
-//	       GL_RGBA,
-//	       GL_UNSIGNED_BYTE,
-//	       lut);
-//  delete [] lut;
-
   // enable lookup texture
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, m_lutTex);

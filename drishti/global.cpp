@@ -967,6 +967,14 @@ void Global::setReduceParm(GLint *cp, int n) { memcpy(m_reduceParm, cp, qMin(n,4
 GLint Global::reduceParm(int i) { return m_reduceParm[qBound(0,i,4)]; }
 GLint* Global::reduceParm() { return &m_reduceParm[0]; }
 
+GLhandleARB Global::m_extractSliceShader=0;
+GLint Global::m_extractSliceParm[5];
+void Global::setExtractSliceShader(GLhandleARB h) { m_extractSliceShader = h; }
+GLhandleARB Global::extractSliceShader() { return m_extractSliceShader; }
+void Global::setExtractSliceParm(GLint *cp, int n) { memcpy(m_extractSliceParm, cp, qMin(n,4)*sizeof(GLint));}
+GLint Global::extractSliceParm(int i) { return m_extractSliceParm[qBound(0,i,4)]; }
+GLint* Global::extractSliceParm() { return &m_extractSliceParm[0]; }
+
 int Global::m_dpi = -1;
 int Global::dpi()
 {

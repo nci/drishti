@@ -279,6 +279,12 @@ class Global
   static GLint reduceParm(int);
   static GLint* reduceParm();
 
+  static void setExtractSliceShader(GLhandleARB); 
+  static GLhandleARB extractSliceShader(); 
+  static void setExtractSliceParm(GLint*, int);
+  static GLint extractSliceParm(int);
+  static GLint* extractSliceParm();
+
   static int dpi();
 
   static void setPvlVoxelType(int);
@@ -381,6 +387,9 @@ class Global
 
   static GLhandleARB m_reduceShader;
   static GLint m_reduceParm[5];
+
+  static GLhandleARB m_extractSliceShader;
+  static GLint m_extractSliceParm[5];
 
   static int m_dpi;
 

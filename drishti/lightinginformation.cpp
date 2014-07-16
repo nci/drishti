@@ -6,7 +6,7 @@ Highlights::Highlights()
   ambient = 1;
   diffuse = 0;
   specular = 1;
-  specularCoefficient = 7;
+  specularCoefficient = 9;
 }
 Highlights::Highlights(const Highlights& hl)
 {

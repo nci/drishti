@@ -892,7 +892,8 @@ Viewer::updateLookupTable()
 
       //dummydraw();
       bool fboBound = bindFBOs(Enums::StillImage);
-      if (fboBound) releaseFBOs(Enums::StillImage);
+      releaseFBOs(Enums::StillImage);
+      //if (fboBound) releaseFBOs(Enums::StillImage);
     }
 
   loadLookupTable(lut);
@@ -904,7 +905,8 @@ Viewer::updateLookupTable()
       m_hiresVolume->initShadowBuffers(true);
       //dummydraw();
       bool fboBound = bindFBOs(Enums::StillImage);
-      if (fboBound) releaseFBOs(Enums::StillImage);
+      releaseFBOs(Enums::StillImage);
+      //if (fboBound) releaseFBOs(Enums::StillImage);
     }
   
   delete [] lut;
@@ -959,89 +961,43 @@ Viewer::splashScreen()
 	  ssmesg << "Press 1 to toggle shadow rendering.";
 	  ssmesg << "To get (non transparent) black background switch on \"Backplane\" under \"Shader Widget\"";
 	}
-
+      
       MainWindowUI::mainWindowUI()->statusBar->showMessage(ssmesg[ssdmn]);
       ssdmn = (ssdmn+1)%7;
     }
-
-#ifdef MAC_OS_X_VERSION_10_8
-  if (GlewInit::initialised() && m_copyShader)
-    {
-      QImage img(":/images/splashscreen.png");
-      img = img.mirrored();
-      img = img.rgbSwapped();
-      int ht = img.height();
-      int wd = img.width();
-      int px = qMax(1, (width()-img.width())/2);
-      int py = qMin(height(), (height()-img.height())/2+40);
-      int nbytes = img.byteCount();
-      int rgb = nbytes/(wd*ht);
-      GLuint fmt;
-      if (rgb == 1) fmt = GL_LUMINANCE;
-      else if (rgb == 2) fmt = GL_LUMINANCE_ALPHA;
-      else if (rgb == 3) fmt = GL_RGB;
-      else if (rgb == 4) fmt = GL_RGBA;
-      glActiveTexture(GL_TEXTURE0);
-      glEnable(GL_TEXTURE_RECTANGLE_ARB);
-      glTexEnvf(GL_TEXTURE_ENV,
-		GL_TEXTURE_ENV_MODE,
-		GL_MODULATE);
-      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_lutTex);
-      glTexParameterf(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
-      glTexParameterf(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
-      glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-      glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-      glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,
-		   0,
-		   rgb,
-		   wd,
-		   ht,
-		   0,
-		   fmt,
-		   GL_UNSIGNED_BYTE,
-		   img.bits());
-      glUseProgramObjectARB(m_copyShader);
-      glUniform1iARB(m_copyParm[0], 0); // copy image from imageBuffer into frameBuffer
-      startScreenCoordinatesSystem();
-      glColor4f(1, 1, 1, 1);
-      glBegin(GL_QUADS);
-      glTexCoord2f(0, ht);   glVertex2f(px, py);      
-      glTexCoord2f(0, 0);    glVertex2f(px, py+ht);
-      glTexCoord2f(wd, 0);   glVertex2f(px+wd, py+ht);
-      glTexCoord2f(wd, ht);  glVertex2f(px+wd, py);
-      glEnd();
-      stopScreenCoordinatesSystem();
-      glDisable(GL_TEXTURE_RECTANGLE_ARB);
-      glUseProgramObjectARB(0);
-    }
-  return; // do not show the splash screen on Mountain Lion
-#endif
-
-  //-------------
-  // calculate font scale based on dpi
-  float fscl = 120.0/Global::dpi();
-  //-------------
-
+  
+  startScreenCoordinatesSystem();
+  
+  float fscl = 120.0/Global::dpi();  
   QFont tfont = QFont("Helvetica");
   tfont.setStyleStrategy(QFont::ForceOutline);
   tfont.setPointSize(70*fscl);  
-
-  QPainter p(this);
-  p.setFont(tfont);
-  p.setBrush(Qt::white);
-  p.setRenderHint(QPainter::Antialiasing);
-  p.setPen(QPen(Qt::darkGray, 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-
-  //-------------
+  
   QImage img(":/images/splashscreen.png");
   int px = qMax(1, (width()-img.width())/2);
-  int py = qMin(height(), (height()-img.height())/2+40);
-  p.drawImage(px, py, img);
+  int py = qMin(height(), (height()-img.height())/2);
+  QImage mimg = img.mirrored();
+  glRasterPos2i(px, height()-py);
+  glDrawPixels(mimg.width(), mimg.height(),
+	       GL_BGRA,
+	       GL_UNSIGNED_BYTE,
+	       mimg.bits());
+  
+  StaticFunctions::renderText(px-9, height()-mimg.height()-py+2,
+			      QString("Drishti v"+Global::DrishtiVersion()),
+			      tfont,
+			      Qt::transparent, Qt::darkGray,
+			      true); // textPath
+  
+  glColor4f(0,0,0,0);
+  glBegin(GL_QUADS);
+  glVertex2i(0,0);
+  glVertex2i(width(),0);
+  glVertex2i(width(),height());
+  glVertex2i(0,height());
+  glEnd();
 
-  p.setRenderHint(QPainter::TextAntialiasing, true);
-  QPainterPath textPath;
-  textPath.addText(px-9, py-2, tfont, QString("Drishti v"+Global::DrishtiVersion()));
-  p.drawPath(textPath);  
+  stopScreenCoordinatesSystem();
 }
 
 bool
@@ -1309,7 +1265,7 @@ Viewer::drawInfoString(int imagequality,
 
   tfont.setPointSize(8*fscl);
 
-  StaticFunctions::renderText(posx, posy-28*fscl,
+  StaticFunctions::renderText(posx, posy-35*fscl,
 			      QString("HiRes : image (%1) : stepsize(%2)"). \
 			      arg(msg).arg(stepsize),
 			      tfont,
@@ -1319,7 +1275,7 @@ Viewer::drawInfoString(int imagequality,
 
   tfont.setPointSize(10*fscl);
 
-  StaticFunctions::renderText(posx, posy-16*fscl,
+  StaticFunctions::renderText(posx, posy-19*fscl,
 			      QString("Bounds : %1-%2, %3-%4, %5-%6").	\
 			      arg(minX).arg(maxX).arg(minY).		\
 			      arg(maxY).arg(minZ).arg(maxZ),

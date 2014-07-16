@@ -18,18 +18,19 @@ LightingWidget::LightingWidget(QWidget *parent) :
 void
 LightingWidget::setFlat()
 {
-  if (ui.lightposition->isChecked())
-    {
-      m_lightPosition->show();
-      ui.lightposition->setFlat(false);
-      ui.lightposition->setMinimumSize(QSize(180,180));
-    }
-  else
-    {
-      m_lightPosition->hide();
-      ui.lightposition->setFlat(true);
-      ui.lightposition->setMinimumSize(QSize(180,20));
-    }
+  ui.lightposition->hide();
+//  if (ui.lightposition->isChecked())
+//    {
+//      m_lightPosition->show();
+//      ui.lightposition->setFlat(false);
+//      ui.lightposition->setMinimumSize(QSize(180,180));
+//    }
+//  else
+//    {
+//      m_lightPosition->hide();
+//      ui.lightposition->setFlat(true);
+//      ui.lightposition->setMinimumSize(QSize(180,20));
+//    }
 
   if (ui.applylighting->isChecked())
     {
@@ -42,39 +43,42 @@ LightingWidget::setFlat()
       ui.applylighting->setFlat(true);
     }
 
-  if (ui.applycoloredshadow->isChecked())
-    {
-      ui.coloredshadowbox->show();
-      ui.applycoloredshadow->setFlat(false);
-    }
-  else
-    {
-      ui.coloredshadowbox->hide();
-      ui.applycoloredshadow->setFlat(true);
-    }
+  ui.applycoloredshadow->hide();
+//  if (ui.applycoloredshadow->isChecked())
+//    {
+//      ui.coloredshadowbox->show();
+//      ui.applycoloredshadow->setFlat(false);
+//    }
+//  else
+//    {
+//      ui.coloredshadowbox->hide();
+//      ui.applycoloredshadow->setFlat(true);
+//    }
 
-  if (ui.applybackplane->isChecked())
-    {
-      ui.backplanebox->show();
-      ui.applybackplane->setFlat(false);
-    }
-  else
-    {
-      ui.backplanebox->hide();
-      ui.applybackplane->setFlat(true);
-    }
+  ui.applybackplane->hide();
+//  if (ui.applybackplane->isChecked())
+//    {
+//      ui.backplanebox->show();
+//      ui.applybackplane->setFlat(false);
+//    }
+//  else
+//    {
+//      ui.backplanebox->hide();
+//      ui.applybackplane->setFlat(true);
+//    }
 
 
-  if (ui.applyshadow->isChecked())
-    {
-      ui.shadowbox->show();
-      ui.applyshadow->setFlat(false);
-    }
-  else
-    {
-      ui.shadowbox->hide();
-      ui.applyshadow->setFlat(true);
-    }
+  ui.applyshadow->hide();
+//  if (ui.applyshadow->isChecked())
+//    {
+//      ui.shadowbox->show();
+//      ui.applyshadow->setFlat(false);
+//    }
+//  else
+//    {
+//      ui.shadowbox->hide();
+//      ui.applyshadow->setFlat(true);
+//    }
 
   if (ui.peel->isChecked())
     {

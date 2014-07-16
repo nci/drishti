@@ -155,8 +155,13 @@ class DrawHiresVolume : public QObject
   
   bool m_useScreenShadows;
   int m_shadowLod;
+
+  int m_shdNum;
   GLuint m_shdBuffer;
   GLuint m_shdTex[2];
+
+  GLuint m_slcBuffer;
+  GLuint m_slcTex[2];
 
   int m_currentVolume;
 
@@ -255,6 +260,7 @@ class DrawHiresVolume : public QObject
   void createPassThruShader();
   void createCopyShader();
   void createReduceShader();
+  void createExtractSliceShader();
   void createDefaultShader();
   void createHighQualityShader();
   void createBlurShader(bool, int, float);

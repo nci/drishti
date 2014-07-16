@@ -1066,7 +1066,7 @@ void
 MainWindow::on_actionEmptySpaceSkip_triggered()
 {
   Global::setEmptySpaceSkip(!Global::emptySpaceSkip());
-  m_Hires->genDefaultHighShadow();
+  m_Hires->createDefaultShader();
   m_Viewer->update();
 }
 
@@ -3588,7 +3588,7 @@ MainWindow::updateParameters(bool drawBox, bool drawAxis,
   if (pruneblend != PruneHandler::blend())
     {
       PruneHandler::setBlend(pruneblend);
-      m_Hires->genDefaultHighShadow();
+      m_Hires->createDefaultShader();
     }
 
   // always keep image captions in mouse grabber pool

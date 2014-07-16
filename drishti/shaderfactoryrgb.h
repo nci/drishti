@@ -11,12 +11,6 @@ class ShaderFactoryRGB
   static QString genDefaultSliceShaderString(bool, bool,
 					     QList<CropObject> crops,
 					     bool, int, float, float, float);
-  static QString genHighQualitySliceShaderString(bool, bool, bool, float,
-						 QList<CropObject> crops,
-						 bool, int, float, float, float);
-  static QString genSliceShadowShaderString(float, float, float,
-					    QList<CropObject> crops,
-					    bool, int, float, float, float);
 
  private :
   static QString getColorOpacity(bool lowres=false);

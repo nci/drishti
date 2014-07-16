@@ -5085,7 +5085,7 @@ Viewer::handleMorphologicalOperations(QStringList list)
     {
       if (list.size() > 1) PruneHandler::setBlend(false);	  
       else PruneHandler::setBlend(true);
-      m_hiresVolume->genDefaultHighShadow();
+      m_hiresVolume->createDefaultShader();
     }
   else if (list[0] == "carve")
     {

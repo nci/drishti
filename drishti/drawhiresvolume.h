@@ -70,7 +70,6 @@ class DrawHiresVolume : public QObject
   void drawStillImage(float);
   void createShaders();
   void reCreateBlurShader(int);
-  void genDefaultHighShadow();
 
   void setImageSizeRatio(float);
 
@@ -146,6 +145,8 @@ class DrawHiresVolume : public QObject
 
   void saveForDrishtiPrayog(QString);
 
+  void createDefaultShader();
+
  signals :
   void histogramUpdated(QImage, QImage);
 
@@ -211,16 +212,12 @@ class DrawHiresVolume : public QObject
   GLhandleARB m_lutShader;
   GLhandleARB m_passthruShader;
   GLhandleARB m_defaultShader;
-  GLhandleARB m_highqualityShader;
-  GLhandleARB m_shadowShader;
   GLhandleARB m_blurShader;
   GLhandleARB m_backplaneShader1;
   GLhandleARB m_backplaneShader2;
 
   GLint m_lutParm[50];
   GLint m_defaultParm[50];
-  GLint m_highqualityParm[50];
-  GLint m_shadowParm[50];
   GLint m_blurParm[50];
   GLint m_backplaneParm1[50];
   GLint m_backplaneParm2[50];
@@ -261,11 +258,8 @@ class DrawHiresVolume : public QObject
   void createCopyShader();
   void createReduceShader();
   void createExtractSliceShader();
-  void createDefaultShader();
-  void createHighQualityShader();
   void createBlurShader(bool, int, float);
   void createBackplaneShader(float);
-  void createShadowShader(Vec);
 
   int drawpoly(Vec, Vec,
 	       Vec*, Vec*,
@@ -275,21 +269,12 @@ class DrawHiresVolume : public QObject
   void getDragRenderInfo(Vec&, int&, int&, int&);
 
   void drawSlicesDefault(Vec, Vec, Vec, int, float);
-  void drawSlicesHighQuality(Vec, Vec, Vec, int, float);
 
   void enableTextureUnits();
   void disableTextureUnits();
 
   void draw(float, bool);
   void drawDefault(Vec, Vec, Vec, int, float);
-  void drawHighQuality(Vec, Vec, Vec, int, float);
-  void setRenderToScreen(Quaternion,Vec, Vec, int, int, float);
-  void setViewFromLight();
-  void setRenderToShadowBuffer();
-  void blurShadows(int, int, int, int);
-  void drawBackplane(Quaternion, Vec, Vec, int, int, float);
-  void captureToShadowBuffer();
-  void releaseShadowBuffer();
 
   void getMinMaxVertices(float&, Vec&, Vec&);
 
@@ -330,13 +315,6 @@ class DrawHiresVolume : public QObject
   void drawClipPlaneDefault(int, int, Vec, Vec, Vec,
 			    int, Vec, float, int, int,
 			    int, int, int, Vec);
-  void drawClipPlaneHighQuality(int, int, Vec, Vec, Vec,
-				int, Vec, float, int, int,
-				int, int, int, Vec);
-  void drawClipPlaneShadow(int, int, Vec, Vec, Vec,
-			   int, int, int,
-			   int, int, int, Vec);
-
   void drawClipPlaneInViewport(int, Vec, float,
 			       int, int, int, Vec, bool);
 

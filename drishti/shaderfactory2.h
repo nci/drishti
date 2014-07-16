@@ -12,19 +12,6 @@ class ShaderFactory2
 					     bool, int, float, float, float,
 					     int, bool, bool, int);
 
-  static QString genHighQualitySliceShaderString(bool, bool, bool,
-						 QList<CropObject>,
-						 int,
-						 bool, int, float, float, float,
-						 int, bool, bool, int);
-
-  static QString genSliceShadowShaderString(float,
-					    float, float, float,
-					    QList<CropObject>,
-					    int,
-					    bool, int, float, float, float,
-					    int, bool, bool, int);
-
   static QString genPruneTexture(int);
 
  private :

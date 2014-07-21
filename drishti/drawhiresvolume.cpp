@@ -2562,7 +2562,7 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
       glUniform1iARB(m_defaultParm[46], 0);
       glUniform1iARB(m_defaultParm[47], 3);
     }
-  glUniform1fARB(m_defaultParm[48], 1.5-0.5*m_lightInfo.shadowIntensity);
+  glUniform1fARB(m_defaultParm[48], 2.0-m_lightInfo.shadowIntensity);
   //----------------------------------------------------------------
 	  
 
@@ -2959,31 +2959,10 @@ DrawHiresVolume::screenShadow(int ScreenXMin, int ScreenXMax,
 			    ScreenXMax, ScreenYMax, 1);
 
 
-  int g = 0;
-//  int xmin = g;
-//  int ymin = g;
-//  int xmax = m_shadowWidth-g;
-//  int ymax = m_shadowHeight-g;
-//
-//  int txmin = 0;
-//  int tymin = 0;
-//  int txmax = m_shadowWidth;
-//  int tymax = m_shadowHeight;
-
-//  int xmin = g;
-//  int ymin = g;
-//  int xmax = m_shadowWidth/2-g;
-//  int ymax = m_shadowHeight/2-g;
-//
-//  int txmin = 0;
-//  int tymin = 0;
-//  int txmax = m_shadowWidth/2;
-//  int tymax = m_shadowHeight/2;
-//
-  int xmin = qMax(g, ScreenXMin/2+g);
-  int ymin = qMax(g, ScreenYMin/2+g);
-  int xmax = qMin(m_shadowWidth/2-g, ScreenXMax/2-g);
-  int ymax = qMin(m_shadowHeight/2-g, ScreenYMax/2-g);
+  int xmin = qMax(0, ScreenXMin/2);
+  int ymin = qMax(0, ScreenYMin/2);
+  int xmax = qMin(m_shadowWidth/2, ScreenXMax/2);
+  int ymax = qMin(m_shadowHeight/2, ScreenYMax/2);
 
   int txmin = qMax(0, ScreenXMin/2);
   int tymin = qMax(0, ScreenYMin/2);
@@ -2995,10 +2974,10 @@ DrawHiresVolume::screenShadow(int ScreenXMin, int ScreenXMax,
   int camHeight = m_Viewer->camera()->screenHeight();
   if (MainWindowUI::mainWindowUI()->actionFor3DTV->isChecked())
     {
-      xmin = g;
-      ymin = g;
-      xmax = m_shadowWidth/2-g;
-      ymax = m_shadowHeight/2-g;
+      xmin = 0;
+      ymin = 0;
+      xmax = m_shadowWidth/2;
+      ymax = m_shadowHeight/2;
       
       txmin = 0;
       tymin = 0;
@@ -3030,9 +3009,10 @@ DrawHiresVolume::screenShadow(int ScreenXMin, int ScreenXMax,
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
   glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[1]);
 
-  glUseProgramObjectARB(Global::reduceShader());
 
   glBlendFunc(GL_ONE_MINUS_DST_ALPHA, GL_ONE); // blend front to back
+
+  glUseProgramObjectARB(Global::reduceShader());
   glUniform1iARB(Global::reduceParm(0), 2); // copy from sliceTex[1] to shadowbuffer
   glUniform1iARB(Global::reduceParm(1), m_shadowLod); // reduction factor
   glBegin(GL_QUADS);
@@ -3052,8 +3032,10 @@ DrawHiresVolume::screenShadow(int ScreenXMin, int ScreenXMax,
 			 m_shdTex[(m_shdNum+1)%2],
 			 0);
   glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
-  glUniform1iARB(Global::reduceParm(0), 3); // copy from shadowBuffer[0] to shadowbuffer[1]
-  glUniform1iARB(Global::reduceParm(1), 1); // reduction factor
+  glUseProgramObjectARB(m_blurShader);
+  glUniform1iARB(m_blurParm[0], 3); // copy from shadowBuffer[0] to shadowbuffer[1]
+//  glUniform1iARB(Global::reduceParm(0), 3); // copy from shadowBuffer[0] to shadowbuffer[1]
+//  glUniform1iARB(Global::reduceParm(1), 1); // reduction factor
   glBegin(GL_QUADS);
   glTexCoord2f(xmin, ymin); glVertex2f(txmin, tymin);
   glTexCoord2f(xmax, ymin); glVertex2f(txmax, tymin);

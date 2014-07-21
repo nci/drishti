@@ -691,6 +691,7 @@ ShaderFactory::genReduceShaderString()
   shader += "  sum += texture2DRect(rtex, spos.xy - lod*vec2(1,1));\n";
   shader += "  sum += texture2DRect(rtex, spos.xy - lod*vec2(1,-1));\n";
   shader += "  gl_FragColor = sum/9;\n";
+  //shader += "  gl_FragColor = sum;\n";
   shader += "}\n";
 
   return shader;

@@ -427,13 +427,13 @@ DrawLowresVolume::draw(float stepsize,
   int screenHeight = m_Viewer->size().height();
   glColor4f(0, 0, 0, 0.8f);
   glBegin(GL_QUADS);
-  glVertex2f(0, posy-45);
+  glVertex2f(0, posy-55);
   glVertex2f(0, screenHeight);
   glVertex2f(screenWidth, screenHeight);
-  glVertex2f(screenWidth, posy-45);
+  glVertex2f(screenWidth, posy-55);
   glEnd();
 
-  m_Viewer->stopScreenCoordinatesSystem();
+  //m_Viewer->stopScreenCoordinatesSystem();
 
   //-------------
   // calculate font scale based on dpi
@@ -444,33 +444,41 @@ DrawLowresVolume::draw(float stepsize,
   QFont tfont = QFont("Helvetica", 8*fscl);
   tfont.setStyleStrategy(QFont::PreferAntialias);  
 
-  glActiveTexture(GL_TEXTURE0);
-  glEnable(GL_TEXTURE_2D);
+  //glActiveTexture(GL_TEXTURE0);
+  //glEnable(GL_TEXTURE_2D);
 
   glColor3f(0.6f,0.6f,0.6f);
-  m_Viewer->drawText(posx, posy-33,
-		     QString("LowRes : stepsize = %1 : %2 %3 %4").\
-		     arg(stepsize).\
-		     arg(vscl.x).arg(vscl.y).arg(vscl.z),
-		     tfont);
+  StaticFunctions::renderText(posx, posy-24*fscl,
+			      QString("LowRes : stepsize = %1 : %2 %3 %4"). \
+			      arg(stepsize).				\
+			      arg(vscl.x).arg(vscl.y).arg(vscl.z),
+			      tfont,
+			      Qt::transparent,
+			      Qt::lightGray);
 
   tfont.setPointSize(10*fscl);
   glColor3f(0.8f,0.8f,0.8f);
-  m_Viewer->drawText(posx, posy-18,
-		     QString("Bounds : %1-%2, %3-%4, %5-%6").		\
-		     arg(minX).arg(maxX).arg(minY).arg(maxY).arg(minZ).arg(maxZ),
-		     tfont);
+  StaticFunctions::renderText(posx, posy-13*fscl,
+			      QString("Bounds : %1-%2, %3-%4, %5-%6").	\
+			      arg(minX).arg(maxX).arg(minY).arg(maxY).arg(minZ).arg(maxZ),
+			      tfont,
+			      Qt::transparent,
+			      Qt::lightGray);
+
   tfont.setPointSize(12*fscl);
   glColor3f(1,1,1);
-  m_Viewer->drawText(posx, posy,
-		     QString("Selected SubVolume Size : %1x%2x%3 - (%4x%5x%6)"). \
-		     arg(maxX-minX+1).arg(maxY-minY+1).arg(maxZ-minZ+1). \
-		     arg((int)textureSize.x).\
-		     arg((int)textureSize.y).\
-		     arg((int)textureSize.z),
-		     tfont);
+  StaticFunctions::renderText(posx, posy,
+			      QString("Selected SubVolume Size : %1x%2x%3 - (%4x%5x%6)"). \
+			      arg(maxX-minX+1).arg(maxY-minY+1).arg(maxZ-minZ+1). \
+			      arg((int)textureSize.x).			\
+			      arg((int)textureSize.y).			\
+			      arg((int)textureSize.z),
+			      tfont,
+			      Qt::transparent,
+			      Qt::lightGray);
 
-  glDisable(GL_TEXTURE_2D);
+  //glDisable(GL_TEXTURE_2D);
+  m_Viewer->stopScreenCoordinatesSystem();
 }
 
 int

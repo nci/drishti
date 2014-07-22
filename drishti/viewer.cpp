@@ -1177,7 +1177,7 @@ Viewer::drawInfoString(int imagequality,
 		       float stepsize)
 {
   int posx = 10;
-  int posy = size().height()-3;
+  int posy = size().height()-1;
   int screenWidth = size().width();
   int screenHeight = size().height();
 
@@ -1265,7 +1265,7 @@ Viewer::drawInfoString(int imagequality,
 
   tfont.setPointSize(8*fscl);
 
-  StaticFunctions::renderText(posx, posy-35*fscl,
+  StaticFunctions::renderText(posx, posy-24*fscl,
 			      QString("HiRes : image (%1) : stepsize(%2)"). \
 			      arg(msg).arg(stepsize),
 			      tfont,
@@ -1275,7 +1275,7 @@ Viewer::drawInfoString(int imagequality,
 
   tfont.setPointSize(10*fscl);
 
-  StaticFunctions::renderText(posx, posy-19*fscl,
+  StaticFunctions::renderText(posx, posy-13*fscl,
 			      QString("Bounds : %1-%2, %3-%4, %5-%6").	\
 			      arg(minX).arg(maxX).arg(minY).		\
 			      arg(maxY).arg(minZ).arg(maxZ),
@@ -1461,7 +1461,7 @@ Viewer::renderVolume(int imagequality)
       glColor4f(0,0,0,0);
       glClear(GL_COLOR_BUFFER_BIT);
       m_lowresVolume->draw(Global::stepsizeStill(),
-			   10, size().height()-10);
+			   10, size().height()-1);
     }
   else
     {

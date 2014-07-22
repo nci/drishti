@@ -38,6 +38,7 @@ class Tick
   static QString m_labelX;
   static QString m_labelY;
   static QString m_labelZ;
+  static QColor m_textColor;
 
   static bool drawText(QString,
 		       int, int, int, int,

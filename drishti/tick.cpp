@@ -5,6 +5,8 @@
 #include "enums.h"
 #include "staticfunctions.h"
 
+QColor Tick::m_textColor = Qt::white;
+
 QString Tick::m_labelX = "Height";
 void Tick::setLabelX(QString lbl) { m_labelX = lbl; }
 QString Tick::labelX() { return m_labelX; }
@@ -171,11 +173,16 @@ Tick::draw(Camera *cam, double *Xform)
                  0.5*bgcolor.y +
 		 0.2*bgcolor.z);
 
-
   if (bgintensity < 0.5)
-    glColor4f(0.9, 0.9, 0.9, 0.9);
+    {
+      glColor4f(0.9, 0.9, 0.9, 0.9);
+      m_textColor = Qt::white;
+    }
   else
-    glColor4f(0, 0, 0, 0.9);
+    {
+      glColor4f(0, 0, 0, 0.9);
+      m_textColor = Qt::black;
+    }
 
 
   //-----------------------------------------------------
@@ -291,7 +298,7 @@ Tick::drawText(QString str,
 
   StaticFunctions::renderRotatedText(x, y,
 				     str, font,
-				     Qt::transparent, Qt::white,
+				     Qt::transparent, Tick::m_textColor,
 				     angle,
 				     false); // (0,0) is top left
   return true;
@@ -475,7 +482,7 @@ Tick::drawTick(int tickstep,
       font.setPointSize(10*fscl);
       StaticFunctions::renderRotatedText(x, y,
 					 str, font,
-					 Qt::transparent, Qt::white,
+					 Qt::transparent, Tick::m_textColor,
 					 fangle,
 					 false); // (0,0) is top left
 
@@ -492,7 +499,7 @@ Tick::drawTick(int tickstep,
 	fangle = angle+flip*90;
       StaticFunctions::renderRotatedText(x, y,
 					 str, font,
-					 Qt::transparent, Qt::white,
+					 Qt::transparent, Tick::m_textColor,
 					 fangle,
 					 false); // (0,0) is top left
     }

@@ -679,18 +679,18 @@ ShaderFactory::genReduceShaderString()
   shader += "uniform int lod;\n";
   shader += "void main(void)\n";
   shader += "{\n";
-  shader += "  vec2 spos = gl_TexCoord[0].xy*lod;\n";
+  shader += "  vec2 spos = gl_TexCoord[0].xy*vec2(lod);\n";
   shader += "  vec4 sum = vec4(0,0,0,0);\n";
   shader += "  sum += texture2DRect(rtex, spos.xy);\n";
-  shader += "  sum += texture2DRect(rtex, spos.xy + lod*vec2(0,1));\n";
-  shader += "  sum += texture2DRect(rtex, spos.xy + lod*vec2(1,0));\n";
-  shader += "  sum += texture2DRect(rtex, spos.xy - lod*vec2(0,1));\n";
-  shader += "  sum += texture2DRect(rtex, spos.xy - lod*vec2(1,0));\n";
-  shader += "  sum += texture2DRect(rtex, spos.xy + lod*vec2(1,1));\n";
-  shader += "  sum += texture2DRect(rtex, spos.xy + lod*vec2(1,-1));\n";
-  shader += "  sum += texture2DRect(rtex, spos.xy - lod*vec2(1,1));\n";
-  shader += "  sum += texture2DRect(rtex, spos.xy - lod*vec2(1,-1));\n";
-  shader += "  gl_FragColor = sum/9;\n";
+  shader += "  sum += texture2DRect(rtex, spos.xy + vec2(lod)*vec2(0,1));\n";
+  shader += "  sum += texture2DRect(rtex, spos.xy + vec2(lod)*vec2(1,0));\n";
+  shader += "  sum += texture2DRect(rtex, spos.xy - vec2(lod)*vec2(0,1));\n";
+  shader += "  sum += texture2DRect(rtex, spos.xy - vec2(lod)*vec2(1,0));\n";
+  shader += "  sum += texture2DRect(rtex, spos.xy + vec2(lod)*vec2(1,1));\n";
+  shader += "  sum += texture2DRect(rtex, spos.xy + vec2(lod)*vec2(1,-1));\n";
+  shader += "  sum += texture2DRect(rtex, spos.xy - vec2(lod)*vec2(1,1));\n";
+  shader += "  sum += texture2DRect(rtex, spos.xy - vec2(lod)*vec2(1,-1));\n";
+  shader += "  gl_FragColor = sum/vec4(9);\n";
   //shader += "  gl_FragColor = sum;\n";
   shader += "}\n";
 
@@ -710,7 +710,7 @@ ShaderFactory::genExtractSliceShaderString()
   shader += "  vec2 spos = gl_TexCoord[0].xy;\n";
   shader += "  vec4 a = texture2DRect(atex, spos.xy);\n";
   shader += "  vec4 b = texture2DRect(btex, spos.xy);\n";
-  shader += "  gl_FragColor = (a-b)/(1-b);\n";
+  shader += "  gl_FragColor = (a-b)/(vec4(1)-b);\n";
   shader += "}\n";
 
   return shader;
@@ -1034,8 +1034,8 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
   //------------------------------------
   shader += "if (shdlod > 0)\n";
   shader += "  {\n";
-  shader += "     vec4 shadow = texture2DRect(shdTex, gl_FragCoord.xy/shdlod);\n";
-  shader += "     lightcol = 1.0-smoothstep(0.0, shdIntensity, shadow.a);\n";
+  shader += "     vec4 shadow = texture2DRect(shdTex, gl_FragCoord.xy/vec2(shdlod));\n";
+  shader += "     lightcol = vec3(1.0-smoothstep(0.0, shdIntensity, shadow.a));\n";
   shader += "     lightcol = clamp(vec3(0.1), lightcol, vec3(1));\n";
   shader += "  }\n";
   shader += "else\n";

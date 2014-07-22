@@ -1036,6 +1036,7 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
   shader += "  {\n";
   shader += "     vec4 shadow = texture2DRect(shdTex, gl_FragCoord.xy/shdlod);\n";
   shader += "     lightcol = 1.0-smoothstep(0.0, shdIntensity, shadow.a);\n";
+  shader += "     lightcol = clamp(vec3(0.1), lightcol, vec3(1));\n";
   shader += "  }\n";
   shader += "else\n";
   shader += "  {\n";

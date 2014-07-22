@@ -430,6 +430,7 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
 
   shader += "uniform int shdlod;\n";
   shader += "uniform sampler2DRect shdTex;\n";
+  shader += "uniform float shdIntensity;\n";
 
   shader += ShaderFactory::genTextureCoordinate();
 
@@ -483,7 +484,8 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
   shader += "if (shdlod > 0)\n";
   shader += "  {\n";
   shader += "     vec4 shadow = texture2DRect(shdTex, gl_FragCoord.xy/shdlod);\n";
-  shader += "     lightcol = 1.0-shadow.a;\n";
+  shader += "     lightcol = 1.0-smoothstep(0.0, shdIntensity, shadow.a);\n";
+  shader += "     lightcol = clamp(vec3(0.1), lightcol, vec3(1));\n";
   shader += "  }\n";
   shader += "else\n";
   shader += "  {\n";

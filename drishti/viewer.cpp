@@ -377,7 +377,7 @@ Viewer::createImageBuffers()
   QGLFramebufferObjectFormat fbFormat;
   fbFormat.setInternalTextureFormat(GL_RGBA16F_ARB);
   fbFormat.setAttachment(QGLFramebufferObject::Depth);
-  //fbFormat.setSamples(8);
+  //fbFormat.setSamples(2);
   fbFormat.setTextureTarget(GL_TEXTURE_RECTANGLE_EXT);
 
   if (m_imageBuffer) delete m_imageBuffer;

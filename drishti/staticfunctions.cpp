@@ -1490,8 +1490,6 @@ StaticFunctions::renderRotatedText(int x, int y,
   QMatrix mat;
   mat.rotate(angle);
   QImage pimg = mimg.transformed(mat, Qt::SmoothTransformation);
-  float px = pimg.width()*cos(DEG2RAD(angle))/2;
-  float py = pimg.height()*sin(DEG2RAD(angle))/2;
   if (ydir) // (0,0) is bottom left
     glRasterPos2i(x-pimg.width()/2, y+pimg.height()/2);
   else // (0,0) is top left

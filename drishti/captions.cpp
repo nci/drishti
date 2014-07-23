@@ -119,78 +119,42 @@ Captions::draw(QGLViewer *viewer)
 
       QImage cimage = cmg->image();
 
-      int px = x;
-      int py = y;
-      if (px < 0 || py > screenHeight)
-	{
-	  int wd = cimage.width();
-	  int ht = cimage.height();
-	  int sx = 0;
-	  int sy = 0;
-	  if (px < 0)
-	    {
-	      wd = cimage.width()+px;
-	      sx = -px;
-	      px = 0;
-	    }
-	  if (py > screenHeight)
-	    {
-	      ht = cimage.height()-(py-screenHeight);
-	      sy = (py-screenHeight);
-	      py = screenHeight;
-	    }
-
-	  cimage = cimage.copy(sx, sy, wd, ht);
-	}
-
       cimage = cimage.scaled(cimage.width()*viewer->camera()->screenWidth()/
 			     viewer->size().width(),
 			     cimage.height()*viewer->camera()->screenHeight()/
 			     viewer->size().height());
 
+      QMatrix mat;
+      mat.rotate(-cmg->angle());
+      QImage pimg = cimage.transformed(mat, Qt::SmoothTransformation);
 
-      glPushMatrix();
-      glTranslatef(x+wd/2, y-ht/2, 0);
-      glRotatef(cmg->angle(), 0, 0, 1);
-      glTranslatef(-x-wd/2, -y+ht/2, 0);
+      int px = x+(wd-pimg.width())/2;
+      int py = y+(pimg.height()-ht)/2;
+      if (px < 0 || py > screenHeight)
+	{
+	  int wd = pimg.width();
+	  int ht = pimg.height();
+	  int sx = 0;
+	  int sy = 0;
+	  if (px < 0)
+	    {
+	      wd = pimg.width()+px;
+	      sx = -px;
+	    }
+	  if (py > screenHeight)
+	    {
+	      ht = pimg.height()-(py-screenHeight);
+	      sy = (py-screenHeight);
+	    }
 
-      wd = cimage.width();
-      ht = cimage.height();
-      glActiveTexture(GL_TEXTURE0);
-      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_imageTex);
-      glTexParameterf(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
-      glTexParameterf(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
-      glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-      glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-      glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,
-		   0,
-		   4,
-		   wd,
-		   ht,
-		   0,
-		   GL_RGBA,
-		   GL_UNSIGNED_BYTE,
-		   cimage.bits());
-      glEnable(GL_TEXTURE_RECTANGLE_ARB);
-      glColor3f(1,1,1);
-      glBegin(GL_QUADS);
-      glTexCoord2f(0, 0);      glVertex2f(x-5, y+2);
-      glTexCoord2f(wd, 0);     glVertex2f(x+wd+5, y+2);
-      glTexCoord2f(wd, ht);    glVertex2f(x+wd+5, y-ht-2);
-      glTexCoord2f(0, ht);     glVertex2f(x-5, y-ht-2);
-      glEnd();
-      glDisable(GL_TEXTURE_RECTANGLE_ARB);
+	  pimg = pimg.copy(sx, sy, wd, ht);
+	}
 
-      glPopMatrix();
-
-
-//      const uchar *bits = cimage.bits();
-//
-//      glRasterPos2i(px, py);
-//      glDrawPixels(cimage.width(), cimage.height(),
-//		   GL_RGBA,
-//		   GL_UNSIGNED_BYTE,
-//		   bits);
+      glRasterPos2i(qMax(0, x+(wd-pimg.width())/2),
+		    qMin(screenHeight, y+(pimg.height()-ht)/2));
+      glDrawPixels(pimg.width(), pimg.height(),
+		   GL_RGBA, GL_UNSIGNED_BYTE,
+		   pimg.bits());
     }
 
   viewer->stopScreenCoordinatesSystem();

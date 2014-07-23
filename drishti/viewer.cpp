@@ -1250,7 +1250,10 @@ Viewer::drawInfoString(int imagequality,
     }
 
   if (!Global::bottomText())
-    return;
+    {
+      stopScreenCoordinatesSystem();
+      return;
+    }
 
   if (gimgq == Global::_NormalQuality) msg = "normal";
   else if (gimgq == Global::_LowQuality) msg = "low";

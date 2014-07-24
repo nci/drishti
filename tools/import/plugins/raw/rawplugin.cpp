@@ -2,6 +2,13 @@
 #include "common.h"
 #include "rawplugin.h"
 #include "loadrawdialog.h"
+#include <math.h>
+
+#if defined(Q_OS_WIN32)
+#define isnan _isnan
+#else
+#define isnan isnan
+#endif
 
 QStringList
 RawPlugin::registerPlugin()
@@ -334,6 +341,7 @@ RawPlugin::findMinMaxandGenerateHistogram()
     for(int j=0; j<nY*nZ; j++)				\
       {							\
 	float val = ptr[j];				\
+	if (isnan(val)) val = 0;			\
 	m_rawMin = qMin(m_rawMin, val);			\
 	m_rawMax = qMax(m_rawMax, val);			\
       }							\
@@ -413,7 +421,9 @@ RawPlugin::findMinMax()
   {							\
     for(int j=0; j<nY*nZ; j++)				\
       {							\
-	float fidx = (ptr[j]-m_rawMin)/rSize;		\
+	float val = ptr[j];				\
+	if (isnan(val)) val = 0;			\
+	float fidx = (val-m_rawMin)/rSize;		\
 	fidx = qBound(0.0f, fidx, 1.0f);		\
 	int idx = fidx*histogramSize;			\
 	m_histogram[idx]+=1;				\

@@ -986,8 +986,8 @@ Viewer::splashScreen()
   StaticFunctions::renderText(px-9, height()-mimg.height()-py+2,
 			      QString("Drishti v"+Global::DrishtiVersion()),
 			      tfont,
-			      Qt::transparent, Qt::darkGray,
-			      true); // textPath
+			      Qt::black, Qt::lightGray,
+			      false); // textPath
   
   glColor4f(0,0,0,0);
   glBegin(GL_QUADS);
@@ -1027,8 +1027,9 @@ Viewer::bindFBOs(int imagequality)
 		     m_lowresBuffer->height());
 	}
     }
-  else if (drawToFBO() ||
-	   Global::imageQuality() != Global::_NormalQuality)
+//  else if (drawToFBO() ||
+//	   Global::imageQuality() != Global::_NormalQuality)
+  else
     {
       bool forceInitShadowBuffers = false;
       if (savingImages())
@@ -1260,7 +1261,7 @@ Viewer::drawInfoString(int imagequality,
   else msg = "very low";
 
   if (dragvolume) msg += "+drag";
-  else if (m_hiresVolume->renderQuality()) msg += "+user";
+  else if (m_hiresVolume->renderQuality()) msg += "+ss";
   else msg += "+default";
 
   if (Global::emptySpaceSkip()) msg += "+skip";
@@ -1447,6 +1448,11 @@ void
 Viewer::renderVolume(int imagequality)
 {
   bool fboBound = bindFBOs(imagequality);
+
+  if ((m_mouseDrag || mouseGrabber()) &&
+      !Global::useStillVolume())
+    imagequality = Enums::DragImage;
+    
 
   glClearDepth(1);
   glClear(GL_DEPTH_BUFFER_BIT);
@@ -2210,8 +2216,8 @@ Viewer::draw()
   glHint(GL_POINT_SMOOTH_HINT, GL_NICEST);
   glEnable(GL_POINT_SMOOTH);
 
-  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
-  glEnable(GL_LINE_SMOOTH);
+//  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+//  glEnable(GL_LINE_SMOOTH);
 
   if (m_messageDisplayer->renderScene())
     {
@@ -2828,8 +2834,8 @@ Viewer::showBackBufferImage()
 
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glEnable(GL_BLEND);
-  glEnable(GL_LINE_SMOOTH);
-  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+//  glEnable(GL_LINE_SMOOTH);
+//  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
   
   glDisable(GL_DEPTH_TEST);
 
@@ -3319,9 +3325,9 @@ Viewer::init()
 
 
   glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
-  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+  //  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+  //  glEnable(GL_LINE_SMOOTH);  // antialias lines	
   glHint(GL_POINT_SMOOTH_HINT, GL_NICEST);
-  glEnable(GL_LINE_SMOOTH);  // antialias lines	
   glEnable(GL_POINT_SMOOTH);  // antialias lines 
   glDisable(GL_LIGHTING);
 
@@ -5099,8 +5105,8 @@ Viewer::handleMorphologicalOperations(QStringList list)
 	}
       else
 	{
-	  if (!Global::useDragVolume() && m_hiresVolume->dataTexSize() > 1)
-	    QMessageBox::information(0, "", "Carving operation will be more responsive if dragVolume is selected for rendering by pressing \"l\". \"l\" toggles the use of dragVolume for rendering.");
+//	  if (!Global::useDragVolume() && m_hiresVolume->dataTexSize() > 1)
+//	    QMessageBox::information(0, "", "Carving operation will be more responsive if dragVolume is selected for rendering by pressing \"l\". \"l\" toggles the use of dragVolume for rendering.");
 	  PruneHandler::setPaint(false);	  
 	  PruneHandler::setCarve(true);
 	  SETMOUSEBINDINGFORCARVEPAINT(SELECT);
@@ -5115,8 +5121,8 @@ Viewer::handleMorphologicalOperations(QStringList list)
 	}
       else
 	{
-	  if (!Global::useDragVolume() && m_hiresVolume->dataTexSize() > 1)
-	    QMessageBox::information(0, "", "Painting operation will be more responsive if dragVolume is selected for rendering by pressing \"l\". \"l\" toggles the use of dragVolume for rendering.");
+//	  if (!Global::useDragVolume() && m_hiresVolume->dataTexSize() > 1)
+//	    QMessageBox::information(0, "", "Painting operation will be more responsive if dragVolume is selected for rendering by pressing \"l\". \"l\" toggles the use of dragVolume for rendering.");
 	  PruneHandler::setCarve(false);	  
 	  PruneHandler::setPaint(true);
 	  SETMOUSEBINDINGFORCARVEPAINT(SELECT);

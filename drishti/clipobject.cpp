@@ -736,8 +736,8 @@ ClipObject::drawLines(QGLViewer *viewer,
   bool quad = noimage && m_active;
 
   glEnable(GL_BLEND);
-  glEnable(GL_LINE_SMOOTH);
-  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+//  glEnable(GL_LINE_SMOOTH);
+//  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
 
   Vec voxelScaling = Global::voxelScaling();
   Vec opt = VECPRODUCT(m_position, voxelScaling);
@@ -821,7 +821,7 @@ ClipObject::drawLines(QGLViewer *viewer,
       glEnd();
     }
 
-  glDisable(GL_LINE_SMOOTH);
+  //  glDisable(GL_LINE_SMOOTH);
 
 
   if (!backToFront)
@@ -883,8 +883,8 @@ ClipObject::postdraw(QGLViewer *viewer,
   if (!grabsMouse)
     return;
 
-  glEnable(GL_LINE_SMOOTH);
-  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+//  glEnable(GL_LINE_SMOOTH);
+//  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
 
   glEnable(GL_BLEND);
   glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); // blend on top

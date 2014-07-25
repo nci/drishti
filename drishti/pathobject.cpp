@@ -1944,8 +1944,8 @@ PathObject::drawLines(QGLViewer *viewer,
 		      bool backToFront)
 {
   glEnable(GL_BLEND);
-  glEnable(GL_LINE_SMOOTH);
-  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+//  glEnable(GL_LINE_SMOOTH);
+//  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
 
   Vec col = m_opacity*m_color;
   if (backToFront)
@@ -2141,7 +2141,7 @@ PathObject::drawLines(QGLViewer *viewer,
 	}
     }
 
-  glDisable(GL_LINE_SMOOTH);
+  //  glDisable(GL_LINE_SMOOTH);
 }
 
 void
@@ -2908,8 +2908,8 @@ PathObject::postdraw(QGLViewer *viewer,
       !(m_captionPresent && m_captionLabel))
     return;
 
-  glEnable(GL_LINE_SMOOTH);
-  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+//  glEnable(GL_LINE_SMOOTH);
+//  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
 
   glDisable(GL_DEPTH_TEST);
   viewer->startScreenCoordinatesSystem();

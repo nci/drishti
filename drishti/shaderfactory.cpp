@@ -994,6 +994,10 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
 
   shader += "if (any(lessThan(texCoord,brickMin)) || ";
   shader += "any(greaterThan(texCoord, brickMax)))\n";
+  //shader += "    if (any(lessThan(texCoord,brickMin-vec3(0.5,0.5,0.5))) || ";
+  //shader += "    any(greaterThan(texCoord, brickMax+vec3(0.5,0.5,0.5))))\n";
+  //shader += "    if (any(lessThan(texCoord,brickMin-vec3(1,1,1))) || ";
+  //shader += "    any(greaterThan(texCoord, brickMax+vec3(1,1,1))))\n";
   shader += "  discard;\n";
 
   if (crops.count() > 0)

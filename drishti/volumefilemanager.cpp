@@ -216,6 +216,12 @@ VolumeFileManager::getSlice(int d)
   if (!m_slice)
     m_slice = new uchar[bps];
 
+  if (d<1 || d >= m_depth-1)
+    {
+      memset(m_slice, 0, bps);
+      return m_slice;
+    }
+
   m_slabno = d/m_slabSize;
 
   if (m_slabno < m_filenames.count())

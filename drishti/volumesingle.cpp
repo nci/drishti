@@ -1258,9 +1258,9 @@ VolumeSingle::saveSubsampledVolume()
       int kmax = kmin + m_subvolumeSubsamplingLevel-1;
 
       QFileInfo fi(m_pvlFileManager.fileName());
-      MainWindowUI::mainWindowUI()->menubar->parentWidget()-> \
-	setWindowTitle(QString("Drishti - (%1-%2) from %3").\
-		       arg(kmin).arg(kmax).arg(fi.fileName()));
+//      MainWindowUI::mainWindowUI()->menubar->parentWidget()-> \
+//	setWindowTitle(QString("Drishti - (%1-%2) from %3").\
+//		       arg(kmin).arg(kmax).arg(fi.fileName()));
 
       Global::progressBar()->setValue((int)(100.0*(float)kslc/(float)lenz2));
 
@@ -1406,8 +1406,8 @@ VolumeSingle::getSliceTextureSlab(int minz, int maxz)
 	    }
 
 	  QFileInfo fi(m_lodFileManager.fileName());
-	  MainWindowUI::mainWindowUI()->menubar->parentWidget()-> \
-	    setWindowTitle(QString("Drishti - %1 from %2").arg(k).arg(fi.fileName()));
+//	  MainWindowUI::mainWindowUI()->menubar->parentWidget()-> \
+//	    setWindowTitle(QString("Drishti - %1 from %2").arg(k).arg(fi.fileName()));
 
 	  for(int j=0; j<leny2; j++)
 	    memcpy(m_sliceTemp + bpv*j*lenx2,
@@ -1430,6 +1430,7 @@ VolumeSingle::getSliceTextureSlab(int minz, int maxz)
 
 	  
 	  memcpy(g2, m_sliceTemp, bpv*lenx2*leny2);
+	  memset(tmp, 0, bpv*dtlenx2*dtleny2);
 
 	  //-------- form dragTexure ---------------
 	  if (k >= (int)(m_dataMin.z/m_subvolumeSubsamplingLevel) &&
@@ -1553,8 +1554,8 @@ VolumeSingle::getSliceTextureSlab(int minz, int maxz)
       if (k >= 0 && k < m_depth)
 	{
 	  QFileInfo fi(m_pvlFileManager.fileName());
-	  MainWindowUI::mainWindowUI()->menubar->parentWidget()->		\
-	    setWindowTitle(QString("Drishti - %1 from %2").arg(k).arg(fi.fileName()));
+//	  MainWindowUI::mainWindowUI()->menubar->parentWidget()->		\
+//	    setWindowTitle(QString("Drishti - %1 from %2").arg(k).arg(fi.fileName()));
 
 	  uchar *vslice = m_pvlFileManager.getSlice(k);
 	  memcpy(m_sliceTemp, vslice, bpv*m_width*m_height);
@@ -1741,7 +1742,6 @@ VolumeSingle::calculateGradientsForDragTexture()
   int maxlenx2 = m_dragTexWidth/ncols;
   int maxleny2 = m_dragTexHeight/nrows;
 
-  uchar *tmp = new uchar[bpv*m_width*m_height];
   uchar *g0 = new uchar [bpv*m_width*m_height];
   uchar *g1 = new uchar [bpv*m_width*m_height];
   uchar *g2 = new uchar [bpv*m_width*m_height];
@@ -1818,7 +1818,6 @@ VolumeSingle::calculateGradientsForDragTexture()
   delete [] g0;
   delete [] g1;
   delete [] g2;
-  delete [] tmp;
 
   //-----
   // for drag histogram calculation
@@ -1976,7 +1975,10 @@ VolumeSingle::createGradVolume()
 	    }
 	}
 
-      m_gradFileManager.setSlice(kslc, tmp);
+      if (kslc==0 || kslc==m_depth-1) // first or last slice
+	m_gradFileManager.setSlice(kslc, tmp);
+      else
+	m_gradFileManager.setSlice(kslc-1, tmp);
 
       uchar *gt = g0;
       g0 = g1;

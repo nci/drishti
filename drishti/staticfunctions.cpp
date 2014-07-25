@@ -235,8 +235,8 @@ void
 StaticFunctions::drawEnclosingCube(Vec subvolmin,
 				   Vec subvolmax)
 {
-  glEnable(GL_LINE_SMOOTH);  // antialias lines	
-  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+//  glEnable(GL_LINE_SMOOTH);  // antialias lines	
+//  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
 
   glBegin(GL_QUADS);  
   glVertex3f(subvolmin.x, subvolmin.y, subvolmin.z);
@@ -290,8 +290,8 @@ StaticFunctions::drawAxis(Vec origin,
 //  glVertex3fv(z);
 //  glEnd();
 
-  glEnable(GL_LINE_SMOOTH);  // antialias lines	
-  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+//  glEnable(GL_LINE_SMOOTH);  // antialias lines	
+//  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
 
   x = origin+1.1f*xAxis;
   y = origin+1.1f*yAxis;
@@ -352,8 +352,8 @@ void
 StaticFunctions::drawEnclosingCube(Vec *subvol, Vec line_color)
 {
   glColor4f(line_color.x, line_color.y, line_color.z, 0.9f);
-  glEnable(GL_LINE_SMOOTH);  // antialias lines	
-  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+//  glEnable(GL_LINE_SMOOTH);  // antialias lines	
+//  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
 
   glBegin(GL_LINES);
 
@@ -979,13 +979,14 @@ StaticFunctions::generateHistograms(float *flhist1D,
 
   // generate 1d histogram
   float maxf, minf, mlen;
-  maxf = 0;
-  for (i=1; i<256; i++)
+  maxf = 1;
+  for (i=1; i<255; i++) // leave out two extremes
     maxf = qMax(maxf,flhist1D[i]);
 
   for (i=0; i<256; i++)
     hist1D[i] = (int)(255*flhist1D[i]/maxf);
   hist1D[0] = qMin(hist1D[0],255);
+  hist1D[255] = qMin(hist1D[255],255);
 
 
   // generate 2d histogram

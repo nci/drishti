@@ -972,8 +972,8 @@ CropObject::drawLines(QGLViewer *viewer,
   Vec voxelScaling = Global::voxelScaling();
 
   glEnable(GL_BLEND);
-  glEnable(GL_LINE_SMOOTH);
-  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+//  glEnable(GL_LINE_SMOOTH);
+//  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
 
   if (backToFront)
     {
@@ -1189,7 +1189,7 @@ CropObject::drawLines(QGLViewer *viewer,
 	}
     }
 
-  glDisable(GL_LINE_SMOOTH);
+  //  glDisable(GL_LINE_SMOOTH);
 }
 
 void
@@ -1420,8 +1420,8 @@ CropObject::postdraw(QGLViewer *viewer,
   if (!m_show || !grabsMouse)
     return;
 
-  glEnable(GL_LINE_SMOOTH);
-  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+//  glEnable(GL_LINE_SMOOTH);
+//  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
 
   glEnable(GL_BLEND);
   glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); // blend on top

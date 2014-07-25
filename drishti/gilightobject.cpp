@@ -817,8 +817,8 @@ GiLightObject::drawLines(QGLViewer *viewer,
 		      bool backToFront)
 {
   glEnable(GL_BLEND);
-  glEnable(GL_LINE_SMOOTH);
-  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+//  glEnable(GL_LINE_SMOOTH);
+//  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
 
   Vec col = m_opacity*m_color;
   if (backToFront)
@@ -929,7 +929,7 @@ GiLightObject::drawLines(QGLViewer *viewer,
       glLineWidth(1);
     }
 
-  glDisable(GL_LINE_SMOOTH);
+  //  glDisable(GL_LINE_SMOOTH);
 }
 
 void
@@ -991,8 +991,8 @@ GiLightObject::postdraw(QGLViewer *viewer,
       !m_showPointNumbers)
     return;
 
-  glEnable(GL_LINE_SMOOTH);
-  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+//  glEnable(GL_LINE_SMOOTH);
+//  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
 
   glDisable(GL_DEPTH_TEST);
   viewer->startScreenCoordinatesSystem();

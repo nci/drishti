@@ -1814,8 +1814,8 @@ PathGroupObject::drawLines(QGLViewer *viewer,
   if (qAbs(depthdeno) < 0.000001)
     depthdeno = 1;
 
-  glEnable(GL_LINE_SMOOTH);
-  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+//  glEnable(GL_LINE_SMOOTH);
+//  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
 
   if (active)
     glLineWidth(3);
@@ -2068,7 +2068,7 @@ PathGroupObject::drawLines(QGLViewer *viewer,
       glEnd();
     }
   
-  glDisable(GL_LINE_SMOOTH);
+  //  glDisable(GL_LINE_SMOOTH);
 }
 
 void

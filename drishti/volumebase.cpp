@@ -158,6 +158,7 @@ VolumeBase::createLowresVolume(bool redo)
 
   if (m_lowresVolume) delete [] m_lowresVolume;
   m_lowresVolume = new unsigned char[bpv*height*width*depth];
+  memset(m_lowresVolume, 0, bpv*height*width*depth);
 
   int iend,jend,kend;      
   iend = height;
@@ -166,6 +167,7 @@ VolumeBase::createLowresVolume(bool redo)
 
   unsigned char *tmp;
   tmp = new unsigned char [bpv*jend*iend];
+  memset(tmp, 0, bpv*jend*iend);
   
   //-----------
   uchar *g0, *g1, *g2;

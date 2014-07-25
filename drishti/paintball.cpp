@@ -255,8 +255,8 @@ PaintBall::draw()
   float scale = 0.1*qMax(dataSize.x,
 			 qMax(dataSize.y, dataSize.z));
   
-  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
-  glEnable(GL_LINE_SMOOTH);
+//  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+//  glEnable(GL_LINE_SMOOTH);
 
   glHint(GL_POINT_SMOOTH_HINT, GL_NICEST);
   glEnable(GL_POINT_SMOOTH);

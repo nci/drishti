@@ -5,8 +5,6 @@
 
 #if defined(Q_OS_WIN32)
 #define isnan _isnan
-#else
-#define isnan isnan
 #endif
 
 QStringList

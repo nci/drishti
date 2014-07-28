@@ -1387,10 +1387,7 @@ void
 Viewer::drawInHires(int imagequality)
 {
   if (imagequality == Enums::DragImage)
-    {
-      m_hiresVolume->drawDragImage(Global::stepsizeDrag());
-      return;
-    }
+    m_hiresVolume->drawDragImage(Global::stepsizeDrag());
   else
     m_hiresVolume->drawStillImage(Global::stepsizeStill());
   

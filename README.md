@@ -6,14 +6,14 @@ added drishti.pro at toplevel.
 
 Latest News
 
-Latest source code available on https://github.com/AjayLimaye/drishti
-Code on google code site will not be updated.
-Windows, Mac and Linux executables for version 2.5 available for download from the releases section. 
+Latest source code available on https://github.com/AjayLimaye/drishti.  Code on google code site will not be updated.  Windows, Mac and Linux executables for version 2.5 available for download from the releases section. 
 
 27/July/2014
-  Migration to Qt-5.2.1 and libQGLViewer-2.5.1
+
+Migration to Qt-5.2.1 and libQGLViewer-2.5.1
 
 Drishti
+
   added : Save information for Drishti Prayog.  Drishti projects can now be viewed in Drishti Prayog.
   added : Image captions to allow for embedded text/images/web pages/movies in Drishti project.
   added : Keyframe title - used in Drishti Prayog.
@@ -23,6 +23,7 @@ Drishti
   Simplified screen shadows (toggled by pressing "1").  Simplified Lighting Panel.
 
 DrishtiImport
+
   fixed : bug in VGI (VG Studio Max) plugin.
   Handle NaN values for int and floats in raw, rawslabs and rawslices.
 

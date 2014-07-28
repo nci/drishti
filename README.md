@@ -1,13 +1,11 @@
 drishti
 =======
 
-Source code for Drishti.
-added drishti.pro at toplevel.
-
 Latest News
 
-Latest source code available on https://github.com/AjayLimaye/drishti.  Code on google code site will not be updated.  Windows, Mac and Linux executables for version 2.5 available for download from the releases section. 
+    Latest source code available on https://github.com/AjayLimaye/drishti.  Code on google code site will not be updated.  Windows, Mac and Linux executables for version 2.5 available for download from the releases section. 
 
+---------------------------------------------------------------------------
 27/July/2014
 
     Migration to Qt-5.2.1 and libQGLViewer-2.5.1

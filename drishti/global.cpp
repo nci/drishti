@@ -180,8 +180,8 @@ void Global::calculate3dTextureSize()
   
   qint64 tms = m_textureMemorySize;
   // set aside some texture memory for other buffers
-  if (m_textureMemorySize >= 2048) tms -= 256;
-  else if (m_textureMemorySize >= 1024) tms -= 128;
+  if (m_textureMemorySize >= 2048) tms -= 500;
+  else if (m_textureMemorySize >= 1024) tms -= 256;
   else if (m_textureMemorySize >= 512) tms -= 64;
   else tms -= 32;
 

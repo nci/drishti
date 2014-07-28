@@ -142,7 +142,9 @@ Global::max2dTextureSize()
 {
   GLint texSize;
   glGetIntegerv(GL_MAX_RECTANGLE_TEXTURE_SIZE_ARB, &texSize);
-  //texSize = qMin(8192, texSize);
+#if defined(Q_OS_MAC) || defined(Q_OS_LINUX)
+  texSize = qMin(8192, texSize);
+#endif
   //return texSize;
   return texSize*m_texSizeReduceFraction;
 }

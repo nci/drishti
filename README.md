@@ -10,22 +10,22 @@ Latest source code available on https://github.com/AjayLimaye/drishti.  Code on 
 
 27/July/2014
 
-Migration to Qt-5.2.1 and libQGLViewer-2.5.1
+    Migration to Qt-5.2.1 and libQGLViewer-2.5.1
 
 Drishti
 
-  added : Save information for Drishti Prayog.  Drishti projects can now be viewed in Drishti Prayog.
-  added : Image captions to allow for embedded text/images/web pages/movies in Drishti project.
-  added : Keyframe title - used in Drishti Prayog.
-  fixed : light generation for blend operations.
-  Both upscaling as well as downscaling of volumes possible.
-  Reposition captions and image captions using normalised screen coordinates.
-  Simplified screen shadows (toggled by pressing "1").  Simplified Lighting Panel.
+    added : Save information for Drishti Prayog.  Drishti projects can now be viewed in Drishti Prayog.
+    added : Image captions to allow for embedded text/images/web pages/movies in Drishti project.
+    added : Keyframe title - used in Drishti Prayog.
+    fixed : light generation for blend operations.
+    Both upscaling as well as downscaling of volumes possible.
+    Reposition captions and image captions using normalised screen coordinates.
+    Simplified screen shadows (toggled by pressing "1").  Simplified Lighting Panel.
 
 DrishtiImport
 
-  fixed : bug in VGI (VG Studio Max) plugin.
-  Handle NaN values for int and floats in raw, rawslabs and rawslices.
+    fixed : bug in VGI (VG Studio Max) plugin.
+    Handle NaN values for int and floats in raw, rawslabs and rawslices.
 
 ---------------------------------------------------------------------------
 

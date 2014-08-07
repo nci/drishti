@@ -39,6 +39,12 @@ VolumeFileManager::reset()
     m_qfile.close();
 }
 
+void VolumeFileManager::closeFile()
+{
+  if (m_qfile.isOpen())
+    m_qfile.close();
+}
+
 int VolumeFileManager::depth() { return m_depth; }
 int VolumeFileManager::width() { return m_width; }
 int VolumeFileManager::height() { return m_height; }

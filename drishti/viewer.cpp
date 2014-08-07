@@ -1029,7 +1029,7 @@ Viewer::bindFBOs(int imagequality)
     }
 //  else if (drawToFBO() ||
 //	   Global::imageQuality() != Global::_NormalQuality)
-  else
+  else if (!format().stereo())
     {
       bool forceInitShadowBuffers = false;
       if (savingImages())
@@ -3019,13 +3019,13 @@ Viewer::keyPressEvent(QKeyEvent *event)
       return;
     }
 
-//  if (event->key() == Qt::Key_R)
-//    {
-//      reloadData();
-//      updateGL();
-//      return;
-//    }
-//
+  if (event->key() == Qt::Key_R)
+    {
+      reloadData();
+      updateGL();
+      return;
+    }
+
 //  if (event->key() == Qt::Key_U)
 //    {
 //      if (Global::updateViewer())

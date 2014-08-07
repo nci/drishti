@@ -495,6 +495,7 @@ DrawHiresVolume::updateSubvolume(int volnum,
     return;
 
   postUpdateSubvolume(boxMin, boxMax);
+  m_Volume->pvlFileManager(volnum)->closeFile();
 }
 
 void
@@ -2223,8 +2224,8 @@ DrawHiresVolume::drawGeometry(float pnear, float pfar, Vec step,
   GeometryObjects::pathgroups()->draw(m_Viewer, m_backlit, m_lightPosition, true);
   GeometryObjects::hitpoints()->draw(m_Viewer, m_backlit);
   
-  if (m_drawImageType == Enums::StillImage)
-    GeometryObjects::imageCaptions()->draw(m_Viewer, m_backlit);
+  //if (m_drawImageType == Enums::StillImage)
+  GeometryObjects::imageCaptions()->draw(m_Viewer, m_backlit);
 
   LightHandler::giLights()->draw(m_Viewer, m_backlit);
 

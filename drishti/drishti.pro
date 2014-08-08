@@ -34,8 +34,6 @@ DEPENDPATH += .
 
 include( ../drishti.pri )
 
-message(Setup for $$Windows_Setup)
-
 win32 {
   DEFINES += USE_GLMEDIA
 

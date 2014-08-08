@@ -8,8 +8,9 @@ Windows_Setup = Win32
 
 # Windows setup for 32-bit system
 contains(Windows_Setup, Win32) {
-  message(Win32 setup)
   win32 {
+    message(Win32 setup)
+
     contains(DRISHTI_DEFINES, RENDERER) {
       INCLUDEPATH += c:\Qt\5.2.1\include \
   	c:\Qt\libQGLViewer-2.5.1 \
@@ -46,8 +47,9 @@ contains(Windows_Setup, Win32) {
 #----------------------------------------------------------------
 # Windows setup for 64-bit system
 contains(Windows_Setup, Win64) {
-  message(Win64 setup)
   win32 {
+    message(Win64 setup)
+
     contains(DRISHTI_DEFINES, RENDERER) {
       INCLUDEPATH += c:\Qt\5.2.1\include \
   	c:\Qt\libQGLViewer-2.5.1 \

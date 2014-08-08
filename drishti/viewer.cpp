@@ -253,8 +253,9 @@ Viewer::switchDrawVolume()
 
       switchToHires();
 
-      emit histogramUpdated(m_hiresVolume->histogramImage1D(),
-			    m_hiresVolume->histogramImage2D());
+      if (Global::volumeType() != Global::DummyVolume)
+	emit histogramUpdated(m_hiresVolume->histogramImage1D(),
+			      m_hiresVolume->histogramImage2D());
 
       emit setHiresMode(true);
 
@@ -264,7 +265,8 @@ Viewer::switchDrawVolume()
       MainWindowUI::changeDrishtiIcon(true);
       showFullScene();
 
-      updateLookupTable(); 
+      if (Global::volumeType() != Global::DummyVolume)
+	updateLookupTable(); 
     }
   else
     {
@@ -1538,10 +1540,8 @@ Viewer::renderVolume(int imagequality)
 	}
     }
 
-  //if (fboBound) releaseFBOs(imagequality);
   releaseFBOs(imagequality);
 
-  //if (Global::bottomText() && m_hiresVolume->raised())
   if (m_hiresVolume->raised())
     {
       if (imagequality == Enums::DragImage)
@@ -2139,6 +2139,9 @@ Viewer::fastDraw()
 void
 Viewer::updateLightBuffers()
 {
+  if (Global::volumeType() == Global::DummyVolume)
+    return;
+
   QList<Vec> cpos, cnorm;
   m_hiresVolume->getClipForMask(cpos, cnorm);
   bool redolighting = LightHandler::checkClips(cpos, cnorm);
@@ -2186,17 +2189,20 @@ Viewer::draw()
 
   //-----------------
   // update lightbuffer
-  QList<Vec> cpos, cnorm;
-  m_hiresVolume->getClipForMask(cpos, cnorm);
-  bool redolighting = LightHandler::checkClips(cpos, cnorm);
-  redolighting = redolighting || LightHandler::checkCrops();
-  redolighting = redolighting || LightHandler::updateOnlyLightBuffers();
-  if (redolighting)
+  if (Global::volumeType() != Global::DummyVolume)
     {
-      LightHandler::updateLightBuffers();
-      m_hiresVolume->initShadowBuffers(true);
-      if (!(m_saveSnapshots || m_saveMovie || Global::playFrames()))
-	dummydraw();
+      QList<Vec> cpos, cnorm;
+      m_hiresVolume->getClipForMask(cpos, cnorm);
+      bool redolighting = LightHandler::checkClips(cpos, cnorm);
+      redolighting = redolighting || LightHandler::checkCrops();
+      redolighting = redolighting || LightHandler::updateOnlyLightBuffers();
+      if (redolighting)
+	{
+	  LightHandler::updateLightBuffers();
+	  m_hiresVolume->initShadowBuffers(true);
+	  if (!(m_saveSnapshots || m_saveMovie || Global::playFrames()))
+	    dummydraw();
+	}
     }
   //-----------------
   

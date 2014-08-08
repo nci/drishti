@@ -505,7 +505,7 @@ LightHandler::standardChecks()
 {
   if (Global::volumeType() == Global::DummyVolume)
     {
-      QMessageBox::information(0, "Error Lighting", "Does not work on dummy or colour volumes");
+      //QMessageBox::information(0, "Error Lighting", "Does not work on dummy or colour volumes");
       return false;
     }
 

@@ -495,7 +495,9 @@ DrawHiresVolume::updateSubvolume(int volnum,
     return;
 
   postUpdateSubvolume(boxMin, boxMax);
-  m_Volume->pvlFileManager(volnum)->closeFile();
+
+  if (m_Volume->pvlFileManager(volnum))
+    m_Volume->pvlFileManager(volnum)->closeFile();
 }
 
 void
@@ -2500,7 +2502,8 @@ DrawHiresVolume::drawDefault(Vec pn,
 
   enableTextureUnits();
 
-  setRenderDefault();
+  if (Global::volumeType() != Global::DummyVolume)
+    setRenderDefault();
 
   glEnable(GL_BLEND);
   if (!m_backlit)
@@ -2645,45 +2648,47 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 
 
   //-------------------------------
-  drawClipPlaneInViewport(m_numBricks*layers,
-			  lpos[0],
-			  1.0,
-			  lenx2, leny2, lod,
-			  dragTexsize,
-			  true); // defaultShader
-
-  drawPathInViewport(m_numBricks*layers,
-		     lpos[0],
-		     1.0,
-		     lenx2, leny2, lod,
-		     dragTexsize,
-		     true); // defaultShader
-
-
-  // if viewport occupies full screen do not render any further
-  if (GeometryObjects::clipplanes()->viewportsVisible())
+  if (Global::volumeType() != Global::DummyVolume)
     {
-      ClipInformation clipInfo = GeometryObjects::clipplanes()->clipInfo();
-      for (int ic=0; ic<clipInfo.viewport.count(); ic++)
+      drawClipPlaneInViewport(m_numBricks*layers,
+			      lpos[0],
+			      1.0,
+			      lenx2, leny2, lod,
+			      dragTexsize,
+			      true); // defaultShader
+
+      drawPathInViewport(m_numBricks*layers,
+			 lpos[0],
+			 1.0,
+			 lenx2, leny2, lod,
+			 dragTexsize,
+			 true); // defaultShader
+      
+      
+      // if viewport occupies full screen do not render any further
+      if (GeometryObjects::clipplanes()->viewportsVisible())
 	{
-	  QVector4D vp = clipInfo.viewport[ic];
-	  // render only when textured plane and viewport active
-	  if (clipInfo.tfSet[ic] >= 0 &&
-	      clipInfo.tfSet[ic] < Global::lutSize() &&
-	      vp.x() >= 0.0)
+	  ClipInformation clipInfo = GeometryObjects::clipplanes()->clipInfo();
+	  for (int ic=0; ic<clipInfo.viewport.count(); ic++)
 	    {
-	      if (vp.z() > 0.97 && vp.w() > 0.97)
-		return;
+	      QVector4D vp = clipInfo.viewport[ic];
+	      // render only when textured plane and viewport active
+	      if (clipInfo.tfSet[ic] >= 0 &&
+		  clipInfo.tfSet[ic] < Global::lutSize() &&
+		  vp.x() >= 0.0)
+		{
+		  if (vp.z() > 0.97 && vp.w() > 0.97)
+		    return;
+		}
 	    }
+	  
+	  // some shader parameters might have changed so reset them
+	  setRenderDefault();
 	}
-
-      // some shader parameters might have changed so reset them
-      setRenderDefault();
+      
+      if (GeometryObjects::paths()->viewportsVisible())
+	setRenderDefault();
     }
-
-  if (GeometryObjects::paths()->viewportsVisible())
-    setRenderDefault();
-
   //-------------------------------
 
 

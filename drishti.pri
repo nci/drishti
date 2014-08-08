@@ -4,73 +4,84 @@ QT += widgets core gui
 
 HEADERS += commonqtclasses.h
 
-#----------------------------------------------------------------
-# Windows setup
-win32 {
-  contains(DRISHTI_DEFINES, RENDERER) {
-    INCLUDEPATH += c:\Qt\5.2.1\include \
-	c:\Qt\libQGLViewer-2.5.1 \
-	c:\drishtilib \
-	c:\drishtilib\glew-1.5.4\include
+Windows_Setup = Win32
 
-    QMAKE_LIBDIR += c:\Qt\5.2.1\lib \
-	c:\Qt\libQGLViewer-2.5.1\lib \
-	c:\drishtilib\GL \
-	c:\drishtilib\glew-1.5.4\lib
-  }
-
-  contains(DRISHTI_DEFINES, IMPORT) {
-    INCLUDEPATH += c:\drishtilib\netcdf\include
-    QMAKE_LIBDIR += c:\drishtilib\netcdf\lib
-  }
-
-  contains(DRISHTI_DEFINES, NETCDF) {
-     INCLUDEPATH += c:\drishtilib\netcdf\include
-     QMAKE_LIBDIR += c:\drishtilib\netcdf\lib
-  }
-
-  contains(DRISHTI_DEFINES, ITK) {
-    ITKVer = 4.3
-    InsightToolkit = D:\InsightToolkit-$${ITKVer}.1
-    ITK = D:\ITK
-
-    QMAKE_LIBDIR += d:\ITK\lib\Release
+# Windows setup for 32-bit system
+contains(Windows_Setup, Win32) {
+  message(Win32 setup)
+  win32 {
+    contains(DRISHTI_DEFINES, RENDERER) {
+      INCLUDEPATH += c:\Qt\5.2.1\include \
+  	c:\Qt\libQGLViewer-2.5.1 \
+  	c:\drishtilib \
+  	c:\drishtilib\glew-1.5.4\include
+  
+      QMAKE_LIBDIR += c:\Qt\5.2.1\lib \
+  	c:\Qt\libQGLViewer-2.5.1\lib \
+  	c:\drishtilib\GL \
+  	c:\drishtilib\glew-1.5.4\lib
+    }
+  
+    contains(DRISHTI_DEFINES, IMPORT) {
+      INCLUDEPATH += c:\drishtilib\netcdf\include
+      QMAKE_LIBDIR += c:\drishtilib\netcdf\lib
+    }
+  
+    contains(DRISHTI_DEFINES, NETCDF) {
+       INCLUDEPATH += c:\drishtilib\netcdf\include
+       QMAKE_LIBDIR += c:\drishtilib\netcdf\lib
+    }
+  
+    contains(DRISHTI_DEFINES, ITK) {
+      ITKVer = 4.3
+      InsightToolkit = D:\InsightToolkit-$${ITKVer}.1
+      ITK = D:\ITK
+  
+      QMAKE_LIBDIR += d:\ITK\lib\Release
+    }
   }
 }
 #----------------------------------------------------------------
 
-###----------------------------------------------------------------
-### Windows setup
-##win32 {
-##  contains(DRISHTI_DEFINES, RENDERER) {
-##    INCLUDEPATH += c:\Qt\include \
-##	c:\drishtilib \
-##	c:\drishtilib\glew-1.5.4\include
-##
-##    QMAKE_LIBDIR += c:\Qt\lib \
-##	c:\drishtilib\GL \
-##	c:\drishtilib\glew-1.5.4\lib
-##  }
-##
-##  contains(DRISHTI_DEFINES, IMPORT) {
-##    INCLUDEPATH += c:\drishtilib\netcdf\include
-##    QMAKE_LIBDIR += c:\drishtilib\netcdf\lib
-##  }
-##
-##  contains(DRISHTI_DEFINES, NETCDF) {
-##     INCLUDEPATH += c:\drishtilib\netcdf\include
-##     QMAKE_LIBDIR += c:\drishtilib\netcdf\lib
-##  }
-##
-##  contains(DRISHTI_DEFINES, ITK) {
-##    ITKVer = 4.3
-##    InsightToolkit = D:\InsightToolkit-$${ITKVer}.1
-##    ITK = D:\ITK
-##
-##    QMAKE_LIBDIR += d:\ITK\lib\Release
-##  }
-##}
-###----------------------------------------------------------------
+#----------------------------------------------------------------
+# Windows setup for 64-bit system
+contains(Windows_Setup, Win64) {
+  message(Win64 setup)
+  win32 {
+    contains(DRISHTI_DEFINES, RENDERER) {
+      INCLUDEPATH += c:\Qt\5.2.1\include \
+  	c:\Qt\libQGLViewer-2.5.1 \
+  	c:\cygwin\home\acl900\drishtilib \
+  	c:\cygwin\home\acl900\drishtilib\GL\glut-3.7.6\include \
+   	c:\cygwin\home\acl900\drishtilib\glew-1.5.4\include
+  
+      QMAKE_LIBDIR += c:\Qt\5.2.1\lib \
+  	c:\Qt\libQGLViewer-2.5.1\lib \
+  	c:\cygwin\home\acl900\drishtilib\GL \
+  	c:\cygwin\home\acl900\drishtilib\GL\glut-3.7.6\lib\glut\Release \
+  	c:\cygwin\home\acl900\drishtilib\glew-1.5.4\lib
+    }
+  
+    contains(DRISHTI_DEFINES, IMPORT) {
+      INCLUDEPATH += c:\cygwin\home\acl900\drishtilib\netcdf\include
+      QMAKE_LIBDIR += c:\cygwin\home\acl900\drishtilib\netcdf\lib \
+    }
+  
+    contains(DRISHTI_DEFINES, NETCDF) {
+       INCLUDEPATH += c:\cygwin\home\acl900\drishtilib\netcdf\include
+       QMAKE_LIBDIR += c:\cygwin\home\acl900\drishtilib\netcdf\lib \
+    }
+  
+    contains(DRISHTI_DEFINES, ITK) {
+      ITKVer = 4.3
+      InsightToolkit = D:\InsightToolkit-$${ITKVer}.1
+      ITK = D:\ITK
+  
+      QMAKE_LIBDIR += d:\ITK\lib\Release
+    }
+  }
+}
+#----------------------------------------------------------------
 
 #----------------------------------------------------------------
 # MacOSX setup
@@ -86,11 +97,6 @@ macx {
   }
 
   contains(DRISHTI_DEFINES, IMPORT) {
-    INCLUDEPATH += /usr/local/include	
-    QMAKE_LIBDIR += /usr/local/lib
-  }
-
-  contains(DRISHTI_DEFINES, NETCDF) {
     INCLUDEPATH += /usr/local/include	
     QMAKE_LIBDIR += /usr/local/lib
   }

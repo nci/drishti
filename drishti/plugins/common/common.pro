@@ -14,14 +14,23 @@ FORMS += ../../propertyeditor.ui
 win32 {
   DESTDIR = ../common
 
+ contains(Windows_Setup, Win32) {
   INCLUDEPATH += ../../  ..\..\..\glmedia
-
   QMAKE_LIBDIR += ..\..\..\glmedia
-
   LIBS += QGLViewer2.lib \
 	  netcdf.lib \
 	  glew32.lib \
 	  glmedia.lib
+ }
+
+ contains(Windows_Setup, Win64) {
+  INCLUDEPATH += ../../  ..\..\..\glmedia-64
+  QMAKE_LIBDIR += ..\..\..\glmedia-64
+  LIBS += QGLViewer2.lib \
+	  netcdfcpp-x64.lib \
+	  glew64.lib \
+	  glmedia.lib
+ }
 }
 
 macx {

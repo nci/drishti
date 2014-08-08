@@ -16,6 +16,13 @@ RESOURCES = mopplugin.qrc
 win32 {
 DESTDIR = ../../bin/mopplugins
 
+contains(Windows_Setup, Win32) {
+  LIBS += glew32.lib
+}
+contains(Windows_Setup, Win64) {
+  LIBS += glew64.lib
+}
+
 QMAKE_LIBDIR += ../plugins/common
 
 INCLUDEPATH += ../ \
@@ -165,7 +172,6 @@ INCLUDEPATH += ../ \
 
 LIBS += common.lib \
 	QGLViewer2.lib \
-	glew32.lib \
  	Advapi32.lib \
 	User32.lib \
 	Gdi32.lib \

@@ -38,18 +38,31 @@ DEPENDPATH += .
 
 include( ../drishti.pri )
 
+message(Setup for $$Windows_Setup)
+
 win32 {
+  DEFINES += USE_GLMEDIA
 
-DEFINES += USE_GLMEDIA
+ contains(Windows_Setup, Win32) {
+    message(drishti.exe : Win32 setup)
+    INCLUDEPATH += ..\glmedia 16bit
+    QMAKE_LIBDIR += ..\glmedia
+    LIBS += QGLViewer2.lib \
+  	netcdf.lib \
+  	glew32.lib \
+  	glmedia.lib
+  }
 
-INCLUDEPATH += ..\glmedia 16bit
-
-QMAKE_LIBDIR += ..\glmedia
-
-LIBS += QGLViewer2.lib \
-	netcdf.lib \
-	glew32.lib \
-	glmedia.lib
+  contains(Windows_Setup, Win64) {
+    message(drishti.exe : Win64 setup)
+    INCLUDEPATH += ..\glmedia-64 16bit
+    QMAKE_LIBDIR += ..\glmedia-64
+    LIBS += QGLViewer2.lib \
+  	netcdfcpp-x64.lib \
+  	glew64.lib \
+  	glut64.lib \
+  	glmedia.lib
+  }
 }
 
 
@@ -229,7 +242,6 @@ HEADERS += boundingbox.h \
 	   gilightinfo.h \
 	   gilightobjectinfo.h \
 	   videoplayer.h
-
 
 SOURCES += boundingbox.cpp \
            blendshaderfactory.cpp \

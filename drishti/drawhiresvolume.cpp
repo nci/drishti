@@ -3704,6 +3704,16 @@ DrawHiresVolume::drawClipPlaneInViewport(int clipOffset, Vec lpos, float depthcu
 			     clips,
 			     brickPivot, brickScale);	
 
+  double Xform[16], XformI[16];  
+  memcpy(Xform, m_bricks->getMatrix(0), 16*sizeof(double));
+  Matrix::inverse(Xform, XformI);
+
+  for (int i=0; i<8; i++)
+    subvol[i] = Matrix::xformVec(XformI, subvol[i]);
+      
+  subcorner = Matrix::xformVec(XformI, subcorner);
+
+
   for (int ic=0; ic<nclipPlanes; ic++)
     {
       QVector4D vp = clipInfo.viewport[ic];

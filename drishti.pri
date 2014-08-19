@@ -4,7 +4,7 @@ QT += widgets core gui
 
 HEADERS += commonqtclasses.h
 
-Windows_Setup = Win32
+Windows_Setup = Win64
 
 # Windows setup for 32-bit system
 contains(Windows_Setup, Win32) {

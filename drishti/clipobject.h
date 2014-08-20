@@ -94,6 +94,7 @@ class ClipObject
   void setApply(bool);
 
   Vec m_tang, m_xaxis, m_yaxis;
+  double m_xform[16];
 
   void translate(Vec);
   void rotate(Vec, float);
@@ -137,6 +138,8 @@ class ClipObject
   bool resliceVolume();  
   int resliceSubsample();
   int resliceTag();
+  
+  void setXform(double xf[16]) { memcpy(m_xform, xf, 16*sizeof(double)); }
 
   enum MoveAxis
   {

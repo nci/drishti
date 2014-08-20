@@ -1287,6 +1287,10 @@ DrawHiresVolume::getClipForMask(QList<Vec> &clipPos,
 void
 DrawHiresVolume::collectBrickInformation(bool force)
 {
+  double bxform[16];
+  memcpy(bxform, m_bricks->getMatrix(), 16*sizeof(double));
+  GeometryObjects::clipplanes()->setBrick0Xform(bxform);
+
   if (force == false &&
       m_bricks->updateFlag() == false)
     return;
@@ -3257,11 +3261,20 @@ DrawHiresVolume::getSlices(Vec poStart,
   Vec bsubvol[8],btexture[8];
   for (int j=0; j<8; j++) bsubvol[j] = subvol[j];
   for (int j=0; j<8; j++) btexture[j] = texture[j];
+
+  // undo brick-0 transformation on clip normal before slicing
+  double XformI[16];
+  memcpy(XformI, m_bricks->getMatrixInv(), 16*sizeof(double));
+
   for (int ic=0; ic<m_clipPos.count(); ic++)
     {
-      ViewAlignedPolygon *vap = new ViewAlignedPolygon;
+      Vec cnorm = m_clipNormal[ic];
+      cnorm = Matrix::rotateVec(XformI, cnorm);      
+
       Vec cpos = VECPRODUCT(m_clipPos[ic], voxelScaling);
-      drawpoly(cpos, m_clipNormal[ic],
+
+      ViewAlignedPolygon *vap = new ViewAlignedPolygon;
+      drawpoly(cpos, cnorm,
 	       bsubvol, btexture,
 	       dummyclips,
 	       vap);
@@ -3704,16 +3717,12 @@ DrawHiresVolume::drawClipPlaneInViewport(int clipOffset, Vec lpos, float depthcu
 			     clips,
 			     brickPivot, brickScale);	
 
-  double Xform[16], XformI[16];  
-  memcpy(Xform, m_bricks->getMatrix(0), 16*sizeof(double));
-  Matrix::inverse(Xform, XformI);
-
+  // undo brick-0 transformation for clipplanes
+  double XformI[16];
+  memcpy(XformI, m_bricks->getMatrixInv(), 16*sizeof(double));
   for (int i=0; i<8; i++)
     subvol[i] = Matrix::xformVec(XformI, subvol[i]);
       
-  subcorner = Matrix::xformVec(XformI, subcorner);
-
-
   for (int ic=0; ic<nclipPlanes; ic++)
     {
       QVector4D vp = clipInfo.viewport[ic];

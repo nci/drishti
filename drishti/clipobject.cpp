@@ -6,6 +6,7 @@
 #include "dcolordialog.h"
 #include "propertyeditor.h"
 #include "enums.h"
+#include "matrix.h"
 
 #include <QFileDialog>
 
@@ -210,6 +211,8 @@ ClipObject::ClipObject()
   m_captionHaloColor = Qt::white;
 
   m_gridX = m_gridY = 0;
+
+  Matrix::identity(m_xform);
 
   glGenTextures(1, &m_imageTex);
 }
@@ -580,13 +583,21 @@ ClipObject::drawGrid()
 	    m_color.z*m_opacity,
 	    m_opacity);
 
+  Vec tang = m_tang;
+  Vec xaxis = m_xaxis;
+  Vec yaxis = m_yaxis;
+  tang = Matrix::rotateVec(m_xform, tang);
+  xaxis = Matrix::rotateVec(m_xform, xaxis);
+  yaxis = Matrix::rotateVec(m_xform, yaxis);
+
   Vec voxelScaling = Global::voxelScaling();
   Vec opt = VECPRODUCT(m_position, voxelScaling);
+  opt = Matrix::xformVec(m_xform, opt);
   Vec c0, c1, c2, c3;
-  c0 = opt - s1*m_xaxis + s2*m_yaxis;
-  c1 = opt - s1*m_xaxis - s2*m_yaxis;
-  c2 = opt + s1*m_xaxis - s2*m_yaxis;
-  c3 = opt + s1*m_xaxis + s2*m_yaxis;
+  c0 = opt - s1*xaxis + s2*yaxis;
+  c1 = opt - s1*xaxis - s2*yaxis;
+  c2 = opt + s1*xaxis - s2*yaxis;
+  c3 = opt + s1*xaxis + s2*yaxis;
 
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, Global::boxTexture());
@@ -630,13 +641,21 @@ ClipObject::drawCaptionImage()
       s2 = -s2;
     }
 
+  Vec tang = m_tang;
+  Vec xaxis = m_xaxis;
+  Vec yaxis = m_yaxis;
+  tang = Matrix::rotateVec(m_xform, tang);
+  xaxis = Matrix::rotateVec(m_xform, xaxis);
+  yaxis = Matrix::rotateVec(m_xform, yaxis);
+
   Vec voxelScaling = Global::voxelScaling();
   Vec opt = VECPRODUCT(m_position, voxelScaling);
+  opt = Matrix::xformVec(m_xform, opt);
   Vec c0, c1, c2, c3;
-  c0 = opt - s1*m_xaxis + s2*m_yaxis;
-  c1 = opt - s1*m_xaxis - s2*m_yaxis;
-  c2 = opt + s1*m_xaxis - s2*m_yaxis;
-  c3 = opt + s1*m_xaxis + s2*m_yaxis;
+  c0 = opt - s1*xaxis + s2*yaxis;
+  c1 = opt - s1*xaxis - s2*yaxis;
+  c2 = opt + s1*xaxis - s2*yaxis;
+  c3 = opt + s1*xaxis + s2*yaxis;
 
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_imageTex);
@@ -741,6 +760,7 @@ ClipObject::drawLines(QGLViewer *viewer,
 
   Vec voxelScaling = Global::voxelScaling();
   Vec opt = VECPRODUCT(m_position, voxelScaling);
+  opt = Matrix::xformVec(m_xform, opt);
 
   float r = m_size;
   float s1 = m_tscale1;
@@ -749,6 +769,10 @@ ClipObject::drawLines(QGLViewer *viewer,
   Vec tang = m_tang;
   Vec xaxis = m_xaxis;
   Vec yaxis = m_yaxis;
+
+  tang = Matrix::rotateVec(m_xform, tang);
+  xaxis = Matrix::rotateVec(m_xform, xaxis);
+  yaxis = Matrix::rotateVec(m_xform, yaxis);
 
   if (backToFront)
     {
@@ -803,7 +827,7 @@ ClipObject::drawLines(QGLViewer *viewer,
       if (!quad) glVertex3fv(c0);
       glEnd();
       
-      c0 = opt + r*m_tang;
+      c0 = opt + r*tang;
       Vec cax = opt - 0.2*s1*xaxis;
       Vec cbx = opt + 0.2*s1*xaxis;
       Vec cay = opt - 0.2*s2*yaxis;

@@ -131,6 +131,8 @@ MainWindow::MainWindow(QWidget *parent) :
 
   m_saveRotationAnimation = 0;
   m_savePathAnimation = 0;
+  m_pathAnimationVd.clear();
+  m_pathAnimationUp.clear();
   m_pathAnimationPoints.clear();
   m_pathAnimationSaxis.clear();
   m_pathAnimationTaxis.clear();
@@ -2751,6 +2753,14 @@ MainWindow::saveSettings()
   }
 
   {
+    QDomElement de0 = doc.createElement("texsizereducefraction");
+    QDomText tn0;
+    tn0 = doc.createTextNode(QString("%1").arg(Global::texSizeReduceFraction()));
+    de0.appendChild(tn0);
+    topElement.appendChild(de0);
+  }
+  
+  {
     QDomElement de0 = doc.createElement("texturesizelimit");
     QDomText tn0;
     tn0 = doc.createTextNode(QString("%1").arg(Global::textureSizeLimit()));
@@ -2849,6 +2859,11 @@ MainWindow::loadSettings()
 	  QString str = dlist.at(i).toElement().text();
 	  Global::setTextureMemorySize(str.toInt());
 	  Global::calculate3dTextureSize();
+	}
+      else if (dlist.at(i).nodeName() == "texsizereducefraction")
+	{
+	  QString str = dlist.at(i).toElement().text();
+	  Global::setTexSizeReduceFraction(str.toFloat());
 	}
       else if (dlist.at(i).nodeName() == "texturesizelimit")
 	{
@@ -3455,11 +3470,8 @@ MainWindow::setKeyFrame(Vec pos, Quaternion rot,
 	  int currentFrame = m_keyFrameEditor->currentFrame();
 	  m_keyFrameEditor->moveTo(currentFrame+10);
 	  m_Viewer->camera()->setPosition(m_pathAnimationPoints[m_savePathAnimation-1]);
-
-	  m_Viewer->camera()->lookAt(m_pathAnimationPoints[m_savePathAnimation-1] +
-					10*m_pathAnimationTang[m_savePathAnimation-1] );
-	  m_Viewer->camera()->setUpVector(m_pathAnimationSaxis[m_savePathAnimation-1]);
-
+	  m_Viewer->camera()->setViewDirection(m_pathAnimationVd[m_savePathAnimation-1]);
+	  m_Viewer->camera()->setUpVector(m_pathAnimationUp[m_savePathAnimation-1]);	  
 	  m_keyFrameEditor->setKeyFrame();	  
 	}
     }
@@ -4256,6 +4268,8 @@ MainWindow::addToCameraPath(QList<Vec> points,
 			    QList<Vec> taxis)
 {
   m_savePathAnimation = 1;
+  m_pathAnimationVd.clear();
+  m_pathAnimationUp.clear();
   m_pathAnimationPoints = points;
   m_pathAnimationTang = tang;
   m_pathAnimationSaxis = saxis;
@@ -4266,9 +4280,112 @@ MainWindow::addToCameraPath(QList<Vec> points,
 
   m_Viewer->camera()->setPosition(m_pathAnimationPoints[m_savePathAnimation-1]);
 
-  m_Viewer->camera()->lookAt(m_pathAnimationPoints[m_savePathAnimation-1] +
-				10*m_pathAnimationTang[m_savePathAnimation-1] );
-  m_Viewer->camera()->setUpVector(m_pathAnimationSaxis[m_savePathAnimation-1]);
+  int vd = 0;
+  {
+    bool ok;
+    QStringList texlist;
+    texlist << "path direction";
+    texlist << "red axis";
+    texlist << "-ve red axis";
+    texlist << "green axis";
+    texlist << "-ve green axis";
+    QString texstr = QInputDialog::getItem(0,
+					   "View Direction",
+					   "Viewing Direction",
+					   texlist, 0, false,
+					   &ok);
+    if (ok && !texstr.isEmpty())
+      vd = texlist.indexOf(texstr);
+  }
+
+  int up = 0;
+  {
+    bool ok;
+    QStringList texlist;
+    if (vd == 0)
+      {
+	texlist << "red axis";
+	texlist << "-ve red axis";
+	texlist << "green axis";
+	texlist << "-ve green axis";
+      }
+    else if (vd == 1 || vd == 2)
+      {
+	texlist << "green axis";
+	texlist << "-ve green axis";
+	texlist << "path direction";
+	texlist << "-ve path direction";
+      }
+    else if (vd == 3 || vd == 4)
+      {
+	texlist << "red axis";
+	texlist << "-ve red axis";
+	texlist << "path direction";
+	texlist << "-ve path direction";
+      }
+    QString texstr = QInputDialog::getItem(0,
+					   "Up Direction",
+					   "Upward Direction",
+					   texlist, 0, false,
+					   &ok);
+    if (ok && !texstr.isEmpty())
+      up = texlist.indexOf(texstr);
+  }
+
+  if (vd == 0)
+    {
+      m_pathAnimationVd = m_pathAnimationTang;      
+      if (up == 0 || up == 1)
+	m_pathAnimationUp = m_pathAnimationSaxis;
+      else if (up == 2 || up == 3)
+	m_pathAnimationUp = m_pathAnimationTaxis;
+    }
+  else if (vd == 1)
+    {
+      m_pathAnimationVd = m_pathAnimationTaxis;
+      if (up == 0 || up == 1)
+	m_pathAnimationUp = m_pathAnimationSaxis;
+      else if (up == 2 || up == 3)
+	m_pathAnimationUp = m_pathAnimationTang;
+    }
+  else if (vd == 2)
+    {
+      m_pathAnimationVd = m_pathAnimationTaxis;
+      if (up == 0 || up == 1)
+	m_pathAnimationUp = m_pathAnimationSaxis;
+      else if (up == 2 || up == 3)
+	m_pathAnimationUp = m_pathAnimationTang;
+    }
+  else if (vd == 3)
+    {
+      m_pathAnimationVd = m_pathAnimationSaxis;
+      if (up == 0 || up == 1)
+	m_pathAnimationUp = m_pathAnimationTaxis;
+      else if (up == 2 || up == 3)
+	m_pathAnimationUp = m_pathAnimationTang;
+    }
+  else if (vd == 4)
+    {
+      m_pathAnimationVd = m_pathAnimationSaxis;
+      if (up == 0 || up == 1)
+	m_pathAnimationUp = m_pathAnimationTaxis;
+      else if (up == 2 || up == 3)
+	m_pathAnimationUp = m_pathAnimationTang;
+    }
+
+  if (vd == 1 || vd == 4)
+    {
+      for(int i=0; i<m_pathAnimationVd.count(); i++)
+	m_pathAnimationVd[i] = -m_pathAnimationVd[i]; 
+    }
+  if (up == 1 || up == 3)
+    {
+      for(int i=0; i<m_pathAnimationVd.count(); i++)
+	m_pathAnimationUp[i] = -m_pathAnimationUp[i]; 
+    }
+
+  m_Viewer->camera()->setViewDirection(m_pathAnimationVd[m_savePathAnimation-1]);
+  m_Viewer->camera()->setUpVector(m_pathAnimationUp[m_savePathAnimation-1]);
 
   m_keyFrameEditor->setKeyFrame();
 }

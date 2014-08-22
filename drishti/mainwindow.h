@@ -247,6 +247,8 @@ class MainWindow : public QMainWindow
    QList<Vec> m_pathAnimationTang;
    QList<Vec> m_pathAnimationSaxis;
    QList<Vec> m_pathAnimationTaxis;
+   QList<Vec> m_pathAnimationVd;
+   QList<Vec> m_pathAnimationUp;
 
 
    QList<QStringList> m_pluginList;

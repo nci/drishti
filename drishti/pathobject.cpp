@@ -3801,15 +3801,21 @@ PathObject::makeCircle()
     avgD += (m_points[i]-cen).norm();
   avgD /= npoints;
 
+  Vec axis = Vec(0,0,0);
+  for(int i=1; i<npoints; i++)
+    axis += ((m_points[i]-cen)^(m_points[i-1]-cen)).unit();
+  axis.normalize();
+
+  Vec inplane = avgD*axis.orthogonalVec();
+
+  float angle = 0;
+  float stepangle = 2.0f*3.14159/npoints;
   // now shift all points into the plane
   for(int i=0; i<npoints; i++)
     {
-      Vec v0 = (m_points[i]-cen);
-      if (v0.squaredNorm() > 0.0)
-	{
-	  v0.normalize();
-	  m_points[i] = cen + avgD*v0;
-	}
+      Quaternion q(axis, angle);
+      m_points[i] = cen + q.rotate(inplane);
+      angle += stepangle;
     }
 
   computeTangents();

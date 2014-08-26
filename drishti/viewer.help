@@ -59,19 +59,6 @@ Give "resettempdir" to reset temporary directory.
 #end
 
 #begin
-jitter
-jitter <val>
-Jitter the texture coordinates so as to reduce aliasing artifacts.
-The parameter val controls the amount of jittering.  It takes integer values.
-Default value of val is 0 - i.e. no jittering.
-
-Example :
-jitter 5
-jitter 10
-
-#end
-
-#begin
 resettempdir
 tempdir/resettempdir
 Set temporary directory to store temporary files created by the program.
@@ -524,18 +511,6 @@ Search keyframes for text within captions. The captions could be either normal c
 #begin
 countcells
 Count the number of isolated regions, as defined by the transfer function. Only those voxels that have opacity greater than zero according to the current transfer function will be considered for locating isolated regions.
-#end
-
-#begin
-savevolume
-User is given an option to save the processed volume (.pvl.nc) or opacity (.raw) of voxels as volume data. Voxels in the selected subvolume are tested for clipping, cropping and mop operations. When saving processed volume (.pvl.nc), unchanged values are saved for voxels that pass this test, otherwise 0 is saved.  In the case of opacity volume (.raw), opacity issaved to a raw file.  Opacity is calculated using the current transfer function for those voxels that pass the test, otherwise it taken as 0.
-#end
-
-#begin
-maskrawvolume
-Save original raw volume into another raw file using opacity of voxels to mask regions in the volume data. Voxels in the selected subvolume are tested for clipping. For voxels that pass this test, opacity is calculated using the current transfer function. This opacity is then used for masking voxels in the original raw volume. If the opacity is zero - i.e. voxel is transparent - voxel value in the new raw volume will be set to mask value (which is supplied by the user at the start of this process). Voxels that have non-zero opacity - i.e. visible voxels - are stored at their original voxel value in the new raw file.
-
-When the volume is of RGB/RGBA type, the data will be saved in as an image sequence.  Transparent voxels will have black color.
 #end
 
 #begin
@@ -1025,7 +1000,7 @@ If drag mode is not active, force to use higher resolution volume even for mouse
 #begin
 d
 Depthcueing - darking of image depending on distance to the viewer.
-By default depthcueing is enabled.
+By default depthcueing is disabled.
 #end
 
 #begin

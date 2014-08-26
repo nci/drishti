@@ -2372,12 +2372,12 @@ DrawHiresVolume::setRenderDefault()
   glUniform1fARB(m_defaultParm[32], m_interpVol);
   glUniform1iARB(m_defaultParm[33], m_mixTag);
 
-  if (!LightHandler::basicLight())
+  glUniform1iARB(m_defaultParm[34], 4); // lightTex
+  if (!LightHandler::basicLight() && !m_useScreenShadows)
     {
       int lightgridx, lightgridy, lightgridz, lightncols, lightnrows, lightlod;
       LightHandler::lightBufferInfo(lightgridx, lightgridy, lightgridz,
 				    lightnrows, lightncols, lightlod);
-      glUniform1iARB(m_defaultParm[34], 4); // lightTex
       glUniform1iARB(m_defaultParm[35], lightgridx); // lightgridx
       glUniform1iARB(m_defaultParm[36], lightgridy); // lightgridy
       glUniform1iARB(m_defaultParm[37], lightgridz); // lightgridz

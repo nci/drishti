@@ -3,6 +3,7 @@
 #include "dcolordialog.h"
 #include "propertyeditor.h"
 
+#include <QInputDialog>
 #include <QFileDialog>
 
 QPointF
@@ -181,6 +182,15 @@ void
 SplineEditor::keyPressEvent(QKeyEvent *event)
 {
   if (event->key() == Qt::Key_Space)
+    {      
+      askSplineChoice();
+      update();
+    }
+  else if (event->key() == Qt::Key_S)
+    {      
+      saveSpline();      
+    }
+  else if (event->key() == Qt::Key_O)
     {      
       m_showOverlay = !m_showOverlay;
       update();
@@ -835,3 +845,286 @@ SplineEditor::set16BitPoint(float tmin, float tmax)
     }
   return false;
 }
+
+void
+SplineEditor::askSplineChoice()
+{
+  QString homePath = QDir::homePath();
+  QFileInfo sfi(homePath, ".drishtigradients.xml");
+  QString stopsflnm = sfi.absoluteFilePath();
+  if (!sfi.exists())
+    return;
+
+  QDomDocument document;
+  QFile f(stopsflnm);
+  if (f.open(QIODevice::ReadOnly))
+    {
+      document.setContent(&f);
+      f.close();
+    }
+
+  QStringList glist;
+
+  QDomElement main = document.documentElement();
+  QDomNodeList mlist = main.childNodes();
+  for(int i=0; i<mlist.count(); i++)
+    {
+      if (mlist.at(i).nodeName() == "transferfunction")
+	{
+	  QDomNodeList cnode = mlist.at(i).childNodes();
+	  for(int j=0; j<cnode.count(); j++)
+	    {
+	      QDomElement dnode = cnode.at(j).toElement();
+	      if (dnode.nodeName() == "name")
+		glist << dnode.text();
+	    }
+	}
+    }
+
+  bool ok;
+  QString gstr = QInputDialog::getItem(0,
+				       "Transfer Function",
+				       "Transfer Function",
+				       glist, 0, false,
+				       &ok);
+  if (!ok)
+    return;
+
+  int cno = -1;
+  for(int i=0; i<mlist.count(); i++)
+    {
+      if (mlist.at(i).nodeName() == "transferfunction")
+	{
+	  QDomNodeList cnode = mlist.at(i).childNodes();
+	  for(int j=0; j<cnode.count(); j++)
+	    {
+	      QDomElement dnode = cnode.at(j).toElement();
+	      if (dnode.tagName() == "name" && dnode.text() == gstr)
+		{
+		  cno = i;
+		  break;
+		}
+	    }
+	}
+    }
+	
+  if (cno < 0)
+    return;
+
+
+  SplineInformation si;
+  si = m_splineTF->getSpline();
+
+  QDomNodeList dlist = mlist.at(cno).childNodes();
+  for(int i=0; i<dlist.count(); i++)
+    {
+      QDomElement dnode = dlist.at(i).toElement();
+      if (dnode.tagName() == "points")
+	{
+	  QPolygonF points;
+	  QString str = dnode.toElement().text();
+	  QStringList strlist = str.split(" ", QString::SkipEmptyParts);
+	  for(int j=0; j<strlist.count()/2; j++)
+	    {
+	      float x,y;
+	      x = strlist[2*j].toFloat();
+	      y = strlist[2*j+1].toFloat();
+	      points << QPointF(x,y);
+	    }
+	  si.setPoints(points);
+	}
+      else if (dnode.tagName() == "normalwidths")
+	{
+	  QPolygonF normalWidths;
+	  QString str = dnode.toElement().text();
+	  QStringList strlist = str.split(" ", QString::SkipEmptyParts);
+	  for(int j=0; j<strlist.count()/2; j++)
+	    {
+	      float x,y;
+	      x = strlist[2*j].toFloat();
+	      y = strlist[2*j+1].toFloat();
+	      normalWidths << QPointF(x,y);
+	    }
+	  si.setNormalWidths(normalWidths);
+	}
+      else if (dnode.tagName() == "normalrotations")
+	{
+	  QVector<float> normalRotations;
+	  QString str = dnode.toElement().text();
+	  QStringList strlist = str.split(" ", QString::SkipEmptyParts);
+	  for(int j=0; j<strlist.count(); j++)
+	    normalRotations << strlist[j].toFloat();
+	  si.setNormalRotations(normalRotations);
+	}
+      else if (dnode.tagName() == "gradmodop")
+	{
+	  QString str = dnode.toElement().text();
+	  QStringList strlist = str.split(" ", QString::SkipEmptyParts);
+	  if (strlist.count() == 4)
+	    {
+	      int bot = strlist[0].toInt();
+	      int top = strlist[1].toInt();
+	      float botop = strlist[2].toFloat();
+	      float topop = strlist[3].toFloat();
+
+	      si.setGradLimits(bot, top);
+	      si.setOpmod(botop, topop);
+	    }
+	}
+    }
+
+  m_splineTF->setSpline(si);
+  emit splineChanged();
+}
+
+void
+SplineEditor::saveSpline()
+{
+  QString gname;
+  bool ok;
+  QString text;
+  text = QInputDialog::getText(this,
+			      "Save transfer function shape to library",
+			      "Name transfer function",
+			      QLineEdit::Normal,
+			      "",
+			      &ok);
+  
+  if (ok && !text.isEmpty())
+    gname = text;
+  else
+    {
+      QMessageBox::information(0, "Save transfer function shape to library",
+			       "Please specify name for the transfer function shape");
+      return;
+    }
+
+  QString homePath = QDir::homePath();
+  QFileInfo sfi(homePath, ".drishtigradients.xml");
+  QString stopsflnm = sfi.absoluteFilePath();
+  if (!sfi.exists())
+    return;
+
+  QDomDocument doc;
+  QFile f(stopsflnm);
+  if (f.open(QIODevice::ReadOnly))
+    {
+      doc.setContent(&f);
+      f.close();
+    }
+
+  //-------------------------------------------------
+  QDomElement de = doc.createElement("transferfunction");
+  QDomElement de0 = doc.createElement("name");
+  QDomText tn0 = doc.createTextNode(gname);
+
+  SplineInformation si = m_splineTF->getSpline();
+  QPolygonF points = si.points();
+  QPolygonF normalWidths = si.normalWidths();
+  QVector<float> normalRotations = si.normalRotations();
+  int gbot, gtop;
+  float gbotop, gtopop;
+  si.gradLimits(gbot, gtop);
+  si.opMod(gbotop, gtopop);
+  
+  
+
+  QString str;
+  // -- points
+  str.clear();
+  for(int i=0; i<points.count(); i++)
+    str += QString("%1 %2  ").arg(points[i].x()).arg(points[i].y());
+  QDomText tn1 = doc.createTextNode(str);
+
+  // -- normalWidths
+  str.clear();
+  for(int i=0; i<points.count(); i++)
+    str += QString("%1 %2  ").arg(normalWidths[i].x()).arg(normalWidths[i].y());
+  QDomText tn2 = doc.createTextNode(str);
+
+  // -- normalRotations
+  str.clear();
+  for(int i=0; i<points.count(); i++)
+    str += QString("%1 ").arg(normalRotations[i]);
+  QDomText tn3 = doc.createTextNode(str);
+  
+  // -- gradmodop
+  str.clear();
+  str += QString("%1 %2 %3 %4 ").\
+    arg(gbot).arg(gtop).arg(gbotop).arg(gtopop);
+  QDomText tn6 = doc.createTextNode(str);
+
+  QDomElement de1 = doc.createElement("points");
+  QDomElement de2 = doc.createElement("normalwidths");
+  QDomElement de3 = doc.createElement("normalrotations");
+  QDomElement de6 = doc.createElement("gradmodop");
+
+  de0.appendChild(tn0);
+  de1.appendChild(tn1);
+  de2.appendChild(tn2);
+  de3.appendChild(tn3);
+  de6.appendChild(tn6);
+
+  de.appendChild(de0);
+  de.appendChild(de1);
+  de.appendChild(de2);
+  de.appendChild(de3);
+  de.appendChild(de6);
+  //-------------------------------------------------
+
+  QDomElement topElement = doc.documentElement();
+
+  int replace = -1;
+  QDomNodeList dlist = topElement.childNodes();
+  for(int i=0; i<dlist.count(); i++)
+    {
+      if (dlist.at(i).nodeName() == "transferfunction")
+	{
+	  QDomNodeList cnode = dlist.at(i).childNodes();
+	  for(int j=0; j<cnode.count(); j++)
+	    {
+	      QDomElement dnode = cnode.at(j).toElement();
+	      if (dnode.nodeName() == "name" &&
+		  dnode.text() == gname)
+		{
+		  replace = i;
+		  break;
+		}
+	    }
+	}
+    }
+
+  if (replace >= 0)
+    {
+      QStringList items;
+      items << "Yes";
+      items << "No";
+      bool ok;
+      QString str;
+      str = QInputDialog::getItem(0,
+				  "Replace existing transfer function",
+				  QString("Replace %1").arg(gname),
+				  items,
+				  0,
+				  false, // text is not editable
+				  &ok);
+      if (!ok || str == "No")
+	return;
+
+      topElement.replaceChild(de, dlist.at(replace));
+    }
+  else
+    topElement.appendChild(de);
+
+
+  QFile fout(stopsflnm);
+  if (fout.open(QIODevice::WriteOnly))
+    {
+      QTextStream out(&fout);
+      doc.save(out, 2);
+      fout.close();
+    }
+
+  QMessageBox::information(0, "Save transfer function shape to library", "Saved");
+}
+

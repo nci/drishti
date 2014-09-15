@@ -574,7 +574,6 @@ Viewer::checkPointSelected(const QMouseEvent *event)
 {
   bool found;
   QPoint scr = event->pos();
-  //Vec target = camera()->pointUnderPixel(scr, found);
   Vec target = m_hiresVolume->pointUnderPixel(scr, found);
 
   if (found)
@@ -595,12 +594,28 @@ Viewer::checkPointSelected(const QMouseEvent *event)
 	    }
 	  else
 	    {
-	      if (GeometryObjects::paths()->continuousAdd())
-		GeometryObjects::paths()->addPoint(target);
+	      if (event->buttons() == Qt::RightButton) // change rotation pivot
+		{
+		  camera()->setRevolveAroundPoint(target);
+		  QMessageBox::information(0, "", "Rotation pivot changed.\n\nTo reset back to scene center just Shift+Right click in empty region on screen - that is do not Shift+Right click on volume or any widget.\n\nRotation pivot change has no effect on keyframe animation.");
+		}
 	      else
-		GeometryObjects::hitpoints()->add(target);
-	      carveHitPointOK = false;
+		{
+		  if (GeometryObjects::paths()->continuousAdd())
+		    GeometryObjects::paths()->addPoint(target);
+		  else
+		    GeometryObjects::hitpoints()->add(target);
+		  carveHitPointOK = false;
+		}
 	    }
+	}
+    }
+  else
+    {
+      if (event->buttons() == Qt::RightButton) // reset rotation pivot
+	{
+	  camera()->setRevolveAroundPoint(sceneCenter());
+	  QMessageBox::information(0, "", "Rotation pivot reset to scene center");
 	}
     }
 }
@@ -2621,7 +2636,6 @@ Viewer::mouseMoveEvent(QMouseEvent *event)
 	      return;
 	    }
 	  
-	  //target = camera()->pointUnderPixel(scr, found);
 	  target = m_hiresVolume->pointUnderPixel(scr, found);
 	}
     }
@@ -3326,6 +3340,7 @@ Viewer::init()
   setKeyDescription(Qt::Key_M, "Toggles transfer function morphing for keyframe animation");
   setKeyDescription(Qt::Key_C, "Add clip plane - clip plane always added at center");
 
+  setMouseBinding(Qt::SHIFT+Qt::RightButton, SELECT);
 
   glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
   //  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);

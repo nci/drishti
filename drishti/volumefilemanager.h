@@ -27,7 +27,7 @@ class VolumeFileManager
   QString fileName();
   bool exists();
 
-  void closeFile();
+  void closeQFile();
 
   void setFilenameList(QStringList);
   void setBaseFilename(QString);

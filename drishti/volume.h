@@ -25,6 +25,7 @@ class Volume : public QObject
 
   int pvlVoxelType(int);
 
+  void closePvlFileManager();
   VolumeFileManager* pvlFileManager(int);
   VolumeFileManager* gradFileManager(int);
   VolumeFileManager* lodFileManager(int);

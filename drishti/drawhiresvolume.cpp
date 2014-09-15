@@ -496,8 +496,7 @@ DrawHiresVolume::updateSubvolume(int volnum,
 
   postUpdateSubvolume(boxMin, boxMax);
 
-  if (m_Volume->pvlFileManager(volnum))
-    m_Volume->pvlFileManager(volnum)->closeFile();
+  m_Volume->closePvlFileManager();
 }
 
 void

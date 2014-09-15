@@ -1,5 +1,6 @@
 #include "volumefilemanager.h"
 #include <QProgressDialog>
+#include <QMessageBox>
 
 VolumeFileManager::VolumeFileManager()
 {
@@ -39,7 +40,7 @@ VolumeFileManager::reset()
     m_qfile.close();
 }
 
-void VolumeFileManager::closeFile()
+void VolumeFileManager::closeQFile()
 {
   if (m_qfile.isOpen())
     m_qfile.close();
@@ -240,7 +241,9 @@ VolumeFileManager::getSlice(int d)
       !m_qfile.isOpen() ||
       !m_qfile.isReadable())
     {
-      if (m_qfile.isOpen()) m_qfile.close();
+      if (m_qfile.isOpen())
+	m_qfile.close();
+
       m_qfile.setFileName(m_filename);
 
       // if we cannot open file in readwrite mode
@@ -250,7 +253,7 @@ VolumeFileManager::getSlice(int d)
     }
   m_qfile.seek((qint64)(m_header + (d-m_slabno*m_slabSize)*bps));
   m_qfile.read((char*)m_slice, bps);
-
+  
   return m_slice;
 }
 

@@ -973,10 +973,20 @@ MainWindow::loadProjectRunKeyframesAndExit()
 }
 
 void
-MainWindow::closeEvent(QCloseEvent *)
+MainWindow::closeEvent(QCloseEvent *event)
 {
   if (Global::batchMode()) // don't ask this extra stuff
     return;
+
+  int ok = QMessageBox::question(0, "Exit Drishti",
+				 QString("Do you really want to exit Drishti ?"),
+				 QMessageBox::Yes | QMessageBox::No);
+  if (ok == QMessageBox::No)
+    {
+      event->ignore();
+      return;
+    }
+
 
   Global::removeBackgroundTexture();
   Global::removeSpriteTexture();
@@ -989,7 +999,7 @@ MainWindow::closeEvent(QCloseEvent *)
       Global::volumeType() != Global::DummyVolume)
     {
       int ok = QMessageBox::question(0, "Exit Drishti",
-				     QString("Would you like to save project before quiting ?"),
+				     QString("Would you like to save project before quitting ?"),
 				     QMessageBox::Yes | QMessageBox::No);
       if (ok == QMessageBox::Yes)
 	on_actionSave_Project_triggered();
@@ -4185,12 +4195,6 @@ MainWindow::switchBB()
 void
 MainWindow::quitDrishti()
 {
-  int ok = QMessageBox::question(0, "Exit Drishti",
-				 QString("Sure ?"),
-				 QMessageBox::Yes | QMessageBox::No);
-  if (ok == QMessageBox::No)
-    return;
-
   close();
 }
 

@@ -80,6 +80,16 @@ Move an existing spline point horizontally.
 
 #begin
 (Plotting Interface) Spacebar
+Open transfer function shape library.
+#end
+
+#begin
+(Plotting Interface) s
+Save current transfer function shape setting to the library.
+#end
+
+#begin
+(Plotting Interface) o
 Toggle overlay values.
 #end
 

@@ -11,6 +11,7 @@
 #include <QFileDialog>
 #include <QInputDialog>
 
+void VolumeSingle::closePvlFileManager() { m_pvlFileManager.closeQFile(); }
 VolumeFileManager* VolumeSingle::pvlFileManager() { return &m_pvlFileManager; }
 VolumeFileManager* VolumeSingle::gradFileManager() { return &m_gradFileManager; }
 VolumeFileManager* VolumeSingle::lodFileManager() { return &m_lodFileManager; }
@@ -1129,8 +1130,15 @@ VolumeSingle::forMultipleVolumes(int svsl,
   m_texColumns = ncols;
   m_texRows = nrows;
 
+  int bpv = 1;
+  if (m_pvlVoxelType > 0) bpv = 2;
+
   if (m_sliceTexture) delete [] m_sliceTexture;
-  m_sliceTexture = new uchar[m_texWidth*m_texHeight];
+  m_sliceTexture = new uchar[bpv*m_texWidth*m_texHeight];
+
+  if (m_dragTexture) delete [] m_dragTexture;
+  m_dragTexture = new uchar[bpv*m_dragTexWidth*m_dragTexHeight];
+  memset(m_dragTexture, 0, bpv*m_dragTexWidth*m_dragTexHeight);
 }
 
 QList<Vec>
@@ -1190,6 +1198,7 @@ VolumeSingle::getSliceTextureSizeSlabs()
   if (m_dragTexture) delete [] m_dragTexture;
   m_dragTexture = new uchar[bpv*m_dragTexWidth*m_dragTexHeight];
   memset(m_dragTexture, 0, bpv*m_dragTexWidth*m_dragTexHeight);
+
 
   MainWindowUI::mainWindowUI()->menubar->parentWidget()->\
     setWindowTitle(QString("Drishti"));
@@ -1257,7 +1266,7 @@ VolumeSingle::saveSubsampledVolume()
       int kmin = kslc*m_subvolumeSubsamplingLevel;
       int kmax = kmin + m_subvolumeSubsamplingLevel-1;
 
-      QFileInfo fi(m_pvlFileManager.fileName());
+//      QFileInfo fi(m_pvlFileManager.fileName());
 //      MainWindowUI::mainWindowUI()->menubar->parentWidget()-> \
 //	setWindowTitle(QString("Drishti - (%1-%2) from %3").\
 //		       arg(kmin).arg(kmax).arg(fi.fileName()));
@@ -1405,7 +1414,7 @@ VolumeSingle::getSliceTextureSlab(int minz, int maxz)
 	      memset(m_sliceTemp, 0, kbytes);
 	    }
 
-	  QFileInfo fi(m_lodFileManager.fileName());
+//	  QFileInfo fi(m_lodFileManager.fileName());
 //	  MainWindowUI::mainWindowUI()->menubar->parentWidget()-> \
 //	    setWindowTitle(QString("Drishti - %1 from %2").arg(k).arg(fi.fileName()));
 
@@ -1541,6 +1550,7 @@ VolumeSingle::getSliceTextureSlab(int minz, int maxz)
     }
   //---------------------------------------------------------
 
+
   //---------------------------------------------------------
   //m_subvolumeSubsamplingLevel == 1
   //---------------------------------------------------------
@@ -1553,16 +1563,16 @@ VolumeSingle::getSliceTextureSlab(int minz, int maxz)
     {
       if (k >= 0 && k < m_depth)
 	{
-	  QFileInfo fi(m_pvlFileManager.fileName());
+//	  QFileInfo fi(m_pvlFileManager.fileName());
 //	  MainWindowUI::mainWindowUI()->menubar->parentWidget()->		\
 //	    setWindowTitle(QString("Drishti - %1 from %2").arg(k).arg(fi.fileName()));
 
 	  uchar *vslice = m_pvlFileManager.getSlice(k);
-	  memcpy(m_sliceTemp, vslice, bpv*m_width*m_height);
+	  memcpy(m_sliceTemp, vslice, nbytes);
 	}
       else
 	{
-	  memset(m_sliceTemp, 0, bpv*m_width*m_height);
+	  memset(m_sliceTemp, 0, nbytes);
 	}
 
       for(int j=0; j<leny2; j++)

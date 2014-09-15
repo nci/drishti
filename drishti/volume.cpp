@@ -19,6 +19,36 @@ Volume::pvlVoxelType(int vol)
 }
 
 
+void
+Volume::closePvlFileManager()
+{
+  if (Global::volumeType() == Global::DummyVolume ||
+      Global::volumeType() == Global::RGBVolume ||
+      Global::volumeType() == Global::RGBAVolume)
+    return;
+
+  if (Global::volumeType() == Global::SingleVolume)
+    m_volume[0]->closePvlFileManager();
+  else if (Global::volumeType() == Global::DoubleVolume)
+    {
+      m_volume[0]->closePvlFileManager();
+      m_volume[1]->closePvlFileManager();
+    }
+  else if (Global::volumeType() == Global::TripleVolume)
+    {
+      m_volume[0]->closePvlFileManager();
+      m_volume[1]->closePvlFileManager();
+      m_volume[2]->closePvlFileManager();
+    }
+  else if (Global::volumeType() == Global::QuadVolume)
+    {
+      m_volume[0]->closePvlFileManager();
+      m_volume[1]->closePvlFileManager();
+      m_volume[2]->closePvlFileManager();
+      m_volume[3]->closePvlFileManager();
+    }
+}
+
 VolumeFileManager*
 Volume::pvlFileManager(int vol)
 {

@@ -18,6 +18,7 @@ class VolumeSingle : public VolumeBase
   VolumeSingle();
   ~VolumeSingle();
 
+  void closePvlFileManager();
   VolumeFileManager* pvlFileManager();
   VolumeFileManager* gradFileManager();
   VolumeFileManager* lodFileManager();

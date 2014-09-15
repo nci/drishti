@@ -133,6 +133,9 @@ class SplineEditor : public QWidget
     QAction *save_transferfunction_image_action;
 
     void showHelp();
+
+    void askSplineChoice();
+    void saveSpline();
 };
 
 #endif

@@ -91,6 +91,7 @@ class DrawHiresVolume : public QObject
   }
 
  public slots :
+  void saveImage2Volume();
   void collectBrickInformation(bool force=false);
   void updateAndLoadPruneTexture();
   void updateAndLoadLightTexture();
@@ -251,6 +252,8 @@ class DrawHiresVolume : public QObject
   bool m_mixTag;
 
   float m_imgSizeRatio;
+
+  bool m_saveImage2Volume;
 
   void generateDragHistogramImage();
 

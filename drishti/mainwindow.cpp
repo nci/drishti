@@ -978,16 +978,6 @@ MainWindow::closeEvent(QCloseEvent *event)
   if (Global::batchMode()) // don't ask this extra stuff
     return;
 
-  int ok = QMessageBox::question(0, "Exit Drishti",
-				 QString("Do you really want to exit Drishti ?"),
-				 QMessageBox::Yes | QMessageBox::No);
-  if (ok == QMessageBox::No)
-    {
-      event->ignore();
-      return;
-    }
-
-
   Global::removeBackgroundTexture();
   Global::removeSpriteTexture();
   Global::removeSphereTexture();

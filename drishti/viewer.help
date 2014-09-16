@@ -12,6 +12,17 @@ Light sources are animatable.
 #end
 
 #begin
+image2volume
+image2volume
+Save the volume rendered image seen on the screen as a 3D volume.  Only the opacity part will be saved as volume.
+
+Volumetric data is constructed by saving opacity information for each slice used to create the final rendered image.  The voxel size for the generated volumetric data is decided by the stepsize (which determines the number of slices used to generate the final rendered image) and scaling of the image (ie. how close is camera to the scene).
+
+Users can merge multiple volumes, used bricks to translate/rotate/scale parts of data.  Essentially whatever you see on the screen will be saved in the 3D volume.
+
+#end
+
+#begin
 reslice
 reslice
 reslice [sampling] [tag]

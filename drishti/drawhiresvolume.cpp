@@ -19,6 +19,7 @@
 #include <QFileDialog>
 #include <QDataStream>
 
+void DrawHiresVolume::saveImage2Volume() { m_saveImage2Volume = true; }
 void DrawHiresVolume::disableSubvolumeUpdates() { m_updateSubvolume = false; }
 void DrawHiresVolume::enableSubvolumeUpdates() { m_updateSubvolume = true; }
 bool DrawHiresVolume::subvolumeUpdates() { return m_updateSubvolume; }
@@ -170,6 +171,8 @@ DrawHiresVolume::~DrawHiresVolume()
 void
 DrawHiresVolume::renew()
 {
+  m_saveImage2Volume = false;
+
   m_showing = true;
   m_forceBackToFront = false;
 
@@ -2407,7 +2410,7 @@ DrawHiresVolume::drawDefault(Vec pn,
 {
   glEnable(GL_DEPTH_TEST);
 
-  if (! m_forceBackToFront)
+  if (!m_forceBackToFront && !m_saveImage2Volume)
     {
       m_backlit = false; // going to render front to back
       glDepthFunc(GL_GEQUAL); // front to back rendering
@@ -2423,6 +2426,7 @@ DrawHiresVolume::drawDefault(Vec pn,
     }  
 
   if (m_Viewer->imageBuffer()->isBound() ||
+      m_saveImage2Volume ||
       m_useScreenShadows && !m_forceBackToFront)
     {
       if (! m_Viewer->imageBuffer()->isBound())
@@ -2725,6 +2729,41 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 
   int shadowRenderSteps = qMax(1, (int)(1.0/stepsize));
 
+
+
+  //----------------------------------
+  VolumeFileManager pFileManager;
+  QString pFile;
+  int img2vol_nslices, img2vol_wd, img2vol_ht;  
+  uchar *slice = 0;
+  if (m_saveImage2Volume)
+    {
+      img2vol_nslices = layers;
+      img2vol_wd = m_Viewer->camera()->screenWidth();
+      img2vol_ht = m_Viewer->camera()->screenHeight();
+      pFile = getResliceFileName();
+      if (pFile.isEmpty())
+	m_saveImage2Volume = false;
+      else
+	{
+	  Vec voxelScaling = Global::voxelScaling();
+	  Vec dmin = VECPRODUCT(m_dataMin, voxelScaling);
+	  Vec p0 = m_Viewer->camera()->projectedCoordinatesOf(dmin);
+	  Vec p1 = p0 + Vec(10,0,0);
+	  Vec drt = m_Viewer->camera()->unprojectedCoordinatesOf(p1);
+	  float dlen = (dmin-drt).norm();
+	  float depthres = 10*step.norm()/dlen;
+	  	  
+	  slice = new uchar[img2vol_wd*img2vol_ht];
+	  saveReslicedVolume(pFile,
+			     img2vol_nslices, img2vol_wd, img2vol_ht, pFileManager,
+			     false, Vec(1,1,depthres));
+	}
+    }
+  //----------------------------------
+
+
+
   Vec pnDir = step;
   if (m_backlit)
     pnDir = -step;
@@ -2861,8 +2900,25 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
   
 	} // not DummyVolume
       //------------------------------------------------------
+
+      if (m_saveImage2Volume)
+	{
+	  glReadPixels(0, 0, img2vol_wd, img2vol_ht, GL_ALPHA, GL_UNSIGNED_BYTE, slice);
+	  pFileManager.setSlice(s, slice);
+	  glClear(GL_COLOR_BUFFER_BIT);
+	  //glClear(GL_DEPTH_BUFFER_BIT);
+	}
     } // loop over s
 
+  if (m_saveImage2Volume)
+    {
+      pFileManager.closeQFile();
+      delete [] slice;
+      QMessageBox::information(0, "Saved Image to Volume",
+			       QString("image converted to 3D volume and saved to %1 and %1.001"). \
+			       arg(pFile));
+    }
+  m_saveImage2Volume = false;
 
   //------------------------------------------------------
   glUseProgramObjectARB(0);

@@ -3226,7 +3226,12 @@ Viewer::keyPressEvent(QKeyEvent *event)
 
   if (event->key() == Qt::Key_Escape)
     {
-      emit quitDrishti();
+      int ok = QMessageBox::question(0, "Exit Drishti",
+				     QString("Do you really want to exit Drishti ?"),
+				     QMessageBox::Yes | QMessageBox::No);
+      if (ok != QMessageBox::No)
+	emit quitDrishti();
+
       return;
     }
 
@@ -3450,6 +3455,11 @@ Viewer::processCommand(QString cmd)
       Global::setDepthcue(flag);
       MainWindowUI::mainWindowUI()->actionDepthcue->setChecked(Global::depthcue());
       updateGL();
+      return;
+    }
+  else if (list[0] == "image2volume")
+    {
+      m_hiresVolume->saveImage2Volume();
       return;
     }
   else if (list[0] == "fullscreen")

@@ -19,7 +19,12 @@
 #include <QFileDialog>
 #include <QDataStream>
 
-void DrawHiresVolume::saveImage2Volume() { m_saveImage2Volume = true; }
+void
+DrawHiresVolume::saveImage2Volume(QString pfile)
+{
+  m_image2VolumeFile = pfile;
+  m_saveImage2Volume = true;
+}
 void DrawHiresVolume::disableSubvolumeUpdates() { m_updateSubvolume = false; }
 void DrawHiresVolume::enableSubvolumeUpdates() { m_updateSubvolume = true; }
 bool DrawHiresVolume::subvolumeUpdates() { return m_updateSubvolume; }
@@ -2591,6 +2596,37 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
   glUseProgramObjectARB(m_defaultShader);
 
   //----------------------------------------------------------------
+
+  //----------------------------------
+  VolumeFileManager pFileManager;
+  int img2vol_nslices, img2vol_wd, img2vol_ht;  
+  uchar *slice = 0;
+  if (m_saveImage2Volume)
+    {
+      Vec voxelScaling = Global::voxelScaling();
+      Vec dmin = VECPRODUCT(m_dataMin, voxelScaling);
+      Vec p0 = m_Viewer->camera()->projectedCoordinatesOf(dmin);
+      Vec p1 = p0 + Vec(10,0,0);
+      Vec drt = m_Viewer->camera()->unprojectedCoordinatesOf(p1);
+      float dlen = (dmin-drt).norm();
+      float depthres = 10*step.norm()/dlen;
+
+      // modify layers and step
+      layers *= depthres;
+      step /= depthres;
+
+      img2vol_nslices = layers;
+      img2vol_wd = m_Viewer->camera()->screenWidth();
+      img2vol_ht = m_Viewer->camera()->screenHeight();
+
+      slice = new uchar[img2vol_wd*img2vol_ht];
+      saveReslicedVolume(m_image2VolumeFile,
+			 img2vol_nslices, img2vol_wd, img2vol_ht, pFileManager,
+			 false, Vec(1,1,1));
+    }
+  //----------------------------------
+
+
   QList<int> tfSet;
   QList<float> tfSetF;
 
@@ -2728,41 +2764,6 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
   ScreenXMax = ScreenYMax = 0;
 
   int shadowRenderSteps = qMax(1, (int)(1.0/stepsize));
-
-
-
-  //----------------------------------
-  VolumeFileManager pFileManager;
-  QString pFile;
-  int img2vol_nslices, img2vol_wd, img2vol_ht;  
-  uchar *slice = 0;
-  if (m_saveImage2Volume)
-    {
-      img2vol_nslices = layers;
-      img2vol_wd = m_Viewer->camera()->screenWidth();
-      img2vol_ht = m_Viewer->camera()->screenHeight();
-      pFile = getResliceFileName();
-      if (pFile.isEmpty())
-	m_saveImage2Volume = false;
-      else
-	{
-	  Vec voxelScaling = Global::voxelScaling();
-	  Vec dmin = VECPRODUCT(m_dataMin, voxelScaling);
-	  Vec p0 = m_Viewer->camera()->projectedCoordinatesOf(dmin);
-	  Vec p1 = p0 + Vec(10,0,0);
-	  Vec drt = m_Viewer->camera()->unprojectedCoordinatesOf(p1);
-	  float dlen = (dmin-drt).norm();
-	  float depthres = 10*step.norm()/dlen;
-	  	  
-	  slice = new uchar[img2vol_wd*img2vol_ht];
-	  saveReslicedVolume(pFile,
-			     img2vol_nslices, img2vol_wd, img2vol_ht, pFileManager,
-			     false, Vec(1,1,depthres));
-	}
-    }
-  //----------------------------------
-
-
 
   Vec pnDir = step;
   if (m_backlit)
@@ -2912,13 +2913,13 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 
   if (m_saveImage2Volume)
     {
+      m_saveImage2Volume = false;
       pFileManager.closeQFile();
       delete [] slice;
       QMessageBox::information(0, "Saved Image to Volume",
 			       QString("image converted to 3D volume and saved to %1 and %1.001"). \
-			       arg(pFile));
+			       arg(m_image2VolumeFile));
     }
-  m_saveImage2Volume = false;
 
   //------------------------------------------------------
   glUseProgramObjectARB(0);

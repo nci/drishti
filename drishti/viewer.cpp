@@ -3459,7 +3459,12 @@ Viewer::processCommand(QString cmd)
     }
   else if (list[0] == "image2volume")
     {
-      m_hiresVolume->saveImage2Volume();
+      QString pfile = m_hiresVolume->getResliceFileName();
+      if (! pfile.isEmpty())
+	{
+	  m_hiresVolume->saveImage2Volume(pfile);
+	  updateGL();
+	}
       return;
     }
   else if (list[0] == "fullscreen")

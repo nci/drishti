@@ -134,7 +134,7 @@ void Global::setFlipImageY(bool flag) { m_flipImageY = flag; }
 void Global::setFlipImageZ(bool flag) { m_flipImageZ = flag; }
 
 float Global::m_texSizeReduceFraction = 1.0f;
-void Global::setTexSizeReduceFraction(float rf) { m_texSizeReduceFraction = qBound(0.1f, rf, 1.0f); }
+void Global::setTexSizeReduceFraction(float rf) { m_texSizeReduceFraction = qBound(0.1f, rf, 2.0f); }
 float Global::texSizeReduceFraction() { return m_texSizeReduceFraction; }
 
 GLint
@@ -142,11 +142,13 @@ Global::max2dTextureSize()
 {
   GLint texSize;
   glGetIntegerv(GL_MAX_RECTANGLE_TEXTURE_SIZE_ARB, &texSize);
-#if defined(Q_OS_MAC) || defined(Q_OS_LINUX)
+
+ // restrict max 2D texturesize to 8K
   texSize = qMin(8192, texSize);
-#endif
-  //return texSize;
+
+  // but if the user wants to modify it, so be it
   return texSize*m_texSizeReduceFraction;
+  //return texSize;
 }
 
 int Global::m_textureSize = 25; // 512x256x256 (9+8+8)

@@ -91,7 +91,8 @@ class DrawHiresVolume : public QObject
   }
 
  public slots :
-  void saveImage2Volume();
+  QString getResliceFileName(bool border=false);
+  void saveImage2Volume(QString);
   void collectBrickInformation(bool force=false);
   void updateAndLoadPruneTexture();
   void updateAndLoadLightTexture();
@@ -253,6 +254,7 @@ class DrawHiresVolume : public QObject
 
   float m_imgSizeRatio;
 
+  QString m_image2VolumeFile;
   bool m_saveImage2Volume;
 
   void generateDragHistogramImage();
@@ -328,7 +330,6 @@ class DrawHiresVolume : public QObject
   void setRenderDefault();
 
   bool getSaveValue();
-  QString getResliceFileName(bool border=false);
   void saveReslicedVolume(QString,
 			  int, int, int, VolumeFileManager&,
 			  bool tmpfile=false, Vec vs=Vec(1,1,1));

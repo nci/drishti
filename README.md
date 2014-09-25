@@ -9,8 +9,26 @@ Latest News
     section. 
 
 ---------------------------------------------------------------------------
-27/July/2014
+25/Sept/2014
+   Version 2.5.1
+   Migration to glew-1.11.0
 
+Drishti
+   Fixed : active stereo which stopped working in 2.5 has been revived.
+   Fixed : multiple volumes and timeseries which stopped working in 2.5 have been fixed.
+   Fixed : different sized multiple volumes can be loaded without crash.  Previous restriction of having identical grid sizes for simultaneous multiple volume exploration has been removed.
+   Fixed : clipplanes displayed correctly under Brick-0 transforms.  Until previous version clipplanes did not reflect Brick-0 transform correctly.
+
+   Improved : addpathanimation
+
+   Added : image2volume command to save the image on screen as a 3d volume.  This extends the current reslice/rescale facility to reorient/resample the volume.  With image2volume, you can save the effects of brick transformation and multiple volumes into a single 3d volume.  For e.g. you would now be able to open up the volume (or multiple volumes) using bricks and save the result as a single volume.
+   Added : get/save transfer funcion shape from transfer function editor.  This works the same way as get/save colour-opacity gradients in transfer editor.  When in the transfer function shape/spine editor, press "s" to save current traansfer function shape with a name; press spacebar to load a named shape.
+  Added : .stl file save option for mesh generation.
+
+
+---------------------------------------------------------------------------
+27/July/2014
+    Version 2.5
     Migration to Qt-5.2.1 and libQGLViewer-2.5.1
 
 Drishti

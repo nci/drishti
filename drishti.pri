@@ -15,12 +15,12 @@ contains(Windows_Setup, Win32) {
       INCLUDEPATH += c:\Qt\5.2.1\include \
   	c:\Qt\libQGLViewer-2.5.1 \
   	c:\drishtilib \
-  	c:\drishtilib\glew-1.5.4\include
+  	c:\drishtilib\glew-1.11.0\include
   
       QMAKE_LIBDIR += c:\Qt\5.2.1\lib \
   	c:\Qt\libQGLViewer-2.5.1\lib \
   	c:\drishtilib\GL \
-  	c:\drishtilib\glew-1.5.4\lib
+  	c:\drishtilib\glew-1.11.0\lib\Release\Win32
     }
   
     contains(DRISHTI_DEFINES, IMPORT) {

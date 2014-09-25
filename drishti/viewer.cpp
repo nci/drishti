@@ -2150,8 +2150,10 @@ Viewer::fastDraw()
 
   grabBackBufferImage();
 
+#ifdef Q_OS_WIN32
   glInvalidateTexImage(m_imageBuffer->texture(), 0);
   glInvalidateTexImage(m_lowresBuffer->texture(), 0);
+#endif
 }
 
 void
@@ -2258,8 +2260,10 @@ Viewer::draw()
 
   grabBackBufferImage();
 
+#ifdef Q_OS_WIN32
   glInvalidateTexImage(m_imageBuffer->texture(), 0);
   glInvalidateTexImage(m_lowresBuffer->texture(), 0);
+#endif
 }
 
 void

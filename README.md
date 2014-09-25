@@ -21,8 +21,9 @@ Drishti
 
    Improved : addpathanimation
 
-   Added : image2volume command to save the image on screen as a 3d volume.  This extends the current reslice/rescale facility to reorient/resample the volume.  With image2volume, you can save the effects of brick transformation and multiple volumes into a single 3d volume.  For e.g. you would now be able to open up the volume (or multiple volumes) using bricks and save the result as a single volume.
-   Added : get/save transfer funcion shape from transfer function editor.  This works the same way as get/save colour-opacity gradients in transfer editor.  When in the transfer function shape/spine editor, press "s" to save current traansfer function shape with a name; press spacebar to load a named shape.
+   Added : image2volume command to save the image on screen as a 3d volume.  This extends the current reslice/rescale facility to reorient/resample the volume.  With image2volume, you can save the effects of brick transformation and multiple volumes into a single 3d volume.  For e.g. you would now be able to open up the volume (or multiple volumes) using bricks and save the result as a single volume. If you have perspective camera (which is default), you will get perspective distortion in the generated volume.  So if you don't want perspective distortion, then switch to orthographic camera before giving the image2volume command.
+
+   Added : get/save transfer funcion shape from transfer function editor.  This works the same way as get/save colour-opacity gradients in transfer editor.  When in the transfer function shape/spine editor, press "s" to save current transfer function shape with a name; press spacebar to load a named shape.
   Added : .stl file save option for mesh generation.
 
 

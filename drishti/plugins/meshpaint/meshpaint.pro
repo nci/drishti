@@ -35,7 +35,7 @@ win32 {
 	  QGLViewer2.lib \
 	  netcdfcpp-x64.lib \
 	  glut64.lib \
-	  glew64.lib \
+	  glew32.lib \
 	  glmedia.lib
  }
 }

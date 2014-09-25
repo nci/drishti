@@ -2149,6 +2149,9 @@ Viewer::fastDraw()
   Global::setPlayFrames(false);
 
   grabBackBufferImage();
+
+  glInvalidateTexImage(m_imageBuffer->texture(), 0);
+  glInvalidateTexImage(m_lowresBuffer->texture(), 0);
 }
 
 void
@@ -2254,6 +2257,9 @@ Viewer::draw()
   Global::setPlayFrames(false);
 
   grabBackBufferImage();
+
+  glInvalidateTexImage(m_imageBuffer->texture(), 0);
+  glInvalidateTexImage(m_lowresBuffer->texture(), 0);
 }
 
 void

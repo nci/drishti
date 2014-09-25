@@ -1277,6 +1277,11 @@ DrawHiresVolume::getClipForMask(QList<Vec> &clipPos,
 
   QList<bool> clippers;
   clippers = m_bricks->brickInformation(0).clippers;
+  if (clippers.count() < cpos.size())
+    {
+      for(int ci=clippers.count(); ci<cpos.size(); ci++)
+	clippers << false;
+    }
 
   for(int ci=0; ci<cpos.size(); ci++)
     {
@@ -1771,6 +1776,11 @@ DrawHiresVolume::draw(float stepsize,
 
   glEnable(GL_DEPTH_TEST);
   glActiveTexture(GL_TEXTURE0);
+
+  glInvalidateTexImage(m_slcTex[0], 0);
+  glInvalidateTexImage(m_slcTex[1], 0);
+  glInvalidateTexImage(m_shdTex[0], 0);
+  glInvalidateTexImage(m_shdTex[1], 0);
 }
 
 void
@@ -3271,8 +3281,13 @@ DrawHiresVolume::getSlices(Vec poStart,
 				 brickPivot, brickScale);
       tfSet.append(tfset);
 
+      // bclip and applyclip should have same number of clip planes
+      if (applyclip.count() > bclips.count())
+	for(int ci=bclips.count(); ci<applyclip.count(); ci++)
+	  bclips << false;
+
       // modify bclip to reflect applyclip
-      for(int ci=0; ci<bclips.count(); ci++)
+      for(int ci=0; ci<applyclip.count(); ci++)
 	bclips[ci] = bclips[ci] && applyclip[ci];
 
       clips.append(bclips);
@@ -5124,8 +5139,10 @@ DrawHiresVolume::resliceVolume(Vec pos,
 
   StaticFunctions::popOrthoView();
 
-  // restore shadow buffer
-  initShadowBuffers(true);
+  // delete shadow buffer
+  if (m_shadowBuffer)  delete m_shadowBuffer;
+  m_shadowBuffer = 0;
+  //initShadowBuffers(true);
 
   glEnable(GL_DEPTH_TEST);
 
@@ -5474,8 +5491,10 @@ DrawHiresVolume::resliceUsingPath(int pathIdx, bool fullThickness,
 
   StaticFunctions::popOrthoView();
 
-  // restore shadow buffer
-  initShadowBuffers(true);
+  // delete shadow buffer
+  if (m_shadowBuffer)  delete m_shadowBuffer;
+  m_shadowBuffer = 0;
+  //initShadowBuffers(true);
 
   glEnable(GL_DEPTH_TEST);
 
@@ -5762,8 +5781,10 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
 
   StaticFunctions::popOrthoView();
 
-  // restore shadow buffer
-  initShadowBuffers(true);
+  // delete shadow buffer
+  if (m_shadowBuffer)  delete m_shadowBuffer;
+  m_shadowBuffer = 0;
+  //  initShadowBuffers(true);
 
   glEnable(GL_DEPTH_TEST);
 

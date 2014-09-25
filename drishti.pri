@@ -55,13 +55,13 @@ contains(Windows_Setup, Win64) {
   	c:\Qt\libQGLViewer-2.5.1 \
   	c:\cygwin\home\acl900\drishtilib \
   	c:\cygwin\home\acl900\drishtilib\GL\glut-3.7.6\include \
-   	c:\cygwin\home\acl900\drishtilib\glew-1.5.4\include
+ 	c:\cygwin\home\acl900\drishtilib\glew-1.11.0\include
   
       QMAKE_LIBDIR += c:\Qt\5.2.1\lib \
   	c:\Qt\libQGLViewer-2.5.1\lib \
   	c:\cygwin\home\acl900\drishtilib\GL \
   	c:\cygwin\home\acl900\drishtilib\GL\glut-3.7.6\lib\glut\Release \
-  	c:\cygwin\home\acl900\drishtilib\glew-1.5.4\lib
+	c:\cygwin\home\acl900\drishtilib\glew-1.11.0\lib\Release\x64
     }
   
     contains(DRISHTI_DEFINES, IMPORT) {

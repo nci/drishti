@@ -17,25 +17,22 @@ FORMS += ../../propertyeditor.ui
 win32 {
   DESTDIR = ../../../bin/renderplugins
 
+  LIBS += common.lib \
+	  QGLViewer2.lib \
+	  glew32.lib \
+	  glmedia.lib
+
  contains(Windows_Setup, Win32) {
   INCLUDEPATH += ../../ ..\..\..\glmedia
   QMAKE_LIBDIR += ..\common ..\..\..\glmedia
-  LIBS += common.lib \
-	  QGLViewer2.lib \
-	  netcdf.lib \
-	  glew32.lib \
-	  glmedia.lib
+  LIBS += netcdf.lib
  }
 
  contains(Windows_Setup, Win64) {
   INCLUDEPATH += ../../ ..\..\..\glmedia-64
   QMAKE_LIBDIR += ..\common ..\..\..\glmedia-64
-  LIBS += common.lib \
-	  QGLViewer2.lib \
-	  netcdfcpp-x64.lib \
-	  glut64.lib \
-	  glew64.lib \
-	  glmedia.lib
+  LIBS += netcdfcpp-x64.lib \
+	  glut64.lib
  }
 }
 

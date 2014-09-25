@@ -28,7 +28,7 @@ win32 {
   QMAKE_LIBDIR += ..\..\..\glmedia-64
   LIBS += QGLViewer2.lib \
 	  netcdfcpp-x64.lib \
-	  glew64.lib \
+	  glew32.lib \
 	  glmedia.lib
  }
 }

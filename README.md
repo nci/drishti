@@ -25,7 +25,7 @@ Drishti
 
    Added : get/save transfer funcion shape from transfer function editor.  This works the same way as get/save colour-opacity gradients in transfer editor.  When in the transfer function shape/spine editor, press "s" to save current transfer function shape with a name; press spacebar to load a named shape.
   Added : .stl file save option for mesh generation.
-
+  Added : Shift+Right mouse click to change rotation pivot.  Normally the rotation pivot is at the center of the volume.  To change that Shift+Right mouse click on the desired point to set that point as the new rotation pivot.  Rotation pivot can be on any geometry or volume.  To reset the rotation pivot, Shift+Right click on empty region on screen.
 
 ---------------------------------------------------------------------------
 27/July/2014

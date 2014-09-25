@@ -1045,6 +1045,15 @@ Center object.
 #end
 
 #begin
+Mouse Shift+Right click
+Change rotation pivot.
+Normally the rotation pivot is at the center of the volume.  To change that Shift+Right mouse click on the desired point to set that point as the new rotation pivot.  Rotation pivot can be on any geometry or volume.
+
+To reset the rotation pivot, Shift+Right click on empty region on screen.
+
+#end
+
+#begin
 Mouse left + middle drag
 Rotate object about the axis perpendicular to the screen.
 #end

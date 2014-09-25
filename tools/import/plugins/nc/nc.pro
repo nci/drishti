@@ -1,6 +1,6 @@
 TEMPLATE = lib
 
-DRISHTI_DEFINES = NETCDF
+DRISHTI_DEFINES = IMPORT
 include(../../../../drishti.pri )
 
 CONFIG += release plugin

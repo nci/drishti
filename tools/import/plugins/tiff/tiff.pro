@@ -1,6 +1,6 @@
 TEMPLATE = lib
 
-DRISHTI_DEFINES = TIFF
+DRISHTI_DEFINES = IMPORT
 include(../../../../drishti.pri )
 
 CONFIG += release plugin

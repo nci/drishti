@@ -1777,12 +1777,12 @@ DrawHiresVolume::draw(float stepsize,
   glEnable(GL_DEPTH_TEST);
   glActiveTexture(GL_TEXTURE0);
 
-#ifdef Q_OS_WIN32
-  glInvalidateTexImage(m_slcTex[0], 0);
-  glInvalidateTexImage(m_slcTex[1], 0);
-  glInvalidateTexImage(m_shdTex[0], 0);
-  glInvalidateTexImage(m_shdTex[1], 0);
-#endif
+//#ifdef Q_OS_WIN32
+//  glInvalidateTexImage(m_slcTex[0], 0);
+//  glInvalidateTexImage(m_slcTex[1], 0);
+//  glInvalidateTexImage(m_shdTex[0], 0);
+//  glInvalidateTexImage(m_shdTex[1], 0);
+//#endif
 }
 
 void

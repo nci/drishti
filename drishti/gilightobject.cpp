@@ -849,14 +849,15 @@ GiLightObject::drawLines(QGLViewer *viewer,
       glEnable(GL_POINT_SPRITE);
       glActiveTexture(GL_TEXTURE0);
       glEnable(GL_TEXTURE_2D);
-      glBindTexture(GL_TEXTURE_2D, Global::spriteTexture());
+      //glBindTexture(GL_TEXTURE_2D, Global::spriteTexture());
+      glBindTexture(GL_TEXTURE_2D, Global::lightTexture());
       glTexEnvf(GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE );
       glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
       glHint(GL_POINT_SMOOTH_HINT, GL_NICEST);
       glEnable(GL_POINT_SMOOTH);
 
       Vec voxelScaling = Global::voxelScaling();
-      glPointSize(20);
+      glPointSize(50);
       if (m_lightType == 1)
 	{ // draw only first point
 	  glBegin(GL_POINTS);
@@ -880,7 +881,7 @@ GiLightObject::drawLines(QGLViewer *viewer,
 	{
 	  glColor3f(1,0,0);
 	  Vec voxelScaling = Global::voxelScaling();
-	  glPointSize(25);
+	  glPointSize(75);
 	  glBegin(GL_POINTS);
 	  Vec pt = VECPRODUCT(m_points[m_pointPressed], voxelScaling);
 	  glVertex3fv(pt);

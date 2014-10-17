@@ -428,6 +428,39 @@ void Global::setDoodleMask(uchar *dm, int sz)
 }
 
 
+GLuint Global::m_lightTexture = 0;
+void Global::removeLightTexture()
+{
+  if (m_lightTexture)
+    glDeleteTextures( 1, &m_lightTexture );
+  m_lightTexture = 0;
+}
+GLuint Global::lightTexture()
+{
+  if (m_lightTexture)
+    return m_lightTexture;
+
+  glGenTextures( 1, &m_lightTexture );
+
+  QImage info(":/images/light.png");
+  int texsize = info.height();
+  glEnable(GL_TEXTURE_2D);
+  glBindTexture(GL_TEXTURE_2D, m_lightTexture);
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+	       texsize, texsize, 0,
+	       GL_BGRA, GL_UNSIGNED_BYTE,
+	       info.bits());
+  glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
+  glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+
+  return m_lightTexture;
+}
+
 GLuint Global::m_spriteTexture = 0;
 void Global::removeSpriteTexture()
 {

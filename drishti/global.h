@@ -222,6 +222,9 @@ class Global
   static GLuint spriteTexture();
   static void removeSpriteTexture();
 
+  static GLuint lightTexture();
+  static void removeLightTexture();
+
   static GLuint hollowSpriteTexture();
   static void removeHollowSpriteTexture();
 
@@ -338,6 +341,7 @@ class Global
   static uchar *m_doodleMask;
 
   static GLuint m_spriteTexture;
+  static GLuint m_lightTexture;
   static GLuint m_hollowSpriteTexture;
   static GLuint m_infoSpriteTexture;
   static GLuint m_boxTexture;

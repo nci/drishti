@@ -1306,7 +1306,7 @@ LightHandler::updateEmissiveBuffer(float ldecay)
   glUniform1iARB(m_emisParm[2], m_gridy); // gridy
   glUniform1iARB(m_emisParm[3], m_gridz); // gridz
   glUniform1iARB(m_emisParm[5], m_ncols); // ncols
-  glUniform1fARB(m_emisParm[6], ldecay); // light falloff
+  glUniform1fARB(m_emisParm[6], qPow(ldecay, 0.25f)); // light falloff
   
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_lightBuffer);
   glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
@@ -2400,7 +2400,7 @@ LightHandler::openPropertyEditor()
   vlist << QVariant("int");
   vlist << QVariant(m_emisTimes);
   vlist << QVariant(1);
-  vlist << QVariant(30);
+  vlist << QVariant(100);
   plist["emis smoothing"] = vlist;
 
   vlist.clear();

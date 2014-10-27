@@ -1,7 +1,7 @@
 drishti
 =======
 
-[**Wiki**](https://github.com/AjayLimaye/drishti/wiki)
+[**Releases and Documentation**](https://github.com/AjayLimaye/drishti/wiki)
 
 Latest News
 

@@ -3747,6 +3747,18 @@ DrawHiresVolume::drawClipPlaneInViewport(int clipOffset, Vec lpos, float depthcu
   if (! GeometryObjects::clipplanes()->viewportsVisible())
     return; // no clipplane to render in a viewport
 
+  // --------------------------------
+  // draw viewport borders
+  disableTextureUnits();  
+  glUseProgramObjectARB(0);  
+  //glDisable(GL_DEPTH_TEST);
+  GeometryObjects::clipplanes()->drawViewportBorders(m_Viewer);
+
+  enableTextureUnits();
+  glUseProgramObjectARB(m_defaultShader);
+  glEnable(GL_DEPTH_TEST);
+  // --------------------------------
+
   int slabstart, slabend;
   slabstart = 1;
   slabend = m_dataTexSize;
@@ -3910,14 +3922,16 @@ DrawHiresVolume::drawClipPlaneInViewport(int clipOffset, Vec lpos, float depthcu
 	  eqn[0] = -m_clipNormal[ic].x;
 	  eqn[1] = -m_clipNormal[ic].y;
 	  eqn[2] = -m_clipNormal[ic].z;
-	  eqn[3] = m_clipNormal[ic]*(cpos+m_clipNormal[ic]*(clipInfo.thickness[ic]+0.5));
+	  //eqn[3] = m_clipNormal[ic]*(cpos+m_clipNormal[ic]*(clipInfo.thickness[ic]+0.5));
+	  eqn[3] = m_clipNormal[ic]*(cpos+m_clipNormal[ic]*(clipInfo.thickness[ic]+1.5));
 	  glEnable(GL_CLIP_PLANE0);
 	  glClipPlane(GL_CLIP_PLANE0, eqn);
 
 	  eqn[0] = m_clipNormal[ic].x;
 	  eqn[1] = m_clipNormal[ic].y;
 	  eqn[2] = m_clipNormal[ic].z;
-	  eqn[3] = -m_clipNormal[ic]*(cpos-m_clipNormal[ic]*(clipInfo.thickness[ic]+0.5));
+	  //eqn[3] = -m_clipNormal[ic]*(cpos-m_clipNormal[ic]*(clipInfo.thickness[ic]+0.5));
+	  eqn[3] = -m_clipNormal[ic]*(cpos-m_clipNormal[ic]*(clipInfo.thickness[ic]+1.5));
 	  glEnable(GL_CLIP_PLANE1);
 	  glClipPlane(GL_CLIP_PLANE1, eqn);      
 
@@ -3952,13 +3966,13 @@ DrawHiresVolume::drawClipPlaneInViewport(int clipOffset, Vec lpos, float depthcu
   loadCameraMatrices();
   glViewport(0,0, ow, oh); 
 
-  // --------------------------------
-  // draw viewport borders
-  disableTextureUnits();  
-  glUseProgramObjectARB(0);  
-  glDisable(GL_DEPTH_TEST);
-
-  GeometryObjects::clipplanes()->drawViewportBorders(m_Viewer);
+//  // --------------------------------
+//  // draw viewport borders
+//  disableTextureUnits();  
+//  glUseProgramObjectARB(0);  
+//  glDisable(GL_DEPTH_TEST);
+//
+//  GeometryObjects::clipplanes()->drawViewportBorders(m_Viewer);
 
   enableTextureUnits();
   glUseProgramObjectARB(m_defaultShader);

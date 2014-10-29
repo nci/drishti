@@ -7,6 +7,8 @@
 #include <QGLViewer/qglviewer.h>
 using namespace qglviewer;
 
+#include <QSpinBox>
+
 #include "drawhiresvolume.h"
 #include "drawlowresvolume.h"
 #include "keyframe.h"
@@ -75,6 +77,7 @@ class Viewer : public QGLViewer
 
   void setUseFBO(bool);
  public slots :
+  void setTag(int);
   void updateLightBuffers();
   void displayMessage(QString, bool);
   void showFullScene();
@@ -227,6 +230,8 @@ class Viewer : public QGLViewer
   QUdpSocket *m_listeningSocket;
   int m_socketPort;
 
+  QSpinBox *m_tagSpinBox;
+
   void initSocket();
   void processSocketData(QString);
 
@@ -269,7 +274,7 @@ class Viewer : public QGLViewer
   void handleMorphologicalOperations(QStringList);
   void drawCarveCircle();
 
-  Vec checkPointSelectedInViewport(int, QPoint);
+  Vec checkPointSelectedInViewport(int, QPoint, bool&);
 
   Vec setViewportCamera(int, Camera&);
   bool mousePressEventInViewport(int, QMouseEvent*);

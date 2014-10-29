@@ -20,6 +20,7 @@ class PreferencesWidget : public QWidget
   void updateGL();
   void stereoSettings(float, float, float);
   void tagColorChanged();
+  void tagClicked(int);
 
  public slots :
   void changeStill(int);

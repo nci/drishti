@@ -14,6 +14,7 @@ class TagColorEditor : public QWidget
 
  signals :
     void tagColorChanged();
+    void tagClicked(int);
 
  public slots :
     void setColors();
@@ -22,6 +23,7 @@ class TagColorEditor : public QWidget
 
  private slots :
     void itemChanged(QTableWidgetItem*);
+    void tagClicked(int, int);
    
  private:
     void createGUI();

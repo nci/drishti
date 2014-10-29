@@ -862,8 +862,11 @@ Users can also get stereo-like results by switching to red-cyan/blue anaglyph mo
 
 #begin
 t
-Add captions.
-Once the captions are added, they can be edited, moved and animated. Hover over a caption to activate it and press spacebar to edit it.
+Add captions or toggle Tag Selector box.
+
+When mouse cursor is in a clip plane viewport or user is in paint mode, pressing t will toggle the Tag Selector box.  Users can change current tag value via this box.
+
+When mouse cursor is not in a clip plane viewport or user is not in paint mode then t will add captions.  It will pop up a caption dialog to input the caption details.  Once the captions are added, they can be edited, moved and animated. Hover over a caption to activate it and press spacebar to edit it.
 Users can display frame number - $#f, time step number in volume - $#v[0-3] or interpolated values - $n(value),  within caption.
 
 Example :

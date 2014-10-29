@@ -97,6 +97,7 @@ Viewer::closeEvent(QCloseEvent *event)
 
 unsigned char* Viewer::lookupTable() { return m_lut; }
 
+void Viewer::setTag(int t) { PruneHandler::setTag(t); updateGL(); }
 void Viewer::setVolume(Volume *vol) { m_Volume = vol; }
 void Viewer::setHiresVolume(DrawHiresVolume *vol) { m_hiresVolume = vol; }
 void Viewer::setLowresVolume(DrawLowresVolume *vol) { m_lowresVolume = vol; }
@@ -529,6 +530,16 @@ Viewer::Viewer(QWidget *parent) :
   setSnapshotQuality(100); // save uncompressed files
 
   initSocket();
+
+  m_tagSpinBox = new QSpinBox(this);
+  m_tagSpinBox->setRange(0, 200);
+  m_tagSpinBox->setValue(0);
+  m_tagSpinBox->setFont(QFont("Helvetica", 20));
+  m_tagSpinBox->setWindowFlags(Qt::Dialog | Qt::CustomizeWindowHint | Qt::WindowTitleHint);
+  m_tagSpinBox->setWindowTitle("Tag Selector");
+  connect(m_tagSpinBox, SIGNAL(valueChanged(int)),
+	  this, SLOT(setTag(int)));
+  m_tagSpinBox->hide();
 }
 
 void
@@ -574,25 +585,45 @@ Viewer::checkPointSelected(const QMouseEvent *event)
 {
   bool found;
   QPoint scr = event->pos();
+  int ow = camera()->screenWidth();
+  int oh = camera()->screenHeight();
+  int ic = GeometryObjects::clipplanes()->inViewport(scr.x(), scr.y(),
+						     ow, oh);
+  if (ic >= 0) // point selected is in a viewport
+    {
+      Vec target = checkPointSelectedInViewport(ic, scr, found);
+      if (found)
+	{
+	  if (!PruneHandler::carve() && !PruneHandler::paint())
+	    {
+	      if (GeometryObjects::paths()->continuousAdd())
+		GeometryObjects::paths()->addPoint(target);
+	      else
+		GeometryObjects::hitpoints()->add(target);  
+	    }
+	}
+      return;
+    }
+
   Vec target = m_hiresVolume->pointUnderPixel(scr, found);
 
   if (found)
     {
       if (!PruneHandler::carve() && !PruneHandler::paint())
 	{
-	  int ow = camera()->screenWidth();
-	  int oh = camera()->screenHeight();
-	  int ic = GeometryObjects::clipplanes()->inViewport(scr.x(), scr.y(),
-							     ow, oh);
-	  if (ic >= 0) // point selected is in a viewport
-	    {
-	      target = checkPointSelectedInViewport(ic, scr);
-	      if (GeometryObjects::paths()->continuousAdd())
-		GeometryObjects::paths()->addPoint(target);
-	      else
-		GeometryObjects::hitpoints()->add(target);  
-	    }
-	  else
+//	  int ow = camera()->screenWidth();
+//	  int oh = camera()->screenHeight();
+//	  int ic = GeometryObjects::clipplanes()->inViewport(scr.x(), scr.y(),
+//							     ow, oh);
+//	  if (ic >= 0) // point selected is in a viewport
+//	    {
+//	      target = checkPointSelectedInViewport(ic, scr);
+//	      if (GeometryObjects::paths()->continuousAdd())
+//		GeometryObjects::paths()->addPoint(target);
+//	      else
+//		GeometryObjects::hitpoints()->add(target);  
+//	    }
+//	  else
 	    {
 	      if (event->buttons() == Qt::RightButton) // change rotation pivot
 		{
@@ -621,7 +652,7 @@ Viewer::checkPointSelected(const QMouseEvent *event)
 }
 
 Vec
-Viewer::checkPointSelectedInViewport(int ic, QPoint screenPt)
+Viewer::checkPointSelectedInViewport(int ic, QPoint screenPt, bool &found)
 {
   Vec voxelScaling = Global::voxelScaling();
 
@@ -644,34 +675,60 @@ Viewer::checkPointSelectedInViewport(int ic, QPoint screenPt)
   vw = vp.z()*ow;
   vh = vp.w()*oh;
 
-  //----------------
-  Camera clipCam;
-  clipCam = *camera();
-  clipCam.setOrientation(clipInfo.rot[ic]);	  
-  Vec cpos = VECPRODUCT(clipInfo.pos[ic], voxelScaling);
-  cpos = cpos -
-    clipCam.viewDirection()*sceneRadius()*2*(1.0/viewportScale[ic]);
-  clipCam.setPosition(cpos);
-  clipCam.setScreenWidthAndHeight(vw, vh);
-  clipCam.loadProjectionMatrix(true);
-  clipCam.loadModelViewMatrix(true);
-  //----------------
 
-  float depth;
-  glReadPixels(screenPt.x(), oh-1-screenPt.y(),
-	       1, 1,
-	       GL_DEPTH_COMPONENT, GL_FLOAT,
-	       &depth);
-  //bool found;
-  //found = depth < 1.0;
-
-  Vec pt = Vec((screenPt.x()-vx), // scale coordinates accordingly
-	       (screenPt.y()-(oh-vh-vy)), // scale coordinates accordingly
-	       depth);
-
-  Vec target = clipCam.unprojectedCoordinatesOf(pt);
-
-  return target;
+  // we get more accurate hit when considering only a single slice
+  if (clipInfo.thickness[ic] == 0)
+    { 
+      float camar = (float)ow/(float)oh;
+      Vec cpos = VECPRODUCT(clipInfo.pos[ic], voxelScaling);
+      float aspectRatio = vp.z()/vp.w(); 
+      float cdist = 2*sceneRadius()/viewportScale[ic]; 
+      float fov = camera()->fieldOfView(); 
+      float yn = cdist*tan(fov*0.5); 
+      float xn = yn*aspectRatio*camar; 
+      float xfrc = (float)(screenPt.x()-vx)/(float)vw;
+      float yfrc = (float)(screenPt.y()-(oh-vh-vy))/(float)vh;
+      xfrc = 2*xfrc - 1;
+      yfrc = 1 - 2*yfrc;
+      Vec target = cpos + xfrc*xn*cxaxis[ic] + yfrc*yn*cyaxis[ic];
+      found = true;
+      return target;
+    }
+  else // otherwise we have to interrogate depth buffer to get the point
+    {
+      //----------------
+      Camera clipCam;
+      clipCam = *camera();
+      clipCam.setOrientation(clipInfo.rot[ic]);	  
+      Vec cpos = VECPRODUCT(clipInfo.pos[ic], voxelScaling);
+      cpos = cpos -
+	clipCam.viewDirection()*sceneRadius()*2*(1.0/viewportScale[ic]);
+      clipCam.setPosition(cpos);
+      clipCam.setScreenWidthAndHeight(vw, vh);
+      clipCam.loadProjectionMatrix(true);
+      clipCam.loadModelViewMatrix(true);
+      //----------------
+      
+      float depth;
+      glReadPixels(screenPt.x(), oh-1-screenPt.y(),
+		   1, 1,
+		   GL_DEPTH_COMPONENT, GL_FLOAT,
+		   &depth);
+      found = depth < 1.0;
+      
+      if (depth < 1.0)
+	{     
+	  Vec pt = Vec((screenPt.x()-vx), // scale coordinates accordingly
+		       (screenPt.y()-(oh-vh-vy)), // scale coordinates accordingly
+		       depth);
+	  
+	  Vec target = clipCam.unprojectedCoordinatesOf(pt);
+      
+	  return target;
+	}
+      else
+	return Vec(-1000000, -1000000,-1000000);
+    }
 }
 
 Viewer::~Viewer()
@@ -2407,6 +2464,10 @@ Viewer::setViewportCamera(int ic, Camera& clipCam)
 bool
 Viewer::mousePressEventInViewport(int ic, QMouseEvent *event)
 {
+  // do not check for grab if Shift is pressed
+  if (event->modifiers() & Qt::ShiftModifier)
+    return false;
+
   GLint ovp[4];
   camera()->getViewport(ovp);
 
@@ -2441,6 +2502,10 @@ Viewer::mousePressEventInViewport(int ic, QMouseEvent *event)
 bool
 Viewer::mouseMoveEventInViewport(int ic, QMouseEvent *event)
 {
+  // do not check for grab if Shift is pressed
+  if (event->modifiers() & Qt::ShiftModifier)
+    return false;
+
   GLint ovp[4];
   camera()->getViewport(ovp);
 
@@ -2454,6 +2519,7 @@ Viewer::mouseMoveEventInViewport(int ic, QMouseEvent *event)
   int sx = scr.x()-cp.x;
   int sy = cp.y+cp.z+scr.y()-oh;
   MouseGrabber *mg = GeometryObjects::checkIfGrabsMouse(sx, sy, &clipCam);
+
   if (mg)
     {
       // send modified cursor position for mouse events in viewport
@@ -2473,7 +2539,18 @@ Viewer::mouseMoveEventInViewport(int ic, QMouseEvent *event)
       return true;
     }
   glViewport(ovp[0], ovp[1], ovp[2], ovp[3]);
-  return false;
+
+  // don't pass the event any further if Shift is pressed
+  // and either of carve or paint are active
+  if (event->modifiers() & Qt::ShiftModifier)
+    {
+      if (!PruneHandler::carve() && !PruneHandler::paint())
+	return true;
+      else
+	return false;
+    }
+  else
+    return false;
 }
 
 bool
@@ -2633,8 +2710,8 @@ Viewer::mouseMoveEvent(QMouseEvent *event)
 	{
 	  if (mouseButtonPressed)
 	    {
-	      target = checkPointSelectedInViewport(ic, scr);
-	      found = true;
+	      target = checkPointSelectedInViewport(ic, scr, found);
+	      //found = true;
 	    }
 	}
       else
@@ -2964,7 +3041,21 @@ Viewer::keyPressEvent(QKeyEvent *event)
       if (ic >= 0)
 	{
 	  bool flag = false;
-
+	  
+	  if (event->key() == Qt::Key_T)
+	    {
+	      if (m_tagSpinBox->isVisible())
+		m_tagSpinBox->hide();
+	      else
+		{ 
+		  QPoint cur = QCursor::pos();
+		  m_tagSpinBox->setGeometry(cur.x(), cur.y(),
+					    m_tagSpinBox->width(),
+					    m_tagSpinBox->height());
+		  m_tagSpinBox->show();
+		}
+	      return;
+	    }
 	  if (event->key() == Qt::Key_Delete ||
 	      event->key() == Qt::Key_Space)
 	    { 
@@ -3113,6 +3204,7 @@ Viewer::keyPressEvent(QKeyEvent *event)
 	      PruneHandler::setCarveRad(r,d);
 	      t = qBound(0, t, 255);
 	      PruneHandler::setTag(t);
+	      m_tagSpinBox->setValue(t);
 	      updateGL();
 	      return;
 	    }
@@ -3183,6 +3275,21 @@ Viewer::keyPressEvent(QKeyEvent *event)
 
       if (event->key() == Qt::Key_T)
 	{
+	  if (PruneHandler::paint())
+	    {
+	      if (m_tagSpinBox->isVisible())
+		m_tagSpinBox->hide();
+	      else
+		{ 
+		  QPoint cur = QCursor::pos();
+		  m_tagSpinBox->setGeometry(cur.x(), cur.y(),
+					    m_tagSpinBox->width(),
+					    m_tagSpinBox->height());
+		  m_tagSpinBox->show();
+		}
+	      return;
+	    }
+
 	  CaptionDialog cd(0,
 			   "Caption",
 			   QFont("Helvetica", 15),

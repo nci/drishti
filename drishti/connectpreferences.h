@@ -4,6 +4,9 @@
     connect(m_preferencesWidget, SIGNAL(updateGL()),
 	    m_Viewer, SLOT(update()));
 
+    connect(m_preferencesWidget, SIGNAL(tagClicked(int)),
+	    m_Viewer, SLOT(setTag(int)));
+
     connect(m_preferencesWidget, SIGNAL(updateLookupTable()),
 	    m_Viewer, SLOT(updateLookupTable()));
 

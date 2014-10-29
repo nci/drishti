@@ -91,6 +91,16 @@ TagColorEditor::createGUI()
   
   connect(table, SIGNAL(itemChanged(QTableWidgetItem*)),
 	  this, SLOT(itemChanged(QTableWidgetItem*)));
+
+  connect(table, SIGNAL(cellClicked(int, int)),
+	  this, SLOT(tagClicked(int, int)));
+}
+
+void
+TagColorEditor::tagClicked(int row, int colm)
+{
+  if (colm == 0)
+    emit tagClicked(row+1);
 }
 
 void

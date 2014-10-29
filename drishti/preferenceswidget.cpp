@@ -41,6 +41,9 @@ PreferencesWidget::PreferencesWidget(QWidget *parent) :
   connect(m_tagColorEditor, SIGNAL(tagColorChanged()),
 	  this, SIGNAL(updateGL()));
 
+  connect(m_tagColorEditor, SIGNAL(tagClicked(int)),
+	  this, SIGNAL(tagClicked(int)));
+
   updateTextureMemory();
 }
 

@@ -121,10 +121,12 @@ class PruneHandler
 		       QList<Vec>,
 		       float rad = -1.0f, float decay = -1.0f,
 		       int tag=-1);
-    static void setCarveRad(float, float);
+    static void setCarveRad(float, float decay = -10.0f);
     static void carveRad(float&, float&);
     static void setPlanarCarve(Vec cp=Vec(0,0,0),
 			       Vec cn=Vec(0,0,0),
+			       Vec cx=Vec(0,0,0),
+			       Vec cy=Vec(0,0,0),
 			       float ct=1.0f,
 			       Vec dmin=Vec(0,0,0));
 
@@ -156,7 +158,7 @@ class PruneHandler
     static bool m_carveActive;
     static float m_carveRadius;
     static float m_carveDecay;
-    static Vec m_carveP, m_carveN;
+    static Vec m_carveP, m_carveN, m_carveX, m_carveY;
     static float m_carveT;
 
     static GLuint m_pruneTex;

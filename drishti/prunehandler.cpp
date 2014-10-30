@@ -31,6 +31,8 @@ float PruneHandler::m_carveDecay = 2.0f;
 Vec PruneHandler::m_carveP = Vec(0,0,0);
 Vec PruneHandler::m_carveN = Vec(0,0,0);
 float PruneHandler::m_carveT = 1.0f;
+Vec PruneHandler::m_carveX = Vec(0,0,0);
+Vec PruneHandler::m_carveY = Vec(0,0,0);
 
 GLhandleARB PruneHandler::m_pruneShader=0;
 GLhandleARB PruneHandler::m_dilateShader=0;
@@ -907,6 +909,8 @@ PruneHandler::createMopShaders()
   m_carveParm[12] = glGetUniformLocationARB(m_carveShader, "clipp");
   m_carveParm[13] = glGetUniformLocationARB(m_carveShader, "clipn");
   m_carveParm[14] = glGetUniformLocationARB(m_carveShader, "clipt");
+  m_carveParm[15] = glGetUniformLocationARB(m_carveShader, "clipx");
+  m_carveParm[16] = glGetUniformLocationARB(m_carveShader, "clipy");
   //---------------------------
 
   //---------------------------
@@ -935,6 +939,8 @@ PruneHandler::createMopShaders()
   m_paintParm[12] = glGetUniformLocationARB(m_paintShader, "clipp");
   m_paintParm[13] = glGetUniformLocationARB(m_paintShader, "clipn");
   m_paintParm[14] = glGetUniformLocationARB(m_paintShader, "clipt");
+  m_paintParm[15] = glGetUniformLocationARB(m_paintShader, "clipx");
+  m_paintParm[16] = glGetUniformLocationARB(m_paintShader, "clipy");
 
   //---------------------------
 
@@ -1442,6 +1448,8 @@ PruneHandler::modifyPruneTexture(int shaderType,
 	      glUniform3fARB(parm[12], m_carveP.x,m_carveP.y,m_carveP.z);
 	      glUniform3fARB(parm[13], m_carveN.x,m_carveN.y,m_carveN.z);
 	      glUniform1fARB(parm[14], m_carveT);
+	      glUniform3fARB(parm[15], m_carveX.x,m_carveX.y,m_carveX.z);
+	      glUniform3fARB(parm[16], m_carveY.x,m_carveY.y,m_carveY.z);
 	    }
 	}
       else if (shaderType == CropShader)
@@ -2318,11 +2326,13 @@ PruneHandler::carveRad(float& rad, float& decay)
   decay = m_carveDecay;
 }
 void
-PruneHandler::setPlanarCarve(Vec cp, Vec cn, float ct, Vec dmin)
+PruneHandler::setPlanarCarve(Vec cp, Vec cn, Vec cx, Vec cy, float ct, Vec dmin)
 {
   int lod = m_dragInfo.z;
   m_carveP = (cp-dmin)/lod;
   m_carveN = cn;
+  m_carveX = cx;
+  m_carveY = cy;
   m_carveT = ct;
 }
 

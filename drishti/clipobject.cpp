@@ -678,13 +678,55 @@ ClipObject::drawCaptionImage()
   glDisable(GL_TEXTURE_RECTANGLE_ARB);
 }
 
+
+//#define DRAWTHICKNESS()							\
+//  {									\
+//    float aspectRatio = m_viewport.z()/m_viewport.w();			\
+//    float cdist = 2*viewer->sceneRadius()/m_viewportScale;		\
+//    float fov = viewer->camera()->fieldOfView();			\
+//    float yn = (cdist-m_thickness)*tan(fov*0.5);			\
+//    float yf = (cdist+m_thickness)*tan(fov*0.5);			\
+//    if (!m_viewportType)						\
+//      {									\
+//	yf = yn = cdist*tan(fov*0.5);					\
+//      }									\
+//    float xn = yn*aspectRatio;						\
+//    float xf = yf*aspectRatio;						\
+//									\
+//    glBegin(GL_LINE_STRIP);						\
+//    glVertex3fv(opt - xn*xaxis - yn*yaxis + m_thickness*tang);		\
+//    glVertex3fv(opt - xn*xaxis + yn*yaxis + m_thickness*tang);		\
+//    glVertex3fv(opt + xn*xaxis + yn*yaxis + m_thickness*tang);		\
+//    glVertex3fv(opt + xn*xaxis - yn*yaxis + m_thickness*tang);		\
+//    glVertex3fv(opt - xn*xaxis - yn*yaxis + m_thickness*tang);		\
+//    glEnd();								\
+//    glBegin(GL_LINE_STRIP);						\
+//    glVertex3fv(opt - xf*xaxis - yf*yaxis - m_thickness*tang);		\
+//    glVertex3fv(opt - xf*xaxis + yf*yaxis - m_thickness*tang);		\
+//    glVertex3fv(opt + xf*xaxis + yf*yaxis - m_thickness*tang);		\
+//    glVertex3fv(opt + xf*xaxis - yf*yaxis - m_thickness*tang);		\
+//    glVertex3fv(opt - xf*xaxis - yf*yaxis - m_thickness*tang);		\
+//    glEnd();								\
+//									\
+//    glBegin(GL_LINES);							\
+//    glVertex3fv(opt - xn*xaxis - yn*yaxis + m_thickness*tang);		\
+//    glVertex3fv(opt - xf*xaxis - yf*yaxis - m_thickness*tang);		\
+//    glVertex3fv(opt - xn*xaxis + yn*yaxis + m_thickness*tang);		\
+//    glVertex3fv(opt - xf*xaxis + yf*yaxis - m_thickness*tang);		\
+//    glVertex3fv(opt + xn*xaxis + yn*yaxis + m_thickness*tang);		\
+//    glVertex3fv(opt + xf*xaxis + yf*yaxis - m_thickness*tang);		\
+//    glVertex3fv(opt + xn*xaxis - yn*yaxis + m_thickness*tang);		\
+//    glVertex3fv(opt + xf*xaxis - yf*yaxis - m_thickness*tang);		\
+//    glEnd();								\
+//  }
+
 #define DRAWTHICKNESS()							\
   {									\
     float aspectRatio = m_viewport.z()/m_viewport.w();			\
     float cdist = 2*viewer->sceneRadius()/m_viewportScale;		\
     float fov = viewer->camera()->fieldOfView();			\
-    float yn = (cdist-m_thickness)*tan(fov*0.5);			\
-    float yf = (cdist+m_thickness)*tan(fov*0.5);			\
+    float yn = cdist*tan(fov*0.5);					\
+    float yf = (cdist+2*m_thickness)*tan(fov*0.5);			\
     if (!m_viewportType)						\
       {									\
 	yf = yn = cdist*tan(fov*0.5);					\
@@ -693,29 +735,29 @@ ClipObject::drawCaptionImage()
     float xf = yf*aspectRatio;						\
 									\
     glBegin(GL_LINE_STRIP);						\
-    glVertex3fv(opt - xn*xaxis - yn*yaxis + m_thickness*tang);		\
-    glVertex3fv(opt - xn*xaxis + yn*yaxis + m_thickness*tang);		\
-    glVertex3fv(opt + xn*xaxis + yn*yaxis + m_thickness*tang);		\
-    glVertex3fv(opt + xn*xaxis - yn*yaxis + m_thickness*tang);		\
-    glVertex3fv(opt - xn*xaxis - yn*yaxis + m_thickness*tang);		\
+    glVertex3fv(opt - xn*xaxis - yn*yaxis);				\
+    glVertex3fv(opt - xn*xaxis + yn*yaxis);				\
+    glVertex3fv(opt + xn*xaxis + yn*yaxis);				\
+    glVertex3fv(opt + xn*xaxis - yn*yaxis);				\
+    glVertex3fv(opt - xn*xaxis - yn*yaxis);				\
     glEnd();								\
     glBegin(GL_LINE_STRIP);						\
-    glVertex3fv(opt - xf*xaxis - yf*yaxis - m_thickness*tang);		\
-    glVertex3fv(opt - xf*xaxis + yf*yaxis - m_thickness*tang);		\
-    glVertex3fv(opt + xf*xaxis + yf*yaxis - m_thickness*tang);		\
-    glVertex3fv(opt + xf*xaxis - yf*yaxis - m_thickness*tang);		\
-    glVertex3fv(opt - xf*xaxis - yf*yaxis - m_thickness*tang);		\
+    glVertex3fv(opt - xf*xaxis - yf*yaxis - 2*m_thickness*tang);	\
+    glVertex3fv(opt - xf*xaxis + yf*yaxis - 2*m_thickness*tang);	\
+    glVertex3fv(opt + xf*xaxis + yf*yaxis - 2*m_thickness*tang);	\
+    glVertex3fv(opt + xf*xaxis - yf*yaxis - 2*m_thickness*tang);	\
+    glVertex3fv(opt - xf*xaxis - yf*yaxis - 2*m_thickness*tang);	\
     glEnd();								\
 									\
     glBegin(GL_LINES);							\
-    glVertex3fv(opt - xn*xaxis - yn*yaxis + m_thickness*tang);		\
-    glVertex3fv(opt - xf*xaxis - yf*yaxis - m_thickness*tang);		\
-    glVertex3fv(opt - xn*xaxis + yn*yaxis + m_thickness*tang);		\
-    glVertex3fv(opt - xf*xaxis + yf*yaxis - m_thickness*tang);		\
-    glVertex3fv(opt + xn*xaxis + yn*yaxis + m_thickness*tang);		\
-    glVertex3fv(opt + xf*xaxis + yf*yaxis - m_thickness*tang);		\
-    glVertex3fv(opt + xn*xaxis - yn*yaxis + m_thickness*tang);		\
-    glVertex3fv(opt + xf*xaxis - yf*yaxis - m_thickness*tang);		\
+    glVertex3fv(opt - xn*xaxis - yn*yaxis);				\
+    glVertex3fv(opt - xf*xaxis - yf*yaxis - 2*m_thickness*tang);	\
+    glVertex3fv(opt - xn*xaxis + yn*yaxis);				\
+    glVertex3fv(opt - xf*xaxis + yf*yaxis - 2*m_thickness*tang);	\
+    glVertex3fv(opt + xn*xaxis + yn*yaxis);				\
+    glVertex3fv(opt + xf*xaxis + yf*yaxis - 2*m_thickness*tang);	\
+    glVertex3fv(opt + xn*xaxis - yn*yaxis);				\
+    glVertex3fv(opt + xf*xaxis - yf*yaxis - 2*m_thickness*tang);	\
     glEnd();								\
   }
 

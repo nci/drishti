@@ -78,6 +78,7 @@ class Viewer : public QGLViewer
   void setUseFBO(bool);
  public slots :
   void setTag(int);
+  void setCarveRadius(int);
   void updateLightBuffers();
   void displayMessage(QString, bool);
   void showFullScene();
@@ -230,7 +231,9 @@ class Viewer : public QGLViewer
   QUdpSocket *m_listeningSocket;
   int m_socketPort;
 
+  bool m_disableRotationInViewport;
   QSpinBox *m_tagSpinBox;
+  QSpinBox *m_radSpinBox;
 
   void initSocket();
   void processSocketData(QString);
@@ -273,6 +276,7 @@ class Viewer : public QGLViewer
 
   void handleMorphologicalOperations(QStringList);
   void drawCarveCircle();
+  void drawCarveCircleInViewport(int);
 
   Vec checkPointSelectedInViewport(int, QPoint, bool&);
 

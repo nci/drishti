@@ -702,8 +702,8 @@ ClipPlanes::drawViewportBorders(QGLViewer *viewer)
 	  vw = vp.z()*ow;
 	  vh = vp.w()*oh;
 
-	  vx+=1; vy+=1;
-	  vw-=2; vh-=2;
+	  vx+=1; vy-=1;
+	  vw-=2; vh+=1;
 
 	  glLineWidth(2);
 	  if (m_clips[i]->viewportGrabbed())
@@ -718,11 +718,11 @@ ClipPlanes::drawViewportBorders(QGLViewer *viewer)
 	    }
 	  
 	  glBegin(GL_LINE_STRIP);
-	  glVertex2i(vx, vy-2);
+	  glVertex2i(vx, vy);
 	  glVertex2i(vx, vy-vh);
 	  glVertex2i(vx+vw, vy-vh);
-	  glVertex2i(vx+vw, vy-2);
-	  glVertex2i(vx, vy-2);
+	  glVertex2i(vx+vw, vy);
+	  glVertex2i(vx, vy);
 	  glEnd();
 	  if (m_clips[i]->viewportGrabbed())
 	    {
@@ -735,11 +735,11 @@ ClipPlanes::drawViewportBorders(QGLViewer *viewer)
 	      glColor3f(0.2, 0.2, 0.2);
 	    }
 	  glBegin(GL_LINE_STRIP);
-	  glVertex2i(vx, vy-2);
+	  glVertex2i(vx, vy);
 	  glVertex2i(vx, vy-vh);
 	  glVertex2i(vx+vw, vy-vh);
-	  glVertex2i(vx+vw, vy-2);
-	  glVertex2i(vx, vy-2);
+	  glVertex2i(vx+vw, vy);
+	  glVertex2i(vx, vy);
 	  glEnd();
 	}
     }

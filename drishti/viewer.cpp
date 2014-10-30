@@ -98,6 +98,8 @@ Viewer::closeEvent(QCloseEvent *event)
 unsigned char* Viewer::lookupTable() { return m_lut; }
 
 void Viewer::setTag(int t) { PruneHandler::setTag(t); updateGL(); }
+void Viewer::setCarveRadius(int r) { PruneHandler::setCarveRad(r); updateGL(); }
+
 void Viewer::setVolume(Volume *vol) { m_Volume = vol; }
 void Viewer::setHiresVolume(DrawHiresVolume *vol) { m_hiresVolume = vol; }
 void Viewer::setLowresVolume(DrawLowresVolume *vol) { m_lowresVolume = vol; }
@@ -540,6 +542,16 @@ Viewer::Viewer(QWidget *parent) :
   connect(m_tagSpinBox, SIGNAL(valueChanged(int)),
 	  this, SLOT(setTag(int)));
   m_tagSpinBox->hide();
+
+  m_radSpinBox = new QSpinBox(this);
+  m_radSpinBox->setRange(0, 200);
+  m_radSpinBox->setValue(10);
+  m_radSpinBox->setFont(QFont("Helvetica", 20));
+  m_radSpinBox->setWindowFlags(Qt::Dialog | Qt::CustomizeWindowHint | Qt::WindowTitleHint);
+  m_radSpinBox->setWindowTitle("Radius");
+  connect(m_radSpinBox, SIGNAL(valueChanged(int)),
+	  this, SLOT(setCarveRadius(int)));
+  m_radSpinBox->hide();
 }
 
 void
@@ -611,33 +623,18 @@ Viewer::checkPointSelected(const QMouseEvent *event)
     {
       if (!PruneHandler::carve() && !PruneHandler::paint())
 	{
-//	  int ow = camera()->screenWidth();
-//	  int oh = camera()->screenHeight();
-//	  int ic = GeometryObjects::clipplanes()->inViewport(scr.x(), scr.y(),
-//							     ow, oh);
-//	  if (ic >= 0) // point selected is in a viewport
-//	    {
-//	      target = checkPointSelectedInViewport(ic, scr);
-//	      if (GeometryObjects::paths()->continuousAdd())
-//		GeometryObjects::paths()->addPoint(target);
-//	      else
-//		GeometryObjects::hitpoints()->add(target);  
-//	    }
-//	  else
+	  if (event->buttons() == Qt::RightButton) // change rotation pivot
 	    {
-	      if (event->buttons() == Qt::RightButton) // change rotation pivot
-		{
-		  camera()->setRevolveAroundPoint(target);
-		  QMessageBox::information(0, "", "Rotation pivot changed.\n\nTo reset back to scene center just Shift+Right click in empty region on screen - that is do not Shift+Right click on volume or any widget.\n\nRotation pivot change has no effect on keyframe animation.");
-		}
+	      camera()->setRevolveAroundPoint(target);
+	      QMessageBox::information(0, "", "Rotation pivot changed.\n\nTo reset back to scene center just Shift+Right click in empty region on screen - that is do not Shift+Right click on volume or any widget.\n\nRotation pivot change has no effect on keyframe animation.");
+	    }
+	  else
+	    {
+	      if (GeometryObjects::paths()->continuousAdd())
+		GeometryObjects::paths()->addPoint(target);
 	      else
-		{
-		  if (GeometryObjects::paths()->continuousAdd())
-		    GeometryObjects::paths()->addPoint(target);
-		  else
-		    GeometryObjects::hitpoints()->add(target);
-		  carveHitPointOK = false;
-		}
+		GeometryObjects::hitpoints()->add(target);
+	      carveHitPointOK = false;
 	    }
 	}
     }
@@ -677,7 +674,7 @@ Viewer::checkPointSelectedInViewport(int ic, QPoint screenPt, bool &found)
 
 
   // we get more accurate hit when considering only a single slice
-  if (clipInfo.thickness[ic] == 0)
+  //if (clipInfo.thickness[ic] == 0)
     { 
       float camar = (float)ow/(float)oh;
       Vec cpos = VECPRODUCT(clipInfo.pos[ic], voxelScaling);
@@ -694,41 +691,41 @@ Viewer::checkPointSelectedInViewport(int ic, QPoint screenPt, bool &found)
       found = true;
       return target;
     }
-  else // otherwise we have to interrogate depth buffer to get the point
-    {
-      //----------------
-      Camera clipCam;
-      clipCam = *camera();
-      clipCam.setOrientation(clipInfo.rot[ic]);	  
-      Vec cpos = VECPRODUCT(clipInfo.pos[ic], voxelScaling);
-      cpos = cpos -
-	clipCam.viewDirection()*sceneRadius()*2*(1.0/viewportScale[ic]);
-      clipCam.setPosition(cpos);
-      clipCam.setScreenWidthAndHeight(vw, vh);
-      clipCam.loadProjectionMatrix(true);
-      clipCam.loadModelViewMatrix(true);
-      //----------------
-      
-      float depth;
-      glReadPixels(screenPt.x(), oh-1-screenPt.y(),
-		   1, 1,
-		   GL_DEPTH_COMPONENT, GL_FLOAT,
-		   &depth);
-      found = depth < 1.0;
-      
-      if (depth < 1.0)
-	{     
-	  Vec pt = Vec((screenPt.x()-vx), // scale coordinates accordingly
-		       (screenPt.y()-(oh-vh-vy)), // scale coordinates accordingly
-		       depth);
-	  
-	  Vec target = clipCam.unprojectedCoordinatesOf(pt);
-      
-	  return target;
-	}
-      else
-	return Vec(-1000000, -1000000,-1000000);
-    }
+//  else // otherwise we have to interrogate depth buffer to get the point
+//    {
+//      //----------------
+//      Camera clipCam;
+//      clipCam = *camera();
+//      clipCam.setOrientation(clipInfo.rot[ic]);	  
+//      Vec cpos = VECPRODUCT(clipInfo.pos[ic], voxelScaling);
+//      cpos = cpos -
+//	clipCam.viewDirection()*sceneRadius()*2*(1.0/viewportScale[ic]);
+//      clipCam.setPosition(cpos);
+//      clipCam.setScreenWidthAndHeight(vw, vh);
+//      clipCam.loadProjectionMatrix(true);
+//      clipCam.loadModelViewMatrix(true);
+//      //----------------
+//      
+//      float depth;
+//      glReadPixels(screenPt.x(), oh-1-screenPt.y(),
+//		   1, 1,
+//		   GL_DEPTH_COMPONENT, GL_FLOAT,
+//		   &depth);
+//      found = depth < 1.0;
+//      
+//      if (depth < 1.0)
+//	{     
+//	  Vec pt = Vec((screenPt.x()-vx), // scale coordinates accordingly
+//		       (screenPt.y()-(oh-vh-vy)), // scale coordinates accordingly
+//		       depth);
+//	  
+//	  Vec target = clipCam.unprojectedCoordinatesOf(pt);
+//      
+//	  return target;
+//	}
+//      else
+//	return Vec(-1000000, -1000000,-1000000);
+//    }
 }
 
 Viewer::~Viewer()
@@ -1317,6 +1314,9 @@ Viewer::drawInfoString(int imagequality,
   if (PruneHandler::blend())
     msg += QString("(blend : on)");
 
+  if (m_disableRotationInViewport)
+    msg += " DRV";
+
   if (!msg.isEmpty())
     {
       msg = "mop "+msg;
@@ -1409,8 +1409,85 @@ Viewer::drawInfoString(int imagequality,
 }
 
 void
+Viewer::drawCarveCircleInViewport(int ic)
+{
+  QList<float> viewportScale = GeometryObjects::clipplanes()->viewportScale();
+  QVector4D vp = GeometryObjects::clipplanes()->viewport()[ic];
+  int ow = camera()->screenWidth();
+  int oh = camera()->screenHeight();
+  int vx, vy, vw, vh;
+  vx = vp.x()*ow;
+  vy = vp.y()*oh;
+  vw = vp.z()*ow;
+  vh = vp.w()*oh;
+
+  float camar = (float)ow/(float)oh;
+  float aspectRatio = vp.z()/vp.w(); 
+  float cdist = 2*sceneRadius()/viewportScale[ic]; 
+  float fov = camera()->fieldOfView(); 
+  float yn = cdist*tan(fov*0.5); 
+  float xn = yn*aspectRatio*camar; 
+  float p = 0.5*vw/xn;
+  float q = 0.5*vh/yn;
+
+  glActiveTexture(GL_TEXTURE0);
+  glEnable(GL_TEXTURE_2D);
+  glBindTexture(GL_TEXTURE_2D, Global::hollowSpriteTexture());
+  glDisable(GL_DEPTH_TEST);
+
+  float lod = m_hiresVolume->getDragSubsamplingLevel();
+  float r,d;
+  PruneHandler::carveRad(r,d);
+  r *= lod;
+  d *= lod;
+
+  if (PruneHandler::carve())
+    glColor4f(0.0, 0.9, 0.6, 0.9);
+  else // paint
+    {
+      int t = PruneHandler::tag();
+      uchar *tc = Global::tagColors();
+      glColor4f(tc[4*t+0]/255.0, tc[4*t+1]/255.0, tc[4*t+2]/255.0, tc[4*t+3]/255.0);
+    }
+  QPoint scr = mapFromGlobal(QCursor::pos());
+  startScreenCoordinatesSystem();
+  glBegin(GL_QUADS);
+  glTexCoord2f(0, 0);      glVertex2f(scr.x() - r*p, scr.y() - r*q);
+  glTexCoord2f(0, 1);      glVertex2f(scr.x() - r*p, scr.y() + r*q);
+  glTexCoord2f(1, 1);      glVertex2f(scr.x() + r*p, scr.y() + r*q);
+  glTexCoord2f(1, 0);      glVertex2f(scr.x() + r*p, scr.y() - r*q);
+  glEnd();
+  if (PruneHandler::carve())
+    {
+      glColor4f(0.0, 0.0, 0.0, 0.5);
+      glBegin(GL_QUADS);
+      glTexCoord2f(0, 0);      glVertex2f(scr.x() - d*p, scr.x() - d*q);
+      glTexCoord2f(0, 1);      glVertex2f(scr.x() - d*p, scr.x() + d*q);
+      glTexCoord2f(1, 1);      glVertex2f(scr.x() + d*p, scr.x() + d*q);
+      glTexCoord2f(1, 0);      glVertex2f(scr.x() + d*p, scr.x() - d*q);
+      glEnd();
+    }
+  stopScreenCoordinatesSystem();
+  
+  glEnable(GL_DEPTH_TEST);
+  glActiveTexture(GL_TEXTURE0);
+  glDisable(GL_TEXTURE_2D);  
+}
+
+void
 Viewer::drawCarveCircle()
 {
+  QPoint scr = mapFromGlobal(QCursor::pos());
+  int ow = camera()->screenWidth();
+  int oh = camera()->screenHeight();
+  int ic = GeometryObjects::clipplanes()->inViewport(scr.x(), scr.y(),
+							 ow, oh);
+  if (ic >= 0)
+    {
+      drawCarveCircleInViewport(ic);
+      return;
+    }
+
   Vec voxelScaling = Global::voxelScaling();
   Vec chp = VECPRODUCT(carveHitPoint, voxelScaling);
 
@@ -2704,15 +2781,15 @@ Viewer::mouseMoveEvent(QMouseEvent *event)
       return;
     }
   
+  bool rst = true;
   if (PruneHandler::carve() || PruneHandler::paint())
     {
       if (ic >= 0) // point selected is in a viewport
 	{
+	  target = checkPointSelectedInViewport(ic, scr, found);
+
 	  if (mouseButtonPressed)
-	    {
-	      target = checkPointSelectedInViewport(ic, scr, found);
-	      //found = true;
-	    }
+	    rst = false;
 	}
       else
 	{
@@ -2727,9 +2804,9 @@ Viewer::mouseMoveEvent(QMouseEvent *event)
 	}
     }
 
-  if (!found && !GeometryObjects::grabsMouse())
+  if (rst || (!found && !GeometryObjects::grabsMouse()))
     {
-      int ic = GeometryObjects::clipplanes()->viewportGrabbed();
+      //int ic = GeometryObjects::clipplanes()->viewportGrabbed();
       if (ic >= 0) // viewport grabbed
 	{
 	  if (m_mouseDrag && !GeometryObjects::grabsMouse())
@@ -2757,7 +2834,8 @@ Viewer::mouseMoveEvent(QMouseEvent *event)
 		  if (qAbs(mx) > qAbs(my)) scl = mx;
 		  GeometryObjects::clipplanes()->modViewportScale(ic, scl);
 		}
-	      else if (event->buttons() == Qt::LeftButton) // rotate
+	      else if (!m_disableRotationInViewport &&
+		       event->buttons() == Qt::LeftButton) // rotate
 		{
 		  int axis = 0;
 		  float angle = 0;
@@ -2819,25 +2897,31 @@ Viewer::mouseMoveEvent(QMouseEvent *event)
       cn = Vec(0,0,0);
       QList<Vec> clipPos = GeometryObjects::clipplanes()->positions();
       QList<Vec> clipNormal = GeometryObjects::clipplanes()->normals();
+      QList<Vec> cxaxis = GeometryObjects::clipplanes()->xaxis();
+      QList<Vec> cyaxis = GeometryObjects::clipplanes()->yaxis();
       QList<int> clipThickness = GeometryObjects::clipplanes()->thickness();
       Vec dmin = m_hiresVolume->volumeMin();
       if (ic >= 0) // we are in a viewport
 	{
 	  cp = VECDIVIDE(clipPos[ic], voxelScaling);
-	  PruneHandler::setPlanarCarve(cp, clipNormal[ic], clipThickness[ic]+1, dmin);
+	  PruneHandler::setPlanarCarve(cp,
+				       clipNormal[ic], cxaxis[ic], cyaxis[ic],
+				       clipThickness[ic], dmin);
 	}
-      else
-	{
-	  for(int c=0; c<clipPos.count(); c++)
-	    {
-	      if (fabs(clipNormal[c] *(pt - clipPos[c])) < 0.1)
-		{
-		  cp = VECDIVIDE(clipPos[c], voxelScaling);
-		  PruneHandler::setPlanarCarve(cp, clipNormal[c], clipThickness[c]+1, dmin);
-		  break;
-		}
-	    }
-	}
+//      else
+//	{
+//	  for(int c=0; c<clipPos.count(); c++)
+//	    {
+//	      if (fabs(clipNormal[c] *(pt - clipPos[c])) < 0.1)
+//		{
+//		  cp = VECDIVIDE(clipPos[c], voxelScaling);
+//		  PruneHandler::setPlanarCarve(cp,
+//					       clipNormal[c], cxaxis[c], cyaxis[c],
+//					       clipThickness[c], dmin);
+//		  break;
+//		}
+//	    }
+//	}
       
       if (docarve > 0)
 	PruneHandler::sculpt(docarve,
@@ -3042,6 +3126,27 @@ Viewer::keyPressEvent(QKeyEvent *event)
 	{
 	  bool flag = false;
 	  
+	  if (event->key() == Qt::Key_R &&
+	      event->modifiers() & Qt::ShiftModifier)
+	    {
+	      m_disableRotationInViewport = !m_disableRotationInViewport;
+	      return;
+	    }
+
+	  if (event->key() == Qt::Key_R)
+	    {
+	      if (m_radSpinBox->isVisible())
+		m_radSpinBox->hide();
+	      else
+		{ 
+		  QPoint cur = QCursor::pos();
+		  m_radSpinBox->setGeometry(cur.x(), cur.y(),
+					    m_radSpinBox->width(),
+					    m_radSpinBox->height());
+		  m_radSpinBox->show();
+		}
+	      return;
+	    }
 	  if (event->key() == Qt::Key_T)
 	    {
 	      if (m_tagSpinBox->isVisible())
@@ -3142,6 +3247,21 @@ Viewer::keyPressEvent(QKeyEvent *event)
 
   if (event->key() == Qt::Key_R)
     {
+      if (PruneHandler::paint() || PruneHandler::carve())
+	{
+	  if (m_radSpinBox->isVisible())
+	    m_radSpinBox->hide();
+	  else
+	    { 
+	      QPoint cur = QCursor::pos();
+	      m_radSpinBox->setGeometry(cur.x(), cur.y(),
+					m_radSpinBox->width(),
+					m_radSpinBox->height());
+	      m_radSpinBox->show();
+	    }
+	  return;
+	}
+
       reloadData();
       updateGL();
       return;
@@ -3202,6 +3322,7 @@ Viewer::keyPressEvent(QKeyEvent *event)
 	    {
 	      r = qBound(1.0f, r, 200.0f);
 	      PruneHandler::setCarveRad(r,d);
+	      m_radSpinBox->setValue(r);
 	      t = qBound(0, t, 255);
 	      PruneHandler::setTag(t);
 	      m_tagSpinBox->setValue(t);
@@ -3222,6 +3343,7 @@ Viewer::keyPressEvent(QKeyEvent *event)
 	  d = qBound(0.0f, d, 255.0f);
 	  //d = qBound(0.0f, d, r);
 	  PruneHandler::setCarveRad(r,d);
+	  m_radSpinBox->setValue(r);
 	  updateGL();
 	  return;
 	}

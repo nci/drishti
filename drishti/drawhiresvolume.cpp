@@ -3245,23 +3245,23 @@ DrawHiresVolume::getSlices(Vec poStart,
   m_clipPos = GeometryObjects::clipplanes()->positions();
   m_clipNormal = GeometryObjects::clipplanes()->normals();
 
-  QList<int> thickness = GeometryObjects::clipplanes()->thickness();
-  QList<QVector4D> viewport = GeometryObjects::clipplanes()->viewport();
+//  QList<int> thickness = GeometryObjects::clipplanes()->thickness();
+//  QList<QVector4D> viewport = GeometryObjects::clipplanes()->viewport();
   QList<int> tfset = GeometryObjects::clipplanes()->tfset();
   QList<bool> applyclip = GeometryObjects::clipplanes()->applyClip();
   Vec voxelScaling = Global::voxelScaling();
-  for(int i=0; i<m_clipPos.count(); i++)
-    {
-      QVector4D vp = viewport[i];
-      // change clip position when textured plane and viewport active
-      if (tfset[i] >= 0 &&
-	  tfset[i] < Global::lutSize() &&
-	  vp.x() >= 0.0)
-	{
-	  Vec tang = VECDIVIDE(m_clipNormal[i], voxelScaling);
-	  m_clipPos[i] += tang*thickness[i];
-	}
-    }
+//  for(int i=0; i<m_clipPos.count(); i++)
+//    {
+//      QVector4D vp = viewport[i];
+//      // change clip position when textured plane and viewport active
+//      if (tfset[i] >= 0 &&
+//	  tfset[i] < Global::lutSize() &&
+//	  vp.x() >= 0.0)
+//	{
+//	  Vec tang = VECDIVIDE(m_clipNormal[i], voxelScaling);
+//	  m_clipPos[i] += tang*thickness[i];
+//	}
+//    }
 
   QList<int> tfSet;
   QList< QList<bool> > clips;
@@ -3858,7 +3858,8 @@ DrawHiresVolume::drawClipPlaneInViewport(int clipOffset, Vec lpos, float depthcu
 
 	  QList<bool> dummyclips;
 	  ViewAlignedPolygon *vap = new ViewAlignedPolygon;
-	  for (int sl = clipInfo.thickness[ic]; sl>=-clipInfo.thickness[ic]; sl--)
+	  //for (int sl = clipInfo.thickness[ic]; sl>=-clipInfo.thickness[ic]; sl--)
+	  for (int sl = 0; sl>=-2*clipInfo.thickness[ic]; sl--)
 	    {
 	      int sls = sl;
 	      if (!defaultShader && !m_backlit) sls = -sl;
@@ -3923,7 +3924,8 @@ DrawHiresVolume::drawClipPlaneInViewport(int clipOffset, Vec lpos, float depthcu
 	  eqn[1] = -m_clipNormal[ic].y;
 	  eqn[2] = -m_clipNormal[ic].z;
 	  //eqn[3] = m_clipNormal[ic]*(cpos+m_clipNormal[ic]*(clipInfo.thickness[ic]+0.5));
-	  eqn[3] = m_clipNormal[ic]*(cpos+m_clipNormal[ic]*(clipInfo.thickness[ic]+1.5));
+	  //eqn[3] = m_clipNormal[ic]*(cpos+m_clipNormal[ic]*(clipInfo.thickness[ic]+1.5));
+	  eqn[3] = m_clipNormal[ic]*(cpos+m_clipNormal[ic]*1.5);
 	  glEnable(GL_CLIP_PLANE0);
 	  glClipPlane(GL_CLIP_PLANE0, eqn);
 
@@ -3931,7 +3933,8 @@ DrawHiresVolume::drawClipPlaneInViewport(int clipOffset, Vec lpos, float depthcu
 	  eqn[1] = m_clipNormal[ic].y;
 	  eqn[2] = m_clipNormal[ic].z;
 	  //eqn[3] = -m_clipNormal[ic]*(cpos-m_clipNormal[ic]*(clipInfo.thickness[ic]+0.5));
-	  eqn[3] = -m_clipNormal[ic]*(cpos-m_clipNormal[ic]*(clipInfo.thickness[ic]+1.5));
+	  //eqn[3] = -m_clipNormal[ic]*(cpos-m_clipNormal[ic]*(clipInfo.thickness[ic]+1.5));
+	  eqn[3] = -m_clipNormal[ic]*(cpos-m_clipNormal[ic]*(2*clipInfo.thickness[ic]+1.5));
 	  glEnable(GL_CLIP_PLANE1);
 	  glClipPlane(GL_CLIP_PLANE1, eqn);      
 

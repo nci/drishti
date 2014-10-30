@@ -731,6 +731,8 @@ PruneShaderFactory::carve()
   shader += "uniform vec3 clipp;\n";
   shader += "uniform vec3 clipn;\n";
   shader += "uniform float clipt;\n";
+  shader += "uniform vec3 clipx;\n";
+  shader += "uniform vec3 clipy;\n";
   
   shader += "void main(void)\n";
   shader += "{\n";
@@ -796,6 +798,8 @@ PruneShaderFactory::paint()
   shader += "uniform vec3 clipp;\n";
   shader += "uniform vec3 clipn;\n";
   shader += "uniform float clipt;\n";
+  shader += "uniform vec3 clipx;\n";
+  shader += "uniform vec3 clipy;\n";
 
   shader += "void main(void)\n";
   shader += "{\n";
@@ -810,20 +814,28 @@ PruneShaderFactory::paint()
   shader += "if (fc.x < 1.0/255.0) return;\n";
 
   shader += "vec3 cpt = vec3(ox, oy, oz);\n";
-  shader += "if (planarcarve && ";
-  shader += "    abs(dot(clipn,(cpt-clipp))) > clipt) return;\n";
+  shader += "vec3 cptc = cpt-center;\n";
+  shader += "float dcptcp = dot(clipn,(cpt-clipp));\n";
+  shader += "float cx = dot(clipx,cptc);\n";
+  shader += "float cy = dot(clipy,cptc);\n";
 
-  // consider voxels within radius
-  shader += "float cptdist = distance(cpt, center);\n";
-  shader += "float l = step(cptdist, radius);\n";
-  shader += "if (l < 0.001) return;\n";
-
+  // if planarcarve then consider voxels within cylinder
+  shader += "if (planarcarve)\n";
+  shader += "{\n";
+  shader += " if (dcptcp < -2*clipt || dcptcp > 0.1 ||\n";
+  shader += "     cx*cx+cy*cy > radius*radius)\n";
+  shader += "   return;\n";
+  shader += "}\n";
+  // if not planarcarve then consider voxels within sphere
+  shader += "else\n";
+  shader += "{\n";
+  shader += "  float cptdist = distance(cpt, center);\n";
+  shader += "  float l = step(cptdist, radius);\n";
+  shader += "  if (l < 0.001) return;\n";
+  shader += "}\n";
 
  // modify z values only
-  //shader += "if (dopaint == 1)\n";
-  shader += "  gl_FragColor.z = mix(gl_FragColor.z, (tag+0.5)/255.0, l);\n";
-  //shader += "else \n"; // restore
-  //shader += "  gl_FragColor.z = mix(gl_FragColor.z, 0.0, l);\n";
+  shader += "  gl_FragColor.z = (tag+0.5)/255.0;\n";
 
   shader += "}\n";
 

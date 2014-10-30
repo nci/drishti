@@ -1414,7 +1414,7 @@ PruneHandler::modifyPruneTexture(int shaderType,
 	  glUniform1iARB(parm[6], cityblock);
 	}
       else if (shaderType == CarveShader ||
-	  shaderType == PaintShader)
+	       shaderType == PaintShader)
 	{	  
 	  float cen[3];
 	  cen[0] = vlist[0].toFloat();
@@ -1612,6 +1612,8 @@ PruneHandler::genBuffer(int dtextureX, int dtextureY)
 
 }
 
+bool firstTimePruneTextureGeneration = true;
+
 void
 PruneHandler::updateAndLoadPruneTexture(GLuint dataTex,
 					int dtextureX, int dtextureY,
@@ -1630,6 +1632,10 @@ PruneHandler::updateAndLoadPruneTexture(GLuint dataTex,
 
   genBuffer(m_dtexX, m_dtexY);
 
+  // copy channel 2 into saved buffer
+  // save tag information
+  copyToFromSavedChannel(true, 2, 2, false);
+
   MainWindowUI::mainWindowUI()->menubar->parentWidget()->\
     setWindowTitle("Updating prune texture");
 
@@ -1638,6 +1644,12 @@ PruneHandler::updateAndLoadPruneTexture(GLuint dataTex,
   dilate(1, 0);
   dilate(1, 1);
   m_mopActive = false;
+
+  // copy channel 2 back from saved buffer
+  // retrieve tag information
+  if (!firstTimePruneTextureGeneration)
+    copyToFromSavedChannel(false, 2, 2, false); 
+  firstTimePruneTextureGeneration = false;
 
   MainWindowUI::mainWindowUI()->menubar->parentWidget()->\
     setWindowTitle("Drishti");
@@ -1692,7 +1704,7 @@ PruneHandler::copyChannel(int src, int dst, bool doPrint)
 }
 
 void
-PruneHandler::copyToFromSavedChannel(bool toSaved, int src, int dst)
+PruneHandler::copyToFromSavedChannel(bool toSaved, int src, int dst, bool showmesg)
 {
   if (!standardChecks()) return;
   m_mopActive = true;
@@ -1717,14 +1729,16 @@ PruneHandler::copyToFromSavedChannel(bool toSaved, int src, int dst)
       copyChannelTexture(src, dst,
 			 m_pruneBuffer,
 			 m_savedPruneBuffer);
-      QMessageBox::information(0,"Copy to saved channel","Done"); 
+      if (showmesg)
+	QMessageBox::information(0,"Copy to saved channel","Done"); 
     }
   else
     {
       copyChannelTexture(src, dst,
 			 m_savedPruneBuffer,
 			 m_pruneBuffer);
-      QMessageBox::information(0,"Copy from saved channel","Done"); 
+      if (showmesg)
+	QMessageBox::information(0,"Copy from saved channel","Done"); 
     }
 
   WRITECHANNEL(-1)

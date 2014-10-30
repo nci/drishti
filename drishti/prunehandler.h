@@ -73,7 +73,9 @@ class PruneHandler
     static void saveBuffer();
 
     static void copyChannel(int, int, bool doPrint=true);
-    static void copyToFromSavedChannel(bool, int ch1=-1, int ch2=-1);
+    static void copyToFromSavedChannel(bool,
+				       int ch1=-1, int ch2=-1,
+				       bool showmesg=true);
 
     static void smoothChannel(int);
 

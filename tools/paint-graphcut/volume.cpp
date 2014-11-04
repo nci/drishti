@@ -4,6 +4,8 @@
 
 void Volume::setBitmapThread(BitmapThread *bt) {thread = bt;}
 
+void Volume::saveIntermediateResults() { m_mask.saveIntermediateResults(); }
+
 void
 Volume::setMaskDepthSlice(int slc, uchar* tagData)
 {
@@ -124,9 +126,11 @@ Volume::setFile(QString volfile)
   m_pvlFileManager.setHeaderSize(headerSize);
   m_pvlFileManager.setSlabSize(slabSize);
 
-  QString vgfile = m_fileName;
-  thread->setFiles(m_fileName, vgfile,
-		   m_depth, m_width, m_height, slabSize);
+  m_pvlFileManager.loadMemFile();
+
+//  QString vgfile = m_fileName;
+//  thread->setFiles(m_fileName, vgfile,
+//		   m_depth, m_width, m_height, slabSize);
 
   QString mfile = m_fileName;
   mfile.chop(6);
@@ -137,9 +141,9 @@ Volume::setFile(QString volfile)
   genHistogram();
   generateHistogramImage();
 
-  m_bitmask.resize(m_depth*m_width*m_height);
+  m_bitmask.resize((qint64)m_depth*m_width*m_height);
   m_bitmask.fill(false);
-  m_connectedbitmask.resize(m_depth*m_width*m_height);
+  m_connectedbitmask.resize((qint64)m_depth*m_width*m_height);
   m_connectedbitmask.fill(false);
 
   m_valid = true;
@@ -262,6 +266,8 @@ Volume::genHistogram()
 			   0, 100,
 			   0);
   progress.setMinimumDuration(0);
+  progress.setCancelButton(0);
+  qApp->processEvents();
 
   int nbytes = m_width*m_height;
   uchar *v = new unsigned char [nbytes];
@@ -270,9 +276,10 @@ Volume::genHistogram()
   for(int slc=0; slc<m_depth; slc++)
     {
       progress.setValue((int)(100.0*(float)slc/(float)m_depth));
+      qApp->processEvents();
 
       uchar *vslice;
-      vslice = m_pvlFileManager.getSlice(slc);
+      vslice = m_pvlFileManager.getSliceMem(slc);
       memcpy(v, vslice, nbytes);
 
       for(int j=0; j<nbytes; j++)
@@ -309,7 +316,7 @@ Volume::getDepthSliceImage(int slc)
   memset(m_slice, 0, 2*nbytes);
 
   uchar *vslice;
-  vslice = m_pvlFileManager.getSlice(slc);
+  vslice = m_pvlFileManager.getSliceMem(slc);
   for(int t=0; t<nbytes; t++)
     m_slice[2*t] = vslice[t];
 
@@ -330,7 +337,7 @@ Volume::getWidthSliceImage(int slc)
   memset(m_slice, 0, 2*nbytes);
 
   uchar *vslice;
-  vslice = m_pvlFileManager.getWidthSlice(slc);
+  vslice = m_pvlFileManager.getWidthSliceMem(slc);
   for(int t=0; t<nbytes; t++)
     m_slice[2*t] = vslice[t];
 
@@ -351,7 +358,7 @@ Volume::getHeightSliceImage(int slc)
   memset(m_slice, 0, 2*nbytes);
 
   uchar *vslice;
-  vslice = m_pvlFileManager.getHeightSlice(slc);
+  vslice = m_pvlFileManager.getHeightSliceMem(slc);
   for(int t=0; t<nbytes; t++)
     m_slice[2*t] = vslice[t];
 
@@ -375,7 +382,7 @@ Volume::rawValue(int d, int w, int h)
     return vgt;
 
   uchar *vslice;
-  vslice = m_pvlFileManager.rawValue(d, w, h);
+  vslice = m_pvlFileManager.rawValueMem(d, w, h);
   vgt << vslice[0];
 //  vslice = m_gradFileManager.rawValue(d, w, h);
 //  vgt << vslice[0];
@@ -554,7 +561,7 @@ Volume::findConnectedRegion(int mind, int maxd,
   int d = pos[0];
   int w = pos[1];
   int h = pos[2];
-  vslice = m_pvlFileManager.rawValue(d, w, h);
+  vslice = m_pvlFileManager.rawValueMem(d, w, h);
   v0 = vslice[0];
 //  vslice = m_gradFileManager.rawValue(d, w, h);
 //  g0 = vslice[0];

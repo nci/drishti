@@ -18,12 +18,21 @@ VolumeMask::~VolumeMask()
 void
 VolumeMask::reset()
 {
+  if (!m_maskfile.isEmpty())
+    m_maskFileManager.saveMemFile();    
+
   m_maskfile.clear();
   if (m_maskslice) delete [] m_maskslice;
   m_maskslice = 0;
   m_depth = m_width = m_height = 0;
 
   m_bitmask.clear();
+}
+
+void
+VolumeMask::saveIntermediateResults()
+{
+  m_maskFileManager.saveMemFile();
 }
 
 void
@@ -53,6 +62,9 @@ VolumeMask::setGridSize(int d, int w, int h, int slabsize)
   //m_maskFileManager.setSlabSize(slabsize);
   // do not split data across multiple files
   m_maskFileManager.setSlabSize(m_depth+1);
+
+  if (m_maskFileManager.exists())
+    m_maskFileManager.loadMemFile();    
 }
 
 void
@@ -61,7 +73,10 @@ VolumeMask::checkMaskFile()
   // create mask file if not present
   if (!m_maskFileManager.exists())
     {
+      QMessageBox::information(0, "", "create mask file");
       m_maskFileManager.createFile(true, true);
+      QMessageBox::information(0, "", "mask file created");
+
 
       QDomDocument doc("Drishti_Header");
       
@@ -160,7 +175,7 @@ void
 VolumeMask::setMaskDepthSlice(int slc, uchar* tagData)
 {
   checkMaskFile();
-  m_maskFileManager.setSlice(slc, tagData);
+  m_maskFileManager.setSliceMem(slc, tagData);
 }
 
 uchar*
@@ -173,7 +188,7 @@ VolumeMask::getMaskDepthSliceImage(int slc)
   int nbytes = m_width*m_height;
   m_maskslice = new uchar[nbytes];
 
-  uchar *mslice = m_maskFileManager.getSlice(slc);
+  uchar *mslice = m_maskFileManager.getSliceMem(slc);
   memcpy(m_maskslice, mslice, nbytes);
 
   return m_maskslice;
@@ -189,7 +204,7 @@ VolumeMask::getMaskWidthSliceImage(int slc)
   int nbytes = m_depth*m_height;
   m_maskslice = new uchar[nbytes];
 
-  uchar *mslice = m_maskFileManager.getWidthSlice(slc);
+  uchar *mslice = m_maskFileManager.getWidthSliceMem(slc);
   memcpy(m_maskslice, mslice, nbytes);
 
   return m_maskslice;
@@ -205,7 +220,7 @@ VolumeMask::getMaskHeightSliceImage(int slc)
   int nbytes = m_depth*m_width;
   m_maskslice = new uchar[nbytes];
 
-  uchar *mslice = m_maskFileManager.getHeightSlice(slc);
+  uchar *mslice = m_maskFileManager.getHeightSliceMem(slc);
   memcpy(m_maskslice, mslice, nbytes);
 
   return m_maskslice;
@@ -222,7 +237,7 @@ VolumeMask::maskValue(int d, int w, int h)
     return 0;
   
   uchar tmp = 0;
-  uchar *mslice = m_maskFileManager.rawValue(d, w, h);
+  uchar *mslice = m_maskFileManager.rawValueMem(d, w, h);
   if (mslice)
     tmp = mslice[0];
 
@@ -238,7 +253,7 @@ VolumeMask::tagDSlice(int d, QBitArray bitmask, uchar *usermask)
   uchar *mask = new uchar[nbytes];
   int tag = Global::tag();
 
-  uchar *mslice = m_maskFileManager.getSlice(d);      
+  uchar *mslice = m_maskFileManager.getSliceMem(d);      
   memcpy(mask, mslice, nbytes);
 
   qint64 idx = 0;
@@ -254,7 +269,7 @@ VolumeMask::tagDSlice(int d, QBitArray bitmask, uchar *usermask)
 	idx ++;
       }
   
-  m_maskFileManager.setSlice(d, mask);
+  m_maskFileManager.setSliceMem(d, mask);
   delete [] mask;
 }
 
@@ -270,7 +285,7 @@ VolumeMask::tagWSlice(int w, QBitArray bitmask, uchar *usermask)
 
   for(int d=0; d<m_depth; d++)
     {
-      uchar *mslice = m_maskFileManager.getSlice(d);      
+      uchar *mslice = m_maskFileManager.getSliceMem(d);      
       memcpy(mask, mslice, nbytes);
       for(int h=0; h<m_height; h++)
 	{
@@ -284,7 +299,7 @@ VolumeMask::tagWSlice(int w, QBitArray bitmask, uchar *usermask)
 	    }
 	}
   
-      m_maskFileManager.setSlice(d, mask);
+      m_maskFileManager.setSliceMem(d, mask);
     }
 
   delete [] mask;
@@ -302,7 +317,7 @@ VolumeMask::tagHSlice(int h, QBitArray bitmask, uchar *usermask)
 
   for(int d=0; d<m_depth; d++)
     {
-      uchar *mslice = m_maskFileManager.getSlice(d);      
+      uchar *mslice = m_maskFileManager.getSliceMem(d);      
       memcpy(mask, mslice, nbytes);
       for(int w=0; w<m_width; w++)
 	{
@@ -316,7 +331,7 @@ VolumeMask::tagHSlice(int h, QBitArray bitmask, uchar *usermask)
 	    }
 	}
   
-      m_maskFileManager.setSlice(d, mask);
+      m_maskFileManager.setSliceMem(d, mask);
     }
 
   delete [] mask;
@@ -330,20 +345,20 @@ VolumeMask::tagDSlice(int d, uchar *tags)
   int nbytes = m_width*m_height;
   uchar *mask = new uchar[nbytes];
   memcpy(mask, tags, nbytes);
-  m_maskFileManager.setSlice(d, mask);
+  m_maskFileManager.setSliceMem(d, mask);
   delete [] mask;
 }
 void
 VolumeMask::tagWSlice(int w, uchar *tags)
 {
   checkMaskFile();
-  m_maskFileManager.setWidthSlice(w, tags);
+  m_maskFileManager.setWidthSliceMem(w, tags);
 }
 void
 VolumeMask::tagHSlice(int h, uchar *tags)
 {
   checkMaskFile();
-  m_maskFileManager.setHeightSlice(h, tags);
+  m_maskFileManager.setHeightSliceMem(h, tags);
 }
 
 
@@ -371,7 +386,7 @@ VolumeMask::tagUsingBitmask(QList<int> pos,
       emit progressChanged((int)(100.0*(float)d/(float)m_depth));
       qApp->processEvents();
       
-      uchar *mslice = m_maskFileManager.getSlice(d);      
+      uchar *mslice = m_maskFileManager.getSliceMem(d);      
       memcpy(mask, mslice, nbytes);
 
       for(int w=0; w<m_width; w++)
@@ -387,7 +402,7 @@ VolumeMask::tagUsingBitmask(QList<int> pos,
 	    bidx++;
 	  }
 
-      m_maskFileManager.setSlice(d, mask);
+      m_maskFileManager.setSliceMem(d, mask);
     }
   
   delete [] mask;
@@ -424,7 +439,7 @@ VolumeMask::dilate(QBitArray vbitmask)
       emit progressChanged((int)(100.0*(float)d/(float)m_depth));
       qApp->processEvents();
       
-      uchar *mslice = m_maskFileManager.getSlice(d);      
+      uchar *mslice = m_maskFileManager.getSliceMem(d);      
       memcpy(mask, mslice, nbytes);
 
       for(int w=0; w<m_width; w++)
@@ -439,7 +454,7 @@ VolumeMask::dilate(QBitArray vbitmask)
 	    bidx++;
 	  }
  
-      m_maskFileManager.setSlice(d, mask);
+      m_maskFileManager.setSliceMem(d, mask);
     }
 
   delete [] mask;
@@ -481,7 +496,7 @@ VolumeMask::dilate(int mind, int maxd,
       emit progressChanged((int)(100.0*(float)d/(float)m_depth));
       qApp->processEvents();
       
-      uchar *mslice = m_maskFileManager.getSlice(d);      
+      uchar *mslice = m_maskFileManager.getSliceMem(d);      
       memcpy(mask, mslice, nbytes);
 
       for(int w=minw; w<=maxw; w++)
@@ -497,7 +512,7 @@ VolumeMask::dilate(int mind, int maxd,
 	      }
 	  }
 
-      m_maskFileManager.setSlice(d, mask);
+      m_maskFileManager.setSliceMem(d, mask);
     }
 
   delete [] mask;
@@ -535,7 +550,7 @@ VolumeMask::erode(QBitArray vbitmask)
       emit progressChanged((int)(100.0*(float)d/(float)m_depth));
       qApp->processEvents();
       
-      uchar *mslice = m_maskFileManager.getSlice(d);      
+      uchar *mslice = m_maskFileManager.getSliceMem(d);      
       memcpy(mask, mslice, nbytes);
 
       for(int w=0; w<m_width; w++)
@@ -554,7 +569,7 @@ VolumeMask::erode(QBitArray vbitmask)
 	    bidx++;
 	  }
 
-      m_maskFileManager.setSlice(d, mask);
+      m_maskFileManager.setSliceMem(d, mask);
     }
 
   delete [] mask;
@@ -595,7 +610,7 @@ VolumeMask::erode(int mind, int maxd,
       emit progressChanged((int)(100.0*(float)d/(float)m_depth));
       qApp->processEvents();
       
-      uchar *mslice = m_maskFileManager.getSlice(d);      
+      uchar *mslice = m_maskFileManager.getSliceMem(d);      
       memcpy(mask, mslice, nbytes);
 
       for(int w=minw; w<=maxw; w++)
@@ -614,7 +629,7 @@ VolumeMask::erode(int mind, int maxd,
 	      }
 	  }
 
-      m_maskFileManager.setSlice(d, mask);
+      m_maskFileManager.setSliceMem(d, mask);
     }
 
   delete [] mask;
@@ -643,7 +658,7 @@ VolumeMask::createBitmask()
       emit progressChanged((int)(100.0*(float)d/(float)m_depth));
       qApp->processEvents();
       
-      uchar *mslice = m_maskFileManager.getSlice(d);      
+      uchar *mslice = m_maskFileManager.getSliceMem(d);      
       memcpy(mask, mslice, nbytes);
 
       for(int w=0; w<m_width; w++)
@@ -875,7 +890,7 @@ VolumeMask::findConnectedRegion(QList<int> pos)
       if (bitcopy.testBit(idx))
 	{
 	  uchar mask;
-	  uchar *mslice = m_maskFileManager.rawValue(d, w, h);
+	  uchar *mslice = m_maskFileManager.rawValueMem(d, w, h);
 	  if (mslice)
 	    mask = mslice[0];
 	  
@@ -912,7 +927,7 @@ VolumeMask::findConnectedRegion(QList<int> pos)
 		  uchar mask;
 		  qint64 idx = d2*m_width*m_height +
 		               w2*m_height + h2;
-		  uchar *mslice = m_maskFileManager.rawValue(d2, w2, h2);
+		  uchar *mslice = m_maskFileManager.rawValueMem(d2, w2, h2);
 		  if (mslice)
 		    mask = mslice[0];
 

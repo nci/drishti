@@ -70,7 +70,7 @@ BitmapThread::run()
       mutex.unlock();
 
       QBitArray bitmask;
-      bitmask.resize(m_depth*m_width*m_height);
+      bitmask.resize((qint64)m_depth*m_width*m_height);
       bitmask.fill(false);
       
       int nbytes = m_width*m_height;
@@ -78,7 +78,7 @@ BitmapThread::run()
       
       int nonZeroVoxels = 0;
       
-      int bidx = 0;
+      qint64 bidx = 0;
       for(int d=0; d<m_depth; d++)
 	{
 	  if (m_interrupt)

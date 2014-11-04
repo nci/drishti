@@ -2366,6 +2366,9 @@ PruneHandler::sculpt(int docarve, Vec dmin,
   else
     ctag = tag;
 
+  if (docarve == 2) // restore
+    ctag = 0;
+
   bool planarCarve = (m_carveN.squaredNorm() > 0.1);
 
   QGLFramebufferObject *pruneBuffer1 = newFBO();

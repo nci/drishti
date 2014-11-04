@@ -823,6 +823,12 @@ DrishtiPaint::loadVolumeFromProject(const char *flnm)
 void
 DrishtiPaint::keyPressEvent(QKeyEvent *event)
 {
+  if (event->key() == Qt::Key_M)
+    {
+      m_volume->saveIntermediateResults();
+      return;
+    }
+
   // pass all keypressevents on to image widget
   m_imageWidget->keyPressEvent(event);
 }

@@ -61,6 +61,16 @@ class VolumeFileManager
   void endBlockInterpolation();
   uchar* blockInterpolatedRawValue(float, float, float);
 
+  void loadMemFile();
+  void saveMemFile();
+  uchar* getSliceMem(int);
+  void setSliceMem(int, uchar*);
+  uchar* getWidthSliceMem(int);
+  void setWidthSliceMem(int, uchar*);
+  uchar* getHeightSliceMem(int);
+  void setHeightSliceMem(int, uchar*);
+  uchar* rawValueMem(int, int, int);
+
  private :
   QString m_baseFilename;
   QStringList m_filenames;
@@ -76,8 +86,12 @@ class VolumeFileManager
   QString m_filename;
   int m_slabno, m_prevslabno;  
 
+  uchar *m_volData;
+
   void reset();
   void readBlocks(int);
+
+  void createMemFile();  
 };
 
 #endif

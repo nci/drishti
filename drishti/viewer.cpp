@@ -1447,7 +1447,10 @@ Viewer::drawCarveCircleInViewport(int ic)
     {
       int t = PruneHandler::tag();
       uchar *tc = Global::tagColors();
-      glColor4f(tc[4*t+0]/255.0, tc[4*t+1]/255.0, tc[4*t+2]/255.0, tc[4*t+3]/255.0);
+      if (t == 0)
+	glColor4f(1.0,1.0,1.0,1.0);
+      else
+	glColor4f(tc[4*t+0]/255.0, tc[4*t+1]/255.0, tc[4*t+2]/255.0, tc[4*t+3]/255.0);
     }
   QPoint scr = mapFromGlobal(QCursor::pos());
   startScreenCoordinatesSystem();

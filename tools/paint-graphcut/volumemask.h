@@ -15,6 +15,8 @@ class VolumeMask : public QObject
   void setFile(QString);
   void setGridSize(int, int, int, int);
 
+  void saveIntermediateResults();
+
   uchar* getMaskDepthSliceImage(int);
   uchar* getMaskWidthSliceImage(int);
   uchar* getMaskHeightSliceImage(int);

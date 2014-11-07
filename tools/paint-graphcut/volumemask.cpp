@@ -76,10 +76,7 @@ VolumeMask::checkMaskFile()
   // create mask file if not present
   if (!m_maskFileManager.exists())
     {
-      QMessageBox::information(0, "", "create mask file");
       m_maskFileManager.createFile(true, true);
-      QMessageBox::information(0, "", "mask file created");
-
 
       QDomDocument doc("Drishti_Header");
       

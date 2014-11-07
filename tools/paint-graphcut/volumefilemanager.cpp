@@ -170,8 +170,6 @@ VolumeFileManager::createFile(bool writeHeader, bool writeData)
   if (m_voxelType == _Int) vt = 4; // int
   if (m_voxelType == _Float) vt = 8; // float
 
-  QMessageBox::information(0, "", "creating mask file");
-
   QProgressDialog progress(QString("Allocating space for\n%1\non disk").\
 			   arg(m_baseFilename),
 			   "Cancel",
@@ -222,7 +220,7 @@ VolumeFileManager::createFile(bool writeHeader, bool writeData)
 
   progress.setValue(100);
 
-  if (!m_memmapped)
+  if (m_memmapped)
     createMemFile();
 }
 

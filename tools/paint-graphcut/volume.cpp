@@ -150,10 +150,6 @@ Volume::setFile(QString volfile)
 
   m_pvlFileManager.loadMemFile();
 
-//  QString vgfile = m_fileName;
-//  thread->setFiles(m_fileName, vgfile,
-//		   m_depth, m_width, m_height, slabSize);
-
   QString mfile = m_fileName;
   mfile.chop(6);
   mfile += QString("mask");
@@ -533,8 +529,6 @@ Volume::tagAllVisible(int mind, int maxd,
 void
 Volume::createBitmask()
 {
-//  thread->createBitmask(Global::lut());
-//  m_bitmask = thread->bitmask();
   return;
 }
 

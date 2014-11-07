@@ -65,6 +65,9 @@ ImageWidget::ImageWidget(QWidget *parent, QStatusBar *sb) :
   m_pickDepth = 0;
   m_pickWidth = 0;
   m_pickHeight = 0;
+  m_lastPickDepth = 0;
+  m_lastPickWidth = 0;
+  m_lastPickHeight = 0;
 
   m_rubberBand = QRect(0,0,0,0);
   m_rubberXmin = false;
@@ -591,16 +594,26 @@ ImageWidget::drawSizeText(QPainter *p)
 {  
   p->setPen(QPen(Qt::black, 1));
 
-  QString txt = QString("%1 %2 %3 [%4:%5 %6:%7 %8:%9] (%10 %11 %12)").\
-    arg(m_Height+1).arg(m_Width+1).arg(m_Depth+1).		      \
-    arg(m_minHSlice).arg(m_maxHSlice).				      \
-    arg(m_minWSlice).arg(m_maxWSlice).				      \
-    arg(m_minDSlice).arg(m_maxDSlice).				      \
-    arg(m_maxHSlice-m_minHSlice+1).				      \
-    arg(m_maxWSlice-m_minWSlice+1).				      \
-    arg(m_maxDSlice-m_minDSlice+1);				      \
+  QString txt;
+  txt += QString("%1 %2 %3  ").arg(m_pickDepth).arg(m_pickWidth).arg(m_pickHeight);
 
-  txt += QString("   (radius = %1)").arg(Global::spread());
+  txt += QString("dim:(%1 %2 %3)").	      \
+    arg(m_Height+1).arg(m_Width+1).arg(m_Depth+1);
+
+  int hsz = m_maxHSlice-m_minHSlice+1;
+  int wsz = m_maxWSlice-m_minWSlice+1;
+  int dsz = m_maxDSlice-m_minDSlice+1;
+
+  if (hsz < m_Height+1 || wsz < m_Width+1 || dsz < m_Depth+1)      
+    txt += QString("[%4:%5 %6:%7 %8:%9]  subvol:(%10 %11 %12)").      \
+      arg(m_minHSlice).arg(m_maxHSlice).			      \
+      arg(m_minWSlice).arg(m_maxWSlice).			      \
+      arg(m_minDSlice).arg(m_maxDSlice).			      \
+      arg(m_maxHSlice-m_minHSlice+1).				      \
+      arg(m_maxWSlice-m_minWSlice+1).				      \
+      arg(m_maxDSlice-m_minDSlice+1);				      \
+
+  txt += QString("  radius:%1").arg(Global::spread());
   p->drawText(m_simgX, m_simgY-3, txt);
 }
 
@@ -649,6 +662,9 @@ ImageWidget::paintEvent(QPaintEvent *event)
 	      p.drawEllipse(xpos-rad,
 			    ypos-rad,
 			    2*rad, 2*rad);
+
+//	      p.drawLine(xpos, m_simgY, xpos, m_simgHeight+m_simgY);
+//	      p.drawLine(m_simgX, ypos, m_simgWidth+m_simgX, ypos);
 	    }
 	}
     }
@@ -1172,6 +1188,10 @@ ImageWidget::mousePressEvent(QMouseEvent *event)
     {
       if (validPickPoint(xpos, ypos))
 	{
+	  m_lastPickDepth = m_pickDepth;
+	  m_lastPickWidth = m_pickWidth;
+	  m_lastPickHeight= m_pickHeight;
+	  
 	  if (altModifier)
 	    {
 	      checkRubberBand(xpos, ypos);
@@ -1198,6 +1218,9 @@ ImageWidget::mousePressEvent(QMouseEvent *event)
     {
       if (validPickPoint(xpos, ypos))
 	{
+	  m_lastPickDepth = m_pickDepth;
+	  m_lastPickWidth = m_pickWidth;
+	  m_lastPickHeight= m_pickHeight;
 	  if (shiftModifier)
 	    {
 	      m_pickPoint = true;
@@ -1389,6 +1412,10 @@ ImageWidget::mouseMoveEvent(QMouseEvent *event)
       // carry on only if Alt key is not pressed
       if (validPickPoint(xpos, ypos))
 	{
+	  m_lastPickDepth = m_pickDepth;
+	  m_lastPickWidth = m_pickWidth;
+	  m_lastPickHeight= m_pickHeight;
+
 	  if (m_sliceType == DSlice)
 	    dotImage(m_pickHeight,
 		     m_pickWidth,
@@ -1409,6 +1436,10 @@ ImageWidget::mouseMoveEvent(QMouseEvent *event)
     {
       if (validPickPoint(xpos, ypos))
 	{
+	  m_lastPickDepth = m_pickDepth;
+	  m_lastPickWidth = m_pickWidth;
+	  m_lastPickHeight= m_pickHeight;
+
 	  if (!shiftModifier)
 	    {
 	      if (m_sliceType == DSlice)

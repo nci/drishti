@@ -10,10 +10,14 @@ VolumeFileManager::VolumeFileManager()
   m_startBlock = m_endBlock = 0;
   m_filenames.clear();
   m_volData = 0;
+  m_memmapped = true;
   reset();
 }
 
 VolumeFileManager::~VolumeFileManager() { reset(); }
+
+void VolumeFileManager::setMemMapped(bool b) { m_memmapped = b; }
+bool VolumeFileManager::isMemMapped() { return m_memmapped; }
 
 void
 VolumeFileManager::reset()
@@ -38,10 +42,15 @@ VolumeFileManager::reset()
   m_startBlock = m_endBlock = 0;
 
   if (m_volData)
-    m_volData = 0;
+    {
+      delete [] m_volData;
+      m_volData = 0;
+    }
 
   if (m_qfile.isOpen())
     m_qfile.close();
+
+  m_memmapped = true;
 }
 
 int VolumeFileManager::depth() { return m_depth; }
@@ -213,7 +222,8 @@ VolumeFileManager::createFile(bool writeHeader, bool writeData)
 
   progress.setValue(100);
 
-  createMemFile();
+  if (!m_memmapped)
+    createMemFile();
 }
 
 uchar*
@@ -782,6 +792,9 @@ VolumeFileManager::blockInterpolatedRawValue(float dv, float wv, float hv)
 void
 VolumeFileManager::saveMemFile()
 {
+  if (!m_memmapped)
+    return;
+
   uchar vt;
   if (m_voxelType == _UChar) vt = 0; // unsigned byte
   if (m_voxelType == _Char) vt = 1; // signed byte
@@ -843,6 +856,9 @@ VolumeFileManager::saveMemFile()
 void
 VolumeFileManager::loadMemFile()
 {
+  if (!m_memmapped)
+    return;
+
   createMemFile();
 
   QProgressDialog progress(QString("Loading %1").\
@@ -887,38 +903,6 @@ VolumeFileManager::loadMemFile()
       m_qfile.close(); 
     }
   progress.setValue(100);
-
-
-//  int it = 0;
-//  int pslab = -1;
-//  for(int d=0; d<m_depth; d++)
-//    {
-//      int slab = d/m_slabSize;
-//      if (pslab != slab)
-//	{
-//	  if (pslab > -1) m_qfile.close();
-//
-//	  if (slab < m_filenames.count())
-//	    m_filename = m_filenames[slab];
-//	  else
-//	    m_filename = m_baseFilename +
-//	      QString(".%1").arg(slab+1, 3, 10, QChar('0'));
-//
-//	  m_qfile.setFileName(m_filename);
-//	  m_qfile.open(QFile::ReadWrite);
-//	}
-//
-//      for(int j=0; j<m_width; j++, it++)
-//	{
-//	  m_qfile.seek((qint64)(m_header +
-//				(d-slab*m_slabSize)*bps +
-//				(j*m_height + h)*m_bytesPerVoxel));
-//	  m_qfile.read((char*)(m_slice + it*m_bytesPerVoxel),
-//		       m_bytesPerVoxel);
-//	}
-//    }
-//  m_qfile.close();
-
 }
 
 void
@@ -936,6 +920,9 @@ VolumeFileManager::createMemFile()
 uchar*
 VolumeFileManager::getSliceMem(int d)
 {
+  if (!m_memmapped)
+    return getSlice(d);
+
   qint64 bps = m_width*m_height*m_bytesPerVoxel;
   if (!m_slice)
     {
@@ -950,6 +937,12 @@ VolumeFileManager::getSliceMem(int d)
 void
 VolumeFileManager::setSliceMem(int d, uchar *tmp)
 {
+  if (!m_memmapped)
+    {
+      setSlice(d, tmp);
+      return;
+    }    
+
   qint64 bps = m_width*m_height*m_bytesPerVoxel;
   memcpy(m_volData+d*bps, tmp, bps);
 }
@@ -957,6 +950,9 @@ VolumeFileManager::setSliceMem(int d, uchar *tmp)
 uchar*
 VolumeFileManager::getWidthSliceMem(int w)
 {
+  if (!m_memmapped)
+    return getWidthSlice(w);
+
   qint64 bps = m_width*m_height*m_bytesPerVoxel;
   if (!m_slice)
     {
@@ -974,6 +970,12 @@ VolumeFileManager::getWidthSliceMem(int w)
 void
 VolumeFileManager::setWidthSliceMem(int w, uchar *tmp)
 {
+  if (!m_memmapped)
+    {
+      setWidthSlice(w, tmp);
+      return;
+    }    
+
   qint64 bps = m_width*m_height*m_bytesPerVoxel;
   for(int d=0; d<m_depth; d++)
     memcpy(m_volData + d*bps + w*m_height*m_bytesPerVoxel,
@@ -984,6 +986,9 @@ VolumeFileManager::setWidthSliceMem(int w, uchar *tmp)
 uchar*
 VolumeFileManager::getHeightSliceMem(int h)
 {
+  if (!m_memmapped)
+    return getHeightSlice(h);
+
   qint64 bps = m_width*m_height*m_bytesPerVoxel;
   if (!m_slice)
     {
@@ -1005,6 +1010,12 @@ VolumeFileManager::getHeightSliceMem(int h)
 void
 VolumeFileManager::setHeightSliceMem(int h, uchar *tmp)
 {
+  if (!m_memmapped)
+    {
+      setHeightSlice(h, tmp);
+      return;
+    }    
+
   qint64 bps = m_width*m_height*m_bytesPerVoxel;
   int it = 0;
   for(int d=0; d<m_depth; d++)
@@ -1019,6 +1030,9 @@ VolumeFileManager::setHeightSliceMem(int h, uchar *tmp)
 uchar*
 VolumeFileManager::rawValueMem(int d, int w, int h)
 {
+  if (!m_memmapped)
+    return rawValue(d,w,h);
+
   qint64 bps = m_width*m_height*m_bytesPerVoxel;
   if (!m_slice)
     {

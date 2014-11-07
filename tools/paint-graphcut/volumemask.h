@@ -12,7 +12,7 @@ class VolumeMask : public QObject
   ~VolumeMask();
 
   void reset();
-  void setFile(QString);
+  void setFile(QString, bool);
   void setGridSize(int, int, int, int);
 
   void saveIntermediateResults();

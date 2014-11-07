@@ -21,6 +21,8 @@ VolumeMask::reset()
   if (!m_maskfile.isEmpty())
     m_maskFileManager.saveMemFile();    
 
+  m_maskFileManager.reset();
+
   m_maskfile.clear();
   if (m_maskslice) delete [] m_maskslice;
   m_maskslice = 0;
@@ -36,7 +38,7 @@ VolumeMask::saveIntermediateResults()
 }
 
 void
-VolumeMask::setFile(QString mfile)
+VolumeMask::setFile(QString mfile, bool inMem)
 {
   reset();
   m_maskfile = mfile;
@@ -44,6 +46,7 @@ VolumeMask::setFile(QString mfile)
   QStringList tflnms;
   tflnms << mfile;
   m_maskFileManager.setFilenameList(tflnms);
+  m_maskFileManager.setMemMapped(inMem);
 }
 
 void

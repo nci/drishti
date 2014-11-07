@@ -23,8 +23,13 @@ class VolumeFileManager
     _Float
   };
 
+  void reset();
+
   QString fileName();
   bool exists();
+
+  void setMemMapped(bool);
+  bool isMemMapped();
 
   void setFilenameList(QStringList);
   void setBaseFilename(QString);
@@ -72,6 +77,7 @@ class VolumeFileManager
   uchar* rawValueMem(int, int, int);
 
  private :
+  bool m_memmapped;
   QString m_baseFilename;
   QStringList m_filenames;
   qint64 m_header, m_slabSize;
@@ -88,7 +94,6 @@ class VolumeFileManager
 
   uchar *m_volData;
 
-  void reset();
   void readBlocks(int);
 
   void createMemFile();  

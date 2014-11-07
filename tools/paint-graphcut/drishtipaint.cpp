@@ -413,7 +413,11 @@ DrishtiPaint::on_butZ_clicked()
   int d, w, h, u0, u1;
   m_volume->gridSize(d, w, h);
   m_imageWidget->depthUserRange(u0, u1);
+
+  QVector3D pp = m_imageWidget->pickedPoint();
+  int s = qBound(u0, (int)pp.x(), u1);
   m_slider->set(0, d-1, u0, u1, 0);
+  m_imageWidget->sliceChanged(s);
 }
 void
 DrishtiPaint::on_butY_clicked()
@@ -425,7 +429,11 @@ DrishtiPaint::on_butY_clicked()
   int d, w, h, u0, u1;
   m_volume->gridSize(d, w, h);
   m_imageWidget->widthUserRange(u0, u1);
+
+  QVector3D pp = m_imageWidget->pickedPoint();
+  int s = qBound(u0, (int)pp.y(), u1);
   m_slider->set(0, w-1, u0, u1, 0);
+  m_imageWidget->sliceChanged(s);
 }
 void
 DrishtiPaint::on_butX_clicked()
@@ -437,7 +445,11 @@ DrishtiPaint::on_butX_clicked()
   int d, w, h, u0, u1;
   m_volume->gridSize(d, w, h);
   m_imageWidget->heightUserRange(u0, u1);
+
+  QVector3D pp = m_imageWidget->pickedPoint();
+  int s = qBound(u0, (int)pp.z(), u1);
   m_slider->set(0, h-1, u0, u1, 0);
+  m_imageWidget->sliceChanged(s);
 }
 
 

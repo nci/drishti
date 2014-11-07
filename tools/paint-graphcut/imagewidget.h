@@ -9,6 +9,7 @@
 #include <QInputDialog>
 #include <QTextEdit>
 #include <QVBoxLayout>
+#include <QVector3D>
 
 class ImageWidget : public QWidget
 {
@@ -53,6 +54,9 @@ class ImageWidget : public QWidget
   void getBox(int&, int&, int&, int&, int&, int&);
 
   void processPrevSliceTags();
+
+  QVector3D pickedPoint() { return QVector3D(m_lastPickDepth, m_lastPickWidth, m_lastPickHeight); }
+
  public slots :
   void updateTagColors();
   void sliceChanged(int);
@@ -127,6 +131,7 @@ class ImageWidget : public QWidget
   int m_button;
   bool m_pickPoint;
   int m_pickDepth, m_pickWidth, m_pickHeight;
+  int m_lastPickDepth, m_lastPickWidth, m_lastPickHeight;
 
   QList<uchar> m_vgt;
   QPoint m_cursorPos;

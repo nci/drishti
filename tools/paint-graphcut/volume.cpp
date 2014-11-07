@@ -66,6 +66,8 @@ void Volume::reset()
 {
   m_valid = false;
 
+  m_pvlFileManager.reset();
+
   m_mask.reset();
 
   m_fileName.clear();
@@ -126,6 +128,26 @@ Volume::setFile(QString volfile)
   m_pvlFileManager.setHeaderSize(headerSize);
   m_pvlFileManager.setSlabSize(slabSize);
 
+  //----------------
+  float inmemGB = 0.3+((float)m_depth*m_width*m_height*2)/((float)1024*1024*1024);
+  bool inMem = true;
+  bool ok;
+  QStringList dtypes;
+  dtypes.clear();
+  dtypes << "Yes"
+	 << "No";
+  QString option = QInputDialog::getItem(0,
+					 "Memory Mapped File",
+					 QString("Load volume in memory for fast operations ?\nYou will need atleast %1 Gb").arg(inmemGB),
+					 dtypes,
+					 0,
+					 false,
+					 &ok);
+  if (ok && option == "No") inMem = false;
+  //----------------
+  m_pvlFileManager.setMemMapped(inMem);
+
+
   m_pvlFileManager.loadMemFile();
 
 //  QString vgfile = m_fileName;
@@ -135,7 +157,7 @@ Volume::setFile(QString volfile)
   QString mfile = m_fileName;
   mfile.chop(6);
   mfile += QString("mask");
-  m_mask.setFile(mfile);
+  m_mask.setFile(mfile, inMem);
   m_mask.setGridSize(m_depth, m_width, m_height, slabSize);
 
   genHistogram();

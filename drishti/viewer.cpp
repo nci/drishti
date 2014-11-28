@@ -1620,7 +1620,7 @@ Viewer::renderVolume(int imagequality)
       int oh = QGLViewer::size().height();
       glViewport(0,0, ow, oh); 
 
-      glColor3f(1,1,1);
+      glClearColor(0,0,0,1);
       glClear(GL_COLOR_BUFFER_BIT);
 
       m_lowresVolume->draw(Global::stepsizeStill(),
@@ -3601,7 +3601,8 @@ Viewer::init()
   glDisable(GL_LIGHTING);
 
   Global::setBackgroundColor(Vec(0, 0, 0));
-
+  glClearColor(0.1,0.1,0.1,0.1);
+  
   // Restore previous viewer state.
   //restoreStateFromFile();
   // Opens help window

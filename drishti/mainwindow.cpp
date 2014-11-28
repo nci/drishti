@@ -1639,20 +1639,12 @@ void
 MainWindow::on_actionLoad_1_Volume_triggered()
 {
   QStringList flnm;
-#ifndef Q_OS_MACX
   flnm = QFileDialog::getOpenFileNames(0,
 				      "Load volume files",
 				       Global::previousDirectory(),
 				       "NetCDF Files (*.pvl.nc)",
 				       0,
 				       QFileDialog::DontUseNativeDialog);
-#else
-  flnm = QFileDialog::getOpenFileNames(0,
-				      "Load volume files",
-				       Global::previousDirectory(),
-				       "NetCDF Files (*.pvl.nc)",
-				       0);
-#endif
 
   if (flnm.isEmpty())
     return;

@@ -333,23 +333,6 @@ void
 DrawLowresVolume::draw(float stepsize,
 		       int posx, int posy)
 {
-  int screenWidth = m_Viewer->size().width();
-  int screenHeight = m_Viewer->size().height();
-
-#ifdef Q_OS_MACX
-      glColor4f(0,0,0,1);
-      m_Viewer->startScreenCoordinatesSystem();
-      glBegin(GL_QUADS);
-      glVertex2i(0,0);
-      glVertex2i(screenWidth,0);
-      glVertex2i(screenWidth,screenHeight);
-      glVertex2i(0,screenHeight);
-      glEnd();
-      m_Viewer->stopScreenCoordinatesSystem();
-#endif
-  glClear(GL_DEPTH_BUFFER_BIT);
-  glColor4f(1,1,1,1);
-
   m_boundingBox.draw();
 
   Vec pn;
@@ -439,6 +422,9 @@ DrawLowresVolume::draw(float stepsize,
 
   glEnable(GL_BLEND);
   glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); // blend on top
+
+  int screenWidth = m_Viewer->size().width();
+  int screenHeight = m_Viewer->size().height();
 
   glColor4f(0, 0, 0, 0.8f);
   glBegin(GL_QUADS);

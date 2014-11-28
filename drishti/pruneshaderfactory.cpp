@@ -822,7 +822,7 @@ PruneShaderFactory::paint()
   // if planarcarve then consider voxels within cylinder
   shader += "if (planarcarve)\n";
   shader += "{\n";
-  shader += " if (dcptcp < -2*clipt || dcptcp > 0.1 ||\n";
+  shader += " if (dcptcp < -2.0*clipt || dcptcp > 0.1 ||\n";
   shader += "     cx*cx+cy*cy > radius*radius)\n";
   shader += "   return;\n";
   shader += "}\n";

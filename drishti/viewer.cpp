@@ -1060,7 +1060,7 @@ Viewer::splashScreen()
 			      Qt::black, Qt::lightGray,
 			      false); // textPath
   
-  glColor4f(0,0,0,0);
+  glColor4f(0,0,0,1);
   glBegin(GL_QUADS);
   glVertex2i(0,0);
   glVertex2i(width(),0);
@@ -1314,7 +1314,8 @@ Viewer::drawInfoString(int imagequality,
   if (PruneHandler::blend())
     msg += QString("(blend : on)");
 
-  if (m_disableRotationInViewport)
+  if (m_disableRotationInViewport &&
+      GeometryObjects::clipplanes()->viewportGrabbed()>=0)
     msg += " DRV";
 
   if (!msg.isEmpty())
@@ -1618,10 +1619,13 @@ Viewer::renderVolume(int imagequality)
       int ow = QGLViewer::size().width();
       int oh = QGLViewer::size().height();
       glViewport(0,0, ow, oh); 
-      glColor4f(0,0,0,0);
+
+      glColor3f(1,1,1);
       glClear(GL_COLOR_BUFFER_BIT);
+
       m_lowresVolume->draw(Global::stepsizeStill(),
 			   10, size().height()-1);
+
     }
   else
     {

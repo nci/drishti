@@ -188,24 +188,6 @@ PropertyEditor::set(QString title,
 	  QLabel *lbl = new QLabel(keys[i]);
 	  gridLayout->addWidget(lbl, i, 0);
 	  
-//	  if (addReset)
-//	    {
-//	      //------- add reset property button -------
-//	      QPushButton *rp = new QPushButton(
-//		                QPixmap(":/images/resetproperty.png"), "");
-//	      rp->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-//	      rp->setMaximumSize(15, 20);
-//	      rp->setMinimumSize(15, 20);
-//	      connect(rp, SIGNAL(clicked()),
-//		      m_signalMapper, SLOT(map()));
-//	      m_signalMapper->setMapping(rp, i);
-//	      connect(m_signalMapper, SIGNAL(mapped(int)),
-//		      this, SLOT(resetProperty(int)));
-//	      
-//	      gridLayout->addWidget(rp, i, 2);
-//	      //-----------------------------------------
-//	    }
-      
 	  if (vlist[0] == "int")
 	    {
 	      QSpinBox *sbox = new QSpinBox();
@@ -288,6 +270,10 @@ PropertyEditor::set(QString title,
 	      
 	      gridLayout->addWidget(check, i, 1);
 	      m_widgets[keys[i]] = check;
+
+	      if (keys[i] == "SELECT ALL")
+		connect(check, SIGNAL(stateChanged(int)),
+			this, SLOT(selectAll(int)));
 	    }
 	  else if (vlist[0] == "colorgradient")
 	    {
@@ -516,5 +502,20 @@ PropertyEditor::hotkeymouseClicked(bool checked)
     {
       m_helpList->clear();
       m_helpList->addItems(m_helpCommandString);
+    }
+}
+
+void
+PropertyEditor::selectAll(int s)
+{   
+  bool st = false;
+  st = (s == Qt::Checked);
+  QList<QWidget*> widgets = m_widgets.values();
+  for(int i=0; i<m_widgets.count(); i++)
+    {
+      if (widgets[i]->inherits("QCheckBox"))
+	{
+	  ((QCheckBox*)widgets[i])->setChecked(st);
+	}
     }
 }

@@ -32,6 +32,7 @@ class PropertyEditor : public QDialog
   void resetProperty(int);
   void helpItemSelected(int);
   void hotkeymouseClicked(bool);
+  void selectAll(int);
 
  private :
   Ui::PropertyEditor ui;

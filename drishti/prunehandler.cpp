@@ -414,9 +414,10 @@ PruneHandler::getPruneBuffer()
   uchar *pbdata = new uchar[4*m_dtexX*m_dtexY];
   memcpy(pbdata, pimg.bits(), 4*m_dtexX*m_dtexY);
   QByteArray pb((char*)pbdata, 4*m_dtexX*m_dtexY);
-  QByteArray compressed = qCompress(pb, 9);
+//  QByteArray compressed = qCompress(pb, 9);
   delete [] pbdata;
-  return compressed;
+//  return compressed;
+  return pb;
 }
 
 void

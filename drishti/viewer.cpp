@@ -2241,16 +2241,8 @@ Viewer::setKeyFrame(int fno)
 void
 Viewer::captureKeyFrameImage(int kfn)
 {
-//  // draw image again to get the correct pixmap
-//  draw();
-//
-//  Vec pos;
-//  Quaternion rot;
-//  pos = camera()->position();
-//  rot = camera()->orientation();
-//	  
-//  Vec bmin, bmax;
-//  m_lowresVolume->subvolumeBounds(bmin, bmax);
+  // draw image again to get the correct pixmap
+  draw();
 
   QImage image = grabFrameBuffer();
   image = image.scaled(100, 100);

@@ -1834,6 +1834,11 @@ KeyFrame::copyProperties(QString title)
   vlist.clear();
   vlist << QVariant("checkbox");
   vlist << QVariant(false);
+  plist["SELECT ALL"] = vlist;
+
+  vlist.clear();
+  vlist << QVariant("checkbox");
+  vlist << QVariant(false);
   plist["axis"] = vlist;
 
   vlist.clear();
@@ -1964,6 +1969,7 @@ KeyFrame::copyProperties(QString title)
 
 
   QStringList keys;
+  keys << "SELECT ALL";
   keys << "axis";
   keys << "background color";
   keys << "bounding box";
@@ -2293,6 +2299,7 @@ KeyFrame::import(QString flnm)
       playFrameNumber(m_keyFrameInfo[i]->frameNumber());
 
       emit replaceKeyFrameImage(i);
+
       qApp->processEvents();
     }
 }

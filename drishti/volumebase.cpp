@@ -374,11 +374,11 @@ VolumeBase::createLowresTextureVolume()
   m_lowresTextureVolume = new unsigned char[texsize];
   memset(m_lowresTextureVolume, 0, texsize);
 
-  Vec shift = (m_lowresTextureVolumeSize - m_lowresVolumeSize)/2;
-  int sx,sy,sz;
-  sx = shift.x;
-  sy = shift.y;
-  sz = shift.z;
+//  Vec shift = (m_lowresTextureVolumeSize - m_lowresVolumeSize)/2;
+//  int sx,sy,sz;
+//  sx = shift.x;
+//  sy = shift.y;
+//  sz = shift.z;
 
   int vx,vy,vz;
   vx = m_lowresVolumeSize.x;

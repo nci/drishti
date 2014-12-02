@@ -26,8 +26,9 @@ class VolumeSingle : public VolumeBase
   void forMultipleVolumes(int,
 			  Vec, int, int,
 			  int, int,
-			  int, int,
-			  int, int, int);
+			  int, int);
+
+  void setMaxDimensions(int, int, int);
 
   int timestepNumber(int);
 

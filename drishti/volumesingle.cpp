@@ -151,9 +151,9 @@ VolumeSingle::loadVolume(QList<QString> vfiles, bool redo)
   bool ok = VolumeBase::loadVolume(m_volumeFiles[0].toLatin1().data(),
 				   redo);
 
-  int bpv = 1;
-  if (m_pvlVoxelType > 0) bpv = 2;
-  m_sliceTemp = new uchar [bpv*m_width*m_height];
+  //int bpv = 1;
+  //if (m_pvlVoxelType > 0) bpv = 2;
+  //m_sliceTemp = new uchar [bpv*m_width*m_height];
 
   setBasicInformation(m_volnum);
 
@@ -263,17 +263,26 @@ VolumeSingle::setSubvolume(Vec boxMin, Vec boxMax,
 
   int volnum = timestepNumber(volnum1);  
 
-  int n_depth, n_width, n_height;
-  XmlHeaderFunctions::getDimensionsFromHeader(m_volumeFiles[volnum],
-					      n_depth, n_width, n_height);
+//  int n_depth, n_width, n_height;
+//  XmlHeaderFunctions::getDimensionsFromHeader(m_volumeFiles[volnum],
+//					      n_depth, n_width, n_height);
+//
+//  boxMin = StaticFunctions::clampVec(Vec(0,0,0),
+//				     boxMin-Vec(m_offH, m_offW, m_offD),
+//				     Vec(n_height-1, n_width-1, n_depth-1));
+//  boxMax = StaticFunctions::clampVec(Vec(0,0,0),
+//				     boxMax-Vec(m_offH, m_offW, m_offD),
+//				     Vec(n_height-1, n_width-1, n_depth-1));
+
+//  boxMin -= Vec(m_offH, m_offW, m_offD);
+//  boxMax -= Vec(m_offH, m_offW, m_offD);
 
   boxMin = StaticFunctions::clampVec(Vec(0,0,0),
 				     boxMin,
-				     Vec(n_height-1, n_width-1, n_depth-1));
+				     Vec(m_maxHeight-1, m_maxWidth-1, m_maxDepth-1));
   boxMax = StaticFunctions::clampVec(Vec(0,0,0),
 				     boxMax,
-				     Vec(n_height-1, n_width-1, n_depth-1));
-
+				     Vec(m_maxHeight-1, m_maxWidth-1, m_maxDepth-1));
 
   if (force == false)
     {
@@ -288,15 +297,14 @@ VolumeSingle::setSubvolume(Vec boxMin, Vec boxMax,
   m_dataMin = boxMin;
   m_dataMax = boxMax;
 
+//  QMessageBox::information(0, "", QString("%1 %2 %3\n%4 %5 %6").\
+//			   arg(m_dataMin.x).arg(m_dataMin.y).arg(m_dataMin.z).\
+//			   arg(m_dataMax.x).arg(m_dataMax.y).arg(m_dataMax.z));
+
   if (m_volumeFiles.count() > 1)
     setBasicInformation(m_volnum);
 
   m_subvolumeSize = m_dataMax - m_dataMin + Vec(1,1,1); 
-
-  m_maxHeight = m_subvolumeSize.x;
-  m_maxWidth = m_subvolumeSize.y;
-  m_maxDepth = m_subvolumeSize.z;
-  m_offH = m_offW = m_offD = 0;
 
   if (subsamplingLevel == 0)
     {
@@ -1118,11 +1126,7 @@ VolumeSingle::getDragTextureSize(int& dtexX, int& dtexY)
 }
 
 void
-VolumeSingle::forMultipleVolumes(int svsl,
-				 Vec dts, int dtexw, int dtexh,
-				 int texw, int texh,
-				 int ncols, int nrows,
-				 int maxH, int maxW, int maxD)
+VolumeSingle::setMaxDimensions(int maxH, int maxW, int maxD)
 {
   //-------------------------
   // used for centering smaller volumes within larger volume
@@ -1130,16 +1134,36 @@ VolumeSingle::forMultipleVolumes(int svsl,
   m_maxWidth = maxW;
   m_maxDepth = maxD;
 
-  m_offH = (maxH - m_subvolumeSize.x)/2;
-  m_offW = (maxW - m_subvolumeSize.y)/2;
-  m_offD = (maxD - m_subvolumeSize.z)/2;
+  int cd, cw, ch;
+  XmlHeaderFunctions::getDimensionsFromHeader(m_volumeFiles[m_volnum],
+					      cd, cw, ch);
+  m_offH = (maxH - ch)/2;
+  m_offW = (maxW - cw)/2;
+  m_offD = (maxD - cd)/2;
 
-  if (m_offH > 0 && m_offH*2 + m_subvolumeSize.x >= maxH) m_offH--;
-  if (m_offW > 0 && m_offW*2 + m_subvolumeSize.y >= maxW) m_offW--;
-  if (m_offD > 0 && m_offD*2 + m_subvolumeSize.z >= maxD) m_offD--;
+//  if (m_offH > 0 && m_offH*2 + ch >= maxH) m_offH--;
+//  if (m_offW > 0 && m_offW*2 + cw >= maxW) m_offW--;
+//  if (m_offD > 0 && m_offD*2 + cd >= maxD) m_offD--;
   //-------------------------
 
+  int bpv = 1;
+  if (m_pvlVoxelType > 0) bpv = 2;
+  m_sliceTemp = new uchar [bpv*m_maxWidth*m_maxHeight];
 
+//  QMessageBox::information(0, 
+//			   m_pvlFileManager.fileName(),
+//			   QString("Max Dimensions\n%1 %2 %3\n%4 %5 %6\n%7 %8 %9").\
+//			   arg(maxH).arg(maxW).arg(maxD).\
+//			   arg(m_offH).arg(m_offW).arg(m_offD).\
+//			   arg(m_height).arg(m_width).arg(m_depth));
+}
+
+void
+VolumeSingle::forMultipleVolumes(int svsl,
+				 Vec dts, int dtexw, int dtexh,
+				 int texw, int texh,
+				 int ncols, int nrows)
+{
   m_subvolumeSubsamplingLevel = svsl;
 
   m_dragTextureInfo = dts;
@@ -1287,11 +1311,6 @@ VolumeSingle::saveSubsampledVolume()
       int kmin = kslc*m_subvolumeSubsamplingLevel;
       int kmax = kmin + m_subvolumeSubsamplingLevel-1;
 
-//      QFileInfo fi(m_pvlFileManager.fileName());
-//      MainWindowUI::mainWindowUI()->menubar->parentWidget()-> \
-//	setWindowTitle(QString("Drishti - (%1-%2) from %3").\
-//		       arg(kmin).arg(kmax).arg(fi.fileName()));
-
       Global::progressBar()->setValue((int)(100.0*(float)kslc/(float)lenz2));
 
       memset(tmp, 0, 4*leny2*lenx2);
@@ -1385,12 +1404,12 @@ VolumeSingle::getSliceTextureSlab(int minz, int maxz)
   int maxleny2 = m_texHeight/m_texRows;
 
   memset(m_sliceTexture, 0, bpv*m_texWidth*m_texHeight);  
-  
+
   uchar *g0, *g1, *g2, *g3;
-  g0 = new uchar [bpv*m_width*m_height];
-  g1 = new uchar [bpv*m_width*m_height];
-  g2 = new uchar [bpv*m_width*m_height];
-  g3 = new uchar [bpv*m_width*m_height];
+  g0 = new uchar [bpv*m_maxWidth*m_maxHeight];
+  g1 = new uchar [bpv*m_maxWidth*m_maxHeight];
+  g2 = new uchar [bpv*m_maxWidth*m_maxHeight];
+  g3 = new uchar [bpv*m_maxWidth*m_maxHeight];
 
   //-------- for dragTexure ---------------
   int dtncols = m_dragTextureInfo.x;
@@ -1425,12 +1444,16 @@ VolumeSingle::getSliceTextureSlab(int minz, int maxz)
       int offD = m_offD/m_subvolumeSubsamplingLevel;
       int offW = m_offW/m_subvolumeSubsamplingLevel;
       int offH = m_offH/m_subvolumeSubsamplingLevel;
-      int offWdrag = offW/stp;
-      int offHdrag = offH/stp;
+
+      int maxHsl = m_maxHeight/m_subvolumeSubsamplingLevel;
+      int maxWsl = m_maxWidth/m_subvolumeSubsamplingLevel;
+
+      uchar *sliceTemp1 = new uchar [bpv*maxWsl*maxHsl];
+
       // additional slice at the top and bottom
       for(int k0=kmin-1; k0<=kmax+1; k0++)
 	{
-	  int k = k0-offD; // shift slice by given depth offset
+	  int k = k0 - offD; // shift slice by given depth offset
 
 	  if (k >= 0 && k<lenk2)
 	    {
@@ -1442,31 +1465,33 @@ VolumeSingle::getSliceTextureSlab(int minz, int maxz)
 	      memset(m_sliceTemp, 0, kbytes);
 	    }
 
-//	  QFileInfo fi(m_lodFileManager.fileName());
-//	  MainWindowUI::mainWindowUI()->menubar->parentWidget()-> \
-//	    setWindowTitle(QString("Drishti - %1 from %2").arg(k).arg(fi.fileName()));
-
+	  //---
+	  memset(sliceTemp1, 0, bpv*maxWsl*maxHsl);
+	  for(int j=0; j<lenj2; j++)
+	    memcpy(sliceTemp1 + bpv*((j+offW)*maxHsl + offH),
+		   m_sliceTemp + bpv*j*leni2,
+		   bpv*leni2);
+	  
 	  for(int j=0; j<leny2; j++)
 	    memcpy(m_sliceTemp + bpv*j*lenx2,
-		   m_sliceTemp + bpv*(((j+jmin)*leni2 + imin)),
+		   sliceTemp1 + bpv*((j+jmin)*maxHsl + imin),
 		   bpv*lenx2);
-
+	  
 	  int col = (k0-kmin+1)%ncols;
 	  int row = (k0-kmin+1)/ncols; 
 	  int grow = row*maxleny2;
-	  // shift appropriately by width & height offsets
 	  for(int j=0; j<leny2; j++)
-	    memcpy(m_sliceTexture + bpv*(col*maxlenx2+offH +
-				     (grow+j+offW)*m_texWidth),
-		   m_sliceTemp + bpv*(j*lenx2),
+	    memcpy(m_sliceTexture + bpv*(col*maxlenx2 +
+					 (grow+j)*m_texWidth),
+		   m_sliceTemp + bpv*j*lenx2,
 		   bpv*lenx2);
+	  //---
 
 	  if (row == nrows && col > 0)
 	    QMessageBox::information(0, "ERROR", QString("row, col ?? %1 %2 , %3").\
 				     arg(row).arg(nrows).arg(col));
 
 
-	  
 	  memcpy(g2, m_sliceTemp, bpv*lenx2*leny2);
 	  memset(tmp, 0, bpv*dtlenx2*dtleny2);
 
@@ -1509,8 +1534,8 @@ VolumeSingle::getSliceTextureSlab(int minz, int maxz)
 	      int row = dtkslc/dtncols; 	      
 	      int grow = row*dtmaxleny2;
 	      for(int j=0; j<dtleny2; j++)
-		memcpy(m_dragTexture + bpv*(col*dtmaxlenx2+offHdrag +
-					    (grow+j+offWdrag)*m_dragTexWidth),
+		memcpy(m_dragTexture + bpv*(col*dtmaxlenx2 +
+					    (grow+j)*m_dragTexWidth),
 		       tmp + bpv*(j*dtlenx2),
 		       bpv*dtlenx2);
 	    }
@@ -1574,6 +1599,7 @@ VolumeSingle::getSliceTextureSlab(int minz, int maxz)
       delete [] g2;
       delete [] g3;
       delete [] tmp;
+      delete [] sliceTemp1;
 
       return m_sliceTexture;
     }
@@ -1586,13 +1612,13 @@ VolumeSingle::getSliceTextureSlab(int minz, int maxz)
   int nbytes = bpv*m_width*m_height;
   int kslc = 0;
   
+  uchar *sliceTemp1 = new uchar [bpv*m_maxWidth*m_maxHeight];
+
   // additional slice at the top and bottom
   //-------------------------------------------------------
-  int offWdrag = m_offW/stp;
-  int offHdrag = m_offH/stp;
   for(int k0=minz-1; k0<=maxz+1; k0++)
     {
-      int k = k0-m_offD; // shift slice by given depth offset
+      int k = k0 - m_offD; // shift slice by given depth offset
       
       if (k >= 0 && k < m_depth)
 	{
@@ -1604,24 +1630,32 @@ VolumeSingle::getSliceTextureSlab(int minz, int maxz)
 	  memset(m_sliceTemp, 0, nbytes);
 	}
 
+      //---
+      memset(sliceTemp1, 0, bpv*m_maxWidth*m_maxHeight);
+      for(int j=0; j<m_width; j++)
+	memcpy(sliceTemp1 + bpv*((j+m_offW)*m_maxHeight + m_offH),
+	       m_sliceTemp + bpv*j*m_height,
+	       bpv*m_height);
+
       for(int j=0; j<leny2; j++)
 	memcpy(m_sliceTemp + bpv*j*lenx2,
-	       m_sliceTemp + bpv*((j+miny)*m_height + minx),
+	       sliceTemp1 + bpv*((j+miny)*m_maxHeight + minx),
 	       bpv*lenx2);
 
       int col = (k0-minz+1)%ncols;
       int row = (k0-minz+1)/ncols; 
       int grow = row*maxleny2;
-      for(int j=0; j<leny2; j++)
-	memcpy(m_sliceTexture + bpv*(col*maxlenx2+m_offH +
-				     (grow+j+m_offW)*m_texWidth),
-	       m_sliceTemp + bpv*(j*lenx2),
-	       bpv*lenx2);
 //      for(int j=0; j<leny2; j++)
 //	memcpy(m_sliceTexture + bpv*(col*maxlenx2 +
 //				     (grow+j)*m_texWidth),
-//	       m_sliceTemp + bpv*(j*lenx2),
+//	       sliceTemp1 + bpv*((j+miny)*m_maxHeight + minx),
 //	       bpv*lenx2);
+      for(int j=0; j<leny2; j++)
+	memcpy(m_sliceTexture + bpv*(col*maxlenx2 +
+				     (grow+j)*m_texWidth),
+	       m_sliceTemp + bpv*j*lenx2,
+	       bpv*lenx2);
+      //---
 
       if (row == nrows && col > 0)
 	QMessageBox::information(0, "ERROR", QString("row, col ?? %1 %2 , %3").	\
@@ -1666,15 +1700,10 @@ VolumeSingle::getSliceTextureSlab(int minz, int maxz)
 	  int row = dtkslc/dtncols; 	      
 	  int grow = row*dtmaxleny2;
 	  for(int j=0; j<dtleny2; j++)
-	    memcpy(m_dragTexture + bpv*(col*dtmaxlenx2+offHdrag +
-					(grow+j+offWdrag)*m_dragTexWidth),
+	    memcpy(m_dragTexture + bpv*(col*dtmaxlenx2 +
+					(grow+j)*m_dragTexWidth),
 		   tmp + bpv*(j*dtlenx2),
 		   bpv*dtlenx2);
-//	  for(int j=0; j<dtleny2; j++)
-//	    memcpy(m_dragTexture + bpv*(col*dtmaxlenx2 +
-//					(grow+j)*m_dragTexWidth),
-//		   tmp + bpv*(j*dtlenx2),
-//		   bpv*dtlenx2);
 	}
       //---------------------------------------
 
@@ -1720,6 +1749,7 @@ VolumeSingle::getSliceTextureSlab(int minz, int maxz)
   delete [] g2;
   delete [] g3;
   delete [] tmp;
+  delete [] sliceTemp1;
 
   return m_sliceTexture;
 }
@@ -1791,13 +1821,19 @@ VolumeSingle::calculateGradientsForDragTexture()
   int maxlenx2 = m_dragTexWidth/ncols;
   int maxleny2 = m_dragTexHeight/nrows;
 
-  uchar *g0 = new uchar [bpv*m_width*m_height];
-  uchar *g1 = new uchar [bpv*m_width*m_height];
-  uchar *g2 = new uchar [bpv*m_width*m_height];
+//  uchar *g0 = new uchar [bpv*m_width*m_height];
+//  uchar *g1 = new uchar [bpv*m_width*m_height];
+//  uchar *g2 = new uchar [bpv*m_width*m_height];
+  uchar *g0 = new uchar [bpv*m_maxWidth*m_maxHeight];
+  uchar *g1 = new uchar [bpv*m_maxWidth*m_maxHeight];
+  uchar *g2 = new uchar [bpv*m_maxWidth*m_maxHeight];
 
-  memset(g0, 0, bpv*m_width*m_height);
-  memset(g1, 0, bpv*m_width*m_height);
-  memset(g2, 0, bpv*m_width*m_height);
+//  memset(g0, 0, bpv*m_width*m_height);
+//  memset(g1, 0, bpv*m_width*m_height);
+//  memset(g2, 0, bpv*m_width*m_height);
+  memset(g0, 0, bpv*m_maxWidth*m_maxHeight);
+  memset(g1, 0, bpv*m_maxWidth*m_maxHeight);
+  memset(g2, 0, bpv*m_maxWidth*m_maxHeight);
 
   //-----
   // for drag histogram calculation

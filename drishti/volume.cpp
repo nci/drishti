@@ -402,7 +402,6 @@ Volume::getSliceTextureSizeSlabs()
       
       int lenx = dataMax.x-dataMin.x+1;
       int leny = dataMax.y-dataMin.y+1;
-      int lenz = dataMax.z-dataMin.z+1;
       int lenx2 = lenx/svsl;
       int leny2 = leny/svsl;
       int texWidth = ncols*lenx2;
@@ -414,13 +413,12 @@ Volume::getSliceTextureSizeSlabs()
       int dleny2 = leny/int(draginfo.z);
       int dtexWidth = int(draginfo.x)*dlenx2;
       int dtexHeight = int(draginfo.y)*dleny2;
-
+      
       for (int v=0; v<nvol; v++)
 	m_volume[v]->forMultipleVolumes(svsl,
 					draginfo, dtexWidth, dtexHeight,
 					texWidth, texHeight,
-					ncols, nrows,
-					lenx, leny, lenz);
+					ncols, nrows);
 
       return slabinfo;
     }
@@ -697,7 +695,16 @@ Volume::loadVolume(QList<QString> vfiles, bool redo)
 
   VolumeSingle *vol = new VolumeSingle;
   if (vol->loadVolume(vfiles, redo))
-    m_volume.append(vol);
+    {
+      m_volume.append(vol);
+
+      // used for centering smaller volume within larger ones
+      Vec fvs = getFullVolumeSize();
+      int h = fvs.x;
+      int w = fvs.y;
+      int d = fvs.z;
+      m_volume[0]->setMaxDimensions(h,w,d);
+    }
   else
     {
       delete vol;
@@ -732,6 +739,14 @@ Volume::loadVolume(QList<QString> vfiles0,
 	}
       m_volume.append(vol0);
       m_volume.append(vol1);
+
+      // used for centering smaller volume within larger ones
+      Vec fvs = getFullVolumeSize();
+      int h = fvs.x;
+      int w = fvs.y;
+      int d = fvs.z;
+      m_volume[0]->setMaxDimensions(h,w,d);
+      m_volume[1]->setMaxDimensions(h,w,d);
     }
   else
     {
@@ -774,6 +789,14 @@ Volume::loadVolume(QList<QString> vfiles0,
       m_volume.append(vol0);
       m_volume.append(vol1);
       m_volume.append(vol2);
+
+      // used for centering smaller volume within larger ones
+      Vec fvs = getFullVolumeSize();
+      int h = fvs.x;
+      int w = fvs.y;
+      int d = fvs.z;
+      for(int v=0; v<3; v++)
+	m_volume[v]->setMaxDimensions(h,w,d);
     }
   else
     {
@@ -823,6 +846,14 @@ Volume::loadVolume(QList<QString> vfiles0,
       m_volume.append(vol1);
       m_volume.append(vol2);
       m_volume.append(vol3);
+
+      // used for centering smaller volume within larger ones
+      Vec fvs = getFullVolumeSize();
+      int h = fvs.x;
+      int w = fvs.y;
+      int d = fvs.z;
+      for(int v=0; v<4; v++)
+	m_volume[v]->setMaxDimensions(h,w,d);
     }
   else
     {
@@ -1181,22 +1212,36 @@ uchar* Volume::getLowresTextureVolume()
   int nsubY = texSize.y;
   int nsubZ = texSize.z;
 
+  Vec glowvol = getLowresVolumeSize();
+
   if (m_lowresTexture) delete [] m_lowresTexture;
   m_lowresTexture = new uchar[nvol*nsubX*nsubY*nsubZ];
   memset(m_lowresTexture, 0, nvol*nsubX*nsubY*nsubZ);
+
+  int glss = 1;
+  for(int v=0; v<nvol; v++)
+    glss = qMax(glss, m_volume[v]->getLowresSubsamplingLevel());
 
   for(int v=0; v<nvol; v++)
     {
       uchar *tex = m_volume[v]->getLowresTextureVolume();
       Vec tSize = m_volume[v]->getLowresTextureVolumeSize();
+
+      int lss = glss-m_volume[v]->getLowresSubsamplingLevel()+1;
+
+      Vec vlowvol = m_volume[v]->getLowresVolumeSize();
+      int offX = (nsubX-tSize.x/lss)/2;
+      int offY = (nsubY-tSize.y/lss)/2;
+      int offZ = (glowvol.z-vlowvol.z/lss)/2;
       int i=0;
-      for(int z=0; z<(int)tSize.z; z++)
-	for(int y=0; y<(int)tSize.y; y++)
-	  for(int x=0; x<(int)tSize.x; x++)
+      for(int z=0; z<(int)vlowvol.z/lss; z++)
+	for(int y=0; y<(int)tSize.y/lss; y++)
+	  for(int x=0; x<(int)tSize.x/lss; x++)
 	    {
-	      int idx = z*nsubY*nsubX + y*nsubX + x;
-	      
-	      m_lowresTexture[nvol*idx+v] = tex[i];
+	      int idx = (z+offZ)*nsubY*nsubX + (y+offY)*nsubX + (x+offX);
+	      int tdx = (z*tSize.y*tSize.x + y*tSize.x + x)*lss;
+
+	      m_lowresTexture[nvol*idx+v] = tex[tdx];
 	      
 	      i++;
 	    }

@@ -402,6 +402,7 @@ Volume::getSliceTextureSizeSlabs()
       
       int lenx = dataMax.x-dataMin.x+1;
       int leny = dataMax.y-dataMin.y+1;
+      int lenz = dataMax.z-dataMin.z+1;
       int lenx2 = lenx/svsl;
       int leny2 = leny/svsl;
       int texWidth = ncols*lenx2;
@@ -418,7 +419,8 @@ Volume::getSliceTextureSizeSlabs()
 	m_volume[v]->forMultipleVolumes(svsl,
 					draginfo, dtexWidth, dtexHeight,
 					texWidth, texHeight,
-					ncols, nrows);
+					ncols, nrows,
+					lenx, leny, lenz);
 
       return slabinfo;
     }

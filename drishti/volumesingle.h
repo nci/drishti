@@ -26,7 +26,8 @@ class VolumeSingle : public VolumeBase
   void forMultipleVolumes(int,
 			  Vec, int, int,
 			  int, int,
-			  int, int);
+			  int, int,
+			  int, int, int);
 
   int timestepNumber(int);
 
@@ -135,6 +136,9 @@ class VolumeSingle : public VolumeBase
   uchar* m_dgTexture;
   uchar* m_sliceTexture;
   uchar* m_sliceTemp;
+
+  int m_offH, m_offW, m_offD;
+  int m_maxHeight, m_maxWidth, m_maxDepth;
 
   qint64 m_nonZeroVoxels;
   QBitArray m_bitmask;

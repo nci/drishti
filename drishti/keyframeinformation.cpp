@@ -533,6 +533,8 @@ KeyFrameInformation::load(fstream &fin)
   char keyword[100];
   float f[3];
 
+  bool pbcompressed = true;
+
   m_title.clear();
   m_brickInfo.clear();
   m_pruneBuffer.clear();
@@ -808,6 +810,8 @@ KeyFrameInformation::load(fstream &fin)
 	{
 	  fin.read((char*)&m_pruneBlend, sizeof(bool));
 	}
+      else if (strcmp(keyword, "prunebuffercompressed") == 0)
+	fin.read((char*)&pbcompressed, sizeof(bool));
       else if (strcmp(keyword, "prunebuffer") == 0)
 	{
 	  int n;
@@ -847,6 +851,13 @@ KeyFrameInformation::load(fstream &fin)
 	fin.read((char*)&m_interpCrop, sizeof(int));
       else if (strcmp(keyword, "interpmop") == 0)
 	fin.read((char*)&m_interpMop, sizeof(int));
+    }
+
+  if(pbcompressed)
+    {
+      QByteArray pb;
+      pb = qUncompress(m_pruneBuffer);
+      m_pruneBuffer = pb;
     }
 }
 
@@ -1138,6 +1149,12 @@ KeyFrameInformation::save(fstream &fout)
       sprintf(keyword, "pruneblend");
       fout.write((char*)keyword, strlen(keyword)+1);
       fout.write((char*)&m_pruneBlend, sizeof(bool));
+
+      bool pbc = false;
+      memset(keyword, 0, 100);
+      sprintf(keyword, "prunebuffercompressed");
+      fout.write((char*)keyword, strlen(keyword)+1);
+      fout.write((char*)&pbc, sizeof(bool));
 
       int pn = m_pruneBuffer.count();
       memset(keyword, 0, 100);

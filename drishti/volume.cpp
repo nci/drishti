@@ -1227,7 +1227,8 @@ uchar* Volume::getLowresTextureVolume()
       uchar *tex = m_volume[v]->getLowresTextureVolume();
       Vec tSize = m_volume[v]->getLowresTextureVolumeSize();
 
-      int lss = glss-m_volume[v]->getLowresSubsamplingLevel()+1;
+      int lss = 1;
+//      int lss = glss/m_volume[v]->getLowresSubsamplingLevel();
 
       Vec vlowvol = m_volume[v]->getLowresVolumeSize();
       int offX = (nsubX-tSize.x/lss)/2;

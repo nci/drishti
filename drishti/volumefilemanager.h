@@ -84,6 +84,8 @@ class VolumeFileManager
 
   void reset();
   void readBlocks(int);
+
+  void resetSlice();
 };
 
 #endif

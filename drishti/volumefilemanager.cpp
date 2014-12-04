@@ -27,9 +27,7 @@ VolumeFileManager::reset()
   m_filename.clear();
   m_slabno = m_prevslabno = -1;
 
-  if (m_slice)
-    delete [] m_slice;
-  m_slice = 0;
+  resetSlice();
 
   if (m_block)
     delete [] m_block;
@@ -50,11 +48,18 @@ int VolumeFileManager::depth() { return m_depth; }
 int VolumeFileManager::width() { return m_width; }
 int VolumeFileManager::height() { return m_height; }
 
+void VolumeFileManager::resetSlice()
+{
+  if (m_slice)
+    delete [] m_slice;
+  m_slice = 0;
+}
+
 void VolumeFileManager::setFilenameList(QStringList flist) { m_filenames = flist; }
 void VolumeFileManager::setBaseFilename(QString bfn) { m_baseFilename = bfn; }
-void VolumeFileManager::setDepth(int d) { m_depth = d; }
-void VolumeFileManager::setWidth(int w) { m_width = w; }
-void VolumeFileManager::setHeight(int h) { m_height = h; }
+void VolumeFileManager::setDepth(int d) { m_depth = d; resetSlice(); }
+void VolumeFileManager::setWidth(int w) { m_width = w; resetSlice(); }
+void VolumeFileManager::setHeight(int h) { m_height = h; resetSlice(); }
 void VolumeFileManager::setHeaderSize(int hs) { m_header = hs; }
 void VolumeFileManager::setSlabSize(int ss) { m_slabSize = ss; }
 void VolumeFileManager::setVoxelType(int vt)
@@ -223,7 +228,7 @@ VolumeFileManager::getSlice(int d)
   if (!m_slice)
     m_slice = new uchar[bps];
 
-  if (d<1 || d >= m_depth-1)
+  if (d<0 || d > m_depth-1)
     {
       memset(m_slice, 0, bps);
       return m_slice;

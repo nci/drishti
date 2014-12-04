@@ -297,9 +297,22 @@ VolumeSingle::setSubvolume(Vec boxMin, Vec boxMax,
   m_dataMin = boxMin;
   m_dataMax = boxMax;
 
+  int cd, cw, ch;
+  XmlHeaderFunctions::getDimensionsFromHeader(m_volumeFiles[m_volnum],
+					      m_depth, m_width, m_height);
+  m_offH = (m_maxHeight- m_height)/2;
+  m_offW = (m_maxWidth - m_width)/2;
+  m_offD = (m_maxDepth - m_depth)/2;
+
 //  QMessageBox::information(0, "", QString("%1 %2 %3\n%4 %5 %6").\
 //			   arg(m_dataMin.x).arg(m_dataMin.y).arg(m_dataMin.z).\
 //			   arg(m_dataMax.x).arg(m_dataMax.y).arg(m_dataMax.z));
+//  QMessageBox::information(0, 
+//			   m_pvlFileManager.fileName(),
+//			   QString("Max Dimensions\n%1 %2 %3\n%4 %5 %6\n%7 %8 %9").\
+//			   arg(m_maxHeight).arg(m_maxWidth).arg(m_maxDepth).\
+//			   arg(m_offH).arg(m_offW).arg(m_offD).\
+//			   arg(m_height).arg(m_width).arg(m_depth));
 
   if (m_volumeFiles.count() > 1)
     setBasicInformation(m_volnum);
@@ -1134,12 +1147,12 @@ VolumeSingle::setMaxDimensions(int maxH, int maxW, int maxD)
   m_maxWidth = maxW;
   m_maxDepth = maxD;
 
-  int cd, cw, ch;
-  XmlHeaderFunctions::getDimensionsFromHeader(m_volumeFiles[m_volnum],
-					      cd, cw, ch);
-  m_offH = (maxH - ch)/2;
-  m_offW = (maxW - cw)/2;
-  m_offD = (maxD - cd)/2;
+//  int cd, cw, ch;
+//  XmlHeaderFunctions::getDimensionsFromHeader(m_volumeFiles[m_volnum],
+//					      cd, cw, ch);
+//  m_offH = (maxH - ch)/2;
+//  m_offW = (maxW - cw)/2;
+//  m_offD = (maxD - cd)/2;
 
 //  if (m_offH > 0 && m_offH*2 + ch >= maxH) m_offH--;
 //  if (m_offW > 0 && m_offW*2 + cw >= maxW) m_offW--;
@@ -1479,6 +1492,9 @@ VolumeSingle::getSliceTextureSlab(int minz, int maxz)
 	  
 	  int col = (k0-kmin+1)%ncols;
 	  int row = (k0-kmin+1)/ncols; 
+	  if (row == nrows && col > 0)
+	    QMessageBox::information(0, "ERROR", QString("row, col ?? %1 %2 , %3").\
+				     arg(row).arg(nrows).arg(col));
 	  int grow = row*maxleny2;
 	  for(int j=0; j<leny2; j++)
 	    memcpy(m_sliceTexture + bpv*(col*maxlenx2 +
@@ -1486,10 +1502,6 @@ VolumeSingle::getSliceTextureSlab(int minz, int maxz)
 		   m_sliceTemp + bpv*j*lenx2,
 		   bpv*lenx2);
 	  //---
-
-	  if (row == nrows && col > 0)
-	    QMessageBox::information(0, "ERROR", QString("row, col ?? %1 %2 , %3").\
-				     arg(row).arg(nrows).arg(col));
 
 
 	  memcpy(g2, m_sliceTemp, bpv*lenx2*leny2);
@@ -1611,7 +1623,7 @@ VolumeSingle::getSliceTextureSlab(int minz, int maxz)
   //---------------------------------------------------------
   int nbytes = bpv*m_width*m_height;
   int kslc = 0;
-  
+
   uchar *sliceTemp1 = new uchar [bpv*m_maxWidth*m_maxHeight];
 
   // additional slice at the top and bottom
@@ -1644,23 +1656,16 @@ VolumeSingle::getSliceTextureSlab(int minz, int maxz)
 
       int col = (k0-minz+1)%ncols;
       int row = (k0-minz+1)/ncols; 
+      if (row == nrows && col > 0)
+	QMessageBox::information(0, "ERROR", QString("row, col ?? %1 %2 , %3").	\
+				 arg(row).arg(nrows).arg(col));      
       int grow = row*maxleny2;
-//      for(int j=0; j<leny2; j++)
-//	memcpy(m_sliceTexture + bpv*(col*maxlenx2 +
-//				     (grow+j)*m_texWidth),
-//	       sliceTemp1 + bpv*((j+miny)*m_maxHeight + minx),
-//	       bpv*lenx2);
       for(int j=0; j<leny2; j++)
 	memcpy(m_sliceTexture + bpv*(col*maxlenx2 +
 				     (grow+j)*m_texWidth),
 	       m_sliceTemp + bpv*j*lenx2,
 	       bpv*lenx2);
       //---
-
-      if (row == nrows && col > 0)
-	QMessageBox::information(0, "ERROR", QString("row, col ?? %1 %2 , %3").	\
-				 arg(row).arg(nrows).arg(col));
-      
       
       memcpy(g2, m_sliceTemp, bpv*lenx2*leny2);
 

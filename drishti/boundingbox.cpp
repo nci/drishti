@@ -166,6 +166,9 @@ BoundingBox::keyPressEvent(QKeyEvent *event)
     {
       bool doUpdate = false;
 
+      bool moveBox = false;
+      moveBox = (event->modifiers() & Qt::ControlModifier);
+
       int shift = -1; // Down Arrow -- pullout
       if (event->key() == Qt::Key_Up) shift = 1; // Up Arrow -- pushin
 
@@ -173,36 +176,66 @@ BoundingBox::keyPressEvent(QKeyEvent *event)
 	{
 	  Vec pos = m_bounds[0].position();
 	  m_bounds[0].setPosition(pos.x+shift, pos.y, pos.z);
+	  if (moveBox)
+	    {
+	      Vec pos = m_bounds[1].position();
+	      m_bounds[1].setPosition(+shift, pos.y, pos.z);	      
+	    }
 	  doUpdate = true;
 	}
       else if (m_bounds[1].grabsMouse())
 	{
 	  Vec pos = m_bounds[1].position();
 	  m_bounds[1].setPosition(pos.x-shift, pos.y, pos.z);
+	  if (moveBox)
+	    {
+	      Vec pos = m_bounds[0].position();
+	      m_bounds[0].setPosition(pos.x-shift, pos.y, pos.z);
+	    }
 	  doUpdate = true;
 	}
       else if (m_bounds[2].grabsMouse())
 	{
 	  Vec pos = m_bounds[2].position();
 	  m_bounds[2].setPosition(pos.x, pos.y+shift, pos.z);
+	  if (moveBox)
+	    {
+	      Vec pos = m_bounds[3].position();
+	      m_bounds[3].setPosition(pos.x, pos.y+shift, pos.z);
+	    }
 	  doUpdate = true;
 	}
       else if (m_bounds[3].grabsMouse())
 	{
 	  Vec pos = m_bounds[3].position();
 	  m_bounds[3].setPosition(pos.x, pos.y-shift, pos.z);
+	  if (moveBox)
+	    {
+	      Vec pos = m_bounds[2].position();
+	      m_bounds[2].setPosition(pos.x, pos.y-shift, pos.z);
+	    }
 	  doUpdate = true;
 	}
       else if (m_bounds[4].grabsMouse())
 	{
 	  Vec pos = m_bounds[4].position();
 	  m_bounds[4].setPosition(pos.x, pos.y, pos.z+shift);
+	  if (moveBox)
+	    {
+	      Vec pos = m_bounds[5].position();
+	      m_bounds[5].setPosition(pos.x, pos.y, pos.z+shift);
+	    }
 	  doUpdate = true;
 	}
       else if (m_bounds[5].grabsMouse())
 	{
 	  Vec pos = m_bounds[5].position();
 	  m_bounds[5].setPosition(pos.x, pos.y, pos.z-shift);
+	  if (moveBox)
+	    {
+	      Vec pos = m_bounds[4].position();
+	      m_bounds[4].setPosition(pos.x, pos.y, pos.z-shift);
+	    }
 	  doUpdate = true;
 	}
 

@@ -943,6 +943,29 @@ VolumeFileManager::setSliceMem(int d, uchar *tmp)
 
   qint64 bps = m_width*m_height*m_bytesPerVoxel;
   memcpy(m_volData+d*bps, tmp, bps);
+
+  //--------
+  // save to file straight away
+  QString pflnm = m_filename;
+  m_slabno = d/m_slabSize;
+  if (m_slabno < m_filenames.count())
+    m_filename = m_filenames[m_slabno];
+  else
+    m_filename = m_baseFilename +
+                 QString(".%1").arg(m_slabno+1, 3, 10, QChar('0'));
+
+  if (pflnm != m_filename ||
+      !m_qfile.isOpen() ||
+      !m_qfile.isWritable())
+    {
+      if (m_qfile.isOpen()) m_qfile.close();
+      m_qfile.setFileName(m_filename);
+      m_qfile.open(QFile::ReadWrite);
+    }
+  m_qfile.seek((qint64)(m_header + (d-m_slabno*m_slabSize)*bps));
+  m_qfile.write((char*)tmp, bps);
+  m_qfile.close();
+  //--------
 }
 
 uchar*

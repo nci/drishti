@@ -920,7 +920,11 @@ DrawHiresVolume::createBlurShader(bool doBlur, int blurSize, float blurRadius)
   if (blurRadius < 1.0)
     shaderString = ShaderFactory::genBlurShaderString(false, ceil(blurSize*m_imgSizeRatio), 0);
   else
-    shaderString = ShaderFactory::genBlurShaderString(doBlur, ceil(blurSize*m_imgSizeRatio), 0.5*blurRadius);
+    {
+      int bs = ceil(blurSize*m_imgSizeRatio)*blurRadius;
+      //shaderString = ShaderFactory::genBlurShaderString(doBlur, bs, 0.5*blurRadius);
+      shaderString = ShaderFactory::genBlurShaderString(doBlur, bs, 1.0);
+    }
 
   if (m_blurShader)
     glDeleteObjectARB(m_blurShader);
@@ -1776,13 +1780,6 @@ DrawHiresVolume::draw(float stepsize,
 
   glEnable(GL_DEPTH_TEST);
   glActiveTexture(GL_TEXTURE0);
-
-//#ifdef Q_OS_WIN32
-//  glInvalidateTexImage(m_slcTex[0], 0);
-//  glInvalidateTexImage(m_slcTex[1], 0);
-//  glInvalidateTexImage(m_shdTex[0], 0);
-//  glInvalidateTexImage(m_shdTex[1], 0);
-//#endif
 }
 
 void
@@ -2392,7 +2389,8 @@ DrawHiresVolume::setRenderDefault()
   glUniform1iARB(m_defaultParm[33], m_mixTag);
 
   glUniform1iARB(m_defaultParm[34], 4); // lightTex
-  if (!LightHandler::basicLight() && !m_useScreenShadows)
+  //if (!LightHandler::basicLight() && !m_useScreenShadows)
+  if (!LightHandler::basicLight())
     {
       int lightgridx, lightgridy, lightgridz, lightncols, lightnrows, lightlod;
       LightHandler::lightBufferInfo(lightgridx, lightgridy, lightgridz,
@@ -2974,9 +2972,6 @@ DrawHiresVolume::screenShadow(int ScreenXMin, int ScreenXMax,
 
   glEnable(GL_BLEND);
   glBlendFunc(GL_ONE, GL_ZERO); // replace texture in sliceTex[1]
-
-//  glActiveTexture(GL_TEXTURE2);
-//  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_Viewer->imageBuffer()->texture());
 
   glActiveTexture(GL_TEXTURE3);
   glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[0]);
@@ -4217,6 +4212,7 @@ DrawHiresVolume::setLightInfo(LightingInformation lightInfo)
 
 
   if (doISB) initShadowBuffers();
+  if (doBS) createBlurShader(true, 1, m_lightInfo.shadowBlur);
   if (doDS) createDefaultShader();
   if (doBPS) createBackplaneShader(m_lightInfo.backplaneIntensity);
 }

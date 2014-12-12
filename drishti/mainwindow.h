@@ -49,7 +49,7 @@ class MainWindow : public QMainWindow
  protected :
    virtual void dragEnterEvent(QDragEnterEvent*);
    virtual void dropEvent(QDropEvent*);
-   void closeEvent(QCloseEvent *event);
+   void closeEvent(QCloseEvent*);
 
  private slots :
    void on_menuFile_aboutToShow();

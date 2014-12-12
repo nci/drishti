@@ -1748,6 +1748,7 @@ DrawHiresVolume::draw(float stepsize,
   m_drawGeometryPresent |= (GeometryObjects::crops()->count() > 0);
   m_drawGeometryPresent |= (GeometryObjects::pathgroups()->count() > 0);
   m_drawGeometryPresent |= (GeometryObjects::hitpoints()->count() > 0);
+  m_drawGeometryPresent |= (GeometryObjects::landmarks()->count() > 0);
   m_drawGeometryPresent |= (GeometryObjects::imageCaptions()->count() > 0);
   m_drawGeometryPresent |= (LightHandler::giLights()->count() > 0);
 
@@ -2245,6 +2246,7 @@ DrawHiresVolume::drawGeometry(float pnear, float pfar, Vec step,
   GeometryObjects::grids()->draw(m_Viewer, m_backlit, m_lightPosition);
   GeometryObjects::pathgroups()->draw(m_Viewer, m_backlit, m_lightPosition, true);
   GeometryObjects::hitpoints()->draw(m_Viewer, m_backlit);
+  GeometryObjects::landmarks()->draw(m_Viewer, m_backlit);
   
   //if (m_drawImageType == Enums::StillImage)
   GeometryObjects::imageCaptions()->draw(m_Viewer, m_backlit);

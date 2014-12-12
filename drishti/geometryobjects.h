@@ -15,6 +15,7 @@
 #include "crops.h"
 #include "pathgroups.h"
 #include "grids.h"
+#include "landmarks.h"
 
 class GeometryObjects
 {
@@ -31,7 +32,8 @@ class GeometryObjects
       CAPTION,
       COLORBAR,
       SCALEBAR,
-      CROP
+      CROP,
+      LANDMARKS
     };
 
   static void init();
@@ -49,6 +51,7 @@ class GeometryObjects
   static Networks* networks();
   static ClipPlanes* clipplanes();
   static Grids* grids();
+  static Landmarks* landmarks();
 
   static void removeFromMouseGrabberPool();
   static void addInMouseGrabberPool();
@@ -80,6 +83,7 @@ class GeometryObjects
   static Networks* m_networks;
   static ClipPlanes* m_clipplanes;
   static Grids* m_grids;
+  static Landmarks* m_landmarks;
 };
 
 #endif

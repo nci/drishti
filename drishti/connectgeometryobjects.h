@@ -44,6 +44,8 @@ connect(GeometryObjects::paths(), SIGNAL(extractPath(int, bool, int, int)),
     connect(GeometryObjects::paths(), SIGNAL(updateGL()),
 	    m_Viewer, SLOT(updateGL()));
 
+    connect(GeometryObjects::landmarks(), SIGNAL(updateGL()),
+	    m_Viewer, SLOT(updateGL()));
 
     connect(GeometryObjects::crops(), SIGNAL(showMessage(QString, bool)),
 	    m_Viewer, SLOT(displayMessage(QString, bool)));

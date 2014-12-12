@@ -1569,6 +1569,7 @@ Viewer::drawInHires(int imagequality)
       tag = RawVolume::tagValues(renewHitPoints);
       GeometryObjects::hitpoints()->setRawTagValues(raw, tag);
     }
+  GeometryObjects::landmarks()->postdraw(this);
   GeometryObjects::hitpoints()->postdraw(this);
   GeometryObjects::paths()->postdraw(this);
   GeometryObjects::grids()->postdraw(this);
@@ -4179,6 +4180,27 @@ Viewer::processCommand(QString cmd)
 	return;
       
       GeometryObjects::pathgroups()->addVector(flnm);
+    }
+  else if (list[0]== "landmark")
+    {
+      QList<Vec> pts;
+      if (GeometryObjects::hitpoints()->activeCount())
+	pts = GeometryObjects::hitpoints()->activePoints();
+      else
+	pts = GeometryObjects::hitpoints()->points();
+
+      if (pts.count() > 0)
+	{
+	  GeometryObjects::landmarks()->addPoints(pts);
+
+	  // now remove points that were used to make the path
+	  if (GeometryObjects::hitpoints()->activeCount())
+	    GeometryObjects::hitpoints()->removeActive();
+	  else
+	    GeometryObjects::hitpoints()->clear();
+	}
+      else
+	QMessageBox::critical(0, "Error", "Need at least 1 point to add as landmark"); 
     }
   else if (list[0]== "addpath" || list[0]== "path")
     {

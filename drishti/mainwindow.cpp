@@ -1002,6 +1002,7 @@ MainWindow::closeEvent(QCloseEvent *event)
   GeometryObjects::imageCaptions()->clear();
   GeometryObjects::captions()->clear();
   GeometryObjects::hitpoints()->clear();
+  GeometryObjects::landmarks()->clear();
   GeometryObjects::paths()->clear();
   GeometryObjects::grids()->clear();
   GeometryObjects::crops()->clear();
@@ -1860,6 +1861,7 @@ MainWindow::dragEnterEvent(QDragEnterEvent *event)
 	    }
 	  else if (StaticFunctions::checkURLs(urls, ".points") ||
 		   StaticFunctions::checkURLs(urls, ".point") ||
+		   StaticFunctions::checkURLs(urls, ".landmark") ||
 		   StaticFunctions::checkURLs(urls, ".paths") ||
 		   StaticFunctions::checkURLs(urls, ".path") ||
 		   StaticFunctions::checkURLs(urls, ".vec") ||
@@ -1986,6 +1988,22 @@ MainWindow::dropEvent(QDropEvent *event)
 		      GeometryObjects::hitpoints()->clear();
 		      QMessageBox::information(0, "Points",
 					       "Removing points data, invalid grid size");
+		      return;
+		    }
+		  
+		  QFileInfo f(url.toLocalFile());		  
+		  Global::setPreviousDirectory(f.absolutePath());
+		}
+	      else if (StaticFunctions::checkExtension(url.toLocalFile(), ".landmarks") ||
+		       StaticFunctions::checkExtension(url.toLocalFile(), ".landmark"))
+		{
+		  GeometryObjects::landmarks()->loadLandmarks(url.toLocalFile());
+
+		  if (!haveGrid())
+		    {
+		      GeometryObjects::landmarks()->clear();
+		      QMessageBox::information(0, "Points",
+					       "Removing landmark data, invalid grid size");
 		      return;
 		    }
 		  
@@ -2231,6 +2249,7 @@ MainWindow::preLoadVolume()
   GeometryObjects::imageCaptions()->clear();
   GeometryObjects::captions()->clear();
   GeometryObjects::hitpoints()->clear();
+  GeometryObjects::landmarks()->clear();
   GeometryObjects::paths()->clear();
   GeometryObjects::grids()->clear();
   GeometryObjects::crops()->clear();

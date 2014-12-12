@@ -49,6 +49,13 @@ TransferFunctionManager::TransferFunctionManager(QWidget *parent) :
   m_tableWidget->setSelectionMode(QAbstractItemView::SingleSelection);
   m_tableWidget->setSelectionBehavior(QAbstractItemView::SelectRows);
 
+  //m_tableWidget->verticalHeader()->setSectionsMovable(true);
+//  m_tableWidget->setSortingEnabled(true);
+//  m_tableWidget->verticalHeader()->setSortIndicatorShown(true);
+//  m_tableWidget->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
+//  m_tableWidget->verticalHeader()->setSectionResizeMode(QHeaderView::Interactive);
+
+
   m_tableWidget->installEventFilter(this);
 
   QString str;
@@ -202,7 +209,7 @@ TransferFunctionManager::modifyTableWidget()
   m_tableWidget->setColumnCount(maxSets+1);
   item << "Name ";
   for (int i=0; i<maxSets; i++)
-    item << QString("%1").arg(i);
+    item << QString("%1").arg(i+1);
 
   m_tableWidget->setHorizontalHeaderLabels(item);
 
@@ -287,10 +294,10 @@ TransferFunctionManager::refreshManager(int tfno)
   int cols = m_tableWidget->columnCount();
   int rows;
 
-
   for(rows=0; rows<m_tfContainer->count(); rows++)
     {
       m_tableWidget->insertRow(rows);
+      m_tableWidget->setRowHeight(rows, 40);
 
       QTableWidgetItem *wi;
       
@@ -310,7 +317,7 @@ TransferFunctionManager::refreshManager(int tfno)
 	  m_tableWidget->setItem(rows, i, wi);
 	}      
     }
-            
+
   //------------------------------------------------
   //rewire the connections
   connect(m_tableWidget, SIGNAL(cellClicked(int, int)),

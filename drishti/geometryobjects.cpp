@@ -20,6 +20,7 @@ void GeometryObjects::init()
   m_networks = new Networks();
   m_clipplanes = new ClipPlanes();
   m_grids = new Grids();
+  m_landmarks = new Landmarks();
   m_initialized = true;
   m_mgType = NOGEO;
 }
@@ -39,6 +40,7 @@ void GeometryObjects::clear()
   m_networks->clear();
   m_clipplanes->clear();
   m_grids->clear();
+  m_landmarks->clear();
 }
 
 bool GeometryObjects::grabsMouse()
@@ -54,7 +56,8 @@ bool GeometryObjects::grabsMouse()
 	  GeometryObjects::grids()->grabsMouse() ||
 	  GeometryObjects::pathgroups()->grabsMouse() ||
 	  GeometryObjects::trisets()->grabsMouse() ||
-	  GeometryObjects::networks()->grabsMouse());
+	  GeometryObjects::networks()->grabsMouse() ||
+	  GeometryObjects::landmarks()->grabsMouse());
 }
 
 bool
@@ -95,6 +98,9 @@ GeometryObjects::keyPressEvent(QKeyEvent *event)
 
   if (GeometryObjects::networks()->grabsMouse())
     return networks()->keyPressEvent(event);
+
+  if (landmarks()->grabsMouse())
+    return landmarks()->keyPressEvent(event);
 
   return false;
 }
@@ -183,6 +189,13 @@ Grids* GeometryObjects::grids()
   return m_grids; 
 }
 
+Landmarks* GeometryObjects::m_landmarks = NULL;
+Landmarks* GeometryObjects::landmarks() 
+{ 
+  if(!GeometryObjects::m_initialized) GeometryObjects::init();
+  return m_landmarks; 
+}
+
 bool GeometryObjects::inPool = false;
 bool GeometryObjects::showGeometry = true;
 
@@ -197,6 +210,7 @@ GeometryObjects::removeFromMouseGrabberPool()
   m_crops->removeFromMouseGrabberPool();
   m_clipplanes->removeFromMouseGrabberPool();
   m_grids->removeFromMouseGrabberPool();
+  m_landmarks->removeFromMouseGrabberPool();
 }
 
 void
@@ -210,6 +224,7 @@ GeometryObjects::addInMouseGrabberPool()
   m_crops->addInMouseGrabberPool();
   m_clipplanes->addInMouseGrabberPool();
   m_grids->addInMouseGrabberPool();
+  m_landmarks->addInMouseGrabberPool();
 }
 
 void

@@ -1,6 +1,7 @@
 #include "global.h"
 #include "landmarks.h"
 #include "staticfunctions.h"
+#include "volumeinformation.h"
 
 #include <fstream>
 using namespace std;
@@ -100,13 +101,13 @@ Landmarks::Landmarks()
   m_tableWidget = new QTableWidget();
 
   QGroupBox *bG = new QGroupBox();
-  QPushButton *refreshB = new QPushButton("Refresh");
+  QPushButton *reorderB = new QPushButton("Reorder");
   QPushButton *saveB = new QPushButton("Save");
   QPushButton *loadB = new QPushButton("Load");
   QPushButton *clearB = new QPushButton("DeleteAll");
 
   QHBoxLayout *hbox = new QHBoxLayout();
-  hbox->addWidget(refreshB);
+  hbox->addWidget(reorderB);
   hbox->addWidget(saveB);
   hbox->addWidget(loadB);
   hbox->addWidget(clearB);
@@ -140,7 +141,7 @@ Landmarks::Landmarks()
   m_tableWidget->setColumnWidth(0, 50);
   m_tableWidget->setColumnWidth(1, 200);
 
-  connect(refreshB, SIGNAL(clicked()), this, SLOT(updateLandmarks()));
+  connect(reorderB, SIGNAL(clicked()), this, SLOT(reorderLandmarks()));
   connect(saveB, SIGNAL(clicked()), this, SLOT(saveLandmarks()));
   connect(loadB, SIGNAL(clicked()), this, SLOT(loadLandmarks()));
   connect(clearB, SIGNAL(clicked()), this, SLOT(clearAllLandmarks()));
@@ -196,10 +197,10 @@ Landmarks::checkIfGrabsMouse(int x, int y,
       return;
     }
 
-  Vec voxelSize = Global::voxelScaling();
+  Vec voxelScaling = Global::voxelScaling();
   for (int i=0; i<m_points.count(); i++)
     {
-      Vec pos = VECPRODUCT(m_points[i], voxelSize);
+      Vec pos = VECPRODUCT(m_points[i], voxelScaling);
       pos = camera->projectedCoordinatesOf(pos);
       QPoint hp(pos.x, pos.y);
       if ((hp-QPoint(x,y)).manhattanLength() < 10)
@@ -251,8 +252,6 @@ Landmarks::mouseMoveEvent(QMouseEvent* const event,
   m_points[m_pressed] += trans;
 
   m_prevPos = event->pos();
-
-  //emit updateGL();
 }
 
 void
@@ -261,12 +260,13 @@ Landmarks::mouseReleaseEvent(QMouseEvent* const event,
 {
   if (m_pressed >= 0)
     {
+      Vec voxelSize = VolumeInformation::volumeInformation().voxelSize;
       QTableWidgetItem *wiC;
       wiC = m_tableWidget->item(m_pressed, 1);
       wiC->setText(QString("%1 %2 %3").	\
-		   arg(m_points[m_pressed].x). \
-		   arg(m_points[m_pressed].y). \
-		   arg(m_points[m_pressed].z));
+		   arg(m_points[m_pressed].x*voxelSize.x). \
+		   arg(m_points[m_pressed].y*voxelSize.y). \
+		   arg(m_points[m_pressed].z*voxelSize.z));
     }
 
   m_pressed = -1;
@@ -402,6 +402,7 @@ Landmarks::postdraw(QGLViewer *viewer)
     return;
 
   Vec voxelScaling = Global::voxelScaling();
+  Vec voxelSize = VolumeInformation::volumeInformation().voxelSize;
 
   viewer->startScreenCoordinatesSystem();
 
@@ -432,9 +433,9 @@ Landmarks::postdraw(QGLViewer *viewer)
 	  if (m_showCoordinates)
 	    {
 	      str += QString(" c(%1 %2 %3)").\
-		arg(pt.x, 0, 'f', Global::floatPrecision()).\
-		arg(pt.y, 0, 'f', Global::floatPrecision()).\
-		arg(pt.z, 0, 'f', Global::floatPrecision());
+		arg(pt.x*voxelSize.x, 0, 'f', Global::floatPrecision()).\
+		arg(pt.y*voxelSize.y, 0, 'f', Global::floatPrecision()).\
+		arg(pt.z*voxelSize.z, 0, 'f', Global::floatPrecision());
 	    }
 
 	  QFont font = QFont();
@@ -463,6 +464,7 @@ Landmarks::updateTable()
     m_tableWidget->removeRow(0);
 
 
+  Vec voxelSize = VolumeInformation::volumeInformation().voxelSize;
   for (int i=0; i<m_points.count(); i++)
     {
       m_tableWidget->insertRow(i);
@@ -470,22 +472,24 @@ Landmarks::updateTable()
 
       QTableWidgetItem *wiT;
       wiT = new QTableWidgetItem(m_text[i]);
-      //wiT->setFlags(wiT->flags() & ~Qt::ItemIsUserCheckable);
       m_tableWidget->setItem(i, 0, wiT);
 
       QTableWidgetItem *wiC;
       wiC = new QTableWidgetItem(QString("%1 %2 %3").\
-				 arg(m_points[i].x). \
-				 arg(m_points[i].y). \
-				 arg(m_points[i].z));
-      //wiC->setFlags(wiC->flags() & ~Qt::ItemIsUserCheckable);
+				 arg(m_points[i].x*voxelSize.x). \
+				 arg(m_points[i].y*voxelSize.y). \
+				 arg(m_points[i].z*voxelSize.z));
       m_tableWidget->setItem(i, 1, wiC);
     }
 }
 
 void
-Landmarks::updateLandmarks()
+Landmarks::reorderLandmarks()
 {
+  Vec voxelSize = VolumeInformation::volumeInformation().voxelSize;
+
+  QList<Vec> pts = m_points;
+  QList<QString> txt = m_text;
   m_points.clear();
   m_text.clear();
   m_points.reserve(m_tableWidget->rowCount());
@@ -498,26 +502,9 @@ Landmarks::updateLandmarks()
 
   for (int i=0; i<m_tableWidget->rowCount(); i++)
     {
-      QTableWidgetItem *wiT;
-      wiT = m_tableWidget->item(i, 0);
-      QString tt = wiT->text();
-
-      QTableWidgetItem *wiC;
-      wiC = m_tableWidget->item(i, 1);
-      QString cc = wiC->text().simplified();
-      QStringList cv = cc.split(" ", QString::SkipEmptyParts);
-
-      float x, y, z;
-      if (cv.count() == 3)
-	{
-	  x = cv[0].toFloat();
-	  y = cv[1].toFloat();
-	  z = cv[2].toFloat();
-	}
-
       int li = m_tableWidget->verticalHeader()->visualIndex(i);
-      m_points[li] = Vec(x,y,z);
-      m_text[li] = tt;
+      m_points[li] = pts[i];
+      m_text[li] = txt[i];
     }
 
   emit updateGL();
@@ -527,20 +514,26 @@ Landmarks::updateLandmarks()
 void
 Landmarks::updateLandmarks(int r, int c)
 {
+  Vec voxelSize = VolumeInformation::volumeInformation().voxelSize;
+
   QTableWidgetItem *wi;
   wi = m_tableWidget->item(r, c);
-  QString cc = wi->text();
+  QString cc = wi->text().simplified();
 
   if (c == 0)
-    m_text[r] = cc;
+    {
+      cc.remove(' ');
+      m_text[r] = cc;
+      wi->setText(cc);
+    }
   else if (c == 1)
     {
       QStringList cv = cc.split(" ", QString::SkipEmptyParts);
 
       float x, y, z;
-      x = cv[0].toFloat();
-      y = cv[1].toFloat();
-      z = cv[2].toFloat();
+      x = cv[0].toFloat()/voxelSize.x;
+      y = cv[1].toFloat()/voxelSize.y;
+      z = cv[2].toFloat()/voxelSize.z;
       m_points[r] = Vec(x,y,z);
     }
 
@@ -623,14 +616,20 @@ Landmarks::loadLandmarks(QString flnm)
 	      QString t;
 	      float x,y,z;
 	      id = i+1;	      
-	      if (cv.count() == 4)
+	      if (cv.count() == 3)
+		{
+		  x = cv[0].toFloat();
+		  y = cv[1].toFloat();
+		  z = cv[2].toFloat();
+		}
+	      else if (cv.count() == 4)
 		{
 		  t = cv[0];
 		  x = cv[1].toFloat();
 		  y = cv[2].toFloat();
 		  z = cv[3].toFloat();
 		}
-	      if (cv.count() == 5)
+	      else if (cv.count() == 5)
 		{
 		  id = cv[0].toInt();
 		  t = cv[1];
@@ -652,14 +651,20 @@ Landmarks::loadLandmarks(QString flnm)
 	    int id;
 	    QString t;
 	    float x,y,z;
-	    if (cv.count() == 4)
+	    if (cv.count() == 3)
+	      {
+		x = cv[0].toFloat();
+		y = cv[1].toFloat();
+		z = cv[2].toFloat();
+	      }
+	    else if (cv.count() == 4)
 	      {
 		t = cv[0];
 		x = cv[1].toFloat();
 		y = cv[2].toFloat();
 		z = cv[3].toFloat();
 	      }
-	    if (cv.count() == 5)
+	    else if (cv.count() == 5)
 	      {
 		id = cv[0].toInt();
 		t = cv[1];
@@ -686,8 +691,6 @@ Landmarks::loadLandmarks(QString flnm)
   m_table->show();
 
   QMessageBox::information(0, "Load Landmarks", "Loaded landmarks from "+flnm);
-
-  emit updateGL();
 }
 
 void

@@ -62,7 +62,7 @@ class Landmarks : public QObject, public MouseGrabber
   void toggleMouseGrab();
 
  public slots :
-  void updateLandmarks(); 
+  void reorderLandmarks(); 
   void updateLandmarks(int, int); 
   void saveLandmarks();
   void loadLandmarks();

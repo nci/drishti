@@ -1610,6 +1610,33 @@ MainWindow::on_actionTriset_triggered()
 }
 
 void
+MainWindow::on_actionLandmarks_triggered()
+{
+  QString flnm;
+  flnm = QFileDialog::getOpenFileName(0,
+				      "Load Landmarks File",
+				      Global::previousDirectory(),
+				      "Landmarks Files (*.landmark | *.point | *.points)",
+				      0,
+				      QFileDialog::DontUseNativeDialog);
+  
+  if (flnm.isEmpty())
+    return;
+
+  GeometryObjects::landmarks()->loadLandmarks(flnm);
+
+  if (Global::volumeType() == Global::DummyVolume)
+    {
+      int nx, ny, nz;
+      GeometryObjects::trisets()->allGridSize(nx, ny, nz);
+      loadDummyVolume(nx, ny, nz);
+    }
+
+  QFileInfo f(flnm);
+  Global::setPreviousDirectory(f.absolutePath());
+}
+
+void
 MainWindow::loadSingleVolume(QStringList flnm)
 {
   Global::resetCurrentProjectFile();
@@ -1862,6 +1889,7 @@ MainWindow::dragEnterEvent(QDragEnterEvent *event)
 	  else if (StaticFunctions::checkURLs(urls, ".points") ||
 		   StaticFunctions::checkURLs(urls, ".point") ||
 		   StaticFunctions::checkURLs(urls, ".landmark") ||
+		   StaticFunctions::checkURLs(urls, ".landmarks") ||
 		   StaticFunctions::checkURLs(urls, ".paths") ||
 		   StaticFunctions::checkURLs(urls, ".path") ||
 		   StaticFunctions::checkURLs(urls, ".vec") ||

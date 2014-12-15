@@ -70,6 +70,7 @@ class MainWindow : public QMainWindow
    void on_actionGrids_triggered();
    void on_actionNetwork_triggered();
    void on_actionTriset_triggered();
+   void on_actionLandmarks_triggered();
    void on_actionLoad_1_Volume_triggered();
    void on_actionLoad_2_Volumes_triggered();
    void on_actionLoad_3_Volumes_triggered();

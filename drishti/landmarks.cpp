@@ -12,6 +12,7 @@ using namespace std;
 
 #include <QGroupBox>
 #include <QPushButton>
+#include <QGridLayout>
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QFileDialog>
@@ -111,6 +112,9 @@ Landmarks::clear()
   m_pressed = -1;
   m_moveAxis = MoveAll;
 
+  m_distances.clear();
+  m_angles.clear();
+
   removeFromMouseGrabberPool();
 }
 
@@ -178,12 +182,31 @@ Landmarks::Landmarks()
   }
   //---------------
 
+  //---------------
+  QGroupBox *bG4 = new QGroupBox();
+  m_distEdit = new QLineEdit();
+  m_angleEdit = new QLineEdit();
+  {
+    QGridLayout *gbox = new QGridLayout();
+    QLabel *lbl1 = new QLabel("Distances ");
+    QLabel *lbl2 = new QLabel("Angles ");
+    
+    gbox->addWidget(lbl1, 0, 0);
+    gbox->addWidget(m_distEdit, 0, 1);
+    gbox->addWidget(lbl2, 1, 0);
+    gbox->addWidget(m_angleEdit, 1, 1);
+    gbox->setColumnStretch(1, 1);
+    bG4->setLayout(gbox);
+  }
+  //---------------
+
 
   //---------------
   QVBoxLayout *vbox = new QVBoxLayout();
   vbox->addWidget(bG1);
   vbox->addWidget(bG2);
   vbox->addWidget(bG3);
+  vbox->addWidget(bG4);
   vbox->addWidget(m_tableWidget);
 
   m_table->setLayout(vbox);
@@ -223,6 +246,9 @@ Landmarks::Landmarks()
 
   connect(m_tableWidget, SIGNAL(cellChanged(int, int)),
 	  this, SLOT(updateLandmarks(int, int)));
+
+  connect(m_distEdit, SIGNAL(editingFinished()), this, SLOT(updateDistances()));
+  connect(m_angleEdit, SIGNAL(editingFinished()), this, SLOT(updateAngles()));
 
   clear();
 
@@ -534,11 +560,114 @@ Landmarks::postdraw(QGLViewer *viewer)
 
 	  StaticFunctions::renderText(x+m_pointSize/2, y,
 				      str, font,
-				      Qt::transparent, textColor);
+				      QColor(10,10,10,100), textColor);
 	}
     }
+
+  postdrawLength(viewer);
+
   viewer->stopScreenCoordinatesSystem();
 }
+
+void
+Landmarks::postdrawLength(QGLViewer *viewer)
+{
+  Vec voxelScaling = Global::voxelScaling();
+  Vec voxelSize = VolumeInformation::volumeInformation().voxelSize;
+
+  QColor textColor = QColor(m_textColor.z*255,
+			    m_textColor.y*255,
+			    m_textColor.x*255);
+
+  glColor3f(m_textColor.x,
+	    m_textColor.y,
+	    m_textColor.y);
+
+  int m_lengthTextDistance = 0;
+
+  for (int i=0; i<m_distances.count(); i++)
+    {
+      int p0, p1;
+      p0 = m_distances[i][0]-1;
+      p1 = m_distances[i][1]-1;
+
+      Vec pt = VECPRODUCT(m_points[p0], voxelScaling);
+      Vec scr = viewer->camera()->projectedCoordinatesOf(pt);
+      int x0 = scr.x;
+      int y0 = scr.y;
+      //---------------------
+      x0 *= viewer->size().width()/viewer->camera()->screenWidth();
+      y0 *= viewer->size().height()/viewer->camera()->screenHeight();
+      //---------------------
+      
+      pt = VECPRODUCT(m_points[p1], voxelScaling);
+      scr = viewer->camera()->projectedCoordinatesOf(pt);
+      int x1 = scr.x;
+      int y1 = scr.y;
+      //---------------------
+      x1 *= viewer->size().width()/viewer->camera()->screenWidth();
+      y1 *= viewer->size().height()/viewer->camera()->screenHeight();
+      //---------------------
+  
+  
+      float perpx = (y1-y0);
+      float perpy = -(x1-x0);
+      float dlen = sqrt(perpx*perpx + perpy*perpy);
+      perpx/=dlen; perpy/=dlen;
+      
+      float angle = atan2(-perpx, perpy);
+      bool angleFixed = false;
+      angle *= 180.0/3.1415926535;
+      if (perpy < 0) { angle = 180+angle; angleFixed = true; }
+      
+      float px = perpx * m_lengthTextDistance;
+      float py = perpy * m_lengthTextDistance;
+      
+      glLineWidth(1);
+      glEnable(GL_LINE_STIPPLE);
+      glLineStipple(2, 0xAAAA);
+      glBegin(GL_LINES);
+      glVertex2f(x0, y0);
+      glVertex2f(x0+(px*1.1), y0+(py*1.1));
+      glVertex2f(x1, y1);
+      glVertex2f(x1+(px*1.1), y1+(py*1.1));
+      glEnd();
+      glDisable(GL_LINE_STIPPLE);
+      
+      glBegin(GL_LINES);
+      glVertex2f(x0+px, y0+py);
+      glVertex2f(x1+px, y1+py);
+      glEnd();
+
+      pt = m_points[p0]-m_points[p1];
+      pt = VECPRODUCT(pt, voxelSize);
+      VolumeInformation pvlInfo = VolumeInformation::volumeInformation();
+      QString str = QString("%1 %2").				\
+	arg(pt.norm(), 0, 'f', Global::floatPrecision()).	\
+	arg(pvlInfo.voxelUnitStringShort()); 
+      
+      glPushMatrix();
+      glLoadIdentity();
+      
+      if (str.endsWith("um"))
+	{
+	  str.chop(2);
+	  str += QChar(0xB5);
+	  str += "m";
+	}
+      QFont font = QFont("Helvetica", m_textSize);
+      int x = (x0+x1)/2 + px*1.3;
+      int y = (y0+y1)/2 + py*1.3;
+      StaticFunctions::renderRotatedText(x,y,
+					 str, font,
+					 QColor(10,10,10,100), textColor,
+					 -angle,
+					 true); // (0,0) is bottom left
+      
+      glPopMatrix();
+    }
+}
+
 
 void
 Landmarks::updateTable()
@@ -829,5 +958,105 @@ Landmarks::changeTextSize(int s)
 {
   m_textSize = s;
   
+  emit updateGL();
+}
+
+QList<QList<int>> Landmarks::distances() { return m_distances; }
+QList<QList<int>> Landmarks::angles() { return m_angles; }
+
+void
+Landmarks::setDistances(QList<QList<int>> d)
+{
+  m_distances.clear();
+
+  QString s;
+  for (int i=0; i<m_distances.count(); i++)
+    {
+      QList<int> lp = m_distances[i];
+      if (lp.count() == 2)
+	{
+	  m_distances << lp;
+	  s += QString("%1 %2 ,").arg(lp[0]).arg(lp[1]);
+	}
+    }
+  
+  s.chop(1); // remove the last ,
+
+  m_distEdit->setText(s);
+}
+
+void
+Landmarks::setAngles(QList<QList<int>> d)
+{
+  m_angles.clear();
+
+  QString s;
+  for (int i=0; i<m_distances.count(); i++)
+    {
+      QList<int> lp = m_distances[i];
+      if (lp.count() == 3)
+	{
+	  m_angles << lp;
+	  s += QString("%1 %2 %3 ,").arg(lp[0]).arg(lp[1]).arg(lp[2]);
+	}
+    }
+  
+  s.chop(1); // remove the last ,
+
+  m_angleEdit->setText(s);
+}
+
+void
+Landmarks::updateDistances()
+{
+  m_distances.clear();
+
+  QString str = m_distEdit->text().simplified();
+
+  if (str.length() == 0)
+    return;
+
+  QStringList dwords = str.split(",", QString::SkipEmptyParts);
+  for (int i=0; i<dwords.count(); i++)
+    {
+      QStringList words = dwords[i].simplified().split(" ", QString::SkipEmptyParts);
+      if (words.count() == 2)
+	{
+	  QList<int> lp;
+	  lp << words[0].toInt();
+	  lp << words[1].toInt();
+	  
+	  m_distances << lp;
+	}
+    }
+
+  emit updateGL();
+}
+
+void
+Landmarks::updateAngles()
+{
+  m_angles.clear();
+
+  QString str = m_angleEdit->text().simplified();
+
+  if (str.length() == 0)
+    return;
+
+  QStringList dwords = str.split(",", QString::SkipEmptyParts);
+  for (int i=0; i<dwords.count(); i++)
+    {
+      QStringList words = dwords[i].simplified().split(" ", QString::SkipEmptyParts);
+      if (words.count() == 3)
+	{
+	  QList<int> lp;
+	  lp << words[0].toInt();
+	  lp << words[1].toInt();
+	  lp << words[2].toInt();
+	  
+	  m_angles << lp;
+	}
+    }
+
   emit updateGL();
 }

@@ -1478,15 +1478,17 @@ StaticFunctions::renderRotatedText(int x, int y,
 				   bool useTextPath)
 {
   QFontMetrics metric(font);
-  int ht = metric.height()+4;
-  int wd = metric.width(str)+6;
+  int ht = metric.height()+1;
+  int wd = metric.width(str)+3;
   QImage img(wd, ht, QImage::Format_ARGB32);
   img.fill(bcolor);
   QPainter p(&img);
-  p.setRenderHints(QPainter::TextAntialiasing);
+  p.setRenderHints(QPainter::Antialiasing |
+		   QPainter::TextAntialiasing |
+		   QPainter::SmoothPixmapTransform);
   p.setPen(color);
   p.setFont(font);
-  p.drawText(3, ht-metric.descent()-2, str);
+  p.drawText(1, ht-metric.descent()-1, str);
   QImage mimg = img.mirrored();
   QMatrix mat;
   mat.rotate(angle);

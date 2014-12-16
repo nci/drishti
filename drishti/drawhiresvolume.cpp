@@ -1780,7 +1780,7 @@ DrawHiresVolume::draw(float stepsize,
   GeometryObjects::clipplanes()->postdraw((QGLViewer*)m_Viewer);
 
   glEnable(GL_DEPTH_TEST);
-  glActiveTexture(GL_TEXTURE0);
+  //glActiveTexture(GL_TEXTURE0);
 }
 
 void

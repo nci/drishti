@@ -1569,6 +1569,7 @@ Viewer::drawInHires(int imagequality)
       tag = RawVolume::tagValues(renewHitPoints);
       GeometryObjects::hitpoints()->setRawTagValues(raw, tag);
     }
+
   GeometryObjects::landmarks()->postdraw(this);
   GeometryObjects::hitpoints()->postdraw(this);
   GeometryObjects::paths()->postdraw(this);

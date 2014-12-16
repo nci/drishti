@@ -11,6 +11,7 @@ using namespace qglviewer;
 #include <QTableWidget>
 #include <QHeaderView>
 #include <QSpinBox>
+#include <QLineEdit>
 
 class Landmarks : public QObject, public MouseGrabber
 {
@@ -47,6 +48,12 @@ class Landmarks : public QObject, public MouseGrabber
   void setTextSize(int);
   int textSize();
 
+  QList<QList<int>> distances();
+  void setDistances(QList<QList<int>>);
+
+  QList<QList<int>> angles();
+  void setAngles(QList<QList<int>>);
+
   int count();
   void clear();
 
@@ -79,6 +86,8 @@ class Landmarks : public QObject, public MouseGrabber
   void changePointSize(int);
   void changeTextColor();
   void changeTextSize(int);
+  void updateDistances();
+  void updateAngles();
 
  signals :
   void updateGL();
@@ -110,7 +119,14 @@ class Landmarks : public QObject, public MouseGrabber
   QSpinBox *m_pspinB;
   QSpinBox *m_tspinB;
 
+  QLineEdit *m_distEdit;
+  QLineEdit *m_angleEdit;
+
+  QList<QList<int>> m_distances;
+  QList<QList<int>> m_angles;
+  
   void updateTable();
+  void postdrawLength(QGLViewer*);
 };
 
 

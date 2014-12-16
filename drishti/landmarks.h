@@ -10,6 +10,7 @@ using namespace qglviewer;
 
 #include <QTableWidget>
 #include <QHeaderView>
+#include <QSpinBox>
 
 class Landmarks : public QObject, public MouseGrabber
 {
@@ -40,6 +41,12 @@ class Landmarks : public QObject, public MouseGrabber
   void setPointColor(Vec);
   Vec pointColor();
 
+  void setTextColor(Vec);
+  Vec textColor();
+
+  void setTextSize(int);
+  int textSize();
+
   int count();
   void clear();
 
@@ -68,6 +75,10 @@ class Landmarks : public QObject, public MouseGrabber
   void loadLandmarks();
   void loadLandmarks(QString);
   void clearAllLandmarks();
+  void changePointColor();
+  void changePointSize(int);
+  void changeTextColor();
+  void changeTextSize(int);
 
  signals :
   void updateGL();
@@ -79,6 +90,9 @@ class Landmarks : public QObject, public MouseGrabber
   QPoint m_prevPos;
 
   bool m_grab;
+
+  Vec m_textColor;
+  int m_textSize;
 
   Vec m_pointColor;
   int m_pointSize;
@@ -93,6 +107,8 @@ class Landmarks : public QObject, public MouseGrabber
   QWidget *m_table;
   QTableWidget *m_tableWidget;
 
+  QSpinBox *m_pspinB;
+  QSpinBox *m_tspinB;
 
   void updateTable();
 };

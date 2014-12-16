@@ -2,6 +2,7 @@
 #include "landmarks.h"
 #include "staticfunctions.h"
 #include "volumeinformation.h"
+#include "dcolordialog.h"
 
 #include <fstream>
 using namespace std;
@@ -16,14 +17,29 @@ using namespace std;
 #include <QFileDialog>
 #include <QFile>
 #include <QTextStream>
+#include <QLabel>
 
 int Landmarks::count() { return m_points.count(); }
 
-void Landmarks::setPointSize(int sz) { m_pointSize = sz; }
+void Landmarks::setPointSize(int sz)
+{
+  m_pointSize = sz;
+  m_pspinB->setValue(m_pointSize);
+}
 int Landmarks::pointSize() { return m_pointSize; }
+
+void Landmarks::setTextSize(int sz)
+{
+  m_textSize = sz;
+  m_tspinB->setValue(m_textSize);
+}
+int Landmarks::textSize() { return m_textSize; }
 
 void Landmarks::setPointColor(Vec col) { m_pointColor = col; }
 Vec Landmarks::pointColor() { return m_pointColor; }
+
+void Landmarks::setTextColor(Vec col) { m_textColor = col; }
+Vec Landmarks::textColor() { return m_textColor; }
 
 int Landmarks::moveAxis() { return m_moveAxis; }
 void Landmarks::setMoveAxis(int type) { m_moveAxis = type; }
@@ -87,6 +103,9 @@ Landmarks::clear()
   m_pointColor = Vec(0.5,1.0,0.5);
   m_pointSize = 10;
 
+  m_textColor = Vec(1.0,1.0,1.0);
+  m_textSize = 10;
+
   m_grab = false;
   m_grabbed = -1;
   m_pressed = -1;
@@ -100,26 +119,76 @@ Landmarks::Landmarks()
   m_table = new QWidget();
   m_tableWidget = new QTableWidget();
 
-  QGroupBox *bG = new QGroupBox();
+  //---------------
+  QGroupBox *bG1 = new QGroupBox();
+  QHBoxLayout *hbox1 = new QHBoxLayout();
+
   QPushButton *reorderB = new QPushButton("Reorder");
   QPushButton *saveB = new QPushButton("Save");
   QPushButton *loadB = new QPushButton("Load");
   QPushButton *clearB = new QPushButton("DeleteAll");
 
-  QHBoxLayout *hbox = new QHBoxLayout();
-  hbox->addWidget(reorderB);
-  hbox->addWidget(saveB);
-  hbox->addWidget(loadB);
-  hbox->addWidget(clearB);
-  hbox->addStretch(4);
+  hbox1->addWidget(reorderB);
+  hbox1->addWidget(saveB);
+  hbox1->addWidget(loadB);
+  hbox1->addWidget(clearB);
+  hbox1->addStretch(4);
+  bG1->setLayout(hbox1);
+  //---------------
 
-  bG->setLayout(hbox);
 
+  //---------------
+  QGroupBox *bG2 = new QGroupBox();
+  QPushButton *pcolorB = new QPushButton("Color");
+  m_pspinB = new QSpinBox();
+  {
+    QHBoxLayout *hbox2 = new QHBoxLayout();
+    QLabel *lbl1 = new QLabel("Point ");
+    QLabel *lbl2 = new QLabel("Size ");
+    m_pspinB->setRange(5, 20);
+    
+    hbox2->addWidget(lbl1);
+    hbox2->addWidget(pcolorB);
+    hbox2->addSpacing(20);
+    hbox2->addWidget(lbl2);
+    hbox2->addWidget(m_pspinB);
+    hbox2->addStretch();
+    bG2->setLayout(hbox2);
+  }
+  //---------------
+
+
+  //---------------
+  QGroupBox *bG3 = new QGroupBox();
+  QPushButton *tcolorB = new QPushButton("Color");
+  m_tspinB = new QSpinBox();
+  {
+    QHBoxLayout *hbox2 = new QHBoxLayout();
+    QLabel *lbl1 = new QLabel("Text ");
+    QLabel *lbl2 = new QLabel("Size ");
+    m_tspinB->setRange(8, 40);
+    
+    hbox2->addWidget(lbl1);
+    hbox2->addWidget(tcolorB);
+    hbox2->addSpacing(20);
+    hbox2->addWidget(lbl2);
+    hbox2->addWidget(m_tspinB);
+    hbox2->addStretch();
+    bG3->setLayout(hbox2);
+  }
+  //---------------
+
+
+  //---------------
   QVBoxLayout *vbox = new QVBoxLayout();
-  vbox->addWidget(bG);
+  vbox->addWidget(bG1);
+  vbox->addWidget(bG2);
+  vbox->addWidget(bG3);
   vbox->addWidget(m_tableWidget);
 
   m_table->setLayout(vbox);
+  //---------------
+
 
   m_tableWidget->horizontalHeader()->setSectionsMovable(true);
   m_tableWidget->verticalHeader()->setSectionsMovable(true);
@@ -146,11 +215,19 @@ Landmarks::Landmarks()
   connect(loadB, SIGNAL(clicked()), this, SLOT(loadLandmarks()));
   connect(clearB, SIGNAL(clicked()), this, SLOT(clearAllLandmarks()));
 
+  connect(pcolorB, SIGNAL(clicked()), this, SLOT(changePointColor()));
+  connect(m_pspinB, SIGNAL(valueChanged(int)), this, SLOT(changePointSize(int)));
+
+  connect(tcolorB, SIGNAL(clicked()), this, SLOT(changeTextColor()));
+  connect(m_tspinB, SIGNAL(valueChanged(int)), this, SLOT(changeTextSize(int)));
+
   connect(m_tableWidget, SIGNAL(cellChanged(int, int)),
 	  this, SLOT(updateLandmarks(int, int)));
 
-
   clear();
+
+  m_pspinB->setValue(m_pointSize);
+  m_tspinB->setValue(m_textSize);
 }
 
 Landmarks::~Landmarks()
@@ -409,6 +486,11 @@ Landmarks::postdraw(QGLViewer *viewer)
   glEnable(GL_BLEND);
   glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); // blend on top
 
+  QColor textColor = QColor(m_textColor.z*255,
+			    m_textColor.y*255,
+			    m_textColor.x*255);
+
+			    
   for(int i=0; i<m_points.count(); i++)
     {
       if (m_showNumber ||
@@ -432,13 +514,13 @@ Landmarks::postdraw(QGLViewer *viewer)
 
 	  if (m_showCoordinates)
 	    {
-	      str += QString(" c(%1 %2 %3)").\
+	      str += QString(" (%1 %2 %3)").\
 		arg(pt.x*voxelSize.x, 0, 'f', Global::floatPrecision()).\
 		arg(pt.y*voxelSize.y, 0, 'f', Global::floatPrecision()).\
 		arg(pt.z*voxelSize.z, 0, 'f', Global::floatPrecision());
 	    }
 
-	  QFont font = QFont();
+	  QFont font = QFont("Helvetica", m_textSize, QFont::Bold);
 	  QFontMetrics metric(font);
 	  int ht = metric.height();
 	  int wd = metric.width(str);
@@ -450,7 +532,9 @@ Landmarks::postdraw(QGLViewer *viewer)
 
 	  y += ht/2;
 
-	  StaticFunctions::renderText(x+12, y, str, font, Qt::black, Qt::cyan);
+	  StaticFunctions::renderText(x+m_pointSize/2, y,
+				      str, font,
+				      Qt::transparent, textColor);
 	}
     }
   viewer->stopScreenCoordinatesSystem();
@@ -701,5 +785,49 @@ Landmarks::clearAllLandmarks()
   m_grabbed = -1;
   m_pressed = -1;
   updateTable();
+  emit updateGL();
+}
+
+void
+Landmarks::changePointColor()
+{  
+  QColor color = DColorDialog::getColor(QColor(m_pointColor.x*255,
+					       m_pointColor.y*255,
+					       m_pointColor.z*255));
+  float x = color.red()/255.0f;
+  float y = color.green()/255.0f;
+  float z = color.blue()/255.0f;
+  m_pointColor = Vec(x,y,z);
+
+  emit updateGL();
+}
+
+void
+Landmarks::changePointSize(int s)
+{
+  m_pointSize = s;
+  
+  emit updateGL();
+}
+
+void
+Landmarks::changeTextColor()
+{  
+  QColor color = DColorDialog::getColor(QColor(m_textColor.x*255,
+					       m_textColor.y*255,
+					       m_textColor.z*255));
+  float x = color.red()/255.0f;
+  float y = color.green()/255.0f;
+  float z = color.blue()/255.0f;
+  m_textColor = Vec(x,y,z);
+
+  emit updateGL();
+}
+
+void
+Landmarks::changeTextSize(int s)
+{
+  m_textSize = s;
+  
   emit updateGL();
 }

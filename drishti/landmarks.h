@@ -54,6 +54,9 @@ class Landmarks : public QObject, public MouseGrabber
   QList<QList<int>> angles();
   void setAngles(QList<QList<int>>);
 
+  QList<QList<float>> projectOnLine();
+  void setProjectOnLine(QList<QList<float>>);
+
   int count();
   void clear();
 
@@ -88,6 +91,7 @@ class Landmarks : public QObject, public MouseGrabber
   void changeTextSize(int);
   void updateDistances();
   void updateAngles();
+  void updateProjectOnLine();
 
  signals :
   void updateGL();
@@ -121,12 +125,20 @@ class Landmarks : public QObject, public MouseGrabber
 
   QLineEdit *m_distEdit;
   QLineEdit *m_angleEdit;
+  QLineEdit *m_projOnLineEdit;
 
   QList<QList<int>> m_distances;
   QList<QList<int>> m_angles;
+
+  QList<QList<float>> m_projectLineDistances;
+  QList<int> m_projectLinePoints;
+
   
   void updateTable();
   void postdrawLength(QGLViewer*);
+  void drawProjectOnLine(QGLViewer*);
+  void postdrawLineProjection(QGLViewer*);
+  void postdrawProjectedLineLength(QGLViewer*);
 };
 
 

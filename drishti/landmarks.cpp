@@ -115,6 +115,9 @@ Landmarks::clear()
   m_distances.clear();
   m_angles.clear();
 
+  m_projectLineDistances.clear();
+  m_projectLinePoints.clear();
+
   removeFromMouseGrabberPool();
 }
 
@@ -186,15 +189,19 @@ Landmarks::Landmarks()
   QGroupBox *bG4 = new QGroupBox();
   m_distEdit = new QLineEdit();
   m_angleEdit = new QLineEdit();
+  m_projOnLineEdit = new QLineEdit();
   {
     QGridLayout *gbox = new QGridLayout();
     QLabel *lbl1 = new QLabel("Distances ");
     QLabel *lbl2 = new QLabel("Angles ");
+    QLabel *lbl3 = new QLabel("Line Projection");
     
     gbox->addWidget(lbl1, 0, 0);
     gbox->addWidget(m_distEdit, 0, 1);
     gbox->addWidget(lbl2, 1, 0);
     gbox->addWidget(m_angleEdit, 1, 1);
+    gbox->addWidget(lbl3, 2, 0);
+    gbox->addWidget(m_projOnLineEdit, 2, 1);
     gbox->setColumnStretch(1, 1);
     bG4->setLayout(gbox);
   }
@@ -249,6 +256,7 @@ Landmarks::Landmarks()
 
   connect(m_distEdit, SIGNAL(editingFinished()), this, SLOT(updateDistances()));
   connect(m_angleEdit, SIGNAL(editingFinished()), this, SLOT(updateAngles()));
+  connect(m_projOnLineEdit, SIGNAL(editingFinished()), this, SLOT(updateProjectOnLine()));
 
   clear();
 
@@ -496,6 +504,85 @@ Landmarks::draw(QGLViewer *viewer, bool backToFront)
   glDisable(GL_TEXTURE_2D);
   
   glDisable(GL_POINT_SMOOTH);
+
+
+  //drawProjectOnLine(viewer);
+}
+
+void
+Landmarks::drawProjectOnLine(QGLViewer *viewer)
+{
+  if (m_projectLinePoints.count() == 0)
+    return;
+
+  Vec voxelScaling = Global::voxelScaling();
+
+  Vec v0 = Vec(m_projectLineDistances[0][0],
+	       m_projectLineDistances[0][1],
+	       m_projectLineDistances[0][2]);
+  v0 = VECPRODUCT(v0, voxelScaling);
+
+  Vec v1 = Vec(m_projectLineDistances[1][0],
+	       m_projectLineDistances[1][1],
+	       m_projectLineDistances[1][2]);
+  v1 = VECPRODUCT(v1, voxelScaling);
+
+  Vec v = (v1-v0).unit();
+
+  float tmin, tmax;
+  tmin = 0;
+  tmax = 0;
+
+  // --- draw projected points
+  glEnable(GL_POINT_SPRITE);
+  glActiveTexture(GL_TEXTURE0);
+  glEnable(GL_TEXTURE_2D);
+  glBindTexture(GL_TEXTURE_2D, Global::spriteTexture());
+  glTexEnvf( GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE );
+  glHint(GL_POINT_SMOOTH_HINT, GL_NICEST);
+  glEnable(GL_POINT_SMOOTH);
+  glColor3fv(m_pointColor);
+  glPointSize(m_pointSize);
+  glBegin(GL_POINTS);
+  for(int i=0; i<m_projectLinePoints.count();i++)
+    {
+      int j = m_projectLinePoints[i]-1;
+      Vec pt = VECPRODUCT(m_points[j], voxelScaling);
+      float t = ((pt-v0)*v);      
+      Vec ptp = v0 + t*v;      
+      
+      glVertex3fv(ptp);
+
+      tmin = qMin(t, tmin);
+      tmax = qMax(t, tmax);
+    }
+  glEnd();
+  glPointSize(1);
+  glDisable(GL_POINT_SPRITE);
+  glActiveTexture(GL_TEXTURE0);
+  glDisable(GL_TEXTURE_2D);
+  glDisable(GL_POINT_SMOOTH);
+  // ----
+
+
+  // --- draw projection lines
+  Vec w0 = v0+tmin*v;
+  Vec w1 = v0+tmax*v;
+  glLineWidth(1);
+  glBegin(GL_LINES);
+
+  for(int i=0; i<m_projectLinePoints.count();i++)
+    {
+      int j = m_projectLinePoints[i]-1;
+      Vec pt = VECPRODUCT(m_points[j], voxelScaling);
+      float t = ((pt-v0)*v);      
+      Vec ptp = v0 + t*v;      
+      
+      glVertex3fv(pt);
+      glVertex3fv(ptp);
+    }
+  glEnd();
+  // ----
 }
 
 void
@@ -566,7 +653,96 @@ Landmarks::postdraw(QGLViewer *viewer)
 
   postdrawLength(viewer);
 
+  postdrawLineProjection(viewer);
+
+  postdrawProjectedLineLength(viewer);
+
   viewer->stopScreenCoordinatesSystem();
+}
+
+void
+Landmarks::postdrawLineProjection(QGLViewer *viewer)
+{
+  if (m_projectLinePoints.count() == 0)
+    return;
+
+  QColor textColor = QColor(m_textColor.z*255,
+			    m_textColor.y*255,
+			    m_textColor.x*255);
+
+  Vec voxelScaling = Global::voxelScaling();
+
+  Vec v0 = Vec(m_projectLineDistances[0][0],
+	       m_projectLineDistances[0][1],
+	       m_projectLineDistances[0][2]);
+  v0 = VECPRODUCT(v0, voxelScaling);
+
+  Vec v1 = Vec(m_projectLineDistances[1][0],
+	       m_projectLineDistances[1][1],
+	       m_projectLineDistances[1][2]);
+  v1 = VECPRODUCT(v1, voxelScaling);
+
+  Vec v = (v1-v0).unit();
+
+  glEnable(GL_LINE_STIPPLE);
+  glLineStipple(1, 0xAAAA);
+  glBegin(GL_LINES);
+  for(int i=0; i<m_projectLinePoints.count();i++)
+    {
+      int j = m_projectLinePoints[i]-1;
+      Vec pt = VECPRODUCT(m_points[j], voxelScaling);
+      Vec scr = viewer->camera()->projectedCoordinatesOf(pt);
+      int x = scr.x;
+      int y = scr.y;
+      glVertex2f(x, y);
+
+      float t = ((pt-v0)*v);      
+      pt = v0 + t*v;      
+      scr = viewer->camera()->projectedCoordinatesOf(pt);
+      x = scr.x;
+      y = scr.y;      
+      glVertex2f(x, y);
+    }
+  glEnd();
+  glDisable(GL_LINE_STIPPLE);
+
+
+//  for(int i=0; i<m_projectLinePoints.count();i++)
+//    {
+//      int j = m_projectLinePoints[i]-1;
+//      Vec pt = VECPRODUCT(m_points[j], voxelScaling);
+//      float t = ((pt-v0)*v);      
+//      pt = v0 + t*v;      
+//      
+//      //Vec spt = VECPRODUCT(pt, voxelScaling);
+//      Vec scr = viewer->camera()->projectedCoordinatesOf(pt);
+//      int x = scr.x;
+//      int y = scr.y;
+//      
+//      QString str;
+//      
+//      if (m_showNumber)
+//	str = QString("%1 ").arg(j+1);
+//      
+//      if (m_showText)
+//	str += QString("%1 ").arg(m_text[j]);
+//      
+//      QFont font = QFont("Helvetica", m_textSize);
+//      QFontMetrics metric(font);
+//      int ht = metric.height();
+//      int wd = metric.width(str);
+//      
+//      //---------------------
+//      x *= viewer->size().width()/viewer->camera()->screenWidth();
+//      y *= viewer->size().height()/viewer->camera()->screenHeight();
+//      //---------------------
+//
+//      x -= wd/2;
+//      y += ht/2;
+//      StaticFunctions::renderText(x+m_pointSize/2, y+m_pointSize/2,
+//				  str, font,
+//				  QColor(10,10,10,100), textColor);
+//    }
 }
 
 void
@@ -668,6 +844,126 @@ Landmarks::postdrawLength(QGLViewer *viewer)
     }
 }
 
+void
+Landmarks::postdrawProjectedLineLength(QGLViewer *viewer)
+{
+  if (m_projectLinePoints.count() == 0)
+    return;
+
+  Vec voxelScaling = Global::voxelScaling();
+  Vec voxelSize = VolumeInformation::volumeInformation().voxelSize;
+
+  QColor textColor = QColor(m_textColor.z*255,
+			    m_textColor.y*255,
+			    m_textColor.x*255);
+
+  glColor3f(m_textColor.x,
+	    m_textColor.y,
+	    m_textColor.y);
+
+  Vec v0 = Vec(m_projectLineDistances[0][0],
+	       m_projectLineDistances[0][1],
+	       m_projectLineDistances[0][2]);
+  v0 = VECPRODUCT(v0, voxelScaling);
+
+  Vec v1 = Vec(m_projectLineDistances[1][0],
+	       m_projectLineDistances[1][1],
+	       m_projectLineDistances[1][2]);
+  v1 = VECPRODUCT(v1, voxelScaling);
+
+  Vec v = (v1-v0).unit();
+
+
+  for (int i=2; i<m_projectLineDistances.count(); i++)
+    {
+      int p0, p1;
+      p0 = m_projectLineDistances[i][0]-1;
+      p1 = m_projectLineDistances[i][1]-1;
+      int m_lengthTextDistance = m_projectLineDistances[i][2];
+
+      float t = ((m_points[p0]-v0)*v);      
+      Vec pt0 = v0 + t*v;      
+      Vec pt = VECPRODUCT(pt0, voxelScaling);
+      Vec scr = viewer->camera()->projectedCoordinatesOf(pt);
+      int x0 = scr.x;
+      int y0 = scr.y;
+      //---------------------
+      x0 *= viewer->size().width()/viewer->camera()->screenWidth();
+      y0 *= viewer->size().height()/viewer->camera()->screenHeight();
+      //---------------------
+      
+      t = ((m_points[p1]-v0)*v);      
+      Vec pt1 = v0 + t*v;      
+      pt = VECPRODUCT(pt1, voxelScaling);
+      scr = viewer->camera()->projectedCoordinatesOf(pt);
+      int x1 = scr.x;
+      int y1 = scr.y;
+      //---------------------
+      x1 *= viewer->size().width()/viewer->camera()->screenWidth();
+      y1 *= viewer->size().height()/viewer->camera()->screenHeight();
+      //---------------------
+  
+  
+      float perpx = (y1-y0);
+      float perpy = -(x1-x0);
+      float dlen = sqrt(perpx*perpx + perpy*perpy);
+      perpx/=dlen; perpy/=dlen;
+      
+      float angle = atan2(-perpx, perpy);
+      bool angleFixed = false;
+      angle *= 180.0/3.1415926535;
+      if (perpy < 0) { angle = 180+angle; angleFixed = true; }
+      
+      float px = perpx * m_lengthTextDistance;
+      float py = perpy * m_lengthTextDistance;
+      
+      glLineWidth(1);
+      glEnable(GL_LINE_STIPPLE);
+      glLineStipple(2, 0xAAAA);
+      glBegin(GL_LINES);
+      glVertex2f(x0, y0);
+      glVertex2f(x0+(px*1.1), y0+(py*1.1));
+      glVertex2f(x1, y1);
+      glVertex2f(x1+(px*1.1), y1+(py*1.1));
+      glEnd();
+      glDisable(GL_LINE_STIPPLE);
+      
+      glBegin(GL_LINES);
+      glVertex2f(x0+px, y0+py);
+      glVertex2f(x1+px, y1+py);
+      glEnd();
+
+      pt = pt0 - pt1;
+      pt = VECPRODUCT(pt, voxelSize);
+      VolumeInformation pvlInfo = VolumeInformation::volumeInformation();
+      QString str = QString("%1 %2").				\
+	arg(pt.norm(), 0, 'f', Global::floatPrecision()).	\
+	arg(pvlInfo.voxelUnitStringShort()); 
+      
+      glPushMatrix();
+      glLoadIdentity();
+      
+      if (str.endsWith("um"))
+	{
+	  str.chop(2);
+	  str += QChar(0xB5);
+	  str += "m";
+	}
+      QFont font = QFont("Helvetica", m_textSize);
+      QFontMetrics metric(font);
+      int ht = metric.height();
+      int wd = metric.width(str);
+      int x = (x0+x1)/2 + px;
+      int y = (y0+y1)/2 + py;
+      StaticFunctions::renderRotatedText(x,y,
+					 str, font,
+					 QColor(10,10,10,200), textColor,
+					 -angle,
+					 true); // (0,0) is bottom left
+      
+      glPopMatrix();
+    }
+}
 
 void
 Landmarks::updateTable()
@@ -1059,4 +1355,108 @@ Landmarks::updateAngles()
     }
 
   emit updateGL();
+}
+
+void
+Landmarks::updateProjectOnLine()
+{
+  m_projectLineDistances.clear();
+  m_projectLinePoints.clear();
+
+  QString str = m_projOnLineEdit->text().simplified();
+
+  if (str.length() == 0)
+    return;
+
+  QStringList dwords = str.split(";", QString::SkipEmptyParts);
+  if (dwords.count() != 2)
+    {
+      QMessageBox::information(0, "", "Format - 2 coordinates to define projection line followed by point pairs and separations for distance calculation.\nFor e.g\n 0.0 0.0 0.0 , 1.0 0.0 0.0 ; 1 2 0, 2 3 10, 2 10 20");
+      return;
+    }
+
+  QStringList dwords0 = dwords[0].split(",", QString::SkipEmptyParts);
+  if (dwords0.count() != 2)
+    {
+      QMessageBox::information(0, "", "Format - 2 coordinates to define projection line followed by point pairs and separations for distance calculation.\nFor e.g\n 0.0 0.0 0.0 , 1.0 0.0 0.0 ; 1 2 0, 2 3 10, 2 10 20");
+      return;
+    }
+
+  for (int i=0; i<dwords0.count(); i++) // get projection line coordinates
+    {
+      QStringList words = dwords0[i].split(" ", QString::SkipEmptyParts);
+      if (words.count() == 3)
+	{
+	  QList<float> lp;
+	  lp << words[0].toFloat();
+	  lp << words[1].toFloat();
+	  lp << words[2].toFloat();	  
+	  m_projectLineDistances << lp;
+	}
+      else
+	{
+	  QMessageBox::information(0, "", "Format - 2 coordinates to define projection line followed by point pairs for distance calculation.\nFor e.g\n 0.0 0.0 0.0 , 1.0 0.0 0.0 ; 1 2 , 2 3, 2 10");
+	  m_projectLineDistances.clear();
+	  return;
+	}
+    }
+  
+  // now get projection points
+  QStringList words = dwords[1].split(",", QString::SkipEmptyParts);
+  QMap<int, int> map;
+  for (int i=0; i<words.count(); i++)
+    {
+      QStringList wrd = words[i].simplified().split(" ", QString::SkipEmptyParts);
+      if (wrd.count() == 3)
+	{
+	  // point0, point1, text separation
+	  QList<float> lp;
+	  lp << wrd[0].toInt();
+	  lp << wrd[1].toInt();
+	  lp << wrd[2].toInt();
+
+	  map[lp[0]] = lp[0];
+	  map[lp[1]] = lp[1];
+	  m_projectLineDistances << lp;
+	}
+    }
+
+  m_projectLinePoints = map.values();
+
+  emit updateGL();
+}
+
+QList<QList<float>> Landmarks::projectOnLine() { return m_projectLineDistances; }
+
+void
+Landmarks::setProjectOnLine(QList<QList<float>> d)
+{
+  m_projectLineDistances.clear();
+  m_projectLinePoints.clear();
+
+  QMap<int, int> map;
+  QString s;
+  for (int i=0; i<d.count(); i++)
+    {
+      QList<float> lp = d[i];
+      if (lp.count() == 3)
+	{
+	  m_projectLineDistances << lp;
+	  s += QString("%1 %2 %3").arg(lp[0]).arg(lp[1]).arg(lp[2]);
+	  if (i == 0) s += " , ";
+	  else if (i == 1) s += " ; ";
+	  else
+	    {
+	      map[lp[0]] = lp[0];
+	      map[lp[1]] = lp[1];
+	      map[lp[2]] = lp[2];
+	    }
+	}
+    }
+
+  m_projectLinePoints = map.values();
+  
+  s.chop(1); // remove the last ,
+
+  m_projOnLineEdit->setText(s);
 }

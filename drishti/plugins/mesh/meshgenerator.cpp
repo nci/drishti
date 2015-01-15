@@ -1772,7 +1772,7 @@ MeshGenerator::generateMesh(int nSlabs,
 
 		if (savePLY) // do colour calculations only for PLY files
 		  {
-		    m_meshLog->moveCursor(QTextCursor::End);
+		    //m_meshLog->moveCursor(QTextCursor::End);
 		    //m_meshLog->insertPlainText("Generating Color ...\n");
 		    uchar c[3];
 		    float r,g,b;

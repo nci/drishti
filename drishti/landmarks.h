@@ -48,14 +48,14 @@ class Landmarks : public QObject, public MouseGrabber
   void setTextSize(int);
   int textSize();
 
-  QList<QList<int>> distances();
-  void setDistances(QList<QList<int>>);
+  QList< QList<int> > distances();
+  void setDistances(QList< QList<int> >);
 
-  QList<QList<int>> angles();
-  void setAngles(QList<QList<int>>);
+  QList< QList<int> > angles();
+  void setAngles(QList< QList<int> >);
 
-  QList<QList<float>> projectOnLine();
-  void setProjectOnLine(QList<QList<float>>);
+  QList< QList<float> > projectOnLine();
+  void setProjectOnLine(QList< QList<float> >);
 
   int count();
   void clear();
@@ -127,10 +127,10 @@ class Landmarks : public QObject, public MouseGrabber
   QLineEdit *m_angleEdit;
   QLineEdit *m_projOnLineEdit;
 
-  QList<QList<int>> m_distances;
-  QList<QList<int>> m_angles;
+  QList< QList<int> > m_distances;
+  QList< QList<int> > m_angles;
 
-  QList<QList<float>> m_projectLineDistances;
+  QList< QList<float> > m_projectLineDistances;
   QList<int> m_projectLinePoints;
 
   

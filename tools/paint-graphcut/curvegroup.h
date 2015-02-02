@@ -20,8 +20,8 @@ class CurveGroup
   QVector<QPoint> getPolygonAt(int);
 
  private :
-  QMap<int, QVector<QPoint>> m_cg;
-  QMap<int, QVector<QPoint>> m_mcg;
+  QMap<int, QVector<QPoint> > m_cg;
+  QMap<int, QVector<QPoint> > m_mcg;
   
 };
 

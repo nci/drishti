@@ -8,7 +8,7 @@
 #include <QProgressDialog>
 
 #define PI 3.1415926535897931
-
+#define DLARGE 100000000.0
 
 //--------------------------------------------------
 Editions::Editions()
@@ -438,8 +438,8 @@ MorphCurve::subsample(Perimeter p, double delta)
   // find bounding box:
   double x_max = 0;
   double y_max = 0;
-  double x_min = DBL_MAX;
-  double y_min = DBL_MAX;
+  double x_min = DLARGE;
+  double y_min = DLARGE;
   int x_max_i;
   int y_max_i;
   int x_min_i;
@@ -842,7 +842,7 @@ MorphCurve::findStartingPoint(Perimeter p1, Perimeter p2)
   double dist_i1_j0, dist_i0_j1;
   
   // the lowest sum so far
-  double min_sum = DBL_MAX;
+  double min_sum = DLARGE;
   // ... and the corresponding starting point:
   int start = 0;
   
@@ -1080,7 +1080,7 @@ MorphCurve::findMinimumEditDistance(Perimeter& p1, Perimeter& p2, double delta, 
   // Find the value of one every 10% of points. Then find those intervals with the lowest starting and ending values, and then look for 50% intervals inside those, and so on, until locking into the lowest value. It will save about 80% or more of all computations.
   MinDist mindata;
   mindata.min_j = -1;
-  mindata.min_dist = DBL_MAX;
+  mindata.min_dist = DLARGE;
   mindata.ndim = n+1;
   mindata.mdim = m+1;
   mindata.matrix = matrix2;

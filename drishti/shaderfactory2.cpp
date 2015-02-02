@@ -481,13 +481,13 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
   shader += genVgx(nvol);
 
   //----------------------------------
-  shader += "if (shdlod > 0)\n";
-  shader += "  {\n";
-  shader += "     vec4 shadow = texture2DRect(shdTex, gl_FragCoord.xy/vec2(shdlod));\n";
-  shader += "     lightcol = vec3(1.0-smoothstep(0.0, shdIntensity, shadow.a));\n";
-  shader += "     lightcol = clamp(vec3(0.1), lightcol, vec3(1));\n";
-  shader += "  }\n";
-  shader += "else\n";
+//  shader += "if (shdlod > 0)\n";
+//  shader += "  {\n";
+//  shader += "     vec4 shadow = texture2DRect(shdTex, gl_FragCoord.xy/vec2(shdlod));\n";
+//  shader += "     lightcol = vec3(1.0-smoothstep(0.0, shdIntensity, shadow.a));\n";
+//  shader += "     lightcol = clamp(vec3(0.1), lightcol, vec3(1));\n";
+//  shader += "  }\n";
+//  shader += "else\n";
   shader += "  {\n";
   shader += "    if (lightlod > 0)\n";
   shader += "     {\n"; // calculate light color
@@ -505,6 +505,13 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
   shader += "     }\n";
   shader += "    else\n";
   shader += "     lightcol = vec3(1.0,1.0,1.0);\n";
+  shader += "  }\n";
+  shader += "if (shdlod > 0)\n";
+  shader += "  {\n";
+  shader += "     float sa = texture2DRect(shdTex, gl_FragCoord.xy/vec2(shdlod)).a;\n";
+  shader += "     sa = 1.0-smoothstep(0.0, shdIntensity, sa);\n";
+  shader += "     sa = clamp(0.1, sa, 1.0);\n";
+  shader += "     lightcol *= sa;\n";
   shader += "  }\n";
   //----------------------------------
 

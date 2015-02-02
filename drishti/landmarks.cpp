@@ -126,6 +126,8 @@ Landmarks::clear()
 Landmarks::Landmarks()
 {
   m_table = new QWidget();
+  m_table->setWindowTitle("Landmarks");
+
   m_tableWidget = new QTableWidget();
 
   //---------------
@@ -173,7 +175,7 @@ Landmarks::Landmarks()
   m_tspinB = new QSpinBox();
   {
     QHBoxLayout *hbox2 = new QHBoxLayout();
-    QLabel *lbl1 = new QLabel("Text ");
+    QLabel *lbl1 = new QLabel("Text");
     QLabel *lbl2 = new QLabel("Size ");
     m_tspinB->setRange(8, 40);
     
@@ -240,7 +242,7 @@ Landmarks::Landmarks()
 
   QStringList item;
   item.clear();
-  item << "Text";
+  item << "Name";
   item << "Coordinate";
   m_tableWidget->setHorizontalHeaderLabels(item);
   m_tableWidget->setColumnWidth(0, 50);

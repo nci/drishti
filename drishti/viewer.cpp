@@ -4182,7 +4182,7 @@ Viewer::processCommand(QString cmd)
       
       GeometryObjects::pathgroups()->addVector(flnm);
     }
-  else if (list[0]== "landmark")
+  else if (list[0].contains("landmark"))
     {
       QList<Vec> pts;
       if (GeometryObjects::hitpoints()->activeCount())

@@ -317,6 +317,53 @@ Displace can be morphed into crop/dissect/blend/glow.
 #end
 
 #begin
+landmarks
+Add landmarks via the (selected) set of points.  Once a point is converted to landmark then it can be assigned a name via landmark dialog.  Landmarks are shown as points.
+
+To toggle visibility of the landmark dialog hover over any of the landmarks and press space bar.  Landmark dialog allows users to calculate and show distances between landmarks, projections on line as well as plane.  Landmark point and text colour and size can be modified.
+
+Users can save landmarks to a text file.
+
+Landmarks can be loaded from .landmark file or a .points file or from a set of points.
+
+Landmarks can be reordered.  Just reorder the rows in the table for landmarks and press "Reorder" button at the top left in the dialog to reorder the landmarks.
+
+Enter the landmark name in the "Name" column of the landmark table.
+
+Coordinates in the table can be changed.
+
+-----
+To calculate distance between landmarks use the Distances textbox.
+Format for this is point pairs separated by comma.
+Following show distances between points 1 and 2, 1 and 4, and 3 and 4.
+1 2, 1 4, 3 4
+
+To project landmark distances on a line use the Line Projection textbox.
+Format for this is 2 coordinates to define line on which the distances are to be projected, followed by point pairs and text display distance in pixels from default position.  Thw two coordinates defining the line are separated by comma.  The line definition is separated from landmark points definition by semi-colon.  The point pairs and distances are separated by comma. For e.g.
+0 0 0, 1 0 0 ; 1 2 0, 1 4 10, 3 4 -20
+Here first (0 0 0) and (1 0 0) are points on the line on which the landmark points will be projected.
+(1 2 0) - 1 and 2 are landmark points and 0 is the deviation of display text.
+(1 4 10) - 1 and 4 are landmark points and 10 is the deviation.
+(3 4 -20) - 3 and 4 are landmark points and -20 is the deviation.
+
+To project landmark points on a plane use the Plane Projection textbox.
+Format for this is 2 coordinates to define plane on which the distances are to be projected, followed by points.  Thw two coordinates defining the plane are separated by comma.  The plane definition is separated from landmark points definition by semi-colon.  The points are separated by comma. For e.g.
+200 200 450, 0 0 1 ; 1, 2, 5
+Here first (200 200 450) and (0 0 1) define the projection plane.  (200 200 450) is a point on the plane and (0 0 1) is the plane normal.  Users can make use of clip plane to show projection plane - turn on solid color and "grid" option to make clip plane look good.  Plane center and normal for the clip plane can be obtained from the clip plane dialog.
+1, 2, 5 are the landmark points that will be projected on the plane.
+
+-----
+
+Landmarks can be moved around using mouse as well as via the dialog.
+Individual landmarks can be deleted by hovering over relevant landmark and pressing "DEL" key.
+
+"c" to show landmark coordinates.
+"n" to show landmark number.
+"t" to show landmark name.
+
+#end
+
+#begin
 enablevolumeupdates
 Enable texture updates whenever subvolume is changed.
 By default subvolume updates are enabled.

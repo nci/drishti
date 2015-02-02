@@ -24,6 +24,8 @@ ImageWidget::ImageWidget(QWidget *parent, QStatusBar *sb) :
   
   setMouseTracking(true);
 
+  m_curveMode = false;
+
   m_Depth = m_Width = m_Height = 0;
   m_imgHeight = 100;
   m_imgWidth = 100;
@@ -32,6 +34,10 @@ ImageWidget::ImageWidget(QWidget *parent, QStatusBar *sb) :
   m_simgX = 10;
   m_simgY = 20;
 
+
+  m_dCurves.reset();
+  m_wCurves.reset();
+  m_hCurves.reset();
 
   m_zoom = 1;
 
@@ -118,7 +124,9 @@ ImageWidget::saveImage()
   QString imgFile = QFileDialog::getSaveFileName(0,
 			 "Save composite image",
 			 Global::previousDirectory(),
-			 "Image Files (*.png *.tif *.bmp *.jpg)");
+			 "Image Files (*.png *.tif *.bmp *.jpg)",
+		         0,
+		         QFileDialog::DontUseNativeDialog);
 
   if (imgFile.isEmpty())
     return;
@@ -618,6 +626,27 @@ ImageWidget::drawSizeText(QPainter *p)
 }
 
 void
+ImageWidget::drawCurves(QPainter *p)
+{
+  p->setPen(QPen(Qt::cyan, 1));
+  
+  QVector<QPoint> pts;
+
+  if (m_sliceType == DSlice)
+    pts = m_dCurves.getPolygonAt(m_currSlice);
+  else if (m_sliceType == WSlice)
+    pts = m_wCurves.getPolygonAt(m_currSlice);
+  else
+    pts = m_hCurves.getPolygonAt(m_currSlice);
+
+  p->scale((float)m_simgWidth/(float)m_imgWidth,
+	   (float)m_simgHeight/(float)m_imgHeight);
+  p->translate(m_simgX, m_simgY);
+  p->drawPolygon(pts);
+  p->resetTransform();
+}
+
+void
 ImageWidget::paintEvent(QPaintEvent *event)
 {
   QPainter p(this);
@@ -635,10 +664,12 @@ ImageWidget::paintEvent(QPaintEvent *event)
 
   drawRubberBand(&p);
 
+  drawCurves(&p);
+
   if (m_pickPoint)
     drawRawValue(&p);
 
-  if (!m_rubberBandActive)
+  if (!m_rubberBandActive && !m_curveMode)
     {
       float xpos = m_cursorPos.x();
       float ypos = m_cursorPos.y();
@@ -868,6 +899,50 @@ ImageWidget::keyPressEvent(QKeyEvent *event)
 {
   int shiftModifier = event->modifiers() & Qt::ShiftModifier;
   int ctrlModifier = event->modifiers() & Qt::ControlModifier;
+
+  if (event->key() == Qt::Key_C)
+    {
+      m_curveMode = !m_curveMode;
+      QMessageBox::information(0, "", QString("Curve Mode : %1").arg(m_curveMode));
+      return;
+    }
+  if (m_curveMode)
+    {
+      if (event->key() == Qt::Key_M)	
+	{
+	  if (m_sliceType == DSlice)
+	    m_dCurves.morphCurves();
+	  else if (m_sliceType == WSlice)
+	    m_wCurves.morphCurves();
+	  else
+	    m_hCurves.morphCurves();
+	}
+
+      if (event->key() == Qt::Key_R)
+	{
+	  if (shiftModifier)
+	    {
+	      if (m_sliceType == DSlice)
+		m_dCurves.reset();
+	      else if (m_sliceType == WSlice)
+		m_wCurves.reset();
+	      else
+		m_hCurves.reset();
+	    }
+	  else
+	    {
+	      if (m_sliceType == DSlice)
+		m_dCurves.resetPolygonAt(m_currSlice);
+	      else if (m_sliceType == WSlice)
+		m_wCurves.resetPolygonAt(m_currSlice);
+	      else
+		m_hCurves.resetPolygonAt(m_currSlice);
+	    }
+	}
+	  
+      update();
+      return;
+    }
 
   if (ctrlModifier)
     {      
@@ -1198,18 +1273,31 @@ ImageWidget::mousePressEvent(QMouseEvent *event)
 	      return;
 	    }
 	  // carry on only if Alt key is not pressed
-	  if (m_sliceType == DSlice)
-	    dotImage(m_pickHeight,
-		     m_pickWidth,
-		     shiftModifier);
-	  else if (m_sliceType == WSlice)
-	    dotImage(m_pickHeight,
-		     m_pickDepth,
-		     shiftModifier);
+
+	  if (m_curveMode)
+	    {
+	      if (m_sliceType == DSlice)
+		m_dCurves.addPoint(m_currSlice, m_pickHeight, m_pickWidth);
+	      else if (m_sliceType == WSlice)
+		m_wCurves.addPoint(m_currSlice, m_pickHeight, m_pickDepth);
+	      else
+		m_hCurves.addPoint(m_currSlice, m_pickWidth,  m_pickDepth);
+	    }
 	  else
-	    dotImage(m_pickWidth,
-		     m_pickDepth,
-		     shiftModifier);
+	    {
+	      if (m_sliceType == DSlice)
+		dotImage(m_pickHeight,
+			 m_pickWidth,
+			 shiftModifier);
+	      else if (m_sliceType == WSlice)
+		dotImage(m_pickHeight,
+			 m_pickDepth,
+			 shiftModifier);
+	      else
+		dotImage(m_pickWidth,
+			 m_pickDepth,
+			 shiftModifier);
+	    }
 	  update();
 	  return;
 	}
@@ -1416,19 +1504,30 @@ ImageWidget::mouseMoveEvent(QMouseEvent *event)
 	  m_lastPickWidth = m_pickWidth;
 	  m_lastPickHeight= m_pickHeight;
 
-	  if (m_sliceType == DSlice)
-	    dotImage(m_pickHeight,
-		     m_pickWidth,
-		     shiftModifier);
-	  else if (m_sliceType == WSlice)
-	    dotImage(m_pickHeight,
-		     m_pickDepth,
-		     shiftModifier);
+	  if (m_curveMode)
+	    {
+	      if (m_sliceType == DSlice)
+		m_dCurves.addPoint(m_currSlice, m_pickHeight, m_pickWidth);
+	      else if (m_sliceType == WSlice)
+		m_wCurves.addPoint(m_currSlice, m_pickHeight, m_pickDepth);
+	      else
+		m_hCurves.addPoint(m_currSlice, m_pickWidth,  m_pickDepth);
+	    }
 	  else
-	    dotImage(m_pickWidth,
-		     m_pickDepth,
-		     shiftModifier);
-	  
+	    {
+	      if (m_sliceType == DSlice)
+		dotImage(m_pickHeight,
+			 m_pickWidth,
+			 shiftModifier);
+	      else if (m_sliceType == WSlice)
+		dotImage(m_pickHeight,
+			 m_pickDepth,
+			 shiftModifier);
+	      else
+		dotImage(m_pickWidth,
+			 m_pickDepth,
+			 shiftModifier);
+	    }
 	  update();
 	}
     }

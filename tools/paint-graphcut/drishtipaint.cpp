@@ -468,7 +468,10 @@ DrishtiPaint::on_actionLoad_triggered()
   flnm = QFileDialog::getOpenFileName(0,
 				      "Load Processed Volume File",
 				      Global::previousDirectory(),
-				      "PVL Files (*.pvl.nc)");
+				      "PVL Files (*.pvl.nc)",
+				      0,
+				      QFileDialog::DontUseNativeDialog);
+
   
   if (flnm.isEmpty())
     return;

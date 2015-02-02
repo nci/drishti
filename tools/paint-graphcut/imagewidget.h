@@ -11,6 +11,8 @@
 #include <QVBoxLayout>
 #include <QVector3D>
 
+#include "curvegroup.h"
+
 class ImageWidget : public QWidget
 {
   Q_OBJECT
@@ -94,6 +96,11 @@ class ImageWidget : public QWidget
 
   int m_currSlice;
 
+  bool m_curveMode;
+  CurveGroup m_dCurves;
+  CurveGroup m_wCurves;
+  CurveGroup m_hCurves;
+
   QVector<QRgb> m_tagColors;
   QVector<QRgb> m_prevslicetagColors;
 
@@ -161,6 +168,7 @@ class ImageWidget : public QWidget
   void drawRawValue(QPainter*);
   void processCommands(QString);
   void drawRubberBand(QPainter*);
+  void drawCurves(QPainter*);
 
   bool checkRubberBand(int, int);
 

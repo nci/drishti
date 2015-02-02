@@ -98,7 +98,9 @@ TransferFunctionManager::headerClicked(int index)
 	      QString imgFile = QFileDialog::getSaveFileName(0,
 			        QString("Save transfer function %1 to").arg(row),
 			        Global::previousDirectory()+"/tf.png",
-				"Image Files (*.png *.tif *.bmp *.jpg)");
+			        "Image Files (*.png *.tif *.bmp *.jpg)",
+			        0,
+			        QFileDialog::DontUseNativeDialog);
 
 	      if (imgFile.isEmpty())
 		return;
@@ -117,7 +119,9 @@ TransferFunctionManager::headerClicked(int index)
       QString imgFile = QFileDialog::getSaveFileName(0,
 		        QString("Save composite for Set %1 to").arg(index-1),
 			Global::previousDirectory()+"/set.png",
-		        "Image Files (*.png *.tif *.bmp *.jpg)");
+			"Image Files (*.png *.tif *.bmp *.jpg)",
+			0,
+			QFileDialog::DontUseNativeDialog);
       
       if (imgFile.isEmpty())
 	return;

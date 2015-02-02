@@ -118,6 +118,8 @@ Landmarks::clear()
   m_projectLineDistances.clear();
   m_projectLinePoints.clear();
 
+  m_projectPlanePoints.clear();
+
   removeFromMouseGrabberPool();
 }
 
@@ -190,18 +192,22 @@ Landmarks::Landmarks()
   m_distEdit = new QLineEdit();
   m_angleEdit = new QLineEdit();
   m_projOnLineEdit = new QLineEdit();
+  m_projOnPlaneEdit = new QLineEdit();
   {
     QGridLayout *gbox = new QGridLayout();
     QLabel *lbl1 = new QLabel("Distances ");
-    QLabel *lbl2 = new QLabel("Angles ");
+//    QLabel *lbl2 = new QLabel("Angles ");
     QLabel *lbl3 = new QLabel("Line Projection");
+    QLabel *lbl4 = new QLabel("Plane Projection");
     
     gbox->addWidget(lbl1, 0, 0);
     gbox->addWidget(m_distEdit, 0, 1);
-    gbox->addWidget(lbl2, 1, 0);
-    gbox->addWidget(m_angleEdit, 1, 1);
-    gbox->addWidget(lbl3, 2, 0);
-    gbox->addWidget(m_projOnLineEdit, 2, 1);
+//    gbox->addWidget(lbl2, 1, 0);
+//    gbox->addWidget(m_angleEdit, 1, 1);
+    gbox->addWidget(lbl3, 1, 0);
+    gbox->addWidget(m_projOnLineEdit, 1, 1);
+    gbox->addWidget(lbl4, 2, 0);
+    gbox->addWidget(m_projOnPlaneEdit, 2, 1);
     gbox->setColumnStretch(1, 1);
     bG4->setLayout(gbox);
   }
@@ -257,6 +263,7 @@ Landmarks::Landmarks()
   connect(m_distEdit, SIGNAL(editingFinished()), this, SLOT(updateDistances()));
   connect(m_angleEdit, SIGNAL(editingFinished()), this, SLOT(updateAngles()));
   connect(m_projOnLineEdit, SIGNAL(editingFinished()), this, SLOT(updateProjectOnLine()));
+  connect(m_projOnPlaneEdit, SIGNAL(editingFinished()), this, SLOT(updateProjectOnPlane()));
 
   clear();
 
@@ -507,6 +514,8 @@ Landmarks::draw(QGLViewer *viewer, bool backToFront)
 
 
   //drawProjectOnLine(viewer);
+
+  //drawProjectOnPlane(viewer);
 }
 
 void
@@ -529,10 +538,6 @@ Landmarks::drawProjectOnLine(QGLViewer *viewer)
 
   Vec v = (v1-v0).unit();
 
-  float tmin, tmax;
-  tmin = 0;
-  tmax = 0;
-
   // --- draw projected points
   glEnable(GL_POINT_SPRITE);
   glActiveTexture(GL_TEXTURE0);
@@ -552,9 +557,6 @@ Landmarks::drawProjectOnLine(QGLViewer *viewer)
       Vec ptp = v0 + t*v;      
       
       glVertex3fv(ptp);
-
-      tmin = qMin(t, tmin);
-      tmax = qMax(t, tmax);
     }
   glEnd();
   glPointSize(1);
@@ -566,8 +568,6 @@ Landmarks::drawProjectOnLine(QGLViewer *viewer)
 
 
   // --- draw projection lines
-  Vec w0 = v0+tmin*v;
-  Vec w1 = v0+tmax*v;
   glLineWidth(1);
   glBegin(GL_LINES);
 
@@ -654,8 +654,10 @@ Landmarks::postdraw(QGLViewer *viewer)
   postdrawLength(viewer);
 
   postdrawLineProjection(viewer);
-
   postdrawProjectedLineLength(viewer);
+
+  postdrawPlaneProjection(viewer);
+  postdrawProjectedPlaneLength(viewer);
 
   viewer->stopScreenCoordinatesSystem();
 }
@@ -1056,7 +1058,9 @@ Landmarks::saveLandmarks()
   flnm = QFileDialog::getSaveFileName(0,
 				      "Save landmarks to text file",
 				      Global::previousDirectory(),
-				      "Files (*.landmark)");  
+				      "Files (*.landmark)",
+				      0,
+				      QFileDialog::DontUseNativeDialog);
   if (flnm.isEmpty())
     return;
 
@@ -1087,7 +1091,9 @@ Landmarks::loadLandmarks()
   flnm = QFileDialog::getOpenFileName(0,
 				      "load landmarks to text file",
 				      Global::previousDirectory(),
-				      "Files (*.landmark)");  
+				      "Files (*.landmark)",
+				      0,
+				      QFileDialog::DontUseNativeDialog);
   if (flnm.isEmpty())
     return;
 
@@ -1257,11 +1263,11 @@ Landmarks::changeTextSize(int s)
   emit updateGL();
 }
 
-QList<QList<int>> Landmarks::distances() { return m_distances; }
-QList<QList<int>> Landmarks::angles() { return m_angles; }
+QList< QList<int> > Landmarks::distances() { return m_distances; }
+QList< QList<int> > Landmarks::angles() { return m_angles; }
 
 void
-Landmarks::setDistances(QList<QList<int>> d)
+Landmarks::setDistances(QList< QList<int> > d)
 {
   m_distances.clear();
 
@@ -1282,7 +1288,7 @@ Landmarks::setDistances(QList<QList<int>> d)
 }
 
 void
-Landmarks::setAngles(QList<QList<int>> d)
+Landmarks::setAngles(QList< QList<int> > d)
 {
   m_angles.clear();
 
@@ -1426,14 +1432,14 @@ Landmarks::updateProjectOnLine()
   emit updateGL();
 }
 
-QList<QList<float>> Landmarks::projectOnLine() { return m_projectLineDistances; }
+QList< QList<float> > Landmarks::projectOnLine() { return m_projectLineDistances; }
 
 void
-Landmarks::setProjectOnLine(QList<QList<float>> d)
+Landmarks::setProjectOnLine(QList< QList<float> > d)
 {
   m_projectLineDistances.clear();
   m_projectLinePoints.clear();
-
+  
   QMap<int, int> map;
   QString s;
   for (int i=0; i<d.count(); i++)
@@ -1447,6 +1453,7 @@ Landmarks::setProjectOnLine(QList<QList<float>> d)
 	  else if (i == 1) s += " ; ";
 	  else
 	    {
+	      s += " , ";
 	      map[lp[0]] = lp[0];
 	      map[lp[1]] = lp[1];
 	      map[lp[2]] = lp[2];
@@ -1456,7 +1463,333 @@ Landmarks::setProjectOnLine(QList<QList<float>> d)
 
   m_projectLinePoints = map.values();
   
-  s.chop(1); // remove the last ,
+  s.chop(3); // remove the last ,
 
   m_projOnLineEdit->setText(s);
 }
+
+void
+Landmarks::updateProjectOnPlane()
+{
+  m_projectPlanePoints.clear();
+
+  QString str = m_projOnPlaneEdit->text().simplified();
+
+  if (str.length() == 0)
+    return;
+
+  QStringList dwords = str.split(";", QString::SkipEmptyParts);
+  if (dwords.count() != 2)
+    {
+      QMessageBox::information(0, "", "Format - 2 coordinates to define projection line followed by points to project on plane for distance calculation.\nFor e.g\n 0.0 0.0 0.0 , 1.0 0.0 0.0 ; 1, 3");
+      return;
+    }
+
+  QStringList dwords0 = dwords[0].split(",", QString::SkipEmptyParts);
+  if (dwords0.count() != 2)
+    {
+      QMessageBox::information(0, "", "Format - 2 coordinates to define projection line followed by points to project on plane for distance calculation.\nFor e.g\n 0.0 0.0 0.0 , 1.0 0.0 0.0 ; 1, 3");
+      return;
+    }
+
+  for (int i=0; i<dwords0.count(); i++) // get projection line coordinates
+    {
+      QStringList words = dwords0[i].split(" ", QString::SkipEmptyParts);
+      if (words.count() == 3)
+	{
+	  m_projectPlanePoints << words[0].toFloat();
+	  m_projectPlanePoints << words[1].toFloat();
+	  m_projectPlanePoints << words[2].toFloat();	  
+	}
+      else
+	{
+	  QMessageBox::information(0, "", "Format - 2 coordinates to define projection line followed by points to project on plane for distance calculation.\nFor e.g\n 0.0 0.0 0.0 , 1.0 0.0 0.0 ; 1, 3");
+	  m_projectPlanePoints.clear();
+	  return;
+	}
+    }
+
+  // now get projection points
+  QStringList words = dwords[1].split(",", QString::SkipEmptyParts);
+  for (int i=0; i<words.count(); i++)
+    m_projectPlanePoints << words[i].toInt();
+
+  emit updateGL();
+}
+
+QList<float> Landmarks::projectOnPlane() { return m_projectPlanePoints; }
+
+void
+Landmarks::setProjectOnPlane(QList<float> d)
+{
+  m_projectPlanePoints.clear();
+  m_projectPlanePoints = d;
+
+  QString s;
+  for (int i=0; i<d.count(); i++)
+    {
+      s += QString("%1 ").arg(d[i]);
+      if (i == 2) s += ", ";
+      else if (i == 5) s += "; ";
+      else if (i > 5)
+	s += ", ";
+    }
+
+  s.chop(2); // remove the last ,
+
+  m_projOnPlaneEdit->setText(s);
+}
+
+void
+Landmarks::drawProjectOnPlane(QGLViewer *viewer)
+{
+  if (m_projectPlanePoints.count() == 0)
+    return;
+
+  Vec voxelScaling = Global::voxelScaling();
+
+  Vec p0 = Vec(m_projectPlanePoints[0],
+	       m_projectPlanePoints[1],
+	       m_projectPlanePoints[2]);
+  p0 = VECPRODUCT(p0, voxelScaling);
+  
+  Vec norm = Vec(m_projectPlanePoints[3],
+		 m_projectPlanePoints[4],
+		 m_projectPlanePoints[5]).unit();
+
+  // --- draw projected points
+  glEnable(GL_POINT_SPRITE);
+  glActiveTexture(GL_TEXTURE0);
+  glEnable(GL_TEXTURE_2D);
+  glBindTexture(GL_TEXTURE_2D, Global::spriteTexture());
+  glTexEnvf( GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE );
+  glHint(GL_POINT_SMOOTH_HINT, GL_NICEST);
+  glEnable(GL_POINT_SMOOTH);
+  glColor3fv(m_pointColor);
+  glPointSize(m_pointSize);
+  glBegin(GL_POINTS);
+  for(int i=6; i<m_projectPlanePoints.count();i++)
+    {
+      int j = m_projectPlanePoints[i]-1;
+      Vec pt = VECPRODUCT(m_points[j], voxelScaling);
+
+      
+      float t = ((pt-p0)*norm);      
+      Vec ptp = pt - t*norm;      
+      
+      glVertex3fv(ptp);
+    }
+  glEnd();
+  glPointSize(1);
+  glDisable(GL_POINT_SPRITE);
+  glActiveTexture(GL_TEXTURE0);
+  glDisable(GL_TEXTURE_2D);
+  glDisable(GL_POINT_SMOOTH);
+  // ----
+
+
+  // --- draw projection lines
+  glLineWidth(1);
+  glBegin(GL_LINES);
+
+  for(int i=6; i<m_projectPlanePoints.count();i++)
+    {
+      int j = m_projectPlanePoints[i]-1;
+      Vec pt = VECPRODUCT(m_points[j], voxelScaling);
+      
+      float t = ((pt-p0)*norm);      
+      Vec ptp = pt - t*norm;      
+
+      glVertex3fv(pt);
+      glVertex3fv(ptp);
+    }
+  glEnd();
+  // ----
+}
+
+void
+Landmarks::postdrawPlaneProjection(QGLViewer *viewer)
+{
+  if (m_projectPlanePoints.count() == 0)
+    return;
+
+  QColor textColor = QColor(m_textColor.z*255,
+			    m_textColor.y*255,
+			    m_textColor.x*255);
+
+  Vec voxelScaling = Global::voxelScaling();
+
+  Vec p0 = Vec(m_projectPlanePoints[0],
+	       m_projectPlanePoints[1],
+	       m_projectPlanePoints[2]);
+  p0 = VECPRODUCT(p0, voxelScaling);
+  
+  Vec norm = Vec(m_projectPlanePoints[3],
+		 m_projectPlanePoints[4],
+		 m_projectPlanePoints[5]).unit();
+
+  glEnable(GL_LINE_STIPPLE);
+  glLineStipple(1, 0xAAAA);
+  glBegin(GL_LINES);
+  for(int i=6; i<m_projectPlanePoints.count();i++)
+    {
+      int j = m_projectPlanePoints[i]-1;
+      Vec pt = VECPRODUCT(m_points[j], voxelScaling);
+      Vec scr = viewer->camera()->projectedCoordinatesOf(pt);
+      int x = scr.x;
+      int y = scr.y;
+      glVertex2f(x, y);
+
+      float t = ((pt-p0)*norm);      
+      Vec ptp = pt - t*norm;      
+      scr = viewer->camera()->projectedCoordinatesOf(ptp);
+      x = scr.x;
+      y = scr.y;      
+      glVertex2f(x, y);
+    }
+  glEnd();
+  glDisable(GL_LINE_STIPPLE);
+}
+
+void
+Landmarks::postdrawProjectedPlaneLength(QGLViewer *viewer)
+{
+  if (m_projectPlanePoints.count() == 0)
+    return;
+
+  Vec voxelScaling = Global::voxelScaling();
+  Vec voxelSize = VolumeInformation::volumeInformation().voxelSize;
+
+  QColor textColor = QColor(m_textColor.z*255,
+			    m_textColor.y*255,
+			    m_textColor.x*255);
+
+  glColor3f(m_textColor.x,
+	    m_textColor.y,
+	    m_textColor.y);
+
+  Vec p0 = Vec(m_projectPlanePoints[0],
+	       m_projectPlanePoints[1],
+	       m_projectPlanePoints[2]);
+  p0 = VECPRODUCT(p0, voxelScaling);
+  
+  Vec norm = Vec(m_projectPlanePoints[3],
+		 m_projectPlanePoints[4],
+		 m_projectPlanePoints[5]).unit();
+
+  glEnable(GL_POINT_SPRITE);
+  glActiveTexture(GL_TEXTURE0);
+  glEnable(GL_TEXTURE_2D);
+  glBindTexture(GL_TEXTURE_2D, Global::spriteTexture());
+  glTexEnvf( GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE );
+  glHint(GL_POINT_SMOOTH_HINT, GL_NICEST);
+  glEnable(GL_POINT_SMOOTH);
+  glPointSize(m_pointSize);
+  glBegin(GL_POINTS);
+  for(int i=6; i<m_projectPlanePoints.count();i++)
+    {
+      int j = m_projectPlanePoints[i]-1;
+      Vec pt = VECPRODUCT(m_points[j], voxelScaling);
+      float dtn = ((pt-p0)*norm);      
+      Vec ptp = pt - dtn*norm;      
+      Vec scr = viewer->camera()->projectedCoordinatesOf(ptp);
+      int x0 = scr.x;
+      int y0 =  scr.y;
+      //---------------------
+      x0 *= viewer->size().width()/viewer->camera()->screenWidth();
+      y0 *= viewer->size().height()/viewer->camera()->screenHeight();
+      //---------------------
+
+      glVertex2f(x0, y0);
+    }
+  glEnd();
+
+  glDisable(GL_POINT_SPRITE);
+  glActiveTexture(GL_TEXTURE0);
+  glDisable(GL_TEXTURE_2D);
+  
+  glDisable(GL_POINT_SMOOTH);
+
+
+  int m_lengthTextDistance = 0;
+  for(int i=6; i<m_projectPlanePoints.count();i++)
+    {
+      int j = m_projectPlanePoints[i]-1;
+      Vec pt = VECPRODUCT(m_points[j], voxelScaling);
+      Vec scr = viewer->camera()->projectedCoordinatesOf(pt);
+      int x0 = scr.x;
+      int y0 =  scr.y;
+      //---------------------
+      x0 *= viewer->size().width()/viewer->camera()->screenWidth();
+      y0 *= viewer->size().height()/viewer->camera()->screenHeight();
+      //---------------------
+
+      float dtn = ((pt-p0)*norm);      
+      Vec ptp = pt - dtn*norm;      
+      scr = viewer->camera()->projectedCoordinatesOf(ptp);
+      int x1 = scr.x;
+      int y1 = scr.y;      
+      //---------------------
+      x1 *= viewer->size().width()/viewer->camera()->screenWidth();
+      y1 *= viewer->size().height()/viewer->camera()->screenHeight();
+      //---------------------
+
+      float perpx = (y1-y0);
+      float perpy = -(x1-x0);
+      float dlen = sqrt(perpx*perpx + perpy*perpy);
+      perpx/=dlen; perpy/=dlen;
+      
+      float angle = atan2(-perpx, perpy);
+      bool angleFixed = false;
+      angle *= 180.0/3.1415926535;
+      if (perpy < 0) { angle = 180+angle; angleFixed = true; }
+      
+      float px = perpx * m_lengthTextDistance;
+      float py = perpy * m_lengthTextDistance;
+      
+      glLineWidth(1);
+      glEnable(GL_LINE_STIPPLE);
+      glLineStipple(2, 0xAAAA);
+      glBegin(GL_LINES);
+      glVertex2f(x0, y0);
+      glVertex2f(x0+(px*1.1), y0+(py*1.1));
+      glVertex2f(x1, y1);
+      glVertex2f(x1+(px*1.1), y1+(py*1.1));
+      glEnd();
+      glDisable(GL_LINE_STIPPLE);
+      
+      glBegin(GL_LINES);
+      glVertex2f(x0+px, y0+py);
+      glVertex2f(x1+px, y1+py);
+      glEnd();
+
+      VolumeInformation pvlInfo = VolumeInformation::volumeInformation();
+      QString str = QString("%1 %2").				\
+	arg(dtn, 0, 'f', Global::floatPrecision()).	\
+	arg(pvlInfo.voxelUnitStringShort()); 
+      
+      glPushMatrix();
+      glLoadIdentity();
+      
+      if (str.endsWith("um"))
+	{
+	  str.chop(2);
+	  str += QChar(0xB5);
+	  str += "m";
+	}
+      QFont font = QFont("Helvetica", m_textSize);
+      QFontMetrics metric(font);
+      int ht = metric.height();
+      int wd = metric.width(str);
+      int x = (x0+x1)/2 + px;
+      int y = (y0+y1)/2 + py;
+      StaticFunctions::renderRotatedText(x,y,
+					 str, font,
+					 QColor(10,10,10,200), textColor,
+					 -angle,
+					 true); // (0,0) is bottom left
+      
+      glPopMatrix();
+    }
+}
+

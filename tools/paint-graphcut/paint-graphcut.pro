@@ -23,6 +23,7 @@ FORMS += drishtipaint.ui
 HEADERS += commonqtclasses.h \
 	drishtipaint.h \
 	bitmapthread.h \
+	curvegroup.h \
 	dcolordialog.h \
 	dcolorwheel.h \
 	imagewidget.h \
@@ -30,6 +31,7 @@ HEADERS += commonqtclasses.h \
 	gradienteditor.h \
 	gradienteditorwidget.h \
 	myslider.h \
+ 	morphcurve.h \
 	splineeditor.h \
 	splineeditorwidget.h \
 	splineinformation.h \
@@ -53,6 +55,7 @@ HEADERS += commonqtclasses.h \
 SOURCES += drishtipaint.cpp \
 	main.cpp \
 	bitmapthread.cpp \
+	curvegroup.cpp \
 	dcolordialog.cpp \
 	dcolorwheel.cpp \
 	imagewidget.cpp \
@@ -60,6 +63,7 @@ SOURCES += drishtipaint.cpp \
 	gradienteditor.cpp \
 	gradienteditorwidget.cpp \
 	myslider.cpp \
+ 	morphcurve.cpp \
 	splineeditor.cpp \
 	splineeditorwidget.cpp \
 	splineinformation.cpp \

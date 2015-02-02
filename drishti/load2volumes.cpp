@@ -18,20 +18,12 @@ void
 Load2Volumes::on_volButton1_pressed()
 {
   QStringList flnm;
-#ifndef Q_OS_MACX
   flnm = QFileDialog::getOpenFileNames(0,
 				      "Load volume files",
 				       Global::previousDirectory(),
 				       "NetCDF Files (*.pvl.nc)",
 				       0,
 				       QFileDialog::DontUseNativeDialog);
-#else
-  flnm = QFileDialog::getOpenFileNames(0,
-				      "Load volume files",
-				       Global::previousDirectory(),
-				       "NetCDF Files (*.pvl.nc)",
-				       0);
-#endif
 
 
   if (flnm.isEmpty())
@@ -50,20 +42,12 @@ void
 Load2Volumes::on_volButton2_pressed()
 {
   QStringList flnm;
-#ifndef Q_OS_MACX
   flnm = QFileDialog::getOpenFileNames(0,
 				       "Load volume files",
 				       Global::previousDirectory(),
 				       "NetCDF Files (*.pvl.nc)",
 				       0,
 				       QFileDialog::DontUseNativeDialog);
-#else
-  flnm = QFileDialog::getOpenFileNames(0,
-				       "Load volume files",
-				       Global::previousDirectory(),
-				       "NetCDF Files (*.pvl.nc)",
-				       0);
-#endif
 
 				       
   if (flnm.isEmpty())

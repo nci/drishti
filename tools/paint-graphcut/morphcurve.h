@@ -103,7 +103,7 @@ class MorphCurve
   ~MorphCurve();
 
   void setPaths(QStringList);
-  void setPaths(QMap<int, QVector<QPoint>>);
+  void setPaths(QMap< int, QVector<QPoint> >);
   QList<Perimeter> getMorphedPaths();
 
   enum EditOperation

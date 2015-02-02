@@ -321,7 +321,7 @@ MorphCurve::setPaths(QStringList paths)
 }
 
 void
-MorphCurve::setPaths(QMap<int, QVector<QPoint>> paths)
+MorphCurve::setPaths(QMap< int, QVector<QPoint> > paths)
 {
   m_perimeters.clear();
 

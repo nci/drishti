@@ -157,6 +157,7 @@ HEADERS += boundingbox.h \
            keyframeeditor.h \
            keyframeinformation.h \
 	   landmarks.h \
+	   landmarkinformation.h \
            lightdisc.h \
 	   lightinginformation.h \
            lightingwidget.h \
@@ -288,6 +289,7 @@ SOURCES += boundingbox.cpp \
            keyframeeditor.cpp \
            keyframeinformation.cpp \
 	   landmarks.cpp \
+	   landmarkinformation.cpp \
            lightdisc.cpp \
 	   lightinginformation.cpp \
            lightingwidget.cpp \

@@ -281,6 +281,31 @@ Landmarks::~Landmarks()
 }
 
 void
+Landmarks::updateDistances()
+{
+  setDistances(m_distEdit->text());
+  emit updateGL();
+}
+void
+Landmarks::updateAngles()
+{
+  setAngles(m_angleEdit->text());
+  emit updateGL();
+}
+void
+Landmarks::updateProjectOnLine()
+{
+  setProjectOnLine(m_projOnLineEdit->text());
+  emit updateGL();
+}
+void
+Landmarks::updateProjectOnPlane()
+{
+  setProjectOnPlane(m_projOnPlaneEdit->text());
+  emit updateGL();
+}
+
+void
 Landmarks::setMouseGrab(bool g)
 { 
   m_grab = g;
@@ -453,6 +478,8 @@ Landmarks::keyPressEvent(QKeyEvent *event)
       setMoveAxis(Landmarks::MoveAll);
       return true;
     }
+ 
+  return false;
 }
 
 void
@@ -622,34 +649,41 @@ Landmarks::postdraw(QGLViewer *viewer)
 	  QString str;
 
 	  if (m_showNumber)
-	    str = QString("%1 ").arg(i+1);
+	    str = QString("%1").arg(i+1);
 
-	  if (m_showText)
-	    str += QString("%1 ").arg(m_text[i]);
+	  if (m_showText && !m_text[i].isEmpty())
+	    {
+	      if (!str.isEmpty()) str += " ";
+	      str += QString("%1").arg(m_text[i]);
+	    }
 
 	  if (m_showCoordinates)
 	    {
-	      str += QString(" (%1 %2 %3)").\
+	      if (!str.isEmpty()) str += " ";
+	      str += QString("(%1 %2 %3)").\
 		arg(pt.x*voxelSize.x, 0, 'f', Global::floatPrecision()).\
 		arg(pt.y*voxelSize.y, 0, 'f', Global::floatPrecision()).\
 		arg(pt.z*voxelSize.z, 0, 'f', Global::floatPrecision());
 	    }
 
-	  QFont font = QFont("Helvetica", m_textSize, QFont::Bold);
-	  QFontMetrics metric(font);
-	  int ht = metric.height();
-	  int wd = metric.width(str);
-
-	  //---------------------
-	  x *= viewer->size().width()/viewer->camera()->screenWidth();
-	  y *= viewer->size().height()/viewer->camera()->screenHeight();
-	  //---------------------
-
-	  y += ht/2;
-
-	  StaticFunctions::renderText(x+m_pointSize/2, y,
-				      str, font,
-				      QColor(10,10,10,100), textColor);
+	  if (!str.isEmpty())
+	    {
+	      QFont font = QFont("Helvetica", m_textSize, QFont::Bold);
+	      QFontMetrics metric(font);
+	      int ht = metric.height();
+	      int wd = metric.width(str);
+	      
+	      //---------------------
+	      x *= viewer->size().width()/viewer->camera()->screenWidth();
+	      y *= viewer->size().height()/viewer->camera()->screenHeight();
+	      //---------------------
+	      
+	      y += ht/2;
+	      
+	      StaticFunctions::renderText(x+m_pointSize/2, y,
+					  str, font,
+					  QColor(10,10,10,100), textColor);
+	    }
 	}
     }
 
@@ -709,44 +743,6 @@ Landmarks::postdrawLineProjection(QGLViewer *viewer)
     }
   glEnd();
   glDisable(GL_LINE_STIPPLE);
-
-
-//  for(int i=0; i<m_projectLinePoints.count();i++)
-//    {
-//      int j = m_projectLinePoints[i]-1;
-//      Vec pt = VECPRODUCT(m_points[j], voxelScaling);
-//      float t = ((pt-v0)*v);      
-//      pt = v0 + t*v;      
-//      
-//      //Vec spt = VECPRODUCT(pt, voxelScaling);
-//      Vec scr = viewer->camera()->projectedCoordinatesOf(pt);
-//      int x = scr.x;
-//      int y = scr.y;
-//      
-//      QString str;
-//      
-//      if (m_showNumber)
-//	str = QString("%1 ").arg(j+1);
-//      
-//      if (m_showText)
-//	str += QString("%1 ").arg(m_text[j]);
-//      
-//      QFont font = QFont("Helvetica", m_textSize);
-//      QFontMetrics metric(font);
-//      int ht = metric.height();
-//      int wd = metric.width(str);
-//      
-//      //---------------------
-//      x *= viewer->size().width()/viewer->camera()->screenWidth();
-//      y *= viewer->size().height()/viewer->camera()->screenHeight();
-//      //---------------------
-//
-//      x -= wd/2;
-//      y += ht/2;
-//      StaticFunctions::renderText(x+m_pointSize/2, y+m_pointSize/2,
-//				  str, font,
-//				  QColor(10,10,10,100), textColor);
-//    }
 }
 
 void
@@ -1290,6 +1286,32 @@ Landmarks::setDistances(QList< QList<int> > d)
 }
 
 void
+Landmarks::setDistances(QString text)
+{
+  m_distances.clear();
+
+  QString str = text.simplified();
+
+  if (str.length() == 0)
+    return;
+
+  QStringList dwords = str.split(",", QString::SkipEmptyParts);
+  for (int i=0; i<dwords.count(); i++)
+    {
+      QStringList words = dwords[i].simplified().split(" ", QString::SkipEmptyParts);
+      if (words.count() == 2)
+	{
+	  QList<int> lp;
+	  lp << words[0].toInt();
+	  lp << words[1].toInt();
+	  
+	  m_distances << lp;
+	}
+    }
+}
+
+
+void
 Landmarks::setAngles(QList< QList<int> > d)
 {
   m_angles.clear();
@@ -1311,38 +1333,11 @@ Landmarks::setAngles(QList< QList<int> > d)
 }
 
 void
-Landmarks::updateDistances()
-{
-  m_distances.clear();
-
-  QString str = m_distEdit->text().simplified();
-
-  if (str.length() == 0)
-    return;
-
-  QStringList dwords = str.split(",", QString::SkipEmptyParts);
-  for (int i=0; i<dwords.count(); i++)
-    {
-      QStringList words = dwords[i].simplified().split(" ", QString::SkipEmptyParts);
-      if (words.count() == 2)
-	{
-	  QList<int> lp;
-	  lp << words[0].toInt();
-	  lp << words[1].toInt();
-	  
-	  m_distances << lp;
-	}
-    }
-
-  emit updateGL();
-}
-
-void
-Landmarks::updateAngles()
+Landmarks::setAngles(QString text)
 {
   m_angles.clear();
 
-  QString str = m_angleEdit->text().simplified();
+  QString str = text.simplified();
 
   if (str.length() == 0)
     return;
@@ -1361,17 +1356,16 @@ Landmarks::updateAngles()
 	  m_angles << lp;
 	}
     }
-
-  emit updateGL();
 }
 
+
 void
-Landmarks::updateProjectOnLine()
+Landmarks::setProjectOnLine(QString text)
 {
   m_projectLineDistances.clear();
   m_projectLinePoints.clear();
 
-  QString str = m_projOnLineEdit->text().simplified();
+  QString str = text.simplified();
 
   if (str.length() == 0)
     return;
@@ -1430,9 +1424,8 @@ Landmarks::updateProjectOnLine()
     }
 
   m_projectLinePoints = map.values();
-
-  emit updateGL();
 }
+
 
 QList< QList<float> > Landmarks::projectOnLine() { return m_projectLineDistances; }
 
@@ -1471,11 +1464,11 @@ Landmarks::setProjectOnLine(QList< QList<float> > d)
 }
 
 void
-Landmarks::updateProjectOnPlane()
+Landmarks::setProjectOnPlane(QString text)
 {
   m_projectPlanePoints.clear();
 
-  QString str = m_projOnPlaneEdit->text().simplified();
+  QString str = text.simplified();
 
   if (str.length() == 0)
     return;
@@ -1515,8 +1508,6 @@ Landmarks::updateProjectOnPlane()
   QStringList words = dwords[1].split(",", QString::SkipEmptyParts);
   for (int i=0; i<words.count(); i++)
     m_projectPlanePoints << words[i].toInt();
-
-  emit updateGL();
 }
 
 QList<float> Landmarks::projectOnPlane() { return m_projectPlanePoints; }
@@ -1795,3 +1786,50 @@ Landmarks::postdrawProjectedPlaneLength(QGLViewer *viewer)
     }
 }
 
+void
+Landmarks::setLandmarkInfo(LandmarkInformation li)
+{
+  m_textColor = li.textColor;
+  m_textSize = li.textSize;
+  m_pointColor = li.pointColor;
+  m_pointSize = li.pointSize;
+
+  m_points = li.points;
+  m_text = li.text;
+
+  m_showCoordinates = li.showCoordinates;
+  m_showText = li.showText;
+  m_showNumber = li.showNumber;
+  
+  m_distEdit->setText(li.distance);  
+  m_projOnLineEdit->setText(li.projectline);
+  m_projOnPlaneEdit->setText(li.projectplane);  
+
+  setDistances(li.distance);
+  setProjectOnLine(li.projectline);
+  setProjectOnPlane(li.projectplane);
+}
+
+LandmarkInformation
+Landmarks::getLandmarkInfo()
+{
+  LandmarkInformation li;
+
+  li.textColor = m_textColor;
+  li.textSize = m_textSize;
+  li.pointColor = m_pointColor;
+  li.pointSize = m_pointSize;
+
+  li.points = m_points;
+  li.text = m_text;
+
+  li.showCoordinates = m_showCoordinates;
+  li.showText = m_showText;
+  li.showNumber = m_showNumber;
+  
+  li.distance = m_distEdit->text();
+  li.projectline = m_projOnLineEdit->text();
+  li.projectplane = m_projOnPlaneEdit->text();
+
+  return li;
+}

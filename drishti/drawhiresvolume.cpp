@@ -4767,8 +4767,8 @@ DrawHiresVolume::resliceVolume(Vec pos,
 	  int a3 = list[2].toInt();
 	  if (a1 > 0 && a2 > 0 && a3 > 0)
 	    {
-	      ht = a1;
-	      wd = a2;
+	      wd = a1;
+	      ht = a2;
 	      nslices = a3;
 	    }
 	}

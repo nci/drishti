@@ -25,6 +25,7 @@ using namespace std;
 #include "pathgroupobject.h"
 #include "trisetinformation.h"
 #include "networkinformation.h"
+#include "landmarkinformation.h"
 
 class KeyFrameInformation
 {
@@ -79,6 +80,7 @@ class KeyFrameInformation
   void setTagColors(uchar*);
   void setPruneBuffer(QByteArray);
   void setPruneBlend(bool);
+  void setLandmarkInfo(LandmarkInformation);
   
   QString title();
   bool hasCaption(QStringList);
@@ -123,6 +125,8 @@ class KeyFrameInformation
   uchar* tagColors();
   QByteArray pruneBuffer();
   bool pruneBlend();
+  LandmarkInformation landmarkInfo();
+
 
   // -- keyframe interpolation parameters
   void setInterpBGColor(int);
@@ -201,6 +205,7 @@ class KeyFrameInformation
   uchar *m_tagColors;
   QByteArray m_pruneBuffer;
   bool m_pruneBlend;
+  LandmarkInformation m_landmarkInfo;
 
   //-- keyframe interpolation parameters
   int m_interpBGColor;

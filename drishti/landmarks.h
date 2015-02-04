@@ -3,10 +3,8 @@
 
 #include <QGLViewer/manipulatedCameraFrame.h>
 #include <QGLViewer/mouseGrabber.h>
-#include <QGLViewer/qglviewer.h>
-using namespace qglviewer;
 
-#include "commonqtclasses.h"
+#include "landmarkinformation.h"
 
 #include <QTableWidget>
 #include <QHeaderView>
@@ -20,7 +18,7 @@ class Landmarks : public QObject, public MouseGrabber
  public :
   Landmarks();
   ~Landmarks();
-
+  
     enum MoveAxis
   {
     MoveX,
@@ -28,6 +26,9 @@ class Landmarks : public QObject, public MouseGrabber
     MoveZ,
     MoveAll
   };
+
+  void setLandmarkInfo(LandmarkInformation);
+  LandmarkInformation getLandmarkInfo();
 
   void setPoints(QList<Vec>);
   void addPoints(QList<Vec>);
@@ -50,15 +51,19 @@ class Landmarks : public QObject, public MouseGrabber
 
   QList< QList<int> > distances();
   void setDistances(QList< QList<int> >);
+  void setDistances(QString);
 
   QList< QList<int> > angles();
   void setAngles(QList< QList<int> >);
+  void setAngles(QString);
 
   QList< QList<float> > projectOnLine();
   void setProjectOnLine(QList< QList<float> >);
+  void setProjectOnLine(QString);
 
   QList<float> projectOnPlane();
   void setProjectOnPlane(QList<float>);
+  void setProjectOnPlane(QString);
 
   int count();
   void clear();

@@ -148,6 +148,7 @@ KeyFrame::saveProject(Vec pos, Quaternion rot,
   m_savedKeyFrame.setOrientation(rot);
   m_savedKeyFrame.setLut(lut);
   m_savedKeyFrame.setTagColors(Global::tagColors());
+  m_savedKeyFrame.setLandmarkInfo(GeometryObjects::landmarks()->getLandmarkInfo());
   m_savedKeyFrame.setLightInfo(lightInfo);
   m_savedKeyFrame.setGiLightInfo(LightHandler::giLightInfo());
   m_savedKeyFrame.setClipInfo(GeometryObjects::clipplanes()->clipInfo());
@@ -285,6 +286,7 @@ KeyFrame::setKeyFrame(Vec pos, Quaternion rot,
   kfi->setOrientation(rot);
   kfi->setLut(lut);
   kfi->setTagColors(Global::tagColors());
+  kfi->setLandmarkInfo(GeometryObjects::landmarks()->getLandmarkInfo());
   kfi->setLightInfo(lightInfo);
   kfi->setGiLightInfo(LightHandler::giLightInfo());
   kfi->setClipInfo(GeometryObjects::clipplanes()->clipInfo());
@@ -616,6 +618,13 @@ KeyFrame::interpolateAt(int kf, float frc,
   delete [] tc;
   //-------------------------------  
 
+  //-------------------------------
+  if (frc < 0.5)
+    kfi.setLandmarkInfo(m_keyFrameInfo[kf]->landmarkInfo());
+  else
+    kfi.setLandmarkInfo(m_keyFrameInfo[kf+1]->landmarkInfo());
+  //-------------------------------
+
   //-------------------------------  
   rfrc = StaticFunctions::remapKeyframe(m_keyFrameInfo[kf]->interpLightInfo(), frc);
   LightingInformation lightInfo;
@@ -863,6 +872,7 @@ KeyFrame::playSavedKeyFrame()
   GeometryObjects::trisets()->set(m_savedKeyFrame.trisets());
   GeometryObjects::networks()->set(m_savedKeyFrame.networks());
   GeometryObjects::clipplanes()->set(m_savedKeyFrame.clipInfo());
+  GeometryObjects::landmarks()->setLandmarkInfo(m_savedKeyFrame.landmarkInfo());
 
   float focusDistance = m_savedKeyFrame.focusDistance();
   float es = m_savedKeyFrame.eyeSeparation();
@@ -1000,6 +1010,7 @@ KeyFrame::playFrameNumber(int fno)
 	  GeometryObjects::trisets()->set(m_keyFrameInfo[kf]->trisets());
 	  GeometryObjects::networks()->set(m_keyFrameInfo[kf]->networks());
 	  GeometryObjects::clipplanes()->set(m_keyFrameInfo[kf]->clipInfo());
+	  GeometryObjects::landmarks()->setLandmarkInfo(m_keyFrameInfo[kf]->landmarkInfo());
 
 	  LightHandler::setGiLightInfo(m_keyFrameInfo[kf]->giLightInfo());
 
@@ -1155,6 +1166,7 @@ KeyFrame::playFrameNumber(int fno)
   GeometryObjects::trisets()->set(keyFrameInfo.trisets());
   GeometryObjects::networks()->set(keyFrameInfo.networks());
   GeometryObjects::clipplanes()->set(keyFrameInfo.clipInfo());
+  GeometryObjects::landmarks()->setLandmarkInfo(keyFrameInfo.landmarkInfo());
 
   LightHandler::setGiLightInfo(keyFrameInfo.giLightInfo());
 
@@ -1630,6 +1642,8 @@ KeyFrame::pasteFrameOnTop(int keyFrameNumber)
 	      kfi->setFocusDistance(m_copyKeyFrame.focusDistance(),
 				    m_copyKeyFrame.eyeSeparation());  
 	    }
+	  else if (keys[ik] == "landmarks")
+	    kfi->setLandmarkInfo(m_copyKeyFrame.landmarkInfo());  
 	  else if (keys[ik] == "lighting")
 	    kfi->setLightInfo(m_copyKeyFrame.lightInfo());  
 	  else if (keys[ik] == "gi lighting")
@@ -1754,6 +1768,8 @@ KeyFrame::pasteFrameOnTop(int startKF, int endKF)
 		  kfi->setFocusDistance(m_copyKeyFrame.focusDistance(),
 					m_copyKeyFrame.eyeSeparation());  
 		}
+	      else if (keys[ik] == "landmarks")
+		kfi->setLandmarkInfo(m_copyKeyFrame.landmarkInfo());  
 	      else if (keys[ik] == "lighting")
 		kfi->setLightInfo(m_copyKeyFrame.lightInfo());  
 	      else if (keys[ik] == "gi lighting")
@@ -1899,6 +1915,11 @@ KeyFrame::copyProperties(QString title)
   vlist.clear();
   vlist << QVariant("checkbox");
   vlist << QVariant(false);
+  plist["landmarks"] = vlist;
+
+  vlist.clear();
+  vlist << QVariant("checkbox");
+  vlist << QVariant(false);
   plist["lighting"] = vlist;
 
   vlist.clear();
@@ -1987,6 +2008,7 @@ KeyFrame::copyProperties(QString title)
   keys << "separator";
   keys << "brick information";
   keys << "clip planes";
+  keys << "landmarks";
   keys << "lighting";
   keys << "gi lighting";
   keys << "transfer functions";
@@ -2211,6 +2233,10 @@ KeyFrame::import(QString flnm)
 		  kfi->setFocusDistance(ckf->focusDistance(),
 					ckf->eyeSeparation());  
 		  kfi->setInterpFocus(ckf->interpFocus());
+		}
+	      else if (keys[ik] == "landmarks")
+		{
+		  kfi->setLandmarkInfo(ckf->landmarkInfo());  
 		}
 	      else if (keys[ik] == "lighting")
 		{

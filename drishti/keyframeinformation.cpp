@@ -21,6 +21,7 @@ void KeyFrameInformation::setLut(unsigned char* lut)
     m_lut = new unsigned char[Global::lutSize()*256*256*4];
   memcpy(m_lut, lut, Global::lutSize()*256*256*4);
 }
+void KeyFrameInformation::setLandmarkInfo(LandmarkInformation li) { m_landmarkInfo = li; }
 void KeyFrameInformation::setLightInfo(LightingInformation li) { m_lightInfo = li; }
 void KeyFrameInformation::setGiLightInfo(GiLightInfo li) { m_giLightInfo = li; }
 void KeyFrameInformation::setClipInfo(ClipInformation ci) { m_clipInfo = ci; }
@@ -81,6 +82,7 @@ int KeyFrameInformation::volumeNumber4() { return m_volumeNumber4; }
 Vec KeyFrameInformation::position() { return m_position; }
 Quaternion KeyFrameInformation::orientation() { return m_rotation; }
 unsigned char* KeyFrameInformation::lut() { return m_lut; }
+LandmarkInformation KeyFrameInformation::landmarkInfo() { return m_landmarkInfo; }
 LightingInformation KeyFrameInformation::lightInfo() { return m_lightInfo; }
 GiLightInfo KeyFrameInformation::giLightInfo() { return m_giLightInfo; }
 ClipInformation KeyFrameInformation::clipInfo() { return m_clipInfo; }
@@ -265,6 +267,7 @@ KeyFrameInformation::clear()
   m_pruneBlend = false;
   m_volMin = m_volMax = Vec(0,0,0);
   m_image = QImage(100, 100, QImage::Format_RGB32);
+  m_landmarkInfo.clear();
   m_lightInfo.clear();
   m_giLightInfo.clear();
   m_clipInfo.clear();
@@ -343,6 +346,8 @@ KeyFrameInformation::KeyFrameInformation(const KeyFrameInformation& kfi)
 
   m_pruneBuffer = kfi.m_pruneBuffer;
   m_pruneBlend = kfi.m_pruneBlend;
+
+  m_landmarkInfo = kfi.m_landmarkInfo;
 
   m_lightInfo = kfi.m_lightInfo;
   m_giLightInfo = kfi.m_giLightInfo;
@@ -462,6 +467,8 @@ KeyFrameInformation::operator=(const KeyFrameInformation& kfi)
 
   m_pruneBuffer = kfi.m_pruneBuffer;
   m_pruneBlend = kfi.m_pruneBlend;
+
+  m_landmarkInfo = kfi.m_landmarkInfo;
 
   m_lightInfo = kfi.m_lightInfo;
   m_giLightInfo = kfi.m_giLightInfo;
@@ -648,6 +655,8 @@ KeyFrameInformation::load(fstream &fin)
 	  m_image = QImage::fromData(tmp, n);	 
 	  delete [] tmp;
 	}
+      else if (strcmp(keyword, "landmarks") == 0)
+	m_landmarkInfo.load(fin);
       else if (strcmp(keyword, "lightinginformation") == 0)
 	m_lightInfo.load(fin);
       else if (strcmp(keyword, "gilightinfo") == 0)
@@ -1018,6 +1027,7 @@ KeyFrameInformation::save(fstream &fout)
   fout.write((char*)bytes.data(), n);
 
 
+  m_landmarkInfo.save(fout);
   m_lightInfo.save(fout);
   m_giLightInfo.save(fout);
   m_clipInfo.save(fout);

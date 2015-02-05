@@ -3,12 +3,12 @@
 
 CurveGroup::CurveGroup()
 {
-  m_cg.clear();
+  reset();
 }
 
 CurveGroup::~CurveGroup()
 {
-  m_cg.clear();
+  reset();
 }
 
 void
@@ -18,10 +18,17 @@ CurveGroup::reset()
   m_mcg.clear();
 }
 
+QList<int>
+CurveGroup::polygonLevels()
+{
+  return m_cg.keys();
+}
+
 void
 CurveGroup::resetPolygonAt(int key)
 {
   m_cg.remove(key);
+  m_mcg.clear();
 }
 
 void
@@ -30,6 +37,8 @@ CurveGroup::addPoint(int key, int v0, int v1)
   QVector<QPoint> c = m_cg.value(key);
   c << QPoint(v0, v1);
   m_cg.insert(key, c);
+
+  m_mcg.clear();
 }
 
 QVector<QPoint>
@@ -64,4 +73,6 @@ CurveGroup::morphCurves()
 
       m_mcg.insert(p.z, a);
     }
+
+  QMessageBox::information(0, "", "morphed intermediate curves");
 }

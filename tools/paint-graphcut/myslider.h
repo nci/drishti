@@ -29,6 +29,9 @@ class MySlider : public QWidget
   void userRange(int&, int&);
   void range(int&, int&);
 
+ public slots :
+  void polygonLevels(QList<int>);
+
  signals :
   void valueChanged(int);
   void userRangeChanged(int, int);
@@ -40,6 +43,8 @@ class MySlider : public QWidget
   bool m_keepGrabbingValue;
   bool m_keepGrabbingUserMin;
   bool m_keepGrabbingUserMax;
+
+  QList<int> m_polyLevels;
 
   int m_range;
   int m_baseX, m_baseY;
@@ -55,6 +60,8 @@ class MySlider : public QWidget
 		      QFont,
 		      QString,
 		      int, int);
+  void drawPolygonLevels(QPainter*);
+
   bool updateValue(int, int);
   bool updateUserMin(int, int);
   bool updateUserMax(int, int);

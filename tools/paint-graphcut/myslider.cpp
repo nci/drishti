@@ -22,8 +22,15 @@ MySlider::MySlider(QWidget *parent) :
   m_height = 10;
   m_range = m_rangeMax-m_rangeMin;
 
+  m_polyLevels.clear();
 
   setMinimumSize(QSize(1.7*m_baseX, 20));      
+}
+
+void MySlider::polygonLevels(QList<int> pl)
+{
+  m_polyLevels = pl;
+  update();
 }
 
 int MySlider::value() { return m_value; }
@@ -99,6 +106,18 @@ MySlider::setValue(int val)
   update();
 }
 
+void
+MySlider::drawPolygonLevels(QPainter *p)
+{
+  p->setPen(QColor(150,150,250));
+  int xp = m_baseX;
+  for (int i=0; i<m_polyLevels.count(); i++)
+    {
+      float frc = (float)m_polyLevels[i]/(float)m_range;
+      int yp = m_baseY + frc*m_height;
+      p->drawLine(xp-30, yp, xp+30, yp);
+    }
+}
 
 void
 MySlider::drawBoundText(QPainter *p,
@@ -155,6 +174,10 @@ MySlider::drawSlider(QPainter *p)
   int yp;
   float frc;
 
+  //---- draw polygon levels
+  drawPolygonLevels(p);
+
+  //---- draw slider
   QLinearGradient lg(xp-3,
 		     0,
 		     xp+3,

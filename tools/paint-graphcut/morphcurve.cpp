@@ -425,321 +425,101 @@ MorphCurve::recalculate(QVector<double> w0, int length, double sum_)
 // The perimeter order points are shifted to counter-clock wise order if necessary.
 // The same Perimeter is returned.
 Perimeter
-MorphCurve::subsample(Perimeter p, double delta)
+MorphCurve::subsample(Perimeter p, double delta_orig)
 {
   if (p.subsampled)
     return p;
-  // else, subsample it:
 
-  int i=0;
-  int j=0;
+  // find total path length  
+  int xcount = p.x.count(); 
+  double plen = 0;
+  for (int i=1; i<xcount; i++)
+    plen += sqrt((p.x[i] - p.x[i-1])*(p.x[i] - p.x[i-1]) +
+		 (p.y[i] - p.y[i-1])*(p.y[i] - p.y[i-1]));
+  // because curve is closed
+  plen += sqrt((p.x[0] - p.x[xcount-1])*(p.x[0] - p.x[xcount-1]) +
+	       (p.y[0] - p.y[xcount-1])*(p.y[0] - p.y[xcount-1]));
+  
+  int npcount = plen/delta_orig;
+  double delta = plen/npcount;
 
-  // reorder to CCW if needed: (so all curves have the same orientation) TODO THIS IS FAILING!!!
-  // find bounding box:
-  double x_max = 0;
-  double y_max = 0;
-  double x_min = DLARGE;
-  double y_min = DLARGE;
-  int x_max_i;
-  int y_max_i;
-  int x_min_i;
-  int y_min_i;
-  for (i=0;i <p.length; i++)
+  QVector<double> x, y, vx, vy;
+  x << p.x[0];
+  y << p.y[0];
+  vx << 0;
+  vy << 0;
+  double clen = 0;
+  double pclen = 0;
+  int j = x.count();
+  for (int i=1; i<xcount+1; i++)
     {
-      if (p.x[i] > x_max)
+      int xa, xb, ya, yb;
+      if (i < xcount)
 	{
-	  x_max = p.x[i];
-	  x_max_i = i;
-	} // this lines could be optimized, the p.x etc. are catched below
-      if (p.y[i] > y_max)
-	{
-	  y_max = p.y[i];
-	  y_max_i = i;
-	}
-      if (p.x[i] < x_min)
-	{ x_min = p.x[i];
-	  x_min_i = i;
-	}
-      if (p.y[i] < y_min)
-	{
-	  y_min = p.y[i];
-	  y_min_i = i;
-	}
-    }
-
-  int collect = 0;
-  if (y_min_i - x_max_i >= 0) collect++;
-  if (x_min_i - y_min_i >= 0) collect++;
-  if (y_max_i - x_min_i >= 0) collect++;
-  if (x_max_i - y_max_i >= 0) collect++;
-  //if (3 == collect)
-  if (collect != 3)
-    { // this should be '3 == collect', but then we are looking at the curves
-      // from the other side relative to what ImageJ is showing. In any case
-      // as long as one or the other gets rearranged, they'll be fine.
-      // Clockwise! Reorder to CCW by reversing the arrays in place
-      //printf("Clockwise! Reordering to CCW p.z: %f,  p.length: %i\n", p.z, p.length);
-      int n = p.length;
-      double tmp;      
-      for (i=0; i< p.length /2; i++)
-	{
-	  tmp = p.x[i];
-	  p.x[i] = p.x[n-i-1];
-	  p.x[n-i-1] = tmp;
-	  
-	  tmp = p.y[i];
-	  p.y[i] = p.y[n-i-1];
-	  p.y[n-i-1] = tmp;
-	}
-    }
-
-  int MAX_AHEAD = 6;
-  double MAX_DISTANCE = 2.5 * delta;
-
-  // the arrays of points and vectors to return.
-  QVector<double> ps_x, ps_y, v_x, v_y;
-  ps_x.resize(p.length);
-  ps_y.resize(p.length);
-  v_x.resize(p.length);
-  v_y.resize(p.length);
-
-  // the length of the new points is originally p.length (but will be resized)
-  int ps_length = p.length;
-  // the first point is the same as the one with index 0
-  ps_x[0] = p.x[0];
-  ps_y[0] = p.y[0]; // GOTCHA! The first vector is NOT set !!!! --> set at the end, it is made from the last subsampled point and it is never used before that. TODO: how is this going to affect open curves?
-  // the index over x and y
-  i = 1;
-  // the index over ps: (ps stands for 'perimeter subsampled')
-  j = 1;
-  // some vars
-  double dx, dy, sum;
-  double angle, angle1, dist1, dist2;
-
-  QVector<int> ahead;
-  QVector<double> distances;
-  QVector<double> w;
-  ahead.resize(MAX_AHEAD);
-  distances.resize(MAX_AHEAD);
-  w.resize(MAX_AHEAD);
-
-  int n_ahead = 0;
-  int u, ii, k;
-  int t, s;
-  int prev_i = i;
-  int iu;
-  double dist_ahead;
-  // start infinite loop
-  for (;;)
-    {
-      if (prev_i > i)
-	{ //the loop has completed one round, since 'i' can go up to MAX_POINTS
-	  // ahead of the last point into the points at the begining of the array.
-	  // Whenever the next point 'i' to start exploring is set beyond the
-	  // length of the array, then the condition is met.
-	  break; //done!
-	}
-      
-      // check ps and v array lengths
-      if (j >= ps_length)
-	{
-	  // must enlarge.
-	  int new_length = ps_length + 20;
-	  QVector<double> tmp;
-	  tmp.resize(new_length);
-
-	  for(int t=0; t<v_x.count(); t++) tmp[i] = v_x[i]; v_x = tmp;
-	  for(int t=0; t<v_y.count(); t++) tmp[i] = v_y[i]; v_y = tmp;
-	  for(int t=0; t<ps_x.count(); t++) tmp[i] = ps_x[i]; ps_x = tmp;
-	  for(int t=0; t<ps_y.count(); t++) tmp[i] = ps_y[i]; ps_y = tmp;
-
-	  tmp.clear();
-	  ps_length += 20;
-	}
-      // get distances of MAX_POINTs ahead from the previous point
-      n_ahead = 0; //reset
-      for (t=0; t<MAX_AHEAD; t++)
-	{
-	  s = i + t; // 'i' is the first to start inspecting from
-	  // fix 's' if it goes over the end // TODO this is problematic for sure for open curves.
-	  if (s >= p.length)
-	    s = s - p.length;
-
-	  dist_ahead = sqrt((p.x[s] - ps_x[j-1])*(p.x[s] - ps_x[j-1]) +
-			    (p.y[s] - ps_y[j-1])*(p.y[s] - ps_y[j-1]));
-	  if (dist_ahead < MAX_DISTANCE)
-	    {
-	      ahead[n_ahead] = s;
-	      distances[n_ahead] = dist_ahead;
-	      n_ahead++;
-	    }
-	}
-    
-      if (0 == n_ahead)
-	{ // no points ahead found within MAX_DISTANCE
-	  // all MAX_POINTS ahead lay under delta.
-	  // Arbitrarily use the the next two points, weighted by distance.	  
-	  // simpler version: use just the next point
-	  dist1 = sqrt((p.x[i] - ps_x[j-1])*(p.x[i] - ps_x[j-1]) +
-		       (p.y[i] - ps_y[j-1])*(p.y[i] - ps_y[j-1]));
-	  angle1 = getAngle(p.x[i] - ps_x[j-1], p.y[i] - ps_y[j-1]);
-	  
-	  dx = cos(angle1) * delta;
-	  dy = sin(angle1) * delta;
-	  ps_x[j] = ps_x[j-1] + dx;
-	  ps_y[j] = ps_y[j-1] + dy;
-	  v_x[j] = dx;
-	  v_y[j] = dy;
-	  if (dist1 <= delta)
-	    {
-	      // look for a point ahead that is over distance delta from the previous j,
-	      // so that it will lay ahead of the current j
-	      for (u=i; u<=p.length; u++)
-		{
-		  dist2 = sqrt((p.x[u] - ps_x[j-1])*(p.x[u] - ps_x[j-1]) +
-			       (p.y[u] - ps_y[j-1])*(p.y[u] - ps_y[j-1]));
-		  if (dist2 > delta)
-		    {
-		      prev_i = i;
-		      i = u;
-		      break;
-		    }
-		}
-	    }
+	  xb = p.x[i];
+	  yb = p.y[i];
+	  xa = p.x[i-1];
+	  ya = p.y[i-1];
 	}
       else
 	{
-	  w[0] = distances[0] / MAX_DISTANCE;
-	  double largest = w[0];
-	  for (u=1; u<n_ahead; u++)
-	    {
-	      w[u] = 1 - (distances[u] / MAX_DISTANCE);
-	      if (w[u] > largest)
-		largest = w[u];
-	    }
-	  // normalize weights: divide by largest
-	  sum = 0;
-	  for (u=0; u<n_ahead; u++)
-	    {
-	      w[u] = w[u] / largest;
-	      sum += w[u];
-	    }
-	  // correct error. The closest point gets the extra
-	  if (sum < 1.0)
-	    w[0] += 1.0 - sum;
-	  else
-	    w = recalculate(w, n_ahead, sum);
-
-	  // calculate the new point using the weights
-	  dx = 0.0;
-	  dy = 0.0;
-	  for (u=0; u<n_ahead; u++)
-	    {
-	      iu = i+u;
-	      if (iu >= p.length) iu -= p.length; 
-	      angle = getAngle(p.x[iu] - ps_x[j-1], p.y[iu] - ps_y[j-1]);
-	      dx += w[u] * cos(angle);
-	      dy += w[u] * sin(angle);
-	    }
-	  // make vector and point:
-	  dx = dx * delta;
-	  dy = dy * delta;
-	  ps_x[j] = ps_x[j-1] + dx;
-	  ps_y[j] = ps_y[j-1] + dy;
-	  v_x[j] = dx;
-	  v_y[j] = dy;
-	  
-	  // find the first point that is right ahead of the newly added point
-	  // so: loop through points that lay within MAX_DISTANCE, and find the first one that is right past delta.
-	  ii = i;
-	  for (k=0; k<n_ahead; k++)
-	    {
-	      if (distances[k] > delta)
-		{
-		  ii = ahead[k];
-		  break;
-		}
-	    }
-	  // correct for the case of unseen point (because all MAX_POINTS ahead lay under delta):
-	  prev_i = i;
-	  if (i == ii)
-	    {
-	      i = ahead[n_ahead-1] +1; //the one after the last.
-	      if (i >= p.length)
-		i = i - p.length;
-	    }
-	  else
-	    i = ii;
+	  xb = p.x[0];
+	  yb = p.y[0];
+	  xa = p.x[xcount-1];
+	  ya = p.y[xcount-1];
 	}
-      //advance index in the new points
-      j += 1;
 
-    } // end of for (;;) loop
+      double dx = xb-xa;
+      double dy = yb-ya;
+      clen += sqrt(dx*dx + dy*dy);
 
-  //release malloc'ed temp memory:
-  w.clear();
-  ahead.clear();
-  distances.clear();
-
-  // see whether the subsampling terminated too early, and fill with a line of points.
-  // //TODO this is sort of a patch. Why didn't j overcome the last point is not resolved.
-  dist1 = sqrt((p.x[0] - ps_x[j-1])*(p.x[0] - ps_x[j-1]) +
-	       (p.y[0] - ps_y[j-1])*(p.y[0] - ps_y[j-1]));
-  angle1 = getAngle(p.x[0] - ps_x[j-1], p.y[0] - ps_y[j-1]);
-  dx = cos(angle1) * delta;
-  dy = sin(angle1) * delta;
-  while (dist1 > delta*1.2)
-    { //added 1.2 to prevent last point from being generated too close to the first point
-      // check ps and v array lengths
-      if (j >= ps_length)
+      while (j*delta <= clen)
 	{
-	  // must enlarge.
-	  int new_length = ps_length + 20;
+	  double frc = (j*delta - pclen)/(clen-pclen);
+	  x << xa + frc*dx;
+	  y << ya + frc*dy;
 
-	  QVector<double> tmp;
-	  tmp.resize(new_length);
-
-	  for(int t=0; t<v_x.count(); t++) tmp[i] = v_x[i]; v_x = tmp;
-	  for(int t=0; t<v_y.count(); t++) tmp[i] = v_y[i]; v_y = tmp;
-	  for(int t=0; t<ps_x.count(); t++) tmp[i] = ps_x[i]; ps_x = tmp;
-	  for(int t=0; t<ps_y.count(); t++) tmp[i] = ps_y[i]; ps_y = tmp;
-
-	  tmp.clear();
-	  ps_length += 20;
+	  j = x.count();
 	}
-      //add a point
-      ps_x[j] = ps_x[j-1] + dx;
-      ps_y[j] = ps_y[j-1] + dy;
-      v_x[j] = dx;
-      v_y[j] = dy;
-      j++;
-      dist1 = sqrt((p.x[0] - ps_x[j-1])*(p.x[0] - ps_x[j-1]) +
-		   (p.y[0] - ps_y[j-1])*(p.y[0] - ps_y[j-1]));
+      
+      pclen = clen;
+    }
+  
+  int newxcount = x.count();
+  for (int i=1; i<newxcount; i++)
+    {
+      int xa, xb, ya, yb;
+      if (i < newxcount)
+	{
+	  xb = x[i];
+	  yb = y[i];
+	  xa = x[i-1];
+	  ya = y[i-1];
+	}
+      else
+	{
+	  xb = x[0];
+	  yb = y[0];
+	  xa = x[newxcount-1];
+	  ya = y[newxcount-1];
+	}
+
+      double dx = xb-xa;
+      double dy = yb-ya;
+
+      vx << dx;
+      vy << dy;
     }
 
-  // set vector 0 to be the vector from the last point to the first
-  angle = getAngle(p.x[0] - ps_x[j-1], p.y[0] - ps_y[j-1]);
-  v_x[0] = cos(angle) * dist1;
-  v_y[0] = sin(angle) * dist1;
-
-
   Perimeter pnew;
-
-  // assign the new subsampled points
-  pnew.x = ps_x;
-  pnew.y = ps_y;
-  pnew.v_x = v_x;
-  pnew.v_y = v_y;
+  pnew.x = x;
+  pnew.y = y;
+  pnew.v_x = vx;
+  pnew.v_y = vy;
   pnew.delta = p.delta;
   pnew.z = p.z;
-  pnew.length = j;
-  // set the perimeter as subsampled
+  pnew.length = x.count();
   pnew.subsampled = true;
-
-  ps_x.clear();
-  ps_y.clear();
-  v_x.clear();
-  v_y.clear();
 
   return pnew;
 }
@@ -1518,18 +1298,10 @@ MorphCurve::getAllPerimeters(QList<Perimeter> perimeters,
 	delta += getAndSetAveragePointInterdistance(perimeters[i]);
       delta = delta / n_perimeters;
     }
-
-  QMessageBox::information(0, "", QString("delta : %1").arg(delta));
-
+  
   // subsample perimeters so that point interdistance becomes delta
   for (i=0; i<n_perimeters; i++)
-    {
-      progress.setLabelText(QString("subsampling curve %1 at %2").\
-			    arg(i).arg(perimeters[i].z));
-      progress.setValue((int)(100*(float)i/(float)n_perimeters));
-      qApp->processEvents();
-      perimeters[i] = subsample(perimeters[i], delta);
-    }
+    perimeters[i] = subsample(perimeters[i], delta);
 
 
   // allocate space for all_perimeters storage
@@ -1557,11 +1329,11 @@ MorphCurve::getAllPerimeters(QList<Perimeter> perimeters,
 
       if (morphed_perimeters != NULL && morphed_perimeters->length > 0)
 	{
-	  QMessageBox::information(0, "",
-				   QString("%1 morphed perimeters between z1=%2 and z2=%3").\
-				   arg(morphed_perimeters->length).\
-				   arg(perimeters[i-1].z).\
-				   arg(perimeters[i].z));
+//	  QMessageBox::information(0, "",
+//				   QString("%1 morphed perimeters between z1=%2 and z2=%3").\
+//				   arg(morphed_perimeters->length).\
+//				   arg(perimeters[i-1].z).\
+//				   arg(perimeters[i].z));
 	  for (j=0; j<morphed_perimeters->length; j++)
 	    all_perimeters << morphed_perimeters->p[j];
 	  delete morphed_perimeters;

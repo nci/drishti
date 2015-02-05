@@ -239,13 +239,24 @@ ImageWidget::setGridSize(int d, int w, int h)
 void
 ImageWidget::setSliceType(int st)
 {
+  m_curveMode = false;
+
   m_sliceType = st;
   if (m_sliceType == DSlice)
-    m_currSlice = m_minDSlice;
+    {
+      m_currSlice = m_minDSlice;
+      emit polygonLevels(m_dCurves.polygonLevels());
+    }
   else if (m_sliceType == WSlice)
-    m_currSlice = m_minWSlice;
+    {
+      m_currSlice = m_minWSlice;
+      emit polygonLevels(m_wCurves.polygonLevels());
+    }
   else
-    m_currSlice = m_minHSlice;
+    {
+      m_currSlice = m_minHSlice;
+      emit polygonLevels(m_hCurves.polygonLevels());
+    }
 
 
   //---------------------------------
@@ -923,20 +934,38 @@ ImageWidget::keyPressEvent(QKeyEvent *event)
 	  if (shiftModifier)
 	    {
 	      if (m_sliceType == DSlice)
-		m_dCurves.reset();
+		{
+		  m_dCurves.reset();
+		  emit polygonLevels(m_dCurves.polygonLevels());
+		}
 	      else if (m_sliceType == WSlice)
-		m_wCurves.reset();
+		{
+		  m_wCurves.reset();
+		  emit polygonLevels(m_wCurves.polygonLevels());
+		}
 	      else
-		m_hCurves.reset();
+		{
+		  m_hCurves.reset();
+		  emit polygonLevels(m_hCurves.polygonLevels());
+		}
 	    }
 	  else
 	    {
 	      if (m_sliceType == DSlice)
-		m_dCurves.resetPolygonAt(m_currSlice);
+		{
+		  m_dCurves.resetPolygonAt(m_currSlice);
+		  emit polygonLevels(m_dCurves.polygonLevels());
+		}
 	      else if (m_sliceType == WSlice)
-		m_wCurves.resetPolygonAt(m_currSlice);
+		{
+		  m_wCurves.resetPolygonAt(m_currSlice);
+		  emit polygonLevels(m_wCurves.polygonLevels());
+		}
 	      else
-		m_hCurves.resetPolygonAt(m_currSlice);
+		{
+		  m_hCurves.resetPolygonAt(m_currSlice);
+		  emit polygonLevels(m_hCurves.polygonLevels());
+		}
 	    }
 	}
 	  
@@ -1574,6 +1603,16 @@ void
 ImageWidget::mouseReleaseEvent(QMouseEvent *event)
 {
   m_pickPoint = false;
+
+  if (m_curveMode)
+    {
+      if (m_sliceType == DSlice)
+	emit polygonLevels(m_dCurves.polygonLevels());
+      else if (m_sliceType == WSlice)
+	emit polygonLevels(m_wCurves.polygonLevels());
+      else
+	emit polygonLevels(m_hCurves.polygonLevels());
+    }
 
   if (m_rubberBandActive)
     {

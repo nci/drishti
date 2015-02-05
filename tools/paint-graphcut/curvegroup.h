@@ -19,6 +19,8 @@ class CurveGroup
   void addPoint(int, int, int);
   QVector<QPoint> getPolygonAt(int);
 
+  QList<int> polygonLevels();
+
  private :
   QMap<int, QVector<QPoint> > m_cg;
   QMap<int, QVector<QPoint> > m_mcg;

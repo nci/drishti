@@ -89,6 +89,7 @@ class ImageWidget : public QWidget
   void applySmooth(int, bool);
   void simulateKeyPressEvent(QKeyEvent*);
   void applyMaskOperation(int, int, int);
+  void polygonLevels(QList<int>);
 
  private :
   QStatusBar *m_statusBar;

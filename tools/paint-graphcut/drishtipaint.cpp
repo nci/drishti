@@ -229,6 +229,9 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 			   int, int,
 			   int, int)));
 
+  connect(m_imageWidget, SIGNAL(polygonLevels(QList<int>)),
+	  m_slider, SLOT(polygonLevels(QList<int>)));
+  
 
   loadSettings();
   m_imageWidget->updateTagColors();

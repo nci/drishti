@@ -19,12 +19,18 @@ class CurveGroup
   void addPoint(int, int, int);
   QVector<QPoint> getPolygonAt(int);
 
+  void flipPolygonAt(int);
+  void smooth(int, int, int, int);
+  void push(int, int, int, int);
+
   QList<int> polygonLevels();
 
  private :
   QMap<int, QVector<QPoint> > m_cg;
   QMap<int, QVector<QPoint> > m_mcg;
-  
+
+  QVector<QPoint> subsample(QVector<QPoint>, float);
+  QVector<QPoint> smooth(QVector<QPoint>, int, int, int, int);
 };
 
 #endif

@@ -31,6 +31,8 @@ class CurveGroup
 
   QVector<QPoint> subsample(QVector<QPoint>, float);
   QVector<QPoint> smooth(QVector<QPoint>, int, int, int, int);
+
+  void alignAllCurves();
 };
 
 #endif

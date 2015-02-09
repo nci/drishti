@@ -209,7 +209,7 @@ TransferFunctionManager::modifyTableWidget()
   m_tableWidget->setColumnCount(maxSets+1);
   item << "Name ";
   for (int i=0; i<maxSets; i++)
-    item << QString("%1").arg(i+1);
+    item << QString("%1").arg(i);
 
   m_tableWidget->setHorizontalHeaderLabels(item);
 
@@ -238,7 +238,7 @@ TransferFunctionManager::cellClicked(int row, int col)
   for (int i=0; i<m_tfContainer->maxSets(); i++)
     {
       QTableWidgetItem *wi;
-      wi = m_tableWidget->item(row, i+1);
+      wi = m_tableWidget->item(row, i);
       bool flag = wi->checkState() == Qt::Checked;
       on.append(flag);
     }

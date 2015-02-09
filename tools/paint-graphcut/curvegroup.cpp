@@ -80,6 +80,8 @@ CurveGroup::getPolygonAt(int key)
 void
 CurveGroup::morphCurves()
 {
+  alignAllCurves();
+
   MorphCurve mc;
   mc.setPaths(m_cg);
 
@@ -253,4 +255,42 @@ CurveGroup::subsample(QVector<QPoint> cp, float delta)
       pclen = clen;
     }
   return c;
+}
+
+void
+CurveGroup::alignAllCurves()
+{
+  if (m_cg.count() == 0)
+    return;
+
+  QList<int> keys = m_cg.keys();
+  QPoint cp;
+  cp = m_cg[keys[0]][0];
+
+  for(int i=1; i<keys.count(); i++)
+    {
+      QVector<QPoint> c = m_cg.value(keys[i]);
+      int npts = c.count();
+      int dst = 10000000;
+      int j0 = 0;
+      for(int j=0; j<npts; j++)
+	{
+	  int ml = (cp-c[j]).manhattanLength();
+	  if (ml < dst)
+	    {
+	      dst = ml;
+	      j0 = j;
+	    }
+	}
+
+      QVector<QPoint> nc;
+      nc.resize(npts);
+      int k = 0;
+      for(int j=j0; j<npts; j++)
+	nc[k++] = c[j];
+      for(int j=0; j<j0; j++)
+	nc[k++] = c[j];
+
+      m_cg.insert(keys[i], nc);
+    }
 }

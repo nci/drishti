@@ -11,6 +11,7 @@
 #include <QVBoxLayout>
 #include <QVector3D>
 
+#include "livewire.h"
 #include "curvegroup.h"
 
 class ImageWidget : public QWidget
@@ -27,6 +28,7 @@ class ImageWidget : public QWidget
   };
 
   void saveImage();
+  void loadCurves(QString);
   
   void setGridSize(int, int, int);
   void setSliceType(int);
@@ -97,6 +99,9 @@ class ImageWidget : public QWidget
 
   int m_currSlice;
 
+  bool m_livewireMode;
+  LiveWire m_livewire;
+
   bool m_curveMode;
   CurveGroup m_dCurves;
   CurveGroup m_wCurves;
@@ -128,6 +133,8 @@ class ImageWidget : public QWidget
 
   QImage m_prevslicetagimage;
   QImage m_prevslicetagimageScaled;
+
+  QImage m_gradImageScaled;
 
   uchar *m_slice;
   uchar *m_sliceImage;
@@ -170,6 +177,7 @@ class ImageWidget : public QWidget
   void processCommands(QString);
   void drawRubberBand(QPainter*);
   void drawCurves(QPainter*);
+  void drawLivewire(QPainter*);
 
   bool checkRubberBand(int, int);
 
@@ -195,6 +203,10 @@ class ImageWidget : public QWidget
 
   void applyRecursive(int);
   void checkRecursive();
+  
+  void applyMorphCurveLimits(uchar*);
+  void saveCurves();
+  void loadCurves();
 };
 
 

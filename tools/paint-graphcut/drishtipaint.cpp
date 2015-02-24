@@ -169,6 +169,9 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   connect(m_tagColorEditor, SIGNAL(tagColorChanged()),
 	  m_imageWidget, SLOT(updateTagColors()));
 
+  connect(m_tagColorEditor, SIGNAL(tagSelected(int)),
+	  this, SLOT(tagSelected(int)));
+
   connect(m_slider, SIGNAL(valueChanged(int)),
 	  m_imageWidget, SLOT(sliceChanged(int)));
 
@@ -385,6 +388,13 @@ DrishtiPaint::getMaskSlice(int slc)
 }
 
 void
+DrishtiPaint::tagSelected(int t)
+{
+  Global::setTag(t);
+  ui.tag->setValue(t);
+}
+
+void
 DrishtiPaint::on_tag_valueChanged(int t)
 {
   Global::setTag(t);
@@ -536,7 +546,8 @@ DrishtiPaint::dragEnterEvent(QDragEnterEvent *event)
 	  QList<QUrl> urls = data->urls();
 
 	  if (StaticFunctions::checkURLs(urls, ".pvl.nc") ||
-	      StaticFunctions::checkURLs(urls, ".xml"))
+	      StaticFunctions::checkURLs(urls, ".xml") ||
+	      StaticFunctions::checkURLs(urls, ".curves"))
 	    event->acceptProposedAction();
 	}
     }
@@ -554,7 +565,12 @@ DrishtiPaint::dropEvent(QDropEvent *event)
 	  QFileInfo info(url.toLocalFile());
 	  if (info.exists() && info.isFile())
 	    {
-	      if (StaticFunctions::checkExtension(url.toLocalFile(), ".pvl.nc") ||
+	      if (StaticFunctions::checkExtension(url.toLocalFile(), ".curves"))
+		{
+		  QString flnm = (data->urls())[0].toLocalFile();
+		  m_imageWidget->loadCurves(flnm);
+		}
+	      else if (StaticFunctions::checkExtension(url.toLocalFile(), ".pvl.nc") ||
 		  StaticFunctions::checkExtension(url.toLocalFile(), ".xml"))
 		{
 		  QString flnm = (data->urls())[0].toLocalFile();

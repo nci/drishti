@@ -30,6 +30,7 @@ HEADERS += commonqtclasses.h \
 	global.h \
 	gradienteditor.h \
 	gradienteditorwidget.h \
+        livewire.h \
 	myslider.h \
  	morphcurve.h \
 	splineeditor.h \
@@ -62,6 +63,7 @@ SOURCES += drishtipaint.cpp \
 	global.cpp \
 	gradienteditor.cpp \
 	gradienteditorwidget.cpp \
+        livewire.cpp \
 	myslider.cpp \
  	morphcurve.cpp \
 	splineeditor.cpp \

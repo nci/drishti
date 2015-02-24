@@ -3,6 +3,9 @@
 #include <math.h>
 #include "graphcut.h"
 
+#include <QFile>
+#include <QLabel>
+
 void
 ImageWidget::getBox(int &minD, int &maxD, 
 		    int &minW, int &maxW, 
@@ -24,6 +27,7 @@ ImageWidget::ImageWidget(QWidget *parent, QStatusBar *sb) :
   
   setMouseTracking(true);
 
+  m_livewireMode = false;
   m_curveMode = false;
 
   m_Depth = m_Width = m_Height = 0;
@@ -35,6 +39,7 @@ ImageWidget::ImageWidget(QWidget *parent, QStatusBar *sb) :
   m_simgY = 20;
 
 
+  m_livewire.reset();
   m_dCurves.reset();
   m_wCurves.reset();
   m_hCurves.reset();
@@ -239,6 +244,7 @@ ImageWidget::setGridSize(int d, int w, int h)
 void
 ImageWidget::setSliceType(int st)
 {
+  m_livewireMode = false;
   m_curveMode = false;
 
   m_sliceType = st;
@@ -403,6 +409,8 @@ ImageWidget::updateTagColors()
 void
 ImageWidget::setImage(uchar *slice, uchar *mask)
 {
+  m_livewire.resetPoly();
+
   if (m_sliceType == DSlice)
     {
       m_imgWidth = m_Height+1;
@@ -519,7 +527,6 @@ ImageWidget::processPrevSliceTags()
 void
 ImageWidget::recolorImage()
 {
-
   for(int i=0; i<m_imgHeight*m_imgWidth; i++)
     {
       uchar v = m_slice[2*i];
@@ -531,6 +538,20 @@ ImageWidget::recolorImage()
       m_sliceImage[4*i+2] = m_lut[idx+2];
       m_sliceImage[4*i+3] = m_lut[idx+3];
     }
+
+  //-----
+  // transfer data for livewire calculation
+  uchar *sliceData = new uchar[m_imgHeight*m_imgWidth];
+  for(int i=0; i<m_imgHeight*m_imgWidth; i++)
+    sliceData[i] = m_sliceImage[4*i];
+    //sliceData[i] = m_slice[2*i];
+  m_livewire.setImageData(m_imgWidth, m_imgHeight, sliceData);
+  delete [] sliceData;
+  m_gradImageScaled = m_livewire.gradientImage().scaled(m_simgWidth,
+							m_simgHeight,
+							Qt::IgnoreAspectRatio,
+							Qt::FastTransformation);
+  //-----
 
   m_image = QImage(m_sliceImage,
 		   m_imgWidth,
@@ -638,25 +659,79 @@ ImageWidget::drawSizeText(QPainter *p)
 }
 
 void
-ImageWidget::drawCurves(QPainter *p)
+ImageWidget::drawLivewire(QPainter *p)
 {
-  p->setPen(QPen(Qt::cyan, 1));
-  
-  QVector<QPoint> pts;
-
-  if (m_sliceType == DSlice)
-    pts = m_dCurves.getPolygonAt(m_currSlice);
-  else if (m_sliceType == WSlice)
-    pts = m_wCurves.getPolygonAt(m_currSlice);
-  else
-    pts = m_hCurves.getPolygonAt(m_currSlice);
+  if (!m_livewireMode)
+    return;
 
   QPoint move = QPoint(m_simgX, m_simgY);
   float sx = (float)m_simgWidth/(float)m_imgWidth;
-  QVector<QPoint> newpts;
-  for(int i=0; i<pts.count(); i++)
-    pts[i] = pts[i]*sx + move;
-  p->drawPolygon(pts);
+
+  p->drawImage(m_simgX, m_simgY, m_gradImageScaled);
+
+  {
+    p->setPen(QPen(Qt::red, 2));
+    p->setBrush(Qt::transparent);
+    QVector<QPoint> pts = m_livewire.poly();
+    if (pts.count() > 0)
+      {
+	for(int i=0; i<pts.count(); i++)
+	  pts[i] = pts[i]*sx + move;
+	p->drawPolyline(pts);
+      }
+  }
+
+  {
+    p->setPen(QPen(QColor(250,0,250), 2));
+    QVector<QPoint> pts = m_livewire.livewire();
+    if (pts.count() > 0)
+      {
+	for(int i=0; i<pts.count(); i++)
+	  pts[i] = pts[i]*sx + move;
+	p->drawPolyline(pts);
+      }
+    //QVector<QPoint> livepts = m_livewire.livewire();
+    //if (livepts.count() > 0)
+    //  p->drawPolyline(livepts);
+  }
+}
+
+void
+ImageWidget::drawCurves(QPainter *p)
+{  
+  QList<Curve> curves;
+  if (m_sliceType == DSlice)
+    curves = m_dCurves.getCurvesAt(m_currSlice);
+  else if (m_sliceType == WSlice)
+    curves = m_wCurves.getCurvesAt(m_currSlice);
+  else
+    curves = m_hCurves.getCurvesAt(m_currSlice);
+
+//  QVector<QPoint> pts;
+//  if (m_sliceType == DSlice)
+//    pts = m_dCurves.getPolygonAt(m_currSlice);
+//  else if (m_sliceType == WSlice)
+//    pts = m_wCurves.getPolygonAt(m_currSlice);
+//  else
+//    pts = m_hCurves.getPolygonAt(m_currSlice);
+
+  QPoint move = QPoint(m_simgX, m_simgY);
+  float sx = (float)m_simgWidth/(float)m_imgWidth;
+  for(int l=0; l<curves.count(); l++)
+    {
+      int tag = curves[l].tag;
+      uchar r = Global::tagColors()[4*tag+0];
+      uchar g = Global::tagColors()[4*tag+1];
+      uchar b = Global::tagColors()[4*tag+2];
+
+      p->setPen(QPen(QColor(r,g,b), 1));
+      p->setBrush(QColor(r*0.5, g*0.5, b*0.5, 128));
+
+      QVector<QPoint> pts = curves[l].pts;
+      for(int i=0; i<pts.count(); i++)
+	pts[i] = pts[i]*sx + move;
+      p->drawPolygon(pts);
+    }
 }
 
 void
@@ -683,11 +758,13 @@ ImageWidget::paintEvent(QPaintEvent *event)
 
   drawCurves(&p);
 
+  drawLivewire(&p);
+
   if (m_pickPoint)
     drawRawValue(&p);
 
   if (!m_rubberBandActive &&
-      (!m_curveMode || shiftModifier || ctrlModifier))
+      ((!m_livewireMode && !m_curveMode) || shiftModifier || ctrlModifier))
     {
       float xpos = m_cursorPos.x();
       float ypos = m_cursorPos.y();
@@ -871,24 +948,57 @@ ImageWidget::applyRecursive(int key)
 
   if (m_sliceType == DSlice)
     {
+      int maxD = m_maxDSlice;
+      int minD = m_minDSlice;
+      if (m_curveMode)
+	{
+	  QList<int> pl = m_dCurves.polygonLevels();
+	  if (pl.count() > 1)
+	    {
+	      minD = pl[0];
+	      maxD = pl[pl.count()-1];
+	    }
+	}
       if (m_forward)
-	m_maxslc = m_maxDSlice - m_currSlice + 1;
+	m_maxslc = maxD - m_currSlice + 1;
       else
-	m_maxslc = m_currSlice - m_minDSlice + 1;
+	m_maxslc = m_currSlice - minD + 1;
     }
   else if (m_sliceType == WSlice)
     {
+      int maxW = m_maxWSlice;
+      int minW = m_minWSlice;
+      if (m_curveMode)
+	{
+	  QList<int> pl = m_wCurves.polygonLevels();
+	  if (pl.count() > 1)
+	    {
+	      minW = pl[0];
+	      maxW = pl[pl.count()-1];
+	    }
+	}
       if (m_forward)
-	m_maxslc = m_maxWSlice - m_currSlice + 1;
+	m_maxslc = maxW - m_currSlice + 1;
       else
-	m_maxslc = m_currSlice - m_minWSlice + 1;
+	m_maxslc = m_currSlice - minW + 1;
     }
   else if (m_sliceType == HSlice)
     {
+      int maxH = m_maxHSlice;
+      int minH = m_minHSlice;
+      if (m_curveMode)
+	{
+	  QList<int> pl = m_hCurves.polygonLevels();
+	  if (pl.count() > 1)
+	    {
+	      minH = pl[0];
+	      maxH = pl[pl.count()-1];
+	    }
+	}
       if (m_forward)
-	m_maxslc = m_maxHSlice - m_currSlice + 1;
+	m_maxslc = maxH - m_currSlice + 1;
       else
-	m_maxslc = m_currSlice - m_minHSlice + 1;
+	m_maxslc = m_currSlice - minH + 1;
     }
 }
 
@@ -918,14 +1028,79 @@ ImageWidget::keyPressEvent(QKeyEvent *event)
   int shiftModifier = event->modifiers() & Qt::ShiftModifier;
   int ctrlModifier = event->modifiers() & Qt::ControlModifier;
 
+  if (m_livewireMode && event->key() == Qt::Key_F)
+    {
+      QVector<QPoint> pts = m_livewire.poly();
+      if (m_sliceType == DSlice)
+	{
+	  m_dCurves.setPolygonAt(m_currSlice, pts, Global::tag()); 
+	  emit polygonLevels(m_dCurves.polygonLevels());
+	}
+      else if (m_sliceType == WSlice)
+	{
+	  m_wCurves.setPolygonAt(m_currSlice, pts, Global::tag()); 
+	  emit polygonLevels(m_wCurves.polygonLevels());
+	}
+      else
+	{
+	  m_hCurves.setPolygonAt(m_currSlice, pts, Global::tag()); 
+	  emit polygonLevels(m_hCurves.polygonLevels());
+	}
+      
+      m_livewire.resetPoly();
+
+      update();
+      return;
+    }
+  
   if (event->key() == Qt::Key_C)
     {
       m_curveMode = !m_curveMode;
       QMessageBox::information(0, "", QString("Curve Mode : %1").arg(m_curveMode));
       return;
     }
+
+  if (event->key() == Qt::Key_L)
+    {
+      m_livewireMode = !m_livewireMode;
+      if (!m_livewireMode) m_curveMode = true;
+      QMessageBox::information(0, "", QString("Livewire Mode : %1\nCurve Mode : %1").\
+			       arg(m_livewireMode).arg(m_curveMode));
+      return;
+    }
+
+  if (m_livewireMode)
+    {
+      if (m_livewire.keyPressEvent(event))
+	{
+	  update();
+	  return;
+	}
+    }
+
   if (m_curveMode)
     {
+      if (event->key() == Qt::Key_N)
+	{
+	  if (m_sliceType == DSlice)
+	    m_dCurves.newCurve(m_currSlice, Global::tag());
+	  if (m_sliceType == WSlice)
+	    m_wCurves.newCurve(m_currSlice, Global::tag());
+	  else
+	    m_hCurves.newCurve(m_currSlice, Global::tag());
+	  return;
+	}
+      if (event->key() == Qt::Key_S)
+	{
+	  saveCurves();
+	  return;
+	}
+      if (event->key() == Qt::Key_L)
+	{
+	  loadCurves();
+	  return;
+	}
+
       if (event->key() == Qt::Key_F)
 	{
 	  if (m_sliceType == DSlice)
@@ -951,7 +1126,8 @@ ImageWidget::keyPressEvent(QKeyEvent *event)
 	  return;
 	}
 
-      if (event->key() == Qt::Key_R)
+      if (event->key() == Qt::Key_Delete ||
+	  event->key() == Qt::Key_Backspace)
 	{
 	  if (shiftModifier)
 	    {
@@ -970,6 +1146,8 @@ ImageWidget::keyPressEvent(QKeyEvent *event)
 		  m_hCurves.reset();
 		  emit polygonLevels(m_hCurves.polygonLevels());
 		}
+
+	      QMessageBox::information(0, "", "Removed add curves for this slice type");
 
 	      update();
 	      return;
@@ -1312,6 +1490,31 @@ ImageWidget::mousePressEvent(QMouseEvent *event)
   m_cursorPos = pp;
   m_pickPoint = false;
 
+
+  if (m_livewireMode)
+    {
+      if (!validPickPoint(xpos, ypos))
+	return;
+
+      m_lastPickDepth = m_pickDepth;
+      m_lastPickWidth = m_pickWidth;
+      m_lastPickHeight= m_pickHeight;
+      
+      bool upd = false;
+      if (m_sliceType == DSlice)
+	upd = m_livewire.mousePressEvent(m_pickHeight, m_pickWidth, event);
+      else if (m_sliceType == WSlice)
+	upd = m_livewire.mousePressEvent(m_pickHeight, m_pickDepth, event);
+      else
+	upd = m_livewire.mousePressEvent(m_pickWidth, m_pickDepth, event);
+      if (upd)
+	{
+	  update();
+	  return;
+	}
+    }
+  
+
   bool shiftModifier = event->modifiers() & Qt::ShiftModifier;
   bool ctrlModifier = event->modifiers() & Qt::ControlModifier;
   bool altModifier = event->modifiers() & Qt::AltModifier;
@@ -1562,6 +1765,29 @@ ImageWidget::mouseMoveEvent(QMouseEvent *event)
 
   if (event->buttons() == Qt::NoButton)
     {
+      if (m_livewireMode)
+	{
+	  if (validPickPoint(xpos, ypos))
+	    {
+	      m_lastPickDepth = m_pickDepth;
+	      m_lastPickWidth = m_pickWidth;
+	      m_lastPickHeight= m_pickHeight;
+	      
+	      bool upd = false;
+	      if (m_sliceType == DSlice)
+		upd = m_livewire.mouseMoveEvent(m_pickHeight, m_pickWidth, event);
+	      else if (m_sliceType == WSlice)
+		upd = m_livewire.mouseMoveEvent(m_pickHeight, m_pickDepth, event);
+	      else
+		upd = m_livewire.mouseMoveEvent(m_pickWidth, m_pickDepth, event);
+	      if (upd)
+		{
+		  update();
+		  return;
+		}
+	    }
+	}
+
       m_pickPoint = false;
       preselect();
     }
@@ -1674,6 +1900,8 @@ void
 ImageWidget::mouseReleaseEvent(QMouseEvent *event)
 {
   m_pickPoint = false;
+
+  m_livewire.mouseReleaseEvent(event);
 
   if (m_curveMode)
     {
@@ -1979,6 +2207,63 @@ ImageWidget::getSliceLimits(int &size1, int &size2,
 }
 
 void
+ImageWidget::applyMorphCurveLimits(uchar *maskData)
+{
+  QList<Curve> curves;
+  if (m_sliceType == DSlice)
+    curves = m_dCurves.getCurvesAt(m_currSlice);
+  else if (m_sliceType == WSlice)
+    curves = m_wCurves.getCurvesAt(m_currSlice);
+  else
+    curves = m_hCurves.getCurvesAt(m_currSlice);
+
+  if (curves.count() == 0)
+    return;
+
+  QImage pimg= QImage(m_imgWidth, m_imgHeight, QImage::Format_RGB32);
+  pimg.fill(0);
+  QPainter p(&pimg);
+
+  p.setPen(QPen(Qt::white, 1));
+  p.setBrush(Qt::white);  
+  for(int l=0; l<curves.count(); l++)
+    {
+      int tag = curves[l].tag;
+      if (tag == Global::tag())
+	p.drawPolygon(curves[l].pts);
+    }
+
+  uchar *bits = pimg.bits();
+  for(int i=0; i<m_imgWidth*m_imgHeight; i++)
+    if (bits[4*i+0] == 0)
+      maskData[i] = 255;
+
+//  QVector<QPoint> pts;
+//  if (m_sliceType == DSlice)
+//    pts = m_dCurves.getPolygonAt(m_currSlice);
+//  else if (m_sliceType == WSlice)
+//    pts = m_wCurves.getPolygonAt(m_currSlice);
+//  else
+//    pts = m_hCurves.getPolygonAt(m_currSlice);
+//
+//  if (pts.count() == 0)
+//    return;
+//
+//  QImage pimg= QImage(m_imgWidth, m_imgHeight, QImage::Format_RGB32);
+//  pimg.fill(0);
+//  QPainter p(&pimg);
+//
+//  p.setPen(QPen(Qt::white, 1));
+//  p.setBrush(Qt::white);  
+//  p.drawPolygon(pts);
+//
+//  uchar *bits = pimg.bits();
+//  for(int i=0; i<m_imgWidth*m_imgHeight; i++)
+//    if (bits[4*i+0] == 0)
+//      maskData[i] = 255;
+}
+
+void
 ImageWidget::applyGraphCut()
 {
   uchar *imageData = new uchar[m_imgWidth*m_imgHeight];
@@ -2010,7 +2295,6 @@ ImageWidget::applyGraphCut()
   //----------------------------------------
   //----------------------------------------
 
-  
   memset(maskData, 0, m_imgWidth*m_imgHeight);
   for(int i=0; i<m_imgWidth*m_imgHeight; i++)
     {
@@ -2068,11 +2352,19 @@ ImageWidget::applyGraphCut()
   memcpy(maskData, m_tags, size1*size2);
   memset(m_tags, 0, m_imgWidth*m_imgHeight);
 
+  //--------------------------
+  // limit graphcut output within the bounding curve
+  memset(imageData, 0, m_imgWidth*m_imgHeight);
+  applyMorphCurveLimits(imageData);
+  //--------------------------
+  
   idx=0;
   for(int i=imin; i<=imax; i++)
     for(int j=jmin; j<=jmax; j++)
       {
-	m_tags[i*m_imgWidth+j] = maskData[idx];
+	// limit graphcut output within the bounding curve
+	if (imageData[i*m_imgWidth+j] == 0)
+	  m_tags[i*m_imgWidth+j] = maskData[idx];
 	idx++;
       }
 
@@ -2240,18 +2532,36 @@ ImageWidget::applyPaint()
 	  m_tags[i] = m_prevslicetags[i];
     }
 
-  // overwrite within bounding box with usertags
-  for(int i=imin; i<=imax; i++)
-    for(int j=jmin; j<=jmax; j++)
-      {
-	if (m_sliceImage[4*(i*m_imgWidth+j)] > 0)
+  if (m_curveMode)
+    {
+      // limit graphcut output within the bounding curve
+      uchar *mask = new uchar[m_imgWidth*m_imgHeight];
+      memset(mask, 0, m_imgWidth*m_imgHeight);
+      applyMorphCurveLimits(mask);
+      // overwrite within bounding box with usertags
+      for(int i=imin; i<=imax; i++)
+	for(int j=jmin; j<=jmax; j++)
 	  {
-	    if (m_usertags[i*m_imgWidth+j] == 255)
-	      m_tags[i*m_imgWidth+j] = 0;
-	    else if (m_usertags[i*m_imgWidth+j] > 0)
-	      m_tags[i*m_imgWidth+j] = m_usertags[i*m_imgWidth+j];
+	    if (mask[i*m_imgWidth+j] == 0)
+	      m_tags[i*m_imgWidth+j] = Global::tag();
 	  }
-      }
+      delete [] mask;
+    }
+  else
+    {
+      // overwrite within bounding box with usertags
+      for(int i=imin; i<=imax; i++)
+	for(int j=jmin; j<=jmax; j++)
+	  {
+	    if (m_sliceImage[4*(i*m_imgWidth+j)] > 0)
+	      {
+		if (m_usertags[i*m_imgWidth+j] == 255)
+		  m_tags[i*m_imgWidth+j] = 0;
+		else if (m_usertags[i*m_imgWidth+j] > 0)
+		  m_tags[i*m_imgWidth+j] = m_usertags[i*m_imgWidth+j];
+	      }
+	  }
+    }
 
   if (m_sliceType == DSlice)
     emit tagDSlice(m_currSlice, m_tags);
@@ -2340,3 +2650,202 @@ ImageWidget::updateMaskImage()
 							 Qt::IgnoreAspectRatio,
 							 Qt::FastTransformation);
 }
+
+void
+ImageWidget::saveCurves()
+{
+  QList<int> dkeys = m_dCurves.polygonLevels();
+  QList<int> wkeys = m_wCurves.polygonLevels();
+  QList<int> hkeys = m_hCurves.polygonLevels();
+
+  QString curvesfile = QFileDialog::getSaveFileName(0,
+					       "Save Curves",
+					       Global::previousDirectory(),
+					       "Curves Files (*.curves)",
+					       0,
+					       QFileDialog::DontUseNativeDialog);
+
+  if (curvesfile.isEmpty())
+    return;
+
+  QFile cfile;
+
+  cfile.setFileName(curvesfile);
+  cfile.open(QFile::WriteOnly);
+
+  int ncurves;
+
+  // D curves
+  //ncurves = dkeys.count();
+  ncurves = 0;
+  for(int i=0; i<dkeys.count(); i++)
+    ncurves += m_dCurves.getCurvesAt(dkeys[i]).count();
+
+  cfile.write((char*)&ncurves, sizeof(int));
+  for(int i=0; i<dkeys.count(); i++)
+    {
+      //QVector<QPoint> pts = m_dCurves.getPolygonAt(dkeys[i]);
+      QList<Curve> c = m_dCurves.getCurvesAt(dkeys[i]);
+      for (int j=0; j<c.count(); j++)
+	{
+	  QVector<QPoint> pts = c[j].pts;
+	  int tag = c[j].tag;
+	  int npts = pts.count();
+	  cfile.write((char*)&dkeys[i], sizeof(int));
+	  cfile.write((char*)&tag, sizeof(int));
+	  cfile.write((char*)&npts, sizeof(int));
+	  int *pt = new int [2*npts];
+	  for(int j=0; j<npts; j++)
+	    {
+	      pt[2*j+0] = pts[j].x();
+	      pt[2*j+1] = pts[j].y();
+	    }
+	  cfile.write((char*)pt, 2*npts*sizeof(int));
+	  delete [] pt;
+	}
+    }
+  
+  // W curves
+  //ncurves = wkeys.count();
+  ncurves = 0;
+  for(int i=0; i<wkeys.count(); i++)
+    ncurves += m_wCurves.getCurvesAt(wkeys[i]).count();
+
+  cfile.write((char*)&ncurves, sizeof(int));
+  for(int i=0; i<wkeys.count(); i++)
+    {
+      //QVector<QPoint> pts = m_wCurves.getPolygonAt(wkeys[i]);
+      QList<Curve> c = m_wCurves.getCurvesAt(wkeys[i]);
+      for (int j=0; j<c.count(); j++)
+	{
+	  QVector<QPoint> pts = c[j].pts;
+	  int tag = c[j].tag;
+	  int npts = pts.count();
+	  cfile.write((char*)&wkeys[i], sizeof(int));
+	  cfile.write((char*)&tag, sizeof(int));
+	  cfile.write((char*)&npts, sizeof(int));
+	  int *pt = new int [2*npts];
+	  for(int j=0; j<npts; j++)
+	    {
+	      pt[2*j+0] = pts[j].x();
+	      pt[2*j+1] = pts[j].y();
+	    }
+	  cfile.write((char*)pt, 2*npts*sizeof(int));
+	  delete [] pt;
+	}
+    }
+
+  // H curves
+  //ncurves = hkeys.count();
+  ncurves = 0;
+  for(int i=0; i<hkeys.count(); i++)
+    ncurves += m_hCurves.getCurvesAt(hkeys[i]).count();
+
+  cfile.write((char*)&ncurves, sizeof(int));
+  for(int i=0; i<hkeys.count(); i++)
+    {
+      //QVector<QPoint> pts = m_hCurves.getPolygonAt(hkeys[i]);
+      QList<Curve> c = m_hCurves.getCurvesAt(hkeys[i]);
+      for (int j=0; j<c.count(); j++)
+	{
+	  QVector<QPoint> pts = c[j].pts;
+	  int tag = c[j].tag;
+	  int npts = pts.count();
+	  cfile.write((char*)&hkeys[i], sizeof(int));
+	  cfile.write((char*)&tag, sizeof(int));
+	  cfile.write((char*)&npts, sizeof(int));
+	  int *pt = new int [2*npts];
+	  for(int j=0; j<npts; j++)
+	    {
+	      pt[2*j+0] = pts[j].x();
+	      pt[2*j+1] = pts[j].y();
+	    }
+	  cfile.write((char*)pt, 2*npts*sizeof(int));
+	  delete [] pt;
+	}
+    }
+
+  cfile.close();
+  QMessageBox::information(0, "", QString("Curves saved to %1").arg(curvesfile));
+}
+
+void
+ImageWidget::loadCurves(QString curvesfile)
+{
+  QFile cfile;
+
+  cfile.setFileName(curvesfile);
+  cfile.open(QFile::ReadOnly);
+
+  int ncurves;
+
+  // D curves
+  cfile.read((char*)&ncurves, sizeof(int));
+  for(int i=0; i<ncurves; i++)
+    {
+      int key, npts, tag;
+      cfile.read((char*)&key, sizeof(int));
+      cfile.read((char*)&tag, sizeof(int));
+      cfile.read((char*)&npts, sizeof(int));
+      int *pt = new int [2*npts];
+      cfile.read((char*)pt, 2*npts*sizeof(int));
+      m_dCurves.setPolygonAt(key, pt, npts, tag); 
+      delete [] pt;
+    }
+  
+  // W curves
+  cfile.read((char*)&ncurves, sizeof(int));
+  for(int i=0; i<ncurves; i++)
+    {
+      int key, npts, tag;
+      cfile.read((char*)&key, sizeof(int));
+      cfile.read((char*)&tag, sizeof(int));
+      cfile.read((char*)&npts, sizeof(int));
+      int *pt = new int [2*npts];
+      cfile.read((char*)pt, 2*npts*sizeof(int));
+      m_wCurves.setPolygonAt(key, pt, npts, tag); 
+      delete [] pt;
+    }
+
+  // H curves
+  cfile.read((char*)&ncurves, sizeof(int));
+  for(int i=0; i<ncurves; i++)
+    {
+      int key, npts, tag;
+      cfile.read((char*)&key, sizeof(int));
+      cfile.read((char*)&tag, sizeof(int));
+      cfile.read((char*)&npts, sizeof(int));
+      int *pt = new int [2*npts];
+      cfile.read((char*)pt, 2*npts*sizeof(int));
+      m_hCurves.setPolygonAt(key, pt, npts, tag); 
+      delete [] pt;
+    }
+
+  cfile.close();
+
+  if (m_sliceType == DSlice)
+    emit polygonLevels(m_dCurves.polygonLevels());
+  else if (m_sliceType == WSlice)
+    emit polygonLevels(m_wCurves.polygonLevels());
+  else
+    emit polygonLevels(m_hCurves.polygonLevels());
+
+  QMessageBox::information(0, "", QString("Curves loaded to %1").arg(curvesfile));
+}
+
+void
+ImageWidget::loadCurves()
+{
+  QString curvesfile = QFileDialog::getOpenFileName(0,
+						    "Load Curves",
+						    Global::previousDirectory(),
+						    "Curves Files (*.curves)",
+						    0,
+						    QFileDialog::DontUseNativeDialog);
+  
+  if (curvesfile.isEmpty())
+    return;
+
+  loadCurves(curvesfile);
+}
+

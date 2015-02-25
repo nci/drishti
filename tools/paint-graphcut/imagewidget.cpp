@@ -690,16 +690,13 @@ ImageWidget::drawLivewire(QPainter *p)
 	  pts[i] = pts[i]*sx + move;
 	p->drawPolyline(pts);
       }
-    //QVector<QPoint> livepts = m_livewire.livewire();
-    //if (livepts.count() > 0)
-    //  p->drawPolyline(livepts);
   }
 }
 
 void
 ImageWidget::drawCurves(QPainter *p)
 {  
-  QList<Curve> curves;
+  QList<Curve*> curves;
   if (m_sliceType == DSlice)
     curves = m_dCurves.getCurvesAt(m_currSlice);
   else if (m_sliceType == WSlice)
@@ -707,30 +704,38 @@ ImageWidget::drawCurves(QPainter *p)
   else
     curves = m_hCurves.getCurvesAt(m_currSlice);
 
-//  QVector<QPoint> pts;
-//  if (m_sliceType == DSlice)
-//    pts = m_dCurves.getPolygonAt(m_currSlice);
-//  else if (m_sliceType == WSlice)
-//    pts = m_wCurves.getPolygonAt(m_currSlice);
-//  else
-//    pts = m_hCurves.getPolygonAt(m_currSlice);
-
   QPoint move = QPoint(m_simgX, m_simgY);
   float sx = (float)m_simgWidth/(float)m_imgWidth;
   for(int l=0; l<curves.count(); l++)
     {
-      int tag = curves[l].tag;
+      int tag = curves[l]->tag;
       uchar r = Global::tagColors()[4*tag+0];
       uchar g = Global::tagColors()[4*tag+1];
       uchar b = Global::tagColors()[4*tag+2];
 
-      p->setPen(QPen(QColor(r,g,b), 1));
-      p->setBrush(QColor(r*0.5, g*0.5, b*0.5, 128));
 
-      QVector<QPoint> pts = curves[l].pts;
+      QVector<QPoint> pts = curves[l]->pts;
       for(int i=0; i<pts.count(); i++)
 	pts[i] = pts[i]*sx + move;
-      p->drawPolygon(pts);
+
+      if (curves[l]->selected)
+	{
+	  p->setPen(QPen(QColor(150, 0, 0, 150), curves[l]->thickness+4));
+	  p->setBrush(Qt::transparent);
+	  if (curves[l]->closed)
+	    p->drawPolygon(pts);
+	  else
+	    p->drawPolyline(pts);
+	}
+
+      p->setPen(QPen(QColor(r,g,b), curves[l]->thickness));
+      if (curves[l]->closed)
+	{
+	  p->setBrush(QColor(r*0.5, g*0.5, b*0.5, 128));
+	  p->drawPolygon(pts);
+	}
+      else
+	p->drawPolyline(pts);
     }
 }
 
@@ -1056,15 +1061,17 @@ ImageWidget::keyPressEvent(QKeyEvent *event)
   if (event->key() == Qt::Key_C)
     {
       m_curveMode = !m_curveMode;
-      QMessageBox::information(0, "", QString("Curve Mode : %1").arg(m_curveMode));
+      if (m_curveMode) m_livewireMode = false;
+      QMessageBox::information(0, "", QString("Livewire Mode : %1\nCurve Mode : %2").\
+			       arg(m_livewireMode).arg(m_curveMode));
       return;
     }
 
   if (event->key() == Qt::Key_L)
     {
       m_livewireMode = !m_livewireMode;
-      if (!m_livewireMode) m_curveMode = true;
-      QMessageBox::information(0, "", QString("Livewire Mode : %1\nCurve Mode : %1").\
+      if (m_livewireMode) m_curveMode = false;
+      QMessageBox::information(0, "", QString("Livewire Mode : %1\nCurve Mode : %2").\
 			       arg(m_livewireMode).arg(m_curveMode));
       return;
     }
@@ -1080,6 +1087,37 @@ ImageWidget::keyPressEvent(QKeyEvent *event)
 
   if (m_curveMode)
     {
+      if (event->key() == Qt::Key_Space)
+	{
+	  bool selected;
+	  if (m_sliceType == DSlice)
+	    selected = m_dCurves.selectPolygon(m_currSlice, m_pickHeight, m_pickWidth);
+	  else if (m_sliceType == WSlice)
+	    selected = m_wCurves.selectPolygon(m_currSlice, m_pickHeight, m_pickDepth);
+	  else
+	    selected = m_hCurves.selectPolygon(m_currSlice, m_pickWidth,  m_pickDepth);
+
+	  if (selected)
+	    {
+	      update();
+	      return;
+	    }
+	}      
+
+      if (event->key() == Qt::Key_O)
+	{
+	  bool closed = shiftModifier;
+	  if (m_sliceType == DSlice)
+	    m_dCurves.setClosed(m_currSlice, closed);
+	  if (m_sliceType == WSlice)
+	    m_wCurves.setClosed(m_currSlice, closed);
+	  else
+	    m_hCurves.setClosed(m_currSlice, closed);
+
+	  update();
+	  return;
+	}
+
       if (event->key() == Qt::Key_N)
 	{
 	  if (m_sliceType == DSlice)
@@ -1104,11 +1142,11 @@ ImageWidget::keyPressEvent(QKeyEvent *event)
       if (event->key() == Qt::Key_F)
 	{
 	  if (m_sliceType == DSlice)
-	    m_dCurves.flipPolygonAt(m_currSlice);
+	    m_dCurves.flipSelectedPolygon(m_currSlice);
 	  else if (m_sliceType == WSlice)
-	    m_wCurves.flipPolygonAt(m_currSlice);
+	    m_wCurves.flipSelectedPolygon(m_currSlice);
 	  else
-	    m_hCurves.flipPolygonAt(m_currSlice);
+	    m_hCurves.flipSelectedPolygon(m_currSlice);
 
 	  update();
 	  return;
@@ -1500,18 +1538,15 @@ ImageWidget::mousePressEvent(QMouseEvent *event)
       m_lastPickWidth = m_pickWidth;
       m_lastPickHeight= m_pickHeight;
       
-      bool upd = false;
       if (m_sliceType == DSlice)
-	upd = m_livewire.mousePressEvent(m_pickHeight, m_pickWidth, event);
+	m_livewire.mousePressEvent(m_pickHeight, m_pickWidth, event);
       else if (m_sliceType == WSlice)
-	upd = m_livewire.mousePressEvent(m_pickHeight, m_pickDepth, event);
+	m_livewire.mousePressEvent(m_pickHeight, m_pickDepth, event);
       else
-	upd = m_livewire.mousePressEvent(m_pickWidth, m_pickDepth, event);
-      if (upd)
-	{
-	  update();
-	  return;
-	}
+	m_livewire.mousePressEvent(m_pickWidth, m_pickDepth, event);
+
+      update();
+      return;
     }
   
 
@@ -1759,35 +1794,32 @@ ImageWidget::mouseMoveEvent(QMouseEvent *event)
 
   m_cursorPos = pp;
 
+  if (m_livewireMode)
+    {
+      if (!validPickPoint(xpos, ypos))
+	return;
+
+      m_lastPickDepth = m_pickDepth;
+      m_lastPickWidth = m_pickWidth;
+      m_lastPickHeight= m_pickHeight;
+      
+      if (m_sliceType == DSlice)
+	m_livewire.mouseMoveEvent(m_pickHeight, m_pickWidth, event);
+      else if (m_sliceType == WSlice)
+	m_livewire.mouseMoveEvent(m_pickHeight, m_pickDepth, event);
+      else
+	m_livewire.mouseMoveEvent(m_pickWidth, m_pickDepth, event);
+      
+      update();
+      return;
+    }
+  
   bool shiftModifier = event->modifiers() & Qt::ShiftModifier;
   bool ctrlModifier = event->modifiers() & Qt::ControlModifier;
   bool altModifier = event->modifiers() & Qt::AltModifier;
 
   if (event->buttons() == Qt::NoButton)
     {
-      if (m_livewireMode)
-	{
-	  if (validPickPoint(xpos, ypos))
-	    {
-	      m_lastPickDepth = m_pickDepth;
-	      m_lastPickWidth = m_pickWidth;
-	      m_lastPickHeight= m_pickHeight;
-	      
-	      bool upd = false;
-	      if (m_sliceType == DSlice)
-		upd = m_livewire.mouseMoveEvent(m_pickHeight, m_pickWidth, event);
-	      else if (m_sliceType == WSlice)
-		upd = m_livewire.mouseMoveEvent(m_pickHeight, m_pickDepth, event);
-	      else
-		upd = m_livewire.mouseMoveEvent(m_pickWidth, m_pickDepth, event);
-	      if (upd)
-		{
-		  update();
-		  return;
-		}
-	    }
-	}
-
       m_pickPoint = false;
       preselect();
     }
@@ -2209,7 +2241,7 @@ ImageWidget::getSliceLimits(int &size1, int &size2,
 void
 ImageWidget::applyMorphCurveLimits(uchar *maskData)
 {
-  QList<Curve> curves;
+  QList<Curve*> curves;
   if (m_sliceType == DSlice)
     curves = m_dCurves.getCurvesAt(m_currSlice);
   else if (m_sliceType == WSlice)
@@ -2225,42 +2257,18 @@ ImageWidget::applyMorphCurveLimits(uchar *maskData)
   QPainter p(&pimg);
 
   p.setPen(QPen(Qt::white, 1));
-  p.setBrush(Qt::white);  
+  p.setBrush(Qt::white); 
   for(int l=0; l<curves.count(); l++)
     {
-      int tag = curves[l].tag;
+      int tag = curves[l]->tag;
       if (tag == Global::tag())
-	p.drawPolygon(curves[l].pts);
+	p.drawPolygon(curves[l]->pts);
     }
 
   uchar *bits = pimg.bits();
   for(int i=0; i<m_imgWidth*m_imgHeight; i++)
     if (bits[4*i+0] == 0)
       maskData[i] = 255;
-
-//  QVector<QPoint> pts;
-//  if (m_sliceType == DSlice)
-//    pts = m_dCurves.getPolygonAt(m_currSlice);
-//  else if (m_sliceType == WSlice)
-//    pts = m_wCurves.getPolygonAt(m_currSlice);
-//  else
-//    pts = m_hCurves.getPolygonAt(m_currSlice);
-//
-//  if (pts.count() == 0)
-//    return;
-//
-//  QImage pimg= QImage(m_imgWidth, m_imgHeight, QImage::Format_RGB32);
-//  pimg.fill(0);
-//  QPainter p(&pimg);
-//
-//  p.setPen(QPen(Qt::white, 1));
-//  p.setBrush(Qt::white);  
-//  p.drawPolygon(pts);
-//
-//  uchar *bits = pimg.bits();
-//  for(int i=0; i<m_imgWidth*m_imgHeight; i++)
-//    if (bits[4*i+0] == 0)
-//      maskData[i] = 255;
 }
 
 void
@@ -2652,12 +2660,46 @@ ImageWidget::updateMaskImage()
 }
 
 void
+ImageWidget::saveCurves(QFile *cfile, CurveGroup *cg)
+{
+  QList<int> keys = cg->polygonLevels();
+
+  int ncurves;
+  ncurves = 0;
+  for(int i=0; i<keys.count(); i++)
+    ncurves += cg->getCurvesAt(keys[i]).count();
+
+  cfile->write((char*)&ncurves, sizeof(int));
+  for(int i=0; i<keys.count(); i++)
+    {
+      QList<Curve*> c = cg->getCurvesAt(keys[i]);
+      for (int j=0; j<c.count(); j++)
+	{
+	  QVector<QPoint> pts = c[j]->pts;
+	  int tag = c[j]->tag;
+	  int thickness = c[j]->thickness;
+	  bool closed = c[j]->closed;
+	  int npts = pts.count();
+	  cfile->write((char*)&keys[i], sizeof(int));
+	  cfile->write((char*)&tag, sizeof(int));
+	  cfile->write((char*)&thickness, sizeof(int));
+	  cfile->write((char*)&closed, sizeof(bool));
+	  cfile->write((char*)&npts, sizeof(int));
+	  int *pt = new int [2*npts];
+	  for(int j=0; j<npts; j++)
+	    {
+	      pt[2*j+0] = pts[j].x();
+	      pt[2*j+1] = pts[j].y();
+	    }
+	  cfile->write((char*)pt, 2*npts*sizeof(int));
+	  delete [] pt;
+	}
+    } 
+}
+
+void
 ImageWidget::saveCurves()
 {
-  QList<int> dkeys = m_dCurves.polygonLevels();
-  QList<int> wkeys = m_wCurves.polygonLevels();
-  QList<int> hkeys = m_hCurves.polygonLevels();
-
   QString curvesfile = QFileDialog::getSaveFileName(0,
 					       "Save Curves",
 					       Global::previousDirectory(),
@@ -2673,100 +2715,137 @@ ImageWidget::saveCurves()
   cfile.setFileName(curvesfile);
   cfile.open(QFile::WriteOnly);
 
-  int ncurves;
-
-  // D curves
-  //ncurves = dkeys.count();
-  ncurves = 0;
-  for(int i=0; i<dkeys.count(); i++)
-    ncurves += m_dCurves.getCurvesAt(dkeys[i]).count();
-
-  cfile.write((char*)&ncurves, sizeof(int));
-  for(int i=0; i<dkeys.count(); i++)
-    {
-      //QVector<QPoint> pts = m_dCurves.getPolygonAt(dkeys[i]);
-      QList<Curve> c = m_dCurves.getCurvesAt(dkeys[i]);
-      for (int j=0; j<c.count(); j++)
-	{
-	  QVector<QPoint> pts = c[j].pts;
-	  int tag = c[j].tag;
-	  int npts = pts.count();
-	  cfile.write((char*)&dkeys[i], sizeof(int));
-	  cfile.write((char*)&tag, sizeof(int));
-	  cfile.write((char*)&npts, sizeof(int));
-	  int *pt = new int [2*npts];
-	  for(int j=0; j<npts; j++)
-	    {
-	      pt[2*j+0] = pts[j].x();
-	      pt[2*j+1] = pts[j].y();
-	    }
-	  cfile.write((char*)pt, 2*npts*sizeof(int));
-	  delete [] pt;
-	}
-    }
-  
-  // W curves
-  //ncurves = wkeys.count();
-  ncurves = 0;
-  for(int i=0; i<wkeys.count(); i++)
-    ncurves += m_wCurves.getCurvesAt(wkeys[i]).count();
-
-  cfile.write((char*)&ncurves, sizeof(int));
-  for(int i=0; i<wkeys.count(); i++)
-    {
-      //QVector<QPoint> pts = m_wCurves.getPolygonAt(wkeys[i]);
-      QList<Curve> c = m_wCurves.getCurvesAt(wkeys[i]);
-      for (int j=0; j<c.count(); j++)
-	{
-	  QVector<QPoint> pts = c[j].pts;
-	  int tag = c[j].tag;
-	  int npts = pts.count();
-	  cfile.write((char*)&wkeys[i], sizeof(int));
-	  cfile.write((char*)&tag, sizeof(int));
-	  cfile.write((char*)&npts, sizeof(int));
-	  int *pt = new int [2*npts];
-	  for(int j=0; j<npts; j++)
-	    {
-	      pt[2*j+0] = pts[j].x();
-	      pt[2*j+1] = pts[j].y();
-	    }
-	  cfile.write((char*)pt, 2*npts*sizeof(int));
-	  delete [] pt;
-	}
-    }
-
-  // H curves
-  //ncurves = hkeys.count();
-  ncurves = 0;
-  for(int i=0; i<hkeys.count(); i++)
-    ncurves += m_hCurves.getCurvesAt(hkeys[i]).count();
-
-  cfile.write((char*)&ncurves, sizeof(int));
-  for(int i=0; i<hkeys.count(); i++)
-    {
-      //QVector<QPoint> pts = m_hCurves.getPolygonAt(hkeys[i]);
-      QList<Curve> c = m_hCurves.getCurvesAt(hkeys[i]);
-      for (int j=0; j<c.count(); j++)
-	{
-	  QVector<QPoint> pts = c[j].pts;
-	  int tag = c[j].tag;
-	  int npts = pts.count();
-	  cfile.write((char*)&hkeys[i], sizeof(int));
-	  cfile.write((char*)&tag, sizeof(int));
-	  cfile.write((char*)&npts, sizeof(int));
-	  int *pt = new int [2*npts];
-	  for(int j=0; j<npts; j++)
-	    {
-	      pt[2*j+0] = pts[j].x();
-	      pt[2*j+1] = pts[j].y();
-	    }
-	  cfile.write((char*)pt, 2*npts*sizeof(int));
-	  delete [] pt;
-	}
-    }
+  saveCurves(&cfile, &m_dCurves);
+  saveCurves(&cfile, &m_wCurves);
+  saveCurves(&cfile, &m_hCurves);
 
   cfile.close();
   QMessageBox::information(0, "", QString("Curves saved to %1").arg(curvesfile));
+
+//  QList<int> dkeys = m_dCurves.polygonLevels();
+//  QList<int> wkeys = m_wCurves.polygonLevels();
+//  QList<int> hkeys = m_hCurves.polygonLevels();
+//
+//  int ncurves;
+//
+//  // D curves
+//  //ncurves = dkeys.count();
+//  ncurves = 0;
+//  for(int i=0; i<dkeys.count(); i++)
+//    ncurves += m_dCurves.getCurvesAt(dkeys[i]).count();
+//
+//  cfile.write((char*)&ncurves, sizeof(int));
+//  for(int i=0; i<dkeys.count(); i++)
+//    {
+//      //QVector<QPoint> pts = m_dCurves.getPolygonAt(dkeys[i]);
+//      QList<Curve*> c = m_dCurves.getCurvesAt(dkeys[i]);
+//      for (int j=0; j<c.count(); j++)
+//	{
+//	  QVector<QPoint> pts = c[j]->pts;
+//	  int tag = c[j]->tag;
+//	  int thickness = c[j]->tag;
+//	  bool closed = c[j]->closed;
+//	  int tag = c[j]->tag;
+//	  int npts = pts.count();
+//	  cfile.write((char*)&dkeys[i], sizeof(int));
+//	  cfile.write((char*)&tag, sizeof(int));
+//	  cfile.write((char*)&thickness, sizeof(int));
+//	  cfile.write((char*)&closed, sizeof(bool));
+//	  cfile.write((char*)&npts, sizeof(int));
+//	  int *pt = new int [2*npts];
+//	  for(int j=0; j<npts; j++)
+//	    {
+//	      pt[2*j+0] = pts[j].x();
+//	      pt[2*j+1] = pts[j].y();
+//	    }
+//	  cfile.write((char*)pt, 2*npts*sizeof(int));
+//	  delete [] pt;
+//	}
+//    }
+//  
+//  // W curves
+//  //ncurves = wkeys.count();
+//  ncurves = 0;
+//  for(int i=0; i<wkeys.count(); i++)
+//    ncurves += m_wCurves.getCurvesAt(wkeys[i]).count();
+//
+//  cfile.write((char*)&ncurves, sizeof(int));
+//  for(int i=0; i<wkeys.count(); i++)
+//    {
+//      //QVector<QPoint> pts = m_wCurves.getPolygonAt(wkeys[i]);
+//      QList<Curve*> c = m_wCurves.getCurvesAt(wkeys[i]);
+//      for (int j=0; j<c.count(); j++)
+//	{
+//	  QVector<QPoint> pts = c[j].pts;
+//	  int tag = c[j].tag;
+//	  int npts = pts.count();
+//	  cfile.write((char*)&wkeys[i], sizeof(int));
+//	  cfile.write((char*)&tag, sizeof(int));
+//	  cfile.write((char*)&npts, sizeof(int));
+//	  int *pt = new int [2*npts];
+//	  for(int j=0; j<npts; j++)
+//	    {
+//	      pt[2*j+0] = pts[j].x();
+//	      pt[2*j+1] = pts[j].y();
+//	    }
+//	  cfile.write((char*)pt, 2*npts*sizeof(int));
+//	  delete [] pt;
+//	}
+//    }
+//
+//  // H curves
+//  //ncurves = hkeys.count();
+//  ncurves = 0;
+//  for(int i=0; i<hkeys.count(); i++)
+//    ncurves += m_hCurves.getCurvesAt(hkeys[i]).count();
+//
+//  cfile.write((char*)&ncurves, sizeof(int));
+//  for(int i=0; i<hkeys.count(); i++)
+//    {
+//      //QVector<QPoint> pts = m_hCurves.getPolygonAt(hkeys[i]);
+//      QList<Curve> c = m_hCurves.getCurvesAt(hkeys[i]);
+//      for (int j=0; j<c.count(); j++)
+//	{
+//	  QVector<QPoint> pts = c[j].pts;
+//	  int tag = c[j].tag;
+//	  int npts = pts.count();
+//	  cfile.write((char*)&hkeys[i], sizeof(int));
+//	  cfile.write((char*)&tag, sizeof(int));
+//	  cfile.write((char*)&npts, sizeof(int));
+//	  int *pt = new int [2*npts];
+//	  for(int j=0; j<npts; j++)
+//	    {
+//	      pt[2*j+0] = pts[j].x();
+//	      pt[2*j+1] = pts[j].y();
+//	    }
+//	  cfile.write((char*)pt, 2*npts*sizeof(int));
+//	  delete [] pt;
+//	}
+//    }
+//
+//  cfile.close();
+//  QMessageBox::information(0, "", QString("Curves saved to %1").arg(curvesfile));
+}
+
+void
+ImageWidget::loadCurves(QFile *cfile, CurveGroup *cg)
+{
+  int ncurves;
+  cfile->read((char*)&ncurves, sizeof(int));
+  for(int i=0; i<ncurves; i++)
+    {
+      int key, npts, tag, thickness;
+      bool closed;
+      cfile->read((char*)&key, sizeof(int));
+      cfile->read((char*)&tag, sizeof(int));
+      cfile->read((char*)&thickness, sizeof(int));
+      cfile->read((char*)&closed, sizeof(bool));
+      cfile->read((char*)&npts, sizeof(int));
+      int *pt = new int [2*npts];
+      cfile->read((char*)pt, 2*npts*sizeof(int));
+      cg->setPolygonAt(key, pt, npts, tag); 
+      delete [] pt;
+    }
 }
 
 void
@@ -2777,49 +2856,53 @@ ImageWidget::loadCurves(QString curvesfile)
   cfile.setFileName(curvesfile);
   cfile.open(QFile::ReadOnly);
 
-  int ncurves;
+  loadCurves(&cfile, &m_dCurves);
+  loadCurves(&cfile, &m_wCurves);
+  loadCurves(&cfile, &m_hCurves);
 
-  // D curves
-  cfile.read((char*)&ncurves, sizeof(int));
-  for(int i=0; i<ncurves; i++)
-    {
-      int key, npts, tag;
-      cfile.read((char*)&key, sizeof(int));
-      cfile.read((char*)&tag, sizeof(int));
-      cfile.read((char*)&npts, sizeof(int));
-      int *pt = new int [2*npts];
-      cfile.read((char*)pt, 2*npts*sizeof(int));
-      m_dCurves.setPolygonAt(key, pt, npts, tag); 
-      delete [] pt;
-    }
-  
-  // W curves
-  cfile.read((char*)&ncurves, sizeof(int));
-  for(int i=0; i<ncurves; i++)
-    {
-      int key, npts, tag;
-      cfile.read((char*)&key, sizeof(int));
-      cfile.read((char*)&tag, sizeof(int));
-      cfile.read((char*)&npts, sizeof(int));
-      int *pt = new int [2*npts];
-      cfile.read((char*)pt, 2*npts*sizeof(int));
-      m_wCurves.setPolygonAt(key, pt, npts, tag); 
-      delete [] pt;
-    }
-
-  // H curves
-  cfile.read((char*)&ncurves, sizeof(int));
-  for(int i=0; i<ncurves; i++)
-    {
-      int key, npts, tag;
-      cfile.read((char*)&key, sizeof(int));
-      cfile.read((char*)&tag, sizeof(int));
-      cfile.read((char*)&npts, sizeof(int));
-      int *pt = new int [2*npts];
-      cfile.read((char*)pt, 2*npts*sizeof(int));
-      m_hCurves.setPolygonAt(key, pt, npts, tag); 
-      delete [] pt;
-    }
+//  int ncurves;
+//
+//  // D curves
+//  cfile.read((char*)&ncurves, sizeof(int));
+//  for(int i=0; i<ncurves; i++)
+//    {
+//      int key, npts, tag;
+//      cfile.read((char*)&key, sizeof(int));
+//      cfile.read((char*)&tag, sizeof(int));
+//      cfile.read((char*)&npts, sizeof(int));
+//      int *pt = new int [2*npts];
+//      cfile.read((char*)pt, 2*npts*sizeof(int));
+//      m_dCurves.setPolygonAt(key, pt, npts, tag); 
+//      delete [] pt;
+//    }
+//  
+//  // W curves
+//  cfile.read((char*)&ncurves, sizeof(int));
+//  for(int i=0; i<ncurves; i++)
+//    {
+//      int key, npts, tag;
+//      cfile.read((char*)&key, sizeof(int));
+//      cfile.read((char*)&tag, sizeof(int));
+//      cfile.read((char*)&npts, sizeof(int));
+//      int *pt = new int [2*npts];
+//      cfile.read((char*)pt, 2*npts*sizeof(int));
+//      m_wCurves.setPolygonAt(key, pt, npts, tag); 
+//      delete [] pt;
+//    }
+//
+//  // H curves
+//  cfile.read((char*)&ncurves, sizeof(int));
+//  for(int i=0; i<ncurves; i++)
+//    {
+//      int key, npts, tag;
+//      cfile.read((char*)&key, sizeof(int));
+//      cfile.read((char*)&tag, sizeof(int));
+//      cfile.read((char*)&npts, sizeof(int));
+//      int *pt = new int [2*npts];
+//      cfile.read((char*)pt, 2*npts*sizeof(int));
+//      m_hCurves.setPolygonAt(key, pt, npts, tag); 
+//      delete [] pt;
+//    }
 
   cfile.close();
 

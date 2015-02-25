@@ -207,6 +207,9 @@ class ImageWidget : public QWidget
   void applyMorphCurveLimits(uchar*);
   void saveCurves();
   void loadCurves();
+
+  void saveCurves(QFile*, CurveGroup*);
+  void loadCurves(QFile*, CurveGroup*);
 };
 
 

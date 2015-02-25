@@ -1,20 +1,30 @@
 #include "curvegroup.h"
 #include "morphcurve.h"
+#include "global.h"
 
 Curve::Curve()
 {
   tag = 0;
+  thickness = 1;
+  closed = true;
+  selected = false;
   pts.clear();
 }
 Curve::~Curve()
 {
   tag = 0;
+  thickness = 1;
+  closed = true;
+  selected = false;
   pts.clear();
 }
 Curve&
 Curve::operator=(const Curve& c)
 {
   tag = c.tag;
+  thickness = c.thickness;
+  closed = c.closed;
+  selected = c.selected;
   pts = c.pts;
   return *this;
 }
@@ -30,10 +40,23 @@ CurveGroup::~CurveGroup()
 }
 
 void
+CurveGroup::clearMorphedCurves()
+{
+  QList<Curve*> mc = m_mcg.values();
+  for(int i=0; i<mc.count(); i++)
+    delete mc[i];
+  m_mcg.clear();
+}
+
+void
 CurveGroup::reset()
 {
+  QList<Curve*> c = m_cg.values();
+  for(int i=0; i<c.count(); i++)
+    delete c[i];
   m_cg.clear();
-  m_mcg.clear();
+  
+  clearMorphedCurves();
 }
 
 QList<int>
@@ -45,69 +68,144 @@ CurveGroup::polygonLevels()
 void
 CurveGroup::resetPolygonAt(int key)
 {
+  QList<Curve*> c = m_cg.values(key);
+  for(int i=0; i<c.count(); i++)
+    delete c[i];
   m_cg.remove(key);
-  m_mcg.clear();
+  
+  clearMorphedCurves();
+}
+
+bool
+CurveGroup::selectPolygon(int key, int v0, int v1)
+{
+  if (!m_cg.contains(key))
+    return false;
+  
+  QList<Curve*> curves = m_cg.values(key);
+
+  QPoint cen = QPoint(v0, v1);
+  for(int ic=0; ic<curves.count(); ic++)
+    {
+      QVector<QPoint> c = curves[ic]->pts;
+      int npts = c.count();
+      for(int i=0; i<npts; i++)
+	{
+	  int ml = (c[i] - cen).manhattanLength();
+	  if (ml <= 5)
+	    {
+	      curves[ic]->selected = !curves[ic]->selected;
+
+	      // set others to false
+	      for(int oc=0; oc<ic; oc++)
+		curves[oc]->selected = false;
+	      for(int oc=ic+1; oc<curves.count(); oc++)
+		curves[oc]->selected = false;
+
+	      return true;
+	    }
+	}
+    }
+
+  return false;
 }
 
 void
-CurveGroup::flipPolygonAt(int key)
+CurveGroup::setClosed(int key, bool closed)
 {
-//  if (!m_cg.contains(key))
-//    return;
-//  
-//  QVector<QPoint> c = m_cg.value(key);
-//  int npts = c.count();
-//  for(int i=0; i<npts/2; i++)
-//    {
-//      QPoint v = c[i];
-//      c[i] = c[npts-1-i];
-//      c[npts-1-i] = v;
-//    }
-//
-//  m_cg.insert(key, c);
-//
-//  if (m_mcg.count() > 0)
-//    morphCurves();
-//  else
-//    QMessageBox::information(0, "", "Flipped curve");
+  if (!m_cg.contains(key))
+    return;
+  
+  QList<Curve*> curves = m_cg.values(key);
+  for(int ic=0; ic<curves.count(); ic++)
+    if (curves[ic]->selected)
+      {
+	curves[ic]->closed = closed;
+	return;
+      }
+}
+
+void
+CurveGroup::setThickness(int key, int t)
+{
+  if (!m_cg.contains(key))
+    return;
+  
+  QList<Curve*> curves = m_cg.values(key);
+  for(int ic=0; ic<curves.count(); ic++)
+    if (curves[ic]->selected)
+      {
+	curves[ic]->thickness = t;
+	return;
+      }
+}
+
+void
+CurveGroup::flipSelectedPolygon(int key)
+{
+  if (!m_cg.contains(key))
+    return;
+  
+  QList<Curve*> curves = m_cg.values(key);
+  for(int ic=0; ic<curves.count(); ic++)
+    {
+      if (curves[ic]->selected)
+	{
+	  QVector<QPoint> c = curves[ic]->pts;
+	  int npts = curves[ic]->pts.count();
+	  for(int i=0; i<npts/2; i++)
+	    {
+	      QPoint v = curves[ic]->pts[i];
+	      curves[ic]->pts[i] = curves[ic]->pts[npts-1-i];
+	      curves[ic]->pts[npts-1-i] = v;
+	    }
+	}
+    }
+
+  if (m_mcg.count() > 0)
+    morphCurves();
+  else
+    QMessageBox::information(0, "", "Flipped curve");
 }
 
 void
 CurveGroup::newCurve(int key, int tag)
 {
-  Curve c;
-  c.tag = tag;
+  Curve *c = new Curve();
+  c->tag = tag;
   m_cg.insert(key, c);
 }
 
 void
 CurveGroup::addPoint(int key, int v0, int v1)
 {
-  Curve c = m_cg.value(key);
-  c.pts << QPoint(v0, v1);
-  m_cg.replace(key, c);
+  if (!m_cg.contains(key))
+    {
+      Curve *c = new Curve();
+      c->tag = Global::tag();
+      m_cg.insert(key, c);
+    }
+    
+  Curve *c = m_cg.value(key);
+  c->pts << QPoint(v0, v1);
   
-  //QVector<QPoint> c = m_cg.value(key);
-  //c << QPoint(v0, v1);
-  //m_cg.insert(key, c);
-
-  m_mcg.clear();
+  clearMorphedCurves();
 }
 
 QVector<QPoint>
 CurveGroup::getPolygonAt(int key)
 {
   if (m_cg.contains(key))
-    return m_cg.value(key).pts; // return most recent
+    return m_cg.value(key)->pts; // return most recent
       
   if (m_mcg.contains(key))
-    return m_mcg.value(key).pts; // return most recent
+    return m_mcg.value(key)->pts; // return most recent
 
   QVector<QPoint> p;
   return p;
 }
 
-QList<Curve>
+QList<Curve*>
 CurveGroup::getCurvesAt(int key)
 {
   if (m_cg.contains(key))
@@ -116,7 +214,7 @@ CurveGroup::getCurvesAt(int key)
   if (m_mcg.contains(key))
     return m_mcg.values(key);
 
-  QList<Curve> c;
+  QList<Curve*> c;
   return c;
 }
 
@@ -127,9 +225,9 @@ CurveGroup::setPolygonAt(int key, int *pts, int npts, int tag)
   for(int i=0; i<npts; i++)
     cp << QPoint(pts[2*i+0], pts[2*i+1]);
 
-  Curve c;
-  c.tag = tag;
-  c.pts = cp;
+  Curve *c = new Curve();
+  c->tag = tag;
+  c->pts = cp;
 
   m_cg.insert(key, c);
 }
@@ -137,9 +235,9 @@ CurveGroup::setPolygonAt(int key, int *pts, int npts, int tag)
 void
 CurveGroup::setPolygonAt(int key, QVector<QPoint> pts, int tag)
 {
-  Curve c;
-  c.tag = tag;
-  c.pts = pts;
+  Curve *c = new Curve();
+  c->tag = tag;
+  c->pts = pts;
 
   m_cg.insert(key, c);
 }
@@ -152,14 +250,13 @@ CurveGroup::morphCurves()
   QMap<int, QVector<QPoint> > cg;
   QList<int> cgkeys = m_cg.keys();
   for(int i=0; i<cgkeys.count(); i++)
-    cg.insert(cgkeys[i], m_cg.value(cgkeys[i]).pts);
+    cg.insert(cgkeys[i], m_cg.value(cgkeys[i])->pts);
 
   MorphCurve mc;
-  //mc.setPaths(m_cg);
   mc.setPaths(cg);
 
   QList<Perimeter> all_perimeters = mc.getMorphedPaths();
-  m_mcg.clear();
+  clearMorphedCurves();
 
   for (int i=0; i<all_perimeters.count(); i++)
     {
@@ -169,9 +266,9 @@ CurveGroup::morphCurves()
       for (int j=0; j<p.length; j++)
 	a << QPoint(p.x[j],p.y[j]);
 
-      Curve c;
-      c.tag = 1;
-      c.pts = a;
+      Curve *c = new Curve();
+      c->tag = 1;
+      c->pts = a;
 
       m_mcg.insert(p.z, c);
     }
@@ -188,18 +285,12 @@ CurveGroup::smooth(int key, int v0, int v1, int rad)
       return;
     }
 
-  QList<Curve> curve = m_cg.values(key);
-  m_cg.remove(key);
+  QList<Curve*> curve = m_cg.values(key);
   for(int ic=0; ic<curve.count(); ic++)
     {
-      QVector<QPoint> w = smooth(curve[ic].pts, v0, v1, rad);
-      curve[ic].pts = w; // replace pts with the smooth version
-      m_cg.insert(key, curve[ic]);
+      QVector<QPoint> w = smooth(curve[ic]->pts, v0, v1, rad, curve[ic]->closed);
+      curve[ic]->pts = w; // replace pts with the smooth version
     }
-
-//  QVector<QPoint> w = smooth(m_cg.value(key), v0, v1, rad);
-//  // replace the existing polyline
-//  m_cg.insert(key, w);
 }
 
 void
@@ -213,12 +304,10 @@ CurveGroup::push(int key, int v0, int v1, int rad)
 
   QPoint cen = QPoint(v0, v1);
 
-  QList<Curve> curve = m_cg.values(key);
-  m_cg.remove(key);
+  QList<Curve*> curve = m_cg.values(key);
   for(int ic=0; ic<curve.count(); ic++)
     {
-      //QVector<QPoint> c = m_cg.value(key);
-      QVector<QPoint> c = curve[ic].pts;
+      QVector<QPoint> c = curve[ic]->pts;
       QVector<QPoint> newc;
       newc = c;
       int npts = c.count();
@@ -247,19 +336,15 @@ CurveGroup::push(int key, int v0, int v1, int rad)
 	}
 
       QVector<QPoint> w;
-      w = subsample(newc, 1.2);
+      w = subsample(newc, 1.2, curve[ic]->closed);
 
-      curve[ic].pts = w;
-      m_cg.insert(key, curve[ic]);
-
-      // replace the existing polyline
-      //m_cg.insert(key, w);
+      curve[ic]->pts = w;
     }
 
 }
 
 QVector<QPoint>
-CurveGroup::smooth(QVector<QPoint> c, int v0, int v1, int rad)
+CurveGroup::smooth(QVector<QPoint> c, int v0, int v1, int rad, bool closed)
 {
   QPoint cen = QPoint(v0, v1);
   QVector<QPoint> newc;
@@ -284,13 +369,13 @@ CurveGroup::smooth(QVector<QPoint> c, int v0, int v1, int rad)
 	}
     }
   QVector<QPoint> w;
-  w = subsample(newc, 1.2);
+  w = subsample(newc, 1.2, closed);
 
   return w;
 }
 
 QVector<QPoint>
-CurveGroup::subsample(QVector<QPoint> cp, float delta)
+CurveGroup::subsample(QVector<QPoint> cp, float delta, bool closed)
 {
   // find total path length  
   int xcount = cp.count(); 
@@ -300,10 +385,13 @@ CurveGroup::subsample(QVector<QPoint> cp, float delta)
       QPoint v = cp[i]-cp[i-1];
       plen += qSqrt(QPoint::dotProduct(v,v));
     }
-  // because curve is closed
-  QPoint v = cp[0]-cp[xcount-1];
-  plen += qSqrt(QPoint::dotProduct(v,v));
-  
+
+  if (closed) // for closed curve
+    {
+      QPoint v = cp[0]-cp[xcount-1];
+      plen += qSqrt(QPoint::dotProduct(v,v));
+    }
+
   int npcount = plen/delta;
   delta = plen/npcount;
 
@@ -313,7 +401,9 @@ CurveGroup::subsample(QVector<QPoint> cp, float delta)
   double clen = 0;
   double pclen = 0;
   int j = c.count();
-  for (int i=1; i<xcount+1; i++)
+  int iend = xcount;
+  if (closed) iend = xcount+1;
+  for (int i=1; i<iend; i++)
     {
       QPoint a, b;
       if (i < xcount)

@@ -749,6 +749,45 @@ ImageWidget::drawCurves(QPainter *p)
 }
 
 void
+ImageWidget::drawMorphedCurves(QPainter *p)
+{  
+  QList<Curve> curves;
+  if (m_sliceType == DSlice)
+    curves = m_dCurves.getMorphedCurvesAt(m_currSlice);
+  else if (m_sliceType == WSlice)
+    curves = m_wCurves.getMorphedCurvesAt(m_currSlice);
+  else
+    curves = m_hCurves.getMorphedCurvesAt(m_currSlice);
+
+  QPoint move = QPoint(m_simgX, m_simgY);
+  float sx = (float)m_simgWidth/(float)m_imgWidth;
+  for(int l=0; l<curves.count(); l++)
+    {
+      int tag = curves[l].tag;
+      uchar r = Global::tagColors()[4*tag+0];
+      uchar g = Global::tagColors()[4*tag+1];
+      uchar b = Global::tagColors()[4*tag+2];
+
+
+      QVector<QPoint> pts = curves[l].pts;
+      for(int i=0; i<pts.count(); i++)
+	pts[i] = pts[i]*sx + move;
+
+      if (curves[l].closed)
+	{
+	  p->setPen(QPen(QColor(r,g,b), 1));
+	  p->setBrush(QColor(r*0.5, g*0.5, b*0.5, 128));
+	  p->drawPolygon(pts);
+	}
+      else
+	{
+	  p->setPen(QPen(QColor(r,g,b), curves[l].thickness));
+	  p->drawPolyline(pts);
+	}
+    }
+}
+
+void
 ImageWidget::paintEvent(QPaintEvent *event)
 {
   QPainter p(this);
@@ -771,6 +810,7 @@ ImageWidget::paintEvent(QPaintEvent *event)
   drawRubberBand(&p);
 
   drawCurves(&p);
+  drawMorphedCurves(&p);
 
   drawLivewire(&p);
 
@@ -1203,17 +1243,17 @@ ImageWidget::keyPressEvent(QKeyEvent *event)
 	    {
 	      if (m_sliceType == DSlice)
 		{
-		  m_dCurves.resetPolygonAt(m_currSlice, m_pickHeight, m_pickWidth);
+		  m_dCurves.removePolygonAt(m_currSlice, m_pickHeight, m_pickWidth);
 		  emit polygonLevels(m_dCurves.polygonLevels());
 		}
 	      else if (m_sliceType == WSlice)
 		{
-		  m_wCurves.resetPolygonAt(m_currSlice, m_pickHeight, m_pickDepth);
+		  m_wCurves.removePolygonAt(m_currSlice, m_pickHeight, m_pickDepth);
 		  emit polygonLevels(m_wCurves.polygonLevels());
 		}
 	      else
 		{
-		  m_hCurves.resetPolygonAt(m_currSlice, m_pickWidth,  m_pickDepth);
+		  m_hCurves.removePolygonAt(m_currSlice, m_pickWidth,  m_pickDepth);
 		  emit polygonLevels(m_hCurves.polygonLevels());
 		}
 
@@ -2264,29 +2304,77 @@ ImageWidget::getSliceLimits(int &size1, int &size2,
 void
 ImageWidget::applyMorphCurveLimits(uchar *maskData)
 {
-  QList<Curve*> curves;
-  if (m_sliceType == DSlice)
-    curves = m_dCurves.getCurvesAt(m_currSlice);
-  else if (m_sliceType == WSlice)
-    curves = m_wCurves.getCurvesAt(m_currSlice);
-  else
-    curves = m_hCurves.getCurvesAt(m_currSlice);
-
-  if (curves.count() == 0)
+  if (!m_curveMode)
     return;
 
   QImage pimg= QImage(m_imgWidth, m_imgHeight, QImage::Format_RGB32);
   pimg.fill(0);
   QPainter p(&pimg);
-
-  p.setPen(QPen(Qt::white, 1));
   p.setBrush(Qt::white); 
-  for(int l=0; l<curves.count(); l++)
-    {
-      int tag = curves[l]->tag;
-      if (tag == Global::tag())
-	p.drawPolygon(curves[l]->pts);
-    }
+	
+  {
+    QList<Curve*> curves;
+    if (m_sliceType == DSlice)
+      curves = m_dCurves.getCurvesAt(m_currSlice);
+    else if (m_sliceType == WSlice)
+      curves = m_wCurves.getCurvesAt(m_currSlice);
+    else
+      curves = m_hCurves.getCurvesAt(m_currSlice);
+    
+    if (curves.count() > 0)
+      {
+	for(int l=0; l<curves.count(); l++)
+	  {
+	    int tag = curves[l]->tag;
+	    if (tag == Global::tag())
+	      {
+		if (curves[l]->closed)
+		  {
+		    p.setPen(QPen(Qt::white, 1));
+		    p.drawPolygon(curves[l]->pts);
+		  }
+		else
+		  {
+		    p.setPen(QPen(Qt::white, curves[l]->thickness));
+		    p.drawPolyline(curves[l]->pts);
+		  }
+	      }
+	  }
+      }
+  }
+
+  {
+    QList<Curve> curves;
+    if (m_sliceType == DSlice)
+      curves = m_dCurves.getMorphedCurvesAt(m_currSlice);
+    else if (m_sliceType == WSlice)
+      curves = m_wCurves.getMorphedCurvesAt(m_currSlice);
+    else
+      curves = m_hCurves.getMorphedCurvesAt(m_currSlice);
+
+    if (curves.count() > 0)
+      {
+	p.setPen(QPen(Qt::white, 1));
+	p.setBrush(Qt::white); 
+	for(int l=0; l<curves.count(); l++)
+	  {
+	    int tag = curves[l].tag;
+	    if (tag == Global::tag())
+	      {
+		if (curves[l].closed)
+		  {
+		    p.setPen(QPen(Qt::white, 1));
+		    p.drawPolygon(curves[l].pts);
+		  }
+		else
+		  {
+		    p.setPen(QPen(Qt::white, curves[l].thickness));
+		    p.drawPolyline(curves[l].pts);
+		  }
+	      }
+	  }
+      }
+  }
 
   uchar *bits = pimg.bits();
   for(int i=0; i<m_imgWidth*m_imgHeight; i++)

@@ -29,7 +29,7 @@ class CurveGroup
   ~CurveGroup();
 
   void reset();
-  void resetPolygonAt(int, int, int);
+  void removePolygonAt(int, int, int);
   void morphCurves();
 
   void newCurve(int);
@@ -39,6 +39,7 @@ class CurveGroup
 
   QVector<QPoint> getPolygonAt(int);
   QList<Curve*> getCurvesAt(int);
+  QList<Curve> getMorphedCurvesAt(int);
 
   void setPolygonAt(int, int*, int, int, int, bool);  
 
@@ -56,7 +57,7 @@ class CurveGroup
 
  private :
   QMultiMap<int, Curve*> m_cg;
-  QMultiMap<int, Curve*> m_mcg;
+  QList< QMap<int, Curve> > m_mcg;
 
   QVector<QPoint> subsample(QVector<QPoint>, float, bool);
   QVector<QPoint> smooth(QVector<QPoint>, int, int, int, bool);
@@ -64,6 +65,7 @@ class CurveGroup
   void alignAllCurves(QMap<int, QVector<QPoint> >&);
   void clearMorphedCurves();
   int getActiveCurve(int, int, int);
+  int getActiveMorphedCurve(int, int, int);
 };
 
 #endif

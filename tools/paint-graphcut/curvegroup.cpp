@@ -42,9 +42,6 @@ CurveGroup::~CurveGroup()
 void
 CurveGroup::clearMorphedCurves()
 {
-  QList<Curve*> mc = m_mcg.values();
-  for(int i=0; i<mc.count(); i++)
-    delete mc[i];
   m_mcg.clear();
 }
 
@@ -56,7 +53,7 @@ CurveGroup::reset()
     delete c[i];
   m_cg.clear();
   
-  clearMorphedCurves();
+  m_mcg.clear();
 }
 
 QList<int>
@@ -66,20 +63,24 @@ CurveGroup::polygonLevels()
 }
 
 void
-CurveGroup::resetPolygonAt(int key, int v0, int v1)
+CurveGroup::removePolygonAt(int key, int v0, int v1)
 {
   int ic = getActiveCurve(key, v0, v1);
-  if (ic < 0)
-    return;
+  if (ic >= 0)
+    {
+      QList<Curve*> curves = m_cg.values(key);
+      delete curves[ic];
+      curves.removeAt(ic);
+      m_cg.remove(key);
+      for(int j=0; j<curves.count(); j++)
+	m_cg.insert(key, curves[j]);
+    }
 
-  QList<Curve*> curves = m_cg.values(key);
-  delete curves[ic];
-  curves.removeAt(ic);
-  m_cg.remove(key);
-  for(int j=0; j<curves.count(); j++)
-    m_cg.insert(key, curves[j]);
-  
-  clearMorphedCurves();
+  // remove related morphed curve
+  int mc = getActiveMorphedCurve(key, v0, v1);
+  if (mc < 0)
+    return;
+  m_mcg.removeAt(mc);
 }
 
 bool
@@ -154,9 +155,9 @@ CurveGroup::flipPolygon(int key, int v0, int v1)
       curves[ic]->pts[i] = curves[ic]->pts[npts-1-i];
       curves[ic]->pts[npts-1-i] = v;
     }
-  if (m_mcg.count() > 0)
-    morphCurves();
-  else
+//  if (m_mcg.count() > 0)
+//    morphCurves();
+//  else
     QMessageBox::information(0, "", "Flipped curve");
 }
 
@@ -181,8 +182,11 @@ CurveGroup::addPoint(int key, int v0, int v1)
     
   Curve *c = m_cg.value(key);
   c->pts << QPoint(v0, v1);
-  
-  clearMorphedCurves();
+    
+  // remove related morphed curves
+  int mc = getActiveMorphedCurve(key, c->pts[0].x(), c->pts[0].y());
+  if (mc >= 0)
+    m_mcg.removeAt(mc);
 }
 
 int
@@ -207,6 +211,28 @@ CurveGroup::getActiveCurve(int key, int v0, int v1)
   return -1;
 }
 
+int
+CurveGroup::getActiveMorphedCurve(int key, int v0, int v1)
+{
+  for(int m=0; m<m_mcg.count(); m++)
+    {
+      if (m_mcg[m].contains(key))
+	{
+	  Curve c = m_mcg[m].value(key);
+	  QPoint cen = QPoint(v0, v1);
+	  int npts = c.pts.count();
+	  for(int i=npts-1; i>=0; i--)
+	    {
+	      QPoint v = c.pts[i] - cen;
+	      if (v.manhattanLength() < 5)
+		return m;
+	    }
+	}
+    }
+  
+  return -1;
+}
+
 void
 CurveGroup::removePoint(int key, int v0, int v1)
 {
@@ -225,6 +251,13 @@ CurveGroup::removePoint(int key, int v0, int v1)
 	  curves[ic]->pts.remove(i, curves[ic]->pts.count()-i);
 	  if (curves[ic]->pts.count() == 0)
 	    {
+	      // remove related morphed curves
+	      int mc = getActiveMorphedCurve(key,
+					     curves[ic]->pts[0].x(),
+					     curves[ic]->pts[0].y());
+	      if (mc >= 0)
+		m_mcg.removeAt(mc);
+  
 	      delete curves[ic];
 	      curves.removeAt(ic);
 	      m_cg.remove(key);
@@ -234,8 +267,6 @@ CurveGroup::removePoint(int key, int v0, int v1)
 	  return;
 	}
     }
-  
-  clearMorphedCurves();
 }
 
 QVector<QPoint>
@@ -244,8 +275,14 @@ CurveGroup::getPolygonAt(int key)
   if (m_cg.contains(key))
     return m_cg.value(key)->pts; // return most recent
       
-  if (m_mcg.contains(key))
-    return m_mcg.value(key)->pts; // return most recent
+//  if (m_mcg.count() > 0)
+//    {
+//      for(int i=0, i<m_mcg.count(); i++)
+//	{
+//	  if (m_mcg[i].contains(key))
+//	    return m_mcg[i].value(key)->pts; // return most recent
+//	}
+//    }
 
   QVector<QPoint> p;
   return p;
@@ -256,11 +293,27 @@ CurveGroup::getCurvesAt(int key)
 {
   if (m_cg.contains(key))
     return m_cg.values(key);
-      
-  if (m_mcg.contains(key))
-    return m_mcg.values(key);
 
   QList<Curve*> c;
+  return c;
+      
+//  if (m_mcg.contains(key))
+//    return m_mcg.values(key);
+}
+
+QList<Curve>
+CurveGroup::getMorphedCurvesAt(int key)
+{      
+  QList<Curve> c;
+  if (m_mcg.count() > 0)
+    {
+      for(int i=0; i<m_mcg.count(); i++)
+	{
+	  if (m_mcg[i].contains(key))
+	    c << m_mcg[i].value(key);
+	}
+    }
+
   return c;
 }
 
@@ -332,13 +385,12 @@ CurveGroup::morphCurves()
 
   alignAllCurves(cg);
 
-
   MorphCurve mc;
   mc.setPaths(cg);
 
   QList<Perimeter> all_perimeters = mc.getMorphedPaths();
-  clearMorphedCurves();
 
+  QMap<int, Curve> morphedCurves;
   for (int i=0; i<all_perimeters.count(); i++)
     {
       QVector<QPoint> a;
@@ -347,13 +399,14 @@ CurveGroup::morphCurves()
       for (int j=0; j<p.length; j++)
 	a << QPoint(p.x[j],p.y[j]);
 
-      Curve *c = new Curve();
-      c->tag = 1;
-      c->pts = a;
-      c->tag = mtag;
+      Curve c;
+      c.tag = mtag;
+      c.pts = a;
 
-      m_mcg.insert(p.z, c);
+      morphedCurves.insert(p.z, c);
     }
+
+  m_mcg << morphedCurves;
 
   QMessageBox::information(0, "", "morphed intermediate curves");
 }

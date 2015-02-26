@@ -62,16 +62,22 @@ CurveGroup::reset()
 QList<int>
 CurveGroup::polygonLevels()
 {
-  return m_cg.keys();
+  return m_cg.uniqueKeys();
 }
 
 void
-CurveGroup::resetPolygonAt(int key)
+CurveGroup::resetPolygonAt(int key, int v0, int v1)
 {
-  QList<Curve*> c = m_cg.values(key);
-  for(int i=0; i<c.count(); i++)
-    delete c[i];
+  int ic = getActiveCurve(key, v0, v1);
+  if (ic < 0)
+    return;
+
+  QList<Curve*> curves = m_cg.values(key);
+  delete curves[ic];
+  curves.removeAt(ic);
   m_cg.remove(key);
+  for(int j=0; j<curves.count(); j++)
+    m_cg.insert(key, curves[j]);
   
   clearMorphedCurves();
 }
@@ -111,57 +117,43 @@ CurveGroup::selectPolygon(int key, int v0, int v1)
 }
 
 void
-CurveGroup::setClosed(int key, bool closed)
+CurveGroup::setClosed(int key, int v0, int v1, bool closed)
 {
-  if (!m_cg.contains(key))
+  int ic = getActiveCurve(key, v0, v1);
+  if (ic < 0)
     return;
-  
+
   QList<Curve*> curves = m_cg.values(key);
-  for(int ic=0; ic<curves.count(); ic++)
-    if (curves[ic]->selected)
-      {
-	curves[ic]->closed = closed;
-	return;
-      }
+  curves[ic]->closed = closed;
 }
 
 void
-CurveGroup::setThickness(int key, int t)
+CurveGroup::setThickness(int key, int v0, int v1, int t)
 {
-  if (!m_cg.contains(key))
+  int ic = getActiveCurve(key, v0, v1);
+  if (ic < 0)
     return;
-  
+
   QList<Curve*> curves = m_cg.values(key);
-  for(int ic=0; ic<curves.count(); ic++)
-    if (curves[ic]->selected)
-      {
-	curves[ic]->thickness = t;
-	return;
-      }
+  curves[ic]->thickness = t;
 }
 
 void
-CurveGroup::flipSelectedPolygon(int key)
+CurveGroup::flipPolygon(int key, int v0, int v1)
 {
-  if (!m_cg.contains(key))
+  int ic = getActiveCurve(key, v0, v1);
+  if (ic < 0)
     return;
-  
+
   QList<Curve*> curves = m_cg.values(key);
-  for(int ic=0; ic<curves.count(); ic++)
+  QVector<QPoint> c = curves[ic]->pts;
+  int npts = curves[ic]->pts.count();
+  for(int i=0; i<npts/2; i++)
     {
-      if (curves[ic]->selected)
-	{
-	  QVector<QPoint> c = curves[ic]->pts;
-	  int npts = curves[ic]->pts.count();
-	  for(int i=0; i<npts/2; i++)
-	    {
-	      QPoint v = curves[ic]->pts[i];
-	      curves[ic]->pts[i] = curves[ic]->pts[npts-1-i];
-	      curves[ic]->pts[npts-1-i] = v;
-	    }
-	}
+      QPoint v = curves[ic]->pts[i];
+      curves[ic]->pts[i] = curves[ic]->pts[npts-1-i];
+      curves[ic]->pts[npts-1-i] = v;
     }
-
   if (m_mcg.count() > 0)
     morphCurves();
   else
@@ -169,10 +161,11 @@ CurveGroup::flipSelectedPolygon(int key)
 }
 
 void
-CurveGroup::newCurve(int key, int tag)
+CurveGroup::newCurve(int key)
 {
   Curve *c = new Curve();
-  c->tag = tag;
+  c->tag = Global::tag();
+  c->thickness = Global::smooth();
   m_cg.insert(key, c);
 }
 
@@ -188,6 +181,59 @@ CurveGroup::addPoint(int key, int v0, int v1)
     
   Curve *c = m_cg.value(key);
   c->pts << QPoint(v0, v1);
+  
+  clearMorphedCurves();
+}
+
+int
+CurveGroup::getActiveCurve(int key, int v0, int v1)
+{
+  if (!m_cg.contains(key))
+    return -1;
+
+  QList<Curve*> curves = m_cg.values(key);
+  for(int ic=0; ic<curves.count(); ic++)
+    {
+      QPoint cen = QPoint(v0, v1);
+      int npts = curves[ic]->pts.count();
+      for(int i=npts-1; i>=0; i--)
+	{
+	  QPoint v = curves[ic]->pts[i] - cen;
+	  if (v.manhattanLength() < 5)
+	    return ic;
+	}
+    }
+  
+  return -1;
+}
+
+void
+CurveGroup::removePoint(int key, int v0, int v1)
+{
+  int ic = getActiveCurve(key, v0, v1);
+  if (ic < 0)
+    return;
+
+  QList<Curve*> curves = m_cg.values(key);
+  QPoint cen = QPoint(v0, v1);
+  int npts = curves[ic]->pts.count();
+  for(int i=npts-1; i>=0; i--)
+    {
+      QPoint v = curves[ic]->pts[i] - cen;
+      if (v.manhattanLength() < 3)
+	{
+	  curves[ic]->pts.remove(i, curves[ic]->pts.count()-i);
+	  if (curves[ic]->pts.count() == 0)
+	    {
+	      delete curves[ic];
+	      curves.removeAt(ic);
+	      m_cg.remove(key);
+	      for(int j=0; j<curves.count(); j++)
+		m_cg.insert(key, curves[j]);
+	    }
+	  return;
+	}
+    }
   
   clearMorphedCurves();
 }
@@ -219,7 +265,8 @@ CurveGroup::getCurvesAt(int key)
 }
 
 void
-CurveGroup::setPolygonAt(int key, int *pts, int npts, int tag)
+CurveGroup::setPolygonAt(int key, int *pts, int npts,
+			 int tag, int thickness, bool closed)
 {
   QVector<QPoint> cp;
   for(int i=0; i<npts; i++)
@@ -227,16 +274,19 @@ CurveGroup::setPolygonAt(int key, int *pts, int npts, int tag)
 
   Curve *c = new Curve();
   c->tag = tag;
+  c->thickness = thickness;
+  c->closed = closed;
   c->pts = cp;
 
   m_cg.insert(key, c);
 }
 
 void
-CurveGroup::setPolygonAt(int key, QVector<QPoint> pts, int tag)
+CurveGroup::setPolygonAt(int key, QVector<QPoint> pts)
 {
   Curve *c = new Curve();
-  c->tag = tag;
+  c->tag = Global::tag();
+  c->thickness = Global::smooth();
   c->pts = pts;
 
   m_cg.insert(key, c);
@@ -245,12 +295,43 @@ CurveGroup::setPolygonAt(int key, QVector<QPoint> pts, int tag)
 void
 CurveGroup::morphCurves()
 {
-  alignAllCurves();
-
   QMap<int, QVector<QPoint> > cg;
-  QList<int> cgkeys = m_cg.keys();
+  QList<int> cgkeys = m_cg.uniqueKeys();
+  int first = -1;
+  int mtag = 1;
+  //QList<int> thick;
   for(int i=0; i<cgkeys.count(); i++)
-    cg.insert(cgkeys[i], m_cg.value(cgkeys[i])->pts);
+    {
+      int sel = -1;
+      QList<Curve*> curves = m_cg.values(cgkeys[i]);
+      for(int j=0; j<curves.count(); j++)
+	{
+	  if (curves[j]->selected)
+	    {
+	      mtag = curves[j]->tag;
+	      sel = j;
+	      break;
+	    }
+	}
+
+      if (sel >= 0)
+	{
+	  cg.insert(cgkeys[i], curves[sel]->pts);
+	  //thick << curves[cgkeys[i]]->thickness;
+	  if (first == -1)
+	    first = i;
+	}
+      else if (first > 0 && i > first)
+	break;
+    }
+  if (cg.count() <= 1)
+    {
+      QMessageBox::information(0, "", "Not enough curves selected to morph");
+      return;
+    }
+
+  alignAllCurves(cg);
+
 
   MorphCurve mc;
   mc.setPaths(cg);
@@ -269,6 +350,7 @@ CurveGroup::morphCurves()
       Curve *c = new Curve();
       c->tag = 1;
       c->pts = a;
+      c->tag = mtag;
 
       m_mcg.insert(p.z, c);
     }
@@ -351,7 +433,7 @@ CurveGroup::smooth(QVector<QPoint> c, int v0, int v1, int rad, bool closed)
   newc = c;
   int npts = c.count();
   int sz = 5;
-  for(int i=0; i<npts; i++)
+  for(int i=1; i<npts-1; i++)
     {
       QPoint v = c[i] - cen;
       if (v.manhattanLength() <= rad)
@@ -360,8 +442,13 @@ CurveGroup::smooth(QVector<QPoint> c, int v0, int v1, int rad, bool closed)
 	  for(int j=-sz; j<=sz; j++)
 	    {
 	      int idx = i+j;
-	      if (idx < 0) idx = npts + idx;
-	      else if (idx > npts-1) idx = idx - npts;
+	      if (closed)
+		{
+		  if (idx < 0) idx = npts + idx;
+		  else if (idx > npts-1) idx = idx - npts;
+		}
+	      else
+		idx = qBound(0, idx, npts-1);
 	      v += c[idx];
 	    }
 	  v /= (2*sz+1);
@@ -430,43 +517,51 @@ CurveGroup::subsample(QVector<QPoint> cp, float delta, bool closed)
       
       pclen = clen;
     }
+
+  if (!closed)
+    {
+      if ((c[c.count()-1]-cp[xcount-1]).manhattanLength() < delta)
+	c.removeLast();
+      c << cp[xcount-1];
+    }
+
   return c;
 }
 
 void
-CurveGroup::alignAllCurves()
+CurveGroup::alignAllCurves(QMap<int, QVector<QPoint> >&cg)
 {
-//  if (m_cg.count() == 0)
-//    return;
-//
-//  QList<int> keys = m_cg.keys();
-//  QPoint cp;
-//  cp = m_cg[keys[0]][0];
-//
-//  for(int i=1; i<keys.count(); i++)
-//    {
-//      QVector<QPoint> c = m_cg.value(keys[i]);
-//      int npts = c.count();
-//      int dst = 10000000;
-//      int j0 = 0;
-//      for(int j=0; j<npts; j++)
-//	{
-//	  int ml = (cp-c[j]).manhattanLength();
-//	  if (ml < dst)
-//	    {
-//	      dst = ml;
-//	      j0 = j;
-//	    }
-//	}
-//
-//      QVector<QPoint> nc;
-//      nc.resize(npts);
-//      int k = 0;
-//      for(int j=j0; j<npts; j++)
-//	nc[k++] = c[j];
-//      for(int j=0; j<j0; j++)
-//	nc[k++] = c[j];
-//
-//      m_cg.insert(keys[i], nc);
-//    }
+  if (cg.count() == 0)
+    return;
+
+  QList<int> keys = cg.keys();
+  QPoint cp;
+  cp = cg[keys[0]][0];
+
+  for(int i=1; i<keys.count(); i++)
+    {
+      QVector<QPoint> c = cg.value(keys[i]);
+      int npts = c.count();
+      int dst = 10000000;
+      int j0 = 0;
+      for(int j=0; j<npts; j++)
+	{
+	  int ml = (cp-c[j]).manhattanLength();
+	  if (ml < dst)
+	    {
+	      dst = ml;
+	      j0 = j;
+	    }
+	}
+
+      QVector<QPoint> nc;
+      nc.resize(npts);
+      int k = 0;
+      for(int j=j0; j<npts; j++)
+	nc[k++] = c[j];
+      for(int j=0; j<j0; j++)
+	nc[k++] = c[j];
+
+      cg.insert(keys[i], nc);
+    }
 }

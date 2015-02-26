@@ -29,19 +29,20 @@ class CurveGroup
   ~CurveGroup();
 
   void reset();
-  void resetPolygonAt(int);
+  void resetPolygonAt(int, int, int);
   void morphCurves();
 
-  void newCurve(int, int);
+  void newCurve(int);
 
   void addPoint(int, int, int);
+  void removePoint(int, int, int);
 
   QVector<QPoint> getPolygonAt(int);
   QList<Curve*> getCurvesAt(int);
 
-  void setPolygonAt(int, int*, int, int);  
+  void setPolygonAt(int, int*, int, int, int, bool);  
 
-  void setPolygonAt(int, QVector<QPoint>, int);  
+  void setPolygonAt(int, QVector<QPoint>);  
 
   void smooth(int, int, int, int);
   void push(int, int, int, int);
@@ -49,9 +50,9 @@ class CurveGroup
   QList<int> polygonLevels();
 
   bool selectPolygon(int, int, int);
-  void setClosed(int, bool);
-  void setThickness(int, int);
-  void flipSelectedPolygon(int);
+  void setClosed(int, int, int, bool);
+  void setThickness(int, int, int, int);
+  void flipPolygon(int, int, int);
 
  private :
   QMultiMap<int, Curve*> m_cg;
@@ -60,8 +61,9 @@ class CurveGroup
   QVector<QPoint> subsample(QVector<QPoint>, float, bool);
   QVector<QPoint> smooth(QVector<QPoint>, int, int, int, bool);
 
-  void alignAllCurves();
+  void alignAllCurves(QMap<int, QVector<QPoint> >&);
   void clearMorphedCurves();
+  int getActiveCurve(int, int, int);
 };
 
 #endif

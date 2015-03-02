@@ -149,8 +149,17 @@ void
 ImageWidget::setZoom(float z)
 {
   setMinimumSize(QSize(m_imgWidth, m_imgHeight));
-
-  m_zoom = qMax(0.01f, z);
+  if (z < 0)
+    {
+      QWidget *prt = (QWidget*)parent();
+      int frmHeight = prt->rect().height()-50;
+      int frmWidth = prt->rect().width()-50;
+      float zn = qMin((float)frmWidth/m_imgWidth,
+		      (float)frmHeight/m_imgHeight);
+      m_zoom = qMax(0.01f, zn);
+    }
+  else
+    m_zoom = qMax(0.01f, z);
 
   resizeImage();
   update();
@@ -729,7 +738,8 @@ ImageWidget::drawCurves(QPainter *p)
 	    }
 	  else
 	    {
-	      p->setPen(QPen(QColor(250,250,250,250), curves[l]->thickness+4));
+	      p->setPen(QPen(QColor(250,250,250,250), curves[l]->thickness+4,
+			     Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
 	      p->drawPolyline(pts);
 	    }
 	}
@@ -742,7 +752,8 @@ ImageWidget::drawCurves(QPainter *p)
 	}
       else
 	{
-	  p->setPen(QPen(QColor(r,g,b), curves[l]->thickness));
+	  p->setPen(QPen(QColor(r,g,b), curves[l]->thickness,
+			 Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
 	  p->drawPolyline(pts);
 	}
     }
@@ -781,7 +792,8 @@ ImageWidget::drawMorphedCurves(QPainter *p)
 	}
       else
 	{
-	  p->setPen(QPen(QColor(r,g,b), curves[l].thickness));
+	  p->setPen(QPen(QColor(r,g,b), curves[l].thickness,
+			 Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
 	  p->drawPolyline(pts);
 	}
     }
@@ -1134,17 +1146,17 @@ ImageWidget::keyPressEvent(QKeyEvent *event)
 	}
     }
 
-  if (m_curveMode)
+  if (m_curveMode || m_livewireMode)
     {
       if (event->key() == Qt::Key_Space)
 	{
 	  bool selected;
 	  if (m_sliceType == DSlice)
-	    selected = m_dCurves.selectPolygon(m_currSlice, m_pickHeight, m_pickWidth);
+	    selected = m_dCurves.selectPolygon(m_currSlice, m_pickHeight, m_pickWidth, shiftModifier);
 	  else if (m_sliceType == WSlice)
-	    selected = m_wCurves.selectPolygon(m_currSlice, m_pickHeight, m_pickDepth);
+	    selected = m_wCurves.selectPolygon(m_currSlice, m_pickHeight, m_pickDepth, shiftModifier);
 	  else
-	    selected = m_hCurves.selectPolygon(m_currSlice, m_pickWidth,  m_pickDepth);
+	    selected = m_hCurves.selectPolygon(m_currSlice, m_pickWidth,  m_pickDepth, shiftModifier);
 
 	  if (selected)
 	    {
@@ -1162,6 +1174,20 @@ ImageWidget::keyPressEvent(QKeyEvent *event)
 	    m_wCurves.setClosed(m_currSlice, m_pickHeight, m_pickDepth, closed);
 	  else
 	    m_hCurves.setClosed(m_currSlice, m_pickWidth,  m_pickDepth, closed);
+
+	  update();
+	  return;
+	}
+
+      if (event->key() == Qt::Key_T)
+	{
+	  bool closed = shiftModifier;
+	  if (m_sliceType == DSlice)
+	    m_dCurves.setThickness(m_currSlice, m_pickHeight, m_pickWidth, Global::smooth());
+	  if (m_sliceType == WSlice)
+	    m_wCurves.setThickness(m_currSlice, m_pickHeight, m_pickDepth, Global::smooth());
+	  else
+	    m_hCurves.setThickness(m_currSlice, m_pickWidth,  m_pickDepth, Global::smooth());
 
 	  update();
 	  return;
@@ -1270,6 +1296,11 @@ ImageWidget::keyPressEvent(QKeyEvent *event)
       if (event->key() == Qt::Key_0)
 	{
 	  setZoom(1);
+	  return;
+	}
+      else if (event->key() == Qt::Key_9)
+	{
+	  setZoom(-1);
 	  return;
 	}
       else if (event->key() == Qt::Key_Plus ||
@@ -1425,6 +1456,7 @@ ImageWidget::showHelp()
   help += "<b>Alt+S</b>   Save image<br><br>";
 
   help += "<b>Ctrl+0</b>  Set image to original size.<br>";
+  help += "<b>Ctrl+9</b>  Set image to fit available space.<br>";
   help += "<b>Ctrl++</b>  Zoom in - make image bigger.<br>";
   help += "<b>Ctrl+-</b>  Zoom out - make image smaller.<br><br>";
 
@@ -1578,7 +1610,14 @@ ImageWidget::mousePressEvent(QMouseEvent *event)
   m_pickPoint = false;
 
 
-  if (m_livewireMode)
+  bool shiftModifier = event->modifiers() & Qt::ShiftModifier;
+  bool ctrlModifier = event->modifiers() & Qt::ControlModifier;
+  bool altModifier = event->modifiers() & Qt::AltModifier;
+
+  if (m_livewireMode &&
+      !shiftModifier && 
+      !ctrlModifier &&
+      !altModifier)
     {
       if (!validPickPoint(xpos, ypos))
 	return;
@@ -1598,11 +1637,6 @@ ImageWidget::mousePressEvent(QMouseEvent *event)
       return;
     }
   
-
-  bool shiftModifier = event->modifiers() & Qt::ShiftModifier;
-  bool ctrlModifier = event->modifiers() & Qt::ControlModifier;
-  bool altModifier = event->modifiers() & Qt::AltModifier;
-
   if (m_button == Qt::LeftButton)
     {
       if (validPickPoint(xpos, ypos))
@@ -1618,7 +1652,7 @@ ImageWidget::mousePressEvent(QMouseEvent *event)
 	    }
 	  // carry on only if Alt key is not pressed
 
-	  if (m_curveMode)
+	  if (m_curveMode || m_livewireMode)
 	    {
 	      if (shiftModifier)
 		{
@@ -1856,8 +1890,15 @@ ImageWidget::mouseMoveEvent(QMouseEvent *event)
   float xpos = pp.x();
 
   m_cursorPos = pp;
+  
+  bool shiftModifier = event->modifiers() & Qt::ShiftModifier;
+  bool ctrlModifier = event->modifiers() & Qt::ControlModifier;
+  bool altModifier = event->modifiers() & Qt::AltModifier;
 
-  if (m_livewireMode)
+  if (m_livewireMode &&
+      !shiftModifier && 
+      !ctrlModifier &&
+      !altModifier)
     {
       if (!validPickPoint(xpos, ypos))
 	return;
@@ -1876,10 +1917,6 @@ ImageWidget::mouseMoveEvent(QMouseEvent *event)
       update();
       return;
     }
-  
-  bool shiftModifier = event->modifiers() & Qt::ShiftModifier;
-  bool ctrlModifier = event->modifiers() & Qt::ControlModifier;
-  bool altModifier = event->modifiers() & Qt::AltModifier;
 
   if (event->buttons() == Qt::NoButton)
     {
@@ -1904,7 +1941,7 @@ ImageWidget::mouseMoveEvent(QMouseEvent *event)
 	  m_lastPickWidth = m_pickWidth;
 	  m_lastPickHeight= m_pickHeight;
 
-	  if (m_curveMode)
+	  if (m_curveMode || m_livewireMode)
 	    {
 	      if (shiftModifier)
 		{
@@ -2335,7 +2372,8 @@ ImageWidget::applyMorphCurveLimits(uchar *maskData)
 		  }
 		else
 		  {
-		    p.setPen(QPen(Qt::white, curves[l]->thickness));
+		    p.setPen(QPen(Qt::white, curves[l]->thickness,
+				  Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
 		    p.drawPolyline(curves[l]->pts);
 		  }
 	      }
@@ -2368,7 +2406,8 @@ ImageWidget::applyMorphCurveLimits(uchar *maskData)
 		  }
 		else
 		  {
-		    p.setPen(QPen(Qt::white, curves[l].thickness));
+		    p.setPen(QPen(Qt::white, curves[l].thickness,
+				  Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
 		    p.drawPolyline(curves[l].pts);
 		  }
 	      }

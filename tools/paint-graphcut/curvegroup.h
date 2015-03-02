@@ -50,7 +50,7 @@ class CurveGroup
 
   QList<int> polygonLevels();
 
-  bool selectPolygon(int, int, int);
+  bool selectPolygon(int, int, int, bool);
   void setClosed(int, int, int, bool);
   void setThickness(int, int, int, int);
   void flipPolygon(int, int, int);

@@ -104,7 +104,7 @@ class MorphCurve
 
   void setPaths(QStringList);
   void setPaths(QMap< int, QVector<QPoint> >);
-  QList<Perimeter> getMorphedPaths();
+  QList<Perimeter> getMorphedPaths(bool);
 
   enum EditOperation
     {
@@ -121,16 +121,16 @@ class MorphCurve
   
   double getAndSetAveragePointInterdistance(Perimeter&);
   QVector<double> recalculate(QVector<double>, int, double);
-  Perimeter subsample(Perimeter, double);
+  Perimeter subsample(Perimeter, double, bool);
   double** findEditMatrix(Perimeter, Perimeter, int, double, double**);
   int findStartingPoint(Perimeter, Perimeter);
   MinDist findMinDist(Perimeter, Perimeter, double, int, int, int, MinDist);
-  double** findMinimumEditDistance(Perimeter&, Perimeter&, double, int);
+  double** findMinimumEditDistance(Perimeter&, Perimeter&, double, bool);
   QVector<int> resizeAndFillEditionsCopy(QVector<int>, int, int);
-  Editions findOptimalEditSequence(Perimeter, Perimeter, double, int);
+  Editions findOptimalEditSequence(Perimeter, Perimeter, double, bool);
   Perimeter getMorphedPerimeter(Perimeter, Perimeter, QVector<int>, int, double);
-  Result* getMorphedPerimeters(Perimeter, Perimeter, int, double, int);
-  Result* getAllPerimeters(QList<Perimeter>, int, int, double, int);
+  Result* getMorphedPerimeters(Perimeter, Perimeter, int, double, bool);
+  Result* getAllPerimeters(QList<Perimeter>, int, int, double, bool);
 
 //  int** resizeFacesArray(int**, int, int);
 //  Skin* makeSkinByOrthogonalMatch(Result*, double, double, int);

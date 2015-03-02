@@ -260,7 +260,7 @@ MorphCurve::~MorphCurve()
 }
 
 QList<Perimeter>
-MorphCurve::getMorphedPaths()
+MorphCurve::getMorphedPaths(bool is_closed_curve)
 {
   // define the number of curves to interpolate between
   // any given z-consecutive pair of perimeters:
@@ -268,7 +268,7 @@ MorphCurve::getMorphedPaths()
   
   double user_delta = 0.0; // 0 means "use average point interdistance as delta"
   m_result = getAllPerimeters(m_perimeters, m_perimeters.count(),
-			       n_interpolates, user_delta, 1);
+			       n_interpolates, user_delta, is_closed_curve);
   return m_result->p;  
 }
 
@@ -425,7 +425,7 @@ MorphCurve::recalculate(QVector<double> w0, int length, double sum_)
 // The perimeter order points are shifted to counter-clock wise order if necessary.
 // The same Perimeter is returned.
 Perimeter
-MorphCurve::subsample(Perimeter p, double delta_orig)
+MorphCurve::subsample(Perimeter p, double delta_orig, bool is_closed_curve)
 {
   if (p.subsampled)
     return p;
@@ -437,8 +437,9 @@ MorphCurve::subsample(Perimeter p, double delta_orig)
     plen += sqrt((p.x[i] - p.x[i-1])*(p.x[i] - p.x[i-1]) +
 		 (p.y[i] - p.y[i-1])*(p.y[i] - p.y[i-1]));
   // because curve is closed
-  plen += sqrt((p.x[0] - p.x[xcount-1])*(p.x[0] - p.x[xcount-1]) +
-	       (p.y[0] - p.y[xcount-1])*(p.y[0] - p.y[xcount-1]));
+  if (is_closed_curve)
+    plen += sqrt((p.x[0] - p.x[xcount-1])*(p.x[0] - p.x[xcount-1]) +
+		 (p.y[0] - p.y[xcount-1])*(p.y[0] - p.y[xcount-1]));
   
   int npcount = plen/delta_orig;
   double delta = plen/npcount;
@@ -451,7 +452,10 @@ MorphCurve::subsample(Perimeter p, double delta_orig)
   double clen = 0;
   double pclen = 0;
   int j = x.count();
-  for (int i=1; i<xcount+1; i++)
+  int iend = xcount;
+  if (is_closed_curve)
+    iend = xcount+1;
+  for (int i=1; i<iend; i++)
     {
       int xa, xb, ya, yb;
       if (i < xcount)
@@ -488,27 +492,8 @@ MorphCurve::subsample(Perimeter p, double delta_orig)
   int newxcount = x.count();
   for (int i=1; i<newxcount; i++)
     {
-      int xa, xb, ya, yb;
-      if (i < newxcount)
-	{
-	  xb = x[i];
-	  yb = y[i];
-	  xa = x[i-1];
-	  ya = y[i-1];
-	}
-      else
-	{
-	  xb = x[0];
-	  yb = y[0];
-	  xa = x[newxcount-1];
-	  ya = y[newxcount-1];
-	}
-
-      double dx = xb-xa;
-      double dy = yb-ya;
-
-      vx << dx;
-      vy << dy;
+      vx << x[i] - x[i-1];
+      vy << y[i] - y[i-1];
     }
 
   Perimeter pnew;
@@ -810,7 +795,7 @@ MorphCurve::findMinDist(Perimeter p1, Perimeter p2,
  * Returns the matrix as returned by findEditMatrix().
  */
 double**
-MorphCurve::findMinimumEditDistance(Perimeter& p1, Perimeter& p2, double delta, int is_closed_curve)
+MorphCurve::findMinimumEditDistance(Perimeter& p1, Perimeter& p2, double delta, bool is_closed_curve)
 {
 
   // iterators
@@ -835,7 +820,7 @@ MorphCurve::findMinimumEditDistance(Perimeter& p1, Perimeter& p2, double delta, 
     matrix1[0][j] = j * delta;
 
   // return the matrix made matching point 0 of both curves, if the curve is open.
-  if (is_closed_curve == 0)
+  if (!is_closed_curve)
     return findEditMatrix(p1, p2, 0, delta, matrix1);
 
   // else try every point in the second curve to see which one is the best possible match.
@@ -951,7 +936,7 @@ MorphCurve::resizeAndFillEditionsCopy(QVector<int> editions, int ed_length, int 
  * */
 Editions
 MorphCurve::findOptimalEditSequence(Perimeter p1, Perimeter p2,
-				    double delta, int is_closed_curve)
+				    double delta, bool is_closed_curve)
 {
   // fetch the optimal matrix:
   double** matrix = findMinimumEditDistance(p1, p2, delta, is_closed_curve);
@@ -1213,7 +1198,7 @@ MorphCurve::getMorphedPerimeter(Perimeter p1, Perimeter p2,
  * */
 Result*
 MorphCurve::getMorphedPerimeters(Perimeter p1_, Perimeter p2_,
-				 int n_morphed_perimeters, double delta, int is_closed_curve)
+				 int n_morphed_perimeters, double delta, bool is_closed_curve)
 {
   //check preconditions:
   if (n_morphed_perimeters < -1 ||
@@ -1224,8 +1209,8 @@ MorphCurve::getMorphedPerimeters(Perimeter p1_, Perimeter p2_,
       return NULL;
     }
 
-  Perimeter p1 = subsample(p1_, delta);
-  Perimeter p2 = subsample(p2_, delta);
+  Perimeter p1 = subsample(p1_, delta, is_closed_curve);
+  Perimeter p2 = subsample(p2_, delta, is_closed_curve);
 
   Editions ed = findOptimalEditSequence(p1, p2, delta, is_closed_curve);
   QVector<int> editions = ed.editions;
@@ -1270,7 +1255,7 @@ MorphCurve::getMorphedPerimeters(Perimeter p1_, Perimeter p2_,
 Result*
 MorphCurve::getAllPerimeters(QList<Perimeter> perimeters,
 			     int n_perimeters, int n_morphed_perimeters,
-			     double delta_, int is_closed_curve)
+			     double delta_, bool is_closed_curve)
 {
   //check preconditions:
   if (n_morphed_perimeters < -1 || n_perimeters <=0)
@@ -1301,7 +1286,7 @@ MorphCurve::getAllPerimeters(QList<Perimeter> perimeters,
   
   // subsample perimeters so that point interdistance becomes delta
   for (i=0; i<n_perimeters; i++)
-    perimeters[i] = subsample(perimeters[i], delta);
+    perimeters[i] = subsample(perimeters[i], delta, is_closed_curve);
 
 
   // allocate space for all_perimeters storage
@@ -1321,7 +1306,7 @@ MorphCurve::getAllPerimeters(QList<Perimeter> perimeters,
       qApp->processEvents();
 
       // get every morphed curve
-      int nmp = qAbs(perimeters[i-1].z - perimeters[i].z);      
+      int nmp = qMax(0, (int)qAbs(perimeters[i-1].z - perimeters[i].z)-1);
       if (n_morphed_perimeters > 0)
 	nmp = n_morphed_perimeters;
       Result* morphed_perimeters = getMorphedPerimeters(perimeters[i-1], perimeters[i],

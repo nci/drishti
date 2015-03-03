@@ -403,6 +403,10 @@ DrishtiPaint::on_tag_valueChanged(int t)
 void DrishtiPaint::on_boxSize_valueChanged(int d) { Global::setBoxSize(d); }
 void DrishtiPaint::on_lambda_valueChanged(int d) { Global::setLambda(d); }
 void DrishtiPaint::on_smooth_valueChanged(int d) { Global::setSmooth(d); }
+void DrishtiPaint::on_thickness_valueChanged(int d) { Global::setThickness(d); }
+void DrishtiPaint::on_livewire_clicked() { m_imageWidget->setLivewire(ui.livewire->isChecked()); }
+void DrishtiPaint::on_curve_clicked() { m_imageWidget->setCurve(ui.curve->isChecked()); }
+void DrishtiPaint::on_closed_clicked() { Global::setClosed(ui.closed->isChecked()); }
 void
 DrishtiPaint::on_copyprev_clicked()
 {

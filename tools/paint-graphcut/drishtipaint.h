@@ -39,6 +39,10 @@ class DrishtiPaint : public QMainWindow
   void on_preverode_valueChanged(int);
   void on_smooth_valueChanged(int);
   void on_copyprev_clicked();
+  void on_thickness_valueChanged(int);
+  void on_livewire_clicked();
+  void on_curve_clicked();
+  void on_closed_clicked();
   void changeTransferFunctionDisplay(int, QList<bool>);
   void checkStateChanged(int, int, bool);
   void updateComposite();

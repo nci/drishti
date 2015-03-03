@@ -54,6 +54,12 @@ class Global
   static int smooth();
   static void setSmooth(int);
 
+  static int thickness();
+  static void setThickness(int);
+
+  static bool closed();
+  static void setClosed(bool);
+
   static int boxSize();
   static void setBoxSize(int);
 
@@ -81,6 +87,8 @@ class Global
   static bool m_copyPrev;
   static int m_prevErode;
   static int m_smooth;
+  static int m_thickness;
+  static bool m_closed;
 };
 
 #endif

@@ -68,6 +68,8 @@ class ImageWidget : public QWidget
   void showHelp();
   void smooth(int, bool);
   void keyPressEvent(QKeyEvent*);
+  void setLivewire(bool);
+  void setCurve(bool);
 
  signals :
   void getSlice(int);

@@ -178,3 +178,10 @@ int Global::m_smooth = 1;
 int Global::smooth() { return m_smooth; }
 void Global::setSmooth(int d) { m_smooth = d; }
 
+int Global::m_thickness = 1;
+int Global::thickness() { return m_thickness; }
+void Global::setThickness(int d) { m_thickness = d; }
+
+bool Global::m_closed = true;
+bool Global::closed() { return m_closed; }
+void Global::setClosed(bool b) { m_closed = b; }

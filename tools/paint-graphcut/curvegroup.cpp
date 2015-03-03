@@ -48,6 +48,8 @@ CurveGroup::clearMorphedCurves()
 void
 CurveGroup::reset()
 {
+  m_moveCurve = -1;
+
   QList<Curve*> c = m_cg.values();
   for(int i=0; i<c.count(); i++)
     delete c[i];
@@ -81,6 +83,64 @@ CurveGroup::removePolygonAt(int key, int v0, int v1)
   if (mc < 0)
     return;
   m_mcg.removeAt(mc);
+}
+
+float
+CurveGroup::pathLength(Curve *c)
+{
+  // find total path length  
+  int xcount = c->pts.count(); 
+  double plen = 0;
+  for (int i=1; i<xcount; i++)
+    {
+      QPoint v = c->pts[i]-c->pts[i-1];
+      plen += qSqrt(QPoint::dotProduct(v,v));
+    }
+  if (c->closed) // for closed curve
+    {
+      QPoint v = c->pts[0]-c->pts[xcount-1];
+      plen += qSqrt(QPoint::dotProduct(v,v));
+    }
+  return plen;
+}
+
+float
+CurveGroup::area(Curve *c)
+{
+  if (!c->closed)
+    return 0;
+
+  // find total path length  
+  int xcount = c->pts.count(); 
+  double area = 0;
+  for (int i=0; i<xcount; i++)
+    {
+      int j = (i+1)%xcount;
+      area += ((c->pts[j].x()-c->pts[i].x())*
+	       (c->pts[j].y()+c->pts[i].y()));
+    }
+  return qAbs(0.5*area);
+}
+
+void
+CurveGroup::showPolygonInfo(int key, int v0, int v1)
+{
+  int ic = getActiveCurve(key, v0, v1);
+  if (ic < 0)
+    return;
+
+  QList<Curve*> curves = m_cg.values(key);
+  QString str;
+  str += "Curve Information\n";
+  str += QString("Tag : %1\n").arg(curves[ic]->tag);
+  str += QString("Closed : %1\n").arg(curves[ic]->closed);
+  str += QString("Width : %1\n").arg(curves[ic]->thickness);
+  str += QString("Length : %1\n").arg(pathLength(curves[ic]));
+  if (curves[ic]->closed)
+    str += QString("Area : %1\n").arg(area(curves[ic]));
+
+  
+  QMessageBox::information(0, "Curve information", str);
 }
 
 bool
@@ -148,6 +208,17 @@ CurveGroup::setClosed(int key, int v0, int v1, bool closed)
 }
 
 void
+CurveGroup::setTag(int key, int v0, int v1, int t)
+{
+  int ic = getActiveCurve(key, v0, v1);
+  if (ic < 0)
+    return;
+
+  QList<Curve*> curves = m_cg.values(key);
+  curves[ic]->tag = t;
+}
+
+void
 CurveGroup::setThickness(int key, int v0, int v1, int t)
 {
   int ic = getActiveCurve(key, v0, v1);
@@ -181,11 +252,12 @@ CurveGroup::flipPolygon(int key, int v0, int v1)
 }
 
 void
-CurveGroup::newCurve(int key)
+CurveGroup::newCurve(int key, bool closed)
 {
   Curve *c = new Curve();
   c->tag = Global::tag();
-  c->thickness = Global::smooth();
+  c->thickness = Global::thickness();
+  c->closed = closed;
   m_cg.insert(key, c);
 }
 
@@ -196,6 +268,7 @@ CurveGroup::addPoint(int key, int v0, int v1)
     {
       Curve *c = new Curve();
       c->tag = Global::tag();
+      c->closed = Global::closed();
       m_cg.insert(key, c);
     }
     
@@ -209,7 +282,7 @@ CurveGroup::addPoint(int key, int v0, int v1)
 }
 
 int
-CurveGroup::getActiveCurve(int key, int v0, int v1)
+CurveGroup::getActiveCurve(int key, int v0, int v1, int mdst)
 {
   if (!m_cg.contains(key))
     return -1;
@@ -222,7 +295,7 @@ CurveGroup::getActiveCurve(int key, int v0, int v1)
       for(int i=npts-1; i>=0; i--)
 	{
 	  QPoint v = curves[ic]->pts[i] - cen;
-	  if (v.manhattanLength() < 5)
+	  if (v.manhattanLength() < mdst)
 	    return ic;
 	}
     }
@@ -354,11 +427,12 @@ CurveGroup::setPolygonAt(int key, int *pts, int npts,
 }
 
 void
-CurveGroup::setPolygonAt(int key, QVector<QPoint> pts)
+CurveGroup::setPolygonAt(int key, QVector<QPoint> pts, bool closed)
 {
   Curve *c = new Curve();
   c->tag = Global::tag();
-  c->thickness = Global::smooth();
+  c->thickness = Global::thickness();
+  c->closed = closed;
   c->pts = pts;
 
   m_cg.insert(key, c);
@@ -447,6 +521,58 @@ CurveGroup::morphCurves()
     }
   
   QMessageBox::information(0, "", "morphed intermediate curves");
+}
+
+void
+CurveGroup::copyCurve(int key, int v0, int v1)
+{
+  if (!m_cg.contains(key))
+    {
+      QMessageBox::information(0, "", QString("No curve to copy found at %1").arg(key));
+      return;
+    }
+
+  int ic = getActiveCurve(key, v0, v1);
+  if (ic >= 0)
+    {
+      QList<Curve*> curves = m_cg.values(key);
+      m_copyCurve = *curves[ic];
+    }
+}
+void
+CurveGroup::pasteCurve(int key)
+{
+  Curve *c = new Curve();
+  *c = m_copyCurve;
+  m_cg.insert(key, c);
+  QMessageBox::information(0, "", QString("%1 : %2").arg(key).arg(m_cg.values(key).count()));
+}
+
+
+void CurveGroup::resetMoveCurve() { m_moveCurve = -1; }
+void
+CurveGroup::setMoveCurve(int key, int v0, int v1)
+{
+  m_moveCurve = -1;
+  if (!m_cg.contains(key))
+    {
+      QMessageBox::information(0, "", QString("No curve to move found at %1").arg(key));
+      return;
+    }
+
+  int ic = getActiveCurve(key, v0, v1);
+  m_moveCurve = ic;
+}
+void
+CurveGroup::moveCurve(int key, int dv0, int dv1)
+{
+  if (m_moveCurve >= 0)
+    {
+      QList<Curve*> curves = m_cg.values(key);
+      int npts = curves[m_moveCurve]->pts.count();
+      for (int i=0; i<npts; i++)
+	curves[m_moveCurve]->pts[i] += QPoint(dv0, dv1);
+    }  
 }
 
 void

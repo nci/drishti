@@ -268,6 +268,7 @@ CurveGroup::addPoint(int key, int v0, int v1)
     {
       Curve *c = new Curve();
       c->tag = Global::tag();
+      c->thickness = Global::thickness();
       c->closed = Global::closed();
       m_cg.insert(key, c);
     }
@@ -282,7 +283,7 @@ CurveGroup::addPoint(int key, int v0, int v1)
 }
 
 int
-CurveGroup::getActiveCurve(int key, int v0, int v1, int mdst)
+CurveGroup::getActiveCurve(int key, int v0, int v1)
 {
   if (!m_cg.contains(key))
     return -1;
@@ -295,7 +296,7 @@ CurveGroup::getActiveCurve(int key, int v0, int v1, int mdst)
       for(int i=npts-1; i>=0; i--)
 	{
 	  QPoint v = curves[ic]->pts[i] - cen;
-	  if (v.manhattanLength() < mdst)
+	  if (v.manhattanLength() < 3)
 	    return ic;
 	}
     }
@@ -410,6 +411,15 @@ CurveGroup::getMorphedCurvesAt(int key)
 }
 
 void
+CurveGroup::setCurveAt(int key, Curve c)
+{
+  Curve *cnew = new Curve();
+  *cnew = c;
+
+  m_cg.insert(key, cnew);
+}
+
+void
 CurveGroup::setPolygonAt(int key, int *pts, int npts,
 			 int tag, int thickness, bool closed)
 {
@@ -437,6 +447,9 @@ CurveGroup::setPolygonAt(int key, QVector<QPoint> pts, bool closed)
 
   m_cg.insert(key, c);
 }
+
+QList< QMap<int, Curve> >* CurveGroup::getPointerToMorphedCurves() { return &m_mcg; };
+void CurveGroup::addMorphBlock(QMap<int, Curve> mb) { m_mcg << mb; }
 
 void
 CurveGroup::morphCurves()
@@ -589,7 +602,6 @@ CurveGroup::smooth(int key, int v0, int v1, int rad)
     {
       QList<Curve*> curves = m_cg.values(key);
       QVector<QPoint> w;
-      //w = subsample(curves[ic]->pts, 1.2, curves[ic]->closed);
       w = smooth(curves[ic]->pts, v0, v1, rad, curves[ic]->closed);
       curves[ic]->pts = w; // replace pts with the smooth version
     }
@@ -652,48 +664,24 @@ CurveGroup::smooth(QVector<QPoint> c, int v0, int v1, int rad, bool closed)
   QVector<QPoint> newc;
   newc = c;
   int npts = c.count();
-  int sz = 5;
+  int sz = rad;
 
-  QMultiMap<int, int> inRad;
-  for(int i=1; i<npts-1; i++)
-    {
-      QPoint v = c[i] - cen;
-      if (v.manhattanLength() <= rad)
-	inRad.insert(v.manhattanLength(), i);
-    }
-
-  QList<int> keys = inRad.keys();
-  for(int k=0; k<keys.count(); k++)
-    {
-      QList<int> ipts = inRad.values(keys[k]);
-      for(int p=0; p<ipts.count(); p++)
-	{
-	  int i = ipts[p];
-	  QPoint v = c[i];
-	  for(int j=-sz; j<=sz; j++)
-	    {
-	      int idx = i+j;
-	      if (closed)
-		{
-		  if (idx < 0) idx = npts + idx;
-		  else if (idx > npts-1) idx = idx - npts;
-		}
-	      else
-		idx = qBound(0, idx, npts-1);
-	      v += newc[idx];
-	    }
-	  v /= (2*sz+2);
-	  newc[i] = v;
-	}
-    }
-
+//  QMultiMap<int, int> inRad;
 //  for(int i=1; i<npts-1; i++)
 //    {
 //      QPoint v = c[i] - cen;
 //      if (v.manhattanLength() <= rad)
+//	inRad.insert(v.manhattanLength(), i);
+//    }
+//
+//  QList<int> keys = inRad.keys();
+//  for(int k=0; k<keys.count(); k++)
+//    {
+//      QList<int> ipts = inRad.values(keys[k]);
+//      for(int p=0; p<ipts.count(); p++)
 //	{
-//	  //v = QPoint(0,0);
-//	  v = c[i];
+//	  int i = ipts[p];
+//	  QPoint v = c[i];
 //	  for(int j=-sz; j<=sz; j++)
 //	    {
 //	      int idx = i+j;
@@ -704,12 +692,36 @@ CurveGroup::smooth(QVector<QPoint> c, int v0, int v1, int rad, bool closed)
 //		}
 //	      else
 //		idx = qBound(0, idx, npts-1);
-//	      v += c[idx];
+//	      v += newc[idx];
 //	    }
 //	  v /= (2*sz+2);
 //	  newc[i] = v;
 //	}
 //    }
+
+  for(int i=1; i<npts-1; i++)
+    {
+      QPoint v = c[i] - cen;
+      if (v.manhattanLength() <= rad)
+	{
+	  //v = QPoint(0,0);
+	  v = c[i];
+	  for(int j=-sz; j<=sz; j++)
+	    {
+	      int idx = i+j;
+	      if (closed)
+		{
+		  if (idx < 0) idx = npts + idx;
+		  else if (idx > npts-1) idx = idx - npts;
+		}
+	      else
+		idx = qBound(0, idx, npts-1);
+	      v += c[idx];
+	    }
+	  v /= (2*sz+2);
+	  newc[i] = v;
+	}
+    }
 
   QVector<QPoint> w;
   w = subsample(newc, 1.2, closed);

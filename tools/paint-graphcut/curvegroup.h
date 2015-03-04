@@ -41,9 +41,9 @@ class CurveGroup
   QList<Curve*> getCurvesAt(int);
   QList<Curve> getMorphedCurvesAt(int);
 
-  void setPolygonAt(int, int*, int, int, int, bool);  
-
-  void setPolygonAt(int, QVector<QPoint>, bool);  
+  void setPolygonAt(int, int*, int, int, int, bool);
+  void setPolygonAt(int, QVector<QPoint>, bool);
+  void setCurveAt(int, Curve);
 
   void smooth(int, int, int, int);
   void push(int, int, int, int);
@@ -64,6 +64,12 @@ class CurveGroup
   void copyCurve(int, int, int);
   void pasteCurve(int);
 
+  int getActiveCurve(int, int, int);
+  int getActiveMorphedCurve(int, int, int);
+
+  QList< QMap<int, Curve> >* getPointerToMorphedCurves();
+  void addMorphBlock(QMap<int, Curve>);
+
  private :
   QMultiMap<int, Curve*> m_cg;
   QList< QMap<int, Curve> > m_mcg;
@@ -76,8 +82,6 @@ class CurveGroup
 
   void alignAllCurves(QMap<int, QVector<QPoint> >&);
   void clearMorphedCurves();
-  int getActiveCurve(int, int, int, int mdst=5);
-  int getActiveMorphedCurve(int, int, int);
   float pathLength(Curve*);
   float area(Curve*);
 };

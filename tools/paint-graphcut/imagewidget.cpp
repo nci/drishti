@@ -1,5 +1,6 @@
 #include "imagewidget.h"
 #include "global.h"
+#include "staticfunctions.h"
 #include <math.h>
 #include "graphcut.h"
 
@@ -89,6 +90,7 @@ ImageWidget::ImageWidget(QWidget *parent, QStatusBar *sb) :
   m_rubberBandActive = false;
 
   m_applyRecursive = false;
+  m_extraPressed = false;
   m_cslc = 0;
   m_maxslc = 0;
   m_key = 0;
@@ -253,9 +255,6 @@ ImageWidget::setGridSize(int d, int w, int h)
 void
 ImageWidget::setSliceType(int st)
 {
-  m_livewireMode = false;
-  m_curveMode = false;
-
   m_sliceType = st;
   if (m_sliceType == DSlice)
     {
@@ -1147,11 +1146,20 @@ ImageWidget::keyPressEvent(QKeyEvent *event)
       else if (ctrlModifier && event->key() == Qt::Key_V)
 	{
 	  if (m_sliceType == DSlice)
-	    m_dCurves.pasteCurve(m_currSlice);
+	    {
+	      m_dCurves.pasteCurve(m_currSlice);
+	      emit polygonLevels(m_dCurves.polygonLevels());
+	    }
 	  else if (m_sliceType == WSlice)
-	    m_wCurves.pasteCurve(m_currSlice);
+	    {
+	      m_wCurves.pasteCurve(m_currSlice);
+	      emit polygonLevels(m_wCurves.polygonLevels());
+	    }
 	  else
-	    m_hCurves.pasteCurve(m_currSlice);
+	    {
+	      m_hCurves.pasteCurve(m_currSlice);
+	      emit polygonLevels(m_hCurves.polygonLevels());
+	    }
 	  
 	  update();
 	  return;
@@ -1169,8 +1177,7 @@ ImageWidget::keyPressEvent(QKeyEvent *event)
 	  return;
 	}      
 
-      if (event->key() == Qt::Key_Return ||
-	  event->key() == Qt::Key_Enter)
+      if (event->key() == Qt::Key_S)
 	{
 	  bool selected;
 	  if (m_sliceType == DSlice)
@@ -1214,16 +1221,50 @@ ImageWidget::keyPressEvent(QKeyEvent *event)
 
       if (event->key() == Qt::Key_T)
 	{
-	  bool closed = shiftModifier;
+	  int ic = -1;
 	  if (m_sliceType == DSlice)
-	    m_dCurves.setTag(m_currSlice, m_pickHeight, m_pickWidth, Global::tag());
-	  if (m_sliceType == WSlice)
-	    m_wCurves.setTag(m_currSlice, m_pickHeight, m_pickDepth, Global::tag());
+	    {
+	      ic = m_dCurves.getActiveCurve(m_currSlice, m_pickHeight, m_pickWidth);
+	      if (ic == -1)
+		ic = m_dCurves.getActiveMorphedCurve(m_currSlice, m_pickHeight, m_pickWidth);
+	    }
+	  else if (m_sliceType == WSlice)
+	    {
+	      ic = m_wCurves.getActiveCurve(m_currSlice, m_pickHeight, m_pickWidth);
+	      if (ic == -1)
+		ic = m_wCurves.getActiveMorphedCurve(m_currSlice, m_pickHeight, m_pickWidth);
+	    }
 	  else
-	    m_hCurves.setTag(m_currSlice, m_pickWidth,  m_pickDepth, Global::tag());
+	    {
+	      ic = m_hCurves.getActiveCurve(m_currSlice, m_pickHeight, m_pickWidth);
+	      if (ic == -1)
+		ic = m_hCurves.getActiveMorphedCurve(m_currSlice, m_pickHeight, m_pickWidth);
+	    }
 
-	  update();
-	  return;
+	  if (ic == -1)
+	    {
+	      if (!m_applyRecursive) m_extraPressed = false;
+
+	      if (shiftModifier) // apply paint for multiple slices
+		applyRecursive(event->key());
+	      
+	      if (ctrlModifier) // apply paint for non-selected areas
+		m_extraPressed = true;
+	      
+	      applyPaint(true); // keep existing tags while painting the curves
+	    }
+	  else
+	    {
+	      if (m_sliceType == DSlice)
+		m_dCurves.setTag(m_currSlice, m_pickHeight, m_pickWidth, Global::tag());
+	      else if (m_sliceType == WSlice)
+		m_wCurves.setTag(m_currSlice, m_pickHeight, m_pickDepth, Global::tag());
+	      else
+		m_hCurves.setTag(m_currSlice, m_pickWidth,  m_pickDepth, Global::tag());
+
+	      update();
+	      return;
+	    }
 	}
 
       if (event->key() == Qt::Key_W)
@@ -1231,7 +1272,7 @@ ImageWidget::keyPressEvent(QKeyEvent *event)
 	  bool closed = shiftModifier;
 	  if (m_sliceType == DSlice)
 	    m_dCurves.setThickness(m_currSlice, m_pickHeight, m_pickWidth, Global::thickness());
-	  if (m_sliceType == WSlice)
+	  else if (m_sliceType == WSlice)
 	    m_wCurves.setThickness(m_currSlice, m_pickHeight, m_pickDepth, Global::thickness());
 	  else
 	    m_hCurves.setThickness(m_currSlice, m_pickWidth,  m_pickDepth, Global::thickness());
@@ -1248,16 +1289,6 @@ ImageWidget::keyPressEvent(QKeyEvent *event)
 	    m_wCurves.newCurve(m_currSlice, Global::closed());
 	  else
 	    m_hCurves.newCurve(m_currSlice, Global::closed());
-	  return;
-	}
-      if (event->key() == Qt::Key_S)
-	{
-	  saveCurves();
-	  return;
-	}
-      if (event->key() == Qt::Key_L)
-	{
-	  loadCurves();
 	  return;
 	}
 
@@ -1423,19 +1454,32 @@ ImageWidget::keyPressEvent(QKeyEvent *event)
       if (shiftModifier) // apply graphcut for multiple slices
 	applyRecursive(event->key());
 
+      if (ctrlModifier) // apply paint for non-selected areas
+	m_extraPressed = true;
+
       applyGraphCut();
     }
   else if (event->key() == Qt::Key_P) // apply paint
     {
+      if (!m_applyRecursive) m_extraPressed = false;
+
       if (shiftModifier) // apply paint for multiple slices
 	applyRecursive(event->key());
 
-      applyPaint();
+      if (ctrlModifier) // apply paint for non-selected areas
+	m_extraPressed = true;
+
+      applyPaint(false);
     }
   else if (event->key() == Qt::Key_R) // reset slice tags to 0
     {
+      if (!m_applyRecursive) m_extraPressed = false;
+
       if (shiftModifier) // apply reset for multiple slices
 	applyRecursive(event->key());
+
+      if (ctrlModifier) // apply paint for non-selected areas
+	m_extraPressed = true;
 
       applyReset();
     }
@@ -1444,6 +1488,7 @@ ImageWidget::keyPressEvent(QKeyEvent *event)
       if (m_applyRecursive) // stop the recursive process
 	{
 	  m_applyRecursive = false;
+	  m_extraPressed = false;
 	  m_cslc = 0;
 	  m_maxslc = 0;
 	  m_key = 0;
@@ -1522,14 +1567,18 @@ ImageWidget::showHelp()
 
   help += "<br><h3>Following operations are performed only within selected box.</h3><br>";
 
-  help += "<b>t</b>  Tag regions using graphcut method with currently selected tag.<br>";
+  help += "<b>t</b>  Tag regions using graphcut method with currently selected tag.<br>When in Curve Mode paint regions bounded by the curves while not overwriting the existing tags in the region.";
   help += "<b>T</b>  Repeat tagging operation over multiple slices.  Press ESC to stop the repeat operation.<br><br>";
+  help += "<b>Ctrl+Shift t</b>  Select inverse region - i.e. the region not bounded by the curves.  Repeat paint operation over multiple slices.  Press ESC to stop the repeat operation.<br><br>";
 
-  help += "<b>p</b>  Paint regions.  In order to set voxel tag to 0, paint using Shift+Left mouse button<br>";
-  help += "<b>P</b>  Repeat paint operation over multiple slices.  Press ESC to stop the repeat operation.<br><br>";
+  help += "<b>p</b>  Paint regions.  In order to set voxel tag to 0, paint using Shift+Left mouse button<br>  When in Curve Mode, paint regions bounded by the curves overwriting the existing tags.";
+  help += "<b>Ctrl+p</b>  When in Curve Mode, paint regions *NOT* bounded by the curves - i.e paint the inverse region.";
+  help += "<b>P</b>  Repeat paint operation over multiple slices.  Press ESC to stop the repeat operation.<br>";
+  help += "<b>Ctrl+Shift p</b>  Select inverse region - i.e. the region not bounded by the curves.  Repeat paint operation over multiple slices.  Press ESC to stop the repeat operation.<br><br>";
 
-  help += "<b>r</b>  Reset voxel tag to 0 for selected region having current tag value.<br>";
-  help += "<b>R</b>  Repeat reset operation over multiple slices.  Press ESC to stop the repeat operation.<br><br>";
+  help += "<b>r</b>  Reset voxel tag to 0 only for selected region having current tag value.<br>";
+  help += "<b>R</b>  Repeat reset operation over multiple slices.  Press ESC to stop the repeat operation.<br>";
+  help += "<b>Ctrl+Shift r</b>  Reset voxel tag to 0 for selected region, no matter what the current tag value is. Repeat reset operation over multiple slices.  Press ESC to stop the repeat operation.<br><br>";
 
   help += "<b>d</b>  Dilate boundary of region tagged with current tag. Amount of dilation is decided by the Smoothness parameter.<br>";
   help += "<b>D</b>  Repeat dilation operation over multiple slices.  Press ESC to stop the repeat operation.<br>";
@@ -2517,7 +2566,7 @@ ImageWidget::applyMorphCurveLimits(uchar *maskData)
   uchar *bits = pimg.bits();
   for(int i=0; i<m_imgWidth*m_imgHeight; i++)
     if (bits[4*i+0] == 0)
-      maskData[i] = 255;
+      maskData[i] = 200;
 }
 
 void
@@ -2764,7 +2813,7 @@ ImageWidget::smooth(int thresh, bool smooth)
 }
 
 void
-ImageWidget::applyPaint()
+ImageWidget::applyPaint(bool keepTags)
 {
 //  for(int i=0; i<m_imgWidth*m_imgHeight; i++) // overwrite with usertags
 //    {
@@ -2796,12 +2845,30 @@ ImageWidget::applyPaint()
       memset(mask, 0, m_imgWidth*m_imgHeight);
       applyMorphCurveLimits(mask);
       // overwrite within bounding box with usertags
-      for(int i=imin; i<=imax; i++)
-	for(int j=jmin; j<=jmax; j++)
-	  {
-	    if (mask[i*m_imgWidth+j] == 0)
-	      m_tags[i*m_imgWidth+j] = Global::tag();
-	  }
+      int chkval = 0;
+      if (m_extraPressed) chkval = 200;
+
+      if (!keepTags)
+	{
+	  for(int i=imin; i<=imax; i++)
+	    for(int j=jmin; j<=jmax; j++)
+	      {
+		if (mask[i*m_imgWidth+j] == chkval)
+		  m_tags[i*m_imgWidth+j] = Global::tag();
+	      }
+	}
+      else
+	{
+	  for(int i=imin; i<=imax; i++)
+	    for(int j=jmin; j<=jmax; j++)
+	      {
+		if (m_tags[i*m_imgWidth+j] == 0)
+		  {
+		    if (mask[i*m_imgWidth+j] == chkval)
+		      m_tags[i*m_imgWidth+j] = Global::tag();
+		  }
+	      }
+	}
       delete [] mask;
     }
   else
@@ -2845,11 +2912,21 @@ ImageWidget::applyReset()
       int imin, imax, jmin, jmax;
       getSliceLimits(size1, size2, imin, imax, jmin, jmax);
 
-      // reset within bounding box
-      for(int i=imin; i<=imax; i++)
-	for(int j=jmin; j<=jmax; j++)
-	  if (m_tags[i*m_imgWidth+j] == Global::tag())
-	    m_tags[i*m_imgWidth+j] = 0;
+      if (m_extraPressed)
+	{
+	  // reset all tags within bounding box
+	  for(int i=imin; i<=imax; i++)
+	    for(int j=jmin; j<=jmax; j++)
+	      m_tags[i*m_imgWidth+j] = 0;
+	}
+      else
+	{
+	  // reset within bounding box
+	  for(int i=imin; i<=imax; i++)
+	    for(int j=jmin; j<=jmax; j++)
+	      if (m_tags[i*m_imgWidth+j] == Global::tag())
+		m_tags[i*m_imgWidth+j] = 0;
+	}
     }
      
   if (m_sliceType == DSlice)
@@ -2909,43 +2986,191 @@ ImageWidget::updateMaskImage()
 }
 
 void
+ImageWidget::saveCurveData(QFile *cfile, int key, Curve *c)
+{
+  char keyword[100];
+
+  memset(keyword, 0, 100);
+  sprintf(keyword, "curvestart\n");
+  cfile->write((char*)keyword, strlen(keyword));
+  
+  QVector<QPoint> pts = c->pts;
+  int tag = c->tag;
+  int thickness = c->thickness;
+  bool closed = c->closed;
+  int npts = pts.count();
+  memset(keyword, 0, 100);
+  sprintf(keyword, "key\n");
+  cfile->write((char*)keyword, strlen(keyword));
+  cfile->write((char*)&key, sizeof(int));
+  
+  memset(keyword, 0, 100);
+  sprintf(keyword, "tag\n");
+  cfile->write((char*)keyword, strlen(keyword));
+  cfile->write((char*)&tag, sizeof(int));
+  
+  memset(keyword, 0, 100);
+  sprintf(keyword, "thickness\n");
+  cfile->write((char*)keyword, strlen(keyword));
+  cfile->write((char*)&thickness, sizeof(int));
+  
+  memset(keyword, 0, 100);
+  sprintf(keyword, "closed\n");
+  cfile->write((char*)keyword, strlen(keyword));
+  cfile->write((char*)&closed, sizeof(bool));
+  
+  memset(keyword, 0, 100);
+  sprintf(keyword, "points\n");
+  cfile->write((char*)keyword, strlen(keyword));
+  cfile->write((char*)&npts, sizeof(int));
+  int *pt = new int [2*npts];
+  for(int j=0; j<npts; j++)
+    {
+      pt[2*j+0] = pts[j].x();
+      pt[2*j+1] = pts[j].y();
+    }
+  cfile->write((char*)pt, 2*npts*sizeof(int));
+  delete [] pt;
+  
+  memset(keyword, 0, 100);
+  sprintf(keyword, "curveend\n");
+  cfile->write((char*)keyword, strlen(keyword));
+}
+
+QPair<int, Curve>
+ImageWidget::loadCurveData(QFile *cfile)
+{
+  char keyword[100];
+
+  Curve c;
+  int key=0;
+  bool done = false;
+  while(!done)
+    {
+      cfile->readLine((char*)&keyword, 100);
+
+      int t;
+      bool b;
+      if (strcmp(keyword, "curveend\n") == 0)
+	done = true;
+      else if (strcmp(keyword, "key\n") == 0)
+	cfile->read((char*)&key, sizeof(int));
+      else if (strcmp(keyword, "tag\n") == 0)
+	{
+	  cfile->read((char*)&t, sizeof(int));
+	  c.tag = t;
+	}
+      else if (strcmp(keyword, "thickness\n") == 0)
+	{
+	  cfile->read((char*)&t, sizeof(int));
+	  c.thickness = t;
+	}
+      else if (strcmp(keyword, "closed\n") == 0)
+	{
+	  cfile->read((char*)&b, sizeof(bool));
+	  c.closed = b;
+	}
+      else if (strcmp(keyword, "points\n") == 0)
+	{
+	  int npts;
+	  int *pt;
+	  cfile->read((char*)&npts, sizeof(int));
+	  pt = new int[2*npts];
+	  cfile->read((char*)pt, 2*npts*sizeof(int));
+	  for(int ni=0; ni<npts; ni++)
+	    c.pts << QPoint(pt[2*ni+0], pt[2*ni+1]);
+	  delete [] pt;
+	}	      
+    }
+
+  return qMakePair(key, c);
+}
+
+void
+ImageWidget::saveMorphedCurves(QFile *cfile, CurveGroup *cg)
+{
+  char keyword[100];
+
+  memset(keyword, 0, 100);
+  sprintf(keyword, "morphcurvegroupstart\n");
+  cfile->write((char*)keyword, strlen(keyword));
+
+  QList< QMap<int, Curve> > *mcg = cg->getPointerToMorphedCurves();
+  int mcgcount = mcg->count();
+  if (mcgcount == 0)
+    {
+      memset(keyword, 0, 100);
+      sprintf(keyword, "morphcurvegroupend\n");
+      cfile->write((char*)keyword, strlen(keyword));
+      return;
+    }
+
+  for(int m=0; m<mcgcount; m++)
+    {
+      QList<int> keys = (*mcg)[m].keys();
+      int ncurves = keys.count();
+
+      memset(keyword, 0, 100);
+      sprintf(keyword, "morphblockstart\n");
+      cfile->write((char*)keyword, strlen(keyword));
+      
+      for(int i=0; i<ncurves; i++)
+	{
+	  Curve c = (*mcg)[m].value(keys[i]);
+	  saveCurveData(cfile, keys[i], &c);
+	} 
+
+      memset(keyword, 0, 100);
+      sprintf(keyword, "morphblockend\n");
+      cfile->write((char*)keyword, strlen(keyword));
+    }
+
+  memset(keyword, 0, 100);
+  sprintf(keyword, "morphcurvegroupend\n");
+  cfile->write((char*)keyword, strlen(keyword));
+}
+
+void
 ImageWidget::saveCurves(QFile *cfile, CurveGroup *cg)
 {
   QList<int> keys = cg->polygonLevels();
 
+  char keyword[100];
+
+  memset(keyword, 0, 100);
+  sprintf(keyword, "curvegroupstart\n");
+  cfile->write((char*)keyword, strlen(keyword));
+  
   int ncurves = 0;
   for(int i=0; i<keys.count(); i++)
     ncurves += cg->getCurvesAt(keys[i]).count();
 
-  cfile->write((char*)&ncurves, sizeof(int));
   if (ncurves <= 0)
-    return;
+    {
+      memset(keyword, 0, 100);
+      sprintf(keyword, "curvegroupend\n");
+      cfile->write((char*)keyword, strlen(keyword));  
+      memset(keyword, 0, 100);
+      sprintf(keyword, "morphcurvegroupstart\n");
+      cfile->write((char*)keyword, strlen(keyword));
+      memset(keyword, 0, 100);
+      sprintf(keyword, "morphcurvegroupend\n");
+      cfile->write((char*)keyword, strlen(keyword));
+      return;
+    }
 
   for(int i=0; i<keys.count(); i++)
     {
       QList<Curve*> c = cg->getCurvesAt(keys[i]);
       for (int j=0; j<c.count(); j++)
-	{
-	  QVector<QPoint> pts = c[j]->pts;
-	  int tag = c[j]->tag;
-	  int thickness = c[j]->thickness;
-	  bool closed = c[j]->closed;
-	  int npts = pts.count();
-	  cfile->write((char*)&keys[i], sizeof(int));
-	  cfile->write((char*)&tag, sizeof(int));
-	  cfile->write((char*)&thickness, sizeof(int));
-	  cfile->write((char*)&closed, sizeof(bool));
-	  cfile->write((char*)&npts, sizeof(int));
-	  int *pt = new int [2*npts];
-	  for(int j=0; j<npts; j++)
-	    {
-	      pt[2*j+0] = pts[j].x();
-	      pt[2*j+1] = pts[j].y();
-	    }
-	  cfile->write((char*)pt, 2*npts*sizeof(int));
-	  delete [] pt;
-	}
+	saveCurveData(cfile, keys[i], c[j]);
     } 
+  memset(keyword, 0, 100);
+  sprintf(keyword, "curvegroupend\n");
+  cfile->write((char*)keyword, strlen(keyword));  
+
+
+  saveMorphedCurves(cfile, cg);
 }
 
 void
@@ -2960,6 +3185,11 @@ ImageWidget::saveCurves()
 
   if (curvesfile.isEmpty())
     return;
+
+  if (!StaticFunctions::checkExtension(curvesfile, ".curve") &&
+      !StaticFunctions::checkExtension(curvesfile, ".curves"))
+    curvesfile += ".curves";
+  
 
   QFile cfile;
 
@@ -2976,21 +3206,61 @@ ImageWidget::saveCurves()
 void
 ImageWidget::loadCurves(QFile *cfile, CurveGroup *cg)
 {
-  int ncurves;
-  cfile->read((char*)&ncurves, sizeof(int));
-  for(int i=0; i<ncurves; i++)
+  char keyword[100];
+  cfile->readLine((char*)&keyword, 100);
+
+  if (strcmp(keyword, "curvegroupstart\n") != 0)
     {
-      int key, npts, tag, thickness;
-      bool closed;
-      cfile->read((char*)&key, sizeof(int));
-      cfile->read((char*)&tag, sizeof(int));
-      cfile->read((char*)&thickness, sizeof(int));
-      cfile->read((char*)&closed, sizeof(bool));
-      cfile->read((char*)&npts, sizeof(int));
-      int *pt = new int [2*npts];
-      cfile->read((char*)pt, 2*npts*sizeof(int));
-      cg->setPolygonAt(key, pt, npts, tag, thickness, closed); 
-      delete [] pt;
+      QMessageBox::information(0, "", QString("curvegroupstart not found!\n%1").arg(keyword));
+      return;
+    }
+
+  bool cgend = false;
+  while(!cgend)
+    {
+      cfile->readLine((char*)&keyword, 100);
+
+      if (strcmp(keyword, "curvegroupend\n") == 0)
+	cgend = true;      
+      else if (strcmp(keyword, "curvestart\n") == 0)
+	{
+	  QPair<int, Curve> cpair = loadCurveData(cfile);
+	  cg->setCurveAt(cpair.first, cpair.second);
+	}
+    }
+
+  loadMorphedCurves(cfile, cg);
+}
+
+void
+ImageWidget::loadMorphedCurves(QFile *cfile, CurveGroup *cg)
+{
+  char keyword[100];
+  cfile->readLine((char*)&keyword, 100);
+
+  if (strcmp(keyword, "morphcurvegroupstart\n") != 0)
+    {
+      QMessageBox::information(0, "", QString("morphcurvegroupstart not found!").arg(keyword));
+      return;
+    }
+
+  QMap<int, Curve> mcg;
+  bool cgend = false;
+  while(!cgend)
+    {
+      cfile->readLine((char*)&keyword, 100);
+
+      if (strcmp(keyword, "morphcurvegroupend\n") == 0)
+	cgend = true;      
+      else if (strcmp(keyword, "morphblockstart\n") == 0)
+	mcg.clear();
+      else if (strcmp(keyword, "morphblockend\n") == 0)
+	cg->addMorphBlock(mcg);
+      else if (strcmp(keyword, "curvestart\n") == 0)
+	{
+	  QPair<int, Curve> cpair = loadCurveData(cfile);
+	  mcg.insert(cpair.first, cpair.second);
+	}
     }
 }
 
@@ -3015,7 +3285,7 @@ ImageWidget::loadCurves(QString curvesfile)
   else
     emit polygonLevels(m_hCurves.polygonLevels());
 
-  QMessageBox::information(0, "", QString("Curves loaded to %1").arg(curvesfile));
+  QMessageBox::information(0, "", QString("Curves loaded from %1").arg(curvesfile));
 }
 
 void

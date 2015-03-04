@@ -478,6 +478,9 @@ DrishtiPaint::getRawValue(int d, int w, int h)
   m_imageWidget->setRawValue(m_volume->rawValue(d, w, h));
 }
 
+void DrishtiPaint::on_actionLoad_Curves_triggered() {m_imageWidget->loadCurves();}
+void DrishtiPaint::on_actionSave_Curves_triggered() {m_imageWidget->saveCurves();}
+
 void
 DrishtiPaint::on_actionLoad_triggered()
 {

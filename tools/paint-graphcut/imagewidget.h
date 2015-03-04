@@ -70,6 +70,8 @@ class ImageWidget : public QWidget
   void keyPressEvent(QKeyEvent*);
   void setLivewire(bool);
   void setCurve(bool);
+  void saveCurves();
+  void loadCurves();
 
  signals :
   void getSlice(int);
@@ -167,6 +169,7 @@ class ImageWidget : public QWidget
   uchar *m_tags;
 
   bool m_applyRecursive;
+  bool m_extraPressed;
   int m_cslc, m_maxslc;
   int m_key;
   bool m_forward;
@@ -192,7 +195,7 @@ class ImageWidget : public QWidget
   void removeDotImage(int, int);
 
   void applyGraphCut();
-  void applyPaint();
+  void applyPaint(bool);
   void applyReset();
   
   void setZoom(float);
@@ -208,11 +211,16 @@ class ImageWidget : public QWidget
   void checkRecursive();
   
   void applyMorphCurveLimits(uchar*);
-  void saveCurves();
-  void loadCurves();
 
   void saveCurves(QFile*, CurveGroup*);
   void loadCurves(QFile*, CurveGroup*);
+
+  void saveMorphedCurves(QFile*, CurveGroup*);
+  void loadMorphedCurves(QFile*, CurveGroup*);
+
+  void saveCurveData(QFile*, int, Curve*);
+  QPair<int, Curve> loadCurveData(QFile*);
+
 };
 
 

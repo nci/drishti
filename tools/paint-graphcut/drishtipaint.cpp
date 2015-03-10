@@ -404,13 +404,15 @@ void DrishtiPaint::on_boxSize_valueChanged(int d) { Global::setBoxSize(d); }
 void DrishtiPaint::on_lambda_valueChanged(int d) { Global::setLambda(d); }
 void DrishtiPaint::on_smooth_valueChanged(int d) { Global::setSmooth(d); }
 void DrishtiPaint::on_thickness_valueChanged(int d) { Global::setThickness(d); }
-void DrishtiPaint::on_livewire_clicked() { m_imageWidget->setLivewire(ui.livewire->isChecked()); }
-void DrishtiPaint::on_curve_clicked() { m_imageWidget->setCurve(ui.curve->isChecked()); }
-void DrishtiPaint::on_closed_clicked() { Global::setClosed(ui.closed->isChecked()); }
+void DrishtiPaint::on_livewire_clicked(bool c) { m_imageWidget->setLivewire(c); }
+void DrishtiPaint::on_curve_clicked(bool c) { m_imageWidget->setCurve(c); }
+void DrishtiPaint::on_closed_clicked(bool c) { Global::setClosed(c); }
+void DrishtiPaint::on_lwsmooth_currentIndexChanged(int i){ m_imageWidget->setSmoothType(i); }
+void DrishtiPaint::on_lwgrad_currentIndexChanged(int i){ m_imageWidget->setGradType(i); }
 void
-DrishtiPaint::on_copyprev_clicked()
+DrishtiPaint::on_copyprev_clicked(bool c)
 {
-  Global::setCopyPrev(ui.copyprev->isChecked());
+  Global::setCopyPrev(c);
   m_imageWidget->processPrevSliceTags();
 }
 void
@@ -891,11 +893,17 @@ DrishtiPaint::sliceSmooth(int tag, int spread,
 	for(int j1=jst; j1<=jed; j1++)		  
 	  {						  
 	    int idx = qBound(0, j1, width-1)*height+i;  
-	    a = (pv[idx]==tag ? 255 : 0);
+	    if (tag > -1)
+	      a = (pv[idx]==tag ? 255 : 0);
+	    else
+	      a = (pv[idx]>tag ? 255 : 0);
 	    pj += a;
 	  }
 	pj /= (jed-jst+1);
-	p[j*height+i] = (pj>thresh ? tag : 0);
+	if (tag > -1)
+	  p[j*height+i] = (pj>thresh ? tag : 0);
+	else
+	  p[j*height+i] = (pj>thresh ? 255 : 0);
       }						  
   
   for(int j=0; j<width; j++)				  
@@ -907,11 +915,17 @@ DrishtiPaint::sliceSmooth(int tag, int spread,
 	for(int i1=ist; i1<=ied; i1++)		  
 	  {						  
 	    int idx = j*height+qBound(0, i1, height-1); 
-	    a = (p[idx]==tag ? 255 : 0);
+	    if (tag > -1)
+	      a = (p[idx]==tag ? 255 : 0);
+	    else
+	      a = (p[idx]>tag ? 255 : 0);
 	    pi += a;
 	  }						  
 	pi /= (ied-ist+1);
-	pv[j*height+i] = (pi>thresh ? tag : 0);
+	if (tag > -1)
+	  pv[j*height+i] = (pi>thresh ? tag : 0);
+	else
+	  pv[j*height+i] = (pi>thresh ? 255 : 0);
       }						  
 }
 
@@ -929,11 +943,17 @@ DrishtiPaint::smooth(int tag, int spread,
 	float avg = 0; 
 	for(int i=0; i<2*spread+1; i++) 
 	  {
-	    a = (pv[i][j*height+k]==tag ? 255 : 0);
+	    if (tag > -1)
+	      a = (pv[i][j*height+k]==tag ? 255 : 0);
+	    else
+	      a = (pv[i][j*height+k]>tag ? 255 : 0);
 	    avg += a;
 	  }
 	avg /= (2*spread+1);
-	p[j*height + k] = (avg>thresh ? tag : 0);
+	if (tag > -1)
+	  p[j*height + k] = (avg>thresh ? tag : 0);
+	else
+	  p[j*height + k] = (avg>thresh ? 255 : 0);
       } 
 }
 
@@ -952,10 +972,16 @@ DrishtiPaint::sliceDilate(int tag, int spread,
 	for(int j1=jst; j1<=jed; j1++)		  
 	  {						  
 	    int idx = qBound(0, j1, width-1)*height+i;  
-	    a = (pv[idx]==tag ? 1 : 0);
+	    if (tag > -1)
+	      a = (pv[idx]==tag ? 1 : 0);
+	    else
+	      a = (pv[idx]>tag ? 1 : 0);
 	    pj = qMax(a,pj);
 	  }
-	p[j*height+i] = tag*pj;
+	if (tag > -1)
+	  p[j*height+i] = tag*pj;
+	else
+	  p[j*height+i] = 255*pj;
       }						  
   
   for(int j=0; j<width; j++)				  
@@ -967,10 +993,16 @@ DrishtiPaint::sliceDilate(int tag, int spread,
 	for(int i1=ist; i1<=ied; i1++)		  
 	  {						  
 	    int idx = j*height+qBound(0, i1, height-1); 
-	    a = (p[idx]==tag ? 1 : 0);
+	    if (tag > -1)
+	      a = (p[idx]==tag ? 1 : 0);
+	    else
+	      a = (p[idx]>tag ? 1 : 0);
 	    pi = qMax(a,pi);		  
 	  }						  
-	pv[j*height+i] = tag*pi;
+	if (tag > -1)
+	  pv[j*height+i] = tag*pi;
+	else
+	  pv[j*height+i] = 255*pi;
       }						  
 }
 
@@ -986,10 +1018,16 @@ DrishtiPaint::dilate(int tag, int spread,
 	int avg = 0; 
 	for(int i=0; i<2*spread+1; i++) 
 	  {
-	    a = (pv[i][j*height+k]==tag ? 1 : 0);
+	    if (tag > -1)
+	      a = (pv[i][j*height+k]==tag ? 1 : 0);
+	    else
+	      a = (pv[i][j*height+k]>tag ? 1 : 0);
 	    avg = qMax(avg,a); 
 	  }
-	p[j*height + k] = tag*avg;
+	if (tag > -1)
+	  p[j*height + k] = tag*avg;
+	else
+	  p[j*height + k] = 255*avg;
       } 
 }
 
@@ -1008,10 +1046,16 @@ DrishtiPaint::sliceErode(int tag, int spread,
 	for(int j1=jst; j1<=jed; j1++)		  
 	  {						  
 	    int idx = qBound(0, j1, width-1)*height+i;  
-	    a = (pv[idx]==tag ? 1 : 0);
+	    if (tag > -1)
+	      a = (pv[idx]==tag ? 1 : 0);
+	    else
+	      a = (pv[idx]>tag ? 1 : 0);
 	    pj = qMin(a,pj);
 	  }
-	p[j*height+i] = tag*pj;
+	if (tag > -1)
+	  p[j*height+i] = tag*pj;
+	else
+	  p[j*height+i] = 255*pj;
       }						  
   
   for(int j=0; j<width; j++)				  
@@ -1023,10 +1067,16 @@ DrishtiPaint::sliceErode(int tag, int spread,
 	for(int i1=ist; i1<=ied; i1++)		  
 	  {						  
 	    int idx = j*height+qBound(0, i1, height-1); 
-	    a = (p[idx]==tag ? 1 : 0);
+	    if (tag > -1)
+	      a = (p[idx]==tag ? 1 : 0);
+	    else
+	      a = (p[idx]>tag ? 1 : 0);
 	    pi = qMin(a,pi);		  
 	  }						  
-	pv[j*height+i] = tag*pi;
+	if (tag > -1)
+	  pv[j*height+i] = tag*pi;
+	else
+	  pv[j*height+i] = 255*pi;
       }						  
 }
 
@@ -1042,10 +1092,16 @@ DrishtiPaint::erode(int tag, int spread,
 	int avg = 1; 
 	for(int i=0; i<2*spread+1; i++) 
 	  {
-	    a = (pv[i][j*height+k]==tag ? 1 : 0);
+	    if (tag > -1)
+	      a = (pv[i][j*height+k]==tag ? 1 : 0);
+	    else
+	      a = (pv[i][j*height+k]>tag ? 1 : 0);
 	    avg = qMin(avg,a); 
 	  }
-	p[j*height + k] = tag*avg;
+	if (tag > -1)
+	  p[j*height + k] = tag*avg;
+	else
+	  p[j*height + k] = 255*avg;
       } 
 }
 
@@ -1059,8 +1115,8 @@ DrishtiPaint::on_actionExtractTag_triggered()
   bool ok;
   //----------------
   tag = QInputDialog::getInt(0, "Save Data for Tag",
-			     "Tag Number",
-			     1, 0, 254, 1,
+			     "Tag Number (Selecting -1 will save all tagged region)",
+			     1, -1, 254, 1,
 			     &ok);
   if (!ok)
     return;
@@ -1097,25 +1153,28 @@ DrishtiPaint::on_actionExtractTag_triggered()
   //----------------
 
   //----------------
-  dtypes.clear();
-  dtypes << "Image Data"
-	 << "Tags Data";
-  option = QInputDialog::getItem(0,
-				 "Save",
-				 "Save Image Data or Mask Tags ?",
-				 dtypes,
-				 0,
-				 false,
-				 &ok);
-  if (!ok)
-    return;
-  
   saveImageData = true;
-  if (option == "Tags Data")
+  if (tag > -1)
     {
-      saveImageData = false;
-      QMessageBox::information(0, "Save Tag",
-      QString("Tag value %1 will be saved as 127 for ease of visualization.").arg(tag));
+      dtypes.clear();
+      dtypes << "Image Data"
+	     << "Tags Data";
+      option = QInputDialog::getItem(0,
+				     "Save",
+				     "Save Image Data or Mask Tags ?",
+				     dtypes,
+				     0,
+				     false,
+				     &ok);
+      if (!ok)
+	return;
+      
+      if (option == "Tags Data")
+	{
+	  saveImageData = false;
+	  QMessageBox::information(0, "Save Tag",
+   QString("Tag value %1 will be saved as 127 for ease of visualization.").arg(tag));
+	}
     }
   //----------------
 
@@ -1345,8 +1404,16 @@ DrishtiPaint::on_actionExtractTag_triggered()
       else
 	memcpy(raw, m_volume->getMaskDepthSliceImage(d), nbytes);
 
-      for(int i=0; i<nbytes; i++)
-	raw[i] = (raw[i] == tag ? 127 : 0);
+      if (tag > -1)
+	{
+	  for(int i=0; i<nbytes; i++)
+	    raw[i] = (raw[i] == tag ? 127 : 0);
+	}
+      else
+	{
+	  for(int i=0; i<nbytes; i++)
+	    raw[i] = (raw[i] > 0 ? 127 : 0);
+	}
 
       // now mask data with tag
       if (saveImageData)

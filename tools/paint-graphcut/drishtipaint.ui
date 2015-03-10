@@ -181,16 +181,6 @@
              </property>
             </widget>
            </item>
-           <item row="0" column="6">
-            <widget class="QCheckBox" name="copyprev">
-             <property name="layoutDirection">
-              <enum>Qt::RightToLeft</enum>
-             </property>
-             <property name="text">
-              <string>Copy Tags</string>
-             </property>
-            </widget>
-           </item>
            <item row="0" column="3">
             <widget class="QLabel" name="label_3">
              <property name="lineWidth">
@@ -282,6 +272,16 @@
              </property>
             </spacer>
            </item>
+           <item row="0" column="6">
+            <widget class="QToolButton" name="copyprev">
+             <property name="text">
+              <string>Copy Tags</string>
+             </property>
+             <property name="checkable">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
           </layout>
          </widget>
         </item>
@@ -313,23 +313,38 @@
             <number>2</number>
            </property>
            <item>
-            <widget class="QCheckBox" name="livewire">
+            <widget class="QToolButton" name="livewire">
              <property name="text">
               <string>Livewire</string>
              </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QCheckBox" name="curve">
-             <property name="text">
-              <string>Polyline</string>
+             <property name="checkable">
+              <bool>true</bool>
+             </property>
+             <property name="toolButtonStyle">
+              <enum>Qt::ToolButtonIconOnly</enum>
+             </property>
+             <property name="autoRaise">
+              <bool>false</bool>
              </property>
             </widget>
            </item>
            <item>
-            <widget class="QCheckBox" name="closed">
+            <widget class="QToolButton" name="curve">
+             <property name="text">
+              <string>Curve</string>
+             </property>
+             <property name="checkable">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QToolButton" name="closed">
              <property name="text">
               <string>Closed</string>
+             </property>
+             <property name="checkable">
+              <bool>true</bool>
              </property>
              <property name="checked">
               <bool>true</bool>
@@ -348,6 +363,50 @@
              <property name="value">
               <number>1</number>
              </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QComboBox" name="lwsmooth">
+             <item>
+              <property name="text">
+               <string>No Smoothing</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>Smooth 1</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>Smooth 2</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>Smooth 3</string>
+              </property>
+             </item>
+            </widget>
+           </item>
+           <item>
+            <widget class="QComboBox" name="lwgrad">
+             <property name="currentText">
+              <string>CentralDiff</string>
+             </property>
+             <property name="currentIndex">
+              <number>0</number>
+             </property>
+             <item>
+              <property name="text">
+               <string>CentralDiff</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>Sobel</string>
+              </property>
+             </item>
             </widget>
            </item>
            <item>

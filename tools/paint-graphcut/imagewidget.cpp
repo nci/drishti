@@ -1015,7 +1015,7 @@ ImageWidget::applyRecursive(int key)
     {
       int maxD = m_maxDSlice;
       int minD = m_minDSlice;
-      if (m_curveMode)
+      if (m_curveMode || m_livewireMode)
 	{
 	  QList<int> pl = m_dCurves.polygonLevels();
 	  if (pl.count() > 1)
@@ -1033,7 +1033,7 @@ ImageWidget::applyRecursive(int key)
     {
       int maxW = m_maxWSlice;
       int minW = m_minWSlice;
-      if (m_curveMode)
+      if (m_curveMode || m_livewireMode)
 	{
 	  QList<int> pl = m_wCurves.polygonLevels();
 	  if (pl.count() > 1)
@@ -1051,7 +1051,7 @@ ImageWidget::applyRecursive(int key)
     {
       int maxH = m_maxHSlice;
       int minH = m_minHSlice;
-      if (m_curveMode)
+      if (m_curveMode || m_livewireMode)
 	{
 	  QList<int> pl = m_hCurves.polygonLevels();
 	  if (pl.count() > 1)
@@ -1090,284 +1090,340 @@ ImageWidget::checkRecursive()
 void ImageWidget::setCurve(bool b) { m_curveMode = b; }
 void ImageWidget::setLivewire(bool b) { m_livewireMode = b; }
 
-void
-ImageWidget::keyPressEvent(QKeyEvent *event)
+bool
+ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
 {
   int shiftModifier = event->modifiers() & Qt::ShiftModifier;
   int ctrlModifier = event->modifiers() & Qt::ControlModifier;
 
-  if (m_livewireMode && event->key() == Qt::Key_F)
-    {
-      QVector<QPoint> pts = m_livewire.poly();
-      if (m_sliceType == DSlice)
-	{
-	  m_dCurves.setPolygonAt(m_currSlice, pts, Global::closed()); 
-	  emit polygonLevels(m_dCurves.polygonLevels());
-	}
-      else if (m_sliceType == WSlice)
-	{
-	  m_wCurves.setPolygonAt(m_currSlice, pts, Global::closed()); 
-	  emit polygonLevels(m_wCurves.polygonLevels());
-	}
-      else
-	{
-	  m_hCurves.setPolygonAt(m_currSlice, pts, Global::closed()); 
-	  emit polygonLevels(m_hCurves.polygonLevels());
-	}
-      
-      m_livewire.resetPoly();
-
-      update();
-      return;
-    }
-  
   if (m_livewireMode)
     {
-      if (m_livewire.keyPressEvent(event))
+      if (event->key() == Qt::Key_J)
+	// join to existing curve
+	// if not found create a new curve
 	{
-	  update();
-	  return;
-	}
-    }
-
-  if (m_curveMode || m_livewireMode)
-    {
-      if (ctrlModifier && event->key() == Qt::Key_C)
-	{
-	  if (m_sliceType == DSlice)
-	    m_dCurves.copyCurve(m_currSlice, m_pickHeight, m_pickWidth);
-	  else if (m_sliceType == WSlice)
-	    m_wCurves.copyCurve(m_currSlice, m_pickHeight, m_pickDepth);
-	  else
-	    m_hCurves.copyCurve(m_currSlice, m_pickWidth,  m_pickDepth);
-	  
-	  return;
-	}
-      else if (ctrlModifier && event->key() == Qt::Key_V)
-	{
+	  QVector<QPoint> pts = m_livewire.poly();
 	  if (m_sliceType == DSlice)
 	    {
-	      m_dCurves.pasteCurve(m_currSlice);
+	      m_dCurves.joinPolygonAt(m_currSlice, pts); 
 	      emit polygonLevels(m_dCurves.polygonLevels());
 	    }
 	  else if (m_sliceType == WSlice)
 	    {
-	      m_wCurves.pasteCurve(m_currSlice);
+	      m_wCurves.joinPolygonAt(m_currSlice, pts); 
 	      emit polygonLevels(m_wCurves.polygonLevels());
 	    }
 	  else
 	    {
-	      m_hCurves.pasteCurve(m_currSlice);
+	      m_hCurves.joinPolygonAt(m_currSlice, pts); 
 	      emit polygonLevels(m_hCurves.polygonLevels());
-	    }
-	  
+	    }	  
+	  m_livewire.resetPoly();
 	  update();
-	  return;
-	}
-
-      if (event->key() == Qt::Key_Space)
-	{
-	  if (m_sliceType == DSlice)
-	    m_dCurves.showPolygonInfo(m_currSlice, m_pickHeight, m_pickWidth);
-	  else if (m_sliceType == WSlice)
-	    m_wCurves.showPolygonInfo(m_currSlice, m_pickHeight, m_pickDepth);
-	  else
-	    m_hCurves.showPolygonInfo(m_currSlice, m_pickWidth,  m_pickDepth);
-
-	  return;
-	}      
-
-      if (event->key() == Qt::Key_S)
-	{
-	  bool selected;
-	  if (m_sliceType == DSlice)
-	    selected = m_dCurves.selectPolygon(m_currSlice, m_pickHeight, m_pickWidth, shiftModifier);
-	  else if (m_sliceType == WSlice)
-	    selected = m_wCurves.selectPolygon(m_currSlice, m_pickHeight, m_pickDepth, shiftModifier);
-	  else
-	    selected = m_hCurves.selectPolygon(m_currSlice, m_pickWidth,  m_pickDepth, shiftModifier);
-
-	  if (selected)
-	    {
-	      update();
-	      return;
-	    }
-	}      
-
-      if (event->key() == Qt::Key_O)
-	{
-	  if (m_sliceType == DSlice)
-	    m_dCurves.setClosed(m_currSlice, m_pickHeight, m_pickWidth, false);
-	  if (m_sliceType == WSlice)
-	    m_wCurves.setClosed(m_currSlice, m_pickHeight, m_pickDepth, false);
-	  else
-	    m_hCurves.setClosed(m_currSlice, m_pickWidth,  m_pickDepth, false);
-
-	  update();
-	  return;
-	}
-      if (event->key() == Qt::Key_C)
-	{
-	  if (m_sliceType == DSlice)
-	    m_dCurves.setClosed(m_currSlice, m_pickHeight, m_pickWidth, true);
-	  if (m_sliceType == WSlice)
-	    m_wCurves.setClosed(m_currSlice, m_pickHeight, m_pickDepth, true);
-	  else
-	    m_hCurves.setClosed(m_currSlice, m_pickWidth,  m_pickDepth, true);
-
-	  update();
-	  return;
-	}
-
-      if (event->key() == Qt::Key_T)
-	{
-	  int ic = -1;
-	  if (m_sliceType == DSlice)
-	    {
-	      ic = m_dCurves.getActiveCurve(m_currSlice, m_pickHeight, m_pickWidth);
-	      if (ic == -1)
-		ic = m_dCurves.getActiveMorphedCurve(m_currSlice, m_pickHeight, m_pickWidth);
-	    }
-	  else if (m_sliceType == WSlice)
-	    {
-	      ic = m_wCurves.getActiveCurve(m_currSlice, m_pickHeight, m_pickWidth);
-	      if (ic == -1)
-		ic = m_wCurves.getActiveMorphedCurve(m_currSlice, m_pickHeight, m_pickWidth);
-	    }
-	  else
-	    {
-	      ic = m_hCurves.getActiveCurve(m_currSlice, m_pickHeight, m_pickWidth);
-	      if (ic == -1)
-		ic = m_hCurves.getActiveMorphedCurve(m_currSlice, m_pickHeight, m_pickWidth);
-	    }
-
-	  if (ic == -1)
-	    {
-	      if (!m_applyRecursive) m_extraPressed = false;
-
-	      if (shiftModifier) // apply paint for multiple slices
-		applyRecursive(event->key());
-	      
-	      if (ctrlModifier) // apply paint for non-selected areas
-		m_extraPressed = true;
-	      
-	      applyPaint(true); // keep existing tags while painting the curves
-	    }
-	  else
-	    {
-	      if (m_sliceType == DSlice)
-		m_dCurves.setTag(m_currSlice, m_pickHeight, m_pickWidth, Global::tag());
-	      else if (m_sliceType == WSlice)
-		m_wCurves.setTag(m_currSlice, m_pickHeight, m_pickDepth, Global::tag());
-	      else
-		m_hCurves.setTag(m_currSlice, m_pickWidth,  m_pickDepth, Global::tag());
-
-	      update();
-	      return;
-	    }
-	}
-
-      if (event->key() == Qt::Key_W)
-	{
-	  bool closed = shiftModifier;
-	  if (m_sliceType == DSlice)
-	    m_dCurves.setThickness(m_currSlice, m_pickHeight, m_pickWidth, Global::thickness());
-	  else if (m_sliceType == WSlice)
-	    m_wCurves.setThickness(m_currSlice, m_pickHeight, m_pickDepth, Global::thickness());
-	  else
-	    m_hCurves.setThickness(m_currSlice, m_pickWidth,  m_pickDepth, Global::thickness());
-
-	  update();
-	  return;
-	}
-
-      if (event->key() == Qt::Key_N)
-	{
-	  if (m_sliceType == DSlice)
-	    m_dCurves.newCurve(m_currSlice, Global::closed());
-	  if (m_sliceType == WSlice)
-	    m_wCurves.newCurve(m_currSlice, Global::closed());
-	  else
-	    m_hCurves.newCurve(m_currSlice, Global::closed());
-	  return;
+	  return true;
 	}
 
       if (event->key() == Qt::Key_F)
 	{
+	  int ic = -1;
 	  if (m_sliceType == DSlice)
-	    m_dCurves.flipPolygon(m_currSlice, m_pickHeight, m_pickWidth);
+	    ic = m_dCurves.getActiveCurve(m_currSlice, m_pickHeight, m_pickWidth);
 	  else if (m_sliceType == WSlice)
-	    m_wCurves.flipPolygon(m_currSlice, m_pickHeight, m_pickDepth);
+	    ic = m_wCurves.getActiveCurve(m_currSlice, m_pickHeight, m_pickWidth);
 	  else
-	    m_hCurves.flipPolygon(m_currSlice, m_pickWidth,  m_pickDepth);
-
-	  update();
-	  return;
-	}
-      if (event->key() == Qt::Key_M)
-	{
-	  if (m_sliceType == DSlice)
-	    m_dCurves.morphCurves();
-	  else if (m_sliceType == WSlice)
-	    m_wCurves.morphCurves();
-	  else
-	    m_hCurves.morphCurves();
-
-	  update();
-	  return;
-	}
-
-      if (event->key() == Qt::Key_Delete ||
-	  event->key() == Qt::Key_Backspace)
-	{
-	  if (shiftModifier)
+	    ic = m_hCurves.getActiveCurve(m_currSlice, m_pickHeight, m_pickWidth);
+	  if (ic > -1) // if we found a curve underneath then flip it
 	    {
 	      if (m_sliceType == DSlice)
+		m_dCurves.flipPolygon(m_currSlice, m_pickHeight, m_pickWidth);
+	      else if (m_sliceType == WSlice)
+		m_wCurves.flipPolygon(m_currSlice, m_pickHeight, m_pickDepth);
+	      else
+		m_hCurves.flipPolygon(m_currSlice, m_pickWidth,  m_pickDepth);
+	    }
+	  else
+	    {
+	      QVector<QPoint> pts = m_livewire.poly();
+	      if (m_sliceType == DSlice)
 		{
-		  m_dCurves.reset();
+		  m_dCurves.setPolygonAt(m_currSlice, pts, Global::closed()); 
 		  emit polygonLevels(m_dCurves.polygonLevels());
 		}
 	      else if (m_sliceType == WSlice)
 		{
-		  m_wCurves.reset();
+		  m_wCurves.setPolygonAt(m_currSlice, pts, Global::closed()); 
 		  emit polygonLevels(m_wCurves.polygonLevels());
 		}
 	      else
 		{
-		  m_hCurves.reset();
+		  m_hCurves.setPolygonAt(m_currSlice, pts, Global::closed()); 
 		  emit polygonLevels(m_hCurves.polygonLevels());
-		}
-
-	      QMessageBox::information(0, "", "Removed add curves for this slice type");
-
-	      update();
-	      return;
+		}	  
+	      m_livewire.resetPoly();
 	    }
-	  else
-	    {
-	      if (m_sliceType == DSlice)
-		{
-		  m_dCurves.removePolygonAt(m_currSlice, m_pickHeight, m_pickWidth);
-		  emit polygonLevels(m_dCurves.polygonLevels());
-		}
-	      else if (m_sliceType == WSlice)
-		{
-		  m_wCurves.removePolygonAt(m_currSlice, m_pickHeight, m_pickDepth);
-		  emit polygonLevels(m_wCurves.polygonLevels());
-		}
-	      else
-		{
-		  m_hCurves.removePolygonAt(m_currSlice, m_pickWidth,  m_pickDepth);
-		  emit polygonLevels(m_hCurves.polygonLevels());
-		}
-
-	      update();
-	      return;
-	    }
+	  update();
+	  return true;
+	}  
+      else if (m_livewire.keyPressEvent(event))
+	{
+	  update();
+	  return true;
 	}
-	 
-      // otherwise continue
     }
+
+  if (ctrlModifier && event->key() == Qt::Key_C)
+    {
+      if (m_sliceType == DSlice)
+	m_dCurves.copyCurve(m_currSlice, m_pickHeight, m_pickWidth);
+      else if (m_sliceType == WSlice)
+	m_wCurves.copyCurve(m_currSlice, m_pickHeight, m_pickDepth);
+      else
+	m_hCurves.copyCurve(m_currSlice, m_pickWidth,  m_pickDepth);
+      
+      return true;
+    }
+
+  if (ctrlModifier && event->key() == Qt::Key_V)
+    {
+      if (m_sliceType == DSlice)
+	{
+	  m_dCurves.pasteCurve(m_currSlice);
+	  emit polygonLevels(m_dCurves.polygonLevels());
+	}
+      else if (m_sliceType == WSlice)
+	{
+	  m_wCurves.pasteCurve(m_currSlice);
+	  emit polygonLevels(m_wCurves.polygonLevels());
+	}
+      else
+	{
+	  m_hCurves.pasteCurve(m_currSlice);
+	  emit polygonLevels(m_hCurves.polygonLevels());
+	}
+      
+      update();
+      return true;
+    }
+
+  if (event->key() == Qt::Key_Space)
+    {
+      if (m_sliceType == DSlice)
+	m_dCurves.showPolygonInfo(m_currSlice, m_pickHeight, m_pickWidth);
+      else if (m_sliceType == WSlice)
+	m_wCurves.showPolygonInfo(m_currSlice, m_pickHeight, m_pickDepth);
+      else
+	m_hCurves.showPolygonInfo(m_currSlice, m_pickWidth,  m_pickDepth);
+      
+      return true;
+    }      
+
+  if (event->key() == Qt::Key_S)
+    {
+      bool selected;
+      if (m_sliceType == DSlice)
+	selected = m_dCurves.selectPolygon(m_currSlice, m_pickHeight, m_pickWidth, shiftModifier);
+      else if (m_sliceType == WSlice)
+	selected = m_wCurves.selectPolygon(m_currSlice, m_pickHeight, m_pickDepth, shiftModifier);
+      else
+	selected = m_hCurves.selectPolygon(m_currSlice, m_pickWidth,  m_pickDepth, shiftModifier);
+      
+      if (selected)
+	update();
+      else
+	QMessageBox::information(0, "", "No curve found for selection.\nNote : morphed curves cannot be selected.");
+      return true;
+    }      
+
+  if (event->key() == Qt::Key_O)
+    {
+      if (m_sliceType == DSlice)
+	m_dCurves.setClosed(m_currSlice, m_pickHeight, m_pickWidth, false);
+      if (m_sliceType == WSlice)
+	m_wCurves.setClosed(m_currSlice, m_pickHeight, m_pickDepth, false);
+      else
+	m_hCurves.setClosed(m_currSlice, m_pickWidth,  m_pickDepth, false);
+      
+      update();
+      return true;
+    }
+
+  if (event->key() == Qt::Key_C)
+    {
+      if (m_sliceType == DSlice)
+	m_dCurves.setClosed(m_currSlice, m_pickHeight, m_pickWidth, true);
+      if (m_sliceType == WSlice)
+	m_wCurves.setClosed(m_currSlice, m_pickHeight, m_pickDepth, true);
+      else
+	m_hCurves.setClosed(m_currSlice, m_pickWidth,  m_pickDepth, true);
+      
+      update();
+      return true;
+    }
+
+  if (event->key() == Qt::Key_T)
+    {
+      int ic = -1;
+      if (m_sliceType == DSlice)
+	{
+	  ic = m_dCurves.getActiveCurve(m_currSlice, m_pickHeight, m_pickWidth);
+	  if (ic == -1)
+	    ic = m_dCurves.getActiveMorphedCurve(m_currSlice, m_pickHeight, m_pickWidth);
+	}
+      else if (m_sliceType == WSlice)
+	{
+	  ic = m_wCurves.getActiveCurve(m_currSlice, m_pickHeight, m_pickWidth);
+	  if (ic == -1)
+	    ic = m_wCurves.getActiveMorphedCurve(m_currSlice, m_pickHeight, m_pickWidth);
+	}
+      else
+	{
+	  ic = m_hCurves.getActiveCurve(m_currSlice, m_pickHeight, m_pickWidth);
+	  if (ic == -1)
+	    ic = m_hCurves.getActiveMorphedCurve(m_currSlice, m_pickHeight, m_pickWidth);
+	}
+      
+      if (ic == -1)
+	{
+	  if (!m_applyRecursive) m_extraPressed = false;
+	  
+	  if (shiftModifier) // apply paint for multiple slices
+	    applyRecursive(event->key());
+	  
+	  if (ctrlModifier) // apply paint for non-selected areas
+	    m_extraPressed = true;
+	  
+	  applyPaint(true); // keep existing tags while painting the curves
+	  return true;
+	}
+      else
+	{
+	  if (m_sliceType == DSlice)
+	    m_dCurves.setTag(m_currSlice, m_pickHeight, m_pickWidth, Global::tag());
+	  else if (m_sliceType == WSlice)
+	    m_wCurves.setTag(m_currSlice, m_pickHeight, m_pickDepth, Global::tag());
+	  else
+	    m_hCurves.setTag(m_currSlice, m_pickWidth,  m_pickDepth, Global::tag());
+	  
+	  update();
+	  return true;
+	}
+    }
+
+  if (event->key() == Qt::Key_W)
+    {
+      bool closed = shiftModifier;
+      if (m_sliceType == DSlice)
+	m_dCurves.setThickness(m_currSlice, m_pickHeight, m_pickWidth, Global::thickness());
+      else if (m_sliceType == WSlice)
+	m_wCurves.setThickness(m_currSlice, m_pickHeight, m_pickDepth, Global::thickness());
+      else
+	m_hCurves.setThickness(m_currSlice, m_pickWidth,  m_pickDepth, Global::thickness());
+      
+      update();
+      return true;
+    }
+
+  if (event->key() == Qt::Key_N)
+    {
+      if (m_sliceType == DSlice)
+	m_dCurves.newCurve(m_currSlice, Global::closed());
+      if (m_sliceType == WSlice)
+	m_wCurves.newCurve(m_currSlice, Global::closed());
+      else
+	m_hCurves.newCurve(m_currSlice, Global::closed());
+      return true;
+    }
+
+  if (event->key() == Qt::Key_F)
+    {
+      if (m_sliceType == DSlice)
+	m_dCurves.flipPolygon(m_currSlice, m_pickHeight, m_pickWidth);
+      else if (m_sliceType == WSlice)
+	m_wCurves.flipPolygon(m_currSlice, m_pickHeight, m_pickDepth);
+      else
+	m_hCurves.flipPolygon(m_currSlice, m_pickWidth,  m_pickDepth);
+      
+      update();
+      return true;
+    }
+
+  if (event->key() == Qt::Key_M)
+    {
+      if (m_sliceType == DSlice)
+	m_dCurves.morphCurves();
+      else if (m_sliceType == WSlice)
+	m_wCurves.morphCurves();
+      else
+	m_hCurves.morphCurves();
+      
+      update();
+      return true;
+    }
+
+  if (event->key() == Qt::Key_Delete ||
+      event->key() == Qt::Key_Backspace)
+    {
+      if (shiftModifier)
+	{
+	  if (m_sliceType == DSlice)
+	    {
+	      m_dCurves.reset();
+	      emit polygonLevels(m_dCurves.polygonLevels());
+	    }
+	  else if (m_sliceType == WSlice)
+	    {
+	      m_wCurves.reset();
+	      emit polygonLevels(m_wCurves.polygonLevels());
+	    }
+	  else
+	    {
+	      m_hCurves.reset();
+	      emit polygonLevels(m_hCurves.polygonLevels());
+	    }
+	  
+	  QMessageBox::information(0, "", "Removed add curves for this slice type");
+	  
+	  update();
+	  return true;
+	}
+      else
+	{
+	  if (m_sliceType == DSlice)
+	    {
+	      m_dCurves.removePolygonAt(m_currSlice, m_pickHeight, m_pickWidth);
+	      emit polygonLevels(m_dCurves.polygonLevels());
+	    }
+	  else if (m_sliceType == WSlice)
+	    {
+	      m_wCurves.removePolygonAt(m_currSlice, m_pickHeight, m_pickDepth);
+	      emit polygonLevels(m_wCurves.polygonLevels());
+	    }
+	  else
+	    {
+	      m_hCurves.removePolygonAt(m_currSlice, m_pickWidth,  m_pickDepth);
+	      emit polygonLevels(m_hCurves.polygonLevels());
+	    }
+	  
+	  update();
+	  return true;
+	}
+    }
+
+  return false;
+}
+
+void
+ImageWidget::keyPressEvent(QKeyEvent *event)
+{
+  bool processed = false;
+  if (m_livewireMode || m_curveMode)
+    processed = curveModeKeyPressEvent(event);
+
+  if (processed)
+    return;
+
+  int shiftModifier = event->modifiers() & Qt::ShiftModifier;
+  int ctrlModifier = event->modifiers() & Qt::ControlModifier;
 
   if (ctrlModifier)
     {      
@@ -1567,7 +1623,7 @@ ImageWidget::showHelp()
 
   help += "<br><h3>Following operations are performed only within selected box.</h3><br>";
 
-  help += "<b>t</b>  Tag regions using graphcut method with currently selected tag.<br>When in Curve Mode paint regions bounded by the curves while not overwriting the existing tags in the region.";
+  help += "<b>t</b>  Tag regions using graphcut method with currently selected tag.<br>In Curve Mode - When cursor is on a curve, set its tag value to the current tag value; otherwise paint regions bounded by the curves while not overwriting the existing tags in the region.";
   help += "<b>T</b>  Repeat tagging operation over multiple slices.  Press ESC to stop the repeat operation.<br><br>";
   help += "<b>Ctrl+Shift t</b>  Select inverse region - i.e. the region not bounded by the curves.  Repeat paint operation over multiple slices.  Press ESC to stop the repeat operation.<br><br>";
 
@@ -1827,7 +1883,7 @@ ImageWidget::mousePressEvent(QMouseEvent *event)
 	  m_lastPickWidth = m_pickWidth;
 	  m_lastPickHeight= m_pickHeight;
 
-	  if (m_curveMode)
+	  if (m_curveMode || m_livewireMode)
 	    {
 	      if (m_sliceType == DSlice)
 		m_dCurves.removePoint(m_currSlice, m_pickHeight, m_pickWidth);
@@ -2120,7 +2176,7 @@ ImageWidget::mouseMoveEvent(QMouseEvent *event)
 	m_lastPickWidth = m_pickWidth;
 	m_lastPickHeight= m_pickHeight;
 	
-	if (m_curveMode)
+	if (m_curveMode || m_livewireMode)
 	  {
 	    if (m_sliceType == DSlice)
 	      m_dCurves.moveCurve(m_currSlice, dh, dw);
@@ -2183,7 +2239,7 @@ ImageWidget::mouseReleaseEvent(QMouseEvent *event)
   m_wCurves.resetMoveCurve();
   m_hCurves.resetMoveCurve();
 
-  if (m_curveMode)
+  if (m_curveMode || m_livewireMode)
     {
       if (m_sliceType == DSlice)
 	emit polygonLevels(m_dCurves.polygonLevels());
@@ -2489,7 +2545,7 @@ ImageWidget::getSliceLimits(int &size1, int &size2,
 void
 ImageWidget::applyMorphCurveLimits(uchar *maskData)
 {
-  if (!m_curveMode)
+  if (!m_curveMode && !m_livewireMode)
     return;
 
   QImage pimg= QImage(m_imgWidth, m_imgHeight, QImage::Format_RGB32);
@@ -2838,7 +2894,7 @@ ImageWidget::applyPaint(bool keepTags)
 	  m_tags[i] = m_prevslicetags[i];
     }
 
-  if (m_curveMode)
+  if (m_curveMode || m_livewireMode)
     {
       // limit graphcut output within the bounding curve
       uchar *mask = new uchar[m_imgWidth*m_imgHeight];
@@ -3304,3 +3360,42 @@ ImageWidget::loadCurves()
   loadCurves(curvesfile);
 }
 
+void
+ImageWidget::setSmoothType(int i)
+{
+  m_livewire.setSmoothType(i);
+ 
+  //-----
+  // transfer data for livewire calculation
+  uchar *sliceData = new uchar[m_imgHeight*m_imgWidth];
+  for(int i=0; i<m_imgHeight*m_imgWidth; i++)
+    sliceData[i] = m_sliceImage[4*i];
+    //sliceData[i] = m_slice[2*i];
+  m_livewire.setImageData(m_imgWidth, m_imgHeight, sliceData);
+  delete [] sliceData;
+  m_gradImageScaled = m_livewire.gradientImage().scaled(m_simgWidth,
+							m_simgHeight,
+							Qt::IgnoreAspectRatio,
+							Qt::FastTransformation);
+  //-----
+}
+
+void
+ImageWidget::setGradType(int i)
+{
+  m_livewire.setGradType(i);
+ 
+  //-----
+  // transfer data for livewire calculation
+  uchar *sliceData = new uchar[m_imgHeight*m_imgWidth];
+  for(int i=0; i<m_imgHeight*m_imgWidth; i++)
+    sliceData[i] = m_sliceImage[4*i];
+    //sliceData[i] = m_slice[2*i];
+  m_livewire.setImageData(m_imgWidth, m_imgHeight, sliceData);
+  delete [] sliceData;
+  m_gradImageScaled = m_livewire.gradientImage().scaled(m_simgWidth,
+							m_simgHeight,
+							Qt::IgnoreAspectRatio,
+							Qt::FastTransformation);
+  //-----
+}

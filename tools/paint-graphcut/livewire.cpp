@@ -17,6 +17,9 @@ LiveWire::LiveWire()
 
   m_poly.clear();
   m_livewire.clear();
+
+  m_gradType = 0;
+  m_smoothType = 0;
 }
 
 LiveWire::~LiveWire() { reset(); }
@@ -77,7 +80,7 @@ LiveWire::setImageData(int w, int h, uchar *img)
 
   memcpy(m_image, img, m_width*m_height);
   
-  applySmoothing(1);
+  applySmoothing(m_smoothType);
   calculateGradients();
   calculateEdgeWeights();
 }
@@ -185,6 +188,8 @@ LiveWire::gradientImage()
 void
 LiveWire::applySmoothing(int sz)
 {
+  if (sz == 0) return; // no smoothing
+
   memcpy(m_tmp, m_image, m_width*m_height);
   gaussBlur_4(m_tmp, m_image, m_width, m_height, sz);
 }
@@ -202,61 +207,67 @@ LiveWire::calculateGradients()
 
   memset(m_grad, 0, sizeof(float)*m_width*m_height);
 
-  // sobel
   float maxGrad = 0;
   float minGrad = 1000000;
-  for(int i=1; i<m_height-1; i++)
-    for(int j=1; j<m_width-1; j++)
-      {	
-	float dx = 0;
-	float dy = 0;
-	{
-	  dx += (m_image[(i+1)*m_width+(j-1)] -
-		 m_image[(i-1)*m_width+(j-1)]);
-	  dx += 2*(m_image[(i+1)*m_width+j] -
-		   m_image[(i-1)*m_width+j]);
-	  dx += (m_image[(i+1)*m_width+(j+1)] -
-		 m_image[(i-1)*m_width+(j+1)]);
-	  
-	  dy += (m_image[(i+1)*m_width+(j+1)] -
-		 m_image[(i+1)*m_width+(j-1)]);
-	  dy += 2*(m_image[i*m_width+(j+1)] -
-		   m_image[i*m_width+(j-1)]);
-	  dy += (m_image[(i-1)*m_width+(j+1)] -
-		 m_image[(i-1)*m_width+(j-1)]);
-	}
 
-	float grd = qSqrt(dx*dx + dy*dy);
-	maxGrad = qMax(maxGrad, grd);
-	minGrad = qMin(minGrad, grd);
-	m_grad[i*m_width+j] = grd;
-      }
+  // central difference
+  if (m_gradType == 0)
+    {
+      for(int i=1; i<m_height-1; i++)
+	for(int j=1; j<m_width-1; j++)
+	  {	
+	    float dx = 0;
+	    float dy = 0;
+	    {
+	      dx += (m_image[(i+1)*m_width+j] -
+		     m_image[(i-1)*m_width+j]);
+	      
+	      dy += (m_image[i*m_width+(j+1)] -
+		     m_image[i*m_width+(j-1)]);
+	    }
+	    
+	    float grd = qSqrt(dx*dx + dy*dy);
+	    maxGrad = qMax(maxGrad, grd);
+	    minGrad = qMin(minGrad, grd);
+	    m_grad[i*m_width+j] = grd;
+	  }
+    }
+      
 
-//  // central difference
-//  float maxGrad = 0;
-//  float minGrad = 1000000;
-//  for(int i=1; i<m_height-1; i++)
-//    for(int j=1; j<m_width-1; j++)
-//      {	
-//	float dx = 0;
-//	float dy = 0;
-//	{
-//	  dx += (m_image[(i+1)*m_width+j] -
-//		 m_image[(i-1)*m_width+j]);
-//	  
-//	  dy += (m_image[i*m_width+(j+1)] -
-//		 m_image[i*m_width+(j-1)]);
-//	}
-//
-//	float grd = qSqrt(dx*dx + dy*dy);
-//	maxGrad = qMax(maxGrad, grd);
-//	minGrad = qMin(minGrad, grd);
-//	m_grad[i*m_width+j] = grd;
-//      }
+  // sobel
+  if (m_gradType == 1)
+    {
+      for(int i=1; i<m_height-1; i++)
+	for(int j=1; j<m_width-1; j++)
+	  {	
+	    float dx = 0;
+	    float dy = 0;
+	    {
+	      dx += (m_image[(i+1)*m_width+(j-1)] -
+		     m_image[(i-1)*m_width+(j-1)]);
+	      dx += 2*(m_image[(i+1)*m_width+j] -
+		       m_image[(i-1)*m_width+j]);
+	      dx += (m_image[(i+1)*m_width+(j+1)] -
+		     m_image[(i-1)*m_width+(j+1)]);
+	      
+	      dy += (m_image[(i+1)*m_width+(j+1)] -
+		     m_image[(i+1)*m_width+(j-1)]);
+	      dy += 2*(m_image[i*m_width+(j+1)] -
+		       m_image[i*m_width+(j-1)]);
+	      dy += (m_image[(i-1)*m_width+(j+1)] -
+		     m_image[(i-1)*m_width+(j-1)]);
+	    }
+	    
+	    float grd = qSqrt(dx*dx + dy*dy);
+	    maxGrad = qMax(maxGrad, grd);
+	    minGrad = qMin(minGrad, grd);
+	    m_grad[i*m_width+j] = grd;
+	  }
+    }
 
   for(int i=0; i<m_width*m_height; i++)
     m_grad[i] = 1.0-(m_grad[i]-minGrad)/(maxGrad-minGrad);
-
+  
 
   for(int i=0; i<m_width*m_height; i++)
     {

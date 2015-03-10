@@ -454,12 +454,9 @@ void CurveGroup::addMorphBlock(QMap<int, Curve> mb) { m_mcg << mb; }
 void
 CurveGroup::morphCurves()
 {
-  //QMap<int, QVector<QPoint> > cg;
   QMap<int, Curve> cg;
   QList<int> cgkeys = m_cg.uniqueKeys();
   int first = -1;
-  int mtag = 1;
-  //bool is_closed_curve = true;
   for(int i=0; i<cgkeys.count(); i++)
     {
       int sel = -1;
@@ -468,7 +465,6 @@ CurveGroup::morphCurves()
 	{
 	  if (curves[j]->selected)
 	    {
-	      mtag = curves[j]->tag;
 	      sel = j;
 	      break;
 	    }
@@ -476,13 +472,9 @@ CurveGroup::morphCurves()
 
       if (sel >= 0)
 	{
-	  //cg.insert(cgkeys[i], curves[sel]->pts);
 	  cg.insert(cgkeys[i], *curves[sel]);
 	  if (first == -1)
-	    {
-	      first = i;
-	      //is_closed_curve = curves[sel]->closed;
-	    }
+	    first = i;
 	}
       else if (first > 0 && i > first)
 	break;
@@ -503,9 +495,12 @@ CurveGroup::morphCurves()
       bool is_closed = cg[keys[ncg]].closed;
       int thick0 = cg[keys[ncg]].thickness;
       int thick1 = cg[keys[ncg+1]].thickness;
+      int mtag = cg[keys[ncg]].tag;
 
       if (is_closed)
-	alignAllCurves(gmcg);
+	alignClosedCurves(gmcg);
+      else
+	alignOpenCurves(gmcg);
       
       MorphCurve mc;
       mc.setPaths(gmcg);
@@ -513,7 +508,7 @@ CurveGroup::morphCurves()
       QList<Perimeter> all_perimeters = mc.getMorphedPaths(is_closed);
       int nperi = all_perimeters.count();
       QMap<int, Curve> morphedCurves;
-      for (int i=0; i<nperi; i++)
+      for (int i=1; i<nperi; i++)
 	{
 	  QVector<QPoint> a;
 	  
@@ -591,76 +586,107 @@ CurveGroup::moveCurve(int key, int dv0, int dv1)
 void
 CurveGroup::smooth(int key, int v0, int v1, int rad)
 {
-  if (!m_cg.contains(key))
-    {
-      QMessageBox::information(0, "", QString("No curve to smooth found at %1").arg(key));
-      return;
-    }
+  QPoint cen = QPoint(v0, v1);
 
-  int ic = getActiveCurve(key, v0, v1);
-  if (ic >= 0)
+  if (m_cg.contains(key))
     {
-      QList<Curve*> curves = m_cg.values(key);
+      int ic = getActiveCurve(key, v0, v1);
+      if (ic >= 0)
+	{
+	  QList<Curve*> curves = m_cg.values(key);
+	  // replace pts with the smooth version
+	  curves[ic]->pts = smooth(curves[ic]->pts,
+				   cen,
+				   rad,
+				   curves[ic]->closed);
+	}
+    }
+  int mc = getActiveMorphedCurve(key, v0, v1);
+  if (mc >= 0)
+    {
+      Curve c = m_mcg[mc].value(key);
       QVector<QPoint> w;
-      w = smooth(curves[ic]->pts, v0, v1, rad, curves[ic]->closed);
-      curves[ic]->pts = w; // replace pts with the smooth version
+      w = smooth(c.pts,
+		 cen,
+		 rad,
+		 c.closed);
+      c.pts = w; // replace pts with the smooth version
+      m_mcg[mc].insert(key, c);
     }
 }
 
 void
 CurveGroup::push(int key, int v0, int v1, int rad)
 {
-  if (!m_cg.contains(key))
-    {
-      QMessageBox::information(0, "", QString("No curve to push found at %1").arg(key));
-      return;
-    }
-
   QPoint cen = QPoint(v0, v1);
 
-  QList<Curve*> curve = m_cg.values(key);
-  for(int ic=0; ic<curve.count(); ic++)
+  if (m_cg.contains(key))
     {
-      QVector<QPoint> c = curve[ic]->pts;
-      QVector<QPoint> newc;
-      newc = c;
-      int npts = c.count();
-      for(int i=0; i<npts; i++)
+      int ic = getActiveCurve(key, v0, v1);
+      if (ic >= 0)
 	{
-	  QPoint v = newc[i] - cen;
-	  float len = qSqrt(QPoint::dotProduct(v,v));
-	  if (len <= rad)
-	    {
-	      v /= qMax(0.0f, len);	      
-	      for(int j=-rad; j<=rad; j++)
-		{
-		  int idx = i+j;
-		  if (idx < 0) idx = npts + idx;
-		  else if (idx > npts-1) idx = idx - npts;
-		  
-		  QPoint v0 = newc[idx] - cen;
-		  int v0len = qSqrt(QPoint::dotProduct(v0,v0));
-		  if (v0len <= rad)
-		    {
-		      float frc = (float)qAbs(qAbs(j)-rad)/(float)rad;
-		      newc[idx] = newc[idx] + frc*(rad-len)*v;
-		    }
-		}
-	    }
+	  QList<Curve*> curves = m_cg.values(key);
+	  // replace pts with the pushed version
+	  curves[ic]->pts = push(curves[ic]->pts,
+				 cen,
+				 rad,
+				 curves[ic]->closed);
 	}
-
-      QVector<QPoint> w;
-      w = subsample(newc, 1.2, curve[ic]->closed);
-
-      curve[ic]->pts = w;
     }
-
+  int mc = getActiveMorphedCurve(key, v0, v1);
+  if (mc >= 0)
+    {
+      Curve c = m_mcg[mc].value(key);
+      QVector<QPoint> w;
+      w = push(c.pts,
+	       cen,
+	       rad,
+	       c.closed);
+      c.pts = w; // replace pts with the pushed version
+      m_mcg[mc].insert(key, c);
+    }
 }
 
 QVector<QPoint>
-CurveGroup::smooth(QVector<QPoint> c, int v0, int v1, int rad, bool closed)
+CurveGroup::push(QVector<QPoint> c, QPoint cen, int rad, bool closed)
 {
-  QPoint cen = QPoint(v0, v1);
+  QVector<QPoint> newc;
+  newc = c;
+  int npts = c.count();
+  for(int i=0; i<npts; i++)
+    {
+      QPoint v = newc[i] - cen;
+      float len = qSqrt(QPoint::dotProduct(v,v));
+      if (len <= rad)
+	{
+	  v /= qMax(0.0f, len);	      
+	  for(int j=-rad; j<=rad; j++)
+	    {
+	      int idx = i+j;
+	      if (idx < 0) idx = npts + idx;
+	      else if (idx > npts-1) idx = idx - npts;
+	      
+	      QPoint v0 = newc[idx] - cen;
+	      int v0len = qSqrt(QPoint::dotProduct(v0,v0));
+	      if (v0len <= rad)
+		{
+		  float frc = (float)qAbs(qAbs(j)-rad)/(float)rad;
+		  newc[idx] = newc[idx] + frc*(rad-len)*v;
+		}
+	    }
+	}
+    }
+  
+  QVector<QPoint> w;
+  w = subsample(newc, 1.2, closed);
+  
+  return w;
+}
+
+
+QVector<QPoint>
+CurveGroup::smooth(QVector<QPoint> c, QPoint cen, int rad, bool closed)
+{
   QVector<QPoint> newc;
   newc = c;
   int npts = c.count();
@@ -699,7 +725,7 @@ CurveGroup::smooth(QVector<QPoint> c, int v0, int v1, int rad, bool closed)
 //	}
 //    }
 
-  for(int i=1; i<npts-1; i++)
+  for(int i=0; i<npts-1; i++)
     {
       QPoint v = c[i] - cen;
       if (v.manhattanLength() <= rad)
@@ -797,14 +823,14 @@ CurveGroup::subsample(QVector<QPoint> cp, float delta, bool closed)
 }
 
 void
-CurveGroup::alignAllCurves(QMap<int, QVector<QPoint> >&cg)
+CurveGroup::alignClosedCurves(QMap<int, QVector<QPoint> >&cg)
 {
   if (cg.count() == 0)
     return;
 
   QList<int> keys = cg.keys();
-  QPoint cp;
-  cp = cg[keys[0]][0];
+  QVector<QPoint> cp = cg.value(keys[0]);
+  int ncpts = cp.count();
 
   for(int i=1; i<keys.count(); i++)
     {
@@ -814,7 +840,7 @@ CurveGroup::alignAllCurves(QMap<int, QVector<QPoint> >&cg)
       int j0 = 0;
       for(int j=0; j<npts; j++)
 	{
-	  int ml = (cp-c[j]).manhattanLength();
+	  int ml = (cp[0]-c[j]).manhattanLength();
 	  if (ml < dst)
 	    {
 	      dst = ml;
@@ -830,6 +856,135 @@ CurveGroup::alignAllCurves(QMap<int, QVector<QPoint> >&cg)
       for(int j=0; j<j0; j++)
 	nc[k++] = c[j];
 
+
+      //check for winding
+      int stp=5;
+      stp = qMin(5, qMin(ncpts/5, npts/5));
+      if (stp > 0)
+	{
+	  int opp=0;
+	  for(int j=1; j < 5; j++)
+	    {
+	      QPoint v0 = cp[stp*j]-cp[0];
+	      QPoint v1 = nc[stp*j]-nc[0];
+	      int d = v0.x()*v1.x() + v0.y()*v1.y();
+	      if (d < 0)
+		opp++;
+	    }
+	  // flip if curve windings are opposite to each other
+	  if (opp > 1)
+	    {
+	      for(int j=0; j<npts/2; j++)
+		{
+		  QPoint v = nc[j];
+		  nc[j] = nc[npts-1-j];
+		  nc[npts-1-j] = v;
+		}
+	    }
+	}
+
       cg.insert(keys[i], nc);
     }
 }
+
+void
+CurveGroup::alignOpenCurves(QMap<int, QVector<QPoint> >&cg)
+{
+  if (cg.count() == 0)
+    return;
+
+  QList<int> keys = cg.keys();
+  QVector<QPoint> cp = cg.value(keys[0]);
+  int ncpts = cp.count();
+
+  for(int i=1; i<keys.count(); i++)
+    {
+      QVector<QPoint> c = cg.value(keys[i]);
+      int npts = c.count();
+
+      //check for winding
+      int stp=5;
+      stp = qMin(5, qMin(ncpts/5, npts/5));
+      if (stp > 0)
+	{
+	  int opp=0;
+	  for(int j=1; j < 5; j++)
+	    {
+	      QPoint v0 = cp[stp*j]-cp[0];
+	      QPoint v1 = c[stp*j]-c[0];
+	      int d = v0.x()*v1.x() + v0.y()*v1.y();
+	      if (d < 0)
+		opp++;
+	    }
+	  // flip if curve windings are opposite to each other
+	  if (opp > 1)
+	    {
+	      for(int j=0; j<npts/2; j++)
+		{
+		  QPoint v = c[j];
+		  c[j] = c[npts-1-j];
+		  c[npts-1-j] = v;
+		}
+	      cg.insert(keys[i], c);
+	    }
+	}
+    }
+}
+
+void
+CurveGroup::joinPolygonAt(int key, QVector<QPoint> pts)
+{
+  int npts = pts.count();
+
+  int mc = getActiveMorphedCurve(key, pts[0].x(), pts[0].y());
+  if (mc >= 0)
+    {
+      Curve c = m_mcg[mc].value(key);
+      QVector<QPoint> w = c.pts;
+      int ncpts = w.count();
+      int start = -1;
+      QPoint startPt = pts[0];
+      QPoint endPt = pts[npts-1];
+      for(int j=0; j<ncpts; j++)
+	{
+	  int ml = (startPt-w[j]).manhattanLength();
+	  if (ml < 3)
+	    {
+	      start = j;
+	      break;
+	    }
+	}
+      int end = -1;
+      for(int j=0; j<ncpts; j++)
+	{
+	  int ml = (endPt-w[j]).manhattanLength();
+	  if (ml < 3)
+	    {
+	      end = j;
+	      break;
+	    }
+	}
+
+      if (start <0 || end < 0)
+	return;
+      
+      // insert pts into the curve
+      QVector<QPoint> newc;
+      newc = pts;
+      int jend = ncpts;
+      if (start > end)
+	jend = start;
+      for(int j=end; j<jend; j++)
+	newc << w[j];
+      if (start < end)
+	{
+	  for(int j=0; j<start; j++)
+	    newc << w[j];
+	}      
+
+      w = subsample(newc, 1.2, c.closed);
+      c.pts = w; // replace pts with the pushed version
+      m_mcg[mc].insert(key, c);
+    }
+}
+

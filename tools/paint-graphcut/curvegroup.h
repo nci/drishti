@@ -43,6 +43,7 @@ class CurveGroup
 
   void setPolygonAt(int, int*, int, int, int, bool);
   void setPolygonAt(int, QVector<QPoint>, bool);
+  void joinPolygonAt(int, QVector<QPoint>);
   void setCurveAt(int, Curve);
 
   void smooth(int, int, int, int);
@@ -75,12 +76,14 @@ class CurveGroup
   QList< QMap<int, Curve> > m_mcg;
 
   QVector<QPoint> subsample(QVector<QPoint>, float, bool);
-  QVector<QPoint> smooth(QVector<QPoint>, int, int, int, bool);
+  QVector<QPoint> smooth(QVector<QPoint>, QPoint, int, bool);
+  QVector<QPoint> push(QVector<QPoint>, QPoint, int, bool);
 
   Curve m_copyCurve;
   int m_moveCurve;
 
-  void alignAllCurves(QMap<int, QVector<QPoint> >&);
+  void alignClosedCurves(QMap<int, QVector<QPoint> >&);
+  void alignOpenCurves(QMap<int, QVector<QPoint> >&);
   void clearMorphedCurves();
   float pathLength(Curve*);
   float area(Curve*);

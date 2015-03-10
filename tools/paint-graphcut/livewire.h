@@ -26,6 +26,8 @@ class LiveWire
   QVector<QPoint> poly();
   QVector<QPoint> livewire();
 
+  void setSmoothType(int s) { m_smoothType = s; };
+  void setGradType(int g) { m_gradType = g; };
 
  private :
   QVector<QPoint> m_poly;
@@ -35,6 +37,9 @@ class LiveWire
   uchar *m_image;
   float *m_grad;
   uchar *m_tmp;
+
+  int m_gradType;
+  int m_smoothType;
 
   QVector<float> m_edgeWeight;
   QVector<float> m_cost;

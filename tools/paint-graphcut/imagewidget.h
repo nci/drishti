@@ -72,6 +72,8 @@ class ImageWidget : public QWidget
   void setCurve(bool);
   void saveCurves();
   void loadCurves();
+  void setSmoothType(int);
+  void setGradType(int);
 
  signals :
   void getSlice(int);
@@ -221,6 +223,7 @@ class ImageWidget : public QWidget
   void saveCurveData(QFile*, int, Curve*);
   QPair<int, Curve> loadCurveData(QFile*);
 
+  bool curveModeKeyPressEvent(QKeyEvent*);
 };
 
 

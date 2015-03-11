@@ -18,7 +18,7 @@
     <item>
      <layout class="QHBoxLayout">
       <property name="spacing">
-       <number>0</number>
+       <number>10</number>
       </property>
       <property name="leftMargin">
        <number>10</number>
@@ -85,9 +85,90 @@
        </layout>
       </item>
       <item>
+       <layout class="QVBoxLayout" name="verticalLayout_6">
+        <property name="spacing">
+         <number>0</number>
+        </property>
+        <property name="leftMargin">
+         <number>0</number>
+        </property>
+        <property name="rightMargin">
+         <number>0</number>
+        </property>
+        <item>
+         <widget class="QPushButton" name="zoom0">
+          <property name="maximumSize">
+           <size>
+            <width>25</width>
+            <height>20</height>
+           </size>
+          </property>
+          <property name="text">
+           <string>O</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="zoom9">
+          <property name="maximumSize">
+           <size>
+            <width>25</width>
+            <height>20</height>
+           </size>
+          </property>
+          <property name="text">
+           <string>Fit</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="zoomup">
+          <property name="maximumSize">
+           <size>
+            <width>25</width>
+            <height>20</height>
+           </size>
+          </property>
+          <property name="text">
+           <string>+</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="zoomdown">
+          <property name="maximumSize">
+           <size>
+            <width>25</width>
+            <height>20</height>
+           </size>
+          </property>
+          <property name="text">
+           <string>-</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QSpinBox" name="radius">
+          <property name="layoutDirection">
+           <enum>Qt::RightToLeft</enum>
+          </property>
+          <property name="minimum">
+           <number>1</number>
+          </property>
+          <property name="maximum">
+           <number>100</number>
+          </property>
+          <property name="value">
+           <number>10</number>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
        <layout class="QVBoxLayout" name="verticalLayout_2">
         <property name="leftMargin">
-         <number>20</number>
+         <number>0</number>
         </property>
         <property name="rightMargin">
          <number>0</number>
@@ -298,7 +379,7 @@
           </property>
           <layout class="QHBoxLayout" name="horizontalLayout_2">
            <property name="spacing">
-            <number>2</number>
+            <number>5</number>
            </property>
            <property name="leftMargin">
             <number>2</number>
@@ -315,7 +396,7 @@
            <item>
             <widget class="QToolButton" name="livewire">
              <property name="text">
-              <string>Livewire</string>
+              <string>Lw</string>
              </property>
              <property name="checkable">
               <bool>true</bool>
@@ -329,12 +410,63 @@
             </widget>
            </item>
            <item>
+            <widget class="QPushButton" name="lwfreeze">
+             <property name="maximumSize">
+              <size>
+               <width>30</width>
+               <height>19</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>&gt;&gt;</string>
+             </property>
+             <property name="default">
+              <bool>false</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
             <widget class="QToolButton" name="curve">
              <property name="text">
-              <string>Curve</string>
+              <string>Cu</string>
              </property>
              <property name="checkable">
               <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="newcurve">
+             <property name="maximumSize">
+              <size>
+               <width>30</width>
+               <height>19</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>New</string>
+             </property>
+             <property name="default">
+              <bool>false</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="morphcurves">
+             <property name="maximumSize">
+              <size>
+               <width>30</width>
+               <height>19</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>M</string>
+             </property>
+             <property name="default">
+              <bool>false</bool>
+             </property>
+             <property name="flat">
+              <bool>false</bool>
              </property>
             </widget>
            </item>
@@ -354,12 +486,15 @@
            <item>
             <widget class="QLabel" name="label_6">
              <property name="text">
-              <string>Line Width</string>
+              <string>Width</string>
              </property>
             </widget>
            </item>
            <item>
             <widget class="QSpinBox" name="thickness">
+             <property name="layoutDirection">
+              <enum>Qt::RightToLeft</enum>
+             </property>
              <property name="value">
               <number>1</number>
              </property>
@@ -421,6 +556,19 @@
               </size>
              </property>
             </spacer>
+           </item>
+           <item>
+            <widget class="QPushButton" name="deleteallcurves">
+             <property name="maximumSize">
+              <size>
+               <width>40</width>
+               <height>19</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>Del</string>
+             </property>
+            </widget>
            </item>
           </layout>
          </widget>

@@ -91,7 +91,8 @@ LiveWire::mousePressEvent(QMouseEvent *event)
   QPoint pp = event->pos();
   float ypos = pp.y();
   float xpos = pp.x();
-  return mousePressEvent(xpos, ypos, event);
+  if (event->button() == Qt::LeftButton)
+    return mousePressEvent(xpos, ypos, event);
 }
 
 bool

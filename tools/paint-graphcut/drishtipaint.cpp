@@ -404,11 +404,20 @@ void DrishtiPaint::on_boxSize_valueChanged(int d) { Global::setBoxSize(d); }
 void DrishtiPaint::on_lambda_valueChanged(int d) { Global::setLambda(d); }
 void DrishtiPaint::on_smooth_valueChanged(int d) { Global::setSmooth(d); }
 void DrishtiPaint::on_thickness_valueChanged(int d) { Global::setThickness(d); }
+void DrishtiPaint::on_radius_valueChanged(int d) { Global::setSpread(d); m_imageWidget->update(); }
 void DrishtiPaint::on_livewire_clicked(bool c) { m_imageWidget->setLivewire(c); }
 void DrishtiPaint::on_curve_clicked(bool c) { m_imageWidget->setCurve(c); }
 void DrishtiPaint::on_closed_clicked(bool c) { Global::setClosed(c); }
 void DrishtiPaint::on_lwsmooth_currentIndexChanged(int i){ m_imageWidget->setSmoothType(i); }
 void DrishtiPaint::on_lwgrad_currentIndexChanged(int i){ m_imageWidget->setGradType(i); }
+void DrishtiPaint::on_lwfreeze_clicked() { m_imageWidget->freezeLivewire(); }
+void DrishtiPaint::on_newcurve_clicked() { m_imageWidget->newCurve(); }
+void DrishtiPaint::on_morphcurves_clicked() { m_imageWidget->morphCurves(); }
+void DrishtiPaint::on_deleteallcurves_clicked() { m_imageWidget->deleteAllCurves(); }
+void DrishtiPaint::on_zoom0_clicked() { m_imageWidget->zoom0(); }
+void DrishtiPaint::on_zoom9_clicked() { m_imageWidget->zoom9(); }
+void DrishtiPaint::on_zoomup_clicked() { m_imageWidget->zoomUp(); }
+void DrishtiPaint::on_zoomdown_clicked() { m_imageWidget->zoomDown(); }
 void
 DrishtiPaint::on_copyprev_clicked(bool c)
 {

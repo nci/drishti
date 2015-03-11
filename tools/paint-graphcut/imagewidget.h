@@ -74,6 +74,14 @@ class ImageWidget : public QWidget
   void loadCurves();
   void setSmoothType(int);
   void setGradType(int);
+  void freezeLivewire();
+  void newCurve();
+  void morphCurves();
+  void deleteAllCurves();
+  void zoom0();
+  void zoom9();
+  void zoomUp();
+  void zoomDown();
 
  signals :
   void getSlice(int);

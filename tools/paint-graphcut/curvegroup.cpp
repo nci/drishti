@@ -56,6 +56,10 @@ CurveGroup::reset()
   m_cg.clear();
   
   m_mcg.clear();
+
+  m_pointsDirtyBit = false;
+  m_xpoints.clear();
+  m_ypoints.clear();
 }
 
 QList<int>
@@ -77,6 +81,8 @@ CurveGroup::removePolygonAt(int key, int v0, int v1)
       for(int j=0; j<curves.count(); j++)
 	m_cg.insert(key, curves[j]);
     }
+
+  m_pointsDirtyBit = true;
 
   // remove related morphed curve
   int mc = getActiveMorphedCurve(key, v0, v1);
@@ -205,6 +211,8 @@ CurveGroup::setClosed(int key, int v0, int v1, bool closed)
 
   QList<Curve*> curves = m_cg.values(key);
   curves[ic]->closed = closed;
+
+  m_pointsDirtyBit = true;
 }
 
 void
@@ -216,6 +224,8 @@ CurveGroup::setTag(int key, int v0, int v1, int t)
 
   QList<Curve*> curves = m_cg.values(key);
   curves[ic]->tag = t;
+
+  m_pointsDirtyBit = true;
 }
 
 void
@@ -259,6 +269,8 @@ CurveGroup::newCurve(int key, bool closed)
   c->thickness = Global::thickness();
   c->closed = closed;
   m_cg.insert(key, c);
+
+  m_pointsDirtyBit = true;
 }
 
 void
@@ -280,6 +292,8 @@ CurveGroup::addPoint(int key, int v0, int v1)
   int mc = getActiveMorphedCurve(key, c->pts[0].x(), c->pts[0].y());
   if (mc >= 0)
     m_mcg.removeAt(mc);
+
+  m_pointsDirtyBit = true;
 }
 
 int
@@ -332,6 +346,8 @@ CurveGroup::removePoint(int key, int v0, int v1)
   int ic = getActiveCurve(key, v0, v1);
   if (ic < 0)
     return;
+
+  m_pointsDirtyBit = true;
 
   QList<Curve*> curves = m_cg.values(key);
   QPoint cen = QPoint(v0, v1);
@@ -417,6 +433,7 @@ CurveGroup::setCurveAt(int key, Curve c)
   *cnew = c;
 
   m_cg.insert(key, cnew);
+  m_pointsDirtyBit = true;
 }
 
 void
@@ -434,6 +451,7 @@ CurveGroup::setPolygonAt(int key, int *pts, int npts,
   c->pts = cp;
 
   m_cg.insert(key, c);
+  m_pointsDirtyBit = true;
 }
 
 void
@@ -446,6 +464,7 @@ CurveGroup::setPolygonAt(int key, QVector<QPoint> pts, bool closed)
   c->pts = pts;
 
   m_cg.insert(key, c);
+  m_pointsDirtyBit = true;
 }
 
 QList< QMap<int, Curve> >* CurveGroup::getPointerToMorphedCurves() { return &m_mcg; };
@@ -554,6 +573,7 @@ CurveGroup::pasteCurve(int key)
   *c = m_copyCurve;
   m_cg.insert(key, c);
   QMessageBox::information(0, "", QString("%1 : %2").arg(key).arg(m_cg.values(key).count()));
+  m_pointsDirtyBit = true;
 }
 
 
@@ -581,6 +601,7 @@ CurveGroup::moveCurve(int key, int dv0, int dv1)
       for (int i=0; i<npts; i++)
 	curves[m_moveCurve]->pts[i] += QPoint(dv0, dv1);
     }  
+  m_pointsDirtyBit = true;
 }
 
 void
@@ -599,6 +620,8 @@ CurveGroup::smooth(int key, int v0, int v1, int rad)
 				   cen,
 				   rad,
 				   curves[ic]->closed);
+
+	  m_pointsDirtyBit = true;
 	}
     }
   int mc = getActiveMorphedCurve(key, v0, v1);
@@ -631,6 +654,7 @@ CurveGroup::push(int key, int v0, int v1, int rad)
 				 cen,
 				 rad,
 				 curves[ic]->closed);
+	  m_pointsDirtyBit = true;
 	}
     }
   int mc = getActiveMorphedCurve(key, v0, v1);
@@ -988,3 +1012,48 @@ CurveGroup::joinPolygonAt(int key, QVector<QPoint> pts)
     }
 }
 
+QList<QPoint>
+CurveGroup::xpoints(int key)
+{
+  if (m_pointsDirtyBit)
+    generateXYpoints();
+  return m_xpoints.values(key);
+}
+QList<QPoint>
+CurveGroup::ypoints(int key)
+{
+  if (m_pointsDirtyBit)
+    generateXYpoints();
+  return m_ypoints.values(key);
+}
+
+void
+CurveGroup::generateXYpoints()
+{
+  m_xpoints.clear();
+  m_ypoints.clear();
+
+  QList<int> keys = m_cg.keys();
+  for(int k=0; k<keys.count(); k++)
+    {
+      int z = keys[k];
+      QList<Curve*> c = m_cg.values(z);
+      for(int ic=0; ic<c.count(); ic++)
+	{
+	  int xcount = c[ic]->pts.count(); 
+	  for (int i=0; i<xcount; i++)
+	    {
+	      int x = c[ic]->pts[i].x();
+	      int y = c[ic]->pts[i].y();
+	      // Z, X, Y
+	      // d, h, w
+	      // w, h, d
+	      // h, w, d
+	      m_xpoints.insert(x, QPoint(z, y));
+	      m_ypoints.insert(y, QPoint(z, x));
+	    }
+	}
+    }
+
+  m_pointsDirtyBit = false;
+}

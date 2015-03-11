@@ -759,6 +759,77 @@ ImageWidget::drawCurves(QPainter *p)
 }
 
 void
+ImageWidget::drawOtherCurvePoints(QPainter *p)
+{  
+  QList<Curve*> curves;
+  QPoint move = QPoint(m_simgX, m_simgY);
+  float sx = (float)m_simgWidth/(float)m_imgWidth;
+  QVector<QPoint> vptd, vptw, vpth;
+
+  if (m_sliceType == DSlice)
+    {
+      QList<QPoint> ptw = m_wCurves.ypoints(m_currSlice);
+      for(int i=0; i<ptw.count(); i++)
+	vptw << QPoint(ptw[i].y(), ptw[i].x());
+
+      QList<QPoint> pth = m_hCurves.ypoints(m_currSlice);
+      vpth = QVector<QPoint>::fromList(pth);
+    }
+  else if (m_sliceType == WSlice)
+    {
+      QList<QPoint> pth = m_hCurves.xpoints(m_currSlice);
+      vpth = QVector<QPoint>::fromList(pth);
+
+      QList<QPoint> ptd = m_dCurves.ypoints(m_currSlice);
+      for(int i=0; i<ptd.count(); i++)
+	vptd << QPoint(ptd[i].y(), ptd[i].x());
+    }    
+  else
+    {
+      QList<QPoint> ptw = m_wCurves.xpoints(m_currSlice);
+      vptw = QVector<QPoint>::fromList(ptw);
+
+      QList<QPoint> ptd = m_dCurves.xpoints(m_currSlice);
+      for(int i=0; i<ptd.count(); i++)
+	vptd << QPoint(ptd[i].y(), ptd[i].x());
+
+    }
+
+  if (vptd.count() > 0)
+    {
+      for(int l=0; l<vptd.count(); l++)
+	vptd[l] = vptd[l]*sx + move;
+
+      p->setPen(QPen(Qt::black, 5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+      p->drawPoints(vptd);
+      p->setPen(QPen(Qt::red, 3, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+      p->drawPoints(vptd);
+    }
+
+  if (vptw.count() > 0)
+    {
+      for(int l=0; l<vptw.count(); l++)
+	vptw[l] = vptw[l]*sx + move;
+
+      p->setPen(QPen(Qt::black, 5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+      p->drawPoints(vptw);
+      p->setPen(QPen(Qt::yellow, 3, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+      p->drawPoints(vptw);
+    }
+
+  if (vpth.count() > 0)
+    {
+      for(int l=0; l<vpth.count(); l++)
+	vpth[l] = vpth[l]*sx + move;
+      
+      p->setPen(QPen(Qt::black, 5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+      p->drawPoints(vpth);
+      p->setPen(QPen(Qt::cyan, 3, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+      p->drawPoints(vpth);
+    }
+}
+
+void
 ImageWidget::drawMorphedCurves(QPainter *p)
 {  
   QList<Curve> curves;
@@ -806,7 +877,7 @@ ImageWidget::paintEvent(QPaintEvent *event)
   int shiftModifier = QGuiApplication::keyboardModifiers() & Qt::ShiftModifier;
   int ctrlModifier = QGuiApplication::keyboardModifiers() & Qt::ControlModifier;
 
-
+  p.setRenderHint(QPainter::Antialiasing);
   p.setCompositionMode(QPainter::CompositionMode_SourceOver);
 
   p.drawImage(m_simgX, m_simgY, m_imageScaled);
@@ -824,6 +895,7 @@ ImageWidget::paintEvent(QPaintEvent *event)
   drawMorphedCurves(&p);
 
   drawLivewire(&p);
+  drawOtherCurvePoints(&p);
 
   if (m_pickPoint)
     drawRawValue(&p);
@@ -1202,6 +1274,12 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
       if (m_livewire.keyPressEvent(event))
 	{
 	  update();
+	  return true;
+	}
+
+      if (event->key() == Qt::Key_Space)
+	{
+	  freezeLivewire();
 	  return true;
 	}
 
@@ -1750,12 +1828,6 @@ ImageWidget::mousePressEvent(QMouseEvent *event)
     {
       if (!validPickPoint(xpos, ypos))
 	return;
-
-      if (event->button() == Qt::RightButton)
-	{
-	  freezeLivewire();
-	  return;
-	}
 
       m_lastPickDepth = m_pickDepth;
       m_lastPickWidth = m_pickWidth;

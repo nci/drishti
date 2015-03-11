@@ -71,9 +71,16 @@ class CurveGroup
   QList< QMap<int, Curve> >* getPointerToMorphedCurves();
   void addMorphBlock(QMap<int, Curve>);
 
+  QList<QPoint> xpoints(int);
+  QList<QPoint> ypoints(int);
+
  private :
   QMultiMap<int, Curve*> m_cg;
   QList< QMap<int, Curve> > m_mcg;
+
+  bool m_pointsDirtyBit;
+  QMultiMap<int, QPoint> m_xpoints;
+  QMultiMap<int, QPoint> m_ypoints;
 
   QVector<QPoint> subsample(QVector<QPoint>, float, bool);
   QVector<QPoint> smooth(QVector<QPoint>, QPoint, int, bool);
@@ -87,6 +94,8 @@ class CurveGroup
   void clearMorphedCurves();
   float pathLength(Curve*);
   float area(Curve*);
+
+  void generateXYpoints();
 };
 
 #endif

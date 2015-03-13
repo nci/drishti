@@ -100,6 +100,8 @@ ImageWidget::ImageWidget(QWidget *parent, QStatusBar *sb) :
 
   updateTagColors();
 
+  m_pointSize = 3;
+
   m_prevslicetagColors.clear();
   m_prevslicetagColors.resize(256);
   m_prevslicetagColors[0] = qRgba(0,0,0,0);
@@ -552,7 +554,7 @@ ImageWidget::recolorImage()
   uchar *sliceData = new uchar[m_imgHeight*m_imgWidth];
   for(int i=0; i<m_imgHeight*m_imgWidth; i++)
     sliceData[i] = m_sliceImage[4*i];
-    //sliceData[i] = m_slice[2*i];
+
   m_livewire.setImageData(m_imgWidth, m_imgHeight, sliceData);
   delete [] sliceData;
   m_gradImageScaled = m_livewire.gradientImage().scaled(m_simgWidth,
@@ -629,6 +631,10 @@ ImageWidget::resizeImage()
 							 Qt::IgnoreAspectRatio,
 							 Qt::FastTransformation);
 
+  m_gradImageScaled = m_livewire.gradientImage().scaled(m_simgWidth,
+							m_simgHeight,
+							Qt::IgnoreAspectRatio,
+							Qt::FastTransformation);
 }
 
 void
@@ -758,6 +764,7 @@ ImageWidget::drawCurves(QPainter *p)
     }
 }
 
+void ImageWidget::setPointSize(int p) { m_pointSize = p; }
 void
 ImageWidget::drawOtherCurvePoints(QPainter *p)
 {  
@@ -800,9 +807,9 @@ ImageWidget::drawOtherCurvePoints(QPainter *p)
       for(int l=0; l<vptd.count(); l++)
 	vptd[l] = vptd[l]*sx + move;
 
-      p->setPen(QPen(Qt::black, 5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+      p->setPen(QPen(Qt::black, m_pointSize+2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
       p->drawPoints(vptd);
-      p->setPen(QPen(Qt::red, 3, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+      p->setPen(QPen(Qt::red, m_pointSize, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
       p->drawPoints(vptd);
     }
 
@@ -811,9 +818,9 @@ ImageWidget::drawOtherCurvePoints(QPainter *p)
       for(int l=0; l<vptw.count(); l++)
 	vptw[l] = vptw[l]*sx + move;
 
-      p->setPen(QPen(Qt::black, 5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+      p->setPen(QPen(Qt::black, m_pointSize+2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
       p->drawPoints(vptw);
-      p->setPen(QPen(Qt::yellow, 3, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+      p->setPen(QPen(Qt::yellow, m_pointSize, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
       p->drawPoints(vptw);
     }
 
@@ -822,9 +829,9 @@ ImageWidget::drawOtherCurvePoints(QPainter *p)
       for(int l=0; l<vpth.count(); l++)
 	vpth[l] = vpth[l]*sx + move;
       
-      p->setPen(QPen(Qt::black, 5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+      p->setPen(QPen(Qt::black, m_pointSize+2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
       p->drawPoints(vpth);
-      p->setPen(QPen(Qt::cyan, 3, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+      p->setPen(QPen(Qt::cyan, m_pointSize, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
       p->drawPoints(vpth);
     }
 }
@@ -1171,6 +1178,9 @@ ImageWidget::freezeLivewire()
       return;
     }
 
+  if (Global::closed())
+    m_livewire.freeze();
+
   QVector<QPoint> pts = m_livewire.poly();
   if (pts.count() < 1)
     {
@@ -1307,6 +1317,12 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
 	  update();
 	  return true;
 	}
+    }
+
+  if (event->key() == Qt::Key_N)
+    {
+      newCurve();
+      return true;
     }
 
   if (ctrlModifier && event->key() == Qt::Key_C)
@@ -3414,6 +3430,10 @@ ImageWidget::loadCurves()
 
   loadCurves(curvesfile);
 }
+
+void ImageWidget::setWeightI(float w) { m_livewire.setWeightI(w); }
+void ImageWidget::setWeightG(float w) { m_livewire.setWeightG(w); }
+void ImageWidget::setWeightN(float w) { m_livewire.setWeightN(w); }
 
 void
 ImageWidget::setSmoothType(int i)

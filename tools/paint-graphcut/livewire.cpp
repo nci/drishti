@@ -6,6 +6,7 @@ LiveWire::LiveWire()
 {
   m_image = 0;
   m_grad = 0;
+  m_normal = 0;
   m_tmp = 0;
   m_edgeWeight.clear();
   m_cost.clear();
@@ -20,7 +21,15 @@ LiveWire::LiveWire()
 
   m_gradType = 0;
   m_smoothType = 0;
+
+  m_wtI = 0.0;
+  m_wtG = 0.7;
+  m_wtN = 0.3;
 }
+
+void LiveWire::setWeightI(float w) { m_wtI = w; }
+void LiveWire::setWeightG(float w) { m_wtG = w; }
+void LiveWire::setWeightN(float w) { m_wtN = w; }
 
 LiveWire::~LiveWire() { reset(); }
 
@@ -36,10 +45,12 @@ LiveWire::reset()
 {
   if (m_image) delete [] m_image;
   if (m_grad) delete [] m_grad;
+  if (m_normal) delete [] m_normal;
   if (m_tmp) delete [] m_tmp;
 
   m_image = 0;
   m_grad = 0;
+  m_normal = 0;
   m_tmp = 0;
   m_edgeWeight.clear();
   m_cost.clear();
@@ -61,6 +72,7 @@ LiveWire::setImageData(int w, int h, uchar *img)
     {
       if (m_image) delete [] m_image;
       if (m_grad) delete [] m_grad;
+      if (m_normal) delete [] m_normal;
       if (m_tmp) delete [] m_tmp;
 
       m_width = w;
@@ -68,6 +80,7 @@ LiveWire::setImageData(int w, int h, uchar *img)
 
       m_image = new uchar[m_width*m_height];
       m_grad = new float[sizeof(float)*m_width*m_height];  
+      m_normal = new float[2*sizeof(float)*m_width*m_height];  
       m_tmp = new uchar[4*m_width*m_height];  
 
       m_edgeWeight.clear();
@@ -164,6 +177,20 @@ LiveWire::mouseMoveEvent(int xpos, int ypos, QMouseEvent *event)
 
 void LiveWire::mouseReleaseEvent(QMouseEvent *event) {}
 
+void
+LiveWire::freeze()
+{
+  // close the livewire by connecting to the first point
+  if (m_poly.count() > 0)
+    {
+      int xpos = m_poly[0].x();
+      int ypos = m_poly[0].y();
+      m_livewire.clear();
+      calculateLivewire(xpos, ypos);
+      m_poly += m_livewire;
+    }
+}
+
 bool
 LiveWire::keyPressEvent(QKeyEvent *event)
 {
@@ -207,6 +234,7 @@ LiveWire::calculateGradients()
 //			 { 1,  2,  1}, };  
 
   memset(m_grad, 0, sizeof(float)*m_width*m_height);
+  memset(m_normal, 0, 2*sizeof(float)*m_width*m_height);
 
   float maxGrad = 0;
   float minGrad = 1000000;
@@ -228,6 +256,16 @@ LiveWire::calculateGradients()
 	    }
 	    
 	    float grd = qSqrt(dx*dx + dy*dy);
+
+	    // calculate normal cost
+	    if (qAbs(grd) > 0)
+	      {
+		dx /= grd;
+		dy /= grd;
+		m_normal[2*(i*m_width+j)] = dy;
+		m_normal[2*(i*m_width+j)+1] = -dx;
+	      }	    
+
 	    maxGrad = qMax(maxGrad, grd);
 	    minGrad = qMin(minGrad, grd);
 	    m_grad[i*m_width+j] = grd;
@@ -260,6 +298,16 @@ LiveWire::calculateGradients()
 	    }
 	    
 	    float grd = qSqrt(dx*dx + dy*dy);
+
+	    // calculate normal cost
+	    if (qAbs(grd) > 0)
+	      {
+		dx /= grd;
+		dy /= grd;
+		m_normal[2*(i*m_width+j)] = dy;
+		m_normal[2*(i*m_width+j)+1] = -dx;
+	      }	    
+
 	    maxGrad = qMax(maxGrad, grd);
 	    minGrad = qMin(minGrad, grd);
 	    m_grad[i*m_width+j] = grd;
@@ -351,6 +399,8 @@ LiveWire::calculateCost(int wpos, int hpos, int boxSize)
   m_cost[x*m_width + y] = 0;
   qmap.insert(0, QPoint(x, y));
 
+  float pi23 = 2.0/(3.0*3.1415926535);
+  
   while(qmap.count() > 0)
     {
       float key = qmap.firstKey();
@@ -364,14 +414,12 @@ LiveWire::calculateCost(int wpos, int hpos, int boxSize)
 
       int midx = x*m_width+y;
 
-      visited[midx] = true;
+      visited[midx] = true;      
       
       // visit all neighbours
       for(int a=-1; a<=1; a++)
 	for(int b=-1; b<=1; b++)
 	  {
-//	    if (x+a < 0 || x+a >= m_height ||
-//		y+b < 0 || y+b >= m_width)
 	    if (x+a < hpos-boxSize || x+a >= hpos+boxSize ||
 		y+b < wpos-boxSize || y+b >= wpos+boxSize ||
 		x+a < 0 || x+a >= m_height ||
@@ -384,15 +432,25 @@ LiveWire::calculateCost(int wpos, int hpos, int boxSize)
 		// 3  4  5
 		// 6  7  8
 		if (idx != 4 && !visited[(x+a)*m_width+(y+b)])
-		  //if (idx != 4)
 		  {
 		    if (idx > 4) idx--;
 		    // 0  1  2         0  1  2
 		    // 3  4  5   ==>   3     4
 		    // 6  7  8	       5  6  7
-		    float wt = m_edgeWeight.at(8*midx + idx);
-		    float newcost = dcost + wt*m_grad[midx];
-		    //float newcost = dcost + wt*m_image[midx];
+		    float lx = (float)a/qSqrt(a*a+b*b);
+		    float ly = (float)b/qSqrt(a*a+b*b);
+		    float dp = (lx*m_normal[2*midx] +
+				ly*m_normal[2*midx+1]);
+		    float dq = (lx*m_normal[2*((x+a)*m_width+(y+b))] +
+				ly*m_normal[2*((x+a)*m_width+(y+b))+1]);
+		    float normalCost = pi23*(qAcos(dp)+qAcos(dq));
+
+		    float imageCost = (m_image[midx]-m_image[(x+a)*m_width+(y+b)])/255.0;
+		    float wtab = (m_wtI*imageCost +
+				  m_wtG*m_grad[midx] +
+				  m_wtN*normalCost);
+		    float ewt = m_edgeWeight.at(8*midx + idx);
+		    float newcost = dcost + ewt*wtab;
 		    float oldcost = m_cost.at((x+a)*m_width+(y+b)); 
 		    if (newcost < oldcost)
 		      {

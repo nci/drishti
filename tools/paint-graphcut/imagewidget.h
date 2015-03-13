@@ -35,6 +35,10 @@ class ImageWidget : public QWidget
   void setImage(uchar*, uchar*);
   void setMaskImage(uchar*);
 
+  void setWeightI(float);
+  void setWeightG(float);
+  void setWeightN(float);
+
   void setRawValue(QList<uchar>);
 
   void paintEvent(QPaintEvent*);
@@ -82,6 +86,7 @@ class ImageWidget : public QWidget
   void zoom9();
   void zoomUp();
   void zoomDown();
+  void setPointSize(int);
 
  signals :
   void getSlice(int);
@@ -183,6 +188,8 @@ class ImageWidget : public QWidget
   int m_cslc, m_maxslc;
   int m_key;
   bool m_forward;
+
+  int m_pointSize;
 
   void resizeImage();
   void recolorImage();

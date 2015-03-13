@@ -43,6 +43,7 @@ class DrishtiPaint : public QMainWindow
   void on_copyprev_clicked(bool);
   void on_thickness_valueChanged(int);
   void on_radius_valueChanged(int);
+  void on_pointsize_valueChanged(int);
   void on_livewire_clicked(bool);
   void on_curve_clicked(bool);
   void on_closed_clicked(bool);
@@ -56,6 +57,9 @@ class DrishtiPaint : public QMainWindow
   void on_zoom9_clicked();
   void on_zoomup_clicked();
   void on_zoomdown_clicked();
+  void on_weightI_valueChanged(double);
+  void on_weightG_valueChanged(double);
+  void on_weightN_valueChanged(double);
   void changeTransferFunctionDisplay(int, QList<bool>);
   void checkStateChanged(int, int, bool);
   void updateComposite();

@@ -405,6 +405,7 @@ void DrishtiPaint::on_lambda_valueChanged(int d) { Global::setLambda(d); }
 void DrishtiPaint::on_smooth_valueChanged(int d) { Global::setSmooth(d); }
 void DrishtiPaint::on_thickness_valueChanged(int d) { Global::setThickness(d); }
 void DrishtiPaint::on_radius_valueChanged(int d) { Global::setSpread(d); m_imageWidget->update(); }
+void DrishtiPaint::on_pointsize_valueChanged(int d) { m_imageWidget->setPointSize(d); }
 void DrishtiPaint::on_livewire_clicked(bool c) { m_imageWidget->setLivewire(c); }
 void DrishtiPaint::on_curve_clicked(bool c) { m_imageWidget->setCurve(c); }
 void DrishtiPaint::on_closed_clicked(bool c) { Global::setClosed(c); }
@@ -418,6 +419,9 @@ void DrishtiPaint::on_zoom0_clicked() { m_imageWidget->zoom0(); }
 void DrishtiPaint::on_zoom9_clicked() { m_imageWidget->zoom9(); }
 void DrishtiPaint::on_zoomup_clicked() { m_imageWidget->zoomUp(); }
 void DrishtiPaint::on_zoomdown_clicked() { m_imageWidget->zoomDown(); }
+void DrishtiPaint::on_weightI_valueChanged(double d) { m_imageWidget->setWeightI(d); }
+void DrishtiPaint::on_weightG_valueChanged(double d) { m_imageWidget->setWeightG(d); }
+void DrishtiPaint::on_weightN_valueChanged(double d) { m_imageWidget->setWeightN(d); }
 void
 DrishtiPaint::on_copyprev_clicked(bool c)
 {

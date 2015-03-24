@@ -78,7 +78,7 @@ class ImageWidget : public QWidget
   void loadCurves();
   void setSmoothType(int);
   void setGradType(int);
-  void freezeLivewire();
+  void freezeLivewire(bool);
   void newCurve();
   void morphCurves();
   void deleteAllCurves();
@@ -240,6 +240,9 @@ class ImageWidget : public QWidget
   QPair<int, Curve> loadCurveData(QFile*);
 
   bool curveModeKeyPressEvent(QKeyEvent*);
+
+  void propagateLivewire();
+
 };
 
 

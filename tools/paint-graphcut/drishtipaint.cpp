@@ -411,7 +411,7 @@ void DrishtiPaint::on_curve_clicked(bool c) { m_imageWidget->setCurve(c); }
 void DrishtiPaint::on_closed_clicked(bool c) { Global::setClosed(c); }
 void DrishtiPaint::on_lwsmooth_currentIndexChanged(int i){ m_imageWidget->setSmoothType(i); }
 void DrishtiPaint::on_lwgrad_currentIndexChanged(int i){ m_imageWidget->setGradType(i); }
-void DrishtiPaint::on_lwfreeze_clicked() { m_imageWidget->freezeLivewire(); }
+void DrishtiPaint::on_lwfreeze_clicked() { m_imageWidget->freezeLivewire(false); }
 void DrishtiPaint::on_newcurve_clicked() { m_imageWidget->newCurve(); }
 void DrishtiPaint::on_morphcurves_clicked() { m_imageWidget->morphCurves(); }
 void DrishtiPaint::on_deleteallcurves_clicked() { m_imageWidget->deleteAllCurves(); }

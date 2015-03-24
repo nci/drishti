@@ -24,6 +24,7 @@ class LiveWire
 
   QImage gradientImage();
   QVector<QPoint> poly();
+  QVector<QPoint> seeds();
   QVector<QPoint> livewire();
 
   void setSmoothType(int s) { m_smoothType = s; };
@@ -34,16 +35,24 @@ class LiveWire
   void setWeightI(float);
   void setWeightG(float);
   void setWeightN(float);
+  void setUseDynamicTraining(bool);
+
+  void livewireFromSeeds(QVector<QPoint>);
 
  private :
   QVector<QPoint> m_poly;
   QVector<QPoint> m_livewire;
+  QVector<QPoint> m_seeds;
+  QVector<int> m_seedpos;
 
   int m_width, m_height;
   uchar *m_image;
   float *m_grad;
   float *m_normal;
   uchar *m_tmp;
+
+  float *m_gradCost;
+  bool m_useDynamicTraining;
 
   float m_wtG, m_wtN, m_wtI;
 
@@ -61,6 +70,7 @@ class LiveWire
   void calculateCost(int, int, int boxSize=100);
   void calculateCost1(int, int, int boxSize=100);
   void calculateLivewire(int, int);
+  void updateGradientCost();
 
   void applySmoothing(int);
   void gaussBlur_4(uchar*, uchar*, int, int, int);

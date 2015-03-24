@@ -705,6 +705,19 @@ ImageWidget::drawLivewire(QPainter *p)
 	p->drawPolyline(pts);
       }
   }
+
+  {
+    QVector<QPoint> seeds = m_livewire.seeds();
+    if (seeds.count() > 0)
+      {
+	for(int i=0; i<seeds.count(); i++)
+	  seeds[i] = seeds[i]*sx + move;
+	p->setPen(QPen(Qt::yellow, m_pointSize+2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+	p->drawPoints(seeds);
+	p->setPen(QPen(Qt::darkMagenta, m_pointSize, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+	p->drawPoints(seeds);
+      }
+  }
 }
 
 void
@@ -761,6 +774,19 @@ ImageWidget::drawCurves(QPainter *p)
 			 Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
 	  p->drawPolyline(pts);
 	}
+
+      {
+	QVector<QPoint> seeds = curves[l]->seeds;
+	if (seeds.count() > 0)
+	  {
+	    for(int i=0; i<seeds.count(); i++)
+	      seeds[i] = seeds[i]*sx + move;
+	    p->setPen(QPen(Qt::yellow, m_pointSize+2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+	    p->drawPoints(seeds);
+	    p->setPen(QPen(Qt::darkMagenta, m_pointSize, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+	    p->drawPoints(seeds);
+	  }
+      }
     }
 }
 
@@ -1170,7 +1196,7 @@ void ImageWidget::setCurve(bool b) { m_curveMode = b; }
 void ImageWidget::setLivewire(bool b) { m_livewireMode = b; }
 
 void
-ImageWidget::freezeLivewire()
+ImageWidget::freezeLivewire(bool select)
 {
   if (!m_livewireMode)
     {
@@ -1182,6 +1208,7 @@ ImageWidget::freezeLivewire()
     m_livewire.freeze();
 
   QVector<QPoint> pts = m_livewire.poly();
+  QVector<QPoint> seeds = m_livewire.seeds();
   if (pts.count() < 1)
     {
       QMessageBox::information(0, "Error", "No livewire found to be transferred to curve");
@@ -1190,17 +1217,17 @@ ImageWidget::freezeLivewire()
 
   if (m_sliceType == DSlice)
     {
-      m_dCurves.setPolygonAt(m_currSlice, pts, Global::closed()); 
+      m_dCurves.setPolygonAt(m_currSlice, pts, seeds, Global::closed(), select); 
       emit polygonLevels(m_dCurves.polygonLevels());
     }
   else if (m_sliceType == WSlice)
     {
-      m_wCurves.setPolygonAt(m_currSlice, pts, Global::closed()); 
+      m_wCurves.setPolygonAt(m_currSlice, pts, seeds, Global::closed(), select); 
       emit polygonLevels(m_wCurves.polygonLevels());
     }
   else
     {
-      m_hCurves.setPolygonAt(m_currSlice, pts, Global::closed()); 
+      m_hCurves.setPolygonAt(m_currSlice, pts, seeds, Global::closed(), select); 
       emit polygonLevels(m_hCurves.polygonLevels());
     }	  
   m_livewire.resetPoly();
@@ -1273,11 +1300,62 @@ ImageWidget::deleteAllCurves()
   update();
 }
 
+void
+ImageWidget::propagateLivewire()
+{
+  // take curve from previous/next slice and propagate it to current slice
+  int cs = qMax(0, m_currSlice-1);
+  if (!m_forward) cs = m_currSlice+1;  
+
+  QList<Curve*> curves;
+  if (m_sliceType == DSlice)
+    curves = m_dCurves.getCurvesAt(cs);
+  else if (m_sliceType == WSlice)
+    curves = m_wCurves.getCurvesAt(cs);
+  else
+    curves = m_hCurves.getCurvesAt(cs);
+  
+  for(int l=0; l<curves.count(); l++)
+    {
+      if (curves[l]->selected)
+	{
+	  int tag = curves[l]->tag;
+	  QVector<QPoint> seeds = curves[l]->seeds;
+	  m_livewire.livewireFromSeeds(seeds);
+	  freezeLivewire(true);
+	  
+	  if (m_sliceType == DSlice)
+	    m_dCurves.selectPolygon(m_currSlice, seeds[0].y(), seeds[1].x(), false);
+	  else if (m_sliceType == WSlice)
+	    m_wCurves.selectPolygon(m_currSlice, seeds[0].y(), seeds[1].x(), false);
+	  else
+	    m_hCurves.selectPolygon(m_currSlice, seeds[0].y(), seeds[1].x(), false);
+	}
+    }
+
+  checkRecursive();
+}
+
 bool
 ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
 {
+  if (event->key() == Qt::Key_Escape)
+    return false;
+
+
   int shiftModifier = event->modifiers() & Qt::ShiftModifier;
   int ctrlModifier = event->modifiers() & Qt::ControlModifier;
+
+  if (event->key() == Qt::Key_J)
+    {
+      if (shiftModifier) // apply dilation for multiple slices
+	applyRecursive(event->key());
+
+      propagateLivewire();
+
+      return true;
+    }
+
 
   if (m_livewireMode)
     {
@@ -1289,34 +1367,34 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
 
       if (event->key() == Qt::Key_Space)
 	{
-	  freezeLivewire();
+	  freezeLivewire(false);
 	  return true;
 	}
 
-      if (event->key() == Qt::Key_J)
-	// join to existing curve
-	// if not found create a new curve
-	{
-	  QVector<QPoint> pts = m_livewire.poly();
-	  if (m_sliceType == DSlice)
-	    {
-	      m_dCurves.joinPolygonAt(m_currSlice, pts); 
-	      emit polygonLevels(m_dCurves.polygonLevels());
-	    }
-	  else if (m_sliceType == WSlice)
-	    {
-	      m_wCurves.joinPolygonAt(m_currSlice, pts); 
-	      emit polygonLevels(m_wCurves.polygonLevels());
-	    }
-	  else
-	    {
-	      m_hCurves.joinPolygonAt(m_currSlice, pts); 
-	      emit polygonLevels(m_hCurves.polygonLevels());
-	    }	  
-	  m_livewire.resetPoly();
-	  update();
-	  return true;
-	}
+//      if (event->key() == Qt::Key_J)
+//	// join to existing curve
+//	// if not found create a new curve
+//	{
+//	  QVector<QPoint> pts = m_livewire.poly();
+//	  if (m_sliceType == DSlice)
+//	    {
+//	      m_dCurves.joinPolygonAt(m_currSlice, pts); 
+//	      emit polygonLevels(m_dCurves.polygonLevels());
+//	    }
+//	  else if (m_sliceType == WSlice)
+//	    {
+//	      m_wCurves.joinPolygonAt(m_currSlice, pts); 
+//	      emit polygonLevels(m_wCurves.polygonLevels());
+//	    }
+//	  else
+//	    {
+//	      m_hCurves.joinPolygonAt(m_currSlice, pts); 
+//	      emit polygonLevels(m_hCurves.polygonLevels());
+//	    }	  
+//	  m_livewire.resetPoly();
+//	  update();
+//	  return true;
+//	}
     }
 
   if (event->key() == Qt::Key_N)

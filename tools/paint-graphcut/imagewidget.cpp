@@ -1179,7 +1179,9 @@ ImageWidget::checkRecursive()
     {
       m_cslc++;
       if (m_cslc >= m_maxslc)
-	m_applyRecursive = false;
+	{
+	  m_applyRecursive = false;
+	}
       else
 	{
 	  int d = (m_forward ? -120 : 120);
@@ -1339,9 +1341,8 @@ ImageWidget::propagateLivewire()
 bool
 ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
 {
-  if (event->key() == Qt::Key_Escape)
+  if (m_applyRecursive && event->key() == Qt::Key_Escape)
     return false;
-
 
   int shiftModifier = event->modifiers() & Qt::ShiftModifier;
   int ctrlModifier = event->modifiers() & Qt::ControlModifier;

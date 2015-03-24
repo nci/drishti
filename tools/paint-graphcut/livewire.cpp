@@ -708,6 +708,31 @@ void
 LiveWire::livewireFromSeeds(QVector<QPoint> seeds)
 {
   resetPoly();
+
+  // find nearest least energy positions for all seeds
+  for(int i=0; i<seeds.count(); i++)
+    {
+      int h = seeds[i].x();
+      int w = seeds[i].y();
+      int xpos = h;
+      int ypos = w;
+      int midx = h*m_width+w;
+      float minCost = 1.0-m_grad[midx]; // currently look at maximum gradient position
+      for(int a=-1; a<=1; a++)
+	for(int b=-1; b<=1; b++)
+	  {
+	    int midx = (qBound(0,(h+a), m_height-1)*m_width+
+			qBound(0,(w+b),m_width-1)); 
+	    float cst = 1.0-m_grad[midx]; // currently look at maximum gradient position
+	    if (minCost > cst)
+	      {
+		minCost = cst;
+		// replace seed
+		seeds[i] = QPoint(h+a, w+b);
+	      }
+	  }
+    }
+
   for(int i=0; i<seeds.count(); i++)
     {
       m_seeds << seeds[i];
@@ -717,8 +742,19 @@ LiveWire::livewireFromSeeds(QVector<QPoint> seeds)
       m_poly << seeds[i];
 
       m_livewire.clear();
+
+      int sz = 250;
+      if (i < seeds.count()-1)
+	sz = qMax(qAbs(seeds[i].x()-seeds[i+1].x()),
+		  qAbs(seeds[i].y()-seeds[i+1].y()));
+      else
+	sz = qMax(qAbs(seeds[i].x()-m_poly[0].x()),
+		  qAbs(seeds[i].y()-m_poly[0].y()));
+	
+      sz*=2; // make a bigger sized cost matrix 
+
       calculateCost(seeds[i].x(),
-		    seeds[i].y(), 500);
+		    seeds[i].y(), sz);
 
       if (i < seeds.count()-1)
 	calculateLivewire(seeds[i+1].x(),

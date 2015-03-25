@@ -17,6 +17,7 @@ class Curve
 
   QVector<QPoint> pts;
   QVector<QPoint> seeds;
+  QVector<int> seedpos;
   int tag;
   int thickness;
   bool closed;
@@ -43,7 +44,11 @@ class CurveGroup
   QList<Curve> getMorphedCurvesAt(int);
 
   void setPolygonAt(int, int*, int, int, int, bool);
-  void setPolygonAt(int, QVector<QPoint>, QVector<QPoint>, bool, bool);
+  void setPolygonAt(int,
+		    QVector<QPoint>,
+		    QVector<QPoint>,
+		    QVector<int>,
+		    bool, bool);
   void joinPolygonAt(int, QVector<QPoint>);
   void setCurveAt(int, Curve);
 

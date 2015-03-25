@@ -1211,6 +1211,7 @@ ImageWidget::freezeLivewire(bool select)
 
   QVector<QPoint> pts = m_livewire.poly();
   QVector<QPoint> seeds = m_livewire.seeds();
+  QVector<int> seedpos = m_livewire.seedpos();
   if (pts.count() < 1)
     {
       QMessageBox::information(0, "Error", "No livewire found to be transferred to curve");
@@ -1219,17 +1220,17 @@ ImageWidget::freezeLivewire(bool select)
 
   if (m_sliceType == DSlice)
     {
-      m_dCurves.setPolygonAt(m_currSlice, pts, seeds, Global::closed(), select); 
+      m_dCurves.setPolygonAt(m_currSlice, pts, seeds, seedpos, Global::closed(), select); 
       emit polygonLevels(m_dCurves.polygonLevels());
     }
   else if (m_sliceType == WSlice)
     {
-      m_wCurves.setPolygonAt(m_currSlice, pts, seeds, Global::closed(), select); 
+      m_wCurves.setPolygonAt(m_currSlice, pts, seeds, seedpos, Global::closed(), select); 
       emit polygonLevels(m_wCurves.polygonLevels());
     }
   else
     {
-      m_hCurves.setPolygonAt(m_currSlice, pts, seeds, Global::closed(), select); 
+      m_hCurves.setPolygonAt(m_currSlice, pts, seeds, seedpos, Global::closed(), select); 
       emit polygonLevels(m_hCurves.polygonLevels());
     }	  
   m_livewire.resetPoly();
@@ -1338,6 +1339,71 @@ ImageWidget::propagateLivewire()
   checkRecursive();
 }
 
+void
+ImageWidget::modifyUsingLivewire()
+{
+  QList<Curve*> curves;
+  if (m_sliceType == DSlice)
+    curves = m_dCurves.getCurvesAt(m_currSlice);
+  else if (m_sliceType == WSlice)
+    curves = m_wCurves.getCurvesAt(m_currSlice);
+  else
+    curves = m_hCurves.getCurvesAt(m_currSlice);
+  
+  for(int l=0; l<curves.count(); l++)
+    {
+      if (curves[l]->selected)
+	{
+	  QVector<QPoint> pts = curves[l]->pts;
+	  QVector<QPoint> seeds = curves[l]->seeds;
+	  QVector<int> seedpos = curves[l]->seedpos;
+	  m_livewire.setPolygonToUpdate(pts, seeds, seedpos);
+	  m_livewire.setSeedMoveMode(true);
+
+	  if (m_sliceType == DSlice)
+	    m_dCurves.removePolygonAt(m_currSlice, pts[0].x(), pts[0].y());
+	  else if (m_sliceType == WSlice)
+	    m_wCurves.removePolygonAt(m_currSlice, pts[0].x(), pts[0].y());
+	  else
+	    m_hCurves.removePolygonAt(m_currSlice, pts[0].x(), pts[0].y());
+	  
+	  return;
+	}
+    }
+}
+
+void
+ImageWidget::freezeModifyUsingLivewire()
+{
+  m_livewire.setSeedMoveMode(false);
+  QVector<QPoint> pts = m_livewire.poly();
+  QVector<QPoint> seeds = m_livewire.seeds();
+  QVector<int> seedpos = m_livewire.seedpos();
+  
+  if (m_sliceType == DSlice)
+    {
+      m_dCurves.setPolygonAt(m_currSlice,
+			     pts, seeds, seedpos,
+			     Global::closed(), false); 
+      emit polygonLevels(m_dCurves.polygonLevels());
+    }
+  else if (m_sliceType == WSlice)
+    {
+      m_wCurves.setPolygonAt(m_currSlice,
+			     pts, seeds, seedpos,
+			     Global::closed(), false); 
+      emit polygonLevels(m_wCurves.polygonLevels());
+    }
+  else
+    {
+      m_hCurves.setPolygonAt(m_currSlice,
+			     pts, seeds, seedpos,
+			     Global::closed(), false); 
+      emit polygonLevels(m_hCurves.polygonLevels());
+    }
+  m_livewire.resetPoly();
+}
+
 bool
 ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
 {
@@ -1353,6 +1419,22 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
 	applyRecursive(event->key());
 
       propagateLivewire();
+
+      return true;
+    }
+
+
+  if (event->key() == Qt::Key_U)
+    {
+      if (shiftModifier)
+	{
+	  if (m_livewire.seedMoveMode())
+	    freezeModifyUsingLivewire();
+	}
+      else
+	{
+	  modifyUsingLivewire();
+	}
 
       return true;
     }
@@ -1927,6 +2009,21 @@ ImageWidget::mousePressEvent(QMouseEvent *event)
       m_lastPickDepth = m_pickDepth;
       m_lastPickWidth = m_pickWidth;
       m_lastPickHeight= m_pickHeight;
+
+      if (m_livewire.seedMoveMode())
+	{
+	  bool selected;
+	  if (m_sliceType == DSlice)
+	    selected = m_dCurves.selectPolygon(m_currSlice, m_pickHeight, m_pickWidth, shiftModifier);
+	  else if (m_sliceType == WSlice)
+	    selected = m_wCurves.selectPolygon(m_currSlice, m_pickHeight, m_pickDepth, shiftModifier);
+	  else
+	    selected = m_hCurves.selectPolygon(m_currSlice, m_pickWidth,  m_pickDepth, shiftModifier);
+	  
+	  if (selected)
+	    modifyUsingLivewire();
+	}
+
       
       if (m_sliceType == DSlice)
 	m_livewire.mousePressEvent(m_pickHeight, m_pickWidth, event);
@@ -2460,6 +2557,13 @@ ImageWidget::mouseReleaseEvent(QMouseEvent *event)
 void
 ImageWidget::wheelEvent(QWheelEvent *event)
 {
+  // if we are modifying livewire object freeze it before moving to another slice  
+  if (!m_applyRecursive && m_livewire.seedMoveMode())
+    {
+      freezeModifyUsingLivewire();
+      m_livewire.setSeedMoveMode(true);
+    }
+
   int minS, maxS;
   if (m_sliceType == DSlice)
     { 

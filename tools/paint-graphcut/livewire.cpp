@@ -30,6 +30,33 @@ LiveWire::LiveWire()
 
   m_useDynamicTraining = true;
   m_gradCost = 0;
+
+  m_seedMoveMode = false;
+  m_activeSeed = -1;
+  m_polyA.clear();
+  m_polyB.clear();
+}
+
+bool LiveWire::seedMoveMode() { return m_seedMoveMode; }
+
+void
+LiveWire::setSeedMoveMode(bool b)
+{
+  m_seedMoveMode = b;
+  m_activeSeed = -1;
+}
+
+void
+LiveWire::setPolygonToUpdate(QVector<QPoint> pts,
+			     QVector<QPoint> seeds,
+			     QVector<int> seedpos)
+{
+  m_seedMoveMode = true;
+  m_activeSeed = -1;
+  m_poly = pts;
+  m_seeds = seeds;
+  m_seedpos = seedpos;  
+  m_livewire.clear();
 }
 
 void LiveWire::setUseDynamicTraining(bool b) { m_useDynamicTraining = b; }
@@ -86,6 +113,7 @@ LiveWire::reset()
 
 QVector<QPoint> LiveWire::poly() { return m_poly; }
 QVector<QPoint> LiveWire::seeds() { return m_seeds; }
+QVector<int> LiveWire::seedpos() { return m_seedpos; }
 QVector<QPoint> LiveWire::livewire() { return m_livewire; }
 
 void
@@ -121,29 +149,21 @@ LiveWire::setImageData(int w, int h, uchar *img)
   calculateEdgeWeights();
 }
 
-bool
-LiveWire::mousePressEvent(QMouseEvent *event)
+void
+LiveWire::mouseReleaseEvent(QMouseEvent *event)
 {
-  QPoint pp = event->pos();
-  float ypos = pp.y();
-  float xpos = pp.x();
-  if (event->button() == Qt::LeftButton)
-    return mousePressEvent(xpos, ypos, event);
-}
-
-bool
-LiveWire::mouseMoveEvent(QMouseEvent *event)
-{
-  QPoint pp = event->pos();
-  float ypos = pp.y();
-  float xpos = pp.x();
-
-  return mouseMoveEvent(xpos, ypos, event);
+  m_activeSeed = -1;
 }
 
 bool
 LiveWire::mousePressEvent(int xpos, int ypos, QMouseEvent *event)
 {
+  if (m_seedMoveMode)
+    {
+      m_activeSeed = getActiveSeed(xpos, ypos);
+      return true;
+    }
+
   int button = event->button();
   
 //  bool shiftModifier = event->modifiers() & Qt::ShiftModifier;
@@ -152,11 +172,11 @@ LiveWire::mousePressEvent(int xpos, int ypos, QMouseEvent *event)
 
   if (button == Qt::LeftButton)
     {
-      m_seeds << QPoint(xpos, ypos);
-      m_seedpos << m_poly.count();
-
       m_poly += m_livewire;
       m_poly << QPoint(xpos, ypos);
+
+      m_seeds << QPoint(xpos, ypos);
+      m_seedpos << m_poly.count()-1;
 
       //updateGradientCost();
 
@@ -210,6 +230,13 @@ LiveWire::mouseMoveEvent(int xpos, int ypos, QMouseEvent *event)
 //  bool ctrlModifier = event->modifiers() & Qt::ControlModifier;
 //  bool altModifier = event->modifiers() & Qt::AltModifier;
 
+  if (m_seedMoveMode)
+    {
+      if (event->buttons() == Qt::LeftButton)
+	updateLivewireFromSeeds(xpos, ypos);
+      return true;
+    }
+
   if (m_poly.count() > 0)
     {
       calculateLivewire(xpos, ypos);
@@ -218,8 +245,6 @@ LiveWire::mouseMoveEvent(int xpos, int ypos, QMouseEvent *event)
   
   return false;
 }
-
-void LiveWire::mouseReleaseEvent(QMouseEvent *event) {}
 
 void
 LiveWire::freeze()
@@ -520,6 +545,9 @@ LiveWire::calculateCost(int wpos, int hpos, int boxSize)
 void
 LiveWire::calculateLivewire(int wpos, int hpos)
 {
+  if (m_seedMoveMode && m_activeSeed < 0)
+    return;
+
   if (wpos < 0 || wpos >= m_width ||
       hpos < 0 || hpos >= m_height)
     return;
@@ -735,11 +763,11 @@ LiveWire::livewireFromSeeds(QVector<QPoint> seeds)
 
   for(int i=0; i<seeds.count(); i++)
     {
-      m_seeds << seeds[i];
-      m_seedpos << m_poly.count();
-
       m_poly += m_livewire;
       m_poly << seeds[i];
+
+      m_seeds << seeds[i];
+      m_seedpos << m_poly.count()-1;
 
       m_livewire.clear();
 
@@ -748,10 +776,10 @@ LiveWire::livewireFromSeeds(QVector<QPoint> seeds)
 	sz = qMax(qAbs(seeds[i].x()-seeds[i+1].x()),
 		  qAbs(seeds[i].y()-seeds[i+1].y()));
       else
-	sz = qMax(qAbs(seeds[i].x()-m_poly[0].x()),
-		  qAbs(seeds[i].y()-m_poly[0].y()));
+	sz = qMax(qAbs(seeds[i].x()-m_seeds[0].x()),
+		  qAbs(seeds[i].y()-m_seeds[0].y()));
 	
-      sz*=2; // make a bigger sized cost matrix 
+      sz*=1.5; // make a bigger sized cost matrix 
 
       calculateCost(seeds[i].x(),
 		    seeds[i].y(), sz);
@@ -759,5 +787,107 @@ LiveWire::livewireFromSeeds(QVector<QPoint> seeds)
       if (i < seeds.count()-1)
 	calculateLivewire(seeds[i+1].x(),
 			  seeds[i+1].y());
+    }
+}
+
+void
+LiveWire::updateLivewireFromSeeds(int xpos, int ypos)
+{
+  if (m_activeSeed < 0)
+    return;
+
+  int totseeds = m_seedpos.count();
+  int ps = (m_activeSeed-1);
+  int ns = (m_activeSeed+1)%totseeds;;
+  if (ps < 0) ps = totseeds-1;
+  
+  m_seeds[m_activeSeed] = QPoint(xpos, ypos);
+
+  int sz = 250;
+  int sz0 = qMax(qAbs(xpos-m_seeds[ps].x()),
+		 qAbs(ypos-m_seeds[ps].y()));
+  int sz1 = qMax(qAbs(xpos-m_seeds[ns].x()),
+		 qAbs(ypos-m_seeds[ns].y()));
+  sz = 2*(sz0+sz1);
+  
+  m_poly.clear();
+
+  if (m_activeSeed == 0)
+    {
+      m_livewire.clear();
+      calculateCost(xpos, ypos, 1.5*sz1);
+      calculateLivewire(m_seeds[ns].x(),
+			m_seeds[ns].y());
+      m_poly += m_livewire;
+      m_poly += m_polyB;
+
+      m_livewire.clear();
+      calculateCost(m_seeds[ps].x(), m_seeds[ps].y(), 1.5*sz0);
+      calculateLivewire(xpos, ypos);
+      m_poly += m_livewire;
+    }
+  else
+    {
+      m_livewire.clear();
+      calculateCost(m_seeds[ps].x(), m_seeds[ps].y(), 1.5*sz0);
+      calculateLivewire(xpos, ypos);
+      m_poly += m_polyA;
+      m_poly += m_livewire;
+
+      m_livewire.clear();
+      calculateCost(xpos, ypos, 1.5*sz1);
+      calculateLivewire(m_seeds[ns].x(),
+			m_seeds[ns].y());      
+      m_poly += m_livewire;
+      m_poly += m_polyB;
+    }
+
+  m_livewire.clear();
+}
+
+int
+LiveWire::getActiveSeed(int xpos, int ypos)
+{
+  if (m_activeSeed > -1)
+    return m_activeSeed;
+
+  for(int i=0; i<m_seeds.count(); i++)
+    {
+      if ((m_seeds[i]-QPoint(xpos, ypos)).manhattanLength() < 3)
+	{
+	  splitPolygon(i);
+	  return i;
+	}
+    }
+
+  m_polyA.clear();
+  m_polyB.clear();
+  return -1;
+}
+
+void
+LiveWire::splitPolygon(int sp)
+{
+  m_polyA.clear();
+  m_polyB.clear();
+  int totseeds = m_seedpos.count();
+  int ps = (sp-1);
+  int ns = (sp+1)%totseeds;;
+  if (ps < 0) ps = totseeds-1;
+
+  if (sp > 1)
+    {
+      for(int i=0; i<m_seedpos[ps]; i++)
+	m_polyA << m_poly[i];
+    }
+
+  if (ns > 0)
+    {
+      int pend = m_poly.count();
+      if (sp == 0)
+	pend = m_seedpos[m_seedpos.count()-1];
+
+      for(int i=m_seedpos[ns]; i<pend; i++)
+	m_polyB << m_poly[i];
     }
 }

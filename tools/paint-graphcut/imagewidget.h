@@ -242,7 +242,8 @@ class ImageWidget : public QWidget
   bool curveModeKeyPressEvent(QKeyEvent*);
 
   void propagateLivewire();
-
+  void modifyUsingLivewire();
+  void freezeModifyUsingLivewire();
 };
 
 

@@ -16,15 +16,16 @@ class LiveWire
 
   bool mousePressEvent(int, int, QMouseEvent*);
   bool mouseMoveEvent(int, int, QMouseEvent*);
-  bool mousePressEvent(QMouseEvent*);
-  bool mouseMoveEvent(QMouseEvent*);
   void mouseReleaseEvent(QMouseEvent*);
 
   bool keyPressEvent(QKeyEvent*);
 
   QImage gradientImage();
   QVector<QPoint> poly();
+  QVector<QPoint> polyA();
+  QVector<QPoint> polyB();
   QVector<QPoint> seeds();
+  QVector<int> seedpos();
   QVector<QPoint> livewire();
 
   void setSmoothType(int s) { m_smoothType = s; };
@@ -39,11 +40,22 @@ class LiveWire
 
   void livewireFromSeeds(QVector<QPoint>);
 
+  bool seedMoveMode();
+  void setSeedMoveMode(bool);
+  void setPolygonToUpdate(QVector<QPoint>,
+			  QVector<QPoint>,
+			  QVector<int>);
+
  private :
   QVector<QPoint> m_poly;
+  QVector<QPoint> m_polyA;
+  QVector<QPoint> m_polyB;
   QVector<QPoint> m_livewire;
   QVector<QPoint> m_seeds;
   QVector<int> m_seedpos;
+
+  int m_activeSeed;
+  bool m_seedMoveMode;
 
   int m_width, m_height;
   uchar *m_image;
@@ -78,6 +90,10 @@ class LiveWire
   void boxBlur_4(uchar*, uchar*, int, int, int);
   void boxBlurH_4(uchar*, uchar*, int, int, int);
   void boxBlurT_4(uchar*, uchar*, int, int, int);
+
+  void updateLivewireFromSeeds(int, int);
+  void splitPolygon(int);
+  int  getActiveSeed(int, int);
 };
 
 #endif

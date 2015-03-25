@@ -10,6 +10,7 @@ Curve::Curve()
   selected = false;
   pts.clear();
   seeds.clear();
+  seedpos.clear();
 }
 Curve::~Curve()
 {
@@ -19,6 +20,7 @@ Curve::~Curve()
   selected = false;
   pts.clear();
   seeds.clear();
+  seedpos.clear();
 }
 Curve&
 Curve::operator=(const Curve& c)
@@ -29,6 +31,7 @@ Curve::operator=(const Curve& c)
   selected = c.selected;
   pts = c.pts;
   seeds = c.seeds;
+  seedpos = c.seedpos;
   return *this;
 }
 
@@ -461,6 +464,7 @@ void
 CurveGroup::setPolygonAt(int key,
 			 QVector<QPoint> pts,
 			 QVector<QPoint> seeds,
+			 QVector<int> seedpos,
 			 bool closed,
 			 bool select)
 {
@@ -470,6 +474,7 @@ CurveGroup::setPolygonAt(int key,
   c->closed = closed;
   c->pts = pts;
   c->seeds = seeds;
+  c->seedpos = seedpos;
   c->selected = select;
 
   m_cg.insert(key, c);

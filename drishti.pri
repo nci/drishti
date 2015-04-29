@@ -14,22 +14,22 @@ contains(Windows_Setup, Win64) {
 
     contains(DRISHTI_DEFINES, RENDERER) {
       INCLUDEPATH += c:\Qt\libQGLViewer-2.6.1 \
-  	c:\cygwin\home\acl900\drishtilib\freeglut\include \
- 	c:\cygwin\home\acl900\drishtilib\glew-1.11.0\include
+  	c:\cygwin64\home\acl900\drishtilib\freeglut\include \
+ 	c:\cygwin64\home\acl900\drishtilib\glew-1.11.0\include
   
       QMAKE_LIBDIR += c:\Qt\libQGLViewer-2.6.1\lib \
-  	c:\cygwin\home\acl900\drishtilib\freeglut\lib\x64 \
-	c:\cygwin\home\acl900\drishtilib\glew-1.11.0\lib\Release\x64
+  	c:\cygwin64\home\acl900\drishtilib\freeglut\lib\x64 \
+	c:\cygwin64\home\acl900\drishtilib\glew-1.11.0\lib\Release\x64
     }
   
     contains(DRISHTI_DEFINES, IMPORT) {
-      INCLUDEPATH += c:\cygwin\home\acl900\drishtilib\netcdf\include
-      QMAKE_LIBDIR += c:\cygwin\home\acl900\drishtilib\netcdf\lib \
+      INCLUDEPATH += c:\cygwin64\home\acl900\drishtilib\netcdf\include
+      QMAKE_LIBDIR += c:\cygwin64\home\acl900\drishtilib\netcdf\lib \
     }
   
     contains(DRISHTI_DEFINES, NETCDF) {
-       INCLUDEPATH += c:\cygwin\home\acl900\drishtilib\netcdf\include
-       QMAKE_LIBDIR += c:\cygwin\home\acl900\drishtilib\netcdf\lib \
+       INCLUDEPATH += c:\cygwin64\home\acl900\drishtilib\netcdf\include
+       QMAKE_LIBDIR += c:\cygwin64\home\acl900\drishtilib\netcdf\lib \
     }
   
     contains(DRISHTI_DEFINES, ITK) {

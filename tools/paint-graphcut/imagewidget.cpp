@@ -747,7 +747,6 @@ ImageWidget::drawCurves(QPainter *p)
 
       if (curves[l]->selected)
 	{
-	  //p->setPen(QPen(QColor(250,250,250,250), curves[l]->thickness+4));
 	  p->setBrush(Qt::transparent);
 	  if (curves[l]->closed)
 	    {
@@ -791,6 +790,73 @@ ImageWidget::drawCurves(QPainter *p)
 }
 
 void ImageWidget::setPointSize(int p) { m_pointSize = p; }
+
+QList<QPoint>
+ImageWidget::trimPointList(QList<QPoint> pl, bool switchcoord)
+{
+  QList<QPoint> npl;
+
+  if (pl.count() > 2)
+    {
+      QList<int> yc;
+      int x = pl[0].x();
+      yc << pl[0].y();
+      for(int i=1; i<pl.count(); i++)
+	{
+	  if (pl[i].x() != x)
+	    {
+	      if (yc.count()>1)
+		{
+		  std::sort(yc.begin(), yc.end());
+		  npl << QPoint(x, yc[0]);
+		  int pp = yc[0];
+		  for(int j=1; j<yc.count()-1; j++)
+		    {
+		      if (qAbs(pp-yc[j]) > 1)
+			npl << QPoint(x, yc[j]);
+		      pp = yc[j];
+		    }
+		  npl << QPoint(x, yc[yc.count()-1]);
+		}
+	      else
+		npl << QPoint(x, yc[0]);
+	      x = pl[i].x();
+	      yc.clear();
+	    }
+	  yc << pl[i].y();
+	}
+      if (yc.count()>1)
+	{
+	  std::sort(yc.begin(), yc.end());
+	  npl << QPoint(x, yc[0]);
+	  int pp = yc[0];
+	  for(int j=1; j<yc.count()-1; j++)
+	    {
+	      if (qAbs(pp-yc[j]) > 1)
+		npl << QPoint(x, yc[j]);
+	      pp = yc[j];
+	    }
+	  npl << QPoint(x, yc[yc.count()-1]);
+	}
+      else
+	npl << QPoint(x, yc[0]);
+    }
+  else
+    npl = pl;
+
+  if (switchcoord)
+    { // switch coordinates
+      for(int i=0; i<npl.count(); i++)
+	{
+	  QPoint xy = npl[i];
+	  npl[i] = QPoint(xy.y(), xy.x());
+	}
+    }  
+
+  return npl;
+
+}
+
 void
 ImageWidget::drawOtherCurvePoints(QPainter *p)
 {  
@@ -802,30 +868,26 @@ ImageWidget::drawOtherCurvePoints(QPainter *p)
   if (m_sliceType == DSlice)
     {
       QList<QPoint> ptw = m_wCurves.ypoints(m_currSlice);
-      for(int i=0; i<ptw.count(); i++)
-	vptw << QPoint(ptw[i].y(), ptw[i].x());
+      vptw = QVector<QPoint>::fromList(trimPointList(ptw, true));
 
       QList<QPoint> pth = m_hCurves.ypoints(m_currSlice);
-      vpth = QVector<QPoint>::fromList(pth);
+      vpth = QVector<QPoint>::fromList(trimPointList(pth, false));
     }
   else if (m_sliceType == WSlice)
     {
       QList<QPoint> pth = m_hCurves.xpoints(m_currSlice);
-      vpth = QVector<QPoint>::fromList(pth);
+      vpth = QVector<QPoint>::fromList(trimPointList(pth, false));
 
       QList<QPoint> ptd = m_dCurves.ypoints(m_currSlice);
-      for(int i=0; i<ptd.count(); i++)
-	vptd << QPoint(ptd[i].y(), ptd[i].x());
+      vptd = QVector<QPoint>::fromList(trimPointList(ptd, true));
     }    
   else
     {
       QList<QPoint> ptw = m_wCurves.xpoints(m_currSlice);
-      vptw = QVector<QPoint>::fromList(ptw);
+      vptw = QVector<QPoint>::fromList(trimPointList(ptw, false));
 
       QList<QPoint> ptd = m_dCurves.xpoints(m_currSlice);
-      for(int i=0; i<ptd.count(); i++)
-	vptd << QPoint(ptd[i].y(), ptd[i].x());
-
+      vptd = QVector<QPoint>::fromList(trimPointList(ptd, true));
     }
 
   if (vptd.count() > 0)
@@ -837,6 +899,8 @@ ImageWidget::drawOtherCurvePoints(QPainter *p)
       p->drawPoints(vptd);
       p->setPen(QPen(Qt::red, m_pointSize, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
       p->drawPoints(vptd);
+//      p->setPen(QPen(Qt::red, 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+//      p->drawLines(vptd);
     }
 
   if (vptw.count() > 0)
@@ -848,6 +912,8 @@ ImageWidget::drawOtherCurvePoints(QPainter *p)
       p->drawPoints(vptw);
       p->setPen(QPen(Qt::yellow, m_pointSize, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
       p->drawPoints(vptw);
+//      p->setPen(QPen(Qt::yellow, 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+//      p->drawLines(vptw);
     }
 
   if (vpth.count() > 0)
@@ -859,6 +925,8 @@ ImageWidget::drawOtherCurvePoints(QPainter *p)
       p->drawPoints(vpth);
       p->setPen(QPen(Qt::cyan, m_pointSize, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
       p->drawPoints(vpth);
+//      p->setPen(QPen(Qt::cyan, 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+//      p->drawLines(vpth);
     }
 }
 
@@ -1120,15 +1188,15 @@ ImageWidget::applyRecursive(int key)
     {
       int maxD = m_maxDSlice;
       int minD = m_minDSlice;
-      if (m_curveMode || m_livewireMode)
-	{
-	  QList<int> pl = m_dCurves.polygonLevels();
-	  if (pl.count() > 1)
-	    {
-	      minD = pl[0];
-	      maxD = pl[pl.count()-1];
-	    }
-	}
+//      if (m_curveMode || m_livewireMode)
+//	{
+//	  QList<int> pl = m_dCurves.polygonLevels();
+//	  if (pl.count() > 1)
+//	    {
+//	      minD = pl[0];
+//	      maxD = pl[pl.count()-1];
+//	    }
+//	}
       if (m_forward)
 	m_maxslc = maxD - m_currSlice + 1;
       else
@@ -1138,15 +1206,15 @@ ImageWidget::applyRecursive(int key)
     {
       int maxW = m_maxWSlice;
       int minW = m_minWSlice;
-      if (m_curveMode || m_livewireMode)
-	{
-	  QList<int> pl = m_wCurves.polygonLevels();
-	  if (pl.count() > 1)
-	    {
-	      minW = pl[0];
-	      maxW = pl[pl.count()-1];
-	    }
-	}
+//      if (m_curveMode || m_livewireMode)
+//	{
+//	  QList<int> pl = m_wCurves.polygonLevels();
+//	  if (pl.count() > 1)
+//	    {
+//	      minW = pl[0];
+//	      maxW = pl[pl.count()-1];
+//	    }
+//	}
       if (m_forward)
 	m_maxslc = maxW - m_currSlice + 1;
       else
@@ -1156,15 +1224,15 @@ ImageWidget::applyRecursive(int key)
     {
       int maxH = m_maxHSlice;
       int minH = m_minHSlice;
-      if (m_curveMode || m_livewireMode)
-	{
-	  QList<int> pl = m_hCurves.polygonLevels();
-	  if (pl.count() > 1)
-	    {
-	      minH = pl[0];
-	      maxH = pl[pl.count()-1];
-	    }
-	}
+//      if (m_curveMode || m_livewireMode)
+//	{
+//	  QList<int> pl = m_hCurves.polygonLevels();
+//	  if (pl.count() > 1)
+//	    {
+//	      minH = pl[0];
+//	      maxH = pl[pl.count()-1];
+//	    }
+//	}
       if (m_forward)
 	m_maxslc = maxH - m_currSlice + 1;
       else
@@ -1209,12 +1277,21 @@ ImageWidget::freezeLivewire(bool select)
   if (Global::closed())
     m_livewire.freeze();
 
+  // if propagating then renew guess curve with the currently generated livewire
+  if (m_livewire.propagateLivewire())
+    m_livewire.renewGuessCurve();
+
   QVector<QPoint> pts = m_livewire.poly();
   QVector<QPoint> seeds = m_livewire.seeds();
   QVector<int> seedpos = m_livewire.seedpos();
   if (pts.count() < 1)
     {
       QMessageBox::information(0, "Error", "No livewire found to be transferred to curve");
+      if (m_livewire.propagateLivewire())
+	{
+	  endLivewirePropagation();
+	  m_applyRecursive = false;
+	}
       return;
     }
 
@@ -1304,8 +1381,24 @@ ImageWidget::deleteAllCurves()
 }
 
 void
-ImageWidget::propagateLivewire()
+ImageWidget::endLivewirePropagation()
 {
+  m_livewire.setPropagateLivewire(false);
+
+  if (m_sliceType == DSlice) m_dCurves.endAddingCurves();
+  else if (m_sliceType == WSlice) m_wCurves.endAddingCurves();
+  else m_hCurves.endAddingCurves();
+}
+
+void
+ImageWidget::startLivewirePropagation()
+{
+  m_livewire.setPropagateLivewire(true);
+
+  if (m_sliceType == DSlice) m_dCurves.startAddingCurves();
+  else if (m_sliceType == WSlice) m_wCurves.startAddingCurves();
+  else m_hCurves.startAddingCurves();
+
   // take curve from previous/next slice and propagate it to current slice
   int cs = qMax(0, m_currSlice-1);
   if (!m_forward) cs = m_currSlice+1;  
@@ -1322,20 +1415,46 @@ ImageWidget::propagateLivewire()
     {
       if (curves[l]->selected)
 	{
-	  int tag = curves[l]->tag;
-	  QVector<QPoint> seeds = curves[l]->seeds;
-	  m_livewire.livewireFromSeeds(seeds);
-	  freezeLivewire(true);
-	  
-	  if (m_sliceType == DSlice)
-	    m_dCurves.selectPolygon(m_currSlice, seeds[0].y(), seeds[1].x(), false);
-	  else if (m_sliceType == WSlice)
-	    m_wCurves.selectPolygon(m_currSlice, seeds[0].y(), seeds[1].x(), false);
-	  else
-	    m_hCurves.selectPolygon(m_currSlice, seeds[0].y(), seeds[1].x(), false);
+	  m_livewire.setGuessCurve(curves[l]->pts);
+	  return;
 	}
     }
 
+}
+
+void
+ImageWidget::propagateLivewire()
+{
+  QVector<QPoint> ospts;
+  // first get points from orthogonal sets
+  if (m_sliceType == DSlice)
+    {
+      QList<QPoint> ptw = m_wCurves.ypoints(m_currSlice);
+      ospts = QVector<QPoint>::fromList(trimPointList(ptw, true));
+
+      QList<QPoint> pth = m_hCurves.ypoints(m_currSlice);
+      ospts += QVector<QPoint>::fromList(trimPointList(pth, false));
+    }
+  else if (m_sliceType == WSlice)
+    {
+      QList<QPoint> pth = m_hCurves.xpoints(m_currSlice);
+      ospts = QVector<QPoint>::fromList(trimPointList(pth, false));
+
+      QList<QPoint> ptd = m_dCurves.ypoints(m_currSlice);
+      ospts += QVector<QPoint>::fromList(trimPointList(ptd, true));
+    }    
+  else
+    {
+      QList<QPoint> ptw = m_wCurves.xpoints(m_currSlice);
+      ospts = QVector<QPoint>::fromList(trimPointList(ptw, false));
+
+      QList<QPoint> ptd = m_dCurves.xpoints(m_currSlice);
+      ospts += QVector<QPoint>::fromList(trimPointList(ptd, true));
+    }
+
+  m_livewire.livewireFromSeeds(ospts);
+  freezeLivewire(true);
+  
   checkRecursive();
 }
 
@@ -1352,7 +1471,7 @@ ImageWidget::modifyUsingLivewire()
   
   for(int l=0; l<curves.count(); l++)
     {
-      if (curves[l]->selected)
+      //if (curves[l]->selected)
 	{
 	  QVector<QPoint> pts = curves[l]->pts;
 	  QVector<QPoint> seeds = curves[l]->seeds;
@@ -1415,10 +1534,20 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
 
   if (event->key() == Qt::Key_J)
     {
+      bool ar = m_applyRecursive;
+
       if (shiftModifier) // apply dilation for multiple slices
-	applyRecursive(event->key());
+	{
+	  applyRecursive(event->key());
+	  ar = true;
+
+	  startLivewirePropagation();
+	}
 
       propagateLivewire();
+
+      if (ar && m_applyRecursive == false)
+	endLivewirePropagation();
 
       return true;
     }
@@ -1787,6 +1916,8 @@ ImageWidget::keyPressEvent(QKeyEvent *event)
     {
       if (m_applyRecursive) // stop the recursive process
 	{
+	  endLivewirePropagation();
+
 	  m_applyRecursive = false;
 	  m_extraPressed = false;
 	  m_cslc = 0;
@@ -3304,11 +3435,9 @@ ImageWidget::saveCurveData(QFile *cfile, int key, Curve *c)
   sprintf(keyword, "curvestart\n");
   cfile->write((char*)keyword, strlen(keyword));
   
-  QVector<QPoint> pts = c->pts;
   int tag = c->tag;
   int thickness = c->thickness;
   bool closed = c->closed;
-  int npts = pts.count();
   memset(keyword, 0, 100);
   sprintf(keyword, "key\n");
   cfile->write((char*)keyword, strlen(keyword));
@@ -3329,18 +3458,47 @@ ImageWidget::saveCurveData(QFile *cfile, int key, Curve *c)
   cfile->write((char*)keyword, strlen(keyword));
   cfile->write((char*)&closed, sizeof(bool));
   
-  memset(keyword, 0, 100);
-  sprintf(keyword, "points\n");
-  cfile->write((char*)keyword, strlen(keyword));
-  cfile->write((char*)&npts, sizeof(int));
-  int *pt = new int [2*npts];
-  for(int j=0; j<npts; j++)
-    {
-      pt[2*j+0] = pts[j].x();
-      pt[2*j+1] = pts[j].y();
-    }
-  cfile->write((char*)pt, 2*npts*sizeof(int));
-  delete [] pt;
+  {
+    QVector<QPoint> pts = c->pts;
+    memset(keyword, 0, 100);
+    sprintf(keyword, "points\n");
+    cfile->write((char*)keyword, strlen(keyword));
+    int npts = pts.count();
+    cfile->write((char*)&npts, sizeof(int));
+    int *pt = new int [2*npts];
+    for(int j=0; j<npts; j++)
+      {
+	pt[2*j+0] = pts[j].x();
+	pt[2*j+1] = pts[j].y();
+      }
+    cfile->write((char*)pt, 2*npts*sizeof(int));
+    delete [] pt;
+  }
+  {
+    QVector<QPoint> seeds = c->seeds;
+    memset(keyword, 0, 100);
+    sprintf(keyword, "seeds\n");
+    cfile->write((char*)keyword, strlen(keyword));
+    int nseeds = seeds.count();
+    cfile->write((char*)&nseeds, sizeof(int));
+    int *pt = new int [2*nseeds];
+    for(int j=0; j<nseeds; j++)
+      {
+	pt[2*j+0] = seeds[j].x();
+	pt[2*j+1] = seeds[j].y();
+      }
+    cfile->write((char*)pt, 2*nseeds*sizeof(int));
+    delete [] pt;
+  }
+  {
+    QVector<int> seedpos = c->seedpos;
+    memset(keyword, 0, 100);
+    sprintf(keyword, "seedpos\n");
+    cfile->write((char*)keyword, strlen(keyword));
+    int npts = seedpos.count();
+    cfile->write((char*)&npts, sizeof(int));
+    cfile->write((char*)(seedpos.data()), npts*sizeof(int));
+  }
   
   memset(keyword, 0, 100);
   sprintf(keyword, "curveend\n");
@@ -3389,6 +3547,28 @@ ImageWidget::loadCurveData(QFile *cfile)
 	  cfile->read((char*)pt, 2*npts*sizeof(int));
 	  for(int ni=0; ni<npts; ni++)
 	    c.pts << QPoint(pt[2*ni+0], pt[2*ni+1]);
+	  delete [] pt;
+	}	      
+      else if (strcmp(keyword, "seeds\n") == 0)
+	{
+	  int npts;
+	  int *pt;
+	  cfile->read((char*)&npts, sizeof(int));
+	  pt = new int[2*npts];
+	  cfile->read((char*)pt, 2*npts*sizeof(int));
+	  for(int ni=0; ni<npts; ni++)
+	    c.seeds << QPoint(pt[2*ni+0], pt[2*ni+1]);
+	  delete [] pt;
+	}	      
+      else if (strcmp(keyword, "seedpos\n") == 0)
+	{
+	  int npts;
+	  int *pt;
+	  cfile->read((char*)&npts, sizeof(int));
+	  pt = new int[npts];
+	  cfile->read((char*)pt, npts*sizeof(int));
+	  for(int ni=0; ni<npts; ni++)
+	    c.seedpos << pt[ni];
 	  delete [] pt;
 	}	      
     }
@@ -3614,7 +3794,7 @@ ImageWidget::loadCurves()
   loadCurves(curvesfile);
 }
 
-void ImageWidget::setWeightI(float w) { m_livewire.setWeightI(w); }
+void ImageWidget::setWeightLoG(float w) { m_livewire.setWeightLoG(w); }
 void ImageWidget::setWeightG(float w) { m_livewire.setWeightG(w); }
 void ImageWidget::setWeightN(float w) { m_livewire.setWeightN(w); }
 

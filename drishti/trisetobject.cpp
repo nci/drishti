@@ -20,6 +20,28 @@ void TrisetObject::setOpacity(float op) { m_opacity = op; }
 
 TrisetObject::TrisetObject()
 {
+  QStringList ps;
+  ps << "x";
+  ps << "y";
+  ps << "z";
+  ps << "nx";
+  ps << "ny";
+  ps << "nz";
+  ps << "red";
+  ps << "green";
+  ps << "blue";
+  ps << "vertex_indices";
+  ps << "vertex";
+  ps << "face";
+
+  for(int i=0; i<ps.count(); i++)
+    {
+      char *s;
+      s = new char[ps[i].size()+1];
+      strcpy(s, ps[i].toLatin1().data());
+      plyStrings << s;
+    }
+
   m_scrV = 0;
   m_scrD = 0;
   clear();
@@ -102,19 +124,19 @@ TrisetObject::loadPLY(QString flnm)
   } Face;
 
   PlyProperty vert_props[] = { /* list of property information for a vertex */
-    {"x", Float32, Float32, offsetof(Vertex,x), 0, 0, 0, 0},
-    {"y", Float32, Float32, offsetof(Vertex,y), 0, 0, 0, 0},
-    {"z", Float32, Float32, offsetof(Vertex,z), 0, 0, 0, 0},
-    {"red", Float32, Float32, offsetof(Vertex,r), 0, 0, 0, 0},
-    {"green", Float32, Float32, offsetof(Vertex,g), 0, 0, 0, 0},
-    {"blue", Float32, Float32, offsetof(Vertex,b), 0, 0, 0, 0},
-    {"nx", Float32, Float32, offsetof(Vertex,nx), 0, 0, 0, 0},
-    {"ny", Float32, Float32, offsetof(Vertex,ny), 0, 0, 0, 0},
-    {"nz", Float32, Float32, offsetof(Vertex,nz), 0, 0, 0, 0},
+    {plyStrings[0], Float32, Float32, offsetof(Vertex,x), 0, 0, 0, 0},
+    {plyStrings[1], Float32, Float32, offsetof(Vertex,y), 0, 0, 0, 0},
+    {plyStrings[2], Float32, Float32, offsetof(Vertex,z), 0, 0, 0, 0},
+    {plyStrings[6], Float32, Float32, offsetof(Vertex,r), 0, 0, 0, 0},
+    {plyStrings[7], Float32, Float32, offsetof(Vertex,g), 0, 0, 0, 0},
+    {plyStrings[8], Float32, Float32, offsetof(Vertex,b), 0, 0, 0, 0},
+    {plyStrings[3], Float32, Float32, offsetof(Vertex,nx), 0, 0, 0, 0},
+    {plyStrings[4], Float32, Float32, offsetof(Vertex,ny), 0, 0, 0, 0},
+    {plyStrings[5], Float32, Float32, offsetof(Vertex,nz), 0, 0, 0, 0},
   };
 
   PlyProperty face_props[] = { /* list of property information for a face */
-    {"vertex_indices", Int32, Int32, offsetof(Face,verts),
+    {plyStrings[9], Int32, Int32, offsetof(Face,verts),
      1, Uint8, Uint8, offsetof(Face,nverts)},
   };
 
@@ -147,7 +169,7 @@ TrisetObject::loadPLY(QString flnm)
     elem_name = setup_element_read_ply (in_ply, i, &elem_count);
 
 
-    if (equal_strings ("vertex", elem_name)) {
+    if (QString("vertex") == QString(elem_name)) {
 
       /* create a vertex list to hold all the vertices */
       vlist = (Vertex **) malloc (sizeof (Vertex *) * elem_count);
@@ -162,30 +184,30 @@ TrisetObject::loadPLY(QString flnm)
       for (j = 0; j < in_ply->elems[i]->nprops; j++) {
 	PlyProperty *prop;
 	prop = in_ply->elems[i]->props[j];
-	if (equal_strings ("r", prop->name) ||
-	    equal_strings ("red", prop->name)) {
+	if (QString("r") == QString(prop->name) ||
+	    QString("red") == QString(prop->name)) {
 	  setup_property_ply (in_ply, &vert_props[3]);
 	  per_vertex_color = true;
 	}
-	if (equal_strings ("g", prop->name) ||
-	    equal_strings ("green", prop->name)) {
+	if (QString("g") == QString(prop->name) ||
+	    QString("green") == QString(prop->name)) {
 	  setup_property_ply (in_ply, &vert_props[4]);
 	  per_vertex_color = true;
 	}
-	if (equal_strings ("b", prop->name) ||
-	    equal_strings ("blue", prop->name)) {
+	if (QString("b") == QString(prop->name) ||
+	    QString("blue") == QString(prop->name)) {
 	  setup_property_ply (in_ply, &vert_props[5]);
 	  per_vertex_color = true;
 	}
-	if (equal_strings ("nx", prop->name)) {
+	if (QString("nx") == QString(prop->name)) {
 	  setup_property_ply (in_ply, &vert_props[6]);
 	  has_normals = true;
 	}
-	if (equal_strings ("ny", prop->name)) {
+	if (QString("ny") == QString(prop->name)) {
 	  setup_property_ply (in_ply, &vert_props[7]);
 	  has_normals = true;
 	}
-	if (equal_strings ("nz", prop->name)) {
+	if (QString("nz") == QString(prop->name)) {
 	  setup_property_ply (in_ply, &vert_props[8]);
 	  has_normals = true;
 	}
@@ -200,7 +222,7 @@ TrisetObject::loadPLY(QString flnm)
         get_element_ply (in_ply, (void *) vlist[j]);
       }
     }
-    else if (equal_strings ("face", elem_name)) {
+    else if (QString("face") == QString(elem_name)) {
 
       /* create a list to hold all the face elements */
       flist = (Face **) malloc (sizeof (Face *) * elem_count);
@@ -381,6 +403,7 @@ TrisetObject::loadPLY(QString flnm)
 //			   arg(m_nX).arg(m_nY).arg(m_nZ).	\
 //			   arg(m_vertices.count()).		\
 //			   arg(m_triangles.count()/3));
+
 
   m_fileName = flnm;
 
@@ -1242,39 +1265,37 @@ TrisetObject::save()
   } myVertex ;
 
 
-  PlyProperty vert_props[]  = { /* list of property information for a PlyVertex */
-    {"x", Float32, Float32,  offsetof( myVertex,x ), 0, 0, 0, 0},
-    {"y", Float32, Float32,  offsetof( myVertex,y ), 0, 0, 0, 0},
-    {"z", Float32, Float32,  offsetof( myVertex,z ), 0, 0, 0, 0},
-    {"nx", Float32, Float32, offsetof( myVertex,nx ), 0, 0, 0, 0},
-    {"ny", Float32, Float32, offsetof( myVertex,ny ), 0, 0, 0, 0},
-    {"nz", Float32, Float32, offsetof( myVertex,nz ), 0, 0, 0, 0},
-    {"red", Uint8, Uint8,    offsetof( myVertex,r ), 0, 0, 0, 0},
-    {"green", Uint8, Uint8,  offsetof( myVertex,g ), 0, 0, 0, 0},
-    {"blue", Uint8, Uint8,   offsetof( myVertex,b ), 0, 0, 0, 0}
+  PlyProperty vert_props[] = { /* list of property information for a vertex */
+    {plyStrings[0], Float32, Float32, offsetof(myVertex,x), 0, 0, 0, 0},
+    {plyStrings[1], Float32, Float32, offsetof(myVertex,y), 0, 0, 0, 0},
+    {plyStrings[2], Float32, Float32, offsetof(myVertex,z), 0, 0, 0, 0},
+    {plyStrings[3], Float32, Float32, offsetof(myVertex,nx), 0, 0, 0, 0},
+    {plyStrings[4], Float32, Float32, offsetof(myVertex,ny), 0, 0, 0, 0},
+    {plyStrings[5], Float32, Float32, offsetof(myVertex,nz), 0, 0, 0, 0},
+    {plyStrings[6], Uint8, Uint8, offsetof(myVertex,r), 0, 0, 0, 0},
+    {plyStrings[7], Uint8, Uint8, offsetof(myVertex,g), 0, 0, 0, 0},
+    {plyStrings[8], Uint8, Uint8, offsetof(myVertex,b), 0, 0, 0, 0},
   };
 
-  PlyProperty face_props[]  = { /* list of property information for a PlyFace */
-    {"vertex_indices", Int32, Int32, offsetof( PlyFace,verts ),
-      1, Uint8, Uint8, offsetof( PlyFace,nverts )},
+  PlyProperty face_props[] = { /* list of property information for a face */
+    {plyStrings[9], Int32, Int32, offsetof(PlyFace,verts),
+     1, Uint8, Uint8, offsetof(PlyFace,nverts)},
   };
-
 
   PlyFile    *ply;
-  FILE       *fp = fopen(flnm.toLatin1().data(),
-			 bin ? "wb" : "w");
+  FILE       *fp = fopen(flnm.toLatin1().data(), bin ? "wb" : "w");
 
   PlyFace     face ;
   int         verts[3] ;
-  char       *elem_names[]  = { "vertex", "face" };
+  char       *elem_names[]  = {plyStrings[10], plyStrings[11]};
   ply = write_ply (fp,
 		   2,
 		   elem_names,
-		   bin? PLY_BINARY_LE : PLY_ASCII );
+		   bin ? PLY_BINARY_LE : PLY_ASCII );
 
   int nvertices = m_vertices.count();
   /* describe what properties go into the PlyVertex elements */
-  describe_element_ply ( ply, "vertex", nvertices );
+  describe_element_ply ( ply, plyStrings[10], nvertices );
   describe_property_ply ( ply, &vert_props[0] );
   describe_property_ply ( ply, &vert_props[1] );
   describe_property_ply ( ply, &vert_props[2] );
@@ -1287,14 +1308,14 @@ TrisetObject::save()
 
   /* describe PlyFace properties (just list of PlyVertex indices) */
   int ntriangles = m_triangles.count()/3;
-  describe_element_ply ( ply, "face", ntriangles );
+  describe_element_ply ( ply, plyStrings[11], ntriangles );
   describe_property_ply ( ply, &face_props[0] );
 
   header_complete_ply ( ply );
 
 
   /* set up and write the PlyVertex elements */
-  put_element_setup_ply ( ply, "vertex" );
+  put_element_setup_ply ( ply, plyStrings[10] );
 
   for(int i=0; i<m_vertices.count(); i++)
     {
@@ -1317,7 +1338,7 @@ TrisetObject::save()
       put_element_ply ( ply, ( void * ) &vertex );
     }
 
-  put_element_setup_ply ( ply, "face" );
+  put_element_setup_ply ( ply, plyStrings[11] );
   face.nverts = 3 ;
   face.verts  = verts ;
   for(int i=0; i<m_triangles.count()/3; i++)

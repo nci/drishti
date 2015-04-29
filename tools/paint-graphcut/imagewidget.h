@@ -35,7 +35,7 @@ class ImageWidget : public QWidget
   void setImage(uchar*, uchar*);
   void setMaskImage(uchar*);
 
-  void setWeightI(float);
+  void setWeightLoG(float);
   void setWeightG(float);
   void setWeightN(float);
 
@@ -244,6 +244,11 @@ class ImageWidget : public QWidget
   void propagateLivewire();
   void modifyUsingLivewire();
   void freezeModifyUsingLivewire();
+
+  QList<QPoint> trimPointList(QList<QPoint>, bool);
+
+  void startLivewirePropagation();
+  void endLivewirePropagation();
 };
 
 

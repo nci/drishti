@@ -23,12 +23,12 @@ int main(int argc, char** argv)
 //  glFormat.setBlueBufferSize(16);
 //  //-----------------------------
 
-  flnm = argv[1];
-  if (QString::compare(argv[1], "-stereo", Qt::CaseInsensitive) == 0)
+  if (argc > 1)
     {
-      flnm = argv[2];
-      glFormat.setStereo(true);
+      if (QString::compare(argv[1], "-stereo", Qt::CaseInsensitive) == 0)
+	glFormat.setStereo(true);
     }
+
   QGLFormat::setDefaultFormat(glFormat);
 
   MainWindow mainwindow;

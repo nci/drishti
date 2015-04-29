@@ -181,12 +181,6 @@ public :
   void writePLY( const char *fn, bool bin = false ) ;
 
   /**
-   * PLY importation of a mesh
-   * \param fn  name of the PLY file to read from
-   */
-  void readPLY( const char *fn ) ;
-
-  /**
    * VRML / Open Inventor exportation of the generated mesh
    * \param fn  name of the IV file to create
    */
@@ -353,6 +347,8 @@ protected :
  private :
   QTextEdit *m_log;
   QProgressBar *m_progress;
+
+  QList<char*> plyStrings;
 };
 //_____________________________________________________________________________
 

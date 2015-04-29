@@ -29,6 +29,8 @@ class MeshGenerator
   MeshGenerator();
   ~MeshGenerator();
 
+  QList<char *> plyStrings;
+
   QString start(VolumeFileManager*,
 		int, int, int,
 		Vec, Vec,

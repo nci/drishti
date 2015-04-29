@@ -21,10 +21,13 @@ LiveWire::LiveWire()
   m_poly.clear();
   m_livewire.clear();
 
+  m_propagateLivewire = false;
+  m_guessCurve.clear();
+
   m_gradType = 0;
   m_smoothType = 0;
 
-  m_wtI = 0.0;
+  m_wtLoG = 0.0;
   m_wtG = 0.7;
   m_wtN = 0.3;
 
@@ -46,6 +49,18 @@ LiveWire::setSeedMoveMode(bool b)
   m_activeSeed = -1;
 }
 
+void LiveWire::setGuessCurve(QVector<QPoint> gc) { m_guessCurve = gc; }
+// renew guess curve from current livewire polygon
+void LiveWire::renewGuessCurve() { m_guessCurve = m_poly; }
+
+bool LiveWire::propagateLivewire() { return m_propagateLivewire; }
+void
+LiveWire::setPropagateLivewire(bool b)
+{
+  m_propagateLivewire = b;
+  m_guessCurve.clear();
+}
+
 void
 LiveWire::setPolygonToUpdate(QVector<QPoint> pts,
 			     QVector<QPoint> seeds,
@@ -61,7 +76,7 @@ LiveWire::setPolygonToUpdate(QVector<QPoint> pts,
 
 void LiveWire::setUseDynamicTraining(bool b) { m_useDynamicTraining = b; }
 
-void LiveWire::setWeightI(float w) { m_wtI = w; }
+void LiveWire::setWeightLoG(float w) { m_wtLoG = w; }
 void LiveWire::setWeightG(float w) { m_wtG = w; }
 void LiveWire::setWeightN(float w) { m_wtN = w; }
 
@@ -80,7 +95,7 @@ void
 LiveWire::reset()
 {
   if (m_image) delete [] m_image;
-  if (m_grad) delete [] m_grad;
+  if (m_grad) delete [] m_grad; 
   if (m_normal) delete [] m_normal;
   if (m_tmp) delete [] m_tmp;
   if (m_gradCost) delete [] m_gradCost;
@@ -100,6 +115,9 @@ LiveWire::reset()
   m_seedpos.clear();
   m_poly.clear();
   m_livewire.clear();
+
+  m_propagateLivewire = false;
+  m_guessCurve.clear();
 
   m_gradCost = new float[256];
   for(int i=0; i<256; i++)
@@ -303,7 +321,7 @@ LiveWire::calculateGradients()
 //			 { 1,  2,  1}, };  
 
   memset(m_grad, 0, sizeof(float)*m_width*m_height);
-  memset(m_normal, 0, 2*sizeof(float)*m_width*m_height);
+  memset(m_normal, 0, 2*sizeof(float)*m_width*m_height);  
 
   float maxGrad = 0;
   float minGrad = 1000000;
@@ -393,9 +411,9 @@ LiveWire::calculateGradients()
 	{
 	  int gidx = 255*(1-m_grad[i]);
 	  int c = 200*m_gradCost[gidx];
-	  m_tmp[4*i+0] = 0;
-	  m_tmp[4*i+1] = c/2;
-	  m_tmp[4*i+2] = c;
+	  m_tmp[4*i+0] = c;
+	  m_tmp[4*i+1] = 0;
+	  m_tmp[4*i+2] = c/2;
 	  m_tmp[4*i+3] = c;
 	}
     }
@@ -516,14 +534,12 @@ LiveWire::calculateCost(int wpos, int hpos, int boxSize)
 				ly*m_normal[2*((x+a)*m_width+(y+b))+1]);
 		    float normalCost = pi23*(qAcos(dp)+qAcos(dq));
 
-		    float imageCost = (m_image[midx]-m_image[(x+a)*m_width+(y+b)])/255.0;
-		    float wtab = m_wtI*imageCost + m_wtN*normalCost;
+		    normalCost *= m_wtN*normalCost;
+		    float gradCost = m_wtG*(1.0-m_grad[(x+a)*m_width+(y+b)]);
 		    if (m_useDynamicTraining) // take value from gradCost
-		      wtab += m_wtG*m_gradCost[(int)(255*m_grad[midx])];
-		    else
-		      wtab += m_wtG*(1.0-m_grad[midx]);
+		      gradCost = m_wtG*m_gradCost[(int)(255*m_grad[(x+a)*m_width+(y+b)])];
 		    float ewt = m_edgeWeight.at(8*midx + idx);
-		    float newcost = dcost + ewt*wtab;
+		    float newcost = dcost + ewt*(gradCost+normalCost);
 		    float oldcost = m_cost.at((x+a)*m_width+(y+b)); 
 		    if (newcost < oldcost)
 		      {
@@ -733,10 +749,32 @@ LiveWire::updateGradientCost()
 }
 
 void
-LiveWire::livewireFromSeeds(QVector<QPoint> seeds)
+LiveWire::livewireFromSeeds(QVector<QPoint> oseeds)
 {
   resetPoly();
-
+  
+  QVector<bool> used;
+  used.fill(false, oseeds.count());
+  QVector<QPoint> seeds;
+  // ----------
+  // lineup all the seeds from orthogonal slices
+  for(int i=0; i<m_guessCurve.count(); i++)
+    {
+      QPoint pt = m_guessCurve[i];
+      for(int j=0; j<oseeds.count(); j++)
+	{
+	  if (!used[j])
+	    {
+	      if ((pt-oseeds[j]).manhattanLength()<5)
+		{
+		  used[j] = true;
+		  seeds << oseeds[j];
+		}
+	    }
+	}
+    }
+  // ----------
+  
   // find nearest least energy positions for all seeds
   for(int i=0; i<seeds.count(); i++)
     {
@@ -877,7 +915,7 @@ LiveWire::splitPolygon(int sp)
 
   if (sp > 1)
     {
-      for(int i=0; i<m_seedpos[ps]; i++)
+      for(int i=0; i<m_seedpos[ps]-1; i++)
 	m_polyA << m_poly[i];
     }
 
@@ -887,7 +925,8 @@ LiveWire::splitPolygon(int sp)
       if (sp == 0)
 	pend = m_seedpos[m_seedpos.count()-1];
 
-      for(int i=m_seedpos[ns]; i<pend; i++)
+      for(int i=m_seedpos[ns]+1; i<pend-1; i++)
 	m_polyB << m_poly[i];
     }
 }
+

@@ -61,7 +61,29 @@ MarchingCubes::MarchingCubes( const int size_x /*= -1*/, const int size_y /*= -1
   _Ntrigs    (0),
   _vertices  (( Vertex *)NULL),
   _triangles ((Triangle*)NULL)
-{}
+{
+  QStringList ps;
+  ps << "x";
+  ps << "y";
+  ps << "z";
+  ps << "nx";
+  ps << "ny";
+  ps << "nz";
+  ps << "red";
+  ps << "green";
+  ps << "blue";
+  ps << "vertex_indices";
+  ps << "vertex";
+  ps << "face";
+
+  for(int i=0; i<ps.count(); i++)
+    {
+      char *s;
+      s = new char[ps[i].size()+1];
+      strcpy(s, ps[i].toLatin1().data());
+      plyStrings << s;
+    }
+}
 //_____________________________________________________________________________
 
 
@@ -1121,20 +1143,19 @@ void MarchingCubes::writePLY(const char *fn, bool bin )
   } PlyFace;
 
 
-  PlyProperty vert_props[]  = { /* list of property information for a PlyVertex */
-    {"x", Float32, Float32, offsetof( Vertex,x ), 0, 0, 0, 0},
-    {"y", Float32, Float32, offsetof( Vertex,y ), 0, 0, 0, 0},
-    {"z", Float32, Float32, offsetof( Vertex,z ), 0, 0, 0, 0},
-    {"nx", Float32, Float32, offsetof( Vertex,nx ), 0, 0, 0, 0},
-    {"ny", Float32, Float32, offsetof( Vertex,ny ), 0, 0, 0, 0},
-    {"nz", Float32, Float32, offsetof( Vertex,nz ), 0, 0, 0, 0}
+  PlyProperty vert_props[] = { /* list of property information for a vertex */
+    {plyStrings[0], Float32, Float32, offsetof(Vertex,x), 0, 0, 0, 0},
+    {plyStrings[1], Float32, Float32, offsetof(Vertex,y), 0, 0, 0, 0},
+    {plyStrings[2], Float32, Float32, offsetof(Vertex,z), 0, 0, 0, 0},
+    {plyStrings[6], Float32, Float32, offsetof(Vertex,nx), 0, 0, 0, 0},
+    {plyStrings[7], Float32, Float32, offsetof(Vertex,ny), 0, 0, 0, 0},
+    {plyStrings[8], Float32, Float32, offsetof(Vertex,nz), 0, 0, 0, 0},
   };
 
-  PlyProperty face_props[]  = { /* list of property information for a PlyFace */
-    {"vertex_indices", Int32, Int32, offsetof( PlyFace,verts ),
-      1, Uint8, Uint8, offsetof( PlyFace,nverts )},
+  PlyProperty face_props[] = { /* list of property information for a face */
+    {plyStrings[9], Int32, Int32, offsetof(PlyFace,verts),
+     1, Uint8, Uint8, offsetof(PlyFace,nverts)},
   };
-
 
   PlyFile    *ply;
   FILE       *fp = fopen( fn, bin ? "wb" : "w");
@@ -1142,12 +1163,12 @@ void MarchingCubes::writePLY(const char *fn, bool bin )
   int          i ;
   PlyFace     face ;
   int         verts[3] ;
-  char       *elem_names[]  = { "vertex", "face" };
+  char       *elem_names[]  = {plyStrings[10], plyStrings[11]};
   printf("Marching Cubes::writePLY(%s)...", fn ) ;
   ply = write_ply ( fp, 2, elem_names, bin? PLY_BINARY_LE : PLY_ASCII );
 
   /* describe what properties go into the PlyVertex elements */
-  describe_element_ply ( ply, "vertex", _nverts );
+  describe_element_ply ( ply, plyStrings[10], _nverts );
   describe_property_ply ( ply, &vert_props[0] );
   describe_property_ply ( ply, &vert_props[1] );
   describe_property_ply ( ply, &vert_props[2] );
@@ -1156,19 +1177,19 @@ void MarchingCubes::writePLY(const char *fn, bool bin )
   describe_property_ply ( ply, &vert_props[5] );
 
   /* describe PlyFace properties (just list of PlyVertex indices) */
-  describe_element_ply ( ply, "face", _ntrigs );
+  describe_element_ply ( ply, plyStrings[11], _ntrigs );
   describe_property_ply ( ply, &face_props[0] );
 
   header_complete_ply ( ply );
 
   /* set up and write the PlyVertex elements */
-  put_element_setup_ply ( ply, "vertex" );
+  put_element_setup_ply ( ply, plyStrings[10] );
   for ( i = 0; i < _nverts; i++ )
     put_element_ply ( ply, ( void * ) &(_vertices[i]) );
   printf("   %d vertices written\n", _nverts ) ;
 
   /* set up and write the PlyFace elements */
-  put_element_setup_ply ( ply, "face" );
+  put_element_setup_ply ( ply, plyStrings[11] );
   face.nverts = 3 ;
   face.verts  = verts ;
   for ( i = 0; i < _ntrigs; i++ )
@@ -1185,126 +1206,6 @@ void MarchingCubes::writePLY(const char *fn, bool bin )
   fclose( fp ) ;
 }
 //_____________________________________________________________________________
-
-
-
-//_____________________________________________________________________________
-// PLY importation
-void MarchingCubes::readPLY(const char *fn )
-//-----------------------------------------------------------------------------
-{
-  typedef struct PlyFace {
-    unsigned char nverts;    /* number of Vertex indices in list */
-    int *verts;              /* Vertex index list */
-  } PlyFace;
-
-
-  PlyProperty vert_props[]  = { /* list of property information for a PlyVertex */
-    {"x", Float32, Float32, offsetof( Vertex,x ), 0, 0, 0, 0},
-    {"y", Float32, Float32, offsetof( Vertex,y ), 0, 0, 0, 0},
-    {"z", Float32, Float32, offsetof( Vertex,z ), 0, 0, 0, 0},
-    {"nx", Float32, Float32, offsetof( Vertex,nx ), 0, 0, 0, 0},
-    {"ny", Float32, Float32, offsetof( Vertex,ny ), 0, 0, 0, 0},
-    {"nz", Float32, Float32, offsetof( Vertex,nz ), 0, 0, 0, 0}
-  };
-
-  PlyProperty face_props[]  = { /* list of property information for a PlyFace */
-    {"vertex_indices", Int32, Int32, offsetof( PlyFace,verts ),
-      1, Uint8, Uint8, offsetof( PlyFace,nverts )},
-  };
-
-
-  FILE    *fp  = fopen( fn, "r" );
-  if( !fp ) return ;
-  PlyFile *ply = read_ply ( fp );
-  printf("Marching Cubes::readPLY(%s)...", fn ) ;
-
-  //-----------------------------------------------------------------------------
-
-  // gets the number of faces and vertices
-  for ( int i = 0; i < ply->num_elem_types; ++i )
-  {
-    int elem_count ;
-    char *elem_name = setup_element_read_ply ( ply, i, &elem_count );
-    if ( equal_strings ( "vertex", elem_name ) )
-      _Nverts = _nverts = elem_count;
-    if ( equal_strings ( "face",   elem_name ) )
-      _Ntrigs = _ntrigs = elem_count;
-  }
-  delete [] _vertices ;
-  _vertices  = new Vertex  [_Nverts] ;
-  delete [] _triangles ;
-  _triangles = new Triangle[_Ntrigs] ;
-
-  //-----------------------------------------------------------------------------
-
-  /* examine each element type that is in the file (PlyVertex, PlyFace) */
-
-  for ( int i = 0; i < ply->num_elem_types; ++i )
-  {
-    /* prepare to read the i'th list of elements */
-    int elem_count ;
-    char *elem_name = setup_element_read_ply ( ply, i, &elem_count );
-
-    //-----------------------------------------------------------------------------
-    if ( equal_strings ( "vertex", elem_name ) )
-    {
-      /* set up for getting PlyVertex elements */
-      setup_property_ply ( ply, &vert_props[0] );
-      setup_property_ply ( ply, &vert_props[1] );
-      setup_property_ply ( ply, &vert_props[2] );
-      setup_property_ply ( ply, &vert_props[3] );
-      setup_property_ply ( ply, &vert_props[4] );
-      setup_property_ply ( ply, &vert_props[5] );
-
-      for ( int j = 0; j < _nverts; ++j )
-      {
-        get_element_ply ( ply, ( void * ) (_vertices + j) );
-      }
-      printf("   %d vertices read\n", _nverts ) ;
-    }
-
-    //-----------------------------------------------------------------------------
-    else if ( equal_strings ( "face", elem_name ) )
-    {
-      /* set up for getting PlyFace elements */
-      /* (all we need are PlyVertex indices) */
-
-      setup_property_ply ( ply, &face_props[0] ) ;
-      PlyFace     face ;
-      for ( int j = 0; j < _ntrigs; ++j )
-      {
-        get_element_ply ( ply, ( void * ) &face );
-        if( face.nverts != 3 )
-        {
-          printf( "not a triangulated surface: polygon %d has %d sides\n", j, face.nverts ) ;
-          return ;
-        }
-
-        _triangles[j].v1 = face.verts[0] ;
-        _triangles[j].v2 = face.verts[1] ;
-        _triangles[j].v3 = face.verts[2] ;
-
-        free( face.verts ) ;
-      }
-      printf("   %d triangles read\n", _ntrigs ) ;
-    }
-    //-----------------------------------------------------------------------------
-
-    //-----------------------------------------------------------------------------
-    else  /* all non-PlyVertex and non-PlyFace elements are grabbed here */
-      get_other_element_ply ( ply );
-    //-----------------------------------------------------------------------------
-  }
-
-  close_ply ( ply );
-  free_ply  ( ply );
-
-//  fit_to_bbox() ;
-  fclose( fp ) ;
-}
-//_____________________________________________________________________________
-
 
 
 //_____________________________________________________________________________

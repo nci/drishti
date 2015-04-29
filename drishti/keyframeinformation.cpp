@@ -996,7 +996,7 @@ KeyFrameInformation::save(fstream &fout)
   sprintf(keyword, "rotation");
   fout.write((char*)keyword, strlen(keyword)+1);
   Vec axis;
-  float angle;
+  qreal angle;
   m_rotation.getAxisAngle(axis, angle);
   f[0] = axis.x;
   f[1] = axis.y;

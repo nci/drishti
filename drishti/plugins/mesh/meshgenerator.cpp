@@ -1,7 +1,30 @@
 #include "staticfunctions.h"
 #include "meshgenerator.h"
 
-MeshGenerator::MeshGenerator() {}
+MeshGenerator::MeshGenerator()
+{
+  QStringList ps;
+  ps << "x";
+  ps << "y";
+  ps << "z";
+  ps << "nx";
+  ps << "ny";
+  ps << "nz";
+  ps << "red";
+  ps << "green";
+  ps << "blue";
+  ps << "vertex_indices";
+  ps << "vertex";
+  ps << "face";
+
+  for(int i=0; i<ps.count(); i++)
+    {
+      char *s;
+      s = new char[ps[i].size()+1];
+      strcpy(s, ps[i].toLatin1().data());
+      plyStrings << s;
+    }
+}
 MeshGenerator::~MeshGenerator() {}
 
 QGradientStops
@@ -1908,24 +1931,22 @@ MeshGenerator::saveMeshToPLY(QString flnm,
     uchar r, g, b;
   } myVertex ;
 
-
-  PlyProperty vert_props[]  = { /* list of property information for a PlyVertex */
-    {"x", Float32, Float32,  offsetof( myVertex,x ), 0, 0, 0, 0},
-    {"y", Float32, Float32,  offsetof( myVertex,y ), 0, 0, 0, 0},
-    {"z", Float32, Float32,  offsetof( myVertex,z ), 0, 0, 0, 0},
-    {"nx", Float32, Float32, offsetof( myVertex,nx ), 0, 0, 0, 0},
-    {"ny", Float32, Float32, offsetof( myVertex,ny ), 0, 0, 0, 0},
-    {"nz", Float32, Float32, offsetof( myVertex,nz ), 0, 0, 0, 0},
-    {"red", Uint8, Uint8,    offsetof( myVertex,r ), 0, 0, 0, 0},
-    {"green", Uint8, Uint8,  offsetof( myVertex,g ), 0, 0, 0, 0},
-    {"blue", Uint8, Uint8,   offsetof( myVertex,b ), 0, 0, 0, 0}
+  PlyProperty vert_props[] = { /* list of property information for a vertex */
+    {plyStrings[0], Float32, Float32, offsetof(myVertex,x), 0, 0, 0, 0},
+    {plyStrings[1], Float32, Float32, offsetof(myVertex,y), 0, 0, 0, 0},
+    {plyStrings[2], Float32, Float32, offsetof(myVertex,z), 0, 0, 0, 0},
+    {plyStrings[3], Float32, Float32, offsetof(myVertex,nx), 0, 0, 0, 0},
+    {plyStrings[4], Float32, Float32, offsetof(myVertex,ny), 0, 0, 0, 0},
+    {plyStrings[5], Float32, Float32, offsetof(myVertex,nz), 0, 0, 0, 0},
+    {plyStrings[6], Uint8, Uint8, offsetof(myVertex,r), 0, 0, 0, 0},
+    {plyStrings[7], Uint8, Uint8, offsetof(myVertex,g), 0, 0, 0, 0},
+    {plyStrings[8], Uint8, Uint8, offsetof(myVertex,b), 0, 0, 0, 0},
   };
 
-  PlyProperty face_props[]  = { /* list of property information for a PlyFace */
-    {"vertex_indices", Int32, Int32, offsetof( PlyFace,verts ),
-      1, Uint8, Uint8, offsetof( PlyFace,nverts )},
+  PlyProperty face_props[] = { /* list of property information for a face */
+    {plyStrings[9], Int32, Int32, offsetof(PlyFace,verts),
+     1, Uint8, Uint8, offsetof(PlyFace,nverts)},
   };
-
 
   PlyFile    *ply;
   FILE       *fp = fopen(flnm.toLatin1().data(),
@@ -1933,14 +1954,14 @@ MeshGenerator::saveMeshToPLY(QString flnm,
 
   PlyFace     face ;
   int         verts[3] ;
-  char       *elem_names[]  = { "vertex", "face" };
+  char       *elem_names[]  = {plyStrings[10], plyStrings[11]};
   ply = write_ply (fp,
 		   2,
 		   elem_names,
 		   bin? PLY_BINARY_LE : PLY_ASCII );
 
   /* describe what properties go into the PlyVertex elements */
-  describe_element_ply ( ply, "vertex", nvertices );
+  describe_element_ply ( ply, plyStrings[10], nvertices );
   describe_property_ply ( ply, &vert_props[0] );
   describe_property_ply ( ply, &vert_props[1] );
   describe_property_ply ( ply, &vert_props[2] );
@@ -1952,14 +1973,14 @@ MeshGenerator::saveMeshToPLY(QString flnm,
   describe_property_ply ( ply, &vert_props[8] );
 
   /* describe PlyFace properties (just list of PlyVertex indices) */
-  describe_element_ply ( ply, "face", ntriangles );
+  describe_element_ply ( ply, plyStrings[11], ntriangles );
   describe_property_ply ( ply, &face_props[0] );
 
   header_complete_ply ( ply );
 
 
   /* set up and write the PlyVertex elements */
-  put_element_setup_ply ( ply, "vertex" );
+  put_element_setup_ply ( ply, plyStrings[10] );
   for (int nb=0; nb<nSlabs; nb++)
     {
       m_meshProgress->setValue((int)(100.0*(float)nb/(float)nSlabs));
@@ -1995,7 +2016,7 @@ MeshGenerator::saveMeshToPLY(QString flnm,
     }
 
   /* set up and write the PlyFace elements */
-  put_element_setup_ply ( ply, "face" );
+  put_element_setup_ply ( ply, plyStrings[11] );
   face.nverts = 3 ;
   face.verts  = verts ;
   for (int nb=0; nb<nSlabs; nb++)

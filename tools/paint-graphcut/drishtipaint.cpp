@@ -419,7 +419,7 @@ void DrishtiPaint::on_zoom0_clicked() { m_imageWidget->zoom0(); }
 void DrishtiPaint::on_zoom9_clicked() { m_imageWidget->zoom9(); }
 void DrishtiPaint::on_zoomup_clicked() { m_imageWidget->zoomUp(); }
 void DrishtiPaint::on_zoomdown_clicked() { m_imageWidget->zoomDown(); }
-void DrishtiPaint::on_weightI_valueChanged(double d) { m_imageWidget->setWeightI(d); }
+void DrishtiPaint::on_weightLoG_valueChanged(double d) { m_imageWidget->setWeightLoG(d); }
 void DrishtiPaint::on_weightG_valueChanged(double d) { m_imageWidget->setWeightG(d); }
 void DrishtiPaint::on_weightN_valueChanged(double d) { m_imageWidget->setWeightN(d); }
 void

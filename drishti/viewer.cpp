@@ -4137,7 +4137,14 @@ Viewer::processCommand(QString cmd)
       if (flnm.isEmpty())
 	return;
 
-      Global::setBackgroundImageFile(flnm);
+      //----------------
+      // bgimage file is assumed to be relative to .pvl.nc file
+      // get the absolute path
+      VolumeInformation pvlInfo = VolumeInformation::volumeInformation();
+      QFileInfo fileInfo(pvlInfo.pvlFile);
+      flnm = fileInfo.absoluteDir().relativeFilePath(flnm);
+      Global::setBackgroundImageFile(flnm, fileInfo.absolutePath());
+      //----------------
     }
   else if (list[0]== "resetimage")
     {

@@ -411,9 +411,6 @@ CurveGroup::getCurvesAt(int key)
 
   QList<Curve*> c;
   return c;
-      
-//  if (m_mcg.contains(key))
-//    return m_mcg.values(key);
 }
 
 QList<Curve>
@@ -443,6 +440,21 @@ CurveGroup::setCurveAt(int key, Curve c)
 }
 
 void
+CurveGroup::startAddingCurves()
+{
+  m_addingCurves = true;
+  m_tmcg.clear();
+}
+void
+CurveGroup::endAddingCurves()
+{
+  m_addingCurves = false;
+  if (m_tmcg.count() > 0)
+    m_mcg << m_tmcg;
+  m_tmcg.clear();
+}
+
+void
 CurveGroup::setPolygonAt(int key, int *pts, int npts,
 			 int tag, int thickness, bool closed)
 {
@@ -468,17 +480,31 @@ CurveGroup::setPolygonAt(int key,
 			 bool closed,
 			 bool select)
 {
-  Curve *c = new Curve();
-  c->tag = Global::tag();
-  c->thickness = Global::thickness();
-  c->closed = closed;
-  c->pts = pts;
-  c->seeds = seeds;
-  c->seedpos = seedpos;
-  c->selected = select;
-
-  m_cg.insert(key, c);
-  m_pointsDirtyBit = true;
+  if (m_addingCurves)
+    {
+      Curve c;
+      c.tag = Global::tag();
+      c.thickness = Global::thickness();
+      c.closed = closed;
+      c.pts = pts;
+      c.seeds = seeds;
+      c.seedpos = seedpos;
+      c.selected = true;
+      m_tmcg.insert(key, c);
+    }
+  else
+    {
+      Curve *c = new Curve();
+      c->tag = Global::tag();
+      c->thickness = Global::thickness();
+      c->closed = closed;
+      c->pts = pts;
+      c->seeds = seeds;
+      c->seedpos = seedpos;
+      c->selected = select;
+      m_cg.insert(key, c);
+      m_pointsDirtyBit = true;
+    }
 }
 
 QList< QMap<int, Curve> >* CurveGroup::getPointerToMorphedCurves() { return &m_mcg; };

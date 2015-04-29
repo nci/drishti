@@ -151,7 +151,7 @@ class Global
   static Vec backgroundColor();
 
   static void resetBackgroundImageFile();
-  static void setBackgroundImageFile(QString);
+  static void setBackgroundImageFile(QString, QString);
   static QString backgroundImageFile();
   static QImage backgroundImage();
   static GLuint backgroundTexture();

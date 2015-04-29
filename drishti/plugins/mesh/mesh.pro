@@ -29,10 +29,12 @@ win32 {
  }
 
  contains(Windows_Setup, Win64) {
-  INCLUDEPATH += ../../ ..\..\..\glmedia-64
+  message(drishti.exe : Win64 setup)
+  INCLUDEPATH += ../../
+  DEFINES += _CRT_SECURE_NO_WARNINGS
   QMAKE_LIBDIR += ..\common ..\..\..\glmedia-64
-  LIBS += netcdfcpp-x64.lib \
-	  glut64.lib
+  LIBS += netcdfcpp.lib \
+	  freeglut.lib
  }
 }
 

@@ -83,6 +83,8 @@ class MeshGenerator
 
   float m_scaleModel;
 
+  QList<char*> plyStrings;
+
   void generateMesh(int,
 		    QStringList,
 		    QString,

@@ -185,6 +185,8 @@ SmoothingFilter::start(VolumeFileManager *vfm,
     }
   //----------------------------
 
+  if (!StaticFunctions::checkExtension(flnm, ".raw"))
+    flnm += ".raw";
 
   try
     {
@@ -421,6 +423,9 @@ SmoothingFilter::savePvl(QString flnm)
 					      "*.pvl.nc");
 	  if (pvlflnm.size() == 0)
 	    return;
+
+	  if (!StaticFunctions::checkExtension(pvlflnm, ".pvl.nc"))
+	    pvlflnm += ".pvl.nc";
 
 	  QFile fp(pvlflnm);
 	  if (fp.open(QFile::WriteOnly | QFile::Truncate))

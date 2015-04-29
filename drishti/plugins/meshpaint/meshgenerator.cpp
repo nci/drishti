@@ -1,7 +1,32 @@
 #include "staticfunctions.h"
 #include "meshgenerator.h"
 
-MeshGenerator::MeshGenerator() {vcolor=0;}
+MeshGenerator::MeshGenerator()
+{
+  vcolor=0;
+
+  QStringList ps;
+  ps << "x";
+  ps << "y";
+  ps << "z";
+  ps << "nx";
+  ps << "ny";
+  ps << "nz";
+  ps << "red";
+  ps << "green";
+  ps << "blue";
+  ps << "vertex_indices";
+  ps << "vertex";
+  ps << "face";
+
+  for(int i=0; i<ps.count(); i++)
+    {
+      char *s;
+      s = new char[ps[i].size()+1];
+      strcpy(s, ps[i].toLatin1().data());
+      plyStrings << s;
+    }
+}
 MeshGenerator::~MeshGenerator() {if (vcolor) delete [] vcolor;}
 
 QGradientStops
@@ -405,6 +430,8 @@ MeshGenerator::start(VolumeFileManager *vfm,
       meshWindow->close();
       return "";
     }
+  if (!StaticFunctions::checkExtension(outflnm, ".ply"))
+    outflnm += ".ply";
   //----------------------------
 
   int nSlabs = 1;
@@ -1163,37 +1190,54 @@ MeshGenerator::savePLY(QString flnm)
   m_meshLog->moveCursor(QTextCursor::End);
   m_meshLog->insertPlainText("Saving Mesh");
 
-  PlyProperty vert_props[]  = { /* list of property information for a PlyVertex */
-    {"x", Float32, Float32,  offsetof( Vertex,x ), 0, 0, 0, 0},
-    {"y", Float32, Float32,  offsetof( Vertex,y ), 0, 0, 0, 0},
-    {"z", Float32, Float32,  offsetof( Vertex,z ), 0, 0, 0, 0},
-    {"nx", Float32, Float32, offsetof( Vertex,nx ), 0, 0, 0, 0},
-    {"ny", Float32, Float32, offsetof( Vertex,ny ), 0, 0, 0, 0},
-    {"nz", Float32, Float32, offsetof( Vertex,nz ), 0, 0, 0, 0},
-    {"red", Uint8, Uint8,    offsetof( Vertex,r ), 0, 0, 0, 0},
-    {"green", Uint8, Uint8,  offsetof( Vertex,g ), 0, 0, 0, 0},
-    {"blue", Uint8, Uint8,   offsetof( Vertex,b ), 0, 0, 0, 0}
+  PlyProperty vert_props[] = { /* list of property information for a vertex */
+    {plyStrings[0], Float32, Float32, offsetof(Vertex,x), 0, 0, 0, 0},
+    {plyStrings[1], Float32, Float32, offsetof(Vertex,y), 0, 0, 0, 0},
+    {plyStrings[2], Float32, Float32, offsetof(Vertex,z), 0, 0, 0, 0},
+    {plyStrings[3], Float32, Float32, offsetof(Vertex,nx), 0, 0, 0, 0},
+    {plyStrings[4], Float32, Float32, offsetof(Vertex,ny), 0, 0, 0, 0},
+    {plyStrings[5], Float32, Float32, offsetof(Vertex,nz), 0, 0, 0, 0},
+    {plyStrings[6], Uint8, Uint8, offsetof(Vertex,r), 0, 0, 0, 0},
+    {plyStrings[7], Uint8, Uint8, offsetof(Vertex,g), 0, 0, 0, 0},
+    {plyStrings[8], Uint8, Uint8, offsetof(Vertex,b), 0, 0, 0, 0},
   };
 
-  PlyProperty face_props[]  = { /* list of property information for a PlyFace */
-    {"vertex_indices", Int32, Int32, offsetof( Face,verts ),
-      1, Uint8, Uint8, offsetof( Face,nverts )},
+  PlyProperty face_props[] = { /* list of property information for a face */
+    {plyStrings[9], Int32, Int32, offsetof(Face,verts),
+     1, Uint8, Uint8, offsetof(Face,nverts)},
   };
 
+//  PlyProperty vert_props[]  = { /* list of property information for a PlyVertex */
+//    {"x", Float32, Float32,  offsetof( Vertex,x ), 0, 0, 0, 0},
+//    {"y", Float32, Float32,  offsetof( Vertex,y ), 0, 0, 0, 0},
+//    {"z", Float32, Float32,  offsetof( Vertex,z ), 0, 0, 0, 0},
+//    {"nx", Float32, Float32, offsetof( Vertex,nx ), 0, 0, 0, 0},
+//    {"ny", Float32, Float32, offsetof( Vertex,ny ), 0, 0, 0, 0},
+//    {"nz", Float32, Float32, offsetof( Vertex,nz ), 0, 0, 0, 0},
+//    {"red", Uint8, Uint8,    offsetof( Vertex,r ), 0, 0, 0, 0},
+//    {"green", Uint8, Uint8,  offsetof( Vertex,g ), 0, 0, 0, 0},
+//    {"blue", Uint8, Uint8,   offsetof( Vertex,b ), 0, 0, 0, 0}
+//  };
+//
+//  PlyProperty face_props[]  = { /* list of property information for a PlyFace */
+//    {"vertex_indices", Int32, Int32, offsetof( Face,verts ),
+//      1, Uint8, Uint8, offsetof( Face,nverts )},
+//  };
 
-  PlyFile    *ply;
-  FILE    *fp = fopen(flnm.toLatin1().data(), "wb");
 
-  Face     face ;
-  int      verts[3] ;
-  char    *elem_names[]  = { "vertex", "face" };
+  PlyFile *ply;
+  FILE *fp = fopen(flnm.toLatin1().data(), "wb");
+
+  Face face ;
+  int verts[3] ;
+  char *elem_names[]  = {plyStrings[10], plyStrings[11]};
   ply = write_ply (fp,
 		   2,
 		   elem_names,
 		   PLY_BINARY_LE );
 
   /* describe what properties go into the PlyVertex elements */
-  describe_element_ply ( ply, "vertex", m_nverts );
+  describe_element_ply ( ply, plyStrings[10], m_nverts );
   describe_property_ply ( ply, &vert_props[0] );
   describe_property_ply ( ply, &vert_props[1] );
   describe_property_ply ( ply, &vert_props[2] );
@@ -1205,18 +1249,18 @@ MeshGenerator::savePLY(QString flnm)
   describe_property_ply ( ply, &vert_props[8] );
 
   /* describe PlyFace properties (just list of PlyVertex indices) */
-  describe_element_ply ( ply, "face", m_nfaces );
+  describe_element_ply ( ply, plyStrings[11], m_nfaces );
   describe_property_ply ( ply, &face_props[0] );
 
   header_complete_ply ( ply );
 
   /* set up and write the PlyVertex elements */
-  put_element_setup_ply ( ply, "vertex" );
+  put_element_setup_ply ( ply, plyStrings[10] );
   for(int ni=0; ni<m_nverts; ni++)
     put_element_ply ( ply, ( void * ) m_vlist[ni] );
 
   /* set up and write the PlyFace elements */
-  put_element_setup_ply ( ply, "face" );
+  put_element_setup_ply ( ply, plyStrings[11] );
   for(int ni=0; ni<m_nfaces; ni++)
     put_element_ply ( ply, ( void * ) m_flist[ni] );
 
@@ -1230,21 +1274,38 @@ bool
 MeshGenerator::loadPLY(QString flnm)
 {
   PlyProperty vert_props[] = { /* list of property information for a vertex */
-    {"x", Float32, Float32, offsetof(Vertex,x), 0, 0, 0, 0},
-    {"y", Float32, Float32, offsetof(Vertex,y), 0, 0, 0, 0},
-    {"z", Float32, Float32, offsetof(Vertex,z), 0, 0, 0, 0},
-    {"nx", Float32, Float32, offsetof(Vertex,nx), 0, 0, 0, 0},
-    {"ny", Float32, Float32, offsetof(Vertex,ny), 0, 0, 0, 0},
-    {"nz", Float32, Float32, offsetof(Vertex,nz), 0, 0, 0, 0},
-    {"red", Uint8, Uint8, offsetof(Vertex,r), 0, 0, 0, 0},
-    {"green", Uint8, Uint8, offsetof(Vertex,g), 0, 0, 0, 0},
-    {"blue", Uint8, Uint8, offsetof(Vertex,b), 0, 0, 0, 0},
+    {plyStrings[0], Float32, Float32, offsetof(Vertex,x), 0, 0, 0, 0},
+    {plyStrings[1], Float32, Float32, offsetof(Vertex,y), 0, 0, 0, 0},
+    {plyStrings[2], Float32, Float32, offsetof(Vertex,z), 0, 0, 0, 0},
+    {plyStrings[3], Float32, Float32, offsetof(Vertex,nx), 0, 0, 0, 0},
+    {plyStrings[4], Float32, Float32, offsetof(Vertex,ny), 0, 0, 0, 0},
+    {plyStrings[5], Float32, Float32, offsetof(Vertex,nz), 0, 0, 0, 0},
+    {plyStrings[6], Uint8, Uint8, offsetof(Vertex,r), 0, 0, 0, 0},
+    {plyStrings[7], Uint8, Uint8, offsetof(Vertex,g), 0, 0, 0, 0},
+    {plyStrings[8], Uint8, Uint8, offsetof(Vertex,b), 0, 0, 0, 0},
   };
 
   PlyProperty face_props[] = { /* list of property information for a face */
-    {"vertex_indices", Int32, Int32, offsetof(Face,verts),
+    {plyStrings[9], Int32, Int32, offsetof(Face,verts),
      1, Uint8, Uint8, offsetof(Face,nverts)},
   };
+
+//  PlyProperty vert_props[] = { /* list of property information for a vertex */
+//    {"x", Float32, Float32, offsetof(Vertex,x), 0, 0, 0, 0},
+//    {"y", Float32, Float32, offsetof(Vertex,y), 0, 0, 0, 0},
+//    {"z", Float32, Float32, offsetof(Vertex,z), 0, 0, 0, 0},
+//    {"nx", Float32, Float32, offsetof(Vertex,nx), 0, 0, 0, 0},
+//    {"ny", Float32, Float32, offsetof(Vertex,ny), 0, 0, 0, 0},
+//    {"nz", Float32, Float32, offsetof(Vertex,nz), 0, 0, 0, 0},
+//    {"red", Uint8, Uint8, offsetof(Vertex,r), 0, 0, 0, 0},
+//    {"green", Uint8, Uint8, offsetof(Vertex,g), 0, 0, 0, 0},
+//    {"blue", Uint8, Uint8, offsetof(Vertex,b), 0, 0, 0, 0},
+//  };
+//
+//  PlyProperty face_props[] = { /* list of property information for a face */
+//    {"vertex_indices", Int32, Int32, offsetof(Face,verts),
+//     1, Uint8, Uint8, offsetof(Face,nverts)},
+//  };
 
 
   /*** the PLY object ***/
@@ -1270,7 +1331,7 @@ MeshGenerator::loadPLY(QString flnm)
     elem_name = setup_element_read_ply (in_ply, i, &elem_count);
 
 
-    if (equal_strings ("vertex", elem_name)) {
+    if (QString("vertex") == QString(elem_name)) {
 
       /* create a vertex list to hold all the vertices */
       m_vlist = (Vertex **) malloc (sizeof (Vertex *) * elem_count);
@@ -1285,30 +1346,30 @@ MeshGenerator::loadPLY(QString flnm)
       for (j = 0; j < in_ply->elems[i]->nprops; j++) {
 	PlyProperty *prop;
 	prop = in_ply->elems[i]->props[j];
-	if (equal_strings ("r", prop->name) ||
-	    equal_strings ("red", prop->name)) {
+	if (QString("r") == QString(prop->name) ||
+	    QString("red") == QString(prop->name)) {
 	  setup_property_ply (in_ply, &vert_props[3]);
 	  per_vertex_color = true;
 	}
-	if (equal_strings ("g", prop->name) ||
-	    equal_strings ("green", prop->name)) {
+	if (QString("g") == QString(prop->name) ||
+	    QString("green") == QString(prop->name)) {
 	  setup_property_ply (in_ply, &vert_props[4]);
 	  per_vertex_color = true;
 	}
-	if (equal_strings ("b", prop->name) ||
-	    equal_strings ("blue", prop->name)) {
+	if (QString("b") == QString(prop->name) ||
+	    QString("blue") == QString(prop->name)) {
 	  setup_property_ply (in_ply, &vert_props[5]);
 	  per_vertex_color = true;
 	}
-	if (equal_strings ("nx", prop->name)) {
+	if (QString("nx") == QString(prop->name)) {
 	  setup_property_ply (in_ply, &vert_props[6]);
 	  has_normals = true;
 	}
-	if (equal_strings ("ny", prop->name)) {
+	if (QString("ny") == QString(prop->name)) {
 	  setup_property_ply (in_ply, &vert_props[7]);
 	  has_normals = true;
 	}
-	if (equal_strings ("nz", prop->name)) {
+	if (QString("nz") == QString(prop->name)) {
 	  setup_property_ply (in_ply, &vert_props[8]);
 	  has_normals = true;
 	}
@@ -1320,7 +1381,7 @@ MeshGenerator::loadPLY(QString flnm)
         get_element_ply (in_ply, (void *) m_vlist[j]);
       }
     }
-    else if (equal_strings ("face", elem_name)) {
+    else if (QString("face") == QString(elem_name)) {
 
       /* create a list to hold all the face elements */
       m_flist = (Face **) malloc (sizeof (Face *) * elem_count);

@@ -625,7 +625,7 @@ ClipInformation::save(fstream &fout)
   for(int i=0; i<nclip; i++)
     {
       Vec axis;
-      float angle;
+      qreal angle;
       rot[i].getAxisAngle(axis, angle);
       f[0] = axis.x;
       f[1] = axis.y;

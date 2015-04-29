@@ -16,7 +16,7 @@ win32 {
     LIBS += netcdf.lib
  }
  contains(Windows_Setup, Win64) {  
-    LIBS += netcdfcpp-x64.lib
+    LIBS += netcdfcpp.lib
  }
 }
 

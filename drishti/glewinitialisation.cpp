@@ -5,9 +5,6 @@
 bool GlewInit::glew_initialised = false;
 bool GlewInit::fbo_ok = false;
 
-static int glew_argc = 1;
-static char *glew_argv[] = { "Drishti", 0 };
-
 bool GlewInit::initialised() { return glew_initialised; }
 
 bool

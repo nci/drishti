@@ -80,9 +80,15 @@ class CurveGroup
   QList<QPoint> xpoints(int);
   QList<QPoint> ypoints(int);
 
+  void startAddingCurves();
+  void endAddingCurves();
+
  private :
   QMultiMap<int, Curve*> m_cg;
-  QList< QMap<int, Curve> > m_mcg;
+  QList< QMap<int, Curve> > m_mcg;  
+
+  bool m_addingCurves;
+  QMap<int, Curve> m_tmcg;
 
   bool m_pointsDirtyBit;
   QMultiMap<int, QPoint> m_xpoints;

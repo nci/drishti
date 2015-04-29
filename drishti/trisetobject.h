@@ -126,6 +126,8 @@ class TrisetObject
   QVector<Vec> m_tnormals;
   QVector<Vec> m_texValues;
 
+  QList<char*> plyStrings;
+
   uint *m_scrV;
   float *m_scrD;
 

@@ -33,7 +33,7 @@ class LiveWire
 
   void freeze();
 
-  void setWeightI(float);
+  void setWeightLoG(float);
   void setWeightG(float);
   void setWeightN(float);
   void setUseDynamicTraining(bool);
@@ -45,6 +45,11 @@ class LiveWire
   void setPolygonToUpdate(QVector<QPoint>,
 			  QVector<QPoint>,
 			  QVector<int>);
+  
+  bool propagateLivewire();
+  void setPropagateLivewire(bool);
+  void setGuessCurve(QVector<QPoint>);
+  void renewGuessCurve();
 
  private :
   QVector<QPoint> m_poly;
@@ -57,6 +62,9 @@ class LiveWire
   int m_activeSeed;
   bool m_seedMoveMode;
 
+  bool m_propagateLivewire;
+  QVector<QPoint> m_guessCurve;
+
   int m_width, m_height;
   uchar *m_image;
   float *m_grad;
@@ -66,7 +74,7 @@ class LiveWire
   float *m_gradCost;
   bool m_useDynamicTraining;
 
-  float m_wtG, m_wtN, m_wtI;
+  float m_wtG, m_wtN, m_wtLoG;
 
   int m_gradType;
   int m_smoothType;

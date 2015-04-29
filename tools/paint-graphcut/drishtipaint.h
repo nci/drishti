@@ -57,7 +57,7 @@ class DrishtiPaint : public QMainWindow
   void on_zoom9_clicked();
   void on_zoomup_clicked();
   void on_zoomdown_clicked();
-  void on_weightI_valueChanged(double);
+  void on_weightLoG_valueChanged(double);
   void on_weightG_valueChanged(double);
   void on_weightN_valueChanged(double);
   void changeTransferFunctionDisplay(int, QList<bool>);

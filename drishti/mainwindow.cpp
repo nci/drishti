@@ -3594,7 +3594,15 @@ MainWindow::updateParameters(float stepStill, float stepDrag,
   m_preferencesWidget->setTick(sz, st, xl, yl, zl);
 
   Global::setBackgroundColor(bgColor);
-  Global::setBackgroundImageFile(bgImage);
+
+  //----------------
+  // bgimage file is assumed to be relative to .pvl.nc file
+  // get the absolute path
+  VolumeInformation pvlInfo = VolumeInformation::volumeInformation();
+  QFileInfo fileInfo(pvlInfo.pvlFile);
+  Global::setBackgroundImageFile(bgImage, fileInfo.absolutePath());
+  //----------------
+
   Global::setDrawBox(drawBox);
   Global::setDrawAxis(drawAxis);
   m_Hires->setRenderQuality(renderQuality);
@@ -3622,7 +3630,15 @@ MainWindow::updateParameters(bool drawBox, bool drawAxis,
 {
   m_preferencesWidget->setTick(sz, st, xl, yl, zl);
   Global::setBackgroundColor(bgColor);
-  Global::setBackgroundImageFile(bgImage);
+
+  //----------------
+  // bgimage file is assumed to be relative to .pvl.nc file
+  // get the absolute path
+  VolumeInformation pvlInfo = VolumeInformation::volumeInformation();
+  QFileInfo fileInfo(pvlInfo.pvlFile);
+  Global::setBackgroundImageFile(bgImage, fileInfo.absolutePath());
+  //----------------
+
   Global::setDrawBox(drawBox);
   Global::setDrawAxis(drawAxis);
 

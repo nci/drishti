@@ -275,10 +275,17 @@ Global::resetBackgroundImageFile()
   m_bgImage = QImage();
 }
 void
-Global::setBackgroundImageFile(QString flnm)
+Global::setBackgroundImageFile(QString flnm, QString reldir)
 {
   m_bgImageFile = flnm;
-  m_bgImage = QImage(flnm).rgbSwapped();
+
+  //----------------
+  // file is assumed to be relative to reldir file
+  // get the absolute path
+  QString aflnm = QFileInfo(reldir, flnm).absoluteFilePath();
+  //----------------
+
+  m_bgImage = QImage(aflnm).rgbSwapped();
 }
 QString Global::backgroundImageFile() { return m_bgImageFile; }
 QImage Global::backgroundImage() { return m_bgImage; }

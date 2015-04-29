@@ -22,7 +22,7 @@
      <x>0</x>
      <y>0</y>
      <width>554</width>
-     <height>24</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFiles">
@@ -40,7 +40,6 @@
     <addaction name="saveImage"/>
     <addaction name="actionSave_As"/>
     <addaction name="actionBatch_Process"/>
-    <addaction name="actionSave_Isosurface_As"/>
     <addaction name="actionSave_Images"/>
     <addaction name="separator"/>
     <addaction name="loadLimits"/>

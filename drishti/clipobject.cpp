@@ -1519,7 +1519,7 @@ ClipObject::commandEditor()
 
   Quaternion q = orientation();
   Vec axis;
-  float angle;
+  qreal angle;
   q.getAxisAngle(axis, angle);
   mesg += QString("rotation : %1 %2 %3 : %4\n").			\
     arg(axis.x).arg(axis.y).arg(axis.z).arg(RAD2DEG(angle));

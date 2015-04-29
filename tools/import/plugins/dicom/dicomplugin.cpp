@@ -2,6 +2,9 @@
 #include "common.h"
 #include "dicomplugin.h"
 
+#include <QTextEdit>
+#include <QVBoxLayout>
+
 void DicomPlugin::generateHistogram() {} // to satisfy the interface
 
 QStringList
@@ -118,7 +121,6 @@ DicomPlugin::setFile(QStringList files)
       NamesGeneratorType::Pointer nameGenerator = NamesGeneratorType::New();
 
       nameGenerator->SetUseSeriesDetails( true );
-      //nameGenerator->AddSeriesRestriction("0008|0021" );
 
       nameGenerator->SetDirectory(m_fileName[0].toLatin1().data() );
 
@@ -126,7 +128,47 @@ DicomPlugin::setFile(QStringList files)
       const SeriesIdContainer & seriesUID = nameGenerator->GetSeriesUIDs();
 
       std::string seriesIdentifier;
-      seriesIdentifier = seriesUID.begin()->c_str();
+
+      if (seriesUID.size() == 0)
+	{
+	  QMessageBox::information(0, "", "No Dicom series found !");
+	  return false;
+	}
+
+      //---------------------------
+      // give the user to select a series, if there are more than one in the directory 
+      if (seriesUID.size() == 1)
+	{
+	  seriesIdentifier = seriesUID.begin()->c_str();
+	}
+      else
+	{
+	  QStringList varNames;      
+	  bool ok;
+	  QString varName;  
+	  int nser = seriesUID.size();
+	  for(int i=0; i<nser; i++)
+	    varNames << QString(seriesUID[i].c_str());
+	  
+	  varName = QInputDialog::getItem(0,
+					  "Choose a series for extraction",
+					  "Series",
+					  varNames,
+					  0,
+					  false,
+					  &ok);
+	  if (!ok)
+	    {
+	      seriesIdentifier = seriesUID[0].c_str();
+	      QMessageBox::information(0, "", "Loading series "+varNames[0]);
+	    }
+	  else
+	    {
+	      int sel = varNames.indexOf(varName);
+	      seriesIdentifier = seriesUID[sel].c_str();
+	    }
+	}
+      //---------------------------
 
       dcmFiles = nameGenerator->GetFileNames( seriesIdentifier );
 
@@ -134,6 +176,40 @@ DicomPlugin::setFile(QStringList files)
       m_reader->SetImageIO( dicomIO );
       m_reader->SetFileNames( dcmFiles );
       m_reader->Update();
+
+      //-----------------
+      {
+	QTextEdit *tedit = new QTextEdit();
+	typedef itk::MetaDataDictionary   DictionaryType;
+	const  DictionaryType & dictionary = dicomIO->GetMetaDataDictionary();
+	typedef itk::MetaDataObject< std::string > MetaDataStringType;
+	DictionaryType::ConstIterator itr = dictionary.Begin();
+	DictionaryType::ConstIterator end = dictionary.End();	
+	while( itr != end )
+	  {
+	    itk::MetaDataObjectBase::Pointer  entry = itr->second;
+	    MetaDataStringType::Pointer entryvalue =
+	      dynamic_cast<MetaDataStringType *>( entry.GetPointer() );
+	    if( entryvalue )
+	      {
+		std::string tagkey   = itr->first;
+		std::string tagvalue = entryvalue->GetMetaDataObjectValue();
+		tedit->insertPlainText(QString(tagkey.c_str()) + " = " + QString(tagvalue.c_str()) + "\n");
+	      }
+	    ++itr;
+	  }
+
+	QVBoxLayout *layout = new QVBoxLayout();
+	layout->addWidget(tedit);
+	
+	QDialog *showMD = new QDialog();
+	showMD->setWindowTitle("Series MetaData");
+	showMD->setSizeGripEnabled(true);
+	showMD->setModal(true);
+	showMD->setLayout(layout);
+	showMD->exec();
+      }
+      //-----------------
 
       m_dimg = m_reader->GetOutput();
       

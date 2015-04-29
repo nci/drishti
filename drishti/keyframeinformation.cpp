@@ -997,12 +997,14 @@ KeyFrameInformation::save(fstream &fout)
   fout.write((char*)keyword, strlen(keyword)+1);
   Vec axis;
   qreal angle;
+  float fangle;
   m_rotation.getAxisAngle(axis, angle);
   f[0] = axis.x;
   f[1] = axis.y;
   f[2] = axis.z;
+  fangle = angle;
   fout.write((char*)&f, 3*sizeof(float));
-  fout.write((char*)&angle, sizeof(float));
+  fout.write((char*)&fangle, sizeof(float));
 
 
   if (m_lut)

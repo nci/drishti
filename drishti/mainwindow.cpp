@@ -265,13 +265,13 @@ MainWindow::MainWindow(QWidget *parent) :
   m_dockKeyframe->hide();
   //----------------------------------------------------------
 
-  //----------------------------------------------------------
-  m_dockGallery = new QDockWidget("Gallery", this);
-  m_dockGallery->setAllowedAreas(Qt::AllDockWidgetAreas);
+//  //----------------------------------------------------------
+//  m_dockGallery = new QDockWidget("Gallery", this);
+//  m_dockGallery->setAllowedAreas(Qt::AllDockWidgetAreas);
   m_gallery = new ViewsEditor();
-  m_dockGallery->setWidget(m_gallery);
-  m_dockGallery->hide();
-  //----------------------------------------------------------
+//  m_dockGallery->setWidget(m_gallery);
+//  m_dockGallery->hide();
+//  //----------------------------------------------------------
 
 
   addDockWidget(Qt::RightDockWidgetArea, m_dockTF);
@@ -280,7 +280,7 @@ MainWindow::MainWindow(QWidget *parent) :
   addDockWidget(Qt::LeftDockWidgetArea, dock4);
   addDockWidget(Qt::LeftDockWidgetArea, dock5);
   addDockWidget(Qt::BottomDockWidgetArea,m_dockKeyframe);
-  addDockWidget(Qt::BottomDockWidgetArea,m_dockGallery);
+//  addDockWidget(Qt::BottomDockWidgetArea,m_dockGallery);
 
   QString tstr = QString("Drishti v") +
                  Global::DrishtiVersion() +
@@ -296,7 +296,7 @@ MainWindow::MainWindow(QWidget *parent) :
   ui.menuView->addAction(dock3->toggleViewAction());
   ui.menuView->addAction(dock4->toggleViewAction());
   ui.menuView->addAction(m_dockKeyframe->toggleViewAction());
-  ui.menuView->addAction(m_dockGallery->toggleViewAction());
+//  ui.menuView->addAction(m_dockGallery->toggleViewAction());
   ui.menuView->addSeparator();
   ui.menuView->addAction(dock5->toggleViewAction());
 
@@ -2967,7 +2967,7 @@ MainWindow::loadProject(const char* flnm)
   MainWindowUI::changeDrishtiIcon(false);
   m_Hires->disableSubvolumeUpdates();
 
-  bool galleryVisible = m_dockGallery->isVisible();
+//  bool galleryVisible = m_dockGallery->isVisible();
   bool keyframesVisible = m_dockKeyframe->isVisible();
 
   Global::setCurrentProjectFile(QString(flnm));
@@ -3027,7 +3027,7 @@ MainWindow::loadProject(const char* flnm)
   m_tfManager->load(flnm);
 
   
-  m_dockGallery->setVisible(false);
+//  m_dockGallery->setVisible(false);
   m_dockKeyframe->setVisible(false);
 
   loadViewsAndKeyFrames(flnm);
@@ -3047,7 +3047,7 @@ MainWindow::loadProject(const char* flnm)
 	m_tfEditor->setHistogram2D(m_Hires->histogram2D());
     }
 
-  m_dockGallery->setVisible(galleryVisible);
+//  m_dockGallery->setVisible(galleryVisible);
   m_dockKeyframe->setVisible(keyframesVisible);
 
   m_Viewer->createImageBuffers();

@@ -22,7 +22,7 @@ class ImageWidget : public QWidget
   ImageWidget(QWidget*, QStatusBar *);
 
   enum SliceType {
-    DSlice,
+    DSlice = 0,
     WSlice,
     HSlice
   };
@@ -87,6 +87,8 @@ class ImageWidget : public QWidget
   void zoomUp();
   void zoomDown();
   void setPointSize(int);
+
+  void paintUsingCurves(int, int, int, int, uchar*);
 
  signals :
   void getSlice(int);
@@ -228,7 +230,8 @@ class ImageWidget : public QWidget
   void applyRecursive(int);
   void checkRecursive();
   
-  void applyMorphCurveLimits(uchar*);
+  void paintUsingCurves(CurveGroup*, int, int, int, uchar*);
+  void paintUsingCurves(uchar*);
 
   void saveCurves(QFile*, CurveGroup*);
   void loadCurves(QFile*, CurveGroup*);

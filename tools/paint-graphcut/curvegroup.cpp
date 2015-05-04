@@ -494,6 +494,8 @@ CurveGroup::setPolygonAt(int key,
     }
   else
     {
+      QMessageBox::information(0, "", "moved livewire to curvegroup");  
+
       Curve *c = new Curve();
       c->tag = Global::tag();
       c->thickness = Global::thickness();

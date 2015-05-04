@@ -1188,15 +1188,6 @@ ImageWidget::applyRecursive(int key)
     {
       int maxD = m_maxDSlice;
       int minD = m_minDSlice;
-//      if (m_curveMode || m_livewireMode)
-//	{
-//	  QList<int> pl = m_dCurves.polygonLevels();
-//	  if (pl.count() > 1)
-//	    {
-//	      minD = pl[0];
-//	      maxD = pl[pl.count()-1];
-//	    }
-//	}
       if (m_forward)
 	m_maxslc = maxD - m_currSlice + 1;
       else
@@ -1206,15 +1197,6 @@ ImageWidget::applyRecursive(int key)
     {
       int maxW = m_maxWSlice;
       int minW = m_minWSlice;
-//      if (m_curveMode || m_livewireMode)
-//	{
-//	  QList<int> pl = m_wCurves.polygonLevels();
-//	  if (pl.count() > 1)
-//	    {
-//	      minW = pl[0];
-//	      maxW = pl[pl.count()-1];
-//	    }
-//	}
       if (m_forward)
 	m_maxslc = maxW - m_currSlice + 1;
       else
@@ -1224,15 +1206,6 @@ ImageWidget::applyRecursive(int key)
     {
       int maxH = m_maxHSlice;
       int minH = m_minHSlice;
-//      if (m_curveMode || m_livewireMode)
-//	{
-//	  QList<int> pl = m_hCurves.polygonLevels();
-//	  if (pl.count() > 1)
-//	    {
-//	      minH = pl[0];
-//	      maxH = pl[pl.count()-1];
-//	    }
-//	}
       if (m_forward)
 	m_maxslc = maxH - m_currSlice + 1;
       else
@@ -1310,6 +1283,7 @@ ImageWidget::freezeLivewire(bool select)
       m_hCurves.setPolygonAt(m_currSlice, pts, seeds, seedpos, Global::closed(), select); 
       emit polygonLevels(m_hCurves.polygonLevels());
     }	  
+
   m_livewire.resetPoly();
 
   update(); 
@@ -1399,9 +1373,11 @@ ImageWidget::startLivewirePropagation()
   else if (m_sliceType == WSlice) m_wCurves.startAddingCurves();
   else m_hCurves.startAddingCurves();
 
-  // take curve from previous/next slice and propagate it to current slice
-  int cs = qMax(0, m_currSlice-1);
-  if (!m_forward) cs = m_currSlice+1;  
+//  // take curve from previous/next slice and propagate it to current slice
+//  int cs = qMax(0, m_currSlice-1);
+//  if (!m_forward) cs = m_currSlice+1;  
+
+  int cs = m_currSlice;
 
   QList<Curve*> curves;
   if (m_sliceType == DSlice)
@@ -1416,6 +1392,12 @@ ImageWidget::startLivewirePropagation()
       if (curves[l]->selected)
 	{
 	  m_livewire.setGuessCurve(curves[l]->pts);
+	  
+	  //  move current slice for propagation
+	  if (m_forward)
+	    m_currSlice = qMax(0, m_currSlice-1);
+	  else
+	    m_currSlice = m_currSlice+1;  
 	  return;
 	}
     }
@@ -1542,6 +1524,7 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
 	  ar = true;
 
 	  startLivewirePropagation();
+	  //return true;
 	}
 
       propagateLivewire();
@@ -2928,24 +2911,18 @@ ImageWidget::getSliceLimits(int &size1, int &size2,
 }
 
 void
-ImageWidget::applyMorphCurveLimits(uchar *maskData)
+ImageWidget::paintUsingCurves(CurveGroup* cg,
+			      int slc, int wd, int ht,
+			      uchar *maskData)
 {
-  if (!m_curveMode && !m_livewireMode)
-    return;
-
-  QImage pimg= QImage(m_imgWidth, m_imgHeight, QImage::Format_RGB32);
+  QImage pimg= QImage(wd, ht, QImage::Format_RGB32);
   pimg.fill(0);
   QPainter p(&pimg);
   p.setBrush(Qt::white); 
 	
-  {
+  { // normal curves
     QList<Curve*> curves;
-    if (m_sliceType == DSlice)
-      curves = m_dCurves.getCurvesAt(m_currSlice);
-    else if (m_sliceType == WSlice)
-      curves = m_wCurves.getCurvesAt(m_currSlice);
-    else
-      curves = m_hCurves.getCurvesAt(m_currSlice);
+    curves = cg->getCurvesAt(slc);
     
     if (curves.count() > 0)
       {
@@ -2970,14 +2947,9 @@ ImageWidget::applyMorphCurveLimits(uchar *maskData)
       }
   }
 
-  {
+  { // interpolated curves
     QList<Curve> curves;
-    if (m_sliceType == DSlice)
-      curves = m_dCurves.getMorphedCurvesAt(m_currSlice);
-    else if (m_sliceType == WSlice)
-      curves = m_wCurves.getMorphedCurvesAt(m_currSlice);
-    else
-      curves = m_hCurves.getMorphedCurvesAt(m_currSlice);
+    curves = cg->getMorphedCurvesAt(slc);
 
     if (curves.count() > 0)
       {
@@ -3004,10 +2976,127 @@ ImageWidget::applyMorphCurveLimits(uchar *maskData)
       }
   }
 
+//  QLabel *lbl = new QLabel();
+//  lbl->setPixmap(QPixmap::fromImage(pimg));
+//  lbl->show();
+
   uchar *bits = pimg.bits();
-  for(int i=0; i<m_imgWidth*m_imgHeight; i++)
+  for(int i=0; i<wd*ht; i++)
     if (bits[4*i+0] == 0)
       maskData[i] = 200;
+}
+
+void
+ImageWidget::paintUsingCurves(int slctype,
+			      int slc, int wd, int ht,
+			      uchar *maskData)
+{
+  CurveGroup *cg;
+  if (slctype == DSlice)
+    cg = &m_dCurves;
+  else if (slctype == WSlice)
+    cg = &m_wCurves;
+  else
+    cg = &m_hCurves;
+
+  paintUsingCurves(cg,
+		   slc, wd, ht,
+		   maskData);
+}
+
+void
+ImageWidget::paintUsingCurves(uchar *maskData)
+{
+  if (!m_curveMode && !m_livewireMode)
+    return;
+
+  CurveGroup *cg;
+  if (m_sliceType == DSlice)
+    cg = &m_dCurves;
+  else if (m_sliceType == WSlice)
+    cg = &m_wCurves;
+  else
+    cg = &m_hCurves;
+
+  paintUsingCurves(cg,
+		   m_currSlice, m_imgWidth, m_imgHeight,
+		   maskData);
+
+//  QImage pimg= QImage(m_imgWidth, m_imgHeight, QImage::Format_RGB32);
+//  pimg.fill(0);
+//  QPainter p(&pimg);
+//  p.setBrush(Qt::white); 
+//	
+//  {
+//    QList<Curve*> curves;
+//    if (m_sliceType == DSlice)
+//      curves = m_dCurves.getCurvesAt(m_currSlice);
+//    else if (m_sliceType == WSlice)
+//      curves = m_wCurves.getCurvesAt(m_currSlice);
+//    else
+//      curves = m_hCurves.getCurvesAt(m_currSlice);
+//    
+//    if (curves.count() > 0)
+//      {
+//	for(int l=0; l<curves.count(); l++)
+//	  {
+//	    int tag = curves[l]->tag;
+//	    if (tag == Global::tag())
+//	      {
+//		if (curves[l]->closed)
+//		  {
+//		    p.setPen(QPen(Qt::white, 1));
+//		    p.drawPolygon(curves[l]->pts);
+//		  }
+//		else
+//		  {
+//		    p.setPen(QPen(Qt::white, curves[l]->thickness,
+//				  Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+//		    p.drawPolyline(curves[l]->pts);
+//		  }
+//	      }
+//	  }
+//      }
+//  }
+//
+//  {
+//    QList<Curve> curves;
+//    if (m_sliceType == DSlice)
+//      curves = m_dCurves.getMorphedCurvesAt(m_currSlice);
+//    else if (m_sliceType == WSlice)
+//      curves = m_wCurves.getMorphedCurvesAt(m_currSlice);
+//    else
+//      curves = m_hCurves.getMorphedCurvesAt(m_currSlice);
+//
+//    if (curves.count() > 0)
+//      {
+//	p.setPen(QPen(Qt::white, 1));
+//	p.setBrush(Qt::white); 
+//	for(int l=0; l<curves.count(); l++)
+//	  {
+//	    int tag = curves[l].tag;
+//	    if (tag == Global::tag())
+//	      {
+//		if (curves[l].closed)
+//		  {
+//		    p.setPen(QPen(Qt::white, 1));
+//		    p.drawPolygon(curves[l].pts);
+//		  }
+//		else
+//		  {
+//		    p.setPen(QPen(Qt::white, curves[l].thickness,
+//				  Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+//		    p.drawPolyline(curves[l].pts);
+//		  }
+//	      }
+//	  }
+//      }
+//  }
+//
+//  uchar *bits = pimg.bits();
+//  for(int i=0; i<m_imgWidth*m_imgHeight; i++)
+//    if (bits[4*i+0] == 0)
+//      maskData[i] = 200;
 }
 
 void
@@ -3102,7 +3191,8 @@ ImageWidget::applyGraphCut()
   //--------------------------
   // limit graphcut output within the bounding curve
   memset(imageData, 0, m_imgWidth*m_imgHeight);
-  applyMorphCurveLimits(imageData);
+  if (m_curveMode || m_livewireMode)
+    paintUsingCurves(imageData);
   //--------------------------
   
   idx=0;
@@ -3284,7 +3374,7 @@ ImageWidget::applyPaint(bool keepTags)
       // limit graphcut output within the bounding curve
       uchar *mask = new uchar[m_imgWidth*m_imgHeight];
       memset(mask, 0, m_imgWidth*m_imgHeight);
-      applyMorphCurveLimits(mask);
+      paintUsingCurves(mask);
       // overwrite within bounding box with usertags
       int chkval = 0;
       if (m_extraPressed) chkval = 200;

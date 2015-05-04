@@ -1118,354 +1118,354 @@ DrishtiPaint::erode(int tag, int spread,
       } 
 }
 
-void
-DrishtiPaint::on_actionExtractTag_triggered()
-{
-  QStringList dtypes;
-  int tag, spread, smoothType;
-  bool saveImageData;
-
-  bool ok;
-  //----------------
-  tag = QInputDialog::getInt(0, "Save Data for Tag",
-			     "Tag Number (Selecting -1 will save all tagged region)",
-			     1, -1, 254, 1,
-			     &ok);
-  if (!ok)
-    return;
-
-  //----------------
-
-  //----------------
-  dtypes.clear();
-  dtypes << "Smoothing"
-	 << "Dilation"
-	 << "Erosion";
-  QString option = QInputDialog::getItem(0,
-					 "Save",
-					 "Save Image Data or Mask Tags ?",
-					 dtypes,
-					 0,
-					 false,
-					 &ok);
-  if (!ok)
-    return;
-  
-  smoothType = 0;
-  if (option == "Dilation") smoothType = 1;
-  else if (option == "Erosion") smoothType = 2;
-  //----------------
-  
-  //----------------
-  QString mesg;
-  if (smoothType == 0) mesg = "Smoothing";
-  if (smoothType == 1) mesg = "Dilation";
-  if (smoothType == 2) mesg = "Erosion";
-  mesg = "Amount of "+mesg+" before extraction";
-  spread = QInputDialog::getInt(0, mesg, "Spread", 0, 0, 10);
-  //----------------
-
-  //----------------
-  saveImageData = true;
-  if (tag > -1)
-    {
-      dtypes.clear();
-      dtypes << "Image Data"
-	     << "Tags Data";
-      option = QInputDialog::getItem(0,
-				     "Save",
-				     "Save Image Data or Mask Tags ?",
-				     dtypes,
-				     0,
-				     false,
-				     &ok);
-      if (!ok)
-	return;
-      
-      if (option == "Tags Data")
-	{
-	  saveImageData = false;
-	  QMessageBox::information(0, "Save Tag",
-   QString("Tag value %1 will be saved as 127 for ease of visualization.").arg(tag));
-	}
-    }
-  //----------------
-
-
-  int thresh = 127;
-  if (smoothType == 1) thresh = 64;
-  else if (smoothType == 2) thresh = 192;
-
-
-  int depth, width, height;
-  m_volume->gridSize(depth, width, height);
-  
-  int minDSlice, maxDSlice;
-  int minWSlice, maxWSlice;
-  int minHSlice, maxHSlice;
-  m_imageWidget->getBox(minDSlice, maxDSlice,
-			minWSlice, maxWSlice,
-			minHSlice, maxHSlice);
-  int tdepth = maxDSlice-minDSlice+1;
-  int twidth = maxWSlice-minWSlice+1;
-  int theight = maxHSlice-minHSlice+1;
-  
-  QString pvlFilename = m_volume->fileName();
-  QString tflnm = QFileDialog::getSaveFileName(0,
-					       QString("Save tag(%1) volume").arg(tag),
-					       QFileInfo(pvlFilename).absolutePath(),
-					       "Processes Files (*.pvl.nc)",
-					       0,
-					       QFileDialog::DontUseNativeDialog);
-  
-  if (tflnm.isEmpty())
-    return;
-
-  if (!tflnm.endsWith(".pvl.nc"))
-    tflnm += ".pvl.nc";
-
-  savePvlHeader(m_volume->fileName(),
-		tflnm,
-		tdepth, twidth, theight,
-		saveImageData);
-
-  QStringList tflnms;
-  tflnms << tflnm+".001";
-  VolumeFileManager tFile;
-  tFile.setFilenameList(tflnms);
-  tFile.setDepth(tdepth);
-  tFile.setWidth(twidth);
-  tFile.setHeight(theight);
-  tFile.setSlabSize(tdepth+1);
-  tFile.createFile(true, false);
-
-  QProgressDialog progress(QString("Extracting tagged(%1) region from volume data").arg(tag),
-			   "",
-			   0, 100,
-			   0);
-  progress.setMinimumDuration(0);
-
-  int nbytes = width*height;
-  uchar *raw = new uchar[nbytes];
-  uchar **val;
-  if (spread > 0)
-    {
-      val = new uchar*[2*spread+1];
-      for (int i=0; i<2*spread+1; i++)
-	val[i] = new uchar[nbytes];
-    }
-
-  for(int d=minDSlice; d<=maxDSlice; d++)
-    {
-      int slc = d-minDSlice;
-      progress.setValue((int)(100*(float)slc/(float)tdepth));
-      qApp->processEvents();
-
-      uchar *slice = m_volume->getDepthSliceImage(d);
-      // we get value+grad from volume
-      // we need only value part
-      int i=0;
-      for(int w=minWSlice; w<=maxWSlice; w++)
-	for(int h=minHSlice; h<=maxHSlice; h++)
-	  {
-	    slice[i] = slice[2*(w*height+h)];
-	    i++;
-	  }
-
-
-      if (spread > 0)
-	{
-	  if (slc == 0)
-	    {
-	      memcpy(val[spread], m_volume->getMaskDepthSliceImage(d), nbytes);
-
-	      if (smoothType == 0)
-		{
-		  sliceSmooth(tag, spread,
-			      val[spread], raw,
-			      width, height,
-			      64);
-		  sliceSmooth(tag, spread,
-			      val[spread], raw,
-			      width, height,
-			      192);
-		}
-	      else
-		sliceSmooth(tag, spread,
-			    val[spread], raw,
-			    width, height,
-			    thresh);
-
-	      for(int i=-spread; i<0; i++)
-		{
-		  if (d+i >= 0)
-		    memcpy(val[spread+i], m_volume->getMaskDepthSliceImage(d+i), nbytes);
-		  else
-		    memcpy(val[spread+i], m_volume->getMaskDepthSliceImage(0), nbytes);
-		  
-		  if (smoothType == 0)
-		    {
-		      sliceSmooth(tag, spread,
-				  val[spread+i], raw,
-				  width, height,
-				  64);
-		      sliceSmooth(tag, spread,
-				  val[spread+i], raw,
-				  width, height,
-				  192);
-		    }
-		  else
-		    sliceSmooth(tag, spread,
-				val[spread+i], raw,
-				width, height,
-				thresh);
-		}
-	      
-	      for(int i=1; i<=spread; i++)
-		{
-		  if (d+i < depth)
-		    memcpy(val[spread+i], m_volume->getMaskDepthSliceImage(d+i), nbytes);
-		  else
-		    memcpy(val[spread+i], m_volume->getMaskDepthSliceImage(depth-1), nbytes);
-		  
-		  if (smoothType == 0)
-		    {
-		      sliceSmooth(tag, spread,
-				  val[spread+i], raw,
-				  width, height,
-				  64);
-		      sliceSmooth(tag, spread,
-				  val[spread+i], raw,
-				  width, height,
-				  192);
-		    }
-		  else
-		    sliceSmooth(tag, spread,
-				val[spread+i], raw,
-				width, height,
-				thresh);
-		}
-	    }
-	  else if (d < depth-spread)
-	    {
-	      memcpy(val[2*spread], m_volume->getMaskDepthSliceImage(d+spread), nbytes);
-
-	      if (smoothType == 0)
-		{
-		  sliceSmooth(tag, spread,
-			      val[2*spread], raw,
-			      width, height,
-			      64);
-		  sliceSmooth(tag, spread,
-			      val[2*spread], raw,
-			      width, height,
-			      192);
-		}
-	      else
-		sliceSmooth(tag, spread,
-			    val[2*spread], raw,
-			    width, height,
-			    thresh);
-	    }		  
-	  else
-	    {
-	      memcpy(val[2*spread], m_volume->getMaskDepthSliceImage(depth-1), nbytes);
-
-	      if (smoothType == 0)
-		{
-		  sliceSmooth(tag, spread,
-			      val[2*spread], raw,
-			      width, height,
-			      64);
-		  sliceSmooth(tag, spread,
-			      val[2*spread], raw,
-			      width, height,
-			      192);
-		}
-	      else
-		sliceSmooth(tag, spread,
-			    val[2*spread], raw,
-			    width, height,
-			    thresh);
-	    }		  
-	  
-	  if (smoothType == 0)
-	    {
-	      smooth(tag, spread,
-		     val, raw,
-		     width, height,
-		     64);
-	      memcpy(val[0], raw, nbytes);
-	      smooth(tag, spread,
-		     val, raw,
-		     width, height,
-		     192);
-	    }
-	  else
-	      smooth(tag, spread,
-		     val, raw,
-		     width, height,
-		     thresh);
-
-	  
-	  // now shift the planes
-	  uchar *tmp = val[0];
-	  for(int i=0; i<2*spread; i++)
-	    val[i] = val[i+1];
-	  val[2*spread] = tmp;
-	}
-      else
-	memcpy(raw, m_volume->getMaskDepthSliceImage(d), nbytes);
-
-      if (tag > -1)
-	{
-	  for(int i=0; i<nbytes; i++)
-	    raw[i] = (raw[i] == tag ? 127 : 0);
-	}
-      else
-	{
-	  for(int i=0; i<nbytes; i++)
-	    raw[i] = (raw[i] > 0 ? 127 : 0);
-	}
-
-      // now mask data with tag
-      if (saveImageData)
-	{
-	  i=0;
-	  for(int w=minWSlice; w<=maxWSlice; w++)
-	    for(int h=minHSlice; h<=maxHSlice; h++)
-	      {
-		//if (raw[w*height+h] != tag)
-		if (raw[w*height+h] != 127)
-		  slice[i] = 0;
-		i++;
-	      }
-	  tFile.setSlice(slc, slice);
-	}
-      else
-	{
-	  i=0;
-	  for(int w=minWSlice; w<=maxWSlice; w++)
-	    for(int h=minHSlice; h<=maxHSlice; h++)
-	      {
-		raw[i] = raw[w*height+h];
-		i++;
-	      }
-	  tFile.setSlice(slc, raw);
-	}
-    }
-
-  delete [] raw;
-  if (spread > 0)
-    {
-      for (int i=0; i<2*spread+1; i++)
-	delete [] val[i];
-      delete [] val;
-    }
-  
-  progress.setValue(100);  
-  QMessageBox::information(0, "Save", "-----Done-----");
-}
+//void
+//DrishtiPaint::on_actionExtractTag_triggered_old()
+//{
+//  QStringList dtypes;
+//  int tag, spread, smoothType;
+//  bool saveImageData;
+//
+//  bool ok;
+//  //----------------
+//  tag = QInputDialog::getInt(0, "Save Data for Tag",
+//			     "Tag Number (Selecting -1 will save all tagged region)",
+//			     1, -1, 254, 1,
+//			     &ok);
+//  if (!ok)
+//    return;
+//
+//  //----------------
+//
+//  //----------------
+//  dtypes.clear();
+//  dtypes << "Smoothing"
+//	 << "Dilation"
+//	 << "Erosion";
+//  QString option = QInputDialog::getItem(0,
+//					 "Save",
+//					 "Save Image Data or Mask Tags ?",
+//					 dtypes,
+//					 0,
+//					 false,
+//					 &ok);
+//  if (!ok)
+//    return;
+//  
+//  smoothType = 0;
+//  if (option == "Dilation") smoothType = 1;
+//  else if (option == "Erosion") smoothType = 2;
+//  //----------------
+//  
+//  //----------------
+//  QString mesg;
+//  if (smoothType == 0) mesg = "Smoothing";
+//  if (smoothType == 1) mesg = "Dilation";
+//  if (smoothType == 2) mesg = "Erosion";
+//  mesg = "Amount of "+mesg+" before extraction";
+//  spread = QInputDialog::getInt(0, mesg, "Spread", 0, 0, 10);
+//  //----------------
+//
+//  //----------------
+//  saveImageData = true;
+//  if (tag > -1)
+//    {
+//      dtypes.clear();
+//      dtypes << "Image Data"
+//	     << "Tags Data";
+//      option = QInputDialog::getItem(0,
+//				     "Save",
+//				     "Save Image Data or Mask Tags ?",
+//				     dtypes,
+//				     0,
+//				     false,
+//				     &ok);
+//      if (!ok)
+//	return;
+//      
+//      if (option == "Tags Data")
+//	{
+//	  saveImageData = false;
+//	  QMessageBox::information(0, "Save Tag",
+//   QString("Tag value %1 will be saved as 127 for ease of visualization.").arg(tag));
+//	}
+//    }
+//  //----------------
+//
+//
+//  int thresh = 127;
+//  if (smoothType == 1) thresh = 64;
+//  else if (smoothType == 2) thresh = 192;
+//
+//
+//  int depth, width, height;
+//  m_volume->gridSize(depth, width, height);
+//  
+//  int minDSlice, maxDSlice;
+//  int minWSlice, maxWSlice;
+//  int minHSlice, maxHSlice;
+//  m_imageWidget->getBox(minDSlice, maxDSlice,
+//			minWSlice, maxWSlice,
+//			minHSlice, maxHSlice);
+//  int tdepth = maxDSlice-minDSlice+1;
+//  int twidth = maxWSlice-minWSlice+1;
+//  int theight = maxHSlice-minHSlice+1;
+//  
+//  QString pvlFilename = m_volume->fileName();
+//  QString tflnm = QFileDialog::getSaveFileName(0,
+//					       QString("Save tag(%1) volume").arg(tag),
+//					       QFileInfo(pvlFilename).absolutePath(),
+//					       "Processes Files (*.pvl.nc)",
+//					       0,
+//					       QFileDialog::DontUseNativeDialog);
+//  
+//  if (tflnm.isEmpty())
+//    return;
+//
+//  if (!tflnm.endsWith(".pvl.nc"))
+//    tflnm += ".pvl.nc";
+//
+//  savePvlHeader(m_volume->fileName(),
+//		tflnm,
+//		tdepth, twidth, theight,
+//		saveImageData);
+//
+//  QStringList tflnms;
+//  tflnms << tflnm+".001";
+//  VolumeFileManager tFile;
+//  tFile.setFilenameList(tflnms);
+//  tFile.setDepth(tdepth);
+//  tFile.setWidth(twidth);
+//  tFile.setHeight(theight);
+//  tFile.setSlabSize(tdepth+1);
+//  tFile.createFile(true, false);
+//
+//  QProgressDialog progress(QString("Extracting tagged(%1) region from volume data").arg(tag),
+//			   "",
+//			   0, 100,
+//			   0);
+//  progress.setMinimumDuration(0);
+//
+//  int nbytes = width*height;
+//  uchar *raw = new uchar[nbytes];
+//  uchar **val;
+//  if (spread > 0)
+//    {
+//      val = new uchar*[2*spread+1];
+//      for (int i=0; i<2*spread+1; i++)
+//	val[i] = new uchar[nbytes];
+//    }
+//
+//  for(int d=minDSlice; d<=maxDSlice; d++)
+//    {
+//      int slc = d-minDSlice;
+//      progress.setValue((int)(100*(float)slc/(float)tdepth));
+//      qApp->processEvents();
+//
+//      uchar *slice = m_volume->getDepthSliceImage(d);
+//      // we get value+grad from volume
+//      // we need only value part
+//      int i=0;
+//      for(int w=minWSlice; w<=maxWSlice; w++)
+//	for(int h=minHSlice; h<=maxHSlice; h++)
+//	  {
+//	    slice[i] = slice[2*(w*height+h)];
+//	    i++;
+//	  }
+//
+//
+//      if (spread > 0)
+//	{
+//	  if (slc == 0)
+//	    {
+//	      memcpy(val[spread], m_volume->getMaskDepthSliceImage(d), nbytes);
+//
+//	      if (smoothType == 0)
+//		{
+//		  sliceSmooth(tag, spread,
+//			      val[spread], raw,
+//			      width, height,
+//			      64);
+//		  sliceSmooth(tag, spread,
+//			      val[spread], raw,
+//			      width, height,
+//			      192);
+//		}
+//	      else
+//		sliceSmooth(tag, spread,
+//			    val[spread], raw,
+//			    width, height,
+//			    thresh);
+//
+//	      for(int i=-spread; i<0; i++)
+//		{
+//		  if (d+i >= 0)
+//		    memcpy(val[spread+i], m_volume->getMaskDepthSliceImage(d+i), nbytes);
+//		  else
+//		    memcpy(val[spread+i], m_volume->getMaskDepthSliceImage(0), nbytes);
+//		  
+//		  if (smoothType == 0)
+//		    {
+//		      sliceSmooth(tag, spread,
+//				  val[spread+i], raw,
+//				  width, height,
+//				  64);
+//		      sliceSmooth(tag, spread,
+//				  val[spread+i], raw,
+//				  width, height,
+//				  192);
+//		    }
+//		  else
+//		    sliceSmooth(tag, spread,
+//				val[spread+i], raw,
+//				width, height,
+//				thresh);
+//		}
+//	      
+//	      for(int i=1; i<=spread; i++)
+//		{
+//		  if (d+i < depth)
+//		    memcpy(val[spread+i], m_volume->getMaskDepthSliceImage(d+i), nbytes);
+//		  else
+//		    memcpy(val[spread+i], m_volume->getMaskDepthSliceImage(depth-1), nbytes);
+//		  
+//		  if (smoothType == 0)
+//		    {
+//		      sliceSmooth(tag, spread,
+//				  val[spread+i], raw,
+//				  width, height,
+//				  64);
+//		      sliceSmooth(tag, spread,
+//				  val[spread+i], raw,
+//				  width, height,
+//				  192);
+//		    }
+//		  else
+//		    sliceSmooth(tag, spread,
+//				val[spread+i], raw,
+//				width, height,
+//				thresh);
+//		}
+//	    }
+//	  else if (d < depth-spread)
+//	    {
+//	      memcpy(val[2*spread], m_volume->getMaskDepthSliceImage(d+spread), nbytes);
+//
+//	      if (smoothType == 0)
+//		{
+//		  sliceSmooth(tag, spread,
+//			      val[2*spread], raw,
+//			      width, height,
+//			      64);
+//		  sliceSmooth(tag, spread,
+//			      val[2*spread], raw,
+//			      width, height,
+//			      192);
+//		}
+//	      else
+//		sliceSmooth(tag, spread,
+//			    val[2*spread], raw,
+//			    width, height,
+//			    thresh);
+//	    }		  
+//	  else
+//	    {
+//	      memcpy(val[2*spread], m_volume->getMaskDepthSliceImage(depth-1), nbytes);
+//
+//	      if (smoothType == 0)
+//		{
+//		  sliceSmooth(tag, spread,
+//			      val[2*spread], raw,
+//			      width, height,
+//			      64);
+//		  sliceSmooth(tag, spread,
+//			      val[2*spread], raw,
+//			      width, height,
+//			      192);
+//		}
+//	      else
+//		sliceSmooth(tag, spread,
+//			    val[2*spread], raw,
+//			    width, height,
+//			    thresh);
+//	    }		  
+//	  
+//	  if (smoothType == 0)
+//	    {
+//	      smooth(tag, spread,
+//		     val, raw,
+//		     width, height,
+//		     64);
+//	      memcpy(val[0], raw, nbytes);
+//	      smooth(tag, spread,
+//		     val, raw,
+//		     width, height,
+//		     192);
+//	    }
+//	  else
+//	      smooth(tag, spread,
+//		     val, raw,
+//		     width, height,
+//		     thresh);
+//
+//	  
+//	  // now shift the planes
+//	  uchar *tmp = val[0];
+//	  for(int i=0; i<2*spread; i++)
+//	    val[i] = val[i+1];
+//	  val[2*spread] = tmp;
+//	}
+//      else
+//	memcpy(raw, m_volume->getMaskDepthSliceImage(d), nbytes);
+//
+//      if (tag > -1)
+//	{
+//	  for(int i=0; i<nbytes; i++)
+//	    raw[i] = (raw[i] == tag ? 127 : 0);
+//	}
+//      else
+//	{
+//	  for(int i=0; i<nbytes; i++)
+//	    raw[i] = (raw[i] > 0 ? 127 : 0);
+//	}
+//
+//      // now mask data with tag
+//      if (saveImageData)
+//	{
+//	  i=0;
+//	  for(int w=minWSlice; w<=maxWSlice; w++)
+//	    for(int h=minHSlice; h<=maxHSlice; h++)
+//	      {
+//		//if (raw[w*height+h] != tag)
+//		if (raw[w*height+h] != 127)
+//		  slice[i] = 0;
+//		i++;
+//	      }
+//	  tFile.setSlice(slc, slice);
+//	}
+//      else
+//	{
+//	  i=0;
+//	  for(int w=minWSlice; w<=maxWSlice; w++)
+//	    for(int h=minHSlice; h<=maxHSlice; h++)
+//	      {
+//		raw[i] = raw[w*height+h];
+//		i++;
+//	      }
+//	  tFile.setSlice(slc, raw);
+//	}
+//    }
+//
+//  delete [] raw;
+//  if (spread > 0)
+//    {
+//      for (int i=0; i<2*spread+1; i++)
+//	delete [] val[i];
+//      delete [] val;
+//    }
+//  
+//  progress.setValue(100);  
+//  QMessageBox::information(0, "Save", "-----Done-----");
+//}
 
 
 void
@@ -1822,6 +1822,250 @@ DrishtiPaint::applyMaskOperation(int tag,
   progress.setValue(100);  
 
   getSlice(m_slider->value());
+}
+
+
+void
+DrishtiPaint::on_actionExtractTag_triggered()
+{
+  QStringList dtypes;
+  int tag;
+  bool saveImageData;
+
+  bool ok;
+  //----------------
+  tag = QInputDialog::getInt(0, "Save Data for Tag",
+			     "Tag Number (Selecting -1 will save all tagged region)",
+			     1, -1, 254, 1,
+			     &ok);
+  if (!ok)
+    return;
+
+  //----------------
+
+  //----------------
+  saveImageData = true;
+  if (tag > -1)
+    {
+      dtypes.clear();
+      dtypes << "Image Data"
+	     << "Tags Data";
+      QString option = QInputDialog::getItem(0,
+					     "Save",
+					     "Save Image Data or Mask Tags ?",
+					     dtypes,
+					     0,
+					     false,
+					     &ok);
+      if (!ok)
+	return;
+      
+      if (option == "Tags Data")
+	{
+	  saveImageData = false;
+	  QMessageBox::information(0, "Save Tag",
+   QString("Tag value %1 will be saved as 127 for ease of visualization.").arg(tag));
+	}
+    }
+  //----------------
+
+  int depth, width, height;
+  m_volume->gridSize(depth, width, height);
+  
+  int minDSlice, maxDSlice;
+  int minWSlice, maxWSlice;
+  int minHSlice, maxHSlice;
+  m_imageWidget->getBox(minDSlice, maxDSlice,
+			minWSlice, maxWSlice,
+			minHSlice, maxHSlice);
+  int tdepth = maxDSlice-minDSlice+1;
+  int twidth = maxWSlice-minWSlice+1;
+  int theight = maxHSlice-minHSlice+1;
+  
+  QString pvlFilename = m_volume->fileName();
+  QString tflnm = QFileDialog::getSaveFileName(0,
+					       QString("Save tag(%1) volume").arg(tag),
+					       QFileInfo(pvlFilename).absolutePath(),
+					       "Processes Files (*.pvl.nc)",
+					       0,
+					       QFileDialog::DontUseNativeDialog);
+  
+  if (tflnm.isEmpty())
+    return;
+
+  if (!tflnm.endsWith(".pvl.nc"))
+    tflnm += ".pvl.nc";
+
+  savePvlHeader(m_volume->fileName(),
+		tflnm,
+		tdepth, twidth, theight,
+		saveImageData);
+
+  QStringList tflnms;
+  tflnms << tflnm+".001";
+  VolumeFileManager tFile;
+  tFile.setFilenameList(tflnms);
+  tFile.setDepth(tdepth);
+  tFile.setWidth(twidth);
+  tFile.setHeight(theight);
+  tFile.setSlabSize(tdepth+1);
+  tFile.createFile(true, false);
+
+  QProgressDialog progress(QString("Extracting tagged(%1) region from volume data").arg(tag),
+			   "",
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+  int nbytes = width*height;
+  uchar *raw = new uchar[nbytes];
+
+  //----------------------------------
+  uchar *curveMask = new uchar[tdepth*twidth*theight];
+  {
+    uchar *mask = new uchar[width*height]; 
+    for(int d=minDSlice; d<=maxDSlice; d++)
+      {
+	int slc = d-minDSlice;
+	progress.setValue((int)(100*(float)slc/(float)tdepth));
+	qApp->processEvents();
+	
+	memset(mask, 0, width*height);
+	m_imageWidget->paintUsingCurves(0, d, height, width, mask);
+	for(int w=minWSlice; w<=maxWSlice; w++)
+	  for(int h=minHSlice; h<=maxHSlice; h++)
+	    {
+	      if (mask[w*height+h] == 0)
+		curveMask[(d-minDSlice)*twidth*theight +
+			  (w-minWSlice)*theight +
+			  (h-minHSlice)] = 127;
+	    }
+    }
+    delete [] mask;
+  }
+  {
+    uchar *mask = new uchar[depth*height]; 
+    for(int w=minWSlice; w<=maxWSlice; w++)
+      {
+	int slc = w-minWSlice;
+	progress.setValue((int)(100*(float)slc/(float)twidth));
+	qApp->processEvents();
+	
+	memset(mask, 0, depth*height);
+	m_imageWidget->paintUsingCurves(1, w, height, depth, mask);
+	for(int d=minDSlice; d<=maxDSlice; d++)
+	  for(int h=minHSlice; h<=maxHSlice; h++)
+	    {
+	      if (mask[d*height+h] == 0)
+		curveMask[(d-minDSlice)*twidth*theight +
+			  (w-minWSlice)*theight +
+			  (h-minHSlice)] = 127;
+	    }
+    }
+    delete [] mask;
+  }
+  {
+    uchar *mask = new uchar[depth*width]; 
+    for(int h=minHSlice; h<=maxHSlice; h++)
+      {
+	int slc = h-minHSlice;
+	progress.setValue((int)(100*(float)slc/(float)theight));
+	qApp->processEvents();
+	
+	memset(mask, 0, depth*width);
+	m_imageWidget->paintUsingCurves(2, h, width, depth, mask);
+	for(int d=minDSlice; d<=maxDSlice; d++)
+	  for(int w=minWSlice; w<=maxWSlice; w++)
+	    {
+	      if (mask[d*width+w] == 0)
+		curveMask[(d-minDSlice)*twidth*theight +
+			  (w-minWSlice)*theight +
+			  (h-minHSlice)] = 127;
+	    }
+    }
+    delete [] mask;
+  }
+
+  //----------------------------------
+
+
+  for(int d=minDSlice; d<=maxDSlice; d++)
+    {
+      int slc = d-minDSlice;
+      progress.setValue((int)(100*(float)slc/(float)tdepth));
+      qApp->processEvents();
+
+      uchar *slice = m_volume->getDepthSliceImage(d);
+      // we get value+grad from volume
+      // we need only value part
+      int i=0;
+      for(int w=minWSlice; w<=maxWSlice; w++)
+	for(int h=minHSlice; h<=maxHSlice; h++)
+	  {
+	    slice[i] = slice[2*(w*height+h)];
+	    i++;
+	  }
+
+      memcpy(raw, m_volume->getMaskDepthSliceImage(d), nbytes);
+
+      if (tag > -1)
+	{
+	  for(int i=0; i<nbytes; i++)
+	    raw[i] = (raw[i] == tag ? 127 : 0);
+	}
+      else
+	{
+	  for(int i=0; i<nbytes; i++)
+	    raw[i] = (raw[i] > 0 ? 127 : 0);
+	}
+
+      //-----------------------------
+      // apply curve mask
+//      for(int i=0; i<nbytes; i++)
+//	if (mask[i] == 0)
+//	  raw[i] = 127;
+
+      for(int w=minWSlice; w<=maxWSlice; w++)
+	for(int h=minHSlice; h<=maxHSlice; h++)
+	  {
+	    if (curveMask[slc*twidth*theight +
+			  (w-minWSlice)*theight +
+			  (h-minHSlice)] == 127)
+	      raw[w*height+h] = 127;
+	  }
+      //-----------------------------
+      
+      // now mask data with tag
+      if (saveImageData)
+	{
+	  i=0;
+	  for(int w=minWSlice; w<=maxWSlice; w++)
+	    for(int h=minHSlice; h<=maxHSlice; h++)
+	      {
+		if (raw[w*height+h] != 127)
+		  slice[i] = 0;
+		i++;
+	      }
+	  tFile.setSlice(slc, slice);
+	}
+      else
+	{
+	  i=0;
+	  for(int w=minWSlice; w<=maxWSlice; w++)
+	    for(int h=minHSlice; h<=maxHSlice; h++)
+	      {
+		raw[i] = raw[w*height+h];
+		i++;
+	      }
+	  tFile.setSlice(slc, raw);
+	}
+    }
+
+  delete [] raw;
+  delete [] curveMask;
+
+  progress.setValue(100);  
+  QMessageBox::information(0, "Save", "-----Done-----");
 }
 
 

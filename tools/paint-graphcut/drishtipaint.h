@@ -32,6 +32,8 @@ class DrishtiPaint : public QMainWindow
   void on_actionSave_Curves_triggered();
   void on_actionExit_triggered();
   void on_actionExtractTag_triggered();
+  void on_actionCurves_triggered();
+  void on_actionGraphCut_triggered();
   void on_butZ_clicked();
   void on_butY_clicked();
   void on_butX_clicked();
@@ -45,7 +47,7 @@ class DrishtiPaint : public QMainWindow
   void on_radius_valueChanged(int);
   void on_pointsize_valueChanged(int);
   void on_livewire_clicked(bool);
-  void on_curve_clicked(bool);
+  void on_modify_clicked(bool);
   void on_closed_clicked(bool);
   void on_lwsmooth_currentIndexChanged(int);
   void on_lwgrad_currentIndexChanged(int);

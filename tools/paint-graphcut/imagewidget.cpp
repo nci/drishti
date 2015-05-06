@@ -192,6 +192,13 @@ ImageWidget::heightUserRange(int& umin, int& umax)
 void
 ImageWidget::sliceChanged(int slc)
 {
+  // if we are modifying livewire object freeze it before moving to another slice  
+  if (!m_applyRecursive && m_livewire.seedMoveMode())
+    {
+      freezeModifyUsingLivewire();
+      m_livewire.setSeedMoveMode(true);
+    }
+
   if (m_sliceType == DSlice)
     m_currSlice = slc;
   else if (m_sliceType == WSlice)
@@ -1476,31 +1483,39 @@ ImageWidget::modifyUsingLivewire()
 void
 ImageWidget::freezeModifyUsingLivewire()
 {
+  if (! m_livewire.seedMoveMode())
+    return;
+  
   m_livewire.setSeedMoveMode(false);
   QVector<QPoint> pts = m_livewire.poly();
   QVector<QPoint> seeds = m_livewire.seeds();
   QVector<int> seedpos = m_livewire.seedpos();
   
-  if (m_sliceType == DSlice)
+  if (pts.count() > 0 &&
+      seeds.count() > 0 &&
+      seedpos.count() > 0)
     {
-      m_dCurves.setPolygonAt(m_currSlice,
-			     pts, seeds, seedpos,
-			     Global::closed(), false); 
-      emit polygonLevels(m_dCurves.polygonLevels());
-    }
-  else if (m_sliceType == WSlice)
-    {
-      m_wCurves.setPolygonAt(m_currSlice,
-			     pts, seeds, seedpos,
-			     Global::closed(), false); 
-      emit polygonLevels(m_wCurves.polygonLevels());
-    }
-  else
-    {
-      m_hCurves.setPolygonAt(m_currSlice,
-			     pts, seeds, seedpos,
-			     Global::closed(), false); 
-      emit polygonLevels(m_hCurves.polygonLevels());
+      if (m_sliceType == DSlice)
+	{
+	  m_dCurves.setPolygonAt(m_currSlice,
+				 pts, seeds, seedpos,
+				 Global::closed(), false); 
+	  emit polygonLevels(m_dCurves.polygonLevels());
+	}
+      else if (m_sliceType == WSlice)
+	{
+	  m_wCurves.setPolygonAt(m_currSlice,
+				 pts, seeds, seedpos,
+				 Global::closed(), false); 
+	  emit polygonLevels(m_wCurves.polygonLevels());
+	}
+      else
+	{
+	  m_hCurves.setPolygonAt(m_currSlice,
+				 pts, seeds, seedpos,
+				 Global::closed(), false); 
+	  emit polygonLevels(m_hCurves.polygonLevels());
+	}
     }
   m_livewire.resetPoly();
 }
@@ -1536,20 +1551,20 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
     }
 
 
-  if (event->key() == Qt::Key_U)
-    {
-      if (shiftModifier)
-	{
-	  if (m_livewire.seedMoveMode())
-	    freezeModifyUsingLivewire();
-	}
-      else
-	{
-	  modifyUsingLivewire();
-	}
-
-      return true;
-    }
+//  if (event->key() == Qt::Key_U)
+//    {
+//      if (shiftModifier)
+//	{
+//	  if (m_livewire.seedMoveMode())
+//	    freezeModifyUsingLivewire();
+//	}
+//      else
+//	{
+//	  modifyUsingLivewire();
+//	}
+//
+//      return true;
+//    }
 
 
   if (m_livewireMode)

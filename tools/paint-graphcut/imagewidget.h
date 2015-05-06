@@ -90,6 +90,9 @@ class ImageWidget : public QWidget
 
   void paintUsingCurves(int, int, int, int, uchar*);
 
+  void modifyUsingLivewire();
+  void freezeModifyUsingLivewire();
+
  signals :
   void getSlice(int);
   void getRawValue(int, int, int);
@@ -245,8 +248,6 @@ class ImageWidget : public QWidget
   bool curveModeKeyPressEvent(QKeyEvent*);
 
   void propagateLivewire();
-  void modifyUsingLivewire();
-  void freezeModifyUsingLivewire();
 
   QList<QPoint> trimPointList(QList<QPoint>, bool);
 

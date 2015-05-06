@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>873</width>
-    <height>410</height>
+    <width>1113</width>
+    <height>568</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -200,7 +200,7 @@
          <number>0</number>
         </property>
         <item>
-         <widget class="QGroupBox" name="groupBox">
+         <widget class="QGroupBox" name="graphcutBox">
           <property name="title">
            <string>Graph Cut Parameters</string>
           </property>
@@ -393,7 +393,10 @@
          </widget>
         </item>
         <item>
-         <widget class="QGroupBox" name="groupBox_2">
+         <widget class="QGroupBox" name="curvesBox">
+          <property name="enabled">
+           <bool>true</bool>
+          </property>
           <property name="title">
            <string>Curves</string>
           </property>
@@ -423,12 +426,12 @@
             <widget class="QToolButton" name="livewire">
              <property name="maximumSize">
               <size>
-               <width>35</width>
+               <width>50</width>
                <height>25</height>
               </size>
              </property>
              <property name="text">
-              <string>Lw</string>
+              <string>Livewire</string>
              </property>
              <property name="checkable">
               <bool>true</bool>
@@ -442,146 +445,190 @@
             </widget>
            </item>
            <item>
-            <layout class="QHBoxLayout" name="horizontalLayout_5">
-             <property name="spacing">
-              <number>0</number>
+            <widget class="QGroupBox" name="livewireSetting">
+             <property name="title">
+              <string>Livewire Settiings</string>
              </property>
-             <property name="leftMargin">
-              <number>0</number>
+             <property name="flat">
+              <bool>false</bool>
              </property>
-             <item>
-              <layout class="QVBoxLayout" name="verticalLayout_5">
-               <property name="spacing">
-                <number>0</number>
-               </property>
-               <property name="leftMargin">
-                <number>0</number>
-               </property>
-               <item>
-                <widget class="QLabel" name="label_10">
-                 <property name="text">
-                  <string>I</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QLabel" name="label_11">
-                 <property name="text">
-                  <string>G</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QLabel" name="label_9">
-                 <property name="text">
-                  <string>N</string>
-                 </property>
-                </widget>
-               </item>
-              </layout>
-             </item>
-             <item>
-              <layout class="QVBoxLayout" name="verticalLayout">
-               <property name="leftMargin">
-                <number>0</number>
-               </property>
-               <property name="rightMargin">
-                <number>0</number>
-               </property>
-               <item>
-                <widget class="QDoubleSpinBox" name="weightI">
-                 <property name="maximum">
-                  <double>1.000000000000000</double>
-                 </property>
-                 <property name="singleStep">
-                  <double>0.100000000000000</double>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QDoubleSpinBox" name="weightG">
-                 <property name="maximum">
-                  <double>1.000000000000000</double>
-                 </property>
-                 <property name="singleStep">
-                  <double>0.100000000000000</double>
-                 </property>
-                 <property name="value">
-                  <double>0.700000000000000</double>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QDoubleSpinBox" name="weightN">
-                 <property name="maximum">
-                  <double>1.000000000000000</double>
-                 </property>
-                 <property name="singleStep">
-                  <double>0.100000000000000</double>
-                 </property>
-                 <property name="value">
-                  <double>0.300000000000000</double>
-                 </property>
-                </widget>
-               </item>
-              </layout>
-             </item>
-            </layout>
-           </item>
-           <item>
-            <widget class="QComboBox" name="lwsmooth">
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>25</height>
-              </size>
+             <property name="checkable">
+              <bool>true</bool>
              </property>
-             <item>
-              <property name="text">
-               <string>No Smoothing</string>
-              </property>
-             </item>
-             <item>
-              <property name="text">
-               <string>Smooth 1</string>
-              </property>
-             </item>
-             <item>
-              <property name="text">
-               <string>Smooth 2</string>
-              </property>
-             </item>
-             <item>
-              <property name="text">
-               <string>Smooth 3</string>
-              </property>
-             </item>
+             <property name="checked">
+              <bool>false</bool>
+             </property>
+             <layout class="QHBoxLayout" name="horizontalLayout_7">
+              <item>
+               <layout class="QHBoxLayout" name="horizontalLayout_5">
+                <property name="spacing">
+                 <number>0</number>
+                </property>
+                <property name="leftMargin">
+                 <number>0</number>
+                </property>
+                <item>
+                 <layout class="QVBoxLayout" name="verticalLayout_5">
+                  <property name="spacing">
+                   <number>0</number>
+                  </property>
+                  <property name="leftMargin">
+                   <number>0</number>
+                  </property>
+                  <item>
+                   <widget class="QLabel" name="label_10">
+                    <property name="text">
+                     <string>I</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QLabel" name="label_11">
+                    <property name="text">
+                     <string>G</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QLabel" name="label_9">
+                    <property name="text">
+                     <string>N</string>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
+                </item>
+                <item>
+                 <layout class="QVBoxLayout" name="verticalLayout">
+                  <property name="leftMargin">
+                   <number>0</number>
+                  </property>
+                  <property name="rightMargin">
+                   <number>0</number>
+                  </property>
+                  <item>
+                   <widget class="QDoubleSpinBox" name="weightI">
+                    <property name="maximum">
+                     <double>1.000000000000000</double>
+                    </property>
+                    <property name="singleStep">
+                     <double>0.100000000000000</double>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QDoubleSpinBox" name="weightG">
+                    <property name="maximum">
+                     <double>1.000000000000000</double>
+                    </property>
+                    <property name="singleStep">
+                     <double>0.100000000000000</double>
+                    </property>
+                    <property name="value">
+                     <double>0.700000000000000</double>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QDoubleSpinBox" name="weightN">
+                    <property name="maximum">
+                     <double>1.000000000000000</double>
+                    </property>
+                    <property name="singleStep">
+                     <double>0.100000000000000</double>
+                    </property>
+                    <property name="value">
+                     <double>0.300000000000000</double>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
+                </item>
+               </layout>
+              </item>
+              <item>
+               <layout class="QVBoxLayout" name="verticalLayout_7">
+                <property name="leftMargin">
+                 <number>0</number>
+                </property>
+                <item>
+                 <widget class="QComboBox" name="lwsmooth">
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>25</height>
+                   </size>
+                  </property>
+                  <item>
+                   <property name="text">
+                    <string>No Smoothing</string>
+                   </property>
+                  </item>
+                  <item>
+                   <property name="text">
+                    <string>Smooth 1</string>
+                   </property>
+                  </item>
+                  <item>
+                   <property name="text">
+                    <string>Smooth 2</string>
+                   </property>
+                  </item>
+                  <item>
+                   <property name="text">
+                    <string>Smooth 3</string>
+                   </property>
+                  </item>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QComboBox" name="lwgrad">
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>25</height>
+                   </size>
+                  </property>
+                  <property name="currentText">
+                   <string>CentralDiff</string>
+                  </property>
+                  <property name="currentIndex">
+                   <number>0</number>
+                  </property>
+                  <item>
+                   <property name="text">
+                    <string>CentralDiff</string>
+                   </property>
+                  </item>
+                  <item>
+                   <property name="text">
+                    <string>Sobel</string>
+                   </property>
+                  </item>
+                 </widget>
+                </item>
+               </layout>
+              </item>
+             </layout>
+             <zorder>verticalLayoutWidget</zorder>
+             <zorder></zorder>
+             <zorder>verticalLayoutWidget</zorder>
             </widget>
            </item>
            <item>
-            <widget class="QComboBox" name="lwgrad">
+            <widget class="QPushButton" name="lwfreeze">
              <property name="maximumSize">
               <size>
-               <width>16777215</width>
+               <width>50</width>
                <height>25</height>
               </size>
              </property>
-             <property name="currentText">
-              <string>CentralDiff</string>
+             <property name="text">
+              <string>freeze</string>
              </property>
-             <property name="currentIndex">
-              <number>0</number>
+             <property name="default">
+              <bool>false</bool>
              </property>
-             <item>
-              <property name="text">
-               <string>CentralDiff</string>
-              </property>
-             </item>
-             <item>
-              <property name="text">
-               <string>Sobel</string>
-              </property>
-             </item>
             </widget>
            </item>
            <item>
@@ -596,38 +643,6 @@
               </size>
              </property>
             </spacer>
-           </item>
-           <item>
-            <widget class="QPushButton" name="lwfreeze">
-             <property name="maximumSize">
-              <size>
-               <width>35</width>
-               <height>25</height>
-              </size>
-             </property>
-             <property name="text">
-              <string>&gt;&gt;</string>
-             </property>
-             <property name="default">
-              <bool>false</bool>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QToolButton" name="curve">
-             <property name="maximumSize">
-              <size>
-               <width>35</width>
-               <height>25</height>
-              </size>
-             </property>
-             <property name="text">
-              <string>Cu</string>
-             </property>
-             <property name="checkable">
-              <bool>true</bool>
-             </property>
-            </widget>
            </item>
            <item>
             <widget class="QPushButton" name="newcurve">
@@ -646,42 +661,71 @@
             </widget>
            </item>
            <item>
-            <widget class="QPushButton" name="morphcurves">
-             <property name="maximumSize">
-              <size>
-               <width>35</width>
-               <height>25</height>
-              </size>
+            <layout class="QVBoxLayout" name="verticalLayout_8">
+             <property name="leftMargin">
+              <number>0</number>
              </property>
-             <property name="text">
-              <string>M</string>
-             </property>
-             <property name="default">
-              <bool>false</bool>
-             </property>
-             <property name="flat">
-              <bool>false</bool>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QToolButton" name="closed">
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>25</height>
-              </size>
-             </property>
-             <property name="text">
-              <string>Closed</string>
-             </property>
-             <property name="checkable">
-              <bool>true</bool>
-             </property>
-             <property name="checked">
-              <bool>true</bool>
-             </property>
-            </widget>
+             <item>
+              <widget class="QPushButton" name="morphcurves">
+               <property name="maximumSize">
+                <size>
+                 <width>50</width>
+                 <height>25</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>Interp</string>
+               </property>
+               <property name="default">
+                <bool>false</bool>
+               </property>
+               <property name="flat">
+                <bool>false</bool>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QToolButton" name="closed">
+               <property name="maximumSize">
+                <size>
+                 <width>16777215</width>
+                 <height>25</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>Closed</string>
+               </property>
+               <property name="checkable">
+                <bool>true</bool>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QToolButton" name="modify">
+               <property name="maximumSize">
+                <size>
+                 <width>16777215</width>
+                 <height>25</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>Modify</string>
+               </property>
+               <property name="checkable">
+                <bool>true</bool>
+               </property>
+               <property name="autoRaise">
+                <bool>false</bool>
+               </property>
+               <property name="arrowType">
+                <enum>Qt::NoArrow</enum>
+               </property>
+              </widget>
+             </item>
+            </layout>
            </item>
            <item>
             <layout class="QVBoxLayout" name="verticalLayout_4">
@@ -835,8 +879,8 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>873</width>
-     <height>21</height>
+     <width>1113</width>
+     <height>27</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -856,6 +900,8 @@
     <property name="title">
      <string>View</string>
     </property>
+    <addaction name="actionCurves"/>
+    <addaction name="actionGraphCut"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -912,6 +958,25 @@
   <action name="actionLoad_Curves">
    <property name="text">
     <string>Load Curves</string>
+   </property>
+  </action>
+  <action name="actionCurves">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Curves</string>
+   </property>
+  </action>
+  <action name="actionGraphCut">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>GraphCut</string>
    </property>
   </action>
  </widget>

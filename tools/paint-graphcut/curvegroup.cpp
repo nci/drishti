@@ -66,6 +66,8 @@ CurveGroup::reset()
   m_pointsDirtyBit = false;
   m_xpoints.clear();
   m_ypoints.clear();
+
+  m_addingCurves = false;
 }
 
 QList<int>
@@ -480,22 +482,20 @@ CurveGroup::setPolygonAt(int key,
 			 bool closed,
 			 bool select)
 {
-  if (m_addingCurves)
+//  if (m_addingCurves)
+//    {
+//      Curve c;
+//      c.tag = Global::tag();
+//      c.thickness = Global::thickness();
+//      c.closed = closed;
+//      c.pts = pts;
+//      c.seeds = seeds;
+//      c.seedpos = seedpos;
+//      c.selected = true;
+//      m_tmcg.insert(key, c);
+//    }
+//  else
     {
-      Curve c;
-      c.tag = Global::tag();
-      c.thickness = Global::thickness();
-      c.closed = closed;
-      c.pts = pts;
-      c.seeds = seeds;
-      c.seedpos = seedpos;
-      c.selected = true;
-      m_tmcg.insert(key, c);
-    }
-  else
-    {
-      QMessageBox::information(0, "", "moved livewire to curvegroup");  
-
       Curve *c = new Curve();
       c->tag = Global::tag();
       c->thickness = Global::thickness();

@@ -144,6 +144,8 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   ui.menuView->addAction(dock1->toggleViewAction());
   ui.menuView->addAction(dock2->toggleViewAction());
   
+  on_actionCurves_triggered();
+
   connect(m_tfManager,
 	  SIGNAL(changeTransferFunctionDisplay(int, QList<bool>)),
 	  this,
@@ -243,6 +245,28 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 void DrishtiPaint::on_actionHelp_triggered() { m_imageWidget->showHelp(); }
 
 void DrishtiPaint::on_saveImage_triggered() { m_imageWidget->saveImage(); }
+
+void
+DrishtiPaint::on_actionCurves_triggered()
+{
+  ui.actionGraphCut->setChecked(false);
+  ui.graphcutBox->hide();
+  
+  ui.actionCurves->setChecked(true);
+  ui.curvesBox->show();
+  m_imageWidget->setCurve(true);
+}
+
+void
+DrishtiPaint::on_actionGraphCut_triggered()
+{
+  ui.actionGraphCut->setChecked(true);
+  ui.graphcutBox->show();
+  
+  ui.actionCurves->setChecked(false);
+  ui.curvesBox->hide();
+  m_imageWidget->setCurve(false);
+}
 
 void
 DrishtiPaint::tagDSlice(int currslice, QImage usermask)
@@ -407,7 +431,6 @@ void DrishtiPaint::on_thickness_valueChanged(int d) { Global::setThickness(d); }
 void DrishtiPaint::on_radius_valueChanged(int d) { Global::setSpread(d); m_imageWidget->update(); }
 void DrishtiPaint::on_pointsize_valueChanged(int d) { m_imageWidget->setPointSize(d); }
 void DrishtiPaint::on_livewire_clicked(bool c) { m_imageWidget->setLivewire(c); }
-void DrishtiPaint::on_curve_clicked(bool c) { m_imageWidget->setCurve(c); }
 void DrishtiPaint::on_closed_clicked(bool c) { Global::setClosed(c); }
 void DrishtiPaint::on_lwsmooth_currentIndexChanged(int i){ m_imageWidget->setSmoothType(i); }
 void DrishtiPaint::on_lwgrad_currentIndexChanged(int i){ m_imageWidget->setGradType(i); }
@@ -422,6 +445,14 @@ void DrishtiPaint::on_zoomdown_clicked() { m_imageWidget->zoomDown(); }
 void DrishtiPaint::on_weightLoG_valueChanged(double d) { m_imageWidget->setWeightLoG(d); }
 void DrishtiPaint::on_weightG_valueChanged(double d) { m_imageWidget->setWeightG(d); }
 void DrishtiPaint::on_weightN_valueChanged(double d) { m_imageWidget->setWeightN(d); }
+void
+DrishtiPaint::on_modify_clicked(bool c)
+{
+  if (c)
+    m_imageWidget->modifyUsingLivewire();
+  else
+    m_imageWidget->freezeModifyUsingLivewire();
+}
 void
 DrishtiPaint::on_copyprev_clicked(bool c)
 {
@@ -2067,5 +2098,3 @@ DrishtiPaint::on_actionExtractTag_triggered()
   progress.setValue(100);  
   QMessageBox::information(0, "Save", "-----Done-----");
 }
-
-

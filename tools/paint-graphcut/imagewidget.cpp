@@ -1003,7 +1003,9 @@ ImageWidget::paintEvent(QPaintEvent *event)
   drawMorphedCurves(&p);
 
   drawLivewire(&p);
-  drawOtherCurvePoints(&p);
+
+  if (!m_livewire.seedMoveMode())
+    drawOtherCurvePoints(&p);
 
   if (m_pickPoint)
     drawRawValue(&p);

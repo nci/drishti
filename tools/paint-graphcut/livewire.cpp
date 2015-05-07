@@ -856,9 +856,13 @@ LiveWire::updateLivewireFromSeeds(int xpos, int ypos)
       calculateCost(xpos, ypos, 1.5*sz1);
       calculateLivewire(m_seeds[ns].x(),
 			m_seeds[ns].y());
+      int lwlen = m_livewire.count();
       m_poly += m_livewire;
+      int offset = m_poly.count()-1-m_seedpos[1];
       m_poly += m_polyB;
-
+      for(int i=ns; i<m_seedpos.count(); i++)
+	m_seedpos[i] += offset;
+      
       m_livewire.clear();
       calculateCost(m_seeds[ps].x(), m_seeds[ps].y(), 1.5*sz0);
       calculateLivewire(xpos, ypos);
@@ -866,18 +870,29 @@ LiveWire::updateLivewireFromSeeds(int xpos, int ypos)
     }
   else
     {
+      m_poly += m_polyA;
+
       m_livewire.clear();
       calculateCost(m_seeds[ps].x(), m_seeds[ps].y(), 1.5*sz0);
       calculateLivewire(xpos, ypos);
-      m_poly += m_polyA;
       m_poly += m_livewire;
+      int offset = m_poly.count()-1-m_seedpos[m_activeSeed];
+      for(int i=m_activeSeed; i<m_seedpos.count(); i++)
+	m_seedpos[i] += offset;
 
       m_livewire.clear();
       calculateCost(xpos, ypos, 1.5*sz1);
       calculateLivewire(m_seeds[ns].x(),
 			m_seeds[ns].y());      
       m_poly += m_livewire;
-      m_poly += m_polyB;
+      if (ns > 0)
+	{
+	  offset = m_poly.count()-1-m_seedpos[ns];
+	  for(int i=ns; i<m_seedpos.count(); i++)
+	    m_seedpos[i] += offset;
+	  
+	  m_poly += m_polyB;
+	}
     }
 
   m_livewire.clear();

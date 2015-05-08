@@ -109,14 +109,14 @@ MySlider::setValue(int val)
 void
 MySlider::drawPolygonLevels(QPainter *p)
 {
-  p->setPen(QColor(150,150,250));
+  p->setPen(QColor(150,50,50));
   int xp = m_baseX;
   for (int i=0; i<m_polyLevels.count(); i++)
     {
       float frc = (float)m_polyLevels[i]/(float)m_range;
       int yp = m_baseY + frc*m_height;
       //p->drawLine(xp-30, yp, xp+30, yp);
-      p->drawLine(xp+20, yp, xp+30, yp);
+      p->drawLine(xp+7, yp, xp+15, yp);
     }
 }
 

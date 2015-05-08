@@ -44,12 +44,15 @@ class LiveWire
   void setSeedMoveMode(bool);
   void setPolygonToUpdate(QVector<QPoint>,
 			  QVector<QPoint>,
-			  QVector<int>);
+			  QVector<int>,
+			  bool);
+  bool closed();
   
   bool propagateLivewire();
   void setPropagateLivewire(bool);
   void setGuessCurve(QVector<QPoint>);
   void renewGuessCurve();
+
 
  private :
   QVector<QPoint> m_poly;
@@ -61,7 +64,8 @@ class LiveWire
 
   int m_activeSeed;
   bool m_seedMoveMode;
-
+  bool m_closed;
+  
   bool m_propagateLivewire;
   QVector<QPoint> m_guessCurve;
 

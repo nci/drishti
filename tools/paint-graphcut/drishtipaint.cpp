@@ -240,6 +240,9 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 
   loadSettings();
   m_imageWidget->updateTagColors();
+
+//  ui.livewireSetting->setChecked(false);
+  ui.lwsettingpanel->setVisible(false);
 }
 
 void DrishtiPaint::on_actionHelp_triggered() { m_imageWidget->showHelp(); }

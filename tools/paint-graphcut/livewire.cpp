@@ -38,6 +38,7 @@ LiveWire::LiveWire()
   m_activeSeed = -1;
   m_polyA.clear();
   m_polyB.clear();
+  m_closed = true;
 }
 
 bool LiveWire::seedMoveMode() { return m_seedMoveMode; }
@@ -61,16 +62,19 @@ LiveWire::setPropagateLivewire(bool b)
   m_guessCurve.clear();
 }
 
+bool LiveWire::closed() { return m_closed; }
 void
 LiveWire::setPolygonToUpdate(QVector<QPoint> pts,
 			     QVector<QPoint> seeds,
-			     QVector<int> seedpos)
+			     QVector<int> seedpos,
+			     bool closed)
 {
   m_seedMoveMode = true;
   m_activeSeed = -1;
   m_poly = pts;
   m_seeds = seeds;
   m_seedpos = seedpos;  
+  m_closed = closed;
   m_livewire.clear();
 }
 
@@ -863,10 +867,13 @@ LiveWire::updateLivewireFromSeeds(int xpos, int ypos)
       for(int i=ns; i<m_seedpos.count(); i++)
 	m_seedpos[i] += offset;
       
-      m_livewire.clear();
-      calculateCost(m_seeds[ps].x(), m_seeds[ps].y(), 1.5*sz0);
-      calculateLivewire(xpos, ypos);
-      m_poly += m_livewire;
+      if (m_closed)
+	{
+	  m_livewire.clear();
+	  calculateCost(m_seeds[ps].x(), m_seeds[ps].y(), 1.5*sz0);
+	  calculateLivewire(xpos, ypos);
+	  m_poly += m_livewire;
+	}
     }
   else
     {
@@ -880,11 +887,15 @@ LiveWire::updateLivewireFromSeeds(int xpos, int ypos)
       for(int i=m_activeSeed; i<m_seedpos.count(); i++)
 	m_seedpos[i] += offset;
 
-      m_livewire.clear();
-      calculateCost(xpos, ypos, 1.5*sz1);
-      calculateLivewire(m_seeds[ns].x(),
-			m_seeds[ns].y());      
-      m_poly += m_livewire;
+      if (!m_closed && ns == 0) {}
+      else
+	{
+	  m_livewire.clear();
+	  calculateCost(xpos, ypos, 1.5*sz1);
+	  calculateLivewire(m_seeds[ns].x(),
+			    m_seeds[ns].y());      
+	  m_poly += m_livewire;
+	}
       if (ns > 0)
 	{
 	  offset = m_poly.count()-1-m_seedpos[ns];
@@ -937,7 +948,7 @@ LiveWire::splitPolygon(int sp)
   if (ns > 0)
     {
       int pend = m_poly.count();
-      if (sp == 0)
+      if (m_closed && sp == 0)
 	pend = m_seedpos[m_seedpos.count()-1];
 
       for(int i=m_seedpos[ns]+1; i<pend-1; i++)

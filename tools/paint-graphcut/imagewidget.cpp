@@ -1467,7 +1467,7 @@ ImageWidget::modifyUsingLivewire()
 	  QVector<QPoint> pts = curves[l]->pts;
 	  QVector<QPoint> seeds = curves[l]->seeds;
 	  QVector<int> seedpos = curves[l]->seedpos;
-	  m_livewire.setPolygonToUpdate(pts, seeds, seedpos);
+	  m_livewire.setPolygonToUpdate(pts, seeds, seedpos, curves[l]->closed);
 	  m_livewire.setSeedMoveMode(true);
 
 	  if (m_sliceType == DSlice)
@@ -1492,7 +1492,8 @@ ImageWidget::freezeModifyUsingLivewire()
   QVector<QPoint> pts = m_livewire.poly();
   QVector<QPoint> seeds = m_livewire.seeds();
   QVector<int> seedpos = m_livewire.seedpos();
-  
+  bool closed = m_livewire.closed();
+
   if (pts.count() > 0 &&
       seeds.count() > 0 &&
       seedpos.count() > 0)
@@ -1501,21 +1502,21 @@ ImageWidget::freezeModifyUsingLivewire()
 	{
 	  m_dCurves.setPolygonAt(m_currSlice,
 				 pts, seeds, seedpos,
-				 Global::closed(), false); 
+				 closed, false); 
 	  emit polygonLevels(m_dCurves.polygonLevels());
 	}
       else if (m_sliceType == WSlice)
 	{
 	  m_wCurves.setPolygonAt(m_currSlice,
 				 pts, seeds, seedpos,
-				 Global::closed(), false); 
+				 closed, false); 
 	  emit polygonLevels(m_wCurves.polygonLevels());
 	}
       else
 	{
 	  m_hCurves.setPolygonAt(m_currSlice,
 				 pts, seeds, seedpos,
-				 Global::closed(), false); 
+				 closed, false); 
 	  emit polygonLevels(m_hCurves.polygonLevels());
 	}
     }

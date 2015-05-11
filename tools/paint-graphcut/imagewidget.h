@@ -65,6 +65,13 @@ class ImageWidget : public QWidget
 
   QVector3D pickedPoint() { return QVector3D(m_lastPickDepth, m_lastPickWidth, m_lastPickHeight); }
 
+  QMultiMap<int, Curve*>* multiMapCurvesD() { return m_dCurves.multiMapCurves(); }
+  QList< QMap<int, Curve> >* listMapCurvesD() { return m_dCurves.listMapCurves(); }
+  QMultiMap<int, Curve*>* multiMapCurvesW() { return m_wCurves.multiMapCurves(); }
+  QList< QMap<int, Curve> >* listMapCurvesW() { return m_wCurves.listMapCurves(); }
+  QMultiMap<int, Curve*>* multiMapCurvesH() { return m_hCurves.multiMapCurves(); }
+  QList< QMap<int, Curve> >* listMapCurvesH() { return m_hCurves.listMapCurves(); }
+
  public slots :
   void updateTagColors();
   void sliceChanged(int);

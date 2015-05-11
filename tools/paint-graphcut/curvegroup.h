@@ -83,6 +83,9 @@ class CurveGroup
   void startAddingCurves();
   void endAddingCurves();
 
+  QMultiMap<int, Curve*>* multiMapCurves() { return &m_cg; }
+  QList< QMap<int, Curve> >* listMapCurves() { return &m_mcg; }
+
  private :
   QMultiMap<int, Curve*> m_cg;
   QList< QMap<int, Curve> > m_mcg;  

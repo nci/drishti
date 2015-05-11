@@ -93,25 +93,43 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 
   m_tagColorEditor = new TagColorEditor();
 
+  m_viewer = new Viewer();
+
   //----------------------------------------------------------
   QDockWidget *dock1 = new QDockWidget("Transfer Function Editor", this);
-  dock1->setAllowedAreas(Qt::LeftDockWidgetArea | 
-			 Qt::RightDockWidgetArea);
-  QSplitter *splitter = new QSplitter(Qt::Vertical, dock1);
-  splitter->addWidget(m_tfManager);
-  splitter->addWidget(m_tfEditor);
-  dock1->setWidget(splitter);
+  {
+    dock1->setAllowedAreas(Qt::LeftDockWidgetArea | 
+			   Qt::RightDockWidgetArea);
+    QSplitter *splitter = new QSplitter(Qt::Vertical, dock1);
+    splitter->addWidget(m_tfManager);
+    splitter->addWidget(m_tfEditor);
+    dock1->setWidget(splitter);
+  }
+  //----------------------------------------------------------
+
+  //----------------------------------------------------------
+    QDockWidget *dockV = new QDockWidget("3D Viewer", this);
+  {
+    dock1->setAllowedAreas(Qt::LeftDockWidgetArea | 
+			   Qt::RightDockWidgetArea);
+    QSplitter *splitter = new QSplitter(Qt::Vertical, dockV);
+    splitter->addWidget(m_viewer);
+    dockV->setWidget(splitter);
+  }
   //----------------------------------------------------------
 
   //----------------------------------------------------------
   QDockWidget *dock2 = new QDockWidget("Tag Color Editor", this);
-  dock2->setAllowedAreas(Qt::LeftDockWidgetArea | 
-			 Qt::RightDockWidgetArea);
-  dock2->setWidget(m_tagColorEditor);
-  dock2->hide();
+  {
+    dock2->setAllowedAreas(Qt::LeftDockWidgetArea | 
+			   Qt::RightDockWidgetArea);
+    dock2->setWidget(m_tagColorEditor);
+    dock2->hide();
+  }
   //----------------------------------------------------------
 
   addDockWidget(Qt::RightDockWidgetArea, dock1);
+  addDockWidget(Qt::RightDockWidgetArea, dockV);
   addDockWidget(Qt::LeftDockWidgetArea, dock2);
 
 
@@ -142,6 +160,7 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 
 
   ui.menuView->addAction(dock1->toggleViewAction());
+  ui.menuView->addAction(dockV->toggleViewAction());
   ui.menuView->addAction(dock2->toggleViewAction());
   
   on_actionCurves_triggered();
@@ -269,6 +288,7 @@ DrishtiPaint::on_actionGraphCut_triggered()
   ui.actionCurves->setChecked(false);
   ui.curvesBox->hide();
   m_imageWidget->setCurve(false);
+  ui.livewire->setChecked(false);
 }
 
 void
@@ -673,6 +693,17 @@ DrishtiPaint::setFile(QString filename)
   int d, w, h;
   m_volume->gridSize(d, w, h);
   m_imageWidget->setGridSize(d, w, h);
+  m_viewer->setGridSize(d, w, h);
+
+  m_viewer->setMultiMapCurves(0, m_imageWidget->multiMapCurvesD());
+  m_viewer->setListMapCurves(0, m_imageWidget->listMapCurvesD());
+
+  m_viewer->setMultiMapCurves(1, m_imageWidget->multiMapCurvesW());
+  m_viewer->setListMapCurves(1, m_imageWidget->listMapCurvesW());
+
+  m_viewer->setMultiMapCurves(2, m_imageWidget->multiMapCurvesH());
+  m_viewer->setListMapCurves(2, m_imageWidget->listMapCurvesH());
+
 
   ui.butZ->setChecked(true);
   m_slider->set(0, d-1, 0, d-1, 0);

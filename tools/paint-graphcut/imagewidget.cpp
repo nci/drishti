@@ -1244,7 +1244,11 @@ ImageWidget::checkRecursive()
     }
 }
 
-void ImageWidget::setCurve(bool b) { m_curveMode = b; }
+void ImageWidget::setCurve(bool b)
+{
+  m_curveMode = b;
+  if (!m_curveMode) m_livewireMode = false;
+}
 void ImageWidget::setLivewire(bool b) { m_livewireMode = b; }
 
 void

@@ -7,6 +7,7 @@ RESOURCES = paint.qrc
 TARGET = 
 DEPENDPATH += .
 
+QT += opengl
 QT += widgets core gui xml
 
 CONFIG += release
@@ -19,6 +20,10 @@ INCLUDEPATH += graphcut
 
 # Input
 FORMS += drishtipaint.ui
+
+INCLUDEPATH += c:\Qt\libQGLViewer-2.6.1
+LIBS += QGLViewer2.lib
+QMAKE_LIBDIR += c:\Qt\libQGLViewer-2.6.1\lib
 
 HEADERS += commonqtclasses.h \
 	drishtipaint.h \
@@ -44,6 +49,7 @@ HEADERS += commonqtclasses.h \
 	tagcoloreditor.h \
 	coloreditor.h \
 	opacityeditor.h \
+	viewer.h \
 	volume.h \
 	volumefilemanager.h \
 	volumemask.h \
@@ -77,6 +83,7 @@ SOURCES += drishtipaint.cpp \
 	tagcoloreditor.cpp \
 	coloreditor.cpp \
 	opacityeditor.cpp \
+	viewer.cpp \
 	volume.cpp \
 	volumefilemanager.cpp \
 	volumemask.cpp \

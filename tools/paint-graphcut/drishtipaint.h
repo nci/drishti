@@ -9,6 +9,7 @@
 #include "imagewidget.h"
 #include "myslider.h"
 #include "volume.h"
+#include "viewer.h"
 
 class DrishtiPaint : public QMainWindow
 {
@@ -114,6 +115,8 @@ class DrishtiPaint : public QMainWindow
   QString m_xmlFile;
 
   QList <QAction*> m_recentFileActions;
+
+  Viewer *m_viewer;
 
   void setFile(QString);
   void initTagColors();

@@ -39,7 +39,7 @@
        <number>0</number>
       </property>
       <item>
-       <widget class="QFrame" name="">
+       <widget class="QFrame" name="frame">
         <property name="maximumSize">
          <size>
           <width>100</width>
@@ -106,6 +106,19 @@
               </widget>
              </item>
             </layout>
+           </item>
+           <item>
+            <widget class="Line" name="line">
+             <property name="maximumSize">
+              <size>
+               <width>115</width>
+               <height>16777215</height>
+              </size>
+             </property>
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+            </widget>
            </item>
            <item>
             <layout class="QHBoxLayout">
@@ -200,6 +213,19 @@
             </layout>
            </item>
           </layout>
+         </item>
+         <item>
+          <widget class="Line" name="line_2">
+           <property name="maximumSize">
+            <size>
+             <width>115</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+          </widget>
          </item>
          <item>
           <layout class="QGridLayout" name="gridLayout">
@@ -302,6 +328,19 @@
             </spacer>
            </item>
           </layout>
+         </item>
+         <item>
+          <widget class="Line" name="line_3">
+           <property name="maximumSize">
+            <size>
+             <width>115</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+          </widget>
          </item>
          <item>
           <widget class="QGroupBox" name="graphcutBox">
@@ -501,39 +540,32 @@
              <number>2</number>
             </property>
             <item>
-             <layout class="QVBoxLayout" name="verticalLayout_4">
-              <property name="spacing">
-               <number>0</number>
+             <widget class="QToolButton" name="livewire">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
               </property>
-              <property name="sizeConstraint">
-               <enum>QLayout::SetDefaultConstraint</enum>
+              <property name="maximumSize">
+               <size>
+                <width>70</width>
+                <height>25</height>
+               </size>
               </property>
-              <property name="leftMargin">
-               <number>0</number>
+              <property name="text">
+               <string>Livewire</string>
               </property>
-              <item>
-               <widget class="QToolButton" name="livewire">
-                <property name="maximumSize">
-                 <size>
-                  <width>50</width>
-                  <height>25</height>
-                 </size>
-                </property>
-                <property name="text">
-                 <string>Livewire</string>
-                </property>
-                <property name="checkable">
-                 <bool>true</bool>
-                </property>
-                <property name="toolButtonStyle">
-                 <enum>Qt::ToolButtonIconOnly</enum>
-                </property>
-                <property name="autoRaise">
-                 <bool>false</bool>
-                </property>
-               </widget>
-              </item>
-             </layout>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+              <property name="toolButtonStyle">
+               <enum>Qt::ToolButtonIconOnly</enum>
+              </property>
+              <property name="autoRaise">
+               <bool>false</bool>
+              </property>
+             </widget>
             </item>
             <item>
              <widget class="QGroupBox" name="livewireSetting">
@@ -631,7 +663,7 @@
                    </widget>
                   </item>
                   <item>
-                   <widget class="QFrame" name="">
+                   <widget class="QFrame" name="frame">
                     <layout class="QHBoxLayout" name="horizontalLayout_5">
                      <property name="spacing">
                       <number>0</number>
@@ -740,12 +772,12 @@
                <widget class="QPushButton" name="lwfreeze">
                 <property name="maximumSize">
                  <size>
-                  <width>50</width>
+                  <width>70</width>
                   <height>25</height>
                  </size>
                 </property>
                 <property name="text">
-                 <string>freeze</string>
+                 <string>Freeze</string>
                 </property>
                 <property name="default">
                  <bool>false</bool>
@@ -755,7 +787,7 @@
               <item>
                <widget class="QCheckBox" name="closed">
                 <property name="text">
-                 <string>closed</string>
+                 <string>Closed</string>
                 </property>
                </widget>
               </item>
@@ -763,12 +795,12 @@
                <widget class="QPushButton" name="modify">
                 <property name="maximumSize">
                  <size>
-                  <width>50</width>
+                  <width>70</width>
                   <height>25</height>
                  </size>
                 </property>
                 <property name="text">
-                 <string>modify</string>
+                 <string>Modify</string>
                 </property>
                 <property name="checkable">
                  <bool>true</bool>
@@ -779,12 +811,12 @@
                <widget class="QPushButton" name="morphcurves">
                 <property name="maximumSize">
                  <size>
-                  <width>50</width>
-                  <height>25</height>
+                  <width>70</width>
+                  <height>16777215</height>
                  </size>
                 </property>
                 <property name="text">
-                 <string>Interp</string>
+                 <string>Interpolate</string>
                 </property>
                 <property name="default">
                  <bool>false</bool>
@@ -797,18 +829,9 @@
              </layout>
             </item>
             <item>
-             <widget class="QPushButton" name="newcurve">
-              <property name="maximumSize">
-               <size>
-                <width>35</width>
-                <height>25</height>
-               </size>
-              </property>
-              <property name="text">
-               <string>New</string>
-              </property>
-              <property name="default">
-               <bool>false</bool>
+             <widget class="Line" name="line_5">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
               </property>
              </widget>
             </item>
@@ -818,6 +841,9 @@
                <number>5</number>
               </property>
               <property name="leftMargin">
+               <number>0</number>
+              </property>
+              <property name="bottomMargin">
                <number>0</number>
               </property>
               <item>
@@ -860,10 +886,13 @@
               <property name="leftMargin">
                <number>0</number>
               </property>
+              <property name="bottomMargin">
+               <number>0</number>
+              </property>
               <item>
                <widget class="QLabel" name="label_7">
                 <property name="text">
-                 <string>PtSz</string>
+                 <string>Point Size</string>
                 </property>
                </widget>
               </item>
@@ -896,15 +925,38 @@
              </layout>
             </item>
             <item>
-             <widget class="QPushButton" name="deleteallcurves">
+             <widget class="Line" name="line_4">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="newcurve">
               <property name="maximumSize">
                <size>
-                <width>40</width>
+                <width>70</width>
                 <height>25</height>
                </size>
               </property>
               <property name="text">
-               <string>Del</string>
+               <string>New Curve</string>
+              </property>
+              <property name="default">
+               <bool>false</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="deleteallcurves">
+              <property name="maximumSize">
+               <size>
+                <width>70</width>
+                <height>25</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>Delete All</string>
               </property>
              </widget>
             </item>
@@ -950,7 +1002,6 @@
         <property name="frameShape">
          <enum>QFrame::Box</enum>
         </property>
-        <zorder></zorder>
        </widget>
       </item>
       <item>
@@ -961,7 +1012,6 @@
           <verstretch>0</verstretch>
          </sizepolicy>
         </property>
-        <zorder>curvesBox</zorder>
        </widget>
       </item>
      </layout>

@@ -104,6 +104,8 @@ Viewer::draw()
   drawMMHCurve();
 
   drawLMDCurve();
+  drawLMWCurve();
+  drawLMHCurve();
 }
 
 void
@@ -192,28 +194,78 @@ Viewer::drawLMDCurve()
   for(int i=0; i<m_Dmcg->count(); i++)
     {
       QMap<int, Curve> mcg = m_Dmcg->at(i);
-      int key = mcg.keys()[0];
-      Curve c = mcg.value(key);
-      int tag = c.tag;
-      float r = Global::tagColors()[4*tag+0]*1.0/255.0;
-      float g = Global::tagColors()[4*tag+1]*1.0/255.0;
-      float b = Global::tagColors()[4*tag+2]*1.0/255.0;
-      glColor3f(r,g,b);
-      glBegin(GL_LINE_STRIP);
-      for(int k=0; k<c.pts.count(); k++)
-	glVertex3f(c.pts[k].x(),
-		   c.pts[k].y(),
-		   key);
-      glEnd();
+      QList<int> cgkeys = mcg.keys();
+      for(int j=0; j<cgkeys.count(); j++)
+	{
+	  Curve c = mcg.value(cgkeys[j]);
+
+	  int tag = c.tag;
+	  float r = Global::tagColors()[4*tag+0]*1.0/255.0;
+	  float g = Global::tagColors()[4*tag+1]*1.0/255.0;
+	  float b = Global::tagColors()[4*tag+2]*1.0/255.0;
+	  glColor3f(r,g,b);
+	  glBegin(GL_LINE_STRIP);
+	  for(int k=0; k<c.pts.count(); k++)
+	    glVertex3f(c.pts[k].x(),
+		       c.pts[k].y(),
+		       cgkeys[j]);
+	  glEnd();
+	}
     }
 }
 
 void
 Viewer::drawLMWCurve()
 {
+  if (!m_Wmcg) return;
+
+  for(int i=0; i<m_Wmcg->count(); i++)
+    {
+      QMap<int, Curve> mcg = m_Wmcg->at(i);
+      QList<int> cgkeys = mcg.keys();
+      for(int j=0; j<cgkeys.count(); j++)
+	{
+	  Curve c = mcg.value(cgkeys[j]);
+
+	  int tag = c.tag;
+	  float r = Global::tagColors()[4*tag+0]*1.0/255.0;
+	  float g = Global::tagColors()[4*tag+1]*1.0/255.0;
+	  float b = Global::tagColors()[4*tag+2]*1.0/255.0;
+	  glColor3f(r,g,b);
+	  glBegin(GL_LINE_STRIP);
+	  for(int k=0; k<c.pts.count(); k++)
+	    glVertex3f(c.pts[k].x(),
+		       cgkeys[j],
+		       c.pts[k].y());
+	  glEnd();
+	}
+    }
 }
 
 void
 Viewer::drawLMHCurve()
 {
+  if (!m_Hmcg) return;
+
+  for(int i=0; i<m_Hmcg->count(); i++)
+    {
+      QMap<int, Curve> mcg = m_Hmcg->at(i);
+      QList<int> cgkeys = mcg.keys();
+      for(int j=0; j<cgkeys.count(); j++)
+	{
+	  Curve c = mcg.value(cgkeys[j]);
+
+	  int tag = c.tag;
+	  float r = Global::tagColors()[4*tag+0]*1.0/255.0;
+	  float g = Global::tagColors()[4*tag+1]*1.0/255.0;
+	  float b = Global::tagColors()[4*tag+2]*1.0/255.0;
+	  glColor3f(r,g,b);
+	  glBegin(GL_LINE_STRIP);
+	  for(int k=0; k<c.pts.count(); k++)
+	    glVertex3f(cgkeys[j],
+		       c.pts[k].x(),
+		       c.pts[k].y());
+	  glEnd();
+	}
+    }
 }

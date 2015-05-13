@@ -129,6 +129,10 @@ Viewer::drawMMDCurve()
 	    glVertex3f(curves[j]->pts[k].x(),
 		       curves[j]->pts[k].y(),
 		       cgkeys[i]);
+	  if (curves[j]->closed)
+	    glVertex3f(curves[j]->pts[0].x(),
+		       curves[j]->pts[0].y(),
+		       cgkeys[i]);
 	  glEnd();
 	}
     }
@@ -155,6 +159,10 @@ Viewer::drawMMWCurve()
 	    glVertex3f(curves[j]->pts[k].x(),
 		       cgkeys[i],
 		       curves[j]->pts[k].y());
+	  if (curves[j]->closed)
+	    glVertex3f(curves[j]->pts[0].x(),
+		       cgkeys[i],
+		       curves[j]->pts[0].y());
 	  glEnd();
 	}
     }
@@ -181,6 +189,10 @@ Viewer::drawMMHCurve()
 	    glVertex3f(cgkeys[i],
 		       curves[j]->pts[k].x(),
 		       curves[j]->pts[k].y());
+	  if (curves[j]->closed)
+	    glVertex3f(cgkeys[i],
+		       curves[j]->pts[0].x(),
+		       curves[j]->pts[0].y());
 	  glEnd();
 	}
     }
@@ -208,6 +220,10 @@ Viewer::drawLMDCurve()
 	  for(int k=0; k<c.pts.count(); k++)
 	    glVertex3f(c.pts[k].x(),
 		       c.pts[k].y(),
+		       cgkeys[j]);
+	  if (c.closed)
+	    glVertex3f(c.pts[0].x(),
+		       c.pts[0].y(),
 		       cgkeys[j]);
 	  glEnd();
 	}
@@ -237,6 +253,11 @@ Viewer::drawLMWCurve()
 	    glVertex3f(c.pts[k].x(),
 		       cgkeys[j],
 		       c.pts[k].y());
+	  if (c.closed)
+	    glVertex3f(c.pts[0].x(),
+		       cgkeys[j],
+		       c.pts[0].y());
+	    
 	  glEnd();
 	}
     }
@@ -265,6 +286,11 @@ Viewer::drawLMHCurve()
 	    glVertex3f(cgkeys[j],
 		       c.pts[k].x(),
 		       c.pts[k].y());
+	  if (c.closed)
+	    glVertex3f(cgkeys[j],
+		       c.pts[0].x(),
+		       c.pts[0].y());
+	    
 	  glEnd();
 	}
     }

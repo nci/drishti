@@ -164,6 +164,8 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   ui.menuView->addAction(dock2->toggleViewAction());
   
   on_actionCurves_triggered();
+  ui.lwsettingpanel->setVisible(false);
+  ui.closed->setChecked(true);
 
   connect(m_tfManager,
 	  SIGNAL(changeTransferFunctionDisplay(int, QList<bool>)),
@@ -259,9 +261,6 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 
   loadSettings();
   m_imageWidget->updateTagColors();
-
-//  ui.livewireSetting->setChecked(false);
-  ui.lwsettingpanel->setVisible(false);
 }
 
 void DrishtiPaint::on_actionHelp_triggered() { m_imageWidget->showHelp(); }
@@ -734,6 +733,12 @@ DrishtiPaint::setFile(QString filename)
       m_pvlFile = flnm;
       m_xmlFile.clear();
     }
+
+  on_actionCurves_triggered();
+  ui.lwsettingpanel->setVisible(false);
+  ui.closed->setChecked(true);
+  ui.livewire->setChecked(true);
+  m_imageWidget->setLivewire(true);
 }
 
 void

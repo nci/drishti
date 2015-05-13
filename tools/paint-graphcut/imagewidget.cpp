@@ -3827,7 +3827,9 @@ ImageWidget::loadCurves(QFile *cfile, CurveGroup *cg)
       else if (strcmp(keyword, "curvestart\n") == 0)
 	{
 	  QPair<int, Curve> cpair = loadCurveData(cfile);
-	  cg->setCurveAt(cpair.first, cpair.second);
+	  // do not pass on zero length curves
+	  if (cpair.second.pts.count() > 0)
+	    cg->setCurveAt(cpair.first, cpair.second);
 	}
     }
 
@@ -3861,7 +3863,9 @@ ImageWidget::loadMorphedCurves(QFile *cfile, CurveGroup *cg)
       else if (strcmp(keyword, "curvestart\n") == 0)
 	{
 	  QPair<int, Curve> cpair = loadCurveData(cfile);
-	  mcg.insert(cpair.first, cpair.second);
+	  // do not pass on zero length curves
+	  if (cpair.second.pts.count() > 0)
+	    mcg.insert(cpair.first, cpair.second);
 	}
     }
 }

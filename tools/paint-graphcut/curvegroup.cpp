@@ -897,6 +897,16 @@ CurveGroup::alignClosedCurves(QMap<int, QVector<QPoint> >&cg)
   QList<int> keys = cg.keys();
   QVector<QPoint> cp = cg.value(keys[0]);
   int ncpts = cp.count();
+  
+  // get winding for the polygon
+  int c0w=0;
+  for(int k=0; k<ncpts; k++)
+    {
+      int k1 = (k+1)%ncpts;
+      c0w += (cp[k].x()*cp[k1].y());
+      c0w -= (cp[k1].x()*cp[k].y());
+    }  
+  c0w = (c0w > 0 ? 1 : -1);
 
   for(int i=1; i<keys.count(); i++)
     {
@@ -923,29 +933,24 @@ CurveGroup::alignClosedCurves(QMap<int, QVector<QPoint> >&cg)
 	nc[k++] = c[j];
 
 
-      //check for winding
-      int stp=5;
-      stp = qMin(5, qMin(ncpts/5, npts/5));
-      if (stp > 0)
+      // using shoelace formula to determine the winding of polygons
+      // if opposite then flip one polygon
+      int c1w=0;
+      for(int k=0; k<npts; k++)
 	{
-	  int opp=0;
-	  for(int j=1; j < 5; j++)
+	  int k1 = (k+1)%npts;
+	  c1w += (nc[k].x()*nc[k1].y());
+	  c1w -= (nc[k1].x()*nc[k].y());
+	}  
+      c1w = (c1w > 0 ? 1 : -1);
+
+      if (c0w*c1w < 0) // opposite signs then flip curve
+	{
+	  for(int j=0; j<npts/2; j++)
 	    {
-	      QPoint v0 = cp[stp*j]-cp[0];
-	      QPoint v1 = nc[stp*j]-nc[0];
-	      int d = v0.x()*v1.x() + v0.y()*v1.y();
-	      if (d < 0)
-		opp++;
-	    }
-	  // flip if curve windings are opposite to each other
-	  if (opp > 1)
-	    {
-	      for(int j=0; j<npts/2; j++)
-		{
-		  QPoint v = nc[j];
-		  nc[j] = nc[npts-1-j];
-		  nc[npts-1-j] = v;
-		}
+	      QPoint v = nc[j];
+	      nc[j] = nc[npts-1-j];
+	      nc[npts-1-j] = v;
 	    }
 	}
 
@@ -963,37 +968,43 @@ CurveGroup::alignOpenCurves(QMap<int, QVector<QPoint> >&cg)
   QVector<QPoint> cp = cg.value(keys[0]);
   int ncpts = cp.count();
 
+  // get winding for the polygon
+  int c0w=0;
+  for(int k=0; k<ncpts; k++)
+    {
+      int k1 = (k+1)%ncpts;
+      c0w += (cp[k].x()*cp[k1].y());
+      c0w -= (cp[k1].x()*cp[k].y());
+    }  
+  c0w = (c0w > 0 ? 1 : -1);
+
   for(int i=1; i<keys.count(); i++)
     {
       QVector<QPoint> c = cg.value(keys[i]);
       int npts = c.count();
 
-      //check for winding
-      int stp=5;
-      stp = qMin(5, qMin(ncpts/5, npts/5));
-      if (stp > 0)
+      // using shoelace formula to determine the winding of polygons
+      // if opposite then flip one polygon
+      int c1w=0;
+      for(int k=0; k<npts; k++)
 	{
-	  int opp=0;
-	  for(int j=1; j < 5; j++)
+	  int k1 = (k+1)%npts;
+	  c1w += (c[k].x()*c[k1].y());
+	  c1w -= (c[k1].x()*c[k].y());
+	}  
+      c1w = (c1w > 0 ? 1 : -1);
+
+      if (c0w*c1w < 0) // opposite signs then flip curve
+	{
+	  for(int j=0; j<npts/2; j++)
 	    {
-	      QPoint v0 = cp[stp*j]-cp[0];
-	      QPoint v1 = c[stp*j]-c[0];
-	      int d = v0.x()*v1.x() + v0.y()*v1.y();
-	      if (d < 0)
-		opp++;
-	    }
-	  // flip if curve windings are opposite to each other
-	  if (opp > 1)
-	    {
-	      for(int j=0; j<npts/2; j++)
-		{
-		  QPoint v = c[j];
-		  c[j] = c[npts-1-j];
-		  c[npts-1-j] = v;
-		}
-	      cg.insert(keys[i], c);
+	      QPoint v = c[j];
+	      c[j] = c[npts-1-j];
+	      c[npts-1-j] = v;
 	    }
 	}
+
+      cg.insert(keys[i], c);
     }
 }
 

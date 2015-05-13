@@ -190,10 +190,6 @@ MainWindow::MainWindow(QWidget *parent) :
   m_keyFrame = new KeyFrame();
   m_Viewer->setKeyFrame(m_keyFrame);
 
-  QScrollArea *scrollArea;
-  QSize minSize, maxSize;
-
-
   //----------------------------------------------------------
   m_dockTF = new QDockWidget("Transfer Function Editor", this);
   m_dockTF->setAllowedAreas(Qt::LeftDockWidgetArea | 
@@ -215,31 +211,19 @@ MainWindow::MainWindow(QWidget *parent) :
 
   //----------------------------------------------------------
   m_bricksWidget = new BricksWidget(NULL, m_bricks);
-  scrollArea = new QScrollArea();
-  scrollArea->setWidget(m_bricksWidget);
-  minSize = m_bricksWidget->minimumSize();
-  maxSize = m_bricksWidget->maximumSize()+QSize(10,10);
-  scrollArea->setMinimumSize(minSize);
-  scrollArea->setMaximumSize(maxSize);
   QDockWidget *dock3 = new QDockWidget("Bricks Editor", this);
   dock3->setAllowedAreas(Qt::LeftDockWidgetArea | 
 			 Qt::RightDockWidgetArea);
-  dock3->setWidget(scrollArea);
+  dock3->setWidget(m_bricksWidget);
   dock3->hide();
   //----------------------------------------------------------
 
   //----------------------------------------------------------
   m_volInfoWidget = new VolumeInformationWidget();
-  scrollArea = new QScrollArea();
-  scrollArea->setWidget(m_volInfoWidget);
-  minSize = m_volInfoWidget->minimumSize();
-  maxSize = m_volInfoWidget->maximumSize()+QSize(10,10);
-  scrollArea->setMinimumSize(minSize);
-  scrollArea->setMaximumSize(maxSize);
   QDockWidget *dock4 = new QDockWidget("Volume Information", this);
   dock4->setAllowedAreas(Qt::LeftDockWidgetArea | 
 			 Qt::RightDockWidgetArea);
-  dock4->setWidget(scrollArea);
+  dock4->setWidget(m_volInfoWidget);
   dock4->hide();
   //----------------------------------------------------------
 

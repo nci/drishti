@@ -23,18 +23,6 @@
          <verstretch>0</verstretch>
         </sizepolicy>
        </property>
-       <property name="minimumSize" >
-        <size>
-         <width>70</width>
-         <height>30</height>
-        </size>
-       </property>
-       <property name="maximumSize" >
-        <size>
-         <width>100</width>
-         <height>30</height>
-        </size>
-       </property>
        <property name="focusPolicy" >
         <enum>Qt::ClickFocus</enum>
        </property>
@@ -53,18 +41,6 @@
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
-       </property>
-       <property name="minimumSize" >
-        <size>
-         <width>200</width>
-         <height>50</height>
-        </size>
-       </property>
-       <property name="maximumSize" >
-        <size>
-         <width>16777215</width>
-         <height>50</height>
-        </size>
        </property>
       </widget>
      </item>
@@ -109,12 +85,6 @@
    </item>
    <item>
     <widget class="QFrame" name="histogramFrame" >
-     <property name="maximumSize" >
-      <size>
-       <width>16777215</width>
-       <height>300</height>
-      </size>
-     </property>
      <property name="focusPolicy" >
       <enum>Qt::StrongFocus</enum>
      </property>
@@ -141,18 +111,6 @@
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
-       </property>
-       <property name="minimumSize" >
-        <size>
-         <width>100</width>
-         <height>16</height>
-        </size>
-       </property>
-       <property name="maximumSize" >
-        <size>
-         <width>160</width>
-         <height>16777215</height>
-        </size>
        </property>
        <property name="frameShape" >
         <enum>QFrame::StyledPanel</enum>

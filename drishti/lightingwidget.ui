@@ -16,18 +16,6 @@
   <layout class="QVBoxLayout">
    <item>
     <widget class="QGroupBox" name="lightposition">
-     <property name="minimumSize">
-      <size>
-       <width>180</width>
-       <height>20</height>
-      </size>
-     </property>
-     <property name="maximumSize">
-      <size>
-       <width>180</width>
-       <height>180</height>
-      </size>
-     </property>
      <property name="title">
       <string>Light Position</string>
      </property>
@@ -251,12 +239,6 @@
          </item>
          <item row="4" column="1">
           <widget class="QSlider" name="specularcoeff">
-           <property name="maximumSize">
-            <size>
-             <width>16777215</width>
-             <height>20</height>
-            </size>
-           </property>
            <property name="maximum">
             <number>9</number>
            </property>
@@ -276,12 +258,6 @@
          </item>
          <item row="1" column="1">
           <widget class="QSlider" name="diffuse">
-           <property name="maximumSize">
-            <size>
-             <width>16777215</width>
-             <height>20</height>
-            </size>
-           </property>
            <property name="maximum">
             <number>10</number>
            </property>
@@ -308,12 +284,6 @@
          </item>
          <item row="0" column="1">
           <widget class="QSlider" name="ambient">
-           <property name="maximumSize">
-            <size>
-             <width>16777215</width>
-             <height>20</height>
-            </size>
-           </property>
            <property name="maximum">
             <number>10</number>
            </property>
@@ -340,12 +310,6 @@
          </item>
          <item row="2" column="1" rowspan="2">
           <widget class="QSlider" name="specular">
-           <property name="maximumSize">
-            <size>
-             <width>16777215</width>
-             <height>20</height>
-            </size>
-           </property>
            <property name="maximum">
             <number>10</number>
            </property>
@@ -372,12 +336,6 @@
          </item>
          <item row="6" column="1">
           <widget class="QSlider" name="shadowcontrast">
-           <property name="maximumSize">
-            <size>
-             <width>16777215</width>
-             <height>20</height>
-            </size>
-           </property>
            <property name="maximum">
             <number>10</number>
            </property>
@@ -404,12 +362,6 @@
          </item>
          <item row="7" column="1">
           <widget class="QSlider" name="shadowblur">
-           <property name="maximumSize">
-            <size>
-             <width>16777215</width>
-             <height>20</height>
-            </size>
-           </property>
            <property name="minimum">
             <number>1</number>
            </property>
@@ -503,12 +455,6 @@
          </item>
          <item row="1" column="1">
           <widget class="QSlider" name="shadowscale">
-           <property name="maximumSize">
-            <size>
-             <width>16777215</width>
-             <height>20</height>
-            </size>
-           </property>
            <property name="maximum">
             <number>8</number>
            </property>
@@ -535,12 +481,6 @@
          </item>
          <item row="4" column="1">
           <widget class="QSlider" name="shadowfov">
-           <property name="maximumSize">
-            <size>
-             <width>16777215</width>
-             <height>20</height>
-            </size>
-           </property>
            <property name="maximum">
             <number>10</number>
            </property>
@@ -607,12 +547,6 @@
                </item>
                <item row="1" column="1">
                 <widget class="QSlider" name="red">
-                 <property name="maximumSize">
-                  <size>
-                   <width>16777215</width>
-                   <height>20</height>
-                  </size>
-                 </property>
                  <property name="maximum">
                   <number>100</number>
                  </property>
@@ -632,12 +566,6 @@
                </item>
                <item row="2" column="1" rowspan="2">
                 <widget class="QSlider" name="green">
-                 <property name="maximumSize">
-                  <size>
-                   <width>16777215</width>
-                   <height>20</height>
-                  </size>
-                 </property>
                  <property name="maximum">
                   <number>100</number>
                  </property>
@@ -671,12 +599,6 @@
                </item>
                <item row="4" column="1">
                 <widget class="QSlider" name="blue">
-                 <property name="maximumSize">
-                  <size>
-                   <width>16777215</width>
-                   <height>20</height>
-                  </size>
-                 </property>
                  <property name="maximum">
                   <number>100</number>
                  </property>
@@ -742,12 +664,6 @@
                </item>
                <item row="0" column="1">
                 <widget class="QSlider" name="backplaneshadowscale">
-                 <property name="maximumSize">
-                  <size>
-                   <width>16777215</width>
-                   <height>20</height>
-                  </size>
-                 </property>
                  <property name="minimum">
                   <number>5</number>
                  </property>
@@ -774,12 +690,6 @@
                </item>
                <item row="1" column="1">
                 <widget class="QSlider" name="backplanecontrast">
-                 <property name="maximumSize">
-                  <size>
-                   <width>16777215</width>
-                   <height>20</height>
-                  </size>
-                 </property>
                  <property name="maximum">
                   <number>10</number>
                  </property>

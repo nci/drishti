@@ -858,6 +858,9 @@
                 <property name="layoutDirection">
                  <enum>Qt::LeftToRight</enum>
                 </property>
+                <property name="minimum">
+                 <number>1</number>
+                </property>
                 <property name="value">
                  <number>1</number>
                 </property>
@@ -1034,6 +1037,7 @@
     <addaction name="actionLoad"/>
     <addaction name="actionLoad_Curves"/>
     <addaction name="actionExtractTag"/>
+    <addaction name="actionMeshTag"/>
     <addaction name="actionSave_Curves"/>
     <addaction name="saveImage"/>
     <addaction name="separator"/>
@@ -1121,6 +1125,11 @@
    </property>
    <property name="text">
     <string>GraphCut</string>
+   </property>
+  </action>
+  <action name="actionMeshTag">
+   <property name="text">
+    <string>Mesh Tagged Region</string>
    </property>
   </action>
  </widget>

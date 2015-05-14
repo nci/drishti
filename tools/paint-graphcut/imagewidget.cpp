@@ -2935,7 +2935,8 @@ ImageWidget::getSliceLimits(int &size1, int &size2,
 void
 ImageWidget::paintUsingCurves(CurveGroup* cg,
 			      int slc, int wd, int ht,
-			      uchar *maskData)
+			      uchar *maskData,
+			      int ptag)
 {
   QImage pimg= QImage(wd, ht, QImage::Format_RGB32);
   pimg.fill(0);
@@ -2951,7 +2952,8 @@ ImageWidget::paintUsingCurves(CurveGroup* cg,
 	for(int l=0; l<curves.count(); l++)
 	  {
 	    int tag = curves[l]->tag;
-	    if (tag == Global::tag())
+	    //if (tag == Global::tag())
+	    if (ptag == -1 || ptag == tag)
 	      {
 		if (curves[l]->closed)
 		  {
@@ -2980,7 +2982,8 @@ ImageWidget::paintUsingCurves(CurveGroup* cg,
 	for(int l=0; l<curves.count(); l++)
 	  {
 	    int tag = curves[l].tag;
-	    if (tag == Global::tag())
+	    //if (tag == Global::tag())
+	    if (ptag == -1 || ptag == tag)
 	      {
 		if (curves[l].closed)
 		  {
@@ -3011,7 +3014,8 @@ ImageWidget::paintUsingCurves(CurveGroup* cg,
 void
 ImageWidget::paintUsingCurves(int slctype,
 			      int slc, int wd, int ht,
-			      uchar *maskData)
+			      uchar *maskData,
+			      int tag)
 {
   CurveGroup *cg;
   if (slctype == DSlice)
@@ -3023,7 +3027,8 @@ ImageWidget::paintUsingCurves(int slctype,
 
   paintUsingCurves(cg,
 		   slc, wd, ht,
-		   maskData);
+		   maskData,
+		   tag);
 }
 
 void
@@ -3042,7 +3047,8 @@ ImageWidget::paintUsingCurves(uchar *maskData)
 
   paintUsingCurves(cg,
 		   m_currSlice, m_imgWidth, m_imgHeight,
-		   maskData);
+		   maskData,
+		   Global::tag());
 
 //  QImage pimg= QImage(m_imgWidth, m_imgHeight, QImage::Format_RGB32);
 //  pimg.fill(0);

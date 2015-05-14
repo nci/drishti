@@ -1265,7 +1265,7 @@ MorphCurve::getAllPerimeters(QList<Perimeter> perimeters,
     }
 
   QProgressDialog progress(QString("Morphing Curves"),
-			   "",
+			   QString(),
 			   0, 100,
 			   0);
   progress.setMinimumDuration(0);

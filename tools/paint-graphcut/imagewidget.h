@@ -95,7 +95,7 @@ class ImageWidget : public QWidget
   void zoomDown();
   void setPointSize(int);
 
-  void paintUsingCurves(int, int, int, int, uchar*);
+  void paintUsingCurves(int, int, int, int, uchar*, int);
 
   void modifyUsingLivewire();
   void freezeModifyUsingLivewire();
@@ -240,7 +240,7 @@ class ImageWidget : public QWidget
   void applyRecursive(int);
   void checkRecursive();
   
-  void paintUsingCurves(CurveGroup*, int, int, int, uchar*);
+  void paintUsingCurves(CurveGroup*, int, int, int, uchar*, int);
   void paintUsingCurves(uchar*);
 
   void saveCurves(QFile*, CurveGroup*);

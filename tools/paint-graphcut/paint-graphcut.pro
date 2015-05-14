@@ -56,7 +56,10 @@ HEADERS += commonqtclasses.h \
 	graphcut/graph.h \
 	graphcut/graphcut.h \
 	graphcut/block.h \
-	graphcut/point.h
+	graphcut/point.h \
+	ply.h \
+	lookuptable.h \
+	marchingcubes.h
 
 
 SOURCES += drishtipaint.cpp \
@@ -88,4 +91,6 @@ SOURCES += drishtipaint.cpp \
 	volumefilemanager.cpp \
 	volumemask.cpp \
 	graphcut/graph.cpp \
-	graphcut/graphcut.cpp
+	graphcut/graphcut.cpp \
+	ply.c \
+	marchingcubes.cpp

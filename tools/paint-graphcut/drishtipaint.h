@@ -33,6 +33,7 @@ class DrishtiPaint : public QMainWindow
   void on_actionSave_Curves_triggered();
   void on_actionExit_triggered();
   void on_actionExtractTag_triggered();
+  void on_actionMeshTag_triggered();
   void on_actionCurves_triggered();
   void on_actionGraphCut_triggered();
   void on_butZ_clicked();

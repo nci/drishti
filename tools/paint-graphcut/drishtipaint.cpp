@@ -1644,6 +1644,8 @@ DrishtiPaint::on_actionExtractTag_triggered()
 
   //----------------------------------
   uchar *curveMask = new uchar[tdepth*twidth*theight];
+  memset(curveMask, 0, tdepth*twidth*theight);
+
   {
     uchar *mask = new uchar[width*height]; 
     for(int d=minDSlice; d<=maxDSlice; d++)
@@ -1657,10 +1659,10 @@ DrishtiPaint::on_actionExtractTag_triggered()
 	for(int w=minWSlice; w<=maxWSlice; w++)
 	  for(int h=minHSlice; h<=maxHSlice; h++)
 	    {
-	      if (mask[w*height+h] == 0)
+	      if (mask[w*height+h] > 0)
 		curveMask[(d-minDSlice)*twidth*theight +
 			  (w-minWSlice)*theight +
-			  (h-minHSlice)] = 127;
+			  (h-minHSlice)] = mask[w*height+h];
 	    }
     }
     delete [] mask;
@@ -1678,10 +1680,10 @@ DrishtiPaint::on_actionExtractTag_triggered()
 	for(int d=minDSlice; d<=maxDSlice; d++)
 	  for(int h=minHSlice; h<=maxHSlice; h++)
 	    {
-	      if (mask[d*height+h] == 0)
+	      if (mask[d*height+h] > 0)
 		curveMask[(d-minDSlice)*twidth*theight +
 			  (w-minWSlice)*theight +
-			  (h-minHSlice)] = 127;
+			  (h-minHSlice)] = mask[d*height+h];
 	    }
     }
     delete [] mask;
@@ -1699,10 +1701,10 @@ DrishtiPaint::on_actionExtractTag_triggered()
 	for(int d=minDSlice; d<=maxDSlice; d++)
 	  for(int w=minWSlice; w<=maxWSlice; w++)
 	    {
-	      if (mask[d*width+w] == 0)
+	      if (mask[d*width+w] > 0)
 		curveMask[(d-minDSlice)*twidth*theight +
 			  (w-minWSlice)*theight +
-			  (h-minHSlice)] = 127;
+			  (h-minHSlice)] = mask[d*width+w];
 	    }
     }
     delete [] mask;
@@ -1743,16 +1745,12 @@ DrishtiPaint::on_actionExtractTag_triggered()
 
       //-----------------------------
       // apply curve mask
-//      for(int i=0; i<nbytes; i++)
-//	if (mask[i] == 0)
-//	  raw[i] = 127;
-
       for(int w=minWSlice; w<=maxWSlice; w++)
 	for(int h=minHSlice; h<=maxHSlice; h++)
 	  {
 	    if (curveMask[slc*twidth*theight +
 			  (w-minWSlice)*theight +
-			  (h-minHSlice)] == 127)
+			  (h-minHSlice)] > 0)
 	      raw[w*height+h] = 127;
 	  }
       //-----------------------------

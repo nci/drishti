@@ -133,6 +133,7 @@ Viewer::drawMMDCurve()
 	  float g = Global::tagColors()[4*tag+1]*1.0/255.0;
 	  float b = Global::tagColors()[4*tag+2]*1.0/255.0;
 	  glColor3f(r,g,b);
+	  glLineWidth(curves[j]->thickness);
 	  glBegin(GL_LINE_STRIP);
 	  for(int k=0; k<curves[j]->pts.count(); k++)
 	    glVertex3f(curves[j]->pts[k].x(),
@@ -163,6 +164,7 @@ Viewer::drawMMWCurve()
 	  float g = Global::tagColors()[4*tag+1]*1.0/255.0;
 	  float b = Global::tagColors()[4*tag+2]*1.0/255.0;
 	  glColor3f(r,g,b);
+	  glLineWidth(curves[j]->thickness);
 	  glBegin(GL_LINE_STRIP);
 	  for(int k=0; k<curves[j]->pts.count(); k++)
 	    glVertex3f(curves[j]->pts[k].x(),
@@ -193,6 +195,7 @@ Viewer::drawMMHCurve()
 	  float g = Global::tagColors()[4*tag+1]*1.0/255.0;
 	  float b = Global::tagColors()[4*tag+2]*1.0/255.0;
 	  glColor3f(r,g,b);
+	  glLineWidth(curves[j]->thickness);
 	  glBegin(GL_LINE_STRIP);
 	  for(int k=0; k<curves[j]->pts.count(); k++)
 	    glVertex3f(cgkeys[i],
@@ -225,6 +228,7 @@ Viewer::drawLMDCurve()
 	  float g = Global::tagColors()[4*tag+1]*1.0/255.0;
 	  float b = Global::tagColors()[4*tag+2]*1.0/255.0;
 	  glColor3f(r,g,b);
+	  glLineWidth(c.thickness);
 	  glBegin(GL_LINE_STRIP);
 	  for(int k=0; k<c.pts.count(); k++)
 	    glVertex3f(c.pts[k].x(),
@@ -257,6 +261,7 @@ Viewer::drawLMWCurve()
 	  float g = Global::tagColors()[4*tag+1]*1.0/255.0;
 	  float b = Global::tagColors()[4*tag+2]*1.0/255.0;
 	  glColor3f(r,g,b);
+	  glLineWidth(c.thickness);
 	  glBegin(GL_LINE_STRIP);
 	  for(int k=0; k<c.pts.count(); k++)
 	    glVertex3f(c.pts[k].x(),
@@ -290,6 +295,7 @@ Viewer::drawLMHCurve()
 	  float g = Global::tagColors()[4*tag+1]*1.0/255.0;
 	  float b = Global::tagColors()[4*tag+2]*1.0/255.0;
 	  glColor3f(r,g,b);
+	  glLineWidth(c.thickness);
 	  glBegin(GL_LINE_STRIP);
 	  for(int k=0; k<c.pts.count(); k++)
 	    glVertex3f(cgkeys[j],

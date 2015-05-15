@@ -425,10 +425,7 @@ PruneHandler::setPruneBuffer(QByteArray cpb, bool compressed)
 {
   m_mopActive = true;
   QByteArray pb;
-//  if (compressed)
-//    pb = qUncompress(cpb);
-//  else
-    pb = cpb;
+  pb = cpb;
 
   uchar *pbdata = new uchar[4*m_dtexX*m_dtexY];
   memcpy(pbdata, (uchar*)pb.data(), pb.count());

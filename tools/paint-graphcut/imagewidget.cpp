@@ -2941,8 +2941,7 @@ ImageWidget::paintUsingCurves(CurveGroup* cg,
   QImage pimg= QImage(wd, ht, QImage::Format_RGB32);
   pimg.fill(0);
   QPainter p(&pimg);
-  p.setBrush(Qt::white); 
-	
+
   { // normal curves
     QList<Curve*> curves;
     curves = cg->getCurvesAt(slc);
@@ -2952,17 +2951,17 @@ ImageWidget::paintUsingCurves(CurveGroup* cg,
 	for(int l=0; l<curves.count(); l++)
 	  {
 	    int tag = curves[l]->tag;
-	    //if (tag == Global::tag())
 	    if (ptag == -1 || ptag == tag)
 	      {
+		p.setBrush(QColor(tag, 255, 255)); 
 		if (curves[l]->closed)
 		  {
-		    p.setPen(QPen(Qt::white, 1));
+		    p.setPen(QPen(QColor(tag, 255, 255), 1));
 		    p.drawPolygon(curves[l]->pts);
 		  }
 		else
 		  {
-		    p.setPen(QPen(Qt::white, curves[l]->thickness,
+		    p.setPen(QPen(QColor(tag, 255, 255), curves[l]->thickness,
 				  Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
 		    p.drawPolyline(curves[l]->pts);
 		  }
@@ -2977,22 +2976,20 @@ ImageWidget::paintUsingCurves(CurveGroup* cg,
 
     if (curves.count() > 0)
       {
-	p.setPen(QPen(Qt::white, 1));
-	p.setBrush(Qt::white); 
 	for(int l=0; l<curves.count(); l++)
 	  {
 	    int tag = curves[l].tag;
-	    //if (tag == Global::tag())
 	    if (ptag == -1 || ptag == tag)
 	      {
+		p.setBrush(QColor(tag, 255, 255)); 
 		if (curves[l].closed)
 		  {
-		    p.setPen(QPen(Qt::white, 1));
+		    p.setPen(QPen(QColor(tag, 255, 255), 1));
 		    p.drawPolygon(curves[l].pts);
 		  }
 		else
 		  {
-		    p.setPen(QPen(Qt::white, curves[l].thickness,
+		    p.setPen(QPen(QColor(tag, 255, 255), curves[l].thickness,
 				  Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
 		    p.drawPolyline(curves[l].pts);
 		  }
@@ -3005,10 +3002,9 @@ ImageWidget::paintUsingCurves(CurveGroup* cg,
 //  lbl->setPixmap(QPixmap::fromImage(pimg));
 //  lbl->show();
 
-  uchar *bits = pimg.bits();
+  QRgb *rgb = (QRgb*)(pimg.bits());
   for(int i=0; i<wd*ht; i++)
-    if (bits[4*i+0] == 0)
-      maskData[i] = 200;
+    maskData[i] = qRed(rgb[i]);
 }
 
 void
@@ -3049,82 +3045,6 @@ ImageWidget::paintUsingCurves(uchar *maskData)
 		   m_currSlice, m_imgWidth, m_imgHeight,
 		   maskData,
 		   Global::tag());
-
-//  QImage pimg= QImage(m_imgWidth, m_imgHeight, QImage::Format_RGB32);
-//  pimg.fill(0);
-//  QPainter p(&pimg);
-//  p.setBrush(Qt::white); 
-//	
-//  {
-//    QList<Curve*> curves;
-//    if (m_sliceType == DSlice)
-//      curves = m_dCurves.getCurvesAt(m_currSlice);
-//    else if (m_sliceType == WSlice)
-//      curves = m_wCurves.getCurvesAt(m_currSlice);
-//    else
-//      curves = m_hCurves.getCurvesAt(m_currSlice);
-//    
-//    if (curves.count() > 0)
-//      {
-//	for(int l=0; l<curves.count(); l++)
-//	  {
-//	    int tag = curves[l]->tag;
-//	    if (tag == Global::tag())
-//	      {
-//		if (curves[l]->closed)
-//		  {
-//		    p.setPen(QPen(Qt::white, 1));
-//		    p.drawPolygon(curves[l]->pts);
-//		  }
-//		else
-//		  {
-//		    p.setPen(QPen(Qt::white, curves[l]->thickness,
-//				  Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-//		    p.drawPolyline(curves[l]->pts);
-//		  }
-//	      }
-//	  }
-//      }
-//  }
-//
-//  {
-//    QList<Curve> curves;
-//    if (m_sliceType == DSlice)
-//      curves = m_dCurves.getMorphedCurvesAt(m_currSlice);
-//    else if (m_sliceType == WSlice)
-//      curves = m_wCurves.getMorphedCurvesAt(m_currSlice);
-//    else
-//      curves = m_hCurves.getMorphedCurvesAt(m_currSlice);
-//
-//    if (curves.count() > 0)
-//      {
-//	p.setPen(QPen(Qt::white, 1));
-//	p.setBrush(Qt::white); 
-//	for(int l=0; l<curves.count(); l++)
-//	  {
-//	    int tag = curves[l].tag;
-//	    if (tag == Global::tag())
-//	      {
-//		if (curves[l].closed)
-//		  {
-//		    p.setPen(QPen(Qt::white, 1));
-//		    p.drawPolygon(curves[l].pts);
-//		  }
-//		else
-//		  {
-//		    p.setPen(QPen(Qt::white, curves[l].thickness,
-//				  Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-//		    p.drawPolyline(curves[l].pts);
-//		  }
-//	      }
-//	  }
-//      }
-//  }
-//
-//  uchar *bits = pimg.bits();
-//  for(int i=0; i<m_imgWidth*m_imgHeight; i++)
-//    if (bits[4*i+0] == 0)
-//      maskData[i] = 200;
 }
 
 void
@@ -3228,7 +3148,7 @@ ImageWidget::applyGraphCut()
     for(int j=jmin; j<=jmax; j++)
       {
 	// limit graphcut output within the bounding curve
-	if (imageData[i*m_imgWidth+j] == 0)
+	if (imageData[i*m_imgWidth+j] > 0)
 	  m_tags[i*m_imgWidth+j] = maskData[idx];
 	idx++;
       }
@@ -3404,8 +3324,8 @@ ImageWidget::applyPaint(bool keepTags)
       memset(mask, 0, m_imgWidth*m_imgHeight);
       paintUsingCurves(mask);
       // overwrite within bounding box with usertags
-      int chkval = 0;
-      if (m_extraPressed) chkval = 200;
+      int chkval = Global::tag();
+      if (m_extraPressed) chkval = 0;
 
       if (!keepTags)
 	{

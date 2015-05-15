@@ -1352,7 +1352,7 @@ DrishtiPaint::applyMaskOperation(int tag,
   if (smoothType == 2) mesg = "Eroding";
   //----------------
   QProgressDialog progress(QString("%1 tagged(%2) region").arg(mesg).arg(tag),
-			   "",
+			   QString(),
 			   0, 100,
 			   0);
   progress.setMinimumDuration(0);
@@ -1634,7 +1634,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
   tFile.createFile(true, false);
 
   QProgressDialog progress(QString("Extracting tagged(%1) region from volume data").arg(tag),
-			   "",
+			   QString(),
 			   0, 100,
 			   0);
   progress.setMinimumDuration(0);
@@ -1875,6 +1875,8 @@ DrishtiPaint::on_actionMeshTag_triggered()
 
   //----------------------------------
   uchar *curveMask = new uchar[tdepth*twidth*theight];
+  memset(curveMask, 0, tdepth*twidth*theight);
+
   {
     uchar *mask = new uchar[width*height]; 
     for(int d=minDSlice; d<=maxDSlice; d++)
@@ -1888,10 +1890,10 @@ DrishtiPaint::on_actionMeshTag_triggered()
 	for(int w=minWSlice; w<=maxWSlice; w++)
 	  for(int h=minHSlice; h<=maxHSlice; h++)
 	    {
-	      if (mask[w*height+h] == 0)
+	      if (mask[w*height+h] > 0)
 		curveMask[(d-minDSlice)*twidth*theight +
 			  (w-minWSlice)*theight +
-			  (h-minHSlice)] = 127;
+			  (h-minHSlice)] = mask[w*height+h];
 	    }
     }
     delete [] mask;
@@ -1909,10 +1911,10 @@ DrishtiPaint::on_actionMeshTag_triggered()
 	for(int d=minDSlice; d<=maxDSlice; d++)
 	  for(int h=minHSlice; h<=maxHSlice; h++)
 	    {
-	      if (mask[d*height+h] == 0)
+	      if (mask[d*height+h] > 0)
 		curveMask[(d-minDSlice)*twidth*theight +
 			  (w-minWSlice)*theight +
-			  (h-minHSlice)] = 127;
+			  (h-minHSlice)] = mask[d*height+h];
 	    }
     }
     delete [] mask;
@@ -1930,10 +1932,10 @@ DrishtiPaint::on_actionMeshTag_triggered()
 	for(int d=minDSlice; d<=maxDSlice; d++)
 	  for(int w=minWSlice; w<=maxWSlice; w++)
 	    {
-	      if (mask[d*width+w] == 0)
+	      if (mask[d*width+w] > 0)
 		curveMask[(d-minDSlice)*twidth*theight +
 			  (w-minWSlice)*theight +
-			  (h-minHSlice)] = 127;
+			  (h-minHSlice)] = mask[d*width+w];
 	    }
     }
     delete [] mask;
@@ -1948,28 +1950,28 @@ DrishtiPaint::on_actionMeshTag_triggered()
       progress.setValue((int)(100*(float)slc/(float)tdepth));
       qApp->processEvents();
 
-      uchar *slice = m_volume->getDepthSliceImage(d);
-      // we get value+grad from volume
-      // we need only value part
-      int i=0;
-      for(int w=minWSlice; w<=maxWSlice; w++)
-	for(int h=minHSlice; h<=maxHSlice; h++)
-	  {
-	    slice[i] = slice[2*(w*height+h)];
-	    i++;
-	  }
+//      uchar *slice = m_volume->getDepthSliceImage(d);
+//      // we get value+grad from volume
+//      // we need only value part
+//      int i=0;
+//      for(int w=minWSlice; w<=maxWSlice; w++)
+//	for(int h=minHSlice; h<=maxHSlice; h++)
+//	  {
+//	    slice[i] = slice[2*(w*height+h)];
+//	    i++;
+//	  }
 
       memcpy(raw, m_volume->getMaskDepthSliceImage(d), nbytes);
 
-      if (tag > -1)
+      if (tag > 0)
 	{
 	  for(int i=0; i<nbytes; i++)
-	    raw[i] = (raw[i] == tag ? 127 : 0);
+	    raw[i] = (raw[i] == tag ? 0 : 255);
 	}
       else
 	{
 	  for(int i=0; i<nbytes; i++)
-	    raw[i] = (raw[i] > 0 ? 127 : 0);
+	    raw[i] = (raw[i] > 0 ? 0 : 255);
 	}
 
       //-----------------------------
@@ -1979,8 +1981,8 @@ DrishtiPaint::on_actionMeshTag_triggered()
 	  {
 	    if (curveMask[slc*twidth*theight +
 			  (w-minWSlice)*theight +
-			  (h-minHSlice)] == 127)
-	      raw[w*height+h] = 127;
+			  (h-minHSlice)] > 0)
+	      raw[w*height+h] = 0;
 	  }
       //-----------------------------
 
@@ -2009,7 +2011,7 @@ DrishtiPaint::on_actionMeshTag_triggered()
 //	  tFile.setSlice(slc, raw);
 //	}
 
-      i=0;
+      int i=0;
       for(int w=minWSlice; w<=maxWSlice; w++)
 	for(int h=minHSlice; h<=maxHSlice; h++)
 	  {
@@ -2025,6 +2027,10 @@ DrishtiPaint::on_actionMeshTag_triggered()
 
   progress.setValue(100);  
 
+//  smoothData(meshingData,
+//	     tdepth, twidth, theight,
+//	     1);
+
   MarchingCubes mc;
   mc.set_resolution(theight, twidth, tdepth);
   mc.set_ext_data(meshingData);
@@ -2036,3 +2042,96 @@ DrishtiPaint::on_actionMeshTag_triggered()
 
   QMessageBox::information(0, "Save", "-----Done-----");
 }
+
+void
+DrishtiPaint::smoothData(uchar *gData,
+			 int nX, int nY, int nZ,
+			 int spread)
+{
+  QProgressDialog progress("Smoothing data ...",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+  uchar *tmp = new uchar[qMax(nX, qMax(nY, nZ))];
+
+  for(int k=0; k<nX; k++)
+    {
+      progress.setValue((int)(100.0*(float)k/(float)(nX)));
+      qApp->processEvents();
+
+      for(int j=0; j<nY; j++)
+	{
+	  memset(tmp, 0, nZ);
+	  for(int i=0; i<nZ; i++)
+	    {
+	      float v = 0.0f;
+	      int nt = 0;
+	      for(int i0=qMax(0,i-spread); i0<=qMin(nZ-1,i+spread); i0++)
+		{
+		  nt++;
+		  v += gData[k*nY*nZ + j*nZ + i0];
+		}
+	      tmp[i] = v/nt;
+	    }
+	  
+	  for(int i=0; i<nZ; i++)
+	    gData[k*nY*nZ + j*nZ + i] = tmp[i];
+	}
+    }
+
+
+  for(int k=0; k<nX; k++)
+    {
+      progress.setValue((int)(100.0*(float)k/(float)(nX)));
+      qApp->processEvents();
+
+      for(int i=0; i<nZ; i++)
+	{
+	  memset(tmp, 0, nY);
+	  for(int j=0; j<nY; j++)
+	    {
+	      float v = 0.0f;
+	      int nt = 0;
+	      for(int j0=qMax(0,j-spread); j0<=qMin(nY-1,j+spread); j0++)
+		{
+		  nt++;
+		  v += gData[k*nY*nZ + j0*nZ + i];
+		}
+	      tmp[j] = v/nt;
+	    }	  
+	  for(int j=0; j<nY; j++)
+	    gData[k*nY*nZ + j*nZ + i] = tmp[j];
+	}
+    }
+  
+  for(int j=0; j<nY; j++)
+    {
+      progress.setValue((int)(100.0*(float)j/(float)(nY)));
+      qApp->processEvents();
+
+      for(int i=0; i<nZ; i++)
+	{
+	  memset(tmp, 0, nX);
+	  for(int k=0; k<nX; k++)
+	    {
+	      float v = 0.0f;
+	      int nt = 0;
+	      for(int k0=qMax(0,k-spread); k0<=qMin(nX-1,k+spread); k0++)
+		{
+		  nt++;
+		  v += gData[k0*nY*nZ + j*nZ + i];
+		}
+	      tmp[k] = v/nt;
+	    }
+	  for(int k=0; k<nX; k++)
+	    gData[k*nY*nZ + j*nZ + i] = tmp[k];
+	}
+    }
+  
+  delete [] tmp;
+
+  progress.setValue(100);
+}
+

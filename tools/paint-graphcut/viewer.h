@@ -17,6 +17,8 @@ class Viewer : public QGLViewer
   void setMultiMapCurves(int, QMultiMap<int, Curve*>*);
   void setListMapCurves(int, QList< QMap<int, Curve> >*);
 
+  void keyPressEvent(QKeyEvent*);
+
  private :
   int m_depth, m_width, m_height;
 

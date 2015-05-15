@@ -102,6 +102,7 @@ void MarchingCubes::run( real iso )
   compute_intersection_points( iso ) ;
 
   QProgressDialog progress("Mesh Generation : Generating triangles", QString(), 0, 100);
+  progress.setMinimumDuration(0);
 
   for( _k = 0 ; _k < _size_z-1 ; _k++ )
     {
@@ -131,6 +132,17 @@ void MarchingCubes::run( real iso )
 	    process_cube( ) ;
 	  }
     }
+
+//  //-----------------------
+//  // flip the normals
+//  for (int i = 0; i < _nverts; i++ )
+//    {
+//      _vertices[i].nx = - _vertices[i].nx;
+//      _vertices[i].ny = - _vertices[i].ny;
+//      _vertices[i].nz = - _vertices[i].nz;
+//    }
+//  //-----------------------
+  
   progress.setValue(100);
 }
 //_____________________________________________________________________________
@@ -228,6 +240,7 @@ void MarchingCubes::compute_intersection_points( real iso )
 //-----------------------------------------------------------------------------
 {
   QProgressDialog progress("Mesh Generation : Compute intersection points", QString(), 0, 100);
+  progress.setMinimumDuration(0);
 
   for( _k = 0 ; _k < _size_z ; _k++ )
     {
@@ -865,12 +878,12 @@ real MarchingCubes::get_x_grad( const int i, const int j, const int k ) const
   if( i > 0 )
   {
     if ( i < _size_x - 1 )
-      return ( get_data( i+1, j, k ) - get_data( i-1, j, k ) ) / 2 ;
+      return (get_data(i+1, j, k) - get_data(i-1, j, k))/2 ;
     else
-      return get_data( i, j, k ) - get_data( i-1, j, k ) ;
+      return (get_data(i, j, k) - get_data(i-1, j, k)) ;
   }
   else
-    return get_data( i+1, j, k ) - get_data( i, j, k ) ;
+    return (get_data(i+1, j, k) - get_data(i, j, k)) ;
 }
 //-----------------------------------------------------------------------------
 
@@ -882,10 +895,10 @@ real MarchingCubes::get_y_grad( const int i, const int j, const int k ) const
     if ( j < _size_y - 1 )
       return ( get_data( i, j+1, k ) - get_data( i, j-1, k ) ) / 2 ;
     else
-      return get_data( i, j, k ) - get_data( i, j-1, k ) ;
+      return (get_data( i, j, k ) - get_data( i, j-1, k )) ;
   }
   else
-    return get_data( i, j+1, k ) - get_data( i, j, k ) ;
+    return (get_data( i, j+1, k ) - get_data( i, j, k )) ;
 }
 //-----------------------------------------------------------------------------
 
@@ -897,10 +910,10 @@ real MarchingCubes::get_z_grad( const int i, const int j, const int k ) const
     if ( k < _size_z - 1 )
       return ( get_data( i, j, k+1 ) - get_data( i, j, k-1 ) ) / 2 ;
     else
-      return get_data( i, j, k ) - get_data( i, j, k-1 ) ;
+      return (get_data( i, j, k ) - get_data( i, j, k-1 )) ;
   }
   else
-    return get_data( i, j, k+1 ) - get_data( i, j, k ) ;
+    return (get_data( i, j, k+1 ) - get_data( i, j, k )) ;
 }
 //_____________________________________________________________________________
 

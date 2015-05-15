@@ -138,6 +138,8 @@ class DrishtiPaint : public QMainWindow
   void smooth(int, int, uchar**, uchar*, int, int, int);
 
   void savePvlHeader(QString, QString, int, int, int, bool);
+
+  void smoothData(uchar*, int, int ,int, int);
 };
 
 #endif

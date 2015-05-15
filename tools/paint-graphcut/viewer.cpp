@@ -17,6 +17,15 @@ Viewer::init()
 }
 
 void
+Viewer::keyPressEvent(QKeyEvent *event)
+{
+  if (event->key() == Qt::Key_Escape)
+    return;
+
+  QGLViewer::keyPressEvent(event);
+}
+
+void
 Viewer::setGridSize(int d, int w, int h)
 {
   m_depth = d;

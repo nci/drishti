@@ -1791,7 +1791,6 @@ DrishtiPaint::on_actionMeshTag_triggered()
 {
   QStringList dtypes;
   int tag;
-  bool saveImageData;
 
   bool ok;
   //----------------
@@ -1805,29 +1804,26 @@ DrishtiPaint::on_actionMeshTag_triggered()
   //----------------
 
   //----------------
-  saveImageData = true;
-//  if (tag > -1)
-//    {
-//      dtypes.clear();
-//      dtypes << "Image Data"
-//	     << "Tags Data";
-//      QString option = QInputDialog::getItem(0,
-//					     "Save",
-//					     "Save Image Data or Mask Tags ?",
-//					     dtypes,
-//					     0,
-//					     false,
-//					     &ok);
-//      if (!ok)
-//	return;
-//      
-//      if (option == "Tags Data")
-//	{
-//	  saveImageData = false;
-//	  QMessageBox::information(0, "Save Tag",
-//   QString("Tag value %1 will be saved as 127 for ease of visualization.").arg(tag));
-//	}
-//    }
+  int colorType = 1; // apply tag colors 
+  dtypes.clear();
+  dtypes << "Tag Color"
+	 << "Transfer Function Color"
+	 << "Tag Color + Transfer Function Color"
+	 << "No Color";
+  QString option = QInputDialog::getItem(0,
+					 "Mesh Color",
+					 "Color Mesh with",
+					 dtypes,
+					 0,
+					 false,
+					 &ok);
+  if (!ok)
+    return;
+  
+  if (option == "Tag Color") colorType = 1;
+  else if (option == "Transfer Function Color") colorType = 2;
+  else if (option == "Tag Color + Transfer Function Color") colorType = 3;
+  else colorType = 0;
   //----------------
 
   int depth, width, height;
@@ -1945,17 +1941,6 @@ DrishtiPaint::on_actionMeshTag_triggered()
       progress.setValue((int)(100*(float)slc/(float)tdepth));
       qApp->processEvents();
 
-//      uchar *slice = m_volume->getDepthSliceImage(d);
-//      // we get value+grad from volume
-//      // we need only value part
-//      int i=0;
-//      for(int w=minWSlice; w<=maxWSlice; w++)
-//	for(int h=minHSlice; h<=maxHSlice; h++)
-//	  {
-//	    slice[i] = slice[2*(w*height+h)];
-//	    i++;
-//	  }
-
       memcpy(mask, m_volume->getMaskDepthSliceImage(d), nbytes);
             
       if (tag > 0)
@@ -2018,12 +2003,16 @@ DrishtiPaint::on_actionMeshTag_triggered()
   mc.init_all();
   mc.run(64);
 
-  saveMesh(tflnm,
-	   &mc,
-	   curveMask,
-	   minHSlice, minWSlice, minDSlice,
-	   theight, twidth, tdepth);
-
+  if (colorType > 0)
+    saveMesh(colorType,
+	     tflnm,
+	     &mc,
+	     curveMask,
+	     minHSlice, minWSlice, minDSlice,
+	     theight, twidth, tdepth);
+  else
+    mc.writePLY(tflnm.toLatin1().data(), true);
+  
   mc.clean_all();
 
   delete [] meshingData;
@@ -2125,7 +2114,8 @@ DrishtiPaint::smoothData(uchar *gData,
 }
 
 void
-DrishtiPaint::saveMesh(QString flnm,
+DrishtiPaint::saveMesh(int colorType,
+		       QString flnm,
 		       MarchingCubes *mc,
 		       uchar *tagdata,
 		       int minHSlice, int minWSlice, int minDSlice,
@@ -2231,6 +2221,8 @@ DrishtiPaint::saveMesh(QString flnm,
   /* set up and write the PlyVertex elements */
   put_element_setup_ply ( ply, plyStrings[10] );
 
+  uchar *lut = Global::lut();
+
   for(int ni=0; ni<nvertices; ni++)
     {
       if (ni%1000 == 0)
@@ -2258,16 +2250,36 @@ DrishtiPaint::saveMesh(QString flnm,
 	    tag = qMax(tag, (int)tagdata[dd*twidth*theight +
 				    ww*theight + hh]);
  
-      QList<uchar> val = m_volume->rawValue(d,w,h);
-      
-      uchar r = Global::tagColors()[4*tag+0];
-      uchar g = Global::tagColors()[4*tag+1];
-      uchar b = Global::tagColors()[4*tag+2];
+      uchar r,g,b;
 
-      float vscl = 0.5 + 0.5*((float)val[0]/255.0);
-      r *= vscl;
-      g *= vscl;
-      b *= vscl;
+      if (colorType == 1) // apply tag colors
+	{
+	  r = Global::tagColors()[4*tag+0];
+	  g = Global::tagColors()[4*tag+1];
+	  b = Global::tagColors()[4*tag+2];
+	}
+      else if (colorType == 2) // apply transfer function colors
+	{
+	  QList<uchar> val = m_volume->rawValue(d+minDSlice,
+						w+minWSlice,
+						h+minHSlice);     
+	  r =  lut[4*val[0]+2];
+	  g =  lut[4*val[0]+1];
+	  b =  lut[4*val[0]+0];
+	}
+      else // merge tag and transfer function colors
+	{
+	  r = Global::tagColors()[4*tag+0];
+	  g = Global::tagColors()[4*tag+1];
+	  b = Global::tagColors()[4*tag+2];
+
+	  QList<uchar> val = m_volume->rawValue(d+minDSlice,
+						w+minWSlice,
+						h+minHSlice);     
+	  r = 0.5*r + 0.5*lut[4*val[0]+2];
+	  g = 0.5*g + 0.5*lut[4*val[0]+1];
+	  b = 0.5*b + 0.5*lut[4*val[0]+0];
+	}
 
       vertex.r = r;
       vertex.g = g;

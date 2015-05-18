@@ -144,7 +144,8 @@ class DrishtiPaint : public QMainWindow
 
   void smoothData(uchar*, int, int ,int, int);
 
-  void saveMesh(QString,
+  void saveMesh(int,
+		QString,
 		MarchingCubes*,
 		uchar*,
 		int, int, int,

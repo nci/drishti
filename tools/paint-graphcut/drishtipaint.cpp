@@ -7,8 +7,6 @@
 #include <QInputDialog>
 #include <QScrollArea>
 
-#include "marchingcubes.h"
-
 void
 DrishtiPaint::initTagColors()
 {
@@ -1865,9 +1863,6 @@ DrishtiPaint::on_actionMeshTag_triggered()
 			   0);
   progress.setMinimumDuration(0);
 
-  int nbytes = width*height;
-  uchar *raw = new uchar[nbytes];
-
   uchar *meshingData = new uchar[tdepth*twidth*theight];
   memset(meshingData, 0, tdepth*twidth*theight);
 
@@ -1941,7 +1936,9 @@ DrishtiPaint::on_actionMeshTag_triggered()
 
   //----------------------------------
 
-
+  int nbytes = width*height;
+  uchar *raw = new uchar[width*height];
+  uchar *mask = new uchar[width*height]; 
   for(int d=minDSlice; d<=maxDSlice; d++)
     {
       int slc = d-minDSlice;
@@ -1959,17 +1956,17 @@ DrishtiPaint::on_actionMeshTag_triggered()
 //	    i++;
 //	  }
 
-      memcpy(raw, m_volume->getMaskDepthSliceImage(d), nbytes);
-
+      memcpy(mask, m_volume->getMaskDepthSliceImage(d), nbytes);
+            
       if (tag > 0)
 	{
 	  for(int i=0; i<nbytes; i++)
-	    raw[i] = (raw[i] == tag ? 0 : 255);
+	    raw[i] = (mask[i] == tag ? 0 : 255);
 	}
       else
 	{
 	  for(int i=0; i<nbytes; i++)
-	    raw[i] = (raw[i] > 0 ? 0 : 255);
+	    raw[i] = (mask[i] > 0 ? 0 : 255);
 	}
 
       //-----------------------------
@@ -1982,32 +1979,18 @@ DrishtiPaint::on_actionMeshTag_triggered()
 			  (h-minHSlice)] > 0)
 	      raw[w*height+h] = 0;
 	  }
+      // update curveMask using painted mask data
+      for(int w=minWSlice; w<=maxWSlice; w++)
+	for(int h=minHSlice; h<=maxHSlice; h++)
+	  {	    
+	    if (curveMask[slc*twidth*theight +
+			  (w-minWSlice)*theight +
+			  (h-minHSlice)] == 0)
+	      curveMask[slc*twidth*theight +
+			(w-minWSlice)*theight +
+			(h-minHSlice)] = mask[w*height+h];	    
+	  }
       //-----------------------------
-
-//      // now mask data with tag
-//      if (saveImageData)
-//	{
-//	  i=0;
-//	  for(int w=minWSlice; w<=maxWSlice; w++)
-//	    for(int h=minHSlice; h<=maxHSlice; h++)
-//	      {
-//		if (raw[w*height+h] != 127)
-//		  slice[i] = 0;
-//		i++;
-//	      }
-//	  tFile.setSlice(slc, slice);
-//	}
-//      else
-//	{
-//	  i=0;
-//	  for(int w=minWSlice; w<=maxWSlice; w++)
-//	    for(int h=minHSlice; h<=maxHSlice; h++)
-//	      {
-//		raw[i] = raw[w*height+h];
-//		i++;
-//	      }
-//	  tFile.setSlice(slc, raw);
-//	}
 
       int i=0;
       for(int w=minWSlice; w<=maxWSlice; w++)
@@ -2021,7 +2004,7 @@ DrishtiPaint::on_actionMeshTag_triggered()
     }
 
   delete [] raw;
-  delete [] curveMask;
+  delete [] mask;
 
   progress.setValue(100);  
 
@@ -2034,9 +2017,17 @@ DrishtiPaint::on_actionMeshTag_triggered()
   mc.set_ext_data(meshingData);
   mc.init_all();
   mc.run(64);
-  mc.writePLY(tflnm.toLatin1().data(), true);
+
+  saveMesh(tflnm,
+	   &mc,
+	   curveMask,
+	   minHSlice, minWSlice, minDSlice,
+	   theight, twidth, tdepth);
+
   mc.clean_all();
+
   delete [] meshingData;
+  delete [] curveMask;
 
   QMessageBox::information(0, "Save", "-----Done-----");
 }
@@ -2133,3 +2124,176 @@ DrishtiPaint::smoothData(uchar *gData,
   progress.setValue(100);
 }
 
+void
+DrishtiPaint::saveMesh(QString flnm,
+		       MarchingCubes *mc,
+		       uchar *tagdata,
+		       int minHSlice, int minWSlice, int minDSlice,
+		       int theight, int twidth, int tdepth)
+{
+  QProgressDialog progress("Colouring and saving mesh ...",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+  QStringList ps;
+  ps << "x";
+  ps << "y";
+  ps << "z";
+  ps << "nx";
+  ps << "ny";
+  ps << "nz";
+  ps << "red";
+  ps << "green";
+  ps << "blue";
+  ps << "vertex_indices";
+  ps << "vertex";
+  ps << "face";
+
+  QList<char *> plyStrings;
+  for(int i=0; i<ps.count(); i++)
+    {
+      char *s;
+      s = new char[ps[i].size()+1];
+      strcpy(s, ps[i].toLatin1().data());
+      plyStrings << s;
+    }
+
+  int ntriangles = mc->ntrigs();
+  Triangle *triangles = mc->triangles();
+
+  int nvertices = mc->nverts();
+  Vertex *vertices = mc->vertices();
+
+
+  typedef struct PlyFace
+  {
+    unsigned char nverts;    /* number of Vertex indices in list */
+    int *verts;              /* Vertex index list */
+  } PlyFace;
+
+  typedef struct
+  {
+    real  x,  y,  z ;  /**< Vertex coordinates */
+    real nx, ny, nz ;  /**< Vertex normal */
+    uchar r, g, b;
+  } myVertex ;
+
+  PlyProperty vert_props[] = { /* list of property information for a vertex */
+    {plyStrings[0], Float32, Float32, offsetof(myVertex,x), 0, 0, 0, 0},
+    {plyStrings[1], Float32, Float32, offsetof(myVertex,y), 0, 0, 0, 0},
+    {plyStrings[2], Float32, Float32, offsetof(myVertex,z), 0, 0, 0, 0},
+    {plyStrings[3], Float32, Float32, offsetof(myVertex,nx), 0, 0, 0, 0},
+    {plyStrings[4], Float32, Float32, offsetof(myVertex,ny), 0, 0, 0, 0},
+    {plyStrings[5], Float32, Float32, offsetof(myVertex,nz), 0, 0, 0, 0},
+    {plyStrings[6], Uint8, Uint8, offsetof(myVertex,r), 0, 0, 0, 0},
+    {plyStrings[7], Uint8, Uint8, offsetof(myVertex,g), 0, 0, 0, 0},
+    {plyStrings[8], Uint8, Uint8, offsetof(myVertex,b), 0, 0, 0, 0},
+  };
+
+  PlyProperty face_props[] = { /* list of property information for a face */
+    {plyStrings[9], Int32, Int32, offsetof(PlyFace,verts),
+     1, Uint8, Uint8, offsetof(PlyFace,nverts)},
+  };
+
+  PlyFile    *ply;
+  FILE       *fp = fopen(flnm.toLatin1().data(),
+			 bin ? "wb" : "w");
+
+  PlyFace     face ;
+  int         verts[3] ;
+  char       *elem_names[]  = {plyStrings[10], plyStrings[11]};
+  ply = write_ply (fp,
+		   2,
+		   elem_names,
+		   bin? PLY_BINARY_LE : PLY_ASCII );
+
+  /* describe what properties go into the PlyVertex elements */
+  describe_element_ply ( ply, plyStrings[10], nvertices );
+  describe_property_ply ( ply, &vert_props[0] );
+  describe_property_ply ( ply, &vert_props[1] );
+  describe_property_ply ( ply, &vert_props[2] );
+  describe_property_ply ( ply, &vert_props[3] );
+  describe_property_ply ( ply, &vert_props[4] );
+  describe_property_ply ( ply, &vert_props[5] );
+  describe_property_ply ( ply, &vert_props[6] );
+  describe_property_ply ( ply, &vert_props[7] );
+  describe_property_ply ( ply, &vert_props[8] );
+
+  /* describe PlyFace properties (just list of PlyVertex indices) */
+  describe_element_ply ( ply, plyStrings[11], ntriangles );
+  describe_property_ply ( ply, &face_props[0] );
+
+  header_complete_ply ( ply );
+
+
+  /* set up and write the PlyVertex elements */
+  put_element_setup_ply ( ply, plyStrings[10] );
+
+  for(int ni=0; ni<nvertices; ni++)
+    {
+      if (ni%1000 == 0)
+	{
+	  progress.setValue((int)(100.0*(float)ni/(float)(nvertices)));
+	  qApp->processEvents();
+	}
+
+      myVertex vertex;
+      vertex.x = vertices[ni].x;
+      vertex.y = vertices[ni].y;
+      vertex.z = vertices[ni].z;
+      vertex.nx = vertices[ni].nx;
+      vertex.ny = vertices[ni].ny;
+      vertex.nz = vertices[ni].nz;
+
+      // now get color
+      int h = vertex.x;
+      int w = vertex.y;
+      int d = vertex.z;
+      int tag = 0;
+      for(int dd=qMax(d-1, 0); dd<=qMin(tdepth-1,d+1); dd++)
+	for(int ww=qMax(w-1, 0); ww<=qMin(twidth-1,w+1); ww++)
+	  for(int hh=qMax(h-1, 0); hh<=qMin(theight-1,h+1); hh++)
+	    tag = qMax(tag, (int)tagdata[dd*twidth*theight +
+				    ww*theight + hh]);
+ 
+      QList<uchar> val = m_volume->rawValue(d,w,h);
+      
+      uchar r = Global::tagColors()[4*tag+0];
+      uchar g = Global::tagColors()[4*tag+1];
+      uchar b = Global::tagColors()[4*tag+2];
+
+      float vscl = 0.5 + 0.5*((float)val[0]/255.0);
+      r *= vscl;
+      g *= vscl;
+      b *= vscl;
+
+      vertex.r = r;
+      vertex.g = g;
+      vertex.b = b;
+      
+      put_element_ply ( ply, ( void * ) &vertex );
+    }
+
+  /* set up and write the PlyFace elements */
+  put_element_setup_ply ( ply, plyStrings[11] );
+  face.nverts = 3 ;
+  face.verts  = verts ;
+  for(int ni=0; ni<ntriangles; ni++)
+    {      
+      face.verts[0] = triangles[ni].v1;
+      face.verts[1] = triangles[ni].v2;
+      face.verts[2] = triangles[ni].v3;
+      
+      put_element_ply ( ply, ( void * ) &face );
+    }
+
+  close_ply ( ply );
+  free_ply ( ply );
+
+  for(int i=0; i<plyStrings.count(); i++)
+    delete [] plyStrings[i];
+
+  progress.setValue(100);
+}

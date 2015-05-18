@@ -10,6 +10,9 @@
 #include "myslider.h"
 #include "volume.h"
 #include "viewer.h"
+#include "marchingcubes.h"
+#include "ply.h"
+
 
 class DrishtiPaint : public QMainWindow
 {
@@ -140,6 +143,12 @@ class DrishtiPaint : public QMainWindow
   void savePvlHeader(QString, QString, int, int, int, bool);
 
   void smoothData(uchar*, int, int ,int, int);
+
+  void saveMesh(QString,
+		MarchingCubes*,
+		uchar*,
+		int, int, int,
+		int, int, int);
 };
 
 #endif

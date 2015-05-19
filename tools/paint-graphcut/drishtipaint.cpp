@@ -50,20 +50,7 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   setWindowIcon(QPixmap(":/images/drishti_paint_32.png"));
   setWindowTitle(QString("DrishtiPaint v") + QString(DRISHTI_VERSION));
 
-  Global::setBoxSize(5);
-  Global::setSpread(5);
-  Global::setLambda(10);
-  Global::setSmooth(1);
-  Global::setPrevErode(5);
-
-
   ui.menuFile->addSeparator();
-  ui.tag->setValue(Global::tag());
-  ui.boxSize->setValue(Global::boxSize());
-  ui.lambda->setValue(Global::lambda());
-  ui.smooth->setValue(Global::smooth());
-  ui.preverode->setValue(Global::prevErode());
-
 
   for (int i=0; i<Global::maxRecentFiles(); i++)
     {
@@ -108,7 +95,7 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   //----------------------------------------------------------
 
   //----------------------------------------------------------
-    QDockWidget *dockV = new QDockWidget("3D Viewer", this);
+    QDockWidget *dockV = new QDockWidget("3D Preview", this);
   {
     dock1->setAllowedAreas(Qt::LeftDockWidgetArea | 
 			   Qt::RightDockWidgetArea);
@@ -167,6 +154,21 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   ui.lwsettingpanel->setVisible(false);
   ui.closed->setChecked(true);
 
+  Global::setBoxSize(5);
+  Global::setSpread(10);
+  Global::setLambda(10);
+  Global::setSmooth(1);
+  Global::setPrevErode(5);
+
+  ui.tag->setValue(Global::tag());
+  ui.boxSize->setValue(Global::boxSize());
+  ui.lambda->setValue(Global::lambda());
+  ui.radius->setValue(Global::spread());
+  ui.smooth->setValue(Global::smooth());
+  ui.preverode->setValue(Global::prevErode());
+
+
+  //------------------------
   connect(m_tfManager,
 	  SIGNAL(changeTransferFunctionDisplay(int, QList<bool>)),
 	  this,
@@ -258,6 +260,8 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   connect(m_imageWidget, SIGNAL(polygonLevels(QList<int>)),
 	  m_slider, SLOT(polygonLevels(QList<int>)));
   
+  //------------------------
+
 
   loadSettings();
   m_imageWidget->updateTagColors();
@@ -452,7 +456,6 @@ void DrishtiPaint::on_smooth_valueChanged(int d) { Global::setSmooth(d); }
 void DrishtiPaint::on_thickness_valueChanged(int d) { Global::setThickness(d); }
 void DrishtiPaint::on_radius_valueChanged(int d) { Global::setSpread(d); m_imageWidget->update(); }
 void DrishtiPaint::on_pointsize_valueChanged(int d) { m_imageWidget->setPointSize(d); }
-void DrishtiPaint::on_livewire_clicked(bool c) { m_imageWidget->setLivewire(c); }
 void DrishtiPaint::on_closed_clicked(bool c) { Global::setClosed(c); }
 void DrishtiPaint::on_lwsmooth_currentIndexChanged(int i){ m_imageWidget->setSmoothType(i); }
 void DrishtiPaint::on_lwgrad_currentIndexChanged(int i){ m_imageWidget->setGradType(i); }
@@ -467,11 +470,28 @@ void DrishtiPaint::on_zoomdown_clicked() { m_imageWidget->zoomDown(); }
 void DrishtiPaint::on_weightLoG_valueChanged(double d) { m_imageWidget->setWeightLoG(d); }
 void DrishtiPaint::on_weightG_valueChanged(double d) { m_imageWidget->setWeightG(d); }
 void DrishtiPaint::on_weightN_valueChanged(double d) { m_imageWidget->setWeightN(d); }
+
+void
+DrishtiPaint::on_livewire_clicked(bool c)
+{
+  if (!c)
+    {
+      m_imageWidget->freezeModifyUsingLivewire();
+      ui.modify->setChecked(false);
+    }
+
+  m_imageWidget->setLivewire(c);
+}
+
 void
 DrishtiPaint::on_modify_clicked(bool c)
 {
   if (c)
-    m_imageWidget->modifyUsingLivewire();
+    {
+      ui.livewire->setChecked(true);
+      m_imageWidget->setLivewire(true);
+      m_imageWidget->modifyUsingLivewire();
+    }
   else
     m_imageWidget->freezeModifyUsingLivewire();
 }
@@ -703,6 +723,8 @@ DrishtiPaint::setFile(QString filename)
   m_viewer->setMultiMapCurves(2, m_imageWidget->multiMapCurvesH());
   m_viewer->setListMapCurves(2, m_imageWidget->listMapCurvesH());
 
+  m_viewer->setVolDataPtr(m_volume->memVolDataPtr());
+  m_viewer->setMaskDataPtr(m_volume->memMaskDataPtr());
 
   ui.butZ->setChecked(true);
   m_slider->set(0, d-1, 0, d-1, 0);

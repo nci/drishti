@@ -65,6 +65,9 @@ class Volume : public QObject
 		   int, int,
 		   int, int);
   
+  uchar* memVolDataPtr() {return m_pvlFileManager.memVolDataPtr();};
+  uchar* memMaskDataPtr() {return m_mask.memMaskDataPtr();};
+
  signals :
   void progressChanged(int);
   void progressReset();

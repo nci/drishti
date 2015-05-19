@@ -129,7 +129,7 @@ Volume::setFile(QString volfile)
   m_pvlFileManager.setSlabSize(slabSize);
 
   //----------------
-  float inmemGB = 0.3+((float)m_depth*m_width*m_height*2)/((float)1024*1024*1024);
+  float inmemGB = 0.3+((float)m_depth*m_width*m_height*2.5)/((float)1024*1024*1024);
   bool inMem = true;
   bool ok;
   QStringList dtypes;

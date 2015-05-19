@@ -1,5 +1,6 @@
 #include "viewer.h"
 #include "global.h"
+#include <QInputDialog>
 
 void
 Viewer::init()
@@ -14,13 +15,39 @@ Viewer::init()
   m_depth = 0;
   m_width = 0;
   m_height = 0;
+
+  m_maskPtr = 0;
+  m_volPtr = 0;
+  m_pointSkip = 10;
+  m_pointSize = 2;
 }
+
+void Viewer::setMaskDataPtr(uchar *ptr) { m_maskPtr = ptr; }
+void Viewer::setVolDataPtr(uchar *ptr) { m_volPtr = ptr; }
 
 void
 Viewer::keyPressEvent(QKeyEvent *event)
 {
   if (event->key() == Qt::Key_Escape)
     return;
+
+  if (event->key() == Qt::Key_Space)
+    {
+      m_pointSkip = QInputDialog::getInt(this,
+					 "Point Interval",
+					 "Interval for display of points for painted mask",
+					 m_pointSkip, 0, 100);
+      return;
+    }
+
+  if (event->key() == Qt::Key_P)
+    {
+      m_pointSize = QInputDialog::getInt(this,
+					 "Point Size",
+					 "Point size for painted mask",
+					 m_pointSize, 1, 20);
+      return;
+    }
 
   QGLViewer::keyPressEvent(event);
 }
@@ -100,7 +127,6 @@ Viewer::setListMapCurves(int type, QList< QMap<int, Curve> > *cg)
   if (type == 2) m_Hmcg = cg;
 }
 
-
 void
 Viewer::draw()
 {
@@ -115,7 +141,51 @@ Viewer::draw()
   drawLMDCurve();
   drawLMWCurve();
   drawLMHCurve();
+
+  if (m_pointSkip > 0 && m_maskPtr)
+    drawVolMask();
 }
+
+void
+Viewer::drawVolMask()
+{
+  glPointSize(m_pointSize);
+  int wst = 0;
+  int hst = 0;
+  for(int d=0; d<m_depth; d+=m_pointSkip)
+    {
+      for(int w=0; w<m_width; w+=m_pointSkip)
+	{
+	  for(int h=0; h<m_height; h+=m_pointSkip)
+	    {
+	      int tag = m_maskPtr[d*m_width*m_height + w*m_height + h];
+	      if (tag > 0)
+		{
+		  float vol = (float)m_volPtr[d*m_width*m_height + w*m_height + h]/255.0;
+		  glBegin(GL_POINTS);
+		  float r = Global::tagColors()[4*tag+0]*1.0/255.0;
+		  float g = Global::tagColors()[4*tag+1]*1.0/255.0;
+		  float b = Global::tagColors()[4*tag+2]*1.0/255.0;
+		  r = r*0.5 + 0.5*vol;
+		  g = g*0.5 + 0.5*vol;
+		  b = b*0.5 + 0.5*vol;
+		  glColor3f(r,g,b);
+		  glVertex3f(h, w, d);
+		  glEnd();
+		}
+	    } // h
+	  if (hst > 0)
+	    hst = m_pointSkip/2;
+	  else
+	    hst = 0;
+	} // w
+      if (wst > 0)
+	wst = m_pointSkip/2;
+      else
+	wst = 0;
+    } // d
+}
+
 
 void
 Viewer::drawMMDCurve()

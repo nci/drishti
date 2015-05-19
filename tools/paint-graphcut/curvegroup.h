@@ -48,7 +48,7 @@ class CurveGroup
 		    QVector<QPoint>,
 		    QVector<QPoint>,
 		    QVector<int>,
-		    bool, bool);
+		    bool, int, int, bool);
   void joinPolygonAt(int, QVector<QPoint>);
   void setCurveAt(int, Curve);
 
@@ -61,14 +61,15 @@ class CurveGroup
 
   QList<int> polygonLevels();
 
-  void showPolygonInfo(int, int, int);
+  int showPolygonInfo(int, int, int);
   bool selectPolygon(int, int, int, bool);
   void setClosed(int, int, int, bool);
   void setThickness(int, int, int, int);
   void setTag(int, int, int, int);
   void flipPolygon(int, int, int);
 
-  void copyCurve(int, int, int);
+  int copyCurve(int, int, int);
+  Curve getCopyCurve() { return m_copyCurve; };
   void pasteCurve(int);
 
   int getActiveCurve(int, int, int);

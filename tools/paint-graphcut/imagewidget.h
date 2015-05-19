@@ -206,12 +206,12 @@ class ImageWidget : public QWidget
   void resizeImage();
   void recolorImage();
   
-  void drawSizeText(QPainter*);
+  void drawSizeText(QPainter*, int, int);
   void drawRawValue(QPainter*);
   void processCommands(QString);
   void drawRubberBand(QPainter*);
-  void drawCurves(QPainter*);
-  void drawMorphedCurves(QPainter*);
+  int  drawCurves(QPainter*);
+  int  drawMorphedCurves(QPainter*);
   void drawOtherCurvePoints(QPainter*);
   void drawLivewire(QPainter*);
 
@@ -260,6 +260,13 @@ class ImageWidget : public QWidget
 
   void startLivewirePropagation();
   void endLivewirePropagation();
+
+  void modifyUsingLivewire(int, int);
+
+  void curveMousePressEvent(QMouseEvent*);
+  void graphcutMousePressEvent(QMouseEvent*);
+  void curveMouseMoveEvent(QMouseEvent*);
+  void graphcutMouseMoveEvent(QMouseEvent*);
 };
 
 

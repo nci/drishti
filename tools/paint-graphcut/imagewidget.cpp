@@ -59,6 +59,15 @@ ImageWidget::ImageWidget(QWidget *parent, QStatusBar *sb) :
   m_userimage = QImage(100, 100, QImage::Format_Indexed8);
   m_userimageScaled = QImage(100, 100, QImage::Format_Indexed8);
 
+  m_image.fill(0);
+  m_imageScaled.fill(0);
+  m_maskimage.fill(0);
+  m_maskimageScaled.fill(0);
+  m_prevslicetagimage.fill(0);
+  m_prevslicetagimageScaled.fill(0);
+  m_userimage.fill(0);
+  m_userimageScaled.fill(0);
+
   m_slice = 0;
   m_sliceImage = 0;
   m_maskslice = 0;
@@ -72,6 +81,7 @@ ImageWidget::ImageWidget(QWidget *parent, QStatusBar *sb) :
   m_minWSlice = m_maxWSlice = 0;
   m_minHSlice = m_maxHSlice = 0;
 
+  m_button = Qt::NoButton;
   m_cursorPos = QPoint(0,0);
   m_pickPoint = false;
   m_pickDepth = 0;
@@ -196,7 +206,8 @@ ImageWidget::sliceChanged(int slc)
   if (!m_applyRecursive && m_livewire.seedMoveMode())
     {
       freezeModifyUsingLivewire();
-      m_livewire.setSeedMoveMode(true);
+      modifyUsingLivewire();
+      //m_livewire.setSeedMoveMode(true);
     }
 
   if (m_sliceType == DSlice)
@@ -652,7 +663,7 @@ ImageWidget::resizeEvent(QResizeEvent *event)
 }
 
 void
-ImageWidget::drawSizeText(QPainter *p)
+ImageWidget::drawSizeText(QPainter *p, int nc, int nmc)
 {  
   p->setPen(QPen(Qt::black, 1));
 
@@ -675,7 +686,8 @@ ImageWidget::drawSizeText(QPainter *p)
       arg(m_maxWSlice-m_minWSlice+1).				      \
       arg(m_maxDSlice-m_minDSlice+1);				      \
 
-  txt += QString("  radius:%1").arg(Global::spread());
+  //txt += QString("  radius:%1").arg(Global::spread());
+  txt += QString("  curves : %1 %2").arg(nc).arg(nmc);
   p->drawText(m_simgX, m_simgY-3, txt);
 }
 
@@ -727,7 +739,7 @@ ImageWidget::drawLivewire(QPainter *p)
   }
 }
 
-void
+int
 ImageWidget::drawCurves(QPainter *p)
 {  
   QList<Curve*> curves;
@@ -794,6 +806,8 @@ ImageWidget::drawCurves(QPainter *p)
 	  }
       }
     }
+
+  return curves.count();
 }
 
 void ImageWidget::setPointSize(int p) { m_pointSize = p; }
@@ -937,7 +951,7 @@ ImageWidget::drawOtherCurvePoints(QPainter *p)
     }
 }
 
-void
+int
 ImageWidget::drawMorphedCurves(QPainter *p)
 {  
   QList<Curve> curves;
@@ -975,6 +989,8 @@ ImageWidget::drawMorphedCurves(QPainter *p)
 	  p->drawPolyline(pts);
 	}
     }
+
+  return curves.count();
 }
 
 void
@@ -995,12 +1011,13 @@ ImageWidget::paintEvent(QPaintEvent *event)
   if (Global::copyPrev())
     p.drawImage(m_simgX, m_simgY, m_prevslicetagimageScaled);
 
-  drawSizeText(&p);
-
   drawRubberBand(&p);
 
-  drawCurves(&p);
-  drawMorphedCurves(&p);
+  int nc = drawCurves(&p);
+  int nmc = drawMorphedCurves(&p);
+
+  drawSizeText(&p, nc, nmc);
+
 
   drawLivewire(&p);
 
@@ -1256,7 +1273,7 @@ ImageWidget::freezeLivewire(bool select)
 {
   if (!m_livewireMode)
     {
-      QMessageBox::information(0, "Error", "No livewire found to be transferred to curve");
+      //QMessageBox::information(0, "Error", "No livewire found to be transferred to curve");
       return;
     }
 
@@ -1283,17 +1300,32 @@ ImageWidget::freezeLivewire(bool select)
 
   if (m_sliceType == DSlice)
     {
-      m_dCurves.setPolygonAt(m_currSlice, pts, seeds, seedpos, Global::closed(), select); 
+      m_dCurves.setPolygonAt(m_currSlice,
+			     pts, seeds, seedpos,
+			     Global::closed(),
+			     Global::tag(),
+			     Global::thickness(),
+			     select); 
       emit polygonLevels(m_dCurves.polygonLevels());
     }
   else if (m_sliceType == WSlice)
     {
-      m_wCurves.setPolygonAt(m_currSlice, pts, seeds, seedpos, Global::closed(), select); 
+      m_wCurves.setPolygonAt(m_currSlice,
+			     pts, seeds, seedpos,
+			     Global::closed(),
+			     Global::tag(),
+			     Global::thickness(),
+			     select);
       emit polygonLevels(m_wCurves.polygonLevels());
     }
   else
     {
-      m_hCurves.setPolygonAt(m_currSlice, pts, seeds, seedpos, Global::closed(), select); 
+      m_hCurves.setPolygonAt(m_currSlice,
+			     pts, seeds, seedpos,
+			     Global::closed(),
+			     Global::tag(),
+			     Global::thickness(),
+			     select); 
       emit polygonLevels(m_hCurves.polygonLevels());
     }	  
 
@@ -1456,34 +1488,59 @@ ImageWidget::propagateLivewire()
 void
 ImageWidget::modifyUsingLivewire()
 {
-  QList<Curve*> curves;
-  if (m_sliceType == DSlice)
-    curves = m_dCurves.getCurvesAt(m_currSlice);
-  else if (m_sliceType == WSlice)
-    curves = m_wCurves.getCurvesAt(m_currSlice);
-  else
-    curves = m_hCurves.getCurvesAt(m_currSlice);
-  
-  for(int l=0; l<curves.count(); l++)
-    {
-      //if (curves[l]->selected)
-	{
-	  QVector<QPoint> pts = curves[l]->pts;
-	  QVector<QPoint> seeds = curves[l]->seeds;
-	  QVector<int> seedpos = curves[l]->seedpos;
-	  m_livewire.setPolygonToUpdate(pts, seeds, seedpos, curves[l]->closed);
-	  m_livewire.setSeedMoveMode(true);
+  m_livewire.setSeedMoveMode(true);
+  m_livewire.resetPoly();
+}
+      
+void
+ImageWidget::modifyUsingLivewire(int x, int y)
+{
+  if (! m_livewire.seedMoveMode())
+    return;
 
-	  if (m_sliceType == DSlice)
-	    m_dCurves.removePolygonAt(m_currSlice, pts[0].x(), pts[0].y());
-	  else if (m_sliceType == WSlice)
-	    m_wCurves.removePolygonAt(m_currSlice, pts[0].x(), pts[0].y());
-	  else
-	    m_hCurves.removePolygonAt(m_currSlice, pts[0].x(), pts[0].y());
-	  
-	  return;
-	}
+  int ic;
+  if (m_sliceType == DSlice)
+    ic = m_dCurves.getActiveCurve(m_currSlice, x, y);
+  else if (m_sliceType == WSlice)
+    ic = m_dCurves.getActiveCurve(m_currSlice, x, y);
+  else
+    ic = m_dCurves.getActiveCurve(m_currSlice, x, y);
+
+  if (ic == -1) return;
+
+  Curve* c;
+  if (m_sliceType == DSlice)
+    c = m_dCurves.getCurvesAt(m_currSlice)[ic];
+  else if (m_sliceType == WSlice)
+    c = m_wCurves.getCurvesAt(m_currSlice)[ic];
+  else
+    c = m_hCurves.getCurvesAt(m_currSlice)[ic];
+
+  if (c->seeds.count() == 0)
+    {
+      QMessageBox::information(0, "", "Cannot modify this curve - not a livewire curve");
+      return;
     }
+
+  m_livewire.setPolygonToUpdate(c->pts, c->seeds, c->seedpos, c->closed);
+  
+  if (m_sliceType == DSlice)
+    {
+      m_dCurves.copyCurve(m_currSlice,  x, y);
+      m_dCurves.removePolygonAt(m_currSlice, x, y);
+    }
+  else if (m_sliceType == WSlice)
+    {
+      m_wCurves.copyCurve(m_currSlice, x, y);
+      m_wCurves.removePolygonAt(m_currSlice, x, y);
+    }
+  else
+    {
+      m_hCurves.copyCurve(m_currSlice, x, y);
+      m_hCurves.removePolygonAt(m_currSlice, x, y);
+    }
+      
+  return;
 }
 
 void
@@ -1504,23 +1561,29 @@ ImageWidget::freezeModifyUsingLivewire()
     {
       if (m_sliceType == DSlice)
 	{
+	  Curve c = m_dCurves.getCopyCurve();
 	  m_dCurves.setPolygonAt(m_currSlice,
 				 pts, seeds, seedpos,
-				 closed, false); 
+				 closed, c.tag, c.thickness,
+				 false); 
 	  emit polygonLevels(m_dCurves.polygonLevels());
 	}
       else if (m_sliceType == WSlice)
 	{
+	  Curve c = m_wCurves.getCopyCurve();
 	  m_wCurves.setPolygonAt(m_currSlice,
 				 pts, seeds, seedpos,
-				 closed, false); 
+				 closed, c.tag, c.thickness,
+				 false); 
 	  emit polygonLevels(m_wCurves.polygonLevels());
 	}
       else
 	{
+	  Curve c = m_hCurves.getCopyCurve();
 	  m_hCurves.setPolygonAt(m_currSlice,
 				 pts, seeds, seedpos,
-				 closed, false); 
+				 closed, c.tag, c.thickness,
+				 false); 
 	  emit polygonLevels(m_hCurves.polygonLevels());
 	}
     }
@@ -1532,6 +1595,13 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
 {
   if (m_applyRecursive && event->key() == Qt::Key_Escape)
     return false;
+
+  {
+    QPoint pp = mapFromGlobal(QCursor::pos());
+    float ypos = pp.y();
+    float xpos = pp.x();
+    validPickPoint(xpos, ypos);
+  }
 
   int shiftModifier = event->modifiers() & Qt::ShiftModifier;
   int ctrlModifier = event->modifiers() & Qt::ControlModifier;
@@ -1576,6 +1646,37 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
 
   if (m_livewireMode)
     {
+      if (m_livewire.seedMoveMode())
+	{
+	  if (event->key() == Qt::Key_Escape)
+	    {
+	      m_livewire.resetPoly();
+	      
+	      if (m_sliceType == DSlice)
+		{
+		  m_dCurves.pasteCurve(m_currSlice);
+		  emit polygonLevels(m_dCurves.polygonLevels());
+		}
+	      else if (m_sliceType == WSlice)
+		{
+		  m_wCurves.pasteCurve(m_currSlice);
+		  emit polygonLevels(m_wCurves.polygonLevels());
+		}
+	      else
+		{
+		  m_hCurves.pasteCurve(m_currSlice);
+		  emit polygonLevels(m_hCurves.polygonLevels());
+		}
+	    }
+	  if (event->key() == Qt::Key_Space)
+	    {
+	      freezeModifyUsingLivewire();
+	      modifyUsingLivewire();
+	    }
+
+	  return true;
+	}
+
       if (m_livewire.keyPressEvent(event))
 	{
 	  update();
@@ -1587,48 +1688,23 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
 	  freezeLivewire(false);
 	  return true;
 	}
-
-//      if (event->key() == Qt::Key_J)
-//	// join to existing curve
-//	// if not found create a new curve
-//	{
-//	  QVector<QPoint> pts = m_livewire.poly();
-//	  if (m_sliceType == DSlice)
-//	    {
-//	      m_dCurves.joinPolygonAt(m_currSlice, pts); 
-//	      emit polygonLevels(m_dCurves.polygonLevels());
-//	    }
-//	  else if (m_sliceType == WSlice)
-//	    {
-//	      m_wCurves.joinPolygonAt(m_currSlice, pts); 
-//	      emit polygonLevels(m_wCurves.polygonLevels());
-//	    }
-//	  else
-//	    {
-//	      m_hCurves.joinPolygonAt(m_currSlice, pts); 
-//	      emit polygonLevels(m_hCurves.polygonLevels());
-//	    }	  
-//	  m_livewire.resetPoly();
-//	  update();
-//	  return true;
-//	}
-    }
-
-  if (event->key() == Qt::Key_N)
-    {
-      newCurve();
-      return true;
     }
 
   if (ctrlModifier && event->key() == Qt::Key_C)
     {
+      int cc = -1;
       if (m_sliceType == DSlice)
-	m_dCurves.copyCurve(m_currSlice, m_pickHeight, m_pickWidth);
+	cc = m_dCurves.copyCurve(m_currSlice, m_pickHeight, m_pickWidth);
       else if (m_sliceType == WSlice)
-	m_wCurves.copyCurve(m_currSlice, m_pickHeight, m_pickDepth);
+	cc = m_wCurves.copyCurve(m_currSlice, m_pickHeight, m_pickDepth);
       else
-	m_hCurves.copyCurve(m_currSlice, m_pickWidth,  m_pickDepth);
-      
+	cc = m_hCurves.copyCurve(m_currSlice, m_pickWidth,  m_pickDepth);
+
+      if (cc >= 0)
+	QMessageBox::information(0, "", QString("Curve copied to buffer"));
+      else
+	QMessageBox::information(0, "", QString("No curve found to copy"));
+
       return true;
     }
 
@@ -1656,13 +1732,17 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
 
   if (event->key() == Qt::Key_Space)
     {
+      int ic = -1;
       if (m_sliceType == DSlice)
-	m_dCurves.showPolygonInfo(m_currSlice, m_pickHeight, m_pickWidth);
+	ic = m_dCurves.showPolygonInfo(m_currSlice, m_pickHeight, m_pickWidth);
       else if (m_sliceType == WSlice)
-	m_wCurves.showPolygonInfo(m_currSlice, m_pickHeight, m_pickDepth);
+	ic = m_wCurves.showPolygonInfo(m_currSlice, m_pickHeight, m_pickDepth);
       else
-	m_hCurves.showPolygonInfo(m_currSlice, m_pickWidth,  m_pickDepth);
+	ic = m_hCurves.showPolygonInfo(m_currSlice, m_pickWidth,  m_pickDepth);
       
+      if (ic < 0)
+	newCurve();
+
       return true;
     }      
 
@@ -2117,47 +2197,45 @@ ImageWidget::mouseDoubleClickEvent(QMouseEvent *event)
   update();
 }
 
+
 void
-ImageWidget::mousePressEvent(QMouseEvent *event)
+ImageWidget::curveMousePressEvent(QMouseEvent *event)
 {
   QPoint pp = event->pos();
   float ypos = pp.y();
   float xpos = pp.x();
   
-  m_button = event->button();
-
   m_cursorPos = pp;
   m_pickPoint = false;
 
+  if (!validPickPoint(xpos, ypos))
+    return;
+  
 
   bool shiftModifier = event->modifiers() & Qt::ShiftModifier;
   bool ctrlModifier = event->modifiers() & Qt::ControlModifier;
   bool altModifier = event->modifiers() & Qt::AltModifier;
 
+  m_lastPickDepth = m_pickDepth;
+  m_lastPickWidth = m_pickWidth;
+  m_lastPickHeight= m_pickHeight;
+  
   if(m_livewireMode &&
      !shiftModifier && 
      !ctrlModifier &&
      !altModifier)
     {
-      if (!validPickPoint(xpos, ypos))
-	return;
-
-      m_lastPickDepth = m_pickDepth;
-      m_lastPickWidth = m_pickWidth;
-      m_lastPickHeight= m_pickHeight;
-
       if (m_livewire.seedMoveMode())
 	{
-	  bool selected;
-	  if (m_sliceType == DSlice)
-	    selected = m_dCurves.selectPolygon(m_currSlice, m_pickHeight, m_pickWidth, shiftModifier);
-	  else if (m_sliceType == WSlice)
-	    selected = m_wCurves.selectPolygon(m_currSlice, m_pickHeight, m_pickDepth, shiftModifier);
-	  else
-	    selected = m_hCurves.selectPolygon(m_currSlice, m_pickWidth,  m_pickDepth, shiftModifier);
-	  
-	  if (selected)
-	    modifyUsingLivewire();
+	  if (m_livewire.poly().count() == 0)
+	    {
+	      if (m_sliceType == DSlice)
+		modifyUsingLivewire(m_pickHeight, m_pickWidth);
+	      else if (m_sliceType == WSlice)
+		modifyUsingLivewire(m_pickHeight, m_pickDepth);
+	      else
+		modifyUsingLivewire(m_pickWidth, m_pickDepth);
+	    }
 	}
 
       
@@ -2174,90 +2252,303 @@ ImageWidget::mousePressEvent(QMouseEvent *event)
   
   if (m_button == Qt::LeftButton)
     {
+      if (altModifier)
+	{
+	  checkRubberBand(xpos, ypos);
+	  return;
+	}
+
+      // carry on only if Alt key is not pressed
+      if (shiftModifier)
+	{
+	  if (m_sliceType == DSlice)
+	    m_dCurves.smooth(m_currSlice, m_pickHeight, m_pickWidth, Global::spread());
+	  else if (m_sliceType == WSlice)
+	    m_wCurves.smooth(m_currSlice, m_pickHeight, m_pickDepth, Global::spread());
+	  else
+	    m_hCurves.smooth(m_currSlice, m_pickWidth,  m_pickDepth, Global::spread());
+	}
+      else if (ctrlModifier)
+	{
+	  if (m_sliceType == DSlice)
+	    m_dCurves.push(m_currSlice, m_pickHeight, m_pickWidth, Global::spread());
+	  else if (m_sliceType == WSlice)
+	    m_wCurves.push(m_currSlice, m_pickHeight, m_pickDepth, Global::spread());
+	  else
+	    m_hCurves.push(m_currSlice, m_pickWidth,  m_pickDepth, Global::spread());
+	}
+      else
+	{
+	  if (m_sliceType == DSlice)
+	    m_dCurves.addPoint(m_currSlice, m_pickHeight, m_pickWidth);
+	  else if (m_sliceType == WSlice)
+	    m_wCurves.addPoint(m_currSlice, m_pickHeight, m_pickDepth);
+	  else
+	    m_hCurves.addPoint(m_currSlice, m_pickWidth,  m_pickDepth);
+	}
+    }
+  else if (m_button == Qt::MiddleButton)
+    {
+      if (m_sliceType == DSlice)
+	m_dCurves.setMoveCurve(m_currSlice, m_pickHeight, m_pickWidth);
+      else if (m_sliceType == WSlice)
+	m_wCurves.setMoveCurve(m_currSlice, m_pickHeight, m_pickDepth);
+      else
+	m_hCurves.setMoveCurve(m_currSlice, m_pickWidth,  m_pickDepth);
+    }
+  else if (m_button == Qt::RightButton)
+    {
+      if (m_sliceType == DSlice)
+	m_dCurves.removePoint(m_currSlice, m_pickHeight, m_pickWidth);
+      else if (m_sliceType == WSlice)
+	m_wCurves.removePoint(m_currSlice, m_pickHeight, m_pickDepth);
+      else
+	m_hCurves.removePoint(m_currSlice, m_pickWidth,  m_pickDepth);
+    }
+}
+
+
+void
+ImageWidget::graphcutMousePressEvent(QMouseEvent *event)
+{
+
+  QPoint pp = event->pos();
+  float ypos = pp.y();
+  float xpos = pp.x();
+  
+  m_cursorPos = pp;
+  m_pickPoint = false;
+
+  if (!validPickPoint(xpos, ypos))
+    return;
+  
+  m_lastPickDepth = m_pickDepth;
+  m_lastPickWidth = m_pickWidth;
+  m_lastPickHeight= m_pickHeight;
+
+  bool shiftModifier = event->modifiers() & Qt::ShiftModifier;
+  bool ctrlModifier = event->modifiers() & Qt::ControlModifier;
+  bool altModifier = event->modifiers() & Qt::AltModifier;
+
+  if (m_button == Qt::LeftButton)
+    {
+      if (altModifier)
+	{
+	  checkRubberBand(xpos, ypos);
+	  return;
+	}
+      // carry on only if Alt key is not pressed
+      if (m_sliceType == DSlice)
+	dotImage(m_pickHeight,
+		 m_pickWidth,
+		 shiftModifier);
+      else if (m_sliceType == WSlice)
+	dotImage(m_pickHeight,
+		 m_pickDepth,
+		 shiftModifier);
+      else
+	dotImage(m_pickWidth,
+		 m_pickDepth,
+		 shiftModifier);      
+    }
+  else if (m_button == Qt::RightButton)
+    {
+      if (shiftModifier)
+	{
+	  m_pickPoint = true;
+	  emit getRawValue(m_pickDepth,
+			   m_pickWidth,
+			   m_pickHeight);
+	}
+      else
+	{
+	  // update user mask image
+	  if (m_sliceType == DSlice)
+	    removeDotImage(m_pickHeight,
+			   m_pickWidth);
+	  else if (m_sliceType == WSlice)
+	    removeDotImage(m_pickHeight,
+			   m_pickDepth);
+	  else
+	    removeDotImage(m_pickWidth,
+			   m_pickDepth);
+	}
+    }
+}
+
+
+void
+ImageWidget::mousePressEvent(QMouseEvent *event)
+{
+  m_button = event->button();
+
+  if (m_livewireMode || m_curveMode)
+    curveMousePressEvent(event);
+  else
+    graphcutMousePressEvent(event);
+
+  update();
+}
+
+void
+ImageWidget::curveMouseMoveEvent(QMouseEvent *event)
+{
+  QPoint pp = event->pos();
+  float ypos = pp.y();
+  float xpos = pp.x();
+
+  bool shiftModifier = event->modifiers() & Qt::ShiftModifier;
+  bool ctrlModifier = event->modifiers() & Qt::ControlModifier;
+  bool altModifier = event->modifiers() & Qt::AltModifier;
+
+  if (m_livewireMode &&
+      !shiftModifier && 
+      !ctrlModifier &&
+      !altModifier)
+    {
+      if (!validPickPoint(xpos, ypos))
+	return;
+
+      m_lastPickDepth = m_pickDepth;
+      m_lastPickWidth = m_pickWidth;
+      m_lastPickHeight= m_pickHeight;
+      
+      if (m_sliceType == DSlice)
+	m_livewire.mouseMoveEvent(m_pickHeight, m_pickWidth, event);
+      else if (m_sliceType == WSlice)
+	m_livewire.mouseMoveEvent(m_pickHeight, m_pickDepth, event);
+      else
+	m_livewire.mouseMoveEvent(m_pickWidth, m_pickDepth, event);
+      
+      update();
+      return;
+    }
+
+  if (m_button == Qt::LeftButton)
+    {
+      if (m_rubberBandActive)
+	{
+	  updateRubberBand(xpos, ypos);
+	  update();
+	  return;
+	}
+      if (altModifier)
+	return;
+
+      // carry on only if Alt key is not pressed
       if (validPickPoint(xpos, ypos))
 	{
 	  m_lastPickDepth = m_pickDepth;
 	  m_lastPickWidth = m_pickWidth;
 	  m_lastPickHeight= m_pickHeight;
-	  
-	  if (altModifier)
-	    {
-	      checkRubberBand(xpos, ypos);
-	      return;
-	    }
-	  // carry on only if Alt key is not pressed
 
-	  if (m_curveMode || m_livewireMode)
+	  if (shiftModifier)
 	    {
-	      if (shiftModifier)
-		{
-		  if (m_sliceType == DSlice)
-		    m_dCurves.smooth(m_currSlice, m_pickHeight, m_pickWidth, Global::spread());
-		  else if (m_sliceType == WSlice)
-		    m_wCurves.smooth(m_currSlice, m_pickHeight, m_pickDepth, Global::spread());
-		  else
-		    m_hCurves.smooth(m_currSlice, m_pickWidth,  m_pickDepth, Global::spread());
-		}
-	      else if (ctrlModifier)
-		{
-		  if (m_sliceType == DSlice)
-		    m_dCurves.push(m_currSlice, m_pickHeight, m_pickWidth, Global::spread());
-		  else if (m_sliceType == WSlice)
-		    m_wCurves.push(m_currSlice, m_pickHeight, m_pickDepth, Global::spread());
-		  else
-		    m_hCurves.push(m_currSlice, m_pickWidth,  m_pickDepth, Global::spread());
-		}
+	      if (m_sliceType == DSlice)
+		m_dCurves.smooth(m_currSlice, m_pickHeight, m_pickWidth, Global::spread());
+	      else if (m_sliceType == WSlice)
+		m_wCurves.smooth(m_currSlice, m_pickHeight, m_pickDepth, Global::spread());
 	      else
-		{
-		  if (m_sliceType == DSlice)
-		    m_dCurves.addPoint(m_currSlice, m_pickHeight, m_pickWidth);
-		  else if (m_sliceType == WSlice)
-		    m_wCurves.addPoint(m_currSlice, m_pickHeight, m_pickDepth);
-		  else
-		    m_hCurves.addPoint(m_currSlice, m_pickWidth,  m_pickDepth);
-		}
+		m_hCurves.smooth(m_currSlice, m_pickWidth,  m_pickDepth, Global::spread());
+	    }
+	  else if (ctrlModifier)
+	    {
+	      if (m_sliceType == DSlice)
+		m_dCurves.push(m_currSlice, m_pickHeight, m_pickWidth, Global::spread());
+	      else if (m_sliceType == WSlice)
+		m_wCurves.push(m_currSlice, m_pickHeight, m_pickDepth, Global::spread());
+	      else
+		m_hCurves.push(m_currSlice, m_pickWidth,  m_pickDepth, Global::spread());
 	    }
 	  else
 	    {
 	      if (m_sliceType == DSlice)
-		dotImage(m_pickHeight,
-			 m_pickWidth,
-			 shiftModifier);
+		m_dCurves.addPoint(m_currSlice, m_pickHeight, m_pickWidth);
 	      else if (m_sliceType == WSlice)
-		dotImage(m_pickHeight,
-			 m_pickDepth,
-			 shiftModifier);
+		m_wCurves.addPoint(m_currSlice, m_pickHeight, m_pickDepth);
 	      else
-		dotImage(m_pickWidth,
-			 m_pickDepth,
-			 shiftModifier);
+		m_hCurves.addPoint(m_currSlice, m_pickWidth,  m_pickDepth);
 	    }
+
 	  update();
-	  return;
 	}
     }
   else if (m_button == Qt::MiddleButton)
   {
     if (validPickPoint(xpos, ypos))
       {
+	int dd, dw, dh;
+	dd = m_pickDepth - m_lastPickDepth;
+	dw = m_pickWidth - m_lastPickWidth;
+	dh = m_pickHeight - m_lastPickHeight;
+
 	m_lastPickDepth = m_pickDepth;
 	m_lastPickWidth = m_pickWidth;
 	m_lastPickHeight= m_pickHeight;
 	
-	if (m_curveMode || m_livewireMode)
-	  {
-	    if (m_sliceType == DSlice)
-	      m_dCurves.setMoveCurve(m_currSlice, m_pickHeight, m_pickWidth);
-	    else if (m_sliceType == WSlice)
-	      m_wCurves.setMoveCurve(m_currSlice, m_pickHeight, m_pickDepth);
-	    else
-	      m_hCurves.setMoveCurve(m_currSlice, m_pickWidth,  m_pickDepth);
-	    
-	    update();
-	    return;
-	  }
+	if (m_sliceType == DSlice)
+	  m_dCurves.moveCurve(m_currSlice, dh, dw);
+	else if (m_sliceType == WSlice)
+	  m_wCurves.moveCurve(m_currSlice, dh, dd);
+	else
+	  m_hCurves.moveCurve(m_currSlice, dw, dd);
+	
+	update();
+	return;
       }
   }
+
+}
+
+void
+ImageWidget::graphcutMouseMoveEvent(QMouseEvent *event)
+{
+  QPoint pp = event->pos();
+  float ypos = pp.y();
+  float xpos = pp.x();
+
+  bool shiftModifier = event->modifiers() & Qt::ShiftModifier;
+  bool ctrlModifier = event->modifiers() & Qt::ControlModifier;
+  bool altModifier = event->modifiers() & Qt::AltModifier;
+
+  if (event->buttons() == Qt::NoButton)
+    {
+      m_pickPoint = false;
+      preselect();
+    }
+  else if (m_button == Qt::LeftButton)
+    {
+      if (m_rubberBandActive)
+	{
+	  updateRubberBand(xpos, ypos);
+	  update();
+	  return;
+	}
+      if (altModifier)
+	return;
+
+      // carry on only if Alt key is not pressed
+      if (validPickPoint(xpos, ypos))
+	{
+	  m_lastPickDepth = m_pickDepth;
+	  m_lastPickWidth = m_pickWidth;
+	  m_lastPickHeight= m_pickHeight;
+
+	  if (m_sliceType == DSlice)
+	    dotImage(m_pickHeight,
+		     m_pickWidth,
+		     shiftModifier);
+	  else if (m_sliceType == WSlice)
+	    dotImage(m_pickHeight,
+		     m_pickDepth,
+		     shiftModifier);
+	  else
+	    dotImage(m_pickWidth,
+		     m_pickDepth,
+		     shiftModifier);
+	  update();
+	}
+    }
   else if (m_button == Qt::RightButton)
     {
       if (validPickPoint(xpos, ypos))
@@ -2266,29 +2557,8 @@ ImageWidget::mousePressEvent(QMouseEvent *event)
 	  m_lastPickWidth = m_pickWidth;
 	  m_lastPickHeight= m_pickHeight;
 
-	  if (m_curveMode || m_livewireMode)
+	  if (!shiftModifier)
 	    {
-	      if (m_sliceType == DSlice)
-		m_dCurves.removePoint(m_currSlice, m_pickHeight, m_pickWidth);
-	      else if (m_sliceType == WSlice)
-		m_wCurves.removePoint(m_currSlice, m_pickHeight, m_pickDepth);
-	      else
-		m_hCurves.removePoint(m_currSlice, m_pickWidth,  m_pickDepth);
-
-	      update();
-	      return;
-	    }
-
-	  if (shiftModifier)
-	    {
-	      m_pickPoint = true;
-	      emit getRawValue(m_pickDepth,
-			       m_pickWidth,
-			       m_pickHeight);
-	    }
-	  else
-	    {
-	      // update user mask image
 	      if (m_sliceType == DSlice)
 		removeDotImage(m_pickHeight,
 			       m_pickWidth);
@@ -2299,9 +2569,149 @@ ImageWidget::mousePressEvent(QMouseEvent *event)
 		removeDotImage(m_pickWidth,
 			       m_pickDepth);
 	    }
+	  else
+	    {
+	      m_pickPoint = true;
+	      emit getRawValue(m_pickDepth,
+			       m_pickWidth,
+			       m_pickHeight);
+	    }
+	  update();
+	}
+    }
+}
+
+void
+ImageWidget::mouseMoveEvent(QMouseEvent *event)
+{
+  if (!hasFocus())
+    setFocus();
+
+  QPoint pp = event->pos();
+  float ypos = pp.y();
+  float xpos = pp.x();
+
+  m_cursorPos = pp;
+  
+  bool shiftModifier = event->modifiers() & Qt::ShiftModifier;
+  bool ctrlModifier = event->modifiers() & Qt::ControlModifier;
+  bool altModifier = event->modifiers() & Qt::AltModifier;
+
+  if (m_livewireMode || m_curveMode)
+    curveMouseMoveEvent(event);
+  else
+    graphcutMouseMoveEvent(event);
+}
+
+void
+ImageWidget::mouseReleaseEvent(QMouseEvent *event)
+{
+  m_button = Qt::NoButton;
+  m_pickPoint = false;
+
+  m_livewire.mouseReleaseEvent(event);
+  m_dCurves.resetMoveCurve();
+  m_wCurves.resetMoveCurve();
+  m_hCurves.resetMoveCurve();
+
+  if (m_curveMode || m_livewireMode)
+    {
+      if (m_sliceType == DSlice)
+	emit polygonLevels(m_dCurves.polygonLevels());
+      else if (m_sliceType == WSlice)
+	emit polygonLevels(m_wCurves.polygonLevels());
+      else
+	emit polygonLevels(m_hCurves.polygonLevels());
+    }
+
+  if (m_rubberBandActive)
+    {
+      float left = m_rubberBand.left();
+      float right = m_rubberBand.right();
+      float top = m_rubberBand.top();
+      float bottom = m_rubberBand.bottom();
+      float width = m_rubberBand.width();
+      float height = m_rubberBand.height();
+      if (width < 0)
+	{
+	  m_rubberBand.setLeft(right);
+	  m_rubberBand.setRight(left);
+	}
+      if (height < 0)
+	{
+	  m_rubberBand.setTop(bottom);
+	  m_rubberBand.setBottom(top);
+	}
+
+      // --- now update the min and max limits
+      left = m_rubberBand.left();
+      right = m_rubberBand.right();
+      top = m_rubberBand.top();
+      bottom = m_rubberBand.bottom();
+      if (m_sliceType == DSlice)
+	{
+	  m_minHSlice = left*m_Height;
+	  m_maxHSlice = right*m_Height;
+	  m_minWSlice = top*m_Width;
+	  m_maxWSlice = bottom*m_Width;
+	}
+      else if (m_sliceType == WSlice)
+	{
+	  m_minHSlice = left*m_Height;
+	  m_maxHSlice = right*m_Height;
+	  m_minDSlice = top*m_Depth;
+	  m_maxDSlice = bottom*m_Depth;
+	}
+      else
+	{
+	  m_minWSlice = left*m_Width;
+	  m_maxWSlice = right*m_Width;
+	  m_minDSlice = top*m_Depth;
+	  m_maxDSlice = bottom*m_Depth;
 	}
     }
 
+  m_rubberXmin = false;
+  m_rubberYmin = false;
+  m_rubberXmax = false;
+  m_rubberYmax = false;
+  m_rubberNew = false;
+  m_rubberBandActive = false;
+
+  update();
+}
+
+void
+ImageWidget::wheelEvent(QWheelEvent *event)
+{
+  // if we are modifying livewire object freeze it before moving to another slice  
+  if (!m_applyRecursive && m_livewire.seedMoveMode())
+    {
+      freezeModifyUsingLivewire();
+      modifyUsingLivewire();
+    }
+
+  int minS, maxS;
+  if (m_sliceType == DSlice)
+    { 
+      minS = m_minDSlice; 
+      maxS = m_maxDSlice; 
+    } 
+  else if (m_sliceType == WSlice) 
+    { 
+      minS = m_minWSlice; 
+      maxS = m_maxWSlice; 
+    } 
+  else 
+    { 
+      minS = m_minHSlice; 
+      maxS = m_maxHSlice; 
+    }  
+
+  int numSteps = event->delta()/8.0f/15.0f;
+  m_currSlice -= numSteps;
+  m_currSlice = qBound(minS, m_currSlice, maxS);
+  emit getSlice(m_currSlice);
   update();
 }
 
@@ -2426,302 +2836,7 @@ ImageWidget::preselect()
 
 
   if (validPickPoint(xpos, ypos))
-    {
-//      if (checkRubberBand(xpos, ypos, false))
-//	{
-//	  update();
-//	  return;
-//	}
-      update();
-    }
-}
-
-void
-ImageWidget::mouseMoveEvent(QMouseEvent *event)
-{
-  if (!hasFocus())
-    setFocus();
-
-  QPoint pp = event->pos();
-  float ypos = pp.y();
-  float xpos = pp.x();
-
-  m_cursorPos = pp;
-  
-  bool shiftModifier = event->modifiers() & Qt::ShiftModifier;
-  bool ctrlModifier = event->modifiers() & Qt::ControlModifier;
-  bool altModifier = event->modifiers() & Qt::AltModifier;
-
-  if (m_livewireMode &&
-      !shiftModifier && 
-      !ctrlModifier &&
-      !altModifier)
-    {
-      if (!validPickPoint(xpos, ypos))
-	return;
-
-      m_lastPickDepth = m_pickDepth;
-      m_lastPickWidth = m_pickWidth;
-      m_lastPickHeight= m_pickHeight;
-      
-      if (m_sliceType == DSlice)
-	m_livewire.mouseMoveEvent(m_pickHeight, m_pickWidth, event);
-      else if (m_sliceType == WSlice)
-	m_livewire.mouseMoveEvent(m_pickHeight, m_pickDepth, event);
-      else
-	m_livewire.mouseMoveEvent(m_pickWidth, m_pickDepth, event);
-      
-      update();
-      return;
-    }
-
-  if (event->buttons() == Qt::NoButton)
-    {
-      m_pickPoint = false;
-      preselect();
-    }
-  else if (m_button == Qt::LeftButton)
-    {
-      if (m_rubberBandActive)
-	{
-	  updateRubberBand(xpos, ypos);
-	  update();
-	  return;
-	}
-      if (altModifier)
-	return;
-
-      // carry on only if Alt key is not pressed
-      if (validPickPoint(xpos, ypos))
-	{
-	  m_lastPickDepth = m_pickDepth;
-	  m_lastPickWidth = m_pickWidth;
-	  m_lastPickHeight= m_pickHeight;
-
-	  if (m_curveMode || m_livewireMode)
-	    {
-	      if (shiftModifier)
-		{
-		  if (m_sliceType == DSlice)
-		    m_dCurves.smooth(m_currSlice, m_pickHeight, m_pickWidth, Global::spread());
-		  else if (m_sliceType == WSlice)
-		    m_wCurves.smooth(m_currSlice, m_pickHeight, m_pickDepth, Global::spread());
-		  else
-		    m_hCurves.smooth(m_currSlice, m_pickWidth,  m_pickDepth, Global::spread());
-		}
-	      else if (ctrlModifier)
-		{
-		  if (m_sliceType == DSlice)
-		    m_dCurves.push(m_currSlice, m_pickHeight, m_pickWidth, Global::spread());
-		  else if (m_sliceType == WSlice)
-		    m_wCurves.push(m_currSlice, m_pickHeight, m_pickDepth, Global::spread());
-		  else
-		    m_hCurves.push(m_currSlice, m_pickWidth,  m_pickDepth, Global::spread());
-		}
-	      else
-		{
-		  if (m_sliceType == DSlice)
-		    m_dCurves.addPoint(m_currSlice, m_pickHeight, m_pickWidth);
-		  else if (m_sliceType == WSlice)
-		    m_wCurves.addPoint(m_currSlice, m_pickHeight, m_pickDepth);
-		  else
-		    m_hCurves.addPoint(m_currSlice, m_pickWidth,  m_pickDepth);
-		}
-	    }
-	  else
-	    {
-	      if (m_sliceType == DSlice)
-		dotImage(m_pickHeight,
-			 m_pickWidth,
-			 shiftModifier);
-	      else if (m_sliceType == WSlice)
-		dotImage(m_pickHeight,
-			 m_pickDepth,
-			 shiftModifier);
-	      else
-		dotImage(m_pickWidth,
-			 m_pickDepth,
-			 shiftModifier);
-	    }
-	  update();
-	}
-    }
-  else if (m_button == Qt::MiddleButton)
-  {
-    if (validPickPoint(xpos, ypos))
-      {
-	int dd, dw, dh;
-	dd = m_pickDepth - m_lastPickDepth;
-	dw = m_pickWidth - m_lastPickWidth;
-	dh = m_pickHeight - m_lastPickHeight;
-
-	m_lastPickDepth = m_pickDepth;
-	m_lastPickWidth = m_pickWidth;
-	m_lastPickHeight= m_pickHeight;
-	
-	if (m_curveMode || m_livewireMode)
-	  {
-	    if (m_sliceType == DSlice)
-	      m_dCurves.moveCurve(m_currSlice, dh, dw);
-	    else if (m_sliceType == WSlice)
-	      m_wCurves.moveCurve(m_currSlice, dh, dd);
-	    else
-	      m_hCurves.moveCurve(m_currSlice, dw, dd);
-	    
-	    update();
-	    return;
-	  }
-      }
-  }
-  else if (m_button == Qt::RightButton)
-    {
-      if (validPickPoint(xpos, ypos))
-	{
-	  m_lastPickDepth = m_pickDepth;
-	  m_lastPickWidth = m_pickWidth;
-	  m_lastPickHeight= m_pickHeight;
-
-	  if (!shiftModifier)
-	    {
-	      if (m_sliceType == DSlice)
-		removeDotImage(m_pickHeight,
-			       m_pickWidth);
-	      else if (m_sliceType == WSlice)
-		removeDotImage(m_pickHeight,
-			       m_pickDepth);
-	      else
-		removeDotImage(m_pickWidth,
-			       m_pickDepth);
-	    }
-	  else
-	    {
-	      m_pickPoint = true;
-	      emit getRawValue(m_pickDepth,
-			       m_pickWidth,
-			       m_pickHeight);
-	    }
-	  update();
-	}
-    }
-
-  
-//  if (m_pickPoint)
-//    {
-//      m_pickPoint = false;
-//      update();
-//    }
-}
-
-void
-ImageWidget::mouseReleaseEvent(QMouseEvent *event)
-{
-  m_pickPoint = false;
-
-  m_livewire.mouseReleaseEvent(event);
-  m_dCurves.resetMoveCurve();
-  m_wCurves.resetMoveCurve();
-  m_hCurves.resetMoveCurve();
-
-  if (m_curveMode || m_livewireMode)
-    {
-      if (m_sliceType == DSlice)
-	emit polygonLevels(m_dCurves.polygonLevels());
-      else if (m_sliceType == WSlice)
-	emit polygonLevels(m_wCurves.polygonLevels());
-      else
-	emit polygonLevels(m_hCurves.polygonLevels());
-    }
-
-  if (m_rubberBandActive)
-    {
-      float left = m_rubberBand.left();
-      float right = m_rubberBand.right();
-      float top = m_rubberBand.top();
-      float bottom = m_rubberBand.bottom();
-      float width = m_rubberBand.width();
-      float height = m_rubberBand.height();
-      if (width < 0)
-	{
-	  m_rubberBand.setLeft(right);
-	  m_rubberBand.setRight(left);
-	}
-      if (height < 0)
-	{
-	  m_rubberBand.setTop(bottom);
-	  m_rubberBand.setBottom(top);
-	}
-
-      // --- now update the min and max limits
-      left = m_rubberBand.left();
-      right = m_rubberBand.right();
-      top = m_rubberBand.top();
-      bottom = m_rubberBand.bottom();
-      if (m_sliceType == DSlice)
-	{
-	  m_minHSlice = left*m_Height;
-	  m_maxHSlice = right*m_Height;
-	  m_minWSlice = top*m_Width;
-	  m_maxWSlice = bottom*m_Width;
-	}
-      else if (m_sliceType == WSlice)
-	{
-	  m_minHSlice = left*m_Height;
-	  m_maxHSlice = right*m_Height;
-	  m_minDSlice = top*m_Depth;
-	  m_maxDSlice = bottom*m_Depth;
-	}
-      else
-	{
-	  m_minWSlice = left*m_Width;
-	  m_maxWSlice = right*m_Width;
-	  m_minDSlice = top*m_Depth;
-	  m_maxDSlice = bottom*m_Depth;
-	}
-    }
-
-  m_rubberXmin = false;
-  m_rubberYmin = false;
-  m_rubberXmax = false;
-  m_rubberYmax = false;
-  m_rubberNew = false;
-  m_rubberBandActive = false;
-
-  update();
-}
-
-
-void
-ImageWidget::wheelEvent(QWheelEvent *event)
-{
-  // if we are modifying livewire object freeze it before moving to another slice  
-  if (!m_applyRecursive && m_livewire.seedMoveMode())
-    {
-      freezeModifyUsingLivewire();
-      m_livewire.setSeedMoveMode(true);
-    }
-
-  int minS, maxS;
-  if (m_sliceType == DSlice)
-    { 
-      minS = m_minDSlice; 
-      maxS = m_maxDSlice; 
-    } 
-  else if (m_sliceType == WSlice) 
-    { 
-      minS = m_minWSlice; 
-      maxS = m_maxWSlice; 
-    } 
-  else 
-    { 
-      minS = m_minHSlice; 
-      maxS = m_maxHSlice; 
-    }  
-
-  int numSteps = event->delta()/8.0f/15.0f;
-  m_currSlice -= numSteps;
-  m_currSlice = qBound(minS, m_currSlice, maxS);
-  emit getSlice(m_currSlice);
-  update();
+    update();
 }
 
 void
@@ -3136,12 +3251,12 @@ ImageWidget::applyGraphCut()
   memcpy(maskData, m_tags, size1*size2);
   memset(m_tags, 0, m_imgWidth*m_imgHeight);
 
-  //--------------------------
-  // limit graphcut output within the bounding curve
-  memset(imageData, 0, m_imgWidth*m_imgHeight);
-  if (m_curveMode || m_livewireMode)
-    paintUsingCurves(imageData);
-  //--------------------------
+//  //--------------------------
+//  // limit graphcut output within the bounding curve
+//  memset(imageData, 0, m_imgWidth*m_imgHeight);
+//  if (m_curveMode || m_livewireMode)
+//    paintUsingCurves(imageData);
+//  //--------------------------
   
   idx=0;
   for(int i=imin; i<=imax; i++)

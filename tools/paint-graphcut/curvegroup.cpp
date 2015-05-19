@@ -84,10 +84,18 @@ CurveGroup::removePolygonAt(int key, int v0, int v1)
     {
       QList<Curve*> curves = m_cg.values(key);
       delete curves[ic];
-      curves.removeAt(ic);
       m_cg.remove(key);
       for(int j=0; j<curves.count(); j++)
-	m_cg.insert(key, curves[j]);
+	{
+	  if (j != ic)
+	    m_cg.insert(key, curves[j]);
+	}
+
+//      delete curves[ic];
+//      curves.removeAt(ic);
+//      m_cg.remove(key);
+//      for(int j=0; j<curves.count(); j++)
+//	m_cg.insert(key, curves[j]);
     }
 
   m_pointsDirtyBit = true;
@@ -136,12 +144,12 @@ CurveGroup::area(Curve *c)
   return qAbs(0.5*area);
 }
 
-void
+int
 CurveGroup::showPolygonInfo(int key, int v0, int v1)
 {
   int ic = getActiveCurve(key, v0, v1);
   if (ic < 0)
-    return;
+    return -1;
 
   QList<Curve*> curves = m_cg.values(key);
   QString str;
@@ -272,6 +280,25 @@ CurveGroup::flipPolygon(int key, int v0, int v1)
 void
 CurveGroup::newCurve(int key, bool closed)
 {
+  //-------------------
+  // cull zero curves
+  QList<Curve*> curves = m_cg.values(key);
+  QList<Curve*> nc;
+  for(int j=0; j<curves.count(); j++)
+    {
+      if (curves[j]->pts.count() > 0)
+	nc << curves[j];
+      else
+	delete curves[j];
+    }
+  if (nc.count() < curves.count())
+    {
+      m_cg.remove(key);
+      for(int j=0; j<nc.count(); j++)
+	m_cg.insert(key, nc[j]);
+    }
+  //-------------------
+
   Curve *c = new Curve();
   c->tag = Global::tag();
   c->thickness = Global::thickness();
@@ -479,7 +506,7 @@ CurveGroup::setPolygonAt(int key,
 			 QVector<QPoint> pts,
 			 QVector<QPoint> seeds,
 			 QVector<int> seedpos,
-			 bool closed,
+			 bool closed, int tag, int thickness,
 			 bool select)
 {
 //  if (m_addingCurves)
@@ -497,8 +524,8 @@ CurveGroup::setPolygonAt(int key,
 //  else
     {
       Curve *c = new Curve();
-      c->tag = Global::tag();
-      c->thickness = Global::thickness();
+      c->tag = tag;
+      c->thickness = thickness;
       c->closed = closed;
       c->pts = pts;
       c->seeds = seeds;
@@ -592,13 +619,13 @@ CurveGroup::morphCurves()
   QMessageBox::information(0, "", "morphed intermediate curves");
 }
 
-void
+int
 CurveGroup::copyCurve(int key, int v0, int v1)
 {
   if (!m_cg.contains(key))
     {
-      QMessageBox::information(0, "", QString("No curve to copy found at %1").arg(key));
-      return;
+      //QMessageBox::information(0, "", QString("No curve to copy found at %1").arg(key));
+      return -1;
     }
 
   int ic = getActiveCurve(key, v0, v1);
@@ -607,6 +634,8 @@ CurveGroup::copyCurve(int key, int v0, int v1)
       QList<Curve*> curves = m_cg.values(key);
       m_copyCurve = *curves[ic];
     }
+
+  return ic;
 }
 void
 CurveGroup::pasteCurve(int key)
@@ -614,7 +643,7 @@ CurveGroup::pasteCurve(int key)
   Curve *c = new Curve();
   *c = m_copyCurve;
   m_cg.insert(key, c);
-  QMessageBox::information(0, "", QString("%1 : %2").arg(key).arg(m_cg.values(key).count()));
+  //QMessageBox::information(0, "", QString("%1 : %2").arg(key).arg(m_cg.values(key).count()));
   m_pointsDirtyBit = true;
 }
 

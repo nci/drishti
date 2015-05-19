@@ -10,13 +10,20 @@ VolumeFileManager::VolumeFileManager()
   m_startBlock = m_endBlock = 0;
   m_filenames.clear();
   m_volData = 0;
-  m_memmapped = true;
+  m_memmapped = false;
   reset();
 }
 
 VolumeFileManager::~VolumeFileManager() { reset(); }
 
-void VolumeFileManager::setMemMapped(bool b) { m_memmapped = b; }
+void VolumeFileManager::setMemMapped(bool b)
+{
+  m_memmapped = b;
+
+  if (m_volData)
+    delete [] m_volData;
+  m_volData = 0;
+}
 bool VolumeFileManager::isMemMapped() { return m_memmapped; }
 
 void
@@ -42,15 +49,13 @@ VolumeFileManager::reset()
   m_startBlock = m_endBlock = 0;
 
   if (m_volData)
-    {
-      delete [] m_volData;
-      m_volData = 0;
-    }
+    delete [] m_volData;
+  m_volData = 0;
 
   if (m_qfile.isOpen())
     m_qfile.close();
 
-  m_memmapped = true;
+  m_memmapped = false;
 }
 
 int VolumeFileManager::depth() { return m_depth; }

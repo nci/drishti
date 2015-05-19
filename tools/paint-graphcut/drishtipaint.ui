@@ -111,7 +111,7 @@
             <widget class="Line" name="line">
              <property name="maximumSize">
               <size>
-               <width>115</width>
+               <width>16777215</width>
                <height>16777215</height>
               </size>
              </property>
@@ -174,7 +174,7 @@
              <item>
               <widget class="QLabel" name="label_8">
                <property name="text">
-                <string>Rd</string>
+                <string>Rad</string>
                </property>
                <property name="alignment">
                 <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
@@ -218,7 +218,7 @@
           <widget class="Line" name="line_2">
            <property name="maximumSize">
             <size>
-             <width>115</width>
+             <width>16777215</width>
              <height>16777215</height>
             </size>
            </property>
@@ -333,7 +333,7 @@
           <widget class="Line" name="line_3">
            <property name="maximumSize">
             <size>
-             <width>115</width>
+             <width>16777215</width>
              <height>16777215</height>
             </size>
            </property>
@@ -451,10 +451,10 @@
                <enum>QAbstractSpinBox::UpDownArrows</enum>
               </property>
               <property name="maximum">
-               <number>255</number>
+               <number>20</number>
               </property>
               <property name="value">
-               <number>20</number>
+               <number>5</number>
               </property>
              </widget>
             </item>
@@ -474,7 +474,7 @@
                <number>1</number>
               </property>
               <property name="maximum">
-               <number>100</number>
+               <number>50</number>
               </property>
               <property name="value">
                <number>10</number>
@@ -1036,8 +1036,10 @@
     </property>
     <addaction name="actionLoad"/>
     <addaction name="actionLoad_Curves"/>
+    <addaction name="separator"/>
     <addaction name="actionExtractTag"/>
     <addaction name="actionMeshTag"/>
+    <addaction name="separator"/>
     <addaction name="actionSave_Curves"/>
     <addaction name="saveImage"/>
     <addaction name="separator"/>

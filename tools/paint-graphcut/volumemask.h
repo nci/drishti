@@ -48,6 +48,8 @@ class VolumeMask : public QObject
 	     int, int,
 	     QBitArray);
 
+  uchar* memMaskDataPtr() {return m_maskFileManager.memVolDataPtr();};
+
  signals :
   void progressChanged(int);
   void progressReset();

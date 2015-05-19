@@ -76,6 +76,8 @@ class VolumeFileManager
   void setHeightSliceMem(int, uchar*);
   uchar* rawValueMem(int, int, int);
 
+  uchar* memVolDataPtr() { return m_volData; }
+
  private :
   bool m_memmapped;
   QString m_baseFilename;

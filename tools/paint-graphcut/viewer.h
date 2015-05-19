@@ -17,10 +17,17 @@ class Viewer : public QGLViewer
   void setMultiMapCurves(int, QMultiMap<int, Curve*>*);
   void setListMapCurves(int, QList< QMap<int, Curve> >*);
 
+  void setVolDataPtr(uchar*);
+  void setMaskDataPtr(uchar*);
+
   void keyPressEvent(QKeyEvent*);
 
  private :
   int m_depth, m_width, m_height;
+  uchar *m_volPtr;
+  uchar *m_maskPtr;
+  int m_pointSkip;
+  int m_pointSize;
 
   QMultiMap<int, Curve*> *m_Dcg;
   QMultiMap<int, Curve*> *m_Wcg;
@@ -38,6 +45,8 @@ class Viewer : public QGLViewer
   void drawLMDCurve();
   void drawLMWCurve();
   void drawLMHCurve();
+
+  void drawVolMask();
 };
 
 #endif

@@ -89,13 +89,7 @@ CurveGroup::removePolygonAt(int key, int v0, int v1)
 	{
 	  if (j != ic)
 	    m_cg.insert(key, curves[j]);
-	}
-
-//      delete curves[ic];
-//      curves.removeAt(ic);
-//      m_cg.remove(key);
-//      for(int j=0; j<curves.count(); j++)
-//	m_cg.insert(key, curves[j]);
+	}      
     }
 
   m_pointsDirtyBit = true;
@@ -349,7 +343,7 @@ CurveGroup::getActiveCurve(int key, int v0, int v1)
 	    return ic;
 	}
     }
-  
+
   return -1;
 }
 

@@ -56,6 +56,7 @@ VolumeFileManager::reset()
     m_qfile.close();
 
   m_memmapped = false;
+  m_memChanged = false;
 }
 
 int VolumeFileManager::depth() { return m_depth; }
@@ -795,7 +796,7 @@ VolumeFileManager::blockInterpolatedRawValue(float dv, float wv, float hv)
 void
 VolumeFileManager::saveMemFile()
 {
-  if (!m_memmapped)
+  if (!m_memmapped || !m_memChanged)
     return;
 
   uchar vt;
@@ -906,6 +907,8 @@ VolumeFileManager::loadMemFile()
       m_qfile.close(); 
     }
   progress.setValue(100);
+
+  m_memChanged = false;
 }
 
 void
@@ -971,6 +974,8 @@ VolumeFileManager::setSliceMem(int d, uchar *tmp)
   m_qfile.write((char*)tmp, bps);
   m_qfile.close();
   //--------
+
+  m_memChanged = true;
 }
 
 uchar*
@@ -1007,6 +1012,8 @@ VolumeFileManager::setWidthSliceMem(int w, uchar *tmp)
     memcpy(m_volData + d*bps + w*m_height*m_bytesPerVoxel,
 	   tmp + d*m_height*m_bytesPerVoxel,
 	   m_height*m_bytesPerVoxel);
+
+  m_memChanged = true;
 }
 
 uchar*
@@ -1051,6 +1058,8 @@ VolumeFileManager::setHeightSliceMem(int h, uchar *tmp)
 	       tmp + it*m_bytesPerVoxel,
 	       m_bytesPerVoxel);
     }
+
+  m_memChanged = true;
 }
 
 uchar*

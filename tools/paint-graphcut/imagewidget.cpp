@@ -207,7 +207,6 @@ ImageWidget::sliceChanged(int slc)
     {
       freezeModifyUsingLivewire();
       modifyUsingLivewire();
-      //m_livewire.setSeedMoveMode(true);
     }
 
   if (m_sliceType == DSlice)
@@ -1498,49 +1497,27 @@ ImageWidget::modifyUsingLivewire(int x, int y)
   if (! m_livewire.seedMoveMode())
     return;
 
-  int ic;
+  CurveGroup *cg;
   if (m_sliceType == DSlice)
-    ic = m_dCurves.getActiveCurve(m_currSlice, x, y);
+    cg = &m_dCurves;
   else if (m_sliceType == WSlice)
-    ic = m_dCurves.getActiveCurve(m_currSlice, x, y);
+    cg = &m_wCurves;
   else
-    ic = m_dCurves.getActiveCurve(m_currSlice, x, y);
-
+    cg = &m_hCurves;
+  
+  int ic = cg->getActiveCurve(m_currSlice, x, y);
   if (ic == -1) return;
-
-  Curve* c;
-  if (m_sliceType == DSlice)
-    c = m_dCurves.getCurvesAt(m_currSlice)[ic];
-  else if (m_sliceType == WSlice)
-    c = m_wCurves.getCurvesAt(m_currSlice)[ic];
-  else
-    c = m_hCurves.getCurvesAt(m_currSlice)[ic];
-
+  Curve* c = cg->getCurvesAt(m_currSlice)[ic];
   if (c->seeds.count() == 0)
     {
-      QMessageBox::information(0, "", "Cannot modify this curve - not a livewire curve");
+      QMessageBox::information(0, "",
+			       "Cannot modify this curve - not a livewire curve");
       return;
     }
 
   m_livewire.setPolygonToUpdate(c->pts, c->seeds, c->seedpos, c->closed);
-  
-  if (m_sliceType == DSlice)
-    {
-      m_dCurves.copyCurve(m_currSlice,  x, y);
-      m_dCurves.removePolygonAt(m_currSlice, x, y);
-    }
-  else if (m_sliceType == WSlice)
-    {
-      m_wCurves.copyCurve(m_currSlice, x, y);
-      m_wCurves.removePolygonAt(m_currSlice, x, y);
-    }
-  else
-    {
-      m_hCurves.copyCurve(m_currSlice, x, y);
-      m_hCurves.removePolygonAt(m_currSlice, x, y);
-    }
-      
-  return;
+  cg->copyCurve(m_currSlice,  x, y);
+  cg->removePolygonAt(m_currSlice, x, y);
 }
 
 void
@@ -1626,23 +1603,6 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
 
       return true;
     }
-
-
-//  if (event->key() == Qt::Key_U)
-//    {
-//      if (shiftModifier)
-//	{
-//	  if (m_livewire.seedMoveMode())
-//	    freezeModifyUsingLivewire();
-//	}
-//      else
-//	{
-//	  modifyUsingLivewire();
-//	}
-//
-//      return true;
-//    }
-
 
   if (m_livewireMode)
     {

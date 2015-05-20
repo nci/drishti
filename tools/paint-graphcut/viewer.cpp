@@ -18,8 +18,10 @@ Viewer::init()
 
   m_maskPtr = 0;
   m_volPtr = 0;
-  m_pointSkip = 10;
-  m_pointSize = 2;
+  m_pointSkip = 5;
+  m_pointSize = 5;
+
+  m_voxels.clear();
 }
 
 void Viewer::setMaskDataPtr(uchar *ptr) { m_maskPtr = ptr; }
@@ -31,12 +33,19 @@ Viewer::keyPressEvent(QKeyEvent *event)
   if (event->key() == Qt::Key_Escape)
     return;
 
+  if (event->key() == Qt::Key_U)
+    {
+      updateVoxels();
+      return;
+    }
+
   if (event->key() == Qt::Key_Space)
     {
       m_pointSkip = QInputDialog::getInt(this,
 					 "Point Interval",
 					 "Interval for display of points for painted mask",
 					 m_pointSkip, 0, 100);
+      updateVoxels();
       return;
     }
 
@@ -147,43 +156,76 @@ Viewer::draw()
 }
 
 void
-Viewer::drawVolMask()
+Viewer::updateVoxels()
 {
-  glPointSize(m_pointSize);
-  int wst = 0;
-  int hst = 0;
-  for(int d=0; d<m_depth; d+=m_pointSkip)
+  m_voxels.clear();
+  
+  if (m_pointSkip == 0)
+    return;
+
+  for(int d=1; d<m_depth-1; d+=m_pointSkip)
     {
-      for(int w=0; w<m_width; w+=m_pointSkip)
+      for(int w=1; w<m_width-1; w+=m_pointSkip)
 	{
-	  for(int h=0; h<m_height; h+=m_pointSkip)
+	  for(int h=1; h<m_height-1; h+=m_pointSkip)
 	    {
-	      int tag = m_maskPtr[d*m_width*m_height + w*m_height + h];
+	      uchar tag = m_maskPtr[d*m_width*m_height + w*m_height + h];
 	      if (tag > 0)
 		{
-		  float vol = (float)m_volPtr[d*m_width*m_height + w*m_height + h]/255.0;
-		  glBegin(GL_POINTS);
-		  float r = Global::tagColors()[4*tag+0]*1.0/255.0;
-		  float g = Global::tagColors()[4*tag+1]*1.0/255.0;
-		  float b = Global::tagColors()[4*tag+2]*1.0/255.0;
-		  r = r*0.5 + 0.5*vol;
-		  g = g*0.5 + 0.5*vol;
-		  b = b*0.5 + 0.5*vol;
-		  glColor3f(r,g,b);
-		  glVertex3f(h, w, d);
-		  glEnd();
+		  bool ok = false;
+		  for(int dd=-m_pointSkip; dd<=m_pointSkip; dd++)
+		    for(int ww=-m_pointSkip; ww<=m_pointSkip; ww++)
+		      for(int hh=-m_pointSkip; hh<=m_pointSkip; hh++)
+			{
+			  int d1 = qBound(0, d+dd, m_depth);
+			  int w1 = qBound(0, w+ww, m_width);
+			  int h1 = qBound(0, h+hh, m_height);
+			  if (m_maskPtr[d1*m_width*m_height + w1*m_height + h1] != tag)
+			    {
+			      ok = true;
+			      break;
+			    }
+			}
+
+		  if (ok)
+		    {
+		      uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
+		      m_voxels << d << w << h << tag << vol;
+		    }
+
 		}
-	    } // h
-	  if (hst > 0)
-	    hst = m_pointSkip/2;
-	  else
-	    hst = 0;
-	} // w
-      if (wst > 0)
-	wst = m_pointSkip/2;
-      else
-	wst = 0;
-    } // d
+	    }
+	}
+    }
+}
+
+void
+Viewer::drawVolMask()
+{
+  if (m_pointSkip == 0)
+    return;
+
+  glPointSize(m_pointSize);
+  int nv = m_voxels.count()/5;
+  for(int i=0; i<nv; i++)
+    {
+      int d = m_voxels[5*i+0];
+      int w = m_voxels[5*i+1];
+      int h = m_voxels[5*i+2];
+      int t = m_voxels[5*i+3];
+      float v = (float)m_voxels[5*i+4]/255.0;
+
+      glBegin(GL_POINTS);
+      float r = Global::tagColors()[4*t+0]*1.0/255.0;
+      float g = Global::tagColors()[4*t+1]*1.0/255.0;
+      float b = Global::tagColors()[4*t+2]*1.0/255.0;
+      r = r*0.5 + 0.5*v;
+      g = g*0.5 + 0.5*v;
+      b = b*0.5 + 0.5*v;
+      glColor3f(r,g,b);
+      glVertex3f(h, w, d);
+      glEnd();
+    }
 }
 
 

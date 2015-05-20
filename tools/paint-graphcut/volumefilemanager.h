@@ -80,6 +80,7 @@ class VolumeFileManager
 
  private :
   bool m_memmapped;
+  bool m_memChanged;
   QString m_baseFilename;
   QStringList m_filenames;
   qint64 m_header, m_slabSize;

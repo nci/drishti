@@ -36,6 +36,8 @@ class Viewer : public QGLViewer
   QList< QMap<int, Curve> > *m_Wmcg;  
   QList< QMap<int, Curve> > *m_Hmcg;  
 
+  QList<ushort> m_voxels;
+
   void drawBox();
   
   void drawMMDCurve();
@@ -47,6 +49,8 @@ class Viewer : public QGLViewer
   void drawLMHCurve();
 
   void drawVolMask();
+
+  void updateVoxels();
 };
 
 #endif

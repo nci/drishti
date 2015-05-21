@@ -106,6 +106,7 @@ class LiveWire
   void updateLivewireFromSeeds(int, int);
   void splitPolygon(int);
   int  getActiveSeed(int, int);
+  int  insertSeed(int, int);
 };
 
 #endif

@@ -180,9 +180,14 @@ LiveWire::mouseReleaseEvent(QMouseEvent *event)
 bool
 LiveWire::mousePressEvent(int xpos, int ypos, QMouseEvent *event)
 {
+  bool shiftModifier = event->modifiers() & Qt::ShiftModifier;
+
   if (m_seedMoveMode)
     {
-      m_activeSeed = getActiveSeed(xpos, ypos);
+      if (shiftModifier && event->button() == Qt::LeftButton)
+	m_activeSeed = insertSeed(xpos, ypos);
+      else
+	m_activeSeed = getActiveSeed(xpos, ypos);
       return true;
     }
 
@@ -927,6 +932,51 @@ LiveWire::getActiveSeed(int xpos, int ypos)
   m_polyA.clear();
   m_polyB.clear();
   return -1;
+}
+
+int
+LiveWire::insertSeed(int xpos, int ypos)
+{
+  int ic = getActiveSeed(xpos, ypos);
+  if (ic >= 0)
+    return ic;
+  
+  int sp = -1;
+  ic = -1;
+  for(int is=1; is<m_seedpos.count(); is++)
+    {
+      for (int i=m_seedpos[is-1]; i<m_seedpos[is]; i++)
+	{
+	  if ((m_poly[i]-QPoint(xpos, ypos)).manhattanLength() < 3)
+	    {
+	      sp = is;
+	      ic = i;
+	      break;
+	    }
+	}
+    }
+  if (sp == -1 || ic == -1)
+    {
+      if (m_closed)
+	{
+	  int is = m_seedpos.count()-1;
+	  for (int i=m_seedpos[is]; i<m_poly.count(); i++)
+	    {
+	      if ((m_poly[i]-QPoint(xpos, ypos)).manhattanLength() < 3)
+		{
+		  sp = is+1;
+		  ic = i;
+		  break;
+		}
+	    }
+	}
+
+      if (sp == -1 || ic == -1)
+	return -1;
+    }
+
+  m_seeds.insert(sp, m_poly[ic]);
+  m_seedpos.insert(sp, ic);
 }
 
 void

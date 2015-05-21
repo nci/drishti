@@ -1062,6 +1062,9 @@ ImageWidget::paintEvent(QPaintEvent *event)
 	  else
 	    ok = withinBounds(m_pickWidth,
 			      m_pickDepth);
+
+	  ok = ok && !(m_livewireMode && shiftModifier);
+
 	  if (ok)
 	    {
 	      int rad = Global::spread()*(float)m_simgWidth/(float)m_imgWidth;
@@ -2228,7 +2231,6 @@ ImageWidget::curveMousePressEvent(QMouseEvent *event)
   m_lastPickHeight= m_pickHeight;
   
   if(m_livewireMode &&
-     !shiftModifier && 
      !ctrlModifier &&
      !altModifier)
     {

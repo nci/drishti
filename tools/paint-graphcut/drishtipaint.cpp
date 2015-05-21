@@ -292,6 +292,9 @@ DrishtiPaint::on_actionGraphCut_triggered()
   ui.curvesBox->hide();
   m_imageWidget->setCurve(false);
   ui.livewire->setChecked(false);
+
+  ui.modify->setChecked(false);
+  m_imageWidget->freezeModifyUsingLivewire();
 }
 
 void

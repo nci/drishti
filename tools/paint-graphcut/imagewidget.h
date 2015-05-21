@@ -267,6 +267,8 @@ class ImageWidget : public QWidget
   void graphcutMousePressEvent(QMouseEvent*);
   void curveMouseMoveEvent(QMouseEvent*);
   void graphcutMouseMoveEvent(QMouseEvent*);
+
+  CurveGroup* getCg();
 };
 
 

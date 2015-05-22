@@ -9,6 +9,8 @@ using namespace qglviewer;
 
 class Viewer : public QGLViewer
 {
+  Q_OBJECT
+
  public :
   void init();
   void draw();
@@ -22,8 +24,15 @@ class Viewer : public QGLViewer
 
   void keyPressEvent(QKeyEvent*);
 
+  public slots :
+    void updateViewerBox(int, int, int, int, int, int);
+
  private :
   int m_depth, m_width, m_height;
+  int m_minDSlice, m_maxDSlice;
+  int m_minWSlice, m_maxWSlice;
+  int m_minHSlice, m_maxHSlice;
+
   uchar *m_volPtr;
   uchar *m_maskPtr;
   int m_pointSkip;
@@ -51,6 +60,9 @@ class Viewer : public QGLViewer
   void drawVolMask();
 
   void updateVoxels();
+
+  void drawEnclosingCube(Vec, Vec);
+
 };
 
 #endif

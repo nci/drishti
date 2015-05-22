@@ -95,7 +95,7 @@ class ImageWidget : public QWidget
   void zoomDown();
   void setPointSize(int);
 
-  void paintUsingCurves(int, int, int, int, uchar*, int);
+  void paintUsingCurves(int, int, int, int, uchar*, QList<int>);
 
   void modifyUsingLivewire();
   void freezeModifyUsingLivewire();
@@ -123,6 +123,7 @@ class ImageWidget : public QWidget
   void simulateKeyPressEvent(QKeyEvent*);
   void applyMaskOperation(int, int, int);
   void polygonLevels(QList<int>);
+  void updateViewerBox(int, int, int, int, int, int);
 
  private :
   QStatusBar *m_statusBar;
@@ -240,7 +241,7 @@ class ImageWidget : public QWidget
   void applyRecursive(int);
   void checkRecursive();
   
-  void paintUsingCurves(CurveGroup*, int, int, int, uchar*, int);
+  void paintUsingCurves(CurveGroup*, int, int, int, uchar*, QList<int>);
   void paintUsingCurves(uchar*);
 
   void saveCurves(QFile*, CurveGroup*);

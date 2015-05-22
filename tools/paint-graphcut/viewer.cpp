@@ -22,10 +22,30 @@ Viewer::init()
   m_pointSize = 5;
 
   m_voxels.clear();
+
+  m_minDSlice = 0;
+  m_maxDSlice = 0;
+  m_minWSlice = 0;
+  m_maxWSlice = 0;
+  m_minHSlice = 0;
+  m_maxHSlice = 0;
 }
 
 void Viewer::setMaskDataPtr(uchar *ptr) { m_maskPtr = ptr; }
 void Viewer::setVolDataPtr(uchar *ptr) { m_volPtr = ptr; }
+
+void
+Viewer::updateViewerBox(int minD, int maxD, int minW, int maxW, int minH, int maxH)
+{
+  m_minDSlice = minD;
+  m_maxDSlice = maxD;
+
+  m_minWSlice = minW;
+  m_maxWSlice = maxW;
+
+  m_minHSlice = minH;
+  m_maxHSlice = maxH;
+}
 
 void
 Viewer::keyPressEvent(QKeyEvent *event)
@@ -68,8 +88,52 @@ Viewer::setGridSize(int d, int w, int h)
   m_width = w;
   m_height = h;
 
+  m_minDSlice = 0;
+  m_minWSlice = 0;
+  m_minHSlice = 0;
+
+  m_maxDSlice = d;
+  m_maxWSlice = w;
+  m_maxHSlice = h;
+
   setSceneBoundingBox(Vec(0,0,0), Vec(m_height, m_width, m_depth));
   showEntireScene();
+}
+
+void
+Viewer::drawEnclosingCube(Vec subvolmin,
+			  Vec subvolmax)
+{
+  glBegin(GL_QUADS);  
+  glVertex3f(subvolmin.x, subvolmin.y, subvolmin.z);
+  glVertex3f(subvolmax.x, subvolmin.y, subvolmin.z);
+  glVertex3f(subvolmax.x, subvolmax.y, subvolmin.z);
+  glVertex3f(subvolmin.x, subvolmax.y, subvolmin.z);
+  glEnd();
+  
+  // FRONT 
+  glBegin(GL_QUADS);  
+  glVertex3f(subvolmin.x, subvolmin.y, subvolmax.z);
+  glVertex3f(subvolmax.x, subvolmin.y, subvolmax.z);
+  glVertex3f(subvolmax.x, subvolmax.y, subvolmax.z);
+  glVertex3f(subvolmin.x, subvolmax.y, subvolmax.z);
+  glEnd();
+  
+  // TOP
+  glBegin(GL_QUADS);  
+  glVertex3f(subvolmin.x, subvolmax.y, subvolmin.z);
+  glVertex3f(subvolmax.x, subvolmax.y, subvolmin.z);
+  glVertex3f(subvolmax.x, subvolmax.y, subvolmax.z);
+  glVertex3f(subvolmin.x, subvolmax.y, subvolmax.z);
+  glEnd();
+  
+  // BOTTOM
+  glBegin(GL_QUADS);  
+  glVertex3f(subvolmin.x, subvolmin.y, subvolmin.z);
+  glVertex3f(subvolmax.x, subvolmin.y, subvolmin.z);
+  glVertex3f(subvolmax.x, subvolmin.y, subvolmax.z);
+  glVertex3f(subvolmin.x, subvolmin.y, subvolmax.z);  
+  glEnd();  
 }
 
 void
@@ -78,46 +142,57 @@ Viewer::drawBox()
   setAxisIsDrawn();
   
   glColor3d(0.5,0.5,0.5);
+
+  glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
   
-  glBegin(GL_LINES);
-   glVertex3f(0, 0, 0);
-   glVertex3f(0, 0, m_depth);
+  drawEnclosingCube(Vec(0,0,0),
+		    Vec(m_height, m_width, m_depth));
 
-   glVertex3f(0, 0, m_depth);
-   glVertex3f(0, m_width, m_depth);
+  glColor3d(0.8,0.8,0.8);
+  drawEnclosingCube(Vec(m_minHSlice, m_minWSlice, m_minDSlice),
+		    Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
 
-   glVertex3f(0, m_width, m_depth);
-   glVertex3f(0, m_width, 0);
+  glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-   glVertex3f(0, m_width, 0);
-   glVertex3f(0, 0, 0);
-
-
-   glVertex3f(m_height, 0, 0);
-   glVertex3f(m_height, 0, m_depth);
-
-   glVertex3f(m_height, 0, m_depth);
-   glVertex3f(m_height, m_width, m_depth);
-
-   glVertex3f(m_height, m_width, m_depth);
-   glVertex3f(m_height, m_width, 0);
-
-   glVertex3f(m_height, m_width, 0);
-   glVertex3f(m_height, 0, 0);
-
-   glVertex3f(0, 0, 0);
-   glVertex3f(m_height, 0, 0);
-
-   glVertex3f(0, 0, m_depth);
-   glVertex3f(m_height, 0, m_depth);
-
-   glVertex3f(0, m_width, m_depth);
-   glVertex3f(m_height, m_width, m_depth);
-
-   glVertex3f(0, m_width, 0);
-   glVertex3f(m_height, m_width, 0);
-
-   glEnd();
+//  glBegin(GL_LINES);
+//   glVertex3f(0, 0, 0);
+//   glVertex3f(0, 0, m_depth);
+//
+//   glVertex3f(0, 0, m_depth);
+//   glVertex3f(0, m_width, m_depth);
+//
+//   glVertex3f(0, m_width, m_depth);
+//   glVertex3f(0, m_width, 0);
+//
+//   glVertex3f(0, m_width, 0);
+//   glVertex3f(0, 0, 0);
+//
+//
+//   glVertex3f(m_height, 0, 0);
+//   glVertex3f(m_height, 0, m_depth);
+//
+//   glVertex3f(m_height, 0, m_depth);
+//   glVertex3f(m_height, m_width, m_depth);
+//
+//   glVertex3f(m_height, m_width, m_depth);
+//   glVertex3f(m_height, m_width, 0);
+//
+//   glVertex3f(m_height, m_width, 0);
+//   glVertex3f(m_height, 0, 0);
+//
+//   glVertex3f(0, 0, 0);
+//   glVertex3f(m_height, 0, 0);
+//
+//   glVertex3f(0, 0, m_depth);
+//   glVertex3f(m_height, 0, m_depth);
+//
+//   glVertex3f(0, m_width, m_depth);
+//   glVertex3f(m_height, m_width, m_depth);
+//
+//   glVertex3f(0, m_width, 0);
+//   glVertex3f(m_height, m_width, 0);
+//
+//   glEnd();
 }
 
 void

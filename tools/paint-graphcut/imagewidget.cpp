@@ -251,7 +251,11 @@ ImageWidget::userRangeChanged(int umin, int umax)
       m_minHSlice = umin;
       m_maxHSlice = umax;
     }
-    
+  
+  emit updateViewerBox(m_minDSlice, m_maxDSlice,
+		       m_minWSlice, m_maxWSlice,
+		       m_minHSlice, m_maxHSlice);
+  
   update();
 }
 
@@ -293,22 +297,6 @@ ImageWidget::setSliceType(int st)
   CurveGroup *cg = getCg();
   m_currSlice = m_minDSlice;
   emit polygonLevels(cg->polygonLevels());
-
-//  if (m_sliceType == DSlice)
-//    {
-//      m_currSlice = m_minDSlice;
-//      emit polygonLevels(m_dCurves.polygonLevels());
-//    }
-//  else if (m_sliceType == WSlice)
-//    {
-//      m_currSlice = m_minWSlice;
-//      emit polygonLevels(m_wCurves.polygonLevels());
-//    }
-//  else
-//    {
-//      m_currSlice = m_minHSlice;
-//      emit polygonLevels(m_hCurves.polygonLevels());
-//    }
 
 
   //---------------------------------
@@ -1329,37 +1317,6 @@ ImageWidget::freezeLivewire(bool select)
 		   select); 
   emit polygonLevels(cg->polygonLevels());
 
-//  if (m_sliceType == DSlice)
-//    {
-//      m_dCurves.setPolygonAt(m_currSlice,
-//			     pts, seeds, seedpos,
-//			     Global::closed(),
-//			     Global::tag(),
-//			     Global::thickness(),
-//			     select); 
-//      emit polygonLevels(m_dCurves.polygonLevels());
-//    }
-//  else if (m_sliceType == WSlice)
-//    {
-//      m_wCurves.setPolygonAt(m_currSlice,
-//			     pts, seeds, seedpos,
-//			     Global::closed(),
-//			     Global::tag(),
-//			     Global::thickness(),
-//			     select);
-//      emit polygonLevels(m_wCurves.polygonLevels());
-//    }
-//  else
-//    {
-//      m_hCurves.setPolygonAt(m_currSlice,
-//			     pts, seeds, seedpos,
-//			     Global::closed(),
-//			     Global::tag(),
-//			     Global::thickness(),
-//			     select); 
-//      emit polygonLevels(m_hCurves.polygonLevels());
-//    }	  
-
   m_livewire.resetPoly();
 
   update(); 
@@ -1370,13 +1327,6 @@ ImageWidget::newCurve()
 {
   CurveGroup *cg = getCg();
   cg->newCurve(m_currSlice, Global::closed());
-
-//  if (m_sliceType == DSlice)
-//    m_dCurves.newCurve(m_currSlice, Global::closed());
-//  if (m_sliceType == WSlice)
-//    m_wCurves.newCurve(m_currSlice, Global::closed());
-//  else
-//    m_hCurves.newCurve(m_currSlice, Global::closed());
 }
 
 void
@@ -1384,13 +1334,6 @@ ImageWidget::morphCurves()
 {
   CurveGroup *cg = getCg();
   cg->morphCurves();
-
-//  if (m_sliceType == DSlice)
-//    m_dCurves.morphCurves();
-//  else if (m_sliceType == WSlice)
-//    m_wCurves.morphCurves();
-//  else
-//    m_hCurves.morphCurves();
   
   update();
 }
@@ -1418,22 +1361,6 @@ ImageWidget::deleteAllCurves()
   cg->reset();
   emit polygonLevels(cg->polygonLevels());
 
-//  if (m_sliceType == DSlice)
-//    {
-//      m_dCurves.reset();
-//      emit polygonLevels(m_dCurves.polygonLevels());
-//    }
-//  else if (m_sliceType == WSlice)
-//    {
-//      m_wCurves.reset();
-//      emit polygonLevels(m_wCurves.polygonLevels());
-//    }
-//  else
-//    {
-//      m_hCurves.reset();
-//      emit polygonLevels(m_hCurves.polygonLevels());
-//    }
-  
   QMessageBox::information(0, "", QString("Removed all curves for %1").arg(st));
   
   update();
@@ -1577,34 +1504,6 @@ ImageWidget::freezeModifyUsingLivewire()
 		       closed, c.tag, c.thickness,
 		       false); 
       emit polygonLevels(cg->polygonLevels());
-
-//      if (m_sliceType == DSlice)
-//	{
-//	  Curve c = m_dCurves.getCopyCurve();
-//	  m_dCurves.setPolygonAt(m_currSlice,
-//				 pts, seeds, seedpos,
-//				 closed, c.tag, c.thickness,
-//				 false); 
-//	  emit polygonLevels(m_dCurves.polygonLevels());
-//	}
-//      else if (m_sliceType == WSlice)
-//	{
-//	  Curve c = m_wCurves.getCopyCurve();
-//	  m_wCurves.setPolygonAt(m_currSlice,
-//				 pts, seeds, seedpos,
-//				 closed, c.tag, c.thickness,
-//				 false); 
-//	  emit polygonLevels(m_wCurves.polygonLevels());
-//	}
-//      else
-//	{
-//	  Curve c = m_hCurves.getCopyCurve();
-//	  m_hCurves.setPolygonAt(m_currSlice,
-//				 pts, seeds, seedpos,
-//				 closed, c.tag, c.thickness,
-//				 false); 
-//	  emit polygonLevels(m_hCurves.polygonLevels());
-//	}
     }
   m_livewire.resetPoly();
 }
@@ -1657,22 +1556,6 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
 	      CurveGroup *cg = getCg();
 	      cg->pasteCurve(m_currSlice);
 	      emit polygonLevels(cg->polygonLevels());
-
-//	      if (m_sliceType == DSlice)
-//		{
-//		  m_dCurves.pasteCurve(m_currSlice);
-//		  emit polygonLevels(m_dCurves.polygonLevels());
-//		}
-//	      else if (m_sliceType == WSlice)
-//		{
-//		  m_wCurves.pasteCurve(m_currSlice);
-//		  emit polygonLevels(m_wCurves.polygonLevels());
-//		}
-//	      else
-//		{
-//		  m_hCurves.pasteCurve(m_currSlice);
-//		  emit polygonLevels(m_hCurves.polygonLevels());
-//		}
 	    }
 	  if (event->key() == Qt::Key_Space)
 	    {
@@ -1718,24 +1601,7 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
     {
       CurveGroup *cg = getCg();
       cg->pasteCurve(m_currSlice);
-      emit polygonLevels(cg->polygonLevels());
-
-//      if (m_sliceType == DSlice)
-//	{
-//	  m_dCurves.pasteCurve(m_currSlice);
-//	  emit polygonLevels(m_dCurves.polygonLevels());
-//	}
-//      else if (m_sliceType == WSlice)
-//	{
-//	  m_wCurves.pasteCurve(m_currSlice);
-//	  emit polygonLevels(m_wCurves.polygonLevels());
-//	}
-//      else
-//	{
-//	  m_hCurves.pasteCurve(m_currSlice);
-//	  emit polygonLevels(m_hCurves.polygonLevels());
-//	}
-      
+      emit polygonLevels(cg->polygonLevels());      
       update();
       return true;
     }
@@ -2204,6 +2070,10 @@ ImageWidget::mouseDoubleClickEvent(QMouseEvent *event)
       m_maxDSlice = bottom*m_Depth;
     }
 
+  emit updateViewerBox(m_minDSlice, m_maxDSlice,
+		       m_minWSlice, m_maxWSlice,
+		       m_minHSlice, m_maxHSlice);
+
   update();
 }
 
@@ -2627,13 +2497,6 @@ ImageWidget::mouseReleaseEvent(QMouseEvent *event)
     {
       CurveGroup *cg = getCg();
       emit polygonLevels(cg->polygonLevels());
-
-//      if (m_sliceType == DSlice)
-//	emit polygonLevels(m_dCurves.polygonLevels());
-//      else if (m_sliceType == WSlice)
-//	emit polygonLevels(m_wCurves.polygonLevels());
-//      else
-//	emit polygonLevels(m_hCurves.polygonLevels());
     }
 
   if (m_rubberBandActive)
@@ -2681,6 +2544,10 @@ ImageWidget::mouseReleaseEvent(QMouseEvent *event)
 	  m_minDSlice = top*m_Depth;
 	  m_maxDSlice = bottom*m_Depth;
 	}
+
+      emit updateViewerBox(m_minDSlice, m_maxDSlice,
+			   m_minWSlice, m_maxWSlice,
+			   m_minHSlice, m_maxHSlice);
     }
 
   m_rubberXmin = false;
@@ -2894,6 +2761,9 @@ ImageWidget::processCommands(QString cmd)
 			       m_maxHSlice);
 	}
 
+      emit updateViewerBox(m_minDSlice, m_maxDSlice,
+			   m_minWSlice, m_maxWSlice,
+			   m_minHSlice, m_maxHSlice);
       update();
     }
   else
@@ -3063,7 +2933,7 @@ void
 ImageWidget::paintUsingCurves(CurveGroup* cg,
 			      int slc, int wd, int ht,
 			      uchar *maskData,
-			      int ptag)
+			      QList<int> ptag)
 {
   QImage pimg= QImage(wd, ht, QImage::Format_RGB32);
   pimg.fill(0);
@@ -3078,7 +2948,7 @@ ImageWidget::paintUsingCurves(CurveGroup* cg,
 	for(int l=0; l<curves.count(); l++)
 	  {
 	    int tag = curves[l]->tag;
-	    if (ptag == -1 || ptag == tag)
+	    if (ptag[0] <= 0 || ptag.contains(tag))
 	      {
 		p.setBrush(QColor(tag, 255, 255)); 
 		if (curves[l]->closed)
@@ -3106,7 +2976,7 @@ ImageWidget::paintUsingCurves(CurveGroup* cg,
 	for(int l=0; l<curves.count(); l++)
 	  {
 	    int tag = curves[l].tag;
-	    if (ptag == -1 || ptag == tag)
+	    if (ptag[0] <= 0 || ptag.contains(tag))
 	      {
 		p.setBrush(QColor(tag, 255, 255)); 
 		if (curves[l].closed)
@@ -3138,9 +3008,13 @@ void
 ImageWidget::paintUsingCurves(int slctype,
 			      int slc, int wd, int ht,
 			      uchar *maskData,
-			      int tag)
+			      QList<int> tag)
 {
-  CurveGroup *cg = getCg();  
+  CurveGroup *cg;
+  if (slctype == 0) cg = &m_dCurves;
+  else if (slctype == 1) cg = &m_wCurves;
+  else cg = &m_hCurves;
+
   paintUsingCurves(cg,
 		   slc, wd, ht,
 		   maskData,
@@ -3153,11 +3027,13 @@ ImageWidget::paintUsingCurves(uchar *maskData)
   if (!m_curveMode && !m_livewireMode)
     return;
 
+  QList<int> gtag;
+  gtag << Global::tag();
   CurveGroup *cg = getCg();  
   paintUsingCurves(cg,
 		   m_currSlice, m_imgWidth, m_imgHeight,
 		   maskData,
-		   Global::tag());
+		   gtag);
 }
 
 void
@@ -3925,12 +3801,6 @@ ImageWidget::loadCurves(QString curvesfile)
 
   CurveGroup *cg = getCg();
   emit polygonLevels(cg->polygonLevels());
-//  if (m_sliceType == DSlice)
-//    emit polygonLevels(m_dCurves.polygonLevels());
-//  else if (m_sliceType == WSlice)
-//    emit polygonLevels(m_wCurves.polygonLevels());
-//  else
-//    emit polygonLevels(m_hCurves.polygonLevels());
 
   QMessageBox::information(0, "", QString("Curves loaded from %1").arg(curvesfile));
 }

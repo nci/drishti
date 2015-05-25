@@ -142,8 +142,6 @@ class DrishtiPaint : public QMainWindow
 
   void savePvlHeader(QString, QString, int, int, int, bool);
 
-  void smoothData(uchar*, int, int ,int, int);
-
   void saveMesh(int,
 		QString,
 		MarchingCubes*,

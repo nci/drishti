@@ -1269,6 +1269,7 @@ MorphCurve::getAllPerimeters(QList<Perimeter> perimeters,
 			   0, 100,
 			   0);
   progress.setMinimumDuration(0);
+  qApp->processEvents();
 
   // get all morphed curves and return them.
   int i, j;

@@ -1587,12 +1587,6 @@ DrishtiPaint::on_actionExtractTag_triggered()
 
   bool ok;
   //----------------
-//  tag = QInputDialog::getInt(0, "Save Data for Tag",
-//			     "Tag Number (Selecting -1 will save all tagged region)",
-//			     1, -1, 254, 1,
-//			     &ok);
-//  if (!ok)
-//    return;
   QString tagstr = QInputDialog::getText(0, "Save Mesh for Tag",
 	    "Tag Numbers (-1 for tags; for e.g. 1,2,5 will mesh tags 1, 2 and 5)",
 					 QLineEdit::Normal,
@@ -1625,31 +1619,35 @@ DrishtiPaint::on_actionExtractTag_triggered()
     tag << -1;
   //----------------
 
-  //----------------
   saveImageData = true;
-//  if (tag > -1)
-//    {
-//      dtypes.clear();
-//      dtypes << "Image Data"
-//	     << "Tags Data";
-//      QString option = QInputDialog::getItem(0,
-//					     "Save",
-//					     "Save Image Data or Mask Tags ?",
-//					     dtypes,
-//					     0,
-//					     false,
-//					     &ok);
-//      if (!ok)
-//	return;
-//      
-//      if (option == "Tags Data")
-//	{
-//	  saveImageData = false;
-//	  QMessageBox::information(0, "Save Tag",
-//   QString("Tag value %1 will be saved as 127 for ease of visualization.").arg(tag));
-//	}
-//    }
+
   //----------------
+  int extractType = 1; // extract using tag
+  dtypes.clear();
+  dtypes << "Tag Only"
+	 << "Tag + Transfer Function";
+  QString option = QInputDialog::getItem(0,
+					 "Extract Data",
+					 "Extract Using Tag + Transfer Function",
+					 dtypes,
+					 0,
+					 false,
+					 &ok);
+  if (!ok)
+    return;
+  
+  if (option == "Tag Only") extractType = 1;
+  else if (option == "Tag + Transfer Function") extractType = 2;
+  //----------------
+
+  //----------------
+  uchar outsideVal = 0;
+  outsideVal = QInputDialog::getInt(0,
+				    "Outside value",
+				    "Set outside value to",
+				    0, 0, 255, 1);
+  //----------------
+
 
   int depth, width, height;
   m_volume->gridSize(depth, width, height);
@@ -1699,6 +1697,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
 			   0);
   progress.setMinimumDuration(0);
 
+  uchar *lut = Global::lut();
   int nbytes = width*height;
   uchar *raw = new uchar[nbytes];
 
@@ -1794,8 +1793,9 @@ DrishtiPaint::on_actionExtractTag_triggered()
 
       if (tag[0] == -1)
 	{
-	  for(int i=0; i<nbytes; i++)
-	    raw[i] = (raw[i] > 0 ? 127 : 0);
+	  for(int w=minWSlice; w<=maxWSlice; w++)
+	    for(int h=minHSlice; h<=maxHSlice; h++)
+	      raw[w*height+h] = (raw[w*height+h] > 0 ? 255 : 0);
 
 	  // apply curve mask
 	  for(int w=minWSlice; w<=maxWSlice; w++)
@@ -1804,13 +1804,14 @@ DrishtiPaint::on_actionExtractTag_triggered()
 		if (curveMask[slc*twidth*theight +
 			      (w-minWSlice)*theight +
 			      (h-minHSlice)] > 0)
-		  raw[w*height+h] = 127;
+		  raw[w*height+h] = 255;
 	      }
 	}
       else if (tag[0] == 0)
 	{
-	  for(int i=0; i<nbytes; i++)
-	    raw[i] = (raw[i] == 0 ? 127 : 0);
+	  for(int w=minWSlice; w<=maxWSlice; w++)
+	    for(int h=minHSlice; h<=maxHSlice; h++)
+	      raw[w*height+h] = (raw[w*height+h] == 0 ? 255 : 0);
 
 	  // apply curve mask
 	  for(int w=minWSlice; w<=maxWSlice; w++)
@@ -1824,8 +1825,9 @@ DrishtiPaint::on_actionExtractTag_triggered()
 	}
       else
 	{
-	  for(int i=0; i<nbytes; i++)
-	    raw[i] = (tag.contains(raw[i]) ? 127 : 0);
+	  for(int w=minWSlice; w<=maxWSlice; w++)
+	    for(int h=minHSlice; h<=maxHSlice; h++)
+	      raw[w*height+h] = (tag.contains(raw[w*height+h]) ? 255 : 0);
 
 	  // apply curve mask
 	  for(int w=minWSlice; w<=maxWSlice; w++)
@@ -1834,37 +1836,61 @@ DrishtiPaint::on_actionExtractTag_triggered()
 		if (tag.contains(curveMask[slc*twidth*theight +
 					   (w-minWSlice)*theight +
 					   (h-minHSlice)]))
-		    raw[w*height+h] = 127;
+		    raw[w*height+h] = 255;
 	      }
 	}
 
       //-----------------------------
       //-----------------------------
+
+
+      //-----------------------------
+      {
+	int i=0;
+	for(int w=minWSlice; w<=maxWSlice; w++)
+	  for(int h=minHSlice; h<=maxHSlice; h++)
+	    {
+	      raw[i] = raw[w*height+h];
+	      i++;
+	    }
+      }
+      //-----------------------------
+      
+
+      //-----------------------------
+      // use tag mask + transfer function to generate mesh
+      if (extractType == 2)
+	{
+	  int sval = 0;
+	  if (tag[0] == -1) sval = 0;
+	  else if (tag[0] == 0) sval = 255;
+	  else sval = 0;
+	  
+	  int i=0;
+	  for(int w=minWSlice; w<=maxWSlice; w++)
+	    for(int h=minHSlice; h<=maxHSlice; h++)
+	      {
+		if (raw[i] != sval &&
+		    lut[4*slice[i]+3] < 5)
+		  raw[i] = sval;
+		i++;
+	      }
+	}
+      //-----------------------------
+
       
       // now mask data with tag
       if (saveImageData)
 	{
-	  i=0;
-	  for(int w=minWSlice; w<=maxWSlice; w++)
-	    for(int h=minHSlice; h<=maxHSlice; h++)
-	      {
-		if (raw[w*height+h] != 127)
-		  slice[i] = 0;
-		i++;
-	      }
+	  for(int i=0; i<twidth*theight; i++)
+	    {
+	      if (raw[i] != 255)
+		slice[i] = outsideVal;
+	    }
 	  tFile.setSlice(slc, slice);
 	}
       else
-	{
-	  i=0;
-	  for(int w=minWSlice; w<=maxWSlice; w++)
-	    for(int h=minHSlice; h<=maxHSlice; h++)
-	      {
-		raw[i] = raw[w*height+h];
-		i++;
-	      }
-	  tFile.setSlice(slc, raw);
-	}
+	tFile.setSlice(slc, raw);
     }
 
   delete [] raw;
@@ -1881,13 +1907,6 @@ DrishtiPaint::on_actionMeshTag_triggered()
   QList<int> tag;
 
   bool ok;
-//  //----------------
-//  tag = QInputDialog::getInt(0, "Save Mesh for Tag",
-//			     "Tag Number (Selecting -1 will mesh all tagged region)",
-//			     1, -1, 254, 1,
-//			     &ok);
-//  if (!ok)
-//    return;
   QString tagstr = QInputDialog::getText(0, "Save Mesh for Tag",
 	    "Tag Numbers (-1 for tags; for e.g. 1,2,5 will mesh tags 1, 2 and 5)",
 					 QLineEdit::Normal,
@@ -1924,8 +1943,9 @@ DrishtiPaint::on_actionMeshTag_triggered()
   int colorType = 1; // apply tag colors 
   dtypes.clear();
   dtypes << "Tag Color"
-	 << "Transfer Function Color"
-	 << "Tag Color + Transfer Function Color"
+	 << "Transfer Function"
+	 << "Tag Color + Transfer Function"
+	 << "Tag Mask + Transfer Function"
 	 << "No Color";
   QString option = QInputDialog::getItem(0,
 					 "Mesh Color",
@@ -1938,8 +1958,9 @@ DrishtiPaint::on_actionMeshTag_triggered()
     return;
   
   if (option == "Tag Color") colorType = 1;
-  else if (option == "Transfer Function Color") colorType = 2;
-  else if (option == "Tag Color + Transfer Function Color") colorType = 3;
+  else if (option == "Transfer Function") colorType = 2;
+  else if (option == "Tag Color + Transfer Function") colorType = 3;
+  else if (option == "Tag Mask + Transfer Function") colorType = 4;
   else colorType = 0;
   //----------------
 
@@ -2049,6 +2070,8 @@ DrishtiPaint::on_actionMeshTag_triggered()
 
   //----------------------------------
 
+  uchar *lut = Global::lut();
+
   int nbytes = width*height;
   uchar *raw = new uchar[width*height];
   uchar *mask = new uchar[width*height]; 
@@ -2058,12 +2081,28 @@ DrishtiPaint::on_actionMeshTag_triggered()
       progress.setValue((int)(100*(float)slc/(float)tdepth));
       qApp->processEvents();
 
+      uchar *slice = 0;
+      if (colorType == 4) // using tag mask + transfer function to extract mesh
+	{
+	  slice = m_volume->getDepthSliceImage(d);
+	  // we get value+grad from volume
+	  // we need only value part
+	  int i=0;
+	  for(int w=minWSlice; w<=maxWSlice; w++)
+	    for(int h=minHSlice; h<=maxHSlice; h++)
+	      {
+		slice[i] = slice[2*(w*height+h)];
+		i++;
+	      }
+	}
+
       memcpy(mask, m_volume->getMaskDepthSliceImage(d), nbytes);
             
       if (tag[0] == -1)
 	{
-	  for(int i=0; i<nbytes; i++)
-	    raw[i] = (mask[i] > 0 ? 0 : 255);
+	  for(int w=minWSlice; w<=maxWSlice; w++)
+	    for(int h=minHSlice; h<=maxHSlice; h++)
+	      raw[w*height+h] = (mask[w*height+h] > 0 ? 0 : 255);
 
 	  // apply curve mask
 	  for(int w=minWSlice; w<=maxWSlice; w++)
@@ -2077,8 +2116,9 @@ DrishtiPaint::on_actionMeshTag_triggered()
 	}
       else if (tag[0] == 0)
 	{
-	  for(int i=0; i<nbytes; i++)
-	    raw[i] = (mask[i] > 0 ? 255 : 0);
+	  for(int w=minWSlice; w<=maxWSlice; w++)
+	    for(int h=minHSlice; h<=maxHSlice; h++)
+	      raw[w*height+h] = (mask[w*height+h] > 0 ? 255 : 0);
 
 	  // apply curve mask
 	  for(int w=minWSlice; w<=maxWSlice; w++)
@@ -2092,8 +2132,9 @@ DrishtiPaint::on_actionMeshTag_triggered()
 	}
       else
 	{
-	  for(int i=0; i<nbytes; i++)
-	    raw[i] = (tag.contains(mask[i]) ? 0 : 255);
+	  for(int w=minWSlice; w<=maxWSlice; w++)
+	    for(int h=minHSlice; h<=maxHSlice; h++)
+	      raw[w*height+h] = (tag.contains(mask[w*height+h]) ? 0 : 255);
 
 	  // apply curve mask
 	  for(int w=minWSlice; w<=maxWSlice; w++)
@@ -2128,6 +2169,27 @@ DrishtiPaint::on_actionMeshTag_triggered()
 	    i++;
 	  }
 
+      //-----------------------------
+      // use tag mask + transfer function to generate mesh
+      if (colorType == 4)
+	{
+	  int sval = 0;
+	  if (tag[0] == -1) sval = 255;
+	  else if (tag[0] == 0) sval = 0;
+	  else sval = 255;
+
+	  int i=0;
+	  for(int w=minWSlice; w<=maxWSlice; w++)
+	    for(int h=minHSlice; h<=maxHSlice; h++)
+	      {
+		if (raw[i] != sval &&
+		    lut[4*slice[i]+3] < 5)
+		  raw[i] = sval;
+		i++;
+	      }
+	}
+      //-----------------------------
+
       memcpy(meshingData+slc*twidth*theight, raw, twidth*theight);
     }
 
@@ -2135,10 +2197,6 @@ DrishtiPaint::on_actionMeshTag_triggered()
   delete [] mask;
 
   progress.setValue(100);  
-
-//  smoothData(meshingData,
-//	     tdepth, twidth, theight,
-//	     1);
 
   //----------------------------------
   // add a border to make a watertight mesh when the isosurface
@@ -2178,98 +2236,6 @@ DrishtiPaint::on_actionMeshTag_triggered()
   delete [] curveMask;
 
   QMessageBox::information(0, "Save", "-----Done-----");
-}
-
-void
-DrishtiPaint::smoothData(uchar *gData,
-			 int nX, int nY, int nZ,
-			 int spread)
-{
-  QProgressDialog progress("Smoothing data ...",
-			   QString(),
-			   0, 100,
-			   0);
-  progress.setMinimumDuration(0);
-
-  uchar *tmp = new uchar[qMax(nX, qMax(nY, nZ))];
-
-  for(int k=0; k<nX; k++)
-    {
-      progress.setValue((int)(100.0*(float)k/(float)(nX)));
-      qApp->processEvents();
-
-      for(int j=0; j<nY; j++)
-	{
-	  memset(tmp, 0, nZ);
-	  for(int i=0; i<nZ; i++)
-	    {
-	      float v = 0.0f;
-	      int nt = 0;
-	      for(int i0=qMax(0,i-spread); i0<=qMin(nZ-1,i+spread); i0++)
-		{
-		  nt++;
-		  v += gData[k*nY*nZ + j*nZ + i0];
-		}
-	      tmp[i] = v/nt;
-	    }
-	  
-	  for(int i=0; i<nZ; i++)
-	    gData[k*nY*nZ + j*nZ + i] = tmp[i];
-	}
-    }
-
-
-  for(int k=0; k<nX; k++)
-    {
-      progress.setValue((int)(100.0*(float)k/(float)(nX)));
-      qApp->processEvents();
-
-      for(int i=0; i<nZ; i++)
-	{
-	  memset(tmp, 0, nY);
-	  for(int j=0; j<nY; j++)
-	    {
-	      float v = 0.0f;
-	      int nt = 0;
-	      for(int j0=qMax(0,j-spread); j0<=qMin(nY-1,j+spread); j0++)
-		{
-		  nt++;
-		  v += gData[k*nY*nZ + j0*nZ + i];
-		}
-	      tmp[j] = v/nt;
-	    }	  
-	  for(int j=0; j<nY; j++)
-	    gData[k*nY*nZ + j*nZ + i] = tmp[j];
-	}
-    }
-  
-  for(int j=0; j<nY; j++)
-    {
-      progress.setValue((int)(100.0*(float)j/(float)(nY)));
-      qApp->processEvents();
-
-      for(int i=0; i<nZ; i++)
-	{
-	  memset(tmp, 0, nX);
-	  for(int k=0; k<nX; k++)
-	    {
-	      float v = 0.0f;
-	      int nt = 0;
-	      for(int k0=qMax(0,k-spread); k0<=qMin(nX-1,k+spread); k0++)
-		{
-		  nt++;
-		  v += gData[k0*nY*nZ + j*nZ + i];
-		}
-	      tmp[k] = v/nt;
-	    }
-	  for(int k=0; k<nX; k++)
-	    gData[k*nY*nZ + j*nZ + i] = tmp[k];
-	}
-    }
-  
-  delete [] tmp;
-
-  progress.setValue(100);
 }
 
 void
@@ -2417,7 +2383,7 @@ DrishtiPaint::saveMesh(int colorType,
 	  g = Global::tagColors()[4*tag+1];
 	  b = Global::tagColors()[4*tag+2];
 	}
-      else if (colorType == 2) // apply transfer function colors
+      else if (colorType == 2 || colorType == 4) // apply transfer function
 	{
 	  QList<uchar> val = m_volume->rawValue(d+minDSlice,
 						w+minWSlice,

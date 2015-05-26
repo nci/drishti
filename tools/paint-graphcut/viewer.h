@@ -12,6 +12,8 @@ class Viewer : public QGLViewer
   Q_OBJECT
 
  public :
+  Viewer(QWidget *parent=0);
+
   void init();
   void draw();
 

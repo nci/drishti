@@ -16,7 +16,6 @@ class Curve
   Curve& operator=(const Curve&);
 
   QVector<QPoint> pts;
-  QVector<QPoint> seeds;
   QVector<int> seedpos;
   int tag;
   int thickness;
@@ -45,7 +44,6 @@ class CurveGroup
 
   void setPolygonAt(int, int*, int, int, int, bool);
   void setPolygonAt(int,
-		    QVector<QPoint>,
 		    QVector<QPoint>,
 		    QVector<int>,
 		    bool, int, int, bool);

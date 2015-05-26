@@ -2,6 +2,13 @@
 #include "global.h"
 #include <QInputDialog>
 
+Viewer::Viewer(QWidget *parent) :
+  QGLViewer(parent)
+{
+  init();
+  setMinimumSize(100, 100);
+}
+
 void
 Viewer::init()
 {
@@ -28,7 +35,7 @@ Viewer::init()
   m_minWSlice = 0;
   m_maxWSlice = 0;
   m_minHSlice = 0;
-  m_maxHSlice = 0;
+  m_maxHSlice = 0;  
 }
 
 void Viewer::setMaskDataPtr(uchar *ptr) { m_maskPtr = ptr; }

@@ -162,6 +162,7 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 
   ui.tag->setValue(Global::tag());
   ui.boxSize->setValue(Global::boxSize());
+  ui.pointsize->setValue(7);
   ui.lambda->setValue(Global::lambda());
   ui.radius->setValue(Global::spread());
   ui.smooth->setValue(Global::smooth());

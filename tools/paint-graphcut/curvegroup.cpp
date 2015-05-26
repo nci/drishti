@@ -9,7 +9,6 @@ Curve::Curve()
   closed = true;
   selected = false;
   pts.clear();
-  seeds.clear();
   seedpos.clear();
 }
 Curve::~Curve()
@@ -19,7 +18,6 @@ Curve::~Curve()
   closed = true;
   selected = false;
   pts.clear();
-  seeds.clear();
   seedpos.clear();
 }
 Curve&
@@ -30,7 +28,6 @@ Curve::operator=(const Curve& c)
   closed = c.closed;
   selected = c.selected;
   pts = c.pts;
-  seeds = c.seeds;
   seedpos = c.seedpos;
   return *this;
 }
@@ -339,7 +336,7 @@ CurveGroup::getActiveCurve(int key, int v0, int v1)
       for(int i=npts-1; i>=0; i--)
 	{
 	  QPoint v = curves[ic]->pts[i] - cen;
-	  if (v.manhattanLength() < 3)
+	  if (v.manhattanLength() < 5)
 	    return ic;
 	}
     }
@@ -498,7 +495,6 @@ CurveGroup::setPolygonAt(int key, int *pts, int npts,
 void
 CurveGroup::setPolygonAt(int key,
 			 QVector<QPoint> pts,
-			 QVector<QPoint> seeds,
 			 QVector<int> seedpos,
 			 bool closed, int tag, int thickness,
 			 bool select)
@@ -510,7 +506,6 @@ CurveGroup::setPolygonAt(int key,
 //      c.thickness = Global::thickness();
 //      c.closed = closed;
 //      c.pts = pts;
-//      c.seeds = seeds;
 //      c.seedpos = seedpos;
 //      c.selected = true;
 //      m_tmcg.insert(key, c);
@@ -522,7 +517,6 @@ CurveGroup::setPolygonAt(int key,
       c->thickness = thickness;
       c->closed = closed;
       c->pts = pts;
-      c->seeds = seeds;
       c->seedpos = seedpos;
       c->selected = select;
       m_cg.insert(key, c);

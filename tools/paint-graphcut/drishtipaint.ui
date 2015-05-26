@@ -1052,6 +1052,7 @@
     </property>
     <addaction name="actionCurves"/>
     <addaction name="actionGraphCut"/>
+    <addaction name="separator"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">

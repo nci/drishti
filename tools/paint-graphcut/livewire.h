@@ -24,7 +24,6 @@ class LiveWire
   QVector<QPoint> poly();
   QVector<QPoint> polyA();
   QVector<QPoint> polyB();
-  QVector<QPoint> seeds();
   QVector<int> seedpos();
   QVector<QPoint> livewire();
 
@@ -43,7 +42,6 @@ class LiveWire
   bool seedMoveMode();
   void setSeedMoveMode(bool);
   void setPolygonToUpdate(QVector<QPoint>,
-			  QVector<QPoint>,
 			  QVector<int>,
 			  bool);
   bool closed();
@@ -59,7 +57,6 @@ class LiveWire
   QVector<QPoint> m_polyA;
   QVector<QPoint> m_polyB;
   QVector<QPoint> m_livewire;
-  QVector<QPoint> m_seeds;
   QVector<int> m_seedpos;
 
   int m_activeSeed;
@@ -107,6 +104,7 @@ class LiveWire
   void splitPolygon(int);
   int  getActiveSeed(int, int);
   int  insertSeed(int, int);
+  int  removeSeed(int, int);
 };
 
 #endif

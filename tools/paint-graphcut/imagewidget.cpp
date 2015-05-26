@@ -124,7 +124,7 @@ ImageWidget::ImageWidget(QWidget *parent, QStatusBar *sb) :
 
   updateTagColors();
 
-  m_pointSize = 3;
+  m_pointSize = 5;
 
   m_prevslicetagColors.clear();
   m_prevslicetagColors.resize(256);
@@ -708,15 +708,15 @@ ImageWidget::drawLivewire(QPainter *p)
 
   p->drawImage(m_simgX, m_simgY, m_gradImageScaled);
 
+  QVector<QPoint> poly = m_livewire.poly();
   {
     p->setPen(QPen(Qt::red, 2));
     p->setBrush(Qt::transparent);
-    QVector<QPoint> pts = m_livewire.poly();
-    if (pts.count() > 0)
+    if (poly.count() > 0)
       {
-	for(int i=0; i<pts.count(); i++)
-	  pts[i] = pts[i]*sx + move;
-	p->drawPolyline(pts);
+	for(int i=0; i<poly.count(); i++)
+	  poly[i] = poly[i]*sx + move;
+	p->drawPolyline(poly);
       }
   }
 
@@ -732,11 +732,13 @@ ImageWidget::drawLivewire(QPainter *p)
   }
 
   {
-    QVector<QPoint> seeds = m_livewire.seeds();
-    if (seeds.count() > 0)
+    QVector<int> seedpos = m_livewire.seedpos();
+    if (seedpos.count() > 0)
       {
-	for(int i=0; i<seeds.count(); i++)
-	  seeds[i] = seeds[i]*sx + move;
+	QVector<QPoint> seeds;
+	for(int i=0; i<seedpos.count(); i++)
+	  seeds << poly[seedpos[i]];
+	
 	p->setPen(QPen(Qt::yellow, m_pointSize+2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
 	p->drawPoints(seeds);
 	p->setPen(QPen(Qt::darkMagenta, m_pointSize, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
@@ -800,11 +802,13 @@ ImageWidget::drawCurves(QPainter *p)
 	}
 
       {
-	QVector<QPoint> seeds = curves[l]->seeds;
-	if (seeds.count() > 0)
+	QVector<int> seedpos = curves[l]->seedpos;
+	if (seedpos.count() > 0)
 	  {
-	    for(int i=0; i<seeds.count(); i++)
-	      seeds[i] = seeds[i]*sx + move;
+	    QVector<QPoint> seeds;
+	    for(int i=0; i<seedpos.count(); i++)
+	      seeds << pts[seedpos[i]];
+
 	    p->setPen(QPen(Qt::yellow, m_pointSize+2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
 	    p->drawPoints(seeds);
 	    p->setPen(QPen(Qt::darkMagenta, m_pointSize, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
@@ -1294,7 +1298,6 @@ ImageWidget::freezeLivewire(bool select)
     m_livewire.renewGuessCurve();
 
   QVector<QPoint> pts = m_livewire.poly();
-  QVector<QPoint> seeds = m_livewire.seeds();
   QVector<int> seedpos = m_livewire.seedpos();
   if (pts.count() < 1)
     {
@@ -1310,7 +1313,7 @@ ImageWidget::freezeLivewire(bool select)
   CurveGroup *cg = getCg();
 
   cg->setPolygonAt(m_currSlice,
-		   pts, seeds, seedpos,
+		   pts, seedpos,
 		   Global::closed(),
 		   Global::tag(),
 		   Global::thickness(),
@@ -1467,16 +1470,21 @@ ImageWidget::modifyUsingLivewire(int x, int y)
 
   CurveGroup *cg = getCg();  
   int ic = cg->getActiveCurve(m_currSlice, x, y);
-  if (ic == -1) return;
+  if (ic == -1)
+    {
+      QMessageBox::information(0, "",
+			       "Cannot modify curve - not a livewire curve");
+      return;
+    }
   Curve* c = cg->getCurvesAt(m_currSlice)[ic];
-  if (c->seeds.count() == 0)
+  if (c->seedpos.count() == 0)
     {
       QMessageBox::information(0, "",
 			       "Cannot modify this curve - not a livewire curve");
       return;
     }
 
-  m_livewire.setPolygonToUpdate(c->pts, c->seeds, c->seedpos, c->closed);
+  m_livewire.setPolygonToUpdate(c->pts, c->seedpos, c->closed);
   cg->copyCurve(m_currSlice,  x, y);
   cg->removePolygonAt(m_currSlice, x, y);
 }
@@ -1489,18 +1497,16 @@ ImageWidget::freezeModifyUsingLivewire()
   
   m_livewire.setSeedMoveMode(false);
   QVector<QPoint> pts = m_livewire.poly();
-  QVector<QPoint> seeds = m_livewire.seeds();
   QVector<int> seedpos = m_livewire.seedpos();
   bool closed = m_livewire.closed();
 
   if (pts.count() > 0 &&
-      seeds.count() > 0 &&
       seedpos.count() > 0)
     {
       CurveGroup *cg = getCg();
       Curve c = cg->getCopyCurve();
       cg->setPolygonAt(m_currSlice,
-		       pts, seeds, seedpos,
+		       pts, seedpos,
 		       closed, c.tag, c.thickness,
 		       false); 
       emit polygonLevels(cg->polygonLevels());
@@ -3502,22 +3508,6 @@ ImageWidget::saveCurveData(QFile *cfile, int key, Curve *c)
     delete [] pt;
   }
   {
-    QVector<QPoint> seeds = c->seeds;
-    memset(keyword, 0, 100);
-    sprintf(keyword, "seeds\n");
-    cfile->write((char*)keyword, strlen(keyword));
-    int nseeds = seeds.count();
-    cfile->write((char*)&nseeds, sizeof(int));
-    int *pt = new int [2*nseeds];
-    for(int j=0; j<nseeds; j++)
-      {
-	pt[2*j+0] = seeds[j].x();
-	pt[2*j+1] = seeds[j].y();
-      }
-    cfile->write((char*)pt, 2*nseeds*sizeof(int));
-    delete [] pt;
-  }
-  {
     QVector<int> seedpos = c->seedpos;
     memset(keyword, 0, 100);
     sprintf(keyword, "seedpos\n");
@@ -3583,8 +3573,8 @@ ImageWidget::loadCurveData(QFile *cfile)
 	  cfile->read((char*)&npts, sizeof(int));
 	  pt = new int[2*npts];
 	  cfile->read((char*)pt, 2*npts*sizeof(int));
-	  for(int ni=0; ni<npts; ni++)
-	    c.seeds << QPoint(pt[2*ni+0], pt[2*ni+1]);
+//	  for(int ni=0; ni<npts; ni++)
+//	    c.seeds << QPoint(pt[2*ni+0], pt[2*ni+1]);
 	  delete [] pt;
 	}	      
       else if (strcmp(keyword, "seedpos\n") == 0)

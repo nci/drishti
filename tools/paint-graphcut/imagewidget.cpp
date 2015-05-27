@@ -1514,6 +1514,16 @@ ImageWidget::freezeModifyUsingLivewire()
   m_livewire.resetPoly();
 }
 
+void
+ImageWidget::setSliceLOD(int lod)
+{
+  m_livewire.setLod(lod);
+  m_gradImageScaled = m_livewire.gradientImage().scaled(m_simgWidth,
+							m_simgHeight);
+  update();
+}
+
+
 bool
 ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
 {

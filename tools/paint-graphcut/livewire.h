@@ -51,6 +51,8 @@ class LiveWire
   void setGuessCurve(QVector<QPoint>);
   void renewGuessCurve();
 
+  void setLod(int);
+  int lod() { return m_lod; }
 
  private :
   QVector<QPoint> m_poly;
@@ -66,7 +68,9 @@ class LiveWire
   bool m_propagateLivewire;
   QVector<QPoint> m_guessCurve;
 
+  int m_Owidth, m_Oheight;
   int m_width, m_height;
+  uchar *m_Oimage;
   uchar *m_image;
   float *m_grad;
   float *m_normal;
@@ -80,6 +84,8 @@ class LiveWire
   int m_gradType;
   int m_smoothType;
 
+  int m_lod;
+
   QVector<float> m_edgeWeight;
   QVector<float> m_cost;
   QVector<QPoint> m_prev;
@@ -91,9 +97,8 @@ class LiveWire
   void calculateCost(int, int, int boxSize=100);
   void calculateCost1(int, int, int boxSize=100);
   void calculateLivewire(int, int);
-  void updateGradientCost();
 
-  void applySmoothing(int);
+  void applySmoothing(uchar*, int, int, int);
   void gaussBlur_4(uchar*, uchar*, int, int, int);
   QVector<int> boxesForGauss(float, int);
   void boxBlur_4(uchar*, uchar*, int, int, int);

@@ -462,6 +462,7 @@ DrishtiPaint::on_tag_valueChanged(int t)
   Global::setTag(t);
   m_imageWidget->processPrevSliceTags();
 }
+void DrishtiPaint::on_sliceLod_currentIndexChanged(int l) { m_imageWidget->setSliceLOD(l+1); }
 void DrishtiPaint::on_boxSize_valueChanged(int d) { Global::setBoxSize(d); }
 void DrishtiPaint::on_lambda_valueChanged(int d) { Global::setLambda(d); }
 void DrishtiPaint::on_smooth_valueChanged(int d) { Global::setSmooth(d); }

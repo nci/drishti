@@ -94,6 +94,7 @@ class ImageWidget : public QWidget
   void zoomUp();
   void zoomDown();
   void setPointSize(int);
+  void setSliceLOD(int);
 
   void paintUsingCurves(int, int, int, int, uchar*, QList<int>);
 

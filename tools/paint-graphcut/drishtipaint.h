@@ -39,6 +39,7 @@ class DrishtiPaint : public QMainWindow
   void on_actionMeshTag_triggered();
   void on_actionCurves_triggered();
   void on_actionGraphCut_triggered();
+  void on_sliceLod_currentIndexChanged(int);
   void on_butZ_clicked();
   void on_butY_clicked();
   void on_butX_clicked();

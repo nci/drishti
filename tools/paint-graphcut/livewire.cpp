@@ -4,6 +4,7 @@
 
 LiveWire::LiveWire()
 {
+  m_Oimage = 0;
   m_image = 0;
   m_grad = 0;
   m_normal = 0;
@@ -14,6 +15,7 @@ LiveWire::LiveWire()
 
   m_gradImage = QImage(100, 100, QImage::Format_Indexed8);
 
+  m_Owidth = m_Oheight = 0;
   m_width = m_height = 0;
 
   m_seedpos.clear();
@@ -38,6 +40,8 @@ LiveWire::LiveWire()
   m_polyA.clear();
   m_polyB.clear();
   m_closed = true;
+
+  m_lod = 1;
 }
 
 bool LiveWire::seedMoveMode() { return m_seedMoveMode; }
@@ -94,6 +98,7 @@ LiveWire::resetPoly()
 void
 LiveWire::reset()
 {
+  if (m_Oimage) delete [] m_Oimage;
   if (m_image) delete [] m_image;
   if (m_grad) delete [] m_grad; 
   if (m_normal) delete [] m_normal;
@@ -110,6 +115,7 @@ LiveWire::reset()
   m_prev.clear();
 
   m_width = m_height = 0;
+  m_Owidth = m_Oheight = 0;
 
   m_seedpos.clear();
   m_poly.clear();
@@ -126,6 +132,8 @@ LiveWire::reset()
       gc = (3*gc*gc - 2*gc*gc*gc);
       m_gradCost[i] = gc;
     }
+
+  m_lod = 1;
 }
 
 QVector<QPoint> LiveWire::poly() { return m_poly; }
@@ -133,22 +141,73 @@ QVector<int> LiveWire::seedpos() { return m_seedpos; }
 QVector<QPoint> LiveWire::livewire() { return m_livewire; }
 
 void
+LiveWire::setLod(int lod)
+{
+  if (m_lod == lod)
+    return;
+
+  m_lod = qMax(1,lod);
+
+  if (m_image) delete [] m_image;
+  if (m_grad) delete [] m_grad;
+  if (m_normal) delete [] m_normal;
+
+  m_width = m_Owidth/m_lod;
+  m_height = m_Oheight/m_lod;
+
+  m_image = new uchar[m_width*m_height];
+  m_grad = new float[sizeof(float)*m_width*m_height];  
+  m_normal = new float[2*sizeof(float)*m_width*m_height];  
+  
+  m_edgeWeight.clear();
+  m_cost.clear();
+  m_prev.clear();
+  m_edgeWeight.resize(8*m_width*m_height);
+  m_cost.resize(m_width*m_height);
+  m_prev.resize(m_width*m_height);
+
+
+  if (m_lod == 1)
+    memcpy(m_image, m_Oimage, m_width*m_height);
+  else
+    {
+      //applySmoothing(m_Oimage, m_Owidth, m_Oheight, m_lod-1);
+      for(int i=0; i<m_height; i++)
+	for(int j=0; j<m_width; j++)
+	  m_image[i*m_width+j] = m_Oimage[m_lod*(i*m_Owidth+j)];
+    }
+	   
+  applySmoothing(m_image, m_width, m_height, m_smoothType);
+  calculateGradients();
+  calculateEdgeWeights();
+}
+
+void
 LiveWire::setImageData(int w, int h, uchar *img)
 {
-  if (m_width != w || m_height != h)
+  //if (m_width != w || m_height != h)
+  if (m_Owidth != w ||
+      m_Oheight != h ||
+      m_width != w/m_lod ||
+      m_height != h/m_lod)
     {
+      if (m_Oimage) delete [] m_Oimage;
       if (m_image) delete [] m_image;
       if (m_grad) delete [] m_grad;
       if (m_normal) delete [] m_normal;
       if (m_tmp) delete [] m_tmp;
 
-      m_width = w;
-      m_height = h;
+      m_Owidth = w;
+      m_Oheight = h;
+      m_Oimage = new uchar[m_Owidth*m_Oheight];
+
+      m_width = w/m_lod;
+      m_height = h/m_lod;
 
       m_image = new uchar[m_width*m_height];
       m_grad = new float[sizeof(float)*m_width*m_height];  
       m_normal = new float[2*sizeof(float)*m_width*m_height];  
-      m_tmp = new uchar[4*m_width*m_height];  
+      m_tmp = new uchar[4*m_Owidth*m_Oheight];  
 
       m_edgeWeight.clear();
       m_cost.clear();
@@ -158,9 +217,18 @@ LiveWire::setImageData(int w, int h, uchar *img)
       m_prev.resize(m_width*m_height);
     }
 
-  memcpy(m_image, img, m_width*m_height);
-  
-  applySmoothing(m_smoothType);
+  memcpy(m_Oimage, img, m_Owidth*m_Oheight);
+  if (m_lod == 1)
+    memcpy(m_image, img, m_width*m_height);
+  else
+    {
+      //applySmoothing(m_Oimage, m_Owidth, m_Oheight, m_lod-1);
+      for(int i=0; i<m_height; i++)
+	for(int j=0; j<m_width; j++)
+	  m_image[i*m_width+j] = m_Oimage[m_lod*(i*m_Owidth+j)];
+    }
+	   
+  applySmoothing(m_image, m_width, m_height, m_smoothType);
   calculateGradients();
   calculateEdgeWeights();
 }
@@ -199,8 +267,6 @@ LiveWire::mousePressEvent(int xpos, int ypos, QMouseEvent *event)
       m_poly << QPoint(xpos, ypos);
 
       m_seedpos << m_poly.count()-1;
-
-      //updateGradientCost();
 
       m_livewire.clear();
       calculateCost(xpos, ypos, 500);
@@ -299,16 +365,21 @@ LiveWire::keyPressEvent(QKeyEvent *event)
 QImage
 LiveWire::gradientImage()
 {
-  return m_gradImage;
+  if (m_lod == 1)
+    return m_gradImage;
+  else
+    return m_gradImage.scaled(m_Owidth, m_Oheight,
+			      Qt::IgnoreAspectRatio,
+			      Qt::SmoothTransformation);
 }
 
 void
-LiveWire::applySmoothing(int sz)
+LiveWire::applySmoothing(uchar *img, int w, int h, int sz)
 {
   if (sz == 0) return; // no smoothing
 
-  memcpy(m_tmp, m_image, m_width*m_height);
-  gaussBlur_4(m_tmp, m_image, m_width, m_height, sz);
+  memcpy(m_tmp, img, w*h);
+  gaussBlur_4(m_tmp, img, w, h, sz);
 }
 
 void
@@ -424,6 +495,7 @@ LiveWire::calculateGradients()
 		       m_width,
 		       m_height,
 		       QImage::Format_ARGB32);
+
 }   
 
 void
@@ -467,10 +539,14 @@ LiveWire::calculateEdgeWeights()
 }
 
 void
-LiveWire::calculateCost(int wpos, int hpos, int boxSize)
+LiveWire::calculateCost(int wposO, int hposO, int boxSizeO)
 {
-  if (wpos < 0 || wpos >= m_width ||
-      hpos < 0 || hpos >= m_height)
+  int wpos = wposO/m_lod;
+  int hpos = hposO/m_lod;
+  int boxSize = boxSizeO/m_lod;
+
+  if (wposO < 0 || wposO >= m_Owidth ||
+      hposO < 0 || hposO >= m_Oheight)
     return;
 
   for(int i=0; i<m_cost.count(); i++)
@@ -566,16 +642,16 @@ LiveWire::calculateLivewire(int wpos, int hpos)
   if (m_seedMoveMode && m_activeSeed < 0)
     return;
 
-  if (wpos < 0 || wpos >= m_width ||
-      hpos < 0 || hpos >= m_height)
+  if (wpos < 0 || wpos >= m_Owidth ||
+      hpos < 0 || hpos >= m_Oheight)
     return;
 
-  int x = hpos;
-  int y = wpos;
+  int x = hpos/m_lod;
+  int y = wpos/m_lod;
   QVector<QPoint> pts;
   while(x > -1)
     {
-      pts << QPoint(y, x);
+      pts << QPoint(m_lod*y, m_lod*x);
       int idx = x*m_width+y;
       x = m_prev[idx].x();
       y = m_prev[idx].y();
@@ -693,64 +769,6 @@ LiveWire::boxBlurT_4(uchar *scl, uchar *tcl,
 }
 
 void
-LiveWire::updateGradientCost()
-{
-  if (m_poly.count() < 32)
-    return;
-
-  int ist = qMax(1,m_poly.count()-64);
-
-  float gs[] = {0.1f, 0.2f, 0.4f, 0.2f, 0.1f};
-
-  float tgc[256];  
-  memset(tgc, 0, 256*sizeof(float));
-
-  for(int i=ist; i<m_poly.count(); i++)
-    {
-      QPoint xy = m_poly[i];
-      int h = xy.x();
-      int w = xy.y();
-      int idx = h*m_width + w;
-      float gv = m_grad[idx];
-      tgc[(int)(255*gv)]++;
-    }
-
-  float mgc = 0;
-  for(int i=0; i<256; i++)
-    mgc = qMax(mgc, tgc[i]);
-
-  for(int i=0; i<256; i++)
-    tgc[i] /= mgc;
-
-  for(int i=0; i<256; i++)
-    m_gradCost[i] = 1 - tgc[i];
-
-  // smooth the cost
-  for(int i=0; i<256; i++)
-    {
-      float v=0;
-      for(int j=-2;j<=2;j++)
-	v += gs[j+2]*m_gradCost[qBound(0,i+j,255)];
-      m_gradCost[i] = v;
-    }
-
-  for(int i=0; i<m_width*m_height; i++)
-    {
-      int c = 200*m_gradCost[(int)(255*m_grad[i])];
-      m_tmp[4*i+0] = 0;
-      m_tmp[4*i+1] = c/2;
-      m_tmp[4*i+2] = c;
-      m_tmp[4*i+3] = c;
-    }
-
-  m_gradImage = QImage(m_tmp,
-		       m_width,
-		       m_height,
-		       QImage::Format_ARGB32);
-
-}
-
-void
 LiveWire::livewireFromSeeds(QVector<QPoint> oseeds)
 {
   resetPoly();
@@ -780,8 +798,8 @@ LiveWire::livewireFromSeeds(QVector<QPoint> oseeds)
   // find nearest least energy positions for all seeds
   for(int i=0; i<seeds.count(); i++)
     {
-      int h = seeds[i].x();
-      int w = seeds[i].y();
+      int h = seeds[i].x()/m_lod;
+      int w = seeds[i].y()/m_lod;
       int xpos = h;
       int ypos = w;
       int midx = h*m_width+w;
@@ -796,7 +814,7 @@ LiveWire::livewireFromSeeds(QVector<QPoint> oseeds)
 	      {
 		minCost = cst;
 		// replace seed
-		seeds[i] = QPoint(h+a, w+b);
+		seeds[i] = m_lod*QPoint(h+a, w+b);
 	      }
 	  }
     }

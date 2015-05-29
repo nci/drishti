@@ -43,6 +43,8 @@ class DrishtiPaint : public QMainWindow
   void on_butZ_clicked();
   void on_butY_clicked();
   void on_butX_clicked();
+  void on_tagcurves_textChanged(QString);
+  void on_segmentlength_valueChanged(int);
   void on_tag_valueChanged(int);
   void on_boxSize_valueChanged(int);
   void on_lambda_valueChanged(int);
@@ -65,9 +67,6 @@ class DrishtiPaint : public QMainWindow
   void on_zoom9_clicked();
   void on_zoomup_clicked();
   void on_zoomdown_clicked();
-  void on_weightLoG_valueChanged(double);
-  void on_weightG_valueChanged(double);
-  void on_weightN_valueChanged(double);
   void changeTransferFunctionDisplay(int, QList<bool>);
   void checkStateChanged(int, int, bool);
   void updateComposite();

@@ -34,6 +34,8 @@ Curve::operator=(const Curve& c)
 
 CurveGroup::CurveGroup()
 {
+  m_lambda = 0.5;
+  m_seglen = 5;
   reset();
 }
 
@@ -154,6 +156,7 @@ CurveGroup::showPolygonInfo(int key, int v0, int v1)
 
   
   QMessageBox::information(0, "Curve information", str);
+  return ic;
 }
 
 bool
@@ -664,22 +667,22 @@ CurveGroup::moveCurve(int key, int dv0, int dv1)
 }
 
 void
-CurveGroup::smooth(int key, int v0, int v1, int rad)
+CurveGroup::smooth(int key, int v0, int v1)
 {
-  QPoint cen = QPoint(v0, v1);
-
   if (m_cg.contains(key))
     {
       int ic = getActiveCurve(key, v0, v1);
       if (ic >= 0)
 	{
 	  QList<Curve*> curves = m_cg.values(key);
-	  // replace pts with the smooth version
-	  curves[ic]->pts = smooth(curves[ic]->pts,
-				   cen,
-				   rad,
-				   curves[ic]->closed);
-
+	  // fix seedpos
+	  if (curves[ic]->seedpos.count() > 0)
+	    smoothCurveWithSeedPoints(curves[ic]);
+	  else
+	    // replace pts with the smooth version
+	    curves[ic]->pts = smooth(curves[ic]->pts,
+				     curves[ic]->closed);
+	  
 	  m_pointsDirtyBit = true;
 	}
     }
@@ -689,12 +692,70 @@ CurveGroup::smooth(int key, int v0, int v1, int rad)
       Curve c = m_mcg[mc].value(key);
       QVector<QPoint> w;
       w = smooth(c.pts,
-		 cen,
-		 rad,
 		 c.closed);
       c.pts = w; // replace pts with the smooth version
       m_mcg[mc].insert(key, c);
     }
+}
+
+void
+CurveGroup::smoothCurveWithSeedPoints(Curve *c)
+{
+  QVector<float> seedfrc;
+  int scount = c->seedpos.count(); 
+
+  double plen = 0;
+  seedfrc << 0;
+  for(int j=1; j<scount; j++)
+    {
+      for (int i=c->seedpos[j-1]+1; i<=c->seedpos[j]; i++)
+	{
+	  QPoint v = c->pts[i]-c->pts[i-1];
+	  plen += qSqrt(QPoint::dotProduct(v,v));
+	}
+      seedfrc << plen;
+    }
+  if (c->closed) // for closed curve
+    {
+      for (int i=c->seedpos[scount-1]+1; i<c->pts.count(); i++)
+	{
+	  QPoint v = c->pts[i]-c->pts[i-1];
+	  plen += qSqrt(QPoint::dotProduct(v,v));
+	}
+      QPoint v = c->pts[0]-c->pts[c->pts.count()-1];
+      plen += qSqrt(QPoint::dotProduct(v,v));
+    }
+
+  float oplen = pathLength(c);
+
+  for(int j=1; j<seedfrc.count(); j++)
+    seedfrc[j] /= plen;
+  
+  // replace pts with the smooth version
+  c->pts = smooth(c->pts, c->closed);
+  float newplen = pathLength(c);
+
+  for(int j=1; j<seedfrc.count(); j++)
+    seedfrc[j] *= newplen;
+
+  float nlen = 0;
+  int j = 1;
+  for(int i=1; i<c->pts.count(); i++)
+    {
+     QPoint v = c->pts[i]-c->pts[i-1];
+     nlen += qSqrt(QPoint::dotProduct(v,v));
+
+     if (nlen >= seedfrc[j])
+       {
+	 c->seedpos[j] = i;
+	 j++;
+	 if (j >= scount)
+	   break;
+       }
+    }
+
+  if (!c->closed) // for open curve
+    c->seedpos[scount-1] = c->pts.count()-1;
 }
 
 void
@@ -768,73 +829,45 @@ CurveGroup::push(QVector<QPoint> c, QPoint cen, int rad, bool closed)
 
 
 QVector<QPoint>
-CurveGroup::smooth(QVector<QPoint> c, QPoint cen, int rad, bool closed)
+CurveGroup::smooth(QVector<QPoint> c, bool closed)
 {
   QVector<QPoint> newc;
   newc = c;
+
+  // taubin smoothing
   int npts = c.count();
-  int sz = rad;
-
-//  QMultiMap<int, int> inRad;
-//  for(int i=1; i<npts-1; i++)
-//    {
-//      QPoint v = c[i] - cen;
-//      if (v.manhattanLength() <= rad)
-//	inRad.insert(v.manhattanLength(), i);
-//    }
-//
-//  QList<int> keys = inRad.keys();
-//  for(int k=0; k<keys.count(); k++)
-//    {
-//      QList<int> ipts = inRad.values(keys[k]);
-//      for(int p=0; p<ipts.count(); p++)
-//	{
-//	  int i = ipts[p];
-//	  QPoint v = c[i];
-//	  for(int j=-sz; j<=sz; j++)
-//	    {
-//	      int idx = i+j;
-//	      if (closed)
-//		{
-//		  if (idx < 0) idx = npts + idx;
-//		  else if (idx > npts-1) idx = idx - npts;
-//		}
-//	      else
-//		idx = qBound(0, idx, npts-1);
-//	      v += newc[idx];
-//	    }
-//	  v /= (2*sz+2);
-//	  newc[i] = v;
-//	}
-//    }
-
-  for(int i=0; i<npts-1; i++)
+  int ist = 0;
+  int ied = npts;
+  if (!closed)
     {
-      QPoint v = c[i] - cen;
-      if (v.manhattanLength() <= rad)
-	{
-	  //v = QPoint(0,0);
-	  v = c[i];
-	  for(int j=-sz; j<=sz; j++)
-	    {
-	      int idx = i+j;
-	      if (closed)
-		{
-		  if (idx < 0) idx = npts + idx;
-		  else if (idx > npts-1) idx = idx - npts;
-		}
-	      else
-		idx = qBound(0, idx, npts-1);
-	      v += c[idx];
-	    }
-	  v /= (2*sz+2);
-	  newc[i] = v;
-	}
+      ist = 1;
+      ied = npts-1;
+    }    
+
+  for(int i=ist; i<ied; i++)
+    {
+      int nxt2 = (i+2)%npts;
+      int prv2 = (npts+(i-2))%npts;
+      int nxt = (i+1)%npts;
+      int prv = (npts+(i-1))%npts;
+      
+      QPoint vp = (c[nxt]+c[prv]+c[nxt2]+c[prv2])/4;      
+      newc[i] += m_lambda*(vp-c[i]);
+    }
+
+  for(int i=ist; i<ied; i++)
+    {
+      int nxt2 = (i+2)%npts;
+      int prv2 = (npts+(i-2))%npts;
+      int nxt = (i+1)%npts;
+      int prv = (npts+(i-1))%npts;
+      
+      QPoint vp = (newc[nxt]+newc[prv]+newc[nxt2]+newc[prv2])/4;      
+      c[i] = newc[i] - m_lambda*(vp-newc[i]);
     }
 
   QVector<QPoint> w;
-  w = subsample(newc, 1.2, closed);
-
+  w = subsample(c, m_seglen, closed);
   return w;
 }
 

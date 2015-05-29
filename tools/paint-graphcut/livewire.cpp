@@ -28,7 +28,6 @@ LiveWire::LiveWire()
   m_gradType = 0;
   m_smoothType = 0;
 
-  m_wtLoG = 0.0;
   m_wtG = 0.7;
   m_wtN = 0.3;
 
@@ -81,7 +80,6 @@ LiveWire::setPolygonToUpdate(QVector<QPoint> pts,
 
 void LiveWire::setUseDynamicTraining(bool b) { m_useDynamicTraining = b; }
 
-void LiveWire::setWeightLoG(float w) { m_wtLoG = w; }
 void LiveWire::setWeightG(float w) { m_wtG = w; }
 void LiveWire::setWeightN(float w) { m_wtN = w; }
 

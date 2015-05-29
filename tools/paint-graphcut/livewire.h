@@ -32,7 +32,6 @@ class LiveWire
 
   void freeze();
 
-  void setWeightLoG(float);
   void setWeightG(float);
   void setWeightN(float);
   void setUseDynamicTraining(bool);
@@ -79,7 +78,7 @@ class LiveWire
   float *m_gradCost;
   bool m_useDynamicTraining;
 
-  float m_wtG, m_wtN, m_wtLoG;
+  float m_wtG, m_wtN;
 
   int m_gradType;
   int m_smoothType;

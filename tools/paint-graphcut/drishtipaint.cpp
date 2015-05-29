@@ -480,9 +480,36 @@ void DrishtiPaint::on_zoom0_clicked() { m_imageWidget->zoom0(); }
 void DrishtiPaint::on_zoom9_clicked() { m_imageWidget->zoom9(); }
 void DrishtiPaint::on_zoomup_clicked() { m_imageWidget->zoomUp(); }
 void DrishtiPaint::on_zoomdown_clicked() { m_imageWidget->zoomDown(); }
-void DrishtiPaint::on_weightLoG_valueChanged(double d) { m_imageWidget->setWeightLoG(d); }
-void DrishtiPaint::on_weightG_valueChanged(double d) { m_imageWidget->setWeightG(d); }
-void DrishtiPaint::on_weightN_valueChanged(double d) { m_imageWidget->setWeightN(d); }
+void DrishtiPaint::on_segmentlength_valueChanged(int d) { m_imageWidget->setSegmentLength(d); }
+
+void
+DrishtiPaint::on_tagcurves_textChanged(QString text)
+{
+  QStringList tglist = text.split(",", QString::SkipEmptyParts);
+  QList<int> tag;
+  tag.clear();
+  for(int i=0; i<tglist.count(); i++)
+    {
+      int t = tglist[i].toInt();
+      if (t == -1)
+	{
+	  tag.clear();
+	  tag << -1;
+	  break;
+	}
+      else if (t == 0)
+	{
+	  tag.clear();
+	  tag << 0;
+	  break;
+	}
+      else
+	tag << t;
+    }
+
+  m_imageWidget->showTags(tag);
+  m_viewer->showTags(tag);
+}
 
 void
 DrishtiPaint::on_livewire_clicked(bool c)
@@ -774,6 +801,8 @@ DrishtiPaint::setFile(QString filename)
   ui.closed->setChecked(true);
   ui.livewire->setChecked(true);
   m_imageWidget->setLivewire(true);
+
+  ui.tagcurves->setText("-1");
 }
 
 void

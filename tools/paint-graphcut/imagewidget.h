@@ -35,10 +35,6 @@ class ImageWidget : public QWidget
   void setImage(uchar*, uchar*);
   void setMaskImage(uchar*);
 
-  void setWeightLoG(float);
-  void setWeightG(float);
-  void setWeightN(float);
-
   void setRawValue(QList<uchar>);
 
   void paintEvent(QPaintEvent*);
@@ -100,6 +96,10 @@ class ImageWidget : public QWidget
 
   void modifyUsingLivewire();
   void freezeModifyUsingLivewire();
+
+  void setLambda(float);
+  void setSegmentLength(int);
+  void showTags(QList<int>);
 
  signals :
   void getSlice(int);
@@ -204,6 +204,8 @@ class ImageWidget : public QWidget
   bool m_forward;
 
   int m_pointSize;
+
+  QList<int> m_showTags;
 
   void resizeImage();
   void recolorImage();

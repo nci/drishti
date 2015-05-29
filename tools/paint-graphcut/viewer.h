@@ -28,6 +28,7 @@ class Viewer : public QGLViewer
 
   public slots :
     void updateViewerBox(int, int, int, int, int, int);
+    void showTags(QList<int>);
 
  private :
   int m_depth, m_width, m_height;
@@ -48,6 +49,9 @@ class Viewer : public QGLViewer
   QList< QMap<int, Curve> > *m_Hmcg;  
 
   QList<ushort> m_voxels;
+
+  QList<int> m_showTags;
+
 
   void drawBox();
   

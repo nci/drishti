@@ -50,7 +50,7 @@ class CurveGroup
   void joinPolygonAt(int, QVector<QPoint>);
   void setCurveAt(int, Curve);
 
-  void smooth(int, int, int, int);
+  void smooth(int, int, int);
   void push(int, int, int, int);
   
   void resetMoveCurve();
@@ -82,10 +82,16 @@ class CurveGroup
   void startAddingCurves();
   void endAddingCurves();
 
-  QMultiMap<int, Curve*>* multiMapCurves() { return &m_cg; }
-  QList< QMap<int, Curve> >* listMapCurves() { return &m_mcg; }
+  QMultiMap<int, Curve*>* multiMapCurves() { return &m_cg; };
+  QList< QMap<int, Curve> >* listMapCurves() { return &m_mcg; };
+
+  void setLambda(float l) { m_lambda = l; };
+  void setSegmentLength(int l) { m_seglen = l; };
 
  private :
+  float m_lambda;
+  int m_seglen;
+
   QMultiMap<int, Curve*> m_cg;
   QList< QMap<int, Curve> > m_mcg;  
 
@@ -96,9 +102,12 @@ class CurveGroup
   QMultiMap<int, QPoint> m_xpoints;
   QMultiMap<int, QPoint> m_ypoints;
 
-  QVector<QPoint> subsample(QVector<QPoint>, float, bool);
-  QVector<QPoint> smooth(QVector<QPoint>, QPoint, int, bool);
+  QVector<QPoint> smooth(QVector<QPoint>, bool);
+  void smoothCurveWithSeedPoints(Curve *);
+
   QVector<QPoint> push(QVector<QPoint>, QPoint, int, bool);
+
+  QVector<QPoint> subsample(QVector<QPoint>, float, bool);
 
   Curve m_copyCurve;
   int m_moveCurve;

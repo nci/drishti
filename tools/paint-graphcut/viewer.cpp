@@ -36,7 +36,18 @@ Viewer::init()
   m_maxWSlice = 0;
   m_minHSlice = 0;
   m_maxHSlice = 0;  
+
+  m_showTags.clear();
+  m_showTags << -1;
 }
+
+void
+Viewer::showTags(QList<int> t)
+{
+  m_showTags = t;
+  update();
+}
+
 
 void Viewer::setMaskDataPtr(uchar *ptr) { m_maskPtr = ptr; }
 void Viewer::setVolDataPtr(uchar *ptr) { m_volPtr = ptr; }
@@ -252,7 +263,10 @@ Viewer::updateVoxels()
 	  for(int h=1; h<m_height-1; h+=m_pointSkip)
 	    {
 	      uchar tag = m_maskPtr[d*m_width*m_height + w*m_height + h];
-	      if (tag > 0)
+	      if (tag > 0 &&
+		  (m_showTags.count() == 0 ||
+		   m_showTags[0] == -1 ||
+		   m_showTags.contains(tag)))
 		{
 		  bool ok = false;
 		  for(int dd=-m_pointSkip; dd<=m_pointSkip; dd++)
@@ -323,21 +337,26 @@ Viewer::drawMMDCurve()
       for (int j=0; j<curves.count(); j++)
 	{
 	  int tag = curves[j]->tag;
-	  float r = Global::tagColors()[4*tag+0]*1.0/255.0;
-	  float g = Global::tagColors()[4*tag+1]*1.0/255.0;
-	  float b = Global::tagColors()[4*tag+2]*1.0/255.0;
-	  glColor3f(r,g,b);
-	  glLineWidth(curves[j]->thickness);
-	  glBegin(GL_LINE_STRIP);
-	  for(int k=0; k<curves[j]->pts.count(); k++)
-	    glVertex3f(curves[j]->pts[k].x(),
-		       curves[j]->pts[k].y(),
-		       cgkeys[i]);
-	  if (curves[j]->closed)
-	    glVertex3f(curves[j]->pts[0].x(),
-		       curves[j]->pts[0].y(),
-		       cgkeys[i]);
-	  glEnd();
+	  if (m_showTags.count() == 0 ||
+	      m_showTags[0] == -1 ||
+	      m_showTags.contains(tag))
+	    {
+	      float r = Global::tagColors()[4*tag+0]*1.0/255.0;
+	      float g = Global::tagColors()[4*tag+1]*1.0/255.0;
+	      float b = Global::tagColors()[4*tag+2]*1.0/255.0;
+	      glColor3f(r,g,b);
+	      glLineWidth(curves[j]->thickness);
+	      glBegin(GL_LINE_STRIP);
+	      for(int k=0; k<curves[j]->pts.count(); k++)
+		glVertex3f(curves[j]->pts[k].x(),
+			   curves[j]->pts[k].y(),
+			   cgkeys[i]);
+	      if (curves[j]->closed)
+		glVertex3f(curves[j]->pts[0].x(),
+			   curves[j]->pts[0].y(),
+			   cgkeys[i]);
+	      glEnd();
+	    }
 	}
     }
 }
@@ -354,21 +373,26 @@ Viewer::drawMMWCurve()
       for (int j=0; j<curves.count(); j++)
 	{
 	  int tag = curves[j]->tag;
-	  float r = Global::tagColors()[4*tag+0]*1.0/255.0;
-	  float g = Global::tagColors()[4*tag+1]*1.0/255.0;
-	  float b = Global::tagColors()[4*tag+2]*1.0/255.0;
-	  glColor3f(r,g,b);
-	  glLineWidth(curves[j]->thickness);
-	  glBegin(GL_LINE_STRIP);
-	  for(int k=0; k<curves[j]->pts.count(); k++)
-	    glVertex3f(curves[j]->pts[k].x(),
-		       cgkeys[i],
-		       curves[j]->pts[k].y());
-	  if (curves[j]->closed)
-	    glVertex3f(curves[j]->pts[0].x(),
-		       cgkeys[i],
-		       curves[j]->pts[0].y());
-	  glEnd();
+	  if (m_showTags.count() == 0 ||
+	      m_showTags[0] == -1 ||
+	      m_showTags.contains(tag))
+	    {
+	      float r = Global::tagColors()[4*tag+0]*1.0/255.0;
+	      float g = Global::tagColors()[4*tag+1]*1.0/255.0;
+	      float b = Global::tagColors()[4*tag+2]*1.0/255.0;
+	      glColor3f(r,g,b);
+	      glLineWidth(curves[j]->thickness);
+	      glBegin(GL_LINE_STRIP);
+	      for(int k=0; k<curves[j]->pts.count(); k++)
+		glVertex3f(curves[j]->pts[k].x(),
+			   cgkeys[i],
+			   curves[j]->pts[k].y());
+	      if (curves[j]->closed)
+		glVertex3f(curves[j]->pts[0].x(),
+			   cgkeys[i],
+			   curves[j]->pts[0].y());
+	      glEnd();
+	    }
 	}
     }
 }
@@ -385,21 +409,26 @@ Viewer::drawMMHCurve()
       for (int j=0; j<curves.count(); j++)
 	{
 	  int tag = curves[j]->tag;
-	  float r = Global::tagColors()[4*tag+0]*1.0/255.0;
-	  float g = Global::tagColors()[4*tag+1]*1.0/255.0;
-	  float b = Global::tagColors()[4*tag+2]*1.0/255.0;
-	  glColor3f(r,g,b);
-	  glLineWidth(curves[j]->thickness);
-	  glBegin(GL_LINE_STRIP);
-	  for(int k=0; k<curves[j]->pts.count(); k++)
-	    glVertex3f(cgkeys[i],
-		       curves[j]->pts[k].x(),
-		       curves[j]->pts[k].y());
-	  if (curves[j]->closed)
-	    glVertex3f(cgkeys[i],
-		       curves[j]->pts[0].x(),
-		       curves[j]->pts[0].y());
-	  glEnd();
+	  if (m_showTags.count() == 0 ||
+	      m_showTags[0] == -1 ||
+	      m_showTags.contains(tag))
+	    {
+	      float r = Global::tagColors()[4*tag+0]*1.0/255.0;
+	      float g = Global::tagColors()[4*tag+1]*1.0/255.0;
+	      float b = Global::tagColors()[4*tag+2]*1.0/255.0;
+	      glColor3f(r,g,b);
+	      glLineWidth(curves[j]->thickness);
+	      glBegin(GL_LINE_STRIP);
+	      for(int k=0; k<curves[j]->pts.count(); k++)
+		glVertex3f(cgkeys[i],
+			   curves[j]->pts[k].x(),
+			   curves[j]->pts[k].y());
+	      if (curves[j]->closed)
+		glVertex3f(cgkeys[i],
+			   curves[j]->pts[0].x(),
+			   curves[j]->pts[0].y());
+	      glEnd();
+	    }
 	}
     }
 }
@@ -418,21 +447,26 @@ Viewer::drawLMDCurve()
 	  Curve c = mcg.value(cgkeys[j]);
 
 	  int tag = c.tag;
-	  float r = Global::tagColors()[4*tag+0]*1.0/255.0;
-	  float g = Global::tagColors()[4*tag+1]*1.0/255.0;
-	  float b = Global::tagColors()[4*tag+2]*1.0/255.0;
-	  glColor3f(r,g,b);
-	  glLineWidth(c.thickness);
-	  glBegin(GL_LINE_STRIP);
-	  for(int k=0; k<c.pts.count(); k++)
-	    glVertex3f(c.pts[k].x(),
-		       c.pts[k].y(),
-		       cgkeys[j]);
-	  if (c.closed)
-	    glVertex3f(c.pts[0].x(),
-		       c.pts[0].y(),
-		       cgkeys[j]);
-	  glEnd();
+	  if (m_showTags.count() == 0 ||
+	      m_showTags[0] == -1 ||
+	      m_showTags.contains(tag))
+	    {
+	      float r = Global::tagColors()[4*tag+0]*1.0/255.0;
+	      float g = Global::tagColors()[4*tag+1]*1.0/255.0;
+	      float b = Global::tagColors()[4*tag+2]*1.0/255.0;
+	      glColor3f(r,g,b);
+	      glLineWidth(c.thickness);
+	      glBegin(GL_LINE_STRIP);
+	      for(int k=0; k<c.pts.count(); k++)
+		glVertex3f(c.pts[k].x(),
+			   c.pts[k].y(),
+			   cgkeys[j]);
+	      if (c.closed)
+		glVertex3f(c.pts[0].x(),
+			   c.pts[0].y(),
+			   cgkeys[j]);
+	      glEnd();
+	    }
 	}
     }
 }
@@ -451,22 +485,27 @@ Viewer::drawLMWCurve()
 	  Curve c = mcg.value(cgkeys[j]);
 
 	  int tag = c.tag;
-	  float r = Global::tagColors()[4*tag+0]*1.0/255.0;
-	  float g = Global::tagColors()[4*tag+1]*1.0/255.0;
-	  float b = Global::tagColors()[4*tag+2]*1.0/255.0;
-	  glColor3f(r,g,b);
-	  glLineWidth(c.thickness);
-	  glBegin(GL_LINE_STRIP);
-	  for(int k=0; k<c.pts.count(); k++)
-	    glVertex3f(c.pts[k].x(),
-		       cgkeys[j],
-		       c.pts[k].y());
-	  if (c.closed)
-	    glVertex3f(c.pts[0].x(),
-		       cgkeys[j],
-		       c.pts[0].y());
-	    
-	  glEnd();
+	  if (m_showTags.count() == 0 ||
+	      m_showTags[0] == -1 ||
+	      m_showTags.contains(tag))
+	    {
+	      float r = Global::tagColors()[4*tag+0]*1.0/255.0;
+	      float g = Global::tagColors()[4*tag+1]*1.0/255.0;
+	      float b = Global::tagColors()[4*tag+2]*1.0/255.0;
+	      glColor3f(r,g,b);
+	      glLineWidth(c.thickness);
+	      glBegin(GL_LINE_STRIP);
+	      for(int k=0; k<c.pts.count(); k++)
+		glVertex3f(c.pts[k].x(),
+			   cgkeys[j],
+			   c.pts[k].y());
+	      if (c.closed)
+		glVertex3f(c.pts[0].x(),
+			   cgkeys[j],
+			   c.pts[0].y());
+	      
+	      glEnd();
+	    }
 	}
     }
 }
@@ -485,22 +524,27 @@ Viewer::drawLMHCurve()
 	  Curve c = mcg.value(cgkeys[j]);
 
 	  int tag = c.tag;
-	  float r = Global::tagColors()[4*tag+0]*1.0/255.0;
-	  float g = Global::tagColors()[4*tag+1]*1.0/255.0;
-	  float b = Global::tagColors()[4*tag+2]*1.0/255.0;
-	  glColor3f(r,g,b);
-	  glLineWidth(c.thickness);
-	  glBegin(GL_LINE_STRIP);
-	  for(int k=0; k<c.pts.count(); k++)
-	    glVertex3f(cgkeys[j],
-		       c.pts[k].x(),
-		       c.pts[k].y());
-	  if (c.closed)
-	    glVertex3f(cgkeys[j],
-		       c.pts[0].x(),
-		       c.pts[0].y());
-	    
-	  glEnd();
+	  if (m_showTags.count() == 0 ||
+	      m_showTags[0] == -1 ||
+	      m_showTags.contains(tag))
+	    {
+	      float r = Global::tagColors()[4*tag+0]*1.0/255.0;
+	      float g = Global::tagColors()[4*tag+1]*1.0/255.0;
+	      float b = Global::tagColors()[4*tag+2]*1.0/255.0;
+	      glColor3f(r,g,b);
+	      glLineWidth(c.thickness);
+	      glBegin(GL_LINE_STRIP);
+	      for(int k=0; k<c.pts.count(); k++)
+		glVertex3f(cgkeys[j],
+			   c.pts[k].x(),
+			   c.pts[k].y());
+	      if (c.closed)
+		glVertex3f(cgkeys[j],
+			   c.pts[0].x(),
+			   c.pts[0].y());
+	      
+	      glEnd();
+	    }
 	}
     }
 }

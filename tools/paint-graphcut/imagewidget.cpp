@@ -22,6 +22,21 @@ ImageWidget::getCg()
 }
 
 void
+ImageWidget::setLambda(float l)
+{
+  m_dCurves.setLambda(l);
+  m_wCurves.setLambda(l);
+  m_hCurves.setLambda(l);
+}
+void
+ImageWidget::setSegmentLength(int l)
+{
+  m_dCurves.setSegmentLength(l);
+  m_wCurves.setSegmentLength(l);
+  m_hCurves.setSegmentLength(l);
+}
+
+void
 ImageWidget::getBox(int &minD, int &maxD, 
 		    int &minW, int &maxW, 
 		    int &minH, int &maxH)
@@ -126,6 +141,9 @@ ImageWidget::ImageWidget(QWidget *parent, QStatusBar *sb) :
 
   m_pointSize = 5;
 
+  m_showTags.clear();
+  m_showTags << -1;
+
   m_prevslicetagColors.clear();
   m_prevslicetagColors.resize(256);
   m_prevslicetagColors[0] = qRgba(0,0,0,0);
@@ -149,6 +167,13 @@ void ImageWidget::setScrollBars(QScrollBar *hbar,
 {
   m_hbar = hbar;
   m_vbar = vbar;
+}
+
+void
+ImageWidget::showTags(QList<int> t)
+{
+  m_showTags = t;
+  update();
 }
 
 void
@@ -763,58 +788,63 @@ ImageWidget::drawCurves(QPainter *p)
   for(int l=0; l<curves.count(); l++)
     {
       int tag = curves[l]->tag;
-      uchar r = Global::tagColors()[4*tag+0];
-      uchar g = Global::tagColors()[4*tag+1];
-      uchar b = Global::tagColors()[4*tag+2];
-
-
-      QVector<QPoint> pts = curves[l]->pts;
-      for(int i=0; i<pts.count(); i++)
-	pts[i] = pts[i]*sx + move;
-
-      if (curves[l]->selected)
+      if (m_showTags.count() == 0 ||
+	  m_showTags[0] == -1 ||
+	  m_showTags.contains(tag))
 	{
-	  p->setBrush(Qt::transparent);
+	  uchar r = Global::tagColors()[4*tag+0];
+	  uchar g = Global::tagColors()[4*tag+1];
+	  uchar b = Global::tagColors()[4*tag+2];
+	  
+
+	  QVector<QPoint> pts = curves[l]->pts;
+	  for(int i=0; i<pts.count(); i++)
+	    pts[i] = pts[i]*sx + move;
+
+	  if (curves[l]->selected)
+	    {
+	      p->setBrush(Qt::transparent);
+	      if (curves[l]->closed)
+		{
+		  p->setPen(QPen(QColor(250,250,250,250), 5));
+		  p->drawPolygon(pts);
+		}
+	      else
+		{
+		  p->setPen(QPen(QColor(250,250,250,250), curves[l]->thickness+4,
+				 Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+		  p->drawPolyline(pts);
+		}
+	    }
+	  
 	  if (curves[l]->closed)
 	    {
-	      p->setPen(QPen(QColor(250,250,250,250), 5));
+	      p->setPen(QPen(QColor(r,g,b), 1));
+	      p->setBrush(QColor(r*0.5, g*0.5, b*0.5, 128));
 	      p->drawPolygon(pts);
 	    }
 	  else
 	    {
-	      p->setPen(QPen(QColor(250,250,250,250), curves[l]->thickness+4,
+	      p->setPen(QPen(QColor(r,g,b), curves[l]->thickness,
 			     Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
 	      p->drawPolyline(pts);
 	    }
-	}
-
-      if (curves[l]->closed)
-	{
-	  p->setPen(QPen(QColor(r,g,b), 1));
-	  p->setBrush(QColor(r*0.5, g*0.5, b*0.5, 128));
-	  p->drawPolygon(pts);
-	}
-      else
-	{
-	  p->setPen(QPen(QColor(r,g,b), curves[l]->thickness,
-			 Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-	  p->drawPolyline(pts);
-	}
-
-      {
-	QVector<int> seedpos = curves[l]->seedpos;
-	if (seedpos.count() > 0)
+	  
 	  {
-	    QVector<QPoint> seeds;
-	    for(int i=0; i<seedpos.count(); i++)
-	      seeds << pts[seedpos[i]];
-
-	    p->setPen(QPen(Qt::yellow, m_pointSize+2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-	    p->drawPoints(seeds);
-	    p->setPen(QPen(Qt::darkMagenta, m_pointSize, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-	    p->drawPoints(seeds);
+	    QVector<int> seedpos = curves[l]->seedpos;
+	    if (seedpos.count() > 0)
+	      {
+		QVector<QPoint> seeds;
+		for(int i=0; i<seedpos.count(); i++)
+		  seeds << pts[seedpos[i]];
+		
+		p->setPen(QPen(Qt::yellow, m_pointSize+2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+		p->drawPoints(seeds);
+		p->setPen(QPen(Qt::darkMagenta, m_pointSize, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+		p->drawPoints(seeds);
+	      }
 	  }
-      }
+	} // showtags
     }
 
   return curves.count();
@@ -930,8 +960,6 @@ ImageWidget::drawOtherCurvePoints(QPainter *p)
       p->drawPoints(vptd);
       p->setPen(QPen(Qt::red, m_pointSize, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
       p->drawPoints(vptd);
-//      p->setPen(QPen(Qt::red, 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-//      p->drawLines(vptd);
     }
 
   if (vptw.count() > 0)
@@ -943,8 +971,6 @@ ImageWidget::drawOtherCurvePoints(QPainter *p)
       p->drawPoints(vptw);
       p->setPen(QPen(Qt::yellow, m_pointSize, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
       p->drawPoints(vptw);
-//      p->setPen(QPen(Qt::yellow, 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-//      p->drawLines(vptw);
     }
 
   if (vpth.count() > 0)
@@ -956,8 +982,6 @@ ImageWidget::drawOtherCurvePoints(QPainter *p)
       p->drawPoints(vpth);
       p->setPen(QPen(Qt::cyan, m_pointSize, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
       p->drawPoints(vpth);
-//      p->setPen(QPen(Qt::cyan, 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-//      p->drawLines(vpth);
     }
 }
 
@@ -977,26 +1001,31 @@ ImageWidget::drawMorphedCurves(QPainter *p)
   for(int l=0; l<curves.count(); l++)
     {
       int tag = curves[l].tag;
-      uchar r = Global::tagColors()[4*tag+0];
-      uchar g = Global::tagColors()[4*tag+1];
-      uchar b = Global::tagColors()[4*tag+2];
-
-
-      QVector<QPoint> pts = curves[l].pts;
-      for(int i=0; i<pts.count(); i++)
-	pts[i] = pts[i]*sx + move;
-
-      if (curves[l].closed)
+      if (m_showTags.count() == 0 ||
+	  m_showTags[0] == -1 ||
+	  m_showTags.contains(tag))
 	{
-	  p->setPen(QPen(QColor(r,g,b), 1));
-	  p->setBrush(QColor(r*0.5, g*0.5, b*0.5, 128));
-	  p->drawPolygon(pts);
-	}
-      else
-	{
-	  p->setPen(QPen(QColor(r,g,b), curves[l].thickness,
-			 Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-	  p->drawPolyline(pts);
+	  uchar r = Global::tagColors()[4*tag+0];
+	  uchar g = Global::tagColors()[4*tag+1];
+	  uchar b = Global::tagColors()[4*tag+2];
+
+
+	  QVector<QPoint> pts = curves[l].pts;
+	  for(int i=0; i<pts.count(); i++)
+	    pts[i] = pts[i]*sx + move;
+	  
+	  if (curves[l].closed)
+	    {
+	      p->setPen(QPen(QColor(r,g,b), 1));
+	      p->setBrush(QColor(r*0.5, g*0.5, b*0.5, 128));
+	      p->drawPolygon(pts);
+	    }
+	  else
+	    {
+	      p->setPen(QPen(QColor(r,g,b), curves[l].thickness,
+			     Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+	      p->drawPolyline(pts);
+	    }
 	}
     }
 
@@ -1544,13 +1573,12 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
     {
       bool ar = m_applyRecursive;
 
-      if (shiftModifier) // apply dilation for multiple slices
+      if (shiftModifier) // apply operation for multiple slices
 	{
 	  applyRecursive(event->key());
 	  ar = true;
 
 	  startLivewirePropagation();
-	  //return true;
 	}
 
       propagateLivewire();
@@ -1573,12 +1601,14 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
 	      cg->pasteCurve(m_currSlice);
 	      emit polygonLevels(cg->polygonLevels());
 	    }
-	  if (event->key() == Qt::Key_Space)
+	  else if (event->key() == Qt::Key_Space)
 	    {
 	      freezeModifyUsingLivewire();
 	      modifyUsingLivewire();
 	    }
-
+	  else
+	    QMessageBox::information(0, "", "Cannot perform this operation in modify mode.  Please quit modify mode to perform this operation.");
+	  
 	  return true;
 	}
 
@@ -1639,6 +1669,19 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
     }      
 
   if (event->key() == Qt::Key_S)
+    { // curve smoothing
+      if (m_sliceType == DSlice)
+	m_dCurves.smooth(m_currSlice, m_pickHeight, m_pickWidth);
+      else if (m_sliceType == WSlice)
+	m_wCurves.smooth(m_currSlice, m_pickHeight, m_pickDepth);
+      else
+	m_hCurves.smooth(m_currSlice, m_pickWidth,  m_pickDepth);
+
+      update();
+      return true;
+    }
+
+  if (event->key() == Qt::Key_H)
     {
       bool selected;
       if (m_sliceType == DSlice)
@@ -1943,11 +1986,6 @@ ImageWidget::showHelp()
   help += "<b>SpaceBar</b> Show help.<br><br>";
   help += "<b>Alt+S</b>   Save image<br><br>";
 
-  help += "<b>Ctrl+0</b>  Set image to original size.<br>";
-  help += "<b>Ctrl+9</b>  Set image to fit available space.<br>";
-  help += "<b>Ctrl++</b>  Zoom in - make image bigger.<br>";
-  help += "<b>Ctrl+-</b>  Zoom out - make image smaller.<br><br>";
-
   help += "<b>Up/Down Arrow</b>  Increase/Decrease brush size.<br>";
   help += "<b>Left/Right Arrow</b>  Previous/Next slice.<br>";
   help += "<b>Mouse wheel</b>  Previous/Next slice<br>";
@@ -2154,25 +2192,25 @@ ImageWidget::curveMousePressEvent(QMouseEvent *event)
 	}
 
       // carry on only if Alt key is not pressed
-      if (shiftModifier)
-	{
-	  if (m_sliceType == DSlice)
-	    m_dCurves.smooth(m_currSlice, m_pickHeight, m_pickWidth, Global::spread());
-	  else if (m_sliceType == WSlice)
-	    m_wCurves.smooth(m_currSlice, m_pickHeight, m_pickDepth, Global::spread());
-	  else
-	    m_hCurves.smooth(m_currSlice, m_pickWidth,  m_pickDepth, Global::spread());
-	}
-      else if (ctrlModifier)
-	{
-	  if (m_sliceType == DSlice)
-	    m_dCurves.push(m_currSlice, m_pickHeight, m_pickWidth, Global::spread());
-	  else if (m_sliceType == WSlice)
-	    m_wCurves.push(m_currSlice, m_pickHeight, m_pickDepth, Global::spread());
-	  else
-	    m_hCurves.push(m_currSlice, m_pickWidth,  m_pickDepth, Global::spread());
-	}
-      else
+//      if (shiftModifier)
+//	{
+//	  if (m_sliceType == DSlice)
+//	    m_dCurves.smooth(m_currSlice, m_pickHeight, m_pickWidth, Global::spread());
+//	  else if (m_sliceType == WSlice)
+//	    m_wCurves.smooth(m_currSlice, m_pickHeight, m_pickDepth, Global::spread());
+//	  else
+//	    m_hCurves.smooth(m_currSlice, m_pickWidth,  m_pickDepth, Global::spread());
+//	}
+//      else if (ctrlModifier)
+//	{
+//	  if (m_sliceType == DSlice)
+//	    m_dCurves.push(m_currSlice, m_pickHeight, m_pickWidth, Global::spread());
+//	  else if (m_sliceType == WSlice)
+//	    m_wCurves.push(m_currSlice, m_pickHeight, m_pickDepth, Global::spread());
+//	  else
+//	    m_hCurves.push(m_currSlice, m_pickWidth,  m_pickDepth, Global::spread());
+//	}
+//      else
 	{
 	  if (m_sliceType == DSlice)
 	    m_dCurves.addPoint(m_currSlice, m_pickHeight, m_pickWidth);
@@ -2337,25 +2375,25 @@ ImageWidget::curveMouseMoveEvent(QMouseEvent *event)
 	  m_lastPickWidth = m_pickWidth;
 	  m_lastPickHeight= m_pickHeight;
 
-	  if (shiftModifier)
-	    {
-	      if (m_sliceType == DSlice)
-		m_dCurves.smooth(m_currSlice, m_pickHeight, m_pickWidth, Global::spread());
-	      else if (m_sliceType == WSlice)
-		m_wCurves.smooth(m_currSlice, m_pickHeight, m_pickDepth, Global::spread());
-	      else
-		m_hCurves.smooth(m_currSlice, m_pickWidth,  m_pickDepth, Global::spread());
-	    }
-	  else if (ctrlModifier)
-	    {
-	      if (m_sliceType == DSlice)
-		m_dCurves.push(m_currSlice, m_pickHeight, m_pickWidth, Global::spread());
-	      else if (m_sliceType == WSlice)
-		m_wCurves.push(m_currSlice, m_pickHeight, m_pickDepth, Global::spread());
-	      else
-		m_hCurves.push(m_currSlice, m_pickWidth,  m_pickDepth, Global::spread());
-	    }
-	  else
+//	  if (shiftModifier)
+//	    {
+//	      if (m_sliceType == DSlice)
+//		m_dCurves.smooth(m_currSlice, m_pickHeight, m_pickWidth, Global::spread());
+//	      else if (m_sliceType == WSlice)
+//		m_wCurves.smooth(m_currSlice, m_pickHeight, m_pickDepth, Global::spread());
+//	      else
+//		m_hCurves.smooth(m_currSlice, m_pickWidth,  m_pickDepth, Global::spread());
+//	    }
+//	  else if (ctrlModifier)
+//	    {
+//	      if (m_sliceType == DSlice)
+//		m_dCurves.push(m_currSlice, m_pickHeight, m_pickWidth, Global::spread());
+//	      else if (m_sliceType == WSlice)
+//		m_wCurves.push(m_currSlice, m_pickHeight, m_pickDepth, Global::spread());
+//	      else
+//		m_hCurves.push(m_currSlice, m_pickWidth,  m_pickDepth, Global::spread());
+//	    }
+//	  else
 	    {
 	      if (m_sliceType == DSlice)
 		m_dCurves.addPoint(m_currSlice, m_pickHeight, m_pickWidth);
@@ -3820,10 +3858,6 @@ ImageWidget::loadCurves()
 
   loadCurves(curvesfile);
 }
-
-void ImageWidget::setWeightLoG(float w) { m_livewire.setWeightLoG(w); }
-void ImageWidget::setWeightG(float w) { m_livewire.setWeightG(w); }
-void ImageWidget::setWeightN(float w) { m_livewire.setWeightN(w); }
 
 void
 ImageWidget::setSmoothType(int i)

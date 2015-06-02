@@ -70,7 +70,8 @@ class ImageWidget : public QWidget
 
   bool seedMoveMode() { return m_livewire.seedMoveMode(); };
   void deselectAll();
-  
+  void propagateCurves();
+
  public slots :
   void updateTagColors();
   void sliceChanged(int);

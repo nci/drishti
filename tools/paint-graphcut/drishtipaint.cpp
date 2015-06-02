@@ -415,16 +415,19 @@ DrishtiPaint::getSlice(int slc)
     {
       slice = m_volume->getDepthSliceImage(m_currSlice);
       maskslice = m_volume->getMaskDepthSliceImage(m_currSlice);
+      m_viewer->updateCurrSlice(0, m_currSlice);  
     }
   else if (ui.butY->isChecked())
     {
       slice = m_volume->getWidthSliceImage(m_currSlice); 
       maskslice = m_volume->getMaskWidthSliceImage(m_currSlice);
+      m_viewer->updateCurrSlice(1, m_currSlice);  
     }
   else if (ui.butX->isChecked())
     {
       slice = m_volume->getHeightSliceImage(m_currSlice); 
       maskslice = m_volume->getMaskHeightSliceImage(m_currSlice);
+      m_viewer->updateCurrSlice(2, m_currSlice);  
     }
 
   m_imageWidget->setImage(slice, maskslice);
@@ -474,6 +477,7 @@ void DrishtiPaint::on_lwsmooth_currentIndexChanged(int i){ m_imageWidget->setSmo
 void DrishtiPaint::on_lwgrad_currentIndexChanged(int i){ m_imageWidget->setGradType(i); }
 void DrishtiPaint::on_newcurve_clicked() { m_imageWidget->newCurve(); }
 void DrishtiPaint::on_morphcurves_clicked() { m_imageWidget->morphCurves(); }
+void DrishtiPaint::on_propagate_clicked() { m_imageWidget->propagateCurves(); }
 void DrishtiPaint::on_deselect_clicked() { m_imageWidget->deselectAll(); }
 void DrishtiPaint::on_deleteallcurves_clicked() { m_imageWidget->deleteAllCurves(); }
 void DrishtiPaint::on_zoom0_clicked() { m_imageWidget->zoom0(); }

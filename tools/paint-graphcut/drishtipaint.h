@@ -61,6 +61,7 @@ class DrishtiPaint : public QMainWindow
   void on_lwgrad_currentIndexChanged(int);
   void on_newcurve_clicked();
   void on_morphcurves_clicked();
+  void on_propagate_clicked();
   void on_deselect_clicked();
   void on_deleteallcurves_clicked();
   void on_zoom0_clicked();

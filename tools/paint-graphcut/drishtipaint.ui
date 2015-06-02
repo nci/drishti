@@ -854,13 +854,6 @@
                </widget>
               </item>
               <item>
-               <widget class="QCheckBox" name="closed">
-                <property name="text">
-                 <string>Closed</string>
-                </property>
-               </widget>
-              </item>
-              <item>
                <widget class="QPushButton" name="modify">
                 <property name="maximumSize">
                  <size>
@@ -873,6 +866,39 @@
                 </property>
                 <property name="checkable">
                  <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="propagate">
+                <property name="maximumSize">
+                 <size>
+                  <width>70</width>
+                  <height>25</height>
+                 </size>
+                </property>
+                <property name="text">
+                 <string>Propagate</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="Line" name="line_8">
+                <property name="frameShadow">
+                 <enum>QFrame::Plain</enum>
+                </property>
+                <property name="lineWidth">
+                 <number>2</number>
+                </property>
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QCheckBox" name="closed">
+                <property name="text">
+                 <string>Closed</string>
                 </property>
                </widget>
               </item>

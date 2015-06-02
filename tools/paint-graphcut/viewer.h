@@ -28,6 +28,7 @@ class Viewer : public QGLViewer
 
   public slots :
     void updateViewerBox(int, int, int, int, int, int);
+    void updateCurrSlice(int, int);
     void showTags(QList<int>);
 
  private :
@@ -40,6 +41,8 @@ class Viewer : public QGLViewer
   uchar *m_maskPtr;
   int m_pointSkip;
   int m_pointSize;
+
+  int m_currSlice, m_currSliceType;
 
   QMultiMap<int, Curve*> *m_Dcg;
   QMultiMap<int, Curve*> *m_Wcg;
@@ -68,6 +71,7 @@ class Viewer : public QGLViewer
   void updateVoxels();
 
   void drawEnclosingCube(Vec, Vec);
+  void drawCurrentSlice(Vec, Vec);
 
 };
 

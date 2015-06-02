@@ -24,6 +24,7 @@ LiveWire::LiveWire()
 
   m_propagateLivewire = false;
   m_guessCurve.clear();
+  m_guessSeeds.clear();
 
   m_gradType = 0;
   m_smoothType = 0;
@@ -52,9 +53,25 @@ LiveWire::setSeedMoveMode(bool b)
   m_activeSeed = -1;
 }
 
-void LiveWire::setGuessCurve(QVector<QPoint> gc) { m_guessCurve = gc; }
+void
+LiveWire::setGuessCurve(QVector<QPoint> gc, QVector<QPoint> gs)
+{
+  m_guessCurve = gc;
+  m_guessSeeds = gs;
+}
 // renew guess curve from current livewire polygon
-void LiveWire::renewGuessCurve() { m_guessCurve = m_poly; }
+void
+LiveWire::renewGuessCurve()
+{
+  m_guessCurve = m_poly;
+  
+  m_guessSeeds.clear();
+  if (m_seedpos.count() > 0)
+    {
+      for(int i=0; i<m_seedpos.count(); i++)
+	m_guessSeeds << m_poly[m_seedpos[i]];
+    }
+}
 
 bool LiveWire::propagateLivewire() { return m_propagateLivewire; }
 void
@@ -62,6 +79,7 @@ LiveWire::setPropagateLivewire(bool b)
 {
   m_propagateLivewire = b;
   m_guessCurve.clear();
+  m_guessSeeds.clear();
 }
 
 bool LiveWire::closed() { return m_closed; }
@@ -121,6 +139,7 @@ LiveWire::reset()
 
   m_propagateLivewire = false;
   m_guessCurve.clear();
+  m_guessSeeds.clear();
 
   m_gradCost = new float[256];
   for(int i=0; i<256; i++)
@@ -773,7 +792,8 @@ LiveWire::livewireFromSeeds(QVector<QPoint> oseeds)
   
   QVector<bool> used;
   used.fill(false, oseeds.count());
-  QVector<QPoint> seeds;
+  QVector<QPoint> tseeds;
+
   // ----------
   // lineup all the seeds from orthogonal slices
   for(int i=0; i<m_guessCurve.count(); i++)
@@ -786,12 +806,36 @@ LiveWire::livewireFromSeeds(QVector<QPoint> oseeds)
 	      if ((pt-oseeds[j]).manhattanLength()<5)
 		{
 		  used[j] = true;
-		  seeds << oseeds[j];
+		  tseeds << oseeds[j];
 		}
 	    }
 	}
     }
   // ----------
+
+  // ----------
+  // use guessSeeds if no other seeds present
+  if (tseeds.count() == 0)
+    tseeds = m_guessSeeds;
+  // ----------
+
+  if (tseeds.count() == 0)
+    {
+      QMessageBox::information(0, "", "No seed point found for livewire propagation.");
+      return;
+    }
+
+  // filter out closely placed seeds
+  QVector<QPoint> seeds;
+  seeds << tseeds[0];
+  for(int i=1; i<tseeds.count()-1; i++)
+    {
+      QPoint v = seeds.last()-tseeds[i];
+      if (QPoint::dotProduct(v,v) > 25)
+	seeds << tseeds[i];
+    }
+  seeds << tseeds.last();
+
   
   // find nearest least energy positions for all seeds
   for(int i=0; i<seeds.count(); i++)
@@ -802,8 +846,8 @@ LiveWire::livewireFromSeeds(QVector<QPoint> oseeds)
       int ypos = w;
       int midx = h*m_width+w;
       float minCost = 1.0-m_grad[midx]; // currently look at maximum gradient position
-      for(int a=-1; a<=1; a++)
-	for(int b=-1; b<=1; b++)
+      for(int a=-2; a<=2; a++)
+	for(int b=-2; b<=2; b++)
 	  {
 	    int midx = (qBound(0,(h+a), m_height-1)*m_width+
 			qBound(0,(w+b),m_width-1)); 

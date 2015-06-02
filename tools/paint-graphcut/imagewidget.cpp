@@ -1328,7 +1328,7 @@ ImageWidget::freezeLivewire(bool select)
 
   QVector<QPoint> pts = m_livewire.poly();
   QVector<int> seedpos = m_livewire.seedpos();
-  if (pts.count() < 1)
+  if (pts.count() < 5)
     {
       //QMessageBox::information(0, "Error", "No livewire found to be transferred to curve");
       if (m_livewire.propagateLivewire())
@@ -1461,13 +1461,19 @@ ImageWidget::startLivewirePropagation()
     {
       if (curves[l]->selected)
 	{
-	  m_livewire.setGuessCurve(curves[l]->pts);
+	  QVector<int> seedpos = curves[l]->seedpos;
+	  QVector<QPoint> seeds;
+	  if (seedpos.count() > 0)
+	    {
+	      for(int i=0; i<seedpos.count(); i++)
+		seeds << curves[l]->pts[seedpos[i]];
+				}
+
+	  m_livewire.setGuessCurve(curves[l]->pts, seeds);
 	  
+  
 	  //  move current slice for propagation
-	  if (m_forward)
-	    m_currSlice = qMax(0, m_currSlice-1);
-	  else
-	    m_currSlice = m_currSlice+1;  
+	  checkRecursive();	  
 	  return;
 	}
     }
@@ -1578,6 +1584,13 @@ ImageWidget::setSliceLOD(int lod)
   update();
 }
 
+void
+ImageWidget::propagateCurves()
+{
+  applyRecursive(Qt::Key_J);
+  startLivewirePropagation();
+  //propagateLivewire();
+}
 
 bool
 ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
@@ -1605,6 +1618,7 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
 	  ar = true;
 
 	  startLivewirePropagation();
+	  return true;
 	}
 
       propagateLivewire();

@@ -47,7 +47,7 @@ class LiveWire
   
   bool propagateLivewire();
   void setPropagateLivewire(bool);
-  void setGuessCurve(QVector<QPoint>);
+  void setGuessCurve(QVector<QPoint>, QVector<QPoint>);
   void renewGuessCurve();
 
   void setLod(int);
@@ -66,6 +66,7 @@ class LiveWire
   
   bool m_propagateLivewire;
   QVector<QPoint> m_guessCurve;
+  QVector<QPoint> m_guessSeeds;
 
   int m_Owidth, m_Oheight;
   int m_width, m_height;

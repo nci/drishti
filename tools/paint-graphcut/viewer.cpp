@@ -23,6 +23,9 @@ Viewer::init()
   m_width = 0;
   m_height = 0;
 
+  m_currSlice = 0;
+  m_currSliceType = 0;
+
   m_maskPtr = 0;
   m_volPtr = 0;
   m_pointSkip = 5;
@@ -39,6 +42,13 @@ Viewer::init()
 
   m_showTags.clear();
   m_showTags << -1;
+}
+
+void
+Viewer::updateCurrSlice(int cst, int cs)
+{
+  m_currSliceType = cst;
+  m_currSlice = cs;
 }
 
 void
@@ -151,7 +161,42 @@ Viewer::drawEnclosingCube(Vec subvolmin,
   glVertex3f(subvolmax.x, subvolmin.y, subvolmin.z);
   glVertex3f(subvolmax.x, subvolmin.y, subvolmax.z);
   glVertex3f(subvolmin.x, subvolmin.y, subvolmax.z);  
-  glEnd();  
+  glEnd();    
+}
+
+void
+Viewer::drawCurrentSlice(Vec subvolmin,
+			 Vec subvolmax)
+{
+  if (m_currSliceType == 0)
+    {
+      glBegin(GL_QUADS);  
+      glVertex3f(subvolmin.x, subvolmin.y, m_currSlice);
+      glVertex3f(subvolmax.x, subvolmin.y, m_currSlice);
+      glVertex3f(subvolmax.x, subvolmax.y, m_currSlice);
+      glVertex3f(subvolmin.x, subvolmax.y, m_currSlice);
+      glEnd();  
+    }
+
+  if (m_currSliceType == 1)
+    {
+      glBegin(GL_QUADS);  
+      glVertex3f(subvolmin.x, m_currSlice, subvolmin.z);
+      glVertex3f(subvolmax.x, m_currSlice, subvolmin.z);
+      glVertex3f(subvolmax.x, m_currSlice, subvolmax.z);
+      glVertex3f(subvolmin.x, m_currSlice, subvolmax.z);  
+      glEnd();    
+    }
+
+  if (m_currSliceType == 2)
+    {
+      glBegin(GL_QUADS);  
+      glVertex3f(m_currSlice, subvolmin.y, subvolmin.z);
+      glVertex3f(m_currSlice, subvolmax.y, subvolmin.z);
+      glVertex3f(m_currSlice, subvolmax.y, subvolmax.z);
+      glVertex3f(m_currSlice, subvolmin.y, subvolmax.z);  
+      glEnd();    
+    }
 }
 
 void
@@ -169,6 +214,11 @@ Viewer::drawBox()
   glColor3d(0.8,0.8,0.8);
   drawEnclosingCube(Vec(m_minHSlice, m_minWSlice, m_minDSlice),
 		    Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
+
+
+  glColor3d(1.0,0.85,0.7);
+  drawCurrentSlice(Vec(0,0,0),
+		   Vec(m_height, m_width, m_depth));
 
   glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 

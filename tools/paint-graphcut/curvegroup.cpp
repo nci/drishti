@@ -159,6 +159,14 @@ CurveGroup::showPolygonInfo(int key, int v0, int v1)
   return ic;
 }
 
+void
+CurveGroup::deselectAll()
+{
+  QList<Curve*> curves = m_cg.values();
+  for(int ic=0; ic<curves.count(); ic++)
+    curves[ic]->selected = false;
+}
+
 bool
 CurveGroup::selectPolygon(int key, int v0, int v1, bool all)
 {
@@ -531,36 +539,33 @@ QList< QMap<int, Curve> >* CurveGroup::getPointerToMorphedCurves() { return &m_m
 void CurveGroup::addMorphBlock(QMap<int, Curve> mb) { m_mcg << mb; }
 
 void
-CurveGroup::morphCurves()
+CurveGroup::morphCurves(int minS, int maxS)
 {
   QMap<int, Curve> cg;
   QList<int> cgkeys = m_cg.uniqueKeys();
-  int first = -1;
   for(int i=0; i<cgkeys.count(); i++)
     {
-      int sel = -1;
-      QList<Curve*> curves = m_cg.values(cgkeys[i]);
-      for(int j=0; j<curves.count(); j++)
+      if (cgkeys[i] >= minS &&
+	  cgkeys[i] <= maxS)
 	{
-	  if (curves[j]->selected)
+	  int sel = -1;
+	  QList<Curve*> curves = m_cg.values(cgkeys[i]);
+	  for(int j=0; j<curves.count(); j++)
 	    {
-	      sel = j;
-	      break;
+	      if (curves[j]->selected)
+		{
+		  sel = j;
+		  break;
+		}
 	    }
-	}
 
-      if (sel >= 0)
-	{
-	  cg.insert(cgkeys[i], *curves[sel]);
-	  if (first == -1)
-	    first = i;
+	  if (sel >= 0)
+	    cg.insert(cgkeys[i], *curves[sel]);
 	}
-      else if (first > 0 && i > first)
-	break;
     }
   if (cg.count() <= 1)
     {
-      QMessageBox::information(0, "", "Not enough curves selected to morph");
+      QMessageBox::information(0, "", "Atleast two curves required.  Not enough curves selected to interpolate");
       return;
     }
 
@@ -838,16 +843,26 @@ CurveGroup::smooth(QVector<QPoint> c, bool closed)
   int npts = c.count();
   int ist = 0;
   int ied = npts;
+  int p2 = 2;
   if (!closed)
     {
       ist = 1;
       ied = npts-1;
     }    
 
+  int nxt2, prv2;
   for(int i=ist; i<ied; i++)
     {
-      int nxt2 = (i+2)%npts;
-      int prv2 = (npts+(i-2))%npts;
+      if (closed)
+	{
+	  nxt2 = (i+2)%npts;
+	  prv2 = (npts+(i-2))%npts;
+	}
+      else
+	{
+	  nxt2 = qMin(npts-1, (i+2)%npts);
+	  prv2 = qMax(0, (npts+(i-2))%npts);
+	}
       int nxt = (i+1)%npts;
       int prv = (npts+(i-1))%npts;
       
@@ -857,8 +872,16 @@ CurveGroup::smooth(QVector<QPoint> c, bool closed)
 
   for(int i=ist; i<ied; i++)
     {
-      int nxt2 = (i+2)%npts;
-      int prv2 = (npts+(i-2))%npts;
+      if (closed)
+	{
+	  nxt2 = (i+2)%npts;
+	  prv2 = (npts+(i-2))%npts;
+	}
+      else
+	{
+	  nxt2 = qMin(npts-1, (i+2)%npts);
+	  prv2 = qMax(0, (npts+(i-2))%npts);
+	}
       int nxt = (i+1)%npts;
       int prv = (npts+(i-1))%npts;
       

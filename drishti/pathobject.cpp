@@ -2669,7 +2669,8 @@ PathObject::postdrawAngle(QGLViewer *viewer)
   font.setPointSize(12*fscl);
   StaticFunctions::renderText(v1.x, v1.y,
 			       str, font,
-			       Qt::transparent, Qt::white);
+			      //Qt::transparent, Qt::white);
+			      QColor(50,50,50,150), Qt::white);
 
   glPopMatrix();
 }
@@ -2771,9 +2772,14 @@ PathObject::postdrawLength(QGLViewer *viewer)
   font.setPointSize(12*fscl);
   int x = (x0+x1)/2 + px*1.1;
   int y = (y0+y1)/2 + py*1.1;
+//  StaticFunctions::renderRotatedText(x,y,
+//				     str, font,
+//				     Qt::transparent, Qt::white,
+//				     -angle,
+//				     true); // (0,0) is bottom left
   StaticFunctions::renderRotatedText(x,y,
 				     str, font,
-				     Qt::transparent, Qt::white,
+				     QColor(50,50,50,150), Qt::white,
 				     -angle,
 				     true); // (0,0) is bottom left
     
@@ -2803,7 +2809,7 @@ PathObject::postdrawPointNumbers(QGLViewer *viewer)
       int wd = metric.width(str);
       y += ht/2;
       
-      StaticFunctions::renderText(x+2, y, str, font, Qt::black, Qt::yellow);
+      StaticFunctions::renderText(x+2, y, str, font, Qt::black, Qt::cyan);
     }
 }
 
@@ -2891,7 +2897,7 @@ PathObject::postdrawGrab(QGLViewer *viewer,
   int wd = metric.width(str);
   x += 10;
   
-  StaticFunctions::renderText(x+2, y, str, font, Qt::black, Qt::yellow);
+  StaticFunctions::renderText(x+2, y, str, font, Qt::black, Qt::cyan);
 }
 
 

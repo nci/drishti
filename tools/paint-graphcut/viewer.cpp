@@ -301,7 +301,12 @@ Viewer::drawVolMask()
   if (m_pointSkip == 0)
     return;
 
+  glEnable(GL_ALPHA_TEST);
+  glAlphaFunc(GL_GREATER, 0.5);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glPointSize(m_pointSize);
+  glEnable(GL_POINT_SMOOTH);
   int nv = m_voxels.count()/5;
   for(int i=0; i<nv; i++)
     {
@@ -322,6 +327,9 @@ Viewer::drawVolMask()
       glVertex3f(h, w, d);
       glEnd();
     }
+  glDisable(GL_POINT_SMOOTH);
+  glBlendFunc(GL_NONE, GL_NONE);
+  glDisable(GL_BLEND);
 }
 
 

@@ -1330,7 +1330,7 @@ ImageWidget::freezeLivewire(bool select)
   QVector<int> seedpos = m_livewire.seedpos();
   if (pts.count() < 1)
     {
-      QMessageBox::information(0, "Error", "No livewire found to be transferred to curve");
+      //QMessageBox::information(0, "Error", "No livewire found to be transferred to curve");
       if (m_livewire.propagateLivewire())
 	{
 	  endLivewirePropagation();
@@ -1340,6 +1340,7 @@ ImageWidget::freezeLivewire(bool select)
     }
 
   CurveGroup *cg = getCg();
+  cg->deselectAll();
 
   cg->setPolygonAt(m_currSlice,
 		   pts, seedpos,
@@ -1362,10 +1363,35 @@ ImageWidget::newCurve()
 }
 
 void
-ImageWidget::morphCurves()
+ImageWidget::deselectAll()
 {
   CurveGroup *cg = getCg();
-  cg->morphCurves();
+  cg->deselectAll();
+  update();
+}
+
+void
+ImageWidget::morphCurves()
+{
+  int minS, maxS;
+  if (m_sliceType == DSlice)
+    { 
+      minS = m_minDSlice; 
+      maxS = m_maxDSlice; 
+    } 
+  else if (m_sliceType == WSlice) 
+    { 
+      minS = m_minWSlice; 
+      maxS = m_maxWSlice; 
+    } 
+  else 
+    { 
+      minS = m_minHSlice; 
+      maxS = m_maxHSlice; 
+    }  
+
+  CurveGroup *cg = getCg();
+  cg->morphCurves(minS, maxS);
   
   update();
 }
@@ -1403,9 +1429,9 @@ ImageWidget::endLivewirePropagation()
 {
   m_livewire.setPropagateLivewire(false);
 
-  if (m_sliceType == DSlice) m_dCurves.endAddingCurves();
-  else if (m_sliceType == WSlice) m_wCurves.endAddingCurves();
-  else m_hCurves.endAddingCurves();
+  CurveGroup *cg = getCg();
+  cg->endAddingCurves();
+  cg->deselectAll();
 }
 
 void
@@ -1606,7 +1632,7 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
 	      freezeModifyUsingLivewire();
 	      modifyUsingLivewire();
 	    }
-	  else
+	  else if (event->key() != Qt::Key_Shift)
 	    QMessageBox::information(0, "", "Cannot perform this operation in modify mode.  Please quit modify mode to perform this operation.");
 	  
 	  return true;

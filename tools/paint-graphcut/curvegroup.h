@@ -31,7 +31,7 @@ class CurveGroup
 
   void reset();
   void removePolygonAt(int, int, int);
-  void morphCurves();
+  void morphCurves(int, int);
 
   void newCurve(int, bool);
 
@@ -65,6 +65,8 @@ class CurveGroup
   void setThickness(int, int, int, int);
   void setTag(int, int, int, int);
   void flipPolygon(int, int, int);
+
+  void deselectAll();
 
   int copyCurve(int, int, int);
   Curve getCopyCurve() { return m_copyCurve; };

@@ -68,6 +68,9 @@ class ImageWidget : public QWidget
   QMultiMap<int, Curve*>* multiMapCurvesH() { return m_hCurves.multiMapCurves(); }
   QList< QMap<int, Curve> >* listMapCurvesH() { return m_hCurves.listMapCurves(); }
 
+  bool seedMoveMode() { return m_livewire.seedMoveMode(); };
+  void deselectAll();
+  
  public slots :
   void updateTagColors();
   void sliceChanged(int);

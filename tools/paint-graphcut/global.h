@@ -69,6 +69,8 @@ class Global
   static int spread();
   static void setSpread(int);
 
+  static int selectionPrecision();
+  static void setSelectionPrecision(int);
  private :
   static QString m_documentationPath;
   static int m_lutSize;
@@ -89,6 +91,7 @@ class Global
   static int m_smooth;
   static int m_thickness;
   static bool m_closed;
+  static int m_selpres;
 };
 
 #endif

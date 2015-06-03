@@ -29,6 +29,9 @@ class CurveGroup
   CurveGroup();
   ~CurveGroup();
 
+  bool curvesPresent() {return (m_cg.count()>0 ||
+				m_mcg.count()>0); };
+
   void reset();
   void removePolygonAt(int, int, int);
   void morphCurves(int, int);

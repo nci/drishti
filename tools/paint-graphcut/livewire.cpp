@@ -1,4 +1,5 @@
 #include "livewire.h"
+#include "global.h"
 
 #include <QMessageBox>
 
@@ -295,7 +296,7 @@ LiveWire::mousePressEvent(int xpos, int ypos, QMouseEvent *event)
     {
       for(int i=m_poly.count()-1; i>=0; i--)
 	{
-	  if ((m_poly[i]-QPoint(xpos, ypos)).manhattanLength() < 5)
+	  if ((m_poly[i]-QPoint(xpos, ypos)).manhattanLength() < Global::selectionPrecision())
 	    {
 	      m_poly.remove(i, m_poly.count()-i);
 
@@ -979,7 +980,7 @@ LiveWire::getActiveSeed(int xpos, int ypos)
 
   for(int i=0; i<m_seedpos.count(); i++)
     {
-      if ((m_poly[m_seedpos[i]]-QPoint(xpos, ypos)).manhattanLength() < 5)
+      if ((m_poly[m_seedpos[i]]-QPoint(xpos, ypos)).manhattanLength() < Global::selectionPrecision())
 	{
 	  splitPolygon(i);
 	  return i;
@@ -1004,10 +1005,19 @@ LiveWire::insertSeed(int xpos, int ypos)
     {
       for (int i=m_seedpos[is-1]; i<m_seedpos[is]; i++)
 	{
-	  if ((m_poly[i]-QPoint(xpos, ypos)).manhattanLength() < 5)
+	  int ml = (m_poly[i]-QPoint(xpos, ypos)).manhattanLength();
+	  if (ml < Global::selectionPrecision())
 	    {
-	      sp = is;
-	      ic = i;
+	      for (int j=m_seedpos[i]; j<m_seedpos[is]; j++)
+		{
+		  int mhl = (m_poly[j]-QPoint(xpos, ypos)).manhattanLength();
+		  if (mhl < ml)
+		    {
+		      ml = mhl;
+		      sp = is;
+		      ic = j;
+		    }
+		}
 	      break;
 	    }
 	}
@@ -1019,10 +1029,19 @@ LiveWire::insertSeed(int xpos, int ypos)
 	  int is = m_seedpos.count()-1;
 	  for (int i=m_seedpos[is]; i<m_poly.count(); i++)
 	    {
-	      if ((m_poly[i]-QPoint(xpos, ypos)).manhattanLength() < 5)
+	      int ml = (m_poly[i]-QPoint(xpos, ypos)).manhattanLength();
+	      if (ml < Global::selectionPrecision())
 		{
-		  sp = is+1;
-		  ic = i;
+		  for (int j=m_seedpos[i]; j<m_poly.count(); j++)
+		    {
+		      int mhl = (m_poly[j]-QPoint(xpos, ypos)).manhattanLength();
+		      if (mhl < ml)
+			{
+			  ml = mhl;
+			  sp = is+1;
+			  ic = j;
+			}
+		    }
 		  break;
 		}
 	    }
@@ -1052,7 +1071,7 @@ LiveWire::removeSeed(int xpos, int ypos)
   int ic = -1;
   for(int i=0; i<m_seedpos.count(); i++)
     {
-      if ((m_poly[m_seedpos[i]]-QPoint(xpos, ypos)).manhattanLength() < 5)
+      if ((m_poly[m_seedpos[i]]-QPoint(xpos, ypos)).manhattanLength() < Global::selectionPrecision())
 	{
 	  ic = i;
 	  break;

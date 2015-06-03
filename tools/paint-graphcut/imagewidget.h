@@ -72,6 +72,10 @@ class ImageWidget : public QWidget
   void deselectAll();
   void propagateCurves();
 
+  bool dCurvesPresent() { return m_dCurves.curvesPresent(); };
+  bool wCurvesPresent() { return m_wCurves.curvesPresent(); };
+  bool hCurvesPresent() { return m_hCurves.curvesPresent(); };
+
  public slots :
   void updateTagColors();
   void sliceChanged(int);
@@ -277,6 +281,8 @@ class ImageWidget : public QWidget
   void graphcutMouseMoveEvent(QMouseEvent*);
 
   CurveGroup* getCg();
+
+  void drawSeedPoints(QPainter*, QVector<QPoint>, QColor);
 };
 
 

@@ -723,6 +723,27 @@ ImageWidget::drawSizeText(QPainter *p, int nc, int nmc)
 }
 
 void
+ImageWidget::drawSeedPoints(QPainter *p,
+			    QVector<QPoint> seeds,
+			    QColor seedColor)
+{
+  p->setPen(QPen(Qt::black, 4, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+  for(int i=0; i<seeds.count(); i++)
+    {
+      int x = seeds[i].x() - m_pointSize/2;
+      int y = seeds[i].y() - m_pointSize/2;
+      p->drawArc(x,y,m_pointSize,m_pointSize, 0, 16*360);
+    }
+  p->setPen(QPen(seedColor, 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+  for(int i=0; i<seeds.count(); i++)
+    {
+      int x = seeds[i].x() - m_pointSize/2;
+      int y = seeds[i].y() - m_pointSize/2;
+      p->drawArc(x,y,m_pointSize,m_pointSize, 0, 16*360);
+    }
+}
+
+void
 ImageWidget::drawLivewire(QPainter *p)
 {
   if (!m_livewireMode)
@@ -763,11 +784,8 @@ ImageWidget::drawLivewire(QPainter *p)
 	QVector<QPoint> seeds;
 	for(int i=0; i<seedpos.count(); i++)
 	  seeds << poly[seedpos[i]];
-	
-	p->setPen(QPen(Qt::yellow, m_pointSize+2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-	p->drawPoints(seeds);
-	p->setPen(QPen(Qt::darkMagenta, m_pointSize, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-	p->drawPoints(seeds);
+
+	drawSeedPoints(p, seeds, Qt::lightGray);
       }
   }
 }
@@ -838,10 +856,7 @@ ImageWidget::drawCurves(QPainter *p)
 		for(int i=0; i<seedpos.count(); i++)
 		  seeds << pts[seedpos[i]];
 		
-		p->setPen(QPen(Qt::yellow, m_pointSize+2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-		p->drawPoints(seeds);
-		p->setPen(QPen(Qt::darkMagenta, m_pointSize, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-		p->drawPoints(seeds);
+		drawSeedPoints(p, seeds, Qt::lightGray);
 	      }
 	  }
 	} // showtags
@@ -956,10 +971,7 @@ ImageWidget::drawOtherCurvePoints(QPainter *p)
       for(int l=0; l<vptd.count(); l++)
 	vptd[l] = vptd[l]*sx + move;
 
-      p->setPen(QPen(Qt::black, m_pointSize+2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-      p->drawPoints(vptd);
-      p->setPen(QPen(Qt::red, m_pointSize, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-      p->drawPoints(vptd);
+      drawSeedPoints(p, vptd, Qt::red);
     }
 
   if (vptw.count() > 0)
@@ -967,21 +979,15 @@ ImageWidget::drawOtherCurvePoints(QPainter *p)
       for(int l=0; l<vptw.count(); l++)
 	vptw[l] = vptw[l]*sx + move;
 
-      p->setPen(QPen(Qt::black, m_pointSize+2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-      p->drawPoints(vptw);
-      p->setPen(QPen(Qt::yellow, m_pointSize, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-      p->drawPoints(vptw);
+      drawSeedPoints(p, vptw, Qt::yellow);
     }
 
   if (vpth.count() > 0)
     {
       for(int l=0; l<vpth.count(); l++)
 	vpth[l] = vpth[l]*sx + move;
-      
-      p->setPen(QPen(Qt::black, m_pointSize+2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-      p->drawPoints(vpth);
-      p->setPen(QPen(Qt::cyan, m_pointSize, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-      p->drawPoints(vpth);
+
+      drawSeedPoints(p, vpth, Qt::cyan);
     }
 }
 
@@ -2232,25 +2238,7 @@ ImageWidget::curveMousePressEvent(QMouseEvent *event)
 	}
 
       // carry on only if Alt key is not pressed
-//      if (shiftModifier)
-//	{
-//	  if (m_sliceType == DSlice)
-//	    m_dCurves.smooth(m_currSlice, m_pickHeight, m_pickWidth, Global::spread());
-//	  else if (m_sliceType == WSlice)
-//	    m_wCurves.smooth(m_currSlice, m_pickHeight, m_pickDepth, Global::spread());
-//	  else
-//	    m_hCurves.smooth(m_currSlice, m_pickWidth,  m_pickDepth, Global::spread());
-//	}
-//      else if (ctrlModifier)
-//	{
-//	  if (m_sliceType == DSlice)
-//	    m_dCurves.push(m_currSlice, m_pickHeight, m_pickWidth, Global::spread());
-//	  else if (m_sliceType == WSlice)
-//	    m_wCurves.push(m_currSlice, m_pickHeight, m_pickDepth, Global::spread());
-//	  else
-//	    m_hCurves.push(m_currSlice, m_pickWidth,  m_pickDepth, Global::spread());
-//	}
-//      else
+      if(!m_livewireMode)
 	{
 	  if (m_sliceType == DSlice)
 	    m_dCurves.addPoint(m_currSlice, m_pickHeight, m_pickWidth);
@@ -2260,7 +2248,8 @@ ImageWidget::curveMousePressEvent(QMouseEvent *event)
 	    m_hCurves.addPoint(m_currSlice, m_pickWidth,  m_pickDepth);
 	}
     }
-  else if (m_button == Qt::MiddleButton)
+  else if (m_button == Qt::MiddleButton &&
+	   !m_livewireMode)
     {
       if (m_sliceType == DSlice)
 	m_dCurves.setMoveCurve(m_currSlice, m_pickHeight, m_pickWidth);
@@ -2269,7 +2258,8 @@ ImageWidget::curveMousePressEvent(QMouseEvent *event)
       else
 	m_hCurves.setMoveCurve(m_currSlice, m_pickWidth,  m_pickDepth);
     }
-  else if (m_button == Qt::RightButton)
+  else if (m_button == Qt::RightButton &&
+	   !m_livewireMode)
     {
       if (m_sliceType == DSlice)
 	m_dCurves.removePoint(m_currSlice, m_pickHeight, m_pickWidth);
@@ -2375,13 +2365,13 @@ ImageWidget::curveMouseMoveEvent(QMouseEvent *event)
   bool altModifier = event->modifiers() & Qt::AltModifier;
 
   if (m_livewireMode &&
-      !shiftModifier && 
+      !shiftModifier &&
       !ctrlModifier &&
       !altModifier)
     {
       if (!validPickPoint(xpos, ypos))
 	return;
-
+      
       m_lastPickDepth = m_pickDepth;
       m_lastPickWidth = m_pickWidth;
       m_lastPickHeight= m_pickHeight;
@@ -2415,25 +2405,7 @@ ImageWidget::curveMouseMoveEvent(QMouseEvent *event)
 	  m_lastPickWidth = m_pickWidth;
 	  m_lastPickHeight= m_pickHeight;
 
-//	  if (shiftModifier)
-//	    {
-//	      if (m_sliceType == DSlice)
-//		m_dCurves.smooth(m_currSlice, m_pickHeight, m_pickWidth, Global::spread());
-//	      else if (m_sliceType == WSlice)
-//		m_wCurves.smooth(m_currSlice, m_pickHeight, m_pickDepth, Global::spread());
-//	      else
-//		m_hCurves.smooth(m_currSlice, m_pickWidth,  m_pickDepth, Global::spread());
-//	    }
-//	  else if (ctrlModifier)
-//	    {
-//	      if (m_sliceType == DSlice)
-//		m_dCurves.push(m_currSlice, m_pickHeight, m_pickWidth, Global::spread());
-//	      else if (m_sliceType == WSlice)
-//		m_wCurves.push(m_currSlice, m_pickHeight, m_pickDepth, Global::spread());
-//	      else
-//		m_hCurves.push(m_currSlice, m_pickWidth,  m_pickDepth, Global::spread());
-//	    }
-//	  else
+	  if(!m_livewireMode)
 	    {
 	      if (m_sliceType == DSlice)
 		m_dCurves.addPoint(m_currSlice, m_pickHeight, m_pickWidth);
@@ -2441,36 +2413,35 @@ ImageWidget::curveMouseMoveEvent(QMouseEvent *event)
 		m_wCurves.addPoint(m_currSlice, m_pickHeight, m_pickDepth);
 	      else
 		m_hCurves.addPoint(m_currSlice, m_pickWidth,  m_pickDepth);
+	      update();
 	    }
-
-	  update();
 	}
     }
-  else if (m_button == Qt::MiddleButton)
-  {
-    if (validPickPoint(xpos, ypos))
-      {
-	int dd, dw, dh;
-	dd = m_pickDepth - m_lastPickDepth;
-	dw = m_pickWidth - m_lastPickWidth;
-	dh = m_pickHeight - m_lastPickHeight;
-
-	m_lastPickDepth = m_pickDepth;
-	m_lastPickWidth = m_pickWidth;
-	m_lastPickHeight= m_pickHeight;
-	
-	if (m_sliceType == DSlice)
-	  m_dCurves.moveCurve(m_currSlice, dh, dw);
-	else if (m_sliceType == WSlice)
-	  m_wCurves.moveCurve(m_currSlice, dh, dd);
-	else
-	  m_hCurves.moveCurve(m_currSlice, dw, dd);
-	
-	update();
-	return;
-      }
-  }
-
+  else if (m_button == Qt::MiddleButton &&
+	   !m_livewireMode)
+    {
+      if (validPickPoint(xpos, ypos))
+	{
+	  int dd, dw, dh;
+	  dd = m_pickDepth - m_lastPickDepth;
+	  dw = m_pickWidth - m_lastPickWidth;
+	  dh = m_pickHeight - m_lastPickHeight;
+	  
+	  m_lastPickDepth = m_pickDepth;
+	  m_lastPickWidth = m_pickWidth;
+	  m_lastPickHeight= m_pickHeight;
+	  
+	  if (m_sliceType == DSlice)
+	    m_dCurves.moveCurve(m_currSlice, dh, dw);
+	  else if (m_sliceType == WSlice)
+	    m_wCurves.moveCurve(m_currSlice, dh, dd);
+	  else
+	    m_hCurves.moveCurve(m_currSlice, dw, dd);
+	  
+	  update();
+	  return;
+	}
+    }
 }
 
 void

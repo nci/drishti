@@ -49,6 +49,7 @@ Viewer::updateCurrSlice(int cst, int cs)
 {
   m_currSliceType = cst;
   m_currSlice = cs;
+  update();
 }
 
 void
@@ -84,6 +85,14 @@ Viewer::keyPressEvent(QKeyEvent *event)
   if (event->key() == Qt::Key_U)
     {
       updateVoxels();
+      update();
+      return;
+    }
+
+  if (event->key() == Qt::Key_A)
+    {
+      toggleAxisIsDrawn();
+      update();
       return;
     }
 
@@ -202,7 +211,7 @@ Viewer::drawCurrentSlice(Vec subvolmin,
 void
 Viewer::drawBox()
 {
-  setAxisIsDrawn();
+  //setAxisIsDrawn();
   
   glColor3d(0.5,0.5,0.5);
 
@@ -221,46 +230,6 @@ Viewer::drawBox()
 		   Vec(m_height, m_width, m_depth));
 
   glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
-//  glBegin(GL_LINES);
-//   glVertex3f(0, 0, 0);
-//   glVertex3f(0, 0, m_depth);
-//
-//   glVertex3f(0, 0, m_depth);
-//   glVertex3f(0, m_width, m_depth);
-//
-//   glVertex3f(0, m_width, m_depth);
-//   glVertex3f(0, m_width, 0);
-//
-//   glVertex3f(0, m_width, 0);
-//   glVertex3f(0, 0, 0);
-//
-//
-//   glVertex3f(m_height, 0, 0);
-//   glVertex3f(m_height, 0, m_depth);
-//
-//   glVertex3f(m_height, 0, m_depth);
-//   glVertex3f(m_height, m_width, m_depth);
-//
-//   glVertex3f(m_height, m_width, m_depth);
-//   glVertex3f(m_height, m_width, 0);
-//
-//   glVertex3f(m_height, m_width, 0);
-//   glVertex3f(m_height, 0, 0);
-//
-//   glVertex3f(0, 0, 0);
-//   glVertex3f(m_height, 0, 0);
-//
-//   glVertex3f(0, 0, m_depth);
-//   glVertex3f(m_height, 0, m_depth);
-//
-//   glVertex3f(0, m_width, m_depth);
-//   glVertex3f(m_height, m_width, m_depth);
-//
-//   glVertex3f(0, m_width, 0);
-//   glVertex3f(m_height, m_width, 0);
-//
-//   glEnd();
 }
 
 void
@@ -306,6 +275,12 @@ Viewer::updateVoxels()
   if (m_pointSkip == 0)
     return;
 
+  if (1)
+    {
+      updateVoxelsWithTF();
+      return;
+    }
+  
   for(int d=1; d<m_depth-1; d+=m_pointSkip)
     {
       for(int w=1; w<m_width-1; w+=m_pointSkip)
@@ -323,9 +298,9 @@ Viewer::updateVoxels()
 		    for(int ww=-m_pointSkip; ww<=m_pointSkip; ww++)
 		      for(int hh=-m_pointSkip; hh<=m_pointSkip; hh++)
 			{
-			  int d1 = qBound(0, d+dd, m_depth);
-			  int w1 = qBound(0, w+ww, m_width);
-			  int h1 = qBound(0, h+hh, m_height);
+			  int d1 = qBound(0, d+dd, m_depth-1);
+			  int w1 = qBound(0, w+ww, m_width-1);
+			  int h1 = qBound(0, h+hh, m_height-1);
 			  if (m_maskPtr[d1*m_width*m_height + w1*m_height + h1] != tag)
 			    {
 			      ok = true;
@@ -351,6 +326,12 @@ Viewer::drawVolMask()
   if (m_pointSkip == 0)
     return;
 
+  if (1)
+    {
+      drawVol();
+      return;
+    }
+
   glEnable(GL_ALPHA_TEST);
   glAlphaFunc(GL_GREATER, 0.5);
   glEnable(GL_BLEND);
@@ -370,9 +351,88 @@ Viewer::drawVolMask()
       float r = Global::tagColors()[4*t+0]*1.0/255.0;
       float g = Global::tagColors()[4*t+1]*1.0/255.0;
       float b = Global::tagColors()[4*t+2]*1.0/255.0;
-      r = r*0.5 + 0.5*v;
-      g = g*0.5 + 0.5*v;
-      b = b*0.5 + 0.5*v;
+      r = r*0.3 + 0.7*v;
+      g = g*0.3 + 0.7*v;
+      b = b*0.3 + 0.7*v;
+      glColor3f(r,g,b);
+      glVertex3f(h, w, d);
+      glEnd();
+    }
+  glDisable(GL_POINT_SMOOTH);
+  glBlendFunc(GL_NONE, GL_NONE);
+  glDisable(GL_BLEND);
+}
+
+void
+Viewer::updateVoxelsWithTF()
+{
+  m_voxels.clear();
+  
+  if (m_pointSkip == 0)
+    return;
+
+  uchar *lut = Global::lut();
+
+  for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
+    {
+      for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
+	{
+	  for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
+	    {
+	      uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
+	      if (lut[4*vol+3] > 10)
+		{
+		  bool ok = false;
+		  for(int dd=-m_pointSkip; dd<=m_pointSkip; dd++)
+		    for(int ww=-m_pointSkip; ww<=m_pointSkip; ww++)
+		      for(int hh=-m_pointSkip; hh<=m_pointSkip; hh++)
+			{
+			  int d1 = qBound(m_minDSlice, d+dd, m_maxDSlice);
+			  int w1 = qBound(m_minWSlice, w+ww, m_maxWSlice);
+			  int h1 = qBound(m_minHSlice, h+hh, m_maxHSlice);
+			  
+			  uchar v = m_volPtr[d1*m_width*m_height + w1*m_height + h1];
+			  if (lut[4*v+3] < 10)
+			    {
+			      ok = true;
+			      break;
+			    }
+			}
+
+		  if (ok)
+		    m_voxels << d << w << h << vol;
+		}
+	    }
+	}
+    }
+}
+
+void
+Viewer::drawVol()
+{
+  if (m_pointSkip == 0)
+    return;
+
+  uchar *lut = Global::lut();
+
+  glEnable(GL_ALPHA_TEST);
+  glAlphaFunc(GL_GREATER, 0.2);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glPointSize(m_pointSize);
+  glEnable(GL_POINT_SMOOTH);
+  int nv = m_voxels.count()/4;
+  for(int i=0; i<nv; i++)
+    {
+      int d = m_voxels[4*i+0];
+      int w = m_voxels[4*i+1];
+      int h = m_voxels[4*i+2];
+      int v = m_voxels[4*i+3];
+
+      glBegin(GL_POINTS);
+      float r = lut[4*v+2]*1.0/255.0;
+      float g = lut[4*v+1]*1.0/255.0;
+      float b = lut[4*v+0]*1.0/255.0;
       glColor3f(r,g,b);
       glVertex3f(h, w, d);
       glEnd();

@@ -40,10 +40,11 @@ class DrishtiPaint : public QMainWindow
   void on_actionCurves_triggered();
   void on_actionGraphCut_triggered();
   void on_sliceLod_currentIndexChanged(int);
+  void on_selectprecision_currentIndexChanged(int);
   void on_butZ_clicked();
   void on_butY_clicked();
   void on_butX_clicked();
-  void on_tagcurves_textChanged(QString);
+  void on_tagcurves_editingFinished();
   void on_segmentlength_valueChanged(int);
   void on_tag_valueChanged(int);
   void on_boxSize_valueChanged(int);

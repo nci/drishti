@@ -67,8 +67,10 @@ class Viewer : public QGLViewer
   void drawLMHCurve();
 
   void drawVolMask();
+  void drawVol();
 
   void updateVoxels();
+  void updateVoxelsWithTF();
 
   void drawEnclosingCube(Vec, Vec);
   void drawCurrentSlice(Vec, Vec);

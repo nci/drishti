@@ -466,6 +466,7 @@ DrishtiPaint::on_tag_valueChanged(int t)
   m_imageWidget->processPrevSliceTags();
 }
 void DrishtiPaint::on_sliceLod_currentIndexChanged(int l) { m_imageWidget->setSliceLOD(l+1); }
+void DrishtiPaint::on_selectprecision_currentIndexChanged(int l) { Global::setSelectionPrecision((l+1)*5); }
 void DrishtiPaint::on_boxSize_valueChanged(int d) { Global::setBoxSize(d); }
 void DrishtiPaint::on_lambda_valueChanged(int d) { Global::setLambda(d); }
 void DrishtiPaint::on_smooth_valueChanged(int d) { Global::setSmooth(d); }
@@ -487,9 +488,10 @@ void DrishtiPaint::on_zoomdown_clicked() { m_imageWidget->zoomDown(); }
 void DrishtiPaint::on_segmentlength_valueChanged(int d) { m_imageWidget->setSegmentLength(d); }
 
 void
-DrishtiPaint::on_tagcurves_textChanged(QString text)
+DrishtiPaint::on_tagcurves_editingFinished()
 {
-  QStringList tglist = text.split(",", QString::SkipEmptyParts);
+  QString text = ui.tagcurves->text();
+  QStringList tglist = text.split(" ", QString::SkipEmptyParts);
   QList<int> tag;
   tag.clear();
   for(int i=0; i<tglist.count(); i++)
@@ -507,10 +509,16 @@ DrishtiPaint::on_tagcurves_textChanged(QString text)
 	  tag << 0;
 	  break;
 	}
-      else
+      else if (t > 0)
 	tag << t;
     }
 
+  QString tgstr;
+  for(int i=0; i<tag.count(); i++)
+    tgstr += QString("%1 ").arg(tag[i]);
+
+  ui.tagcurves->setText(tgstr);
+  
   m_imageWidget->showTags(tag);
   m_viewer->showTags(tag);
 }
@@ -1628,14 +1636,14 @@ DrishtiPaint::on_actionExtractTag_triggered()
   bool ok;
   //----------------
   QString tagstr = QInputDialog::getText(0, "Save Mesh for Tag",
-	    "Tag Numbers (-1 for tags; for e.g. 1,2,5 will mesh tags 1, 2 and 5)",
+	    "Tag Numbers (tags should be separated by space.\n-1 for all tags;\nFor e.g. 1 2 5 will mesh tags 1, 2 and 5)",
 					 QLineEdit::Normal,
 					 "-1",
 					 &ok);
   tag.clear();
   if (ok && !tagstr.isEmpty())
     {
-      QStringList tglist = tagstr.split(",", QString::SkipEmptyParts);
+      QStringList tglist = tagstr.split(" ", QString::SkipEmptyParts);
       for(int i=0; i<tglist.count(); i++)
 	{
 	  int t = tglist[i].toInt();
@@ -1745,69 +1753,72 @@ DrishtiPaint::on_actionExtractTag_triggered()
   uchar *curveMask = new uchar[tdepth*twidth*theight];
   memset(curveMask, 0, tdepth*twidth*theight);
 
-  {
-    uchar *mask = new uchar[width*height]; 
-    for(int d=minDSlice; d<=maxDSlice; d++)
-      {
-	int slc = d-minDSlice;
-	progress.setValue((int)(100*(float)slc/(float)tdepth));
-	qApp->processEvents();
-	
-	memset(mask, 0, width*height);
-	m_imageWidget->paintUsingCurves(0, d, height, width, mask, tag);
-	for(int w=minWSlice; w<=maxWSlice; w++)
-	  for(int h=minHSlice; h<=maxHSlice; h++)
-	    {
-	      if (mask[w*height+h] > 0)
-		curveMask[(d-minDSlice)*twidth*theight +
-			  (w-minWSlice)*theight +
-			  (h-minHSlice)] = mask[w*height+h];
-	    }
-    }
-    delete [] mask;
-  }
-  {
-    uchar *mask = new uchar[depth*height]; 
-    for(int w=minWSlice; w<=maxWSlice; w++)
-      {
-	int slc = w-minWSlice;
-	progress.setValue((int)(100*(float)slc/(float)twidth));
-	qApp->processEvents();
-	
-	memset(mask, 0, depth*height);
-	m_imageWidget->paintUsingCurves(1, w, height, depth, mask, tag);
-	for(int d=minDSlice; d<=maxDSlice; d++)
-	  for(int h=minHSlice; h<=maxHSlice; h++)
-	    {
-	      if (mask[d*height+h] > 0)
-		curveMask[(d-minDSlice)*twidth*theight +
-			  (w-minWSlice)*theight +
-			  (h-minHSlice)] = mask[d*height+h];
-	    }
-    }
-    delete [] mask;
-  }
-  {
-    uchar *mask = new uchar[depth*width]; 
-    for(int h=minHSlice; h<=maxHSlice; h++)
-      {
-	int slc = h-minHSlice;
-	progress.setValue((int)(100*(float)slc/(float)theight));
-	qApp->processEvents();
-	
-	memset(mask, 0, depth*width);
-	m_imageWidget->paintUsingCurves(2, h, width, depth, mask, tag);
-	for(int d=minDSlice; d<=maxDSlice; d++)
+  if (m_imageWidget->dCurvesPresent())
+    {
+      uchar *mask = new uchar[width*height]; 
+      for(int d=minDSlice; d<=maxDSlice; d++)
+	{
+	  int slc = d-minDSlice;
+	  progress.setValue((int)(100*(float)slc/(float)tdepth));
+	  qApp->processEvents();
+	  
+	  memset(mask, 0, width*height);
+	  m_imageWidget->paintUsingCurves(0, d, height, width, mask, tag);
 	  for(int w=minWSlice; w<=maxWSlice; w++)
-	    {
-	      if (mask[d*width+w] > 0)
-		curveMask[(d-minDSlice)*twidth*theight +
-			  (w-minWSlice)*theight +
-			  (h-minHSlice)] = mask[d*width+w];
-	    }
+	    for(int h=minHSlice; h<=maxHSlice; h++)
+	      {
+		if (mask[w*height+h] > 0)
+		  curveMask[(d-minDSlice)*twidth*theight +
+			    (w-minWSlice)*theight +
+			    (h-minHSlice)] = mask[w*height+h];
+	      }
+	}
+      delete [] mask;
     }
-    delete [] mask;
-  }
+  if (m_imageWidget->wCurvesPresent())
+    {
+      uchar *mask = new uchar[depth*height]; 
+      for(int w=minWSlice; w<=maxWSlice; w++)
+	{
+	  int slc = w-minWSlice;
+	  progress.setValue((int)(100*(float)slc/(float)twidth));
+	  qApp->processEvents();
+	  
+	  memset(mask, 0, depth*height);
+	  m_imageWidget->paintUsingCurves(1, w, height, depth, mask, tag);
+	  for(int d=minDSlice; d<=maxDSlice; d++)
+	    for(int h=minHSlice; h<=maxHSlice; h++)
+	      {
+		if (mask[d*height+h] > 0)
+		  curveMask[(d-minDSlice)*twidth*theight +
+			    (w-minWSlice)*theight +
+			    (h-minHSlice)] = mask[d*height+h];
+	      }
+	}
+      delete [] mask;
+    }
+  if (m_imageWidget->hCurvesPresent())
+    {
+      uchar *mask = new uchar[depth*width]; 
+      for(int h=minHSlice; h<=maxHSlice; h++)
+	{
+	  int slc = h-minHSlice;
+	  progress.setValue((int)(100*(float)slc/(float)theight));
+	  qApp->processEvents();
+	  
+	  memset(mask, 0, depth*width);
+	  m_imageWidget->paintUsingCurves(2, h, width, depth, mask, tag);
+	  for(int d=minDSlice; d<=maxDSlice; d++)
+	    for(int w=minWSlice; w<=maxWSlice; w++)
+	      {
+		if (mask[d*width+w] > 0)
+		  curveMask[(d-minDSlice)*twidth*theight +
+			    (w-minWSlice)*theight +
+			    (h-minHSlice)] = mask[d*width+w];
+	      }
+	}
+      delete [] mask;
+    }
 
   //----------------------------------
 
@@ -1948,14 +1959,14 @@ DrishtiPaint::on_actionMeshTag_triggered()
 
   bool ok;
   QString tagstr = QInputDialog::getText(0, "Save Mesh for Tag",
-	    "Tag Numbers (-1 for tags; for e.g. 1,2,5 will mesh tags 1, 2 and 5)",
+	    "Tag Numbers (tags should be separated by space.\n-1 for all tags;\nFor e.g. 1 2 5 will mesh tags 1, 2 and 5)",
 					 QLineEdit::Normal,
 					 "-1",
 					 &ok);
   tag.clear();
   if (ok && !tagstr.isEmpty())
     {
-      QStringList tglist = tagstr.split(",", QString::SkipEmptyParts);
+      QStringList tglist = tagstr.split(" ", QString::SkipEmptyParts);
       for(int i=0; i<tglist.count(); i++)
 	{
 	  int t = tglist[i].toInt();
@@ -2044,69 +2055,72 @@ DrishtiPaint::on_actionMeshTag_triggered()
   uchar *curveMask = new uchar[tdepth*twidth*theight];
   memset(curveMask, 0, tdepth*twidth*theight);
 
-  {
-    uchar *mask = new uchar[width*height]; 
-    for(int d=minDSlice; d<=maxDSlice; d++)
-      {
-	int slc = d-minDSlice;
-	progress.setValue((int)(100*(float)slc/(float)tdepth));
-	qApp->processEvents();
-	
-	memset(mask, 0, width*height);
-	m_imageWidget->paintUsingCurves(0, d, height, width, mask, tag);
-	for(int w=minWSlice; w<=maxWSlice; w++)
-	  for(int h=minHSlice; h<=maxHSlice; h++)
-	    {
-	      if (mask[w*height+h] > 0)
-		curveMask[(d-minDSlice)*twidth*theight +
-			  (w-minWSlice)*theight +
-			  (h-minHSlice)] = mask[w*height+h];
-	    }
-    }
-    delete [] mask;
-  }
-  {
-    uchar *mask = new uchar[depth*height]; 
-    for(int w=minWSlice; w<=maxWSlice; w++)
-      {
-	int slc = w-minWSlice;
-	progress.setValue((int)(100*(float)slc/(float)twidth));
-	qApp->processEvents();
-	
-	memset(mask, 0, depth*height);
-	m_imageWidget->paintUsingCurves(1, w, height, depth, mask, tag);
-	for(int d=minDSlice; d<=maxDSlice; d++)
-	  for(int h=minHSlice; h<=maxHSlice; h++)
-	    {
-	      if (mask[d*height+h] > 0)
-		curveMask[(d-minDSlice)*twidth*theight +
-			  (w-minWSlice)*theight +
-			  (h-minHSlice)] = mask[d*height+h];
-	    }
-    }
-    delete [] mask;
-  }
-  {
-    uchar *mask = new uchar[depth*width]; 
-    for(int h=minHSlice; h<=maxHSlice; h++)
-      {
-	int slc = h-minHSlice;
-	progress.setValue((int)(100*(float)slc/(float)theight));
-	qApp->processEvents();
-	
-	memset(mask, 0, depth*width);
-	m_imageWidget->paintUsingCurves(2, h, width, depth, mask, tag);
-	for(int d=minDSlice; d<=maxDSlice; d++)
+  if (m_imageWidget->dCurvesPresent())
+    {
+      uchar *mask = new uchar[width*height]; 
+      for(int d=minDSlice; d<=maxDSlice; d++)
+	{
+	  int slc = d-minDSlice;
+	  progress.setValue((int)(100*(float)slc/(float)tdepth));
+	  qApp->processEvents();
+	  
+	  memset(mask, 0, width*height);
+	  m_imageWidget->paintUsingCurves(0, d, height, width, mask, tag);
 	  for(int w=minWSlice; w<=maxWSlice; w++)
-	    {
-	      if (mask[d*width+w] > 0)
-		curveMask[(d-minDSlice)*twidth*theight +
-			  (w-minWSlice)*theight +
-			  (h-minHSlice)] = mask[d*width+w];
-	    }
+	    for(int h=minHSlice; h<=maxHSlice; h++)
+	      {
+		if (mask[w*height+h] > 0)
+		  curveMask[(d-minDSlice)*twidth*theight +
+			    (w-minWSlice)*theight +
+			    (h-minHSlice)] = mask[w*height+h];
+	      }
+	}
+      delete [] mask;
     }
-    delete [] mask;
-  }
+  if (m_imageWidget->wCurvesPresent())
+    {
+      uchar *mask = new uchar[depth*height]; 
+      for(int w=minWSlice; w<=maxWSlice; w++)
+	{
+	  int slc = w-minWSlice;
+	  progress.setValue((int)(100*(float)slc/(float)twidth));
+	  qApp->processEvents();
+	  
+	  memset(mask, 0, depth*height);
+	  m_imageWidget->paintUsingCurves(1, w, height, depth, mask, tag);
+	  for(int d=minDSlice; d<=maxDSlice; d++)
+	    for(int h=minHSlice; h<=maxHSlice; h++)
+	      {
+		if (mask[d*height+h] > 0)
+		  curveMask[(d-minDSlice)*twidth*theight +
+			    (w-minWSlice)*theight +
+			    (h-minHSlice)] = mask[d*height+h];
+	      }
+	}
+      delete [] mask;
+    }
+  if (m_imageWidget->hCurvesPresent())
+    {
+      uchar *mask = new uchar[depth*width]; 
+      for(int h=minHSlice; h<=maxHSlice; h++)
+	{
+	  int slc = h-minHSlice;
+	  progress.setValue((int)(100*(float)slc/(float)theight));
+	  qApp->processEvents();
+	  
+	  memset(mask, 0, depth*width);
+	  m_imageWidget->paintUsingCurves(2, h, width, depth, mask, tag);
+	  for(int d=minDSlice; d<=maxDSlice; d++)
+	    for(int w=minWSlice; w<=maxWSlice; w++)
+	      {
+		if (mask[d*width+w] > 0)
+		  curveMask[(d-minDSlice)*twidth*theight +
+			    (w-minWSlice)*theight +
+			    (h-minHSlice)] = mask[d*width+w];
+	      }
+	}
+      delete [] mask;
+    }
 
   //----------------------------------
 

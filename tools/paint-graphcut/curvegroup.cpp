@@ -185,7 +185,7 @@ CurveGroup::selectPolygon(int key, int v0, int v1, bool all)
       for(int i=0; i<npts; i++)
 	{
 	  int ml = (c[i] - cen).manhattanLength();
-	  if (ml <= 5)
+	  if (ml <= Global::selectionPrecision())
 	    {
 	      if (all)
 		{
@@ -347,7 +347,7 @@ CurveGroup::getActiveCurve(int key, int v0, int v1)
       for(int i=npts-1; i>=0; i--)
 	{
 	  QPoint v = curves[ic]->pts[i] - cen;
-	  if (v.manhattanLength() < 5)
+	  if (v.manhattanLength() < Global::selectionPrecision())
 	    return ic;
 	}
     }
@@ -368,7 +368,7 @@ CurveGroup::getActiveMorphedCurve(int key, int v0, int v1)
 	  for(int i=npts-1; i>=0; i--)
 	    {
 	      QPoint v = c.pts[i] - cen;
-	      if (v.manhattanLength() < 5)
+	      if (v.manhattanLength() < Global::selectionPrecision())
 		return m;
 	    }
 	}
@@ -392,7 +392,7 @@ CurveGroup::removePoint(int key, int v0, int v1)
   for(int i=npts-1; i>=0; i--)
     {
       QPoint v = curves[ic]->pts[i] - cen;
-      if (v.manhattanLength() < 3)
+      if (v.manhattanLength() < Global::selectionPrecision())
 	{
 	  curves[ic]->pts.remove(i, curves[ic]->pts.count()-i);
 	  if (curves[ic]->pts.count() == 0)
@@ -1108,7 +1108,7 @@ CurveGroup::joinPolygonAt(int key, QVector<QPoint> pts)
       for(int j=0; j<ncpts; j++)
 	{
 	  int ml = (endPt-w[j]).manhattanLength();
-	  if (ml < 3)
+	  if (ml < Global::selectionPrecision())
 	    {
 	      end = j;
 	      break;

@@ -1,6 +1,7 @@
 #include "viewer.h"
 #include "global.h"
 #include <QInputDialog>
+#include <QProgressDialog>
 
 Viewer::Viewer(QWidget *parent) :
   QGLViewer(parent)
@@ -31,6 +32,7 @@ Viewer::init()
   m_pointSkip = 5;
   m_pointSize = 5;
 
+  m_voxChoice = 0;
   m_voxels.clear();
 
   m_minDSlice = 0;
@@ -42,6 +44,8 @@ Viewer::init()
 
   m_showTags.clear();
   m_showTags << -1;
+
+  m_showBox = true;
 }
 
 void
@@ -74,6 +78,17 @@ Viewer::updateViewerBox(int minD, int maxD, int minW, int maxW, int minH, int ma
 
   m_minHSlice = minH;
   m_maxHSlice = maxH;
+
+  setSceneCenter(Vec((m_maxHSlice+m_minHSlice),
+		     (m_maxWSlice+m_minWSlice),
+		     (m_maxDSlice+m_minDSlice))/2);		 
+}
+
+void
+Viewer::setShowBox(bool b)
+{
+  m_showBox = b;
+  update();  
 }
 
 void
@@ -82,36 +97,17 @@ Viewer::keyPressEvent(QKeyEvent *event)
   if (event->key() == Qt::Key_Escape)
     return;
 
-  if (event->key() == Qt::Key_U)
-    {
-      updateVoxels();
-      update();
-      return;
-    }
+//  if (event->key() == Qt::Key_U)
+//    {
+//      updateVoxels();
+//      update();
+//      return;
+//    }
 
   if (event->key() == Qt::Key_A)
-    {
+    {  
       toggleAxisIsDrawn();
       update();
-      return;
-    }
-
-  if (event->key() == Qt::Key_Space)
-    {
-      m_pointSkip = QInputDialog::getInt(this,
-					 "Point Interval",
-					 "Interval for display of points for painted mask",
-					 m_pointSkip, 0, 100);
-      updateVoxels();
-      return;
-    }
-
-  if (event->key() == Qt::Key_P)
-    {
-      m_pointSize = QInputDialog::getInt(this,
-					 "Point Size",
-					 "Point size for painted mask",
-					 m_pointSize, 1, 20);
       return;
     }
 
@@ -129,11 +125,14 @@ Viewer::setGridSize(int d, int w, int h)
   m_minWSlice = 0;
   m_minHSlice = 0;
 
-  m_maxDSlice = d;
-  m_maxWSlice = w;
-  m_maxHSlice = h;
+  m_maxDSlice = d-1;
+  m_maxWSlice = w-1;
+  m_maxHSlice = h-1;
 
   setSceneBoundingBox(Vec(0,0,0), Vec(m_height, m_width, m_depth));
+  setSceneCenter(Vec((m_maxHSlice+m_minHSlice),
+		     (m_maxWSlice+m_minWSlice),
+		     (m_maxDSlice+m_minDSlice))/2);		 
   showEntireScene();
 }
 
@@ -219,16 +218,16 @@ Viewer::drawBox()
   
   drawEnclosingCube(Vec(0,0,0),
 		    Vec(m_height, m_width, m_depth));
-
+  
   glColor3d(0.8,0.8,0.8);
   drawEnclosingCube(Vec(m_minHSlice, m_minWSlice, m_minDSlice),
 		    Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
-
-
+  
+  
   glColor3d(1.0,0.85,0.7);
   drawCurrentSlice(Vec(0,0,0),
 		   Vec(m_height, m_width, m_depth));
-
+  
   glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 }
 
@@ -253,7 +252,8 @@ Viewer::draw()
 {
   glDisable(GL_LIGHTING);
 
-  drawBox();
+  if (m_showBox)
+    drawBox();
 
   drawMMDCurve();
   drawMMWCurve();
@@ -272,20 +272,118 @@ Viewer::updateVoxels()
 {
   m_voxels.clear();
   
-  if (m_pointSkip == 0)
+  if (!m_volPtr || !m_maskPtr || m_pointSkip == 0)
     return;
 
-  if (1)
+  if (m_voxChoice == 0)
     {
       updateVoxelsWithTF();
       return;
     }
   
-  for(int d=1; d<m_depth-1; d+=m_pointSkip)
+  QProgressDialog progress("Updating voxel structure",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+  //----------------------------------
+  // get the edges first
+  int d,w,h;
+  d=m_minDSlice;
+  for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
+    for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
+      {
+	uchar tag = m_maskPtr[d*m_width*m_height + w*m_height + h];
+	if (tag > 0 &&
+	    (m_showTags.count() == 0 ||
+	     m_showTags[0] == -1 ||
+	     m_showTags.contains(tag)))
+	  {
+	    uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
+	    m_voxels << d << w << h << tag << vol;
+	  }
+      }
+  w=m_minWSlice;
+  for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
+    for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
+      {
+	uchar tag = m_maskPtr[d*m_width*m_height + w*m_height + h];
+	if (tag > 0 &&
+	    (m_showTags.count() == 0 ||
+	     m_showTags[0] == -1 ||
+	     m_showTags.contains(tag)))
+	  {
+	    uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
+	    m_voxels << d << w << h << tag << vol;
+	  }
+      }
+  h=m_minHSlice;
+  for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
+    for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
+      {
+	uchar tag = m_maskPtr[d*m_width*m_height + w*m_height + h];
+	if (tag > 0 &&
+	    (m_showTags.count() == 0 ||
+	     m_showTags[0] == -1 ||
+	     m_showTags.contains(tag)))
+	  {
+	    uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
+	    m_voxels << d << w << h << tag << vol;
+	  }
+      }
+  d=m_maxDSlice;
+  for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
+    for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
+      {
+	uchar tag = m_maskPtr[d*m_width*m_height + w*m_height + h];
+	if (tag > 0 &&
+	    (m_showTags.count() == 0 ||
+	     m_showTags[0] == -1 ||
+	     m_showTags.contains(tag)))
+	  {
+	    uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
+	    m_voxels << d << w << h << tag << vol;
+	  }
+      }
+  w=m_maxWSlice;
+  for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
+    for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
+      {
+	uchar tag = m_maskPtr[d*m_width*m_height + w*m_height + h];
+	if (tag > 0 &&
+	    (m_showTags.count() == 0 ||
+	     m_showTags[0] == -1 ||
+	     m_showTags.contains(tag)))
+	  {
+	    uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
+	    m_voxels << d << w << h << tag << vol;
+	  }
+      }
+  h=m_maxHSlice;
+  for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
+    for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
+      {
+	uchar tag = m_maskPtr[d*m_width*m_height + w*m_height + h];
+	if (tag > 0 &&
+	    (m_showTags.count() == 0 ||
+	     m_showTags[0] == -1 ||
+	     m_showTags.contains(tag)))
+	  {
+	    uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
+	    m_voxels << d << w << h << tag << vol;
+	  }
+      }
+  //----------------------------------
+
+
+  for(d=m_minDSlice+1; d<m_maxDSlice-1; d+=m_pointSkip)
     {
-      for(int w=1; w<m_width-1; w+=m_pointSkip)
+      progress.setValue(100*(float)(d-m_minDSlice)/(m_maxDSlice-m_minDSlice));
+      qApp->processEvents();
+      for(w=m_minWSlice+1; w<m_maxWSlice-1; w+=m_pointSkip)
 	{
-	  for(int h=1; h<m_height-1; h+=m_pointSkip)
+	  for(h=m_minHSlice+1; h<m_maxHSlice-1; h+=m_pointSkip)
 	    {
 	      uchar tag = m_maskPtr[d*m_width*m_height + w*m_height + h];
 	      if (tag > 0 &&
@@ -298,9 +396,9 @@ Viewer::updateVoxels()
 		    for(int ww=-m_pointSkip; ww<=m_pointSkip; ww++)
 		      for(int hh=-m_pointSkip; hh<=m_pointSkip; hh++)
 			{
-			  int d1 = qBound(0, d+dd, m_depth-1);
-			  int w1 = qBound(0, w+ww, m_width-1);
-			  int h1 = qBound(0, h+hh, m_height-1);
+			  int d1 = qBound(m_minDSlice, d+dd, m_maxDSlice);
+			  int w1 = qBound(m_minWSlice, w+ww, m_maxWSlice);
+			  int h1 = qBound(m_minHSlice, h+hh, m_maxHSlice);
 			  if (m_maskPtr[d1*m_width*m_height + w1*m_height + h1] != tag)
 			    {
 			      ok = true;
@@ -318,15 +416,16 @@ Viewer::updateVoxels()
 	    }
 	}
     }
+  progress.setValue(100);
 }
 
 void
 Viewer::drawVolMask()
 {
-  if (m_pointSkip == 0)
+  if (!m_volPtr || !m_maskPtr || m_pointSkip == 0)
     return;
 
-  if (1)
+  if (m_voxChoice == 0)
     {
       drawVol();
       return;
@@ -336,8 +435,9 @@ Viewer::drawVolMask()
   glAlphaFunc(GL_GREATER, 0.5);
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  glPointSize(m_pointSize);
   glEnable(GL_POINT_SMOOTH);
+
+  glPointSize(m_pointSize);
   int nv = m_voxels.count()/5;
   for(int i=0; i<nv; i++)
     {
@@ -358,6 +458,7 @@ Viewer::drawVolMask()
       glVertex3f(h, w, d);
       glEnd();
     }
+
   glDisable(GL_POINT_SMOOTH);
   glBlendFunc(GL_NONE, GL_NONE);
   glDisable(GL_BLEND);
@@ -368,16 +469,80 @@ Viewer::updateVoxelsWithTF()
 {
   m_voxels.clear();
   
-  if (m_pointSkip == 0)
+  if (!m_volPtr || !m_maskPtr || m_pointSkip == 0)
     return;
 
   uchar *lut = Global::lut();
 
+  QProgressDialog progress("Updating voxel structure",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+  //----------------------------------
+  // get the edges first
+  int d,w,h;
+  d=m_minDSlice;
+  for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
+    for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
+      {
+	uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
+	if (lut[4*vol+3] > 10)
+	  m_voxels << d << w << h << vol;
+      }
+  w=m_minWSlice;
   for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
+    for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
+      {
+	uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
+	if (lut[4*vol+3] > 10)
+	  m_voxels << d << w << h << vol;
+      }
+  h=m_minHSlice;
+  for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
+    for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
+      {
+	uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
+	if (lut[4*vol+3] > 10)
+	  m_voxels << d << w << h << vol;
+      }
+  d=m_maxDSlice;
+  for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
+    for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
+      {
+	uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
+	if (lut[4*vol+3] > 10)
+	  m_voxels << d << w << h << vol;
+      }
+  w=m_maxWSlice;
+  for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
+    for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
+      {
+	uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
+	if (lut[4*vol+3] > 10)
+	  m_voxels << d << w << h << vol;
+      }
+  h=m_maxHSlice;
+  for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
+    for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
+      {
+	uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
+	if (lut[4*vol+3] > 10)
+	  m_voxels << d << w << h << vol;
+      }
+  //----------------------------------
+
+
+  //----------------------------------
+  // now for the interior  
+  for(d=m_minDSlice+1; d<m_maxDSlice-1; d+=m_pointSkip)
     {
-      for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
+      progress.setValue(100*(float)(d-m_minDSlice)/(m_maxDSlice-m_minDSlice));
+      qApp->processEvents();
+      for(w=m_minWSlice+1; w<m_maxWSlice-1; w+=m_pointSkip)
 	{
-	  for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
+	  for(h=m_minHSlice+1; h<m_maxHSlice-1; h+=m_pointSkip)
 	    {
 	      uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
 	      if (lut[4*vol+3] > 10)
@@ -405,22 +570,25 @@ Viewer::updateVoxelsWithTF()
 	    }
 	}
     }
+  
+  progress.setValue(100);
 }
 
 void
 Viewer::drawVol()
 {
-  if (m_pointSkip == 0)
+  if (!m_volPtr || !m_maskPtr || m_pointSkip == 0)
     return;
 
   uchar *lut = Global::lut();
 
   glEnable(GL_ALPHA_TEST);
-  glAlphaFunc(GL_GREATER, 0.2);
+  glAlphaFunc(GL_GREATER, 0.5);
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  glPointSize(m_pointSize);
   glEnable(GL_POINT_SMOOTH);
+
+  glPointSize(m_pointSize);
   int nv = m_voxels.count()/4;
   for(int i=0; i<nv; i++)
     {
@@ -437,6 +605,7 @@ Viewer::drawVol()
       glVertex3f(h, w, d);
       glEnd();
     }
+
   glDisable(GL_POINT_SMOOTH);
   glBlendFunc(GL_NONE, GL_NONE);
   glDisable(GL_BLEND);

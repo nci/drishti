@@ -7,6 +7,7 @@
 #include <QInputDialog>
 #include <QScrollArea>
 
+
 void
 DrishtiPaint::initTagColors()
 {
@@ -82,6 +83,27 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 
   m_viewer = new Viewer();
 
+  //------------------------------
+  // viewer menu
+  QFrame *viewerMenu = new QFrame();
+  viewerUi.setupUi(viewerMenu);
+  connect(viewerUi.update, SIGNAL(clicked()),
+	  m_viewer, SLOT(updateVoxels()));
+  connect(viewerUi.interval, SIGNAL(sliderReleased()),
+	  m_viewer, SLOT(updateVoxels()));
+  connect(viewerUi.interval, SIGNAL(valueChanged(int)),
+	  m_viewer, SLOT(setVoxelInterval(int)));
+  connect(viewerUi.ptsize, SIGNAL(valueChanged(int)),
+	  m_viewer, SLOT(setPointSize(int)));
+  connect(viewerUi.voxchoice, SIGNAL(currentIndexChanged(int)),
+	  m_viewer, SLOT(setVoxelChoice(int)));
+  connect(viewerUi.box, SIGNAL(clicked(bool)),
+	  m_viewer, SLOT(setShowBox(bool)));
+  connect(viewerUi.snapshot, SIGNAL(clicked()),
+	  m_viewer, SLOT(saveImage()));
+  //------------------------------
+
+
   //----------------------------------------------------------
   QDockWidget *dock1 = new QDockWidget("Transfer Function Editor", this);
   {
@@ -99,7 +121,8 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   {
     dock1->setAllowedAreas(Qt::LeftDockWidgetArea | 
 			   Qt::RightDockWidgetArea);
-    QSplitter *splitter = new QSplitter(Qt::Vertical, dockV);
+    QSplitter *splitter = new QSplitter(Qt::Horizontal, dockV);
+    splitter->addWidget(viewerMenu);
     splitter->addWidget(m_viewer);
     dockV->setWidget(splitter);
   }

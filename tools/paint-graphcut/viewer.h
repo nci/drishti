@@ -27,15 +27,24 @@ class Viewer : public QGLViewer
   void keyPressEvent(QKeyEvent*);
 
   public slots :
+    void setPointSize(int p) { m_pointSize = p; update(); }
+    void setVoxelInterval(int p) { m_pointSkip = p; }
+    void updateVoxels();
     void updateViewerBox(int, int, int, int, int, int);
     void updateCurrSlice(int, int);
     void showTags(QList<int>);
+    void setVoxelChoice(int p) { m_voxChoice = p; }
+    void setShowBox(bool);
+    void saveImage() { saveSnapshot(false); };
 
  private :
   int m_depth, m_width, m_height;
   int m_minDSlice, m_maxDSlice;
   int m_minWSlice, m_maxWSlice;
   int m_minHSlice, m_maxHSlice;
+
+  int m_voxChoice;
+  bool m_showBox;
 
   uchar *m_volPtr;
   uchar *m_maskPtr;
@@ -69,7 +78,6 @@ class Viewer : public QGLViewer
   void drawVolMask();
   void drawVol();
 
-  void updateVoxels();
   void updateVoxelsWithTF();
 
   void drawEnclosingCube(Vec, Vec);

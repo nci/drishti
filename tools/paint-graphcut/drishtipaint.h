@@ -2,6 +2,7 @@
 #define DRISHTIPAINT_H
 
 #include "ui_drishtipaint.h"
+#include "ui_viewermenu.h"
 
 #include "tagcoloreditor.h"
 #include "transferfunctionmanager.h"
@@ -103,6 +104,7 @@ class DrishtiPaint : public QMainWindow
 
  private :
   Ui::DrishtiPaint ui;
+  Ui::ViewerMenu viewerUi;
 
   TagColorEditor *m_tagColorEditor;
 

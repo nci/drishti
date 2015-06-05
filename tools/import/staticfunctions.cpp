@@ -51,14 +51,8 @@ StaticFunctions::checkExtension(QString flnm, const char *ext)
   bool ok = true;
   int extlen = strlen(ext);
 
-  QFileInfo info(flnm);
-  if (info.exists() && info.isFile())
-    {
-      QByteArray exten = flnm.toLatin1().right(extlen);
-      if (exten != ext)
-	ok = false;
-    }
-  else
+  QByteArray exten = flnm.toLatin1().right(extlen);
+  if (exten != ext)
     ok = false;
 
   return ok;

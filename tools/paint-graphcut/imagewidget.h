@@ -75,6 +75,8 @@ class ImageWidget : public QWidget
   bool wCurvesPresent() { return m_wCurves.curvesPresent(); };
   bool hCurvesPresent() { return m_hCurves.curvesPresent(); };
 
+  void resetCurves();
+
  public slots :
   void updateTagColors();
   void sliceChanged(int);

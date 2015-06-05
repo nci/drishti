@@ -841,6 +841,8 @@ DrishtiPaint::setFile(QString filename)
 
   m_volume->reset();
   m_imageWidget->setGridSize(0,0,0);
+  m_imageWidget->resetCurves();
+
 
   if (m_volume->setFile(flnm) == false)
     {

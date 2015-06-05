@@ -323,6 +323,14 @@ ImageWidget::loadLookupTable(QImage colorMap)
 }
 
 void
+ImageWidget::resetCurves()
+{
+  m_dCurves.reset();
+  m_wCurves.reset();
+  m_hCurves.reset();
+}
+
+void
 ImageWidget::setGridSize(int d, int w, int h)
 {
   m_Depth = qMax(0, d-1);
@@ -1665,26 +1673,26 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
   int shiftModifier = event->modifiers() & Qt::ShiftModifier;
   int ctrlModifier = event->modifiers() & Qt::ControlModifier;
 
-//  if (event->key() == Qt::Key_J)
-//    {
-//      bool ar = m_applyRecursive;
-//
-//      if (shiftModifier) // apply operation for multiple slices
-//	{
-//	  applyRecursive(event->key());
-//	  ar = true;
-//
-//	  startLivewirePropagation();
-//	  return true;
-//	}
-//
-//      propagateLivewire();
-//
-//      if (ar && m_applyRecursive == false)
-//	endLivewirePropagation();
-//
-//      return true;
-//    }
+  if (event->key() == Qt::Key_J)
+    {
+      bool ar = m_applyRecursive;
+
+      if (shiftModifier) // apply operation for multiple slices
+	{
+	  applyRecursive(event->key());
+	  ar = true;
+
+	  startLivewirePropagation();
+	  return true;
+	}
+
+      propagateLivewire();
+
+      if (ar && m_applyRecursive == false)
+	endLivewirePropagation();
+
+      return true;
+    }
 
   if (m_livewireMode)
     {

@@ -880,6 +880,9 @@
                 <property name="text">
                  <string>Propagate</string>
                 </property>
+                <property name="checkable">
+                 <bool>true</bool>
+                </property>
                </widget>
               </item>
               <item>

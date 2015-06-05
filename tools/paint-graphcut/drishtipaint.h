@@ -46,6 +46,8 @@ class DrishtiPaint : public QMainWindow
   void on_butY_clicked();
   void on_butX_clicked();
   void on_tagcurves_editingFinished();
+  void paintedtag_editingFinished();
+  void curvetag_editingFinished();
   void on_segmentlength_valueChanged(int);
   void on_tag_valueChanged(int);
   void on_boxSize_valueChanged(int);
@@ -63,7 +65,7 @@ class DrishtiPaint : public QMainWindow
   void on_lwgrad_currentIndexChanged(int);
   void on_newcurve_clicked();
   void on_morphcurves_clicked();
-  void on_propagate_clicked();
+  void on_propagate_clicked(bool);
   void on_deselect_clicked();
   void on_deleteallcurves_clicked();
   void on_zoom0_clicked();
@@ -152,6 +154,8 @@ class DrishtiPaint : public QMainWindow
 		uchar*,
 		int, int, int,
 		int, int, int);
+
+  QPair<QString, QList<int> > getTags(QString);
 };
 
 #endif

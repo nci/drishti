@@ -101,6 +101,10 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 	  m_viewer, SLOT(setShowBox(bool)));
   connect(viewerUi.snapshot, SIGNAL(clicked()),
 	  m_viewer, SLOT(saveImage()));
+  connect(viewerUi.paintedtags, SIGNAL(editingFinished()),
+	  this, SLOT(paintedtag_editingFinished()));
+  connect(viewerUi.curvetags, SIGNAL(editingFinished()),
+	  this, SLOT(curvetag_editingFinished()));
   //------------------------------
 
 
@@ -326,6 +330,7 @@ DrishtiPaint::on_actionGraphCut_triggered()
   ui.livewire->setChecked(false);
 
   ui.modify->setChecked(false);
+  ui.propagate->setChecked(false);
   m_imageWidget->freezeModifyUsingLivewire();
 }
 
@@ -501,7 +506,6 @@ void DrishtiPaint::on_lwsmooth_currentIndexChanged(int i){ m_imageWidget->setSmo
 void DrishtiPaint::on_lwgrad_currentIndexChanged(int i){ m_imageWidget->setGradType(i); }
 void DrishtiPaint::on_newcurve_clicked() { m_imageWidget->newCurve(); }
 void DrishtiPaint::on_morphcurves_clicked() { m_imageWidget->morphCurves(); }
-void DrishtiPaint::on_propagate_clicked() { m_imageWidget->propagateCurves(); }
 void DrishtiPaint::on_deselect_clicked() { m_imageWidget->deselectAll(); }
 void DrishtiPaint::on_deleteallcurves_clicked() { m_imageWidget->deleteAllCurves(); }
 void DrishtiPaint::on_zoom0_clicked() { m_imageWidget->zoom0(); }
@@ -510,10 +514,9 @@ void DrishtiPaint::on_zoomup_clicked() { m_imageWidget->zoomUp(); }
 void DrishtiPaint::on_zoomdown_clicked() { m_imageWidget->zoomDown(); }
 void DrishtiPaint::on_segmentlength_valueChanged(int d) { m_imageWidget->setSegmentLength(d); }
 
-void
-DrishtiPaint::on_tagcurves_editingFinished()
+QPair<QString, QList<int> >
+DrishtiPaint::getTags(QString text)
 {
-  QString text = ui.tagcurves->text();
   QStringList tglist = text.split(" ", QString::SkipEmptyParts);
   QList<int> tag;
   tag.clear();
@@ -540,10 +543,46 @@ DrishtiPaint::on_tagcurves_editingFinished()
   for(int i=0; i<tag.count(); i++)
     tgstr += QString("%1 ").arg(tag[i]);
 
-  ui.tagcurves->setText(tgstr);
+  return qMakePair(tgstr, tag);
+}
+
+void
+DrishtiPaint::on_tagcurves_editingFinished()
+{
+  QString text = ui.tagcurves->text();
+
+  QPair<QString, QList<int> > tags;
+  tags = getTags(text);
+
+  ui.tagcurves->setText(tags.first);
   
-  m_imageWidget->showTags(tag);
-  m_viewer->showTags(tag);
+  m_imageWidget->showTags(tags.second);
+}
+
+void
+DrishtiPaint::paintedtag_editingFinished()
+{
+  QString text = viewerUi.paintedtags->text();
+
+  QPair<QString, QList<int> > tags;
+  tags = getTags(text);
+
+  viewerUi.paintedtags->setText(tags.first);
+  
+  m_viewer->setPaintedTags(tags.second);
+}
+
+void
+DrishtiPaint::curvetag_editingFinished()
+{
+  QString text = viewerUi.curvetags->text();
+
+  QPair<QString, QList<int> > tags;
+  tags = getTags(text);
+
+  viewerUi.curvetags->setText(tags.first);
+  
+  m_viewer->setCurveTags(tags.second);
 }
 
 void
@@ -559,6 +598,12 @@ DrishtiPaint::on_livewire_clicked(bool c)
     }
 
   m_imageWidget->setLivewire(c);
+}
+
+void
+DrishtiPaint::on_propagate_clicked(bool c)
+{
+  m_imageWidget->propagateCurves(c);
 }
 
 void
@@ -670,6 +715,13 @@ DrishtiPaint::on_actionLoad_triggered()
 void
 DrishtiPaint::on_actionExit_triggered()
 {
+  if (m_volume->isValid())
+    {
+      QString curvesfile = m_pvlFile;
+      curvesfile.replace(".pvl.nc", ".curves");
+      m_imageWidget->saveCurves(curvesfile);
+    }
+
   m_volume->reset();
   saveSettings();
   close();
@@ -759,6 +811,14 @@ DrishtiPaint::dropEvent(QDropEvent *event)
 void
 DrishtiPaint::setFile(QString filename)
 {
+  if (m_volume->isValid())
+    {
+      QString curvesfile = m_pvlFile;
+      curvesfile.replace(".pvl.nc", ".curves");
+      m_imageWidget->saveCurves(curvesfile);
+    }
+
+  
   QString flnm;
 
   if (StaticFunctions::checkExtension(filename, ".pvl.nc"))
@@ -843,6 +903,12 @@ DrishtiPaint::setFile(QString filename)
   m_imageWidget->setLivewire(true);
 
   ui.tagcurves->setText("-1");
+  viewerUi.curvetags->setText("-1");
+  viewerUi.paintedtags->setText("-1");
+
+  QString curvesfile = m_pvlFile;
+  curvesfile.replace(".pvl.nc", ".curves");
+  m_imageWidget->loadCurves(curvesfile);
 }
 
 void
@@ -2323,6 +2389,8 @@ DrishtiPaint::saveMesh(int colorType,
 		       int minHSlice, int minWSlice, int minDSlice,
 		       int theight, int twidth, int tdepth)
 {
+  Vec voxelScaling = StaticFunctions::getVoxelSizeFromHeader(m_pvlFile);
+
   QProgressDialog progress("Colouring and saving mesh ...",
 			   QString(),
 			   0, 100,
@@ -2486,6 +2554,10 @@ DrishtiPaint::saveMesh(int colorType,
       vertex.r = r;
       vertex.g = g;
       vertex.b = b;
+
+      vertex.x *= voxelScaling.x;
+      vertex.y *= voxelScaling.y;
+      vertex.z *= voxelScaling.z;
       
       put_element_ply ( ply, ( void * ) &vertex );
     }

@@ -42,8 +42,11 @@ Viewer::init()
   m_minHSlice = 0;
   m_maxHSlice = 0;  
 
-  m_showTags.clear();
-  m_showTags << -1;
+  m_paintedTags.clear();
+  m_paintedTags << -1;
+
+  m_curveTags.clear();
+  m_curveTags << -1;
 
   m_showBox = true;
 }
@@ -57,11 +60,19 @@ Viewer::updateCurrSlice(int cst, int cs)
 }
 
 void
-Viewer::showTags(QList<int> t)
+Viewer::setPaintedTags(QList<int> t)
 {
-  m_showTags = t;
+  m_paintedTags = t;
   update();
 }
+
+void
+Viewer::setCurveTags(QList<int> t)
+{
+  m_curveTags = t;
+  update();
+}
+
 
 
 void Viewer::setMaskDataPtr(uchar *ptr) { m_maskPtr = ptr; }
@@ -96,13 +107,6 @@ Viewer::keyPressEvent(QKeyEvent *event)
 {
   if (event->key() == Qt::Key_Escape)
     return;
-
-//  if (event->key() == Qt::Key_U)
-//    {
-//      updateVoxels();
-//      update();
-//      return;
-//    }
 
   if (event->key() == Qt::Key_A)
     {  
@@ -287,18 +291,19 @@ Viewer::updateVoxels()
 			   0);
   progress.setMinimumDuration(0);
 
+  bool takeall = (m_paintedTags.count() == 0 ||
+		  m_paintedTags[0] == -1);
+
   //----------------------------------
-  // get the edges first
+  // get the edges first  
   int d,w,h;
   d=m_minDSlice;
   for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
     for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
       {
 	uchar tag = m_maskPtr[d*m_width*m_height + w*m_height + h];
-	if (tag > 0 &&
-	    (m_showTags.count() == 0 ||
-	     m_showTags[0] == -1 ||
-	     m_showTags.contains(tag)))
+	if (m_paintedTags.contains(tag) ||
+	    (tag > 0 && takeall))
 	  {
 	    uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
 	    m_voxels << d << w << h << tag << vol;
@@ -309,10 +314,8 @@ Viewer::updateVoxels()
     for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
       {
 	uchar tag = m_maskPtr[d*m_width*m_height + w*m_height + h];
-	if (tag > 0 &&
-	    (m_showTags.count() == 0 ||
-	     m_showTags[0] == -1 ||
-	     m_showTags.contains(tag)))
+	if (m_paintedTags.contains(tag) ||
+	    (tag > 0 && takeall))
 	  {
 	    uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
 	    m_voxels << d << w << h << tag << vol;
@@ -323,10 +326,8 @@ Viewer::updateVoxels()
     for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
       {
 	uchar tag = m_maskPtr[d*m_width*m_height + w*m_height + h];
-	if (tag > 0 &&
-	    (m_showTags.count() == 0 ||
-	     m_showTags[0] == -1 ||
-	     m_showTags.contains(tag)))
+	if (m_paintedTags.contains(tag) ||
+	    (tag > 0 && takeall))
 	  {
 	    uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
 	    m_voxels << d << w << h << tag << vol;
@@ -337,10 +338,8 @@ Viewer::updateVoxels()
     for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
       {
 	uchar tag = m_maskPtr[d*m_width*m_height + w*m_height + h];
-	if (tag > 0 &&
-	    (m_showTags.count() == 0 ||
-	     m_showTags[0] == -1 ||
-	     m_showTags.contains(tag)))
+	if (m_paintedTags.contains(tag) ||
+	    (tag > 0 && takeall))
 	  {
 	    uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
 	    m_voxels << d << w << h << tag << vol;
@@ -351,10 +350,8 @@ Viewer::updateVoxels()
     for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
       {
 	uchar tag = m_maskPtr[d*m_width*m_height + w*m_height + h];
-	if (tag > 0 &&
-	    (m_showTags.count() == 0 ||
-	     m_showTags[0] == -1 ||
-	     m_showTags.contains(tag)))
+	if (m_paintedTags.contains(tag) ||
+	    (tag > 0 && takeall))
 	  {
 	    uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
 	    m_voxels << d << w << h << tag << vol;
@@ -365,10 +362,8 @@ Viewer::updateVoxels()
     for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
       {
 	uchar tag = m_maskPtr[d*m_width*m_height + w*m_height + h];
-	if (tag > 0 &&
-	    (m_showTags.count() == 0 ||
-	     m_showTags[0] == -1 ||
-	     m_showTags.contains(tag)))
+	if (m_paintedTags.contains(tag) ||
+	    (tag > 0 && takeall))
 	  {
 	    uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
 	    m_voxels << d << w << h << tag << vol;
@@ -386,10 +381,8 @@ Viewer::updateVoxels()
 	  for(h=m_minHSlice+1; h<m_maxHSlice-1; h+=m_pointSkip)
 	    {
 	      uchar tag = m_maskPtr[d*m_width*m_height + w*m_height + h];
-	      if (tag > 0 &&
-		  (m_showTags.count() == 0 ||
-		   m_showTags[0] == -1 ||
-		   m_showTags.contains(tag)))
+	      if (m_paintedTags.contains(tag) ||
+		  (tag > 0 && takeall))
 		{
 		  bool ok = false;
 		  for(int dd=-m_pointSkip; dd<=m_pointSkip; dd++)
@@ -624,9 +617,9 @@ Viewer::drawMMDCurve()
       for (int j=0; j<curves.count(); j++)
 	{
 	  int tag = curves[j]->tag;
-	  if (m_showTags.count() == 0 ||
-	      m_showTags[0] == -1 ||
-	      m_showTags.contains(tag))
+	  if (m_curveTags.count() == 0 ||
+	      m_curveTags[0] == -1 ||
+	      m_curveTags.contains(tag))
 	    {
 	      float r = Global::tagColors()[4*tag+0]*1.0/255.0;
 	      float g = Global::tagColors()[4*tag+1]*1.0/255.0;
@@ -660,9 +653,9 @@ Viewer::drawMMWCurve()
       for (int j=0; j<curves.count(); j++)
 	{
 	  int tag = curves[j]->tag;
-	  if (m_showTags.count() == 0 ||
-	      m_showTags[0] == -1 ||
-	      m_showTags.contains(tag))
+	  if (m_curveTags.count() == 0 ||
+	      m_curveTags[0] == -1 ||
+	      m_curveTags.contains(tag))
 	    {
 	      float r = Global::tagColors()[4*tag+0]*1.0/255.0;
 	      float g = Global::tagColors()[4*tag+1]*1.0/255.0;
@@ -696,9 +689,9 @@ Viewer::drawMMHCurve()
       for (int j=0; j<curves.count(); j++)
 	{
 	  int tag = curves[j]->tag;
-	  if (m_showTags.count() == 0 ||
-	      m_showTags[0] == -1 ||
-	      m_showTags.contains(tag))
+	  if (m_curveTags.count() == 0 ||
+	      m_curveTags[0] == -1 ||
+	      m_curveTags.contains(tag))
 	    {
 	      float r = Global::tagColors()[4*tag+0]*1.0/255.0;
 	      float g = Global::tagColors()[4*tag+1]*1.0/255.0;
@@ -734,9 +727,9 @@ Viewer::drawLMDCurve()
 	  Curve c = mcg.value(cgkeys[j]);
 
 	  int tag = c.tag;
-	  if (m_showTags.count() == 0 ||
-	      m_showTags[0] == -1 ||
-	      m_showTags.contains(tag))
+	  if (m_curveTags.count() == 0 ||
+	      m_curveTags[0] == -1 ||
+	      m_curveTags.contains(tag))
 	    {
 	      float r = Global::tagColors()[4*tag+0]*1.0/255.0;
 	      float g = Global::tagColors()[4*tag+1]*1.0/255.0;
@@ -772,9 +765,9 @@ Viewer::drawLMWCurve()
 	  Curve c = mcg.value(cgkeys[j]);
 
 	  int tag = c.tag;
-	  if (m_showTags.count() == 0 ||
-	      m_showTags[0] == -1 ||
-	      m_showTags.contains(tag))
+	  if (m_curveTags.count() == 0 ||
+	      m_curveTags[0] == -1 ||
+	      m_curveTags.contains(tag))
 	    {
 	      float r = Global::tagColors()[4*tag+0]*1.0/255.0;
 	      float g = Global::tagColors()[4*tag+1]*1.0/255.0;
@@ -811,9 +804,9 @@ Viewer::drawLMHCurve()
 	  Curve c = mcg.value(cgkeys[j]);
 
 	  int tag = c.tag;
-	  if (m_showTags.count() == 0 ||
-	      m_showTags[0] == -1 ||
-	      m_showTags.contains(tag))
+	  if (m_curveTags.count() == 0 ||
+	      m_curveTags[0] == -1 ||
+	      m_curveTags.contains(tag))
 	    {
 	      float r = Global::tagColors()[4*tag+0]*1.0/255.0;
 	      float g = Global::tagColors()[4*tag+1]*1.0/255.0;

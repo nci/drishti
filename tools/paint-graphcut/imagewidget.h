@@ -28,7 +28,6 @@ class ImageWidget : public QWidget
   };
 
   void saveImage();
-  void loadCurves(QString);
   
   void setGridSize(int, int, int);
   void setSliceType(int);
@@ -70,7 +69,7 @@ class ImageWidget : public QWidget
 
   bool seedMoveMode() { return m_livewire.seedMoveMode(); };
   void deselectAll();
-  void propagateCurves();
+  void propagateCurves(bool);
 
   bool dCurvesPresent() { return m_dCurves.curvesPresent(); };
   bool wCurvesPresent() { return m_wCurves.curvesPresent(); };
@@ -85,7 +84,9 @@ class ImageWidget : public QWidget
   void keyPressEvent(QKeyEvent*);
   void setLivewire(bool);
   void setCurve(bool);
+  void saveCurves(QString);
   void saveCurves();
+  void loadCurves(QString);
   void loadCurves();
   void setSmoothType(int);
   void setGradType(int);

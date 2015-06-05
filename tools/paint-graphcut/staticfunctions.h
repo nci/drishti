@@ -9,6 +9,9 @@
 #include <QMessageBox>
 #include <QDomDocument>
 
+#include <QGLViewer/vec.h>
+using namespace qglviewer;
+
 #define DEG2RAD(angle) angle*3.1415926535897931/180.0
 #define RAD2DEG(angle) angle*180.0/3.1415926535897931
 #define VECPRODUCT(a, b) Vec(a.x*b.x, a.y*b.y, a.z*b.z)
@@ -30,6 +33,8 @@ class StaticFunctions
 
   static bool xmlHeaderFile(QString);
   static void getDimensionsFromHeader(QString, int&, int&, int&);
+  static Vec getVoxelSizeFromHeader(QString);
+  static int getVoxelUnitFromHeader(QString);
   static int getSlabsizeFromHeader(QString);
   static int getPvlHeadersizeFromHeader(QString);
   static int getRawHeadersizeFromHeader(QString);

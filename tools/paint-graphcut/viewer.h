@@ -32,10 +32,11 @@ class Viewer : public QGLViewer
     void updateVoxels();
     void updateViewerBox(int, int, int, int, int, int);
     void updateCurrSlice(int, int);
-    void showTags(QList<int>);
     void setVoxelChoice(int p) { m_voxChoice = p; }
     void setShowBox(bool);
     void saveImage() { saveSnapshot(false); };
+    void setPaintedTags(QList<int>);
+    void setCurveTags(QList<int>);
 
  private :
   int m_depth, m_width, m_height;
@@ -62,7 +63,8 @@ class Viewer : public QGLViewer
 
   QList<ushort> m_voxels;
 
-  QList<int> m_showTags;
+  QList<int> m_paintedTags;
+  QList<int> m_curveTags;
 
 
   void drawBox();

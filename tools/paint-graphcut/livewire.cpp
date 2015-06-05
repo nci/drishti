@@ -1008,7 +1008,7 @@ LiveWire::insertSeed(int xpos, int ypos)
 	  int ml = (m_poly[i]-QPoint(xpos, ypos)).manhattanLength();
 	  if (ml < Global::selectionPrecision())
 	    {
-	      for (int j=m_seedpos[i]; j<m_seedpos[is]; j++)
+	      for (int j=i; j<m_seedpos[is]; j++)
 		{
 		  int mhl = (m_poly[j]-QPoint(xpos, ypos)).manhattanLength();
 		  if (mhl < ml)
@@ -1032,7 +1032,7 @@ LiveWire::insertSeed(int xpos, int ypos)
 	      int ml = (m_poly[i]-QPoint(xpos, ypos)).manhattanLength();
 	      if (ml < Global::selectionPrecision())
 		{
-		  for (int j=m_seedpos[i]; j<m_poly.count(); j++)
+		  for (int j=i; j<m_poly.count(); j++)
 		    {
 		      int mhl = (m_poly[j]-QPoint(xpos, ypos)).manhattanLength();
 		      if (mhl < ml)

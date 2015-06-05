@@ -173,6 +173,29 @@ void
 ImageWidget::showTags(QList<int> t)
 {
   m_showTags = t;
+
+  uchar *tagColors = Global::tagColors();
+
+  m_tagColors.clear();
+  m_tagColors.resize(256);
+  m_tagColors[0] = qRgba(0,0,0,0);
+  for(int i=1; i<256; i++)
+    {
+      uchar r = tagColors[4*i+0];
+      uchar g = tagColors[4*i+1];
+      uchar b = tagColors[4*i+2];
+      if (m_showTags.count() == 0 ||
+	  m_showTags[0] == -1 ||
+	  m_showTags.contains(i))
+	m_tagColors[i] = qRgba(r, g, b, 127);
+      else
+	m_tagColors[i] = qRgba(r, g, b, 20);
+    }
+
+
+  m_maskimage.setColorTable(m_tagColors);
+  m_userimage.setColorTable(m_tagColors);
+
   update();
 }
 
@@ -441,7 +464,12 @@ ImageWidget::updateTagColors()
       uchar r = tagColors[4*i+0];
       uchar g = tagColors[4*i+1];
       uchar b = tagColors[4*i+2];
-      m_tagColors[i] = qRgba(r, g, b, 127);
+      if (m_showTags.count() == 0 ||
+	  m_showTags[0] == -1 ||
+	  m_showTags.contains(i))
+	m_tagColors[i] = qRgba(r, g, b, 127);
+      else
+	m_tagColors[i] = qRgba(r, g, b, 20);
     }
 
 
@@ -838,7 +866,7 @@ ImageWidget::drawCurves(QPainter *p)
 	  if (curves[l]->closed)
 	    {
 	      p->setPen(QPen(QColor(r,g,b), 1));
-	      p->setBrush(QColor(r*0.5, g*0.5, b*0.5, 128));
+	      p->setBrush(QColor(r, g, b, 70));
 	      p->drawPolygon(pts);
 	    }
 	  else
@@ -1023,7 +1051,7 @@ ImageWidget::drawMorphedCurves(QPainter *p)
 	  if (curves[l].closed)
 	    {
 	      p->setPen(QPen(QColor(r,g,b), 1));
-	      p->setBrush(QColor(r*0.5, g*0.5, b*0.5, 128));
+	      p->setBrush(QColor(r, g, b, 70));
 	      p->drawPolygon(pts);
 	    }
 	  else
@@ -1358,6 +1386,12 @@ ImageWidget::freezeLivewire(bool select)
 
   m_livewire.resetPoly();
 
+  if (m_showTags.count() != 0 &&
+      m_showTags[0] != -1 &&
+      !m_showTags.contains(Global::tag()) &&
+      !m_livewire.propagateLivewire())
+    QMessageBox::information(0, "", QString("Curve with tag value %1 will not be seen because you have chosen not to show it via the Show Tags parameter").arg(Global::tag()));
+  
   update(); 
 }
 
@@ -1591,11 +1625,28 @@ ImageWidget::setSliceLOD(int lod)
 }
 
 void
-ImageWidget::propagateCurves()
+ImageWidget::propagateCurves(bool flag)
 {
-  applyRecursive(Qt::Key_J);
-  startLivewirePropagation();
-  //propagateLivewire();
+  if (flag)
+    {
+      applyRecursive(Qt::Key_J);
+      startLivewirePropagation();
+    }
+  else
+    {
+      if (m_applyRecursive) // stop the recursive process
+	{
+	  endLivewirePropagation();
+	  
+	  m_applyRecursive = false;
+	  m_extraPressed = false;
+	  m_cslc = 0;
+	  m_maxslc = 0;
+	  m_key = 0;
+	  m_forward = true;
+	  QMessageBox::information(0, "", "Propagation process stopped");
+	}
+    }
 }
 
 bool
@@ -1614,26 +1665,26 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
   int shiftModifier = event->modifiers() & Qt::ShiftModifier;
   int ctrlModifier = event->modifiers() & Qt::ControlModifier;
 
-  if (event->key() == Qt::Key_J)
-    {
-      bool ar = m_applyRecursive;
-
-      if (shiftModifier) // apply operation for multiple slices
-	{
-	  applyRecursive(event->key());
-	  ar = true;
-
-	  startLivewirePropagation();
-	  return true;
-	}
-
-      propagateLivewire();
-
-      if (ar && m_applyRecursive == false)
-	endLivewirePropagation();
-
-      return true;
-    }
+//  if (event->key() == Qt::Key_J)
+//    {
+//      bool ar = m_applyRecursive;
+//
+//      if (shiftModifier) // apply operation for multiple slices
+//	{
+//	  applyRecursive(event->key());
+//	  ar = true;
+//
+//	  startLivewirePropagation();
+//	  return true;
+//	}
+//
+//      propagateLivewire();
+//
+//      if (ar && m_applyRecursive == false)
+//	endLivewirePropagation();
+//
+//      return true;
+//    }
 
   if (m_livewireMode)
     {
@@ -3743,20 +3794,31 @@ void
 ImageWidget::saveCurves()
 {
   QString curvesfile = QFileDialog::getSaveFileName(0,
-					       "Save Curves",
-					       Global::previousDirectory(),
-					       "Curves Files (*.curves)",
-					       0,
-					       QFileDialog::DontUseNativeDialog);
+					      "Save Curves",
+					      Global::previousDirectory(),
+					      "Curves Files (*.curves)",
+					      0,
+					      QFileDialog::DontUseNativeDialog);
 
   if (curvesfile.isEmpty())
     return;
 
+  saveCurves(curvesfile);
+}
+
+void
+ImageWidget::saveCurves(QString curvesfile)
+{
+  // if no curves present return
+  if (!dCurvesPresent() &&
+      !wCurvesPresent() &&
+      !hCurvesPresent())
+    return;
+  
   if (!StaticFunctions::checkExtension(curvesfile, ".curve") &&
       !StaticFunctions::checkExtension(curvesfile, ".curves"))
-    curvesfile += ".curves";
+      curvesfile += ".curves";
   
-
   QFile cfile;
 
   cfile.setFileName(curvesfile);
@@ -3840,6 +3902,9 @@ ImageWidget::loadCurves(QString curvesfile)
   QFile cfile;
 
   cfile.setFileName(curvesfile);
+  if (cfile.exists() == false)
+    return;
+  
   cfile.open(QFile::ReadOnly);
 
   loadCurves(&cfile, &m_dCurves);

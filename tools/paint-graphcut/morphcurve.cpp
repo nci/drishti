@@ -321,7 +321,7 @@ MorphCurve::setPaths(QStringList paths)
 }
 
 void
-MorphCurve::setPaths(QMap< int, QVector<QPoint> > paths)
+MorphCurve::setPaths(QMap< int, QVector<QPointF> > paths)
 {
   m_perimeters.clear();
 
@@ -329,7 +329,7 @@ MorphCurve::setPaths(QMap< int, QVector<QPoint> > paths)
 
   for(int i=0; i<keys.count(); i++)
     {
-      QVector<QPoint> c = paths.value(keys[i]);
+      QVector<QPointF> c = paths.value(keys[i]);
 
       Perimeter p;
       QVector<double> x;

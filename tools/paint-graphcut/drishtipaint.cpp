@@ -504,7 +504,7 @@ void DrishtiPaint::on_pointsize_valueChanged(int d) { m_imageWidget->setPointSiz
 void DrishtiPaint::on_closed_clicked(bool c) { Global::setClosed(c); }
 void DrishtiPaint::on_lwsmooth_currentIndexChanged(int i){ m_imageWidget->setSmoothType(i); }
 void DrishtiPaint::on_lwgrad_currentIndexChanged(int i){ m_imageWidget->setGradType(i); }
-void DrishtiPaint::on_newcurve_clicked() { m_imageWidget->newCurve(); }
+void DrishtiPaint::on_newcurve_clicked() { m_imageWidget->newCurve(true); }
 void DrishtiPaint::on_morphcurves_clicked() { m_imageWidget->morphCurves(); }
 void DrishtiPaint::on_deselect_clicked() { m_imageWidget->deselectAll(); }
 void DrishtiPaint::on_deleteallcurves_clicked() { m_imageWidget->deleteAllCurves(); }

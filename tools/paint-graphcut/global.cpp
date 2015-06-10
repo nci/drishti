@@ -186,6 +186,6 @@ bool Global::m_closed = true;
 bool Global::closed() { return m_closed; }
 void Global::setClosed(bool b) { m_closed = b; }
 
-int Global::m_selpres = 5;
+int Global::m_selpres = 15;
 int Global::selectionPrecision() { return m_selpres; }
 void Global::setSelectionPrecision(int s) { m_selpres = s; }

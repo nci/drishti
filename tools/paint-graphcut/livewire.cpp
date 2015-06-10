@@ -20,6 +20,7 @@ LiveWire::LiveWire()
   m_width = m_height = 0;
 
   m_seedpos.clear();
+  m_seeds.clear();
   m_poly.clear();
   m_livewire.clear();
 
@@ -41,6 +42,7 @@ LiveWire::LiveWire()
   m_polyA.clear();
   m_polyB.clear();
   m_closed = true;
+  m_type = 0;
 
   m_lod = 1;
 }
@@ -55,7 +57,7 @@ LiveWire::setSeedMoveMode(bool b)
 }
 
 void
-LiveWire::setGuessCurve(QVector<QPoint> gc, QVector<QPoint> gs)
+LiveWire::setGuessCurve(QVector<QPointF> gc, QVector<QPointF> gs)
 {
   m_guessCurve = gc;
   m_guessSeeds = gs;
@@ -84,16 +86,22 @@ LiveWire::setPropagateLivewire(bool b)
 }
 
 bool LiveWire::closed() { return m_closed; }
+uchar LiveWire::type() { return m_type; }
+QVector<QPointF> LiveWire::seeds() { return m_seeds; }
 void
-LiveWire::setPolygonToUpdate(QVector<QPoint> pts,
+LiveWire::setPolygonToUpdate(QVector<QPointF> pts,
 			     QVector<int> seedpos,
-			     bool closed)
+			     bool closed,
+			     uchar type,
+			     QVector<QPointF> seeds)
 {
   m_seedMoveMode = true;
   m_activeSeed = -1;
   m_poly = pts;
   m_seedpos = seedpos;  
+  m_seeds = seeds;
   m_closed = closed;
+  m_type = type;
   m_livewire.clear();
 }
 
@@ -107,6 +115,7 @@ LiveWire::~LiveWire() { reset(); }
 void
 LiveWire::resetPoly()
 {
+  m_seeds.clear();
   m_seedpos.clear();
   m_poly.clear();
   m_livewire.clear();
@@ -135,6 +144,7 @@ LiveWire::reset()
   m_Owidth = m_Oheight = 0;
 
   m_seedpos.clear();
+  m_seeds.clear();
   m_poly.clear();
   m_livewire.clear();
 
@@ -154,9 +164,9 @@ LiveWire::reset()
   m_lod = 1;
 }
 
-QVector<QPoint> LiveWire::poly() { return m_poly; }
+QVector<QPointF> LiveWire::poly() { return m_poly; }
 QVector<int> LiveWire::seedpos() { return m_seedpos; }
-QVector<QPoint> LiveWire::livewire() { return m_livewire; }
+QVector<QPointF> LiveWire::livewire() { return m_livewire; }
 
 void
 LiveWire::setLod(int lod)
@@ -270,6 +280,7 @@ LiveWire::mousePressEvent(int xpos, int ypos, QMouseEvent *event)
 	removeSeed(xpos, ypos);
       else
 	m_activeSeed = getActiveSeed(xpos, ypos);
+
       return true;
     }
 
@@ -282,7 +293,7 @@ LiveWire::mousePressEvent(int xpos, int ypos, QMouseEvent *event)
   if (button == Qt::LeftButton)
     {
       m_poly += m_livewire;
-      m_poly << QPoint(xpos, ypos);
+      m_poly << QPointF(xpos, ypos);
 
       m_seedpos << m_poly.count()-1;
 
@@ -296,7 +307,7 @@ LiveWire::mousePressEvent(int xpos, int ypos, QMouseEvent *event)
     {
       for(int i=m_poly.count()-1; i>=0; i--)
 	{
-	  if ((m_poly[i]-QPoint(xpos, ypos)).manhattanLength() < Global::selectionPrecision())
+	  if ((m_poly[i]-QPointF(xpos, ypos)).manhattanLength() < Global::selectionPrecision())
 	    {
 	      m_poly.remove(i, m_poly.count()-i);
 
@@ -571,10 +582,10 @@ LiveWire::calculateCost(int wposO, int hposO, int boxSizeO)
     m_cost[i] = 10000000.0;
   
   for(int i=0; i<m_prev.count(); i++)
-    m_prev[i] = QPoint(-1, -1);
+    m_prev[i] = QPointF(-1, -1);
 
   // used as priority queue
-  QMultiMap<float, QPoint> qmap;
+  QMultiMap<float, QPointF> qmap;
 
   bool *visited = new bool[m_width*m_height];
   memset(visited, 0, m_width*m_height);
@@ -582,14 +593,14 @@ LiveWire::calculateCost(int wposO, int hposO, int boxSizeO)
   int x = hpos;
   int y = wpos;
   m_cost[x*m_width + y] = 0;
-  qmap.insert(0, QPoint(x, y));
+  qmap.insert(0, QPointF(x, y));
 
   float pi23 = 2.0/(3.0*3.1415926535);
   
   while(qmap.count() > 0)
     {
       float key = qmap.firstKey();
-      QList<QPoint> qpr = qmap.values(key);
+      QList<QPointF> qpr = qmap.values(key);
       float dcost = key;
       int x = qpr[0].x();
       int y = qpr[0].y();
@@ -640,9 +651,9 @@ LiveWire::calculateCost(int wposO, int hposO, int boxSizeO)
 		    if (newcost < oldcost)
 		      {
 			m_cost[(x+a)*m_width+(y+b)] = newcost;
-			m_prev[(x+a)*m_width+(y+b)] = QPoint(x, y);
+			m_prev[(x+a)*m_width+(y+b)] = QPointF(x, y);
 			
-			qmap.insert(newcost, QPoint(x+a, y+b));
+			qmap.insert(newcost, QPointF(x+a, y+b));
 		      }
 		  }
 	      }
@@ -666,10 +677,10 @@ LiveWire::calculateLivewire(int wpos, int hpos)
 
   int x = hpos/m_lod;
   int y = wpos/m_lod;
-  QVector<QPoint> pts;
+  QVector<QPointF> pts;
   while(x > -1)
     {
-      pts << QPoint(m_lod*y, m_lod*x);
+      pts << QPointF(m_lod*y, m_lod*x);
       int idx = x*m_width+y;
       x = m_prev[idx].x();
       y = m_prev[idx].y();
@@ -787,19 +798,19 @@ LiveWire::boxBlurT_4(uchar *scl, uchar *tcl,
 }
 
 void
-LiveWire::livewireFromSeeds(QVector<QPoint> oseeds)
+LiveWire::livewireFromSeeds(QVector<QPointF> oseeds)
 {
   resetPoly();
   
   QVector<bool> used;
   used.fill(false, oseeds.count());
-  QVector<QPoint> tseeds;
+  QVector<QPointF> tseeds;
 
   // ----------
   // lineup all the seeds from orthogonal slices
   for(int i=0; i<m_guessCurve.count(); i++)
     {
-      QPoint pt = m_guessCurve[i];
+      QPointF pt = m_guessCurve[i];
       for(int j=0; j<oseeds.count(); j++)
 	{
 	  if (!used[j])
@@ -827,12 +838,12 @@ LiveWire::livewireFromSeeds(QVector<QPoint> oseeds)
     }
 
   // filter out closely placed seeds
-  QVector<QPoint> seeds;
+  QVector<QPointF> seeds;
   seeds << tseeds[0];
   for(int i=1; i<tseeds.count()-1; i++)
     {
-      QPoint v = seeds.last()-tseeds[i];
-      if (QPoint::dotProduct(v,v) > 25)
+      QPointF v = seeds.last()-tseeds[i];
+      if (QPointF::dotProduct(v,v) > 25)
 	seeds << tseeds[i];
     }
   seeds << tseeds.last();
@@ -857,7 +868,7 @@ LiveWire::livewireFromSeeds(QVector<QPoint> oseeds)
 	      {
 		minCost = cst;
 		// replace seed
-		seeds[i] = m_lod*QPoint(h+a, w+b);
+		seeds[i] = m_lod*QPointF(h+a, w+b);
 	      }
 	  }
     }
@@ -897,14 +908,20 @@ LiveWire::updateLivewireFromSeeds(int xpos, int ypos)
   if (m_activeSeed < 0)
     return;
 
+  if (m_type > 0)
+    {
+      updateShapeFromSeeds(xpos, ypos);
+      return;
+    }
+
   int totseeds = m_seedpos.count();
   int ps = (m_activeSeed-1);
   int ns = (m_activeSeed+1)%totseeds;;
   if (ps < 0) ps = totseeds-1;
   
-  m_poly[m_seedpos[m_activeSeed]] = QPoint(xpos, ypos);
-  QPoint sps = m_poly[m_seedpos[ps]];
-  QPoint sns = m_poly[m_seedpos[ns]];
+  m_poly[m_seedpos[m_activeSeed]] = QPointF(xpos, ypos);
+  QPointF sps = m_poly[m_seedpos[ps]];
+  QPointF sns = m_poly[m_seedpos[ns]];
 
   int sz0 = qMax(qAbs(xpos-sps.x()),
 		 qAbs(ypos-sps.y()));
@@ -980,7 +997,7 @@ LiveWire::getActiveSeed(int xpos, int ypos)
 
   for(int i=0; i<m_seedpos.count(); i++)
     {
-      if ((m_poly[m_seedpos[i]]-QPoint(xpos, ypos)).manhattanLength() < Global::selectionPrecision())
+      if ((m_poly[m_seedpos[i]]-QPointF(xpos, ypos)).manhattanLength() < Global::selectionPrecision())
 	{
 	  splitPolygon(i);
 	  return i;
@@ -995,7 +1012,15 @@ LiveWire::getActiveSeed(int xpos, int ypos)
 int
 LiveWire::insertSeed(int xpos, int ypos)
 {
-  int ic = getActiveSeed(xpos, ypos);
+  if (m_type > 1)
+    return -1;
+  
+  int ic;
+  if (m_type == 0)
+    ic = getActiveSeed(xpos, ypos);
+  else
+    ic = getActiveSeedFromShape(xpos, ypos);
+  
   if (ic >= 0)
     return ic;
   
@@ -1005,12 +1030,12 @@ LiveWire::insertSeed(int xpos, int ypos)
     {
       for (int i=m_seedpos[is-1]; i<m_seedpos[is]; i++)
 	{
-	  int ml = (m_poly[i]-QPoint(xpos, ypos)).manhattanLength();
+	  int ml = (m_poly[i]-QPointF(xpos, ypos)).manhattanLength();
 	  if (ml < Global::selectionPrecision())
 	    {
 	      for (int j=i; j<m_seedpos[is]; j++)
 		{
-		  int mhl = (m_poly[j]-QPoint(xpos, ypos)).manhattanLength();
+		  int mhl = (m_poly[j]-QPointF(xpos, ypos)).manhattanLength();
 		  if (mhl < ml)
 		    {
 		      ml = mhl;
@@ -1022,6 +1047,7 @@ LiveWire::insertSeed(int xpos, int ypos)
 	    }
 	}
     }
+  
   if (sp == -1 || ic == -1)
     {
       if (m_closed)
@@ -1029,12 +1055,12 @@ LiveWire::insertSeed(int xpos, int ypos)
 	  int is = m_seedpos.count()-1;
 	  for (int i=m_seedpos[is]; i<m_poly.count(); i++)
 	    {
-	      int ml = (m_poly[i]-QPoint(xpos, ypos)).manhattanLength();
+	      int ml = (m_poly[i]-QPointF(xpos, ypos)).manhattanLength();
 	      if (ml < Global::selectionPrecision())
 		{
 		  for (int j=i; j<m_poly.count(); j++)
 		    {
-		      int mhl = (m_poly[j]-QPoint(xpos, ypos)).manhattanLength();
+		      int mhl = (m_poly[j]-QPointF(xpos, ypos)).manhattanLength();
 		      if (mhl < ml)
 			{
 			  ml = mhl;
@@ -1050,8 +1076,15 @@ LiveWire::insertSeed(int xpos, int ypos)
       if (sp == -1 || ic == -1)
 	return -1;
     }
-
+  
+  if (m_type > 0)
+    m_seeds.insert(sp, QPointF(xpos, ypos));
+  
   m_seedpos.insert(sp, ic);
+  
+  if (m_type > 0)
+    updatePolygonFromSeeds();
+  
   return ic;
 }
 
@@ -1060,7 +1093,12 @@ LiveWire::removeSeed(int xpos, int ypos)
 {
   m_activeSeed = -1;
 
-  if (m_seedpos.count() < 3)
+  if (m_type > 1)
+    return -1;
+  
+
+  if (m_seedpos.count() < 3 ||
+      (m_type > 0 && m_seedpos.count() < 4))
     {
       QMessageBox::information(0, "",
 			       "Less seed points : Cannot remove seed points for this curve");
@@ -1071,7 +1109,7 @@ LiveWire::removeSeed(int xpos, int ypos)
   int ic = -1;
   for(int i=0; i<m_seedpos.count(); i++)
     {
-      if ((m_poly[m_seedpos[i]]-QPoint(xpos, ypos)).manhattanLength() < Global::selectionPrecision())
+      if ((m_poly[m_seedpos[i]]-QPointF(xpos, ypos)).manhattanLength() < Global::selectionPrecision())
 	{
 	  ic = i;
 	  break;
@@ -1087,19 +1125,27 @@ LiveWire::removeSeed(int xpos, int ypos)
 
   if (ic == 0)
     {
-      QVector<QPoint> pts;
+      QVector<QPointF> pts;
       for(int i=0; i<m_seedpos[1]; i++)
 	m_poly << m_poly[i];
       m_poly.remove(0, m_seedpos[1]);
 
       int offset = m_seedpos[1];
       m_seedpos.removeAt(0);
+      if (m_type > 0)
+	m_seeds.removeAt(0);
       for(int i=0; i<m_seedpos.count(); i++)
 	m_seedpos[i] -= offset;
     }
   else
-    m_seedpos.removeAt(ic);
+    {
+      m_seedpos.removeAt(ic);
+      if (m_type > 0)
+	m_seeds.removeAt(ic);
+    }
 
+  if (m_type > 0)
+    updatePolygonFromSeeds();
 
   return ic;
 }
@@ -1131,3 +1177,133 @@ LiveWire::splitPolygon(int sp)
     }
 }
 
+int
+LiveWire::getActiveSeedFromShape(int xpos, int ypos)
+{
+  if (m_activeSeed > -1)
+    return m_activeSeed;
+
+  for(int i=0; i<m_seedpos.count(); i++)
+    {
+      if ((m_poly[m_seedpos[i]]-QPointF(xpos, ypos)).manhattanLength() < Global::selectionPrecision())
+	return i;
+    }
+
+  return -1;
+}
+
+void
+LiveWire::updateShapeFromSeeds(int xpos, int ypos)
+{
+  m_seeds[m_activeSeed] = QPointF(xpos, ypos);
+
+  if (m_type == 1)
+    updatePolygonFromSeeds();
+  else if (m_type == 2)
+    updateEllipseFromSeeds();
+}
+
+void
+LiveWire::updateEllipseFromSeeds()
+{
+  if (m_activeSeed == 0)
+    {      
+      QPointF cen = (m_poly[0] + m_poly[180])/2;
+      QPointF b = m_poly[90] - cen;
+      float blen = qSqrt(QPointF::dotProduct(b,b));
+      QPointF a = m_seeds[0] - cen;
+      float alen = qSqrt(QPointF::dotProduct(a,a));
+      a /= alen;
+      m_seeds[0] = cen + alen*a;
+      m_seeds[2] = cen - alen*a;
+      m_seeds[1] = cen + blen*QPointF(-a.y(), a.x());
+    }
+  else if (m_activeSeed == 1)
+    {
+      QPointF cen = (m_poly[0] + m_poly[180])/2;
+      QPointF a = m_poly[0] - cen;
+      float alen = qSqrt(QPointF::dotProduct(a,a));
+      QPointF b = m_seeds[1] - cen;
+      float blen = qSqrt(QPointF::dotProduct(b,b));
+      b /= blen;
+      m_seeds[0] = cen + alen*QPointF(b.y(), -b.x());
+      m_seeds[2] = cen - alen*QPointF(b.y(), -b.x());
+    }
+  else if (m_activeSeed == 2)
+    {
+      QPointF delta = m_seeds[2] - m_poly[180];
+      m_seeds[0] += delta;
+      m_seeds[1] += delta;
+    }
+
+  QPointF cen = (m_seeds[0] + m_seeds[2])/2;
+  QPointF a = m_seeds[0] - cen;
+  QPointF b = m_seeds[1] - cen;
+
+  m_poly.clear();
+  m_seedpos.clear();
+  for(int i=0; i<360; i++)
+    {
+      if (i%90 == 0 && m_seedpos.count() < 3)
+	m_seedpos << m_poly.count();
+
+      float ir = qDegreesToRadians((float)i);
+      QPointF v = cen + a*cos(ir) + b*sin(ir);
+      m_poly << v;
+    }
+
+  m_seeds.clear();
+  m_seeds << m_poly[0];
+  m_seeds << m_poly[90];
+  m_seeds << m_poly[180];
+}
+
+void
+LiveWire::updatePolygonFromSeeds()
+{
+  QVector <QPointF> v, tv;
+  v.resize(m_seeds.count());
+  tv.resize(m_seeds.count());
+
+  for(int i=0; i<m_seeds.count(); i++)
+    v[i] = m_seeds[i];
+
+  m_livewire.clear();
+  m_poly.clear();
+
+  for(int i=0; i<m_seeds.count(); i++)
+    {
+      int nxt = (i+1)%m_seeds.count();
+      int prv = i-1;
+      if (prv<0) prv = m_seeds.count()-1;
+      tv[i] = (v[nxt]-v[prv])/2;
+    }
+
+  m_poly.clear();
+  m_seedpos.clear();
+  for(int ptn=0; ptn<m_seeds.count(); ptn++)
+    {
+      m_seedpos << m_poly.count();
+      int nxt = (ptn+1)%m_seeds.count();
+      QPointF diff = v[nxt]-v[ptn];
+      int len = qSqrt(QPointF::dotProduct(diff, diff))/3;
+      len = qMax(2, len);
+      for(int i=0; i<len; i++)
+	{
+	  float frc = i/(float)len;
+	  QPointF a1 = 3*diff - 2*tv[ptn] - tv[nxt];
+	  QPointF a2 = -2*diff + tv[ptn] + tv[nxt];
+	  QPointF p = v[ptn] + frc*(tv[ptn] + frc*(a1 + frc*a2));
+	  m_poly << QPointF(p.x(), p.y());
+	}
+    }
+
+//  for(int i=0; i<10; i++)
+//    m_poly << (i/10.0)*v1 + (1-(i/10.0))*v0;
+//  for(int i=0; i<10; i++)
+//    m_poly << (i/10.0)*v2 + (1-(i/10.0))*v1;
+//  for(int i=0; i<10; i++)
+//    m_poly << (i/10.0)*v3 + (1-(i/10.0))*v2;
+//  for(int i=0; i<10; i++)
+//    m_poly << (i/10.0)*v0 + (1-(i/10.0))*v3;
+}

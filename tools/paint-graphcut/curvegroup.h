@@ -15,12 +15,14 @@ class Curve
   ~Curve();
   Curve& operator=(const Curve&);
 
-  QVector<QPoint> pts;
+  QVector<QPointF> pts;
   QVector<int> seedpos;
   int tag;
   int thickness;
   bool closed;
   bool selected;
+  uchar type;
+  QVector<QPointF> seeds;
 };
 
 class CurveGroup
@@ -36,21 +38,26 @@ class CurveGroup
   void removePolygonAt(int, int, int);
   void morphCurves(int, int);
 
+  void newShape(int, int, int);
+  void newPolygon(int, int, int);
+  void newEllipse(int, int, int);
   void newCurve(int, bool);
 
   void addPoint(int, int, int);
   void removePoint(int, int, int);
 
-  QVector<QPoint> getPolygonAt(int);
+  QVector<QPointF> getPolygonAt(int);
   QList<Curve*> getCurvesAt(int);
   QList<Curve> getMorphedCurvesAt(int);
 
-  void setPolygonAt(int, int*, int, int, int, bool);
+  void setPolygonAt(int, int*, int, int, int, bool, uchar type = 0);
   void setPolygonAt(int,
-		    QVector<QPoint>,
+		    QVector<QPointF>,
 		    QVector<int>,
-		    bool, int, int, bool);
-  void joinPolygonAt(int, QVector<QPoint>);
+		    bool, int, int, bool,
+		    uchar,
+		    QVector<QPointF> seeds);
+  void joinPolygonAt(int, QVector<QPointF>);
   void setCurveAt(int, Curve);
 
   void smooth(int, int, int);
@@ -71,6 +78,7 @@ class CurveGroup
 
   void deselectAll();
 
+  void resetCopyCurve();
   int copyCurve(int, int, int);
   Curve getCopyCurve() { return m_copyCurve; };
   void pasteCurve(int);
@@ -81,8 +89,8 @@ class CurveGroup
   QList< QMap<int, Curve> >* getPointerToMorphedCurves();
   void addMorphBlock(QMap<int, Curve>);
 
-  QList<QPoint> xpoints(int);
-  QList<QPoint> ypoints(int);
+  QList<QPointF> xpoints(int);
+  QList<QPointF> ypoints(int);
 
   void startAddingCurves();
   void endAddingCurves();
@@ -104,26 +112,29 @@ class CurveGroup
   QMap<int, Curve> m_tmcg;
 
   bool m_pointsDirtyBit;
-  QMultiMap<int, QPoint> m_xpoints;
-  QMultiMap<int, QPoint> m_ypoints;
+  QMultiMap<int, QPointF> m_xpoints;
+  QMultiMap<int, QPointF> m_ypoints;
 
-  QVector<QPoint> smooth(QVector<QPoint>, bool);
+  QVector<QPointF> smooth(QVector<QPointF>, bool);
   void smoothCurveWithSeedPoints(Curve *);
 
-  QVector<QPoint> push(QVector<QPoint>, QPoint, int, bool);
+  QVector<QPointF> push(QVector<QPointF>, QPointF, int, bool);
 
-  QVector<QPoint> subsample(QVector<QPoint>, float, bool);
+  QVector<QPointF> subsample(QVector<QPointF>, float, bool);
 
   Curve m_copyCurve;
   int m_moveCurve;
 
-  void alignClosedCurves(QMap<int, QVector<QPoint> >&);
-  void alignOpenCurves(QMap<int, QVector<QPoint> >&);
+  void alignClosedCurves(QMap<int, QVector<QPointF> >&);
+  void alignOpenCurves(QMap<int, QVector<QPointF> >&);
   void clearMorphedCurves();
   float pathLength(Curve*);
   float area(Curve*);
 
   void generateXYpoints();
+
+  void generatePolygon(Curve*);
+  void generateEllipse(Curve*);
 };
 
 #endif

@@ -1,6 +1,6 @@
 #include <QtWidgets>
 #include "commonqtclasses.h"
-#include <QPoint>
+#include <QPointF>
 #include <QMap>
 
 //#include <QGLViewer/qglviewer.h>
@@ -103,7 +103,7 @@ class MorphCurve
   ~MorphCurve();
 
   void setPaths(QStringList);
-  void setPaths(QMap< int, QVector<QPoint> >);
+  void setPaths(QMap< int, QVector<QPointF> >);
   QList<Perimeter> getMorphedPaths(bool);
 
   enum EditOperation

@@ -93,7 +93,9 @@ class ImageWidget : public QWidget
   void setSmoothType(int);
   void setGradType(int);
   void freezeLivewire(bool);
-  void newCurve();
+  void newCurve(bool);
+  void newPolygon();
+  void newEllipse();
   void morphCurves();
   void deleteAllCurves();
   void zoom0();
@@ -271,7 +273,7 @@ class ImageWidget : public QWidget
 
   void propagateLivewire();
 
-  QList<QPoint> trimPointList(QList<QPoint>, bool);
+  QList<QPointF> trimPointList(QList<QPointF>, bool);
 
   void startLivewirePropagation();
   void endLivewirePropagation();
@@ -285,7 +287,7 @@ class ImageWidget : public QWidget
 
   CurveGroup* getCg();
 
-  void drawSeedPoints(QPainter*, QVector<QPoint>, QColor);
+  void drawSeedPoints(QPainter*, QVector<QPointF>, QColor);
 };
 
 

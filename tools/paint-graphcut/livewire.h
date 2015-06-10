@@ -21,11 +21,14 @@ class LiveWire
   bool keyPressEvent(QKeyEvent*);
 
   QImage gradientImage();
-  QVector<QPoint> poly();
-  QVector<QPoint> polyA();
-  QVector<QPoint> polyB();
+  QVector<QPointF> poly();
+  QVector<QPointF> polyA();
+  QVector<QPointF> polyB();
   QVector<int> seedpos();
-  QVector<QPoint> livewire();
+  QVector<QPointF> livewire();
+  QVector<QPointF> seeds();
+  bool closed();
+  uchar type();
 
   void setSmoothType(int s) { m_smoothType = s; };
   void setGradType(int g) { m_gradType = g; };
@@ -36,37 +39,39 @@ class LiveWire
   void setWeightN(float);
   void setUseDynamicTraining(bool);
 
-  void livewireFromSeeds(QVector<QPoint>);
+  void livewireFromSeeds(QVector<QPointF>);
 
   bool seedMoveMode();
   void setSeedMoveMode(bool);
-  void setPolygonToUpdate(QVector<QPoint>,
+  void setPolygonToUpdate(QVector<QPointF>,
 			  QVector<int>,
-			  bool);
-  bool closed();
+			  bool, uchar,
+			  QVector<QPointF>);
   
   bool propagateLivewire();
   void setPropagateLivewire(bool);
-  void setGuessCurve(QVector<QPoint>, QVector<QPoint>);
+  void setGuessCurve(QVector<QPointF>, QVector<QPointF>);
   void renewGuessCurve();
 
   void setLod(int);
   int lod() { return m_lod; }
 
  private :
-  QVector<QPoint> m_poly;
-  QVector<QPoint> m_polyA;
-  QVector<QPoint> m_polyB;
-  QVector<QPoint> m_livewire;
+  QVector<QPointF> m_poly;
+  QVector<QPointF> m_polyA;
+  QVector<QPointF> m_polyB;
+  QVector<QPointF> m_livewire;
   QVector<int> m_seedpos;
+  QVector<QPointF> m_seeds;
 
   int m_activeSeed;
   bool m_seedMoveMode;
   bool m_closed;
-  
+  uchar m_type;
+
   bool m_propagateLivewire;
-  QVector<QPoint> m_guessCurve;
-  QVector<QPoint> m_guessSeeds;
+  QVector<QPointF> m_guessCurve;
+  QVector<QPointF> m_guessSeeds;
 
   int m_Owidth, m_Oheight;
   int m_width, m_height;
@@ -88,7 +93,7 @@ class LiveWire
 
   QVector<float> m_edgeWeight;
   QVector<float> m_cost;
-  QVector<QPoint> m_prev;
+  QVector<QPointF> m_prev;
 
   QImage m_gradImage;
 
@@ -110,6 +115,11 @@ class LiveWire
   int  getActiveSeed(int, int);
   int  insertSeed(int, int);
   int  removeSeed(int, int);
+
+  int getActiveSeedFromShape(int, int);
+  void updateShapeFromSeeds(int, int);
+  void updatePolygonFromSeeds();
+  void updateEllipseFromSeeds();
 };
 
 #endif

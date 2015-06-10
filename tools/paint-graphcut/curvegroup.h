@@ -38,8 +38,7 @@ class CurveGroup
   void removePolygonAt(int, int, int);
   void morphCurves(int, int);
 
-  void newShape(int, int, int);
-  void newPolygon(int, int, int);
+  void newPolygon(int, int, int, bool, bool);
   void newEllipse(int, int, int);
   void newCurve(int, bool);
 

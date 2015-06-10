@@ -1407,20 +1407,27 @@ ImageWidget::freezeLivewire(bool select)
 }
 
 void
-ImageWidget::newPolygon()
+ImageWidget::newPolygon(bool smooth, bool line)
 {
   if (m_sliceType == DSlice)
     m_dCurves.newPolygon(m_currSlice,
 			 (m_minHSlice+m_maxHSlice)/2,
-			 (m_minWSlice+m_maxWSlice)/2);
+			 (m_minWSlice+m_maxWSlice)/2,
+			 smooth, line);
   else if (m_sliceType == WSlice)
     m_wCurves.newPolygon(m_currSlice,
 			 (m_minHSlice+m_maxHSlice)/2,
-			 (m_minDSlice+m_maxDSlice)/2);
+			 (m_minDSlice+m_maxDSlice)/2,
+			 smooth, line);
   else
     m_hCurves.newPolygon(m_currSlice,
 			 (m_minWSlice+m_maxWSlice)/2,
-			 (m_minDSlice+m_maxDSlice)/2);
+			 (m_minDSlice+m_maxDSlice)/2,
+			 smooth, line);
+
+  CurveGroup *cg = getCg();
+  emit polygonLevels(cg->polygonLevels());
+
   update();
 }
 
@@ -1439,6 +1446,10 @@ ImageWidget::newEllipse()
     m_hCurves.newEllipse(m_currSlice,
 			 (m_minWSlice+m_maxWSlice)/2,
 			 (m_minDSlice+m_maxDSlice)/2);
+
+  CurveGroup *cg = getCg();
+  emit polygonLevels(cg->polygonLevels());
+
   update();
 }
 
@@ -1450,7 +1461,10 @@ ImageWidget::newCurve(bool showoptions)
       QStringList items;
       items << "Curve";
       items << "Ellipse";
+      items << "SPolygon";
       items << "Polygon";
+      items << "SPolyline";
+      items << "Polyline";
       bool ok;
       QString item = QInputDialog::getItem(this, "Add Element",
 					   "New Element", items, 0, false, &ok);
@@ -1464,10 +1478,31 @@ ImageWidget::newCurve(bool showoptions)
 				       "Move points to suit your needs");
 	      return;
 	    }
+	  else if (item == "SPolygon")
+	    {
+	      newPolygon(true, false);
+	      QMessageBox::information(this, "Add Smooth Polygon",
+				       "Add/remove/move points to suit your needs");
+	      return;
+	    }      
 	  else if (item == "Polygon")
 	    {
-	      newPolygon();
+	      newPolygon(false, false);
 	      QMessageBox::information(this, "Add Polygon",
+				       "Add/remove/move points to suit your needs");
+	      return;
+	    }      
+	  else if (item == "SPolyline")
+	    {
+	      newPolygon(true, true);
+	      QMessageBox::information(this, "Add Smooth Polyline",
+				       "Add/remove/move points to suit your needs");
+	      return;
+	    }      
+	  else if (item == "Polyline")
+	    {
+	      newPolygon(false, true);
+	      QMessageBox::information(this, "Add Polyline",
 				       "Add/remove/move points to suit your needs");
 	      return;
 	    }      
@@ -1479,6 +1514,8 @@ ImageWidget::newCurve(bool showoptions)
 
   CurveGroup *cg = getCg();
   cg->newCurve(m_currSlice, Global::closed());
+
+  emit polygonLevels(cg->polygonLevels());
 }
 
 void
@@ -1904,26 +1941,6 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
       update();
       return true;
     }
-
-  if (event->key() == Qt::Key_R) // add shape
-    {
-      if (m_sliceType == DSlice)
-	m_dCurves.newShape(m_currSlice,
-			   (m_minHSlice+m_maxHSlice)/2,
-			   (m_minWSlice+m_maxWSlice)/2);
-      else if (m_sliceType == WSlice)
-	m_wCurves.newShape(m_currSlice,
-			   (m_minHSlice+m_maxHSlice)/2,
-			   (m_minDSlice+m_maxDSlice)/2);
-      else
-	m_hCurves.newShape(m_currSlice,
-			   (m_minWSlice+m_maxWSlice)/2,
-			   (m_minDSlice+m_maxDSlice)/2);
-      
-      update();
-      return true;
-    }
-
 
   if (event->key() == Qt::Key_T)
     {

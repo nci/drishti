@@ -1012,7 +1012,7 @@ LiveWire::getActiveSeed(int xpos, int ypos)
 int
 LiveWire::insertSeed(int xpos, int ypos)
 {
-  if (m_type > 1)
+  if (m_type == 1)
     return -1;
   
   int ic;
@@ -1093,7 +1093,7 @@ LiveWire::removeSeed(int xpos, int ypos)
 {
   m_activeSeed = -1;
 
-  if (m_type > 1)
+  if (m_type == 1)
     return -1;
   
 
@@ -1198,9 +1198,9 @@ LiveWire::updateShapeFromSeeds(int xpos, int ypos)
   m_seeds[m_activeSeed] = QPointF(xpos, ypos);
 
   if (m_type == 1)
-    updatePolygonFromSeeds();
-  else if (m_type == 2)
     updateEllipseFromSeeds();
+  else
+    updatePolygonFromSeeds();
 }
 
 void
@@ -1261,6 +1261,10 @@ LiveWire::updateEllipseFromSeeds()
 void
 LiveWire::updatePolygonFromSeeds()
 {
+  m_livewire.clear();
+  m_poly.clear();
+  m_seedpos.clear();
+  
   QVector <QPointF> v, tv;
   v.resize(m_seeds.count());
   tv.resize(m_seeds.count());
@@ -1268,9 +1272,34 @@ LiveWire::updatePolygonFromSeeds()
   for(int i=0; i<m_seeds.count(); i++)
     v[i] = m_seeds[i];
 
-  m_livewire.clear();
-  m_poly.clear();
+  // polygon/polyline
+  if (m_type == 3 || m_type == 5)
+    {
+      int ptend = m_seeds.count();
+      if (m_type == 5) ptend--;
 
+      for(int ptn=0; ptn<ptend; ptn++)
+	{
+	  m_seedpos << m_poly.count();
+	  int nxt = (ptn+1)%m_seeds.count();
+	  QPointF diff = v[nxt]-v[ptn];
+	  int len = qSqrt(QPointF::dotProduct(diff, diff))/5;
+	  len = qMax(2, len);
+	  for(int i=0; i<len; i++)
+	    {
+	      float frc = i/(float)len;
+	      QPointF p = v[ptn] + frc*diff;
+	      m_poly << QPointF(p.x(), p.y());
+	    }
+	}
+
+      if (m_type == 5) // polyline
+	m_seedpos << m_poly.count()-1;
+      return;
+    }
+
+
+  // smooth polygon/polyline
   for(int i=0; i<m_seeds.count(); i++)
     {
       int nxt = (i+1)%m_seeds.count();
@@ -1281,7 +1310,9 @@ LiveWire::updatePolygonFromSeeds()
 
   m_poly.clear();
   m_seedpos.clear();
-  for(int ptn=0; ptn<m_seeds.count(); ptn++)
+  int ptend = m_seeds.count();
+  if (m_type == 4) ptend--;
+  for(int ptn=0; ptn<ptend; ptn++)
     {
       m_seedpos << m_poly.count();
       int nxt = (ptn+1)%m_seeds.count();
@@ -1298,12 +1329,6 @@ LiveWire::updatePolygonFromSeeds()
 	}
     }
 
-//  for(int i=0; i<10; i++)
-//    m_poly << (i/10.0)*v1 + (1-(i/10.0))*v0;
-//  for(int i=0; i<10; i++)
-//    m_poly << (i/10.0)*v2 + (1-(i/10.0))*v1;
-//  for(int i=0; i<10; i++)
-//    m_poly << (i/10.0)*v3 + (1-(i/10.0))*v2;
-//  for(int i=0; i<10; i++)
-//    m_poly << (i/10.0)*v0 + (1-(i/10.0))*v3;
+  if (m_type == 4) // polyline
+    m_seedpos << m_poly.count()-1;
 }

@@ -286,7 +286,8 @@ CurveGroup::flipPolygon(int key, int v0, int v1)
 }
 
 void
-CurveGroup::newPolygon(int key, int v0, int v1)
+CurveGroup::newPolygon(int key, int v0, int v1,
+		       bool smooth, bool line)
 {
   //-------------------
   // cull zero curves
@@ -308,10 +309,18 @@ CurveGroup::newPolygon(int key, int v0, int v1)
   //-------------------
   
   Curve *c = new Curve();
-  c->type = 1; // polygon=1/ellipse=2
+
+  if (smooth && !line) c->type = 2; // smooth polygon = 2
+  if (!smooth && !line) c->type = 3; // polygon = 3
+  if (smooth && line) c->type = 4; // smooth polyline = 4
+  if (!smooth && line) c->type = 5; // smooth polyline = 5
+
   c->tag = Global::tag();
   c->thickness = Global::thickness();
-  c->closed = true;
+  if (c->type < 4)
+    c->closed = true;
+  else
+    c->closed = false;
   
   c->seeds << QPointF(v0, v1-100);
   c->seeds << QPointF(v0+100, v1);
@@ -347,7 +356,7 @@ CurveGroup::newEllipse(int key, int v0, int v1)
   //-------------------
   
   Curve *c = new Curve();
-  c->type = 2; // polygon=1/ellipse=2
+  c->type = 1; // ellipse=1
   c->tag = Global::tag();
   c->thickness = Global::thickness();
   c->closed = true;
@@ -356,46 +365,6 @@ CurveGroup::newEllipse(int key, int v0, int v1)
   c->seeds << QPointF(v0, v1+100);
   c->seeds << QPointF(v0-100, v1);
   
-  generateEllipse(c);
-  
-  m_cg.insert(key, c);
-  
-  m_pointsDirtyBit = true;
-}
-
-void
-CurveGroup::newShape(int key, int v0, int v1)
-{
-  //-------------------
-  // cull zero curves
-  QList<Curve*> curves = m_cg.values(key);
-  QList<Curve*> nc;
-  for(int j=0; j<curves.count(); j++)
-    {
-      if (curves[j]->pts.count() > 0)
-	nc << curves[j];
-      else
-	delete curves[j];
-    }
-  if (nc.count() < curves.count())
-    {
-      m_cg.remove(key);
-      for(int j=0; j<nc.count(); j++)
-	m_cg.insert(key, nc[j]);
-    }
-  //-------------------
-  
-  Curve *c = new Curve();
-  c->type = 2; // polygon=1/ellipse=2
-  c->tag = Global::tag();
-  c->thickness = Global::thickness();
-  c->closed = true;
-  
-  c->seeds << QPointF(v0+100, v1);
-  c->seeds << QPointF(v0, v1+100);
-  c->seeds << QPointF(v0-100, v1);
-  
-  //generatePolygon(c);    
   generateEllipse(c);
   
   m_cg.insert(key, c);
@@ -433,13 +402,42 @@ CurveGroup::generateEllipse(Curve *c)
 void
 CurveGroup::generatePolygon(Curve *c)
 {
-  QVector <QPointF> v, tv;
-  v.resize(c->seeds.count());
-  tv.resize(c->seeds.count());
+  c->pts.clear();
+  c->seedpos.clear();
 
+  QVector <QPointF> v;
+  v.resize(c->seeds.count());
   for(int i=0; i<c->seeds.count(); i++)
     v[i] = c->seeds[i];
 
+
+  if (c->type == 3 || c->type == 5) // non-smooth versions
+    {
+      int ptend = c->seeds.count();
+      if (c->type == 5) ptend--;
+      for(int ptn=0; ptn<ptend; ptn++)
+	{
+	  c->seedpos << c->pts.count();
+	  int nxt = (ptn+1)%c->seeds.count();
+	  QPointF diff = v[nxt]-v[ptn];
+	  int len = qSqrt(QPointF::dotProduct(diff, diff))/5;
+	  len = qMax(2, len);
+	  for(int i=0; i<len; i++)
+	    {
+	      float frc = i/(float)len;
+	      QPointF p = v[ptn] + frc*diff;
+	      c->pts << QPointF(p.x(), p.y());
+	    }
+	}
+
+      if (c->type == 5) // polyline
+	c->seedpos << c->pts.count()-1;
+      return;
+    }
+
+
+  QVector <QPointF> tv;
+  tv.resize(c->seeds.count());
   for(int i=0; i<c->seeds.count(); i++)
     {
       int nxt = (i+1)%c->seeds.count();
@@ -448,9 +446,9 @@ CurveGroup::generatePolygon(Curve *c)
       tv[i] = (v[nxt]-v[prv])/2;
     }
 
-  c->pts.clear();
-  c->seedpos.clear();
-  for(int ptn=0; ptn<c->seeds.count(); ptn++)
+  int ptend = c->seeds.count();
+  if (c->type == 4) ptend--;
+  for(int ptn=0; ptn<ptend; ptn++)
     {
       c->seedpos << c->pts.count();
       int nxt = (ptn+1)%c->seeds.count();
@@ -467,15 +465,8 @@ CurveGroup::generatePolygon(Curve *c)
 	}
     }
 
-
-//  for(int i=0; i<10; i++)
-//    c->pts << (i/10.0)*v1 + (1-(i/10.0))*v0;
-//  for(int i=0; i<10; i++)
-//    c->pts << (i/10.0)*v2 + (1-(i/10.0))*v1;
-//  for(int i=0; i<10; i++)
-//    c->pts << (i/10.0)*v3 + (1-(i/10.0))*v2;
-//  for(int i=0; i<10; i++)
-//    c->pts << (i/10.0)*v0 + (1-(i/10.0))*v3;
+  if (c->type == 4) // polyline
+    c->seedpos << c->pts.count()-1;
 }
 
 void

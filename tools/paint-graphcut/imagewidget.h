@@ -94,8 +94,6 @@ class ImageWidget : public QWidget
   void setGradType(int);
   void freezeLivewire(bool);
   void newCurve(bool);
-  void newPolygon();
-  void newEllipse();
   void morphCurves();
   void deleteAllCurves();
   void zoom0();
@@ -288,6 +286,8 @@ class ImageWidget : public QWidget
   CurveGroup* getCg();
 
   void drawSeedPoints(QPainter*, QVector<QPointF>, QColor);
+  void newPolygon(bool, bool);
+  void newEllipse();
 };
 
 

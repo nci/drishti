@@ -13,6 +13,7 @@
 
 #include "livewire.h"
 #include "curvegroup.h"
+#include "fibergroup.h"
 
 class ImageWidget : public QWidget
 {
@@ -58,14 +59,16 @@ class ImageWidget : public QWidget
 
   void processPrevSliceTags();
 
-  QVector3D pickedPoint() { return QVector3D(m_lastPickDepth, m_lastPickWidth, m_lastPickHeight); }
+  QVector3D pickedPoint() { return QVector3D(m_lastPickDepth, m_lastPickWidth, m_lastPickHeight); };
 
-  QMultiMap<int, Curve*>* multiMapCurvesD() { return m_dCurves.multiMapCurves(); }
-  QList< QMap<int, Curve> >* listMapCurvesD() { return m_dCurves.listMapCurves(); }
-  QMultiMap<int, Curve*>* multiMapCurvesW() { return m_wCurves.multiMapCurves(); }
-  QList< QMap<int, Curve> >* listMapCurvesW() { return m_wCurves.listMapCurves(); }
-  QMultiMap<int, Curve*>* multiMapCurvesH() { return m_hCurves.multiMapCurves(); }
-  QList< QMap<int, Curve> >* listMapCurvesH() { return m_hCurves.listMapCurves(); }
+  QMultiMap<int, Curve*>* multiMapCurvesD() { return m_dCurves.multiMapCurves(); };
+  QList< QMap<int, Curve> >* listMapCurvesD() { return m_dCurves.listMapCurves(); };
+  QMultiMap<int, Curve*>* multiMapCurvesW() { return m_wCurves.multiMapCurves(); };
+  QList< QMap<int, Curve> >* listMapCurvesW() { return m_wCurves.listMapCurves(); };
+  QMultiMap<int, Curve*>* multiMapCurvesH() { return m_hCurves.multiMapCurves(); };
+  QList< QMap<int, Curve> >* listMapCurvesH() { return m_hCurves.listMapCurves(); };
+
+  QList<Fiber*>* fibers() { return m_fibers.fibers(); };
 
   bool seedMoveMode() { return m_livewire.seedMoveMode(); };
   void deselectAll();
@@ -74,6 +77,8 @@ class ImageWidget : public QWidget
   bool dCurvesPresent() { return m_dCurves.curvesPresent(); };
   bool wCurvesPresent() { return m_wCurves.curvesPresent(); };
   bool hCurvesPresent() { return m_hCurves.curvesPresent(); };
+
+  bool fibersPresent() { return m_fibers.fibersPresent(); };
 
   void resetCurves();
 
@@ -150,6 +155,9 @@ class ImageWidget : public QWidget
   CurveGroup m_dCurves;
   CurveGroup m_wCurves;
   CurveGroup m_hCurves;
+
+  bool m_fiberMode;
+  FiberGroup m_fibers;
 
   QVector<QRgb> m_tagColors;
   QVector<QRgb> m_prevslicetagColors;

@@ -20,6 +20,8 @@ Viewer::init()
   m_Wmcg = 0;
   m_Hmcg = 0;
 
+  m_fibers = 0;
+
   m_depth = 0;
   m_width = 0;
   m_height = 0;
@@ -214,6 +216,8 @@ Viewer::drawCurrentSlice(Vec subvolmin,
 void
 Viewer::drawBox()
 {
+  glLineWidth(1);
+
   //setAxisIsDrawn();
   
   glColor3d(0.5,0.5,0.5);
@@ -252,6 +256,13 @@ Viewer::setListMapCurves(int type, QList< QMap<int, Curve> > *cg)
 }
 
 void
+Viewer::setFibers(QList<Fiber*> *fb)
+{
+  m_fibers = fb;
+}
+
+
+void
 Viewer::draw()
 {
   glDisable(GL_LIGHTING);
@@ -267,8 +278,38 @@ Viewer::draw()
   drawLMWCurve();
   drawLMHCurve();
 
+  drawFibers();
+
   if (m_pointSkip > 0 && m_maskPtr)
     drawVolMask();
+}
+
+void
+Viewer::drawFibers()
+{
+  if (!m_fibers) return;
+
+  for(int i=0; i<m_fibers->count(); i++)
+    {
+      Fiber *fb = m_fibers->at(i);
+      int tag = fb->tag;
+      if (m_curveTags.count() == 0 ||
+	  m_curveTags[0] == -1 ||
+	  m_curveTags.contains(tag))
+	{
+	  float r = Global::tagColors()[4*tag+0]*1.0/255.0;
+	  float g = Global::tagColors()[4*tag+1]*1.0/255.0;
+	  float b = Global::tagColors()[4*tag+2]*1.0/255.0;
+	  glColor3f(r,g,b);
+	  glLineWidth(fb->thickness);
+	  glBegin(GL_LINE_STRIP);
+	  for(int j=0; j<fb->pts.count(); j++)
+	    glVertex3f(fb->pts[j].x, fb->pts[j].y, fb->pts[j].z);
+	  glEnd();
+	}
+    }
+
+  glLineWidth(1);
 }
 
 void
@@ -639,6 +680,7 @@ Viewer::drawMMDCurve()
 	    }
 	}
     }
+  glLineWidth(1);
 }
 
 void
@@ -675,6 +717,7 @@ Viewer::drawMMWCurve()
 	    }
 	}
     }
+  glLineWidth(1);
 }
 
 void
@@ -711,6 +754,7 @@ Viewer::drawMMHCurve()
 	    }
 	}
     }
+  glLineWidth(1);
 }
 
 void
@@ -749,6 +793,7 @@ Viewer::drawLMDCurve()
 	    }
 	}
     }
+  glLineWidth(1);
 }
 
 void
@@ -788,6 +833,7 @@ Viewer::drawLMWCurve()
 	    }
 	}
     }
+  glLineWidth(1);
 }
 
 void
@@ -827,4 +873,5 @@ Viewer::drawLMHCurve()
 	    }
 	}
     }
+  glLineWidth(1);
 }

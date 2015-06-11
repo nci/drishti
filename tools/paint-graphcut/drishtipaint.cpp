@@ -865,6 +865,8 @@ DrishtiPaint::setFile(QString filename)
   m_viewer->setMultiMapCurves(2, m_imageWidget->multiMapCurvesH());
   m_viewer->setListMapCurves(2, m_imageWidget->listMapCurvesH());
 
+  m_viewer->setFibers(m_imageWidget->fibers());
+  
   m_viewer->setVolDataPtr(m_volume->memVolDataPtr());
   m_viewer->setMaskDataPtr(m_volume->memMaskDataPtr());
 

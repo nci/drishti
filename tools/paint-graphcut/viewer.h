@@ -6,6 +6,7 @@
 using namespace qglviewer;
 
 #include "curvegroup.h"
+#include "fiber.h"
 
 class Viewer : public QGLViewer
 {
@@ -20,6 +21,8 @@ class Viewer : public QGLViewer
   void setGridSize(int, int, int);
   void setMultiMapCurves(int, QMultiMap<int, Curve*>*);
   void setListMapCurves(int, QList< QMap<int, Curve> >*);
+
+  void setFibers(QList<Fiber*>*);
 
   void setVolDataPtr(uchar*);
   void setMaskDataPtr(uchar*);
@@ -61,6 +64,8 @@ class Viewer : public QGLViewer
   QList< QMap<int, Curve> > *m_Wmcg;  
   QList< QMap<int, Curve> > *m_Hmcg;  
 
+  QList<Fiber*> *m_fibers;
+
   QList<ushort> m_voxels;
 
   QList<int> m_paintedTags;
@@ -76,6 +81,8 @@ class Viewer : public QGLViewer
   void drawLMDCurve();
   void drawLMWCurve();
   void drawLMHCurve();
+
+  void drawFibers();
 
   void drawVolMask();
   void drawVol();

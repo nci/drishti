@@ -59,6 +59,7 @@ ImageWidget::ImageWidget(QWidget *parent, QStatusBar *sb) :
 
   m_livewireMode = false;
   m_curveMode = false;
+  m_fiberMode = false;
 
   m_Depth = m_Width = m_Height = 0;
   m_imgHeight = 100;
@@ -73,6 +74,8 @@ ImageWidget::ImageWidget(QWidget *parent, QStatusBar *sb) :
   m_dCurves.reset();
   m_wCurves.reset();
   m_hCurves.reset();
+
+  m_fibers.reset();
 
   m_zoom = 1;
 
@@ -328,6 +331,7 @@ ImageWidget::resetCurves()
   m_dCurves.reset();
   m_wCurves.reset();
   m_hCurves.reset();
+  m_fibers.reset();
 }
 
 void
@@ -1843,6 +1847,21 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
 	}
     }
 
+  //--------------------------------------------------------
+
+  if (event->key() == Qt::Key_F)
+    {
+      m_fiberMode = !m_fiberMode;
+      QMessageBox::information(0, "", QString("%1").arg(m_fiberMode));
+    }
+  if (m_fiberMode)
+    {
+      if (event->key() == Qt::Key_Space)
+	m_fibers.newFiber();
+      return true;
+    }
+  //--------------------------------------------------------
+
   if (ctrlModifier && event->key() == Qt::Key_C)
     {
       int cc = -1;
@@ -2412,12 +2431,19 @@ ImageWidget::curveMousePressEvent(QMouseEvent *event)
       // carry on only if Alt key is not pressed
       if(!m_livewireMode)
 	{
-	  if (m_sliceType == DSlice)
-	    m_dCurves.addPoint(m_currSlice, m_pickHeight, m_pickWidth);
-	  else if (m_sliceType == WSlice)
-	    m_wCurves.addPoint(m_currSlice, m_pickHeight, m_pickDepth);
-	  else
-	    m_hCurves.addPoint(m_currSlice, m_pickWidth,  m_pickDepth);
+	  if (m_fiberMode)
+	    {
+	      m_fibers.addPoint(m_pickDepth, m_pickWidth, m_pickHeight);
+	    }
+	  else // curveMode
+	    {
+	      if (m_sliceType == DSlice)
+		m_dCurves.addPoint(m_currSlice, m_pickHeight, m_pickWidth);
+	      else if (m_sliceType == WSlice)
+		m_wCurves.addPoint(m_currSlice, m_pickHeight, m_pickDepth);
+	      else
+		m_hCurves.addPoint(m_currSlice, m_pickWidth,  m_pickDepth);
+	    }
 	}
     }
   else if (m_button == Qt::MiddleButton &&
@@ -2433,12 +2459,19 @@ ImageWidget::curveMousePressEvent(QMouseEvent *event)
   else if (m_button == Qt::RightButton &&
 	   !m_livewireMode)
     {
-      if (m_sliceType == DSlice)
-	m_dCurves.removePoint(m_currSlice, m_pickHeight, m_pickWidth);
-      else if (m_sliceType == WSlice)
-	m_wCurves.removePoint(m_currSlice, m_pickHeight, m_pickDepth);
-      else
-	m_hCurves.removePoint(m_currSlice, m_pickWidth,  m_pickDepth);
+      if (m_fiberMode)
+	{
+	  m_fibers.removePoint(m_pickDepth, m_pickWidth, m_pickHeight);
+	}
+      else // curveMode
+	{
+	  if (m_sliceType == DSlice)
+	    m_dCurves.removePoint(m_currSlice, m_pickHeight, m_pickWidth);
+	  else if (m_sliceType == WSlice)
+	    m_wCurves.removePoint(m_currSlice, m_pickHeight, m_pickDepth);
+	  else
+	    m_hCurves.removePoint(m_currSlice, m_pickWidth,  m_pickDepth);
+	}
     }
 }
 

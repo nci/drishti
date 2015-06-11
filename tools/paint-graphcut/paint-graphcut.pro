@@ -31,6 +31,8 @@ HEADERS += commonqtclasses.h \
 	curvegroup.h \
 	dcolordialog.h \
 	dcolorwheel.h \
+	fiber.h \
+	fibergroup.h\
 	imagewidget.h \
 	global.h \
 	gradienteditor.h \
@@ -68,6 +70,8 @@ SOURCES += drishtipaint.cpp \
 	curvegroup.cpp \
 	dcolordialog.cpp \
 	dcolorwheel.cpp \
+	fiber.cpp \
+	fibergroup.cpp\
 	imagewidget.cpp \
 	global.cpp \
 	gradienteditor.cpp \

@@ -21,10 +21,13 @@ FiberGroup::reset()
 void
 FiberGroup::newFiber()
 {
+  for(int i=0; i<m_fibers.count(); i++)
+    m_fibers[i]->selected = false;
+
   Fiber *fb = new Fiber;
   fb->tag = Global::tag();
   fb->thickness = Global::thickness();
-  fb->selected = false;
+  fb->selected = true;
 
   m_fibers << fb;
 
@@ -37,10 +40,15 @@ FiberGroup::addPoint(int d, int w, int h)
   if (m_fibers.count() == 0)
     return;
 
-  Fiber *fb = m_fibers.last();
-  fb->addPoint(d, w, h);
+  for(int i=0; i<m_fibers.count(); i++)
+    {
+      if (m_fibers[i]->selected)
+	{
+	  m_fibers[i]->addPoint(d, w, h);
+	  return;
+	}
+    }
 }
-
 
 void
 FiberGroup::removePoint(int d, int w, int h)
@@ -51,7 +59,7 @@ FiberGroup::removePoint(int d, int w, int h)
   for(int i=0; i<m_fibers.count(); i++)
     {
       Fiber *fb = m_fibers[i];
-      if (fb->contains(d, w, h))
+      if (fb->containsSeed(d, w, h))
 	{
 	  fb->removePoint(d, w, h);
 	  return;
@@ -59,12 +67,51 @@ FiberGroup::removePoint(int d, int w, int h)
     }
 }
 
+void
+FiberGroup::selectFiber(int d, int w, int h)
+{
+  if (m_fibers.count() == 0)
+    return;
+
+  for(int i=0; i<m_fibers.count(); i++)
+    {
+      if (m_fibers[i]->contains(d, w, h))
+	{
+	  if (m_fibers[i]->selected)
+	    m_fibers[i]->selected = false;
+	  else
+	    {
+	      for(int f=0; f<m_fibers.count(); f++)
+		m_fibers[f]->selected = false;
+
+	      m_fibers[i]->selected = true;
+	    }
+	  return;
+	}
+    }
+
+  for(int f=0; f<m_fibers.count(); f++)
+    m_fibers[f]->selected = false;
+}
+
 QVector<QPointF>
 FiberGroup::xyPoints(int type, int slc)
 {
   QVector<QPointF> xypoints;
   for (int i=0; i<m_fibers.count(); i++)
-    xypoints += m_fibers[i]->xyPoints(type, slc);
+    if (!m_fibers[i]->selected)
+      xypoints += m_fibers[i]->xyPoints(type, slc);
+  
+  return xypoints;
+}
+
+QVector<QPointF>
+FiberGroup::xyPointsSelected(int type, int slc)
+{
+  QVector<QPointF> xypoints;
+  for (int i=0; i<m_fibers.count(); i++)
+    if (m_fibers[i]->selected)
+      xypoints += m_fibers[i]->xyPoints(type, slc);
   
   return xypoints;
 }
@@ -74,7 +121,19 @@ FiberGroup::xySeeds(int type, int slc)
 {
   QVector<QPointF> xypoints;
   for (int i=0; i<m_fibers.count(); i++)
-    xypoints += m_fibers[i]->xySeeds(type, slc);
+    if (!m_fibers[i]->selected)
+      xypoints += m_fibers[i]->xySeeds(type, slc);
+  
+  return xypoints;
+}
+
+QVector<QPointF>
+FiberGroup::xySeedsSelected(int type, int slc)
+{
+  QVector<QPointF> xypoints;
+  for (int i=0; i<m_fibers.count(); i++)
+    if (m_fibers[i]->selected)
+      xypoints += m_fibers[i]->xySeeds(type, slc);
   
   return xypoints;
 }

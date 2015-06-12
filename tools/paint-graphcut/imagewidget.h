@@ -295,6 +295,8 @@ class ImageWidget : public QWidget
   CurveGroup* getCg();
 
   void drawSeedPoints(QPainter*, QVector<QPointF>, QColor);
+  void drawPoints(QPainter*, QVector<QPointF>, QColor, int, int);
+
   void newPolygon(bool, bool);
   void newEllipse();
 };

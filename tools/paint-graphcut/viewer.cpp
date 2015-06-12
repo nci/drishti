@@ -301,7 +301,10 @@ Viewer::drawFibers()
 	  float g = Global::tagColors()[4*tag+1]*1.0/255.0;
 	  float b = Global::tagColors()[4*tag+2]*1.0/255.0;
 	  glColor3f(r,g,b);
-	  glLineWidth(fb->thickness);
+	  if (fb->selected)
+	    glLineWidth(fb->thickness + 2);
+	  else
+	    glLineWidth(fb->thickness);
 	  glBegin(GL_LINE_STRIP);
 	  for(int j=0; j<fb->trace.count(); j++)
 	    glVertex3f(fb->trace[j].x, fb->trace[j].y, fb->trace[j].z);

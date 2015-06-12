@@ -767,19 +767,23 @@ ImageWidget::drawSeedPoints(QPainter *p,
 			    QVector<QPointF> seeds,
 			    QColor seedColor)
 {
-  p->setPen(QPen(Qt::black, 4, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+  drawPoints(p, seeds, Qt::black, 4, m_pointSize);
+  drawPoints(p, seeds, seedColor, 2, m_pointSize);
+}
+
+void
+ImageWidget::drawPoints(QPainter *p,
+			QVector<QPointF> seeds,
+			QColor seedColor,
+			int penSize,
+			int pointSize)
+{
+  p->setPen(QPen(seedColor, penSize, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
   for(int i=0; i<seeds.count(); i++)
     {
-      int x = seeds[i].x() - m_pointSize/2;
-      int y = seeds[i].y() - m_pointSize/2;
-      p->drawArc(x,y,m_pointSize,m_pointSize, 0, 16*360);
-    }
-  p->setPen(QPen(seedColor, 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-  for(int i=0; i<seeds.count(); i++)
-    {
-      int x = seeds[i].x() - m_pointSize/2;
-      int y = seeds[i].y() - m_pointSize/2;
-      p->drawArc(x,y,m_pointSize,m_pointSize, 0, 16*360);
+      int x = seeds[i].x() - pointSize/2;
+      int y = seeds[i].y() - pointSize/2;
+      p->drawArc(x,y,pointSize,pointSize, 0, 16*360);
     }
 }
 
@@ -834,6 +838,9 @@ void
 ImageWidget::drawFibers(QPainter *p)
 {
   QVector<QPointF> pts;
+
+  //-------------------------------
+  // draw fiber strands
   if (m_sliceType == DSlice)
     pts = m_fibers.xyPoints(0, m_currSlice);
   else if (m_sliceType == WSlice)
@@ -844,11 +851,29 @@ ImageWidget::drawFibers(QPainter *p)
   QPoint move = QPoint(m_simgX, m_simgY);
   float sx = (float)m_simgWidth/(float)m_imgWidth;
   for(int i=0; i<pts.count(); i++)
+      pts[i] = pts[i]*sx + move;
+  drawPoints(p, pts, Qt::green, 2, 4);
+
+  //-------------------------------
+
+  //-------------------------------
+  // draw fiber selected strands
+  if (m_sliceType == DSlice)
+    pts = m_fibers.xyPointsSelected(0, m_currSlice);
+  else if (m_sliceType == WSlice)
+    pts = m_fibers.xyPointsSelected(1, m_currSlice);
+  else if (m_sliceType == HSlice)
+    pts = m_fibers.xyPointsSelected(2, m_currSlice);
+
+  for(int i=0; i<pts.count(); i++)
     pts[i] = pts[i]*sx + move;
 
-  p->setPen(QPen(Qt::green, 4));
-  p->drawPoints(pts);
+  drawPoints(p, pts, Qt::green, 4, 4);
+  drawPoints(p, pts, Qt::darkGreen, 2, 4);
+  //-------------------------------
 
+
+  //-------------------------------
   // now draw seeds
   if (m_sliceType == DSlice)
     pts = m_fibers.xySeeds(0, m_currSlice);
@@ -861,6 +886,28 @@ ImageWidget::drawFibers(QPainter *p)
     pts[i] = pts[i]*sx + move;
 
   drawSeedPoints(p, pts, Qt::green);
+  //-------------------------------
+
+
+  //-------------------------------
+  // now draw seeds selected fiber
+  if (m_sliceType == DSlice)
+    pts = m_fibers.xySeedsSelected(0, m_currSlice);
+  else if (m_sliceType == WSlice)
+    pts = m_fibers.xySeedsSelected(1, m_currSlice);
+  else if (m_sliceType == HSlice)
+    pts = m_fibers.xySeedsSelected(2, m_currSlice);
+
+  for(int i=0; i<pts.count(); i++)
+    pts[i] = pts[i]*sx + move;
+
+  int ps = m_pointSize;
+  m_pointSize += 4;
+  drawSeedPoints(p, pts, Qt::green);
+  m_pointSize = ps;
+  drawSeedPoints(p, pts, Qt::white);
+  //-------------------------------
+
 }
 
 int
@@ -1896,6 +1943,11 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
     {
       if (event->key() == Qt::Key_Space)
 	m_fibers.newFiber();
+      else if (event->key() == Qt::Key_H)
+	{
+	  m_fibers.selectFiber(m_pickDepth, m_pickWidth, m_pickHeight);
+	  update();
+	}
       return true;
     }
   //--------------------------------------------------------

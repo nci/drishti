@@ -105,10 +105,24 @@ Fiber::removePoint(int d, int w, int h)
 }
 
 bool
+Fiber::containsSeed(int d, int w, int h)
+{
+  QList<QPointF> dpts = m_dSeeds.values(d);
+
+  for(int i=0; i<dpts.count(); i++)
+    if ((dpts[i]-QPointF(h, w)).manhattanLength() < 10)
+      return true;
+
+  return false;
+}
+
+bool
 Fiber::contains(int d, int w, int h)
 {
-  for(int i=0; i<seeds.count(); i++)
-    if ((seeds[i]-Vec(h, w, d)).squaredNorm() < 10)
+  QList<QPointF> dpts = m_dPoints.values(d);
+
+  for(int i=0; i<dpts.count(); i++)
+    if ((dpts[i]-QPointF(h, w)).manhattanLength() < 10)
       return true;
 
   return false;

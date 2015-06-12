@@ -20,6 +20,7 @@ class Fiber
 
   void addPoint(int, int, int);
   void removePoint(int, int, int);
+  bool containsSeed(int, int, int);
   bool contains(int, int, int);
   
   QVector<QPointF> xyPoints(int, int);

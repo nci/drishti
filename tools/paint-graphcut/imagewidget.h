@@ -237,6 +237,7 @@ class ImageWidget : public QWidget
   int  drawMorphedCurves(QPainter*);
   void drawOtherCurvePoints(QPainter*);
   void drawLivewire(QPainter*);
+  void drawFibers(QPainter*);
 
   bool checkRubberBand(int, int);
 

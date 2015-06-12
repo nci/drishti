@@ -830,6 +830,39 @@ ImageWidget::drawLivewire(QPainter *p)
   }
 }
 
+void
+ImageWidget::drawFibers(QPainter *p)
+{
+  QVector<QPointF> pts;
+  if (m_sliceType == DSlice)
+    pts = m_fibers.xyPoints(0, m_currSlice);
+  else if (m_sliceType == WSlice)
+    pts = m_fibers.xyPoints(1, m_currSlice);
+  else if (m_sliceType == HSlice)
+    pts = m_fibers.xyPoints(2, m_currSlice);
+
+  QPoint move = QPoint(m_simgX, m_simgY);
+  float sx = (float)m_simgWidth/(float)m_imgWidth;
+  for(int i=0; i<pts.count(); i++)
+    pts[i] = pts[i]*sx + move;
+
+  p->setPen(QPen(Qt::green, 4));
+  p->drawPoints(pts);
+
+  // now draw seeds
+  if (m_sliceType == DSlice)
+    pts = m_fibers.xySeeds(0, m_currSlice);
+  else if (m_sliceType == WSlice)
+    pts = m_fibers.xySeeds(1, m_currSlice);
+  else if (m_sliceType == HSlice)
+    pts = m_fibers.xySeeds(2, m_currSlice);
+
+  for(int i=0; i<pts.count(); i++)
+    pts[i] = pts[i]*sx + move;
+
+  drawSeedPoints(p, pts, Qt::green);
+}
+
 int
 ImageWidget::drawCurves(QPainter *p)
 {  
@@ -1097,17 +1130,22 @@ ImageWidget::paintEvent(QPaintEvent *event)
     p.drawImage(m_simgX, m_simgY, m_prevslicetagimageScaled);
 
   drawRubberBand(&p);
+  
 
-  int nc = drawCurves(&p);
-  int nmc = drawMorphedCurves(&p);
+  if (!m_fiberMode)
+    {
+      int nc = drawCurves(&p);
+      int nmc = drawMorphedCurves(&p);
+      drawSizeText(&p, nc, nmc);
 
-  drawSizeText(&p, nc, nmc);
+      drawLivewire(&p);
+      
+      if (!m_livewire.seedMoveMode())
+	drawOtherCurvePoints(&p);
+    }
+  else
+    drawFibers(&p);
 
-
-  drawLivewire(&p);
-
-  if (!m_livewire.seedMoveMode())
-    drawOtherCurvePoints(&p);
 
   if (m_pickPoint)
     drawRawValue(&p);

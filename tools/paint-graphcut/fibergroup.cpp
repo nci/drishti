@@ -38,7 +38,7 @@ FiberGroup::addPoint(int d, int w, int h)
     return;
 
   Fiber *fb = m_fibers.last();
-  fb->pts << Vec(h, w, d);
+  fb->addPoint(d, w, h);
 }
 
 
@@ -51,17 +51,30 @@ FiberGroup::removePoint(int d, int w, int h)
   for(int i=0; i<m_fibers.count(); i++)
     {
       Fiber *fb = m_fibers[i];
-      bool ok = false;
-      for(int j=0; j<fb->pts.count(); j++)
+      if (fb->contains(d, w, h))
 	{
-	  if ((fb->pts[j]-Vec(h, w, d)).squaredNorm() < 5)
-	    {
-	      fb->pts.removeAt(j);
-	      ok = true;
-	      break;
-	    }
+	  fb->removePoint(d, w, h);
+	  return;
 	}
-      if (ok)
-	break;
     }
+}
+
+QVector<QPointF>
+FiberGroup::xyPoints(int type, int slc)
+{
+  QVector<QPointF> xypoints;
+  for (int i=0; i<m_fibers.count(); i++)
+    xypoints += m_fibers[i]->xyPoints(type, slc);
+  
+  return xypoints;
+}
+
+QVector<QPointF>
+FiberGroup::xySeeds(int type, int slc)
+{
+  QVector<QPointF> xypoints;
+  for (int i=0; i<m_fibers.count(); i++)
+    xypoints += m_fibers[i]->xySeeds(type, slc);
+  
+  return xypoints;
 }

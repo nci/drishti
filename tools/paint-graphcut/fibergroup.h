@@ -19,6 +19,9 @@ class FiberGroup
   void addPoint(int, int, int);
   void removePoint(int, int, int);
 
+  QVector<QPointF> xyPoints(int, int);
+  QVector<QPointF> xySeeds(int, int);
+
  private :
   QList<Fiber*> m_fibers;
 };

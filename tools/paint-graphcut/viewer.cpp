@@ -293,9 +293,9 @@ Viewer::drawFibers()
     {
       Fiber *fb = m_fibers->at(i);
       int tag = fb->tag;
-      if (m_curveTags.count() == 0 ||
-	  m_curveTags[0] == -1 ||
-	  m_curveTags.contains(tag))
+//      if (m_curveTags.count() == 0 ||
+//	  m_curveTags[0] == -1 ||
+//	  m_curveTags.contains(tag))
 	{
 	  float r = Global::tagColors()[4*tag+0]*1.0/255.0;
 	  float g = Global::tagColors()[4*tag+1]*1.0/255.0;
@@ -303,8 +303,8 @@ Viewer::drawFibers()
 	  glColor3f(r,g,b);
 	  glLineWidth(fb->thickness);
 	  glBegin(GL_LINE_STRIP);
-	  for(int j=0; j<fb->pts.count(); j++)
-	    glVertex3f(fb->pts[j].x, fb->pts[j].y, fb->pts[j].z);
+	  for(int j=0; j<fb->trace.count(); j++)
+	    glVertex3f(fb->trace[j].x, fb->trace[j].y, fb->trace[j].z);
 	  glEnd();
 	}
     }

@@ -12,10 +12,30 @@ class Fiber
 
   Fiber& operator=(const Fiber&);
 
-  QVector<Vec> pts;
+  QVector<Vec> seeds;
+  QList<Vec> trace;
   int tag;
   int thickness;
   bool selected;
+
+  void addPoint(int, int, int);
+  void removePoint(int, int, int);
+  bool contains(int, int, int);
+  
+  QVector<QPointF> xyPoints(int, int);
+  QVector<QPointF> xySeeds(int, int);
+
+ private :
+  QMultiMap<int, QPointF> m_dPoints;
+  QMultiMap<int, QPointF> m_wPoints;
+  QMultiMap<int, QPointF> m_hPoints;
+
+  QMultiMap<int, QPointF> m_dSeeds;
+  QMultiMap<int, QPointF> m_wSeeds;
+  QMultiMap<int, QPointF> m_hSeeds;
+
+  void updateTrace();
+  QList<Vec> line3d(Vec, Vec);
 };
 
 #endif

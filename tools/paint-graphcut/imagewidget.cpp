@@ -1183,6 +1183,9 @@ ImageWidget::paintEvent(QPaintEvent *event)
   drawRubberBand(&p);
   
 
+  if (m_fiberMode)
+    drawFibers(&p);
+
   if (!m_fiberMode)
     {
       int nc = drawCurves(&p);
@@ -1194,8 +1197,6 @@ ImageWidget::paintEvent(QPaintEvent *event)
       if (!m_livewire.seedMoveMode())
 	drawOtherCurvePoints(&p);
     }
-  else
-    drawFibers(&p);
 
 
   if (m_pickPoint)
@@ -1204,7 +1205,7 @@ ImageWidget::paintEvent(QPaintEvent *event)
   if (!m_rubberBandActive &&
       !m_livewireMode &&
       !m_curveMode &&
-      shiftModifier)
+      !m_fiberMode)
     {
       float xpos = m_cursorPos.x();
       float ypos = m_cursorPos.y();
@@ -1437,7 +1438,21 @@ void ImageWidget::setCurve(bool b)
   m_curveMode = b;
   if (!m_curveMode) m_livewireMode = false;
 }
+
 void ImageWidget::setLivewire(bool b) { m_livewireMode = b; }
+
+void ImageWidget::setFiberMode(bool b) { m_fiberMode = b; }
+
+void ImageWidget::newFiber()
+{
+  m_fibers.newFiber();
+  emit showEndFiber();
+}
+void ImageWidget::endFiber()
+{
+  m_fibers.endFiber();
+  emit hideEndFiber();
+}
 
 void
 ImageWidget::freezeLivewire(bool select)
@@ -1866,6 +1881,26 @@ ImageWidget::propagateCurves(bool flag)
 }
 
 bool
+ImageWidget::fiberModeKeyPressEvent(QKeyEvent *event)
+{
+  QPoint pp = mapFromGlobal(QCursor::pos());
+  float ypos = pp.y();
+  float xpos = pp.x();
+  validPickPoint(xpos, ypos);
+
+  int shiftModifier = event->modifiers() & Qt::ShiftModifier;
+  int ctrlModifier = event->modifiers() & Qt::ControlModifier;
+
+  if (event->key() == Qt::Key_H)
+    {
+      m_fibers.selectFiber(m_pickDepth, m_pickWidth, m_pickHeight);
+      update();
+    }
+
+  return true;
+}
+
+bool
 ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
 {
   if (m_applyRecursive && event->key() == Qt::Key_Escape)
@@ -1942,23 +1977,23 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
 
   //--------------------------------------------------------
 
-  if (event->key() == Qt::Key_F)
-    {
-      m_fiberMode = !m_fiberMode;
-      QMessageBox::information(0, "", QString("%1").arg(m_fiberMode));
-    }
-  if (m_fiberMode)
-    {
-      if (event->key() == Qt::Key_Space)
-	m_fibers.newFiber();
-      else if (event->key() == Qt::Key_H)
-	{
-	  m_fibers.selectFiber(m_pickDepth, m_pickWidth, m_pickHeight);
-	  update();
-	}
-      return true;
-    }
-  //--------------------------------------------------------
+//  if (event->key() == Qt::Key_F)
+//    {
+//      m_fiberMode = !m_fiberMode;
+//      QMessageBox::information(0, "", QString("%1").arg(m_fiberMode));
+//    }
+//  if (m_fiberMode)
+//    {
+//      if (event->key() == Qt::Key_Space)
+//	m_fibers.newFiber();
+//      if (event->key() == Qt::Key_H)
+//	{
+//	  m_fibers.selectFiber(m_pickDepth, m_pickWidth, m_pickHeight);
+//	  update();
+//	}
+//      return true;
+//    }
+//  //--------------------------------------------------------
 
   if (ctrlModifier && event->key() == Qt::Key_C)
     {
@@ -2170,9 +2205,14 @@ void
 ImageWidget::keyPressEvent(QKeyEvent *event)
 {
   bool processed = false;
+
+  if (m_fiberMode)
+    processed = fiberModeKeyPressEvent(event);
+  if (processed)
+    return;
+
   if (m_livewireMode || m_curveMode)
     processed = curveModeKeyPressEvent(event);
-
   if (processed)
     return;
 
@@ -2466,6 +2506,36 @@ ImageWidget::mouseDoubleClickEvent(QMouseEvent *event)
   update();
 }
 
+void
+ImageWidget::fiberMousePressEvent(QMouseEvent *event)
+{
+  QPoint pp = event->pos();
+  float ypos = pp.y();
+  float xpos = pp.x();
+  
+  m_cursorPos = pp;
+  m_pickPoint = false;
+
+  if (!validPickPoint(xpos, ypos))
+    return;
+  
+
+  bool shiftModifier = event->modifiers() & Qt::ShiftModifier;
+  bool ctrlModifier = event->modifiers() & Qt::ControlModifier;
+  bool altModifier = event->modifiers() & Qt::AltModifier;
+
+  m_lastPickDepth = m_pickDepth;
+  m_lastPickWidth = m_pickWidth;
+  m_lastPickHeight= m_pickHeight;
+  
+  if (m_button == Qt::LeftButton)
+    m_fibers.addPoint(m_pickDepth, m_pickWidth, m_pickHeight);
+  else if (m_button == Qt::RightButton)
+    m_fibers.removePoint(m_pickDepth, m_pickWidth, m_pickHeight);
+  
+  update();
+  return;
+}
 
 void
 ImageWidget::curveMousePressEvent(QMouseEvent *event)
@@ -2489,6 +2559,7 @@ ImageWidget::curveMousePressEvent(QMouseEvent *event)
   m_lastPickWidth = m_pickWidth;
   m_lastPickHeight= m_pickHeight;
   
+
   if(m_livewireMode &&
      !ctrlModifier &&
      !altModifier)
@@ -2529,11 +2600,7 @@ ImageWidget::curveMousePressEvent(QMouseEvent *event)
       // carry on only if Alt key is not pressed
       if(!m_livewireMode)
 	{
-	  if (m_fiberMode)
-	    {
-	      m_fibers.addPoint(m_pickDepth, m_pickWidth, m_pickHeight);
-	    }
-	  else if (m_addingCurvePoints) // curveMode
+	  if (m_addingCurvePoints) // curveMode
 	    {
 	      if (m_sliceType == DSlice)
 		m_dCurves.addPoint(m_currSlice, m_pickHeight, m_pickWidth);
@@ -2558,19 +2625,12 @@ ImageWidget::curveMousePressEvent(QMouseEvent *event)
   else if (m_button == Qt::RightButton &&
 	   !m_livewireMode)
     {
-      if (m_fiberMode)
-	{
-	  m_fibers.removePoint(m_pickDepth, m_pickWidth, m_pickHeight);
-	}
-      else // curveMode
-	{
-	  if (m_sliceType == DSlice)
-	    m_dCurves.removePoint(m_currSlice, m_pickHeight, m_pickWidth);
-	  else if (m_sliceType == WSlice)
-	    m_wCurves.removePoint(m_currSlice, m_pickHeight, m_pickDepth);
-	  else
-	    m_hCurves.removePoint(m_currSlice, m_pickWidth,  m_pickDepth);
-	}
+      if (m_sliceType == DSlice)
+	m_dCurves.removePoint(m_currSlice, m_pickHeight, m_pickWidth);
+      else if (m_sliceType == WSlice)
+	m_wCurves.removePoint(m_currSlice, m_pickHeight, m_pickDepth);
+      else
+	m_hCurves.removePoint(m_currSlice, m_pickWidth,  m_pickDepth);
     }
 }
 
@@ -2649,7 +2709,9 @@ ImageWidget::mousePressEvent(QMouseEvent *event)
 {
   m_button = event->button();
 
-  if (m_livewireMode || m_curveMode)
+  if (m_fiberMode)
+    fiberMousePressEvent(event);
+  else if (m_livewireMode || m_curveMode)
     curveMousePressEvent(event);
   else
     graphcutMousePressEvent(event);
@@ -2860,7 +2922,7 @@ ImageWidget::mouseMoveEvent(QMouseEvent *event)
 
   if (m_livewireMode || m_curveMode)
     curveMouseMoveEvent(event);
-  else
+  else if (!m_fiberMode)
     graphcutMouseMoveEvent(event);
 }
 

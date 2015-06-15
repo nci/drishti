@@ -5,6 +5,7 @@
 #include "ui_viewermenu.h"
 #include "ui_graphcutmenu.h"
 #include "ui_curvesmenu.h"
+#include "ui_fibersmenu.h"
 
 #include "tagcoloreditor.h"
 #include "transferfunctionmanager.h"
@@ -41,6 +42,7 @@ class DrishtiPaint : public QMainWindow
   void on_actionExtractTag_triggered();
   void on_actionMeshTag_triggered();
   void on_actionCurves_triggered();
+  void on_actionFibers_triggered();
   void on_actionGraphCut_triggered();
   void on_sliceLod_currentIndexChanged(int);
   void on_butZ_clicked();
@@ -65,6 +67,8 @@ class DrishtiPaint : public QMainWindow
   void on_lwgrad_currentIndexChanged(int);
   void on_newcurve_clicked();
   void on_endcurve_clicked();
+  void on_newfiber_clicked();
+  void on_endfiber_clicked();
   void on_morphcurves_clicked();
   void on_propagate_clicked(bool);
   void on_deselect_clicked();
@@ -110,8 +114,10 @@ class DrishtiPaint : public QMainWindow
   Ui::ViewerMenu viewerUi;
   Ui::GraphCutMenu graphcutUi;
   Ui::CurvesMenu curvesUi;
+  Ui::FibersMenu fibersUi;
   QFrame *m_curvesMenu;
   QFrame *m_graphcutMenu;
+  QFrame *m_fibersMenu;
 
   TagColorEditor *m_tagColorEditor;
 
@@ -165,6 +171,7 @@ class DrishtiPaint : public QMainWindow
   void connectViewerMenu();
   void connectGraphCutMenu();
   void connectCurvesMenu();
+  void connectFibersMenu();
   void connectImageWidget();
   void miscConnections();
 };

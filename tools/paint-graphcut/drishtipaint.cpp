@@ -84,8 +84,12 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   m_curvesMenu = new QFrame();
   curvesUi.setupUi(m_curvesMenu);
 
+  m_fibersMenu = new QFrame();
+  fibersUi.setupUi(m_fibersMenu);
+
   ui.sideframelayout->addWidget(m_graphcutMenu);
   ui.sideframelayout->addWidget(m_curvesMenu);
+  ui.sideframelayout->addWidget(m_fibersMenu);
 
 
   m_tagColorEditor = new TagColorEditor();
@@ -179,6 +183,7 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   Global::setSmooth(1);
   Global::setPrevErode(5);
 
+  fibersUi.endfiber->hide();
   curvesUi.endcurve->hide();
   curvesUi.pointsize->setValue(7);
   ui.tag->setValue(Global::tag());
@@ -194,6 +199,7 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   connectImageWidget();
   connectCurvesMenu();
   connectGraphCutMenu();
+  connectFibersMenu();
   //------------------------
 
   loadSettings();
@@ -205,21 +211,46 @@ void DrishtiPaint::on_actionHelp_triggered() { m_imageWidget->showHelp(); }
 void DrishtiPaint::on_saveImage_triggered() { m_imageWidget->saveImage(); }
 
 void
+DrishtiPaint::on_actionFibers_triggered()
+{
+  m_fibersMenu->show();
+  m_curvesMenu->hide();
+  m_graphcutMenu->hide();
+
+  ui.actionCurves->setChecked(false);
+  ui.actionGraphCut->setChecked(false);
+  ui.actionFibers->setChecked(true);  
+
+  m_imageWidget->setCurve(false);
+  curvesUi.livewire->setChecked(false);
+  curvesUi.modify->setChecked(false);
+  curvesUi.propagate->setChecked(false);
+  m_imageWidget->freezeModifyUsingLivewire();
+
+  m_imageWidget->setFiberMode(true);
+}
+
+void
 DrishtiPaint::on_actionCurves_triggered()
 {
   m_curvesMenu->show();
   m_graphcutMenu->hide();
+  m_fibersMenu->hide();
 
-
-  ui.actionGraphCut->setChecked(false);
-  
   ui.actionCurves->setChecked(true);
+  ui.actionGraphCut->setChecked(false);
+  ui.actionFibers->setChecked(false);  
+
+  m_imageWidget->setFiberMode(false);
   m_imageWidget->setCurve(true);
+ 
   if (m_volume->isValid())
     {
       curvesUi.livewire->setChecked(true);
       m_imageWidget->setLivewire(true);
     }
+
+  m_imageWidget->endFiber();
 }
 
 void
@@ -227,16 +258,21 @@ DrishtiPaint::on_actionGraphCut_triggered()
 {
   m_curvesMenu->hide();
   m_graphcutMenu->show();
+  m_fibersMenu->hide();
 
-  ui.actionGraphCut->setChecked(true);
-  
   ui.actionCurves->setChecked(false);
+  ui.actionGraphCut->setChecked(true);
+  ui.actionFibers->setChecked(false);
+
+  m_imageWidget->setFiberMode(false);
   m_imageWidget->setCurve(false);
   curvesUi.livewire->setChecked(false);
 
   curvesUi.modify->setChecked(false);
   curvesUi.propagate->setChecked(false);
   m_imageWidget->freezeModifyUsingLivewire();
+
+  m_imageWidget->endFiber();
 }
 
 void
@@ -415,6 +451,8 @@ void DrishtiPaint::on_newcurve_clicked()
   m_imageWidget->newCurve(true);
 }
 void DrishtiPaint::on_endcurve_clicked() { m_imageWidget->endCurve(); }
+void DrishtiPaint::on_newfiber_clicked() { m_imageWidget->newFiber(); }
+void DrishtiPaint::on_endfiber_clicked() { m_imageWidget->endFiber(); }
 void DrishtiPaint::on_morphcurves_clicked() { m_imageWidget->morphCurves(); }
 void DrishtiPaint::on_deselect_clicked() { m_imageWidget->deselectAll(); }
 void DrishtiPaint::on_deleteallcurves_clicked() { m_imageWidget->deleteAllCurves(); }
@@ -2573,6 +2611,11 @@ DrishtiPaint::connectImageWidget()
 	  curvesUi.endcurve, SLOT(show()));
   connect(m_imageWidget, SIGNAL(hideEndCurve()),
 	  curvesUi.endcurve, SLOT(hide()));
+
+  connect(m_imageWidget, SIGNAL(showEndFiber()),
+	  fibersUi.endfiber, SLOT(show()));
+  connect(m_imageWidget, SIGNAL(hideEndFiber()),
+	  fibersUi.endfiber, SLOT(hide()));
 }
 
 void
@@ -2682,4 +2725,13 @@ DrishtiPaint::connectGraphCutMenu()
 	  this, SLOT(on_lambda_valueChanged(int)));
   connect(graphcutUi.boxSize, SIGNAL(valueChanged(int)),
 	  this, SLOT(on_boxSize_valueChanged(int)));
+}
+
+void
+DrishtiPaint::connectFibersMenu()
+{
+  connect(fibersUi.newfiber, SIGNAL(clicked()),
+	  this, SLOT(on_newfiber_clicked()));
+  connect(fibersUi.endfiber, SIGNAL(clicked()),
+	  this, SLOT(on_endfiber_clicked()));
 }

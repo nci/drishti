@@ -90,6 +90,7 @@ class ImageWidget : public QWidget
   void smooth(int, bool);
   void keyPressEvent(QKeyEvent*);
   void setLivewire(bool);
+  void setFiberMode(bool);
   void setCurve(bool);
   void saveCurves(QString);
   void saveCurves();
@@ -100,6 +101,8 @@ class ImageWidget : public QWidget
   void freezeLivewire(bool);
   void newCurve(bool);
   void endCurve();
+  void newFiber();
+  void endFiber();
   void morphCurves();
   void deleteAllCurves();
   void zoom0();
@@ -121,6 +124,8 @@ class ImageWidget : public QWidget
  signals :
   void showEndCurve();
   void hideEndCurve();
+  void showEndFiber();
+  void hideEndFiber();
   void getSlice(int);
   void getRawValue(int, int, int);
   void newMinMax(float, float);
@@ -281,6 +286,7 @@ class ImageWidget : public QWidget
   QPair<int, Curve> loadCurveData(QFile*);
 
   bool curveModeKeyPressEvent(QKeyEvent*);
+  bool fiberModeKeyPressEvent(QKeyEvent*);
 
   void propagateLivewire();
 
@@ -292,6 +298,7 @@ class ImageWidget : public QWidget
   void modifyUsingLivewire(int, int);
 
   void curveMousePressEvent(QMouseEvent*);
+  void fiberMousePressEvent(QMouseEvent*);
   void graphcutMousePressEvent(QMouseEvent*);
   void curveMouseMoveEvent(QMouseEvent*);
   void graphcutMouseMoveEvent(QMouseEvent*);

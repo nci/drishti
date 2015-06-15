@@ -19,7 +19,7 @@ TARGET = drishtipaint
 INCLUDEPATH += graphcut
 
 # Input
-FORMS += drishtipaint.ui viewermenu.ui graphcutmenu.ui curvesmenu.ui
+FORMS += drishtipaint.ui viewermenu.ui graphcutmenu.ui curvesmenu.ui fibersmenu.ui
 
 INCLUDEPATH += c:\Qt\libQGLViewer-2.6.1
 LIBS += QGLViewer2.lib

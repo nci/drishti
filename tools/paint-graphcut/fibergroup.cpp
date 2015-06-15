@@ -21,6 +21,15 @@ FiberGroup::reset()
 void
 FiberGroup::newFiber()
 {
+  //-------------------
+  // weed out empty fibers
+  QList<Fiber*> tmp = m_fibers;
+  m_fibers.clear();
+  for(int i=0; i<tmp.count(); i++)
+    if (tmp[i]->seeds.count() > 0)
+      m_fibers << tmp[i];
+  //-------------------
+  
   for(int i=0; i<m_fibers.count(); i++)
     m_fibers[i]->selected = false;
 
@@ -30,8 +39,13 @@ FiberGroup::newFiber()
   fb->selected = true;
 
   m_fibers << fb;
+}
 
-  QMessageBox::information(0, "", QString("new fiber %1").arg(m_fibers.count()));
+void
+FiberGroup::endFiber()
+{
+  for(int f=0; f<m_fibers.count(); f++)
+    m_fibers[f]->selected = false;
 }
 
 void

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>748</width>
-    <height>525</height>
+    <width>598</width>
+    <height>486</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -442,7 +442,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>748</width>
+     <width>598</width>
      <height>27</height>
     </rect>
    </property>
@@ -468,6 +468,7 @@
     </property>
     <addaction name="actionCurves"/>
     <addaction name="actionGraphCut"/>
+    <addaction name="actionFibers"/>
     <addaction name="separator"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
@@ -549,6 +550,11 @@
   <action name="actionMeshTag">
    <property name="text">
     <string>Mesh Tagged Region</string>
+   </property>
+  </action>
+  <action name="actionFibers">
+   <property name="text">
+    <string>Fibers</string>
    </property>
   </action>
  </widget>

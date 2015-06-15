@@ -16,6 +16,7 @@ class FiberGroup
   void reset();
 
   void newFiber();
+  void endFiber();
   void addPoint(int, int, int);
   void removePoint(int, int, int);
   void selectFiber(int, int, int);

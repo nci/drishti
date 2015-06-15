@@ -60,6 +60,7 @@ ImageWidget::ImageWidget(QWidget *parent, QStatusBar *sb) :
   m_livewireMode = false;
   m_curveMode = false;
   m_fiberMode = false;
+  m_addingCurvePoints = false;
 
   m_Depth = m_Width = m_Height = 0;
   m_imgHeight = 100;
@@ -267,6 +268,9 @@ ImageWidget::heightUserRange(int& umin, int& umax)
 void
 ImageWidget::sliceChanged(int slc)
 {
+  // if we are in curve add points mode switch it off
+  if (m_addingCurvePoints) endCurve();
+  
   // if we are modifying livewire object freeze it before moving to another slice  
   if (!m_applyRecursive && m_livewire.seedMoveMode())
     {
@@ -1198,7 +1202,9 @@ ImageWidget::paintEvent(QPaintEvent *event)
     drawRawValue(&p);
 
   if (!m_rubberBandActive &&
-      ((!m_livewireMode && !m_curveMode) || shiftModifier || ctrlModifier))
+      !m_livewireMode &&
+      !m_curveMode &&
+      shiftModifier)
     {
       float xpos = m_cursorPos.x();
       float ypos = m_cursorPos.y();
@@ -1215,20 +1221,12 @@ ImageWidget::paintEvent(QPaintEvent *event)
 	    ok = withinBounds(m_pickWidth,
 			      m_pickDepth);
 
-	  ok = ok && !(m_livewireMode && shiftModifier);
-
-	  if (ok)
-	    {
-	      int rad = Global::spread()*(float)m_simgWidth/(float)m_imgWidth;
-	      p.setPen(Qt::white);
-	      p.setBrush(QColor(150, 0, 0, 150));
-	      p.drawEllipse(xpos-rad,
-			    ypos-rad,
-			    2*rad, 2*rad);
-
-//	      p.drawLine(xpos, m_simgY, xpos, m_simgHeight+m_simgY);
-//	      p.drawLine(m_simgX, ypos, m_simgWidth+m_simgX, ypos);
-	    }
+	  int rad = Global::spread()*(float)m_simgWidth/(float)m_imgWidth;
+	  p.setPen(Qt::white);
+	  p.setBrush(QColor(150, 0, 0, 150));
+	  p.drawEllipse(xpos-rad,
+			ypos-rad,
+			2*rad, 2*rad);
 	}
     }
 
@@ -1604,7 +1602,17 @@ ImageWidget::newCurve(bool showoptions)
   CurveGroup *cg = getCg();
   cg->newCurve(m_currSlice, Global::closed());
 
+  m_addingCurvePoints = true;
+  emit showEndCurve();
+
   emit polygonLevels(cg->polygonLevels());
+}
+
+void
+ImageWidget::endCurve()
+{
+  m_addingCurvePoints = false;
+  emit hideEndCurve();
 }
 
 void
@@ -2525,7 +2533,7 @@ ImageWidget::curveMousePressEvent(QMouseEvent *event)
 	    {
 	      m_fibers.addPoint(m_pickDepth, m_pickWidth, m_pickHeight);
 	    }
-	  else // curveMode
+	  else if (m_addingCurvePoints) // curveMode
 	    {
 	      if (m_sliceType == DSlice)
 		m_dCurves.addPoint(m_currSlice, m_pickHeight, m_pickWidth);
@@ -2537,7 +2545,8 @@ ImageWidget::curveMousePressEvent(QMouseEvent *event)
 	}
     }
   else if (m_button == Qt::MiddleButton &&
-	   !m_livewireMode)
+	   (!m_livewireMode ||
+	    !m_livewire.seedMoveMode()))
     {
       if (m_sliceType == DSlice)
 	m_dCurves.setMoveCurve(m_currSlice, m_pickHeight, m_pickWidth);
@@ -2660,6 +2669,7 @@ ImageWidget::curveMouseMoveEvent(QMouseEvent *event)
   bool altModifier = event->modifiers() & Qt::AltModifier;
 
   if (m_livewireMode &&
+      event->buttons() == Qt::LeftButton &&
       !shiftModifier &&
       !ctrlModifier &&
       !altModifier)
@@ -2700,7 +2710,8 @@ ImageWidget::curveMouseMoveEvent(QMouseEvent *event)
 	  m_lastPickWidth = m_pickWidth;
 	  m_lastPickHeight= m_pickHeight;
 
-	  if(!m_livewireMode)
+	  if(!m_livewireMode &&
+	     m_addingCurvePoints)
 	    {
 	      if (m_sliceType == DSlice)
 		m_dCurves.addPoint(m_currSlice, m_pickHeight, m_pickWidth);
@@ -2712,8 +2723,7 @@ ImageWidget::curveMouseMoveEvent(QMouseEvent *event)
 	    }
 	}
     }
-  else if (m_button == Qt::MiddleButton &&
-	   !m_livewireMode)
+  else if (m_button == Qt::MiddleButton)
     {
       if (validPickPoint(xpos, ypos))
 	{
@@ -2725,14 +2735,26 @@ ImageWidget::curveMouseMoveEvent(QMouseEvent *event)
 	  m_lastPickDepth = m_pickDepth;
 	  m_lastPickWidth = m_pickWidth;
 	  m_lastPickHeight= m_pickHeight;
-	  
-	  if (m_sliceType == DSlice)
-	    m_dCurves.moveCurve(m_currSlice, dh, dw);
-	  else if (m_sliceType == WSlice)
-	    m_wCurves.moveCurve(m_currSlice, dh, dd);
+
+	  if (m_livewireMode &&
+	      m_livewire.seedMoveMode())
+	    {
+	      if (m_sliceType == DSlice)
+		m_livewire.moveShape(dh, dw);
+	      else if (m_sliceType == WSlice)
+		m_livewire.moveShape(dh, dd);
+	      else
+		m_livewire.moveShape(dw, dd);
+	    }
 	  else
-	    m_hCurves.moveCurve(m_currSlice, dw, dd);
-	  
+	    {
+	      if (m_sliceType == DSlice)
+		m_dCurves.moveCurve(m_currSlice, dh, dw);
+	      else if (m_sliceType == WSlice)
+		m_wCurves.moveCurve(m_currSlice, dh, dd);
+	      else
+		m_hCurves.moveCurve(m_currSlice, dw, dd);
+	    }
 	  update();
 	  return;
 	}
@@ -2923,6 +2945,9 @@ ImageWidget::mouseReleaseEvent(QMouseEvent *event)
 void
 ImageWidget::wheelEvent(QWheelEvent *event)
 {
+  // if we are in curve add points mode switch it off
+  if (m_addingCurvePoints) endCurve();
+  
   // if we are modifying livewire object freeze it before moving to another slice  
   if (!m_applyRecursive && m_livewire.seedMoveMode())
     {

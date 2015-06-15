@@ -41,6 +41,7 @@ class LiveWire
 
   void livewireFromSeeds(QVector<QPointF>);
 
+  void moveShape(int, int);
   bool seedMoveMode();
   void setSeedMoveMode(bool);
   void setPolygonToUpdate(QVector<QPointF>,

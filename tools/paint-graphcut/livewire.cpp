@@ -1193,6 +1193,19 @@ LiveWire::getActiveSeedFromShape(int xpos, int ypos)
 }
 
 void
+LiveWire::moveShape(int dx, int dy)
+{
+  if (m_type == 0)
+    return;
+
+  for(int i=0; i<m_seeds.count(); i++)
+    m_seeds[i] += QPointF(dx, dy);
+
+  for(int i=0; i<m_poly.count(); i++)
+    m_poly[i] += QPointF(dx, dy);
+}
+
+void
 LiveWire::updateShapeFromSeeds(int xpos, int ypos)
 {
   m_seeds[m_activeSeed] = QPointF(xpos, ypos);

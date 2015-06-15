@@ -1077,6 +1077,19 @@
              </widget>
             </item>
             <item>
+             <widget class="QPushButton" name="endcurve">
+              <property name="maximumSize">
+               <size>
+                <width>70</width>
+                <height>25</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>End Curve</string>
+              </property>
+             </widget>
+            </item>
+            <item>
              <widget class="QPushButton" name="deleteallcurves">
               <property name="maximumSize">
                <size>

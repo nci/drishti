@@ -187,6 +187,7 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   Global::setSmooth(1);
   Global::setPrevErode(5);
 
+  ui.endcurve->hide();
   ui.tag->setValue(Global::tag());
   ui.boxSize->setValue(Global::boxSize());
   ui.pointsize->setValue(7);
@@ -291,8 +292,12 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 
   connect(m_imageWidget, SIGNAL(updateViewerBox(int, int, int, int, int, int)),
 	  m_viewer, SLOT(updateViewerBox(int, int, int, int, int, int)));
-  //------------------------
 
+  connect(m_imageWidget, SIGNAL(showEndCurve()),
+	  ui.endcurve, SLOT(show()));
+  connect(m_imageWidget, SIGNAL(hideEndCurve()),
+	  ui.endcurve, SLOT(hide()));
+  //------------------------
 
   loadSettings();
   m_imageWidget->updateTagColors();
@@ -505,6 +510,7 @@ void DrishtiPaint::on_closed_clicked(bool c) { Global::setClosed(c); }
 void DrishtiPaint::on_lwsmooth_currentIndexChanged(int i){ m_imageWidget->setSmoothType(i); }
 void DrishtiPaint::on_lwgrad_currentIndexChanged(int i){ m_imageWidget->setGradType(i); }
 void DrishtiPaint::on_newcurve_clicked() { m_imageWidget->newCurve(true); }
+void DrishtiPaint::on_endcurve_clicked() { m_imageWidget->endCurve(); }
 void DrishtiPaint::on_morphcurves_clicked() { m_imageWidget->morphCurves(); }
 void DrishtiPaint::on_deselect_clicked() { m_imageWidget->deselectAll(); }
 void DrishtiPaint::on_deleteallcurves_clicked() { m_imageWidget->deleteAllCurves(); }

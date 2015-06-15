@@ -99,6 +99,7 @@ class ImageWidget : public QWidget
   void setGradType(int);
   void freezeLivewire(bool);
   void newCurve(bool);
+  void endCurve();
   void morphCurves();
   void deleteAllCurves();
   void zoom0();
@@ -118,6 +119,8 @@ class ImageWidget : public QWidget
   void showTags(QList<int>);
 
  signals :
+  void showEndCurve();
+  void hideEndCurve();
   void getSlice(int);
   void getRawValue(int, int, int);
   void newMinMax(float, float);
@@ -151,6 +154,7 @@ class ImageWidget : public QWidget
   bool m_livewireMode;
   LiveWire m_livewire;
 
+  bool m_addingCurvePoints;
   bool m_curveMode;
   CurveGroup m_dCurves;
   CurveGroup m_wCurves;

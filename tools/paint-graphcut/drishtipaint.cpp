@@ -78,6 +78,15 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   m_tfEditor->setTransferFunction(NULL);    
   m_tfManager->setDisabled(true);
 
+  m_graphcutMenu = new QFrame();
+  graphcutUi.setupUi(m_graphcutMenu);
+
+  m_curvesMenu = new QFrame();
+  curvesUi.setupUi(m_curvesMenu);
+
+  ui.sideframelayout->addWidget(m_graphcutMenu);
+  ui.sideframelayout->addWidget(m_curvesMenu);
+
 
   m_tagColorEditor = new TagColorEditor();
 
@@ -87,24 +96,7 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   // viewer menu
   QFrame *viewerMenu = new QFrame();
   viewerUi.setupUi(viewerMenu);
-  connect(viewerUi.update, SIGNAL(clicked()),
-	  m_viewer, SLOT(updateVoxels()));
-  connect(viewerUi.interval, SIGNAL(sliderReleased()),
-	  m_viewer, SLOT(updateVoxels()));
-  connect(viewerUi.interval, SIGNAL(valueChanged(int)),
-	  m_viewer, SLOT(setVoxelInterval(int)));
-  connect(viewerUi.ptsize, SIGNAL(valueChanged(int)),
-	  m_viewer, SLOT(setPointSize(int)));
-  connect(viewerUi.voxchoice, SIGNAL(currentIndexChanged(int)),
-	  m_viewer, SLOT(setVoxelChoice(int)));
-  connect(viewerUi.box, SIGNAL(clicked(bool)),
-	  m_viewer, SLOT(setShowBox(bool)));
-  connect(viewerUi.snapshot, SIGNAL(clicked()),
-	  m_viewer, SLOT(saveImage()));
-  connect(viewerUi.paintedtags, SIGNAL(editingFinished()),
-	  this, SLOT(paintedtag_editingFinished()));
-  connect(viewerUi.curvetags, SIGNAL(editingFinished()),
-	  this, SLOT(curvetag_editingFinished()));
+  connectViewerMenu();
   //------------------------------
 
 
@@ -178,8 +170,8 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   ui.menuView->addAction(dock2->toggleViewAction());
   
   on_actionCurves_triggered();
-  ui.lwsettingpanel->setVisible(false);
-  ui.closed->setChecked(true);
+  curvesUi.lwsettingpanel->setVisible(false);
+  curvesUi.closed->setChecked(true);
 
   Global::setBoxSize(5);
   Global::setSpread(10);
@@ -187,116 +179,21 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   Global::setSmooth(1);
   Global::setPrevErode(5);
 
-  ui.endcurve->hide();
+  curvesUi.endcurve->hide();
+  curvesUi.pointsize->setValue(7);
   ui.tag->setValue(Global::tag());
-  ui.boxSize->setValue(Global::boxSize());
-  ui.pointsize->setValue(7);
-  ui.lambda->setValue(Global::lambda());
   ui.radius->setValue(Global::spread());
-  ui.smooth->setValue(Global::smooth());
-  ui.preverode->setValue(Global::prevErode());
+  graphcutUi.boxSize->setValue(Global::boxSize());
+  graphcutUi.lambda->setValue(Global::lambda());
+  graphcutUi.smooth->setValue(Global::smooth());
+  graphcutUi.preverode->setValue(Global::prevErode());
 
 
   //------------------------
-  connect(m_tfManager,
-	  SIGNAL(changeTransferFunctionDisplay(int, QList<bool>)),
-	  this,
-	  SLOT(changeTransferFunctionDisplay(int, QList<bool>)));
-
-  connect(m_tfManager,
-	  SIGNAL(checkStateChanged(int, int, bool)),
-	  this,
-	  SLOT(checkStateChanged(int, int, bool)));
-
-  connect(m_tfEditor, SIGNAL(updateComposite()),
-	  this, SLOT(updateComposite()));
-
-  connect(m_imageWidget, SIGNAL(getSlice(int)),
-	  this, SLOT(getSlice(int)));  
-
-  connect(m_imageWidget, SIGNAL(getRawValue(int, int, int)),
-	  this, SLOT(getRawValue(int, int, int)));
-
-  connect(m_imageWidget, SIGNAL(applyMaskOperation(int, int, int)),
-	  this, SLOT(applyMaskOperation(int, int, int)));
-
-  connect(m_tagColorEditor, SIGNAL(tagColorChanged()),
-	  m_imageWidget, SLOT(updateTagColors()));
-
-  connect(m_tagColorEditor, SIGNAL(tagSelected(int)),
-	  this, SLOT(tagSelected(int)));
-
-  connect(m_slider, SIGNAL(valueChanged(int)),
-	  m_imageWidget, SLOT(sliceChanged(int)));
-
-  connect(m_slider, SIGNAL(userRangeChanged(int, int)),
-	  m_imageWidget, SLOT(userRangeChanged(int, int)));
-
-  connect(m_imageWidget, SIGNAL(fillVolume(int, int,
-					   int, int,
-					   int, int,
-					   QList<int>,
-					   bool)),
-	  this, SLOT(fillVolume(int, int,
-				int, int,
-				int, int,
-				QList<int>,
-				bool)));
-
-  connect(m_imageWidget, SIGNAL(tagDSlice(int, QImage)),
-	  this, SLOT(tagDSlice(int, QImage)));
-
-  connect(m_imageWidget, SIGNAL(tagWSlice(int, QImage)),
-	  this, SLOT(tagWSlice(int, QImage)));
-
-  connect(m_imageWidget, SIGNAL(tagHSlice(int, QImage)),
-	  this, SLOT(tagHSlice(int, QImage)));
-
-  connect(m_imageWidget, SIGNAL(tagDSlice(int, uchar*)),
-	  this, SLOT(tagDSlice(int, uchar*)));
-
-  connect(m_imageWidget, SIGNAL(tagWSlice(int, uchar*)),
-	  this, SLOT(tagWSlice(int, uchar*)));
-
-  connect(m_imageWidget, SIGNAL(tagHSlice(int, uchar*)),
-	  this, SLOT(tagHSlice(int, uchar*)));
-
-  connect(m_imageWidget, SIGNAL(tagAllVisible(int, int,
-					      int, int,
-					      int, int)),
-	  this, SLOT(tagAllVisible(int, int,
-				   int, int,
-				   int, int)));
-
-  connect(m_imageWidget, SIGNAL(dilate()),
-	  this, SLOT(dilate()));
-  connect(m_imageWidget, SIGNAL(dilate(int, int,
-				       int, int,
-				       int, int)),
-	  this, SLOT(dilate(int, int,
-			    int, int,
-			    int, int)));
-
-  connect(m_imageWidget, SIGNAL(erode()),
-	  this, SLOT(erode()));
-  connect(m_imageWidget, SIGNAL(erode(int, int,
-				      int, int,
-				      int, int)),
-	  this, SLOT(erode(int, int,
-			   int, int,
-			   int, int)));
-
-  connect(m_imageWidget, SIGNAL(polygonLevels(QList<int>)),
-	  m_slider, SLOT(polygonLevels(QList<int>)));
-  
-
-  connect(m_imageWidget, SIGNAL(updateViewerBox(int, int, int, int, int, int)),
-	  m_viewer, SLOT(updateViewerBox(int, int, int, int, int, int)));
-
-  connect(m_imageWidget, SIGNAL(showEndCurve()),
-	  ui.endcurve, SLOT(show()));
-  connect(m_imageWidget, SIGNAL(hideEndCurve()),
-	  ui.endcurve, SLOT(hide()));
+  miscConnections();
+  connectImageWidget();
+  connectCurvesMenu();
+  connectGraphCutMenu();
   //------------------------
 
   loadSettings();
@@ -310,15 +207,17 @@ void DrishtiPaint::on_saveImage_triggered() { m_imageWidget->saveImage(); }
 void
 DrishtiPaint::on_actionCurves_triggered()
 {
+  m_curvesMenu->show();
+  m_graphcutMenu->hide();
+
+
   ui.actionGraphCut->setChecked(false);
-  ui.graphcutBox->hide();
   
   ui.actionCurves->setChecked(true);
-  ui.curvesBox->show();
   m_imageWidget->setCurve(true);
   if (m_volume->isValid())
     {
-      ui.livewire->setChecked(true);
+      curvesUi.livewire->setChecked(true);
       m_imageWidget->setLivewire(true);
     }
 }
@@ -326,16 +225,17 @@ DrishtiPaint::on_actionCurves_triggered()
 void
 DrishtiPaint::on_actionGraphCut_triggered()
 {
+  m_curvesMenu->hide();
+  m_graphcutMenu->show();
+
   ui.actionGraphCut->setChecked(true);
-  ui.graphcutBox->show();
   
   ui.actionCurves->setChecked(false);
-  ui.curvesBox->hide();
   m_imageWidget->setCurve(false);
-  ui.livewire->setChecked(false);
+  curvesUi.livewire->setChecked(false);
 
-  ui.modify->setChecked(false);
-  ui.propagate->setChecked(false);
+  curvesUi.modify->setChecked(false);
+  curvesUi.propagate->setChecked(false);
   m_imageWidget->freezeModifyUsingLivewire();
 }
 
@@ -499,7 +399,6 @@ DrishtiPaint::on_tag_valueChanged(int t)
   m_imageWidget->processPrevSliceTags();
 }
 void DrishtiPaint::on_sliceLod_currentIndexChanged(int l) { m_imageWidget->setSliceLOD(l+1); }
-void DrishtiPaint::on_selectprecision_currentIndexChanged(int l) { Global::setSelectionPrecision((l+1)*5); }
 void DrishtiPaint::on_boxSize_valueChanged(int d) { Global::setBoxSize(d); }
 void DrishtiPaint::on_lambda_valueChanged(int d) { Global::setLambda(d); }
 void DrishtiPaint::on_smooth_valueChanged(int d) { Global::setSmooth(d); }
@@ -509,7 +408,12 @@ void DrishtiPaint::on_pointsize_valueChanged(int d) { m_imageWidget->setPointSiz
 void DrishtiPaint::on_closed_clicked(bool c) { Global::setClosed(c); }
 void DrishtiPaint::on_lwsmooth_currentIndexChanged(int i){ m_imageWidget->setSmoothType(i); }
 void DrishtiPaint::on_lwgrad_currentIndexChanged(int i){ m_imageWidget->setGradType(i); }
-void DrishtiPaint::on_newcurve_clicked() { m_imageWidget->newCurve(true); }
+void DrishtiPaint::on_newcurve_clicked()
+{
+  on_livewire_clicked(false);
+  curvesUi.livewire->setChecked(false);
+  m_imageWidget->newCurve(true);
+}
 void DrishtiPaint::on_endcurve_clicked() { m_imageWidget->endCurve(); }
 void DrishtiPaint::on_morphcurves_clicked() { m_imageWidget->morphCurves(); }
 void DrishtiPaint::on_deselect_clicked() { m_imageWidget->deselectAll(); }
@@ -518,7 +422,6 @@ void DrishtiPaint::on_zoom0_clicked() { m_imageWidget->zoom0(); }
 void DrishtiPaint::on_zoom9_clicked() { m_imageWidget->zoom9(); }
 void DrishtiPaint::on_zoomup_clicked() { m_imageWidget->zoomUp(); }
 void DrishtiPaint::on_zoomdown_clicked() { m_imageWidget->zoomDown(); }
-void DrishtiPaint::on_segmentlength_valueChanged(int d) { m_imageWidget->setSegmentLength(d); }
 
 QPair<QString, QList<int> >
 DrishtiPaint::getTags(QString text)
@@ -600,7 +503,7 @@ DrishtiPaint::on_livewire_clicked(bool c)
 	m_imageWidget->freezeLivewire(false);
       else
 	m_imageWidget->freezeModifyUsingLivewire();
-      ui.modify->setChecked(false);
+      curvesUi.modify->setChecked(false);
     }
 
   m_imageWidget->setLivewire(c);
@@ -617,7 +520,7 @@ DrishtiPaint::on_modify_clicked(bool c)
 {
   if (c)
     {
-      ui.livewire->setChecked(true);
+      curvesUi.livewire->setChecked(true);
       m_imageWidget->setLivewire(true);
       m_imageWidget->modifyUsingLivewire();
     }
@@ -907,9 +810,9 @@ DrishtiPaint::setFile(QString filename)
     }
 
   on_actionCurves_triggered();
-  ui.lwsettingpanel->setVisible(false);
-  ui.closed->setChecked(true);
-  ui.livewire->setChecked(true);
+  curvesUi.lwsettingpanel->setVisible(false);
+  curvesUi.closed->setChecked(true);
+  curvesUi.livewire->setChecked(true);
   m_imageWidget->setLivewire(true);
 
   ui.tagcurves->setText("-1");
@@ -2592,4 +2495,191 @@ DrishtiPaint::saveMesh(int colorType,
     delete [] plyStrings[i];
 
   progress.setValue(100);
+}
+void
+DrishtiPaint::connectImageWidget()
+{
+  connect(m_imageWidget, SIGNAL(getSlice(int)),
+	  this, SLOT(getSlice(int)));  
+
+  connect(m_imageWidget, SIGNAL(getRawValue(int, int, int)),
+	  this, SLOT(getRawValue(int, int, int)));
+
+  connect(m_imageWidget, SIGNAL(applyMaskOperation(int, int, int)),
+	  this, SLOT(applyMaskOperation(int, int, int)));
+
+  connect(m_imageWidget, SIGNAL(fillVolume(int, int,
+					   int, int,
+					   int, int,
+					   QList<int>,
+					   bool)),
+	  this, SLOT(fillVolume(int, int,
+				int, int,
+				int, int,
+				QList<int>,
+				bool)));
+
+  connect(m_imageWidget, SIGNAL(tagDSlice(int, QImage)),
+	  this, SLOT(tagDSlice(int, QImage)));
+
+  connect(m_imageWidget, SIGNAL(tagWSlice(int, QImage)),
+	  this, SLOT(tagWSlice(int, QImage)));
+
+  connect(m_imageWidget, SIGNAL(tagHSlice(int, QImage)),
+	  this, SLOT(tagHSlice(int, QImage)));
+
+  connect(m_imageWidget, SIGNAL(tagDSlice(int, uchar*)),
+	  this, SLOT(tagDSlice(int, uchar*)));
+
+  connect(m_imageWidget, SIGNAL(tagWSlice(int, uchar*)),
+	  this, SLOT(tagWSlice(int, uchar*)));
+
+  connect(m_imageWidget, SIGNAL(tagHSlice(int, uchar*)),
+	  this, SLOT(tagHSlice(int, uchar*)));
+
+  connect(m_imageWidget, SIGNAL(tagAllVisible(int, int,
+					      int, int,
+					      int, int)),
+	  this, SLOT(tagAllVisible(int, int,
+				   int, int,
+				   int, int)));
+
+  connect(m_imageWidget, SIGNAL(dilate()),
+	  this, SLOT(dilate()));
+  connect(m_imageWidget, SIGNAL(dilate(int, int,
+				       int, int,
+				       int, int)),
+	  this, SLOT(dilate(int, int,
+			    int, int,
+			    int, int)));
+
+  connect(m_imageWidget, SIGNAL(erode()),
+	  this, SLOT(erode()));
+  connect(m_imageWidget, SIGNAL(erode(int, int,
+				      int, int,
+				      int, int)),
+	  this, SLOT(erode(int, int,
+			   int, int,
+			   int, int)));
+
+  connect(m_imageWidget, SIGNAL(polygonLevels(QList<int>)),
+	  m_slider, SLOT(polygonLevels(QList<int>)));
+  
+
+  connect(m_imageWidget, SIGNAL(updateViewerBox(int, int, int, int, int, int)),
+	  m_viewer, SLOT(updateViewerBox(int, int, int, int, int, int)));
+
+  connect(m_imageWidget, SIGNAL(showEndCurve()),
+	  curvesUi.endcurve, SLOT(show()));
+  connect(m_imageWidget, SIGNAL(hideEndCurve()),
+	  curvesUi.endcurve, SLOT(hide()));
+}
+
+void
+DrishtiPaint::connectViewerMenu()
+{
+  connect(viewerUi.update, SIGNAL(clicked()),
+	  m_viewer, SLOT(updateVoxels()));
+  connect(viewerUi.interval, SIGNAL(sliderReleased()),
+	  m_viewer, SLOT(updateVoxels()));
+  connect(viewerUi.interval, SIGNAL(valueChanged(int)),
+	  m_viewer, SLOT(setVoxelInterval(int)));
+  connect(viewerUi.ptsize, SIGNAL(valueChanged(int)),
+	  m_viewer, SLOT(setPointSize(int)));
+  connect(viewerUi.voxchoice, SIGNAL(currentIndexChanged(int)),
+	  m_viewer, SLOT(setVoxelChoice(int)));
+  connect(viewerUi.box, SIGNAL(clicked(bool)),
+	  m_viewer, SLOT(setShowBox(bool)));
+  connect(viewerUi.snapshot, SIGNAL(clicked()),
+	  m_viewer, SLOT(saveImage()));
+  connect(viewerUi.paintedtags, SIGNAL(editingFinished()),
+	  this, SLOT(paintedtag_editingFinished()));
+  connect(viewerUi.curvetags, SIGNAL(editingFinished()),
+	  this, SLOT(curvetag_editingFinished()));
+}
+
+void
+DrishtiPaint::miscConnections()
+{
+  connect(m_tfManager,
+	  SIGNAL(changeTransferFunctionDisplay(int, QList<bool>)),
+	  this,
+	  SLOT(changeTransferFunctionDisplay(int, QList<bool>)));
+
+  connect(m_tfManager,
+	  SIGNAL(checkStateChanged(int, int, bool)),
+	  this,
+	  SLOT(checkStateChanged(int, int, bool)));
+
+  connect(m_tfEditor, SIGNAL(updateComposite()),
+	  this, SLOT(updateComposite()));
+
+  connect(m_tagColorEditor, SIGNAL(tagColorChanged()),
+	  m_imageWidget, SLOT(updateTagColors()));
+
+  connect(m_tagColorEditor, SIGNAL(tagSelected(int)),
+	  this, SLOT(tagSelected(int)));
+
+  connect(m_slider, SIGNAL(valueChanged(int)),
+	  m_imageWidget, SLOT(sliceChanged(int)));
+
+  connect(m_slider, SIGNAL(userRangeChanged(int, int)),
+	  m_imageWidget, SLOT(userRangeChanged(int, int)));
+
+}
+
+void
+DrishtiPaint::connectCurvesMenu()
+{
+  connect(curvesUi.livewire, SIGNAL(clicked(bool)),
+	  this, SLOT(on_livewire_clicked(bool)));
+
+  connect(curvesUi.sliceLod, SIGNAL(currentIndexChanged(int)),
+	  this, SLOT(on_sliceLod_currentIndexChanged(int)));
+  connect(curvesUi.lwsmooth, SIGNAL(currentIndexChanged(int)),
+	  this, SLOT(on_lwsmooth_currentIndexChanged(int)));
+  connect(curvesUi.lwgrad, SIGNAL(currentIndexChanged(int)),
+	  this, SLOT(on_lwgrad_currentIndexChanged(int)));
+
+  connect(curvesUi.modify, SIGNAL(clicked(bool)),
+	  this, SLOT(on_modify_clicked(bool)));
+  connect(curvesUi.propagate, SIGNAL(clicked(bool)),
+	  this, SLOT(on_propagate_clicked(bool)));
+
+  connect(curvesUi.closed, SIGNAL(clicked(bool)),
+	  this, SLOT(on_closed_clicked(bool)));
+  connect(curvesUi.morphcurves, SIGNAL(clicked()),
+	  this, SLOT(on_morphcurves_clicked()));
+  connect(curvesUi.deselect, SIGNAL(clicked()),
+	  this, SLOT(on_deselect_clicked()));
+
+
+  connect(curvesUi.thickness, SIGNAL(valueChanged(int)),
+	  this, SLOT(on_thickness_valueChanged(int)));
+  connect(curvesUi.pointsize, SIGNAL(valueChanged(int)),
+	  this, SLOT(on_pointsize_valueChanged(int)));
+
+  connect(curvesUi.newcurve, SIGNAL(clicked()),
+	  this, SLOT(on_newcurve_clicked()));
+  connect(curvesUi.endcurve, SIGNAL(clicked()),
+	  this, SLOT(on_endcurve_clicked()));
+
+  connect(curvesUi.deleteallcurves, SIGNAL(clicked()),
+	  this, SLOT(on_deleteallcurves_clicked()));
+}
+
+void
+DrishtiPaint::connectGraphCutMenu()
+{
+  connect(graphcutUi.copyprev, SIGNAL(clicked(bool)),
+	  this, SLOT(on_copyprev_clicked(bool)));
+
+  connect(graphcutUi.preverode, SIGNAL(valueChanged(int)),
+	  this, SLOT(on_prevrode_valueChanged(int)));
+  connect(graphcutUi.smooth, SIGNAL(valueChanged(int)),
+	  this, SLOT(on_smooth_valueChanged(int)));
+  connect(graphcutUi.lambda, SIGNAL(valueChanged(int)),
+	  this, SLOT(on_lambda_valueChanged(int)));
+  connect(graphcutUi.boxSize, SIGNAL(valueChanged(int)),
+	  this, SLOT(on_boxSize_valueChanged(int)));
 }

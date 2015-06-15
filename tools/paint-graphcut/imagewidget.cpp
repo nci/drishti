@@ -2669,7 +2669,7 @@ ImageWidget::curveMouseMoveEvent(QMouseEvent *event)
   bool altModifier = event->modifiers() & Qt::AltModifier;
 
   if (m_livewireMode &&
-      event->buttons() == Qt::LeftButton &&
+      event->buttons() != Qt::MiddleButton &&
       !shiftModifier &&
       !ctrlModifier &&
       !altModifier)

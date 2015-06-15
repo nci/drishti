@@ -3,6 +3,8 @@
 
 #include "ui_drishtipaint.h"
 #include "ui_viewermenu.h"
+#include "ui_graphcutmenu.h"
+#include "ui_curvesmenu.h"
 
 #include "tagcoloreditor.h"
 #include "transferfunctionmanager.h"
@@ -41,14 +43,12 @@ class DrishtiPaint : public QMainWindow
   void on_actionCurves_triggered();
   void on_actionGraphCut_triggered();
   void on_sliceLod_currentIndexChanged(int);
-  void on_selectprecision_currentIndexChanged(int);
   void on_butZ_clicked();
   void on_butY_clicked();
   void on_butX_clicked();
   void on_tagcurves_editingFinished();
   void paintedtag_editingFinished();
   void curvetag_editingFinished();
-  void on_segmentlength_valueChanged(int);
   void on_tag_valueChanged(int);
   void on_boxSize_valueChanged(int);
   void on_lambda_valueChanged(int);
@@ -108,6 +108,10 @@ class DrishtiPaint : public QMainWindow
  private :
   Ui::DrishtiPaint ui;
   Ui::ViewerMenu viewerUi;
+  Ui::GraphCutMenu graphcutUi;
+  Ui::CurvesMenu curvesUi;
+  QFrame *m_curvesMenu;
+  QFrame *m_graphcutMenu;
 
   TagColorEditor *m_tagColorEditor;
 
@@ -157,6 +161,12 @@ class DrishtiPaint : public QMainWindow
 		int, int, int);
 
   QPair<QString, QList<int> > getTags(QString);
+
+  void connectViewerMenu();
+  void connectGraphCutMenu();
+  void connectCurvesMenu();
+  void connectImageWidget();
+  void miscConnections();
 };
 
 #endif

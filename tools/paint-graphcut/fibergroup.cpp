@@ -19,6 +19,21 @@ FiberGroup::reset()
 }
 
 void
+FiberGroup::addFiber(Fiber f)
+{
+  Fiber *fb = new Fiber;
+  fb->tag = f.tag;
+  fb->thickness = f.thickness;
+  fb->seeds = f.seeds;
+//  for(int i=0; i<f.seeds.count(); i++)
+//    fb->seeds << f.seeds[i];
+  fb->selected = false;
+  fb->updateTrace();
+
+  m_fibers << fb;
+}
+
+void
 FiberGroup::newFiber()
 {
   //-------------------

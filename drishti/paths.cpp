@@ -167,6 +167,88 @@ Paths::addIndexedPath(QString flnm)
 }
 
 void
+Paths::addFibers(QString flnm)
+{
+  uchar *tagColors = Global::tagColors();
+
+  QFile cfile;
+  cfile.setFileName(flnm);
+  if (!cfile.open(QFile::ReadOnly | QIODevice::Text))
+    {
+      QMessageBox::information(0, "Error", QString("Cannot read to %1").arg(flnm));
+      return;
+    }
+
+  QTextStream in(&cfile);
+  while (!in.atEnd())
+    {
+      QString line = in.readLine();
+      if (line.contains("fiberstart"))
+	{
+	  int tag = 1;
+	  int thickness = 1;
+	  QList<Vec> pts;
+	  bool done = false;
+	  while(!done && !in.atEnd())
+	    {
+	      line = in.readLine();
+	      QStringList words = line.split(" ", QString::SkipEmptyParts);
+	      if (words.count() > 0)
+		{
+		  int t;
+		  bool b;
+		  if (words[0].contains("fiberend"))
+		    done = true;
+		  else if (words[0].contains("tag"))
+		    {		  
+		      if (words.count() > 1)
+			tag = words[1].toInt();;
+		    }
+		  else if (words[0].contains("thickness"))
+		    {
+		      if (words.count() > 1)
+			thickness = words[1].toInt();;
+		    }
+		  else if (words[0].contains("seeds"))
+		    {
+		      int npts;
+		      if (words.count() > 1)
+			npts = words[1].toInt();;
+		      for(int ni=0; ni<npts; ni++)
+			{
+			  line = in.readLine();
+			  QStringList words = line.split(" ", QString::SkipEmptyParts);
+			  if (words.count() == 3)
+			    pts << Vec(words[0].toFloat(),
+				       words[1].toFloat(),
+				       words[2].toFloat());
+			}
+		    }
+		}
+	    }
+	  if (pts.count() > 0)
+	    {
+	      PathGrabber *pg = new PathGrabber();
+	      pg->setPoints(pts);
+	      Vec color = Vec((float)tagColors[4*tag+0]/255.0,
+			      (float)tagColors[4*tag+1]/255.0,
+			      (float)tagColors[4*tag+2]/255.0);
+	      pg->setColor(color);
+	      pg->setRadX(0, thickness/2, true);
+	      pg->setRadY(0, thickness/2, true);
+	      pg->setSegments(3);
+	      pg->setSections(20);
+	      pg->setCapType(1);
+	      pg->setTube(true);
+	      m_paths.append(pg);
+	    }
+	}
+    }
+
+  makePathConnections();
+}
+
+void
 Paths::addPath(QString flnm)
 {
   QFile fpath(flnm);

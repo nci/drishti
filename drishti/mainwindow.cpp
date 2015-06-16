@@ -1495,7 +1495,7 @@ MainWindow::on_actionPaths_triggered()
   flnm = QFileDialog::getOpenFileName(0,
 				      "Load paths/vectors file",
 				      Global::previousDirectory(),
-				      "Files (*.paths | *.path | *.vec)",
+				      "Files (*.paths | *.path | *.vec | *.fibers | *.fiber)",
 				      0,
 				      QFileDialog::DontUseNativeDialog);
   
@@ -1505,6 +1505,9 @@ MainWindow::on_actionPaths_triggered()
   QFileInfo f(flnm);
   if (f.suffix() == "vec")
     GeometryObjects::pathgroups()->addVector(flnm);
+  else if (f.suffix() == "fibers" ||
+	   f.suffix() == "fiber")
+    GeometryObjects::paths()->addFibers(flnm);
   else
     {
       QStringList items;
@@ -1876,6 +1879,8 @@ MainWindow::dragEnterEvent(QDragEnterEvent *event)
 		   StaticFunctions::checkURLs(urls, ".landmarks") ||
 		   StaticFunctions::checkURLs(urls, ".paths") ||
 		   StaticFunctions::checkURLs(urls, ".path") ||
+		   StaticFunctions::checkURLs(urls, ".fibers") ||
+		   StaticFunctions::checkURLs(urls, ".fiber") ||
 		   StaticFunctions::checkURLs(urls, ".vec") ||
 		   StaticFunctions::checkURLs(urls, ".grids") ||
 		   StaticFunctions::checkURLs(urls, ".grid"))
@@ -2033,6 +2038,22 @@ MainWindow::dropEvent(QDropEvent *event)
 					       "Removing grid data, invalid grid size");
 		      return;
 		    }
+		  QFileInfo f(url.toLocalFile());		  
+		  Global::setPreviousDirectory(f.absolutePath());
+		}
+	      else if (StaticFunctions::checkExtension(url.toLocalFile(), ".fibers") ||
+		       StaticFunctions::checkExtension(url.toLocalFile(), ".fiber"))
+		{
+		  GeometryObjects::paths()->addFibers(url.toLocalFile());
+		  if (!haveGrid())
+		    {
+		      GeometryObjects::paths()->clear();
+		      GeometryObjects::pathgroups()->clear();		      
+		      QMessageBox::information(0, "Fibers",
+					       "Removing fibers data, invalid grid size");
+		      return;
+		    }
+		  
 		  QFileInfo f(url.toLocalFile());		  
 		  Global::setPreviousDirectory(f.absolutePath());
 		}

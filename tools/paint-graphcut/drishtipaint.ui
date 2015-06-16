@@ -258,7 +258,7 @@
             <widget class="QPushButton" name="zoomdown">
              <property name="maximumSize">
               <size>
-               <width>30</width>
+               <width>50</width>
                <height>20</height>
               </size>
              </property>
@@ -274,7 +274,7 @@
             <widget class="QPushButton" name="zoom9">
              <property name="maximumSize">
               <size>
-               <width>30</width>
+               <width>50</width>
                <height>20</height>
               </size>
              </property>
@@ -290,7 +290,7 @@
             <widget class="QPushButton" name="zoom0">
              <property name="maximumSize">
               <size>
-               <width>30</width>
+               <width>50</width>
                <height>20</height>
               </size>
              </property>
@@ -306,7 +306,7 @@
             <widget class="QPushButton" name="zoomup">
              <property name="maximumSize">
               <size>
-               <width>30</width>
+               <width>50</width>
                <height>20</height>
               </size>
              </property>
@@ -568,11 +568,13 @@
     </property>
     <addaction name="actionLoad"/>
     <addaction name="actionLoad_Curves"/>
+    <addaction name="actionLoad_Fibers"/>
     <addaction name="separator"/>
     <addaction name="actionExtractTag"/>
     <addaction name="actionMeshTag"/>
     <addaction name="separator"/>
     <addaction name="actionSave_Curves"/>
+    <addaction name="actionSave_Fibers"/>
     <addaction name="saveImage"/>
     <addaction name="separator"/>
     <addaction name="actionExit"/>
@@ -671,6 +673,16 @@
   <action name="actionFibers">
    <property name="text">
     <string>Fibers</string>
+   </property>
+  </action>
+  <action name="actionSave_Fibers">
+   <property name="text">
+    <string>Save Fibers</string>
+   </property>
+  </action>
+  <action name="actionLoad_Fibers">
+   <property name="text">
+    <string>Load Fibers</string>
    </property>
   </action>
  </widget>

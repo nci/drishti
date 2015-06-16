@@ -77,7 +77,6 @@ class ImageWidget : public QWidget
   bool dCurvesPresent() { return m_dCurves.curvesPresent(); };
   bool wCurvesPresent() { return m_wCurves.curvesPresent(); };
   bool hCurvesPresent() { return m_hCurves.curvesPresent(); };
-
   bool fibersPresent() { return m_fibers.fibersPresent(); };
 
   void resetCurves();
@@ -94,8 +93,11 @@ class ImageWidget : public QWidget
   void setCurve(bool);
   void saveCurves(QString);
   void saveCurves();
-  void loadCurves(QString);
   void loadCurves();
+  void loadCurves(QString);
+  void saveFibers();
+  void loadFibers();
+  void loadFibers(QString);
   void setSmoothType(int);
   void setGradType(int);
   void freezeLivewire(bool);
@@ -275,6 +277,9 @@ class ImageWidget : public QWidget
   
   void paintUsingCurves(CurveGroup*, int, int, int, uchar*, QList<int>);
   void paintUsingCurves(uchar*);
+
+  void saveFibers(QFile*);
+  void loadFibers(QFile*);
 
   void saveCurves(QFile*, CurveGroup*);
   void loadCurves(QFile*, CurveGroup*);

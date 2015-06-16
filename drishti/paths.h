@@ -29,6 +29,8 @@ class Paths : public QObject
   void addPath(PathObject);
   void addPath(QString);
 
+  void addFibers(QString);
+
   void draw(QGLViewer*, bool, Vec);
   void postdraw(QGLViewer*);
 

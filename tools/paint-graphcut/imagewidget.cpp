@@ -3949,6 +3949,41 @@ ImageWidget::updateMaskImage()
 }
 
 void
+ImageWidget::setSmoothType(int i)
+{
+  m_livewire.setSmoothType(i);
+ 
+  // transfer data for livewire calculation
+  uchar *sliceData = new uchar[m_imgHeight*m_imgWidth];
+  for(int i=0; i<m_imgHeight*m_imgWidth; i++)
+    sliceData[i] = m_sliceImage[4*i];
+    //sliceData[i] = m_slice[2*i];
+  m_livewire.setImageData(m_imgWidth, m_imgHeight, sliceData);
+  delete [] sliceData;
+  m_gradImageScaled = m_livewire.gradientImage().scaled(m_simgWidth,
+							m_simgHeight,
+							Qt::IgnoreAspectRatio,
+							Qt::FastTransformation);
+}
+
+void
+ImageWidget::setGradType(int i)
+{
+  m_livewire.setGradType(i);
+ 
+  // transfer data for livewire calculation
+  uchar *sliceData = new uchar[m_imgHeight*m_imgWidth];
+  for(int i=0; i<m_imgHeight*m_imgWidth; i++)
+    sliceData[i] = m_sliceImage[4*i];
+  m_livewire.setImageData(m_imgWidth, m_imgHeight, sliceData);
+  delete [] sliceData;
+  m_gradImageScaled = m_livewire.gradientImage().scaled(m_simgWidth,
+							m_simgHeight,
+							Qt::IgnoreAspectRatio,
+							Qt::FastTransformation);
+}
+
+void
 ImageWidget::saveCurveData(QFile *cfile, int key, Curve *c)
 {
   char keyword[100];
@@ -4200,6 +4235,124 @@ ImageWidget::saveCurves(QFile *cfile, CurveGroup *cg)
 }
 
 void
+ImageWidget::saveFibers(QFile *cfile)
+{
+  char keyword[100];
+
+  memset(keyword, 0, 100);
+  sprintf(keyword, "fibergroupstart\n");
+  cfile->write((char*)keyword, strlen(keyword));
+
+
+  QList<Fiber*>* fibers = m_fibers.fibers();
+  int nfibers = fibers->count();
+  for(int i=0; i<nfibers; i++)
+    {
+      Fiber *fb = fibers->at(i);
+      int tag = fb->tag;
+      int thickness = fb->thickness;
+      QVector<Vec> seeds = fb->seeds;
+      
+      if (seeds.count() > 0) // save only if we have non-empty fiber
+	{
+	  memset(keyword, 0, 100);
+	  sprintf(keyword, "fiberstart\n");
+	  cfile->write((char*)keyword, strlen(keyword));
+
+	  memset(keyword, 0, 100);
+	  sprintf(keyword, "tag\n");
+	  cfile->write((char*)keyword, strlen(keyword));
+	  cfile->write((char*)&tag, sizeof(int));
+  
+	  memset(keyword, 0, 100);
+	  sprintf(keyword, "thickness\n");
+	  cfile->write((char*)keyword, strlen(keyword));
+	  cfile->write((char*)&thickness, sizeof(int));
+
+	  memset(keyword, 0, 100);
+	  sprintf(keyword, "seeds\n");
+	  cfile->write((char*)keyword, strlen(keyword));
+	  int npts = seeds.count();
+	  cfile->write((char*)&npts, sizeof(int));
+	  float *pt = new float [3*npts];
+	  for(int j=0; j<npts; j++)
+	    {
+	      pt[3*j+0] = seeds[j].x;
+	      pt[3*j+1] = seeds[j].y;
+	      pt[3*j+2] = seeds[j].z;
+	    }
+	  cfile->write((char*)pt, 3*npts*sizeof(float));
+	  delete [] pt;
+      
+	  memset(keyword, 0, 100);
+	  sprintf(keyword, "fiberend\n");
+	  cfile->write((char*)keyword, strlen(keyword));
+	}
+    }
+  
+  memset(keyword, 0, 100);
+  sprintf(keyword, "fibergroupend\n");
+  cfile->write((char*)keyword, strlen(keyword));
+}
+
+void
+ImageWidget::loadFibers(QFile *cfile)
+{
+  char keyword[100];
+  cfile->readLine((char*)&keyword, 100);
+
+  if (strcmp(keyword, "fibergroupstart\n") != 0)
+    return;
+
+  bool cgend = false;
+  while(!cgend)
+    {
+      cfile->readLine((char*)&keyword, 100);
+
+      if (strcmp(keyword, "fibergroupend\n") == 0)
+	cgend = true;      
+      else if (strcmp(keyword, "fiberstart\n") == 0)
+	{
+	  Fiber fb;
+	  bool done = false;
+	  while(!done)
+	    {
+	      cfile->readLine((char*)&keyword, 100);
+	      int t;
+	      if (strcmp(keyword, "fiberend\n") == 0)
+		done = true;
+	      else if (strcmp(keyword, "tag\n") == 0)
+		{
+		  cfile->read((char*)&t, sizeof(int));
+		  fb.tag = t;
+		}
+	      else if (strcmp(keyword, "thickness\n") == 0)
+		{
+		  cfile->read((char*)&t, sizeof(int));
+		  fb.thickness = t;
+		}
+	      else if (strcmp(keyword, "seeds\n") == 0)
+		{
+		  int npts;
+		  float *pt;
+		  cfile->read((char*)&npts, sizeof(int));
+		  pt = new float[3*npts];
+		  cfile->read((char*)pt, 3*npts*sizeof(float));
+		  for(int ni=0; ni<npts; ni++)
+		    fb.seeds << Vec(pt[3*ni+0],
+				    pt[3*ni+1],
+				    pt[3*ni+2]);
+		  delete [] pt;
+		}	      
+	    }
+	  if (fb.seeds.count() > 0)
+	    m_fibers.addFiber(fb);
+	}
+    }
+
+}
+
+void
 ImageWidget::saveCurves()
 {
   QString curvesfile = QFileDialog::getSaveFileName(0,
@@ -4221,7 +4374,8 @@ ImageWidget::saveCurves(QString curvesfile)
   // if no curves present return
   if (!dCurvesPresent() &&
       !wCurvesPresent() &&
-      !hCurvesPresent())
+      !hCurvesPresent() &&
+      !fibersPresent())
     return;
   
   if (!StaticFunctions::checkExtension(curvesfile, ".curve") &&
@@ -4236,6 +4390,8 @@ ImageWidget::saveCurves(QString curvesfile)
   saveCurves(&cfile, &m_dCurves);
   saveCurves(&cfile, &m_wCurves);
   saveCurves(&cfile, &m_hCurves);
+
+  saveFibers(&cfile);
 
   cfile.close();
 }
@@ -4320,6 +4476,8 @@ ImageWidget::loadCurves(QString curvesfile)
   loadCurves(&cfile, &m_wCurves);
   loadCurves(&cfile, &m_hCurves);
 
+  loadFibers(&cfile);
+
   cfile.close();
 
   CurveGroup *cg = getCg();
@@ -4345,41 +4503,130 @@ ImageWidget::loadCurves()
 }
 
 void
-ImageWidget::setSmoothType(int i)
+ImageWidget::saveFibers()
 {
-  m_livewire.setSmoothType(i);
- 
-  //-----
-  // transfer data for livewire calculation
-  uchar *sliceData = new uchar[m_imgHeight*m_imgWidth];
-  for(int i=0; i<m_imgHeight*m_imgWidth; i++)
-    sliceData[i] = m_sliceImage[4*i];
-    //sliceData[i] = m_slice[2*i];
-  m_livewire.setImageData(m_imgWidth, m_imgHeight, sliceData);
-  delete [] sliceData;
-  m_gradImageScaled = m_livewire.gradientImage().scaled(m_simgWidth,
-							m_simgHeight,
-							Qt::IgnoreAspectRatio,
-							Qt::FastTransformation);
-  //-----
+  QString flnm = QFileDialog::getSaveFileName(0,
+					      "Save Fibers",
+					      Global::previousDirectory(),
+					      "Fibers Files (*.fibers)",
+					      0,
+					      QFileDialog::DontUseNativeDialog);
+
+  if (flnm.isEmpty())
+    return;
+
+  if (!StaticFunctions::checkExtension(flnm, ".fiber") &&
+      !StaticFunctions::checkExtension(flnm, ".fibers"))
+      flnm += ".fibers";
+  
+  QFile cfile;
+  cfile.setFileName(flnm);
+  if (!cfile.open(QFile::WriteOnly | QIODevice::Text))
+    {
+      QMessageBox::information(0, "Error", QString("Cannot write to %1").arg(flnm));
+      return;
+    }
+
+  QTextStream out(&cfile);
+  QList<Fiber*>* fibers = m_fibers.fibers();
+  int nfibers = fibers->count();
+  for(int i=0; i<nfibers; i++)
+    {
+      Fiber *fb = fibers->at(i);
+      int tag = fb->tag;
+      int thickness = fb->thickness;
+      QVector<Vec> seeds = fb->seeds;      
+      int npts = seeds.count();
+      if (npts > 0) // save only if we have non-empty fiber
+	{
+	  out << "fiberstart\n";
+	  out << "tag  " << tag << "\n";
+	  out << "thickness  " << thickness << "\n";
+	  out << "seeds " << npts << "\n";
+	  for(int j=0; j<npts; j++)
+	    out << seeds[j].x << "  " << seeds[j].y << "  " << seeds[j].z << "\n";
+	  out << "fiberend\n";	  
+	}
+    }
+  QMessageBox::information(0, "", "Fibers saved to file.");
 }
 
 void
-ImageWidget::setGradType(int i)
+ImageWidget::loadFibers()
 {
-  m_livewire.setGradType(i);
- 
-  //-----
-  // transfer data for livewire calculation
-  uchar *sliceData = new uchar[m_imgHeight*m_imgWidth];
-  for(int i=0; i<m_imgHeight*m_imgWidth; i++)
-    sliceData[i] = m_sliceImage[4*i];
-    //sliceData[i] = m_slice[2*i];
-  m_livewire.setImageData(m_imgWidth, m_imgHeight, sliceData);
-  delete [] sliceData;
-  m_gradImageScaled = m_livewire.gradientImage().scaled(m_simgWidth,
-							m_simgHeight,
-							Qt::IgnoreAspectRatio,
-							Qt::FastTransformation);
-  //-----
+  QString fibersfile = QFileDialog::getOpenFileName(0,
+						    "Load Fibers",
+						    Global::previousDirectory(),
+						    "Fibers Files (*.fibers)",
+						    0,
+						    QFileDialog::DontUseNativeDialog);
+  
+  if (fibersfile.isEmpty())
+    return;
+
+  loadFibers(fibersfile);
+}
+
+void
+ImageWidget::loadFibers(QString flnm)
+{
+  QFile cfile;
+  cfile.setFileName(flnm);
+  if (!cfile.open(QFile::ReadOnly | QIODevice::Text))
+    {
+      QMessageBox::information(0, "Error", QString("Cannot read to %1").arg(flnm));
+      return;
+    }
+
+  QTextStream in(&cfile);
+  while (!in.atEnd())
+    {
+      QString line = in.readLine();
+      if (line.contains("fiberstart"))
+	{
+	  Fiber fb;
+	  bool done = false;
+	  while(!done && !in.atEnd())
+	    {
+	      line = in.readLine();
+	      QStringList words = line.split(" ", QString::SkipEmptyParts);
+	      if (words.count() > 0)
+		{
+		  int t;
+		  bool b;
+		  if (words[0].contains("fiberend"))
+		    done = true;
+		  else if (words[0].contains("tag"))
+		    {		  
+		      if (words.count() > 1)
+			fb.tag = words[1].toInt();;
+		    }
+		  else if (words[0].contains("thickness"))
+		    {
+		      if (words.count() > 1)
+			fb.thickness = words[1].toInt();;
+		    }
+		  else if (words[0].contains("seeds"))
+		    {
+		      int npts;
+		      if (words.count() > 1)
+			npts = words[1].toInt();;
+		      for(int ni=0; ni<npts; ni++)
+			{
+			  line = in.readLine();
+			  QStringList words = line.split(" ", QString::SkipEmptyParts);
+			  if (words.count() == 3)
+			    fb.seeds << Vec(words[0].toFloat(),
+					    words[1].toFloat(),
+					    words[2].toFloat());
+			}
+		    }
+		}
+	    }
+	  if (fb.seeds.count() > 0)
+	    m_fibers.addFiber(fb);
+	}
+    }
+
+  QMessageBox::information(0, "", "Fibers read from file.");
 }

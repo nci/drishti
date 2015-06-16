@@ -38,6 +38,8 @@ class DrishtiPaint : public QMainWindow
   void on_actionLoad_triggered();
   void on_actionLoad_Curves_triggered();
   void on_actionSave_Curves_triggered();
+  void on_actionLoad_Fibers_triggered();
+  void on_actionSave_Fibers_triggered();
   void on_actionExit_triggered();
   void on_actionExtractTag_triggered();
   void on_actionMeshTag_triggered();

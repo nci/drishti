@@ -660,6 +660,9 @@ DrishtiPaint::getRawValue(int d, int w, int h)
 void DrishtiPaint::on_actionLoad_Curves_triggered() {m_imageWidget->loadCurves();}
 void DrishtiPaint::on_actionSave_Curves_triggered() {m_imageWidget->saveCurves();}
 
+void DrishtiPaint::on_actionLoad_Fibers_triggered() {m_imageWidget->loadFibers();}
+void DrishtiPaint::on_actionSave_Fibers_triggered() {m_imageWidget->saveFibers();}
+
 void
 DrishtiPaint::on_actionLoad_triggered()
 {
@@ -740,7 +743,8 @@ DrishtiPaint::dragEnterEvent(QDragEnterEvent *event)
 
 	  if (StaticFunctions::checkURLs(urls, ".pvl.nc") ||
 	      StaticFunctions::checkURLs(urls, ".xml") ||
-	      StaticFunctions::checkURLs(urls, ".curves"))
+	      StaticFunctions::checkURLs(urls, ".curves") ||
+	      StaticFunctions::checkURLs(urls, ".fibers"))
 	    event->acceptProposedAction();
 	}
     }
@@ -762,6 +766,11 @@ DrishtiPaint::dropEvent(QDropEvent *event)
 		{
 		  QString flnm = (data->urls())[0].toLocalFile();
 		  m_imageWidget->loadCurves(flnm);
+		}
+	      else if (StaticFunctions::checkExtension(url.toLocalFile(), ".fibers"))
+		{
+		  QString flnm = (data->urls())[0].toLocalFile();
+		  m_imageWidget->loadFibers(flnm);
 		}
 	      else if (StaticFunctions::checkExtension(url.toLocalFile(), ".pvl.nc") ||
 		  StaticFunctions::checkExtension(url.toLocalFile(), ".xml"))

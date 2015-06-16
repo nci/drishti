@@ -65,6 +65,26 @@
     </spacer>
    </item>
    <item>
+    <widget class="QComboBox" name="voxchoice">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <item>
+      <property name="text">
+       <string>TF</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>Tags</string>
+      </property>
+     </item>
+    </widget>
+   </item>
+   <item>
     <layout class="QHBoxLayout" name="horizontalLayout">
      <property name="spacing">
       <number>2</number>
@@ -116,26 +136,6 @@
     </layout>
    </item>
    <item>
-    <widget class="QComboBox" name="voxchoice">
-     <property name="sizePolicy">
-      <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-       <horstretch>0</horstretch>
-       <verstretch>0</verstretch>
-      </sizepolicy>
-     </property>
-     <item>
-      <property name="text">
-       <string>TF</string>
-      </property>
-     </item>
-     <item>
-      <property name="text">
-       <string>Tags</string>
-      </property>
-     </item>
-    </widget>
-   </item>
-   <item>
     <widget class="QCheckBox" name="box">
      <property name="text">
       <string>Show Box</string>
@@ -172,7 +172,7 @@
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout_4">
      <property name="spacing">
-      <number>2</number>
+      <number>3</number>
      </property>
      <property name="topMargin">
       <number>0</number>
@@ -186,6 +186,30 @@
      </item>
      <item>
       <widget class="QLineEdit" name="curvetags">
+       <property name="text">
+        <string>-1</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_5">
+     <property name="spacing">
+      <number>7</number>
+     </property>
+     <property name="topMargin">
+      <number>0</number>
+     </property>
+     <item>
+      <widget class="QLabel" name="label_5">
+       <property name="text">
+        <string>Fibers</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="fibertags">
        <property name="text">
         <string>-1</string>
        </property>

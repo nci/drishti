@@ -108,10 +108,44 @@ FiberGroup::selectFiber(int d, int w, int h)
     m_fibers[f]->selected = false;
 }
 
-QVector<QPointF>
+void
+FiberGroup::setTag(int d, int w, int h)
+{
+  if (m_fibers.count() == 0)
+    return;
+
+  for(int i=0; i<m_fibers.count(); i++)
+    {
+      if (m_fibers[i]->contains(d, w, h))
+	{
+	  m_fibers[i]->tag = Global::tag();
+	  m_fibers[i]->updateTrace();
+	  return;
+	}
+    }
+}
+
+void
+FiberGroup::setThickness(int d, int w, int h)
+{
+  if (m_fibers.count() == 0)
+    return;
+
+  for(int i=0; i<m_fibers.count(); i++)
+    {
+      if (m_fibers[i]->contains(d, w, h))
+	{
+	  m_fibers[i]->thickness = Global::thickness();
+	  m_fibers[i]->updateTrace();
+	  return;
+	}
+    }
+}
+
+QVector<QVector4D>
 FiberGroup::xyPoints(int type, int slc)
 {
-  QVector<QPointF> xypoints;
+  QVector<QVector4D> xypoints;
   for (int i=0; i<m_fibers.count(); i++)
     if (!m_fibers[i]->selected)
       xypoints += m_fibers[i]->xyPoints(type, slc);
@@ -119,10 +153,10 @@ FiberGroup::xyPoints(int type, int slc)
   return xypoints;
 }
 
-QVector<QPointF>
+QVector<QVector4D>
 FiberGroup::xyPointsSelected(int type, int slc)
 {
-  QVector<QPointF> xypoints;
+  QVector<QVector4D> xypoints;
   for (int i=0; i<m_fibers.count(); i++)
     if (m_fibers[i]->selected)
       xypoints += m_fibers[i]->xyPoints(type, slc);
@@ -130,10 +164,10 @@ FiberGroup::xyPointsSelected(int type, int slc)
   return xypoints;
 }
 
-QVector<QPointF>
+QVector<QVector4D>
 FiberGroup::xySeeds(int type, int slc)
 {
-  QVector<QPointF> xypoints;
+  QVector<QVector4D> xypoints;
   for (int i=0; i<m_fibers.count(); i++)
     if (!m_fibers[i]->selected)
       xypoints += m_fibers[i]->xySeeds(type, slc);
@@ -141,10 +175,10 @@ FiberGroup::xySeeds(int type, int slc)
   return xypoints;
 }
 
-QVector<QPointF>
+QVector<QVector4D>
 FiberGroup::xySeedsSelected(int type, int slc)
 {
-  QVector<QPointF> xypoints;
+  QVector<QVector4D> xypoints;
   for (int i=0; i<m_fibers.count(); i++)
     if (m_fibers[i]->selected)
       xypoints += m_fibers[i]->xySeeds(type, slc);

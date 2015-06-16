@@ -216,6 +216,8 @@ DrishtiPaint::on_actionFibers_triggered()
   m_fibersMenu->show();
   m_curvesMenu->hide();
   m_graphcutMenu->hide();
+  ui.wdptszframe->show();
+  ui.spreadframe->hide();
 
   ui.actionCurves->setChecked(false);
   ui.actionGraphCut->setChecked(false);
@@ -236,6 +238,8 @@ DrishtiPaint::on_actionCurves_triggered()
   m_curvesMenu->show();
   m_graphcutMenu->hide();
   m_fibersMenu->hide();
+  ui.wdptszframe->show();
+  ui.spreadframe->hide();
 
   ui.actionCurves->setChecked(true);
   ui.actionGraphCut->setChecked(false);
@@ -259,6 +263,8 @@ DrishtiPaint::on_actionGraphCut_triggered()
   m_curvesMenu->hide();
   m_graphcutMenu->show();
   m_fibersMenu->hide();
+  ui.wdptszframe->hide();
+  ui.spreadframe->show();
 
   ui.actionCurves->setChecked(false);
   ui.actionGraphCut->setChecked(true);
@@ -530,6 +536,19 @@ DrishtiPaint::curvetag_editingFinished()
   viewerUi.curvetags->setText(tags.first);
   
   m_viewer->setCurveTags(tags.second);
+}
+
+void
+DrishtiPaint::fibertag_editingFinished()
+{
+  QString text = viewerUi.fibertags->text();
+
+  QPair<QString, QList<int> > tags;
+  tags = getTags(text);
+
+  viewerUi.fibertags->setText(tags.first);
+  
+  m_viewer->setFiberTags(tags.second);
 }
 
 void
@@ -854,6 +873,7 @@ DrishtiPaint::setFile(QString filename)
   m_imageWidget->setLivewire(true);
 
   ui.tagcurves->setText("-1");
+  viewerUi.fibertags->setText("-1");
   viewerUi.curvetags->setText("-1");
   viewerUi.paintedtags->setText("-1");
 
@@ -2639,6 +2659,8 @@ DrishtiPaint::connectViewerMenu()
 	  this, SLOT(paintedtag_editingFinished()));
   connect(viewerUi.curvetags, SIGNAL(editingFinished()),
 	  this, SLOT(curvetag_editingFinished()));
+  connect(viewerUi.fibertags, SIGNAL(editingFinished()),
+	  this, SLOT(fibertag_editingFinished()));
 }
 
 void
@@ -2697,8 +2719,8 @@ DrishtiPaint::connectCurvesMenu()
 	  this, SLOT(on_deselect_clicked()));
 
 
-  connect(curvesUi.thickness, SIGNAL(valueChanged(int)),
-	  this, SLOT(on_thickness_valueChanged(int)));
+//  connect(curvesUi.thickness, SIGNAL(valueChanged(int)),
+//	  this, SLOT(on_thickness_valueChanged(int)));
   connect(curvesUi.pointsize, SIGNAL(valueChanged(int)),
 	  this, SLOT(on_pointsize_valueChanged(int)));
 

@@ -40,6 +40,7 @@ class Viewer : public QGLViewer
     void saveImage() { saveSnapshot(false); };
     void setPaintedTags(QList<int>);
     void setCurveTags(QList<int>);
+    void setFiberTags(QList<int>);
 
  private :
   int m_depth, m_width, m_height;
@@ -70,6 +71,7 @@ class Viewer : public QGLViewer
 
   QList<int> m_paintedTags;
   QList<int> m_curveTags;
+  QList<int> m_fiberTags;
 
 
   void drawBox();

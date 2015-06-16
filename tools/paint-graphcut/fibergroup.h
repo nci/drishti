@@ -20,11 +20,13 @@ class FiberGroup
   void addPoint(int, int, int);
   void removePoint(int, int, int);
   void selectFiber(int, int, int);
+  void setTag(int, int, int);
+  void setThickness(int, int, int);
 
-  QVector<QPointF> xyPoints(int, int);
-  QVector<QPointF> xySeeds(int, int);
-  QVector<QPointF> xyPointsSelected(int, int);
-  QVector<QPointF> xySeedsSelected(int, int);
+  QVector<QVector4D> xyPoints(int, int);
+  QVector<QVector4D> xySeeds(int, int);
+  QVector<QVector4D> xyPointsSelected(int, int);
+  QVector<QVector4D> xySeedsSelected(int, int);
 
  private :
   QList<Fiber*> m_fibers;

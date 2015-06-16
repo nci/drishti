@@ -50,6 +50,9 @@ Viewer::init()
   m_curveTags.clear();
   m_curveTags << -1;
 
+  m_fiberTags.clear();
+  m_fiberTags << -1;
+
   m_showBox = true;
 }
 
@@ -75,6 +78,12 @@ Viewer::setCurveTags(QList<int> t)
   update();
 }
 
+void
+Viewer::setFiberTags(QList<int> t)
+{
+  m_fiberTags = t;
+  update();
+}
 
 
 void Viewer::setMaskDataPtr(uchar *ptr) { m_maskPtr = ptr; }
@@ -293,9 +302,9 @@ Viewer::drawFibers()
     {
       Fiber *fb = m_fibers->at(i);
       int tag = fb->tag;
-//      if (m_curveTags.count() == 0 ||
-//	  m_curveTags[0] == -1 ||
-//	  m_curveTags.contains(tag))
+      if (m_fiberTags.count() == 0 ||
+	  m_fiberTags[0] == -1 ||
+	  m_fiberTags.contains(tag))
 	{
 	  float r = Global::tagColors()[4*tag+0]*1.0/255.0;
 	  float g = Global::tagColors()[4*tag+1]*1.0/255.0;

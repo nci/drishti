@@ -4,6 +4,8 @@
 #include <QGLViewer/vec.h>
 using namespace qglviewer;
 
+#include <QVector4D>
+
 class Fiber
 {
  public :
@@ -23,19 +25,18 @@ class Fiber
   bool containsSeed(int, int, int);
   bool contains(int, int, int);
   
-  QVector<QPointF> xyPoints(int, int);
-  QVector<QPointF> xySeeds(int, int);
-
- private :
-  QMultiMap<int, QPointF> m_dPoints;
-  QMultiMap<int, QPointF> m_wPoints;
-  QMultiMap<int, QPointF> m_hPoints;
-
-  QMultiMap<int, QPointF> m_dSeeds;
-  QMultiMap<int, QPointF> m_wSeeds;
-  QMultiMap<int, QPointF> m_hSeeds;
+  QVector<QVector4D> xyPoints(int, int);
+  QVector<QVector4D> xySeeds(int, int);
 
   void updateTrace();
+ private :
+  QMultiMap<int, QVector4D> m_dPoints;
+  QMultiMap<int, QVector4D> m_wPoints;
+  QMultiMap<int, QVector4D> m_hPoints;
+  QMultiMap<int, QVector4D> m_dSeeds;
+  QMultiMap<int, QVector4D> m_wSeeds;
+  QMultiMap<int, QVector4D> m_hSeeds;
+
   QList<Vec> line3d(Vec, Vec);
 };
 

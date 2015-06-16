@@ -107,10 +107,10 @@ Fiber::removePoint(int d, int w, int h)
 bool
 Fiber::containsSeed(int d, int w, int h)
 {
-  QList<QPointF> dpts = m_dSeeds.values(d);
+  QList<QVector4D> dpts = m_dSeeds.values(d);
 
   for(int i=0; i<dpts.count(); i++)
-    if ((dpts[i]-QPointF(h, w)).manhattanLength() < 10)
+    if ((dpts[i].toPointF()-QPointF(h, w)).manhattanLength() < 10)
       return true;
 
   return false;
@@ -119,18 +119,18 @@ Fiber::containsSeed(int d, int w, int h)
 bool
 Fiber::contains(int d, int w, int h)
 {
-  QList<QPointF> dpts = m_dPoints.values(d);
+  QList<QVector4D> dpts = m_dPoints.values(d);
 
   for(int i=0; i<dpts.count(); i++)
-    if ((dpts[i]-QPointF(h, w)).manhattanLength() < 10)
-      return true;
+    if ((dpts[i].toPointF()-QPointF(h, w)).manhattanLength() < 10)
+	return true;
 
   return false;
 }
 
 void
 Fiber::updateTrace()
-{
+{  
   int ptend = seeds.count();
 
   trace.clear();
@@ -148,13 +148,12 @@ Fiber::updateTrace()
   if (ptend == 1)
     {
       trace << seeds[0];
-      m_dPoints.insert((int)seeds[0].z, QPointF(seeds[0].x, seeds[0].y));
-      m_wPoints.insert((int)seeds[0].y, QPointF(seeds[0].x, seeds[0].z));
-      m_hPoints.insert((int)seeds[0].x, QPointF(seeds[0].y, seeds[0].z));      
-
-      m_dSeeds.insert((int)seeds[0].z, QPointF(seeds[0].x, seeds[0].y));
-      m_wSeeds.insert((int)seeds[0].y, QPointF(seeds[0].x, seeds[0].z));
-      m_hSeeds.insert((int)seeds[0].x, QPointF(seeds[0].y, seeds[0].z));      
+      m_dPoints.insert((int)seeds[0].z, QVector4D(seeds[0].x, seeds[0].y, tag, thickness));
+      m_wPoints.insert((int)seeds[0].y, QVector4D(seeds[0].x, seeds[0].z, tag, thickness));
+      m_hPoints.insert((int)seeds[0].x, QVector4D(seeds[0].y, seeds[0].z, tag, thickness));      
+       m_dSeeds.insert((int)seeds[0].z, QVector4D(seeds[0].x, seeds[0].y, tag, thickness));
+       m_wSeeds.insert((int)seeds[0].y, QVector4D(seeds[0].x, seeds[0].z, tag, thickness));
+       m_hSeeds.insert((int)seeds[0].x, QVector4D(seeds[0].y, seeds[0].z, tag, thickness));      
       return;
     }
 
@@ -163,9 +162,9 @@ Fiber::updateTrace()
   for(int ptn=0; ptn<ptend; ptn++)
     {
       Vec p = seeds[ptn];
-      m_dSeeds.insert((int)p.z, QPointF(p.x, p.y));
-      m_wSeeds.insert((int)p.y, QPointF(p.x, p.z));
-      m_hSeeds.insert((int)p.x, QPointF(p.y, p.z));
+      m_dSeeds.insert((int)p.z, QVector4D(p.x, p.y, tag, thickness));
+      m_wSeeds.insert((int)p.y, QVector4D(p.x, p.z, tag, thickness));
+      m_hSeeds.insert((int)p.x, QVector4D(p.y, p.z, tag, thickness));
     }
 
   // linear
@@ -177,9 +176,9 @@ Fiber::updateTrace()
   for(int i=0; i<trace.count(); i++)
     {
       Vec p = trace[i];
-      m_dPoints.insert((int)p.z, QPointF(p.x, p.y));
-      m_wPoints.insert((int)p.y, QPointF(p.x, p.z));
-      m_hPoints.insert((int)p.x, QPointF(p.y, p.z));
+      m_dPoints.insert((int)p.z, QVector4D(p.x, p.y, tag, thickness));
+      m_wPoints.insert((int)p.y, QVector4D(p.x, p.z, tag, thickness));
+      m_hPoints.insert((int)p.x, QVector4D(p.y, p.z, tag, thickness));
     }
 
 //  // spline
@@ -216,23 +215,23 @@ Fiber::updateTrace()
 //    }
 }
 
-QVector<QPointF>
+QVector<QVector4D>
 Fiber::xyPoints(int type, int slc)
 {
-  QVector<QPointF> xypoints;
-  if (type == 0) xypoints = QVector<QPointF>::fromList(m_dPoints.values(slc));
-  if (type == 1) xypoints = QVector<QPointF>::fromList(m_wPoints.values(slc));
-  if (type == 2) xypoints = QVector<QPointF>::fromList(m_hPoints.values(slc));
+  QVector<QVector4D> xypoints;
+  if (type == 0) xypoints = QVector<QVector4D>::fromList(m_dPoints.values(slc));
+  if (type == 1) xypoints = QVector<QVector4D>::fromList(m_wPoints.values(slc));
+  if (type == 2) xypoints = QVector<QVector4D>::fromList(m_hPoints.values(slc));
   return xypoints;
 }
 
-QVector<QPointF>
+QVector<QVector4D>
 Fiber::xySeeds(int type, int slc)
 {
-  QVector<QPointF> xypoints;
-  if (type == 0) xypoints = QVector<QPointF>::fromList(m_dSeeds.values(slc));
-  if (type == 1) xypoints = QVector<QPointF>::fromList(m_wSeeds.values(slc));
-  if (type == 2) xypoints = QVector<QPointF>::fromList(m_hSeeds.values(slc));
+  QVector<QVector4D> xypoints;
+  if (type == 0) xypoints = QVector<QVector4D>::fromList(m_dSeeds.values(slc));
+  if (type == 1) xypoints = QVector<QVector4D>::fromList(m_wSeeds.values(slc));
+  if (type == 2) xypoints = QVector<QVector4D>::fromList(m_hSeeds.values(slc));
   return xypoints;
 }
 

@@ -839,9 +839,40 @@ ImageWidget::drawLivewire(QPainter *p)
 }
 
 void
+ImageWidget::drawPoints(QPainter *p,
+			QVector<QVector4D> seeds,
+			QColor defaultColor,
+			int wd)
+{
+  for(int i=0; i<seeds.count(); i++)
+    {
+      int pointSize = seeds[i].w() + wd;
+      int tag = seeds[i].z();
+      uchar r = Global::tagColors()[4*tag+0];
+      uchar g = Global::tagColors()[4*tag+1];
+      uchar b = Global::tagColors()[4*tag+2];
+      if (defaultColor == Qt::black)
+	{
+	  p->setPen(QPen(QColor(r,g,b), 1));
+	  p->setBrush(QColor(r,g,b));
+	}
+      else
+	{
+	  p->setPen(QPen(defaultColor, 1));
+	  p->setBrush(defaultColor);
+	}
+      int x = seeds[i].x() - pointSize/2;
+      int y = seeds[i].y() - pointSize/2;
+      p->drawEllipse(x,y,pointSize,pointSize);
+    }
+}
+
+void
 ImageWidget::drawFibers(QPainter *p)
 {
-  QVector<QPointF> pts;
+  QVector<QVector4D> pts;
+  QPoint move = QPoint(m_simgX, m_simgY);
+  float sx = (float)m_simgWidth/(float)m_imgWidth;
 
   //-------------------------------
   // draw fiber strands
@@ -852,11 +883,13 @@ ImageWidget::drawFibers(QPainter *p)
   else if (m_sliceType == HSlice)
     pts = m_fibers.xyPoints(2, m_currSlice);
 
-  QPoint move = QPoint(m_simgX, m_simgY);
-  float sx = (float)m_simgWidth/(float)m_imgWidth;
   for(int i=0; i<pts.count(); i++)
-      pts[i] = pts[i]*sx + move;
-  drawPoints(p, pts, Qt::green, 2, 4);
+    {
+      QPointF pos = pts[i].toPointF();
+      pos = pos*sx + move;
+      pts[i] = QVector4D(pos.x(), pos.y(), pts[i].z(), pts[i].w());
+    }
+  drawPoints(p, pts, Qt::black, 0);
 
   //-------------------------------
 
@@ -870,10 +903,14 @@ ImageWidget::drawFibers(QPainter *p)
     pts = m_fibers.xyPointsSelected(2, m_currSlice);
 
   for(int i=0; i<pts.count(); i++)
-    pts[i] = pts[i]*sx + move;
+    {
+      QPointF pos = pts[i].toPointF();
+      pos = pos*sx + move;
+      pts[i] = QVector4D(pos.x(), pos.y(), pts[i].z(), pts[i].w());
+    }
 
-  drawPoints(p, pts, Qt::green, 4, 4);
-  drawPoints(p, pts, Qt::darkGreen, 2, 4);
+  drawPoints(p, pts, Qt::black, 2);
+  drawPoints(p, pts, QColor(0,0,0,100), 0);
   //-------------------------------
 
 
@@ -887,9 +924,14 @@ ImageWidget::drawFibers(QPainter *p)
     pts = m_fibers.xySeeds(2, m_currSlice);
 
   for(int i=0; i<pts.count(); i++)
-    pts[i] = pts[i]*sx + move;
+    {
+      QPointF pos = pts[i].toPointF();
+      pos = pos*sx + move;
+      pts[i] = QVector4D(pos.x(), pos.y(), pts[i].z(), pts[i].w());
+    }
 
-  drawSeedPoints(p, pts, Qt::green);
+  drawPoints(p, pts, Qt::black, 2);
+  drawPoints(p, pts, Qt::white, 0);
   //-------------------------------
 
 
@@ -903,13 +945,14 @@ ImageWidget::drawFibers(QPainter *p)
     pts = m_fibers.xySeedsSelected(2, m_currSlice);
 
   for(int i=0; i<pts.count(); i++)
-    pts[i] = pts[i]*sx + move;
+    {
+      QPointF pos = pts[i].toPointF();
+      pos = pos*sx + move;
+      pts[i] = QVector4D(pos.x(), pos.y(), pts[i].z(), pts[i].w());
+    }
 
-  int ps = m_pointSize;
-  m_pointSize += 4;
-  drawSeedPoints(p, pts, Qt::green);
-  m_pointSize = ps;
-  drawSeedPoints(p, pts, Qt::white);
+  drawPoints(p, pts, Qt::black, 8);
+  drawPoints(p, pts, QColor(0,0,0,100), 0);
   //-------------------------------
 
 }
@@ -1896,6 +1939,16 @@ ImageWidget::fiberModeKeyPressEvent(QKeyEvent *event)
       m_fibers.selectFiber(m_pickDepth, m_pickWidth, m_pickHeight);
       update();
     }
+  else if (event->key() == Qt::Key_T)
+    {
+      m_fibers.setTag(m_pickDepth, m_pickWidth, m_pickHeight);
+      update();
+    }
+  else if (event->key() == Qt::Key_W)
+    {
+      m_fibers.setThickness(m_pickDepth, m_pickWidth, m_pickHeight);
+      update();
+    }
 
   return true;
 }
@@ -1974,26 +2027,6 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
 	  return true;
 	}
     }
-
-  //--------------------------------------------------------
-
-//  if (event->key() == Qt::Key_F)
-//    {
-//      m_fiberMode = !m_fiberMode;
-//      QMessageBox::information(0, "", QString("%1").arg(m_fiberMode));
-//    }
-//  if (m_fiberMode)
-//    {
-//      if (event->key() == Qt::Key_Space)
-//	m_fibers.newFiber();
-//      if (event->key() == Qt::Key_H)
-//	{
-//	  m_fibers.selectFiber(m_pickDepth, m_pickWidth, m_pickHeight);
-//	  update();
-//	}
-//      return true;
-//    }
-//  //--------------------------------------------------------
 
   if (ctrlModifier && event->key() == Qt::Key_C)
     {
@@ -2527,6 +2560,12 @@ ImageWidget::fiberMousePressEvent(QMouseEvent *event)
   m_lastPickDepth = m_pickDepth;
   m_lastPickWidth = m_pickWidth;
   m_lastPickHeight= m_pickHeight;
+
+  if (m_button == Qt::LeftButton && altModifier)
+    {
+      checkRubberBand(xpos, ypos);
+      return;
+    }  
   
   if (m_button == Qt::LeftButton)
     m_fibers.addPoint(m_pickDepth, m_pickWidth, m_pickHeight);
@@ -2924,6 +2963,15 @@ ImageWidget::mouseMoveEvent(QMouseEvent *event)
     curveMouseMoveEvent(event);
   else if (!m_fiberMode)
     graphcutMouseMoveEvent(event);
+  else if (m_fiberMode)
+    {
+      if (m_rubberBandActive)
+	{
+	  updateRubberBand(xpos, ypos);
+	  update();
+	  return;
+	}
+    }
 }
 
 void

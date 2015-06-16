@@ -307,6 +307,7 @@ class ImageWidget : public QWidget
 
   void drawSeedPoints(QPainter*, QVector<QPointF>, QColor);
   void drawPoints(QPainter*, QVector<QPointF>, QColor, int, int);
+  void drawPoints(QPainter*, QVector<QVector4D>, QColor, int);
 
   void newPolygon(bool, bool);
   void newEllipse();

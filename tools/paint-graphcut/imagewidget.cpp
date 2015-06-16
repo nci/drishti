@@ -1934,7 +1934,13 @@ ImageWidget::fiberModeKeyPressEvent(QKeyEvent *event)
   int shiftModifier = event->modifiers() & Qt::ShiftModifier;
   int ctrlModifier = event->modifiers() & Qt::ControlModifier;
 
-  if (event->key() == Qt::Key_H)
+  if (event->key() == Qt::Key_Delete ||
+      event->key() == Qt::Key_Backspace)
+    {
+      m_fibers.removeFiber(m_pickDepth, m_pickWidth, m_pickHeight);
+      update();
+    }
+  else if (event->key() == Qt::Key_H)
     {
       m_fibers.selectFiber(m_pickDepth, m_pickWidth, m_pickHeight);
       update();

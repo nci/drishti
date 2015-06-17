@@ -889,6 +889,9 @@ DrishtiPaint::setFile(QString filename)
   QString curvesfile = m_pvlFile;
   curvesfile.replace(".pvl.nc", ".curves");
   m_imageWidget->loadCurves(curvesfile);
+
+  Vec voxelScaling = StaticFunctions::getVoxelSizeFromHeader(m_pvlFile);
+  Global::setVoxelScaling(voxelScaling);
 }
 
 void
@@ -1743,6 +1746,12 @@ DrishtiPaint::on_actionExtractTag_triggered()
   dtypes.clear();
   dtypes << "Tag Only"
 	 << "Tag + Transfer Function";
+  if (m_imageWidget->fibersPresent())
+    {
+      dtypes << "Fibers Only";
+      dtypes << "Fibers + Transfer Function";
+    }
+
   QString option = QInputDialog::getItem(0,
 					 "Extract Data",
 					 "Extract Using Tag + Transfer Function",
@@ -1755,6 +1764,8 @@ DrishtiPaint::on_actionExtractTag_triggered()
   
   if (option == "Tag Only") extractType = 1;
   else if (option == "Tag + Transfer Function") extractType = 2;
+  else if (option == "Fibers Only") extractType = 3;
+  else if (option == "Fibers + Transfer Function") extractType = 4;
   //----------------
 
   //----------------
@@ -1822,73 +1833,17 @@ DrishtiPaint::on_actionExtractTag_triggered()
   uchar *curveMask = new uchar[tdepth*twidth*theight];
   memset(curveMask, 0, tdepth*twidth*theight);
 
-  if (m_imageWidget->dCurvesPresent())
-    {
-      uchar *mask = new uchar[width*height]; 
-      for(int d=minDSlice; d<=maxDSlice; d++)
-	{
-	  int slc = d-minDSlice;
-	  progress.setValue((int)(100*(float)slc/(float)tdepth));
-	  qApp->processEvents();
-	  
-	  memset(mask, 0, width*height);
-	  m_imageWidget->paintUsingCurves(0, d, height, width, mask, tag);
-	  for(int w=minWSlice; w<=maxWSlice; w++)
-	    for(int h=minHSlice; h<=maxHSlice; h++)
-	      {
-		if (mask[w*height+h] > 0)
-		  curveMask[(d-minDSlice)*twidth*theight +
-			    (w-minWSlice)*theight +
-			    (h-minHSlice)] = mask[w*height+h];
-	      }
-	}
-      delete [] mask;
-    }
-  if (m_imageWidget->wCurvesPresent())
-    {
-      uchar *mask = new uchar[depth*height]; 
-      for(int w=minWSlice; w<=maxWSlice; w++)
-	{
-	  int slc = w-minWSlice;
-	  progress.setValue((int)(100*(float)slc/(float)twidth));
-	  qApp->processEvents();
-	  
-	  memset(mask, 0, depth*height);
-	  m_imageWidget->paintUsingCurves(1, w, height, depth, mask, tag);
-	  for(int d=minDSlice; d<=maxDSlice; d++)
-	    for(int h=minHSlice; h<=maxHSlice; h++)
-	      {
-		if (mask[d*height+h] > 0)
-		  curveMask[(d-minDSlice)*twidth*theight +
-			    (w-minWSlice)*theight +
-			    (h-minHSlice)] = mask[d*height+h];
-	      }
-	}
-      delete [] mask;
-    }
-  if (m_imageWidget->hCurvesPresent())
-    {
-      uchar *mask = new uchar[depth*width]; 
-      for(int h=minHSlice; h<=maxHSlice; h++)
-	{
-	  int slc = h-minHSlice;
-	  progress.setValue((int)(100*(float)slc/(float)theight));
-	  qApp->processEvents();
-	  
-	  memset(mask, 0, depth*width);
-	  m_imageWidget->paintUsingCurves(2, h, width, depth, mask, tag);
-	  for(int d=minDSlice; d<=maxDSlice; d++)
-	    for(int w=minWSlice; w<=maxWSlice; w++)
-	      {
-		if (mask[d*width+w] > 0)
-		  curveMask[(d-minDSlice)*twidth*theight +
-			    (w-minWSlice)*theight +
-			    (h-minHSlice)] = mask[d*width+w];
-	      }
-	}
-      delete [] mask;
-    }
-
+  if (extractType < 3)
+    updateCurveMask(curveMask, tag,
+		    depth, width, height,
+		    tdepth, twidth, theight,
+		    minDSlice, minWSlice, minHSlice,
+		    maxDSlice, maxWSlice, maxHSlice);
+  else
+    updateFiberMask(curveMask, tag,
+		    tdepth, twidth, theight,
+		    minDSlice, minWSlice, minHSlice,
+		    maxDSlice, maxWSlice, maxHSlice);
   //----------------------------------
 
 
@@ -1979,7 +1934,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
 
       //-----------------------------
       // use tag mask + transfer function to generate mesh
-      if (extractType == 2)
+      if (extractType == 2 || extractType == 4)
 	{
 	  int sval = 0;
 	  if (tag[0] == -1) sval = 0;
@@ -2060,8 +2015,11 @@ DrishtiPaint::on_actionMeshTag_triggered()
   //----------------
 
   //----------------
+  bool saveFibers = false;
   int colorType = 1; // apply tag colors 
   dtypes.clear();
+  if (m_imageWidget->fibersPresent())
+    dtypes << "Fibers";
   dtypes << "Tag Color"
 	 << "Transfer Function"
 	 << "Tag Color + Transfer Function"
@@ -2077,13 +2035,16 @@ DrishtiPaint::on_actionMeshTag_triggered()
   if (!ok)
     return;
   
-  if (option == "Tag Color") colorType = 1;
+  if (option == "Fibers") saveFibers = true;
+  else if (option == "Tag Color") colorType = 1;
   else if (option == "Transfer Function") colorType = 2;
   else if (option == "Tag Color + Transfer Function") colorType = 3;
   else if (option == "Tag Mask + Transfer Function") colorType = 4;
   else colorType = 0;
   //----------------
 
+
+  //----------------
   int depth, width, height;
   m_volume->gridSize(depth, width, height);
   
@@ -2111,6 +2072,12 @@ DrishtiPaint::on_actionMeshTag_triggered()
   if (!tflnm.endsWith(".ply"))
     tflnm += ".ply";
 
+  if (saveFibers)
+    {
+      meshFibers(tflnm);
+      return;
+    }
+
   QProgressDialog progress("Meshing tagged region from volume data",
 			   "",
 			   0, 100,
@@ -2124,72 +2091,78 @@ DrishtiPaint::on_actionMeshTag_triggered()
   uchar *curveMask = new uchar[tdepth*twidth*theight];
   memset(curveMask, 0, tdepth*twidth*theight);
 
-  if (m_imageWidget->dCurvesPresent())
-    {
-      uchar *mask = new uchar[width*height]; 
-      for(int d=minDSlice; d<=maxDSlice; d++)
-	{
-	  int slc = d-minDSlice;
-	  progress.setValue((int)(100*(float)slc/(float)tdepth));
-	  qApp->processEvents();
-	  
-	  memset(mask, 0, width*height);
-	  m_imageWidget->paintUsingCurves(0, d, height, width, mask, tag);
-	  for(int w=minWSlice; w<=maxWSlice; w++)
-	    for(int h=minHSlice; h<=maxHSlice; h++)
-	      {
-		if (mask[w*height+h] > 0)
-		  curveMask[(d-minDSlice)*twidth*theight +
-			    (w-minWSlice)*theight +
-			    (h-minHSlice)] = mask[w*height+h];
-	      }
-	}
-      delete [] mask;
-    }
-  if (m_imageWidget->wCurvesPresent())
-    {
-      uchar *mask = new uchar[depth*height]; 
-      for(int w=minWSlice; w<=maxWSlice; w++)
-	{
-	  int slc = w-minWSlice;
-	  progress.setValue((int)(100*(float)slc/(float)twidth));
-	  qApp->processEvents();
-	  
-	  memset(mask, 0, depth*height);
-	  m_imageWidget->paintUsingCurves(1, w, height, depth, mask, tag);
-	  for(int d=minDSlice; d<=maxDSlice; d++)
-	    for(int h=minHSlice; h<=maxHSlice; h++)
-	      {
-		if (mask[d*height+h] > 0)
-		  curveMask[(d-minDSlice)*twidth*theight +
-			    (w-minWSlice)*theight +
-			    (h-minHSlice)] = mask[d*height+h];
-	      }
-	}
-      delete [] mask;
-    }
-  if (m_imageWidget->hCurvesPresent())
-    {
-      uchar *mask = new uchar[depth*width]; 
-      for(int h=minHSlice; h<=maxHSlice; h++)
-	{
-	  int slc = h-minHSlice;
-	  progress.setValue((int)(100*(float)slc/(float)theight));
-	  qApp->processEvents();
-	  
-	  memset(mask, 0, depth*width);
-	  m_imageWidget->paintUsingCurves(2, h, width, depth, mask, tag);
-	  for(int d=minDSlice; d<=maxDSlice; d++)
-	    for(int w=minWSlice; w<=maxWSlice; w++)
-	      {
-		if (mask[d*width+w] > 0)
-		  curveMask[(d-minDSlice)*twidth*theight +
-			    (w-minWSlice)*theight +
-			    (h-minHSlice)] = mask[d*width+w];
-	      }
-	}
-      delete [] mask;
-    }
+  updateCurveMask(curveMask, tag,
+		  depth, width, height,
+		  tdepth, twidth, theight,
+		  minDSlice, minWSlice, minHSlice,
+		  maxDSlice, maxWSlice, maxHSlice);
+
+//  if (m_imageWidget->dCurvesPresent())
+//    {
+//      uchar *mask = new uchar[width*height]; 
+//      for(int d=minDSlice; d<=maxDSlice; d++)
+//	{
+//	  int slc = d-minDSlice;
+//	  progress.setValue((int)(100*(float)slc/(float)tdepth));
+//	  qApp->processEvents();
+//	  
+//	  memset(mask, 0, width*height);
+//	  m_imageWidget->paintUsingCurves(0, d, height, width, mask, tag);
+//	  for(int w=minWSlice; w<=maxWSlice; w++)
+//	    for(int h=minHSlice; h<=maxHSlice; h++)
+//	      {
+//		if (mask[w*height+h] > 0)
+//		  curveMask[(d-minDSlice)*twidth*theight +
+//			    (w-minWSlice)*theight +
+//			    (h-minHSlice)] = mask[w*height+h];
+//	      }
+//	}
+//      delete [] mask;
+//    }
+//  if (m_imageWidget->wCurvesPresent())
+//    {
+//      uchar *mask = new uchar[depth*height]; 
+//      for(int w=minWSlice; w<=maxWSlice; w++)
+//	{
+//	  int slc = w-minWSlice;
+//	  progress.setValue((int)(100*(float)slc/(float)twidth));
+//	  qApp->processEvents();
+//	  
+//	  memset(mask, 0, depth*height);
+//	  m_imageWidget->paintUsingCurves(1, w, height, depth, mask, tag);
+//	  for(int d=minDSlice; d<=maxDSlice; d++)
+//	    for(int h=minHSlice; h<=maxHSlice; h++)
+//	      {
+//		if (mask[d*height+h] > 0)
+//		  curveMask[(d-minDSlice)*twidth*theight +
+//			    (w-minWSlice)*theight +
+//			    (h-minHSlice)] = mask[d*height+h];
+//	      }
+//	}
+//      delete [] mask;
+//    }
+//  if (m_imageWidget->hCurvesPresent())
+//    {
+//      uchar *mask = new uchar[depth*width]; 
+//      for(int h=minHSlice; h<=maxHSlice; h++)
+//	{
+//	  int slc = h-minHSlice;
+//	  progress.setValue((int)(100*(float)slc/(float)theight));
+//	  qApp->processEvents();
+//	  
+//	  memset(mask, 0, depth*width);
+//	  m_imageWidget->paintUsingCurves(2, h, width, depth, mask, tag);
+//	  for(int d=minDSlice; d<=maxDSlice; d++)
+//	    for(int w=minWSlice; w<=maxWSlice; w++)
+//	      {
+//		if (mask[d*width+w] > 0)
+//		  curveMask[(d-minDSlice)*twidth*theight +
+//			    (w-minWSlice)*theight +
+//			    (h-minHSlice)] = mask[d*width+w];
+//	      }
+//	}
+//      delete [] mask;
+//    }
 
   //----------------------------------
 
@@ -2369,7 +2342,7 @@ DrishtiPaint::saveMesh(int colorType,
 		       int minHSlice, int minWSlice, int minDSlice,
 		       int theight, int twidth, int tdepth)
 {
-  Vec voxelScaling = StaticFunctions::getVoxelSizeFromHeader(m_pvlFile);
+  Vec voxelScaling = Global::voxelScaling();
 
   QProgressDialog progress("Colouring and saving mesh ...",
 			   QString(),
@@ -2563,6 +2536,178 @@ DrishtiPaint::saveMesh(int colorType,
 
   progress.setValue(100);
 }
+
+void
+DrishtiPaint::meshFibers(QString flnm)
+{
+  Vec voxelScaling = Global::voxelScaling();
+
+  QList<Fiber*> *fibers = m_imageWidget->fibers();
+  int nvertices = 0;
+  int ntriangles = 0;
+  for(int i=0; i<fibers->count(); i++)
+    {
+      Fiber *fb = fibers->at(i);
+      int nv = fb->tube().count()/2;
+      nvertices += nv;
+      ntriangles += nv-2;
+    }
+
+
+  QStringList ps;
+  ps << "x";
+  ps << "y";
+  ps << "z";
+  ps << "nx";
+  ps << "ny";
+  ps << "nz";
+  ps << "red";
+  ps << "green";
+  ps << "blue";
+  ps << "vertex_indices";
+  ps << "vertex";
+  ps << "face";
+
+  QList<char *> plyStrings;
+  for(int i=0; i<ps.count(); i++)
+    {
+      char *s;
+      s = new char[ps[i].size()+1];
+      strcpy(s, ps[i].toLatin1().data());
+      plyStrings << s;
+    }
+
+  typedef struct PlyFace
+  {
+    unsigned char nverts;    /* number of Vertex indices in list */
+    int *verts;              /* Vertex index list */
+  } PlyFace;
+
+  typedef struct
+  {
+    real  x,  y,  z ;  /**< Vertex coordinates */
+    real nx, ny, nz ;  /**< Vertex normal */
+    uchar r, g, b;
+  } myVertex ;
+
+  PlyProperty vert_props[] = { /* list of property information for a vertex */
+    {plyStrings[0], Float32, Float32, offsetof(myVertex,x), 0, 0, 0, 0},
+    {plyStrings[1], Float32, Float32, offsetof(myVertex,y), 0, 0, 0, 0},
+    {plyStrings[2], Float32, Float32, offsetof(myVertex,z), 0, 0, 0, 0},
+    {plyStrings[3], Float32, Float32, offsetof(myVertex,nx), 0, 0, 0, 0},
+    {plyStrings[4], Float32, Float32, offsetof(myVertex,ny), 0, 0, 0, 0},
+    {plyStrings[5], Float32, Float32, offsetof(myVertex,nz), 0, 0, 0, 0},
+    {plyStrings[6], Uint8, Uint8, offsetof(myVertex,r), 0, 0, 0, 0},
+    {plyStrings[7], Uint8, Uint8, offsetof(myVertex,g), 0, 0, 0, 0},
+    {plyStrings[8], Uint8, Uint8, offsetof(myVertex,b), 0, 0, 0, 0},
+  };
+
+  PlyProperty face_props[] = { /* list of property information for a face */
+    {plyStrings[9], Int32, Int32, offsetof(PlyFace,verts),
+     1, Uint8, Uint8, offsetof(PlyFace,nverts)},
+  };
+
+  PlyFile    *ply;
+  FILE       *fp = fopen(flnm.toLatin1().data(),
+			 bin ? "wb" : "w");
+
+  PlyFace     face ;
+  int         verts[3] ;
+  char       *elem_names[]  = {plyStrings[10], plyStrings[11]};
+  ply = write_ply (fp,
+		   2,
+		   elem_names,
+		   bin? PLY_BINARY_LE : PLY_ASCII );
+
+  /* describe what properties go into the PlyVertex elements */
+  describe_element_ply ( ply, plyStrings[10], nvertices );
+  describe_property_ply ( ply, &vert_props[0] );
+  describe_property_ply ( ply, &vert_props[1] );
+  describe_property_ply ( ply, &vert_props[2] );
+  describe_property_ply ( ply, &vert_props[3] );
+  describe_property_ply ( ply, &vert_props[4] );
+  describe_property_ply ( ply, &vert_props[5] );
+  describe_property_ply ( ply, &vert_props[6] );
+  describe_property_ply ( ply, &vert_props[7] );
+  describe_property_ply ( ply, &vert_props[8] );
+
+  /* describe PlyFace properties (just list of PlyVertex indices) */
+  describe_element_ply ( ply, plyStrings[11], ntriangles );
+  describe_property_ply ( ply, &face_props[0] );
+
+  header_complete_ply ( ply );
+
+
+  /* set up and write the PlyVertex elements */
+  put_element_setup_ply ( ply, plyStrings[10] );
+
+  for(int i=0; i<fibers->count(); i++)
+    {
+      Fiber *fb = fibers->at(i);
+      QList<Vec> tube = fb->tube();
+      int tag = fb->tag;
+      int nv = tube.count()/2;
+      uchar r = Global::tagColors()[4*tag+0];
+      uchar g = Global::tagColors()[4*tag+1];
+      uchar b = Global::tagColors()[4*tag+2];
+      for(int t=0; t<nv; t++)
+	{
+	  myVertex vertex;
+	  vertex.nx = tube[2*t+0].x;
+	  vertex.ny = tube[2*t+0].y;
+	  vertex.nz = tube[2*t+0].z;
+	  vertex.x = tube[2*t+1].x;
+	  vertex.y = tube[2*t+1].y;
+	  vertex.z = tube[2*t+1].z;
+	  vertex.r = r;
+	  vertex.g = g;
+	  vertex.b = b;
+	  vertex.x *= voxelScaling.x;
+	  vertex.y *= voxelScaling.y;
+	  vertex.z *= voxelScaling.z;
+	  put_element_ply ( ply, ( void * ) &vertex );
+	}
+    }
+
+  /* set up and write the PlyFace elements */
+  put_element_setup_ply ( ply, plyStrings[11] );
+  face.nverts = 3 ;
+  face.verts  = verts ;
+  int ntri = 0;
+  for(int i=0; i<fibers->count(); i++)
+    {
+      Fiber *fb = fibers->at(i);
+      QList<Vec> tube = fb->tube();
+      int nt = tube.count()/2-2;
+      for(int t=0; t<nt; t++)
+	{
+	  if (t%2==0)
+	    {
+	      face.verts[0] = ntri + t;
+	      face.verts[1] = ntri + t+1;
+	      face.verts[2] = ntri + t+2;
+	    }
+	  else
+	    {
+	      face.verts[0] = ntri + t+2;
+	      face.verts[1] = ntri + t+1;
+	      face.verts[2] = ntri + t;
+	    }
+      
+	  put_element_ply ( ply, ( void * ) &face );
+	}
+      ntri += nt+2;
+    }
+     
+  close_ply ( ply );
+  free_ply ( ply );
+  
+  for(int i=0; i<plyStrings.count(); i++)
+    delete [] plyStrings[i];
+  
+  QMessageBox::information(0, "", "Fibers save to "+flnm);
+}
+
 void
 DrishtiPaint::connectImageWidget()
 {
@@ -2765,4 +2910,145 @@ DrishtiPaint::connectFibersMenu()
 	  this, SLOT(on_newfiber_clicked()));
   connect(fibersUi.endfiber, SIGNAL(clicked()),
 	  this, SLOT(on_endfiber_clicked()));
+}
+
+void
+DrishtiPaint::updateCurveMask(uchar *curveMask, QList<int> tag,
+			      int depth, int width, int height,
+			      int tdepth, int twidth, int theight,
+			      int minDSlice, int minWSlice, int minHSlice,
+			      int maxDSlice, int maxWSlice, int maxHSlice)
+{
+  QProgressDialog progress("Generating Curve Mask",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+  if (m_imageWidget->dCurvesPresent())
+    {
+      uchar *mask = new uchar[width*height]; 
+      for(int d=minDSlice; d<=maxDSlice; d++)
+	{
+	  int slc = d-minDSlice;
+	  progress.setValue((int)(100*(float)slc/(float)tdepth));
+	  qApp->processEvents();
+	  
+	  memset(mask, 0, width*height);
+	  m_imageWidget->paintUsingCurves(0, d, height, width, mask, tag);
+	  for(int w=minWSlice; w<=maxWSlice; w++)
+	    for(int h=minHSlice; h<=maxHSlice; h++)
+	      {
+		if (mask[w*height+h] > 0)
+		  curveMask[(d-minDSlice)*twidth*theight +
+			    (w-minWSlice)*theight +
+			    (h-minHSlice)] = mask[w*height+h];
+	      }
+	}
+      delete [] mask;
+    }
+  if (m_imageWidget->wCurvesPresent())
+    {
+      uchar *mask = new uchar[depth*height]; 
+      for(int w=minWSlice; w<=maxWSlice; w++)
+	{
+	  int slc = w-minWSlice;
+	  progress.setValue((int)(100*(float)slc/(float)twidth));
+	  qApp->processEvents();
+	  
+	  memset(mask, 0, depth*height);
+	  m_imageWidget->paintUsingCurves(1, w, height, depth, mask, tag);
+	  for(int d=minDSlice; d<=maxDSlice; d++)
+	    for(int h=minHSlice; h<=maxHSlice; h++)
+	      {
+		if (mask[d*height+h] > 0)
+		  curveMask[(d-minDSlice)*twidth*theight +
+			    (w-minWSlice)*theight +
+			    (h-minHSlice)] = mask[d*height+h];
+	      }
+	}
+      delete [] mask;
+    }
+  if (m_imageWidget->hCurvesPresent())
+    {
+      uchar *mask = new uchar[depth*width]; 
+      for(int h=minHSlice; h<=maxHSlice; h++)
+	{
+	  int slc = h-minHSlice;
+	  progress.setValue((int)(100*(float)slc/(float)theight));
+	  qApp->processEvents();
+	  
+	  memset(mask, 0, depth*width);
+	  m_imageWidget->paintUsingCurves(2, h, width, depth, mask, tag);
+	  for(int d=minDSlice; d<=maxDSlice; d++)
+	    for(int w=minWSlice; w<=maxWSlice; w++)
+	      {
+		if (mask[d*width+w] > 0)
+		  curveMask[(d-minDSlice)*twidth*theight +
+			    (w-minWSlice)*theight +
+			    (h-minHSlice)] = mask[d*width+w];
+	      }
+	}
+      delete [] mask;
+    }
+
+  progress.setValue(100);
+}
+
+void
+DrishtiPaint::updateFiberMask(uchar *curveMask, QList<int> tag,
+			      int tdepth, int twidth, int theight,
+			      int minDSlice, int minWSlice, int minHSlice,
+			      int maxDSlice, int maxWSlice, int maxHSlice)
+{
+  if (! m_imageWidget->fibersPresent())
+    return;
+  
+  QProgressDialog progress("Generating Fiber Mask",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+  QList<Fiber*> *fibers = m_imageWidget->fibers();
+  for(int i=0; i<fibers->count(); i++)
+    {
+      progress.setValue(100*(float)i/(float)fibers->count());
+      Fiber *fb = fibers->at(i);
+      int tag = fb->tag;
+      int rad = fb->thickness/2;
+
+      QList<Vec> trace = fb->trace;
+      for(int t=0; t<trace.count(); t++)
+	{
+	  int d = trace[t].z;
+	  int w = trace[t].y;
+	  int h = trace[t].x;
+	  if (d > minDSlice && d < maxDSlice &&
+	      w > minWSlice && w < maxWSlice &&
+	      h > minHSlice && h < maxHSlice)
+	    {
+	      int ds, de, ws, we, hs, he;
+	      ds = qMax(minDSlice+1, d-rad);
+	      de = qMin(maxDSlice-1, d+rad);
+	      ws = qMax(minWSlice+1, w-rad);
+	      we = qMin(maxWSlice-1, w+rad);
+	      hs = qMax(minHSlice+1, h-rad);
+	      he = qMin(maxHSlice-1, h+rad);
+	      for(int dd=ds; dd<=de; dd++)
+		for(int ww=ws; ww<=we; ww++)
+		  for(int hh=hs; hh<=he; hh++)
+		    {
+		      float p = ((d-dd)*(d-dd)+
+				 (w-ww)*(w-ww)+
+				 (h-hh)*(h-hh));
+		      if (p < rad*rad)
+			curveMask[(dd-minDSlice)*twidth*theight +
+				  (ww-minWSlice)*theight +
+				  (hh-minHSlice)] = tag;
+		    }
+	    }
+	}
+    }
+  progress.setValue(100);
 }

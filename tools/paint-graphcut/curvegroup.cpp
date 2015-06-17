@@ -438,12 +438,24 @@ CurveGroup::generatePolygon(Curve *c)
 
   QVector <QPointF> tv;
   tv.resize(c->seeds.count());
-  for(int i=0; i<c->seeds.count(); i++)
+  if (c->type == 4) // smooth polyline
     {
-      int nxt = (i+1)%c->seeds.count();
-      int prv = i-1;
-      if (prv<0) prv = c->seeds.count()-1;
-      tv[i] = (v[nxt]-v[prv])/2;
+      for(int i=0; i<c->seeds.count(); i++)
+	{
+	  int nxt = qMin(i+1, c->seeds.count()-1);
+	  int prv = qMax(0, i-1);
+	  tv[i] = (v[nxt]-v[prv])/2;
+	}
+    }
+  else // smooth polygon
+    {
+      for(int i=0; i<c->seeds.count(); i++)
+	{
+	  int nxt = (i+1)%c->seeds.count();
+	  int prv = i-1;
+	  if (prv<0) prv = c->seeds.count()-1;
+	  tv[i] = (v[nxt]-v[prv])/2;
+	}
     }
 
   int ptend = c->seeds.count();

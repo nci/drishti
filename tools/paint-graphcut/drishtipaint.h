@@ -177,6 +177,19 @@ class DrishtiPaint : public QMainWindow
   void connectFibersMenu();
   void connectImageWidget();
   void miscConnections();
+
+  void updateCurveMask(uchar*, QList<int>,
+		       int, int, int,
+		       int, int, int,
+		       int, int, int,
+		       int, int, int);
+
+  void updateFiberMask(uchar*, QList<int>,
+		       int, int, int,
+		       int, int, int,
+		       int, int, int);
+
+  void meshFibers(QString);
 };
 
 #endif

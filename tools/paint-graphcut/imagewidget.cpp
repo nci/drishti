@@ -844,9 +844,11 @@ ImageWidget::drawPoints(QPainter *p,
 			QColor defaultColor,
 			int wd)
 {
+  float sx = (float)m_simgWidth/(float)m_imgWidth;
+
   for(int i=0; i<seeds.count(); i++)
     {
-      int pointSize = seeds[i].w() + wd;
+      int pointSize = qMax(1, (int)(sx*seeds[i].w())) + wd;
       int tag = seeds[i].z();
       uchar r = Global::tagColors()[4*tag+0];
       uchar g = Global::tagColors()[4*tag+1];
@@ -930,7 +932,7 @@ ImageWidget::drawFibers(QPainter *p)
       pts[i] = QVector4D(pos.x(), pos.y(), pts[i].z(), pts[i].w());
     }
 
-  drawPoints(p, pts, Qt::black, 2);
+  drawPoints(p, pts, Qt::black, 6);
   drawPoints(p, pts, Qt::white, 0);
   //-------------------------------
 
@@ -952,7 +954,7 @@ ImageWidget::drawFibers(QPainter *p)
     }
 
   drawPoints(p, pts, Qt::black, 8);
-  drawPoints(p, pts, QColor(0,0,0,100), 0);
+  drawPoints(p, pts, QColor(250,0,0,250), 0);
   //-------------------------------
 
 }
@@ -4489,7 +4491,7 @@ ImageWidget::loadCurves(QString curvesfile)
   CurveGroup *cg = getCg();
   emit polygonLevels(cg->polygonLevels());
 
-  QMessageBox::information(0, "", QString("Curves loaded from %1").arg(curvesfile));
+  //QMessageBox::information(0, "", QString("Curves loaded from %1").arg(curvesfile));
 }
 
 void
@@ -4541,7 +4543,7 @@ ImageWidget::saveFibers()
       Fiber *fb = fibers->at(i);
       int tag = fb->tag;
       int thickness = fb->thickness;
-      QVector<Vec> seeds = fb->seeds;      
+      QVector<Vec> seeds = fb->smoothSeeds;      
       int npts = seeds.count();
       if (npts > 0) // save only if we have non-empty fiber
 	{

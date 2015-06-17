@@ -1,4 +1,5 @@
 #include "fiber.h"
+#include "global.h"
 #include <QMessageBox>
 
 Fiber::Fiber()
@@ -7,6 +8,7 @@ Fiber::Fiber()
   thickness = 1;
   selected = false;
   seeds.clear();
+  smoothSeeds.clear();
   trace.clear();
   m_dPoints.clear();
   m_wPoints.clear();
@@ -14,6 +16,8 @@ Fiber::Fiber()
   m_dSeeds.clear();
   m_wSeeds.clear();
   m_hSeeds.clear();
+  m_sections = 4;
+  m_tube.clear();
 }
 
 Fiber::~Fiber()
@@ -22,6 +26,7 @@ Fiber::~Fiber()
   thickness = 1;
   selected = false;
   seeds.clear();
+  smoothSeeds.clear();
   trace.clear();
   m_dPoints.clear();
   m_wPoints.clear();
@@ -29,6 +34,8 @@ Fiber::~Fiber()
   m_dSeeds.clear();
   m_wSeeds.clear();
   m_hSeeds.clear();
+  m_sections = 4;
+  m_tube.clear();
 }
 
 Fiber&
@@ -38,13 +45,16 @@ Fiber::operator=(const Fiber& f)
   thickness = f.thickness;
   selected = f.selected;
   seeds = f.seeds;
-  trace = f.trace;
-  m_dPoints = f.m_dPoints;
-  m_wPoints = f.m_wPoints;
-  m_hPoints = f.m_hPoints;
-  m_dSeeds = f.m_dSeeds;
-  m_wSeeds = f.m_wSeeds;
-  m_hSeeds = f.m_hSeeds;
+//  smoothSeeds = f.smoothSeeds;
+//  trace = f.trace;
+//  m_dPoints = f.m_dPoints;
+//  m_wPoints = f.m_wPoints;
+//  m_hPoints = f.m_hPoints;
+//  m_dSeeds = f.m_dSeeds;
+//  m_wSeeds = f.m_wSeeds;
+//  m_hSeeds = f.m_hSeeds;
+
+  updateTrace();
 
   return *this;
 }
@@ -131,13 +141,15 @@ Fiber::contains(int d, int w, int h)
 void
 Fiber::updateTrace()
 {  
+  m_tube.clear();
+
   int ptend = seeds.count();
 
+  smoothSeeds.clear();
   trace.clear();
   m_dPoints.clear();
   m_wPoints.clear();
   m_hPoints.clear();
-
   m_dSeeds.clear();
   m_wSeeds.clear();
   m_hSeeds.clear();
@@ -167,11 +179,53 @@ Fiber::updateTrace()
       m_hSeeds.insert((int)p.x, QVector4D(p.y, p.z, tag, thickness));
     }
 
-  // linear
+//  // linear
+//  for(int ptn=0; ptn<(ptend-1); ptn++)
+//    {
+//      int nxt = (ptn+1)%ptend;
+//      trace += line3d(seeds[ptn], seeds[nxt]);
+//    }
+//  for(int i=0; i<trace.count(); i++)
+//    {
+//      Vec p = trace[i];
+//      m_dPoints.insert((int)p.z, QVector4D(p.x, p.y, tag, thickness));
+//      m_wPoints.insert((int)p.y, QVector4D(p.x, p.z, tag, thickness));
+//      m_hPoints.insert((int)p.x, QVector4D(p.y, p.z, tag, thickness));
+//    }
+
+  // spline
+  QVector<Vec> tv;
+  tv.resize(ptend);
+  for(int i=0; i<ptend; i++)
+    {
+      int nxt = qMin(ptend-1, (i+1));
+      int prv = qMax(0, i-1);
+      tv[i] = (seeds[nxt]-seeds[prv])/2;
+    }
+
   for(int ptn=0; ptn<(ptend-1); ptn++)
     {
       int nxt = (ptn+1)%ptend;
-      trace += line3d(seeds[ptn], seeds[nxt]);
+      Vec diff = seeds[nxt]-seeds[ptn];
+      int len = diff.norm()/5;
+      if (len > 1)
+	{
+	  for(int i=0; i<len; i++)
+	    {
+	      float frc = (float)i/(float)len;
+	      Vec a1 = 3*diff - 2*tv[ptn] - tv[nxt];
+	      Vec a2 = -2*diff + tv[ptn] + tv[nxt];
+	      Vec p = seeds[ptn] + frc*(tv[ptn] + frc*(a1 + frc*a2));
+	      smoothSeeds << p;
+	    }
+	}
+    }
+
+  ptend = smoothSeeds.count();
+  for(int ptn=0; ptn<(ptend-1); ptn++)
+    {
+      int nxt = (ptn+1)%ptend;
+      trace += line3d(smoothSeeds[ptn], smoothSeeds[nxt]);
     }
   for(int i=0; i<trace.count(); i++)
     {
@@ -181,38 +235,7 @@ Fiber::updateTrace()
       m_hPoints.insert((int)p.x, QVector4D(p.y, p.z, tag, thickness));
     }
 
-//  // spline
-//  QVector<Vec> tv;
-//  tv.resize(ptend);
-//  for(int i=0; i<ptend; i++)
-//    {
-//      int nxt = (i+1)%ptend;
-//      int prv = i-1;
-//      if (prv<0) prv = ptend-1;
-//      tv[i] = (seeds[nxt]-seeds[prv])/2;
-//    }
-//
-//  for(int ptn=0; ptn<(ptend-1); ptn++)
-//    {
-//      int nxt = (ptn+1)%ptend;
-//      Vec diff = seeds[nxt]-seeds[ptn];
-//      int len = diff.norm();
-//      if (len > 1)
-//	{
-//	  for(int i=0; i<len; i++)
-//	    {
-//	      float frc = i/(float)len;
-//	      Vec a1 = 3*diff - 2*tv[ptn] - tv[nxt];
-//	      Vec a2 = -2*diff + tv[ptn] + tv[nxt];
-//	      Vec p = seeds[ptn] + frc*(tv[ptn] + frc*(a1 + frc*a2));
-//	      trace << p;
-//
-//	      m_dPoints.insert((int)p.z, QPointF(p.x, p.y));
-//	      m_wPoints.insert((int)p.y, QPointF(p.x, p.z));
-//	      m_hPoints.insert((int)p.x, QPointF(p.y, p.z));
-//	    }
-//	}
-//    }
+  generateTube(1);
 }
 
 QVector<QVector4D>
@@ -307,4 +330,209 @@ Fiber::line3d(Vec v0, Vec v1)
   } while (true);
   
   return line;
+}
+
+void
+Fiber::generateTube(float scale)
+{  
+  m_sections = 20;
+  m_tube.clear();
+
+  int nsmoothSeeds = smoothSeeds.count();
+
+  if (nsmoothSeeds < 2)
+    return;
+  
+  // Frenet frame - using Double Reflection Method
+  QList<Vec> pathT;
+  QList<Vec> pathX;
+  QList<Vec> pathY;
+
+  Vec t0 = smoothSeeds[1] - smoothSeeds[0];
+  t0.normalize();
+  Vec r0 = Vec(1,0,0)^t0;
+  if (r0.norm() < 0.1)
+    {
+      r0 = Vec(0,1,0)^t0;      
+      if (r0.norm() < 0.1)
+	r0 = Vec(0,0,1)^t0;	  
+    }
+  r0.normalize();
+  Vec s0 = t0^r0;
+  s0. normalize();
+
+  pathT << t0;
+  pathX << r0;
+  pathY << s0;
+  for(int i=0; i<nsmoothSeeds-1; i++)
+    {
+      Vec t1, r1, s1;
+      Vec t0L, r0L, s0L;
+      Vec v1, v2;
+      float c1, c2;
+
+      v1 = smoothSeeds[i+1]-smoothSeeds[i];
+      c1 = v1*v1;
+      r0L = r0-(2.0/c1)*(v1*r0)*v1;
+      t0L = t0-(2.0/c1)*(v1*t0)*v1;
+
+      t1 = smoothSeeds[i+1]-smoothSeeds[i];
+
+      if (i < nsmoothSeeds-2)
+	t1 = smoothSeeds[i+2]-smoothSeeds[i];
+	
+      t1.normalize();
+      v2 = t1 - t0L;
+      c2 = v2*v2;
+      r1 = r0L-(2.0/c2)*(v2*r0L)*v2;
+      r1.normalize();
+      s1 = t1^r1;
+      s1.normalize();      
+
+      pathT << t1;
+      pathX << r1;
+      pathY << s1;
+
+      t0 = t1;
+      r0 = r1;
+      s0 = s1;
+    }
+
+  QList<Vec> csec1, norm1;
+  for(int i=0; i<nsmoothSeeds; i++)
+    {
+      QList<Vec> csec2, norm2;
+
+      csec2 = getCrossSection(scale*thickness*0.5, m_sections,
+			      pathX[i], pathY[i]);
+      norm2 = getNormals(csec2, pathT[i]);
+
+      if (i == 0 || i==nsmoothSeeds-1)
+	addRoundCaps(i, pathT[i], csec2, norm2);
+
+      if (i > 0)
+	{
+	  for(int j=0; j<csec1.count(); j++)
+	    {
+	      Vec vox1 = smoothSeeds[i-1] + csec1[j];
+	      m_tube << norm1[j];
+	      m_tube << vox1;
+
+	      Vec vox2 = smoothSeeds[i] + csec2[j];
+	      m_tube << norm2[j];
+	      m_tube << vox2;
+	    }	      
+	}
+
+      csec1 = csec2;
+      norm1 = norm2;      
+    }
+
+  csec1.clear();
+  norm1.clear();
+}
+
+void
+Fiber::addRoundCaps(int i,
+		    Vec tang,
+		    QList<Vec> csec2,
+		    QList<Vec> norm2)
+{
+  int sections = csec2.count()-1;
+  int ksteps = 4;
+  Vec ctang = -tang;
+  if (i==0) ctang = tang;
+  QList<Vec> csec = csec2;
+  float rad = thickness/2;
+  for(int k=0; k<ksteps-1; k++)
+    {
+      float ct1 = cos(1.57*(float)k/(float)ksteps);
+      float ct2 = cos(1.57*(float)(k+1)/(float)ksteps);
+      float st1 = sin(1.57*(float)k/(float)ksteps);
+      float st2 = sin(1.57*(float)(k+1)/(float)ksteps);
+      for(int j=0; j<csec2.count(); j++)
+	{
+	  Vec norm = csec2[j]*ct1 - ctang*rad*st1;
+	  Vec vox2 = smoothSeeds[i] + norm;
+	  if (k==0)
+	    m_tube << norm2[j];
+	  else
+	    {  
+	      norm.normalize();
+	      m_tube << norm;
+	    }
+
+	  m_tube << vox2;
+	  
+	  norm = csec2[j]*ct2 - ctang*rad*st2;
+	  vox2 = smoothSeeds[i] + norm;
+	  norm.normalize();
+	  m_tube << norm;
+	  m_tube << vox2;
+	}
+    }
+
+  
+  // add flat ends
+  float ct2 = cos(1.57*(float)(ksteps-1)/(float)ksteps);
+  float st2 = sin(1.57*(float)(ksteps-1)/(float)ksteps);
+  int halfway = sections/2;
+  for(int j=0; j<=halfway; j++)
+    {
+      Vec norm = csec2[j]*ct2 - ctang*rad*st2;
+      Vec vox2 = smoothSeeds[i] + norm;
+      norm.normalize();
+      m_tube << norm;
+      m_tube << vox2;
+      
+      if (j < halfway)
+	{
+	  norm = csec2[sections-j]*ct2 -
+	    ctang*rad*st2;
+	  vox2 = smoothSeeds[i] + norm;
+	  norm.normalize();
+	  m_tube << norm;
+	  m_tube << vox2;
+	}
+    }
+}
+QList<Vec>
+Fiber::getCrossSection(float r, int sections,
+		       Vec xaxis, Vec yaxis)
+{
+  QList<Vec> csec;
+  for(int j=0; j<sections; j++)
+    {
+      float t = 360*(float)j/(float)sections;
+      float x = r*cos(qDegreesToRadians(t));
+      float y = r*sin(qDegreesToRadians(t));
+      Vec v = x*xaxis + y*yaxis;
+      csec.append(v);
+    }
+
+  csec.append(csec[0]);
+
+  return csec;
+}
+
+QList<Vec>
+Fiber::getNormals(QList<Vec> csec, Vec tang)
+{
+  QList<Vec> norm;
+  int sections = csec.count();
+  for(int j=0; j<sections; j++)
+    {
+      int nxt = (j+1)%sections;
+      int prv = (j-1);
+      if (prv < 0) prv = sections-1;
+
+      Vec v = csec[prv]-csec[nxt];
+
+      v.normalize();
+      v = tang^v;
+
+      norm.append(v);
+    }
+
+  return norm;
 }

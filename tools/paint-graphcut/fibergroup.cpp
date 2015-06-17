@@ -25,8 +25,6 @@ FiberGroup::addFiber(Fiber f)
   fb->tag = f.tag;
   fb->thickness = f.thickness;
   fb->seeds = f.seeds;
-//  for(int i=0; i<f.seeds.count(); i++)
-//    fb->seeds << f.seeds[i];
   fb->selected = false;
   fb->updateTrace();
 
@@ -137,6 +135,7 @@ FiberGroup::selectFiber(int d, int w, int h)
 	}
     }
 
+  // nothing selected so unselect all
   for(int f=0; f<m_fibers.count(); f++)
     m_fibers[f]->selected = false;
 }

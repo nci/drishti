@@ -1,6 +1,9 @@
 #ifndef GLOBAL_H
 #define GLOBAL_H
 
+#include <QGLViewer/qglviewer.h>
+using namespace qglviewer;
+
 #include "commonqtclasses.h"
 #include <QStatusBar>
 #include <QProgressBar>
@@ -71,6 +74,10 @@ class Global
 
   static int selectionPrecision();
   static void setSelectionPrecision(int);
+
+  static Vec voxelScaling();
+  static void setVoxelScaling(Vec);
+
  private :
   static QString m_documentationPath;
   static int m_lutSize;
@@ -92,6 +99,7 @@ class Global
   static int m_thickness;
   static bool m_closed;
   static int m_selpres;
+  static Vec m_voxelScaling;
 };
 
 #endif

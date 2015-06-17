@@ -199,7 +199,7 @@ VolumeFileManager::createFile(bool writeHeader, bool writeData)
 	m_qfile.close();
 
       m_qfile.setFileName(m_filename);
-      m_qfile.open(QFile::ReadWrite);
+      m_qfile.open(QFile::WriteOnly);
 
       int nslices = qMin(m_slabSize, m_depth-ns*m_slabSize);      
       if (writeHeader)
@@ -223,6 +223,7 @@ VolumeFileManager::createFile(bool writeHeader, bool writeData)
 	    }
 	}
     }
+  m_qfile.close();
 
   progress.setValue(100);
 

@@ -189,3 +189,7 @@ void Global::setClosed(bool b) { m_closed = b; }
 int Global::m_selpres = 15;
 int Global::selectionPrecision() { return m_selpres; }
 void Global::setSelectionPrecision(int s) { m_selpres = s; }
+
+Vec Global::m_voxelScaling = Vec(1,1,1);
+Vec Global::voxelScaling() { return m_voxelScaling; }
+void Global::setVoxelScaling(Vec v) { m_voxelScaling = v; }

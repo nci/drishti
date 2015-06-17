@@ -236,10 +236,11 @@ Paths::addFibers(QString flnm)
 	      pg->setColor(color);
 	      pg->setRadX(0, thickness/2, true);
 	      pg->setRadY(0, thickness/2, true);
-	      pg->setSegments(3);
+	      pg->setSegments(1);
 	      pg->setSections(20);
 	      pg->setCapType(1);
 	      pg->setTube(true);
+	      pg->setShowPoints(false);
 	      m_paths.append(pg);
 	    }
 	}

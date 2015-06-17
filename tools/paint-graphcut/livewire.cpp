@@ -1313,12 +1313,24 @@ LiveWire::updatePolygonFromSeeds()
 
 
   // smooth polygon/polyline
-  for(int i=0; i<m_seeds.count(); i++)
+  if (m_type == 4) // smooth polyline
     {
-      int nxt = (i+1)%m_seeds.count();
-      int prv = i-1;
-      if (prv<0) prv = m_seeds.count()-1;
-      tv[i] = (v[nxt]-v[prv])/2;
+      for(int i=0; i<m_seeds.count(); i++)
+	{
+	  int nxt = qMin(i+1, m_seeds.count()-1);
+	  int prv = qMax(0, i-1);
+	  tv[i] = (v[nxt]-v[prv])/2;
+	}
+    }
+  else // smooth polygon
+    {
+      for(int i=0; i<m_seeds.count(); i++)
+	{
+	  int nxt = (i+1)%m_seeds.count();
+	  int prv = i-1;
+	  if (prv<0) prv = m_seeds.count()-1;
+	  tv[i] = (v[nxt]-v[prv])/2;
+	}
     }
 
   m_poly.clear();

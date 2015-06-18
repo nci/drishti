@@ -302,6 +302,17 @@ Viewer::drawFibers()
 
   glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
+  bool noneselected = true;
+  for(int i=0; i<m_fibers->count(); i++)
+    {
+      Fiber *fb = m_fibers->at(i);
+      if (fb->selected)
+	{
+	  noneselected = false;
+	  break;
+	}
+    }
+ 
   for(int i=0; i<m_fibers->count(); i++)
     {
       Fiber *fb = m_fibers->at(i);
@@ -315,39 +326,28 @@ Viewer::drawFibers()
 	  float b = Global::tagColors()[4*tag+2]*1.0/255.0;
 	  glColor3f(r,g,b);
 
-	  // emissive when active
-	  if (fb->selected)
+	  if (noneselected ||
+	      (!noneselected && fb->selected))
 	    {
-	      float emiss[] = { 0.5, 0.0, 0.0, 1.0 };
-	      glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, emiss);
+	      glEnable(GL_LIGHTING);
+	      QList<Vec> tube = fb->tube();
+	      glBegin(GL_TRIANGLE_STRIP);
+	      for(int t=0; t<tube.count()/2; t++)
+		{
+		  glNormal3fv(tube[2*t+0]);	      
+		  glVertex3fv(tube[2*t+1]);
+		}
+	      glEnd();
 	    }
 	  else
 	    {
-	      float emiss[] = { 0.0, 0.0, 0.0, 1.0 };
-	      glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, emiss);
+	      glDisable(GL_LIGHTING);
+	      glLineWidth(1);
+	      glBegin(GL_LINE_STRIP);
+	      for(int j=0; j<fb->smoothSeeds.count(); j++)
+		glVertex3fv(fb->smoothSeeds[j]);
+	      glEnd();
 	    }
-	  QList<Vec> tube = fb->tube();
-	  glBegin(GL_TRIANGLE_STRIP);
-	  for(int t=0; t<tube.count()/2; t++)
-	    {
-	      glNormal3fv(tube[2*t+0]);
-	      glVertex3fv(tube[2*t+1]);
-	    }
-	  glEnd();
-
-//	  if (fb->selected)
-//	    fb->generateTube(1.5);
-//	  else
-//	    fb->generateTube(1);
-
-//	  if (fb->selected)
-//	    glLineWidth(fb->thickness + 2);
-//	  else
-//	    glLineWidth(fb->thickness);
-//	  glBegin(GL_LINE_STRIP);
-//	  for(int j=0; j<fb->seeds.count(); j++)
-//	    glVertex3f(fb->seeds[j].x, fb->seeds[j].y, fb->seeds[j].z);
-//	  glEnd();
 	}
     }
 

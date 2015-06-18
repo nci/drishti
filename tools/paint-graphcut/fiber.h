@@ -34,6 +34,8 @@ class Fiber
   int sections() { return m_sections; }
   QList<Vec> tube() { return m_tube; }
 
+  QList<Vec> generateTriangles();
+
  private :
   int m_sections;
   QList<Vec> m_tube;
@@ -47,8 +49,8 @@ class Fiber
   QList<Vec> line3d(Vec, Vec);
 
 
-  void generateTube(float);
-  void addRoundCaps(int, Vec, QList<Vec>, QList<Vec>);
+  QList<Vec> generateTube(float);
+  QList<Vec> addRoundCaps(int, Vec, QList<Vec>, QList<Vec>);
   QList<Vec> getCrossSection(float, int, Vec, Vec);
   QList<Vec> getNormals(QList<Vec>, Vec);
 

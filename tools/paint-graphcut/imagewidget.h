@@ -124,6 +124,7 @@ class ImageWidget : public QWidget
   void showTags(QList<int>);
 
  signals :
+  void viewerUpdate();
   void showEndCurve();
   void hideEndCurve();
   void showEndFiber();

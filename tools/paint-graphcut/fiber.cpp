@@ -235,7 +235,7 @@ Fiber::updateTrace()
       m_hPoints.insert((int)p.x, QVector4D(p.y, p.z, tag, thickness));
     }
 
-  generateTube(1);
+  m_tube = generateTube(1);
 }
 
 QVector<QVector4D>
@@ -332,16 +332,159 @@ Fiber::line3d(Vec v0, Vec v1)
   return line;
 }
 
-void
-Fiber::generateTube(float scale)
+QList<Vec>
+Fiber::generateTriangles()
 {  
+  QList<Vec> tri;
+
   m_sections = 20;
   m_tube.clear();
 
   int nsmoothSeeds = smoothSeeds.count();
 
   if (nsmoothSeeds < 2)
-    return;
+    return tri;
+  
+  // Frenet frame - using Double Reflection Method
+  QList<Vec> pathT;
+  QList<Vec> pathX;
+  QList<Vec> pathY;
+
+  Vec t0 = smoothSeeds[1] - smoothSeeds[0];
+  t0.normalize();
+  Vec r0 = Vec(1,0,0)^t0;
+  if (r0.norm() < 0.1)
+    {
+      r0 = Vec(0,1,0)^t0;      
+      if (r0.norm() < 0.1)
+	r0 = Vec(0,0,1)^t0;	  
+    }
+  r0.normalize();
+  Vec s0 = t0^r0;
+  s0. normalize();
+
+  pathT << t0;
+  pathX << r0;
+  pathY << s0;
+  for(int i=0; i<nsmoothSeeds-1; i++)
+    {
+      Vec t1, r1, s1;
+      Vec t0L, r0L, s0L;
+      Vec v1, v2;
+      float c1, c2;
+
+      v1 = smoothSeeds[i+1]-smoothSeeds[i];
+      c1 = v1*v1;
+      r0L = r0-(2.0/c1)*(v1*r0)*v1;
+      t0L = t0-(2.0/c1)*(v1*t0)*v1;
+
+      t1 = smoothSeeds[i+1]-smoothSeeds[i];
+
+      if (i < nsmoothSeeds-2)
+	t1 = smoothSeeds[i+2]-smoothSeeds[i];
+	
+      t1.normalize();
+      v2 = t1 - t0L;
+      c2 = v2*v2;
+      r1 = r0L-(2.0/c2)*(v2*r0L)*v2;
+      r1.normalize();
+      s1 = t1^r1;
+      s1.normalize();      
+
+      pathT << t1;
+      pathX << r1;
+      pathY << s1;
+
+      t0 = t1;
+      r0 = r1;
+      s0 = s1;
+    }
+
+  QList<Vec> csec1, norm1;
+  for(int i=0; i<nsmoothSeeds; i++)
+    {
+      QList<Vec> csec2, norm2;
+
+      csec2 = getCrossSection(thickness*0.5, m_sections,
+			      pathX[i], pathY[i]);
+      norm2 = getNormals(csec2, pathT[i]);
+
+      if (i == 0)
+	{	  
+	  Vec vox0 = smoothSeeds[i] + csec2[0];
+	  for(int t=1; t<csec2.count()-1; t++)
+	    {
+	      tri << -pathT[i];
+	      tri << vox0;
+	      Vec vox1 = smoothSeeds[i] + csec2[t];
+	      tri << -pathT[i];
+	      tri << vox1;
+	      Vec vox2 = smoothSeeds[i] + csec2[t+1];
+	      tri << -pathT[i];
+	      tri << vox2;
+	    }
+	}
+
+      if (i > 0)
+	{
+	  for(int j=0; j<csec1.count()-1; j++)
+	    {
+	      Vec vox1 = smoothSeeds[i-1] + csec1[j];
+	      tri << norm1[j];
+	      tri << vox1;
+	      Vec vox2 = smoothSeeds[i] + csec2[j];
+	      tri << norm2[j];
+	      tri << vox2;
+	      Vec vox3 = smoothSeeds[i] + csec2[j+1];
+	      tri << norm2[j+1];
+	      tri << vox3;
+
+	      tri << norm1[j];
+	      tri << vox1;
+	      tri << norm2[j+1];
+	      tri << vox3;
+	      Vec vox4 = smoothSeeds[i-1] + csec1[j+1];
+	      tri << norm1[j+1];
+	      tri << vox4;
+	    }	      
+	}
+
+      if (i==nsmoothSeeds-1)
+	{	  
+	  Vec vox0 = smoothSeeds[i] + csec2[0];
+	  for(int t=1; t<csec2.count()-1; t++)
+	    {
+	      tri << pathT[i];
+	      tri << vox0;
+	      Vec vox1 = smoothSeeds[i] + csec2[t];
+	      tri << pathT[i];
+	      tri << vox1;
+	      Vec vox2 = smoothSeeds[i] + csec2[t+1];
+	      tri << pathT[i];
+	      tri << vox2;
+	    }
+	}
+      csec1 = csec2;
+      norm1 = norm2;      
+    }
+
+  csec1.clear();
+  norm1.clear();
+
+  return tri;
+}
+
+QList<Vec>
+Fiber::generateTube(float scale)
+{  
+  m_sections = 20;
+  QList<Vec> tube;
+  tube.clear();
+
+  int nsmoothSeeds = smoothSeeds.count();
+
+  if (nsmoothSeeds < 2)
+    return tube;
   
   // Frenet frame - using Double Reflection Method
   QList<Vec> pathT;
@@ -407,37 +550,47 @@ Fiber::generateTube(float scale)
 			      pathX[i], pathY[i]);
       norm2 = getNormals(csec2, pathT[i]);
 
-      if (i == 0 || i==nsmoothSeeds-1)
-	addRoundCaps(i, pathT[i], csec2, norm2);
+      if (i == 0)
+	tube += addRoundCaps(i, pathT[i], csec2, norm2);
 
       if (i > 0)
 	{
 	  for(int j=0; j<csec1.count(); j++)
 	    {
 	      Vec vox1 = smoothSeeds[i-1] + csec1[j];
-	      m_tube << norm1[j];
-	      m_tube << vox1;
+	      tube << norm1[j];
+	      tube << vox1;
 
 	      Vec vox2 = smoothSeeds[i] + csec2[j];
-	      m_tube << norm2[j];
-	      m_tube << vox2;
+	      tube << norm2[j];
+	      tube << vox2;
 	    }	      
+
 	}
+
+      if (i==nsmoothSeeds-1)
+	tube += addRoundCaps(i, pathT[i], csec2, norm2);
 
       csec1 = csec2;
       norm1 = norm2;      
     }
 
+
   csec1.clear();
   norm1.clear();
+  
+  return tube;
 }
 
-void
+QList<Vec>
 Fiber::addRoundCaps(int i,
 		    Vec tang,
 		    QList<Vec> csec2,
 		    QList<Vec> norm2)
 {
+  QList<Vec> tube;
+  tube.clear();
+
   int sections = csec2.count()-1;
   int ksteps = 4;
   Vec ctang = -tang;
@@ -455,20 +608,20 @@ Fiber::addRoundCaps(int i,
 	  Vec norm = csec2[j]*ct1 - ctang*rad*st1;
 	  Vec vox2 = smoothSeeds[i] + norm;
 	  if (k==0)
-	    m_tube << norm2[j];
+	    tube << norm2[j];
 	  else
 	    {  
 	      norm.normalize();
-	      m_tube << norm;
+	      tube << norm;
 	    }
 
-	  m_tube << vox2;
+	  tube << vox2;
 	  
 	  norm = csec2[j]*ct2 - ctang*rad*st2;
 	  vox2 = smoothSeeds[i] + norm;
 	  norm.normalize();
-	  m_tube << norm;
-	  m_tube << vox2;
+	  tube << norm;
+	  tube << vox2;
 	}
     }
 
@@ -482,8 +635,8 @@ Fiber::addRoundCaps(int i,
       Vec norm = csec2[j]*ct2 - ctang*rad*st2;
       Vec vox2 = smoothSeeds[i] + norm;
       norm.normalize();
-      m_tube << norm;
-      m_tube << vox2;
+      tube << norm;
+      tube << vox2;
       
       if (j < halfway)
 	{
@@ -491,11 +644,13 @@ Fiber::addRoundCaps(int i,
 	    ctang*rad*st2;
 	  vox2 = smoothSeeds[i] + norm;
 	  norm.normalize();
-	  m_tube << norm;
-	  m_tube << vox2;
+	  tube << norm;
+	  tube << vox2;
 	}
     }
+  return tube;
 }
+
 QList<Vec>
 Fiber::getCrossSection(float r, int sections,
 		       Vec xaxis, Vec yaxis)

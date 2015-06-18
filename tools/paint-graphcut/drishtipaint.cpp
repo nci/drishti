@@ -2544,14 +2544,12 @@ DrishtiPaint::meshFibers(QString flnm)
 
   QList<Fiber*> *fibers = m_imageWidget->fibers();
   int nvertices = 0;
-  int ntriangles = 0;
   for(int i=0; i<fibers->count(); i++)
     {
       Fiber *fb = fibers->at(i);
-      int nv = fb->tube().count()/2;
-      nvertices += nv;
-      ntriangles += nv-2;
+      nvertices += fb->generateTriangles().count()/2;
     }
+  int ntriangles = nvertices/3;  
 
 
   QStringList ps;
@@ -2644,21 +2642,21 @@ DrishtiPaint::meshFibers(QString flnm)
   for(int i=0; i<fibers->count(); i++)
     {
       Fiber *fb = fibers->at(i);
-      QList<Vec> tube = fb->tube();
+      QList<Vec> triangles = fb->generateTriangles();
       int tag = fb->tag;
-      int nv = tube.count()/2;
+      int nv = triangles.count()/2;
       uchar r = Global::tagColors()[4*tag+0];
       uchar g = Global::tagColors()[4*tag+1];
       uchar b = Global::tagColors()[4*tag+2];
       for(int t=0; t<nv; t++)
 	{
 	  myVertex vertex;
-	  vertex.nx = tube[2*t+0].x;
-	  vertex.ny = tube[2*t+0].y;
-	  vertex.nz = tube[2*t+0].z;
-	  vertex.x = tube[2*t+1].x;
-	  vertex.y = tube[2*t+1].y;
-	  vertex.z = tube[2*t+1].z;
+	  vertex.nx = triangles[2*t+0].x;
+	  vertex.ny = triangles[2*t+0].y;
+	  vertex.nz = triangles[2*t+0].z;
+	  vertex.x = triangles[2*t+1].x;
+	  vertex.y = triangles[2*t+1].y;
+	  vertex.z = triangles[2*t+1].z;
 	  vertex.r = r;
 	  vertex.g = g;
 	  vertex.b = b;
@@ -2673,30 +2671,12 @@ DrishtiPaint::meshFibers(QString flnm)
   put_element_setup_ply ( ply, plyStrings[11] );
   face.nverts = 3 ;
   face.verts  = verts ;
-  int ntri = 0;
-  for(int i=0; i<fibers->count(); i++)
+  for(int i=0; i<ntriangles; i++)
     {
-      Fiber *fb = fibers->at(i);
-      QList<Vec> tube = fb->tube();
-      int nt = tube.count()/2-2;
-      for(int t=0; t<nt; t++)
-	{
-	  if (t%2==0)
-	    {
-	      face.verts[0] = ntri + t;
-	      face.verts[1] = ntri + t+1;
-	      face.verts[2] = ntri + t+2;
-	    }
-	  else
-	    {
-	      face.verts[0] = ntri + t+2;
-	      face.verts[1] = ntri + t+1;
-	      face.verts[2] = ntri + t;
-	    }
-      
-	  put_element_ply ( ply, ( void * ) &face );
-	}
-      ntri += nt+2;
+      face.verts[0] = 3*i+0;
+      face.verts[1] = 3*i+1;
+      face.verts[2] = 3*i+2;
+      put_element_ply ( ply, ( void * ) &face );
     }
      
   close_ply ( ply );
@@ -2790,6 +2770,9 @@ DrishtiPaint::connectImageWidget()
 	  fibersUi.endfiber, SLOT(show()));
   connect(m_imageWidget, SIGNAL(hideEndFiber()),
 	  fibersUi.endfiber, SLOT(hide()));
+
+  connect(m_imageWidget, SIGNAL(viewerUpdate()),
+	  m_viewer, SLOT(update()));
 }
 
 void

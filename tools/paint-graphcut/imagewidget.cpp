@@ -163,8 +163,8 @@ ImageWidget::ImageWidget(QWidget *parent, QStatusBar *sb) :
 
 }
 
-void ImageWidget::enterEvent(QEvent* event) { setFocus(); }
-void ImageWidget::leaveEvent(QEvent* event) { clearFocus(); }
+void ImageWidget::enterEvent(QEvent *e) { setFocus(); grabKeyboard(); }
+void ImageWidget::leaveEvent(QEvent *e) { clearFocus(); releaseKeyboard(); }
 
 void ImageWidget::setScrollBars(QScrollBar *hbar,
 				QScrollBar *vbar)
@@ -1940,21 +1940,25 @@ ImageWidget::fiberModeKeyPressEvent(QKeyEvent *event)
       event->key() == Qt::Key_Backspace)
     {
       m_fibers.removeFiber(m_pickDepth, m_pickWidth, m_pickHeight);
+      emit viewerUpdate();
       update();
     }
   else if (event->key() == Qt::Key_H)
     {
       m_fibers.selectFiber(m_pickDepth, m_pickWidth, m_pickHeight);
+      emit viewerUpdate();
       update();
     }
   else if (event->key() == Qt::Key_T)
     {
       m_fibers.setTag(m_pickDepth, m_pickWidth, m_pickHeight);
+      emit viewerUpdate();
       update();
     }
   else if (event->key() == Qt::Key_W)
     {
       m_fibers.setThickness(m_pickDepth, m_pickWidth, m_pickHeight);
+      emit viewerUpdate();
       update();
     }
 
@@ -2580,6 +2584,7 @@ ImageWidget::fiberMousePressEvent(QMouseEvent *event)
   else if (m_button == Qt::RightButton)
     m_fibers.removePoint(m_pickDepth, m_pickWidth, m_pickHeight);
   
+  emit viewerUpdate();
   update();
   return;
 }

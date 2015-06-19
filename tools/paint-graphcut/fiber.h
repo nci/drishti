@@ -25,7 +25,9 @@ class Fiber
   void removePoint(int, int, int);
   bool containsSeed(int, int, int);
   bool contains(int, int, int);
-  
+
+  void showInformation();
+
   QVector<QVector4D> xyPoints(int, int);
   QVector<QVector4D> xySeeds(int, int);
 

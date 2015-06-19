@@ -126,7 +126,20 @@ Viewer::keyPressEvent(QKeyEvent *event)
       return;
     }
 
-  QGLViewer::keyPressEvent(event);
+  if (event->key() == Qt::Key_P)
+    {
+      camera()->setType(Camera::PERSPECTIVE);
+      update();
+    }
+
+  if (event->key() == Qt::Key_O)
+    {
+      camera()->setType(Camera::ORTHOGRAPHIC);
+      update();
+    }
+
+  if (event->key() != Qt::Key_H)
+    QGLViewer::keyPressEvent(event);
 }
 
 void
@@ -360,7 +373,13 @@ Viewer::updateVoxels()
   m_voxels.clear();
   
   if (!m_volPtr || !m_maskPtr || m_pointSkip == 0)
-    return;
+    {
+      if (!m_volPtr || !m_maskPtr)
+	QMessageBox::information(0, "", "Data not loaded into memory, therefore cannot show the voxels");
+      else if (m_pointSkip == 0)
+	QMessageBox::information(0, "", "Step size is set to 0, therefore will not show the voxels");
+      return;
+    }
 
   if (m_voxChoice == 0)
     {

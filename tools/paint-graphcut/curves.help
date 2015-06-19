@@ -1,0 +1,115 @@
+#begin
+General Help
+The curves option allow users to mark regions using semi-automatic livewire method and hand drawn curves.
+
+The livewire segmentation tool is based on Dijkstra's lowest cost path algorithm.  The curve tries to follow high gradient ridges.  The users set the starting point, clicking on the slice image pixel, known as an anchor. Then, as they starts to move the mouse over other points, the smallest cost path is drawn from the anchor to the pixel where the mouse is over, changing itself if the user moves the mouse. If they want to choose the path that is being displayed, they simply click the image again to set next anchor.  The user can follow this process till the required region is selected.  The anchor points can be added and removed from the livewire curve.
+
+Users can also manually draw the curves, using the New Curve button.  Ellipses, smooth polylines and polygons can be added in this way.  Anchor points can be added and removed from the curve.
+
+The added curves can be modified by pressing Modify button and moving the anchor points.
+
+Intermediate curves can be interpolated from a set of selected boundary curves.  Curves are selected by hovering over the curve and pressing Space Bar.
+
+The curves that are added using livewire technique can be propagated to neighboring slices using Propagate button.
+
+#end
+
+#begin
+Livewire
+Begin/end region selection using livewire tool.
+Livewire tool allows quick and accurate extraction of object/region using simple gesture motions with a mouse.  The tool allows the user to interactively select an optimal boundary segment by immediately displaying the minimum cost path from the current curson position to a previously specified anchor or seed point in the slice image.
+#end
+
+#begin
+SliceLOD
+This specifies the level of detail of the slice image used for livewire segmentation.  Higher the value lower is the image quality - essentially the number is used as the stride through the data.  So higher value results in lower resolution image.  Sometimes when boundary of the region is too jagged, you might reduce the slice resolution and increase smoothing to get a smoother boundary.  For large slice images too, one may choose a lower resolution slice.
+#end
+
+#begin
+Smoothing
+This parameter specifies the smoothing to be applied to the slice image before livewire segmentation.
+#end
+
+#begin
+Gradient Type
+There are two options - Central Difference and Sobel method.  Sobel give smoother gradients compared to the central difference scheme.
+#end
+
+#begin
+Modify
+Curves generated using livewire segmentation and those that were added using Ellipse/Polygon/Polyline type tool can be modified.  Basically those curves that have seeds or anchor points can be modified.  Users can add/move/remove the seeds and the curve will update accordingly.
+
+Click a curve to modify.  The curve that is being modified will turn red in colour.
+
+Add Seed - Shift + Left mouse click
+Remove Seed - Shift + Right mouse click
+Move Seed - Left mouse drag
+
+Escape to restore the original curve.
+
+Switch off Modify to disable curve modification.
+#end
+
+#begin
+Propagate
+Curves generated using livewire segmentation can be propagated using this option.  Select a curve to propagate using Space Bar.  The selected curve will appear thicker in size.  When Propagate button is pressed, user will be asked on the direction of propagation - forward or backward.
+
+The propagating curve will try to use the guesses from curves on the other two orthogonal slice sets to decide the livewire boundary.  When these guesses are not available it will try to guess the seeds.
+
+Press Escape to stop the propagation, or the propagation will automatically stop at the min/max limits or when it cannot generate the livewire curve.
+#end
+
+#begin
+Closed
+When generating the livewire curve or manual curve, this switch decide whether the resulting curve will be a closed one or an open one.
+
+After a curve has been generated users can change the curve to open or closed by hovering over the curve and pressing "o" or "c" respectively.
+#end
+
+#begin
+Interpolate
+Generate intermediate curves from the selected set of curves.  Curves are selected by hovering over the required curve and pressing Space Bar.  Space Bar toggles the selected status of a curve.
+
+Space Bar - toggle selected status of a curve.
+Shift + Space Bar - toggle selected status for the entire set of a slice type.
+
+The selected curve will be shown thicker than their normal width.
+
+The program will generate intermediate curves between adjoining pair of selected curves.  If the interpolated curves are not to the user's satisfaction, these interpolated curves can be deleted by hovering over one of the curves and pressing Delete.
+#end
+
+#begin
+New Curve
+Start a new curve.  User has an option to generate a hand drawn curve/ellipse/smooth polygon/smooth polyline/polygon/polyline.  For all options other than hand drawn curve, users can modify after the curve has been added - i.e. add/move/remove seed points.
+
+When hand drawn curve is selected End Curve button will be shown below New Curve.  Press this button to signify end of the curve drawing.  Users can also press Space Bar to signify the end and the start of a new hand drawn curve.
+#end
+
+#begin
+RemoveAll
+Remove all curves for the given slice type.  User will be asked to confirm the deletion of the curves.
+#end
+
+
+#begin
+keyboard
+Start Keyboard Help
+#end
+
+#begin
+Escape
+When generating livewire curve, pressing Escape resets the livewire curve.
+
+When modifying livewire curve, pressing Escape resets the livewire curve to the original curve.
+
+When propagating curves, pressing Escape stops the propagation process.
+#end
+
+#begin
+Space Bar
+When generating or modifying livewire, pressing Space Bar will freeze the curve.
+
+When not generating or modifying livewire, hovering over a curve and pressing Space Bar will toggle the selected status of that curve.  Selected curves will be shown thicker than their normal size.  Interpolated curves cannot be selected.
+
+To select/deselect all the curves for the slice type, press Shift+Space Bar while hovering on one of the curves.
+#end

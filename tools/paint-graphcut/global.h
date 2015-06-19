@@ -78,6 +78,9 @@ class Global
   static Vec voxelScaling();
   static void setVoxelScaling(Vec);
 
+  static QString voxelUnit();
+  static void setVoxelUnit(QString);
+
  private :
   static QString m_documentationPath;
   static int m_lutSize;
@@ -100,6 +103,7 @@ class Global
   static bool m_closed;
   static int m_selpres;
   static Vec m_voxelScaling;
+  static QString m_voxelUnit;
 };
 
 #endif

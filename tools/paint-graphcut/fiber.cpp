@@ -45,18 +45,37 @@ Fiber::operator=(const Fiber& f)
   thickness = f.thickness;
   selected = f.selected;
   seeds = f.seeds;
-//  smoothSeeds = f.smoothSeeds;
-//  trace = f.trace;
-//  m_dPoints = f.m_dPoints;
-//  m_wPoints = f.m_wPoints;
-//  m_hPoints = f.m_hPoints;
-//  m_dSeeds = f.m_dSeeds;
-//  m_wSeeds = f.m_wSeeds;
-//  m_hSeeds = f.m_hSeeds;
 
   updateTrace();
 
   return *this;
+}
+
+void
+Fiber::showInformation()
+{
+  QString str;
+  str += QString("Width : %1\n").arg(thickness);
+  str += QString("Tag : %1\n").arg(tag);
+
+  if (smoothSeeds.count() > 1)
+    {
+      Vec vs = Global::voxelScaling();
+      float len = 0;
+      for(int i=0; i<smoothSeeds.count()-1; i++)
+	{
+	  Vec v1 = smoothSeeds[i+1]; 
+	  Vec v0 = smoothSeeds[i]; 
+	  v1 = Vec(v1.x*vs.x, v1.y*vs.y, v1.z*vs.z);
+	  v0 = Vec(v0.x*vs.x, v0.y*vs.y, v0.z*vs.z);
+	  len += (v1-v0).norm();
+	}
+      str += QString("Length : %1%2").\
+	arg(len, 0, 'f', 2).	      \
+	arg(Global::voxelUnit());
+    }
+
+  QMessageBox::information(0, "", str);  
 }
 
 void
@@ -120,8 +139,9 @@ Fiber::containsSeed(int d, int w, int h)
   QList<QVector4D> dpts = m_dSeeds.values(d);
 
   for(int i=0; i<dpts.count(); i++)
-    if ((dpts[i].toPointF()-QPointF(h, w)).manhattanLength() < 10)
-      return true;
+    if ((dpts[i].toPointF()-QPointF(h, w)).manhattanLength() <
+	qMax(10, thickness/2))
+	return true;
 
   return false;
 }
@@ -132,7 +152,8 @@ Fiber::contains(int d, int w, int h)
   QList<QVector4D> dpts = m_dPoints.values(d);
 
   for(int i=0; i<dpts.count(); i++)
-    if ((dpts[i].toPointF()-QPointF(h, w)).manhattanLength() < 10)
+    if ((dpts[i].toPointF()-QPointF(h, w)).manhattanLength() <
+	qMax(10, thickness/2))
 	return true;
 
   return false;

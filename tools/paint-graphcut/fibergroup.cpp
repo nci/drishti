@@ -80,6 +80,23 @@ FiberGroup::removeFiber(int d, int w, int h)
 }
 
 void
+FiberGroup::showInformation(int d, int w, int h)
+{
+  if (m_fibers.count() == 0)
+    return;
+
+  for(int i=0; i<m_fibers.count(); i++)
+    {
+      Fiber *fb = m_fibers[i];
+      if (fb->contains(d, w, h))
+	{
+	  fb->showInformation();
+	  return;
+	}
+    }
+}
+      
+void
 FiberGroup::addPoint(int d, int w, int h)
 {
   if (m_fibers.count() == 0)

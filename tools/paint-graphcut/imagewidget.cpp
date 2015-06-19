@@ -188,7 +188,8 @@ ImageWidget::showTags(QList<int> t)
       uchar r = tagColors[4*i+0];
       uchar g = tagColors[4*i+1];
       uchar b = tagColors[4*i+2];
-      if (m_showTags.count() == 0 ||
+      if (!m_fiberMode ||
+	  m_showTags.count() == 0 ||
 	  m_showTags[0] == -1 ||
 	  m_showTags.contains(i))
 	m_tagColors[i] = qRgba(r, g, b, 127);
@@ -480,7 +481,8 @@ ImageWidget::updateTagColors()
       uchar r = tagColors[4*i+0];
       uchar g = tagColors[4*i+1];
       uchar b = tagColors[4*i+2];
-      if (m_showTags.count() == 0 ||
+      if (!m_fiberMode ||
+	  m_showTags.count() == 0 ||
 	  m_showTags[0] == -1 ||
 	  m_showTags.contains(i))
 	m_tagColors[i] = qRgba(r, g, b, 127);
@@ -1482,11 +1484,16 @@ void ImageWidget::setCurve(bool b)
 {
   m_curveMode = b;
   if (!m_curveMode) m_livewireMode = false;
+  updateTagColors();
 }
 
 void ImageWidget::setLivewire(bool b) { m_livewireMode = b; }
 
-void ImageWidget::setFiberMode(bool b) { m_fiberMode = b; }
+void ImageWidget::setFiberMode(bool b)
+{
+  m_fiberMode = b;
+  updateTagColors();
+}
 
 void ImageWidget::newFiber()
 {
@@ -1655,7 +1662,7 @@ ImageWidget::newCurve(bool showoptions)
 	    }      
 	  
 	  QMessageBox::information(this, "Add Curve",
-				   "Draw curve by dragging with left mouse button pressed.\nYou can also start new curve by pressing spacebar.");
+				   "Draw curve by dragging with left mouse button pressed.\nYou can also start new curve by pressing key a.");
 	}
     }
 
@@ -1943,7 +1950,7 @@ ImageWidget::fiberModeKeyPressEvent(QKeyEvent *event)
       emit viewerUpdate();
       update();
     }
-  else if (event->key() == Qt::Key_H)
+  else if (event->key() == Qt::Key_Space)
     {
       m_fibers.selectFiber(m_pickDepth, m_pickWidth, m_pickHeight);
       emit viewerUpdate();
@@ -1959,6 +1966,11 @@ ImageWidget::fiberModeKeyPressEvent(QKeyEvent *event)
     {
       m_fibers.setThickness(m_pickDepth, m_pickWidth, m_pickHeight);
       emit viewerUpdate();
+      update();
+    }
+  else if (event->key() == Qt::Key_I)
+    {
+      m_fibers.showInformation(m_pickDepth, m_pickWidth, m_pickHeight);
       update();
     }
 
@@ -2035,9 +2047,18 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
 
       if (event->key() == Qt::Key_Space)
 	{
-	  freezeLivewire(false);
-	  return true;
+	  if (m_livewire.poly().count() > 5)
+	    {
+	      freezeLivewire(false);
+	      return true;
+	    }
 	}
+    }
+
+  if (event->key() == Qt::Key_A)
+    {
+      newCurve(false);
+      return true;
     }
 
   if (ctrlModifier && event->key() == Qt::Key_C)
@@ -2067,7 +2088,7 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
       return true;
     }
 
-  if (event->key() == Qt::Key_Space)
+  if (event->key() == Qt::Key_I)
     {
       int ic = -1;
       if (m_sliceType == DSlice)
@@ -2077,11 +2098,8 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
       else
 	ic = m_hCurves.showPolygonInfo(m_currSlice, m_pickWidth,  m_pickDepth);
       
-      if (ic < 0)
-	newCurve(false);
-
       return true;
-    }      
+    }
 
   if (event->key() == Qt::Key_S)
     { // curve smoothing
@@ -2096,15 +2114,21 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
       return true;
     }
 
-  if (event->key() == Qt::Key_H)
+  if (event->key() == Qt::Key_Space)
     {
       bool selected;
       if (m_sliceType == DSlice)
-	selected = m_dCurves.selectPolygon(m_currSlice, m_pickHeight, m_pickWidth, shiftModifier);
+	selected = m_dCurves.selectPolygon(m_currSlice,
+					   m_pickHeight, m_pickWidth,
+					   shiftModifier);
       else if (m_sliceType == WSlice)
-	selected = m_wCurves.selectPolygon(m_currSlice, m_pickHeight, m_pickDepth, shiftModifier);
+	selected = m_wCurves.selectPolygon(m_currSlice,
+					   m_pickHeight, m_pickDepth,
+					   shiftModifier);
       else
-	selected = m_hCurves.selectPolygon(m_currSlice, m_pickWidth,  m_pickDepth, shiftModifier);
+	selected = m_hCurves.selectPolygon(m_currSlice,
+					   m_pickWidth,  m_pickDepth,
+					   shiftModifier);
       
       if (selected)
 	update();
@@ -2138,7 +2162,7 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
       update();
       return true;
     }
-
+ 
   if (event->key() == Qt::Key_T)
     {
       int ic = -1;
@@ -2150,15 +2174,15 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
 	}
       else if (m_sliceType == WSlice)
 	{
-	  ic = m_wCurves.getActiveCurve(m_currSlice, m_pickHeight, m_pickWidth);
+	  ic = m_wCurves.getActiveCurve(m_currSlice, m_pickHeight, m_pickDepth);
 	  if (ic == -1)
-	    ic = m_wCurves.getActiveMorphedCurve(m_currSlice, m_pickHeight, m_pickWidth);
+	    ic = m_wCurves.getActiveMorphedCurve(m_currSlice, m_pickHeight, m_pickDepth);
 	}
       else
 	{
-	  ic = m_hCurves.getActiveCurve(m_currSlice, m_pickHeight, m_pickWidth);
+	  ic = m_hCurves.getActiveCurve(m_currSlice, m_pickWidth, m_pickDepth);
 	  if (ic == -1)
-	    ic = m_hCurves.getActiveMorphedCurve(m_currSlice, m_pickHeight, m_pickWidth);
+	    ic = m_hCurves.getActiveMorphedCurve(m_currSlice, m_pickWidth, m_pickDepth);
 	}
       
       if (ic == -1)
@@ -2365,6 +2389,10 @@ ImageWidget::keyPressEvent(QKeyEvent *event)
 	  m_key = 0;
 	  m_forward = true;
 	  QMessageBox::information(0, "", "Repeat process stopped");
+	  if (m_curveMode)
+	    emit setPropagation(false);
+	  else
+	    emit saveMask();
 	}
       else
 	{
@@ -2392,8 +2420,6 @@ ImageWidget::keyPressEvent(QKeyEvent *event)
       wheelEvent(&dummy);
       //update();
     }
-  else if (event->key() == Qt::Key_Space)
-    showHelp();
 }
 
 void

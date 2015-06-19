@@ -193,3 +193,7 @@ void Global::setSelectionPrecision(int s) { m_selpres = s; }
 Vec Global::m_voxelScaling = Vec(1,1,1);
 Vec Global::voxelScaling() { return m_voxelScaling; }
 void Global::setVoxelScaling(Vec v) { m_voxelScaling = v; }
+
+QString Global::m_voxelUnit = "";
+QString Global::voxelUnit() { return m_voxelUnit; }
+void Global::setVoxelUnit(QString s) { m_voxelUnit = s; }

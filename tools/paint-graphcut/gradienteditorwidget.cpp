@@ -8,6 +8,12 @@ GradientEditorWidget::setGeneralLock(GradientEditor::LockType lock)
   m_gradientEditor->setGeneralLock(lock);
 }
 
+QGradientStops
+GradientEditorWidget::colorGradient()
+{
+  return m_gradientEditor->gradientStops();
+}
+
 void
 GradientEditorWidget::setColorGradient(QGradientStops gradStops)
 {

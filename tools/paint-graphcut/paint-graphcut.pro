@@ -19,7 +19,7 @@ TARGET = drishtipaint
 INCLUDEPATH += graphcut
 
 # Input
-FORMS += drishtipaint.ui viewermenu.ui graphcutmenu.ui curvesmenu.ui fibersmenu.ui
+FORMS += drishtipaint.ui viewermenu.ui graphcutmenu.ui curvesmenu.ui fibersmenu.ui propertyeditor.ui
 
 INCLUDEPATH += c:\Qt\libQGLViewer-2.6.1
 LIBS += QGLViewer2.lib
@@ -40,6 +40,7 @@ HEADERS += commonqtclasses.h \
         livewire.h \
 	myslider.h \
  	morphcurve.h \
+	propertyeditor.h \
 	splineeditor.h \
 	splineeditorwidget.h \
 	splineinformation.h \
@@ -79,6 +80,7 @@ SOURCES += drishtipaint.cpp \
         livewire.cpp \
 	myslider.cpp \
  	morphcurve.cpp \
+	propertyeditor.cpp \
 	splineeditor.cpp \
 	splineeditorwidget.cpp \
 	splineinformation.cpp \

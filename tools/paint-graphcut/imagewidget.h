@@ -153,6 +153,9 @@ class ImageWidget : public QWidget
   void polygonLevels(QList<int>);
   void updateViewerBox(int, int, int, int, int, int);
 
+  void setPropagation(bool);
+  void saveMask();
+
  private :
   QStatusBar *m_statusBar;
   QScrollBar *m_hbar, *m_vbar;

@@ -1,6 +1,7 @@
 #include "drishtipaint.h"
 #include "global.h"
 #include "staticfunctions.h"
+#include "propertyeditor.h"
 
 #include <QDockWidget>
 #include <QFileDialog>
@@ -173,7 +174,7 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   ui.menuView->addAction(dockV->toggleViewAction());
   ui.menuView->addAction(dock2->toggleViewAction());
   
-  on_actionCurves_triggered();
+  on_actionCurves_clicked(true);
   curvesUi.lwsettingpanel->setVisible(false);
   curvesUi.closed->setChecked(true);
 
@@ -207,12 +208,37 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 }
 
 void DrishtiPaint::on_actionHelp_triggered() { m_imageWidget->showHelp(); }
+void
+DrishtiPaint::on_help_clicked()
+{
+  if (m_curvesMenu->isVisible())
+    {
+      showCurvesHelp();
+      return;
+    }
+  if (m_graphcutMenu->isVisible())
+    {
+      showGraphCutHelp();
+      return;
+    }
+  if (m_fibersMenu->isVisible())
+    {
+      showFibersHelp();
+      return;
+    }
+}
 
 void DrishtiPaint::on_saveImage_triggered() { m_imageWidget->saveImage(); }
 
 void
-DrishtiPaint::on_actionFibers_triggered()
+DrishtiPaint::on_actionFibers_clicked(bool b)
 {
+  if (m_fibersMenu->isVisible() && !b)
+    {
+      ui.actionFibers->setChecked(true);  
+      return;
+    }
+    
   m_fibersMenu->show();
   m_curvesMenu->hide();
   m_graphcutMenu->hide();
@@ -233,8 +259,14 @@ DrishtiPaint::on_actionFibers_triggered()
 }
 
 void
-DrishtiPaint::on_actionCurves_triggered()
+DrishtiPaint::on_actionCurves_clicked(bool b)
 {
+  if (m_curvesMenu->isVisible() && !b)
+    {
+      ui.actionCurves->setChecked(true);  
+      return;
+    }
+
   m_curvesMenu->show();
   m_graphcutMenu->hide();
   m_fibersMenu->hide();
@@ -258,8 +290,14 @@ DrishtiPaint::on_actionCurves_triggered()
 }
 
 void
-DrishtiPaint::on_actionGraphCut_triggered()
+DrishtiPaint::on_actionGraphCut_clicked(bool b)
 {
+  if (m_graphcutMenu->isVisible() && !b)
+    {
+      ui.actionGraphCut->setChecked(true);  
+      return;
+    }
+
   m_curvesMenu->hide();
   m_graphcutMenu->show();
   m_fibersMenu->hide();
@@ -875,7 +913,7 @@ DrishtiPaint::setFile(QString filename)
       m_xmlFile.clear();
     }
 
-  on_actionCurves_triggered();
+  on_actionCurves_clicked(true);
   curvesUi.lwsettingpanel->setVisible(false);
   curvesUi.closed->setChecked(true);
   curvesUi.livewire->setChecked(true);
@@ -890,8 +928,8 @@ DrishtiPaint::setFile(QString filename)
   curvesfile.replace(".pvl.nc", ".curves");
   m_imageWidget->loadCurves(curvesfile);
 
-  Vec voxelScaling = StaticFunctions::getVoxelSizeFromHeader(m_pvlFile);
-  Global::setVoxelScaling(voxelScaling);
+  Global::setVoxelScaling(StaticFunctions::getVoxelSizeFromHeader(m_pvlFile));
+  Global::setVoxelUnit(StaticFunctions::getVoxelUnitFromHeader(m_pvlFile));
 }
 
 void
@@ -1707,8 +1745,8 @@ DrishtiPaint::on_actionExtractTag_triggered()
 
   bool ok;
   //----------------
-  QString tagstr = QInputDialog::getText(0, "Save Mesh for Tag",
-	    "Tag Numbers (tags should be separated by space.\n-1 for all tags;\nFor e.g. 1 2 5 will mesh tags 1, 2 and 5)",
+  QString tagstr = QInputDialog::getText(0, "Extract volume data for Tag",
+	    "Tag Numbers (tags should be separated by space.\n-1 for all tags;\nFor e.g. 1 2 5 will extract tags 1, 2 and 5)",
 					 QLineEdit::Normal,
 					 "-1",
 					 &ok);
@@ -1933,7 +1971,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
       
 
       //-----------------------------
-      // use tag mask + transfer function to generate mesh
+      // use tag mask + transfer function to extract volume data
       if (extractType == 2 || extractType == 4)
 	{
 	  int sval = 0;
@@ -2018,13 +2056,13 @@ DrishtiPaint::on_actionMeshTag_triggered()
   bool saveFibers = false;
   int colorType = 1; // apply tag colors 
   dtypes.clear();
-  if (m_imageWidget->fibersPresent())
-    dtypes << "Fibers";
   dtypes << "Tag Color"
 	 << "Transfer Function"
 	 << "Tag Color + Transfer Function"
 	 << "Tag Mask + Transfer Function"
 	 << "No Color";
+  if (m_imageWidget->fibersPresent())
+    dtypes << "Fibers";
   QString option = QInputDialog::getItem(0,
 					 "Mesh Color",
 					 "Color Mesh with",
@@ -2078,6 +2116,12 @@ DrishtiPaint::on_actionMeshTag_triggered()
       return;
     }
 
+  int spread = 0;
+  spread = QInputDialog::getInt(0,
+				"Smooth Data",
+				"Apply smoothing before meshing (0 means no smoothing)",
+				0, 0, 3, 1);
+
   QProgressDialog progress("Meshing tagged region from volume data",
 			   "",
 			   0, 100,
@@ -2096,74 +2140,6 @@ DrishtiPaint::on_actionMeshTag_triggered()
 		  tdepth, twidth, theight,
 		  minDSlice, minWSlice, minHSlice,
 		  maxDSlice, maxWSlice, maxHSlice);
-
-//  if (m_imageWidget->dCurvesPresent())
-//    {
-//      uchar *mask = new uchar[width*height]; 
-//      for(int d=minDSlice; d<=maxDSlice; d++)
-//	{
-//	  int slc = d-minDSlice;
-//	  progress.setValue((int)(100*(float)slc/(float)tdepth));
-//	  qApp->processEvents();
-//	  
-//	  memset(mask, 0, width*height);
-//	  m_imageWidget->paintUsingCurves(0, d, height, width, mask, tag);
-//	  for(int w=minWSlice; w<=maxWSlice; w++)
-//	    for(int h=minHSlice; h<=maxHSlice; h++)
-//	      {
-//		if (mask[w*height+h] > 0)
-//		  curveMask[(d-minDSlice)*twidth*theight +
-//			    (w-minWSlice)*theight +
-//			    (h-minHSlice)] = mask[w*height+h];
-//	      }
-//	}
-//      delete [] mask;
-//    }
-//  if (m_imageWidget->wCurvesPresent())
-//    {
-//      uchar *mask = new uchar[depth*height]; 
-//      for(int w=minWSlice; w<=maxWSlice; w++)
-//	{
-//	  int slc = w-minWSlice;
-//	  progress.setValue((int)(100*(float)slc/(float)twidth));
-//	  qApp->processEvents();
-//	  
-//	  memset(mask, 0, depth*height);
-//	  m_imageWidget->paintUsingCurves(1, w, height, depth, mask, tag);
-//	  for(int d=minDSlice; d<=maxDSlice; d++)
-//	    for(int h=minHSlice; h<=maxHSlice; h++)
-//	      {
-//		if (mask[d*height+h] > 0)
-//		  curveMask[(d-minDSlice)*twidth*theight +
-//			    (w-minWSlice)*theight +
-//			    (h-minHSlice)] = mask[d*height+h];
-//	      }
-//	}
-//      delete [] mask;
-//    }
-//  if (m_imageWidget->hCurvesPresent())
-//    {
-//      uchar *mask = new uchar[depth*width]; 
-//      for(int h=minHSlice; h<=maxHSlice; h++)
-//	{
-//	  int slc = h-minHSlice;
-//	  progress.setValue((int)(100*(float)slc/(float)theight));
-//	  qApp->processEvents();
-//	  
-//	  memset(mask, 0, depth*width);
-//	  m_imageWidget->paintUsingCurves(2, h, width, depth, mask, tag);
-//	  for(int d=minDSlice; d<=maxDSlice; d++)
-//	    for(int w=minWSlice; w<=maxWSlice; w++)
-//	      {
-//		if (mask[d*width+w] > 0)
-//		  curveMask[(d-minDSlice)*twidth*theight +
-//			    (w-minWSlice)*theight +
-//			    (h-minHSlice)] = mask[d*width+w];
-//	      }
-//	}
-//      delete [] mask;
-//    }
-
   //----------------------------------
 
   uchar *lut = Global::lut();
@@ -2294,6 +2270,9 @@ DrishtiPaint::on_actionMeshTag_triggered()
 
   progress.setValue(100);  
 
+  if (spread > 0)
+    dilateAndSmooth(meshingData, tdepth, twidth, theight, spread);
+
   //----------------------------------
   // add a border to make a watertight mesh when the isosurface
   // touches the border
@@ -2304,7 +2283,7 @@ DrishtiPaint::on_actionMeshTag_triggered()
 	  if (i==0 || i == tdepth-1 ||
 	      j==0 || j == twidth-1 ||
 	      k==0 || k == theight-1)
-	    if (meshingData[i*twidth*theight+j*theight+k] == 0)
+	    if (meshingData[i*twidth*theight+j*theight+k] < 255)
 	      meshingData[i*twidth*theight+j*theight+k] = 255;
 	}
   //----------------------------------
@@ -2322,7 +2301,7 @@ DrishtiPaint::on_actionMeshTag_triggered()
 	     &mc,
 	     curveMask,
 	     minHSlice, minWSlice, minDSlice,
-	     theight, twidth, tdepth);
+	     theight, twidth, tdepth, spread+1);
   else
     mc.writePLY(tflnm.toLatin1().data(), true);
   
@@ -2340,7 +2319,8 @@ DrishtiPaint::saveMesh(int colorType,
 		       MarchingCubes *mc,
 		       uchar *tagdata,
 		       int minHSlice, int minWSlice, int minDSlice,
-		       int theight, int twidth, int tdepth)
+		       int theight, int twidth, int tdepth,
+		       int spread)
 {
   Vec voxelScaling = Global::voxelScaling();
 
@@ -2462,17 +2442,39 @@ DrishtiPaint::saveMesh(int colorType,
       vertex.ny = vertices[ni].ny;
       vertex.nz = vertices[ni].nz;
 
-      // now get color
+      // get tag
       int h = vertex.x;
       int w = vertex.y;
       int d = vertex.z;
-      int tag = 0;
-      for(int dd=qMax(d-1, 0); dd<=qMin(tdepth-1,d+1); dd++)
-	for(int ww=qMax(w-1, 0); ww<=qMin(twidth-1,w+1); ww++)
-	  for(int hh=qMax(h-1, 0); hh<=qMin(theight-1,h+1); hh++)
-	    tag = qMax(tag, (int)tagdata[dd*twidth*theight +
-				    ww*theight + hh]);
- 
+      int tag = tagdata[d*twidth*theight + w*theight + h];
+      if (tag == 0 &&
+	  colorType != 2 && colorType != 4) // tag not needed applying only transfer function
+	{
+	  for(int sp=1; sp<=spread+1; sp++)
+	    {
+	      bool ok=false;
+	      for(int dd=qMax(d-spread, 0); dd<=qMin(tdepth-1,d+spread); dd++)
+		for(int ww=qMax(w-spread, 0); ww<=qMin(twidth-1,w+spread); ww++)
+		  for(int hh=qMax(h-spread, 0); hh<=qMin(theight-1,h+spread); hh++)
+		    if (qAbs(dd-d) == sp ||
+			qAbs(ww-w) == sp ||
+			qAbs(hh-h) == sp)
+		      {
+			tag = qMax(tag, (int)tagdata[dd*twidth*theight +
+						     ww*theight + hh]);
+			if (tag > 0)
+			  {
+			    ok = true;
+			    break;
+			  }
+		      }
+	      if (ok)
+		break;
+	    }
+	}
+
+
+      // get color
       uchar r,g,b;
 
       if (colorType == 1) // apply tag colors
@@ -2481,7 +2483,7 @@ DrishtiPaint::saveMesh(int colorType,
 	  g = Global::tagColors()[4*tag+1];
 	  b = Global::tagColors()[4*tag+2];
 	}
-      else if (colorType == 2 || colorType == 4) // apply transfer function
+      else if (colorType == 2 || colorType == 4) // apply only transfer function
 	{
 	  QList<uchar> val = m_volume->rawValue(d+minDSlice,
 						w+minWSlice,
@@ -2773,6 +2775,12 @@ DrishtiPaint::connectImageWidget()
 
   connect(m_imageWidget, SIGNAL(viewerUpdate()),
 	  m_viewer, SLOT(update()));
+
+  connect(m_imageWidget, SIGNAL(setPropagation(bool)),
+	  curvesUi.propagate, SLOT(setChecked(bool)));
+
+  connect(m_imageWidget, SIGNAL(saveMask()),
+	  m_volume, SLOT(saveIntermediateResults()));
 }
 
 void
@@ -2852,8 +2860,8 @@ DrishtiPaint::connectCurvesMenu()
 	  this, SLOT(on_closed_clicked(bool)));
   connect(curvesUi.morphcurves, SIGNAL(clicked()),
 	  this, SLOT(on_morphcurves_clicked()));
-  connect(curvesUi.deselect, SIGNAL(clicked()),
-	  this, SLOT(on_deselect_clicked()));
+//  connect(curvesUi.deselect, SIGNAL(clicked()),
+//	  this, SLOT(on_deselect_clicked()));
 
 
 //  connect(curvesUi.thickness, SIGNAL(valueChanged(int)),
@@ -3034,4 +3042,275 @@ DrishtiPaint::updateFiberMask(uchar *curveMask, QList<int> tag,
 	}
     }
   progress.setValue(100);
+}
+
+void
+DrishtiPaint::dilateAndSmooth(uchar* data,
+			      int d, int w, int h,
+			      int spread)
+{
+  // dilate spread times before applying smoothing
+  QList<uchar*> slc;
+  for(int diter=0; diter<=spread; diter++)
+    slc << new uchar[w*h];
+
+  for(int diter=0; diter<=spread; diter++)
+    memcpy(slc[diter], data+(diter+1)*w*h, w*h);
+
+  for(int i=1; i<d-1; i++)
+    {
+      for(int j=1; j<w-1; j++)
+	for(int k=1; k<h-1; k++)
+	  {
+	    int val = slc[0][j*h + k];
+	    if (val == 0)
+	      {
+		int is = qMax(0, i-spread);
+		int js = qMax(0, j-spread);
+		int ks = qMax(0, k-spread);
+		int ie = qMin(d-1, i+spread);
+		int je = qMin(w-1, j+spread);
+		int ke = qMin(h-1, k+spread);
+		for(int ii=is; ii<=ie; ii++)
+		  for(int jj=js; jj<=je; jj++)
+		    for(int kk=ks; kk<=ke; kk++)
+		      data[ii*w*h + jj*h + kk] = 0;
+	      }
+	  }
+      
+      uchar *tmp = slc[0];
+      for(int diter=0; diter<=spread; diter++)
+	{
+	  if (diter<spread)
+	    slc[diter] = slc[diter+1];
+	  else
+	    slc[diter] = tmp;
+	}
+      if (i < d-spread-1)
+	memcpy(slc[spread], data+(i+spread+1)*w*h, w*h);
+    }
+
+  for(int diter=0; diter<=spread; diter++)
+    delete [] slc[diter];
+  
+  smoothData(data, d, w, h, spread);
+}
+void
+DrishtiPaint::smoothData(uchar *gData,
+			 int nX, int nY, int nZ,
+			 int spread)
+{
+  QProgressDialog progress("Smoothing before meshing",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+  uchar *tmp = new uchar[qMax(nX, qMax(nY, nZ))];
+
+  for(int k=0; k<nX; k++)
+    {
+      progress.setValue((int)(100.0*(float)k/(float)(nX)));
+      qApp->processEvents();
+
+      for(int j=0; j<nY; j++)
+	{
+	  memset(tmp, 0, nZ);
+	  for(int i=0; i<nZ; i++)
+	    {
+	      float v = 0.0f;
+	      int nt = 0;
+	      for(int i0=qMax(0,i-spread); i0<=qMin(nZ-1,i+spread); i0++)
+		{
+		  nt++;
+		  v += gData[k*nY*nZ + j*nZ + i0];
+		}
+	      tmp[i] = v/nt;
+	    }
+	  
+	  for(int i=0; i<nZ; i++)
+	    gData[k*nY*nZ + j*nZ + i] = tmp[i];
+	}
+    }
+
+
+  for(int k=0; k<nX; k++)
+    {
+      progress.setValue((int)(100.0*(float)k/(float)(nX)));
+      qApp->processEvents();
+
+      for(int i=0; i<nZ; i++)
+	{
+	  memset(tmp, 0, nY);
+	  for(int j=0; j<nY; j++)
+	    {
+	      float v = 0.0f;
+	      int nt = 0;
+	      for(int j0=qMax(0,j-spread); j0<=qMin(nY-1,j+spread); j0++)
+		{
+		  nt++;
+		  v += gData[k*nY*nZ + j0*nZ + i];
+		}
+	      tmp[j] = v/nt;
+	    }	  
+	  for(int j=0; j<nY; j++)
+	    gData[k*nY*nZ + j*nZ + i] = tmp[j];
+	}
+    }
+  
+  for(int j=0; j<nY; j++)
+    {
+      progress.setValue((int)(100.0*(float)j/(float)(nY)));
+      qApp->processEvents();
+
+      for(int i=0; i<nZ; i++)
+	{
+	  memset(tmp, 0, nX);
+	  for(int k=0; k<nX; k++)
+	    {
+	      float v = 0.0f;
+	      int nt = 0;
+	      for(int k0=qMax(0,k-spread); k0<=qMin(nX-1,k+spread); k0++)
+		{
+		  nt++;
+		  v += gData[k0*nY*nZ + j*nZ + i];
+		}
+	      tmp[k] = v/nt;
+	    }
+	  for(int k=0; k<nX; k++)
+	    gData[k*nY*nZ + j*nZ + i] = tmp[k];
+	}
+    }
+  
+  delete [] tmp;
+
+  progress.setValue(100);
+}
+
+
+
+void
+DrishtiPaint::showCurvesHelp()
+{
+  PropertyEditor propertyEditor;
+
+  QMap<QString, QVariantList> plist;
+  QVariantList vlist;
+
+  vlist.clear();
+  QFile helpFile(":/curves.help");
+  if (helpFile.open(QFile::ReadOnly))
+    {
+      QTextStream in(&helpFile);
+      QString line = in.readLine();
+      while (!line.isNull())
+	{
+	  if (line == "#begin")
+	    {
+	      QString keyword = in.readLine();
+	      QString helptext;
+	      line = in.readLine();
+	      while (!line.isNull())
+		{
+		  helptext += line;
+		  helptext += "\n";
+		  line = in.readLine();
+		  if (line == "#end") break;
+		}
+	      vlist << keyword << helptext;
+	    }
+	  line = in.readLine();
+	}
+    }  
+  plist["commandhelp"] = vlist;
+  
+  QStringList keys;
+  keys << "commandhelp";
+  
+  propertyEditor.set("Curves Help", plist, keys);
+  propertyEditor.exec();
+}
+
+void
+DrishtiPaint::showGraphCutHelp()
+{
+  PropertyEditor propertyEditor;
+
+  QMap<QString, QVariantList> plist;
+  QVariantList vlist;
+
+  vlist.clear();
+  QFile helpFile(":/graphcut.help");
+  if (helpFile.open(QFile::ReadOnly))
+    {
+      QTextStream in(&helpFile);
+      QString line = in.readLine();
+      while (!line.isNull())
+	{
+	  if (line == "#begin")
+	    {
+	      QString keyword = in.readLine();
+	      QString helptext;
+	      line = in.readLine();
+	      while (!line.isNull())
+		{
+		  helptext += line;
+		  helptext += "\n";
+		  line = in.readLine();
+		  if (line == "#end") break;
+		}
+	      vlist << keyword << helptext;
+	    }
+	  line = in.readLine();
+	}
+    }  
+  plist["commandhelp"] = vlist;
+  
+  QStringList keys;
+  keys << "commandhelp";
+  
+  propertyEditor.set("Graph Cut Segmentation Help", plist, keys);
+  propertyEditor.exec();
+}
+
+void
+DrishtiPaint::showFibersHelp()
+{
+  PropertyEditor propertyEditor;
+
+  QMap<QString, QVariantList> plist;
+  QVariantList vlist;
+
+  vlist.clear();
+  QFile helpFile(":/fibers.help");
+  if (helpFile.open(QFile::ReadOnly))
+    {
+      QTextStream in(&helpFile);
+      QString line = in.readLine();
+      while (!line.isNull())
+	{
+	  if (line == "#begin")
+	    {
+	      QString keyword = in.readLine();
+	      QString helptext;
+	      line = in.readLine();
+	      while (!line.isNull())
+		{
+		  helptext += line;
+		  helptext += "\n";
+		  line = in.readLine();
+		  if (line == "#end") break;
+		}
+	      vlist << keyword << helptext;
+	    }
+	  line = in.readLine();
+	}
+    }  
+  plist["commandhelp"] = vlist;
+  
+  QStringList keys;
+  keys << "commandhelp";
+  
+  propertyEditor.set("Fiber/Channel Tracking Help", plist, keys);
+  propertyEditor.exec();
 }

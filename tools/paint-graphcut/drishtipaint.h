@@ -43,13 +43,14 @@ class DrishtiPaint : public QMainWindow
   void on_actionExit_triggered();
   void on_actionExtractTag_triggered();
   void on_actionMeshTag_triggered();
-  void on_actionCurves_triggered();
-  void on_actionFibers_triggered();
-  void on_actionGraphCut_triggered();
+  void on_actionCurves_clicked(bool);
+  void on_actionFibers_clicked(bool);
+  void on_actionGraphCut_clicked(bool);
   void on_sliceLod_currentIndexChanged(int);
   void on_butZ_clicked();
   void on_butY_clicked();
   void on_butX_clicked();
+  void on_help_clicked();
   void on_tagcurves_editingFinished();
   void paintedtag_editingFinished();
   void curvetag_editingFinished();
@@ -167,7 +168,8 @@ class DrishtiPaint : public QMainWindow
 		MarchingCubes*,
 		uchar*,
 		int, int, int,
-		int, int, int);
+		int, int, int,
+		int);
 
   QPair<QString, QList<int> > getTags(QString);
 
@@ -190,6 +192,13 @@ class DrishtiPaint : public QMainWindow
 		       int, int, int);
 
   void meshFibers(QString);
+
+  void showCurvesHelp();
+  void showFibersHelp();
+  void showGraphCutHelp();
+
+  void dilateAndSmooth(uchar*, int, int, int, int);
+  void smoothData(uchar*, int, int, int, int);
 };
 
 #endif

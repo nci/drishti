@@ -27,6 +27,7 @@ class FiberGroup
   void setThickness(int, int, int);
 
   void removeFiber(int, int, int);
+  void showInformation(int, int, int);
 
   QVector<QVector4D> xyPoints(int, int);
   QVector<QVector4D> xySeeds(int, int);

@@ -434,19 +434,6 @@
           </property>
          </widget>
         </item>
-        <item>
-         <widget class="QPushButton" name="deselect">
-          <property name="maximumSize">
-           <size>
-            <width>70</width>
-            <height>16777215</height>
-           </size>
-          </property>
-          <property name="text">
-           <string>Deselect All</string>
-          </property>
-         </widget>
-        </item>
        </layout>
       </item>
       <item>
@@ -547,12 +534,12 @@
    <slot>setVisible(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>31</x>
-     <y>55</y>
+     <x>22</x>
+     <y>73</y>
     </hint>
     <hint type="destinationlabel">
-     <x>89</x>
-     <y>73</y>
+     <x>80</x>
+     <y>91</y>
     </hint>
    </hints>
   </connection>

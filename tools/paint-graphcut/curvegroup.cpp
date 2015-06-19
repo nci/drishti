@@ -154,7 +154,10 @@ CurveGroup::showPolygonInfo(int key, int v0, int v1)
   QString str;
   str += "Curve Information\n";
   str += QString("Tag : %1\n").arg(curves[ic]->tag);
-  str += QString("Closed : %1\n").arg(curves[ic]->closed);
+  if (curves[ic]->closed)
+    str += QString("Closed curve\n");
+  else
+    str += QString("Open curve\n");
   str += QString("Width : %1\n").arg(curves[ic]->thickness);
   str += QString("Length : %1\n").arg(pathLength(curves[ic]));
   if (curves[ic]->closed)

@@ -34,7 +34,7 @@ class StaticFunctions
   static bool xmlHeaderFile(QString);
   static void getDimensionsFromHeader(QString, int&, int&, int&);
   static Vec getVoxelSizeFromHeader(QString);
-  static int getVoxelUnitFromHeader(QString);
+  static QString getVoxelUnitFromHeader(QString);
   static int getSlabsizeFromHeader(QString);
   static int getPvlHeadersizeFromHeader(QString);
   static int getRawHeadersizeFromHeader(QString);

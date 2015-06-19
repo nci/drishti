@@ -286,9 +286,10 @@ StaticFunctions::getVoxelSizeFromHeader(QString pvlFilename)
 	  return Vec(vx, vy, vz);
 	}
     }
+  return Vec(1,1,1);
 }
 
-int
+QString
 StaticFunctions::getVoxelUnitFromHeader(QString pvlFilename)
 {
   QDomDocument document;
@@ -305,28 +306,29 @@ StaticFunctions::getVoxelUnitFromHeader(QString pvlFilename)
     {
       if (dlist.at(i).nodeName() == "voxelunit")
 	{
-	  QString pvalue = dlist.at(i).toElement().text();
-	  return 0;
+	  QString pvalue = dlist.at(i).toElement().text();	  
 	  if (pvalue == "angstrom")
-	    return 1;
+	    return "A";
 	  else if (pvalue == "nanometer")
-	    return 2;
+	    return "nm";
 	  else if (pvalue == "micron")
-	    return 3;
+	    return "um";
 	  else if (pvalue == "millimeter")
-	    return 4;
+	    return "mm";
 	  else if (pvalue == "centimeter")
-	    return 5;
+	    return "cm";
 	  else if (pvalue == "meter")
-	    return 6;
+	    return "m";
 	  else if (pvalue == "kilometer")
-	    return 7;
+	    return "km";
 	  else if (pvalue == "parsec")
-	    return 8;
+	    return "p";
 	  else if (pvalue == "kiloparsec")
-	    return 9;
+	    return "kp";	  
 	}
     }
+
+  return "";
 }
 
 void

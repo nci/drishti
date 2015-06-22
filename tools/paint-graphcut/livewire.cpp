@@ -854,6 +854,9 @@ LiveWire::livewireFromSeeds(QVector<QPointF> oseeds)
     {
       int h = seeds[i].x()/m_lod;
       int w = seeds[i].y()/m_lod;
+
+      int h0=h;
+      int w0=w;
       int xpos = h;
       int ypos = w;
       int midx = h*m_width+w;

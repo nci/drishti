@@ -533,6 +533,9 @@
                  <pointsize>15</pointsize>
                 </font>
                </property>
+               <property name="styleSheet">
+                <string notr="true">QToolButton { border-radius=15; }</string>
+               </property>
                <property name="text">
                 <string>?</string>
                </property>
@@ -560,6 +563,9 @@
                 <font>
                  <pointsize>10</pointsize>
                 </font>
+               </property>
+               <property name="styleSheet">
+                <string notr="true">QPushButton { border-radius=10px; }</string>
                </property>
                <property name="text">
                 <string>Cu</string>

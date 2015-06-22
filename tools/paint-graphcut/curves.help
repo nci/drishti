@@ -12,6 +12,8 @@ Intermediate curves can be interpolated from a set of selected boundary curves. 
 
 The curves that are added using livewire technique can be propagated to neighboring slices using Propagate button.
 
+The curves and fiber track information is saved in the filename same as the .pvl.nc file but with extension .curves.
+
 #end
 
 #begin
@@ -82,7 +84,12 @@ The program will generate intermediate curves between adjoining pair of selected
 New Curve
 Start a new curve.  User has an option to generate a hand drawn curve/ellipse/smooth polygon/smooth polyline/polygon/polyline.  For all options other than hand drawn curve, users can modify after the curve has been added - i.e. add/move/remove seed points.
 
-When hand drawn curve is selected End Curve button will be shown below New Curve.  Press this button to signify end of the curve drawing.  Users can also press Space Bar to signify the end and the start of a new hand drawn curve.
+When hand drawn curve is selected End Curve button will be shown below New Curve.  Press this button to signify end of the curve drawing.  Users can also press "a" to signify the end of the curve and the start of a new hand drawn curve.
+#end
+
+#begin
+End Curve
+End the hand drawn curve.
 #end
 
 #begin
@@ -111,5 +118,69 @@ When generating or modifying livewire, pressing Space Bar will freeze the curve.
 
 When not generating or modifying livewire, hovering over a curve and pressing Space Bar will toggle the selected status of that curve.  Selected curves will be shown thicker than their normal size.  Interpolated curves cannot be selected.
 
-To select/deselect all the curves for the slice type, press Shift+Space Bar while hovering on one of the curves.
+To select/deselect all the curves for the slice type, press Shift+Space Bar while hovering on one of the curves.  Only the curves within the limits specified by the end markers for the current slice direction are affected.
+#end
+
+#begin
+a
+Start a new hand drawn curve.  If the user is already in curve drawing mode, then the current curve is ended and a new curve is started.
+#end
+
+#begin
+c
+Make curve under the cursor closed - i.e. join the last point with the first point with a straight line.
+#end
+
+#begin
+o
+Make curve under the cursor open - i.e. remove the connection between the last point and the first point.
+#end
+
+#begin
+Ctrl + c
+Copy curve under the mouse cursor to the internal buffer.  Interpolated curves cannot be coppied to the internal buffer.
+#end
+
+#begin
+Ctrl + v
+Paste curve from the internal buffer.
+#end
+
+#begin
+i
+Show the information about the curve under the mouse cursor.
+#end
+
+#begin
+s
+s
+Shift+s
+Smooth curve under the mouse cursor.
+When Shift+s is pressed all the curves within the limits specified by the end markers for the current slice direction are smoothed.
+#end
+
+#begin
+t
+t
+Shift + t
+Ctrl + Shift + t
+
+When t is pressed while the cursor is over a curve, the tag value of the curve is set to the value in the "Tag" parameter box.
+
+When t is pressed while the cursor is not over any of the curves, then the region under the curve is tagged with tag value of the curve.  While tagging the region this way, the existing nonzero tag values are not overwritten - only the region not previously tagged is overwritten with the tag value of the curve.  If the curve is open, only the region covered by the line with the width of the curve is affected.
+
+When Shift + t is pressed the tagging operation is applied over multiple slices within the limits set by the end markers for the current slice direction.
+
+When Ctrl + Shift + t is pressed the tagging operation is applied for the inverse region over multiple slices.
+#end
+
+#begin
+w
+When w is pressed while the cursor is over a curve, the width of the curve is set to the value in the "Width" parameter box.
+#end
+
+#begin
+Del/Backspace
+When Del/Backspace is pressed while the cursor is over a curve, the curve is removed.
+If the curve is an interpolated curve, then the entire batch of interpolated curves to which the current curve belongs is removed.
 #end

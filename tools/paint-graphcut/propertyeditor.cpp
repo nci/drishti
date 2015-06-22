@@ -165,7 +165,7 @@ PropertyEditor::set(QString title,
 		    }
 		}
 	      m_helpCommandString << hcsList;
-	      m_helpCommandString.sort();
+	      //m_helpCommandString.sort();
 	      m_helpList->addItems(m_helpCommandString);
 
 	      if (keyText.count() > 0)
@@ -173,7 +173,7 @@ PropertyEditor::set(QString title,
 		  m_hotkeymouse->show();
 		  m_hotkeymouse->setChecked(false);
 		  m_hotkeymouseString << keyText;
-		  m_hotkeymouseString.sort();
+		  //m_hotkeymouseString.sort();
 		}
 	    }
 	}

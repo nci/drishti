@@ -1794,6 +1794,9 @@ ImageWidget::startLivewirePropagation()
   
 	  //  move current slice for propagation
 	  checkRecursive();	  
+	  if (!m_applyRecursive)
+	    emit setPropagation(false);
+
 	  return;
 	}
     }
@@ -2104,12 +2107,18 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
   if (event->key() == Qt::Key_S)
     { // curve smoothing
       if (m_sliceType == DSlice)
-	m_dCurves.smooth(m_currSlice, m_pickHeight, m_pickWidth);
+	m_dCurves.smooth(m_currSlice, m_pickHeight, m_pickWidth,
+			 shiftModifier,
+			 m_minDSlice, m_maxDSlice);
       else if (m_sliceType == WSlice)
-	m_wCurves.smooth(m_currSlice, m_pickHeight, m_pickDepth);
+	m_wCurves.smooth(m_currSlice, m_pickHeight, m_pickDepth,
+			 shiftModifier,
+			 m_minWSlice, m_maxWSlice);
       else
-	m_hCurves.smooth(m_currSlice, m_pickWidth,  m_pickDepth);
-
+	m_hCurves.smooth(m_currSlice, m_pickWidth,  m_pickDepth,
+			 shiftModifier,
+			 m_minHSlice, m_maxHSlice);
+      
       update();
       return true;
     }
@@ -2120,15 +2129,18 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
       if (m_sliceType == DSlice)
 	selected = m_dCurves.selectPolygon(m_currSlice,
 					   m_pickHeight, m_pickWidth,
-					   shiftModifier);
+					   shiftModifier,
+					   m_minDSlice, m_maxDSlice);
       else if (m_sliceType == WSlice)
 	selected = m_wCurves.selectPolygon(m_currSlice,
 					   m_pickHeight, m_pickDepth,
-					   shiftModifier);
+					   shiftModifier,
+					   m_minWSlice, m_maxWSlice);
       else
 	selected = m_hCurves.selectPolygon(m_currSlice,
 					   m_pickWidth,  m_pickDepth,
-					   shiftModifier);
+					   shiftModifier,
+					   m_minHSlice, m_maxHSlice);
       
       if (selected)
 	update();

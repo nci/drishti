@@ -177,7 +177,8 @@ CurveGroup::deselectAll()
 }
 
 bool
-CurveGroup::selectPolygon(int key, int v0, int v1, bool all)
+CurveGroup::selectPolygon(int key, int v0, int v1,
+			  bool all, int minSlice, int maxSlice)
 {
   if (!m_cg.contains(key))
     return false;
@@ -217,12 +218,23 @@ CurveGroup::selectPolygon(int key, int v0, int v1, bool all)
 	}
     }
 
+//  if (all)
+//    {
+//      QList<Curve*> curves = m_cg.values();
+//      for(int ic=0; ic<curves.count(); ic++)
+//	curves[ic]->selected = sel;
+//
+//      return true;
+//    }
+
   if (all)
     {
-      QList<Curve*> curves = m_cg.values();
-      for(int ic=0; ic<curves.count(); ic++)
-	curves[ic]->selected = sel;
-
+      for(int k=minSlice; k<=maxSlice; k++)
+	{
+	  QList<Curve*> curves = m_cg.values(k);
+	  for(int ic=0; ic<curves.count(); ic++)
+	    curves[ic]->selected = sel;
+	}
       return true;
     }
 
@@ -891,8 +903,47 @@ CurveGroup::moveCurve(int key, int dv0, int dv1)
 }
 
 void
-CurveGroup::smooth(int key, int v0, int v1)
+CurveGroup::smooth(int key, int v0, int v1,
+		   bool all, int minSlice, int maxSlice)
 {
+  if (all)
+    {
+      for(int k=minSlice; k<=maxSlice; k++)
+	{
+	  QList<Curve*> curves = m_cg.values(k);
+	  for(int ic=0; ic<curves.count(); ic++)
+	    {
+	      // fix seedpos
+	      if (curves[ic]->seedpos.count() > 0)
+		smoothCurveWithSeedPoints(curves[ic]);
+	      else
+		// replace pts with the smooth version
+		curves[ic]->pts = smooth(curves[ic]->pts,
+				     curves[ic]->closed);
+	    }
+	}
+
+      for(int m=0; m<m_mcg.count(); m++)
+	{
+	  QList<int> keys = m_mcg[m].keys();	  
+	  for(int k=0; k<keys.count(); k++)
+	    {
+	      if (k >= minSlice && k<=maxSlice)
+		{
+		  Curve c = m_mcg[m].value(keys[k]);
+		  QVector<QPointF> w;
+		  w = smooth(c.pts, c.closed);
+		  c.pts = w; // replace pts with the smooth version
+		  m_mcg[m].insert(keys[k], c);
+		}
+	    }
+	}
+
+      m_pointsDirtyBit = true;
+      return;
+    }
+
+
   if (m_cg.contains(key))
     {
       int ic = getActiveCurve(key, v0, v1);

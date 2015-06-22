@@ -59,7 +59,8 @@ class CurveGroup
   void joinPolygonAt(int, QVector<QPointF>);
   void setCurveAt(int, Curve);
 
-  void smooth(int, int, int);
+  void smooth(int, int, int,
+	      bool, int, int);
   void push(int, int, int, int);
   
   void resetMoveCurve();
@@ -69,7 +70,8 @@ class CurveGroup
   QList<int> polygonLevels();
 
   int showPolygonInfo(int, int, int);
-  bool selectPolygon(int, int, int, bool);
+  bool selectPolygon(int, int, int,
+		     bool, int, int);
   void setClosed(int, int, int, bool);
   void setThickness(int, int, int, int);
   void setTag(int, int, int, int);

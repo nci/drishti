@@ -85,6 +85,13 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   m_curvesMenu = new QFrame();
   curvesUi.setupUi(m_curvesMenu);
 
+  ui.actionFibers->setStyleSheet("QPushButton:checked { background-color: #ff7700; }");
+  ui.actionCurves->setStyleSheet("QPushButton:checked { background-color: #0077dd; }");
+  ui.actionGraphCut->setStyleSheet("QPushButton:checked { background-color: #00aa55; }");
+
+  ui.help->setMaximumSize(50, 50);
+  ui.help->setMinimumSize(50, 50);
+
   m_fibersMenu = new QFrame();
   fibersUi.setupUi(m_fibersMenu);
 
@@ -233,6 +240,11 @@ void DrishtiPaint::on_saveImage_triggered() { m_imageWidget->saveImage(); }
 void
 DrishtiPaint::on_actionFibers_clicked(bool b)
 {
+  QString hss;
+  hss += "QToolButton { border-width:5; border-style:solid; border-radius:25px;";
+  hss += "color:#ff7700; }";
+  ui.help->setStyleSheet(hss);
+
   if (m_fibersMenu->isVisible() && !b)
     {
       ui.actionFibers->setChecked(true);  
@@ -261,6 +273,11 @@ DrishtiPaint::on_actionFibers_clicked(bool b)
 void
 DrishtiPaint::on_actionCurves_clicked(bool b)
 {
+  QString hss;
+  hss += "QToolButton { border-width:5; border-style:solid; border-radius:25px;";
+  hss += "color:#0077dd; }";
+  ui.help->setStyleSheet(hss);
+
   if (m_curvesMenu->isVisible() && !b)
     {
       ui.actionCurves->setChecked(true);  
@@ -292,6 +309,12 @@ DrishtiPaint::on_actionCurves_clicked(bool b)
 void
 DrishtiPaint::on_actionGraphCut_clicked(bool b)
 {
+  QString hss;
+  hss += "QToolButton { border-width:5; border-style:solid; border-radius:25px;";
+  hss += "color:#00aa55; }";
+  ui.help->setStyleSheet(hss);
+
+
   if (m_graphcutMenu->isVisible() && !b)
     {
       ui.actionGraphCut->setChecked(true);  
@@ -2120,7 +2143,7 @@ DrishtiPaint::on_actionMeshTag_triggered()
   spread = QInputDialog::getInt(0,
 				"Smooth Data",
 				"Apply smoothing before meshing (0 means no smoothing)",
-				0, 0, 3, 1);
+				1, 0, 3, 1);
 
   QProgressDialog progress("Meshing tagged region from volume data",
 			   "",
@@ -2271,7 +2294,7 @@ DrishtiPaint::on_actionMeshTag_triggered()
   progress.setValue(100);  
 
   if (spread > 0)
-    dilateAndSmooth(meshingData, tdepth, twidth, theight, spread);
+    dilateAndSmooth(meshingData, tdepth, twidth, theight, spread+1);
 
   //----------------------------------
   // add a border to make a watertight mesh when the isosurface
@@ -2293,7 +2316,7 @@ DrishtiPaint::on_actionMeshTag_triggered()
   mc.set_resolution(theight, twidth, tdepth);
   mc.set_ext_data(meshingData);
   mc.init_all();
-  mc.run(64);
+  mc.run(32);
 
   if (colorType > 0)
     saveMesh(colorType,
@@ -3074,7 +3097,13 @@ DrishtiPaint::dilateAndSmooth(uchar* data,
 		for(int ii=is; ii<=ie; ii++)
 		  for(int jj=js; jj<=je; jj++)
 		    for(int kk=ks; kk<=ke; kk++)
-		      data[ii*w*h + jj*h + kk] = 0;
+		      {
+			float p = ((i-ii)*(i-ii)+
+				   (j-jj)*(j-jj)+
+				   (k-kk)*(k-kk));
+			if (p < spread*spread)
+			  data[ii*w*h + jj*h + kk] = 0;
+		      }
 	      }
 	  }
       
@@ -3093,7 +3122,7 @@ DrishtiPaint::dilateAndSmooth(uchar* data,
   for(int diter=0; diter<=spread; diter++)
     delete [] slc[diter];
   
-  smoothData(data, d, w, h, spread);
+  smoothData(data, d, w, h, qMax(1,spread-1));
 }
 void
 DrishtiPaint::smoothData(uchar *gData,

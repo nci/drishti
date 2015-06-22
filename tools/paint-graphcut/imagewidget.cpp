@@ -2224,6 +2224,20 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
 	}
     }
 
+  if (event->key() == Qt::Key_P)
+    {
+      if (!m_applyRecursive) m_extraPressed = false;
+      
+      if (shiftModifier) // apply paint for multiple slices
+	applyRecursive(event->key());
+      
+      if (ctrlModifier) // apply paint for non-selected areas
+	m_extraPressed = true;
+      
+      applyPaint(false); // overwrite existing tags while painting the curves
+      return true;
+    }
+
   if (event->key() == Qt::Key_W)
     {
       bool closed = shiftModifier;

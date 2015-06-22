@@ -104,6 +104,47 @@ Start Keyboard Help
 #end
 
 #begin
+Mouse move
+When generating livewire in livewire mode, moving mouse without any button pressed will update the livewire from last seed point to the current mouse position.  When the user is happy with the current livewire, they can press left mouse button to create a seed point from with the next part of livewire can be formed.
+#end
+
+#begin
+Left mouse click
+When in livewire mode, create a seed point.
+When in modify mode, select the curve (provided it is not a hand drawn curve) under the mouse for modification.
+#end
+
+#begin
+Shift + Left mouse click
+When in modify mode, add a seed point for the curve currently being modified, provided the curve was generated using livewire or is a polygon/polyline.
+#end
+
+#begin
+Shift + Right mouse click
+When in modify mode, remove the seed point under the cursor, for the curve currently being modified, provided the curve was generated using livewire or is a polygon/polyline.
+#end
+
+#begin
+Left mouse drag
+When in modify mode, move the seed point under the cursor.
+#end
+
+#begin
+Middle mouse drag
+Move the entire curve under the cursor.
+#end
+
+#begin
+Alt + Left mouse
+Define bounding box.
+#end
+
+#begin
+Left Mouse double click
+Reset bounding box.
+#end
+
+#begin
 Escape
 When generating livewire curve, pressing Escape resets the livewire curve.
 
@@ -157,6 +198,19 @@ s
 Shift+s
 Smooth curve under the mouse cursor.
 When Shift+s is pressed all the curves within the limits specified by the end markers for the current slice direction are smoothed.
+#end
+
+#begin
+p
+p
+Shift + p
+Ctrl + Shift + p
+
+Paint the region under the curves with tag value of the curve.  While tagging the region this way, the existing nonzero tag values *are* overwritten.  If the curve is open, only the region covered by the line with the width of the curve is affected.
+
+When Shift + p is pressed the painting operation is applied over multiple slices within the limits set by the end markers for the current slice direction.
+
+When Ctrl + Shift + p is pressed the painting operation is applied for the inverse region over multiple slices.
 #end
 
 #begin

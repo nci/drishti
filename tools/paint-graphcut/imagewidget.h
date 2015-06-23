@@ -85,7 +85,6 @@ class ImageWidget : public QWidget
   void updateTagColors();
   void sliceChanged(int);
   void userRangeChanged(int, int);
-  void showHelp();
   void smooth(int, bool);
   void keyPressEvent(QKeyEvent*);
   void setLivewire(bool);

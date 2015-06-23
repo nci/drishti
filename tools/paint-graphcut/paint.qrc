@@ -4,5 +4,6 @@
   <file>curves.help</file>
   <file>graphcut.help</file>
   <file>fibers.help</file>
+  <file>paint.help</file>
 </qresource>
 </RCC>

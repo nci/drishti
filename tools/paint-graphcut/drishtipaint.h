@@ -196,6 +196,7 @@ class DrishtiPaint : public QMainWindow
   void showCurvesHelp();
   void showFibersHelp();
   void showGraphCutHelp();
+  void showMainHelp();
 
   void dilateAndSmooth(uchar*, int, int, int, int);
   void smoothData(uchar*, int, int, int, int);

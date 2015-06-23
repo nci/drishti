@@ -62,7 +62,8 @@ HEADERS += commonqtclasses.h \
 	graphcut/point.h \
 	ply.h \
 	lookuptable.h \
-	marchingcubes.h
+	marchingcubes.h \
+	showhelp.h
 
 
 SOURCES += drishtipaint.cpp \
@@ -99,4 +100,5 @@ SOURCES += drishtipaint.cpp \
 	graphcut/graph.cpp \
 	graphcut/graphcut.cpp \
 	ply.c \
-	marchingcubes.cpp
+	marchingcubes.cpp \
+	showhelp.cpp

@@ -171,6 +171,22 @@ class DrishtiPaint : public QMainWindow
 		int, int, int,
 		int);
 
+  void processAndSaveMesh(int,
+			  QString,
+			  MarchingCubes*,
+			  uchar*,
+			  int, int, int,
+			  int, int, int,
+			  int);
+
+  void smoothMesh(QList<Vec>&, QList<Vec>&,
+		  QList<Vec>&, QList<Vec>&,
+		  int);
+
+  void saveMesh(QList<Vec>, QList<Vec>,
+		QList<Vec>, QList<Vec>,
+		QString);
+
   QPair<QString, QList<int> > getTags(QString);
 
   void connectViewerMenu();

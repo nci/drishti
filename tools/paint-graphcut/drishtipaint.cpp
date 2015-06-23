@@ -2141,9 +2141,9 @@ DrishtiPaint::on_actionMeshTag_triggered()
 
   int spread = 0;
   spread = QInputDialog::getInt(0,
-				"Smooth Data",
-				"Apply smoothing before meshing (0 means no smoothing)",
-				1, 0, 3, 1);
+				"Smooth Mesh",
+				"Apply mesh smoothing (0 means no smoothing)",
+				1, 0, 5, 1);
 
   QProgressDialog progress("Meshing tagged region from volume data",
 			   "",
@@ -2293,8 +2293,8 @@ DrishtiPaint::on_actionMeshTag_triggered()
 
   progress.setValue(100);  
 
-  if (spread > 0)
-    dilateAndSmooth(meshingData, tdepth, twidth, theight, spread+1);
+//  if (spread > 0)
+//    dilateAndSmooth(meshingData, tdepth, twidth, theight, spread+1);
 
   //----------------------------------
   // add a border to make a watertight mesh when the isosurface
@@ -2319,12 +2319,18 @@ DrishtiPaint::on_actionMeshTag_triggered()
   mc.run(32);
 
   if (colorType > 0)
-    saveMesh(colorType,
-	     tflnm,
-	     &mc,
-	     curveMask,
-	     minHSlice, minWSlice, minDSlice,
-	     theight, twidth, tdepth, spread+1);
+    processAndSaveMesh(colorType,
+		       tflnm,
+		       &mc,
+		       curveMask,
+		       minHSlice, minWSlice, minDSlice,
+		       theight, twidth, tdepth, spread);
+//    saveMesh(colorType,
+//	     tflnm,
+//	     &mc,
+//	     curveMask,
+//	     minHSlice, minWSlice, minDSlice,
+//	     theight, twidth, tdepth, spread+1);
   else
     mc.writePLY(tflnm.toLatin1().data(), true);
   
@@ -3216,3 +3222,418 @@ DrishtiPaint::smoothData(uchar *gData,
   progress.setValue(100);
 }
 
+void
+DrishtiPaint::processAndSaveMesh(int colorType,
+				 QString flnm,
+				 MarchingCubes *mc,
+				 uchar *tagdata,
+				 int minHSlice, int minWSlice, int minDSlice,
+				 int theight, int twidth, int tdepth,
+				 int spread)
+{
+  Vec voxelScaling = Global::voxelScaling();
+
+  QList<Vec> V;
+  QList<Vec> N;
+  QList<Vec> C;
+  QList<Vec> E;
+
+  int ntriangles = mc->ntrigs();
+  Triangle *triangles = mc->triangles();
+
+  int nvertices = mc->nverts();
+  Vertex *vertices = mc->vertices();
+
+  uchar *lut = Global::lut();
+
+  for(int ni=0; ni<nvertices; ni++)
+    {
+      Vec v, n, c;
+      v = Vec(vertices[ni].x, vertices[ni].y, vertices[ni].z);
+      n = Vec(vertices[ni].nx, vertices[ni].ny, vertices[ni].nz);
+
+      V << v;
+      N << n;
+      C << Vec(250,250,250);
+    }
+
+  for(int ni=0; ni<ntriangles; ni++)
+    E << Vec(triangles[ni].v1, triangles[ni].v2, triangles[ni].v3);
+
+  if (spread > 0)
+    smoothMesh(V, N, C, E, 5*spread);
+  
+
+  QProgressDialog progress("Colouring mesh",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+  int bsz = spread+1;
+  for(int ni=0; ni<V.count(); ni++)
+    {
+      if (ni%10000 == 0)
+	{
+	  progress.setValue((int)(100.0*(float)ni/(float)(nvertices)));
+	  qApp->processEvents();
+	}
+
+      // get tag
+      int h = V[ni].x;
+      int w = V[ni].y;
+      int d = V[ni].z;
+      int tag = tagdata[d*twidth*theight + w*theight + h];
+      if (tag == 0 &&
+	  colorType != 2 && colorType != 4) // tag not needed applying only transfer function
+	{	  
+	  for(int sp=1; sp<=bsz+1; sp++)
+	    {
+	      bool ok=false;
+	      for(int dd=qMax(d-bsz, 0); dd<=qMin(tdepth-1,d+bsz); dd++)
+		for(int ww=qMax(w-bsz, 0); ww<=qMin(twidth-1,w+bsz); ww++)
+		  for(int hh=qMax(h-bsz, 0); hh<=qMin(theight-1,h+bsz); hh++)
+		    if (qAbs(dd-d) == sp ||
+			qAbs(ww-w) == sp ||
+			qAbs(hh-h) == sp)
+		      {
+			tag = qMax(tag, (int)tagdata[dd*twidth*theight +
+						     ww*theight + hh]);
+			if (tag > 0)
+			  {
+			    ok = true;
+			    break;
+			  }
+		      }
+	      if (ok)
+		break;
+	    }
+	}
+
+      // get color
+      uchar r,g,b;
+
+      if (colorType == 1) // apply tag colors
+	{
+	  r = Global::tagColors()[4*tag+0];
+	  g = Global::tagColors()[4*tag+1];
+	  b = Global::tagColors()[4*tag+2];
+	}
+      else if (colorType == 2 || colorType == 4) // apply only transfer function
+	{
+	  QList<uchar> val = m_volume->rawValue(d+minDSlice,
+						w+minWSlice,
+						h+minHSlice);     
+	  r =  lut[4*val[0]+2];
+	  g =  lut[4*val[0]+1];
+	  b =  lut[4*val[0]+0];
+	}
+      else // merge tag and transfer function colors
+	{
+	  r = Global::tagColors()[4*tag+0];
+	  g = Global::tagColors()[4*tag+1];
+	  b = Global::tagColors()[4*tag+2];
+
+	  QList<uchar> val = m_volume->rawValue(d+minDSlice,
+						w+minWSlice,
+						h+minHSlice);     
+	  r = 0.5*r + 0.5*lut[4*val[0]+2];
+	  g = 0.5*g + 0.5*lut[4*val[0]+1];
+	  b = 0.5*b + 0.5*lut[4*val[0]+0];
+	}
+
+      C[ni] = Vec(r,g,b);
+    }
+  progress.setValue(100);
+  
+  saveMesh(V, N, C, E, flnm);
+}
+
+
+void
+DrishtiPaint::saveMesh(QList<Vec> V,
+		       QList<Vec> N,
+		       QList<Vec> C,
+		       QList<Vec> E,
+		       QString flnm)
+{
+  Vec voxelScaling = Global::voxelScaling();
+
+  QProgressDialog progress("Saving mesh ...",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+  QStringList ps;
+  ps << "x";
+  ps << "y";
+  ps << "z";
+  ps << "nx";
+  ps << "ny";
+  ps << "nz";
+  ps << "red";
+  ps << "green";
+  ps << "blue";
+  ps << "vertex_indices";
+  ps << "vertex";
+  ps << "face";
+
+  QList<char *> plyStrings;
+  for(int i=0; i<ps.count(); i++)
+    {
+      char *s;
+      s = new char[ps[i].size()+1];
+      strcpy(s, ps[i].toLatin1().data());
+      plyStrings << s;
+    }
+
+
+  int ntriangles = E.count();
+  int nvertices = V.count();
+
+  typedef struct PlyFace
+  {
+    unsigned char nverts;    /* number of Vertex indices in list */
+    int *verts;              /* Vertex index list */
+  } PlyFace;
+
+  typedef struct
+  {
+    real  x,  y,  z ;  /**< Vertex coordinates */
+    real nx, ny, nz ;  /**< Vertex normal */
+    uchar r, g, b;
+  } myVertex ;
+
+  PlyProperty vert_props[] = { /* list of property information for a vertex */
+    {plyStrings[0], Float32, Float32, offsetof(myVertex,x), 0, 0, 0, 0},
+    {plyStrings[1], Float32, Float32, offsetof(myVertex,y), 0, 0, 0, 0},
+    {plyStrings[2], Float32, Float32, offsetof(myVertex,z), 0, 0, 0, 0},
+    {plyStrings[3], Float32, Float32, offsetof(myVertex,nx), 0, 0, 0, 0},
+    {plyStrings[4], Float32, Float32, offsetof(myVertex,ny), 0, 0, 0, 0},
+    {plyStrings[5], Float32, Float32, offsetof(myVertex,nz), 0, 0, 0, 0},
+    {plyStrings[6], Uint8, Uint8, offsetof(myVertex,r), 0, 0, 0, 0},
+    {plyStrings[7], Uint8, Uint8, offsetof(myVertex,g), 0, 0, 0, 0},
+    {plyStrings[8], Uint8, Uint8, offsetof(myVertex,b), 0, 0, 0, 0},
+  };
+
+  PlyProperty face_props[] = { /* list of property information for a face */
+    {plyStrings[9], Int32, Int32, offsetof(PlyFace,verts),
+     1, Uint8, Uint8, offsetof(PlyFace,nverts)},
+  };
+
+  PlyFile    *ply;
+  FILE       *fp = fopen(flnm.toLatin1().data(),
+			 bin ? "wb" : "w");
+
+  PlyFace     face ;
+  int         verts[3] ;
+  char       *elem_names[]  = {plyStrings[10], plyStrings[11]};
+  ply = write_ply (fp,
+		   2,
+		   elem_names,
+		   bin? PLY_BINARY_LE : PLY_ASCII );
+
+  /* describe what properties go into the PlyVertex elements */
+  describe_element_ply ( ply, plyStrings[10], nvertices );
+  describe_property_ply ( ply, &vert_props[0] );
+  describe_property_ply ( ply, &vert_props[1] );
+  describe_property_ply ( ply, &vert_props[2] );
+  describe_property_ply ( ply, &vert_props[3] );
+  describe_property_ply ( ply, &vert_props[4] );
+  describe_property_ply ( ply, &vert_props[5] );
+  describe_property_ply ( ply, &vert_props[6] );
+  describe_property_ply ( ply, &vert_props[7] );
+  describe_property_ply ( ply, &vert_props[8] );
+
+  /* describe PlyFace properties (just list of PlyVertex indices) */
+  describe_element_ply ( ply, plyStrings[11], ntriangles );
+  describe_property_ply ( ply, &face_props[0] );
+
+  header_complete_ply ( ply );
+
+
+  /* set up and write the PlyVertex elements */
+  put_element_setup_ply ( ply, plyStrings[10] );
+
+  for(int ni=0; ni<nvertices; ni++)
+    {
+      if (ni%10000 == 0)
+	{
+	  progress.setValue((int)(100.0*(float)ni/(float)(nvertices)));
+	  qApp->processEvents();
+	}
+
+      myVertex vertex;
+      vertex.x = V[ni].x*voxelScaling.x;;
+      vertex.y = V[ni].y*voxelScaling.y;;
+      vertex.z = V[ni].z*voxelScaling.z;;
+      vertex.nx = N[ni].x;
+      vertex.ny = N[ni].y;
+      vertex.nz = N[ni].z;
+      vertex.r = C[ni].x;
+      vertex.g = C[ni].y;
+      vertex.b = C[ni].z;
+
+      put_element_ply ( ply, ( void * ) &vertex );
+    }
+
+  /* set up and write the PlyFace elements */
+  put_element_setup_ply ( ply, plyStrings[11] );
+  face.nverts = 3 ;
+  face.verts  = verts ;
+  for(int ni=0; ni<ntriangles; ni++)
+    {      
+      face.verts[0] = E[ni].x;
+      face.verts[1] = E[ni].y;
+      face.verts[2] = E[ni].z;
+      
+      put_element_ply ( ply, ( void * ) &face );
+    }
+
+  close_ply ( ply );
+  free_ply ( ply );
+
+  for(int i=0; i<plyStrings.count(); i++)
+    delete [] plyStrings[i];
+
+  progress.setValue(100);
+}
+
+void
+DrishtiPaint::smoothMesh(QList<Vec>& V, QList<Vec>& N,
+			 QList<Vec>& C, QList<Vec>& E,
+			 int ntimes)
+{
+  QList<Vec> newV;
+  newV = V;
+
+  int nv = V.count();
+  QProgressDialog progress("Smoothing mesh ... ",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+  //----------------------------
+  // create incidence matrix
+  QMultiMap<int, int> imat;
+
+  int ntri = E.count();
+  for(int i=0; i<ntri; i++)
+    {
+      if (i%10000 == 0)
+	{
+	  progress.setValue((int)(100.0*(float)i/(float)(ntri)));
+	  qApp->processEvents();
+	}
+
+      int a = E[i].x;
+      int b = E[i].y;
+      int c = E[i].z;
+
+      int ab = a*nv+b;
+      int ba = b*nv+a;
+      int ac = a*nv+c;
+      int ca = c*nv+a;
+      int bc = b*nv+c;
+      int cb = c*nv+b;
+
+      imat.insert(a, b);
+      imat.insert(b, a);
+      imat.insert(a, c);
+      imat.insert(c, a);
+      imat.insert(b, c);
+      imat.insert(c, b);
+    }
+  //----------------------------
+
+  //----------------------------
+  // smooth vertices
+  for(int nt=0; nt<ntimes; nt++)
+    {
+      progress.setValue((int)(100.0*(float)nt/(float)(ntimes)));
+      qApp->processEvents();
+	  
+      for(int i=0; i<nv; i++)
+	{
+	  QList<int> idx = imat.values(i);
+	  Vec v0 = V[i];
+	  Vec v = Vec(0,0,0);
+	  float sum = 0;
+	  for(int j=0; j<idx.count(); j++)
+	    {
+	      Vec vj = V[idx[j]];
+	      float ln = (v0-vj).norm();
+	      sum += 1.0/ln;
+	      v = v + vj/ln;
+	    }
+	  v0 = v0 + 0.5*(v/sum - v0);
+	  newV[i] = v0;
+	}
+      
+      for(int i=0; i<nv; i++)
+	{
+	  QList<int> idx = imat.values(i);
+	  Vec v0 = newV[i];
+	  Vec v = Vec(0,0,0);
+	  float sum = 0;
+	  for(int j=0; j<idx.count(); j++)
+	    {
+	      Vec vj = newV[idx[j]];
+	      float ln = (v0-vj).norm();
+	      sum += 1.0/ln;
+	      v = v + vj/ln;
+	    }
+	  v0 = v0 - 0.5*(v/sum - v0);
+	  V[i] = v0;
+	}
+
+      V = newV;
+    }
+  //----------------------------
+
+
+  //----------------------------
+  // now calculate normals
+  for(int i=0; i<nv; i++)
+    newV[i] = Vec(0,0,0);
+
+  QVector<int> nvs;
+  nvs.resize(nv);
+  nvs.fill(0);
+
+  for(int i=0; i<ntri; i++)
+    {
+      if (i%10000 == 0)
+	{
+	  progress.setValue((int)(100.0*(float)i/(float)(ntri)));
+	  qApp->processEvents();
+	}
+
+      int a = E[i].x;
+      int b = E[i].y;
+      int c = E[i].z;
+
+      Vec va = V[a];
+      Vec vb = V[b];
+      Vec vc = V[c];
+      Vec v0 = (vb-va).unit();
+      Vec v1 = (vc-va).unit();      
+      Vec vn = v0^v1;
+      
+      newV[a] += vn;
+      newV[b] += vn;
+      newV[c] += vn;
+
+      nvs[a]++;
+      nvs[b]++;
+      nvs[c]++;
+    }
+
+  for(int i=0; i<nv; i++)
+      N[i] = newV[i]/nvs[i];
+  //----------------------------
+
+
+  progress.setValue(100);
+}

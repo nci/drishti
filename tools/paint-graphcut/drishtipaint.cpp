@@ -2767,6 +2767,101 @@ DrishtiPaint::updateFiberMask(uchar *curveMask, QList<int> tag,
 }
 
 void
+DrishtiPaint::shrinkHoles(uchar* data,
+			  int d, int w, int h,
+			  int holeSize)
+{
+  QProgressDialog progress("Closing holes",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+
+  QList<Vec> voxels;
+  
+  for(int nc=0; nc < 2; nc++)
+    {
+      int aval, bval;
+      if (nc == 0)
+	{
+	  aval = 0;
+	  bval = 255;
+	}
+      else
+	{
+	  aval = 255;
+	  bval = 0;
+	}
+
+      // find edge voxels
+      progress.setLabel("Identifying boundary voxels ... ");
+      voxels.clear();
+      for(int i=1; i<d-1; i++)
+	{
+	  progress.setValue((int)(100.0*(float)i/(float)(d)));
+	  qApp->processEvents();
+	  for(int j=1; j<w-1; j++)
+	    for(int k=1; k<h-1; k++)
+	      {
+		if (data[i*w*h + j*h + k] == aval)
+		  {
+		    int is = qMax(0, i-1);
+		    int js = qMax(0, j-1);
+		    int ks = qMax(0, k-1);
+		    int ie = qMin(d-1, i+1);
+		    int je = qMin(w-1, j+1);
+		    int ke = qMin(h-1, k+1);
+		    for(int ii=is; ii<=ie; ii++)
+		      for(int jj=js; jj<=je; jj++)
+			for(int kk=ks; kk<=ke; kk++)
+			  if (data[ii*w*h + jj*h + kk] == bval)
+			    {
+			      voxels << Vec(i,j,k);
+			      break;
+			    }
+		  }
+	      }
+	}
+
+      // now dilate
+      if (nc)
+	progress.setLabel("Eroding boundary ... ");
+      else
+	progress.setLabel("Dilating boundary ... ");
+
+      int nv = voxels.count();
+      for(int v=0; v<nv; v++)
+	{
+	  progress.setValue((int)(100.0*(float)v/(float)(nv)));
+	  qApp->processEvents();
+
+	  int i = voxels[v].x;
+	  int j = voxels[v].y;
+	  int k = voxels[v].z;
+	  int is = qBound(0, i-holeSize, d-1);
+	  int js = qBound(0, j-holeSize, w-1);
+	  int ks = qBound(0, k-holeSize, h-1);
+	  int ie = qBound(0, i+holeSize, d-1);
+	  int je = qBound(0, j+holeSize, w-1);
+	  int ke = qBound(0, k+holeSize, h-1);
+	  for(int ii=is; ii<=ie; ii++)
+	    for(int jj=js; jj<=je; jj++)
+	      for(int kk=ks; kk<=ke; kk++)
+		{
+		  float p = ((i-ii)*(i-ii)+
+			     (j-jj)*(j-jj)+
+			     (k-kk)*(k-kk));
+		  if (p <= holeSize*holeSize)
+		    data[ii*w*h + jj*h + kk] = aval;
+		}
+	}
+    }
+
+  progress.setValue(100);
+}
+
+void
 DrishtiPaint::dilateAndSmooth(uchar* data,
 			      int d, int w, int h,
 			      int spread)
@@ -2823,6 +2918,7 @@ DrishtiPaint::dilateAndSmooth(uchar* data,
   
   smoothData(data, d, w, h, qMax(1,spread-1));
 }
+
 void
 DrishtiPaint::smoothData(uchar *gData,
 			 int nX, int nY, int nZ,
@@ -2967,9 +3063,8 @@ DrishtiPaint::on_actionMeshTag_triggered()
   dtypes.clear();
   if (tag[0] == -2)
     {
-      colorType = 4;
-      dtypes << "Transfer Function"
-	     << "No Color";
+      dtypes << "No Color"
+	     << "Transfer Function";
       
       QString option = QInputDialog::getItem(0,
 					     "Mesh Color",
@@ -2981,8 +3076,8 @@ DrishtiPaint::on_actionMeshTag_triggered()
       if (!ok)
 	return;
       
+      colorType = 0;
       if (option == "Transfer Function") colorType = 4;
-      else colorType = 0;
     }
   else
     {
@@ -3047,6 +3142,12 @@ DrishtiPaint::on_actionMeshTag_triggered()
       meshFibers(tflnm);
       return;
     }
+
+  int holeSize = 0;
+  holeSize = QInputDialog::getInt(0,
+				"Close holes",
+				"Close Holes of Size (0 means no closing)",
+				0, 0, 100, 1);
 
   int spread = 0;
   spread = QInputDialog::getInt(0,
@@ -3222,6 +3323,14 @@ DrishtiPaint::on_actionMeshTag_triggered()
 
 //  if (spread > 0)
 //    dilateAndSmooth(meshingData, tdepth, twidth, theight, spread+1);
+  //----------------------------------
+  if (holeSize > 0)
+    shrinkHoles(meshingData,
+		tdepth, twidth, theight,
+		holeSize);
+  //----------------------------------
+
+
 
   //----------------------------------
   // add a border to make a watertight mesh when the isosurface
@@ -3237,7 +3346,6 @@ DrishtiPaint::on_actionMeshTag_triggered()
 	      meshingData[i*twidth*theight+j*theight+k] = 255;
 	}
   //----------------------------------
-
 
   MarchingCubes mc;
   mc.set_resolution(theight, twidth, tdepth);
@@ -3379,36 +3487,36 @@ DrishtiPaint::colorMesh(QList<Vec>& C,
 	  g =  lut[4*val[0]+1];
 	  b =  lut[4*val[0]+0];
 
-	  if (r == 0 && g == 0 && b == 0)
-	    {
-	      for(int sp=1; sp<=bsz+1; sp++)
-		{
-		  bool ok=false;
-		  for(int dd=qMax(d-sp, 0); dd<=qMin(tdepth-1,d+sp); dd++)
-		    for(int ww=qMax(w-sp, 0); ww<=qMin(twidth-1,w+sp); ww++)
-		      for(int hh=qMax(h-sp, 0); hh<=qMin(theight-1,h+sp); hh++)
-			{
-			  if (qAbs(dd-d) == sp ||
-			      qAbs(ww-w) == sp ||
-			      qAbs(hh-h) == sp)
-			    {
-			      val = m_volume->rawValue(dd+minDSlice,
-						       ww+minWSlice,
-						       hh+minHSlice);     
-			      r = lut[4*val[0]+2];
-			      g = lut[4*val[0]+1];
-			      b = lut[4*val[0]+0];
-			      if (r > 0 || g > 0 || b > 0)
-				{
-				  ok = true;
-				  break;
-				}
-			    }
-			}
-		  if (ok)
-		    break;
-		}
-	    }
+//	  if (r == 0 && g == 0 && b == 0)
+//	    {
+//	      for(int sp=1; sp<=bsz+1; sp++)
+//		{
+//		  bool ok=false;
+//		  for(int dd=qMax(d-sp, 0); dd<=qMin(tdepth-1,d+sp); dd++)
+//		    for(int ww=qMax(w-sp, 0); ww<=qMin(twidth-1,w+sp); ww++)
+//		      for(int hh=qMax(h-sp, 0); hh<=qMin(theight-1,h+sp); hh++)
+//			{
+//			  if (qAbs(dd-d) == sp ||
+//			      qAbs(ww-w) == sp ||
+//			      qAbs(hh-h) == sp)
+//			    {
+//			      val = m_volume->rawValue(dd+minDSlice,
+//						       ww+minWSlice,
+//						       hh+minHSlice);     
+//			      r = lut[4*val[0]+2];
+//			      g = lut[4*val[0]+1];
+//			      b = lut[4*val[0]+0];
+//			      if (r > 0 || g > 0 || b > 0)
+//				{
+//				  ok = true;
+//				  break;
+//				}
+//			    }
+//			}
+//		  if (ok)
+//		    break;
+//		}
+//	    }
 	}
       else // merge tag and transfer function colors
 	{
@@ -3614,13 +3722,6 @@ DrishtiPaint::smoothMesh(QList<Vec>& V, QList<Vec>& N,
       int a = E[i].x;
       int b = E[i].y;
       int c = E[i].z;
-
-      int ab = a*nv+b;
-      int ba = b*nv+a;
-      int ac = a*nv+c;
-      int ca = c*nv+a;
-      int bc = b*nv+c;
-      int cb = c*nv+b;
 
       imat.insert(a, b);
       imat.insert(b, a);

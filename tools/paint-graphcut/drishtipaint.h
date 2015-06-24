@@ -216,6 +216,8 @@ class DrishtiPaint : public QMainWindow
 
   void dilateAndSmooth(uchar*, int, int, int, int);
   void smoothData(uchar*, int, int, int, int);
+
+  void shrinkHoles(uchar*, int, int, int, int);
 };
 
 #endif

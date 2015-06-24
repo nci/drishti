@@ -1758,6 +1758,218 @@ DrishtiPaint::applyMaskOperation(int tag,
   getSlice(m_slider->value());
 }
 
+void
+DrishtiPaint::connectImageWidget()
+{
+  connect(m_imageWidget, SIGNAL(getSlice(int)),
+	  this, SLOT(getSlice(int)));  
+
+  connect(m_imageWidget, SIGNAL(getRawValue(int, int, int)),
+	  this, SLOT(getRawValue(int, int, int)));
+
+  connect(m_imageWidget, SIGNAL(applyMaskOperation(int, int, int)),
+	  this, SLOT(applyMaskOperation(int, int, int)));
+
+  connect(m_imageWidget, SIGNAL(fillVolume(int, int,
+					   int, int,
+					   int, int,
+					   QList<int>,
+					   bool)),
+	  this, SLOT(fillVolume(int, int,
+				int, int,
+				int, int,
+				QList<int>,
+				bool)));
+
+  connect(m_imageWidget, SIGNAL(tagDSlice(int, QImage)),
+	  this, SLOT(tagDSlice(int, QImage)));
+
+  connect(m_imageWidget, SIGNAL(tagWSlice(int, QImage)),
+	  this, SLOT(tagWSlice(int, QImage)));
+
+  connect(m_imageWidget, SIGNAL(tagHSlice(int, QImage)),
+	  this, SLOT(tagHSlice(int, QImage)));
+
+  connect(m_imageWidget, SIGNAL(tagDSlice(int, uchar*)),
+	  this, SLOT(tagDSlice(int, uchar*)));
+
+  connect(m_imageWidget, SIGNAL(tagWSlice(int, uchar*)),
+	  this, SLOT(tagWSlice(int, uchar*)));
+
+  connect(m_imageWidget, SIGNAL(tagHSlice(int, uchar*)),
+	  this, SLOT(tagHSlice(int, uchar*)));
+
+  connect(m_imageWidget, SIGNAL(tagAllVisible(int, int,
+					      int, int,
+					      int, int)),
+	  this, SLOT(tagAllVisible(int, int,
+				   int, int,
+				   int, int)));
+
+  connect(m_imageWidget, SIGNAL(dilate()),
+	  this, SLOT(dilate()));
+  connect(m_imageWidget, SIGNAL(dilate(int, int,
+				       int, int,
+				       int, int)),
+	  this, SLOT(dilate(int, int,
+			    int, int,
+			    int, int)));
+
+  connect(m_imageWidget, SIGNAL(erode()),
+	  this, SLOT(erode()));
+  connect(m_imageWidget, SIGNAL(erode(int, int,
+				      int, int,
+				      int, int)),
+	  this, SLOT(erode(int, int,
+			   int, int,
+			   int, int)));
+
+  connect(m_imageWidget, SIGNAL(polygonLevels(QList<int>)),
+	  m_slider, SLOT(polygonLevels(QList<int>)));
+  
+
+  connect(m_imageWidget, SIGNAL(updateViewerBox(int, int, int, int, int, int)),
+	  m_viewer, SLOT(updateViewerBox(int, int, int, int, int, int)));
+
+  connect(m_imageWidget, SIGNAL(showEndCurve()),
+	  curvesUi.endcurve, SLOT(show()));
+  connect(m_imageWidget, SIGNAL(hideEndCurve()),
+	  curvesUi.endcurve, SLOT(hide()));
+
+  connect(m_imageWidget, SIGNAL(showEndFiber()),
+	  fibersUi.endfiber, SLOT(show()));
+  connect(m_imageWidget, SIGNAL(hideEndFiber()),
+	  fibersUi.endfiber, SLOT(hide()));
+
+  connect(m_imageWidget, SIGNAL(viewerUpdate()),
+	  m_viewer, SLOT(update()));
+
+  connect(m_imageWidget, SIGNAL(setPropagation(bool)),
+	  curvesUi.propagate, SLOT(setChecked(bool)));
+
+  connect(m_imageWidget, SIGNAL(saveMask()),
+	  m_volume, SLOT(saveIntermediateResults()));
+}
+
+void
+DrishtiPaint::connectViewerMenu()
+{
+  connect(viewerUi.update, SIGNAL(clicked()),
+	  m_viewer, SLOT(updateVoxels()));
+  connect(viewerUi.interval, SIGNAL(sliderReleased()),
+	  m_viewer, SLOT(updateVoxels()));
+  connect(viewerUi.interval, SIGNAL(valueChanged(int)),
+	  m_viewer, SLOT(setVoxelInterval(int)));
+  connect(viewerUi.ptsize, SIGNAL(valueChanged(int)),
+	  m_viewer, SLOT(setPointSize(int)));
+  connect(viewerUi.voxchoice, SIGNAL(currentIndexChanged(int)),
+	  m_viewer, SLOT(setVoxelChoice(int)));
+  connect(viewerUi.box, SIGNAL(clicked(bool)),
+	  m_viewer, SLOT(setShowBox(bool)));
+  connect(viewerUi.snapshot, SIGNAL(clicked()),
+	  m_viewer, SLOT(saveImage()));
+  connect(viewerUi.paintedtags, SIGNAL(editingFinished()),
+	  this, SLOT(paintedtag_editingFinished()));
+  connect(viewerUi.curvetags, SIGNAL(editingFinished()),
+	  this, SLOT(curvetag_editingFinished()));
+  connect(viewerUi.fibertags, SIGNAL(editingFinished()),
+	  this, SLOT(fibertag_editingFinished()));
+}
+
+void
+DrishtiPaint::miscConnections()
+{
+  connect(m_tfManager,
+	  SIGNAL(changeTransferFunctionDisplay(int, QList<bool>)),
+	  this,
+	  SLOT(changeTransferFunctionDisplay(int, QList<bool>)));
+
+  connect(m_tfManager,
+	  SIGNAL(checkStateChanged(int, int, bool)),
+	  this,
+	  SLOT(checkStateChanged(int, int, bool)));
+
+  connect(m_tfEditor, SIGNAL(updateComposite()),
+	  this, SLOT(updateComposite()));
+
+  connect(m_tagColorEditor, SIGNAL(tagColorChanged()),
+	  m_imageWidget, SLOT(updateTagColors()));
+
+  connect(m_tagColorEditor, SIGNAL(tagSelected(int)),
+	  this, SLOT(tagSelected(int)));
+
+  connect(m_slider, SIGNAL(valueChanged(int)),
+	  m_imageWidget, SLOT(sliceChanged(int)));
+
+  connect(m_slider, SIGNAL(userRangeChanged(int, int)),
+	  m_imageWidget, SLOT(userRangeChanged(int, int)));
+
+}
+
+void
+DrishtiPaint::connectCurvesMenu()
+{
+  connect(curvesUi.livewire, SIGNAL(clicked(bool)),
+	  this, SLOT(on_livewire_clicked(bool)));
+
+  connect(curvesUi.sliceLod, SIGNAL(currentIndexChanged(int)),
+	  this, SLOT(on_sliceLod_currentIndexChanged(int)));
+  connect(curvesUi.lwsmooth, SIGNAL(currentIndexChanged(int)),
+	  this, SLOT(on_lwsmooth_currentIndexChanged(int)));
+  connect(curvesUi.lwgrad, SIGNAL(currentIndexChanged(int)),
+	  this, SLOT(on_lwgrad_currentIndexChanged(int)));
+
+  connect(curvesUi.modify, SIGNAL(clicked(bool)),
+	  this, SLOT(on_modify_clicked(bool)));
+  connect(curvesUi.propagate, SIGNAL(clicked(bool)),
+	  this, SLOT(on_propagate_clicked(bool)));
+
+  connect(curvesUi.closed, SIGNAL(clicked(bool)),
+	  this, SLOT(on_closed_clicked(bool)));
+  connect(curvesUi.morphcurves, SIGNAL(clicked()),
+	  this, SLOT(on_morphcurves_clicked()));
+//  connect(curvesUi.deselect, SIGNAL(clicked()),
+//	  this, SLOT(on_deselect_clicked()));
+
+
+//  connect(curvesUi.thickness, SIGNAL(valueChanged(int)),
+//	  this, SLOT(on_thickness_valueChanged(int)));
+  connect(curvesUi.pointsize, SIGNAL(valueChanged(int)),
+	  this, SLOT(on_pointsize_valueChanged(int)));
+
+  connect(curvesUi.newcurve, SIGNAL(clicked()),
+	  this, SLOT(on_newcurve_clicked()));
+  connect(curvesUi.endcurve, SIGNAL(clicked()),
+	  this, SLOT(on_endcurve_clicked()));
+
+  connect(curvesUi.deleteallcurves, SIGNAL(clicked()),
+	  this, SLOT(on_deleteallcurves_clicked()));
+}
+
+void
+DrishtiPaint::connectGraphCutMenu()
+{
+  connect(graphcutUi.copyprev, SIGNAL(clicked(bool)),
+	  this, SLOT(on_copyprev_clicked(bool)));
+
+  connect(graphcutUi.preverode, SIGNAL(valueChanged(int)),
+	  this, SLOT(on_prevrode_valueChanged(int)));
+  connect(graphcutUi.smooth, SIGNAL(valueChanged(int)),
+	  this, SLOT(on_smooth_valueChanged(int)));
+  connect(graphcutUi.lambda, SIGNAL(valueChanged(int)),
+	  this, SLOT(on_lambda_valueChanged(int)));
+  connect(graphcutUi.boxSize, SIGNAL(valueChanged(int)),
+	  this, SLOT(on_boxSize_valueChanged(int)));
+}
+
+void
+DrishtiPaint::connectFibersMenu()
+{
+  connect(fibersUi.newfiber, SIGNAL(clicked()),
+	  this, SLOT(on_newfiber_clicked()));
+  connect(fibersUi.endfiber, SIGNAL(clicked()),
+	  this, SLOT(on_endfiber_clicked()));
+}
 
 void
 DrishtiPaint::on_actionExtractTag_triggered()
@@ -2033,312 +2245,6 @@ DrishtiPaint::on_actionExtractTag_triggered()
   delete [] curveMask;
 
   progress.setValue(100);  
-  QMessageBox::information(0, "Save", "-----Done-----");
-}
-
-void
-DrishtiPaint::on_actionMeshTag_triggered()
-{
-  QStringList dtypes;
-  QList<int> tag;
-
-  bool ok;
-  QString tagstr = QInputDialog::getText(0, "Save Mesh for Tag",
-	    "Tag Numbers (tags should be separated by space.\n-1 for all tags;\nFor e.g. 1 2 5 will mesh tags 1, 2 and 5)",
-					 QLineEdit::Normal,
-					 "-1",
-					 &ok);
-  tag.clear();
-  if (ok && !tagstr.isEmpty())
-    {
-      QStringList tglist = tagstr.split(" ", QString::SkipEmptyParts);
-      for(int i=0; i<tglist.count(); i++)
-	{
-	  int t = tglist[i].toInt();
-	  if (t == -1)
-	    {
-	      tag.clear();
-	      tag << -1;
-	      break;
-	    }
-	  else if (t == 0)
-	    {
-	      tag.clear();
-	      tag << 0;
-	      break;
-	    }
-	  else
-	    tag << t;
-	}
-    }
-  else
-    tag << -1;  
-  //----------------
-
-  //----------------
-  bool saveFibers = false;
-  int colorType = 1; // apply tag colors 
-  dtypes.clear();
-  dtypes << "Tag Color"
-	 << "Transfer Function"
-	 << "Tag Color + Transfer Function"
-	 << "Tag Mask + Transfer Function"
-	 << "No Color";
-  if (m_imageWidget->fibersPresent())
-    dtypes << "Fibers";
-  QString option = QInputDialog::getItem(0,
-					 "Mesh Color",
-					 "Color Mesh with",
-					 dtypes,
-					 0,
-					 false,
-					 &ok);
-  if (!ok)
-    return;
-  
-  if (option == "Fibers") saveFibers = true;
-  else if (option == "Tag Color") colorType = 1;
-  else if (option == "Transfer Function") colorType = 2;
-  else if (option == "Tag Color + Transfer Function") colorType = 3;
-  else if (option == "Tag Mask + Transfer Function") colorType = 4;
-  else colorType = 0;
-  //----------------
-
-
-  //----------------
-  int depth, width, height;
-  m_volume->gridSize(depth, width, height);
-  
-  int minDSlice, maxDSlice;
-  int minWSlice, maxWSlice;
-  int minHSlice, maxHSlice;
-  m_imageWidget->getBox(minDSlice, maxDSlice,
-			minWSlice, maxWSlice,
-			minHSlice, maxHSlice);
-  int tdepth = maxDSlice-minDSlice+1;
-  int twidth = maxWSlice-minWSlice+1;
-  int theight = maxHSlice-minHSlice+1;
-  
-  QString pvlFilename = m_volume->fileName();
-  QString tflnm = QFileDialog::getSaveFileName(0,
-					       "Save mesh",
-					       QFileInfo(pvlFilename).absolutePath(),
-					       "Processes Files (*.ply)",
-					       0,
-					       QFileDialog::DontUseNativeDialog);
-  
-  if (tflnm.isEmpty())
-    return;
-
-  if (!tflnm.endsWith(".ply"))
-    tflnm += ".ply";
-
-  if (saveFibers)
-    {
-      meshFibers(tflnm);
-      return;
-    }
-
-  int spread = 0;
-  spread = QInputDialog::getInt(0,
-				"Smooth Mesh",
-				"Apply mesh smoothing (0 means no smoothing)",
-				1, 0, 5, 1);
-
-  QProgressDialog progress("Meshing tagged region from volume data",
-			   "",
-			   0, 100,
-			   0);
-  progress.setMinimumDuration(0);
-
-  uchar *meshingData = new uchar[tdepth*twidth*theight];
-  memset(meshingData, 0, tdepth*twidth*theight);
-
-  //----------------------------------
-  uchar *curveMask = new uchar[tdepth*twidth*theight];
-  memset(curveMask, 0, tdepth*twidth*theight);
-
-  updateCurveMask(curveMask, tag,
-		  depth, width, height,
-		  tdepth, twidth, theight,
-		  minDSlice, minWSlice, minHSlice,
-		  maxDSlice, maxWSlice, maxHSlice);
-  //----------------------------------
-
-  uchar *lut = Global::lut();
-
-  int nbytes = width*height;
-  uchar *raw = new uchar[width*height];
-  uchar *mask = new uchar[width*height]; 
-  for(int d=minDSlice; d<=maxDSlice; d++)
-    {
-      int slc = d-minDSlice;
-      progress.setValue((int)(100*(float)slc/(float)tdepth));
-      qApp->processEvents();
-
-      uchar *slice = 0;
-      if (colorType == 4) // using tag mask + transfer function to extract mesh
-	{
-	  slice = m_volume->getDepthSliceImage(d);
-	  // we get value+grad from volume
-	  // we need only value part
-	  int i=0;
-	  for(int w=minWSlice; w<=maxWSlice; w++)
-	    for(int h=minHSlice; h<=maxHSlice; h++)
-	      {
-		slice[i] = slice[2*(w*height+h)];
-		i++;
-	      }
-	}
-
-      memcpy(mask, m_volume->getMaskDepthSliceImage(d), nbytes);
-            
-      if (tag[0] == -1)
-	{
-	  for(int w=minWSlice; w<=maxWSlice; w++)
-	    for(int h=minHSlice; h<=maxHSlice; h++)
-	      raw[w*height+h] = (mask[w*height+h] > 0 ? 0 : 255);
-
-	  // apply curve mask
-	  for(int w=minWSlice; w<=maxWSlice; w++)
-	    for(int h=minHSlice; h<=maxHSlice; h++)
-	      {
-		if (curveMask[slc*twidth*theight +
-			      (w-minWSlice)*theight +
-			      (h-minHSlice)] > 0)
-		    raw[w*height+h] = 0;
-	      }
-	}
-      else if (tag[0] == 0)
-	{
-	  for(int w=minWSlice; w<=maxWSlice; w++)
-	    for(int h=minHSlice; h<=maxHSlice; h++)
-	      raw[w*height+h] = (mask[w*height+h] > 0 ? 255 : 0);
-
-	  // apply curve mask
-	  for(int w=minWSlice; w<=maxWSlice; w++)
-	    for(int h=minHSlice; h<=maxHSlice; h++)
-	      {
-		if (curveMask[slc*twidth*theight +
-			      (w-minWSlice)*theight +
-			      (h-minHSlice)] > 0)
-		    raw[w*height+h] = 255;
-	      }
-	}
-      else
-	{
-	  for(int w=minWSlice; w<=maxWSlice; w++)
-	    for(int h=minHSlice; h<=maxHSlice; h++)
-	      raw[w*height+h] = (tag.contains(mask[w*height+h]) ? 0 : 255);
-
-	  // apply curve mask
-	  for(int w=minWSlice; w<=maxWSlice; w++)
-	    for(int h=minHSlice; h<=maxHSlice; h++)
-	      {
-		if (tag.contains(curveMask[slc*twidth*theight +
-					   (w-minWSlice)*theight +
-					   (h-minHSlice)]))
-		    raw[w*height+h] = 0;
-	      }
-	}
-
-      //-----------------------------
-      // update curveMask using painted mask data
-      for(int w=minWSlice; w<=maxWSlice; w++)
-	for(int h=minHSlice; h<=maxHSlice; h++)
-	  {	    
-	    if (curveMask[slc*twidth*theight +
-			  (w-minWSlice)*theight +
-			  (h-minHSlice)] == 0)
-	      curveMask[slc*twidth*theight +
-			(w-minWSlice)*theight +
-			(h-minHSlice)] = mask[w*height+h];	    
-	  }
-      //-----------------------------
-
-      int i=0;
-      for(int w=minWSlice; w<=maxWSlice; w++)
-	for(int h=minHSlice; h<=maxHSlice; h++)
-	  {
-	    raw[i] = raw[w*height+h];
-	    i++;
-	  }
-
-      //-----------------------------
-      // use tag mask + transfer function to generate mesh
-      if (colorType == 4)
-	{
-	  int sval = 0;
-	  if (tag[0] == -1) sval = 255;
-	  else if (tag[0] == 0) sval = 0;
-	  else sval = 255;
-
-	  int i=0;
-	  for(int w=minWSlice; w<=maxWSlice; w++)
-	    for(int h=minHSlice; h<=maxHSlice; h++)
-	      {
-		if (raw[i] != sval &&
-		    lut[4*slice[i]+3] < 5)
-		  raw[i] = sval;
-		i++;
-	      }
-	}
-      //-----------------------------
-
-      memcpy(meshingData+slc*twidth*theight, raw, twidth*theight);
-    }
-
-  delete [] raw;
-  delete [] mask;
-
-  progress.setValue(100);  
-
-//  if (spread > 0)
-//    dilateAndSmooth(meshingData, tdepth, twidth, theight, spread+1);
-
-  //----------------------------------
-  // add a border to make a watertight mesh when the isosurface
-  // touches the border
-  for(int i=0; i<tdepth; i++)
-    for(int j=0;j<twidth; j++)
-      for(int k=0;k<theight; k++)
-	{
-	  if (i==0 || i == tdepth-1 ||
-	      j==0 || j == twidth-1 ||
-	      k==0 || k == theight-1)
-	    if (meshingData[i*twidth*theight+j*theight+k] < 255)
-	      meshingData[i*twidth*theight+j*theight+k] = 255;
-	}
-  //----------------------------------
-
-
-  MarchingCubes mc;
-  mc.set_resolution(theight, twidth, tdepth);
-  mc.set_ext_data(meshingData);
-  mc.init_all();
-  mc.run(32);
-
-  if (colorType > 0)
-    processAndSaveMesh(colorType,
-		       tflnm,
-		       &mc,
-		       curveMask,
-		       minHSlice, minWSlice, minDSlice,
-		       theight, twidth, tdepth, spread);
-//    saveMesh(colorType,
-//	     tflnm,
-//	     &mc,
-//	     curveMask,
-//	     minHSlice, minWSlice, minDSlice,
-//	     theight, twidth, tdepth, spread+1);
-  else
-    mc.writePLY(tflnm.toLatin1().data(), true);
-  
-  mc.clean_all();
-
-  delete [] meshingData;
-  delete [] curveMask;
-
   QMessageBox::information(0, "Save", "-----Done-----");
 }
 
@@ -2720,219 +2626,6 @@ DrishtiPaint::meshFibers(QString flnm)
 }
 
 void
-DrishtiPaint::connectImageWidget()
-{
-  connect(m_imageWidget, SIGNAL(getSlice(int)),
-	  this, SLOT(getSlice(int)));  
-
-  connect(m_imageWidget, SIGNAL(getRawValue(int, int, int)),
-	  this, SLOT(getRawValue(int, int, int)));
-
-  connect(m_imageWidget, SIGNAL(applyMaskOperation(int, int, int)),
-	  this, SLOT(applyMaskOperation(int, int, int)));
-
-  connect(m_imageWidget, SIGNAL(fillVolume(int, int,
-					   int, int,
-					   int, int,
-					   QList<int>,
-					   bool)),
-	  this, SLOT(fillVolume(int, int,
-				int, int,
-				int, int,
-				QList<int>,
-				bool)));
-
-  connect(m_imageWidget, SIGNAL(tagDSlice(int, QImage)),
-	  this, SLOT(tagDSlice(int, QImage)));
-
-  connect(m_imageWidget, SIGNAL(tagWSlice(int, QImage)),
-	  this, SLOT(tagWSlice(int, QImage)));
-
-  connect(m_imageWidget, SIGNAL(tagHSlice(int, QImage)),
-	  this, SLOT(tagHSlice(int, QImage)));
-
-  connect(m_imageWidget, SIGNAL(tagDSlice(int, uchar*)),
-	  this, SLOT(tagDSlice(int, uchar*)));
-
-  connect(m_imageWidget, SIGNAL(tagWSlice(int, uchar*)),
-	  this, SLOT(tagWSlice(int, uchar*)));
-
-  connect(m_imageWidget, SIGNAL(tagHSlice(int, uchar*)),
-	  this, SLOT(tagHSlice(int, uchar*)));
-
-  connect(m_imageWidget, SIGNAL(tagAllVisible(int, int,
-					      int, int,
-					      int, int)),
-	  this, SLOT(tagAllVisible(int, int,
-				   int, int,
-				   int, int)));
-
-  connect(m_imageWidget, SIGNAL(dilate()),
-	  this, SLOT(dilate()));
-  connect(m_imageWidget, SIGNAL(dilate(int, int,
-				       int, int,
-				       int, int)),
-	  this, SLOT(dilate(int, int,
-			    int, int,
-			    int, int)));
-
-  connect(m_imageWidget, SIGNAL(erode()),
-	  this, SLOT(erode()));
-  connect(m_imageWidget, SIGNAL(erode(int, int,
-				      int, int,
-				      int, int)),
-	  this, SLOT(erode(int, int,
-			   int, int,
-			   int, int)));
-
-  connect(m_imageWidget, SIGNAL(polygonLevels(QList<int>)),
-	  m_slider, SLOT(polygonLevels(QList<int>)));
-  
-
-  connect(m_imageWidget, SIGNAL(updateViewerBox(int, int, int, int, int, int)),
-	  m_viewer, SLOT(updateViewerBox(int, int, int, int, int, int)));
-
-  connect(m_imageWidget, SIGNAL(showEndCurve()),
-	  curvesUi.endcurve, SLOT(show()));
-  connect(m_imageWidget, SIGNAL(hideEndCurve()),
-	  curvesUi.endcurve, SLOT(hide()));
-
-  connect(m_imageWidget, SIGNAL(showEndFiber()),
-	  fibersUi.endfiber, SLOT(show()));
-  connect(m_imageWidget, SIGNAL(hideEndFiber()),
-	  fibersUi.endfiber, SLOT(hide()));
-
-  connect(m_imageWidget, SIGNAL(viewerUpdate()),
-	  m_viewer, SLOT(update()));
-
-  connect(m_imageWidget, SIGNAL(setPropagation(bool)),
-	  curvesUi.propagate, SLOT(setChecked(bool)));
-
-  connect(m_imageWidget, SIGNAL(saveMask()),
-	  m_volume, SLOT(saveIntermediateResults()));
-}
-
-void
-DrishtiPaint::connectViewerMenu()
-{
-  connect(viewerUi.update, SIGNAL(clicked()),
-	  m_viewer, SLOT(updateVoxels()));
-  connect(viewerUi.interval, SIGNAL(sliderReleased()),
-	  m_viewer, SLOT(updateVoxels()));
-  connect(viewerUi.interval, SIGNAL(valueChanged(int)),
-	  m_viewer, SLOT(setVoxelInterval(int)));
-  connect(viewerUi.ptsize, SIGNAL(valueChanged(int)),
-	  m_viewer, SLOT(setPointSize(int)));
-  connect(viewerUi.voxchoice, SIGNAL(currentIndexChanged(int)),
-	  m_viewer, SLOT(setVoxelChoice(int)));
-  connect(viewerUi.box, SIGNAL(clicked(bool)),
-	  m_viewer, SLOT(setShowBox(bool)));
-  connect(viewerUi.snapshot, SIGNAL(clicked()),
-	  m_viewer, SLOT(saveImage()));
-  connect(viewerUi.paintedtags, SIGNAL(editingFinished()),
-	  this, SLOT(paintedtag_editingFinished()));
-  connect(viewerUi.curvetags, SIGNAL(editingFinished()),
-	  this, SLOT(curvetag_editingFinished()));
-  connect(viewerUi.fibertags, SIGNAL(editingFinished()),
-	  this, SLOT(fibertag_editingFinished()));
-}
-
-void
-DrishtiPaint::miscConnections()
-{
-  connect(m_tfManager,
-	  SIGNAL(changeTransferFunctionDisplay(int, QList<bool>)),
-	  this,
-	  SLOT(changeTransferFunctionDisplay(int, QList<bool>)));
-
-  connect(m_tfManager,
-	  SIGNAL(checkStateChanged(int, int, bool)),
-	  this,
-	  SLOT(checkStateChanged(int, int, bool)));
-
-  connect(m_tfEditor, SIGNAL(updateComposite()),
-	  this, SLOT(updateComposite()));
-
-  connect(m_tagColorEditor, SIGNAL(tagColorChanged()),
-	  m_imageWidget, SLOT(updateTagColors()));
-
-  connect(m_tagColorEditor, SIGNAL(tagSelected(int)),
-	  this, SLOT(tagSelected(int)));
-
-  connect(m_slider, SIGNAL(valueChanged(int)),
-	  m_imageWidget, SLOT(sliceChanged(int)));
-
-  connect(m_slider, SIGNAL(userRangeChanged(int, int)),
-	  m_imageWidget, SLOT(userRangeChanged(int, int)));
-
-}
-
-void
-DrishtiPaint::connectCurvesMenu()
-{
-  connect(curvesUi.livewire, SIGNAL(clicked(bool)),
-	  this, SLOT(on_livewire_clicked(bool)));
-
-  connect(curvesUi.sliceLod, SIGNAL(currentIndexChanged(int)),
-	  this, SLOT(on_sliceLod_currentIndexChanged(int)));
-  connect(curvesUi.lwsmooth, SIGNAL(currentIndexChanged(int)),
-	  this, SLOT(on_lwsmooth_currentIndexChanged(int)));
-  connect(curvesUi.lwgrad, SIGNAL(currentIndexChanged(int)),
-	  this, SLOT(on_lwgrad_currentIndexChanged(int)));
-
-  connect(curvesUi.modify, SIGNAL(clicked(bool)),
-	  this, SLOT(on_modify_clicked(bool)));
-  connect(curvesUi.propagate, SIGNAL(clicked(bool)),
-	  this, SLOT(on_propagate_clicked(bool)));
-
-  connect(curvesUi.closed, SIGNAL(clicked(bool)),
-	  this, SLOT(on_closed_clicked(bool)));
-  connect(curvesUi.morphcurves, SIGNAL(clicked()),
-	  this, SLOT(on_morphcurves_clicked()));
-//  connect(curvesUi.deselect, SIGNAL(clicked()),
-//	  this, SLOT(on_deselect_clicked()));
-
-
-//  connect(curvesUi.thickness, SIGNAL(valueChanged(int)),
-//	  this, SLOT(on_thickness_valueChanged(int)));
-  connect(curvesUi.pointsize, SIGNAL(valueChanged(int)),
-	  this, SLOT(on_pointsize_valueChanged(int)));
-
-  connect(curvesUi.newcurve, SIGNAL(clicked()),
-	  this, SLOT(on_newcurve_clicked()));
-  connect(curvesUi.endcurve, SIGNAL(clicked()),
-	  this, SLOT(on_endcurve_clicked()));
-
-  connect(curvesUi.deleteallcurves, SIGNAL(clicked()),
-	  this, SLOT(on_deleteallcurves_clicked()));
-}
-
-void
-DrishtiPaint::connectGraphCutMenu()
-{
-  connect(graphcutUi.copyprev, SIGNAL(clicked(bool)),
-	  this, SLOT(on_copyprev_clicked(bool)));
-
-  connect(graphcutUi.preverode, SIGNAL(valueChanged(int)),
-	  this, SLOT(on_prevrode_valueChanged(int)));
-  connect(graphcutUi.smooth, SIGNAL(valueChanged(int)),
-	  this, SLOT(on_smooth_valueChanged(int)));
-  connect(graphcutUi.lambda, SIGNAL(valueChanged(int)),
-	  this, SLOT(on_lambda_valueChanged(int)));
-  connect(graphcutUi.boxSize, SIGNAL(valueChanged(int)),
-	  this, SLOT(on_boxSize_valueChanged(int)));
-}
-
-void
-DrishtiPaint::connectFibersMenu()
-{
-  connect(fibersUi.newfiber, SIGNAL(clicked()),
-	  this, SLOT(on_newfiber_clicked()));
-  connect(fibersUi.endfiber, SIGNAL(clicked()),
-	  this, SLOT(on_endfiber_clicked()));
-}
-
-void
 DrishtiPaint::updateCurveMask(uchar *curveMask, QList<int> tag,
 			      int depth, int width, int height,
 			      int tdepth, int twidth, int theight,
@@ -3223,6 +2916,354 @@ DrishtiPaint::smoothData(uchar *gData,
 }
 
 void
+DrishtiPaint::on_actionMeshTag_triggered()
+{
+  QStringList dtypes;
+  QList<int> tag;
+
+  bool ok;
+  QString tagstr = QInputDialog::getText(0, "Save Mesh for Tag",
+	    "Tag Numbers\ntags should be separated by space.\n-2 to ignore tags and use opacity of transfer function for meshing\n-1 mesh all tagged region\n 0 mesh region that is not tagged\n 1-254 for individual tags\nFor e.g. 1 2 5 will mesh region tagged with tags 1, 2 and 5)",
+					 QLineEdit::Normal,
+					 "-1",
+					 &ok);
+  tag.clear();
+  if (ok && !tagstr.isEmpty())
+    {
+      QStringList tglist = tagstr.split(" ", QString::SkipEmptyParts);
+      for(int i=0; i<tglist.count(); i++)
+	{
+	  int t = tglist[i].toInt();
+	  if (t == -2)
+	    {
+	      tag.clear();
+	      tag << -2;
+	      break;
+	    }
+	  else if (t == -1)
+	    {
+	      tag.clear();
+	      tag << -1;
+	      break;
+	    }
+	  else if (t == 0)
+	    {
+	      tag.clear();
+	      tag << 0;
+	      break;
+	    }
+	  else
+	    tag << t;
+	}
+    }
+  else
+    tag << -1;  
+  //----------------
+
+  //----------------
+  bool saveFibers = false;
+  int colorType = 1; // apply tag colors 
+
+  dtypes.clear();
+  if (tag[0] == -2)
+    {
+      colorType = 4;
+      dtypes << "Transfer Function"
+	     << "No Color";
+      
+      QString option = QInputDialog::getItem(0,
+					     "Mesh Color",
+					     "Color Mesh with",
+					     dtypes,
+					     0,
+					     false,
+					     &ok);
+      if (!ok)
+	return;
+      
+      if (option == "Transfer Function") colorType = 4;
+      else colorType = 0;
+    }
+  else
+    {
+      dtypes << "Tag Color"
+	     << "Transfer Function"
+	     << "Tag Color + Transfer Function"
+	     << "Tag Mask + Transfer Function"
+	     << "No Color";
+      if (m_imageWidget->fibersPresent())
+	dtypes << "Fibers";
+
+      QString option = QInputDialog::getItem(0,
+					     "Mesh Color",
+					     "Color Mesh with",
+					     dtypes,
+					     0,
+					     false,
+					     &ok);
+      if (!ok)
+	return;
+      
+      if (option == "Fibers") saveFibers = true;
+      else if (option == "Tag Color") colorType = 1;
+      else if (option == "Transfer Function") colorType = 2;
+      else if (option == "Tag Color + Transfer Function") colorType = 3;
+      else if (option == "Tag Mask + Transfer Function") colorType = 4;
+      else colorType = 0;
+    }
+  //----------------
+
+
+  //----------------
+  int depth, width, height;
+  m_volume->gridSize(depth, width, height);
+  
+  int minDSlice, maxDSlice;
+  int minWSlice, maxWSlice;
+  int minHSlice, maxHSlice;
+  m_imageWidget->getBox(minDSlice, maxDSlice,
+			minWSlice, maxWSlice,
+			minHSlice, maxHSlice);
+  int tdepth = maxDSlice-minDSlice+1;
+  int twidth = maxWSlice-minWSlice+1;
+  int theight = maxHSlice-minHSlice+1;
+  
+  QString pvlFilename = m_volume->fileName();
+  QString tflnm = QFileDialog::getSaveFileName(0,
+					       "Save mesh",
+					       QFileInfo(pvlFilename).absolutePath(),
+					       "Processes Files (*.ply)",
+					       0,
+					       QFileDialog::DontUseNativeDialog);
+  
+  if (tflnm.isEmpty())
+    return;
+
+  if (!tflnm.endsWith(".ply"))
+    tflnm += ".ply";
+
+  if (saveFibers)
+    {
+      meshFibers(tflnm);
+      return;
+    }
+
+  int spread = 0;
+  spread = QInputDialog::getInt(0,
+				"Smooth Mesh",
+				"Apply mesh smoothing (0 means no smoothing)",
+				1, 0, 5, 1);
+
+  QProgressDialog progress("Meshing tagged region from volume data",
+			   "",
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+  uchar *meshingData = new uchar[tdepth*twidth*theight];
+  memset(meshingData, 0, tdepth*twidth*theight);
+
+  //----------------------------------
+  uchar *curveMask = new uchar[tdepth*twidth*theight];
+  memset(curveMask, 0, tdepth*twidth*theight);
+
+  if (tag[0] != -2)
+    updateCurveMask(curveMask, tag,
+		    depth, width, height,
+		    tdepth, twidth, theight,
+		    minDSlice, minWSlice, minHSlice,
+		    maxDSlice, maxWSlice, maxHSlice);
+  //----------------------------------
+
+  uchar *lut = Global::lut();
+
+  int nbytes = width*height;
+  uchar *raw = new uchar[width*height];
+  uchar *mask = new uchar[width*height]; 
+  for(int d=minDSlice; d<=maxDSlice; d++)
+    {
+      int slc = d-minDSlice;
+      progress.setValue((int)(100*(float)slc/(float)tdepth));
+      qApp->processEvents();
+
+      uchar *slice = 0;
+      if (tag[0] == -2 || colorType == 4) // using tag mask + transfer function to extract mesh
+	{
+	  slice = m_volume->getDepthSliceImage(d);
+	  // we get value+grad from volume
+	  // we need only value part
+	  int i=0;
+	  for(int w=minWSlice; w<=maxWSlice; w++)
+	    for(int h=minHSlice; h<=maxHSlice; h++)
+	      {
+		slice[i] = slice[2*(w*height+h)];
+		i++;
+	      }
+	}
+
+      if (tag[0] == -2)
+	memset(raw, 0, width*height);
+      else
+	{
+	  memcpy(mask, m_volume->getMaskDepthSliceImage(d), nbytes);
+            
+	  if (tag[0] == -1)
+	    {
+	      for(int w=minWSlice; w<=maxWSlice; w++)
+		for(int h=minHSlice; h<=maxHSlice; h++)
+		  raw[w*height+h] = (mask[w*height+h] > 0 ? 0 : 255);
+	      
+	      // apply curve mask
+	      for(int w=minWSlice; w<=maxWSlice; w++)
+		for(int h=minHSlice; h<=maxHSlice; h++)
+		  {
+		    if (curveMask[slc*twidth*theight +
+				  (w-minWSlice)*theight +
+				  (h-minHSlice)] > 0)
+		      raw[w*height+h] = 0;
+		  }
+	    }
+	  else if (tag[0] == 0)
+	    {
+	      for(int w=minWSlice; w<=maxWSlice; w++)
+		for(int h=minHSlice; h<=maxHSlice; h++)
+		  raw[w*height+h] = (mask[w*height+h] > 0 ? 255 : 0);
+	      
+	      // apply curve mask
+	      for(int w=minWSlice; w<=maxWSlice; w++)
+		for(int h=minHSlice; h<=maxHSlice; h++)
+		  {
+		    if (curveMask[slc*twidth*theight +
+				  (w-minWSlice)*theight +
+				  (h-minHSlice)] > 0)
+		      raw[w*height+h] = 255;
+		  }
+	    }
+	  else
+	    {
+	      for(int w=minWSlice; w<=maxWSlice; w++)
+		for(int h=minHSlice; h<=maxHSlice; h++)
+		  raw[w*height+h] = (tag.contains(mask[w*height+h]) ? 0 : 255);
+	      
+	      // apply curve mask
+	      for(int w=minWSlice; w<=maxWSlice; w++)
+		for(int h=minHSlice; h<=maxHSlice; h++)
+		  {
+		    if (tag.contains(curveMask[slc*twidth*theight +
+					       (w-minWSlice)*theight +
+					       (h-minHSlice)]))
+		      raw[w*height+h] = 0;
+		  }
+	    }
+
+	  //-----------------------------
+	  // update curveMask using painted mask data
+	  if (tag[0] == -1 || tag[0] == 0)
+	    {
+	      for(int w=minWSlice; w<=maxWSlice; w++)
+		for(int h=minHSlice; h<=maxHSlice; h++)
+		  {	    
+		    if (curveMask[slc*twidth*theight +
+				  (w-minWSlice)*theight +
+				  (h-minHSlice)] == 0)
+		      curveMask[slc*twidth*theight +
+				(w-minWSlice)*theight +
+				(h-minHSlice)] = mask[w*height+h];	    
+		  }
+	    }
+	  else // only copy selected tags
+	    {
+	      for(int w=minWSlice; w<=maxWSlice; w++)
+		for(int h=minHSlice; h<=maxHSlice; h++)
+		  {	    
+		    if (curveMask[slc*twidth*theight +
+				  (w-minWSlice)*theight +
+				  (h-minHSlice)] == 0 &&
+			tag.contains(mask[w*height+h]))
+		      curveMask[slc*twidth*theight +
+				(w-minWSlice)*theight +
+				(h-minHSlice)] = mask[w*height+h];	    
+		  }
+	    }
+	  //-----------------------------
+	}
+
+      int i=0;
+      for(int w=minWSlice; w<=maxWSlice; w++)
+	for(int h=minHSlice; h<=maxHSlice; h++)
+	  {
+	    raw[i] = raw[w*height+h];
+	    i++;
+	  }
+
+      //-----------------------------
+      // use tag mask + transfer function to generate mesh
+      if (tag[0] == -2 || colorType == 4)
+	{
+	  int i=0;
+	  for(int w=minWSlice; w<=maxWSlice; w++)
+	    for(int h=minHSlice; h<=maxHSlice; h++)
+	      {
+		if (raw[i] != 255 &&
+		    lut[4*slice[i]+3] < 5)
+		  raw[i] = 255;
+		i++;
+	      }
+	}
+      //-----------------------------
+
+      memcpy(meshingData+slc*twidth*theight, raw, twidth*theight);
+    }
+
+  delete [] raw;
+  delete [] mask;
+
+  progress.setValue(100);  
+
+//  if (spread > 0)
+//    dilateAndSmooth(meshingData, tdepth, twidth, theight, spread+1);
+
+  //----------------------------------
+  // add a border to make a watertight mesh when the isosurface
+  // touches the border
+  for(int i=0; i<tdepth; i++)
+    for(int j=0;j<twidth; j++)
+      for(int k=0;k<theight; k++)
+	{
+	  if (i==0 || i == tdepth-1 ||
+	      j==0 || j == twidth-1 ||
+	      k==0 || k == theight-1)
+	    if (meshingData[i*twidth*theight+j*theight+k] < 255)
+	      meshingData[i*twidth*theight+j*theight+k] = 255;
+	}
+  //----------------------------------
+
+
+  MarchingCubes mc;
+  mc.set_resolution(theight, twidth, tdepth);
+  mc.set_ext_data(meshingData);
+  mc.init_all();
+  mc.run(32);
+
+  if (colorType > 0 || spread > 0)
+    processAndSaveMesh(colorType,
+		       tflnm,
+		       &mc,
+		       curveMask,
+		       minHSlice, minWSlice, minDSlice,
+		       theight, twidth, tdepth, spread);
+  else
+    mc.writePLY(tflnm.toLatin1().data(), true);
+  
+  mc.clean_all();
+
+  delete [] meshingData;
+  delete [] curveMask;
+
+  QMessageBox::information(0, "Save", "-----Done-----");
+}
+
+void
 DrishtiPaint::processAndSaveMesh(int colorType,
 				 QString flnm,
 				 MarchingCubes *mc,
@@ -3244,8 +3285,6 @@ DrishtiPaint::processAndSaveMesh(int colorType,
   int nvertices = mc->nverts();
   Vertex *vertices = mc->vertices();
 
-  uchar *lut = Global::lut();
-
   for(int ni=0; ni<nvertices; ni++)
     {
       Vec v, n, c;
@@ -3254,64 +3293,77 @@ DrishtiPaint::processAndSaveMesh(int colorType,
 
       V << v;
       N << n;
-      C << Vec(250,250,250);
+      C << Vec(255,255,255);
     }
 
   for(int ni=0; ni<ntriangles; ni++)
     E << Vec(triangles[ni].v1, triangles[ni].v2, triangles[ni].v3);
 
+  if (colorType > 0)
+    colorMesh(C, V,
+	      colorType, tagdata,
+	      minHSlice, minWSlice, minDSlice,
+	      theight, twidth, tdepth, spread);
+	      
   if (spread > 0)
     smoothMesh(V, N, C, E, 5*spread);
-  
+    
+  saveMesh(V, N, C, E, flnm);
+}
+
+void
+DrishtiPaint::colorMesh(QList<Vec>& C,
+			QList<Vec> V,
+			int colorType,
+			uchar *tagdata,
+			int minHSlice, int minWSlice, int minDSlice,
+			int theight, int twidth, int tdepth,
+			int spread)
+{
+  uchar *lut = Global::lut();
 
   QProgressDialog progress("Colouring mesh",
 			   QString(),
 			   0, 100,
 			   0);
   progress.setMinimumDuration(0);
+  
   int bsz = spread+1;
+  int nv = V.count();
+
   for(int ni=0; ni<V.count(); ni++)
     {
       if (ni%10000 == 0)
 	{
-	  progress.setValue((int)(100.0*(float)ni/(float)(nvertices)));
+	  progress.setValue((int)(100.0*(float)ni/(float)(nv)));
 	  qApp->processEvents();
 	}
-
+      
       // get tag
-      int h = V[ni].x;
-      int w = V[ni].y;
-      int d = V[ni].z;
+      int h = qBound(0, (int)V[ni].x, theight-1);
+      int w = qBound(0, (int)V[ni].y, twidth-1);
+      int d = qBound(0, (int)V[ni].z, tdepth-1);
       int tag = tagdata[d*twidth*theight + w*theight + h];
       if (tag == 0 &&
 	  colorType != 2 && colorType != 4) // tag not needed applying only transfer function
 	{	  
 	  for(int sp=1; sp<=bsz+1; sp++)
 	    {
-	      bool ok=false;
-	      for(int dd=qMax(d-bsz, 0); dd<=qMin(tdepth-1,d+bsz); dd++)
-		for(int ww=qMax(w-bsz, 0); ww<=qMin(twidth-1,w+bsz); ww++)
-		  for(int hh=qMax(h-bsz, 0); hh<=qMin(theight-1,h+bsz); hh++)
+	      for(int dd=qMax(d-sp, 0); dd<=qMin(tdepth-1,d+sp); dd++)
+		for(int ww=qMax(w-sp, 0); ww<=qMin(twidth-1,w+sp); ww++)
+		  for(int hh=qMax(h-sp, 0); hh<=qMin(theight-1,h+sp); hh++)
 		    if (qAbs(dd-d) == sp ||
 			qAbs(ww-w) == sp ||
 			qAbs(hh-h) == sp)
-		      {
-			tag = qMax(tag, (int)tagdata[dd*twidth*theight +
-						     ww*theight + hh]);
-			if (tag > 0)
-			  {
-			    ok = true;
-			    break;
-			  }
-		      }
-	      if (ok)
+		      tag = qMax(tag, (int)tagdata[dd*twidth*theight +
+						   ww*theight + hh]);
+	      if (tag > 0)
 		break;
 	    }
 	}
-
+      
       // get color
       uchar r,g,b;
-
       if (colorType == 1) // apply tag colors
 	{
 	  r = Global::tagColors()[4*tag+0];
@@ -3322,10 +3374,41 @@ DrishtiPaint::processAndSaveMesh(int colorType,
 	{
 	  QList<uchar> val = m_volume->rawValue(d+minDSlice,
 						w+minWSlice,
-						h+minHSlice);     
+						h+minHSlice); 
 	  r =  lut[4*val[0]+2];
 	  g =  lut[4*val[0]+1];
 	  b =  lut[4*val[0]+0];
+
+	  if (r == 0 && g == 0 && b == 0)
+	    {
+	      for(int sp=1; sp<=bsz+1; sp++)
+		{
+		  bool ok=false;
+		  for(int dd=qMax(d-sp, 0); dd<=qMin(tdepth-1,d+sp); dd++)
+		    for(int ww=qMax(w-sp, 0); ww<=qMin(twidth-1,w+sp); ww++)
+		      for(int hh=qMax(h-sp, 0); hh<=qMin(theight-1,h+sp); hh++)
+			{
+			  if (qAbs(dd-d) == sp ||
+			      qAbs(ww-w) == sp ||
+			      qAbs(hh-h) == sp)
+			    {
+			      val = m_volume->rawValue(dd+minDSlice,
+						       ww+minWSlice,
+						       hh+minHSlice);     
+			      r = lut[4*val[0]+2];
+			      g = lut[4*val[0]+1];
+			      b = lut[4*val[0]+0];
+			      if (r > 0 || g > 0 || b > 0)
+				{
+				  ok = true;
+				  break;
+				}
+			    }
+			}
+		  if (ok)
+		    break;
+		}
+	    }
 	}
       else // merge tag and transfer function colors
 	{
@@ -3341,13 +3424,14 @@ DrishtiPaint::processAndSaveMesh(int colorType,
 	  b = 0.5*b + 0.5*lut[4*val[0]+0];
 	}
 
+      if (r == 0 && g == 0 && b == 0)
+	r = g = b = 255;
+
       C[ni] = Vec(r,g,b);
     }
-  progress.setValue(100);
-  
-  saveMesh(V, N, C, E, flnm);
-}
 
+  progress.setValue(100);
+}
 
 void
 DrishtiPaint::saveMesh(QList<Vec> V,
@@ -3508,7 +3592,7 @@ DrishtiPaint::smoothMesh(QList<Vec>& V, QList<Vec>& N,
   newV = V;
 
   int nv = V.count();
-  QProgressDialog progress("Smoothing mesh ... ",
+  QProgressDialog progress("Mesh smoothing in progress ... ",
 			   QString(),
 			   0, 100,
 			   0);
@@ -3564,10 +3648,14 @@ DrishtiPaint::smoothMesh(QList<Vec>& V, QList<Vec>& N,
 	    {
 	      Vec vj = V[idx[j]];
 	      float ln = (v0-vj).norm();
-	      sum += 1.0/ln;
-	      v = v + vj/ln;
+	      if (ln > 0)
+		{
+		  sum += 1.0/ln;
+		  v = v + vj/ln;
+		}
 	    }
-	  v0 = v0 + 0.5*(v/sum - v0);
+	  if (sum > 0)
+	    v0 = v0 + 0.5*(v/sum - v0);
 	  newV[i] = v0;
 	}
       
@@ -3581,10 +3669,14 @@ DrishtiPaint::smoothMesh(QList<Vec>& V, QList<Vec>& N,
 	    {
 	      Vec vj = newV[idx[j]];
 	      float ln = (v0-vj).norm();
-	      sum += 1.0/ln;
-	      v = v + vj/ln;
+	      if (ln > 0)
+		{
+		  sum += 1.0/ln;
+		  v = v + vj/ln;
+		}
 	    }
-	  v0 = v0 - 0.5*(v/sum - v0);
+	  if (sum > 0)
+	    v0 = v0 - 0.5*(v/sum - v0);
 	  V[i] = v0;
 	}
 

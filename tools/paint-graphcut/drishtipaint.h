@@ -179,6 +179,11 @@ class DrishtiPaint : public QMainWindow
 			  int, int, int,
 			  int);
 
+  void colorMesh(QList<Vec>&, QList<Vec>,
+		 int, uchar*,
+		 int, int, int,
+		 int, int, int, int);
+
   void smoothMesh(QList<Vec>&, QList<Vec>&,
 		  QList<Vec>&, QList<Vec>&,
 		  int);

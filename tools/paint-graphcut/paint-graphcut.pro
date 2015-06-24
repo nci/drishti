@@ -63,7 +63,8 @@ HEADERS += commonqtclasses.h \
 	ply.h \
 	lookuptable.h \
 	marchingcubes.h \
-	showhelp.h
+	showhelp.h \
+	getmemorysize.h
 
 
 SOURCES += drishtipaint.cpp \
@@ -101,4 +102,5 @@ SOURCES += drishtipaint.cpp \
 	graphcut/graphcut.cpp \
 	ply.c \
 	marchingcubes.cpp \
-	showhelp.cpp
+	showhelp.cpp \
+	getmemorysize.cpp

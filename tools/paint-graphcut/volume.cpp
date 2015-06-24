@@ -1,6 +1,7 @@
 #include "volume.h"
 #include "staticfunctions.h"
 #include "global.h"
+#include "getmemorysize.h"
 
 void Volume::setBitmapThread(BitmapThread *bt) {thread = bt;}
 
@@ -129,21 +130,29 @@ Volume::setFile(QString volfile)
   m_pvlFileManager.setSlabSize(slabSize);
 
   //----------------
+  float memSize = getMemorySize();
+  memSize/=1024;
+  memSize/=1024;
+  memSize/=1024;
+//  QMessageBox::information(0, "", QString("Physical Memory : %1 GB").arg(memSize));
   float inmemGB = 0.3+((float)m_depth*m_width*m_height*2.5)/((float)1024*1024*1024);
   bool inMem = true;
-  bool ok;
-  QStringList dtypes;
-  dtypes.clear();
-  dtypes << "Yes"
-	 << "No";
-  QString option = QInputDialog::getItem(0,
-					 "Memory Mapped File",
-					 QString("Load volume in memory for fast operations ?\nYou will need atleast %1 Gb").arg(inmemGB),
-					 dtypes,
-					 0,
-					 false,
-					 &ok);
-  if (ok && option == "No") inMem = false;
+  if (inmemGB > memSize) // ask when memory requirements greater than physical memory detected
+    {
+      bool ok;
+      QStringList dtypes;
+      dtypes.clear();
+      dtypes << "Yes"
+	     << "No";
+      QString option = QInputDialog::getItem(0,
+					     "Memory Mapped File",
+					     QString("Load volume in memory for fast operations ?\nYou will need atleast %1 Gb").arg(inmemGB),
+					     dtypes,
+					     0,
+					     false,
+					     &ok);
+      if (ok && option == "No") inMem = false;
+    }
   //----------------
   m_pvlFileManager.setMemMapped(inMem);
 

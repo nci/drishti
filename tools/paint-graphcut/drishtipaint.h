@@ -177,7 +177,7 @@ class DrishtiPaint : public QMainWindow
 			  uchar*,
 			  int, int, int,
 			  int, int, int,
-			  int);
+			  int, Vec);
 
   void colorMesh(QList<Vec>&, QList<Vec>,
 		 int, uchar*,

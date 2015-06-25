@@ -2,6 +2,7 @@
 #include "global.h"
 #include "staticfunctions.h"
 #include "showhelp.h"
+#include "dcolordialog.h"
 
 #include <QDockWidget>
 #include <QFileDialog>
@@ -2795,7 +2796,7 @@ DrishtiPaint::shrinkHoles(uchar* data,
 	}
 
       // find edge voxels
-      progress.setLabel("Identifying boundary voxels ... ");
+      progress.setLabelText("Identifying boundary voxels ... ");
       voxels.clear();
       for(int i=1; i<d-1; i++)
 	{
@@ -2826,9 +2827,9 @@ DrishtiPaint::shrinkHoles(uchar* data,
 
       // now dilate
       if (nc)
-	progress.setLabel("Eroding boundary ... ");
+	progress.setLabelText("Eroding boundary ... ");
       else
-	progress.setLabel("Dilating boundary ... ");
+	progress.setLabelText("Dilating boundary ... ");
 
       int nv = voxels.count();
       for(int v=0; v<nv; v++)
@@ -3063,7 +3064,7 @@ DrishtiPaint::on_actionMeshTag_triggered()
   dtypes.clear();
   if (tag[0] == -2)
     {
-      dtypes << "No Color"
+      dtypes << "User Color"
 	     << "Transfer Function";
       
       QString option = QInputDialog::getItem(0,
@@ -3085,7 +3086,7 @@ DrishtiPaint::on_actionMeshTag_triggered()
 	     << "Transfer Function"
 	     << "Tag Color + Transfer Function"
 	     << "Tag Mask + Transfer Function"
-	     << "No Color";
+	     << "User Color";
       if (m_imageWidget->fibersPresent())
 	dtypes << "Fibers";
 
@@ -3107,7 +3108,14 @@ DrishtiPaint::on_actionMeshTag_triggered()
       else colorType = 0;
     }
   //----------------
-
+  Vec userColor = Vec(255, 255, 255);
+  if (colorType == 0 || colorType == 4)
+    {
+      QColor clr = QColor(255, 255, 255);
+      clr = DColorDialog::getColor(clr);
+      if (clr.isValid())
+	userColor = Vec(clr.red(), clr.green(), clr.blue());
+    }
 
   //----------------
   int depth, width, height;
@@ -3353,15 +3361,23 @@ DrishtiPaint::on_actionMeshTag_triggered()
   mc.init_all();
   mc.run(32);
 
-  if (colorType > 0 || spread > 0)
-    processAndSaveMesh(colorType,
-		       tflnm,
-		       &mc,
-		       curveMask,
-		       minHSlice, minWSlice, minDSlice,
-		       theight, twidth, tdepth, spread);
-  else
-    mc.writePLY(tflnm.toLatin1().data(), true);
+  processAndSaveMesh(colorType,
+		     tflnm,
+		     &mc,
+		     curveMask,
+		     minHSlice, minWSlice, minDSlice,
+		     theight, twidth, tdepth, spread,
+		     userColor);
+
+//  if (colorType > 0 || spread > 0)
+//    processAndSaveMesh(colorType,
+//		       tflnm,
+//		       &mc,
+//		       curveMask,
+//		       minHSlice, minWSlice, minDSlice,
+//		       theight, twidth, tdepth, spread);
+//  else
+//    mc.writePLY(tflnm.toLatin1().data(), true);
   
   mc.clean_all();
 
@@ -3378,7 +3394,7 @@ DrishtiPaint::processAndSaveMesh(int colorType,
 				 uchar *tagdata,
 				 int minHSlice, int minWSlice, int minDSlice,
 				 int theight, int twidth, int tdepth,
-				 int spread)
+				 int spread, Vec userColor)
 {
   Vec voxelScaling = Global::voxelScaling();
 
@@ -3401,13 +3417,15 @@ DrishtiPaint::processAndSaveMesh(int colorType,
 
       V << v;
       N << n;
-      C << Vec(255,255,255);
+      C << userColor;
     }
 
   for(int ni=0; ni<ntriangles; ni++)
     E << Vec(triangles[ni].v1, triangles[ni].v2, triangles[ni].v3);
 
-  if (colorType > 0)
+
+  // for colorType 0 and 4 apply user defined color
+  if (colorType != 0 && colorType != 4)
     colorMesh(C, V,
 	      colorType, tagdata,
 	      minHSlice, minWSlice, minDSlice,
@@ -3452,8 +3470,7 @@ DrishtiPaint::colorMesh(QList<Vec>& C,
       int w = qBound(0, (int)V[ni].y, twidth-1);
       int d = qBound(0, (int)V[ni].z, tdepth-1);
       int tag = tagdata[d*twidth*theight + w*theight + h];
-      if (tag == 0 &&
-	  colorType != 2 && colorType != 4) // tag not needed applying only transfer function
+      if (tag == 0 && colorType != 2) // tag not needed applying only transfer function
 	{	  
 	  for(int sp=1; sp<=bsz+1; sp++)
 	    {
@@ -3478,7 +3495,7 @@ DrishtiPaint::colorMesh(QList<Vec>& C,
 	  g = Global::tagColors()[4*tag+1];
 	  b = Global::tagColors()[4*tag+2];
 	}
-      else if (colorType == 2 || colorType == 4) // apply only transfer function
+      else if (colorType == 2) // apply only transfer function
 	{
 	  QList<uchar> val = m_volume->rawValue(d+minDSlice,
 						w+minWSlice,

@@ -1,7 +1,9 @@
 #begin
 General Help
 
-Drishti Paint allows users to manually segment regions from the volume.  In order to facilitate the segmentation process, Drishti Paint currently provides 3 sets of tools - Curves, Graph Cut and Fibers.  To access help for Curves, Graph Cut and Fibers, select the appropriate options Cu/GrC/F in the left panel and the press ? button.
+Drishti Paint allows users to manually segment and generate surface mesh for regions from the volume.  In order to facilitate the segmentation process, Drishti Paint currently provides 3 sets of tools - Curves, Graph Cut and Fibers.  To access help for Curves, Graph Cut and Fibers, select the appropriate options Cu/GrC/F in the left panel and the press ? button.
+
+Surface meshes generated from Drishti Paint are watertight, suitable for further analysis as well as 3D printing.  Mesh smoothing and hole filling facility is also available.
 
 To start segmenting volume load the processed volume in the program.  Drag-and-drop processed volume files (.pvl.nc) to load them in Drishti Paint.  Users can also use "Load" option to do that.  Then using the segmentation tools start segmenting/tagging the data.
 
@@ -56,7 +58,9 @@ Fibers + Transfer Function - Same as that for Tag + Transfer Function.
 
 #begin
 Mesh Tagged Region
-Mesh tagged regions using the original processed volume.  The tagged regions are specified by any of the Curves/GraphCut/Fibers method.
+Generate surface mesh for tagged as well as untagged regions using the original processed volume.  The regions can be tagged by any of the Curves/GraphCut/Fibers method.
+
+The surface mesh can be smoothed and holes filled - respective dialog options will popup before mesh generation starts.
 
 User will be ask to specify the tag numbers to extract :
 -2 to ignore all tags and mesh region only based on opacity of transfer functions
@@ -68,7 +72,7 @@ Positive numbers separated by space to extract region tagged with that specific 
 When -2 is selected, users will be asked about the coloring of the resulting mesh.  The options are as follows :
 Transfer Function - Color the mesh using colors from the transfer functions.
 
-No Color - Apply white color.
+User Color - Apply user defined color - a color selection dialog will pop up.
 ----
 
 When the selected tag are not -2, users will be asked further options to narrow down and color the regions to be meshed.  The options are as follows :
@@ -82,9 +86,9 @@ Tag + Transfer Function - Mesh the tagged regions specified by the tag values in
 The above three options generates the same mesh, the only difference is color.
 
 
-Tag Mask + Transfer Function - Use the opacity of the transfer function within the tagged regions specified by the tag values in the earlier dialog and mesh only the non-zero voxels.  Thus the tagged region limits the influence of transfer function.  The color of the mesh will that of the transfer function.
+Tag Mask + Transfer Function - Use the opacity of the transfer function within the tagged regions specified by the tag values in the earlier dialog and mesh only the non-zero voxels.  Thus the tagged region limits the influence of transfer function.  The color of the mesh will be user defined color - a color selection dialog will pop up.
 
-No Color - Generates the same mesh as Tag Color, except the mesh now has white color.
+User Color - Generates the same mesh as Tag Color, except the mesh now has user defined color - a color selection dialog will pop up.
 
 Fibers - When fibers/channels are available, the fibers/channels having tag numbers specified in the earlier dialog are used to select the region to mesh.  These tracks are cylindrical in shape.  The radius and color of the tube is governed by the width and tag values of the fiber/channel.
 

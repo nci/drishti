@@ -164,34 +164,27 @@ class DrishtiPaint : public QMainWindow
 
   void savePvlHeader(QString, QString, int, int, int, bool);
 
-  void saveMesh(int,
-		QString,
-		MarchingCubes*,
-		uchar*,
-		int, int, int,
-		int, int, int,
-		int);
-
   void processAndSaveMesh(int,
 			  QString,
 			  MarchingCubes*,
 			  uchar*,
 			  int, int, int,
 			  int, int, int,
-			  int, Vec);
+			  int, Vec, bool);
 
   void colorMesh(QList<Vec>&, QList<Vec>,
 		 int, uchar*,
 		 int, int, int,
 		 int, int, int, int);
 
-  void smoothMesh(QList<Vec>&, QList<Vec>&,
-		  QList<Vec>&, QList<Vec>&,
+  void smoothMesh(QList<Vec>&,
+		  QList<Vec>&,
+		  QList<Vec>&,
 		  int);
 
   void saveMesh(QList<Vec>, QList<Vec>,
 		QList<Vec>, QList<Vec>,
-		QString);
+		QString, bool);
 
   QPair<QString, QList<int> > getTags(QString);
 

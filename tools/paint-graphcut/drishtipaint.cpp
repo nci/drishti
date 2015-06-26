@@ -2267,232 +2267,6 @@ DrishtiPaint::on_actionExtractTag_triggered()
 }
 
 void
-DrishtiPaint::saveMesh(int colorType,
-		       QString flnm,
-		       MarchingCubes *mc,
-		       uchar *tagdata,
-		       int minHSlice, int minWSlice, int minDSlice,
-		       int theight, int twidth, int tdepth,
-		       int spread)
-{
-  Vec voxelScaling = Global::voxelScaling();
-
-  QProgressDialog progress("Colouring and saving mesh ...",
-			   QString(),
-			   0, 100,
-			   0);
-  progress.setMinimumDuration(0);
-
-  QStringList ps;
-  ps << "x";
-  ps << "y";
-  ps << "z";
-  ps << "nx";
-  ps << "ny";
-  ps << "nz";
-  ps << "red";
-  ps << "green";
-  ps << "blue";
-  ps << "vertex_indices";
-  ps << "vertex";
-  ps << "face";
-
-  QList<char *> plyStrings;
-  for(int i=0; i<ps.count(); i++)
-    {
-      char *s;
-      s = new char[ps[i].size()+1];
-      strcpy(s, ps[i].toLatin1().data());
-      plyStrings << s;
-    }
-
-  int ntriangles = mc->ntrigs();
-  Triangle *triangles = mc->triangles();
-
-  int nvertices = mc->nverts();
-  Vertex *vertices = mc->vertices();
-
-
-  typedef struct PlyFace
-  {
-    unsigned char nverts;    /* number of Vertex indices in list */
-    int *verts;              /* Vertex index list */
-  } PlyFace;
-
-  typedef struct
-  {
-    real  x,  y,  z ;  /**< Vertex coordinates */
-    real nx, ny, nz ;  /**< Vertex normal */
-    uchar r, g, b;
-  } myVertex ;
-
-  PlyProperty vert_props[] = { /* list of property information for a vertex */
-    {plyStrings[0], Float32, Float32, offsetof(myVertex,x), 0, 0, 0, 0},
-    {plyStrings[1], Float32, Float32, offsetof(myVertex,y), 0, 0, 0, 0},
-    {plyStrings[2], Float32, Float32, offsetof(myVertex,z), 0, 0, 0, 0},
-    {plyStrings[3], Float32, Float32, offsetof(myVertex,nx), 0, 0, 0, 0},
-    {plyStrings[4], Float32, Float32, offsetof(myVertex,ny), 0, 0, 0, 0},
-    {plyStrings[5], Float32, Float32, offsetof(myVertex,nz), 0, 0, 0, 0},
-    {plyStrings[6], Uint8, Uint8, offsetof(myVertex,r), 0, 0, 0, 0},
-    {plyStrings[7], Uint8, Uint8, offsetof(myVertex,g), 0, 0, 0, 0},
-    {plyStrings[8], Uint8, Uint8, offsetof(myVertex,b), 0, 0, 0, 0},
-  };
-
-  PlyProperty face_props[] = { /* list of property information for a face */
-    {plyStrings[9], Int32, Int32, offsetof(PlyFace,verts),
-     1, Uint8, Uint8, offsetof(PlyFace,nverts)},
-  };
-
-  PlyFile    *ply;
-  FILE       *fp = fopen(flnm.toLatin1().data(),
-			 bin ? "wb" : "w");
-
-  PlyFace     face ;
-  int         verts[3] ;
-  char       *elem_names[]  = {plyStrings[10], plyStrings[11]};
-  ply = write_ply (fp,
-		   2,
-		   elem_names,
-		   bin? PLY_BINARY_LE : PLY_ASCII );
-
-  /* describe what properties go into the PlyVertex elements */
-  describe_element_ply ( ply, plyStrings[10], nvertices );
-  describe_property_ply ( ply, &vert_props[0] );
-  describe_property_ply ( ply, &vert_props[1] );
-  describe_property_ply ( ply, &vert_props[2] );
-  describe_property_ply ( ply, &vert_props[3] );
-  describe_property_ply ( ply, &vert_props[4] );
-  describe_property_ply ( ply, &vert_props[5] );
-  describe_property_ply ( ply, &vert_props[6] );
-  describe_property_ply ( ply, &vert_props[7] );
-  describe_property_ply ( ply, &vert_props[8] );
-
-  /* describe PlyFace properties (just list of PlyVertex indices) */
-  describe_element_ply ( ply, plyStrings[11], ntriangles );
-  describe_property_ply ( ply, &face_props[0] );
-
-  header_complete_ply ( ply );
-
-
-  /* set up and write the PlyVertex elements */
-  put_element_setup_ply ( ply, plyStrings[10] );
-
-  uchar *lut = Global::lut();
-
-  for(int ni=0; ni<nvertices; ni++)
-    {
-      if (ni%1000 == 0)
-	{
-	  progress.setValue((int)(100.0*(float)ni/(float)(nvertices)));
-	  qApp->processEvents();
-	}
-
-      myVertex vertex;
-      vertex.x = vertices[ni].x;
-      vertex.y = vertices[ni].y;
-      vertex.z = vertices[ni].z;
-      vertex.nx = vertices[ni].nx;
-      vertex.ny = vertices[ni].ny;
-      vertex.nz = vertices[ni].nz;
-
-      // get tag
-      int h = vertex.x;
-      int w = vertex.y;
-      int d = vertex.z;
-      int tag = tagdata[d*twidth*theight + w*theight + h];
-      if (tag == 0 &&
-	  colorType != 2 && colorType != 4) // tag not needed applying only transfer function
-	{
-	  for(int sp=1; sp<=spread+1; sp++)
-	    {
-	      bool ok=false;
-	      for(int dd=qMax(d-spread, 0); dd<=qMin(tdepth-1,d+spread); dd++)
-		for(int ww=qMax(w-spread, 0); ww<=qMin(twidth-1,w+spread); ww++)
-		  for(int hh=qMax(h-spread, 0); hh<=qMin(theight-1,h+spread); hh++)
-		    if (qAbs(dd-d) == sp ||
-			qAbs(ww-w) == sp ||
-			qAbs(hh-h) == sp)
-		      {
-			tag = qMax(tag, (int)tagdata[dd*twidth*theight +
-						     ww*theight + hh]);
-			if (tag > 0)
-			  {
-			    ok = true;
-			    break;
-			  }
-		      }
-	      if (ok)
-		break;
-	    }
-	}
-
-
-      // get color
-      uchar r,g,b;
-
-      if (colorType == 1) // apply tag colors
-	{
-	  r = Global::tagColors()[4*tag+0];
-	  g = Global::tagColors()[4*tag+1];
-	  b = Global::tagColors()[4*tag+2];
-	}
-      else if (colorType == 2 || colorType == 4) // apply only transfer function
-	{
-	  QList<uchar> val = m_volume->rawValue(d+minDSlice,
-						w+minWSlice,
-						h+minHSlice);     
-	  r =  lut[4*val[0]+2];
-	  g =  lut[4*val[0]+1];
-	  b =  lut[4*val[0]+0];
-	}
-      else // merge tag and transfer function colors
-	{
-	  r = Global::tagColors()[4*tag+0];
-	  g = Global::tagColors()[4*tag+1];
-	  b = Global::tagColors()[4*tag+2];
-
-	  QList<uchar> val = m_volume->rawValue(d+minDSlice,
-						w+minWSlice,
-						h+minHSlice);     
-	  r = 0.5*r + 0.5*lut[4*val[0]+2];
-	  g = 0.5*g + 0.5*lut[4*val[0]+1];
-	  b = 0.5*b + 0.5*lut[4*val[0]+0];
-	}
-
-      vertex.r = r;
-      vertex.g = g;
-      vertex.b = b;
-
-      vertex.x *= voxelScaling.x;
-      vertex.y *= voxelScaling.y;
-      vertex.z *= voxelScaling.z;
-      
-      put_element_ply ( ply, ( void * ) &vertex );
-    }
-
-  /* set up and write the PlyFace elements */
-  put_element_setup_ply ( ply, plyStrings[11] );
-  face.nverts = 3 ;
-  face.verts  = verts ;
-  for(int ni=0; ni<ntriangles; ni++)
-    {      
-      face.verts[0] = triangles[ni].v1;
-      face.verts[1] = triangles[ni].v2;
-      face.verts[2] = triangles[ni].v3;
-      
-      put_element_ply ( ply, ( void * ) &face );
-    }
-
-  close_ply ( ply );
-  free_ply ( ply );
-
-  for(int i=0; i<plyStrings.count(); i++)
-    delete [] plyStrings[i];
-
-  progress.setValue(100);
-}
-
-void
 DrishtiPaint::meshFibers(QString flnm)
 {
   Vec voxelScaling = Global::voxelScaling();
@@ -3079,7 +2853,9 @@ DrishtiPaint::on_actionMeshTag_triggered()
 
   //----------------
   bool saveFibers = false;
+  bool noScaling = false;
   int colorType = 1; // apply tag colors 
+  Vec userColor = Vec(255, 255, 255);
 
   dtypes.clear();
   if (tag[0] == -2)
@@ -3098,7 +2874,7 @@ DrishtiPaint::on_actionMeshTag_triggered()
 	return;
       
       colorType = 0;
-      if (option == "Transfer Function") colorType = 4;
+      if (option == "Transfer Function") colorType = 5;
     }
   else
     {
@@ -3127,8 +2903,7 @@ DrishtiPaint::on_actionMeshTag_triggered()
       else if (option == "Tag Mask + Transfer Function") colorType = 4;
       else colorType = 0;
     }
-  //----------------
-  Vec userColor = Vec(255, 255, 255);
+
   if (colorType == 0 || colorType == 4)
     {
       QColor clr = QColor(255, 255, 255);
@@ -3136,6 +2911,30 @@ DrishtiPaint::on_actionMeshTag_triggered()
       if (clr.isValid())
 	userColor = Vec(clr.red(), clr.green(), clr.blue());
     }
+  //----------------
+
+
+  //----------------
+  if (!saveFibers)
+    {
+      dtypes.clear();
+      dtypes << "Yes"
+	     << "No Scaling";
+      
+      QString option = QInputDialog::getItem(0,
+					     "Voxel Scaling For Mesh/Fibers",
+					     "Apply voxel scaling to mesh/fibers.\nChoose No Scaling only if\nyou want to load the generated\nmesh in Drishti Renderer.",
+					     dtypes,
+					     0,
+					     false,
+					     &ok);
+      if (!ok)
+	return;
+      
+      if (option == "No Scaling") noScaling = true;
+    }
+  //----------------
+
 
   //----------------
   int depth, width, height;
@@ -3387,17 +3186,7 @@ DrishtiPaint::on_actionMeshTag_triggered()
 		     curveMask,
 		     minHSlice, minWSlice, minDSlice,
 		     theight, twidth, tdepth, spread,
-		     userColor);
-
-//  if (colorType > 0 || spread > 0)
-//    processAndSaveMesh(colorType,
-//		       tflnm,
-//		       &mc,
-//		       curveMask,
-//		       minHSlice, minWSlice, minDSlice,
-//		       theight, twidth, tdepth, spread);
-//  else
-//    mc.writePLY(tflnm.toLatin1().data(), true);
+		     userColor, noScaling);
   
   mc.clean_all();
 
@@ -3414,10 +3203,9 @@ DrishtiPaint::processAndSaveMesh(int colorType,
 				 uchar *tagdata,
 				 int minHSlice, int minWSlice, int minDSlice,
 				 int theight, int twidth, int tdepth,
-				 int spread, Vec userColor)
+				 int spread, Vec userColor,
+				 bool noScaling)
 {
-  Vec voxelScaling = Global::voxelScaling();
-
   QList<Vec> V;
   QList<Vec> N;
   QList<Vec> C;
@@ -3452,9 +3240,9 @@ DrishtiPaint::processAndSaveMesh(int colorType,
 	      theight, twidth, tdepth, spread);
 	      
   if (spread > 0)
-    smoothMesh(V, N, C, E, 5*spread);
+    smoothMesh(V, N, E, 5*spread);
     
-  saveMesh(V, N, C, E, flnm);
+  saveMesh(V, N, C, E, flnm, noScaling);
 }
 
 void
@@ -3490,7 +3278,8 @@ DrishtiPaint::colorMesh(QList<Vec>& C,
       int w = qBound(0, (int)V[ni].y, twidth-1);
       int d = qBound(0, (int)V[ni].z, tdepth-1);
       int tag = tagdata[d*twidth*theight + w*theight + h];
-      if (tag == 0 && colorType != 2) // tag not needed applying only transfer function
+      if (tag == 0 &&
+	  (colorType != 2 || colorType != 5)) // tag not needed apply transfer function
 	{	  
 	  for(int sp=1; sp<=bsz+1; sp++)
 	    {
@@ -3515,7 +3304,7 @@ DrishtiPaint::colorMesh(QList<Vec>& C,
 	  g = Global::tagColors()[4*tag+1];
 	  b = Global::tagColors()[4*tag+2];
 	}
-      else if (colorType == 2) // apply only transfer function
+      else if (colorType == 2 || colorType == 5) // apply only transfer function
 	{
 	  QList<uchar> val = m_volume->rawValue(d+minDSlice,
 						w+minWSlice,
@@ -3583,10 +3372,19 @@ DrishtiPaint::saveMesh(QList<Vec> V,
 		       QList<Vec> N,
 		       QList<Vec> C,
 		       QList<Vec> E,
-		       QString flnm)
+		       QString flnm,
+		       bool noScaling)
 {
-  Vec voxelScaling = Global::voxelScaling();
+  int minDSlice, maxDSlice;
+  int minWSlice, maxWSlice;
+  int minHSlice, maxHSlice;
+  m_imageWidget->getBox(minDSlice, maxDSlice,
+			minWSlice, maxWSlice,
+			minHSlice, maxHSlice);
 
+  Vec voxelScaling = Global::voxelScaling();
+  if (noScaling) voxelScaling = Vec(1,1,1);
+  
   QProgressDialog progress("Saving mesh ...",
 			   QString(),
 			   0, 100,
@@ -3693,9 +3491,9 @@ DrishtiPaint::saveMesh(QList<Vec> V,
 	}
 
       myVertex vertex;
-      vertex.x = V[ni].x*voxelScaling.x;;
-      vertex.y = V[ni].y*voxelScaling.y;;
-      vertex.z = V[ni].z*voxelScaling.z;;
+      vertex.x = (minHSlice + V[ni].x)*voxelScaling.x;;
+      vertex.y = (minWSlice + V[ni].y)*voxelScaling.y;;
+      vertex.z = (minDSlice + V[ni].z)*voxelScaling.z;;
       vertex.nx = N[ni].x;
       vertex.ny = N[ni].y;
       vertex.nz = N[ni].z;
@@ -3729,8 +3527,9 @@ DrishtiPaint::saveMesh(QList<Vec> V,
 }
 
 void
-DrishtiPaint::smoothMesh(QList<Vec>& V, QList<Vec>& N,
-			 QList<Vec>& C, QList<Vec>& E,
+DrishtiPaint::smoothMesh(QList<Vec>& V,
+			 QList<Vec>& N,
+			 QList<Vec>& E,
 			 int ntimes)
 {
   QList<Vec> newV;

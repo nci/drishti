@@ -123,4 +123,6 @@ When TF is selected for voxel display, the tag numbers in "Painted" text box has
 
 Use "Snapshot" button to save an image from the 3D Viewer display.
 
+Press "o: to switch camera to orthographic projection.
+Press "p" to switch camera to perspective projection - default is perspective projection.
 #end

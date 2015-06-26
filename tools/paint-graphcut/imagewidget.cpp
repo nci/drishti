@@ -2101,11 +2101,11 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
     {
       int ic = -1;
       if (m_sliceType == DSlice)
-	ic = m_dCurves.showPolygonInfo(m_currSlice, m_pickHeight, m_pickWidth);
+	ic = m_dCurves.showPolygonInfo(0, m_currSlice, m_pickHeight, m_pickWidth);
       else if (m_sliceType == WSlice)
-	ic = m_wCurves.showPolygonInfo(m_currSlice, m_pickHeight, m_pickDepth);
+	ic = m_wCurves.showPolygonInfo(1, m_currSlice, m_pickHeight, m_pickDepth);
       else
-	ic = m_hCurves.showPolygonInfo(m_currSlice, m_pickWidth,  m_pickDepth);
+	ic = m_hCurves.showPolygonInfo(2, m_currSlice, m_pickWidth,  m_pickDepth);
       
       return true;
     }
@@ -4609,8 +4609,6 @@ ImageWidget::loadFibers(QString flnm)
 	      QStringList words = line.split(" ", QString::SkipEmptyParts);
 	      if (words.count() > 0)
 		{
-		  int t;
-		  bool b;
 		  if (words[0].contains("fiberend"))
 		    done = true;
 		  else if (words[0].contains("tag"))

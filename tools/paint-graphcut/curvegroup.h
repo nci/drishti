@@ -69,7 +69,7 @@ class CurveGroup
 
   QList<int> polygonLevels();
 
-  int showPolygonInfo(int, int, int);
+  int showPolygonInfo(int, int, int, int);
   bool selectPolygon(int, int, int,
 		     bool, int, int);
   void setClosed(int, int, int, bool);
@@ -129,8 +129,8 @@ class CurveGroup
   void alignClosedCurves(QMap<int, QVector<QPointF> >&);
   void alignOpenCurves(QMap<int, QVector<QPointF> >&);
   void clearMorphedCurves();
-  float pathLength(Curve*);
-  float area(Curve*);
+  float pathLength(int, Curve*);
+  float area(int, Curve*);
 
   void generateXYpoints();
 

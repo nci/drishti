@@ -107,26 +107,46 @@ CurveGroup::removePolygonAt(int key, int v0, int v1)
 }
 
 float
-CurveGroup::pathLength(Curve *c)
+CurveGroup::pathLength(int slcType, Curve *c)
 {
+  Vec vs = Global::voxelScaling();
+  float vsx, vsy;
+  if (slcType == 0) // DSlice
+    {
+      vsx = vs.x;
+      vsy = vs.y;
+    }
+  else if (slcType == 1) // WSlice
+    {
+      vsx = vs.x;
+      vsy = vs.z;
+    }
+  else if (slcType == 2) // HSlice
+    {
+      vsx = vs.y;
+      vsy = vs.z;
+    }
+
   // find total path length  
   int xcount = c->pts.count(); 
   double plen = 0;
   for (int i=1; i<xcount; i++)
     {
       QPointF v = c->pts[i]-c->pts[i-1];
+      v = QPointF(v.x()*vsx, v.y()*vsy);
       plen += qSqrt(QPointF::dotProduct(v,v));
     }
   if (c->closed) // for closed curve
     {
       QPointF v = c->pts[0]-c->pts[xcount-1];
+      v = QPointF(v.x()*vsx, v.y()*vsy);
       plen += qSqrt(QPointF::dotProduct(v,v));
     }
   return plen;
 }
 
 float
-CurveGroup::area(Curve *c)
+CurveGroup::area(int slcType, Curve *c)
 {
   if (!c->closed)
     return 0;
@@ -140,11 +160,33 @@ CurveGroup::area(Curve *c)
       area += ((c->pts[j].x()-c->pts[i].x())*
 	       (c->pts[j].y()+c->pts[i].y()));
     }
+
+  Vec vs = Global::voxelScaling();
+  float vsx, vsy;
+  if (slcType == 0) // DSlice
+    {
+      vsx = vs.x;
+      vsy = vs.y;
+    }
+  else if (slcType == 1) // WSlice
+    {
+      vsx = vs.x;
+      vsy = vs.z;
+    }
+  else if (slcType == 2) // HSlice
+    {
+      vsx = vs.y;
+      vsy = vs.z;
+    }
+
+  area *= vsx*vsy;
+
   return qAbs(0.5*area);
 }
 
 int
-CurveGroup::showPolygonInfo(int key, int v0, int v1)
+CurveGroup::showPolygonInfo(int slcType,
+			    int key, int v0, int v1)
 {
   int ic = getActiveCurve(key, v0, v1);
   if (ic < 0)
@@ -153,16 +195,25 @@ CurveGroup::showPolygonInfo(int key, int v0, int v1)
   QList<Curve*> curves = m_cg.values(key);
   QString str;
   str += "Curve Information\n";
+
   str += QString("Tag : %1\n").arg(curves[ic]->tag);
+
   if (curves[ic]->closed)
     str += QString("Closed curve\n");
   else
     str += QString("Open curve\n");
-  str += QString("Width : %1\n").arg(curves[ic]->thickness);
-  str += QString("Length : %1\n").arg(pathLength(curves[ic]));
-  if (curves[ic]->closed)
-    str += QString("Area : %1\n").arg(area(curves[ic]));
 
+  str += QString("Width : %1\n").arg(curves[ic]->thickness);
+
+  str += QString("Length : %1%2\n"). \
+    arg(pathLength(slcType, curves[ic]), 0, 'f', 2). \
+    arg(Global::voxelUnit());
+
+  if (curves[ic]->closed)
+    str += QString("Area : %1 %2 squared\n"). \
+      arg(area(slcType, curves[ic]), 0, 'f', 4). \
+      arg(Global::voxelUnit());
+  
   
   QMessageBox::information(0, "Curve information", str);
   return ic;
@@ -1001,14 +1052,32 @@ CurveGroup::smoothCurveWithSeedPoints(Curve *c)
       plen += qSqrt(QPointF::dotProduct(v,v));
     }
 
-  float oplen = pathLength(c);
-
   for(int j=1; j<seedfrc.count(); j++)
     seedfrc[j] /= plen;
   
   // replace pts with the smooth version
   c->pts = smooth(c->pts, c->closed);
-  float newplen = pathLength(c);
+  double newplen = 0;
+  {
+    for(int j=1; j<scount; j++)
+      {
+	for (int i=c->seedpos[j-1]+1; i<=c->seedpos[j]; i++)
+	  {
+	    QPointF v = c->pts[i]-c->pts[i-1];
+	    newplen += qSqrt(QPointF::dotProduct(v,v));
+	  }
+      }
+    if (c->closed) // for closed curve
+      {
+	for (int i=c->seedpos[scount-1]+1; i<c->pts.count(); i++)
+	  {
+	    QPointF v = c->pts[i]-c->pts[i-1];
+	    plen += qSqrt(QPointF::dotProduct(v,v));
+	  }
+	QPointF v = c->pts[0]-c->pts[c->pts.count()-1];
+	newplen += qSqrt(QPointF::dotProduct(v,v));
+      }
+  }
 
   for(int j=1; j<seedfrc.count(); j++)
     seedfrc[j] *= newplen;

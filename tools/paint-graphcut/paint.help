@@ -95,6 +95,15 @@ Fibers - When fibers/channels are available, the fibers/channels having tag numb
 #end
 
 #begin
+Save Work
+Save Work / Ctrl+S
+
+Save the tagging information to .mask and .curves files.  All the work that the user does stays in memory.  This option is to prevent loss of work in the case program crashes in midst of a process.
+
+Saving the work frequently is recommended.
+#end
+
+#begin
 Save Curves
 Save the curve/fiber information in a binary file with extension .curves.  This file can be imported in Drishti Paint using "Load Curves" menu.
 #end

@@ -238,7 +238,6 @@ Viewer::drawCurrentSlice(Vec subvolmin,
 void
 Viewer::drawBox()
 {
-  glLineWidth(1);
 
   //setAxisIsDrawn();
   
@@ -246,19 +245,24 @@ Viewer::drawBox()
 
   glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
   
+  glLineWidth(1);
   drawEnclosingCube(Vec(0,0,0),
 		    Vec(m_height, m_width, m_depth));
   
+  glLineWidth(2);
   glColor3d(0.8,0.8,0.8);
   drawEnclosingCube(Vec(m_minHSlice, m_minWSlice, m_minDSlice),
 		    Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
   
   
+  glLineWidth(3);
   glColor3d(1.0,0.85,0.7);
   drawCurrentSlice(Vec(0,0,0),
 		   Vec(m_height, m_width, m_depth));
   
   glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+  glLineWidth(1);
 }
 
 void

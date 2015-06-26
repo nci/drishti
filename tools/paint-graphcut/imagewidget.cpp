@@ -1005,8 +1005,12 @@ ImageWidget::drawCurves(QPainter *p)
 		  p->drawPolyline(pts);
 		}
 	    }
+
+	  bool onlyline = false;
+	  if (m_addingCurvePoints && l == 0)
+	    onlyline = true;
 	  
-	  if (curves[l]->closed)
+	  if (curves[l]->closed && !onlyline)
 	    {
 	      p->setPen(QPen(QColor(r,g,b), 1));
 	      p->setBrush(QColor(r, g, b, 70));
@@ -2060,6 +2064,8 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
 
   if (event->key() == Qt::Key_A)
     {
+      if (m_addingCurvePoints)
+	update();
       newCurve(false);
       return true;
     }
@@ -2283,7 +2289,10 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
 	  m_hCurves.removePolygonAt(m_currSlice, m_pickWidth,  m_pickDepth);
 	  emit polygonLevels(m_hCurves.polygonLevels());
 	}
-      
+
+      if (m_addingCurvePoints)
+	endCurve();
+
       update();
       return true;
     }
@@ -2300,6 +2309,13 @@ void
 ImageWidget::keyPressEvent(QKeyEvent *event)
 {
   bool processed = false;
+
+  if (event->key() == Qt::Key_S &&
+      (event->modifiers() & Qt::ControlModifier) )
+    {
+      emit saveWork();
+      return;
+    }
 
   if (m_fiberMode)
     processed = fiberModeKeyPressEvent(event);

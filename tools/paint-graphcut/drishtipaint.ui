@@ -706,6 +706,7 @@
     <addaction name="actionExtractTag"/>
     <addaction name="actionMeshTag"/>
     <addaction name="separator"/>
+    <addaction name="saveWork"/>
     <addaction name="actionSave_Curves"/>
     <addaction name="actionSave_Fibers"/>
     <addaction name="saveImage"/>
@@ -789,6 +790,11 @@
   <action name="actionLoad_Fibers">
    <property name="text">
     <string>Load Fibers</string>
+   </property>
+  </action>
+  <action name="saveWork">
+   <property name="text">
+    <string>Save Work (Ctrl+S)</string>
    </property>
   </action>
  </widget>

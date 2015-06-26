@@ -34,6 +34,7 @@ class DrishtiPaint : public QMainWindow
  private slots :
   void openRecentFile();   
   void on_actionHelp_triggered();
+  void on_saveWork_triggered();
   void on_saveImage_triggered();
   void on_actionLoad_triggered();
   void on_actionLoad_Curves_triggered();
@@ -217,7 +218,7 @@ class DrishtiPaint : public QMainWindow
   void dilateAndSmooth(uchar*, int, int, int, int);
   void smoothData(uchar*, int, int, int, int);
 
-  void shrinkHoles(uchar*, int, int, int, int);
+  void processHoles(uchar*, int, int, int, int);
 };
 
 #endif

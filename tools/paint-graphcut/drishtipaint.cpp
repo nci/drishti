@@ -237,6 +237,19 @@ DrishtiPaint::on_help_clicked()
 }
 
 void DrishtiPaint::on_saveImage_triggered() { m_imageWidget->saveImage(); }
+void DrishtiPaint::on_saveWork_triggered()
+{
+  if (m_volume->isValid())
+    {
+      QString curvesfile = m_pvlFile;
+      curvesfile.replace(".pvl.nc", ".curves");
+      m_imageWidget->saveCurves(curvesfile);
+      
+      m_volume->saveIntermediateResults();
+      
+      QMessageBox::information(0, "Save Work", "Tags, Curves and Fibers saved");
+    }
+}
 
 void
 DrishtiPaint::on_actionFibers_clicked(bool b)
@@ -1164,11 +1177,12 @@ DrishtiPaint::loadVolumeFromProject(const char *flnm)
 void
 DrishtiPaint::keyPressEvent(QKeyEvent *event)
 {
-  if (event->key() == Qt::Key_M)
+  if (event->key() == Qt::Key_S &&
+      (event->modifiers() & Qt::ControlModifier) )
     {
-      m_volume->saveIntermediateResults();
+      on_saveWork_triggered();
       return;
-    }
+    } 
 
   // pass all keypressevents on to image widget
   m_imageWidget->keyPressEvent(event);
@@ -1762,6 +1776,9 @@ DrishtiPaint::applyMaskOperation(int tag,
 void
 DrishtiPaint::connectImageWidget()
 {
+  connect(m_imageWidget, SIGNAL(saveWork()),
+	  this, SLOT(on_saveWork_triggered()));  
+
   connect(m_imageWidget, SIGNAL(getSlice(int)),
 	  this, SLOT(getSlice(int)));  
 
@@ -2768,7 +2785,7 @@ DrishtiPaint::updateFiberMask(uchar *curveMask, QList<int> tag,
 }
 
 void
-DrishtiPaint::shrinkHoles(uchar* data,
+DrishtiPaint::processHoles(uchar* data,
 			  int d, int w, int h,
 			  int holeSize)
 {
@@ -2776,6 +2793,9 @@ DrishtiPaint::shrinkHoles(uchar* data,
 			   QString(),
 			   0, 100,
 			   0);
+  if (holeSize < 0)
+    progress.setLabelText("Opening holes");
+
   progress.setMinimumDuration(0);
 
 
@@ -2784,15 +2804,15 @@ DrishtiPaint::shrinkHoles(uchar* data,
   for(int nc=0; nc < 2; nc++)
     {
       int aval, bval;
-      if (nc == 0)
+      if (holeSize > 0)
 	{
-	  aval = 0;
-	  bval = 255;
+	  aval = (nc==0) ? 0 : 255;
+	  bval = (nc==0) ? 255 : 0;
 	}
       else
 	{
-	  aval = 255;
-	  bval = 0;
+	  aval = (nc>0) ? 0 : 255;
+	  bval = (nc>0) ? 255 : 0;
 	}
 
       // find edge voxels
@@ -3332,8 +3352,8 @@ DrishtiPaint::on_actionMeshTag_triggered()
 //  if (spread > 0)
 //    dilateAndSmooth(meshingData, tdepth, twidth, theight, spread+1);
   //----------------------------------
-  if (holeSize > 0)
-    shrinkHoles(meshingData,
+  if (holeSize != 0)
+    processHoles(meshingData,
 		tdepth, twidth, theight,
 		holeSize);
   //----------------------------------
@@ -3725,8 +3745,8 @@ DrishtiPaint::smoothMesh(QList<Vec>& V, QList<Vec>& N,
 
   //----------------------------
   // create incidence matrix
+  progress.setLabelText("Generate incidence matrix ...");
   QMultiMap<int, int> imat;
-
   int ntri = E.count();
   for(int i=0; i<ntri; i++)
     {
@@ -3751,6 +3771,7 @@ DrishtiPaint::smoothMesh(QList<Vec>& V, QList<Vec>& N,
 
   //----------------------------
   // smooth vertices
+  progress.setLabelText("Process vertices ...");
   for(int nt=0; nt<ntimes; nt++)
     {
       progress.setValue((int)(100.0*(float)nt/(float)(ntimes)));
@@ -3804,6 +3825,7 @@ DrishtiPaint::smoothMesh(QList<Vec>& V, QList<Vec>& N,
 
 
   //----------------------------
+  progress.setLabelText("Calculate normals ...");
   // now calculate normals
   for(int i=0; i<nv; i++)
     newV[i] = Vec(0,0,0);

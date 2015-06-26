@@ -123,6 +123,7 @@ class ImageWidget : public QWidget
   void showTags(QList<int>);
 
  signals :
+  void saveWork();
   void viewerUpdate();
   void showEndCurve();
   void hideEndCurve();

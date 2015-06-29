@@ -124,7 +124,8 @@ Fiber::removePoint(int d, int w, int h)
 {
   for(int i=0; i<seeds.count(); i++)
     {
-      if ((seeds[i]-Vec(h, w, d)).squaredNorm() < 10)
+      if ((seeds[i]-Vec(h, w, d)).squaredNorm() <
+	  qMax(10, thickness/2))
 	{
 	  seeds.removeAt(i);
 	  updateTrace();

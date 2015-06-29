@@ -237,7 +237,14 @@ DrishtiPaint::on_help_clicked()
 }
 
 void DrishtiPaint::on_saveImage_triggered() { m_imageWidget->saveImage(); }
-void DrishtiPaint::on_saveWork_triggered()
+void
+DrishtiPaint::on_saveWork_triggered()
+{
+  saveWork();
+  QMessageBox::information(0, "Save Work", "Tags, Curves and Fibers saved");
+}
+void
+DrishtiPaint::saveWork()
 {
   if (m_volume->isValid())
     {
@@ -246,8 +253,6 @@ void DrishtiPaint::on_saveWork_triggered()
       m_imageWidget->saveCurves(curvesfile);
       
       m_volume->saveIntermediateResults();
-      
-      QMessageBox::information(0, "Save Work", "Tags, Curves and Fibers saved");
     }
 }
 
@@ -1777,7 +1782,7 @@ void
 DrishtiPaint::connectImageWidget()
 {
   connect(m_imageWidget, SIGNAL(saveWork()),
-	  this, SLOT(on_saveWork_triggered()));  
+	  this, SLOT(saveWork()));  
 
   connect(m_imageWidget, SIGNAL(getSlice(int)),
 	  this, SLOT(getSlice(int)));  

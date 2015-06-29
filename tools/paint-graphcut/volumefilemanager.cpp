@@ -976,7 +976,7 @@ VolumeFileManager::setSliceMem(int d, uchar *tmp)
   m_qfile.close();
   //--------
 
-  m_memChanged = true;
+  //m_memChanged = true;
 }
 
 uchar*

@@ -35,6 +35,7 @@ class DrishtiPaint : public QMainWindow
   void openRecentFile();   
   void on_actionHelp_triggered();
   void on_saveWork_triggered();
+  void saveWork();
   void on_saveImage_triggered();
   void on_actionLoad_triggered();
   void on_actionLoad_Curves_triggered();

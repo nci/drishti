@@ -1471,6 +1471,7 @@ ImageWidget::checkRecursive()
       if (m_cslc >= m_maxslc)
 	{
 	  m_applyRecursive = false;
+	  emit saveWork();
 	}
       else
 	{
@@ -1508,6 +1509,7 @@ void ImageWidget::endFiber()
 {
   m_fibers.endFiber();
   emit hideEndFiber();
+  emit saveWork();
 }
 
 void
@@ -1537,6 +1539,7 @@ ImageWidget::freezeLivewire(bool select)
 	{
 	  endLivewirePropagation();
 	  m_applyRecursive = false;
+	  emit saveWork();
 	}
       return;
     }
@@ -1684,6 +1687,7 @@ ImageWidget::endCurve()
 {
   m_addingCurvePoints = false;
   emit hideEndCurve();
+  emit saveWork();
 }
 
 void
@@ -1901,6 +1905,7 @@ ImageWidget::freezeModifyUsingLivewire()
 		       closed, c.tag, c.thickness,
 		       false, c.type, seeds); 
       emit polygonLevels(cg->polygonLevels());
+      emit saveWork();
     }
   m_livewire.resetPoly();
 }
@@ -1927,7 +1932,8 @@ ImageWidget::propagateCurves(bool flag)
       if (m_applyRecursive) // stop the recursive process
 	{
 	  endLivewirePropagation();
-	  
+	  emit saveWork();
+
 	  m_applyRecursive = false;
 	  m_extraPressed = false;
 	  m_cslc = 0;
@@ -1955,6 +1961,7 @@ ImageWidget::fiberModeKeyPressEvent(QKeyEvent *event)
     {
       m_fibers.removeFiber(m_pickDepth, m_pickWidth, m_pickHeight);
       emit viewerUpdate();
+      emit saveWork();
       update();
     }
   else if (event->key() == Qt::Key_Space)
@@ -2057,6 +2064,7 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
 	  if (m_livewire.poly().count() > 5)
 	    {
 	      freezeLivewire(false);
+	      emit saveWork();
 	      return true;
 	    }
 	}
@@ -2067,6 +2075,7 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
       if (m_addingCurvePoints)
 	update();
       newCurve(false);
+      emit saveWork();
       return true;
     }
 
@@ -2125,6 +2134,7 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
 			 shiftModifier,
 			 m_minHSlice, m_maxHSlice);
       
+      emit saveWork();
       update();
       return true;
     }
@@ -2423,6 +2433,7 @@ ImageWidget::keyPressEvent(QKeyEvent *event)
       if (m_applyRecursive) // stop the recursive process
 	{
 	  endLivewirePropagation();
+	  emit saveWork();
 
 	  m_applyRecursive = false;
 	  m_extraPressed = false;

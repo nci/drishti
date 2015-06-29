@@ -1089,7 +1089,7 @@ MainWindow::on_actionAbout_triggered()
   mesg += "Canberra,\n";
   mesg += "Australia\n\n";
   mesg += "Contact :\nAjay.Limaye@anu.edu.au\n\n";
-  mesg += "Website :\n http://code.google.com/p/drishti-2/\n\n";
+  mesg += "Website :\n https://github.com/AjayLimaye/drishti\n\n";
   mesg += "Drishti User Group :\nhttps://groups.google.com/group/drishti-user-group\n\n";
   mesg += "YouTube :\nhttps://www.youtube.com/user/900acl/videos?sort=dd&flow=list&page=1&view=1\n";
   

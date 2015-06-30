@@ -21,9 +21,29 @@ INCLUDEPATH += graphcut
 # Input
 FORMS += drishtipaint.ui viewermenu.ui graphcutmenu.ui curvesmenu.ui fibersmenu.ui propertyeditor.ui
 
-INCLUDEPATH += c:\Qt\libQGLViewer-2.6.1
-LIBS += QGLViewer2.lib
-QMAKE_LIBDIR += c:\Qt\libQGLViewer-2.6.1\lib
+#----------------------------------------------------------------
+# Windows setup for 64-bit system
+contains(Windows_Setup, Win64) {
+  win32 {
+         INCLUDEPATH += c:\Qt\libQGLViewer-2.6.1
+         LIBS += QGLViewer2.lib
+         QMAKE_LIBDIR += c:\Qt\libQGLViewer-2.6.1\lib
+        }
+}
+
+#----------------------------------------------------------------
+# MacOSX setup
+macx {
+    INCLUDEPATH += /Users/acl900/Library/Frameworks/QGLViewer.framework/Headers \
+	/usr/local/include
+
+    LIBS += -L/usr/local/lib
+    LIBS += -F/Users/acl900/Library/Frameworks
+    LIBS += -L/Users/acl900/Library/Frameworks
+    LIBS += -framework ApplicationServices
+    LIBS += -framework QGLViewer
+}
+#----------------------------------------------------------------
 
 HEADERS += commonqtclasses.h \
 	drishtipaint.h \

@@ -345,10 +345,8 @@ CurveGroup::flipPolygon(int key, int v0, int v1)
       curves[ic]->pts[i] = curves[ic]->pts[npts-1-i];
       curves[ic]->pts[npts-1-i] = v;
     }
-//  if (m_mcg.count() > 0)
-//    morphCurves();
-//  else
-    QMessageBox::information(0, "", "Flipped curve");
+
+  QMessageBox::information(0, "", "Flipped curve");
 }
 
 void
@@ -872,7 +870,7 @@ CurveGroup::morphCurves(int minS, int maxS)
 	  Perimeter p = all_perimeters[i];
 	  for (int j=0; j<p.length; j++)
 	    a << QPointF(p.x[j],p.y[j]);
-	  
+
 	  Curve c;
 	  c.tag = mtag;
 	  c.pts = a;
@@ -1025,78 +1023,93 @@ CurveGroup::smooth(int key, int v0, int v1,
 }
 
 void
+CurveGroup::dilateErode(int key, int v0, int v1,
+			bool all, int minSlice, int maxSlice,
+			float lambda)
+{
+  if (all)
+    {
+      for(int k=minSlice; k<=maxSlice; k++)
+	{
+	  QList<Curve*> curves = m_cg.values(k);
+	  for(int ic=0; ic<curves.count(); ic++)
+	    {
+	      // fix seedpos
+	      if (curves[ic]->seedpos.count() > 0)
+		dilateErodeCurveWithSeedPoints(curves[ic], lambda);
+	      else
+		// replace pts with the smooth version
+		curves[ic]->pts = dilateErode(curves[ic]->pts,
+					      curves[ic]->closed,
+					      lambda);
+	    }
+	}
+
+      for(int m=0; m<m_mcg.count(); m++)
+	{
+	  QList<int> keys = m_mcg[m].keys();	  
+	  for(int k=0; k<keys.count(); k++)
+	    {
+	      if (k >= minSlice && k<=maxSlice)
+		{
+		  Curve c = m_mcg[m].value(keys[k]);
+		  QVector<QPointF> w;
+		  w = dilateErode(c.pts, c.closed, lambda);
+		  c.pts = w; // replace pts with the smooth version
+		  m_mcg[m].insert(keys[k], c);
+		}
+	    }
+	}
+
+      m_pointsDirtyBit = true;
+      return;
+    }
+
+
+  if (m_cg.contains(key))
+    {
+      int ic = getActiveCurve(key, v0, v1);
+      if (ic >= 0)
+	{
+	  QList<Curve*> curves = m_cg.values(key);
+	  // fix seedpos
+	  if (curves[ic]->seedpos.count() > 0)
+	    dilateErodeCurveWithSeedPoints(curves[ic], lambda);
+	  else
+	    curves[ic]->pts = dilateErode(curves[ic]->pts,
+					  curves[ic]->closed, lambda);
+	  
+	  m_pointsDirtyBit = true;
+	}
+    }
+  int mc = getActiveMorphedCurve(key, v0, v1);
+  if (mc >= 0)
+    {
+      Curve c = m_mcg[mc].value(key);
+      QVector<QPointF> w;
+      w = dilateErode(c.pts, c.closed, lambda);
+      c.pts = w; // replace pts with the smooth version
+      m_mcg[mc].insert(key, c);
+    }
+}
+
+void
 CurveGroup::smoothCurveWithSeedPoints(Curve *c)
 {
   QVector<float> seedfrc;
   int scount = c->seedpos.count(); 
 
-  double plen = 0;
+  int onpts = c->pts.count();
   seedfrc << 0;
   for(int j=1; j<scount; j++)
-    {
-      for (int i=c->seedpos[j-1]+1; i<=c->seedpos[j]; i++)
-	{
-	  QPointF v = c->pts[i]-c->pts[i-1];
-	  plen += qSqrt(QPointF::dotProduct(v,v));
-	}
-      seedfrc << plen;
-    }
-  if (c->closed) // for closed curve
-    {
-      for (int i=c->seedpos[scount-1]+1; i<c->pts.count(); i++)
-	{
-	  QPointF v = c->pts[i]-c->pts[i-1];
-	  plen += qSqrt(QPointF::dotProduct(v,v));
-	}
-      QPointF v = c->pts[0]-c->pts[c->pts.count()-1];
-      plen += qSqrt(QPointF::dotProduct(v,v));
-    }
-
-  for(int j=1; j<seedfrc.count(); j++)
-    seedfrc[j] /= plen;
+    seedfrc << (float)c->seedpos[j]/(float)onpts;
   
   // replace pts with the smooth version
   c->pts = smooth(c->pts, c->closed);
-  double newplen = 0;
-  {
-    for(int j=1; j<scount; j++)
-      {
-	for (int i=c->seedpos[j-1]+1; i<=c->seedpos[j]; i++)
-	  {
-	    QPointF v = c->pts[i]-c->pts[i-1];
-	    newplen += qSqrt(QPointF::dotProduct(v,v));
-	  }
-      }
-    if (c->closed) // for closed curve
-      {
-	for (int i=c->seedpos[scount-1]+1; i<c->pts.count(); i++)
-	  {
-	    QPointF v = c->pts[i]-c->pts[i-1];
-	    plen += qSqrt(QPointF::dotProduct(v,v));
-	  }
-	QPointF v = c->pts[0]-c->pts[c->pts.count()-1];
-	newplen += qSqrt(QPointF::dotProduct(v,v));
-      }
-  }
 
-  for(int j=1; j<seedfrc.count(); j++)
-    seedfrc[j] *= newplen;
-
-  float nlen = 0;
-  int j = 1;
-  for(int i=1; i<c->pts.count(); i++)
-    {
-     QPointF v = c->pts[i]-c->pts[i-1];
-     nlen += qSqrt(QPointF::dotProduct(v,v));
-
-     if (nlen >= seedfrc[j])
-       {
-	 c->seedpos[j] = i;
-	 j++;
-	 if (j >= scount)
-	   break;
-       }
-    }
+  int npts = c->pts.count();
+  for(int j=1; j<scount; j++)
+    c->seedpos[j] = seedfrc[j]*npts;
 
   if (!c->closed) // for open curve
     c->seedpos[scount-1] = c->pts.count()-1;
@@ -1522,3 +1535,61 @@ CurveGroup::generateXYpoints()
 
   m_pointsDirtyBit = false;
 }
+
+QVector<QPointF>
+CurveGroup::dilateErode(QVector<QPointF> c, bool closed, float lambda)
+{
+  QVector<QPointF> newc;
+  newc = c;
+
+  // taubin smoothing
+  int npts = c.count();
+  int ist = 0;
+  int ied = npts;
+  int p2 = 2;
+  if (!closed)
+    {
+      ist = 1;
+      ied = npts-1;
+    }    
+
+  for(int i=ist; i<ied; i++)
+    {
+      int nxt = (i+1)%npts;
+      int prv = (npts+(i-1))%npts;
+      QPointF vp = (c[nxt]-c[prv]);
+      double vpl = qSqrt(vp.x()*vp.x() + vp.y()*vp.y());
+      if (vpl > 0.1)
+	{
+	  vp /= vpl;
+	  newc[i] = c[i] + lambda*QPointF(-vp.y(), vp.x());
+	}
+    }
+
+  QVector<QPointF> w;
+  w = subsample(newc, m_seglen, closed);
+  return w;
+}
+
+void
+CurveGroup::dilateErodeCurveWithSeedPoints(Curve *c, float lambda)
+{
+  QVector<float> seedfrc;
+  int scount = c->seedpos.count();   
+
+  int onpts = c->pts.count();
+  seedfrc << 0;
+  for(int j=1; j<scount; j++)
+    seedfrc << (float)c->seedpos[j]/(float)onpts;
+    
+  // replace pts with the dilated/eroded version
+  c->pts = dilateErode(c->pts, c->closed, lambda);
+
+  int npts = c->pts.count();
+  for(int j=1; j<scount; j++)
+    c->seedpos[j] = seedfrc[j]*npts;
+  
+  if (!c->closed) // for open curve
+    c->seedpos[scount-1] = c->pts.count()-1;
+}
+

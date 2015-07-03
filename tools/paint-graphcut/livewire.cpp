@@ -424,6 +424,7 @@ LiveWire::calculateGradients()
 
   memset(m_grad, 0, sizeof(float)*m_width*m_height);
   memset(m_normal, 0, 2*sizeof(float)*m_width*m_height);  
+  memset(m_tmp, 0, 4*m_width*m_height);
 
   float maxGrad = 0;
   float minGrad = 1000000;

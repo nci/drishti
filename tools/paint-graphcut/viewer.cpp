@@ -204,6 +204,8 @@ void
 Viewer::drawCurrentSlice(Vec subvolmin,
 			 Vec subvolmax)
 {
+  uchar *lut = Global::lut();
+
   if (m_currSliceType == 0)
     {
       glBegin(GL_QUADS);  
@@ -212,6 +214,28 @@ Viewer::drawCurrentSlice(Vec subvolmin,
       glVertex3f(subvolmax.x, subvolmax.y, m_currSlice);
       glVertex3f(subvolmin.x, subvolmax.y, m_currSlice);
       glEnd();  
+
+
+      if (m_volPtr && m_pointSkip > 0)
+	{
+	  int d=m_currSlice;
+	  for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
+	    for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
+	      {
+		uchar v = m_volPtr[d*m_width*m_height + w*m_height + h];
+		if (lut[4*v+3] > 10)
+		  {
+		    glBegin(GL_POINTS);
+		    float r = lut[4*v+2]*1.0/255.0;
+		    float g = lut[4*v+1]*1.0/255.0;
+		    float b = lut[4*v+0]*1.0/255.0;
+		    glColor3f(r,g,b);
+		    glVertex3f(h, w, d);
+		    glEnd();
+		  }
+	      }
+	}
+      
     }
 
   if (m_currSliceType == 1)
@@ -222,6 +246,26 @@ Viewer::drawCurrentSlice(Vec subvolmin,
       glVertex3f(subvolmax.x, m_currSlice, subvolmax.z);
       glVertex3f(subvolmin.x, m_currSlice, subvolmax.z);  
       glEnd();    
+
+      if (m_volPtr && m_pointSkip > 0)
+	{
+	  int w=m_currSlice;
+	  for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
+	    for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
+	      {
+		uchar v = m_volPtr[d*m_width*m_height + w*m_height + h];
+		if (lut[4*v+3] > 10)
+		  {
+		    glBegin(GL_POINTS);
+		    float r = lut[4*v+2]*1.0/255.0;
+		    float g = lut[4*v+1]*1.0/255.0;
+		    float b = lut[4*v+0]*1.0/255.0;
+		    glColor3f(r,g,b);
+		    glVertex3f(h, w, d);
+		    glEnd();
+		  }
+	      }
+	}
     }
 
   if (m_currSliceType == 2)
@@ -232,6 +276,26 @@ Viewer::drawCurrentSlice(Vec subvolmin,
       glVertex3f(m_currSlice, subvolmax.y, subvolmax.z);
       glVertex3f(m_currSlice, subvolmin.y, subvolmax.z);  
       glEnd();    
+
+      if (m_volPtr && m_pointSkip > 0)
+	{
+	  int h=m_currSlice;
+	  for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
+	    for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
+	      {
+		uchar v = m_volPtr[d*m_width*m_height + w*m_height + h];
+		if (lut[4*v+3] > 10)
+		  {
+		    glBegin(GL_POINTS);
+		    float r = lut[4*v+2]*1.0/255.0;
+		    float g = lut[4*v+1]*1.0/255.0;
+		    float b = lut[4*v+0]*1.0/255.0;
+		    glColor3f(r,g,b);
+		    glVertex3f(h, w, d);
+		    glEnd();
+		  }
+	      }
+	}
     }
 }
 

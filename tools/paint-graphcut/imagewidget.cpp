@@ -2139,6 +2139,46 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
       return true;
     }
 
+  if (event->key() == Qt::Key_D)
+    { // curve dilation
+      if (m_sliceType == DSlice)
+	m_dCurves.dilateErode(m_currSlice, m_pickHeight, m_pickWidth,
+			      shiftModifier,
+			      m_minDSlice, m_maxDSlice, 0.5);
+      else if (m_sliceType == WSlice)
+	m_wCurves.dilateErode(m_currSlice, m_pickHeight, m_pickDepth,
+			      shiftModifier,
+			      m_minWSlice, m_maxWSlice, 0.5);
+      else
+	m_hCurves.dilateErode(m_currSlice, m_pickWidth,  m_pickDepth,
+			      shiftModifier,
+			      m_minHSlice, m_maxHSlice, 0.5);
+      
+      emit saveWork();
+      update();
+      return true;
+    }
+
+  if (event->key() == Qt::Key_E)
+    { // curve erosion
+      if (m_sliceType == DSlice)
+	m_dCurves.dilateErode(m_currSlice, m_pickHeight, m_pickWidth,
+			      shiftModifier,
+			      m_minDSlice, m_maxDSlice, -0.5);
+      else if (m_sliceType == WSlice)
+	m_wCurves.dilateErode(m_currSlice, m_pickHeight, m_pickDepth,
+			      shiftModifier,
+			      m_minWSlice, m_maxWSlice, -0.5);
+      else
+	m_hCurves.dilateErode(m_currSlice, m_pickWidth,  m_pickDepth,
+			      shiftModifier,
+			      m_minHSlice, m_maxHSlice, -0.5);
+      
+      emit saveWork();
+      update();
+      return true;
+    }
+
   if (event->key() == Qt::Key_Space)
     {
       bool selected;

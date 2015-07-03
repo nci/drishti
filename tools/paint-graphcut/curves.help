@@ -193,6 +193,22 @@ Show the information about the curve under the mouse cursor.
 #end
 
 #begin
+d
+d
+Shift+d
+Dilate curve under the mouse cursor.
+When Shift+d is pressed all the curves within the limits specified by the end markers for the current slice direction are dilated.
+#end
+
+#begin
+e
+e
+Shift+e
+Erode curve under the mouse cursor.
+When Shift+e is pressed all the curves within the limits specified by the end markers for the current slice direction are eroded.
+#end
+
+#begin
 s
 s
 Shift+s

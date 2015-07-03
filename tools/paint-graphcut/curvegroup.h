@@ -61,6 +61,9 @@ class CurveGroup
 
   void smooth(int, int, int,
 	      bool, int, int);
+  void dilateErode(int, int, int,
+		   bool, int, int,
+		   float);
   void push(int, int, int, int);
   
   void resetMoveCurve();
@@ -118,6 +121,9 @@ class CurveGroup
 
   QVector<QPointF> smooth(QVector<QPointF>, bool);
   void smoothCurveWithSeedPoints(Curve *);
+
+  QVector<QPointF> dilateErode(QVector<QPointF>, bool, float);
+  void dilateErodeCurveWithSeedPoints(Curve *, float);
 
   QVector<QPointF> push(QVector<QPointF>, QPointF, int, bool);
 

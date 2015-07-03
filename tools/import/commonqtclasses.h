@@ -2,7 +2,7 @@
 #define COMMONQTGUI_H
 #include <QtGui/QtGuiDepends>
 #include <QAccessible>
-#include <QAccessiblebridge>
+#include <QAccessibleBridge>
 #include <QAccessibleObject>
 #include <QAccessiblePlugin>
 #include <QBitmap>
@@ -40,9 +40,9 @@
 #include <QGenericMatrix>
 #include <QMatrix4x4>
 #include <QQuaternion>
-#include <QVector2d>
-#include <QVector3d>
-#include <QVector4d>
+#include <QVector2D>
+#include <QVector3D>
+#include <QVector4D>
 #include <QBackingStore>
 #include <QBrush>
 #include <QColor>
@@ -58,7 +58,7 @@
 #include <QRegion>
 #include <QRgb>
 #include <QTransform>
-#include <QAbstracttextDocumentLayout>
+#include <QAbstractTextDocumentLayout>
 #include <QFont>
 #include <QFontDatabase>
 #include <QFontInfo>

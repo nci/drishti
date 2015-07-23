@@ -877,7 +877,7 @@ CurveGroup::morphCurves(int minS, int maxS)
 	  c.closed = is_closed;
 	  c.thickness = thick0 + (thick1-thick0)*((float)i/(float)(nperi-1));
 
-	  morphedCurves.insert(p.z, c);
+	  morphedCurves.insert(qCeil(p.z), c);
 	}
       
       m_mcg << morphedCurves;

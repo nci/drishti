@@ -177,6 +177,7 @@ class PathObject
   void makePlanar(int, int, int);
   void makePlanar();
   void makeCircle();
+  void makeEquidistant(int);
   void setPoints(QList<Vec>);
   void setRadX(QList<float>);
   void setRadY(QList<float>);

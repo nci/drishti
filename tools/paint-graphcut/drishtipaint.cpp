@@ -966,6 +966,10 @@ DrishtiPaint::setFile(QString filename)
   viewerUi.curvetags->setText("-1");
   viewerUi.paintedtags->setText("-1");
 
+  viewerUi.dslice->setMaximum(d-1);
+  viewerUi.wslice->setMaximum(w-1);
+  viewerUi.hslice->setMaximum(h-1);
+
   QString curvesfile = m_pvlFile;
   curvesfile.replace(".pvl.nc", ".curves");
   m_imageWidget->loadCurves(curvesfile);
@@ -1897,6 +1901,17 @@ DrishtiPaint::connectViewerMenu()
 	  this, SLOT(curvetag_editingFinished()));
   connect(viewerUi.fibertags, SIGNAL(editingFinished()),
 	  this, SLOT(fibertag_editingFinished()));
+
+  connect(viewerUi.slicesBox, SIGNAL(clicked(bool)),
+	  m_viewer, SLOT(setShowSlices(bool)));
+  connect(viewerUi.updateSlices, SIGNAL(clicked()),
+	  m_viewer, SLOT(updateSlices()));
+  connect(viewerUi.dslice, SIGNAL(valueChanged(int)),
+	  m_viewer, SLOT(setDSlice(int)));
+  connect(viewerUi.wslice, SIGNAL(valueChanged(int)),
+	  m_viewer, SLOT(setWSlice(int)));
+  connect(viewerUi.hslice, SIGNAL(valueChanged(int)),
+	  m_viewer, SLOT(setHSlice(int)));
 }
 
 void

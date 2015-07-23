@@ -1003,6 +1003,16 @@ Paths::processCommand(int idx, QString cmd)
 	{
 	  m_paths[idx]->makeCircle();
 	}
+      else if (list[li] == "resample")
+	{
+	  int npts = -1;
+	  if (list.count()-li > 1)
+	    {
+	      npts = list[li+1].toInt();
+	      li += 1;
+	    }	  
+	  m_paths[idx]->makeEquidistant(npts);
+	}
       else if (list[li] == "normalize" ||
 	  list[li] == "normalise")
 	{

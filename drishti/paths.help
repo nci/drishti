@@ -55,6 +55,24 @@ Set radius for the cross-sectional circle to the given value r for all the point
 #end
 
 #begin
+circle
+Rearange points on the path so that they lie on a circle.  Centroid of the original path will be taken as the center of the circle.  Average distance of the points on the original path from the center will be the radius of the circle.
+#end
+
+#begin
+resample
+resample [npoints]
+Path points are resampled so that they lie euidistant from their neighbours.
+
+npoints specify the number of resampled points.  When not specified, the number of points of the path remain unchanged.
+#end
+
+#begin
+planar
+Rearange points on the path so that they lie on a plane.
+#end
+
+#begin
 height
 height h
 

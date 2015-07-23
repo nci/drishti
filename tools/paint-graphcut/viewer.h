@@ -31,16 +31,21 @@ class Viewer : public QGLViewer
 
   public slots :
     void setPointSize(int p) { m_pointSize = p; update(); }
-    void setVoxelInterval(int p) { m_pointSkip = p; }
+    void setVoxelInterval(int);
     void updateVoxels();
     void updateViewerBox(int, int, int, int, int, int);
     void updateCurrSlice(int, int);
-    void setVoxelChoice(int p) { m_voxChoice = p; }
+    void setVoxelChoice(int);
     void setShowBox(bool);
     void saveImage() { saveSnapshot(false); };
     void setPaintedTags(QList<int>);
     void setCurveTags(QList<int>);
     void setFiberTags(QList<int>);
+    void setDSlice(int);
+    void setWSlice(int);
+    void setHSlice(int);
+    void setShowSlices(bool);
+    void updateSlices();
 
  private :
   int m_depth, m_width, m_height;
@@ -73,6 +78,12 @@ class Viewer : public QGLViewer
   QList<int> m_curveTags;
   QList<int> m_fiberTags;
 
+  bool m_showSlices;
+  int m_dslice, m_wslice, m_hslice;
+  QList<ushort> m_dvoxels;
+  QList<ushort> m_wvoxels;
+  QList<ushort> m_hvoxels;
+
 
   void drawBox();
   
@@ -94,6 +105,7 @@ class Viewer : public QGLViewer
   void drawEnclosingCube(Vec, Vec);
   void drawCurrentSlice(Vec, Vec);
 
+  void drawSlices();
 };
 
 #endif

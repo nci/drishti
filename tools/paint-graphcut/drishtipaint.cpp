@@ -966,9 +966,13 @@ DrishtiPaint::setFile(QString filename)
   viewerUi.curvetags->setText("-1");
   viewerUi.paintedtags->setText("-1");
 
-  viewerUi.dslice->setMaximum(d-1);
-  viewerUi.wslice->setMaximum(w-1);
-  viewerUi.hslice->setMaximum(h-1);
+//  viewerUi.dslice->setMaximum(d-1);
+//  viewerUi.wslice->setMaximum(w-1);
+//  viewerUi.hslice->setMaximum(h-1);
+
+  m_viewDslice->setRange(0, d-1);
+  m_viewWslice->setRange(0, w-1);
+  m_viewHslice->setRange(0, h-1);
 
   QString curvesfile = m_pvlFile;
   curvesfile.replace(".pvl.nc", ".curves");
@@ -1906,11 +1910,26 @@ DrishtiPaint::connectViewerMenu()
 	  m_viewer, SLOT(setShowSlices(bool)));
   connect(viewerUi.updateSlices, SIGNAL(clicked()),
 	  m_viewer, SLOT(updateSlices()));
-  connect(viewerUi.dslice, SIGNAL(valueChanged(int)),
+
+
+  m_viewDslice = new PopUpSlider(m_viewer, Qt::Vertical);
+  m_viewWslice = new PopUpSlider(m_viewer, Qt::Vertical);
+  m_viewHslice = new PopUpSlider(m_viewer, Qt::Vertical);
+
+  m_viewHslice->setText("X");
+  m_viewWslice->setText("Y");
+  m_viewDslice->setText("Z");
+  
+  viewerUi.popupSlices->setMargin(0);
+  viewerUi.popupSlices->addWidget(m_viewHslice);
+  viewerUi.popupSlices->addWidget(m_viewWslice);
+  viewerUi.popupSlices->addWidget(m_viewDslice);
+
+  connect(m_viewDslice, SIGNAL(valueChanged(int)),
 	  m_viewer, SLOT(setDSlice(int)));
-  connect(viewerUi.wslice, SIGNAL(valueChanged(int)),
+  connect(m_viewWslice, SIGNAL(valueChanged(int)),
 	  m_viewer, SLOT(setWSlice(int)));
-  connect(viewerUi.hslice, SIGNAL(valueChanged(int)),
+  connect(m_viewHslice, SIGNAL(valueChanged(int)),
 	  m_viewer, SLOT(setHSlice(int)));
 }
 

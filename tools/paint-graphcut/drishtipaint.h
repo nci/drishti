@@ -16,6 +16,7 @@
 #include "viewer.h"
 #include "marchingcubes.h"
 #include "ply.h"
+#include "popupslider.h"
 
 
 class DrishtiPaint : public QMainWindow
@@ -144,6 +145,9 @@ class DrishtiPaint : public QMainWindow
   QList <QAction*> m_recentFileActions;
 
   Viewer *m_viewer;
+  PopUpSlider *m_viewDslice;
+  PopUpSlider *m_viewWslice;
+  PopUpSlider *m_viewHslice;
 
   void setFile(QString);
   void initTagColors();

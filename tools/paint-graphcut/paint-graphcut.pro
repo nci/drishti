@@ -23,13 +23,13 @@ FORMS += drishtipaint.ui viewermenu.ui graphcutmenu.ui curvesmenu.ui fibersmenu.
 
 #----------------------------------------------------------------
 # Windows setup for 64-bit system
-contains(Windows_Setup, Win64) {
+#contains(Windows_Setup, Win64) {
   win32 {
          INCLUDEPATH += c:\Qt\libQGLViewer-2.6.1
          LIBS += QGLViewer2.lib
          QMAKE_LIBDIR += c:\Qt\libQGLViewer-2.6.1\lib
         }
-}
+#}
 
 #----------------------------------------------------------------
 # MacOSX setup
@@ -84,7 +84,8 @@ HEADERS += commonqtclasses.h \
 	lookuptable.h \
 	marchingcubes.h \
 	showhelp.h \
-	getmemorysize.h
+	getmemorysize.h \
+	popupslider.h
 
 
 SOURCES += drishtipaint.cpp \
@@ -123,4 +124,5 @@ SOURCES += drishtipaint.cpp \
 	ply.c \
 	marchingcubes.cpp \
 	showhelp.cpp \
-	getmemorysize.cpp
+	getmemorysize.cpp \
+	popupslider.cpp

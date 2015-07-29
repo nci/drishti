@@ -73,6 +73,8 @@ CurveGroup::reset()
   m_ypoints.clear();
 
   m_addingCurves = false;
+
+  m_selectedPtCoord = QPointF(-1,-1);
 }
 
 QList<int>
@@ -601,7 +603,7 @@ CurveGroup::addPoint(int key, int v0, int v1)
 }
 
 int
-CurveGroup::getActiveCurve(int key, int v0, int v1)
+CurveGroup::getActiveCurve(int key, int v0, int v1, bool selected)
 {
   if (!m_cg.contains(key))
     return -1;
@@ -609,6 +611,9 @@ CurveGroup::getActiveCurve(int key, int v0, int v1)
   QList<Curve*> curves = m_cg.values(key);
   for(int ic=0; ic<curves.count(); ic++)
     {
+      if (selected && curves[ic]->selected)
+	return ic;
+
       QPointF cen = QPointF(v0, v1);
       int npts = curves[ic]->pts.count();
       for(int i=npts-1; i>=0; i--)
@@ -955,71 +960,74 @@ void
 CurveGroup::smooth(int key, int v0, int v1,
 		   bool all, int minSlice, int maxSlice)
 {
-  if (all)
-    {
-      for(int k=minSlice; k<=maxSlice; k++)
-	{
-	  QList<Curve*> curves = m_cg.values(k);
-	  for(int ic=0; ic<curves.count(); ic++)
-	    {
-	      // fix seedpos
-	      if (curves[ic]->seedpos.count() > 0)
-		smoothCurveWithSeedPoints(curves[ic]);
-	      else
-		// replace pts with the smooth version
-		curves[ic]->pts = smooth(curves[ic]->pts,
-				     curves[ic]->closed);
-	    }
-	}
+  dilateErode(key, v0, v1, all, minSlice, maxSlice, 0.5);
+  dilateErode(key, v0, v1, all, minSlice, maxSlice, -0.5);
 
-      for(int m=0; m<m_mcg.count(); m++)
-	{
-	  QList<int> keys = m_mcg[m].keys();	  
-	  for(int k=0; k<keys.count(); k++)
-	    {
-	      if (k >= minSlice && k<=maxSlice)
-		{
-		  Curve c = m_mcg[m].value(keys[k]);
-		  QVector<QPointF> w;
-		  w = smooth(c.pts, c.closed);
-		  c.pts = w; // replace pts with the smooth version
-		  m_mcg[m].insert(keys[k], c);
-		}
-	    }
-	}
-
-      m_pointsDirtyBit = true;
-      return;
-    }
-
-
-  if (m_cg.contains(key))
-    {
-      int ic = getActiveCurve(key, v0, v1);
-      if (ic >= 0)
-	{
-	  QList<Curve*> curves = m_cg.values(key);
-	  // fix seedpos
-	  if (curves[ic]->seedpos.count() > 0)
-	    smoothCurveWithSeedPoints(curves[ic]);
-	  else
-	    // replace pts with the smooth version
-	    curves[ic]->pts = smooth(curves[ic]->pts,
-				     curves[ic]->closed);
-	  
-	  m_pointsDirtyBit = true;
-	}
-    }
-  int mc = getActiveMorphedCurve(key, v0, v1);
-  if (mc >= 0)
-    {
-      Curve c = m_mcg[mc].value(key);
-      QVector<QPointF> w;
-      w = smooth(c.pts,
-		 c.closed);
-      c.pts = w; // replace pts with the smooth version
-      m_mcg[mc].insert(key, c);
-    }
+//  if (all)
+//    {
+//      for(int k=minSlice; k<=maxSlice; k++)
+//	{
+//	  QList<Curve*> curves = m_cg.values(k);
+//	  for(int ic=0; ic<curves.count(); ic++)
+//	    {
+//	      // fix seedpos
+//	      if (curves[ic]->seedpos.count() > 0)
+//		smoothCurveWithSeedPoints(curves[ic]);
+//	      else
+//		// replace pts with the smooth version
+//		curves[ic]->pts = smooth(curves[ic]->pts,
+//				     curves[ic]->closed);
+//	    }
+//	}
+//
+//      for(int m=0; m<m_mcg.count(); m++)
+//	{
+//	  QList<int> keys = m_mcg[m].keys();	  
+//	  for(int k=0; k<keys.count(); k++)
+//	    {
+//	      if (k >= minSlice && k<=maxSlice)
+//		{
+//		  Curve c = m_mcg[m].value(keys[k]);
+//		  QVector<QPointF> w;
+//		  w = smooth(c.pts, c.closed);
+//		  c.pts = w; // replace pts with the smooth version
+//		  m_mcg[m].insert(keys[k], c);
+//		}
+//	    }
+//	}
+//
+//      m_pointsDirtyBit = true;
+//      return;
+//    }
+//
+//
+//  if (m_cg.contains(key))
+//    {
+//      int ic = getActiveCurve(key, v0, v1);
+//      if (ic >= 0)
+//	{
+//	  QList<Curve*> curves = m_cg.values(key);
+//	  // fix seedpos
+//	  if (curves[ic]->seedpos.count() > 0)
+//	    smoothCurveWithSeedPoints(curves[ic]);
+//	  else
+//	    // replace pts with the smooth version
+//	    curves[ic]->pts = smooth(curves[ic]->pts,
+//				     curves[ic]->closed);
+//	  
+//	  m_pointsDirtyBit = true;
+//	}
+//    }
+//  int mc = getActiveMorphedCurve(key, v0, v1);
+//  if (mc >= 0)
+//    {
+//      Curve c = m_mcg[mc].value(key);
+//      QVector<QPointF> w;
+//      w = smooth(c.pts,
+//		 c.closed);
+//      c.pts = w; // replace pts with the smooth version
+//      m_mcg[mc].insert(key, c);
+//    }
 }
 
 void
@@ -1116,6 +1124,46 @@ CurveGroup::smoothCurveWithSeedPoints(Curve *c)
 }
 
 void
+CurveGroup::startPush(int key, int v0, int v1, int rad)
+{
+  m_selectedPtCoord = QPointF(-1,-1);
+
+  QPointF cen = QPointF(v0, v1);
+
+  if (m_cg.contains(key))
+    {
+      int ic = getActiveCurve(key, v0, v1);
+      if (ic == -1)
+	ic = getActiveCurve(key, v0, v1, true);
+      if (ic >= 0)
+	{
+	  QList<Curve*> curves = m_cg.values(key);
+
+	  for(int i=0; i<curves.count(); i++)	    
+	    curves[i]->selected = false;
+	  curves[ic]->selected = true;
+
+	  // find nearest pt
+	  int npts = curves[ic]->pts.count();
+	  float minlen = 2*rad;
+	  int jc = -1;
+	  for(int i=0; i<npts; i++)
+	    {
+	      QPointF v = curves[ic]->pts[i] - QPointF(v0,v1);
+	      float len = qSqrt(QPointF::dotProduct(v,v));
+	      if (len <= minlen)
+		{
+		  minlen = len;
+		  jc = i;
+		}
+	    }
+	  if (jc>=0)
+	    m_selectedPtCoord = curves[ic]->pts[jc];
+	}
+    }
+}
+
+void
 CurveGroup::push(int key, int v0, int v1, int rad)
 {
   QPointF cen = QPointF(v0, v1);
@@ -1123,9 +1171,16 @@ CurveGroup::push(int key, int v0, int v1, int rad)
   if (m_cg.contains(key))
     {
       int ic = getActiveCurve(key, v0, v1);
+      if (ic == -1)
+	ic = getActiveCurve(key, v0, v1, true);
       if (ic >= 0)
 	{
 	  QList<Curve*> curves = m_cg.values(key);
+
+	  for(int i=0; i<curves.count(); i++)	    
+	    curves[i]->selected = false;
+	  curves[ic]->selected = true;
+
 	  // replace pts with the pushed version
 	  curves[ic]->pts = push(curves[ic]->pts,
 				 cen,
@@ -1154,30 +1209,73 @@ CurveGroup::push(QVector<QPointF> c, QPointF cen, int rad, bool closed)
   QVector<QPointF> newc;
   newc = c;
   int npts = c.count();
+
+  // find nearest pt
+  float minlen = 2*rad;
+  int ic = -1;
   for(int i=0; i<npts; i++)
     {
-      QPointF v = newc[i] - cen;
+      QPointF v = newc[i] - m_selectedPtCoord;
       float len = qSqrt(QPointF::dotProduct(v,v));
-      if (len <= rad)
+      if (len <= minlen)
 	{
-	  v /= qMax(0.0f, len);	      
-	  for(int j=-rad; j<=rad; j++)
-	    {
-	      int idx = i+j;
-	      if (idx < 0) idx = npts + idx;
-	      else if (idx > npts-1) idx = idx - npts;
-	      
-	      QPointF v0 = newc[idx] - cen;
-	      int v0len = qSqrt(QPointF::dotProduct(v0,v0));
-	      if (v0len <= rad)
-		{
-		  float frc = (float)qAbs(qAbs(j)-rad)/(float)rad;
-		  newc[idx] = newc[idx] + frc*(rad-len)*v;
-		}
-	    }
+	  minlen = len;
+	  ic = i;
 	}
     }
   
+  if (ic == -1) return c;
+
+  QPointF v = cen - newc[ic];
+  minlen = qSqrt(QPointF::dotProduct(v,v));
+  if (minlen < 1) return c;
+  QPointF dv = v/minlen;
+
+  int mini = ic;
+  int maxi = ic;
+  int jend = -npts;
+  if (!closed) jend = 0;
+  for(int j=ic-1; j>ic-npts; j--)
+    {
+      int i = j;
+      if (i < 0) i += npts;
+
+      QPointF v = newc[i] - cen;
+      float len = qSqrt(QPointF::dotProduct(v,v));
+      if (len < 2*rad)
+	mini = j;
+      else
+	break;
+    }
+  jend = 2*npts;
+  if (!closed) jend = npts;
+  for(int j=ic+1; j<ic+npts; j++)
+    {
+      int i = j%npts;      
+      QPointF v = newc[i] - cen;
+      float len = qSqrt(QPointF::dotProduct(v,v));
+      if (len < 2*rad)
+	maxi = j;
+      else
+	break;
+    }
+
+  QEasingCurve easing(QEasingCurve::OutCubic);
+  for(int j=mini; j<=maxi; j++)
+    {
+      int i = j;
+      if (i < 0) i += npts;
+      else i = i%npts;
+      
+      QPointF v = cen - c[i];
+      float len = qSqrt(QPointF::dotProduct(v,v));
+      float frc = 1.0 - len/(2*rad);
+      frc = easing.valueForProgress(frc);
+      newc[i] += minlen*frc*dv;
+    }
+    
+  m_selectedPtCoord = cen;
+
   QVector<QPointF> w;
   w = subsample(newc, 1.2, closed);
   
@@ -1587,7 +1685,7 @@ CurveGroup::dilateErodeCurveWithSeedPoints(Curve *c, float lambda)
 
   int npts = c->pts.count();
   for(int j=1; j<scount; j++)
-    c->seedpos[j] = seedfrc[j]*npts;
+    c->seedpos[j] = qRound(seedfrc[j]*npts);
   
   if (!c->closed) // for open curve
     c->seedpos[scount-1] = c->pts.count()-1;

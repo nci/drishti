@@ -64,6 +64,7 @@ class CurveGroup
   void dilateErode(int, int, int,
 		   bool, int, int,
 		   float);
+  void startPush(int, int, int, int);
   void push(int, int, int, int);
   
   void resetMoveCurve();
@@ -87,7 +88,7 @@ class CurveGroup
   Curve getCopyCurve() { return m_copyCurve; };
   void pasteCurve(int);
 
-  int getActiveCurve(int, int, int);
+  int getActiveCurve(int, int, int, bool selected=false);
   int getActiveMorphedCurve(int, int, int);
 
   QList< QMap<int, Curve> >* getPointerToMorphedCurves();
@@ -108,6 +109,7 @@ class CurveGroup
  private :
   float m_lambda;
   int m_seglen;
+  QPointF m_selectedPtCoord;
 
   QMultiMap<int, Curve*> m_cg;
   QList< QMap<int, Curve> > m_mcg;  

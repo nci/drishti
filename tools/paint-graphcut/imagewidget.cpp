@@ -2716,6 +2716,35 @@ ImageWidget::curveMousePressEvent(QMouseEvent *event)
 	      else
 		m_hCurves.addPoint(m_currSlice, m_pickWidth,  m_pickDepth);
 	    }
+//	  else if (shiftModifier)
+//	    {
+//	      if (m_sliceType == DSlice)
+//		{
+//		  int a = m_pickHeight-m_lastPickHeight;
+//		  int b = m_pickWidth-m_lastPickWidth;
+//		  int rad = qBound(Global::selectionPrecision(),
+//				   (int)qSqrt(a*a + b*b), 100);
+//		  m_dCurves.startPush(m_currSlice, m_pickHeight, m_pickWidth, rad);
+//		}
+//	      else if (m_sliceType == WSlice)
+//		{
+//		  int a = m_pickHeight-m_lastPickHeight;
+//		  int b = m_pickDepth-m_lastPickDepth;
+//		  int rad = qBound(Global::selectionPrecision(),
+//				   (int)qSqrt(a*a + b*b), 100);
+//		  m_wCurves.startPush(m_currSlice, m_pickHeight, m_pickDepth, rad);
+//		}
+//	      else
+//		{
+//		  int a = m_pickWidth-m_lastPickWidth;
+//		  int b = m_pickDepth-m_lastPickDepth;
+//		  int rad = qBound(Global::selectionPrecision(),
+//				   (int)qSqrt(a*a + b*b), 100);
+//		  m_hCurves.startPush(m_currSlice, m_pickWidth,  m_pickDepth, rad);
+//		}
+//	      update();
+//	      return;
+//	    }
 	}
     }
   else if (m_button == Qt::MiddleButton &&
@@ -2875,20 +2904,49 @@ ImageWidget::curveMouseMoveEvent(QMouseEvent *event)
       // carry on only if Alt key is not pressed
       if (validPickPoint(xpos, ypos))
 	{
-	  m_lastPickDepth = m_pickDepth;
-	  m_lastPickWidth = m_pickWidth;
-	  m_lastPickHeight= m_pickHeight;
-
-	  if(!m_livewireMode &&
-	     m_addingCurvePoints)
+//	  if (!m_livewireMode && shiftModifier)
+//	    {
+//	      if (m_sliceType == DSlice)
+//		{
+//		  int a = m_pickHeight-m_lastPickHeight;
+//		  int b = m_pickWidth-m_lastPickWidth;
+//		  int rad = qBound(5, (int)qSqrt(a*a + b*b), 100);
+//		  m_dCurves.push(m_currSlice, m_pickHeight, m_pickWidth, rad);
+//		}
+//	      else if (m_sliceType == WSlice)
+//		{
+//		  int a = m_pickHeight-m_lastPickHeight;
+//		  int b = m_pickDepth-m_lastPickDepth;
+//		  int rad = qBound(5, (int)qSqrt(a*a + b*b), 100);
+//		  m_wCurves.push(m_currSlice, m_pickHeight, m_pickDepth, rad);
+//		}
+//	      else
+//		{
+//		  int a = m_pickWidth-m_lastPickWidth;
+//		  int b = m_pickDepth-m_lastPickDepth;
+//		  int rad = qBound(5, (int)qSqrt(a*a + b*b), 100);
+//		  m_hCurves.push(m_currSlice, m_pickWidth,  m_pickDepth, rad);
+//		}
+//	      update();
+//	      return;
+//	    }
+//	  else
 	    {
-	      if (m_sliceType == DSlice)
-		m_dCurves.addPoint(m_currSlice, m_pickHeight, m_pickWidth);
-	      else if (m_sliceType == WSlice)
-		m_wCurves.addPoint(m_currSlice, m_pickHeight, m_pickDepth);
-	      else
-		m_hCurves.addPoint(m_currSlice, m_pickWidth,  m_pickDepth);
-	      update();
+	      m_lastPickDepth = m_pickDepth;
+	      m_lastPickWidth = m_pickWidth;
+	      m_lastPickHeight= m_pickHeight;
+	      
+	      if(!m_livewireMode &&
+		 m_addingCurvePoints)
+		{
+		  if (m_sliceType == DSlice)
+		    m_dCurves.addPoint(m_currSlice, m_pickHeight, m_pickWidth);
+		  else if (m_sliceType == WSlice)
+		    m_wCurves.addPoint(m_currSlice, m_pickHeight, m_pickDepth);
+		  else
+		    m_hCurves.addPoint(m_currSlice, m_pickWidth,  m_pickDepth);
+		  update();
+		}
 	    }
 	}
     }

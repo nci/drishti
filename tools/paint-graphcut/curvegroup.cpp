@@ -1,6 +1,7 @@
 #include "curvegroup.h"
 #include "morphcurve.h"
 #include "global.h"
+#include "morphslice.h"
 
 Curve::Curve()
 {
@@ -882,13 +883,130 @@ CurveGroup::morphCurves(int minS, int maxS)
 	  c.closed = is_closed;
 	  c.thickness = thick0 + (thick1-thick0)*((float)i/(float)(nperi-1));
 
-	  morphedCurves.insert(qCeil(p.z), c);
+	  //morphedCurves.insert(qCeil(p.z), c);
+	  morphedCurves.insert(qRound(p.z), c);
 	}
       
       m_mcg << morphedCurves;
     }
   
   QMessageBox::information(0, "", "morphed intermediate curves");
+}
+
+void
+CurveGroup::morphSlices(int minS, int maxS)
+{
+  QMultiMap<int, Curve> cg;
+  QList<int> cgkeys = m_cg.uniqueKeys();
+  for(int i=0; i<cgkeys.count(); i++)
+    {
+      if (cgkeys[i] >= minS &&
+	  cgkeys[i] <= maxS)
+	{
+//	  int sel = -1;
+	  QList<Curve*> curves = m_cg.values(cgkeys[i]);
+	  for(int j=0; j<curves.count(); j++)
+	    {
+	      if (curves[j]->selected)
+		{
+		  cg.insert(cgkeys[i], *curves[j]);
+//		  sel = j;
+//		  break;
+		}
+	    }
+
+//	  if (sel >= 0)
+//	    cg.insert(cgkeys[i], *curves[sel]);
+	}
+    }
+  if (cg.count() <= 1)
+    {
+      QMessageBox::information(0, "", "Atleast two curves required.  Not enough curves selected to interpolate");
+      return;
+    }
+
+  QList<int> keys = cg.uniqueKeys();
+  for (int ncg=0; ncg<keys.count()-1; ncg++)
+    {
+      int zmin = keys[ncg];
+
+      QMap<int, QList<QPolygonF> > gmcg;
+
+      bool is_closed;
+      int thick0, thick1, mtag;
+
+      {
+	QList<QPolygonF> pf;
+	QList<Curve> curves = cg.values(keys[ncg]);
+	is_closed = curves[0].closed;
+	thick0 = curves[0].thickness;
+	mtag = curves[0].tag;
+	for(int j=0; j<curves.count(); j++)
+	  pf << QPolygonF(curves[j].pts);
+	gmcg.insert(keys[ncg], pf);
+      }
+      {
+	QList<QPolygonF> pf;
+	QList<Curve> curves = cg.values(keys[ncg+1]);
+	thick1 = curves[0].thickness;	
+	for(int j=0; j<curves.count(); j++)
+	  pf << QPolygonF(curves[j].pts);
+	gmcg.insert(keys[ncg+1], pf);
+      }
+      
+      //gmcg.insert(keys[ncg], cg[keys[ncg]].pts);
+      //gmcg.insert(keys[ncg+1], cg[keys[ncg+1]].pts);
+
+      //bool is_closed = cg[keys[ncg]].closed;
+      //int thick0 = cg[keys[ncg]].thickness;
+      //int thick1 = cg[keys[ncg+1]].thickness;
+      //int mtag = cg[keys[ncg]].tag;
+      
+      MorphSlice mc;
+      QMap< int, QList<QPolygonF> > allcurves = mc.setPaths(gmcg);
+
+      QList<int> keys = allcurves.keys();
+      int nperi = keys.count();
+      
+      for(int npc=0; npc<10; npc++)
+	{
+	  bool over = true;
+	  QMap<int, Curve> morphedCurves;
+	  for(int i=0; i<nperi; i++)
+	    {
+	      int zv = keys[i];
+	      QList<QPolygonF> poly = allcurves[zv];
+	      
+	      if (poly.count() > npc)
+		{
+		  QVector<QPointF> a;	  
+		  for (int j=0; j<poly[npc].count(); j++)
+		    {
+		      QPointF p = poly[npc][j];
+		      a << QPointF(p.x(),p.y());
+		    }
+		  a = smooth(a, is_closed);
+		  
+		  Curve c;
+		  c.tag = mtag;
+		  c.pts = a;
+		  c.closed = is_closed;
+		  c.thickness = thick0 + (thick1-thick0)*((float)i/(float)(nperi-1));
+		  
+		  morphedCurves.insert(zmin+zv, c);
+
+		  over = false;
+		}
+	    }
+
+	  if (!over)
+	    m_mcg << morphedCurves;
+	  else
+	    break;
+	}
+    }
+  
+  QMessageBox::information(0, "", "morphed intermediate slices");
 }
 
 int
@@ -962,72 +1080,6 @@ CurveGroup::smooth(int key, int v0, int v1,
 {
   dilateErode(key, v0, v1, all, minSlice, maxSlice, 0.5);
   dilateErode(key, v0, v1, all, minSlice, maxSlice, -0.5);
-
-//  if (all)
-//    {
-//      for(int k=minSlice; k<=maxSlice; k++)
-//	{
-//	  QList<Curve*> curves = m_cg.values(k);
-//	  for(int ic=0; ic<curves.count(); ic++)
-//	    {
-//	      // fix seedpos
-//	      if (curves[ic]->seedpos.count() > 0)
-//		smoothCurveWithSeedPoints(curves[ic]);
-//	      else
-//		// replace pts with the smooth version
-//		curves[ic]->pts = smooth(curves[ic]->pts,
-//				     curves[ic]->closed);
-//	    }
-//	}
-//
-//      for(int m=0; m<m_mcg.count(); m++)
-//	{
-//	  QList<int> keys = m_mcg[m].keys();	  
-//	  for(int k=0; k<keys.count(); k++)
-//	    {
-//	      if (k >= minSlice && k<=maxSlice)
-//		{
-//		  Curve c = m_mcg[m].value(keys[k]);
-//		  QVector<QPointF> w;
-//		  w = smooth(c.pts, c.closed);
-//		  c.pts = w; // replace pts with the smooth version
-//		  m_mcg[m].insert(keys[k], c);
-//		}
-//	    }
-//	}
-//
-//      m_pointsDirtyBit = true;
-//      return;
-//    }
-//
-//
-//  if (m_cg.contains(key))
-//    {
-//      int ic = getActiveCurve(key, v0, v1);
-//      if (ic >= 0)
-//	{
-//	  QList<Curve*> curves = m_cg.values(key);
-//	  // fix seedpos
-//	  if (curves[ic]->seedpos.count() > 0)
-//	    smoothCurveWithSeedPoints(curves[ic]);
-//	  else
-//	    // replace pts with the smooth version
-//	    curves[ic]->pts = smooth(curves[ic]->pts,
-//				     curves[ic]->closed);
-//	  
-//	  m_pointsDirtyBit = true;
-//	}
-//    }
-//  int mc = getActiveMorphedCurve(key, v0, v1);
-//  if (mc >= 0)
-//    {
-//      Curve c = m_mcg[mc].value(key);
-//      QVector<QPointF> w;
-//      w = smooth(c.pts,
-//		 c.closed);
-//      c.pts = w; // replace pts with the smooth version
-//      m_mcg[mc].insert(key, c);
-//    }
 }
 
 void

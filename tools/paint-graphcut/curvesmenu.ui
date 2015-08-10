@@ -56,7 +56,7 @@
         <enum>Qt::LeftToRight</enum>
        </property>
        <property name="minimum">
-        <number>3</number>
+        <number>1</number>
        </property>
        <property name="maximum">
         <number>20</number>

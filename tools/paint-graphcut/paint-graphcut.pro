@@ -60,6 +60,7 @@ HEADERS += commonqtclasses.h \
         livewire.h \
 	myslider.h \
  	morphcurve.h \
+ 	morphslice.h \
 	propertyeditor.h \
 	splineeditor.h \
 	splineeditorwidget.h \
@@ -103,6 +104,7 @@ SOURCES += drishtipaint.cpp \
         livewire.cpp \
 	myslider.cpp \
  	morphcurve.cpp \
+ 	morphslice.cpp \
 	propertyeditor.cpp \
 	splineeditor.cpp \
 	splineeditorwidget.cpp \

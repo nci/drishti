@@ -105,6 +105,7 @@ class ImageWidget : public QWidget
   void newFiber();
   void endFiber();
   void morphCurves();
+  void morphSlices();
   void deleteAllCurves();
   void zoom0();
   void zoom9();

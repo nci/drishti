@@ -1,3 +1,6 @@
+#ifndef MORPHCURVE_H
+#define MORPHCURVE_H
+
 #include <QtWidgets>
 #include "commonqtclasses.h"
 #include <QPointF>
@@ -138,3 +141,5 @@ class MorphCurve
 //  Perimeter* makePerimeterFromBezierData(double*, double*, double*, double*, double*, double*, double, int, int);
 
 };
+
+#endif // MORPHCURVE_H

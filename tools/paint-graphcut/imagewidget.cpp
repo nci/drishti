@@ -1725,6 +1725,32 @@ ImageWidget::morphCurves()
 }
 
 void
+ImageWidget::morphSlices()
+{
+  int minS, maxS;
+  if (m_sliceType == DSlice)
+    { 
+      minS = m_minDSlice; 
+      maxS = m_maxDSlice; 
+    } 
+  else if (m_sliceType == WSlice) 
+    { 
+      minS = m_minWSlice; 
+      maxS = m_maxWSlice; 
+    } 
+  else 
+    { 
+      minS = m_minHSlice; 
+      maxS = m_maxHSlice; 
+    }  
+
+  CurveGroup *cg = getCg();
+  cg->morphSlices(minS, maxS);
+  
+  update();
+}
+
+void
 ImageWidget::deleteAllCurves()
 {
   QStringList items;
@@ -2103,6 +2129,12 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
       cg->pasteCurve(m_currSlice);
       emit polygonLevels(cg->polygonLevels());      
       update();
+      return true;
+    }
+
+  if (shiftModifier && event->key() == Qt::Key_Q)
+    {
+      morphSlices();
       return true;
     }
 

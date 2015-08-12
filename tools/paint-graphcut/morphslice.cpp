@@ -7,9 +7,9 @@ MorphSlice::MorphSlice()
 {
   m_startSlice = 0;
   m_endSlice = 0;
-  m_overlapSlice = 0;
-  m_o2S.clear();
-  m_o2E.clear();
+
+  m_nX = 0;
+  m_nY = 0;
 }
 
 MorphSlice::~MorphSlice()
@@ -20,19 +20,11 @@ MorphSlice::~MorphSlice()
 void
 MorphSlice::clearSlices()
 {
-  delete [] m_startSlice;
-  delete [] m_endSlice;
-  delete [] m_overlapSlice;
-  for(int i=0; i<m_o2E.count(); i++)
-    delete [] m_o2E[i];
-  for(int i=0; i<m_o2S.count(); i++)
-    delete [] m_o2S[i];
+  if (m_startSlice) delete [] m_startSlice;
+  if (m_endSlice) delete [] m_endSlice;
 
   m_startSlice = 0;
   m_endSlice = 0;
-  m_overlapSlice = 0;
-  m_o2E.clear();
-  m_o2S.clear();
 
   m_nX = 0;
   m_nY = 0;
@@ -86,14 +78,11 @@ MorphSlice::setPaths(QMap<int, QList<QPolygonF> > paths)
   clearSlices();
 
   QList<int> keys = paths.keys();
-
-  m_nX = 0;
-  m_nY = 0;
-
+  // assuming only 2 keys
   int nSlices = keys[1]-keys[0]-1;
-  //int nSlices = 11;
+  int startkey = keys[0];
+  int endkey = keys[1];
 
-  // assuming only 2 paths
   for(int k=0; k<keys.count(); k++)
   {
     QList<QPolygonF> pf = paths.value(keys[k]);
@@ -105,167 +94,158 @@ MorphSlice::setPaths(QMap<int, QList<QPolygonF> > paths)
 	    m_nY = qMax(m_nY, (int)qRound(pf[ii][i].y()));
 	  }
       }
-//    QVector<QPointF> c = paths.value(keys[k]);
-//    for(int i=0; i<c.count(); i++)
-//      {
-//	m_nX = qMax(m_nX, (int)qRound(c[i].x()));
-//	m_nY = qMax(m_nY, (int)qRound(c[i].y()));
-//      }
   }
-  m_nX += 50;
-  m_nY += 50;
 
-  m_startSlice = new int[m_nX*m_nY];
-  m_endSlice = new int[m_nX*m_nY];
-  m_overlapSlice = new int[m_nX*m_nY];
+  // just add a bit of margin
+  m_nX += 5;
+  m_nY += 5;
 
-  int nextkey = 0;
+  m_startSlice = new uchar[m_nX*m_nY];
+  m_endSlice = new uchar[m_nX*m_nY];
+
+  // plot start slice
   {
     QImage pimg = QImage(m_nX, m_nY, QImage::Format_RGB32);
     pimg.fill(0);
 
     QPainter p(&pimg);
-//    QVector<QPointF> c = paths.value(keys[0]);
-//    p.setPen(QPen(QColor(255, 0, 0), 1));
-//    p.setBrush(QColor(255, 255, 255));
-//    p.drawPolygon(c);
 
-    for(int k=0; k<keys.count(); k++)
+    QList<QPolygonF> pf = paths.value(startkey);
+	  
+    for(int ii=0; ii<pf.count(); ii++)
       {
-	//QVector<QPointF> c = paths.value(keys[k]);
-	if (keys[k] == keys[nextkey])
-	  {
-	    QList<QPolygonF> pf = paths.value(keys[k]);
-	    for(int ii=0; ii<pf.count(); ii++)
-	      {
-		p.setPen(QPen(QColor(255, 0, 0), 1));
-		p.setBrush(QColor(255, 255, 255));
-		p.drawPolygon(pf[ii]);
-	      }
-	  }
-	else
-	  {
-	    nextkey = k;
-	    break;
-	  }
+	p.setPen(QPen(QColor(255, 0, 0), 1));
+	p.setBrush(QColor(255, 255, 255));
+	p.drawPolygon(pf[ii]);
       }
     
     QRgb *rgb = (QRgb*)(pimg.bits());
     for(int i=0; i<m_nX*m_nY; i++)
-      m_startSlice[i] = 255*qBound(0, qRed(rgb[i]), 1);
+      m_startSlice[i] = qRed(rgb[i]);
   }
 
+  // plot end slice
   {
     QImage pimg = QImage(m_nX, m_nY, QImage::Format_RGB32);
     pimg.fill(0);
 
     QPainter p(&pimg);
-    for(int k=nextkey; k<keys.count(); k++)
+    QList<QPolygonF> pf = paths.value(endkey);
+    for(int ii=0; ii<pf.count(); ii++)
       {
-	QList<QPolygonF> pf = paths.value(keys[k]);
-	for(int ii=0; ii<pf.count(); ii++)
-	  {
-	    p.setPen(QPen(QColor(255, 0, 0), 1));
-	    p.setBrush(QColor(255, 255, 255));
-	    p.drawPolygon(pf[ii]);
-	  }
+	p.setPen(QPen(QColor(255, 0, 0), 1));
+	p.setBrush(QColor(255, 255, 255));
+	p.drawPolygon(pf[ii]);
       }
 
     QRgb *rgb = (QRgb*)(pimg.bits());
     for(int i=0; i<m_nX*m_nY; i++)
-      m_endSlice[i] = 255*qBound(0, qBlue(rgb[i]), 1);
+      m_endSlice[i] = qBlue(rgb[i]);
   }
 
-  memset(m_overlapSlice, 0, m_nX*m_nY*sizeof(int));
-  for(int i=0; i<m_nX*m_nY; i++)
-    if (m_endSlice[i] == 255 && m_startSlice[i] == 255)
-      m_overlapSlice[i] = 255;
-
-
-//  QWidget *m_showSlices = new QWidget();
-  QVBoxLayout *layout = new QVBoxLayout();
-//  m_showSlices->setLayout(layout);
-//
-//  showSliceImage(layout, m_startSlice);
-//  showSliceImage(layout, m_endSlice);
-//  showSliceImage(layout, m_overlapSlice);
-
-  m_o2E = dilateOverlap(m_endSlice);
-  m_o2S = dilateOverlap(m_startSlice);
-
   QMap<int, QList<QPolygonF> > allcurves;
-  allcurves = mergeSlices(layout, nSlices);
-  
-//  QScrollArea *scroll = new QScrollArea();
-//  scroll->setWidget(m_showSlices);
-//  scroll->show();
-//  scroll->resize(2*m_nY, 2*m_nX);
+  allcurves = mergeSlices(nSlices);
 
-  for(int i=0; i<m_o2E.count(); i++)
-    delete[] m_o2E[i];
-  for(int i=0; i<m_o2S.count(); i++)
-    delete[] m_o2S[i];
-  m_o2E.clear();
-  m_o2S.clear();
+  clearSlices();
 
   return allcurves;
 }
 
 QMap<int, QList<QPolygonF> >
-MorphSlice::mergeSlices(QVBoxLayout *layout, int nSlices)
+MorphSlice::mergeSlices(int nSlices)
 {
-  QMap<int, QList<QPolygonF>> allcurves;
+  uchar *startSlice = new uchar[m_nX*m_nY];
+  uchar *endSlice = new uchar[m_nX*m_nY];
+  
+  memcpy(startSlice, m_startSlice, m_nX*m_nY);
+  memcpy(endSlice, m_endSlice, m_nX*m_nY);
 
-  int tns = m_o2S.count()-1;
-  int tne = m_o2E.count()-1;
-  //int n = 10;
+  QList<uchar *> slices;
+  slices << startSlice;
+  slices << endSlice;
+  bool done = false;
+  while (!done)
+    {
+      QList<uchar *> newslices;
+      for(int i=0; i<slices.count()-1; i++)
+	{
+	  uchar *slice0, *slice1;
+	  slice0 = slices[i];
+	  slice1 = slices[i+1];
+
+	  // find overlap between start and end
+	  uchar *overlapSlice = new uchar[m_nX*m_nY];
+	  memset(overlapSlice, 0, m_nX*m_nY);
+	  for(int i=0; i<m_nX*m_nY; i++)
+	    if (slice1[i] == 255 && slice0[i] == 255)
+	      overlapSlice[i] = 255;
+
+	  // dilate overlap to start slice
+	  QList<uchar*> o2S = dilateOverlap(slice0, overlapSlice);
+
+	  // dilate overlap to end slice
+	  QList<uchar*> o2E = dilateOverlap(slice1, overlapSlice);
+
+	  // add start slice to slices list
+	  newslices << slice0;
+
+	  // get median slice to slices list
+	  if (o2S.count() > 0 || o2E.count() > 0) 
+	    newslices << getMedianSlice(o2S, o2E);
+	  else
+	    {
+	      uchar *dummy0 = new uchar[m_nX*m_nY];
+	      memcpy(dummy0, slice0, m_nX*m_nY);	  
+	      newslices << slice0; // repeat the slice
+	    }
+
+
+	  // free the dilation lists
+	  for(int i=0; i<o2S.count(); i++) delete [] o2S[i];
+	  for(int i=0; i<o2E.count(); i++) delete [] o2E[i];
+	  o2S.clear();
+	  o2E.clear();
+	}
+
+      newslices << slices[slices.count()-1]; // last slice
+      slices = newslices;
+
+      if (slices.count() >= nSlices)
+	done = true;      
+    }
+  
+  int totslices = slices.count();
+
+  // find boundary curves
+  QMap<int, QList<QPolygonF>> allcurves;
   for(int n=1; n<=nSlices; n++)
     {
-      int *slice = new int[m_nX*m_nY];
-      memset(slice, 0, m_nX*m_nY*sizeof(int));
-
-      float frc = (float)n/(float)(nSlices+1);
-
-      if (tns > 0)
-	{
-	  int sn = qRound((1.0-frc)*tns);
-	  memcpy(slice, m_o2S[sn], m_nX*m_nY*sizeof(int));
-	}
-
-      if (tne > 0)
-	{
-	  int sn = qRound(frc*tne);
-	  for(int i=0; i<m_nX*m_nY; i++)
-	    slice[i] = qMax(slice[i], m_o2E[sn][i]);
-	}
-
-      //boundary(slice);
-      //showSliceImage(layout, slice);
-
-      QList<QPolygonF> curves = boundaryCurves(slice);
-      //showCurves(layout, curves);
-
-      allcurves.insert(n, curves);
-
-      //showSliceImage(layout, slice);
+      int si = (totslices-1)*(float)n/(float)nSlices;
+      QList<QPolygonF> curves = boundaryCurves(slices[si]);
+      allcurves.insert(n, curves);      
     }
 
+  // free slices list
+  for(int i=0; i<slices.count(); i++) delete [] slices[i];
+  slices.clear();
 
-//  QMessageBox::information(0, "", QString("%1 %2 : %3").\
-//			   arg(tns).arg(tne).arg(nSlices));
   return allcurves;
 }
 
-QList<int*>
-MorphSlice::dilateOverlap(int *slice)
+QList<uchar*>
+MorphSlice::dilateOverlap(uchar *slice, uchar *overlapSlice)
 {
-  QList<int*> slist;
+  QList<uchar*> slist;
 
   int cdo[] = { -1, 0, 0, 1, 1, 0, 0, -1 };
 
-  int *t0 = new int[m_nX*m_nY];
+  uchar *t0 = new uchar[m_nX*m_nY];
 
-  memcpy(t0, m_overlapSlice, m_nX*m_nY*sizeof(int));
+  memcpy(t0, overlapSlice, m_nX*m_nY);
+
+  uchar *t1 = new uchar[m_nX*m_nY];
+  memcpy(t1, t0, m_nX*m_nY);
+  slist << t1;
 
   // identify boundary pixels
   QList<QPoint> bpixels;
@@ -321,8 +301,8 @@ MorphSlice::dilateOverlap(int *slice)
 	{      
 	  rad ++;
 	  
-	  int *t1 = new int[m_nX*m_nY];
-	  memcpy(t1, t0, m_nX*m_nY*sizeof(int));
+	  uchar *t1 = new uchar[m_nX*m_nY];
+	  memcpy(t1, t0, m_nX*m_nY);
 	  slist << t1;
 	}
       else
@@ -330,112 +310,80 @@ MorphSlice::dilateOverlap(int *slice)
     }
 
   delete[] t0;
-  //QMessageBox::information(0, "", QString("%1 : %2").arg(rad).arg(bpixels.count()));
 
   return slist;
 }
 
-//QList<int*>
-//MorphSlice::dilateOverlap(int *slice)
-//{
-//  QList<int*> slist;
-//
-//  int cdo[] = { -1, 0, 0, 1, 1, 0, 0, -1 };
-//
-//  int *t0 = new int[m_nX*m_nY];
-//
-//  memcpy(t0, m_overlapSlice, m_nX*m_nY*sizeof(int));
-//
-//  bool done = false;
-//  int nslices = 0;
-//
-//  while (!done)
-//    {
-//      done = true;
-//
-//      // identify boundary pixels
-//      QList<QPoint> bpixels;
-//      for(int y=0; y<m_nY; y++)
-//	for(int x=0; x<m_nX; x++)
-//	  {
-//	    int idx = y*m_nX+x;
-//	    if (t0[idx] == 255 && slice[idx] == 255)
-//	      {
-//		bool bdry = false;
-//		for(int k=0; k<4; k++)
-//		  {
-//		    int dx = qBound(0, x + cdo[2*k], m_nX-1);
-//		    int dy = qBound(0, y + cdo[2*k+1], m_nY-1);
-//		    int didx = dy*m_nX+dx;
-//		    if (slice[didx] == 255 && t0[didx] == 0)
-//		      {
-//			bdry = true;
-//			bpixels << QPoint(dx, dy);
-//		      }
-//		  }
-//	      }
-//	  }
-//      
-//      if (bpixels.count() > 0)
-//	{
-//	  for(int i=0; i<bpixels.count(); i++)
-//	    {
-//	      int x = bpixels[i].x();
-//	      int y = bpixels[i].y();
-//	      t0[y*m_nX+x] = 255;	  
-//	    }
-//
-//	  
-//	  int *t1 = new int[m_nX*m_nY];
-//	  memcpy(t1, t0, m_nX*m_nY*sizeof(int));
-//	  slist << t1;
-//
-//	  done = false;
-//	  nslices ++;
-//	}
-//    }
-//
-//  delete[] t0;
-//
-//  return slist;
-//  //QMessageBox::information(0, "", QString("%1").arg(nslices));
-//}
-
-void
-MorphSlice::boundary(int *slice)
+uchar*
+MorphSlice::getMedianSlice(QList<uchar*> o2S, QList<uchar*> o2E)
 {
-  //int cdo[] = { 0,1, -1,1, -1,0, -1,-1, 0,-1, 1,-1, 1,0, 1,1 };
-  int cdo[] = { -1,0, 0,1, 1,0, 0,-1 };
+  int tns = o2S.count()-1;
+  int tne = o2E.count()-1;
 
-  for(int y=0; y<m_nY; y++)
-    for(int x=0; x<m_nX; x++)
-      {
-	int idx = y*m_nX+x;
-	if (slice[idx] == 255)
-	  {
-	    for(int k=0; k<4; k++)
-	    //for(int k=0; k<8; k++)
-	      {
-		int dx = qBound(0, x + cdo[2*k], m_nX-1);
-		int dy = qBound(0, y + cdo[2*k+1], m_nY-1);
-		int didx = dy*m_nX+dx;
-		if (slice[didx] == 0)
-		  {
-		    slice[idx] = 200;
-		    break;
-		  }
-	      }
-	  }
-      }
+  int maxslc = qMax(tns, tne);
 
-  for(int y=0; y<m_nY; y++)
-    for(int x=0; x<m_nX; x++)
-      if (slice[y*m_nX+x] == 255)
-	slice[y*m_nX+x] = 30;
+  QList<int> imed;
+  QList<uchar*> seq;
+  for(int s=0; s<=maxslc; s++)
+    {
+      uchar *slice = new uchar[m_nX*m_nY];
+      memset(slice, 0, m_nX*m_nY);
+
+      if (s <= qMin(tns, tne))
+	{
+	  memcpy(slice, o2S[tns-s], m_nX*m_nY);
+	  
+	  for(int i=0; i<m_nX*m_nY; i++)
+	    slice[i] = qMax(slice[i], o2E[s][i]);
+	}
+      else if (s > tns)
+	memcpy(slice, o2E[s], m_nX*m_nY);
+      else if (s > tne)
+	memcpy(slice, o2S[tns-s], m_nX*m_nY);
+
+      seq << slice;
+
+      int diffS = 0;
+      int diffE = 0;
+      if (tns >= 0)
+	{
+	  for(int p=0; p<m_nX*m_nY; p++)
+	    if (slice[p] != o2S[0][p]) diffS++;
+	}
+
+      if (tne >= 0)
+	{
+	  for(int p=0; p<m_nX*m_nY; p++)
+	    if (slice[p] != o2E[tne][p]) diffE++;
+	}
+      imed << qAbs(diffS - diffE);
+    }
+
+  // take smallest difference element - this would be median element
+  QString str;
+  int slc = 0;
+  int slcmin = imed[0];
+  for(int s=1; s<imed.count(); s++)
+    {
+      if (slcmin > imed[s])
+	{
+	  slcmin = imed[s];
+	  slc = s;
+	}
+    }
+  
+  uchar *slice = new uchar[m_nX*m_nY];
+  memcpy(slice, seq[slc], m_nX*m_nY);
+
+  for(int i=0; i<seq.count(); i++)
+    delete [] seq[i];
+  seq.clear();
+
+  return slice;
 }
 
 QList<QPolygonF>
-MorphSlice::boundaryCurves(int *slice)
+MorphSlice::boundaryCurves(uchar *slice)
 {
   uchar BLACK = 0;
   uchar WHITE = 255;
@@ -444,45 +392,46 @@ MorphSlice::boundaryCurves(int *slice)
   int height = m_nY;
 
   uchar *paddedImage = new uchar[(width+2)*(height+2)];
-  memset(paddedImage, WHITE, (height+2)*(height+2));
+  memset(paddedImage, BLACK, (height+2)*(height+2));
   for(int y=0; y<height; y++)
     for(int x=0; x<width; x++)
       if (slice[x+y*width] == 255)
-	paddedImage[(x+1) + (y+1)*(width+2)] = BLACK;
+	paddedImage[(x+1) + (y+1)*(width+2)] = WHITE;
   
   uchar *borderImage = new uchar[(width+2)*(height+2)];
-  memset(borderImage, WHITE, (width+2)*(height+2));
+  memset(borderImage, BLACK, (width+2)*(height+2));
 
   bool inside = false;
   int pos = 0;
 
   QList<QPolygonF> curves;
-  for(int y = 1; y < height-20; y ++)
-    for(int x = 1; x < width-20; x ++)
+  for(int y = 1; y < height; y ++)
+    for(int x = 1; x < width; x ++)
       {
 	pos = x + y*(width+2);
 	
-	// Scan for BLACK pixel
+	// Scan for WHITE pixel
 	
 	// Entering an already discovered border
-	if(borderImage[pos] == BLACK && !inside)
+	if(borderImage[pos] == WHITE && !inside)
 	  {
 	    inside = true;
 	  }
 	// Already discovered border point
-	else if(paddedImage[pos] == BLACK && inside)
+	else if(paddedImage[pos] == WHITE && inside)
 	  {
 	    continue;
 	  }
 	// Leaving a border
-	else if(paddedImage[pos] == WHITE && inside)
+	else if(paddedImage[pos] == BLACK && inside)
 	  {
 	    inside = false;
 	  }
 	// Undiscovered border point
-	else if(paddedImage[pos] == BLACK && !inside)
+	else if(paddedImage[pos] == WHITE && !inside)
 	  {
-	    borderImage[pos] = BLACK; // Mark the start pixel
+	    borderImage[pos] = WHITE; // Mark the start pixel
+
 	    // The neighbour number of the location
 	    // we want to check for a new border point
 	    int checkLocationNr = 1;
@@ -523,7 +472,7 @@ MorphSlice::boundaryCurves(int *slice)
 		checkPosition = pos + neighborhood[checkLocationNr-1][0];
 		newCheckLocationNr = neighborhood[checkLocationNr-1][1];
 		
-		if(paddedImage[checkPosition] == BLACK) // Next border point found
+		if(paddedImage[checkPosition] == WHITE) // Next border point found
 		  {
 		    if(checkPosition == startPos)
 		      {
@@ -547,7 +496,7 @@ MorphSlice::boundaryCurves(int *slice)
 		    // Reset the counter that keeps track of how many neighbors we have visited
 		    counter2 = 0;
 		    
-		    borderImage[checkPosition] = BLACK; // Set the border pixel
+		    borderImage[checkPosition] = WHITE; // Set the border pixel
 		    
 		    int dx, dy;
 		    dy = checkPosition/(width+2);

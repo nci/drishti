@@ -17,21 +17,20 @@ class MorphSlice
 
  private :
   int m_nX, m_nY;
-  int *m_startSlice;
-  int *m_endSlice;
-  int *m_overlapSlice;
-  QList<int*> m_o2E;
-  QList<int*> m_o2S;
+  uchar *m_startSlice;
+  uchar *m_endSlice;
+  uchar *m_overlapSlice;
 
   void clearSlices();
   void showSliceImage(QVBoxLayout*, int*);
   void showCurves(QVBoxLayout*, QList<QPolygonF>);
 
-  QList<int*> dilateOverlap(int*);
 
-  QMap< int, QList<QPolygonF> > mergeSlices(QVBoxLayout*, int);
-  void boundary(int*);
-  QList<QPolygonF> boundaryCurves(int*);
+  QMap< int, QList<QPolygonF> > mergeSlices(int);
+  QList<uchar*> dilateOverlap(uchar*, uchar*);
+  uchar* getMedianSlice(QList<uchar*>, QList<uchar*>);
+  QList<QPolygonF> boundaryCurves(uchar*);
+
 };
 
 #endif // MORPHSLICE_H

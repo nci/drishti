@@ -31,12 +31,12 @@ MorphSlice::clearSlices()
 }
 
 void
-MorphSlice::showSliceImage(QVBoxLayout *layout, int *slice)
+MorphSlice::showSliceImage(QVBoxLayout *layout, uchar *slice, int nX, int nY)
 {
-  QImage pimg = QImage(m_nX, m_nY, QImage::Format_RGB32);
+  QImage pimg = QImage(nX, nY, QImage::Format_RGB32);
   pimg.fill(0);
   uchar *bits = pimg.bits();
-  for(int i=0; i<m_nX*m_nY; i++)
+  for(int i=0; i<nX*nY; i++)
     {
       bits[4*i+0] = slice[i];
       bits[4*i+1] = slice[i];
@@ -216,14 +216,24 @@ MorphSlice::mergeSlices(int nSlices)
   
   int totslices = slices.count();
 
+//  QWidget *m_showSlices = new QWidget();
+  QVBoxLayout *layout = new QVBoxLayout();
+//  m_showSlices->setLayout(layout);
+
   // find boundary curves
   QMap<int, QList<QPolygonF>> allcurves;
   for(int n=1; n<=nSlices; n++)
     {
       int si = (totslices-1)*(float)n/(float)nSlices;
-      QList<QPolygonF> curves = boundaryCurves(slices[si]);
+      QList<QPolygonF> curves = boundaryCurves(layout, slices[si]);
       allcurves.insert(n, curves);      
     }
+
+//  QScrollArea *scroll = new QScrollArea();
+//  scroll->setWidget(m_showSlices);
+//  scroll->show();
+//  scroll->resize(2*m_nY, 2*m_nX);
+
 
   // free slices list
   for(int i=0; i<slices.count(); i++) delete [] slices[i];
@@ -383,7 +393,7 @@ MorphSlice::getMedianSlice(QList<uchar*> o2S, QList<uchar*> o2E)
 }
 
 QList<QPolygonF>
-MorphSlice::boundaryCurves(uchar *slice)
+MorphSlice::boundaryCurves(QVBoxLayout *layout, uchar *slice)
 {
   uchar BLACK = 0;
   uchar WHITE = 255;
@@ -392,7 +402,7 @@ MorphSlice::boundaryCurves(uchar *slice)
   int height = m_nY;
 
   uchar *paddedImage = new uchar[(width+2)*(height+2)];
-  memset(paddedImage, BLACK, (height+2)*(height+2));
+  memset(paddedImage, BLACK, (width+2)*(height+2));
   for(int y=0; y<height; y++)
     for(int x=0; x<width; x++)
       if (slice[x+y*width] == 255)
@@ -522,9 +532,27 @@ MorphSlice::boundaryCurves(uchar *slice)
 	      } // while
 	    
 	    if (c.count() > 1)
-	      curves << c;
+	      {
+//		// make sure that the interior is black
+//		QImage pimg = QImage(m_nX, m_nY, QImage::Format_RGB32);
+//		pimg.fill(0);
+//		QPainter p(&pimg);
+//		p.setPen(QPen(Qt::white, 1));
+//		p.setBrush(Qt::white);
+//		p.drawPolygon(c);
+//		QRgb *rgb = (QRgb*)(pimg.bits());
+//		for(int p=0; p<m_nX*m_nY; p++)
+//		  if (qRed(rgb[p]) > 0)
+//		    paddedImage[p] = 255;
+		
+		curves << c;
+	      }
 	  } // else
       } // for
+
+//  showSliceImage(layout, slice, m_nX, m_nY);
+//  showSliceImage(layout, paddedImage, width+2, height+2);
+//  showSliceImage(layout, borderImage, width+2, height+2);
 
   delete [] paddedImage;
   delete [] borderImage;

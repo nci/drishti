@@ -22,14 +22,14 @@ class MorphSlice
   uchar *m_overlapSlice;
 
   void clearSlices();
-  void showSliceImage(QVBoxLayout*, int*);
+  void showSliceImage(QVBoxLayout*, uchar*, int, int);
   void showCurves(QVBoxLayout*, QList<QPolygonF>);
 
 
   QMap< int, QList<QPolygonF> > mergeSlices(int);
   QList<uchar*> dilateOverlap(uchar*, uchar*);
   uchar* getMedianSlice(QList<uchar*>, QList<uchar*>);
-  QList<QPolygonF> boundaryCurves(uchar*);
+  QList<QPolygonF> boundaryCurves(QVBoxLayout*, uchar*);
 
 };
 

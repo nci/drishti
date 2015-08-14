@@ -70,6 +70,8 @@ class VgiPlugin : public QObject, VolInterface
   bool checkExtension(QString, const char*);
   void swapbytes(uchar*, int);
   void swapbytes(uchar*, int, int);
+
+  QString getImgFilename(QString);
 };
 
 #endif

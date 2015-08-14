@@ -100,6 +100,31 @@ VgiPlugin::replaceFile(QString flnm)
   m_fileName << flnm;
 }
 
+QString
+VgiPlugin::getImgFilename(QString hdrFile)
+{
+  QString imgFile;
+  QFile file(hdrFile);
+  file.open(QFile::ReadOnly | QIODevice::Text);
+  QTextStream in(&file);
+  QString vtp;
+  bool done = false;
+  while (!in.atEnd() || !done)
+    {
+      QString line = in.readLine();
+      line = line.toLower().trimmed();
+
+      QStringList words = line.split("=");
+      if (words[0].trimmed() == "name")
+	{
+	  m_imgFile = words[1].trimmed();
+	  return m_imgFile;
+	}
+    }      
+
+  return imgFile;
+}
+
 bool
 VgiPlugin::setFile(QStringList files)
 {
@@ -108,9 +133,14 @@ VgiPlugin::setFile(QStringList files)
   if (checkExtension(files[0], "vgi"))
     {
       m_hdrFile = files[0];
-      m_imgFile = m_hdrFile;
-      m_imgFile.chop(3);
-      m_imgFile += "vol";
+      QString imgflnm = getImgFilename(m_hdrFile);
+      QFileInfo info(m_hdrFile);
+      QDir direc = info.absoluteDir();
+      m_imgFile = direc.absoluteFilePath(imgflnm);
+      
+      //m_imgFile = m_hdrFile;
+      //m_imgFile.chop(3);
+      //m_imgFile += "vol";
     }
   else if (checkExtension(files[0], "vol"))
     {

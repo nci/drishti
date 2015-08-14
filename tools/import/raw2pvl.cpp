@@ -68,7 +68,6 @@ Raw2Pvl::applyMapping(uchar *raw, int voxelType,
 {
   int rawSize = rawMap.size()-1;
 
-  bool domap = true;
   if (rawMap.count() == pvlMap.count())
     {
       bool same = true;
@@ -1554,6 +1553,68 @@ Raw2Pvl::savePvl(VolumeData* volData,
   //------------------------------------------------------
 
   //------------------------------------------------------
+  // get final volume size
+  int final_dsz2 = dsz2;
+  int final_wsz2 = wsz2;
+  int final_hsz2 = hsz2;
+  int pad_value = 0;
+  int sfd = 0;
+  int sfw = 0;
+  int sfh = 0;
+  int efd = 0;
+  int efw = 0;
+  int efh = 0;
+  {
+    bool ok;
+    QString text;
+    text = QInputDialog::getText(0,
+				 "Final Volume Grid Size With Padding",
+				 "Final Volume Grid Size With Padding",
+				 QLineEdit::Normal,
+				 QString("%1 %2 %3").\
+				 arg(final_dsz2).\
+				 arg(final_wsz2).\
+				 arg(final_hsz2),
+				 &ok);
+    if (ok && !text.isEmpty())
+      {
+	QStringList list = text.split(" ", QString::SkipEmptyParts);
+	if (list.count() == 3)
+	  {
+	    final_dsz2 = qMax(dsz2, list[0].toInt());
+	    final_wsz2 = qMax(wsz2, list[1].toInt());
+	    final_hsz2 = qMax(hsz2, list[2].toInt());
+
+	    int td = final_dsz2 - dsz2;
+	    int tw = final_wsz2 - wsz2;
+	    int th = final_hsz2 - hsz2;
+
+	    sfd = td/2;
+	    efd = td - sfd;
+
+	    sfw = tw/2;
+	    efw = tw - sfw;
+
+	    sfh = th/2;
+	    efh = th - sfh;
+
+	    QString text;
+	    text = QInputDialog::getText(0,
+					 "Pad volume With Value",
+					 "Pad Volume With Value",
+					 QLineEdit::Normal,
+					 "0",
+					 &ok);
+	    if (ok && !text.isEmpty())
+	      pad_value = text.toInt();
+	  }
+      }
+
+    slabSize = final_dsz2+1;
+  }
+  //------------------------------------------------------
+
+  //------------------------------------------------------
   // -- get saving parameters for processed file
   SavePvlDialog savePvlDialog;
   float vx, vy, vz;
@@ -1604,6 +1665,7 @@ Raw2Pvl::savePvl(VolumeData* volData,
 	       wsz2 != rvwidth ||
 	       hsz2 != rvheight);
 
+  uchar *final_val = new uchar[pvlbpv*final_wsz2*final_hsz2];
 
   VolumeFileManager rawFileManager;
   VolumeFileManager pvlFileManager;
@@ -1635,9 +1697,12 @@ Raw2Pvl::savePvl(VolumeData* volData,
 	}
 
       pvlFileManager.setBaseFilename(pvlflnm);
-      pvlFileManager.setDepth(dsz2);
-      pvlFileManager.setWidth(wsz2);
-      pvlFileManager.setHeight(hsz2);
+//      pvlFileManager.setDepth(dsz2);
+//      pvlFileManager.setWidth(wsz2);
+//      pvlFileManager.setHeight(hsz2);
+      pvlFileManager.setDepth(final_dsz2);
+      pvlFileManager.setWidth(final_wsz2);
+      pvlFileManager.setHeight(final_hsz2);
       pvlFileManager.setVoxelType(pvlVoxelType);
       pvlFileManager.setHeaderSize(13);
       pvlFileManager.setSlabSize(slabSize);
@@ -1687,12 +1752,26 @@ Raw2Pvl::savePvl(VolumeData* volData,
       savePvlHeader(pvlflnm,
 		    saveRawFile, rawflnm,
 		    voxelType, pvlVoxelType, voxelUnit,
-		    dsz/svslz, wsz/svsl, hsz/svsl,
+		    //dsz/svslz, wsz/svsl, hsz/svsl,
+		    //dsz2, wsz2, hsz2,
+		    final_dsz2, final_wsz2, final_hsz2,
 		    vx, vy, vz,
 		    rawMap, pvlMap,
 		    description,
 		    slabSize);
-      
+
+
+      // ------------------
+      // add padding
+      if (sfd > 0)
+	{
+	  memset(final_val, pad_value, pvlbpv*final_wsz2*final_hsz2);
+	  for(int esl=0; esl<sfd; esl++)
+	    pvlFileManager.setSlice(esl, final_val);
+	}
+      // ------------------
+	
+
       for(int dd=0; dd<dsz2; dd++)
 	{
 	  int d0 = dmin + dd*svslz; 
@@ -1854,9 +1933,39 @@ Raw2Pvl::savePvl(VolumeData* volData,
 		       pvlslice, pvlbpv, pvlMap,
 		       width, height);
 
-	  pvlFileManager.setSlice(dd, pvlslice);
+	  if (sfw == 0 && sfh == 0)
+	    pvlFileManager.setSlice(sfd+dd, pvlslice);
+	  else // add padding if required
+	    {
+	      memset(final_val, pad_value, pvlbpv*final_wsz2*final_hsz2);
+	      if (pvlbpv == 1)
+		{
+		  for(int wi=0; wi<wsz2; wi++)
+		    for(int hi=0; hi<hsz2; hi++)
+		      final_val[(wi+sfw)*final_hsz2+(hi+sfh)] = pvlslice[wi*hsz2+hi];
+		}
+	      else
+		{
+		  for(int wi=0; wi<wsz2; wi++)
+		    for(int hi=0; hi<hsz2; hi++)
+		      ((ushort*)final_val)[(wi+sfw)*final_hsz2+(hi+sfh)] = ((ushort*)pvlslice)[wi*hsz2+hi];
+		}
+	      pvlFileManager.setSlice(sfd+dd, final_val);
+	    }
 	}
     }
+
+  // -------------------------
+  // add padding if required
+  if (efd > 0)
+    {
+      memset(final_val, pad_value, pvlbpv*final_wsz2*final_hsz2);
+      for(int esl=0; esl<efd; esl++)
+	pvlFileManager.setSlice(dsz2+sfd+esl, final_val);
+    }
+  // -------------------------
+
+  delete [] final_val;
 
   delete [] filtervol;
   delete [] pvlslice;

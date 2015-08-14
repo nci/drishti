@@ -17,6 +17,7 @@ class MorphSlice
 
  private :
   int m_nX, m_nY;
+  QPointF m_xlate;
   uchar *m_startSlice;
   uchar *m_endSlice;
   uchar *m_overlapSlice;

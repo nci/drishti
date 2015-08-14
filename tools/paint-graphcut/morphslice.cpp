@@ -83,18 +83,74 @@ MorphSlice::setPaths(QMap<int, QList<QPolygonF> > paths)
   int startkey = keys[0];
   int endkey = keys[1];
 
-  for(int k=0; k<keys.count(); k++)
+  m_xlate = QPointF(0,0);
+
+  //---------------
+  QPointF cen0, cen1;
   {
-    QList<QPolygonF> pf = paths.value(keys[k]);
+    cen0 = QPointF(0,0);
+    QList<QPolygonF> pf = paths.value(startkey);	  
+    int npts = 0;
     for(int ii=0; ii<pf.count(); ii++)
       {
-	for(int i=0; i<pf[ii].count(); i++)
+	npts += pf[ii].count();
+	for(int p=0; p<pf[ii].count(); p++)
+	  cen0 += pf[ii][p];
+      }
+    cen0 /= npts;
+  }
+  {
+    cen1 = QPointF(0,0);
+    QList<QPolygonF> pf = paths.value(endkey);	  
+    int npts = 0;
+    for(int ii=0; ii<pf.count(); ii++)
+      {
+	npts += pf[ii].count();
+	for(int p=0; p<pf[ii].count(); p++)
+	  cen1 += pf[ii][p];
+      }
+    cen1 /= npts;
+  }
+
+  m_xlate = cen0-cen1;  
+  //---------------
+
+  //---------------
+  {
+    QList<QPolygonF> pf = paths.value(startkey);	  
+    int npts = 0;
+    for(int ii=0; ii<pf.count(); ii++)
+      for(int p=0; p<pf[ii].count(); p++)
+	{
+	  m_nX = qMax(m_nX, (int)qRound(pf[ii][p].x()));
+	  m_nY = qMax(m_nY, (int)qRound(pf[ii][p].y()));
+	}
+  }
+  {
+    QList<QPolygonF> pf = paths.value(endkey);	  
+    int npts = 0;
+    for(int ii=0; ii<pf.count(); ii++)
+      {
+	pf[ii].translate(m_xlate);
+	for(int p=0; p<pf[ii].count(); p++)
 	  {
-	    m_nX = qMax(m_nX, (int)qRound(pf[ii][i].x()));
-	    m_nY = qMax(m_nY, (int)qRound(pf[ii][i].y()));
+	    m_nX = qMax(m_nX, (int)qRound(pf[ii][p].x()));
+	    m_nY = qMax(m_nY, (int)qRound(pf[ii][p].y()));
 	  }
       }
   }
+//  for(int k=0; k<keys.count(); k++)
+//  {
+//    QList<QPolygonF> pf = paths.value(keys[k]);
+//    for(int ii=0; ii<pf.count(); ii++)
+//      {
+//	for(int i=0; i<pf[ii].count(); i++)
+//	  {
+//	    m_nX = qMax(m_nX, (int)qRound(pf[ii][i].x()));
+//	    m_nY = qMax(m_nY, (int)qRound(pf[ii][i].y()));
+//	  }
+//      }
+//  }
 
   // just add a bit of margin
   m_nX += 5;
@@ -133,6 +189,7 @@ MorphSlice::setPaths(QMap<int, QList<QPolygonF> > paths)
     QList<QPolygonF> pf = paths.value(endkey);
     for(int ii=0; ii<pf.count(); ii++)
       {
+	pf[ii].translate(m_xlate);
 	p.setPen(QPen(QColor(255, 0, 0), 1));
 	p.setBrush(QColor(255, 255, 255));
 	p.drawPolygon(pf[ii]);
@@ -148,7 +205,25 @@ MorphSlice::setPaths(QMap<int, QList<QPolygonF> > paths)
 
   clearSlices();
 
-  return allcurves;
+  //return allcurves;
+
+  QMap<int, QList<QPolygonF> > finalCurves;
+  {
+    QList<int> keys = allcurves.keys();
+    int nperi = keys.count();
+    for(int n=0; n<nperi; n++)
+      {
+	int zv = keys[n];
+	QList<QPolygonF> poly = allcurves[zv];
+	QPointF move = m_xlate*(float)zv/(float)keys.count();
+	for(int p=0; p<poly.count(); p++)
+	  poly[p].translate(-move);
+	
+	finalCurves.insert(zv, poly);
+      }
+  }
+
+  return finalCurves;
 }
 
 QMap<int, QList<QPolygonF> >

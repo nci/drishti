@@ -98,7 +98,6 @@ Fiber::addPoint(int d, int w, int h)
 	  float proj = pu*pv;
 	  Vec vm = v0 + proj*pu;
 	  float perpdist = (v-vm).norm();
-	  //QMessageBox::information(0, "", QString("%1 %2").arg(perpdist).arg(thickness));
 	  if (proj < 0 && perpdist <= thickness)
 	    {
 	      seeds.insert(i, v);

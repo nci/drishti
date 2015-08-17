@@ -10,6 +10,8 @@ MorphSlice::MorphSlice()
 
   m_nX = 0;
   m_nY = 0;
+
+  m_layout = 0;
 }
 
 MorphSlice::~MorphSlice()
@@ -31,7 +33,7 @@ MorphSlice::clearSlices()
 }
 
 void
-MorphSlice::showSliceImage(QVBoxLayout *layout, uchar *slice, int nX, int nY)
+MorphSlice::showSliceImage(uchar *slice, int nX, int nY)
 {
   QImage pimg = QImage(nX, nY, QImage::Format_RGB32);
   pimg.fill(0);
@@ -48,11 +50,11 @@ MorphSlice::showSliceImage(QVBoxLayout *layout, uchar *slice, int nX, int nY)
   QLabel *lbl = new QLabel();
   lbl->setPixmap(QPixmap::fromImage(qimg));
 
-  layout->addWidget(lbl);
+  m_layout->addWidget(lbl);
 }
 
 void
-MorphSlice::showCurves(QVBoxLayout *layout, QList<QPolygonF> paths)
+MorphSlice::showCurves(QList<QPolygonF> paths)
 {
   QImage pimg = QImage(m_nX, m_nY, QImage::Format_RGB32);
   pimg.fill(0);
@@ -69,7 +71,7 @@ MorphSlice::showCurves(QVBoxLayout *layout, QList<QPolygonF> paths)
   QLabel *lbl = new QLabel();
   lbl->setPixmap(QPixmap::fromImage(qimg));
 
-  layout->addWidget(lbl);
+  m_layout->addWidget(lbl);
 }
 
 QMap<int, QList<QPolygonF> >
@@ -118,7 +120,6 @@ MorphSlice::setPaths(QMap<int, QList<QPolygonF> > paths)
   //---------------
   {
     QList<QPolygonF> pf = paths.value(startkey);	  
-    int npts = 0;
     for(int ii=0; ii<pf.count(); ii++)
       for(int p=0; p<pf[ii].count(); p++)
 	{
@@ -128,7 +129,6 @@ MorphSlice::setPaths(QMap<int, QList<QPolygonF> > paths)
   }
   {
     QList<QPolygonF> pf = paths.value(endkey);	  
-    int npts = 0;
     for(int ii=0; ii<pf.count(); ii++)
       {
 	pf[ii].translate(m_xlate);
@@ -291,16 +291,17 @@ MorphSlice::mergeSlices(int nSlices)
   
   int totslices = slices.count();
 
+//   m_layout = new QVBoxLayout();
+
 //  QWidget *m_showSlices = new QWidget();
-  QVBoxLayout *layout = new QVBoxLayout();
-//  m_showSlices->setLayout(layout);
+//  m_showSlices->setLayout(m_layout);
 
   // find boundary curves
   QMap<int, QList<QPolygonF>> allcurves;
   for(int n=1; n<=nSlices; n++)
     {
       int si = (totslices-1)*(float)n/(float)nSlices;
-      QList<QPolygonF> curves = boundaryCurves(layout, slices[si]);
+      QList<QPolygonF> curves = boundaryCurves(slices[si], m_nX, m_nY);
       allcurves.insert(n, curves);      
     }
 
@@ -468,13 +469,13 @@ MorphSlice::getMedianSlice(QList<uchar*> o2S, QList<uchar*> o2E)
 }
 
 QList<QPolygonF>
-MorphSlice::boundaryCurves(QVBoxLayout *layout, uchar *slice)
+MorphSlice::boundaryCurves(uchar *slice, int nX, int nY, bool shrinkwrap)
 {
   uchar BLACK = 0;
   uchar WHITE = 255;
 
-  int width = m_nX;
-  int height = m_nY;
+  int width = nX;
+  int height = nY;
 
   uchar *paddedImage = new uchar[(width+2)*(height+2)];
   memset(paddedImage, BLACK, (width+2)*(height+2));
@@ -608,26 +609,36 @@ MorphSlice::boundaryCurves(QVBoxLayout *layout, uchar *slice)
 	    
 	    if (c.count() > 1)
 	      {
-//		// make sure that the interior is black
-//		QImage pimg = QImage(m_nX, m_nY, QImage::Format_RGB32);
-//		pimg.fill(0);
-//		QPainter p(&pimg);
-//		p.setPen(QPen(Qt::white, 1));
-//		p.setBrush(Qt::white);
-//		p.drawPolygon(c);
-//		QRgb *rgb = (QRgb*)(pimg.bits());
-//		for(int p=0; p<m_nX*m_nY; p++)
-//		  if (qRed(rgb[p]) > 0)
-//		    paddedImage[p] = 255;
+		if (shrinkwrap)
+		  {
+		    // make sure that the interior is black
+		    QImage pimg = QImage(width+2, height+2, QImage::Format_RGB32);
+		    pimg.fill(0);
+		    QPainter p(&pimg);
+		    p.setPen(QPen(Qt::white, 1));
+		    p.setBrush(Qt::white);
+		    p.drawPolygon(c);
+		    QRgb *rgb = (QRgb*)(pimg.bits());
+		    for(int yp = 0; yp < height+2; yp ++)
+		      for(int xp = 0; xp < width+2; xp ++)
+			{
+			  int rp = xp + yp*(width+2);
+			  if (qRed(rgb[rp]) > 0)
+			    {
+			      int pos = xp + yp*(width+2);
+			      paddedImage[pos] = 0;
+			    }	
+			}
+		  }
 		
 		curves << c;
 	      }
 	  } // else
       } // for
 
-//  showSliceImage(layout, slice, m_nX, m_nY);
-//  showSliceImage(layout, paddedImage, width+2, height+2);
-//  showSliceImage(layout, borderImage, width+2, height+2);
+//  showSliceImage(slice, width, height);
+//  showSliceImage(paddedImage, width+2, height+2);
+//  showSliceImage(borderImage, width+2, height+2);
 
   delete [] paddedImage;
   delete [] borderImage;

@@ -60,6 +60,7 @@ class CurveGroup
   void joinPolygonAt(int, QVector<QPointF>);
   void setCurveAt(int, Curve);
 
+  void shrinkwrap(int, uchar*, int, int);
   void smooth(int, int, int,
 	      bool, int, int);
   void dilateErode(int, int, int,

@@ -2171,6 +2171,26 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
       return true;
     }
 
+  if (event->key() == Qt::Key_G) // shrink wrap 
+    {
+      if (shiftModifier)
+	applyRecursive(event->key());
+
+      uchar *imageData = new uchar[m_imgWidth*m_imgHeight];
+      for(int i=0; i<m_imgWidth*m_imgHeight; i++)
+	imageData[i] = (m_sliceImage[4*i+0] > 0 ? 255 : 0);
+      
+      CurveGroup *cg = getCg();
+      cg->shrinkwrap(m_currSlice, imageData, m_imgWidth, m_imgHeight);
+      
+      delete [] imageData;
+      emit saveWork();
+      update();
+
+      checkRecursive();
+      return true;
+    }
+
   if (event->key() == Qt::Key_D)
     { // curve dilation
       if (m_sliceType == DSlice)

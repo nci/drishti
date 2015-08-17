@@ -903,20 +903,12 @@ CurveGroup::morphSlices(int minS, int maxS)
       if (cgkeys[i] >= minS &&
 	  cgkeys[i] <= maxS)
 	{
-//	  int sel = -1;
 	  QList<Curve*> curves = m_cg.values(cgkeys[i]);
 	  for(int j=0; j<curves.count(); j++)
 	    {
 	      if (curves[j]->selected)
-		{
-		  cg.insert(cgkeys[i], *curves[j]);
-//		  sel = j;
-//		  break;
-		}
+		cg.insert(cgkeys[i], *curves[j]);
 	    }
-
-//	  if (sel >= 0)
-//	    cg.insert(cgkeys[i], *curves[sel]);
 	}
     }
   if (cg.count() <= 1)
@@ -953,14 +945,6 @@ CurveGroup::morphSlices(int minS, int maxS)
 	  pf << QPolygonF(curves[j].pts);
 	gmcg.insert(keys[ncg+1], pf);
       }
-      
-      //gmcg.insert(keys[ncg], cg[keys[ncg]].pts);
-      //gmcg.insert(keys[ncg+1], cg[keys[ncg+1]].pts);
-
-      //bool is_closed = cg[keys[ncg]].closed;
-      //int thick0 = cg[keys[ncg]].thickness;
-      //int thick1 = cg[keys[ncg+1]].thickness;
-      //int mtag = cg[keys[ncg]].tag;
       
       MorphSlice mc;
       QMap< int, QList<QPolygonF> > allcurves = mc.setPaths(gmcg);
@@ -1008,6 +992,41 @@ CurveGroup::morphSlices(int minS, int maxS)
   
   QMessageBox::information(0, "", "morphed intermediate slices");
 }
+
+void
+CurveGroup::shrinkwrap(int slc, uchar *imageData, int wd, int ht)
+{
+  MorphSlice ms;
+  QList<QPolygonF> poly = ms.boundaryCurves(imageData, wd, ht, true);
+
+  for (int npc=0; npc<poly.count(); npc++)
+    {
+      if (poly[npc].count() > 20) // take only bigger curves
+	{
+	  //QMap<int, Curve> morphedCurves;
+	  QVector<QPointF> a;	  
+	  for (int j=0; j<poly[npc].count(); j++)
+	    {
+	      QPointF p = poly[npc][j];
+	      a << QPointF(p.x(),p.y());
+	    }
+	  a = smooth(a, true);
+	  
+	  Curve *c = new Curve();
+	  //Curve c;
+	  c->tag = Global::tag();
+	  c->pts = a;
+	  c->closed = true;
+	  c->thickness = Global::thickness();
+	  
+	  //morphedCurves.insert(slc, c);
+	  //m_mcg << morphedCurves;
+	  m_cg.insert(slc, c);
+	}
+    }
+
+}
+
 
 int
 CurveGroup::copyCurve(int key, int v0, int v1)

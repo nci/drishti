@@ -96,7 +96,10 @@ Fiber::addPoint(int d, int w, int h)
 	  Vec pu = p.unit();
 	  Vec pv = v-v0;
 	  float proj = pu*pv;
-	  if (proj < 0)
+	  Vec vm = v0 + proj*pu;
+	  float perpdist = (v-vm).norm();
+	  //QMessageBox::information(0, "", QString("%1 %2").arg(perpdist).arg(thickness));
+	  if (proj < 0 && perpdist <= thickness)
 	    {
 	      seeds.insert(i, v);
 	      addAtEnd = false;
@@ -104,16 +107,23 @@ Fiber::addPoint(int d, int w, int h)
 	    }
 	  else
 	    {
-	      if (proj < p.norm())
+	      if (proj < p.norm() && perpdist <= thickness )
 		{
 		  seeds.insert(i+1, v);
 		  addAtEnd = false;
 		  break;
 		}
 	    }
-	}
+	}      
       if (addAtEnd)
-	seeds << v;
+	{
+	  float l0 = (seeds[0] - v).norm();
+	  float l1 = (seeds[seeds.count()-1] - v).norm();
+	  if (l1 < l0)
+	    seeds << v;
+	  else
+	    seeds.insert(0, v);
+	}
     }
   
   updateTrace();

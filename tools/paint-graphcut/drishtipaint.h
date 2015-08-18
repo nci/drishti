@@ -67,6 +67,7 @@ class DrishtiPaint : public QMainWindow
   void on_thickness_valueChanged(int);
   void on_radius_valueChanged(int);
   void on_pointsize_valueChanged(int);
+  void on_mincurvelen_valueChanged(int);
   void on_livewire_clicked(bool);
   void on_modify_clicked(bool);
   void on_closed_clicked(bool);

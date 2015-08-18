@@ -112,6 +112,7 @@ class ImageWidget : public QWidget
   void zoomUp();
   void zoomDown();
   void setPointSize(int);
+  void setMinCurveLength(int);
   void setSliceLOD(int);
 
   void paintUsingCurves(int, int, int, int, uchar*, QList<int>);
@@ -321,6 +322,8 @@ class ImageWidget : public QWidget
 
   void newPolygon(bool, bool);
   void newEllipse();
+
+  void shrinkwrapCurve();
 };
 
 

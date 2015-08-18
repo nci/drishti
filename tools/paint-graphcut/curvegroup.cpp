@@ -43,6 +43,7 @@ CurveGroup::CurveGroup()
 {
   m_lambda = 0.5;
   m_seglen = 2;
+  m_shrinkwrapIgnoreSize = 20;
   reset();
 }
 
@@ -994,14 +995,58 @@ CurveGroup::morphSlices(int minS, int maxS)
 }
 
 void
+CurveGroup::maskImageData(int slc, uchar* imageData, int wd, int ht)
+{
+  QImage pimg = QImage(wd, ht, QImage::Format_RGB32);
+  pimg.fill(0);
+  QPainter p(&pimg);
+  p.setPen(QPen(Qt::white, 1));
+  p.setBrush(Qt::white);
+
+  bool updateimg = false;
+  QList<Curve*> curves = m_cg.values(slc);
+  for(int ic=0; ic<curves.count(); ic++)
+    if (curves[ic]->tag == 255)
+      {
+	p.drawPolygon(curves[ic]->pts);
+	updateimg = true;
+      }
+
+  for(int m=0; m<m_mcg.count(); m++)
+    {
+      if (m_mcg[m].contains(slc))
+	{
+	  Curve c = m_mcg[m].value(slc);
+	  if (c.tag == 255)
+	    {
+	      p.drawPolygon(c.pts);
+	      updateimg = true;
+	    }
+	}
+    }
+
+  // modify imageData if we have masking curves
+  if (updateimg)
+    {
+      QRgb *rgb = (QRgb*)(pimg.bits());
+      for(int pos=0; pos<wd*ht; pos++)
+	if (qRed(rgb[pos]) == 0) imageData[pos] = 0;
+    }
+}
+
+void
 CurveGroup::shrinkwrap(int slc, uchar *imageData, int wd, int ht)
 {
+  // modify imageData if we have masking curves
+  maskImageData(slc, imageData, wd, ht);
+
   MorphSlice ms;
   QList<QPolygonF> poly = ms.boundaryCurves(imageData, wd, ht, true);
 
   for (int npc=0; npc<poly.count(); npc++)
     {
-      if (poly[npc].count() > 20) // take only bigger curves
+      // take only curves bigger than ignoresize
+      if (poly[npc].count() > m_shrinkwrapIgnoreSize)
 	{
 	  //QMap<int, Curve> morphedCurves;
 	  QVector<QPointF> a;	  

@@ -1773,6 +1773,7 @@ ImageWidget::deleteAllCurves()
   cg->reset();
   emit polygonLevels(cg->polygonLevels());
 
+  emit saveWork();
   QMessageBox::information(0, "", QString("Removed all curves for %1").arg(st));
   
   update();
@@ -2176,18 +2177,10 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
       if (shiftModifier)
 	applyRecursive(event->key());
 
-      uchar *imageData = new uchar[m_imgWidth*m_imgHeight];
-      for(int i=0; i<m_imgWidth*m_imgHeight; i++)
-	imageData[i] = (m_sliceImage[4*i+0] > 0 ? 255 : 0);
-      
-      CurveGroup *cg = getCg();
-      cg->shrinkwrap(m_currSlice, imageData, m_imgWidth, m_imgHeight);
-      
-      delete [] imageData;
+      shrinkwrapCurve();
+
       emit saveWork();
       update();
-
-      checkRecursive();
       return true;
     }
 
@@ -4549,16 +4542,29 @@ ImageWidget::saveCurves()
 void
 ImageWidget::saveCurves(QString curvesfile)
 {
+  if (!StaticFunctions::checkExtension(curvesfile, ".curve") &&
+      !StaticFunctions::checkExtension(curvesfile, ".curves"))
+      curvesfile += ".curves";
+
+
+//  QMessageBox::information(0, "", QString("saveCurves : d : %1 %2\nw : %3 %4\nh : %5 %6").\
+//			   arg(m_dCurves.multiMapCurves()->count()).	\
+//			   arg(m_dCurves.listMapCurves()->count()).\
+//			   arg(m_wCurves.multiMapCurves()->count()).\
+//			   arg(m_wCurves.listMapCurves()->count()).\
+//			   arg(m_hCurves.multiMapCurves()->count()).\
+//			   arg(m_hCurves.listMapCurves()->count()));
+
   // if no curves present return
   if (!dCurvesPresent() &&
       !wCurvesPresent() &&
       !hCurvesPresent() &&
       !fibersPresent())
-    return;
-  
-  if (!StaticFunctions::checkExtension(curvesfile, ".curve") &&
-      !StaticFunctions::checkExtension(curvesfile, ".curves"))
-      curvesfile += ".curves";
+    { // remove existing file
+      if (QFile(curvesfile).exists())
+	QFile(curvesfile).remove();
+      return;
+    }
   
   QFile cfile;
 
@@ -4805,4 +4811,41 @@ ImageWidget::loadFibers(QString flnm)
     }
 
   QMessageBox::information(0, "", "Fibers read from file.");
+}
+
+void
+ImageWidget::shrinkwrapCurve()
+{
+  uchar *imageData = new uchar[m_imgWidth*m_imgHeight];
+
+  int size1, size2, imin, imax, jmin, jmax;
+  getSliceLimits(size1, size2, imin, imax, jmin, jmax);
+  if (size1 != m_imgHeight || size2 != m_imgWidth) 
+    {
+      // reset outside bounding box
+      memset(imageData, 0, m_imgWidth*m_imgHeight);
+      for(int i=imin; i<=imax; i++)
+	for(int j=jmin; j<=jmax; j++)
+	  imageData[i*m_imgWidth+j] = 255;
+    }
+  else
+    memset(imageData, 255, m_imgWidth*m_imgHeight);
+
+  for(int i=0; i<m_imgWidth*m_imgHeight; i++)
+    imageData[i] = (m_sliceImage[4*i+0]>0 && imageData[i]>0 ? 255 : 0);
+      
+  CurveGroup *cg = getCg();
+  cg->shrinkwrap(m_currSlice, imageData, m_imgWidth, m_imgHeight);
+    
+  delete [] imageData;
+  
+  checkRecursive();
+}
+
+void
+ImageWidget::setMinCurveLength(int sz)
+{
+  m_dCurves.setShrinkwrapIgnoreSize(sz);
+  m_wCurves.setShrinkwrapIgnoreSize(sz);
+  m_hCurves.setShrinkwrapIgnoreSize(sz);
 }

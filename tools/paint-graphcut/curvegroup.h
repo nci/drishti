@@ -31,6 +31,9 @@ class CurveGroup
   CurveGroup();
   ~CurveGroup();
 
+  int shrinkwrapIgnoreSize() { return m_shrinkwrapIgnoreSize; }
+  void setShrinkwrapIgnoreSize(int sz) { m_shrinkwrapIgnoreSize = sz; }
+
   bool curvesPresent() {return (m_cg.count()>0 ||
 				m_mcg.count()>0); };
 
@@ -112,6 +115,7 @@ class CurveGroup
   float m_lambda;
   int m_seglen;
   QPointF m_selectedPtCoord;
+  int m_shrinkwrapIgnoreSize;
 
   QMultiMap<int, Curve*> m_cg;
   QList< QMap<int, Curve> > m_mcg;  
@@ -146,6 +150,8 @@ class CurveGroup
 
   void generatePolygon(Curve*);
   void generateEllipse(Curve*);
+
+  void maskImageData(int, uchar*, int, int);
 };
 
 #endif

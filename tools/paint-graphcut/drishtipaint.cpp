@@ -195,6 +195,7 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   fibersUi.endfiber->hide();
   curvesUi.endcurve->hide();
   curvesUi.pointsize->setValue(7);
+  curvesUi.mincurvelen->setValue(20);
   ui.tag->setValue(Global::tag());
   ui.radius->setValue(Global::spread());
   graphcutUi.boxSize->setValue(Global::boxSize());
@@ -527,6 +528,7 @@ void DrishtiPaint::on_smooth_valueChanged(int d) { Global::setSmooth(d); }
 void DrishtiPaint::on_thickness_valueChanged(int d) { Global::setThickness(d); }
 void DrishtiPaint::on_radius_valueChanged(int d) { Global::setSpread(d); m_imageWidget->update(); }
 void DrishtiPaint::on_pointsize_valueChanged(int d) { m_imageWidget->setPointSize(d); }
+void DrishtiPaint::on_mincurvelen_valueChanged(int d) { m_imageWidget->setMinCurveLength(d); }
 void DrishtiPaint::on_closed_clicked(bool c) { Global::setClosed(c); }
 void DrishtiPaint::on_lwsmooth_currentIndexChanged(int i){ m_imageWidget->setSmoothType(i); }
 void DrishtiPaint::on_lwgrad_currentIndexChanged(int i){ m_imageWidget->setGradType(i); }
@@ -955,6 +957,10 @@ DrishtiPaint::setFile(QString filename)
       m_xmlFile.clear();
     }
 
+  QString curvesfile = m_pvlFile;
+  curvesfile.replace(".pvl.nc", ".curves");
+  m_imageWidget->loadCurves(curvesfile);
+
   on_actionCurves_clicked(true);
   curvesUi.lwsettingpanel->setVisible(false);
   curvesUi.closed->setChecked(true);
@@ -966,17 +972,9 @@ DrishtiPaint::setFile(QString filename)
   viewerUi.curvetags->setText("-1");
   viewerUi.paintedtags->setText("-1");
 
-//  viewerUi.dslice->setMaximum(d-1);
-//  viewerUi.wslice->setMaximum(w-1);
-//  viewerUi.hslice->setMaximum(h-1);
-
   m_viewDslice->setRange(0, d-1);
   m_viewWslice->setRange(0, w-1);
   m_viewHslice->setRange(0, h-1);
-
-  QString curvesfile = m_pvlFile;
-  curvesfile.replace(".pvl.nc", ".curves");
-  m_imageWidget->loadCurves(curvesfile);
 
   Global::setVoxelScaling(StaticFunctions::getVoxelSizeFromHeader(m_pvlFile));
   Global::setVoxelUnit(StaticFunctions::getVoxelUnitFromHeader(m_pvlFile));
@@ -1989,8 +1987,8 @@ DrishtiPaint::connectCurvesMenu()
 //	  this, SLOT(on_deselect_clicked()));
 
 
-//  connect(curvesUi.thickness, SIGNAL(valueChanged(int)),
-//	  this, SLOT(on_thickness_valueChanged(int)));
+  connect(curvesUi.mincurvelen, SIGNAL(valueChanged(int)),
+	  this, SLOT(on_mincurvelen_valueChanged(int)));
   connect(curvesUi.pointsize, SIGNAL(valueChanged(int)),
 	  this, SLOT(on_pointsize_valueChanged(int)));
 

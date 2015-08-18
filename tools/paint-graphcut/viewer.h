@@ -21,6 +21,7 @@ class Viewer : public QGLViewer
   void setGridSize(int, int, int);
   void setMultiMapCurves(int, QMultiMap<int, Curve*>*);
   void setListMapCurves(int, QList< QMap<int, Curve> >*);
+  void setShrinkwrapCurves(int, QList< QMultiMap<int, Curve*> >*);
 
   void setFibers(QList<Fiber*>*);
 
@@ -70,6 +71,10 @@ class Viewer : public QGLViewer
   QList< QMap<int, Curve> > *m_Wmcg;  
   QList< QMap<int, Curve> > *m_Hmcg;  
 
+  QList< QMultiMap<int, Curve*> > *m_Dswcg;
+  QList< QMultiMap<int, Curve*> > *m_Wswcg;
+  QList< QMultiMap<int, Curve*> > *m_Hswcg;
+
   QList<Fiber*> *m_fibers;
 
   QList<ushort> m_voxels;
@@ -94,6 +99,12 @@ class Viewer : public QGLViewer
   void drawLMDCurve();
   void drawLMWCurve();
   void drawLMHCurve();
+
+  void drawSWDCurve();
+  void drawSWWCurve();
+  void drawSWHCurve();
+
+  void drawCurve(int, Curve*, int);
 
   void drawFibers();
 

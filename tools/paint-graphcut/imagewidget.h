@@ -62,11 +62,16 @@ class ImageWidget : public QWidget
   QVector3D pickedPoint() { return QVector3D(m_lastPickDepth, m_lastPickWidth, m_lastPickHeight); };
 
   QMultiMap<int, Curve*>* multiMapCurvesD() { return m_dCurves.multiMapCurves(); };
-  QList< QMap<int, Curve> >* listMapCurvesD() { return m_dCurves.listMapCurves(); };
   QMultiMap<int, Curve*>* multiMapCurvesW() { return m_wCurves.multiMapCurves(); };
-  QList< QMap<int, Curve> >* listMapCurvesW() { return m_wCurves.listMapCurves(); };
   QMultiMap<int, Curve*>* multiMapCurvesH() { return m_hCurves.multiMapCurves(); };
-  QList< QMap<int, Curve> >* listMapCurvesH() { return m_hCurves.listMapCurves(); };
+
+  QList< QMap<int, Curve> >* morphedCurvesD() { return m_dCurves.morphedCurves(); };
+  QList< QMap<int, Curve> >* morphedCurvesW() { return m_wCurves.morphedCurves(); };
+  QList< QMap<int, Curve> >* morphedCurvesH() { return m_hCurves.morphedCurves(); };
+
+  QList< QMultiMap<int, Curve*> >* shrinkwrapCurvesD() { return m_dCurves.shrinkwrapCurves(); };
+  QList< QMultiMap<int, Curve*> >* shrinkwrapCurvesW() { return m_wCurves.shrinkwrapCurves(); };
+  QList< QMultiMap<int, Curve*> >* shrinkwrapCurvesH() { return m_hCurves.shrinkwrapCurves(); };
 
   QList<Fiber*>* fibers() { return m_fibers.fibers(); };
 
@@ -293,6 +298,9 @@ class ImageWidget : public QWidget
   void saveMorphedCurves(QFile*, CurveGroup*);
   void loadMorphedCurves(QFile*, CurveGroup*);
 
+  void saveShrinkwrapCurves(QFile*, CurveGroup*);
+  void loadShrinkwrapCurves(QFile*, CurveGroup*);
+
   void saveCurveData(QFile*, int, Curve*);
   QPair<int, Curve> loadCurveData(QFile*);
 
@@ -323,6 +331,8 @@ class ImageWidget : public QWidget
   void newPolygon(bool, bool);
   void newEllipse();
 
+  void startShrinkwrap();
+  void endShrinkwrap();
   void shrinkwrapCurve();
 };
 

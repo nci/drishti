@@ -19,6 +19,9 @@ Viewer::init()
   m_Dmcg = 0;
   m_Wmcg = 0;
   m_Hmcg = 0;
+  m_Dswcg = 0;
+  m_Wswcg = 0;
+  m_Hswcg = 0;
 
   m_fibers = 0;
 
@@ -310,6 +313,14 @@ Viewer::setListMapCurves(int type, QList< QMap<int, Curve> > *cg)
 }
 
 void
+Viewer::setShrinkwrapCurves(int type, QList< QMultiMap<int, Curve*> > *cg)
+{
+  if (type == 0) m_Dswcg = cg;
+  if (type == 1) m_Wswcg = cg;
+  if (type == 2) m_Hswcg = cg;
+}
+
+void
 Viewer::setFibers(QList<Fiber*> *fb)
 {
   m_fibers = fb;
@@ -331,6 +342,10 @@ Viewer::draw()
   drawLMDCurve();
   drawLMWCurve();
   drawLMHCurve();
+
+  drawSWDCurve();
+  drawSWWCurve();
+  drawSWHCurve();
 
   glEnable(GL_LIGHTING);
   drawFibers();
@@ -752,29 +767,32 @@ Viewer::drawMMDCurve()
     {
       QList<Curve*> curves = m_Dcg->values(cgkeys[i]);
       for (int j=0; j<curves.count(); j++)
-	{
-	  int tag = curves[j]->tag;
-	  if (m_curveTags.count() == 0 ||
-	      m_curveTags[0] == -1 ||
-	      m_curveTags.contains(tag))
-	    {
-	      float r = Global::tagColors()[4*tag+0]*1.0/255.0;
-	      float g = Global::tagColors()[4*tag+1]*1.0/255.0;
-	      float b = Global::tagColors()[4*tag+2]*1.0/255.0;
-	      glColor3f(r,g,b);
-	      glLineWidth(curves[j]->thickness);
-	      glBegin(GL_LINE_STRIP);
-	      for(int k=0; k<curves[j]->pts.count(); k++)
-		glVertex3f(curves[j]->pts[k].x(),
-			   curves[j]->pts[k].y(),
-			   cgkeys[i]);
-	      if (curves[j]->closed)
-		glVertex3f(curves[j]->pts[0].x(),
-			   curves[j]->pts[0].y(),
-			   cgkeys[i]);
-	      glEnd();
-	    }
-	}
+	drawCurve(0, curves[j], cgkeys[i]);
+      
+//      for (int j=0; j<curves.count(); j++)
+//	{
+//	  int tag = curves[j]->tag;
+//	  if (m_curveTags.count() == 0 ||
+//	      m_curveTags[0] == -1 ||
+//	      m_curveTags.contains(tag))
+//	    {
+//	      float r = Global::tagColors()[4*tag+0]*1.0/255.0;
+//	      float g = Global::tagColors()[4*tag+1]*1.0/255.0;
+//	      float b = Global::tagColors()[4*tag+2]*1.0/255.0;
+//	      glColor3f(r,g,b);
+//	      glLineWidth(curves[j]->thickness);
+//	      glBegin(GL_LINE_STRIP);
+//	      for(int k=0; k<curves[j]->pts.count(); k++)
+//		glVertex3f(curves[j]->pts[k].x(),
+//			   curves[j]->pts[k].y(),
+//			   cgkeys[i]);
+//	      if (curves[j]->closed)
+//		glVertex3f(curves[j]->pts[0].x(),
+//			   curves[j]->pts[0].y(),
+//			   cgkeys[i]);
+//	      glEnd();
+//	    }
+//	}
     }
   glLineWidth(1);
 }
@@ -789,29 +807,32 @@ Viewer::drawMMWCurve()
     {
       QList<Curve*> curves = m_Wcg->values(cgkeys[i]);
       for (int j=0; j<curves.count(); j++)
-	{
-	  int tag = curves[j]->tag;
-	  if (m_curveTags.count() == 0 ||
-	      m_curveTags[0] == -1 ||
-	      m_curveTags.contains(tag))
-	    {
-	      float r = Global::tagColors()[4*tag+0]*1.0/255.0;
-	      float g = Global::tagColors()[4*tag+1]*1.0/255.0;
-	      float b = Global::tagColors()[4*tag+2]*1.0/255.0;
-	      glColor3f(r,g,b);
-	      glLineWidth(curves[j]->thickness);
-	      glBegin(GL_LINE_STRIP);
-	      for(int k=0; k<curves[j]->pts.count(); k++)
-		glVertex3f(curves[j]->pts[k].x(),
-			   cgkeys[i],
-			   curves[j]->pts[k].y());
-	      if (curves[j]->closed)
-		glVertex3f(curves[j]->pts[0].x(),
-			   cgkeys[i],
-			   curves[j]->pts[0].y());
-	      glEnd();
-	    }
-	}
+	drawCurve(1, curves[j], cgkeys[i]);
+
+//      for (int j=0; j<curves.count(); j++)
+//	{
+//	  int tag = curves[j]->tag;
+//	  if (m_curveTags.count() == 0 ||
+//	      m_curveTags[0] == -1 ||
+//	      m_curveTags.contains(tag))
+//	    {
+//	      float r = Global::tagColors()[4*tag+0]*1.0/255.0;
+//	      float g = Global::tagColors()[4*tag+1]*1.0/255.0;
+//	      float b = Global::tagColors()[4*tag+2]*1.0/255.0;
+//	      glColor3f(r,g,b);
+//	      glLineWidth(curves[j]->thickness);
+//	      glBegin(GL_LINE_STRIP);
+//	      for(int k=0; k<curves[j]->pts.count(); k++)
+//		glVertex3f(curves[j]->pts[k].x(),
+//			   cgkeys[i],
+//			   curves[j]->pts[k].y());
+//	      if (curves[j]->closed)
+//		glVertex3f(curves[j]->pts[0].x(),
+//			   cgkeys[i],
+//			   curves[j]->pts[0].y());
+//	      glEnd();
+//	    }
+//	}
     }
   glLineWidth(1);
 }
@@ -826,29 +847,32 @@ Viewer::drawMMHCurve()
     {
       QList<Curve*> curves = m_Hcg->values(cgkeys[i]);
       for (int j=0; j<curves.count(); j++)
-	{
-	  int tag = curves[j]->tag;
-	  if (m_curveTags.count() == 0 ||
-	      m_curveTags[0] == -1 ||
-	      m_curveTags.contains(tag))
-	    {
-	      float r = Global::tagColors()[4*tag+0]*1.0/255.0;
-	      float g = Global::tagColors()[4*tag+1]*1.0/255.0;
-	      float b = Global::tagColors()[4*tag+2]*1.0/255.0;
-	      glColor3f(r,g,b);
-	      glLineWidth(curves[j]->thickness);
-	      glBegin(GL_LINE_STRIP);
-	      for(int k=0; k<curves[j]->pts.count(); k++)
-		glVertex3f(cgkeys[i],
-			   curves[j]->pts[k].x(),
-			   curves[j]->pts[k].y());
-	      if (curves[j]->closed)
-		glVertex3f(cgkeys[i],
-			   curves[j]->pts[0].x(),
-			   curves[j]->pts[0].y());
-	      glEnd();
-	    }
-	}
+	drawCurve(2, curves[j], cgkeys[i]);
+
+//      for (int j=0; j<curves.count(); j++)
+//	{
+//	  int tag = curves[j]->tag;
+//	  if (m_curveTags.count() == 0 ||
+//	      m_curveTags[0] == -1 ||
+//	      m_curveTags.contains(tag))
+//	    {
+//	      float r = Global::tagColors()[4*tag+0]*1.0/255.0;
+//	      float g = Global::tagColors()[4*tag+1]*1.0/255.0;
+//	      float b = Global::tagColors()[4*tag+2]*1.0/255.0;
+//	      glColor3f(r,g,b);
+//	      glLineWidth(curves[j]->thickness);
+//	      glBegin(GL_LINE_STRIP);
+//	      for(int k=0; k<curves[j]->pts.count(); k++)
+//		glVertex3f(cgkeys[i],
+//			   curves[j]->pts[k].x(),
+//			   curves[j]->pts[k].y());
+//	      if (curves[j]->closed)
+//		glVertex3f(cgkeys[i],
+//			   curves[j]->pts[0].x(),
+//			   curves[j]->pts[0].y());
+//	      glEnd();
+//	    }
+//	}
     }
   glLineWidth(1);
 }
@@ -865,28 +889,29 @@ Viewer::drawLMDCurve()
       for(int j=0; j<cgkeys.count(); j++)
 	{
 	  Curve c = mcg.value(cgkeys[j]);
+	  drawCurve(0, &c, cgkeys[j]);
 
-	  int tag = c.tag;
-	  if (m_curveTags.count() == 0 ||
-	      m_curveTags[0] == -1 ||
-	      m_curveTags.contains(tag))
-	    {
-	      float r = Global::tagColors()[4*tag+0]*1.0/255.0;
-	      float g = Global::tagColors()[4*tag+1]*1.0/255.0;
-	      float b = Global::tagColors()[4*tag+2]*1.0/255.0;
-	      glColor3f(r,g,b);
-	      glLineWidth(c.thickness);
-	      glBegin(GL_LINE_STRIP);
-	      for(int k=0; k<c.pts.count(); k++)
-		glVertex3f(c.pts[k].x(),
-			   c.pts[k].y(),
-			   cgkeys[j]);
-	      if (c.closed)
-		glVertex3f(c.pts[0].x(),
-			   c.pts[0].y(),
-			   cgkeys[j]);
-	      glEnd();
-	    }
+//	  int tag = c.tag;
+//	  if (m_curveTags.count() == 0 ||
+//	      m_curveTags[0] == -1 ||
+//	      m_curveTags.contains(tag))
+//	    {
+//	      float r = Global::tagColors()[4*tag+0]*1.0/255.0;
+//	      float g = Global::tagColors()[4*tag+1]*1.0/255.0;
+//	      float b = Global::tagColors()[4*tag+2]*1.0/255.0;
+//	      glColor3f(r,g,b);
+//	      glLineWidth(c.thickness);
+//	      glBegin(GL_LINE_STRIP);
+//	      for(int k=0; k<c.pts.count(); k++)
+//		glVertex3f(c.pts[k].x(),
+//			   c.pts[k].y(),
+//			   cgkeys[j]);
+//	      if (c.closed)
+//		glVertex3f(c.pts[0].x(),
+//			   c.pts[0].y(),
+//			   cgkeys[j]);
+//	      glEnd();
+//	    }
 	}
     }
   glLineWidth(1);
@@ -904,29 +929,30 @@ Viewer::drawLMWCurve()
       for(int j=0; j<cgkeys.count(); j++)
 	{
 	  Curve c = mcg.value(cgkeys[j]);
+	  drawCurve(1, &c, cgkeys[j]);
 
-	  int tag = c.tag;
-	  if (m_curveTags.count() == 0 ||
-	      m_curveTags[0] == -1 ||
-	      m_curveTags.contains(tag))
-	    {
-	      float r = Global::tagColors()[4*tag+0]*1.0/255.0;
-	      float g = Global::tagColors()[4*tag+1]*1.0/255.0;
-	      float b = Global::tagColors()[4*tag+2]*1.0/255.0;
-	      glColor3f(r,g,b);
-	      glLineWidth(c.thickness);
-	      glBegin(GL_LINE_STRIP);
-	      for(int k=0; k<c.pts.count(); k++)
-		glVertex3f(c.pts[k].x(),
-			   cgkeys[j],
-			   c.pts[k].y());
-	      if (c.closed)
-		glVertex3f(c.pts[0].x(),
-			   cgkeys[j],
-			   c.pts[0].y());
-	      
-	      glEnd();
-	    }
+//	  int tag = c.tag;
+//	  if (m_curveTags.count() == 0 ||
+//	      m_curveTags[0] == -1 ||
+//	      m_curveTags.contains(tag))
+//	    {
+//	      float r = Global::tagColors()[4*tag+0]*1.0/255.0;
+//	      float g = Global::tagColors()[4*tag+1]*1.0/255.0;
+//	      float b = Global::tagColors()[4*tag+2]*1.0/255.0;
+//	      glColor3f(r,g,b);
+//	      glLineWidth(c.thickness);
+//	      glBegin(GL_LINE_STRIP);
+//	      for(int k=0; k<c.pts.count(); k++)
+//		glVertex3f(c.pts[k].x(),
+//			   cgkeys[j],
+//			   c.pts[k].y());
+//	      if (c.closed)
+//		glVertex3f(c.pts[0].x(),
+//			   cgkeys[j],
+//			   c.pts[0].y());
+//	      
+//	      glEnd();
+//	    }
 	}
     }
   glLineWidth(1);
@@ -944,29 +970,30 @@ Viewer::drawLMHCurve()
       for(int j=0; j<cgkeys.count(); j++)
 	{
 	  Curve c = mcg.value(cgkeys[j]);
+	  drawCurve(2, &c, cgkeys[j]);
 
-	  int tag = c.tag;
-	  if (m_curveTags.count() == 0 ||
-	      m_curveTags[0] == -1 ||
-	      m_curveTags.contains(tag))
-	    {
-	      float r = Global::tagColors()[4*tag+0]*1.0/255.0;
-	      float g = Global::tagColors()[4*tag+1]*1.0/255.0;
-	      float b = Global::tagColors()[4*tag+2]*1.0/255.0;
-	      glColor3f(r,g,b);
-	      glLineWidth(c.thickness);
-	      glBegin(GL_LINE_STRIP);
-	      for(int k=0; k<c.pts.count(); k++)
-		glVertex3f(cgkeys[j],
-			   c.pts[k].x(),
-			   c.pts[k].y());
-	      if (c.closed)
-		glVertex3f(cgkeys[j],
-			   c.pts[0].x(),
-			   c.pts[0].y());
-	      
-	      glEnd();
-	    }
+//	  int tag = c.tag;
+//	  if (m_curveTags.count() == 0 ||
+//	      m_curveTags[0] == -1 ||
+//	      m_curveTags.contains(tag))
+//	    {
+//	      float r = Global::tagColors()[4*tag+0]*1.0/255.0;
+//	      float g = Global::tagColors()[4*tag+1]*1.0/255.0;
+//	      float b = Global::tagColors()[4*tag+2]*1.0/255.0;
+//	      glColor3f(r,g,b);
+//	      glLineWidth(c.thickness);
+//	      glBegin(GL_LINE_STRIP);
+//	      for(int k=0; k<c.pts.count(); k++)
+//		glVertex3f(cgkeys[j],
+//			   c.pts[k].x(),
+//			   c.pts[k].y());
+//	      if (c.closed)
+//		glVertex3f(cgkeys[j],
+//			   c.pts[0].x(),
+//			   c.pts[0].y());
+//	      
+//	      glEnd();
+//	    }
 	}
     }
   glLineWidth(1);
@@ -1094,4 +1121,110 @@ Viewer::drawSlices()
       glVertex3f(m_hslice, w, d);
       glEnd();
     }
+}
+
+void
+Viewer::drawCurve(int type, Curve *c, int slc)
+{
+  int tag = c->tag;
+  if (m_curveTags.count() == 0 ||
+      m_curveTags[0] == -1 ||
+      m_curveTags.contains(tag))
+    {
+      float r = Global::tagColors()[4*tag+0]*1.0/255.0;
+      float g = Global::tagColors()[4*tag+1]*1.0/255.0;
+      float b = Global::tagColors()[4*tag+2]*1.0/255.0;
+      glColor3f(r,g,b);
+      glLineWidth(c->thickness);
+      if (type == 0)
+	{
+	  glBegin(GL_LINE_STRIP);
+	  for(int k=0; k<c->pts.count(); k++)
+	    glVertex3f(c->pts[k].x(), c->pts[k].y(), slc);
+	  if (c->closed)
+	    glVertex3f(c->pts[0].x(), c->pts[0].y(), slc);
+	  glEnd();
+	}
+      else if (type == 1)
+	{
+	  glBegin(GL_LINE_STRIP);
+	  for(int k=0; k<c->pts.count(); k++)
+	    glVertex3f(c->pts[k].x(), slc, c->pts[k].y());
+	  if (c->closed)
+	    glVertex3f(c->pts[0].x(), slc, c->pts[0].y());
+	  glEnd();
+	}
+      else if (type == 2)
+	{
+	  glBegin(GL_LINE_STRIP);
+	  for(int k=0; k<c->pts.count(); k++)
+	    glVertex3f(slc, c->pts[k].x(), c->pts[k].y());
+	  if (c->closed)
+	    glVertex3f(slc, c->pts[0].x(), c->pts[0].y());
+	  glEnd();
+	}
+    }
+}
+
+void
+Viewer::drawSWDCurve()
+{
+  if (!m_Dswcg) return;
+
+  for(int ix=0; ix<m_Dswcg->count(); ix++)
+    {
+      QMultiMap<int, Curve*> mcg = m_Dswcg->at(ix);
+
+      QList<int> cgkeys = mcg.uniqueKeys();
+      for(int i=0; i<cgkeys.count(); i++)
+	{
+	  QList<Curve*> curves = mcg.values(cgkeys[i]);
+	  for (int j=0; j<curves.count(); j++)
+	    drawCurve(0, curves[j], cgkeys[i]);
+	}
+    }
+
+  glLineWidth(1);
+}
+
+void
+Viewer::drawSWWCurve()
+{
+  if (!m_Wswcg) return;
+
+  for(int ix=0; ix<m_Wswcg->count(); ix++)
+    {
+      QMultiMap<int, Curve*> mcg = m_Wswcg->at(ix);
+
+      QList<int> cgkeys = mcg.uniqueKeys();
+      for(int i=0; i<cgkeys.count(); i++)
+	{
+	  QList<Curve*> curves = mcg.values(cgkeys[i]);
+	  for (int j=0; j<curves.count(); j++)
+	    drawCurve(1, curves[j], cgkeys[i]);
+	}
+    }
+
+  glLineWidth(1);
+}
+
+void
+Viewer::drawSWHCurve()
+{
+  if (!m_Hswcg) return;
+
+  for(int ix=0; ix<m_Hswcg->count(); ix++)
+    {
+      QMultiMap<int, Curve*> mcg = m_Hswcg->at(ix);
+
+      QList<int> cgkeys = mcg.uniqueKeys();
+      for(int i=0; i<cgkeys.count(); i++)
+	{
+	  QList<Curve*> curves = mcg.values(cgkeys[i]);
+	  for (int j=0; j<curves.count(); j++)
+	    drawCurve(2, curves[j], cgkeys[i]);
+	}
+    }
+
+  glLineWidth(1);
 }

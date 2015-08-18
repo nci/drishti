@@ -914,13 +914,16 @@ DrishtiPaint::setFile(QString filename)
   m_viewer->setGridSize(d, w, h);
 
   m_viewer->setMultiMapCurves(0, m_imageWidget->multiMapCurvesD());
-  m_viewer->setListMapCurves(0, m_imageWidget->listMapCurvesD());
-
   m_viewer->setMultiMapCurves(1, m_imageWidget->multiMapCurvesW());
-  m_viewer->setListMapCurves(1, m_imageWidget->listMapCurvesW());
-
   m_viewer->setMultiMapCurves(2, m_imageWidget->multiMapCurvesH());
-  m_viewer->setListMapCurves(2, m_imageWidget->listMapCurvesH());
+
+  m_viewer->setListMapCurves(0, m_imageWidget->morphedCurvesD());
+  m_viewer->setListMapCurves(1, m_imageWidget->morphedCurvesW());
+  m_viewer->setListMapCurves(2, m_imageWidget->morphedCurvesH());
+
+  m_viewer->setShrinkwrapCurves(0, m_imageWidget->shrinkwrapCurvesD());
+  m_viewer->setShrinkwrapCurves(1, m_imageWidget->shrinkwrapCurvesW());
+  m_viewer->setShrinkwrapCurves(2, m_imageWidget->shrinkwrapCurvesH());
 
   m_viewer->setFibers(m_imageWidget->fibers());
   

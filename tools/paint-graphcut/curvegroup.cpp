@@ -68,6 +68,15 @@ CurveGroup::reset()
     delete c[i];
   m_cg.clear();
   
+  for(int is=0; is<m_swcg.count(); is++)
+    {
+      QList<Curve*> c = m_swcg[is].values();
+      for(int i=0; i<c.count(); i++)
+	delete c[i];
+    }
+  m_swcg.clear();
+  m_sw.clear();
+  
   m_mcg.clear();
 
   m_pointsDirtyBit = false;
@@ -99,15 +108,27 @@ CurveGroup::removePolygonAt(int key, int v0, int v1)
 	  if (j != ic)
 	    m_cg.insert(key, curves[j]);
 	}      
-    }
 
-  m_pointsDirtyBit = true;
+      m_pointsDirtyBit = true;
+    }
 
   // remove related morphed curve
   int mc = getActiveMorphedCurve(key, v0, v1);
-  if (mc < 0)
-    return;
-  m_mcg.removeAt(mc);
+  if (mc >= 0)
+    m_mcg.removeAt(mc);
+
+
+  // remove shrinkwrap curves if any
+  QPair<int, int> swsel = getActiveShrinkwrapCurve(key, v0, v1);
+  ic = swsel.first;
+  if (ic >= 0)
+    {
+      QList<Curve*> curves = m_swcg[ic].values(key);
+      for(int j=0; j<curves.count(); j++)
+	delete curves[j];
+      m_swcg.removeAt(ic);
+    }
+
 }
 
 float
@@ -313,13 +334,22 @@ void
 CurveGroup::setTag(int key, int v0, int v1, int t)
 {
   int ic = getActiveCurve(key, v0, v1);
-  if (ic < 0)
-    return;
+  if (ic >= 0)
+    {
+      QList<Curve*> curves = m_cg.values(key);
+      curves[ic]->tag = t;
 
-  QList<Curve*> curves = m_cg.values(key);
-  curves[ic]->tag = t;
+      m_pointsDirtyBit = true;
+    }
 
-  m_pointsDirtyBit = true;
+  QPair<int, int> swsel = getActiveShrinkwrapCurve(key, v0, v1);
+  ic = swsel.first;
+  if (ic >= 0)
+    {
+      QList<Curve*> curves = m_swcg[ic].values(key);
+      for(int j=0; j<curves.count(); j++)
+	curves[j]->tag = t;
+    }
 }
 
 void
@@ -651,6 +681,31 @@ CurveGroup::getActiveMorphedCurve(int key, int v0, int v1)
   return -1;
 }
 
+QPair<int, int>
+CurveGroup::getActiveShrinkwrapCurve(int key, int v0, int v1)
+{
+  QPointF cen = QPointF(v0, v1);
+  for(int m=0; m<m_swcg.count(); m++)
+    {
+      if (m_swcg[m].contains(key))
+	{
+	  QList<Curve*> curves = m_swcg[m].values(key);
+	  for(int j=0; j<curves.count(); j++)
+	    {
+	      int npts = curves[j]->pts.count();
+	      for(int i=npts-1; i>=0; i--)
+		{
+		  QPointF v = curves[j]->pts[i] - cen;
+		  if (v.manhattanLength() < Global::selectionPrecision())
+		    return qMakePair(m, j);
+		}
+	    }
+	}
+    }
+  
+  return qMakePair(-1, -1);
+}
+
 void
 CurveGroup::removePoint(int key, int v0, int v1)
 {
@@ -709,12 +764,22 @@ CurveGroup::getPolygonAt(int key)
 }
 
 QList<Curve*>
-CurveGroup::getCurvesAt(int key)
+CurveGroup::getCurvesAt(int key, bool shrinkwrapCurves)
 {
-  if (m_cg.contains(key))
-    return m_cg.values(key);
-
   QList<Curve*> c;
+
+  if (m_cg.contains(key))
+    c += m_cg.values(key);
+
+  if (shrinkwrapCurves)
+    {
+      for(int m=0; m<m_swcg.count(); m++)
+	{
+	  if (m_swcg[m].contains(key))
+	    c += m_swcg[m].values(key);
+	}
+    }
+  
   return c;
 }
 
@@ -813,8 +878,9 @@ CurveGroup::setPolygonAt(int key,
     }
 }
 
-QList< QMap<int, Curve> >* CurveGroup::getPointerToMorphedCurves() { return &m_mcg; };
+//QList< QMap<int, Curve> >* CurveGroup::getPointerToMorphedCurves() { return &m_mcg; };
 void CurveGroup::addMorphBlock(QMap<int, Curve> mb) { m_mcg << mb; }
+void CurveGroup::addShrinkwrapBlock(QMultiMap<int, Curve*> mb) { m_swcg << mb; }
 
 void
 CurveGroup::morphCurves(int minS, int maxS)
@@ -1035,6 +1101,20 @@ CurveGroup::maskImageData(int slc, uchar* imageData, int wd, int ht)
 }
 
 void
+CurveGroup::startShrinkwrap()
+{
+  m_sw.clear();
+}
+
+void
+CurveGroup::endShrinkwrap()
+{
+  if (m_sw.count() > 0)
+    m_swcg << m_sw;
+  m_sw.clear();
+}
+
+void
 CurveGroup::shrinkwrap(int slc, uchar *imageData, int wd, int ht)
 {
   // modify imageData if we have masking curves
@@ -1048,7 +1128,6 @@ CurveGroup::shrinkwrap(int slc, uchar *imageData, int wd, int ht)
       // take only curves bigger than ignoresize
       if (poly[npc].count() > m_shrinkwrapIgnoreSize)
 	{
-	  //QMap<int, Curve> morphedCurves;
 	  QVector<QPointF> a;	  
 	  for (int j=0; j<poly[npc].count(); j++)
 	    {
@@ -1058,18 +1137,14 @@ CurveGroup::shrinkwrap(int slc, uchar *imageData, int wd, int ht)
 	  a = smooth(a, true);
 	  
 	  Curve *c = new Curve();
-	  //Curve c;
 	  c->tag = Global::tag();
 	  c->pts = a;
 	  c->closed = true;
 	  c->thickness = Global::thickness();
 	  
-	  //morphedCurves.insert(slc, c);
-	  //m_mcg << morphedCurves;
-	  m_cg.insert(slc, c);
+	  m_sw.insert(slc, c);
 	}
     }
-
 }
 
 
@@ -1186,34 +1261,57 @@ CurveGroup::dilateErode(int key, int v0, int v1,
 	}
 
       m_pointsDirtyBit = true;
-      return;
     }
-
-
-  if (m_cg.contains(key))
+  else
     {
-      int ic = getActiveCurve(key, v0, v1);
-      if (ic >= 0)
+      if (m_cg.contains(key))
 	{
-	  QList<Curve*> curves = m_cg.values(key);
-	  // fix seedpos
-	  if (curves[ic]->seedpos.count() > 0)
-	    dilateErodeCurveWithSeedPoints(curves[ic], lambda);
-	  else
-	    curves[ic]->pts = dilateErode(curves[ic]->pts,
-					  curves[ic]->closed, lambda);
-	  
-	  m_pointsDirtyBit = true;
+	  int ic = getActiveCurve(key, v0, v1);
+	  if (ic >= 0)
+	    {
+	      QList<Curve*> curves = m_cg.values(key);
+	      // fix seedpos
+	      if (curves[ic]->seedpos.count() > 0)
+		dilateErodeCurveWithSeedPoints(curves[ic], lambda);
+	      else
+		curves[ic]->pts = dilateErode(curves[ic]->pts,
+					      curves[ic]->closed, lambda);
+	      
+	      m_pointsDirtyBit = true;
+	    }
+	}
+      
+      int mc = getActiveMorphedCurve(key, v0, v1);
+      if (mc >= 0)
+	{
+	  Curve c = m_mcg[mc].value(key);
+	  QVector<QPointF> w;
+	  w = dilateErode(c.pts, c.closed, lambda);
+	  c.pts = w; // replace pts with the smooth version
+	  m_mcg[mc].insert(key, c);
 	}
     }
-  int mc = getActiveMorphedCurve(key, v0, v1);
-  if (mc >= 0)
+
+
+  // smooth shrinkwrap curves
+  QPair<int, int> swsel = getActiveShrinkwrapCurve(key, v0, v1);
+  int sc = swsel.first;
+  if (sc >= 0)
     {
-      Curve c = m_mcg[mc].value(key);
-      QVector<QPointF> w;
-      w = dilateErode(c.pts, c.closed, lambda);
-      c.pts = w; // replace pts with the smooth version
-      m_mcg[mc].insert(key, c);
+      QList<Curve*> curves = m_swcg[sc].values(key);
+      if (all)
+	{
+	  for(int j=0; j<curves.count(); j++)
+	    curves[j]->pts = dilateErode(curves[j]->pts,
+					 curves[j]->closed, lambda);
+	}
+      else
+	{
+	  
+	  int j = swsel.second;
+	  curves[j]->pts = dilateErode(curves[j]->pts,
+				       curves[j]->closed, lambda);
+	}
     }
 }
 

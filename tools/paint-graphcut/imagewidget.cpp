@@ -966,12 +966,12 @@ ImageWidget::drawCurves(QPainter *p)
 {  
   QList<Curve*> curves;
   if (m_sliceType == DSlice)
-    curves = m_dCurves.getCurvesAt(m_currSlice);
+    curves = m_dCurves.getCurvesAt(m_currSlice, true);
   else if (m_sliceType == WSlice)
-    curves = m_wCurves.getCurvesAt(m_currSlice);
+    curves = m_wCurves.getCurvesAt(m_currSlice, true);
   else
-    curves = m_hCurves.getCurvesAt(m_currSlice);
-
+    curves = m_hCurves.getCurvesAt(m_currSlice, true);
+  
   QPoint move = QPoint(m_simgX, m_simgY);
   float sx = (float)m_simgWidth/(float)m_imgWidth;
   for(int l=0; l<curves.count(); l++)
@@ -2174,12 +2174,21 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
 
   if (event->key() == Qt::Key_G) // shrink wrap 
     {
+      bool ar = m_applyRecursive;
+
       if (shiftModifier)
-	applyRecursive(event->key());
+	{
+	  ar = true;
+
+	  applyRecursive(event->key());
+	  startShrinkwrap();
+	}
 
       shrinkwrapCurve();
 
-      emit saveWork();
+      if (ar && m_applyRecursive == false)
+	endShrinkwrap();
+
       update();
       return true;
     }
@@ -2278,24 +2287,40 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
  
   if (event->key() == Qt::Key_T)
     {
+      QPair<int , int> swsel;
       int ic = -1;
       if (m_sliceType == DSlice)
 	{
 	  ic = m_dCurves.getActiveCurve(m_currSlice, m_pickHeight, m_pickWidth);
 	  if (ic == -1)
 	    ic = m_dCurves.getActiveMorphedCurve(m_currSlice, m_pickHeight, m_pickWidth);
+	  if (ic == -1)
+	    {
+	      swsel = m_dCurves.getActiveShrinkwrapCurve(m_currSlice, m_pickHeight, m_pickWidth);
+	      ic = swsel.first;
+	    }
 	}
       else if (m_sliceType == WSlice)
 	{
 	  ic = m_wCurves.getActiveCurve(m_currSlice, m_pickHeight, m_pickDepth);
 	  if (ic == -1)
 	    ic = m_wCurves.getActiveMorphedCurve(m_currSlice, m_pickHeight, m_pickDepth);
+	  if (ic == -1)
+	    {
+	      swsel = m_wCurves.getActiveShrinkwrapCurve(m_currSlice, m_pickHeight, m_pickDepth);
+	      ic = swsel.first;
+	    }
 	}
       else
 	{
 	  ic = m_hCurves.getActiveCurve(m_currSlice, m_pickWidth, m_pickDepth);
 	  if (ic == -1)
 	    ic = m_hCurves.getActiveMorphedCurve(m_currSlice, m_pickWidth, m_pickDepth);
+	  if (ic == -1)
+	    {
+	      swsel = m_hCurves.getActiveShrinkwrapCurve(m_currSlice, m_pickWidth, m_pickDepth);
+	      ic = swsel.first;
+	    }
 	}
       
       if (ic == -1)
@@ -2518,6 +2543,7 @@ ImageWidget::keyPressEvent(QKeyEvent *event)
       if (m_applyRecursive) // stop the recursive process
 	{
 	  endLivewirePropagation();
+	  endShrinkwrap();
 	  emit saveWork();
 
 	  m_applyRecursive = false;
@@ -3607,7 +3633,7 @@ ImageWidget::paintUsingCurves(CurveGroup* cg,
 
   { // normal curves
     QList<Curve*> curves;
-    curves = cg->getCurvesAt(slc);
+    curves = cg->getCurvesAt(slc, true);
     
     if (curves.count() > 0)
       {
@@ -4327,7 +4353,8 @@ ImageWidget::saveMorphedCurves(QFile *cfile, CurveGroup *cg)
   sprintf(keyword, "morphcurvegroupstart\n");
   cfile->write((char*)keyword, strlen(keyword));
 
-  QList< QMap<int, Curve> > *mcg = cg->getPointerToMorphedCurves();
+  //QList< QMap<int, Curve> > *mcg = cg->getPointerToMorphedCurves();
+  QList< QMap<int, Curve> > *mcg = cg->morphedCurves();
   int mcgcount = mcg->count();
   if (mcgcount == 0)
     {
@@ -4363,6 +4390,51 @@ ImageWidget::saveMorphedCurves(QFile *cfile, CurveGroup *cg)
 }
 
 void
+ImageWidget::saveShrinkwrapCurves(QFile *cfile, CurveGroup *cg)
+{
+  char keyword[100];
+
+  memset(keyword, 0, 100);
+  sprintf(keyword, "shrinkwrapgroupstart\n");
+  cfile->write((char*)keyword, strlen(keyword));
+
+  QList< QMultiMap<int, Curve*> > *mcg = cg->shrinkwrapCurves();
+  int mcgcount = mcg->count();
+  if (mcgcount == 0)
+    {
+      memset(keyword, 0, 100);
+      sprintf(keyword, "shrinkwrapgroupend\n");
+      cfile->write((char*)keyword, strlen(keyword));
+      return;
+    }
+
+  for(int m=0; m<mcgcount; m++)
+    {
+      QList<int> keys = (*mcg)[m].uniqueKeys();
+      int nkeys = keys.count();
+
+      memset(keyword, 0, 100);
+      sprintf(keyword, "shrinkwrapblockstart\n");
+      cfile->write((char*)keyword, strlen(keyword));
+      
+      for(int i=0; i<nkeys; i++)
+	{
+	  QList<Curve*> curves = (*mcg)[m].values(keys[i]);
+	  for(int j=0; j<curves.count(); j++)
+	    saveCurveData(cfile, keys[i], curves[j]);
+	} 
+
+      memset(keyword, 0, 100);
+      sprintf(keyword, "shrinkwrapblockend\n");
+      cfile->write((char*)keyword, strlen(keyword));
+    }
+
+  memset(keyword, 0, 100);
+  sprintf(keyword, "shrinkwrapgroupend\n");
+  cfile->write((char*)keyword, strlen(keyword));
+}
+
+void
 ImageWidget::saveCurves(QFile *cfile, CurveGroup *cg)
 {
   QList<int> keys = cg->polygonLevels();
@@ -4388,21 +4460,23 @@ ImageWidget::saveCurves(QFile *cfile, CurveGroup *cg)
       memset(keyword, 0, 100);
       sprintf(keyword, "morphcurvegroupend\n");
       cfile->write((char*)keyword, strlen(keyword));
-      return;
+    }
+  else
+    {
+      for(int i=0; i<keys.count(); i++)
+	{
+	  QList<Curve*> c = cg->getCurvesAt(keys[i]);
+	  for (int j=0; j<c.count(); j++)
+	    saveCurveData(cfile, keys[i], c[j]);
+	} 
+      memset(keyword, 0, 100);
+      sprintf(keyword, "curvegroupend\n");
+      cfile->write((char*)keyword, strlen(keyword));  
+
+      saveMorphedCurves(cfile, cg);
     }
 
-  for(int i=0; i<keys.count(); i++)
-    {
-      QList<Curve*> c = cg->getCurvesAt(keys[i]);
-      for (int j=0; j<c.count(); j++)
-	saveCurveData(cfile, keys[i], c[j]);
-    } 
-  memset(keyword, 0, 100);
-  sprintf(keyword, "curvegroupend\n");
-  cfile->write((char*)keyword, strlen(keyword));  
-
-
-  saveMorphedCurves(cfile, cg);
+  saveShrinkwrapCurves(cfile, cg);
 }
 
 void
@@ -4547,14 +4621,6 @@ ImageWidget::saveCurves(QString curvesfile)
       curvesfile += ".curves";
 
 
-//  QMessageBox::information(0, "", QString("saveCurves : d : %1 %2\nw : %3 %4\nh : %5 %6").\
-//			   arg(m_dCurves.multiMapCurves()->count()).	\
-//			   arg(m_dCurves.listMapCurves()->count()).\
-//			   arg(m_wCurves.multiMapCurves()->count()).\
-//			   arg(m_wCurves.listMapCurves()->count()).\
-//			   arg(m_hCurves.multiMapCurves()->count()).\
-//			   arg(m_hCurves.listMapCurves()->count()));
-
   // if no curves present return
   if (!dCurvesPresent() &&
       !wCurvesPresent() &&
@@ -4609,6 +4675,8 @@ ImageWidget::loadCurves(QFile *cfile, CurveGroup *cg)
     }
 
   loadMorphedCurves(cfile, cg);
+
+  loadShrinkwrapCurves(cfile, cg);
 }
 
 void
@@ -4641,6 +4709,44 @@ ImageWidget::loadMorphedCurves(QFile *cfile, CurveGroup *cg)
 	  // do not pass on zero length curves
 	  if (cpair.second.pts.count() > 0)
 	    mcg.insert(cpair.first, cpair.second);
+	}
+    }
+}
+
+void
+ImageWidget::loadShrinkwrapCurves(QFile *cfile, CurveGroup *cg)
+{
+  char keyword[100];
+  cfile->readLine((char*)&keyword, 100);
+
+  if (strcmp(keyword, "shrinkwrapgroupstart\n") != 0)
+    {
+      QMessageBox::information(0, "", QString("shrinkwrapgroupstart not found!").arg(keyword));
+      return;
+    }
+
+  QMultiMap<int, Curve*> mcg;
+  bool cgend = false;
+  while(!cgend)
+    {
+      cfile->readLine((char*)&keyword, 100);
+
+      if (strcmp(keyword, "shrinkwrapgroupend\n") == 0)
+	cgend = true;      
+      else if (strcmp(keyword, "shrinkwrapblockstart\n") == 0)
+	mcg.clear();
+      else if (strcmp(keyword, "shrinkwrapblockend\n") == 0)
+	cg->addShrinkwrapBlock(mcg);
+      else if (strcmp(keyword, "curvestart\n") == 0)
+	{
+	  QPair<int, Curve> cpair = loadCurveData(cfile);
+	  // do not pass on zero length curves
+	  if (cpair.second.pts.count() > 0)
+	    {
+	      Curve *c = new Curve;
+	      *c = cpair.second;
+	      mcg.insert(cpair.first, c);
+	    }
 	}
     }
 }
@@ -4811,6 +4917,20 @@ ImageWidget::loadFibers(QString flnm)
     }
 
   QMessageBox::information(0, "", "Fibers read from file.");
+}
+
+void
+ImageWidget::startShrinkwrap()
+{
+  CurveGroup *cg = getCg();
+  cg->startShrinkwrap();
+}
+
+void
+ImageWidget::endShrinkwrap()
+{
+  CurveGroup *cg = getCg();
+  cg->endShrinkwrap();
 }
 
 void

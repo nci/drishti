@@ -35,6 +35,7 @@ class CurveGroup
   void setShrinkwrapIgnoreSize(int sz) { m_shrinkwrapIgnoreSize = sz; }
 
   bool curvesPresent() {return (m_cg.count()>0 ||
+				m_swcg.count()>0 ||
 				m_mcg.count()>0); };
 
   void reset();
@@ -50,7 +51,7 @@ class CurveGroup
   void removePoint(int, int, int);
 
   QVector<QPointF> getPolygonAt(int);
-  QList<Curve*> getCurvesAt(int);
+  QList<Curve*> getCurvesAt(int, bool shrinkwrapCurves = false);
   QList<Curve> getMorphedCurvesAt(int);
 
   void setPolygonAt(int, int*, int, int, int, bool, uchar type = 0);
@@ -63,6 +64,8 @@ class CurveGroup
   void joinPolygonAt(int, QVector<QPointF>);
   void setCurveAt(int, Curve);
 
+  void startShrinkwrap();
+  void endShrinkwrap();
   void shrinkwrap(int, uchar*, int, int);
   void smooth(int, int, int,
 	      bool, int, int);
@@ -95,9 +98,11 @@ class CurveGroup
 
   int getActiveCurve(int, int, int, bool selected=false);
   int getActiveMorphedCurve(int, int, int);
+  QPair<int, int> getActiveShrinkwrapCurve(int, int, int);
 
-  QList< QMap<int, Curve> >* getPointerToMorphedCurves();
+  //QList< QMap<int, Curve> >* getPointerToMorphedCurves();
   void addMorphBlock(QMap<int, Curve>);
+  void addShrinkwrapBlock(QMultiMap<int, Curve*>);
 
   QList<QPointF> xpoints(int);
   QList<QPointF> ypoints(int);
@@ -106,7 +111,8 @@ class CurveGroup
   void endAddingCurves();
 
   QMultiMap<int, Curve*>* multiMapCurves() { return &m_cg; };
-  QList< QMap<int, Curve> >* listMapCurves() { return &m_mcg; };
+  QList< QMultiMap<int, Curve*> >* shrinkwrapCurves() { return &m_swcg; };
+  QList< QMap<int, Curve> >* morphedCurves() { return &m_mcg; };
 
   void setLambda(float l) { m_lambda = l; };
   void setSegmentLength(int l) { m_seglen = l; };
@@ -119,6 +125,9 @@ class CurveGroup
 
   QMultiMap<int, Curve*> m_cg;
   QList< QMap<int, Curve> > m_mcg;  
+
+  QMultiMap<int, Curve*> m_sw;
+  QList< QMultiMap<int, Curve*> > m_swcg;
 
   bool m_addingCurves;
   QMap<int, Curve> m_tmcg;

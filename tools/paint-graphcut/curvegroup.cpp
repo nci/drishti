@@ -123,7 +123,7 @@ CurveGroup::removePolygonAt(int key, int v0, int v1)
   ic = swsel.first;
   if (ic >= 0)
     {
-      QList<Curve*> curves = m_swcg[ic].values(key);
+      QList<Curve*> curves = m_swcg[ic].values();
       for(int j=0; j<curves.count(); j++)
 	delete curves[j];
       m_swcg.removeAt(ic);
@@ -346,7 +346,7 @@ CurveGroup::setTag(int key, int v0, int v1, int t)
   ic = swsel.first;
   if (ic >= 0)
     {
-      QList<Curve*> curves = m_swcg[ic].values(key);
+      QList<Curve*> curves = m_swcg[ic].values();
       for(int j=0; j<curves.count(); j++)
 	curves[j]->tag = t;
     }
@@ -878,7 +878,6 @@ CurveGroup::setPolygonAt(int key,
     }
 }
 
-//QList< QMap<int, Curve> >* CurveGroup::getPointerToMorphedCurves() { return &m_mcg; };
 void CurveGroup::addMorphBlock(QMap<int, Curve> mb) { m_mcg << mb; }
 void CurveGroup::addShrinkwrapBlock(QMultiMap<int, Curve*> mb) { m_swcg << mb; }
 
@@ -1298,16 +1297,16 @@ CurveGroup::dilateErode(int key, int v0, int v1,
   int sc = swsel.first;
   if (sc >= 0)
     {
-      QList<Curve*> curves = m_swcg[sc].values(key);
       if (all)
 	{
+	  QList<Curve*> curves = m_swcg[sc].values();
 	  for(int j=0; j<curves.count(); j++)
 	    curves[j]->pts = dilateErode(curves[j]->pts,
 					 curves[j]->closed, lambda);
 	}
       else
 	{
-	  
+	  QList<Curve*> curves = m_swcg[sc].values(key);	  
 	  int j = swsel.second;
 	  curves[j]->pts = dilateErode(curves[j]->pts,
 				       curves[j]->closed, lambda);
@@ -1851,11 +1850,20 @@ CurveGroup::generateXYpoints()
 QVector<QPointF>
 CurveGroup::dilateErode(QVector<QPointF> c, bool closed, float lambda)
 {
-  QVector<QPointF> newc;
-  newc = c;
+  int npts = c.count();
+  QVector<QPointF> newc = c;
+
+  // using shoelace formula to determine the winding of polygon
+  int c0w=0;
+  for(int k=0; k<npts; k++)
+    {
+      int k1 = (k+1)%npts;
+      c0w -= (c[k].x()*c[k1].y());
+      c0w += (c[k1].x()*c[k].y());
+    }  
+  c0w = (c0w > 0 ? 1 : -1);
 
   // taubin smoothing
-  int npts = c.count();
   int ist = 0;
   int ied = npts;
   int p2 = 2;
@@ -1874,12 +1882,13 @@ CurveGroup::dilateErode(QVector<QPointF> c, bool closed, float lambda)
       if (vpl > 0.1)
 	{
 	  vp /= vpl;
-	  newc[i] = c[i] + lambda*QPointF(-vp.y(), vp.x());
+	  newc[i] = c[i] + c0w*lambda*QPointF(-vp.y(), vp.x());
 	}
     }
 
   QVector<QPointF> w;
   w = subsample(newc, m_seglen, closed);
+  
   return w;
 }
 

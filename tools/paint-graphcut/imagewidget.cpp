@@ -2183,11 +2183,16 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
 	  applyRecursive(event->key());
 	  startShrinkwrap();
 	}
-
+      else if (!ar) startShrinkwrap();
+      
       shrinkwrapCurve();
 
-      if (ar && m_applyRecursive == false)
-	endShrinkwrap();
+      if (m_applyRecursive == false)
+	{
+	  endShrinkwrap();
+	  emit saveWork();
+	}
+
 
       update();
       return true;

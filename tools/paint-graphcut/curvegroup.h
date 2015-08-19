@@ -100,7 +100,6 @@ class CurveGroup
   int getActiveMorphedCurve(int, int, int);
   QPair<int, int> getActiveShrinkwrapCurve(int, int, int);
 
-  //QList< QMap<int, Curve> >* getPointerToMorphedCurves();
   void addMorphBlock(QMap<int, Curve>);
   void addShrinkwrapBlock(QMultiMap<int, Curve*>);
 

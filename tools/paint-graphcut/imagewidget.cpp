@@ -2401,17 +2401,17 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
     {
       if (m_sliceType == DSlice)
 	{
-	  m_dCurves.removePolygonAt(m_currSlice, m_pickHeight, m_pickWidth);
+	  m_dCurves.removePolygonAt(m_currSlice, m_pickHeight, m_pickWidth, shiftModifier);
 	  emit polygonLevels(m_dCurves.polygonLevels());
 	}
       else if (m_sliceType == WSlice)
 	{
-	  m_wCurves.removePolygonAt(m_currSlice, m_pickHeight, m_pickDepth);
+	  m_wCurves.removePolygonAt(m_currSlice, m_pickHeight, m_pickDepth, shiftModifier);
 	  emit polygonLevels(m_wCurves.polygonLevels());
 	}
       else
 	{
-	  m_hCurves.removePolygonAt(m_currSlice, m_pickWidth,  m_pickDepth);
+	  m_hCurves.removePolygonAt(m_currSlice, m_pickWidth,  m_pickDepth, shiftModifier);
 	  emit polygonLevels(m_hCurves.polygonLevels());
 	}
 

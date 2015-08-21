@@ -95,7 +95,7 @@ CurveGroup::polygonLevels()
 }
 
 void
-CurveGroup::removePolygonAt(int key, int v0, int v1)
+CurveGroup::removePolygonAt(int key, int v0, int v1, bool all)
 {
   int ic = getActiveCurve(key, v0, v1);
   if (ic >= 0)
@@ -121,14 +121,69 @@ CurveGroup::removePolygonAt(int key, int v0, int v1)
   // remove shrinkwrap curves if any
   QPair<int, int> swsel = getActiveShrinkwrapCurve(key, v0, v1);
   ic = swsel.first;
+  int crv = swsel.second;
   if (ic >= 0)
     {
-      QList<Curve*> curves = m_swcg[ic].values();
-      for(int j=0; j<curves.count(); j++)
-	delete curves[j];
-      m_swcg.removeAt(ic);
+      if (all)
+	{
+	  int minCurveLen = 0;
+	  minCurveLen = QInputDialog::getInt(0,
+					     "Remove Curves",
+					     "Remove curves less than",
+					     20, 1, 1000, 1);
+	  if (minCurveLen == 1)
+	    {
+	      QList<Curve*> curves = m_swcg[ic].values();
+	      for(int j=0; j<curves.count(); j++)
+		delete curves[j];
+	      m_swcg.removeAt(ic);
+	    }
+	  else
+	    cullShrinkwrapCurves(key, v0, v1, minCurveLen);
+	}
+      else
+	{
+	  QList<Curve*> curves = m_swcg[ic].values(key);
+	  delete curves[crv];
+	  m_swcg[ic].remove(key);
+	  for(int j=0; j<curves.count(); j++)
+	    {
+	      if (crv != ic)
+		m_swcg[ic].insert(key, curves[j]);
+	    }      	  
+	}
     }
 
+}
+
+void
+CurveGroup::cullShrinkwrapCurves(int key, int v0, int v1, int minCurveLen)
+{
+  for(int m=0; m<m_swcg.count(); m++)
+    {
+      QList<int> keys = m_swcg[m].uniqueKeys();
+      for(int k=0; k<keys.count(); k++)
+	{
+	  if (m_swcg[m].contains(keys[k]))
+	    {
+	      QList<Curve*> curves = m_swcg[m].values(keys[k]);
+	      QList<Curve*> newcurves;
+	      for(int j=0; j<curves.count(); j++)
+		{
+		  if (curves[j]->pts.count() < minCurveLen)
+		    delete curves[j];
+		  else
+		    newcurves << curves[j];
+		}	  
+	      m_swcg[m].remove(keys[k]);
+	      if (newcurves.count() > 0)
+		{
+		  for(int j=0; j<newcurves.count(); j++)
+		    m_swcg[m].insert(keys[k], newcurves[j]);
+		}
+	    }
+	}
+    }
 }
 
 float

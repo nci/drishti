@@ -39,7 +39,7 @@ class CurveGroup
 				m_mcg.count()>0); };
 
   void reset();
-  void removePolygonAt(int, int, int);
+  void removePolygonAt(int, int, int, bool all=false);
   void morphCurves(int, int);
   void morphSlices(int, int);
 
@@ -64,6 +64,7 @@ class CurveGroup
   void joinPolygonAt(int, QVector<QPointF>);
   void setCurveAt(int, Curve);
 
+  void cullShrinkwrapCurves(int, int, int, int);
   void startShrinkwrap();
   void endShrinkwrap();
   void shrinkwrap(int, uchar*, int, int);

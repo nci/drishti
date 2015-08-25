@@ -1598,15 +1598,18 @@ Raw2Pvl::savePvl(VolumeData* volData,
 	    sfh = th/2;
 	    efh = th - sfh;
 
-	    QString text;
-	    text = QInputDialog::getText(0,
-					 "Pad volume With Value",
-					 "Pad Volume With Value",
-					 QLineEdit::Normal,
-					 "0",
-					 &ok);
-	    if (ok && !text.isEmpty())
-	      pad_value = text.toInt();
+	    if (td != 0 || tw != 0 || th != 0)
+	      {
+		QString text;
+		text = QInputDialog::getText(0,
+					     "Pad volume With Value",
+					     "Pad Volume With Value",
+					     QLineEdit::Normal,
+					     "0",
+					     &ok);
+		if (ok && !text.isEmpty())
+		  pad_value = text.toInt();
+	      }
 	  }
       }
 

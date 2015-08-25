@@ -21,6 +21,9 @@ class Volume : public QObject
   bool setFile(QString);
   QString fileName() { return m_fileName; }
 
+  void offLoadMemFile();
+  void loadMemFile();
+
   void gridSize(int&, int&, int&);
   QImage histogramImage1D()  { return m_histogramImage1D; }
   QImage histogramImage2D()  { return m_histogramImage2D; }

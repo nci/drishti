@@ -23,6 +23,8 @@ void VolumeFileManager::setMemMapped(bool b)
   if (m_volData)
     delete [] m_volData;
   m_volData = 0;
+
+  m_memChanged = false;
 }
 bool VolumeFileManager::isMemMapped() { return m_memmapped; }
 
@@ -797,7 +799,7 @@ VolumeFileManager::blockInterpolatedRawValue(float dv, float wv, float hv)
 void
 VolumeFileManager::saveMemFile()
 {
-  if (!m_memmapped || !m_memChanged)
+  if (!m_memChanged)
     return;
 
   uchar vt;

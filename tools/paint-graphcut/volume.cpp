@@ -8,6 +8,20 @@ void Volume::setBitmapThread(BitmapThread *bt) {thread = bt;}
 void Volume::saveIntermediateResults() { m_mask.saveIntermediateResults(); }
 
 void
+Volume::offLoadMemFile()
+{
+  m_mask.offLoadMemFile();
+  m_pvlFileManager.setMemMapped(false);
+}
+
+void
+Volume::loadMemFile()
+{
+  m_pvlFileManager.loadMemFile();
+  m_mask.loadMemFile();
+}
+
+void
 Volume::setMaskDepthSlice(int slc, uchar* tagData)
 {
   m_mask.setMaskDepthSlice(slc, tagData);

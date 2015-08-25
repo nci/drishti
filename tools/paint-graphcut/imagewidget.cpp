@@ -3635,7 +3635,6 @@ ImageWidget::paintUsingCurves(CurveGroup* cg,
   QImage pimg= QImage(wd, ht, QImage::Format_RGB32);
   pimg.fill(0);
   QPainter p(&pimg);
-
   { // normal curves
     QList<Curve*> curves;
     curves = cg->getCurvesAt(slc, true);

@@ -32,6 +32,18 @@ VolumeMask::reset()
 }
 
 void
+VolumeMask::offLoadMemFile()
+{
+  m_maskFileManager.setMemMapped(false);
+}
+
+void
+VolumeMask::loadMemFile()
+{
+  m_maskFileManager.loadMemFile();
+}
+
+void
 VolumeMask::saveIntermediateResults()
 {
   m_maskFileManager.saveMemFile();

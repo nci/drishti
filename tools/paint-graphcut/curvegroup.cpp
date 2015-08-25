@@ -375,6 +375,19 @@ CurveGroup::selectPolygon(int key, int v0, int v1,
 void
 CurveGroup::setClosed(int key, int v0, int v1, bool closed)
 {
+  //---------------------
+  {
+    QPair<int, int> swsel = getActiveShrinkwrapCurve(key, v0, v1);
+    int ic = swsel.first;
+    if (ic >= 0)
+      {
+	QList<Curve*> curves = m_swcg[ic].values();
+	for(int j=0; j<curves.count(); j++)
+	  curves[j]->closed = closed;
+      }
+  }
+  //---------------------
+
   int ic = getActiveCurve(key, v0, v1);
   if (ic < 0)
     return;
@@ -410,6 +423,19 @@ CurveGroup::setTag(int key, int v0, int v1, int t)
 void
 CurveGroup::setThickness(int key, int v0, int v1, int t)
 {
+  //---------------------
+  {
+    QPair<int, int> swsel = getActiveShrinkwrapCurve(key, v0, v1);
+    int ic = swsel.first;
+    if (ic >= 0)
+      {
+	QList<Curve*> curves = m_swcg[ic].values();
+	for(int j=0; j<curves.count(); j++)
+	  curves[j]->thickness = t;
+      }
+  }
+  //---------------------
+
   int ic = getActiveCurve(key, v0, v1);
   if (ic < 0)
     return;

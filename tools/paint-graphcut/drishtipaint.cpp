@@ -1583,9 +1583,9 @@ DrishtiPaint::applyMaskOperation(int tag,
   m_imageWidget->getBox(minDSlice, maxDSlice,
 			minWSlice, maxWSlice,
 			minHSlice, maxHSlice);
-  int tdepth = maxDSlice-minDSlice+1;
-  int twidth = maxWSlice-minWSlice+1;
-  int theight = maxHSlice-minHSlice+1;
+  qint64 tdepth = maxDSlice-minDSlice+1;
+  qint64 twidth = maxWSlice-minWSlice+1;
+  qint64 theight = maxHSlice-minHSlice+1;
   
   //----------------
   QString mesg;
@@ -3005,9 +3005,9 @@ DrishtiPaint::on_actionMeshTag_triggered()
   m_imageWidget->getBox(minDSlice, maxDSlice,
 			minWSlice, maxWSlice,
 			minHSlice, maxHSlice);
-  int tdepth = maxDSlice-minDSlice+1;
-  int twidth = maxWSlice-minWSlice+1;
-  int theight = maxHSlice-minHSlice+1;
+  qint64 tdepth = maxDSlice-minDSlice+1;
+  qint64 twidth = maxWSlice-minWSlice+1;
+  qint64 theight = maxHSlice-minHSlice+1;
   
   QString pvlFilename = m_volume->fileName();
   QString tflnm = QFileDialog::getSaveFileName(0,

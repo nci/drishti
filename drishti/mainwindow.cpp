@@ -4882,6 +4882,7 @@ MainWindow::on_actionRedCyan_triggered()
   MainWindowUI::mainWindowUI()->actionFor3DTV->setChecked(false);
   MainWindowUI::mainWindowUI()->actionCrosseye->setChecked(false);
   MainWindowUI::mainWindowUI()->actionRedBlue->setChecked(false);
+  MainWindowUI::mainWindowUI()->actionMIP->setChecked(false);
 
   m_Viewer->updateGL();
 }
@@ -4892,6 +4893,7 @@ MainWindow::on_actionCrosseye_triggered()
   MainWindowUI::mainWindowUI()->actionFor3DTV->setChecked(false);
   MainWindowUI::mainWindowUI()->actionRedBlue->setChecked(false);
   MainWindowUI::mainWindowUI()->actionRedCyan->setChecked(false);
+  MainWindowUI::mainWindowUI()->actionMIP->setChecked(false);
 
   m_Viewer->updateGL();
 }
@@ -4899,6 +4901,18 @@ MainWindow::on_actionCrosseye_triggered()
 void
 MainWindow::on_actionFor3DTV_triggered()
 {
+  MainWindowUI::mainWindowUI()->actionCrosseye->setChecked(false);
+  MainWindowUI::mainWindowUI()->actionRedBlue->setChecked(false);
+  MainWindowUI::mainWindowUI()->actionRedCyan->setChecked(false);
+  MainWindowUI::mainWindowUI()->actionMIP->setChecked(false);
+
+  m_Viewer->updateGL();
+}
+
+void
+MainWindow::on_actionMIP_triggered()
+{
+  MainWindowUI::mainWindowUI()->actionFor3DTV->setChecked(false);
   MainWindowUI::mainWindowUI()->actionCrosseye->setChecked(false);
   MainWindowUI::mainWindowUI()->actionRedBlue->setChecked(false);
   MainWindowUI::mainWindowUI()->actionRedCyan->setChecked(false);

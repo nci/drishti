@@ -345,6 +345,8 @@ class DrawHiresVolume : public QObject
 			    VolumeFileManager&);
 
   void screenShadow(int, int, int, int);
+
+  void check_MIP();
 };
 
 #endif

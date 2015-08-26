@@ -20,6 +20,16 @@
 #include <QDataStream>
 
 void
+DrawHiresVolume::check_MIP()
+{
+  if (MainWindowUI::mainWindowUI()->actionMIP->isChecked())
+    {
+      glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+      glBlendEquation(GL_FUNC_ADD);
+    }
+}
+
+void
 DrawHiresVolume::saveImage2Volume(QString pfile)
 {
   m_image2VolumeFile = pfile;
@@ -2535,6 +2545,12 @@ DrawHiresVolume::drawDefault(Vec pn,
   else
     glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); // back to front
 
+
+  //-----------------------------
+  check_MIP();
+  //-----------------------------
+
+
   drawSlicesDefault(pn, minvert, maxvert,
 		    layers, stepsize);
 
@@ -2812,6 +2828,7 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 			 false, false, Vec(0,0,0),
 			 false);
 	  glBlendFunc(GL_ONE_MINUS_DST_ALPHA, GL_ONE);
+	  check_MIP();
 	}		     
       //------------------------------------------------------
       if (Global::volumeType() != Global::DummyVolume)
@@ -3101,6 +3118,8 @@ DrawHiresVolume::screenShadow(int ScreenXMin, int ScreenXMax,
     glBlendFunc(GL_ONE_MINUS_DST_ALPHA, GL_ONE); // for frontlit volume
   else
     glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); // back to front
+
+  check_MIP();
 
   glUseProgramObjectARB(0); // disable shaders 
   StaticFunctions::popOrthoView();
@@ -3723,6 +3742,8 @@ DrawHiresVolume::drawPathInViewport(int pathOffset, Vec lpos, float depthcue,
     glBlendFunc(GL_ONE_MINUS_DST_ALPHA, GL_ONE); // for frontlit volume
   else
     glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); // back to front
+
+  check_MIP();
   // --------------------------------
 
   glDepthMask(GL_TRUE);
@@ -4430,6 +4451,7 @@ DrawHiresVolume::keyPressEvent(QKeyEvent *event)
 	  MainWindowUI::mainWindowUI()->actionCrosseye->setChecked(false);
 	  MainWindowUI::mainWindowUI()->actionRedBlue->setChecked(false);
 	  MainWindowUI::mainWindowUI()->actionRedCyan->setChecked(true);
+	  MainWindowUI::mainWindowUI()->actionMIP->setChecked(false);
 	}
 
       return true;
@@ -4447,6 +4469,7 @@ DrawHiresVolume::keyPressEvent(QKeyEvent *event)
 	  MainWindowUI::mainWindowUI()->actionCrosseye->setChecked(false);
 	  MainWindowUI::mainWindowUI()->actionRedBlue->setChecked(true);
 	  MainWindowUI::mainWindowUI()->actionRedCyan->setChecked(false);
+	  MainWindowUI::mainWindowUI()->actionMIP->setChecked(false);
 	}
 
       return true;
@@ -4464,6 +4487,7 @@ DrawHiresVolume::keyPressEvent(QKeyEvent *event)
 	  MainWindowUI::mainWindowUI()->actionCrosseye->setChecked(true);
 	  MainWindowUI::mainWindowUI()->actionRedBlue->setChecked(false);
 	  MainWindowUI::mainWindowUI()->actionRedCyan->setChecked(false);
+	  MainWindowUI::mainWindowUI()->actionMIP->setChecked(false);
 	}
 
       return true;
@@ -4481,6 +4505,25 @@ DrawHiresVolume::keyPressEvent(QKeyEvent *event)
 	  MainWindowUI::mainWindowUI()->actionCrosseye->setChecked(false);
 	  MainWindowUI::mainWindowUI()->actionRedBlue->setChecked(false);
 	  MainWindowUI::mainWindowUI()->actionRedCyan->setChecked(false);
+	  MainWindowUI::mainWindowUI()->actionMIP->setChecked(false);
+	}
+
+      return true;
+    }
+
+  if (event->key() == Qt::Key_6)
+    {
+      if (MainWindowUI::mainWindowUI()->actionMIP->isChecked())
+	{
+	  MainWindowUI::mainWindowUI()->actionMIP->setChecked(false);
+	}
+      else
+	{
+	  MainWindowUI::mainWindowUI()->actionFor3DTV->setChecked(false);
+	  MainWindowUI::mainWindowUI()->actionCrosseye->setChecked(false);
+	  MainWindowUI::mainWindowUI()->actionRedBlue->setChecked(false);
+	  MainWindowUI::mainWindowUI()->actionRedCyan->setChecked(false);
+	  MainWindowUI::mainWindowUI()->actionMIP->setChecked(true);
 	}
 
       return true;

@@ -26,7 +26,7 @@
      <x>0</x>
      <y>0</y>
      <width>570</width>
-     <height>21</height>
+     <height>27</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -111,6 +111,7 @@
      <addaction name="actionRedBlue"/>
      <addaction name="actionCrosseye"/>
      <addaction name="actionFor3DTV"/>
+     <addaction name="actionMIP"/>
     </widget>
     <widget class="QMenu" name="menuCamera_Type">
      <property name="title">
@@ -591,6 +592,22 @@
   <action name="actionLandmarks">
    <property name="text">
     <string>Landmarks</string>
+   </property>
+  </action>
+  <action name="actionMIP">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>MIP (6)</string>
+   </property>
+  </action>
+  <action name="actionXRay">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>XRay (7)</string>
    </property>
   </action>
  </widget>

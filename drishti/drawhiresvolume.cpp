@@ -4451,7 +4451,6 @@ DrawHiresVolume::keyPressEvent(QKeyEvent *event)
 	  MainWindowUI::mainWindowUI()->actionCrosseye->setChecked(false);
 	  MainWindowUI::mainWindowUI()->actionRedBlue->setChecked(false);
 	  MainWindowUI::mainWindowUI()->actionRedCyan->setChecked(true);
-	  MainWindowUI::mainWindowUI()->actionMIP->setChecked(false);
 	}
 
       return true;
@@ -4469,7 +4468,6 @@ DrawHiresVolume::keyPressEvent(QKeyEvent *event)
 	  MainWindowUI::mainWindowUI()->actionCrosseye->setChecked(false);
 	  MainWindowUI::mainWindowUI()->actionRedBlue->setChecked(true);
 	  MainWindowUI::mainWindowUI()->actionRedCyan->setChecked(false);
-	  MainWindowUI::mainWindowUI()->actionMIP->setChecked(false);
 	}
 
       return true;
@@ -4487,7 +4485,6 @@ DrawHiresVolume::keyPressEvent(QKeyEvent *event)
 	  MainWindowUI::mainWindowUI()->actionCrosseye->setChecked(true);
 	  MainWindowUI::mainWindowUI()->actionRedBlue->setChecked(false);
 	  MainWindowUI::mainWindowUI()->actionRedCyan->setChecked(false);
-	  MainWindowUI::mainWindowUI()->actionMIP->setChecked(false);
 	}
 
       return true;
@@ -4505,7 +4502,6 @@ DrawHiresVolume::keyPressEvent(QKeyEvent *event)
 	  MainWindowUI::mainWindowUI()->actionCrosseye->setChecked(false);
 	  MainWindowUI::mainWindowUI()->actionRedBlue->setChecked(false);
 	  MainWindowUI::mainWindowUI()->actionRedCyan->setChecked(false);
-	  MainWindowUI::mainWindowUI()->actionMIP->setChecked(false);
 	}
 
       return true;
@@ -4514,17 +4510,9 @@ DrawHiresVolume::keyPressEvent(QKeyEvent *event)
   if (event->key() == Qt::Key_6)
     {
       if (MainWindowUI::mainWindowUI()->actionMIP->isChecked())
-	{
-	  MainWindowUI::mainWindowUI()->actionMIP->setChecked(false);
-	}
+	MainWindowUI::mainWindowUI()->actionMIP->setChecked(false);
       else
-	{
-	  MainWindowUI::mainWindowUI()->actionFor3DTV->setChecked(false);
-	  MainWindowUI::mainWindowUI()->actionCrosseye->setChecked(false);
-	  MainWindowUI::mainWindowUI()->actionRedBlue->setChecked(false);
-	  MainWindowUI::mainWindowUI()->actionRedCyan->setChecked(false);
-	  MainWindowUI::mainWindowUI()->actionMIP->setChecked(true);
-	}
+	MainWindowUI::mainWindowUI()->actionMIP->setChecked(true);
 
       return true;
     }

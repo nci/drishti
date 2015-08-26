@@ -111,7 +111,6 @@
      <addaction name="actionRedBlue"/>
      <addaction name="actionCrosseye"/>
      <addaction name="actionFor3DTV"/>
-     <addaction name="actionMIP"/>
     </widget>
     <widget class="QMenu" name="menuCamera_Type">
      <property name="title">
@@ -125,6 +124,7 @@
     <addaction name="actionHiresMode"/>
     <addaction name="separator"/>
     <addaction name="actionShadowRender"/>
+    <addaction name="actionMIP"/>
     <addaction name="menuCamera_Type"/>
     <addaction name="menuAnaglyph_Stereo_2"/>
     <addaction name="actionAxes"/>
@@ -594,20 +594,20 @@
     <string>Landmarks</string>
    </property>
   </action>
-  <action name="actionMIP">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>MIP (6)</string>
-   </property>
-  </action>
   <action name="actionXRay">
    <property name="checkable">
     <bool>true</bool>
    </property>
    <property name="text">
     <string>XRay (7)</string>
+   </property>
+  </action>
+  <action name="actionMIP">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>MIP (6)</string>
    </property>
   </action>
  </widget>

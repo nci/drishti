@@ -193,26 +193,26 @@ GradientEditor::paintEvent(QPaintEvent *event)
       if (dely < 0)
 	valRect.adjust(0, -dely, 0, -dely);
 
-      // draw position & alpha values
-      p.setBrush(Qt::white);
-      p.setPen(Qt::darkGray);
-      p.drawRoundRect(valRect);
-      
-      float pos = m_points[m_hoverIndex].x();
-      float alpha = 1 - m_points[m_hoverIndex].y();
-
-      QPainterPath path;
-      path.addText(valRect.x()+4,
-		   valRect.y()+valRect.height()/2-4,
-		   QFont("Helvetica", 10),
-		   QString("p:%1").arg(pos, 0, 'f', 2));
-      path.addText(valRect.x()+4,
-		   valRect.y()+valRect.height()-4,
-		   QFont("Helvetica", 10),
-		   QString("a:%1").arg(alpha, 0, 'f', 2));
-      p.setBrush(Qt::black);
-      p.setPen(Qt::transparent);
-      p.drawPath(path);
+//      // draw position & alpha values
+//      p.setBrush(Qt::white);
+//      p.setPen(Qt::darkGray);
+//      p.drawRoundRect(valRect);
+//      
+//      float pos = m_points[m_hoverIndex].x();
+//      float alpha = 1 - m_points[m_hoverIndex].y();
+//
+//      QPainterPath path;
+//      path.addText(valRect.x()+4,
+//		   valRect.y()+valRect.height()/2-4,
+//		   QFont("Helvetica", 10),
+//		   QString("p:%1").arg(pos, 0, 'f', 2));
+//      path.addText(valRect.x()+4,
+//		   valRect.y()+valRect.height()-4,
+//		   QFont("Helvetica", 10),
+//		   QString("a:%1").arg(alpha, 0, 'f', 2));
+//      p.setBrush(Qt::black);
+//      p.setPen(Qt::transparent);
+//      p.drawPath(path);
     }
   
 }

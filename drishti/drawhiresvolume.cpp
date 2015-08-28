@@ -23,10 +23,7 @@ void
 DrawHiresVolume::check_MIP()
 {
   if (MainWindowUI::mainWindowUI()->actionMIP->isChecked())
-    {
-      glBlendFunc(GL_SRC_ALPHA, GL_ONE);
-      glBlendEquation(GL_FUNC_ADD);
-    }
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE);
 }
 
 void
@@ -2831,6 +2828,7 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 	  check_MIP();
 	}		     
       //------------------------------------------------------
+
       if (Global::volumeType() != Global::DummyVolume)
 	{
 	  enableTextureUnits();

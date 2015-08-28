@@ -2720,6 +2720,12 @@ DrishtiPaint::dilateAndSmooth(uchar* data,
 			      int d, int w, int h,
 			      int spread)
 {
+  QProgressDialog progress("Dilating before smoothing",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
   // dilate spread times before applying smoothing
   QList<uchar*> slc;
   for(int diter=0; diter<=spread; diter++)
@@ -2730,6 +2736,9 @@ DrishtiPaint::dilateAndSmooth(uchar* data,
 
   for(int i=1; i<d-1; i++)
     {
+      progress.setValue((int)(100.0*(float)i/(float)(d)));
+      qApp->processEvents();
+
       for(int j=1; j<w-1; j++)
 	for(int k=1; k<h-1; k++)
 	  {
@@ -2769,6 +2778,8 @@ DrishtiPaint::dilateAndSmooth(uchar* data,
 
   for(int diter=0; diter<=spread; diter++)
     delete [] slc[diter];
+
+  progress.setValue(100);
   
   smoothData(data, d, w, h, qMax(1,spread-1));
 }
@@ -3035,6 +3046,12 @@ DrishtiPaint::on_actionMeshTag_triggered()
 				"Close Holes of Size (0 means no closing)",
 				0, 0, 100, 1);
 
+  int dataspread = 0;
+  dataspread = QInputDialog::getInt(0,
+				"Smooth Data Before Meshing",
+				"Apply data smoothing before meshing (0 means no smoothing)",
+				1, 0, 3, 1);
+
   int spread = 0;
   spread = QInputDialog::getInt(0,
 				"Smooth Mesh",
@@ -3209,14 +3226,13 @@ DrishtiPaint::on_actionMeshTag_triggered()
 
 //  if (spread > 0)
 //    dilateAndSmooth(meshingData, tdepth, twidth, theight, spread+1);
+
   //----------------------------------
   if (holeSize != 0)
     processHoles(meshingData,
 		tdepth, twidth, theight,
 		holeSize);
   //----------------------------------
-
-
 
   //----------------------------------
   // add a border to make a watertight mesh when the isosurface
@@ -3233,11 +3249,19 @@ DrishtiPaint::on_actionMeshTag_triggered()
 	}
   //----------------------------------
 
+  //-----------------
+  if (dataspread > 0)
+    dilateAndSmooth(meshingData, tdepth, twidth, theight, dataspread+1);
+  //-----------------
+
   MarchingCubes mc;
   mc.set_resolution(theight, twidth, tdepth);
   mc.set_ext_data(meshingData);
   mc.init_all();
-  mc.run(32);
+  if (dataspread == 0)
+    mc.run(32);
+  else    
+    mc.run(32 - 3*dataspread);
 
   processAndSaveMesh(colorType,
 		     tflnm,

@@ -454,12 +454,13 @@ ViewInformation::save(fstream &fout)
   keyword = "rotation";
   fout.write((char*)(keyword.toLatin1().data()), keyword.length()+1);  
   Vec axis;
-  qreal angle;
-  m_rotation.getAxisAngle(axis, angle);
+  qreal ang;
+  m_rotation.getAxisAngle(axis, ang);
   f[0] = axis.x;
   f[1] = axis.y;
   f[2] = axis.z;
   fout.write((char*)&f, 3*sizeof(float));
+  float angle = ang;
   fout.write((char*)&angle, sizeof(float));
 
 

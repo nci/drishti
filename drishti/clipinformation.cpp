@@ -1,5 +1,6 @@
 #include <GL/glew.h>
 #include "clipinformation.h"
+#include <QMessageBox>
 
 ClipInformation::ClipInformation() { clear(); }
 ClipInformation::~ClipInformation() { clear(); }
@@ -625,12 +626,13 @@ ClipInformation::save(fstream &fout)
   for(int i=0; i<nclip; i++)
     {
       Vec axis;
-      qreal angle;
-      rot[i].getAxisAngle(axis, angle);
+      qreal ang;
+      rot[i].getAxisAngle(axis, ang);
       f[0] = axis.x;
       f[1] = axis.y;
       f[2] = axis.z;
       fout.write((char*)&f, 3*sizeof(float));
+      float angle = ang;
       fout.write((char*)&angle, sizeof(float));
     }
 

@@ -3515,6 +3515,10 @@ DrawHiresVolume::drawPathInViewport(int pathOffset, Vec lpos, float depthcue,
 
   glUniform3fARB(parm[6], lpos.x, lpos.y, lpos.z);
 
+  // lightlod 0 means use basic lighting model
+  int lightlod = 0;
+  glUniform1iARB(parm[40], lightlod); // lightlod
+
   if (slabend > 1)
     setShader2DTextureParameter(true, defaultShader);
   else
@@ -3748,6 +3752,12 @@ DrawHiresVolume::drawPathInViewport(int pathOffset, Vec lpos, float depthcue,
 
   if (slabend > 1) // reset it to 0
     glUniform1iARB(parm[24], 0); // zoffset    
+
+
+  int lightgridx, lightgridy, lightgridz, lightncols, lightnrows;
+  LightHandler::lightBufferInfo(lightgridx, lightgridy, lightgridz,
+				lightnrows, lightncols, lightlod);
+  glUniform1iARB(parm[40], lightlod); // lightlod
 }
 
 void
@@ -3785,7 +3795,6 @@ DrawHiresVolume::drawClipPlaneInViewport(int clipOffset, Vec lpos, float depthcu
     }
   setShader2DTextureParameter(true, defaultShader);
 
-
   bool ok = false;
   Vec voxelScaling = Global::voxelScaling();
   int nclipPlanes = (GeometryObjects::clipplanes()->positions()).count();
@@ -3805,6 +3814,10 @@ DrawHiresVolume::drawClipPlaneInViewport(int clipOffset, Vec lpos, float depthcu
   parm = m_defaultParm;
 
   glUniform3fARB(parm[6], lpos.x, lpos.y, lpos.z);
+
+  // lightlod 0 means use basic lighting model
+  int lightlod = 0;
+  glUniform1iARB(parm[40], lightlod); // lightlod
 
   QList<bool> clips;
   int btfset;
@@ -3997,6 +4010,11 @@ DrawHiresVolume::drawClipPlaneInViewport(int clipOffset, Vec lpos, float depthcu
   glUseProgramObjectARB(m_defaultShader);
   glEnable(GL_DEPTH_TEST);
   // --------------------------------
+
+  int lightgridx, lightgridy, lightgridz, lightncols, lightnrows;
+  LightHandler::lightBufferInfo(lightgridx, lightgridy, lightgridz,
+				lightnrows, lightncols, lightlod);
+  glUniform1iARB(m_defaultParm[40], lightlod); // lightlod
 }
 
 void

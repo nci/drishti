@@ -173,6 +173,18 @@ Make curve under the cursor closed - i.e. join the last point with the first poi
 #end
 
 #begin
+d
+d : Dilate curve under the cursor.
+Shift + d : Dilate all selected curves.  Use spacebar to select curves.
+#end
+
+#begin
+e
+e : Erode curve under the cursor.
+Shift + e : Erode all selected curves.  Use spacebar to select curves.
+#end
+
+#begin
 o
 Make curve under the cursor open - i.e. remove the connection between the last point and the first point.
 #end

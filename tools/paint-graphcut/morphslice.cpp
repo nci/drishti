@@ -297,7 +297,7 @@ MorphSlice::mergeSlices(int nSlices)
 //  m_showSlices->setLayout(m_layout);
 
   // find boundary curves
-  QMap<int, QList<QPolygonF>> allcurves;
+  QMap<int, QList<QPolygonF> > allcurves;
   for(int n=1; n<=nSlices; n++)
     {
       int si = (totslices-1)*(float)n/(float)nSlices;

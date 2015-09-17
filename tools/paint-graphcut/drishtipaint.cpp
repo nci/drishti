@@ -2012,7 +2012,7 @@ DrishtiPaint::connectGraphCutMenu()
 	  this, SLOT(on_copyprev_clicked(bool)));
 
   connect(graphcutUi.preverode, SIGNAL(valueChanged(int)),
-	  this, SLOT(on_prevrode_valueChanged(int)));
+	  this, SLOT(on_preverode_valueChanged(int)));
   connect(graphcutUi.smooth, SIGNAL(valueChanged(int)),
 	  this, SLOT(on_smooth_valueChanged(int)));
   connect(graphcutUi.lambda, SIGNAL(valueChanged(int)),
@@ -2082,7 +2082,11 @@ DrishtiPaint::on_actionExtractTag_triggered()
     {
       dtypes << "Fibers Only";
       dtypes << "Fibers + Transfer Function";
+      dtypes << "Tags + Fibers";
+      dtypes << "Tags + Fibers + Transfer Function";
     }
+  dtypes << "Tags + Fibers values";
+  dtypes << "Curves + Fibers values";
 
   QString option = QInputDialog::getItem(0,
 					 "Extract Data",
@@ -2098,6 +2102,18 @@ DrishtiPaint::on_actionExtractTag_triggered()
   else if (option == "Tag + Transfer Function") extractType = 2;
   else if (option == "Fibers Only") extractType = 3;
   else if (option == "Fibers + Transfer Function") extractType = 4;
+  else if (option == "Tags + Fibers") extractType = 5;
+  else if (option == "Tags + Fibers + Transfer Function") extractType = 6;
+  else if (option == "Tags + Fibers values")
+    {
+      extractType = 7;
+      saveImageData = false;
+    }
+  else if (option == "Curves + Fibers values")
+    {
+      extractType = 8;
+      saveImageData = false;
+    }
   //----------------
 
   //----------------
@@ -2186,11 +2202,23 @@ DrishtiPaint::on_actionExtractTag_triggered()
 		    tdepth, twidth, theight,
 		    minDSlice, minWSlice, minHSlice,
 		    maxDSlice, maxWSlice, maxHSlice);
-  else
+  else if (extractType < 5)
     updateFiberMask(curveMask, tag,
 		    tdepth, twidth, theight,
 		    minDSlice, minWSlice, minHSlice,
 		    maxDSlice, maxWSlice, maxHSlice);
+  else
+    {
+      updateCurveMask(curveMask, tag,
+		      depth, width, height,
+		      tdepth, twidth, theight,
+		      minDSlice, minWSlice, minHSlice,
+		      maxDSlice, maxWSlice, maxHSlice);
+      updateFiberMask(curveMask, tag,
+		      tdepth, twidth, theight,
+		      minDSlice, minWSlice, minHSlice,
+		      maxDSlice, maxWSlice, maxHSlice);
+    }
   //----------------------------------
 
 
@@ -2201,66 +2229,128 @@ DrishtiPaint::on_actionExtractTag_triggered()
       qApp->processEvents();
 
       uchar *slice = m_volume->getDepthSliceImage(d);
-      // we get value+grad from volume
-      // we need only value part
-      int i=0;
-      for(int w=minWSlice; w<=maxWSlice; w++)
-	for(int h=minHSlice; h<=maxHSlice; h++)
-	  {
-	    slice[i] = slice[2*(w*height+h)];
-	    i++;
-	  }
 
-      memcpy(raw, m_volume->getMaskDepthSliceImage(d), nbytes);
-
-      if (tag[0] == -1)
+      if (extractType < 7)
 	{
-	  for(int w=minWSlice; w<=maxWSlice; w++)
-	    for(int h=minHSlice; h<=maxHSlice; h++)
-	      raw[w*height+h] = (raw[w*height+h] > 0 ? 255 : 0);
-
-	  // apply curve mask
+	  // we get value+grad from volume
+	  // we need only value part
+	  int i=0;
 	  for(int w=minWSlice; w<=maxWSlice; w++)
 	    for(int h=minHSlice; h<=maxHSlice; h++)
 	      {
-		if (curveMask[slc*twidth*theight +
-			      (w-minWSlice)*theight +
-			      (h-minHSlice)] > 0)
-		  raw[w*height+h] = 255;
+		slice[i] = slice[2*(w*height+h)];
+		i++;
 	      }
-	}
-      else if (tag[0] == 0)
-	{
-	  for(int w=minWSlice; w<=maxWSlice; w++)
-	    for(int h=minHSlice; h<=maxHSlice; h++)
-	      raw[w*height+h] = (raw[w*height+h] == 0 ? 255 : 0);
-
-	  // apply curve mask
-	  for(int w=minWSlice; w<=maxWSlice; w++)
-	    for(int h=minHSlice; h<=maxHSlice; h++)
-	      {
-		if (curveMask[slc*twidth*theight +
-			      (w-minWSlice)*theight +
-			      (h-minHSlice)] > 0)
-		  raw[w*height+h] = 0;
-	      }
+	  
+	  memcpy(raw, m_volume->getMaskDepthSliceImage(d), nbytes);
+	  
+	  if (tag[0] == -1)
+	    {
+	      for(int w=minWSlice; w<=maxWSlice; w++)
+		for(int h=minHSlice; h<=maxHSlice; h++)
+		  raw[w*height+h] = (raw[w*height+h] > 0 ? 255 : 0);
+	      
+	      // apply curve mask
+	      for(int w=minWSlice; w<=maxWSlice; w++)
+		for(int h=minHSlice; h<=maxHSlice; h++)
+		  {
+		    if (curveMask[slc*twidth*theight +
+				  (w-minWSlice)*theight +
+				  (h-minHSlice)] > 0)
+		      raw[w*height+h] = 255;
+		  }
+	    }
+	  else if (tag[0] == 0)
+	    {
+	      for(int w=minWSlice; w<=maxWSlice; w++)
+		for(int h=minHSlice; h<=maxHSlice; h++)
+		  raw[w*height+h] = (raw[w*height+h] == 0 ? 255 : 0);
+	      
+	      // apply curve mask
+	      for(int w=minWSlice; w<=maxWSlice; w++)
+		for(int h=minHSlice; h<=maxHSlice; h++)
+		  {
+		    if (curveMask[slc*twidth*theight +
+				  (w-minWSlice)*theight +
+				  (h-minHSlice)] > 0)
+		      raw[w*height+h] = 0;
+		  }
+	    }
+	  else
+	    {
+	      for(int w=minWSlice; w<=maxWSlice; w++)
+		for(int h=minHSlice; h<=maxHSlice; h++)
+		  raw[w*height+h] = (tag.contains(raw[w*height+h]) ? 255 : 0);
+	      
+	      // apply curve mask
+	      for(int w=minWSlice; w<=maxWSlice; w++)
+		for(int h=minHSlice; h<=maxHSlice; h++)
+		  {
+		    if (tag.contains(curveMask[slc*twidth*theight +
+					       (w-minWSlice)*theight +
+					       (h-minHSlice)]))
+		      raw[w*height+h] = 255;
+		  }
+	    }
 	}
       else
 	{
-	  for(int w=minWSlice; w<=maxWSlice; w++)
-	    for(int h=minHSlice; h<=maxHSlice; h++)
-	      raw[w*height+h] = (tag.contains(raw[w*height+h]) ? 255 : 0);
+	  if (extractType == 7)
+	    memcpy(raw, m_volume->getMaskDepthSliceImage(d), nbytes);
+	  else
+	    memset(raw, 0, nbytes);
 
-	  // apply curve mask
-	  for(int w=minWSlice; w<=maxWSlice; w++)
-	    for(int h=minHSlice; h<=maxHSlice; h++)
-	      {
-		if (tag.contains(curveMask[slc*twidth*theight +
-					   (w-minWSlice)*theight +
-					   (h-minHSlice)]))
-		    raw[w*height+h] = 255;
-	      }
+	  // copy curve/fiber mask
+	  if (tag[0] == -1)
+	    {
+	      if (extractType == 7)
+		{
+		  for(int w=minWSlice; w<=maxWSlice; w++)
+		    for(int h=minHSlice; h<=maxHSlice; h++)
+		      {
+			if (curveMask[slc*twidth*theight +
+				      (w-minWSlice)*theight +
+				      (h-minHSlice)] > 0)
+			  raw[w*height+h] = curveMask[slc*twidth*theight +
+						      (w-minWSlice)*theight +
+						      (h-minHSlice)];
+		      }
+		}
+	      else
+		{
+		  for(int w=minWSlice; w<=maxWSlice; w++)
+		    for(int h=minHSlice; h<=maxHSlice; h++)
+		      {
+			raw[w*height+h] = curveMask[slc*twidth*theight +
+						    (w-minWSlice)*theight +
+						    (h-minHSlice)];
+		      }
+		}
+	    }
+	  else
+	    {
+	      if (extractType == 7)
+		{
+		  for(int w=minWSlice; w<=maxWSlice; w++)
+		    for(int h=minHSlice; h<=maxHSlice; h++)
+		      raw[w*height+h] = (tag.contains(raw[w*height+h]) ?
+					 raw[w*height+h] : 0);
+		  
+		}
+
+	      for(int w=minWSlice; w<=maxWSlice; w++)
+		for(int h=minHSlice; h<=maxHSlice; h++)
+		  {
+		    if (tag.contains(curveMask[slc*twidth*theight +
+					       (w-minWSlice)*theight +
+					       (h-minHSlice)]))
+		      raw[w*height+h] = curveMask[slc*twidth*theight +
+						  (w-minWSlice)*theight +
+						  (h-minHSlice)];		
+		  }
+	    }
 	}
+
 
       //-----------------------------
       //-----------------------------
@@ -2280,8 +2370,8 @@ DrishtiPaint::on_actionExtractTag_triggered()
       
 
       //-----------------------------
-      // use tag mask + transfer function to extract volume data
-      if (extractType == 2 || extractType == 4)
+      // use tag/fiber mask + transfer function to extract volume data
+      if (extractType == 2 || extractType == 4 || extractType == 6)
 	{
 	  int sval = 0;
 	  if (tag[0] == -1) sval = 0;

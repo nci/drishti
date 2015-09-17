@@ -158,6 +158,7 @@ ImageCaptionObject::loadCaption()
 
   if (m_label) delete m_label;
   m_label = new QTextEdit();
+  m_label->setFontPointSize(12);
 
   //----------------
   // file is assumed to be relative to .pvl.nc file

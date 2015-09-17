@@ -579,11 +579,14 @@ ImageWidget::processPrevSliceTags()
 
   bool ok = false;
   for (int i=0; i<m_imgHeight*m_imgWidth; i++)
-    if (m_prevslicetags[i] == Global::tag())
-      {
-	ok = true;
-	break;
-      }
+    {
+      if (m_prevslicetags[i] == Global::tag())
+	{
+	  ok = true;
+	  break;
+	}
+    }
+
   if (!ok)
     {
       memset(m_prevslicetags, 0, m_imgHeight*m_imgWidth); // reset any other tags 
@@ -594,38 +597,69 @@ ImageWidget::processPrevSliceTags()
   memset(maskData, 0, m_imgWidth*m_imgHeight);
 
   for (int i=0; i<m_imgHeight*m_imgWidth; i++)
-    maskData[i] = (m_prevslicetags[i] == Global::tag() ? 255 : 0);
+    m_prevslicetags[i] = (m_prevslicetags[i] == Global::tag() ? 255 : 0);
+
 
   int nb = Global::prevErode();
 
-  //--------------------------
-  // smooth row
-  for(int j=0; j<m_imgHeight; j++)
-    for(int i=0; i<m_imgWidth; i++)
-      {
-	float sum = 0;
-	for(int x=-nb; x<=nb; x++)
-	  sum += maskData[j*m_imgWidth+qBound(0, i+x, m_imgWidth-1)];
-	m_prevslicetags[j*m_imgWidth+i] = sum/(2*nb+1);
-      }
+  uchar *t1 = m_prevslicetags;
+  uchar *t2 = maskData;
+  for(int n=0; n<nb; n++)
+    {
+      memset(t2, 0, m_imgWidth*m_imgHeight);
+      for(int j=0; j<m_imgHeight; j++)
+	for(int i=0; i<m_imgWidth; i++)
+	  {
+	    if (t1[j*m_imgWidth+i] == 255)
+	      {
+		if (t1[j*m_imgWidth+qBound(0, i+1, m_imgWidth-1)] == 255 &&
+		    t1[j*m_imgWidth+qBound(0, i-1, m_imgWidth-1)] == 255 &&
+		    t1[qBound(0, j+1, m_imgHeight-1)*m_imgWidth + i] == 255 &&
+		    t1[qBound(0, j-1, m_imgHeight-1)*m_imgWidth + i] == 255)	      
+		  t2[j*m_imgWidth+i] = 255;
+	      }
+	  }
 
-  // followed by smooth column
-  for(int i=0; i<m_imgWidth; i++)
-    for(int j=0; j<m_imgHeight; j++)
-      {
-	float sum = 0;
-	for(int y=-nb; y<=nb; y++)
-	  sum += m_prevslicetags[qBound(0, j+y, m_imgHeight-1)*m_imgWidth+i];
-	maskData[j*m_imgWidth+i] = sum/(2*nb+1);
-      }
+      uchar *tmp = t1;
+      t1 = t2;
+      t2 = tmp;
+    }
 
-  memcpy(m_prevslicetags, maskData, m_imgWidth*m_imgHeight);
-  //--------------------------
-
-  delete [] maskData;
+  delete [] t2;
 
   for (int i=0; i<m_imgHeight*m_imgWidth; i++)
-    m_prevslicetags[i] = (m_prevslicetags[i] > 192 ? Global::tag() : 0);
+    t1[i] = (t1[i] > 192 ? Global::tag() : 0);
+
+  m_prevslicetags = t1;
+
+//  //--------------------------
+//  // smooth row
+//  for(int j=0; j<m_imgHeight; j++)
+//    for(int i=0; i<m_imgWidth; i++)
+//      {
+//	float sum = 0;
+//	for(int x=-nb; x<=nb; x++)
+//	  sum += maskData[j*m_imgWidth+qBound(0, i+x, m_imgWidth-1)];
+//	m_prevslicetags[j*m_imgWidth+i] = sum/(2*nb+1);
+//      }
+//
+//  // followed by smooth column
+//  for(int i=0; i<m_imgWidth; i++)
+//    for(int j=0; j<m_imgHeight; j++)
+//      {
+//	float sum = 0;
+//	for(int y=-nb; y<=nb; y++)
+//	  sum += m_prevslicetags[qBound(0, j+y, m_imgHeight-1)*m_imgWidth+i];
+//	maskData[j*m_imgWidth+i] = sum/(2*nb+1);
+//      }
+//
+//  memcpy(m_prevslicetags, maskData, m_imgWidth*m_imgHeight);
+//  //--------------------------
+//
+//  delete [] maskData;
+//
+//  for (int i=0; i<m_imgHeight*m_imgWidth; i++)
+//    m_prevslicetags[i] = (m_prevslicetags[i] > 192 ? Global::tag() : 0);
 }
 
 
@@ -4528,7 +4562,7 @@ ImageWidget::saveFibers(QFile *cfile)
 	    {
 	      pt[3*j+0] = seeds[j].x;
 	      pt[3*j+1] = seeds[j].y;
-	      pt[3*j+2] = seeds[j].z;
+	      pt[3*j+2] = seeds[j].z;		
 	    }
 	  cfile->write((char*)pt, 3*npts*sizeof(float));
 	  delete [] pt;

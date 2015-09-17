@@ -250,6 +250,8 @@ Fiber::updateTrace()
 	      smoothSeeds << p;
 	    }
 	}
+      else
+	smoothSeeds << seeds[ptn];
     }
 
   ptend = smoothSeeds.count();

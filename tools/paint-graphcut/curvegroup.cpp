@@ -144,13 +144,13 @@ CurveGroup::removePolygonAt(int key, int v0, int v1, bool all)
       else
 	{
 	  QList<Curve*> curves = m_swcg[ic].values(key);
-	  delete curves[crv];
+	  //delete curves[crv];
 	  m_swcg[ic].remove(key);
 	  for(int j=0; j<curves.count(); j++)
 	    {
-	      if (crv != ic)
+	      if (j != crv)
 		m_swcg[ic].insert(key, curves[j]);
-	    }      	  
+	    }
 	}
     }
 

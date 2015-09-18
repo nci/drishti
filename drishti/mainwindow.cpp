@@ -3236,14 +3236,12 @@ MainWindow::on_actionSave_InformationForDrishtiPrayog_triggered()
 				      QFileDialog::DontUseNativeDialog);
 
   if (!StaticFunctions::checkExtension(flnm, ".drishtiprayog"))
-    {
-      flnm += ".drishtiprayog";
+    flnm += ".drishtiprayog";
       
-      m_Hires->saveForDrishtiPrayog(flnm);
-
-      QMessageBox::information(0, "Drishti-Prayog information saved",
-			       "Drishti-Prayog information data saved to " + flnm);
-    }
+  m_Hires->saveForDrishtiPrayog(flnm);
+  
+  QMessageBox::information(0, "Drishti-Prayog information saved",
+			   "Drishti-Prayog information data saved to " + flnm);
 }
 
 void
@@ -3261,11 +3259,9 @@ MainWindow::on_actionSave_ProjectAs_triggered()
     return;
 
   if (!StaticFunctions::checkExtension(flnm, ".xml"))
-    {
-      flnm += ".xml";
+    flnm += ".xml";
       
-      saveProject(flnm.toLatin1().data(), QString());
-    }
+  saveProject(flnm.toLatin1().data(), QString());
 }
 
 void

@@ -149,10 +149,16 @@ class DrawHiresVolume : public QObject
 
   void createDefaultShader();
 
+  void getOpMod(float&, float&);
+  void setOpMod(float, float);
+
  signals :
   void histogramUpdated(QImage, QImage);
 
  private :
+  float m_frontOpMod;
+  float m_backOpMod;
+
   bool m_showing;
   bool m_forceBackToFront;
   

@@ -264,7 +264,8 @@ TomPlugin::getWidthSlice(int slc,
   for(uint k=0; k<m_depth; k++)
     {
       fin.seek((qint64)(m_skipBytes +
-			(slc*m_height + k*m_width*m_height)*m_bytesPerVoxel));
+			((qint64)slc*m_height +
+			 (qint64)k*m_width*m_height)*m_bytesPerVoxel));
 
       fin.read((char*)(slice+(qint64)(k*m_height*m_bytesPerVoxel)),
 	       (qint64)(m_height*m_bytesPerVoxel));
@@ -378,7 +379,7 @@ TomPlugin::saveTrimmed(QString trimFile,
 		 mZ*m_bytesPerVoxel);
 	}
 	  
-      fout.write((char*)tmp, mY*mZ*m_bytesPerVoxel);
+      fout.write((char*)tmp, (qint64)(mY*mZ*m_bytesPerVoxel));
 
       progress.setValue((int)(100*(float)(i-dmin)/(float)mX));
       qApp->processEvents();

@@ -976,6 +976,8 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
   shader += "uniform sampler2DRect shdTex;\n";
   shader += "uniform float shdIntensity;\n";
 
+  shader += "uniform float opmod;\n";
+
   shader += genTextureCoordinate();
 
   if (tearPresent) shader += TearShaderFactory::generateTear(crops);
@@ -1158,6 +1160,8 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
   if (glowPresent) shader += "  gl_FragColor.rgb += glow(otexCoord);\n";
 
   shader += "  gl_FragColor = clamp(gl_FragColor, vec4(0.0,0.0,0.0,0.0), vec4(1.0,1.0,1.0,1.0));\n";
+
+  shader += "  gl_FragColor *= opmod;\n";
 
   shader += "}\n";
 

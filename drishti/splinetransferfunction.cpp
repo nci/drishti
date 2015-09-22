@@ -565,11 +565,19 @@ SplineTransferFunction::updateColorMapImage()
 		{
 		  float pos = qgs[gi].first;
 		  QColor color = qgs[gi].second;
-		  int r = color.red();
-		  int g = color.green();
-		  int b = color.blue();
-		  int a = color.alpha();
-		  gstops << QGradientStop(pos, QColor(r,g,b,a*pfrc));
+//		  int r = color.red();
+//		  int g = color.green();
+//		  int b = color.blue();
+//		  int a = color.alpha();
+//		  gstops << QGradientStop(pos, QColor(r,g,b,a*pfrc));
+
+		  qreal r = color.redF();
+		  qreal g = color.greenF();
+		  qreal b = color.blueF();
+		  qreal a = color.alphaF();
+		  QColor newc;
+		  newc.setRgbF(r,g,b,a*pfrc);
+		  gstops << QGradientStop(pos, newc);
 		}
 	    }
 

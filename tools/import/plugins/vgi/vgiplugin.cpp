@@ -609,7 +609,7 @@ VgiPlugin::getWidthSlice(int slc,
     {
       fin.seek((qint64)(m_skipBytes +
 			((qint64)slc*m_height +
-			 (qint64)k*m_width*m_height*m_bytesPerVoxel)));
+			 (qint64)k*m_width*m_height)*m_bytesPerVoxel));
 
       fin.read((char*)(slice+(qint64)(k*m_height*m_bytesPerVoxel)),
 	       (qint64)(m_height*m_bytesPerVoxel));

@@ -38,10 +38,12 @@ connect(m_keyFrame, SIGNAL(updateFocus(float, float)),
 
   connect(m_keyFrame, SIGNAL(updateParameters(bool, bool, Vec, QString,
 					      int, int, QString, QString, QString,
-					      int, bool, bool, float, bool, bool)),
+					      int, bool, bool, float, bool, bool,
+					      float, float)),
 	  this, SLOT(updateParameters(bool, bool, Vec, QString,
 				      int, int, QString, QString, QString,
-				      int, bool, bool, float, bool, bool)));
+				      int, bool, bool, float, bool, bool,
+				      float, float)));
 
 
 

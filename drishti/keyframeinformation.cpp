@@ -65,6 +65,11 @@ void KeyFrameInformation::setNetworks(QList<NetworkInformation> ninfo) { m_netwo
 void KeyFrameInformation::setTagColors(unsigned char* tc) { memcpy(m_tagColors, tc, 1024); }
 void KeyFrameInformation::setPruneBuffer(QByteArray pb) { m_pruneBuffer = pb; }
 void KeyFrameInformation::setPruneBlend(bool pb) { m_pruneBlend = pb; }
+void KeyFrameInformation::setOpMod(float fop, float bop)
+{
+  m_frontOpMod = fop;
+  m_backOpMod = bop;
+}
 
 
 QString KeyFrameInformation::title() { return m_title; }
@@ -124,6 +129,11 @@ QList<NetworkInformation> KeyFrameInformation::networks() { return m_networks; }
 unsigned char* KeyFrameInformation::tagColors() { return m_tagColors; }
 QByteArray KeyFrameInformation::pruneBuffer() { return m_pruneBuffer; }
 bool KeyFrameInformation::pruneBlend() { return m_pruneBlend; }
+void KeyFrameInformation::getOpMod(float& fop, float& bop)
+{
+  fop = m_frontOpMod;
+  bop = m_backOpMod;
+}
 
 
 // -- keyframe interpolation parameters
@@ -223,6 +233,8 @@ KeyFrameInformation::KeyFrameInformation()
   m_pathgroups.clear();
   m_trisets.clear();
   m_networks.clear();
+  m_frontOpMod = 1;
+  m_backOpMod = 1;
 
   m_interpBGColor = Enums::KFIT_Linear;
   m_interpCaptions = Enums::KFIT_Linear;
@@ -297,6 +309,8 @@ KeyFrameInformation::clear()
   m_pathgroups.clear();
   m_trisets.clear();
   m_networks.clear();
+  m_frontOpMod = 1;
+  m_backOpMod = 1;
 
   m_interpBGColor = Enums::KFIT_Linear;
   m_interpCaptions = Enums::KFIT_Linear;
@@ -388,6 +402,10 @@ KeyFrameInformation::KeyFrameInformation(const KeyFrameInformation& kfi)
   m_pathgroups = kfi.m_pathgroups;
   m_trisets = kfi.m_trisets;
   m_networks = kfi.m_networks;
+
+  m_frontOpMod = kfi.m_frontOpMod;
+  m_backOpMod = kfi.m_backOpMod;
+
 
   m_interpBGColor = kfi.m_interpBGColor;
   m_interpCaptions = kfi.m_interpCaptions;
@@ -510,6 +528,10 @@ KeyFrameInformation::operator=(const KeyFrameInformation& kfi)
   m_trisets = kfi.m_trisets;
   m_networks = kfi.m_networks;
 
+  m_frontOpMod = kfi.m_frontOpMod;
+  m_backOpMod = kfi.m_backOpMod;
+
+
   m_interpBGColor = kfi.m_interpBGColor;
   m_interpCaptions = kfi.m_interpCaptions;
   m_interpFocus = kfi.m_interpFocus;
@@ -547,6 +569,8 @@ KeyFrameInformation::load(fstream &fin)
   m_pruneBuffer.clear();
   m_pruneBlend = false;
 
+  m_frontOpMod = m_backOpMod = 1;
+
   m_interpBGColor = Enums::KFIT_Linear;
   m_interpCaptions = Enums::KFIT_Linear;
   m_interpFocus = Enums::KFIT_Linear;
@@ -577,6 +601,11 @@ KeyFrameInformation::load(fstream &fin)
 	  fin.read((char*)str, len*sizeof(char));
 	  m_title = QString(str);
 	  delete [] str;
+	}
+      else if (strcmp(keyword, "opmod") == 0)
+	{
+	  fin.read((char*)&m_frontOpMod, sizeof(float));
+	  fin.read((char*)&m_backOpMod, sizeof(float));
 	}
       else if (strcmp(keyword, "drawbox") == 0)
 	fin.read((char*)&m_drawBox, sizeof(bool));
@@ -893,6 +922,13 @@ KeyFrameInformation::save(fstream &fout)
   sprintf(keyword, "framenumber");
   fout.write((char*)keyword, strlen(keyword)+1);
   fout.write((char*)&m_frameNumber, sizeof(int));
+
+
+  memset(keyword, 0, 100);
+  sprintf(keyword, "opmod");
+  fout.write((char*)keyword, strlen(keyword)+1);
+  fout.write((char*)&m_frontOpMod, sizeof(float));
+  fout.write((char*)&m_backOpMod, sizeof(float));
 
 
   memset(keyword, 0, 100);

@@ -20,6 +20,20 @@
 #include <QDataStream>
 
 void
+DrawHiresVolume::getOpMod(float& front, float& back)
+{
+  front = m_frontOpMod;
+  back = m_backOpMod;
+}
+
+void
+DrawHiresVolume::setOpMod(float fo, float bo)
+{
+  m_frontOpMod = fo;
+  m_backOpMod = bo;
+}
+
+void
 DrawHiresVolume::check_MIP()
 {
   if (MainWindowUI::mainWindowUI()->actionMIP->isChecked())
@@ -183,6 +197,8 @@ DrawHiresVolume::~DrawHiresVolume()
 void
 DrawHiresVolume::renew()
 {
+  m_frontOpMod = 1.0;
+  m_backOpMod = 1.0;
   m_saveImage2Volume = false;
 
   m_showing = true;
@@ -1089,6 +1105,8 @@ DrawHiresVolume::createDefaultShader()
   m_defaultParm[46] = glGetUniformLocationARB(m_defaultShader, "shdlod");
   m_defaultParm[47] = glGetUniformLocationARB(m_defaultShader, "shdTex");
   m_defaultParm[48] = glGetUniformLocationARB(m_defaultShader, "shdIntensity");
+
+  m_defaultParm[49] = glGetUniformLocationARB(m_defaultShader, "opmod");
 }
 
 void
@@ -2797,6 +2815,14 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
   Vec po = poStart;
   for(int s=0; s<layers; s++)
     {
+      //glUniform1fARB(m_defaultParm[49], m_opmod);
+      {
+	float sdist = qAbs((maxvert - po)*pn);
+	float modop = qBound(0.0f, sdist/deplen, 1.0f);
+	modop = m_frontOpMod*(1-modop) + modop*m_backOpMod;
+	glUniform1fARB(m_defaultParm[49], modop);
+      }
+
       po += pnDir;
 
       float depthcue = 1;     

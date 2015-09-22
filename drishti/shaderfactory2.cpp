@@ -432,6 +432,8 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
   shader += "uniform sampler2DRect shdTex;\n";
   shader += "uniform float shdIntensity;\n";
 
+  shader += "uniform float opmod;\n";
+
   shader += ShaderFactory::genTextureCoordinate();
 
   if (tearPresent) shader += TearShaderFactory::generateTear(crops);
@@ -769,6 +771,8 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
 
   // -- depth cueing
   shader += "  gl_FragColor.rgb *= depthcue;\n";
+
+  shader += "  gl_FragColor *= opmod;\n";
 
   shader += "}\n";
 

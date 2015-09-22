@@ -3104,6 +3104,10 @@ MainWindow::saveProject(QString xmlflnm, QString dtvfile)
   int mv;
   bool mc, mo, mt;
   m_Hires->getMix(mv, mc, mo, mt);
+
+  float fop, bop;
+  m_Hires->getOpMod(fop, bop);
+
   m_keyFrame->saveProject(m_Viewer->camera()->position(),
 			  m_Viewer->camera()->orientation(),
 			  m_Viewer->camera()->focusDistance(),
@@ -3119,7 +3123,8 @@ MainWindow::saveProject(QString xmlflnm, QString dtvfile)
 			  image,
 			  sz, st, xl, yl, zl,
 			  mv, mc, mo, mt,
-			  PruneHandler::getPruneBuffer());
+			  PruneHandler::getPruneBuffer(),
+			  fop, bop);
 
 
   saveVolumeIntoProject(flnm, dtvfile);
@@ -3490,6 +3495,9 @@ MainWindow::setKeyFrame(Vec pos, Quaternion rot,
   bool mixTag;
   m_Hires->getMix(mixvol, mixColor, mixOpacity, mixTag);
 
+  float fop, bop;
+  m_Hires->getOpMod(fop, bop);
+
   m_keyFrame->setKeyFrame(pos, rot,
 			  focus, es,
 			  fno,
@@ -3500,7 +3508,8 @@ MainWindow::setKeyFrame(Vec pos, Quaternion rot,
 			  image,
 			  splineInfo,
 			  sz, st, xl, yl, zl,
-			  mixvol, mixColor, mixOpacity, mixTag);
+			  mixvol, mixColor, mixOpacity, mixTag,
+			  fop, bop);
 
   if (m_savePathAnimation > 0)
     {
@@ -3627,7 +3636,8 @@ MainWindow::updateParameters(bool drawBox, bool drawAxis,
 			     int sz, int st,
 			     QString xl, QString yl, QString zl,
 			     int mv, bool mc, bool mo, float iv, bool mt,
-			     bool pruneblend)
+			     bool pruneblend,
+			     float fop, float bop)
 {
   m_preferencesWidget->setTick(sz, st, xl, yl, zl);
   Global::setBackgroundColor(bgColor);
@@ -3645,6 +3655,8 @@ MainWindow::updateParameters(bool drawBox, bool drawAxis,
 
   m_Hires->setMix(mv, mc, mo, iv);
   m_Hires->setMixTag(mt);
+
+  m_Hires->setOpMod(fop, bop);
 
   ui.actionAxes->setChecked(Global::drawAxis());
   ui.actionBoundingBox->setChecked(Global::drawBox());

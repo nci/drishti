@@ -1345,7 +1345,7 @@ Viewer::drawInfoString(int imagequality,
   tfont.setPointSize(8*fscl);
 
   StaticFunctions::renderText(posx, posy-24*fscl,
-			      QString("HiRes : image (%1) : stepsize(%2)"). \
+			      QString("HiRes : image (%1) : step(%2)"). \
 			      arg(msg).arg(stepsize),
 			      tfont,
 			      Qt::transparent,
@@ -4697,6 +4697,19 @@ Viewer::processCommand(QString cmd)
 	}
       MainWindowUI::mainWindowUI()->actionUse_dragvolume->setChecked(Global::useDragVolume());
     }
+  else if (list[0] == "opmod")
+    {
+      if (list.size() > 1)
+	{
+	  float fop = 1;
+	  float bop = 1;
+	  bop = fop = qMax(0.0f, list[1].toFloat(&ok));
+	  if (list.size() > 2)
+	    bop = qMax(0.0f, list[2].toFloat(&ok));
+	  
+	  m_hiresVolume->setOpMod(fop, bop);
+	}
+    }
   else
     QMessageBox::critical(0, "Error",
 			  QString("Cannot understand the command : ") +
@@ -4769,50 +4782,65 @@ Viewer::commandEditor()
   //---------------------
   vlist.clear();
   QString mesg;
-  Vec cpos = camera()->position();
-  if (Global::updatePruneTexture())
-    mesg += QString("EmptySpaceSkip : update : on\n");
-  else
-    mesg += QString("EmptySpaceSkip : update : off\n");
 
-  if (PruneHandler::carve())
-    mesg += QString("carve : on\n");
-  else
-    mesg += QString("carve : off\n");
+  {
+    Vec cpos = camera()->position();
+    if (Global::updatePruneTexture())
+      mesg += QString("EmptySpaceSkip : update : on\n");
+    else
+      mesg += QString("EmptySpaceSkip : update : off\n");
 
-  if (PruneHandler::paint())
-    mesg += QString("paint : on\n");
-  else
-    mesg += QString("paint : off\n");
+    if (PruneHandler::carve())
+      mesg += QString("carve : on\n");
+    else
+      mesg += QString("carve : off\n");
+    
+    if (PruneHandler::paint())
+      mesg += QString("paint : on\n");
+    else
+      mesg += QString("paint : off\n");
+    
+    mesg += QString("camera position : %1 %2 %3\n").	\
+            arg(cpos.x).arg(cpos.y).arg(cpos.z);
+  }
 
-  mesg += QString("camera position : %1 %2 %3\n").	\
-          arg(cpos.x).arg(cpos.y).arg(cpos.z);
+  {
+    Quaternion crot = camera()->orientation();
+    Vec axis = crot.axis();
+    float angle = crot.angle();
+    mesg += QString("camera rotation : axis(%1 %2 %3) angle(%4)\n").	\
+            arg(axis.x).arg(axis.y).arg(axis.z).arg(RAD2DEG(angle));
+  }
 
-  Quaternion crot = camera()->orientation();
-  Vec axis = crot.axis();
-  float angle = crot.angle();
-  mesg += QString("camera rotation : axis(%1 %2 %3) angle(%4)\n").	\
-          arg(axis.x).arg(axis.y).arg(axis.z).arg(RAD2DEG(angle));
+  {
+    mesg += "backgroundrender : ";
+    if (m_useFBO) mesg += "yes\n";
+    else mesg += "no\n";
 
-  mesg += "backgroundrender : ";
-  if (m_useFBO) mesg += "yes\n";
-  else mesg += "no\n";
-
-  mesg += "dragonly : ";
-  if (Global::loadDragOnly()) mesg += "yes\n";
-  else mesg += "no\n";
+    mesg += "dragonly : ";
+    if (Global::loadDragOnly()) mesg += "yes\n";
+    else mesg += "no\n";
   
-  mesg += QString("texsizereducefraction : %1\n").	\
-    arg(Global::texSizeReduceFraction());
+    mesg += QString("texsizereducefraction : %1\n").	\
+      arg(Global::texSizeReduceFraction());
 
-  if (m_hiresVolume->subvolumeUpdates())
-    mesg += "subvolume updates : true\n";
-  else
-    mesg += "subvolume updates : false\n";
+    if (m_hiresVolume->subvolumeUpdates())
+      mesg += "subvolume updates : true\n";
+    else
+      mesg += "subvolume updates : false\n";
+  }
 
-  QString tdir = Global::tempDir();  
-  if (!tdir.isEmpty())
-    mesg += QString("\nTemp directory is set to %1\n").arg(tdir);
+  {
+    float fop, bop;
+    m_hiresVolume->getOpMod(fop, bop);
+    mesg += QString("opacity modifiers : %1 %2\n").arg(fop).arg(bop);
+  }
+
+  {
+    QString tdir = Global::tempDir();  
+    if (!tdir.isEmpty())
+      mesg += QString("\nTemp directory is set to %1\n").arg(tdir);
+  }
 
   vlist << mesg;
 

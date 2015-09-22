@@ -12,6 +12,25 @@ Light sources are animatable.
 #end
 
 #begin
+opmod
+opmod
+opmod [front op] [back op]
+Opacity modifier to modulate opacity of the transfer functions from front to back of the volume.  This modulating factor is multipled to the opacity value.  Default value is 1 for both front and back - i.e. no modulation.
+
+Example :
+opmod 1
+opmod 0 1 : front slice opacity will be multiplied by 0.
+            back slice opacity will be multiplied by 1.
+            inbetweens will be multiplied by linearly interpolated values between 0 and 1.
+opmod 0.1 : multiple all opacity values by 0.1
+opmod 0.1 0.5 : front slice opacity will be multiplied by 0.1.
+                back slice opacity will be multiplied by 0.5.
+                inbetweens will be multiplied by linearly interpolated values between 0.1 and 0.5.
+
+#end
+
+
+#begin
 image2volume
 image2volume
 Save the volume rendered image seen on the screen as a 3D volume.  Only the opacity part will be saved as volume.

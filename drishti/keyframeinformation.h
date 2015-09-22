@@ -81,6 +81,7 @@ class KeyFrameInformation
   void setPruneBuffer(QByteArray);
   void setPruneBlend(bool);
   void setLandmarkInfo(LandmarkInformation);
+  void setOpMod(float, float);
   
   QString title();
   bool hasCaption(QStringList);
@@ -126,6 +127,7 @@ class KeyFrameInformation
   QByteArray pruneBuffer();
   bool pruneBlend();
   LandmarkInformation landmarkInfo();
+  void getOpMod(float&, float&);
 
 
   // -- keyframe interpolation parameters
@@ -206,6 +208,7 @@ class KeyFrameInformation
   QByteArray m_pruneBuffer;
   bool m_pruneBlend;
   LandmarkInformation m_landmarkInfo;
+  float m_frontOpMod, m_backOpMod;
 
   //-- keyframe interpolation parameters
   int m_interpBGColor;

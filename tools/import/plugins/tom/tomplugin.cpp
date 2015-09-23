@@ -246,7 +246,7 @@ void
 TomPlugin::getDepthSlice(int slc,
 			      uchar *slice)
 {
-  int nbytes = m_width*m_height*m_bytesPerVoxel;
+  qint64 nbytes = m_width*m_height*m_bytesPerVoxel;
   QFile fin(m_fileName[0]);
   fin.open(QFile::ReadOnly);
   fin.seek((qint64)(m_skipBytes + nbytes*slc));

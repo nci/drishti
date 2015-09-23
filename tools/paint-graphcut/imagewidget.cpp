@@ -3855,20 +3855,11 @@ ImageWidget::applyGraphCut()
   memcpy(maskData, m_tags, size1*size2);
   memset(m_tags, 0, m_imgWidth*m_imgHeight);
 
-//  //--------------------------
-//  // limit graphcut output within the bounding curve
-//  memset(imageData, 0, m_imgWidth*m_imgHeight);
-//  if (m_curveMode || m_livewireMode)
-//    paintUsingCurves(imageData);
-//  //--------------------------
-  
   idx=0;
   for(int i=imin; i<=imax; i++)
     for(int j=jmin; j<=jmax; j++)
       {
-	// limit graphcut output within the bounding curve
-	if (imageData[i*m_imgWidth+j] > 0)
-	  m_tags[i*m_imgWidth+j] = maskData[idx];
+	m_tags[i*m_imgWidth+j] = maskData[idx];
 	idx++;
       }
 

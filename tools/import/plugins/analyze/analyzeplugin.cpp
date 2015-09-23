@@ -555,7 +555,7 @@ void
 AnalyzePlugin::getDepthSlice(int slc,
 			    uchar *slice)
 {
-  int nbytes = m_width*m_height*m_bytesPerVoxel;
+  qint64 nbytes = m_width*m_height*m_bytesPerVoxel;
   if (slc < 0 || slc >= m_depth)
     {
       memset(slice, 0, nbytes);
@@ -740,7 +740,7 @@ AnalyzePlugin::saveTrimmed(QString trimFile,
   mY = wmax-wmin+1;
   mZ = hmax-hmin+1;
 
-  int nbytes = nY*nZ*m_bytesPerVoxel;
+  qint64 nbytes = nY*nZ*m_bytesPerVoxel;
   uchar *tmp = new uchar[nbytes];
 
   uchar vt;

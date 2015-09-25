@@ -2815,7 +2815,9 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
   Vec po = poStart;
   for(int s=0; s<layers; s++)
     {
-      //glUniform1fARB(m_defaultParm[49], m_opmod);
+      po += pnDir;
+
+
       {
 	float sdist = qAbs((maxvert - po)*pn);
 	//float modop = qBound(0.0f, sdist/deplen, 1.0f);
@@ -2823,8 +2825,6 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 	modop = m_frontOpMod*(1-modop) + modop*m_backOpMod;
 	glUniform1fARB(m_defaultParm[49], modop);
       }
-
-      po += pnDir;
 
       float depthcue = 1;     
       if (Global::depthcue())

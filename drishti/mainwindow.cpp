@@ -308,6 +308,7 @@ MainWindow::MainWindow(QWidget *parent) :
   initializeRecentFiles();
 
   loadSettings();
+  
 }
 
 void
@@ -642,6 +643,29 @@ MainWindow::GlewInit()
   m_preferencesWidget->updateTextureMemory();
 
   loadProjectRunKeyframesAndExit();
+
+  // load program 
+  QStringList arguments = qApp->arguments();
+  if (arguments.count() >= 2)
+    {
+      int i = 1;
+      if (arguments[i] == "-stereo") i++;
+
+      if (StaticFunctions::checkExtension(arguments[i], ".pvl.nc"))
+	{
+	  QStringList flnms;
+	  for(int a=i; a<arguments.count(); a++)
+	    flnms << arguments[a];
+	  loadSingleVolume(flnms);
+	}
+      else if (StaticFunctions::checkExtension(arguments[i], ".xml"))
+	{
+	  Global::addRecentFile(arguments[i]);
+	  updateRecentFileAction();
+	  createHiresLowresWindows();
+	  loadProject(arguments[i].toLatin1().data());
+	}
+    }
 }
 
 bool
@@ -840,9 +864,6 @@ MainWindow::loadProjectRunKeyframesAndExit()
       Global::setDepthcue(bj.depthcue);
 
       loadProject(bj.projectFilename.toLatin1().data());
-//
-//      m_Viewer->updateLookupTable();
-//
 
       if (!bj.backgroundrender)
 	m_Viewer->setUseFBO(false);

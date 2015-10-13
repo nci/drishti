@@ -858,6 +858,8 @@ VolumeFileManager::saveMemFile()
     }
 
   progress.setValue(100);
+
+  m_memChanged = false;
 }
 
 void

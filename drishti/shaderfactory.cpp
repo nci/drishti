@@ -1157,11 +1157,11 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
   // -- depth cueing
   shader += "  gl_FragColor.rgb *= min(1.0,depthcue);\n";
 
+  shader += "  gl_FragColor *= opmod;\n";
+
   if (glowPresent) shader += "  gl_FragColor.rgb += glow(otexCoord);\n";
 
   shader += "  gl_FragColor = clamp(gl_FragColor, vec4(0.0,0.0,0.0,0.0), vec4(1.0,1.0,1.0,1.0));\n";
-
-  shader += "  gl_FragColor *= opmod;\n";
 
   shader += "}\n";
 

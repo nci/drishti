@@ -31,6 +31,8 @@ class VolumeFileManager
   void setMemMapped(bool);
   bool isMemMapped();
 
+  void setMemChanged(bool);
+
   void setFilenameList(QStringList);
   void setBaseFilename(QString);
   void setHeaderSize(int);
@@ -76,7 +78,11 @@ class VolumeFileManager
   void setHeightSliceMem(int, uchar*);
   uchar* rawValueMem(int, int, int);
 
+  bool setValueMem(int, int, int, int);
+
   uchar* memVolDataPtr() { return m_volData; }
+
+  void saveBlock(int, int, int, int, int, int);
 
  private :
   bool m_memmapped;

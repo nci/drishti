@@ -521,3 +521,88 @@ StaticFunctions::xmlHeaderFile(QString volfile)
 
   return xmlheader;
 }
+
+bool
+StaticFunctions::inTriangle(Vec a, Vec b, Vec c, Vec p)
+{
+  Vec v0 = c - a;
+  Vec v1 = b - a;
+  Vec v2 = p - a;
+
+  float dot00 = v0 * v0;
+  float dot01 = v0 * v1;
+  float dot02 = v0 * v2;
+  float dot11 = v1 * v1;
+  float dot12 = v1 * v2;
+
+  // compute barycentric coordinates
+  float invdenom = 1.0 / (dot00 * dot11 - dot01 * dot01);
+  float u = (dot11 * dot02 - dot01 * dot12) * invdenom;
+  float v = (dot00 * dot12 - dot01 * dot02) * invdenom;
+  
+  // check if point is in triangle
+  return (u > 0) && (v > 0) && (u + v < 1);
+}
+
+void
+StaticFunctions::renderText(int x, int y,
+			    QString str, QFont font,
+			    QColor bcolor, QColor color,
+			    bool useTextPath)
+{
+  QFontMetrics metric(font);
+  int ht = metric.height()+4;
+  int wd = metric.width(str)+6;
+  QImage img(wd, ht, QImage::Format_ARGB32);
+  img.fill(bcolor);
+  QPainter p(&img);
+  p.setRenderHints(QPainter::TextAntialiasing, true);
+  //p.setPen(color);
+  p.setPen(QPen(color, 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+  p.setFont(font);
+
+  if (!useTextPath)
+    p.drawText(3, ht-metric.descent()-2, str);
+  else
+    {
+      QPainterPath textPath;
+      textPath.addText(3, ht-metric.descent()-2, font, str);
+      p.drawPath(textPath);
+    }
+
+  QImage mimg = img.mirrored();
+  glRasterPos2i(x, y);
+  glDrawPixels(wd, ht, GL_RGBA, GL_UNSIGNED_BYTE, mimg.bits());
+}
+
+void
+StaticFunctions::renderRotatedText(int x, int y,
+				   QString str, QFont font,
+				   QColor bcolor, QColor color,
+				   float angle, bool ydir,
+				   bool useTextPath)
+{
+  QFontMetrics metric(font);
+  int ht = metric.height()+1;
+  int wd = metric.width(str)+3;
+  QImage img(wd, ht, QImage::Format_ARGB32);
+  img.fill(bcolor);
+  QPainter p(&img);
+  p.setRenderHints(QPainter::Antialiasing |
+		   QPainter::TextAntialiasing |
+		   QPainter::SmoothPixmapTransform);
+  p.setPen(color);
+  p.setFont(font);
+  p.drawText(1, ht-metric.descent()-1, str);
+  QImage mimg = img.mirrored();
+  QMatrix mat;
+  mat.rotate(angle);
+  QImage pimg = mimg.transformed(mat, Qt::SmoothTransformation);
+  if (ydir) // (0,0) is bottom left
+    glRasterPos2i(x-pimg.width()/2, y+pimg.height()/2);
+  else // (0,0) is top left
+    glRasterPos2i(x-pimg.width()/2, y-pimg.height()/2);
+  glDrawPixels(pimg.width(), pimg.height(),
+	       GL_RGBA, GL_UNSIGNED_BYTE,
+	       pimg.bits());
+}

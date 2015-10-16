@@ -44,9 +44,27 @@ VolumeMask::loadMemFile()
 }
 
 void
-VolumeMask::saveIntermediateResults()
+VolumeMask::saveIntermediateResults(bool forceSave)
 {
+  if (forceSave)
+    m_maskFileManager.setMemChanged(true);
+
   m_maskFileManager.saveMemFile();
+}
+
+void
+VolumeMask::saveMaskBlock(int d, int w, int h, int rad)
+{
+  int dmin, dmax, wmin, wmax, hmin, hmax;
+  dmin = qMax(0, d-rad);
+  wmin = qMax(0, w-rad);
+  hmin = qMax(0, h-rad);
+
+  dmax = qMin(m_depth-1, d+rad);
+  wmax = qMin(m_width-1, w+rad);
+  hmax = qMin(m_height-1, h+rad);
+
+  m_maskFileManager.saveBlock(dmin, dmax, wmin, wmax, hmin, hmax);
 }
 
 void

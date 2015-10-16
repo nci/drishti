@@ -18,7 +18,8 @@ class VolumeMask : public QObject
   void offLoadMemFile();
   void loadMemFile();
 
-  void saveIntermediateResults();
+  void saveIntermediateResults(bool forceSave=false);
+  void saveMaskBlock(int, int, int, int);
 
   uchar* getMaskDepthSliceImage(int);
   uchar* getMaskWidthSliceImage(int);

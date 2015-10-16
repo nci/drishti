@@ -69,9 +69,9 @@ class Volume : public QObject
   uchar* memVolDataPtr() {return m_pvlFileManager.memVolDataPtr();};
   uchar* memMaskDataPtr() {return m_mask.memMaskDataPtr();};
 
-  public slots :
-    void saveIntermediateResults();
-    
+  void saveIntermediateResults(bool forceSave=false);
+  
+  void saveMaskBlock(int, int, int, int);
 
  signals :
   void progressChanged(int);

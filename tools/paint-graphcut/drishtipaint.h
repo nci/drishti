@@ -117,6 +117,9 @@ class DrishtiPaint : public QMainWindow
 
   void applyMaskOperation(int, int, int);
 
+  void paint3D(int, int, int, int);
+  void paint3DEnd();
+
  private :
   Ui::DrishtiPaint ui;
   Ui::ViewerMenu viewerUi;

@@ -1,3 +1,5 @@
+#include <GL/glew.h>
+
 #include "drishtipaint.h"
 #include "global.h"
 #include "staticfunctions.h"
@@ -111,6 +113,13 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   QFrame *viewerMenu = new QFrame();
   viewerUi.setupUi(viewerMenu);
   connectViewerMenu();
+  //------------------------------
+
+  //------------------------------
+  connect(m_viewer, SIGNAL(paint3D(int,int,int, int)),
+	  this, SLOT(paint3D(int,int,int, int)));
+  connect(m_viewer, SIGNAL(paint3DEnd()),
+	  this, SLOT(paint3DEnd()));
   //------------------------------
 
 
@@ -242,8 +251,16 @@ void DrishtiPaint::on_saveImage_triggered() { m_imageWidget->saveImage(); }
 void
 DrishtiPaint::on_saveWork_triggered()
 {
-  saveWork();
-  QMessageBox::information(0, "Save Work", "Tags, Curves and Fibers saved");
+  if (m_volume->isValid())
+    {
+      QString curvesfile = m_pvlFile;
+      curvesfile.replace(".pvl.nc", ".curves");
+      m_imageWidget->saveCurves(curvesfile);
+
+      m_volume->saveIntermediateResults(true);
+
+      QMessageBox::information(0, "Save Work", "Tags, Curves and Fibers saved");
+    }
 }
 void
 DrishtiPaint::saveWork()
@@ -3840,4 +3857,106 @@ DrishtiPaint::smoothMesh(QList<Vec>& V,
 
 
   progress.setValue(100);
+}
+
+void
+DrishtiPaint::paint3D(int d, int w, int h, int button)
+{
+  uchar *lut = Global::lut();
+  int rad = Global::spread();
+  int tag = Global::tag();
+  if (button == 2) // right button
+    tag = 0;
+  int minDSlice, maxDSlice;
+  int minWSlice, maxWSlice;
+  int minHSlice, maxHSlice;
+  m_imageWidget->getBox(minDSlice, maxDSlice,
+			minWSlice, maxWSlice,
+			minHSlice, maxHSlice);
+
+  uchar *volData = m_volume->memVolDataPtr();
+  uchar *maskData = m_volume->memMaskDataPtr();
+
+  int m_depth, m_width, m_height;
+  m_volume->gridSize(m_depth, m_width, m_height);
+
+  // tag only region connected to the origin voxel (d,w,h)
+  int dm = 2*rad;
+  int dm2 = dm*dm;
+  uchar *bitmask;
+  bitmask = new uchar[dm*dm*dm];
+  memset(bitmask, 0, dm*dm*dm);
+  
+  int ds, de, ws, we, hs, he;
+  ds = qMax(minDSlice+1, d-rad);
+  de = qMin(maxDSlice-1, d+rad);
+  ws = qMax(minWSlice+1, w-rad);
+  we = qMin(maxWSlice-1, w+rad);
+  hs = qMax(minHSlice+1, h-rad);
+  he = qMin(maxHSlice-1, h+rad);
+  for(int dd=ds; dd<=de; dd++)
+    for(int ww=ws; ww<=we; ww++)
+      for(int hh=hs; hh<=he; hh++)
+	{
+	  float p = ((d-dd)*(d-dd)+
+		     (w-ww)*(w-ww)+
+		     (h-hh)*(h-hh));
+	  if (p < rad*rad)
+	    {
+	      int val = volData[dd*m_width*m_height + ww*m_height + hh];
+	      int r =  lut[4*val+2];
+	      int g =  lut[4*val+1];
+	      int b =  lut[4*val+0];
+	      //if (lut[4*val+3] > 5)
+	      if (r + g + b > 10)
+		bitmask[(dd-ds)*dm2 + (ww-ws)*dm + (hh-hs)] = 1;
+	      //maskData[dd*m_width*m_height + ww*m_height + hh] = tag;
+	    }
+	}
+
+  // tag only connected region
+  bitmask[(d-ds)*dm2 + (w-ws)*dm + (h-hs)] = 2;
+  maskData[d*m_width*m_height + w*m_height + h] = tag;
+
+  QStack<Vec> stack;
+  stack.push(Vec(d, w, h));
+
+  bool done = false;
+  while(!stack.isEmpty())
+    {
+      Vec dwh = stack.pop();
+      int dx = dwh.x;
+      int wx = dwh.y;
+      int hx = dwh.z;
+
+      int d0 = qMax(dx-1, minDSlice);
+      int d1 = qMin(dx+1, maxDSlice);
+      int w0 = qMax(wx-1, minWSlice);
+      int w1 = qMin(wx+1, maxWSlice);
+      int h0 = qMax(hx-1, minHSlice);
+      int h1 = qMin(hx+1, maxHSlice);
+
+      for(int d2=d0; d2<=d1; d2++)
+	for(int w2=w0; w2<=w1; w2++)
+	  for(int h2=h0; h2<=h1; h2++)
+	    {
+	      if (bitmask[(d2-ds)*dm2 + (w2-ws)*dm + (h2-hs)] == 1)
+		{
+		  bitmask[(d2-ds)*dm2 + (w2-ws)*dm + (h2-hs)] = 2;
+		  maskData[d2*m_width*m_height + w2*m_height + h2] = tag;
+		  stack.push(Vec(d2,w2,h2));
+		}
+	    }
+    }
+  delete [] bitmask;
+
+  getSlice(m_currSlice);
+
+  m_volume->saveMaskBlock(d, w, h, rad);
+}
+
+void
+DrishtiPaint::paint3DEnd()
+{
+  // do nothing for the time being
 }

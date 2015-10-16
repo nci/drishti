@@ -5,7 +5,17 @@
 
 void Volume::setBitmapThread(BitmapThread *bt) {thread = bt;}
 
-void Volume::saveIntermediateResults() { m_mask.saveIntermediateResults(); }
+void
+Volume::saveIntermediateResults(bool forceSave)
+{
+  m_mask.saveIntermediateResults(forceSave);
+}
+
+void
+Volume::saveMaskBlock(int d, int w, int h, int rad)
+{
+  m_mask.saveMaskBlock(d, w, h, rad);
+}
 
 void
 Volume::offLoadMemFile()
@@ -710,4 +720,3 @@ Volume::markVisibleRegion(int mind, int maxd,
 				    m_bitmask.testBit(idx));
 	}
 }
-

@@ -26,7 +26,10 @@ void VolumeFileManager::setMemMapped(bool b)
 
   m_memChanged = false;
 }
+
 bool VolumeFileManager::isMemMapped() { return m_memmapped; }
+
+void VolumeFileManager::setMemChanged(bool b) { m_memChanged = b; }
 
 void
 VolumeFileManager::reset()
@@ -1094,4 +1097,78 @@ VolumeFileManager::rawValueMem(int d, int w, int h)
 	 m_bytesPerVoxel);
 
   return m_slice;
+}
+
+bool
+VolumeFileManager::setValueMem(int d, int w, int h, int val)
+{
+  if (!m_memmapped)
+    return false;
+
+  if (d < 0 || d >= m_depth ||
+      w < 0 || w >= m_width ||
+      h < 0 || h >= m_height)
+    return false;
+
+  if (m_bytesPerVoxel == 1)
+    m_volData[d*m_width*m_height + w*m_height + h] = val;
+  else if (m_bytesPerVoxel == 2)
+    ((ushort*)m_volData)[d*m_width*m_height + w*m_height + h] = val;
+  
+//  QMessageBox::information(0, "", QString("%1 %2 %3 : %4").\
+//			   arg(d).arg(w).arg(h).arg(m_volData[d*m_width*m_height + w*m_height + h]));
+
+  m_memChanged = true;
+
+  return true;
+}
+
+void
+VolumeFileManager::saveBlock(int dmin, int dmax,
+			     int wmin, int wmax,
+			     int hmin, int hmax)
+{
+  if (!m_memmapped)
+    return;
+
+  dmin = qMax(0, dmin);
+  wmin = qMax(0, wmin);
+  hmin = qMax(0, hmin);
+
+  dmax = qMin(m_depth-1, dmax);
+  wmax = qMin(m_width-1, wmax);
+  hmax = qMin(m_height-1, hmax);
+
+  int hbts = (hmax-hmin+1)*m_bytesPerVoxel;
+
+  qint64 bps = m_width*m_height*m_bytesPerVoxel;
+  QString pflnm = m_filename;
+
+  for(int d=dmin; d<=dmax; d++)
+    {
+      m_slabno = d/m_slabSize;
+      if (m_slabno < m_filenames.count())
+	m_filename = m_filenames[m_slabno];
+      else
+	m_filename = m_baseFilename +
+	  QString(".%1").arg(m_slabno+1, 3, 10, QChar('0'));
+      
+      if (pflnm != m_filename ||
+	  !m_qfile.isOpen() ||
+	  !m_qfile.isWritable())
+	{
+	  if (m_qfile.isOpen()) m_qfile.close();
+	  m_qfile.setFileName(m_filename);
+	  m_qfile.open(QFile::ReadWrite);
+	}
+      for(int w=wmin; w<=wmax; w++)
+	{
+	  m_qfile.seek((qint64)(m_header +
+				(d-m_slabno*m_slabSize)*bps +
+				(w*m_height + hmin)*m_bytesPerVoxel));
+	  m_qfile.write((char*)(m_volData + d*bps +
+				(w*m_height + hmin)*m_bytesPerVoxel),
+			hbts);
+	}
+    }
 }

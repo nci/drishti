@@ -41,6 +41,17 @@ class StaticFunctions
   static QStringList getPvlNamesFromHeader(QString);
   static QStringList getRawNamesFromHeader(QString);
 
+  static bool inTriangle(Vec, Vec, Vec, Vec);
+
+  static void renderText(int, int,
+			 QString, QFont,
+			 QColor, QColor,
+			 bool useTextPath = false);
+  static void renderRotatedText(int, int,
+				QString, QFont,
+				QColor, QColor,
+				float, bool,
+				bool useTextPath = false);
 };
 
 #endif

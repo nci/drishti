@@ -7,6 +7,7 @@ using namespace qglviewer;
 
 #include "curvegroup.h"
 #include "fiber.h"
+#include "clipplane.h"
 
 class Viewer : public QGLViewer
 {
@@ -29,6 +30,9 @@ class Viewer : public QGLViewer
   void setMaskDataPtr(uchar*);
 
   void keyPressEvent(QKeyEvent*);
+  void mousePressEvent(QMouseEvent*);
+  void mouseReleaseEvent(QMouseEvent*);
+  void mouseMoveEvent(QMouseEvent*);
 
   public slots :
     void setPointSize(int p) { m_pointSize = p; update(); }
@@ -48,6 +52,13 @@ class Viewer : public QGLViewer
     void setShowSlices(bool);
     void updateSlices();
 
+    void getHit(QMouseEvent*);
+    Vec pointUnderPixel(QPoint, bool&);
+
+ signals :
+    void paint3D(int, int, int, int);
+    void paint3DEnd();
+
  private :
   int m_depth, m_width, m_height;
   int m_minDSlice, m_maxDSlice;
@@ -64,6 +75,8 @@ class Viewer : public QGLViewer
 
   int m_currSlice, m_currSliceType;
 
+  bool m_findHit;
+
   QMultiMap<int, Curve*> *m_Dcg;
   QMultiMap<int, Curve*> *m_Wcg;
   QMultiMap<int, Curve*> *m_Hcg;
@@ -78,6 +91,7 @@ class Viewer : public QGLViewer
   QList<Fiber*> *m_fibers;
 
   QList<ushort> m_voxels;
+  QList<ushort> m_clipVoxels;
 
   QList<int> m_paintedTags;
   QList<int> m_curveTags;
@@ -89,6 +103,7 @@ class Viewer : public QGLViewer
   QList<ushort> m_wvoxels;
   QList<ushort> m_hvoxels;
 
+  ClipPlanes* m_clipPlanes;
 
   void drawBox();
   
@@ -112,11 +127,15 @@ class Viewer : public QGLViewer
   void drawVol();
 
   void updateVoxelsWithTF();
+  void updateClipVoxels();
 
   void drawEnclosingCube(Vec, Vec);
   void drawCurrentSlice(Vec, Vec);
 
   void drawSlices();
+
+  bool clip(int, int, int);
+  void drawClip();
 };
 
 #endif

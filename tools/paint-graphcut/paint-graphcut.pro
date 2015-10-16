@@ -1,6 +1,6 @@
-TEMPLATE = app
+DRISHTI_DEFINES = RENDERER
 
-include( ../../version.pri )
+TEMPLATE = app
 
 RESOURCES = paint.qrc
 
@@ -18,6 +18,8 @@ TARGET = drishtipaint
 
 INCLUDEPATH += graphcut
 
+include( ../../drishti.pri )
+
 # Input
 FORMS += drishtipaint.ui viewermenu.ui graphcutmenu.ui curvesmenu.ui fibersmenu.ui propertyeditor.ui
 
@@ -26,7 +28,7 @@ FORMS += drishtipaint.ui viewermenu.ui graphcutmenu.ui curvesmenu.ui fibersmenu.
 #contains(Windows_Setup, Win64) {
   win32 {
          INCLUDEPATH += c:\Qt\libQGLViewer-2.6.1
-         LIBS += QGLViewer2.lib
+         LIBS += QGLViewer2.lib glew32.lib
          QMAKE_LIBDIR += c:\Qt\libQGLViewer-2.6.1\lib
         }
 #}
@@ -34,14 +36,7 @@ FORMS += drishtipaint.ui viewermenu.ui graphcutmenu.ui curvesmenu.ui fibersmenu.
 #----------------------------------------------------------------
 # MacOSX setup
 macx {
-    INCLUDEPATH += /Users/acl900/Library/Frameworks/QGLViewer.framework/Headers \
-	/usr/local/include
-
-    LIBS += -L/usr/local/lib
-    LIBS += -F/Users/acl900/Library/Frameworks
-    LIBS += -L/Users/acl900/Library/Frameworks
-    LIBS += -framework ApplicationServices
-    LIBS += -framework QGLViewer
+    LIBS += -lGLEW -framework QGLViewer -framework GLUT
 }
 #----------------------------------------------------------------
 
@@ -49,6 +44,10 @@ HEADERS += commonqtclasses.h \
 	drishtipaint.h \
 	bitmapthread.h \
 	curvegroup.h \
+        clipinformation.h \
+        clipplane.h \
+	clipobject.h \
+	clipgrabber.h \
 	dcolordialog.h \
 	dcolorwheel.h \
 	fiber.h \
@@ -93,6 +92,10 @@ SOURCES += drishtipaint.cpp \
 	main.cpp \
 	bitmapthread.cpp \
 	curvegroup.cpp \
+        clipinformation.cpp \
+        clipplane.cpp \
+	clipobject.cpp \
+	clipgrabber.cpp \
 	dcolordialog.cpp \
 	dcolorwheel.cpp \
 	fiber.cpp \

@@ -197,3 +197,58 @@ void Global::setVoxelScaling(Vec v) { m_voxelScaling = v; }
 QString Global::m_voxelUnit = "";
 QString Global::voxelUnit() { return m_voxelUnit; }
 void Global::setVoxelUnit(QString s) { m_voxelUnit = s; }
+
+GLuint Global::m_spriteTexture = 0;
+void Global::removeSpriteTexture()
+{
+  if (m_spriteTexture)
+    glDeleteTextures( 1, &m_spriteTexture );
+  m_spriteTexture = 0;
+}
+GLuint Global::spriteTexture()
+{
+  if (m_spriteTexture)
+    return m_spriteTexture;
+
+  glGenTextures( 1, &m_spriteTexture );
+
+//----------------------------------------
+//--- filled circle sprite ---
+  int texsize = 64;
+  float md = texsize/2-0.5;
+  uchar *thetexture = new uchar[2*texsize*texsize];
+  for (int x=0; x < texsize; x++) {
+    for (int y=0; y < texsize; y++) {
+      int index = x*texsize + y;
+      float a = (x-md);
+      float b = (y-md);
+      float r2 = sqrt(a*a + b*b)/md;
+      r2 = 1.0 - qBound(0.0f, r2, 1.0f);
+      r2 = qBound(0.0f, 1.5f*r2, 1.0f);
+      r2 *= 255;
+      thetexture[2*index] = r2;
+      thetexture[2*index+1] = r2;
+    }
+  }
+//----------------------------------------
+
+  glEnable(GL_TEXTURE_2D);
+  glBindTexture(GL_TEXTURE_2D, m_spriteTexture);
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE_ALPHA,
+	       texsize, texsize, 0,
+	       GL_LUMINANCE_ALPHA, GL_UNSIGNED_BYTE,
+	       thetexture);
+  glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
+  glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+
+  delete [] thetexture;
+
+
+  return m_spriteTexture;
+}
+

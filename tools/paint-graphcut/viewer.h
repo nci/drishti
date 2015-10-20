@@ -35,7 +35,9 @@ class Viewer : public QGLViewer
   void mouseMoveEvent(QMouseEvent*);
 
   public slots :
+    void GlewInit();  
     void setPointSize(int p) { m_pointSize = p; update(); }
+    void setPointScaling(int p) { m_pointScaling = p; update(); }
     void setVoxelInterval(int);
     void updateVoxels();
     void updateViewerBox(int, int, int, int, int, int);
@@ -72,6 +74,7 @@ class Viewer : public QGLViewer
   uchar *m_maskPtr;
   int m_pointSkip;
   int m_pointSize;
+  int m_pointScaling;
 
   int m_currSlice, m_currSliceType;
 
@@ -106,7 +109,7 @@ class Viewer : public QGLViewer
   ClipPlanes* m_clipPlanes;
 
   void drawBox();
-  
+
   void drawMMDCurve();
   void drawMMWCurve();
   void drawMMHCurve();

@@ -81,6 +81,9 @@ class Global
   static QString voxelUnit();
   static void setVoxelUnit(QString);
 
+  static GLuint spriteTexture();
+  static void removeSpriteTexture();
+
  private :
   static QString m_documentationPath;
   static int m_lutSize;
@@ -104,6 +107,8 @@ class Global
   static int m_selpres;
   static Vec m_voxelScaling;
   static QString m_voxelUnit;
+
+  static GLuint m_spriteTexture;
 };
 
 #endif

@@ -16,11 +16,27 @@ Viewer::Viewer(QWidget *parent) :
 
   setMinimumSize(100, 100);
 
-//  connect(this, SIGNAL(pointSelected(const QMouseEvent*)),
-//	  this, SLOT(gotHit(const QMouseEvent*)));
+  QTimer::singleShot(2000, this, SLOT(GlewInit()));
+}
 
-
-  glewInit();
+void
+Viewer::GlewInit()
+{
+  if (glewInit() != GLEW_OK)
+    QMessageBox::information(0, "Glew",
+			     "Failed to initialise glew");
+  
+  if (glewGetExtension("GL_ARB_fragment_shader")      != GL_TRUE ||
+      glewGetExtension("GL_ARB_vertex_shader")        != GL_TRUE ||
+      glewGetExtension("GL_ARB_shader_objects")       != GL_TRUE ||
+      glewGetExtension("GL_ARB_shading_language_100") != GL_TRUE)
+    QMessageBox::information(0, "Glew",
+				 "Driver does not support OpenGL Shading Language.");
+  
+  
+  if (glewGetExtension("GL_EXT_framebuffer_object") != GL_TRUE)
+      QMessageBox::information(0, "Glew", 
+			       "Driver does not support Framebuffer Objects (GL_EXT_framebuffer_object)");
 }
 
 void
@@ -49,6 +65,7 @@ Viewer::init()
   m_volPtr = 0;
   m_pointSkip = 5;
   m_pointSize = 5;
+  m_pointScaling = 5;
 
   m_voxChoice = 0;
   m_voxels.clear();
@@ -183,18 +200,23 @@ Viewer::keyPressEvent(QKeyEvent *event)
 
   // process clipplane events
   if (m_clipPlanes->keyPressEvent(event))
-    return;
+    {
+      update();
+      return;
+    }
 
   if (event->key() == Qt::Key_P)
     {
       camera()->setType(Camera::PERSPECTIVE);
       update();
+      return;
     }
 
   if (event->key() == Qt::Key_O)
     {
       camera()->setType(Camera::ORTHOGRAPHIC);
       update();
+      return;
     }
 
   if (event->key() == Qt::Key_V)
@@ -207,6 +229,7 @@ Viewer::keyPressEvent(QKeyEvent *event)
 	  else
 	    m_clipPlanes->show();
 	}
+      return;
     }
 
 
@@ -399,12 +422,49 @@ Viewer::draw()
   drawFibers();
   glDisable(GL_LIGHTING);
 
+
+  if (!m_volPtr || !m_maskPtr)
+    return;
+
+  //--------------------------------
+  // set point scaling based on distance to the viewer
+
+  GLfloat sizes[2];
+  GLfloat coeff[] = {1.0, 0.0, 0.0}; // constant, linear, quadratic
+  // ptsize = PointSize*sqrt(1/(constant + linear*d + quadratic*d*d))
+
+  glGetFloatv(GL_ALIASED_POINT_SIZE_RANGE, sizes);
+  glPointParameterf(GL_POINT_SIZE_MAX, sizes[1]);
+  glPointParameterf(GL_POINT_SIZE_MIN, sizes[0]);
+  glPointParameterfv(GL_POINT_DISTANCE_ATTENUATION, coeff);
+
+  Vec box[8];
+  box[0] = Vec(m_minHSlice, m_minWSlice, m_minDSlice);
+  box[1] = Vec(m_minHSlice, m_minWSlice, m_maxDSlice);
+  box[2] = Vec(m_minHSlice, m_maxWSlice, m_maxDSlice);
+  box[3] = Vec(m_minHSlice, m_maxWSlice, m_minDSlice);
+  box[4] = Vec(m_maxHSlice, m_minWSlice, m_minDSlice);
+  box[5] = Vec(m_maxHSlice, m_minWSlice, m_maxDSlice);
+  box[6] = Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice);
+  box[7] = Vec(m_maxHSlice, m_maxWSlice, m_minDSlice);
+  float pglmax = 0;
+  float pglmin = 100000;
+  for(int b=0; b<8; b++)
+    {
+      float cpgl = camera()->pixelGLRatio(box[b]);
+      pglmin = qMin(pglmin, cpgl);
+      pglmax = qMax(pglmax, cpgl);
+    }
+  float pglr = (pglmax+pglmin)*0.5;
+  int ptsz = m_pointScaling*m_pointSize/pglr;
+  glPointSize(ptsz);
+  //--------------------------------
+
   if (m_pointSkip > 0 && m_maskPtr)
     drawVolMask();
 
   if (m_showSlices)
     drawSlices();
-
 
   drawClip();
 }
@@ -492,7 +552,7 @@ Viewer::updateClipVoxels()
 {
   m_clipVoxels.clear();
 
-  if (!m_volPtr || !m_maskPtr || m_pointSkip == 0)
+  if (!m_volPtr || !m_maskPtr)
     return;
   
   QList<Vec> cPos =  m_clipPlanes->positions();
@@ -753,7 +813,12 @@ Viewer::drawVolMask()
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glEnable(GL_POINT_SMOOTH);
 
-  glPointSize(m_pointSize);
+  glEnable(GL_POINT_SPRITE_ARB);
+  glEnable(GL_TEXTURE_2D);
+  glBindTexture(GL_TEXTURE_2D, Global::spriteTexture());
+  glTexEnvi(GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE);
+
+  //glPointSize(m_pointSize);
   int nv = m_voxels.count()/5;
   for(int i=0; i<nv; i++)
     {
@@ -774,6 +839,9 @@ Viewer::drawVolMask()
       glVertex3f(h, w, d);
       glEnd();
     }
+
+  glDisable(GL_POINT_SPRITE);
+  glDisable(GL_TEXTURE_2D);
 
   glDisable(GL_POINT_SMOOTH);
   glBlendFunc(GL_NONE, GL_NONE);
@@ -925,7 +993,11 @@ Viewer::drawVol()
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glEnable(GL_POINT_SMOOTH);
 
-  glPointSize(m_pointSize);
+  glEnable(GL_POINT_SPRITE_ARB);
+  glEnable(GL_TEXTURE_2D);
+  glBindTexture(GL_TEXTURE_2D, Global::spriteTexture());
+  glTexEnvi(GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE);
+
   int nv = m_voxels.count()/4;
   for(int i=0; i<nv; i++)
     {
@@ -959,6 +1031,9 @@ Viewer::drawVol()
       glVertex3f(h, w, d);
       glEnd();
     }
+
+  glDisable(GL_POINT_SPRITE);
+  glDisable(GL_TEXTURE_2D);
 
   glDisable(GL_POINT_SMOOTH);
   glBlendFunc(GL_NONE, GL_NONE);
@@ -1071,12 +1146,14 @@ Viewer::setDSlice(int d)
   m_dslice = d;
   m_dvoxels.clear();
 
-  if (m_volPtr && m_pointSkip > 0 && m_dslice >= 0)
+  if (m_volPtr && m_dslice >= 0)
     {
       uchar *lut = Global::lut();  
       int d=m_dslice;
-      for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
-	for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
+//      for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
+//	for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
+      for(int w=m_minWSlice; w<m_maxWSlice; w++)
+	for(int h=m_minHSlice; h<m_maxHSlice; h++)
 	  {
 	    uchar v = m_volPtr[d*m_width*m_height + w*m_height + h];
 	    if (lut[4*v+3] > 10)
@@ -1098,12 +1175,14 @@ Viewer::setWSlice(int w)
   m_wslice = w;
   m_wvoxels.clear();
 
-  if (m_volPtr && m_pointSkip > 0 && m_wslice >= 0)
+  if (m_volPtr && m_wslice >= 0)
     {
       uchar *lut = Global::lut();  
       int w=m_wslice;
-      for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
-	for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
+//      for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
+//	for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
+      for(int d=m_minDSlice; d<m_maxDSlice; d++)
+	for(int h=m_minHSlice; h<m_maxHSlice; h++)
 	  {
 	    uchar v = m_volPtr[d*m_width*m_height + w*m_height + h];
 	    if (lut[4*v+3] > 10)
@@ -1125,12 +1204,14 @@ Viewer::setHSlice(int h)
   m_hslice = h;
   m_hvoxels.clear();
 
-  if (m_volPtr && m_pointSkip > 0 && m_hslice >= 0)
+  if (m_volPtr && m_hslice >= 0)
     {
       uchar *lut = Global::lut();  
       int h=m_hslice;
-      for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
-	for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
+//      for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
+//	for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
+      for(int d=m_minDSlice; d<m_maxDSlice; d++)
+	for(int w=m_minWSlice; w<m_maxWSlice; w++)
 	  {
 	    uchar v = m_volPtr[d*m_width*m_height + w*m_height + h];
 	    if (lut[4*v+3] > 10)
@@ -1149,6 +1230,23 @@ Viewer::setHSlice(int h)
 void
 Viewer::drawSlices()
 {
+  glEnable(GL_ALPHA_TEST);
+  glAlphaFunc(GL_GREATER, 0.5);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glEnable(GL_POINT_SMOOTH);
+
+//  glEnable(GL_POINT_SPRITE_ARB);
+//  glEnable(GL_TEXTURE_2D);
+//  glBindTexture(GL_TEXTURE_2D, Global::spriteTexture());
+//  glTexEnvi(GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE);
+
+  //glPointSize(m_pointSize);
+  Vec ptpos = camera()->sceneCenter();
+  float pglr = camera()->pixelGLRatio(ptpos);
+  int ptsz = m_pointSize/pglr;
+  glPointSize(ptsz);
+
   for(int i=0; i<m_dvoxels.count()/5; i++)
     {
       int w = m_dvoxels[5*i+0];
@@ -1187,6 +1285,13 @@ Viewer::drawSlices()
       glVertex3f(m_hslice, w, d);
       glEnd();
     }
+
+//  glDisable(GL_POINT_SPRITE);
+//  glDisable(GL_TEXTURE_2D);
+
+  glDisable(GL_POINT_SMOOTH);
+  glBlendFunc(GL_NONE, GL_NONE);
+  glDisable(GL_BLEND);
 }
 
 void
@@ -1404,7 +1509,16 @@ Viewer::drawClip()
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glEnable(GL_POINT_SMOOTH);
 
-  glPointSize(m_pointSize);
+//  glEnable(GL_POINT_SPRITE_ARB);
+//  glEnable(GL_TEXTURE_2D);
+//  glBindTexture(GL_TEXTURE_2D, Global::spriteTexture());
+//  glTexEnvi(GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE);
+
+  //glPointSize(m_pointSize);
+  Vec ptpos = camera()->sceneCenter();
+  float pglr = camera()->pixelGLRatio(ptpos);
+  int ptsz = m_pointSize/pglr;
+  glPointSize(ptsz);
   int nv = m_clipVoxels.count()/4;
   for(int i=0; i<nv; i++)
     {
@@ -1438,6 +1552,10 @@ Viewer::drawClip()
       glVertex3f(h, w, d);
       glEnd();
     }
+
+
+//  glDisable(GL_POINT_SPRITE);
+//  glDisable(GL_TEXTURE_2D);
 
   glDisable(GL_POINT_SMOOTH);
   glBlendFunc(GL_NONE, GL_NONE);

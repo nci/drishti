@@ -791,7 +791,11 @@ DrishtiPaint::on_actionExit_triggered()
       m_imageWidget->saveCurves(curvesfile);
     }
 
+  m_viewer->init();
   m_volume->reset();
+
+  m_viewer->close();
+
   saveSettings();
   close();
 }
@@ -1912,6 +1916,8 @@ DrishtiPaint::connectViewerMenu()
 	  m_viewer, SLOT(setVoxelInterval(int)));
   connect(viewerUi.ptsize, SIGNAL(valueChanged(int)),
 	  m_viewer, SLOT(setPointSize(int)));
+  connect(viewerUi.ptscaling, SIGNAL(valueChanged(int)),
+	  m_viewer, SLOT(setPointScaling(int)));
   connect(viewerUi.voxchoice, SIGNAL(currentIndexChanged(int)),
 	  m_viewer, SLOT(setVoxelChoice(int)));
   connect(viewerUi.box, SIGNAL(clicked(bool)),
@@ -1950,6 +1956,11 @@ DrishtiPaint::connectViewerMenu()
 	  m_viewer, SLOT(setWSlice(int)));
   connect(m_viewHslice, SIGNAL(valueChanged(int)),
 	  m_viewer, SLOT(setHSlice(int)));
+
+  m_viewer->setPointScaling(viewerUi.ptscaling->value());
+  m_viewer->setPointSize(viewerUi.ptsize->value());
+  m_viewer->setVoxelInterval(viewerUi.interval->value());
+
 }
 
 void
@@ -3929,12 +3940,12 @@ DrishtiPaint::paint3D(int d, int w, int h, int button)
       int wx = dwh.y;
       int hx = dwh.z;
 
-      int d0 = qMax(dx-1, minDSlice);
-      int d1 = qMin(dx+1, maxDSlice);
-      int w0 = qMax(wx-1, minWSlice);
-      int w1 = qMin(wx+1, maxWSlice);
-      int h0 = qMax(hx-1, minHSlice);
-      int h1 = qMin(hx+1, maxHSlice);
+      int d0 = qMax(dx-1, minDSlice+1);
+      int d1 = qMin(dx+1, maxDSlice-1);
+      int w0 = qMax(wx-1, minWSlice+1);
+      int w1 = qMin(wx+1, maxWSlice-1);
+      int h0 = qMax(hx-1, minHSlice+1);
+      int h1 = qMin(hx+1, maxHSlice-1);
 
       for(int d2=d0; d2<=d1; d2++)
 	for(int w2=w0; w2<=w1; w2++)

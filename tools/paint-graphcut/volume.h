@@ -72,6 +72,7 @@ class Volume : public QObject
   void saveIntermediateResults(bool forceSave=false);
   
   void saveMaskBlock(int, int, int, int);
+  void saveMaskBlock(QList< QList<int> >);
 
  signals :
   void progressChanged(int);

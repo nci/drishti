@@ -1509,12 +1509,6 @@ Viewer::drawClip()
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glEnable(GL_POINT_SMOOTH);
 
-//  glEnable(GL_POINT_SPRITE_ARB);
-//  glEnable(GL_TEXTURE_2D);
-//  glBindTexture(GL_TEXTURE_2D, Global::spriteTexture());
-//  glTexEnvi(GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE);
-
-  //glPointSize(m_pointSize);
   Vec ptpos = camera()->sceneCenter();
   float pglr = camera()->pixelGLRatio(ptpos);
   int ptsz = m_pointSize/pglr;
@@ -1552,10 +1546,6 @@ Viewer::drawClip()
       glVertex3f(h, w, d);
       glEnd();
     }
-
-
-//  glDisable(GL_POINT_SPRITE);
-//  glDisable(GL_TEXTURE_2D);
 
   glDisable(GL_POINT_SMOOTH);
   glBlendFunc(GL_NONE, GL_NONE);

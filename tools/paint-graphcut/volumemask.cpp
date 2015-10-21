@@ -68,6 +68,34 @@ VolumeMask::saveMaskBlock(int d, int w, int h, int rad)
 }
 
 void
+VolumeMask::saveMaskBlock(QList< QList<int> > bl)
+{
+  for (int i=0; i<bl.count(); i++)
+    {
+      QList<int> bwhr = bl[i];
+      int d,w,h,rad;
+      d = bwhr[0];
+      w = bwhr[1];
+      h = bwhr[2];
+      rad = bwhr[3];
+
+      int dmin, dmax, wmin, wmax, hmin, hmax;
+      dmin = qMax(0, d-rad);
+      wmin = qMax(0, w-rad);
+      hmin = qMax(0, h-rad);
+      
+      dmax = qMin(m_depth-1, d+rad);
+      wmax = qMin(m_width-1, w+rad);
+      hmax = qMin(m_height-1, h+rad);
+      
+      m_maskFileManager.saveBlock(dmin, dmax, wmin, wmax, hmin, hmax);
+    }
+
+  // flush out - make sure data is stored to disk
+  m_maskFileManager.saveBlock(-1,-1,-1,-1,-1,-1);
+}
+
+void
 VolumeMask::setFile(QString mfile, bool inMem)
 {
   reset();
@@ -374,11 +402,7 @@ void
 VolumeMask::tagDSlice(int d, uchar *tags)
 {
   checkMaskFile();
-  int nbytes = m_width*m_height;
-  uchar *mask = new uchar[nbytes];
-  memcpy(mask, tags, nbytes);
-  m_maskFileManager.setSliceMem(d, mask);
-  delete [] mask;
+  m_maskFileManager.setSliceMem(d, tags);
 }
 void
 VolumeMask::tagWSlice(int w, uchar *tags)

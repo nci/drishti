@@ -897,7 +897,8 @@ DrishtiPaint::setFile(QString filename)
       m_imageWidget->saveCurves(curvesfile);
     }
 
-  
+  m_blockList.clear();
+
   QString flnm;
 
   if (StaticFunctions::checkExtension(filename, ".pvl.nc"))
@@ -3963,11 +3964,16 @@ DrishtiPaint::paint3D(int d, int w, int h, int button)
 
   getSlice(m_currSlice);
 
-  m_volume->saveMaskBlock(d, w, h, rad);
+  QList<int> dwhr;
+  dwhr << d << w << h << rad;
+
+  m_blockList << dwhr;
+  //m_volume->saveMaskBlock(d, w, h, rad);
 }
 
 void
 DrishtiPaint::paint3DEnd()
 {
-  // do nothing for the time being
+  m_volume->saveMaskBlock(m_blockList);
+  m_blockList.clear();
 }

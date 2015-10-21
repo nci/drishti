@@ -148,6 +148,8 @@ class DrishtiPaint : public QMainWindow
 
   QList <QAction*> m_recentFileActions;
 
+  QList< QList<int> > m_blockList;
+
   Viewer *m_viewer;
   PopUpSlider *m_viewDslice;
   PopUpSlider *m_viewWslice;

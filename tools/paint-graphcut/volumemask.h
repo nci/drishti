@@ -20,6 +20,7 @@ class VolumeMask : public QObject
 
   void saveIntermediateResults(bool forceSave=false);
   void saveMaskBlock(int, int, int, int);
+  void saveMaskBlock(QList< QList<int> >);
 
   uchar* getMaskDepthSliceImage(int);
   uchar* getMaskWidthSliceImage(int);

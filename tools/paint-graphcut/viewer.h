@@ -5,6 +5,8 @@
 #include <QGLViewer/vec.h>
 using namespace qglviewer;
 
+#include <QGLFramebufferObject>
+
 #include "curvegroup.h"
 #include "fiber.h"
 #include "clipplane.h"
@@ -105,6 +107,9 @@ class Viewer : public QGLViewer
   QList<ushort> m_dvoxels;
   QList<ushort> m_wvoxels;
   QList<ushort> m_hvoxels;
+
+  GLuint m_slcBuffer;
+  GLuint m_slcTex[2];
 
   ClipPlanes* m_clipPlanes;
 

@@ -18,6 +18,12 @@ Volume::saveMaskBlock(int d, int w, int h, int rad)
 }
 
 void
+Volume::saveMaskBlock(QList< QList<int> > bl)
+{
+  m_mask.saveMaskBlock(bl);
+}
+
+void
 Volume::offLoadMemFile()
 {
   m_mask.offLoadMemFile();

@@ -85,7 +85,8 @@ HEADERS += commonqtclasses.h \
 	marchingcubes.h \
 	showhelp.h \
 	getmemorysize.h \
-	popupslider.h
+	popupslider.h \
+	shaderfactory.h
 
 
 SOURCES += drishtipaint.cpp \
@@ -130,4 +131,5 @@ SOURCES += drishtipaint.cpp \
 	marchingcubes.cpp \
 	showhelp.cpp \
 	getmemorysize.cpp \
-	popupslider.cpp
+	popupslider.cpp \
+	shaderfactory.cpp

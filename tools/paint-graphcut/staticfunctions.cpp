@@ -606,3 +606,39 @@ StaticFunctions::renderRotatedText(int x, int y,
 	       GL_RGBA, GL_UNSIGNED_BYTE,
 	       pimg.bits());
 }
+
+void
+StaticFunctions::pushOrthoView(float x, float y, float width, float height)
+{
+  glViewport(x,y, width, height);
+  glMatrixMode(GL_PROJECTION);
+  glPushMatrix();
+  glLoadIdentity();
+  glOrtho(0,width, 0,height, -1,1);
+  glMatrixMode(GL_MODELVIEW);
+  glPushMatrix();
+  glLoadIdentity();
+}
+
+void
+StaticFunctions::popOrthoView()
+{
+  glMatrixMode(GL_MODELVIEW);
+  glPopMatrix();
+  glMatrixMode(GL_PROJECTION);
+  glPopMatrix();
+}
+
+void
+StaticFunctions::drawQuad(float xmin, float ymin,
+			  float xmax, float ymax,
+			  float scale)
+{
+  glBegin(GL_QUADS);
+  glTexCoord2f(xmin*scale, ymin*scale); glVertex2f(xmin, ymin);
+  glTexCoord2f(xmax*scale, ymin*scale); glVertex2f(xmax, ymin);
+  glTexCoord2f(xmax*scale, ymax*scale); glVertex2f(xmax, ymax);
+  glTexCoord2f(xmin*scale, ymax*scale); glVertex2f(xmin, ymax);
+  glEnd();
+}
+

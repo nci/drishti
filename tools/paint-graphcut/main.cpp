@@ -1,11 +1,22 @@
+#include <GL/glew.h>
+
+#include <QApplication>
 #include "drishtipaint.h"
 
 int main(int argv, char **args)
 {
-    QApplication app(argv, args);
+  QApplication app(argv, args);
 
-    DrishtiPaint mainWindow;
-    mainWindow.show();
+  QGLFormat glFormat;
+  glFormat.setDoubleBuffer(true);
+  glFormat.setRgba(true);
+  glFormat.setAlpha(true);
+  glFormat.setDepth(true);
 
-    return app.exec();
+  QGLFormat::setDefaultFormat(glFormat);
+
+  DrishtiPaint mainWindow;
+  mainWindow.show();
+
+  return app.exec();
 }

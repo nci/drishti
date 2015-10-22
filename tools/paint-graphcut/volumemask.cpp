@@ -70,6 +70,33 @@ VolumeMask::saveMaskBlock(int d, int w, int h, int rad)
 void
 VolumeMask::saveMaskBlock(QList< QList<int> > bl)
 {
+//  for (int i=0; i<bl.count(); i++)
+//    {
+//      QList<int> bwhr = bl[i];
+//      int d,w,h,rad;
+//      d = bwhr[0];
+//      w = bwhr[1];
+//      h = bwhr[2];
+//      rad = bwhr[3];
+//
+//      int dmin, dmax, wmin, wmax, hmin, hmax;
+//      dmin = qMax(0, d-rad);
+//      wmin = qMax(0, w-rad);
+//      hmin = qMax(0, h-rad);
+//      
+//      dmax = qMin(m_depth-1, d+rad);
+//      wmax = qMin(m_width-1, w+rad);
+//      hmax = qMin(m_height-1, h+rad);
+//      
+//      m_maskFileManager.saveBlock(dmin, dmax, wmin, wmax, hmin, hmax);
+//    }
+//  // flush out and close just to make sure data is stored to disk
+//  m_maskFileManager.saveBlock(-1,-1,-1,-1,-1,-1);
+
+  // write out all at once
+  int dmin, dmax, wmin, wmax, hmin, hmax;
+  dmin = wmin = hmin = 10000000;
+  dmax = wmax = hmax = 0;
   for (int i=0; i<bl.count(); i++)
     {
       QList<int> bwhr = bl[i];
@@ -79,19 +106,25 @@ VolumeMask::saveMaskBlock(QList< QList<int> > bl)
       h = bwhr[2];
       rad = bwhr[3];
 
-      int dmin, dmax, wmin, wmax, hmin, hmax;
-      dmin = qMax(0, d-rad);
-      wmin = qMax(0, w-rad);
-      hmin = qMax(0, h-rad);
+      dmin = qMin(dmin, d-rad);
+      wmin = qMin(wmin, w-rad);
+      hmin = qMin(hmin, h-rad);
       
-      dmax = qMin(m_depth-1, d+rad);
-      wmax = qMin(m_width-1, w+rad);
-      hmax = qMin(m_height-1, h+rad);
-      
-      m_maskFileManager.saveBlock(dmin, dmax, wmin, wmax, hmin, hmax);
-    }
+      dmax = qMax(dmax, d+rad);
+      wmax = qMax(wmax, w+rad);
+      hmax = qMax(hmax, h+rad);
+    }      
 
-  // flush out - make sure data is stored to disk
+  dmin = qBound(0, dmin, m_depth-1);
+  wmin = qBound(0, wmin, m_width-1);
+  hmin = qBound(0, hmin, m_height-1);
+  dmax = qBound(0, dmax, m_depth-1);
+  wmax = qBound(0, wmax, m_width-1);
+  hmax = qBound(0, hmax, m_height-1);
+
+  m_maskFileManager.saveBlock(dmin, dmax, wmin, wmax, hmin, hmax);
+
+  // flush out and close just to make sure data is stored to disk
   m_maskFileManager.saveBlock(-1,-1,-1,-1,-1,-1);
 }
 

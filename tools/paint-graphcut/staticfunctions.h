@@ -52,6 +52,11 @@ class StaticFunctions
 				QColor, QColor,
 				float, bool,
 				bool useTextPath = false);
+
+  static void pushOrthoView(float, float, float, float);
+  static void popOrthoView();
+  static void drawQuad(float, float, float, float, float);
+
 };
 
 #endif

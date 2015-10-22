@@ -38,6 +38,7 @@ class Viewer : public QGLViewer
 
   public slots :
     void GlewInit();  
+    void resizeGL(int, int);
     void setPointSize(int p) { m_pointSize = p; update(); }
     void setPointScaling(int p) { m_pointScaling = p; update(); }
     void setVoxelInterval(int);
@@ -64,6 +65,8 @@ class Viewer : public QGLViewer
     void paint3DEnd();
 
  private :
+  bool m_glewInitdone;
+
   int m_depth, m_width, m_height;
   int m_minDSlice, m_maxDSlice;
   int m_minWSlice, m_maxWSlice;
@@ -109,9 +112,19 @@ class Viewer : public QGLViewer
   QList<ushort> m_hvoxels;
 
   GLuint m_slcBuffer;
+  GLuint m_rboId;
   GLuint m_slcTex[2];
 
   ClipPlanes* m_clipPlanes;
+
+  GLhandleARB m_depthShader;
+  GLint m_depthParm[50];
+
+  GLhandleARB m_finalPointShader;
+  GLint m_fpsParm[50];
+
+  GLhandleARB m_blurShader;
+  GLint m_blurParm[5];
 
   void drawBox();
 
@@ -134,6 +147,9 @@ class Viewer : public QGLViewer
   void drawVolMask();
   void drawVol();
 
+  void drawPointsWithoutShader();
+  void drawAllPoints();
+
   void updateVoxelsWithTF();
   void updateClipVoxels();
 
@@ -144,6 +160,9 @@ class Viewer : public QGLViewer
 
   bool clip(int, int, int);
   void drawClip();
+
+  void createShaders();
+  void createFBO();
 };
 
 #endif

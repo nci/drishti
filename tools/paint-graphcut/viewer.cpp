@@ -1,7 +1,10 @@
 #include <GL/glew.h>
 
+#include "shaderfactory.h"
 #include "viewer.h"
 #include "global.h"
+#include "staticfunctions.h"
+
 #include <QInputDialog>
 #include <QProgressDialog>
 
@@ -11,6 +14,17 @@ Viewer::Viewer(QWidget *parent) :
   setMouseTracking(true);
 
   m_clipPlanes = new ClipPlanes();
+
+  m_slcBuffer = 0;
+  m_rboId = 0;
+  m_slcTex[0] = 0;
+  m_slcTex[1] = 0;
+
+  m_depthShader = 0;
+  m_finalPointShader = 0;
+  m_blurShader = 0;
+
+  m_glewInitdone = false;
 
   init();
 
@@ -37,6 +51,11 @@ Viewer::GlewInit()
   if (glewGetExtension("GL_EXT_framebuffer_object") != GL_TRUE)
       QMessageBox::information(0, "Glew", 
 			       "Driver does not support Framebuffer Objects (GL_EXT_framebuffer_object)");
+
+  m_glewInitdone = true;
+
+  createShaders();
+  createFBO();
 }
 
 void
@@ -98,7 +117,144 @@ Viewer::init()
   m_showBox = true;
 
   m_clipPlanes->clear();
+
+  if (m_depthShader)
+    glDeleteObjectARB(m_depthShader);
+  m_depthShader = 0;
+
+  if (m_blurShader)
+    glDeleteObjectARB(m_blurShader);
+  m_blurShader = 0;
+
+
+  if (m_finalPointShader)
+    glDeleteObjectARB(m_finalPointShader);
+  m_finalPointShader = 0;
+
+  if (m_slcBuffer) glDeleteFramebuffers(1, &m_slcBuffer);
+  if (m_rboId) glDeleteRenderbuffers(1, &m_rboId);
+  if (m_slcTex[0]) glDeleteTextures(2, m_slcTex);
+  m_slcBuffer = 0;
+  m_rboId = 0;
+  m_slcTex[0] = m_slcTex[1] = 0;
 }
+
+void
+Viewer::resizeGL(int width, int height)
+{
+  QGLViewer::resizeGL(width, height);
+
+  createFBO();
+}
+
+void
+Viewer::createFBO()
+{
+  if (!m_glewInitdone)
+    return;
+  
+  int wd = camera()->screenWidth();
+  int ht = camera()->screenHeight();
+
+//  wd/=2;
+//  ht/=2;
+
+  GLuint target = GL_TEXTURE_RECTANGLE_EXT;
+
+  if (m_slcBuffer) glDeleteFramebuffers(1, &m_slcBuffer);
+  if (m_rboId) glDeleteRenderbuffers(1, &m_rboId);
+  if (m_slcTex[0]) glDeleteTextures(2, m_slcTex);  
+
+  glGenFramebuffers(1, &m_slcBuffer);
+  glGenRenderbuffers(1, &m_rboId);
+  glGenTextures(2, m_slcTex);
+
+  glBindFramebuffer(GL_FRAMEBUFFER, m_slcBuffer);
+
+  glBindRenderbuffer(GL_RENDERBUFFER, m_rboId);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT,
+			wd, ht);
+  glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
+  // attach the renderbuffer to depth attachment point
+  glFramebufferRenderbuffer(GL_FRAMEBUFFER,      // 1. fbo target: GL_FRAMEBUFFER
+			    GL_DEPTH_ATTACHMENT, // 2. attachment point
+			    GL_RENDERBUFFER,     // 3. rbo target: GL_RENDERBUFFER
+			    m_rboId);              // 4. rbo ID
+
+  for(int i=0; i<2; i++)
+    {
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[i]);
+      glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,
+		   0,
+		   GL_RGBA16,
+		   wd, ht,
+		   0,
+		   GL_RGBA,
+		   GL_UNSIGNED_SHORT,
+		   0);
+    }
+
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+void
+Viewer::createShaders()
+{
+  QString shaderString;
+
+  //----------------------
+  shaderString = ShaderFactory::genRectBlurShaderString(1);
+
+  m_blurShader = glCreateProgramObjectARB();
+  if (! ShaderFactory::loadShader(m_blurShader,
+				  shaderString))
+    {
+      m_blurShader = 0;
+      QMessageBox::information(0, "", "Cannot create shaders.");
+    }
+
+  m_blurParm[0] = glGetUniformLocationARB(m_blurShader, "blurTex");
+  //----------------------
+
+
+  //----------------------
+  shaderString = ShaderFactory::genDepthShader();
+
+  m_depthShader = glCreateProgramObjectARB();
+  if (! ShaderFactory::loadShader(m_depthShader,
+				    shaderString))
+    {
+      m_depthShader = 0;
+      QMessageBox::information(0, "", "Cannot create shaders.");
+    }
+
+  m_depthParm[0] = glGetUniformLocationARB(m_depthShader, "minZ");
+  m_depthParm[1] = glGetUniformLocationARB(m_depthShader, "maxZ");
+  m_depthParm[2] = glGetUniformLocationARB(m_depthShader, "eyepos");
+  m_depthParm[3] = glGetUniformLocationARB(m_depthShader, "viewDir");
+  //----------------------
+
+
+  //----------------------
+  shaderString = ShaderFactory::genFinalPointShader();
+
+  m_finalPointShader = glCreateProgramObjectARB();
+  if (! ShaderFactory::loadShader(m_finalPointShader,
+				    shaderString))
+    {
+      m_finalPointShader = 0;
+      QMessageBox::information(0, "", "Cannot create shaders.");
+    }
+
+  m_fpsParm[0] = glGetUniformLocationARB(m_finalPointShader, "blurTex");
+  m_fpsParm[1] = glGetUniformLocationARB(m_finalPointShader, "minZ");
+  m_fpsParm[2] = glGetUniformLocationARB(m_finalPointShader, "maxZ");
+  m_fpsParm[3] = glGetUniformLocationARB(m_finalPointShader, "eyepos");
+  m_fpsParm[4] = glGetUniformLocationARB(m_finalPointShader, "viewDir");
+  m_fpsParm[5] = glGetUniformLocationARB(m_finalPointShader, "lod");
+  
+}
+
 
 void Viewer::setShowSlices(bool b) { m_showSlices = b; }
 
@@ -397,34 +553,14 @@ Viewer::setFibers(QList<Fiber*> *fb)
   m_fibers = fb;
 }
 
-
 void
-Viewer::draw()
+Viewer::drawPointsWithoutShader()
 {
-  glDisable(GL_LIGHTING);
-
-  if (m_showBox)
-    drawBox();
-
-  drawMMDCurve();
-  drawMMWCurve();
-  drawMMHCurve();
-
-  drawLMDCurve();
-  drawLMWCurve();
-  drawLMHCurve();
-
-  drawSWDCurve();
-  drawSWWCurve();
-  drawSWHCurve();
-
-  glEnable(GL_LIGHTING);
-  drawFibers();
-  glDisable(GL_LIGHTING);
-
-
   if (!m_volPtr || !m_maskPtr)
     return;
+
+  glEnable(GL_ALPHA_TEST);
+  glAlphaFunc(GL_GREATER, 0.1);
 
   //--------------------------------
   // set point scaling based on distance to the viewer
@@ -460,8 +596,172 @@ Viewer::draw()
   glPointSize(ptsz);
   //--------------------------------
 
-  if (m_pointSkip > 0 && m_maskPtr)
-    drawVolMask();
+  drawAllPoints();
+}
+
+void
+Viewer::draw()
+{
+  glEnable(GL_DEPTH_TEST);
+  glClear(GL_DEPTH_BUFFER_BIT);
+
+  glDisable(GL_LIGHTING);
+
+  if (m_showBox)
+    drawBox();
+
+  drawMMDCurve();
+  drawMMWCurve();
+  drawMMHCurve();
+
+  drawLMDCurve();
+  drawLMWCurve();
+  drawLMHCurve();
+
+  drawSWDCurve();
+  drawSWWCurve();
+  drawSWHCurve();
+
+  glEnable(GL_LIGHTING);
+  drawFibers();
+  glDisable(GL_LIGHTING);
+
+
+  if (!m_volPtr || !m_maskPtr)
+    return;
+
+  glEnable(GL_ALPHA_TEST);
+  glAlphaFunc(GL_GREATER, 0.1);
+
+  GLfloat sizes[2];
+  GLfloat coeff[] = {1.0, 0.0, 0.0}; // constant, linear, quadratic
+  // ptsize = PointSize*sqrt(1/(constant + linear*d + quadratic*d*d))
+
+  glGetFloatv(GL_ALIASED_POINT_SIZE_RANGE, sizes);
+  glPointParameterf(GL_POINT_SIZE_MAX, sizes[1]);
+  glPointParameterf(GL_POINT_SIZE_MIN, sizes[0]);
+  glPointParameterfv(GL_POINT_DISTANCE_ATTENUATION, coeff);
+
+  Vec box[8];
+  box[0] = Vec(m_minHSlice, m_minWSlice, m_minDSlice);
+  box[1] = Vec(m_minHSlice, m_minWSlice, m_maxDSlice);
+  box[2] = Vec(m_minHSlice, m_maxWSlice, m_maxDSlice);
+  box[3] = Vec(m_minHSlice, m_maxWSlice, m_minDSlice);
+  box[4] = Vec(m_maxHSlice, m_minWSlice, m_minDSlice);
+  box[5] = Vec(m_maxHSlice, m_minWSlice, m_maxDSlice);
+  box[6] = Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice);
+  box[7] = Vec(m_maxHSlice, m_maxWSlice, m_minDSlice);
+  //--------------------------------
+  // set point scaling based on distance to the viewer
+  float pglmax = 0;
+  float pglmin = 100000;
+  for(int b=0; b<8; b++)
+    {
+      float cpgl = camera()->pixelGLRatio(box[b]);
+      pglmin = qMin(pglmin, cpgl);
+      pglmax = qMax(pglmax, cpgl);
+    }
+  float pglr = (pglmax+pglmin)*0.5;
+  int ptsz = m_pointScaling*m_pointSize/pglr;
+  glPointSize(ptsz);
+  //--------------------------------
+
+
+  int wd = camera()->screenWidth();
+  int ht = camera()->screenHeight();
+
+  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
+  for(int fbn=0; fbn<2; fbn++)
+    {
+      glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			     GL_COLOR_ATTACHMENT0_EXT,
+			     GL_TEXTURE_RECTANGLE_ARB,
+			     m_slcTex[fbn],
+			     0);
+      glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
+      glClearColor(0, 0, 0, 0);
+      glClear(GL_COLOR_BUFFER_BIT);
+      glClear(GL_DEPTH_BUFFER_BIT);
+    }
+  glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
+
+  //--------------------------------
+  Vec eyepos = camera()->position();
+  Vec viewDir = camera()->viewDirection();
+  float minZ = 1000000;
+  float maxZ = -1000000;
+  for(int b=0; b<8; b++)
+    {
+      float zv = (box[b]-eyepos)*viewDir;
+      minZ = qMin(minZ, zv);
+      maxZ = qMax(maxZ, zv);
+    }
+
+  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
+  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			 GL_COLOR_ATTACHMENT0_EXT,
+			 GL_TEXTURE_RECTANGLE_ARB,
+			 m_slcTex[0],
+			 0);
+  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
+
+  glUseProgramObjectARB(m_depthShader);
+  glUniform1fARB(m_depthParm[0], minZ); // minZ
+  glUniform1fARB(m_depthParm[1], maxZ); // maxZ
+  glUniform3fARB(m_depthParm[2], eyepos.x, eyepos.y, eyepos.z); // eyepos
+  glUniform3fARB(m_depthParm[3], viewDir.x, viewDir.y, viewDir.z); // viewDir
+  //--------------------------------
+
+  drawAllPoints();
+
+  glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
+  //--------------------------------
+
+
+  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
+  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			 GL_COLOR_ATTACHMENT0_EXT,
+			 GL_TEXTURE_RECTANGLE_ARB,
+			 m_slcTex[1],
+			 0);
+  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
+
+  glUseProgramObjectARB(m_blurShader);
+  glActiveTexture(GL_TEXTURE1);
+  glEnable(GL_TEXTURE_RECTANGLE_ARB);
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[0]);
+  glUniform1iARB(m_blurParm[0], 1); // minZ
+
+  StaticFunctions::pushOrthoView(0, 0, wd, ht);
+  StaticFunctions::drawQuad(0, 0, wd, ht, 1);
+  StaticFunctions::popOrthoView();
+
+  glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
+  //--------------------------------
+
+
+  //--------------------------------
+  glUseProgramObjectARB(m_finalPointShader);
+  glActiveTexture(GL_TEXTURE1);
+  glEnable(GL_TEXTURE_RECTANGLE_ARB);
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[1]);
+  glUniform1iARB(m_fpsParm[0], 1); // minZ
+  glUniform1fARB(m_fpsParm[1], minZ); // minZ
+  glUniform1fARB(m_fpsParm[2], maxZ); // maxZ
+  glUniform3fARB(m_fpsParm[3], eyepos.x, eyepos.y, eyepos.z); // eyepos
+  glUniform3fARB(m_fpsParm[4], viewDir.x, viewDir.y, viewDir.z); // viewDir
+  glUniform1fARB(m_fpsParm[5], 1.0); // lod
+
+  glPointSize(ptsz);
+  drawAllPoints();
+
+  //--------------------------------
+  glUseProgramObjectARB(0);
+  //--------------------------------
+
+  glActiveTexture(GL_TEXTURE1);
+  glDisable(GL_TEXTURE_RECTANGLE_ARB);
+
 
   if (m_showSlices)
     drawSlices();
@@ -807,8 +1107,6 @@ Viewer::drawVolMask()
       return;
     }
 
-  glEnable(GL_ALPHA_TEST);
-  glAlphaFunc(GL_GREATER, 0.5);
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glEnable(GL_POINT_SMOOTH);
@@ -987,8 +1285,6 @@ Viewer::drawVol()
 
   uchar *lut = Global::lut();
 
-  glEnable(GL_ALPHA_TEST);
-  glAlphaFunc(GL_GREATER, 0.5);
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glEnable(GL_POINT_SMOOTH);
@@ -1230,8 +1526,6 @@ Viewer::setHSlice(int h)
 void
 Viewer::drawSlices()
 {
-  glEnable(GL_ALPHA_TEST);
-  glAlphaFunc(GL_GREATER, 0.5);
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glEnable(GL_POINT_SMOOTH);
@@ -1439,7 +1733,7 @@ Viewer::pointUnderPixel(QPoint scr, bool& found)
   
   glEnable(GL_SCISSOR_TEST);
   glScissor(cx, sh-1-cy, 1, 1);
-  draw();
+  drawPointsWithoutShader();
   glDisable(GL_SCISSOR_TEST);
 
   glReadPixels(cx, sh-1-cy, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &depth);
@@ -1503,8 +1797,6 @@ Viewer::drawClip()
 
   uchar *lut = Global::lut();
 
-  glEnable(GL_ALPHA_TEST);
-  glAlphaFunc(GL_GREATER, 0.5);
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glEnable(GL_POINT_SMOOTH);
@@ -1550,4 +1842,11 @@ Viewer::drawClip()
   glDisable(GL_POINT_SMOOTH);
   glBlendFunc(GL_NONE, GL_NONE);
   glDisable(GL_BLEND);
+}
+
+void
+Viewer::drawAllPoints()
+{
+  if (m_pointSkip > 0 && m_maskPtr)
+    drawVolMask();
 }

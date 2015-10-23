@@ -203,7 +203,7 @@ Viewer::createShaders()
   QString shaderString;
 
   //----------------------
-  shaderString = ShaderFactory::genRectBlurShaderString(1);
+  shaderString = ShaderFactory::genRectBlurShaderString(1); // bilateral filter
 
   m_blurShader = glCreateProgramObjectARB();
   if (! ShaderFactory::loadShader(m_blurShader,
@@ -214,6 +214,8 @@ Viewer::createShaders()
     }
 
   m_blurParm[0] = glGetUniformLocationARB(m_blurShader, "blurTex");
+  m_blurParm[1] = glGetUniformLocationARB(m_blurShader, "minZ");
+  m_blurParm[2] = glGetUniformLocationARB(m_blurShader, "maxZ");
   //----------------------
 
 
@@ -251,7 +253,6 @@ Viewer::createShaders()
   m_fpsParm[2] = glGetUniformLocationARB(m_finalPointShader, "maxZ");
   m_fpsParm[3] = glGetUniformLocationARB(m_finalPointShader, "eyepos");
   m_fpsParm[4] = glGetUniformLocationARB(m_finalPointShader, "viewDir");
-  m_fpsParm[5] = glGetUniformLocationARB(m_finalPointShader, "lod");
   
 }
 
@@ -667,8 +668,19 @@ Viewer::draw()
   //--------------------------------
 
 
-  int wd = camera()->screenWidth();
-  int ht = camera()->screenHeight();
+  //--------------------------------
+  Vec eyepos = camera()->position();
+  Vec viewDir = camera()->viewDirection();
+  float minZ = 1000000;
+  float maxZ = -1000000;
+  for(int b=0; b<8; b++)
+    {
+      float zv = (box[b]-eyepos)*viewDir;
+      minZ = qMin(minZ, zv);
+      maxZ = qMax(maxZ, zv);
+    }
+  //--------------------------------
+
 
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
   for(int fbn=0; fbn<2; fbn++)
@@ -686,17 +698,6 @@ Viewer::draw()
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
 
   //--------------------------------
-  Vec eyepos = camera()->position();
-  Vec viewDir = camera()->viewDirection();
-  float minZ = 1000000;
-  float maxZ = -1000000;
-  for(int b=0; b<8; b++)
-    {
-      float zv = (box[b]-eyepos)*viewDir;
-      minZ = qMin(minZ, zv);
-      maxZ = qMax(maxZ, zv);
-    }
-
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
   glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
 			 GL_COLOR_ATTACHMENT0_EXT,
@@ -730,14 +731,19 @@ Viewer::draw()
   glActiveTexture(GL_TEXTURE1);
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
   glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[0]);
-  glUniform1iARB(m_blurParm[0], 1); // minZ
+  glUniform1iARB(m_blurParm[0], 1); // blurTex
+  glUniform1fARB(m_blurParm[1], minZ); // minZ
+  glUniform1fARB(m_blurParm[2], maxZ); // maxZ
 
+  int wd = camera()->screenWidth();
+  int ht = camera()->screenHeight();
   StaticFunctions::pushOrthoView(0, 0, wd, ht);
   StaticFunctions::drawQuad(0, 0, wd, ht, 1);
   StaticFunctions::popOrthoView();
 
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
   //--------------------------------
+
 
 
   //--------------------------------
@@ -750,7 +756,6 @@ Viewer::draw()
   glUniform1fARB(m_fpsParm[2], maxZ); // maxZ
   glUniform3fARB(m_fpsParm[3], eyepos.x, eyepos.y, eyepos.z); // eyepos
   glUniform3fARB(m_fpsParm[4], viewDir.x, viewDir.y, viewDir.z); // viewDir
-  glUniform1fARB(m_fpsParm[5], 1.0); // lod
 
   glPointSize(ptsz);
   drawAllPoints();

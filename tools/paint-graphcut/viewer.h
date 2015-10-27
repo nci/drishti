@@ -42,6 +42,7 @@ class Viewer : public QGLViewer
     void setPointSize(int p) { m_pointSize = p; update(); }
     void setPointScaling(int p) { m_pointScaling = p; update(); }
     void setVoxelInterval(int);
+    void setEdge(int dz) { m_dzScale = dz; update(); }
     void updateVoxels();
     void updateViewerBox(int, int, int, int, int, int);
     void updateCurrSlice(int, int);
@@ -80,6 +81,7 @@ class Viewer : public QGLViewer
   int m_pointSkip;
   int m_pointSize;
   int m_pointScaling;
+  float m_dzScale;
 
   int m_currSlice, m_currSliceType;
 

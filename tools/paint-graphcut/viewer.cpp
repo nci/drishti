@@ -85,6 +85,7 @@ Viewer::init()
   m_pointSkip = 5;
   m_pointSize = 5;
   m_pointScaling = 5;
+  m_dzScale = 3.0;
 
   m_voxChoice = 0;
   m_voxels.clear();
@@ -253,6 +254,7 @@ Viewer::createShaders()
   m_fpsParm[2] = glGetUniformLocationARB(m_finalPointShader, "maxZ");
   m_fpsParm[3] = glGetUniformLocationARB(m_finalPointShader, "eyepos");
   m_fpsParm[4] = glGetUniformLocationARB(m_finalPointShader, "viewDir");
+  m_fpsParm[5] = glGetUniformLocationARB(m_finalPointShader, "dzScale");
   
 }
 
@@ -756,6 +758,7 @@ Viewer::draw()
   glUniform1fARB(m_fpsParm[2], maxZ); // maxZ
   glUniform3fARB(m_fpsParm[3], eyepos.x, eyepos.y, eyepos.z); // eyepos
   glUniform3fARB(m_fpsParm[4], viewDir.x, viewDir.y, viewDir.z); // viewDir
+  glUniform1fARB(m_fpsParm[5], m_dzScale); // dzScale
 
   glPointSize(ptsz);
   drawAllPoints();

@@ -166,7 +166,7 @@ ShaderFactory::genDepthShader()
   shader += " float rd = sqrt(rdxy.x + rdxy.y);\n";
   shader += " rd = clamp(rd, 0.0, 1.0);\n";
   
-  shader += " gl_FragColor = vec4(z,z,z,smoothstep(rd, 0.8, 0.99));\n";
+  shader += " gl_FragColor = vec4(z,z,z,smoothstep(rd, 0.9, 0.99));\n";
   shader += "}\n";
 
   return shader;
@@ -184,66 +184,64 @@ ShaderFactory::genFinalPointShader()
   shader += "uniform float maxZ;\n";
   shader += "uniform vec3 eyepos;\n";
   shader += "uniform vec3 viewDir;\n";
+  shader += "uniform float dzScale;\n";
   shader += "void main(void)\n";
   shader += "{\n";
   shader += "  gl_FragColor = vec4(0,0,0,0);\n";
 
-  shader += "  float lod = 1.0;\n";
-  shader += "  vec2 spos = gl_FragCoord.xy * vec2(lod,lod);\n";
+  shader += "  vec2 spos = gl_FragCoord.xy;\n";
   shader += "  float depth = texture2DRect(blurTex, spos).x;\n";
 
-
+  // find depth gradient
   shader += "  float dx = texture2DRect(blurTex, spos+vec2(1.0,0.0)).x - texture2DRect(blurTex, spos-vec2(1.0,0.0)).x;\n";
   shader += "  float dy = texture2DRect(blurTex, spos+vec2(0.0,1.0)).x - texture2DRect(blurTex, spos-vec2(0.0,1.0)).x;\n";
-  shader += "  vec3 norm = normalize(vec3(dx, dy, 3.0/(maxZ-minZ)));\n";
+  shader += "  vec3 norm = normalize(vec3(dx, dy, dzScale/(maxZ-minZ)));\n";
 
-  shader += "  float odepth = minZ + depth*(maxZ-minZ);\n";
-
-//  shader += "  vec3 voxpos = pointpos;\n";
-//  shader += "  vec3 I = voxpos - eyepos;\n";
-//  shader += "  float z = dot(I, viewDir);\n";
-//  shader += "  z = (z-minZ)/(maxZ-minZ);\n";
-//  shader += "  z = clamp(z, 0.0, 1.0);\n";
-//  shader += "  if (z > texture2DRect(blurTex, spos).y+0.1) discard;\n";
-
+  
+  // sprite circle radius
   shader += "  vec2 rdxy = 2.0*(gl_TexCoord[0].xy-vec2(0.5,0.5));\n";
   shader += "  rdxy *= rdxy;\n";
   shader += "  float rd = sqrt(rdxy.x + rdxy.y);\n";
   shader += "  rd = clamp(rd, 0.0, 1.0);\n";
 
-//  //-----------------------
-//  // compute obscurance
-//  shader += "  float sum = 0.0;\n";
-//  shader += "  float od = 0.0;\n";
-//  shader += "  float deno = 0.05*odepth;\n";
-//
-//  shader += "  od = depth - texture2DRect(blurTex, spos+vec2(-lod,-lod)).x;\n";
-//  shader += "  sum += max(0.0, od)/deno;\n";
-//
-//  shader += "  od = depth - texture2DRect(blurTex, spos+vec2(-lod,0.0)).x;\n";
-//  shader += "  sum += max(0.0, od)/deno;\n";
-//
-//  shader += "  od = depth - texture2DRect(blurTex, spos+vec2(-lod,lod)).x;\n";
-//  shader += "  sum += max(0.0, od)/deno;\n";
-//
-//  shader += "  od = depth - texture2DRect(blurTex, spos+vec2(lod,-lod)).x;\n";
-//  shader += "  sum += max(0.0, od)/deno;\n";
-//
-//  shader += "  od = depth - texture2DRect(blurTex, spos+vec2(lod,0.0)).x;\n";
-//  shader += "  sum += max(0.0, od)/deno;\n";
-//
-//  shader += "  od = depth - texture2DRect(blurTex, spos+vec2(lod,lod)).x;\n";
-//  shader += "  sum += max(0.0, od)/deno;\n";
-//
-//  shader += "  od = depth - texture2DRect(blurTex, spos+vec2(0.0,-lod)).x;\n";
-//  shader += "  sum += max(0.0, od)/deno;\n";
-//
-//  shader += "  od = depth - texture2DRect(blurTex, spos+vec2(0.0,lod)).x;\n";
-//  shader += "  sum += max(0.0, od)/deno;\n";
-//
-//  shader += "  float f = exp(-200.0*sum);\n";
 
-  shader += "  gl_FragColor = vec4(norm.z*gl_Color.rgb,smoothstep(rd, 0.8, 0.99));\n";
+  // compute obscurance
+  shader += "  float lod = 1.5;\n";
+  shader += "  float lod2 = 2.5;\n";
+  shader += "  float ege = 0.01;\n";
+  shader += "  float ege2 = 0.03;\n";
+  shader += "  float sum = 0.0;\n";
+  shader += "  float od = 0.0;\n";
+
+  shader += "  od = depth - texture2DRect(blurTex, spos+vec2(-lod2,-lod2)).x;\n";
+  shader += "  sum += step(ege2, od);\n";
+
+  shader += "  od = depth - texture2DRect(blurTex, spos+vec2(-lod2,lod2)).x;\n";
+  shader += "  sum += step(ege2, od);\n";
+
+  shader += "  od = depth - texture2DRect(blurTex, spos+vec2(lod2,-lod2)).x;\n";
+  shader += "  sum += step(ege2, od);\n";
+
+  shader += "  od = depth - texture2DRect(blurTex, spos+vec2(lod2,lod2)).x;\n";
+  shader += "  sum += step(ege2, od);\n";
+
+  shader += "  od = depth - texture2DRect(blurTex, spos+vec2(-lod,0.0)).x;\n";
+  shader += "  sum += step(ege, od);\n";
+
+  shader += "  od = depth - texture2DRect(blurTex, spos+vec2(lod,0.0)).x;\n";
+  shader += "  sum += step(ege, od);\n";
+
+  shader += "  od = depth - texture2DRect(blurTex, spos+vec2(0.0,-lod)).x;\n";
+  shader += "  sum += step(ege, od);\n";
+
+  shader += "  od = depth - texture2DRect(blurTex, spos+vec2(0.0,lod)).x;\n";
+  shader += "  sum += step(ege, od);\n";
+
+  shader += "  float f = 0.2+0.8*(1.0-sum/8.0);\n";
+
+  shader += "  float alpha = smoothstep(rd, 0.8, 0.99);\n";
+
+  shader += "  gl_FragColor = vec4(alpha*f*norm.z*gl_Color.rgb, alpha);\n";
   //-----------------------
 
   shader += "}\n";

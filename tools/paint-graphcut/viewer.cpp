@@ -348,6 +348,11 @@ void
 Viewer::setShowBox(bool b)
 {
   m_showBox = b;
+  if (m_showBox)
+    m_boundingBox.activateBounds();
+  else
+    m_boundingBox.deactivateBounds();
+
   update();  
 }
 
@@ -1151,6 +1156,9 @@ Viewer::drawVolMask()
       return;
     }
 
+  Vec bmin, bmax;
+  m_boundingBox.bounds(bmin, bmax);
+
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glEnable(GL_POINT_SMOOTH);
@@ -1160,27 +1168,34 @@ Viewer::drawVolMask()
   glBindTexture(GL_TEXTURE_2D, Global::spriteTexture());
   glTexEnvi(GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE);
 
-  //glPointSize(m_pointSize);
+  glBegin(GL_POINTS);
   int nv = m_voxels.count()/5;
   for(int i=0; i<nv; i++)
     {
       int d = m_voxels[5*i+0];
       int w = m_voxels[5*i+1];
       int h = m_voxels[5*i+2];
-      int t = m_voxels[5*i+3];
-      float v = (float)m_voxels[5*i+4]/255.0;
 
-      glBegin(GL_POINTS);
-      float r = Global::tagColors()[4*t+0]*1.0/255.0;
-      float g = Global::tagColors()[4*t+1]*1.0/255.0;
-      float b = Global::tagColors()[4*t+2]*1.0/255.0;
-      r = r*0.3 + 0.7*v;
-      g = g*0.3 + 0.7*v;
-      b = b*0.3 + 0.7*v;
-      glColor3f(r,g,b);
-      glVertex3f(h, w, d);
-      glEnd();
+      if (d < bmin.z || d > bmax.z ||
+	  w < bmin.y || w > bmax.y ||
+	  h < bmin.x || h > bmax.x)
+	{}
+      else
+	{
+	  int t = m_voxels[5*i+3];
+	  float v = (float)m_voxels[5*i+4]/255.0;
+
+	  float r = Global::tagColors()[4*t+0]*1.0/255.0;
+	  float g = Global::tagColors()[4*t+1]*1.0/255.0;
+	  float b = Global::tagColors()[4*t+2]*1.0/255.0;
+	  r = r*0.3 + 0.7*v;
+	  g = g*0.3 + 0.7*v;
+	  b = b*0.3 + 0.7*v;
+	  glColor3f(r,g,b);
+	  glVertex3f(h, w, d);
+	}
     }
+  glEnd();
 
   glDisable(GL_POINT_SPRITE);
   glDisable(GL_TEXTURE_2D);

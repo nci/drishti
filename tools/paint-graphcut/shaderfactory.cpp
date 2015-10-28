@@ -206,38 +206,27 @@ ShaderFactory::genFinalPointShader()
 
 
   // compute obscurance
-  shader += "  float lod = 1.5;\n";
-  shader += "  float lod2 = 2.5;\n";
-  shader += "  float ege = 0.01;\n";
+  shader += "  float ege1 = 0.01;\n";
   shader += "  float ege2 = 0.03;\n";
   shader += "  float sum = 0.0;\n";
   shader += "  float od = 0.0;\n";
 
-  shader += "  od = depth - texture2DRect(blurTex, spos+vec2(-lod2,-lod2)).x;\n";
-  shader += "  sum += step(ege2, od);\n";
+  shader += "  float cx[16] = {-1.5, 1.5, 0.0, 0.0,-2.5,-2.5, 2.5, 2.5,-3.5, 3.5, 0.0, 0.0,-4.5,-4.5, 4.5, 4.5};\n";
+  shader += "  float cy[16] = { 0.0, 0.0,-1.5, 1.5,-2.5, 2.5,-2.5, 2.5, 0.0, 0.0,-3.5, 3.5,-4.5, 4.5,-4.5, 4.5};\n";
 
-  shader += "  od = depth - texture2DRect(blurTex, spos+vec2(-lod2,lod2)).x;\n";
-  shader += "  sum += step(ege2, od);\n";
+  shader += "  for(int i=0; i<8; i++)\n";
+  shader += "  {\n";
+  shader += "    float od = depth - texture2DRect(blurTex, spos+vec2(cx[i],cy[i])).x;\n";
+  shader += "    sum += step(ege1, od);\n";
+  shader += "  }\n";
 
-  shader += "  od = depth - texture2DRect(blurTex, spos+vec2(lod2,-lod2)).x;\n";
-  shader += "  sum += step(ege2, od);\n";
+  shader += "  for(int i=8; i<16; i++)\n";
+  shader += "  {\n";
+  shader += "    float od = depth - texture2DRect(blurTex, spos+vec2(cx[i],cy[i])).x;\n";
+  shader += "    sum += step(ege2, od);\n";
+  shader += "  }\n";
 
-  shader += "  od = depth - texture2DRect(blurTex, spos+vec2(lod2,lod2)).x;\n";
-  shader += "  sum += step(ege2, od);\n";
-
-  shader += "  od = depth - texture2DRect(blurTex, spos+vec2(-lod,0.0)).x;\n";
-  shader += "  sum += step(ege, od);\n";
-
-  shader += "  od = depth - texture2DRect(blurTex, spos+vec2(lod,0.0)).x;\n";
-  shader += "  sum += step(ege, od);\n";
-
-  shader += "  od = depth - texture2DRect(blurTex, spos+vec2(0.0,-lod)).x;\n";
-  shader += "  sum += step(ege, od);\n";
-
-  shader += "  od = depth - texture2DRect(blurTex, spos+vec2(0.0,lod)).x;\n";
-  shader += "  sum += step(ege, od);\n";
-
-  shader += "  float f = 0.2+0.8*(1.0-sum/8.0);\n";
+  shader += "  float f = 0.2+0.8*(1.0-sum/16.0);\n";
 
   shader += "  float alpha = smoothstep(rd, 0.8, 0.99);\n";
 

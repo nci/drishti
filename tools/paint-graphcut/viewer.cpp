@@ -335,6 +335,13 @@ Viewer::updateViewerBox(int minD, int maxD, int minW, int maxW, int minH, int ma
 			  Vec(m_maxHSlice,
 			      m_maxWSlice,
 			      m_maxDSlice));
+
+  m_boundingBox.setPositions(Vec(m_minHSlice,
+				 m_minWSlice,
+				 m_minDSlice),
+			     Vec(m_maxHSlice,
+				 m_maxWSlice,
+				 m_maxDSlice));
 }
 
 void
@@ -350,6 +357,10 @@ Viewer::keyPressEvent(QKeyEvent *event)
   if (event->key() == Qt::Key_Escape)
     return;
 
+  if (m_boundingBox.keyPressEvent(event))
+    return;
+  
+  
   if (event->key() == Qt::Key_A)
     {  
       toggleAxisIsDrawn();
@@ -417,6 +428,14 @@ Viewer::setGridSize(int d, int w, int h)
 			  Vec(m_maxHSlice,
 			      m_maxWSlice,
 			      m_maxDSlice));
+  
+  m_boundingBox.setBounds(Vec(m_minHSlice,
+			      m_minWSlice,
+			      m_minDSlice),
+			  Vec(m_maxHSlice,
+			      m_maxWSlice,
+			      m_maxDSlice));
+
 
   setSceneBoundingBox(Vec(0,0,0), Vec(m_height, m_width, m_depth));
   setSceneCenter(Vec((m_maxHSlice+m_minHSlice),
@@ -611,7 +630,10 @@ Viewer::draw()
   glDisable(GL_LIGHTING);
 
   if (m_showBox)
-    drawBox();
+    {
+      m_boundingBox.draw();
+      drawBox();
+    }
 
   drawMMDCurve();
   drawMMWCurve();
@@ -849,10 +871,10 @@ Viewer::clip(int d, int w, int h)
       
       Vec p = Vec(h, w, d) - cpos;
       if (cnorm*p > 0)
-	return false;
+	return true;
     }
 
-  return true;
+  return false;
 }
 
 void
@@ -944,6 +966,20 @@ Viewer::updateVoxels()
       return;
     }
 
+  Vec bmin, bmax;
+  m_boundingBox.bounds(bmin, bmax);
+  emit updateSliceBounds(bmin, bmax);
+
+  setSceneCenter((bmax+bmin)/2);
+
+  m_minDSlice = bmin.z;
+  m_minWSlice = bmin.y;
+  m_minHSlice = bmin.x;
+  m_maxDSlice = bmax.z;
+  m_maxWSlice = bmax.y;
+  m_maxHSlice = bmax.x;
+
+
   if (m_voxChoice == 1)
     {
       updateVoxelsWithTF();
@@ -966,7 +1002,7 @@ Viewer::updateVoxels()
   for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
     for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
       {
-	if (clip(d, w, h))
+	if (!clip(d, w, h))
 	  {
 	    uchar tag = m_maskPtr[d*m_width*m_height + w*m_height + h];
 	    if (m_paintedTags.contains(tag) ||
@@ -981,7 +1017,7 @@ Viewer::updateVoxels()
   for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
     for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
       {
-	if (clip(d, w, h))
+	if (!clip(d, w, h))
 	  {
 	    uchar tag = m_maskPtr[d*m_width*m_height + w*m_height + h];
 	    if (m_paintedTags.contains(tag) ||
@@ -996,7 +1032,7 @@ Viewer::updateVoxels()
   for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
     for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
       {
-	if (clip(d, w, h))
+	if (!clip(d, w, h))
 	  {
 	    uchar tag = m_maskPtr[d*m_width*m_height + w*m_height + h];
 	    if (m_paintedTags.contains(tag) ||
@@ -1011,7 +1047,7 @@ Viewer::updateVoxels()
   for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
     for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
       {
-	if (clip(d, w, h))
+	if (!clip(d, w, h))
 	  {
 	    uchar tag = m_maskPtr[d*m_width*m_height + w*m_height + h];
 	    if (m_paintedTags.contains(tag) ||
@@ -1026,7 +1062,7 @@ Viewer::updateVoxels()
   for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
     for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
       {
-	if (clip(d, w, h))
+	if (!clip(d, w, h))
 	  {
 	    uchar tag = m_maskPtr[d*m_width*m_height + w*m_height + h];
 	    if (m_paintedTags.contains(tag) ||
@@ -1041,7 +1077,7 @@ Viewer::updateVoxels()
   for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
     for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
       {
-	if (clip(d, w, h))
+	if (!clip(d, w, h))
 	  {
 	    uchar tag = m_maskPtr[d*m_width*m_height + w*m_height + h];
 	    if (m_paintedTags.contains(tag) ||
@@ -1063,7 +1099,7 @@ Viewer::updateVoxels()
 	{
 	  for(h=m_minHSlice+1; h<m_maxHSlice-1; h+=m_pointSkip)
 	    {
-	      if (clip(d, w, h))
+	      if (!clip(d, w, h))
 		{
 		  uchar tag = m_maskPtr[d*m_width*m_height + w*m_height + h];
 		  if (m_paintedTags.contains(tag) ||
@@ -1177,7 +1213,7 @@ Viewer::updateVoxelsWithTF()
   for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
     for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
       {
-	if (clip(d, w, h))
+	if (!clip(d, w, h))
 	  {
 	    uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
 	    if (lut[4*vol+3] > 10)
@@ -1188,7 +1224,7 @@ Viewer::updateVoxelsWithTF()
   for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
     for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
       {
-	if (clip(d, w, h))
+	if (!clip(d, w, h))
 	  {
 	    uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
 	    if (lut[4*vol+3] > 10)
@@ -1199,7 +1235,7 @@ Viewer::updateVoxelsWithTF()
   for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
     for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
       {
-	if (clip(d, w, h))
+	if (!clip(d, w, h))
 	  {
 	    uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
 	    if (lut[4*vol+3] > 10)
@@ -1210,7 +1246,7 @@ Viewer::updateVoxelsWithTF()
   for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
     for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
       {
-	if (clip(d, w, h))
+	if (!clip(d, w, h))
 	  {
 	    uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
 	    if (lut[4*vol+3] > 10)
@@ -1221,7 +1257,7 @@ Viewer::updateVoxelsWithTF()
   for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
     for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
       {
-	if (clip(d, w, h))
+	if (!clip(d, w, h))
 	  {
 	    uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
 	    if (lut[4*vol+3] > 10)
@@ -1232,7 +1268,7 @@ Viewer::updateVoxelsWithTF()
   for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
     for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
       {
-	if (clip(d, w, h))
+	if (!clip(d, w, h))
 	  {
 	    uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
 	    if (lut[4*vol+3] > 10)
@@ -1252,7 +1288,7 @@ Viewer::updateVoxelsWithTF()
 	{
 	  for(h=m_minHSlice+1; h<m_maxHSlice-1; h+=m_pointSkip)
 	    {
-	      if (clip(d, w, h))
+	      if (!clip(d, w, h))
 		{
 		  uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
 		  if (lut[4*vol+3] > 10)
@@ -1293,6 +1329,9 @@ Viewer::drawVol()
 
   uchar *lut = Global::lut();
 
+  Vec bmin, bmax;
+  m_boundingBox.bounds(bmin, bmax);
+
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glEnable(GL_POINT_SMOOTH);
@@ -1302,39 +1341,49 @@ Viewer::drawVol()
   glBindTexture(GL_TEXTURE_2D, Global::spriteTexture());
   glTexEnvi(GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE);
 
+  glBegin(GL_POINTS);
+
   int nv = m_voxels.count()/4;
   for(int i=0; i<nv; i++)
     {
       int d = m_voxels[4*i+0];
       int w = m_voxels[4*i+1];
       int h = m_voxels[4*i+2];
-      int v = m_voxels[4*i+3];
 
-      int t = m_maskPtr[d*m_width*m_height + w*m_height + h];
-
-      glBegin(GL_POINTS);
-      float r = lut[4*v+2]*1.0/255.0;
-      float g = lut[4*v+1]*1.0/255.0;
-      float b = lut[4*v+0]*1.0/255.0;
-
-      float rt = r;
-      float gt = g;
-      float bt = b;
-      if (t > 0)
+      bool clipped = clip(d, w, h);
+      if (clipped ||
+	  d < bmin.z || d > bmax.z ||
+	  w < bmin.y || w > bmax.y ||
+	  h < bmin.x || h > bmax.x)
+	{}
+      else
 	{
-	  rt = Global::tagColors()[4*t+0]*1.0/255.0;
-	  gt = Global::tagColors()[4*t+1]*1.0/255.0;
-	  bt = Global::tagColors()[4*t+2]*1.0/255.0;
+	  int v = m_voxels[4*i+3];
+	  int t = m_maskPtr[d*m_width*m_height + w*m_height + h];
+
+	  float r = lut[4*v+2]*1.0/255.0;
+	  float g = lut[4*v+1]*1.0/255.0;
+	  float b = lut[4*v+0]*1.0/255.0;
+
+	  float rt = r;
+	  float gt = g;
+	  float bt = b;
+	  if (t > 0)
+	    {
+	      rt = Global::tagColors()[4*t+0]*1.0/255.0;
+	      gt = Global::tagColors()[4*t+1]*1.0/255.0;
+	      bt = Global::tagColors()[4*t+2]*1.0/255.0;
+	    }
+	  
+	  r = r*0.5 + rt*0.5;
+	  g = g*0.5 + gt*0.5;
+	  b = b*0.5 + bt*0.5;
+	  
+	  glColor3f(r,g,b);
+	  glVertex3f(h, w, d);
 	}
-
-      r = r*0.5 + rt*0.5;
-      g = g*0.5 + gt*0.5;
-      b = b*0.5 + bt*0.5;
-
-      glColor3f(r,g,b);
-      glVertex3f(h, w, d);
-      glEnd();
     }
+  glEnd();
 
   glDisable(GL_POINT_SPRITE);
   glDisable(GL_TEXTURE_2D);

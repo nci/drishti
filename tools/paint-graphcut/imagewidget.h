@@ -56,6 +56,7 @@ class ImageWidget : public QWidget
 
   void setScrollBars(QScrollBar*, QScrollBar*);
   void getBox(int&, int&, int&, int&, int&, int&);
+  void setBox(int, int, int, int, int, int);
 
   void processPrevSliceTags();
 

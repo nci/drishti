@@ -49,6 +49,19 @@ ImageWidget::getBox(int &minD, int &maxD,
   maxH = m_maxHSlice;
 }
 
+void
+ImageWidget::setBox(int minD, int maxD, 
+		    int minW, int maxW, 
+		    int minH, int maxH)
+{
+  m_minDSlice = minD;
+  m_maxDSlice = maxD;
+  m_minWSlice = minW;
+  m_maxWSlice = maxW;
+  m_minHSlice = minH;
+  m_maxHSlice = maxH;
+}
+
 ImageWidget::ImageWidget(QWidget *parent, QStatusBar *sb) :
   QWidget(parent)
 {

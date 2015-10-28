@@ -120,6 +120,8 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 	  this, SLOT(paint3D(int,int,int, int)));
   connect(m_viewer, SIGNAL(paint3DEnd()),
 	  this, SLOT(paint3DEnd()));
+  connect(m_viewer, SIGNAL(updateSliceBounds(Vec, Vec)),
+	  this, SLOT(updateSliceBounds(Vec, Vec)));
   //------------------------------
 
 
@@ -473,6 +475,24 @@ DrishtiPaint::erode(int mind, int maxd,
 			minw, maxw,
 			minh, maxh);
   getSlice(m_currSlice);  
+}
+
+void
+DrishtiPaint::updateSliceBounds(Vec bmin, Vec bmax)
+{
+  int minD,minW,minH, maxD,maxW,maxH;
+  minD = bmin.z;
+  maxD = bmax.z;
+  minW = bmin.y;
+  maxW = bmax.y;
+  minH = bmin.x;
+  maxH = bmax.x;
+
+  m_imageWidget->setBox(minD, maxD, minW, maxW, minH, maxH);
+
+  if (ui.butZ->isChecked()) on_butZ_clicked();
+  else if (ui.butY->isChecked()) on_butY_clicked();
+  else if (ui.butX->isChecked()) on_butX_clicked();
 }
 
 void
@@ -3902,12 +3922,12 @@ DrishtiPaint::paint3D(int d, int w, int h, int button)
   memset(bitmask, 0, dm*dm*dm);
   
   int ds, de, ws, we, hs, he;
-  ds = qMax(minDSlice+1, d-rad);
-  de = qMin(maxDSlice-1, d+rad);
-  ws = qMax(minWSlice+1, w-rad);
-  we = qMin(maxWSlice-1, w+rad);
-  hs = qMax(minHSlice+1, h-rad);
-  he = qMin(maxHSlice-1, h+rad);
+  ds = qMax(minDSlice, d-rad);
+  de = qMin(maxDSlice, d+rad);
+  ws = qMax(minWSlice, w-rad);
+  we = qMin(maxWSlice, w+rad);
+  hs = qMax(minHSlice, h-rad);
+  he = qMin(maxHSlice, h+rad);
   for(int dd=ds; dd<=de; dd++)
     for(int ww=ws; ww<=we; ww++)
       for(int hh=hs; hh<=he; hh++)
@@ -3921,10 +3941,8 @@ DrishtiPaint::paint3D(int d, int w, int h, int button)
 	      int r =  lut[4*val+2];
 	      int g =  lut[4*val+1];
 	      int b =  lut[4*val+0];
-	      //if (lut[4*val+3] > 5)
 	      if (r + g + b > 10)
 		bitmask[(dd-ds)*dm2 + (ww-ws)*dm + (hh-hs)] = 1;
-	      //maskData[dd*m_width*m_height + ww*m_height + hh] = tag;
 	    }
 	}
 
@@ -3943,12 +3961,12 @@ DrishtiPaint::paint3D(int d, int w, int h, int button)
       int wx = dwh.y;
       int hx = dwh.z;
 
-      int d0 = qMax(dx-1, minDSlice+1);
-      int d1 = qMin(dx+1, maxDSlice-1);
-      int w0 = qMax(wx-1, minWSlice+1);
-      int w1 = qMin(wx+1, maxWSlice-1);
-      int h0 = qMax(hx-1, minHSlice+1);
-      int h1 = qMin(hx+1, maxHSlice-1);
+      int d0 = qMax(dx-1, minDSlice);
+      int d1 = qMin(dx+1, maxDSlice);
+      int w0 = qMax(wx-1, minWSlice);
+      int w1 = qMin(wx+1, maxWSlice);
+      int h0 = qMax(hx-1, minHSlice);
+      int h1 = qMin(hx+1, maxHSlice);
 
       for(int d2=d0; d2<=d1; d2++)
 	for(int w2=w0; w2<=w1; w2++)
@@ -3970,7 +3988,6 @@ DrishtiPaint::paint3D(int d, int w, int h, int button)
   dwhr << d << w << h << rad;
 
   m_blockList << dwhr;
-  //m_volume->saveMaskBlock(d, w, h, rad);
 }
 
 void

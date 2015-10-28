@@ -10,6 +10,7 @@ using namespace qglviewer;
 #include "curvegroup.h"
 #include "fiber.h"
 #include "clipplane.h"
+#include "boundingbox.h"
 
 class Viewer : public QGLViewer
 {
@@ -64,9 +65,12 @@ class Viewer : public QGLViewer
  signals :
     void paint3D(int, int, int, int);
     void paint3DEnd();
+    void updateSliceBounds(Vec, Vec);
 
  private :
   bool m_glewInitdone;
+
+  BoundingBox m_boundingBox;
 
   int m_depth, m_width, m_height;
   int m_minDSlice, m_maxDSlice;

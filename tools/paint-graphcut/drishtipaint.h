@@ -120,6 +120,8 @@ class DrishtiPaint : public QMainWindow
   void paint3D(int, int, int, int);
   void paint3DEnd();
 
+  void updateSliceBounds(Vec, Vec);
+
  private :
   Ui::DrishtiPaint ui;
   Ui::ViewerMenu viewerUi;

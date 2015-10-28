@@ -57,6 +57,8 @@ class StaticFunctions
   static void popOrthoView();
   static void drawQuad(float, float, float, float, float);
 
+  static void drawEnclosingCube(Vec, Vec);
+
 };
 
 #endif

@@ -41,6 +41,7 @@ macx {
 #----------------------------------------------------------------
 
 HEADERS += commonqtclasses.h \
+	boundingbox.h \
 	drishtipaint.h \
 	bitmapthread.h \
 	curvegroup.h \
@@ -58,6 +59,7 @@ HEADERS += commonqtclasses.h \
 	gradienteditorwidget.h \
         livewire.h \
 	myslider.h \
+	mymanipulatedframe.h \
  	morphcurve.h \
  	morphslice.h \
 	propertyeditor.h \
@@ -92,6 +94,7 @@ HEADERS += commonqtclasses.h \
 SOURCES += drishtipaint.cpp \
 	main.cpp \
 	bitmapthread.cpp \
+	boundingbox.cpp \
 	curvegroup.cpp \
         clipinformation.cpp \
         clipplane.cpp \
@@ -107,6 +110,7 @@ SOURCES += drishtipaint.cpp \
 	gradienteditorwidget.cpp \
         livewire.cpp \
 	myslider.cpp \
+	mymanipulatedframe.cpp \
  	morphcurve.cpp \
  	morphslice.cpp \
 	propertyeditor.cpp \

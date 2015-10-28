@@ -669,7 +669,6 @@
         <property name="frameShape">
          <enum>QFrame::Box</enum>
         </property>
-        <zorder>sideframe</zorder>
        </widget>
       </item>
       <item>
@@ -726,8 +725,15 @@
     </property>
     <addaction name="actionHelp"/>
    </widget>
+   <widget class="QMenu" name="menuLayout">
+    <property name="title">
+     <string>Layout</string>
+    </property>
+    <addaction name="actionAltLayout"/>
+   </widget>
    <addaction name="menuFile"/>
    <addaction name="menuView"/>
+   <addaction name="menuLayout"/>
    <addaction name="menuHelp"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
@@ -795,6 +801,11 @@
   <action name="saveWork">
    <property name="text">
     <string>Save Work (Ctrl+S)</string>
+   </property>
+  </action>
+  <action name="actionAltLayout">
+   <property name="text">
+    <string>AltLayout</string>
    </property>
   </action>
  </widget>

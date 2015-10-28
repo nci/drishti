@@ -34,6 +34,7 @@ class DrishtiPaint : public QMainWindow
 
  private slots :
   void openRecentFile();   
+  void on_actionAltLayout_triggered();
   void on_actionHelp_triggered();
   void on_saveWork_triggered();
   void saveWork();

@@ -249,6 +249,23 @@ DrishtiPaint::on_help_clicked()
     }
 }
 
+void
+DrishtiPaint::on_actionAltLayout_triggered()
+{
+  QLayoutItem *item0 = ui.horizontalLayout_2->itemAt(0);
+  QLayoutItem *item1 = ui.horizontalLayout_2->itemAt(1);
+  QLayoutItem *item2 = ui.horizontalLayout_2->itemAt(2);
+  
+  ui.horizontalLayout_2->removeItem(item0);
+  ui.horizontalLayout_2->removeItem(item1);
+  ui.horizontalLayout_2->removeItem(item2);
+
+  ui.horizontalLayout_2->insertItem(0, item2);
+  ui.horizontalLayout_2->insertItem(1, item1);
+  ui.horizontalLayout_2->insertItem(2, item0);
+}
+
+
 void DrishtiPaint::on_saveImage_triggered() { m_imageWidget->saveImage(); }
 void
 DrishtiPaint::on_saveWork_triggered()

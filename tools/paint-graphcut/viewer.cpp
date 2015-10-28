@@ -1350,9 +1350,7 @@ Viewer::drawVol()
       int w = m_voxels[4*i+1];
       int h = m_voxels[4*i+2];
 
-      bool clipped = clip(d, w, h);
-      if (clipped ||
-	  d < bmin.z || d > bmax.z ||
+      if (d < bmin.z || d > bmax.z ||
 	  w < bmin.y || w > bmax.y ||
 	  h < bmin.x || h > bmax.x)
 	{}

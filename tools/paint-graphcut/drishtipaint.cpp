@@ -116,8 +116,8 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   //------------------------------
 
   //------------------------------
-  connect(m_viewer, SIGNAL(paint3D(int,int,int, int)),
-	  this, SLOT(paint3D(int,int,int, int)));
+  connect(m_viewer, SIGNAL(paint3D(int,int,int,int,int)),
+	  this, SLOT(paint3D(int,int,int,int,int)));
   connect(m_viewer, SIGNAL(paint3DEnd()),
 	  this, SLOT(paint3DEnd()));
   connect(m_viewer, SIGNAL(updateSliceBounds(Vec, Vec)),
@@ -3911,7 +3911,7 @@ DrishtiPaint::smoothMesh(QList<Vec>& V,
 }
 
 void
-DrishtiPaint::paint3D(int d, int w, int h, int button)
+DrishtiPaint::paint3D(int d, int w, int h, int button, int otag)
 {
   int m_depth, m_width, m_height;
   m_volume->gridSize(m_depth, m_width, m_height);
@@ -3925,7 +3925,8 @@ DrishtiPaint::paint3D(int d, int w, int h, int button)
   
   uchar *lut = Global::lut();
   int rad = Global::spread();
-  int tag = Global::tag();
+  //int tag = Global::tag();
+  int tag = otag;
   if (button == 2) // right button
     tag = 0;
   int minDSlice, maxDSlice;

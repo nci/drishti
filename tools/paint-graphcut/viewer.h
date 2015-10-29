@@ -63,8 +63,9 @@ class Viewer : public QGLViewer
     Vec pointUnderPixel(QPoint, bool&);
 
  signals :
-    void paint3D(int, int, int, int);
+    void paint3D(int, int, int, int, int);
     void paint3DEnd();
+
     void updateSliceBounds(Vec, Vec);
 
  private :
@@ -89,7 +90,8 @@ class Viewer : public QGLViewer
 
   int m_currSlice, m_currSliceType;
 
-  bool m_findHit;
+  QBitArray m_bitmask;
+  bool m_paintHit, m_carveHit;
   Vec m_target;
 
   QMultiMap<int, Curve*> *m_Dcg;
@@ -155,7 +157,6 @@ class Viewer : public QGLViewer
   void drawVol();
 
   void drawPointsWithoutShader();
-  void drawAllPoints();
 
   void updateVoxelsWithTF();
   void updateClipVoxels();
@@ -172,6 +173,8 @@ class Viewer : public QGLViewer
   void createFBO();
 
   void drawInfo();
+
+  void carve(int, int, int, bool);
 };
 
 #endif

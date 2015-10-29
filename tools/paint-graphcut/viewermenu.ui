@@ -74,12 +74,12 @@
      </property>
      <item>
       <property name="text">
-       <string>Tags</string>
+       <string>Vol</string>
       </property>
      </item>
      <item>
       <property name="text">
-       <string>Vol</string>
+       <string>Tags</string>
       </property>
      </item>
     </widget>

@@ -61,7 +61,10 @@ Viewer::GlewInit()
 void
 Viewer::init()
 {
-  m_findHit = false;
+  m_bitmask.clear();
+
+  m_paintHit = false;
+  m_carveHit = false;
   m_target = Vec(-1,-1,-1);
 
   m_Dcg = 0;
@@ -374,6 +377,15 @@ Viewer::keyPressEvent(QKeyEvent *event)
       return;
     }
 
+  if (event->key() == Qt::Key_R)
+    {  
+      // reset bitmap
+      m_bitmask.fill(true);
+      update();
+      return;
+    }
+
+
   // process clipplane events
   if (m_clipPlanes->keyPressEvent(event))
     {
@@ -419,6 +431,9 @@ Viewer::setGridSize(int d, int w, int h)
   m_depth = d;
   m_width = w;
   m_height = h;
+
+  m_bitmask.resize((qint64)m_depth*m_width*m_height);
+  m_bitmask.fill(true);
 
   m_minDSlice = 0;
   m_minWSlice = 0;
@@ -624,7 +639,8 @@ Viewer::drawPointsWithoutShader()
   glPointSize(ptsz);
   //--------------------------------
 
-  drawAllPoints();
+  if (m_pointSkip > 0 && m_maskPtr)
+    drawVolMask();
 }
 
 void
@@ -743,7 +759,8 @@ Viewer::draw()
   glUniform3fARB(m_depthParm[3], viewDir.x, viewDir.y, viewDir.z); // viewDir
   //--------------------------------
 
-  drawAllPoints();
+  if (m_pointSkip > 0 && m_maskPtr)
+    drawVolMask();
 
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
   //--------------------------------
@@ -789,7 +806,9 @@ Viewer::draw()
   glUniform1fARB(m_fpsParm[5], m_dzScale); // dzScale
 
   glPointSize(ptsz);
-  drawAllPoints();
+
+  if (m_pointSkip > 0 && m_maskPtr)
+    drawVolMask();
 
   //--------------------------------
   glUseProgramObjectARB(0);
@@ -812,7 +831,7 @@ Viewer::drawInfo()
 {
   glDisable(GL_DEPTH_TEST);
 
-  if (m_findHit)
+  if (m_paintHit || m_carveHit)
     {
       float cpgl = camera()->pixelGLRatio(m_target);
       int d = m_target.z;
@@ -1034,7 +1053,7 @@ Viewer::updateVoxels()
   m_maxHSlice = bmax.x;
 
 
-  if (m_voxChoice == 1)
+  if (m_voxChoice == 0)
     {
       updateVoxelsWithTF();
       return;
@@ -1199,7 +1218,7 @@ Viewer::drawVolMask()
   if (!m_volPtr || !m_maskPtr || m_pointSkip == 0)
     return;
 
-  if (m_voxChoice == 1)
+  if (m_voxChoice == 0)
     {
       drawVol();
       return;
@@ -1414,7 +1433,9 @@ Viewer::drawVol()
       int w = m_voxels[4*i+1];
       int h = m_voxels[4*i+2];
 
-      if (d < bmin.z || d > bmax.z ||
+      qint64 idx = d*m_width*m_height + w*m_height + h;
+      if (!m_bitmask.testBit(idx) || // carved
+	  d < bmin.z || d > bmax.z ||
 	  w < bmin.y || w > bmax.y ||
 	  h < bmin.x || h > bmax.x)
 	{}
@@ -1422,11 +1443,11 @@ Viewer::drawVol()
 	{
 	  int v = m_voxels[4*i+3];
 	  int t = m_maskPtr[d*m_width*m_height + w*m_height + h];
-
+	  
 	  float r = lut[4*v+2]*1.0/255.0;
 	  float g = lut[4*v+1]*1.0/255.0;
 	  float b = lut[4*v+0]*1.0/255.0;
-
+	  
 	  float rt = r;
 	  float gt = g;
 	  float bt = b;
@@ -1445,6 +1466,7 @@ Viewer::drawVol()
 	  glVertex3f(h, w, d);
 	}
     }
+
   glEnd();
 
   glDisable(GL_POINT_SPRITE);
@@ -1833,7 +1855,11 @@ Viewer::getHit(QMouseEvent *event)
       else if (event->buttons() == Qt::RightButton) b = 2;
       else if (event->buttons() == Qt::MiddleButton) b = 3;
       
-      emit paint3D(d, w, h, b);
+      if (m_paintHit)
+	emit paint3D(d, w, h, b, Global::tag());      
+      else if (m_carveHit)
+	carve(d, w, h, b==2);
+      
 //      QMessageBox::information(0, "", QString("%1 %2 %3").	\
 //			       arg(d).arg(w).arg(h));
     }
@@ -1870,12 +1896,20 @@ Viewer::pointUnderPixel(QPoint scr, bool& found)
 void
 Viewer::mousePressEvent(QMouseEvent *event)
 {
-  m_findHit = false;
+  m_paintHit = false;
+  m_carveHit = false;
   m_target = Vec(-1,-1,-1);
 
   if (event->modifiers() & Qt::ShiftModifier)
     {
-      m_findHit = true;
+      m_paintHit = true;
+      getHit(event);
+      return;
+    }
+
+  if (event->modifiers() & Qt::ControlModifier)
+    {
+      m_carveHit = true;
       getHit(event);
       return;
     }
@@ -1887,10 +1921,11 @@ Viewer::mousePressEvent(QMouseEvent *event)
 void
 Viewer::mouseReleaseEvent(QMouseEvent *event)
 {
-  if (m_findHit)
+  if (m_paintHit)
     emit paint3DEnd();
   
-  m_findHit = false;
+  m_carveHit = false;
+  m_paintHit = false;
   m_target = Vec(-1,-1,-1);
 
   QGLViewer::mouseReleaseEvent(event);
@@ -1902,7 +1937,7 @@ Viewer::mouseMoveEvent(QMouseEvent *event)
 {
   m_target = Vec(-1,-1,-1);
 
-  if (m_findHit)
+  if (m_paintHit || m_carveHit)
     {
       getHit(event);
       return;
@@ -1967,9 +2002,38 @@ Viewer::drawClip()
   glDisable(GL_BLEND);
 }
 
+
 void
-Viewer::drawAllPoints()
+Viewer::carve(int d, int w, int h, bool b)
 {
-  if (m_pointSkip > 0 && m_maskPtr)
-    drawVolMask();
+  if (d<0 || w<0 || h<0 ||
+      d>m_depth-1 ||
+      w>m_width-1 ||
+      h>m_height-1)
+    return;
+
+  int rad = Global::spread();
+  
+  int ds, de, ws, we, hs, he;
+  ds = qMax(m_minDSlice, d-rad);
+  de = qMin(m_maxDSlice, d+rad);
+  ws = qMax(m_minWSlice, w-rad);
+  we = qMin(m_maxWSlice, w+rad);
+  hs = qMax(m_minHSlice, h-rad);
+  he = qMin(m_maxHSlice, h+rad);
+  for(int dd=ds; dd<=de; dd++)
+    for(int ww=ws; ww<=we; ww++)
+      for(int hh=hs; hh<=he; hh++)
+	{
+	  float p = ((d-dd)*(d-dd)+
+		     (w-ww)*(w-ww)+
+		     (h-hh)*(h-hh));
+	  if (p < rad*rad)
+	    {
+	      qint64 idx = dd*m_width*m_height + ww*m_height + hh;
+	      m_bitmask.setBit(idx, b); 
+	    }
+	}
+
+  update();
 }

@@ -609,6 +609,9 @@ MorphSlice::boundaryCurves(uchar *slice, int nX, int nY, bool shrinkwrap)
 	    
 	    if (c.count() > 1)
 	      {
+		// polygon returned is shifted by (1,1) so shift it back to original position
+		c.translate(-1,-1);
+
 		if (shrinkwrap)
 		  {
 		    // make sure that the interior is black

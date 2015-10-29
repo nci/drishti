@@ -5055,7 +5055,7 @@ ImageWidget::shrinkwrapPaintedRegion()
       p.drawPolygon(poly[npc]);
       QRgb *rgb = (QRgb*)(pimg.bits());
       for(int i=0; i<size1*size2; i++)
-	maskData[i] = (qRed(rgb[i]) > 0 ? 255 : 0);  
+	maskData[i] = (maskData[i]>0 || qRed(rgb[i])>0 ? 255 : 0);  
     }
 
   idx=0;

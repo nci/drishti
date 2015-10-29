@@ -84,6 +84,9 @@ class Global
   static GLuint spriteTexture();
   static void removeSpriteTexture();
 
+  static GLuint hollowSpriteTexture();
+  static void removeHollowSpriteTexture();
+
  private :
   static QString m_documentationPath;
   static int m_lutSize;
@@ -109,6 +112,7 @@ class Global
   static QString m_voxelUnit;
 
   static GLuint m_spriteTexture;
+  static GLuint m_hollowSpriteTexture;
 };
 
 #endif

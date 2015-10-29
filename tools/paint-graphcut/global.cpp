@@ -252,3 +252,79 @@ GLuint Global::spriteTexture()
   return m_spriteTexture;
 }
 
+GLuint Global::m_hollowSpriteTexture = 0;
+void Global::removeHollowSpriteTexture()
+{
+  if (m_hollowSpriteTexture)
+    glDeleteTextures( 1, &m_hollowSpriteTexture );
+  m_hollowSpriteTexture = 0;
+}
+GLuint Global::hollowSpriteTexture()
+{
+  if (m_hollowSpriteTexture)
+    return m_hollowSpriteTexture;
+
+  glGenTextures( 1, &m_hollowSpriteTexture );
+
+//----------------------------------------
+//--- hollow circle sprite ---
+  int texsize = 64;
+  int t2 = texsize/2;
+  QRadialGradient rg(t2, t2, t2-1, t2, t2);
+  rg.setColorAt(0.0, Qt::white);
+  rg.setColorAt(1.0, Qt::black);
+
+  QImage texImage(texsize, texsize, QImage::Format_ARGB32);
+  texImage.fill(0);
+  QPainter p(&texImage);
+  p.setBrush(QBrush(rg));
+  p.setPen(Qt::transparent);
+  p.drawEllipse(0, 0, texsize, texsize);
+
+  uchar *thetexture = new uchar[2*texsize*texsize];
+  const uchar *bits = texImage.bits();
+  //const uchar *bits = info.bits();
+  for(int i=0; i<texsize*texsize; i++)
+    {
+      uchar lum = 255;
+      float a = (float)bits[4*i+2]/255.0f;
+      a = 1-a;
+      
+      if (a < 0.8 || a >= 1.0)
+	{
+	  a = 0;
+	  lum = 0;
+	}
+      else
+	{
+	  lum *= 1-fabs(a-0.8f)/0.2f;
+	  a = 0.9f;
+	}
+      
+      a *= 255;
+      
+      thetexture[2*i] = lum;
+      thetexture[2*i+1] = a;
+    }
+//----------------------------------------
+
+  glEnable(GL_TEXTURE_2D);
+  glBindTexture(GL_TEXTURE_2D, m_hollowSpriteTexture);
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE_ALPHA,
+	       texsize, texsize, 0,
+	       GL_LUMINANCE_ALPHA, GL_UNSIGNED_BYTE,
+	       thetexture);
+  glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
+  glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+
+  delete [] thetexture;
+
+
+  return m_hollowSpriteTexture;
+}
+

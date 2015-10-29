@@ -90,6 +90,7 @@ class Viewer : public QGLViewer
   int m_currSlice, m_currSliceType;
 
   bool m_findHit;
+  Vec m_target;
 
   QMultiMap<int, Curve*> *m_Dcg;
   QMultiMap<int, Curve*> *m_Wcg;
@@ -169,6 +170,8 @@ class Viewer : public QGLViewer
 
   void createShaders();
   void createFBO();
+
+  void drawInfo();
 };
 
 #endif

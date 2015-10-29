@@ -3913,6 +3913,16 @@ DrishtiPaint::smoothMesh(QList<Vec>& V,
 void
 DrishtiPaint::paint3D(int d, int w, int h, int button)
 {
+  int m_depth, m_width, m_height;
+  m_volume->gridSize(m_depth, m_width, m_height);
+
+  if (d<0 || w<0 || h<0 ||
+      d>m_depth-1 ||
+      w>m_width-1 ||
+      h>m_height-1)
+    return;
+
+  
   uchar *lut = Global::lut();
   int rad = Global::spread();
   int tag = Global::tag();
@@ -3928,11 +3938,8 @@ DrishtiPaint::paint3D(int d, int w, int h, int button)
   uchar *volData = m_volume->memVolDataPtr();
   uchar *maskData = m_volume->memMaskDataPtr();
 
-  int m_depth, m_width, m_height;
-  m_volume->gridSize(m_depth, m_width, m_height);
-
   // tag only region connected to the origin voxel (d,w,h)
-  int dm = 2*rad;
+  int dm = 2*rad+1;
   int dm2 = dm*dm;
   uchar *bitmask;
   bitmask = new uchar[dm*dm*dm];

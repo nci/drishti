@@ -61,6 +61,9 @@ Viewer::GlewInit()
 void
 Viewer::init()
 {
+  m_findHit = false;
+  m_target = Vec(-1,-1,-1);
+
   m_Dcg = 0;
   m_Wcg = 0;
   m_Hcg = 0;
@@ -159,8 +162,6 @@ Viewer::createFBO()
 
 //  wd/=2;
 //  ht/=2;
-
-  GLuint target = GL_TEXTURE_RECTANGLE_EXT;
 
   if (m_slcBuffer) glDeleteFramebuffers(1, &m_slcBuffer);
   if (m_rboId) glDeleteRenderbuffers(1, &m_rboId);
@@ -802,6 +803,54 @@ Viewer::draw()
     drawSlices();
 
   drawClip();
+
+  drawInfo();
+}
+
+void
+Viewer::drawInfo()
+{
+  glDisable(GL_DEPTH_TEST);
+
+  if (m_findHit)
+    {
+      float cpgl = camera()->pixelGLRatio(m_target);
+      int d = m_target.z;
+      int w = m_target.y;
+      int h = m_target.x;
+      int tag = Global::tag();
+      float r = Global::tagColors()[4*tag+0]*1.0/255.0;
+      float g = Global::tagColors()[4*tag+1]*1.0/255.0;
+      float b = Global::tagColors()[4*tag+2]*1.0/255.0;
+
+      glEnable(GL_BLEND);
+      glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+      glEnable(GL_POINT_SMOOTH);
+      
+      glEnable(GL_POINT_SPRITE_ARB);
+      glEnable(GL_TEXTURE_2D);
+      glBindTexture(GL_TEXTURE_2D, Global::hollowSpriteTexture());
+      glTexEnvi(GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE);
+      glPointSize(3*Global::spread()/cpgl);
+      glBegin(GL_POINTS);
+      glColor4f(r*0.5, g*0.5, b*0.5, 0.5);
+      glVertex3f(h,w,d);
+      glEnd();
+
+      glDisable(GL_POINT_SPRITE);
+      glDisable(GL_TEXTURE_2D);
+
+      QFont tfont = QFont("Helvetica", 12);  
+      QString mesg = QString("%1 %2 %3").arg(h).arg(w).arg(d);
+
+      int wd = camera()->screenWidth();
+      int ht = camera()->screenHeight();
+      StaticFunctions::pushOrthoView(0, 0, wd, ht);
+      StaticFunctions::renderText(10,10, mesg, tfont, Qt::black, Qt::lightGray);
+      StaticFunctions::popOrthoView();
+    }
+
+  glEnable(GL_DEPTH_TEST);
 }
 
 void
@@ -1770,14 +1819,14 @@ Viewer::getHit(QMouseEvent *event)
   bool found;
   QPoint scr = event->pos();
   
-  Vec target = pointUnderPixel(scr, found);
+  m_target = pointUnderPixel(scr, found);
 
   if (found)
     {
       int d, w, h;
-      d = target.z;
-      w = target.y;
-      h = target.x;
+      d = m_target.z;
+      w = m_target.y;
+      h = m_target.x;
 
       int b = 0;
       if (event->buttons() == Qt::LeftButton) b = 1;
@@ -1822,6 +1871,7 @@ void
 Viewer::mousePressEvent(QMouseEvent *event)
 {
   m_findHit = false;
+  m_target = Vec(-1,-1,-1);
 
   if (event->modifiers() & Qt::ShiftModifier)
     {
@@ -1841,6 +1891,7 @@ Viewer::mouseReleaseEvent(QMouseEvent *event)
     emit paint3DEnd();
   
   m_findHit = false;
+  m_target = Vec(-1,-1,-1);
 
   QGLViewer::mouseReleaseEvent(event);
 }
@@ -1849,6 +1900,8 @@ Viewer::mouseReleaseEvent(QMouseEvent *event)
 void
 Viewer::mouseMoveEvent(QMouseEvent *event)
 {
+  m_target = Vec(-1,-1,-1);
+
   if (m_findHit)
     {
       getHit(event);

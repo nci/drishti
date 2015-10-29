@@ -3,6 +3,7 @@
 #include "staticfunctions.h"
 #include <math.h>
 #include "graphcut.h"
+#include "morphslice.h"
 
 #include <QFile>
 #include <QLabel>
@@ -2438,7 +2439,6 @@ ImageWidget::curveModeKeyPressEvent(QKeyEvent *event)
 	m_wCurves.flipPolygon(m_currSlice, m_pickHeight, m_pickDepth);
       else
 	m_hCurves.flipPolygon(m_currSlice, m_pickWidth,  m_pickDepth);
-      
       update();
       return true;
     }
@@ -2539,6 +2539,15 @@ ImageWidget::keyPressEvent(QKeyEvent *event)
 
 	  smooth(192, false);
 	}
+    }
+  if (event->key() == Qt::Key_F)
+    {
+      if (!m_applyRecursive) m_extraPressed = false;
+      
+      if (shiftModifier) // apply paint for multiple slices
+	applyRecursive(event->key());
+      
+      shrinkwrapPaintedRegion();
     }
   else if (event->key() == Qt::Key_S) // apply smoothing
     {
@@ -5010,4 +5019,64 @@ ImageWidget::setMinCurveLength(int sz)
   m_dCurves.setShrinkwrapIgnoreSize(sz);
   m_wCurves.setShrinkwrapIgnoreSize(sz);
   m_hCurves.setShrinkwrapIgnoreSize(sz);
+}
+
+void
+ImageWidget::shrinkwrapPaintedRegion()
+{
+  int size1, size2;
+  int imin, imax, jmin, jmax;
+  getSliceLimits(size1, size2, imin, imax, jmin, jmax);
+
+  uchar *maskData = new uchar[m_imgWidth*m_imgHeight];
+  memset(maskData, 0, m_imgWidth*m_imgHeight);
+
+  int idx=0;
+  for(int i=imin; i<=imax; i++)
+    for(int j=jmin; j<=jmax; j++)
+      {
+	maskData[idx] = m_prevtags[i*m_imgWidth+j];
+	idx++;
+      }
+
+  for(int i=0; i<size1*size2; i++)
+    maskData[i] = (maskData[i] == Global::tag() ? 255 : 0);  
+
+  MorphSlice ms;
+  QList<QPolygonF> poly = ms.boundaryCurves(maskData, size1, size2, true);
+
+  for (int npc=0; npc<poly.count(); npc++)
+    {
+      QImage pimg = QImage(size1, size2, QImage::Format_RGB32);
+      pimg.fill(0);
+      QPainter p(&pimg);
+      p.setPen(QPen(Qt::white, 1));
+      p.setBrush(Qt::white);
+      p.drawPolygon(poly[npc]);
+      QRgb *rgb = (QRgb*)(pimg.bits());
+      for(int i=0; i<size1*size2; i++)
+	maskData[i] = (qRed(rgb[i]) > 0 ? 255 : 0);  
+    }
+
+  idx=0;
+  for(int i=imin; i<=imax; i++)
+    for(int j=jmin; j<=jmax; j++)
+      {
+	m_prevtags[i*m_imgWidth+j] = (maskData[idx] > 0 ?
+				      Global::tag() : m_tags[i*m_imgWidth+j]);
+	idx++;
+      }
+
+  memcpy(m_tags, m_prevtags, m_imgWidth*m_imgHeight);
+
+  if (m_sliceType == DSlice)
+    emit tagDSlice(m_currSlice, m_tags);
+  else if (m_sliceType == WSlice)
+    emit tagWSlice(m_currSlice, m_tags);
+  else if (m_sliceType == HSlice)
+    emit tagHSlice(m_currSlice, m_tags);
+
+  setMaskImage(m_tags);
+
+  checkRecursive();
 }

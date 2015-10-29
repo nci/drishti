@@ -130,6 +130,8 @@ class ImageWidget : public QWidget
   void setSegmentLength(int);
   void showTags(QList<int>);
 
+  void shrinkwrapPaintedRegion();
+
  signals :
   void saveWork();
   void viewerUpdate();

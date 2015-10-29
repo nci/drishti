@@ -124,6 +124,16 @@ Ctrl + e : Apply erosion over selected subvolume.
 #end
 
 #begin
+f
+Shift + f
+
+f : Fill interior of region tagged with current tag number.  This only works when the tagged region is hollow.
+
+Shift + f : Repeat interior fill operation over multiple slices.  Press Escape to stop the repeat operation.
+
+#end
+
+#begin
 s
 Shift + s
 Ctrl + s

@@ -11,6 +11,7 @@ using namespace qglviewer;
 #include "fiber.h"
 #include "clipplane.h"
 #include "boundingbox.h"
+#include "mybitarray.h"
 
 class Viewer : public QGLViewer
 {
@@ -90,7 +91,7 @@ class Viewer : public QGLViewer
 
   int m_currSlice, m_currSliceType;
 
-  QBitArray m_bitmask;
+  MyBitArray m_bitmask;
   bool m_paintHit, m_carveHit;
   Vec m_target;
 

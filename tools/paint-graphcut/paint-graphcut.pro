@@ -58,6 +58,7 @@ HEADERS += commonqtclasses.h \
 	gradienteditor.h \
 	gradienteditorwidget.h \
         livewire.h \
+	mybitarray.h \
 	myslider.h \
 	mymanipulatedframe.h \
  	morphcurve.h \
@@ -109,6 +110,7 @@ SOURCES += drishtipaint.cpp \
 	gradienteditor.cpp \
 	gradienteditorwidget.cpp \
         livewire.cpp \
+	mybitarray.cpp \
 	myslider.cpp \
 	mymanipulatedframe.cpp \
  	morphcurve.cpp \

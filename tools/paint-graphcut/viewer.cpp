@@ -432,7 +432,8 @@ Viewer::setGridSize(int d, int w, int h)
   m_width = w;
   m_height = h;
 
-  m_bitmask.resize((qint64)m_depth*m_width*m_height);
+  qint64 bsz = (qint64)m_depth*(qint64)m_width*(qint64)m_height;
+  m_bitmask.resize(bsz);
   m_bitmask.fill(true);
 
   m_minDSlice = 0;
@@ -1429,15 +1430,15 @@ Viewer::drawVol()
   int nv = m_voxels.count()/4;
   for(int i=0; i<nv; i++)
     {
-      int d = m_voxels[4*i+0];
+      qint64 d = m_voxels[4*i+0];
       int w = m_voxels[4*i+1];
       int h = m_voxels[4*i+2];
 
       qint64 idx = d*m_width*m_height + w*m_height + h;
-      if (!m_bitmask.testBit(idx) || // carved
-	  d < bmin.z || d > bmax.z ||
+      if (d < bmin.z || d > bmax.z ||
 	  w < bmin.y || w > bmax.y ||
-	  h < bmin.x || h > bmax.x)
+	  h < bmin.x || h > bmax.x ||
+	  !m_bitmask.testBit(idx)) // carved
 	{}
       else
 	{
@@ -2021,7 +2022,7 @@ Viewer::carve(int d, int w, int h, bool b)
   we = qMin(m_maxWSlice, w+rad);
   hs = qMax(m_minHSlice, h-rad);
   he = qMin(m_maxHSlice, h+rad);
-  for(int dd=ds; dd<=de; dd++)
+  for(qint64 dd=ds; dd<=de; dd++)
     for(int ww=ws; ww<=we; ww++)
       for(int hh=hs; hh<=he; hh++)
 	{

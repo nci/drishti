@@ -59,6 +59,7 @@ class StaticFunctions
 
   static void drawEnclosingCube(Vec, Vec);
 
+  static int intersectType1(Vec, Vec, Vec, Vec, Vec&);
 };
 
 #endif

@@ -59,12 +59,10 @@ class Viewer : public QGLViewer
     void setHSlice(int);
     void setShowSlices(bool);
     void updateSlices();
-
-    void getHit(QMouseEvent*);
-    Vec pointUnderPixel(QPoint, bool&);
-
+    void uploadMask(int,int,int, int,int,int);
+    
  signals :
-    void paint3D(int, int, int, int, int);
+    void paint3D(int, int, int, int, int, int);
     void paint3DEnd();
 
     void updateSliceBounds(Vec, Vec);
@@ -74,7 +72,9 @@ class Viewer : public QGLViewer
 
   BoundingBox m_boundingBox;
 
-  int m_depth, m_width, m_height;
+  float m_memSize;
+
+  qint64 m_depth, m_width, m_height;
   int m_minDSlice, m_maxDSlice;
   int m_minWSlice, m_maxWSlice;
   int m_minHSlice, m_maxHSlice;
@@ -125,16 +125,36 @@ class Viewer : public QGLViewer
   GLuint m_rboId;
   GLuint m_slcTex[2];
 
+  GLuint m_dataTex;
+  GLuint m_maskTex;
+  GLuint m_tagTex;
+  GLuint m_lutTex;
+  int m_sslevel;
+  Vec m_corner, m_vsize;
+
   ClipPlanes* m_clipPlanes;
 
   GLhandleARB m_depthShader;
-  GLint m_depthParm[50];
+  GLint m_depthParm[20];
 
   GLhandleARB m_finalPointShader;
-  GLint m_fpsParm[50];
+  GLint m_fpsParm[20];
 
   GLhandleARB m_blurShader;
-  GLint m_blurParm[5];
+  GLint m_blurParm[20];
+
+  GLhandleARB m_sliceShader;
+  GLint m_sliceParm[20];
+
+  GLhandleARB m_rcShader;
+  GLint m_rcParm[20];
+
+  GLhandleARB m_eeShader;
+  GLint m_eeParm[20];
+
+
+  bool m_fullRender;
+  bool m_dragMode;
 
   void drawBox();
 
@@ -165,17 +185,30 @@ class Viewer : public QGLViewer
   void drawEnclosingCube(Vec, Vec);
   void drawCurrentSlice(Vec, Vec);
 
-  void drawSlices();
-
   bool clip(int, int, int);
   void drawClip();
 
+  void createRaycastShader();
   void createShaders();
   void createFBO();
 
   void drawInfo();
 
   void carve(int, int, int, bool);
+
+  void drawSlices();
+  void drawClipSlices();
+  int drawPoly(Vec, Vec, Vec*);
+
+  void drawBox(GLenum);
+
+  void volumeRaycast(float, float, bool);
+
+  Vec pointUnderPixel(QPoint, bool&);
+  Vec pointUnderPixel_RC(QPoint, bool&);
+  void getHit(QMouseEvent*);
+  
+  void setTextureMemorySize();
 };
 
 #endif

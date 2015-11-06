@@ -142,6 +142,27 @@ ShaderFactory::loadShader(GLhandleARB &progObj,
 }
 
 QString
+ShaderFactory::genSliceShader()
+{
+  QString shader;
+
+  shader =  "#extension GL_ARB_texture_rectangle : enable\n";
+  shader += "uniform sampler3D dataTex;\n";
+  shader += "uniform sampler2D lutTex;\n";
+  shader += "void main(void)\n";
+  shader += "{\n";
+
+  shader += "float val = texture3D(dataTex, gl_TexCoord[0].xyz).x;\n";
+  shader += "vec4 color = texture2D(lutTex, vec2(val,0.0));\n";
+  shader += "gl_FragColor = color;\n";    
+
+  shader += "}\n";
+
+  return shader;
+}
+
+
+QString
 ShaderFactory::genDepthShader()
 {
   QString shader;
@@ -272,7 +293,8 @@ ShaderFactory::genRectBlurShaderString(int filter)
       shader += "    sum += fi;\n";
       shader += "  }\n";
 
-      shader += "  gl_FragColor.rgba = vec4(col/sum, color.yz, 1.0);\n";
+      shader += "  gl_FragColor.rgba = vec4(col/sum, color.yz, col/sum);\n";
+      //shader += "  gl_FragColor.rgba = vec4(col/sum, color.yz, 1.0);\n";
     }
   else if (filter == 2)
     { // gaussian filter
@@ -329,3 +351,168 @@ ShaderFactory::genRectBlurShaderString(int filter)
   return shader;
 }
 
+
+QString
+ShaderFactory::genRaycastShader(bool firstHit)
+{
+  QString shader;
+
+  shader =  "#extension GL_ARB_texture_rectangle : enable\n";
+  shader += "uniform sampler3D dataTex;\n";
+  shader += "uniform sampler2D lutTex;\n";
+  shader += "uniform sampler2DRect exitTex;\n";
+  shader += "uniform float stepSize;\n";
+  shader += "uniform vec3 eyepos;\n";
+  shader += "uniform vec3 viewDir;\n";
+  shader += "uniform vec3 vcorner;\n";
+  shader += "uniform vec3 vsize;\n";
+  shader += "uniform float minZ;\n";
+  shader += "uniform float maxZ;\n";  
+  shader += "uniform sampler3D maskTex;\n";
+  shader += "uniform bool saveCoord;\n";
+
+  shader += "void main(void)\n";
+  shader += "{\n";
+
+  shader += "vec3 exitPoint = texture2DRect(exitTex, gl_FragCoord.st).rgb;\n";
+  shader += "vec3 entryPoint = gl_Color.rgb;\n";
+
+  shader += "vec3 dir = (exitPoint-entryPoint);\n";
+  shader += "float len = length(dir);\n";
+  shader += "if (len < 0.001) discard;\n";
+
+  shader += "vec3 deltaDir = normalize(dir)*stepSize;\n";
+  shader += "float deltaDirLen = length(deltaDir);\n";
+
+  shader += "vec3 voxelCoord = entryPoint;\n";
+  shader += "vec4 colorAcum = vec4(0.0);\n"; // The dest color
+  shader += "float lengthAcum = 0.0;\n";
+
+  // backgroundColor
+  shader += "vec4 bgColor = vec4(0.0, 0.0, 0.0, 0.0);\n";
+  
+  shader += "for(int i=0; i<2000; i++)\n";
+  shader += "{\n";
+  shader += "  float val = texture3D(dataTex, voxelCoord).x;\n";
+  shader += "  vec4 colorSample = texture2D(lutTex, vec2(val,0.0));\n";
+  shader += "  colorSample.rgb *= colorSample.a;\n";
+  shader += "  colorAcum += (1.0 - colorAcum.a) * colorSample;\n";
+
+  if (firstHit)
+    {
+      shader += "  if (colorAcum.a > 0.001 )\n";
+      shader += "    {\n";  
+      shader += "      if (saveCoord)";
+      shader += "        colorAcum = vec4(voxelCoord,1.0);\n";
+      shader += "      else";
+      shader += "        {\n";  
+      shader += "          vec3 voxpos = vcorner + voxelCoord*vsize;";
+      shader += "          vec3 I = voxpos - eyepos;\n";
+      //shader += "          float z = dot(I, viewDir);\n";
+      shader += "          float z = dot(I, normalize(dir));\n";
+      shader += "          z = (z-minZ)/(maxZ-minZ);\n";
+      shader += "          z = clamp(z, 0.0, 1.0);\n";
+      shader += "          float tag = texture3D(maskTex, voxelCoord).x;\n";
+      shader += "          tag = max(tag, texture3D(maskTex, voxelCoord+vec3(deltaDir.x,0,0)).x);\n";
+      shader += "          tag = max(tag, texture3D(maskTex, voxelCoord+vec3(0,deltaDir.y,0)).x);\n";
+      shader += "          tag = max(tag, texture3D(maskTex, voxelCoord+vec3(0,0,deltaDir.z)).x);\n";
+      shader += "          colorAcum = vec4(z,tag,1.0-z,1.0);\n";
+      shader += "        }\n";  
+      shader += "      break;\n";
+      shader += "    }\n";
+    }
+
+  shader += "  if (lengthAcum >= len )\n";
+  shader += "    {\n";
+  shader += "      colorAcum.rgb = colorAcum.rgb*colorAcum.a + (1 - colorAcum.a)*bgColor.rgb;\n";
+  shader += "      break;\n";  // terminate if opacity > 1 or the ray is outside the volume	
+  shader += "    }\n";
+  shader += "  else if (colorAcum.a > 1.0)\n";
+  shader += "    {\n";
+  shader += "      colorAcum.a = 1.0;\n";
+  shader += "      break;\n";
+  shader += "    }\n";
+
+  shader += "  voxelCoord += deltaDir;\n";
+  shader += "  lengthAcum += deltaDirLen;\n";
+
+  shader += "}\n";
+
+  shader += "gl_FragColor = colorAcum;\n";    
+
+  shader += "}\n";
+
+  return shader;
+}
+
+QString
+ShaderFactory::genEdgeEnhanceShader()
+{
+  QString shader;
+
+  shader =  "#extension GL_ARB_texture_rectangle : enable\n";
+  shader += "varying vec3 pointpos;\n";
+  shader += "uniform sampler1D tagTex;\n";
+  shader += "uniform sampler2DRect blurTex;\n";
+  shader += "uniform float minZ;\n";
+  shader += "uniform float maxZ;\n";
+  shader += "uniform vec3 eyepos;\n";
+  shader += "uniform vec3 viewDir;\n";
+  shader += "uniform float dzScale;\n";
+  shader += "void main(void)\n";
+  shader += "{\n";
+  shader += "  gl_FragColor = vec4(0.0);\n";
+
+  shader += "  vec2 spos = gl_FragCoord.xy;\n";
+  shader += "  vec3 dval = texture2DRect(blurTex, spos).xyw;\n";
+
+  shader += "  float alpha = dval.z;\n";
+  shader += "  if (alpha < 0.01) discard;\n";
+  //shader += "  if (alpha < 0.01) return;\n";
+
+  shader += "  float depth = dval.x;\n";
+  shader += "  float tag = dval.y;\n";
+
+  // find depth gradient
+  shader += "  float dx = texture2DRect(blurTex, spos+vec2(1.0,0.0)).x - texture2DRect(blurTex, spos-vec2(1.0,0.0)).x;\n";
+  shader += "  float dy = texture2DRect(blurTex, spos+vec2(0.0,1.0)).x - texture2DRect(blurTex, spos-vec2(0.0,1.0)).x;\n";
+  shader += "  vec3 norm = normalize(vec3(dx, dy, dzScale/(maxZ-minZ)));\n";
+  
+  // compute obscurance
+  shader += "  float ege1 = 0.01;\n";
+  shader += "  float ege2 = 0.03;\n";
+  shader += "  float sum = 0.0;\n";
+  shader += "  float od = 0.0;\n";
+
+  shader += "  float cx[16] = {-1.5, 1.5, 0.0, 0.0,-2.5,-2.5, 2.5, 2.5,-3.5, 3.5, 0.0, 0.0,-4.5,-4.5, 4.5, 4.5};\n";
+  shader += "  float cy[16] = { 0.0, 0.0,-1.5, 1.5,-2.5, 2.5,-2.5, 2.5, 0.0, 0.0,-3.5, 3.5,-4.5, 4.5,-4.5, 4.5};\n";
+
+  shader += "  for(int i=0; i<8; i++)\n";
+  shader += "  {\n";
+  shader += "    float od = depth - texture2DRect(blurTex, spos+vec2(cx[i],cy[i])).x;\n";
+  shader += "    sum += step(ege1, od);\n";
+  shader += "  }\n";
+
+  shader += "  for(int i=8; i<16; i++)\n";
+  shader += "  {\n";
+  shader += "    float od = depth - texture2DRect(blurTex, spos+vec2(cx[i],cy[i])).x;\n";
+  shader += "    sum += step(ege2, od);\n";
+  shader += "  }\n";
+
+  shader += "  float f = 0.2+0.8*(1.0-sum/16.0);\n";
+
+  //shader += "  gl_FragColor = vec4(f*norm.z*gl_Color.rgb, 1.0);\n";
+  //-----------------------
+
+
+  //-----------------------
+  shader += "  vec3 color = vec3(0.0);\n";
+  shader += "  color = texture1D(tagTex, tag).rgb;\n";
+  shader += "  if (tag < 0.001) color = gl_Color.rgb;\n";
+  shader += "  gl_FragColor = vec4(f*norm.z*color.rgb, 1.0);\n";
+  //-----------------------
+
+  shader += "}\n";
+
+  return shader;
+}

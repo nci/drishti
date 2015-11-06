@@ -14,6 +14,13 @@ class ShaderFactory
   static QString genFinalPointShader();
 
   static QString genRectBlurShaderString(int);
+
+  static QString genSliceShader();
+
+  static QString genRaycastShader(bool);
+
+  static QString genEdgeEnhanceShader();
+
 };
 
 #endif

@@ -681,3 +681,22 @@ StaticFunctions::drawEnclosingCube(Vec subvolmin,
   glEnd();  
 }
 
+int
+StaticFunctions::intersectType1(Vec po, Vec pn,
+				Vec v0, Vec v1,
+				Vec &v)
+{
+  Vec v1m0 = v1-v0;
+  float deno = pn*v1m0;
+  if (fabs(deno) > 0.0001)
+    {
+      float t = pn*(po - v0)/deno;
+      if (t >= 0 && t <= 1)
+	{
+	  v = v0 + v1m0*t;
+	  return 1;
+	}
+    }
+  return 0;
+}
+

@@ -3966,48 +3966,48 @@ DrishtiPaint::paint3D(int d, int w, int h, int button, int otag, int sslevel)
 	      int r =  lut[4*val+2];
 	      int g =  lut[4*val+1];
 	      int b =  lut[4*val+0];
-//	      if (r + g + b > 10)
-//		bitmask[(dd-ds)*dm2 + (ww-ws)*dm + (hh-hs)] = 1;
 	      if (r + g + b > 10)
-		maskData[dd*m_width*m_height + ww*m_height + hh] = tag;
+		bitmask[(dd-ds)*dm2 + (ww-ws)*dm + (hh-hs)] = 1;
+//	      if (r + g + b > 10)
+//		maskData[dd*m_width*m_height + ww*m_height + hh] = tag;
 	    }
 	}
 
-//  // tag only connected region
-//  bitmask[(d-ds)*dm2 + (w-ws)*dm + (h-hs)] = 2;
-//  maskData[d*m_width*m_height + w*m_height + h] = tag;
-//
-//  QStack<Vec> stack;
-//  stack.push(Vec(d, w, h));
-//
-//  bool done = false;
-//  while(!stack.isEmpty())
-//    {
-//      Vec dwh = stack.pop();
-//      int dx = dwh.x;
-//      int wx = dwh.y;
-//      int hx = dwh.z;
-//
-//      int d0 = qMax(dx-1, minDSlice);
-//      int d1 = qMin(dx+1, maxDSlice);
-//      int w0 = qMax(wx-1, minWSlice);
-//      int w1 = qMin(wx+1, maxWSlice);
-//      int h0 = qMax(hx-1, minHSlice);
-//      int h1 = qMin(hx+1, maxHSlice);
-//
-//      for(int d2=d0; d2<=d1; d2++)
-//	for(int w2=w0; w2<=w1; w2++)
-//	  for(int h2=h0; h2<=h1; h2++)
-//	    {
-//	      if (bitmask[(d2-ds)*dm2 + (w2-ws)*dm + (h2-hs)] == 1)
-//		{
-//		  bitmask[(d2-ds)*dm2 + (w2-ws)*dm + (h2-hs)] = 2;
-//		  maskData[d2*m_width*m_height + w2*m_height + h2] = tag;
-//		  stack.push(Vec(d2,w2,h2));
-//		}
-//	    }
-//    }
-//  delete [] bitmask;
+  // tag only connected region
+  bitmask[(d-ds)*dm2 + (w-ws)*dm + (h-hs)] = 2;
+  maskData[d*m_width*m_height + w*m_height + h] = tag;
+
+  QStack<Vec> stack;
+  stack.push(Vec(d, w, h));
+
+  bool done = false;
+  while(!stack.isEmpty())
+    {
+      Vec dwh = stack.pop();
+      int dx = dwh.x;
+      int wx = dwh.y;
+      int hx = dwh.z;
+
+      int d0 = qMax(dx-1, minDSlice);
+      int d1 = qMin(dx+1, maxDSlice);
+      int w0 = qMax(wx-1, minWSlice);
+      int w1 = qMin(wx+1, maxWSlice);
+      int h0 = qMax(hx-1, minHSlice);
+      int h1 = qMin(hx+1, maxHSlice);
+
+      for(int d2=d0; d2<=d1; d2++)
+	for(int w2=w0; w2<=w1; w2++)
+	  for(int h2=h0; h2<=h1; h2++)
+	    {
+	      if (bitmask[(d2-ds)*dm2 + (w2-ws)*dm + (h2-hs)] == 1)
+		{
+		  bitmask[(d2-ds)*dm2 + (w2-ws)*dm + (h2-hs)] = 2;
+		  maskData[d2*m_width*m_height + w2*m_height + h2] = tag;
+		  stack.push(Vec(d2,w2,h2));
+		}
+	    }
+    }
+  delete [] bitmask;
 
   getSlice(m_currSlice);
 

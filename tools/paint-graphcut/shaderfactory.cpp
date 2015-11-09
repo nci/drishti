@@ -358,6 +358,8 @@ ShaderFactory::genRaycastShader(bool firstHit)
   QString shader;
 
   shader =  "#extension GL_ARB_texture_rectangle : enable\n";
+  shader += "uniform sampler3D maskTex;\n";
+  shader += "uniform sampler1D tagTex;\n";
   shader += "uniform sampler3D dataTex;\n";
   shader += "uniform sampler2D lutTex;\n";
   shader += "uniform sampler2DRect exitTex;\n";
@@ -368,8 +370,8 @@ ShaderFactory::genRaycastShader(bool firstHit)
   shader += "uniform vec3 vsize;\n";
   shader += "uniform float minZ;\n";
   shader += "uniform float maxZ;\n";  
-  shader += "uniform sampler3D maskTex;\n";
   shader += "uniform bool saveCoord;\n";
+  shader += "uniform int skipLayers;\n";
 
   shader += "void main(void)\n";
   shader += "{\n";
@@ -391,12 +393,34 @@ ShaderFactory::genRaycastShader(bool firstHit)
   // backgroundColor
   shader += "vec4 bgColor = vec4(0.0, 0.0, 0.0, 0.0);\n";
   
+  shader += "bool gotFirstHit = false;\n";
+  shader += "int nskipped = -1;\n"; 
   shader += "for(int i=0; i<2000; i++)\n";
   shader += "{\n";
   shader += "  float val = texture3D(dataTex, voxelCoord).x;\n";
   shader += "  vec4 colorSample = texture2D(lutTex, vec2(val,0.0));\n";
-  shader += "  colorSample.rgb *= colorSample.a;\n";
-  shader += "  colorAcum += (1.0 - colorAcum.a) * colorSample;\n";
+  shader += "  if (!gotFirstHit && colorSample.a > 0.001) gotFirstHit = true;\n";  
+  shader += "  if (gotFirstHit && nskipped > skipLayers)\n";
+  shader += "  {\n";
+  shader += "    float tag = texture3D(maskTex, voxelCoord).x;\n";
+  shader += "    tag = max(tag, texture3D(maskTex, voxelCoord+vec3(deltaDir.x,0,0)).x);\n";
+  shader += "    tag = max(tag, texture3D(maskTex, voxelCoord+vec3(0,deltaDir.y,0)).x);\n";
+  shader += "    tag = max(tag, texture3D(maskTex, voxelCoord+vec3(0,0,deltaDir.z)).x);\n";
+  shader += "    tag = max(tag, texture3D(maskTex, voxelCoord-vec3(deltaDir.x,0,0)).x);\n";
+  shader += "    tag = max(tag, texture3D(maskTex, voxelCoord-vec3(0,deltaDir.y,0)).x);\n";
+  shader += "    tag = max(tag, texture3D(maskTex, voxelCoord-vec3(0,0,deltaDir.z)).x);\n";
+  shader += "    vec3 tagcolor = texture1D(tagTex, tag).rgb;\n";
+  shader += "    if (tag < 0.001) tagcolor = colorSample.rgb;\n";
+  shader += "    colorSample.rgb = mix(colorSample.rgb, tagcolor, 0.5);\n";
+
+  shader += "    colorSample.rgb *= colorSample.a;\n";
+
+  shader += "    if (tag > 254.0/255.0) colorSample = vec4(0.0);\n"; // carving
+
+  shader += "    colorAcum += (1.0 - colorAcum.a) * colorSample;\n";
+
+  shader += "      if (colorAcum.a > 0.001 && saveCoord)";
+  shader += "        { colorAcum = vec4(voxelCoord,1.0); break; }\n";
 
   if (firstHit)
     {
@@ -412,15 +436,13 @@ ShaderFactory::genRaycastShader(bool firstHit)
       shader += "          float z = dot(I, normalize(dir));\n";
       shader += "          z = (z-minZ)/(maxZ-minZ);\n";
       shader += "          z = clamp(z, 0.0, 1.0);\n";
-      shader += "          float tag = texture3D(maskTex, voxelCoord).x;\n";
-      shader += "          tag = max(tag, texture3D(maskTex, voxelCoord+vec3(deltaDir.x,0,0)).x);\n";
-      shader += "          tag = max(tag, texture3D(maskTex, voxelCoord+vec3(0,deltaDir.y,0)).x);\n";
-      shader += "          tag = max(tag, texture3D(maskTex, voxelCoord+vec3(0,0,deltaDir.z)).x);\n";
       shader += "          colorAcum = vec4(z,tag,1.0-z,1.0);\n";
       shader += "        }\n";  
       shader += "      break;\n";
       shader += "    }\n";
     }
+
+  shader += "  }\n";
 
   shader += "  if (lengthAcum >= len )\n";
   shader += "    {\n";
@@ -436,6 +458,7 @@ ShaderFactory::genRaycastShader(bool firstHit)
   shader += "  voxelCoord += deltaDir;\n";
   shader += "  lengthAcum += deltaDirLen;\n";
 
+  shader += "  if (gotFirstHit) nskipped++;\n";
   shader += "}\n";
 
   shader += "gl_FragColor = colorAcum;\n";    

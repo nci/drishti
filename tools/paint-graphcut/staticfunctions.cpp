@@ -1,6 +1,38 @@
 #include "staticfunctions.h"
 #include <math.h>
 
+Vec
+StaticFunctions::clampVec(Vec minv, Vec maxv, Vec v)
+{
+  Vec cv;
+  cv.x = qBound(minv.x, v.x, maxv.x);
+  cv.y = qBound(minv.y, v.y, maxv.y);
+  cv.z = qBound(minv.z, v.z, maxv.z);
+
+  return cv;
+}
+
+Vec
+StaticFunctions::maxVec(Vec a, Vec b)
+{
+  Vec cv;
+  cv.x = qMax(a.x, b.x);
+  cv.y = qMax(a.y, b.y);
+  cv.z = qMax(a.z, b.z);
+
+  return cv;
+}
+
+Vec
+StaticFunctions::minVec(Vec a, Vec b)
+{
+  Vec cv;
+  cv.x = qMin(a.x, b.x);
+  cv.y = qMin(a.y, b.y);
+  cv.z = qMin(a.z, b.z);
+
+  return cv;
+}
 
 QGradientStops
 StaticFunctions::resampleGradientStops(QGradientStops stops, int mapSize)

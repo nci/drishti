@@ -73,6 +73,7 @@ class Viewer : public QGLViewer
   BoundingBox m_boundingBox;
 
   float m_memSize;
+  int m_skipLayers;
 
   qint64 m_depth, m_width, m_height;
   int m_minDSlice, m_maxDSlice;

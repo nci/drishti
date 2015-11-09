@@ -38,6 +38,8 @@ Viewer::Viewer(QWidget *parent) :
   m_vsize = Vec(1,1,1);
   m_sslevel = 1;
 
+  m_skipLayers = 0;
+
   m_glewInitdone = false;
 
   init();
@@ -113,6 +115,7 @@ Viewer::GlewInit()
 void
 Viewer::init()
 {
+  m_skipLayers = 0;
   m_fullRender = false;
   m_dragMode = true;
 
@@ -312,6 +315,8 @@ Viewer::createRaycastShader()
   m_rcParm[9] = glGetUniformLocationARB(m_rcShader, "maxZ");
   m_rcParm[10]= glGetUniformLocationARB(m_rcShader, "maskTex");
   m_rcParm[11]= glGetUniformLocationARB(m_rcShader, "saveCoord");
+  m_rcParm[12]= glGetUniformLocationARB(m_rcShader, "skipLayers");
+  m_rcParm[13]= glGetUniformLocationARB(m_rcShader, "tagTex");
 }
 
 void
@@ -578,6 +583,20 @@ Viewer::keyPressEvent(QKeyEvent *event)
 	  else
 	    m_clipPlanes->show();
 	}
+      return;
+    }
+
+
+  if (event->key() == Qt::Key_Plus ||
+      event->key() == Qt::Key_Minus)
+    {
+      if (event->key() == Qt::Key_Plus)
+	m_skipLayers++;
+
+      if (event->key() == Qt::Key_Minus)
+	m_skipLayers = qMax(m_skipLayers-1, 0);
+
+      update();
       return;
     }
 
@@ -2543,25 +2562,57 @@ void
 Viewer::drawBox(GLenum glFaces)
 {
   Vec box[8];
-  box[0] = Vec(m_minHSlice, m_minWSlice, m_minDSlice);
-  box[1] = Vec(m_minHSlice, m_minWSlice, m_maxDSlice);
-  box[2] = Vec(m_minHSlice, m_maxWSlice, m_minDSlice);
-  box[3] = Vec(m_minHSlice, m_maxWSlice, m_maxDSlice);
-  box[4] = Vec(m_maxHSlice, m_minWSlice, m_minDSlice);
-  box[5] = Vec(m_maxHSlice, m_minWSlice, m_maxDSlice);
-  box[6] = Vec(m_maxHSlice, m_maxWSlice, m_minDSlice);
-  box[7] = Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice);
+//  box[0] = Vec(m_minHSlice, m_minWSlice, m_minDSlice);
+//  box[1] = Vec(m_minHSlice, m_minWSlice, m_maxDSlice);
+//  box[2] = Vec(m_minHSlice, m_maxWSlice, m_minDSlice);
+//  box[3] = Vec(m_minHSlice, m_maxWSlice, m_maxDSlice);
+//  box[4] = Vec(m_maxHSlice, m_minWSlice, m_minDSlice);
+//  box[5] = Vec(m_maxHSlice, m_minWSlice, m_maxDSlice);
+//  box[6] = Vec(m_maxHSlice, m_maxWSlice, m_minDSlice);
+//  box[7] = Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice);
+
+  Vec bmin, bmax;
+  m_boundingBox.bounds(bmin, bmax);
+
+  bmin = StaticFunctions::maxVec(bmin, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
+  bmax = StaticFunctions::minVec(bmax, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
+
+  box[0] = Vec(bmin.x,bmin.y,bmin.z);
+  box[1] = Vec(bmin.x,bmin.y,bmax.z);
+  box[2] = Vec(bmin.x,bmax.y,bmin.z);
+  box[3] = Vec(bmin.x,bmax.y,bmax.z);
+  box[4] = Vec(bmax.x,bmin.y,bmin.z);
+  box[5] = Vec(bmax.x,bmin.y,bmax.z);
+  box[6] = Vec(bmax.x,bmax.y,bmin.z);
+  box[7] = Vec(bmax.x,bmax.y,bmax.z);
+
+  float xmin, xmax, ymin, ymax, zmin, zmax;
+  xmin = (bmin.x-m_minHSlice)/(m_maxHSlice-m_minHSlice);
+  xmax = (bmax.x-m_minHSlice)/(m_maxHSlice-m_minHSlice);
+  ymin = (bmin.y-m_minWSlice)/(m_maxWSlice-m_minWSlice);
+  ymax = (bmax.y-m_minWSlice)/(m_maxWSlice-m_minWSlice);
+  zmin = (bmin.z-m_minDSlice)/(m_maxDSlice-m_minDSlice);
+  zmax = (bmax.z-m_minDSlice)/(m_maxDSlice-m_minDSlice);
 
   Vec col[8];
-  col[0] = Vec(0,0,0);
-  col[1] = Vec(0,0,1);
-  col[2] = Vec(0,1,0);
-  col[3] = Vec(0,1,1);
-  col[4] = Vec(1,0,0);
-  col[5] = Vec(1,0,1);
-  col[6] = Vec(1,1,0);
-  col[7] = Vec(1,1,1);
+//  col[0] = Vec(0,0,0);
+//  col[1] = Vec(0,0,1);
+//  col[2] = Vec(0,1,0);
+//  col[3] = Vec(0,1,1);
+//  col[4] = Vec(1,0,0);
+//  col[5] = Vec(1,0,1);
+//  col[6] = Vec(1,1,0);
+//  col[7] = Vec(1,1,1);
 
+  col[0] = Vec(xmin,ymin,zmin);
+  col[1] = Vec(xmin,ymin,zmax);
+  col[2] = Vec(xmin,ymax,zmin);
+  col[3] = Vec(xmin,ymax,zmax);
+  col[4] = Vec(xmax,ymin,zmin);
+  col[5] = Vec(xmax,ymin,zmax);
+  col[6] = Vec(xmax,ymax,zmin);
+  col[7] = Vec(xmax,ymax,zmax);
+;
 // front: 1 5 7 3
 // back: 0 2 6 4
 // left:0 1 3 2
@@ -2637,7 +2688,7 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
 
 
   //----------------------------
-  if (!m_fullRender)
+  if (!m_fullRender || firstPartOnly)
     {
       glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
       glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
@@ -2648,8 +2699,8 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
       glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
     }
 
-  float stepsize = 1.0/qMax(m_vsize.x,qMax(m_vsize.y,m_vsize.z));
-  if (m_dragMode && !(m_paintHit || m_carveHit)) stepsize *= 5;
+  float stepsize = 0.7/qMax(m_vsize.x,qMax(m_vsize.y,m_vsize.z));
+  if (m_dragMode && !(m_paintHit || m_carveHit)) stepsize *= 2;
 
 
   glUseProgramObjectARB(m_rcShader);
@@ -2664,7 +2715,9 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
   glUniform1fARB(m_rcParm[8], minZ); // minZ
   glUniform1fARB(m_rcParm[9], maxZ); // maxZ
   glUniform1iARB(m_rcParm[10],4); // maskTex
-  glUniform1iARB(m_rcParm[11],firstPartOnly); // maskTex
+  glUniform1iARB(m_rcParm[11],firstPartOnly); // save voxel coordinates
+  glUniform1iARB(m_rcParm[12],m_skipLayers); // skip first layers
+  glUniform1iARB(m_rcParm[13],5); // tagTex
 
   glActiveTexture(GL_TEXTURE1);
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
@@ -2695,9 +2748,25 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
 	       GL_UNSIGNED_BYTE,
 	       lut);
 
+  uchar *tagColors = Global::tagColors();
+  glActiveTexture(GL_TEXTURE5);
+  glEnable(GL_TEXTURE_1D);
+  glBindTexture(GL_TEXTURE_1D, m_tagTex);
+  glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+  glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER,GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER,GL_NEAREST);
+  glTexImage1D(GL_TEXTURE_1D,
+	       0, // single resolution
+	       GL_RGBA,
+	       256,
+	       0, // no border
+	       GL_RGBA,
+	       GL_UNSIGNED_BYTE,
+	       tagColors);
+
   drawBox(GL_BACK);
 
-  if (!m_fullRender)
+  if (!m_fullRender || firstPartOnly)
     glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
   //----------------------------
 
@@ -2709,6 +2778,9 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
       glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
       glUseProgramObjectARB(0);
       
+      glActiveTexture(GL_TEXTURE5);
+      glDisable(GL_TEXTURE_1D);
+
       glActiveTexture(GL_TEXTURE3);
       glDisable(GL_TEXTURE_2D);
       
@@ -2761,12 +2833,12 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
       StaticFunctions::drawQuad(0, 0, wd, ht, 1);
       StaticFunctions::popOrthoView();
       //----------------------------
-
-      glActiveTexture(GL_TEXTURE5);
-      glDisable(GL_TEXTURE_1D);
     }
 
   glUseProgramObjectARB(0);
+
+  glActiveTexture(GL_TEXTURE5);
+  glDisable(GL_TEXTURE_1D);
 
   glActiveTexture(GL_TEXTURE3);
   glDisable(GL_TEXTURE_2D);

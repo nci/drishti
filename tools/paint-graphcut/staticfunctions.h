@@ -20,6 +20,10 @@ using namespace qglviewer;
 class StaticFunctions
 {
  public :
+  static Vec clampVec(Vec, Vec, Vec);
+  static Vec maxVec(Vec, Vec);
+  static Vec minVec(Vec, Vec);
+
   static QGradientStops resampleGradientStops(QGradientStops, int mapSize = 100);
   static void initQColorDialog();
 

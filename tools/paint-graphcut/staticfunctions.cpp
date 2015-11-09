@@ -732,3 +732,108 @@ StaticFunctions::intersectType1(Vec po, Vec pn,
   return 0;
 }
 
+int
+StaticFunctions::intersectType1WithTexture(Vec po, Vec pn,
+					   Vec v0, Vec v1,
+					   Vec t0, Vec t1,
+					   Vec &v, Vec &t)
+{
+  Vec v1m0 = v1-v0;
+  float deno = pn*v1m0;
+  if (fabs(deno) > 0.0001)
+    {
+      float a = pn*(po - v0)/deno;
+      if (a >= 0 && a <= 1)
+	{
+	  v = v0 + v1m0*a;
+	  t = t0 + (t1-t0)*a;
+	  return 1;
+	}
+    }
+  return 0;
+}
+
+int
+StaticFunctions::intersectType2(Vec Po, Vec Pn, Vec& v0, Vec& v1)
+{
+  float d0, d1;
+  d0 = Pn*(v0-Po); 
+  d1 = Pn*(v1-Po); 
+
+  if (d0 > 0 && d1 > 0)
+    // both points are clipped
+    return 0;
+
+  if (d0 <= 0 && d1 <= 0)
+    // both points not clipped
+    return 1;
+
+  Vec Rnew, Rd;
+  float RdPn;
+
+  Rd = v1-v0;
+  
+  if (d0 > 0)
+    Rd = -Rd;
+  
+  RdPn = Rd*Pn;
+
+  if (d1 > 0) 
+    {
+      v1 = v0 + Rd * (((Po-v0)*Pn)/RdPn);
+      return 2;
+    }
+  else
+    {
+      v0 = v1 + Rd * (((Po-v1)*Pn)/RdPn);
+      return 1;
+    }
+}
+
+int
+StaticFunctions::intersectType2WithTexture(Vec Po, Vec Pn,
+					   Vec& v0, Vec& v1,
+					   Vec& t0, Vec& t1)
+{
+  float d0, d1;
+  d0 = Pn*(v0-Po); 
+  d1 = Pn*(v1-Po); 
+
+  if (d0 > 0 && d1 > 0)
+    // both points are clipped
+    return 0;
+
+  if (d0 <= 0 && d1 <= 0)
+    // both points not clipped
+    return 1;
+
+  Vec Td, Rd;
+  float RdPn;
+
+  Rd = v1-v0;
+  Td = t1-t0;
+
+  if (d0 > 0)
+    {
+      Rd = -Rd;
+      Td = -Td;
+    }
+  
+  RdPn = Rd*Pn;
+
+  if (d1 > 0) 
+    {
+      float a = Pn*(Po-v0)/RdPn;
+      v1 = v0 + Rd*a;
+      t1 = t0 + Td*a;
+      return 2;
+    }
+  else
+    {
+      float a = Pn*(Po-v1)/RdPn;
+      v0 = v1 + Rd*a;
+      t0 = t1 + Td*a;
+      return 1;
+    }
+}
+

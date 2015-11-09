@@ -432,7 +432,6 @@ ShaderFactory::genRaycastShader(bool firstHit)
       shader += "        {\n";  
       shader += "          vec3 voxpos = vcorner + voxelCoord*vsize;";
       shader += "          vec3 I = voxpos - eyepos;\n";
-      //shader += "          float z = dot(I, viewDir);\n";
       shader += "          float z = dot(I, normalize(dir));\n";
       shader += "          z = (z-minZ)/(maxZ-minZ);\n";
       shader += "          z = clamp(z, 0.0, 1.0);\n";

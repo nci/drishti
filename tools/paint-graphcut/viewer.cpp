@@ -535,7 +535,7 @@ Viewer::keyPressEvent(QKeyEvent *event)
       return;
     }
 
-  if (event->key() == Qt::Key_V)
+  if (event->key() == Qt::Key_F)
     {  
       m_fullRender = !m_fullRender;
       createRaycastShader();
@@ -832,7 +832,7 @@ Viewer::draw()
 
   glDisable(GL_LIGHTING);
 
-  if (m_showBox)
+  if ((!m_volPtr || !m_maskPtr) && m_showBox)
     {
       m_boundingBox.draw();
       drawBox();
@@ -1003,12 +1003,26 @@ Viewer::draw()
 //  if (m_showSlices)
 //    drawSlices();
 
-  //drawClip();
+//  drawClip();
 
   volumeRaycast(minZ, maxZ, false); // run full raycast process
-
-  //drawClipSlices();
   
+//  drawClipSlices();
+
+
+  glDisable(GL_DEPTH_TEST);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_ONE, GL_ONE);
+
+  m_clipPlanes->draw(this, false);
+  
+  if (m_showBox)
+    {
+      m_boundingBox.draw();
+      drawBox();
+    }
+
+  glEnable(GL_DEPTH_TEST);
 
   drawInfo();
 }
@@ -2331,7 +2345,7 @@ Viewer::drawClip()
 {
   updateClipVoxels();
 
-  m_clipPlanes->draw(this, false);
+  //m_clipPlanes->draw(this, false);
 
   uchar *lut = Global::lut();
 
@@ -2476,8 +2490,6 @@ Viewer::drawClipSlices()
 
   glActiveTexture(GL_TEXTURE2);
   glDisable(GL_TEXTURE_3D);
-
-  m_clipPlanes->draw(this, false);
 }
 
 int
@@ -2558,18 +2570,98 @@ Viewer::drawPoly(Vec po, Vec pn, Vec *subvol)
   return 1;
 }
 
+//void
+//Viewer::drawBox(GLenum glFaces)
+//{
+//  Vec box[8];
+////  box[0] = Vec(m_minHSlice, m_minWSlice, m_minDSlice);
+////  box[1] = Vec(m_minHSlice, m_minWSlice, m_maxDSlice);
+////  box[2] = Vec(m_minHSlice, m_maxWSlice, m_minDSlice);
+////  box[3] = Vec(m_minHSlice, m_maxWSlice, m_maxDSlice);
+////  box[4] = Vec(m_maxHSlice, m_minWSlice, m_minDSlice);
+////  box[5] = Vec(m_maxHSlice, m_minWSlice, m_maxDSlice);
+////  box[6] = Vec(m_maxHSlice, m_maxWSlice, m_minDSlice);
+////  box[7] = Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice);
+//
+//  Vec bmin, bmax;
+//  m_boundingBox.bounds(bmin, bmax);
+//
+//  bmin = StaticFunctions::maxVec(bmin, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
+//  bmax = StaticFunctions::minVec(bmax, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
+//
+//  box[0] = Vec(bmin.x,bmin.y,bmin.z);
+//  box[1] = Vec(bmin.x,bmin.y,bmax.z);
+//  box[2] = Vec(bmin.x,bmax.y,bmin.z);
+//  box[3] = Vec(bmin.x,bmax.y,bmax.z);
+//  box[4] = Vec(bmax.x,bmin.y,bmin.z);
+//  box[5] = Vec(bmax.x,bmin.y,bmax.z);
+//  box[6] = Vec(bmax.x,bmax.y,bmin.z);
+//  box[7] = Vec(bmax.x,bmax.y,bmax.z);
+//
+//  float xmin, xmax, ymin, ymax, zmin, zmax;
+//  xmin = (bmin.x-m_minHSlice)/(m_maxHSlice-m_minHSlice);
+//  xmax = (bmax.x-m_minHSlice)/(m_maxHSlice-m_minHSlice);
+//  ymin = (bmin.y-m_minWSlice)/(m_maxWSlice-m_minWSlice);
+//  ymax = (bmax.y-m_minWSlice)/(m_maxWSlice-m_minWSlice);
+//  zmin = (bmin.z-m_minDSlice)/(m_maxDSlice-m_minDSlice);
+//  zmax = (bmax.z-m_minDSlice)/(m_maxDSlice-m_minDSlice);
+//
+//  Vec col[8];
+////  col[0] = Vec(0,0,0);
+////  col[1] = Vec(0,0,1);
+////  col[2] = Vec(0,1,0);
+////  col[3] = Vec(0,1,1);
+////  col[4] = Vec(1,0,0);
+////  col[5] = Vec(1,0,1);
+////  col[6] = Vec(1,1,0);
+////  col[7] = Vec(1,1,1);
+//
+//  col[0] = Vec(xmin,ymin,zmin);
+//  col[1] = Vec(xmin,ymin,zmax);
+//  col[2] = Vec(xmin,ymax,zmin);
+//  col[3] = Vec(xmin,ymax,zmax);
+//  col[4] = Vec(xmax,ymin,zmin);
+//  col[5] = Vec(xmax,ymin,zmax);
+//  col[6] = Vec(xmax,ymax,zmin);
+//  col[7] = Vec(xmax,ymax,zmax);
+//
+//// front: 1 5 7 3
+//// back: 0 2 6 4
+//// left:0 1 3 2
+//// right:7 5 4 6    
+//// up: 2 3 7 6
+//// down: 1 0 4 5
+//
+//  int faces[] = {1, 5, 7, 3,
+//		 0, 2, 6, 4,
+//		 0, 1, 3, 2,
+//		 7, 5, 4, 6,
+//		 2, 3, 7, 6,
+//		 1, 0, 4, 5};
+//
+//
+//  glEnable(GL_CULL_FACE);
+//  glCullFace(glFaces);
+//
+//  for(int i=0; i<6; i++)
+//    {
+//      glBegin(GL_QUADS);
+//      for(int j=0; j<4; j++)
+//	{
+//	  int idx = faces[4*i+j];
+//	  glColor3f(col[idx].x, col[idx].y, col[idx].z);
+//	  glVertex3f(box[idx].x,box[idx].y, box[idx].z);
+//	}
+//      glEnd();
+//    }
+//
+//  glDisable(GL_CULL_FACE);
+//}
+
 void
 Viewer::drawBox(GLenum glFaces)
 {
   Vec box[8];
-//  box[0] = Vec(m_minHSlice, m_minWSlice, m_minDSlice);
-//  box[1] = Vec(m_minHSlice, m_minWSlice, m_maxDSlice);
-//  box[2] = Vec(m_minHSlice, m_maxWSlice, m_minDSlice);
-//  box[3] = Vec(m_minHSlice, m_maxWSlice, m_maxDSlice);
-//  box[4] = Vec(m_maxHSlice, m_minWSlice, m_minDSlice);
-//  box[5] = Vec(m_maxHSlice, m_minWSlice, m_maxDSlice);
-//  box[6] = Vec(m_maxHSlice, m_maxWSlice, m_minDSlice);
-//  box[7] = Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice);
 
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
@@ -2595,30 +2687,17 @@ Viewer::drawBox(GLenum glFaces)
   zmax = (bmax.z-m_minDSlice)/(m_maxDSlice-m_minDSlice);
 
   Vec col[8];
-//  col[0] = Vec(0,0,0);
-//  col[1] = Vec(0,0,1);
-//  col[2] = Vec(0,1,0);
-//  col[3] = Vec(0,1,1);
-//  col[4] = Vec(1,0,0);
-//  col[5] = Vec(1,0,1);
-//  col[6] = Vec(1,1,0);
-//  col[7] = Vec(1,1,1);
-
   col[0] = Vec(xmin,ymin,zmin);
   col[1] = Vec(xmin,ymin,zmax);
+
   col[2] = Vec(xmin,ymax,zmin);
   col[3] = Vec(xmin,ymax,zmax);
+
   col[4] = Vec(xmax,ymin,zmin);
   col[5] = Vec(xmax,ymin,zmax);
+
   col[6] = Vec(xmax,ymax,zmin);
   col[7] = Vec(xmax,ymax,zmax);
-;
-// front: 1 5 7 3
-// back: 0 2 6 4
-// left:0 1 3 2
-// right:7 5 4 6    
-// up: 2 3 7 6
-// down: 1 0 4 5
 
   int faces[] = {1, 5, 7, 3,
 		 0, 2, 6, 4,
@@ -2627,24 +2706,263 @@ Viewer::drawBox(GLenum glFaces)
 		 2, 3, 7, 6,
 		 1, 0, 4, 5};
 
-
   glEnable(GL_CULL_FACE);
   glCullFace(glFaces);
 
   for(int i=0; i<6; i++)
     {
-      glBegin(GL_QUADS);
+      //glBegin(GL_QUADS);
+      Vec poly[100];
+      Vec tex[100];
       for(int j=0; j<4; j++)
 	{
 	  int idx = faces[4*i+j];
-	  glColor3f(col[idx].x, col[idx].y, col[idx].z);
-	  glVertex3f(box[idx].x,box[idx].y, box[idx].z);
+	  poly[j] = box[idx];
+	  tex[j] = col[idx];
+	  //glColor3f(col[idx].x, col[idx].y, col[idx].z);
+	  //glVertex3f(box[idx].x,box[idx].y, box[idx].z);
 	}
-      glEnd();
+      drawFace(4, &poly[0], &tex[0]);
+      //glEnd();
     }
+
+  drawClipFaces(&box[0], &col[0]);
 
   glDisable(GL_CULL_FACE);
 }
+
+void
+Viewer::drawFace(int oedges, Vec *opoly, Vec *otex)
+{
+  QList<Vec> cPos =  m_clipPlanes->positions();
+  QList<Vec> cNorm = m_clipPlanes->normals();
+
+  cPos << camera()->position()+50*camera()->viewDirection();
+  cNorm << -camera()->viewDirection();
+
+
+  int edges = oedges;
+  Vec poly[100];
+  Vec tex[100];
+  for(int i=0; i<edges; i++) poly[i] = opoly[i];
+  for(int i=0; i<edges; i++) tex[i] = otex[i];
+
+  //---- apply clipping
+  for(int ci=0; ci<cPos.count(); ci++)
+    {
+      Vec cpo = cPos[ci];
+      Vec cpn = cNorm[ci];
+      
+      int tedges = 0;
+      Vec tpoly[100];
+      Vec ttex[100];
+      for(int i=0; i<edges; i++)
+	{
+	  Vec v0, v1, t0, t1;
+	  
+	  v0 = poly[i];
+	  t0 = tex[i];
+	  if (i<edges-1)
+	    {
+	      v1 = poly[i+1];
+	      t1 = tex[i+1];
+	    }
+	  else
+	    {
+	      v1 = poly[0];
+	      t1 = tex[0];
+	    }
+	  
+	  int ret = StaticFunctions::intersectType2WithTexture(cpo, cpn,
+							       v0, v1,
+							       t0, t1);
+	  if (ret)
+	    {
+	      tpoly[tedges] = v0;
+	      ttex[tedges] = t0;
+	      tedges ++;
+	      if (ret == 2)
+		{
+		  tpoly[tedges] = v1;
+		  ttex[tedges] = t1;
+		  tedges ++;
+		}
+	    }
+	}
+
+      //QMessageBox::information(0, "", QString("%1").arg(tedges));
+
+      edges = tedges;
+      for(int i=0; i<edges; i++) poly[i] = tpoly[i];
+      for(int i=0; i<edges; i++) tex[i] = ttex[i];
+    }
+  //---- clipping applied
+
+  if (edges > 0)
+    {
+      glBegin(GL_POLYGON);
+      for(int i=0; i<edges; i++)
+	{
+	  glColor3f(tex[i].x, tex[i].y, tex[i].z);
+	  glVertex3f(poly[i].x, poly[i].y, poly[i].z);
+	}
+      glEnd();
+    }  
+}
+
+void
+Viewer::drawClipFaces(Vec *subvol, Vec *texture)
+{
+  int sidx[] = {0, 1,
+		0, 2,
+		0, 4,
+		7, 5,
+		7, 3,
+		7, 6,
+		1, 3,
+		1, 5,
+		2, 3,
+		2, 6,
+		4, 5,
+		4, 6 };
+
+  QList<Vec> cPos =  m_clipPlanes->positions();
+  QList<Vec> cNorm = m_clipPlanes->normals();
+
+  cPos << camera()->position()+50*camera()->viewDirection();
+  cNorm << -camera()->viewDirection();
+
+  for(int oci=0; oci<cPos.count(); oci++)
+    {
+      Vec cpo = cPos[oci];
+      Vec cpn = cNorm[oci];
+
+      Vec opoly[100];
+      Vec otex[100];
+      int edges = 0;
+
+      QString mesg;
+      for(int si=0; si<12; si++)
+	{
+	  int k = sidx[2*si];
+	  int l = sidx[2*si+1];
+	  edges += StaticFunctions::intersectType1WithTexture(cpo, cpn,
+							      subvol[k], subvol[l],
+							      texture[k], texture[l],
+							      opoly[edges], otex[edges]);
+	}
+
+      if (edges > 2)
+	{      
+	  Vec cen;
+	  int i;
+	  for(i=0; i<edges; i++)
+	    cen += opoly[i];
+	  cen/=edges;
+	  
+	  float angle[12];
+	  Vec vaxis, vperp;
+	  vaxis = opoly[0]-cen;
+	  vaxis.normalize();
+	  
+	  vperp = cpn ^ vaxis ;
+	  
+	  angle[0] = 1;
+	  for(i=1; i<edges; i++)
+	    {
+	      Vec v;
+	      v = opoly[i]-cen;
+	      v.normalize();
+	      angle[i] = vaxis*v;
+	      if (vperp*v < 0)
+		angle[i] = -2 - angle[i];
+	    }
+	  
+	  // sort angle
+	  int order[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+	  for(i=edges-1; i>=0; i--)
+	    for(int j=1; j<=i; j++)
+	      {
+		if (angle[order[i]] > angle[order[j]])
+		  {
+		    int tmp = order[i];
+		    order[i] = order[j];
+		    order[j] = tmp;
+		  }
+	      }
+	  
+	  Vec poly[100];
+	  Vec tex[100];
+	  for(int i=0; i<edges; i++) poly[i] = opoly[order[i]];
+	  for(int i=0; i<edges; i++) tex[i] = otex[order[i]];
+
+	  //---- apply clipping
+	  for(int ci=0; ci<cPos.count(); ci++)
+	    {
+	      if (ci != oci)
+		{
+		  Vec cpo = cPos[ci];
+		  Vec cpn = cNorm[ci];
+		  
+		  int tedges = 0;
+		  Vec tpoly[100];
+		  Vec ttex[100];
+		  for(int i=0; i<edges; i++)
+		    {
+		      Vec v0, v1, t0, t1;
+		      
+		      v0 = poly[i];
+		      t0 = tex[i];
+		      if (i<edges-1)
+			{
+			  v1 = poly[i+1];
+			  t1 = tex[i+1];
+			}
+		      else
+			{
+			  v1 = poly[0];
+			  t1 = tex[0];
+			}
+		      
+		      // clip on texture coordinates
+		      int ret = StaticFunctions::intersectType2WithTexture(cpo, cpn,
+									   v0, v1,
+									   t0, t1);
+		      if (ret)
+			{
+			  tpoly[tedges] = v0;
+			  ttex[tedges] = t0;
+			  tedges ++;
+			  if (ret == 2)
+			    {
+			      tpoly[tedges] = v1;
+			      ttex[tedges] = t1;
+			      tedges ++;
+			    }
+			}
+		    }
+		  
+		  edges = tedges;
+		  for(int i=0; i<edges; i++) poly[i] = tpoly[i];
+		  for(int i=0; i<edges; i++) tex[i] = ttex[i];
+		}
+	    }
+	  //---- clipping applied
+	  
+	  if (edges > 0)
+	    {
+	      glBegin(GL_POLYGON);
+	      for(int i=0; i<edges; i++)
+		{
+		  glColor3f(tex[i].x, tex[i].y, tex[i].z);
+		  glVertex3f(poly[i].x, poly[i].y, poly[i].z);
+		}
+	      glEnd();
+	    }  
+	}
+    }
+}
+
 
 void
 Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)

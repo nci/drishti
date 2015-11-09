@@ -210,6 +210,9 @@ class Viewer : public QGLViewer
   void getHit(QMouseEvent*);
   
   void setTextureMemorySize();
+
+  void drawFace(int, Vec*, Vec*);
+  void drawClipFaces(Vec*, Vec*);
 };
 
 #endif

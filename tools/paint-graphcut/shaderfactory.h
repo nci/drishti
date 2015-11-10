@@ -17,7 +17,7 @@ class ShaderFactory
 
   static QString genSliceShader();
 
-  static QString genRaycastShader(bool);
+  static QString genRaycastShader(int, bool);
 
   static QString genEdgeEnhanceShader();
 

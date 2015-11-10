@@ -72,6 +72,7 @@ class Viewer : public QGLViewer
 
   BoundingBox m_boundingBox;
 
+  int m_max3DTexSize;
   float m_memSize;
   int m_skipLayers;
 

@@ -110,6 +110,8 @@ Viewer::GlewInit()
 
   glPixelStorei(GL_PACK_ALIGNMENT, 1);
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+  glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, &m_max3DTexSize);
 }
 
 void
@@ -293,7 +295,8 @@ Viewer::createRaycastShader()
 {
   QString shaderString;
 
-  shaderString = ShaderFactory::genRaycastShader(!m_fullRender);
+  int maxSteps = qSqrt(m_vsize.x*m_vsize.x + m_vsize.y*m_vsize.y + m_vsize.z*m_vsize.z);
+  shaderString = ShaderFactory::genRaycastShader(maxSteps, !m_fullRender);
 
   m_rcShader = glCreateProgramObjectARB();
   if (! ShaderFactory::loadShader(m_rcShader,
@@ -1624,7 +1627,10 @@ Viewer::updateVoxelsWithTF()
   qint64 tsz = dsz*wsz*hsz;
 
   m_sslevel = 1;
-  while (tsz/1024.0/1024.0 > m_memSize)
+  while (tsz/1024.0/1024.0 > m_memSize ||
+	 dsz > m_max3DTexSize ||
+	 wsz > m_max3DTexSize ||
+	 hsz > m_max3DTexSize)
     {
       m_sslevel++;
       dsz = (m_maxDSlice-m_minDSlice)/m_sslevel;
@@ -1656,6 +1662,8 @@ Viewer::updateVoxelsWithTF()
 
   m_corner = Vec(m_minHSlice, m_minWSlice, m_minDSlice);
   m_vsize = Vec(hsz, wsz, dsz);
+
+  createRaycastShader();
 
   uchar *voxelVol = new uchar[tsz];
 

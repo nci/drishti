@@ -353,7 +353,7 @@ ShaderFactory::genRectBlurShaderString(int filter)
 
 
 QString
-ShaderFactory::genRaycastShader(bool firstHit)
+ShaderFactory::genRaycastShader(int maxSteps, bool firstHit)
 {
   QString shader;
 
@@ -395,7 +395,7 @@ ShaderFactory::genRaycastShader(bool firstHit)
   
   shader += "bool gotFirstHit = false;\n";
   shader += "int nskipped = -1;\n"; 
-  shader += "for(int i=0; i<2000; i++)\n";
+  shader += QString("for(int i=0; i<%1; i++)\n").arg(maxSteps);
   shader += "{\n";
   shader += "  float val = texture3D(dataTex, voxelCoord).x;\n";
   shader += "  vec4 colorSample = texture2D(lutTex, vec2(val,0.0));\n";

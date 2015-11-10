@@ -1946,6 +1946,11 @@ DrishtiPaint::connectImageWidget()
 void
 DrishtiPaint::connectViewerMenu()
 {
+  connect(viewerUi.pointRender, SIGNAL(clicked(bool)),
+	  this, SLOT(on_pointRender_clicked(bool)));
+  connect(viewerUi.raycastRender, SIGNAL(clicked(bool)),
+	  this, SLOT(on_raycastRender_clicked(bool)));
+  
   connect(viewerUi.update, SIGNAL(clicked()),
 	  m_viewer, SLOT(updateVoxels()));
   connect(viewerUi.interval, SIGNAL(sliderReleased()),
@@ -1977,6 +1982,12 @@ DrishtiPaint::connectViewerMenu()
 	  m_viewer, SLOT(updateSlices()));
 
 
+  connect(viewerUi.raycastStyle, SIGNAL(clicked(bool)),
+	  m_viewer, SLOT(setRaycastStyle(bool)));
+  connect(viewerUi.skipLayers, SIGNAL(valueChanged(int)),
+	  m_viewer, SLOT(setSkipLayers(int)));
+
+
   m_viewDslice = new PopUpSlider(m_viewer, Qt::Vertical);
   m_viewWslice = new PopUpSlider(m_viewer, Qt::Vertical);
   m_viewHslice = new PopUpSlider(m_viewer, Qt::Vertical);
@@ -2001,6 +2012,8 @@ DrishtiPaint::connectViewerMenu()
   m_viewer->setPointSize(viewerUi.ptsize->value());
   m_viewer->setVoxelInterval(viewerUi.interval->value());
 
+  viewerUi.pointParam->setVisible(true);
+  viewerUi.raycastParam->setVisible(false);
 }
 
 void
@@ -4024,4 +4037,22 @@ DrishtiPaint::paint3DEnd()
 {
   m_volume->saveMaskBlock(m_blockList);
   m_blockList.clear();
+}
+
+void
+DrishtiPaint::on_pointRender_clicked(bool flag)
+{  
+  viewerUi.raycastParam->setVisible(!flag);
+
+  m_viewer->setPointRender(flag);
+  viewerUi.pointParam->setVisible(flag);
+}
+
+void
+DrishtiPaint::on_raycastRender_clicked(bool flag)
+{
+  viewerUi.pointParam->setVisible(!flag);
+
+  m_viewer->setRaycastRender(flag);
+  viewerUi.raycastParam->setVisible(flag);
 }

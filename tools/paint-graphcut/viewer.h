@@ -60,6 +60,10 @@ class Viewer : public QGLViewer
     void setShowSlices(bool);
     void updateSlices();
     void uploadMask(int,int,int, int,int,int);
+    void setPointRender(bool);
+    void setRaycastRender(bool);
+    void setRaycastStyle(bool);
+    void setSkipLayers(int);
     
  signals :
     void paint3D(int, int, int, int, int, int);
@@ -80,6 +84,8 @@ class Viewer : public QGLViewer
   int m_minDSlice, m_maxDSlice;
   int m_minWSlice, m_maxWSlice;
   int m_minHSlice, m_maxHSlice;
+
+  int m_renderMode;
 
   int m_voxChoice;
   bool m_showBox;
@@ -184,6 +190,9 @@ class Viewer : public QGLViewer
   void updateVoxelsWithTF();
   void updateClipVoxels();
 
+  void updateVoxelsForRaycast();
+  void raycasting();
+
   void drawEnclosingCube(Vec, Vec);
   void drawCurrentSlice(Vec, Vec);
 
@@ -214,6 +223,8 @@ class Viewer : public QGLViewer
 
   void drawFace(int, Vec*, Vec*);
   void drawClipFaces(Vec*, Vec*);
+
+  void pointRendering();
 };
 
 #endif

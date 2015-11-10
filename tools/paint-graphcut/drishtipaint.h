@@ -123,6 +123,9 @@ class DrishtiPaint : public QMainWindow
 
   void updateSliceBounds(Vec, Vec);
 
+  void on_pointRender_clicked(bool);
+  void on_raycastRender_clicked(bool);
+
  private :
   Ui::DrishtiPaint ui;
   Ui::ViewerMenu viewerUi;

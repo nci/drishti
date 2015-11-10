@@ -18,6 +18,8 @@ Viewer::Viewer(QWidget *parent) :
 
   m_clipPlanes = new ClipPlanes();
 
+  m_renderMode = 0; // 0-point, 1-raycast
+
   m_slcBuffer = 0;
   m_rboId = 0;
   m_slcTex[0] = 0;
@@ -250,9 +252,6 @@ Viewer::createFBO()
   
   int wd = camera()->screenWidth();
   int ht = camera()->screenHeight();
-
-//  wd/=2;
-//  ht/=2;
 
   if (m_slcBuffer) glDeleteFramebuffers(1, &m_slcBuffer);
   if (m_rboId) glDeleteRenderbuffers(1, &m_rboId);
@@ -522,6 +521,43 @@ Viewer::setShowBox(bool b)
 }
 
 void
+Viewer:: setPointRender(bool flag)
+{
+  if (flag)
+    m_renderMode = 0;
+  else
+    m_renderMode = 1;
+  updateVoxels();
+  update();
+}
+
+void
+Viewer::setRaycastRender(bool flag)
+{
+  if (flag)
+    m_renderMode = 1;
+  else
+    m_renderMode = 0;
+  updateVoxels();
+  update();
+}
+
+void
+Viewer::setRaycastStyle(bool flag)
+{
+  m_fullRender = !flag;
+  createRaycastShader();
+  update();
+}
+
+void
+Viewer::setSkipLayers(int l)
+{
+  m_skipLayers = l;
+  update();
+}
+
+void
 Viewer::keyPressEvent(QKeyEvent *event)
 {
   if (event->key() == Qt::Key_Escape)
@@ -530,18 +566,9 @@ Viewer::keyPressEvent(QKeyEvent *event)
   if (m_boundingBox.keyPressEvent(event))
     return;
   
-  
   if (event->key() == Qt::Key_A)
     {  
       toggleAxisIsDrawn();
-      update();
-      return;
-    }
-
-  if (event->key() == Qt::Key_F)
-    {  
-      m_fullRender = !m_fullRender;
-      createRaycastShader();
       update();
       return;
     }
@@ -586,20 +613,6 @@ Viewer::keyPressEvent(QKeyEvent *event)
 	  else
 	    m_clipPlanes->show();
 	}
-      return;
-    }
-
-
-  if (event->key() == Qt::Key_Plus ||
-      event->key() == Qt::Key_Minus)
-    {
-      if (event->key() == Qt::Key_Plus)
-	m_skipLayers++;
-
-      if (event->key() == Qt::Key_Minus)
-	m_skipLayers = qMax(m_skipLayers-1, 0);
-
-      update();
       return;
     }
 
@@ -835,7 +848,8 @@ Viewer::draw()
 
   glDisable(GL_LIGHTING);
 
-  if ((!m_volPtr || !m_maskPtr) && m_showBox)
+  if ((m_renderMode == 0 ||
+       (!m_volPtr || !m_maskPtr)) && m_showBox)
     {
       m_boundingBox.draw();
       drawBox();
@@ -861,8 +875,65 @@ Viewer::draw()
   if (!m_volPtr || !m_maskPtr)
     return;
 
-//  glEnable(GL_ALPHA_TEST);
-//  glAlphaFunc(GL_GREATER, 0.1);
+  if (m_renderMode == 0)
+    pointRendering();  
+  
+  if (m_renderMode == 1)
+    raycasting();
+  
+//  drawClipSlices();
+
+  drawInfo();
+}
+
+void
+Viewer::raycasting()
+{
+  Vec box[8];
+  box[0] = Vec(m_minHSlice, m_minWSlice, m_minDSlice);
+  box[1] = Vec(m_minHSlice, m_minWSlice, m_maxDSlice);
+  box[2] = Vec(m_minHSlice, m_maxWSlice, m_maxDSlice);
+  box[3] = Vec(m_minHSlice, m_maxWSlice, m_minDSlice);
+  box[4] = Vec(m_maxHSlice, m_minWSlice, m_minDSlice);
+  box[5] = Vec(m_maxHSlice, m_minWSlice, m_maxDSlice);
+  box[6] = Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice);
+  box[7] = Vec(m_maxHSlice, m_maxWSlice, m_minDSlice);
+
+  Vec eyepos = camera()->position();
+  Vec viewDir = camera()->viewDirection();
+  float minZ = 1000000;
+  float maxZ = -1000000;
+  for(int b=0; b<8; b++)
+    {
+      float zv = (box[b]-eyepos)*viewDir;
+      minZ = qMin(minZ, zv);
+      maxZ = qMax(maxZ, zv);
+    }
+
+
+  volumeRaycast(minZ, maxZ, false); // run full raycast process
+
+ 
+  glDisable(GL_DEPTH_TEST);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_ONE, GL_ONE);
+      
+  m_clipPlanes->draw(this, false);
+      
+  if (m_showBox)
+    {
+      m_boundingBox.draw();
+      drawBox();
+    }
+  
+  glEnable(GL_DEPTH_TEST);
+}
+
+void
+Viewer::pointRendering()
+{
+  glEnable(GL_ALPHA_TEST);
+  glAlphaFunc(GL_GREATER, 0.1);
 
   GLfloat sizes[2];
   GLfloat coeff[] = {1.0, 0.0, 0.0}; // constant, linear, quadratic
@@ -913,121 +984,100 @@ Viewer::draw()
 
 
 
-//  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
-//  for(int fbn=0; fbn<2; fbn++)
-//    {
-//      glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
-//			     GL_COLOR_ATTACHMENT0_EXT,
-//			     GL_TEXTURE_RECTANGLE_ARB,
-//			     m_slcTex[fbn],
-//			     0);
-//      glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
-//      glClearColor(0, 0, 0, 0);
-//      glClear(GL_COLOR_BUFFER_BIT);
-//      glClear(GL_DEPTH_BUFFER_BIT);
-//    }
-//  glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
-//
-//  //--------------------------------
-//  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
-//  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
-//			 GL_COLOR_ATTACHMENT0_EXT,
-//			 GL_TEXTURE_RECTANGLE_ARB,
-//			 m_slcTex[0],
-//			 0);
-//  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
-//
-//  glUseProgramObjectARB(m_depthShader);
-//  glUniform1fARB(m_depthParm[0], minZ); // minZ
-//  glUniform1fARB(m_depthParm[1], maxZ); // maxZ
-//  glUniform3fARB(m_depthParm[2], eyepos.x, eyepos.y, eyepos.z); // eyepos
-//  glUniform3fARB(m_depthParm[3], viewDir.x, viewDir.y, viewDir.z); // viewDir
-//  //--------------------------------
-//
-//  if (m_pointSkip > 0 && m_maskPtr)
-//    drawVolMask();
-//
-//  glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
-//  //--------------------------------
-//
-//
-//  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
-//  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
-//			 GL_COLOR_ATTACHMENT0_EXT,
-//			 GL_TEXTURE_RECTANGLE_ARB,
-//			 m_slcTex[1],
-//			 0);
-//  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
-//
-//  glUseProgramObjectARB(m_blurShader);
-//  glActiveTexture(GL_TEXTURE1);
-//  glEnable(GL_TEXTURE_RECTANGLE_ARB);
-//  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[0]);
-//  glUniform1iARB(m_blurParm[0], 1); // blurTex
-//  glUniform1fARB(m_blurParm[1], minZ); // minZ
-//  glUniform1fARB(m_blurParm[2], maxZ); // maxZ
-//
-//  int wd = camera()->screenWidth();
-//  int ht = camera()->screenHeight();
-//  StaticFunctions::pushOrthoView(0, 0, wd, ht);
-//  StaticFunctions::drawQuad(0, 0, wd, ht, 1);
-//  StaticFunctions::popOrthoView();
-//
-//  glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
-//  //--------------------------------
-//
-//
-//
-//  //--------------------------------
-//  glUseProgramObjectARB(m_finalPointShader);
-//  glActiveTexture(GL_TEXTURE1);
-//  glEnable(GL_TEXTURE_RECTANGLE_ARB);
-//  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[1]);
-//  glUniform1iARB(m_fpsParm[0], 1); // slctex
-//  glUniform1fARB(m_fpsParm[1], minZ); // minZ
-//  glUniform1fARB(m_fpsParm[2], maxZ); // maxZ
-//  glUniform3fARB(m_fpsParm[3], eyepos.x, eyepos.y, eyepos.z); // eyepos
-//  glUniform3fARB(m_fpsParm[4], viewDir.x, viewDir.y, viewDir.z); // viewDir
-//  glUniform1fARB(m_fpsParm[5], m_dzScale); // dzScale
-//
-//  glPointSize(ptsz);
-//
-//  if (m_pointSkip > 0 && m_maskPtr)
-//    drawVolMask();
-//
-//  //--------------------------------
-//  glUseProgramObjectARB(0);
-//  //--------------------------------
-//
-//  glActiveTexture(GL_TEXTURE1);
-//  glDisable(GL_TEXTURE_RECTANGLE_ARB);
-//
-//
-//  if (m_showSlices)
-//    drawSlices();
-
-//  drawClip();
-
-  volumeRaycast(minZ, maxZ, false); // run full raycast process
-  
-//  drawClipSlices();
-
-
-  glDisable(GL_DEPTH_TEST);
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_ONE, GL_ONE);
-
-  m_clipPlanes->draw(this, false);
-  
-  if (m_showBox)
+  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
+  for(int fbn=0; fbn<2; fbn++)
     {
-      m_boundingBox.draw();
-      drawBox();
+      glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			     GL_COLOR_ATTACHMENT0_EXT,
+			     GL_TEXTURE_RECTANGLE_ARB,
+			     m_slcTex[fbn],
+			     0);
+      glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
+      glClearColor(0, 0, 0, 0);
+      glClear(GL_COLOR_BUFFER_BIT);
+      glClear(GL_DEPTH_BUFFER_BIT);
     }
+  glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
 
-  glEnable(GL_DEPTH_TEST);
+  //--------------------------------
+  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
+  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			 GL_COLOR_ATTACHMENT0_EXT,
+			 GL_TEXTURE_RECTANGLE_ARB,
+			 m_slcTex[0],
+			 0);
+  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
 
-  drawInfo();
+  glUseProgramObjectARB(m_depthShader);
+  glUniform1fARB(m_depthParm[0], minZ); // minZ
+  glUniform1fARB(m_depthParm[1], maxZ); // maxZ
+  glUniform3fARB(m_depthParm[2], eyepos.x, eyepos.y, eyepos.z); // eyepos
+  glUniform3fARB(m_depthParm[3], viewDir.x, viewDir.y, viewDir.z); // viewDir
+  //--------------------------------
+
+  if (m_pointSkip > 0 && m_maskPtr)
+    drawVolMask();
+
+  glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
+  //--------------------------------
+
+
+  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
+  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			 GL_COLOR_ATTACHMENT0_EXT,
+			 GL_TEXTURE_RECTANGLE_ARB,
+			 m_slcTex[1],
+			 0);
+  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
+
+  glUseProgramObjectARB(m_blurShader);
+  glActiveTexture(GL_TEXTURE1);
+  glEnable(GL_TEXTURE_RECTANGLE_ARB);
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[0]);
+  glUniform1iARB(m_blurParm[0], 1); // blurTex
+  glUniform1fARB(m_blurParm[1], minZ); // minZ
+  glUniform1fARB(m_blurParm[2], maxZ); // maxZ
+
+  int wd = camera()->screenWidth();
+  int ht = camera()->screenHeight();
+  StaticFunctions::pushOrthoView(0, 0, wd, ht);
+  StaticFunctions::drawQuad(0, 0, wd, ht, 1);
+  StaticFunctions::popOrthoView();
+
+  glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
+  //--------------------------------
+
+
+
+  //--------------------------------
+  glUseProgramObjectARB(m_finalPointShader);
+  glActiveTexture(GL_TEXTURE1);
+  glEnable(GL_TEXTURE_RECTANGLE_ARB);
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[1]);
+  glUniform1iARB(m_fpsParm[0], 1); // slctex
+  glUniform1fARB(m_fpsParm[1], minZ); // minZ
+  glUniform1fARB(m_fpsParm[2], maxZ); // maxZ
+  glUniform3fARB(m_fpsParm[3], eyepos.x, eyepos.y, eyepos.z); // eyepos
+  glUniform3fARB(m_fpsParm[4], viewDir.x, viewDir.y, viewDir.z); // viewDir
+  glUniform1fARB(m_fpsParm[5], m_dzScale); // dzScale
+
+  glPointSize(ptsz);
+
+  if (m_pointSkip > 0 && m_maskPtr)
+    drawVolMask();
+
+  //--------------------------------
+  glUseProgramObjectARB(0);
+  //--------------------------------
+
+  glActiveTexture(GL_TEXTURE1);
+  glDisable(GL_TEXTURE_RECTANGLE_ARB);
+
+
+  if (m_showSlices)
+    drawSlices();
+
+  drawClip();
 }
 
 void
@@ -1038,8 +1088,9 @@ Viewer::drawInfo()
   QFont tfont = QFont("Helvetica", 12);  
   QString mesg;
 
-  mesg += QString("LOD(%1) Vol(%2 %3 %4) ").\
-    arg(m_sslevel).arg(m_vsize.x).arg(m_vsize.y).arg(m_vsize.z);
+  if (m_renderMode == 1)
+    mesg += QString("LOD(%1) Vol(%2 %3 %4) ").\
+      arg(m_sslevel).arg(m_vsize.x).arg(m_vsize.y).arg(m_vsize.z);
 
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -1240,12 +1291,17 @@ Viewer::updateVoxels()
 {
   m_voxels.clear();
   
-  if (!m_volPtr || !m_maskPtr || m_pointSkip == 0)
+  if (!m_volPtr || !m_maskPtr)
     {
-      if (!m_volPtr || !m_maskPtr)
-	QMessageBox::information(0, "", "Data not loaded into memory, therefore cannot show the voxels");
-      else if (m_pointSkip == 0)
-	QMessageBox::information(0, "", "Step size is set to 0, therefore will not show the voxels");
+      QMessageBox::information(0, "",
+			       "Data not loaded into memory, therefore cannot show the voxels");
+      return;
+    }
+
+  if (m_renderMode == 0 && m_pointSkip == 0)
+    {
+      QMessageBox::information(0, "",
+			       "Step size is set to 0, therefore will not show the voxels");
       return;
     }
 
@@ -1263,6 +1319,13 @@ Viewer::updateVoxels()
   m_maxHSlice = bmax.x;
 
 
+  if (m_renderMode == 1) // raycast
+    {
+      updateVoxelsForRaycast();
+      return;
+    }
+
+  // renderMode == 0 => point rendering
   if (m_voxChoice == 0)
     {
       updateVoxelsWithTF();
@@ -1414,11 +1477,6 @@ Viewer::updateVoxels()
 	}
     }
 
-  //----------------------
-
-  //----------------------
-
-
   progress.setValue(100);
 
   update();  
@@ -1501,121 +1559,138 @@ Viewer::updateVoxelsWithTF()
 			   0);
   progress.setMinimumDuration(0);
 
-//  //----------------------------------
-//  // get the edges first
-//  int d,w,h;
-//  d=m_minDSlice;
-//  for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
-//    for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
-//      {
-//	if (!clip(d, w, h))
-//	  {
-//	    uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
-//	    if (lut[4*vol+3] > 10)
-//	      m_voxels << d << w << h << vol;
-//	  }
-//      }
-//  w=m_minWSlice;
-//  for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
-//    for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
-//      {
-//	if (!clip(d, w, h))
-//	  {
-//	    uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
-//	    if (lut[4*vol+3] > 10)
-//	      m_voxels << d << w << h << vol;
-//	  }
-//      }
-//  h=m_minHSlice;
-//  for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
-//    for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
-//      {
-//	if (!clip(d, w, h))
-//	  {
-//	    uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
-//	    if (lut[4*vol+3] > 10)
-//	      m_voxels << d << w << h << vol;
-//	  }
-//      }
-//  d=m_maxDSlice;
-//  for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
-//    for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
-//      {
-//	if (!clip(d, w, h))
-//	  {
-//	    uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
-//	    if (lut[4*vol+3] > 10)
-//	      m_voxels << d << w << h << vol;
-//	  }
-//      }
-//  w=m_maxWSlice;
-//  for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
-//    for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
-//      {
-//	if (!clip(d, w, h))
-//	  {
-//	    uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
-//	    if (lut[4*vol+3] > 10)
-//	      m_voxels << d << w << h << vol;
-//	  }
-//      }
-//  h=m_maxHSlice;
-//  for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
-//    for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
-//      {
-//	if (!clip(d, w, h))
-//	  {
-//	    uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
-//	    if (lut[4*vol+3] > 10)
-//	      m_voxels << d << w << h << vol;
-//	  }
-//      }
-//  //----------------------------------
-//
-//
-//  //----------------------------------
-//  // now for the interior  
-//  for(d=m_minDSlice+1; d<m_maxDSlice-1; d+=m_pointSkip)
-//    {
-//      progress.setValue(100*(float)(d-m_minDSlice)/(m_maxDSlice-m_minDSlice));
-//      qApp->processEvents();
-//      for(w=m_minWSlice+1; w<m_maxWSlice-1; w+=m_pointSkip)
-//	{
-//	  for(h=m_minHSlice+1; h<m_maxHSlice-1; h+=m_pointSkip)
-//	    {
-//	      if (!clip(d, w, h))
-//		{
-//		  uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
-//		  if (lut[4*vol+3] > 10)
-//		    {
-//		      bool ok = false;
-//		      for(int dd=-m_pointSkip; dd<=m_pointSkip; dd++)
-//			for(int ww=-m_pointSkip; ww<=m_pointSkip; ww++)
-//			  for(int hh=-m_pointSkip; hh<=m_pointSkip; hh++)
-//			    {
-//			      int d1 = qBound(m_minDSlice, d+dd, m_maxDSlice);
-//			      int w1 = qBound(m_minWSlice, w+ww, m_maxWSlice);
-//			      int h1 = qBound(m_minHSlice, h+hh, m_maxHSlice);
-//			      
-//			      uchar v = m_volPtr[d1*m_width*m_height + w1*m_height + h1];
-//			      if (lut[4*v+3] < 10)
-//				{
-//				  ok = true;
-//				  break;
-//				}
-//			    }
-//		      
-//		      if (ok)
-//			m_voxels << d << w << h << vol;
-//		    }
-//		}
-//	    }
-//	}
-//    }
-  
-  //progress.setValue(100);
+  //----------------------------------
+  // get the edges first
+  int d,w,h;
+  d=m_minDSlice;
+  for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
+    for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
+      {
+	if (!clip(d, w, h))
+	  {
+	    uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
+	    if (lut[4*vol+3] > 10)
+	      m_voxels << d << w << h << vol;
+	  }
+      }
+  w=m_minWSlice;
+  for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
+    for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
+      {
+	if (!clip(d, w, h))
+	  {
+	    uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
+	    if (lut[4*vol+3] > 10)
+	      m_voxels << d << w << h << vol;
+	  }
+      }
+  h=m_minHSlice;
+  for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
+    for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
+      {
+	if (!clip(d, w, h))
+	  {
+	    uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
+	    if (lut[4*vol+3] > 10)
+	      m_voxels << d << w << h << vol;
+	  }
+      }
+  d=m_maxDSlice;
+  for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
+    for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
+      {
+	if (!clip(d, w, h))
+	  {
+	    uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
+	    if (lut[4*vol+3] > 10)
+	      m_voxels << d << w << h << vol;
+	  }
+      }
+  w=m_maxWSlice;
+  for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
+    for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
+      {
+	if (!clip(d, w, h))
+	  {
+	    uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
+	    if (lut[4*vol+3] > 10)
+	      m_voxels << d << w << h << vol;
+	  }
+      }
+  h=m_maxHSlice;
+  for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
+    for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
+      {
+	if (!clip(d, w, h))
+	  {
+	    uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
+	    if (lut[4*vol+3] > 10)
+	      m_voxels << d << w << h << vol;
+	  }
+      }
+  //----------------------------------
 
-    
+
+  //----------------------------------
+  // now for the interior  
+  for(d=m_minDSlice+1; d<m_maxDSlice-1; d+=m_pointSkip)
+    {
+      progress.setValue(100*(float)(d-m_minDSlice)/(m_maxDSlice-m_minDSlice));
+      qApp->processEvents();
+      for(w=m_minWSlice+1; w<m_maxWSlice-1; w+=m_pointSkip)
+	{
+	  for(h=m_minHSlice+1; h<m_maxHSlice-1; h+=m_pointSkip)
+	    {
+	      if (!clip(d, w, h))
+		{
+		  uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
+		  if (lut[4*vol+3] > 10)
+		    {
+		      bool ok = false;
+		      for(int dd=-m_pointSkip; dd<=m_pointSkip; dd++)
+			for(int ww=-m_pointSkip; ww<=m_pointSkip; ww++)
+			  for(int hh=-m_pointSkip; hh<=m_pointSkip; hh++)
+			    {
+			      int d1 = qBound(m_minDSlice, d+dd, m_maxDSlice);
+			      int w1 = qBound(m_minWSlice, w+ww, m_maxWSlice);
+			      int h1 = qBound(m_minHSlice, h+hh, m_maxHSlice);
+			      
+			      uchar v = m_volPtr[d1*m_width*m_height + w1*m_height + h1];
+			      if (lut[4*v+3] < 10)
+				{
+				  ok = true;
+				  break;
+				}
+			    }
+		      
+		      if (ok)
+			m_voxels << d << w << h << vol;
+		    }
+		}
+	    }
+	}
+    }
+  
+  progress.setValue(100);
+}
+
+void
+Viewer::updateVoxelsForRaycast()
+{
+  m_voxels.clear();
+  
+  if (!m_volPtr || !m_maskPtr || m_pointSkip == 0)
+    return;
+
+  uchar *lut = Global::lut();
+
+  QProgressDialog progress("Updating voxel structure",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+   
   progress.setValue(10);
 
   if (!m_lutTex) glGenTextures(1, &m_lutTex);
@@ -2181,7 +2256,10 @@ Viewer::getHit(QMouseEvent *event)
   bool found;
   QPoint scr = event->pos();
   
-  m_target = pointUnderPixel_RC(scr, found);
+  if (m_renderMode == 0) // point rendering
+    m_target = pointUnderPixel(scr, found);
+  else // raycast rendering
+    m_target = pointUnderPixel_RC(scr, found);
 
   if (found)
     {
@@ -2353,7 +2431,7 @@ Viewer::drawClip()
 {
   updateClipVoxels();
 
-  //m_clipPlanes->draw(this, false);
+  m_clipPlanes->draw(this, false);
 
   uchar *lut = Global::lut();
 

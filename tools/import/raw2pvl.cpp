@@ -986,11 +986,11 @@ getPvlNcFilename()
 bool
 saveSliceZeroAtTop()
 {
-  bool save0attop = false;
+  bool save0attop = true;
   bool ok = false;
   QStringList slevels;
-  slevels << "No - (default)";  
-  slevels << "Yes - save slice 0 as top slice";
+  slevels << "Yes - (default)";  
+  slevels << "No - save slice 0 as bottom slice";
   QString option = QInputDialog::getItem(0,
 		   "Save Data",
 		   "Save slice 0 as top slice ?",
@@ -1001,11 +1001,12 @@ saveSliceZeroAtTop()
   if (ok)
     {
       QStringList op = option.split(' ');
-      if (op[0] == "Yes")
-	save0attop = true;
+      if (op[0] == "No")
+	{
+	  save0attop = false;
+	  QMessageBox::information(0, "Save Data", "First slice is now bottom slice.");
+	}
     }
-  else
-    QMessageBox::information(0, "Save Data", "Will not save slice 0 as top slice.");
 
   return save0attop;
 }

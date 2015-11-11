@@ -856,22 +856,24 @@ VolumeSingle::saveVolume(uchar *lut,
 
   //*** max 1Gb per slab
   int opslabSize;
-  opslabSize = (1024*1024*1024)/(ny*nx);
-  //------------------------------------------------------
-  if (opslabSize < nz)
-    {  
-      QStringList items;
-      items << "no" << "yes";
-      QString yn = QInputDialog::getItem(0, "Split Volume",
-					 "Split volume larger than 1Gb into multiple files ?",
-					 items,
-					 0,
-					 false);
-      //*** max 1Gb per slab
-      if (yn != "yes") // put all in a single file
-	opslabSize = nz+1;
-    }
-  //------------------------------------------------------
+//  opslabSize = (1024*1024*1024)/(ny*nx);
+//  //------------------------------------------------------
+//  if (opslabSize < nz)
+//    {  
+//      QStringList items;
+//      items << "no" << "yes";
+//      QString yn = QInputDialog::getItem(0, "Split Volume",
+//					 "Split volume larger than 1Gb into multiple files ?",
+//					 items,
+//					 0,
+//					 false);
+//      //*** max 1Gb per slab
+//      if (yn != "yes") // put all in a single file
+//	opslabSize = nz+1;
+//    }
+//  //------------------------------------------------------
+  opslabSize = nz+1; // put all in a single file
+
 
   if (savePvl)
     {

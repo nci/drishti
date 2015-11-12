@@ -376,6 +376,59 @@
     </widget>
    </item>
    <item>
+    <layout class="QGridLayout" name="gridLayout">
+     <property name="topMargin">
+      <number>0</number>
+     </property>
+     <item row="1" column="0">
+      <widget class="QDoubleSpinBox" name="stillStep">
+       <property name="minimum">
+        <double>0.200000000000000</double>
+       </property>
+       <property name="maximum">
+        <double>2.000000000000000</double>
+       </property>
+       <property name="singleStep">
+        <double>0.100000000000000</double>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="1">
+      <widget class="QDoubleSpinBox" name="dragStep">
+       <property name="minimum">
+        <double>0.200000000000000</double>
+       </property>
+       <property name="maximum">
+        <double>3.000000000000000</double>
+       </property>
+       <property name="singleStep">
+        <double>0.100000000000000</double>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="0">
+      <widget class="QLabel" name="label_9">
+       <property name="text">
+        <string>Still</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="1">
+      <widget class="QLabel" name="label_10">
+       <property name="text">
+        <string>Drag</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
     <widget class="Line" name="line_2">
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
@@ -512,11 +565,11 @@
    <hints>
     <hint type="sourcelabel">
      <x>41</x>
-     <y>299</y>
+     <y>289</y>
     </hint>
     <hint type="destinationlabel">
      <x>95</x>
-     <y>298</y>
+     <y>293</y>
     </hint>
    </hints>
   </connection>

@@ -40,6 +40,9 @@ Viewer::Viewer(QWidget *parent) :
   m_vsize = Vec(1,1,1);
   m_sslevel = 1;
 
+  m_stillStep = 0.7;
+  m_dragStep = 1.5;
+
   m_skipLayers = 0;
 
   m_glewInitdone = false;
@@ -51,6 +54,18 @@ Viewer::Viewer(QWidget *parent) :
   QTimer::singleShot(2000, this, SLOT(GlewInit()));
 
   setTextureMemorySize();
+}
+
+float Viewer::stillStep() { return m_stillStep;}
+float Viewer::dragStep() { return m_dragStep;}
+
+void
+Viewer::setStillAndDragStep(float ss, float ds)
+{
+  m_stillStep = qMax(0.2f,ss);
+  m_dragStep = qMax(0.2f,ds);
+  createRaycastShader();
+  update();
 }
 
 void
@@ -294,7 +309,12 @@ Viewer::createRaycastShader()
 {
   QString shaderString;
 
-  int maxSteps = qSqrt(m_vsize.x*m_vsize.x + m_vsize.y*m_vsize.y + m_vsize.z*m_vsize.z);
+  int maxSteps = qSqrt(m_vsize.x*m_vsize.x +
+		       m_vsize.y*m_vsize.y +
+		       m_vsize.z*m_vsize.z);
+  maxSteps *= 1.0/m_stillStep;
+  //QMessageBox::information(0, "", QString("%1 %2").arg(m_stillStep).arg(maxSteps));
+
   shaderString = ShaderFactory::genRaycastShader(maxSteps, !m_fullRender);
 
   m_rcShader = glCreateProgramObjectARB();
@@ -3103,8 +3123,11 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
       glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
     }
 
-  float stepsize = 0.7/qMax(m_vsize.x,qMax(m_vsize.y,m_vsize.z));
-  if (m_dragMode && !(m_paintHit || m_carveHit)) stepsize *= 2;
+  float stepsize = m_stillStep;
+  if (m_dragMode && !(m_paintHit || m_carveHit))
+    stepsize = m_dragStep;
+
+  stepsize /= qMax(m_vsize.x,qMax(m_vsize.y,m_vsize.z));
 
 
   glUseProgramObjectARB(m_rcShader);

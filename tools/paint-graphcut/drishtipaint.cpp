@@ -1035,6 +1035,9 @@ DrishtiPaint::setFile(QString filename)
   viewerUi.curvetags->setText("-1");
   viewerUi.paintedtags->setText("-1");
 
+  viewerUi.dragStep->setValue(m_viewer->dragStep());
+  viewerUi.stillStep->setValue(m_viewer->stillStep());
+
   m_viewDslice->setRange(0, d-1);
   m_viewWslice->setRange(0, w-1);
   m_viewHslice->setRange(0, h-1);
@@ -1986,6 +1989,11 @@ DrishtiPaint::connectViewerMenu()
 	  m_viewer, SLOT(setRaycastStyle(bool)));
   connect(viewerUi.skipLayers, SIGNAL(valueChanged(int)),
 	  m_viewer, SLOT(setSkipLayers(int)));
+
+  connect(viewerUi.stillStep, SIGNAL(valueChanged(double)),
+	  this, SLOT(on_stillStep_changed(double)));
+  connect(viewerUi.dragStep, SIGNAL(valueChanged(double)),
+	  this, SLOT(on_dragStep_changed(double)));
 
 
   m_viewDslice = new PopUpSlider(m_viewer, Qt::Vertical);
@@ -4055,4 +4063,32 @@ DrishtiPaint::on_raycastRender_clicked(bool flag)
 
   m_viewer->setRaycastRender(flag);
   viewerUi.raycastParam->setVisible(flag);
+}
+
+void
+DrishtiPaint::on_stillStep_changed(double step)
+{
+  float ds = m_viewer->dragStep();
+
+  if (step > ds)
+    {
+      viewerUi.dragStep->setValue(step);
+      ds = step;
+    }
+
+  m_viewer->setStillAndDragStep(step, ds);
+}
+
+void
+DrishtiPaint::on_dragStep_changed(double step)
+{
+  float ss = m_viewer->stillStep();
+
+  if (ss > step)
+    {
+      viewerUi.stillStep->setValue(step);
+      ss = step;
+    }
+
+  m_viewer->setStillAndDragStep(ss, step);
 }

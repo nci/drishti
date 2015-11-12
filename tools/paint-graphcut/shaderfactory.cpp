@@ -399,7 +399,9 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit)
   shader += "{\n";
   shader += "  float val = texture3D(dataTex, voxelCoord).x;\n";
   shader += "  vec4 colorSample = texture2D(lutTex, vec2(val,0.0));\n";
+
   shader += "  if (!gotFirstHit && colorSample.a > 0.001) gotFirstHit = true;\n";  
+
   shader += "  if (gotFirstHit && nskipped > skipLayers)\n";
   shader += "  {\n";
   shader += "    float tag = texture3D(maskTex, voxelCoord).x;\n";
@@ -441,7 +443,7 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit)
       shader += "    }\n";
     }
 
-  shader += "  }\n";
+  shader += "  }\n"; // gotfirsthit
 
   shader += "  if (lengthAcum >= len )\n";
   shader += "    {\n";

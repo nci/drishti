@@ -38,6 +38,9 @@ class Viewer : public QGLViewer
   void mouseReleaseEvent(QMouseEvent*);
   void mouseMoveEvent(QMouseEvent*);
 
+  float stillStep();
+  float dragStep();
+
   public slots :
     void GlewInit();  
     void resizeGL(int, int);
@@ -64,7 +67,8 @@ class Viewer : public QGLViewer
     void setRaycastRender(bool);
     void setRaycastStyle(bool);
     void setSkipLayers(int);
-    
+    void setStillAndDragStep(float, float);
+
  signals :
     void paint3D(int, int, int, int, int, int);
     void paint3DEnd();
@@ -79,6 +83,8 @@ class Viewer : public QGLViewer
   int m_max3DTexSize;
   float m_memSize;
   int m_skipLayers;
+
+  float m_stillStep, m_dragStep;
 
   qint64 m_depth, m_width, m_height;
   int m_minDSlice, m_maxDSlice;

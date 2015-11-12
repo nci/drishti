@@ -126,6 +126,9 @@ class DrishtiPaint : public QMainWindow
   void on_pointRender_clicked(bool);
   void on_raycastRender_clicked(bool);
 
+  void on_stillStep_changed(double);
+  void on_dragStep_changed(double);
+
  private :
   Ui::DrishtiPaint ui;
   Ui::ViewerMenu viewerUi;

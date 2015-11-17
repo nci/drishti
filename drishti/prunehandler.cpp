@@ -423,6 +423,8 @@ PruneHandler::getPruneBuffer()
 void
 PruneHandler::setPruneBuffer(QByteArray cpb, bool compressed)
 {
+  copyToFromSavedChannel(true, 0, 0, false); // save current channel 0
+  
   m_mopActive = true;
   QByteArray pb;
   pb = cpb;
@@ -467,6 +469,8 @@ PruneHandler::setPruneBuffer(QByteArray cpb, bool compressed)
   glUseProgramObjectARB(0);
 
   glDeleteTextures(1, &tex);
+
+  copyToFromSavedChannel(false, 0, 0, false); // restore channel 0
 }
 
 void

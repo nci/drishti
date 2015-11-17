@@ -41,6 +41,8 @@ class Viewer : public QGLViewer
   float stillStep();
   float dragStep();
 
+  bool exactCoord();
+
   public slots :
     void GlewInit();  
     void resizeGL(int, int);
@@ -68,7 +70,8 @@ class Viewer : public QGLViewer
     void setRaycastStyle(bool);
     void setSkipLayers(int);
     void setStillAndDragStep(float, float);
-
+    void setExactCoord(bool);
+    
  signals :
     void paint3D(int, int, int, int, int, int);
     void paint3DEnd();
@@ -108,6 +111,8 @@ class Viewer : public QGLViewer
   MyBitArray m_bitmask;
   bool m_paintHit, m_carveHit;
   Vec m_target;
+  Vec m_prevPaintHit;
+
 
   QMultiMap<int, Curve*> *m_Dcg;
   QMultiMap<int, Curve*> *m_Wcg;
@@ -166,7 +171,7 @@ class Viewer : public QGLViewer
   GLhandleARB m_eeShader;
   GLint m_eeParm[20];
 
-
+  bool m_exactCoord;
   bool m_fullRender;
   bool m_dragMode;
 
@@ -231,6 +236,8 @@ class Viewer : public QGLViewer
   void drawClipFaces(Vec*, Vec*);
 
   void pointRendering();
+
+  void regionGrowing();
 };
 
 #endif

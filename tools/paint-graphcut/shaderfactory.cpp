@@ -353,7 +353,7 @@ ShaderFactory::genRectBlurShaderString(int filter)
 
 
 QString
-ShaderFactory::genRaycastShader(int maxSteps, bool firstHit)
+ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
 {
   QString shader;
 
@@ -397,20 +397,30 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit)
   shader += "int nskipped = -1;\n"; 
   shader += QString("for(int i=0; i<%1; i++)\n").arg(maxSteps);
   shader += "{\n";
-  shader += "  float val = texture3D(dataTex, voxelCoord).x;\n";
+  if (nearest)
+    {
+      // -- get exact texture coordinate --
+      shader += "  vec3 vC = voxelCoord*vsize;\n";
+      shader += "  vC = vec3(int(vC.x)+0.5,int(vC.y)+0.5,int(vC.z)+0.5);\n";
+      shader += "  vC /= vsize;\n";
+      shader += "  float val = texture3D(dataTex, vC).x;\n";
+    }
+  else
+    shader += "  float val = texture3D(dataTex, voxelCoord).x;\n";
   shader += "  vec4 colorSample = texture2D(lutTex, vec2(val,0.0));\n";
 
   shader += "  if (!gotFirstHit && colorSample.a > 0.001) gotFirstHit = true;\n";  
 
   shader += "  if (gotFirstHit && nskipped > skipLayers)\n";
   shader += "  {\n";
-  shader += "    float tag = texture3D(maskTex, voxelCoord).x;\n";
-  shader += "    tag = max(tag, texture3D(maskTex, voxelCoord+vec3(deltaDir.x,0,0)).x);\n";
-  shader += "    tag = max(tag, texture3D(maskTex, voxelCoord+vec3(0,deltaDir.y,0)).x);\n";
-  shader += "    tag = max(tag, texture3D(maskTex, voxelCoord+vec3(0,0,deltaDir.z)).x);\n";
-  shader += "    tag = max(tag, texture3D(maskTex, voxelCoord-vec3(deltaDir.x,0,0)).x);\n";
-  shader += "    tag = max(tag, texture3D(maskTex, voxelCoord-vec3(0,deltaDir.y,0)).x);\n";
-  shader += "    tag = max(tag, texture3D(maskTex, voxelCoord-vec3(0,0,deltaDir.z)).x);\n";
+  if (!nearest)
+    {
+      // -- get exact texture coordinate so we don't get tag interpolation --
+      shader += "    vec3 vC = voxelCoord*vsize;\n";
+      shader += "    vC = vec3(int(vC.x)+0.5,int(vC.y)+0.5,int(vC.z)+0.5);\n";
+      shader += "    vC /= vsize;\n";
+    }
+  shader += "    float tag = texture3D(maskTex, vC).x;\n";
   shader += "    vec3 tagcolor = texture1D(tagTex, tag).rgb;\n";
   shader += "    if (tag < 0.001) tagcolor = colorSample.rgb;\n";
   shader += "    colorSample.rgb = mix(colorSample.rgb, tagcolor, 0.5);\n";

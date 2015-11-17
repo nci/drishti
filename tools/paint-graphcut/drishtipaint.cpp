@@ -1989,6 +1989,8 @@ DrishtiPaint::connectViewerMenu()
 	  m_viewer, SLOT(setRaycastStyle(bool)));
   connect(viewerUi.skipLayers, SIGNAL(valueChanged(int)),
 	  m_viewer, SLOT(setSkipLayers(int)));
+  connect(viewerUi.nearest, SIGNAL(clicked(bool)),
+	  m_viewer, SLOT(setExactCoord(bool)));
 
   connect(viewerUi.stillStep, SIGNAL(valueChanged(double)),
 	  this, SLOT(on_stillStep_changed(double)));

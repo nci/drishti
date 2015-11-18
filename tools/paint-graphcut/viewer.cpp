@@ -884,6 +884,11 @@ Viewer::drawPointsWithoutShader()
 void
 Viewer::draw()
 {
+  Vec bmin, bmax;
+  m_boundingBox.bounds(bmin, bmax);
+  camera()->setRevolveAroundPoint((bmax+bmin)/2);
+
+
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   glEnable(GL_DEPTH_TEST);
 
@@ -2315,7 +2320,7 @@ Viewer::getHit(QMouseEvent *event)
       
       if (m_paintHit)
 	{
-	  emit paint3D(d, w, h, b, Global::tag(), m_sslevel);
+	  emit paint3D(d, w, h, b, Global::tag());
 	  m_prevPaintHit = Vec(d,w,h);
 	}
       else if (m_carveHit)
@@ -3359,107 +3364,12 @@ Viewer::uploadMask(int dst, int wst, int hst, int ded, int wed, int hed)
 void
 Viewer::regionGrowing()
 {
-  int dr = qCeil(m_prevPaintHit.x);
-  int wr = qCeil(m_prevPaintHit.y);
-  int hr = qCeil(m_prevPaintHit.z);
-
-  if (dr < 0 || wr < 0 || hr < 0 ||
-      dr > m_depth-1 ||
-      wr > m_width-1 ||
-      hr > m_height-1)
-    {
-      QMessageBox::information(0, "", "No painted region found");
-      return;
-    }
-
-  QProgressDialog progress("Updating voxel structure",
-			   QString(),
-			   0, 100,
-			   0);
-  progress.setMinimumDuration(0);
-
-  uchar *lut = Global::lut();
-  int tag = Global::tag();
+  int d = qCeil(m_prevPaintHit.x);
+  int w = qCeil(m_prevPaintHit.y);
+  int h = qCeil(m_prevPaintHit.z);
 
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
 
-  m_bitmask.fill(false);
-
-  for(int d=(int)bmin.z; d<=(int)bmax.z; d++)
-    {
-      progress.setValue(90*(d-bmin.z)/(bmax.z-bmin.z));
-      for(int w=(int)bmin.y; w<=(int)bmax.y; w++)
-	for(int h=(int)bmin.x; h<=(int)bmax.x; h++)
-	  {
-	    qint64 idx = d*m_width*m_height + w*m_height + h;
-	    int val = m_volPtr[idx];
-	    int r =  lut[4*val+2];
-	    int g =  lut[4*val+1];
-	    int b =  lut[4*val+0];
-	    if (r+g+b > 10)
-	      m_bitmask.setBit(idx, true);
-	  }
-    }
-  
-  int minD,maxD, minW,maxW, minH,maxH;
-
-  QStack<Vec> stack;
-  stack.push(Vec(dr,wr,hr));
-  qint64 idx = dr*m_width*m_height + wr*m_height + hr;
-  m_bitmask.setBit(idx, false);
-
-  minD = maxD = dr;
-  minW = maxW = wr;
-  minH = maxH = hr;
-  
-  int indices[] = {-1, 0, 0,
-		    1, 0, 0,
-		    0,-1, 0,
-		    0, 1, 0,
-		    0, 0,-1,
-		    0, 0, 1};
-
-  bool done = false;
-  int ip=0;
-  while(!stack.isEmpty())
-    {
-      ip = (ip+1)%9900;
-      progress.setValue(ip/100);
-      
-      Vec dwh = stack.pop();
-      int dx = qCeil(dwh.x);
-      int wx = qCeil(dwh.y);
-      int hx = qCeil(dwh.z);
-
-      for(int i=0; i<6; i++)
-	{
-	  int ds = indices[3*i+0];
-	  int ws = indices[3*i+1];
-	  int hs = indices[3*i+2];
-
-	  int d2 = qBound(qCeil(bmin.z), dx+ds, qCeil(bmax.z));
-	  int w2 = qBound(qCeil(bmin.y), wx+ws, qCeil(bmax.y));
-	  int h2 = qBound(qCeil(bmin.x), hx+hs, qCeil(bmax.x));
-
-	  idx = d2*m_width*m_height + w2*m_height + h2;
-	  if (m_bitmask.testBit(idx))
-	    {
-	      m_bitmask.setBit(idx, false);
-	      stack.push(Vec(d2,w2,h2));
-	      m_maskPtr[idx] = tag;
-	      
-	      minD = qMin(minD, d2);
-	      maxD = qMax(maxD, d2);
-	      minW = qMin(minW, w2);
-	      maxW = qMax(maxW, w2);
-	      minH = qMin(minH, h2);
-	      maxH = qMax(maxH, h2);
-	    }
-	}
-    }
-  
-  uploadMask(minD,minW,minH, maxD,maxW,maxH);
-
-  progress.setValue(100);
+  emit paint3D(d, w, h, bmin, bmax, Global::tag());
 }

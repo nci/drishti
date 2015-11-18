@@ -70,50 +70,39 @@ VolumeMask::saveMaskBlock(int d, int w, int h, int rad)
 void
 VolumeMask::saveMaskBlock(QList< QList<int> > bl)
 {
-//  for (int i=0; i<bl.count(); i++)
-//    {
-//      QList<int> bwhr = bl[i];
-//      int d,w,h,rad;
-//      d = bwhr[0];
-//      w = bwhr[1];
-//      h = bwhr[2];
-//      rad = bwhr[3];
-//
-//      int dmin, dmax, wmin, wmax, hmin, hmax;
-//      dmin = qMax(0, d-rad);
-//      wmin = qMax(0, w-rad);
-//      hmin = qMax(0, h-rad);
-//      
-//      dmax = qMin(m_depth-1, d+rad);
-//      wmax = qMin(m_width-1, w+rad);
-//      hmax = qMin(m_height-1, h+rad);
-//      
-//      m_maskFileManager.saveBlock(dmin, dmax, wmin, wmax, hmin, hmax);
-//    }
-//  // flush out and close just to make sure data is stored to disk
-//  m_maskFileManager.saveBlock(-1,-1,-1,-1,-1,-1);
-
-  // write out all at once
   int dmin, dmax, wmin, wmax, hmin, hmax;
   dmin = wmin = hmin = 10000000;
   dmax = wmax = hmax = 0;
-  for (int i=0; i<bl.count(); i++)
-    {
-      QList<int> bwhr = bl[i];
-      int d,w,h,rad;
-      d = bwhr[0];
-      w = bwhr[1];
-      h = bwhr[2];
-      rad = bwhr[3];
 
-      dmin = qMin(dmin, d-rad);
-      wmin = qMin(wmin, w-rad);
-      hmin = qMin(hmin, h-rad);
-      
-      dmax = qMax(dmax, d+rad);
-      wmax = qMax(wmax, w+rad);
-      hmax = qMax(hmax, h+rad);
-    }      
+  if (bl[0].count() == 3)
+    {
+      dmin = bl[0][0];
+      wmin = bl[0][1];
+      hmin = bl[0][2];
+      dmax = bl[1][0];
+      wmax = bl[1][1];
+      hmax = bl[1][2];
+    }
+  else
+    {
+      for (int i=0; i<bl.count(); i++)
+	{
+	  QList<int> bwhr = bl[i];
+	  int d,w,h,rad;
+	  d = bwhr[0];
+	  w = bwhr[1];
+	  h = bwhr[2];
+	  rad = bwhr[3];
+	  
+	  dmin = qMin(dmin, d-rad);
+	  wmin = qMin(wmin, w-rad);
+	  hmin = qMin(hmin, h-rad);
+	  
+	  dmax = qMax(dmax, d+rad);
+	  wmax = qMax(wmax, w+rad);
+	  hmax = qMax(hmax, h+rad);
+	}
+    }
 
   dmin = qBound(0, dmin, m_depth-1);
   wmin = qBound(0, wmin, m_width-1);

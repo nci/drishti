@@ -116,8 +116,10 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   //------------------------------
 
   //------------------------------
-  connect(m_viewer, SIGNAL(paint3D(int,int,int,int,int,int)),
-	  this, SLOT(paint3D(int,int,int,int,int,int)));
+  connect(m_viewer, SIGNAL(paint3D(int,int,int,int,int)),
+	  this, SLOT(paint3D(int,int,int,int,int)));
+  connect(m_viewer, SIGNAL(paint3D(int,int,int,Vec,Vec,int)),
+	  this, SLOT(paint3D(int,int,int,Vec,Vec,int)));
   connect(m_viewer, SIGNAL(paint3DEnd()),
 	  this, SLOT(paint3DEnd()));
   connect(m_viewer, SIGNAL(updateSliceBounds(Vec, Vec)),
@@ -1848,6 +1850,53 @@ DrishtiPaint::applyMaskOperation(int tag,
   progress.setValue(100);  
 
   getSlice(m_slider->value());
+}
+
+
+void
+DrishtiPaint::on_pointRender_clicked(bool flag)
+{  
+  viewerUi.raycastParam->setVisible(!flag);
+
+  m_viewer->setPointRender(flag);
+  viewerUi.pointParam->setVisible(flag);
+}
+
+void
+DrishtiPaint::on_raycastRender_clicked(bool flag)
+{
+  viewerUi.pointParam->setVisible(!flag);
+
+  m_viewer->setRaycastRender(flag);
+  viewerUi.raycastParam->setVisible(flag);
+}
+
+void
+DrishtiPaint::on_stillStep_changed(double step)
+{
+  float ds = m_viewer->dragStep();
+
+  if (step > ds)
+    {
+      viewerUi.dragStep->setValue(step);
+      ds = step;
+    }
+
+  m_viewer->setStillAndDragStep(step, ds);
+}
+
+void
+DrishtiPaint::on_dragStep_changed(double step)
+{
+  float ss = m_viewer->stillStep();
+
+  if (ss > step)
+    {
+      viewerUi.stillStep->setValue(step);
+      ss = step;
+    }
+
+  m_viewer->setStillAndDragStep(ss, step);
 }
 
 void
@@ -3934,7 +3983,144 @@ DrishtiPaint::smoothMesh(QList<Vec>& V,
 }
 
 void
-DrishtiPaint::paint3D(int d, int w, int h, int button, int otag, int sslevel)
+DrishtiPaint::paint3D(int dr, int wr, int hr, Vec bmin, Vec bmax, int tag)
+{
+  int m_depth, m_width, m_height;
+  m_volume->gridSize(m_depth, m_width, m_height);
+
+  if (dr < 0 || wr < 0 || hr < 0 ||
+      dr > m_depth-1 ||
+      wr > m_width-1 ||
+      hr > m_height-1)
+    {
+      QMessageBox::information(0, "", "No painted region found");
+      return;
+    }
+
+  QProgressDialog progress("Updating voxel structure",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+  uchar *lut = Global::lut();
+
+  int ds = bmin.z;
+  int ws = bmin.y;
+  int hs = bmin.x;
+
+  int de = bmax.z;
+  int we = bmax.y;
+  int he = bmax.x;
+
+  int mx = he-hs+1;
+  int my = we-ws+1;
+  int mz = de-ds+1;
+
+  MyBitArray bitmask;
+  bitmask.resize(mx*my*mz);
+  bitmask.fill(false);
+
+  uchar *volData = m_volume->memVolDataPtr();
+  uchar *maskData = m_volume->memMaskDataPtr();
+
+  for(int d=ds; d<=de; d++)
+    {
+      progress.setValue(90*(d-ds)/(mz));
+      for(int w=ws; w<=we; w++)
+	for(int h=hs; h<=he; h++)
+	  {
+	    qint64 idx = d*m_width*m_height + w*m_height + h;
+	    int val = volData[idx];
+	    int r =  lut[4*val+2];
+	    int g =  lut[4*val+1];
+	    int b =  lut[4*val+0];
+	    if (r+g+b > 10)
+	      {
+		int bidx = (d-ds)*mx*my+(w-ws)*mx+(h-hs);
+		bitmask.setBit(bidx, true);
+	      }
+	  }
+    }
+  
+  int minD,maxD, minW,maxW, minH,maxH;
+
+  QStack<Vec> stack;
+  stack.push(Vec(dr,wr,hr));
+  int bidx = (dr-ds)*mx*my+(wr-ws)*mx+(hr-hs);
+  bitmask.setBit(bidx, false);
+
+  minD = maxD = dr;
+  minW = maxW = wr;
+  minH = maxH = hr;
+  
+  int indices[] = {-1, 0, 0,
+		    1, 0, 0,
+		    0,-1, 0,
+		    0, 1, 0,
+		    0, 0,-1,
+		    0, 0, 1};
+
+  bool done = false;
+  int ip=0;
+  while(!stack.isEmpty())
+    {
+      ip = (ip+1)%9900;
+      progress.setValue(ip/100);
+      
+      Vec dwh = stack.pop();
+      int dx = qCeil(dwh.x);
+      int wx = qCeil(dwh.y);
+      int hx = qCeil(dwh.z);
+
+      for(int i=0; i<6; i++)
+	{
+	  int da = indices[3*i+0];
+	  int wa = indices[3*i+1];
+	  int ha = indices[3*i+2];
+
+	  int d2 = qBound(ds, dx+da, de);
+	  int w2 = qBound(ws, wx+wa, we);
+	  int h2 = qBound(hs, hx+ha, he);
+
+	  int bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
+	  if (bitmask.testBit(bidx))
+	    {
+	      bitmask.setBit(bidx, false);
+	      stack.push(Vec(d2,w2,h2));
+
+	      int idx = d2*m_width*m_height + w2*m_height + h2;
+	      maskData[idx] = tag;
+	      
+	      minD = qMin(minD, d2);
+	      maxD = qMax(maxD, d2);
+	      minW = qMin(minW, w2);
+	      maxW = qMax(maxW, w2);
+	      minH = qMin(minH, h2);
+	      maxH = qMax(maxH, h2);
+	    }
+	}
+    }
+
+  getSlice(m_currSlice);
+  
+  m_viewer->uploadMask(minD,minW,minH, maxD,maxW,maxH);
+
+  QList<int> dwh;  
+  m_blockList.clear();  
+  dwh << minD << minW << minH;
+  m_blockList << dwh;
+  dwh.clear();
+  dwh << maxD << maxW << maxH;
+  m_blockList << dwh;
+
+  m_volume->saveMaskBlock(m_blockList);
+
+  progress.setValue(100);
+}
+
+void
+DrishtiPaint::paint3D(int d, int w, int h, int button, int otag)
 {
   int m_depth, m_width, m_height;
   m_volume->gridSize(m_depth, m_width, m_height);
@@ -3965,10 +4151,12 @@ DrishtiPaint::paint3D(int d, int w, int h, int button, int otag, int sslevel)
   // tag only region connected to the origin voxel (d,w,h)
   int dm = 2*rad+1;
   int dm2 = dm*dm;
-  uchar *bitmask;
-  bitmask = new uchar[dm*dm*dm];
-  memset(bitmask, 0, dm*dm*dm);
-  
+
+  MyBitArray bitmask;
+  bitmask.resize(dm*dm*dm);
+  bitmask.fill(false);
+
+
   int ds, de, ws, we, hs, he;
   ds = qMax(minDSlice, d-rad);
   de = qMin(maxDSlice, d+rad);
@@ -3990,15 +4178,15 @@ DrishtiPaint::paint3D(int d, int w, int h, int button, int otag, int sslevel)
 	      int g =  lut[4*val+1];
 	      int b =  lut[4*val+0];
 	      if (r + g + b > 10)
-		bitmask[(dd-ds)*dm2 + (ww-ws)*dm + (hh-hs)] = 1;
+		bitmask.setBit((dd-ds)*dm2 + (ww-ws)*dm + (hh-hs), true);
 //	      if (r + g + b > 10)
 //		maskData[dd*m_width*m_height + ww*m_height + hh] = tag;
 	    }
 	}
 
   // tag only connected region
-  bitmask[(d-ds)*dm2 + (w-ws)*dm + (h-hs)] = 2;
   maskData[d*m_width*m_height + w*m_height + h] = tag;
+  bitmask.setBit((d-ds)*dm2 + (w-ws)*dm + (h-hs), false);
 
   QStack<Vec> stack;
   stack.push(Vec(d, w, h));
@@ -4022,16 +4210,14 @@ DrishtiPaint::paint3D(int d, int w, int h, int button, int otag, int sslevel)
 	for(int w2=w0; w2<=w1; w2++)
 	  for(int h2=h0; h2<=h1; h2++)
 	    {
-	      if (bitmask[(d2-ds)*dm2 + (w2-ws)*dm + (h2-hs)] == 1)
+	      if (bitmask.testBit((d2-ds)*dm2 + (w2-ws)*dm + (h2-hs)))
 		{
-		  bitmask[(d2-ds)*dm2 + (w2-ws)*dm + (h2-hs)] = 2;
+		  bitmask.setBit((d2-ds)*dm2 + (w2-ws)*dm + (h2-hs), false);
 		  maskData[d2*m_width*m_height + w2*m_height + h2] = tag;
 		  stack.push(Vec(d2,w2,h2));
 		}
 	    }
     }
-  delete [] bitmask;
-
   getSlice(m_currSlice);
 
   QList<int> dwhr;
@@ -4047,50 +4233,4 @@ DrishtiPaint::paint3DEnd()
 {
   m_volume->saveMaskBlock(m_blockList);
   m_blockList.clear();
-}
-
-void
-DrishtiPaint::on_pointRender_clicked(bool flag)
-{  
-  viewerUi.raycastParam->setVisible(!flag);
-
-  m_viewer->setPointRender(flag);
-  viewerUi.pointParam->setVisible(flag);
-}
-
-void
-DrishtiPaint::on_raycastRender_clicked(bool flag)
-{
-  viewerUi.pointParam->setVisible(!flag);
-
-  m_viewer->setRaycastRender(flag);
-  viewerUi.raycastParam->setVisible(flag);
-}
-
-void
-DrishtiPaint::on_stillStep_changed(double step)
-{
-  float ds = m_viewer->dragStep();
-
-  if (step > ds)
-    {
-      viewerUi.dragStep->setValue(step);
-      ds = step;
-    }
-
-  m_viewer->setStillAndDragStep(step, ds);
-}
-
-void
-DrishtiPaint::on_dragStep_changed(double step)
-{
-  float ss = m_viewer->stillStep();
-
-  if (ss > step)
-    {
-      viewerUi.stillStep->setValue(step);
-      ss = step;
-    }
-
-  m_viewer->setStillAndDragStep(ss, step);
 }

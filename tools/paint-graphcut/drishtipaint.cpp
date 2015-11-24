@@ -4328,7 +4328,7 @@ DrishtiPaint::dilateConnected(int dr, int wr, int hr,
 
   //--------------------
   //dilate
-  int rad = Global::spread();
+  int rad = viewerUi.dilateRad->value();
   dilate(rad, // dilate size
 	 &bitmask, mx, my, mz,
 	 ds, de, ws, we, hs, he,

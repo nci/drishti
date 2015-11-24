@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>110</width>
-    <height>728</height>
+    <height>755</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -89,21 +89,21 @@
     </layout>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_7">
+    <layout class="QGridLayout" name="gridLayout_2">
      <property name="topMargin">
       <number>0</number>
      </property>
      <property name="bottomMargin">
       <number>10</number>
      </property>
-     <item>
+     <item row="0" column="0">
       <widget class="QLabel" name="label_7">
        <property name="text">
         <string>Edges</string>
        </property>
       </widget>
      </item>
-     <item>
+     <item row="0" column="1">
       <widget class="QSpinBox" name="dzscale">
        <property name="minimum">
         <number>1</number>
@@ -113,6 +113,20 @@
        </property>
        <property name="value">
         <number>3</number>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="1">
+      <widget class="QSpinBox" name="dilateRad">
+       <property name="minimum">
+        <number>1</number>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="0">
+      <widget class="QLabel" name="label_11">
+       <property name="text">
+        <string>Dilate</string>
        </property>
       </widget>
      </item>
@@ -310,7 +324,6 @@
        </widget>
       </item>
      </layout>
-     <zorder></zorder>
      <zorder></zorder>
      <zorder></zorder>
      <zorder>slicesBox</zorder>

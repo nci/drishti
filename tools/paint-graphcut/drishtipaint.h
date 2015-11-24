@@ -121,6 +121,7 @@ class DrishtiPaint : public QMainWindow
   void paint3D(int, int, int, int, int);
   void paint3D(int, int, int, Vec, Vec, int);
   void paint3DEnd();
+  void dilateConnected(int, int, int, Vec, Vec, int);
 
   void updateSliceBounds(Vec, Vec);
 
@@ -233,6 +234,11 @@ class DrishtiPaint : public QMainWindow
   void smoothData(uchar*, int, int, int, int);
 
   void processHoles(uchar*, int, int, int, int);
+
+  void dilate(int,
+	      MyBitArray*, int, int, int,
+	      int, int, int, int, int, int,
+	      MyBitArray*);
 };
 
 #endif

@@ -122,6 +122,8 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 	  this, SLOT(paint3D(int,int,int,Vec,Vec,int)));
   connect(m_viewer, SIGNAL(paint3DEnd()),
 	  this, SLOT(paint3DEnd()));
+  connect(m_viewer, SIGNAL(dilateConnected(int,int,int,Vec,Vec,int)),
+	  this, SLOT(dilateConnected(int,int,int,Vec,Vec,int)));
   connect(m_viewer, SIGNAL(updateSliceBounds(Vec, Vec)),
 	  this, SLOT(updateSliceBounds(Vec, Vec)));
   //------------------------------
@@ -4179,8 +4181,6 @@ DrishtiPaint::paint3D(int d, int w, int h, int button, int otag)
 	      int b =  lut[4*val+0];
 	      if (r + g + b > 10)
 		bitmask.setBit((dd-ds)*dm2 + (ww-ws)*dm + (hh-hs), true);
-//	      if (r + g + b > 10)
-//		maskData[dd*m_width*m_height + ww*m_height + hh] = tag;
 	    }
 	}
 
@@ -4234,3 +4234,286 @@ DrishtiPaint::paint3DEnd()
   m_volume->saveMaskBlock(m_blockList);
   m_blockList.clear();
 }
+
+void
+DrishtiPaint::dilateConnected(int dr, int wr, int hr,
+			      Vec bmin, Vec bmax, int tag)
+{
+  int m_depth, m_width, m_height;
+  m_volume->gridSize(m_depth, m_width, m_height);
+
+  if (dr < 0 || wr < 0 || hr < 0 ||
+      dr > m_depth-1 ||
+      wr > m_width-1 ||
+      hr > m_height-1)
+    {
+      QMessageBox::information(0, "", "No painted region found");
+      return;
+    }
+
+
+  int minConnectionSize = 2;
+
+  QProgressDialog progress("Updating voxel structure",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+  uchar *lut = Global::lut();
+
+  int ds = bmin.z;
+  int ws = bmin.y;
+  int hs = bmin.x;
+
+  int de = bmax.z;
+  int we = bmax.y;
+  int he = bmax.x;
+
+  int mx = he-hs+1;
+  int my = we-ws+1;
+  int mz = de-ds+1;
+
+  MyBitArray bitmask;
+  bitmask.resize(mx*my*mz);
+  bitmask.fill(false);
+
+  MyBitArray cbitmask;
+  cbitmask.resize(mx*my*mz);
+  cbitmask.fill(false);
+
+  uchar *volData = m_volume->memVolDataPtr();
+  uchar *maskData = m_volume->memMaskDataPtr();
+
+  for(int d=ds; d<=de; d++)
+    {
+      progress.setValue(90*(d-ds)/(mz));
+      for(int w=ws; w<=we; w++)
+	for(int h=hs; h<=he; h++)
+	  {
+	    qint64 idx = d*m_width*m_height + w*m_height + h;
+	    if (maskData[idx] == tag)
+	      {
+		int bidx = (d-ds)*mx*my+(w-ws)*mx+(h-hs);
+		bitmask.setBit(bidx, true);
+	      }
+	  }
+    }
+  
+  for(int d=ds; d<=de; d++)
+    {
+      progress.setValue(90*(d-ds)/(mz));
+      for(int w=ws; w<=we; w++)
+	for(int h=hs; h<=he; h++)
+	  {
+	    qint64 idx = d*m_width*m_height + w*m_height + h;
+	    int val = volData[idx];
+	    int r =  lut[4*val+2];
+	    int g =  lut[4*val+1];
+	    int b =  lut[4*val+0];
+	    if (r+g+b > 10)
+	      {
+		int bidx = (d-ds)*mx*my+(w-ws)*mx+(h-hs);
+		cbitmask.setBit(bidx, true);
+	      }
+	  }
+    }
+  
+  int indices[] = {-1, 0, 0,
+		    1, 0, 0,
+		    0,-1, 0,
+		    0, 1, 0,
+		    0, 0,-1,
+		    0, 0, 1};
+
+  //--------------------
+  //dilate
+  int rad = Global::spread();
+  dilate(rad, // dilate size
+	 &bitmask, mx, my, mz,
+	 ds, de, ws, we, hs, he,
+	 &cbitmask);
+  //--------------------
+
+  int minD,maxD, minW,maxW, minH,maxH;
+
+  QStack<Vec> stack;
+  stack.push(Vec(dr,wr,hr));
+
+  int idx = dr*m_width*m_height + wr*m_height + hr;
+  maskData[idx] = tag;
+
+  int bidx = (dr-ds)*mx*my+(wr-ws)*mx+(hr-hs);
+  bitmask.setBit(bidx, false);
+
+  minD = maxD = dr;
+  minW = maxW = wr;
+  minH = maxH = hr;
+
+  bool done = false;
+  int ip=0;
+  while(!stack.isEmpty())
+    {
+      ip = (ip+1)%9900;
+      progress.setValue(ip/100);
+      
+      Vec dwh = stack.pop();
+      int dx = qCeil(dwh.x);
+      int wx = qCeil(dwh.y);
+      int hx = qCeil(dwh.z);
+
+      for(int i=0; i<6; i++)
+	{
+	  int da = indices[3*i+0];
+	  int wa = indices[3*i+1];
+	  int ha = indices[3*i+2];
+
+	  int d2 = qBound(ds, dx+da, de);
+	  int w2 = qBound(ws, wx+wa, we);
+	  int h2 = qBound(hs, hx+ha, he);
+
+	  int bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
+	  if (bitmask.testBit(bidx))
+	    {
+	      bitmask.setBit(bidx, false);
+	      stack.push(Vec(d2,w2,h2));
+
+	      int idx = d2*m_width*m_height + w2*m_height + h2;
+	      maskData[idx] = tag;
+	      
+	      minD = qMin(minD, d2);
+	      maxD = qMax(maxD, d2);
+	      minW = qMin(minW, w2);
+	      maxW = qMax(maxW, w2);
+	      minH = qMin(minH, h2);
+	      maxH = qMax(maxH, h2);
+	    }
+	}
+    }
+
+  getSlice(m_currSlice);
+  
+  m_viewer->uploadMask(minD,minW,minH, maxD,maxW,maxH);
+
+  QList<int> dwh;  
+  m_blockList.clear();  
+  dwh << minD << minW << minH;
+  m_blockList << dwh;
+  dwh.clear();
+  dwh << maxD << maxW << maxH;
+  m_blockList << dwh;
+
+  m_volume->saveMaskBlock(m_blockList);
+
+  progress.setValue(100);
+}
+
+void
+DrishtiPaint::dilate(int nDilate,
+		     MyBitArray *bitmask, int mx, int my, int mz,
+		     int ds, int de, int ws, int we, int hs, int he,
+		     MyBitArray *cbitmask)
+{
+  int indices[] = {-1, 0, 0,
+		    1, 0, 0,
+		    0,-1, 0,
+		    0, 1, 0,
+		    0, 0,-1,
+		    0, 0, 1};
+
+  QProgressDialog progress("Dilate",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+  QList<Vec> edges;
+  edges.clear();
+
+  // find outer boundary
+  for(int d=ds; d<=de; d++)
+    {
+      progress.setValue(90*(d-ds)/(mz));
+      for(int w=ws; w<=we; w++)
+	for(int h=hs; h<=he; h++)
+	  {
+	    int bidx = (d-ds)*mx*my+(w-ws)*mx+(h-hs);
+	    if (!bitmask->testBit(bidx))
+	      {
+		bool isedge = false;
+		for(int i=0; i<6; i++)
+		  {
+		    int da = indices[3*i+0];
+		    int wa = indices[3*i+1];
+		    int ha = indices[3*i+2];
+		    
+		    int d2 = qBound(ds, d+da, de);
+		    int w2 = qBound(ws, w+wa, we);
+		    int h2 = qBound(hs, h+ha, he);
+		    
+		    int idx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
+		    isedge |= bitmask->testBit(idx);
+		  }
+		if (isedge)
+		  edges << Vec(d,w,h);
+	      }
+	  }
+    }
+
+  MyBitArray tbitmask;
+  tbitmask.resize(mx*my*mz);
+
+  for(int ne=0; ne<nDilate; ne++)
+    {
+      progress.setValue(90*(float)ne/(float)nDilate);
+
+      // fill boundary
+      for(int e=0; e<edges.count(); e++)
+	{
+	  int d2 = edges[e].x;
+	  int w2 = edges[e].y;
+	  int h2 = edges[e].z;
+
+	  int idx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
+	  if (cbitmask->testBit(idx)) // dilate only in visible portion
+	    bitmask->setBit(idx);
+	}
+
+      if (ne < nDilate-1)
+	{
+	  QList<Vec> tedges;
+	  tedges.clear();
+
+	  tbitmask.fill(false);
+	  // find next outer boundary to fill
+	  for(int e=0; e<edges.count(); e++)
+	    {
+	      int dx = edges[e].x;
+	      int wx = edges[e].y;
+	      int hx = edges[e].z;
+	      
+	      for(int i=0; i<6; i++)
+		{
+		  int da = indices[3*i+0];
+		  int wa = indices[3*i+1];
+		  int ha = indices[3*i+2];
+		  
+		  int d2 = qBound(ds, dx+da, de);
+		  int w2 = qBound(ws, wx+wa, we);
+		  int h2 = qBound(hs, hx+ha, he);
+		  
+		  int idx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
+		  if (!bitmask->testBit(idx) && !tbitmask.testBit(idx))
+		    {
+		      tbitmask.setBit(idx);
+		      tedges << Vec(d2,w2,h2);	  
+		    }
+		}
+	    }
+	  edges = tedges;
+	}
+    }
+
+  progress.setValue(100);
+}
+

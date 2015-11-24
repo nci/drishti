@@ -614,6 +614,16 @@ Viewer::keyPressEvent(QKeyEvent *event)
       return;
     }
 
+  if (event->key() == Qt::Key_D)
+    {  
+      if (m_prevPaintHit.x >= 0)
+	{
+	  regionDilation();
+	  update();
+	}
+      return;
+    }
+
   if (event->key() == Qt::Key_R)
     {  
       // reset bitmap
@@ -3372,4 +3382,17 @@ Viewer::regionGrowing()
   m_boundingBox.bounds(bmin, bmax);
 
   emit paint3D(d, w, h, bmin, bmax, Global::tag());
+}
+
+void
+Viewer::regionDilation()
+{
+  int d = qCeil(m_prevPaintHit.x);
+  int w = qCeil(m_prevPaintHit.y);
+  int h = qCeil(m_prevPaintHit.z);
+
+  Vec bmin, bmax;
+  m_boundingBox.bounds(bmin, bmax);
+
+  emit dilateConnected(d, w, h, bmin, bmax, Global::tag());
 }

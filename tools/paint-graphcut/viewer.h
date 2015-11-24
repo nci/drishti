@@ -75,6 +75,7 @@ class Viewer : public QGLViewer
  signals :
     void paint3D(int, int, int, int, int);
     void paint3D(int, int, int, Vec, Vec, int);
+    void dilateConnected(int, int, int, Vec, Vec, int);
     void paint3DEnd();
 
     void updateSliceBounds(Vec, Vec);
@@ -239,6 +240,7 @@ class Viewer : public QGLViewer
   void pointRendering();
 
   void regionGrowing();
+  void regionDilation();
 };
 
 #endif

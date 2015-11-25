@@ -409,10 +409,6 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
     shader += "  float val = texture3D(dataTex, voxelCoord).x;\n";
   shader += "  vec4 colorSample = texture2D(lutTex, vec2(val,0.0));\n";
 
-  shader += "  if (!gotFirstHit && colorSample.a > 0.001) gotFirstHit = true;\n";  
-
-  shader += "  if (gotFirstHit && nskipped > skipLayers)\n";
-  shader += "  {\n";
   if (!nearest)
     {
       // -- get exact texture coordinate so we don't get tag interpolation --
@@ -421,13 +417,19 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
       shader += "    vC /= vsize;\n";
     }
   shader += "    float tag = texture3D(maskTex, vC).x;\n";
-  shader += "    vec3 tagcolor = texture1D(tagTex, tag).rgb;\n";
-  shader += "    if (tag < 0.001) tagcolor = colorSample.rgb;\n";
-  shader += "    colorSample.rgb = mix(colorSample.rgb, tagcolor, 0.5);\n";
+  shader += "    vec4 tagcolor = texture1D(tagTex, tag);\n";
+  shader += "    if (tag < 0.001) tagcolor.rgb = colorSample.rgb;\n";
+  shader += "    colorSample.rgb = mix(colorSample.rgb, tagcolor.rgb, 0.5);\n";
 
+  // so that we can use tag opacity to hide certain tagged regions
+  // tagcolor.a should either 0 or 1
+  shader += "    colorSample *= tagcolor.a;\n";
+
+  shader += "  if (!gotFirstHit && colorSample.a > 0.001) gotFirstHit = true;\n";  
+
+  shader += "  if (gotFirstHit && nskipped > skipLayers)\n";
+  shader += "  {\n";
   shader += "    colorSample.rgb *= colorSample.a;\n";
-
-  shader += "    if (tag > 254.0/255.0) colorSample = vec4(0.0);\n"; // carving
 
   shader += "    colorAcum += (1.0 - colorAcum.a) * colorSample;\n";
 
@@ -535,14 +537,15 @@ ShaderFactory::genEdgeEnhanceShader()
 
   shader += "  float f = 0.2+0.8*(1.0-sum/16.0);\n";
 
-  //shader += "  gl_FragColor = vec4(f*norm.z*gl_Color.rgb, 1.0);\n";
-  //-----------------------
 
 
   //-----------------------
-  shader += "  vec3 color = vec3(0.0);\n";
-  shader += "  color = texture1D(tagTex, tag).rgb;\n";
-  shader += "  if (tag < 0.001) color = gl_Color.rgb;\n";
+  shader += "  vec4 color = vec4(0.0);\n";
+  shader += "  color = texture1D(tagTex, tag);\n";
+  shader += "  if (tag < 0.001) color.rgb = gl_Color.rgb;\n";
+  // so that we can use tag opacity to hide certain tagged regions
+  // tagcolor.a should either 0 or 1
+  shader += "  if (color.a < 0.001) discard;\n";
   shader += "  gl_FragColor = vec4(f*norm.z*color.rgb, 1.0);\n";
   //-----------------------
 

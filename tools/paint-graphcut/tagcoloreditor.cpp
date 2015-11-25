@@ -32,12 +32,36 @@ TagColorEditor::setColors()
 
       QTableWidgetItem *colorItem = new QTableWidgetItem;
       colorItem->setData(Qt::DisplayRole, QString("%1").arg(i));
+      if (colors[4*i+3] > 250)
+	colorItem->setCheckState(Qt::Checked);
+      else
+	colorItem->setCheckState(Qt::Unchecked);
       colorItem->setBackground(QColor(r,g,b));
       
       int row = i/8;
       int col = i%8;
       table->setItem(row, col, colorItem);
     }
+}
+
+void
+TagColorEditor::showTagsClicked()
+{
+  uchar *colors = Global::tagColors();
+  for(int i=0; i<256; i++)
+    colors[4*i+3] = 255;
+
+  setColors();
+}
+
+void
+TagColorEditor::hideTagsClicked()
+{
+  uchar *colors = Global::tagColors();
+  for(int i=0; i<256; i++)
+    colors[4*i+3] = 0;
+
+  setColors();
 }
 
 void
@@ -54,15 +78,21 @@ TagColorEditor::createGUI()
   setColors();
 
   for (int i=0; i < table->rowCount(); i++)
-    table->setRowHeight(i, 20);
+    table->setRowHeight(i, 25);
 
   for (int i=0; i < table->columnCount(); i++)
-    table->setColumnWidth(i, 40);
+    table->setColumnWidth(i, 50);
 
   QPushButton *newTags = new QPushButton("New Tag Colors");
+  QPushButton *showTags = new QPushButton("Show All Tags");
+  QPushButton *hideTags = new QPushButton("Hide All Tags");
 
+  QHBoxLayout *hlayout = new QHBoxLayout;
+  hlayout->addWidget(newTags);
+  hlayout->addWidget(showTags);
+  hlayout->addWidget(hideTags);
   QVBoxLayout *layout = new QVBoxLayout;
-  layout->addWidget(newTags);
+  layout->addLayout(hlayout);
   layout->addWidget(table);
   
   setLayout(layout);
@@ -71,6 +101,12 @@ TagColorEditor::createGUI()
 
   connect(newTags, SIGNAL(clicked()),
 	  this, SLOT(newTagsClicked()));
+
+  connect(showTags, SIGNAL(clicked()),
+	  this, SLOT(showTagsClicked()));
+
+  connect(hideTags, SIGNAL(clicked()),
+	  this, SLOT(hideTagsClicked()));
 
   connect(table, SIGNAL(cellClicked(int, int)),
 	  this, SLOT(cellClicked(int, int)));
@@ -111,6 +147,15 @@ void
 TagColorEditor::cellClicked(int row, int col)
 {
   int index = row*8 + col;
+
+  uchar *colors = Global::tagColors();
+
+  QTableWidgetItem *item = table->item(row, col);
+  if (item->checkState() == Qt::Checked)
+    colors[4*index+3] = 255;
+  else
+    colors[4*index+3] = 0;
+
   emit tagSelected(index);
 }
 

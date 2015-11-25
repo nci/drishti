@@ -22,6 +22,8 @@ class TagColorEditor : public QWidget
     void cellClicked(int, int);
     void cellDoubleClicked(int, int);
     void newTagsClicked();
+    void showTagsClicked();
+    void hideTagsClicked();
 
  private:
     void createGUI();

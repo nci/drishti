@@ -122,6 +122,8 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 	  this, SLOT(paint3D(int,int,int,Vec,Vec,int)));
   connect(m_viewer, SIGNAL(paint3DEnd()),
 	  this, SLOT(paint3DEnd()));
+  connect(m_viewer, SIGNAL(mergeTags(Vec, Vec, int, int)),
+	  this, SLOT(mergeTags(Vec, Vec, int, int)));
   connect(m_viewer, SIGNAL(dilateConnected(int,int,int,Vec,Vec,int)),
 	  this, SLOT(dilateConnected(int,int,int,Vec,Vec,int)));
   connect(m_viewer, SIGNAL(updateSliceBounds(Vec, Vec)),
@@ -1095,7 +1097,8 @@ DrishtiPaint::loadSettings()
 	      colors[4*i+0] = clr[0].toInt();
 	      colors[4*i+1] = clr[1].toInt();
 	      colors[4*i+2] = clr[2].toInt();
-	      colors[4*i+3] = clr[3].toInt();
+	      //colors[4*i+3] = clr[3].toInt();
+	      colors[4*i+3] = 255;
 	    }
 	  Global::setTagColors(colors);
 	  m_tagColorEditor->setColors();
@@ -4517,3 +4520,76 @@ DrishtiPaint::dilate(int nDilate,
   progress.setValue(100);
 }
 
+
+void
+DrishtiPaint::mergeTags(Vec bmin, Vec bmax, int tag1, int tag2)
+{
+  int m_depth, m_width, m_height;
+  m_volume->gridSize(m_depth, m_width, m_height);
+
+  int ds = bmin.z;
+  int ws = bmin.y;
+  int hs = bmin.x;
+
+  int de = bmax.z;
+  int we = bmax.y;
+  int he = bmax.x;
+
+  QProgressDialog progress("Updating voxel structure",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+  int minD,maxD, minW,maxW, minH,maxH;
+  minD = maxD = -1;
+  minW = maxW = -1;
+  minH = maxH = -1;
+
+  uchar *maskData = m_volume->memMaskDataPtr();
+
+  for(int d=ds; d<=de; d++)
+    {
+      progress.setValue(90*(d-ds)/((de-ds+1)));
+      for(int w=ws; w<=we; w++)
+	for(int h=hs; h<=he; h++)
+	  {
+	    qint64 idx = d*m_width*m_height + w*m_height + h;
+	    if (maskData[idx] == tag2)
+	      {
+		maskData[idx] = tag1;
+		if (minD > -1)
+		  {
+		    minD = qMin(minD, d);
+		    maxD = qMax(maxD, d);
+		    minW = qMin(minW, w);
+		    maxW = qMax(maxW, w);
+		    minH = qMin(minH, h);
+		    maxH = qMax(maxH, h);
+		  }
+		else
+		  {
+		    minD = maxD = d;
+		    minW = maxW = w;
+		    minH = maxH = h;
+		  }
+	      }
+	  }
+    }
+
+  getSlice(m_currSlice);
+  
+  m_viewer->uploadMask(minD,minW,minH, maxD,maxW,maxH);
+
+  QList<int> dwh;  
+  m_blockList.clear();  
+  dwh << minD << minW << minH;
+  m_blockList << dwh;
+  dwh.clear();
+  dwh << maxD << maxW << maxH;
+  m_blockList << dwh;
+
+  m_volume->saveMaskBlock(m_blockList);
+
+  progress.setValue(100);
+}

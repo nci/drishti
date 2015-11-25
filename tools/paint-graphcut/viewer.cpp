@@ -4,6 +4,7 @@
 #include "viewer.h"
 #include "global.h"
 #include "staticfunctions.h"
+#include "propertyeditor.h"
 
 #include <QInputDialog>
 #include <QProgressDialog>
@@ -143,6 +144,8 @@ Viewer::GlewInit()
 void
 Viewer::init()
 {
+  m_tag1 = m_tag2 = -1;
+
   m_skipLayers = 0;
   m_fullRender = false;
   m_dragMode = true;
@@ -624,6 +627,20 @@ Viewer::keyPressEvent(QKeyEvent *event)
       return;
     }
 
+  if (event->key() == Qt::Key_M)
+    {  
+      if (m_tag1 >= 0 && m_tag2 >= 0)
+	{
+	  // merge tags
+	  Vec bmin, bmax;
+	  m_boundingBox.bounds(bmin, bmax);
+	  emit mergeTags(bmin, bmax, m_tag1, m_tag2);      
+	}
+      else
+	QMessageBox::information(0, "", "No previous tags specified");
+      return;
+    }
+
   if (event->key() == Qt::Key_R)
     {  
       // reset bitmap
@@ -667,9 +684,125 @@ Viewer::keyPressEvent(QKeyEvent *event)
       return;
     }
 
+  if (event->key() == Qt::Key_Space)
+    {
+      commandEditor();
+      return;
+    }
 
   if (event->key() != Qt::Key_H)
     QGLViewer::keyPressEvent(event);
+}
+
+void
+Viewer::commandEditor()
+{
+  PropertyEditor propertyEditor;
+  QMap<QString, QVariantList> plist;
+  QVariantList vlist;
+  vlist.clear();
+  plist["command"] = vlist;
+
+  vlist.clear();
+  QFile helpFile(":/viewer.help");
+  if (helpFile.open(QFile::ReadOnly))
+    {
+      QTextStream in(&helpFile);
+      QString line = in.readLine();
+      while (!line.isNull())
+	{
+	  if (line == "#begin")
+	    {
+	      QString keyword = in.readLine();
+	      QString helptext;
+	      line = in.readLine();
+	      while (!line.isNull())
+		{
+		  helptext += line;
+		  helptext += "\n";
+		  line = in.readLine();
+		  if (line == "#end") break;
+		}
+	      vlist << keyword << helptext;
+	    }
+	  line = in.readLine();
+	}
+    }
+  
+  plist["commandhelp"] = vlist;
+  
+  //---------------------
+  vlist.clear();
+  QString mesg;
+
+  mesg += "Subvolume Bounds :\n";
+  if (m_renderMode == 1)
+    mesg += QString("LOD : %1\n").arg(m_sslevel);
+  else
+    mesg += QString("LOD : %1\n").arg(m_pointSkip);
+
+  mesg += QString("%1 %2 %3\n%4 %5 %6\n").			\
+    arg(m_minHSlice).arg(m_minWSlice).arg(m_minDSlice).		\
+    arg(m_maxHSlice).arg(m_maxWSlice).arg(m_maxDSlice);
+
+  vlist << mesg;
+
+  plist["message"] = vlist;
+  //---------------------
+
+
+
+  QStringList keys;
+  keys << "command";
+  keys << "commandhelp";
+  keys << "message";
+  
+  propertyEditor.set("Command Help", plist, keys);
+  
+  QMap<QString, QPair<QVariant, bool> > vmap;
+  
+  if (propertyEditor.exec() == QDialog::Accepted)
+    {
+      QString cmd = propertyEditor.getCommandString();
+      if (!cmd.isEmpty())
+	processCommand(cmd);
+    }
+  else
+    return;
+}
+
+void
+Viewer::processCommand(QString cmd)
+{
+  bool ok;
+  QString ocmd = cmd;
+  cmd = cmd.toLower();
+  QStringList list = cmd.split(" ", QString::SkipEmptyParts);
+ 
+  if (list[0].contains("merge"))
+    {
+      if (list.size() == 3)
+	{
+	  int tag1 = list[1].toInt(&ok);
+	  int tag2 = list[2].toInt(&ok);
+	  if (tag1 < 0 || tag1 > 255 ||
+	      tag2 < 0 || tag2 > 255)
+	    {
+	      QMessageBox::information(0, "", QString("Incorrect tags specified : %1 %2").\
+				       arg(tag1).arg(tag2));
+	      return;
+	    }
+	  Vec bmin, bmax;
+	  m_boundingBox.bounds(bmin, bmax);
+	  emit mergeTags(bmin, bmax, tag1, tag2);
+	  m_tag1 = tag1;
+	  m_tag2 = tag2;
+	}
+      else
+	QMessageBox::information(0, "", "Incorrect parameters : merge <tag1> <tag2>");
+
+      return;
+    }
 }
 
 void

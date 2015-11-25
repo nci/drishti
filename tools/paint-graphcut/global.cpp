@@ -99,7 +99,7 @@ uchar* Global::tagColors()
   if (!m_tagColors)
     {
       m_tagColors = new uchar[1024];
-      memset(m_tagColors, 0, 1024);
+      memset(m_tagColors, 255, 1024);
     }
   return m_tagColors;
 }
@@ -108,7 +108,7 @@ void Global::setTagColors(uchar *colors)
   if (!m_tagColors)
     {
       m_tagColors = new uchar[1024];
-      memset(m_tagColors, 0, 1024);
+      memset(m_tagColors, 255, 1024);
     }
   memcpy(m_tagColors, colors, 1024);
 }

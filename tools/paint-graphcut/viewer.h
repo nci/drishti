@@ -78,6 +78,8 @@ class Viewer : public QGLViewer
     void dilateConnected(int, int, int, Vec, Vec, int);
     void paint3DEnd();
 
+    void mergeTags(Vec, Vec, int, int);
+
     void updateSliceBounds(Vec, Vec);
 
  private :
@@ -95,6 +97,8 @@ class Viewer : public QGLViewer
   int m_minDSlice, m_maxDSlice;
   int m_minWSlice, m_maxWSlice;
   int m_minHSlice, m_maxHSlice;
+
+  int m_tag1, m_tag2;
 
   int m_renderMode;
 
@@ -241,6 +245,9 @@ class Viewer : public QGLViewer
 
   void regionGrowing();
   void regionDilation();
+
+  void commandEditor();
+  void processCommand(QString);
 };
 
 #endif

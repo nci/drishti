@@ -1,0 +1,54 @@
+#begin
+merge
+merge <tag1> <tag2>
+
+Merge tag2 into tag1.  Replace tag2 with tag1 in the selected subvolume.
+#end
+
+#begin
+keyboard
+Start Keyboard help
+#end
+
+#begin
+Spacebar
+Bring up command input dialog.
+#end
+
+#begin
+o
+Set camera to orthographic mode.
+#end
+
+#begin
+p
+Set camera to perspective mode.
+#end
+
+#begin
+c
+Add a clip plane.
+#end
+
+#begin
+v
+Toggle visibility of clip planes.
+#end
+
+#begin
+d
+Dilate the current tag by "Dilate" parameter value.
+Shift click in the region you want to dilate before pressing "d".
+#end
+
+#begin
+f
+Region growing with current tag value.
+#end
+
+#begin
+m
+Repeat merge operation using previously used tag parameters.
+#end
+
+

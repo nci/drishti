@@ -397,33 +397,28 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
   shader += "int nskipped = -1;\n"; 
   shader += QString("for(int i=0; i<%1; i++)\n").arg(maxSteps);
   shader += "{\n";
+
+  // -- get exact texture coordinate so we don't get tag interpolation --
+  shader += "  vec3 vC = voxelCoord*vsize;\n";
+  shader += "  vC = (floor(vC)+vec3(0.5))/vsize;\n";
+
   if (nearest)
-    {
-      // -- get exact texture coordinate --
-      shader += "  vec3 vC = voxelCoord*vsize;\n";
-      shader += "  vC = vec3(int(vC.x)+0.5,int(vC.y)+0.5,int(vC.z)+0.5);\n";
-      shader += "  vC /= vsize;\n";
-      shader += "  float val = texture3D(dataTex, vC).x;\n";
-    }
+    shader += "  float val = texture3D(dataTex, vC).x;\n";
   else
     shader += "  float val = texture3D(dataTex, voxelCoord).x;\n";
+
   shader += "  vec4 colorSample = texture2D(lutTex, vec2(val,0.0));\n";
 
-  if (!nearest)
-    {
-      // -- get exact texture coordinate so we don't get tag interpolation --
-      shader += "    vec3 vC = voxelCoord*vsize;\n";
-      shader += "    vC = vec3(int(vC.x)+0.5,int(vC.y)+0.5,int(vC.z)+0.5);\n";
-      shader += "    vC /= vsize;\n";
-    }
-  shader += "    float tag = texture3D(maskTex, vC).x;\n";
-  shader += "    vec4 tagcolor = texture1D(tagTex, tag);\n";
-  shader += "    if (tag < 0.001) tagcolor.rgb = colorSample.rgb;\n";
-  shader += "    colorSample.rgb = mix(colorSample.rgb, tagcolor.rgb, 0.5);\n";
+  shader += "  float tag = texture3D(maskTex, vC).x;\n";
+  shader += "  tag += 0.5/256.0;\n";
+  shader += "  vec4 tagcolor = texture1D(tagTex, tag);\n";
+  shader += "  if (tag < 0.001) tagcolor.rgb = colorSample.rgb;\n";
+
+  shader += "  colorSample.rgb = mix(colorSample.rgb, tagcolor.rgb, 0.5);\n";
 
   // so that we can use tag opacity to hide certain tagged regions
   // tagcolor.a should either 0 or 1
-  shader += "    colorSample *= tagcolor.a;\n";
+  shader += "  colorSample *= tagcolor.a;\n";
 
   shader += "  if (!gotFirstHit && colorSample.a > 0.001) gotFirstHit = true;\n";  
 
@@ -433,24 +428,22 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
 
   shader += "    colorAcum += (1.0 - colorAcum.a) * colorSample;\n";
 
-  shader += "      if (colorAcum.a > 0.001 && saveCoord)";
-  shader += "        { colorAcum = vec4(voxelCoord,1.0); break; }\n";
+  shader += "    if (saveCoord && colorAcum.a > 0.001)";
+  shader += "      {\n";
+  shader += "        gl_FragColor = vec4(vC,1.0);\n";
+  shader += "        return;\n";
+  shader += "      }\n";
 
   if (firstHit)
     {
       shader += "  if (colorAcum.a > 0.001 )\n";
       shader += "    {\n";  
-      shader += "      if (saveCoord)";
-      shader += "        colorAcum = vec4(voxelCoord,1.0);\n";
-      shader += "      else";
-      shader += "        {\n";  
-      shader += "          vec3 voxpos = vcorner + voxelCoord*vsize;";
-      shader += "          vec3 I = voxpos - eyepos;\n";
-      shader += "          float z = dot(I, normalize(dir));\n";
-      shader += "          z = (z-minZ)/(maxZ-minZ);\n";
-      shader += "          z = clamp(z, 0.0, 1.0);\n";
-      shader += "          colorAcum = vec4(z,tag,1.0-z,1.0);\n";
-      shader += "        }\n";  
+      shader += "      vec3 voxpos = vcorner + voxelCoord*vsize;";
+      shader += "      vec3 I = voxpos - eyepos;\n";
+      shader += "      float z = dot(I, normalize(dir));\n";
+      shader += "      z = (z-minZ)/(maxZ-minZ);\n";
+      shader += "      z = clamp(z, 0.0, 1.0);\n";
+      shader += "      colorAcum = vec4(z,tag,1.0-z,1.0);\n";
       shader += "      break;\n";
       shader += "    }\n";
     }
@@ -502,12 +495,22 @@ ShaderFactory::genEdgeEnhanceShader()
   shader += "  vec2 spos = gl_FragCoord.xy;\n";
   shader += "  vec3 dval = texture2DRect(blurTex, spos).xyw;\n";
 
+  //---------------------
   shader += "  float alpha = dval.z;\n";
   shader += "  if (alpha < 0.01) discard;\n";
-  //shader += "  if (alpha < 0.01) return;\n";
+  //---------------------
 
   shader += "  float depth = dval.x;\n";
   shader += "  float tag = dval.y;\n";
+
+  //---------------------
+  shader += "  vec4 color = vec4(0.0);\n";
+  shader += "  color = texture1D(tagTex, tag);\n";
+  shader += "  if (tag < 0.001) color.rgb = gl_Color.rgb;\n";
+  // so that we can use tag opacity to hide certain tagged regions
+  // tagcolor.a should either 0 or 1
+  shader += "  if (color.a < 0.001) discard;\n";
+  //---------------------
 
   // find depth gradient
   shader += "  float dx = texture2DRect(blurTex, spos+vec2(1.0,0.0)).x - texture2DRect(blurTex, spos-vec2(1.0,0.0)).x;\n";
@@ -536,18 +539,7 @@ ShaderFactory::genEdgeEnhanceShader()
   shader += "  }\n";
 
   shader += "  float f = 0.2+0.8*(1.0-sum/16.0);\n";
-
-
-
-  //-----------------------
-  shader += "  vec4 color = vec4(0.0);\n";
-  shader += "  color = texture1D(tagTex, tag);\n";
-  shader += "  if (tag < 0.001) color.rgb = gl_Color.rgb;\n";
-  // so that we can use tag opacity to hide certain tagged regions
-  // tagcolor.a should either 0 or 1
-  shader += "  if (color.a < 0.001) discard;\n";
   shader += "  gl_FragColor = vec4(f*norm.z*color.rgb, 1.0);\n";
-  //-----------------------
 
   shader += "}\n";
 

@@ -165,8 +165,8 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   }
   //----------------------------------------------------------
 
-  addDockWidget(Qt::RightDockWidgetArea, dock1);
   addDockWidget(Qt::RightDockWidgetArea, dockV);
+  addDockWidget(Qt::RightDockWidgetArea, dock1, Qt::Horizontal);
   addDockWidget(Qt::LeftDockWidgetArea, dock2);
 
 
@@ -232,6 +232,8 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 
   loadSettings();
   m_imageWidget->updateTagColors();
+
+  setGeometry(100, 100, 700, 700);
 }
 
 void DrishtiPaint::on_actionHelp_triggered() { ShowHelp::showMainHelp(); }

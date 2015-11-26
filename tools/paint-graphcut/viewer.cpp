@@ -1300,7 +1300,7 @@ Viewer::drawInfo()
       glEnable(GL_TEXTURE_2D);
       glBindTexture(GL_TEXTURE_2D, Global::hollowSpriteTexture());
       glTexEnvi(GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE);
-      glPointSize(3*Global::spread()/cpgl);
+      glPointSize(2*Global::spread()/cpgl);
       glBegin(GL_POINTS);
       glColor4f(r*0.5, g*0.5, b*0.5, 0.5);
       glVertex3f(h,w,d);
@@ -3325,6 +3325,18 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
   glActiveTexture(GL_TEXTURE2);
   glEnable(GL_TEXTURE_3D);
   glBindTexture(GL_TEXTURE_3D, m_dataTex);
+
+  if (firstPartOnly || m_exactCoord)
+    {
+      glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+      glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    }
+  else
+    {
+      glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+
 
   glActiveTexture(GL_TEXTURE4);
   glEnable(GL_TEXTURE_3D);

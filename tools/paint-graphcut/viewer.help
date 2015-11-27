@@ -1,8 +1,38 @@
 #begin
 merge
 merge <tag1> <tag2>
+merge <tag1> <tag2> <tag3>
 
-Merge tag2 into tag1.  Replace tag2 with tag1 in the selected subvolume.
+Merge tag2 into tag1 when two parameters are specified.  Replace tag2 with tag1 in the selected subvolume.  If tag2 value is -1, then all the tags (even 0) are replaced with tag1 within the selected subvolume.
+
+When 3 parameters are specified - i.e. tag1, tag2 and tag3 are specified, then both tag2 and tag3 are replaced with tag1 within the selected subvolume.
+
+#end
+
+#begin
+mergetf
+mergetf <tag1> <tag2>
+mergetf <tag1> <tag2> <tag3>
+
+Similar to merge, except the operation is carried out only within the visible portion of the selected subvolume.  Visible portion as defined by transfer function is that region where opacity is greater than 0.
+
+#end
+
+
+#begin
+setvisible
+setvisible <tag1>
+
+Set visible region to tag1.  Visible portion as defined by transfer function is that region where opacity is greater than 0.
+
+#end
+
+#begin
+setinvisible
+setinvisible <tag1>
+
+Set invisible region to tag1.  Invisible portion as defined by transfer function is that region where opacity is equal to 0.
+
 #end
 
 #begin
@@ -48,7 +78,7 @@ Region growing with current tag value.
 
 #begin
 m
-Repeat merge operation using previously used tag parameters.
+Repeat last merge/mergetf operation using previously used tag parameters.
 #end
 
 

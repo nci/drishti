@@ -78,7 +78,10 @@ class Viewer : public QGLViewer
     void dilateConnected(int, int, int, Vec, Vec, int);
     void paint3DEnd();
 
-    void mergeTags(Vec, Vec, int, int);
+    void mergeTags(Vec, Vec, int, int, bool);
+    void mergeTags(Vec, Vec, int, int, int, bool);
+
+    void setVisible(Vec, Vec, int, bool);
 
     void updateSliceBounds(Vec, Vec);
 
@@ -98,7 +101,8 @@ class Viewer : public QGLViewer
   int m_minWSlice, m_maxWSlice;
   int m_minHSlice, m_maxHSlice;
 
-  int m_tag1, m_tag2;
+  int m_tag1, m_tag2, m_tag3;
+  bool m_mergeTagTF;
 
   int m_renderMode;
 

@@ -144,7 +144,8 @@ Viewer::GlewInit()
 void
 Viewer::init()
 {
-  m_tag1 = m_tag2 = -1;
+  m_tag1 = m_tag2 = m_tag3 = -1;
+  m_mergeTagTF = false;
 
   m_skipLayers = 0;
   m_fullRender = false;
@@ -629,13 +630,12 @@ Viewer::keyPressEvent(QKeyEvent *event)
 
   if (event->key() == Qt::Key_M)
     {  
-      if (m_tag1 >= 0 && m_tag2 >= 0)
-	{
-	  // merge tags
-	  Vec bmin, bmax;
-	  m_boundingBox.bounds(bmin, bmax);
-	  emit mergeTags(bmin, bmax, m_tag1, m_tag2);      
-	}
+      Vec bmin, bmax;
+      m_boundingBox.bounds(bmin, bmax);
+      if (m_tag3 < 0  && m_tag1 > -1 && m_tag2 > -1)
+	emit mergeTags(bmin, bmax, m_tag1, m_tag2, m_mergeTagTF);      
+      else if (m_tag3 > -1 && m_tag1 > -1 && m_tag2 > -1)
+	emit mergeTags(bmin, bmax, m_tag1, m_tag2, m_tag3, m_mergeTagTF);
       else
 	QMessageBox::information(0, "", "No previous tags specified");
       return;
@@ -779,7 +779,43 @@ Viewer::processCommand(QString cmd)
   cmd = cmd.toLower();
   QStringList list = cmd.split(" ", QString::SkipEmptyParts);
  
-  if (list[0].contains("merge"))
+  if (list[0].contains("setvisible"))
+    {
+      if (list.size() == 2)
+	{
+	  int tag1 = list[1].toInt(&ok);
+	  if (tag1 < 0 || tag1 > 255)
+	    {
+	      QMessageBox::information(0, "", QString("Incorrect tags specified : %1").\
+				       arg(tag1));
+	      return;
+	    }
+	  Vec bmin, bmax;
+	  m_boundingBox.bounds(bmin, bmax);
+	  emit setVisible(bmin, bmax, tag1, true);
+	}
+      return;
+    }
+
+  if (list[0].contains("setinvisible"))
+    {
+      if (list.size() == 2)
+	{
+	  int tag1 = list[1].toInt(&ok);
+	  if (tag1 < 0 || tag1 > 255)
+	    {
+	      QMessageBox::information(0, "", QString("Incorrect tags specified : %1").\
+				       arg(tag1));
+	      return;
+	    }
+	  Vec bmin, bmax;
+	  m_boundingBox.bounds(bmin, bmax);
+	  emit setVisible(bmin, bmax, tag1, false);
+	}
+      return;
+    }
+
+  if (list[0].contains("mergetf"))
     {
       if (list.size() == 3)
 	{
@@ -794,12 +830,83 @@ Viewer::processCommand(QString cmd)
 	    }
 	  Vec bmin, bmax;
 	  m_boundingBox.bounds(bmin, bmax);
-	  emit mergeTags(bmin, bmax, tag1, tag2);
+	  emit mergeTags(bmin, bmax, tag1, tag2, true);
 	  m_tag1 = tag1;
 	  m_tag2 = tag2;
+	  m_tag3 = -1;
+	  m_mergeTagTF = true;
+	}
+      else if (list.size() == 4)
+	{
+	  int tag1 = list[1].toInt(&ok);
+	  int tag2 = list[2].toInt(&ok);
+	  int tag3 = list[3].toInt(&ok);
+	  if (tag1 < 0 || tag1 > 255 ||
+	      tag2 < 0 || tag2 > 255 ||
+	      tag3 < 0 || tag3 > 255)
+	    {
+	      QMessageBox::information(0, "", QString("Incorrect tags specified : %1 %2 %3").\
+				       arg(tag1).arg(tag2).arg(tag3));
+	      return;
+	    }
+	  Vec bmin, bmax;
+	  m_boundingBox.bounds(bmin, bmax);
+	  emit mergeTags(bmin, bmax, tag1, tag2, tag3, true);
+	  m_tag1 = tag1;
+	  m_tag2 = tag2;
+	  m_tag3 = tag3;
+	  m_mergeTagTF = true;
 	}
       else
-	QMessageBox::information(0, "", "Incorrect parameters : merge <tag1> <tag2>");
+	QMessageBox::information(0, "", "Incorrect parameters : merge <tag1> <tag2> <tag3>");
+
+      return;
+    }
+
+  if (list[0].contains("merge"))
+    {
+      if (list.size() == 3)
+	{
+	  int tag1 = list[1].toInt(&ok);
+	  int tag2 = list[2].toInt(&ok);
+	  if (tag1 < 0 || tag1 > 255 ||
+	      tag2 < -1 || tag2 > 255) // tag2 can be -1
+	    {
+	      QMessageBox::information(0, "", QString("Incorrect tags specified : %1 %2").\
+				       arg(tag1).arg(tag2));
+	      return;
+	    }
+	  Vec bmin, bmax;
+	  m_boundingBox.bounds(bmin, bmax);
+	  emit mergeTags(bmin, bmax, tag1, tag2, false);
+	  m_tag1 = tag1;
+	  m_tag2 = tag2;
+	  m_tag3 = -1;
+	  m_mergeTagTF = false;
+	}
+      else if (list.size() == 4)
+	{
+	  int tag1 = list[1].toInt(&ok);
+	  int tag2 = list[2].toInt(&ok);
+	  int tag3 = list[3].toInt(&ok);
+	  if (tag1 < 0 || tag1 > 255 ||
+	      tag2 < 0 || tag2 > 255 ||
+	      tag3 < 0 || tag3 > 255)
+	    {
+	      QMessageBox::information(0, "", QString("Incorrect tags specified : %1 %2 %3").\
+				       arg(tag1).arg(tag2).arg(tag3));
+	      return;
+	    }
+	  Vec bmin, bmax;
+	  m_boundingBox.bounds(bmin, bmax);
+	  emit mergeTags(bmin, bmax, tag1, tag2, tag3, false);
+	  m_tag1 = tag1;
+	  m_tag2 = tag2;
+	  m_tag3 = tag3;
+	  m_mergeTagTF = false;
+	}
+      else
+	QMessageBox::information(0, "", "Incorrect parameters : merge <tag1> <tag2> <tag3>");
 
       return;
     }

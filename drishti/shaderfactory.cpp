@@ -887,10 +887,19 @@ ShaderFactory::genVgx()
   //---------------------------------------------------------------------
 
   shader += "  t0 = getTextureCoordinate(slice, gridx, tsizex, tsizey, texCoord.xy);\n";
-  shader += "  t1 = getTextureCoordinate(slice+1, gridx, tsizex, tsizey, texCoord.xy);\n";
-  shader += "  val0 = (texture2DRect(dataTex, t0)).x;\n";
-  shader += "  val1 = (texture2DRect(dataTex, t1)).x;\n";
-  shader += "  vg.x = mix(val0, val1, slicef);\n";
+  shader += "  if (linearInterpolation)\n";
+  shader += "   {\n";
+  shader += "     val0 = (texture2DRect(dataTex, t0)).x;\n";
+  shader += "     t1 = getTextureCoordinate(slice+1, gridx, tsizex, tsizey, texCoord.xy);\n";
+  shader += "     val1 = (texture2DRect(dataTex, t1)).x;\n";
+  shader += "     vg.x = mix(val0, val1, slicef);\n";
+  shader += "   }\n";
+  shader += "   else\n"; // nearest neighbour interpolation
+  shader += "   {\n";
+  shader += "     val0 = (texture2DRect(dataTex, floor(t0)+vec2(0.5))).x;\n";
+  shader += "     vg.x = val0;\n";
+  shader += "   }\n";
+
 
   return shader;
 }
@@ -980,6 +989,7 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
   shader += "uniform float shdIntensity;\n";
 
   shader += "uniform float opmod;\n";
+  shader += "uniform bool linearInterpolation;\n";
 
   shader += genTextureCoordinate();
 

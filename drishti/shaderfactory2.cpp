@@ -285,31 +285,6 @@ ShaderFactory2::genVgx(int nvol)
       shader += "  prunefeather.z = texture2DRect(pruneTex, vec2(floor(pvg0.x)+0.5,floor(pvg0.y)+0.5)).z;\n";
     }
   //---------------------------------------------------------------------
-  //---------------------------------------------------------------------
-//  if (Global::emptySpaceSkip())
-//    {      
-//      shader += "  vec2 pvg = texCoord.xy / prunelod;\n";
-//
-//      shader += "  vec2 pvg0 = getTextureCoordinate(int(float(zoffset+slice)/prunelod), ";
-//      shader += "              prunegridx, prunetsizex, prunetsizey, pvg);\n";
-//      shader += "  vec4 pf0 = texture2DRect(pruneTex, pvg0);\n";
-//      
-//      shader += "  vec2 pvg1 = getTextureCoordinate(int(float(zoffset+slice+1)/prunelod), ";
-//      shader += "              prunegridx, prunetsizex, prunetsizey, pvg);\n";
-//      shader += "  vec4 pf1 = texture2DRect(pruneTex, pvg1);\n";
-//
-//      shader += "  pf0 = mix(pf0, pf1, slicef);\n";
-//      shader += "  vec4 prunefeather = pf0;\n";
-//      shader += "  if ( prunefeather.x < 0.005) discard;\n";
-//
-//      // tag values should be non interpolated - nearest neighbour
-//      shader += "  prunefeather.z = texture2DRect(pruneTex, vec2(floor(pvg0.x)+0.5,floor(pvg0.y)+0.5)).z;\n";
-//    }
-  //---------------------------------------------------------------------
-
-
-  shader += "  t0 = getTextureCoordinate(slice, gridx, tsizex, tsizey, texCoord.xy);\n";
-  shader += "  t1 = getTextureCoordinate(slice+1, gridx, tsizex, tsizey, texCoord.xy);\n";
 
   QString vstr, xyzw;
   if (nvol == 2)
@@ -331,16 +306,26 @@ ShaderFactory2::genVgx(int nvol)
   shader += vstr + "  vg;\n";
   shader += vstr + "  val0, val1;\n";
 
-  shader += "  val0 = (texture2DRect(dataTex, t0))."+xyzw+";\n";
-  shader += "  val1 = (texture2DRect(dataTex, t1))."+xyzw+";\n";
-  shader += "  vg = mix(val0, val1, slicef);\n";
+  shader += "  t0 = getTextureCoordinate(slice, gridx, tsizex, tsizey, texCoord.xy);\n";
+  shader += "  if (linearInterpolation)\n";
+  shader += "   {\n";
+  shader += "     val0 = (texture2DRect(dataTex, t0))."+xyzw+";\n";
+  shader += "     t1 = getTextureCoordinate(slice+1, gridx, tsizex, tsizey, texCoord.xy);\n";
+  shader += "     val1 = (texture2DRect(dataTex, t1))."+xyzw+";\n";
+  shader += "     vg = mix(val0, val1, slicef);\n";
+  shader += "   }\n";
+  shader += "   else\n"; // nearest neighbour interpolation
+  shader += "   {\n";
+  shader += "     val0 = (texture2DRect(dataTex, floor(t0)+vec2(0.5)))."+xyzw+";\n";
+  shader += "     vg = val0;\n";
+  shader += "   }\n";
 
   // if mixTag then perform nearest neighbour interpolation
   shader += "  if (mixTag) \n";
   if (nvol == 2)
-    shader += "    vg.y = texture2DRect(dataTex, floor(t0)+vec2(0.5,0.5)).w;\n";
+    shader += "    vg.y = texture2DRect(dataTex, floor(t0)+vec2(0.5)).w;\n";
   else
-    shader += "    vg.y = texture2DRect(dataTex, floor(t0)+vec2(0.5,0.5)).y;\n";
+    shader += "    vg.y = texture2DRect(dataTex, floor(t0)+vec2(0.5)).y;\n";
 
   return shader;
 }
@@ -435,6 +420,7 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
   shader += "uniform float shdIntensity;\n";
 
   shader += "uniform float opmod;\n";
+  shader += "uniform bool linearInterpolation;\n";
 
   shader += ShaderFactory::genTextureCoordinate();
 
@@ -584,6 +570,14 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
 
 
 
+  if (Global::emptySpaceSkip())
+    {
+      if (PruneHandler::blend())
+	shader += blendVolume(nvol);
+      else
+	shader += tagVolume();
+    }
+
   if (lighting)
     shader += addLighting(nvol);
 
@@ -679,13 +673,13 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
       if (nvol == 4) shader += "pathblend(otexCoord, vol1, vol2, vol3, vol4, grad1, grad2, grad3, grad4, color1, color2, color3, color4);\n";
     }
 
-  if (Global::emptySpaceSkip())
-    {
-      if (PruneHandler::blend())
-	shader += blendVolume(nvol);
-      else
-	shader += tagVolume();
-    }
+//  if (Global::emptySpaceSkip())
+//    {
+//      if (PruneHandler::blend())
+//	shader += blendVolume(nvol);
+//      else
+//	shader += tagVolume();
+//    }
   
   if (interpolateVolumes > 0 && nvol == 2)
     {

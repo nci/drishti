@@ -1107,6 +1107,7 @@ DrawHiresVolume::createDefaultShader()
   m_defaultParm[48] = glGetUniformLocationARB(m_defaultShader, "shdIntensity");
 
   m_defaultParm[49] = glGetUniformLocationARB(m_defaultShader, "opmod");
+  m_defaultParm[50] = glGetUniformLocationARB(m_defaultShader, "linearInterpolation");
 }
 
 void
@@ -2593,7 +2594,11 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
     }
   glUniform1fARB(m_defaultParm[48], 2.0-0.8*m_lightInfo.shadowIntensity);
   //----------------------------------------------------------------
-	  
+  if (Global::interpolationType(Global::TextureInterpolation)) // linear
+    glUniform1iARB(m_defaultParm[50], 1);
+  else
+    glUniform1iARB(m_defaultParm[50], 0);
+
 
   //----------------------------------------------------------------
   // for polygons generated from bricks

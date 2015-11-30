@@ -19,17 +19,15 @@ void
 TagColorEditor::setColors()
 {
   uchar *colors = Global::tagColors();
-  for (int i=0; i < 254; i++)
+  for (int i=0; i < 256; i++)
     {      
       int r,g,b;
       float a;
 
-      r = colors[4*(i+1)+0];
-      g = colors[4*(i+1)+1];
-      b = colors[4*(i+1)+2];
-      a = (float)colors[4*(i+1)+3]/255.0;
-
-      //a = (int)a + (int)((a-(int)a)*10)*0.1;
+      r = colors[4*i+0];
+      g = colors[4*i+1];
+      b = colors[4*i+2];
+      a = (float)colors[4*i+3]/255.0;
 
       QTableWidgetItem *colorItem = new QTableWidgetItem;
       colorItem->setData(Qt::DisplayRole, QColor(r,g,b));
@@ -57,7 +55,7 @@ TagColorEditor::createGUI()
   opFactory->registerEditor(QVariant::Double, opacityCreator);
 
 
-  table = new QTableWidget(254, 2);
+  table = new QTableWidget(256, 2);
   table->setHorizontalHeaderLabels(QStringList() << tr("Color")
 				                 << tr("Opacity"));
   table->resize(150, 200);
@@ -79,6 +77,11 @@ TagColorEditor::createGUI()
   for (int i=0; i < table->rowCount(); i++)
     table->setRowHeight(i, 20);
 
+  QStringList rowLabels;
+  for (int i=0; i < table->rowCount(); i++)
+    rowLabels << QString("%1").arg(i);
+  table->setVerticalHeaderLabels(rowLabels);
+  
   table->setColumnWidth(0, 100);
   table->setColumnWidth(1, 50);
     
@@ -100,7 +103,7 @@ void
 TagColorEditor::tagClicked(int row, int colm)
 {
   if (colm == 0)
-    emit tagClicked(row+1);
+    emit tagClicked(row);
 }
 
 void
@@ -115,16 +118,16 @@ TagColorEditor::itemChanged(QTableWidgetItem *item)
       QColor clr;
       clr.setNamedColor(item->data(Qt::DisplayRole).toString());
       item->setData(Qt::DecorationRole, clr);
-      colors[4*(row+1)+0] = clr.red();
-      colors[4*(row+1)+1] = clr.green();
-      colors[4*(row+1)+2] = clr.blue();
+      colors[4*row+0] = clr.red();
+      colors[4*row+1] = clr.green();
+      colors[4*row+2] = clr.blue();
     }
   else
     {
       double opv = item->data(Qt::DisplayRole).toDouble();
       int op = opv*255;
       op = qMin(op, 255);
-      colors[4*(row+1)+3] = op;
+      colors[4*row+3] = op;
     }
 
   emit tagColorChanged();
@@ -147,7 +150,7 @@ TagColorEditor::newColorSet(int h)
   for(int i=0; i<256; i++)
     {
       float r,g,b;
-      if (i > 0 && i < 255)
+      if (i > 0)
 	{
 	  r = (float)qrand()/(float)RAND_MAX;
 	  g = (float)qrand()/(float)RAND_MAX;
@@ -155,7 +158,7 @@ TagColorEditor::newColorSet(int h)
 	}
       else
 	{
-	  r = g = b = 0;
+	  r = g = b = 1.0;
 	}
       colors[4*i+0] = 255*r;
       colors[4*i+1] = 255*g;
@@ -173,10 +176,10 @@ TagColorEditor::setOpacity(float op)
   for(int i=0; i<256; i++)
     {
       int a;
-      if (i > 0 && i < 255)
+      if (i > 0)
 	a = 255*op;
       else
-	a = 0;
+	a = 255;
       a = qMin(a, 255);
       colors[4*i+3] = a;
     }

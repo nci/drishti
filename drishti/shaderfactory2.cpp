@@ -29,6 +29,8 @@ ShaderFactory2::tagVolume()
   shader += "    else\n";
   shader += "      color1 *= paintColor.a;\n";
   shader += "  }\n";
+  shader += "  else\n";
+  shader += "    color1 *= paintColor.a;\n";
 
   return shader;
 }

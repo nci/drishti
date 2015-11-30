@@ -3861,7 +3861,7 @@ Viewer::processCommand(QString cmd)
 	  if (list[idx] == "no" || list[idx] == "off") { mc = false; mo = false; }
 	  else if (list[idx] == "color") mc = true;
 	  else if (list[idx] == "opacity") mo = true;	  
-	  else if (list[idx] == "tag")
+	  else if (list[idx] == "tag" || list[idx] == "tags")
 	    {
 	      mtok = true;
 	      mt = true;	  

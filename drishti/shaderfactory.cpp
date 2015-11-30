@@ -22,6 +22,7 @@ ShaderFactory::tagVolume()
   //  shader += "  gl_FragColor = vec4(paintColor.a,0.1,0.1,0.1);\n";
 
   shader += "  ptx *= 255.0;\n";
+
   shader += "  if (ptx > 0.0) \n";
   shader += "  {\n";
   shader += "    paintColor.rgb *= gl_FragColor.a;\n";
@@ -31,6 +32,8 @@ ShaderFactory::tagVolume()
   shader += "    else\n";
   shader += "      gl_FragColor *= paintColor.a;\n";
   shader += "  }\n";
+  shader += "  else\n";
+  shader += "    gl_FragColor *= paintColor.a;\n";
 
   return shader;
 }

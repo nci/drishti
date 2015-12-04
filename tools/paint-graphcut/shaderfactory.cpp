@@ -394,7 +394,8 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
   shader += "vec4 bgColor = vec4(0.0, 0.0, 0.0, 0.0);\n";
   
   shader += "bool gotFirstHit = false;\n";
-  shader += "int nskipped = -1;\n"; 
+  shader += "int nskipped = 0;\n"; 
+  shader += "bool solid = false;\n";
   shader += QString("for(int i=0; i<%1; i++)\n").arg(maxSteps);
   shader += "{\n";
 
@@ -448,7 +449,7 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
       shader += "    }\n";
     }
 
-  shader += "  }\n"; // gotfirsthit
+  shader += "  }\n"; // gotfirsthit && nskipped > skipLayers
 
   shader += "  if (lengthAcum >= len )\n";
   shader += "    {\n";
@@ -464,7 +465,26 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
   shader += "  voxelCoord += deltaDir;\n";
   shader += "  lengthAcum += deltaDirLen;\n";
 
-  shader += "  if (gotFirstHit) nskipped++;\n";
+  //shader += "  if (gotFirstHit) nskipped++;\n";
+  shader += "  if (gotFirstHit) \n";
+  shader += "   {\n";
+  shader += "     if (colorSample.a > 0.001)\n";
+  shader += "      {\n";  
+  shader += "         if (!solid)\n";
+  shader += "           {\n";    
+  shader += "             solid = true;\n";
+  shader += "             nskipped++;\n";
+  shader += "           }\n";  
+  shader += "      }\n";
+  shader += "     else\n";
+  shader += "      {\n";  
+  shader += "         if (solid)\n";
+  shader += "           {\n";    
+  shader += "             solid = false;\n";
+  shader += "           }\n";  
+  shader += "      }\n";
+  shader += "   }\n";
+
   shader += "}\n";
 
   shader += "gl_FragColor = colorAcum;\n";    

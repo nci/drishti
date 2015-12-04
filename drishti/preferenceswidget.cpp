@@ -542,6 +542,17 @@ PreferencesWidget::load(const char* flnm)
 		      colors[4*i+2] = clr[2].toInt();
 		      colors[4*i+3] = clr[3].toInt();
 		    }
+		  //--------
+		  // if the first color is all 0
+		  // set it to 255, so that users can see tag0 region
+		  if (colors[0] == 0 &&
+		      colors[1] == 0 &&
+		      colors[2] == 0 &&
+		      colors[3] == 0)
+		    {
+		      colors[0] = colors[1] = colors[2] = colors[3] = 255;
+		    }
+		  //--------
 		  Global::setTagColors(colors);
 		  m_tagColorEditor->setColors();
 		}

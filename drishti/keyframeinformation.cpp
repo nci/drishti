@@ -843,6 +843,19 @@ KeyFrameInformation::load(fstream &fin)
 	  int n;
 	  fin.read((char*)&n, sizeof(int)); // n must be 1024
 	  fin.read((char*)m_tagColors, 1024);
+	  //-----------------------
+	  // if first color is all 0 the
+	  // set tag0 to 255 so that users
+	  // can see tag0 region
+	  if (m_tagColors[0] == 0 &&
+	      m_tagColors[1] == 0 &&
+	      m_tagColors[2] == 0 &&
+	      m_tagColors[3] == 0)
+	    m_tagColors[0] = 
+	      m_tagColors[1] = 
+	      m_tagColors[2] =
+	      m_tagColors[3] = 255;
+	  //-----------------------
 	}
       else if (strcmp(keyword, "pruneblend") == 0)
 	{
@@ -1189,7 +1202,6 @@ KeyFrameInformation::save(fstream &fout)
   int tcn = 1024;
   fout.write((char*)&tcn, sizeof(int));
   fout.write((char*)m_tagColors, 1024);
-
 
   if (!m_pruneBuffer.isEmpty())
     {

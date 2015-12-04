@@ -552,7 +552,7 @@ MainWindow::initTagColors()
   for(int i=0; i<256; i++)
     {
       float r,g,b,a;
-      if (i > 0 && i < 254)
+      if (i > 0)
 	{
 	  r = (float)qrand()/(float)RAND_MAX;
 	  g = (float)qrand()/(float)RAND_MAX;
@@ -561,11 +561,7 @@ MainWindow::initTagColors()
 	}
       else
 	{
-	  r = g = b = a = 0;
-	  if (i == 254)
-	    {
-	      r = 0; g = 0.1f; b = 0; a = 0.1f;
-	    }
+	  r = g = b = a = 1.0;
 	}
       colors[4*i+0] = 255*r;
       colors[4*i+1] = 255*g;

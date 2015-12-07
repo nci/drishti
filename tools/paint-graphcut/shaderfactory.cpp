@@ -364,14 +364,14 @@ ShaderFactory::addLighting()
   shader += " float vy = texture3D(dataTex, voxelCoord+gy).x - texture3D(dataTex, voxelCoord-gy).x;\n";
   shader += " float vz = texture3D(dataTex, voxelCoord+gz).x - texture3D(dataTex, voxelCoord-gz).x;\n";
   shader += " vec3 grad = vec3(vx, vy, vz);\n";
-  shader += " if (length(grad) > 0.01)\n";
+  shader += " if (length(grad) > 0.1)\n";
   shader += "  {\n";
   shader += "    grad = normalize(grad);\n";
   shader += "    vec3 lightVec = normDir;\n";
   shader += "    float diff = abs(dot(lightVec, grad));\n";
   shader += "    vec3 reflecvec = reflect(lightVec, grad);\n";
   shader += "    float spec = pow(abs(dot(grad, reflecvec)), 512.0);\n";
-  shader += "    colorSample.rgb *= (0.8 + 0.2*diff + spec);\n";
+  shader += "    colorSample.rgb *= (0.6 + 0.4*diff + spec);\n";
   shader += "    if (any(greaterThan(colorSample.rgb,vec3(1.0,1.0,1.0)))) \n";
   shader += "      colorSample.rgb = vec3(1.0,1.0,1.0);\n";
   shader += "  }\n";
@@ -424,6 +424,7 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
   shader += "bool gotFirstHit = false;\n";
   shader += "int nskipped = 0;\n"; 
   shader += "bool solid = false;\n";
+//  shader += "bool phaseChanged = false;\n";
   shader += QString("for(int i=0; i<%1; i++)\n").arg(maxSteps);
   shader += "{\n";
 
@@ -475,7 +476,17 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
     }
 
   shader += addLighting();
-  shader += "  colorSample.rgb *= colorSample.a;\n";
+
+  shader += "    colorSample.rgb *= colorSample.a;\n";
+
+//  shader += "    if (phaseChanged)\n"; // catch only boundaries
+//  shader += "      colorSample *= 1.3;\n";
+//  shader += "    else\n";
+//  shader += "    {\n";
+//  shader += "      colorSample.a *= 0.02;\n";
+//  shader += "      colorSample.rgb *= 0.03;\n";
+//  shader += "    }\n";
+
   shader += "    colorAcum += (1.0 - colorAcum.a) * colorSample;\n";
 
   shader += "  }\n"; // gotfirsthit && nskipped > skipLayers
@@ -496,18 +507,21 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
 
   shader += "  if (gotFirstHit) \n";
   shader += "   {\n";
+//  shader += "     phaseChanged = false;\n";
   shader += "     if (colorSample.a > 0.001)\n";
   shader += "      {\n";  
   shader += "         if (!solid)\n";
   shader += "           {\n";    
   shader += "             solid = true;\n";
-  shader += "             nskipped++;\n";
+  shader += "             nskipped++;\n";  
+//  shader += "             phaseChanged = true;\n";
   shader += "           }\n";  
   shader += "      }\n";
   shader += "     else\n";
   shader += "      {\n";  
   shader += "         if (solid)\n";
   shader += "           {\n";    
+//  shader += "             phaseChanged = true;\n";
   shader += "             solid = false;\n";
   shader += "           }\n";  
   shader += "      }\n";

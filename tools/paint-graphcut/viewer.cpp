@@ -651,6 +651,9 @@ Viewer::keyPressEvent(QKeyEvent *event)
 
 
   // process clipplane events
+  Vec bmin, bmax;
+  m_boundingBox.bounds(bmin, bmax);
+  m_clipPlanes->setBounds(bmin, bmax);
   if (m_clipPlanes->keyPressEvent(event))
     {
       update();

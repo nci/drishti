@@ -21,6 +21,8 @@ class ShaderFactory
 
   static QString genEdgeEnhanceShader();
 
+ private :
+  static QString addLighting();
 };
 
 #endif

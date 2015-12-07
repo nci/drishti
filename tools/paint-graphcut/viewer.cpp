@@ -3417,7 +3417,8 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
   glUniform3fARB(m_rcParm[4], eyepos.x, eyepos.y, eyepos.z); // eyepos
   glUniform3fARB(m_rcParm[5], viewDir.x, viewDir.y, viewDir.z); // viewDir
   glUniform3fARB(m_rcParm[6], subvolcorner.x, subvolcorner.y, subvolcorner.z);
-  glUniform3fARB(m_rcParm[7], subvolsize.x, subvolsize.y, subvolsize.z);
+  //glUniform3fARB(m_rcParm[7], subvolsize.x, subvolsize.y, subvolsize.z);
+  glUniform3fARB(m_rcParm[7], m_vsize.x, m_vsize.y, m_vsize.z);
   glUniform1fARB(m_rcParm[8], minZ); // minZ
   glUniform1fARB(m_rcParm[9], maxZ); // maxZ
   glUniform1iARB(m_rcParm[10],4); // maskTex

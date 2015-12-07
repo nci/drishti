@@ -351,6 +351,33 @@ ShaderFactory::genRectBlurShaderString(int filter)
   return shader;
 }
 
+QString
+ShaderFactory::addLighting()
+{
+  QString shader;
+
+  shader += " vec3 gx, gy, gz;\n";
+  shader += " gx = vec3(1/vsize.x,0,0);\n";
+  shader += " gy = vec3(0,1/vsize.y,0);\n";
+  shader += " gz = vec3(0,0,1/vsize.z);\n";
+  shader += " float vx = texture3D(dataTex, voxelCoord+gx).x - texture3D(dataTex, voxelCoord-gx).x;\n";
+  shader += " float vy = texture3D(dataTex, voxelCoord+gy).x - texture3D(dataTex, voxelCoord-gy).x;\n";
+  shader += " float vz = texture3D(dataTex, voxelCoord+gz).x - texture3D(dataTex, voxelCoord-gz).x;\n";
+  shader += " vec3 grad = vec3(vx, vy, vz);\n";
+  shader += " if (length(grad) > 0.01)\n";
+  shader += "  {\n";
+  shader += "    grad = normalize(grad);\n";
+  shader += "    vec3 lightVec = normDir;\n";
+  shader += "    float diff = abs(dot(lightVec, grad));\n";
+  shader += "    vec3 reflecvec = reflect(lightVec, grad);\n";
+  shader += "    float spec = pow(abs(dot(grad, reflecvec)), 512.0);\n";
+  shader += "    colorSample.rgb *= (0.8 + 0.2*diff + spec);\n";
+  shader += "    if (any(greaterThan(colorSample.rgb,vec3(1.0,1.0,1.0)))) \n";
+  shader += "      colorSample.rgb = vec3(1.0,1.0,1.0);\n";
+  shader += "  }\n";
+
+  return shader;
+}
 
 QString
 ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
@@ -383,6 +410,7 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
   shader += "float len = length(dir);\n";
   shader += "if (len < 0.001) discard;\n";
 
+  shader += "vec3 normDir = normalize(dir);\n";
   shader += "vec3 deltaDir = normalize(dir)*stepSize;\n";
   shader += "float deltaDirLen = length(deltaDir);\n";
 
@@ -425,11 +453,8 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
 
   shader += "  if (gotFirstHit && nskipped > skipLayers)\n";
   shader += "  {\n";
-  shader += "    colorSample.rgb *= colorSample.a;\n";
 
-  shader += "    colorAcum += (1.0 - colorAcum.a) * colorSample;\n";
-
-  shader += "    if (saveCoord && colorAcum.a > 0.001)";
+  shader += "    if (saveCoord && colorSample.a > 0.001)";
   shader += "      {\n";
   shader += "        gl_FragColor = vec4(vC,1.0);\n";
   shader += "        return;\n";
@@ -437,17 +462,21 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
 
   if (firstHit)
     {
-      shader += "  if (colorAcum.a > 0.001 )\n";
+      shader += "  if (colorSample.a > 0.001 )\n";
       shader += "    {\n";  
       shader += "      vec3 voxpos = vcorner + voxelCoord*vsize;";
       shader += "      vec3 I = voxpos - eyepos;\n";
       shader += "      float z = dot(I, normalize(dir));\n";
       shader += "      z = (z-minZ)/(maxZ-minZ);\n";
       shader += "      z = clamp(z, 0.0, 1.0);\n";
-      shader += "      colorAcum = vec4(z,tag,1.0-z,1.0);\n";
-      shader += "      break;\n";
+      shader += "      gl_FragColor = vec4(z,tag,1.0-z,1.0);\n";
+      shader += "      return;\n";
       shader += "    }\n";
     }
+
+  shader += addLighting();
+  shader += "  colorSample.rgb *= colorSample.a;\n";
+  shader += "    colorAcum += (1.0 - colorAcum.a) * colorSample;\n";
 
   shader += "  }\n"; // gotfirsthit && nskipped > skipLayers
 
@@ -465,7 +494,6 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
   shader += "  voxelCoord += deltaDir;\n";
   shader += "  lengthAcum += deltaDirLen;\n";
 
-  //shader += "  if (gotFirstHit) nskipped++;\n";
   shader += "  if (gotFirstHit) \n";
   shader += "   {\n";
   shader += "     if (colorSample.a > 0.001)\n";

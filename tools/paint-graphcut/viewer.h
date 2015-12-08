@@ -43,6 +43,8 @@ class Viewer : public QGLViewer
 
   bool exactCoord();
 
+  uchar* sketchPad() { return m_sketchPad; }
+
   public slots :
     void GlewInit();  
     void resizeGL(int, int);
@@ -77,6 +79,8 @@ class Viewer : public QGLViewer
     void paint3D(int, int, int, Vec, Vec, int);
     void dilateConnected(int, int, int, Vec, Vec, int);
     void paint3DEnd();
+
+    void tagUsingSketchPad(int, int, int, Vec, Vec, int);
 
     void mergeTags(Vec, Vec, int, int, bool);
     void mergeTags(Vec, Vec, int, int, int, bool);
@@ -185,6 +189,15 @@ class Viewer : public QGLViewer
   bool m_fullRender;
   bool m_dragMode;
 
+  int m_spH, m_spW;
+  uchar* m_sketchPad;
+  uchar* m_screenImageBuffer;
+  bool m_sketchPadMode;
+  QPolygonF m_poly;
+
+  void grabScreenImage();
+  void drawScreenImage();
+
   void drawBox();
 
   void drawMMDCurve();
@@ -249,6 +262,7 @@ class Viewer : public QGLViewer
 
   void regionGrowing();
   void regionDilation();
+  void tagUsingScreenSketch();
 
   void commandEditor();
   void processCommand(QString);

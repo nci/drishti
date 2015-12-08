@@ -131,6 +131,9 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   connect(m_viewer, SIGNAL(dilateConnected(int,int,int,Vec,Vec,int)),
 	  this, SLOT(dilateConnected(int,int,int,Vec,Vec,int)));
 
+  connect(m_viewer, SIGNAL(tagUsingSketchPad(int,int,int,Vec,Vec,int)),
+	  this, SLOT(tagUsingSketchPad(int,int,int,Vec,Vec,int)));
+
   connect(m_viewer, SIGNAL(setVisible(Vec, Vec, int, bool)),
 	  this, SLOT(setVisible(Vec, Vec, int, bool)));
 
@@ -4261,8 +4264,6 @@ DrishtiPaint::dilateConnected(int dr, int wr, int hr,
     }
 
 
-  int minConnectionSize = 2;
-
   QProgressDialog progress("Updating voxel structure",
 			   QString(),
 			   0, 100,
@@ -4828,4 +4829,192 @@ DrishtiPaint::setVisible(Vec bmin, Vec bmax, int tag, bool visible)
   m_volume->saveMaskBlock(m_blockList);
 
   progress.setValue(100);
+}
+
+void
+DrishtiPaint::tagUsingSketchPad(int dr, int wr, int hr,
+				Vec bmin, Vec bmax, int tag)
+{
+  int m_depth, m_width, m_height;
+  m_volume->gridSize(m_depth, m_width, m_height);
+
+  if (dr < 0 || wr < 0 || hr < 0 ||
+      dr > m_depth-1 ||
+      wr > m_width-1 ||
+      hr > m_height-1)
+    {
+      QMessageBox::information(0, "", "No painted region found");
+      return;
+    }
+
+  int spH = m_viewer->size().height();
+  int spW = m_viewer->size().width();
+  uchar *sketchPad = m_viewer->sketchPad();
+
+
+  QProgressDialog progress("Updating voxel structure",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+  uchar *lut = Global::lut();
+
+  int ds = bmin.z;
+  int ws = bmin.y;
+  int hs = bmin.x;
+
+  int de = bmax.z;
+  int we = bmax.y;
+  int he = bmax.x;
+
+  int mx = he-hs+1;
+  int my = we-ws+1;
+  int mz = de-ds+1;
+
+  MyBitArray bitmask;
+  bitmask.resize(mx*my*mz);
+  bitmask.fill(false);
+
+  uchar *volData = m_volume->memVolDataPtr();
+  uchar *maskData = m_volume->memMaskDataPtr();
+
+  int indices[] = {-1, 0, 0,
+		    1, 0, 0,
+		    0,-1, 0,
+		    0, 1, 0,
+		    0, 0,-1,
+		    0, 0, 1};
+
+  int minD,maxD, minW,maxW, minH,maxH;
+
+//  for(int d=ds; d<=de; d++)
+//    {
+//      progress.setValue(90*(d-ds)/((de-ds+1)));
+//      if (d%10 == 0)
+//	qApp->processEvents();
+//
+//      for(int w=ws; w<=we; w++)
+//	for(int h=hs; h<=he; h++)
+//	  {
+//	    Vec scr = m_viewer->camera()->projectedCoordinatesOf(Vec(h,w,d));
+//	    if (sketchPad[int(scr.x)+int(scr.y)*spW] > 0)
+//	      {
+//		qint64 idx = d*m_width*m_height + w*m_height + h;
+//		int val = volData[idx];
+//		bool a =  lut[4*val+3] > 0;
+//		if (a)
+//		  {
+//		    maskData[idx] = tag;
+//		    if (minD > -1)
+//		      {
+//			minD = qMin(minD, d);
+//			maxD = qMax(maxD, d);
+//			minW = qMin(minW, w);
+//			maxW = qMax(maxW, w);
+//			minH = qMin(minH, h);
+//			maxH = qMax(maxH, h);
+//		      }
+//		    else
+//		      {
+//			minD = maxD = d;
+//			minW = maxW = w;
+//			minH = maxH = h;
+//		      }
+//		  }
+//	      }
+//	  }
+//    }
+
+
+  QStack<Vec> stack;
+  stack.push(Vec(dr,wr,hr));
+
+  int idx = dr*m_width*m_height + wr*m_height + hr;
+  maskData[idx] = tag;
+
+  int bidx = (dr-ds)*mx*my+(wr-ws)*mx+(hr-hs);
+  bitmask.setBit(bidx);
+
+  minD = maxD = dr;
+  minW = maxW = wr;
+  minH = maxH = hr;
+
+
+  bool done = false;
+  int ip=0;
+//  int tip=0;
+//  int wtip=0;
+  while(!stack.isEmpty())
+    {
+      //tip++;
+      ip = ip+1;
+      progress.setValue((ip/1000)%100);
+      if (ip%10000 == 0)
+	qApp->processEvents();
+      
+      Vec dwh = stack.pop();
+      int dx = qCeil(dwh.x);
+      int wx = qCeil(dwh.y);
+      int hx = qCeil(dwh.z);
+
+      for(int i=0; i<6; i++)
+	{
+	  int da = indices[3*i+0];
+	  int wa = indices[3*i+1];
+	  int ha = indices[3*i+2];
+
+	  int d2 = qBound(ds, dx+da, de);
+	  int w2 = qBound(ws, wx+wa, we);
+	  int h2 = qBound(hs, hx+ha, he);
+
+	  int bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
+	  if (bitmask.testBit(bidx) == false)
+	    {
+	      bitmask.setBit(bidx, true);
+
+	      Vec scr = m_viewer->camera()->projectedCoordinatesOf(Vec(h2,w2,d2));
+	      if (sketchPad[int(scr.x)+int(scr.y)*spW] > 0)
+		{
+		  stack.push(Vec(d2,w2,h2));
+
+		  int idx = d2*m_width*m_height + w2*m_height + h2;
+		  int val = volData[idx];
+		  bool visible = lut[4*val+3] > 0;
+		  if (visible)
+		    {
+		      //wtip++;
+		      maskData[idx] = tag;	      
+		      minD = qMin(minD, d2);
+		      maxD = qMax(maxD, d2);
+		      minW = qMin(minW, w2);
+		      maxW = qMax(maxW, w2);
+		      minH = qMin(minH, h2);
+		      maxH = qMax(maxH, h2);
+		    }
+		}
+	    }
+	}
+    }
+
+//  QMessageBox::information(0, "", QString("%1 : %2 : %3").\
+//			   arg(wtip).arg(tip).arg(mx*my*mz));
+
+  getSlice(m_currSlice);
+  
+  m_viewer->uploadMask(minD,minW,minH, maxD,maxW,maxH);
+
+  QList<int> dwh;  
+  m_blockList.clear();  
+  dwh << minD << minW << minH;
+  m_blockList << dwh;
+  dwh.clear();
+  dwh << maxD << maxW << maxH;
+  m_blockList << dwh;
+
+  m_volume->saveMaskBlock(m_blockList);
+
+  progress.setValue(100);
+  
+
 }

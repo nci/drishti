@@ -41,6 +41,11 @@ Start Keyboard help
 #end
 
 #begin
+Esc
+When in Sketch Pad mode - erase the any curve drawn on screen.
+#end
+
+#begin
 Spacebar
 Bring up command input dialog.
 #end
@@ -63,6 +68,11 @@ Add a clip plane.
 #begin
 v
 Toggle visibility of clip planes.
+#end
+
+#begin
+t
+When in Sketch Pad Mode - tag with current tag value all visible region under by the curve drawn in sketch pad.
 #end
 
 #begin

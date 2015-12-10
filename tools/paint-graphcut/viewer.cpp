@@ -289,6 +289,9 @@ Viewer::resizeGL(int width, int height)
   QGLViewer::resizeGL(width, height);
 
   createFBO();
+
+  if (m_sketchPadMode)
+    grabScreenImage();
 }
 
 void
@@ -610,13 +613,22 @@ Viewer::setSkipLayers(int l)
 }
 
 void
+Viewer::showSketchPad(bool b)
+{  
+  m_sketchPadMode = b;
+  m_poly.clear();
+  if (m_sketchPadMode)
+    grabScreenImage();
+  update();
+}
+
+void
 Viewer::keyPressEvent(QKeyEvent *event)
 {
   if (event->key() == Qt::Key_Escape)
     {
       if (m_sketchPadMode)
 	{
-	  m_sketchPadMode = false;
 	  m_poly.clear();
 	  update();
 	}
@@ -666,26 +678,17 @@ Viewer::keyPressEvent(QKeyEvent *event)
       return;
     }
 
-  if (event->key() == Qt::Key_R)
+  if (event->key() == Qt::Key_T) // tag using sketch pad
     {  
-      tagUsingScreenSketch();
-      update();
-      // reset bitmap
-      //m_bitmask.fill(true);
-      //update();
-      return;
-    }
-
-  if (event->key() == Qt::Key_W)
-    {  
-      m_sketchPadMode = !m_sketchPadMode;
-      m_poly.clear();
       if (m_sketchPadMode)
-	grabScreenImage();
-      update();
+	{
+	  tagUsingScreenSketch();
+	  update();
+	}
+      else
+	QMessageBox::information(0, "", "Not in Sketch Pad Mode");
       return;
     }
-
 
   // process clipplane events
   Vec bmin, bmax;
@@ -1184,14 +1187,21 @@ Viewer::draw()
       int ht = camera()->screenHeight();
       StaticFunctions::pushOrthoView(0, 0, wd, ht);
 
-      glColor3f(0.2,1,0.3);
+      int tag = Global::tag();
+      float r = Global::tagColors()[4*tag+0]*1.0/255.0;
+      float g = Global::tagColors()[4*tag+1]*1.0/255.0;
+      float b = Global::tagColors()[4*tag+2]*1.0/255.0;
+      glColor3f(r,g,b);
       glDisable(GL_LIGHTING);
       glLineWidth(2);
       glBegin(GL_LINE_STRIP);
       for(int j=0; j<m_poly.count(); j++)
 	glVertex2f(m_poly[j].x(),ht-m_poly[j].y());
-      glVertex2f(m_poly[0].x(),ht-m_poly[0].y());
+      //glVertex2f(m_poly[0].x(),ht-m_poly[0].y());
       glEnd();
+
+      QFont tfont = QFont("Helvetica", 12);  
+      StaticFunctions::renderText(10,50, "Sketch Pad Mode", tfont, Qt::lightGray, Qt::black);
       
       StaticFunctions::popOrthoView();
       glEnable(GL_DEPTH_TEST);
@@ -2773,6 +2783,9 @@ Viewer::mouseReleaseEvent(QMouseEvent *event)
 {
   m_dragMode = false;
 
+  if (m_sketchPadMode)
+    return;
+  
   if (m_paintHit)
     emit paint3DEnd();
   
@@ -3531,6 +3544,8 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
   glActiveTexture(GL_TEXTURE4);
   glEnable(GL_TEXTURE_3D);
   glBindTexture(GL_TEXTURE_3D, m_maskTex);
+  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
   uchar *lut = Global::lut();
   glActiveTexture(GL_TEXTURE3);
@@ -3755,121 +3770,17 @@ Viewer::tagUsingScreenSketch()
   p.setBrush(Qt::white);
   p.drawPolygon(m_poly);
 
-  int minX, maxX, minY, maxY;
-  minX = m_spW;
-  minY = m_spH;
-  maxX = maxY = 0;
-
-  QList<QPoint> inPoly;
-
   QRgb *rgb = (QRgb*)(pimg.bits());
   for(int yp = 0; yp < m_spH; yp ++)
     for(int xp = 0; xp < m_spW; xp ++)
       {
 	int rp = xp + yp*m_spW;
 	if (qRed(rgb[rp]) > 0)
-	  {
-	    m_sketchPad[rp] = 255;
-	    minX = qMin(minX, xp);
-	    maxX = qMax(maxX, xp);
-	    minY = qMin(minY, yp);
-	    maxY = qMax(maxY, yp);
-
-	    inPoly << QPoint(xp, yp);
-	  }
+	  m_sketchPad[rp] = 255;
       }
 
-  bool found = false;
-  Vec pos;
-  for(int n=0; n<inPoly.count(); n++)
-    {
-      int idx = inPoly[n].x()+inPoly[n].y()*m_spW;
-      if (m_screenImageBuffer[4*idx+0] > 0 ||
-	  m_screenImageBuffer[4*idx+3] > 0)
-	{
-	  pos = pointUnderPixel_RC(inPoly[n], found);
-	  if (found)
-	    break;
-	}
-    }
-
-//  //-----------------------------
-//  // find any visible voxel which projects onto the polygon
-//  Vec box[8];
-//  box[0] = Vec(m_minHSlice, m_minWSlice, m_minDSlice);
-//  box[1] = Vec(m_minHSlice, m_minWSlice, m_maxDSlice);
-//  box[2] = Vec(m_minHSlice, m_maxWSlice, m_maxDSlice);
-//  box[3] = Vec(m_minHSlice, m_maxWSlice, m_minDSlice);
-//  box[4] = Vec(m_maxHSlice, m_minWSlice, m_minDSlice);
-//  box[5] = Vec(m_maxHSlice, m_minWSlice, m_maxDSlice);
-//  box[6] = Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice);
-//  box[7] = Vec(m_maxHSlice, m_maxWSlice, m_minDSlice);
-//
-//  //--------------------------------
-//  Vec eyepos = camera()->position();
-//  Vec viewDir = camera()->viewDirection();
-//  float minZ = 1000000;
-//  float maxZ = -1000000;
-//  for(int b=0; b<8; b++)
-//    {
-//      float zv = (box[b]-eyepos)*viewDir;
-//      minZ = qMin(minZ, zv);
-//      maxZ = qMax(maxZ, zv);
-//    }
-//  //--------------------------------
-//
-//  int sw = camera()->screenWidth();
-//  int sh = camera()->screenHeight();  
-//
-//  bool found = false;
-//  Vec pos;
-//  
-//  glEnable(GL_SCISSOR_TEST);
-//  glScissor(minX, sh-maxY, maxX-minX, maxY-minY);
-//
-//  volumeRaycast(minZ, maxZ, true); // run only one part of raycast process
-//
-//  glBindFramebuffer(GL_FRAMEBUFFER, m_slcBuffer);
-//  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[0]);
-//
-//  glDisable(GL_SCISSOR_TEST);
-//
-//  GLfloat *d4 = new GLfloat[4*(maxX-minX)*(maxY-minY)];
-//  glReadPixels(minX, sh-maxY, maxX-minX, maxY-minY, GL_RGBA, GL_FLOAT, d4);
-//  for(int x=0; x<(maxX-minX) && !found; x++)
-//    for(int y=0; y<(maxY-minY) && !found; y++)
-//      {
-//	int idx = x + y*(maxX-minX);
-//	int sidx = (minX+x) + (minY+y)*m_spW;
-//	if (m_sketchPad[sidx]>0 && d4[4*idx+3] > 0.0)
-//	{
-//	  pos = Vec(d4[4*idx+0], d4[4*idx+1], d4[4*idx+2]);
-//	  Vec vsz = m_sslevel*m_vsize;
-//	  pos = m_corner + VECPRODUCT(pos, vsz);
-//
-//	  QMessageBox::information(0, "", QString("%1 %2 %3").\
-//				   arg(pos.x).arg(pos.y).arg(pos.z));
-//	  found = true;
-//	  break;
-//	}
-//      }	  
-//
-//  delete [] d4;
-//
-//  glBindFramebuffer(GL_FRAMEBUFFER, 0);
-//  //-----------------------------
-
-//  QLabel *lbl = new QLabel();
-//  lbl->setPixmap(QPixmap::fromImage(pimg));
-//  lbl->show();
-
-  if (found)
-    emit tagUsingSketchPad(pos.z, pos.y, pos.x, bmin, bmax, Global::tag());
-  else
-    QMessageBox::information(0, "", "No visible voxel found within the drawn polygon.");
-
+  emit tagUsingSketchPad(bmin, bmax);
   m_poly.clear();
-  m_sketchPadMode = false;
 }
 
 void
@@ -3879,7 +3790,7 @@ Viewer::grabScreenImage()
     delete [] m_screenImageBuffer;
   m_screenImageBuffer = new uchar[size().width()*size().height()*4];
   
-  glReadBuffer(GL_BACK);
+  glReadBuffer(GL_FRONT);
   glReadPixels(0,
 	       0,
 	       size().width(),

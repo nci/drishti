@@ -73,6 +73,7 @@ class Viewer : public QGLViewer
     void setSkipLayers(int);
     void setStillAndDragStep(float, float);
     void setExactCoord(bool);
+    void showSketchPad(bool);
     
  signals :
     void paint3D(int, int, int, int, int);
@@ -80,7 +81,7 @@ class Viewer : public QGLViewer
     void dilateConnected(int, int, int, Vec, Vec, int);
     void paint3DEnd();
 
-    void tagUsingSketchPad(int, int, int, Vec, Vec, int);
+    void tagUsingSketchPad(Vec, Vec);
 
     void mergeTags(Vec, Vec, int, int, bool);
     void mergeTags(Vec, Vec, int, int, int, bool);

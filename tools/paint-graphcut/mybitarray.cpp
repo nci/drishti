@@ -1,4 +1,5 @@
 #include "mybitarray.h"
+#include <QMessageBox>
 
 MyBitArray::MyBitArray()
 {
@@ -45,6 +46,12 @@ MyBitArray::testBit(qint64 i)
 void
 MyBitArray::setBit(qint64 i, bool val)
 {
+  if (i < 0 || i > m_size)
+    {
+      QMessageBox::information(0, "", QString("Out of bounds : %1 <%2>").arg(i).arg(m_size));
+      return;
+    }
+
   if (val)
     setBit(i);
   else
@@ -55,7 +62,10 @@ void
 MyBitArray::setBit(qint64 i)
 {
   if (i < 0 || i > m_size)
-    return;
+    {
+      QMessageBox::information(0, "", QString("Out of bounds : %1 <%2>").arg(i).arg(m_size));
+      return;
+    }
 
   *(m_bits + (i>>3)) |= uchar(1 << (i & 7));
 }
@@ -64,7 +74,10 @@ void
 MyBitArray::clearBit(qint64 i)
 {
   if (i < 0 || i > m_size)
-    return;
+    {
+      QMessageBox::information(0, "", QString("Out of bounds : %1 <%2>").arg(i).arg(m_size));
+      return;
+    }
 
   *(m_bits + (i>>3)) &= ~uchar(1 << (i & 7));
 }

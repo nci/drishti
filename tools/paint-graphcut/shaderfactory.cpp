@@ -430,7 +430,11 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
 
   // -- get exact texture coordinate so we don't get tag interpolation --
   shader += "  vec3 vC = voxelCoord*vsize;\n";
-  shader += "  vC = (floor(vC)+vec3(0.5))/vsize;\n";
+  //shader += "  vC = (floor(vC)+vec3(0.5))/vsize;\n";
+  shader += "  bvec3 vclt = lessThan(round(vC), vC);\n";
+  shader += "  vC += ivec3(vclt)*vec3(0.5);\n";
+  shader += "  vC -= ivec3(not(vclt))*vec3(0.5);\n";
+  shader += "  vC /= vsize;\n";
 
   if (nearest)
     shader += "  float val = texture3D(dataTex, vC).x;\n";

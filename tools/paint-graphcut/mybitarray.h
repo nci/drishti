@@ -17,8 +17,8 @@ class MyBitArray
   void clearBit(qint64);
   void fill(bool);
 
-  int size() { return m_size; }
-  int count() { return m_size; }
+  qint64 size() { return m_size; }
+  qint64 count() { return m_size; }
 
  private :
   uchar *m_bits;

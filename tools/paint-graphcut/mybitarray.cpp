@@ -88,3 +88,11 @@ MyBitArray::fill(bool val)
   qint64 size = (1 + (m_size+7)/8);
   memset(m_bits, val ? 0xff : 0, size);
 }
+
+void
+MyBitArray::invert()
+{
+  qint64 size = (1 + (m_size+7)/8);
+  for(int i=0; i<size;i++)
+    m_bits[i] = ~m_bits[i];
+}

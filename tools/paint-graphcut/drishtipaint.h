@@ -240,11 +240,6 @@ class DrishtiPaint : public QMainWindow
 
   void processHoles(uchar*, int, int, int, int);
 
-  void dilate(int,
-	      MyBitArray*, qint64, qint64, qint64,
-	      int, int, int, int, int, int,
-	      MyBitArray*);
-
   bool tagUsingSketchPad(Vec, Vec, int);
 };
 

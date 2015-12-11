@@ -16,7 +16,8 @@ class MyBitArray
   void setBit(qint64);
   void clearBit(qint64);
   void fill(bool);
-
+  void invert();
+  
   qint64 size() { return m_size; }
   qint64 count() { return m_size; }
 

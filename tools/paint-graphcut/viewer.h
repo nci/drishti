@@ -79,6 +79,7 @@ class Viewer : public QGLViewer
     void paint3D(int, int, int, int, int);
     void paint3D(int, int, int, Vec, Vec, int);
     void dilateConnected(int, int, int, Vec, Vec, int);
+    void erodeConnected(int, int, int, Vec, Vec, int);
     void paint3DEnd();
 
     void tagUsingSketchPad(Vec, Vec);
@@ -126,7 +127,6 @@ class Viewer : public QGLViewer
   MyBitArray m_bitmask;
   bool m_paintHit, m_carveHit;
   Vec m_target;
-  Vec m_prevPaintHit;
 
 
   QMultiMap<int, Curve*> *m_Dcg;
@@ -263,10 +263,13 @@ class Viewer : public QGLViewer
 
   void regionGrowing();
   void regionDilation();
+  void regionErosion();
   void tagUsingScreenSketch();
 
   void commandEditor();
   void processCommand(QString);
+
+  Vec getHit(QPoint, bool&);
 };
 
 #endif

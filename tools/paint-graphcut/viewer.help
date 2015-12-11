@@ -71,19 +71,26 @@ Toggle visibility of clip planes.
 #end
 
 #begin
-t
-When in Sketch Pad Mode - tag with current tag value all visible region under by the curve drawn in sketch pad.
+f
+Region growing with current tag value.
+Move the mouse over to the region you want to fill/region grow before pressing "f".
 #end
 
 #begin
 d
-Dilate the current tag by "Dilate" parameter value.
-Shift click in the region you want to dilate before pressing "d".
+Dilate the current tag by "Dlt/Erd" parameter value.
+Move the mouse over to the region you want to dilate before pressing "d".
 #end
 
 #begin
-f
-Region growing with current tag value.
+e
+Erode the current tag by "Dlt/Erd" parameter value.
+Move the mouse over to the region you want to erode before pressing "e".
+#end
+
+#begin
+t
+When in Sketch Pad Mode - tag with current tag value all visible region under by the curve drawn in sketch pad.
 #end
 
 #begin

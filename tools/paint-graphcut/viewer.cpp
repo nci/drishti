@@ -174,7 +174,6 @@ Viewer::init()
   m_paintHit = false;
   m_carveHit = false;
   m_target = Vec(-1,-1,-1);
-  m_prevPaintHit = Vec(-1,-1,-1);
 
   m_Dcg = 0;
   m_Wcg = 0;
@@ -647,21 +646,22 @@ Viewer::keyPressEvent(QKeyEvent *event)
 
   if (event->key() == Qt::Key_F)
     {  
-      if (m_prevPaintHit.x >= 0)
-	{
-	  regionGrowing();
-	  update();
-	}
+      regionGrowing();
+      update();
       return;
     }
 
   if (event->key() == Qt::Key_D)
     {  
-      if (m_prevPaintHit.x >= 0)
-	{
-	  regionDilation();
-	  update();
-	}
+      regionDilation();
+      update();
+      return;
+    }
+
+  if (event->key() == Qt::Key_E)
+    {  
+      regionErosion();
+      update();
       return;
     }
 
@@ -2622,16 +2622,27 @@ Viewer::drawSWHCurve()
   glLineWidth(1);
 }
 
+Vec
+Viewer::getHit(QPoint scr, bool &found)
+{
+  Vec target;
+  found = false;
+
+  if (m_renderMode == 0) // point rendering
+    target = pointUnderPixel(scr, found);
+  else // raycast rendering
+    target = pointUnderPixel_RC(scr, found);
+
+  return target;
+}
+
 void
 Viewer::getHit(QMouseEvent *event)
 {
   bool found;
   QPoint scr = event->pos();
-  
-  if (m_renderMode == 0) // point rendering
-    m_target = pointUnderPixel(scr, found);
-  else // raycast rendering
-    m_target = pointUnderPixel_RC(scr, found);
+
+  m_target = getHit(scr, found);
 
   if (found)
     {
@@ -2646,10 +2657,7 @@ Viewer::getHit(QMouseEvent *event)
       else if (event->buttons() == Qt::MiddleButton) b = 3;
       
       if (m_paintHit)
-	{
-	  emit paint3D(d, w, h, b, Global::tag());
-	  m_prevPaintHit = Vec(d,w,h);
-	}
+	emit paint3D(d, w, h, b, Global::tag());
       else if (m_carveHit)
 	carve(d, w, h, b==2);
     }
@@ -2750,7 +2758,6 @@ Viewer::mousePressEvent(QMouseEvent *event)
   m_paintHit = false;
   m_carveHit = false;
   m_target = Vec(-1,-1,-1);
-  m_prevPaintHit = Vec(-1,-1,-1);
 
   if (m_sketchPadMode)
     {
@@ -3726,9 +3733,17 @@ Viewer::uploadMask(int dst, int wst, int hst, int ded, int wed, int hed)
 void
 Viewer::regionGrowing()
 {
-  int d = qCeil(m_prevPaintHit.x);
-  int w = qCeil(m_prevPaintHit.y);
-  int h = qCeil(m_prevPaintHit.z);
+  Vec target;
+  bool found;
+  
+  QPoint scr = mapFromGlobal(QCursor::pos());
+  target = getHit(scr, found);
+  if (!found)
+    return;
+
+  int d = qCeil(target.z);
+  int w = qCeil(target.y);
+  int h = qCeil(target.x);
 
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
@@ -3739,14 +3754,43 @@ Viewer::regionGrowing()
 void
 Viewer::regionDilation()
 {
-  int d = qCeil(m_prevPaintHit.x);
-  int w = qCeil(m_prevPaintHit.y);
-  int h = qCeil(m_prevPaintHit.z);
+  Vec target;
+  bool found;
+  
+  QPoint scr = mapFromGlobal(QCursor::pos());
+  target = getHit(scr, found);
+  if (!found)
+    return;
+
+  int d = qCeil(target.z);
+  int w = qCeil(target.y);
+  int h = qCeil(target.x);
 
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
 
   emit dilateConnected(d, w, h, bmin, bmax, Global::tag());
+}
+
+void
+Viewer::regionErosion()
+{
+  Vec target;
+  bool found;
+  
+  QPoint scr = mapFromGlobal(QCursor::pos());
+  target = getHit(scr, found);
+  if (!found)
+    return;
+
+  int d = qCeil(target.z);
+  int w = qCeil(target.y);
+  int h = qCeil(target.x);
+
+  Vec bmin, bmax;
+  m_boundingBox.bounds(bmin, bmax);
+
+  emit erodeConnected(d, w, h, bmin, bmax, Global::tag());
 }
 
 void

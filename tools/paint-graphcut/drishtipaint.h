@@ -122,6 +122,7 @@ class DrishtiPaint : public QMainWindow
   void paint3D(int, int, int, Vec, Vec, int);
   void paint3DEnd();
   void dilateConnected(int, int, int, Vec, Vec, int);
+  void erodeConnected(int, int, int, Vec, Vec, int);
   void tagUsingSketchPad(Vec, Vec);
   void mergeTags(Vec, Vec, int, int, bool);
   void mergeTags(Vec, Vec, int, int, int, bool);

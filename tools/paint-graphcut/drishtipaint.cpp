@@ -4168,6 +4168,9 @@ DrishtiPaint::paint3D(int dr, int wr, int hr, Vec bmin, Vec bmax, int tag)
 void
 DrishtiPaint::paint3D(int d, int w, int h, int button, int otag)
 {
+  paintLayer(d, w, h, button, otag);
+  return;
+
   int m_depth, m_width, m_height;
   m_volume->gridSize(m_depth, m_width, m_height);
 
@@ -4263,6 +4266,217 @@ DrishtiPaint::paint3D(int d, int w, int h, int button, int otag)
 
   QList<int> dwhr;
   dwhr << d << w << h << rad;
+
+  m_blockList << dwhr;
+
+  m_viewer->uploadMask(ds,ws,hs, de,we,he);
+}
+
+
+void
+DrishtiPaint::paintLayer(int dpl, int wpl, int hpl, int button, int otag)
+{
+  int m_depth, m_width, m_height;
+  m_volume->gridSize(m_depth, m_width, m_height);
+
+  if (dpl<0 || wpl<0 || hpl<0 ||
+      dpl>m_depth-1 ||
+      wpl>m_width-1 ||
+      hpl>m_height-1)
+    return;
+
+  
+  uchar *lut = Global::lut();
+  uchar *tagColors = Global::tagColors();
+  int rad = Global::spread();
+  int r0 = 2;
+  int radr0 = rad + r0;
+  int tag = otag;
+  if (button == 2) // right button
+    tag = 0;
+  int minDSlice, maxDSlice;
+  int minWSlice, maxWSlice;
+  int minHSlice, maxHSlice;
+  m_imageWidget->getBox(minDSlice, maxDSlice,
+			minWSlice, maxWSlice,
+			minHSlice, maxHSlice);
+
+  uchar *volData = m_volume->memVolDataPtr();
+  uchar *maskData = m_volume->memMaskDataPtr();
+
+  // tag only region connected to the origin voxel (d,w,h)
+  qint64 dm = 2*radr0+1;
+  qint64 dm2 = dm*dm;
+
+  uchar *bitmask = new uchar[dm*dm*dm];
+  memset(bitmask, 2, dm*dm*dm);
+
+  MyBitArray cbitmask;
+  cbitmask.resize(dm*dm*dm);
+  cbitmask.fill(false);
+
+  Vec scr0 = m_viewer->camera()->projectedCoordinatesOf(Vec(hpl,wpl,dpl));
+
+  int ds, de, ws, we, hs, he;
+  ds = qMax(minDSlice, dpl-radr0);
+  de = qMin(maxDSlice, dpl+radr0);
+  ws = qMax(minWSlice, wpl-radr0);
+  we = qMin(maxWSlice, wpl+radr0);
+  hs = qMax(minHSlice, hpl-radr0);
+  he = qMin(maxHSlice, hpl+radr0);
+  int ds0 = ds+r0;
+  int de0 = de-r0;
+  int ws0 = ws+r0;
+  int we0 = we-r0;
+  int hs0 = hs+r0;
+  int he0 = he-r0;
+  for(qint64 dd=ds0; dd<=de0; dd++)
+    for(qint64 ww=ws0; ww<=we0; ww++)
+      for(qint64 hh=hs0; hh<=he0; hh++)
+	{
+	  Vec scr = m_viewer->camera()->projectedCoordinatesOf(Vec(hh,ww,dd));	  
+
+	  if ((scr-scr0).norm() < rad)
+	    {
+	      int val = volData[dd*m_width*m_height + ww*m_height + hh];
+	      int tval = maskData[dd*m_width*m_height + ww*m_height + hh];
+	      int a = lut[4*val+3];
+	      int tc = tagColors[4*tval+3];
+	      if (a > 0 && tc > 0)
+		{
+		  bitmask[(dd-ds)*dm2 + (ww-ws)*dm + (hh-hs)] = 1;
+		  cbitmask.setBit((dd-ds)*dm2 + (ww-ws)*dm + (hh-hs));
+		}
+	      else
+		bitmask[(dd-ds)*dm2 + (ww-ws)*dm + (hh-hs)] = 0;
+	    }
+	}
+
+  // tag only connected region
+  int indices[] = {-1, 0, 0,
+		   1, 0, 0,
+		   0,-1, 0,
+		   0, 1, 0,
+		   0, 0,-1,
+		   0, 0, 1};
+
+  // tag only connected region
+  cbitmask.setBit((dpl-ds)*dm2 + (wpl-ws)*dm + (hpl-hs), false);
+
+  QStack<Vec> stack;
+  stack.push(Vec(dpl, wpl, hpl));
+
+
+  QList<Vec> edges;
+  edges.clear();
+  edges << Vec(dpl, wpl, hpl);
+
+  // find top layer
+  while(!stack.isEmpty())
+    {
+      Vec dwh = stack.pop();
+      int dx = dwh.x;
+      int wx = dwh.y;
+      int hx = dwh.z;
+
+      int d0 = qMax(dx-1, minDSlice);
+      int d1 = qMin(dx+1, maxDSlice);
+      int w0 = qMax(wx-1, minWSlice);
+      int w1 = qMin(wx+1, maxWSlice);
+      int h0 = qMax(hx-1, minHSlice);
+      int h1 = qMin(hx+1, maxHSlice);
+
+      for(int d2=d0; d2<=d1; d2++)
+	for(int w2=w0; w2<=w1; w2++)
+	  for(int h2=h0; h2<=h1; h2++)
+	    {
+	      if (cbitmask.testBit((d2-ds)*dm2 + (w2-ws)*dm + (h2-hs)))
+		{
+		  cbitmask.setBit((d2-ds)*dm2 + (w2-ws)*dm + (h2-hs), false);
+		  bool inside = true;
+		  for(int i=0; i<6; i++)
+		    {
+		      int da = indices[3*i+0];
+		      int wa = indices[3*i+1];
+		      int ha = indices[3*i+2];
+		      
+		      qint64 d = qBound(ds, d2+da, de);
+		      qint64 w = qBound(ws, w2+wa, we);
+		      qint64 h = qBound(hs, h2+ha, he);
+		      
+		      qint64 tidx = (d-ds)*dm2+(w-ws)*dm+(h-hs);
+		      inside &= (bitmask[tidx] > 0);
+		    }
+		  if (!inside)
+		    {
+		      edges << Vec(d2,w2,h2);
+		      stack.push(Vec(d2,w2,h2));
+		    }
+		}
+	    }
+    }
+
+
+  int nErode = viewerUi.dilateRad->value();
+
+  for(int ne=0; ne<nErode; ne++)
+    {
+      // fill boundary
+      for(int e=0; e<edges.count(); e++)
+	{
+	  qint64 d2 = edges[e].x;
+	  qint64 w2 = edges[e].y;
+	  qint64 h2 = edges[e].z;
+
+	  qint64 idx = d2*m_width*m_height + w2*m_height + h2;
+	  maskData[idx] = tag;
+
+	  qint64 bidx = (d2-ds)*dm2+(w2-ws)*dm+(h2-hs);
+	  bitmask[bidx] = 0;
+	}
+
+      if (ne < nErode-1)
+	{
+	  QList<Vec> tedges;
+	  tedges.clear();
+
+	  cbitmask.fill(false);
+	  // find next inner boundary to fill
+	  for(int e=0; e<edges.count(); e++)
+	    {
+	      int dx = edges[e].x;
+	      int wx = edges[e].y;
+	      int hx = edges[e].z;
+	      
+	      for(int i=0; i<6; i++)
+		{
+		  int da = indices[3*i+0];
+		  int wa = indices[3*i+1];
+		  int ha = indices[3*i+2];
+		  
+		  qint64 d2 = qBound(ds, dx+da, de);
+		  qint64 w2 = qBound(ws, wx+wa, we);
+		  qint64 h2 = qBound(hs, hx+ha, he);
+		  
+		  qint64 bidx = (d2-ds)*dm2+(w2-ws)*dm+(h2-hs);
+		  if (bitmask[bidx] == 1 && !cbitmask.testBit(bidx))
+		    {
+		      cbitmask.setBit(bidx);
+		      tedges << Vec(d2,w2,h2);	  
+		    }
+		}
+	    }
+	  edges = tedges;
+	}
+    }
+
+
+  delete [] bitmask;
+
+  getSlice(m_currSlice);
+
+  QList<int> dwhr;
+  dwhr << dpl << wpl << hpl << radr0;
 
   m_blockList << dwhr;
 
@@ -4441,9 +4655,9 @@ DrishtiPaint::erodeConnected(int dr, int wr, int hr,
       // fill boundary
       for(int e=0; e<edges.count(); e++)
 	{
-	  int d2 = edges[e].x;
-	  int w2 = edges[e].y;
-	  int h2 = edges[e].z;
+	  qint64 d2 = edges[e].x;
+	  qint64 w2 = edges[e].y;
+	  qint64 h2 = edges[e].z;
 
 	  qint64 idx = d2*m_width*m_height + w2*m_height + h2;
 	  maskData[idx] = 0;
@@ -4712,9 +4926,9 @@ DrishtiPaint::dilateConnected(int dr, int wr, int hr,
 	  // fill boundary
 	  for(int e=0; e<tedges.count(); e++)
 	    {
-	      int d2 = tedges[e].x;
-	      int w2 = tedges[e].y;
-	      int h2 = tedges[e].z;
+	      qint64 d2 = tedges[e].x;
+	      qint64 w2 = tedges[e].y;
+	      qint64 h2 = tedges[e].z;
 	      
 	      qint64 idx = d2*m_width*m_height + w2*m_height + h2;
 	      maskData[idx] = tag;

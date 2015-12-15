@@ -3101,6 +3101,9 @@ MainWindow::loadProject(const char* flnm)
 
   // always keep image captions in mouse grabber pool
   GeometryObjects::imageCaptions()->addInMouseGrabberPool();
+
+  // check overlapping keyframes
+  m_keyFrame->checkKeyFrameNumbers();
 }
 
 void

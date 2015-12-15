@@ -100,6 +100,7 @@ KeyFrame::setKeyFrameNumber(int selected, int frameNumber)
 void
 KeyFrame::checkKeyFrameNumbers()
 {
+  // check overlapping keyframes
   QString mesg;
   for(int i=0; i<m_keyFrameInfo.count()-1; i++)
     for(int j=i+1; j<m_keyFrameInfo.count(); j++)

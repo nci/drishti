@@ -444,7 +444,7 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
   shader += "  vec4 colorSample = texture2D(lutTex, vec2(val,0.0));\n";
 
   shader += "  float tag = texture3D(maskTex, vC).x;\n";
-  shader += "  tag += 0.5/256.0;\n";
+  //shader += "  tag += 0.5/256.0;\n";
   shader += "  vec4 tagcolor = texture1D(tagTex, tag);\n";
   shader += "  if (tag < 0.001) tagcolor.rgb = colorSample.rgb;\n";
 

@@ -301,6 +301,21 @@ NcPlugin::setFile(QStringList files)
       m_voxelSizeY = att->as_float(1);
       m_voxelSizeZ = att->as_float(2);
     }
+  else // check with variable, it it has this attribute
+    {
+      int nats = ncvar->num_atts();  
+      for (int ni=0; ni<nats; ni++)
+	{
+	  NcAtt *att = ncvar->get_att(ni);
+	  if (QString(att->name()) == "voxel_size")
+	    {
+	      m_voxelSizeX = att->as_float(0);
+	      m_voxelSizeY = att->as_float(1);
+	      m_voxelSizeZ = att->as_float(2);
+	      break;
+	    }
+	}
+    }
   ati = allAtts.indexOf("voxel_unit");
   if (ati > -1)
     {
@@ -308,6 +323,21 @@ NcPlugin::setFile(QStringList files)
       QString str(att->as_string(0));
       if (str == "mm")
 	m_voxelUnit = _Millimeter;
+    }
+  else // check with variable, it it has this attribute
+    {
+      int nats = ncvar->num_atts();  
+      for (int ni=0; ni<nats; ni++)
+	{
+	  NcAtt *att = ncvar->get_att(ni);
+	  if (QString(att->name()) == "voxel_unit")
+	    {
+	      QString str(att->as_string(0));
+	      if (str == "mm")
+		m_voxelUnit = _Millimeter;
+	      break;
+	    }
+	}
     }
   // ---------------------
 

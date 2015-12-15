@@ -94,7 +94,7 @@
       <number>0</number>
      </property>
      <property name="bottomMargin">
-      <number>10</number>
+      <number>0</number>
      </property>
      <item row="0" column="0">
       <widget class="QLabel" name="label_7">
@@ -126,7 +126,7 @@
      <item row="1" column="0">
       <widget class="QLabel" name="label_11">
        <property name="text">
-        <string>Dlt/Erd</string>
+        <string>Extent</string>
        </property>
       </widget>
      </item>
@@ -363,6 +363,13 @@
        <widget class="QCheckBox" name="nearest">
         <property name="text">
          <string>Near Neighbour</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="scrape">
+        <property name="text">
+         <string>Scrape</string>
         </property>
        </widget>
       </item>
@@ -613,12 +620,12 @@
    <slot>setVisible(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>41</x>
-     <y>289</y>
+     <x>47</x>
+     <y>401</y>
     </hint>
     <hint type="destinationlabel">
-     <x>95</x>
-     <y>293</y>
+     <x>102</x>
+     <y>400</y>
     </hint>
    </hints>
   </connection>

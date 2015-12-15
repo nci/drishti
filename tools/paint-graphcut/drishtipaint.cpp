@@ -4168,8 +4168,11 @@ DrishtiPaint::paint3D(int dr, int wr, int hr, Vec bmin, Vec bmax, int tag)
 void
 DrishtiPaint::paint3D(int d, int w, int h, int button, int otag)
 {
-  paintLayer(d, w, h, button, otag);
-  return;
+  if (viewerUi.scrape->isChecked())
+    {
+      paintLayer(d, w, h, button, otag);
+      return;
+    }
 
   int m_depth, m_width, m_height;
   m_volume->gridSize(m_depth, m_width, m_height);

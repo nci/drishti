@@ -78,13 +78,13 @@ Move the mouse over to the region you want to fill/region grow before pressing "
 
 #begin
 d
-Dilate the current tag by "Dlt/Erd" parameter value.
+Dilate the current tag by "Extent" parameter value.
 Move the mouse over to the region you want to dilate before pressing "d".
 #end
 
 #begin
 e
-Erode the current tag by "Dlt/Erd" parameter value.
+Erode the current tag by "Extent" parameter value.
 Move the mouse over to the region you want to erode before pressing "e".
 #end
 

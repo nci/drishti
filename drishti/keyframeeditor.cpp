@@ -1203,6 +1203,8 @@ KeyFrameEditor::mouseReleaseEvent(QMouseEvent *event)
 
   updateSelectRegion();
   update();
+
+  emit checkKeyFrameNumbers();
 }
 
 void

@@ -54,6 +54,7 @@ class KeyFrameEditor : public QWidget
   void pasteFrameOnTop(int, int);
   void editFrameInterpolation(int);
   void setKeyFrameNumbers(QList<int>);
+  void checkKeyFrameNumbers();
 
  public slots :
   void loadKeyframes(QList<int>, QList<QImage>);

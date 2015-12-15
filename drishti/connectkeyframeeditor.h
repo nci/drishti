@@ -12,6 +12,9 @@
 
 
 
+  connect(m_keyFrameEditor, SIGNAL(checkKeyFrameNumbers()),
+	  m_keyFrame, SLOT(checkKeyFrameNumbers()));
+
   connect(m_keyFrameEditor, SIGNAL(reorder(QList<int>)),
 	  m_keyFrame, SLOT(reorder(QList<int>)));
 

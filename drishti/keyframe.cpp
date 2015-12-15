@@ -98,6 +98,23 @@ KeyFrame::setKeyFrameNumber(int selected, int frameNumber)
 }
 
 void
+KeyFrame::checkKeyFrameNumbers()
+{
+  QString mesg;
+  for(int i=0; i<m_keyFrameInfo.count()-1; i++)
+    for(int j=i+1; j<m_keyFrameInfo.count(); j++)
+      {
+	if (m_keyFrameInfo[i]->frameNumber() ==
+	    m_keyFrameInfo[j]->frameNumber())
+	  mesg += QString("Clash of keyframes at : %1").\
+	          arg(m_keyFrameInfo[i]->frameNumber());
+      }
+  if (!mesg.isEmpty())
+    QMessageBox::information(0, "Keyframe clash", mesg);
+}
+
+
+void
 KeyFrame::reorder(QList<int> sorted)
 {
   QList<CameraPathNode*> camList(m_cameraList);
@@ -270,10 +287,10 @@ KeyFrame::setKeyFrame(Vec pos, Quaternion rot,
   cam->setPosition(pos);
   cam->setOrientation(rot);
 
-  title = QInputDialog::getText(0, "Keyframe Title",
-				QString("Title").arg(frameNumber),
-				QLineEdit::Normal,
-				title);
+//  title = QInputDialog::getText(0, "Keyframe Title",
+//				QString("Title").arg(frameNumber),
+//				QLineEdit::Normal,
+//				title);
 
   kfi->setTitle(title);
   kfi->setFrameNumber(frameNumber);

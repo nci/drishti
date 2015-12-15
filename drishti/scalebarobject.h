@@ -20,6 +20,8 @@ class ScaleBarObject
 
   void clear();
 
+  ScaleBarObject& operator=(const ScaleBarObject&);
+
   void set(QPointF, float, bool, bool);
   void setScaleBar(ScaleBarObject);
   void setPosition(QPointF);

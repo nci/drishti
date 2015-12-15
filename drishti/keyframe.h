@@ -73,6 +73,7 @@ class KeyFrame : public QObject
   void editFrameInterpolation(int);
   void replaceKeyFrameImage(int, QImage);
   void playSavedKeyFrame();
+  void checkKeyFrameNumbers();
 
  signals :
   void updateLightBuffers();

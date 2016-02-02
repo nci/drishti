@@ -595,6 +595,12 @@ Viewer::processSocketData(QString data)
 void
 Viewer::checkPointSelected(const QMouseEvent *event)
 {
+  if (m_lowresVolume->raised())
+    {
+      QMessageBox::information(0, "", "Please switch to hires mode for point selection");
+      return;
+    }
+
   bool found;
   QPoint scr = event->pos();
   int ow = camera()->screenWidth();

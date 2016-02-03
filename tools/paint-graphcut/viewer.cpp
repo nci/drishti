@@ -62,6 +62,7 @@ Viewer::Viewer(QWidget *parent) :
   QTimer::singleShot(2000, this, SLOT(GlewInit()));
 
   setTextureMemorySize();
+
 }
 
 bool Viewer::exactCoord() { return m_exactCoord; }
@@ -146,6 +147,7 @@ Viewer::GlewInit()
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
   glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, &m_max3DTexSize);
+  //m_max3DTexSize = 1024;
 }
 
 void
@@ -788,6 +790,21 @@ Viewer::commandEditor()
     arg(m_minHSlice).arg(m_minWSlice).arg(m_minDSlice).		\
     arg(m_maxHSlice).arg(m_maxWSlice).arg(m_maxDSlice);
 
+
+  int d, w, h;
+  bool gothit = getCoordUnderPointer(d, w, h);
+  if (gothit)
+    {
+      int val = m_volPtr[d*m_width*m_height + w*m_height + h];
+      int tag = m_maskPtr[d*m_width*m_height + w*m_height + h];
+      mesg += "\nPoint Information\n";
+      mesg += QString("Coordinate : %1 %2 %3\n").arg(h).arg(w).arg(d);
+      mesg += QString("Voxel value : %1\n").arg(val);
+      mesg += QString("Tag value : %1\n").arg(tag);
+    }
+  else
+    mesg += "\nNo point found under the pointer.";
+  
   vlist << mesg;
 
   plist["message"] = vlist;
@@ -1500,6 +1517,23 @@ Viewer::drawInfo()
   int ht = camera()->screenHeight();
   StaticFunctions::pushOrthoView(0, 0, wd, ht);
   StaticFunctions::renderText(10,10, mesg, tfont, Qt::black, Qt::lightGray);
+
+  tfont = QFont("Helvetica", 10);  
+  Vec bmin, bmax;
+  m_boundingBox.bounds(bmin, bmax);
+  mesg = QString("box(%1 %2 %3 : %4 %5 %6 : %7 %8 %9) ").		\
+    arg(bmin.x).arg(bmin.y).arg(bmin.z).				\
+    arg(bmax.x).arg(bmax.y).arg(bmax.z).				\
+    arg(bmax.x-bmin.x).arg(bmax.y-bmin.y).arg(bmax.z-bmin.z);
+  float vszgb = (bmax.x-bmin.x)*(bmax.y-bmin.y)*(bmax.z-bmin.z);
+  vszgb /= m_sslevel;
+  vszgb /= m_sslevel;
+  vszgb /= m_sslevel;
+  vszgb /= 1024;
+  vszgb /= 1024;
+  mesg += QString("mb(%1 @ %2)").arg(vszgb).arg(m_sslevel);
+  StaticFunctions::renderText(10,30, mesg, tfont, Qt::black, Qt::lightGray);
+
   StaticFunctions::popOrthoView();
 
   glEnable(GL_DEPTH_TEST);
@@ -3733,17 +3767,21 @@ Viewer::uploadMask(int dst, int wst, int hst, int ded, int wed, int hed)
 void
 Viewer::regionGrowing()
 {
-  Vec target;
-  bool found;
-  
-  QPoint scr = mapFromGlobal(QCursor::pos());
-  target = getHit(scr, found);
-  if (!found)
-    return;
+//  Vec target;
+//  bool found;
+//  
+//  QPoint scr = mapFromGlobal(QCursor::pos());
+//  target = getHit(scr, found);
+//  if (!found)
+//    return;
+//
+//  int d = qCeil(target.z);
+//  int w = qCeil(target.y);
+//  int h = qCeil(target.x);
 
-  int d = qCeil(target.z);
-  int w = qCeil(target.y);
-  int h = qCeil(target.x);
+  int d, w, h;
+  bool gothit = getCoordUnderPointer(d, w, h);
+  if (!gothit) return;
 
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
@@ -3754,17 +3792,21 @@ Viewer::regionGrowing()
 void
 Viewer::regionDilation()
 {
-  Vec target;
-  bool found;
-  
-  QPoint scr = mapFromGlobal(QCursor::pos());
-  target = getHit(scr, found);
-  if (!found)
-    return;
+//  Vec target;
+//  bool found;
+//  
+//  QPoint scr = mapFromGlobal(QCursor::pos());
+//  target = getHit(scr, found);
+//  if (!found)
+//    return;
+//
+//  int d = qCeil(target.z);
+//  int w = qCeil(target.y);
+//  int h = qCeil(target.x);
 
-  int d = qCeil(target.z);
-  int w = qCeil(target.y);
-  int h = qCeil(target.x);
+  int d, w, h;
+  bool gothit = getCoordUnderPointer(d, w, h);
+  if (!gothit) return;
 
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
@@ -3775,17 +3817,21 @@ Viewer::regionDilation()
 void
 Viewer::regionErosion()
 {
-  Vec target;
-  bool found;
-  
-  QPoint scr = mapFromGlobal(QCursor::pos());
-  target = getHit(scr, found);
-  if (!found)
-    return;
+//  Vec target;
+//  bool found;
+//  
+//  QPoint scr = mapFromGlobal(QCursor::pos());
+//  target = getHit(scr, found);
+//  if (!found)
+//    return;
+//
+//  int d = qCeil(target.z);
+//  int w = qCeil(target.y);
+//  int h = qCeil(target.x);
 
-  int d = qCeil(target.z);
-  int w = qCeil(target.y);
-  int h = qCeil(target.x);
+  int d, w, h;
+  bool gothit = getCoordUnderPointer(d, w, h);
+  if (!gothit) return;
 
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
@@ -3865,4 +3911,22 @@ Viewer::drawScreenImage()
 
   glMatrixMode(GL_MODELVIEW);
   glPopMatrix();
+}
+
+bool
+Viewer::getCoordUnderPointer(int &d, int &w, int &h)
+{
+  Vec target;
+  bool found;
+  
+  QPoint scr = mapFromGlobal(QCursor::pos());
+  target = getHit(scr, found);
+  if (!found)
+    return false;
+
+  d = qCeil(target.z);
+  w = qCeil(target.y);
+  h = qCeil(target.x);
+
+  return true;
 }

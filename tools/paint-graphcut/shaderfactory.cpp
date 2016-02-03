@@ -367,7 +367,8 @@ ShaderFactory::addLighting()
   shader += " if (length(grad) > 0.1)\n";
   shader += "  {\n";
   shader += "    grad = normalize(grad);\n";
-  shader += "    vec3 lightVec = normDir;\n";
+  //shader += "    vec3 lightVec = normDir;\n";
+  shader += "    vec3 lightVec = viewDir;\n";
   shader += "    float diff = abs(dot(lightVec, grad));\n";
   shader += "    vec3 reflecvec = reflect(lightVec, grad);\n";
   shader += "    float spec = pow(abs(dot(grad, reflecvec)), 512.0);\n";

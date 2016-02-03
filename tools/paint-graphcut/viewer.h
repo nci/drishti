@@ -270,6 +270,8 @@ class Viewer : public QGLViewer
   void processCommand(QString);
 
   Vec getHit(QPoint, bool&);
+  bool getCoordUnderPointer(int&, int&, int&);
+
 };
 
 #endif

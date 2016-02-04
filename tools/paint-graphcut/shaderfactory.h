@@ -19,10 +19,13 @@ class ShaderFactory
 
   static QString genRaycastShader(int, bool, bool);
 
+  static QString genXRayShader(int, bool, bool);
+
   static QString genEdgeEnhanceShader();
 
  private :
   static QString addLighting();
+  static QString getGrad();
 };
 
 #endif

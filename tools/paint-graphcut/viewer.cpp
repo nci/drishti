@@ -21,7 +21,7 @@ Viewer::Viewer(QWidget *parent) :
 
   m_clipPlanes = new ClipPlanes();
 
-  m_renderMode = 0; // 0-point, 1-raycast
+  m_renderMode = 0; // 0-point, 1-raycast, 2-xray
 
   m_slcBuffer = 0;
   m_rboId = 0;
@@ -351,7 +351,10 @@ Viewer::createRaycastShader()
   maxSteps *= 1.0/m_stillStep;
   //QMessageBox::information(0, "", QString("%1 %2").arg(m_stillStep).arg(maxSteps));
 
-  shaderString = ShaderFactory::genRaycastShader(maxSteps, !m_fullRender, m_exactCoord);
+  if (m_renderMode == 1)
+    shaderString = ShaderFactory::genRaycastShader(maxSteps, !m_fullRender, m_exactCoord);
+  else
+    shaderString = ShaderFactory::genXRayShader(maxSteps, !m_fullRender, m_exactCoord);
 
   m_rcShader = glCreateProgramObjectARB();
   if (! ShaderFactory::loadShader(m_rcShader,
@@ -591,7 +594,10 @@ void
 Viewer::setRaycastRender(bool flag)
 {
   if (flag)
-    m_renderMode = 1;
+    {
+      m_renderMode = 1;
+      createRaycastShader();
+    }
   else
     m_renderMode = 0;
   updateVoxels();
@@ -599,9 +605,15 @@ Viewer::setRaycastRender(bool flag)
 }
 
 void
-Viewer::setRaycastStyle(bool flag)
+Viewer::setRaycastStyle(int flag)
 {
-  m_fullRender = !flag;
+  m_fullRender = (flag>0);
+
+  if (flag > 1)
+    m_renderMode = flag;
+  else
+    m_renderMode = 1;
+
   createRaycastShader();
   update();
 }
@@ -781,7 +793,7 @@ Viewer::commandEditor()
   QString mesg;
 
   mesg += "Subvolume Bounds :\n";
-  if (m_renderMode == 1)
+  if (m_renderMode >= 1)
     mesg += QString("LOD : %1\n").arg(m_sslevel);
   else
     mesg += QString("LOD : %1\n").arg(m_pointSkip);
@@ -1268,7 +1280,7 @@ Viewer::draw()
   if (m_renderMode == 0)
     pointRendering();  
   
-  if (m_renderMode == 1)
+  if (m_renderMode >= 1)
     raycasting();
   
 //  drawClipSlices();
@@ -1478,7 +1490,7 @@ Viewer::drawInfo()
   QFont tfont = QFont("Helvetica", 12);  
   QString mesg;
 
-  if (m_renderMode == 1)
+  if (m_renderMode >= 1)
     mesg += QString("LOD(%1) Vol(%2 %3 %4) ").\
       arg(m_sslevel).arg(m_vsize.x).arg(m_vsize.y).arg(m_vsize.z);
 
@@ -1726,7 +1738,7 @@ Viewer::updateVoxels()
   m_maxHSlice = bmax.x;
 
 
-  if (m_renderMode == 1) // raycast
+  if (m_renderMode >= 1) // raycast
     {
       updateVoxelsForRaycast();
       return;

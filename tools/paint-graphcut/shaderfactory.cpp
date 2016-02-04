@@ -352,7 +352,7 @@ ShaderFactory::genRectBlurShaderString(int filter)
 }
 
 QString
-ShaderFactory::addLighting()
+ShaderFactory::getGrad()
 {
   QString shader;
 
@@ -364,10 +364,28 @@ ShaderFactory::addLighting()
   shader += " float vy = texture3D(dataTex, voxelCoord+gy).x - texture3D(dataTex, voxelCoord-gy).x;\n";
   shader += " float vz = texture3D(dataTex, voxelCoord+gz).x - texture3D(dataTex, voxelCoord-gz).x;\n";
   shader += " vec3 grad = vec3(vx, vy, vz);\n";
+
+  return shader;
+}
+
+QString
+ShaderFactory::addLighting()
+{
+  QString shader;
+
+//  shader += " vec3 gx, gy, gz;\n";
+//  shader += " gx = vec3(1/vsize.x,0,0);\n";
+//  shader += " gy = vec3(0,1/vsize.y,0);\n";
+//  shader += " gz = vec3(0,0,1/vsize.z);\n";
+//  shader += " float vx = texture3D(dataTex, voxelCoord+gx).x - texture3D(dataTex, voxelCoord-gx).x;\n";
+//  shader += " float vy = texture3D(dataTex, voxelCoord+gy).x - texture3D(dataTex, voxelCoord-gy).x;\n";
+//  shader += " float vz = texture3D(dataTex, voxelCoord+gz).x - texture3D(dataTex, voxelCoord-gz).x;\n";
+//  shader += " vec3 grad = vec3(vx, vy, vz);\n";
+
+  shader += getGrad();
   shader += " if (length(grad) > 0.1)\n";
   shader += "  {\n";
   shader += "    grad = normalize(grad);\n";
-  //shader += "    vec3 lightVec = normDir;\n";
   shader += "    vec3 lightVec = viewDir;\n";
   shader += "    float diff = abs(dot(lightVec, grad));\n";
   shader += "    vec3 reflecvec = reflect(lightVec, grad);\n";
@@ -535,6 +553,165 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
   shader += "}\n";
 
   shader += "gl_FragColor = colorAcum;\n";    
+
+  shader += "}\n";
+
+  return shader;
+}
+
+QString
+ShaderFactory::genXRayShader(int maxSteps, bool firstHit, bool nearest)
+{
+  QString shader;
+
+  shader =  "#extension GL_ARB_texture_rectangle : enable\n";
+  shader += "uniform sampler3D maskTex;\n";
+  shader += "uniform sampler1D tagTex;\n";
+  shader += "uniform sampler3D dataTex;\n";
+  shader += "uniform sampler2D lutTex;\n";
+  shader += "uniform sampler2DRect exitTex;\n";
+  shader += "uniform float stepSize;\n";
+  shader += "uniform vec3 eyepos;\n";
+  shader += "uniform vec3 viewDir;\n";
+  shader += "uniform vec3 vcorner;\n";
+  shader += "uniform vec3 vsize;\n";
+  shader += "uniform float minZ;\n";
+  shader += "uniform float maxZ;\n";  
+  shader += "uniform bool saveCoord;\n";
+  shader += "uniform int skipLayers;\n";
+
+  shader += "void main(void)\n";
+  shader += "{\n";
+
+  shader += "vec3 exitPoint = texture2DRect(exitTex, gl_FragCoord.st).rgb;\n";
+  shader += "vec3 entryPoint = gl_Color.rgb;\n";
+
+  shader += "vec3 dir = (exitPoint-entryPoint);\n";
+  shader += "float len = length(dir);\n";
+  shader += "if (len < 0.001) discard;\n";
+
+  shader += "vec3 normDir = normalize(dir);\n";
+  shader += "vec3 deltaDir = normalize(dir)*stepSize;\n";
+  shader += "float deltaDirLen = length(deltaDir);\n";
+
+  shader += "vec3 voxelCoord = entryPoint;\n";
+  shader += "vec4 colorAcum = vec4(0.0);\n"; // The dest color
+  shader += "float lengthAcum = 0.0;\n";
+
+  // backgroundColor
+  shader += "vec4 bgColor = vec4(0.0, 0.0, 0.0, 0.0);\n";
+  
+  shader += "bool gotFirstHit = false;\n";
+  shader += "int nskipped = 0;\n"; 
+  shader += "bool solid = false;\n";
+  shader += QString("for(int i=0; i<%1; i++)\n").arg(maxSteps);
+  shader += "{\n";
+
+  // -- get exact texture coordinate so we don't get tag interpolation --
+  shader += "  vec3 vC = voxelCoord*vsize;\n";
+  shader += "  bvec3 vclt = lessThan(round(vC), vC);\n";
+  shader += "  vC += ivec3(vclt)*vec3(0.5);\n";
+  shader += "  vC -= ivec3(not(vclt))*vec3(0.5);\n";
+  shader += "  vC /= vsize;\n";
+
+  if (nearest)
+    shader += "  float val = texture3D(dataTex, vC).x;\n";
+  else
+    shader += "  float val = texture3D(dataTex, voxelCoord).x;\n";
+
+  shader += "  vec4 colorSample = texture2D(lutTex, vec2(val,0.0));\n";
+
+  shader += "  float tag = texture3D(maskTex, vC).x;\n";
+  shader += "  vec4 tagcolor = texture1D(tagTex, tag);\n";
+  shader += "  if (tag < 0.001) tagcolor.rgb = colorSample.rgb;\n";
+
+  shader += "  colorSample.rgb = mix(colorSample.rgb, tagcolor.rgb, 0.5);\n";
+
+  // so that we can use tag opacity to hide certain tagged regions
+  // tagcolor.a should either 0 or 1
+  shader += "  colorSample *= tagcolor.a;\n";
+
+  shader += "  if (!gotFirstHit && colorSample.a > 0.001) gotFirstHit = true;\n";  
+
+  shader += "  if (gotFirstHit && nskipped > skipLayers)\n";
+  shader += "  {\n";
+
+  shader += "    if (saveCoord && colorSample.a > 0.001)";
+  shader += "      {\n";
+  shader += "        gl_FragColor = vec4(vC,1.0);\n";
+  shader += "        return;\n";
+  shader += "      }\n";
+
+  if (firstHit)
+    {
+      shader += "  if (colorSample.a > 0.001 )\n";
+      shader += "    {\n";  
+      shader += "      vec3 voxpos = vcorner + voxelCoord*vsize;";
+      shader += "      vec3 I = voxpos - eyepos;\n";
+      shader += "      float z = dot(I, normalize(dir));\n";
+      shader += "      z = (z-minZ)/(maxZ-minZ);\n";
+      shader += "      z = clamp(z, 0.0, 1.0);\n";
+      shader += "      gl_FragColor = vec4(z,tag,1.0-z,1.0);\n";
+      shader += "      return;\n";
+      shader += "    }\n";
+    }
+
+  // modulate opacity by angle wrt view direction
+  shader += getGrad();
+  shader += "if (length(grad) > 0.1)\n";
+  shader += "  {\n";
+  shader += "    grad = normalize(grad);\n";
+  shader += "    colorSample.a *= (0.3+0.9*(1.0-abs(dot(grad,normDir))));\n";
+  shader += "  }\n";
+  shader += "else\n";
+  shader += "  colorSample.a *= 0.2;\n";
+
+  // reduce the opacity
+  shader += "    colorSample.a *= 0.1;\n";
+  shader += "    colorSample.rgb *= colorSample.a;\n";
+
+  // just add up, don't composite
+  shader += "    colorAcum += colorSample;\n";
+
+  shader += "  }\n"; // gotfirsthit && nskipped > skipLayers
+
+  shader += "  if (lengthAcum >= len )\n";
+  shader += "    {\n";
+  shader += "      colorAcum.rgb = colorAcum.rgb*colorAcum.a + (1 - colorAcum.a)*bgColor.rgb;\n";
+  shader += "      break;\n";  // terminate if opacity > 1 or the ray is outside the volume	
+  shader += "    }\n";
+  shader += "  else if (colorAcum.a > 1.0)\n";
+  shader += "    {\n";
+  shader += "      colorAcum.a = 1.0;\n";
+  shader += "      break;\n";
+  shader += "    }\n";
+
+  shader += "  voxelCoord += deltaDir;\n";
+  shader += "  lengthAcum += deltaDirLen;\n";
+
+  shader += "  if (gotFirstHit) \n";
+  shader += "   {\n";
+  shader += "     if (colorSample.a > 0.001)\n";
+  shader += "      {\n";  
+  shader += "         if (!solid)\n";
+  shader += "           {\n";    
+  shader += "             solid = true;\n";
+  shader += "             nskipped++;\n";  
+  shader += "           }\n";  
+  shader += "      }\n";
+  shader += "     else\n";
+  shader += "      {\n";  
+  shader += "         if (solid)\n";
+  shader += "           {\n";    
+  shader += "             solid = false;\n";
+  shader += "           }\n";  
+  shader += "      }\n";
+  shader += "   }\n";
+
+  shader += "}\n";
+
+  shader += "gl_FragColor = colorAcum;\n";    
+  //shader += "gl_FragColor = vec4(colorAcum.a);\n";    
 
   shader += "}\n";
 

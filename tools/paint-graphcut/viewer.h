@@ -69,7 +69,7 @@ class Viewer : public QGLViewer
     void uploadMask(int,int,int, int,int,int);
     void setPointRender(bool);
     void setRaycastRender(bool);
-    void setRaycastStyle(bool);
+    void setRaycastStyle(int);
     void setSkipLayers(int);
     void setStillAndDragStep(float, float);
     void setExactCoord(bool);

@@ -2058,8 +2058,8 @@ DrishtiPaint::connectViewerMenu()
 	  m_viewer, SLOT(updateSlices()));
 
 
-  connect(viewerUi.raycastStyle, SIGNAL(clicked(bool)),
-	  m_viewer, SLOT(setRaycastStyle(bool)));
+  connect(viewerUi.raycastStyle, SIGNAL(currentIndexChanged(int)),
+	  m_viewer, SLOT(setRaycastStyle(int)));
   connect(viewerUi.skipLayers, SIGNAL(valueChanged(int)),
 	  m_viewer, SLOT(setSkipLayers(int)));
   connect(viewerUi.nearest, SIGNAL(clicked(bool)),

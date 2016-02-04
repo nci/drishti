@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>110</width>
-    <height>821</height>
+    <height>839</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -350,13 +350,22 @@
        <number>0</number>
       </property>
       <item>
-       <widget class="QCheckBox" name="raycastStyle">
-        <property name="text">
-         <string>Isosurface</string>
-        </property>
-        <property name="checked">
-         <bool>true</bool>
-        </property>
+       <widget class="QComboBox" name="raycastStyle">
+        <item>
+         <property name="text">
+          <string>Isosurface</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Raycasting</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Xray</string>
+         </property>
+        </item>
        </widget>
       </item>
       <item>

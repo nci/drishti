@@ -837,3 +837,34 @@ StaticFunctions::intersectType2WithTexture(Vec Po, Vec Pn,
     }
 }
 
+void // Qt version
+StaticFunctions::convertFromGLImage(QImage &img, int w, int h)
+{
+  if (QSysInfo::ByteOrder == QSysInfo::BigEndian)
+    {
+      // OpenGL gives RGBA; Qt wants ARGB
+      uint *p = (uint*)img.bits();
+      uint *end = p + w*h;
+      while (p < end)
+	{
+	  uint a = *p << 24;
+	  *p = (*p >> 8) | a;
+	  p++;
+	}
+      // This is an old legacy fix for PowerPC based Macs, which
+      // we shouldn't remove
+      while (p < end)
+	{
+	  *p = 0xff000000 | (*p>>8);
+	  ++p;
+	}
+    }
+  else
+    {
+      // OpenGL gives ABGR (i.e. RGBA backwards); Qt wants ARGB
+      QImage res = img.rgbSwapped();
+      img = res;
+    }
+  img = img.mirrored();
+}
+

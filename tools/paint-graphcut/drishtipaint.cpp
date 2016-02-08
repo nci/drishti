@@ -2309,7 +2309,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
   QString tflnm = QFileDialog::getSaveFileName(0,
 					       "Save volume",
 					       QFileInfo(pvlFilename).absolutePath(),
-					       "Processes Files (*.pvl.nc)",
+					       "Volume Data Files (*.pvl.nc)",
 					       0,
 					       QFileDialog::DontUseNativeDialog);
   
@@ -3281,7 +3281,7 @@ DrishtiPaint::on_actionMeshTag_triggered()
   QString tflnm = QFileDialog::getSaveFileName(0,
 					       "Save mesh",
 					       QFileInfo(pvlFilename).absolutePath(),
-					       "Processes Files (*.ply)",
+					       "Polygon Files (*.ply)",
 					       0,
 					       QFileDialog::DontUseNativeDialog);
   
@@ -5550,4 +5550,46 @@ DrishtiPaint::tagUsingSketchPad(Vec bmin, Vec bmax, int tag)
   qApp->processEvents();
 
   return true;
+}
+
+void
+DrishtiPaint::on_actionSave_TF_triggered()
+{
+  QString tflnm = QFileDialog::getSaveFileName(0,
+					       "Save Transfer Functions",
+					       Global::previousDirectory(),
+					       "Files (*.xml)",
+					       0,
+					       QFileDialog::DontUseNativeDialog);
+
+
+  QDomDocument doc("Drishti_v1.0");
+
+  QDomElement topElement = doc.createElement("Drishti");
+  doc.appendChild(topElement);
+
+  QFile f(tflnm);
+  if (f.open(QIODevice::WriteOnly))
+    {
+      QTextStream out(&f);
+      doc.save(out, 2);
+      f.close();
+    }
+  
+  m_tfManager->save(tflnm.toLatin1().data());
+
+}
+
+void
+DrishtiPaint::on_actionLoad_TF_triggered()
+{
+  QString tflnm = QFileDialog::getOpenFileName(0,
+					       "Load Transfer Functions",
+					       Global::previousDirectory(),
+					       "Files (*.xml)",
+					       0,
+					       QFileDialog::DontUseNativeDialog);
+
+  
+  m_tfManager->load(tflnm.toLatin1().data());
 }

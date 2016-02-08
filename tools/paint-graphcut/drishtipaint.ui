@@ -705,6 +705,9 @@
     <addaction name="actionExtractTag"/>
     <addaction name="actionMeshTag"/>
     <addaction name="separator"/>
+    <addaction name="actionLoad_TF"/>
+    <addaction name="actionSave_TF"/>
+    <addaction name="separator"/>
     <addaction name="saveWork"/>
     <addaction name="actionSave_Curves"/>
     <addaction name="actionSave_Fibers"/>
@@ -806,6 +809,16 @@
   <action name="actionAltLayout">
    <property name="text">
     <string>AltLayout</string>
+   </property>
+  </action>
+  <action name="actionSave_TF">
+   <property name="text">
+    <string>Save TF</string>
+   </property>
+  </action>
+  <action name="actionLoad_TF">
+   <property name="text">
+    <string>Load TF</string>
    </property>
   </action>
  </widget>

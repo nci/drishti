@@ -11,6 +11,7 @@
 #include <QLabel>
 #include <QImage>
 #include <QPainter>
+#include <QFileDialog>
 
 Viewer::Viewer(QWidget *parent) :
   QGLViewer(parent)
@@ -63,6 +64,8 @@ Viewer::Viewer(QWidget *parent) :
 
   setTextureMemorySize();
 
+  connect(this, SIGNAL(renderNextFrame()),
+	  this, SLOT(nextFrame()));
 }
 
 bool Viewer::exactCoord() { return m_exactCoord; }
@@ -153,6 +156,9 @@ Viewer::GlewInit()
 void
 Viewer::init()
 {
+  m_infoText = true;
+  m_savingImages = false;
+
   m_tag1 = m_tag2 = m_tag3 = -1;
   m_mergeTagTF = false;
 
@@ -640,6 +646,13 @@ Viewer::keyPressEvent(QKeyEvent *event)
 {
   if (event->key() == Qt::Key_Escape)
     {
+      if (m_savingImages)
+	{
+	  m_savingImages = false;
+	  QMessageBox::information(0, "", "Stopped Saving Image Sequence");
+	  return;
+	}
+
       if (m_sketchPadMode)
 	{
 	  m_poly.clear();
@@ -650,6 +663,12 @@ Viewer::keyPressEvent(QKeyEvent *event)
 
   if (m_boundingBox.keyPressEvent(event))
     return;
+
+  if (event->key() == Qt::Key_Question)
+    {
+      m_infoText = !m_infoText;
+      return;
+    }
   
   if (event->key() == Qt::Key_A)
     {  
@@ -1245,6 +1264,7 @@ Viewer::draw()
   camera()->setRevolveAroundPoint((bmax+bmin)/2);
 
 
+  glClearColor(0, 0, 0, 1);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   glEnable(GL_DEPTH_TEST);
 
@@ -1275,7 +1295,11 @@ Viewer::draw()
 
 
   if (!m_volPtr || !m_maskPtr)
-    return;
+    {
+      if (m_savingImages)
+	saveImageFrame();
+      return;
+    }
 
   if (m_renderMode == 0)
     pointRendering();  
@@ -1285,7 +1309,10 @@ Viewer::draw()
   
 //  drawClipSlices();
 
-  drawInfo();
+  if (m_savingImages)
+    saveImageFrame();
+  else
+    drawInfo();
 }
 
 void
@@ -1485,6 +1512,9 @@ Viewer::pointRendering()
 void
 Viewer::drawInfo()
 {
+  if (!m_infoText)
+    return;
+
   glDisable(GL_DEPTH_TEST);
 
   QFont tfont = QFont("Helvetica", 12);  
@@ -2139,7 +2169,7 @@ Viewer::updateVoxelsForRaycast()
     }
 
   //-------------------------
-  m_sslevel = QInputDialog::getInt(0,
+  m_sslevel = QInputDialog::getInt(this,
 				   "Subsampling Level",
 				   "Subsampling Level",
 				    m_sslevel, m_sslevel, 5, 1);
@@ -3941,4 +3971,188 @@ Viewer::getCoordUnderPointer(int &d, int &w, int &h)
   h = qCeil(target.x);
 
   return true;
+}
+
+void
+Viewer::saveImage()
+{
+  QStringList savelist;
+  savelist << "Save single image";
+  savelist << "Save image sequence";
+  QString savetype = QInputDialog::getItem(this,
+					   "Save Snapshot",
+					   "Save Snapshot",
+					   savelist,
+					   0,
+					   false);
+
+  if (savetype == "Save image sequence")
+    saveImageSequence();
+  else
+    {
+      QString flnm;
+      flnm = QFileDialog::getSaveFileName(0,
+		  "Save snapshot",
+		  Global::previousDirectory(),
+		  "Image Files (*.png *.tif *.bmp *.jpg *.ppm *.xbm *.xpm)");
+      
+      if (flnm.isEmpty())
+	return;
+      
+      saveSnapshot(flnm);
+    }
+}
+
+
+void
+Viewer::saveImageSequence()
+{
+  QString flnm;
+  flnm = QFileDialog::getSaveFileName(0,
+				      "Save snapshot",
+				      Global::previousDirectory(),
+       "Image Files (*.png *.tif *.bmp *.jpg *.ppm *.xbm *.xpm)");
+  
+  if (flnm.isEmpty())
+    return;
+
+  QStringList yxaxis;
+  yxaxis << "Y";
+  yxaxis << "X";
+  QString axistype = QInputDialog::getItem(this,
+					   "Rotation Axis",
+					   "Rotation Axis",
+					   yxaxis,
+					   0,
+					   false);
+
+  m_startAngle = QInputDialog::getDouble(this,
+				     "Start Angle",
+				     "Start Angle",
+				     0, -360, 360, 1);
+
+  m_endAngle = QInputDialog::getDouble(this,
+				     "End Angle",
+				     "End Angle",
+				     360, -360, 360, 1);
+
+
+  m_totFrames = QInputDialog::getInt(this,
+				     "Number of Frames",
+				     "Number of Frames",
+				     360, 1, 10000, 1);
+
+
+  m_savingImages = true;
+  m_frameImageFile = flnm;
+  m_currFrame = 0;
+  float angle = (m_endAngle-m_startAngle)/m_totFrames;
+  if (axistype == "X")
+    m_stepRot = Quaternion(camera()->rightVector(), DEG2RAD(angle)); // X-axis
+  else
+    m_stepRot = Quaternion(camera()->upVector(), DEG2RAD(angle)); // Y-axis
+
+
+  //----------------
+  //-- go to start angle
+  Quaternion startRot;
+  if (axistype == "X")
+    startRot = Quaternion(camera()->rightVector(), DEG2RAD(m_startAngle)); // X-axis
+  else
+    startRot = Quaternion(camera()->upVector(), DEG2RAD(m_startAngle)); // X-axis
+
+  startRot = startRot*camera()->orientation();
+
+  // set camera orientation
+  camera()->setOrientation(startRot);
+  
+  // now reposition the camera so that it faces the scene
+  Vec center = camera()->sceneCenter();
+  float dist = (camera()->position()-center).norm();
+  Vec viewDir = camera()->viewDirection();
+  camera()->setPosition(center - dist*viewDir);
+  //----------------
+  
+  nextFrame();
+}
+
+void
+Viewer::nextFrame()
+{
+  if (m_currFrame < m_totFrames)
+    {
+      m_currFrame ++;
+      if (m_currFrame > 1)
+	{
+	  Quaternion rot = m_stepRot*camera()->orientation();
+
+	  // set camera orientation
+	  camera()->setOrientation(rot);
+	  
+	  // now reposition the camera so that it faces the scene
+	  Vec center = camera()->sceneCenter();
+	  float dist = (camera()->position()-center).norm();
+	  Vec viewDir = camera()->viewDirection();
+	  camera()->setPosition(center - dist*viewDir);
+	}
+
+      emit updateGL();
+      qApp->processEvents();
+    }
+  else
+    {
+      m_savingImages = false;
+      QMessageBox::information(this, "", "Saved Image Sequence");
+    }
+}
+
+void
+Viewer::saveImageFrame()
+{
+  QFileInfo f(m_frameImageFile);
+
+  QString imgFile = f.absolutePath() + QDir::separator() +
+	            f.baseName();
+  imgFile += QString("%1").arg((int)m_currFrame, 5, 10, QChar('0'));
+  imgFile += ".";
+  imgFile += f.completeSuffix();
+
+  saveSnapshot(imgFile);
+
+  QTimer::singleShot(200, this, SLOT(nextFrame()));
+}
+
+void
+Viewer::saveSnapshot(QString imgFile)
+{
+  int wd = width();
+  int ht = height();
+  uchar *imgbuf = new uchar[wd*ht*4];
+  glReadPixels(0, 0, wd, ht, GL_RGBA, GL_UNSIGNED_BYTE, imgbuf);
+
+  for(int i=0; i<wd*ht; i++)
+    {
+      uchar r = imgbuf[4*i+0];
+      uchar g = imgbuf[4*i+1];
+      uchar b = imgbuf[4*i+2];
+      uchar a = imgbuf[4*i+3];
+      
+      uchar ma = qMax(qMax(r,g),qMax(b,a));
+      imgbuf[4*i+3] = ma;
+    }
+
+  if (imgFile.endsWith(".png"))
+    {
+      QImage bimg(imgbuf, wd, ht, QImage::Format_ARGB32_Premultiplied);
+      StaticFunctions::convertFromGLImage(bimg, wd, ht);
+      bimg.save(imgFile);      
+    }
+  else
+    {
+      QImage bimg(imgbuf, wd, ht, QImage::Format_ARGB32);
+      StaticFunctions::convertFromGLImage(bimg, wd, ht);
+      bimg.save(imgFile);      
+    }
+
+  delete [] imgbuf;
 }

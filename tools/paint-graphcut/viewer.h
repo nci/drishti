@@ -57,7 +57,6 @@ class Viewer : public QGLViewer
     void updateCurrSlice(int, int);
     void setVoxelChoice(int);
     void setShowBox(bool);
-    void saveImage() { saveSnapshot(false); };
     void setPaintedTags(QList<int>);
     void setCurveTags(QList<int>);
     void setFiberTags(QList<int>);
@@ -74,6 +73,9 @@ class Viewer : public QGLViewer
     void setStillAndDragStep(float, float);
     void setExactCoord(bool);
     void showSketchPad(bool);
+    void saveImage();
+    void saveImageSequence();
+    void nextFrame();
     
  signals :
     void paint3D(int, int, int, int, int);
@@ -90,6 +92,7 @@ class Viewer : public QGLViewer
     void setVisible(Vec, Vec, int, bool);
 
     void updateSliceBounds(Vec, Vec);
+    void renderNextFrame();
 
  private :
   bool m_glewInitdone;
@@ -196,6 +199,13 @@ class Viewer : public QGLViewer
   bool m_sketchPadMode;
   QPolygonF m_poly;
 
+  bool m_infoText;
+  bool m_savingImages;
+  QString m_frameImageFile;
+  int m_currFrame, m_totFrames;
+  float m_startAngle, m_endAngle;
+  Quaternion m_stepRot;
+
   void grabScreenImage();
   void drawScreenImage();
 
@@ -272,6 +282,8 @@ class Viewer : public QGLViewer
   Vec getHit(QPoint, bool&);
   bool getCoordUnderPointer(int&, int&, int&);
 
+  void saveSnapshot(QString);
+  void saveImageFrame();
 };
 
 #endif

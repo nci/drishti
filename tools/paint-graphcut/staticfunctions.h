@@ -73,6 +73,9 @@ class StaticFunctions
   static int intersectType2WithTexture(Vec, Vec,
 				       Vec&, Vec&,
 				       Vec&, Vec&);
+
+  static void convertFromGLImage(QImage&, int, int);
+
 };
 
 #endif

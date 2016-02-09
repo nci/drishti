@@ -15,6 +15,10 @@ using namespace qglviewer;
 #include "boundingbox.h"
 #include "mybitarray.h"
 
+#ifdef USE_GLMEDIA
+#include "glmedia.h"
+#endif // USE_GLMEDIA
+
 class Viewer : public QGLViewer
 {
   Q_OBJECT
@@ -205,11 +209,15 @@ class Viewer : public QGLViewer
   QPolygonF m_poly;
 
   bool m_infoText;
-  bool m_savingImages;
+  int m_savingImages;
   QString m_frameImageFile;
   int m_currFrame, m_totFrames;
   float m_startAngle, m_endAngle;
   Quaternion m_stepRot;
+
+#ifdef USE_GLMEDIA
+  glmedia_movie_writer_t m_movieWriter;
+#endif // USE_GLMEDIA
 
   void grabScreenImage();
   void drawScreenImage();
@@ -289,6 +297,10 @@ class Viewer : public QGLViewer
 
   void saveSnapshot(QString);
   void saveImageFrame();
+
+  bool startMovie(QString, int, int, bool);
+  bool endMovie();
+  void saveMovie();
 };
 
 #endif

@@ -59,6 +59,10 @@ Viewer::Viewer(QWidget *parent) :
   m_sketchPadMode = false;
   m_screenImageBuffer = 0;
 
+#ifdef USE_GLMEDIA
+  m_movieWriter = 0;
+#endif // USE_GLMEDIA
+
   init();
 
   setMinimumSize(100, 100);
@@ -160,7 +164,7 @@ void
 Viewer::init()
 {
   m_infoText = true;
-  m_savingImages = false;
+  m_savingImages = 0;
 
   m_tag1 = m_tag2 = m_tag3 = -1;
   m_mergeTagTF = false;
@@ -649,9 +653,12 @@ Viewer::keyPressEvent(QKeyEvent *event)
 {
   if (event->key() == Qt::Key_Escape)
     {
-      if (m_savingImages)
+      if (m_savingImages > 0)
 	{
-	  m_savingImages = false;
+	  if (m_savingImages == 2) // movie
+	    endMovie();
+	  
+	  m_savingImages = 0;
 	  QWidget *p = (QWidget*)parent();
 	  QFrame *cv = (QFrame*)parent()->children()[1];
 	  cv->show();
@@ -673,6 +680,7 @@ Viewer::keyPressEvent(QKeyEvent *event)
   if (event->key() == Qt::Key_Question)
     {
       m_infoText = !m_infoText;
+      update();
       return;
     }
   
@@ -1302,7 +1310,7 @@ Viewer::draw()
 
   if (!m_volPtr || !m_maskPtr)
     {
-      if (m_savingImages)
+      if (m_savingImages > 0)
 	saveImageFrame();
       return;
     }
@@ -1315,7 +1323,7 @@ Viewer::draw()
   
 //  drawClipSlices();
 
-  if (m_savingImages)
+  if (m_savingImages > 0)
     saveImageFrame();
   else
     drawInfo();
@@ -3996,10 +4004,10 @@ Viewer::saveImage()
 
   QStringList savelist;
   savelist << "Save single image";
-  savelist << "Save image sequence";
+  savelist << "Save image sequence/movie";
   QString savetype = QInputDialog::getItem(this,
-					   "Save Snapshot",
-					   "Save Snapshot",
+					   "Save Snapshot/Movie",
+					   "Save Snapshot/Movie",
 					   savelist,
 					   0,
 					   false);
@@ -4008,7 +4016,7 @@ Viewer::saveImage()
   QRect geo = dw->geometry();
   dw->setGeometry(geo.left(), geo.top(), imgwd, imght);
 
-  if (savetype == "Save image sequence")
+  if (savetype == "Save image sequence/movie")
     saveImageSequence();
   else
     {
@@ -4046,9 +4054,9 @@ Viewer::saveImageSequence()
 {
   QString flnm;
   flnm = QFileDialog::getSaveFileName(0,
-				      "Save snapshot",
+				      "Save Image Sequence/Movie",
 				      Global::previousDirectory(),
-       "Image Files (*.png *.tif *.bmp *.jpg *.ppm *.xbm *.xpm)");
+       "Image/Movie Files (*.png *.tif *.bmp *.jpg *.ppm *.xbm *.xpm *.wmv)");
   
   if (flnm.isEmpty())
     {
@@ -4090,7 +4098,14 @@ Viewer::saveImageSequence()
 				     360, 1, 10000, 1);
 
 
-  m_savingImages = true;
+  if (StaticFunctions::checkExtension(flnm, ".wmv"))
+    {
+      m_savingImages = 2;
+      startMovie(flnm, 25, 100, true);
+    }
+  else
+    m_savingImages = 1;
+
   m_frameImageFile = flnm;
   m_currFrame = 0;
   float angle = (m_endAngle-m_startAngle)/m_totFrames;
@@ -4148,7 +4163,10 @@ Viewer::nextFrame()
     }
   else
     {
-      m_savingImages = false;
+      if (m_savingImages == 2) // movie
+	endMovie();
+
+      m_savingImages = 0;
       QWidget *p = (QWidget*)parent();
       QFrame *cv = (QFrame*)parent()->children()[1];
       if (m_renderMode == 0)
@@ -4163,15 +4181,22 @@ Viewer::nextFrame()
 void
 Viewer::saveImageFrame()
 {
-  QFileInfo f(m_frameImageFile);
+  if (m_savingImages == 2)
+    {
+      saveMovie();
+    }
+  else
+    {
+      QFileInfo f(m_frameImageFile);
 
-  QString imgFile = f.absolutePath() + QDir::separator() +
-	            f.baseName();
-  imgFile += QString("%1").arg((int)m_currFrame, 5, 10, QChar('0'));
-  imgFile += ".";
-  imgFile += f.completeSuffix();
+      QString imgFile = f.absolutePath() + QDir::separator() +
+	                f.baseName();
+      imgFile += QString("%1").arg((int)m_currFrame, 5, 10, QChar('0'));
+      imgFile += ".";
+      imgFile += f.completeSuffix();
 
-  saveSnapshot(imgFile);
+      saveSnapshot(imgFile);
+    }
 
   QTimer::singleShot(200, this, SLOT(nextFrame()));
 }
@@ -4210,3 +4235,85 @@ Viewer::saveSnapshot(QString imgFile)
 
   delete [] imgbuf;
 }
+
+bool
+Viewer::startMovie(QString flnm,
+		   int ofps, int quality,
+		   bool checkfps)
+{
+#ifdef USE_GLMEDIA
+
+  int fps = ofps;
+  if (checkfps)
+    {
+      bool ok;
+      QString text;
+      text = QInputDialog::getText(this,
+				   "Set Frame Rate",
+				   "Frame Rate",
+				   QLineEdit::Normal,
+				   "25",
+				   &ok);
+      
+      if (ok && !text.isEmpty())
+	fps = text.toInt();
+      
+      if (fps <=0 || fps >= 100)
+	fps = 25;
+    }
+
+  //---------------------------------------------------------
+  // mono movie or left-eye movie
+  QString movieFile;
+  movieFile = flnm;
+
+  m_movieWriter = glmedia_movie_writer_create();
+  if (m_movieWriter == NULL) {
+    QMessageBox::critical(0, "Movie",
+			  "Failed to create writer");
+    return false;
+  }
+
+  if (glmedia_movie_writer_start(m_movieWriter,
+				 movieFile.toLatin1().data(),
+				 width(),
+				 height(),
+				 fps,
+				 quality) < 0) {
+    QMessageBox::critical(0, "Movie",
+			  "Failed to start movie");
+    return false;
+  }
+
+#endif // USE_GLMEDIA
+  return true;
+}
+
+bool
+Viewer::endMovie()
+{
+#ifdef USE_GLMEDIA
+  if (glmedia_movie_writer_end(m_movieWriter) < 0)
+    {
+      QMessageBox::critical(0, "Movie",
+			       "Failed to end movie");
+      return false;
+    }
+  glmedia_movie_writer_free(m_movieWriter);
+#endif // USE_GLMEDIA
+  return true;
+}
+
+void
+Viewer::saveMovie()
+{
+#ifdef USE_GLMEDIA
+  int wd = width();
+  int ht = height();
+  uchar *imgbuf = new uchar[wd*ht*4];
+  glReadPixels(0, 0, wd, ht, GL_RGBA, GL_UNSIGNED_BYTE, imgbuf);
+
+  glmedia_movie_writer_add(m_movieWriter, imgbuf);
+#endif // USE_GLMEDIA
+}
+

@@ -27,11 +27,16 @@ FORMS += drishtipaint.ui viewermenu.ui graphcutmenu.ui curvesmenu.ui fibersmenu.
 # Windows setup for 64-bit system
 #contains(Windows_Setup, Win64) {
   win32 {
-         INCLUDEPATH += c:\Qt\libQGLViewer-2.6.1
-         LIBS += QGLViewer2.lib glew32.lib
-         QMAKE_LIBDIR += c:\Qt\libQGLViewer-2.6.1\lib
+	 DEFINES += USE_GLMEDIA
+         INCLUDEPATH += c:\Qt\libQGLViewer-2.6.1 ..\..\glmedia-64
+         LIBS += QGLViewer2.lib glew32.lib glmedia.lib
+         QMAKE_LIBDIR += c:\Qt\libQGLViewer-2.6.1\lib ..\..\glmedia-64
         }
 #}
+
+unix {
+    DEFINES += NO_GLMEDIA
+}
 
 #----------------------------------------------------------------
 # MacOSX setup

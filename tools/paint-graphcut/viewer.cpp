@@ -4237,36 +4237,33 @@ Viewer::saveSnapshot(QString imgFile)
 }
 
 bool
-Viewer::startMovie(QString flnm,
+Viewer::startMovie(QString movieFile,
 		   int ofps, int quality,
 		   bool checkfps)
 {
 #ifdef USE_GLMEDIA
 
   int fps = ofps;
-  if (checkfps)
-    {
-      bool ok;
-      QString text;
-      text = QInputDialog::getText(this,
-				   "Set Frame Rate",
-				   "Frame Rate",
-				   QLineEdit::Normal,
-				   "25",
-				   &ok);
-      
-      if (ok && !text.isEmpty())
-	fps = text.toInt();
-      
-      if (fps <=0 || fps >= 100)
-	fps = 25;
-    }
+//  if (checkfps)
+//    {
+//      bool ok;
+//      QString text;
+//      text = QInputDialog::getText(this,
+//				   "Set Frame Rate",
+//				   "Frame Rate",
+//				   QLineEdit::Normal,
+//				   "25",
+//				   &ok);
+//      
+//      if (ok && !text.isEmpty())
+//	fps = text.toInt();
+//      
+//      if (fps <=0 || fps >= 100)
+//	fps = 25;
+//    }
 
   //---------------------------------------------------------
   // mono movie or left-eye movie
-  QString movieFile;
-  movieFile = flnm;
-
   m_movieWriter = glmedia_movie_writer_create();
   if (m_movieWriter == NULL) {
     QMessageBox::critical(0, "Movie",
@@ -4314,6 +4311,7 @@ Viewer::saveMovie()
   glReadPixels(0, 0, wd, ht, GL_RGBA, GL_UNSIGNED_BYTE, imgbuf);
 
   glmedia_movie_writer_add(m_movieWriter, imgbuf);
+  delete [] imgbuf;
 #endif // USE_GLMEDIA
 }
 

@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>110</width>
-    <height>839</height>
+    <height>842</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -141,6 +141,12 @@
    </item>
    <item>
     <widget class="QGroupBox" name="pointParam">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
      <property name="title">
       <string>Point Rendering</string>
      </property>
@@ -260,6 +266,12 @@
       </item>
       <item>
        <widget class="QGroupBox" name="slicesBox">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
         <property name="title">
          <string>Slices</string>
         </property>
@@ -330,6 +342,12 @@
    </item>
    <item>
     <widget class="QGroupBox" name="raycastParam">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
      <property name="title">
       <string>Raycasting</string>
      </property>

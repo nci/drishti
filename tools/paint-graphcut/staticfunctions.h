@@ -76,6 +76,8 @@ class StaticFunctions
 
   static void convertFromGLImage(QImage&, int, int);
 
+  static QSize getImageSize(int, int);
+
 };
 
 #endif

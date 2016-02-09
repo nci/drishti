@@ -2022,6 +2022,8 @@ DrishtiPaint::connectImageWidget()
 void
 DrishtiPaint::connectViewerMenu()
 {
+  m_viewer->setUIPointer(&viewerUi);
+
   connect(viewerUi.pointRender, SIGNAL(clicked(bool)),
 	  this, SLOT(on_pointRender_clicked(bool)));
   connect(viewerUi.raycastRender, SIGNAL(clicked(bool)),

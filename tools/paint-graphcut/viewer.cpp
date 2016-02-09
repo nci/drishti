@@ -6,12 +6,15 @@
 #include "staticfunctions.h"
 #include "propertyeditor.h"
 
+#include <QDockWidget>
 #include <QInputDialog>
 #include <QProgressDialog>
 #include <QLabel>
 #include <QImage>
 #include <QPainter>
 #include <QFileDialog>
+
+#include "ui_viewermenu.h"
 
 Viewer::Viewer(QWidget *parent) :
   QGLViewer(parent)
@@ -649,6 +652,9 @@ Viewer::keyPressEvent(QKeyEvent *event)
       if (m_savingImages)
 	{
 	  m_savingImages = false;
+	  QWidget *p = (QWidget*)parent();
+	  QFrame *cv = (QFrame*)parent()->children()[1];
+	  cv->show();
 	  QMessageBox::information(0, "", "Stopped Saving Image Sequence");
 	  return;
 	}
@@ -3976,6 +3982,18 @@ Viewer::getCoordUnderPointer(int &d, int &w, int &h)
 void
 Viewer::saveImage()
 {
+  QSize imgSize = StaticFunctions::getImageSize(size().width(),
+						size().height());
+
+  int imgwd = imgSize.width();
+  int imght = imgSize.height();
+
+  m_UI->raycastParam->setVisible(false);
+  m_UI->pointParam->setVisible(false);
+  QSplitter *p = (QSplitter*)parent();
+  QFrame *cv = (QFrame*)(p->widget(0));
+  cv->hide();
+
   QStringList savelist;
   savelist << "Save single image";
   savelist << "Save image sequence";
@@ -3985,6 +4003,10 @@ Viewer::saveImage()
 					   savelist,
 					   0,
 					   false);
+
+  QDockWidget *dw = (QDockWidget*)(parent()->parent());
+  QRect geo = dw->geometry();
+  dw->setGeometry(geo.left(), geo.top(), imgwd, imght);
 
   if (savetype == "Save image sequence")
     saveImageSequence();
@@ -3997,9 +4019,24 @@ Viewer::saveImage()
 		  "Image Files (*.png *.tif *.bmp *.jpg *.ppm *.xbm *.xpm)");
       
       if (flnm.isEmpty())
-	return;
-      
+	{
+	  if (m_renderMode == 0)
+	    m_UI->pointParam->setVisible(true);
+	  else
+	    m_UI->raycastParam->setVisible(true);
+	  
+	  cv->show();
+	  return;
+	}
+
       saveSnapshot(flnm);
+
+      if (m_renderMode == 0)
+	m_UI->pointParam->setVisible(true);
+      else
+	m_UI->raycastParam->setVisible(true);
+      
+      cv->show();
     }
 }
 
@@ -4014,7 +4051,17 @@ Viewer::saveImageSequence()
        "Image Files (*.png *.tif *.bmp *.jpg *.ppm *.xbm *.xpm)");
   
   if (flnm.isEmpty())
-    return;
+    {
+      QWidget *p = (QWidget*)parent();
+      QFrame *cv = (QFrame*)parent()->children()[1];
+      if (m_renderMode == 0)
+	m_UI->pointParam->setVisible(true);
+      else
+	m_UI->raycastParam->setVisible(true);
+      
+      cv->show();
+      return;
+    }
 
   QStringList yxaxis;
   yxaxis << "Y";
@@ -4102,6 +4149,13 @@ Viewer::nextFrame()
   else
     {
       m_savingImages = false;
+      QWidget *p = (QWidget*)parent();
+      QFrame *cv = (QFrame*)parent()->children()[1];
+      if (m_renderMode == 0)
+	m_UI->pointParam->setVisible(true);
+      else
+	m_UI->raycastParam->setVisible(true);      
+      cv->show();
       QMessageBox::information(this, "", "Saved Image Sequence");
     }
 }

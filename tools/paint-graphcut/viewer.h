@@ -7,6 +7,8 @@ using namespace qglviewer;
 
 #include <QGLFramebufferObject>
 
+#include "ui_viewermenu.h"
+
 #include "curvegroup.h"
 #include "fiber.h"
 #include "clipplane.h"
@@ -44,6 +46,7 @@ class Viewer : public QGLViewer
   bool exactCoord();
 
   uchar* sketchPad() { return m_sketchPad; }
+  void setUIPointer(Ui::ViewerMenu *vUI) { m_UI = vUI; }
 
   public slots :
     void GlewInit();  
@@ -95,6 +98,8 @@ class Viewer : public QGLViewer
     void renderNextFrame();
 
  private :
+  Ui::ViewerMenu *m_UI;
+
   bool m_glewInitdone;
 
   BoundingBox m_boundingBox;

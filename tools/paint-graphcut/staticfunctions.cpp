@@ -868,3 +868,58 @@ StaticFunctions::convertFromGLImage(QImage &img, int w, int h)
   img = img.mirrored();
 }
 
+QSize
+StaticFunctions::getImageSize(int width, int height)
+{
+  QSize imgSize = QSize(width, height);
+
+  QStringList items;
+  items << QString("%1 %2 (Current)").arg(width).arg(height);
+  items << "320 200 (CGA)";
+  items << "320 240 (QVGA)";
+  items << "640 480 (VGA)";
+  items << "720 480 (NTSC)";
+  items << "720 576 (PAL)";
+  items << "800 480 (WVGA)";
+  items << "800 600 (SVGA)";
+  items << "854 480 (WVGA 16:9)";
+  items << "1024 600 (WSVGA)";
+  items << "1024 768 (XGA)";
+  items << "1280 720 (720p 16:9)";
+  items << "1280 768 (WXGA)";
+  items << "1280 1024 (SXGA)";
+  items << "1366 768 (16:9)";
+  items << "1400 1050 (SXGA+)";
+  items << "1600 1200 (UXGA)";
+  items << "1920 1080 (1080p 16:9)";
+  items << "1920 1200 (WUXGA)";
+
+  bool ok;
+  QString str;
+  str = QInputDialog::getItem(0,
+			      "Image size",
+			      "Image Size",
+			      items,
+			      0,
+			      true, // text is editable
+			      &ok);
+  
+  if (ok)
+    {
+      QStringList strlist = str.split(" ", QString::SkipEmptyParts);
+      int x=0, y=0;
+      if (strlist.count() > 1)
+	{
+	  x = strlist[0].toInt(&ok);
+	  y = strlist[1].toInt(&ok);
+	}
+
+      if (x > 0 && y > 0)
+	imgSize = QSize(x, y);
+      else
+	QMessageBox::critical(0, "Image Size",
+			      "Image Size improperly set : "+str);
+    }
+  
+  return imgSize;
+}

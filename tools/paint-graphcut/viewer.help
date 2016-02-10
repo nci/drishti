@@ -41,8 +41,14 @@ Start Keyboard help
 #end
 
 #begin
+?
+Show/hide information text.
+#end
+
+#begin
 Esc
 When in Sketch Pad mode - erase the any curve drawn on screen.
+When saving image sequence or a movie - stop the process.
 #end
 
 #begin

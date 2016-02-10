@@ -4053,11 +4053,20 @@ void
 Viewer::saveImageSequence()
 {
   QString flnm;
+#if USE_GLMEDIA
   flnm = QFileDialog::getSaveFileName(0,
 				      "Save Image Sequence/Movie",
 				      Global::previousDirectory(),
        "Image/Movie Files (*.png *.tif *.bmp *.jpg *.ppm *.xbm *.xpm *.wmv)");
-  
+#endif
+#if NO_GLMEDIA
+  flnm = QFileDialog::getSaveFileName(0,
+				      "Save Image Sequence",
+				      Global::previousDirectory(),
+       "Image Files (*.png *.tif *.bmp *.jpg *.ppm *.xbm *.xpm)");
+#endif
+
+
   if (flnm.isEmpty())
     {
       QWidget *p = (QWidget*)parent();

@@ -232,8 +232,18 @@ ShaderFactory::genFinalPointShader()
   shader += "  float sum = 0.0;\n";
   shader += "  float od = 0.0;\n";
 
-  shader += "  float cx[16] = {-1.5, 1.5, 0.0, 0.0,-2.5,-2.5, 2.5, 2.5,-3.5, 3.5, 0.0, 0.0,-4.5,-4.5, 4.5, 4.5};\n";
-  shader += "  float cy[16] = { 0.0, 0.0,-1.5, 1.5,-2.5, 2.5,-2.5, 2.5, 0.0, 0.0,-3.5, 3.5,-4.5, 4.5,-4.5, 4.5};\n";
+  float cx[16] = {-1.5, 1.5, 0.0, 0.0,-2.5,-2.5, 2.5, 2.5,-3.5, 3.5, 0.0, 0.0,-4.5,-4.5, 4.5, 4.5};
+  float cy[16] = {0.0, 0.0,-1.5, 1.5,-2.5, 2.5,-2.5, 2.5, 0.0, 0.0,-3.5, 3.5,-4.5, 4.5,-4.5, 4.5};
+  
+  shader += "  float cx[16];\n";
+  shader += "  float cy[16];\n";
+  for(int i=0; i<16; i++)
+    shader += QString("  cx[%1] = float(%2);\n").arg(i).arg(cx[i]);
+  for(int i=0; i<16; i++)
+    shader += QString("  cy[%1] = float(%2);\n").arg(i).arg(cy[i]);
+
+//  shader += "  float cx[16] = float[16](-1.5, 1.5, 0.0, 0.0,-2.5,-2.5, 2.5, 2.5,-3.5, 3.5, 0.0, 0.0,-4.5,-4.5, 4.5, 4.5);\n";
+//  shader += "  float cy[16] = float[16](0.0, 0.0,-1.5, 1.5,-2.5, 2.5,-2.5, 2.5, 0.0, 0.0,-3.5, 3.5,-4.5, 4.5,-4.5, 4.5);\n";
 
   shader += "  for(int i=0; i<8; i++)\n";
   shader += "  {\n";
@@ -277,8 +287,18 @@ ShaderFactory::genRectBlurShaderString(int filter)
   
   if (filter == 1) // bilateral filter
     {
-      shader += "  float cx[8] = {-1.0,-1.0,-1.0, 0.0, 0.0, 1.0, 1.0, 1.0};\n";
-      shader += "  float cy[8] = {-1.0, 0.0, 1.0,-1.0, 1.0,-1.0, 0.0, 1.0};\n";
+      //shader += "  float cx[8] = float[8](-1.0,-1.0,-1.0, 0.0, 0.0, 1.0, 1.0, 1.0);\n";
+      //shader += "  float cy[8] = float[8](-1.0, 0.0, 1.0,-1.0, 1.0,-1.0, 0.0, 1.0);\n";
+
+      float cx[8] = {-1.0,-1.0,-1.0, 0.0, 0.0, 1.0, 1.0, 1.0};
+      float cy[8] = {-1.0, 0.0, 1.0,-1.0, 1.0,-1.0, 0.0, 1.0};
+      shader += "  float cx[8];\n";
+      shader += "  float cy[8];\n";
+      for(int i=0; i<8; i++)
+	shader += QString("  cx[%1] = float(%2);\n").arg(i).arg(cx[i]);
+      for(int i=0; i<8; i++)
+	shader += QString("  cy[%1] = float(%2);\n").arg(i).arg(cy[i]);
+
       shader += "  float depth = texture2DRect(blurTex, spos.xy).x;\n";
       shader += "  float odepth = minZ + depth*(maxZ-minZ);\n";
       shader += "  float col = depth;\n";
@@ -357,9 +377,9 @@ ShaderFactory::getGrad()
   QString shader;
 
   shader += " vec3 gx, gy, gz;\n";
-  shader += " gx = vec3(1/vsize.x,0,0);\n";
-  shader += " gy = vec3(0,1/vsize.y,0);\n";
-  shader += " gz = vec3(0,0,1/vsize.z);\n";
+  shader += " gx = vec3(1.0/vsize.x,0,0);\n";
+  shader += " gy = vec3(0,1.0/vsize.y,0);\n";
+  shader += " gz = vec3(0,0,1.0/vsize.z);\n";
   shader += " float vx = texture3D(dataTex, voxelCoord+gx).x - texture3D(dataTex, voxelCoord-gx).x;\n";
   shader += " float vy = texture3D(dataTex, voxelCoord+gy).x - texture3D(dataTex, voxelCoord-gy).x;\n";
   shader += " float vz = texture3D(dataTex, voxelCoord+gz).x - texture3D(dataTex, voxelCoord-gz).x;\n";
@@ -449,10 +469,10 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
 
   // -- get exact texture coordinate so we don't get tag interpolation --
   shader += "  vec3 vC = voxelCoord*vsize;\n";
-  //shader += "  vC = (floor(vC)+vec3(0.5))/vsize;\n";
-  shader += "  bvec3 vclt = lessThan(round(vC), vC);\n";
-  shader += "  vC += ivec3(vclt)*vec3(0.5);\n";
-  shader += "  vC -= ivec3(not(vclt))*vec3(0.5);\n";
+  //shader += "  bvec3 vclt = lessThan(round(vC), vC);\n";
+  shader += "  bvec3 vclt = lessThan(floor(vC+0.5), vC);\n";
+  shader += "  vC += vec3(vclt)*vec3(0.5);\n";
+  shader += "  vC -= vec3(not(vclt))*vec3(0.5);\n";
   shader += "  vC /= vsize;\n";
 
   if (nearest)
@@ -516,7 +536,7 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
 
   shader += "  if (lengthAcum >= len )\n";
   shader += "    {\n";
-  shader += "      colorAcum.rgb = colorAcum.rgb*colorAcum.a + (1 - colorAcum.a)*bgColor.rgb;\n";
+  shader += "      colorAcum.rgb = colorAcum.rgb*colorAcum.a + (1.0 - colorAcum.a)*bgColor.rgb;\n";
   shader += "      break;\n";  // terminate if opacity > 1 or the ray is outside the volume	
   shader += "    }\n";
   shader += "  else if (colorAcum.a > 1.0)\n";
@@ -609,9 +629,9 @@ ShaderFactory::genXRayShader(int maxSteps, bool firstHit, bool nearest)
 
   // -- get exact texture coordinate so we don't get tag interpolation --
   shader += "  vec3 vC = voxelCoord*vsize;\n";
-  shader += "  bvec3 vclt = lessThan(round(vC), vC);\n";
-  shader += "  vC += ivec3(vclt)*vec3(0.5);\n";
-  shader += "  vC -= ivec3(not(vclt))*vec3(0.5);\n";
+  shader += "  bvec3 vclt = lessThan(floor(vC+0.5), vC);\n";
+  shader += "  vC += vec3(vclt)*vec3(0.5);\n";
+  shader += "  vC -= vec3(not(vclt))*vec3(0.5);\n";
   shader += "  vC /= vsize;\n";
 
   if (nearest)
@@ -677,7 +697,7 @@ ShaderFactory::genXRayShader(int maxSteps, bool firstHit, bool nearest)
 
   shader += "  if (lengthAcum >= len )\n";
   shader += "    {\n";
-  shader += "      colorAcum.rgb = colorAcum.rgb*colorAcum.a + (1 - colorAcum.a)*bgColor.rgb;\n";
+  shader += "      colorAcum.rgb = colorAcum.rgb*colorAcum.a + (1.0 - colorAcum.a)*bgColor.rgb;\n";
   shader += "      break;\n";  // terminate if opacity > 1 or the ray is outside the volume	
   shader += "    }\n";
   shader += "  else if (colorAcum.a > 1.0)\n";
@@ -767,8 +787,17 @@ ShaderFactory::genEdgeEnhanceShader()
   shader += "  float sum = 0.0;\n";
   shader += "  float od = 0.0;\n";
 
-  shader += "  float cx[16] = {-1.5, 1.5, 0.0, 0.0,-2.5,-2.5, 2.5, 2.5,-3.5, 3.5, 0.0, 0.0,-4.5,-4.5, 4.5, 4.5};\n";
-  shader += "  float cy[16] = { 0.0, 0.0,-1.5, 1.5,-2.5, 2.5,-2.5, 2.5, 0.0, 0.0,-3.5, 3.5,-4.5, 4.5,-4.5, 4.5};\n";
+  //shader += "  float cx[16] = float[16](-1.5, 1.5, 0.0, 0.0,-2.5,-2.5, 2.5, 2.5,-3.5, 3.5, 0.0, 0.0,-4.5,-4.5, 4.5, 4.5);\n";
+  //shader += "  float cy[16] = float[16](0.0, 0.0,-1.5, 1.5,-2.5, 2.5,-2.5, 2.5, 0.0, 0.0,-3.5, 3.5,-4.5, 4.5,-4.5, 4.5);\n";
+  float cx[16] = {-1.5, 1.5, 0.0, 0.0,-2.5,-2.5, 2.5, 2.5,-3.5, 3.5, 0.0, 0.0,-4.5,-4.5, 4.5, 4.5};
+  float cy[16] = {0.0, 0.0,-1.5, 1.5,-2.5, 2.5,-2.5, 2.5, 0.0, 0.0,-3.5, 3.5,-4.5, 4.5,-4.5, 4.5};
+
+  shader += "  float cx[16];\n";
+  shader += "  float cy[16];\n";
+  for(int i=0; i<16; i++)
+    shader += QString("  cx[%1] = float(%2);\n").arg(i).arg(cx[i]);
+  for(int i=0; i<16; i++)
+    shader += QString("  cy[%1] = float(%2);\n").arg(i).arg(cy[i]);
 
   shader += "  for(int i=0; i<8; i++)\n";
   shader += "  {\n";

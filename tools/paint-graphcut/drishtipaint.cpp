@@ -4064,8 +4064,9 @@ DrishtiPaint::paint3D(int dr, int wr, int hr, Vec bmin, Vec bmax, int tag)
 	    qint64 idx = d*m_width*m_height + w*m_height + h;
 	    int val = volData[idx];
 	    int a =  lut[4*val+3];
-	    if (a > 0)
-	      {
+	    if (a > 0 &&
+		(maskData[idx] == 0 || maskData[idx] == tag))
+	      { // grow only in zero or same tagged region
 		qint64 bidx = (d-ds)*mx*my+(w-ws)*mx+(h-hs);
 		bitmask.setBit(bidx, true);
 	      }
@@ -4597,7 +4598,8 @@ DrishtiPaint::erodeConnected(int dr, int wr, int hr,
 	    {
 	      cbitmask.setBit(bidx, true);
 	      qint64 idx = d2*m_width*m_height + w2*m_height + h2;
-	      if (maskData[idx] == tag)
+	      int val = volData[idx];
+	      if (lut[4*val+3] > 0 && maskData[idx] == tag)
 		{
 		  bitmask.setBit(bidx, true);
 		  stack.push(Vec(d2,w2,h2));	      
@@ -4837,7 +4839,8 @@ DrishtiPaint::dilateConnected(int dr, int wr, int hr,
 	    {
 	      cbitmask.setBit(bidx, true);
 	      qint64 idx = d2*m_width*m_height + w2*m_height + h2;
-	      if (maskData[idx] == tag)
+	      int val = volData[idx];
+	      if (lut[4*val+3] > 0 && maskData[idx] == tag)
 		{
 		  bitmask.setBit(bidx, true);
 		  stack.push(Vec(d2,w2,h2));	      
@@ -4852,7 +4855,7 @@ DrishtiPaint::dilateConnected(int dr, int wr, int hr,
   QList<Vec> edges;
   edges.clear();
 
-  int nDilate = viewerUi.dilateRad->value();
+  int nDilate = viewerUi.dilateRad->value()+1;
 
   // find  inner boundary
   for(int d=ds; d<=de; d++)
@@ -4915,7 +4918,12 @@ DrishtiPaint::dilateConnected(int dr, int wr, int hr,
 		  int h2 = qBound(hs, hx+ha, he);
 		  
 		  qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
-		  if (!bitmask.testBit(bidx) && !cbitmask.testBit(bidx))
+		  qint64 idx = d2*m_width*m_height + w2*m_height + h2;
+		  int val = volData[idx];
+		  if (lut[4*val+3] > 0 && // dilate only in connected region
+		      maskData[idx] == 0 && // dilate only in zero mask region
+		      !bitmask.testBit(bidx) &&
+		      !cbitmask.testBit(bidx))
 		    {
 		      cbitmask.setBit(bidx);
 		      tedges << Vec(d2,w2,h2);	  

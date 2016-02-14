@@ -394,13 +394,6 @@
        </widget>
       </item>
       <item>
-       <widget class="QCheckBox" name="scrape">
-        <property name="text">
-         <string>Scrape</string>
-        </property>
-       </widget>
-      </item>
-      <item>
        <layout class="QVBoxLayout" name="verticalLayout_4">
         <property name="spacing">
          <number>0</number>

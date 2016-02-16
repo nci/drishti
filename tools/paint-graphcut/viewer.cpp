@@ -19,6 +19,7 @@
 Viewer::Viewer(QWidget *parent) :
   QGLViewer(parent)
 {
+  setStateFileName(QString());
   setMouseTracking(true);
 
   m_memSize = 1000; // size in MB
@@ -73,6 +74,11 @@ Viewer::Viewer(QWidget *parent) :
 
   connect(this, SIGNAL(renderNextFrame()),
 	  this, SLOT(nextFrame()));
+}
+
+Viewer::~Viewer()
+{
+  init();
 }
 
 bool Viewer::exactCoord() { return m_exactCoord; }

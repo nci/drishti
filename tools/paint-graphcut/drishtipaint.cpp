@@ -872,6 +872,7 @@ DrishtiPaint::updateComposite()
   m_imageWidget->loadLookupTable(colorMap);
 
   m_volume->createBitmask();
+  m_viewer->updateFilledBoxes();
 }
 
 void
@@ -989,6 +990,9 @@ DrishtiPaint::setFile(QString filename)
       return;
     }
 
+  
+  m_viewer->setVolDataPtr(m_volume->memVolDataPtr());
+  m_viewer->setMaskDataPtr(m_volume->memMaskDataPtr());
 
   int d, w, h;
   m_volume->gridSize(d, w, h);
@@ -1008,9 +1012,6 @@ DrishtiPaint::setFile(QString filename)
   m_viewer->setShrinkwrapCurves(2, m_imageWidget->shrinkwrapCurvesH());
 
   m_viewer->setFibers(m_imageWidget->fibers());
-  
-  m_viewer->setVolDataPtr(m_volume->memVolDataPtr());
-  m_viewer->setMaskDataPtr(m_volume->memMaskDataPtr());
 
   ui.butZ->setChecked(true);
   m_slider->set(0, d-1, 0, d-1, 0);

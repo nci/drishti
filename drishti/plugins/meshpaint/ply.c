@@ -1692,8 +1692,8 @@ void write_scalar_type( FILE *fp, int code )
   }
 
   /* write the code to a file */
-
-  fprintf ( fp, "%s", type_names[code] );
+  //fprintf ( fp, "%s", type_names[code] );
+  fprintf ( fp, "%s", old_type_names[code] );
 }
 
 

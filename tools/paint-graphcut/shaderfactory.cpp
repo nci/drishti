@@ -393,15 +393,6 @@ ShaderFactory::addLighting()
 {
   QString shader;
 
-//  shader += " vec3 gx, gy, gz;\n";
-//  shader += " gx = vec3(1/vsize.x,0,0);\n";
-//  shader += " gy = vec3(0,1/vsize.y,0);\n";
-//  shader += " gz = vec3(0,0,1/vsize.z);\n";
-//  shader += " float vx = texture3D(dataTex, voxelCoord+gx).x - texture3D(dataTex, voxelCoord-gx).x;\n";
-//  shader += " float vy = texture3D(dataTex, voxelCoord+gy).x - texture3D(dataTex, voxelCoord-gy).x;\n";
-//  shader += " float vz = texture3D(dataTex, voxelCoord+gz).x - texture3D(dataTex, voxelCoord-gz).x;\n";
-//  shader += " vec3 grad = vec3(vx, vy, vz);\n";
-
   shader += getGrad();
   shader += " if (length(grad) > 0.1)\n";
   shader += "  {\n";
@@ -438,12 +429,18 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
   shader += "uniform float maxZ;\n";  
   shader += "uniform bool saveCoord;\n";
   shader += "uniform int skipLayers;\n";
+  shader += "uniform sampler2DRect entryTex;\n";
 
   shader += "void main(void)\n";
   shader += "{\n";
 
-  shader += "vec3 exitPoint = texture2DRect(exitTex, gl_FragCoord.st).rgb;\n";
-  shader += "vec3 entryPoint = gl_Color.rgb;\n";
+  shader += "vec4 exP = texture2DRect(exitTex, gl_FragCoord.st);\n";
+  shader += "vec4 enP = texture2DRect(entryTex, gl_FragCoord.st);\n";
+
+  shader += "if (exP.a < 0.001 || enP.a < 0.001) discard;\n";
+
+  shader += "vec3 exitPoint = exP.rgb;\n";
+  shader += "vec3 entryPoint = enP.rgb;\n";
 
   shader += "vec3 dir = (exitPoint-entryPoint);\n";
   shader += "float len = length(dir);\n";
@@ -463,13 +460,11 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
   shader += "bool gotFirstHit = false;\n";
   shader += "int nskipped = 0;\n"; 
   shader += "bool solid = false;\n";
-//  shader += "bool phaseChanged = false;\n";
   shader += QString("for(int i=0; i<%1; i++)\n").arg(maxSteps);
   shader += "{\n";
 
   // -- get exact texture coordinate so we don't get tag interpolation --
   shader += "  vec3 vC = voxelCoord*vsize;\n";
-  //shader += "  bvec3 vclt = lessThan(round(vC), vC);\n";
   shader += "  bvec3 vclt = lessThan(floor(vC+0.5), vC);\n";
   shader += "  vC += vec3(vclt)*vec3(0.5);\n";
   shader += "  vC -= vec3(not(vclt))*vec3(0.5);\n";
@@ -522,14 +517,6 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
 
   shader += "    colorSample.rgb *= colorSample.a;\n";
 
-//  shader += "    if (phaseChanged)\n"; // catch only boundaries
-//  shader += "      colorSample *= 1.3;\n";
-//  shader += "    else\n";
-//  shader += "    {\n";
-//  shader += "      colorSample.a *= 0.02;\n";
-//  shader += "      colorSample.rgb *= 0.03;\n";
-//  shader += "    }\n";
-
   shader += "    colorAcum += (1.0 - colorAcum.a) * colorSample;\n";
 
   shader += "  }\n"; // gotfirsthit && nskipped > skipLayers
@@ -544,6 +531,14 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
   shader += "      colorAcum.a = 1.0;\n";
   shader += "      break;\n";
   shader += "    }\n";
+
+////------
+//  shader += " if (colorSample.a < 0.001)\n";
+//  shader += "    {\n";
+//  shader += "      voxelCoord += deltaDir;\n";
+//  shader += "      lengthAcum += deltaDirLen;\n";
+//  shader += "    }\n";
+////------
 
   shader += "  voxelCoord += deltaDir;\n";
   shader += "  lengthAcum += deltaDirLen;\n";
@@ -599,12 +594,19 @@ ShaderFactory::genXRayShader(int maxSteps, bool firstHit, bool nearest)
   shader += "uniform float maxZ;\n";  
   shader += "uniform bool saveCoord;\n";
   shader += "uniform int skipLayers;\n";
+  shader += "uniform sampler2DRect entryTex;\n";
 
   shader += "void main(void)\n";
   shader += "{\n";
 
-  shader += "vec3 exitPoint = texture2DRect(exitTex, gl_FragCoord.st).rgb;\n";
-  shader += "vec3 entryPoint = gl_Color.rgb;\n";
+
+  shader += "vec4 exP = texture2DRect(exitTex, gl_FragCoord.st);\n";
+  shader += "vec4 enP = texture2DRect(entryTex, gl_FragCoord.st);\n";
+
+  shader += "if (exP.a < 0.001 || enP.a < 0.001) discard;\n";
+
+  shader += "vec3 exitPoint = exP.rgb;\n";
+  shader += "vec3 entryPoint = enP.rgb;\n";
 
   shader += "vec3 dir = (exitPoint-entryPoint);\n";
   shader += "float len = length(dir);\n";

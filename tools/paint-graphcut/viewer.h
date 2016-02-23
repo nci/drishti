@@ -84,6 +84,7 @@ class Viewer : public QGLViewer
     void saveImage();
     void saveImageSequence();
     void nextFrame();
+    void updateFilledBoxes();
     
  signals :
     void paint3D(int, int, int, int, int);
@@ -168,9 +169,17 @@ class Viewer : public QGLViewer
   QList<ushort> m_wvoxels;
   QList<ushort> m_hvoxels;
 
+  int m_dbox, m_wbox, m_hbox, m_boxSize;
+  QList<int> m_boxMinMax;
+  MyBitArray m_filledBoxes;
+
   GLuint m_slcBuffer;
   GLuint m_rboId;
   GLuint m_slcTex[2];
+
+  GLuint m_eBuffer;
+  GLuint m_ebId;
+  GLuint m_ebTex;
 
   GLuint m_dataTex;
   GLuint m_maskTex;
@@ -302,6 +311,8 @@ class Viewer : public QGLViewer
   bool startMovie(QString, int, int, bool);
   bool endMovie();
   void saveMovie();
+
+  void generateBoxMinMax();
 };
 
 #endif

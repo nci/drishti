@@ -473,6 +473,7 @@ Viewer::createShaders()
   m_eeParm[4] = glGetUniformLocationARB(m_eeShader, "viewDir");
   m_eeParm[5] = glGetUniformLocationARB(m_eeShader, "dzScale");
   m_eeParm[6] = glGetUniformLocationARB(m_eeShader, "tagTex");
+  m_eeParm[7] = glGetUniformLocationARB(m_eeShader, "lutTex");
   //----------------------
 
 
@@ -3860,6 +3861,7 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
       glUniform3fARB(m_eeParm[4], viewDir.x, viewDir.y, viewDir.z); // viewDir
       glUniform1fARB(m_eeParm[5], m_dzScale); // dzScale
       glUniform1iARB(m_eeParm[6], 5); // tagtex
+      glUniform1iARB(m_eeParm[7], 3); // luttex
       
       int wd = camera()->screenWidth();
       int ht = camera()->screenHeight();
@@ -4457,7 +4459,7 @@ Viewer::updateFilledBoxes()
 
   for(int i=0; i<255; i++)
     {
-      if (lut[4*i+3] > 10)
+      if (lut[4*i+3] > 2)
 	{
 	  lmin = i;
 	  break;
@@ -4466,12 +4468,17 @@ Viewer::updateFilledBoxes()
 
   for(int i=255; i>0; i--)
     {
-      if (lut[4*i+3] > 10)
+      if (lut[4*i+3] > 2)
 	{
 	  lmax = i;
 	  break;
 	}
     }
+
+  Vec bminO, bmaxO;
+  m_boundingBox.bounds(bminO, bmaxO);
+  bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
+  bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
 
   m_filledBoxes.resize(m_dbox*m_wbox*m_hbox);
   m_filledBoxes.fill(true);
@@ -4479,12 +4486,27 @@ Viewer::updateFilledBoxes()
     for(int w=0; w<m_wbox; w++)
       for(int h=0; h<m_hbox; h++)
 	{
+	  bool ok = true;
+	  // consider only current bounding box	 
+	  if ((d*m_boxSize < bminO.z && (d+1)*m_boxSize < bminO.z) ||
+	      (d*m_boxSize > bmaxO.z && (d+1)*m_boxSize > bmaxO.z) ||
+	      (w*m_boxSize < bminO.y && (w+1)*m_boxSize < bminO.y) ||
+	      (w*m_boxSize > bmaxO.y && (w+1)*m_boxSize > bmaxO.y) ||
+	      (h*m_boxSize < bminO.x && (h+1)*m_boxSize < bminO.x) ||
+	      (h*m_boxSize > bmaxO.x && (h+1)*m_boxSize > bmaxO.x))
+	    ok = false;
+
 	  int idx = d*m_wbox*m_hbox+w*m_hbox+h;
-	  int bmin = m_boxMinMax[2*idx+0];
-	  int bmax = m_boxMinMax[2*idx+1];
-	  if ((bmin < lmin && bmax < lmin) || 
-	      (bmin > lmax && bmax > lmax))
-	    m_filledBoxes.setBit(idx, false);
+	  if (ok)
+	    {
+	      int bmin = m_boxMinMax[2*idx+0];
+	      int bmax = m_boxMinMax[2*idx+1];
+	      if ((bmin < lmin && bmax < lmin) || 
+		  (bmin > lmax && bmax > lmax))
+		m_filledBoxes.setBit(idx, false);
+	    }
+	  else
+		m_filledBoxes.setBit(idx, false);
 	}
 
 
@@ -4524,7 +4546,7 @@ Viewer::updateFilledBoxes()
   cPos << camera()->position()+50*camera()->viewDirection();
   cNorm << -camera()->viewDirection();
 
-  // now check internal ones for clipping
+  // now check internal ones for clipping and boundary
   for(int d=1; d<m_dbox-1; d++)
     for(int w=1; w<m_wbox-1; w++)
       for(int h=1; h<m_hbox-1; h++)
@@ -4532,6 +4554,7 @@ Viewer::updateFilledBoxes()
 	  int idx = d*m_wbox*m_hbox+w*m_hbox+h;
 	  if (!m_filledBoxes.testBit(idx) && tfb.testBit(idx)) // interior box
 	    {
+	      // check whether on clipping plane
 	      for(int ci=0; ci<cPos.count(); ci++)
 		{
 		  Vec cpo = cPos[ci];

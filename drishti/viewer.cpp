@@ -3684,7 +3684,12 @@ Viewer::processCommand(QString cmd)
   cmd = cmd.toLower();
   QStringList list = cmd.split(" ", QString::SkipEmptyParts);
  
-  if (list[0].contains("light"))
+  if (list[0].contains("switchresmode"))
+    {
+      switchDrawVolume();      
+      return;
+    }
+  else if (list[0].contains("light"))
     {
       processLight(list);
       return;

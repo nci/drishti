@@ -284,6 +284,10 @@ ShaderFactory::genRectBlurShaderString(int filter)
   
   if (filter == 1) // bilateral filter
     {
+      shader += "  color = texture2DRect(blurTex, spos.xy);\n";
+      shader += "  gl_FragColor = color;\n";
+      shader += "  if (color.a < 0.01) return;\n";
+
       float cx[8] = {-1.0,-1.0,-1.0, 0.0, 0.0, 1.0, 1.0, 1.0};
       float cy[8] = {-1.0, 0.0, 1.0,-1.0, 1.0,-1.0, 0.0, 1.0};
       shader += "  float cx[8];\n";
@@ -293,25 +297,20 @@ ShaderFactory::genRectBlurShaderString(int filter)
       for(int i=0; i<8; i++)
 	shader += QString("  cy[%1] = float(%2);\n").arg(i).arg(cy[i]);
 
-      //shader += "  float depth = texture2DRect(blurTex, spos.xy).x;\n";
-      shader += "  color = texture2DRect(blurTex, spos.xy);\n";
-      shader += "  float val = color.z;\n";
       shader += "  float depth = color.x;\n";
       shader += "  float odepth = minZ + depth*(maxZ-minZ);\n";
       shader += "  float sum = 1.0;\n";
       shader += "  for(int i=0; i<8; i++)\n";
       shader += "  {\n";
-      //shader += "    float z = texture2DRect(blurTex, spos.xy + vec2(cx[i],cy[i])).x;\n";
-      shader += "    vec2 zv = texture2DRect(blurTex, spos.xy + vec2(cx[i],cy[i])).xz;\n";
-      shader += "    float oz = minZ + zv.x*(maxZ-minZ);\n";
+      shader += "    float z = texture2DRect(blurTex, spos.xy + vec2(cx[i],cy[i])).x;\n";
+      shader += "    float oz = minZ + z*(maxZ-minZ);\n";
       shader += "    float fi = (odepth-oz)*0.2;\n";
       shader += "    fi = exp(-fi*fi);\n";
-      shader += "    depth += zv.x*fi;\n";
-      shader += "    val += zv.y*fi;\n";
+      shader += "    depth += z*fi;\n";
       shader += "    sum += fi;\n";
       shader += "  }\n";
 
-      shader += "  gl_FragColor.rgba = vec4(depth/sum, color.y, val/sum, depth/sum);\n";
+      shader += "  gl_FragColor.rgba = vec4(depth/sum, color.gb, color.a);\n";
     }
   else if (filter == 2)
     { // gaussian filter
@@ -505,7 +504,7 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
       shader += "      float z = dot(I, normalize(dir));\n";
       shader += "      z = (z-minZ)/(maxZ-minZ);\n";
       shader += "      z = clamp(z, 0.0, 1.0);\n";
-      shader += "      gl_FragColor = vec4(z,tag,val,1.0);\n";
+      shader += "      gl_FragColor = vec4(z,val,tag,1.0);\n";
       shader += "      return;\n";
       shader += "    }\n";
     }
@@ -529,13 +528,13 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
   shader += "      break;\n";
   shader += "    }\n";
 
-//------
-  shader += " if (colorSample.a < 0.001)\n";
-  shader += "    {\n";
-  shader += "      voxelCoord += deltaDir;\n";
-  shader += "      lengthAcum += deltaDirLen;\n";
-  shader += "    }\n";
-//------
+////------
+//  shader += " if (colorSample.a < 0.001)\n"; // skip a few steps
+//  shader += "    {\n";
+//  shader += "      voxelCoord += 2*deltaDir;\n";
+//  shader += "      lengthAcum += 2*deltaDirLen;\n";
+//  shader += "    }\n";
+////------
 
   shader += "  voxelCoord += deltaDir;\n";
   shader += "  lengthAcum += deltaDirLen;\n";
@@ -670,7 +669,7 @@ ShaderFactory::genXRayShader(int maxSteps, bool firstHit, bool nearest)
       shader += "      float z = dot(I, normalize(dir));\n";
       shader += "      z = (z-minZ)/(maxZ-minZ);\n";
       shader += "      z = clamp(z, 0.0, 1.0);\n";
-      shader += "      gl_FragColor = vec4(z,tag,1.0-z,1.0);\n";
+      shader += "      gl_FragColor = vec4(z,val,tag,1.0);\n";
       shader += "      return;\n";
       shader += "    }\n";
     }
@@ -757,17 +756,16 @@ ShaderFactory::genEdgeEnhanceShader()
   shader += "  gl_FragColor = vec4(0.0);\n";
 
   shader += "  vec2 spos = gl_FragCoord.xy;\n";
-  shader += "  vec4 btval = texture2DRect(blurTex, spos);\n";
-  shader += "  vec3 dval = btval.xyw;\n";
-  shader += "  float val = btval.z;\n";
+  shader += "  vec4 dvt = texture2DRect(blurTex, spos);\n";
 
   //---------------------
-  shader += "  float alpha = dval.z;\n";
+  shader += "  float alpha = dvt.w;\n";
   shader += "  if (alpha < 0.01) discard;\n";
   //---------------------
 
-  shader += "  float depth = dval.x;\n";
-  shader += "  float tag = dval.y;\n";
+  shader += "  float depth = dvt.x;\n";
+  shader += "  float val = dvt.y;\n";
+  shader += "  float tag = dvt.z;\n";
 
   //---------------------
   shader += "  vec4 color = vec4(0.0);\n";
@@ -781,15 +779,25 @@ ShaderFactory::genEdgeEnhanceShader()
 
   shader += "  if (tag < 0.001)\n";
   shader += "   {\n";
-  shader += "     float val0 = texture2DRect(blurTex, spos+vec2(1.0,0.0)).z;\n";
-  shader += "     float val1 = texture2DRect(blurTex, spos+vec2(-1.0,0.0)).z;\n";
-  shader += "     float val2 = texture2DRect(blurTex, spos+vec2(0.0,1.0)).z;\n";
-  shader += "     float val3 = texture2DRect(blurTex, spos+vec2(0.0,-1.0)).z;\n";
-  shader += "     color += texture2D(lutTex,vec2(val0,0.0));\n";
-  shader += "     color += texture2D(lutTex,vec2(val1,0.0));\n";
-  shader += "     color += texture2D(lutTex,vec2(val2,0.0));\n";
-  shader += "     color += texture2D(lutTex,vec2(val3,0.0));\n";
-  shader += "     color /= vec4(5.0,5.0,5.0,color.a);\n";
+  shader += "     float val = texture2DRect(blurTex, spos+vec2(1.0,0.0)).y;\n";
+  shader += "     color += texture2D(lutTex,vec2(val,0.0));\n";
+  shader += "     val = texture2DRect(blurTex, spos+vec2(-1.0,0.0)).y;\n";
+  shader += "     color += texture2D(lutTex,vec2(val,0.0));\n";
+  shader += "     val = texture2DRect(blurTex, spos+vec2(0.0,1.0)).y;\n";
+  shader += "     color += texture2D(lutTex,vec2(val,0.0));\n";
+  shader += "     val = texture2DRect(blurTex, spos+vec2(0.0,-1.0)).y;\n";
+  shader += "     color += texture2D(lutTex,vec2(val,0.0));\n";
+
+  shader += "     val = texture2DRect(blurTex, spos+vec2(1.0,-1.0)).y;\n";
+  shader += "     color += texture2D(lutTex,vec2(val,0.0));\n";
+  shader += "     val = texture2DRect(blurTex, spos+vec2(1.0,1.0)).y;\n";
+  shader += "     color += texture2D(lutTex,vec2(val,0.0));\n";
+  shader += "     val = texture2DRect(blurTex, spos+vec2(-1.0,-1.0)).y;\n";
+  shader += "     color += texture2D(lutTex,vec2(val,0.0));\n";
+  shader += "     val = texture2DRect(blurTex, spos+vec2(-1.0,1.0)).y;\n";
+  shader += "     color += texture2D(lutTex,vec2(val,0.0));\n";
+
+  shader += "     color /= vec4(9.0,9.0,9.0,color.a);\n";
   shader += "   }\n";
 
 

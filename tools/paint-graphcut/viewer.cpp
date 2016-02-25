@@ -3830,13 +3830,43 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
 
   if (!m_fullRender)
     {
+      int wd = camera()->screenWidth();
+      int ht = camera()->screenHeight();
+
+      //--------------------------------
+      glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
+      glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			     GL_COLOR_ATTACHMENT0_EXT,
+			     GL_TEXTURE_RECTANGLE_ARB,
+			     m_slcTex[1],
+			     0);
+      glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
+      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+      
+      glUseProgramObjectARB(m_blurShader);
+      glActiveTexture(GL_TEXTURE1);
+      glEnable(GL_TEXTURE_RECTANGLE_ARB);
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[0]);
+      glUniform1iARB(m_blurParm[0], 1); // blurTex
+      glUniform1fARB(m_blurParm[1], minZ); // minZ
+      glUniform1fARB(m_blurParm[2], maxZ); // maxZ
+      
+      StaticFunctions::pushOrthoView(0, 0, wd, ht);
+      StaticFunctions::drawQuad(0, 0, wd, ht, 1);
+      StaticFunctions::popOrthoView();
+      
+      glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
+      //--------------------------------
+
+
+
       glColor3f(0.9, 0.9, 1.0);
       //--------------------------------
       glUseProgramObjectARB(m_eeShader);
       
       glActiveTexture(GL_TEXTURE1);
       glEnable(GL_TEXTURE_RECTANGLE_ARB);
-      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[0]);
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[1]);
       
       uchar *tagColors = Global::tagColors();
       glActiveTexture(GL_TEXTURE5);
@@ -3863,8 +3893,6 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
       glUniform1iARB(m_eeParm[6], 5); // tagtex
       glUniform1iARB(m_eeParm[7], 3); // luttex
       
-      int wd = camera()->screenWidth();
-      int ht = camera()->screenHeight();
       StaticFunctions::pushOrthoView(0, 0, wd, ht);
       StaticFunctions::drawQuad(0, 0, wd, ht, 1);
       StaticFunctions::popOrthoView();
@@ -4414,6 +4442,12 @@ Viewer::saveMovie()
 void
 Viewer::generateBoxMinMax()
 {
+  QProgressDialog progress("Updating min-max structure",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
   m_dbox = m_depth/m_boxSize;
   m_wbox = m_width/m_boxSize;
   m_hbox = m_height/m_boxSize;
@@ -4426,28 +4460,35 @@ Viewer::generateBoxMinMax()
   m_filledBoxes.fill(false);
 
   for(int d=0; d<m_dbox; d++)
-    for(int w=0; w<m_wbox; w++)
-      for(int h=0; h<m_hbox; h++)
-	{
-	  int vmax = -1;
-	  int vmin = 65535;
-	  int dmin = d*m_boxSize;
-	  int wmin = w*m_boxSize;
-	  int hmin = h*m_boxSize;
-	  int dmax = qMin((d+1)*m_boxSize, (int)m_depth);
-	  int wmax = qMin((w+1)*m_boxSize, (int)m_width);
-	  int hmax = qMin((h+1)*m_boxSize, (int)m_height);
-	  for(int dm=dmin; dm<dmax; dm++)
-	    for(int wm=wmin; wm<wmax; wm++)
-	      for(int hm=hmin; hm<hmax; hm++)
-		{
-		  int v = m_volPtr[dm*m_width*m_height + wm*m_height + hm];
-		  vmin = qMin(vmin, v);
-		  vmax = qMax(vmax, v);
-		}
-	  m_boxMinMax << vmin;
-	  m_boxMinMax << vmax;
-	}
+    {
+      progress.setValue(100*(float)d/m_dbox);
+      qApp->processEvents();
+
+      for(int w=0; w<m_wbox; w++)
+	for(int h=0; h<m_hbox; h++)
+	  {
+	    int vmax = -1;
+	    int vmin = 65535;
+	    int dmin = d*m_boxSize;
+	    int wmin = w*m_boxSize;
+	    int hmin = h*m_boxSize;
+	    int dmax = qMin((d+1)*m_boxSize, (int)m_depth);
+	    int wmax = qMin((w+1)*m_boxSize, (int)m_width);
+	    int hmax = qMin((h+1)*m_boxSize, (int)m_height);
+	    for(int dm=dmin; dm<dmax; dm++)
+	      for(int wm=wmin; wm<wmax; wm++)
+		for(int hm=hmin; hm<hmax; hm++)
+		  {
+		    int v = m_volPtr[dm*m_width*m_height + wm*m_height + hm];
+		    vmin = qMin(vmin, v);
+		    vmax = qMax(vmax, v);
+		  }
+	    m_boxMinMax << vmin;
+	    m_boxMinMax << vmax;
+	  }
+    }
+
+  progress.setValue(100);
 }
 
 void
@@ -4495,7 +4536,7 @@ Viewer::updateFilledBoxes()
 	      (h*m_boxSize < bminO.x && (h+1)*m_boxSize < bminO.x) ||
 	      (h*m_boxSize > bmaxO.x && (h+1)*m_boxSize > bmaxO.x))
 	    ok = false;
-
+	  
 	  int idx = d*m_wbox*m_hbox+w*m_hbox+h;
 	  if (ok)
 	    {
@@ -4506,7 +4547,7 @@ Viewer::updateFilledBoxes()
 		m_filledBoxes.setBit(idx, false);
 	    }
 	  else
-		m_filledBoxes.setBit(idx, false);
+	    m_filledBoxes.setBit(idx, false);
 	}
 
 

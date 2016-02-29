@@ -30,7 +30,9 @@ Viewer::Viewer(QWidget *parent) :
 
   m_eBuffer = 0;
   m_ebId = 0;
-  m_ebTex = 0;
+  m_ebTex[0] = 0;
+  m_ebTex[1] = 0;
+  m_ebTex[2] = 0;
 
   m_slcBuffer = 0;
   m_rboId = 0;
@@ -289,10 +291,10 @@ Viewer::init()
 
   if (m_eBuffer) glDeleteFramebuffers(1, &m_eBuffer);
   if (m_ebId) glDeleteRenderbuffers(1, &m_ebId);
-  if (m_ebTex) glDeleteTextures(1, &m_ebTex);
+  if (m_ebTex[0]) glDeleteTextures(3, m_ebTex);
   m_eBuffer = 0;
   m_ebId = 0;
-  m_ebTex = 0;
+  m_ebTex[0] = m_ebTex[1] = m_ebTex[2] = 0;
 
   if (m_slcBuffer) glDeleteFramebuffers(1, &m_slcBuffer);
   if (m_rboId) glDeleteRenderbuffers(1, &m_rboId);
@@ -340,13 +342,12 @@ Viewer::createFBO()
   int ht = camera()->screenHeight();
 
   //-----------------------------------------
-  // entry Buffer
   if (m_eBuffer) glDeleteFramebuffers(1, &m_eBuffer);
   if (m_ebId) glDeleteRenderbuffers(1, &m_ebId);
-  if (m_ebTex) glDeleteTextures(1, &m_ebTex);
+  if (m_ebTex[0]) glDeleteTextures(3, m_ebTex);
   glGenFramebuffers(1, &m_eBuffer);
   glGenRenderbuffers(1, &m_ebId);
-  glGenTextures(1, &m_ebTex);
+  glGenTextures(3, m_ebTex);
   glBindFramebuffer(GL_FRAMEBUFFER, m_eBuffer);
   glBindRenderbuffer(GL_RENDERBUFFER, m_ebId);
   glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, wd, ht);
@@ -356,17 +357,21 @@ Viewer::createFBO()
 			    GL_DEPTH_ATTACHMENT, // 2. attachment point
 			    GL_RENDERBUFFER,     // 3. rbo target: GL_RENDERBUFFER
 			    m_ebId);              // 4. rbo ID
-  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex);
-  glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,
-	       0,
-	       GL_RGBA16,
-	       wd, ht,
-	       0,
-	       GL_RGBA,
-	       GL_UNSIGNED_SHORT,
-	       0);
+  for(int i=0; i<3; i++)
+    {
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[i]);
+      glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,
+		   0,
+		   GL_RGBA16,
+		   wd, ht,
+		   0,
+		   GL_RGBA,
+		   GL_UNSIGNED_SHORT,
+		   0);
+    }
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
   //-----------------------------------------
+
 
   //-----------------------------------------
   if (m_slcBuffer) glDeleteFramebuffers(1, &m_slcBuffer);
@@ -378,11 +383,9 @@ Viewer::createFBO()
   glGenTextures(2, m_slcTex);
 
   glBindFramebuffer(GL_FRAMEBUFFER, m_slcBuffer);
-
   glBindRenderbuffer(GL_RENDERBUFFER, m_rboId);
   glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, wd, ht);
   glBindRenderbuffer(GL_RENDERBUFFER, 0);
-
   // attach the renderbuffer to depth attachment point
   glFramebufferRenderbuffer(GL_FRAMEBUFFER,      // 1. fbo target: GL_FRAMEBUFFER
 			    GL_DEPTH_ATTACHMENT, // 2. attachment point
@@ -466,7 +469,7 @@ Viewer::createShaders()
       QMessageBox::information(0, "", "Cannot create ee shader.");
     }
 
-  m_eeParm[0] = glGetUniformLocationARB(m_eeShader, "blurTex");
+  m_eeParm[0] = glGetUniformLocationARB(m_eeShader, "normalTex");
   m_eeParm[1] = glGetUniformLocationARB(m_eeShader, "minZ");
   m_eeParm[2] = glGetUniformLocationARB(m_eeShader, "maxZ");
   m_eeParm[3] = glGetUniformLocationARB(m_eeShader, "eyepos");
@@ -474,6 +477,7 @@ Viewer::createShaders()
   m_eeParm[5] = glGetUniformLocationARB(m_eeShader, "dzScale");
   m_eeParm[6] = glGetUniformLocationARB(m_eeShader, "tagTex");
   m_eeParm[7] = glGetUniformLocationARB(m_eeShader, "lutTex");
+  m_eeParm[8] = glGetUniformLocationARB(m_eeShader, "pvtTex");
   //----------------------
 
 
@@ -2881,8 +2885,8 @@ Viewer::pointUnderPixel_RC(QPoint scr, bool& found)
 
   volumeRaycast(minZ, maxZ, true); // run only one part of raycast process
 
-  glBindFramebuffer(GL_FRAMEBUFFER, m_slcBuffer);
-  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[0]);
+  glBindFramebuffer(GL_FRAMEBUFFER, m_eBuffer);
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[0]);
 
   glDisable(GL_SCISSOR_TEST);
 
@@ -3643,6 +3647,8 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
 		       m_maxWSlice-m_minWSlice+1,
 		       m_maxDSlice-m_minDSlice+1);
 
+  glClearDepth(0);
+  glClearColor(0, 0, 0, 0);
 
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
   for(int fbn=0; fbn<2; fbn++)
@@ -3653,8 +3659,6 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
 			     m_slcTex[fbn],
 			     0);
       glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
-      glClearDepth(0);
-      glClearColor(0, 0, 0, 0);
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     }
 
@@ -3677,36 +3681,47 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
 
   //----------------------------
   // create entry points
-  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_eBuffer);
+  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
   glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
 			 GL_COLOR_ATTACHMENT0_EXT,
 			 GL_TEXTURE_RECTANGLE_ARB,
-			 m_ebTex,
+			 m_slcTex[0],
 			 0);
   glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
   glClearDepth(1);
-  glClearColor(0, 0, 0, 0);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   glDepthFunc(GL_LEQUAL);
   drawBox(GL_BACK);
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
-  glActiveTexture(GL_TEXTURE6);
-  glEnable(GL_TEXTURE_RECTANGLE_ARB);
-  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex);
   //----------------------------
 
 
   //----------------------------
   if (!m_fullRender || firstPartOnly)
     {
-      glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
+      glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_eBuffer);
+
       glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
 			     GL_COLOR_ATTACHMENT0_EXT,
 			     GL_TEXTURE_RECTANGLE_ARB,
-			     m_slcTex[0],
+			     m_ebTex[0],
 			     0);
-      glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
+      //glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
+
+      glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			     GL_COLOR_ATTACHMENT1_EXT,
+			     GL_TEXTURE_RECTANGLE_ARB,
+			     m_ebTex[1],
+			     0);
+
+      GLenum buffers[2] = { GL_COLOR_ATTACHMENT0_EXT,
+			    GL_COLOR_ATTACHMENT1_EXT };
+      glDrawBuffersARB(2, buffers);
+
+      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     }
+  //----------------------------
+
 
   float stepsize = m_stillStep;
   if (m_dragMode && !(m_paintHit || m_carveHit))
@@ -3718,7 +3733,7 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
   glUseProgramObjectARB(m_rcShader);
   glUniform1iARB(m_rcParm[0], 2); // dataTex
   glUniform1iARB(m_rcParm[1], 3); // lutTex
-  glUniform1iARB(m_rcParm[2], 1); // slcTex - contains exit coordinates
+  glUniform1iARB(m_rcParm[2], 1); // slcTex[1] - contains exit coordinates
   glUniform1fARB(m_rcParm[3], stepsize); // stepSize
   glUniform3fARB(m_rcParm[4], eyepos.x, eyepos.y, eyepos.z); // eyepos
   glUniform3fARB(m_rcParm[5], viewDir.x, viewDir.y, viewDir.z); // viewDir
@@ -3730,11 +3745,15 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
   glUniform1iARB(m_rcParm[11],firstPartOnly); // save voxel coordinates
   glUniform1iARB(m_rcParm[12],m_skipLayers); // skip first layers
   glUniform1iARB(m_rcParm[13],5); // tagTex
-  glUniform1iARB(m_rcParm[14],6); // ebTex - contains entry coordinates
+  glUniform1iARB(m_rcParm[14],6); // slcTex[0] - contains entry coordinates
 
   glActiveTexture(GL_TEXTURE1);
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
   glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[1]);
+
+  glActiveTexture(GL_TEXTURE6);
+  glEnable(GL_TEXTURE_RECTANGLE_ARB);
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[0]);
 
   glActiveTexture(GL_TEXTURE2);
   glEnable(GL_TEXTURE_3D);
@@ -3827,26 +3846,26 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
       return;
     }
 
-
   if (!m_fullRender)
     {
       int wd = camera()->screenWidth();
       int ht = camera()->screenHeight();
 
       //--------------------------------
-      glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
+      glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_eBuffer);
       glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
-			     GL_COLOR_ATTACHMENT0_EXT,
+			     GL_COLOR_ATTACHMENT2_EXT,
 			     GL_TEXTURE_RECTANGLE_ARB,
-			     m_slcTex[1],
+			     m_ebTex[2],
 			     0);
-      glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
+      glDrawBuffer(GL_COLOR_ATTACHMENT2_EXT);  
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
       
-      glUseProgramObjectARB(m_blurShader);
       glActiveTexture(GL_TEXTURE1);
       glEnable(GL_TEXTURE_RECTANGLE_ARB);
-      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[0]);
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[0]);
+
+      glUseProgramObjectARB(m_blurShader);
       glUniform1iARB(m_blurParm[0], 1); // blurTex
       glUniform1fARB(m_blurParm[1], minZ); // minZ
       glUniform1fARB(m_blurParm[2], maxZ); // maxZ
@@ -3860,14 +3879,17 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
 
 
 
-      glColor3f(0.9, 0.9, 1.0);
       //--------------------------------
       glUseProgramObjectARB(m_eeShader);
       
+      glActiveTexture(GL_TEXTURE6);
+      glEnable(GL_TEXTURE_RECTANGLE_ARB);
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[1]);
+      
       glActiveTexture(GL_TEXTURE1);
       glEnable(GL_TEXTURE_RECTANGLE_ARB);
-      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[1]);
-      
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[2]);
+
       uchar *tagColors = Global::tagColors();
       glActiveTexture(GL_TEXTURE5);
       glEnable(GL_TEXTURE_1D);
@@ -3884,7 +3906,7 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
 		   GL_UNSIGNED_BYTE,
 		   tagColors);
 
-      glUniform1iARB(m_eeParm[0], 1); // slctex
+      glUniform1iARB(m_eeParm[0], 6); // normals tex
       glUniform1fARB(m_eeParm[1], minZ); // minZ
       glUniform1fARB(m_eeParm[2], maxZ); // maxZ
       glUniform3fARB(m_eeParm[3], eyepos.x, eyepos.y, eyepos.z); // eyepos
@@ -3892,6 +3914,7 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
       glUniform1fARB(m_eeParm[5], m_dzScale); // dzScale
       glUniform1iARB(m_eeParm[6], 5); // tagtex
       glUniform1iARB(m_eeParm[7], 3); // luttex
+      glUniform1iARB(m_eeParm[8], 1); // pos, val, tag tex
       
       StaticFunctions::pushOrthoView(0, 0, wd, ht);
       StaticFunctions::drawQuad(0, 0, wd, ht, 1);
@@ -3900,6 +3923,9 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
     }
 
   glUseProgramObjectARB(0);
+
+  glActiveTexture(GL_TEXTURE6);
+  glDisable(GL_TEXTURE_RECTANGLE_ARB);
 
   glActiveTexture(GL_TEXTURE5);
   glDisable(GL_TEXTURE_1D);

@@ -179,7 +179,7 @@ class Viewer : public QGLViewer
 
   GLuint m_eBuffer;
   GLuint m_ebId;
-  GLuint m_ebTex;
+  GLuint m_ebTex[3];
 
   GLuint m_dataTex;
   GLuint m_maskTex;

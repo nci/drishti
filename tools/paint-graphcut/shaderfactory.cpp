@@ -442,7 +442,7 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
   shader += "float len = length(dir);\n";
   shader += "if (len < 0.001) discard;\n";
 
-  shader += "vec3 normDir = normalize(dir);\n";
+  //shader += "vec3 normDir = normalize(dir);\n";
   shader += "vec3 deltaDir = normalize(dir)*stepSize;\n";
   shader += "float deltaDirLen = length(deltaDir);\n";
 
@@ -489,14 +489,14 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
   shader += "  if (gotFirstHit && nskipped > skipLayers)\n";
   shader += "  {\n";
 
-  shader += "    if (saveCoord && colorSample.a > 0.001)";
-  shader += "      {\n";
-  shader += "        gl_FragColor = vec4(vC,1.0);\n";
-  shader += "        return;\n";
-  shader += "      }\n";
-
   if (firstHit)
     {
+      shader += "  if (saveCoord && colorSample.a > 0.001)";
+      shader += "    {\n";
+      shader += "      gl_FragData[0] = vec4(vC,1.0);\n";
+      shader += "      return;\n";
+      shader += "    }\n";
+
       shader += "  if (colorSample.a > 0.001 )\n";
       shader += "    {\n";  
       shader += "      vec3 voxpos = vcorner + voxelCoord*vsize;";
@@ -504,9 +504,29 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
       shader += "      float z = dot(I, normalize(dir));\n";
       shader += "      z = (z-minZ)/(maxZ-minZ);\n";
       shader += "      z = clamp(z, 0.0, 1.0);\n";
-      shader += "      gl_FragColor = vec4(z,val,tag,1.0);\n";
+      shader += "      gl_FragData[0] = vec4(z,val,tag,1.0);\n";
+      shader += getGrad();
+      shader += "      if (length(grad) > 0.2)\n";
+      shader += "        {\n";
+      shader += "           grad = normalize(grad);\n";
+      shader += "           vec3 lightVec = viewDir;\n";
+      shader += "           float diff = abs(dot(lightVec, grad));\n";
+      shader += "           vec3 reflecvec = reflect(lightVec, grad);\n";
+      shader += "           float spec = pow(abs(dot(grad, reflecvec)), 512.0);\n";
+      shader += "           gl_FragData[1] = vec4(1.0,diff,spec,1.0);\n";
+      shader += "        }\n";
+      shader += "      else\n";
+      shader += "      gl_FragData[1] = vec4(1.0,0.0,0.0,1.0);\n";
       shader += "      return;\n";
       shader += "    }\n";
+    }
+  else
+    {
+      shader += "    if (saveCoord && colorSample.a > 0.001)";
+      shader += "      {\n";
+      shader += "        gl_FragColor = vec4(vC,1.0);\n";
+      shader += "        return;\n";
+      shader += "      }\n";
     }
 
   shader += addLighting();
@@ -563,7 +583,13 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
 
   shader += "}\n";
 
-  shader += "gl_FragColor = colorAcum;\n";    
+  if (!firstHit)
+    shader += "gl_FragColor = colorAcum;\n";
+  else
+    {
+      shader += "gl_FragData[0] = colorAcum;\n";
+      shader += "gl_FragData[1] = vec4(0.0,0.0,0.0,1.0);\n";
+    }
 
   shader += "}\n";
 
@@ -744,19 +770,21 @@ ShaderFactory::genEdgeEnhanceShader()
   shader =  "#extension GL_ARB_texture_rectangle : enable\n";
   shader += "varying vec3 pointpos;\n";
   shader += "uniform sampler1D tagTex;\n";
-  shader += "uniform sampler2DRect blurTex;\n";
+  shader += "uniform sampler2DRect normalTex;\n";
   shader += "uniform float minZ;\n";
   shader += "uniform float maxZ;\n";
   shader += "uniform vec3 eyepos;\n";
   shader += "uniform vec3 viewDir;\n";
   shader += "uniform float dzScale;\n";
   shader += "uniform sampler2D lutTex;\n";
+  shader += "uniform sampler2DRect pvtTex;\n";
   shader += "void main(void)\n";
   shader += "{\n";
   shader += "  gl_FragColor = vec4(0.0);\n";
 
   shader += "  vec2 spos = gl_FragCoord.xy;\n";
-  shader += "  vec4 dvt = texture2DRect(blurTex, spos);\n";
+  shader += "  vec4 dvt = texture2DRect(pvtTex, spos);\n";
+  shader += "  vec3 grad = texture2DRect(normalTex, spos).xyz;\n";
 
   //---------------------
   shader += "  float alpha = dvt.w;\n";
@@ -779,22 +807,22 @@ ShaderFactory::genEdgeEnhanceShader()
 
   shader += "  if (tag < 0.001)\n";
   shader += "   {\n";
-  shader += "     float val = texture2DRect(blurTex, spos+vec2(1.0,0.0)).y;\n";
+  shader += "     float val = texture2DRect(pvtTex, spos+vec2(1.0,0.0)).y;\n";
   shader += "     color += texture2D(lutTex,vec2(val,0.0));\n";
-  shader += "     val = texture2DRect(blurTex, spos+vec2(-1.0,0.0)).y;\n";
+  shader += "     val = texture2DRect(pvtTex, spos+vec2(-1.0,0.0)).y;\n";
   shader += "     color += texture2D(lutTex,vec2(val,0.0));\n";
-  shader += "     val = texture2DRect(blurTex, spos+vec2(0.0,1.0)).y;\n";
+  shader += "     val = texture2DRect(pvtTex, spos+vec2(0.0,1.0)).y;\n";
   shader += "     color += texture2D(lutTex,vec2(val,0.0));\n";
-  shader += "     val = texture2DRect(blurTex, spos+vec2(0.0,-1.0)).y;\n";
+  shader += "     val = texture2DRect(pvtTex, spos+vec2(0.0,-1.0)).y;\n";
   shader += "     color += texture2D(lutTex,vec2(val,0.0));\n";
 
-  shader += "     val = texture2DRect(blurTex, spos+vec2(1.0,-1.0)).y;\n";
+  shader += "     val = texture2DRect(pvtTex, spos+vec2(1.0,-1.0)).y;\n";
   shader += "     color += texture2D(lutTex,vec2(val,0.0));\n";
-  shader += "     val = texture2DRect(blurTex, spos+vec2(1.0,1.0)).y;\n";
+  shader += "     val = texture2DRect(pvtTex, spos+vec2(1.0,1.0)).y;\n";
   shader += "     color += texture2D(lutTex,vec2(val,0.0));\n";
-  shader += "     val = texture2DRect(blurTex, spos+vec2(-1.0,-1.0)).y;\n";
+  shader += "     val = texture2DRect(pvtTex, spos+vec2(-1.0,-1.0)).y;\n";
   shader += "     color += texture2D(lutTex,vec2(val,0.0));\n";
-  shader += "     val = texture2DRect(blurTex, spos+vec2(-1.0,1.0)).y;\n";
+  shader += "     val = texture2DRect(pvtTex, spos+vec2(-1.0,1.0)).y;\n";
   shader += "     color += texture2D(lutTex,vec2(val,0.0));\n";
 
   shader += "     color /= vec4(9.0,9.0,9.0,color.a);\n";
@@ -802,9 +830,11 @@ ShaderFactory::genEdgeEnhanceShader()
 
 
   // find depth gradient
-  shader += "  float dx = texture2DRect(blurTex, spos+vec2(1.0,0.0)).x - texture2DRect(blurTex, spos-vec2(1.0,0.0)).x;\n";
-  shader += "  float dy = texture2DRect(blurTex, spos+vec2(0.0,1.0)).x - texture2DRect(blurTex, spos-vec2(0.0,1.0)).x;\n";
+  shader += "  float dx = texture2DRect(pvtTex, spos+vec2(1.0,0.0)).x - texture2DRect(pvtTex, spos-vec2(1.0,0.0)).x;\n";
+  shader += "  float dy = texture2DRect(pvtTex, spos+vec2(0.0,1.0)).x - texture2DRect(pvtTex, spos-vec2(0.0,1.0)).x;\n";
   shader += "  vec3 norm = normalize(vec3(dx, dy, dzScale/(maxZ-minZ)));\n";
+  
+
   
   // compute obscurance
   shader += "  float ege1 = 0.01;\n";
@@ -824,18 +854,27 @@ ShaderFactory::genEdgeEnhanceShader()
 
   shader += "  for(int i=0; i<8; i++)\n";
   shader += "  {\n";
-  shader += "    float od = depth - texture2DRect(blurTex, spos+vec2(cx[i],cy[i])).x;\n";
+  shader += "    float od = depth - texture2DRect(pvtTex, spos+vec2(cx[i],cy[i])).x;\n";
   shader += "    sum += step(ege1, od);\n";
   shader += "  }\n";
 
   shader += "  for(int i=8; i<16; i++)\n";
   shader += "  {\n";
-  shader += "    float od = depth - texture2DRect(blurTex, spos+vec2(cx[i],cy[i])).x;\n";
+  shader += "    float od = depth - texture2DRect(pvtTex, spos+vec2(cx[i],cy[i])).x;\n";
   shader += "    sum += step(ege2, od);\n";
   shader += "  }\n";
 
   shader += "  float f = 0.2+0.8*(1.0-sum/16.0);\n";
-  shader += "  gl_FragColor = vec4(f*norm.z*color.rgb, 1.0);\n";
+
+  shader += "  vec4 colorSample = vec4(f*norm.z*color.rgb, 1.0);\n";
+
+  shader += " if (grad.y > 0.0)\n";
+  shader += "   colorSample.rgb *= 0.5*grad.x + 0.5*grad.y + grad.z;\n";
+
+  shader += " if (any(greaterThan(colorSample.rgb,vec3(1.0,1.0,1.0)))) \n";
+  shader += "   colorSample.rgb = vec3(1.0,1.0,1.0);\n";
+
+  shader += "  gl_FragColor = colorSample;\n";
 
   shader += "}\n";
 

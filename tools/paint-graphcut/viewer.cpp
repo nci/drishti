@@ -3873,6 +3873,29 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
       StaticFunctions::drawQuad(0, 0, wd, ht, 1);
       StaticFunctions::popOrthoView();
       
+
+      glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			     GL_COLOR_ATTACHMENT2_EXT,
+			     GL_TEXTURE_RECTANGLE_ARB,
+			     m_ebTex[0],
+			     0);
+      glDrawBuffer(GL_COLOR_ATTACHMENT2_EXT);  
+      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+      
+
+      // apply blur once more
+      glActiveTexture(GL_TEXTURE1);
+      glEnable(GL_TEXTURE_RECTANGLE_ARB);
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[2]);
+
+      glUseProgramObjectARB(m_blurShader);
+      glUniform1iARB(m_blurParm[0], 1); // blurTex
+      glUniform1fARB(m_blurParm[1], minZ); // minZ
+      glUniform1fARB(m_blurParm[2], maxZ); // maxZ
+      
+      StaticFunctions::pushOrthoView(0, 0, wd, ht);
+      StaticFunctions::drawQuad(0, 0, wd, ht, 1);
+      StaticFunctions::popOrthoView();
       glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
       //--------------------------------
 
@@ -3887,7 +3910,7 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
       
       glActiveTexture(GL_TEXTURE1);
       glEnable(GL_TEXTURE_RECTANGLE_ARB);
-      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[2]);
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[0]);
 
       uchar *tagColors = Global::tagColors();
       glActiveTexture(GL_TEXTURE5);

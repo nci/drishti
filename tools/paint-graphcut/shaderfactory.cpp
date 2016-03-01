@@ -797,9 +797,7 @@ ShaderFactory::genEdgeEnhanceShader()
 
   //---------------------
   shader += "  vec4 color = vec4(0.0);\n";
-  shader += "  if (tag < 0.001) color.rgb = texture2D(lutTex,vec2(val,0.0)).rgb;\n";
   shader += "  color = texture1D(tagTex, tag);\n";
-  //shader += "  if (tag < 0.001) color.rgb = gl_Color.rgb;\n";
   // so that we can use tag opacity to hide certain tagged regions
   // tagcolor.a should either 0 or 1
   shader += "  if (color.a < 0.001) discard;\n";
@@ -807,33 +805,35 @@ ShaderFactory::genEdgeEnhanceShader()
 
   shader += "  if (tag < 0.001)\n";
   shader += "   {\n";
-  shader += "     float val = texture2DRect(pvtTex, spos+vec2(1.0,0.0)).y;\n";
-  shader += "     color += texture2D(lutTex,vec2(val,0.0));\n";
-  shader += "     val = texture2DRect(pvtTex, spos+vec2(-1.0,0.0)).y;\n";
-  shader += "     color += texture2D(lutTex,vec2(val,0.0));\n";
-  shader += "     val = texture2DRect(pvtTex, spos+vec2(0.0,1.0)).y;\n";
-  shader += "     color += texture2D(lutTex,vec2(val,0.0));\n";
-  shader += "     val = texture2DRect(pvtTex, spos+vec2(0.0,-1.0)).y;\n";
-  shader += "     color += texture2D(lutTex,vec2(val,0.0));\n";
+  float dx[9] = {-1.0,-1.0,-1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0};
+  float dy[9] = {-1.0, 0.0, 1.0,-1.0, 0.0, 1.0,-1.0, 0.0, 1.0};
+  shader += "    float cx[9];\n";
+  shader += "    float cy[9];\n";
+  for(int i=0; i<9; i++)
+    shader += QString("    cx[%1] = float(%2);\n").arg(i).arg(dx[i]);
+  for(int i=0; i<9; i++)
+    shader += QString("    cy[%1] = float(%2);\n").arg(i).arg(dy[i]);
 
-  shader += "     val = texture2DRect(pvtTex, spos+vec2(1.0,-1.0)).y;\n";
-  shader += "     color += texture2D(lutTex,vec2(val,0.0));\n";
-  shader += "     val = texture2DRect(pvtTex, spos+vec2(1.0,1.0)).y;\n";
-  shader += "     color += texture2D(lutTex,vec2(val,0.0));\n";
-  shader += "     val = texture2DRect(pvtTex, spos+vec2(-1.0,-1.0)).y;\n";
-  shader += "     color += texture2D(lutTex,vec2(val,0.0));\n";
-  shader += "     val = texture2DRect(pvtTex, spos+vec2(-1.0,1.0)).y;\n";
-  shader += "     color += texture2D(lutTex,vec2(val,0.0));\n";
-
-  shader += "     color /= vec4(9.0,9.0,9.0,color.a);\n";
+  shader += "    vec3 rgb = vec3(0.0);\n";
+  shader += "    float alpha = 0.0;\n";
+  shader += "    float totalpha = 0.0;\n";
+  shader += "    for(int i=0; i<9; i++)\n";
+  shader += "    {\n";
+  shader += "       val = texture2DRect(pvtTex, spos+vec2(1.0,0.0)).y;\n";
+  shader += "       color = texture2D(lutTex,vec2(val,0.0));\n";
+  shader += "       rgb += color.rgb;\n";
+  shader += "       totalpha += color.a;\n";
+  shader += "       alpha = max(alpha, color.a);\n";
+  shader += "    }\n";
+  shader += "    color.a = alpha;\n";
+  shader += "    color.rgb = alpha*rgb/totalpha;\n";
   shader += "   }\n";
 
 
   // find depth gradient
   shader += "  float dx = texture2DRect(pvtTex, spos+vec2(1.0,0.0)).x - texture2DRect(pvtTex, spos-vec2(1.0,0.0)).x;\n";
   shader += "  float dy = texture2DRect(pvtTex, spos+vec2(0.0,1.0)).x - texture2DRect(pvtTex, spos-vec2(0.0,1.0)).x;\n";
-  shader += "  vec3 norm = normalize(vec3(dx, dy, dzScale/(maxZ-minZ)));\n";
-  
+  shader += "  vec3 norm = normalize(vec3(dx, dy, dzScale/(maxZ-minZ)));\n";  
 
   
   // compute obscurance
@@ -843,28 +843,29 @@ ShaderFactory::genEdgeEnhanceShader()
   shader += "  float od = 0.0;\n";
 
   float cx[16] = {-1.5, 1.5, 0.0, 0.0,-2.5,-2.5, 2.5, 2.5,-3.5, 3.5, 0.0, 0.0,-4.5,-4.5, 4.5, 4.5};
-  float cy[16] = {0.0, 0.0,-1.5, 1.5,-2.5, 2.5,-2.5, 2.5, 0.0, 0.0,-3.5, 3.5,-4.5, 4.5,-4.5, 4.5};
+  float cy[16] = {0.0, 0.0, -1.5, 1.5,-2.5, 2.5,-2.5, 2.5, 0.0, 0.0,-3.5, 3.5,-4.5, 4.5,-4.5, 4.5};
 
-  shader += "  float cx[16];\n";
-  shader += "  float cy[16];\n";
-  for(int i=0; i<16; i++)
+  shader += "  float cx[8];\n";
+  shader += "  float cy[8];\n";
+  for(int i=0; i<8; i++)
     shader += QString("  cx[%1] = float(%2);\n").arg(i).arg(cx[i]);
-  for(int i=0; i<16; i++)
+  for(int i=0; i<8; i++)
     shader += QString("  cy[%1] = float(%2);\n").arg(i).arg(cy[i]);
 
-  shader += "  for(int i=0; i<8; i++)\n";
+  shader += "  for(int i=0; i<128; i++)\n";
   shader += "  {\n";
-  shader += "    float od = depth - texture2DRect(pvtTex, spos+vec2(cx[i],cy[i])).x;\n";
-  shader += "    sum += step(ege1, od);\n";
+  shader += "    int j = int(mod(i,8));\n";
+  shader += "    int k = int(sign(cx[j]));\n";
+  shader += "    int l = int(sign(cy[j]));\n";
+  shader += "    k *= 2*(i/8);\n";
+  shader += "    l *= 2*(i/8);\n";
+  shader += "    float od = depth - texture2DRect(pvtTex, spos+vec2(k+cx[j],l+cy[j])).x;\n";
+  shader += "    float ege = float(i/4)*0.001;\n";
+  shader += "    sum += step(ege, od);\n";
   shader += "  }\n";
 
-  shader += "  for(int i=8; i<16; i++)\n";
-  shader += "  {\n";
-  shader += "    float od = depth - texture2DRect(pvtTex, spos+vec2(cx[i],cy[i])).x;\n";
-  shader += "    sum += step(ege2, od);\n";
-  shader += "  }\n";
 
-  shader += "  float f = 0.2+0.8*(1.0-sum/16.0);\n";
+  shader += "  float f = 0.2+0.8*(1.0-sum/128.0);\n";
 
   shader += "  vec4 colorSample = vec4(f*norm.z*color.rgb, 1.0);\n";
 

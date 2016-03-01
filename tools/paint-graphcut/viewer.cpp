@@ -2208,15 +2208,6 @@ Viewer::updateVoxelsForRaycast()
 
   uchar *lut = Global::lut();
 
-  QProgressDialog progress("Updating voxel structure",
-			   QString(),
-			   0, 100,
-			   0);
-  progress.setMinimumDuration(0);
-
-   
-  progress.setValue(10);
-
   if (!m_lutTex) glGenTextures(1, &m_lutTex);
   if (!m_tagTex) glGenTextures(1, &m_tagTex);
 
@@ -2265,9 +2256,16 @@ Viewer::updateVoxelsForRaycast()
 
   uchar *voxelVol = new uchar[tsz];
 
+
+  QProgressDialog progress("Updating voxel structure",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
   //----------------------------
   // load data volume
   progress.setValue(20);
+  qApp->processEvents();
   int i = 0;
   for(int d=m_minDSlice; d<m_maxDSlice; d+=m_sslevel)
     for(int w=m_minWSlice; w<m_maxWSlice; w+=m_sslevel)
@@ -2277,6 +2275,7 @@ Viewer::updateVoxelsForRaycast()
 	  i++;
 	}
   progress.setValue(50);
+  qApp->processEvents();
 
   if (!m_dataTex) glGenTextures(1, &m_dataTex);
   glActiveTexture(GL_TEXTURE2);
@@ -2303,6 +2302,7 @@ Viewer::updateVoxelsForRaycast()
   //----------------------------
   // load mask volume
   progress.setValue(60);
+  qApp->processEvents();
   i = 0;
   for(int d=m_minDSlice; d<m_maxDSlice; d+=m_sslevel)
     for(int w=m_minWSlice; w<m_maxWSlice; w+=m_sslevel)
@@ -2312,6 +2312,7 @@ Viewer::updateVoxelsForRaycast()
 	  i++;
 	}
   progress.setValue(80);
+  qApp->processEvents();
 
   if (!m_maskTex) glGenTextures(1, &m_maskTex);
   glActiveTexture(GL_TEXTURE4);
@@ -2338,8 +2339,6 @@ Viewer::updateVoxelsForRaycast()
   delete [] voxelVol;
   
   progress.setValue(100);
-
-  updateFilledBoxes();
 
   update();
 }

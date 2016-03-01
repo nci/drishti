@@ -872,7 +872,6 @@ DrishtiPaint::updateComposite()
   m_imageWidget->loadLookupTable(colorMap);
 
   m_volume->createBitmask();
-  m_viewer->updateFilledBoxes();
 }
 
 void

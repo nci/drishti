@@ -869,7 +869,7 @@ ShaderFactory::genEdgeEnhanceShader()
   shader += "  vec4 colorSample = vec4(f*norm.z*color.rgb, 1.0);\n";
 
   shader += " if (grad.y > 0.0)\n";
-  shader += "   colorSample.rgb *= 0.5*grad.x + 0.5*grad.y + grad.z;\n";
+  shader += "   colorSample.rgb *= 0.6*grad.x + 0.4*grad.y + grad.z;\n";
 
   shader += " if (any(greaterThan(colorSample.rgb,vec3(1.0,1.0,1.0)))) \n";
   shader += "   colorSample.rgb = vec3(1.0,1.0,1.0);\n";

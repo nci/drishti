@@ -1881,6 +1881,7 @@ void
 DrishtiPaint::on_pointRender_clicked(bool flag)
 {  
   viewerUi.raycastParam->setVisible(!flag);
+  viewerUi.lightBox->setVisible(!flag);
 
   m_viewer->setPointRender(flag);
   viewerUi.pointParam->setVisible(flag);
@@ -1893,6 +1894,11 @@ DrishtiPaint::on_raycastRender_clicked(bool flag)
 
   m_viewer->setRaycastRender(flag);
   viewerUi.raycastParam->setVisible(flag);
+
+  if (viewerUi.voxchoice->currentIndex() == 0)
+    viewerUi.lightBox->setVisible(true);
+  else
+    viewerUi.lightBox->setVisible(false);
 }
 
 void
@@ -2059,9 +2065,10 @@ DrishtiPaint::connectViewerMenu()
   connect(viewerUi.updateSlices, SIGNAL(clicked()),
 	  m_viewer, SLOT(updateSlices()));
 
-
   connect(viewerUi.raycastStyle, SIGNAL(currentIndexChanged(int)),
 	  m_viewer, SLOT(setRaycastStyle(int)));
+  connect(viewerUi.raycastStyle, SIGNAL(currentIndexChanged(int)),
+	  this, SLOT(lightOnOff(int)));
   connect(viewerUi.skipLayers, SIGNAL(valueChanged(int)),
 	  m_viewer, SLOT(setSkipLayers(int)));
   connect(viewerUi.nearest, SIGNAL(clicked(bool)),
@@ -2100,8 +2107,72 @@ DrishtiPaint::connectViewerMenu()
   m_viewer->setPointSize(viewerUi.ptsize->value());
   m_viewer->setVoxelInterval(viewerUi.interval->value());
 
+
+  m_viewAmb = new PopUpSlider(m_viewer, Qt::Horizontal);
+  m_viewDiff = new PopUpSlider(m_viewer, Qt::Horizontal);
+  m_viewSpec = new PopUpSlider(m_viewer, Qt::Horizontal);
+  m_viewEdge = new PopUpSlider(m_viewer, Qt::Horizontal);
+  m_viewIsoShadow = new PopUpSlider(m_viewer, Qt::Horizontal);
+
+  m_viewAmb->setText("Ambient");
+  m_viewDiff->setText("Diffuse");
+  m_viewSpec->setText("Speccular");
+  m_viewEdge->setText("Edges");
+  m_viewIsoShadow->setText("Shadow");
+
+  m_viewAmb->setRange(0, 10);
+  m_viewAmb->setValue(10);
+  m_viewDiff->setRange(0, 10);
+  m_viewDiff->setValue(0);
+  m_viewSpec->setRange(0, 10);
+  m_viewSpec->setValue(10);
+  m_viewEdge->setRange(0, 10);
+  m_viewEdge->setValue(3);
+  m_viewIsoShadow->setRange(0, 50);
+  m_viewIsoShadow->setValue(25);
+  
+  viewerUi.popupLight->setMargin(0);
+  viewerUi.popupLight->addWidget(m_viewAmb);
+  viewerUi.popupLight->addWidget(m_viewDiff);
+  viewerUi.popupLight->addWidget(m_viewSpec);
+  viewerUi.popupLight->addWidget(m_viewEdge);
+  viewerUi.popupLight->addWidget(m_viewIsoShadow);
+
+  connect(m_viewAmb, SIGNAL(valueChanged(int)),
+	  m_viewer, SLOT(setAmb(int)));
+  connect(m_viewDiff, SIGNAL(valueChanged(int)),
+	  m_viewer, SLOT(setDiff(int)));
+  connect(m_viewSpec, SIGNAL(valueChanged(int)),
+	  m_viewer, SLOT(setSpec(int)));
+  connect(m_viewEdge, SIGNAL(valueChanged(int)),
+	  m_viewer, SLOT(setEdge(int)));
+  connect(m_viewIsoShadow, SIGNAL(valueChanged(int)),
+	  m_viewer, SLOT(setIsoShadow(int)));
+
+
+  connect(viewerUi.lightBox, SIGNAL(clicked(bool)),
+	  m_viewAmb, SLOT(setVisible(bool)));
+  connect(viewerUi.lightBox, SIGNAL(clicked(bool)),
+	  m_viewDiff, SLOT(setVisible(bool)));
+  connect(viewerUi.lightBox, SIGNAL(clicked(bool)),
+	  m_viewSpec, SLOT(setVisible(bool)));
+  connect(viewerUi.lightBox, SIGNAL(clicked(bool)),
+	  m_viewEdge, SLOT(setVisible(bool)));
+  connect(viewerUi.lightBox, SIGNAL(clicked(bool)),
+	  m_viewIsoShadow, SLOT(setVisible(bool)));
+
+
   viewerUi.pointParam->setVisible(true);
   viewerUi.raycastParam->setVisible(false);
+}
+
+void
+DrishtiPaint::lightOnOff(int voxchoice)
+{
+  if (voxchoice > 0)
+    viewerUi.lightBox->setVisible(false);
+  else
+    viewerUi.lightBox->setVisible(true);
 }
 
 void

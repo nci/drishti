@@ -778,6 +778,8 @@ ShaderFactory::genEdgeEnhanceShader()
   shader += "uniform float dzScale;\n";
   shader += "uniform sampler2D lutTex;\n";
   shader += "uniform sampler2DRect pvtTex;\n";
+  shader += "uniform vec3 lightparm;\n";
+  shader += "uniform int isoshadow;\n";
   shader += "void main(void)\n";
   shader += "{\n";
   shader += "  gl_FragColor = vec4(0.0);\n";
@@ -830,10 +832,16 @@ ShaderFactory::genEdgeEnhanceShader()
   shader += "   }\n";
 
 
-  // find depth gradient
-  shader += "  float dx = texture2DRect(pvtTex, spos+vec2(1.0,0.0)).x - texture2DRect(pvtTex, spos-vec2(1.0,0.0)).x;\n";
-  shader += "  float dy = texture2DRect(pvtTex, spos+vec2(0.0,1.0)).x - texture2DRect(pvtTex, spos-vec2(0.0,1.0)).x;\n";
-  shader += "  vec3 norm = normalize(vec3(dx, dy, dzScale/(maxZ-minZ)));\n";  
+//  // find depth gradient
+  shader += "  float zedge = 1.0;\n";
+  shader += "  if (dzScale > 0.0)\n";
+  shader += "  {\n";
+  shader += "    float dx = texture2DRect(pvtTex, spos+vec2(1.0,0.0)).x - texture2DRect(pvtTex, spos-vec2(1.0,0.0)).x;\n";
+  shader += "    float dy = texture2DRect(pvtTex, spos+vec2(0.0,1.0)).x - texture2DRect(pvtTex, spos-vec2(0.0,1.0)).x;\n";
+  shader += "    zedge = 0.5+dzScale/2.0;\n";
+  shader += "    vec3 norm = normalize(vec3(dx, dy, (zedge*zedge)/(maxZ-minZ)));\n";  
+  shader += "    zedge = norm.z;\n";
+  shader += "  }\n";
 
   
   // compute obscurance
@@ -842,8 +850,8 @@ ShaderFactory::genEdgeEnhanceShader()
   shader += "  float sum = 0.0;\n";
   shader += "  float od = 0.0;\n";
 
-  float cx[16] = {-1.5, 1.5, 0.0, 0.0,-2.5,-2.5, 2.5, 2.5,-3.5, 3.5, 0.0, 0.0,-4.5,-4.5, 4.5, 4.5};
-  float cy[16] = {0.0, 0.0, -1.5, 1.5,-2.5, 2.5,-2.5, 2.5, 0.0, 0.0,-3.5, 3.5,-4.5, 4.5,-4.5, 4.5};
+  float cx[8] = {-1.5, 1.5, 0.0, 0.0,-2.5,-2.5, 2.5, 2.5};
+  float cy[8] = {0.0, 0.0, -1.5, 1.5,-2.5, 2.5,-2.5, 2.5};
 
   shader += "  float cx[8];\n";
   shader += "  float cy[8];\n";
@@ -852,25 +860,28 @@ ShaderFactory::genEdgeEnhanceShader()
   for(int i=0; i<8; i++)
     shader += QString("  cy[%1] = float(%2);\n").arg(i).arg(cy[i]);
 
-  shader += "  for(int i=0; i<128; i++)\n";
-  shader += "  {\n";
-  shader += "    int j = int(mod(i,8));\n";
-  shader += "    int k = int(sign(cx[j]));\n";
-  shader += "    int l = int(sign(cy[j]));\n";
-  shader += "    k *= 2*(i/8);\n";
-  shader += "    l *= 2*(i/8);\n";
-  shader += "    float od = depth - texture2DRect(pvtTex, spos+vec2(k+cx[j],l+cy[j])).x;\n";
-  shader += "    float ege = float(i/4)*0.001;\n";
-  shader += "    sum += step(ege, od);\n";
-  shader += "  }\n";
+  shader += "  float shadow = 1.0;\n";
 
+  shader += "  if (isoshadow > 0)\n";
+  shader += "    {\n";
+  shader += "      for(int i=0; i<(10+isoshadow)*4; i++)\n";
+  shader += "      {\n";
+  shader += "        int j = int(mod(i,8));\n";
+  shader += "        int k = int(sign(cx[j]));\n";
+  shader += "        int l = int(sign(cy[j]));\n";
+  shader += "        k *= 2*(i/8);\n";
+  shader += "        l *= 2*(i/8);\n";
+  shader += "        float od = depth - texture2DRect(pvtTex, spos+vec2(k+cx[j],l+cy[j])).x;\n";
+  shader += "        float ege = float(i/8)*0.001;\n";
+  shader += "        sum += step(ege, od);\n";
+  shader += "      }\n";	           
+  shader += "      shadow = 0.2+0.8*(1.0-sum/float((10+isoshadow)*4));\n";
+  shader += "    }\n";
 
-  shader += "  float f = 0.2+0.8*(1.0-sum/128.0);\n";
-
-  shader += "  vec4 colorSample = vec4(f*norm.z*color.rgb, 1.0);\n";
+  shader += "  vec4 colorSample = vec4(shadow*zedge*color.rgb, 1.0);\n";
 
   shader += " if (grad.y > 0.0)\n";
-  shader += "   colorSample.rgb *= 0.6*grad.x + 0.4*grad.y + grad.z;\n";
+  shader += "   colorSample.rgb *= lightparm.x + lightparm.y*grad.y + lightparm.z*grad.z;\n";
 
   shader += " if (any(greaterThan(colorSample.rgb,vec3(1.0,1.0,1.0)))) \n";
   shader += "   colorSample.rgb = vec3(1.0,1.0,1.0);\n";

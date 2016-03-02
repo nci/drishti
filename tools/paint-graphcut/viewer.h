@@ -59,7 +59,6 @@ class Viewer : public QGLViewer
     void setPointSize(int p) { m_pointSize = p; update(); }
     void setPointScaling(int p) { m_pointScaling = p; update(); }
     void setVoxelInterval(int);
-    void setEdge(int dz) { m_dzScale = dz; update(); }
     void updateVoxels();
     void updateViewerBox(int, int, int, int, int, int);
     void updateCurrSlice(int, int);
@@ -85,6 +84,11 @@ class Viewer : public QGLViewer
     void saveImageSequence();
     void nextFrame();
     void updateFilledBoxes();
+    void setAmb(int a) { m_amb = (float)a/10.0f; update(); };
+    void setDiff(int a) { m_diff = (float)a/10.0f; update(); };
+    void setSpec(int a) { m_spec = (float)a/10.0f; update(); };
+    void setEdge(int e) { m_dzScale = e; update(); }
+    void setIsoShadow(int e) { m_isoShadow = e; update(); }
     
  signals :
     void paint3D(int, int, int, int, int);
@@ -109,6 +113,10 @@ class Viewer : public QGLViewer
   bool m_glewInitdone;
 
   BoundingBox m_boundingBox;
+  
+  float m_amb, m_diff, m_spec;
+  int m_isoShadow;
+  float m_dzScale;
 
   int m_max3DTexSize;
   float m_memSize;
@@ -134,7 +142,6 @@ class Viewer : public QGLViewer
   int m_pointSkip;
   int m_pointSize;
   int m_pointScaling;
-  float m_dzScale;
 
   int m_currSlice, m_currSliceType;
 

@@ -66,6 +66,12 @@ Viewer::Viewer(QWidget *parent) :
   m_sketchPadMode = false;
   m_screenImageBuffer = 0;
 
+  m_amb = 1.0;
+  m_diff = 0.0;
+  m_spec = 1.0;
+  m_isoShadow = 25;
+  m_dzScale = 3.0;
+
 #ifdef USE_GLMEDIA
   m_movieWriter = 0;
 #endif // USE_GLMEDIA
@@ -231,7 +237,6 @@ Viewer::init()
   m_pointSkip = 5;
   m_pointSize = 5;
   m_pointScaling = 5;
-  m_dzScale = 3.0;
 
   m_voxChoice = 0;
   m_voxels.clear();
@@ -478,6 +483,8 @@ Viewer::createShaders()
   m_eeParm[6] = glGetUniformLocationARB(m_eeShader, "tagTex");
   m_eeParm[7] = glGetUniformLocationARB(m_eeShader, "lutTex");
   m_eeParm[8] = glGetUniformLocationARB(m_eeShader, "pvtTex");
+  m_eeParm[9] = glGetUniformLocationARB(m_eeShader, "lightparm");
+  m_eeParm[10] = glGetUniformLocationARB(m_eeShader, "isoshadow");
   //----------------------
 
 
@@ -3937,6 +3944,8 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
       glUniform1iARB(m_eeParm[6], 5); // tagtex
       glUniform1iARB(m_eeParm[7], 3); // luttex
       glUniform1iARB(m_eeParm[8], 1); // pos, val, tag tex
+      glUniform3fARB(m_eeParm[9], m_amb, m_diff, m_spec); // lightparm
+      glUniform1iARB(m_eeParm[10], m_isoShadow); // shadows
       
       StaticFunctions::pushOrthoView(0, 0, wd, ht);
       StaticFunctions::drawQuad(0, 0, wd, ht, 1);

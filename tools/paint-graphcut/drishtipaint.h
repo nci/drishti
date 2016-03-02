@@ -138,6 +138,7 @@ class DrishtiPaint : public QMainWindow
 
   void on_stillStep_changed(double);
   void on_dragStep_changed(double);
+  void lightOnOff(int);
 
  private :
   Ui::DrishtiPaint ui;
@@ -173,6 +174,11 @@ class DrishtiPaint : public QMainWindow
   PopUpSlider *m_viewDslice;
   PopUpSlider *m_viewWslice;
   PopUpSlider *m_viewHslice;
+  PopUpSlider *m_viewAmb;
+  PopUpSlider *m_viewDiff;
+  PopUpSlider *m_viewSpec;
+  PopUpSlider *m_viewEdge;
+  PopUpSlider *m_viewIsoShadow;
 
   void setFile(QString);
   void initTagColors();

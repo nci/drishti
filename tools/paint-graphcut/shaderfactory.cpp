@@ -389,7 +389,6 @@ ShaderFactory::addLighting()
 {
   QString shader;
 
-  shader += getGrad();
   shader += " if (length(grad) > 0.1)\n";
   shader += "  {\n";
   shader += "    grad = normalize(grad);\n";
@@ -471,10 +470,12 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
   else
     shader += "  float val = texture3D(dataTex, voxelCoord).x;\n";
 
-  shader += "  vec4 colorSample = texture2D(lutTex, vec2(val,0.0));\n";
+  shader += "  vec4 colorSample = vec4(0.0);\n";
+
+  shader += "  colorSample = texture2D(lutTex, vec2(val,0.0));\n";
+
 
   shader += "  float tag = texture3D(maskTex, vC).x;\n";
-  //shader += "  tag += 0.5/256.0;\n";
   shader += "  vec4 tagcolor = texture1D(tagTex, tag);\n";
   shader += "  if (tag < 0.001) tagcolor.rgb = colorSample.rgb;\n";
 
@@ -501,7 +502,8 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
       shader += "    {\n";  
       shader += "      vec3 voxpos = vcorner + voxelCoord*vsize;";
       shader += "      vec3 I = voxpos - eyepos;\n";
-      shader += "      float z = dot(I, normalize(dir));\n";
+      //shader += "      float z = dot(I, normalize(dir));\n";
+      shader += "      float z = dot(I, normalize(viewDir));\n";
       shader += "      z = (z-minZ)/(maxZ-minZ);\n";
       shader += "      z = clamp(z, 0.0, 1.0);\n";
       shader += "      gl_FragData[0] = vec4(z,val,tag,1.0);\n";
@@ -516,7 +518,7 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
       shader += "           gl_FragData[1] = vec4(1.0,diff,spec,1.0);\n";
       shader += "        }\n";
       shader += "      else\n";
-      shader += "      gl_FragData[1] = vec4(1.0,0.0,0.0,1.0);\n";
+      shader += "        gl_FragData[1] = vec4(1.0,0.0,0.0,1.0);\n";
       shader += "      return;\n";
       shader += "    }\n";
     }
@@ -529,6 +531,7 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
       shader += "      }\n";
     }
 
+  shader += getGrad();
   shader += addLighting();
 
   shader += "    colorSample.rgb *= colorSample.a;\n";
@@ -817,18 +820,14 @@ ShaderFactory::genEdgeEnhanceShader()
     shader += QString("    cy[%1] = float(%2);\n").arg(i).arg(dy[i]);
 
   shader += "    vec3 rgb = vec3(0.0);\n";
-  shader += "    float alpha = 0.0;\n";
-  shader += "    float totalpha = 0.0;\n";
   shader += "    for(int i=0; i<9; i++)\n";
   shader += "    {\n";
   shader += "       val = texture2DRect(pvtTex, spos+vec2(1.0,0.0)).y;\n";
   shader += "       color = texture2D(lutTex,vec2(val,0.0));\n";
   shader += "       rgb += color.rgb;\n";
-  shader += "       totalpha += color.a;\n";
-  shader += "       alpha = max(alpha, color.a);\n";
   shader += "    }\n";
-  shader += "    color.a = alpha;\n";
-  shader += "    color.rgb = alpha*rgb/totalpha;\n";
+  shader += "    color.a = 1.0;\n";
+  shader += "    color.rgb = rgb/9.0;\n";
   shader += "   }\n";
 
 
@@ -850,8 +849,8 @@ ShaderFactory::genEdgeEnhanceShader()
   shader += "  float sum = 0.0;\n";
   shader += "  float od = 0.0;\n";
 
-  float cx[8] = {-1.5, 1.5, 0.0, 0.0,-2.5,-2.5, 2.5, 2.5};
-  float cy[8] = {0.0, 0.0, -1.5, 1.5,-2.5, 2.5,-2.5, 2.5};
+  float cx[8] = {-1.0, 1.0, 0.0, 0.0,-2.0,-2.0, 2.0, 2.0};
+  float cy[8] = {0.0, 0.0, -1.0, 1.0,-2.0, 2.0,-2.0, 2.0};
 
   shader += "  float cx[8];\n";
   shader += "  float cy[8];\n";
@@ -880,8 +879,7 @@ ShaderFactory::genEdgeEnhanceShader()
 
   shader += "  vec4 colorSample = vec4(shadow*zedge*color.rgb, 1.0);\n";
 
-  shader += " if (grad.y > 0.0)\n";
-  shader += "   colorSample.rgb *= lightparm.x + lightparm.y*grad.y + lightparm.z*grad.z;\n";
+  shader += "   colorSample.rgb *= dot(lightparm, grad);\n";
 
   shader += " if (any(greaterThan(colorSample.rgb,vec3(1.0,1.0,1.0)))) \n";
   shader += "   colorSample.rgb = vec3(1.0,1.0,1.0);\n";

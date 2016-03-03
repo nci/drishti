@@ -672,19 +672,6 @@ DrishtiPaint::on_tagcurves_editingFinished()
 }
 
 void
-DrishtiPaint::paintedtag_editingFinished()
-{
-  QString text = viewerUi.paintedtags->text();
-
-  QPair<QString, QList<int> > tags;
-  tags = getTags(text);
-
-  viewerUi.paintedtags->setText(tags.first);
-  
-  m_viewer->setPaintedTags(tags.second);
-}
-
-void
 DrishtiPaint::curvetag_editingFinished()
 {
   QString text = viewerUi.curvetags->text();
@@ -1055,7 +1042,6 @@ DrishtiPaint::setFile(QString filename)
   ui.tagcurves->setText("-1");
   viewerUi.fibertags->setText("-1");
   viewerUi.curvetags->setText("-1");
-  viewerUi.paintedtags->setText("-1");
 
   viewerUi.dragStep->setValue(m_viewer->dragStep());
   viewerUi.stillStep->setValue(m_viewer->stillStep());
@@ -2047,14 +2033,10 @@ DrishtiPaint::connectViewerMenu()
 	  m_viewer, SLOT(setPointScaling(int)));
   connect(viewerUi.voxchoice, SIGNAL(currentIndexChanged(int)),
 	  m_viewer, SLOT(setVoxelChoice(int)));
-  connect(viewerUi.dzscale, SIGNAL(valueChanged(int)),
-	  m_viewer, SLOT(setEdge(int)));
   connect(viewerUi.box, SIGNAL(clicked(bool)),
 	  m_viewer, SLOT(setShowBox(bool)));
   connect(viewerUi.snapshot, SIGNAL(clicked()),
 	  m_viewer, SLOT(saveImage()));
-  connect(viewerUi.paintedtags, SIGNAL(editingFinished()),
-	  this, SLOT(paintedtag_editingFinished()));
   connect(viewerUi.curvetags, SIGNAL(editingFinished()),
 	  this, SLOT(curvetag_editingFinished()));
   connect(viewerUi.fibertags, SIGNAL(editingFinished()),
@@ -2116,7 +2098,7 @@ DrishtiPaint::connectViewerMenu()
 
   m_viewAmb->setText("Ambient");
   m_viewDiff->setText("Diffuse");
-  m_viewSpec->setText("Speccular");
+  m_viewSpec->setText("Specular");
   m_viewEdge->setText("Edges");
   m_viewIsoShadow->setText("Shadow");
 

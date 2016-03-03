@@ -1869,6 +1869,22 @@ Viewer::updateVoxels()
 			   0);
   progress.setMinimumDuration(0);
 
+  //----------------------------
+  m_paintedTags.clear();
+  {
+    uchar *tagColors = Global::tagColors();
+    for(int t=0; t<256; t++)
+      {
+	if (tagColors[4*t+3] > 2)
+	  m_paintedTags << t;
+      }
+    QMessageBox::information(0, "", QString("%1").arg(m_paintedTags.count()));
+    if (m_paintedTags.count() == 256) // take all tags
+      m_paintedTags.clear();
+  }
+
+  //----------------------------
+
   bool takeall = (m_paintedTags.count() == 0 ||
 		  m_paintedTags[0] == -1);
 
@@ -2052,16 +2068,18 @@ Viewer::drawVolMask()
       else
 	{
 	  int t = m_voxels[5*i+3];
-	  float v = (float)m_voxels[5*i+4]/255.0;
-
-	  float r = Global::tagColors()[4*t+0]*1.0/255.0;
-	  float g = Global::tagColors()[4*t+1]*1.0/255.0;
-	  float b = Global::tagColors()[4*t+2]*1.0/255.0;
-	  r = r*0.3 + 0.7*v;
-	  g = g*0.3 + 0.7*v;
-	  b = b*0.3 + 0.7*v;
-	  glColor3f(r,g,b);
-	  glVertex3f(h, w, d);
+	  if (Global::tagColors()[4*t+3] > 0)
+	    {
+	      float v = (float)m_voxels[5*i+4]/255.0;
+	      float r = Global::tagColors()[4*t+0]*1.0/255.0;
+	      float g = Global::tagColors()[4*t+1]*1.0/255.0;
+	      float b = Global::tagColors()[4*t+2]*1.0/255.0;
+	      r = r*0.3 + 0.7*v;
+	      g = g*0.3 + 0.7*v;
+	      b = b*0.3 + 0.7*v;
+	      glColor3f(r,g,b);
+	      glVertex3f(h, w, d);
+	    }
 	}
     }
   glEnd();
@@ -2389,27 +2407,30 @@ Viewer::drawVol()
 	{
 	  int v = m_voxels[4*i+3];
 	  int t = m_maskPtr[d*m_width*m_height + w*m_height + h];
-	  
-	  float r = lut[4*v+2]*1.0/255.0;
-	  float g = lut[4*v+1]*1.0/255.0;
-	  float b = lut[4*v+0]*1.0/255.0;
-	  
-	  float rt = r;
-	  float gt = g;
-	  float bt = b;
-	  if (t > 0)
+
+	  if (Global::tagColors()[4*t+3] > 0)
 	    {
-	      rt = Global::tagColors()[4*t+0]*1.0/255.0;
-	      gt = Global::tagColors()[4*t+1]*1.0/255.0;
-	      bt = Global::tagColors()[4*t+2]*1.0/255.0;
+	      float r = lut[4*v+2]*1.0/255.0;
+	      float g = lut[4*v+1]*1.0/255.0;
+	      float b = lut[4*v+0]*1.0/255.0;
+	      
+	      float rt = r;
+	      float gt = g;
+	      float bt = b;
+	      if (t > 0)
+		{
+		  rt = Global::tagColors()[4*t+0]*1.0/255.0;
+		  gt = Global::tagColors()[4*t+1]*1.0/255.0;
+		  bt = Global::tagColors()[4*t+2]*1.0/255.0;
+		}
+	  
+	      r = r*0.5 + rt*0.5;
+	      g = g*0.5 + gt*0.5;
+	      b = b*0.5 + bt*0.5;
+	      
+	      glColor3f(r,g,b);
+	      glVertex3f(h, w, d);
 	    }
-	  
-	  r = r*0.5 + rt*0.5;
-	  g = g*0.5 + gt*0.5;
-	  b = b*0.5 + bt*0.5;
-	  
-	  glColor3f(r,g,b);
-	  glVertex3f(h, w, d);
 	}
     }
 
@@ -2877,6 +2898,7 @@ Viewer::pointUnderPixel_RC(QPoint scr, bool& found)
       maxZ = qMax(maxZ, zv);
     }
   //--------------------------------
+
 
   int sw = camera()->screenWidth();
   int sh = camera()->screenHeight();  
@@ -3712,7 +3734,6 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
 			     GL_TEXTURE_RECTANGLE_ARB,
 			     m_ebTex[0],
 			     0);
-      //glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
 
       glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
 			     GL_COLOR_ATTACHMENT1_EXT,
@@ -3858,51 +3879,37 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
       int ht = camera()->screenHeight();
 
       //--------------------------------
-      glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_eBuffer);
-      glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
-			     GL_COLOR_ATTACHMENT2_EXT,
-			     GL_TEXTURE_RECTANGLE_ARB,
-			     m_ebTex[2],
-			     0);
-      glDrawBuffer(GL_COLOR_ATTACHMENT2_EXT);  
-      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-      
-      glActiveTexture(GL_TEXTURE1);
-      glEnable(GL_TEXTURE_RECTANGLE_ARB);
-      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[0]);
-
       glUseProgramObjectARB(m_blurShader);
       glUniform1iARB(m_blurParm[0], 1); // blurTex
       glUniform1fARB(m_blurParm[1], minZ); // minZ
       glUniform1fARB(m_blurParm[2], maxZ); // maxZ
       
-      StaticFunctions::pushOrthoView(0, 0, wd, ht);
-      StaticFunctions::drawQuad(0, 0, wd, ht, 1);
-      StaticFunctions::popOrthoView();
-      
+      int eb0 = 0;
+      int eb2 = 2;
+      for(int nb=0; nb<3; nb++)
+	{
+	  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_eBuffer);
+	  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+				 GL_COLOR_ATTACHMENT2_EXT,
+				 GL_TEXTURE_RECTANGLE_ARB,
+				 m_ebTex[eb2],
+				 0);
+	  glDrawBuffer(GL_COLOR_ATTACHMENT2_EXT);  
+	  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-      glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
-			     GL_COLOR_ATTACHMENT2_EXT,
-			     GL_TEXTURE_RECTANGLE_ARB,
-			     m_ebTex[0],
-			     0);
-      glDrawBuffer(GL_COLOR_ATTACHMENT2_EXT);  
-      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-      
+	  glActiveTexture(GL_TEXTURE1);
+	  glEnable(GL_TEXTURE_RECTANGLE_ARB);
+	  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[eb0]);
 
-      // apply blur once more
-      glActiveTexture(GL_TEXTURE1);
-      glEnable(GL_TEXTURE_RECTANGLE_ARB);
-      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[2]);
+	  StaticFunctions::pushOrthoView(0, 0, wd, ht);
+	  StaticFunctions::drawQuad(0, 0, wd, ht, 1);
+	  StaticFunctions::popOrthoView();
 
-      glUseProgramObjectARB(m_blurShader);
-      glUniform1iARB(m_blurParm[0], 1); // blurTex
-      glUniform1fARB(m_blurParm[1], minZ); // minZ
-      glUniform1fARB(m_blurParm[2], maxZ); // maxZ
-      
-      StaticFunctions::pushOrthoView(0, 0, wd, ht);
-      StaticFunctions::drawQuad(0, 0, wd, ht, 1);
-      StaticFunctions::popOrthoView();
+	  int ebidx = eb0;
+	  eb0 = eb2;
+	  eb2 = ebidx;
+	}
+
       glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
       //--------------------------------
 
@@ -3917,7 +3924,7 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
       
       glActiveTexture(GL_TEXTURE1);
       glEnable(GL_TEXTURE_RECTANGLE_ARB);
-      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[0]);
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[eb2]);
 
       uchar *tagColors = Global::tagColors();
       glActiveTexture(GL_TEXTURE5);
@@ -4552,8 +4559,8 @@ void
 Viewer::updateFilledBoxes()
 {
   uchar *lut = Global::lut();
-  int lmin = 0;
-  int lmax = 255;
+  int lmin = 255;
+  int lmax = 0;
 
   for(int i=0; i<255; i++)
     {

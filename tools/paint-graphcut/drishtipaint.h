@@ -58,7 +58,6 @@ class DrishtiPaint : public QMainWindow
   void on_butX_clicked();
   void on_help_clicked();
   void on_tagcurves_editingFinished();
-  void paintedtag_editingFinished();
   void curvetag_editingFinished();
   void fibertag_editingFinished();
   void on_tag_valueChanged(int);

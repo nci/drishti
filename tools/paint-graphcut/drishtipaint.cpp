@@ -2065,6 +2065,9 @@ DrishtiPaint::connectViewerMenu()
   connect(viewerUi.sketchPad, SIGNAL(clicked(bool)),
 	  m_viewer, SLOT(showSketchPad(bool)));
 
+  connect(viewerUi.useMask, SIGNAL(clicked(bool)),
+	  m_viewer, SLOT(setUseMask(bool)));
+
   m_viewDslice = new PopUpSlider(m_viewer, Qt::Vertical);
   m_viewWslice = new PopUpSlider(m_viewer, Qt::Vertical);
   m_viewHslice = new PopUpSlider(m_viewer, Qt::Vertical);
@@ -2090,40 +2093,26 @@ DrishtiPaint::connectViewerMenu()
   m_viewer->setVoxelInterval(viewerUi.interval->value());
 
 
-  m_viewAmb = new PopUpSlider(m_viewer, Qt::Horizontal);
-  m_viewDiff = new PopUpSlider(m_viewer, Qt::Horizontal);
   m_viewSpec = new PopUpSlider(m_viewer, Qt::Horizontal);
   m_viewEdge = new PopUpSlider(m_viewer, Qt::Horizontal);
   m_viewIsoShadow = new PopUpSlider(m_viewer, Qt::Horizontal);
 
-  m_viewAmb->setText("Ambient");
-  m_viewDiff->setText("Diffuse");
   m_viewSpec->setText("Specular");
   m_viewEdge->setText("Edges");
   m_viewIsoShadow->setText("Shadow");
 
-  m_viewAmb->setRange(0, 10);
-  m_viewAmb->setValue(10);
-  m_viewDiff->setRange(0, 10);
-  m_viewDiff->setValue(0);
   m_viewSpec->setRange(0, 10);
   m_viewSpec->setValue(10);
   m_viewEdge->setRange(0, 10);
   m_viewEdge->setValue(3);
-  m_viewIsoShadow->setRange(0, 50);
-  m_viewIsoShadow->setValue(25);
+  m_viewIsoShadow->setRange(0, 10);
+  m_viewIsoShadow->setValue(5);
   
   viewerUi.popupLight->setMargin(0);
-  viewerUi.popupLight->addWidget(m_viewAmb);
-  viewerUi.popupLight->addWidget(m_viewDiff);
   viewerUi.popupLight->addWidget(m_viewSpec);
   viewerUi.popupLight->addWidget(m_viewEdge);
   viewerUi.popupLight->addWidget(m_viewIsoShadow);
 
-  connect(m_viewAmb, SIGNAL(valueChanged(int)),
-	  m_viewer, SLOT(setAmb(int)));
-  connect(m_viewDiff, SIGNAL(valueChanged(int)),
-	  m_viewer, SLOT(setDiff(int)));
   connect(m_viewSpec, SIGNAL(valueChanged(int)),
 	  m_viewer, SLOT(setSpec(int)));
   connect(m_viewEdge, SIGNAL(valueChanged(int)),
@@ -2131,11 +2120,6 @@ DrishtiPaint::connectViewerMenu()
   connect(m_viewIsoShadow, SIGNAL(valueChanged(int)),
 	  m_viewer, SLOT(setIsoShadow(int)));
 
-
-  connect(viewerUi.lightBox, SIGNAL(clicked(bool)),
-	  m_viewAmb, SLOT(setVisible(bool)));
-  connect(viewerUi.lightBox, SIGNAL(clicked(bool)),
-	  m_viewDiff, SLOT(setVisible(bool)));
   connect(viewerUi.lightBox, SIGNAL(clicked(bool)),
 	  m_viewSpec, SLOT(setVisible(bool)));
   connect(viewerUi.lightBox, SIGNAL(clicked(bool)),

@@ -173,8 +173,6 @@ class DrishtiPaint : public QMainWindow
   PopUpSlider *m_viewDslice;
   PopUpSlider *m_viewWslice;
   PopUpSlider *m_viewHslice;
-  PopUpSlider *m_viewAmb;
-  PopUpSlider *m_viewDiff;
   PopUpSlider *m_viewSpec;
   PopUpSlider *m_viewEdge;
   PopUpSlider *m_viewIsoShadow;

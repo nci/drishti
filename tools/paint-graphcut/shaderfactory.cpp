@@ -405,7 +405,7 @@ ShaderFactory::addLighting()
 }
 
 QString
-ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
+ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest, bool useMask)
 {
   QString shader;
 
@@ -475,15 +475,21 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
   shader += "  colorSample = texture2D(lutTex, vec2(val,0.0));\n";
 
 
-  shader += "  float tag = texture3D(maskTex, vC).x;\n";
-  shader += "  vec4 tagcolor = texture1D(tagTex, tag);\n";
-  shader += "  if (tag < 0.001) tagcolor.rgb = colorSample.rgb;\n";
+  if (useMask)
+    {
+      shader += "  float tag = texture3D(maskTex, vC).x;\n";
+      shader += "  vec4 tagcolor = texture1D(tagTex, tag);\n";
+      shader += "  if (tag < 0.001) tagcolor.rgb = colorSample.rgb;\n";
 
-  shader += "  colorSample.rgb = mix(colorSample.rgb, tagcolor.rgb, 0.5);\n";
+      shader += "  colorSample.rgb = mix(colorSample.rgb, tagcolor.rgb, 0.5);\n";
 
-  // so that we can use tag opacity to hide certain tagged regions
-  // tagcolor.a should either 0 or 1
-  shader += "  colorSample *= tagcolor.a;\n";
+      // so that we can use tag opacity to hide certain tagged regions
+      // tagcolor.a should either 0 or 1
+      shader += "  colorSample *= tagcolor.a;\n";
+    }
+  else
+    shader += "  float tag = 0;\n";
+
 
   shader += "  if (!gotFirstHit && colorSample.a > 0.001) gotFirstHit = true;\n";  
 
@@ -502,7 +508,6 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
       shader += "    {\n";  
       shader += "      vec3 voxpos = vcorner + voxelCoord*vsize;";
       shader += "      vec3 I = voxpos - eyepos;\n";
-      //shader += "      float z = dot(I, normalize(dir));\n";
       shader += "      float z = dot(I, normalize(viewDir));\n";
       shader += "      z = (z-minZ)/(maxZ-minZ);\n";
       shader += "      z = clamp(z, 0.0, 1.0);\n";
@@ -600,7 +605,7 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest)
 }
 
 QString
-ShaderFactory::genXRayShader(int maxSteps, bool firstHit, bool nearest)
+ShaderFactory::genXRayShader(int maxSteps, bool firstHit, bool nearest, bool useMask)
 {
   QString shader;
 
@@ -668,15 +673,21 @@ ShaderFactory::genXRayShader(int maxSteps, bool firstHit, bool nearest)
 
   shader += "  vec4 colorSample = texture2D(lutTex, vec2(val,0.0));\n";
 
-  shader += "  float tag = texture3D(maskTex, vC).x;\n";
-  shader += "  vec4 tagcolor = texture1D(tagTex, tag);\n";
-  shader += "  if (tag < 0.001) tagcolor.rgb = colorSample.rgb;\n";
+  if (useMask)
+    {
+      shader += "  float tag = texture3D(maskTex, vC).x;\n";
+      shader += "  vec4 tagcolor = texture1D(tagTex, tag);\n";
+      shader += "  if (tag < 0.001) tagcolor.rgb = colorSample.rgb;\n";
 
-  shader += "  colorSample.rgb = mix(colorSample.rgb, tagcolor.rgb, 0.5);\n";
+      shader += "  colorSample.rgb = mix(colorSample.rgb, tagcolor.rgb, 0.5);\n";
 
-  // so that we can use tag opacity to hide certain tagged regions
-  // tagcolor.a should either 0 or 1
-  shader += "  colorSample *= tagcolor.a;\n";
+      // so that we can use tag opacity to hide certain tagged regions
+      // tagcolor.a should either 0 or 1
+      shader += "  colorSample *= tagcolor.a;\n";
+    }
+  else
+    shader += "  float tag = 0;\n";
+
 
   shader += "  if (!gotFirstHit && colorSample.a > 0.001) gotFirstHit = true;\n";  
 
@@ -863,18 +874,22 @@ ShaderFactory::genEdgeEnhanceShader()
 
   shader += "  if (isoshadow > 0)\n";
   shader += "    {\n";
-  shader += "      for(int i=0; i<(10+isoshadow)*4; i++)\n";
+  shader += "      float tele = 0.0;\n";
+  shader += "      for(int i=0; i<(16*isoshadow); i++)\n";
   shader += "      {\n";
-  shader += "        int j = int(mod(i,8));\n";
+  shader += "        int j = int(mod(float(i),8.0));\n";
   shader += "        int k = int(sign(cx[j]));\n";
   shader += "        int l = int(sign(cy[j]));\n";
   shader += "        k *= 2*(i/8);\n";
   shader += "        l *= 2*(i/8);\n";
   shader += "        float od = depth - texture2DRect(pvtTex, spos+vec2(k+cx[j],l+cy[j])).x;\n";
   shader += "        float ege = float(i/8)*0.001;\n";
-  shader += "        sum += step(ege, od);\n";
-  shader += "      }\n";	           
-  shader += "      shadow = 0.2+0.8*(1.0-sum/float((10+isoshadow)*4));\n";
+  shader += "        float c = 1.0/(1.0+float(i/8));\n";
+  shader += "        sum += c*step(ege, od);\n";
+  shader += "        tele += c;\n";
+  shader += "      }\n"; 
+  //shader += "      shadow = 0.2+0.8*(1.0-sum/float(16*isoshadow));\n";
+  shader += "      shadow = 0.1 + 0.9*(1.0-sum/tele);\n";
   shader += "    }\n";
 
   shader += "  vec4 colorSample = vec4(shadow*zedge*color.rgb, 1.0);\n";

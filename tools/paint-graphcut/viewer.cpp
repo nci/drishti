@@ -22,6 +22,8 @@ Viewer::Viewer(QWidget *parent) :
   setStateFileName(QString());
   setMouseTracking(true);
 
+  m_useMask = true;
+
   m_memSize = 1000; // size in MB
 
   m_clipPlanes = new ClipPlanes();
@@ -94,12 +96,30 @@ Viewer::~Viewer()
 }
 
 bool Viewer::exactCoord() { return m_exactCoord; }
+
 void
 Viewer::setExactCoord(bool b)
 {
   m_exactCoord = b;
   createRaycastShader();
   update();
+}
+
+void
+Viewer::setUseMask(bool b)
+{
+  m_useMask = b;
+
+  m_UI->sketchPad->setVisible(m_useMask);
+
+  createRaycastShader();
+  updateVoxels();
+
+  if (m_sketchPadMode)
+    {
+      m_UI->sketchPad->setChecked(false);
+      showSketchPad(false);
+    }
 }
 
 float Viewer::stillStep() { return m_stillStep;}
@@ -426,9 +446,14 @@ Viewer::createRaycastShader()
   //QMessageBox::information(0, "", QString("%1 %2").arg(m_stillStep).arg(maxSteps));
 
   if (m_renderMode == 1)
-    shaderString = ShaderFactory::genRaycastShader(maxSteps, !m_fullRender, m_exactCoord);
+    shaderString = ShaderFactory::genRaycastShader(maxSteps, !m_fullRender,
+						   m_exactCoord, m_useMask);
   else
-    shaderString = ShaderFactory::genXRayShader(maxSteps, !m_fullRender, m_exactCoord);
+    shaderString = ShaderFactory::genXRayShader(maxSteps, !m_fullRender,
+						m_exactCoord, m_useMask);
+
+  if (m_rcShader)
+    glDeleteObjectARB(m_rcShader);
 
   m_rcShader = glCreateProgramObjectARB();
   if (! ShaderFactory::loadShader(m_rcShader,
@@ -749,7 +774,7 @@ Viewer::keyPressEvent(QKeyEvent *event)
       update();
       return;
     }
-  
+
   if (event->key() == Qt::Key_A)
     {  
       toggleAxisIsDrawn();
@@ -2324,40 +2349,50 @@ Viewer::updateVoxelsForRaycast()
   //----------------------------
 
 
+  if (!m_maskTex) glGenTextures(1, &m_maskTex);
+
   //----------------------------
   // load mask volume
-  progress.setValue(60);
-  qApp->processEvents();
-  i = 0;
-  for(int d=m_minDSlice; d<m_maxDSlice; d+=m_sslevel)
-    for(int w=m_minWSlice; w<m_maxWSlice; w+=m_sslevel)
-      for(int h=m_minHSlice; h<m_maxHSlice; h+=m_sslevel)
-	{
-	  voxelVol[i] = m_maskPtr[d*m_width*m_height + w*m_height + h];
-	  i++;
-	}
-  progress.setValue(80);
-  qApp->processEvents();
-
-  if (!m_maskTex) glGenTextures(1, &m_maskTex);
-  glActiveTexture(GL_TEXTURE4);
-  glEnable(GL_TEXTURE_3D);
-  glBindTexture(GL_TEXTURE_3D, m_maskTex);	 
-  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
-  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
-  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE); 
-  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-  progress.setValue(70);
-  glTexImage3D(GL_TEXTURE_3D,
-	       0, // single resolution
-	       1,
-	       hsz, wsz, dsz,
-	       0, // no border
-	       GL_LUMINANCE,
-	       GL_UNSIGNED_BYTE,
-	       voxelVol);
-  glDisable(GL_TEXTURE_3D);
+  if (m_useMask)
+    {
+      progress.setValue(60);
+      qApp->processEvents();
+      i = 0;
+      for(int d=m_minDSlice; d<m_maxDSlice; d+=m_sslevel)
+	for(int w=m_minWSlice; w<m_maxWSlice; w+=m_sslevel)
+	  for(int h=m_minHSlice; h<m_maxHSlice; h+=m_sslevel)
+	    {
+	      voxelVol[i] = m_maskPtr[d*m_width*m_height + w*m_height + h];
+	      i++;
+	    }
+      progress.setValue(80);
+      qApp->processEvents();
+      
+      //if (!m_maskTex) glGenTextures(1, &m_maskTex);
+      glActiveTexture(GL_TEXTURE4);
+      glEnable(GL_TEXTURE_3D);
+      glBindTexture(GL_TEXTURE_3D, m_maskTex);	 
+      glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+      glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
+      glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE); 
+      glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+      glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+      progress.setValue(70);
+      glTexImage3D(GL_TEXTURE_3D,
+		   0, // single resolution
+		   1,
+		   hsz, wsz, dsz,
+		   0, // no border
+		   GL_LUMINANCE,
+		   GL_UNSIGNED_BYTE,
+		   voxelVol);
+      glDisable(GL_TEXTURE_3D);
+    }
+  else
+    {
+      if (m_maskTex) glDeleteTextures(1, &m_maskTex);
+      m_maskTex = 0;
+    }
   //----------------------------
 
 
@@ -2826,6 +2861,15 @@ Viewer::getHit(QMouseEvent *event)
 
   if (found)
     {
+      if (!m_useMask)
+	{
+	  QMessageBox::information(0, "Error", "Switch on Load Tags before applying the operation.");
+	  m_carveHit = false;
+	  m_paintHit = false;
+	  m_target = Vec(-1,-1,-1);
+	  return;
+	}
+
       int d, w, h;
       d = m_target.z;
       w = m_target.y;
@@ -2991,14 +3035,14 @@ Viewer::mouseMoveEvent(QMouseEvent *event)
   m_dragMode = event->buttons() != Qt::NoButton;
 
   m_target = Vec(-1,-1,-1);
-
+  
   if (m_sketchPadMode && m_dragMode)
     {
       m_poly << event->pos();
       update();
       return;
     }
-
+      
   if (m_paintHit || m_carveHit)
     {
       getHit(event);
@@ -4038,6 +4082,12 @@ Viewer::uploadMask(int dst, int wst, int hst, int ded, int wed, int hed)
 void
 Viewer::regionGrowing()
 {
+  if (!m_useMask)
+    {
+      QMessageBox::information(0, "Error", "Switch on Load Tags before applying the operation.");
+      return;
+    }
+
   int d, w, h;
   bool gothit = getCoordUnderPointer(d, w, h);
   if (!gothit) return;
@@ -4051,6 +4101,12 @@ Viewer::regionGrowing()
 void
 Viewer::regionDilation()
 {
+  if (!m_useMask)
+    {
+      QMessageBox::information(0, "Error", "Switch on Load Tags before applying the operation.");
+      return;
+    }
+
   int d, w, h;
   bool gothit = getCoordUnderPointer(d, w, h);
   if (!gothit) return;
@@ -4064,6 +4120,12 @@ Viewer::regionDilation()
 void
 Viewer::regionErosion()
 {
+  if (!m_useMask)
+    {
+      QMessageBox::information(0, "Error", "Switch on Load Tags before applying the operation.");
+      return;
+    }
+
   int d, w, h;
   bool gothit = getCoordUnderPointer(d, w, h);
   if (!gothit) return;
@@ -4077,6 +4139,12 @@ Viewer::regionErosion()
 void
 Viewer::tagUsingScreenSketch()
 {
+  if (!m_useMask)
+    {
+      QMessageBox::information(0, "Error", "Switch on Load Tags before applying the operation.");
+      return;
+    }
+
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
 
@@ -4519,7 +4587,9 @@ Viewer::generateBoxMinMax()
   if (m_width%m_boxSize > 0) m_wbox++;
   if (m_height%m_boxSize > 0) m_hbox++;
 
+  m_boxMinMax.clear();
   m_boxMinMax.reserve(2*m_dbox*m_wbox*m_hbox);
+
   m_filledBoxes.resize(m_dbox*m_wbox*m_hbox);
   m_filledBoxes.fill(false);
 

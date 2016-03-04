@@ -89,6 +89,8 @@ class Viewer : public QGLViewer
     void setSpec(int a) { m_spec = (float)a/10.0f; update(); };
     void setEdge(int e) { m_dzScale = e; update(); }
     void setIsoShadow(int e) { m_isoShadow = e; update(); }
+
+    void setUseMask(bool);
     
  signals :
     void paint3D(int, int, int, int, int);
@@ -111,6 +113,8 @@ class Viewer : public QGLViewer
   Ui::ViewerMenu *m_UI;
 
   bool m_glewInitdone;
+
+  bool m_useMask;
 
   BoundingBox m_boundingBox;
   

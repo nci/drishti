@@ -87,8 +87,12 @@ class Viewer : public QGLViewer
     void setAmb(int a) { m_amb = (float)a/10.0f; update(); };
     void setDiff(int a) { m_diff = (float)a/10.0f; update(); };
     void setSpec(int a) { m_spec = (float)a/10.0f; update(); };
-    void setEdge(int e) { m_dzScale = e; update(); }
-    void setIsoShadow(int e) { m_isoShadow = e; update(); }
+    void setEdge(int e) { m_edge = e; update(); }
+    void setShadow(int e) { m_shadow = e; update(); }
+    void setShadowColor(Vec c) { m_shadowColor = c; update(); }
+    void setEdgeColor(Vec c) { m_edgeColor = c; update(); }
+    Vec shadowColor() { return m_shadowColor; }
+    Vec edgeColor() { return m_edgeColor; }
 
     void setUseMask(bool);
     
@@ -119,8 +123,9 @@ class Viewer : public QGLViewer
   BoundingBox m_boundingBox;
   
   float m_amb, m_diff, m_spec;
-  int m_isoShadow;
-  float m_dzScale;
+  int m_shadow;
+  float m_edge;
+  Vec m_shadowColor, m_edgeColor;
 
   int m_max3DTexSize;
   float m_memSize;

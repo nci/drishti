@@ -139,6 +139,9 @@ class DrishtiPaint : public QMainWindow
   void on_dragStep_changed(double);
   void lightOnOff(int);
 
+  void getShadowColor();
+  void getEdgeColor();
+
  private :
   Ui::DrishtiPaint ui;
   Ui::ViewerMenu viewerUi;
@@ -175,7 +178,9 @@ class DrishtiPaint : public QMainWindow
   PopUpSlider *m_viewHslice;
   PopUpSlider *m_viewSpec;
   PopUpSlider *m_viewEdge;
-  PopUpSlider *m_viewIsoShadow;
+  PopUpSlider *m_viewShadow;
+  QPushButton *m_shadowButton;
+  QPushButton *m_edgeButton;
 
   void setFile(QString);
   void initTagColors();
@@ -247,6 +252,9 @@ class DrishtiPaint : public QMainWindow
   void processHoles(uchar*, int, int, int, int);
 
   bool tagUsingSketchPad(Vec, Vec, int);
+
+  void setupSlicesParameters();
+  void setupLightParameters();
 };
 
 #endif

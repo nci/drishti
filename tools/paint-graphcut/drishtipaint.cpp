@@ -2068,6 +2068,21 @@ DrishtiPaint::connectViewerMenu()
   connect(viewerUi.useMask, SIGNAL(clicked(bool)),
 	  m_viewer, SLOT(setUseMask(bool)));
 
+  m_viewer->setPointScaling(viewerUi.ptscaling->value());
+  m_viewer->setPointSize(viewerUi.ptsize->value());
+  m_viewer->setVoxelInterval(viewerUi.interval->value());
+
+  setupSlicesParameters();
+  setupLightParameters();
+
+
+  viewerUi.pointParam->setVisible(true);
+  viewerUi.raycastParam->setVisible(false);
+}
+
+void
+DrishtiPaint::setupSlicesParameters()
+{
   m_viewDslice = new PopUpSlider(m_viewer, Qt::Vertical);
   m_viewWslice = new PopUpSlider(m_viewer, Qt::Vertical);
   m_viewHslice = new PopUpSlider(m_viewer, Qt::Vertical);
@@ -2087,49 +2102,90 @@ DrishtiPaint::connectViewerMenu()
 	  m_viewer, SLOT(setWSlice(int)));
   connect(m_viewHslice, SIGNAL(valueChanged(int)),
 	  m_viewer, SLOT(setHSlice(int)));
+}
 
-  m_viewer->setPointScaling(viewerUi.ptscaling->value());
-  m_viewer->setPointSize(viewerUi.ptsize->value());
-  m_viewer->setVoxelInterval(viewerUi.interval->value());
-
-
+void
+DrishtiPaint::setupLightParameters()
+{
   m_viewSpec = new PopUpSlider(m_viewer, Qt::Horizontal);
   m_viewEdge = new PopUpSlider(m_viewer, Qt::Horizontal);
-  m_viewIsoShadow = new PopUpSlider(m_viewer, Qt::Horizontal);
+  m_viewShadow = new PopUpSlider(m_viewer, Qt::Horizontal);
+  m_shadowButton = new QPushButton("Shadow Color");
+  m_edgeButton = new QPushButton("Edge Color");
 
   m_viewSpec->setText("Specular");
   m_viewEdge->setText("Edges");
-  m_viewIsoShadow->setText("Shadow");
+  m_viewShadow->setText("Shadow");
 
   m_viewSpec->setRange(0, 10);
   m_viewSpec->setValue(10);
   m_viewEdge->setRange(0, 10);
   m_viewEdge->setValue(3);
-  m_viewIsoShadow->setRange(0, 10);
-  m_viewIsoShadow->setValue(5);
+  m_viewShadow->setRange(0, 10);
+  m_viewShadow->setValue(5);
+
+  QSpacerItem *spitem0 = new QSpacerItem(5,5,QSizePolicy::Minimum, QSizePolicy::Fixed);
+  QSpacerItem *spitem1 = new QSpacerItem(5,5,QSizePolicy::Minimum, QSizePolicy::Fixed);
   
   viewerUi.popupLight->setMargin(0);
   viewerUi.popupLight->addWidget(m_viewSpec);
+  viewerUi.popupLight->addItem(spitem0);
   viewerUi.popupLight->addWidget(m_viewEdge);
-  viewerUi.popupLight->addWidget(m_viewIsoShadow);
+  viewerUi.popupLight->addWidget(m_edgeButton);
+  viewerUi.popupLight->addItem(spitem1);
+  viewerUi.popupLight->addWidget(m_viewShadow);
+  viewerUi.popupLight->addWidget(m_shadowButton);
 
   connect(m_viewSpec, SIGNAL(valueChanged(int)),
 	  m_viewer, SLOT(setSpec(int)));
   connect(m_viewEdge, SIGNAL(valueChanged(int)),
 	  m_viewer, SLOT(setEdge(int)));
-  connect(m_viewIsoShadow, SIGNAL(valueChanged(int)),
-	  m_viewer, SLOT(setIsoShadow(int)));
+  connect(m_viewShadow, SIGNAL(valueChanged(int)),
+	  m_viewer, SLOT(setShadow(int)));
 
   connect(viewerUi.lightBox, SIGNAL(clicked(bool)),
 	  m_viewSpec, SLOT(setVisible(bool)));
   connect(viewerUi.lightBox, SIGNAL(clicked(bool)),
 	  m_viewEdge, SLOT(setVisible(bool)));
   connect(viewerUi.lightBox, SIGNAL(clicked(bool)),
-	  m_viewIsoShadow, SLOT(setVisible(bool)));
+	  m_viewShadow, SLOT(setVisible(bool)));
+  connect(viewerUi.lightBox, SIGNAL(clicked(bool)),
+	  m_shadowButton, SLOT(setVisible(bool)));
+  connect(viewerUi.lightBox, SIGNAL(clicked(bool)),
+	  m_edgeButton, SLOT(setVisible(bool)));
 
+  connect(m_shadowButton, SIGNAL(clicked()),
+	  this, SLOT(getShadowColor()));
+  connect(m_edgeButton, SIGNAL(clicked()),
+	  this, SLOT(getEdgeColor()));
+}
 
-  viewerUi.pointParam->setVisible(true);
-  viewerUi.raycastParam->setVisible(false);
+void
+DrishtiPaint::getShadowColor()
+{
+  Vec sclr = m_viewer->shadowColor();
+
+  QColor clr = QColor(sclr.x, sclr.y, sclr.z);
+  clr = DColorDialog::getColor(clr);
+  if (!clr.isValid())
+    return;
+
+  sclr = Vec(clr.red(), clr.green(), clr.blue());
+  m_viewer->setShadowColor(sclr);
+}
+
+void
+DrishtiPaint::getEdgeColor()
+{
+  Vec sclr = m_viewer->edgeColor();
+
+  QColor clr = QColor(sclr.x, sclr.y, sclr.z);
+  clr = DColorDialog::getColor(clr);
+  if (!clr.isValid())
+    return;
+
+  sclr = Vec(clr.red(), clr.green(), clr.blue());
+  m_viewer->setEdgeColor(sclr);
 }
 
 void

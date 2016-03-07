@@ -71,8 +71,11 @@ Viewer::Viewer(QWidget *parent) :
   m_amb = 1.0;
   m_diff = 0.0;
   m_spec = 1.0;
-  m_isoShadow = 25;
-  m_dzScale = 3.0;
+  m_shadow = 25;
+  m_edge = 3.0;
+
+  m_shadowColor = Vec(0.0,0.0,0.0);
+  m_edgeColor = Vec(0.0,0.0,0.0);
 
 #ifdef USE_GLMEDIA
   m_movieWriter = 0;
@@ -128,8 +131,8 @@ float Viewer::dragStep() { return m_dragStep;}
 void
 Viewer::setStillAndDragStep(float ss, float ds)
 {
-  m_stillStep = qMax(0.2f,ss);
-  m_dragStep = qMax(0.2f,ds);
+  m_stillStep = qMax(0.1f,ss);
+  m_dragStep = qMax(0.1f,ds);
   createRaycastShader();
   update();
 }
@@ -510,6 +513,8 @@ Viewer::createShaders()
   m_eeParm[8] = glGetUniformLocationARB(m_eeShader, "pvtTex");
   m_eeParm[9] = glGetUniformLocationARB(m_eeShader, "lightparm");
   m_eeParm[10] = glGetUniformLocationARB(m_eeShader, "isoshadow");
+  m_eeParm[11] = glGetUniformLocationARB(m_eeShader, "shadowcolor");
+  m_eeParm[12] = glGetUniformLocationARB(m_eeShader, "edgecolor");
   //----------------------
 
 
@@ -1595,7 +1600,7 @@ Viewer::pointRendering()
   glUniform1fARB(m_fpsParm[2], maxZ); // maxZ
   glUniform3fARB(m_fpsParm[3], eyepos.x, eyepos.y, eyepos.z); // eyepos
   glUniform3fARB(m_fpsParm[4], viewDir.x, viewDir.y, viewDir.z); // viewDir
-  glUniform1fARB(m_fpsParm[5], m_dzScale); // dzScale
+  glUniform1fARB(m_fpsParm[5], m_edge);
 
   glPointSize(ptsz);
 
@@ -3991,13 +3996,19 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
       glUniform1fARB(m_eeParm[2], maxZ); // maxZ
       glUniform3fARB(m_eeParm[3], eyepos.x, eyepos.y, eyepos.z); // eyepos
       glUniform3fARB(m_eeParm[4], viewDir.x, viewDir.y, viewDir.z); // viewDir
-      glUniform1fARB(m_eeParm[5], m_dzScale); // dzScale
+      glUniform1fARB(m_eeParm[5], m_edge);
       glUniform1iARB(m_eeParm[6], 5); // tagtex
       glUniform1iARB(m_eeParm[7], 3); // luttex
       glUniform1iARB(m_eeParm[8], 1); // pos, val, tag tex
       glUniform3fARB(m_eeParm[9], m_amb, m_diff, m_spec); // lightparm
-      glUniform1iARB(m_eeParm[10], m_isoShadow); // shadows
-      
+      glUniform1iARB(m_eeParm[10], m_shadow); // shadows
+      glUniform3fARB(m_eeParm[11], m_shadowColor.x/255,
+		                   m_shadowColor.y/255,
+		                   m_shadowColor.z/255);
+      glUniform3fARB(m_eeParm[12], m_edgeColor.x/255,
+		                   m_edgeColor.y/255,
+		                   m_edgeColor.z/255);
+
       StaticFunctions::pushOrthoView(0, 0, wd, ht);
       StaticFunctions::drawQuad(0, 0, wd, ht, 1);
       StaticFunctions::popOrthoView();

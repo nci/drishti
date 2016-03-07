@@ -794,6 +794,9 @@ ShaderFactory::genEdgeEnhanceShader()
   shader += "uniform sampler2DRect pvtTex;\n";
   shader += "uniform vec3 lightparm;\n";
   shader += "uniform int isoshadow;\n";
+  shader += "uniform vec3 shadowcolor;\n";
+  shader += "uniform vec3 edgecolor;\n";
+
   shader += "void main(void)\n";
   shader += "{\n";
   shader += "  gl_FragColor = vec4(0.0);\n";
@@ -888,11 +891,14 @@ ShaderFactory::genEdgeEnhanceShader()
   shader += "        sum += c*step(ege, od);\n";
   shader += "        tele += c;\n";
   shader += "      }\n"; 
-  //shader += "      shadow = 0.2+0.8*(1.0-sum/float(16*isoshadow));\n";
   shader += "      shadow = 0.1 + 0.9*(1.0-sum/tele);\n";
   shader += "    }\n";
 
-  shader += "  vec4 colorSample = vec4(shadow*zedge*color.rgb, 1.0);\n";
+  //shader += "  vec4 colorSample = vec4(shadow*zedge*color.rgb, 1.0);\n";
+
+  shader += "  vec4 colorSample = vec4(color.rgb, 1.0);\n";
+  shader += "  colorSample.rgb = mix(colorSample.rgb, shadowcolor, 1.0-shadow);\n";
+  shader += "  colorSample.rgb = mix(colorSample.rgb, edgecolor, 1.0-zedge);\n";
 
   shader += "   colorSample.rgb *= dot(lightparm, grad);\n";
 

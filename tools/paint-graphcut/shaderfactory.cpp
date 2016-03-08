@@ -425,6 +425,7 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest, bool 
   shader += "uniform bool saveCoord;\n";
   shader += "uniform int skipLayers;\n";
   shader += "uniform sampler2DRect entryTex;\n";
+  shader += "uniform vec3 bgcolor;\n";
 
   shader += "void main(void)\n";
   shader += "{\n";
@@ -592,7 +593,8 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest, bool 
   shader += "}\n";
 
   if (!firstHit)
-    shader += "gl_FragColor = colorAcum;\n";
+    //shader += "gl_FragColor = colorAcum;\n";
+    shader += "gl_FragColor = mix(colorAcum, vec4(bgcolor,1.0), 1.0-colorAcum.a);\n";
   else
     {
       shader += "gl_FragData[0] = colorAcum;\n";
@@ -625,6 +627,7 @@ ShaderFactory::genXRayShader(int maxSteps, bool firstHit, bool nearest, bool use
   shader += "uniform bool saveCoord;\n";
   shader += "uniform int skipLayers;\n";
   shader += "uniform sampler2DRect entryTex;\n";
+  shader += "uniform vec3 bgcolor;\n";
 
   shader += "void main(void)\n";
   shader += "{\n";
@@ -768,8 +771,8 @@ ShaderFactory::genXRayShader(int maxSteps, bool firstHit, bool nearest, bool use
 
   shader += "}\n";
 
-  shader += "gl_FragColor = colorAcum;\n";    
-  //shader += "gl_FragColor = vec4(colorAcum.a);\n";    
+  //shader += "gl_FragColor = colorAcum;\n";    
+  shader += "gl_FragColor = mix(colorAcum, vec4(bgcolor,1.0), 1.0-colorAcum.a);\n";
 
   shader += "}\n";
 
@@ -796,10 +799,11 @@ ShaderFactory::genEdgeEnhanceShader()
   shader += "uniform int isoshadow;\n";
   shader += "uniform vec3 shadowcolor;\n";
   shader += "uniform vec3 edgecolor;\n";
+  shader += "uniform vec3 bgcolor;\n";
 
   shader += "void main(void)\n";
   shader += "{\n";
-  shader += "  gl_FragColor = vec4(0.0);\n";
+  shader += "  gl_FragColor = vec4(bgcolor,1.0);\n";
 
   shader += "  vec2 spos = gl_FragCoord.xy;\n";
   shader += "  vec4 dvt = texture2DRect(pvtTex, spos);\n";
@@ -807,7 +811,7 @@ ShaderFactory::genEdgeEnhanceShader()
 
   //---------------------
   shader += "  float alpha = dvt.w;\n";
-  shader += "  if (alpha < 0.01) discard;\n";
+  shader += "  if (alpha < 0.01) return;\n";
   //---------------------
 
   shader += "  float depth = dvt.x;\n";

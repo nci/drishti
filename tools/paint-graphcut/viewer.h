@@ -91,8 +91,10 @@ class Viewer : public QGLViewer
     void setShadow(int e) { m_shadow = e; update(); }
     void setShadowColor(Vec c) { m_shadowColor = c; update(); }
     void setEdgeColor(Vec c) { m_edgeColor = c; update(); }
+    void setBGColor(Vec c) { m_bgColor = c; update(); }
     Vec shadowColor() { return m_shadowColor; }
     Vec edgeColor() { return m_edgeColor; }
+    Vec bgColor() { return m_bgColor; }
 
     void setUseMask(bool);
     
@@ -125,7 +127,7 @@ class Viewer : public QGLViewer
   float m_amb, m_diff, m_spec;
   int m_shadow;
   float m_edge;
-  Vec m_shadowColor, m_edgeColor;
+  Vec m_shadowColor, m_edgeColor, m_bgColor;
 
   int m_max3DTexSize;
   float m_memSize;

@@ -497,7 +497,7 @@
         <item row="1" column="1">
          <widget class="QDoubleSpinBox" name="stillStep">
           <property name="minimum">
-           <double>0.200000000000000</double>
+           <double>0.100000000000000</double>
           </property>
           <property name="maximum">
            <double>10.000000000000000</double>

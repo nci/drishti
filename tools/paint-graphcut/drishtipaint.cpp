@@ -2112,6 +2112,7 @@ DrishtiPaint::setupLightParameters()
   m_viewShadow = new PopUpSlider(m_viewer, Qt::Horizontal);
   m_shadowButton = new QPushButton("Shadow Color");
   m_edgeButton = new QPushButton("Edge Color");
+  m_bgButton = new QPushButton("Background Color");
 
   m_viewSpec->setText("Specular");
   m_viewEdge->setText("Edges");
@@ -2126,6 +2127,7 @@ DrishtiPaint::setupLightParameters()
 
   QSpacerItem *spitem0 = new QSpacerItem(5,5,QSizePolicy::Minimum, QSizePolicy::Fixed);
   QSpacerItem *spitem1 = new QSpacerItem(5,5,QSizePolicy::Minimum, QSizePolicy::Fixed);
+  QSpacerItem *spitem2 = new QSpacerItem(5,5,QSizePolicy::Minimum, QSizePolicy::Fixed);
   
   viewerUi.popupLight->setMargin(0);
   viewerUi.popupLight->addWidget(m_viewSpec);
@@ -2135,6 +2137,8 @@ DrishtiPaint::setupLightParameters()
   viewerUi.popupLight->addItem(spitem1);
   viewerUi.popupLight->addWidget(m_viewShadow);
   viewerUi.popupLight->addWidget(m_shadowButton);
+  viewerUi.popupLight->addItem(spitem2);
+  viewerUi.popupLight->addWidget(m_bgButton);
 
   connect(m_viewSpec, SIGNAL(valueChanged(int)),
 	  m_viewer, SLOT(setSpec(int)));
@@ -2153,11 +2157,15 @@ DrishtiPaint::setupLightParameters()
 	  m_shadowButton, SLOT(setVisible(bool)));
   connect(viewerUi.lightBox, SIGNAL(clicked(bool)),
 	  m_edgeButton, SLOT(setVisible(bool)));
+  connect(viewerUi.lightBox, SIGNAL(clicked(bool)),
+	  m_bgButton, SLOT(setVisible(bool)));
 
   connect(m_shadowButton, SIGNAL(clicked()),
 	  this, SLOT(getShadowColor()));
   connect(m_edgeButton, SIGNAL(clicked()),
 	  this, SLOT(getEdgeColor()));
+  connect(m_bgButton, SIGNAL(clicked()),
+	  this, SLOT(getBGColor()));
 }
 
 void
@@ -2186,6 +2194,20 @@ DrishtiPaint::getEdgeColor()
 
   sclr = Vec(clr.red(), clr.green(), clr.blue());
   m_viewer->setEdgeColor(sclr);
+}
+
+void
+DrishtiPaint::getBGColor()
+{
+  Vec sclr = m_viewer->bgColor();
+
+  QColor clr = QColor(sclr.x, sclr.y, sclr.z);
+  clr = DColorDialog::getColor(clr);
+  if (!clr.isValid())
+    return;
+
+  sclr = Vec(clr.red(), clr.green(), clr.blue());
+  m_viewer->setBGColor(sclr);
 }
 
 void

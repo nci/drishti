@@ -76,6 +76,7 @@ Viewer::Viewer(QWidget *parent) :
 
   m_shadowColor = Vec(0.0,0.0,0.0);
   m_edgeColor = Vec(0.0,0.0,0.0);
+  m_bgColor = Vec(0.0,0.0,0.0);
 
 #ifdef USE_GLMEDIA
   m_movieWriter = 0;
@@ -481,6 +482,7 @@ Viewer::createRaycastShader()
   m_rcParm[12]= glGetUniformLocationARB(m_rcShader, "skipLayers");
   m_rcParm[13]= glGetUniformLocationARB(m_rcShader, "tagTex");
   m_rcParm[14] = glGetUniformLocationARB(m_rcShader, "entryTex");
+  m_rcParm[15] = glGetUniformLocationARB(m_rcShader, "bgcolor");
 }
 
 void
@@ -515,6 +517,7 @@ Viewer::createShaders()
   m_eeParm[10] = glGetUniformLocationARB(m_eeShader, "isoshadow");
   m_eeParm[11] = glGetUniformLocationARB(m_eeShader, "shadowcolor");
   m_eeParm[12] = glGetUniformLocationARB(m_eeShader, "edgecolor");
+  m_eeParm[13] = glGetUniformLocationARB(m_eeShader, "bgcolor");
   //----------------------
 
 
@@ -3796,6 +3799,11 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
 
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     }
+  else
+    {
+      glClearColor(m_bgColor.x/255, m_bgColor.y/255, m_bgColor.z/255, 0);
+      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    }
   //----------------------------
 
 
@@ -3822,6 +3830,9 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
   glUniform1iARB(m_rcParm[12],m_skipLayers); // skip first layers
   glUniform1iARB(m_rcParm[13],5); // tagTex
   glUniform1iARB(m_rcParm[14],6); // slcTex[0] - contains entry coordinates
+  glUniform3fARB(m_rcParm[15], m_bgColor.x/255,
+		               m_bgColor.y/255,
+		               m_bgColor.z/255);
 
   glActiveTexture(GL_TEXTURE1);
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
@@ -4008,6 +4019,9 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
       glUniform3fARB(m_eeParm[12], m_edgeColor.x/255,
 		                   m_edgeColor.y/255,
 		                   m_edgeColor.z/255);
+      glUniform3fARB(m_eeParm[13], m_bgColor.x/255,
+		                   m_bgColor.y/255,
+		                   m_bgColor.z/255);
 
       StaticFunctions::pushOrthoView(0, 0, wd, ht);
       StaticFunctions::drawQuad(0, 0, wd, ht, 1);

@@ -141,6 +141,7 @@ class DrishtiPaint : public QMainWindow
 
   void getShadowColor();
   void getEdgeColor();
+  void getBGColor();
 
  private :
   Ui::DrishtiPaint ui;
@@ -181,6 +182,7 @@ class DrishtiPaint : public QMainWindow
   PopUpSlider *m_viewShadow;
   QPushButton *m_shadowButton;
   QPushButton *m_edgeButton;
+  QPushButton *m_bgButton;
 
   void setFile(QString);
   void initTagColors();

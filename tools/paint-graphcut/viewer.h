@@ -97,6 +97,7 @@ class Viewer : public QGLViewer
     Vec bgColor() { return m_bgColor; }
 
     void setUseMask(bool);
+    void setBoxSize(int);
     
  signals :
     void paint3D(int, int, int, int, int);
@@ -250,7 +251,7 @@ class Viewer : public QGLViewer
   void grabScreenImage();
   void drawScreenImage();
 
-  void drawBox();
+  void drawWireframeBox();
 
   void drawMMDCurve();
   void drawMMWCurve();

@@ -23,9 +23,11 @@ public slots:
   void increaseValue();
   void decreaseValue();
   void setValue(int value);
+  void emitSliderReleased();
 
 signals:
   void valueChanged(int value);
+  void sliderReleased(int value);
 
 private:
   QMenu *menu;

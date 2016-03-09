@@ -71,7 +71,7 @@ Viewer::Viewer(QWidget *parent) :
   m_amb = 1.0;
   m_diff = 0.0;
   m_spec = 1.0;
-  m_shadow = 25;
+  m_shadow = 5;
   m_edge = 3.0;
 
   m_shadowColor = Vec(0.0,0.0,0.0);
@@ -203,6 +203,13 @@ Viewer::GlewInit()
 }
 
 void
+Viewer::setBoxSize(int b)
+{ 
+  m_boxSize = qPow(2,4+b);
+  generateBoxMinMax();  
+}
+
+void
 Viewer::init()
 {
   m_infoText = true;
@@ -217,7 +224,7 @@ Viewer::init()
   m_exactCoord = false;
 
   m_dbox = m_wbox = m_hbox = 0;
-  m_boxSize = 32;
+  m_boxSize = 64;
   m_boxMinMax.clear();
   m_filledBoxes.clear();
 
@@ -1156,6 +1163,12 @@ Viewer::setGridSize(int d, int w, int h)
 		     (m_maxDSlice+m_minDSlice))/2);		 
   showEntireScene();
 
+
+  // set optimal box size
+  //m_boxSize = qMax(m_height/16, m_width/16);
+  //m_boxSize = qMax((qint64)m_boxSize, m_depth/16);
+  //m_boxSize = qMax(m_boxSize, 16);
+
   generateBoxMinMax();
 }
 
@@ -1231,7 +1244,7 @@ Viewer::drawCurrentSlice(Vec subvolmin,
 }
 
 void
-Viewer::drawBox()
+Viewer::drawWireframeBox()
 {
 
   //setAxisIsDrawn();
@@ -1389,7 +1402,7 @@ Viewer::draw()
        (!m_volPtr || !m_maskPtr)) && m_showBox)
     {
       m_boundingBox.draw();
-      drawBox();
+      drawWireframeBox();
     }
 
   drawMMDCurve();
@@ -1467,7 +1480,7 @@ Viewer::raycasting()
   if (m_showBox)
     {
       m_boundingBox.draw();
-      drawBox();
+      drawWireframeBox();
     }
   
   glEnable(GL_DEPTH_TEST);
@@ -3384,33 +3397,6 @@ Viewer::drawBox(GLenum glFaces)
 	}
     }
 
-//  Vec box[8];
-//  box[0] = Vec(bminO.x,bminO.y,bminO.z);
-//  box[1] = Vec(bminO.x,bminO.y,bmaxO.z);
-//  box[2] = Vec(bminO.x,bmaxO.y,bminO.z);
-//  box[3] = Vec(bminO.x,bmaxO.y,bmaxO.z);
-//  box[4] = Vec(bmaxO.x,bminO.y,bminO.z);
-//  box[5] = Vec(bmaxO.x,bminO.y,bmaxO.z);
-//  box[6] = Vec(bmaxO.x,bmaxO.y,bminO.z);
-//  box[7] = Vec(bmaxO.x,bmaxO.y,bmaxO.z);
-//  float xmin, xmax, ymin, ymax, zmin, zmax;
-//  xmin = (bminO.x-m_minHSlice)/(m_maxHSlice-m_minHSlice);
-//  xmax = (bmaxO.x-m_minHSlice)/(m_maxHSlice-m_minHSlice);
-//  ymin = (bminO.y-m_minWSlice)/(m_maxWSlice-m_minWSlice);
-//  ymax = (bmaxO.y-m_minWSlice)/(m_maxWSlice-m_minWSlice);
-//  zmin = (bminO.z-m_minDSlice)/(m_maxDSlice-m_minDSlice);
-//  zmax = (bmaxO.z-m_minDSlice)/(m_maxDSlice-m_minDSlice);  
-//  Vec col[8];
-//  col[0] = Vec(xmin,ymin,zmin);
-//  col[1] = Vec(xmin,ymin,zmax);
-//  col[2] = Vec(xmin,ymax,zmin);
-//  col[3] = Vec(xmin,ymax,zmax);  
-//  col[4] = Vec(xmax,ymin,zmin);
-//  col[5] = Vec(xmax,ymin,zmax);  
-//  col[6] = Vec(xmax,ymax,zmin);
-//  col[7] = Vec(xmax,ymax,zmax);
-//  drawClipFaces(&box[0], &col[0]);
-
   glDisable(GL_CULL_FACE);
 }
 
@@ -3774,7 +3760,6 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
   drawBox(GL_BACK);
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
   //----------------------------
-
 
   //----------------------------
   if (!m_fullRender || firstPartOnly)
@@ -4599,7 +4584,7 @@ Viewer::saveMovie()
 void
 Viewer::generateBoxMinMax()
 {
-  QProgressDialog progress("Updating min-max structure",
+  QProgressDialog progress(QString("Updating min-max structure (%1)").arg(m_boxSize),
 			   QString(),
 			   0, 100,
 			   0);

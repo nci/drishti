@@ -879,26 +879,48 @@ ShaderFactory::genEdgeEnhanceShader()
 
   shader += "  float shadow = 1.0;\n";
 
+//  shader += "  if (isoshadow > 0)\n";
+//  shader += "    {\n";
+//  shader += "      float tele = 0.0;\n";
+//  shader += "      for(int i=0; i<(16*isoshadow); i++)\n";
+//  shader += "      {\n";
+//  shader += "        int j = int(mod(float(i),8.0));\n";
+//  shader += "        int k = int(sign(cx[j]));\n";
+//  shader += "        int l = int(sign(cy[j]));\n";
+//  shader += "        k *= 2*(i/8);\n";
+//  shader += "        l *= 2*(i/8);\n";
+//  shader += "        float od = depth - texture2DRect(pvtTex, spos+vec2(k+cx[j],l+cy[j])).x;\n";
+//  shader += "        float ege = float(i/8)*0.001;\n";
+//  shader += "        float c = 1.0/(1.0+float(i/8));\n";
+//  shader += "        sum += c*step(ege, od);\n";
+//  shader += "        tele += c;\n";
+//  shader += "      }\n"; 
+//  shader += "      shadow = 0.1 + 0.9*(1.0-sum/tele);\n";
+//  shader += "    }\n";
+
+
   shader += "  if (isoshadow > 0)\n";
   shader += "    {\n";
   shader += "      float tele = 0.0;\n";
-  shader += "      for(int i=0; i<(16*isoshadow); i++)\n";
+  shader += "      float r = 1.0;\n";
+  shader += "      float theta = 0.0;\n";
+  shader += "      int cnt = 4;\n";
+  shader += "      for(int i=0; i<(20*isoshadow); i++)\n";
   shader += "      {\n";
-  shader += "        int j = int(mod(float(i),8.0));\n";
-  shader += "        int k = int(sign(cx[j]));\n";
-  shader += "        int l = int(sign(cy[j]));\n";
-  shader += "        k *= 2*(i/8);\n";
-  shader += "        l *= 2*(i/8);\n";
-  shader += "        float od = depth - texture2DRect(pvtTex, spos+vec2(k+cx[j],l+cy[j])).x;\n";
+  shader += "        int x = int(r*1.2*sin(theta));\n";
+  shader += "        int y = int(r*1.2*cos(theta));\n";
+  shader += "        float od = depth - texture2DRect(pvtTex, spos+vec2(x,y)).x;\n";
   shader += "        float ege = float(i/8)*0.001;\n";
-  shader += "        float c = 1.0/(1.0+float(i/8));\n";
+  shader += "        float c = 1.0/(1.0+float(i/(r+3.0)));\n";
   shader += "        sum += c*step(ege, od);\n";
   shader += "        tele += c;\n";
+  shader += "        r += i/cnt;\n";
+  shader += "        theta += 6.28/(r+3.0);\n";  
+  shader += "        if (i>=cnt) cnt = cnt+int(r)+3;\n";
   shader += "      }\n"; 
-  shader += "      shadow = 0.1 + 0.9*(1.0-sum/tele);\n";
+  shader += "      shadow = (1.0-sum/tele);\n";
   shader += "    }\n";
 
-  //shader += "  vec4 colorSample = vec4(shadow*zedge*color.rgb, 1.0);\n";
 
   shader += "  vec4 colorSample = vec4(color.rgb, 1.0);\n";
   shader += "  colorSample.rgb = mix(colorSample.rgb, shadowcolor, 1.0-shadow);\n";

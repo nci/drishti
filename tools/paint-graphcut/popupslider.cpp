@@ -13,6 +13,7 @@ PopUpSlider::PopUpSlider(QWidget *parent, Qt::Orientation sliderType) :
   slider = new QSlider(sliderType, popup);
   slider->setRange(0, 1000);
   connect(slider, SIGNAL(valueChanged(int)), this, SIGNAL(valueChanged(int)));
+  connect(slider, SIGNAL(sliderReleased()), this, SLOT(emitSliderReleased()));
   
   label = new QLabel(popup);
   label->setAlignment(Qt::AlignCenter);
@@ -63,4 +64,9 @@ int PopUpSlider::value() const
 void PopUpSlider::setValue(int value)
 {
     slider->setValue(value);
+}
+
+void PopUpSlider::emitSliderReleased()
+{
+  emit sliderReleased(slider->value());
 }

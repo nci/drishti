@@ -859,6 +859,8 @@ DrishtiPaint::updateComposite()
   m_imageWidget->loadLookupTable(colorMap);
 
   m_volume->createBitmask();
+
+  //m_viewer->updateFilledBoxes();
 }
 
 void
@@ -2122,14 +2124,14 @@ DrishtiPaint::setupLightParameters()
   m_viewSpec->setValue(10);
   m_viewEdge->setRange(0, 10);
   m_viewEdge->setValue(3);
-  m_viewShadow->setRange(0, 10);
+  m_viewShadow->setRange(0, 20);
   m_viewShadow->setValue(5);
 
   QSpacerItem *spitem0 = new QSpacerItem(5,5,QSizePolicy::Minimum, QSizePolicy::Fixed);
   QSpacerItem *spitem1 = new QSpacerItem(5,5,QSizePolicy::Minimum, QSizePolicy::Fixed);
   QSpacerItem *spitem2 = new QSpacerItem(5,5,QSizePolicy::Minimum, QSizePolicy::Fixed);
   
-  viewerUi.popupLight->setMargin(0);
+  viewerUi.popupLight->setMargin(2);
   viewerUi.popupLight->addWidget(m_viewSpec);
   viewerUi.popupLight->addItem(spitem0);
   viewerUi.popupLight->addWidget(m_viewEdge);

@@ -2125,7 +2125,7 @@ DrishtiPaint::setupLightParameters()
   m_viewEdge->setRange(0, 10);
   m_viewEdge->setValue(3);
   m_viewShadow->setRange(0, 20);
-  m_viewShadow->setValue(5);
+  m_viewShadow->setValue(10);
 
   QSpacerItem *spitem0 = new QSpacerItem(5,5,QSizePolicy::Minimum, QSizePolicy::Fixed);
   QSpacerItem *spitem1 = new QSpacerItem(5,5,QSizePolicy::Minimum, QSizePolicy::Fixed);

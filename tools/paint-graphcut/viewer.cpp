@@ -71,7 +71,7 @@ Viewer::Viewer(QWidget *parent) :
   m_amb = 1.0;
   m_diff = 0.0;
   m_spec = 1.0;
-  m_shadow = 5;
+  m_shadow = 10;
   m_edge = 3.0;
 
   m_shadowColor = Vec(0.0,0.0,0.0);

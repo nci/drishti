@@ -905,12 +905,13 @@ ShaderFactory::genEdgeEnhanceShader()
   shader += "      float r = 1.0;\n";
   shader += "      float theta = 0.0;\n";
   shader += "      int cnt = 4;\n";
+  shader += "      float ege = 0.0;\n";
   shader += "      for(int i=0; i<(20*isoshadow); i++)\n";
   shader += "      {\n";
   shader += "        int x = int(r*1.2*sin(theta));\n";
   shader += "        int y = int(r*1.2*cos(theta));\n";
   shader += "        float od = depth - texture2DRect(pvtTex, spos+vec2(x,y)).x;\n";
-  shader += "        float ege = float(i/8)*0.001;\n";
+  shader += "        float ege = float(i/9)*0.001;\n";
   shader += "        float c = 1.0/(1.0+float(i/(r+3.0)));\n";
   shader += "        sum += c*step(ege, od);\n";
   shader += "        tele += c;\n";

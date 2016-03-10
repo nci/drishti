@@ -800,14 +800,17 @@ ShaderFactory::genEdgeEnhanceShader()
   shader += "uniform vec3 shadowcolor;\n";
   shader += "uniform vec3 edgecolor;\n";
   shader += "uniform vec3 bgcolor;\n";
+  shader += "uniform vec2 shdoffset;\n";
 
   shader += "void main(void)\n";
   shader += "{\n";
   shader += "  gl_FragColor = vec4(bgcolor,1.0);\n";
 
-  shader += "  vec2 spos = gl_FragCoord.xy;\n";
-  shader += "  vec4 dvt = texture2DRect(pvtTex, spos);\n";
-  shader += "  vec3 grad = texture2DRect(normalTex, spos).xyz;\n";
+  shader += "  vec2 spos0 = gl_FragCoord.xy;\n";
+  shader += "  vec2 spos = spos0 + vec2(shdoffset.x,shdoffset.y);\n";
+
+  shader += "  vec4 dvt = texture2DRect(pvtTex, spos0);\n";
+  shader += "  vec3 grad = texture2DRect(normalTex, spos0).xyz;\n";
 
   //---------------------
   shader += "  float alpha = dvt.w;\n";
@@ -840,7 +843,7 @@ ShaderFactory::genEdgeEnhanceShader()
   shader += "    vec3 rgb = vec3(0.0);\n";
   shader += "    for(int i=0; i<9; i++)\n";
   shader += "    {\n";
-  shader += "       val = texture2DRect(pvtTex, spos+vec2(1.0,0.0)).y;\n";
+  shader += "       val = texture2DRect(pvtTex, spos0+vec2(1.0,0.0)).y;\n";
   shader += "       color = texture2D(lutTex,vec2(val,0.0));\n";
   shader += "       rgb += color.rgb;\n";
   shader += "    }\n";
@@ -853,8 +856,8 @@ ShaderFactory::genEdgeEnhanceShader()
   shader += "  float zedge = 1.0;\n";
   shader += "  if (dzScale > 0.0)\n";
   shader += "  {\n";
-  shader += "    float dx = texture2DRect(pvtTex, spos+vec2(1.0,0.0)).x - texture2DRect(pvtTex, spos-vec2(1.0,0.0)).x;\n";
-  shader += "    float dy = texture2DRect(pvtTex, spos+vec2(0.0,1.0)).x - texture2DRect(pvtTex, spos-vec2(0.0,1.0)).x;\n";
+  shader += "    float dx = texture2DRect(pvtTex, spos0+vec2(1.0,0.0)).x - texture2DRect(pvtTex, spos0-vec2(1.0,0.0)).x;\n";
+  shader += "    float dy = texture2DRect(pvtTex, spos0+vec2(0.0,1.0)).x - texture2DRect(pvtTex, spos0-vec2(0.0,1.0)).x;\n";
   shader += "    zedge = 0.5+dzScale/2.0;\n";
   shader += "    vec3 norm = normalize(vec3(dx, dy, (zedge*zedge)/(maxZ-minZ)));\n";  
   shader += "    zedge = norm.z;\n";
@@ -866,38 +869,7 @@ ShaderFactory::genEdgeEnhanceShader()
   shader += "  float ege2 = 0.03;\n";
   shader += "  float sum = 0.0;\n";
   shader += "  float od = 0.0;\n";
-
-  float cx[8] = {-1.0, 1.0, 0.0, 0.0,-2.0,-2.0, 2.0, 2.0};
-  float cy[8] = {0.0, 0.0, -1.0, 1.0,-2.0, 2.0,-2.0, 2.0};
-
-  shader += "  float cx[8];\n";
-  shader += "  float cy[8];\n";
-  for(int i=0; i<8; i++)
-    shader += QString("  cx[%1] = float(%2);\n").arg(i).arg(cx[i]);
-  for(int i=0; i<8; i++)
-    shader += QString("  cy[%1] = float(%2);\n").arg(i).arg(cy[i]);
-
   shader += "  float shadow = 1.0;\n";
-
-//  shader += "  if (isoshadow > 0)\n";
-//  shader += "    {\n";
-//  shader += "      float tele = 0.0;\n";
-//  shader += "      for(int i=0; i<(16*isoshadow); i++)\n";
-//  shader += "      {\n";
-//  shader += "        int j = int(mod(float(i),8.0));\n";
-//  shader += "        int k = int(sign(cx[j]));\n";
-//  shader += "        int l = int(sign(cy[j]));\n";
-//  shader += "        k *= 2*(i/8);\n";
-//  shader += "        l *= 2*(i/8);\n";
-//  shader += "        float od = depth - texture2DRect(pvtTex, spos+vec2(k+cx[j],l+cy[j])).x;\n";
-//  shader += "        float ege = float(i/8)*0.001;\n";
-//  shader += "        float c = 1.0/(1.0+float(i/8));\n";
-//  shader += "        sum += c*step(ege, od);\n";
-//  shader += "        tele += c;\n";
-//  shader += "      }\n"; 
-//  shader += "      shadow = 0.1 + 0.9*(1.0-sum/tele);\n";
-//  shader += "    }\n";
-
 
   shader += "  if (isoshadow > 0)\n";
   shader += "    {\n";
@@ -906,15 +878,18 @@ ShaderFactory::genEdgeEnhanceShader()
   shader += "      float theta = 0.0;\n";
   shader += "      int cnt = 4;\n";
   shader += "      float ege = 0.0;\n";
+  shader += "      int j = 0;\n";
   shader += "      for(int i=0; i<(20*isoshadow); i++)\n";
   shader += "      {\n";
-  shader += "        int x = int(r*1.2*sin(theta));\n";
-  shader += "        int y = int(r*1.2*cos(theta));\n";
-  shader += "        float od = depth - texture2DRect(pvtTex, spos+vec2(x,y)).x;\n";
-  shader += "        float ege = float(i/9)*0.001;\n";
-  shader += "        float c = 1.0/(1.0+float(i/(r+3.0)));\n";
-  shader += "        sum += c*step(ege, od);\n";
-  shader += "        tele += c;\n";
+  shader += "        int x = int(r*sin(theta));\n";
+  shader += "        int y = int(r*cos(theta));\n";
+  //shader += "        vec2 pos = spos + vec2(x,y);\n";
+  shader += "        vec2 pos = spos0 + vec2(i*0.05,i*0.05)*shdoffset + vec2(x,y);\n";
+  shader += "        float od = depth - texture2DRect(pvtTex, pos).x;\n";
+  shader += "        float wt = abs(spos0.x-pos.x)+abs(spos0.y-pos.y);\n";
+  shader += "        float ege = (wt-1.0)*0.0005;\n";
+  shader += "        sum += step(ege, od);\n";
+  shader += "        tele ++;\n";
   shader += "        r += i/cnt;\n";
   shader += "        theta += 6.28/(r+3.0);\n";  
   shader += "        if (i>=cnt) cnt = cnt+int(r)+3;\n";

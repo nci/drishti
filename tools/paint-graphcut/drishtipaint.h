@@ -180,6 +180,8 @@ class DrishtiPaint : public QMainWindow
   PopUpSlider *m_viewSpec;
   PopUpSlider *m_viewEdge;
   PopUpSlider *m_viewShadow;
+  PopUpSlider *m_shadowX;
+  PopUpSlider *m_shadowY;
   QPushButton *m_shadowButton;
   QPushButton *m_edgeButton;
   QPushButton *m_bgButton;

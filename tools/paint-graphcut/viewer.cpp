@@ -73,6 +73,8 @@ Viewer::Viewer(QWidget *parent) :
   m_spec = 1.0;
   m_shadow = 10;
   m_edge = 3.0;
+  m_shdX = 0;
+  m_shdY = 0;
 
   m_shadowColor = Vec(0.0,0.0,0.0);
   m_edgeColor = Vec(0.0,0.0,0.0);
@@ -525,6 +527,7 @@ Viewer::createShaders()
   m_eeParm[11] = glGetUniformLocationARB(m_eeShader, "shadowcolor");
   m_eeParm[12] = glGetUniformLocationARB(m_eeShader, "edgecolor");
   m_eeParm[13] = glGetUniformLocationARB(m_eeShader, "bgcolor");
+  m_eeParm[14] = glGetUniformLocationARB(m_eeShader, "shdoffset");
   //----------------------
 
 
@@ -4007,6 +4010,7 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
       glUniform3fARB(m_eeParm[13], m_bgColor.x/255,
 		                   m_bgColor.y/255,
 		                   m_bgColor.z/255);
+      glUniform2fARB(m_eeParm[14], m_shdX, -m_shdY);
 
       StaticFunctions::pushOrthoView(0, 0, wd, ht);
       StaticFunctions::drawQuad(0, 0, wd, ht, 1);

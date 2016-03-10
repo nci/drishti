@@ -96,6 +96,11 @@ class Viewer : public QGLViewer
     Vec edgeColor() { return m_edgeColor; }
     Vec bgColor() { return m_bgColor; }
 
+    void setShadowOffsetX(int x) { m_shdX = x; update(); }
+    void setShadowOffsetY(int y) { m_shdY = y; update(); }
+    int shadowOffsetX() { return m_shdX; }
+    int shadowOffsetY() { return m_shdY; }
+
     void setUseMask(bool);
     void setBoxSize(int);
     
@@ -129,6 +134,7 @@ class Viewer : public QGLViewer
   int m_shadow;
   float m_edge;
   Vec m_shadowColor, m_edgeColor, m_bgColor;
+  int m_shdX, m_shdY;
 
   int m_max3DTexSize;
   float m_memSize;

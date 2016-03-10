@@ -2112,6 +2112,8 @@ DrishtiPaint::setupLightParameters()
   m_viewSpec = new PopUpSlider(m_viewer, Qt::Horizontal);
   m_viewEdge = new PopUpSlider(m_viewer, Qt::Horizontal);
   m_viewShadow = new PopUpSlider(m_viewer, Qt::Horizontal);
+  m_shadowX = new PopUpSlider(m_viewer, Qt::Horizontal);
+  m_shadowY = new PopUpSlider(m_viewer, Qt::Horizontal);
   m_shadowButton = new QPushButton("Shadow Color");
   m_edgeButton = new QPushButton("Edge Color");
   m_bgButton = new QPushButton("Background Color");
@@ -2119,6 +2121,8 @@ DrishtiPaint::setupLightParameters()
   m_viewSpec->setText("Specular");
   m_viewEdge->setText("Edges");
   m_viewShadow->setText("Shadow");
+  m_shadowX->setText("Shadow X");
+  m_shadowY->setText("Shadow Y");
 
   m_viewSpec->setRange(0, 10);
   m_viewSpec->setValue(10);
@@ -2126,6 +2130,10 @@ DrishtiPaint::setupLightParameters()
   m_viewEdge->setValue(3);
   m_viewShadow->setRange(0, 20);
   m_viewShadow->setValue(10);
+  m_shadowX->setRange(-5, 5);
+  m_shadowX->setValue(0);
+  m_shadowY->setRange(-5, 5);
+  m_shadowY->setValue(0);
 
   QSpacerItem *spitem0 = new QSpacerItem(5,5,QSizePolicy::Minimum, QSizePolicy::Fixed);
   QSpacerItem *spitem1 = new QSpacerItem(5,5,QSizePolicy::Minimum, QSizePolicy::Fixed);
@@ -2139,6 +2147,8 @@ DrishtiPaint::setupLightParameters()
   viewerUi.popupLight->addItem(spitem1);
   viewerUi.popupLight->addWidget(m_viewShadow);
   viewerUi.popupLight->addWidget(m_shadowButton);
+  viewerUi.popupLight->addWidget(m_shadowX);
+  viewerUi.popupLight->addWidget(m_shadowY);
   viewerUi.popupLight->addItem(spitem2);
   viewerUi.popupLight->addWidget(m_bgButton);
 
@@ -2148,6 +2158,10 @@ DrishtiPaint::setupLightParameters()
 	  m_viewer, SLOT(setEdge(int)));
   connect(m_viewShadow, SIGNAL(valueChanged(int)),
 	  m_viewer, SLOT(setShadow(int)));
+  connect(m_shadowX, SIGNAL(valueChanged(int)),
+	  m_viewer, SLOT(setShadowOffsetX(int)));
+  connect(m_shadowY, SIGNAL(valueChanged(int)),
+	  m_viewer, SLOT(setShadowOffsetY(int)));
 
   connect(viewerUi.lightBox, SIGNAL(clicked(bool)),
 	  m_viewSpec, SLOT(setVisible(bool)));
@@ -2155,6 +2169,10 @@ DrishtiPaint::setupLightParameters()
 	  m_viewEdge, SLOT(setVisible(bool)));
   connect(viewerUi.lightBox, SIGNAL(clicked(bool)),
 	  m_viewShadow, SLOT(setVisible(bool)));
+  connect(viewerUi.lightBox, SIGNAL(clicked(bool)),
+	  m_shadowX, SLOT(setVisible(bool)));
+  connect(viewerUi.lightBox, SIGNAL(clicked(bool)),
+	  m_shadowY, SLOT(setVisible(bool)));
   connect(viewerUi.lightBox, SIGNAL(clicked(bool)),
 	  m_shadowButton, SLOT(setVisible(bool)));
   connect(viewerUi.lightBox, SIGNAL(clicked(bool)),

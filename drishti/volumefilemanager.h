@@ -2,11 +2,10 @@
 #define VOLUMEFILEMANAGER_H
 
 #include "commonqtclasses.h"
+
+#include <QProgressDialog>
 #include <QStringList>
 #include <QFile>
-
-#include <fstream>
-using namespace std;
 
 class VolumeFileManager
 {
@@ -24,10 +23,17 @@ class VolumeFileManager
     _Float
   };
 
+  void reset();
+
   QString fileName();
   bool exists();
 
   void closeQFile();
+
+  void setMemMapped(bool);
+  bool isMemMapped();
+
+  void setMemChanged(bool);
 
   void setFilenameList(QStringList);
   void setBaseFilename(QString);
@@ -38,12 +44,7 @@ class VolumeFileManager
   void setDepth(int);
   void setWidth(int);
   void setHeight(int);
-  void createFile(bool);
-
-  QStringList filenameList();
-  QString baseFilename();
-  int headerSize();
-  int slabSize();
+  void createFile(bool, bool writeData=false);
 
   int depth();
   int width();
@@ -55,7 +56,12 @@ class VolumeFileManager
   void removeFile();
 
   uchar* getSlice(int);
+  uchar* getWidthSlice(int);
+  uchar* getHeightSlice(int);
+
   void setSlice(int, uchar*);
+  void setWidthSlice(int, uchar*);
+  void setHeightSlice(int, uchar*);
 
   uchar* rawValue(int, int, int);
   uchar* interpolatedRawValue(float, float, float);
@@ -64,10 +70,25 @@ class VolumeFileManager
   void endBlockInterpolation();
   uchar* blockInterpolatedRawValue(float, float, float);
 
-  void save(fstream&);
-  void load(fstream&);
+  void loadMemFile();
+  void saveMemFile();
+  uchar* getSliceMem(int);
+  void setSliceMem(int, uchar*);
+  uchar* getWidthSliceMem(int);
+  void setWidthSliceMem(int, uchar*);
+  uchar* getHeightSliceMem(int);
+  void setHeightSliceMem(int, uchar*);
+  uchar* rawValueMem(int, int, int);
+
+  bool setValueMem(int, int, int, int);
+
+  uchar* memVolDataPtr() { return m_volData; }
+
+  void saveBlock(int, int, int, int, int, int);
 
  private :
+  bool m_memmapped;
+  bool m_memChanged;
   QString m_baseFilename;
   QStringList m_filenames;
   qint64 m_header, m_slabSize;
@@ -82,10 +103,11 @@ class VolumeFileManager
   QString m_filename;
   int m_slabno, m_prevslabno;  
 
-  void reset();
+  uchar *m_volData;
+
   void readBlocks(int);
 
-  void resetSlice();
+  void createMemFile();  
 };
 
 #endif

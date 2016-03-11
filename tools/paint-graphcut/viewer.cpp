@@ -1469,6 +1469,9 @@ Viewer::raycasting()
       minZ = qMin(minZ, zv);
       maxZ = qMax(maxZ, zv);
     }
+  
+  glEnable(GL_DEPTH_TEST);
+  glDisable(GL_BLEND);
 
 
   volumeRaycast(minZ, maxZ, false); // run full raycast process

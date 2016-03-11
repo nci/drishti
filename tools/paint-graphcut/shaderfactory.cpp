@@ -894,7 +894,7 @@ ShaderFactory::genEdgeEnhanceShader()
   shader += "        theta += 6.28/(r+3.0);\n";  
   shader += "        if (i>=cnt) cnt = cnt+int(r)+3;\n";
   shader += "      }\n"; 
-  shader += "      shadow = (1.0-sum/tele);\n";
+  shader += "      shadow = 0.1 + 0.9*(1.0-sum/tele);\n";
   shader += "    }\n";
 
 

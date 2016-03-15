@@ -238,7 +238,11 @@ HEADERS += boundingbox.h \
 	   gilightobject.h \
 	   gilightinfo.h \
 	   gilightobjectinfo.h \
-	   videoplayer.h
+	   videoplayer.h \
+	   mybitarray.h \
+	   rcviewer.h \
+	   rcshaderfactory.h
+
 
 SOURCES += boundingbox.cpp \
            blendshaderfactory.cpp \
@@ -369,4 +373,7 @@ SOURCES += boundingbox.cpp \
 	   gilightobject.cpp \
 	   gilightinfo.cpp \
 	   gilightobjectinfo.cpp \
-	   videoplayer.cpp
+	   videoplayer.cpp \
+	   mybitarray.cpp \
+	   rcviewer.cpp \
+	   rcshaderfactory.cpp

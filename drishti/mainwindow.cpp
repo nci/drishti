@@ -2384,6 +2384,14 @@ MainWindow::postLoadVolume()
       ui.actionSwitch_To1D->setChecked(Global::use1D());
       m_tfContainer->switch1D();
     }
+
+  //---------------------
+  if (Global::volumeType() == Global::SingleVolume)
+    m_Viewer->setVolDataPtr(m_Volume->pvlFileManager(0));
+  else
+    m_Viewer->setVolDataPtr(0);
+  
+  //---------------------
 }
 
 void

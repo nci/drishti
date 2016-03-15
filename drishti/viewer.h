@@ -18,6 +18,8 @@ using namespace qglviewer;
 #include "messagedisplayer.h"
 #include "volume.h"
 
+#include "rcviewer.h"
+
 class ViewerUndo
 {
  public :
@@ -76,6 +78,9 @@ class Viewer : public QGLViewer
   void imageSize(int&, int&);
 
   void setUseFBO(bool);
+
+  void setVolDataPtr(VolumeFileManager*);
+
  public slots :
   void setTag(int);
   void setCarveRadius(int);
@@ -234,6 +239,11 @@ class Viewer : public QGLViewer
   bool m_disableRotationInViewport;
   QSpinBox *m_tagSpinBox;
   QSpinBox *m_radSpinBox;
+
+
+  RcViewer m_rcViewer;  
+  bool m_rcMode;
+
 
   void initSocket();
   void processSocketData(QString);

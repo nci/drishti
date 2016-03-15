@@ -165,6 +165,8 @@ Viewer::reloadData()
   Vec bmin, bmax;
   m_lowresVolume->subvolumeBounds(bmin, bmax);
 
+  m_rcViewer.updateSubvolume(bmin, bmax);
+
   if (Global::volumeType() == Global::RGBVolume)
     m_hiresVolume->updateSubvolume(Global::volumeNumber(),
 				   bmin, bmax, true);
@@ -209,6 +211,12 @@ Viewer::switchToHires()
 
   Vec bmin, bmax;
   m_lowresVolume->subvolumeBounds(bmin, bmax);
+
+
+  m_rcViewer.resizeGL(camera()->screenWidth(),
+		      camera()->screenHeight());
+  m_rcViewer.updateSubvolume(bmin, bmax);
+
 
   if (Global::volumeType() == Global::RGBVolume)
     m_hiresVolume->updateSubvolume(Global::volumeNumber(),
@@ -360,6 +368,8 @@ Viewer::resizeGL(int width, int height)
   QGLViewer::resizeGL(width, height);
 
   createImageBuffers();
+
+  m_rcViewer.resizeGL(width, height);
 }
 
 void
@@ -458,7 +468,9 @@ Viewer::Viewer(QWidget *parent) :
   m_undo.clear();
 
   setMouseTracking(true);
-  
+
+  m_rcMode = false;
+
   m_currFrame = 1;
   Global::setFrameNumber(m_currFrame);
 
@@ -552,6 +564,9 @@ Viewer::Viewer(QWidget *parent) :
   connect(m_radSpinBox, SIGNAL(valueChanged(int)),
 	  this, SLOT(setCarveRadius(int)));
   m_radSpinBox->hide();
+
+  m_rcViewer.setViewer(this);
+  m_rcViewer.init();
 }
 
 void
@@ -825,6 +840,8 @@ Viewer::resetLookupTable()
 
   updateLookupTable();
   update();
+
+  m_rcViewer.setLut(m_lut);
 }
 
 void
@@ -1082,6 +1099,11 @@ Viewer::bindFBOs(int imagequality)
 {
   if (m_lowresVolume->raised())
     return false;
+
+
+  if (m_rcMode)
+    return false;
+
 
   bool fboBound = false;
 
@@ -2268,23 +2290,46 @@ Viewer::fastDraw()
       return;
     }
 
-  if (!Global::updateViewer())
+  if (m_hiresVolume->raised() && m_rcMode)
     {
-      showBackBufferImage();
-      return;
+
+      glClearDepth(1);
+      glClear(GL_DEPTH_BUFFER_BIT);
+      glDisable(GL_LIGHTING);
+      glDepthFunc(GL_LESS);
+      glEnable(GL_DEPTH_TEST);
+      glShadeModel(GL_SMOOTH);
+      glEnable(GL_MULTISAMPLE);
+
+      int ow = QGLViewer::size().width();
+      int oh = QGLViewer::size().height();
+      glViewport(0,0, ow, oh); 
+
+      glClearColor(0,0,0,1);
+      glClear(GL_COLOR_BUFFER_BIT);
+
+      m_rcViewer.fastDraw();
     }
-
-  setBackgroundColor(QColor(0, 0, 0, 0));
-
-  if (m_messageDisplayer->showingMessage())
-    m_messageDisplayer->turnOffMessage();
-
-  if (m_lowresVolume && m_hiresVolume)
+  else
     {
-      if (Global::useStillVolume())
-	renderVolume(Enums::StillImage);
-      else
-	renderVolume(Enums::DragImage);
+      if (!Global::updateViewer())
+	{
+	  showBackBufferImage();
+	  return;
+	}
+      
+      setBackgroundColor(QColor(0, 0, 0, 0));
+      
+      if (m_messageDisplayer->showingMessage())
+	m_messageDisplayer->turnOffMessage();
+      
+      if (m_lowresVolume && m_hiresVolume)
+	{
+	  if (Global::useStillVolume())
+	    renderVolume(Enums::StillImage);
+	  else
+	    renderVolume(Enums::DragImage);
+	}
     }
 
   Global::setPlayFrames(false);
@@ -2340,6 +2385,14 @@ Viewer::draw()
       fastDraw();
       return;
     }
+
+
+  if (m_rcMode)
+    {
+      m_rcViewer.draw();
+      return;
+    }
+
 
   if (!Global::updateViewer())
     {
@@ -2397,14 +2450,10 @@ Viewer::draw()
 
   glFinish();
 
+
   Global::setPlayFrames(false);
 
   grabBackBufferImage();
-
-//#ifdef Q_OS_WIN32
-//  glInvalidateTexImage(m_imageBuffer->texture(), 0);
-//  glInvalidateTexImage(m_lowresBuffer->texture(), 0);
-//#endif
 }
 
 void
@@ -3395,6 +3444,16 @@ Viewer::keyPressEvent(QKeyEvent *event)
 	    }
 	  return;
 	}
+
+      if (event->key() == Qt::Key_W)
+	{
+	  m_rcMode = !m_rcMode;
+
+	  if (m_rcMode)
+	    m_rcViewer.updateVoxelsForRaycast();
+	  return;
+	}
+
 
       if (m_hiresVolume->keyPressEvent(event))
 	{
@@ -5553,4 +5612,16 @@ Viewer::handleMorphologicalOperations(QStringList list)
 
   if (mopApplied && !savingImages())
     updateGL();
+}
+
+void
+Viewer::setVolDataPtr(VolumeFileManager *ptr)
+{
+  m_rcViewer.init();
+  m_rcViewer.setVolDataPtr(ptr);
+  if (ptr)
+    {
+      Vec fullVolSize = m_Volume->getFullVolumeSize();
+      m_rcViewer.setGridSize(fullVolSize.z,fullVolSize.y,fullVolSize.x);
+    }
 }

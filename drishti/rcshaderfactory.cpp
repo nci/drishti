@@ -347,7 +347,8 @@ RcShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest, boo
 
   shader += "  vec4 colorSample = vec4(0.0);\n";
 
-  shader += "  colorSample = texture2D(lutTex, vec2(val,0.0));\n";
+  shader += getGrad();
+  shader += "  colorSample = texture2D(lutTex, vec2(val,length(grad)));\n";
 
 
 //  if (useMask)
@@ -387,7 +388,7 @@ RcShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest, boo
       shader += "      z = (z-minZ)/(maxZ-minZ);\n";
       shader += "      z = clamp(z, 0.0, 1.0);\n";
       shader += "      gl_FragData[0] = vec4(z,val,tag,1.0);\n";
-      shader += getGrad();
+      //shader += getGrad();
       shader += "      if (length(grad) > 0.2)\n";
       shader += "        {\n";
       shader += "           grad = normalize(grad);\n";
@@ -654,8 +655,6 @@ RcShaderFactory::genEdgeEnhanceShader()
   shader += "uniform sampler2DRect normalTex;\n";
   shader += "uniform float minZ;\n";
   shader += "uniform float maxZ;\n";
-  shader += "uniform vec3 eyepos;\n";
-  shader += "uniform vec3 viewDir;\n";
   shader += "uniform float dzScale;\n";
   shader += "uniform sampler2D lutTex;\n";
   shader += "uniform sampler2DRect pvtTex;\n";

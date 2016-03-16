@@ -10,6 +10,7 @@ using namespace qglviewer;
 
 #include "mybitarray.h"
 #include "volumefilemanager.h"
+#include "boundingbox.h"
 
 class RcViewer : public QObject
 {
@@ -36,6 +37,9 @@ class RcViewer : public QObject
 
   void updateVoxelsForRaycast();
 
+  void activateBounds(bool);
+
+  void setXformMatrix(double*);
 
  private :
 
@@ -43,6 +47,9 @@ class RcViewer : public QObject
 
   uchar *m_volPtr;
   uchar *m_lut;
+
+  double m_b0xform[16];
+  double m_b0xformInv[16];
 
   qint64 m_depth, m_width, m_height;
   int m_minDSlice, m_maxDSlice;
@@ -91,6 +98,8 @@ class RcViewer : public QObject
   
   float m_stillstep;
 
+  BoundingBox m_boundingBox;
+  
   void generateBoxMinMax();
   void updateFilledBoxes();
 
@@ -104,6 +113,8 @@ class RcViewer : public QObject
   void drawBox(GLenum);
   void drawFace(int, Vec*, Vec*);
   void drawClipFaces(Vec*, Vec*);
+
+  void drawInfo();
 };
 
 

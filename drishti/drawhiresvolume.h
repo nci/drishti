@@ -28,8 +28,11 @@ class DrawHiresVolume : public QObject
   ~DrawHiresVolume();
 
   bool loadingData() { return m_loadingData; }
+  void setRaycastMode(bool m) { m_rcMode = m; }
   
   Vec pointUnderPixel(QPoint, bool&);
+
+  double* brick0Xform();
 
   int numOfTextureSlabs() { return m_textureSlab.count(); }
   int getSubvolumeSubsamplingLevel();
@@ -243,6 +246,7 @@ class DrawHiresVolume : public QObject
   float m_projectionMatrix[16];
   float m_adjustedProjectionMatrix[16];
 
+  bool m_rcMode;
   bool m_loadingData;
 
   bool m_updateSubvolume;

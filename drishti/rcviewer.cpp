@@ -3,6 +3,7 @@
 #include "rcviewer.h"
 #include "geometryobjects.h"
 #include "rcshaderfactory.h"
+#include "matrix.h"
 
 #include <QProgressDialog>
 #include <QInputDialog>
@@ -154,6 +155,13 @@ RcViewer::setGridSize(int d, int w, int h)
   createShaders();
 
   generateBoxMinMax();
+
+  m_boundingBox.setBounds(Vec(m_minHSlice,
+			      m_minWSlice,
+			      m_minDSlice),
+			  Vec(m_maxHSlice,
+			      m_maxWSlice,
+			      m_maxDSlice));
 }
 
 void
@@ -168,10 +176,8 @@ RcViewer::updateSubvolume(Vec bmin, Vec bmax)
   m_maxWSlice = bmax.y;
   m_minHSlice = bmin.x;
   m_maxHSlice = bmax.x;  
-
-//  QMessageBox::information(0, "", QString("%1 %2 %3\n%4 %5 %6").	\
-//			   arg(m_dataMin.x).arg(m_dataMin.y).arg(m_dataMin.z).
-//			   arg(m_dataMax.x).arg(m_dataMax.y).arg(m_dataMax.z));
+  
+  m_boundingBox.setPositions(bmin, bmax);
 }
 
 
@@ -382,6 +388,9 @@ RcViewer::fastDraw()
     return;
 
   raycasting();
+ 
+  if (Global::bottomText())  
+    drawInfo();
 }
 
 
@@ -394,6 +403,9 @@ RcViewer::draw()
     return;
 
   raycasting();
+
+  if (Global::bottomText())  
+    drawInfo();
 }
 
 void
@@ -534,8 +546,6 @@ RcViewer::createShaders()
   m_eeParm[0] = glGetUniformLocationARB(m_eeShader, "normalTex");
   m_eeParm[1] = glGetUniformLocationARB(m_eeShader, "minZ");
   m_eeParm[2] = glGetUniformLocationARB(m_eeShader, "maxZ");
-  m_eeParm[3] = glGetUniformLocationARB(m_eeShader, "eyepos");
-  m_eeParm[4] = glGetUniformLocationARB(m_eeShader, "viewDir");
   m_eeParm[5] = glGetUniformLocationARB(m_eeShader, "dzScale");
   m_eeParm[6] = glGetUniformLocationARB(m_eeShader, "tagTex");
   m_eeParm[7] = glGetUniformLocationARB(m_eeShader, "lutTex");
@@ -671,27 +681,92 @@ RcViewer::updateVoxelsForRaycast()
 }
 
 void
+RcViewer::activateBounds(bool b)
+{
+  if (b)
+    m_boundingBox.activateBounds();
+  else
+    m_boundingBox.deactivateBounds();
+}
+
+void
+RcViewer::drawInfo()
+{
+  glDisable(GL_DEPTH_TEST);
+
+  QFont tfont = QFont("Helvetica", 12);  
+  QString mesg;
+
+  mesg += QString("LOD(%1) Vol(%2 %3 %4) ").				\
+    arg(m_sslevel).arg(m_vsize.x).arg(m_vsize.y).arg(m_vsize.z);
+
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glEnable(GL_POINT_SMOOTH);
+
+  int wd = m_viewer->camera()->screenWidth();
+  int ht = m_viewer->camera()->screenHeight();
+  StaticFunctions::pushOrthoView(0, 0, wd, ht);
+  StaticFunctions::renderText(10,10, mesg, tfont, Qt::black, Qt::lightGray);
+
+  tfont = QFont("Helvetica", 10);  
+  Vec bmin, bmax;
+  m_boundingBox.bounds(bmin, bmax);
+  mesg = QString("box(%1 %2 %3 : %4 %5 %6 : %7 %8 %9) ").		\
+    arg(bmin.x).arg(bmin.y).arg(bmin.z).				\
+    arg(bmax.x).arg(bmax.y).arg(bmax.z).				\
+    arg(bmax.x-bmin.x).arg(bmax.y-bmin.y).arg(bmax.z-bmin.z);
+  float vszgb = (bmax.x-bmin.x)*(bmax.y-bmin.y)*(bmax.z-bmin.z);
+  vszgb /= m_sslevel;
+  vszgb /= m_sslevel;
+  vszgb /= m_sslevel;
+  vszgb /= 1024;
+  vszgb /= 1024;
+  mesg += QString("mb(%1 @ %2)").arg(vszgb).arg(m_sslevel);
+  StaticFunctions::renderText(10,30, mesg, tfont, Qt::black, Qt::lightGray);
+
+  StaticFunctions::popOrthoView();
+
+  glEnable(GL_DEPTH_TEST);
+  glDisable(GL_BLEND);
+}
+
+void
 RcViewer::raycasting()
 {
+//  Vec bmin, bmax;
+//  m_boundingBox.bounds(bmin, bmax);
+//  m_viewer->camera()->setRevolveAroundPoint((bmax+bmin)/2);
+
+
   if (qAbs(m_stillstep-Global::stepsizeStill()) > 0.001)
     {
       m_stillstep = Global::stepsizeStill();
       createRaycastShader();
     }
 
+  Vec bminO, bmaxO;
+  m_boundingBox.bounds(bminO, bmaxO);
+
+  bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
+  bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
 
   Vec box[8];
-  box[0] = Vec(m_minHSlice, m_minWSlice, m_minDSlice);
-  box[1] = Vec(m_minHSlice, m_minWSlice, m_maxDSlice);
-  box[2] = Vec(m_minHSlice, m_maxWSlice, m_maxDSlice);
-  box[3] = Vec(m_minHSlice, m_maxWSlice, m_minDSlice);
-  box[4] = Vec(m_maxHSlice, m_minWSlice, m_minDSlice);
-  box[5] = Vec(m_maxHSlice, m_minWSlice, m_maxDSlice);
-  box[6] = Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice);
-  box[7] = Vec(m_maxHSlice, m_maxWSlice, m_minDSlice);
+  box[0] = Vec(bminO.x, bminO.y, bminO.z);
+  box[1] = Vec(bminO.x, bminO.y, bmaxO.z);
+  box[2] = Vec(bminO.x, bmaxO.y, bminO.z);
+  box[3] = Vec(bminO.x, bmaxO.y, bmaxO.z);
+  box[4] = Vec(bmaxO.x, bminO.y, bminO.z);
+  box[5] = Vec(bmaxO.x, bminO.y, bmaxO.z);
+  box[6] = Vec(bmaxO.x, bmaxO.y, bminO.z);
+  box[7] = Vec(bmaxO.x, bmaxO.y, bmaxO.z);
+
+  for (int i=0; i<8; i++)
+    box[i] = Matrix::xformVec(m_b0xformInv, box[i]);
 
   Vec eyepos = m_viewer->camera()->position();
   Vec viewDir = m_viewer->camera()->viewDirection();
+
   float minZ = 1000000;
   float maxZ = -1000000;
   for(int b=0; b<8; b++)
@@ -733,8 +808,7 @@ RcViewer::raycasting()
       StaticFunctions::drawEnclosingCube(m_dataMin, m_dataMax);
       glPolygonMode(GL_FRONT_AND_BACK,GL_FILL);
 
-      //m_boundingBox.draw();
-      //drawWireframeBox();
+      m_boundingBox.draw();
     }
   
   glDisable(GL_BLEND);
@@ -786,6 +860,7 @@ RcViewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
   drawBox(GL_FRONT);
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
   //----------------------------
+
 
   //----------------------------
   // create entry points
@@ -842,6 +917,10 @@ RcViewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
   stepsize /= qMax(m_vsize.x,qMax(m_vsize.y,m_vsize.z));
 
 
+  eyepos = Matrix::xformVec(m_b0xformInv, eyepos);
+  viewDir = Matrix::rotateVec(m_b0xformInv, viewDir);
+
+
   glUseProgramObjectARB(m_rcShader);
   glUniform1iARB(m_rcParm[0], 1); // dataTex
   glUniform1iARB(m_rcParm[1], 0); // lutTex
@@ -894,7 +973,8 @@ RcViewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
   glTexImage2D(GL_TEXTURE_2D,
 	       0, // single resolution
 	       GL_RGBA,
-	       256, Global::lutSize()*256, // width, height
+	       //256, Global::lutSize()*256, // width, height
+	       256, 256,  // take only TF-0
 	       0, // no border
 	       GL_RGBA,
 	       GL_UNSIGNED_BYTE,
@@ -986,8 +1066,6 @@ RcViewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
       glUniform1iARB(m_eeParm[0], 6); // normals (ebtex[1]) tex
       glUniform1fARB(m_eeParm[1], minZ); // minZ
       glUniform1fARB(m_eeParm[2], maxZ); // maxZ
-      glUniform3fARB(m_eeParm[3], eyepos.x, eyepos.y, eyepos.z); // eyepos
-      glUniform3fARB(m_eeParm[4], viewDir.x, viewDir.y, viewDir.z); // viewDir
       glUniform1fARB(m_eeParm[5], m_edge);
       //glUniform1iARB(m_eeParm[6], 5); // tagtex
       glUniform1iARB(m_eeParm[7], 0); // luttex
@@ -1039,8 +1117,10 @@ RcViewer::drawBox(GLenum glFaces)
   glEnable(GL_CULL_FACE);
   glCullFace(glFaces);
 
-  Vec bminO = m_dataMin;
-  Vec bmaxO = m_dataMax;
+  //Vec bminO = m_dataMin;
+  //Vec bmaxO = m_dataMax;
+  Vec bminO, bmaxO;
+  m_boundingBox.bounds(bminO, bmaxO);
 
   bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
   bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
@@ -1081,7 +1161,10 @@ RcViewer::drawBox(GLenum glFaces)
 	  box[5] = Vec(bmax.x,bmin.y,bmax.z);
 	  box[6] = Vec(bmax.x,bmax.y,bmin.z);
 	  box[7] = Vec(bmax.x,bmax.y,bmax.z);
-	  
+
+	  for (int i=0; i<8; i++)
+	    box[i] = Matrix::xformVec(m_b0xform, box[i]);
+
 	  float xmin, xmax, ymin, ymax, zmin, zmax;
 	  xmin = (bmin.x-m_minHSlice)/(m_maxHSlice-m_minHSlice);
 	  xmax = (bmax.x-m_minHSlice)/(m_maxHSlice-m_minHSlice);
@@ -1103,6 +1186,7 @@ RcViewer::drawBox(GLenum glFaces)
 	  col[6] = Vec(xmax,ymax,zmin);
 	  col[7] = Vec(xmax,ymax,zmax);
 	  
+
 	  for(int i=0; i<6; i++)
 	    {
 	      Vec poly[100];
@@ -1355,3 +1439,9 @@ RcViewer::drawClipFaces(Vec *subvol, Vec *texture)
     }
 }
 
+void
+RcViewer::setXformMatrix(double *xf)
+{
+  Matrix::inverse(xf, m_b0xformInv);
+  memcpy(m_b0xform, xf, 16*sizeof(double));
+}

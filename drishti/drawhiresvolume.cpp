@@ -19,6 +19,8 @@
 #include <QFileDialog>
 #include <QDataStream>
 
+double* DrawHiresVolume::brick0Xform() { return m_bricks->getMatrix(); }
+
 void
 DrawHiresVolume::getOpMod(float& front, float& back)
 {
@@ -599,6 +601,10 @@ DrawHiresVolume::postUpdateSubvolume(Vec boxMin, Vec boxMax)
   m_virtualTextureMin = Vec(0,0,0);
   m_virtualTextureMax = m_virtualTextureMin + subVolSize;
 
+  // don't proceed with data loading if in raycast mode
+  if (m_rcMode)
+    return;
+  
   m_Volume->startHistogramCalculation();
   loadTextureMemory();
   m_Volume->endHistogramCalculation();

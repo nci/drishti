@@ -200,7 +200,6 @@ Viewer::reloadData()
   qApp->restoreOverrideCursor();
 }
 
-
 void
 Viewer::switchToHires()
 {
@@ -209,14 +208,10 @@ Viewer::switchToHires()
   m_lowresVolume->lower();
   m_hiresVolume->raise();
 
+  m_hiresVolume->setRaycastMode(m_rcMode);
+
   Vec bmin, bmax;
   m_lowresVolume->subvolumeBounds(bmin, bmax);
-
-
-  m_rcViewer.resizeGL(camera()->screenWidth(),
-		      camera()->screenHeight());
-  m_rcViewer.updateSubvolume(bmin, bmax);
-
 
   if (Global::volumeType() == Global::RGBVolume)
     m_hiresVolume->updateSubvolume(Global::volumeNumber(),
@@ -244,18 +239,30 @@ Viewer::switchToHires()
 				   Global::volumeNumber(3),
 				   bmin, bmax, true);
 
-  if (GlewInit::initialised())
-    m_hiresVolume->initShadowBuffers(true);
 
-  // always keep image captions in mouse grabber pool
-  GeometryObjects::imageCaptions()->addInMouseGrabberPool();
+  if (m_rcMode)
+    {
+      m_rcViewer.resizeGL(camera()->screenWidth(),
+			  camera()->screenHeight());
+      m_rcViewer.updateSubvolume(bmin, bmax);
+    }
+
+
+  if (!m_rcMode)
+    {
+      if (GlewInit::initialised())
+	m_hiresVolume->initShadowBuffers(true);
+      
+      // always keep image captions in mouse grabber pool
+      GeometryObjects::imageCaptions()->addInMouseGrabberPool();
+    }
 }
 
 void
 Viewer::switchDrawVolume()
 {
   qApp->setOverrideCursor(QCursor(Qt::WaitCursor));
-  updateLookupTable(); 
+  //updateLookupTable(); 
 
   if (m_lowresVolume->raised())
     {
@@ -264,7 +271,7 @@ Viewer::switchDrawVolume()
 
       switchToHires();
 
-      if (Global::volumeType() != Global::DummyVolume)
+      if (Global::volumeType() != Global::DummyVolume && !m_rcMode)
 	emit histogramUpdated(m_hiresVolume->histogramImage1D(),
 			      m_hiresVolume->histogramImage2D());
 
@@ -292,6 +299,8 @@ Viewer::switchDrawVolume()
       m_hiresVolume->lower();
 
       m_lowresVolume->load3dTexture();
+
+      updateLookupTable();
 
       emit histogramUpdated(m_lowresVolume->histogramImage1D(),
 			    m_lowresVolume->histogramImage2D());
@@ -610,9 +619,9 @@ Viewer::processSocketData(QString data)
 void
 Viewer::checkPointSelected(const QMouseEvent *event)
 {
-  if (m_lowresVolume->raised())
+  if (m_lowresVolume->raised() || m_rcMode)
     {
-      QMessageBox::information(0, "", "Please switch to hires mode for point selection");
+      QMessageBox::information(0, "", "Please switch to hires slices mode for point selection");
       return;
     }
 
@@ -905,6 +914,9 @@ Viewer::updateLookupTable(unsigned char *kflut)
 void
 Viewer::updateLookupTable()
 {
+  if (m_rcMode)
+    return;
+  
   //--------------
   // check whether emptyspaceskip data structure
   // needs to be reevaluated
@@ -983,15 +995,15 @@ Viewer::updateLookupTable()
     {
       if (Global::updatePruneTexture())
 	m_hiresVolume->updateAndLoadPruneTexture();
-
+      
       //dummydraw();
       bool fboBound = bindFBOs(Enums::StillImage);
       releaseFBOs(Enums::StillImage);
       //if (fboBound) releaseFBOs(Enums::StillImage);
     }
-
+  
   loadLookupTable(lut);
-
+  
   if (m_hiresVolume->raised() &&
       (gilite || !LightHandler::willUpdateLightBuffers()))
     {
@@ -1870,6 +1882,13 @@ Viewer::endMovie()
 void
 Viewer::drawImageOnScreen()
 {
+  if (m_rcMode) // don't draw here when in Raycast mode
+    {
+      m_rcViewer.setXformMatrix(m_hiresVolume->brick0Xform());
+      m_rcViewer.draw();
+      return;
+    }
+
   setBackgroundColor(QColor(0, 0, 0, 0));
 
   if (m_lowresVolume && m_hiresVolume)
@@ -1910,7 +1929,7 @@ Viewer::saveMovie()
       drawImageOnScreen();
       glFinish();
 
-      if (m_useFBO)
+      if (m_useFBO && !m_rcMode)
 	fboToMovieFrame();
       else
 	screenToMovieFrame();
@@ -1924,7 +1943,7 @@ Viewer::saveMovie()
       drawImageOnScreen();	  
       glFinish();
 
-      if (m_useFBO)
+      if (m_useFBO && !m_rcMode)
 	fboToMovieFrame();
       else
 	screenToMovieFrame();
@@ -1936,7 +1955,7 @@ Viewer::saveMovie()
       drawImageOnScreen();
       glFinish();
 
-      if (m_useFBO)
+      if (m_useFBO && !m_rcMode)
 	fboToMovieFrame();
       else
 	screenToMovieFrame();
@@ -1966,7 +1985,7 @@ Viewer::saveSnapshot(QString imgFile)
   int wd, ht;
   uchar *imgbuf = 0;
 
-  if (drawToFBO())
+  if (drawToFBO() && !m_rcMode)
     {
       wd = m_imageBuffer->width();
       ht = m_imageBuffer->height();
@@ -2308,6 +2327,7 @@ Viewer::fastDraw()
       glClearColor(0,0,0,1);
       glClear(GL_COLOR_BUFFER_BIT);
 
+      m_rcViewer.setXformMatrix(m_hiresVolume->brick0Xform());
       m_rcViewer.fastDraw();
     }
   else
@@ -2365,6 +2385,9 @@ Viewer::updateLightBuffers()
 void 
 Viewer::dummydraw()
 {
+  if (m_rcMode)
+    return;
+
   bool fboBound = bindFBOs(Enums::StillImage);
   m_hiresVolume->drawDragImage(100*Global::stepsizeStill());
   if (fboBound) releaseFBOs(Enums::StillImage);
@@ -2386,14 +2409,6 @@ Viewer::draw()
       return;
     }
 
-
-  if (m_rcMode)
-    {
-      m_rcViewer.draw();
-      return;
-    }
-
-
   if (!Global::updateViewer())
     {
       if (!Global::playFrames())
@@ -2403,7 +2418,8 @@ Viewer::draw()
 
   //-----------------
   // update lightbuffer
-  if (Global::volumeType() != Global::DummyVolume)
+  if (Global::volumeType() != Global::DummyVolume &&
+      !m_rcMode)
     {
       QList<Vec> cpos, cnorm;
       m_hiresVolume->getClipForMask(cpos, cnorm);
@@ -2420,10 +2436,6 @@ Viewer::draw()
     }
   //-----------------
   
-//  if (m_saveSnapshots || m_saveMovie || redolighting)
-//    dummydraw();
-  
-
   if (m_saveSnapshots || m_saveMovie || Global::playFrames())
     dummydraw();
 
@@ -2432,9 +2444,6 @@ Viewer::draw()
 
   glHint(GL_POINT_SMOOTH_HINT, GL_NICEST);
   glEnable(GL_POINT_SMOOTH);
-
-//  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
-//  glEnable(GL_LINE_SMOOTH);
 
   if (m_messageDisplayer->renderScene())
     {
@@ -2799,6 +2808,7 @@ Viewer::mouseMoveEvent(QMouseEvent *event)
 	mousegrabbers[i]->removeFromMouseGrabberPool();
 
       m_lowresVolume->activateBounds();
+
       QGLViewer::mouseMoveEvent(event);
       
       for(int i=0; i<mousegrabbers.count(); i++)
@@ -3342,6 +3352,24 @@ Viewer::keyPressEvent(QKeyEvent *event)
 	    
   if (event->key() == Qt::Key_F2)
     {
+      m_rcMode = false;
+      switchDrawVolume();
+      m_rcViewer.activateBounds(false);
+      return ;
+    }
+
+  if (event->key() == Qt::Key_F3)
+    {
+      if (m_lowresVolume->raised())
+	m_rcMode = true;
+      else
+	m_rcMode = false;
+      
+      m_rcViewer.activateBounds(m_rcMode && Global::drawBox());
+
+      if (m_rcMode)
+	m_rcViewer.updateVoxelsForRaycast();
+
       switchDrawVolume();
       return ;
     }
@@ -3445,16 +3473,6 @@ Viewer::keyPressEvent(QKeyEvent *event)
 	  return;
 	}
 
-      if (event->key() == Qt::Key_W)
-	{
-	  m_rcMode = !m_rcMode;
-
-	  if (m_rcMode)
-	    m_rcViewer.updateVoxelsForRaycast();
-	  return;
-	}
-
-
       if (m_hiresVolume->keyPressEvent(event))
 	{
 	  updateGL();
@@ -3509,6 +3527,14 @@ Viewer::keyPressEvent(QKeyEvent *event)
 
   if (event->key() == Qt::Key_B)
     {
+      if (m_rcMode)
+	{
+	  if (Global::drawBox())
+	    m_rcViewer.activateBounds(false);
+	  else
+	    m_rcViewer.activateBounds(true);
+	}
+      
       emit switchBB();
       updateGL();
       return;

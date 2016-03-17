@@ -4,6 +4,7 @@
 #include "geometryobjects.h"
 #include "rcshaderfactory.h"
 #include "matrix.h"
+#include "dcolordialog.h"
 
 #include <QProgressDialog>
 #include <QInputDialog>
@@ -39,14 +40,17 @@ RcViewer::RcViewer() :
   m_diff = 0.0;
   m_spec = 1.0;
   m_shadow = 10;
-  m_edge = 5.0;
+  m_edge = 7.0;
   m_shdX = 0;
   m_shdY = 0;
 
   m_shadowColor = Vec(0.0,0.0,0.0);
   m_edgeColor = Vec(0.0,0.0,0.0);
 
-  m_stillstep = 0.7;
+  m_stillStep = Global::stepsizeStill();
+  m_dragStep = Global::stepsizeDrag();
+
+  m_renderMode = 1; // 0-point, 1-raycast, 2-xray
 
   init();
 }
@@ -70,7 +74,7 @@ RcViewer::init()
   m_filledBoxes.clear();
 
   m_volPtr = 0;
-
+  m_vfm = 0;
 
   if (m_rcShader)
     glDeleteObjectARB(m_rcShader);
@@ -115,25 +119,22 @@ void RcViewer::setLut(uchar *l) { m_lut = l; }
 void
 RcViewer::setVolDataPtr(VolumeFileManager *ptr)
 {
-  if (ptr)
-    {      
-      ptr->setMemMapped(true);
-      ptr->loadMemFile();
-      m_volPtr = ptr->memVolDataPtr();
-    }
+  m_vfm = ptr;
+  m_boxMinMax.clear();
+  m_filledBoxes.clear();
 }
 
 void
 RcViewer::resizeGL(int width, int height)
 {
-  if (m_volPtr)
+  if (m_vfm)
     createFBO();
 }
 
 void
 RcViewer::setGridSize(int d, int w, int h)
 {
-  if (!m_volPtr)
+  if (!m_vfm)
     return;
   
   m_depth = d;
@@ -152,13 +153,12 @@ RcViewer::setGridSize(int d, int w, int h)
 
   glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, &m_max3DTexSize);
 
+  m_stillStep = Global::stepsizeStill();
+  m_dragStep = Global::stepsizeDrag();
+
   createShaders();
 
-  generateBoxMinMax();
-
-  m_boundingBox.setBounds(Vec(m_minHSlice,
-			      m_minWSlice,
-			      m_minDSlice),
+  m_boundingBox.setBounds(Vec(0,0,0),
 			  Vec(m_maxHSlice,
 			      m_maxWSlice,
 			      m_maxDSlice));
@@ -259,12 +259,13 @@ RcViewer::updateFilledBoxes()
 	}
     }
 
-  Vec bminO = m_dataMin;
-  Vec bmaxO = m_dataMax;
+  //Vec bminO = m_dataMin;
+  //Vec bmaxO = m_dataMax;
+  Vec bminO, bmaxO;
+  m_boundingBox.bounds(bminO, bmaxO);
   bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
   bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
 
-  m_filledBoxes.resize(m_dbox*m_wbox*m_hbox);
   m_filledBoxes.fill(true);
   for(int d=0; d<m_dbox; d++)
     for(int w=0; w<m_wbox; w++)
@@ -283,10 +284,10 @@ RcViewer::updateFilledBoxes()
 	  int idx = d*m_wbox*m_hbox+w*m_hbox+h;
 	  if (ok)
 	    {
-	      int bmin = m_boxMinMax[2*idx+0];
-	      int bmax = m_boxMinMax[2*idx+1];
-	      if ((bmin < lmin && bmax < lmin) || 
-		  (bmin > lmax && bmax > lmax))
+	      int vmin = m_boxMinMax[2*idx+0];
+	      int vmax = m_boxMinMax[2*idx+1];
+	      if ((vmin < lmin && vmax < lmin) || 
+		  (vmin > lmax && vmax > lmax))
 		m_filledBoxes.setBit(idx, false);
 	    }
 	  else
@@ -355,6 +356,9 @@ RcViewer::updateFilledBoxes()
 		  box[5] = Vec(bmax.x,bmin.y,bmax.z);
 		  box[6] = Vec(bmax.x,bmax.y,bmin.z);
 		  box[7] = Vec(bmax.x,bmax.y,bmax.z);
+
+		  for (int b=0; b<8; b++)
+		    box[b] = Matrix::xformVec(m_b0xform, box[b]);
 
 		  bool border = false;
 		  for(int b=0; b<8; b++)
@@ -490,10 +494,15 @@ RcViewer::createRaycastShader()
   int maxSteps = qSqrt(m_vsize.x*m_vsize.x +
 		       m_vsize.y*m_vsize.y +
 		       m_vsize.z*m_vsize.z);
-  maxSteps *= 1.0/m_stillstep;
+  maxSteps *= 1.0/m_stillStep;
 
-  shaderString = RcShaderFactory::genRaycastShader(maxSteps, !m_fullRender,
-						 m_exactCoord, false);
+
+  if (m_renderMode == 1)
+    shaderString = RcShaderFactory::genRaycastShader(maxSteps, !m_fullRender,
+						     m_exactCoord, false);
+  else
+    shaderString = RcShaderFactory::genXRayShader(maxSteps, !m_fullRender,
+						  m_exactCoord, false);
 
   if (m_rcShader)
     glDeleteObjectARB(m_rcShader);
@@ -580,11 +589,35 @@ RcViewer::createShaders()
 void
 RcViewer::updateVoxelsForRaycast()
 {
+
+  if (!m_vfm)
+    return;
+
+  if (m_filledBoxes.count() == 0)
+  {      
+    m_vfm->setMemMapped(true);
+    m_vfm->loadMemFile();
+    m_volPtr = m_vfm->memVolDataPtr();
+    if (m_volPtr)
+      generateBoxMinMax();
+  }
+
   if (!m_volPtr)
     return;
 
   if (!m_lutTex) glGenTextures(1, &m_lutTex);
 
+  { // update box for voxel upload
+    Vec bmin, bmax;
+    m_boundingBox.bounds(bmin, bmax);
+    m_minDSlice = bmin.z;
+    m_minWSlice = bmin.y;
+    m_minHSlice = bmin.x;
+    m_maxDSlice = bmax.z;
+    m_maxWSlice = bmax.y;
+    m_maxHSlice = bmax.x;
+    m_viewer->camera()->setRevolveAroundPoint((bmax+bmin)/2);  
+  }
   
   qint64 dsz = (m_maxDSlice-m_minDSlice);
   qint64 wsz = (m_maxWSlice-m_minWSlice);
@@ -626,6 +659,9 @@ RcViewer::updateVoxelsForRaycast()
 
   m_corner = Vec(m_minHSlice, m_minWSlice, m_minDSlice);
   m_vsize = Vec(hsz, wsz, dsz);
+
+  m_stillStep = Global::stepsizeStill();
+  m_dragStep = Global::stepsizeDrag();
 
   createRaycastShader();
 
@@ -676,8 +712,6 @@ RcViewer::updateVoxelsForRaycast()
   delete [] voxelVol;
   
   progress.setValue(100);
-
-  m_viewer->update();
 }
 
 void
@@ -734,17 +768,6 @@ RcViewer::drawInfo()
 void
 RcViewer::raycasting()
 {
-//  Vec bmin, bmax;
-//  m_boundingBox.bounds(bmin, bmax);
-//  m_viewer->camera()->setRevolveAroundPoint((bmax+bmin)/2);
-
-
-  if (qAbs(m_stillstep-Global::stepsizeStill()) > 0.001)
-    {
-      m_stillstep = Global::stepsizeStill();
-      createRaycastShader();
-    }
-
   Vec bminO, bmaxO;
   m_boundingBox.bounds(bminO, bmaxO);
 
@@ -762,7 +785,7 @@ RcViewer::raycasting()
   box[7] = Vec(bmaxO.x, bmaxO.y, bmaxO.z);
 
   for (int i=0; i<8; i++)
-    box[i] = Matrix::xformVec(m_b0xformInv, box[i]);
+    box[i] = Matrix::xformVec(m_b0xform, box[i]);
 
   Vec eyepos = m_viewer->camera()->position();
   Vec viewDir = m_viewer->camera()->viewDirection();
@@ -878,7 +901,6 @@ RcViewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
   //----------------------------
 
-
   //----------------------------
   if (!m_fullRender || firstPartOnly)
     {
@@ -910,10 +932,10 @@ RcViewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
   //----------------------------
 
 
-  float stepsize = Global::stepsizeStill();
+  float stepsize = m_stillStep;
   if (m_dragMode)
-    stepsize = Global::stepsizeDrag();
-
+    stepsize = m_dragStep; 
+ 
   stepsize /= qMax(m_vsize.x,qMax(m_vsize.y,m_vsize.z));
 
 
@@ -1119,9 +1141,10 @@ RcViewer::drawBox(GLenum glFaces)
 
   //Vec bminO = m_dataMin;
   //Vec bmaxO = m_dataMax;
+
   Vec bminO, bmaxO;
   m_boundingBox.bounds(bminO, bmaxO);
-
+  
   bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
   bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
 
@@ -1444,4 +1467,65 @@ RcViewer::setXformMatrix(double *xf)
 {
   Matrix::inverse(xf, m_b0xformInv);
   memcpy(m_b0xform, xf, 16*sizeof(double));
+}
+
+void
+RcViewer::setShadowColor()
+{
+  Vec sclr = m_shadowColor;
+
+  QColor clr = QColor(sclr.x, sclr.y, sclr.z);
+  clr = DColorDialog::getColor(clr);
+  if (!clr.isValid())
+    return;
+
+  sclr = Vec(clr.red(), clr.green(), clr.blue());
+  m_shadowColor = sclr;
+  m_viewer->update();
+}
+
+void
+RcViewer::setEdgeColor()
+{
+  Vec sclr = m_edgeColor;
+
+  QColor clr = QColor(sclr.x, sclr.y, sclr.z);
+  clr = DColorDialog::getColor(clr);
+  if (!clr.isValid())
+    return;
+
+  sclr = Vec(clr.red(), clr.green(), clr.blue());
+  m_edgeColor = sclr;
+  m_viewer->update();
+}
+
+void
+RcViewer::setRaycastStyle(int flag)
+{
+  m_fullRender = (flag>0);
+
+  if (flag > 1)
+    m_renderMode = flag;
+  else
+    m_renderMode = 1;
+
+  createRaycastShader();
+  m_viewer->update();
+}
+
+void
+RcViewer::setExactCoord(bool b)
+{
+  m_exactCoord = b;
+  createRaycastShader();
+  m_viewer->update();
+}
+
+void
+RcViewer::setStillAndDragStep(float ss, float ds)
+{
+  m_stillStep = qMax(0.1f,ss);
+  m_dragStep = qMax(0.1f,ds);
+  createRaycastShader();
+  m_viewer->update();
 }

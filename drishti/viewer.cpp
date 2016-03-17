@@ -165,8 +165,6 @@ Viewer::reloadData()
   Vec bmin, bmax;
   m_lowresVolume->subvolumeBounds(bmin, bmax);
 
-  m_rcViewer.updateSubvolume(bmin, bmax);
-
   if (Global::volumeType() == Global::RGBVolume)
     m_hiresVolume->updateSubvolume(Global::volumeNumber(),
 				   bmin, bmax, true);
@@ -194,8 +192,16 @@ Viewer::reloadData()
 				   bmin, bmax, true);
 
   
-  emit histogramUpdated(m_hiresVolume->histogramImage1D(),
-			m_hiresVolume->histogramImage2D());
+  if (m_rcMode)
+    {
+      m_rcViewer.updateSubvolume(bmin, bmax);
+      m_rcViewer.updateVoxelsForRaycast();
+    }
+
+
+  if (!m_rcMode)
+    emit histogramUpdated(m_hiresVolume->histogramImage1D(),
+			  m_hiresVolume->histogramImage2D());
 
   qApp->restoreOverrideCursor();
 }
@@ -245,6 +251,7 @@ Viewer::switchToHires()
       m_rcViewer.resizeGL(camera()->screenWidth(),
 			  camera()->screenHeight());
       m_rcViewer.updateSubvolume(bmin, bmax);
+      m_rcViewer.updateVoxelsForRaycast();
     }
 
 
@@ -576,7 +583,124 @@ Viewer::Viewer(QWidget *parent) :
 
   m_rcViewer.setViewer(this);
   m_rcViewer.init();
+
+  setupRaycastUI();
+  m_raycastMenu->hide();
 }
+
+void
+Viewer::setupRaycastUI()
+{
+  m_raycastMenu = new QFrame(this, Qt::Tool);
+  m_raycastMenu->setWindowTitle("Raycaster Menu");
+
+  m_raycastUI.setupUi(m_raycastMenu);
+
+  connect(m_raycastUI.update, SIGNAL(clicked()),
+	  &m_rcViewer, SLOT(updateVoxelsForRaycast()));
+
+  connect(m_raycastUI.raycastStyle, SIGNAL(currentIndexChanged(int)),
+	  &m_rcViewer, SLOT(setRaycastStyle(int)));
+  connect(m_raycastUI.raycastStyle, SIGNAL(currentIndexChanged(int)),
+	  this, SLOT(raycastLightOnOff(int)));
+  connect(m_raycastUI.skipLayers, SIGNAL(valueChanged(int)),
+	  &m_rcViewer, SLOT(setSkipLayers(int)));
+  connect(m_raycastUI.nearest, SIGNAL(clicked(bool)),
+	  &m_rcViewer, SLOT(setExactCoord(bool)));
+  connect(m_raycastUI.stillStep, SIGNAL(valueChanged(double)),
+	  this, SLOT(on_raycaststillStep_changed(double)));
+  connect(m_raycastUI.dragStep, SIGNAL(valueChanged(double)),
+	  this, SLOT(on_raycastdragStep_changed(double)));
+
+
+  setupRaycastLightParameters();
+}
+
+void
+Viewer::raycastLightOnOff(int voxchoice)
+{
+  if (voxchoice > 0)
+    m_raycastUI.lightBox->setVisible(false);
+  else
+    m_raycastUI.lightBox->setVisible(true);
+}
+
+void
+Viewer::setupRaycastLightParameters()
+{
+  m_viewSpec = new PopUpSlider(this, Qt::Horizontal);
+  m_viewEdge = new PopUpSlider(this, Qt::Horizontal);
+  m_viewShadow = new PopUpSlider(this, Qt::Horizontal);
+  m_shadowX = new PopUpSlider(this, Qt::Horizontal);
+  m_shadowY = new PopUpSlider(this, Qt::Horizontal);
+  m_shadowButton = new QPushButton("Shadow Color");
+  m_edgeButton = new QPushButton("Edge Color");
+
+  m_viewSpec->setText("Specular");
+  m_viewEdge->setText("Edges");
+  m_viewShadow->setText("Shadow");
+  m_shadowX->setText("Shadow X");
+  m_shadowY->setText("Shadow Y");
+
+  m_viewSpec->setRange(0, 10);
+  m_viewSpec->setValue(10);
+  m_viewEdge->setRange(0, 10);
+  m_viewEdge->setValue(3);
+  m_viewShadow->setRange(0, 20);
+  m_viewShadow->setValue(10);
+  m_shadowX->setRange(-5, 5);
+  m_shadowX->setValue(0);
+  m_shadowY->setRange(-5, 5);
+  m_shadowY->setValue(0);
+
+  QSpacerItem *spitem0 = new QSpacerItem(5,5,QSizePolicy::Minimum, QSizePolicy::Fixed);
+  QSpacerItem *spitem1 = new QSpacerItem(5,5,QSizePolicy::Minimum, QSizePolicy::Fixed);
+  QSpacerItem *spitem2 = new QSpacerItem(5,5,QSizePolicy::Minimum, QSizePolicy::Fixed);
+  
+  m_raycastUI.popupLight->setMargin(2);
+  m_raycastUI.popupLight->addWidget(m_viewSpec);
+  m_raycastUI.popupLight->addItem(spitem0);
+  m_raycastUI.popupLight->addWidget(m_viewEdge);
+  m_raycastUI.popupLight->addWidget(m_edgeButton);
+  m_raycastUI.popupLight->addItem(spitem1);
+  m_raycastUI.popupLight->addWidget(m_viewShadow);
+  m_raycastUI.popupLight->addWidget(m_shadowButton);
+  m_raycastUI.popupLight->addWidget(m_shadowX);
+  m_raycastUI.popupLight->addWidget(m_shadowY);
+  m_raycastUI.popupLight->addItem(spitem2);
+
+  connect(m_viewSpec, SIGNAL(valueChanged(int)),
+	  &m_rcViewer, SLOT(setSpec(int)));
+  connect(m_viewEdge, SIGNAL(valueChanged(int)),
+	  &m_rcViewer, SLOT(setEdge(int)));
+  connect(m_viewShadow, SIGNAL(valueChanged(int)),
+	  &m_rcViewer, SLOT(setShadow(int)));
+  connect(m_shadowX, SIGNAL(valueChanged(int)),
+	  &m_rcViewer, SLOT(setShadowOffsetX(int)));
+  connect(m_shadowY, SIGNAL(valueChanged(int)),
+	  &m_rcViewer, SLOT(setShadowOffsetY(int)));
+
+  connect(m_raycastUI.lightBox, SIGNAL(clicked(bool)),
+	  m_viewSpec, SLOT(setVisible(bool)));
+  connect(m_raycastUI.lightBox, SIGNAL(clicked(bool)),
+	  m_viewEdge, SLOT(setVisible(bool)));
+  connect(m_raycastUI.lightBox, SIGNAL(clicked(bool)),
+	  m_viewShadow, SLOT(setVisible(bool)));
+  connect(m_raycastUI.lightBox, SIGNAL(clicked(bool)),
+	  m_shadowX, SLOT(setVisible(bool)));
+  connect(m_raycastUI.lightBox, SIGNAL(clicked(bool)),
+	  m_shadowY, SLOT(setVisible(bool)));
+  connect(m_raycastUI.lightBox, SIGNAL(clicked(bool)),
+	  m_shadowButton, SLOT(setVisible(bool)));
+  connect(m_raycastUI.lightBox, SIGNAL(clicked(bool)),
+	  m_edgeButton, SLOT(setVisible(bool)));
+
+  connect(m_shadowButton, SIGNAL(clicked()),
+	  &m_rcViewer, SLOT(setShadowColor()));
+  connect(m_edgeButton, SIGNAL(clicked()),
+	  &m_rcViewer, SLOT(setEdgeColor()));
+}
+
 
 void
 Viewer::initSocket()
@@ -3353,6 +3477,7 @@ Viewer::keyPressEvent(QKeyEvent *event)
   if (event->key() == Qt::Key_F2)
     {
       m_rcMode = false;
+      m_raycastMenu->hide();
       switchDrawVolume();
       m_rcViewer.activateBounds(false);
       return ;
@@ -3361,16 +3486,22 @@ Viewer::keyPressEvent(QKeyEvent *event)
   if (event->key() == Qt::Key_F3)
     {
       if (m_lowresVolume->raised())
-	m_rcMode = true;
+	{
+	  m_rcMode = true;
+	  m_raycastUI.dragStep->setValue(m_rcViewer.dragStep());
+	  m_raycastUI.stillStep->setValue(m_rcViewer.stillStep());
+	}
       else
 	m_rcMode = false;
       
       m_rcViewer.activateBounds(m_rcMode && Global::drawBox());
 
-      if (m_rcMode)
-	m_rcViewer.updateVoxelsForRaycast();
-
       switchDrawVolume();
+
+      if (m_rcMode)
+	m_raycastMenu->show();
+      else
+	m_raycastMenu->hide();
       return ;
     }
 
@@ -3549,9 +3680,13 @@ Viewer::keyPressEvent(QKeyEvent *event)
 
 
   if (event->key() == Qt::Key_Space)
-    {      
+    {
+      if (m_rcMode)
+	m_raycastMenu->show();
+
       commandEditor();
       updateGL();
+
       return;
     }
 
@@ -5651,3 +5786,32 @@ Viewer::setVolDataPtr(VolumeFileManager *ptr)
       m_rcViewer.setGridSize(fullVolSize.z,fullVolSize.y,fullVolSize.x);
     }
 }
+
+void
+Viewer::on_raycaststillStep_changed(double step)
+{
+  float ds = m_rcViewer.dragStep();
+
+  if (step > ds)
+    {
+      m_raycastUI.dragStep->setValue(step);
+      ds = step;
+    }
+
+  m_rcViewer.setStillAndDragStep(step, ds);
+}
+
+void
+Viewer::on_raycastdragStep_changed(double step)
+{
+  float ss = m_rcViewer.stillStep();
+
+  if (ss > step)
+    {
+      m_raycastUI.stillStep->setValue(step);
+      ss = step;
+    }
+
+  m_rcViewer.setStillAndDragStep(ss, step);
+}
+

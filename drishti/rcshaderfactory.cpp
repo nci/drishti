@@ -345,11 +345,11 @@ RcShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest, boo
   else
     shader += "  float val = texture3D(dataTex, voxelCoord).x;\n";
 
-  shader += "  vec4 colorSample = vec4(0.0);\n";
+  shader += "  vec4 colorSample = vec4(1.0);\n";
 
   shader += getGrad();
   shader += "  colorSample = texture2D(lutTex, vec2(val,length(grad)));\n";
-
+  //shader += "  colorSample = texture2D(lutTex, vec2(val,0.0));\n";
 
 //  if (useMask)
 //    {
@@ -364,7 +364,7 @@ RcShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest, boo
 //      shader += "  colorSample *= tagcolor.a;\n";
 //    }
 //  else
-    shader += "  float tag = 0;\n";
+//    shader += "  float tag = 0;\n";
 
 
   shader += "  if (!gotFirstHit && colorSample.a > 0.001) gotFirstHit = true;\n";  
@@ -387,7 +387,7 @@ RcShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest, boo
       shader += "      float z = dot(I, normalize(viewDir));\n";
       shader += "      z = (z-minZ)/(maxZ-minZ);\n";
       shader += "      z = clamp(z, 0.0, 1.0);\n";
-      shader += "      gl_FragData[0] = vec4(z,val,tag,1.0);\n";
+      shader += "      gl_FragData[0] = vec4(z,val,0.0,1.0);\n";
       //shader += getGrad();
       shader += "      if (length(grad) > 0.2)\n";
       shader += "        {\n";
@@ -554,7 +554,7 @@ RcShaderFactory::genXRayShader(int maxSteps, bool firstHit, bool nearest, bool u
 //      shader += "  colorSample *= tagcolor.a;\n";
 //    }
 //  else
-    shader += "  float tag = 0;\n";
+//    shader += "  float tag = 0;\n";
 
 
   shader += "  if (!gotFirstHit && colorSample.a > 0.001) gotFirstHit = true;\n";  
@@ -577,7 +577,7 @@ RcShaderFactory::genXRayShader(int maxSteps, bool firstHit, bool nearest, bool u
       shader += "      float z = dot(I, normalize(dir));\n";
       shader += "      z = (z-minZ)/(maxZ-minZ);\n";
       shader += "      z = clamp(z, 0.0, 1.0);\n";
-      shader += "      gl_FragColor = vec4(z,val,tag,1.0);\n";
+      shader += "      gl_FragColor = vec4(z,val,0.0,1.0);\n";
       shader += "      return;\n";
       shader += "    }\n";
     }

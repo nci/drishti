@@ -17,7 +17,9 @@ using namespace qglviewer;
 #endif // USE_GLMEDIA
 #include "messagedisplayer.h"
 #include "volume.h"
+#include "popupslider.h"
 
+#include "ui_raycastmenu.h"
 #include "rcviewer.h"
 
 class ViewerUndo
@@ -134,6 +136,10 @@ class Viewer : public QGLViewer
 
   void readSocket();
 
+  void raycastLightOnOff(int);
+  void on_raycaststillStep_changed(double);
+  void on_raycastdragStep_changed(double);
+
  signals:
   void resetFlipImage();
   void quitDrishti();
@@ -175,6 +181,16 @@ class Viewer : public QGLViewer
 
  private :
   QWidget *m_parent;
+
+  Ui::RaycastMenu m_raycastUI;
+  QFrame *m_raycastMenu;
+  PopUpSlider *m_viewSpec;
+  PopUpSlider *m_viewEdge;
+  PopUpSlider *m_viewShadow;
+  PopUpSlider *m_shadowX;
+  PopUpSlider *m_shadowY;
+  QPushButton *m_shadowButton;
+  QPushButton *m_edgeButton;
 
   ViewerUndo m_undo;
 
@@ -295,4 +311,7 @@ class Viewer : public QGLViewer
   bool mouseMoveEventInViewport(int, QMouseEvent*);
 
   bool mouseMoveEventInPathViewport(int, QMouseEvent*);  
+
+  void setupRaycastUI();
+  void setupRaycastLightParameters();
 };

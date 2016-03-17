@@ -22,7 +22,8 @@ FORMS += mainwindow.ui \
 	 propertyeditor.ui \
 	 profileviewer.ui \
 	 viewseditor.ui \
-	 volumeinformation.ui
+	 volumeinformation.ui \
+	 raycastmenu.ui
 
 
 TEMPLATE = app
@@ -241,8 +242,8 @@ HEADERS += boundingbox.h \
 	   videoplayer.h \
 	   mybitarray.h \
 	   rcviewer.h \
-	   rcshaderfactory.h
-
+	   rcshaderfactory.h \
+	   popupslider.h
 
 SOURCES += boundingbox.cpp \
            blendshaderfactory.cpp \
@@ -376,4 +377,5 @@ SOURCES += boundingbox.cpp \
 	   videoplayer.cpp \
 	   mybitarray.cpp \
 	   rcviewer.cpp \
-	   rcshaderfactory.cpp
+	   rcshaderfactory.cpp \
+	   popupslider.cpp

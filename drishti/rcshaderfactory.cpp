@@ -348,24 +348,8 @@ RcShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest, boo
   shader += "  vec4 colorSample = vec4(1.0);\n";
 
   shader += getGrad();
-  shader += "  colorSample = texture2D(lutTex, vec2(val,length(grad)));\n";
-  //shader += "  colorSample = texture2D(lutTex, vec2(val,0.0));\n";
-
-//  if (useMask)
-//    {
-//      shader += "  float tag = texture3D(maskTex, vC).x;\n";
-//      shader += "  vec4 tagcolor = texture1D(tagTex, tag);\n";
-//      shader += "  if (tag < 0.001) tagcolor.rgb = colorSample.rgb;\n";
-//
-//      shader += "  colorSample.rgb = mix(colorSample.rgb, tagcolor.rgb, 0.5);\n";
-//
-//      // so that we can use tag opacity to hide certain tagged regions
-//      // tagcolor.a should either 0 or 1
-//      shader += "  colorSample *= tagcolor.a;\n";
-//    }
-//  else
-//    shader += "  float tag = 0;\n";
-
+  shader += "  float gradlen = length(grad);\n";
+  shader += "  colorSample = texture2D(lutTex, vec2(val,gradlen));\n";
 
   shader += "  if (!gotFirstHit && colorSample.a > 0.001) gotFirstHit = true;\n";  
 
@@ -387,9 +371,8 @@ RcShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest, boo
       shader += "      float z = dot(I, normalize(viewDir));\n";
       shader += "      z = (z-minZ)/(maxZ-minZ);\n";
       shader += "      z = clamp(z, 0.0, 1.0);\n";
-      shader += "      gl_FragData[0] = vec4(z,val,0.0,1.0);\n";
-      //shader += getGrad();
-      shader += "      if (length(grad) > 0.2)\n";
+      shader += "      gl_FragData[0] = vec4(z,val,gradlen,1.0);\n";
+      shader += "      if (gradlen > 0.2)\n";
       shader += "        {\n";
       shader += "           grad = normalize(grad);\n";
       shader += "           vec3 lightVec = viewDir;\n";
@@ -651,7 +634,6 @@ RcShaderFactory::genEdgeEnhanceShader()
 
   shader =  "#extension GL_ARB_texture_rectangle : enable\n";
   shader += "varying vec3 pointpos;\n";
-  //shader += "uniform sampler1D tagTex;\n";
   shader += "uniform sampler2DRect normalTex;\n";
   shader += "uniform float minZ;\n";
   shader += "uniform float maxZ;\n";
@@ -681,18 +663,10 @@ RcShaderFactory::genEdgeEnhanceShader()
   //---------------------
 
   shader += "  float depth = dvt.x;\n";
-  shader += "  float val = dvt.y;\n";
-  shader += "  float tag = dvt.z;\n";
 
   //---------------------
   shader += "  vec4 color = vec4(0.0);\n";
-  //shader += "  color = texture1D(tagTex, tag);\n";
-  // so that we can use tag opacity to hide certain tagged regions
-  // tagcolor.a should either 0 or 1
-  //shader += "  if (color.a < 0.001) discard;\n";
-  //---------------------
 
-  //shader += "  if (tag < 0.001)\n";
   shader += "   {\n";
   float dx[9] = {-1.0,-1.0,-1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0};
   float dy[9] = {-1.0, 0.0, 1.0,-1.0, 0.0, 1.0,-1.0, 0.0, 1.0};
@@ -706,8 +680,8 @@ RcShaderFactory::genEdgeEnhanceShader()
   shader += "    vec3 rgb = vec3(0.0);\n";
   shader += "    for(int i=0; i<9; i++)\n";
   shader += "    {\n";
-  shader += "       val = texture2DRect(pvtTex, spos0+vec2(1.0,0.0)).y;\n";
-  shader += "       color = texture2D(lutTex,vec2(val,0.0));\n";
+  shader += "       vec2 vg = texture2DRect(pvtTex, spos0+vec2(1.0,0.0)).yz;\n";
+  shader += "       color = texture2D(lutTex,vec2(vg.x,vg.y));\n";
   shader += "       rgb += color.rgb;\n";
   shader += "    }\n";
   shader += "    color.a = 1.0;\n";
@@ -746,7 +720,6 @@ RcShaderFactory::genEdgeEnhanceShader()
   shader += "      {\n";
   shader += "        int x = int(r*sin(theta));\n";
   shader += "        int y = int(r*cos(theta));\n";
-  //shader += "        vec2 pos = spos + vec2(x,y);\n";
   shader += "        vec2 pos = spos0 + vec2(i*0.05,i*0.05)*shdoffset + vec2(x,y);\n";
   shader += "        float od = depth - texture2DRect(pvtTex, pos).x;\n";
   shader += "        float wt = abs(spos0.x-pos.x)+abs(spos0.y-pos.y);\n";

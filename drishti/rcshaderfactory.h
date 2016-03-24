@@ -11,9 +11,11 @@ class RcShaderFactory
 
   static QString genRectBlurShaderString(int);
 
-  static QString genRaycastShader(int, bool, bool, bool);
+  static QString genFirstHitShader(int, bool);
 
-  static QString genXRayShader(int, bool, bool, bool);
+  static QString genRaycastShader(int, bool, bool, float);
+
+  static QString genXRayShader(int, bool, bool, float);
 
   static QString genEdgeEnhanceShader();
 

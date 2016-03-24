@@ -51,6 +51,7 @@ class RcViewer : public QObject
   float dragStep() { return m_dragStep; }
   int smoothDepth() { return m_smoothDepth; }
   float edgeThickness() { return m_edgeThickness; }
+  float raylenFrac() { return m_raylenFrac; }
 
   public slots :
     void updateVoxelsForRaycast();
@@ -67,6 +68,7 @@ class RcViewer : public QObject
     void setExactCoord(bool);
     void setStillAndDragStep(float, float);
     void setEdgeThickness(int e) { m_edgeThickness = 0.1*e; m_viewer->update(); }
+    void setRayLenFrac(int r);
 
  private :
 
@@ -118,6 +120,9 @@ class RcViewer : public QObject
   GLhandleARB m_blurShader;
   GLint m_blurParm[20];
 
+  GLhandleARB m_fhShader;
+  GLint m_fhParm[20];
+
   GLhandleARB m_rcShader;
   GLint m_rcParm[20];
 
@@ -128,6 +133,7 @@ class RcViewer : public QObject
   bool m_fullRender;
   bool m_dragMode;
   int m_renderMode;
+  float m_raylenFrac;
   
   float m_stillstep;
 
@@ -136,12 +142,14 @@ class RcViewer : public QObject
   void generateBoxMinMax();
   void updateFilledBoxes();
 
+  void createFirstHitShader();
   void createRaycastShader();
   void createShaders();
   void createFBO();
 
   void raycasting();
-  void volumeRaycast(float, float, bool);
+  void surfaceRaycast(float, float, bool);
+  void volumeRaycast(float, float);
 
   void drawBox(GLenum);
   void drawFace(int, Vec*, Vec*);

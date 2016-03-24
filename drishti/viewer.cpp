@@ -620,9 +620,15 @@ void
 Viewer::raycastLightOnOff(int voxchoice)
 {
   if (voxchoice > 0)
-    m_raycastUI.lightBox->setVisible(false);
+    {
+      m_raycastUI.surfaceBox->setVisible(false);
+      m_raycastUI.raycastBox->setVisible(true);
+    }
   else
-    m_raycastUI.lightBox->setVisible(true);
+    {
+      m_raycastUI.surfaceBox->setVisible(true);
+      m_raycastUI.raycastBox->setVisible(false);
+    }
 }
 
 void
@@ -674,6 +680,7 @@ Viewer::setupRaycastLightParameters()
   m_raycastUI.popupLight->addWidget(m_shadowY);
   m_raycastUI.popupLight->addItem(spitem2);
 
+
   connect(m_viewSpec, SIGNAL(valueChanged(int)),
 	  &m_rcViewer, SLOT(setSpec(int)));
   connect(m_viewEdge, SIGNAL(valueChanged(int)),
@@ -687,27 +694,26 @@ Viewer::setupRaycastLightParameters()
   connect(m_shadowY, SIGNAL(valueChanged(int)),
 	  &m_rcViewer, SLOT(setShadowOffsetY(int)));
 
-  connect(m_raycastUI.lightBox, SIGNAL(clicked(bool)),
-	  m_viewSpec, SLOT(setVisible(bool)));
-  connect(m_raycastUI.lightBox, SIGNAL(clicked(bool)),
-	  m_viewEdge, SLOT(setVisible(bool)));
-  connect(m_raycastUI.lightBox, SIGNAL(clicked(bool)),
-	  m_thickEdge, SLOT(setVisible(bool)));
-  connect(m_raycastUI.lightBox, SIGNAL(clicked(bool)),
-	  m_viewShadow, SLOT(setVisible(bool)));
-  connect(m_raycastUI.lightBox, SIGNAL(clicked(bool)),
-	  m_shadowX, SLOT(setVisible(bool)));
-  connect(m_raycastUI.lightBox, SIGNAL(clicked(bool)),
-	  m_shadowY, SLOT(setVisible(bool)));
-  connect(m_raycastUI.lightBox, SIGNAL(clicked(bool)),
-	  m_shadowButton, SLOT(setVisible(bool)));
-  connect(m_raycastUI.lightBox, SIGNAL(clicked(bool)),
-	  m_edgeButton, SLOT(setVisible(bool)));
-
   connect(m_shadowButton, SIGNAL(clicked()),
 	  &m_rcViewer, SLOT(setShadowColor()));
   connect(m_edgeButton, SIGNAL(clicked()),
 	  &m_rcViewer, SLOT(setEdgeColor()));
+
+
+
+  m_raylen = new PopUpSlider(this, Qt::Horizontal);
+  m_raylen->setText("Ray Length");
+  m_raylen->setRange(1, 10);
+  m_raylen->setValue(1);
+
+  m_raycastUI.popupRay->setMargin(2);
+  m_raycastUI.popupRay->addWidget(m_raylen);
+
+  connect(m_raylen, SIGNAL(valueChanged(int)),
+	  &m_rcViewer, SLOT(setRayLenFrac(int)));
+
+  m_raycastUI.raycastBox->setVisible(false);
+
 }
 
 

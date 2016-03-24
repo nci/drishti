@@ -43,6 +43,8 @@ RcViewer::RcViewer() :
   m_edge = 7.0;
   m_shdX = 0;
   m_shdY = 0;
+  m_smoothDepth = 1;
+  m_edgeThickness = 0.6;
 
   m_shadowColor = Vec(0.0,0.0,0.0);
   m_edgeColor = Vec(0.0,0.0,0.0);
@@ -565,6 +567,7 @@ RcViewer::createShaders()
   m_eeParm[12] = glGetUniformLocationARB(m_eeShader, "edgecolor");
   m_eeParm[13] = glGetUniformLocationARB(m_eeShader, "bgcolor");
   m_eeParm[14] = glGetUniformLocationARB(m_eeShader, "shdoffset");
+  m_eeParm[15] = glGetUniformLocationARB(m_eeShader, "edgethickness");
   //----------------------
 
 
@@ -1042,30 +1045,30 @@ RcViewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
       glUniform1fARB(m_blurParm[1], minZ); // minZ
       glUniform1fARB(m_blurParm[2], maxZ); // maxZ
       
-      int eb0 = 0;
-      int eb2 = 2;
-      for(int nb=0; nb<3; nb++)
+      int dtex = 2;
+      int sdtex = 0;
+      for(int nb=0; nb<m_smoothDepth; nb++)
 	{
+	  int ebidx = dtex;
+	  dtex = sdtex;
+	  sdtex = ebidx;
+
 	  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_eBuffer);
 	  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
 				 GL_COLOR_ATTACHMENT2_EXT,
 				 GL_TEXTURE_RECTANGLE_ARB,
-				 m_ebTex[eb2],
+				 m_ebTex[sdtex],
 				 0);
 	  glDrawBuffer(GL_COLOR_ATTACHMENT2_EXT);  
 	  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	  glActiveTexture(GL_TEXTURE2);
 	  glEnable(GL_TEXTURE_RECTANGLE_ARB);
-	  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[eb0]);
+	  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[dtex]);
 
 	  StaticFunctions::pushOrthoView(0, 0, wd, ht);
 	  StaticFunctions::drawQuad(0, 0, wd, ht, 1);
 	  StaticFunctions::popOrthoView();
-
-	  int ebidx = eb0;
-	  eb0 = eb2;
-	  eb2 = ebidx;
 	}
 
       glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
@@ -1082,7 +1085,7 @@ RcViewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
       
       glActiveTexture(GL_TEXTURE2);
       glEnable(GL_TEXTURE_RECTANGLE_ARB);
-      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[eb2]);
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[sdtex]);
 
 
       glUniform1iARB(m_eeParm[0], 6); // normals (ebtex[1]) tex
@@ -1104,6 +1107,7 @@ RcViewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
 		                   bgColor.y,
 		                   bgColor.z);
       glUniform2fARB(m_eeParm[14], m_shdX, -m_shdY);
+      glUniform1fARB(m_eeParm[15], m_edgeThickness);
 
       StaticFunctions::pushOrthoView(0, 0, wd, ht);
       StaticFunctions::drawQuad(0, 0, wd, ht, 1);

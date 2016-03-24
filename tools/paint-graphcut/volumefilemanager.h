@@ -44,6 +44,11 @@ class VolumeFileManager
   void setHeight(int);
   void createFile(bool, bool writeData=false);
 
+  QStringList filenameList();
+  QString baseFilename();
+  int headerSize();
+  int slabSize();
+
   int depth();
   int width();
   int height();

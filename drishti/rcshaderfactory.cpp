@@ -646,6 +646,7 @@ RcShaderFactory::genEdgeEnhanceShader()
   shader += "uniform vec3 edgecolor;\n";
   shader += "uniform vec3 bgcolor;\n";
   shader += "uniform vec2 shdoffset;\n";
+  shader += "uniform float edgethickness;\n";
 
   shader += "void main(void)\n";
   shader += "{\n";
@@ -693,8 +694,9 @@ RcShaderFactory::genEdgeEnhanceShader()
   shader += "  float zedge = 1.0;\n";
   shader += "  if (dzScale > 0.0)\n";
   shader += "  {\n";
-  shader += "    float dx = texture2DRect(pvtTex, spos0+vec2(1.0,0.0)).x - texture2DRect(pvtTex, spos0-vec2(1.0,0.0)).x;\n";
-  shader += "    float dy = texture2DRect(pvtTex, spos0+vec2(0.0,1.0)).x - texture2DRect(pvtTex, spos0-vec2(0.0,1.0)).x;\n";
+  shader += "    float r = edgethickness;\n";
+  shader += "    float dx = texture2DRect(pvtTex, spos0+vec2(r,0.0)).x - texture2DRect(pvtTex, spos0-vec2(r,0.0)).x;\n";
+  shader += "    float dy = texture2DRect(pvtTex, spos0+vec2(0.0,r)).x - texture2DRect(pvtTex, spos0-vec2(0.0,r)).x;\n";
   shader += "    zedge = 0.5+dzScale/2.0;\n";
   shader += "    vec3 norm = normalize(vec3(dx, dy, (zedge*zedge)/(maxZ-minZ)));\n";  
   shader += "    zedge = norm.z;\n";

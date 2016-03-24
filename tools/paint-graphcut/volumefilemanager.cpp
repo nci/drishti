@@ -86,6 +86,11 @@ void VolumeFileManager::setVoxelType(int vt)
   if (m_voxelType == _Float) m_bytesPerVoxel = 4;
 }
 
+
+QStringList VolumeFileManager::filenameList() { return m_filenames; }
+QString VolumeFileManager::baseFilename() { return m_baseFilename; }
+int VolumeFileManager::headerSize() { return m_header; }
+int VolumeFileManager::slabSize() { return m_slabSize; }
 QString VolumeFileManager::fileName() { return m_filename; }
 
 void

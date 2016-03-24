@@ -185,12 +185,14 @@ class Viewer : public QGLViewer
   Ui::RaycastMenu m_raycastUI;
   QFrame *m_raycastMenu;
   PopUpSlider *m_viewSpec;
+  PopUpSlider *m_thickEdge;
   PopUpSlider *m_viewEdge;
   PopUpSlider *m_viewShadow;
   PopUpSlider *m_shadowX;
   PopUpSlider *m_shadowY;
   QPushButton *m_shadowButton;
   QPushButton *m_edgeButton;
+
 
   ViewerUndo m_undo;
 

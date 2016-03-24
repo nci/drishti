@@ -630,22 +630,26 @@ Viewer::setupRaycastLightParameters()
 {
   m_viewSpec = new PopUpSlider(this, Qt::Horizontal);
   m_viewEdge = new PopUpSlider(this, Qt::Horizontal);
+  m_thickEdge = new PopUpSlider(this, Qt::Horizontal);
   m_viewShadow = new PopUpSlider(this, Qt::Horizontal);
   m_shadowX = new PopUpSlider(this, Qt::Horizontal);
   m_shadowY = new PopUpSlider(this, Qt::Horizontal);
-  m_shadowButton = new QPushButton("Shadow Color");
-  m_edgeButton = new QPushButton("Edge Color");
+  m_shadowButton = new QPushButton("Color");
+  m_edgeButton = new QPushButton("Color");
 
   m_viewSpec->setText("Specular");
   m_viewEdge->setText("Edges");
+  m_thickEdge->setText("Prominence");
   m_viewShadow->setText("Shadow");
-  m_shadowX->setText("Shadow X");
-  m_shadowY->setText("Shadow Y");
+  m_shadowX->setText("X offset");
+  m_shadowY->setText("Y offset");
 
   m_viewSpec->setRange(0, 10);
   m_viewSpec->setValue(10);
   m_viewEdge->setRange(0, 10);
   m_viewEdge->setValue(3);
+  m_thickEdge->setRange(1, 10);
+  m_thickEdge->setValue(6);
   m_viewShadow->setRange(0, 20);
   m_viewShadow->setValue(10);
   m_shadowX->setRange(-5, 5);
@@ -661,6 +665,7 @@ Viewer::setupRaycastLightParameters()
   m_raycastUI.popupLight->addWidget(m_viewSpec);
   m_raycastUI.popupLight->addItem(spitem0);
   m_raycastUI.popupLight->addWidget(m_viewEdge);
+  m_raycastUI.popupLight->addWidget(m_thickEdge);
   m_raycastUI.popupLight->addWidget(m_edgeButton);
   m_raycastUI.popupLight->addItem(spitem1);
   m_raycastUI.popupLight->addWidget(m_viewShadow);
@@ -673,6 +678,8 @@ Viewer::setupRaycastLightParameters()
 	  &m_rcViewer, SLOT(setSpec(int)));
   connect(m_viewEdge, SIGNAL(valueChanged(int)),
 	  &m_rcViewer, SLOT(setEdge(int)));
+  connect(m_thickEdge, SIGNAL(valueChanged(int)),
+	  &m_rcViewer, SLOT(setEdgeThickness(int)));
   connect(m_viewShadow, SIGNAL(valueChanged(int)),
 	  &m_rcViewer, SLOT(setShadow(int)));
   connect(m_shadowX, SIGNAL(valueChanged(int)),
@@ -684,6 +691,8 @@ Viewer::setupRaycastLightParameters()
 	  m_viewSpec, SLOT(setVisible(bool)));
   connect(m_raycastUI.lightBox, SIGNAL(clicked(bool)),
 	  m_viewEdge, SLOT(setVisible(bool)));
+  connect(m_raycastUI.lightBox, SIGNAL(clicked(bool)),
+	  m_thickEdge, SLOT(setVisible(bool)));
   connect(m_raycastUI.lightBox, SIGNAL(clicked(bool)),
 	  m_viewShadow, SLOT(setVisible(bool)));
   connect(m_raycastUI.lightBox, SIGNAL(clicked(bool)),

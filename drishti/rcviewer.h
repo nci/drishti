@@ -49,6 +49,8 @@ class RcViewer : public QObject
   Vec edgeColor() { return m_edgeColor; }
   float stillStep() { return m_stillStep; }
   float dragStep() { return m_dragStep; }
+  int smoothDepth() { return m_smoothDepth; }
+  float edgeThickness() { return m_edgeThickness; }
 
   public slots :
     void updateVoxelsForRaycast();
@@ -59,10 +61,12 @@ class RcViewer : public QObject
     void setSpec(int a) { m_spec = (float)a/10.0f; m_viewer->update(); }
     void setEdge(int e) { m_edge = e; m_viewer->update(); }
     void setShadow(int e) { m_shadow = e; m_viewer->update(); }
+    void setSmoothDepth(int e) { m_smoothDepth = e; m_viewer->update(); }
     void setShadowOffsetX(int x) { m_shdX = x; m_viewer->update(); }
     void setShadowOffsetY(int y) { m_shdY = y; m_viewer->update(); }
     void setExactCoord(bool);
     void setStillAndDragStep(float, float);
+    void setEdgeThickness(int e) { m_edgeThickness = 0.1*e; m_viewer->update(); }
 
  private :
 
@@ -90,6 +94,9 @@ class RcViewer : public QObject
   float m_edge;
   Vec m_shadowColor, m_edgeColor;
   int m_shdX, m_shdY;
+  int m_smoothDepth;
+  float m_edgeThickness;
+
 
   int m_max3DTexSize;
   int m_skipLayers;

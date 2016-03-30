@@ -951,11 +951,9 @@ RcShaderFactory::genEdgeEnhanceShader()
   shader += "      float tele = 0.0;\n";
   shader += "      float r = 0.5;\n";
   shader += "      float theta = 0.0;\n";
-  //shader += "      int cnt = 4;\n";
   shader += "      float ege = 0.0;\n";
   shader += "      int j = 0;\n";
-  shader += "      float rstep = 0.01*isoshadow;\n";
-  //shader += "      for(int i=0; i<(20*isoshadow); i++)\n";
+  shader += "      float rstep = 0.02+0.01*isoshadow;\n";
   shader += "      for(int i=0; i<128; i++)\n";
   shader += "      {\n";
   shader += "        int x = int(r*sin(theta));\n";
@@ -966,12 +964,8 @@ RcShaderFactory::genEdgeEnhanceShader()
   shader += "        float ege = (wt-1.0)*0.0005;\n";
   shader += "        sum += step(ege, od);\n";
   shader += "        tele ++;\n";
-  //shader += "        r += i/cnt;\n";
-  //shader += "        r += float(i/cnt)*rstep;\n";
-  //shader += "        theta += 6.28/(r+3.0);\n";  
   shader += "        r += rstep;\n";
   shader += "        theta += 0.3;\n";  
-  //shader += "        if (i>=cnt) cnt = cnt+int(r)+3;\n";
   shader += "      }\n"; 
   shader += "      shadow = 0.1 + 0.9*(1.0-sum/tele);\n";
   shader += "    }\n";

@@ -123,6 +123,9 @@ class RcViewer : public QObject
   GLhandleARB m_fhShader;
   GLint m_fhParm[20];
 
+  GLhandleARB m_ircShader;
+  GLint m_ircParm[20];
+
   GLhandleARB m_rcShader;
   GLint m_rcParm[20];
 
@@ -143,6 +146,7 @@ class RcViewer : public QObject
   void updateFilledBoxes();
 
   void createFirstHitShader();
+  void createIsoRaycastShader();
   void createRaycastShader();
   void createShaders();
   void createFBO();

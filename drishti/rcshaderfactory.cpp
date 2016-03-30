@@ -280,7 +280,7 @@ RcShaderFactory::addLighting()
 }
 
 QString
-RcShaderFactory::genFirstHitShader(int maxSteps, bool nearest)
+RcShaderFactory::genFirstHitShader(bool nearest)
 {
   QString shader;
 
@@ -384,7 +384,7 @@ RcShaderFactory::genFirstHitShader(int maxSteps, bool nearest)
 }
 
 QString
-RcShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest, float raylenFrac)
+RcShaderFactory::genIsoRaycastShader(bool nearest)
 {
   QString shader;
 
@@ -434,10 +434,8 @@ RcShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest, flo
   shader += "bool solid = false;\n";
  
 
-  if (!firstHit)
-    shader += QString("for(int i=0; i<max(10,int(%1*length(exitPoint-entryPoint)/stepSize)); i++)\n").arg(raylenFrac);
-  else
-    shader += QString("for(int i=0; i<%1; i++)\n").arg(maxSteps);
+  //shader += QString("for(int i=0; i<%1; i++)\n").arg(maxSteps);
+  shader += "for(int i=0; i<int(length(exitPoint-entryPoint)/stepSize); i++)\n";
 
   shader += "{\n";
 
@@ -464,37 +462,198 @@ RcShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest, flo
   shader += "  if (gotFirstHit && nskipped > skipLayers)\n";
   shader += "  {\n";
 
-  if (firstHit)
-    {
-      shader += "  if (saveCoord && colorSample.a > 0.001)";
-      shader += "    {\n";
-      shader += "      gl_FragData[0] = vec4(vC,1.0);\n";
-      shader += "      return;\n";
-      shader += "    }\n";
+  shader += "  if (saveCoord && colorSample.a > 0.001)";
+  shader += "    {\n";
+  shader += "      gl_FragData[0] = vec4(vC,1.0);\n";
+  shader += "      return;\n";
+  shader += "    }\n";
 
-      shader += "  if (colorSample.a > 0.001 )\n";
-      shader += "    {\n";  
-      shader += "      vec3 voxpos = vcorner + voxelCoord*vsize;";
-      shader += "      vec3 I = voxpos - eyepos;\n";
-      shader += "      float z = dot(I, normalize(viewDir));\n";
-      shader += "      z = (z-minZ)/(maxZ-minZ);\n";
-      shader += "      z = clamp(z, 0.0, 1.0);\n";
-      shader += "      gl_FragData[0] = vec4(z,val,gradlen,1.0);\n";
-      shader += "      if (gradlen > 0.2)\n";
-      shader += "        {\n";
-      shader += "           grad = normalize(grad);\n";
-      shader += "           vec3 lightVec = viewDir;\n";
-      shader += "           float diff = abs(dot(lightVec, grad));\n";
-      shader += "           vec3 reflecvec = reflect(lightVec, grad);\n";
-      shader += "           float spec = pow(abs(dot(grad, reflecvec)), 512.0);\n";
-      shader += "           gl_FragData[1] = vec4(1.0,diff,spec,1.0);\n";
-      shader += "        }\n";
-      shader += "      else\n";
-      shader += "        gl_FragData[1] = vec4(1.0,0.0,0.0,1.0);\n";
-      shader += "      return;\n";
-      shader += "    }\n";
-    }
+  shader += "  if (colorSample.a > 0.001 )\n";
+  shader += "    {\n";  
+  shader += "      vec3 voxpos = vcorner + voxelCoord*vsize;";
+  shader += "      vec3 I = voxpos - eyepos;\n";
+  shader += "      float z = dot(I, normalize(viewDir));\n";
+  shader += "      z = (z-minZ)/(maxZ-minZ);\n";
+  shader += "      z = clamp(z, 0.0, 1.0);\n";
+  shader += "      gl_FragData[0] = vec4(z,val,gradlen,1.0);\n";
+  shader += "      if (gradlen > 0.2)\n";
+  shader += "        {\n";
+  shader += "           grad = normalize(grad);\n";
+  shader += "           vec3 lightVec = viewDir;\n";
+  shader += "           float diff = abs(dot(lightVec, grad));\n";
+  shader += "           vec3 reflecvec = reflect(lightVec, grad);\n";
+  shader += "           float spec = pow(abs(dot(grad, reflecvec)), 512.0);\n";
+  shader += "           gl_FragData[1] = vec4(1.0,diff,spec,1.0);\n";
+  shader += "        }\n";
+  shader += "      else\n";
+  shader += "        gl_FragData[1] = vec4(1.0,0.0,0.0,1.0);\n";
+  shader += "      return;\n";
+  shader += "    }\n";
+
+  shader += getGrad();
+  shader += addLighting();
+
+  shader += "    colorSample.rgb *= colorSample.a;\n";
+
+  shader += "    colorAcum += (1.0 - colorAcum.a) * colorSample;\n";
+
+  shader += "  }\n"; // gotfirsthit && nskipped > skipLayers
+
+  shader += "  if (lengthAcum >= len )\n";
+  shader += "    {\n";
+  shader += "      colorAcum.rgb = colorAcum.rgb*colorAcum.a + (1.0 - colorAcum.a)*bgColor.rgb;\n";
+  shader += "      break;\n";  // terminate if opacity > 1 or the ray is outside the volume	
+  shader += "    }\n";
+  shader += "  else if (colorAcum.a > 1.0)\n";
+  shader += "    {\n";
+  shader += "      colorAcum.a = 1.0;\n";
+  shader += "      break;\n";
+  shader += "    }\n";
+
+  shader += "  voxelCoord += deltaDir;\n";
+  shader += "  lengthAcum += deltaDirLen;\n";
+
+  shader += "  if (gotFirstHit) \n";
+  shader += "   {\n";
+  shader += "     if (colorSample.a > 0.001)\n";
+  shader += "      {\n";  
+  shader += "         if (!solid)\n";
+  shader += "           {\n";    
+  shader += "             solid = true;\n";
+  shader += "             nskipped++;\n";  
+  shader += "           }\n";  
+  shader += "      }\n";
+  shader += "     else\n";
+  shader += "      {\n";  
+  shader += "         if (solid)\n";
+  shader += "           {\n";    
+  shader += "             solid = false;\n";
+  shader += "           }\n";  
+  shader += "      }\n";
+  shader += "   }\n";
+
+  shader += "}\n";
+
+  shader += "gl_FragData[0] = colorAcum;\n";
+  shader += "gl_FragData[1] = vec4(0.0,0.0,0.0,1.0);\n";
+
+  shader += "}\n";
+
+  return shader;
+}
+
+QString
+RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac)
+{
+  QString shader;
+
+  shader =  "#extension GL_ARB_texture_rectangle : enable\n";
+  shader += "uniform sampler3D dataTex;\n";
+  shader += "uniform sampler2D lutTex;\n";
+  shader += "uniform sampler2DRect exitTex;\n";
+  shader += "uniform float stepSize;\n";
+  shader += "uniform vec3 eyepos;\n";
+  shader += "uniform vec3 viewDir;\n";
+  shader += "uniform vec3 vcorner;\n";
+  shader += "uniform vec3 vsize;\n";
+  shader += "uniform float minZ;\n";
+  shader += "uniform float maxZ;\n";  
+  shader += "uniform bool saveCoord;\n";
+  shader += "uniform int skipLayers;\n";
+  shader += "uniform sampler2DRect entryTex;\n";
+  shader += "uniform vec3 bgcolor;\n";
+
+  shader += "void main(void)\n";
+  shader += "{\n";
+
+  shader += "vec4 exP = texture2DRect(exitTex, gl_FragCoord.st);\n";
+  shader += "vec4 enP = texture2DRect(entryTex, gl_FragCoord.st);\n";
+
+  shader += "if (exP.a < 0.001 || enP.a < 0.001) discard;\n";
+
+  shader += "vec3 exitPoint = exP.rgb;\n";
+  shader += "vec3 entryPoint = enP.rgb;\n";
+
+  shader += "vec3 dir = (exitPoint-entryPoint);\n";
+  shader += "float len = length(dir);\n";
+  shader += "if (len < 0.001) discard;\n";
+
+  shader += "vec3 deltaDir = normalize(dir)*stepSize;\n";
+  shader += "float deltaDirLen = length(deltaDir);\n";
+
+  shader += "vec3 voxelCoord = entryPoint;\n";
+  shader += "vec4 colorAcum = vec4(0.0);\n"; // The dest color
+  shader += "float lengthAcum = 0.0;\n";
+
+  // backgroundColor
+  shader += "vec4 bgColor = vec4(0.0, 0.0, 0.0, 0.0);\n";
+  
+  shader += "bool gotFirstHit = false;\n";
+  shader += "int nskipped = 0;\n"; 
+  shader += "bool solid = false;\n";
+ 
+
+//  if (!firstHit)
+    shader += QString("for(int i=0; i<max(10,int(%1*length(exitPoint-entryPoint)/stepSize)); i++)\n").arg(raylenFrac);
+//  else
+//    shader += QString("for(int i=0; i<%1; i++)\n").arg(maxSteps);
+
+  shader += "{\n";
+
+  // -- get exact texture coordinate so we don't get tag interpolation --
+  shader += "  vec3 vC = voxelCoord*vsize;\n";
+  shader += "  bvec3 vclt = lessThan(floor(vC+0.5), vC);\n";
+  shader += "  vC += vec3(vclt)*vec3(0.5);\n";
+  shader += "  vC -= vec3(not(vclt))*vec3(0.5);\n";
+  shader += "  vC /= vsize;\n";
+
+  if (nearest)
+    shader += "  float val = texture3D(dataTex, vC).x;\n";
   else
+    shader += "  float val = texture3D(dataTex, voxelCoord).x;\n";
+
+  shader += "  vec4 colorSample = vec4(1.0);\n";
+
+  shader += getGrad();
+  shader += "  float gradlen = length(grad);\n";
+  shader += "  colorSample = texture2D(lutTex, vec2(val,gradlen));\n";
+
+  shader += "  if (!gotFirstHit && colorSample.a > 0.001) gotFirstHit = true;\n";  
+
+  shader += "  if (gotFirstHit && nskipped > skipLayers)\n";
+  shader += "  {\n";
+
+//  if (firstHit)
+//    {
+//      shader += "  if (saveCoord && colorSample.a > 0.001)";
+//      shader += "    {\n";
+//      shader += "      gl_FragData[0] = vec4(vC,1.0);\n";
+//      shader += "      return;\n";
+//      shader += "    }\n";
+//
+//      shader += "  if (colorSample.a > 0.001 )\n";
+//      shader += "    {\n";  
+//      shader += "      vec3 voxpos = vcorner + voxelCoord*vsize;";
+//      shader += "      vec3 I = voxpos - eyepos;\n";
+//      shader += "      float z = dot(I, normalize(viewDir));\n";
+//      shader += "      z = (z-minZ)/(maxZ-minZ);\n";
+//      shader += "      z = clamp(z, 0.0, 1.0);\n";
+//      shader += "      gl_FragData[0] = vec4(z,val,gradlen,1.0);\n";
+//      shader += "      if (gradlen > 0.2)\n";
+//      shader += "        {\n";
+//      shader += "           grad = normalize(grad);\n";
+//      shader += "           vec3 lightVec = viewDir;\n";
+//      shader += "           float diff = abs(dot(lightVec, grad));\n";
+//      shader += "           vec3 reflecvec = reflect(lightVec, grad);\n";
+//      shader += "           float spec = pow(abs(dot(grad, reflecvec)), 512.0);\n";
+//      shader += "           gl_FragData[1] = vec4(1.0,diff,spec,1.0);\n";
+//      shader += "        }\n";
+//      shader += "      else\n";
+//      shader += "        gl_FragData[1] = vec4(1.0,0.0,0.0,1.0);\n";
+//      shader += "      return;\n";
+//      shader += "    }\n";
+//    }
+//  else
     {
       shader += "    if (saveCoord && colorSample.a > 0.001)";
       shader += "      {\n";
@@ -547,13 +706,13 @@ RcShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest, flo
 
   shader += "}\n";
 
-  if (!firstHit)
+//  if (!firstHit)
     shader += "gl_FragColor = mix(colorAcum, vec4(bgcolor,1.0), 1.0-colorAcum.a);\n";
-  else
-    {
-      shader += "gl_FragData[0] = colorAcum;\n";
-      shader += "gl_FragData[1] = vec4(0.0,0.0,0.0,1.0);\n";
-    }
+//  else
+//    {
+//      shader += "gl_FragData[0] = colorAcum;\n";
+//      shader += "gl_FragData[1] = vec4(0.0,0.0,0.0,1.0);\n";
+//    }
 
   shader += "}\n";
 
@@ -561,7 +720,7 @@ RcShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest, flo
 }
 
 QString
-RcShaderFactory::genXRayShader(int maxSteps, bool firstHit, bool nearest, float raylenFrac)
+RcShaderFactory::genXRayShader(bool nearest, float raylenFrac)
 {
   QString shader;
 
@@ -612,10 +771,7 @@ RcShaderFactory::genXRayShader(int maxSteps, bool firstHit, bool nearest, float 
   shader += "int nskipped = 0;\n"; 
   shader += "bool solid = false;\n";
 
-  if (!firstHit)
-    shader += QString("for(int i=0; i<max(10,int(%1*length(exitPoint-entryPoint)/stepSize)); i++)\n").arg(raylenFrac);
-  else
-    shader += QString("for(int i=0; i<%1; i++)\n").arg(maxSteps);
+  shader += QString("for(int i=0; i<max(10,int(%1*length(exitPoint-entryPoint)/stepSize)); i++)\n").arg(raylenFrac);
 
   shader += "{\n";
 
@@ -645,20 +801,6 @@ RcShaderFactory::genXRayShader(int maxSteps, bool firstHit, bool nearest, float 
   shader += "        gl_FragColor = vec4(vC,1.0);\n";
   shader += "        return;\n";
   shader += "      }\n";
-
-  if (firstHit)
-    {
-      shader += "  if (colorSample.a > 0.001 )\n";
-      shader += "    {\n";  
-      shader += "      vec3 voxpos = vcorner + voxelCoord*vsize;";
-      shader += "      vec3 I = voxpos - eyepos;\n";
-      shader += "      float z = dot(I, normalize(dir));\n";
-      shader += "      z = (z-minZ)/(maxZ-minZ);\n";
-      shader += "      z = clamp(z, 0.0, 1.0);\n";
-      shader += "      gl_FragColor = vec4(z,val,0.0,1.0);\n";
-      shader += "      return;\n";
-      shader += "    }\n";
-    }
 
   // modulate opacity by angle wrt view direction
   //shader += getGrad();
@@ -714,7 +856,6 @@ RcShaderFactory::genXRayShader(int maxSteps, bool firstHit, bool nearest, float 
 
   shader += "}\n";
 
-  //shader += "gl_FragColor = colorAcum;\n";    
   shader += "gl_FragColor = mix(colorAcum, vec4(bgcolor,1.0), 1.0-colorAcum.a);\n";
 
   shader += "}\n";
@@ -808,12 +949,14 @@ RcShaderFactory::genEdgeEnhanceShader()
   shader += "  if (isoshadow > 0)\n";
   shader += "    {\n";
   shader += "      float tele = 0.0;\n";
-  shader += "      float r = 1.0;\n";
+  shader += "      float r = 0.5;\n";
   shader += "      float theta = 0.0;\n";
-  shader += "      int cnt = 4;\n";
+  //shader += "      int cnt = 4;\n";
   shader += "      float ege = 0.0;\n";
   shader += "      int j = 0;\n";
-  shader += "      for(int i=0; i<(20*isoshadow); i++)\n";
+  shader += "      float rstep = 0.01*isoshadow;\n";
+  //shader += "      for(int i=0; i<(20*isoshadow); i++)\n";
+  shader += "      for(int i=0; i<128; i++)\n";
   shader += "      {\n";
   shader += "        int x = int(r*sin(theta));\n";
   shader += "        int y = int(r*cos(theta));\n";
@@ -823,9 +966,12 @@ RcShaderFactory::genEdgeEnhanceShader()
   shader += "        float ege = (wt-1.0)*0.0005;\n";
   shader += "        sum += step(ege, od);\n";
   shader += "        tele ++;\n";
-  shader += "        r += i/cnt;\n";
-  shader += "        theta += 6.28/(r+3.0);\n";  
-  shader += "        if (i>=cnt) cnt = cnt+int(r)+3;\n";
+  //shader += "        r += i/cnt;\n";
+  //shader += "        r += float(i/cnt)*rstep;\n";
+  //shader += "        theta += 6.28/(r+3.0);\n";  
+  shader += "        r += rstep;\n";
+  shader += "        theta += 0.3;\n";  
+  //shader += "        if (i>=cnt) cnt = cnt+int(r)+3;\n";
   shader += "      }\n"; 
   shader += "      shadow = 0.1 + 0.9*(1.0-sum/tele);\n";
   shader += "    }\n";

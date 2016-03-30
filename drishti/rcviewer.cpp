@@ -29,6 +29,7 @@ RcViewer::RcViewer() :
   m_blurShader = 0;
   m_fhShader = 0;
   m_rcShader = 0;
+  m_ircShader = 0;
   m_eeShader = 0;
 
   m_dataTex = 0;
@@ -87,6 +88,10 @@ RcViewer::init()
   if (m_rcShader)
     glDeleteObjectARB(m_rcShader);
   m_rcShader = 0;
+
+  if (m_ircShader)
+    glDeleteObjectARB(m_ircShader);
+  m_ircShader = 0;
 
   if (m_eeShader)
     glDeleteObjectARB(m_eeShader);
@@ -499,13 +504,7 @@ RcViewer::createFirstHitShader()
 {
   QString shaderString;
 
-  int maxSteps = qSqrt(m_vsize.x*m_vsize.x +
-		       m_vsize.y*m_vsize.y +
-		       m_vsize.z*m_vsize.z);
-  maxSteps *= 1.0/m_stillStep;
-
-
-  shaderString = RcShaderFactory::genFirstHitShader(maxSteps, m_exactCoord);
+  shaderString = RcShaderFactory::genFirstHitShader(m_exactCoord);
 
   if (m_fhShader)
     glDeleteObjectARB(m_fhShader);
@@ -528,25 +527,52 @@ RcViewer::createFirstHitShader()
 }
 
 void
+RcViewer::createIsoRaycastShader()
+{
+  QString shaderString;
+
+  shaderString = RcShaderFactory::genIsoRaycastShader(m_exactCoord);
+
+  if (m_ircShader)
+    glDeleteObjectARB(m_ircShader);
+
+  m_ircShader = glCreateProgramObjectARB();
+  if (! RcShaderFactory::loadShader(m_ircShader,
+				    shaderString))
+    {
+      m_ircShader = 0;
+      QMessageBox::information(0, "", "Cannot create surface shader.");
+    }
+
+  m_ircParm[0] = glGetUniformLocationARB(m_ircShader, "dataTex");
+  m_ircParm[1] = glGetUniformLocationARB(m_ircShader, "lutTex");
+  m_ircParm[2] = glGetUniformLocationARB(m_ircShader, "exitTex");
+  m_ircParm[3] = glGetUniformLocationARB(m_ircShader, "stepSize");
+  m_ircParm[4] = glGetUniformLocationARB(m_ircShader, "eyepos");
+  m_ircParm[5] = glGetUniformLocationARB(m_ircShader, "viewDir");
+  m_ircParm[6] = glGetUniformLocationARB(m_ircShader, "vcorner");
+  m_ircParm[7] = glGetUniformLocationARB(m_ircShader, "vsize");
+  m_ircParm[8] = glGetUniformLocationARB(m_ircShader, "minZ");
+  m_ircParm[9] = glGetUniformLocationARB(m_ircShader, "maxZ");
+  m_ircParm[10]= glGetUniformLocationARB(m_ircShader, "maskTex");
+  m_ircParm[11]= glGetUniformLocationARB(m_ircShader, "saveCoord");
+  m_ircParm[12]= glGetUniformLocationARB(m_ircShader, "skipLayers");
+  m_ircParm[13]= glGetUniformLocationARB(m_ircShader, "tagTex");
+  m_ircParm[14] = glGetUniformLocationARB(m_ircShader, "entryTex");
+  m_ircParm[15] = glGetUniformLocationARB(m_ircShader, "bgcolor");
+}
+
+void
 RcViewer::createRaycastShader()
 {
   createFirstHitShader();
 
-
   QString shaderString;
 
-  int maxSteps = qSqrt(m_vsize.x*m_vsize.x +
-		       m_vsize.y*m_vsize.y +
-		       m_vsize.z*m_vsize.z);
-  maxSteps *= 1.0/m_stillStep;
-
-
   if (m_renderMode == 1)
-    shaderString = RcShaderFactory::genRaycastShader(maxSteps, !m_fullRender,
-						     m_exactCoord, m_raylenFrac);
+    shaderString = RcShaderFactory::genRaycastShader(m_exactCoord, m_raylenFrac);
   else
-    shaderString = RcShaderFactory::genXRayShader(maxSteps, !m_fullRender,
-						  m_exactCoord, m_raylenFrac);
+    shaderString = RcShaderFactory::genXRayShader(m_exactCoord, m_raylenFrac);
 
   if (m_rcShader)
     glDeleteObjectARB(m_rcShader);
@@ -582,6 +608,7 @@ RcViewer::createShaders()
 {
   QString shaderString;
 
+  createIsoRaycastShader();
   createRaycastShader();
 
 
@@ -708,7 +735,7 @@ RcViewer::updateVoxelsForRaycast()
   m_stillStep = Global::stepsizeStill();
   m_dragStep = Global::stepsizeDrag();
 
-  createRaycastShader();
+  //createRaycastShader();
 
   uchar *voxelVol = new uchar[tsz];
 
@@ -985,25 +1012,25 @@ RcViewer::surfaceRaycast(float minZ, float maxZ, bool firstPartOnly)
   viewDir = Matrix::rotateVec(m_b0xformInv, viewDir);
 
 
-  glUseProgramObjectARB(m_rcShader);
-  glUniform1iARB(m_rcParm[0], 1); // dataTex
-  glUniform1iARB(m_rcParm[1], 0); // lutTex
-  glUniform1iARB(m_rcParm[2], 2); // slcTex[1] - contains exit coordinates
-  glUniform1fARB(m_rcParm[3], stepsize); // stepSize
-  glUniform3fARB(m_rcParm[4], eyepos.x, eyepos.y, eyepos.z); // eyepos
-  glUniform3fARB(m_rcParm[5], viewDir.x, viewDir.y, viewDir.z); // viewDir
-  glUniform3fARB(m_rcParm[6], subvolcorner.x, subvolcorner.y, subvolcorner.z);
-  glUniform3fARB(m_rcParm[7], m_vsize.x, m_vsize.y, m_vsize.z);
-  glUniform1fARB(m_rcParm[8], minZ); // minZ
-  glUniform1fARB(m_rcParm[9], maxZ); // maxZ
+  glUseProgramObjectARB(m_ircShader);
+  glUniform1iARB(m_ircParm[0], 1); // dataTex
+  glUniform1iARB(m_ircParm[1], 0); // lutTex
+  glUniform1iARB(m_ircParm[2], 2); // slcTex[1] - contains exit coordinates
+  glUniform1fARB(m_ircParm[3], stepsize); // stepSize
+  glUniform3fARB(m_ircParm[4], eyepos.x, eyepos.y, eyepos.z); // eyepos
+  glUniform3fARB(m_ircParm[5], viewDir.x, viewDir.y, viewDir.z); // viewDir
+  glUniform3fARB(m_ircParm[6], subvolcorner.x, subvolcorner.y, subvolcorner.z);
+  glUniform3fARB(m_ircParm[7], m_vsize.x, m_vsize.y, m_vsize.z);
+  glUniform1fARB(m_ircParm[8], minZ); // minZ
+  glUniform1fARB(m_ircParm[9], maxZ); // maxZ
   //glUniform1iARB(m_rcParm[10],4); // maskTex
-  glUniform1iARB(m_rcParm[11],firstPartOnly); // save voxel coordinates
-  glUniform1iARB(m_rcParm[12],m_skipLayers); // skip first layers
+  glUniform1iARB(m_ircParm[11],firstPartOnly); // save voxel coordinates
+  glUniform1iARB(m_ircParm[12],m_skipLayers); // skip first layers
   //glUniform1iARB(m_rcParm[13],5); // tagTex
-  glUniform1iARB(m_rcParm[14],6); // slcTex[0] - contains entry coordinates
-  glUniform3fARB(m_rcParm[15], bgColor.x,
-		               bgColor.y,
-		               bgColor.z);
+  glUniform1iARB(m_ircParm[14],6); // slcTex[0] - contains entry coordinates
+  glUniform3fARB(m_ircParm[15], bgColor.x,
+		                bgColor.y,
+		                bgColor.z);
 
   glActiveTexture(GL_TEXTURE2);
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
@@ -1739,10 +1766,7 @@ RcViewer::setRaycastStyle(int flag)
 {
   m_fullRender = (flag>0);
 
-  if (flag > 1)
-    m_renderMode = flag;
-  else
-    m_renderMode = 1;
+  m_renderMode = qMax(1, flag);
 
   createRaycastShader();
   m_viewer->update();
@@ -1752,6 +1776,7 @@ void
 RcViewer::setExactCoord(bool b)
 {
   m_exactCoord = b;
+  createIsoRaycastShader();
   createRaycastShader();
   m_viewer->update();
 }
@@ -1761,7 +1786,7 @@ RcViewer::setStillAndDragStep(float ss, float ds)
 {
   m_stillStep = qMax(0.1f,ss);
   m_dragStep = qMax(0.1f,ds);
-  createRaycastShader();
+  //createRaycastShader();
   m_viewer->update();
 }
 

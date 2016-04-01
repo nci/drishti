@@ -162,7 +162,7 @@ VolumeRGBBase::generateHistograms(bool redo)
       flhist2DA = new float[256*256];   memset(flhist2DA, 0, 256*256*4);
     }
   //----------------------------- process data ------------------------
-  uchar *tmp[3];
+  uchar *tmp[4];
   tmp[0] = new unsigned char [m_width*m_height];  
   tmp[1] = new unsigned char [m_width*m_height];  
   tmp[2] = new unsigned char [m_width*m_height];  
@@ -249,6 +249,8 @@ VolumeRGBBase::generateHistograms(bool redo)
   if (nRGB == 4)
     StaticFunctions::generateHistograms(flhist1DA, flhist2DA,
 					m_1dHistogramA, m_2dHistogramA);
+
+
   delete [] flhist1DR;
   delete [] flhist2DR;
   delete [] flhist1DG;

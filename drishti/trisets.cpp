@@ -669,6 +669,7 @@ Trisets::processCommand(int idx, QString cmd)
 void
 Trisets::setClipDistance0(float e0, float e1, float e2, float e3)
 {
+  if (m_trisets.count()==0) return;
   glUniform4fARB(m_defaultParm[8], e0, e1, e2, e3);
   glUniform4fARB(m_highqualityParm[8], e0, e1, e2, e3);
   glUniform4fARB(m_shadowParm[8], e0, e1, e2, e3);
@@ -677,6 +678,7 @@ Trisets::setClipDistance0(float e0, float e1, float e2, float e3)
 void
 Trisets::setClipDistance1(float e0, float e1, float e2, float e3)
 {
+  if (m_trisets.count()==0) return;
   glUniform4fARB(m_defaultParm[9], e0, e1, e2, e3);
   glUniform4fARB(m_highqualityParm[9], e0, e1, e2, e3);
   glUniform4fARB(m_shadowParm[9], e0, e1, e2, e3);

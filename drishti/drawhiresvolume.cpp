@@ -2094,7 +2094,8 @@ DrawHiresVolume::postDrawGeometry()
 
 void
 DrawHiresVolume::preDrawGeometry(int s, int layers,
-				 Vec po, Vec pn, Vec step)
+				 Vec po, Vec pn, Vec step,
+				 bool fromclip)
 {
   //----- restrict geometry between two slices ----
   GLdouble eqn[4];
@@ -2109,9 +2110,13 @@ DrawHiresVolume::preDrawGeometry(int s, int layers,
 	  eqn[3] = pn*po;
 	  glEnable(GL_CLIP_PLANE0);
 	  glClipPlane(GL_CLIP_PLANE0, eqn);
-	  glEnable(GL_CLIP_DISTANCE0);
-	  glUniform4fARB(m_vertParm[0], eqn[0], eqn[1], eqn[2], eqn[3]);
-	  GeometryObjects::trisets()->setClipDistance0(eqn[0], eqn[1], eqn[2], eqn[3]);
+	  if (fromclip)
+	    {
+	      glEnable(GL_CLIP_DISTANCE0);
+	      glUniform4fARB(m_vertParm[0], eqn[0], eqn[1], eqn[2], eqn[3]);
+	    }
+	  else
+	    GeometryObjects::trisets()->setClipDistance0(eqn[0], eqn[1], eqn[2], eqn[3]);
 	}
       if (s < layers-1)
 	{
@@ -2121,9 +2126,13 @@ DrawHiresVolume::preDrawGeometry(int s, int layers,
 	  eqn[3] = -pn*(po-step);
 	  glEnable(GL_CLIP_PLANE1);
 	  glClipPlane(GL_CLIP_PLANE1, eqn);      
-	  glEnable(GL_CLIP_DISTANCE1);
-	  glUniform4fARB(m_vertParm[1], eqn[0], eqn[1], eqn[2], eqn[3]);
-	  GeometryObjects::trisets()->setClipDistance1(eqn[0], eqn[1], eqn[2], eqn[3]);
+	  if (fromclip)
+	    {
+	      glEnable(GL_CLIP_DISTANCE1);
+	      glUniform4fARB(m_vertParm[1], eqn[0], eqn[1], eqn[2], eqn[3]);
+	    }
+	  else
+	    GeometryObjects::trisets()->setClipDistance1(eqn[0], eqn[1], eqn[2], eqn[3]);
 	}
     }
   else
@@ -2136,9 +2145,13 @@ DrawHiresVolume::preDrawGeometry(int s, int layers,
 	  eqn[3] = -pn*po;
 	  glEnable(GL_CLIP_PLANE0);
 	  glClipPlane(GL_CLIP_PLANE0, eqn);
-	  glEnable(GL_CLIP_DISTANCE0);
-	  glUniform4fARB(m_vertParm[0], eqn[0], eqn[1], eqn[2], eqn[3]);
-	  GeometryObjects::trisets()->setClipDistance0(eqn[0], eqn[1], eqn[2], eqn[3]);
+	  if (fromclip)
+	    {
+	      glEnable(GL_CLIP_DISTANCE0);
+	      glUniform4fARB(m_vertParm[0], eqn[0], eqn[1], eqn[2], eqn[3]);
+	    }
+	  else
+	    GeometryObjects::trisets()->setClipDistance0(eqn[0], eqn[1], eqn[2], eqn[3]);
 	}
       if (s < layers-1)
 	{
@@ -2148,9 +2161,13 @@ DrawHiresVolume::preDrawGeometry(int s, int layers,
 	  eqn[3] = pn*(po+step);
 	  glEnable(GL_CLIP_PLANE1);
 	  glClipPlane(GL_CLIP_PLANE1, eqn);
-	  glEnable(GL_CLIP_DISTANCE1);
-	  glUniform4fARB(m_vertParm[1], eqn[0], eqn[1], eqn[2], eqn[3]);
-	  GeometryObjects::trisets()->setClipDistance1(eqn[0], eqn[1], eqn[2], eqn[3]);
+	  if (fromclip)
+	    {
+	      glEnable(GL_CLIP_DISTANCE1);
+	      glUniform4fARB(m_vertParm[1], eqn[0], eqn[1], eqn[2], eqn[3]);
+	    }
+	  else
+	    GeometryObjects::trisets()->setClipDistance1(eqn[0], eqn[1], eqn[2], eqn[3]);
 	}
     }
 }
@@ -4096,7 +4113,7 @@ DrawHiresVolume::drawClipPlaneDefault(int s, int layers,
 				      Vec dragTexsize)
 {
   preDrawGeometry(s, layers,
-		  po, pn, step);
+		  po, pn, step, true);
 
   glUniform3fARB(m_defaultParm[6], lpos.x, lpos.y, lpos.z);
 

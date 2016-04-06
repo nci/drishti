@@ -298,7 +298,7 @@ class DrawHiresVolume : public QObject
 
   void loadCameraMatrices();
 
-  void preDrawGeometry(int, int, Vec, Vec, Vec);
+  void preDrawGeometry(int, int, Vec, Vec, Vec, bool fromclip=false);
   void postDrawGeometry();
   void drawGeometry(float, float, Vec,
 		    bool, bool, Vec);

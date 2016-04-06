@@ -227,6 +227,9 @@ class DrawHiresVolume : public QObject
   GLhandleARB m_backplaneShader1;
   GLhandleARB m_backplaneShader2;
 
+
+  GLint m_vertParm[50];
+
   GLint m_lutParm[50];
   GLint m_defaultParm[60];
   GLint m_blurParm[50];

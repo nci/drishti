@@ -32,6 +32,9 @@ class Trisets : public QObject
   void addTriset(QString);
   void addPLY(QString);
 
+  void setClipDistance0(float, float, float, float);
+  void setClipDistance1(float, float, float, float);
+
   void predraw(QGLViewer*,
 	       double*,
 	       Vec,

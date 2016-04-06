@@ -1050,6 +1050,10 @@ DrawHiresVolume::createDefaultShader()
   if (! ShaderFactory::loadShader(m_defaultShader,
 				    shaderString))
     exit(0);
+
+  m_vertParm[0] = glGetUniformLocationARB(m_defaultShader, "ClipPlane0");
+  m_vertParm[1] = glGetUniformLocationARB(m_defaultShader, "ClipPlane1");
+
   m_defaultParm[0] = glGetUniformLocationARB(m_defaultShader, "lutTex");
   m_defaultParm[1] = glGetUniformLocationARB(m_defaultShader, "dataTex");
 
@@ -2075,8 +2079,17 @@ DrawHiresVolume::getMinZ(QList<Vec> v)
 void
 DrawHiresVolume::postDrawGeometry()
 {
+  // for fixed-function pipeline
   glDisable(GL_CLIP_PLANE0);
   glDisable(GL_CLIP_PLANE1);
+
+  // for progammable pipeline
+  glDisable(GL_CLIP_DISTANCE0);
+  glDisable(GL_CLIP_DISTANCE1);
+  glUniform4fARB(m_vertParm[0], 0, 1, 0, 10000);
+  glUniform4fARB(m_vertParm[1], 1, 0, 0, 10000);
+  GeometryObjects::trisets()->setClipDistance0(0, 1, 0, 10000);
+  GeometryObjects::trisets()->setClipDistance1(1, 0, 0, 10000);
 }
 
 void
@@ -2096,6 +2109,9 @@ DrawHiresVolume::preDrawGeometry(int s, int layers,
 	  eqn[3] = pn*po;
 	  glEnable(GL_CLIP_PLANE0);
 	  glClipPlane(GL_CLIP_PLANE0, eqn);
+	  glEnable(GL_CLIP_DISTANCE0);
+	  glUniform4fARB(m_vertParm[0], eqn[0], eqn[1], eqn[2], eqn[3]);
+	  GeometryObjects::trisets()->setClipDistance0(eqn[0], eqn[1], eqn[2], eqn[3]);
 	}
       if (s < layers-1)
 	{
@@ -2105,6 +2121,9 @@ DrawHiresVolume::preDrawGeometry(int s, int layers,
 	  eqn[3] = -pn*(po-step);
 	  glEnable(GL_CLIP_PLANE1);
 	  glClipPlane(GL_CLIP_PLANE1, eqn);      
+	  glEnable(GL_CLIP_DISTANCE1);
+	  glUniform4fARB(m_vertParm[1], eqn[0], eqn[1], eqn[2], eqn[3]);
+	  GeometryObjects::trisets()->setClipDistance1(eqn[0], eqn[1], eqn[2], eqn[3]);
 	}
     }
   else
@@ -2117,6 +2136,9 @@ DrawHiresVolume::preDrawGeometry(int s, int layers,
 	  eqn[3] = -pn*po;
 	  glEnable(GL_CLIP_PLANE0);
 	  glClipPlane(GL_CLIP_PLANE0, eqn);
+	  glEnable(GL_CLIP_DISTANCE0);
+	  glUniform4fARB(m_vertParm[0], eqn[0], eqn[1], eqn[2], eqn[3]);
+	  GeometryObjects::trisets()->setClipDistance0(eqn[0], eqn[1], eqn[2], eqn[3]);
 	}
       if (s < layers-1)
 	{
@@ -2126,6 +2148,9 @@ DrawHiresVolume::preDrawGeometry(int s, int layers,
 	  eqn[3] = pn*(po+step);
 	  glEnable(GL_CLIP_PLANE1);
 	  glClipPlane(GL_CLIP_PLANE1, eqn);
+	  glEnable(GL_CLIP_DISTANCE1);
+	  glUniform4fARB(m_vertParm[1], eqn[0], eqn[1], eqn[2], eqn[3]);
+	  GeometryObjects::trisets()->setClipDistance1(eqn[0], eqn[1], eqn[2], eqn[3]);
 	}
     }
 }
@@ -2347,6 +2372,11 @@ DrawHiresVolume::setRenderDefault()
 
   if (Global::volumeType() != Global::DummyVolume)
     {
+      glDisable(GL_CLIP_DISTANCE0);
+      glDisable(GL_CLIP_DISTANCE1);
+      glUniform4fARB(m_vertParm[0], 0, 1, 0, 10000);
+      glUniform4fARB(m_vertParm[1], 1, 0, 0, 10000);
+
       //------ prune information ---------
       int dtexX, dtexY;
       m_Volume->getDragTextureSize(dtexX, dtexY);
@@ -3990,25 +4020,27 @@ DrawHiresVolume::drawClipPlaneInViewport(int clipOffset, Vec lpos, float depthcu
 	  eqn[0] = -m_clipNormal[ic].x;
 	  eqn[1] = -m_clipNormal[ic].y;
 	  eqn[2] = -m_clipNormal[ic].z;
-	  //eqn[3] = m_clipNormal[ic]*(cpos+m_clipNormal[ic]*(clipInfo.thickness[ic]+0.5));
-	  //eqn[3] = m_clipNormal[ic]*(cpos+m_clipNormal[ic]*(clipInfo.thickness[ic]+1.5));
 	  eqn[3] = m_clipNormal[ic]*(cpos+m_clipNormal[ic]*1.5);
 	  glEnable(GL_CLIP_PLANE0);
 	  glClipPlane(GL_CLIP_PLANE0, eqn);
+	  glEnable(GL_CLIP_DISTANCE0);
+	  glUniform4fARB(m_vertParm[0], eqn[0], eqn[1], eqn[2], eqn[3]);
 
 	  eqn[0] = m_clipNormal[ic].x;
 	  eqn[1] = m_clipNormal[ic].y;
 	  eqn[2] = m_clipNormal[ic].z;
-	  //eqn[3] = -m_clipNormal[ic]*(cpos-m_clipNormal[ic]*(clipInfo.thickness[ic]+0.5));
-	  //eqn[3] = -m_clipNormal[ic]*(cpos-m_clipNormal[ic]*(clipInfo.thickness[ic]+1.5));
 	  eqn[3] = -m_clipNormal[ic]*(cpos-m_clipNormal[ic]*(2*clipInfo.thickness[ic]+1.5));
 	  glEnable(GL_CLIP_PLANE1);
 	  glClipPlane(GL_CLIP_PLANE1, eqn);      
+	  glEnable(GL_CLIP_DISTANCE1);
+	  glUniform4fARB(m_vertParm[1], eqn[0], eqn[1], eqn[2], eqn[3]);
 
 	  GeometryObjects::hitpoints()->draw(m_Viewer, m_backlit);
 
 	  GeometryObjects::paths()->draw(m_Viewer, m_backlit, m_lightPosition);
 
+	  glDisable(GL_CLIP_DISTANCE0);
+	  glDisable(GL_CLIP_DISTANCE1);
 	  glDisable(GL_CLIP_PLANE0);
 	  glDisable(GL_CLIP_PLANE1);
 

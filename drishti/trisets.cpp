@@ -667,6 +667,22 @@ Trisets::processCommand(int idx, QString cmd)
 }
 
 void
+Trisets::setClipDistance0(float e0, float e1, float e2, float e3)
+{
+  glUniform4fARB(m_defaultParm[8], e0, e1, e2, e3);
+  glUniform4fARB(m_highqualityParm[8], e0, e1, e2, e3);
+  glUniform4fARB(m_shadowParm[8], e0, e1, e2, e3);
+}
+
+void
+Trisets::setClipDistance1(float e0, float e1, float e2, float e3)
+{
+  glUniform4fARB(m_defaultParm[9], e0, e1, e2, e3);
+  glUniform4fARB(m_highqualityParm[9], e0, e1, e2, e3);
+  glUniform4fARB(m_shadowParm[9], e0, e1, e2, e3);
+}
+
+void
 Trisets::createDefaultShader(QList<CropObject> crops)
 {
   if (m_geoDefaultShader)
@@ -686,6 +702,9 @@ Trisets::createDefaultShader(QList<CropObject> crops)
   m_defaultParm[3] = glGetUniformLocationARB(m_geoDefaultShader, "nclip");
   m_defaultParm[4] = glGetUniformLocationARB(m_geoDefaultShader, "clipPos");
   m_defaultParm[5] = glGetUniformLocationARB(m_geoDefaultShader, "clipNormal");
+
+  m_defaultParm[8] = glGetUniformLocationARB(m_geoDefaultShader, "ClipPlane0");
+  m_defaultParm[9] = glGetUniformLocationARB(m_geoDefaultShader, "ClipPlane1");
 }
 
 void
@@ -712,6 +731,9 @@ Trisets::createHighQualityShader(bool shadows,
   m_highqualityParm[4] = glGetUniformLocationARB(m_geoHighQualityShader, "nclip");
   m_highqualityParm[5] = glGetUniformLocationARB(m_geoHighQualityShader, "clipPos");
   m_highqualityParm[6] = glGetUniformLocationARB(m_geoHighQualityShader, "clipNormal");
+
+  m_highqualityParm[8] = glGetUniformLocationARB(m_geoHighQualityShader, "ClipPlane0");
+  m_highqualityParm[9] = glGetUniformLocationARB(m_geoHighQualityShader, "ClipPlane1");
 }
 
 void
@@ -735,6 +757,9 @@ Trisets::createShadowShader(Vec attenuation, QList<CropObject> crops)
   m_shadowParm[0] = glGetUniformLocationARB(m_geoShadowShader, "nclip");
   m_shadowParm[1] = glGetUniformLocationARB(m_geoShadowShader, "clipPos");
   m_shadowParm[2] = glGetUniformLocationARB(m_geoShadowShader, "clipNormal");
+
+  m_shadowParm[8] = glGetUniformLocationARB(m_geoShadowShader, "ClipPlane0");
+  m_shadowParm[9] = glGetUniformLocationARB(m_geoShadowShader, "ClipPlane1");
 }
 
 void

@@ -578,7 +578,7 @@ RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac)
   shader += "bool solid = false;\n";
  
 
-    shader += QString("for(int i=0; i<max(10,int(%1*length(exitPoint-entryPoint)/stepSize)); i++)\n").arg(raylenFrac);
+    shader += QString("for(int i=0; i<int(max(10.0,float(%1*length(exitPoint-entryPoint)/stepSize))); i++)\n").arg(raylenFrac);
 
   shader += "{\n";
 
@@ -713,7 +713,7 @@ RcShaderFactory::genXRayShader(bool nearest, float raylenFrac)
   shader += "int nskipped = 0;\n"; 
   shader += "bool solid = false;\n";
 
-  shader += QString("for(int i=0; i<max(10,int(%1*length(exitPoint-entryPoint)/stepSize)); i++)\n").arg(raylenFrac);
+    shader += QString("for(int i=0; i<int(max(10.0,float(%1*length(exitPoint-entryPoint)/stepSize))); i++)\n").arg(raylenFrac);
 
   shader += "{\n";
 

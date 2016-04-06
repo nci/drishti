@@ -1,6 +1,6 @@
 #begin
 General Help
-Transfer functions map voxel information to optical properties. Drishti implements transfer function as 256x256 lookup table of colors and opacities. Users are presented with a plotting interface in the transfer function widget. Horizontal axis represents the voxel intensities and vertical axis represents the rate of change of voxel intensity (gradient magnitude). When 2D occlusion spectrum transfer functions is chosen via Toggle menu, the vertical axis represent the filter values.
+Transfer functions map voxel information to optical properties. Drishti implements transfer function as 256x256 lookup table of colors and opacities. Users are presented with a plotting interface in the transfer function widget. Horizontal axis represents the voxel intensities and vertical axis represents the rate of change of voxel intensity (gradient magnitude).
 
 Transfer Function Editor has 3 sections - manager, plotting interface and color-opacity gradient interface.
 
@@ -22,7 +22,7 @@ When a keyframe is generated with Morph transfer function during keyframe animat
 
 #begin
 Plotting Interface
-The horizontal axis represents voxel intensities and vertical axis represents gradient magnitude. When 2D occlusion spectrum transfer functions is chosen via Toggle menu, the vertical axis represent the filter values. There are two sliders with a text box at either side of the plotting area. The values [0-1] in the text boxes modulate the opacity at either ends of the transfer function spine. Default values in the text box are 1. Use the slider to define the endpoints along the spine between which the opacities will be modulated.
+The horizontal axis represents voxel intensities and vertical axis represents gradient magnitude.  There are two sliders with a text box at either side of the plotting area. The values [0-1] in the text boxes modulate the opacity at either ends of the transfer function spine. Default values in the text box are 1. Use the slider to define the endpoints along the spine between which the opacities will be modulated.
 
 When both the values are set to 0.5, the opacity is modulated radially - i.e. max opacity at the center. 
 #end

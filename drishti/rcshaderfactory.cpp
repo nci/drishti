@@ -280,118 +280,16 @@ RcShaderFactory::addLighting()
 }
 
 QString
-RcShaderFactory::genFirstHitShader(bool nearest)
-{
-  QString shader;
-
-  shader =  "#extension GL_ARB_texture_rectangle : enable\n";
-  shader += "uniform sampler3D dataTex;\n";
-  shader += "uniform sampler2D lutTex;\n";
-  shader += "uniform sampler2DRect exitTex;\n";
-  shader += "uniform sampler2DRect entryTex;\n";
-  shader += "uniform float stepSize;\n";
-  shader += "uniform vec3 vsize;\n";
-  shader += "uniform int skipLayers;\n";
-
-  shader += "void main(void)\n";
-  shader += "{\n";
-
-  shader += "vec4 exP = texture2DRect(exitTex, gl_FragCoord.st);\n";
-  shader += "vec4 enP = texture2DRect(entryTex, gl_FragCoord.st);\n";
-
-  shader += "gl_FragColor = vec4(0.0);\n";
-  shader += "if (exP.a < 0.001 || enP.a < 0.001) discard;\n";
-
-  shader += "vec3 exitPoint = exP.rgb;\n";
-  shader += "vec3 entryPoint = enP.rgb;\n";
-
-  shader += "vec3 dir = (exitPoint-entryPoint);\n";
-  shader += "float len = length(dir);\n";
-  shader += "if (len < 0.001) discard;\n";
-
-  shader += "vec3 deltaDir = normalize(dir)*stepSize;\n";
-  shader += "float deltaDirLen = length(deltaDir);\n";
-
-  shader += "vec3 voxelCoord = entryPoint;\n";
-  shader += "vec4 colorAcum = vec4(0.0);\n"; // The dest color
-  shader += "float lengthAcum = 0.0;\n";
-
-  shader += "bool gotFirstHit = false;\n";
-  shader += "int nskipped = 0;\n"; 
-  shader += "bool solid = false;\n";
-  shader += "for(int i=0; i<int(length(exitPoint-entryPoint)/stepSize); i++)\n";
-  //shader += QString("for(int i=0; i<%1; i++)\n").arg(maxSteps);
-  shader += "{\n";
-
-  // -- get exact texture coordinate so we don't get tag interpolation --
-  if (nearest)
-    {
-      shader += "  vec3 vC = voxelCoord*vsize;\n";
-      shader += "  bvec3 vclt = lessThan(floor(vC+0.5), vC);\n";
-      shader += "  vC += vec3(vclt)*vec3(0.5);\n";
-      shader += "  vC -= vec3(not(vclt))*vec3(0.5);\n";
-      shader += "  vC /= vsize;\n";
-      shader += "  float val = texture3D(dataTex, vC).x;\n";
-    }
-  else
-    shader += "  float val = texture3D(dataTex, voxelCoord).x;\n";
-
-  shader += "  vec4 colorSample = vec4(1.0);\n";
-
-  shader += getGrad();
-  shader += "  float gradlen = length(grad);\n";
-  shader += "  colorSample = texture2D(lutTex, vec2(val,gradlen));\n";
-
-  shader += "  if (!gotFirstHit && colorSample.a > 0.001) gotFirstHit = true;\n";  
-
-  shader += "  if (gotFirstHit && nskipped > skipLayers)\n";
-  shader += "  {\n";
-  shader += "    if (colorSample.a > 0.001 )\n";
-  shader += "      {\n";  
-  shader += "        gl_FragColor = vec4(voxelCoord,1.0);\n";
-  shader += "        return;\n";
-  shader += "      }\n";
-  shader += "  }\n"; // gotfirsthit && nskipped > skipLayers
-
-  shader += "  if (lengthAcum >= len )\n";
-  shader += "    return;\n";  // terminate if opacity > 1 or the ray is outside the volume	
-
-  shader += "  voxelCoord += deltaDir;\n";
-  shader += "  lengthAcum += deltaDirLen;\n";	         
-
-  shader += "  if (gotFirstHit) \n";
-  shader += "   {\n";
-  shader += "     if (colorSample.a > 0.001)\n";
-  shader += "      {\n";  
-  shader += "         if (!solid)\n";
-  shader += "           {\n";    
-  shader += "             solid = true;\n";
-  shader += "             nskipped++;\n";  
-  shader += "           }\n";  
-  shader += "      }\n";
-  shader += "     else\n";
-  shader += "      {\n";  
-  shader += "         if (solid)\n";
-  shader += "           solid = false;\n";
-  shader += "      }\n";
-  shader += "   }\n"; // got first hit
-
-  shader += " }\n"; // loop over maxSteps
-
-  shader += "}\n";
-
-  return shader;
-}
-
-QString
 RcShaderFactory::genIsoRaycastShader(bool nearest)
 {
   QString shader;
 
   shader =  "#extension GL_ARB_texture_rectangle : enable\n";
   shader += "uniform sampler3D dataTex;\n";
+  shader += "uniform sampler3D filledTex;\n";
   shader += "uniform sampler2D lutTex;\n";
   shader += "uniform sampler2DRect exitTex;\n";
+  shader += "uniform sampler2DRect entryTex;\n";
   shader += "uniform float stepSize;\n";
   shader += "uniform vec3 eyepos;\n";
   shader += "uniform vec3 viewDir;\n";
@@ -401,8 +299,8 @@ RcShaderFactory::genIsoRaycastShader(bool nearest)
   shader += "uniform float maxZ;\n";  
   shader += "uniform bool saveCoord;\n";
   shader += "uniform int skipLayers;\n";
-  shader += "uniform sampler2DRect entryTex;\n";
   shader += "uniform vec3 bgcolor;\n";
+  shader += "uniform vec3 ftsize;\n";
 
   shader += "void main(void)\n";
   shader += "{\n";
@@ -422,11 +320,12 @@ RcShaderFactory::genIsoRaycastShader(bool nearest)
   shader += "float len = length(dir);\n";
   shader += "if (len < 0.001) discard;\n";
 
-  shader += "vec3 deltaDir = normalize(dir)*stepSize;\n";
+  shader += "vec3 dirvec = normalize(dir);\n";
+
+  shader += "vec3 deltaDir = dirvec*stepSize;\n";
   shader += "float deltaDirLen = length(deltaDir);\n";
 
   shader += "vec3 voxelCoord = entryPoint;\n";
-//  shader += "vec4 colorAcum = vec4(0.0);\n"; // The dest color
   shader += "float lengthAcum = 0.0;\n";
 
   // backgroundColor
@@ -439,6 +338,29 @@ RcShaderFactory::genIsoRaycastShader(bool nearest)
   shader += "for(int i=0; i<int(length(exitPoint-entryPoint)/stepSize); i++)\n";
 
   shader += "{\n";
+
+
+  //---------------------------------
+  // -- checked filled boxes --
+  // -- get exact texture coordinate so we don't get tag interpolation --
+  shader += "  vec3 vcrd = vcorner + voxelCoord*vsize;\n";
+  shader += "  bvec3 ftlt = lessThan(floor(vcrd+0.5), vcrd);\n";
+  shader += "  vcrd += vec3(ftlt)*vec3(0.5);\n";
+  shader += "  vcrd -= vec3(not(ftlt))*vec3(0.5);\n";  
+  shader += "  vec3 ftpos = vcrd/vec3(64.0);\n";
+  shader += "  ftpos = floor(ftpos);\n";
+  shader += "  if (texture3D(filledTex, ftpos/ftsize).x < 0.1)\n";
+  shader += "   {\n";
+  shader += "     vec3 r = vcrd-ftpos;\n";
+  shader += "     float jump = 2.0*dot(r, deltaDir);\n";
+  shader += "     if (jump > 0.0)\n";
+  shader += "       {\n";
+  shader += "         voxelCoord += jump*deltaDir;\n";
+  shader += "         lengthAcum = length(voxelCoord-entryPoint);\n";  
+  shader += "       }\n";
+  shader += "   }\n";
+  //---------------------------------
+
 
   // -- get exact texture coordinate so we don't get tag interpolation --
   shader += "  vec3 vC = voxelCoord*vsize;\n";
@@ -528,12 +450,143 @@ RcShaderFactory::genIsoRaycastShader(bool nearest)
 }
 
 QString
+RcShaderFactory::genFirstHitShader(bool nearest)
+{
+  QString shader;
+
+  shader =  "#extension GL_ARB_texture_rectangle : enable\n";
+  shader += "uniform sampler3D dataTex;\n";
+  shader += "uniform sampler3D filledTex;\n";
+  shader += "uniform sampler2D lutTex;\n";
+  shader += "uniform sampler2DRect exitTex;\n";
+  shader += "uniform sampler2DRect entryTex;\n";
+  shader += "uniform float stepSize;\n";
+  shader += "uniform vec3 vcorner;\n";
+  shader += "uniform vec3 vsize;\n";
+  shader += "uniform int skipLayers;\n";
+  shader += "uniform vec3 ftsize;\n";
+
+  shader += "void main(void)\n";
+  shader += "{\n";
+
+  shader += "vec4 exP = texture2DRect(exitTex, gl_FragCoord.st);\n";
+  shader += "vec4 enP = texture2DRect(entryTex, gl_FragCoord.st);\n";
+
+  shader += "gl_FragColor = vec4(0.0);\n";
+  shader += "if (exP.a < 0.001 || enP.a < 0.001) discard;\n";
+
+  shader += "vec3 exitPoint = exP.rgb;\n";
+  shader += "vec3 entryPoint = enP.rgb;\n";
+
+  shader += "vec3 dir = (exitPoint-entryPoint);\n";
+  shader += "float len = length(dir);\n";
+  shader += "if (len < 0.001) discard;\n";
+
+  shader += "vec3 deltaDir = normalize(dir)*stepSize;\n";
+  shader += "float deltaDirLen = length(deltaDir);\n";
+
+  shader += "vec3 voxelCoord = entryPoint;\n";
+  shader += "vec4 colorAcum = vec4(0.0);\n"; // The dest color
+  shader += "float lengthAcum = 0.0;\n";
+
+  shader += "bool gotFirstHit = false;\n";
+  shader += "int nskipped = 0;\n"; 
+  shader += "bool solid = false;\n";
+  shader += "for(int i=0; i<int(length(exitPoint-entryPoint)/stepSize); i++)\n";
+  //shader += QString("for(int i=0; i<%1; i++)\n").arg(maxSteps);
+  shader += "{\n";
+
+
+  //---------------------------------
+  // -- checked filled boxes --
+  // -- get exact texture coordinate so we don't get tag interpolation --
+  shader += "  vec3 vcrd = vcorner + voxelCoord*vsize;\n";
+  shader += "  bvec3 ftlt = lessThan(floor(vcrd+0.5), vcrd);\n";
+  shader += "  vcrd += vec3(ftlt)*vec3(0.5);\n";
+  shader += "  vcrd -= vec3(not(ftlt))*vec3(0.5);\n";  
+  shader += "  vec3 ftpos = vcrd/vec3(64.0);\n";
+  shader += "  ftpos = floor(ftpos);\n";
+  shader += "  if (texture3D(filledTex, ftpos/ftsize).x < 0.1)\n";
+  shader += "   {\n";
+  shader += "     vec3 r = vcrd-ftpos;\n";
+  shader += "     float jump = 2.0*dot(r, deltaDir);\n";
+  shader += "     if (jump > 0.0)\n";
+  shader += "       {\n";
+  shader += "         voxelCoord += jump*deltaDir;\n";
+  shader += "         lengthAcum = length(voxelCoord-entryPoint);\n";  
+  shader += "       }\n";
+  shader += "   }\n";
+  //---------------------------------
+
+
+  // -- get exact texture coordinate so we don't get tag interpolation --
+  if (nearest)
+    {
+      shader += "  vec3 vC = voxelCoord*vsize;\n";
+      shader += "  bvec3 vclt = lessThan(floor(vC+0.5), vC);\n";
+      shader += "  vC += vec3(vclt)*vec3(0.5);\n";
+      shader += "  vC -= vec3(not(vclt))*vec3(0.5);\n";
+      shader += "  vC /= vsize;\n";
+      shader += "  float val = texture3D(dataTex, vC).x;\n";
+    }
+  else
+    shader += "  float val = texture3D(dataTex, voxelCoord).x;\n";
+
+  shader += "  vec4 colorSample = vec4(1.0);\n";
+
+  shader += getGrad();
+  shader += "  float gradlen = length(grad);\n";
+  shader += "  colorSample = texture2D(lutTex, vec2(val,gradlen));\n";
+
+  shader += "  if (!gotFirstHit && colorSample.a > 0.001) gotFirstHit = true;\n";  
+
+  shader += "  if (gotFirstHit && nskipped > skipLayers)\n";
+  shader += "  {\n";
+  shader += "    if (colorSample.a > 0.001 )\n";
+  shader += "      {\n";  
+  shader += "        gl_FragColor = vec4(voxelCoord,1.0);\n";
+  shader += "        return;\n";
+  shader += "      }\n";
+  shader += "  }\n"; // gotfirsthit && nskipped > skipLayers
+
+  shader += "  if (lengthAcum >= len )\n";
+  shader += "    return;\n";  // terminate if opacity > 1 or the ray is outside the volume	
+
+  shader += "  voxelCoord += deltaDir;\n";
+  shader += "  lengthAcum += deltaDirLen;\n";	         
+
+  shader += "  if (gotFirstHit) \n";
+  shader += "   {\n";
+  shader += "     if (colorSample.a > 0.001)\n";
+  shader += "      {\n";  
+  shader += "         if (!solid)\n";
+  shader += "           {\n";    
+  shader += "             solid = true;\n";
+  shader += "             nskipped++;\n";  
+  shader += "           }\n";  
+  shader += "      }\n";
+  shader += "     else\n";
+  shader += "      {\n";  
+  shader += "         if (solid)\n";
+  shader += "           solid = false;\n";
+  shader += "      }\n";
+  shader += "   }\n"; // got first hit
+
+  shader += " }\n"; // loop over maxSteps
+
+  shader += "}\n";
+
+  return shader;
+}
+
+QString
 RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac)
 {
   QString shader;
 
   shader =  "#extension GL_ARB_texture_rectangle : enable\n";
   shader += "uniform sampler3D dataTex;\n";
+  shader += "uniform sampler3D filledTex;\n";
   shader += "uniform sampler2D lutTex;\n";
   shader += "uniform sampler2DRect exitTex;\n";
   shader += "uniform float stepSize;\n";
@@ -547,6 +600,7 @@ RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac)
   shader += "uniform int skipLayers;\n";
   shader += "uniform sampler2DRect entryTex;\n";
   shader += "uniform vec3 bgcolor;\n";
+  shader += "uniform vec3 ftsize;\n";
 
   shader += "void main(void)\n";
   shader += "{\n";
@@ -581,6 +635,27 @@ RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac)
     shader += QString("for(int i=0; i<int(max(10.0,float(%1*length(exitPoint-entryPoint)/stepSize))); i++)\n").arg(raylenFrac);
 
   shader += "{\n";
+
+  //---------------------------------
+  // -- checked filled boxes --
+  // -- get exact texture coordinate so we don't get tag interpolation --
+  shader += "  vec3 vcrd = vcorner + voxelCoord*vsize;\n";
+  shader += "  bvec3 ftlt = lessThan(floor(vcrd+0.5), vcrd);\n";
+  shader += "  vcrd += vec3(ftlt)*vec3(0.5);\n";
+  shader += "  vcrd -= vec3(not(ftlt))*vec3(0.5);\n";  
+  shader += "  vec3 ftpos = vcrd/vec3(64.0);\n";
+  shader += "  ftpos = floor(ftpos);\n";
+  shader += "  if (texture3D(filledTex, ftpos/ftsize).x < 0.1)\n";
+  shader += "   {\n";
+  shader += "     vec3 r = vcrd-ftpos;\n";
+  shader += "     float jump = 2.0*dot(r, deltaDir);\n";
+  shader += "     if (jump > 0.0)\n";
+  shader += "       {\n";
+  shader += "         voxelCoord += jump*deltaDir;\n";
+  shader += "         lengthAcum = length(voxelCoord-entryPoint);\n";  
+  shader += "       }\n";
+  shader += "   }\n";
+  //---------------------------------
 
   // -- get exact texture coordinate so we don't get tag interpolation --
   shader += "  vec3 vC = voxelCoord*vsize;\n";
@@ -668,6 +743,7 @@ RcShaderFactory::genXRayShader(bool nearest, float raylenFrac)
 
   shader =  "#extension GL_ARB_texture_rectangle : enable\n";
   shader += "uniform sampler3D dataTex;\n";
+  shader += "uniform sampler3D filledTex;\n";
   shader += "uniform sampler2D lutTex;\n";
   shader += "uniform sampler2DRect exitTex;\n";
   shader += "uniform float stepSize;\n";
@@ -681,6 +757,7 @@ RcShaderFactory::genXRayShader(bool nearest, float raylenFrac)
   shader += "uniform int skipLayers;\n";
   shader += "uniform sampler2DRect entryTex;\n";
   shader += "uniform vec3 bgcolor;\n";
+  shader += "uniform vec3 ftsize;\n";
 
   shader += "void main(void)\n";
   shader += "{\n";
@@ -716,6 +793,27 @@ RcShaderFactory::genXRayShader(bool nearest, float raylenFrac)
     shader += QString("for(int i=0; i<int(max(10.0,float(%1*length(exitPoint-entryPoint)/stepSize))); i++)\n").arg(raylenFrac);
 
   shader += "{\n";
+
+  //---------------------------------
+  // -- checked filled boxes --
+  // -- get exact texture coordinate so we don't get tag interpolation --
+  shader += "  vec3 vcrd = vcorner + voxelCoord*vsize;\n";
+  shader += "  bvec3 ftlt = lessThan(floor(vcrd+0.5), vcrd);\n";
+  shader += "  vcrd += vec3(ftlt)*vec3(0.5);\n";
+  shader += "  vcrd -= vec3(not(ftlt))*vec3(0.5);\n";  
+  shader += "  vec3 ftpos = vcrd/vec3(64.0);\n";
+  shader += "  ftpos = floor(ftpos);\n";
+  shader += "  if (texture3D(filledTex, ftpos/ftsize).x < 0.1)\n";
+  shader += "   {\n";
+  shader += "     vec3 r = vcrd-ftpos;\n";
+  shader += "     float jump = 2.0*dot(r, deltaDir);\n";
+  shader += "     if (jump > 0.0)\n";
+  shader += "       {\n";
+  shader += "         voxelCoord += jump*deltaDir;\n";
+  shader += "         lengthAcum = length(voxelCoord-entryPoint);\n";  
+  shader += "       }\n";
+  shader += "   }\n";
+  //---------------------------------
 
   // -- get exact texture coordinate so we don't get tag interpolation --
   shader += "  vec3 vC = voxelCoord*vsize;\n";

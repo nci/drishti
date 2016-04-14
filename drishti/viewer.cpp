@@ -704,7 +704,7 @@ Viewer::setupRaycastLightParameters()
   m_raylen = new PopUpSlider(this, Qt::Horizontal);
   m_raylen->setText("Ray Length");
   m_raylen->setRange(1, 10);
-  m_raylen->setValue(1);
+  m_raylen->setValue(10);
 
   m_raycastUI.popupRay->setMargin(2);
   m_raycastUI.popupRay->addWidget(m_raylen);

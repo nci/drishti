@@ -117,6 +117,9 @@ class RcViewer : public QObject
   int m_sslevel;
   Vec m_corner, m_vsize;
 
+  GLuint m_filledTex;
+  uchar *m_ftBoxes;
+
   GLhandleARB m_blurShader;
   GLint m_blurParm[20];
 

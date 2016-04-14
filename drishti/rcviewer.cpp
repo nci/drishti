@@ -38,6 +38,9 @@ RcViewer::RcViewer() :
   m_vsize = Vec(1,1,1);
   m_sslevel = 1;
 
+  m_filledTex = 0;
+  m_ftBoxes = 0;
+
   m_amb = 1.0;
   m_diff = 0.0;
   m_spec = 1.0;
@@ -71,11 +74,13 @@ RcViewer::init()
   m_fullRender = false;
   m_dragMode = true;
   m_exactCoord = false;
-  m_raylenFrac = 0.1;
+  m_raylenFrac = 1.0;
 
   m_dbox = m_wbox = m_hbox = 0;
   m_boxSize = 64;
   m_boxMinMax.clear();
+  if (m_ftBoxes) delete [] m_ftBoxes;
+  m_ftBoxes = 0;
   m_filledBoxes.clear();
 
   m_volPtr = 0;
@@ -122,6 +127,9 @@ RcViewer::init()
   if (m_lutTex) glDeleteTextures(1, &m_lutTex);
   m_lutTex = 0;
 
+  if (m_filledTex) glDeleteTextures(1, &m_filledTex);
+  m_filledTex = 0;
+
   m_corner = Vec(0,0,0);
   m_vsize = Vec(1,1,1);
   m_sslevel = 1;
@@ -135,6 +143,8 @@ RcViewer::setVolDataPtr(VolumeFileManager *ptr)
   m_vfm = ptr;
   m_boxMinMax.clear();
   m_filledBoxes.clear();
+  if (m_ftBoxes) delete [] m_ftBoxes;
+  m_ftBoxes = 0;
 }
 
 void
@@ -215,6 +225,9 @@ RcViewer::generateBoxMinMax()
 
   m_filledBoxes.resize(m_dbox*m_wbox*m_hbox);
   m_filledBoxes.fill(false);
+  if (m_ftBoxes) delete [] m_ftBoxes;
+  m_ftBoxes = new uchar[m_dbox*m_wbox*m_hbox];
+  memset(m_ftBoxes, 0, m_dbox*m_wbox*m_hbox);
 
   for(int d=0; d<m_dbox; d++)
     {
@@ -272,8 +285,6 @@ RcViewer::updateFilledBoxes()
 	}
     }
 
-  //Vec bminO = m_dataMin;
-  //Vec bmaxO = m_dataMax;
   Vec bminO, bmaxO;
   m_boundingBox.bounds(bminO, bmaxO);
   bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
@@ -385,15 +396,39 @@ RcViewer::updateFilledBoxes()
 
 		  if (border)
 		    {
-		      m_filledBoxes.setBit(idx);		    
+		      m_filledBoxes.setBit(idx); 
 		      break;
 		    }
 		} // loop over clip planes
 	    }
 	}
-
-
+  
   tfb.clear();
+
+  memset(m_ftBoxes, 0, m_dbox*m_wbox*m_hbox);
+  for(int i=0; i<m_dbox*m_wbox*m_hbox; i++)
+    if (m_filledBoxes.testBit(i))
+      m_ftBoxes[i] = 255;
+
+
+  if (!m_filledTex) glGenTextures(1, &m_filledTex);
+  glActiveTexture(GL_TEXTURE3);
+  glEnable(GL_TEXTURE_3D);
+  glBindTexture(GL_TEXTURE_3D, m_filledTex);	 
+  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
+  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE); 
+  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexImage3D(GL_TEXTURE_3D,
+	       0, // single resolution
+	       1,
+	       m_hbox, m_wbox, m_dbox,
+	       0, // no border
+	       GL_LUMINANCE,
+	       GL_UNSIGNED_BYTE,
+	       m_ftBoxes);
+  glDisable(GL_TEXTURE_3D);
 }
 
 void
@@ -522,8 +557,11 @@ RcViewer::createFirstHitShader()
   m_fhParm[2] = glGetUniformLocationARB(m_fhShader, "exitTex");
   m_fhParm[3] = glGetUniformLocationARB(m_fhShader, "entryTex");
   m_fhParm[4] = glGetUniformLocationARB(m_fhShader, "stepSize");
-  m_fhParm[5] = glGetUniformLocationARB(m_fhShader, "vsize");
-  m_fhParm[6] = glGetUniformLocationARB(m_fhShader, "skipLayers");
+  m_fhParm[5] = glGetUniformLocationARB(m_fhShader, "vcorner");
+  m_fhParm[6] = glGetUniformLocationARB(m_fhShader, "vsize");
+  m_fhParm[7] = glGetUniformLocationARB(m_fhShader, "skipLayers");
+  m_fhParm[8] = glGetUniformLocationARB(m_fhShader, "filledTex");
+  m_fhParm[9] = glGetUniformLocationARB(m_fhShader, "ftsize");
 }
 
 void
@@ -560,6 +598,8 @@ RcViewer::createIsoRaycastShader()
   m_ircParm[13]= glGetUniformLocationARB(m_ircShader, "tagTex");
   m_ircParm[14] = glGetUniformLocationARB(m_ircShader, "entryTex");
   m_ircParm[15] = glGetUniformLocationARB(m_ircShader, "bgcolor");
+  m_ircParm[16] = glGetUniformLocationARB(m_ircShader, "filledTex");
+  m_ircParm[17] = glGetUniformLocationARB(m_ircShader, "ftsize");
 }
 
 void
@@ -601,6 +641,8 @@ RcViewer::createRaycastShader()
   m_rcParm[13]= glGetUniformLocationARB(m_rcShader, "tagTex");
   m_rcParm[14] = glGetUniformLocationARB(m_rcShader, "entryTex");
   m_rcParm[15] = glGetUniformLocationARB(m_rcShader, "bgcolor");
+  m_rcParm[16] = glGetUniformLocationARB(m_rcShader, "filledTex");
+  m_rcParm[17] = glGetUniformLocationARB(m_rcShader, "ftsize");
 }
 
 void
@@ -666,7 +708,7 @@ RcViewer::updateVoxelsForRaycast()
     return;
 
   if (m_filledBoxes.count() == 0)
-  {      
+    {      
     m_vfm->setMemMapped(true);
     m_vfm->loadMemFile();
     m_volPtr = m_vfm->memVolDataPtr();
@@ -1031,6 +1073,12 @@ RcViewer::surfaceRaycast(float minZ, float maxZ, bool firstPartOnly)
   glUniform3fARB(m_ircParm[15], bgColor.x,
 		                bgColor.y,
 		                bgColor.z);
+  glUniform1iARB(m_ircParm[16],3); // filledTex
+  glUniform3fARB(m_ircParm[17], m_hbox, m_wbox, m_dbox);
+
+  glActiveTexture(GL_TEXTURE3);
+  glEnable(GL_TEXTURE_3D);
+  glBindTexture(GL_TEXTURE_3D, m_filledTex);
 
   glActiveTexture(GL_TEXTURE2);
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
@@ -1082,6 +1130,9 @@ RcViewer::surfaceRaycast(float minZ, float maxZ, bool firstPartOnly)
 
   glActiveTexture(GL_TEXTURE6);
   glDisable(GL_TEXTURE_RECTANGLE_ARB);
+
+  glActiveTexture(GL_TEXTURE3);
+  glDisable(GL_TEXTURE_3D);
 
   if (firstPartOnly)
     {
@@ -1316,8 +1367,15 @@ RcViewer::volumeRaycast(float minZ, float maxZ)
   glUniform1iARB(m_fhParm[2], 2); // slcTex[1] - contains exit coordinates
   glUniform1iARB(m_fhParm[3], 6); // slcTex[0] - contains entry coordinates
   glUniform1fARB(m_fhParm[4], stepsize); // stepSize
-  glUniform3fARB(m_fhParm[5], m_vsize.x, m_vsize.y, m_vsize.z);
-  glUniform1iARB(m_fhParm[6],m_skipLayers); // skip first layers
+  glUniform3fARB(m_fhParm[5], subvolcorner.x, subvolcorner.y, subvolcorner.z);
+  glUniform3fARB(m_fhParm[6], m_vsize.x, m_vsize.y, m_vsize.z);
+  glUniform1iARB(m_fhParm[7], m_skipLayers); // skip first layers
+  glUniform1iARB(m_fhParm[8], 3); // filledTex
+  glUniform3fARB(m_fhParm[9], m_hbox, m_wbox, m_dbox);
+
+  glActiveTexture(GL_TEXTURE3);
+  glEnable(GL_TEXTURE_3D);
+  glBindTexture(GL_TEXTURE_3D, m_filledTex);
 
   glActiveTexture(GL_TEXTURE2);
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
@@ -1357,6 +1415,8 @@ RcViewer::volumeRaycast(float minZ, float maxZ)
   glUniform3fARB(m_rcParm[15], bgColor.x,
 		               bgColor.y,
 		               bgColor.z);
+  glUniform1iARB(m_rcParm[16],3); // filledTex
+  glUniform3fARB(m_rcParm[17], m_hbox, m_wbox, m_dbox);
 
   glActiveTexture(GL_TEXTURE2);
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
@@ -1382,6 +1442,9 @@ RcViewer::volumeRaycast(float minZ, float maxZ)
   glDisable(GL_TEXTURE_2D);
 
   glActiveTexture(GL_TEXTURE1);
+  glDisable(GL_TEXTURE_3D);
+
+  glActiveTexture(GL_TEXTURE3);
   glDisable(GL_TEXTURE_3D);
 
   glActiveTexture(GL_TEXTURE2);
@@ -1786,7 +1849,6 @@ RcViewer::setStillAndDragStep(float ss, float ds)
 {
   m_stillStep = qMax(0.1f,ss);
   m_dragStep = qMax(0.1f,ds);
-  //createRaycastShader();
   m_viewer->update();
 }
 

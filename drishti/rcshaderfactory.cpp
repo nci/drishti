@@ -301,6 +301,7 @@ RcShaderFactory::genIsoRaycastShader(bool nearest)
   shader += "uniform int skipLayers;\n";
   shader += "uniform vec3 bgcolor;\n";
   shader += "uniform vec3 ftsize;\n";
+  shader += "uniform float boxSize;\n";  
 
   shader += "void main(void)\n";
   shader += "{\n";
@@ -347,7 +348,7 @@ RcShaderFactory::genIsoRaycastShader(bool nearest)
   shader += "  bvec3 ftlt = lessThan(floor(vcrd+0.5), vcrd);\n";
   shader += "  vcrd += vec3(ftlt)*vec3(0.5);\n";
   shader += "  vcrd -= vec3(not(ftlt))*vec3(0.5);\n";  
-  shader += "  vec3 ftpos = vcrd/vec3(64.0);\n";
+  shader += "  vec3 ftpos = vcrd/vec3(boxSize);\n";
   shader += "  ftpos = floor(ftpos);\n";
   shader += "  if (texture3D(filledTex, ftpos/ftsize).x < 0.1)\n";
   shader += "   {\n";
@@ -465,6 +466,7 @@ RcShaderFactory::genFirstHitShader(bool nearest)
   shader += "uniform vec3 vsize;\n";
   shader += "uniform int skipLayers;\n";
   shader += "uniform vec3 ftsize;\n";
+  shader += "uniform float boxSize;\n";  
 
   shader += "void main(void)\n";
   shader += "{\n";
@@ -504,7 +506,7 @@ RcShaderFactory::genFirstHitShader(bool nearest)
   shader += "  bvec3 ftlt = lessThan(floor(vcrd+0.5), vcrd);\n";
   shader += "  vcrd += vec3(ftlt)*vec3(0.5);\n";
   shader += "  vcrd -= vec3(not(ftlt))*vec3(0.5);\n";  
-  shader += "  vec3 ftpos = vcrd/vec3(64.0);\n";
+  shader += "  vec3 ftpos = vcrd/vec3(boxSize);\n";
   shader += "  ftpos = floor(ftpos);\n";
   shader += "  if (texture3D(filledTex, ftpos/ftsize).x < 0.1)\n";
   shader += "   {\n";
@@ -601,6 +603,7 @@ RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac)
   shader += "uniform sampler2DRect entryTex;\n";
   shader += "uniform vec3 bgcolor;\n";
   shader += "uniform vec3 ftsize;\n";
+  shader += "uniform float boxSize;\n";  
 
   shader += "void main(void)\n";
   shader += "{\n";
@@ -643,7 +646,7 @@ RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac)
   shader += "  bvec3 ftlt = lessThan(floor(vcrd+0.5), vcrd);\n";
   shader += "  vcrd += vec3(ftlt)*vec3(0.5);\n";
   shader += "  vcrd -= vec3(not(ftlt))*vec3(0.5);\n";  
-  shader += "  vec3 ftpos = vcrd/vec3(64.0);\n";
+  shader += "  vec3 ftpos = vcrd/vec3(boxSize);\n";
   shader += "  ftpos = floor(ftpos);\n";
   shader += "  if (texture3D(filledTex, ftpos/ftsize).x < 0.1)\n";
   shader += "   {\n";
@@ -758,6 +761,7 @@ RcShaderFactory::genXRayShader(bool nearest, float raylenFrac)
   shader += "uniform sampler2DRect entryTex;\n";
   shader += "uniform vec3 bgcolor;\n";
   shader += "uniform vec3 ftsize;\n";
+  shader += "uniform float boxSize;\n";  
 
   shader += "void main(void)\n";
   shader += "{\n";
@@ -801,7 +805,7 @@ RcShaderFactory::genXRayShader(bool nearest, float raylenFrac)
   shader += "  bvec3 ftlt = lessThan(floor(vcrd+0.5), vcrd);\n";
   shader += "  vcrd += vec3(ftlt)*vec3(0.5);\n";
   shader += "  vcrd -= vec3(not(ftlt))*vec3(0.5);\n";  
-  shader += "  vec3 ftpos = vcrd/vec3(64.0);\n";
+  shader += "  vec3 ftpos = vcrd/vec3(boxSize);\n";
   shader += "  ftpos = floor(ftpos);\n";
   shader += "  if (texture3D(filledTex, ftpos/ftsize).x < 0.1)\n";
   shader += "   {\n";

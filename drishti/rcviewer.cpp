@@ -562,6 +562,7 @@ RcViewer::createFirstHitShader()
   m_fhParm[7] = glGetUniformLocationARB(m_fhShader, "skipLayers");
   m_fhParm[8] = glGetUniformLocationARB(m_fhShader, "filledTex");
   m_fhParm[9] = glGetUniformLocationARB(m_fhShader, "ftsize");
+  m_fhParm[10] = glGetUniformLocationARB(m_fhShader, "boxSize");
 }
 
 void
@@ -600,6 +601,7 @@ RcViewer::createIsoRaycastShader()
   m_ircParm[15] = glGetUniformLocationARB(m_ircShader, "bgcolor");
   m_ircParm[16] = glGetUniformLocationARB(m_ircShader, "filledTex");
   m_ircParm[17] = glGetUniformLocationARB(m_ircShader, "ftsize");
+  m_ircParm[18] = glGetUniformLocationARB(m_ircShader, "boxSize");
 }
 
 void
@@ -643,6 +645,7 @@ RcViewer::createRaycastShader()
   m_rcParm[15] = glGetUniformLocationARB(m_rcShader, "bgcolor");
   m_rcParm[16] = glGetUniformLocationARB(m_rcShader, "filledTex");
   m_rcParm[17] = glGetUniformLocationARB(m_rcShader, "ftsize");
+  m_rcParm[18] = glGetUniformLocationARB(m_rcShader, "boxSize");
 }
 
 void
@@ -885,6 +888,8 @@ RcViewer::raycasting()
   Vec bminO, bmaxO;
   m_boundingBox.bounds(bminO, bmaxO);
 
+  m_viewer->camera()->setRevolveAroundPoint((bmaxO+bminO)/2);  
+
   bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
   bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
 
@@ -1075,6 +1080,7 @@ RcViewer::surfaceRaycast(float minZ, float maxZ, bool firstPartOnly)
 		                bgColor.z);
   glUniform1iARB(m_ircParm[16],3); // filledTex
   glUniform3fARB(m_ircParm[17], m_hbox, m_wbox, m_dbox);
+  glUniform1fARB(m_ircParm[18], m_boxSize); // boxSize
 
   glActiveTexture(GL_TEXTURE3);
   glEnable(GL_TEXTURE_3D);
@@ -1372,6 +1378,7 @@ RcViewer::volumeRaycast(float minZ, float maxZ)
   glUniform1iARB(m_fhParm[7], m_skipLayers); // skip first layers
   glUniform1iARB(m_fhParm[8], 3); // filledTex
   glUniform3fARB(m_fhParm[9], m_hbox, m_wbox, m_dbox);
+  glUniform1fARB(m_fhParm[10], m_boxSize); // boxSize
 
   glActiveTexture(GL_TEXTURE3);
   glEnable(GL_TEXTURE_3D);
@@ -1417,6 +1424,7 @@ RcViewer::volumeRaycast(float minZ, float maxZ)
 		               bgColor.z);
   glUniform1iARB(m_rcParm[16],3); // filledTex
   glUniform3fARB(m_rcParm[17], m_hbox, m_wbox, m_dbox);
+  glUniform1fARB(m_rcParm[18], m_boxSize); // boxSize
 
   glActiveTexture(GL_TEXTURE2);
   glEnable(GL_TEXTURE_RECTANGLE_ARB);

@@ -1109,7 +1109,7 @@ RcViewer::raycasting()
   updateFilledBoxes();
 
 
-  if (!m_fullRender)
+  if (!m_fullRender || m_dragMode)
     surfaceRaycast(minZ, maxZ, false); // raycast surface process
   else
     volumeRaycast(minZ, maxZ); // full raycast process
@@ -1682,7 +1682,6 @@ RcViewer::drawBox(GLenum glFaces)
     {
       int idx = k*m_wbox*m_hbox+j*m_hbox+i;
       if (m_filledBoxes.testBit(idx))
-      //if (m_ftBoxes[idx] > 0)
 	{
 	  Vec bmin, bmax;
 	  bmin = Vec(qMax(i*m_boxSize, (int)bminO.x),

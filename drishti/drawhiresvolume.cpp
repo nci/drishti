@@ -4655,12 +4655,12 @@ DrawHiresVolume::keyPressEvent(QKeyEvent *event)
       MainWindowUI::mainWindowUI()->actionDepthcue->setChecked(Global::depthcue());
       return true;
     }
-  if (event->key() == Qt::Key_H)
-    {
-      Global::setUseStillVolume(!Global::useStillVolume());
-      MainWindowUI::mainWindowUI()->actionUse_stillvolume->setChecked(Global::useStillVolume());
-      return true;
-    }
+//  if (event->key() == Qt::Key_H)
+//    {
+//      Global::setUseStillVolume(!Global::useStillVolume());
+//      MainWindowUI::mainWindowUI()->actionUse_stillvolume->setChecked(Global::useStillVolume());
+//      return true;
+//    }
   if (event->key() == Qt::Key_J)
     {
       Global::setUseDragVolumeforShadows(!Global::useDragVolumeforShadows());

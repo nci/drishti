@@ -3308,13 +3308,19 @@ Viewer::keyPressEvent(QKeyEvent *event)
 	}
     }
 	    
-  if (event->key() == Qt::Key_H &&
-      (event->modifiers() & Qt::ControlModifier ||
-       event->modifiers() & Qt::MetaModifier) )
+  if (event->key() == Qt::Key_H)
     {
-      showHelp();
+      if (event->modifiers() & Qt::ControlModifier ||
+	  event->modifiers() & Qt::MetaModifier)
+	showHelp();
+      else
+	{
+	  Global::setUseStillVolume(!Global::useStillVolume());
+	  MainWindowUI::mainWindowUI()->actionUse_stillvolume->setChecked(Global::useStillVolume());
+	}
       return;
     }
+
 
   if (!m_lowresVolume->raised() &&
       !m_hiresVolume->raised())

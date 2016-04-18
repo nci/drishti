@@ -1109,7 +1109,7 @@ RcViewer::raycasting()
   updateFilledBoxes();
 
 
-  if (!m_fullRender || m_dragMode)
+  if (!m_fullRender || (m_dragMode && !Global::useStillVolume()))
     surfaceRaycast(minZ, maxZ, false); // raycast surface process
   else
     volumeRaycast(minZ, maxZ); // full raycast process

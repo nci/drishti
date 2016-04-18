@@ -225,6 +225,7 @@ RcViewer::generateBoxMinMax()
 
   m_filledBoxes.resize(m_dbox*m_wbox*m_hbox);
   m_filledBoxes.fill(false);
+
   if (m_ftBoxes) delete [] m_ftBoxes;
   m_ftBoxes = new uchar[m_dbox*m_wbox*m_hbox];
   memset(m_ftBoxes, 0, m_dbox*m_wbox*m_hbox);
@@ -290,7 +291,17 @@ RcViewer::updateFilledBoxes()
   bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
   bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
 
+
+  QList<Vec> cPos = GeometryObjects::clipplanes()->positions();
+  QList<Vec> cNorm = GeometryObjects::clipplanes()->normals();
+  cPos << m_viewer->camera()->position() + 50*m_viewer->camera()->viewDirection();
+  cNorm << -(m_viewer->camera()->viewDirection());
+
+
   m_filledBoxes.fill(true);
+
+  //-------------------------------------------
+  //-- identify filled boxes
   for(int d=0; d<m_dbox; d++)
     for(int w=0; w<m_wbox; w++)
       for(int h=0; h<m_hbox; h++)
@@ -305,7 +316,42 @@ RcViewer::updateFilledBoxes()
 	      (h*m_boxSize > bmaxO.x && (h+1)*m_boxSize > bmaxO.x))
 	    ok = false;
 	  
+	  // check whether clipped
+	  for(int ci=0; ci<cPos.count(); ci++)
+	    {
+	      Vec cpo = cPos[ci];
+	      Vec cpn = cNorm[ci];
+	      
+	      Vec bmin = Vec(h*m_boxSize,w*m_boxSize,d*m_boxSize);
+	      Vec bmax = Vec((h+1)*m_boxSize,(w+1)*m_boxSize,(d+1)*m_boxSize);
+	      Vec box[8];
+	      box[0] = Vec(bmin.x,bmin.y,bmin.z);
+	      box[1] = Vec(bmin.x,bmin.y,bmax.z);
+	      box[2] = Vec(bmin.x,bmax.y,bmin.z);
+	      box[3] = Vec(bmin.x,bmax.y,bmax.z);
+	      box[4] = Vec(bmax.x,bmin.y,bmin.z);
+	      box[5] = Vec(bmax.x,bmin.y,bmax.z);
+	      box[6] = Vec(bmax.x,bmax.y,bmin.z);
+	      box[7] = Vec(bmax.x,bmax.y,bmax.z);
+	      
+	      for (int b=0; b<8; b++)
+		box[b] = Matrix::xformVec(m_b0xform, box[b]);
+	      
+	      int clipped = 0;
+	      for(int b=0; b<8; b++)
+		{
+		  if ((box[b]-cpo)*cpn > 0)
+		    clipped++;
+		}
+	      if (clipped == 8)
+		{
+		  ok = false;
+		  break;
+		}
+	    }
+	      
 	  int idx = d*m_wbox*m_hbox+w*m_hbox+h;
+
 	  if (ok)
 	    {
 	      int vmin = m_boxMinMax[2*idx+0];
@@ -317,14 +363,27 @@ RcViewer::updateFilledBoxes()
 	  else
 	    m_filledBoxes.setBit(idx, false);
 	}
+  //-------------------------------------------
 
 
+
+  //-------------------------------------------
+  //-- set the filled boxes for uploading to gpu
+  memset(m_ftBoxes, 0, m_dbox*m_wbox*m_hbox);
+  for(int i=0; i<m_dbox*m_wbox*m_hbox; i++)
+    if (m_filledBoxes.testBit(i))
+      m_ftBoxes[i] = 255;
+  //-------------------------------------------
+
+
+
+  //-------------------------------------------
+  // now remove the internal ones for drawing boxes for entry and exit points
   MyBitArray tfb;
   tfb.resize(m_filledBoxes.size());
   for(int i=0; i<m_filledBoxes.size(); i++)
     tfb.setBit(i, m_filledBoxes.testBit(i));
 
-  // now remove the internal ones
   for(int d=1; d<m_dbox-1; d++)
     for(int w=1; w<m_wbox-1; w++)
       for(int h=1; h<m_hbox-1; h++)
@@ -347,70 +406,23 @@ RcViewer::updateFilledBoxes()
 	      m_filledBoxes.setBit(idx, ok);
 	    }
 	}
-
-
-  QList<Vec> cPos = GeometryObjects::clipplanes()->positions();
-  QList<Vec> cNorm = GeometryObjects::clipplanes()->normals();
-
-  cPos << m_viewer->camera()->position() + 50*m_viewer->camera()->viewDirection();
-  cNorm << -(m_viewer->camera()->viewDirection());
-
-  // now check internal ones for clipping and boundary
-  for(int d=1; d<m_dbox-1; d++)
-    for(int w=1; w<m_wbox-1; w++)
-      for(int h=1; h<m_hbox-1; h++)
-	{
-	  int idx = d*m_wbox*m_hbox+w*m_hbox+h;
-	  if (!m_filledBoxes.testBit(idx) && tfb.testBit(idx)) // interior box
-	    {
-	      // check whether on clipping plane
-	      for(int ci=0; ci<cPos.count(); ci++)
-		{
-		  Vec cpo = cPos[ci];
-		  Vec cpn = cNorm[ci];
-
-		  Vec bmin = Vec(h*m_boxSize,w*m_boxSize,d*m_boxSize);
-		  Vec bmax = Vec((h+1)*m_boxSize,(w+1)*m_boxSize,(d+1)*m_boxSize);
-		  Vec box[8];
-		  box[0] = Vec(bmin.x,bmin.y,bmin.z);
-		  box[1] = Vec(bmin.x,bmin.y,bmax.z);
-		  box[2] = Vec(bmin.x,bmax.y,bmin.z);
-		  box[3] = Vec(bmin.x,bmax.y,bmax.z);
-		  box[4] = Vec(bmax.x,bmin.y,bmin.z);
-		  box[5] = Vec(bmax.x,bmin.y,bmax.z);
-		  box[6] = Vec(bmax.x,bmax.y,bmin.z);
-		  box[7] = Vec(bmax.x,bmax.y,bmax.z);
-
-		  for (int b=0; b<8; b++)
-		    box[b] = Matrix::xformVec(m_b0xform, box[b]);
-
-		  bool border = false;
-		  for(int b=0; b<8; b++)
-		    {
-		      if (qAbs((box[b]-cpo)*cpn) <= m_boxSize)
-			{
-			  border = true;
-			  break;
-			}
-		    }
-
-		  if (border)
-		    {
-		      m_filledBoxes.setBit(idx); 
-		      break;
-		    }
-		} // loop over clip planes
-	    }
-	}
   
   tfb.clear();
-
-  memset(m_ftBoxes, 0, m_dbox*m_wbox*m_hbox);
-  for(int i=0; i<m_dbox*m_wbox*m_hbox; i++)
-    if (m_filledBoxes.testBit(i))
-      m_ftBoxes[i] = 255;
+  //-------------------------------------------
 
 
+
+//  //-------------------------------------------
+//  memset(m_ftBoxes, 0, m_dbox*m_wbox*m_hbox);
+//  for(int i=0; i<m_dbox*m_wbox*m_hbox; i++)
+//    if (m_filledBoxes.testBit(i))
+//      m_ftBoxes[i] = 255;
+//  //-------------------------------------------
+
+
+
+  //-------------------------------------------
+  // -- upload to gpu
   if (!m_filledTex) glGenTextures(1, &m_filledTex);
   glActiveTexture(GL_TEXTURE3);
   glEnable(GL_TEXTURE_3D);
@@ -418,8 +430,8 @@ RcViewer::updateFilledBoxes()
   glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
   glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
   glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE); 
-  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glTexImage3D(GL_TEXTURE_3D,
 	       0, // single resolution
 	       1,
@@ -429,7 +441,179 @@ RcViewer::updateFilledBoxes()
 	       GL_UNSIGNED_BYTE,
 	       m_ftBoxes);
   glDisable(GL_TEXTURE_3D);
+  //-------------------------------------------
 }
+
+
+//void
+//RcViewer::updateFilledBoxes()
+//{
+//  int lmin = 255;
+//  int lmax = 0;
+//
+//  for(int i=0; i<255; i++)
+//    {
+//      if (m_lut[4*i+3] > 2)
+//	{
+//	  lmin = i;
+//	  break;
+//	}
+//    }
+//
+//  for(int i=255; i>0; i--)
+//    {
+//      if (m_lut[4*i+3] > 2)
+//	{
+//	  lmax = i;
+//	  break;
+//	}
+//    }
+//
+//  Vec bminO, bmaxO;
+//  m_boundingBox.bounds(bminO, bmaxO);
+//  bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
+//  bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
+//
+//  m_filledBoxes.fill(true);
+//  for(int d=0; d<m_dbox; d++)
+//    for(int w=0; w<m_wbox; w++)
+//      for(int h=0; h<m_hbox; h++)
+//	{
+//	  bool ok = true;
+//	  // consider only current bounding box	 
+//	  if ((d*m_boxSize < bminO.z && (d+1)*m_boxSize < bminO.z) ||
+//	      (d*m_boxSize > bmaxO.z && (d+1)*m_boxSize > bmaxO.z) ||
+//	      (w*m_boxSize < bminO.y && (w+1)*m_boxSize < bminO.y) ||
+//	      (w*m_boxSize > bmaxO.y && (w+1)*m_boxSize > bmaxO.y) ||
+//	      (h*m_boxSize < bminO.x && (h+1)*m_boxSize < bminO.x) ||
+//	      (h*m_boxSize > bmaxO.x && (h+1)*m_boxSize > bmaxO.x))
+//	    ok = false;
+//	  
+//	  int idx = d*m_wbox*m_hbox+w*m_hbox+h;
+//	  if (ok)
+//	    {
+//	      int vmin = m_boxMinMax[2*idx+0];
+//	      int vmax = m_boxMinMax[2*idx+1];
+//	      if ((vmin < lmin && vmax < lmin) || 
+//		  (vmin > lmax && vmax > lmax))
+//		m_filledBoxes.setBit(idx, false);
+//	    }
+//	  else
+//	    m_filledBoxes.setBit(idx, false);
+//	}
+//
+//
+//  MyBitArray tfb;
+//  tfb.resize(m_filledBoxes.size());
+//  for(int i=0; i<m_filledBoxes.size(); i++)
+//    tfb.setBit(i, m_filledBoxes.testBit(i));
+//
+//  // now remove the internal ones
+//  for(int d=1; d<m_dbox-1; d++)
+//    for(int w=1; w<m_wbox-1; w++)
+//      for(int h=1; h<m_hbox-1; h++)
+//	{
+//	  int idx = d*m_wbox*m_hbox+w*m_hbox+h;
+//	  if (tfb.testBit(idx))
+//	    {
+//	      bool ok = false;
+//	      for(int d1=d-1; d1<=d+1; d1++)
+//		for(int w1=w-1; w1<=w+1; w1++)
+//		  for(int h1=h-1; h1<=h+1; h1++)
+//		    {
+//		      int idx1 = d1*m_wbox*m_hbox+w1*m_hbox+h1;
+//		      if (!tfb.testBit(idx1))
+//			{
+//			  ok = true;
+//			  break;
+//			}
+//		    }
+//	      m_filledBoxes.setBit(idx, ok);
+//	    }
+//	}
+//
+//
+//  QList<Vec> cPos = GeometryObjects::clipplanes()->positions();
+//  QList<Vec> cNorm = GeometryObjects::clipplanes()->normals();
+//
+//  cPos << m_viewer->camera()->position() + 50*m_viewer->camera()->viewDirection();
+//  cNorm << -(m_viewer->camera()->viewDirection());
+//
+//  // now check internal ones for clipping and boundary
+//  for(int d=1; d<m_dbox-1; d++)
+//    for(int w=1; w<m_wbox-1; w++)
+//      for(int h=1; h<m_hbox-1; h++)
+//	{
+//	  int idx = d*m_wbox*m_hbox+w*m_hbox+h;
+//	  if (!m_filledBoxes.testBit(idx) && tfb.testBit(idx)) // interior box
+//	    {
+//	      // check whether on clipping plane
+//	      for(int ci=0; ci<cPos.count(); ci++)
+//		{
+//		  Vec cpo = cPos[ci];
+//		  Vec cpn = cNorm[ci];
+//
+//		  Vec bmin = Vec(h*m_boxSize,w*m_boxSize,d*m_boxSize);
+//		  Vec bmax = Vec((h+1)*m_boxSize,(w+1)*m_boxSize,(d+1)*m_boxSize);
+//		  Vec box[8];
+//		  box[0] = Vec(bmin.x,bmin.y,bmin.z);
+//		  box[1] = Vec(bmin.x,bmin.y,bmax.z);
+//		  box[2] = Vec(bmin.x,bmax.y,bmin.z);
+//		  box[3] = Vec(bmin.x,bmax.y,bmax.z);
+//		  box[4] = Vec(bmax.x,bmin.y,bmin.z);
+//		  box[5] = Vec(bmax.x,bmin.y,bmax.z);
+//		  box[6] = Vec(bmax.x,bmax.y,bmin.z);
+//		  box[7] = Vec(bmax.x,bmax.y,bmax.z);
+//
+//		  for (int b=0; b<8; b++)
+//		    box[b] = Matrix::xformVec(m_b0xform, box[b]);
+//
+//		  bool border = false;
+//		  for(int b=0; b<8; b++)
+//		    {
+//		      if (qAbs((box[b]-cpo)*cpn) <= m_boxSize)
+//			{
+//			  border = true;
+//			  break;
+//			}
+//		    }
+//
+//		  if (border)
+//		    {
+//		      m_filledBoxes.setBit(idx); 
+//		      break;
+//		    }
+//		} // loop over clip planes
+//	    }
+//	}
+//  
+//  tfb.clear();
+//
+//  memset(m_ftBoxes, 0, m_dbox*m_wbox*m_hbox);
+//  for(int i=0; i<m_dbox*m_wbox*m_hbox; i++)
+//    if (m_filledBoxes.testBit(i))
+//      m_ftBoxes[i] = 255;
+//
+//
+//  if (!m_filledTex) glGenTextures(1, &m_filledTex);
+//  glActiveTexture(GL_TEXTURE3);
+//  glEnable(GL_TEXTURE_3D);
+//  glBindTexture(GL_TEXTURE_3D, m_filledTex);	 
+//  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+//  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
+//  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE); 
+//  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+//  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+//  glTexImage3D(GL_TEXTURE_3D,
+//	       0, // single resolution
+//	       1,
+//	       m_hbox, m_wbox, m_dbox,
+//	       0, // no border
+//	       GL_LUMINANCE,
+//	       GL_UNSIGNED_BYTE,
+//	       m_ftBoxes);
+//  glDisable(GL_TEXTURE_3D);
+//}
 
 void
 RcViewer::fastDraw()
@@ -1498,6 +1682,7 @@ RcViewer::drawBox(GLenum glFaces)
     {
       int idx = k*m_wbox*m_hbox+j*m_hbox+i;
       if (m_filledBoxes.testBit(idx))
+      //if (m_ftBoxes[idx] > 0)
 	{
 	  Vec bmin, bmax;
 	  bmin = Vec(qMax(i*m_boxSize, (int)bminO.x),

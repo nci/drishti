@@ -340,31 +340,29 @@ RcShaderFactory::genIsoRaycastShader(bool nearest)
 
   shader += "{\n";
 
+  shader += "  vec3 vC = voxelCoord*vsize;\n";
 
   //---------------------------------
-  // -- checked filled boxes --
-  // -- get exact texture coordinate so we don't get tag interpolation --
-  shader += "  vec3 vcrd = vcorner + voxelCoord*vsize;\n";
-  shader += "  bvec3 ftlt = lessThan(floor(vcrd+0.5), vcrd);\n";
-  shader += "  vcrd += vec3(ftlt)*vec3(0.5);\n";
-  shader += "  vcrd -= vec3(not(ftlt))*vec3(0.5);\n";  
-  shader += "  vec3 ftpos = vcrd/vec3(boxSize);\n";
-  shader += "  ftpos = floor(ftpos);\n";
-  shader += "  if (texture3D(filledTex, ftpos/ftsize).x < 0.1)\n";
+  // -- check filled boxes --
+  shader += "  vec3 ftpos = (vC+vcorner)/vec3(boxSize);\n";
+  shader += "  bvec3 fclt = lessThan(floor(ftpos+0.5), ftpos);\n";
+  shader += "  ftpos += vec3(fclt)*vec3(0.5);\n";
+  shader += "  ftpos -= vec3(not(fclt))*vec3(0.5);\n";
+  shader += "  if (texture3D(filledTex, ftpos/ftsize).x < 0.5)\n";
   shader += "   {\n";
-  shader += "     vec3 r = vcrd-ftpos;\n";
-  shader += "     float jump = 2.0*dot(r, deltaDir);\n";
-  shader += "     if (jump > 0.0)\n";
+  shader += "     vec3 r = (vC+vcorner)-(ftpos+vec3(boxSize/2.0));\n";
+  shader += "     float jump = dot(r, deltaDir);\n";
+  shader += "     if (abs(jump) > 0.0)\n";
   shader += "       {\n";
-  shader += "         voxelCoord += jump*deltaDir;\n";
-  shader += "         lengthAcum = length(voxelCoord-entryPoint);\n";  
+  shader += "         vC += 2.0*jump*deltaDir + deltaDir;\n";
+  shader += "         voxelCoord = vC/vsize;\n";
+  shader += "         lengthAcum = length(voxelCoord-entryPoint);\n";
   shader += "       }\n";
   shader += "   }\n";
   //---------------------------------
 
 
-  // -- get exact texture coordinate so we don't get tag interpolation --
-  shader += "  vec3 vC = voxelCoord*vsize;\n";
+  // -- get exact texture coordinate so we don't get interpolation artefacts --
   shader += "  bvec3 vclt = lessThan(floor(vC+0.5), vC);\n";
   shader += "  vC += vec3(vclt)*vec3(0.5);\n";
   shader += "  vC -= vec3(not(vclt))*vec3(0.5);\n";
@@ -495,36 +493,33 @@ RcShaderFactory::genFirstHitShader(bool nearest)
   shader += "int nskipped = 0;\n"; 
   shader += "bool solid = false;\n";
   shader += "for(int i=0; i<int(length(exitPoint-entryPoint)/stepSize); i++)\n";
-  //shader += QString("for(int i=0; i<%1; i++)\n").arg(maxSteps);
   shader += "{\n";
 
+  shader += "  vec3 vC = voxelCoord*vsize;\n";
 
   //---------------------------------
-  // -- checked filled boxes --
-  // -- get exact texture coordinate so we don't get tag interpolation --
-  shader += "  vec3 vcrd = vcorner + voxelCoord*vsize;\n";
-  shader += "  bvec3 ftlt = lessThan(floor(vcrd+0.5), vcrd);\n";
-  shader += "  vcrd += vec3(ftlt)*vec3(0.5);\n";
-  shader += "  vcrd -= vec3(not(ftlt))*vec3(0.5);\n";  
-  shader += "  vec3 ftpos = vcrd/vec3(boxSize);\n";
-  shader += "  ftpos = floor(ftpos);\n";
-  shader += "  if (texture3D(filledTex, ftpos/ftsize).x < 0.1)\n";
+  // -- check filled boxes --
+  shader += "  vec3 ftpos = (vC+vcorner)/vec3(boxSize);\n";
+  shader += "  bvec3 fclt = lessThan(floor(ftpos+0.5), ftpos);\n";
+  shader += "  ftpos += vec3(fclt)*vec3(0.5);\n";
+  shader += "  ftpos -= vec3(not(fclt))*vec3(0.5);\n";
+  shader += "  if (texture3D(filledTex, ftpos/ftsize).x < 1.0)\n";
   shader += "   {\n";
-  shader += "     vec3 r = vcrd-ftpos;\n";
-  shader += "     float jump = 2.0*dot(r, deltaDir);\n";
-  shader += "     if (jump > 0.0)\n";
+  shader += "     vec3 r = (vC+vcorner)-(ftpos+vec3(boxSize/2.0));\n";
+  shader += "     float jump = dot(r, deltaDir);\n";
+  shader += "     if (abs(jump) > 0.0)\n";
   shader += "       {\n";
-  shader += "         voxelCoord += jump*deltaDir;\n";
-  shader += "         lengthAcum = length(voxelCoord-entryPoint);\n";  
+  shader += "         vC += 2.0*jump*deltaDir + deltaDir;\n";
+  shader += "         voxelCoord = vC/vsize;\n";
+  shader += "         lengthAcum = length(voxelCoord-entryPoint);\n";
   shader += "       }\n";
   shader += "   }\n";
   //---------------------------------
 
 
-  // -- get exact texture coordinate so we don't get tag interpolation --
+  // -- get exact texture coordinate so we don't get interpolation artefacts --
   if (nearest)
     {
-      shader += "  vec3 vC = voxelCoord*vsize;\n";
       shader += "  bvec3 vclt = lessThan(floor(vC+0.5), vC);\n";
       shader += "  vC += vec3(vclt)*vec3(0.5);\n";
       shader += "  vC -= vec3(not(vclt))*vec3(0.5);\n";
@@ -620,7 +615,8 @@ RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac)
   shader += "float len = length(dir);\n";
   shader += "if (len < 0.001) discard;\n";
 
-  shader += "vec3 deltaDir = normalize(dir)*stepSize;\n";
+  shader += "vec3 dirvec = normalize(dir);\n";
+  shader += "vec3 deltaDir = dirvec*stepSize;\n";
   shader += "float deltaDirLen = length(deltaDir);\n";
 
   shader += "vec3 voxelCoord = entryPoint;\n";
@@ -639,29 +635,35 @@ RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac)
 
   shader += "{\n";
 
+  shader += "  vec4 colorSample = vec4(1.0);\n";
+
+  // -- get exact texture coordinate so we don't get interpolation artifacts--
+  shader += "  vec3 vC = voxelCoord*vsize;\n";
+
   //---------------------------------
-  // -- checked filled boxes --
-  // -- get exact texture coordinate so we don't get tag interpolation --
-  shader += "  vec3 vcrd = vcorner + voxelCoord*vsize;\n";
-  shader += "  bvec3 ftlt = lessThan(floor(vcrd+0.5), vcrd);\n";
-  shader += "  vcrd += vec3(ftlt)*vec3(0.5);\n";
-  shader += "  vcrd -= vec3(not(ftlt))*vec3(0.5);\n";  
-  shader += "  vec3 ftpos = vcrd/vec3(boxSize);\n";
-  shader += "  ftpos = floor(ftpos);\n";
-  shader += "  if (texture3D(filledTex, ftpos/ftsize).x < 0.1)\n";
+  // -- check filled boxes --
+  shader += "  vec3 ftpos = (vC+vcorner)/vec3(boxSize);\n";
+  shader += "  bvec3 fclt = lessThan(floor(ftpos+0.5), ftpos);\n";
+  shader += "  ftpos += vec3(fclt)*vec3(0.5);\n";
+  shader += "  ftpos -= vec3(not(fclt))*vec3(0.5);\n";
+  shader += "  if (texture3D(filledTex, ftpos/ftsize).x < 1.0)\n";
   shader += "   {\n";
-  shader += "     vec3 r = vcrd-ftpos;\n";
-  shader += "     float jump = 2.0*dot(r, deltaDir);\n";
-  shader += "     if (jump > 0.0)\n";
+  shader += "     vec3 r = (vC+vcorner)-(ftpos+vec3(boxSize/2.0));\n";
+  shader += "     float jump = dot(r, deltaDir);\n";
+  shader += "     if (abs(jump) > 0.0)\n";
   shader += "       {\n";
-  shader += "         voxelCoord += jump*deltaDir;\n";
-  shader += "         lengthAcum = length(voxelCoord-entryPoint);\n";  
+  shader += "         vC += 2.0*jump*deltaDir + deltaDir;\n";
+  shader += "         voxelCoord = vC/vsize;\n";
+  shader += "         lengthAcum = length(voxelCoord-entryPoint);\n";
+//  shader += "if (jump > 0.0)\n";
+//  shader += " colorSample = vec4(jump*0.1,0,0,jump*0.1);\n";
+//  shader += "else\n";
+//  shader += " colorSample = vec4(0,0,-jump*0.1,-jump*0.1);\n";
+//  shader += "colorAcum += (1.0 - colorAcum.a) * colorSample;\n";
   shader += "       }\n";
   shader += "   }\n";
   //---------------------------------
 
-  // -- get exact texture coordinate so we don't get tag interpolation --
-  shader += "  vec3 vC = voxelCoord*vsize;\n";
   shader += "  bvec3 vclt = lessThan(floor(vC+0.5), vC);\n";
   shader += "  vC += vec3(vclt)*vec3(0.5);\n";
   shader += "  vC -= vec3(not(vclt))*vec3(0.5);\n";
@@ -671,8 +673,6 @@ RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac)
     shader += "  float val = texture3D(dataTex, vC).x;\n";
   else
     shader += "  float val = texture3D(dataTex, voxelCoord).x;\n";
-
-  shader += "  vec4 colorSample = vec4(1.0);\n";
 
   shader += getGrad();
   shader += "  float gradlen = length(grad);\n";
@@ -798,29 +798,28 @@ RcShaderFactory::genXRayShader(bool nearest, float raylenFrac)
 
   shader += "{\n";
 
+  // -- get exact texture coordinate so we don't get interpolation artefacts --
+  shader += "  vec3 vC = voxelCoord*vsize;\n";
+
   //---------------------------------
-  // -- checked filled boxes --
-  // -- get exact texture coordinate so we don't get tag interpolation --
-  shader += "  vec3 vcrd = vcorner + voxelCoord*vsize;\n";
-  shader += "  bvec3 ftlt = lessThan(floor(vcrd+0.5), vcrd);\n";
-  shader += "  vcrd += vec3(ftlt)*vec3(0.5);\n";
-  shader += "  vcrd -= vec3(not(ftlt))*vec3(0.5);\n";  
-  shader += "  vec3 ftpos = vcrd/vec3(boxSize);\n";
-  shader += "  ftpos = floor(ftpos);\n";
-  shader += "  if (texture3D(filledTex, ftpos/ftsize).x < 0.1)\n";
+  // -- check filled boxes --
+  shader += "  vec3 ftpos = (vC+vcorner)/vec3(boxSize);\n";
+  shader += "  bvec3 fclt = lessThan(floor(ftpos+0.5), ftpos);\n";
+  shader += "  ftpos += vec3(fclt)*vec3(0.5);\n";
+  shader += "  ftpos -= vec3(not(fclt))*vec3(0.5);\n";
+  shader += "  if (texture3D(filledTex, ftpos/ftsize).x < 1.0)\n";
   shader += "   {\n";
-  shader += "     vec3 r = vcrd-ftpos;\n";
-  shader += "     float jump = 2.0*dot(r, deltaDir);\n";
-  shader += "     if (jump > 0.0)\n";
+  shader += "     vec3 r = (vC+vcorner)-(ftpos+vec3(boxSize/2.0));\n";
+  shader += "     float jump = dot(r, deltaDir);\n";
+  shader += "     if (abs(jump) > 0.0)\n";
   shader += "       {\n";
-  shader += "         voxelCoord += jump*deltaDir;\n";
-  shader += "         lengthAcum = length(voxelCoord-entryPoint);\n";  
+  shader += "         vC += 2.0*jump*deltaDir + deltaDir;\n";
+  shader += "         voxelCoord = vC/vsize;\n";
+  shader += "         lengthAcum = length(voxelCoord-entryPoint);\n";
   shader += "       }\n";
   shader += "   }\n";
   //---------------------------------
 
-  // -- get exact texture coordinate so we don't get tag interpolation --
-  shader += "  vec3 vC = voxelCoord*vsize;\n";
   shader += "  bvec3 vclt = lessThan(floor(vC+0.5), vC);\n";
   shader += "  vC += vec3(vclt)*vec3(0.5);\n";
   shader += "  vC -= vec3(not(vclt))*vec3(0.5);\n";

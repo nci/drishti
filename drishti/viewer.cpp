@@ -4129,7 +4129,11 @@ Viewer::processCommand(QString cmd)
       if (!mtok)
 	m_hiresVolume->setMix(mv, mc, mo);
       else
-	m_hiresVolume->setMixTag(mt);
+	{
+	  updateTagColors();
+	  m_hiresVolume->setMixTag(mt);
+	  m_rcViewer.setMixTag(mt);
+	}
     }
   else if (list[0] == "interpolatevolumes")
     {
@@ -4975,7 +4979,10 @@ Viewer::updateTagColors()
     return;
 
   if (!m_paintTex)
-    glGenTextures(1, &m_paintTex);
+    {
+      glGenTextures(1, &m_paintTex);
+      m_rcViewer.setTagTex(m_paintTex);
+    }
 
   glActiveTexture(GL_TEXTURE5);
   glBindTexture(GL_TEXTURE_1D, m_paintTex);

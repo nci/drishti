@@ -16,14 +16,20 @@ ShaderFactory::tagVolume()
 {
   // use buffer values to apply tag colors
   QString shader;
-  shader += "  float ptx = prunefeather.z;\n";
+  shader += "  float ptx;\n";
+  shader += "  if (!mixTag)\n";
+  shader += "    ptx = prunefeather.z;\n";
+  shader += "  else\n";
+  shader += "    ptx = vg.x;\n"; // -- take voxel value
+
+  //shader += "  float ptx = prunefeather.z;\n";
   shader += "  vec4 paintColor = texture1D(paintTex, ptx);\n";
 
   //  shader += "  gl_FragColor = vec4(paintColor.a,0.1,0.1,0.1);\n";
 
   shader += "  ptx *= 255.0;\n";
 
-  shader += "  if (ptx > 0.0) \n";
+  shader += "  if (ptx > 0.0 || mixTag) \n";
   shader += "  {\n";
   shader += "    paintColor.rgb *= gl_FragColor.a;\n";
  // if paintColor is black then change only the transparency
@@ -892,7 +898,7 @@ ShaderFactory::genVgx()
   //---------------------------------------------------------------------
 
   shader += "  t0 = getTextureCoordinate(slice, gridx, tsizex, tsizey, texCoord.xy);\n";
-  shader += "  if (linearInterpolation)\n";
+  shader += "  if (linearInterpolation && !mixTag)\n";
   shader += "   {\n";
   shader += "     val0 = (texture2DRect(dataTex, t0)).x;\n";
   shader += "     t1 = getTextureCoordinate(slice+1, gridx, tsizex, tsizey, texCoord.xy);\n";
@@ -985,6 +991,8 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
   shader += "uniform vec3 dirFront;\n";
   shader += "uniform vec3 dirUp;\n";
   shader += "uniform vec3 dirRight;\n";
+
+  shader += "uniform bool mixTag;\n";
 
   shader += "uniform vec3 brickMin;\n";
   shader += "uniform vec3 brickMax;\n";

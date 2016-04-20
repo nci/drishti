@@ -24,6 +24,9 @@ class RcViewer : public QObject
 
   void init();
 
+  void setTagTex(GLuint tt) { m_tagTex = tt; }
+  void setMixTag(bool mt) { m_mixTag = mt; }
+
   void draw();
   void fastDraw();
 
@@ -112,6 +115,9 @@ class RcViewer : public QObject
   GLuint m_ebId;
   GLuint m_ebTex[3];
 
+  bool m_mixTag;
+  GLuint m_tagTex;
+
   GLuint m_dataTex;
   GLuint m_lutTex;
   int m_sslevel;
@@ -127,10 +133,10 @@ class RcViewer : public QObject
   GLint m_fhParm[20];
 
   GLhandleARB m_ircShader;
-  GLint m_ircParm[20];
+  GLint m_ircParm[50];
 
   GLhandleARB m_rcShader;
-  GLint m_rcParm[20];
+  GLint m_rcParm[50];
 
   GLhandleARB m_eeShader;
   GLint m_eeParm[20];

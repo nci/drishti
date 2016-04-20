@@ -32,6 +32,9 @@ RcViewer::RcViewer() :
   m_ircShader = 0;
   m_eeShader = 0;
 
+  m_mixTag = false;
+
+  m_tagTex = 0;
   m_dataTex = 0;
   m_lutTex = 0;
   m_corner = Vec(0,0,0);
@@ -133,6 +136,8 @@ RcViewer::init()
   m_corner = Vec(0,0,0);
   m_vsize = Vec(1,1,1);
   m_sslevel = 1;
+
+  m_mixTag = false;
 }
 
 void RcViewer::setLut(uchar *l) { m_lut = l; }
@@ -444,177 +449,6 @@ RcViewer::updateFilledBoxes()
   //-------------------------------------------
 }
 
-
-//void
-//RcViewer::updateFilledBoxes()
-//{
-//  int lmin = 255;
-//  int lmax = 0;
-//
-//  for(int i=0; i<255; i++)
-//    {
-//      if (m_lut[4*i+3] > 2)
-//	{
-//	  lmin = i;
-//	  break;
-//	}
-//    }
-//
-//  for(int i=255; i>0; i--)
-//    {
-//      if (m_lut[4*i+3] > 2)
-//	{
-//	  lmax = i;
-//	  break;
-//	}
-//    }
-//
-//  Vec bminO, bmaxO;
-//  m_boundingBox.bounds(bminO, bmaxO);
-//  bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
-//  bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
-//
-//  m_filledBoxes.fill(true);
-//  for(int d=0; d<m_dbox; d++)
-//    for(int w=0; w<m_wbox; w++)
-//      for(int h=0; h<m_hbox; h++)
-//	{
-//	  bool ok = true;
-//	  // consider only current bounding box	 
-//	  if ((d*m_boxSize < bminO.z && (d+1)*m_boxSize < bminO.z) ||
-//	      (d*m_boxSize > bmaxO.z && (d+1)*m_boxSize > bmaxO.z) ||
-//	      (w*m_boxSize < bminO.y && (w+1)*m_boxSize < bminO.y) ||
-//	      (w*m_boxSize > bmaxO.y && (w+1)*m_boxSize > bmaxO.y) ||
-//	      (h*m_boxSize < bminO.x && (h+1)*m_boxSize < bminO.x) ||
-//	      (h*m_boxSize > bmaxO.x && (h+1)*m_boxSize > bmaxO.x))
-//	    ok = false;
-//	  
-//	  int idx = d*m_wbox*m_hbox+w*m_hbox+h;
-//	  if (ok)
-//	    {
-//	      int vmin = m_boxMinMax[2*idx+0];
-//	      int vmax = m_boxMinMax[2*idx+1];
-//	      if ((vmin < lmin && vmax < lmin) || 
-//		  (vmin > lmax && vmax > lmax))
-//		m_filledBoxes.setBit(idx, false);
-//	    }
-//	  else
-//	    m_filledBoxes.setBit(idx, false);
-//	}
-//
-//
-//  MyBitArray tfb;
-//  tfb.resize(m_filledBoxes.size());
-//  for(int i=0; i<m_filledBoxes.size(); i++)
-//    tfb.setBit(i, m_filledBoxes.testBit(i));
-//
-//  // now remove the internal ones
-//  for(int d=1; d<m_dbox-1; d++)
-//    for(int w=1; w<m_wbox-1; w++)
-//      for(int h=1; h<m_hbox-1; h++)
-//	{
-//	  int idx = d*m_wbox*m_hbox+w*m_hbox+h;
-//	  if (tfb.testBit(idx))
-//	    {
-//	      bool ok = false;
-//	      for(int d1=d-1; d1<=d+1; d1++)
-//		for(int w1=w-1; w1<=w+1; w1++)
-//		  for(int h1=h-1; h1<=h+1; h1++)
-//		    {
-//		      int idx1 = d1*m_wbox*m_hbox+w1*m_hbox+h1;
-//		      if (!tfb.testBit(idx1))
-//			{
-//			  ok = true;
-//			  break;
-//			}
-//		    }
-//	      m_filledBoxes.setBit(idx, ok);
-//	    }
-//	}
-//
-//
-//  QList<Vec> cPos = GeometryObjects::clipplanes()->positions();
-//  QList<Vec> cNorm = GeometryObjects::clipplanes()->normals();
-//
-//  cPos << m_viewer->camera()->position() + 50*m_viewer->camera()->viewDirection();
-//  cNorm << -(m_viewer->camera()->viewDirection());
-//
-//  // now check internal ones for clipping and boundary
-//  for(int d=1; d<m_dbox-1; d++)
-//    for(int w=1; w<m_wbox-1; w++)
-//      for(int h=1; h<m_hbox-1; h++)
-//	{
-//	  int idx = d*m_wbox*m_hbox+w*m_hbox+h;
-//	  if (!m_filledBoxes.testBit(idx) && tfb.testBit(idx)) // interior box
-//	    {
-//	      // check whether on clipping plane
-//	      for(int ci=0; ci<cPos.count(); ci++)
-//		{
-//		  Vec cpo = cPos[ci];
-//		  Vec cpn = cNorm[ci];
-//
-//		  Vec bmin = Vec(h*m_boxSize,w*m_boxSize,d*m_boxSize);
-//		  Vec bmax = Vec((h+1)*m_boxSize,(w+1)*m_boxSize,(d+1)*m_boxSize);
-//		  Vec box[8];
-//		  box[0] = Vec(bmin.x,bmin.y,bmin.z);
-//		  box[1] = Vec(bmin.x,bmin.y,bmax.z);
-//		  box[2] = Vec(bmin.x,bmax.y,bmin.z);
-//		  box[3] = Vec(bmin.x,bmax.y,bmax.z);
-//		  box[4] = Vec(bmax.x,bmin.y,bmin.z);
-//		  box[5] = Vec(bmax.x,bmin.y,bmax.z);
-//		  box[6] = Vec(bmax.x,bmax.y,bmin.z);
-//		  box[7] = Vec(bmax.x,bmax.y,bmax.z);
-//
-//		  for (int b=0; b<8; b++)
-//		    box[b] = Matrix::xformVec(m_b0xform, box[b]);
-//
-//		  bool border = false;
-//		  for(int b=0; b<8; b++)
-//		    {
-//		      if (qAbs((box[b]-cpo)*cpn) <= m_boxSize)
-//			{
-//			  border = true;
-//			  break;
-//			}
-//		    }
-//
-//		  if (border)
-//		    {
-//		      m_filledBoxes.setBit(idx); 
-//		      break;
-//		    }
-//		} // loop over clip planes
-//	    }
-//	}
-//  
-//  tfb.clear();
-//
-//  memset(m_ftBoxes, 0, m_dbox*m_wbox*m_hbox);
-//  for(int i=0; i<m_dbox*m_wbox*m_hbox; i++)
-//    if (m_filledBoxes.testBit(i))
-//      m_ftBoxes[i] = 255;
-//
-//
-//  if (!m_filledTex) glGenTextures(1, &m_filledTex);
-//  glActiveTexture(GL_TEXTURE3);
-//  glEnable(GL_TEXTURE_3D);
-//  glBindTexture(GL_TEXTURE_3D, m_filledTex);	 
-//  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
-//  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
-//  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE); 
-//  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-//  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-//  glTexImage3D(GL_TEXTURE_3D,
-//	       0, // single resolution
-//	       1,
-//	       m_hbox, m_wbox, m_dbox,
-//	       0, // no border
-//	       GL_LUMINANCE,
-//	       GL_UNSIGNED_BYTE,
-//	       m_ftBoxes);
-//  glDisable(GL_TEXTURE_3D);
-//}
-
 void
 RcViewer::fastDraw()
 {
@@ -777,7 +611,7 @@ RcViewer::createIsoRaycastShader()
   m_ircParm[7] = glGetUniformLocationARB(m_ircShader, "vsize");
   m_ircParm[8] = glGetUniformLocationARB(m_ircShader, "minZ");
   m_ircParm[9] = glGetUniformLocationARB(m_ircShader, "maxZ");
-  m_ircParm[10]= glGetUniformLocationARB(m_ircShader, "maskTex");
+  //m_ircParm[10]= glGetUniformLocationARB(m_ircShader, "maskTex");
   m_ircParm[11]= glGetUniformLocationARB(m_ircShader, "saveCoord");
   m_ircParm[12]= glGetUniformLocationARB(m_ircShader, "skipLayers");
   m_ircParm[13]= glGetUniformLocationARB(m_ircShader, "tagTex");
@@ -786,6 +620,7 @@ RcViewer::createIsoRaycastShader()
   m_ircParm[16] = glGetUniformLocationARB(m_ircShader, "filledTex");
   m_ircParm[17] = glGetUniformLocationARB(m_ircShader, "ftsize");
   m_ircParm[18] = glGetUniformLocationARB(m_ircShader, "boxSize");
+  m_ircParm[19] = glGetUniformLocationARB(m_ircShader, "mixTag");
 }
 
 void
@@ -821,7 +656,7 @@ RcViewer::createRaycastShader()
   m_rcParm[7] = glGetUniformLocationARB(m_rcShader, "vsize");
   m_rcParm[8] = glGetUniformLocationARB(m_rcShader, "minZ");
   m_rcParm[9] = glGetUniformLocationARB(m_rcShader, "maxZ");
-  m_rcParm[10]= glGetUniformLocationARB(m_rcShader, "maskTex");
+  //m_rcParm[10]= glGetUniformLocationARB(m_rcShader, "maskTex");
   m_rcParm[11]= glGetUniformLocationARB(m_rcShader, "saveCoord");
   m_rcParm[12]= glGetUniformLocationARB(m_rcShader, "skipLayers");
   m_rcParm[13]= glGetUniformLocationARB(m_rcShader, "tagTex");
@@ -866,6 +701,7 @@ RcViewer::createShaders()
   m_eeParm[13] = glGetUniformLocationARB(m_eeShader, "bgcolor");
   m_eeParm[14] = glGetUniformLocationARB(m_eeShader, "shdoffset");
   m_eeParm[15] = glGetUniformLocationARB(m_eeShader, "edgethickness");
+  m_eeParm[16] = glGetUniformLocationARB(m_eeShader, "mixTag");
   //----------------------
 
 
@@ -1254,10 +1090,8 @@ RcViewer::surfaceRaycast(float minZ, float maxZ, bool firstPartOnly)
   glUniform3fARB(m_ircParm[7], m_vsize.x, m_vsize.y, m_vsize.z);
   glUniform1fARB(m_ircParm[8], minZ); // minZ
   glUniform1fARB(m_ircParm[9], maxZ); // maxZ
-  //glUniform1iARB(m_rcParm[10],4); // maskTex
   glUniform1iARB(m_ircParm[11],firstPartOnly); // save voxel coordinates
   glUniform1iARB(m_ircParm[12],m_skipLayers); // skip first layers
-  //glUniform1iARB(m_rcParm[13],5); // tagTex
   glUniform1iARB(m_ircParm[14],6); // slcTex[0] - contains entry coordinates
   glUniform3fARB(m_ircParm[15], bgColor.x,
 		                bgColor.y,
@@ -1265,6 +1099,17 @@ RcViewer::surfaceRaycast(float minZ, float maxZ, bool firstPartOnly)
   glUniform1iARB(m_ircParm[16],3); // filledTex
   glUniform3fARB(m_ircParm[17], m_hbox, m_wbox, m_dbox);
   glUniform1fARB(m_ircParm[18], m_boxSize); // boxSize
+
+  glUniform1iARB(m_ircParm[13], 5); // tagTex
+  glUniform1iARB(m_ircParm[19], m_mixTag); // mixTag
+
+
+  if (m_mixTag)
+    {
+      glActiveTexture(GL_TEXTURE5);
+      glBindTexture(GL_TEXTURE_1D, m_tagTex);
+      glEnable(GL_TEXTURE_1D);
+    }
 
   glActiveTexture(GL_TEXTURE3);
   glEnable(GL_TEXTURE_3D);
@@ -1329,6 +1174,12 @@ RcViewer::surfaceRaycast(float minZ, float maxZ, bool firstPartOnly)
       glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
       glUseProgramObjectARB(0);
       
+      if (m_mixTag)
+	{
+	  glActiveTexture(GL_TEXTURE5);
+	  glDisable(GL_TEXTURE_1D);
+	}
+
       glActiveTexture(GL_TEXTURE0);
       glDisable(GL_TEXTURE_2D);
       
@@ -1392,7 +1243,7 @@ RcViewer::surfaceRaycast(float minZ, float maxZ, bool firstPartOnly)
   glUniform1fARB(m_eeParm[1], minZ); // minZ
   glUniform1fARB(m_eeParm[2], maxZ); // maxZ
   glUniform1fARB(m_eeParm[5], m_edge);
-  //glUniform1iARB(m_eeParm[6], 5); // tagtex
+  glUniform1iARB(m_eeParm[6], 5); // tagtex
   glUniform1iARB(m_eeParm[7], 0); // luttex
   glUniform1iARB(m_eeParm[8], 2); // pos, val, tag tex (ebtex[eb2])
   glUniform3fARB(m_eeParm[9], m_amb, m_diff, m_spec); // lightparm
@@ -1408,6 +1259,7 @@ RcViewer::surfaceRaycast(float minZ, float maxZ, bool firstPartOnly)
 		 bgColor.z);
   glUniform2fARB(m_eeParm[14], m_shdX, -m_shdY);
   glUniform1fARB(m_eeParm[15], m_edgeThickness);
+  glUniform1iARB(m_eeParm[16], m_mixTag);
   
   StaticFunctions::pushOrthoView(0, 0, wd, ht);
   StaticFunctions::drawQuad(0, 0, wd, ht, 1);
@@ -1415,6 +1267,12 @@ RcViewer::surfaceRaycast(float minZ, float maxZ, bool firstPartOnly)
   //----------------------------
 
   glUseProgramObjectARB(0);
+
+  if (m_mixTag)
+    {
+      glActiveTexture(GL_TEXTURE5);
+      glDisable(GL_TEXTURE_1D);
+    }
 
   glActiveTexture(GL_TEXTURE6);
   glDisable(GL_TEXTURE_RECTANGLE_ARB);

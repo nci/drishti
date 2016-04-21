@@ -322,7 +322,15 @@ void
 RemapWidget::loadLimits()
 {
   if (m_imageWidget)
-    m_imageWidget->loadLimits();
+    {
+      m_imageWidget->loadLimits();
+      if (ui.butZ->isChecked())
+	on_butZ_clicked();
+      else if (ui.butY->isChecked())
+	on_butY_clicked();
+      else if (ui.butX->isChecked())
+	on_butX_clicked();
+    }
   else
     QMessageBox::information(0, "Error", "Load what ???  Load a volume first !!"); 
 }

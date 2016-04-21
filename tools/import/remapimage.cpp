@@ -88,41 +88,69 @@ RemapImage::loadLimits()
   int w = str[1].toInt();
   int d = str[2].toInt();
 
+  float scaleh = 1.0;
+  float scalew = 1.0;
+  float scaled = 1.0;
+
   if (d-1 != m_Depth ||
       w-1 != m_Width ||
       h-1 != m_Height)
     {
       QString str;
       str = "Grid sizes do not match\n";
-      str += QString("Loaded volume : %1 %2 %3").\
+
+      str += QString("Loaded volume : %1 %2 %3\n").\
 	arg(m_Height).\
 	arg(m_Width).\
 	arg(m_Depth);
-      str += QString("From limits file : %1 %2 %3").\
+
+      str += QString("From limits file : %1 %2 %3\n").\
 	arg(h-1).\
 	arg(w-1).\
 	arg(d-1);
 
-      QMessageBox::critical(this, "Error", str);
-      return;
+      str += "\nWould you like to apply appropriate scaling to match the volume ?";
+
+      //QMessageBox::critical(this, "Error", str);
+
+      QStringList items;
+      items << "Yes" << "No";
+      bool ok;
+      QString item = QInputDialog::getItem(this,
+					   "Load Limits",
+					   str,
+					   items,
+					   0,
+					   false,
+					   &ok);
+  
+      if (ok && item == "Yes")
+	{
+	  scaleh = (float)m_Height/(float)(h-1);
+	  scalew = (float)m_Width/(float)(w-1);
+	  scaled = (float)m_Depth/(float)(d-1);
+	}
+      else
+	return;
     }
 
 
   str = ht.split(":");
   str = str[1].split(" ", QString::SkipEmptyParts);
-  m_minHSlice = str[0].toInt();
-  m_maxHSlice = str[1].toInt();
+  m_minHSlice = str[0].toInt() * scaleh;
+  m_maxHSlice = str[1].toInt() * scaleh;
 
   str = wd.split(":");
   str = str[1].split(" ", QString::SkipEmptyParts);
-  m_minWSlice = str[0].toInt();
-  m_maxWSlice = str[1].toInt();
+  m_minWSlice = str[0].toInt() * scalew;
+  m_maxWSlice = str[1].toInt() * scalew;
 
 
   str = dp.split(":");
   str = str[1].split(" ", QString::SkipEmptyParts);
-  m_minDSlice = str[0].toInt();
-  m_maxDSlice = str[1].toInt();
+  m_minDSlice = str[0].toInt() * scaled;
+  m_maxDSlice = str[1].toInt() * scaled;
+  
 
   QMessageBox::information(this, "Load Limits",
 			   QString("%1 %2\n%3 %4\n%5 %6").\
@@ -139,12 +167,15 @@ RemapImage::saveLimits()
   QString flnm = QFileDialog::getSaveFileName(0,
 					      "Save limits information",
 					      Global::previousDirectory(),
-					      "Files (*.*)",
+					      "Files (*.txt)",
 					      0,
 					      QFileDialog::DontUseNativeDialog);
 
   if (flnm.isEmpty())
     return;
+
+  if (!flnm.endsWith(".txt"))
+    flnm += ".txt";
 
   QFile file(flnm);
   if (!file.open(QIODevice::WriteOnly |

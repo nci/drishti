@@ -665,6 +665,7 @@ RcViewer::createRaycastShader()
   m_rcParm[16] = glGetUniformLocationARB(m_rcShader, "filledTex");
   m_rcParm[17] = glGetUniformLocationARB(m_rcShader, "ftsize");
   m_rcParm[18] = glGetUniformLocationARB(m_rcShader, "boxSize");
+  m_rcParm[19] = glGetUniformLocationARB(m_rcShader, "mixTag");
 }
 
 void
@@ -953,7 +954,8 @@ RcViewer::raycasting()
 
   glDisable(GL_DEPTH_TEST);
   glEnable(GL_BLEND);
-  glBlendFunc(GL_ONE, GL_ONE);
+  //glBlendFunc(GL_ONE, GL_ONE);
+  glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
       
   GeometryObjects::clipplanes()->draw(m_viewer, false);
       
@@ -1468,6 +1470,16 @@ RcViewer::volumeRaycast(float minZ, float maxZ)
   glUniform3fARB(m_rcParm[17], m_hbox, m_wbox, m_dbox);
   glUniform1fARB(m_rcParm[18], m_boxSize); // boxSize
 
+  glUniform1iARB(m_rcParm[13], 5); // tagTex
+  glUniform1iARB(m_rcParm[19], m_mixTag); // mixTag
+
+  if (m_mixTag)
+    {
+      glActiveTexture(GL_TEXTURE5);
+      glBindTexture(GL_TEXTURE_1D, m_tagTex);
+      glEnable(GL_TEXTURE_1D);
+    }
+
   glActiveTexture(GL_TEXTURE2);
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
   glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[1]);
@@ -1479,11 +1491,15 @@ RcViewer::volumeRaycast(float minZ, float maxZ)
   StaticFunctions::pushOrthoView(0, 0, wd, ht);
   StaticFunctions::drawQuad(0, 0, wd, ht, 1);
   StaticFunctions::popOrthoView();
-  //----------------------------
-
 
 
   glUseProgramObjectARB(0);
+
+  if (m_mixTag)
+    {
+      glActiveTexture(GL_TEXTURE5);
+      glDisable(GL_TEXTURE_1D);
+    }
 
   glActiveTexture(GL_TEXTURE6);
   glDisable(GL_TEXTURE_RECTANGLE_ARB);

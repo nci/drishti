@@ -389,9 +389,6 @@ RcShaderFactory::genIsoRaycastShader(bool nearest)
   shader += "      colorSample.rgb = mix(colorSample.rgb, tagcolor.rgb, tagcolor.a);\n";
   shader += "    else\n";
   shader += "      colorSample = vec4(0.0);\n";
-  // so that we can use tag opacity to hide certain tagged regions
-  // tagcolor.a should either 0 or 1  
-  //shader += "    colorSample *= tagcolor.a;\n";
   shader += "  }\n";
 
   shader += "  if (!gotFirstHit && colorSample.a > 0.001) gotFirstHit = true;\n";  
@@ -615,6 +612,9 @@ RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac)
   shader += "uniform vec3 ftsize;\n";
   shader += "uniform float boxSize;\n";  
 
+  shader += "uniform sampler1D tagTex;\n";
+  shader += "uniform bool mixTag;\n";
+
   shader += "void main(void)\n";
   shader += "{\n";
 
@@ -692,6 +692,15 @@ RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac)
   shader += getGrad();
   shader += "  float gradlen = length(grad);\n";
   shader += "  colorSample = texture2D(lutTex, vec2(val,gradlen));\n";
+
+  shader += "  if (mixTag)\n";
+  shader += "  {\n";
+  shader += "    vec4 tagcolor = texture1D(tagTex, val);\n";
+  shader += "    if (tagcolor.a > 0.0)\n";
+  shader += "      colorSample.rgb = mix(colorSample.rgb, tagcolor.rgb, tagcolor.a);\n";
+  shader += "    else\n";
+  shader += "      colorSample = vec4(0.0);\n";
+  shader += "  }\n";
 
   shader += "  if (!gotFirstHit && colorSample.a > 0.001) gotFirstHit = true;\n";  
 
@@ -968,9 +977,6 @@ RcShaderFactory::genEdgeEnhanceShader()
   shader += "    {\n";  
   shader += "      float tag = dvt.y;\n"; // use value as tag
   shader += "      color = texture1D(tagTex, tag);\n";
-  // so that we can use tag opacity to hide certain tagged regions
-  // tagcolor.a should either 0 or 1
-  //shader += "      if (color.a < 0.001) discard;\n";
   shader += "    }\n";  
   shader += "  else\n";
   shader += "    {\n";
@@ -1009,20 +1015,19 @@ RcShaderFactory::genEdgeEnhanceShader()
 
   
   // compute obscurance
-  shader += "  float ege1 = 0.01;\n";
-  shader += "  float ege2 = 0.03;\n";
-  shader += "  float sum = 0.0;\n";
-  shader += "  float od = 0.0;\n";
   shader += "  float shadow = 1.0;\n";
 
+  shader += "  if (length(shdoffset) < 0.1)\n";
+  shader += "  {\n";
   shader += "  if (isoshadow > 0)\n";
   shader += "    {\n";
+  shader += "      float sum = 0.0;\n";
   shader += "      float tele = 0.0;\n";
   shader += "      float r = 0.5;\n";
   shader += "      float theta = 0.0;\n";
   shader += "      float ege = 0.0;\n";
   shader += "      int j = 0;\n";
-  shader += "      float rstep = 0.02+0.01*isoshadow;\n";
+  shader += "      float rstep = 0.02+0.01*float(isoshadow);\n";
   shader += "      for(int i=0; i<128; i++)\n";
   shader += "      {\n";
   shader += "        int x = int(r*sin(theta));\n";
@@ -1037,7 +1042,32 @@ RcShaderFactory::genEdgeEnhanceShader()
   shader += "        theta += 0.3;\n";  
   shader += "      }\n"; 
   shader += "      shadow = 0.1 + 0.9*(1.0-sum/tele);\n";
+  shader += "    }\n";  
+  shader += "  }\n";
+  shader += "  else\n";
+  shader += "  {\n";
+  shader += "  if (isoshadow > 0)\n";
+  shader += "    {\n";
+  shader += "      float sum = 0.0;\n";
+  shader += "      float tele = 0.0;\n";
+  shader += "      float ege = 0.0;\n";
+  shader += "      float r = -float(isoshadow);\n";
+  shader += "      vec2 pso = normalize(vec2(-shdoffset.y, shdoffset.x));\n";
+  shader += "      int j = 0;\n";
+  shader += "      for(int i=0; i<128; i++)\n";
+  shader += "      {\n";
+  shader += "        vec2 pos = spos0 + vec2(i*0.05,i*0.05)*shdoffset + r*pso;\n";
+  shader += "        float od = depth - texture2DRect(pvtTex, pos).x;\n";
+  shader += "        float wt = abs(spos0.x-pos.x)+abs(spos0.y-pos.y);\n";
+  shader += "        float ege = wt*0.0005;\n";
+  shader += "        sum += step(ege, od);\n";
+  shader += "        tele ++;\n";
+  shader += "        r += 1.0;\n";
+  shader += "        r = mix(r, -float(isoshadow), step(float(isoshadow),r));\n";
+  shader += "      }\n"; 
+  shader += "      shadow = 0.1 + 0.9*(1.0-sum/tele);\n";
   shader += "    }\n";
+  shader += "  }\n";
 
 
   shader += "  vec4 colorSample = vec4(color.rgb, 1.0);\n";

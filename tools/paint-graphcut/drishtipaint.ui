@@ -699,6 +699,7 @@
      <string>File</string>
     </property>
     <addaction name="actionLoad"/>
+    <addaction name="loadMask"/>
     <addaction name="actionLoad_Curves"/>
     <addaction name="actionLoad_Fibers"/>
     <addaction name="separator"/>
@@ -819,6 +820,11 @@
   <action name="actionLoad_TF">
    <property name="text">
     <string>Load TF</string>
+   </property>
+  </action>
+  <action name="loadMask">
+   <property name="text">
+    <string>Load Mask</string>
    </property>
   </action>
  </widget>

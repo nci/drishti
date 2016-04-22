@@ -37,6 +37,7 @@ class DrishtiPaint : public QMainWindow
   void on_actionAltLayout_triggered();
   void on_actionHelp_triggered();
   void on_saveWork_triggered();
+  void on_loadMask_triggered();
   void saveWork();
   void on_actionLoad_TF_triggered();
   void on_actionSave_TF_triggered();

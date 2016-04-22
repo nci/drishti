@@ -859,8 +859,6 @@ DrishtiPaint::updateComposite()
   m_imageWidget->loadLookupTable(colorMap);
 
   m_volume->createBitmask();
-
-  //m_viewer->updateFilledBoxes();
 }
 
 void
@@ -5737,4 +5735,90 @@ DrishtiPaint::on_actionLoad_TF_triggered()
 
   
   m_tfManager->load(tflnm.toLatin1().data());
+}
+
+void
+DrishtiPaint::on_loadMask_triggered()
+{
+  QString flnm;
+  flnm = QFileDialog::getOpenFileName(0,
+				      "Load Mask File",
+				      Global::previousDirectory(),
+				      "MASK Files (*.mask)",
+				      0,
+				      QFileDialog::DontUseNativeDialog);
+
+  
+  if (flnm.isEmpty())
+    return;
+
+
+  uchar vt;
+  int lrd, lrw, lrh;
+  
+  QFile mfile;
+  mfile.setFileName(flnm);
+  mfile.open(QFile::ReadOnly);
+
+  mfile.read((char*)&vt, 1);
+  mfile.read((char*)&lrd, 4);
+  mfile.read((char*)&lrw, 4);
+  mfile.read((char*)&lrh, 4);
+  int m_depth, m_width, m_height;
+  m_volume->gridSize(m_depth, m_width, m_height);
+
+  float scld = (float)m_depth/lrd;
+  float sclw = (float)m_width/lrw;
+  float sclh = (float)m_height/lrh;
+
+  QString mesg;
+  mesg += QString("Volume Size : %1 %2 %3\n").\
+                  arg(m_height).arg(m_width).arg(m_depth);
+  mesg += QString("Input Mask Size : %1 %2 %3\n").\
+                  arg(lrh).arg(lrw).arg(lrd);
+  mesg += QString("Scaling applied : %1 %2 %3").\
+		   arg(sclh).arg(sclw).arg(scld);
+  QMessageBox::information(0, "", mesg);
+
+  uchar *lmask;
+  lmask = new uchar[lrd*lrw*lrh];
+
+  mfile.read((char*)lmask, lrd*lrw*lrh);
+
+  uchar *maskptr = m_volume->memMaskDataPtr();
+
+  QProgressDialog progress("Updating voxel structure",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+  for(int d=0; d<lrd; d++)
+    {
+      progress.setValue((95.0*d)/lrd);
+      for(int w=0; w<lrw; w++)
+      for(int h=0; h<lrh; h++)
+	{
+	  if (lmask[d*lrw*lrh + w*lrh + h] > 0)
+	    {
+	      int ds = qMax(0, (int)(d*scld-scld/2));
+	      int ws = qMax(0, (int)(w*sclw-sclw/2));
+	      int hs = qMax(0, (int)(h*sclh-sclh/2));
+	      int de = qMin(m_depth-1, (int)((d+1)*scld-scld/2));
+	      int we = qMin(m_width-1, (int)((w+1)*sclw-sclw/2));
+	      int he = qMin(m_height-1,(int)((h+1)*sclh-sclh/2));
+
+	      uchar mv = lmask[d*lrw*lrh + w*lrh + h];
+	      for(int d0=ds; d0<de; d0++)
+		for(int w0=ws; w0<we; w0++)
+		  for(int h0=hs; h0<he; h0++)
+		    maskptr[d0*m_width*m_height + w0*m_height + h0] = mv;
+	    }
+	}
+    }
+
+  delete [] lmask;
+  progress.setValue(100);
+
+  QMessageBox::information(0, "", "Transfer Done.\n  Check 2D slice view.\n  Update 3D viewer.\n  If everything looks alright Save Work using File menu to save this change to mask file.");
 }

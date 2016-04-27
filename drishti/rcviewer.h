@@ -56,6 +56,8 @@ class RcViewer : public QObject
   float edgeThickness() { return m_edgeThickness; }
   float raylenFrac() { return m_raylenFrac; }
 
+  bool getHit(const QMouseEvent*);
+
   public slots :
     void updateVoxelsForRaycast();
     void setRaycastStyle(int);
@@ -72,7 +74,7 @@ class RcViewer : public QObject
     void setStillAndDragStep(float, float);
     void setEdgeThickness(int e) { m_edgeThickness = 0.1*e; m_viewer->update(); }
     void setRayLenFrac(int r);
-
+    
  private :
 
   QGLViewer *m_viewer;

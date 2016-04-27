@@ -458,6 +458,16 @@ RcViewer::fastDraw()
     return;
 
   raycasting();
+
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // blend on top
+
+  GeometryObjects::clipplanes()->postdraw(m_viewer);
+  GeometryObjects::hitpoints()->postdraw(m_viewer);
+  GeometryObjects::paths()->postdraw(m_viewer);
+
+  ClipInformation clipInfo; // dummy
+  GeometryObjects::scalebars()->draw(m_viewer, clipInfo);
  
   if (Global::bottomText())  
     drawInfo();
@@ -473,6 +483,17 @@ RcViewer::draw()
     return;
 
   raycasting();
+
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // blend on top
+
+  GeometryObjects::clipplanes()->postdraw(m_viewer);
+  GeometryObjects::hitpoints()->postdraw(m_viewer);
+  GeometryObjects::paths()->postdraw(m_viewer);
+
+  ClipInformation clipInfo; // dummy
+  GeometryObjects::scalebars()->draw(m_viewer, clipInfo);
+
 
   if (Global::bottomText())  
     drawInfo();
@@ -958,6 +979,8 @@ RcViewer::raycasting()
   glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
       
   GeometryObjects::clipplanes()->draw(m_viewer, false);
+  GeometryObjects::hitpoints()->draw(m_viewer, false);
+  GeometryObjects::paths()->draw(m_viewer, false, eyepos);
       
   if (Global::drawBox())
     {
@@ -1680,8 +1703,6 @@ RcViewer::drawFace(int oedges, Vec *opoly, Vec *otex)
 	    }
 	}
 
-      //QMessageBox::information(0, "", QString("%1").arg(tedges));
-
       edges = tedges;
       for(int i=0; i<edges; i++) poly[i] = tpoly[i];
       for(int i=0; i<edges; i++) tex[i] = ttex[i];
@@ -1926,3 +1947,79 @@ RcViewer::setRayLenFrac(int r)
   m_viewer->update();
 }
 
+bool
+RcViewer::getHit(const QMouseEvent *event)
+{
+  bool found = false;
+  QPoint scr = event->pos();
+
+  Vec bminO, bmaxO;
+  m_boundingBox.bounds(bminO, bmaxO);
+
+  bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
+  bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
+
+  Vec box[8];
+  box[0] = Vec(bminO.x, bminO.y, bminO.z);
+  box[1] = Vec(bminO.x, bminO.y, bmaxO.z);
+  box[2] = Vec(bminO.x, bmaxO.y, bminO.z);
+  box[3] = Vec(bminO.x, bmaxO.y, bmaxO.z);
+  box[4] = Vec(bmaxO.x, bminO.y, bminO.z);
+  box[5] = Vec(bmaxO.x, bminO.y, bmaxO.z);
+  box[6] = Vec(bmaxO.x, bmaxO.y, bminO.z);
+  box[7] = Vec(bmaxO.x, bmaxO.y, bmaxO.z);
+
+  for (int i=0; i<8; i++)
+    box[i] = Matrix::xformVec(m_b0xform, box[i]);
+
+  //--------------------------------
+  Vec eyepos = m_viewer->camera()->position();
+  Vec viewDir = m_viewer->camera()->viewDirection();
+  float minZ = 1000000;
+  float maxZ = -1000000;
+  for(int b=0; b<8; b++)
+    {
+      float zv = (box[b]-eyepos)*viewDir;
+      minZ = qMin(minZ, zv);
+      maxZ = qMax(maxZ, zv);
+    }
+  //--------------------------------
+
+
+  int sw = m_viewer->camera()->screenWidth();
+  int sh = m_viewer->camera()->screenHeight();  
+
+  Vec pos;
+  int cx = scr.x();
+  int cy = scr.y();
+  GLfloat depth = 0;
+  
+  glEnable(GL_SCISSOR_TEST);
+  glScissor(cx, sh-cy, 1, 1);
+
+  surfaceRaycast(minZ, maxZ, true); // run only one part of raycast process
+
+  glBindFramebuffer(GL_FRAMEBUFFER, m_eBuffer);
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[0]);
+
+  glDisable(GL_SCISSOR_TEST);
+
+  GLfloat d4[4];
+  glReadPixels(cx, sh-cy, 1, 1, GL_RGBA, GL_FLOAT, &d4);
+  if (d4[3] > 0.0)
+    {
+      pos = Vec(d4[0], d4[1], d4[2]);
+      Vec vsz = m_sslevel*m_vsize;
+      pos = m_corner + VECPRODUCT(pos, vsz);
+      found = true;
+    }
+
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+
+  if (found)
+    GeometryObjects::hitpoints()->add(pos);  
+
+
+  return found;
+}

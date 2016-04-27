@@ -824,7 +824,7 @@
   </action>
   <action name="loadMask">
    <property name="text">
-    <string>Load Mask</string>
+    <string>Import Mask</string>
    </property>
   </action>
  </widget>

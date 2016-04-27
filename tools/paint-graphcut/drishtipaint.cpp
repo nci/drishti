@@ -2033,8 +2033,12 @@ DrishtiPaint::connectViewerMenu()
 	  m_viewer, SLOT(setPointScaling(int)));
   connect(viewerUi.voxchoice, SIGNAL(currentIndexChanged(int)),
 	  m_viewer, SLOT(setVoxelChoice(int)));
+
   connect(viewerUi.box, SIGNAL(clicked(bool)),
 	  m_viewer, SLOT(setShowBox(bool)));
+  connect(m_viewer, SIGNAL(showBoxChanged(bool)),
+	  viewerUi.box, SLOT(setChecked(bool)));
+
   connect(viewerUi.snapshot, SIGNAL(clicked()),
 	  m_viewer, SLOT(saveImage()));
   connect(viewerUi.curvetags, SIGNAL(editingFinished()),

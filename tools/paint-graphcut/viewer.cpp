@@ -800,6 +800,14 @@ Viewer::keyPressEvent(QKeyEvent *event)
       return;
     }
 
+  if (event->key() == Qt::Key_B)
+    {  
+      setShowBox(!m_showBox);
+      emit showBoxChanged(m_showBox);
+      update();
+      return;
+    }
+
   if (event->key() == Qt::Key_F)
     {  
       regionGrowing();

@@ -77,6 +77,16 @@ Toggle visibility of clip planes.
 #end
 
 #begin
+b
+Toggle visibility of bounding box.
+#end
+
+#begin
+a
+Toggle visibility of axes.
+#end
+
+#begin
 f
 Region growing with current tag value.
 Move the mouse over to the region you want to fill/region grow before pressing "f".

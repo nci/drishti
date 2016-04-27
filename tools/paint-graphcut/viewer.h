@@ -105,6 +105,8 @@ class Viewer : public QGLViewer
     void setBoxSize(int);
     
  signals :
+    void showBoxChanged(bool);
+
     void paint3D(int, int, int, int, int);
     void paint3D(int, int, int, Vec, Vec, int);
     void dilateConnected(int, int, int, Vec, Vec, int);

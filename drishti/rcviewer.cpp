@@ -62,6 +62,8 @@ RcViewer::RcViewer() :
 
   m_renderMode = 1; // 0-point, 1-raycast, 2-xray
 
+  m_crops.clear();
+
   init();
 }
 
@@ -138,6 +140,8 @@ RcViewer::init()
   m_sslevel = 1;
 
   m_mixTag = false;
+
+  m_crops.clear();
 }
 
 void RcViewer::setLut(uchar *l) { m_lut = l; }
@@ -462,6 +466,7 @@ RcViewer::fastDraw()
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // blend on top
 
+  GeometryObjects::crops()->postdraw(m_viewer);
   GeometryObjects::clipplanes()->postdraw(m_viewer);
   GeometryObjects::hitpoints()->postdraw(m_viewer);
   GeometryObjects::paths()->postdraw(m_viewer);
@@ -487,6 +492,7 @@ RcViewer::draw()
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // blend on top
 
+  GeometryObjects::crops()->postdraw(m_viewer);
   GeometryObjects::clipplanes()->postdraw(m_viewer);
   GeometryObjects::hitpoints()->postdraw(m_viewer);
   GeometryObjects::paths()->postdraw(m_viewer);
@@ -578,7 +584,7 @@ RcViewer::createFirstHitShader()
 {
   QString shaderString;
 
-  shaderString = RcShaderFactory::genFirstHitShader(m_exactCoord);
+  shaderString = RcShaderFactory::genFirstHitShader(m_exactCoord, m_crops);
 
   if (m_fhShader)
     glDeleteObjectARB(m_fhShader);
@@ -609,7 +615,7 @@ RcViewer::createIsoRaycastShader()
 {
   QString shaderString;
 
-  shaderString = RcShaderFactory::genIsoRaycastShader(m_exactCoord);
+  shaderString = RcShaderFactory::genIsoRaycastShader(m_exactCoord, m_crops);
 
   if (m_ircShader)
     glDeleteObjectARB(m_ircShader);
@@ -652,10 +658,10 @@ RcViewer::createRaycastShader()
   QString shaderString;
 
   if (m_renderMode == 1)
-    shaderString = RcShaderFactory::genRaycastShader(m_exactCoord, m_raylenFrac);
+    shaderString = RcShaderFactory::genRaycastShader(m_exactCoord, m_raylenFrac, m_crops);
   else
-    shaderString = RcShaderFactory::genXRayShader(m_exactCoord, m_raylenFrac);
-
+    shaderString = RcShaderFactory::genXRayShader(m_exactCoord, m_raylenFrac, m_crops);
+  
   if (m_rcShader)
     glDeleteObjectARB(m_rcShader);
 
@@ -822,7 +828,6 @@ RcViewer::updateVoxelsForRaycast()
   m_stillStep = Global::stepsizeStill();
   m_dragStep = Global::stepsizeDrag();
 
-  //createRaycastShader();
 
   uchar *voxelVol = new uchar[tsz];
 
@@ -964,6 +969,7 @@ RcViewer::raycasting()
   glDisable(GL_BLEND);
 
 
+  checkCrops();
   updateFilledBoxes();
 
 
@@ -978,6 +984,7 @@ RcViewer::raycasting()
   //glBlendFunc(GL_ONE, GL_ONE);
   glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
       
+  GeometryObjects::crops()->draw(m_viewer, false);
   GeometryObjects::clipplanes()->draw(m_viewer, false);
   GeometryObjects::hitpoints()->draw(m_viewer, false);
   GeometryObjects::paths()->draw(m_viewer, false, eyepos);
@@ -2023,3 +2030,40 @@ RcViewer::getHit(const QMouseEvent *event)
 
   return found;
 }
+
+void
+RcViewer::checkCrops()
+{
+  if (GeometryObjects::crops()->count() == 0 &&
+      m_crops.count() == 0)
+    return;
+
+  bool doall = false;
+  if (GeometryObjects::crops()->count() != m_crops.count())
+    doall = true;
+  
+  if (!doall)
+    {
+      QList<CropObject> co;
+      co = GeometryObjects::crops()->crops();
+      for(int i=0; i<m_crops.count(); i++)
+	{
+	  if (m_crops[i] != co[i])
+	    {
+	      doall = true;
+	      break;
+	    }
+	}
+    }
+      
+  if (doall)
+    {
+      m_crops.clear();
+      m_crops = GeometryObjects::crops()->crops();    
+
+      createIsoRaycastShader();
+      createFirstHitShader();
+      createRaycastShader();
+    }
+}
+

@@ -1,4 +1,5 @@
 #include "rcshaderfactory.h"
+#include "cropshaderfactory.h"
 
 #include <QTextEdit>
 #include <QVBoxLayout>
@@ -254,7 +255,7 @@ RcShaderFactory::getGrad()
   shader += " float vx = texture3D(dataTex, voxelCoord+gx).x - texture3D(dataTex, voxelCoord-gx).x;\n";
   shader += " float vy = texture3D(dataTex, voxelCoord+gy).x - texture3D(dataTex, voxelCoord-gy).x;\n";
   shader += " float vz = texture3D(dataTex, voxelCoord+gz).x - texture3D(dataTex, voxelCoord-gz).x;\n";
-  shader += " vec3 grad = vec3(vx, vy, vz);\n";
+  shader += " grad = vec3(vx, vy, vz);\n";
 
   return shader;
 }
@@ -280,8 +281,17 @@ RcShaderFactory::addLighting()
 }
 
 QString
-RcShaderFactory::genIsoRaycastShader(bool nearest)
+RcShaderFactory::genIsoRaycastShader(bool nearest,
+				     QList<CropObject> crops)
 {
+  bool cropPresent = false;
+  for(int i=0; i<crops.count(); i++)
+    {
+      if (crops[i].cropType() < CropObject::Tear_Tear)
+	cropPresent = true;
+    }
+
+
   QString shader;
 
   shader =  "#extension GL_ARB_texture_rectangle : enable\n";
@@ -305,6 +315,8 @@ RcShaderFactory::genIsoRaycastShader(bool nearest)
 
   shader += "uniform sampler1D tagTex;\n";
   shader += "uniform bool mixTag;\n";
+
+  if (cropPresent) shader += CropShaderFactory::generateCropping(crops);
 
   shader += "void main(void)\n";
   shader += "{\n";
@@ -364,32 +376,46 @@ RcShaderFactory::genIsoRaycastShader(bool nearest)
   shader += "   }\n";
   //---------------------------------
 
-
-  // -- get exact texture coordinate so we don't get interpolation artefacts --
-  shader += "  bvec3 vclt = lessThan(floor(vC+0.5), vC);\n";
-  shader += "  vC += vec3(vclt)*vec3(0.5);\n";
-  shader += "  vC -= vec3(not(vclt))*vec3(0.5);\n";
-  shader += "  vC /= vsize;\n";
-
-  if (nearest)
-    shader += "  float val = texture3D(dataTex, vC).x;\n";
-  else
-    shader += "  float val = texture3D(dataTex, voxelCoord).x;\n";
-
   shader += "  vec4 colorSample = vec4(1.0);\n";
 
-  shader += getGrad();
-  shader += "  float gradlen = length(grad);\n";
-  shader += "  colorSample = texture2D(lutTex, vec2(val,gradlen));\n";
+  shader += "  float val, gradlen;\n";
+  shader += "  vec3 grad;\n";
 
-  shader += "  if (mixTag)\n";
+  shader += "  float feather = 0.0;\n";
+  if (cropPresent)
+    shader += "  feather = crop((vC+vcorner), false);\n";
+
+
+  shader += "  if (feather < 0.5)\n";
   shader += "  {\n";
-  shader += "    vec4 tagcolor = texture1D(tagTex, val);\n";
-  shader += "    if (tagcolor.a > 0.0)\n";
-  shader += "      colorSample.rgb = mix(colorSample.rgb, tagcolor.rgb, tagcolor.a);\n";
-  shader += "    else\n";
-  shader += "      colorSample = vec4(0.0);\n";
+  // -- get exact texture coordinate so we don't get interpolation artefacts --
+  shader += "    bvec3 vclt = lessThan(floor(vC+0.5), vC);\n";
+  shader += "    vC += vec3(vclt)*vec3(0.5);\n";
+  shader += "    vC -= vec3(not(vclt))*vec3(0.5);\n";
+  shader += "    vC /= vsize;\n";
+
+  if (nearest)
+    shader += "    val = texture3D(dataTex, vC).x;\n";
+  else
+    shader += "    val = texture3D(dataTex, voxelCoord).x;\n";
+
+  shader +=      getGrad();
+  shader += "    gradlen = length(grad);\n";
+  shader += "    colorSample = texture2D(lutTex, vec2(val,gradlen));\n";
+	         
+  shader += "    if (mixTag)\n";
+  shader += "    {\n";
+  shader += "      vec4 tagcolor = texture1D(tagTex, val);\n";
+  shader += "      if (tagcolor.a > 0.0)\n";
+  shader += "        colorSample.rgb = mix(colorSample.rgb, tagcolor.rgb, tagcolor.a);\n";
+  shader += "      else\n";
+  shader += "        colorSample = vec4(0.0);\n";
+  shader += "    }\n";
   shader += "  }\n";
+  shader += "  else\n";  // feather
+  shader += "  {\n";
+  shader += "    colorSample = vec4(0.0);\n";
+  shader += "  }\n";  // feather
 
   shader += "  if (!gotFirstHit && colorSample.a > 0.001) gotFirstHit = true;\n";  
 
@@ -461,8 +487,16 @@ RcShaderFactory::genIsoRaycastShader(bool nearest)
 }
 
 QString
-RcShaderFactory::genFirstHitShader(bool nearest)
+RcShaderFactory::genFirstHitShader(bool nearest,
+				   QList<CropObject> crops)
 {
+  bool cropPresent = false;
+  for(int i=0; i<crops.count(); i++)
+    {
+      if (crops[i].cropType() < CropObject::Tear_Tear)
+	cropPresent = true;
+    }
+
   QString shader;
 
   shader =  "#extension GL_ARB_texture_rectangle : enable\n";
@@ -477,6 +511,8 @@ RcShaderFactory::genFirstHitShader(bool nearest)
   shader += "uniform int skipLayers;\n";
   shader += "uniform vec3 ftsize;\n";
   shader += "uniform float boxSize;\n";  
+
+  if (cropPresent) shader += CropShaderFactory::generateCropping(crops);
 
   shader += "void main(void)\n";
   shader += "{\n";
@@ -529,23 +565,39 @@ RcShaderFactory::genFirstHitShader(bool nearest)
   //---------------------------------
 
 
+  shader += "    vec4 colorSample = vec4(1.0);\n";
+  shader += "  float val, gradlen;\n";
+  shader += "  vec3 grad;\n";
+
+
+  shader += "  float feather = 0.0;\n";
+  if (cropPresent)
+    shader += "  feather = crop((vC+vcorner), false);\n";
+
+
+  shader += "  if (feather < 0.5)\n";
+  shader += "  {\n";
   // -- get exact texture coordinate so we don't get interpolation artefacts --
   if (nearest)
     {
-      shader += "  bvec3 vclt = lessThan(floor(vC+0.5), vC);\n";
-      shader += "  vC += vec3(vclt)*vec3(0.5);\n";
-      shader += "  vC -= vec3(not(vclt))*vec3(0.5);\n";
-      shader += "  vC /= vsize;\n";
-      shader += "  float val = texture3D(dataTex, vC).x;\n";
+      shader += "    bvec3 vclt = lessThan(floor(vC+0.5), vC);\n";
+      shader += "    vC += vec3(vclt)*vec3(0.5);\n";
+      shader += "    vC -= vec3(not(vclt))*vec3(0.5);\n";
+      shader += "    vC /= vsize;\n";
+      shader += "    val = texture3D(dataTex, vC).x;\n";
     }
   else
-    shader += "  float val = texture3D(dataTex, voxelCoord).x;\n";
+    shader += "    val = texture3D(dataTex, voxelCoord).x;\n";
 
-  shader += "  vec4 colorSample = vec4(1.0);\n";
+  shader +=      getGrad();
+  shader += "    gradlen = length(grad);\n";
+  shader += "    colorSample = texture2D(lutTex, vec2(val,gradlen));\n";
+  shader += "  }\n";
+  shader += "  else\n";  // feather
+  shader += "  {\n";
+  shader += "    colorSample = vec4(0.0);\n";
+  shader += "  }\n";  // feather
 
-  shader += getGrad();
-  shader += "  float gradlen = length(grad);\n";
-  shader += "  colorSample = texture2D(lutTex, vec2(val,gradlen));\n";
 
   shader += "  if (!gotFirstHit && colorSample.a > 0.001) gotFirstHit = true;\n";  
 
@@ -589,8 +641,16 @@ RcShaderFactory::genFirstHitShader(bool nearest)
 }
 
 QString
-RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac)
+RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac,
+				  QList<CropObject> crops)
 {
+  bool cropPresent = false;
+  for(int i=0; i<crops.count(); i++)
+    {
+      if (crops[i].cropType() < CropObject::Tear_Tear)
+	cropPresent = true;
+    }
+
   QString shader;
 
   shader =  "#extension GL_ARB_texture_rectangle : enable\n";
@@ -614,6 +674,8 @@ RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac)
 
   shader += "uniform sampler1D tagTex;\n";
   shader += "uniform bool mixTag;\n";
+
+  if (cropPresent) shader += CropShaderFactory::generateCropping(crops);
 
   shader += "void main(void)\n";
   shader += "{\n";
@@ -679,28 +741,44 @@ RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac)
   shader += "   }\n";
   //---------------------------------
 
-  shader += "  bvec3 vclt = lessThan(floor(vC+0.5), vC);\n";
-  shader += "  vC += vec3(vclt)*vec3(0.5);\n";
-  shader += "  vC -= vec3(not(vclt))*vec3(0.5);\n";
-  shader += "  vC /= vsize;\n";
+  shader += "   float val, gradlen;\n";
+  shader += "   vec3 grad;\n";
+
+  shader += "  float feather = 0.0;\n";
+  if (cropPresent)
+    shader += "  feather = crop((vC+vcorner), false);\n";
+
+
+  shader += "  if (feather < 0.5)\n";
+  shader += "  {\n";
+  shader += "    bvec3 vclt = lessThan(floor(vC+0.5), vC);\n";
+  shader += "    vC += vec3(vclt)*vec3(0.5);\n";
+  shader += "    vC -= vec3(not(vclt))*vec3(0.5);\n";
+  shader += "    vC /= vsize;\n";
 
   if (nearest)
-    shader += "  float val = texture3D(dataTex, vC).x;\n";
+    shader += "    val = texture3D(dataTex, vC).x;\n";
   else
-    shader += "  float val = texture3D(dataTex, voxelCoord).x;\n";
+    shader += "    val = texture3D(dataTex, voxelCoord).x;\n";
 
-  shader += getGrad();
-  shader += "  float gradlen = length(grad);\n";
-  shader += "  colorSample = texture2D(lutTex, vec2(val,gradlen));\n";
-
-  shader += "  if (mixTag)\n";
-  shader += "  {\n";
-  shader += "    vec4 tagcolor = texture1D(tagTex, val);\n";
-  shader += "    if (tagcolor.a > 0.0)\n";
-  shader += "      colorSample.rgb = mix(colorSample.rgb, tagcolor.rgb, tagcolor.a);\n";
-  shader += "    else\n";
-  shader += "      colorSample = vec4(0.0);\n";
+  shader +=      getGrad();
+  shader += "    gradlen = length(grad);\n";
+  shader += "    colorSample = texture2D(lutTex, vec2(val,gradlen));\n";
+	         
+  shader += "    if (mixTag)\n";
+  shader += "    {\n";
+  shader += "      vec4 tagcolor = texture1D(tagTex, val);\n";
+  shader += "      if (tagcolor.a > 0.0)\n";
+  shader += "        colorSample.rgb = mix(colorSample.rgb, tagcolor.rgb, tagcolor.a);\n";
+  shader += "      else\n";
+  shader += "        colorSample = vec4(0.0);\n";
+  shader += "    }\n";
   shader += "  }\n";
+  shader += "  else\n";  // feather
+  shader += "  {\n";
+  shader += "    colorSample = vec4(0.0);\n";
+  shader += "  }\n";  // feather
+
 
   shader += "  if (!gotFirstHit && colorSample.a > 0.001) gotFirstHit = true;\n";  
 
@@ -713,7 +791,7 @@ RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac)
   shader += "        return;\n";
   shader += "      }\n";
 
-  shader += addLighting();
+  shader +=      addLighting();
 
   shader += "    colorSample.rgb *= colorSample.a;\n";
 
@@ -764,8 +842,16 @@ RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac)
 }
 
 QString
-RcShaderFactory::genXRayShader(bool nearest, float raylenFrac)
+RcShaderFactory::genXRayShader(bool nearest, float raylenFrac,
+			       QList<CropObject> crops)
 {
+  bool cropPresent = false;
+  for(int i=0; i<crops.count(); i++)
+    {
+      if (crops[i].cropType() < CropObject::Tear_Tear)
+	cropPresent = true;
+    }
+
   QString shader;
 
   shader =  "#extension GL_ARB_texture_rectangle : enable\n";
@@ -786,6 +872,8 @@ RcShaderFactory::genXRayShader(bool nearest, float raylenFrac)
   shader += "uniform vec3 bgcolor;\n";
   shader += "uniform vec3 ftsize;\n";
   shader += "uniform float boxSize;\n";  
+
+  if (cropPresent) shader += CropShaderFactory::generateCropping(crops);
 
   shader += "void main(void)\n";
   shader += "{\n";
@@ -844,19 +932,33 @@ RcShaderFactory::genXRayShader(bool nearest, float raylenFrac)
   shader += "   }\n";
   //---------------------------------
 
-  shader += "  bvec3 vclt = lessThan(floor(vC+0.5), vC);\n";
-  shader += "  vC += vec3(vclt)*vec3(0.5);\n";
-  shader += "  vC -= vec3(not(vclt))*vec3(0.5);\n";
-  shader += "  vC /= vsize;\n";
+  shader += "  vec4 colorSample = vec4(1.0);\n";
+  shader += "   float val;\n";
+  shader += "   vec3 grad;\n";
+
+  shader += "  float feather = 0.0;\n";
+  if (cropPresent)
+    shader += "  feather = crop((vC+vcorner), false);\n";
+
+  shader += "  if (feather < 0.5)\n";
+  shader += "  {\n";
+  shader += "    bvec3 vclt = lessThan(floor(vC+0.5), vC);\n";
+  shader += "    vC += vec3(vclt)*vec3(0.5);\n";
+  shader += "    vC -= vec3(not(vclt))*vec3(0.5);\n";
+  shader += "    vC /= vsize;\n";
 
   if (nearest)
-    shader += "  float val = texture3D(dataTex, vC).x;\n";
+    shader += "    val = texture3D(dataTex, vC).x;\n";
   else
-    shader += "  float val = texture3D(dataTex, voxelCoord).x;\n";
+    shader += "    val = texture3D(dataTex, voxelCoord).x;\n";
 
-
-  shader += getGrad();
-  shader += "  vec4 colorSample = texture2D(lutTex, vec2(val,length(grad)));\n";
+  shader +=      getGrad();
+  shader += "    colorSample = texture2D(lutTex, vec2(val,length(grad)));\n";
+  shader += "  }\n";
+  shader += "  else\n";  // feather
+  shader += "  {\n";
+  shader += "    colorSample = vec4(0.0);\n";
+  shader += "  }\n";  // feather
 
   shader += "  if (!gotFirstHit && colorSample.a > 0.001) gotFirstHit = true;\n";  
 
@@ -870,13 +972,13 @@ RcShaderFactory::genXRayShader(bool nearest, float raylenFrac)
   shader += "      }\n";
 
   // modulate opacity by angle wrt view direction
-  shader += "if (length(grad) > 0.1)\n";
-  shader += "  {\n";
-  shader += "    grad = normalize(grad);\n";
-  shader += "    colorSample.a *= (0.3+0.9*(1.0-abs(dot(grad,normDir))));\n";
-  shader += "  }\n";
-  shader += "else\n";
-  shader += "  colorSample.a *= 0.2;\n";
+  shader += "    if (length(grad) > 0.1)\n";
+  shader += "      {\n";
+  shader += "        grad = normalize(grad);\n";
+  shader += "        colorSample.a *= (0.3+0.9*(1.0-abs(dot(grad,normDir))));\n";
+  shader += "      }\n";
+  shader += "    else\n";
+  shader += "      colorSample.a *= 0.2;\n";
 
   // reduce the opacity
   shader += "    colorSample.a *= 0.1;\n";

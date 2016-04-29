@@ -11,6 +11,7 @@ using namespace qglviewer;
 #include "mybitarray.h"
 #include "volumefilemanager.h"
 #include "boundingbox.h"
+#include "cropobject.h"
 
 class RcViewer : public QObject
 {
@@ -153,6 +154,8 @@ class RcViewer : public QObject
 
   BoundingBox m_boundingBox;
   
+  QList<CropObject> m_crops;
+
   void generateBoxMinMax();
   void updateFilledBoxes();
 
@@ -171,6 +174,8 @@ class RcViewer : public QObject
   void drawClipFaces(Vec*, Vec*);
 
   void drawInfo();
+
+  void checkCrops();
 };
 
 

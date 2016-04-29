@@ -3,6 +3,7 @@
 
 #include <GL/glew.h>
 #include "commonqtclasses.h"
+#include "cropobject.h"
 
 class RcShaderFactory
 {
@@ -11,13 +12,17 @@ class RcShaderFactory
 
   static QString genRectBlurShaderString(int);
 
-  static QString genFirstHitShader(bool);
+  static QString genFirstHitShader(bool,
+				   QList<CropObject>);
 
-  static QString genIsoRaycastShader(bool);
+  static QString genIsoRaycastShader(bool,
+				     QList<CropObject>);
 
-  static QString genRaycastShader(bool, float);
+  static QString genRaycastShader(bool, float,
+				  QList<CropObject>);
 
-  static QString genXRayShader(bool, float);
+  static QString genXRayShader(bool, float,
+			       QList<CropObject>);
 
   static QString genEdgeEnhanceShader();
 

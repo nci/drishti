@@ -337,6 +337,8 @@ class ImageWidget : public QWidget
   void startShrinkwrap();
   void endShrinkwrap();
   void shrinkwrapCurve();
+
+  void doAnother(int);
 };
 
 

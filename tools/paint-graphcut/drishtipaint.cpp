@@ -593,6 +593,12 @@ DrishtiPaint::tagSelected(int t)
 }
 
 void
+DrishtiPaint::on_saveFreq_valueChanged(int t)
+{
+  m_volume->setSaveFrequency(t);
+}
+
+void
 DrishtiPaint::on_tag_valueChanged(int t)
 {
   Global::setTag(t);

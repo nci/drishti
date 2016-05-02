@@ -565,7 +565,8 @@ ImageWidget::setImage(uchar *slice, uchar *mask)
       QKeyEvent dummy(QEvent::KeyPress,
 		      m_key,
 		      Qt::NoModifier);
-      emit simulateKeyPressEvent(&dummy);
+      //emit simulateKeyPressEvent(&dummy);
+      keyPressEvent(&dummy);
     }
 }
 
@@ -1520,15 +1521,14 @@ ImageWidget::checkRecursive()
 	{
 	  m_applyRecursive = false;
 	  emit saveWork();
+	  QMessageBox::information(0, "", "Reached the end");
 	}
       else
 	{
-	  int d = (m_forward ? -120 : 120);
-	  QWheelEvent dummy(QPoint(),
-			    d,
-			    Qt::NoButton,
-			    Qt::NoModifier);
-	  wheelEvent(&dummy);
+	  if (m_forward)
+	    doAnother(1);
+	  else
+	    doAnother(-1);
 	}
     }
 }
@@ -2628,23 +2628,9 @@ ImageWidget::keyPressEvent(QKeyEvent *event)
 	}
     }
   else if (event->key() == Qt::Key_Right)
-    {
-      QWheelEvent dummy(QPoint(),
-			-120,
-			Qt::NoButton,
-			Qt::NoModifier);
-      wheelEvent(&dummy);
-      //update();
-    }
+    doAnother(1);
   else if (event->key() == Qt::Key_Left)
-    {
-      QWheelEvent dummy(QPoint(),
-			120,
-			Qt::NoButton,
-			Qt::NoModifier);
-      wheelEvent(&dummy);
-      //update();
-    }
+    doAnother(-1);
 }
 
 bool
@@ -3311,7 +3297,7 @@ ImageWidget::mouseReleaseEvent(QMouseEvent *event)
 }
 
 void
-ImageWidget::wheelEvent(QWheelEvent *event)
+ImageWidget::doAnother(int step)
 {
   // if we are in curve add points mode switch it off
   if (m_addingCurvePoints) endCurve();
@@ -3340,11 +3326,17 @@ ImageWidget::wheelEvent(QWheelEvent *event)
       maxS = m_maxHSlice; 
     }  
 
-  int numSteps = event->delta()/8.0f/15.0f;
-  m_currSlice -= numSteps;
+  m_currSlice += step;
   m_currSlice = qBound(minS, m_currSlice, maxS);
   emit getSlice(m_currSlice);
   update();
+}
+
+void
+ImageWidget::wheelEvent(QWheelEvent *event)
+{
+  int numSteps = event->delta()/8.0f/15.0f;
+  doAnother(-numSteps);
 }
 
 void

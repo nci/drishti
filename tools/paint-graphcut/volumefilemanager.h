@@ -31,6 +31,8 @@ class VolumeFileManager
   void setMemMapped(bool);
   bool isMemMapped();
 
+  void setSaveFrequency(int o) { m_saveFreq = o; };
+
   void setMemChanged(bool);
 
   void setFilenameList(QStringList);
@@ -92,6 +94,7 @@ class VolumeFileManager
  private :
   bool m_memmapped;
   bool m_memChanged;
+  int m_saveFreq, m_mcTimes;
   QString m_baseFilename;
   QStringList m_filenames;
   qint64 m_header, m_slabSize;

@@ -18,6 +18,8 @@ class VolumeMask : public QObject
   void offLoadMemFile();
   void loadMemFile();
 
+  void setSaveFrequency(int t) { m_maskFileManager.setSaveFrequency(t); }
+
   void saveIntermediateResults(bool forceSave=false);
   void saveMaskBlock(int, int, int, int);
   void saveMaskBlock(QList< QList<int> >);

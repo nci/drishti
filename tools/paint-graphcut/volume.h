@@ -24,6 +24,8 @@ class Volume : public QObject
   void offLoadMemFile();
   void loadMemFile();
 
+  void setSaveFrequency(int t) { m_mask.setSaveFrequency(t); }
+
   void gridSize(int&, int&, int&);
   QImage histogramImage1D()  { return m_histogramImage1D; }
   QImage histogramImage2D()  { return m_histogramImage2D; }

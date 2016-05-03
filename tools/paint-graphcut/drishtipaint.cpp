@@ -1672,6 +1672,8 @@ DrishtiPaint::applyMaskOperation(int tag,
   if (smoothType == 0) mesg = "Smoothing";
   if (smoothType == 1) mesg = "Dilating";
   if (smoothType == 2) mesg = "Eroding";
+  if (smoothType == 3) mesg = "Closing";
+  if (smoothType == 4) mesg = "Opening";
   //----------------
   QProgressDialog progress(QString("%1 tagged(%2) region").arg(mesg).arg(tag),
 			   QString(),
@@ -1710,7 +1712,7 @@ DrishtiPaint::applyMaskOperation(int tag,
 	{
 	  memcpy(val[spread], m_volume->getMaskDepthSliceImage(d), nbytes);
 
-	  if (smoothType == 0)
+	  if (smoothType == 0 || smoothType == 3)
 	    {
 	      sliceSmooth(tag, spread,
 			  val[spread], raw,
@@ -1720,6 +1722,17 @@ DrishtiPaint::applyMaskOperation(int tag,
 			  val[spread], raw,
 			  width, height,
 			  192);
+	    }
+	  else if (smoothType == 4)
+	    {
+	      sliceSmooth(tag, spread,
+			  val[spread], raw,
+			  width, height,
+			  192);
+	      sliceSmooth(tag, spread,
+			  val[spread], raw,
+			  width, height,
+			  64);
 	    }
 	  else
 	    sliceSmooth(tag, spread,
@@ -1734,7 +1747,7 @@ DrishtiPaint::applyMaskOperation(int tag,
 	      else
 		memcpy(val[spread+i], m_volume->getMaskDepthSliceImage(0), nbytes);
 	      
-	      if (smoothType == 0)
+	      if (smoothType == 0 || smoothType == 3)
 		{
 		  sliceSmooth(tag, spread,
 			      val[spread+i], raw,
@@ -1744,6 +1757,17 @@ DrishtiPaint::applyMaskOperation(int tag,
 			      val[spread+i], raw,
 			      width, height,
 			      192);
+		}
+	      else if (smoothType == 4)
+		{
+		  sliceSmooth(tag, spread,
+			      val[spread+i], raw,
+			      width, height,
+			      192);
+		  sliceSmooth(tag, spread,
+			      val[spread+i], raw,
+			      width, height,
+			      64);
 		}
 	      else
 		sliceSmooth(tag, spread,
@@ -1759,7 +1783,7 @@ DrishtiPaint::applyMaskOperation(int tag,
 	      else
 		memcpy(val[spread+i], m_volume->getMaskDepthSliceImage(depth-1), nbytes);
 	      
-	      if (smoothType == 0)
+	      if (smoothType == 0 || smoothType == 3)
 		{
 		  sliceSmooth(tag, spread,
 			      val[spread+i], raw,
@@ -1769,6 +1793,17 @@ DrishtiPaint::applyMaskOperation(int tag,
 			      val[spread+i], raw,
 			      width, height,
 			      192);
+		}
+	      else if (smoothType == 4)
+		{
+		  sliceSmooth(tag, spread,
+			      val[spread+i], raw,
+			      width, height,
+			      192);
+		  sliceSmooth(tag, spread,
+			      val[spread+i], raw,
+			      width, height,
+			      64);
 		}
 	      else
 		sliceSmooth(tag, spread,
@@ -1781,7 +1816,7 @@ DrishtiPaint::applyMaskOperation(int tag,
 	{
 	  memcpy(val[2*spread], m_volume->getMaskDepthSliceImage(d+spread), nbytes);
 	  
-	  if (smoothType == 0)
+	  if (smoothType == 0 || smoothType == 3)
 	    {
 	      sliceSmooth(tag, spread,
 			  val[2*spread], raw,
@@ -1791,6 +1826,17 @@ DrishtiPaint::applyMaskOperation(int tag,
 			  val[2*spread], raw,
 			  width, height,
 			  192);
+	    }
+	  else if (smoothType == 4)
+	    {
+	      sliceSmooth(tag, spread,
+			  val[2*spread], raw,
+			  width, height,
+			  192);
+	      sliceSmooth(tag, spread,
+			  val[2*spread], raw,
+			  width, height,
+			  64);
 	    }
 	  else
 	    sliceSmooth(tag, spread,
@@ -1802,7 +1848,7 @@ DrishtiPaint::applyMaskOperation(int tag,
 	{
 	  memcpy(val[2*spread], m_volume->getMaskDepthSliceImage(depth-1), nbytes);
 	  
-	  if (smoothType == 0)
+	  if (smoothType == 0 || smoothType == 3)
 	    {
 	      sliceSmooth(tag, spread,
 			  val[2*spread], raw,
@@ -1813,6 +1859,17 @@ DrishtiPaint::applyMaskOperation(int tag,
 			  width, height,
 			  192);
 	    }
+	  else if (smoothType == 4)
+	    {
+	      sliceSmooth(tag, spread,
+			  val[2*spread], raw,
+			  width, height,
+			  192);
+	      sliceSmooth(tag, spread,
+			  val[2*spread], raw,
+			  width, height,
+			  64);
+	    }
 	  else
 	    sliceSmooth(tag, spread,
 			val[2*spread], raw,
@@ -1820,7 +1877,7 @@ DrishtiPaint::applyMaskOperation(int tag,
 			thresh);
 	}		  
       
-      if (smoothType == 0)
+      if (smoothType == 0 || smoothType == 3)
 	{
 	  smooth(tag, spread,
 		 val, raw,
@@ -1831,6 +1888,18 @@ DrishtiPaint::applyMaskOperation(int tag,
 		 val, raw,
 		 width, height,
 		 192);
+	}
+      else if (smoothType == 4)
+	{
+	  smooth(tag, spread,
+		 val, raw,
+		 width, height,
+		 192);
+	  memcpy(val[0], raw, nbytes);
+	  smooth(tag, spread,
+		 val, raw,
+		 width, height,
+		 64);
 	}
       else
 	smooth(tag, spread,

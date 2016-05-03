@@ -91,7 +91,7 @@ class ImageWidget : public QWidget
   void updateTagColors();
   void sliceChanged(int);
   void userRangeChanged(int, int);
-  void smooth(int, bool);
+  void smooth(int, bool, bool);
   void keyPressEvent(QKeyEvent*);
   void setLivewire(bool);
   void setFiberMode(bool);
@@ -157,8 +157,6 @@ class ImageWidget : public QWidget
 		     int, int,
 		     int, int);
 
-  void applySmooth(int, bool);
-  void simulateKeyPressEvent(QKeyEvent*);
   void applyMaskOperation(int, int, int);
   void polygonLevels(QList<int>);
   void updateViewerBox(int, int, int, int, int, int);

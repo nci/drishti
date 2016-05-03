@@ -167,14 +167,6 @@ ImageWidget::ImageWidget(QWidget *parent, QStatusBar *sb) :
   m_prevslicetagColors[0] = qRgba(0,0,0,0);
   for(int i=1; i<256; i++)
     m_prevslicetagColors[i] = qRgba(0, 0, 127, 127);
-
-
-  connect(this, SIGNAL(applySmooth(int, bool)),
-	  this, SLOT(smooth(int, bool)));
-
-  connect(this, SIGNAL(simulateKeyPressEvent(QKeyEvent*)),
-	  this, SLOT(keyPressEvent(QKeyEvent*)));
-
 }
 
 void ImageWidget::enterEvent(QEvent *e) { setFocus(); grabKeyboard(); }
@@ -565,7 +557,6 @@ ImageWidget::setImage(uchar *slice, uchar *mask)
       QKeyEvent dummy(QEvent::KeyPress,
 		      m_key,
 		      Qt::NoModifier);
-      //emit simulateKeyPressEvent(&dummy);
       keyPressEvent(&dummy);
     }
 }
@@ -2521,7 +2512,7 @@ ImageWidget::keyPressEvent(QKeyEvent *event)
 	  if (shiftModifier) // apply dilation for multiple slices
 	    applyRecursive(event->key());
 	  
-	  smooth(64, false);
+	  smooth(64, false, false);
 	}
     }
   else if (event->key() == Qt::Key_E) // apply erode
@@ -2537,7 +2528,41 @@ ImageWidget::keyPressEvent(QKeyEvent *event)
 	  if (shiftModifier) // apply erosion for multiple slices
 	    applyRecursive(event->key());
 
-	  smooth(192, false);
+	  smooth(192, false, false);
+	}
+    }
+  else if (event->key() == Qt::Key_C) // apply close operation
+    {
+      if (ctrlModifier)
+	{
+	  emit applyMaskOperation(Global::tag(),
+				  3, // smoothType close
+				  Global::smooth());
+	}
+      else
+	{
+	  if (shiftModifier) // apply close for multiple slices
+	    applyRecursive(event->key());
+	  
+	  smooth(64, false, true); // first dilate
+	  smooth(192, false, false); // then erode
+	}
+    }
+  else if (event->key() == Qt::Key_O) // apply open operation
+    {
+      if (ctrlModifier)
+	{
+	  emit applyMaskOperation(Global::tag(),
+				  4, // smoothType open
+				  Global::smooth());
+	}
+      else
+	{
+	  if (shiftModifier) // apply open for multiple slices
+	    applyRecursive(event->key());
+	  
+	  smooth(192, false, true); // first erode
+	  smooth(64, false, false); // then dilate
 	}
     }
   if (event->key() == Qt::Key_F)
@@ -2562,7 +2587,7 @@ ImageWidget::keyPressEvent(QKeyEvent *event)
 	  if (shiftModifier) // apply smoothing for multiple slices
 	    applyRecursive(event->key());
 	  
-	  smooth(192, true);
+	  smooth(192, true, false);
 	}
     }
   else if (event->key() == Qt::Key_T) // apply graphcut
@@ -3900,7 +3925,7 @@ ImageWidget::applyGraphCut()
 }
 
 void
-ImageWidget::smooth(int thresh, bool smooth)
+ImageWidget::smooth(int thresh, bool smooth, bool morecoming)
 {
   if (Global::smooth() == 0)
     return;
@@ -4003,16 +4028,19 @@ ImageWidget::smooth(int thresh, bool smooth)
 
   memcpy(m_tags, m_prevtags, m_imgWidth*m_imgHeight);
 
-  if (m_sliceType == DSlice)
-    emit tagDSlice(m_currSlice, m_tags);
-  else if (m_sliceType == WSlice)
-    emit tagWSlice(m_currSlice, m_tags);
-  else if (m_sliceType == HSlice)
-    emit tagHSlice(m_currSlice, m_tags);
+  if (!morecoming)
+    {
+      if (m_sliceType == DSlice)
+	emit tagDSlice(m_currSlice, m_tags);
+      else if (m_sliceType == WSlice)
+	emit tagWSlice(m_currSlice, m_tags);
+      else if (m_sliceType == HSlice)
+	emit tagHSlice(m_currSlice, m_tags);
+      
+      setMaskImage(m_tags);
 
-  setMaskImage(m_tags);
-
-  checkRecursive();
+      checkRecursive();
+    }
 }
 
 void

@@ -112,6 +112,32 @@ Ctrl + d : Apply dilation over selected subvolume.
 #end
 
 #begin
+o
+o
+Shift + o
+Ctrl + o
+
+o : Open boundary of region tagged with current tag.  Erosion followed by Dilation.
+
+Shift + o : Repeat open operation over multiple slices.  Press Escape to stop the repeat operation.
+
+Ctrl + o : Apply open over selected subvolume.
+#end
+
+#begin
+c
+c
+Shift + c
+Ctrl + c
+
+c : Close boundary of region tagged with current tag.  Dilation followed by Erosion.
+
+Shift + c : Repeat close operation over multiple slices.  Press Escape to stop the repeat operation.
+
+Ctrl + c : Apply close over selected subvolume.
+#end
+
+#begin
 e
 Shift + e
 Ctrl + e
@@ -142,7 +168,4 @@ s : Smooth boundary of region tagged with current tag. Amount of smoothing is de
 Shift + s : Repeat smoothing operation over multiple slices.  Press Escape to stop the repeat operation.
 
 Ctrl + s : Apply smoothing over selected subvolume.
-#end
-
-#begin
 #end

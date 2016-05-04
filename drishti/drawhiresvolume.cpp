@@ -2881,6 +2881,7 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 	//float modop = qBound(0.0f, sdist/deplen, 1.0f);
 	float modop = StaticFunctions::smoothstep(0, 1, sdist/deplen);
 	modop = m_frontOpMod*(1-modop) + modop*m_backOpMod;
+	modop = qBound(0.0f, modop, 1.0f);
 	glUniform1fARB(m_defaultParm[49], modop);
       }
 

@@ -612,6 +612,11 @@ Viewer::setupRaycastUI()
   connect(m_raycastUI.dragStep, SIGNAL(valueChanged(double)),
 	  this, SLOT(on_raycastdragStep_changed(double)));
 
+  connect(m_raycastUI.frontOp, SIGNAL(valueChanged(double)),
+	  this, SLOT(on_Op_changed(double)));
+  connect(m_raycastUI.opStep, SIGNAL(valueChanged(double)),
+	  this, SLOT(on_Op_changed(double)));
+
 
   setupRaycastLightParameters();
 }
@@ -3517,6 +3522,8 @@ Viewer::keyPressEvent(QKeyEvent *event)
 	  m_rcMode = true;
 	  m_raycastUI.dragStep->setValue(m_rcViewer.dragStep());
 	  m_raycastUI.stillStep->setValue(m_rcViewer.stillStep());
+	  m_raycastUI.frontOp->setValue(m_rcViewer.frontOp());
+	  m_raycastUI.opStep->setValue(m_rcViewer.backOp());
 	}
       else
 	m_rcMode = false;
@@ -4965,9 +4972,13 @@ Viewer::processCommand(QString cmd)
 	{
 	  float fop = 1;
 	  float bop = 1;
-	  bop = fop = qMax(0.0f, list[1].toFloat(&ok));
+//	  bop = fop = qMax(0.0f, list[1].toFloat(&ok));
+//	  if (list.size() > 2)
+//	    bop = qMax(0.0f, list[2].toFloat(&ok));
+
+	  bop = fop = list[1].toFloat(&ok);
 	  if (list.size() > 2)
-	    bop = qMax(0.0f, list[2].toFloat(&ok));
+	    bop = list[2].toFloat(&ok);
 	  
 	  m_hiresVolume->setOpMod(fop, bop);
 	}
@@ -5819,6 +5830,14 @@ Viewer::setVolDataPtr(VolumeFileManager *ptr)
       Vec fullVolSize = m_Volume->getFullVolumeSize();
       m_rcViewer.setGridSize(fullVolSize.z,fullVolSize.y,fullVolSize.x);
     }
+}
+
+void
+Viewer::on_Op_changed(double o)
+{
+  float fop = m_raycastUI.frontOp->value();
+  float bop = m_raycastUI.opStep->value();
+  m_rcViewer.setOpMod(fop, bop);
 }
 
 void

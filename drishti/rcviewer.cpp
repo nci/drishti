@@ -62,6 +62,9 @@ RcViewer::RcViewer() :
 
   m_renderMode = 1; // 0-point, 1-raycast, 2-xray
 
+  m_frontOpMod = 1.0;
+  m_backOpMod = 0.1;
+
   m_crops.clear();
 
   init();
@@ -145,6 +148,14 @@ RcViewer::init()
 }
 
 void RcViewer::setLut(uchar *l) { m_lut = l; }
+
+void
+RcViewer::setOpMod(float fop, float bop)
+{
+  m_frontOpMod = fop;
+  m_backOpMod = bop;
+  m_viewer->update();
+}
 
 void
 RcViewer::setVolDataPtr(VolumeFileManager *ptr)
@@ -648,6 +659,7 @@ RcViewer::createIsoRaycastShader()
   m_ircParm[17] = glGetUniformLocationARB(m_ircShader, "ftsize");
   m_ircParm[18] = glGetUniformLocationARB(m_ircShader, "boxSize");
   m_ircParm[19] = glGetUniformLocationARB(m_ircShader, "mixTag");
+  m_ircParm[20] = glGetUniformLocationARB(m_ircShader, "opmod");
 }
 
 void
@@ -693,6 +705,7 @@ RcViewer::createRaycastShader()
   m_rcParm[17] = glGetUniformLocationARB(m_rcShader, "ftsize");
   m_rcParm[18] = glGetUniformLocationARB(m_rcShader, "boxSize");
   m_rcParm[19] = glGetUniformLocationARB(m_rcShader, "mixTag");
+  m_rcParm[20] = glGetUniformLocationARB(m_rcShader, "opmod");
 }
 
 void
@@ -1134,6 +1147,7 @@ RcViewer::surfaceRaycast(float minZ, float maxZ, bool firstPartOnly)
 
   glUniform1iARB(m_ircParm[13], 5); // tagTex
   glUniform1iARB(m_ircParm[19], m_mixTag); // mixTag
+  glUniform2fARB(m_ircParm[20], m_frontOpMod, m_backOpMod); // opmod
 
 
   if (m_mixTag)
@@ -1502,6 +1516,7 @@ RcViewer::volumeRaycast(float minZ, float maxZ)
 
   glUniform1iARB(m_rcParm[13], 5); // tagTex
   glUniform1iARB(m_rcParm[19], m_mixTag); // mixTag
+  glUniform2fARB(m_rcParm[20], m_frontOpMod, m_backOpMod); // opmod
 
   if (m_mixTag)
     {

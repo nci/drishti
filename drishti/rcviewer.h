@@ -28,6 +28,10 @@ class RcViewer : public QObject
   void setTagTex(GLuint tt) { m_tagTex = tt; }
   void setMixTag(bool mt) { m_mixTag = mt; }
 
+  void setOpMod(float, float);
+  float frontOp() { return m_frontOpMod; }
+  float backOp() { return m_backOpMod; }
+
   void draw();
   void fastDraw();
 
@@ -120,7 +124,7 @@ class RcViewer : public QObject
 
   bool m_mixTag;
   GLuint m_tagTex;
-
+  
   GLuint m_dataTex;
   GLuint m_lutTex;
   int m_sslevel;
@@ -150,7 +154,7 @@ class RcViewer : public QObject
   int m_renderMode;
   float m_raylenFrac;
   
-  float m_stillstep;
+  float m_frontOpMod, m_backOpMod;
 
   BoundingBox m_boundingBox;
   

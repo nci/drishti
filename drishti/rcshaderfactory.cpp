@@ -315,6 +315,7 @@ RcShaderFactory::genIsoRaycastShader(bool nearest,
 
   shader += "uniform sampler1D tagTex;\n";
   shader += "uniform bool mixTag;\n";
+  shader += "uniform vec2 opmod;\n";
 
   if (cropPresent) shader += CropShaderFactory::generateCropping(crops);
 
@@ -333,8 +334,8 @@ RcShaderFactory::genIsoRaycastShader(bool nearest,
   shader += "vec3 entryPoint = enP.rgb;\n";
 
   shader += "vec3 dir = (exitPoint-entryPoint);\n";
-  shader += "float len = length(dir);\n";
-  shader += "if (len < 0.001) discard;\n";
+  shader += "float totlen = length(dir);\n";
+  shader += "if (totlen < 0.001) discard;\n";
 
   shader += "vec3 dirvec = normalize(dir);\n";
 
@@ -351,7 +352,10 @@ RcShaderFactory::genIsoRaycastShader(bool nearest,
   shader += "int nskipped = 0;\n"; 
   shader += "bool solid = false;\n";
  
-  shader += "for(int i=0; i<int(length(exitPoint-entryPoint)/stepSize); i++)\n";
+  shader += "float om = 1.0;\n";
+  shader += "int iopmodstart = 0;\n";
+  shader += "int iend = int(length(exitPoint-entryPoint)/stepSize);\n";
+  shader += "for(int i=0; i<iend; i++)\n";
 
   shader += "{\n";
 
@@ -417,7 +421,24 @@ RcShaderFactory::genIsoRaycastShader(bool nearest,
   shader += "    colorSample = vec4(0.0);\n";
   shader += "  }\n";  // feather
 
-  shader += "  if (!gotFirstHit && colorSample.a > 0.001) gotFirstHit = true;\n";  
+  shader += "    colorSample.rgb *= colorSample.a;\n";
+
+  shader += "  if (!gotFirstHit && colorSample.a > 0.001)\n";  
+  shader += "  {\n";
+  shader += "    gotFirstHit = true;\n";
+  shader += "    iopmodstart = i;\n";
+  shader += "    om = opmod.x;\n";
+  shader += "  }\n";
+
+
+  // ----------------------------
+  shader += "  if (gotFirstHit)\n";
+  shader += "  {\n";
+  shader += "    colorSample *= clamp(om, 0.0, 1.0);\n";
+  shader += "    om += opmod.y;\n";
+  shader += "  }\n";
+  // ----------------------------
+
 
   shader += "  if (gotFirstHit && nskipped > skipLayers)\n";
   shader += "  {\n";
@@ -450,11 +471,9 @@ RcShaderFactory::genIsoRaycastShader(bool nearest,
   shader += "      return;\n";
   shader += "    }\n";
 
-  shader += "    colorSample.rgb *= colorSample.a;\n";
-
   shader += "  }\n"; // gotfirsthit && nskipped > skipLayers
 
-  shader += "  if (lengthAcum >= len )\n";
+  shader += "  if (lengthAcum >= totlen )\n";
   shader += "      break;\n";  // terminate if opacity > 1 or the ray is outside the volume	
 
   shader += "  voxelCoord += deltaDir;\n";
@@ -527,8 +546,8 @@ RcShaderFactory::genFirstHitShader(bool nearest,
   shader += "vec3 entryPoint = enP.rgb;\n";
 
   shader += "vec3 dir = (exitPoint-entryPoint);\n";
-  shader += "float len = length(dir);\n";
-  shader += "if (len < 0.001) discard;\n";
+  shader += "float totlen = length(dir);\n";
+  shader += "if (totlen < 0.001) discard;\n";
 
   shader += "vec3 deltaDir = normalize(dir)*stepSize;\n";
   shader += "float deltaDirLen = length(deltaDir);\n";
@@ -610,7 +629,7 @@ RcShaderFactory::genFirstHitShader(bool nearest,
   shader += "      }\n";
   shader += "  }\n"; // gotfirsthit && nskipped > skipLayers
 
-  shader += "  if (lengthAcum >= len )\n";
+  shader += "  if (lengthAcum >= totlen )\n";
   shader += "    return;\n";  // terminate if opacity > 1 or the ray is outside the volume	
 
   shader += "  voxelCoord += deltaDir;\n";
@@ -674,6 +693,7 @@ RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac,
 
   shader += "uniform sampler1D tagTex;\n";
   shader += "uniform bool mixTag;\n";
+  shader += "uniform vec2 opmod;\n";
 
   if (cropPresent) shader += CropShaderFactory::generateCropping(crops);
 
@@ -689,8 +709,8 @@ RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac,
   shader += "vec3 entryPoint = enP.rgb;\n";
 
   shader += "vec3 dir = (exitPoint-entryPoint);\n";
-  shader += "float len = length(dir);\n";
-  shader += "if (len < 0.001) discard;\n";
+  shader += "float totlen = length(dir);\n";
+  shader += "if (totlen < 0.001) discard;\n";
 
   shader += "vec3 dirvec = normalize(dir);\n";
   shader += "vec3 deltaDir = dirvec*stepSize;\n";
@@ -707,9 +727,11 @@ RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac,
   shader += "int nskipped = 0;\n"; 
   shader += "bool solid = false;\n";
  
-
-    shader += QString("for(int i=0; i<int(max(10.0,float(%1*length(exitPoint-entryPoint)/stepSize))); i++)\n").arg(raylenFrac);
-
+  shader += "float om = 1.0;\n";
+  shader += "int iopmodstart = 0;\n";    
+  shader += QString("int iend = int(max(10.0,float(%1*length(exitPoint-entryPoint)/stepSize)));\n").arg(raylenFrac);
+  shader += "for(int i=0; i<iend; i++)\n";
+  
   shader += "{\n";
 
   shader += "  vec4 colorSample = vec4(1.0);\n";
@@ -780,7 +802,24 @@ RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac,
   shader += "  }\n";  // feather
 
 
-  shader += "  if (!gotFirstHit && colorSample.a > 0.001) gotFirstHit = true;\n";  
+  shader += "    colorSample.rgb *= colorSample.a;\n";
+
+  shader += "  if (!gotFirstHit && colorSample.a > 0.001)\n";  
+  shader += "  {\n";
+  shader += "    gotFirstHit = true;\n";
+  shader += "    iopmodstart = i;\n";
+  shader += "    om = opmod.x;\n";
+  shader += "  }\n";
+
+
+  // ----------------------------
+  shader += "  if (gotFirstHit)\n";
+  shader += "  {\n";
+  shader += "    colorSample *= clamp(om, 0.0, 1.0);\n";
+  shader += "    om += opmod.y;\n";
+  shader += "  }\n";
+  // ----------------------------
+
 
   shader += "  if (gotFirstHit && nskipped > skipLayers)\n";
   shader += "  {\n";
@@ -793,13 +832,11 @@ RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac,
 
   shader +=      addLighting();
 
-  shader += "    colorSample.rgb *= colorSample.a;\n";
-
   shader += "    colorAcum += (1.0 - colorAcum.a) * colorSample;\n";
 
   shader += "  }\n"; // gotfirsthit && nskipped > skipLayers
 
-  shader += "  if (lengthAcum >= len )\n";
+  shader += "  if (lengthAcum >= totlen )\n";
   shader += "    {\n";
   shader += "      colorAcum.rgb = colorAcum.rgb*colorAcum.a + (1.0 - colorAcum.a)*bgColor.rgb;\n";
   shader += "      break;\n";  // terminate if opacity > 1 or the ray is outside the volume	
@@ -872,6 +909,7 @@ RcShaderFactory::genXRayShader(bool nearest, float raylenFrac,
   shader += "uniform vec3 bgcolor;\n";
   shader += "uniform vec3 ftsize;\n";
   shader += "uniform float boxSize;\n";  
+  shader += "uniform vec2 opmod;\n";
 
   if (cropPresent) shader += CropShaderFactory::generateCropping(crops);
 
@@ -888,8 +926,8 @@ RcShaderFactory::genXRayShader(bool nearest, float raylenFrac,
   shader += "vec3 entryPoint = enP.rgb;\n";
 
   shader += "vec3 dir = (exitPoint-entryPoint);\n";
-  shader += "float len = length(dir);\n";
-  shader += "if (len < 0.001) discard;\n";
+  shader += "float totlen = length(dir);\n";
+  shader += "if (totlen < 0.001) discard;\n";
 
   shader += "vec3 normDir = normalize(dir);\n";
   shader += "vec3 deltaDir = normalize(dir)*stepSize;\n";
@@ -989,7 +1027,7 @@ RcShaderFactory::genXRayShader(bool nearest, float raylenFrac,
 
   shader += "  }\n"; // gotfirsthit && nskipped > skipLayers
 
-  shader += "  if (lengthAcum >= len )\n";
+  shader += "  if (lengthAcum >= totlen )\n";
   shader += "    {\n";
   shader += "      colorAcum.rgb = colorAcum.rgb*colorAcum.a + (1.0 - colorAcum.a)*bgColor.rgb;\n";
   shader += "      break;\n";  // terminate if opacity > 1 or the ray is outside the volume	

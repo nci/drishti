@@ -139,6 +139,7 @@ class Viewer : public QGLViewer
   void raycastLightOnOff(int);
   void on_raycaststillStep_changed(double);
   void on_raycastdragStep_changed(double);
+  void on_Op_changed(double);
 
  signals:
   void resetFlipImage();

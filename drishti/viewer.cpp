@@ -605,6 +605,8 @@ Viewer::setupRaycastUI()
 	  this, SLOT(raycastLightOnOff(int)));
   connect(m_raycastUI.skipLayers, SIGNAL(valueChanged(int)),
 	  &m_rcViewer, SLOT(setSkipLayers(int)));
+  connect(m_raycastUI.skipVoxels, SIGNAL(valueChanged(int)),
+	  &m_rcViewer, SLOT(setSkipVoxels(int)));
   connect(m_raycastUI.nearest, SIGNAL(clicked(bool)),
 	  &m_rcViewer, SLOT(setExactCoord(bool)));
   connect(m_raycastUI.stillStep, SIGNAL(valueChanged(double)),
@@ -612,10 +614,6 @@ Viewer::setupRaycastUI()
   connect(m_raycastUI.dragStep, SIGNAL(valueChanged(double)),
 	  this, SLOT(on_raycastdragStep_changed(double)));
 
-  connect(m_raycastUI.frontOp, SIGNAL(valueChanged(double)),
-	  this, SLOT(on_Op_changed(double)));
-  connect(m_raycastUI.opStep, SIGNAL(valueChanged(double)),
-	  this, SLOT(on_Op_changed(double)));
 
 
   setupRaycastLightParameters();
@@ -3522,8 +3520,8 @@ Viewer::keyPressEvent(QKeyEvent *event)
 	  m_rcMode = true;
 	  m_raycastUI.dragStep->setValue(m_rcViewer.dragStep());
 	  m_raycastUI.stillStep->setValue(m_rcViewer.stillStep());
-	  m_raycastUI.frontOp->setValue(m_rcViewer.frontOp());
-	  m_raycastUI.opStep->setValue(m_rcViewer.backOp());
+	  m_raycastUI.skipLayers->setValue(m_rcViewer.skipLayers());
+	  m_raycastUI.skipVoxels->setValue(m_rcViewer.skipVoxels());
 	}
       else
 	m_rcMode = false;
@@ -5823,6 +5821,7 @@ Viewer::handleMorphologicalOperations(QStringList list)
 void
 Viewer::setVolDataPtr(VolumeFileManager *ptr)
 {
+  m_raycastMenu->hide();
   m_rcViewer.init();
   m_rcViewer.setVolDataPtr(ptr);
   if (ptr)
@@ -5830,14 +5829,7 @@ Viewer::setVolDataPtr(VolumeFileManager *ptr)
       Vec fullVolSize = m_Volume->getFullVolumeSize();
       m_rcViewer.setGridSize(fullVolSize.z,fullVolSize.y,fullVolSize.x);
     }
-}
-
-void
-Viewer::on_Op_changed(double o)
-{
-  float fop = m_raycastUI.frontOp->value();
-  float bop = m_raycastUI.opStep->value();
-  m_rcViewer.setOpMod(fop, bop);
+  m_raycastUI.raycastStyle->setCurrentIndex(0);
 }
 
 void

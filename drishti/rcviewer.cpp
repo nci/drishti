@@ -62,9 +62,6 @@ RcViewer::RcViewer() :
 
   m_renderMode = 1; // 0-point, 1-raycast, 2-xray
 
-  m_frontOpMod = 1.0;
-  m_backOpMod = 0.1;
-
   m_crops.clear();
 
   init();
@@ -79,6 +76,7 @@ void
 RcViewer::init()
 {
   m_skipLayers = 0;
+  m_skipVoxels = 0;
   m_fullRender = false;
   m_dragMode = true;
   m_exactCoord = false;
@@ -148,14 +146,6 @@ RcViewer::init()
 }
 
 void RcViewer::setLut(uchar *l) { m_lut = l; }
-
-void
-RcViewer::setOpMod(float fop, float bop)
-{
-  m_frontOpMod = fop;
-  m_backOpMod = bop;
-  m_viewer->update();
-}
 
 void
 RcViewer::setVolDataPtr(VolumeFileManager *ptr)
@@ -659,7 +649,7 @@ RcViewer::createIsoRaycastShader()
   m_ircParm[17] = glGetUniformLocationARB(m_ircShader, "ftsize");
   m_ircParm[18] = glGetUniformLocationARB(m_ircShader, "boxSize");
   m_ircParm[19] = glGetUniformLocationARB(m_ircShader, "mixTag");
-  m_ircParm[20] = glGetUniformLocationARB(m_ircShader, "opmod");
+  m_ircParm[20] = glGetUniformLocationARB(m_ircShader, "skipVoxels");
 }
 
 void
@@ -696,7 +686,6 @@ RcViewer::createRaycastShader()
   m_rcParm[8] = glGetUniformLocationARB(m_rcShader, "minZ");
   m_rcParm[9] = glGetUniformLocationARB(m_rcShader, "maxZ");
   //m_rcParm[10]= glGetUniformLocationARB(m_rcShader, "maskTex");
-  m_rcParm[11]= glGetUniformLocationARB(m_rcShader, "saveCoord");
   m_rcParm[12]= glGetUniformLocationARB(m_rcShader, "skipLayers");
   m_rcParm[13]= glGetUniformLocationARB(m_rcShader, "tagTex");
   m_rcParm[14] = glGetUniformLocationARB(m_rcShader, "entryTex");
@@ -705,7 +694,7 @@ RcViewer::createRaycastShader()
   m_rcParm[17] = glGetUniformLocationARB(m_rcShader, "ftsize");
   m_rcParm[18] = glGetUniformLocationARB(m_rcShader, "boxSize");
   m_rcParm[19] = glGetUniformLocationARB(m_rcShader, "mixTag");
-  m_rcParm[20] = glGetUniformLocationARB(m_rcShader, "opmod");
+  m_rcParm[20] = glGetUniformLocationARB(m_rcShader, "skipVoxels");
 }
 
 void
@@ -1147,7 +1136,7 @@ RcViewer::surfaceRaycast(float minZ, float maxZ, bool firstPartOnly)
 
   glUniform1iARB(m_ircParm[13], 5); // tagTex
   glUniform1iARB(m_ircParm[19], m_mixTag); // mixTag
-  glUniform2fARB(m_ircParm[20], m_frontOpMod, m_backOpMod); // opmod
+  glUniform1iARB(m_ircParm[20], m_skipVoxels);
 
 
   if (m_mixTag)
@@ -1504,7 +1493,6 @@ RcViewer::volumeRaycast(float minZ, float maxZ)
   glUniform3fARB(m_rcParm[7], m_vsize.x, m_vsize.y, m_vsize.z);
   glUniform1fARB(m_rcParm[8], minZ); // minZ
   glUniform1fARB(m_rcParm[9], maxZ); // maxZ
-  glUniform1iARB(m_rcParm[11],false); // save voxel coordinates
   glUniform1iARB(m_rcParm[12],0); // skip first layers
   glUniform1iARB(m_rcParm[14],6); // ebTex[0] - contains refined entry coordinates
   glUniform3fARB(m_rcParm[15], bgColor.x,
@@ -1516,7 +1504,7 @@ RcViewer::volumeRaycast(float minZ, float maxZ)
 
   glUniform1iARB(m_rcParm[13], 5); // tagTex
   glUniform1iARB(m_rcParm[19], m_mixTag); // mixTag
-  glUniform2fARB(m_rcParm[20], m_frontOpMod, m_backOpMod); // opmod
+  glUniform1iARB(m_rcParm[20], m_skipVoxels);
 
   if (m_mixTag)
     {

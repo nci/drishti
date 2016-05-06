@@ -28,10 +28,6 @@ class RcViewer : public QObject
   void setTagTex(GLuint tt) { m_tagTex = tt; }
   void setMixTag(bool mt) { m_mixTag = mt; }
 
-  void setOpMod(float, float);
-  float frontOp() { return m_frontOpMod; }
-  float backOp() { return m_backOpMod; }
-
   void draw();
   void fastDraw();
 
@@ -50,6 +46,7 @@ class RcViewer : public QObject
  
   bool exactCoord() { return m_exactCoord; }
   int skipLayers() { return m_skipLayers; }
+  int skipVoxels() { return m_skipVoxels; }
   int spec() { return m_spec; }
   int edge() { return m_edge; }
   int shadow() { return m_shadow; }
@@ -67,6 +64,7 @@ class RcViewer : public QObject
     void updateVoxelsForRaycast();
     void setRaycastStyle(int);
     void setSkipLayers(int l) { m_skipLayers = l; m_viewer->update(); }
+    void setSkipVoxels(int l) { m_skipVoxels = l; m_viewer->update(); }
     void setShadowColor();
     void setEdgeColor();
     void setSpec(int a) { m_spec = (float)a/10.0f; m_viewer->update(); }
@@ -111,7 +109,7 @@ class RcViewer : public QObject
 
 
   int m_max3DTexSize;
-  int m_skipLayers;
+  int m_skipLayers, m_skipVoxels;
   float m_stillStep, m_dragStep;
 
   GLuint m_slcBuffer;
@@ -154,8 +152,6 @@ class RcViewer : public QObject
   int m_renderMode;
   float m_raylenFrac;
   
-  float m_frontOpMod, m_backOpMod;
-
   BoundingBox m_boundingBox;
   
   QList<CropObject> m_crops;

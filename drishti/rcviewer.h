@@ -85,7 +85,9 @@ class RcViewer : public QObject
   VolumeFileManager *m_vfm;
   uchar *m_volPtr;
   uchar *m_lut;
-  
+
+  uchar *m_imageBuffer;
+
   double m_b0xform[16];
   double m_b0xformInv[16];
 
@@ -176,6 +178,8 @@ class RcViewer : public QObject
   void drawInfo();
 
   void checkCrops();
+
+  void vray();
 };
 
 

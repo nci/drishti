@@ -64,6 +64,8 @@ RcViewer::RcViewer() :
 
   m_crops.clear();
 
+  m_imageBuffer = 0;
+
   init();
 }
 
@@ -75,6 +77,10 @@ RcViewer::~RcViewer()
 void
 RcViewer::init()
 {
+  if (m_imageBuffer) delete [] m_imageBuffer;
+  m_imageBuffer = 0;
+
+
   m_skipLayers = 0;
   m_skipVoxels = 0;
   m_fullRender = false;
@@ -512,6 +518,13 @@ RcViewer::createFBO()
   int wd = m_viewer->camera()->screenWidth();
   int ht = m_viewer->camera()->screenHeight();
 
+
+  //-----------------------------------------
+  if (m_imageBuffer) delete [] m_imageBuffer;
+  m_imageBuffer = new uchar[wd*ht*4];
+  //-----------------------------------------
+
+
   //-----------------------------------------
   if (m_eBuffer) glDeleteFramebuffers(1, &m_eBuffer);
   if (m_ebId) glDeleteRenderbuffers(1, &m_ebId);
@@ -683,8 +696,6 @@ RcViewer::createRaycastShader()
   m_rcParm[5] = glGetUniformLocationARB(m_rcShader, "viewDir");
   m_rcParm[6] = glGetUniformLocationARB(m_rcShader, "vcorner");
   m_rcParm[7] = glGetUniformLocationARB(m_rcShader, "vsize");
-  m_rcParm[8] = glGetUniformLocationARB(m_rcShader, "minZ");
-  m_rcParm[9] = glGetUniformLocationARB(m_rcShader, "maxZ");
   //m_rcParm[10]= glGetUniformLocationARB(m_rcShader, "maskTex");
   m_rcParm[12]= glGetUniformLocationARB(m_rcShader, "skipLayers");
   m_rcParm[13]= glGetUniformLocationARB(m_rcShader, "tagTex");
@@ -975,7 +986,8 @@ RcViewer::raycasting()
   updateFilledBoxes();
 
 
-  if (!m_fullRender || (m_dragMode && !Global::useStillVolume()))
+  if (!m_fullRender ||
+      (m_dragMode && !Global::useStillVolume()))
     surfaceRaycast(minZ, maxZ, false); // raycast surface process
   else
     volumeRaycast(minZ, maxZ); // full raycast process
@@ -1325,6 +1337,9 @@ RcViewer::surfaceRaycast(float minZ, float maxZ, bool firstPartOnly)
 void
 RcViewer::volumeRaycast(float minZ, float maxZ)
 {
+  int wd = m_viewer->camera()->screenWidth();
+  int ht = m_viewer->camera()->screenHeight();
+
   Vec bgColor = Global::backgroundColor();
 
   Vec eyepos = m_viewer->camera()->position();
@@ -1335,6 +1350,10 @@ RcViewer::volumeRaycast(float minZ, float maxZ)
 		       m_maxDSlice-m_minDSlice+1);
 
   glClearDepth(0);
+  glClearColor(bgColor.x, bgColor.y, bgColor.z, 0);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+
   glClearColor(0, 0, 0, 0);
 
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
@@ -1384,13 +1403,9 @@ RcViewer::volumeRaycast(float minZ, float maxZ)
   //----------------------------
 
 
-  int wd = m_viewer->camera()->screenWidth();
-  int ht = m_viewer->camera()->screenHeight();
-
   float stepsize = m_stillStep;
   if (m_dragMode)
-    stepsize = m_dragStep; 
- 
+    stepsize = m_dragStep;  
   stepsize /= qMax(m_vsize.x,qMax(m_vsize.y,m_vsize.z));
 
 
@@ -1474,12 +1489,45 @@ RcViewer::volumeRaycast(float minZ, float maxZ)
   StaticFunctions::popOrthoView();
 
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
+  glUseProgramObjectARB(0);
   //----------------------------
 
+  vray();
 
-  glClearColor(bgColor.x, bgColor.y, bgColor.z, 0);
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
 
+void
+RcViewer::vray()
+{
+  glClear(GL_DEPTH_BUFFER_BIT);
+
+  int wd = m_viewer->camera()->screenWidth();
+  int ht = m_viewer->camera()->screenHeight();
+
+  float stepsize = m_stillStep;
+  if (m_dragMode)
+    stepsize = m_dragStep;  
+  stepsize /= qMax(m_vsize.x,qMax(m_vsize.y,m_vsize.z));
+
+  Vec bgColor = Global::backgroundColor();
+  Vec eyepos = m_viewer->camera()->position();
+  Vec viewDir = m_viewer->camera()->viewDirection();
+  Vec subvolcorner = Vec(m_minHSlice, m_minWSlice, m_minDSlice);
+  Vec subvolsize = Vec(m_maxHSlice-m_minHSlice+1,
+		       m_maxWSlice-m_minWSlice+1,
+		       m_maxDSlice-m_minDSlice+1);
+
+  eyepos = Matrix::xformVec(m_b0xformInv, eyepos);
+  viewDir = Matrix::rotateVec(m_b0xformInv, viewDir);
+
+
+  glActiveTexture(GL_TEXTURE1);
+  glEnable(GL_TEXTURE_3D);
+  glBindTexture(GL_TEXTURE_3D, m_dataTex);
+
+  glActiveTexture(GL_TEXTURE0);
+  glEnable(GL_TEXTURE_2D);
+  glBindTexture(GL_TEXTURE_2D, m_lutTex);
 
   //----------------------------
   glUseProgramObjectARB(m_rcShader);
@@ -1491,8 +1539,6 @@ RcViewer::volumeRaycast(float minZ, float maxZ)
   glUniform3fARB(m_rcParm[5], viewDir.x, viewDir.y, viewDir.z); // viewDir
   glUniform3fARB(m_rcParm[6], subvolcorner.x, subvolcorner.y, subvolcorner.z);
   glUniform3fARB(m_rcParm[7], m_vsize.x, m_vsize.y, m_vsize.z);
-  glUniform1fARB(m_rcParm[8], minZ); // minZ
-  glUniform1fARB(m_rcParm[9], maxZ); // maxZ
   glUniform1iARB(m_rcParm[12],0); // skip first layers
   glUniform1iARB(m_rcParm[14],6); // ebTex[0] - contains refined entry coordinates
   glUniform3fARB(m_rcParm[15], bgColor.x,
@@ -1548,6 +1594,7 @@ RcViewer::volumeRaycast(float minZ, float maxZ)
 
   glActiveTexture(GL_TEXTURE2);
   glDisable(GL_TEXTURE_RECTANGLE_ARB);
+
 }
 
 void
@@ -2069,4 +2116,3 @@ RcViewer::checkCrops()
       createRaycastShader();
     }
 }
-

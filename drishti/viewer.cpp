@@ -2033,7 +2033,7 @@ Viewer::drawImageOnScreen()
   if (m_rcMode) // don't draw here when in Raycast mode
     {
       m_rcViewer.setXformMatrix(m_hiresVolume->brick0Xform());
-      m_rcViewer.draw();
+      m_rcViewer.draw();      
       return;
     }
 

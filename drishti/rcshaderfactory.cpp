@@ -677,14 +677,11 @@ RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac,
   shader += "uniform vec3 viewDir;\n";
   shader += "uniform vec3 vcorner;\n";
   shader += "uniform vec3 vsize;\n";
-  shader += "uniform float minZ;\n";
-  shader += "uniform float maxZ;\n";  
   shader += "uniform int skipLayers;\n";
   shader += "uniform sampler2DRect entryTex;\n";
   shader += "uniform vec3 bgcolor;\n";
   shader += "uniform vec3 ftsize;\n";
   shader += "uniform float boxSize;\n";  
-
   shader += "uniform sampler1D tagTex;\n";
   shader += "uniform bool mixTag;\n";
   shader += "uniform int skipVoxels;\n";
@@ -880,14 +877,13 @@ RcShaderFactory::genXRayShader(bool nearest, float raylenFrac,
   shader += "uniform vec3 viewDir;\n";
   shader += "uniform vec3 vcorner;\n";
   shader += "uniform vec3 vsize;\n";
-  shader += "uniform float minZ;\n";
-  shader += "uniform float maxZ;\n";  
   shader += "uniform int skipLayers;\n";
   shader += "uniform sampler2DRect entryTex;\n";
   shader += "uniform vec3 bgcolor;\n";
   shader += "uniform vec3 ftsize;\n";
   shader += "uniform float boxSize;\n";  
   shader += "uniform int skipVoxels;\n";
+
 
   if (cropPresent) shader += CropShaderFactory::generateCropping(crops);
 

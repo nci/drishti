@@ -86,8 +86,6 @@ class RcViewer : public QObject
   uchar *m_volPtr;
   uchar *m_lut;
 
-  uchar *m_imageBuffer;
-
   double m_b0xform[16];
   double m_b0xformInv[16];
 
@@ -116,11 +114,7 @@ class RcViewer : public QObject
 
   GLuint m_slcBuffer;
   GLuint m_rboId;
-  GLuint m_slcTex[2];
-
-  GLuint m_eBuffer;
-  GLuint m_ebId;
-  GLuint m_ebTex[3];
+  GLuint m_slcTex[5];
 
   bool m_mixTag;
   GLuint m_tagTex;

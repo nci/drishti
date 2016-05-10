@@ -15,16 +15,13 @@ RcViewer::RcViewer() :
 {
   m_lut = 0;
 
-  m_eBuffer = 0;
-  m_ebId = 0;
-  m_ebTex[0] = 0;
-  m_ebTex[1] = 0;
-  m_ebTex[2] = 0;
-
   m_slcBuffer = 0;
   m_rboId = 0;
   m_slcTex[0] = 0;
   m_slcTex[1] = 0;
+  m_slcTex[2] = 0;
+  m_slcTex[3] = 0;
+  m_slcTex[4] = 0;
 
   m_blurShader = 0;
   m_fhShader = 0;
@@ -64,8 +61,6 @@ RcViewer::RcViewer() :
 
   m_crops.clear();
 
-  m_imageBuffer = 0;
-
   init();
 }
 
@@ -77,10 +72,6 @@ RcViewer::~RcViewer()
 void
 RcViewer::init()
 {
-  if (m_imageBuffer) delete [] m_imageBuffer;
-  m_imageBuffer = 0;
-
-
   m_skipLayers = 0;
   m_skipVoxels = 0;
   m_fullRender = false;
@@ -119,19 +110,16 @@ RcViewer::init()
   m_blurShader = 0;
 
 
-  if (m_eBuffer) glDeleteFramebuffers(1, &m_eBuffer);
-  if (m_ebId) glDeleteRenderbuffers(1, &m_ebId);
-  if (m_ebTex[0]) glDeleteTextures(3, m_ebTex);
-  m_eBuffer = 0;
-  m_ebId = 0;
-  m_ebTex[0] = m_ebTex[1] = m_ebTex[2] = 0;
-
   if (m_slcBuffer) glDeleteFramebuffers(1, &m_slcBuffer);
   if (m_rboId) glDeleteRenderbuffers(1, &m_rboId);
-  if (m_slcTex[0]) glDeleteTextures(2, m_slcTex);
+  if (m_slcTex[0]) glDeleteTextures(5, m_slcTex);
   m_slcBuffer = 0;
   m_rboId = 0;
-  m_slcTex[0] = m_slcTex[1] = 0;
+  m_slcTex[0] = 0;
+  m_slcTex[1] = 0;
+  m_slcTex[2] = 0;
+  m_slcTex[3] = 0;
+  m_slcTex[4] = 0;
 
   if (m_dataTex) glDeleteTextures(1, &m_dataTex);
   m_dataTex = 0;
@@ -518,53 +506,14 @@ RcViewer::createFBO()
   int wd = m_viewer->camera()->screenWidth();
   int ht = m_viewer->camera()->screenHeight();
 
-
-  //-----------------------------------------
-  if (m_imageBuffer) delete [] m_imageBuffer;
-  m_imageBuffer = new uchar[wd*ht*4];
-  //-----------------------------------------
-
-
-  //-----------------------------------------
-  if (m_eBuffer) glDeleteFramebuffers(1, &m_eBuffer);
-  if (m_ebId) glDeleteRenderbuffers(1, &m_ebId);
-  if (m_ebTex[0]) glDeleteTextures(3, m_ebTex);
-  glGenFramebuffers(1, &m_eBuffer);
-  glGenRenderbuffers(1, &m_ebId);
-  glGenTextures(3, m_ebTex);
-  glBindFramebuffer(GL_FRAMEBUFFER, m_eBuffer);
-  glBindRenderbuffer(GL_RENDERBUFFER, m_ebId);
-  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, wd, ht);
-  glBindRenderbuffer(GL_RENDERBUFFER, 0);
-  // attach the renderbuffer to depth attachment point
-  glFramebufferRenderbuffer(GL_FRAMEBUFFER,      // 1. fbo target: GL_FRAMEBUFFER
-			    GL_DEPTH_ATTACHMENT, // 2. attachment point
-			    GL_RENDERBUFFER,     // 3. rbo target: GL_RENDERBUFFER
-			    m_ebId);              // 4. rbo ID
-  for(int i=0; i<3; i++)
-    {
-      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[i]);
-      glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,
-		   0,
-		   GL_RGBA16,
-		   wd, ht,
-		   0,
-		   GL_RGBA,
-		   GL_UNSIGNED_SHORT,
-		   0);
-    }
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
-  //-----------------------------------------
-
-
   //-----------------------------------------
   if (m_slcBuffer) glDeleteFramebuffers(1, &m_slcBuffer);
   if (m_rboId) glDeleteRenderbuffers(1, &m_rboId);
-  if (m_slcTex[0]) glDeleteTextures(2, m_slcTex);  
+  if (m_slcTex[0]) glDeleteTextures(5, m_slcTex);  
 
   glGenFramebuffers(1, &m_slcBuffer);
   glGenRenderbuffers(1, &m_rboId);
-  glGenTextures(2, m_slcTex);
+  glGenTextures(5, m_slcTex);
 
   glBindFramebuffer(GL_FRAMEBUFFER, m_slcBuffer);
   glBindRenderbuffer(GL_RENDERBUFFER, m_rboId);
@@ -576,7 +525,7 @@ RcViewer::createFBO()
 			    GL_RENDERBUFFER,     // 3. rbo target: GL_RENDERBUFFER
 			    m_rboId);            // 4. rbo ID
 
-  for(int i=0; i<2; i++)
+  for(int i=0; i<5; i++)
     {
       glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[i]);
       glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,
@@ -1089,18 +1038,18 @@ RcViewer::surfaceRaycast(float minZ, float maxZ, bool firstPartOnly)
   //----------------------------
 
   //----------------------------
-  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_eBuffer);
+  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
 
   glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
 			 GL_COLOR_ATTACHMENT0_EXT,
 			 GL_TEXTURE_RECTANGLE_ARB,
-			 m_ebTex[0],
+			 m_slcTex[2],
 			 0);
 
   glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
 			 GL_COLOR_ATTACHMENT1_EXT,
 			 GL_TEXTURE_RECTANGLE_ARB,
-			 m_ebTex[1],
+			 m_slcTex[3],
 			 0);
 
   GLenum buffers[2] = { GL_COLOR_ATTACHMENT0_EXT,
@@ -1238,26 +1187,26 @@ RcViewer::surfaceRaycast(float minZ, float maxZ, bool firstPartOnly)
   glUniform1fARB(m_blurParm[1], minZ); // minZ
   glUniform1fARB(m_blurParm[2], maxZ); // maxZ
   
-  int dtex = 2;
-  int sdtex = 0;
+  int dtex = 4;
+  int sdtex = 2;
   for(int nb=0; nb<m_smoothDepth; nb++)
     {
       int ebidx = dtex;
       dtex = sdtex;
       sdtex = ebidx;
       
-      glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_eBuffer);
+      glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
       glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
 			     GL_COLOR_ATTACHMENT2_EXT,
 			     GL_TEXTURE_RECTANGLE_ARB,
-			     m_ebTex[sdtex],
+			     m_slcTex[sdtex],
 			     0);
       glDrawBuffer(GL_COLOR_ATTACHMENT2_EXT);  
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
       
       glActiveTexture(GL_TEXTURE2);
       glEnable(GL_TEXTURE_RECTANGLE_ARB);
-      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[dtex]);
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[dtex]);
       
       StaticFunctions::pushOrthoView(0, 0, wd, ht);
       StaticFunctions::drawQuad(0, 0, wd, ht, 1);
@@ -1278,20 +1227,20 @@ RcViewer::surfaceRaycast(float minZ, float maxZ, bool firstPartOnly)
   
   glActiveTexture(GL_TEXTURE6);
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
-  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[1]);
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[3]);
   
   glActiveTexture(GL_TEXTURE2);
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
-  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[sdtex]);
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[sdtex]);
   
   
-  glUniform1iARB(m_eeParm[0], 6); // normals (ebtex[1]) tex
+  glUniform1iARB(m_eeParm[0], 6); // normals (slctex[3]) tex
   glUniform1fARB(m_eeParm[1], minZ); // minZ
   glUniform1fARB(m_eeParm[2], maxZ); // maxZ
   glUniform1fARB(m_eeParm[5], m_edge);
   glUniform1iARB(m_eeParm[6], 5); // tagtex
   glUniform1iARB(m_eeParm[7], 0); // luttex
-  glUniform1iARB(m_eeParm[8], 2); // pos, val, tag tex (ebtex[eb2])
+  glUniform1iARB(m_eeParm[8], 2); // pos, val, tag tex (slctex[sdtex])
   glUniform3fARB(m_eeParm[9], m_amb, m_diff, m_spec); // lightparm
   glUniform1iARB(m_eeParm[10], m_shadow); // shadows
   glUniform3fARB(m_eeParm[11], m_shadowColor.x/255,
@@ -1444,11 +1393,11 @@ RcViewer::volumeRaycast(float minZ, float maxZ)
 
   //----------------------------
   // refine entry points
-  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_eBuffer);
+  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
   glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
 			 GL_COLOR_ATTACHMENT0_EXT,
 			 GL_TEXTURE_RECTANGLE_ARB,
-			 m_ebTex[0],
+			 m_slcTex[2],
 			 0);
   glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
   glClearDepth(1);
@@ -1539,11 +1488,10 @@ RcViewer::vray()
   glUniform3fARB(m_rcParm[6], subvolcorner.x, subvolcorner.y, subvolcorner.z);
   glUniform3fARB(m_rcParm[7], m_vsize.x, m_vsize.y, m_vsize.z);
   glUniform1iARB(m_rcParm[12],0); // skip first layers
-  glUniform1iARB(m_rcParm[14],6); // ebTex[0] - contains refined entry coordinates
+  glUniform1iARB(m_rcParm[14],6); // slcTex[2] - contains refined entry coordinates
   glUniform1iARB(m_rcParm[16],3); // filledTex
   glUniform3fARB(m_rcParm[17], m_hbox, m_wbox, m_dbox);
   glUniform1fARB(m_rcParm[18], m_boxSize); // boxSize
-
   glUniform1iARB(m_rcParm[13], 5); // tagTex
   glUniform1iARB(m_rcParm[19], m_mixTag); // mixTag
   glUniform1iARB(m_rcParm[20], m_skipVoxels);
@@ -1561,7 +1509,7 @@ RcViewer::vray()
 
   glActiveTexture(GL_TEXTURE6);
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
-  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[0]);
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[2]);
 
   StaticFunctions::pushOrthoView(0, 0, wd, ht);
   StaticFunctions::drawQuad(0, 0, wd, ht, 1);
@@ -2052,8 +2000,8 @@ RcViewer::getHit(const QMouseEvent *event)
 
   surfaceRaycast(minZ, maxZ, true); // run only one part of raycast process
 
-  glBindFramebuffer(GL_FRAMEBUFFER, m_eBuffer);
-  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[0]);
+  glBindFramebuffer(GL_FRAMEBUFFER, m_slcBuffer);
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[2]);
 
   glDisable(GL_SCISSOR_TEST);
 

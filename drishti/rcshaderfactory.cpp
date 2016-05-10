@@ -497,6 +497,162 @@ RcShaderFactory::genIsoRaycastShader(bool nearest,
 }
 
 QString
+RcShaderFactory::genEdgeEnhanceShader()
+{
+  QString shader;
+
+  shader =  "#extension GL_ARB_texture_rectangle : enable\n";
+  shader += "varying vec3 pointpos;\n";
+  shader += "uniform sampler1D tagTex;\n";
+  shader += "uniform sampler2DRect normalTex;\n";
+  shader += "uniform float minZ;\n";
+  shader += "uniform float maxZ;\n";
+  shader += "uniform float dzScale;\n";
+  shader += "uniform sampler2D lutTex;\n";
+  shader += "uniform sampler2DRect pvtTex;\n";
+  shader += "uniform vec3 lightparm;\n";
+  shader += "uniform int isoshadow;\n";
+  shader += "uniform vec3 shadowcolor;\n";
+  shader += "uniform vec3 edgecolor;\n";
+  shader += "uniform vec2 shdoffset;\n";
+  shader += "uniform float edgethickness;\n";
+  shader += "uniform bool mixTag;\n";
+
+  shader += "void main(void)\n";
+  shader += "{\n";
+  shader += "  gl_FragColor = vec4(1.0);\n";
+
+  shader += "  vec2 spos0 = gl_FragCoord.xy;\n";
+  shader += "  vec2 spos = spos0 + vec2(shdoffset.x,shdoffset.y);\n";
+
+  shader += "  vec4 dvt = texture2DRect(pvtTex, spos0);\n";
+  shader += "  vec3 grad = texture2DRect(normalTex, spos0).xyz;\n";
+
+  //---------------------
+  shader += "  float alpha = dvt.w;\n";
+  shader += "  if (alpha < 0.01) discard;\n";
+  //---------------------
+
+  shader += "  float depth = dvt.x;\n";
+
+
+  //---------------------
+  shader += "  vec4 color = vec4(0.0);\n";
+
+  shader += "  if (mixTag)\n";
+  shader += "    {\n";  
+  shader += "      float tag = dvt.y;\n"; // use value as tag
+  shader += "      color = texture1D(tagTex, tag);\n";
+  shader += "    }\n";  
+  shader += "  else\n";
+  shader += "    {\n";
+  float dx[9] = {-0.5,-0.5,-0.5, 0.0, 0.0, 0.0, 0.5, 0.5, 0.5};
+  float dy[9] = {-0.5, 0.0, 0.5,-0.5, 0.0, 0.5,-0.5, 0.0, 0.5};
+  shader += "      float cx[9];\n";
+  shader += "      float cy[9];\n";
+  for(int i=0; i<9; i++)
+    shader += QString("    cx[%1] = float(%2);\n").arg(i).arg(dx[i]);
+  for(int i=0; i<9; i++)
+    shader += QString("    cy[%1] = float(%2);\n").arg(i).arg(dy[i]);
+
+  shader += "      vec3 rgb = vec3(0.0);\n";
+  shader += "      for(int i=0; i<9; i++)\n";
+  shader += "      {\n";
+  shader += "        vec2 vg = texture2DRect(pvtTex, spos0+vec2(cx[i],cy[i])).yz;\n";
+  shader += "        color = texture2D(lutTex,vec2(vg.x,vg.y));\n";
+  shader += "        rgb += color.rgb;\n";
+  shader += "      }\n";
+  shader += "      color.a = 1.0;\n";
+  shader += "      color.rgb = rgb/9.0;\n";
+  shader += "    }\n";
+
+
+//  // find depth gradient
+  shader += "  float zedge = 1.0;\n";
+  shader += "  if (dzScale > 0.0)\n";
+  shader += "  {\n";
+  shader += "    float r = edgethickness;\n";
+  shader += "    float dx = texture2DRect(pvtTex, spos0+vec2(r,0.0)).x - texture2DRect(pvtTex, spos0-vec2(r,0.0)).x;\n";
+  shader += "    float dy = texture2DRect(pvtTex, spos0+vec2(0.0,r)).x - texture2DRect(pvtTex, spos0-vec2(0.0,r)).x;\n";
+  shader += "    zedge = 0.5+dzScale/2.0;\n";
+  shader += "    vec3 norm = normalize(vec3(dx, dy, (zedge*zedge)/(maxZ-minZ)));\n";  
+  shader += "    zedge = norm.z;\n";
+  shader += "  }\n";
+
+  
+  // compute obscurance
+  shader += "  float shadow = 1.0;\n";
+
+  shader += "  if (length(shdoffset) < 0.1)\n";
+  shader += "  {\n";
+  shader += "  if (isoshadow > 0)\n";
+  shader += "    {\n";
+  shader += "      float sum = 0.0;\n";
+  shader += "      float tele = 0.0;\n";
+  shader += "      float r = 0.5;\n";
+  shader += "      float theta = 0.0;\n";
+  shader += "      float ege = 0.0;\n";
+  shader += "      int j = 0;\n";
+  shader += "      float rstep = 0.02+0.01*float(isoshadow);\n";
+  shader += "      for(int i=0; i<128; i++)\n";
+  shader += "      {\n";
+  shader += "        int x = int(r*sin(theta));\n";
+  shader += "        int y = int(r*cos(theta));\n";
+  shader += "        vec2 pos = spos0 + vec2(i*0.05,i*0.05)*shdoffset + vec2(x,y);\n";
+  shader += "        float od = depth - texture2DRect(pvtTex, pos).x;\n";
+  shader += "        float wt = abs(spos0.x-pos.x)+abs(spos0.y-pos.y);\n";
+  shader += "        float ege = wt*0.0005;\n";
+  shader += "        sum += step(ege, od);\n";
+  shader += "        tele ++;\n";
+  shader += "        r += rstep;\n";
+  shader += "        theta += 0.3;\n";  
+  shader += "      }\n"; 
+  shader += "      shadow = 0.1 + 0.9*(1.0-sum/tele);\n";
+  shader += "    }\n";  
+  shader += "  }\n";
+  shader += "  else\n";
+  shader += "  {\n";
+  shader += "  if (isoshadow > 0)\n";
+  shader += "    {\n";
+  shader += "      float sum = 0.0;\n";
+  shader += "      float tele = 0.0;\n";
+  shader += "      float ege = 0.0;\n";
+  shader += "      float r = -float(isoshadow);\n";
+  shader += "      vec2 pso = normalize(vec2(-shdoffset.y, shdoffset.x));\n";
+  shader += "      int j = 0;\n";
+  shader += "      for(int i=0; i<128; i++)\n";
+  shader += "      {\n";
+  shader += "        vec2 pos = spos0 + vec2(i*0.05,i*0.05)*shdoffset + r*pso;\n";
+  shader += "        float od = depth - texture2DRect(pvtTex, pos).x;\n";
+  shader += "        float wt = abs(spos0.x-pos.x)+abs(spos0.y-pos.y);\n";
+  shader += "        float ege = wt*0.0005;\n";
+  shader += "        sum += step(ege, od);\n";
+  shader += "        tele ++;\n";
+  shader += "        r += 1.0;\n";
+  shader += "        r = mix(r, -float(isoshadow), step(float(isoshadow),r));\n";
+  shader += "      }\n"; 
+  shader += "      shadow = 0.1 + 0.9*(1.0-sum/tele);\n";
+  shader += "    }\n";
+  shader += "  }\n";
+
+
+  shader += "  vec4 colorSample = vec4(color.rgb, 1.0);\n";
+  shader += "  colorSample.rgb = mix(colorSample.rgb, shadowcolor, 1.0-shadow);\n";
+  shader += "  colorSample.rgb = mix(colorSample.rgb, edgecolor, 1.0-zedge);\n";
+
+  shader += "   colorSample.rgb *= dot(lightparm, grad);\n";
+
+  shader += " if (any(greaterThan(colorSample.rgb,vec3(1.0,1.0,1.0)))) \n";
+  shader += "   colorSample.rgb = vec3(1.0,1.0,1.0);\n";
+
+  shader += "  gl_FragColor = colorSample;\n";
+
+  shader += "}\n";
+
+  return shader;
+}
+
+QString
 RcShaderFactory::genFirstHitShader(bool nearest,
 				   QList<CropObject> crops)
 {
@@ -680,16 +836,19 @@ RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac,
   shader += "uniform sampler1D tagTex;\n";
   shader += "uniform bool mixTag;\n";
   shader += "uniform int skipVoxels;\n";
+  //shader += "uniform sampler2DRect colorAcumTex;\n";
 
   if (cropPresent) shader += CropShaderFactory::generateCropping(crops);
 
   shader += "void main(void)\n";
   shader += "{\n";
-
   shader += "vec4 exP = texture2DRect(exitTex, gl_FragCoord.st);\n";
   shader += "vec4 enP = texture2DRect(entryTex, gl_FragCoord.st);\n";
-
   shader += "if (exP.a < 0.001 || enP.a < 0.001) discard;\n";
+
+//  shader += "gl_FragData[0] = texture2DRect(colorAcumTex, gl_FragCoord.st);\n";
+//  shader += "gl_FragData[1] = vec4(0.0);\n";
+//  shader += "if (exP.a < 0.001 || enP.a < 0.001) return;\n";
 
   shader += "vec3 exitPoint = exP.rgb;\n";
   shader += "vec3 entryPoint = enP.rgb;\n";
@@ -697,6 +856,8 @@ RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac,
   shader += "vec3 dir = (exitPoint-entryPoint);\n";
   shader += "float totlen = length(dir);\n";
   shader += "if (totlen < 0.001) discard;\n";
+
+  //shader += "if (totlen < 0.001) { gl_FragData[1] = vec4(0.0); return; }\n";
 
   shader += "vec3 dirvec = normalize(dir);\n";
   shader += "vec3 deltaDir = dirvec*stepSize;\n";
@@ -711,8 +872,9 @@ RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac,
   shader += "bool solid = false;\n";
  
   shader += "vec3 skipVoxStart = vec3(0.0);\n";
-  //shader += QString("int iend = int(max(10.0,float(%1*length(exitPoint-entryPoint)/stepSize)));\n").arg(raylenFrac);
-  shader += "int iend = int(length(exitPoint-entryPoint)/stepSize);\n";
+  shader += QString("int iend = int(max(10.0,float(%1*length(exitPoint-entryPoint)/stepSize)));\n").arg(raylenFrac);
+  //shader += "int lastvoxel = int(length(exitPoint-entryPoint)/stepSize);\n";
+  //shader += "int iend = min(1000, lastvoxel);\n";
   shader += "for(int i=0; i<iend; i++)\n";
   
   shader += "{\n";
@@ -806,10 +968,12 @@ RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac,
 
   shader += "  if (lengthAcum >= totlen )\n";
   shader += "    {\n";
+  //shader += "      gl_FragData[1] = vec4(0.0);\n";
   shader += "      break;\n";  // terminate if opacity > 1 or the ray is outside the volume	
   shader += "    }\n";
   shader += "  else if (colorAcum.a > 1.0)\n";
   shader += "    {\n";
+  //shader += "      gl_FragData[1] = vec4(0.0);\n";
   shader += "      colorAcum.a = 1.0;\n";
   shader += "      break;\n";
   shader += "    }\n";
@@ -839,6 +1003,9 @@ RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac,
   shader += "}\n";
 
   shader += "gl_FragColor = colorAcum;\n";
+//  shader += "gl_FragData[0] = colorAcum;\n";
+//  shader += "if (iend < finalvoxel)\n";
+//  shader += "  gl_FragData[1] = vec4(voxelCoord,1.0);\n";
 
   shader += "}\n";
 
@@ -1030,162 +1197,6 @@ RcShaderFactory::genXRayShader(bool nearest, float raylenFrac,
   shader += "}\n";
 
   shader += "gl_FragColor = colorAcum;\n";
-
-  shader += "}\n";
-
-  return shader;
-}
-
-QString
-RcShaderFactory::genEdgeEnhanceShader()
-{
-  QString shader;
-
-  shader =  "#extension GL_ARB_texture_rectangle : enable\n";
-  shader += "varying vec3 pointpos;\n";
-  shader += "uniform sampler1D tagTex;\n";
-  shader += "uniform sampler2DRect normalTex;\n";
-  shader += "uniform float minZ;\n";
-  shader += "uniform float maxZ;\n";
-  shader += "uniform float dzScale;\n";
-  shader += "uniform sampler2D lutTex;\n";
-  shader += "uniform sampler2DRect pvtTex;\n";
-  shader += "uniform vec3 lightparm;\n";
-  shader += "uniform int isoshadow;\n";
-  shader += "uniform vec3 shadowcolor;\n";
-  shader += "uniform vec3 edgecolor;\n";
-  shader += "uniform vec2 shdoffset;\n";
-  shader += "uniform float edgethickness;\n";
-  shader += "uniform bool mixTag;\n";
-
-  shader += "void main(void)\n";
-  shader += "{\n";
-  shader += "  gl_FragColor = vec4(1.0);\n";
-
-  shader += "  vec2 spos0 = gl_FragCoord.xy;\n";
-  shader += "  vec2 spos = spos0 + vec2(shdoffset.x,shdoffset.y);\n";
-
-  shader += "  vec4 dvt = texture2DRect(pvtTex, spos0);\n";
-  shader += "  vec3 grad = texture2DRect(normalTex, spos0).xyz;\n";
-
-  //---------------------
-  shader += "  float alpha = dvt.w;\n";
-  shader += "  if (alpha < 0.01) discard;\n";
-  //---------------------
-
-  shader += "  float depth = dvt.x;\n";
-
-
-  //---------------------
-  shader += "  vec4 color = vec4(0.0);\n";
-
-  shader += "  if (mixTag)\n";
-  shader += "    {\n";  
-  shader += "      float tag = dvt.y;\n"; // use value as tag
-  shader += "      color = texture1D(tagTex, tag);\n";
-  shader += "    }\n";  
-  shader += "  else\n";
-  shader += "    {\n";
-  float dx[9] = {-0.5,-0.5,-0.5, 0.0, 0.0, 0.0, 0.5, 0.5, 0.5};
-  float dy[9] = {-0.5, 0.0, 0.5,-0.5, 0.0, 0.5,-0.5, 0.0, 0.5};
-  shader += "      float cx[9];\n";
-  shader += "      float cy[9];\n";
-  for(int i=0; i<9; i++)
-    shader += QString("    cx[%1] = float(%2);\n").arg(i).arg(dx[i]);
-  for(int i=0; i<9; i++)
-    shader += QString("    cy[%1] = float(%2);\n").arg(i).arg(dy[i]);
-
-  shader += "      vec3 rgb = vec3(0.0);\n";
-  shader += "      for(int i=0; i<9; i++)\n";
-  shader += "      {\n";
-  shader += "        vec2 vg = texture2DRect(pvtTex, spos0+vec2(cx[i],cy[i])).yz;\n";
-  shader += "        color = texture2D(lutTex,vec2(vg.x,vg.y));\n";
-  shader += "        rgb += color.rgb;\n";
-  shader += "      }\n";
-  shader += "      color.a = 1.0;\n";
-  shader += "      color.rgb = rgb/9.0;\n";
-  shader += "    }\n";
-
-
-//  // find depth gradient
-  shader += "  float zedge = 1.0;\n";
-  shader += "  if (dzScale > 0.0)\n";
-  shader += "  {\n";
-  shader += "    float r = edgethickness;\n";
-  shader += "    float dx = texture2DRect(pvtTex, spos0+vec2(r,0.0)).x - texture2DRect(pvtTex, spos0-vec2(r,0.0)).x;\n";
-  shader += "    float dy = texture2DRect(pvtTex, spos0+vec2(0.0,r)).x - texture2DRect(pvtTex, spos0-vec2(0.0,r)).x;\n";
-  shader += "    zedge = 0.5+dzScale/2.0;\n";
-  shader += "    vec3 norm = normalize(vec3(dx, dy, (zedge*zedge)/(maxZ-minZ)));\n";  
-  shader += "    zedge = norm.z;\n";
-  shader += "  }\n";
-
-  
-  // compute obscurance
-  shader += "  float shadow = 1.0;\n";
-
-  shader += "  if (length(shdoffset) < 0.1)\n";
-  shader += "  {\n";
-  shader += "  if (isoshadow > 0)\n";
-  shader += "    {\n";
-  shader += "      float sum = 0.0;\n";
-  shader += "      float tele = 0.0;\n";
-  shader += "      float r = 0.5;\n";
-  shader += "      float theta = 0.0;\n";
-  shader += "      float ege = 0.0;\n";
-  shader += "      int j = 0;\n";
-  shader += "      float rstep = 0.02+0.01*float(isoshadow);\n";
-  shader += "      for(int i=0; i<128; i++)\n";
-  shader += "      {\n";
-  shader += "        int x = int(r*sin(theta));\n";
-  shader += "        int y = int(r*cos(theta));\n";
-  shader += "        vec2 pos = spos0 + vec2(i*0.05,i*0.05)*shdoffset + vec2(x,y);\n";
-  shader += "        float od = depth - texture2DRect(pvtTex, pos).x;\n";
-  shader += "        float wt = abs(spos0.x-pos.x)+abs(spos0.y-pos.y);\n";
-  shader += "        float ege = wt*0.0005;\n";
-  shader += "        sum += step(ege, od);\n";
-  shader += "        tele ++;\n";
-  shader += "        r += rstep;\n";
-  shader += "        theta += 0.3;\n";  
-  shader += "      }\n"; 
-  shader += "      shadow = 0.1 + 0.9*(1.0-sum/tele);\n";
-  shader += "    }\n";  
-  shader += "  }\n";
-  shader += "  else\n";
-  shader += "  {\n";
-  shader += "  if (isoshadow > 0)\n";
-  shader += "    {\n";
-  shader += "      float sum = 0.0;\n";
-  shader += "      float tele = 0.0;\n";
-  shader += "      float ege = 0.0;\n";
-  shader += "      float r = -float(isoshadow);\n";
-  shader += "      vec2 pso = normalize(vec2(-shdoffset.y, shdoffset.x));\n";
-  shader += "      int j = 0;\n";
-  shader += "      for(int i=0; i<128; i++)\n";
-  shader += "      {\n";
-  shader += "        vec2 pos = spos0 + vec2(i*0.05,i*0.05)*shdoffset + r*pso;\n";
-  shader += "        float od = depth - texture2DRect(pvtTex, pos).x;\n";
-  shader += "        float wt = abs(spos0.x-pos.x)+abs(spos0.y-pos.y);\n";
-  shader += "        float ege = wt*0.0005;\n";
-  shader += "        sum += step(ege, od);\n";
-  shader += "        tele ++;\n";
-  shader += "        r += 1.0;\n";
-  shader += "        r = mix(r, -float(isoshadow), step(float(isoshadow),r));\n";
-  shader += "      }\n"; 
-  shader += "      shadow = 0.1 + 0.9*(1.0-sum/tele);\n";
-  shader += "    }\n";
-  shader += "  }\n";
-
-
-  shader += "  vec4 colorSample = vec4(color.rgb, 1.0);\n";
-  shader += "  colorSample.rgb = mix(colorSample.rgb, shadowcolor, 1.0-shadow);\n";
-  shader += "  colorSample.rgb = mix(colorSample.rgb, edgecolor, 1.0-zedge);\n";
-
-  shader += "   colorSample.rgb *= dot(lightparm, grad);\n";
-
-  shader += " if (any(greaterThan(colorSample.rgb,vec3(1.0,1.0,1.0)))) \n";
-  shader += "   colorSample.rgb = vec3(1.0,1.0,1.0);\n";
-
-  shader += "  gl_FragColor = colorSample;\n";
 
   shader += "}\n";
 

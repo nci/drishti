@@ -309,7 +309,6 @@ RcShaderFactory::genIsoRaycastShader(bool nearest,
   shader += "uniform float maxZ;\n";  
   shader += "uniform bool saveCoord;\n";
   shader += "uniform int skipLayers;\n";
-  shader += "uniform vec3 bgcolor;\n";
   shader += "uniform vec3 ftsize;\n";
   shader += "uniform float boxSize;\n";
 
@@ -345,9 +344,6 @@ RcShaderFactory::genIsoRaycastShader(bool nearest,
   shader += "vec3 voxelCoord = entryPoint;\n";
   shader += "float lengthAcum = 0.0;\n";
 
-  // backgroundColor
-  shader += "vec4 bgColor = vec4(0.0, 0.0, 0.0, 0.0);\n";
-  
   shader += "bool gotFirstHit = false;\n";
   shader += "int nskipped = 0;\n"; 
   shader += "bool solid = false;\n";
@@ -679,7 +675,6 @@ RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac,
   shader += "uniform vec3 vsize;\n";
   shader += "uniform int skipLayers;\n";
   shader += "uniform sampler2DRect entryTex;\n";
-  shader += "uniform vec3 bgcolor;\n";
   shader += "uniform vec3 ftsize;\n";
   shader += "uniform float boxSize;\n";  
   shader += "uniform sampler1D tagTex;\n";
@@ -710,9 +705,6 @@ RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac,
   shader += "vec3 voxelCoord = entryPoint;\n";
   shader += "vec4 colorAcum = vec4(0.0);\n"; // The dest color
   shader += "float lengthAcum = 0.0;\n";
-
-  // backgroundColor
-  shader += "vec4 bgColor = vec4(0.0, 0.0, 0.0, 0.0);\n";
   
   shader += "bool gotFirstHit = false;\n";
   shader += "int nskipped = 0;\n"; 
@@ -814,7 +806,6 @@ RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac,
 
   shader += "  if (lengthAcum >= totlen )\n";
   shader += "    {\n";
-  shader += "      colorAcum.rgb = colorAcum.rgb*colorAcum.a + (1.0 - colorAcum.a)*bgColor.rgb;\n";
   shader += "      break;\n";  // terminate if opacity > 1 or the ray is outside the volume	
   shader += "    }\n";
   shader += "  else if (colorAcum.a > 1.0)\n";
@@ -847,7 +838,7 @@ RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac,
 
   shader += "}\n";
 
-  shader += "gl_FragColor = mix(colorAcum, vec4(bgcolor,1.0), 1.0-colorAcum.a);\n";
+  shader += "gl_FragColor = colorAcum;\n";
 
   shader += "}\n";
 
@@ -879,7 +870,6 @@ RcShaderFactory::genXRayShader(bool nearest, float raylenFrac,
   shader += "uniform vec3 vsize;\n";
   shader += "uniform int skipLayers;\n";
   shader += "uniform sampler2DRect entryTex;\n";
-  shader += "uniform vec3 bgcolor;\n";
   shader += "uniform vec3 ftsize;\n";
   shader += "uniform float boxSize;\n";  
   shader += "uniform int skipVoxels;\n";
@@ -911,9 +901,6 @@ RcShaderFactory::genXRayShader(bool nearest, float raylenFrac,
   shader += "vec4 colorAcum = vec4(0.0);\n"; // The dest color
   shader += "float lengthAcum = 0.0;\n";
 
-  // backgroundColor
-  shader += "vec4 bgColor = vec4(0.0, 0.0, 0.0, 0.0);\n";
-  
   shader += "bool gotFirstHit = false;\n";
   shader += "int nskipped = 0;\n"; 
   shader += "bool solid = false;\n";
@@ -1010,7 +997,6 @@ RcShaderFactory::genXRayShader(bool nearest, float raylenFrac,
 
   shader += "  if (lengthAcum >= totlen )\n";
   shader += "    {\n";
-  shader += "      colorAcum.rgb = colorAcum.rgb*colorAcum.a + (1.0 - colorAcum.a)*bgColor.rgb;\n";
   shader += "      break;\n";  // terminate if opacity > 1 or the ray is outside the volume	
   shader += "    }\n";
   shader += "  else if (colorAcum.a > 1.0)\n";
@@ -1043,7 +1029,7 @@ RcShaderFactory::genXRayShader(bool nearest, float raylenFrac,
 
   shader += "}\n";
 
-  shader += "gl_FragColor = mix(colorAcum, vec4(bgcolor,1.0), 1.0-colorAcum.a);\n";
+  shader += "gl_FragColor = colorAcum;\n";
 
   shader += "}\n";
 
@@ -1068,14 +1054,13 @@ RcShaderFactory::genEdgeEnhanceShader()
   shader += "uniform int isoshadow;\n";
   shader += "uniform vec3 shadowcolor;\n";
   shader += "uniform vec3 edgecolor;\n";
-  shader += "uniform vec3 bgcolor;\n";
   shader += "uniform vec2 shdoffset;\n";
   shader += "uniform float edgethickness;\n";
   shader += "uniform bool mixTag;\n";
 
   shader += "void main(void)\n";
   shader += "{\n";
-  shader += "  gl_FragColor = vec4(bgcolor,1.0);\n";
+  shader += "  gl_FragColor = vec4(1.0);\n";
 
   shader += "  vec2 spos0 = gl_FragCoord.xy;\n";
   shader += "  vec2 spos = spos0 + vec2(shdoffset.x,shdoffset.y);\n";
@@ -1085,7 +1070,7 @@ RcShaderFactory::genEdgeEnhanceShader()
 
   //---------------------
   shader += "  float alpha = dvt.w;\n";
-  shader += "  if (alpha < 0.01) return;\n";
+  shader += "  if (alpha < 0.01) discard;\n";
   //---------------------
 
   shader += "  float depth = dvt.x;\n";

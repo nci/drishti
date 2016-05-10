@@ -657,7 +657,6 @@ RcViewer::createIsoRaycastShader()
   m_ircParm[12]= glGetUniformLocationARB(m_ircShader, "skipLayers");
   m_ircParm[13]= glGetUniformLocationARB(m_ircShader, "tagTex");
   m_ircParm[14] = glGetUniformLocationARB(m_ircShader, "entryTex");
-  m_ircParm[15] = glGetUniformLocationARB(m_ircShader, "bgcolor");
   m_ircParm[16] = glGetUniformLocationARB(m_ircShader, "filledTex");
   m_ircParm[17] = glGetUniformLocationARB(m_ircShader, "ftsize");
   m_ircParm[18] = glGetUniformLocationARB(m_ircShader, "boxSize");
@@ -700,7 +699,6 @@ RcViewer::createRaycastShader()
   m_rcParm[12]= glGetUniformLocationARB(m_rcShader, "skipLayers");
   m_rcParm[13]= glGetUniformLocationARB(m_rcShader, "tagTex");
   m_rcParm[14] = glGetUniformLocationARB(m_rcShader, "entryTex");
-  m_rcParm[15] = glGetUniformLocationARB(m_rcShader, "bgcolor");
   m_rcParm[16] = glGetUniformLocationARB(m_rcShader, "filledTex");
   m_rcParm[17] = glGetUniformLocationARB(m_rcShader, "ftsize");
   m_rcParm[18] = glGetUniformLocationARB(m_rcShader, "boxSize");
@@ -739,7 +737,6 @@ RcViewer::createShaders()
   m_eeParm[10] = glGetUniformLocationARB(m_eeShader, "isoshadow");
   m_eeParm[11] = glGetUniformLocationARB(m_eeShader, "shadowcolor");
   m_eeParm[12] = glGetUniformLocationARB(m_eeShader, "edgecolor");
-  m_eeParm[13] = glGetUniformLocationARB(m_eeShader, "bgcolor");
   m_eeParm[14] = glGetUniformLocationARB(m_eeShader, "shdoffset");
   m_eeParm[15] = glGetUniformLocationARB(m_eeShader, "edgethickness");
   m_eeParm[16] = glGetUniformLocationARB(m_eeShader, "mixTag");
@@ -1139,9 +1136,6 @@ RcViewer::surfaceRaycast(float minZ, float maxZ, bool firstPartOnly)
   glUniform1iARB(m_ircParm[11],firstPartOnly); // save voxel coordinates
   glUniform1iARB(m_ircParm[12],m_skipLayers); // skip first layers
   glUniform1iARB(m_ircParm[14],6); // slcTex[0] - contains entry coordinates
-  glUniform3fARB(m_ircParm[15], bgColor.x,
-		                bgColor.y,
-		                bgColor.z);
   glUniform1iARB(m_ircParm[16],3); // filledTex
   glUniform3fARB(m_ircParm[17], m_hbox, m_wbox, m_dbox);
   glUniform1fARB(m_ircParm[18], m_boxSize); // boxSize
@@ -1273,6 +1267,11 @@ RcViewer::surfaceRaycast(float minZ, float maxZ, bool firstPartOnly)
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
   //--------------------------------
 
+  glClearColor(bgColor.x, bgColor.y, bgColor.z, 0);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
   //--------------------------------
   glUseProgramObjectARB(m_eeShader);
@@ -1301,9 +1300,6 @@ RcViewer::surfaceRaycast(float minZ, float maxZ, bool firstPartOnly)
   glUniform3fARB(m_eeParm[12], m_edgeColor.x/255,
 		 m_edgeColor.y/255,
 		 m_edgeColor.z/255);
-  glUniform3fARB(m_eeParm[13], bgColor.x,
-		 bgColor.y,
-		 bgColor.z);
   glUniform2fARB(m_eeParm[14], m_shdX, -m_shdY);
   glUniform1fARB(m_eeParm[15], m_edgeThickness);
   glUniform1iARB(m_eeParm[16], m_mixTag);
@@ -1499,6 +1495,9 @@ RcViewer::volumeRaycast(float minZ, float maxZ)
 void
 RcViewer::vray()
 {
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
   glClear(GL_DEPTH_BUFFER_BIT);
 
   int wd = m_viewer->camera()->screenWidth();
@@ -1541,9 +1540,6 @@ RcViewer::vray()
   glUniform3fARB(m_rcParm[7], m_vsize.x, m_vsize.y, m_vsize.z);
   glUniform1iARB(m_rcParm[12],0); // skip first layers
   glUniform1iARB(m_rcParm[14],6); // ebTex[0] - contains refined entry coordinates
-  glUniform3fARB(m_rcParm[15], bgColor.x,
-		               bgColor.y,
-		               bgColor.z);
   glUniform1iARB(m_rcParm[16],3); // filledTex
   glUniform3fARB(m_rcParm[17], m_hbox, m_wbox, m_dbox);
   glUniform1fARB(m_rcParm[18], m_boxSize); // boxSize

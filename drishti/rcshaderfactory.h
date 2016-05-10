@@ -18,10 +18,10 @@ class RcShaderFactory
   static QString genIsoRaycastShader(bool,
 				     QList<CropObject>);
 
-  static QString genRaycastShader(bool, float,
+  static QString genRaycastShader(bool,
 				  QList<CropObject>);
 
-  static QString genXRayShader(bool, float,
+  static QString genXRayShader(bool,
 			       QList<CropObject>);
 
   static QString genEdgeEnhanceShader();

@@ -807,7 +807,7 @@ RcShaderFactory::genFirstHitShader(bool nearest,
 }
 
 QString
-RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac,
+RcShaderFactory::genRaycastShader(bool nearest,
 				  QList<CropObject> crops)
 {
   bool cropPresent = false;
@@ -836,7 +836,8 @@ RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac,
   shader += "uniform sampler1D tagTex;\n";
   shader += "uniform bool mixTag;\n";
   shader += "uniform int skipVoxels;\n";
-  //shader += "uniform sampler2DRect colorAcumTex;\n";
+  shader += "uniform int maxSteps;\n";
+  shader += "uniform sampler2DRect colorAcumTex;\n";
 
   if (cropPresent) shader += CropShaderFactory::generateCropping(crops);
 
@@ -844,37 +845,36 @@ RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac,
   shader += "{\n";
   shader += "vec4 exP = texture2DRect(exitTex, gl_FragCoord.st);\n";
   shader += "vec4 enP = texture2DRect(entryTex, gl_FragCoord.st);\n";
-  shader += "if (exP.a < 0.001 || enP.a < 0.001) discard;\n";
 
-//  shader += "gl_FragData[0] = texture2DRect(colorAcumTex, gl_FragCoord.st);\n";
-//  shader += "gl_FragData[1] = vec4(0.0);\n";
-//  shader += "if (exP.a < 0.001 || enP.a < 0.001) return;\n";
+  shader += "gl_FragData[0] = texture2DRect(colorAcumTex, gl_FragCoord.st);\n";
+  shader += "gl_FragData[1] = vec4(0.0);\n";
+
+  shader += "if (exP.a < 0.001 || enP.a < 0.001) return;\n";
 
   shader += "vec3 exitPoint = exP.rgb;\n";
   shader += "vec3 entryPoint = enP.rgb;\n";
 
   shader += "vec3 dir = (exitPoint-entryPoint);\n";
   shader += "float totlen = length(dir);\n";
-  shader += "if (totlen < 0.001) discard;\n";
 
-  //shader += "if (totlen < 0.001) { gl_FragData[1] = vec4(0.0); return; }\n";
+  shader += "if (totlen < 0.001) { gl_FragData[1] = vec4(0.0); return; }\n";
 
   shader += "vec3 dirvec = normalize(dir);\n";
   shader += "vec3 deltaDir = dirvec*stepSize;\n";
   shader += "float deltaDirLen = length(deltaDir);\n";
 
   shader += "vec3 voxelCoord = entryPoint;\n";
-  shader += "vec4 colorAcum = vec4(0.0);\n"; // The dest color
   shader += "float lengthAcum = 0.0;\n";
+
+  shader += "vec4 colorAcum = gl_FragData[0];\n";
   
   shader += "bool gotFirstHit = false;\n";
   shader += "int nskipped = 0;\n"; 
   shader += "bool solid = false;\n";
  
   shader += "vec3 skipVoxStart = vec3(0.0);\n";
-  shader += QString("int iend = int(max(10.0,float(%1*length(exitPoint-entryPoint)/stepSize)));\n").arg(raylenFrac);
-  //shader += "int lastvoxel = int(length(exitPoint-entryPoint)/stepSize);\n";
-  //shader += "int iend = min(1000, lastvoxel);\n";
+  shader += "int lastvoxel = int(length(exitPoint-entryPoint)/stepSize);\n";
+  shader += "int iend = int(min(maxSteps, float(lastvoxel)));\n";
   shader += "for(int i=0; i<iend; i++)\n";
   
   shader += "{\n";
@@ -953,8 +953,6 @@ RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac,
   shader += "  {\n";
   shader += "    gotFirstHit = true;\n";
   shader += "    skipVoxStart = voxelCoord*vsize;\n";
-  if (raylenFrac < 1.0)
-    shader += QString("  iend = i + int(%1*float(iend-i));\n").arg(raylenFrac);
   shader += "  }\n";
 
   shader += "  if (gotFirstHit)\n";
@@ -968,12 +966,12 @@ RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac,
 
   shader += "  if (lengthAcum >= totlen )\n";
   shader += "    {\n";
-  //shader += "      gl_FragData[1] = vec4(0.0);\n";
+  shader += "      gl_FragData[1] = vec4(0.0);\n";
   shader += "      break;\n";  // terminate if opacity > 1 or the ray is outside the volume	
   shader += "    }\n";
   shader += "  else if (colorAcum.a > 1.0)\n";
   shader += "    {\n";
-  //shader += "      gl_FragData[1] = vec4(0.0);\n";
+  shader += "      gl_FragData[1] = vec4(0.0);\n";
   shader += "      colorAcum.a = 1.0;\n";
   shader += "      break;\n";
   shader += "    }\n";
@@ -1002,10 +1000,9 @@ RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac,
 
   shader += "}\n";
 
-  shader += "gl_FragColor = colorAcum;\n";
-//  shader += "gl_FragData[0] = colorAcum;\n";
-//  shader += "if (iend < finalvoxel)\n";
-//  shader += "  gl_FragData[1] = vec4(voxelCoord,1.0);\n";
+  shader += "gl_FragData[0] = colorAcum;\n";
+  shader += "if (iend < lastvoxel)\n";
+  shader += "  gl_FragData[1] = vec4(voxelCoord,1.0);\n";
 
   shader += "}\n";
 
@@ -1013,7 +1010,7 @@ RcShaderFactory::genRaycastShader(bool nearest, float raylenFrac,
 }
 
 QString
-RcShaderFactory::genXRayShader(bool nearest, float raylenFrac,
+RcShaderFactory::genXRayShader(bool nearest,
 			       QList<CropObject> crops)
 {
   bool cropPresent = false;
@@ -1040,6 +1037,8 @@ RcShaderFactory::genXRayShader(bool nearest, float raylenFrac,
   shader += "uniform vec3 ftsize;\n";
   shader += "uniform float boxSize;\n";  
   shader += "uniform int skipVoxels;\n";
+  shader += "uniform int maxSteps;\n";
+  shader += "uniform sampler2DRect colorAcumTex;\n";
 
 
   if (cropPresent) shader += CropShaderFactory::generateCropping(crops);
@@ -1051,30 +1050,35 @@ RcShaderFactory::genXRayShader(bool nearest, float raylenFrac,
   shader += "vec4 exP = texture2DRect(exitTex, gl_FragCoord.st);\n";
   shader += "vec4 enP = texture2DRect(entryTex, gl_FragCoord.st);\n";
 
-  shader += "if (exP.a < 0.001 || enP.a < 0.001) discard;\n";
+  shader += "gl_FragData[0] = texture2DRect(colorAcumTex, gl_FragCoord.st);\n";
+  shader += "gl_FragData[1] = vec4(0.0);\n";
+
+  shader += "if (exP.a < 0.001 || enP.a < 0.001) return;\n";
 
   shader += "vec3 exitPoint = exP.rgb;\n";
   shader += "vec3 entryPoint = enP.rgb;\n";
 
   shader += "vec3 dir = (exitPoint-entryPoint);\n";
   shader += "float totlen = length(dir);\n";
-  shader += "if (totlen < 0.001) discard;\n";
+
+  shader += "if (totlen < 0.001) { gl_FragData[1] = vec4(0.0); return; }\n";
 
   shader += "vec3 normDir = normalize(dir);\n";
   shader += "vec3 deltaDir = normalize(dir)*stepSize;\n";
   shader += "float deltaDirLen = length(deltaDir);\n";
 
   shader += "vec3 voxelCoord = entryPoint;\n";
-  shader += "vec4 colorAcum = vec4(0.0);\n"; // The dest color
   shader += "float lengthAcum = 0.0;\n";
+
+  shader += "vec4 colorAcum = gl_FragData[0];\n";
 
   shader += "bool gotFirstHit = false;\n";
   shader += "int nskipped = 0;\n"; 
   shader += "bool solid = false;\n";
 
   shader += "vec3 skipVoxStart = vec3(0.0);\n";
-//  shader += QString("int iend = int(max(10.0,float(%1*length(exitPoint-entryPoint)/stepSize)));\n").arg(raylenFrac);
-  shader += "int iend = int(length(exitPoint-entryPoint)/stepSize);\n";
+  shader += "int lastvoxel = int(length(exitPoint-entryPoint)/stepSize);\n";
+  shader += "int iend = int(min(maxSteps, float(lastvoxel)));\n";
   shader += "for(int i=0; i<iend; i++)\n";
 
   shader += "{\n";
@@ -1134,8 +1138,6 @@ RcShaderFactory::genXRayShader(bool nearest, float raylenFrac,
   shader += "  {\n";
   shader += "    gotFirstHit = true;\n";
   shader += "    skipVoxStart = voxelCoord*vsize;\n";
-  if (raylenFrac < 1.0)
-    shader += QString("  iend = i + int(%1*float(iend-i));\n").arg(raylenFrac);
   shader += "  }\n";
 
   shader += "  if (gotFirstHit)\n";
@@ -1164,10 +1166,12 @@ RcShaderFactory::genXRayShader(bool nearest, float raylenFrac,
 
   shader += "  if (lengthAcum >= totlen )\n";
   shader += "    {\n";
+  shader += "      gl_FragData[1] = vec4(0.0);\n";
   shader += "      break;\n";  // terminate if opacity > 1 or the ray is outside the volume	
   shader += "    }\n";
   shader += "  else if (colorAcum.a > 1.0)\n";
   shader += "    {\n";
+  shader += "      gl_FragData[1] = vec4(0.0);\n";
   shader += "      colorAcum.a = 1.0;\n";
   shader += "      break;\n";
   shader += "    }\n";
@@ -1196,7 +1200,9 @@ RcShaderFactory::genXRayShader(bool nearest, float raylenFrac,
 
   shader += "}\n";
 
-  shader += "gl_FragColor = colorAcum;\n";
+  shader += "gl_FragData[0] = colorAcum;\n";
+  shader += "if (iend < lastvoxel)\n";
+  shader += "  gl_FragData[1] = vec4(voxelCoord,1.0);\n";
 
   shader += "}\n";
 

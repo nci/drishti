@@ -56,7 +56,6 @@ class RcViewer : public QObject
   float dragStep() { return m_dragStep; }
   int smoothDepth() { return m_smoothDepth; }
   float edgeThickness() { return m_edgeThickness; }
-  float raylenFrac() { return m_raylenFrac; }
 
   bool getHit(const QMouseEvent*);
 
@@ -76,7 +75,6 @@ class RcViewer : public QObject
     void setExactCoord(bool);
     void setStillAndDragStep(float, float);
     void setEdgeThickness(int e) { m_edgeThickness = 0.1*e; m_viewer->update(); }
-    void setRayLenFrac(int r);
     
  private :
 
@@ -146,7 +144,6 @@ class RcViewer : public QObject
   bool m_fullRender;
   bool m_dragMode;
   int m_renderMode;
-  float m_raylenFrac;
   
   BoundingBox m_boundingBox;
   

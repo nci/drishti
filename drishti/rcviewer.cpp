@@ -77,7 +77,6 @@ RcViewer::init()
   m_fullRender = false;
   m_dragMode = true;
   m_exactCoord = false;
-  m_raylenFrac = 1.0;
 
   m_dbox = m_wbox = m_hbox = 0;
   m_boxSize = 64;
@@ -621,9 +620,9 @@ RcViewer::createRaycastShader()
   QString shaderString;
 
   if (m_renderMode == 1)
-    shaderString = RcShaderFactory::genRaycastShader(m_exactCoord, m_raylenFrac, m_crops);
+    shaderString = RcShaderFactory::genRaycastShader(m_exactCoord, m_crops);
   else
-    shaderString = RcShaderFactory::genXRayShader(m_exactCoord, m_raylenFrac, m_crops);
+    shaderString = RcShaderFactory::genXRayShader(m_exactCoord, m_crops);
   
   if (m_rcShader)
     glDeleteObjectARB(m_rcShader);
@@ -653,6 +652,8 @@ RcViewer::createRaycastShader()
   m_rcParm[18] = glGetUniformLocationARB(m_rcShader, "boxSize");
   m_rcParm[19] = glGetUniformLocationARB(m_rcShader, "mixTag");
   m_rcParm[20] = glGetUniformLocationARB(m_rcShader, "skipVoxels");
+  m_rcParm[21] = glGetUniformLocationARB(m_rcShader, "colorAcumTex");
+  m_rcParm[22] = glGetUniformLocationARB(m_rcShader, "maxSteps");
 }
 
 void
@@ -1444,10 +1445,37 @@ RcViewer::volumeRaycast(float minZ, float maxZ)
 void
 RcViewer::vray()
 {
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  int maxSteps = 100;
 
-  glClear(GL_DEPTH_BUFFER_BIT);
+  glClearColor(0,0,0,0);
+  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
+  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			 GL_COLOR_ATTACHMENT0_EXT,
+			 GL_TEXTURE_RECTANGLE_ARB,
+			 m_slcTex[0],
+			 0);
+  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			 GL_COLOR_ATTACHMENT0_EXT,
+			 GL_TEXTURE_RECTANGLE_ARB,
+			 m_slcTex[3],
+			 0);
+  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			 GL_COLOR_ATTACHMENT0_EXT,
+			 GL_TEXTURE_RECTANGLE_ARB,
+			 m_slcTex[4],
+			 0);
+  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+
+  glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
+
 
   int wd = m_viewer->camera()->screenWidth();
   int ht = m_viewer->camera()->screenHeight();
@@ -1495,6 +1523,8 @@ RcViewer::vray()
   glUniform1iARB(m_rcParm[13], 5); // tagTex
   glUniform1iARB(m_rcParm[19], m_mixTag); // mixTag
   glUniform1iARB(m_rcParm[20], m_skipVoxels);
+  glUniform1iARB(m_rcParm[21], 7); // color accumulation texture
+  glUniform1iARB(m_rcParm[22], maxSteps); // max raytaced steps
 
   if (m_mixTag)
     {
@@ -1507,15 +1537,72 @@ RcViewer::vray()
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
   glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[1]);
 
-  glActiveTexture(GL_TEXTURE6);
-  glEnable(GL_TEXTURE_RECTANGLE_ARB);
-  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[2]);
+  glDisable(GL_BLEND);
+  // loop over slabs
+  int currEntryPoints = 2;
+  int nextEntryPoints = 0;
+  int currAccColor = 3;
+  int nextAccColor = 4;
 
-  StaticFunctions::pushOrthoView(0, 0, wd, ht);
-  StaticFunctions::drawQuad(0, 0, wd, ht, 1);
-  StaticFunctions::popOrthoView();
+  int totsteps = qSqrt(m_vsize.x*m_vsize.x +
+		       m_vsize.y*m_vsize.y +
+		       m_vsize.z*m_vsize.z);
+  if (m_dragMode)
+    totsteps = (float)totsteps/m_dragStep;
+  else
+    totsteps = (float)totsteps/m_stillStep;
+
+  int nslabs = (totsteps/maxSteps) + 1;
+
+  for(int sno = 0; sno < nslabs; sno++)
+    {
+      //----------------------------
+      glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
+      
+      glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			     GL_COLOR_ATTACHMENT0_EXT,
+			     GL_TEXTURE_RECTANGLE_ARB,
+			     m_slcTex[nextAccColor],  // accumulated color
+			     0);
+      
+      glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			     GL_COLOR_ATTACHMENT1_EXT,
+			     GL_TEXTURE_RECTANGLE_ARB,
+			     m_slcTex[nextEntryPoints], // intermediate starts
+			     0);
+      
+      GLenum buffers[2] = { GL_COLOR_ATTACHMENT0_EXT,
+			    GL_COLOR_ATTACHMENT1_EXT };
+      glDrawBuffersARB(2, buffers);
+      //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+      //----------------------------
 
 
+      glActiveTexture(GL_TEXTURE6);
+      glEnable(GL_TEXTURE_RECTANGLE_ARB);
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[currEntryPoints]);
+      
+      glActiveTexture(GL_TEXTURE7);
+      glEnable(GL_TEXTURE_RECTANGLE_ARB);
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[currAccColor]);
+      
+      StaticFunctions::pushOrthoView(0, 0, wd, ht);
+      StaticFunctions::drawQuad(0, 0, wd, ht, 1);
+      StaticFunctions::popOrthoView();
+
+      // swap entry point buffers
+      int tp = currEntryPoints;
+      currEntryPoints = nextEntryPoints;
+      nextEntryPoints = tp;
+
+      // swap accumulated color buffers
+      tp = currAccColor;
+      currAccColor = nextAccColor;
+      nextAccColor = currAccColor;
+    }
+
+
+  glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
   glUseProgramObjectARB(0);
 
   if (m_mixTag)
@@ -1539,6 +1626,30 @@ RcViewer::vray()
   glActiveTexture(GL_TEXTURE2);
   glDisable(GL_TEXTURE_RECTANGLE_ARB);
 
+  glActiveTexture(GL_TEXTURE7);
+  glDisable(GL_TEXTURE_RECTANGLE_ARB);
+
+
+  //--- now transfer the accumulated colors to screen ---
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glClear(GL_DEPTH_BUFFER_BIT);
+
+  glUseProgramObjectARB(Global::copyShader());
+  glUniform1iARB(Global::copyParm(0), 7); // copy from slcTex[currAcumColor]
+
+  glActiveTexture(GL_TEXTURE7);
+  glEnable(GL_TEXTURE_RECTANGLE_ARB);
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[currAccColor]);
+      
+  StaticFunctions::pushOrthoView(0, 0, wd, ht);
+  StaticFunctions::drawQuad(0, 0, wd, ht, 1);
+  StaticFunctions::popOrthoView();
+
+  glActiveTexture(GL_TEXTURE7);
+  glDisable(GL_TEXTURE_RECTANGLE_ARB);
+
+  glUseProgramObjectARB(0);
 }
 
 void
@@ -1937,14 +2048,6 @@ RcViewer::setStillAndDragStep(float ss, float ds)
 {
   m_stillStep = qMax(0.1f,ss);
   m_dragStep = qMax(0.1f,ds);
-  m_viewer->update();
-}
-
-void
-RcViewer::setRayLenFrac(int r)
-{
-  m_raylenFrac = qMax(0.1f, 0.1f*r);
-  createRaycastShader();
   m_viewer->update();
 }
 

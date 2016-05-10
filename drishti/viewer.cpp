@@ -702,18 +702,16 @@ Viewer::setupRaycastLightParameters()
   connect(m_edgeButton, SIGNAL(clicked()),
 	  &m_rcViewer, SLOT(setEdgeColor()));
 
-
-
-  m_raylen = new PopUpSlider(this, Qt::Horizontal);
-  m_raylen->setText("Ray Length");
-  m_raylen->setRange(1, 10);
-  m_raylen->setValue(10);
-
-  m_raycastUI.popupRay->setMargin(2);
-  m_raycastUI.popupRay->addWidget(m_raylen);
-
-  connect(m_raylen, SIGNAL(valueChanged(int)),
-	  &m_rcViewer, SLOT(setRayLenFrac(int)));
+//  m_raylen = new PopUpSlider(this, Qt::Horizontal);
+//  m_raylen->setText("Ray Length");
+//  m_raylen->setRange(1, 10);
+//  m_raylen->setValue(10);
+//
+//  m_raycastUI.popupRay->setMargin(2);
+//  m_raycastUI.popupRay->addWidget(m_raylen);
+//
+//  connect(m_raylen, SIGNAL(valueChanged(int)),
+//	  &m_rcViewer, SLOT(setRayLenFrac(int)));
 
   m_raycastUI.raycastBox->setVisible(false);
 

@@ -61,6 +61,8 @@ RcViewer::RcViewer() :
 
   m_crops.clear();
 
+  m_maxRayLen = 1;
+
   init();
 }
 
@@ -1288,6 +1290,39 @@ RcViewer::volumeRaycast(float minZ, float maxZ)
 
   Vec bgColor = Global::backgroundColor();
 
+  if (m_currSlab > 0)
+    {
+      if (m_currSlab < m_nslabs)
+	vray();
+      else
+	{
+	  glClearDepth(1);
+	  glClearColor(bgColor.x, bgColor.y, bgColor.z, 0);
+	  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	  glEnable(GL_BLEND);
+	  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	  glUseProgramObjectARB(Global::copyShader());
+	  glUniform1iARB(Global::copyParm(0), 7); // copy from slcTex[m_currAcumColor]
+
+	  glActiveTexture(GL_TEXTURE7);
+	  glEnable(GL_TEXTURE_RECTANGLE_ARB);
+	  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[m_currAccColor]);
+      
+	  StaticFunctions::pushOrthoView(0, 0, wd, ht);
+	  StaticFunctions::drawQuad(0, 0, wd, ht, 1);
+	  StaticFunctions::popOrthoView();
+
+	  glActiveTexture(GL_TEXTURE7);
+	  glDisable(GL_TEXTURE_RECTANGLE_ARB);
+
+	  glUseProgramObjectARB(0);
+	}
+
+      return;
+    }
+
   Vec eyepos = m_viewer->camera()->position();
   Vec viewDir = m_viewer->camera()->viewDirection();
   Vec subvolcorner = Vec(m_minHSlice, m_minWSlice, m_minDSlice);
@@ -1349,110 +1384,140 @@ RcViewer::volumeRaycast(float minZ, float maxZ)
   //----------------------------
 
 
-  float stepsize = m_stillStep;
-  if (m_dragMode)
-    stepsize = m_dragStep;  
-  stepsize /= qMax(m_vsize.x,qMax(m_vsize.y,m_vsize.z));
+//  float stepsize = m_stillStep;
+//  if (m_dragMode)
+//    stepsize = m_dragStep;  
+//  stepsize /= qMax(m_vsize.x,qMax(m_vsize.y,m_vsize.z));
+//
+//
+//  eyepos = Matrix::xformVec(m_b0xformInv, eyepos);
+//  viewDir = Matrix::rotateVec(m_b0xformInv, viewDir);
+//
+//
+//  glActiveTexture(GL_TEXTURE1);
+//  glEnable(GL_TEXTURE_3D);
+//  glBindTexture(GL_TEXTURE_3D, m_dataTex);
+//  if (m_exactCoord)
+//    {
+//      glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+//      glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+//    }
+//  else
+//    {
+//      glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+//      glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+//    }
+//
+//  glActiveTexture(GL_TEXTURE0);
+//  glEnable(GL_TEXTURE_2D);
+//  glBindTexture(GL_TEXTURE_2D, m_lutTex);
+//  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+//  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
+//  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,GL_NEAREST);
+//  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,GL_NEAREST);
+//  glTexImage2D(GL_TEXTURE_2D,
+//	       0, // single resolution
+//	       GL_RGBA,
+//	       //256, Global::lutSize()*256, // width, height
+//	       256, 256,  // take only TF-0
+//	       0, // no border
+//	       GL_RGBA,
+//	       GL_UNSIGNED_BYTE,
+//	       m_lut);
+//
+//
+//
+//  //----------------------------
+//  // refine entry points
+//  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
+//  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+//			 GL_COLOR_ATTACHMENT0_EXT,
+//			 GL_TEXTURE_RECTANGLE_ARB,
+//			 m_slcTex[2],
+//			 0);
+//  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
+//  glClearDepth(1);
+//  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+//  glDepthFunc(GL_LEQUAL);
+//
+//  glUseProgramObjectARB(m_fhShader);
+//  glUniform1iARB(m_fhParm[0], 1); // dataTex
+//  glUniform1iARB(m_fhParm[1], 0); // lutTex
+//  glUniform1iARB(m_fhParm[2], 2); // slcTex[1] - contains exit coordinates
+//  glUniform1iARB(m_fhParm[3], 6); // slcTex[0] - contains entry coordinates
+//  glUniform1fARB(m_fhParm[4], stepsize); // stepSize
+//  glUniform3fARB(m_fhParm[5], subvolcorner.x, subvolcorner.y, subvolcorner.z);
+//  glUniform3fARB(m_fhParm[6], m_vsize.x, m_vsize.y, m_vsize.z);
+//  glUniform1iARB(m_fhParm[7], m_skipLayers); // skip first layers
+//  glUniform1iARB(m_fhParm[8], 3); // filledTex
+//  glUniform3fARB(m_fhParm[9], m_hbox, m_wbox, m_dbox);
+//  glUniform1fARB(m_fhParm[10], m_boxSize); // boxSize
+//
+//  glActiveTexture(GL_TEXTURE3);
+//  glEnable(GL_TEXTURE_3D);
+//  glBindTexture(GL_TEXTURE_3D, m_filledTex);
+//
+//  glActiveTexture(GL_TEXTURE2);
+//  glEnable(GL_TEXTURE_RECTANGLE_ARB);
+//  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[1]);
+//
+//  glActiveTexture(GL_TEXTURE6);
+//  glEnable(GL_TEXTURE_RECTANGLE_ARB);
+//  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[0]);
+//
+//  StaticFunctions::pushOrthoView(0, 0, wd, ht);
+//  StaticFunctions::drawQuad(0, 0, wd, ht, 1);
+//  StaticFunctions::popOrthoView();
+//
+//  glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
+//  glUseProgramObjectARB(0);
+//  //----------------------------
 
-
-  eyepos = Matrix::xformVec(m_b0xformInv, eyepos);
-  viewDir = Matrix::rotateVec(m_b0xformInv, viewDir);
-
-
-  glActiveTexture(GL_TEXTURE1);
-  glEnable(GL_TEXTURE_3D);
-  glBindTexture(GL_TEXTURE_3D, m_dataTex);
-  if (m_exactCoord)
-    {
-      glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-      glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    }
-  else
-    {
-      glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-      glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-
-  glActiveTexture(GL_TEXTURE0);
-  glEnable(GL_TEXTURE_2D);
-  glBindTexture(GL_TEXTURE_2D, m_lutTex);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,GL_NEAREST);
-  glTexImage2D(GL_TEXTURE_2D,
-	       0, // single resolution
-	       GL_RGBA,
-	       //256, Global::lutSize()*256, // width, height
-	       256, 256,  // take only TF-0
-	       0, // no border
-	       GL_RGBA,
-	       GL_UNSIGNED_BYTE,
-	       m_lut);
-
-
-
-  //----------------------------
-  // refine entry points
-  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
-  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
-			 GL_COLOR_ATTACHMENT0_EXT,
-			 GL_TEXTURE_RECTANGLE_ARB,
-			 m_slcTex[2],
-			 0);
-  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
-  glClearDepth(1);
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-  glDepthFunc(GL_LEQUAL);
-
-  glUseProgramObjectARB(m_fhShader);
-  glUniform1iARB(m_fhParm[0], 1); // dataTex
-  glUniform1iARB(m_fhParm[1], 0); // lutTex
-  glUniform1iARB(m_fhParm[2], 2); // slcTex[1] - contains exit coordinates
-  glUniform1iARB(m_fhParm[3], 6); // slcTex[0] - contains entry coordinates
-  glUniform1fARB(m_fhParm[4], stepsize); // stepSize
-  glUniform3fARB(m_fhParm[5], subvolcorner.x, subvolcorner.y, subvolcorner.z);
-  glUniform3fARB(m_fhParm[6], m_vsize.x, m_vsize.y, m_vsize.z);
-  glUniform1iARB(m_fhParm[7], m_skipLayers); // skip first layers
-  glUniform1iARB(m_fhParm[8], 3); // filledTex
-  glUniform3fARB(m_fhParm[9], m_hbox, m_wbox, m_dbox);
-  glUniform1fARB(m_fhParm[10], m_boxSize); // boxSize
-
-  glActiveTexture(GL_TEXTURE3);
-  glEnable(GL_TEXTURE_3D);
-  glBindTexture(GL_TEXTURE_3D, m_filledTex);
-
-  glActiveTexture(GL_TEXTURE2);
-  glEnable(GL_TEXTURE_RECTANGLE_ARB);
-  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[1]);
-
-  glActiveTexture(GL_TEXTURE6);
-  glEnable(GL_TEXTURE_RECTANGLE_ARB);
-  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[0]);
-
-  StaticFunctions::pushOrthoView(0, 0, wd, ht);
-  StaticFunctions::drawQuad(0, 0, wd, ht, 1);
-  StaticFunctions::popOrthoView();
-
-  glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
-  glUseProgramObjectARB(0);
-  //----------------------------
-
+  pre_vray();
   vray();
+}
 
+bool RcViewer::doNextLot()
+{
+  if (!m_fullRender ||
+      (m_dragMode && !Global::useStillVolume()))
+    return false;
+
+  if (m_currSlab < m_nslabs)
+    {
+      m_currSlab++;
+      return true;
+    }
+
+  return false;
 }
 
 void
-RcViewer::vray()
+RcViewer::pre_vray()
 {
-  int maxSteps = 100;
+  int totsteps = qSqrt(m_vsize.x*m_vsize.x +
+		       m_vsize.y*m_vsize.y +
+		       m_vsize.z*m_vsize.z);
+  if (m_dragMode)
+    totsteps = (float)totsteps/m_dragStep;
+  else
+    totsteps = (float)totsteps/m_stillStep;
+
+  m_nslabs = (totsteps/(100*m_maxRayLen)) + 1;
+  m_currSlab = 0;
+//  m_currEntryPoints = 2;
+//  m_nextEntryPoints = 0;
+  m_currEntryPoints = 0;
+  m_nextEntryPoints = 2;
+  m_currAccColor = 3;
+  m_nextAccColor = 4;
 
   glClearColor(0,0,0,0);
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
   glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
 			 GL_COLOR_ATTACHMENT0_EXT,
 			 GL_TEXTURE_RECTANGLE_ARB,
-			 m_slcTex[0],
+			 m_slcTex[m_currAccColor],
 			 0);
   glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -1460,7 +1525,7 @@ RcViewer::vray()
   glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
 			 GL_COLOR_ATTACHMENT0_EXT,
 			 GL_TEXTURE_RECTANGLE_ARB,
-			 m_slcTex[3],
+			 m_slcTex[m_nextEntryPoints],
 			 0);
   glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -1468,15 +1533,17 @@ RcViewer::vray()
   glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
 			 GL_COLOR_ATTACHMENT0_EXT,
 			 GL_TEXTURE_RECTANGLE_ARB,
-			 m_slcTex[4],
+			 m_slcTex[m_nextAccColor],
 			 0);
   glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
 
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
+}
 
-
+void
+RcViewer::vray()
+{
   int wd = m_viewer->camera()->screenWidth();
   int ht = m_viewer->camera()->screenHeight();
 
@@ -1497,13 +1564,28 @@ RcViewer::vray()
   viewDir = Matrix::rotateVec(m_b0xformInv, viewDir);
 
 
+  glActiveTexture(GL_TEXTURE0);
+  glEnable(GL_TEXTURE_2D);
+  glBindTexture(GL_TEXTURE_2D, m_lutTex);
+
   glActiveTexture(GL_TEXTURE1);
   glEnable(GL_TEXTURE_3D);
   glBindTexture(GL_TEXTURE_3D, m_dataTex);
 
-  glActiveTexture(GL_TEXTURE0);
-  glEnable(GL_TEXTURE_2D);
-  glBindTexture(GL_TEXTURE_2D, m_lutTex);
+  glActiveTexture(GL_TEXTURE2);
+  glEnable(GL_TEXTURE_RECTANGLE_ARB);
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[1]);
+
+  glActiveTexture(GL_TEXTURE3);
+  glEnable(GL_TEXTURE_3D);
+  glBindTexture(GL_TEXTURE_3D, m_filledTex);
+
+  if (m_mixTag)
+    {
+      glActiveTexture(GL_TEXTURE5);
+      glBindTexture(GL_TEXTURE_1D, m_tagTex);
+      glEnable(GL_TEXTURE_1D);
+    }
 
   //----------------------------
   glUseProgramObjectARB(m_rcShader);
@@ -1524,37 +1606,12 @@ RcViewer::vray()
   glUniform1iARB(m_rcParm[19], m_mixTag); // mixTag
   glUniform1iARB(m_rcParm[20], m_skipVoxels);
   glUniform1iARB(m_rcParm[21], 7); // color accumulation texture
-  glUniform1iARB(m_rcParm[22], maxSteps); // max raytaced steps
-
-  if (m_mixTag)
-    {
-      glActiveTexture(GL_TEXTURE5);
-      glBindTexture(GL_TEXTURE_1D, m_tagTex);
-      glEnable(GL_TEXTURE_1D);
-    }
-
-  glActiveTexture(GL_TEXTURE2);
-  glEnable(GL_TEXTURE_RECTANGLE_ARB);
-  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[1]);
+  glUniform1iARB(m_rcParm[22], 100*m_maxRayLen); // max raytaced steps
 
   glDisable(GL_BLEND);
   // loop over slabs
-  int currEntryPoints = 2;
-  int nextEntryPoints = 0;
-  int currAccColor = 3;
-  int nextAccColor = 4;
 
-  int totsteps = qSqrt(m_vsize.x*m_vsize.x +
-		       m_vsize.y*m_vsize.y +
-		       m_vsize.z*m_vsize.z);
-  if (m_dragMode)
-    totsteps = (float)totsteps/m_dragStep;
-  else
-    totsteps = (float)totsteps/m_stillStep;
-
-  int nslabs = (totsteps/maxSteps) + 1;
-
-  for(int sno = 0; sno < nslabs; sno++)
+  //for(int sno = 0; sno < m_nslabs; sno++)
     {
       //----------------------------
       glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
@@ -1562,13 +1619,13 @@ RcViewer::vray()
       glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
 			     GL_COLOR_ATTACHMENT0_EXT,
 			     GL_TEXTURE_RECTANGLE_ARB,
-			     m_slcTex[nextAccColor],  // accumulated color
+			     m_slcTex[m_nextAccColor],  // accumulated color
 			     0);
       
       glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
 			     GL_COLOR_ATTACHMENT1_EXT,
 			     GL_TEXTURE_RECTANGLE_ARB,
-			     m_slcTex[nextEntryPoints], // intermediate starts
+			     m_slcTex[m_nextEntryPoints], // intermediate starts
 			     0);
       
       GLenum buffers[2] = { GL_COLOR_ATTACHMENT0_EXT,
@@ -1580,25 +1637,25 @@ RcViewer::vray()
 
       glActiveTexture(GL_TEXTURE6);
       glEnable(GL_TEXTURE_RECTANGLE_ARB);
-      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[currEntryPoints]);
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[m_currEntryPoints]);
       
       glActiveTexture(GL_TEXTURE7);
       glEnable(GL_TEXTURE_RECTANGLE_ARB);
-      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[currAccColor]);
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[m_currAccColor]);
       
       StaticFunctions::pushOrthoView(0, 0, wd, ht);
       StaticFunctions::drawQuad(0, 0, wd, ht, 1);
       StaticFunctions::popOrthoView();
 
       // swap entry point buffers
-      int tp = currEntryPoints;
-      currEntryPoints = nextEntryPoints;
-      nextEntryPoints = tp;
+      int tp = m_currEntryPoints;
+      m_currEntryPoints = m_nextEntryPoints;
+      m_nextEntryPoints = tp;
 
       // swap accumulated color buffers
-      tp = currAccColor;
-      currAccColor = nextAccColor;
-      nextAccColor = currAccColor;
+      tp = m_currAccColor;
+      m_currAccColor = m_nextAccColor;
+      m_nextAccColor = m_currAccColor;
     }
 
 
@@ -1631,16 +1688,20 @@ RcViewer::vray()
 
 
   //--- now transfer the accumulated colors to screen ---
+  glClearDepth(1);
+  glClearColor(bgColor.x, bgColor.y, bgColor.z, 0);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glClear(GL_DEPTH_BUFFER_BIT);
 
   glUseProgramObjectARB(Global::copyShader());
-  glUniform1iARB(Global::copyParm(0), 7); // copy from slcTex[currAcumColor]
+  glUniform1iARB(Global::copyParm(0), 7); // copy from slcTex[m_currAcumColor]
 
   glActiveTexture(GL_TEXTURE7);
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
-  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[currAccColor]);
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[m_currAccColor]);
       
   StaticFunctions::pushOrthoView(0, 0, wd, ht);
   StaticFunctions::drawQuad(0, 0, wd, ht, 1);

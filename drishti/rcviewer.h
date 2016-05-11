@@ -56,8 +56,12 @@ class RcViewer : public QObject
   float dragStep() { return m_dragStep; }
   int smoothDepth() { return m_smoothDepth; }
   float edgeThickness() { return m_edgeThickness; }
+  int maxRayLen() { return m_maxRayLen; }
 
   bool getHit(const QMouseEvent*);
+
+  void resetNextLot() { m_currSlab = 0; }
+  bool doNextLot();
 
   public slots :
     void updateVoxelsForRaycast();
@@ -75,6 +79,7 @@ class RcViewer : public QObject
     void setExactCoord(bool);
     void setStillAndDragStep(float, float);
     void setEdgeThickness(int e) { m_edgeThickness = 0.1*e; m_viewer->update(); }
+    void setMaxRayLen(int r) { m_maxRayLen = r; }
     
  private :
 
@@ -144,10 +149,17 @@ class RcViewer : public QObject
   bool m_fullRender;
   bool m_dragMode;
   int m_renderMode;
+  float m_maxRayLen;
   
   BoundingBox m_boundingBox;
   
   QList<CropObject> m_crops;
+
+  int m_nslabs, m_currSlab;
+  int m_currEntryPoints;
+  int m_nextEntryPoints;
+  int m_currAccColor;
+  int m_nextAccColor;
 
   void generateBoxMinMax();
   void updateFilledBoxes();
@@ -170,6 +182,7 @@ class RcViewer : public QObject
 
   void checkCrops();
 
+  void pre_vray();
   void vray();
 };
 

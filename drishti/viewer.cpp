@@ -702,16 +702,16 @@ Viewer::setupRaycastLightParameters()
   connect(m_edgeButton, SIGNAL(clicked()),
 	  &m_rcViewer, SLOT(setEdgeColor()));
 
-//  m_raylen = new PopUpSlider(this, Qt::Horizontal);
-//  m_raylen->setText("Ray Length");
-//  m_raylen->setRange(1, 10);
-//  m_raylen->setValue(10);
-//
-//  m_raycastUI.popupRay->setMargin(2);
-//  m_raycastUI.popupRay->addWidget(m_raylen);
-//
-//  connect(m_raylen, SIGNAL(valueChanged(int)),
-//	  &m_rcViewer, SLOT(setRayLenFrac(int)));
+  m_raylen = new PopUpSlider(this, Qt::Horizontal);
+  m_raylen->setText("Ray Length");
+  m_raylen->setRange(1, 10);
+  m_raylen->setValue(1);
+
+  m_raycastUI.popupRay->setMargin(2);
+  m_raycastUI.popupRay->addWidget(m_raylen);
+
+  connect(m_raylen, SIGNAL(valueChanged(int)),
+	  &m_rcViewer, SLOT(setMaxRayLen(int)));
 
   m_raycastUI.raycastBox->setVisible(false);
 
@@ -2032,6 +2032,14 @@ Viewer::drawImageOnScreen()
     {
       m_rcViewer.setXformMatrix(m_hiresVolume->brick0Xform());
       m_rcViewer.draw();      
+      if (m_rcViewer.doNextLot())
+	{
+	  //emit updateGL();
+	  m_autoUpdateTimer.start();
+	}
+      else if (m_autoUpdateTimer.isActive())
+	m_autoUpdateTimer.stop();
+      
       return;
     }
 
@@ -2474,6 +2482,7 @@ Viewer::fastDraw()
       glClear(GL_COLOR_BUFFER_BIT);
 
       m_rcViewer.setXformMatrix(m_hiresVolume->brick0Xform());
+      m_rcViewer.resetNextLot();
       m_rcViewer.fastDraw();
     }
   else

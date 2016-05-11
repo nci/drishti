@@ -1503,7 +1503,9 @@ RcViewer::pre_vray()
   else
     totsteps = (float)totsteps/m_stillStep;
 
-  m_nslabs = (totsteps/(100*m_maxRayLen)) + 1;
+  m_maxSteps = totsteps*(float)m_maxRayLen/10.0;
+  //m_nslabs = (totsteps/(100*m_maxRayLen)) + 1;
+  m_nslabs = totsteps/m_maxSteps + 1;
   m_currSlab = 0;
 //  m_currEntryPoints = 2;
 //  m_nextEntryPoints = 0;
@@ -1606,7 +1608,8 @@ RcViewer::vray()
   glUniform1iARB(m_rcParm[19], m_mixTag); // mixTag
   glUniform1iARB(m_rcParm[20], m_skipVoxels);
   glUniform1iARB(m_rcParm[21], 7); // color accumulation texture
-  glUniform1iARB(m_rcParm[22], 100*m_maxRayLen); // max raytaced steps
+  //glUniform1iARB(m_rcParm[22], 100*m_maxRayLen); // max raytaced steps
+  glUniform1iARB(m_rcParm[22], m_maxSteps); // max raytaced steps
 
   glDisable(GL_BLEND);
   // loop over slabs

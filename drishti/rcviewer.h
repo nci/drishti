@@ -149,7 +149,7 @@ class RcViewer : public QObject
   bool m_fullRender;
   bool m_dragMode;
   int m_renderMode;
-  float m_maxRayLen;
+  int m_maxRayLen, m_maxSteps;
   
   BoundingBox m_boundingBox;
   

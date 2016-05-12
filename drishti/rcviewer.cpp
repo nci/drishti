@@ -1623,7 +1623,7 @@ RcViewer::vray()
   glUniform3fARB(m_rcParm[5], viewDir.x, viewDir.y, viewDir.z); // viewDir
   glUniform3fARB(m_rcParm[6], subvolcorner.x, subvolcorner.y, subvolcorner.z);
   glUniform3fARB(m_rcParm[7], m_vsize.x, m_vsize.y, m_vsize.z);
-  glUniform1iARB(m_rcParm[8], m_sslevel);
+  glUniform1iARB(m_rcParm[8], m_sslevel); // max raytaced steps
   glUniform1iARB(m_rcParm[12],0); // skip first layers
   glUniform1iARB(m_rcParm[14],6); // slcTex[2] - contains refined entry coordinates
   glUniform1iARB(m_rcParm[16],3); // filledTex

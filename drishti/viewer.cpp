@@ -1061,8 +1061,11 @@ void
 Viewer::updateLookupTable()
 {
   if (m_rcMode)
-    return;
-  
+    {
+      m_rcViewer.loadLookupTable();
+      return;
+    }
+
   //--------------
   // check whether emptyspaceskip data structure
   // needs to be reevaluated
@@ -1133,7 +1136,6 @@ Viewer::updateLookupTable()
     }
   else 
     memcpy(lut, m_lut, Global::lutSize()*4*256*256);
-  
 
   if (Global::emptySpaceSkip() &&
       m_hiresVolume->raised() &&
@@ -1160,7 +1162,8 @@ Viewer::updateLookupTable()
       releaseFBOs(Enums::StillImage);
       //if (fboBound) releaseFBOs(Enums::StillImage);
     }
-  
+
+
   delete [] lut;
 }
 
@@ -2034,11 +2037,13 @@ Viewer::drawImageOnScreen()
       m_rcViewer.draw();      
       if (m_rcViewer.doNextLot())
 	{
-	  //emit updateGL();
 	  m_autoUpdateTimer.start();
 	}
       else if (m_autoUpdateTimer.isActive())
-	m_autoUpdateTimer.stop();
+	{
+	  m_autoUpdateTimer.stop();
+	  m_rcViewer.resetNextLot();
+	}
       
       return;
     }
@@ -3259,8 +3264,19 @@ Viewer::showBackBufferImage()
 			      Qt::transparent, Qt::lightGray);
 }
 
-void Viewer::enterEvent(QEvent *e) { setFocus(); grabKeyboard(); }
-void Viewer::leaveEvent(QEvent *e) { clearFocus(); releaseKeyboard(); }
+void
+Viewer::enterEvent(QEvent *e)
+{
+  //setFocus();
+  grabKeyboard();
+}
+
+void
+Viewer::leaveEvent(QEvent *e)
+{
+  //clearFocus();
+  releaseKeyboard();
+}
 
 void
 Viewer::undoParameters()

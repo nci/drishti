@@ -311,10 +311,10 @@ RcShaderFactory::genIsoRaycastShader(bool nearest,
   shader += "uniform int skipLayers;\n";
   shader += "uniform vec3 ftsize;\n";
   shader += "uniform float boxSize;\n";
-
   shader += "uniform sampler1D tagTex;\n";
   shader += "uniform bool mixTag;\n";
   shader += "uniform int skipVoxels;\n";
+  shader += "uniform int lod;\n";
 
   if (cropPresent) shader += CropShaderFactory::generateCropping(crops);
 
@@ -382,7 +382,7 @@ RcShaderFactory::genIsoRaycastShader(bool nearest,
 
   shader += "  float feather = 0.0;\n";
   if (cropPresent)
-    shader += "  feather = crop((vC+vcorner), false);\n";
+    shader += "  feather = crop((vC*vec3(lod)+vcorner), false);\n";
 
 
   shader += "  if (feather < 0.5)\n";
@@ -838,6 +838,7 @@ RcShaderFactory::genRaycastShader(bool nearest,
   shader += "uniform int skipVoxels;\n";
   shader += "uniform int maxSteps;\n";
   shader += "uniform sampler2DRect colorAcumTex;\n";
+  shader += "uniform int lod;\n";
 
   if (cropPresent) shader += CropShaderFactory::generateCropping(crops);
 
@@ -865,16 +866,18 @@ RcShaderFactory::genRaycastShader(bool nearest,
 
   shader += "vec3 voxelCoord = entryPoint;\n";
   shader += "float lengthAcum = 0.0;\n";
-
   shader += "vec4 colorAcum = gl_FragData[0];\n";
   
   shader += "bool gotFirstHit = false;\n";
   shader += "int nskipped = 0;\n"; 
   shader += "bool solid = false;\n";
  
+
+  shader += "float stplod = stepSize*max(vsize.x, max(vsize.y, vsize.z));\n";
+
   shader += "vec3 skipVoxStart = vec3(0.0);\n";
   shader += "int lastvoxel = int(length(exitPoint-entryPoint)/stepSize);\n";
-  shader += "int iend = int(min(maxSteps, float(lastvoxel)));\n";
+  shader += "int iend = int(min(float(maxSteps), float(lastvoxel)));\n";
   shader += "for(int i=0; i<iend; i++)\n";
   
   shader += "{\n";
@@ -913,7 +916,7 @@ RcShaderFactory::genRaycastShader(bool nearest,
 
   shader += "  float feather = 0.0;\n";
   if (cropPresent)
-    shader += "  feather = crop((vC+vcorner), false);\n";
+    shader += "  feather = crop((vC*vec3(lod)+vcorner), false);\n";
 
 
   shader += "  if (feather < 0.5)\n";
@@ -946,8 +949,9 @@ RcShaderFactory::genRaycastShader(bool nearest,
   shader += "    colorSample = vec4(0.0);\n";
   shader += "  }\n";  // feather
 
+  shader += "  colorSample.a = 1.0-pow((1.0-colorSample.a),stplod);\n";
 
-  shader += "    colorSample.rgb *= colorSample.a;\n";
+  shader += "  colorSample.rgb *= colorSample.a;\n";
 
   shader += "  if (!gotFirstHit && colorSample.a > 0.001)\n";  
   shader += "  {\n";
@@ -1002,7 +1006,7 @@ RcShaderFactory::genRaycastShader(bool nearest,
 
   shader += "gl_FragData[0] = colorAcum;\n";
   shader += "if (iend < lastvoxel)\n";
-  shader += "  gl_FragData[1] = vec4(voxelCoord,1.0);\n";
+  shader += "  gl_FragData[1] = vec4(voxelCoord-deltaDir,1.0);\n";
 
   shader += "}\n";
 
@@ -1039,7 +1043,7 @@ RcShaderFactory::genXRayShader(bool nearest,
   shader += "uniform int skipVoxels;\n";
   shader += "uniform int maxSteps;\n";
   shader += "uniform sampler2DRect colorAcumTex;\n";
-
+  shader += "uniform int lod;\n";
 
   if (cropPresent) shader += CropShaderFactory::generateCropping(crops);
 
@@ -1078,7 +1082,7 @@ RcShaderFactory::genXRayShader(bool nearest,
 
   shader += "vec3 skipVoxStart = vec3(0.0);\n";
   shader += "int lastvoxel = int(length(exitPoint-entryPoint)/stepSize);\n";
-  shader += "int iend = int(min(maxSteps, float(lastvoxel)));\n";
+  shader += "int iend = int(min(float(maxSteps), float(lastvoxel)));\n";
   shader += "for(int i=0; i<iend; i++)\n";
 
   shader += "{\n";
@@ -1111,7 +1115,7 @@ RcShaderFactory::genXRayShader(bool nearest,
 
   shader += "  float feather = 0.0;\n";
   if (cropPresent)
-    shader += "  feather = crop((vC+vcorner), false);\n";
+    shader += "  feather = crop((vC*vec3(lod)+vcorner), false);\n";
 
   shader += "  if (feather < 0.5)\n";
   shader += "  {\n";
@@ -1202,7 +1206,7 @@ RcShaderFactory::genXRayShader(bool nearest,
 
   shader += "gl_FragData[0] = colorAcum;\n";
   shader += "if (iend < lastvoxel)\n";
-  shader += "  gl_FragData[1] = vec4(voxelCoord,1.0);\n";
+  shader += "  gl_FragData[1] = vec4(voxelCoord-deltaDir,1.0);\n";
 
   shader += "}\n";
 

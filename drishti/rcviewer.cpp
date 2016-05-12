@@ -208,6 +208,27 @@ RcViewer::updateSubvolume(Vec bmin, Vec bmax)
   m_boundingBox.setPositions(bmin, bmax);
 }
 
+void
+RcViewer::loadLookupTable()
+{
+  glActiveTexture(GL_TEXTURE0);
+  glEnable(GL_TEXTURE_2D);
+  glBindTexture(GL_TEXTURE_2D, m_lutTex);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,GL_NEAREST);
+  glTexImage2D(GL_TEXTURE_2D,
+	       0, // single resolution
+	       GL_RGBA,
+	       //256, Global::lutSize()*256, // width, height
+	       256, 256,  // take only TF-0
+	       0, // no border
+	       GL_RGBA,
+	       GL_UNSIGNED_BYTE,
+	       m_lut);
+  glDisable(GL_TEXTURE_2D);
+}
 
 void
 RcViewer::generateBoxMinMax()
@@ -612,6 +633,7 @@ RcViewer::createIsoRaycastShader()
   m_ircParm[18] = glGetUniformLocationARB(m_ircShader, "boxSize");
   m_ircParm[19] = glGetUniformLocationARB(m_ircShader, "mixTag");
   m_ircParm[20] = glGetUniformLocationARB(m_ircShader, "skipVoxels");
+  m_ircParm[21] = glGetUniformLocationARB(m_ircShader, "lod");
 }
 
 void
@@ -645,6 +667,7 @@ RcViewer::createRaycastShader()
   m_rcParm[5] = glGetUniformLocationARB(m_rcShader, "viewDir");
   m_rcParm[6] = glGetUniformLocationARB(m_rcShader, "vcorner");
   m_rcParm[7] = glGetUniformLocationARB(m_rcShader, "vsize");
+  m_rcParm[8] = glGetUniformLocationARB(m_rcShader, "lod");
   //m_rcParm[10]= glGetUniformLocationARB(m_rcShader, "maskTex");
   m_rcParm[12]= glGetUniformLocationARB(m_rcShader, "skipLayers");
   m_rcParm[13]= glGetUniformLocationARB(m_rcShader, "tagTex");
@@ -1095,6 +1118,7 @@ RcViewer::surfaceRaycast(float minZ, float maxZ, bool firstPartOnly)
   glUniform1iARB(m_ircParm[13], 5); // tagTex
   glUniform1iARB(m_ircParm[19], m_mixTag); // mixTag
   glUniform1iARB(m_ircParm[20], m_skipVoxels);
+  glUniform1iARB(m_ircParm[21], m_sslevel);
 
 
   if (m_mixTag)
@@ -1133,19 +1157,19 @@ RcViewer::surfaceRaycast(float minZ, float maxZ, bool firstPartOnly)
   glActiveTexture(GL_TEXTURE0);
   glEnable(GL_TEXTURE_2D);
   glBindTexture(GL_TEXTURE_2D, m_lutTex);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,GL_NEAREST);
-  glTexImage2D(GL_TEXTURE_2D,
-	       0, // single resolution
-	       GL_RGBA,
-	       //256, Global::lutSize()*256, // width, height
-	       256, 256,  // take only TF-0
-	       0, // no border
-	       GL_RGBA,
-	       GL_UNSIGNED_BYTE,
-	       m_lut);
+//  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+//  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
+//  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,GL_NEAREST);
+//  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,GL_NEAREST);
+//  glTexImage2D(GL_TEXTURE_2D,
+//	       0, // single resolution
+//	       GL_RGBA,
+//	       //256, Global::lutSize()*256, // width, height
+//	       256, 256,  // take only TF-0
+//	       0, // no border
+//	       GL_RGBA,
+//	       GL_UNSIGNED_BYTE,
+//	       m_lut);
 
   int wd = m_viewer->camera()->screenWidth();
   int ht = m_viewer->camera()->screenHeight();
@@ -1599,6 +1623,7 @@ RcViewer::vray()
   glUniform3fARB(m_rcParm[5], viewDir.x, viewDir.y, viewDir.z); // viewDir
   glUniform3fARB(m_rcParm[6], subvolcorner.x, subvolcorner.y, subvolcorner.z);
   glUniform3fARB(m_rcParm[7], m_vsize.x, m_vsize.y, m_vsize.z);
+  glUniform1iARB(m_rcParm[8], m_sslevel);
   glUniform1iARB(m_rcParm[12],0); // skip first layers
   glUniform1iARB(m_rcParm[14],6); // slcTex[2] - contains refined entry coordinates
   glUniform1iARB(m_rcParm[16],3); // filledTex

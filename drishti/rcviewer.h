@@ -63,6 +63,8 @@ class RcViewer : public QObject
   void resetNextLot() { m_currSlab = 0; }
   bool doNextLot();
 
+  void loadLookupTable();
+
   public slots :
     void updateVoxelsForRaycast();
     void setRaycastStyle(int);

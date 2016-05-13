@@ -2416,7 +2416,6 @@ DrishtiPaint::on_actionExtractTag_triggered()
 {
   QStringList dtypes;
   QList<int> tag;
-  bool saveImageData;
 
   bool ok;
   //----------------
@@ -2452,7 +2451,9 @@ DrishtiPaint::on_actionExtractTag_triggered()
     tag << -1;
   //----------------
 
-  saveImageData = true;
+  bool saveImageData = true;
+  int shiftVox = 0;
+  float scaleVox = 1.0;
 
   //----------------
   int extractType = 1; // extract using tag
@@ -2468,6 +2469,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
     }
   dtypes << "Tags + Fibers values";
   dtypes << "Curves + Fibers values";
+  dtypes << "Tomogram + Tags";
 
   QString option = QInputDialog::getItem(0,
 					 "Extract Data",
@@ -2494,6 +2496,25 @@ DrishtiPaint::on_actionExtractTag_triggered()
     {
       extractType = 8;
       saveImageData = false;
+    }
+  else if (option == "Tomogram + Tags")
+    {
+      extractType = 9;
+      bool ok;
+      QString tagstr = QInputDialog::getText(0, "Merge Tag values with Tomogram",
+					     "Scale and shift tomogram values before merging tag values.\nSpecify two numbers - for e.g. 0.5 128 -> this means 0.5*tomoval + 128 + tagval\nFirst value is scaling factor between 0.0 and 1.0, and second value is shift factor between 0 and 255.\nDefault is 1.0 0.0 -> means no scaling and shifting of tomogram values",
+					     QLineEdit::Normal,
+					     "1.0 0",
+					     &ok);
+      if (ok && !tagstr.isEmpty())
+	{
+	  QStringList tglist = tagstr.split(" ", QString::SkipEmptyParts);
+	  if (tglist.count() == 2)
+	    {
+	      scaleVox = tglist[0].toFloat();
+	      shiftVox = tglist[1].toInt();
+	    }
+	}
     }
   //----------------
 
@@ -2611,7 +2632,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
 
       uchar *slice = m_volume->getDepthSliceImage(d);
 
-      if (extractType < 7)
+      if (extractType < 7 || extractType == 9)
 	{
 	  // we get value+grad from volume
 	  // we need only value part
@@ -2622,7 +2643,10 @@ DrishtiPaint::on_actionExtractTag_triggered()
 		slice[i] = slice[2*(w*height+h)];
 		i++;
 	      }
+	}
 	  
+      if (extractType < 7)
+	{
 	  memcpy(raw, m_volume->getMaskDepthSliceImage(d), nbytes);
 	  
 	  if (tag[0] == -1)
@@ -2674,9 +2698,9 @@ DrishtiPaint::on_actionExtractTag_triggered()
 		  }
 	    }
 	}
-      else
+      else // extractType == 7 or 8
 	{
-	  if (extractType == 7)
+	  if (extractType == 7 || extractType == 9)
 	    memcpy(raw, m_volume->getMaskDepthSliceImage(d), nbytes);
 	  else
 	    memset(raw, 0, nbytes);
@@ -2684,41 +2708,19 @@ DrishtiPaint::on_actionExtractTag_triggered()
 	  // copy curve/fiber mask
 	  if (tag[0] == -1)
 	    {
-	      if (extractType == 7)
-		{
-		  for(int w=minWSlice; w<=maxWSlice; w++)
-		    for(int h=minHSlice; h<=maxHSlice; h++)
-		      {
-			if (curveMask[slc*twidth*theight +
-				      (w-minWSlice)*theight +
-				      (h-minHSlice)] > 0)
-			  raw[w*height+h] = curveMask[slc*twidth*theight +
-						      (w-minWSlice)*theight +
-						      (h-minHSlice)];
-		      }
-		}
-	      else
-		{
-		  for(int w=minWSlice; w<=maxWSlice; w++)
-		    for(int h=minHSlice; h<=maxHSlice; h++)
-		      {
-			raw[w*height+h] = curveMask[slc*twidth*theight +
-						    (w-minWSlice)*theight +
-						    (h-minHSlice)];
-		      }
-		}
+	      for(int w=minWSlice; w<=maxWSlice; w++)
+		for(int h=minHSlice; h<=maxHSlice; h++)
+		  {
+		    if (curveMask[slc*twidth*theight +
+				  (w-minWSlice)*theight +
+				  (h-minHSlice)] > 0)
+		      raw[w*height+h] = curveMask[slc*twidth*theight +
+						  (w-minWSlice)*theight +
+						  (h-minHSlice)];
+		  }
 	    }
 	  else
 	    {
-	      if (extractType == 7)
-		{
-		  for(int w=minWSlice; w<=maxWSlice; w++)
-		    for(int h=minHSlice; h<=maxHSlice; h++)
-		      raw[w*height+h] = (tag.contains(raw[w*height+h]) ?
-					 raw[w*height+h] : 0);
-		  
-		}
-
 	      for(int w=minWSlice; w<=maxWSlice; w++)
 		for(int h=minHSlice; h<=maxHSlice; h++)
 		  {
@@ -2775,10 +2777,25 @@ DrishtiPaint::on_actionExtractTag_triggered()
       // now mask data with tag
       if (saveImageData)
 	{
-	  for(int i=0; i<twidth*theight; i++)
+	  if (extractType != 9)
+	    {			      
+	      for(int i=0; i<twidth*theight; i++)
+		{
+		  if (raw[i] != 255)
+		    slice[i] = outsideVal;
+		}
+	    }
+	  else // extract Tomogram + Tags
 	    {
-	      if (raw[i] != 255)
-		slice[i] = outsideVal;
+	      // scale and shift tomogram
+	      for(int i=0; i<twidth*theight; i++)
+		slice[i] = scaleVox*slice[i] + shiftVox;
+	      // merge in tag values
+	      for(int i=0; i<twidth*theight; i++)
+		{
+		  if (raw[i] != 0)
+		    slice[i] = raw[i];
+		}
 	    }
 	  tFile.setSlice(slc, slice);
 	}

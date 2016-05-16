@@ -214,6 +214,8 @@ Viewer::setBoxSize(int b)
 void
 Viewer::init()
 {
+  m_skipVoxels = 0;
+
   m_infoText = true;
   m_savingImages = 0;
 
@@ -458,12 +460,14 @@ Viewer::createRaycastShader()
   maxSteps *= 1.0/m_stillStep;
   //QMessageBox::information(0, "", QString("%1 %2").arg(m_stillStep).arg(maxSteps));
 
-  if (m_renderMode == 1)
-    shaderString = ShaderFactory::genRaycastShader(maxSteps, !m_fullRender,
-						   m_exactCoord, m_useMask);
-  else
-    shaderString = ShaderFactory::genXRayShader(maxSteps, !m_fullRender,
-						m_exactCoord, m_useMask);
+  shaderString = ShaderFactory::genIsoRaycastShader(m_exactCoord, m_useMask);
+
+//  if (m_renderMode == 1)
+//    shaderString = ShaderFactory::genRaycastShader(maxSteps, !m_fullRender,
+//						   m_exactCoord, m_useMask);
+//  else
+//    shaderString = ShaderFactory::genXRayShader(maxSteps, !m_fullRender,
+//						m_exactCoord, m_useMask);
 
   if (m_rcShader)
     glDeleteObjectARB(m_rcShader);
@@ -492,6 +496,7 @@ Viewer::createRaycastShader()
   m_rcParm[13]= glGetUniformLocationARB(m_rcShader, "tagTex");
   m_rcParm[14] = glGetUniformLocationARB(m_rcShader, "entryTex");
   m_rcParm[15] = glGetUniformLocationARB(m_rcShader, "bgcolor");
+  m_rcParm[16] = glGetUniformLocationARB(m_rcShader, "skipVoxels");
 }
 
 void
@@ -744,6 +749,13 @@ void
 Viewer::setSkipLayers(int l)
 {
   m_skipLayers = l;
+  update();
+}
+
+void
+Viewer::setSkipVoxels(int l)
+{
+  m_skipVoxels = l;
   update();
 }
 
@@ -3832,6 +3844,7 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
   glUniform3fARB(m_rcParm[15], m_bgColor.x/255,
 		               m_bgColor.y/255,
 		               m_bgColor.z/255);
+  glUniform1iARB(m_rcParm[16],m_skipVoxels); // skip first voxels
 
   glActiveTexture(GL_TEXTURE1);
   glEnable(GL_TEXTURE_RECTANGLE_ARB);

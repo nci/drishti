@@ -2139,6 +2139,8 @@ DrishtiPaint::connectViewerMenu()
 
   connect(viewerUi.skipLayers, SIGNAL(valueChanged(int)),
 	  m_viewer, SLOT(setSkipLayers(int)));
+  connect(viewerUi.skipVoxels, SIGNAL(valueChanged(int)),
+	  m_viewer, SLOT(setSkipVoxels(int)));
   connect(viewerUi.nearest, SIGNAL(clicked(bool)),
 	  m_viewer, SLOT(setExactCoord(bool)));
 

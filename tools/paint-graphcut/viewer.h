@@ -77,6 +77,7 @@ class Viewer : public QGLViewer
     void setRaycastRender(bool);
     void setRaycastStyle(int);
     void setSkipLayers(int);
+    void setSkipVoxels(int);
     void setStillAndDragStep(float, float);
     void setExactCoord(bool);
     void showSketchPad(bool);
@@ -141,6 +142,7 @@ class Viewer : public QGLViewer
   int m_max3DTexSize;
   float m_memSize;
   int m_skipLayers;
+  int m_skipVoxels;
 
   float m_stillStep, m_dragStep;
 

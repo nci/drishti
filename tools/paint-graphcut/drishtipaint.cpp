@@ -214,7 +214,9 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   ui.menuView->addAction(dockV->toggleViewAction());
   ui.menuView->addAction(dock2->toggleViewAction());
   
-  on_actionCurves_clicked(true);
+  on_actionGraphCut_clicked(true);
+
+  //on_actionCurves_clicked(true);
   curvesUi.lwsettingpanel->setVisible(false);
   curvesUi.closed->setChecked(true);
 
@@ -1039,11 +1041,13 @@ DrishtiPaint::setFile(QString filename)
   curvesfile.replace(".pvl.nc", ".curves");
   m_imageWidget->loadCurves(curvesfile);
 
-  on_actionCurves_clicked(true);
-  curvesUi.lwsettingpanel->setVisible(false);
-  curvesUi.closed->setChecked(true);
-  curvesUi.livewire->setChecked(true);
-  m_imageWidget->setLivewire(true);
+  on_actionGraphCut_clicked(true);
+
+  //on_actionCurves_clicked(true);
+  //curvesUi.lwsettingpanel->setVisible(false);
+  //curvesUi.closed->setChecked(true);
+  //curvesUi.livewire->setChecked(true);
+  //m_imageWidget->setLivewire(true);
 
   ui.tagcurves->setText("-1");
   viewerUi.fibertags->setText("-1");
@@ -2126,10 +2130,13 @@ DrishtiPaint::connectViewerMenu()
   connect(viewerUi.updateSlices, SIGNAL(clicked()),
 	  m_viewer, SLOT(updateSlices()));
 
-  connect(viewerUi.raycastStyle, SIGNAL(currentIndexChanged(int)),
-	  m_viewer, SLOT(setRaycastStyle(int)));
-  connect(viewerUi.raycastStyle, SIGNAL(currentIndexChanged(int)),
-	  this, SLOT(lightOnOff(int)));
+  // disable full raycasting and xray option
+  viewerUi.raycastStyle->hide();
+//  connect(viewerUi.raycastStyle, SIGNAL(currentIndexChanged(int)),
+//	  m_viewer, SLOT(setRaycastStyle(int)));
+//  connect(viewerUi.raycastStyle, SIGNAL(currentIndexChanged(int)),
+//	  this, SLOT(lightOnOff(int)));
+
   connect(viewerUi.skipLayers, SIGNAL(valueChanged(int)),
 	  m_viewer, SLOT(setSkipLayers(int)));
   connect(viewerUi.nearest, SIGNAL(clicked(bool)),
@@ -2452,8 +2459,8 @@ DrishtiPaint::on_actionExtractTag_triggered()
   //----------------
 
   bool saveImageData = true;
-  int shiftVox = 0;
-  float scaleVox = 1.0;
+  int shiftVox = 128;
+  float scaleVox = 0.5;
 
   //----------------
   int extractType = 1; // extract using tag
@@ -2502,9 +2509,9 @@ DrishtiPaint::on_actionExtractTag_triggered()
       extractType = 9;
       bool ok;
       QString tagstr = QInputDialog::getText(0, "Merge Tag values with Tomogram",
-					     "Scale and shift tomogram values before merging tag values.\nSpecify two numbers - for e.g. 0.5 128 -> this means 0.5*tomoval + 128 + tagval\nFirst value is scaling factor between 0.0 and 1.0, and second value is shift factor between 0 and 255.\nDefault is 1.0 0.0 -> means no scaling and shifting of tomogram values",
+					     "Scale and shift tomogram values before merging tag values.\nSpecify two numbers - for e.g. 0.5 128 -> this means 0.5*tomoval + 128 + tagval\nFirst value is scaling factor between 0.0 and 1.0, and second value is shift factor between 0 and 255.\n1.0 0 -> means no scaling and shifting of tomogram values",
 					     QLineEdit::Normal,
-					     "1.0 0",
+					     "0.5 128",
 					     &ok);
       if (ok && !tagstr.isEmpty())
 	{

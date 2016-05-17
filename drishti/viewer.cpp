@@ -4811,7 +4811,7 @@ Viewer::processCommand(QString cmd)
 	  m_hiresVolume->resliceVolume(pos,
 				       Vec(0,0,-1), Vec(1,0,0), Vec(0,1,0),
 				       subsample,
-				       false, tagvalue);
+				       0, tagvalue);
 	}
       else
 	{
@@ -4820,7 +4820,7 @@ Viewer::processCommand(QString cmd)
 				       camera()->rightVector(),
 				       camera()->upVector(),
 				       subsample,
-				       false, tagvalue);
+				       0, tagvalue);
 	}
 
       return;

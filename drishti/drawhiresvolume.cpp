@@ -4880,7 +4880,7 @@ DrawHiresVolume::resliceVolume(Vec pos,
   int wd = (wmax-wmin+1)/subsample/vlod;
   int ht = (hmax-hmin+1)/subsample/vlod;
 
-  if (normal*Vec(0,0,-1) > 0.999)
+  if (normal*Vec(0,0,-1) > 0.999 && getVolumeSurfaceArea == 0)
     {
       bool ok;
       QString text;

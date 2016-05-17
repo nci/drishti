@@ -452,10 +452,14 @@ RcShaderFactory::genIsoRaycastShader(bool nearest,
   shader += "        {\n";
   shader += "           grad = normalize(grad);\n";
   shader += "           vec3 lightVec = viewDir;\n";
-  shader += "           float diff = abs(dot(lightVec, grad));\n";
   shader += "           vec3 reflecvec = reflect(lightVec, grad);\n";
   shader += "           float spec = pow(abs(dot(grad, reflecvec)), 512.0);\n";
-  shader += "           gl_FragData[1] = vec4(1.0,diff,spec,1.0);\n";
+  shader += "           gl_FragData[1] = vec4(1.0,0.0,spec,1.0);\n";
+  //------
+  // not passing through diffuse
+  //shader += "           float diff = abs(dot(lightVec, grad));\n";
+  //shader += "           gl_FragData[1] = vec4(1.0,diff,spec,1.0);\n";
+  //------
   shader += "        }\n";
   shader += "      else\n";
   shader += "        gl_FragData[1] = vec4(1.0,0.0,0.0,1.0);\n";

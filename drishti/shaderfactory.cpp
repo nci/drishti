@@ -1138,7 +1138,7 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
   if (tearPresent || cropPresent || pathCropPresent)
     shader += "  gl_FragColor.rgba = mix(gl_FragColor.rgba, vec4(0.0,0.0,0.0,0.0), feather);\n";
 
-  if (viewPresent) shader += "  blend(otexCoord, vg, gl_FragColor);\n";
+  if (viewPresent) shader += "  blend(false, otexCoord, vg, gl_FragColor);\n";
   
   if (pathViewPresent) shader += "pathblend(otexCoord, vg, gl_FragColor);\n";
   

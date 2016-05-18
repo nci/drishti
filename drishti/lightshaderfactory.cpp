@@ -1036,7 +1036,7 @@ LightShaderFactory::blend(QString blendShader)
   shader += "  v = v + dmin;\n";
 
   shader += "  vec4 fcol = op.bbbb;\n";
-  shader += "  blend(v, vg, fcol);\n";
+  shader += "  blend(false, v, vg, fcol);\n";
   shader += "  op.rgb = fcol.aaa;\n";
 
   shader += "  op.rgb *= texture2DRect(lightTex, gl_TexCoord[0].xy).xxx;\n";

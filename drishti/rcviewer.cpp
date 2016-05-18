@@ -221,8 +221,8 @@ RcViewer::loadLookupTable()
   glTexImage2D(GL_TEXTURE_2D,
 	       0, // single resolution
 	       GL_RGBA,
-	       //256, Global::lutSize()*256, // width, height
-	       256, 256,  // take only TF-0
+	       256, Global::lutSize()*256, // width, height
+	       //256, 256,  // take only TF-0
 	       0, // no border
 	       GL_RGBA,
 	       GL_UNSIGNED_BYTE,
@@ -291,6 +291,29 @@ RcViewer::generateBoxMinMax()
 void
 RcViewer::updateFilledBoxes()
 {
+  //------------------------------------
+  bool cropPresent = false;
+  bool tearPresent = false;
+  bool blendPresent = false;
+  bool glowPresent = false;
+  for(int i=0; i<m_crops.count(); i++)
+    if (m_crops[i].cropType() < CropObject::Tear_Tear)
+      cropPresent = true;
+    else if (m_crops[i].cropType() < CropObject::View_Tear)
+      tearPresent = true;
+    else if (m_crops[i].cropType() < CropObject::Glow_Ball)
+      blendPresent = true;
+    else
+      glowPresent = true;
+
+  for(int i=0; i<m_crops.count(); i++)
+    if (m_crops[i].cropType() >= CropObject::View_Tear &&
+	m_crops[i].cropType() <= CropObject::View_Block &&
+	m_crops[i].magnify() > 1.0)
+      tearPresent = true;
+  //------------------------------------
+
+
   int lmin = 255;
   int lmax = 0;
 
@@ -333,6 +356,7 @@ RcViewer::updateFilledBoxes()
       for(int h=0; h<m_hbox; h++)
 	{
 	  bool ok = true;
+
 	  // consider only current bounding box	 
 	  if ((d*m_boxSize < bminO.z && (d+1)*m_boxSize < bminO.z) ||
 	      (d*m_boxSize > bmaxO.z && (d+1)*m_boxSize > bmaxO.z) ||
@@ -342,49 +366,107 @@ RcViewer::updateFilledBoxes()
 	      (h*m_boxSize > bmaxO.x && (h+1)*m_boxSize > bmaxO.x))
 	    ok = false;
 	  
+
+	  Vec bmin = Vec(h*m_boxSize,w*m_boxSize,d*m_boxSize);
+	  Vec bmax = Vec((h+1)*m_boxSize,(w+1)*m_boxSize,(d+1)*m_boxSize);
+	  Vec box[8];
+	  box[0] = Vec(bmin.x,bmin.y,bmin.z);
+	  box[1] = Vec(bmin.x,bmin.y,bmax.z);
+	  box[2] = Vec(bmin.x,bmax.y,bmin.z);
+	  box[3] = Vec(bmin.x,bmax.y,bmax.z);
+	  box[4] = Vec(bmax.x,bmin.y,bmin.z);
+	  box[5] = Vec(bmax.x,bmin.y,bmax.z);
+	  box[6] = Vec(bmax.x,bmax.y,bmin.z);
+	  box[7] = Vec(bmax.x,bmax.y,bmax.z);
+	  
+	  for (int b=0; b<8; b++)
+	    box[b] = Matrix::xformVec(m_b0xform, box[b]);
+	      
+
+	  //--------------------------------
 	  // check whether clipped
-	  for(int ci=0; ci<cPos.count(); ci++)
+	  if (ok)
 	    {
-	      Vec cpo = cPos[ci];
-	      Vec cpn = cNorm[ci];
-	      
-	      Vec bmin = Vec(h*m_boxSize,w*m_boxSize,d*m_boxSize);
-	      Vec bmax = Vec((h+1)*m_boxSize,(w+1)*m_boxSize,(d+1)*m_boxSize);
-	      Vec box[8];
-	      box[0] = Vec(bmin.x,bmin.y,bmin.z);
-	      box[1] = Vec(bmin.x,bmin.y,bmax.z);
-	      box[2] = Vec(bmin.x,bmax.y,bmin.z);
-	      box[3] = Vec(bmin.x,bmax.y,bmax.z);
-	      box[4] = Vec(bmax.x,bmin.y,bmin.z);
-	      box[5] = Vec(bmax.x,bmin.y,bmax.z);
-	      box[6] = Vec(bmax.x,bmax.y,bmin.z);
-	      box[7] = Vec(bmax.x,bmax.y,bmax.z);
-	      
-	      for (int b=0; b<8; b++)
-		box[b] = Matrix::xformVec(m_b0xform, box[b]);
-	      
-	      int clipped = 0;
-	      for(int b=0; b<8; b++)
+	      for(int ci=0; ci<cPos.count(); ci++)
 		{
-		  if ((box[b]-cpo)*cpn > 0)
-		    clipped++;
-		}
-	      if (clipped == 8)
-		{
-		  ok = false;
-		  break;
+		  Vec cpo = cPos[ci];
+		  Vec cpn = cNorm[ci];
+		  
+		  int clipped = 0;
+		  for(int b=0; b<8; b++)
+		    {
+		      if ((box[b]-cpo)*cpn > 0)
+			clipped++;
+		    }
+		  if (clipped == 8)
+		    {
+		      ok = false;
+		      break;
+		    }
 		}
 	    }
-	      
+	  //--------------------------------	      
+
+	  //--------------------------------
+	  // check cropped
+	  if (ok && cropPresent)
+	    {
+	      int ncr = 0;
+	      for(int b=0; b<8; b++)
+		{
+		  Vec po = box[b];
+		  bool cropped = false;
+		  for(int ci=0; ci<m_crops.count(); ci++)
+		    {
+		      if (m_crops[ci].cropType() < CropObject::Tear_Tear)
+			// take union
+			cropped |= m_crops[ci].checkCropped(po);
+		    }
+		  if (cropped)
+		    ncr ++;
+		}
+	      if (ncr == 8)
+		ok = false;
+	    }
+	  //--------------------------------
+
 	  int idx = d*m_wbox*m_hbox+w*m_hbox+h;
 
 	  if (ok)
 	    {
+	      //--------------------------------
+	      // check blend
+	      int blended = 0;
+	      if (blendPresent)
+		{
+		  for(int b=0; b<8; b++)
+		    {
+		      Vec po = box[b];
+		      bool blend = false;
+		      for(int ci=0; ci<m_crops.count(); ci++)
+			{
+			  if (m_crops[ci].cropType() > CropObject::Displace_Displace &&
+			      m_crops[ci].cropType() < CropObject::Glow_Ball)
+			    {
+			      if (m_crops[ci].checkBlend(po) > 0)
+				blend = true;
+			    }
+			  if (blend)
+			    blended ++;
+			}
+		    }
+		}
+	      //--------------------------------
+
+
 	      int vmin = m_boxMinMax[2*idx+0];
 	      int vmax = m_boxMinMax[2*idx+1];
-	      if ((vmin < lmin && vmax < lmin) || 
-		  (vmin > lmax && vmax > lmax))
-		m_filledBoxes.setBit(idx, false);
+	      if (blended == 0 &&
+		  ((vmin < lmin && vmax < lmin) || 
+		   (vmin > lmax && vmax > lmax)))
+		{
+		  m_filledBoxes.setBit(idx, false);
+		}
 	    }
 	  else
 	    m_filledBoxes.setBit(idx, false);
@@ -593,6 +675,7 @@ RcViewer::createFirstHitShader()
   m_fhParm[8] = glGetUniformLocationARB(m_fhShader, "filledTex");
   m_fhParm[9] = glGetUniformLocationARB(m_fhShader, "ftsize");
   m_fhParm[10] = glGetUniformLocationARB(m_fhShader, "boxSize");
+  m_fhParm[11] = glGetUniformLocationARB(m_fhShader, "lod");
 }
 
 void
@@ -1476,6 +1559,7 @@ RcViewer::volumeRaycast(float minZ, float maxZ)
 //  glUniform1iARB(m_fhParm[8], 3); // filledTex
 //  glUniform3fARB(m_fhParm[9], m_hbox, m_wbox, m_dbox);
 //  glUniform1fARB(m_fhParm[10], m_boxSize); // boxSize
+//  glUniform1fARB(m_fhParm[11], m_sslevel); // lod
 //
 //  glActiveTexture(GL_TEXTURE3);
 //  glEnable(GL_TEXTURE_3D);

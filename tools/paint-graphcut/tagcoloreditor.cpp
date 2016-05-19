@@ -38,9 +38,20 @@ TagColorEditor::setColors()
 	colorItem->setCheckState(Qt::Unchecked);
       colorItem->setBackground(QColor(r,g,b));
       
-      int row = i/8;
-      int col = i%8;
-      table->setItem(row, col, colorItem);
+      //int row = i/8;
+      //int col = i%8; 
+      int row, col;
+      if (i == 0)
+	{
+	  row = 0;
+	  col = 0;
+	}
+      else
+	{
+	  row = 1 + (i-1)/5;
+	  col = (i-1)%5;
+	}
+     table->setItem(row, col, colorItem);
     }
 }
 
@@ -67,7 +78,8 @@ TagColorEditor::hideTagsClicked()
 void
 TagColorEditor::createGUI()
 {
-  table = new QTableWidget(32, 8);
+  //table = new QTableWidget(32, 8);
+  table = new QTableWidget(52, 5);
   table->resize(300, 300);
   table->setEditTriggers(QAbstractItemView::NoEditTriggers); // disable number editing
   table->verticalHeader()->hide();
@@ -146,7 +158,9 @@ TagColorEditor::newTagsClicked()
 void
 TagColorEditor::cellClicked(int row, int col)
 {
-  int index = row*8 + col;
+  //int index = row*8 + col;
+  int index = 0;
+  if (row > 0) index = 1 + (row-1)*5 + col;
 
   uchar *colors = Global::tagColors();
 
@@ -165,7 +179,10 @@ TagColorEditor::cellDoubleClicked(int row, int col)
   QTableWidgetItem *item = table->item(row, col);
   uchar *colors = Global::tagColors();
 
-  int index = row*8 + col;
+  //int index = row*8 + col;
+  int index = 0;
+  if (row > 0) index = 1 + (row-1)*5 + col;
+
   QColor clr = QColor(colors[4*index+0],
 		      colors[4*index+1],
 		      colors[4*index+2]);

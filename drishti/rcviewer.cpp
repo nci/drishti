@@ -422,7 +422,7 @@ RcViewer::updateFilledBoxes()
 			// take union
 			cropped |= m_crops[ci].checkCropped(po);
 		    }
-		  if (cropped)
+		  if (!cropped)
 		    ncr ++;
 		}
 	      if (ncr == 8)
@@ -1240,19 +1240,6 @@ RcViewer::surfaceRaycast(float minZ, float maxZ, bool firstPartOnly)
   glActiveTexture(GL_TEXTURE0);
   glEnable(GL_TEXTURE_2D);
   glBindTexture(GL_TEXTURE_2D, m_lutTex);
-//  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
-//  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
-//  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,GL_NEAREST);
-//  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,GL_NEAREST);
-//  glTexImage2D(GL_TEXTURE_2D,
-//	       0, // single resolution
-//	       GL_RGBA,
-//	       //256, Global::lutSize()*256, // width, height
-//	       256, 256,  // take only TF-0
-//	       0, // no border
-//	       GL_RGBA,
-//	       GL_UNSIGNED_BYTE,
-//	       m_lut);
 
   int wd = m_viewer->camera()->screenWidth();
   int ht = m_viewer->camera()->screenHeight();
@@ -1518,19 +1505,6 @@ RcViewer::volumeRaycast(float minZ, float maxZ)
 //  glActiveTexture(GL_TEXTURE0);
 //  glEnable(GL_TEXTURE_2D);
 //  glBindTexture(GL_TEXTURE_2D, m_lutTex);
-//  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
-//  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
-//  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,GL_NEAREST);
-//  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,GL_NEAREST);
-//  glTexImage2D(GL_TEXTURE_2D,
-//	       0, // single resolution
-//	       GL_RGBA,
-//	       //256, Global::lutSize()*256, // width, height
-//	       256, 256,  // take only TF-0
-//	       0, // no border
-//	       GL_RGBA,
-//	       GL_UNSIGNED_BYTE,
-//	       m_lut);
 //
 //
 //
@@ -1717,7 +1691,6 @@ RcViewer::vray()
   glUniform1iARB(m_rcParm[19], m_mixTag); // mixTag
   glUniform1iARB(m_rcParm[20], m_skipVoxels);
   glUniform1iARB(m_rcParm[21], 7); // color accumulation texture
-  //glUniform1iARB(m_rcParm[22], 100*m_maxRayLen); // max raytaced steps
   glUniform1iARB(m_rcParm[22], m_maxSteps); // max raytaced steps
 
   glDisable(GL_BLEND);

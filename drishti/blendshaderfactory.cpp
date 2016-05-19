@@ -129,14 +129,13 @@ BlendShaderFactory::generateBlend(QList<CropObject> crops,
 		}
 	      else if (nvol == 1)
 		{
-		  //shader += "if (sendTfSet)\n";
+		  shader += "if (sendTfSet && viewMix > 0.0)\n";
 		  shader += " {\n";
-		  shader += QString("   fragColor = (viewMix > 0.0) ? vec4(%1) : vec4(0.0);\n"). \
-		    arg(crops[ci].tfset());
+		  shader += QString("   fragColor = vec4(viewMix,%1,1.0,1.0);\n").arg(crops[ci].tfset());
 		  shader += "   return;\n";
 		  shader += " }\n";
-
-		  shader += QString("  vgc = vec2(vg.x, vg.y+float(%1));\n").	\
+		  
+		  shader += QString("  vgc = vec2(vg.x, vg.y+float(%1));\n"). \
 		    arg(float(crops[ci].tfset())/float(Global::lutSize()));
 		  shader += "  vcol = texture2D(lutTex, vgc);\n";
 		  if (crops[ci].unionBlend())
@@ -187,6 +186,8 @@ BlendShaderFactory::generateBlend(QList<CropObject> crops,
 	    }
 	}
     }
+
+  shader += "if (sendTfSet) fragColor = vec4(0.0);\n";
 
   shader += "}\n\n";
   return shader;

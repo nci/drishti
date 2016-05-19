@@ -397,6 +397,7 @@ RcShaderFactory::genIsoRaycastShader(bool nearest,
 
   shader += "  float val, gradlen;\n";
   shader += "  vec3 grad;\n";
+  shader += "  float tfSetToUse = 0.0;\n";
 
   shader += "  float feather = 0.0;\n";
   if (cropPresent)
@@ -428,21 +429,20 @@ RcShaderFactory::genIsoRaycastShader(bool nearest,
   shader += "      else\n";
   shader += "        colorSample = vec4(0.0);\n";
   shader += "    }\n";
+  if (viewPresent)
+    {
+      shader += QString("    vec2 vg = vec2(val,gradlen*%1);\n").arg(1.0/Global::lutSize());  
+      shader += "    vec4 cs=vec4(0.0);\n";
+      shader += "    blend(true, texCoord, vg, cs);\n";
+      shader += QString("    if (cs.x > 0.0) tfSetToUse = cs.y*%1;\n").arg(1.0/Global::lutSize());
+      shader += QString("    colorSample = texture2D(lutTex, vec2(val,gradlen*%1 + tfSetToUse));\n").arg(1.0/Global::lutSize());
+    }
   shader += "  }\n";
-  shader += "  else\n";  // feather
+  shader += "  else\n";  // cropped
   shader += "  {\n";
   shader += "    colorSample = vec4(0.0);\n";
   shader += "  }\n";  // feather
 
-  shader += "  float tfSetToUse = 0.0;\n";
-  if (viewPresent)
-    {
-      shader += QString("  vec2 vg = vec2(val,gradlen*%1);\n").arg(1.0/Global::lutSize());  
-      shader += "  vec4 cs=vec4(0.0);\n";
-      shader += "  blend(true, texCoord, vg, cs);\n";
-      shader += QString("  tfSetToUse = cs.x*%1;\n").arg(1.0/Global::lutSize());
-      shader += QString("  colorSample = texture2D(lutTex, vec2(val,gradlen*%1 + tfSetToUse));\n").arg(1.0/Global::lutSize());
-    }
 
   shader += "    colorSample.rgb *= colorSample.a;\n";
 
@@ -1003,7 +1003,6 @@ RcShaderFactory::genRaycastShader(bool nearest,
   shader +=      getGrad();
   shader += "    gradlen = length(grad);\n";
   shader += QString("    colorSample = texture2D(lutTex, vec2(val,gradlen*%1));\n").arg(1.0/Global::lutSize());
-	         
   shader += "    if (mixTag)\n";
   shader += "    {\n";
   shader += "      vec4 tagcolor = texture1D(tagTex, val);\n";
@@ -1012,11 +1011,19 @@ RcShaderFactory::genRaycastShader(bool nearest,
   shader += "      else\n";
   shader += "        colorSample = vec4(0.0);\n";
   shader += "    }\n";
+  if (viewPresent)
+    {
+      shader += QString("  vec2 vg = vec2(val,gradlen*%1);\n").arg(1.0/Global::lutSize());  
+      shader += "  vec4 cs=vec4(0.0);\n";
+      shader += "  blend(true, texCoord, vg, cs);\n";
+      shader += QString("  colorSample = mix(colorSample, texture2D(lutTex, vec2(val,(gradlen+cs.y)*%1)), cs.x);\n").arg(1.0/Global::lutSize());
+    }
   shader += "  }\n";
-  shader += "  else\n";  // feather
+  shader += "  else\n";  // cropped
   shader += "  {\n";
   shader += "    colorSample = vec4(0.0);\n";
   shader += "  }\n";  // feather
+
 
   shader += "  colorSample.a = 1.0-pow((1.0-colorSample.a),stplod);\n";
 
@@ -1217,6 +1224,13 @@ RcShaderFactory::genXRayShader(bool nearest,
 
   shader +=      getGrad();
   shader += QString("    colorSample = texture2D(lutTex, vec2(val,length(grad)*%1));\n").arg(1.0/Global::lutSize());
+  if (viewPresent)
+    {
+      shader += QString("  vec2 vg = vec2(val,length(grad)*%1);\n").arg(1.0/Global::lutSize());  
+      shader += "  vec4 cs=vec4(0.0);\n";
+      shader += "  blend(true, texCoord, vg, cs);\n";
+      shader += QString("  colorSample = mix(colorSample, texture2D(lutTex, vec2(val,(length(grad)+cs.y)*%1)), cs.x);\n").arg(1.0/Global::lutSize());
+    }
   shader += "  }\n";
   shader += "  else\n";  // feather
   shader += "  {\n";

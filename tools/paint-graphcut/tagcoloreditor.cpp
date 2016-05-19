@@ -158,6 +158,9 @@ TagColorEditor::newTagsClicked()
 void
 TagColorEditor::cellClicked(int row, int col)
 {
+  if (row == 0 && col > 0)
+    return;
+
   //int index = row*8 + col;
   int index = 0;
   if (row > 0) index = 1 + (row-1)*5 + col;
@@ -176,6 +179,9 @@ TagColorEditor::cellClicked(int row, int col)
 void
 TagColorEditor::cellDoubleClicked(int row, int col)
 {
+  if (row == 0 && col > 0)
+    return;
+
   QTableWidgetItem *item = table->item(row, col);
   uchar *colors = Global::tagColors();
 

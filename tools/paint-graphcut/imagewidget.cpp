@@ -194,13 +194,19 @@ ImageWidget::showTags(QList<int> t)
       uchar r = tagColors[4*i+0];
       uchar g = tagColors[4*i+1];
       uchar b = tagColors[4*i+2];
-      if (!m_fiberMode ||
-	  m_showTags.count() == 0 ||
-	  m_showTags[0] == -1 ||
-	  m_showTags.contains(i))
+//      if (!m_fiberMode ||
+//	  m_showTags.count() == 0 ||
+//	  m_showTags[0] == -1 ||
+//	  m_showTags.contains(i))
+//	m_tagColors[i] = qRgba(r, g, b, 127);
+//      else
+//	m_tagColors[i] = qRgba(r, g, b, 20);
+
+      uchar a = tagColors[4*i+3];
+      if (a > 2)
 	m_tagColors[i] = qRgba(r, g, b, 127);
       else
-	m_tagColors[i] = qRgba(r, g, b, 20);
+	m_tagColors[i] = qRgba(r, g, b, 50);
     }
 
 
@@ -487,13 +493,19 @@ ImageWidget::updateTagColors()
       uchar r = tagColors[4*i+0];
       uchar g = tagColors[4*i+1];
       uchar b = tagColors[4*i+2];
-      if (!m_fiberMode ||
-	  m_showTags.count() == 0 ||
-	  m_showTags[0] == -1 ||
-	  m_showTags.contains(i))
+//      if (!m_fiberMode ||
+//	  m_showTags.count() == 0 ||
+//	  m_showTags[0] == -1 ||
+//	  m_showTags.contains(i))
+//	m_tagColors[i] = qRgba(r, g, b, 127);
+//      else
+//	m_tagColors[i] = qRgba(r, g, b, 20);
+
+      uchar a = tagColors[4*i+3];
+      if (a > 2)
 	m_tagColors[i] = qRgba(r, g, b, 127);
       else
-	m_tagColors[i] = qRgba(r, g, b, 20);
+	m_tagColors[i] = qRgba(r, g, b, 50);
     }
 
 
@@ -1407,14 +1419,13 @@ ImageWidget::drawRawValue(QPainter *p)
   int xp = m_cursorPos.x();
   int yp = m_cursorPos.y();
 
-  str = QString("%1 %2 %3").\
+  str = QString("%1 %2 %3 :").\
           arg(m_pickHeight).\
           arg(m_pickWidth).\
           arg(m_pickDepth);
     
-  str += QString(" vg(%1,%2) t(%3)").\
+  str += QString(" val(%1) tag(%2)").\
 	     arg(m_vgt[0]).\
-	     arg(m_vgt[1]).\
 	     arg(m_vgt[2]);
 
   QFont pfont = QFont("Helvetica", 10);

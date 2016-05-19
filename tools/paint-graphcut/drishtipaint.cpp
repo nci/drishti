@@ -592,6 +592,8 @@ DrishtiPaint::tagSelected(int t)
 {
   Global::setTag(t);
   ui.tag->setValue(t);
+
+  m_imageWidget->updateTagColors();
 }
 
 void

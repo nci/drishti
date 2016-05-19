@@ -49,6 +49,11 @@ Mark pixels red with value 255 for background selection.  Pure black/transparent
 #end
 
 #begin
+Shift + Right mouse 
+Display voxel coordinate, voxel value and tag value.
+#end
+
+#begin
 Alt + Left mouse
 Define bounding box.
 #end

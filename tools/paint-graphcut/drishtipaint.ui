@@ -255,7 +255,7 @@
            <item>
             <widget class="QLabel" name="label_13">
              <property name="text">
-              <string>Show Tags</string>
+              <string>Curves</string>
              </property>
             </widget>
            </item>

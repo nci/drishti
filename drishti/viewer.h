@@ -217,7 +217,7 @@ class Viewer : public QGLViewer
   bool m_useFBO;
   bool m_saveSnapshots;
   QString m_imageFileName;
-  
+
   int m_imageMode;
   bool m_saveMovie;
 #ifdef USE_GLMEDIA

@@ -1066,25 +1066,26 @@ Viewer::updateLookupTable()
       return;
     }
 
-  //--------------
-  // check whether emptyspaceskip data structure
-  // needs to be reevaluated
-  bool prune = false;
-  if (Global::volumeType() != Global::RGBVolume &&
-      Global::volumeType() != Global::RGBAVolume)
-    {
-      for (int i=0; i<Global::lutSize()*256*256; i++)
-	{
-	  bool pl = m_prevLut[4*i+3] > 0;
-	  bool ml = m_lut[4*i+3] > 0;
-	  if (pl != ml)
-	    {
-	      prune = true;
-	      break;
-	    }
-	}
-    }
-
+//  //--------------
+//  // check whether emptyspaceskip data structure
+//  // needs to be reevaluated
+//  bool prune = false;
+//  if (Global::volumeType() != Global::RGBVolume &&
+//      Global::volumeType() != Global::RGBAVolume)
+//    {
+//      for (int i=0; i<Global::lutSize()*256*256; i++)
+//	{
+//	  bool pl = m_prevLut[4*i+3] > 0;
+//	  bool ml = m_lut[4*i+3] > 0;
+//	  if (pl != ml)
+//	    {
+//	      prune = true;
+//	      break;
+//	    }
+//	}
+//    }
+//  //--------------
+  
   //--------------
   // check whether light data structure
   // needs to be reevaluated
@@ -1137,9 +1138,11 @@ Viewer::updateLookupTable()
   else 
     memcpy(lut, m_lut, Global::lutSize()*4*256*256);
 
+//  if (Global::emptySpaceSkip() &&
+//      m_hiresVolume->raised() &&
+//      prune)
   if (Global::emptySpaceSkip() &&
-      m_hiresVolume->raised() &&
-      prune)
+      m_hiresVolume->raised())
     {
       if (Global::updatePruneTexture())
 	m_hiresVolume->updateAndLoadPruneTexture();
@@ -5840,6 +5843,7 @@ void
 Viewer::setVolDataPtr(VolumeFileManager *ptr)
 {
   m_raycastMenu->hide();
+  m_rcViewer.activateBounds(false);
   m_rcViewer.init();
   m_rcViewer.setVolDataPtr(ptr);
   if (ptr)

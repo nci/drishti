@@ -2799,8 +2799,9 @@ DrishtiPaint::on_actionExtractTag_triggered()
 	  else // extract Tomogram + Tags
 	    {
 	      // scale and shift tomogram
+	      // clamp between (0,255)
 	      for(int i=0; i<twidth*theight; i++)
-		slice[i] = scaleVox*slice[i] + shiftVox;
+		slice[i] = qMin(qMax((int)(scaleVox*slice[i] + shiftVox), 0), 255);
 	      // merge in tag values
 	      for(int i=0; i<twidth*theight; i++)
 		{

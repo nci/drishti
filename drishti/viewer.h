@@ -87,6 +87,7 @@ class Viewer : public QGLViewer
   void setTag(int);
   void setCarveRadius(int);
   void updateLightBuffers();
+  void updatePruneBuffer(bool);
   void displayMessage(QString, bool);
   void showFullScene();
   void updateStereoSettings(float, float, float);
@@ -242,6 +243,7 @@ class Viewer : public QGLViewer
   GLint m_copyParm[5];
 
   bool m_mouseDrag;
+  bool m_updatePruneBuffer;
   QPoint m_mousePressPos;
   QPoint m_mousePrevPos;
 

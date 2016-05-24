@@ -54,6 +54,9 @@ connect(m_keyFrame, SIGNAL(updateFocus(float, float)),
   connect(m_keyFrame, SIGNAL(updateLightBuffers()),
 	  m_Viewer, SLOT(updateLightBuffers()));
 
+  connect(m_keyFrame, SIGNAL(updatePruneBuffer(bool)),
+	  m_Viewer, SLOT(updatePruneBuffer(bool)));
+
   connect(m_keyFrame, SIGNAL(replaceKeyFrameImage(int)),
 	  m_Viewer, SLOT(captureKeyFrameImage(int)));
 

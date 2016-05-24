@@ -425,18 +425,17 @@ PruneHandler::getPruneBuffer()
 void
 PruneHandler::setPruneBuffer(QByteArray cpb, bool compressed)
 {
-  if (cpb.isEmpty())
-    {
-      // reset channel 2
-      //QMessageBox::information(0, "", "reset channel 2");
-      setValue(0, 2, 0, 255);
-      setValue(0, 1, 0, 255);
-      m_mopActive = false;
-      return;
-    }
+//  if (cpb.isEmpty())
+//    {
+//      // reset channel 2
+//      //QMessageBox::information(0, "", "reset channel 2");
+//      setValue(0, 2, 0, 255);
+//      setValue(0, 1, 0, 255);
+//      m_mopActive = false;
+//      return;
+//    }
 
   //QMessageBox::information(0, "", "setprunebuffer");
-
   //copyToFromSavedChannel(true, 0, 0, false); // save current channel 0
   
   m_mopActive = true;

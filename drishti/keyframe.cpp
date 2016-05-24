@@ -944,9 +944,14 @@ KeyFrame::playSavedKeyFrame()
 			fop, bop);
 
   QByteArray pb = m_savedKeyFrame.pruneBuffer();
-  //if (! pb.isEmpty())
-    PruneHandler::setPruneBuffer(pb);
-
+  if (! pb.isEmpty())
+    {
+      emit updatePruneBuffer(false);
+      PruneHandler::setPruneBuffer(pb);
+    }
+  else
+    emit updatePruneBuffer(true);
+  
   Global::enableViewerUpdate();
   MainWindowUI::changeDrishtiIcon(true);
   Global::setPlayFrames(true);
@@ -1096,8 +1101,13 @@ KeyFrame::playFrameNumber(int fno)
 				fop, bop);
 
 	  QByteArray pb = m_keyFrameInfo[kf]->pruneBuffer();
-	  //if (! pb.isEmpty())
-	    PruneHandler::setPruneBuffer(pb);
+	  if (! pb.isEmpty())
+	    {
+	      emit updatePruneBuffer(false);
+	      PruneHandler::setPruneBuffer(pb);
+	    }
+	  else
+	    emit updatePruneBuffer(true);
 
 	  Global::enableViewerUpdate();
 	  MainWindowUI::changeDrishtiIcon(true);
@@ -1255,8 +1265,13 @@ KeyFrame::playFrameNumber(int fno)
 			fop, bop);
 
   QByteArray pb = keyFrameInfo.pruneBuffer();
-  //if (! pb.isEmpty())
-    PruneHandler::setPruneBuffer(pb);
+  if (! pb.isEmpty())
+    {
+      emit updatePruneBuffer(false);
+      PruneHandler::setPruneBuffer(pb);
+    }
+  else
+    emit updatePruneBuffer(true);
 
   Global::enableViewerUpdate();
   MainWindowUI::changeDrishtiIcon(true);

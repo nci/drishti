@@ -1066,25 +1066,25 @@ Viewer::updateLookupTable()
       return;
     }
 
-//  //--------------
-//  // check whether emptyspaceskip data structure
-//  // needs to be reevaluated
-//  bool prune = false;
-//  if (Global::volumeType() != Global::RGBVolume &&
-//      Global::volumeType() != Global::RGBAVolume)
-//    {
-//      for (int i=0; i<Global::lutSize()*256*256; i++)
-//	{
-//	  bool pl = m_prevLut[4*i+3] > 0;
-//	  bool ml = m_lut[4*i+3] > 0;
-//	  if (pl != ml)
-//	    {
-//	      prune = true;
-//	      break;
-//	    }
-//	}
-//    }
-//  //--------------
+  //--------------
+  // check whether emptyspaceskip data structure
+  // needs to be reevaluated
+  bool prune = false;
+  if (Global::volumeType() != Global::RGBVolume &&
+      Global::volumeType() != Global::RGBAVolume)
+    {
+      for (int i=0; i<Global::lutSize()*256*256; i++)
+	{
+	  bool pl = m_prevLut[4*i+3] > 0;
+	  bool ml = m_lut[4*i+3] > 0;
+	  if (pl != ml)
+	    {
+	      prune = true;
+	      break;
+	    }
+	}
+    }
+  //--------------
   
   //--------------
   // check whether light data structure
@@ -1138,19 +1138,17 @@ Viewer::updateLookupTable()
   else 
     memcpy(lut, m_lut, Global::lutSize()*4*256*256);
 
-//  if (Global::emptySpaceSkip() &&
-//      m_hiresVolume->raised() &&
-//      prune)
   if (Global::emptySpaceSkip() &&
-      m_hiresVolume->raised())
+      m_hiresVolume->raised() &&
+      prune)
     {
-      if (Global::updatePruneTexture())
-	m_hiresVolume->updateAndLoadPruneTexture();
-      
-      //dummydraw();
-      bool fboBound = bindFBOs(Enums::StillImage);
-      releaseFBOs(Enums::StillImage);
-      //if (fboBound) releaseFBOs(Enums::StillImage);
+      m_updatePruneBuffer = true;
+
+//      if (Global::updatePruneTexture())
+//	m_hiresVolume->updateAndLoadPruneTexture();
+//      
+//      bool fboBound = bindFBOs(Enums::StillImage);
+//      releaseFBOs(Enums::StillImage);
     }
   
   loadLookupTable(lut);
@@ -1160,10 +1158,8 @@ Viewer::updateLookupTable()
     {
       LightHandler::setLut(m_lut);
       m_hiresVolume->initShadowBuffers(true);
-      //dummydraw();
       bool fboBound = bindFBOs(Enums::StillImage);
       releaseFBOs(Enums::StillImage);
-      //if (fboBound) releaseFBOs(Enums::StillImage);
     }
 
 
@@ -2520,12 +2516,24 @@ Viewer::fastDraw()
   grabBackBufferImage();
 }
 
+void Viewer::updatePruneBuffer(bool b)
+{
+  m_updatePruneBuffer = b;
+}
+
 void
 Viewer::updateLightBuffers()
 {
   if (Global::volumeType() == Global::DummyVolume)
     return;
 
+  // update prune buffer
+  if (m_updatePruneBuffer)
+    {
+      m_updatePruneBuffer = false;
+      m_hiresVolume->updateAndLoadPruneTexture();
+    }
+  
   QList<Vec> cpos, cnorm;
   m_hiresVolume->getClipForMask(cpos, cnorm);
   bool redolighting = LightHandler::checkClips(cpos, cnorm);
@@ -2579,6 +2587,13 @@ Viewer::draw()
   if (Global::volumeType() != Global::DummyVolume &&
       !m_rcMode)
     {
+      // update prune buffer
+      if (m_updatePruneBuffer)
+	{
+	  m_updatePruneBuffer = false;
+	  m_hiresVolume->updateAndLoadPruneTexture();
+	}
+
       QList<Vec> cpos, cnorm;
       m_hiresVolume->getClipForMask(cpos, cnorm);
       bool redolighting = LightHandler::checkClips(cpos, cnorm);

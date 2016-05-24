@@ -102,6 +102,7 @@ class KeyFrame : public QObject
   void updateMorph(bool);
   void replaceKeyFrameImage(int);
   void addKeyFrameNumbers(QList<int>);
+  void updatePruneBuffer(bool);
 
  private :
   QList<CameraPathNode*> m_cameraList;

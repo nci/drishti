@@ -274,7 +274,8 @@ RcShaderFactory::addLighting()
   shader += "    float diff = abs(dot(lightVec, grad));\n";
   shader += "    vec3 reflecvec = reflect(lightVec, grad);\n";
   shader += "    float spec = pow(abs(dot(grad, reflecvec)), 512.0);\n";
-  shader += "    colorSample.rgb *= (0.6 + 0.4*diff + spec);\n";
+  //shader += "    colorSample.rgb *= (0.6 + 0.4*diff + spec);\n";
+  shader += "   colorSample.rgb *= dot(lightparm, vec3(1.0,diff,spec));\n";
   shader += "    if (any(greaterThan(colorSample.rgb,vec3(1.0,1.0,1.0)))) \n";
   shader += "      colorSample.rgb = vec3(1.0,1.0,1.0);\n";
   shader += "  }\n";
@@ -897,6 +898,7 @@ RcShaderFactory::genRaycastShader(bool nearest,
   shader += "uniform vec3 vcorner;\n";
   shader += "uniform vec3 vsize;\n";
   shader += "uniform int skipLayers;\n";
+  shader += "uniform vec3 lightparm;\n";
   shader += "uniform sampler2DRect entryTex;\n";
   shader += "uniform vec3 ftsize;\n";
   shader += "uniform float boxSize;\n";  
@@ -1128,6 +1130,7 @@ RcShaderFactory::genXRayShader(bool nearest,
   shader += "uniform vec3 vcorner;\n";
   shader += "uniform vec3 vsize;\n";
   shader += "uniform int skipLayers;\n";
+  shader += "uniform vec3 lightparm;\n";
   shader += "uniform sampler2DRect entryTex;\n";
   shader += "uniform vec3 ftsize;\n";
   shader += "uniform float boxSize;\n";  

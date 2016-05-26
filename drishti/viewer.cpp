@@ -702,16 +702,44 @@ Viewer::setupRaycastLightParameters()
   connect(m_edgeButton, SIGNAL(clicked()),
 	  &m_rcViewer, SLOT(setEdgeColor()));
 
+  //-----------------------
   m_raylen = new PopUpSlider(this, Qt::Horizontal);
   m_raylen->setText("Ray Length");
   m_raylen->setRange(1, 10);
-  m_raylen->setValue(1);
+  m_raylen->setValue(5);
+  //-----------------------
+
+  //-----------------------
+  m_amb = new PopUpSlider(this, Qt::Horizontal);
+  m_amb->setText("Ambient");
+  m_amb->setRange(0, 10);
+  m_amb->setValue(10);
+
+  m_diff = new PopUpSlider(this, Qt::Horizontal);
+  m_diff->setText("Diffuse");
+  m_diff->setRange(0, 10);
+  m_diff->setValue(0);
+
+  m_spec = new PopUpSlider(this, Qt::Horizontal);
+  m_spec->setText("Specular");
+  m_spec->setRange(0, 10);
+  m_spec->setValue(10);
+  //-----------------------
 
   m_raycastUI.popupRay->setMargin(2);
   m_raycastUI.popupRay->addWidget(m_raylen);
+  m_raycastUI.popupRay->addWidget(m_amb);
+  m_raycastUI.popupRay->addWidget(m_diff);
+  m_raycastUI.popupRay->addWidget(m_spec);
 
   connect(m_raylen, SIGNAL(valueChanged(int)),
 	  &m_rcViewer, SLOT(setMaxRayLen(int)));
+  connect(m_amb, SIGNAL(valueChanged(int)),
+	  &m_rcViewer, SLOT(setAmbient(int)));
+  connect(m_diff, SIGNAL(valueChanged(int)),
+	  &m_rcViewer, SLOT(setDiffuse(int)));
+  connect(m_spec, SIGNAL(valueChanged(int)),
+	  &m_rcViewer, SLOT(setSpecular(int)));
 
   m_raycastUI.raycastBox->setVisible(false);
 

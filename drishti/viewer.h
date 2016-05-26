@@ -195,6 +195,9 @@ class Viewer : public QGLViewer
   QPushButton *m_edgeButton;
 
   PopUpSlider *m_raylen;
+  PopUpSlider *m_amb;
+  PopUpSlider *m_diff;
+  PopUpSlider *m_spec;
 
   ViewerUndo m_undo;
 

@@ -82,6 +82,9 @@ class RcViewer : public QObject
     void setStillAndDragStep(float, float);
     void setEdgeThickness(int e) { m_edgeThickness = 0.1*e; m_viewer->update(); }
     void setMaxRayLen(int r) { m_maxRayLen = r; }
+    void setAmbient(int r) { m_amb = r; }
+    void setDiffuse(int r) { m_diff = r; }
+    void setSpecular(int r) { m_spec = r; }
     
  private :
 
@@ -104,7 +107,7 @@ class RcViewer : public QObject
   QList<int> m_boxMinMax;
   MyBitArray m_filledBoxes;
 
-  float m_amb, m_diff, m_spec;
+  int m_amb, m_diff, m_spec;
   int m_shadow;
   float m_edge;
   Vec m_shadowColor, m_edgeColor;

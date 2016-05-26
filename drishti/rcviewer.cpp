@@ -41,9 +41,9 @@ RcViewer::RcViewer() :
   m_filledTex = 0;
   m_ftBoxes = 0;
 
-  m_amb = 1.0;
-  m_diff = 0.0;
-  m_spec = 1.0;
+  m_amb = 10;
+  m_diff = 0;
+  m_spec = 10;
   m_shadow = 10;
   m_edge = 7.0;
   m_shdX = 0;
@@ -61,7 +61,7 @@ RcViewer::RcViewer() :
 
   m_crops.clear();
 
-  m_maxRayLen = 1;
+  m_maxRayLen = 5;
 
   init();
 }
@@ -751,6 +751,7 @@ RcViewer::createRaycastShader()
   m_rcParm[6] = glGetUniformLocationARB(m_rcShader, "vcorner");
   m_rcParm[7] = glGetUniformLocationARB(m_rcShader, "vsize");
   m_rcParm[8] = glGetUniformLocationARB(m_rcShader, "lod");
+  m_rcParm[9] = glGetUniformLocationARB(m_rcShader, "lightparm");
   //m_rcParm[10]= glGetUniformLocationARB(m_rcShader, "maskTex");
   m_rcParm[12]= glGetUniformLocationARB(m_rcShader, "skipLayers");
   m_rcParm[13]= glGetUniformLocationARB(m_rcShader, "tagTex");
@@ -1338,7 +1339,8 @@ RcViewer::surfaceRaycast(float minZ, float maxZ, bool firstPartOnly)
   glUniform1iARB(m_eeParm[6], 5); // tagtex
   glUniform1iARB(m_eeParm[7], 0); // luttex
   glUniform1iARB(m_eeParm[8], 2); // pos, val, tag tex (slctex[sdtex])
-  glUniform3fARB(m_eeParm[9], m_amb, m_diff, m_spec); // lightparm
+  //glUniform3fARB(m_eeParm[9], m_amb*0.1, m_diff*0.1, m_spec*0.1); // lightparm
+  glUniform3fARB(m_eeParm[9], 1.0, 0.0, 1.0); // lightparm
   glUniform1iARB(m_eeParm[10], m_shadow); // shadows
   glUniform3fARB(m_eeParm[11], m_shadowColor.x/255,
 		 m_shadowColor.y/255,
@@ -1682,7 +1684,8 @@ RcViewer::vray()
   glUniform3fARB(m_rcParm[6], subvolcorner.x, subvolcorner.y, subvolcorner.z);
   glUniform3fARB(m_rcParm[7], m_vsize.x, m_vsize.y, m_vsize.z);
   glUniform1iARB(m_rcParm[8], m_sslevel); // max raytaced steps
-  glUniform1iARB(m_rcParm[12],0); // skip first layers
+  glUniform3fARB(m_rcParm[9], m_amb*0.1, m_diff*0.1, m_spec*0.1); // lightparm
+  glUniform1iARB(m_rcParm[12],m_skipLayers); // skip first layers
   glUniform1iARB(m_rcParm[14],6); // slcTex[2] - contains refined entry coordinates
   glUniform1iARB(m_rcParm[16],3); // filledTex
   glUniform3fARB(m_rcParm[17], m_hbox, m_wbox, m_dbox);

@@ -626,11 +626,13 @@ Viewer::raycastLightOnOff(int voxchoice)
     {
       m_raycastUI.surfaceBox->setVisible(false);
       m_raycastUI.raycastBox->setVisible(true);
+      m_spec->setValue(m_rcViewer.spec());
     }
   else
     {
       m_raycastUI.surfaceBox->setVisible(true);
       m_raycastUI.raycastBox->setVisible(false);
+      m_viewSpec->setValue(m_rcViewer.spec());
     }
 }
 

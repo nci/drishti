@@ -47,6 +47,8 @@ class RcViewer : public QObject
   bool exactCoord() { return m_exactCoord; }
   int skipLayers() { return m_skipLayers; }
   int skipVoxels() { return m_skipVoxels; }
+  int amb() { return m_amb; }
+  int diff() { return m_diff; }
   int spec() { return m_spec; }
   int edge() { return m_edge; }
   int shadow() { return m_shadow; }
@@ -72,7 +74,7 @@ class RcViewer : public QObject
     void setSkipVoxels(int l) { m_skipVoxels = l; m_viewer->update(); }
     void setShadowColor();
     void setEdgeColor();
-    void setSpec(int a) { m_spec = (float)a/10.0f; m_viewer->update(); }
+    void setSpec(int a) { m_spec = a; m_viewer->update(); }
     void setEdge(int e) { m_edge = e; m_viewer->update(); }
     void setShadow(int e) { m_shadow = e; m_viewer->update(); }
     void setSmoothDepth(int e) { m_smoothDepth = e; m_viewer->update(); }

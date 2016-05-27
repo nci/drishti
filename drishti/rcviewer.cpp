@@ -1340,7 +1340,7 @@ RcViewer::surfaceRaycast(float minZ, float maxZ, bool firstPartOnly)
   glUniform1iARB(m_eeParm[7], 0); // luttex
   glUniform1iARB(m_eeParm[8], 2); // pos, val, tag tex (slctex[sdtex])
   //glUniform3fARB(m_eeParm[9], m_amb*0.1, m_diff*0.1, m_spec*0.1); // lightparm
-  glUniform3fARB(m_eeParm[9], 1.0, 0.0, 1.0); // lightparm
+  glUniform3fARB(m_eeParm[9], 1.0, 0.0, m_spec*0.1); // lightparm
   glUniform1iARB(m_eeParm[10], m_shadow); // shadows
   glUniform3fARB(m_eeParm[11], m_shadowColor.x/255,
 		 m_shadowColor.y/255,

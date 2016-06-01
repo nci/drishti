@@ -20,6 +20,24 @@ Similar to merge, except the operation is carried out only within the visible po
 
 
 #begin
+taginterior
+taginterior <tag>
+
+Fill visible region with tag.  Visible portion as defined by transfer function is that region where opacity is greater than 0.
+
+#end
+
+
+#begin
+tagshell
+tagshell <tag> <thickness>
+
+Fill boundary of the visible region with tag.  The width of boundary is decided by the thickness value. Visible portion as defined by transfer function is that region where opacity is greater than 0.
+
+#end
+
+
+#begin
 setvisible
 setvisible <tag1>
 

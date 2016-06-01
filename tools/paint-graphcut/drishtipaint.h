@@ -145,6 +145,8 @@ class DrishtiPaint : public QMainWindow
   void getEdgeColor();
   void getBGColor();
 
+  void tagInterior(Vec, Vec, int, bool, int);
+
  private :
   Ui::DrishtiPaint ui;
   Ui::ViewerMenu viewerUi;

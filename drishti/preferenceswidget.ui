@@ -60,7 +60,7 @@ p, li { white-space: pre-wrap; }
             <number>128</number>
            </property>
            <property name="maximum">
-            <number>16384</number>
+            <number>65535</number>
            </property>
            <property name="singleStep">
             <number>32</number>

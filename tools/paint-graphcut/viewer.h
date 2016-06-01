@@ -124,6 +124,8 @@ class Viewer : public QGLViewer
     void updateSliceBounds(Vec, Vec);
     void renderNextFrame();
 
+    void tagInterior(Vec, Vec, int, bool, int);
+
  private :
   Ui::ViewerMenu *m_UI;
 

@@ -131,6 +131,7 @@ class ImageWidget : public QWidget
   void showTags(QList<int>);
 
   void shrinkwrapPaintedRegion();
+  void shrinkwrapVisibleRegion();
 
  signals :
   void saveWork();

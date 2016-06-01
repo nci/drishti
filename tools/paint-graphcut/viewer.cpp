@@ -1013,6 +1013,55 @@ Viewer::processCommand(QString cmd)
   cmd = cmd.toLower();
   QStringList list = cmd.split(" ", QString::SkipEmptyParts);
  
+  if (list[0].contains("taginterior"))
+    {
+      int tag1 = Global::tag();
+      if (list.size() == 2)
+	{
+	  tag1 = list[1].toInt(&ok);
+	  if (tag1 < 0 || tag1 > 255)
+	    {
+	      QMessageBox::information(0, "", QString("Incorrect tags specified : %1").\
+				       arg(tag1));
+	      return;
+	    }
+	}
+      Vec bmin, bmax;
+      m_boundingBox.bounds(bmin, bmax);
+      emit tagInterior(bmin, bmax, tag1, false, 1);
+      return;
+    }
+
+  if (list[0].contains("tagshell"))
+    {
+      int tag1 = Global::tag();
+      int width = 1;
+      if (list.size() >= 2)
+	{
+	  tag1 = list[1].toInt(&ok);
+	  if (tag1 < 0 || tag1 > 255)
+	    {
+	      QMessageBox::information(0, "", QString("Incorrect tags specified : %1").\
+				       arg(tag1));
+	      return;
+	    }
+	}
+      if (list.size() >= 3)
+	{
+	  width = list[2].toInt(&ok);
+	  if (width < 0)
+	    {
+	      QMessageBox::information(0, "", QString("Incorrect width specified : %1").\
+				       arg(width));
+	      return;
+	    }
+	}
+      Vec bmin, bmax;
+      m_boundingBox.bounds(bmin, bmax);
+      emit tagInterior(bmin, bmax, tag1, true, width);
+      return;
+    }
+
   if (list[0].contains("setvisible"))
     {
       if (list.size() == 2)

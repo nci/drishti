@@ -632,7 +632,7 @@ RcShaderFactory::genEdgeEnhanceShader()
   shader += "      {\n";
   shader += "        int x = int(r*sin(theta));\n";
   shader += "        int y = int(r*cos(theta));\n";
-  shader += "        vec2 pos = spos0 + vec2(i*0.05,i*0.05)*shdoffset + vec2(x,y);\n";
+  shader += "        vec2 pos = spos0 + vec2(float(i)*0.05,float(i)*0.05)*shdoffset + vec2(x,y);\n";
   shader += "        float od = depth - texture2DRect(pvtTex, pos).x;\n";
   shader += "        float wt = abs(spos0.x-pos.x)+abs(spos0.y-pos.y);\n";
   shader += "        float ege = wt*0.0005;\n";
@@ -656,7 +656,7 @@ RcShaderFactory::genEdgeEnhanceShader()
   shader += "      int j = 0;\n";
   shader += "      for(int i=0; i<128; i++)\n";
   shader += "      {\n";
-  shader += "        vec2 pos = spos0 + vec2(i*0.05,i*0.05)*shdoffset + r*pso;\n";
+  shader += "        vec2 pos = spos0 + vec2(float(i)*0.05,float(i)*0.05)*shdoffset + r*pso;\n";
   shader += "        float od = depth - texture2DRect(pvtTex, pos).x;\n";
   shader += "        float wt = abs(spos0.x-pos.x)+abs(spos0.y-pos.y);\n";
   shader += "        float ege = wt*0.0005;\n";

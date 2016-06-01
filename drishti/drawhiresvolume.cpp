@@ -3605,6 +3605,11 @@ DrawHiresVolume::drawPathInViewport(int pathOffset, Vec lpos, float depthcue,
   int lightlod = 0;
   glUniform1iARB(parm[40], lightlod); // lightlod
 
+  // use only ambient component
+  glUniform1fARB(parm[7], 1.0);
+  glUniform1fARB(parm[8], 0.0);
+  glUniform1fARB(parm[9], 0.0);
+
   if (slabend > 1)
     setShader2DTextureParameter(true, defaultShader);
   else
@@ -3844,6 +3849,11 @@ DrawHiresVolume::drawPathInViewport(int pathOffset, Vec lpos, float depthcue,
   LightHandler::lightBufferInfo(lightgridx, lightgridy, lightgridz,
 				lightnrows, lightncols, lightlod);
   glUniform1iARB(parm[40], lightlod); // lightlod
+
+  // restore lighting
+  glUniform1fARB(parm[7], m_lightInfo.highlights.ambient);
+  glUniform1fARB(parm[8], m_lightInfo.highlights.diffuse);
+  glUniform1fARB(parm[9], m_lightInfo.highlights.specular);
 }
 
 void
@@ -3904,6 +3914,11 @@ DrawHiresVolume::drawClipPlaneInViewport(int clipOffset, Vec lpos, float depthcu
   // lightlod 0 means use basic lighting model
   int lightlod = 0;
   glUniform1iARB(parm[40], lightlod); // lightlod
+
+  // use only ambient component
+  glUniform1fARB(parm[7], 1.0);
+  glUniform1fARB(parm[8], 0.0);
+  glUniform1fARB(parm[9], 0.0);
 
   QList<bool> clips;
   int btfset;
@@ -4103,6 +4118,11 @@ DrawHiresVolume::drawClipPlaneInViewport(int clipOffset, Vec lpos, float depthcu
   LightHandler::lightBufferInfo(lightgridx, lightgridy, lightgridz,
 				lightnrows, lightncols, lightlod);
   glUniform1iARB(m_defaultParm[40], lightlod); // lightlod
+
+  // restore lighting
+  glUniform1fARB(m_defaultParm[7], m_lightInfo.highlights.ambient);
+  glUniform1fARB(m_defaultParm[8], m_lightInfo.highlights.diffuse);
+  glUniform1fARB(m_defaultParm[9], m_lightInfo.highlights.specular);
 }
 
 void
@@ -4117,6 +4137,11 @@ DrawHiresVolume::drawClipPlaneDefault(int s, int layers,
 		  po, pn, step, true);
 
   glUniform3fARB(m_defaultParm[6], lpos.x, lpos.y, lpos.z);
+
+  // use only ambient component
+  glUniform1fARB(m_defaultParm[7], 1.0);
+  glUniform1fARB(m_defaultParm[8], 0.0);
+  glUniform1fARB(m_defaultParm[9], 0.0);
 
   QList<bool> clips;
   int btfset;
@@ -4186,6 +4211,11 @@ DrawHiresVolume::drawClipPlaneDefault(int s, int layers,
 	    } // loop over b
 	} // valid tfset
     } // loop over clipplanes
+
+  // restore lighting
+  glUniform1fARB(m_defaultParm[7], m_lightInfo.highlights.ambient);
+  glUniform1fARB(m_defaultParm[8], m_lightInfo.highlights.diffuse);
+  glUniform1fARB(m_defaultParm[9], m_lightInfo.highlights.specular);
 
   postDrawGeometry();
 }

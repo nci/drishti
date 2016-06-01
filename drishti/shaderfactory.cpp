@@ -106,7 +106,7 @@ ShaderFactory::loadShader(GLhandleARB &progObj,
     QString qstr;
 #ifndef Q_OS_MACX
     qstr += "#version 130\n";
-    qstr += "varying gl_ClipDistance[2];\n";
+    qstr += "out float gl_ClipDistance[2];\n";
     qstr += "uniform vec4 ClipPlane0;\n";
     qstr += "uniform vec4 ClipPlane1;\n";
 #endif

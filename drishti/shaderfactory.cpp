@@ -104,11 +104,13 @@ ShaderFactory::loadShader(GLhandleARB &progObj,
 
   {  // vertObj
     QString qstr;
+#ifndef Q_OS_MACX
     qstr += "#version 130\n";
-    qstr += "varying vec3 pointpos;\n";
-    qstr += "out float gl_ClipDistance[2];\n";
+    qstr += "varying gl_ClipDistance[2];\n";
     qstr += "uniform vec4 ClipPlane0;\n";
     qstr += "uniform vec4 ClipPlane1;\n";
+#endif
+    qstr += "varying vec3 pointpos;\n";
     qstr += "void main(void)\n";
     qstr += "{\n";
     qstr += "  // Transform vertex position into homogenous clip-space.\n";
@@ -118,9 +120,13 @@ ShaderFactory::loadShader(GLhandleARB &progObj,
     qstr += "  gl_TexCoord[0] = gl_TextureMatrix[0] * gl_MultiTexCoord0;\n";
     qstr += "  gl_TexCoord[1] = gl_TextureMatrix[1] * gl_MultiTexCoord1;\n";
     qstr += "  gl_TexCoord[2] = gl_TextureMatrix[2] * gl_MultiTexCoord2;\n";
+    qstr += "  pointpos = gl_Vertex.xyz;\n";
+#ifndef Q_OS_MACX
     qstr += "  gl_ClipDistance[0] = dot(gl_Vertex, ClipPlane0);\n";
     qstr += "  gl_ClipDistance[1] = dot(gl_Vertex, ClipPlane1);\n";
-    qstr += "  pointpos = gl_Vertex.xyz;\n";
+#else
+    qstr += "  gl_ClipVertex = gl_ModelViewMatrix * gl_Vertex;\n";
+#endif
     qstr += "}\n";
     
     int len = qstr.length();

@@ -1058,13 +1058,13 @@ ShaderFactory::genEdgeEnhanceShader()
   shader += "        int x = int(r*sin(theta));\n";
   shader += "        int y = int(r*cos(theta));\n";
   //shader += "        vec2 pos = spos + vec2(x,y);\n";
-  shader += "        vec2 pos = spos0 + vec2(i*0.05,i*0.05)*shdoffset + vec2(x,y);\n";
+  shader += "        vec2 pos = spos0 + vec2(float(i)*0.05,float(i)*0.05)*shdoffset + vec2(x,y);\n";
   shader += "        float od = depth - texture2DRect(pvtTex, pos).x;\n";
   shader += "        float wt = abs(spos0.x-pos.x)+abs(spos0.y-pos.y);\n";
   shader += "        float ege = (wt-1.0)*0.0005;\n";
   shader += "        sum += step(ege, od);\n";
   shader += "        tele ++;\n";
-  shader += "        r += i/cnt;\n";
+  shader += "        r += float(i/cnt);\n";
   shader += "        theta += 6.28/(r+3.0);\n";  
   shader += "        if (i>=cnt) cnt = cnt+int(r)+3;\n";
   shader += "      }\n"; 

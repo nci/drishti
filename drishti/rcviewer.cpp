@@ -1314,7 +1314,7 @@ RcViewer::surfaceRaycast(float minZ, float maxZ, bool firstPartOnly)
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
   //--------------------------------
 
-  glClearColor(bgColor.x, bgColor.y, bgColor.z, 0);
+  glClearColor(bgColor.x, bgColor.y, bgColor.z, 1);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
   glEnable(GL_BLEND);
@@ -1393,7 +1393,7 @@ RcViewer::volumeRaycast(float minZ, float maxZ)
       else
 	{
 	  glClearDepth(1);
-	  glClearColor(bgColor.x, bgColor.y, bgColor.z, 0);
+	  glClearColor(bgColor.x, bgColor.y, bgColor.z, 1);
 	  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	  glEnable(GL_BLEND);
@@ -1427,7 +1427,7 @@ RcViewer::volumeRaycast(float minZ, float maxZ)
 		       m_maxDSlice-m_minDSlice+1);
 
   glClearDepth(0);
-  glClearColor(bgColor.x, bgColor.y, bgColor.z, 0);
+  glClearColor(bgColor.x, bgColor.y, bgColor.z, 1);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 
@@ -1777,7 +1777,7 @@ RcViewer::vray()
 
   //--- now transfer the accumulated colors to screen ---
   glClearDepth(1);
-  glClearColor(bgColor.x, bgColor.y, bgColor.z, 0);
+  glClearColor(bgColor.x, bgColor.y, bgColor.z, 1);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
   glEnable(GL_BLEND);

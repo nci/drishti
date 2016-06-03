@@ -15,6 +15,8 @@ RcViewer::RcViewer() :
 {
   m_lut = 0;
 
+  m_applyAO = false;
+
   m_slcBuffer = 0;
   m_rboId = 0;
   m_slcTex[0] = 0;
@@ -763,6 +765,9 @@ RcViewer::createRaycastShader()
   m_rcParm[20] = glGetUniformLocationARB(m_rcShader, "skipVoxels");
   m_rcParm[21] = glGetUniformLocationARB(m_rcShader, "colorAcumTex");
   m_rcParm[22] = glGetUniformLocationARB(m_rcShader, "maxSteps");
+  m_rcParm[23] = glGetUniformLocationARB(m_rcShader, "viewUp");
+  m_rcParm[24] = glGetUniformLocationARB(m_rcShader, "viewRight");
+  m_rcParm[25] = glGetUniformLocationARB(m_rcShader, "applyao");
 }
 
 void
@@ -1641,6 +1646,8 @@ RcViewer::vray()
   Vec bgColor = Global::backgroundColor();
   Vec eyepos = m_viewer->camera()->position();
   Vec viewDir = m_viewer->camera()->viewDirection();
+  Vec viewUp = m_viewer->camera()->upVector();
+  Vec viewRight = m_viewer->camera()->rightVector();
   Vec subvolcorner = Vec(m_minHSlice, m_minWSlice, m_minDSlice);
   Vec subvolsize = Vec(m_maxHSlice-m_minHSlice+1,
 		       m_maxWSlice-m_minWSlice+1,
@@ -1648,6 +1655,8 @@ RcViewer::vray()
 
   eyepos = Matrix::xformVec(m_b0xformInv, eyepos);
   viewDir = Matrix::rotateVec(m_b0xformInv, viewDir);
+  viewUp = Matrix::rotateVec(m_b0xformInv, viewUp);
+  viewRight = Matrix::rotateVec(m_b0xformInv, viewRight);
 
 
   glActiveTexture(GL_TEXTURE0);
@@ -1695,6 +1704,12 @@ RcViewer::vray()
   glUniform1iARB(m_rcParm[20], m_skipVoxels);
   glUniform1iARB(m_rcParm[21], 7); // color accumulation texture
   glUniform1iARB(m_rcParm[22], m_maxSteps); // max raytaced steps
+  glUniform3fARB(m_rcParm[23], viewUp.x, viewUp.y, viewUp.z); // viewUp
+  glUniform3fARB(m_rcParm[24], viewRight.x, viewRight.y, viewRight.z); // viewRight
+  if (m_dragMode)
+    glUniform1iARB(m_rcParm[25], false); // ambient occlusion
+  else
+    glUniform1iARB(m_rcParm[25], m_applyAO); // ambient occlusion
 
   glDisable(GL_BLEND);
   // loop over slabs

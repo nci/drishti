@@ -726,6 +726,9 @@ Viewer::setupRaycastLightParameters()
   m_spec->setText("Specular");
   m_spec->setRange(0, 10);
   m_spec->setValue(10);
+
+  m_applyAO = new QCheckBox("Ambient Occlusion", this);
+  m_applyAO->setCheckState(Qt::Unchecked);
   //-----------------------
 
   m_raycastUI.popupRay->setMargin(2);
@@ -733,6 +736,7 @@ Viewer::setupRaycastLightParameters()
   m_raycastUI.popupRay->addWidget(m_amb);
   m_raycastUI.popupRay->addWidget(m_diff);
   m_raycastUI.popupRay->addWidget(m_spec);
+  m_raycastUI.popupRay->addWidget(m_applyAO);
 
   connect(m_raylen, SIGNAL(valueChanged(int)),
 	  &m_rcViewer, SLOT(setMaxRayLen(int)));
@@ -742,6 +746,8 @@ Viewer::setupRaycastLightParameters()
 	  &m_rcViewer, SLOT(setDiffuse(int)));
   connect(m_spec, SIGNAL(valueChanged(int)),
 	  &m_rcViewer, SLOT(setSpecular(int)));
+  connect(m_applyAO, SIGNAL(clicked(bool)),
+	  &m_rcViewer, SLOT(setApplyAO(bool)));
 
   m_raycastUI.raycastBox->setVisible(false);
 

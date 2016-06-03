@@ -43,7 +43,7 @@ class RcViewer : public QObject
 
   void setXformMatrix(double*);
 
- 
+  bool applyAO() { return m_applyAO; }
   bool exactCoord() { return m_exactCoord; }
   int skipLayers() { return m_skipLayers; }
   int skipVoxels() { return m_skipVoxels; }
@@ -87,6 +87,7 @@ class RcViewer : public QObject
     void setAmbient(int r) { m_amb = r; }
     void setDiffuse(int r) { m_diff = r; }
     void setSpecular(int r) { m_spec = r; }
+    void setApplyAO(bool ao) { m_applyAO = ao; } 
     
  private :
 
@@ -116,7 +117,7 @@ class RcViewer : public QObject
   int m_shdX, m_shdY;
   int m_smoothDepth;
   float m_edgeThickness;
-
+  bool m_applyAO;
 
   int m_max3DTexSize;
   int m_skipLayers, m_skipVoxels;

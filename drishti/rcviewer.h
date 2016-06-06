@@ -43,7 +43,7 @@ class RcViewer : public QObject
 
   void setXformMatrix(double*);
 
-  bool applyAO() { return m_applyAO; }
+  int aoLevel() { return m_aoLevel; }
   bool exactCoord() { return m_exactCoord; }
   int skipLayers() { return m_skipLayers; }
   int skipVoxels() { return m_skipVoxels; }
@@ -83,11 +83,11 @@ class RcViewer : public QObject
     void setExactCoord(bool);
     void setStillAndDragStep(float, float);
     void setEdgeThickness(int e) { m_edgeThickness = 0.1*e; m_viewer->update(); }
-    void setMaxRayLen(int r) { m_maxRayLen = r; }
-    void setAmbient(int r) { m_amb = r; }
-    void setDiffuse(int r) { m_diff = r; }
-    void setSpecular(int r) { m_spec = r; }
-    void setApplyAO(bool ao) { m_applyAO = ao; } 
+    void setMaxRayLen(int r) { m_maxRayLen = r;  m_viewer->update();}
+    void setAmbient(int r) { m_amb = r;  m_viewer->update();}
+    void setDiffuse(int r) { m_diff = r;  m_viewer->update();}
+    void setSpecular(int r) { m_spec = r;  m_viewer->update();}
+    void setAOLevel(int ao) { m_aoLevel = ao;  m_viewer->update();} 
     
  private :
 
@@ -117,7 +117,7 @@ class RcViewer : public QObject
   int m_shdX, m_shdY;
   int m_smoothDepth;
   float m_edgeThickness;
-  bool m_applyAO;
+  int m_aoLevel;
 
   int m_max3DTexSize;
   int m_skipLayers, m_skipVoxels;

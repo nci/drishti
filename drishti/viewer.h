@@ -198,7 +198,7 @@ class Viewer : public QGLViewer
   PopUpSlider *m_amb;
   PopUpSlider *m_diff;
   PopUpSlider *m_spec;
-  QCheckBox *m_applyAO;
+  PopUpSlider *m_aolevel;
 
   ViewerUndo m_undo;
 

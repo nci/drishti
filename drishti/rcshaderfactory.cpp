@@ -910,7 +910,7 @@ RcShaderFactory::genRaycastShader(bool nearest,
   shader += "uniform int lod;\n";
   shader += "uniform vec3 viewUp;\n";
   shader += "uniform vec3 viewRight;\n";
-  shader += "uniform bool applyao;\n";
+  shader += "uniform int aoLevel;\n";
 
   if (cropPresent) shader += CropShaderFactory::generateCropping(crops);
   if (viewPresent) shader += BlendShaderFactory::generateBlend(crops);
@@ -940,15 +940,15 @@ RcShaderFactory::genRaycastShader(bool nearest,
   //----------------------
   // for shadows
   shader += "vec3 aoVec[9];\n";
-  shader += "aoVec[0] = vec3(0.0,0.0,0.0);\n";
+  shader += "aoVec[0] = viewRight;\n";
   shader += "aoVec[1] = viewUp;\n";
-  shader += "aoVec[2] = viewRight;\n";
-  shader += "aoVec[3] = -viewUp;\n";
-  shader += "aoVec[4] = -viewRight;\n";
-  shader += "aoVec[5] = normalize( viewUp+viewRight);\n";
-  shader += "aoVec[6] = normalize(-viewUp+viewRight);\n";
-  shader += "aoVec[7] = normalize(-viewUp-viewRight);\n";
-  shader += "aoVec[8] = normalize( viewUp-viewRight);\n";
+  shader += "aoVec[2] = -aoVec[1];\n";
+  shader += "aoVec[3] = -aoVec[2];\n";
+  shader += "aoVec[4] = normalize( aoVec[1]+aoVec[2]);\n";
+  shader += "aoVec[5] = normalize(-aoVec[1]+aoVec[2]);\n";
+  shader += "aoVec[6] = normalize(-aoVec[1]-aoVec[2]);\n";
+  shader += "aoVec[7] = normalize( aoVec[1]-aoVec[2]);\n";
+  shader += "aoVec[8] = vec3(0.0,0.0,0.0);\n";
   shader += "for(int iao=0; iao<9; iao++)\n";
   shader += "  aoVec[iao] *= stepSize;\n";
   //----------------------
@@ -964,7 +964,7 @@ RcShaderFactory::genRaycastShader(bool nearest,
   shader += "float lightop = 0.0;\n";
   shader += "float stplod = stepSize*max(vsize.x, max(vsize.y, vsize.z));\n";
 
-  shader += "vec3 skipVoxStart = vec3(0.0);\n";
+  shader += "vec3 skipVoxStart = voxelCoord*vsize;\n";
   shader += "int lastvoxel = int(length(exitPoint-entryPoint)/stepSize);\n";
   shader += "int iend = int(min(float(maxSteps), float(lastvoxel)));\n";
   shader += "for(int i=0; i<iend; i++)\n";
@@ -1055,30 +1055,32 @@ RcShaderFactory::genRaycastShader(bool nearest,
   shader += "    skipVoxStart = voxelCoord*vsize;\n";
   shader += "  }\n";
 
+  shader += "  colorSample *= step(float(skipVoxels), length(voxelCoord*vsize-skipVoxStart));\n";
+
   shader += "  bool validcol = colorSample.a > 0.0;\n";
 
   shader += "  if (validcol)\n";
   shader += "  {\n";
   shader += "    if (gotFirstHit && nskipped > skipLayers)\n";
   shader += "    {\n";
-  shader += "      colorSample *= step(float(skipVoxels), length(voxelCoord*vsize-skipVoxStart));\n";
   shader +=        addLighting();
 
   //--------------------------
   // ambient occlusion
-  //shader += "    if (colorSample.a > 0.01)\n";
-  shader += "      if (applyao)\n";
+  shader += "      if (aoLevel > 0 && colorSample.a > 0.01)\n";
   shader += "      {\n";
   shader += "       vec3 shdir = stepSize*normalize(dirvec + 3.0*(dirvec-viewDir));\n";
-  shader += "       int shend = 50;\n";
+  shader += "       int shend = aoLevel*9;\n";
+  shader += "       float rd = 1.0/sqrt(float(aoLevel));\n";
   shader += "       float okval = 0.0;\n";
   shader += "       for(int sh=0; sh<shend; sh++)\n";
   shader += "        {\n";
   shader += "         int idx = int(mod(float(sh), 9.0));\n";
-  shader += "         vec3 vxc = voxelCoord - float(sh)*shdir + 0.5*float(sh)*aoVec[idx];\n";
+  shader += "         vec3 vxc = voxelCoord - rd*float(sh)*shdir + rd*float(sh)*aoVec[idx];\n";
   shader += "         float vv = texture3D(dataTex, vxc).x;\n";
-  shader += "         float okv = step(0.001*float(sh), texture2D(lutTex, vec2(vv, 0.0)).a);\n";
-  shader += "         okv *= step(1.0, length(vxc*vsize-skipVoxStart));\n";
+  shader += "         float valpha = texture2D(lutTex, vec2(vv, 0.0)).a;\n";
+  shader += "         valpha *= step(float(skipVoxels+5), length(vxc*vsize-skipVoxStart));\n";
+  shader += "         float okv = step(float(sh)*0.001, valpha);\n";
   shader += "         okval += okv;\n";
   shader += "        }\n";
   shader += "        okval /= float(shend);\n";
@@ -1196,6 +1198,7 @@ RcShaderFactory::genXRayShader(bool nearest,
   shader += "uniform int lod;\n";
   shader += "uniform vec3 viewUp;\n";
   shader += "uniform vec3 viewRight;\n";
+  shader += "uniform int aoLevel;\n";
 
   if (cropPresent) shader += CropShaderFactory::generateCropping(crops);
   if (viewPresent) shader += BlendShaderFactory::generateBlend(crops);

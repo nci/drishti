@@ -15,7 +15,7 @@ RcViewer::RcViewer() :
 {
   m_lut = 0;
 
-  m_applyAO = false;
+  m_aoLevel = 0;
 
   m_slcBuffer = 0;
   m_rboId = 0;
@@ -767,7 +767,7 @@ RcViewer::createRaycastShader()
   m_rcParm[22] = glGetUniformLocationARB(m_rcShader, "maxSteps");
   m_rcParm[23] = glGetUniformLocationARB(m_rcShader, "viewUp");
   m_rcParm[24] = glGetUniformLocationARB(m_rcShader, "viewRight");
-  m_rcParm[25] = glGetUniformLocationARB(m_rcShader, "applyao");
+  m_rcParm[25] = glGetUniformLocationARB(m_rcShader, "aoLevel");
 }
 
 void
@@ -1666,6 +1666,16 @@ RcViewer::vray()
   glActiveTexture(GL_TEXTURE1);
   glEnable(GL_TEXTURE_3D);
   glBindTexture(GL_TEXTURE_3D, m_dataTex);
+  if (m_exactCoord)
+    {
+      glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+      glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    }
+  else
+    {
+      glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
 
   glActiveTexture(GL_TEXTURE2);
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
@@ -1707,9 +1717,9 @@ RcViewer::vray()
   glUniform3fARB(m_rcParm[23], viewUp.x, viewUp.y, viewUp.z); // viewUp
   glUniform3fARB(m_rcParm[24], viewRight.x, viewRight.y, viewRight.z); // viewRight
   if (m_dragMode)
-    glUniform1iARB(m_rcParm[25], false); // ambient occlusion
+    glUniform1iARB(m_rcParm[25], 0); // ambient occlusion
   else
-    glUniform1iARB(m_rcParm[25], m_applyAO); // ambient occlusion
+    glUniform1iARB(m_rcParm[25], m_aoLevel); // ambient occlusion
 
   glDisable(GL_BLEND);
   // loop over slabs

@@ -187,7 +187,8 @@ BlendShaderFactory::generateBlend(QList<CropObject> crops,
 	}
     }
 
-  shader += "if (sendTfSet) fragColor = vec4(0.0);\n";
+  if (nvol == 1)
+    shader += "if (sendTfSet) fragColor = vec4(0.0);\n";
 
   shader += "}\n\n";
   return shader;

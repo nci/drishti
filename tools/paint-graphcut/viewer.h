@@ -125,6 +125,7 @@ class Viewer : public QGLViewer
     void renderNextFrame();
 
     void tagInterior(Vec, Vec, int, bool, int);
+    void shrinkwrap(Vec, Vec, int, bool, int);
 
  private :
   Ui::ViewerMenu *m_UI;

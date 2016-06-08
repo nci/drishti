@@ -20,10 +20,10 @@ Similar to merge, except the operation is carried out only within the visible po
 
 
 #begin
-taginterior
-taginterior <tag>
+shrinkwrap
+shrinkwrap <tag>
 
-Fill visible region with tag.  Visible portion as defined by transfer function is that region where opacity is greater than 0.
+Shrinkwrap the visible region with tag.  Visible portion as defined by transfer function is that region where opacity is greater than 0.
 
 #end
 

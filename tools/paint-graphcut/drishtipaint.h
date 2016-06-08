@@ -146,6 +146,7 @@ class DrishtiPaint : public QMainWindow
   void getBGColor();
 
   void tagInterior(Vec, Vec, int, bool, int);
+  void shrinkwrap(Vec, Vec, int, bool, int);
 
  private :
   Ui::DrishtiPaint ui;
@@ -263,6 +264,8 @@ class DrishtiPaint : public QMainWindow
 
   void setupSlicesParameters();
   void setupLightParameters();
+
+  void shrinkwrapSlice(uchar*, int, int);
 };
 
 #endif

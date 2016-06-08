@@ -1017,7 +1017,7 @@ ShaderFactory::genEdgeEnhanceShader()
   shader += "    vec3 rgb = vec3(0.0);\n";
   shader += "    for(int i=0; i<9; i++)\n";
   shader += "    {\n";
-  shader += "       val = texture2DRect(pvtTex, spos0+vec2(1.0,0.0)).y;\n";
+  shader += "       val = texture2DRect(pvtTex, spos0+vec2(cx[i],cy[i])).y;\n";
   shader += "       color = texture2D(lutTex,vec2(val,0.0));\n";
   shader += "       rgb += color.rgb;\n";
   shader += "    }\n";
@@ -1057,7 +1057,6 @@ ShaderFactory::genEdgeEnhanceShader()
   shader += "      {\n";
   shader += "        int x = int(r*sin(theta));\n";
   shader += "        int y = int(r*cos(theta));\n";
-  //shader += "        vec2 pos = spos + vec2(x,y);\n";
   shader += "        vec2 pos = spos0 + vec2(float(i)*0.05,float(i)*0.05)*shdoffset + vec2(x,y);\n";
   shader += "        float od = depth - texture2DRect(pvtTex, pos).x;\n";
   shader += "        float wt = abs(spos0.x-pos.x)+abs(spos0.y-pos.y);\n";

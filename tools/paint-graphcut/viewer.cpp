@@ -4200,7 +4200,7 @@ Viewer::regionGrowing()
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
 
-  emit paint3D(d, w, h, bmin, bmax, Global::tag());
+  emit connectedRegion(d, w, h, bmin, bmax, Global::tag());
 }
 
 void

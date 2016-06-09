@@ -112,7 +112,6 @@ class Viewer : public QGLViewer
     void showBoxChanged(bool);
 
     void paint3D(int, int, int, int, int);
-    void paint3D(int, int, int, Vec, Vec, int);
     void dilateConnected(int, int, int, Vec, Vec, int);
     void erodeConnected(int, int, int, Vec, Vec, int);
     void paint3DEnd();
@@ -128,6 +127,7 @@ class Viewer : public QGLViewer
     void setVisible(Vec, Vec, int, bool);
     void resetTag(Vec, Vec, int);
     void shrinkwrap(Vec, Vec, int, bool, int);
+    void connectedRegion(int, int, int, Vec, Vec, int);
 
  private :
   Ui::ViewerMenu *m_UI;

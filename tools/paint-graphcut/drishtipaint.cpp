@@ -120,10 +120,11 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   //------------------------------
   connect(m_viewer, SIGNAL(paint3D(int,int,int,int,int)),
 	  this, SLOT(paint3D(int,int,int,int,int)));
-  connect(m_viewer, SIGNAL(paint3D(int,int,int,Vec,Vec,int)),
-	  this, SLOT(paint3D(int,int,int,Vec,Vec,int)));
   connect(m_viewer, SIGNAL(paint3DEnd()),
 	  this, SLOT(paint3DEnd()));
+
+  connect(m_viewer, SIGNAL(connectedRegion(int,int,int,Vec,Vec,int)),
+	  this, SLOT(connectedRegion(int,int,int,Vec,Vec,int)));
 
   connect(m_viewer, SIGNAL(mergeTags(Vec, Vec, int, int, bool)),
 	  this, SLOT(mergeTags(Vec, Vec, int, int, bool)));
@@ -4261,163 +4262,6 @@ DrishtiPaint::smoothMesh(QList<Vec>& V,
 }
 
 void
-DrishtiPaint::paint3D(int dr, int wr, int hr, Vec bmin, Vec bmax, int tag)
-{
-  int m_depth, m_width, m_height;
-  m_volume->gridSize(m_depth, m_width, m_height);
-
-  if (dr < 0 || wr < 0 || hr < 0 ||
-      dr > m_depth-1 ||
-      wr > m_width-1 ||
-      hr > m_height-1)
-    {
-      QMessageBox::information(0, "", "No painted region found");
-      return;
-    }
-
-  QProgressDialog progress("Updating voxel structure",
-			   QString(),
-			   0, 100,
-			   0);
-  progress.setMinimumDuration(0);
-
-  uchar *lut = Global::lut();
-
-  int ds = bmin.z;
-  int ws = bmin.y;
-  int hs = bmin.x;
-
-  int de = bmax.z;
-  int we = bmax.y;
-  int he = bmax.x;
-
-  qint64 mx = he-hs+1;
-  qint64 my = we-ws+1;
-  qint64 mz = de-ds+1;
-
-  MyBitArray bitmask;
-  bitmask.resize(mx*my*mz);
-  bitmask.fill(false);
-
-  uchar *volData = m_volume->memVolDataPtr();
-  uchar *maskData = m_volume->memMaskDataPtr();
-
-  for(qint64 d=ds; d<=de; d++)
-    {
-      progress.setValue(90*(d-ds)/(mz));
-      if (d%10 == 0)
-	qApp->processEvents();
-      for(qint64 w=ws; w<=we; w++)
-	for(qint64 h=hs; h<=he; h++)
-	  {
-	    qint64 idx = d*m_width*m_height + w*m_height + h;
-	    int val = volData[idx];
-	    int a =  lut[4*val+3];
-	    if (a > 0 &&
-		(maskData[idx] == 0 || maskData[idx] == tag))
-	      { // grow only in zero or same tagged region
-		qint64 bidx = (d-ds)*mx*my+(w-ws)*mx+(h-hs);
-		bitmask.setBit(bidx, true);
-	      }
-	  }
-    }
-
-  progress.setLabelText("Region growing");
-  qApp->processEvents();
-  
-  int minD,maxD, minW,maxW, minH,maxH;
-
-  QStack<Vec> stack;
-  stack.push(Vec(dr,wr,hr));
-  qint64 bidx = (dr-ds)*mx*my+(wr-ws)*mx+(hr-hs);
-  bitmask.setBit(bidx, false);
-
-  minD = maxD = dr;
-  minW = maxW = wr;
-  minH = maxH = hr;
-  
-  int indices[] = {-1, 0, 0,
-		    1, 0, 0,
-		    0,-1, 0,
-		    0, 1, 0,
-		    0, 0,-1,
-		    0, 0, 1};
-
-  int pgstep = 10*m_width*m_height;
-  int prevpgv = 0;
-  int ip=0;
-  while(!stack.isEmpty())
-    {
-      ip = (ip+1)%pgstep;
-      int pgval = 99*(float)ip/(float)pgstep;
-      progress.setValue(pgval);
-      if (pgval != prevpgv)
-	qApp->processEvents();
-      prevpgv = pgval;
-      
-      Vec dwh = stack.pop();
-      int dx = qCeil(dwh.x);
-      int wx = qCeil(dwh.y);
-      int hx = qCeil(dwh.z);
-
-      for(int i=0; i<6; i++)
-	{
-	  int da = indices[3*i+0];
-	  int wa = indices[3*i+1];
-	  int ha = indices[3*i+2];
-
-	  qint64 d2 = qBound(ds, dx+da, de);
-	  qint64 w2 = qBound(ws, wx+wa, we);
-	  qint64 h2 = qBound(hs, hx+ha, he);
-
-	  qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
-	  if (bitmask.testBit(bidx))
-	    {
-	      bitmask.setBit(bidx, false);
-	      stack.push(Vec(d2,w2,h2));
-
-	      qint64 idx = d2*m_width*m_height + w2*m_height + h2;
-	      maskData[idx] = tag;
-	      
-	      minD = qMin(minD, (int)d2);
-	      maxD = qMax(maxD, (int)d2);
-	      minW = qMin(minW, (int)w2);
-	      maxW = qMax(maxW, (int)w2);
-	      minH = qMin(minH, (int)h2);
-	      maxH = qMax(maxH, (int)h2);
-	    }
-	}
-    }
-
-  getSlice(m_currSlice);
-  
-  minD = qMax(minD-1, 0);
-  minW = qMax(minW-1, 0);
-  minH = qMax(minH-1, 0);
-  maxD = qMin(maxD+1, m_depth);
-  maxW = qMin(maxW+1, m_width);
-  maxH = qMin(maxH+1, m_height);
-
-  progress.setLabelText("Update modified region on gpu");
-  qApp->processEvents();
-  m_viewer->uploadMask(minD,minW,minH, maxD,maxW,maxH);
-
-  QList<int> dwh;  
-  m_blockList.clear();  
-  dwh << minD << minW << minH;
-  m_blockList << dwh;
-  dwh.clear();
-  dwh << maxD << maxW << maxH;
-  m_blockList << dwh;
-
-  progress.setLabelText("Save modified region to mask file");
-  qApp->processEvents();
-  m_volume->saveMaskBlock(m_blockList);
-
-  progress.setValue(100);
-}
-
-void
 DrishtiPaint::paint3D(int d, int w, int h, int button, int otag)
 {
 //  if (viewerUi.scrape->isChecked())
@@ -4478,8 +4322,9 @@ DrishtiPaint::paint3D(int d, int w, int h, int button, int otag)
 	  if (p < rad*rad)
 	    {
 	      int val = volData[dd*m_width*m_height + ww*m_height + hh];
-	      int a =  lut[4*val+3];
-	      if (a > 0)
+	      uchar mtag = maskData[dd*m_width*m_height + ww*m_height + hh];
+	      bool opaque =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);
+	      if (opaque)
 		bitmask.setBit((dd-ds)*dm2 + (ww-ws)*dm + (hh-hs), true);
 	    }
 	}
@@ -4594,10 +4439,9 @@ DrishtiPaint::paintLayer(int dpl, int wpl, int hpl, int button, int otag)
 	  if ((scr-scr0).norm() < rad)
 	    {
 	      int val = volData[dd*m_width*m_height + ww*m_height + hh];
-	      int tval = maskData[dd*m_width*m_height + ww*m_height + hh];
-	      int a = lut[4*val+3];
-	      int tc = tagColors[4*tval+3];
-	      if (a > 0 && tc > 0)
+	      int mtag = maskData[dd*m_width*m_height + ww*m_height + hh];
+	      bool opaque =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);
+	      if (opaque)
 		{
 		  bitmask[(dd-ds)*dm2 + (ww-ws)*dm + (hh-hs)] = 1;
 		  cbitmask.setBit((dd-ds)*dm2 + (ww-ws)*dm + (hh-hs));
@@ -5032,6 +4876,9 @@ DrishtiPaint::dilateConnected(int dr, int wr, int hr,
   cbitmask.resize(mx*my*mz);
   cbitmask.fill(false);
 
+  QList<Vec> cPos =  m_viewer->clipPos();
+  QList<Vec> cNorm = m_viewer->clipNorm();
+
   uchar *volData = m_volume->memVolDataPtr();
   uchar *maskData = m_volume->memMaskDataPtr();
 
@@ -5087,12 +4934,29 @@ DrishtiPaint::dilateConnected(int dr, int wr, int hr,
 	  if (!cbitmask.testBit(bidx))
 	    {
 	      cbitmask.setBit(bidx, true);
-	      qint64 idx = d2*m_width*m_height + w2*m_height + h2;
-	      int val = volData[idx];
-	      if (lut[4*val+3] > 0 && maskData[idx] == tag)
+
+	      bool clipped = false;
+	      for(int i=0; i<cPos.count(); i++)
 		{
-		  bitmask.setBit(bidx, true);
-		  stack.push(Vec(d2,w2,h2));	      
+		  Vec p = Vec(h2, w2, d2) - cPos[i];
+		  if (cNorm[i]*p > 0)
+		    {
+		      clipped = true;
+		      break;
+		    }
+		}
+	      if (!clipped)
+		{
+		  qint64 idx = d2*m_width*m_height + w2*m_height + h2;
+		  int val = volData[idx];
+		  uchar mtag = maskData[idx];
+		  bool opaque =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);
+		  opaque &= (mtag == tag);
+		  if (opaque)
+		    {
+		      bitmask.setBit(bidx, true);
+		      stack.push(Vec(d2,w2,h2));	      
+		    }
 		}
 	    }
 	}
@@ -5166,23 +5030,37 @@ DrishtiPaint::dilateConnected(int dr, int wr, int hr,
 		  int w2 = qBound(ws, wx+wa, we);
 		  int h2 = qBound(hs, hx+ha, he);
 		  
-		  qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
-		  qint64 idx = d2*m_width*m_height + w2*m_height + h2;
-		  int val = volData[idx];
-		  if (lut[4*val+3] > 0 && // dilate only in connected region
-		      maskData[idx] == 0 && // dilate only in zero mask region
-		      !bitmask.testBit(bidx) &&
-		      !cbitmask.testBit(bidx))
+
+		  bool clipped = false;
+		  for(int i=0; i<cPos.count(); i++)
 		    {
-		      cbitmask.setBit(bidx);
-		      tedges << Vec(d2,w2,h2);	  
-		      minD = qMin(minD, (int)d2);
-		      maxD = qMax(maxD, (int)d2);
-		      minW = qMin(minW, (int)w2);
-		      maxW = qMax(maxW, (int)w2);
-		      minH = qMin(minH, (int)h2);
-		      maxH = qMax(maxH, (int)h2);
+		      Vec p = Vec(h2, w2, d2) - cPos[i];
+		      if (cNorm[i]*p > 0)
+			{
+			  clipped = true;
+			  break;
+			}
 		    }
+		  if (!clipped)
+		    {
+		      qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
+		      qint64 idx = d2*m_width*m_height + w2*m_height + h2;
+		      int val = volData[idx];
+		      if (lut[4*val+3] > 0 && // dilate only in connected region
+			  maskData[idx] == 0 && // dilate only in zero mask region
+			  !bitmask.testBit(bidx) &&
+			  !cbitmask.testBit(bidx))
+			{
+			  cbitmask.setBit(bidx);
+			  tedges << Vec(d2,w2,h2);	  
+			  minD = qMin(minD, (int)d2);
+			  maxD = qMax(maxD, (int)d2);
+			  minW = qMin(minW, (int)w2);
+			  maxW = qMax(maxW, (int)w2);
+			  minH = qMin(minH, (int)h2);
+			  maxH = qMax(maxH, (int)h2);
+			}
+		    } // not clipped
 		}
 	    }
 	  // fill boundary
@@ -6059,7 +5937,6 @@ DrishtiPaint::shrinkwrap(Vec bmin, Vec bmax, int tag,
 	}  // transparent voxel
     }
   }
-
   //----------------------------  
 
   QList<Vec> edges;
@@ -6481,6 +6358,218 @@ DrishtiPaint::resetTag(Vec bmin, Vec bmax, int tag)
 	  }
     }
   
+  getSlice(m_currSlice);
+  
+  minD = qMax(minD-1, 0);
+  minW = qMax(minW-1, 0);
+  minH = qMax(minH-1, 0);
+  maxD = qMin(maxD+1, m_depth);
+  maxW = qMin(maxW+1, m_width);
+  maxH = qMin(maxH+1, m_height);
+
+  progress.setLabelText("Update modified region on gpu");
+  qApp->processEvents();
+  m_viewer->uploadMask(minD,minW,minH, maxD,maxW,maxH);
+
+  QList<int> dwh;  
+  m_blockList.clear();  
+  dwh << minD << minW << minH;
+  m_blockList << dwh;
+  dwh.clear();
+  dwh << maxD << maxW << maxH;
+  m_blockList << dwh;
+
+  progress.setLabelText("Save modified region to mask file");
+  qApp->processEvents();
+  m_volume->saveMaskBlock(m_blockList);
+
+  progress.setValue(100);
+}
+
+void
+DrishtiPaint::connectedRegion(int dr, int wr, int hr, Vec bmin, Vec bmax, int tag)
+{
+  int m_depth, m_width, m_height;
+  m_volume->gridSize(m_depth, m_width, m_height);
+
+  if (dr < 0 || wr < 0 || hr < 0 ||
+      dr > m_depth-1 ||
+      wr > m_width-1 ||
+      hr > m_height-1)
+    {
+      QMessageBox::information(0, "", "No painted region found");
+      return;
+    }
+
+  QProgressDialog progress("Updating voxel structure",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+  uchar *lut = Global::lut();
+
+  int ds = bmin.z;
+  int ws = bmin.y;
+  int hs = bmin.x;
+
+  int de = bmax.z;
+  int we = bmax.y;
+  int he = bmax.x;
+
+  qint64 mx = he-hs+1;
+  qint64 my = we-ws+1;
+  qint64 mz = de-ds+1;
+
+  MyBitArray bitmask;
+  bitmask.resize(mx*my*mz);
+  bitmask.fill(false);
+
+  MyBitArray cbitmask;
+  cbitmask.resize(mx*my*mz);
+  cbitmask.fill(false);
+
+  uchar *volData = m_volume->memVolDataPtr();
+  uchar *maskData = m_volume->memMaskDataPtr();
+
+  int indices[] = {-1, 0, 0,
+		   1, 0, 0,
+		   0,-1, 0,
+		   0, 1, 0,
+		   0, 0,-1,
+		   0, 0, 1};
+
+  QList<Vec> cPos =  m_viewer->clipPos();
+  QList<Vec> cNorm = m_viewer->clipNorm();
+
+  //----------------------------  
+  // identify visible region
+  progress.setLabelText("Identifying visible region");
+  for(int d2=ds; d2<=de; d2++)
+  {
+    progress.setValue(90*(float)(d2-ds)/(float)mz);
+    qApp->processEvents();
+    for(int w2=ws; w2<=we; w2++)
+    for(int h2=hs; h2<=he; h2++)
+    {
+      bool clipped = false;
+      for(int i=0; i<cPos.count(); i++)
+	{
+	  Vec p = Vec(h2, w2, d2) - cPos[i];
+	  if (cNorm[i]*p > 0)
+	    {
+	      clipped = true;
+	      break;
+	    }
+	}
+      
+      qint64 idx = d2*m_width*m_height + w2*m_height + h2;
+      int val = volData[idx];
+      uchar mtag = maskData[idx];
+      bool opaque =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);
+      opaque &= (tag == 0 || mtag == 0 || mtag == tag);
+      // grow only in zero or same tagged region
+      // or if tag is 0 then grow in all visible regions
+      if (!clipped && opaque)
+	{
+	  qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
+	  cbitmask.setBit(bidx, true);
+	}  // visible voxel
+    }
+  }
+  //----------------------------  
+
+  QList<Vec> edges;
+  edges.clear();
+  edges << Vec(dr,wr,hr);
+  qint64 bidx = (dr-ds)*mx*my+(wr-ws)*mx+(hr-hs);
+  bitmask.setBit(bidx, true);
+
+  //------------------------------------------------------
+  // dilate from seed
+  bool done = false;
+  int nd = 0;
+  int pvnd = 0;
+  while(!done)
+    {
+      nd = (nd + 1)%100;
+      int pnd = 90*(float)nd/(float)100;
+      progress.setValue(pnd);
+      if (pnd != pvnd)
+	qApp->processEvents();
+      pvnd = pnd;
+
+      QList<Vec> tedges;
+      tedges.clear();
+
+      progress.setLabelText(QString("Flooding %1").arg(edges.count()));
+      qApp->processEvents();
+
+            
+      // find outer boundary to fill
+      for(int e=0; e<edges.count(); e++)
+	{
+	  int dx = edges[e].x;
+	  int wx = edges[e].y;
+	  int hx = edges[e].z;
+	  	  
+	  for(int i=0; i<6; i++)
+	    {
+	      int da = indices[3*i+0];
+	      int wa = indices[3*i+1];
+	      int ha = indices[3*i+2];
+	      
+	      int d2 = qBound(ds, dx+da, de);
+	      int w2 = qBound(ws, wx+wa, we);
+	      int h2 = qBound(hs, hx+ha, he);
+	      
+	      qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
+	      qint64 idx = d2*m_width*m_height + w2*m_height + h2;
+	      if (cbitmask.testBit(bidx) &&
+		  !bitmask.testBit(bidx))
+		{
+		  bitmask.setBit(bidx, true);
+		  tedges << Vec(d2,w2,h2);		  
+		}
+	    }
+	}
+
+      edges.clear();
+
+      if (tedges.count() > 0)
+	edges = tedges;
+      else
+	done = true;
+
+      tedges.clear();
+    }
+  //------------------------------------------------------
+
+  //----------------------------  
+  // set the maskData
+  int minD,maxD, minW,maxW, minH,maxH;
+  minD = maxD = dr;
+  minW = maxW = wr;
+  minH = maxH = hr;
+  for(int d2=ds; d2<=de; d2++)
+  for(int w2=ws; w2<=we; w2++)
+  for(int h2=hs; h2<=he; h2++)
+    {
+      qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
+      if (bitmask.testBit(bidx))
+	{
+	  qint64 idx = d2*m_width*m_height + w2*m_height + h2;
+	  maskData[idx] = tag;
+	  minD = qMin(minD, (int)d2);
+	  maxD = qMax(maxD, (int)d2);
+	  minW = qMin(minW, (int)w2);
+	  maxW = qMax(maxW, (int)w2);
+	  minH = qMin(minH, (int)h2);
+	  maxH = qMax(maxH, (int)h2);
+	}
+    }
+  //----------------------------  
+
   getSlice(m_currSlice);
   
   minD = qMax(minD-1, 0);

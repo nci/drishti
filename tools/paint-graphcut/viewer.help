@@ -120,13 +120,19 @@ Toggle visibility of axes.
 #begin
 f
 Region growing with current tag value.
+
 Move the mouse over to the region you want to fill/region grow before pressing "f".
+
+Clipping planes are obeyed - clipped region is not taken into account.
 #end
 
 #begin
 d
 Dilate the current tag by "Extent" parameter value.
+
 Move the mouse over to the region you want to dilate before pressing "d".
+
+Clipping planes are obeyed - clipped region is not taken into account.
 #end
 
 #begin

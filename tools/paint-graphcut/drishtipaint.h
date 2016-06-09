@@ -123,7 +123,6 @@ class DrishtiPaint : public QMainWindow
 
   void paint3D(int, int, int, int, int);
   void paintLayer(int, int, int, int, int);
-  void paint3D(int, int, int, Vec, Vec, int);
   void paint3DEnd();
   void dilateConnected(int, int, int, Vec, Vec, int);
   void erodeConnected(int, int, int, Vec, Vec, int);
@@ -147,6 +146,7 @@ class DrishtiPaint : public QMainWindow
   void setVisible(Vec, Vec, int, bool);
   void resetTag(Vec, Vec, int);
   void shrinkwrap(Vec, Vec, int, bool, int);
+  void connectedRegion(int, int, int, Vec, Vec, int);
 
  private :
   Ui::DrishtiPaint ui;

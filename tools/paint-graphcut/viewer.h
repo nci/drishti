@@ -53,6 +53,9 @@ class Viewer : public QGLViewer
   uchar* sketchPad() { return m_sketchPad; }
   void setUIPointer(Ui::ViewerMenu *vUI) { m_UI = vUI; }
 
+  QList<Vec> clipPos() { return m_clipPlanes->positions(); }
+  QList<Vec> clipNorm(){ return m_clipPlanes->normals(); }
+
   public slots :
     void GlewInit();  
     void resizeGL(int, int);
@@ -119,12 +122,11 @@ class Viewer : public QGLViewer
     void mergeTags(Vec, Vec, int, int, bool);
     void mergeTags(Vec, Vec, int, int, int, bool);
 
-    void setVisible(Vec, Vec, int, bool);
-
     void updateSliceBounds(Vec, Vec);
     void renderNextFrame();
 
-    void tagInterior(Vec, Vec, int, bool, int);
+    void setVisible(Vec, Vec, int, bool);
+    void resetTag(Vec, Vec, int);
     void shrinkwrap(Vec, Vec, int, bool, int);
 
  private :

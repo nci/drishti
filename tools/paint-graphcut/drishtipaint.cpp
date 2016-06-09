@@ -142,11 +142,12 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   connect(m_viewer, SIGNAL(setVisible(Vec, Vec, int, bool)),
 	  this, SLOT(setVisible(Vec, Vec, int, bool)));
 
+  connect(m_viewer, SIGNAL(resetTag(Vec, Vec, int)),
+	  this, SLOT(resetTag(Vec, Vec, int)));
+
   connect(m_viewer, SIGNAL(updateSliceBounds(Vec, Vec)),
 	  this, SLOT(updateSliceBounds(Vec, Vec)));
 
-  connect(m_viewer, SIGNAL(tagInterior(Vec, Vec, int, bool, int)),
-	  this, SLOT(tagInterior(Vec, Vec, int, bool, int)));
   connect(m_viewer, SIGNAL(shrinkwrap(Vec, Vec, int, bool, int)),
 	  this, SLOT(shrinkwrap(Vec, Vec, int, bool, int)));
   //------------------------------
@@ -5512,10 +5513,13 @@ DrishtiPaint::setVisible(Vec bmin, Vec bmax, int tag, bool visible)
   minW = maxW = -1;
   minH = maxH = -1;
 
-  uchar *maskData = m_volume->memMaskDataPtr();
+  QList<Vec> cPos =  m_viewer->clipPos();
+  QList<Vec> cNorm = m_viewer->clipNorm();
 
-  uchar *lut = Global::lut();
   uchar *volData = m_volume->memVolDataPtr();
+  uchar *maskData = m_volume->memMaskDataPtr();
+  uchar *lut = Global::lut();
+
   for(qint64 d=ds; d<=de; d++)
     {
       progress.setValue(90*(d-ds)/((de-ds+1)));
@@ -5524,28 +5528,44 @@ DrishtiPaint::setVisible(Vec bmin, Vec bmax, int tag, bool visible)
       for(qint64 w=ws; w<=we; w++)
 	for(qint64 h=hs; h<=he; h++)
 	  {
-	    qint64 idx = d*m_width*m_height + w*m_height + h;
-	    int val = volData[idx];
-	    bool a =  lut[4*val+3] > 0;
-	    if (a == visible && maskData[idx] != tag)
+	    bool clipped = false;
+	    for(int i=0; i<cPos.count(); i++)
 	      {
-		maskData[idx] = tag;
-		if (minD > -1)
+		Vec p = Vec(h, w, d) - cPos[i];
+		if (cNorm[i]*p > 0)
 		  {
-		    minD = qMin(minD, (int)d);
-		    maxD = qMax(maxD, (int)d);
-		    minW = qMin(minW, (int)w);
-		    maxW = qMax(maxW, (int)w);
-		    minH = qMin(minH, (int)h);
-		    maxH = qMax(maxH, (int)h);
-		  }
-		else
-		  {
-		    minD = maxD = d;
-		    minW = maxW = w;
-		    minH = maxH = h;
+		    clipped = true;
+		    break;
 		  }
 	      }
+	    
+	    if (!clipped)
+	      {
+		qint64 idx = d*m_width*m_height + w*m_height + h;
+		int val = volData[idx];
+		uchar mtag = maskData[idx];
+		bool alpha =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);
+
+		if (alpha == visible && maskData[idx] != tag)
+		  {
+		    maskData[idx] = tag;
+		    if (minD > -1)
+		      {
+			minD = qMin(minD, (int)d);
+			maxD = qMax(maxD, (int)d);
+			minW = qMin(minW, (int)w);
+			maxW = qMax(maxW, (int)w);
+			minH = qMin(minH, (int)h);
+			maxH = qMax(maxH, (int)h);
+		      }
+		    else
+		      {
+			minD = maxD = d;
+			minW = maxW = w;
+			minH = maxH = h;
+		      }
+		  }
+	      } // clipped
 	  }
     }
   
@@ -5939,312 +5959,6 @@ DrishtiPaint::on_loadMask_triggered()
 }
 
 void
-DrishtiPaint::tagInterior(Vec bmin, Vec bmax, int tag,
-			  bool shellOnly, int shellThickness)
-{
-  int m_depth, m_width, m_height;
-  m_volume->gridSize(m_depth, m_width, m_height);
-
-  int ds = bmin.z;
-  int ws = bmin.y;
-  int hs = bmin.x;
-
-  int de = bmax.z;
-  int we = bmax.y;
-  int he = bmax.x;
-
-  qint64 mx = he-hs+1;
-  qint64 my = we-ws+1;
-  qint64 mz = de-ds+1;
-
-  MyBitArray bitmask;
-  bitmask.resize(mx*my*mz);
-  bitmask.fill(false);
-
-  QProgressDialog progress(QString("Tag interior voxels with tag %1").arg(tag),
-			   QString(),
-			   0, 100,
-			   0);
-  progress.setMinimumDuration(0);
-
-  uchar *lut = Global::lut();
-  uchar *volData = m_volume->memVolDataPtr();
-  uchar *maskData = m_volume->memMaskDataPtr();
-
-  //------------------------------------------------------
-  { // handle depth slices
-    progress.setLabelText("Tag interior voxels for Z slices");
-    uchar *swvr = new uchar[my*mx];
-    for(qint64 d=ds; d<=de; d++)
-      {
-	progress.setValue(90*(d-ds)/mz);
-	if (d%10 == 0) qApp->processEvents();
-	
-	memset(swvr, 0, my*mx);
-	
-	for(qint64 w=ws; w<=we; w++)
-	  for(qint64 h=hs; h<=he; h++)
-	    {
-	      qint64 idx = d*m_width*m_height + w*m_height + h;
-	      int val = volData[idx];
-	      bool a =  lut[4*val+3] > 0;
-	      if (a)
-		swvr[(w-ws)*mx + (h-hs)] = 255;
-	    }
-	
-//	MorphSlice ms;
-//	QList<QPolygonF> poly = ms.boundaryCurves(swvr, mx, my, true);
-//	
-//	memset(swvr, 0, my*mx);
-//	for (int npc=0; npc<poly.count(); npc++)
-//	  {
-//	    QImage pimg = QImage(mx, my, QImage::Format_RGB32);
-//	    pimg.fill(0);
-//	    QPainter p(&pimg);
-//	    p.setPen(QPen(Qt::white, 1));
-//	    p.setBrush(Qt::white);
-//	    p.drawPolygon(poly[npc]);
-//	    QRgb *rgb = (QRgb*)(pimg.bits());
-//	    for(int i=0; i<my*mx; i++)
-//	      swvr[i] = (swvr[i]>0 || qRed(rgb[i])>0 ? 255 : 0);  
-//	  }
-	shrinkwrapSlice(swvr, mx, my);
-	
-	for(int w=ws; w<=we; w++)
-	  for(int h=hs; h<=he; h++)
-	    {
-	      if (swvr[(w-ws)*mx + (h-hs)] > 0)
-		bitmask.setBit((d-ds)*mx*my+(w-ws)*mx + (h-hs), true);
-	    }
-	
-      }
-    delete [] swvr;
-  }
-  //------------------------------------------------------
-
-  //------------------------------------------------------
-  { // handle width slices
-    progress.setLabelText("Tag interior voxels for Y slices");
-    uchar *swvr = new uchar[mz*mx];
-    for(qint64 w=ws; w<=we; w++)
-      {
-	progress.setValue(90*(w-ws)/my);
-	if (w%10 == 0) qApp->processEvents();
-	
-	memset(swvr, 0, mz*mx);
-	
-	for(qint64 d=ds; d<=de; d++)
-	  for(qint64 h=hs; h<=he; h++)
-	    {
-	      qint64 idx = d*m_width*m_height + w*m_height + h;
-	      int val = volData[idx];
-	      bool a =  lut[4*val+3] > 0;
-	      if (a)
-		swvr[(d-ds)*mx + (h-hs)] = 255;
-	    }
-	
-//	MorphSlice ms;
-//	QList<QPolygonF> poly = ms.boundaryCurves(swvr, mx, mz, true);
-//	
-//	memset(swvr, 0, mz*mx);
-//	for (int npc=0; npc<poly.count(); npc++)
-//	  {
-//	    QImage pimg = QImage(mx, mz, QImage::Format_RGB32);
-//	    pimg.fill(0);
-//	    QPainter p(&pimg);
-//	    p.setPen(QPen(Qt::white, 1));
-//	    p.setBrush(Qt::white);
-//	    p.drawPolygon(poly[npc]);
-//	    QRgb *rgb = (QRgb*)(pimg.bits());
-//	    for(int i=0; i<mz*mx; i++)
-//	      swvr[i] = (swvr[i]>0 || qRed(rgb[i])>0 ? 255 : 0);  
-//	  }
-	shrinkwrapSlice(swvr, mx, mz);
-	
-	for(int d=ds; d<=de; d++)
-	  for(int h=hs; h<=he; h++)
-	    {
-	      if (swvr[(d-ds)*mx + (h-hs)] > 0)
-		bitmask.setBit((d-ds)*mx*my+(w-ws)*mx + (h-hs), true);
-	    }
-	
-      }
-    delete [] swvr;
-  }
-  //------------------------------------------------------
-
-  //------------------------------------------------------
-  { // handle height slices
-    progress.setLabelText("Tag interior voxels for X slices");
-    uchar *swvr = new uchar[mz*my];
-    for(qint64 h=hs; h<=he; h++)
-      {
-	progress.setValue(90*(h-hs)/mx);
-	if (h%10 == 0) qApp->processEvents();
-	
-	memset(swvr, 0, mz*my);
-	
-	for(qint64 d=ds; d<=de; d++)
-	  for(qint64 w=ws; w<=we; w++)
-	    {
-	      qint64 idx = d*m_width*m_height + w*m_height + h;
-	      int val = volData[idx];
-	      bool a =  lut[4*val+3] > 0;
-	      if (a)
-		swvr[(d-ds)*my + (w-ws)] = 255;
-	    }
-	
-//	MorphSlice ms;
-//	QList<QPolygonF> poly = ms.boundaryCurves(swvr, my, mz, true);
-//	
-//	memset(swvr, 0, mz*my);
-//	for (int npc=0; npc<poly.count(); npc++)
-//	  {
-//	    QImage pimg = QImage(my, mz, QImage::Format_RGB32);
-//	    pimg.fill(0);
-//	    QPainter p(&pimg);
-//	    p.setPen(QPen(Qt::white, 1));
-//	    p.setBrush(Qt::white);
-//	    p.drawPolygon(poly[npc]);
-//	    QRgb *rgb = (QRgb*)(pimg.bits());
-//	    for(int i=0; i<mz*my; i++)
-//	      swvr[i] = (swvr[i]>0 || qRed(rgb[i])>0 ? 255 : 0);  
-//	  }
-	shrinkwrapSlice(swvr, my, mz);
-	
-	for(int d=ds; d<=de; d++)
-	  for(int w=ws; w<=we; w++)
-	    {
-	      if (swvr[(d-ds)*my + (w-ws)] > 0)
-		bitmask.setBit((d-ds)*mx*my+(w-ws)*mx + (h-hs), true);
-	    }
-	
-      }
-    delete [] swvr;
-  }
-  //------------------------------------------------------
-
-
-  //------------------------------------------------------
-  // if we want only shell remove interior
-  if (shellOnly)
-    {
-      progress.setLabelText("Tag shell voxels");
-      MyBitArray cbitmask;
-      cbitmask.resize(mx*my*mz);
-      for(int i=0; i<mx*my*mz; i++)
-	cbitmask.setBit(i, bitmask.testBit(i));
-
-      bitmask.fill(false);
-      
-      for(qint64 d=ds; d<=de; d++)
-	{
-	  progress.setValue(90*(d-ds)/mz);
-	  if (d%10 == 0) qApp->processEvents();
-	
-	  for(qint64 w=ws; w<=we; w++)
-	  for(qint64 h=hs; h<=he; h++)
-	    {
-	      qint64 bidx = (d-ds)*mx*my+(w-ws)*mx + (h-hs);
-	      if (cbitmask.testBit(bidx) == true)
-		{
-		  qint64 d2s = qBound(ds, (int)d-1, de);
-		  qint64 w2s = qBound(ws, (int)w-1, we);
-		  qint64 h2s = qBound(hs, (int)h-1, he);
-		  qint64 d2e = qBound(ds, (int)d+1, de);
-		  qint64 w2e = qBound(ws, (int)w+1, we);
-		  qint64 h2e = qBound(hs, (int)h+1, he);
-		  
-		  bool ok = true;
-		  for(qint64 d2=d2s; d2<=d2e; d2++)
-		  for(qint64 w2=w2s; w2<=w2e; w2++)
-		  for(qint64 h2=h2s; h2<=h2e; h2++)
-		    {
-		      qint64 cidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
-		      if (!cbitmask.testBit(cidx))
-			{
-			  ok = false;
-			  break;
-			}			  
-		    }
-		  
-		  if (!ok) // boundary voxel
-		    bitmask.setBit(bidx, true);
-		}
-	    }
-	}
-
-      for(int i=0; i<mx*my*mz; i++)
-	cbitmask.setBit(i, bitmask.testBit(i));
-
-      bitmask.fill(false);
-      
-      for(qint64 d=ds; d<=de; d++)
-	{
-	  progress.setValue(90*(d-ds)/mz);
-	  if (d%10 == 0) qApp->processEvents();
-	
-	  for(qint64 w=ws; w<=we; w++)
-	  for(qint64 h=hs; h<=he; h++)
-	    {
-	      qint64 bidx = (d-ds)*mx*my+(w-ws)*mx + (h-hs);
-	      if (cbitmask.testBit(bidx) == true)
-		{
-		  qint64 d2s = qBound(ds, (int)d-shellThickness, de);
-		  qint64 w2s = qBound(ws, (int)w-shellThickness, we);
-		  qint64 h2s = qBound(hs, (int)h-shellThickness, he);
-		  qint64 d2e = qBound(ds, (int)d+shellThickness, de);
-		  qint64 w2e = qBound(ws, (int)w+shellThickness, we);
-		  qint64 h2e = qBound(hs, (int)h+shellThickness, he);
-		  for(qint64 d2=d2s; d2<=d2e; d2++)
-		  for(qint64 w2=w2s; w2<=w2e; w2++)
-		  for(qint64 h2=h2s; h2<=h2e; h2++)
-		    {
-		      qint64 cidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
-		      bitmask.setBit(cidx, true);
-		    }
-		}
-	    }
-	}
-    }
-  //------------------------------------------------------
-
-  //------------------------------------------------------
-  // now set the maskData
-  for(qint64 d=ds; d<=de; d++)
-    for(qint64 w=ws; w<=we; w++)
-      for(qint64 h=hs; h<=he; h++)
-	{
-	  qint64 bidx = (d-ds)*mx*my+(w-ws)*mx + (h-hs);
-	  if (bitmask.testBit(bidx) == true)
-	    {
-	      qint64 idx = d*m_width*m_height + w*m_height + h;
-	      maskData[idx] = tag;
-	    }
-	}
-  //------------------------------------------------------
-
-  progress.setLabelText("Update modified region on gpu");
-  qApp->processEvents();
-  m_viewer->uploadMask(ds,ws,hs, de,we,he);
-  
-  QList<int> dwh;  
-  m_blockList.clear();  
-  dwh << ds << ws << hs;
-  m_blockList << dwh;
-  dwh.clear();
-  dwh << de << we << he;
-  m_blockList << dwh;
-
-  progress.setLabelText("Save modified region to mask file");
-  qApp->processEvents();
-  m_volume->saveMaskBlock(m_blockList);
-
-  progress.setValue(100);
- 
-}
-
-void
 DrishtiPaint::shrinkwrapSlice(uchar *swvr, int mx, int my)
 {
   MorphSlice ms;
@@ -6310,6 +6024,9 @@ DrishtiPaint::shrinkwrap(Vec bmin, Vec bmax, int tag,
 		   0, 0,-1,
 		   0, 0, 1};
 
+  QList<Vec> cPos =  m_viewer->clipPos();
+  QList<Vec> cNorm = m_viewer->clipNorm();
+
   //----------------------------  
   // identify empty region
   progress.setLabelText("Identifying transparent region");
@@ -6320,13 +6037,26 @@ DrishtiPaint::shrinkwrap(Vec bmin, Vec bmax, int tag,
     for(int w2=ws; w2<=we; w2++)
     for(int h2=hs; h2<=he; h2++)
     {
+      bool clipped = false;
+      for(int i=0; i<cPos.count(); i++)
+	{
+	  Vec p = Vec(h2, w2, d2) - cPos[i];
+	  if (cNorm[i]*p > 0)
+	    {
+	      clipped = true;
+	      break;
+	    }
+	}
+      
       qint64 idx = d2*m_width*m_height + w2*m_height + h2;
       int val = volData[idx];
-      if (lut[4*val+3] == 0)
+      uchar mtag = maskData[idx];
+      bool transparent =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] == 0);
+      if (clipped || transparent)
 	{
 	  qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
 	  cbitmask.setBit(bidx, true);
-	}
+	}  // transparent voxel
     }
   }
 
@@ -6350,11 +6080,25 @@ DrishtiPaint::shrinkwrap(Vec bmin, Vec bmax, int tag,
 	for(qint64 w=ws; w<=we; w++)
 	  for(qint64 h=hs; h<=he; h++)
 	    {
-	      qint64 idx = d*m_width*m_height + w*m_height + h;
-	      int val = volData[idx];
-	      bool a =  lut[4*val+3] > 0;
-	      if (a)
-		swvr[(w-ws)*mx + (h-hs)] = 255;
+	      bool clipped = false;
+	      for(int i=0; i<cPos.count(); i++)
+		{
+		  Vec p = Vec(h, w, d) - cPos[i];
+		  if (cNorm[i]*p > 0)
+		    {
+		      clipped = true;
+		      break;
+		    }
+		}
+	      if (!clipped)
+		{
+		  qint64 idx = d*m_width*m_height + w*m_height + h;
+		  int val = volData[idx];
+		  uchar mtag = maskData[idx];
+		  bool visible =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);
+		  if (visible)
+		    swvr[(w-ws)*mx + (h-hs)] = 255;
+		}
 	    }
 
 	shrinkwrapSlice(swvr, mx, my);
@@ -6386,11 +6130,25 @@ DrishtiPaint::shrinkwrap(Vec bmin, Vec bmax, int tag,
 	for(qint64 d=ds; d<=de; d++)
 	  for(qint64 h=hs; h<=he; h++)
 	    {
-	      qint64 idx = d*m_width*m_height + w*m_height + h;
-	      int val = volData[idx];
-	      bool a =  lut[4*val+3] > 0;
-	      if (a)
-		swvr[(d-ds)*mx + (h-hs)] = 255;
+	      bool clipped = false;
+	      for(int i=0; i<cPos.count(); i++)
+		{
+		  Vec p = Vec(h, w, d) - cPos[i];
+		  if (cNorm[i]*p > 0)
+		    {
+		      clipped = true;
+		      break;
+		    }
+		}
+	      if (!clipped)
+		{
+		  qint64 idx = d*m_width*m_height + w*m_height + h;
+		  int val = volData[idx];
+		  uchar mtag = maskData[idx];
+		  bool visible =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);
+		  if (visible)
+		    swvr[(d-ds)*mx + (h-hs)] = 255;
+		}
 	    }
 	
 	shrinkwrapSlice(swvr, mx, mz);
@@ -6424,11 +6182,25 @@ DrishtiPaint::shrinkwrap(Vec bmin, Vec bmax, int tag,
 	for(qint64 d=ds; d<=de; d++)
 	  for(qint64 w=ws; w<=we; w++)
 	    {
-	      qint64 idx = d*m_width*m_height + w*m_height + h;
-	      int val = volData[idx];
-	      bool a =  lut[4*val+3] > 0;
-	      if (a)
-		swvr[(d-ds)*my + (w-ws)] = 255;
+	      bool clipped = false;
+	      for(int i=0; i<cPos.count(); i++)
+		{
+		  Vec p = Vec(h, w, d) - cPos[i];
+		  if (cNorm[i]*p > 0)
+		    {
+		      clipped = true;
+		      break;
+		    }
+		}
+	      if (!clipped)
+		{
+		  qint64 idx = d*m_width*m_height + w*m_height + h;
+		  int val = volData[idx];
+		  uchar mtag = maskData[idx];
+		  bool visible =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);
+		  if (visible)
+		    swvr[(d-ds)*my + (w-ws)] = 255;
+		}
 	    }
 	
 	shrinkwrapSlice(swvr, my, mz);
@@ -6448,72 +6220,9 @@ DrishtiPaint::shrinkwrap(Vec bmin, Vec bmax, int tag,
     delete [] swvr;
   }
   //------------------------------------------------------
-//  //------------------------------------------------------
-//  int d,w,h;
-//
-//  d = ds;
-//  for(w=ws; w<=we; w++)
-//    for(h=hs; h<=he; h++)
-//      {
-//	qint64 bidx = (d-ds)*mx*my+(w-ws)*mx+(h-hs);
-//	bitmask.setBit(bidx, false);
-//	if (cbitmask.testBit(bidx))
-//	  edges << Vec(d,w,h);
-//      }
-//  d = de;
-//  for(w=ws; w<=we; w++)
-//    for(h=hs; h<=he; h++)
-//      {
-//	qint64 bidx = (d-ds)*mx*my+(w-ws)*mx+(h-hs);
-//	bitmask.setBit(bidx, false);
-//	if (cbitmask.testBit(bidx))
-//	  edges << Vec(d,w,h);
-//      }
-//
-//  w = ws;
-//  for(d=ds; d<=de; d++)
-//    for(h=hs; h<=he; h++)
-//      {
-//	qint64 bidx = (d-ds)*mx*my+(w-ws)*mx+(h-hs);
-//	bitmask.setBit(bidx, false);
-//	if (cbitmask.testBit(bidx))
-//	  edges << Vec(d,w,h);
-//      }	  
-//  w = we;
-//  for(d=ds; d<=de; d++)
-//    for(h=hs; h<=he; h++)
-//      {
-//	qint64 bidx = (d-ds)*mx*my+(w-ws)*mx+(h-hs);
-//	bitmask.setBit(bidx, false);
-//	if (cbitmask.testBit(bidx))
-//	  edges << Vec(d,w,h);
-//      }	  
-//
-//  h = hs;
-//  for(d=ds; d<=de; d++)
-//    for(w=ws; w<=we; w++)
-//      {
-//	qint64 bidx = (d-ds)*mx*my+(w-ws)*mx+(h-hs);
-//	bitmask.setBit(bidx, false);
-//	if (cbitmask.testBit(bidx))
-//	  edges << Vec(d,w,h);
-//      }	  
-//  h = he;
-//  for(d=ds; d<=de; d++)
-//    for(w=ws; w<=we; w++)
-//      {
-//	qint64 bidx = (d-ds)*mx*my+(w-ws)*mx+(h-hs);
-//	bitmask.setBit(bidx, false);
-//	if (cbitmask.testBit(bidx))
-//	  edges << Vec(d,w,h);
-//      }	  
-//  //----------------------------
 
   //------------------------------------------------------
   // now dilate from boundary
-  progress.setLabelText("Dilate");
-  qApp->processEvents();
-
   bool done = false;
   int nd = 0;
   int pvnd = 0;
@@ -6529,7 +6238,7 @@ DrishtiPaint::shrinkwrap(Vec bmin, Vec bmax, int tag,
       QList<Vec> tedges;
       tedges.clear();
 
-      progress.setLabelText(QString("Dilate %1").arg(edges.count()));
+      progress.setLabelText(QString("Boundary detection %1").arg(edges.count()));
       qApp->processEvents();
 
             
@@ -6692,6 +6401,105 @@ DrishtiPaint::shrinkwrap(Vec bmin, Vec bmax, int tag,
   m_blockList << dwh;
   dwh.clear();
   dwh << de << we << he;
+  m_blockList << dwh;
+
+  progress.setLabelText("Save modified region to mask file");
+  qApp->processEvents();
+  m_volume->saveMaskBlock(m_blockList);
+
+  progress.setValue(100);
+}
+
+void
+DrishtiPaint::resetTag(Vec bmin, Vec bmax, int tag)
+{
+  int m_depth, m_width, m_height;
+  m_volume->gridSize(m_depth, m_width, m_height);
+
+  int ds = bmin.z;
+  int ws = bmin.y;
+  int hs = bmin.x;
+
+  int de = bmax.z;
+  int we = bmax.y;
+  int he = bmax.x;
+
+  QProgressDialog progress("Updating voxel structure",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+  int minD,maxD, minW,maxW, minH,maxH;
+  minD = maxD = -1;
+  minW = maxW = -1;
+  minH = maxH = -1;
+
+  QList<Vec> cPos =  m_viewer->clipPos();
+  QList<Vec> cNorm = m_viewer->clipNorm();
+
+  uchar *maskData = m_volume->memMaskDataPtr();
+  for(qint64 d=ds; d<=de; d++)
+    {
+      progress.setValue(90*(d-ds)/((de-ds+1)));
+      if (d%10 == 0)
+	qApp->processEvents();
+      for(qint64 w=ws; w<=we; w++)
+	for(qint64 h=hs; h<=he; h++)
+	  {
+	    bool clipped = false;
+	    for(int i=0; i<cPos.count(); i++)
+	      {
+		Vec p = Vec(h, w, d) - cPos[i];
+		if (cNorm[i]*p > 0)
+		  {
+		    clipped = true;
+		    break;
+		  }
+	      }
+	    
+	    if (!clipped)
+	      {
+		qint64 idx = d*m_width*m_height + w*m_height + h;
+		maskData[idx] = tag;
+		if (minD > -1)
+		  {
+		    minD = qMin(minD, (int)d);
+		    maxD = qMax(maxD, (int)d);
+		    minW = qMin(minW, (int)w);
+		    maxW = qMax(maxW, (int)w);
+		    minH = qMin(minH, (int)h);
+		    maxH = qMax(maxH, (int)h);
+		  }
+		else
+		  {
+		    minD = maxD = d;
+		    minW = maxW = w;
+		    minH = maxH = h;
+		  }
+	      } // clipped
+	  }
+    }
+  
+  getSlice(m_currSlice);
+  
+  minD = qMax(minD-1, 0);
+  minW = qMax(minW-1, 0);
+  minH = qMax(minH-1, 0);
+  maxD = qMin(maxD+1, m_depth);
+  maxW = qMin(maxW+1, m_width);
+  maxH = qMin(maxH+1, m_height);
+
+  progress.setLabelText("Update modified region on gpu");
+  qApp->processEvents();
+  m_viewer->uploadMask(minD,minW,minH, maxD,maxW,maxH);
+
+  QList<int> dwh;  
+  m_blockList.clear();  
+  dwh << minD << minW << minH;
+  m_blockList << dwh;
+  dwh.clear();
+  dwh << maxD << maxW << maxH;
   m_blockList << dwh;
 
   progress.setLabelText("Save modified region to mask file");

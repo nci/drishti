@@ -1013,25 +1013,6 @@ Viewer::processCommand(QString cmd)
   cmd = cmd.toLower();
   QStringList list = cmd.split(" ", QString::SkipEmptyParts);
  
-//  if (list[0].contains("taginterior"))
-//    {
-//      int tag1 = Global::tag();
-//      if (list.size() == 2)
-//	{
-//	  tag1 = list[1].toInt(&ok);
-//	  if (tag1 < 0 || tag1 > 255)
-//	    {
-//	      QMessageBox::information(0, "", QString("Incorrect tags specified : %1").\
-//				       arg(tag1));
-//	      return;
-//	    }
-//	}
-//      Vec bmin, bmax;
-//      m_boundingBox.bounds(bmin, bmax);
-//      emit tagInterior(bmin, bmax, tag1, false, 1);
-//      return;
-//    }
-
   if (list[0].contains("shrinkwrap"))
     {
       int tag1 = Global::tag();
@@ -1051,7 +1032,7 @@ Viewer::processCommand(QString cmd)
       return;
     }
 
-  if (list[0].contains("tagshell"))
+  if (list[0].contains("shell"))
     {
       int tag1 = Global::tag();
       int width = 1;
@@ -1077,8 +1058,25 @@ Viewer::processCommand(QString cmd)
 	}
       Vec bmin, bmax;
       m_boundingBox.bounds(bmin, bmax);
-      //emit tagInterior(bmin, bmax, tag1, true, width);
       emit shrinkwrap(bmin, bmax, tag1, true, width);
+      return;
+    }
+
+  if (list[0].contains("reset"))
+    {
+      if (list.size() == 2)
+	{
+	  int tag1 = list[1].toInt(&ok);
+	  if (tag1 < 0 || tag1 > 255)
+	    {
+	      QMessageBox::information(0, "", QString("Incorrect tags specified : %1").\
+				       arg(tag1));
+	      return;
+	    }
+	  Vec bmin, bmax;
+	  m_boundingBox.bounds(bmin, bmax);
+	  emit resetTag(bmin, bmax, tag1);
+	}
       return;
     }
 

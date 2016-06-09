@@ -130,7 +130,6 @@ class DrishtiPaint : public QMainWindow
   void tagUsingSketchPad(Vec, Vec);
   void mergeTags(Vec, Vec, int, int, bool);
   void mergeTags(Vec, Vec, int, int, int, bool);
-  void setVisible(Vec, Vec, int, bool);
 
   void updateSliceBounds(Vec, Vec);
 
@@ -145,7 +144,8 @@ class DrishtiPaint : public QMainWindow
   void getEdgeColor();
   void getBGColor();
 
-  void tagInterior(Vec, Vec, int, bool, int);
+  void setVisible(Vec, Vec, int, bool);
+  void resetTag(Vec, Vec, int);
   void shrinkwrap(Vec, Vec, int, bool, int);
 
  private :

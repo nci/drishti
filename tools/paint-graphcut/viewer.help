@@ -43,7 +43,7 @@ Clipping planes are obeyed - clipped region is not taken into account.
 reset
 reset <tag1>
 
-Set all voxels in the region to tag1.
+Set all voxels in the region to tag1.  Default value for tag1 is 0.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end

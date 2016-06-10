@@ -266,6 +266,8 @@ class DrishtiPaint : public QMainWindow
   void setupLightParameters();
 
   void shrinkwrapSlice(uchar*, int, int);
+  void getTransparentRegion(int, int, int,
+			    int, int, int, MyBitArray&);
 };
 
 #endif

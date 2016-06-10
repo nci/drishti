@@ -1064,19 +1064,20 @@ Viewer::processCommand(QString cmd)
 
   if (list[0].contains("reset"))
     {
+      int tag1 = 0;
       if (list.size() == 2)
 	{
-	  int tag1 = list[1].toInt(&ok);
+	  tag1 = list[1].toInt(&ok);
 	  if (tag1 < 0 || tag1 > 255)
 	    {
 	      QMessageBox::information(0, "", QString("Incorrect tags specified : %1").\
 				       arg(tag1));
 	      return;
 	    }
-	  Vec bmin, bmax;
-	  m_boundingBox.bounds(bmin, bmax);
-	  emit resetTag(bmin, bmax, tag1);
 	}
+      Vec bmin, bmax;
+      m_boundingBox.bounds(bmin, bmax);
+      emit resetTag(bmin, bmax, tag1);
       return;
     }
 

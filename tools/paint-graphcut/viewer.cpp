@@ -822,7 +822,10 @@ Viewer::keyPressEvent(QKeyEvent *event)
 
   if (event->key() == Qt::Key_F)
     {  
-      regionGrowing();
+      if (event->modifiers() & Qt::ShiftModifier)
+	regionGrowing(true); // shrinkwrap
+      else
+	regionGrowing(false);
       update();
       return;
     }
@@ -4186,7 +4189,7 @@ Viewer::uploadMask(int dst, int wst, int hst, int ded, int wed, int hed)
 }
 
 void
-Viewer::regionGrowing()
+Viewer::regionGrowing(bool sw)
 {
   if (!m_useMask)
     {
@@ -4198,10 +4201,47 @@ Viewer::regionGrowing()
   bool gothit = getCoordUnderPointer(d, w, h);
   if (!gothit) return;
 
+
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
 
-  emit connectedRegion(d, w, h, bmin, bmax, Global::tag());
+  if (!sw)
+    emit connectedRegion(d, w, h, bmin, bmax, Global::tag());
+  else
+    {
+      QStringList dtypes;
+      dtypes << "Shrinkwrap";
+      dtypes << "Shell";
+      bool ok;
+      QString option = QInputDialog::getItem(0,
+					     "Shrinkwrap",
+					     "Shrinkwrap or Shell",
+					     dtypes,
+					     0,
+					     false,
+					     &ok);
+      if (!ok)
+	return;
+      bool sw = false;
+      if (option == "Shell")
+	sw = true;
+
+      int ctag = -1;
+      ctag = QInputDialog::getInt(0,
+				  "Shrinkwrap/Shell",
+				  QString("Region will be shrinkwrapped/shelled with current tag value (%1).\nSpecity tag value of connected region (-1 for connected visible region).").arg(Global::tag()),
+				  Global::tag(), -1, 255, 1);
+
+      int thickness = 1;
+      if (sw)
+	thickness = QInputDialog::getInt(0,
+					 "Shell thickness",
+					 "Shell thickness",
+					 1, 1, 50, 1);
+      
+      emit shrinkwrap(bmin, bmax, Global::tag(), sw, thickness,
+		      false, d, w, h, ctag);
+    }
 }
 
 void

@@ -146,6 +146,8 @@ class DrishtiPaint : public QMainWindow
   void setVisible(Vec, Vec, int, bool);
   void resetTag(Vec, Vec, int);
   void shrinkwrap(Vec, Vec, int, bool, int);
+  void shrinkwrap(Vec, Vec, int, bool, int,
+		  bool, int, int, int, int);
   void connectedRegion(int, int, int, Vec, Vec, int);
 
  private :
@@ -266,6 +268,12 @@ class DrishtiPaint : public QMainWindow
   void setupLightParameters();
 
   void shrinkwrapSlice(uchar*, int, int);
+
+  void getConnectedRegion(int, int, int,
+			  int, int, int,
+			  int, int, int,
+			  int, bool,
+			  MyBitArray&);
   void getTransparentRegion(int, int, int,
 			    int, int, int, MyBitArray&);
 };

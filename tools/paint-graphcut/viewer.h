@@ -127,6 +127,8 @@ class Viewer : public QGLViewer
     void setVisible(Vec, Vec, int, bool);
     void resetTag(Vec, Vec, int);
     void shrinkwrap(Vec, Vec, int, bool, int);
+    void shrinkwrap(Vec, Vec, int, bool, int,
+		    bool, int, int, int, int);
     void connectedRegion(int, int, int, Vec, Vec, int);
 
  private :
@@ -328,7 +330,7 @@ class Viewer : public QGLViewer
 
   void pointRendering();
 
-  void regionGrowing();
+  void regionGrowing(bool);
   void regionDilation();
   void regionErosion();
   void tagUsingScreenSketch();

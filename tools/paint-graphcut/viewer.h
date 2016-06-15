@@ -56,6 +56,20 @@ class Viewer : public QGLViewer
   QList<Vec> clipPos() { return m_clipPlanes->positions(); }
   QList<Vec> clipNorm(){ return m_clipPlanes->normals(); }
 
+
+  Vec viewDir() { return camera()->viewDirection(); }
+  Vec viewRight() { return camera()->rightVector(); }
+  Vec viewUp() { return camera()->upVector(); }
+  Vec camPos() { return camera()->position(); }
+  bool perspectiveProjection()
+  {
+    if (camera()->type() == Camera::ORTHOGRAPHIC)
+      return false;
+
+    return true;
+  }
+
+
   public slots :
     void GlewInit();  
     void resizeGL(int, int);

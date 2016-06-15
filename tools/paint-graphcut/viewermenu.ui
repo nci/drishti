@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>110</width>
-    <height>842</height>
+    <width>123</width>
+    <height>886</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -102,7 +102,7 @@
      <property name="bottomMargin">
       <number>0</number>
      </property>
-     <property name="horizontalSpacing">
+     <property name="spacing">
       <number>2</number>
      </property>
      <item row="0" column="0">
@@ -118,6 +118,26 @@
         <number>1</number>
        </property>
       </widget>
+     </item>
+     <item row="1" column="0">
+      <widget class="QLabel" name="label_12">
+       <property name="text">
+        <string>Radius</string>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="0">
+      <widget class="QLabel" name="label_13">
+       <property name="text">
+        <string>Depth</string>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="1">
+      <widget class="QSpinBox" name="radiusSurface"/>
+     </item>
+     <item row="2" column="1">
+      <widget class="QSpinBox" name="radiusDepth"/>
      </item>
     </layout>
    </item>

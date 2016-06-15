@@ -1801,6 +1801,10 @@ Viewer::drawInfo()
   mesg += QString("mb(%1 @ %2)").arg(vszgb).arg(m_sslevel);
   StaticFunctions::renderText(10,30, mesg, tfont, Qt::black, Qt::lightGray);
 
+  int sh = camera()->screenHeight();  
+  StaticFunctions::renderText(10,sh-30, QString("Current Tag : %1").arg(Global::tag()),
+			      tfont, Qt::black, Qt::lightGray);
+
   StaticFunctions::popOrthoView();
 
   glEnable(GL_DEPTH_TEST);
@@ -4230,7 +4234,7 @@ Viewer::regionGrowing(bool sw)
       ctag = QInputDialog::getInt(0,
 				  "Shrinkwrap/Shell",
 				  QString("Region will be shrinkwrapped/shelled with current tag value (%1).\nSpecity tag value of connected region (-1 for connected visible region).").arg(Global::tag()),
-				  Global::tag(), -1, 255, 1);
+				  -1, -1, 255, 1);
 
       int thickness = 1;
       if (sw)

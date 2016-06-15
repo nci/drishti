@@ -48,7 +48,6 @@ macx {
 HEADERS += commonqtclasses.h \
 	boundingbox.h \
 	drishtipaint.h \
-	bitmapthread.h \
 	curvegroup.h \
         clipinformation.h \
         clipplane.h \
@@ -99,7 +98,6 @@ HEADERS += commonqtclasses.h \
 
 SOURCES += drishtipaint.cpp \
 	main.cpp \
-	bitmapthread.cpp \
 	boundingbox.cpp \
 	curvegroup.cpp \
         clipinformation.cpp \

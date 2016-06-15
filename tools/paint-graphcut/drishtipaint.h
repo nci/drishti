@@ -96,33 +96,13 @@ class DrishtiPaint : public QMainWindow
   void getSlice(int);
   void getMaskSlice(int);
   void getRawValue(int, int, int);
-  void tagDSlice(int, QImage);
-  void tagWSlice(int, QImage);
-  void tagHSlice(int, QImage);
   void tagDSlice(int, uchar*);
   void tagWSlice(int, uchar*);
   void tagHSlice(int, uchar*);
-  void fillVolume(int, int,
-		  int, int,
-		  int, int,
-		  QList<int>,
-		  bool);
-  void tagAllVisible(int, int,
-		     int, int,
-		     int, int);
-  void dilate();
-  void dilate(int, int,
-	      int, int,
-	      int, int);
-  void erode();
-  void erode(int, int,
-	     int, int,
-	     int, int);
 
   void applyMaskOperation(int, int, int);
 
   void paint3D(int, int, int, int, int);
-  void paintLayer(int, int, int, int, int);
   void paint3DEnd();
   void dilateConnected(int, int, int, Vec, Vec, int);
   void erodeConnected(int, int, int, Vec, Vec, int);
@@ -169,7 +149,6 @@ class DrishtiPaint : public QMainWindow
   ImageWidget *m_imageWidget;
   MySlider *m_slider;
   Volume *m_volume;
-  BitmapThread *m_bitmapThread;
 
   int m_currSlice;
 
@@ -276,6 +255,10 @@ class DrishtiPaint : public QMainWindow
 			  MyBitArray&);
   void getTransparentRegion(int, int, int,
 			    int, int, int, MyBitArray&);
+
+  void dilateBitmask(int, bool,
+		     qint64, qint64, qint64,
+		     MyBitArray&);
 };
 
 #endif

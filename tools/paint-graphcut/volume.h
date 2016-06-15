@@ -3,7 +3,6 @@
 
 #include "volumemask.h"
 #include "volumefilemanager.h"
-#include "bitmapthread.h"
 
 class Volume : public QObject
 {
@@ -15,8 +14,6 @@ class Volume : public QObject
 
   bool isValid();
   void reset();
-
-  void setBitmapThread(BitmapThread*);
 
   bool setFile(QString);
   QString fileName() { return m_fileName; }
@@ -42,31 +39,9 @@ class Volume : public QObject
 
   QList<uchar> rawValue(int, int, int);
 
-  void createBitmask();
-
-  void tagDSlice(int, uchar*, bool);
-  void tagWSlice(int, uchar*, bool);
-  void tagHSlice(int, uchar*, bool);
-
-  void fillVolume(int, int,
-		  int, int,
-		  int, int,
-		  QList<int>,
-		  bool);
-
-  void tagAllVisible(int, int,
-		     int, int,
-		     int, int);
-
-  void dilateVolume(int, int,
-		    int, int,
-		    int, int);
-  void dilateVolume();
-
-  void erodeVolume();
-  void erodeVolume(int, int,
-		   int, int,
-		   int, int);
+  void tagDSlice(int, uchar*);
+  void tagWSlice(int, uchar*);
+  void tagHSlice(int, uchar*);
   
   uchar* memVolDataPtr() {return m_pvlFileManager.memVolDataPtr();};
   uchar* memMaskDataPtr() {return m_mask.memMaskDataPtr();};
@@ -81,12 +56,9 @@ class Volume : public QObject
   void progressReset();
 
  private :
-  BitmapThread *thread;
-
   bool m_valid;
 
   VolumeFileManager m_pvlFileManager;
-  //VolumeFileManager m_gradFileManager;
 
   VolumeMask m_mask;
 
@@ -102,28 +74,8 @@ class Volume : public QObject
   QImage m_histogramImage1D;
   QImage m_histogramImage2D;
 
-
-  int m_nonZeroVoxels;
-  int m_bitsize;
-  QBitArray m_bitmask;
-  QBitArray m_connectedbitmask;
-
-
   void genHistogram();
   void generateHistogramImage();
-
-  void findConnectedRegion(int, int,
-			   int, int,
-			   int, int,
-			   QList<int>,
-			   bool);
-
-  void markVisibleRegion(int, int,
-			 int, int,
-			 int, int);
-
-  //void createGradVolume();
-  //void saveSmoothedVolume();
 };
 
 #endif

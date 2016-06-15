@@ -3,8 +3,6 @@
 #include "global.h"
 #include "getmemorysize.h"
 
-void Volume::setBitmapThread(BitmapThread *bt) {thread = bt;}
-
 void
 Volume::saveIntermediateResults(bool forceSave)
 {
@@ -78,15 +76,6 @@ Volume::Volume()
 
   m_histogramImage1D = QImage(256, 256, QImage::Format_RGB32);
   m_histogramImage2D = QImage(256, 256, QImage::Format_RGB32);
-
-  m_nonZeroVoxels = 0;
-  m_bitmask.clear();
-  m_connectedbitmask.clear();
-
-  connect(&m_mask, SIGNAL(progressChanged(int)),
-	  this, SIGNAL(progressChanged(int)));
-  connect(&m_mask, SIGNAL(progressReset()),
-	  this, SIGNAL(progressReset()));
 }
 
 Volume::~Volume() { reset(); }
@@ -115,8 +104,6 @@ void Volume::reset()
   m_2dHistogram = 0;
   m_histImageData1D = 0;
   m_histImageData2D = 0;
-  m_bitmask.clear();
-  m_connectedbitmask.clear();
 }
 
 
@@ -198,95 +185,10 @@ Volume::setFile(QString volfile)
   genHistogram();
   generateHistogramImage();
 
-  m_bitmask.resize((qint64)m_depth*m_width*m_height);
-  m_bitmask.fill(false);
-  m_connectedbitmask.resize((qint64)m_depth*m_width*m_height);
-  m_connectedbitmask.fill(false);
-
   m_valid = true;
 
   return true;
 }
-
-//void
-//Volume::createGradVolume()
-//{
-//  if (m_gradFileManager.exists())
-//    return;
-//
-//  m_gradFileManager.createFile(true);
-//
-//  int minx = 0;
-//  int miny = 0;
-//  int minz = 0;
-//  int maxx = m_height;
-//  int maxy = m_width;
-//  int maxz = m_depth;
-//
-//  int lenx = m_height;
-//  int leny = m_width;
-//  int lenz = m_depth;
-//  
-//  QProgressDialog progress(QString("saving val+grad volume"),
-//			   "Cancel",
-//			   0, 100,
-//			   0);
-//  progress.setMinimumDuration(0);
-//
-//
-//  int nbytes = m_width*m_height;
-//  uchar *tmp, *g0, *g1, *g2;
-//  tmp = new uchar [nbytes];
-//  g0  = new uchar [nbytes];
-//  g1  = new uchar [nbytes];
-//  g2  = new uchar [nbytes];
-//
-//  memset(g0, 0, nbytes);
-//  memset(g1, 0, nbytes);
-//  memset(g2, 0, nbytes);
-//
-//  for(int kslc=0; kslc<m_depth; kslc++)
-//    {
-//      progress.setValue((int)(100.0*(float)kslc/(float)m_depth));
-//      qApp->processEvents();
-//
-//      uchar *vslice;
-//      vslice = m_pvlFileManager.getSlice(kslc);
-//
-//      memcpy(g2, vslice, nbytes);
-//
-//      memset(tmp, 0, nbytes);
-//
-//      if (kslc >= 2)
-//	{
-//	  for(int j=1; j<m_width-1; j++)
-//	    for(int i=1; i<m_height-1; i++)
-//	      {
-//		int gx = g1[j*m_height+(i+1)] - g1[j*m_height+(i-1)];
-//		int gy = g1[(j+1)*m_height+i] - g1[(j-1)*m_height+i];
-//		int gz = g2[j*m_height+i] - g0[j*m_height+i];
-//		int gsum = sqrtf(gx*gx+gy*gy+gz*gz);
-//		gsum = qBound(0, gsum, 255);
-//		tmp[j*m_height+i] = gsum;
-//	      }
-//	}
-//
-//      m_gradFileManager.setSlice(kslc, tmp);
-//
-//      uchar *gt = g0;
-//      g0 = g1;
-//      g1 = g2;
-//      g2 = gt;
-//    }
-//
-//  delete [] tmp;
-//  delete [] g0;
-//  delete [] g1;
-//  delete [] g2;
-//
-//  progress.setValue(100);
-//  qApp->processEvents();
-//}
 
 void
 Volume::genHistogram()
@@ -341,8 +243,6 @@ Volume::genHistogram()
 
       for(int j=0; j<nbytes; j++)
 	flhist1D[v[j]]++;
-
-      //vslice = m_gradFileManager.getSlice(slc);
       
       for(int j=0; j<nbytes; j++)
 	flhist2D[vslice[j]*256 + v[j]]++;
@@ -377,10 +277,6 @@ Volume::getDepthSliceImage(int slc)
   for(int t=0; t<nbytes; t++)
     m_slice[2*t] = vslice[t];
 
-//  vslice = m_gradFileManager.getSlice(slc);
-//  for(int t=0; t<nbytes; t++)
-//    m_slice[2*t+1] = vslice[t];
-
   return m_slice;
 }
 
@@ -398,10 +294,6 @@ Volume::getWidthSliceImage(int slc)
   for(int t=0; t<nbytes; t++)
     m_slice[2*t] = vslice[t];
 
-//  vslice = m_gradFileManager.getWidthSlice(slc);
-//  for(int t=0; t<nbytes; t++)
-//    m_slice[2*t+1] = vslice[t];
-
   return m_slice;
 }
 
@@ -418,10 +310,6 @@ Volume::getHeightSliceImage(int slc)
   vslice = m_pvlFileManager.getHeightSliceMem(slc);
   for(int t=0; t<nbytes; t++)
     m_slice[2*t] = vslice[t];
-
-//  vslice = m_gradFileManager.getHeightSlice(slc);
-//  for(int t=0; t<nbytes; t++)
-//    m_slice[2*t+1] = vslice[t];
 
   return m_slice;
 }
@@ -441,8 +329,6 @@ Volume::rawValue(int d, int w, int h)
   uchar *vslice;
   vslice = m_pvlFileManager.rawValueMem(d, w, h);
   vgt << vslice[0];
-//  vslice = m_gradFileManager.rawValue(d, w, h);
-//  vgt << vslice[0];
   vgt << 0;
   
   vgt << m_mask.maskValue(d,w,h);
@@ -501,228 +387,19 @@ Volume::generateHistogramImage()
 }
 
 void
-Volume::dilateVolume()
+Volume::tagDSlice(int currslice, uchar *usermask)
 {
-  m_mask.dilate(m_bitmask);
-}
-void
-Volume::dilateVolume(int mind, int maxd,
-		     int minw, int maxw,
-		     int minh, int maxh)
-{
-  m_mask.dilate(mind, maxd,
-		minw, maxw,
-		minh, maxh,
-		m_bitmask);
+  m_mask.tagDSlice(currslice, usermask);
 }
 
 void
-Volume::erodeVolume()
+Volume::tagWSlice(int currslice, uchar *usermask)
 {
-  m_mask.erode(m_bitmask);
-}
-void
-Volume::erodeVolume(int mind, int maxd,
-		    int minw, int maxw,
-		    int minh, int maxh)
-{
-  m_mask.erode(mind, maxd,
-	       minw, maxw,
-	       minh, maxh,
-	       m_bitmask);
+  m_mask.tagWSlice(currslice, usermask);
 }
 
 void
-Volume::fillVolume(int mind, int maxd,
-		   int minw, int maxw,
-		   int minh, int maxh,
-		   QList<int> dwh,
-		   bool sliceOnly)
+Volume::tagHSlice(int currslice, uchar *usermask)
 {
-  findConnectedRegion(mind, maxd,
-		      minw, maxw,
-		      minh, maxh,
-		      dwh,
-		      sliceOnly);
-
-  m_mask.tagUsingBitmask(dwh,
-			 m_connectedbitmask);
-}
-
-void
-Volume::tagAllVisible(int mind, int maxd,
-		      int minw, int maxw,
-		      int minh, int maxh)
-{
-  markVisibleRegion(mind, maxd,
-		    minw, maxw,
-		    minh, maxh);
-
-  // dummy pos
-  QList<int> pos;
-  pos.clear();
-
-  m_mask.tagUsingBitmask(pos, m_bitmask);
-}
-
-void
-Volume::createBitmask()
-{
-  return;
-}
-
-void
-Volume::tagDSlice(int currslice, uchar *usermask, bool flag)
-{
-  if (flag)
-    m_mask.tagDSlice(currslice, usermask);
-  else
-    m_mask.tagDSlice(currslice, m_bitmask, usermask);
-}
-
-void
-Volume::tagWSlice(int currslice, uchar *usermask, bool flag)
-{
-  if (flag)
-    m_mask.tagWSlice(currslice, usermask);
-  else
-    m_mask.tagWSlice(currslice, m_bitmask, usermask);
-}
-
-void
-Volume::tagHSlice(int currslice, uchar *usermask, bool flag)
-{
-  if (flag)
-    m_mask.tagHSlice(currslice, usermask);
-  else
-    m_mask.tagHSlice(currslice, m_bitmask, usermask);
-}
-
-
-void
-Volume::findConnectedRegion(int mind, int maxd,
-			    int minw, int maxw,
-			    int minh, int maxh,
-			    QList<int> pos,
-			    bool sliceOnly)
-{
-  m_connectedbitmask.fill(false);
-
-  uchar *lut = Global::lut();
-  QStack<int> stack;
-
-  uchar *vslice;
-  uchar v0, g0;
-  int d = pos[0];
-  int w = pos[1];
-  int h = pos[2];
-  vslice = m_pvlFileManager.rawValueMem(d, w, h);
-  v0 = vslice[0];
-//  vslice = m_gradFileManager.rawValue(d, w, h);
-//  g0 = vslice[0];
-  g0 = 0;
-
-
-  // put the seeds in
-  for(int pi=0; pi<pos.size()/3; pi++)
-    {
-      int d = pos[3*pi];
-      int w = pos[3*pi+1];
-      int h = pos[3*pi+2];
-      if (d >= mind && d <= maxd &&
-	  w >= minw && w <= maxw &&
-	  h >= minh && h <= maxh)
-	{
-	  qint64 idx = d*m_width*m_height + w*m_height + h;
-	  if (m_bitmask.testBit(idx))
-	    {
-	      m_connectedbitmask.setBit(idx);
-	      stack.push(d);
-	      stack.push(w);
-	      stack.push(h);
-	    }
-	}
-    }
-
-  if (sliceOnly)
-    stack.clear();
-
-  int pv = 0;
-  int progv = 0;
-  while(!stack.isEmpty())
-    {
-      progv++;
-      if (progv == 1000)
-	{
-	  progv = 0;
-	  pv = (++pv % 100);
-	  emit progressChanged(pv);	  
-	}
-
-      int h = stack.pop();
-      int w = stack.pop();
-      int d = stack.pop();
-      qint64 idx = d*m_width*m_height + w*m_height + h;
-      if (m_bitmask.testBit(idx))
-	{
-	  int d0 = qMax(d-1, 0);
-	  int d1 = qMin(d+1, m_depth-1);
-	  int w0 = qMax(w-1, 0);
-	  int w1 = qMin(w+1, m_width-1);
-	  int h0 = qMax(h-1, 0);
-	  int h1 = qMin(h+1, m_height-1);
-	      
-	  for(int d2=d0; d2<=d1; d2++)
-	    for(int w2=w0; w2<=w1; w2++)
-	      for(int h2=h0; h2<=h1; h2++)
-		{
-		  if (d2 >= mind && d2 <= maxd &&
-		      w2 >= minw && w2 <= maxw &&
-		      h2 >= minh && h2 <= maxh)
-		    {
-		      qint64 idx = d2*m_width*m_height +
-			           w2*m_height + h2;
-		      if ( m_bitmask.testBit(idx) &&
-			   !m_connectedbitmask.testBit(idx) )
-			{
-//			  uchar v, g;
-//			  vslice = m_pvlFileManager.rawValue(d2, w2, h2);
-//			  v = vslice[0];
-//			  vslice = m_gradFileManager.rawValue(d2, w2, h2);
-//			  g = vslice[0];
-//
-//			  if (qAbs(v-v0) < Global::deltaV() &&
-//			      g < Global::deltaG())
-			    {
-			      m_connectedbitmask.setBit(idx);
-			      stack.push(d2);
-			      stack.push(w2);
-			      stack.push(h2);
-			    }
-			}
-		    }
-		}
-	}
-    } // end find connected
-  //------------------------------------------------------
-
-  emit progressReset();
-}
-
-void
-Volume::markVisibleRegion(int mind, int maxd,
-			  int minw, int maxw,
-			  int minh, int maxh)
-{
-  m_connectedbitmask.fill(false);
-
-  for(int d=mind; d<=maxd; d++)
-    for(int w=minw; w<=maxw; w++)
-      for(int h=minh; h<=maxh; h++)
-	{
-	  qint64 idx = d*m_width*m_height + w*m_height + h;
-	  // copy bitmask to connectedbitmask
-	  m_connectedbitmask.setBit(idx,
-				    m_bitmask.testBit(idx));
-	}
+  m_mask.tagHSlice(currslice, usermask);
 }

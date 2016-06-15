@@ -130,6 +130,8 @@ class DrishtiPaint : public QMainWindow
 		  bool, int, int, int, int);
   void connectedRegion(int, int, int, Vec, Vec, int);
 
+  void getVolume(Vec, Vec, int);
+
  private :
   Ui::DrishtiPaint ui;
   Ui::ViewerMenu viewerUi;

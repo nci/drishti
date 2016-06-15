@@ -49,6 +49,16 @@ Clipping planes are obeyed - clipped region is not taken into account.
 #end
 
 #begin
+getvolume
+getvolume <tag1>
+
+Calculate the volume occupied by visible voxels marked with tag1.
+Default value for tag1 is -1 : consider all visible voxels.
+
+Clipping planes are obeyed - clipped region is not taken into account.
+#end
+
+#begin
 setvisible
 setvisible <tag1>
 

@@ -1084,6 +1084,25 @@ Viewer::processCommand(QString cmd)
       return;
     }
 
+  if (list[0].contains("getvolume"))
+    {
+      int tag1 = -1;
+      if (list.size() == 2)
+	{
+	  tag1 = list[1].toInt(&ok);
+	  if (tag1 < -1 || tag1 > 255)
+	    {
+	      QMessageBox::information(0, "", QString("Incorrect tags specified : %1").\
+				       arg(tag1));
+	      return;
+	    }
+	}
+      Vec bmin, bmax;
+      m_boundingBox.bounds(bmin, bmax);
+      emit getVolume(bmin, bmax, tag1);
+      return;
+    }
+
   if (list[0].contains("setvisible"))
     {
       if (list.size() == 2)

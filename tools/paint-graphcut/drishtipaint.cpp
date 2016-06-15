@@ -13,7 +13,7 @@
 #include <QScrollArea>
 
 #include <exception>
-
+#include "volumeinformation.h"
 
 void
 DrishtiPaint::initTagColors()
@@ -156,6 +156,10 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 				      bool, int, int, int, int)),
 	  this, SLOT(shrinkwrap(Vec, Vec, int, bool, int,
 				bool, int, int, int, int)));
+
+  connect(m_viewer, SIGNAL(getVolume(Vec, Vec, int)),
+	  this, SLOT(getVolume(Vec, Vec, int)));
+
   //------------------------------
 
 
@@ -912,6 +916,14 @@ DrishtiPaint::setFile(QString filename)
   m_imageWidget->setGridSize(0,0,0);
   m_imageWidget->resetCurves();
 
+
+  //----------------------------
+  // save volume information from .pvl.nc file
+  VolumeInformation pvlinfo;
+  VolumeInformation::volInfo(flnm.toLatin1().data(),
+			     pvlinfo);
+  VolumeInformation::setVolumeInformation(pvlinfo);
+  //----------------------------
 
   if (m_volume->setFile(flnm) == false)
     {
@@ -6521,3 +6533,85 @@ DrishtiPaint::dilateBitmask(int nDilate, bool htype,
 
   progress.setValue(100);
 }
+
+void
+DrishtiPaint::getVolume(Vec bmin, Vec bmax, int tag)
+{
+  int m_depth, m_width, m_height;
+  m_volume->gridSize(m_depth, m_width, m_height);
+
+  int ds = bmin.z;
+  int ws = bmin.y;
+  int hs = bmin.x;
+
+  int de = bmax.z;
+  int we = bmax.y;
+  int he = bmax.x;
+
+  QProgressDialog progress("Updating voxel structure",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+  QList<Vec> cPos =  m_viewer->clipPos();
+  QList<Vec> cNorm = m_viewer->clipNorm();
+
+  uchar *lut = Global::lut();
+  uchar *volData = m_volume->memVolDataPtr();
+  uchar *maskData = m_volume->memMaskDataPtr();
+
+  qint64 nvoxels = 0;
+  for(qint64 d=ds; d<=de; d++)
+    {
+      progress.setValue(90*(d-ds)/((de-ds+1)));
+      if (d%10 == 0)
+	qApp->processEvents();
+      for(qint64 w=ws; w<=we; w++)
+	for(qint64 h=hs; h<=he; h++)
+	  {
+	    bool clipped = false;
+	    for(int i=0; i<cPos.count(); i++)
+	      {
+		Vec p = Vec(h, w, d) - cPos[i];
+		if (cNorm[i]*p > 0)
+		  {
+		    clipped = true;
+		    break;
+		  }
+	      }
+	    
+	    if (!clipped)
+	      {
+		qint64 idx = d*m_width*m_height + w*m_height + h;
+		int val = volData[idx];
+		uchar mtag = maskData[idx];
+		bool opaque = (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);      
+		if (tag > -1)
+		  opaque &= (mtag == tag);
+
+		if (opaque)
+		  nvoxels ++;
+	      }
+	  }
+    }
+
+  progress.setValue(100);
+
+  VolumeInformation pvlInfo;
+  pvlInfo = VolumeInformation::volumeInformation();
+  Vec voxelSize = pvlInfo.voxelSize;
+  float voxvol = nvoxels*voxelSize.x*voxelSize.y*voxelSize.z;
+
+  QString mesg;
+  mesg += QString("Visible Voxels : %1\n").arg(nvoxels);
+  mesg += QString("Voxel Size : %1,%2,%3 %4\n").\
+                  arg(voxelSize.x).arg(voxelSize.y).arg(voxelSize.z).
+                  arg(pvlInfo.voxelUnitStringShort());
+  mesg += QString("Volume : %1 %2^3\n").	\
+                  arg(voxvol).\
+                  arg(pvlInfo.voxelUnitStringShort());
+
+  QMessageBox::information(0, "", mesg);
+}
+

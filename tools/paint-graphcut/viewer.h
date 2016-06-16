@@ -133,7 +133,6 @@ class Viewer : public QGLViewer
     void tagUsingSketchPad(Vec, Vec);
 
     void mergeTags(Vec, Vec, int, int, bool);
-    void mergeTags(Vec, Vec, int, int, int, bool);
 
     void updateSliceBounds(Vec, Vec);
     void renderNextFrame();
@@ -172,7 +171,7 @@ class Viewer : public QGLViewer
   int m_minWSlice, m_maxWSlice;
   int m_minHSlice, m_maxHSlice;
 
-  int m_tag1, m_tag2, m_tag3;
+  int m_tag1, m_tag2;
   bool m_mergeTagTF;
 
   int m_renderMode;

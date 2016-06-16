@@ -1,21 +1,19 @@
 #begin
 merge
 merge <tag1> <tag2>
-merge <tag1> <tag2> <tag3>
 
 Merge tag2 into tag1 when two parameters are specified.  Replace tag2 with tag1 in the selected subvolume.  If tag2 value is -1, then all the tags (even 0) are replaced with tag1 within the selected subvolume.
 
-When 3 parameters are specified - i.e. tag1, tag2 and tag3 are specified, then both tag2 and tag3 are replaced with tag1 within the selected subvolume.
-
+Clipping planes are obeyed - clipped region is not taken into account.
 #end
 
 #begin
 mergetf
 mergetf <tag1> <tag2>
-mergetf <tag1> <tag2> <tag3>
 
 Similar to merge, except the operation is carried out only within the visible portion of the selected subvolume.  Visible portion as defined by transfer function is that region where opacity is greater than 0.
 
+Clipping planes are obeyed - clipped region is not taken into account.
 #end
 
 

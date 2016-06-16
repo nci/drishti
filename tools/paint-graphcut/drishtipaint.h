@@ -108,7 +108,6 @@ class DrishtiPaint : public QMainWindow
   void erodeConnected(int, int, int, Vec, Vec, int);
   void tagUsingSketchPad(Vec, Vec);
   void mergeTags(Vec, Vec, int, int, bool);
-  void mergeTags(Vec, Vec, int, int, int, bool);
 
   void updateSliceBounds(Vec, Vec);
 

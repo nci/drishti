@@ -128,8 +128,6 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 
   connect(m_viewer, SIGNAL(mergeTags(Vec, Vec, int, int, bool)),
 	  this, SLOT(mergeTags(Vec, Vec, int, int, bool)));
-  connect(m_viewer, SIGNAL(mergeTags(Vec, Vec, int, int, int, bool)),
-	  this, SLOT(mergeTags(Vec, Vec, int, int, int, bool)));
 
   connect(m_viewer, SIGNAL(dilateConnected(int,int,int,Vec,Vec,int)),
 	  this, SLOT(dilateConnected(int,int,int,Vec,Vec,int)));
@@ -4859,6 +4857,9 @@ DrishtiPaint::mergeTags(Vec bmin, Vec bmax, int tag1, int tag2, bool useTF)
 
   uchar *maskData = m_volume->memMaskDataPtr();
 
+  QList<Vec> cPos =  m_viewer->clipPos();
+  QList<Vec> cNorm = m_viewer->clipNorm();
+
   if (useTF)
     {
       uchar *lut = Global::lut();
@@ -4871,12 +4872,71 @@ DrishtiPaint::mergeTags(Vec bmin, Vec bmax, int tag1, int tag2, bool useTF)
 	  for(qint64 w=ws; w<=we; w++)
 	    for(qint64 h=hs; h<=he; h++)
 	      {
-		qint64 idx = d*m_width*m_height + w*m_height + h;
-		if (tag2 == -1 || maskData[idx] == tag2)
+		bool clipped = false;
+		for(int i=0; i<cPos.count(); i++)
 		  {
-		    int val = volData[idx];
-		    int a =  lut[4*val+3];
-		    if (a > 0)
+		    Vec p = Vec(h, w, d) - cPos[i];
+		    if (cNorm[i]*p > 0)
+		      {
+			clipped = true;
+			break;
+		      }
+		  }
+		
+		if (!clipped)
+		  {
+		    qint64 idx = d*m_width*m_height + w*m_height + h;
+		    if (tag2 == -1 || maskData[idx] == tag2)
+		      {
+			int val = volData[idx];
+			int a =  lut[4*val+3];
+			if (a > 0)
+			  {
+			    maskData[idx] = tag1;
+			    if (minD > -1)
+			      {
+				minD = qMin(minD, (int)d);
+				maxD = qMax(maxD, (int)d);
+				minW = qMin(minW, (int)w);
+				maxW = qMax(maxW, (int)w);
+				minH = qMin(minH, (int)h);
+				maxH = qMax(maxH, (int)h);
+			      }
+			    else
+			      {
+				minD = maxD = d;
+				minW = maxW = w;
+				minH = maxH = h;
+			      }
+			  }
+		      }
+		  }
+	      }
+	}
+    }
+  else
+    {
+      for(qint64 d=ds; d<=de; d++)
+	{
+	  progress.setValue(90*(d-ds)/((de-ds+1)));
+	  for(qint64 w=ws; w<=we; w++)
+	    for(qint64 h=hs; h<=he; h++)
+	      {
+		bool clipped = false;
+		for(int i=0; i<cPos.count(); i++)
+		  {
+		    Vec p = Vec(h, w, d) - cPos[i];
+		    if (cNorm[i]*p > 0)
+		      {
+			clipped = true;
+			break;
+		      }
+		  }
+		
+		if (!clipped)
+		  {
+		    qint64 idx = d*m_width*m_height + w*m_height + h;
+		    if (tag2 == -1 || maskData[idx] == tag2)
 		      {
 			maskData[idx] = tag1;
 			if (minD > -1)
@@ -4894,166 +4954,6 @@ DrishtiPaint::mergeTags(Vec bmin, Vec bmax, int tag1, int tag2, bool useTF)
 			    minW = maxW = w;
 			    minH = maxH = h;
 			  }
-		      }
-		  }
-	      }
-	}
-    }
-  else
-    {
-      for(qint64 d=ds; d<=de; d++)
-	{
-	  progress.setValue(90*(d-ds)/((de-ds+1)));
-	  for(qint64 w=ws; w<=we; w++)
-	    for(qint64 h=hs; h<=he; h++)
-	      {
-		qint64 idx = d*m_width*m_height + w*m_height + h;
-		if (tag2 == -1 || maskData[idx] == tag2)
-		  {
-		    maskData[idx] = tag1;
-		    if (minD > -1)
-		      {
-			minD = qMin(minD, (int)d);
-			maxD = qMax(maxD, (int)d);
-			minW = qMin(minW, (int)w);
-			maxW = qMax(maxW, (int)w);
-			minH = qMin(minH, (int)h);
-			maxH = qMax(maxH, (int)h);
-		      }
-		    else
-		      {
-			minD = maxD = d;
-			minW = maxW = w;
-			minH = maxH = h;
-		      }
-		  }
-	      }
-	}
-    }
-
-  getSlice(m_currSlice);
-  
-  minD = qMax(minD-1, 0);
-  minW = qMax(minW-1, 0);
-  minH = qMax(minH-1, 0);
-  maxD = qMin(maxD+1, m_depth);
-  maxW = qMin(maxW+1, m_width);
-  maxH = qMin(maxH+1, m_height);
-
-  progress.setLabelText("Update modified region on gpu");
-  qApp->processEvents();
-  m_viewer->uploadMask(minD,minW,minH, maxD,maxW,maxH);
-
-  QList<int> dwh;  
-  m_blockList.clear();  
-  dwh << minD << minW << minH;
-  m_blockList << dwh;
-  dwh.clear();
-  dwh << maxD << maxW << maxH;
-  m_blockList << dwh;
-
-  progress.setLabelText("Save modified region to mask file");
-  qApp->processEvents();
-  m_volume->saveMaskBlock(m_blockList);
-
-  progress.setValue(100);
-}
-
-void
-DrishtiPaint::mergeTags(Vec bmin, Vec bmax, int tag1, int tag2, int tag3, bool useTF)
-{
-  int m_depth, m_width, m_height;
-  m_volume->gridSize(m_depth, m_width, m_height);
-
-  int ds = bmin.z;
-  int ws = bmin.y;
-  int hs = bmin.x;
-
-  int de = bmax.z;
-  int we = bmax.y;
-  int he = bmax.x;
-
-  QProgressDialog progress("Updating voxel structure",
-			   QString(),
-			   0, 100,
-			   0);
-  progress.setMinimumDuration(0);
-
-  int minD,maxD, minW,maxW, minH,maxH;
-  minD = maxD = -1;
-  minW = maxW = -1;
-  minH = maxH = -1;
-
-  uchar *maskData = m_volume->memMaskDataPtr();
-
-  if (useTF)
-    {
-      uchar *lut = Global::lut();
-      uchar *volData = m_volume->memVolDataPtr();
-      for(qint64 d=ds; d<=de; d++)
-	{
-	  progress.setValue(90*(d-ds)/((de-ds+1)));
-	  if (d%10 == 0)
-	    qApp->processEvents();
-	  for(qint64 w=ws; w<=we; w++)
-	    for(qint64 h=hs; h<=he; h++)
-	      {
-		qint64 idx = d*m_width*m_height + w*m_height + h;
-		if (maskData[idx] == tag2 || maskData[idx] == tag3)
-		  {
-		    int val = volData[idx];
-		    int a =  lut[4*val+3];
-		    if (a > 0)
-		      {
-			maskData[idx] = tag1;
-			if (minD > -1)
-			  {
-			    minD = qMin(minD, (int)d);
-			    maxD = qMax(maxD, (int)d);
-			    minW = qMin(minW, (int)w);
-			    maxW = qMax(maxW, (int)w);
-			    minH = qMin(minH, (int)h);
-			    maxH = qMax(maxH, (int)h);
-			  }
-			else
-			  {
-			    minD = maxD = d;
-			    minW = maxW = w;
-			    minH = maxH = h;
-			  }
-		      }
-		  }
-	      }
-	}
-    }
-  else
-    {
-      for(qint64 d=ds; d<=de; d++)
-	{
-	  progress.setValue(90*(d-ds)/((de-ds+1)));
-	  if (d%10 == 0)
-	    qApp->processEvents();
-	  for(qint64 w=ws; w<=we; w++)
-	    for(qint64 h=hs; h<=he; h++)
-	      {
-		qint64 idx = d*m_width*m_height + w*m_height + h;
-		if (maskData[idx] == tag2 || maskData[idx] == tag3)
-		  {
-		    maskData[idx] = tag1;
-		    if (minD > -1)
-		      {
-			minD = qMin(minD, (int)d);
-			maxD = qMax(maxD, (int)d);
-			minW = qMin(minW, (int)w);
-			maxW = qMax(maxW, (int)w);
-			minH = qMin(minH, (int)h);
-			maxH = qMax(maxH, (int)h);
-		      }
-		    else
-		      {
-			minD = maxD = d;
-			minW = maxW = w;
-			minH = maxH = h;
 		      }
 		  }
 	      }
@@ -5887,9 +5787,9 @@ DrishtiPaint::shrinkwrap(Vec bmin, Vec bmax, int tag,
 		    mx, my, mz,
 		    cbitmask);
 
-//      // merge the original back in after erosion
-//      for(qint64 i=0; i<mx*my*mz; i++)
-//	cbitmask.setBit(i, cbitmask.testBit(i) & o_bitmask.testBit(i));
+      // merge the original back in after erosion
+      for(qint64 i=0; i<mx*my*mz; i++)
+	cbitmask.setBit(i, cbitmask.testBit(i) & o_bitmask.testBit(i));
     }
   //----------------------------  
 

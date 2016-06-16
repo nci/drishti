@@ -1,4 +1,13 @@
 #begin
+reset
+reset <tag1>
+
+Set all voxels in the region to tag1.  Default value for tag1 is 0.
+
+Clipping planes are obeyed - clipped region is not taken into account.
+#end
+
+#begin
 merge
 merge <tag1> <tag2>
 
@@ -23,6 +32,8 @@ shrinkwrap <tag>
 
 Shrinkwrap the visible region with tag.  Visible portion as defined by transfer function is that region where opacity is greater than 0.
 
+If <tag> is not specified then current tag value is used.
+
 Clipping planes are obeyed - clipped region is not taken into account.
 #end
 
@@ -33,18 +44,12 @@ shell <tag> <thickness>
 
 Tag the boundary of shrinkwrapped visible region.  The visible region is first identified by shrinkwrap and boundary of this region is tagged.  The width of boundary is decided by the thickness value. Visible portion as defined by transfer function is that region where opacity is greater than 0.
 
-Clipping planes are obeyed - clipped region is not taken into account.
-#end
-
-
-#begin
-reset
-reset <tag1>
-
-Set all voxels in the region to tag1.  Default value for tag1 is 0.
+If <tag> is not specified then current tag value is used.
+If <width> is not specified then default value of 1 is used.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end
+
 
 #begin
 getvolume

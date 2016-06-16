@@ -1,5 +1,5 @@
 #begin
-General Help
+-General Help
 The curves option allow users to mark regions using semi-automatic livewire method and hand drawn curves.
 
 The livewire segmentation tool is based on Dijkstra's lowest cost path algorithm.  The curve tries to follow high gradient ridges.  The users set the starting point, clicking on the slice image pixel, known as an anchor. Then, as they starts to move the mouse over other points, the smallest cost path is drawn from the anchor to the pixel where the mouse is over, changing itself if the user moves the mouse. If they want to choose the path that is being displayed, they simply click the image again to set next anchor.  The user can follow this process till the required region is selected.  The anchor points can be added and removed from the livewire curve.

@@ -125,10 +125,12 @@ class Viewer : public QGLViewer
  signals :
     void showBoxChanged(bool);
 
+    void paint3DStart();
+    void paint3DEnd();
     void paint3D(int, int, int, int, int);
+
     void dilateConnected(int, int, int, Vec, Vec, int);
     void erodeConnected(int, int, int, Vec, Vec, int);
-    void paint3DEnd();
 
     void tagUsingSketchPad(Vec, Vec);
 

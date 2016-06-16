@@ -923,3 +923,76 @@ StaticFunctions::getImageSize(int width, int height)
   
   return imgSize;
 }
+
+QList<Vec>
+StaticFunctions::line3d(Vec v0, Vec v1)
+{
+  QList<Vec> line;
+
+  int gx0, gy0, gz0, gx1, gy1, gz1;
+  gx0 = v0.x;
+  gy0 = v0.y;
+  gz0 = v0.z;
+  gx1 = v1.x;
+  gy1 = v1.y;
+  gz1 = v1.z;
+
+  float vx = gx1 - gx0;
+  float vy = gy1 - gy0;
+  float vz = gz1 - gz0;
+  
+  int sx = (gx1>gx0) ? 1 : (gx1<gx0) ? -1 : 0;
+  int sy = (gy1>gy0) ? 1 : (gy1<gy0) ? -1 : 0;
+  int sz = (gz1>gz0) ? 1 : (gz1<gz0) ? -1 : 0;
+ 
+  int gx = gx0;
+  int gy = gy0;
+  int gz = gz0;
+
+  //Planes for each axis that we will next cross
+  int gxp = gx0 + ((gx1>gx0) ? 1 : 0);
+  int gyp = gy0 + ((gy1>gy0) ? 1 : 0);
+  int gzp = gz0 + ((gz1>gz0) ? 1 : 0);
+  
+  do {
+    line << Vec(gx, gy, gz);
+
+    if (gx == gx1 &&
+	gy == gy1 &&
+	gz == gz1)
+      break;
+    
+    //Which plane do we cross first?
+    float xr=0,yr=0,zr=0;
+    if (qAbs(vx) > 0) xr = qAbs((gxp - gx0)/vx);
+    if (qAbs(vy) > 0) yr = qAbs((gyp - gy0)/vy);
+    if (qAbs(vz) > 0) zr = qAbs((gzp - gz0)/vz);
+
+    if (sx != 0 &&
+	(sy == 0 || xr < yr) &&
+	(sz == 0 || xr < zr))
+      {
+      gx += sx;
+      gxp += sx;
+    }
+    else if (sy != 0 && 
+	     (sz == 0 || yr < zr))
+      {
+	gy += sy;
+	gyp += sy;
+      }
+    else if (sz != 0)
+      {
+	gz += sz;
+	gzp += sz;
+      }
+    
+    if (qAbs(gx-gx0) > qAbs(vx) ||
+	qAbs(gy-gy0) > qAbs(vy) ||
+	qAbs(gz-gz0) > qAbs(vz))
+      break;
+    
+  } while (true);
+  
+  return line;
+}

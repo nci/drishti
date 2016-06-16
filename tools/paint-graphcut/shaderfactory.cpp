@@ -395,7 +395,7 @@ ShaderFactory::addLighting()
   shader += "    vec3 lightVec = viewDir;\n";
   shader += "    float diff = abs(dot(lightVec, grad));\n";
   shader += "    vec3 reflecvec = reflect(lightVec, grad);\n";
-  shader += "    float spec = pow(abs(dot(grad, reflecvec)), 512.0);\n";
+  shader += "    float spec = pow(abs(dot(grad, reflecvec)), 1024.0);\n";
   shader += "    colorSample.rgb *= (0.6 + 0.4*diff + spec);\n";
   shader += "    if (any(greaterThan(colorSample.rgb,vec3(1.0,1.0,1.0)))) \n";
   shader += "      colorSample.rgb = vec3(1.0,1.0,1.0);\n";

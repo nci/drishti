@@ -48,7 +48,7 @@ class Fiber
   QMultiMap<int, QVector4D> m_wSeeds;
   QMultiMap<int, QVector4D> m_hSeeds;
 
-  QList<Vec> line3d(Vec, Vec);
+  //QList<Vec> line3d(Vec, Vec);
 
 
   QList<Vec> generateTube(float);

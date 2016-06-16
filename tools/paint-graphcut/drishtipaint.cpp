@@ -118,6 +118,8 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   //------------------------------
 
   //------------------------------
+  connect(m_viewer, SIGNAL(paint3DStart()),
+	  this, SLOT(paint3DStart()));
   connect(m_viewer, SIGNAL(paint3D(int,int,int,int,int)),
 	  this, SLOT(paint3D(int,int,int,int,int)));
   connect(m_viewer, SIGNAL(paint3DEnd()),
@@ -4155,6 +4157,12 @@ DrishtiPaint::smoothMesh(QList<Vec>& V,
 }
 
 void
+DrishtiPaint::paint3DStart()
+{
+  m_prevSeed = Vec(-1,-1,-1);
+}
+
+void
 DrishtiPaint::paint3D(int d, int w, int h, int button, int otag)
 {
   int m_depth, m_width, m_height;
@@ -4180,7 +4188,7 @@ DrishtiPaint::paint3D(int d, int w, int h, int button, int otag)
 
   int vrad1 = viewerUi.radiusSurface->value();
   int vrad2 = viewerUi.radiusDepth->value();
-  int rad = qMax(vrad1, vrad2);
+  int rad0 = qMax(vrad1, vrad2);
 
 
   int minDSlice, maxDSlice;
@@ -4193,43 +4201,107 @@ DrishtiPaint::paint3D(int d, int w, int h, int button, int otag)
   uchar *volData = m_volume->memVolDataPtr();
   uchar *maskData = m_volume->memMaskDataPtr();
 
-  // tag only region connected to the origin voxel (d,w,h)
-  qint64 dm = 2*rad+1;
+
+  //----------------
+  QList<Vec> seeds;
+  if (m_prevSeed.x > -1)
+    {
+      float dpt0 = (m_prevSeed-camPos)*viewD;
+      float dpt1 = (Vec(h,w,d)-camPos)*viewD;
+      if (qAbs(dpt0-dpt1) > 50)
+	{
+//	  QMessageBox::information(0, "", QString("Depth between previous point (%1 %2 %3)\nand current point (%4 %5 %6) too large."). \
+//				   arg(m_prevSeed.x).arg(m_prevSeed.y).arg(m_prevSeed.z).\
+//				   arg(h).arg(w).arg(d));
+	  return;
+	}
+      
+      seeds = StaticFunctions::line3d(m_prevSeed, Vec(h,w,d));
+      seeds.removeFirst(); // remove prevSeed from the list;
+    }
+  else
+    seeds << Vec(h,w,d);
+
+  m_prevSeed = Vec(h,w,d);  
+
+  if (seeds.count() == 0)
+    return;
+  //----------------
+
+  
+  int ds, de, ws, we, hs, he;
+  ds = d;
+  ws = w;
+  hs = h;
+  de = d;
+  we = w;
+  he = h;
+  for(int i=0; i<seeds.count(); i++)
+    {
+      //QMessageBox::information(0, "", QString("%1 %2 %3").arg(h0).arg(w0).arg(d0));
+      int h0 = seeds[i].x;
+      int w0 = seeds[i].y;
+      int d0 = seeds[i].z;
+      ds = qMin(ds, d0-rad0);
+      ws = qMin(ws, w0-rad0);
+      hs = qMin(hs, h0-rad0);
+      de = qMax(de, d0+rad0);
+      we = qMax(we, w0+rad0);
+      he = qMax(he, h0+rad0);
+    }  
+  ds = qMax(minDSlice, ds);
+  de = qMin(maxDSlice, de);
+  ws = qMax(minWSlice, ws);
+  we = qMin(maxWSlice, we);
+  hs = qMax(minHSlice, hs);
+  he = qMin(maxHSlice, he);
+  
+  qint64 dm = qMax(de-ds+1, qMax(we-ws+1, he-hs+1));;
   qint64 dm2 = dm*dm;
+
+//  QMessageBox::information(0, "", QString("%1 %2 %3\n%4 %5 %6\n%7").\
+//			   arg(hs).arg(ws).arg(ds).\
+//			   arg(he).arg(we).arg(de).arg(dm));
+
 
   MyBitArray bitmask;
   bitmask.resize(dm*dm*dm);
   bitmask.fill(false);
 
 
-  int ds, de, ws, we, hs, he;
-  ds = qMax(minDSlice, d-rad);
-  de = qMin(maxDSlice, d+rad);
-  ws = qMax(minWSlice, w-rad);
-  we = qMin(maxWSlice, w+rad);
-  hs = qMax(minHSlice, h-rad);
-  he = qMin(maxHSlice, h+rad);
-  for(qint64 dd=ds; dd<=de; dd++)
-    for(qint64 ww=ws; ww<=we; ww++)
-      for(qint64 hh=hs; hh<=he; hh++)
-	{
-	  Vec v0 = Vec(hh-h,ww-w,dd-d);
-	  Vec dv = viewD;
-	  if (persp)
-	    dv = Vec(hh-camPos.x, ww-camPos.y, dd-camPos.z).unit();
-	  
-	  float pr = v0*viewR;
-	  float pu = v0*viewU;
-	  float pvd = v0*dv;
-	  if (qAbs(pvd) <= vrad2 && qSqrt(pr*pr +pu*pu) <= vrad1)
+  for(int i=0; i<seeds.count(); i++)
+    {
+      int h0 = seeds[i].x;
+      int w0 = seeds[i].y;
+      int d0 = seeds[i].z;
+      int ds0 = qMax(minDSlice, d0-rad0);
+      int de0 = qMin(maxDSlice, d0+rad0);
+      int ws0 = qMax(minWSlice, w0-rad0);
+      int we0 = qMin(maxWSlice, w0+rad0);
+      int hs0 = qMax(minHSlice, h0-rad0);
+      int he0 = qMin(maxHSlice, h0+rad0);
+      for(qint64 dd=ds0; dd<=de0; dd++)
+	for(qint64 ww=ws0; ww<=we0; ww++)
+	  for(qint64 hh=hs0; hh<=he0; hh++)
 	    {
-	      int val = volData[dd*m_width*m_height + ww*m_height + hh];
-	      uchar mtag = maskData[dd*m_width*m_height + ww*m_height + hh];
-	      bool opaque =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);
-	      if (opaque)
-		bitmask.setBit((dd-ds)*dm2 + (ww-ws)*dm + (hh-hs), true);	      
+	      Vec v0 = Vec(hh-h0,ww-w0,dd-d0);
+	      Vec dv = viewD;
+	      if (persp)
+		dv = Vec(hh-camPos.x, ww-camPos.y, dd-camPos.z).unit();
+	      
+	      float pr = v0*viewR;
+	      float pu = v0*viewU;
+	      float pvd = v0*dv;
+	      if (qAbs(pvd) <= vrad2 && qSqrt(pr*pr +pu*pu) <= vrad1)
+		{
+		  int val = volData[dd*m_width*m_height + ww*m_height + hh];
+		  uchar mtag = maskData[dd*m_width*m_height + ww*m_height + hh];
+		  bool opaque =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);
+		  if (opaque)
+		    bitmask.setBit((dd-ds)*dm2 + (ww-ws)*dm + (hh-hs), true);	      
+		}
 	    }
- 	}
+    } // seeds
 
   int indices[] = {-1, 0, 0,
 		    1, 0, 0,
@@ -4239,13 +4311,20 @@ DrishtiPaint::paint3D(int d, int w, int h, int button, int otag)
 		    0, 0, 1};
 
   // tag only connected region
-  maskData[(qint64)d*m_width*m_height + (qint64)w*m_height + h] = tag;
-  bitmask.setBit((d-ds)*dm2 + (w-ws)*dm + (h-hs), false);
 
   QStack<Vec> stack;
-  stack.push(Vec(d, w, h));
-
   int minD,maxD, minW,maxW, minH,maxH;
+
+  for(int i=0; i<seeds.count(); i++)
+    {
+      qint64 h0 = seeds[i].x;
+      qint64 w0 = seeds[i].y;
+      qint64 d0 = seeds[i].z;
+      maskData[d0*m_width*m_height + w0*m_height + h0] = tag;
+      bitmask.setBit((d0-ds)*dm2 + (w0-ws)*dm + (h0-hs), false);
+      stack.push(Vec(d0, w0, h0));
+    }
+
   minD = maxD = d;
   minW = maxW = w;
   minH = maxH = h;
@@ -4286,10 +4365,15 @@ DrishtiPaint::paint3D(int d, int w, int h, int button, int otag)
 
   getSlice(m_currSlice);
 
-  QList<int> dwhr;
-  dwhr << d << w << h << rad;
-
-  m_blockList << dwhr;
+  for(int i=0; i<seeds.count(); i++)
+    {
+      int h0 = seeds[i].x;
+      int w0 = seeds[i].y;
+      int d0 = seeds[i].z;
+      QList<int> dwhr;
+      dwhr << d0 << w0 << h0 << rad0;
+      m_blockList << dwhr;
+    }
 
 //  m_viewer->uploadMask(ds,ws,hs, de,we,he);
 
@@ -4301,6 +4385,154 @@ DrishtiPaint::paint3D(int d, int w, int h, int button, int otag)
   maxH = qMin(maxH+1, m_height-1);
   m_viewer->uploadMask(minD,minW,minH, maxD,maxW,maxH);
 }
+
+//void
+//DrishtiPaint::paint3D(int d, int w, int h, int button, int otag)
+//{
+//  int m_depth, m_width, m_height;
+//  m_volume->gridSize(m_depth, m_width, m_height);
+//
+//  if (d<0 || w<0 || h<0 ||
+//      d>m_depth-1 ||
+//      w>m_width-1 ||
+//      h>m_height-1)
+//    return;
+//
+//  
+//  uchar *lut = Global::lut();
+//  int tag = otag;
+//  if (button == 2) // right button
+//    tag = 0;
+//
+//  Vec viewD = m_viewer->camera()->viewDirection();
+//  Vec viewR = m_viewer->camera()->rightVector();
+//  Vec viewU = m_viewer->camera()->upVector();
+//  Vec camPos = m_viewer->camera()->position();
+//  bool persp = m_viewer->perspectiveProjection();
+//
+//  int vrad1 = viewerUi.radiusSurface->value();
+//  int vrad2 = viewerUi.radiusDepth->value();
+//  int rad = qMax(vrad1, vrad2);
+//
+//
+//  int minDSlice, maxDSlice;
+//  int minWSlice, maxWSlice;
+//  int minHSlice, maxHSlice;
+//  m_imageWidget->getBox(minDSlice, maxDSlice,
+//			minWSlice, maxWSlice,
+//			minHSlice, maxHSlice);
+//
+//  uchar *volData = m_volume->memVolDataPtr();
+//  uchar *maskData = m_volume->memMaskDataPtr();
+//
+//  // tag only region connected to the origin voxel (d,w,h)
+//  qint64 dm = 2*rad+1;
+//  qint64 dm2 = dm*dm;
+//
+//  MyBitArray bitmask;
+//  bitmask.resize(dm*dm*dm);
+//  bitmask.fill(false);
+//
+//
+//  int ds, de, ws, we, hs, he;
+//  ds = qMax(minDSlice, d-rad);
+//  de = qMin(maxDSlice, d+rad);
+//  ws = qMax(minWSlice, w-rad);
+//  we = qMin(maxWSlice, w+rad);
+//  hs = qMax(minHSlice, h-rad);
+//  he = qMin(maxHSlice, h+rad);
+//  for(qint64 dd=ds; dd<=de; dd++)
+//    for(qint64 ww=ws; ww<=we; ww++)
+//      for(qint64 hh=hs; hh<=he; hh++)
+//	{
+//	  Vec v0 = Vec(hh-h,ww-w,dd-d);
+//	  Vec dv = viewD;
+//	  if (persp)
+//	    dv = Vec(hh-camPos.x, ww-camPos.y, dd-camPos.z).unit();
+//	  
+//	  float pr = v0*viewR;
+//	  float pu = v0*viewU;
+//	  float pvd = v0*dv;
+//	  if (qAbs(pvd) <= vrad2 && qSqrt(pr*pr +pu*pu) <= vrad1)
+//	    {
+//	      int val = volData[dd*m_width*m_height + ww*m_height + hh];
+//	      uchar mtag = maskData[dd*m_width*m_height + ww*m_height + hh];
+//	      bool opaque =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);
+//	      if (opaque)
+//		bitmask.setBit((dd-ds)*dm2 + (ww-ws)*dm + (hh-hs), true);	      
+//	    }
+// 	}
+//
+//  int indices[] = {-1, 0, 0,
+//		    1, 0, 0,
+//		    0,-1, 0,
+//		    0, 1, 0,
+//		    0, 0,-1,
+//		    0, 0, 1};
+//
+//  // tag only connected region
+//  maskData[(qint64)d*m_width*m_height + (qint64)w*m_height + h] = tag;
+//  bitmask.setBit((d-ds)*dm2 + (w-ws)*dm + (h-hs), false);
+//
+//  QStack<Vec> stack;
+//  stack.push(Vec(d, w, h));
+//
+//  int minD,maxD, minW,maxW, minH,maxH;
+//  minD = maxD = d;
+//  minW = maxW = w;
+//  minH = maxH = h;
+//
+//  while(!stack.isEmpty())
+//    {
+//      Vec dwh = stack.pop();
+//      int dx = dwh.x;
+//      int wx = dwh.y;
+//      int hx = dwh.z;
+//
+//      for(int i=0; i<6; i++)
+//	{
+//	  int da = indices[3*i+0];
+//	  int wa = indices[3*i+1];
+//	  int ha = indices[3*i+2];
+//
+//	  qint64 d2 = qBound(ds, dx+da, de);
+//	  qint64 w2 = qBound(ws, wx+wa, we);
+//	  qint64 h2 = qBound(hs, hx+ha, he);
+//
+//	  qint64 bidx = (d2-ds)*dm2+(w2-ws)*dm+(h2-hs);
+//	  if (bitmask.testBit(bidx))
+//	    {
+//	      bitmask.setBit(bidx, false);
+//	      maskData[d2*m_width*m_height + w2*m_height + h2] = tag;
+//	      stack.push(Vec(d2,w2,h2));
+//	      
+//	      minD = qMin(minD, (int)d2);
+//	      maxD = qMax(maxD, (int)d2);
+//	      minW = qMin(minW, (int)w2);
+//	      maxW = qMax(maxW, (int)w2);
+//	      minH = qMin(minH, (int)h2);
+//	      maxH = qMax(maxH, (int)h2);
+//	    }
+//	}
+//    }
+//
+//  getSlice(m_currSlice);
+//
+//  QList<int> dwhr;
+//  dwhr << d << w << h << rad;
+//
+//  m_blockList << dwhr;
+//
+////  m_viewer->uploadMask(ds,ws,hs, de,we,he);
+//
+//  minD = qMax(minD-1, 0);
+//  minW = qMax(minW-1, 0);
+//  minH = qMax(minH-1, 0);
+//  maxD = qMin(maxD+1, m_depth-1);
+//  maxW = qMin(maxW+1, m_width-1);
+//  maxH = qMin(maxH+1, m_height-1);
+//  m_viewer->uploadMask(minD,minW,minH, maxD,maxW,maxH);
+//}
 
 void
 DrishtiPaint::paint3DEnd()
@@ -4326,14 +4558,28 @@ DrishtiPaint::erodeConnected(int dr, int wr, int hr,
       return;
     }
 
+  uchar *lut = Global::lut();
+  uchar *volData = m_volume->memVolDataPtr();
+  uchar *maskData = m_volume->memMaskDataPtr();
 
+  {
+    qint64 idx = (qint64)dr*m_width*m_height + (qint64)wr*m_height + (qint64)hr;
+    int val = volData[idx];
+    if (lut[4*val+3] == 0 || maskData[idx] != tag)
+      {
+	QMessageBox::information(0, "Erode",
+				 QString("Cannot erode.\nYou are on voxel with tag %1, was expecting tag %2").arg(maskData[idx]).arg(tag));
+	return;
+      }
+  }
+
+    
   QProgressDialog progress("Updating voxel structure",
 			   QString(),
 			   0, 100,
 			   0);
   progress.setMinimumDuration(0);
 
-  uchar *lut = Global::lut();
 
   int ds = bmin.z;
   int ws = bmin.y;
@@ -4354,9 +4600,6 @@ DrishtiPaint::erodeConnected(int dr, int wr, int hr,
   MyBitArray cbitmask;
   cbitmask.resize(mx*my*mz);
   cbitmask.fill(false);
-
-  uchar *volData = m_volume->memVolDataPtr();
-  uchar *maskData = m_volume->memMaskDataPtr();
 
   int indices[] = {-1, 0, 0,
 		   1, 0, 0,
@@ -4568,13 +4811,26 @@ DrishtiPaint::dilateConnected(int dr, int wr, int hr,
     }
 
 
+  uchar *lut = Global::lut();
+  uchar *volData = m_volume->memVolDataPtr();
+  uchar *maskData = m_volume->memMaskDataPtr();
+
+  {
+    qint64 idx = (qint64)dr*m_width*m_height + (qint64)wr*m_height + (qint64)hr;
+    int val = volData[idx];
+    if (lut[4*val+3] == 0 || maskData[idx] != tag)
+      {
+	QMessageBox::information(0, "Dilate",
+				 QString("Cannot dilate.\nYou are on voxel with tag %1, was expecting tag %2").arg(maskData[idx]).arg(tag));
+	return;
+      }
+  }
+
   QProgressDialog progress("Updating voxel structure",
 			   QString(),
 			   0, 100,
 			   0);
   progress.setMinimumDuration(0);
-
-  uchar *lut = Global::lut();
 
   int ds = bmin.z;
   int ws = bmin.y;
@@ -4598,9 +4854,6 @@ DrishtiPaint::dilateConnected(int dr, int wr, int hr,
 
   QList<Vec> cPos =  m_viewer->clipPos();
   QList<Vec> cNorm = m_viewer->clipNorm();
-
-  uchar *volData = m_volume->memVolDataPtr();
-  uchar *maskData = m_volume->memMaskDataPtr();
 
   int indices[] = {-1, 0, 0,
 		    1, 0, 0,

@@ -78,6 +78,7 @@ class StaticFunctions
 
   static QSize getImageSize(int, int);
 
+  static QList<Vec> line3d(Vec, Vec);
 };
 
 #endif

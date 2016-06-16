@@ -1,5 +1,5 @@
 #begin
-General Help
+-General Help
 Graph Cut option allows the user to divide the image into "object" and "background" regions using a graph cut approach.  A graph is formed by connecting all pairs of neighboring image pixels by weighted edges.  Users identify certains pixels as object or background by tagging them.  These seeds provide clues about the image content.  A standard min-cut/max flow algorithm is then used to expand the object seeds to identify the object region.
 
 To seed the object pixels user first selects a tag value using "Tag" parameter box and then paints using Left mouse drag.  Background seeds are painted using Shift+Left mouse drag, this will paint the region red with value 255.  Pure black/transparent region is automatically considered part of the background.

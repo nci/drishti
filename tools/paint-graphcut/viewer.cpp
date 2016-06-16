@@ -3090,6 +3090,7 @@ Viewer::mousePressEvent(QMouseEvent *event)
   if (event->modifiers() & Qt::ShiftModifier)
     {
       m_paintHit = true;
+      emit paint3DStart();
       getHit(event);
       return;
     }

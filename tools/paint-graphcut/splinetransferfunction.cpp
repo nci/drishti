@@ -79,7 +79,7 @@ SplineTransferFunction::SplineTransferFunction() : QObject()
                     << 0.0;
 
   m_gradientStops.clear();
-  m_gradientStops << QGradientStop(0.0, QColor(0,0,0,128))
+  m_gradientStops << QGradientStop(0.0, QColor(200,200,200,128))
                   << QGradientStop(1.0, QColor(255,255,255,128));
 
   m_colorMapImage = QImage(256, 256, QImage::Format_ARGB32);

@@ -1,5 +1,5 @@
 #begin
-General Help
+-General Help
 
 Fiber/Channel tracking allows users to manually track fiber/channels.  Users select the points on the image to signify as fiber/channel.  The inbetween points will be interpolated using spline-based interpolation.
 

@@ -102,8 +102,10 @@ class DrishtiPaint : public QMainWindow
 
   void applyMaskOperation(int, int, int);
 
+  void paint3DStart();
   void paint3D(int, int, int, int, int);
   void paint3DEnd();
+
   void dilateConnected(int, int, int, Vec, Vec, int);
   void erodeConnected(int, int, int, Vec, Vec, int);
   void tagUsingSketchPad(Vec, Vec);
@@ -159,6 +161,8 @@ class DrishtiPaint : public QMainWindow
   QList <QAction*> m_recentFileActions;
 
   QList< QList<int> > m_blockList;
+
+  Vec m_prevSeed;
 
   Viewer *m_viewer;
   PopUpSlider *m_viewDslice;

@@ -67,6 +67,9 @@ VolumeMask::saveMaskBlock(int d, int w, int h, int rad)
 void
 VolumeMask::saveMaskBlock(QList< QList<int> > bl)
 {
+  if (bl.count() == 0)
+    return;
+
   int dmin, dmax, wmin, wmax, hmin, hmax;
   dmin = wmin = hmin = 10000000;
   dmax = wmax = hmax = 0;
@@ -86,6 +89,13 @@ VolumeMask::saveMaskBlock(QList< QList<int> > bl)
 	{
 	  QList<int> bwhr = bl[i];
 	  int d,w,h,rad;
+	  if (bwhr.count() < 4)
+	    {
+	      QMessageBox::information(0, "Error",
+				       QString("Error saving mask block list : %1").\
+				       arg(bwhr.count()));
+	      return;
+	    }
 	  d = bwhr[0];
 	  w = bwhr[1];
 	  h = bwhr[2];

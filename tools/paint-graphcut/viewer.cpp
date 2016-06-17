@@ -1726,7 +1726,7 @@ Viewer::drawInfo()
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glEnable(GL_POINT_SMOOTH);
       
-  if (m_paintHit || m_carveHit)
+  if (m_paintHit || m_carveHit && m_target.x > -1)
     {
       float cpgl = camera()->pixelGLRatio(m_target);
       int d = m_target.z;
@@ -2943,6 +2943,9 @@ Viewer::getHit(QPoint scr, bool &found)
   else // raycast rendering
     target = pointUnderPixel_RC(scr, found);
 
+  if (!found)
+    target = Vec(-1,-1,-1);
+
   return target;
 }
 
@@ -3064,6 +3067,27 @@ Viewer::pointUnderPixel_RC(QPoint scr, bool& found)
       pos = Vec(d4[0], d4[1], d4[2]);
       Vec vsz = m_sslevel*m_vsize;
       pos = m_corner + VECPRODUCT(pos, vsz);
+
+      //-----------
+      {
+	int v = m_volPtr[(int)pos.z*m_width*m_height + (int)pos.y*m_height + (int)pos.x];
+	int tg = m_maskPtr[(int)pos.z*m_width*m_height + (int)pos.y*m_height + (int)pos.x];
+	uchar *lut = Global::lut();
+	int a = Global::tagColors()[4*tg+3];
+	if (lut[4*v+3]*a == 0) // if we have hit transparent region go a voxel deep
+	  {
+	    pos += 1.5*camera()->viewDirection();
+	    int ax = pos.x;
+	    int ay = pos.y;
+	    int az = pos.z;
+	    ax = qBound(m_minHSlice, ax, m_maxHSlice);
+	    ay = qBound(m_minWSlice, ay, m_maxWSlice);
+	    az = qBound(m_minDSlice, az, m_maxDSlice);
+	    pos = Vec(ax, ay, az);
+	  }
+      }
+      //-----------
+
       found = true;
     }
 
@@ -4200,9 +4224,9 @@ Viewer::regionGrowing(bool sw)
 					     &ok);
       if (!ok)
 	return;
-      bool sw = false;
+      bool shell = false;
       if (option == "Shell")
-	sw = true;
+	shell = true;
 
       int ctag = -1;
       ctag = QInputDialog::getInt(0,
@@ -4211,13 +4235,13 @@ Viewer::regionGrowing(bool sw)
 				  -1, -1, 255, 1);
 
       int thickness = 1;
-      if (sw)
+      if (shell)
 	thickness = QInputDialog::getInt(0,
 					 "Shell thickness",
 					 "Shell thickness",
 					 1, 1, 50, 1);
       
-      emit shrinkwrap(bmin, bmax, Global::tag(), sw, thickness,
+      emit shrinkwrap(bmin, bmax, Global::tag(), shell, thickness,
 		      false, d, w, h, ctag);
     }
 }

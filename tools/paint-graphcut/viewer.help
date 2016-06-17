@@ -135,6 +135,7 @@ f
 Region growing with current tag value.
 
 Move the mouse over to the region you want to fill/region grow before pressing "f".
+Region that is connected to the voxel under the mouse cursor and that has either tag value 0 or current tag value will be filled.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end
@@ -147,7 +148,7 @@ Move the mouse over to the region you want to shrinkwrap/shell before pressing "
 
 You will be asked whether to shrinkwrap or shell the connected region.
 
-Next you will be asked the tag of the connected region - meaning only the connected voxels having the specified tag value will be considered for shrinkwrap/shell operation.  Value of -1 means select all connected visible voxels.  Any other value means only the voxels that are visible, connected and having that particular tag value will be considered.
+Next you will be asked the tag of the connected region - meaning only the connected voxels having that specified tag value will be considered for shrinkwrap/shell operation.  Value of -1 means select all connected visible voxels.  Any other value means only the voxels that are visible, connected and having that particular tag value will be considered.
 
 If you have chosen to create shell surrounding the connected region, a dialog box will pop up to ask for the thickness of the shell.
 

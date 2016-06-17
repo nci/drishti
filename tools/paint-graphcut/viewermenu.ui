@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>123</width>
-    <height>886</height>
+    <width>118</width>
+    <height>932</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -32,21 +32,6 @@
    <string>Form</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
-   <property name="spacing">
-    <number>10</number>
-   </property>
-   <property name="leftMargin">
-    <number>5</number>
-   </property>
-   <property name="topMargin">
-    <number>5</number>
-   </property>
-   <property name="rightMargin">
-    <number>5</number>
-   </property>
-   <property name="bottomMargin">
-    <number>5</number>
-   </property>
    <item>
     <widget class="QPushButton" name="update">
      <property name="text">
@@ -73,7 +58,7 @@
    <item>
     <layout class="QVBoxLayout" name="verticalLayout_7">
      <property name="bottomMargin">
-      <number>10</number>
+      <number>0</number>
      </property>
      <item>
       <widget class="QRadioButton" name="pointRender">
@@ -95,49 +80,128 @@
     </layout>
    </item>
    <item>
-    <layout class="QGridLayout" name="gridLayout_2" columnstretch="0,1">
-     <property name="topMargin">
-      <number>0</number>
+    <widget class="Line" name="line_3">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
      </property>
-     <property name="bottomMargin">
-      <number>0</number>
+    </widget>
+   </item>
+   <item>
+    <widget class="QCheckBox" name="useMask">
+     <property name="text">
+      <string>Load Tags</string>
      </property>
+     <property name="checked">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QCheckBox" name="nearest">
+     <property name="text">
+      <string>Near Neighbour</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="Line" name="line_4">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="groupBox">
+     <property name="title">
+      <string>Paint</string>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_4">
+      <property name="spacing">
+       <number>2</number>
+      </property>
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_3" stretch="0,1">
+        <item>
+         <widget class="QLabel" name="label_12">
+          <property name="text">
+           <string>Radius</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QSpinBox" name="radiusSurface"/>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_7" stretch="0,1">
+        <item>
+         <widget class="QLabel" name="label_13">
+          <property name="text">
+           <string>Depth</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QSpinBox" name="radiusDepth"/>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="paintOnlyConnected">
+        <property name="text">
+         <string>Connected Only</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+     <zorder>verticalLayoutWidget</zorder>
+     <zorder>verticalLayoutWidget</zorder>
+    </widget>
+   </item>
+   <item>
+    <widget class="Line" name="line_5">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_8" stretch="0,1">
      <property name="spacing">
       <number>2</number>
      </property>
-     <item row="0" column="0">
+     <item>
       <widget class="QLabel" name="label_11">
        <property name="text">
-        <string>Extent</string>
+        <string>Dilate/Erode</string>
        </property>
       </widget>
      </item>
-     <item row="0" column="1">
+     <item>
       <widget class="QSpinBox" name="dilateRad">
        <property name="minimum">
         <number>1</number>
        </property>
       </widget>
-     </item>
-     <item row="1" column="0">
-      <widget class="QLabel" name="label_12">
-       <property name="text">
-        <string>Radius</string>
-       </property>
-      </widget>
-     </item>
-     <item row="2" column="0">
-      <widget class="QLabel" name="label_13">
-       <property name="text">
-        <string>Depth</string>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="1">
-      <widget class="QSpinBox" name="radiusSurface"/>
-     </item>
-     <item row="2" column="1">
-      <widget class="QSpinBox" name="radiusDepth"/>
      </item>
     </layout>
    </item>
@@ -508,10 +572,13 @@
       <item>
        <widget class="QGroupBox" name="lightBox">
         <property name="title">
-         <string>Parameters</string>
+         <string/>
         </property>
         <property name="checkable">
-         <bool>true</bool>
+         <bool>false</bool>
+        </property>
+        <property name="checked">
+         <bool>false</bool>
         </property>
         <layout class="QVBoxLayout" name="verticalLayout_9">
          <property name="spacing">
@@ -533,23 +600,6 @@
           <layout class="QVBoxLayout" name="popupLight"/>
          </item>
         </layout>
-       </widget>
-      </item>
-      <item>
-       <widget class="QCheckBox" name="useMask">
-        <property name="text">
-         <string>Load Tags</string>
-        </property>
-        <property name="checked">
-         <bool>true</bool>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QCheckBox" name="nearest">
-        <property name="text">
-         <string>Near Neighbour</string>
-        </property>
        </widget>
       </item>
       <item>

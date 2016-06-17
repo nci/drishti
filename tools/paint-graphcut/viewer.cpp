@@ -80,6 +80,7 @@ Viewer::Viewer(QWidget *parent) :
   m_edgeColor = Vec(0.0,0.0,0.0);
   m_bgColor = Vec(0.0,0.0,0.0);
 
+
 #ifdef USE_GLMEDIA
   m_movieWriter = 0;
 #endif // USE_GLMEDIA
@@ -2979,7 +2980,9 @@ Viewer::getHit(QMouseEvent *event)
       else if (event->buttons() == Qt::MiddleButton) b = 3;
       
       if (m_paintHit)
-	emit paint3D(d, w, h, b, Global::tag());
+	emit paint3D(d, w, h, b,
+		     Global::tag(),
+		     m_UI->paintOnlyConnected->isChecked());
       else if (m_carveHit)
 	carve(d, w, h, b==2);
     }

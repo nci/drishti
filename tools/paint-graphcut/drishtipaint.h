@@ -103,7 +103,7 @@ class DrishtiPaint : public QMainWindow
   void applyMaskOperation(int, int, int);
 
   void paint3DStart();
-  void paint3D(int, int, int, int, int);
+  void paint3D(int, int, int, int, int, bool);
   void paint3DEnd();
 
   void dilateConnected(int, int, int, Vec, Vec, int);

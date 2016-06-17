@@ -120,8 +120,8 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   //------------------------------
   connect(m_viewer, SIGNAL(paint3DStart()),
 	  this, SLOT(paint3DStart()));
-  connect(m_viewer, SIGNAL(paint3D(int,int,int,int,int)),
-	  this, SLOT(paint3D(int,int,int,int,int)));
+  connect(m_viewer, SIGNAL(paint3D(int,int,int,int,int, bool)),
+	  this, SLOT(paint3D(int,int,int,int,int, bool)));
   connect(m_viewer, SIGNAL(paint3DEnd()),
 	  this, SLOT(paint3DEnd()));
 
@@ -1012,6 +1012,9 @@ DrishtiPaint::setFile(QString filename)
 
   Global::setVoxelScaling(StaticFunctions::getVoxelSizeFromHeader(m_pvlFile));
   Global::setVoxelUnit(StaticFunctions::getVoxelUnitFromHeader(m_pvlFile));
+
+  viewerUi.raycastRender->setChecked(true);
+  on_raycastRender_clicked(true);
 }
 
 void
@@ -3288,9 +3291,9 @@ DrishtiPaint::on_actionMeshTag_triggered()
 
   bool ok;
   QString tagstr = QInputDialog::getText(0, "Save Mesh for Tag",
-	    "Tag Numbers\ntags should be separated by space.\n-2 to ignore tags and use opacity of transfer function for meshing\n-1 mesh all tagged region\n 0 mesh region that is not tagged\n 1-254 for individual tags\nFor e.g. 1 2 5 will mesh region tagged with tags 1, 2 and 5)",
+	    "Tag Numbers\ntags should be separated by space.\n-2 mesh whatever is visible.\n-1 mesh all tagged region.\n 0 mesh region that is not tagged.\n 1-254 for individual tags.\nFor e.g. 1 2 5 will mesh region tagged with tags 1, 2 and 5)",
 					 QLineEdit::Normal,
-					 "-1",
+					 "-2",
 					 &ok);
   tag.clear();
   if (ok && !tagstr.isEmpty())
@@ -3322,7 +3325,7 @@ DrishtiPaint::on_actionMeshTag_triggered()
 	}
     }
   else
-    tag << -1;  
+    tag << -2;  
   //----------------
 
   //----------------
@@ -3332,25 +3335,26 @@ DrishtiPaint::on_actionMeshTag_triggered()
   Vec userColor = Vec(255, 255, 255);
 
   dtypes.clear();
-  if (tag[0] == -2)
-    {
-      dtypes << "User Color"
-	     << "Transfer Function";
-      
-      QString option = QInputDialog::getItem(0,
-					     "Mesh Color",
-					     "Color Mesh with",
-					     dtypes,
-					     0,
-					     false,
-					     &ok);
-      if (!ok)
-	return;
-      
-      colorType = 0;
-      if (option == "Transfer Function") colorType = 5;
-    }
-  else
+//  if (tag[0] == -2)
+//    {
+//      dtypes << "User Color"
+//	     << "Transfer Function";
+//      
+//      QString option = QInputDialog::getItem(0,
+//					     "Mesh Color",
+//					     "Color Mesh with",
+//					     dtypes,
+//					     0,
+//					     false,
+//					     &ok);
+//      if (!ok)
+//	return;
+//      
+//      colorType = 0;
+//      if (option == "Transfer Function") colorType = 5;
+//    }
+//  else
+  if (tag[0] > -2)
     {
       dtypes << "Tag Color"
 	     << "Transfer Function"
@@ -3510,7 +3514,19 @@ DrishtiPaint::on_actionMeshTag_triggered()
 	}
 
       if (tag[0] == -2)
-	memset(raw, 0, width*height);
+	{
+	  memset(raw, 0, width*height);
+
+	  memcpy(mask, m_volume->getMaskDepthSliceImage(d), nbytes);
+	  int i=0;
+	  for(int w=minWSlice; w<=maxWSlice; w++)
+	    for(int h=minHSlice; h<=maxHSlice; h++)
+	      {
+		mask[i] = mask[w*height+h];
+		i++;
+	      }
+	  memcpy(curveMask+slc*twidth*theight, mask, twidth*theight);
+	}
       else
 	{
 	  memcpy(mask, m_volume->getMaskDepthSliceImage(d), nbytes);
@@ -3614,6 +3630,17 @@ DrishtiPaint::on_actionMeshTag_triggered()
 	      {
 		if (raw[i] != 255 &&
 		    lut[4*slice[i]+3] < 5)
+		  raw[i] = 255;
+		i++;
+	      }
+	}
+      if (tag[0] == -2)
+	{
+	  int i=0;
+	  for(int w=minWSlice; w<=maxWSlice; w++)
+	    for(int h=minHSlice; h<=maxHSlice; h++)
+	      {
+		if (lut[4*slice[i]+3]*Global::tagColors()[4*mask[i]+3] == 0)
 		  raw[i] = 255;
 		i++;
 	      }
@@ -3765,6 +3792,7 @@ DrishtiPaint::colorMesh(QList<Vec>& C,
       int w = qBound(0, (int)V[ni].y, twidth-1);
       int d = qBound(0, (int)V[ni].z, tdepth-1);
       int tag = tagdata[d*twidth*theight + w*theight + h];
+
       if (tag == 0 &&
 	  (colorType != 2 || colorType != 5)) // tag not needed apply transfer function
 	{	  
@@ -4164,7 +4192,7 @@ DrishtiPaint::paint3DStart()
 }
 
 void
-DrishtiPaint::paint3D(int d, int w, int h, int button, int otag)
+DrishtiPaint::paint3D(int d, int w, int h, int button, int otag, bool onlyConnected)
 {
   int m_depth, m_width, m_height;
   m_volume->gridSize(m_depth, m_width, m_height);
@@ -4294,65 +4322,86 @@ DrishtiPaint::paint3D(int d, int w, int h, int button, int otag)
 	    }
     } // seeds
 
-  int indices[] = {-1, 0, 0,
-		    1, 0, 0,
-		    0,-1, 0,
-		    0, 1, 0,
-		    0, 0,-1,
-		    0, 0, 1};
-
-  // tag only connected region
-
-  QStack<Vec> stack;
   int minD,maxD, minW,maxW, minH,maxH;
-
-  for(int i=0; i<seeds.count(); i++)
-    {
-      qint64 h0 = seeds[i].x;
-      qint64 w0 = seeds[i].y;
-      qint64 d0 = seeds[i].z;
-      maskData[d0*m_width*m_height + w0*m_height + h0] = tag;
-      bitmask.setBit((d0-ds)*dm2 + (w0-ws)*dm + (h0-hs), false);
-      stack.push(Vec(d0, w0, h0));
-    }
-
   minD = maxD = d;
   minW = maxW = w;
   minH = maxH = h;
 
-  while(!stack.isEmpty())
+  if (!onlyConnected)
     {
-      Vec dwh = stack.pop();
-      int dx = dwh.x;
-      int wx = dwh.y;
-      int hx = dwh.z;
-
-      for(int i=0; i<6; i++)
-	{
-	  int da = indices[3*i+0];
-	  int wa = indices[3*i+1];
-	  int ha = indices[3*i+2];
-
-	  qint64 d2 = qBound(ds, dx+da, de);
-	  qint64 w2 = qBound(ws, wx+wa, we);
-	  qint64 h2 = qBound(hs, hx+ha, he);
-
-	  qint64 bidx = (d2-ds)*dm2+(w2-ws)*dm+(h2-hs);
-	  if (bitmask.testBit(bidx))
+      for(qint64 dd=ds; dd<=de; dd++)
+	for(qint64 ww=ws; ww<=we; ww++)
+	  for(qint64 hh=hs; hh<=he; hh++)
 	    {
-	      bitmask.setBit(bidx, false);
-	      maskData[d2*m_width*m_height + w2*m_height + h2] = tag;
-	      stack.push(Vec(d2,w2,h2));
+	      if (bitmask.testBit((dd-ds)*dm2 + (ww-ws)*dm + (hh-hs)))
+		{
+		  maskData[dd*m_width*m_height + ww*m_height + hh] = tag;
+		  minD = qMin(minD, (int)dd);
+		  maxD = qMax(maxD, (int)dd);
+		  minW = qMin(minW, (int)ww);
+		  maxW = qMax(maxW, (int)ww);
+		  minH = qMin(minH, (int)hh);
+		  maxH = qMax(maxH, (int)hh);
+		}
+	    }
+    }
+  else
+    {
+      int indices[] = {-1, 0, 0,
+		       1, 0, 0,
+		       0,-1, 0,
+		       0, 1, 0,
+		       0, 0,-1,
+		       0, 0, 1};
+      
+      // tag only connected region
+      
+      QStack<Vec> stack;
+      
+      for(int i=0; i<seeds.count(); i++)
+	{
+	  qint64 h0 = seeds[i].x;
+	  qint64 w0 = seeds[i].y;
+	  qint64 d0 = seeds[i].z;
+	  maskData[d0*m_width*m_height + w0*m_height + h0] = tag;
+	  bitmask.setBit((d0-ds)*dm2 + (w0-ws)*dm + (h0-hs), false);
+	  stack.push(Vec(d0, w0, h0));
+	}
+      
+      while(!stack.isEmpty())
+	{
+	  Vec dwh = stack.pop();
+	  int dx = dwh.x;
+	  int wx = dwh.y;
+	  int hx = dwh.z;
+	  
+	  for(int i=0; i<6; i++)
+	    {
+	      int da = indices[3*i+0];
+	      int wa = indices[3*i+1];
+	      int ha = indices[3*i+2];
 	      
-	      minD = qMin(minD, (int)d2);
-	      maxD = qMax(maxD, (int)d2);
-	      minW = qMin(minW, (int)w2);
-	      maxW = qMax(maxW, (int)w2);
-	      minH = qMin(minH, (int)h2);
-	      maxH = qMax(maxH, (int)h2);
+	      qint64 d2 = qBound(ds, dx+da, de);
+	      qint64 w2 = qBound(ws, wx+wa, we);
+	      qint64 h2 = qBound(hs, hx+ha, he);
+	      
+	      qint64 bidx = (d2-ds)*dm2+(w2-ws)*dm+(h2-hs);
+	      if (bitmask.testBit(bidx))
+		{
+		  bitmask.setBit(bidx, false);
+		  maskData[d2*m_width*m_height + w2*m_height + h2] = tag;
+		  stack.push(Vec(d2,w2,h2));
+		  
+		  minD = qMin(minD, (int)d2);
+		  maxD = qMax(maxD, (int)d2);
+		  minW = qMin(minW, (int)w2);
+		  maxW = qMax(maxW, (int)w2);
+		  minH = qMin(minH, (int)h2);
+		  maxH = qMax(maxH, (int)h2);
+		}
 	    }
 	}
-    }
+    } // onlyConnected
 
   getSlice(m_currSlice);
 

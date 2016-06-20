@@ -5,8 +5,6 @@
 #include <tiffio.h>
 using namespace std;
 
-//void TiffPlugin::generateHistogram() {} // to satisfy the interface
-
 QStringList
 TiffPlugin::registerPlugin()
 {
@@ -126,6 +124,21 @@ TiffPlugin::setImageFiles(QStringList files)
 
   TIFF *image;
   image = TIFFOpen((char*)m_imageList[0].toLatin1().data(), "r");
+  
+  // -- get number of images(directories) within the file
+  m_dirCount = 0;
+  if (image)
+    {
+      do {
+	m_dirCount ++;
+      } while (TIFFReadDirectory(image));
+      if (m_dirCount > 1)
+	QMessageBox::information(0, "3D Tiff",
+				 QString("Number of images : %1").arg(m_dirCount));
+      if (m_dirCount > 1)
+	m_depth = m_dirCount;
+    }
+
   TIFFGetField(image, TIFFTAG_IMAGEWIDTH, &m_width);
   TIFFGetField(image, TIFFTAG_IMAGELENGTH, &m_height);
 
@@ -265,7 +278,13 @@ void
 TiffPlugin::loadTiffImage(int i, uchar* tmp)
 {
   TIFF *image;
-  image = TIFFOpen((char*)m_imageList[i].toLatin1().data(), "r");
+  if (m_dirCount == 1)
+    image = TIFFOpen((char*)m_imageList[i].toLatin1().data(), "r");
+  else
+    {
+      image = TIFFOpen((char*)m_imageList[0].toLatin1().data(), "r");
+      TIFFSetDirectory(image, i);
+    }
 
   uint16 photo, bps, spp, fillorder;
   uint32 width;

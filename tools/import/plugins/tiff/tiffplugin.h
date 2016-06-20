@@ -59,6 +59,8 @@ class TiffPlugin : public QObject, VolInterface
 
   int m_bytesPerVoxel;
 
+  int m_dirCount;
+
   QList<QString> m_imageList;
 
   void findMinMaxandGenerateHistogram();

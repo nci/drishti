@@ -5,6 +5,7 @@
 #include "global.h"
 #include "staticfunctions.h"
 #include "propertyeditor.h"
+#include "volumeoperations.h"
 
 #include <QDockWidget>
 #include <QInputDialog>
@@ -977,6 +978,8 @@ Viewer::commandEditor()
       mesg += QString("Coordinate : %1 %2 %3\n").arg(h).arg(w).arg(d);
       mesg += QString("Voxel value : %1\n").arg(val);
       mesg += QString("Tag value : %1\n").arg(tag);
+      int op = Global::lut()[4*val+3]*Global::tagColors()[4*tag+3];
+      mesg += QString("Visible : %1\n").arg(op>0);
     }
   else
     mesg += "\nNo point found under the pointer.";
@@ -1098,7 +1101,9 @@ Viewer::processCommand(QString cmd)
 	}
       Vec bmin, bmax;
       m_boundingBox.bounds(bmin, bmax);
-      emit getVolume(bmin, bmax, tag1);
+      QList<Vec> cPos =  m_clipPlanes->positions();
+      QList<Vec> cNorm = m_clipPlanes->normals();
+      VolumeOperations::getVolume(bmin, bmax, tag1, cPos, cNorm);
       return;
     }
 
@@ -4211,7 +4216,14 @@ Viewer::regionGrowing(bool sw)
   m_boundingBox.bounds(bmin, bmax);
 
   if (!sw)
-    emit connectedRegion(d, w, h, bmin, bmax, Global::tag());
+    {
+      int ctag = -1;
+      ctag = QInputDialog::getInt(0,
+				  "Fill",
+				  QString("Region will be filled with current tag value (%1).\nSpecify tag value of connected region (-1 for connected visible region).").arg(Global::tag()),
+				  -1, -1, 255, 1);
+      emit connectedRegion(d, w, h, bmin, bmax, Global::tag(), ctag);
+    }
   else
     {
       QStringList dtypes;
@@ -4234,7 +4246,7 @@ Viewer::regionGrowing(bool sw)
       int ctag = -1;
       ctag = QInputDialog::getInt(0,
 				  "Shrinkwrap/Shell",
-				  QString("Region will be shrinkwrapped/shelled with current tag value (%1).\nSpecity tag value of connected region (-1 for connected visible region).").arg(Global::tag()),
+				  QString("Region will be shrinkwrapped/shelled with current tag value (%1).\nSpecify tag value of connected region (-1 for connected visible region).").arg(Global::tag()),
 				  -1, -1, 255, 1);
 
       int thickness = 1;

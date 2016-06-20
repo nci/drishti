@@ -14,6 +14,7 @@
 
 #include <exception>
 #include "volumeinformation.h"
+#include "volumeoperations.h"
 
 void
 DrishtiPaint::initTagColors()
@@ -125,8 +126,8 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   connect(m_viewer, SIGNAL(paint3DEnd()),
 	  this, SLOT(paint3DEnd()));
 
-  connect(m_viewer, SIGNAL(connectedRegion(int,int,int,Vec,Vec,int)),
-	  this, SLOT(connectedRegion(int,int,int,Vec,Vec,int)));
+  connect(m_viewer, SIGNAL(connectedRegion(int,int,int,Vec,Vec,int,int)),
+	  this, SLOT(connectedRegion(int,int,int,Vec,Vec,int,int)));
 
   connect(m_viewer, SIGNAL(mergeTags(Vec, Vec, int, int, bool)),
 	  this, SLOT(mergeTags(Vec, Vec, int, int, bool)));
@@ -156,9 +157,6 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 				      bool, int, int, int, int)),
 	  this, SLOT(shrinkwrap(Vec, Vec, int, bool, int,
 				bool, int, int, int, int)));
-
-  connect(m_viewer, SIGNAL(getVolume(Vec, Vec, int)),
-	  this, SLOT(getVolume(Vec, Vec, int)));
 
   //------------------------------
 
@@ -1012,6 +1010,10 @@ DrishtiPaint::setFile(QString filename)
 
   Global::setVoxelScaling(StaticFunctions::getVoxelSizeFromHeader(m_pvlFile));
   Global::setVoxelUnit(StaticFunctions::getVoxelUnitFromHeader(m_pvlFile));
+
+  VolumeOperations::setVolData(m_volume->memVolDataPtr());
+  VolumeOperations::setMaskData(m_volume->memMaskDataPtr());
+  VolumeOperations::setGridSize(d, w, h);
 
   viewerUi.raycastRender->setChecked(true);
   on_raycastRender_clicked(true);
@@ -6388,77 +6390,37 @@ DrishtiPaint::resetTag(Vec bmin, Vec bmax, int tag)
 }
 
 void
-DrishtiPaint::connectedRegion(int dr, int wr, int hr, Vec bmin, Vec bmax, int tag)
+DrishtiPaint::connectedRegion(int dr, int wr, int hr,
+			      Vec bmin, Vec bmax,
+			      int tag, int ctag)
 {
-  int m_depth, m_width, m_height;
-  m_volume->gridSize(m_depth, m_width, m_height);
+  int minD,maxD, minW,maxW, minH,maxH;
 
-  if (dr < 0 || wr < 0 || hr < 0 ||
-      dr > m_depth-1 ||
-      wr > m_width-1 ||
-      hr > m_height-1)
-    {
-      QMessageBox::information(0, "", "No painted region found");
-      return;
-    }
+  QList<Vec> cPos =  m_viewer->clipPos();
+  QList<Vec> cNorm = m_viewer->clipNorm();
 
-  int ds = bmin.z;
-  int ws = bmin.y;
-  int hs = bmin.x;
+  VolumeOperations::connectedRegion(dr, wr, hr,
+				    bmin, bmax,
+				    tag, ctag,
+				    cPos, cNorm,
+				    minD, maxD,
+				    minW, maxW,
+				    minH, maxH);
 
-  int de = bmax.z;
-  int we = bmax.y;
-  int he = bmax.x;
+  if (minD < 0)
+    return;
 
-  qint64 mx = he-hs+1;
-  qint64 my = we-ws+1;
-  qint64 mz = de-ds+1;
-
-  MyBitArray bitmask;
-  bitmask.resize(mx*my*mz);
-  bitmask.fill(false);
-
-  uchar *maskData = m_volume->memMaskDataPtr();
-
-  getConnectedRegion(dr, wr, hr,
-		     ds, ws, hs,
-		     de, we, he,
-		     tag, true,
-		     bitmask);
-
-  QProgressDialog progress("Updating voxel structure",
+  QProgressDialog progress("Update modified region in 2D slice viewer",
 			   QString(),
 			   0, 100,
 			   0);
   progress.setMinimumDuration(0);
 
-  //----------------------------  
-  // set the maskData
-  int minD,maxD, minW,maxW, minH,maxH;
-  minD = maxD = dr;
-  minW = maxW = wr;
-  minH = maxH = hr;
-  for(qint64 d2=ds; d2<=de; d2++)
-  for(qint64 w2=ws; w2<=we; w2++)
-  for(qint64 h2=hs; h2<=he; h2++)
-    {
-      qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
-      if (bitmask.testBit(bidx))
-	{
-	  qint64 idx = d2*m_width*m_height + w2*m_height + h2;
-	  maskData[idx] = tag;
-	  minD = qMin(minD, (int)d2);
-	  maxD = qMax(maxD, (int)d2);
-	  minW = qMin(minW, (int)w2);
-	  maxW = qMax(maxW, (int)w2);
-	  minH = qMin(minH, (int)h2);
-	  maxH = qMax(maxH, (int)h2);
-	}
-    }
-  //----------------------------  
-
   getSlice(m_currSlice);
   
+  int m_depth, m_width, m_height;
+  m_volume->gridSize(m_depth, m_width, m_height);
+
   minD = qMax(minD-1, 0);
   minW = qMax(minW-1, 0);
   minH = qMax(minH-1, 0);
@@ -6576,86 +6538,5 @@ DrishtiPaint::dilateBitmask(int nDilate, bool htype,
     }
 
   progress.setValue(100);
-}
-
-void
-DrishtiPaint::getVolume(Vec bmin, Vec bmax, int tag)
-{
-  int m_depth, m_width, m_height;
-  m_volume->gridSize(m_depth, m_width, m_height);
-
-  int ds = bmin.z;
-  int ws = bmin.y;
-  int hs = bmin.x;
-
-  int de = bmax.z;
-  int we = bmax.y;
-  int he = bmax.x;
-
-  QProgressDialog progress("Updating voxel structure",
-			   QString(),
-			   0, 100,
-			   0);
-  progress.setMinimumDuration(0);
-
-  QList<Vec> cPos =  m_viewer->clipPos();
-  QList<Vec> cNorm = m_viewer->clipNorm();
-
-  uchar *lut = Global::lut();
-  uchar *volData = m_volume->memVolDataPtr();
-  uchar *maskData = m_volume->memMaskDataPtr();
-
-  qint64 nvoxels = 0;
-  for(qint64 d=ds; d<=de; d++)
-    {
-      progress.setValue(90*(d-ds)/((de-ds+1)));
-      if (d%10 == 0)
-	qApp->processEvents();
-      for(qint64 w=ws; w<=we; w++)
-	for(qint64 h=hs; h<=he; h++)
-	  {
-	    bool clipped = false;
-	    for(int i=0; i<cPos.count(); i++)
-	      {
-		Vec p = Vec(h, w, d) - cPos[i];
-		if (cNorm[i]*p > 0)
-		  {
-		    clipped = true;
-		    break;
-		  }
-	      }
-	    
-	    if (!clipped)
-	      {
-		qint64 idx = d*m_width*m_height + w*m_height + h;
-		int val = volData[idx];
-		uchar mtag = maskData[idx];
-		bool opaque = (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);      
-		if (tag > -1)
-		  opaque &= (mtag == tag);
-
-		if (opaque)
-		  nvoxels ++;
-	      }
-	  }
-    }
-
-  progress.setValue(100);
-
-  VolumeInformation pvlInfo;
-  pvlInfo = VolumeInformation::volumeInformation();
-  Vec voxelSize = pvlInfo.voxelSize;
-  float voxvol = nvoxels*voxelSize.x*voxelSize.y*voxelSize.z;
-
-  QString mesg;
-  mesg += QString("Visible Voxels : %1\n").arg(nvoxels);
-  mesg += QString("Voxel Size : %1,%2,%3 %4\n").\
-                  arg(voxelSize.x).arg(voxelSize.y).arg(voxelSize.z).
-                  arg(pvlInfo.voxelUnitStringShort());
-  mesg += QString("Volume : %1 %2^3\n").	\
-                  arg(voxvol).\
-                  arg(pvlInfo.voxelUnitStringShort());
-
-  QMessageBox::information(0, "", mesg);
 }
 

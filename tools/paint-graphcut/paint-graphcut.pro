@@ -84,6 +84,7 @@ HEADERS += commonqtclasses.h \
 	volumefilemanager.h \
 	volumeinformation.h \
 	volumemask.h \
+	volumeoperations.h \
 	graphcut/graph.h \
 	graphcut/graphcut.h \
 	graphcut/block.h \
@@ -136,6 +137,7 @@ SOURCES += drishtipaint.cpp \
 	volumefilemanager.cpp \
 	volumeinformation.cpp \
 	volumemask.cpp \
+	volumeoperations.cpp \
 	graphcut/graph.cpp \
 	graphcut/graphcut.cpp \
 	ply.c \

@@ -144,7 +144,7 @@ class Viewer : public QGLViewer
     void shrinkwrap(Vec, Vec, int, bool, int);
     void shrinkwrap(Vec, Vec, int, bool, int,
 		    bool, int, int, int, int);
-    void connectedRegion(int, int, int, Vec, Vec, int);
+    void connectedRegion(int, int, int, Vec, Vec, int, int);
     void getVolume(Vec, Vec, int);
  private :
   Ui::ViewerMenu *m_UI;

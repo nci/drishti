@@ -152,7 +152,7 @@ Volume::setFile(QString volfile)
   memSize/=1024;
   memSize/=1024;
 //  QMessageBox::information(0, "", QString("Physical Memory : %1 GB").arg(memSize));
-  float inmemGB = 0.3+((float)m_depth*m_width*m_height*2.5)/((float)1024*1024*1024);
+  float inmemGB = 0.3+((float)m_depth*(float)m_width*(float)m_height*2.5)/((float)1024*1024*1024);
   bool inMem = true;
   if (inmemGB > memSize) // ask when memory requirements greater than physical memory detected
     {

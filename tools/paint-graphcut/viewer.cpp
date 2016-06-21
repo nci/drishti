@@ -1195,6 +1195,40 @@ Viewer::processCommand(QString cmd)
 
       return;
     }
+
+  if (list[0].contains("modifyoriginalvolume"))
+    {
+      QStringList dtypes;
+      dtypes << "No";
+      dtypes << "Yes"; 
+      bool ok;
+      QString option = QInputDialog::getItem(0,
+				  "Modify Original Volume",
+				   QString("BE VERY CAREFUL WHEN USING THIS FUNCTION\nOriginal Volume will be modified.\nValues for the voxels in the region that is invisible in the 3D Preview window\nwill be replaced with the value that you specify.\nDo you want to proceed ?"),
+				   dtypes,
+				   0,
+				   false,
+				   &ok);
+
+      if (!ok)
+	return;
+
+      if (option != "Yes")
+	return;
+      
+      int val = 0;
+      val = QInputDialog::getInt(0,
+				  "Modify Original Volume",
+				  "Please specify value for voxels in the transparent region.",
+				  0, 0, 255, 1);
+
+      
+      Vec bmin, bmax;
+      m_boundingBox.bounds(bmin, bmax);
+      emit modifyOriginalVolume(bmin, bmax, val);
+      return;
+    }
+
 }
 
 void

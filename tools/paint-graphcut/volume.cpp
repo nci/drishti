@@ -182,7 +182,7 @@ Volume::setFile(QString volfile)
   m_mask.setFile(mfile, inMem);
   m_mask.setGridSize(m_depth, m_width, m_height, slabSize);
 
-  genHistogram();
+  genHistogram(false);
   generateHistogramImage();
 
   m_valid = true;
@@ -191,7 +191,7 @@ Volume::setFile(QString volfile)
 }
 
 void
-Volume::genHistogram()
+Volume::genHistogram(bool forceHistogram)
 {
   // evaluate 1D & 2D histograms
 
@@ -206,13 +206,17 @@ Volume::genHistogram()
   hfilename += QString("hist");
   QFile hfile;
   hfile.setFileName(hfilename);
-  if (hfile.exists() == true &&
-      hfile.size() == 256*4)    
+
+  if (!forceHistogram)
     {
-      hfile.open(QFile::ReadOnly);
-      hfile.read((char*)m_1dHistogram, 256*4);      
-      hfile.close();
-      return;
+      if (hfile.exists() == true &&
+	  hfile.size() == 256*4)    
+	{
+	  hfile.open(QFile::ReadOnly);
+	  hfile.read((char*)m_1dHistogram, 256*4);      
+	  hfile.close();
+	  return;
+	}
     }
 
   float *flhist1D = new float[256];
@@ -402,4 +406,11 @@ void
 Volume::tagHSlice(int currslice, uchar *usermask)
 {
   m_mask.tagHSlice(currslice, usermask);
+}
+
+void
+Volume::saveModifiedOriginalVolume()
+{
+  m_pvlFileManager.setMemChanged(true);
+  m_pvlFileManager.saveMemFile();    
 }

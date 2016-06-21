@@ -51,6 +51,26 @@ class VolumeOperations
 			int&, int&,
 			int&, int&);
 
+  static void erodeConnected(int, int, int,
+			     Vec, Vec, int,
+			     int,
+			     int&, int&,
+			     int&, int&,
+			     int&, int&);
+
+  static void dilateConnected(int, int, int,
+			      Vec, Vec, int,
+			      int,
+			      int&, int&,
+			      int&, int&,
+			      int&, int&);
+
+  static void modifyOriginalVolume(Vec, Vec, int,
+				   int&, int&,
+				   int&, int&,
+				   int&, int&);
+
+
  private :
   static int m_depth, m_width, m_height;
   static uchar *m_volData;

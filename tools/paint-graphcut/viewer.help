@@ -80,6 +80,20 @@ Clipping planes are obeyed - clipped region is not taken into account.
 #end
 
 #begin
+modifyoriginalvolume
+modifyoriginalvolume
+
+**
+** THIS FUNCTION MODIFIES THE ORIGINAL VOXEL VALUES. **
+** YOU MAY WANT TO KEEP A COPY OF THE ORIGINAL DATA. **
+**
+
+Modify original voxel values in the transparent region.  Values for the voxels in the transparent region are set to the value specified by the user.  A dialog box will pop up to ask for the substiture voxel value.
+
+Clipping planes are obeyed - clipped region is treated as transparent and will be modified.
+#end
+
+#begin
 keyboard
 Start Keyboard help
 #end

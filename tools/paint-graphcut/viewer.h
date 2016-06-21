@@ -146,6 +146,8 @@ class Viewer : public QGLViewer
 		    bool, int, int, int, int);
     void connectedRegion(int, int, int, Vec, Vec, int, int);
     void getVolume(Vec, Vec, int);
+
+    void modifyOriginalVolume(Vec, Vec, int);
  private :
   Ui::ViewerMenu *m_UI;
 

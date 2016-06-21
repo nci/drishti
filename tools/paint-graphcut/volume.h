@@ -51,6 +51,11 @@ class Volume : public QObject
   void saveMaskBlock(int, int, int, int);
   void saveMaskBlock(QList< QList<int> >);
 
+  void genHistogram(bool);
+  void generateHistogramImage();
+
+  void saveModifiedOriginalVolume();
+
  signals :
   void progressChanged(int);
   void progressReset();
@@ -73,9 +78,6 @@ class Volume : public QObject
   uchar *m_histImageData2D;
   QImage m_histogramImage1D;
   QImage m_histogramImage2D;
-
-  void genHistogram();
-  void generateHistogramImage();
 };
 
 #endif

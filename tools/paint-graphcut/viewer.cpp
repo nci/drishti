@@ -1103,7 +1103,8 @@ Viewer::processCommand(QString cmd)
       m_boundingBox.bounds(bmin, bmax);
       QList<Vec> cPos =  m_clipPlanes->positions();
       QList<Vec> cNorm = m_clipPlanes->normals();
-      VolumeOperations::getVolume(bmin, bmax, tag1, cPos, cNorm);
+      VolumeOperations::setClip(cPos, cNorm);
+      VolumeOperations::getVolume(bmin, bmax, tag1);
       return;
     }
 

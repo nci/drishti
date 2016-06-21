@@ -249,19 +249,8 @@ class DrishtiPaint : public QMainWindow
   void setupSlicesParameters();
   void setupLightParameters();
 
-  void shrinkwrapSlice(uchar*, int, int);
-
-  void getConnectedRegion(int, int, int,
-			  int, int, int,
-			  int, int, int,
-			  int, bool,
-			  MyBitArray&);
-  void getTransparentRegion(int, int, int,
-			    int, int, int, MyBitArray&);
-
-  void dilateBitmask(int, bool,
-		     qint64, qint64, qint64,
-		     MyBitArray&);
+  void updateModifiedRegion(int, int, int,
+			    int, int, int);
 };
 
 #endif

@@ -3,6 +3,7 @@
 #include "volumeinformation.h"
 #include "global.h"
 #include "mybitarray.h"
+#include "morphslice.h"
 
 uchar* VolumeOperations::m_volData = 0;
 uchar* VolumeOperations::m_maskData = 0;
@@ -21,8 +22,15 @@ void VolumeOperations::setGridSize(int d, int w, int h)
   m_height = h;
 }
 
-void VolumeOperations::getVolume(Vec bmin, Vec bmax, int tag,
-				 QList<Vec> cPos, QList<Vec> cNorm)
+QList<Vec> VolumeOperations::m_cPos;
+QList<Vec> VolumeOperations::m_cNorm;
+void VolumeOperations::setClip(QList<Vec> cpos, QList<Vec> cnorm)
+{
+  m_cPos = cpos;
+  m_cNorm = cnorm;
+}
+
+void VolumeOperations::getVolume(Vec bmin, Vec bmax, int tag)
 {
   QProgressDialog progress("Calculating Volume",
 			   QString(),
@@ -51,10 +59,10 @@ void VolumeOperations::getVolume(Vec bmin, Vec bmax, int tag,
 	for(qint64 h=hs; h<=he; h++)
 	  {
 	    bool clipped = false;
-	    for(int i=0; i<cPos.count(); i++)
+	    for(int i=0; i<m_cPos.count(); i++)
 	      {
-		Vec p = Vec(h, w, d) - cPos[i];
-		if (cNorm[i]*p > 0)
+		Vec p = Vec(h, w, d) - m_cPos[i];
+		if (m_cNorm[i]*p > 0)
 		  {
 		    clipped = true;
 		    break;
@@ -96,10 +104,83 @@ void VolumeOperations::getVolume(Vec bmin, Vec bmax, int tag,
 }
 
 void
+VolumeOperations::resetTag(Vec bmin, Vec bmax, int tag,
+			   int& minD, int& maxD,
+			   int& minW, int& maxW,
+			   int& minH, int& maxH)
+{
+  int ds = bmin.z;
+  int ws = bmin.y;
+  int hs = bmin.x;
+
+  int de = bmax.z;
+  int we = bmax.y;
+  int he = bmax.x;
+
+  QProgressDialog progress("Updating voxel structure",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+  minD = maxD = -1;
+  minW = maxW = -1;
+  minH = maxH = -1;
+
+  for(qint64 d=ds; d<=de; d++)
+    {
+      progress.setValue(90*(d-ds)/((de-ds+1)));
+      if (d%10 == 0)
+	qApp->processEvents();
+      for(qint64 w=ws; w<=we; w++)
+	for(qint64 h=hs; h<=he; h++)
+	  {
+	    bool clipped = false;
+	    for(int i=0; i<m_cPos.count(); i++)
+	      {
+		Vec p = Vec(h, w, d) - m_cPos[i];
+		if (m_cNorm[i]*p > 0)
+		  {
+		    clipped = true;
+		    break;
+		  }
+	      }
+	    
+	    if (!clipped)
+	      {
+		qint64 idx = d*m_width*m_height + w*m_height + h;
+		m_maskData[idx] = tag;
+		if (minD > -1)
+		  {
+		    minD = qMin(minD, (int)d);
+		    maxD = qMax(maxD, (int)d);
+		    minW = qMin(minW, (int)w);
+		    maxW = qMax(maxW, (int)w);
+		    minH = qMin(minH, (int)h);
+		    maxH = qMax(maxH, (int)h);
+		  }
+		else
+		  {
+		    minD = maxD = d;
+		    minW = maxW = w;
+		    minH = maxH = h;
+		  }
+	      } // clipped
+	  }
+    }
+  
+  minD = qMax(minD-1, 0);
+  minW = qMax(minW-1, 0);
+  minH = qMax(minH-1, 0);
+  maxD = qMin(maxD+1, m_depth);
+  maxW = qMin(maxW+1, m_width);
+  maxH = qMin(maxH+1, m_height);
+}
+
+void
 VolumeOperations::connectedRegion(int dr, int wr, int hr,
 				  Vec bmin, Vec bmax,
 				  int tag, int ctag,
-				  QList<Vec> cPos, QList<Vec> cNorm,
 				  int& minD, int& maxD,
 				  int& minW, int& maxW,
 				  int& minH, int& maxH)
@@ -135,7 +216,6 @@ VolumeOperations::connectedRegion(int dr, int wr, int hr,
 		     ds, ws, hs,
 		     de, we, he,
 		     ctag, true,
-		     cPos, cNorm,
 		     bitmask);
 
   QProgressDialog progress("Updating voxel structure",
@@ -183,7 +263,6 @@ VolumeOperations::getConnectedRegion(int dr, int wr, int hr,
 				     int ds, int ws, int hs,
 				     int de, int we, int he,
 				     int tag, bool zero,
-				     QList<Vec> cPos, QList<Vec> cNorm,
 				     MyBitArray& cbitmask)
 {
   QProgressDialog progress("Identifying connected region",
@@ -219,10 +298,10 @@ VolumeOperations::getConnectedRegion(int dr, int wr, int hr,
     for(qint64 h2=hs; h2<=he; h2++)
     {
       bool clipped = false;
-      for(int i=0; i<cPos.count(); i++)
+      for(int i=0; i<m_cPos.count(); i++)
 	{
-	  Vec p = Vec(h2, w2, d2) - cPos[i];
-	  if (cNorm[i]*p > 0)
+	  Vec p = Vec(h2, w2, d2) - m_cPos[i];
+	  if (m_cNorm[i]*p > 0)
 	    {
 	      clipped = true;
 	      break;
@@ -323,5 +402,795 @@ VolumeOperations::getConnectedRegion(int dr, int wr, int hr,
   // copy bitmask into cbitmask
   for(qint64 i=0; i<mx*my*mz; i++)
     cbitmask.setBit(i, bitmask.testBit(i));
+}
+
+void
+VolumeOperations::shrinkwrapSlice(uchar *swvr, int mx, int my)
+{
+  MorphSlice ms;
+  QList<QPolygonF> poly = ms.boundaryCurves(swvr, mx, my, true);
+	
+  memset(swvr, 0, my*mx);
+  for (int npc=0; npc<poly.count(); npc++)
+    {
+      QImage pimg = QImage(mx, my, QImage::Format_RGB32);
+      pimg.fill(0);
+      QPainter p(&pimg);
+      p.setPen(QPen(Qt::white, 1));
+      p.setBrush(Qt::white);
+      p.drawPolygon(poly[npc]);
+      QRgb *rgb = (QRgb*)(pimg.bits());
+      for(int i=0; i<my*mx; i++)
+	swvr[i] = (swvr[i]>0 || qRed(rgb[i])>0 ? 255 : 0);  
+    }  
+}
+
+void
+VolumeOperations::getTransparentRegion(int ds, int ws, int hs,
+				       int de, int we, int he,
+				       MyBitArray& cbitmask)
+{
+  QProgressDialog progress("Identifying transparent region",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+  qint64 mx = he-hs+1;
+  qint64 my = we-ws+1;
+  qint64 mz = de-ds+1;
+
+  uchar *lut = Global::lut();
+
+  for(qint64 d2=ds; d2<=de; d2++)
+  {
+    progress.setValue(90*(float)(d2-ds)/(float)mz);
+    qApp->processEvents();
+    for(qint64 w2=ws; w2<=we; w2++)
+    for(qint64 h2=hs; h2<=he; h2++)
+    {
+      bool clipped = false;
+      for(int i=0; i<m_cPos.count(); i++)
+	{
+	  Vec p = Vec(h2, w2, d2) - m_cPos[i];
+	  if (m_cNorm[i]*p > 0)
+	    {
+	      clipped = true;
+	      break;
+	    }
+	}
+      
+      qint64 idx = d2*m_width*m_height + w2*m_height + h2;
+      int val = m_volData[idx];
+      uchar mtag = m_maskData[idx];
+      bool transparent =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] == 0);
+      if (clipped || transparent)
+	{
+	  qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
+	  cbitmask.setBit(bidx, true);
+	}  // transparent voxel
+    }
+  }
+  progress.setValue(100);
+}
+
+void
+VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
+			     bool shellOnly, int shellThickness,
+			     bool all,
+			     int dr, int wr, int hr, int ctag,
+			     int& minD, int& maxD,
+			     int& minW, int& maxW,
+			     int& minH, int& maxH)
+{
+  //-------------------------
+  int holeSize = 0;
+  holeSize = QInputDialog::getInt(0,
+				  "Fill Holes",
+				  "Size of holes to fill",
+				  0, 0, 100, 1);
+  //-------------------------
+
+  uchar *lut = Global::lut();
+
+  int ds = bmin.z;
+  int ws = bmin.y;
+  int hs = bmin.x;
+
+  int de = bmax.z;
+  int we = bmax.y;
+  int he = bmax.x;
+
+  qint64 mx = he-hs+1;
+  qint64 my = we-ws+1;
+  qint64 mz = de-ds+1;
+
+  MyBitArray bitmask;
+  bitmask.resize(mx*my*mz);
+  bitmask.fill(false);
+
+  MyBitArray cbitmask;
+  cbitmask.resize(mx*my*mz);
+  cbitmask.fill(false);
+
+
+  int indices[] = {-1, 0, 0,
+		    1, 0, 0,
+		    0,-1, 0,
+		    0, 1, 0,
+		    0, 0,-1,
+		    0, 0, 1};
+
+  //----------------------------  
+  if (all) // identify transparent region  
+    getTransparentRegion(ds, ws, hs, de, we, he, cbitmask);
+  else // identify connected region
+    {
+      getConnectedRegion(dr, wr, hr,
+			 ds, ws, hs,
+			 de, we, he,
+			 ctag, false,
+			 cbitmask);
+      // invert all values in cbitmask
+      cbitmask.invert();
+    }
+  //----------------------------  
+
+
+  //----------------------------
+  // fill the holes before shrinkwrapping the region
+  if (holeSize > 0)
+    {
+      MyBitArray o_bitmask;
+      o_bitmask.resize(mx*my*mz);
+      // make a copy of bitmask into o_bitmask
+      for(qint64 i=0; i<mx*my*mz; i++)
+	o_bitmask.setBit(i, cbitmask.testBit(i));
+  
+      // dilation
+      dilateBitmask(holeSize, false, // dilate opaque (false) region
+		    mx, my, mz,
+		    cbitmask);
+
+      // followed by erosion
+      dilateBitmask(holeSize, true, // dilate transparent (true) region
+		    mx, my, mz,
+		    cbitmask);
+
+      // merge the original back in after erosion
+      for(qint64 i=0; i<mx*my*mz; i++)
+	cbitmask.setBit(i, cbitmask.testBit(i) & o_bitmask.testBit(i));
+    }
+  //----------------------------  
+
+
+  QProgressDialog progress("Shrinkwrap",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+  int startd = de;
+  int startw = we;
+  int starth = he;
+  int endd = ds;
+  int endw = ws;
+  int endh = hs;
+  for(qint64 d2=ds; d2<=de; d2++)
+  {
+    progress.setValue(90*(float)(d2-ds)/(float)mz);
+    qApp->processEvents();
+    for(qint64 w2=ws; w2<=we; w2++)
+    for(qint64 h2=hs; h2<=he; h2++)
+    {
+      qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
+      if (cbitmask.testBit(bidx) == false) // opaque voxels
+	{
+	  startd = qMin(startd, (int)d2);
+	  startw = qMin(startw, (int)w2);
+	  starth = qMin(starth, (int)h2);
+	  endd = qMax(endd, (int)d2);
+	  endw = qMax(endw, (int)w2);
+	  endh = qMax(endh, (int)h2);
+	}
+    }
+  }
+//  QMessageBox::information(0, "", QString("%1 %2 %3\n%4 %5 %6").\
+//			   arg(startd).arg(startw).arg(starth).\
+//			   arg(endd).arg(endw).arg(endh));
+  //----------------------------  
+
+  //----------------------------  
+  // set the non-transparent block
+  for(qint64 d2=startd; d2<=endd; d2++)
+  for(qint64 w2=startw; w2<=endw; w2++)
+  for(qint64 h2=starth; h2<=endh; h2++)
+    {
+      qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
+      bitmask.setBit(bidx, true);
+    }
+  //----------------------------  
+
+  
+  QList<Vec> edges;
+  edges.clear();
+
+  //----------------------------
+  // set all size faces
+  //------------------------------------------------------
+  { // handle depth slices
+    uchar *swvr = new uchar[my*mx];
+    for(qint64 d=startd; d<=endd; d=endd)
+      {
+	progress.setLabelText(QString("Z %1").arg(d));
+	qApp->processEvents();
+	
+	memset(swvr, 0, my*mx);
+	
+	for(qint64 w=ws; w<=we; w++)
+	  for(qint64 h=hs; h<=he; h++)
+	    {
+	      qint64 bidx = (d-ds)*mx*my+(w-ws)*mx+(h-hs);
+	      if (!cbitmask.testBit(bidx))
+		swvr[(w-ws)*mx + (h-hs)] = 255;
+	    }
+
+	shrinkwrapSlice(swvr, mx, my);
+	
+	for(qint64 w=ws; w<=we; w++)
+	  for(qint64 h=hs; h<=he; h++)
+	    {
+	      if (swvr[(w-ws)*mx + (h-hs)] == 0)
+		{
+		  qint64 bidx = (d-ds)*mx*my+(w-ws)*mx+(h-hs);
+		  bitmask.setBit(bidx, false);
+		  edges << Vec(d,w,h);
+		}
+	    }
+	if (d == endd)
+	  break;
+      }
+    delete [] swvr;
+  }
+  //------------------------------------------------------
+  { // handle width slices
+    uchar *swvr = new uchar[mz*mx];
+    for(qint64 w=startw; w<=endw; w=endw)
+      {
+	progress.setLabelText(QString("Y %1").arg(w));
+	qApp->processEvents();
+		
+	memset(swvr, 0, mz*mx);
+	
+	for(qint64 d=ds; d<=de; d++)
+	  for(qint64 h=hs; h<=he; h++)
+	    {
+	      qint64 bidx = (d-ds)*mx*my+(w-ws)*mx+(h-hs);
+	      if (!cbitmask.testBit(bidx))
+		swvr[(d-ds)*mx + (h-hs)] = 255;
+	    }
+	
+	shrinkwrapSlice(swvr, mx, mz);
+	
+	for(qint64 d=ds; d<=de; d++)
+	  for(qint64 h=hs; h<=he; h++)
+	    {
+	      if (swvr[(d-ds)*mx + (h-hs)] == 0)
+		{
+		  qint64 bidx = (d-ds)*mx*my+(w-ws)*mx+(h-hs);
+		  bitmask.setBit(bidx, false);
+		  edges << Vec(d,w,h);
+		}
+	    }
+	if (w == endw)
+	  break;
+      }
+    delete [] swvr;
+  }
+  //------------------------------------------------------
+
+  //------------------------------------------------------
+  { // handle height slices
+    uchar *swvr = new uchar[mz*my];
+    for(qint64 h=starth; h<=endh; h=endh)
+      {
+	progress.setLabelText(QString("X %1").arg(h));
+	qApp->processEvents();
+	
+	memset(swvr, 0, mz*my);
+	
+	for(qint64 d=ds; d<=de; d++)
+	  for(qint64 w=ws; w<=we; w++)
+	    {
+	      qint64 bidx = (d-ds)*mx*my+(w-ws)*mx+(h-hs);
+	      if (!cbitmask.testBit(bidx))
+		swvr[(d-ds)*my + (w-ws)] = 255;
+	    }
+	
+	shrinkwrapSlice(swvr, my, mz);
+		
+	for(qint64 d=ds; d<=de; d++)
+	  for(qint64 w=ws; w<=we; w++)
+	    {
+	      if (swvr[(d-ds)*my + (w-ws)] == 0)
+		{
+		  qint64 bidx = (d-ds)*mx*my+(w-ws)*mx+(h-hs);
+		  bitmask.setBit(bidx, false);
+		  edges << Vec(d,w,h);
+		}
+	    }
+	if (h == endh)
+	  break;
+      }
+    delete [] swvr;
+  }
+  //------------------------------------------------------
+
+  //------------------------------------------------------
+  // now dilate from boundary
+  bool done = false;
+  int nd = 0;
+  int pvnd = 0;
+  while(!done)
+    {
+      nd = (nd + 1)%100;
+      int pnd = 90*(float)nd/(float)100;
+      progress.setValue(pnd);
+      if (pnd != pvnd)
+	qApp->processEvents();
+      pvnd = pnd;
+
+      QList<Vec> tedges;
+      tedges.clear();
+
+      progress.setLabelText(QString("Boundary detection %1").arg(edges.count()));
+      qApp->processEvents();
+
+            
+      // find outer boundary to fill
+      for(int e=0; e<edges.count(); e++)
+	{
+	  int dx = edges[e].x;
+	  int wx = edges[e].y;
+	  int hx = edges[e].z;
+	  	  
+	  for(int i=0; i<6; i++)
+	    {
+	      int da = indices[3*i+0];
+	      int wa = indices[3*i+1];
+	      int ha = indices[3*i+2];
+	      
+	      qint64 d2 = qBound(ds, dx+da, de);
+	      qint64 w2 = qBound(ws, wx+wa, we);
+	      qint64 h2 = qBound(hs, hx+ha, he);
+	      
+	      qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
+	      if (cbitmask.testBit(bidx) &&
+		  bitmask.testBit(bidx))
+		{
+		  bitmask.setBit(bidx, false);
+		  tedges << Vec(d2,w2,h2);		  
+		}
+	    }
+	}
+
+      edges.clear();
+
+      if (tedges.count() > 0)
+	edges = tedges;
+      else
+	done = true;
+
+      tedges.clear();
+    }
+  //------------------------------------------------------
+
+  //------------------------------------------------------
+  // if we want only shell remove interior
+  if (shellOnly)
+    {
+      progress.setLabelText("Tag shell voxels");
+
+      // copy bitmask into cbitmask
+      for(qint64 i=0; i<mx*my*mz; i++)
+	cbitmask.setBit(i, bitmask.testBit(i));
+
+      bitmask.fill(false);
+      
+      for(qint64 d=ds; d<=de; d++)
+	{
+	  progress.setValue(90*(d-ds)/mz);
+	  if (d%10 == 0) qApp->processEvents();
+	
+	  for(qint64 w=ws; w<=we; w++)
+	  for(qint64 h=hs; h<=he; h++)
+	    {
+	      qint64 bidx = (d-ds)*mx*my+(w-ws)*mx + (h-hs);
+	      if (cbitmask.testBit(bidx))
+		{
+		  qint64 d2s = qBound(ds, (int)d-1, de);
+		  qint64 w2s = qBound(ws, (int)w-1, we);
+		  qint64 h2s = qBound(hs, (int)h-1, he);
+		  qint64 d2e = qBound(ds, (int)d+1, de);
+		  qint64 w2e = qBound(ws, (int)w+1, we);
+		  qint64 h2e = qBound(hs, (int)h+1, he);
+		  
+		  bool ok = true;
+		  for(qint64 d2=d2s; d2<=d2e; d2++)
+		  for(qint64 w2=w2s; w2<=w2e; w2++)
+		  for(qint64 h2=h2s; h2<=h2e; h2++)
+		    {
+		      qint64 cidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
+		      if (!cbitmask.testBit(cidx))
+			{
+			  ok = false;
+			  break;
+			}			  
+		    }
+		  
+		  if (!ok) // boundary voxel
+		    bitmask.setBit(bidx, true);
+		}
+	    }
+	}
+      
+      MyBitArray dbitmask;
+      dbitmask.resize(mx*my*mz);
+      
+      for(int nd=1; nd<shellThickness; nd++)
+	{
+	  dbitmask.fill(false);
+	  progress.setLabelText(QString("shell no. %1").arg(nd));
+	  for(qint64 d=ds; d<=de; d++)
+	    {
+	      progress.setValue(99*(d-ds)/mz);
+	      if (d%10 == 0) qApp->processEvents();
+	      
+	      for(qint64 w=ws; w<=we; w++)
+	      for(qint64 h=hs; h<=he; h++)
+		{
+		  qint64 bidx = (d-ds)*mx*my+(w-ws)*mx + (h-hs);
+		  if (bitmask.testBit(bidx) && cbitmask.testBit(bidx))
+		    {
+		      cbitmask.setBit(bidx, false);
+		      qint64 d2s = qBound(ds, (int)d-1, de);
+		      qint64 w2s = qBound(ws, (int)w-1, we);
+		      qint64 h2s = qBound(hs, (int)h-1, he);
+		      qint64 d2e = qBound(ds, (int)d+1, de);
+		      qint64 w2e = qBound(ws, (int)w+1, we);
+		      qint64 h2e = qBound(hs, (int)h+1, he);
+		      for(qint64 d2=d2s; d2<=d2e; d2++)
+			for(qint64 w2=w2s; w2<=w2e; w2++)
+			  for(qint64 h2=h2s; h2<=h2e; h2++)
+			    {
+			      qint64 cidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
+			      if (cbitmask.testBit(cidx))
+				dbitmask.setBit(cidx, true);
+			    }
+		    }
+		}
+	    }
+	  // OR dbitmask into bitmask
+	  for(qint64 i=0; i<mx*my*mz; i++)
+	    bitmask.setBit(i, bitmask.testBit(i) || dbitmask.testBit(i));
+	  
+	} // shellThickness
+    }
+  //------------------------------------------------------
+
+  //----------------------------  
+  // now set the maskData
+  for(qint64 d2=ds; d2<=de; d2++)
+  for(qint64 w2=ws; w2<=we; w2++)
+  for(qint64 h2=hs; h2<=he; h2++)
+    {
+      qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
+      if (bitmask.testBit(bidx))
+	{
+	  qint64 idx = d2*m_width*m_height + w2*m_height + h2;
+	  m_maskData[idx] = tag;
+	}
+    }
+  //----------------------------  
+
+  minD = ds;  maxD = de;
+  minW = ws;  maxW = we;
+  minH = hs;  maxH = he;
+}
+
+void
+VolumeOperations::dilateBitmask(int nDilate, bool htype,
+				qint64 mx, qint64 my, qint64 mz,
+				MyBitArray &bitmask)
+{
+  QProgressDialog progress("Dilate bitmask",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+  int indices[] = {-1, 0, 0,
+		    1, 0, 0,
+		    0,-1, 0,
+		    0, 1, 0,
+		    0, 0,-1,
+		    0, 0, 1};
+
+  QList<Vec> edges;
+  edges.clear();
+
+  // find  inner boundary
+  for(qint64 d=0; d<mz; d++)
+    {
+      progress.setValue(90*(float)d/(float)mz);
+      if (d%10 == 0)
+	qApp->processEvents();
+      for(qint64 w=0; w<my; w++)
+	for(qint64 h=0; h<mz; h++)
+	  {
+	    qint64 bidx = d*mx*my+w*mx+h;
+	    if (bitmask.testBit(bidx) == htype)
+	      {
+		bool inside = true;
+		for(int i=0; i<6; i++)
+		  {
+		    int da = indices[3*i+0];
+		    int wa = indices[3*i+1];
+		    int ha = indices[3*i+2];
+		    
+		    qint64 d2 = qBound((qint64)0, d+da, mz-1);
+		    qint64 w2 = qBound((qint64)0, w+wa, my-1);
+		    qint64 h2 = qBound((qint64)0, h+ha, mx-1);
+		    
+		    qint64 tidx = d2*mx*my+w2*mx+h2;
+		    inside &= (bitmask.testBit(tidx) == htype);
+		  }
+		if (!inside)
+		  edges << Vec(d,w,h);
+	      }
+	  }
+    }
+
+  for(int ne=0; ne<nDilate; ne++)
+    {
+      progress.setValue(90*(float)ne/(float)nDilate);
+      qApp->processEvents();
+
+      QList<Vec> tedges;
+      tedges.clear();
+      
+      // find outer boundary to fill
+      for(int e=0; e<edges.count(); e++)
+	{
+	  int dx = edges[e].x;
+	  int wx = edges[e].y;
+	  int hx = edges[e].z;
+	  
+	  for(int i=0; i<6; i++)
+	    {
+	      int da = indices[3*i+0];
+	      int wa = indices[3*i+1];
+	      int ha = indices[3*i+2];
+	      
+	      qint64 d2 = qBound(0, dx+da, (int)mz-1);
+	      qint64 w2 = qBound(0, wx+wa, (int)my-1);
+	      qint64 h2 = qBound(0, hx+ha, (int)mx-1);
+	      
+	      qint64 bidx = d2*mx*my+w2*mx+h2;
+	      if (bitmask.testBit(bidx) != htype)
+		{
+		  bitmask.setBit(bidx, htype);
+		  tedges << Vec(d2,w2,h2);	  
+		}
+	    }
+	}
+
+      edges = tedges;	  
+    }
+
+  progress.setValue(100);
+}
+
+void
+VolumeOperations::setVisible(Vec bmin, Vec bmax,
+			     int tag, bool visible,
+			     int& minD, int& maxD,
+			     int& minW, int& maxW,
+			     int& minH, int& maxH)
+{
+  int ds = bmin.z;
+  int ws = bmin.y;
+  int hs = bmin.x;
+
+  int de = bmax.z;
+  int we = bmax.y;
+  int he = bmax.x;
+
+  QProgressDialog progress("Updating voxel structure",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+  minD = maxD = -1;
+  minW = maxW = -1;
+  minH = maxH = -1;
+
+  uchar *lut = Global::lut();
+
+  for(qint64 d=ds; d<=de; d++)
+    {
+      progress.setValue(90*(d-ds)/((de-ds+1)));
+      if (d%10 == 0)
+	qApp->processEvents();
+      for(qint64 w=ws; w<=we; w++)
+	for(qint64 h=hs; h<=he; h++)
+	  {
+	    bool clipped = false;
+	    for(int i=0; i<m_cPos.count(); i++)
+	      {
+		Vec p = Vec(h, w, d) - m_cPos[i];
+		if (m_cNorm[i]*p > 0)
+		  {
+		    clipped = true;
+		    break;
+		  }
+	      }
+	    
+	    if (!clipped)
+	      {
+		qint64 idx = d*m_width*m_height + w*m_height + h;
+		int val = m_volData[idx];
+		uchar mtag = m_maskData[idx];
+		bool alpha =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);
+
+		if (alpha == visible && m_maskData[idx] != tag)
+		  {
+		    m_maskData[idx] = tag;
+		    if (minD > -1)
+		      {
+			minD = qMin(minD, (int)d);
+			maxD = qMax(maxD, (int)d);
+			minW = qMin(minW, (int)w);
+			maxW = qMax(maxW, (int)w);
+			minH = qMin(minH, (int)h);
+			maxH = qMax(maxH, (int)h);
+		      }
+		    else
+		      {
+			minD = maxD = d;
+			minW = maxW = w;
+			minH = maxH = h;
+		      }
+		  }
+	      } // clipped
+	  }
+    }
+}
+
+void
+VolumeOperations::mergeTags(Vec bmin, Vec bmax,
+			    int tag1, int tag2, bool useTF,
+			    int& minD, int& maxD,
+			    int& minW, int& maxW,
+			    int& minH, int& maxH)
+
+{
+  int ds = bmin.z;
+  int ws = bmin.y;
+  int hs = bmin.x;
+
+  int de = bmax.z;
+  int we = bmax.y;
+  int he = bmax.x;
+
+  minD = maxD = -1;
+  minW = maxW = -1;
+  minH = maxH = -1;
+
+  QProgressDialog progress("Updating voxel structure",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+  if (useTF)
+    {
+      uchar *lut = Global::lut();
+      for(qint64 d=ds; d<=de; d++)
+	{
+	  progress.setValue(90*(d-ds)/((de-ds+1)));
+	  if (d%10 == 0)
+	    qApp->processEvents();
+	  for(qint64 w=ws; w<=we; w++)
+	    for(qint64 h=hs; h<=he; h++)
+	      {
+		bool clipped = false;
+		for(int i=0; i<m_cPos.count(); i++)
+		  {
+		    Vec p = Vec(h, w, d) - m_cPos[i];
+		    if (m_cNorm[i]*p > 0)
+		      {
+			clipped = true;
+			break;
+		      }
+		  }
+		
+		if (!clipped)
+		  {
+		    qint64 idx = d*m_width*m_height + w*m_height + h;
+		    if (tag2 == -1 || m_maskData[idx] == tag2)
+		      {
+			int val = m_volData[idx];
+			int a =  lut[4*val+3];
+			if (a > 0)
+			  {
+			    m_maskData[idx] = tag1;
+			    if (minD > -1)
+			      {
+				minD = qMin(minD, (int)d);
+				maxD = qMax(maxD, (int)d);
+				minW = qMin(minW, (int)w);
+				maxW = qMax(maxW, (int)w);
+				minH = qMin(minH, (int)h);
+				maxH = qMax(maxH, (int)h);
+			      }
+			    else
+			      {
+				minD = maxD = d;
+				minW = maxW = w;
+				minH = maxH = h;
+			      }
+			  }
+		      }
+		  }
+	      }
+	}
+    }
+  else
+    {
+      for(qint64 d=ds; d<=de; d++)
+	{
+	  progress.setValue(90*(d-ds)/((de-ds+1)));
+	  for(qint64 w=ws; w<=we; w++)
+	    for(qint64 h=hs; h<=he; h++)
+	      {
+		bool clipped = false;
+		for(int i=0; i<m_cPos.count(); i++)
+		  {
+		    Vec p = Vec(h, w, d) - m_cPos[i];
+		    if (m_cNorm[i]*p > 0)
+		      {
+			clipped = true;
+			break;
+		      }
+		  }
+		
+		if (!clipped)
+		  {
+		    qint64 idx = d*m_width*m_height + w*m_height + h;
+		    if (tag2 == -1 || m_maskData[idx] == tag2)
+		      {
+			m_maskData[idx] = tag1;
+			if (minD > -1)
+			  {
+			    minD = qMin(minD, (int)d);
+			    maxD = qMax(maxD, (int)d);
+			    minW = qMin(minW, (int)w);
+			    maxW = qMax(maxW, (int)w);
+			    minH = qMin(minH, (int)h);
+			    maxH = qMax(maxH, (int)h);
+			  }
+			else
+			  {
+			    minD = maxD = d;
+			    minW = maxW = w;
+			    minH = maxH = h;
+			  }
+		      }
+		  }
+	      }
+	}
+    }
 }
 

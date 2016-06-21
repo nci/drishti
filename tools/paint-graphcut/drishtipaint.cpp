@@ -5035,7 +5035,8 @@ DrishtiPaint::modifyOriginalVolume(Vec bmin, Vec bmax, int val)
 
   m_tfEditor->setHistogramImage(m_volume->histogramImage1D(),
 				m_volume->histogramImage2D());
-
+  
+  m_viewer->generateBoxMinMax();
   on_raycastRender_clicked(true);
 
   m_volume->saveModifiedOriginalVolume();

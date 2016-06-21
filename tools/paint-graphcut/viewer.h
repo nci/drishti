@@ -69,6 +69,7 @@ class Viewer : public QGLViewer
     return true;
   }
 
+  void generateBoxMinMax();
 
   public slots :
     void GlewInit();  
@@ -365,7 +366,6 @@ class Viewer : public QGLViewer
   bool endMovie();
   void saveMovie();
 
-  void generateBoxMinMax();
 };
 
 #endif

@@ -642,11 +642,11 @@ MainWindow::GlewInit()
 
   // load program 
   QStringList arguments = qApp->arguments();
-  if (arguments.count() >= 2)
+  int i = 1;
+  if (arguments[i] == "-stereo") i++;
+  
+  if (i < arguments.count())
     {
-      int i = 1;
-      if (arguments[i] == "-stereo") i++;
-
       if (StaticFunctions::checkExtension(arguments[i], ".pvl.nc"))
 	{
 	  QStringList flnms;

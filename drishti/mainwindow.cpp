@@ -642,24 +642,26 @@ MainWindow::GlewInit()
 
   // load program 
   QStringList arguments = qApp->arguments();
-  int i = 1;
-  if (arguments[i] == "-stereo") i++;
-  
-  if (i < arguments.count())
+  if (arguments.count() > 1)
     {
-      if (StaticFunctions::checkExtension(arguments[i], ".pvl.nc"))
+      int i = 1;
+      if (arguments[i] == "-stereo") i++;
+      if (i < arguments.count())
 	{
-	  QStringList flnms;
-	  for(int a=i; a<arguments.count(); a++)
-	    flnms << arguments[a];
-	  loadSingleVolume(flnms);
-	}
-      else if (StaticFunctions::checkExtension(arguments[i], ".xml"))
-	{
-	  Global::addRecentFile(arguments[i]);
-	  updateRecentFileAction();
-	  createHiresLowresWindows();
-	  loadProject(arguments[i].toLatin1().data());
+	  if (StaticFunctions::checkExtension(arguments[i], ".pvl.nc"))
+	    {
+	      QStringList flnms;
+	      for(int a=i; a<arguments.count(); a++)
+		flnms << arguments[a];
+	      loadSingleVolume(flnms);
+	    }
+	  else if (StaticFunctions::checkExtension(arguments[i], ".xml"))
+	    {
+	      Global::addRecentFile(arguments[i]);
+	      updateRecentFileAction();
+	      createHiresLowresWindows();
+	      loadProject(arguments[i].toLatin1().data());
+	    }
 	}
     }
 }

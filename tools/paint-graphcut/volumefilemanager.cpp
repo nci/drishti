@@ -12,7 +12,7 @@ VolumeFileManager::VolumeFileManager()
   m_volData = 0;
   m_memmapped = false;
   m_mcTimes = 0;
-  m_saveFreq = 20;
+  m_saveFreq = 50;
   reset();
 }
 

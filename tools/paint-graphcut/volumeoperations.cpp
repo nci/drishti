@@ -178,6 +178,97 @@ VolumeOperations::resetTag(Vec bmin, Vec bmax, int tag,
 }
 
 void
+VolumeOperations::hatchConnectedRegion(int dr, int wr, int hr,
+				       Vec bmin, Vec bmax,
+				       int tag, int ctag,
+				       int thickness, int interval,
+				       int& minD, int& maxD,
+				       int& minW, int& maxW,
+				       int& minH, int& maxH)
+{
+  minD = maxD = minW = maxW = minH = maxH = -1;
+
+  if (dr < 0 || wr < 0 || hr < 0 ||
+      dr > m_depth-1 ||
+      wr > m_width-1 ||
+      hr > m_height-1)
+    {
+      QMessageBox::information(0, "", "No painted region found");
+      return;
+    }
+
+  int ds = bmin.z;
+  int ws = bmin.y;
+  int hs = bmin.x;
+
+  int de = bmax.z;
+  int we = bmax.y;
+  int he = bmax.x;
+
+  qint64 mx = he-hs+1;
+  qint64 my = we-ws+1;
+  qint64 mz = de-ds+1;
+
+  MyBitArray bitmask;
+  bitmask.resize(mx*my*mz);
+  bitmask.fill(false);
+
+  getConnectedRegion(dr, wr, hr,
+		     ds, ws, hs,
+		     de, we, he,
+		     ctag, true,
+		     bitmask);
+
+  QProgressDialog progress("Updating voxel structure",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+  //----------------------------  
+  // set the maskData
+  minD = maxD = dr;
+  minW = maxW = wr;
+  minH = maxH = hr;
+  for(qint64 d2=ds; d2<=de; d2++)
+  for(qint64 w2=ws; w2<=we; w2++)
+  for(qint64 h2=hs; h2<=he; h2++)
+    {
+      bool okd = ((d2-ds)%interval <= thickness);
+      bool okw = ((w2-ws)%interval <= thickness);
+      bool okh = ((h2-hs)%interval <= thickness);
+      bool ok = (okd && (okw || okh));
+      ok |= (okw && (okd || okh));
+      ok |= (okh && (okd || okw));
+      if (ok)
+	{
+	  qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
+	  if (bitmask.testBit(bidx))
+	    {
+	      qint64 idx = d2*m_width*m_height + w2*m_height + h2;
+	      m_maskData[idx] = tag;
+	      minD = qMin(minD, (int)d2);
+	      maxD = qMax(maxD, (int)d2);
+	      minW = qMin(minW, (int)w2);
+	      maxW = qMax(maxW, (int)w2);
+	      minH = qMin(minH, (int)h2);
+	      maxH = qMax(maxH, (int)h2);
+	    }
+	}
+    }
+  //----------------------------  
+  
+  minD = qMax(minD-1, 0);
+  minW = qMax(minW-1, 0);
+  minH = qMax(minH-1, 0);
+  maxD = qMin(maxD+1, m_depth);
+  maxW = qMin(maxW+1, m_width);
+  maxH = qMin(maxH+1, m_height);
+
+  progress.setValue(100);
+}
+
+void
 VolumeOperations::connectedRegion(int dr, int wr, int hr,
 				  Vec bmin, Vec bmax,
 				  int tag, int ctag,

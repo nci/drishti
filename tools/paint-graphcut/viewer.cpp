@@ -832,6 +832,13 @@ Viewer::keyPressEvent(QKeyEvent *event)
       return;
     }
 
+  if (event->key() == Qt::Key_H)
+    {  
+      hatch();
+      update();
+      return;
+    }
+
   if (event->key() == Qt::Key_D)
     {  
       regionDilation();
@@ -4234,6 +4241,66 @@ Viewer::uploadMask(int dst, int wst, int hst, int ded, int wed, int hed)
 }
 
 void
+Viewer::hatch()
+{
+  if (!m_useMask)
+    {
+      QMessageBox::information(0, "Error", "Switch on Load Tags before applying the operation.");
+      return;
+    }
+
+  int d, w, h;
+  bool gothit = getCoordUnderPointer(d, w, h);
+  if (!gothit) return;
+
+
+  Vec bmin, bmax;
+  m_boundingBox.bounds(bmin, bmax);
+
+  bool ok;
+  int ctag = -1;
+  ctag = QInputDialog::getInt(0,
+			      "Hatch Region",
+			      QString("Region will be hatched with current tag value (%1).\nSpecify tag value of connected region (-1 for connected visible region).").arg(Global::tag()),
+			      -1, -1, 255, 1,
+			      &ok);
+  if (!ok)
+    return;
+
+  QString text;
+  text = QInputDialog::getText(this,
+			       "Hatch Region",
+			       "Interval and Thickness in terms of number of voxels",
+			       QLineEdit::Normal,
+			       "20 5",
+			       &ok);
+  
+  int interval = 20;
+  int thickness = 5;
+  
+  if (ok && !text.isEmpty())
+    {
+      QStringList list = text.split(" ", QString::SkipEmptyParts);
+      if (list.count() == 2)
+	{
+	  interval = list[0].toInt();
+	  thickness = list[1].toInt();
+	}
+      else
+	{
+	  QMessageBox::information(0, "Error",
+				   QString("Wrong number of parameters specified [%1]").arg(text));
+	  return;
+	}
+    }
+  
+  emit hatchConnectedRegion(d, w, h,
+			    bmin, bmax,
+			    Global::tag(), ctag,
+			    thickness, interval);
+}
+
+void
 Viewer::regionGrowing(bool sw)
 {
   if (!m_useMask)
@@ -4252,11 +4319,16 @@ Viewer::regionGrowing(bool sw)
 
   if (!sw)
     {
+      bool ok;
       int ctag = -1;
       ctag = QInputDialog::getInt(0,
 				  "Fill",
 				  QString("Region will be filled with current tag value (%1).\nSpecify tag value of connected region (-1 for connected visible region).").arg(Global::tag()),
-				  -1, -1, 255, 1);
+				  -1, -1, 255, 1,
+				  &ok);
+      if (!ok)
+	return;
+
       emit connectedRegion(d, w, h, bmin, bmax, Global::tag(), ctag);
     }
   else
@@ -4274,6 +4346,7 @@ Viewer::regionGrowing(bool sw)
 					     &ok);
       if (!ok)
 	return;
+
       bool shell = false;
       if (option == "Shell")
 	shell = true;

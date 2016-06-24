@@ -20,7 +20,7 @@ Clipping planes are obeyed - clipped region is not taken into account.
 mergetf
 mergetf <tag1> <tag2>
 
-Similar to merge, except the operation is carried out only within the visible portion of the selected subvolume.  Visible portion as defined by transfer function is that region where opacity is greater than 0.
+Similar to merge, except the operation is carried out only within the visible portion of the selected subvolume.  Visible portion is that region where opacity is greater than 0 as defined by transfer function .
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end
@@ -30,7 +30,7 @@ Clipping planes are obeyed - clipped region is not taken into account.
 shrinkwrap
 shrinkwrap <tag>
 
-Shrinkwrap the visible region with tag.  Visible portion as defined by transfer function is that region where opacity is greater than 0.
+Shrinkwrap the visible region with tag.  Visible portion is that region where opacity is greater than 0 as defined by transfer function.
 
 If <tag> is not specified then current tag value is used.
 
@@ -42,7 +42,7 @@ Clipping planes are obeyed - clipped region is not taken into account.
 shell
 shell <tag> <thickness>
 
-Tag the boundary of shrinkwrapped visible region.  The visible region is first identified by shrinkwrap and boundary of this region is tagged.  The width of boundary is decided by the thickness value. Visible portion as defined by transfer function is that region where opacity is greater than 0.
+Tag the boundary of shrinkwrapped visible region.  The visible region is first identified by shrinkwrap and boundary of this region is tagged.  The width of boundary is decided by the thickness value. Visible portion is that region where opacity is greater than 0 as defined by transfer function.
 
 If <tag> is not specified then current tag value is used.
 If <width> is not specified then default value of 1 is used.
@@ -65,7 +65,7 @@ Clipping planes are obeyed - clipped region is not taken into account.
 setvisible
 setvisible <tag1>
 
-Set visible region to tag1.  Visible portion as defined by transfer function is that region where opacity is greater than 0.
+Set visible region to tag1.  Visible portion is that region where opacity is greater than 0 as defined by transfer function.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end
@@ -74,7 +74,7 @@ Clipping planes are obeyed - clipped region is not taken into account.
 setinvisible
 setinvisible <tag1>
 
-Set invisible region to tag1.  Invisible portion as defined by transfer function is that region where opacity is equal to 0.
+Set invisible region to tag1.  Invisible portion is that region where opacity is equal to 0 as defined by transfer function.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end
@@ -92,6 +92,7 @@ Modify original voxel values in the transparent region.  Values for the voxels i
 
 Clipping planes are obeyed - clipped region is treated as transparent and will be modified.
 #end
+
 
 #begin
 keyboard
@@ -165,6 +166,18 @@ You will be asked whether to shrinkwrap or shell the connected region.
 Next you will be asked the tag of the connected region - meaning only the connected voxels having that specified tag value will be considered for shrinkwrap/shell operation.  Value of -1 means select all connected visible voxels.  Any other value means only the voxels that are visible, connected and having that particular tag value will be considered.
 
 If you have chosen to create shell surrounding the connected region, a dialog box will pop up to ask for the thickness of the shell.
+
+Clipping planes are obeyed - clipped region is not taken into account.
+#end
+
+#begin
+h
+Hatch (generate cross bars, useful for 3d printing) the connected region with current tag value.
+
+Move the mouse over to the region you want to hatch before pressing "f".
+Region that is connected to the voxel under the mouse cursor and that has either tag value 0 or current tag value will be hatched.
+
+You will be asked for interval and thickness values.  Both the values are in terms of number of voxels and should be greater than 0.  Also thickness must be less than interval value.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end

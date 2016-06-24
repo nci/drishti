@@ -130,7 +130,13 @@ class DrishtiPaint : public QMainWindow
   void shrinkwrap(Vec, Vec, int, bool, int);
   void shrinkwrap(Vec, Vec, int, bool, int,
 		  bool, int, int, int, int);
-  void connectedRegion(int, int, int, Vec, Vec, int, int);
+  void connectedRegion(int, int, int,
+		       Vec, Vec,
+		       int, int);
+  void hatchConnectedRegion(int, int, int,
+			    Vec, Vec,
+			    int, int,
+			    int, int);
 
  private :
   Ui::DrishtiPaint ui;

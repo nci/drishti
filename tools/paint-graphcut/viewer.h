@@ -145,7 +145,13 @@ class Viewer : public QGLViewer
     void shrinkwrap(Vec, Vec, int, bool, int);
     void shrinkwrap(Vec, Vec, int, bool, int,
 		    bool, int, int, int, int);
-    void connectedRegion(int, int, int, Vec, Vec, int, int);
+    void connectedRegion(int, int, int,
+			 Vec, Vec,
+			 int, int);
+    void hatchConnectedRegion(int, int, int,
+			      Vec, Vec,
+			      int, int,
+			      int, int);
     void getVolume(Vec, Vec, int);
 
     void modifyOriginalVolume(Vec, Vec, int);
@@ -348,6 +354,7 @@ class Viewer : public QGLViewer
 
   void pointRendering();
 
+  void hatch();
   void regionGrowing(bool);
   void regionDilation();
   void regionErosion();

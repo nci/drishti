@@ -126,6 +126,9 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   connect(m_viewer, SIGNAL(paint3DEnd()),
 	  this, SLOT(paint3DEnd()));
 
+  connect(m_viewer, SIGNAL(hatchConnectedRegion(int,int,int,Vec,Vec,int,int,int,int)),
+	  this, SLOT(hatchConnectedRegion(int,int,int,Vec,Vec,int,int,int,int)));
+
   connect(m_viewer, SIGNAL(connectedRegion(int,int,int,Vec,Vec,int,int)),
 	  this, SLOT(connectedRegion(int,int,int,Vec,Vec,int,int)));
 
@@ -4892,6 +4895,33 @@ DrishtiPaint::resetTag(Vec bmin, Vec bmax, int tag)
 			     minD, maxD,
 			     minW, maxW,
 			     minH, maxH);
+
+  if (minD < 0)
+    return;
+
+  updateModifiedRegion(minD, maxD,
+		       minW, maxW,
+		       minH, maxH);
+}
+
+void
+DrishtiPaint::hatchConnectedRegion(int dr, int wr, int hr,
+				   Vec bmin, Vec bmax,
+				   int tag, int ctag,
+				   int thickness, int interval)
+{
+  int minD,maxD, minW,maxW, minH,maxH;
+
+  QList<Vec> cPos =  m_viewer->clipPos();
+  QList<Vec> cNorm = m_viewer->clipNorm();
+  VolumeOperations::setClip(cPos, cNorm);
+  VolumeOperations::hatchConnectedRegion(dr, wr, hr,
+					 bmin, bmax,
+					 tag, ctag,
+					 thickness, interval,
+					 minD, maxD,
+					 minW, maxW,
+					 minH, maxH);
 
   if (minD < 0)
     return;

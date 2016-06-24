@@ -19,6 +19,14 @@ class VolumeOperations
 
   static void getVolume(Vec, Vec, int);
 
+  static void hatchConnectedRegion(int, int, int,
+				   Vec, Vec,
+				   int, int,
+				   int, int,
+				   int&, int&,
+				   int&, int&,
+				   int&, int&);
+
   static void connectedRegion(int, int, int,
 			      Vec, Vec,
 			      int, int,

@@ -157,10 +157,13 @@ Ctrl + e : Apply erosion over selected subvolume.
 #begin
 f
 Shift + f
+Ctrl + f
 
 f : Fill interior of region tagged with current tag number.  This only works when the tagged region is hollow.
 
 Shift + f : Repeat interior fill operation over multiple slices.  Press Escape to stop the repeat operation.
+
+Ctrl + f : Shrinkwrap/shell the connected region for the voxel under the mouse cursor.  A similar function is available within the 3D Viewer.
 
 #end
 

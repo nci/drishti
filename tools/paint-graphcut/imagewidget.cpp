@@ -2480,27 +2480,8 @@ void ImageWidget::zoomUp() { setZoom(m_zoom+0.1); }
 void ImageWidget::zoomDown() { setZoom(m_zoom-0.1); }
 
 void
-ImageWidget::keyPressEvent(QKeyEvent *event)
+ImageWidget::graphcutModeKeyPressEvent(QKeyEvent *event)
 {
-  bool processed = false;
-
-  if (event->key() == Qt::Key_S &&
-      (event->modifiers() & Qt::ControlModifier) )
-    {
-      emit saveWork();
-      return;
-    }
-
-  if (m_fiberMode)
-    processed = fiberModeKeyPressEvent(event);
-  if (processed)
-    return;
-
-  if (m_livewireMode || m_curveMode)
-    processed = curveModeKeyPressEvent(event);
-  if (processed)
-    return;
-
   int shiftModifier = event->modifiers() & Qt::ShiftModifier;
   int ctrlModifier = event->modifiers() & Qt::ControlModifier;
 
@@ -2578,12 +2559,70 @@ ImageWidget::keyPressEvent(QKeyEvent *event)
     }
   if (event->key() == Qt::Key_F)
     {
+      if (ctrlModifier)
+	{
+	  QStringList dtypes;
+	  dtypes << "Shrinkwrap";
+	  dtypes << "Shell";
+	  bool ok;
+	  QString option = QInputDialog::getItem(0,
+						 "Shrinkwrap",
+						 "Shrinkwrap or Shell",
+						 dtypes,
+						 0,
+						 false,
+						 &ok);
+	  if (!ok)
+	    return;
+	  
+	  bool shell = false;
+	  if (option == "Shell")
+	    shell = true;
+	  
+	  int ctag = -1;
+	  ctag = QInputDialog::getInt(0,
+				      "Shrinkwrap/Shell",
+				      QString("Connected region will be shrinkwrapped/shelled with current tag value (%1).\nSpecify tag value of connected region (-1 for connected visible region).").arg(Global::tag()),
+				      -1, -1, 255, 1);
+	  
+	  int thickness = 1;
+	  if (shell)
+	    thickness = QInputDialog::getInt(0,
+					     "Shell thickness",
+					     "Shell thickness",
+					     1, 1, 50, 1);
+
+	  Vec bmin = Vec(m_minHSlice,
+			 m_minWSlice,
+			 m_minDSlice);
+	  
+	  Vec bmax = Vec(m_maxHSlice,
+			 m_maxWSlice,
+			 m_maxDSlice);
+
+	  emit shrinkwrap(bmin, bmax,
+			  Global::tag(), shell, thickness,
+			  false,
+			  m_pickDepth,
+			  m_pickWidth,
+			  m_pickHeight,
+			  ctag);
+
+//	  emit connectedRegion(m_pickDepth,
+//			       m_pickWidth,
+//			       m_pickHeight,
+//			       bmin, bmax,
+//			       Global::tag(),
+//			       ctag);
+	  return;
+	}
+
       if (!m_applyRecursive) m_extraPressed = false;
       
       if (shiftModifier) // apply paint for multiple slices
 	applyRecursive(event->key());
       
-      shrinkwrapPaintedRegion();
+	shrinkwrapPaintedRegion();
     }
   else if (event->key() == Qt::Key_V)
     {
@@ -2676,6 +2715,31 @@ ImageWidget::keyPressEvent(QKeyEvent *event)
     doAnother(1);
   else if (event->key() == Qt::Key_Left)
     doAnother(-1);
+}
+
+void
+ImageWidget::keyPressEvent(QKeyEvent *event)
+{
+  bool processed = false;
+
+  if (event->key() == Qt::Key_S &&
+      (event->modifiers() & Qt::ControlModifier) )
+    {
+      emit saveWork();
+      return;
+    }
+
+  if (m_fiberMode)
+    processed = fiberModeKeyPressEvent(event);
+  if (processed)
+    return;
+
+  if (m_livewireMode || m_curveMode)
+    processed = curveModeKeyPressEvent(event);
+  if (processed)
+    return;
+
+  graphcutModeKeyPressEvent(event);
 }
 
 bool

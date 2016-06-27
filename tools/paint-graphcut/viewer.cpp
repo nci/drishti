@@ -1520,22 +1520,24 @@ Viewer::draw()
       drawWireframeBox();
     }
 
-  drawMMDCurve();
-  drawMMWCurve();
-  drawMMHCurve();
-
-  drawLMDCurve();
-  drawLMWCurve();
-  drawLMHCurve();
-
-  drawSWDCurve();
-  drawSWWCurve();
-  drawSWHCurve();
-
-  glEnable(GL_LIGHTING);
-  drawFibers();
-  glDisable(GL_LIGHTING);
-
+  if (m_renderMode == 0)
+    {
+      drawMMDCurve();
+      drawMMWCurve();
+      drawMMHCurve();
+      
+      drawLMDCurve();
+      drawLMWCurve();
+      drawLMHCurve();
+      
+      drawSWDCurve();
+      drawSWWCurve();
+      drawSWHCurve();
+      
+      glEnable(GL_LIGHTING);
+      drawFibers();
+      glDisable(GL_LIGHTING);
+    }
 
   if (!m_volPtr || !m_maskPtr)
     {

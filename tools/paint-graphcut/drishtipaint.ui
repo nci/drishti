@@ -785,9 +785,6 @@
    <property name="text">
     <string>Load</string>
    </property>
-   <property name="shortcut">
-    <string>Ctrl+F</string>
-   </property>
   </action>
   <action name="actionExit">
    <property name="text">
@@ -797,9 +794,6 @@
   <action name="actionSave">
    <property name="text">
     <string>Save Project (S)</string>
-   </property>
-   <property name="shortcut">
-    <string>Ctrl+S</string>
    </property>
   </action>
   <action name="saveImage">

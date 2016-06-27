@@ -165,6 +165,15 @@ class ImageWidget : public QWidget
   void setPropagation(bool);
   void saveMask();
 
+  void shrinkwrap(Vec, Vec,
+		  int, bool, int,
+		  bool,
+		  int, int, int,
+		  int);
+  void connectedRegion(int, int, int,
+		       Vec, Vec,
+		       int, int);
+  
  private :
   QStatusBar *m_statusBar;
   QScrollBar *m_hbar, *m_vbar;
@@ -306,6 +315,7 @@ class ImageWidget : public QWidget
   void saveCurveData(QFile*, int, Curve*);
   QPair<int, Curve> loadCurveData(QFile*);
 
+  void graphcutModeKeyPressEvent(QKeyEvent*);
   bool curveModeKeyPressEvent(QKeyEvent*);
   bool fiberModeKeyPressEvent(QKeyEvent*);
 

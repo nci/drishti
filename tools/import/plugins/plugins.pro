@@ -11,6 +11,7 @@ SUBDIRS = analyze \
 	  rawslices \
 	  tiff \
 	  tom \
+	  txm \
           vgi
 
 win32 {

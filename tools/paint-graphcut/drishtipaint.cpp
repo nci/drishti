@@ -2518,6 +2518,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
   bool saveImageData = true;
   int shiftVox = 128;
   float scaleVox = 0.5;
+  int tagWidth = 10;
 
   //----------------
   int extractType = 1; // extract using tag
@@ -2566,28 +2567,41 @@ DrishtiPaint::on_actionExtractTag_triggered()
       extractType = 9;
       bool ok;
       QString tagstr = QInputDialog::getText(0, "Merge Tag values with Tomogram",
-					     "Scale and shift tomogram values before merging tag values.\nSpecify two numbers - for e.g. 0.5 128 -> this means 0.5*tomoval + 128 + tagval\nFirst value is scaling factor between 0.0 and 1.0, and second value is shift factor between 0 and 255.\n1.0 0 -> means no scaling and shifting of tomogram values",
+					     "Scale and shift non tagged tomogram values before merging tag values.\nSpecify two numbers - for e.g. 0.5 128 -> this means 0.5*tomoval + 128\nFirst value is scaling factor between 0.0 and 1.0, and second value is shift factor between 0 and 255.\n1.0 0 -> means no scaling and shifting of tomogram values",
 					     QLineEdit::Normal,
 					     "0.5 128",
 					     &ok);
       if (ok && !tagstr.isEmpty())
 	{
 	  QStringList tglist = tagstr.split(" ", QString::SkipEmptyParts);
-	  if (tglist.count() == 2)
+	  if (tglist.count() == 3)
 	    {
 	      scaleVox = tglist[0].toFloat();
 	      shiftVox = tglist[1].toInt();
 	    }
+	}
+
+      tagstr = QInputDialog::getText(0, "Merge Tag values with Tomogram",
+				     "Sepcify tagwidth\nValues for voxels that are tagged will be scaled according to tagwidth and shifted by tag value.\nFirst minimum and maximum voxel values are calculated for the voxels that are tagged.\nThen appropriate scaling factor is calculated for every tag so that the min and max voxel values fit within the given tagwidth interval.\nThe voxel values are then shifted by the individual tag value.\nThis results in appropriate shifting of tagged voxel values while maintaining some grayscale information depending on the size tagwidth.\nfor e.g. value of 10 will give : tag + tagwidth*(voxval-minvox)/(maxvox-minvox)",
+				     QLineEdit::Normal,
+				     QString("%1").arg(tagWidth),
+				     &ok);
+      if (ok && !tagstr.isEmpty())
+	{
+	  QStringList tglist = tagstr.split(" ", QString::SkipEmptyParts);
+	  if (tglist.count() == 1)
+	    tagWidth = tglist[0].toInt();
 	}
     }
   //----------------
 
   //----------------
   uchar outsideVal = 0;
-  outsideVal = QInputDialog::getInt(0,
-				    "Outside value",
-				    "Set outside value to",
-				    0, 0, 255, 1);
+  if (saveImageData && extractType != 9)
+    outsideVal = QInputDialog::getInt(0,
+				      "Outside value",
+				      "Set outside value to",
+				      0, 0, 255, 1);
   //----------------
 
 
@@ -2645,6 +2659,34 @@ DrishtiPaint::on_actionExtractTag_triggered()
 
   //----------------------------------
 
+
+  //----------------------------------
+  // find min and max of voxel values for each tag
+  uchar vtmin[256];
+  uchar vtmax[256];
+  float vtdif[256];
+  memset(vtmin, 255, 256);
+  memset(vtmax, 0, 256);
+  memset(vtdif, 1, 256);
+  if (extractType == 9)
+    {
+      uchar *volData = m_volume->memVolDataPtr();
+      uchar *maskData = m_volume->memMaskDataPtr();
+      for(int d=minDSlice; d<=maxDSlice; d++)
+      for(int w=minWSlice; w<=maxWSlice; w++)
+      for(int h=minHSlice; h<=maxHSlice; h++)
+	{
+	  uchar vox = volData[d*width*height + w*height + h];
+	  uchar mtag = maskData[d*width*height + w*height + h];
+	  vtmin[mtag] = qMin(vtmin[mtag], vox);
+	  vtmax[mtag] = qMax(vtmax[mtag], vox);
+	}
+      for (int u=0; u<256; u++)
+	vtdif[u] = vtmax[u]-vtmin[u];
+    }
+  //----------------------------------
+
+  
   bool reloadData = false;
   uchar *curveMask = 0;
   try
@@ -2762,7 +2804,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
 		  }
 	    }
 	}
-      else // extractType == 7 or 8
+      else
 	{
 	  if (extractType == 7 || extractType == 9)
 	    memcpy(raw, m_volume->getMaskDepthSliceImage(d), nbytes);
@@ -2853,13 +2895,30 @@ DrishtiPaint::on_actionExtractTag_triggered()
 	    {
 	      // scale and shift tomogram
 	      // clamp between (0,255)
-	      for(int i=0; i<twidth*theight; i++)
-		slice[i] = qMin(qMax((int)(scaleVox*slice[i] + shiftVox), 0), 255);
+//	      for(int i=0; i<twidth*theight; i++)
+//		slice[i] = qMin(qMax((int)(scaleVox*slice[i] + shiftVox), 0), 255);
 	      // merge in tag values
-	      for(int i=0; i<twidth*theight; i++)
+	      if (tag[0] == -1)
 		{
-		  if (raw[i] != 0)
-		    slice[i] = raw[i];
+		  //if (raw[i] != 0)
+		  //  slice[i] = raw[i];
+		  for(int i=0; i<twidth*theight; i++)
+		    {
+		      if (raw[i] != 0)
+			slice[i] = raw[i] + tagWidth*(float)(slice[i]-vtmin[raw[i]])/vtdif[raw[i]];
+		      else
+			slice[i] = qMin(qMax((int)(scaleVox*slice[i] + shiftVox), 0), 255);
+		    }
+		}
+	      else
+		{
+		  for(int i=0; i<twidth*theight; i++)
+		    {
+		      if (tag.contains(raw[i]))
+			slice[i] = raw[i] + tagWidth*(float)(slice[i]-vtmin[raw[i]])/vtdif[raw[i]];
+		      else
+			slice[i] = qMin(qMax((int)(scaleVox*slice[i] + shiftVox), 0), 255);
+		    }
 		}
 	    }
 	  tFile.setSlice(slc, slice);

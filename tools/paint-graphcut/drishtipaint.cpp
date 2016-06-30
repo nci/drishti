@@ -2057,7 +2057,7 @@ DrishtiPaint::connectViewerMenu()
 	  m_viewer, SLOT(updateSlices()));
 
   // disable full raycasting and xray option
-  viewerUi.raycastStyle->hide();
+//  viewerUi.raycastStyle->hide();
 //  connect(viewerUi.raycastStyle, SIGNAL(currentIndexChanged(int)),
 //	  m_viewer, SLOT(setRaycastStyle(int)));
 //  connect(viewerUi.raycastStyle, SIGNAL(currentIndexChanged(int)),

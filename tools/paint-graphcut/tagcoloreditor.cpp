@@ -20,6 +20,8 @@ TagColorEditor::TagColorEditor()
 void
 TagColorEditor::setColors()
 {
+  QFont fnt("Helvetica", 10);
+
   uchar *colors = Global::tagColors();
   for (int i=0; i < 256; i++)
     {      
@@ -31,6 +33,7 @@ TagColorEditor::setColors()
       b = colors[4*i+2];
 
       QTableWidgetItem *colorItem = new QTableWidgetItem;
+      colorItem->setFont(fnt);
       colorItem->setData(Qt::DisplayRole, QString("%1").arg(i));
       if (colors[4*i+3] > 250)
 	colorItem->setCheckState(Qt::Checked);

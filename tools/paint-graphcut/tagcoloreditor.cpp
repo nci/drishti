@@ -96,7 +96,11 @@ TagColorEditor::createGUI()
     table->setRowHeight(i, 25);
 
   for (int i=0; i < table->columnCount(); i++)
+#if defined(Q_OS_WIN32)
     table->setColumnWidth(i, 50);
+#else
+    table->setColumnWidth(i, 60);
+#endif
 
   QPushButton *newTags = new QPushButton("New Tag Colors");
   QPushButton *showTags = new QPushButton("Show All Tags");

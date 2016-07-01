@@ -177,3 +177,16 @@ Shift + s : Repeat smoothing operation over multiple slices.  Press Escape to st
 
 Ctrl + s : Apply smoothing over selected subvolume.
 #end
+
+#begin
+v
+Shift + v
+
+This function is slightly different from f/Shift+f operation.  v/Shift+v operates on visible region, whereas f/Shift+f operate on tagged region.
+
+v : Fill interior of visible region with current tag number.
+
+Shift + v : Repeat interior fill operation over multiple slices.  Press Escape to stop the repeat operation.
+
+#end
+

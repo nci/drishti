@@ -5149,18 +5149,18 @@ ImageWidget::shrinkwrapPaintedRegion()
   MorphSlice ms;
   QList<QPolygonF> poly = ms.boundaryCurves(maskData, size1, size2, true);
 
+  QImage pimg = QImage(size1, size2, QImage::Format_RGB32);
+  pimg.fill(0);
+  QPainter p(&pimg);
+  p.setPen(QPen(Qt::white, 1));
+  p.setBrush(Qt::white);
+
   for (int npc=0; npc<poly.count(); npc++)
-    {
-      QImage pimg = QImage(size1, size2, QImage::Format_RGB32);
-      pimg.fill(0);
-      QPainter p(&pimg);
-      p.setPen(QPen(Qt::white, 1));
-      p.setBrush(Qt::white);
-      p.drawPolygon(poly[npc]);
-      QRgb *rgb = (QRgb*)(pimg.bits());
-      for(int i=0; i<size1*size2; i++)
-	maskData[i] = (maskData[i]>0 || qRed(rgb[i])>0 ? 255 : 0);  
-    }
+    p.drawPolygon(poly[npc]);
+
+  QRgb *rgb = (QRgb*)(pimg.bits());
+  for(int i=0; i<size1*size2; i++)
+    maskData[i] = (maskData[i]>0 || qRed(rgb[i])>0 ? 255 : 0);  
 
   idx=0;
   for(int i=imin; i<=imax; i++)

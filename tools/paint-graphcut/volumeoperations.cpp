@@ -498,22 +498,23 @@ VolumeOperations::getConnectedRegion(int dr, int wr, int hr,
 void
 VolumeOperations::shrinkwrapSlice(uchar *swvr, int mx, int my)
 {
+  memset(swvr, 0, my*mx);
+
   MorphSlice ms;
   QList<QPolygonF> poly = ms.boundaryCurves(swvr, mx, my, true);
-	
-  memset(swvr, 0, my*mx);
+
+  QImage pimg = QImage(mx, my, QImage::Format_RGB32);
+  pimg.fill(0);
+  QPainter p(&pimg);
+  p.setPen(QPen(Qt::white, 1));
+  p.setBrush(Qt::white);
+
   for (int npc=0; npc<poly.count(); npc++)
-    {
-      QImage pimg = QImage(mx, my, QImage::Format_RGB32);
-      pimg.fill(0);
-      QPainter p(&pimg);
-      p.setPen(QPen(Qt::white, 1));
-      p.setBrush(Qt::white);
-      p.drawPolygon(poly[npc]);
-      QRgb *rgb = (QRgb*)(pimg.bits());
-      for(int i=0; i<my*mx; i++)
-	swvr[i] = (swvr[i]>0 || qRed(rgb[i])>0 ? 255 : 0);  
-    }  
+    p.drawPolygon(poly[npc]);
+
+  QRgb *rgb = (QRgb*)(pimg.bits());
+  for(int i=0; i<my*mx; i++)
+    swvr[i] = (swvr[i]>0 || qRed(rgb[i])>0 ? 255 : 0);  
 }
 
 void

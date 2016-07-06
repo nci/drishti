@@ -210,7 +210,9 @@ class DrishtiPaint : public QMainWindow
 			  int, int, int,
 			  int, Vec, bool);
 
-  void colorMesh(QList<Vec>&, QList<Vec>,
+  void colorMesh(QList<Vec>&,
+		 QList<Vec>,
+		 QList<Vec>,
 		 int, uchar*,
 		 int, int, int,
 		 int, int, int, int);

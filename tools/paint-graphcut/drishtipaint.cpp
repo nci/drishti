@@ -2484,9 +2484,9 @@ DrishtiPaint::on_actionExtractTag_triggered()
   bool ok;
   //----------------
   QString tagstr = QInputDialog::getText(0, "Extract volume data for Tag",
-	    "Tag Numbers (tags should be separated by space.\n-1 for all tags;\nFor e.g. 1 2 5 will extract tags 1, 2 and 5)",
+	    "Tag Numbers (tags should be separated by space.\n-2 extract whatever is visible.\n-1 for all tags;\nFor e.g. 1 2 5 will extract tags 1, 2 and 5)",
 					 QLineEdit::Normal,
-					 "-1",
+					 "-2",
 					 &ok);
   tag.clear();
   if (ok && !tagstr.isEmpty())
@@ -2495,7 +2495,13 @@ DrishtiPaint::on_actionExtractTag_triggered()
       for(int i=0; i<tglist.count(); i++)
 	{
 	  int t = tglist[i].toInt();
-	  if (t == -1)
+	  if (t == -2)
+	    {
+	      tag.clear();
+	      tag << -2;
+	      break;
+	    }
+	  else if (t == -1)
 	    {
 	      tag.clear();
 	      tag << -1;
@@ -2512,7 +2518,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
 	}
     }
   else
-    tag << -1;
+    tag << -2;
   //----------------
 
   bool saveImageData = true;
@@ -2522,54 +2528,15 @@ DrishtiPaint::on_actionExtractTag_triggered()
 
   //----------------
   int extractType = 1; // extract using tag
-  dtypes.clear();
-  dtypes << "Tag Only"
-	 << "Tag + Transfer Function";
-  if (m_imageWidget->fibersPresent())
+  if (tag[0] == -2)
     {
-      dtypes << "Fibers Only";
-      dtypes << "Fibers + Transfer Function";
-      dtypes << "Tags + Fibers";
-      dtypes << "Tags + Fibers + Transfer Function";
-    }
-  dtypes << "Tags + Fibers values";
-  dtypes << "Curves + Fibers values";
-  dtypes << "Tomogram + Tags";
-
-  QString option = QInputDialog::getItem(0,
-					 "Extract Data",
-					 "Extract Using Tag + Transfer Function",
-					 dtypes,
-					 0,
-					 false,
-					 &ok);
-  if (!ok)
-    return;
-  
-  if (option == "Tag Only") extractType = 1;
-  else if (option == "Tag + Transfer Function") extractType = 2;
-  else if (option == "Fibers Only") extractType = 3;
-  else if (option == "Fibers + Transfer Function") extractType = 4;
-  else if (option == "Tags + Fibers") extractType = 5;
-  else if (option == "Tags + Fibers + Transfer Function") extractType = 6;
-  else if (option == "Tags + Fibers values")
-    {
-      extractType = 7;
-      saveImageData = false;
-    }
-  else if (option == "Curves + Fibers values")
-    {
-      extractType = 8;
-      saveImageData = false;
-    }
-  else if (option == "Tomogram + Tags")
-    {
-      extractType = 9;
+      scaleVox = 0.9;
+      shiftVox = 25;
       bool ok;
-      QString tagstr = QInputDialog::getText(0, "Merge Tag values with Tomogram",
-					     "Scale and shift non tagged tomogram values before merging tag values.\nSpecify two numbers - for e.g. 0.5 128 -> this means 0.5*tomoval + 128\nFirst value is scaling factor between 0.0 and 1.0, and second value is shift factor between 0 and 255.\n1.0 0 -> means no scaling and shifting of tomogram values",
+      QString tagstr = QInputDialog::getText(0, "Scale and Shift Tomogram",
+					     "Scale and shift tomogram values before extracting visible region.\nUser defined value will be used for invisible voxels, that is why shifting may be needed.\nSpecify two numbers - for e.g. 0.9 25 -> this means 0.9*tomoval + 25\nFirst value is scaling factor between 0.0 and 1.0, and second value is shift factor between 0 and 255.\n1.0 0 -> means no scaling and shifting of tomogram values",
 					     QLineEdit::Normal,
-					     "0.5 128",
+					     "0.9 25",
 					     &ok);
       if (ok && !tagstr.isEmpty())
 	{
@@ -2580,17 +2547,79 @@ DrishtiPaint::on_actionExtractTag_triggered()
 	      shiftVox = tglist[1].toInt();
 	    }
 	}
-
-      tagstr = QInputDialog::getText(0, "Merge Tag values with Tomogram",
-				     "Sepcify tagwidth\nValues for voxels that are tagged will be scaled according to tagwidth and shifted by tag value.\nFirst minimum and maximum voxel values are calculated for the voxels that are tagged.\nThen appropriate scaling factor is calculated for every tag so that the min and max voxel values fit within the given tagwidth interval.\nThe voxel values are then shifted by the individual tag value.\nThis results in appropriate shifting of tagged voxel values while maintaining some grayscale information depending on the size tagwidth.\nfor e.g. value of 10 will give : tag + tagwidth*(voxval-minvox)/(maxvox-minvox)",
-				     QLineEdit::Normal,
-				     QString("%1").arg(tagWidth),
-				     &ok);
-      if (ok && !tagstr.isEmpty())
+    }
+  else
+    {
+      dtypes.clear();
+      dtypes << "Tag Only"
+	     << "Tag + Transfer Function";
+      if (m_imageWidget->fibersPresent())
 	{
-	  QStringList tglist = tagstr.split(" ", QString::SkipEmptyParts);
-	  if (tglist.count() == 1)
-	    tagWidth = tglist[0].toInt();
+	  dtypes << "Fibers Only";
+	  dtypes << "Fibers + Transfer Function";
+	  dtypes << "Tags + Fibers";
+	  dtypes << "Tags + Fibers + Transfer Function";
+	}
+      dtypes << "Tags + Fibers values";
+      dtypes << "Curves + Fibers values";
+      dtypes << "Tomogram + Tags";
+
+      QString option = QInputDialog::getItem(0,
+					     "Extract Data",
+					     "Extract Using Tag + Transfer Function",
+					     dtypes,
+					     0,
+					     false,
+					     &ok);
+      if (!ok)
+	return;
+      
+      if (option == "Tag Only") extractType = 1;
+      else if (option == "Tag + Transfer Function") extractType = 2;
+      else if (option == "Fibers Only") extractType = 3;
+      else if (option == "Fibers + Transfer Function") extractType = 4;
+      else if (option == "Tags + Fibers") extractType = 5;
+      else if (option == "Tags + Fibers + Transfer Function") extractType = 6;
+      else if (option == "Tags + Fibers values")
+	{
+	  extractType = 7;
+	  saveImageData = false;
+	}
+      else if (option == "Curves + Fibers values")
+	{
+	  extractType = 8;
+	  saveImageData = false;
+	}
+      else if (option == "Tomogram + Tags")
+	{
+	  extractType = 9;
+	  bool ok;
+	  QString tagstr = QInputDialog::getText(0, "Merge Tag values with Tomogram",
+						 "Scale and shift non tagged tomogram values before merging tag values.\nSpecify two numbers - for e.g. 0.5 128 -> this means 0.5*tomoval + 128\nFirst value is scaling factor between 0.0 and 1.0, and second value is shift factor between 0 and 255.\n1.0 0 -> means no scaling and shifting of tomogram values",
+						 QLineEdit::Normal,
+						 "0.5 128",
+						 &ok);
+	  if (ok && !tagstr.isEmpty())
+	    {
+	      QStringList tglist = tagstr.split(" ", QString::SkipEmptyParts);
+	      if (tglist.count() == 3)
+		{
+		  scaleVox = tglist[0].toFloat();
+		  shiftVox = tglist[1].toInt();
+		}
+	    }
+	  
+	  tagstr = QInputDialog::getText(0, "Merge Tag values with Tomogram",
+					 "Sepcify tagwidth\nValues for voxels that are tagged will be scaled according to tagwidth and shifted by tag value.\nFirst minimum and maximum voxel values are calculated for the voxels that are tagged.\nThen appropriate scaling factor is calculated for every tag so that the min and max voxel values fit within the given tagwidth interval.\nThe voxel values are then shifted by the individual tag value.\nThis results in appropriate shifting of tagged voxel values while maintaining some grayscale information depending on the size tagwidth.\nfor e.g. value of 10 will give : tag + tagwidth*(voxval-minvox)/(maxvox-minvox)",
+					 QLineEdit::Normal,
+					 QString("%1").arg(tagWidth),
+					 &ok);
+	  if (ok && !tagstr.isEmpty())
+	    {
+	      QStringList tglist = tagstr.split(" ", QString::SkipEmptyParts);
+	      if (tglist.count() == 1)
+		tagWidth = tglist[0].toInt();
+	    }
 	}
     }
   //----------------
@@ -2657,6 +2686,9 @@ DrishtiPaint::on_actionExtractTag_triggered()
   int nbytes = width*height;
   uchar *raw = new uchar[nbytes];
 
+  QList<Vec> cPos =  m_viewer->clipPos();
+  QList<Vec> cNorm = m_viewer->clipNorm();
+
   //----------------------------------
 
 
@@ -2689,43 +2721,46 @@ DrishtiPaint::on_actionExtractTag_triggered()
   
   bool reloadData = false;
   uchar *curveMask = 0;
-  try
+  if (tag[0] > -2)
     {
-      curveMask = new uchar[tdepth*twidth*theight];
-    }
-  catch (exception &e)
-    {
-      QMessageBox::information(0, "", "Not enough memory : Cannot create curve mask.\nOffloading volume data and mask.");
-      m_volume->offLoadMemFile();
-      reloadData = true;
+      try
+	{
+	  curveMask = new uchar[tdepth*twidth*theight];
+	}
+      catch (exception &e)
+	{
+	  QMessageBox::information(0, "", "Not enough memory : Cannot create curve mask.\nOffloading volume data and mask.");
+	  m_volume->offLoadMemFile();
+	  reloadData = true;
+	  
+	  curveMask = new uchar[tdepth*twidth*theight];
+	};
       
-      curveMask = new uchar[tdepth*twidth*theight];
-    };
-
-  memset(curveMask, 0, tdepth*twidth*theight);
-
-  if (extractType < 3)
-    updateCurveMask(curveMask, tag,
-		    depth, width, height,
-		    tdepth, twidth, theight,
-		    minDSlice, minWSlice, minHSlice,
-		    maxDSlice, maxWSlice, maxHSlice);
-  else if (extractType < 5)
-    updateFiberMask(curveMask, tag,
-		    tdepth, twidth, theight,
-		    minDSlice, minWSlice, minHSlice,
-		    maxDSlice, maxWSlice, maxHSlice);
-  else
-    {
-      updateCurveMask(curveMask, tag,
-		      depth, width, height,
-		      tdepth, twidth, theight,
-		      minDSlice, minWSlice, minHSlice,
-		      maxDSlice, maxWSlice, maxHSlice);
-      updateFiberMask(curveMask, tag,
-		      tdepth, twidth, theight,
-		      minDSlice, minWSlice, minHSlice,
-		      maxDSlice, maxWSlice, maxHSlice);
+      memset(curveMask, 0, tdepth*twidth*theight);
+      
+      if (extractType < 3)
+	updateCurveMask(curveMask, tag,
+			depth, width, height,
+			tdepth, twidth, theight,
+			minDSlice, minWSlice, minHSlice,
+			maxDSlice, maxWSlice, maxHSlice);
+      else if (extractType < 5)
+	updateFiberMask(curveMask, tag,
+			tdepth, twidth, theight,
+			minDSlice, minWSlice, minHSlice,
+			maxDSlice, maxWSlice, maxHSlice);
+      else
+	{
+	  updateCurveMask(curveMask, tag,
+			  depth, width, height,
+			  tdepth, twidth, theight,
+			  minDSlice, minWSlice, minHSlice,
+			  maxDSlice, maxWSlice, maxHSlice);
+	  updateFiberMask(curveMask, tag,
+			  tdepth, twidth, theight,
+			  minDSlice, minWSlice, minHSlice,
+			  maxDSlice, maxWSlice, maxHSlice);
+	}
     }
   //----------------------------------
 
@@ -2751,10 +2786,11 @@ DrishtiPaint::on_actionExtractTag_triggered()
 	      }
 	}
 	  
-      if (extractType < 7)
+      if (tag[0] == -2)
+	memcpy(raw, m_volume->getMaskDepthSliceImage(d), nbytes);
+      else if (extractType < 7)
 	{
 	  memcpy(raw, m_volume->getMaskDepthSliceImage(d), nbytes);
-	  
 	  if (tag[0] == -1)
 	    {
 	      for(int w=minWSlice; w<=maxWSlice; w++)
@@ -2883,12 +2919,54 @@ DrishtiPaint::on_actionExtractTag_triggered()
       // now mask data with tag
       if (saveImageData)
 	{
-	  if (extractType != 9)
-	    {			      
-	      for(int i=0; i<twidth*theight; i++)
+	  if (tag[0] == -2)
+	    {
+	      int i=0;
+	      for(int w=minWSlice; w<=maxWSlice; w++)
+	      for(int h=minHSlice; h<=maxHSlice; h++)
 		{
-		  if (raw[i] != 255)
+		  bool clipped = false;
+		  for(int ci=0; ci<cPos.count(); ci++)
+		    {
+		      Vec p = Vec(h, w, d) - cPos[ci];
+		      if (cNorm[ci]*p > 0)
+			{
+			  clipped = true;
+			  break;
+			}
+		    }
+
+		  if (clipped ||
+		      lut[4*slice[i]+3]*Global::tagColors()[4*raw[i]+3] == 0)
 		    slice[i] = outsideVal;
+		  else
+		    slice[i] = qMin(qMax((int)(scaleVox*slice[i] + shiftVox), 0), 255);
+
+		  i++;
+		}
+	    }
+	  else if (extractType != 9)
+	    {			      
+	      int i=0;
+	      for(int w=minWSlice; w<=maxWSlice; w++)
+	      for(int h=minHSlice; h<=maxHSlice; h++)
+		{
+		  bool clipped = false;
+		  for(int ci=0; ci<cPos.count(); ci++)
+		    {
+		      Vec p = Vec(h, w, d) - cPos[ci];
+		      if (cNorm[ci]*p > 0)
+			{
+			  clipped = true;
+			  break;
+			}
+		    }
+		  if (!clipped)
+		    {
+		      if (raw[i] != 255)
+			slice[i] = outsideVal;
+		    }
+		  i++;
 		}
 	    }
 	  else // extract Tomogram + Tags
@@ -2898,29 +2976,55 @@ DrishtiPaint::on_actionExtractTag_triggered()
 //	      for(int i=0; i<twidth*theight; i++)
 //		slice[i] = qMin(qMax((int)(scaleVox*slice[i] + shiftVox), 0), 255);
 	      // merge in tag values
-	      if (tag[0] == -1)
+	      int i=0;
+	      for(int w=minWSlice; w<=maxWSlice; w++)
+	      for(int h=minHSlice; h<=maxHSlice; h++)
 		{
-		  //if (raw[i] != 0)
-		  //  slice[i] = raw[i];
-		  for(int i=0; i<twidth*theight; i++)
+		  bool clipped = false;
+		  for(int ci=0; ci<cPos.count(); ci++)
 		    {
-		      if (raw[i] != 0)
+		      Vec p = Vec(h, w, d) - cPos[ci];
+		      if (cNorm[ci]*p > 0)
+			{
+			  clipped = true;
+			  break;
+			}
+		    }
+		  if (!clipped)
+		    {
+		      if ( (tag[0] == -1 && raw[i] != 0) ||
+			   tag.contains(raw[i]) )
 			slice[i] = raw[i] + tagWidth*(float)(slice[i]-vtmin[raw[i]])/vtdif[raw[i]];
 		      else
 			slice[i] = qMin(qMax((int)(scaleVox*slice[i] + shiftVox), 0), 255);
 		    }
-		}
-	      else
-		{
-		  for(int i=0; i<twidth*theight; i++)
-		    {
-		      if (tag.contains(raw[i]))
-			slice[i] = raw[i] + tagWidth*(float)(slice[i]-vtmin[raw[i]])/vtdif[raw[i]];
-		      else
-			slice[i] = qMin(qMax((int)(scaleVox*slice[i] + shiftVox), 0), 255);
-		    }
+		  else
+		    slice[i] = 0;
+		  
+		  i++;
 		}
 	    }
+//	      if (tag[0] == -1)
+//		{
+//		  for(int i=0; i<twidth*theight; i++)
+//		    {
+//		      if (raw[i] != 0)
+//			slice[i] = raw[i] + tagWidth*(float)(slice[i]-vtmin[raw[i]])/vtdif[raw[i]];
+//		      else
+//			slice[i] = qMin(qMax((int)(scaleVox*slice[i] + shiftVox), 0), 255);
+//		    }
+//		}
+//	      else
+//		{
+//		  for(int i=0; i<twidth*theight; i++)
+//		    {
+//		      if (tag.contains(raw[i]))
+//			slice[i] = raw[i] + tagWidth*(float)(slice[i]-vtmin[raw[i]])/vtdif[raw[i]];
+//		      else
+//			slice[i] = qMin(qMax((int)(scaleVox*slice[i] + shiftVox), 0), 255);
+//		    }
+//		}
+//	    }
 	  tFile.setSlice(slc, slice);
 	}
       else
@@ -3540,24 +3644,28 @@ DrishtiPaint::on_actionMeshTag_triggered()
   Vec userColor = Vec(255, 255, 255);
 
   dtypes.clear();
-//  if (tag[0] == -2)
-//    {
-//      dtypes << "User Color"
-//	     << "Transfer Function";
-//      
-//      QString option = QInputDialog::getItem(0,
-//					     "Mesh Color",
-//					     "Color Mesh with",
-//					     dtypes,
-//					     0,
-//					     false,
-//					     &ok);
-//      if (!ok)
-//	return;
-//      
-//      colorType = 0;
-//      if (option == "Transfer Function") colorType = 5;
-//    }
+  if (tag[0] == -2)
+    {
+      dtypes << "User Color"
+	     << "Tag Color"
+	     << "Transfer Function"
+	     << "Tag Color + Transfer Function";
+      
+      QString option = QInputDialog::getItem(0,
+					     "Mesh Color",
+					     "Color Mesh with",
+					     dtypes,
+					     0,
+					     false,
+					     &ok);
+      if (!ok)
+	return;
+      
+      colorType = 0;
+      if (option == "Tag Color") colorType = 1;
+      else if (option == "Tag Color + Transfer Function") colorType = 3;
+      else if (option == "Transfer Function") colorType = 5;
+    }
 //  else
   if (tag[0] > -2)
     {
@@ -3693,6 +3801,9 @@ DrishtiPaint::on_actionMeshTag_triggered()
   //----------------------------------
 
   uchar *lut = Global::lut();
+
+  QList<Vec> cPos =  m_viewer->clipPos();
+  QList<Vec> cNorm = m_viewer->clipNorm();
 
   int nbytes = width*height;
   uchar *raw = new uchar[width*height];
@@ -3833,9 +3944,25 @@ DrishtiPaint::on_actionMeshTag_triggered()
 	  for(int w=minWSlice; w<=maxWSlice; w++)
 	    for(int h=minHSlice; h<=maxHSlice; h++)
 	      {
-		if (raw[i] != 255 &&
-		    lut[4*slice[i]+3] < 5)
+		bool clipped = false;
+		for(int ci=0; ci<cPos.count(); ci++)
+		  {
+		    Vec p = Vec(h, w, d) - cPos[ci];
+		    if (cNorm[ci]*p > 0)
+		      {
+			clipped = true;
+			break;
+		      }
+		  }	    
+		if (!clipped)
+		  {
+		    if (raw[i] != 255 &&
+			lut[4*slice[i]+3] < 5)
+		      raw[i] = 255;
+		  }
+		else
 		  raw[i] = 255;
+
 		i++;
 	      }
 	}
@@ -3845,8 +3972,24 @@ DrishtiPaint::on_actionMeshTag_triggered()
 	  for(int w=minWSlice; w<=maxWSlice; w++)
 	    for(int h=minHSlice; h<=maxHSlice; h++)
 	      {
-		if (lut[4*slice[i]+3]*Global::tagColors()[4*mask[i]+3] == 0)
+		bool clipped = false;
+		for(int ci=0; ci<cPos.count(); ci++)
+		  {
+		    Vec p = Vec(h, w, d) - cPos[ci];
+		    if (cNorm[ci]*p > 0)
+		      {
+			clipped = true;
+			break;
+		      }
+		  }	    
+		if (!clipped)
+		  {
+		    if (lut[4*slice[i]+3]*Global::tagColors()[4*mask[i]+3] == 0)
+		      raw[i] = 255;
+		  }
+		else
 		  raw[i] = 255;
+
 		i++;
 	      }
 	}
@@ -3953,7 +4096,7 @@ DrishtiPaint::processAndSaveMesh(int colorType,
 
   // for colorType 0 and 4 apply user defined color
   if (colorType != 0 && colorType != 4)
-    colorMesh(C, V,
+    colorMesh(C, V, N,
 	      colorType, tagdata,
 	      minHSlice, minWSlice, minDSlice,
 	      theight, twidth, tdepth, spread);
@@ -3967,6 +4110,7 @@ DrishtiPaint::processAndSaveMesh(int colorType,
 void
 DrishtiPaint::colorMesh(QList<Vec>& C,
 			QList<Vec> V,
+			QList<Vec> N,
 			int colorType,
 			uchar *tagdata,
 			int minHSlice, int minWSlice, int minDSlice,
@@ -4024,58 +4168,50 @@ DrishtiPaint::colorMesh(QList<Vec>& C,
 	  g = Global::tagColors()[4*tag+1];
 	  b = Global::tagColors()[4*tag+2];
 	}
-      else if (colorType == 2 || colorType == 5) // apply only transfer function
+      else if (colorType == 2 ||
+	       colorType == 3 ||
+	       colorType == 5) // apply transfer function
 	{
-	  QList<uchar> val = m_volume->rawValue(d+minDSlice,
-						w+minWSlice,
-						h+minHSlice); 
-	  r =  lut[4*val[0]+2];
-	  g =  lut[4*val[0]+1];
-	  b =  lut[4*val[0]+0];
-
-//	  if (r == 0 && g == 0 && b == 0)
-//	    {
-//	      for(int sp=1; sp<=bsz+1; sp++)
-//		{
-//		  bool ok=false;
-//		  for(int dd=qMax(d-sp, 0); dd<=qMin(tdepth-1,d+sp); dd++)
-//		    for(int ww=qMax(w-sp, 0); ww<=qMin(twidth-1,w+sp); ww++)
-//		      for(int hh=qMax(h-sp, 0); hh<=qMin(theight-1,h+sp); hh++)
-//			{
-//			  if (qAbs(dd-d) == sp ||
-//			      qAbs(ww-w) == sp ||
-//			      qAbs(hh-h) == sp)
-//			    {
-//			      val = m_volume->rawValue(dd+minDSlice,
-//						       ww+minWSlice,
-//						       hh+minHSlice);     
-//			      r = lut[4*val[0]+2];
-//			      g = lut[4*val[0]+1];
-//			      b = lut[4*val[0]+0];
-//			      if (r > 0 || g > 0 || b > 0)
-//				{
-//				  ok = true;
-//				  break;
-//				}
-//			    }
-//			}
-//		  if (ok)
-//		    break;
-//		}
-//	    }
+	  QList<uchar> val;
+	  int ncl = 0;
+	  int vr,vg,vb;
+	  vr = vg = vb = 0;
+	  for(int sp=0; sp<=bsz; sp++)
+	    {
+	      Vec pt = Vec(h,w,d) - sp*N[ni];
+	      int hh = qBound(0, (int)pt.x, theight-1);
+	      int ww = qBound(0, (int)pt.y, twidth-1);
+	      int dd = qBound(0, (int)pt.z, tdepth-1);
+	      val = m_volume->rawValue(dd+minDSlice,
+				       ww+minWSlice,
+				       hh+minHSlice);     
+	      int pr = lut[4*val[0]+2];
+	      int pg = lut[4*val[0]+1];
+	      int pb = lut[4*val[0]+0];
+	      if (lut[4*val[0]+3] > 1)
+		{
+		  vr += pr;
+		  vg += pg;
+		  vb += pb;
+		  ncl ++;
+		}
+	    }
+	  if (ncl > 0)
+	    {
+	      r = vr/ncl;
+	      g = vg/ncl;
+	      b = vb/ncl;
+	    }
 	}
-      else // merge tag and transfer function colors
-	{
-	  r = Global::tagColors()[4*tag+0];
-	  g = Global::tagColors()[4*tag+1];
-	  b = Global::tagColors()[4*tag+2];
 
-	  QList<uchar> val = m_volume->rawValue(d+minDSlice,
-						w+minWSlice,
-						h+minHSlice);     
-	  r = 0.5*r + 0.5*lut[4*val[0]+2];
-	  g = 0.5*g + 0.5*lut[4*val[0]+1];
-	  b = 0.5*b + 0.5*lut[4*val[0]+0];
+      if (colorType == 3) // merge tag and transfer function colors
+	{
+	  if (tag > 0)
+	    {
+	      r = Global::tagColors()[4*tag+0];
+	      g = Global::tagColors()[4*tag+1];
+	      b = Global::tagColors()[4*tag+2];
+	    }
 	}
 
       if (r == 0 && g == 0 && b == 0)

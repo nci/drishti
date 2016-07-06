@@ -5071,7 +5071,7 @@ Viewer::usedTags()
   qint64 tvox = m_depth*m_width*m_height;
   for(qint64 i=0; i<tvox; i++)
     {
-      if (i/100000 == 99999)
+      if (i%100000 == 0)
 	{
 	  progress.setValue(100*(float)i/(float)tvox);
 	  qApp->processEvents();

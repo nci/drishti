@@ -260,6 +260,8 @@ class DrishtiPaint : public QMainWindow
 
   void updateModifiedRegion(int, int, int,
 			    int, int, int);
+
+  bool sliceZeroAtTop();
 };
 
 #endif

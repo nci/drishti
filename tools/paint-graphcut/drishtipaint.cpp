@@ -2389,6 +2389,34 @@ DrishtiPaint::on_actionLoad_TF_triggered()
   m_tfManager->load(tflnm.toLatin1().data());
 }
 
+bool
+DrishtiPaint::sliceZeroAtTop()
+{
+  bool save0attop = true;
+  bool ok = false;
+  QStringList slevels;
+  slevels << "Yes - (default)";  
+  slevels << "No - slice 0 is bottom slice";
+  QString option = QInputDialog::getItem(0,
+		   "Load Mask",
+		   "Slice 0 is top slice ?",
+		    slevels,
+			  0,
+		      false,
+		       &ok);
+  if (ok)
+    {
+      QStringList op = option.split(' ');
+      if (op[0] == "No")
+	{
+	  save0attop = false;
+	  QMessageBox::information(0, "Load Mask", "First slice is now bottom slice.");
+	}
+    }
+
+  return save0attop;
+}
+
 void
 DrishtiPaint::on_loadMask_triggered()
 {
@@ -2439,19 +2467,25 @@ DrishtiPaint::on_loadMask_triggered()
 
   uchar *maskptr = m_volume->memMaskDataPtr();
 
+  bool s0top = sliceZeroAtTop();
+
   QProgressDialog progress("Updating voxel structure",
 			   QString(),
 			   0, 100,
 			   0);
   progress.setMinimumDuration(0);
-
-  for(qint64 d=0; d<lrd; d++)
-    {
+  int d;
+  for(qint64 slc=0; slc<lrd; slc++)
+    {      
+      if (s0top)
+	d = slc;
+      else
+	d = lrd-1-slc;
       progress.setValue((95.0*d)/lrd);
       for(qint64 w=0; w<lrw; w++)
       for(qint64 h=0; h<lrh; h++)
 	{
-	  if (lmask[d*lrw*lrh + w*lrh + h] > 0)
+	  if (lmask[slc*lrw*lrh + w*lrh + h] > 0)
 	    {
 	      int ds = qMax(0, (int)(d*scld-scld/2));
 	      int ws = qMax(0, (int)(w*sclw-sclw/2));
@@ -2460,7 +2494,7 @@ DrishtiPaint::on_loadMask_triggered()
 	      int we = qMin(m_width-1, (int)((w+1)*sclw-sclw/2));
 	      int he = qMin(m_height-1,(int)((h+1)*sclh-sclh/2));
 
-	      uchar mv = lmask[d*lrw*lrh + w*lrh + h];
+	      uchar mv = lmask[slc*lrw*lrh + w*lrh + h];
 	      for(qint64 d0=ds; d0<de; d0++)
 		for(qint64 w0=ws; w0<we; w0++)
 		  for(qint64 h0=hs; h0<he; h0++)

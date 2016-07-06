@@ -1,4 +1,11 @@
 #begin
+tagsused
+
+Show the tags that are in use.
+
+#end
+
+#begin
 reset
 reset <tag1>
 

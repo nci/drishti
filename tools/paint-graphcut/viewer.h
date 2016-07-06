@@ -71,6 +71,8 @@ class Viewer : public QGLViewer
 
   void generateBoxMinMax();
 
+  QList<int> usedTags();
+
   public slots :
     void GlewInit();  
     void resizeGL(int, int);

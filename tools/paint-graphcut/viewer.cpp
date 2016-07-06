@@ -974,7 +974,6 @@ Viewer::commandEditor()
     arg(m_minHSlice).arg(m_minWSlice).arg(m_minDSlice).		\
     arg(m_maxHSlice).arg(m_maxWSlice).arg(m_maxDSlice);
 
-
   int d, w, h;
   bool gothit = getCoordUnderPointer(d, w, h);
   if (gothit)
@@ -1025,6 +1024,22 @@ Viewer::processCommand(QString cmd)
   cmd = cmd.toLower();
   QStringList list = cmd.split(" ", QString::SkipEmptyParts);
  
+
+  if (list[0].contains("tagsused"))
+    {
+      QList<int> ut = usedTags();
+      QString tmesg;  
+      tmesg += "Tags Used\n";
+      for(int ti=0; ti<ut.count(); ti++)
+	{
+	  tmesg += QString("%1 ").arg(ut[ti]);
+	  if (ti%10 == 9)
+	    tmesg += "\n";
+	}
+      QMessageBox::information(0, "Tags Used", tmesg);
+      return;
+    }
+
   if (list[0].contains("shrinkwrap"))
     {
       int tag1 = Global::tag();
@@ -5041,4 +5056,29 @@ Viewer::updateFilledBoxes()
 
 
   tfb.clear();
+}
+
+QList<int>
+Viewer::usedTags()
+{
+  QProgressDialog progress("Calculating Tags Used",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+  QList<int> ut;
+  qint64 tvox = m_depth*m_width*m_height;
+  for(qint64 i=0; i<tvox; i++)
+    {
+      if (i/100000 == 99999)
+	{
+	  progress.setValue(100*(float)i/(float)tvox);
+	  qApp->processEvents();
+	}
+      if (!ut.contains(m_maskPtr[i]))
+	ut << m_maskPtr[i];      
+    }
+  qSort(ut);
+  return ut;
 }

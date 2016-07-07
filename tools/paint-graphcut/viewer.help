@@ -191,9 +191,18 @@ Clipping planes are obeyed - clipped region is not taken into account.
 
 #begin
 d
-Dilate the current tag by "Extent" parameter value.
+Dilate the current tag by "Dilate/Erode" parameter value into connected untagged (i.e. 0 tag) region.
 
 Move the mouse over to the region you want to dilate before pressing "d".
+
+Clipping planes are obeyed - clipped region is not taken into account.
+#end
+
+#begin
+Shift+d
+Dilate the current tag by "Dilate/Erode" parameter value into all connected visible region (even if it has non-zero tag).
+
+Move the mouse over to the region you want to dilate before pressing "Shift+d".
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end

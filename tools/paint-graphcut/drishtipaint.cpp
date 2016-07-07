@@ -136,8 +136,8 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   connect(m_viewer, SIGNAL(mergeTags(Vec, Vec, int, int, bool)),
 	  this, SLOT(mergeTags(Vec, Vec, int, int, bool)));
 
-  connect(m_viewer, SIGNAL(dilateConnected(int,int,int,Vec,Vec,int)),
-	  this, SLOT(dilateConnected(int,int,int,Vec,Vec,int)));
+  connect(m_viewer, SIGNAL(dilateConnected(int,int,int,Vec,Vec,int,bool)),
+	  this, SLOT(dilateConnected(int,int,int,Vec,Vec,int,bool)));
 
   connect(m_viewer, SIGNAL(erodeConnected(int,int,int,Vec,Vec,int)),
 	  this, SLOT(erodeConnected(int,int,int,Vec,Vec,int)));
@@ -899,7 +899,15 @@ DrishtiPaint::setFile(QString filename)
 
   QString flnm;
 
-  if (StaticFunctions::checkExtension(filename, ".pvl.nc"))
+  if (StaticFunctions::checkExtension(filename, "mask.pvl.nc"))
+    {
+      QString fnm = filename;
+      fnm.replace("mask.pvl.nc", "pvl.nc");
+      flnm = fnm;
+      m_tfEditor->setTransferFunction(NULL);
+      m_tfManager->clearManager();
+    }
+  else if (StaticFunctions::checkExtension(filename, ".pvl.nc"))
     {
       flnm = filename;
       m_tfEditor->setTransferFunction(NULL);
@@ -2520,7 +2528,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
   QString tagstr = QInputDialog::getText(0, "Extract volume data for Tag",
 	    "Tag Numbers (tags should be separated by space.\n-2 extract whatever is visible.\n-1 for all tags;\nFor e.g. 1 2 5 will extract tags 1, 2 and 5)",
 					 QLineEdit::Normal,
-					 "-2",
+					 "-1",
 					 &ok);
   tag.clear();
   if (ok && !tagstr.isEmpty())
@@ -2552,7 +2560,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
 	}
     }
   else
-    tag << -2;
+    tag << -1;
   //----------------
 
   bool saveImageData = true;
@@ -4674,14 +4682,34 @@ DrishtiPaint::paint3D(int d, int w, int h, int button, int otag, bool onlyConnec
       int we0 = qMin(maxWSlice, w0+rad0);
       int hs0 = qMax(minHSlice, h0-rad0);
       int he0 = qMin(maxHSlice, h0+rad0);
+
+      //--------
+      // get surface normal
+      float gz = (volData[qMin(m_depth-1,(d0+1))*m_width*m_height + w0*m_height + h0] -
+		  volData[qMax(0,(d0-1))*m_width*m_height + w0*m_height + h0]);
+      float gy = (volData[d0*m_width*m_height + qMax(0,(w0+1))*m_height + h0] -
+		  volData[d0*m_width*m_height + qMin(m_width-1,(w0-1))*m_height + h0]);
+      float gx = (volData[d0*m_width*m_height + w0*m_height + qMax(0,(h0+1))] -
+		  volData[d0*m_width*m_height + w0*m_height + qMin(m_width-1,(h0-1))]);
+      Vec dv = Vec(gx, gy, gz); // surface gradient
+      if (dv.squaredNorm() > 0)
+	dv.normalize();
+      else
+	{
+	  dv = viewD;
+	  if (persp)
+	    dv = Vec(h0-camPos.x, w0-camPos.y, d0-camPos.z).unit();
+	}
+      //--------
+      
       for(qint64 dd=ds0; dd<=de0; dd++)
 	for(qint64 ww=ws0; ww<=we0; ww++)
 	  for(qint64 hh=hs0; hh<=he0; hh++)
 	    {
 	      Vec v0 = Vec(hh-h0,ww-w0,dd-d0);
-	      Vec dv = viewD;
-	      if (persp)
-		dv = Vec(hh-camPos.x, ww-camPos.y, dd-camPos.z).unit();
+	      //Vec dv = viewD;
+	      //if (persp)
+	      //  dv = Vec(hh-camPos.x, ww-camPos.y, dd-camPos.z).unit();
 	      
 	      float pr = v0*viewR;
 	      float pu = v0*viewU;
@@ -5261,7 +5289,8 @@ DrishtiPaint::erodeConnected(int dr, int wr, int hr,
 
 void
 DrishtiPaint::dilateConnected(int dr, int wr, int hr,
-			      Vec bmin, Vec bmax, int tag)
+			      Vec bmin, Vec bmax, int tag,
+			      bool allVisible)
 {
   int minD,maxD, minW,maxW, minH,maxH;
 
@@ -5273,7 +5302,8 @@ DrishtiPaint::dilateConnected(int dr, int wr, int hr,
 				    viewerUi.dilateRad->value()+1,
 				    minD, maxD,
 				    minW, maxW,
-				    minH, maxH);
+				    minH, maxH,
+				    allVisible);
   
   if (minD < 0)
     return;

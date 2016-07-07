@@ -841,7 +841,10 @@ Viewer::keyPressEvent(QKeyEvent *event)
 
   if (event->key() == Qt::Key_D)
     {  
-      regionDilation();
+      if (event->modifiers() & Qt::ShiftModifier)
+	regionDilation(true);
+      else
+	regionDilation(false);
       update();
       return;
     }
@@ -4387,7 +4390,7 @@ Viewer::regionGrowing(bool sw)
 }
 
 void
-Viewer::regionDilation()
+Viewer::regionDilation(bool allVisible)
 {
   if (!m_useMask)
     {
@@ -4402,7 +4405,7 @@ Viewer::regionDilation()
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
 
-  emit dilateConnected(d, w, h, bmin, bmax, Global::tag());
+  emit dilateConnected(d, w, h, bmin, bmax, Global::tag(), allVisible);
 }
 
 void

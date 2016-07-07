@@ -1184,8 +1184,22 @@ VolumeFileManager::saveBlock(int dmin, int dmax,
   qint64 bps = m_width*m_height*m_bytesPerVoxel;
   QString pflnm = m_filename;
 
+  QProgressDialog progress(QString("Saving %1").\
+			   arg(m_baseFilename),
+			   "Cancel",
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+  progress.setCancelButton(0);
+
   for(int d=dmin; d<=dmax; d++)
     {
+      if (dmax-dmin > 300) // show only for substantial amount of writing to disk
+	{
+	  progress.setValue((int)(100*(float)(d-dmin)/(float)(dmax-dmin+1)));
+	  qApp->processEvents();
+	}
+
       m_slabno = d/m_slabSize;
       if (m_slabno < m_filenames.count())
 	m_filename = m_filenames[m_slabno];
@@ -1211,4 +1225,6 @@ VolumeFileManager::saveBlock(int dmin, int dmax,
 			hbts);
 	}      
     }
+
+  progress.setValue(100);
 }

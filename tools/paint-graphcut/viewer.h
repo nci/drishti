@@ -132,7 +132,7 @@ class Viewer : public QGLViewer
     void paint3DEnd();
     void paint3D(int, int, int, int, int, bool);
 
-    void dilateConnected(int, int, int, Vec, Vec, int);
+    void dilateConnected(int, int, int, Vec, Vec, int, bool);
     void erodeConnected(int, int, int, Vec, Vec, int);
 
     void tagUsingSketchPad(Vec, Vec);
@@ -358,7 +358,7 @@ class Viewer : public QGLViewer
 
   void hatch();
   void regionGrowing(bool);
-  void regionDilation();
+  void regionDilation(bool);
   void regionErosion();
   void tagUsingScreenSketch();
 

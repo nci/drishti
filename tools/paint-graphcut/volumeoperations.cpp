@@ -1510,7 +1510,8 @@ VolumeOperations::dilateConnected(int dr, int wr, int hr,
 				  int nDilate,
 				  int& minD, int& maxD,
 				  int& minW, int& maxW,
-				  int& minH, int& maxH)
+				  int& minH, int& maxH,
+				  bool allVisible)
 {
   if (dr < 0 || wr < 0 || hr < 0 ||
       dr > m_depth-1 ||
@@ -1630,7 +1631,7 @@ VolumeOperations::dilateConnected(int dr, int wr, int hr,
 		  int val = m_volData[idx];
 		  uchar mtag = m_maskData[idx];
 		  bool opaque =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);
-		  opaque &= (mtag == tag);
+		  opaque &= mtag == tag;
 		  if (opaque)
 		    {
 		      bitmask.setBit(bidx, true);
@@ -1723,8 +1724,14 @@ VolumeOperations::dilateConnected(int dr, int wr, int hr,
 		      qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
 		      qint64 idx = d2*m_width*m_height + w2*m_height + h2;
 		      int val = m_volData[idx];
-		      if (lut[4*val+3] > 0 && // dilate only in connected region
-			  m_maskData[idx] == 0 && // dilate only in zero mask region
+
+		      uchar mtag = m_maskData[idx];
+		      bool opaque =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);
+		      opaque &= (mtag == 0 || allVisible);
+
+//		      if (lut[4*val+3] > 0 && // dilate only in connected region
+//			  m_maskData[idx] == 0 && // dilate only in zero mask or allVisible region
+		      if (opaque && // dilate only in connected opaque region
 			  !bitmask.testBit(bidx) &&
 			  !cbitmask.testBit(bidx))
 			{

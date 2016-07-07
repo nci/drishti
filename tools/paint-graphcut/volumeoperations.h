@@ -71,7 +71,8 @@ class VolumeOperations
 			      int,
 			      int&, int&,
 			      int&, int&,
-			      int&, int&);
+			      int&, int&,
+			      bool);
 
   static void modifyOriginalVolume(Vec, Vec, int,
 				   int&, int&,

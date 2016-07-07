@@ -151,6 +151,9 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   connect(m_viewer, SIGNAL(resetTag(Vec, Vec, int)),
 	  this, SLOT(resetTag(Vec, Vec, int)));
 
+  connect(m_viewer, SIGNAL(reloadMask()),
+	  this, SLOT(reloadMask()));
+
   connect(m_viewer, SIGNAL(updateSliceBounds(Vec, Vec)),
 	  this, SLOT(updateSliceBounds(Vec, Vec)));
 
@@ -5147,6 +5150,19 @@ DrishtiPaint::shrinkwrap(Vec bmin, Vec bmax, int tag,
   updateModifiedRegion(minD, maxD,
 		       minW, maxW,
 		       minH, maxH);
+}
+
+void
+DrishtiPaint::reloadMask()
+{
+  m_volume->reloadMask();
+
+  m_viewer->setMaskDataPtr(m_volume->memMaskDataPtr());
+
+  int m_depth, m_width, m_height;
+  m_volume->gridSize(m_depth, m_width, m_height);
+  m_viewer->uploadMask(0,0,0, m_depth-1,m_width-1,m_height-1);
+  QMessageBox::information(0, "", "done");
 }
 
 void

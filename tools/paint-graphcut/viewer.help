@@ -6,6 +6,13 @@ Show the tags that are in use.
 #end
 
 #begin
+reload
+
+Reload tags from the mask file.
+
+#end
+
+#begin
 reset
 reset <tag1>
 

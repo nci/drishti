@@ -1111,6 +1111,12 @@ Viewer::processCommand(QString cmd)
       return;
     }
 
+  if (list[0].contains("reload"))
+    {
+      emit reloadMask();
+      return;
+    }
+
   if (list[0].contains("getvolume"))
     {
       int tag1 = -1;

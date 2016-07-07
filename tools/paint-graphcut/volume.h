@@ -15,6 +15,8 @@ class Volume : public QObject
   bool isValid();
   void reset();
 
+  void reloadMask() { m_mask.loadMemFile(); }
+
   bool setFile(QString);
   QString fileName() { return m_fileName; }
 

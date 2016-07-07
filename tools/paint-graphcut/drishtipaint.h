@@ -126,6 +126,7 @@ class DrishtiPaint : public QMainWindow
 
   void setVisible(Vec, Vec, int, bool);
   void resetTag(Vec, Vec, int);
+  void reloadMask();
   void modifyOriginalVolume(Vec, Vec, int);
   void shrinkwrap(Vec, Vec, int, bool, int);
   void shrinkwrap(Vec, Vec, int, bool, int,

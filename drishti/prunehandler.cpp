@@ -1647,6 +1647,10 @@ PruneHandler::updateAndLoadPruneTexture(GLuint dataTex,
   m_mopActive = false;
 
 
+  bool forceregen = false;
+  if ((m_subVolSize-subVolSize).squaredNorm() > 0)
+    forceregen = true;
+
   m_dtexX = dtextureX;
   m_dtexY = dtextureY;
   m_dragInfo = dragInfo;
@@ -1698,7 +1702,7 @@ PruneHandler::updateAndLoadPruneTexture(GLuint dataTex,
 	}
     }
 
-  if (!prevModified && !prune)
+  if (!prevModified && !prune && !forceregen)
     {
       //QMessageBox::information(0, "", QString("ret %1 %2").arg(prevModified).arg(prune));
       return;

@@ -134,7 +134,12 @@ TxmPlugin::setFile(QStringList files)
 //  QMessageBox::information(0, "", QString("data type : %1").arg(vt));
 
   m_bytesPerVoxel = 1;
-  if (vt == 5)
+  if (vt == 3)
+    {
+      m_voxelType = _UChar;
+      m_bytesPerVoxel = 1;
+    }
+  else if (vt == 5)
     {
       m_voxelType = _UShort;
       m_bytesPerVoxel = 2;
@@ -162,7 +167,7 @@ TxmPlugin::setFile(QStringList files)
   enumerateImages(m_storage, "/");
 
 //  QMessageBox::information(0, "", QString("Number of Images %1\n%2").\
-//			   arg(m_imageData.count()).arg(m_imageData[0]));
+//		           arg(m_imageData.count()).arg(m_imageData[0]));
 
   if (m_voxelType == _UChar ||
       m_voxelType == _Char ||
@@ -313,6 +318,24 @@ TxmPlugin::findMinMaxandGenerateHistogram()
 
   delete [] tmp;
 
+  if (m_voxelType != _Float)
+    {
+      if (qAbs(m_rawMax-m_rawMin) < 1)
+	{
+	  m_rawMin = m_rawMin-1;
+	  m_rawMax = m_rawMax+1;
+	}
+    }
+  else
+    {
+      if (qAbs(m_rawMax-m_rawMin) < 0.001)
+	{
+	  m_rawMin = m_rawMin-1;
+	  m_rawMax = m_rawMax+1;
+	}
+    }
+
+  
 //  while(m_histogram.last() == 0)
 //    m_histogram.removeLast();
 //  while(m_histogram.first() == 0)

@@ -2562,6 +2562,9 @@ void Viewer::updatePruneBuffer(bool b)
 void
 Viewer::updateLightBuffers()
 {
+  if (m_rcMode)
+    return;
+
   if (Global::volumeType() == Global::DummyVolume)
     return;
 

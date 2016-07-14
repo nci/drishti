@@ -1057,6 +1057,7 @@ KeyFrame::playFrameNumber(int fno)
 
 	  LightHandler::setGiLightInfo(m_keyFrameInfo[kf]->giLightInfo());
 
+
 	  emit updateBrickInfo(m_keyFrameInfo[kf]->brickInfo());
 	  emit updateLightInfo(m_keyFrameInfo[kf]->lightInfo());
 	  

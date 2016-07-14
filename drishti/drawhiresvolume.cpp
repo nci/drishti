@@ -604,7 +604,7 @@ DrawHiresVolume::postUpdateSubvolume(Vec boxMin, Vec boxMax)
   // don't proceed with data loading if in raycast mode
   if (m_rcMode)
     return;
-  
+
   m_Volume->startHistogramCalculation();
   loadTextureMemory();
   m_Volume->endHistogramCalculation();

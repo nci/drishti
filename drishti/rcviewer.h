@@ -96,6 +96,7 @@ class RcViewer : public QObject
   VolumeFileManager *m_vfm;
   uchar *m_volPtr;
   uchar *m_lut;
+  int m_bytesPerVoxel;
 
   double m_b0xform[16];
   double m_b0xformInv[16];

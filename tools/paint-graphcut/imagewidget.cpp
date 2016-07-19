@@ -649,35 +649,6 @@ ImageWidget::processPrevSliceTags()
     t1[i] = (t1[i] > 192 ? Global::tag() : 0);
 
   m_prevslicetags = t1;
-
-//  //--------------------------
-//  // smooth row
-//  for(int j=0; j<m_imgHeight; j++)
-//    for(int i=0; i<m_imgWidth; i++)
-//      {
-//	float sum = 0;
-//	for(int x=-nb; x<=nb; x++)
-//	  sum += maskData[j*m_imgWidth+qBound(0, i+x, m_imgWidth-1)];
-//	m_prevslicetags[j*m_imgWidth+i] = sum/(2*nb+1);
-//      }
-//
-//  // followed by smooth column
-//  for(int i=0; i<m_imgWidth; i++)
-//    for(int j=0; j<m_imgHeight; j++)
-//      {
-//	float sum = 0;
-//	for(int y=-nb; y<=nb; y++)
-//	  sum += m_prevslicetags[qBound(0, j+y, m_imgHeight-1)*m_imgWidth+i];
-//	maskData[j*m_imgWidth+i] = sum/(2*nb+1);
-//      }
-//
-//  memcpy(m_prevslicetags, maskData, m_imgWidth*m_imgHeight);
-//  //--------------------------
-//
-//  delete [] maskData;
-//
-//  for (int i=0; i<m_imgHeight*m_imgWidth; i++)
-//    m_prevslicetags[i] = (m_prevslicetags[i] > 192 ? Global::tag() : 0);
 }
 
 

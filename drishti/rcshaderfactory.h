@@ -13,18 +13,22 @@ class RcShaderFactory
   static QString genRectBlurShaderString(int);
 
   static QString genFirstHitShader(bool,
-				   QList<CropObject>);
+				   QList<CropObject>,
+				   bool);
 
   static QString genIsoRaycastShader(bool,
-				     QList<CropObject>);
+				     QList<CropObject>,
+				     bool);
 
   static QString genRaycastShader(bool,
-				  QList<CropObject>);
+				  QList<CropObject>,
+				  bool);
 
   static QString genXRayShader(bool,
-			       QList<CropObject>);
+			       QList<CropObject>,
+			       bool);
 
-  static QString genEdgeEnhanceShader();
+  static QString genEdgeEnhanceShader(bool);
 
  private :
   static QString addLighting();

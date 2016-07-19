@@ -284,7 +284,8 @@ RcShaderFactory::addLighting()
 
 QString
 RcShaderFactory::genIsoRaycastShader(bool nearest,
-				     QList<CropObject> crops)
+				     QList<CropObject> crops,
+				     bool bit16)
 {
   //------------------------------------
   bool cropPresent = false;
@@ -419,11 +420,26 @@ RcShaderFactory::genIsoRaycastShader(bool nearest,
 
   shader +=      getGrad();
   shader += "    gradlen = length(grad);\n";
-  shader += QString("    colorSample = texture2D(lutTex, vec2(val,gradlen*%1));\n").arg(1.0/Global::lutSize());
+  if (!bit16)
+    shader += QString("    colorSample = texture2D(lutTex, vec2(val,gradlen*%1));\n").\
+      arg(1.0/Global::lutSize());
+  else
+    {
+      shader += "   int h0 = int(65535.0*val);\n";
+      shader += "   int h1 = h0 / 256;\n";
+      shader += "   h0 = int(mod(float(h0),256.0));\n";
+      shader += "   float fh0 = float(h0)/256.0;\n";
+      shader += "   float fh1 = float(h1)/256.0;\n";
+      shader += QString("    colorSample = texture2D(lutTex, vec2(fh0,fh1*%1));\n").\
+	arg(1.0/Global::lutSize());
+    }
 	         
   shader += "    if (mixTag)\n";
   shader += "    {\n";
-  shader += "      vec4 tagcolor = texture1D(tagTex, val);\n";
+  if (!bit16)
+    shader += "      vec4 tagcolor = texture1D(tagTex, val);\n";
+  else
+    shader += "      vec4 tagcolor = texture1D(tagTex, fh0);\n";
   shader += "      if (tagcolor.a > 0.0)\n";
   shader += "        colorSample.rgb = mix(colorSample.rgb, tagcolor.rgb, tagcolor.a);\n";
   shader += "      else\n";
@@ -431,11 +447,17 @@ RcShaderFactory::genIsoRaycastShader(bool nearest,
   shader += "    }\n";
   if (viewPresent)
     {
-      shader += QString("    vec2 vg = vec2(val,gradlen*%1);\n").arg(1.0/Global::lutSize());  
+      if (!bit16)
+	shader += QString("    vec2 vg = vec2(val,gradlen*%1);\n").arg(1.0/Global::lutSize());  
+      else
+	shader += QString("    vec2 vg = vec2(fh0, fh1*%1);\n").arg(1.0/Global::lutSize());  
       shader += "    vec4 cs=vec4(0.0);\n";
       shader += "    blend(true, texCoord, vg, cs);\n";
       shader += QString("    if (cs.x > 0.0) tfSetToUse = cs.y*%1;\n").arg(1.0/Global::lutSize());
-      shader += QString("    colorSample = texture2D(lutTex, vec2(val,gradlen*%1 + tfSetToUse));\n").arg(1.0/Global::lutSize());
+      if (!bit16)
+	shader += QString("    colorSample = texture2D(lutTex, vec2(val,gradlen*%1 + tfSetToUse));\n").arg(1.0/Global::lutSize());
+      else
+	shader += QString("    colorSample = texture2D(lutTex, vec2(fh0,fh1*%1 + tfSetToUse));\n").arg(1.0/Global::lutSize());
     }
   shader += "  }\n";
   shader += "  else\n";  // cropped
@@ -529,7 +551,7 @@ RcShaderFactory::genIsoRaycastShader(bool nearest,
 }
 
 QString
-RcShaderFactory::genEdgeEnhanceShader()
+RcShaderFactory::genEdgeEnhanceShader(bool bit16)
 {
   QString shader;
 
@@ -572,32 +594,50 @@ RcShaderFactory::genEdgeEnhanceShader()
   //---------------------
   shader += "  vec4 color = vec4(0.0);\n";
 
-  shader += "  if (mixTag)\n";
-  shader += "    {\n";  
-  shader += "      float tag = dvt.y;\n"; // use value as tag
-  shader += "      color = texture1D(tagTex, tag);\n";
-  shader += "    }\n";  
-  shader += "  else\n";
-  shader += "    {\n";
   float dx[9] = {-0.5,-0.5,-0.5, 0.0, 0.0, 0.0, 0.5, 0.5, 0.5};
   float dy[9] = {-0.5, 0.0, 0.5,-0.5, 0.0, 0.5,-0.5, 0.0, 0.5};
-  shader += "      float cx[9];\n";
-  shader += "      float cy[9];\n";
+  shader += "  float cx[9];\n";
+  shader += "  float cy[9];\n";
   for(int i=0; i<9; i++)
-    shader += QString("    cx[%1] = float(%2);\n").arg(i).arg(dx[i]);
+    shader += QString("  cx[%1] = float(%2);\n").arg(i).arg(dx[i]);
   for(int i=0; i<9; i++)
-    shader += QString("    cy[%1] = float(%2);\n").arg(i).arg(dy[i]);
+    shader += QString("  cy[%1] = float(%2);\n").arg(i).arg(dy[i]);
 
-  shader += "      vec3 rgb = vec3(0.0);\n";
-  shader += "      for(int i=0; i<9; i++)\n";
-  shader += "      {\n";
-  shader += "        vec2 vg = texture2DRect(pvtTex, spos0+vec2(cx[i],cy[i])).yz;\n";
-  shader += QString("        color = texture2D(lutTex,vec2(vg.x,vg.y*float(%1) + tfSetToUse));\n").arg(1.0/Global::lutSize());
-  shader += "        rgb += color.rgb;\n";
-  shader += "      }\n";
-  shader += "      color.a = 1.0;\n";
-  shader += "      color.rgb = rgb/9.0;\n";
-  shader += "    }\n";
+  shader += "  vec3 rgb = vec3(0.0);\n";
+  shader += "  for(int i=0; i<9; i++)\n";
+  shader += "  {\n";
+  shader += "    vec2 vg = texture2DRect(pvtTex, spos0+vec2(cx[i],cy[i])).yz;\n";
+  if (!bit16)
+    shader += QString("    color = texture2D(lutTex,vec2(vg.x,vg.y*float(%1) + tfSetToUse));\n").arg(1.0/Global::lutSize());
+  else
+    {
+      shader += "   int h0 = int(65535.0*vg.x);\n";
+      shader += "   int h1 = h0 / 256;\n";
+      shader += "   h0 = int(mod(float(h0),256.0));\n";
+      shader += "   float fh0 = float(h0)/256.0;\n";
+      shader += "   float fh1 = float(h1)/256.0;\n";
+      shader += QString("    color = texture2D(lutTex, vec2(fh0,fh1*%1 + tfSetToUse));\n").\
+	arg(1.0/Global::lutSize());
+    }
+  shader += "    rgb += color.rgb;\n";
+  shader += "  }\n";
+  shader += "  color.a = 1.0;\n";
+  shader += "  color.rgb = rgb/9.0;\n";
+
+
+  shader += "if (mixTag)\n";
+  shader += "  {\n";  
+  if (!bit16)
+    shader += "    float tag = dvt.y;\n"; // use value as tag
+  else
+    {
+      shader += "   int h0 = int(65535.0*dvt.y);\n";
+      shader += "   h0 = int(mod(float(h0),256.0));\n";
+      shader += "   float tag = float(h0)/256.0;\n";
+    }
+  shader += "    vec4 tcolor = texture1D(tagTex, tag);\n";
+  shader += "    color = mix(color, tcolor, tcolor.a);\n";
+  shader += "  }\n";  
 
 
 //  // find depth gradient
@@ -688,7 +728,8 @@ RcShaderFactory::genEdgeEnhanceShader()
 
 QString
 RcShaderFactory::genFirstHitShader(bool nearest,
-				   QList<CropObject> crops)
+				   QList<CropObject> crops,
+				   bool bit16)
 {
   //------------------------------------
   bool cropPresent = false;
@@ -809,7 +850,18 @@ RcShaderFactory::genFirstHitShader(bool nearest,
 
   shader +=      getGrad();
   shader += "    gradlen = length(grad);\n";
-  shader += QString("    colorSample = texture2D(lutTex, vec2(val,gradlen*%1));\n").arg(1.0/Global::lutSize());
+  if (!bit16)
+    shader += QString("    colorSample = texture2D(lutTex, vec2(val,gradlen*%1));\n").arg(1.0/Global::lutSize());
+  else
+    {
+      shader += "   int h0 = int(65535.0*val);\n";
+      shader += "   int h1 = h0 / 256;\n";
+      shader += "   h0 = int(mod(float(h0),256.0));\n";
+      shader += "   float fh0 = float(h0)/256.0;\n";
+      shader += "   float fh1 = float(h1)/256.0;\n";
+      shader += QString("    colorSample = texture2D(lutTex, vec2(fh0,fh1*%1));\n").\
+	arg(1.0/Global::lutSize());
+    }
   shader += "  }\n";
   shader += "  else\n";  // feather
   shader += "  {\n";
@@ -860,7 +912,8 @@ RcShaderFactory::genFirstHitShader(bool nearest,
 
 QString
 RcShaderFactory::genRaycastShader(bool nearest,
-				  QList<CropObject> crops)
+				  QList<CropObject> crops,
+				  bool bit16)
 {
   //------------------------------------
   bool cropPresent = false;
@@ -1002,6 +1055,10 @@ RcShaderFactory::genRaycastShader(bool nearest,
 
   shader += "   float val, gradlen;\n";
   shader += "   vec3 grad;\n";
+  if (bit16)
+    {
+      shader += "  float fh0, fh1;\n";
+    }
 
   shader += "  float feather = 0.0;\n";
   if (cropPresent)
@@ -1022,10 +1079,25 @@ RcShaderFactory::genRaycastShader(bool nearest,
 
   shader +=      getGrad();
   shader += "    gradlen = length(grad);\n";
-  shader += QString("    colorSample = texture2D(lutTex, vec2(val,gradlen*%1));\n").arg(1.0/Global::lutSize());
+  if (!bit16)
+    shader += QString("    colorSample = texture2D(lutTex, vec2(val,gradlen*%1));\n").arg(1.0/Global::lutSize());
+  else
+    {
+      shader += "   int h0 = int(65535.0*val);\n";
+      shader += "   int h1 = h0 / 256;\n";
+      shader += "   h0 = int(mod(float(h0),256.0));\n";
+      shader += "   fh0 = float(h0)/256.0;\n";
+      shader += "   fh1 = float(h1)/256.0;\n";
+      shader += QString("    colorSample = texture2D(lutTex, vec2(fh0,fh1*%1));\n").\
+	arg(1.0/Global::lutSize());
+    }
+
   shader += "    if (mixTag)\n";
   shader += "    {\n";
-  shader += "      vec4 tagcolor = texture1D(tagTex, val);\n";
+  if (!bit16)
+    shader += "      vec4 tagcolor = texture1D(tagTex, val);\n";
+  else
+    shader += "      vec4 tagcolor = texture1D(tagTex, fh0);\n";
   shader += "      if (tagcolor.a > 0.0)\n";
   shader += "        colorSample.rgb = mix(colorSample.rgb, tagcolor.rgb, tagcolor.a);\n";
   shader += "      else\n";
@@ -1033,10 +1105,16 @@ RcShaderFactory::genRaycastShader(bool nearest,
   shader += "    }\n";
   if (viewPresent)
     {
-      shader += QString("  vec2 vg = vec2(val,gradlen*%1);\n").arg(1.0/Global::lutSize());  
+      if (!bit16)
+	shader += QString("  vec2 vg = vec2(val,gradlen*%1);\n").arg(1.0/Global::lutSize());  
+      else
+	shader += QString("    vec2 vg = vec2(fh0, fh1*%1);\n").arg(1.0/Global::lutSize());  
       shader += "  vec4 cs=vec4(0.0);\n";
       shader += "  blend(true, texCoord, vg, cs);\n";
-      shader += QString("  colorSample = mix(colorSample, texture2D(lutTex, vec2(val,(gradlen+cs.y)*%1)), cs.x);\n").arg(1.0/Global::lutSize());
+      if (!bit16)
+	shader += QString("  colorSample = mix(colorSample, texture2D(lutTex, vec2(val,(gradlen+cs.y)*%1)), cs.x);\n").arg(1.0/Global::lutSize());
+      else
+	shader += QString("  colorSample = mix(colorSample, texture2D(lutTex, vec2(fh0,(fh1+cs.y)*%1)), cs.x);\n").arg(1.0/Global::lutSize());
     }
   shader += "  }\n";
   shader += "  else\n";  // cropped
@@ -1078,7 +1156,17 @@ RcShaderFactory::genRaycastShader(bool nearest,
   shader += "         int idx = int(mod(float(sh), 9.0));\n";
   shader += "         vec3 vxc = voxelCoord - rd*float(sh)*shdir + rd*float(sh)*aoVec[idx];\n";
   shader += "         float vv = texture3D(dataTex, vxc).x;\n";
-  shader += "         float valpha = texture2D(lutTex, vec2(vv, 0.0)).a;\n";
+  if (!bit16)
+    shader += "         float valpha = texture2D(lutTex, vec2(vv, 0.0)).a;\n";
+  else
+    {
+      shader += "         int v0 = int(65535.0*vv);\n";
+      shader += "         int v1 = v0 / 256;\n";
+      shader += "         v0 = int(mod(float(v0),256.0));\n";
+      shader += "         float eh0 = float(v0)/256.0;\n";
+      shader += "         float eh1 = float(v1)/256.0;\n";
+      shader += "         float valpha = texture2D(lutTex, vec2(eh0, eh1)).a;\n";
+    }
   shader += "         valpha *= step(float(skipVoxels+5), length(vxc*vsize-skipVoxStart));\n";
   shader += "         float okv = step(float(sh)*0.001, valpha);\n";
   shader += "         okval += okv;\n";
@@ -1090,7 +1178,11 @@ RcShaderFactory::genRaycastShader(bool nearest,
 
   //--------------------------
   // add emissive color
-  shader += QString("      vec4 emisColor = texture2D(lutTex, vec2(val,gradlen*%1+%2));\n").\
+  if (!bit16)
+    shader += QString("      vec4 emisColor = texture2D(lutTex, vec2(val,gradlen*%1+%2));\n"). \
+            arg(1.0/Global::lutSize()).arg(lastSet);
+  else
+    shader += QString("      vec4 emisColor = texture2D(lutTex, vec2(fh0,fh1*%1+%2));\n"). \
             arg(1.0/Global::lutSize()).arg(lastSet);
   shader += "      emisColor.a = 1.0-pow((1.0-emisColor.a),stplod);\n";
   shader += "      emisColor.rgb *= emisColor.a;\n";
@@ -1151,7 +1243,8 @@ RcShaderFactory::genRaycastShader(bool nearest,
 
 QString
 RcShaderFactory::genXRayShader(bool nearest,
-			       QList<CropObject> crops)
+			       QList<CropObject> crops,
+			       bool bit16)
 {
   //------------------------------------
   bool cropPresent = false;

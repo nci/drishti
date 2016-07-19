@@ -55,6 +55,7 @@ class VolumeFileManager
   int width();
   int height();
 
+  int bytesPerVoxel();
   int voxelType();
   int readVoxelType();
 

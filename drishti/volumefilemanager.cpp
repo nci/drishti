@@ -114,6 +114,7 @@ VolumeFileManager::removeFile()
   reset();
 }
 
+int VolumeFileManager::bytesPerVoxel() { return m_bytesPerVoxel; }
 int VolumeFileManager::voxelType() { return m_voxelType; }
 
 int

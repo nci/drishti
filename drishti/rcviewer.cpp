@@ -89,6 +89,7 @@ RcViewer::init()
   m_ftBoxes = 0;
   m_filledBoxes.clear();
 
+  m_bytesPerVoxel = 1;
   m_volPtr = 0;
   m_vfm = 0;
 
@@ -148,6 +149,9 @@ void
 RcViewer::setVolDataPtr(VolumeFileManager *ptr)
 {
   m_vfm = ptr;
+
+  m_bytesPerVoxel = m_vfm->bytesPerVoxel();
+
   m_boxMinMax.clear();
   m_filledBoxes.clear();
   if (m_ftBoxes) delete [] m_ftBoxes;
@@ -274,14 +278,29 @@ RcViewer::generateBoxMinMax()
 	    int dmax = qMin((d+1)*m_boxSize, (int)m_depth);
 	    int wmax = qMin((w+1)*m_boxSize, (int)m_width);
 	    int hmax = qMin((h+1)*m_boxSize, (int)m_height);
-	    for(int dm=dmin; dm<dmax; dm++)
-	      for(int wm=wmin; wm<wmax; wm++)
-		for(int hm=hmin; hm<hmax; hm++)
-		  {
-		    int v = m_volPtr[dm*m_width*m_height + wm*m_height + hm];
-		    vmin = qMin(vmin, v);
-		    vmax = qMax(vmax, v);
-		  }
+	    if (m_bytesPerVoxel == 1)
+	      {
+		for(int dm=dmin; dm<dmax; dm++)
+		  for(int wm=wmin; wm<wmax; wm++)
+		    for(int hm=hmin; hm<hmax; hm++)
+		      {
+			int v = m_volPtr[dm*m_width*m_height + wm*m_height + hm];
+			vmin = qMin(vmin, v);
+			vmax = qMax(vmax, v);
+		      }
+	      }
+	    else
+	      {
+		ushort *vPtr = (ushort*)m_volPtr;
+		for(int dm=dmin; dm<dmax; dm++)
+		  for(int wm=wmin; wm<wmax; wm++)
+		    for(int hm=hmin; hm<hmax; hm++)
+		      {
+			int v = vPtr[dm*m_width*m_height + wm*m_height + hm];
+			vmin = qMin(vmin, v);
+			vmax = qMax(vmax, v);
+		      }
+	      }
 	    m_boxMinMax << vmin;
 	    m_boxMinMax << vmax;
 	  }
@@ -319,7 +338,11 @@ RcViewer::updateFilledBoxes()
   int lmin = 255;
   int lmax = 0;
 
-  for(int i=0; i<255; i++)
+  int iend = 255;
+  if (m_bytesPerVoxel == 2)
+    iend = 65535;
+  
+  for(int i=0; i<iend; i++)
     {
       if (m_lut[4*i+3] > 2)
 	{
@@ -327,8 +350,7 @@ RcViewer::updateFilledBoxes()
 	  break;
 	}
     }
-
-  for(int i=255; i>0; i--)
+  for(int i=iend; i>0; i--)
     {
       if (m_lut[4*i+3] > 2)
 	{
@@ -653,7 +675,7 @@ RcViewer::createFirstHitShader()
 {
   QString shaderString;
 
-  shaderString = RcShaderFactory::genFirstHitShader(m_exactCoord, m_crops);
+  shaderString = RcShaderFactory::genFirstHitShader(m_exactCoord, m_crops, m_bytesPerVoxel==2);
 
   if (m_fhShader)
     glDeleteObjectARB(m_fhShader);
@@ -685,7 +707,7 @@ RcViewer::createIsoRaycastShader()
 {
   QString shaderString;
 
-  shaderString = RcShaderFactory::genIsoRaycastShader(m_exactCoord, m_crops);
+  shaderString = RcShaderFactory::genIsoRaycastShader(m_exactCoord, m_crops, m_bytesPerVoxel==2);
 
   if (m_ircShader)
     glDeleteObjectARB(m_ircShader);
@@ -729,9 +751,9 @@ RcViewer::createRaycastShader()
   QString shaderString;
 
   if (m_renderMode == 1)
-    shaderString = RcShaderFactory::genRaycastShader(m_exactCoord, m_crops);
+    shaderString = RcShaderFactory::genRaycastShader(m_exactCoord, m_crops, m_bytesPerVoxel==2);
   else
-    shaderString = RcShaderFactory::genXRayShader(m_exactCoord, m_crops);
+    shaderString = RcShaderFactory::genXRayShader(m_exactCoord, m_crops, m_bytesPerVoxel==2);
   
   if (m_rcShader)
     glDeleteObjectARB(m_rcShader);
@@ -780,7 +802,7 @@ RcViewer::createShaders()
 
 
   //----------------------
-  shaderString = RcShaderFactory::genEdgeEnhanceShader();
+  shaderString = RcShaderFactory::genEdgeEnhanceShader(m_bytesPerVoxel==2);
 
   m_eeShader = glCreateProgramObjectARB();
   if (! RcShaderFactory::loadShader(m_eeShader,
@@ -903,7 +925,7 @@ RcViewer::updateVoxelsForRaycast()
   m_dragStep = Global::stepsizeDrag();
 
 
-  uchar *voxelVol = new uchar[tsz];
+  uchar *voxelVol = new uchar[m_bytesPerVoxel*tsz];
 
 
   QProgressDialog progress("Updating voxel structure",
@@ -915,14 +937,30 @@ RcViewer::updateVoxelsForRaycast()
   // load data volume
   progress.setValue(20);
   qApp->processEvents();
-  int i = 0;
-  for(int d=m_minDSlice; d<m_maxDSlice; d+=m_sslevel)
-    for(int w=m_minWSlice; w<m_maxWSlice; w+=m_sslevel)
-      for(int h=m_minHSlice; h<m_maxHSlice; h+=m_sslevel)
-	{
-	  voxelVol[i] = m_volPtr[d*m_width*m_height + w*m_height + h];
-	  i++;
-	}
+  if (m_bytesPerVoxel == 1)
+    {
+      int i = 0;
+      for(int d=m_minDSlice; d<m_maxDSlice; d+=m_sslevel)
+	for(int w=m_minWSlice; w<m_maxWSlice; w+=m_sslevel)
+	  for(int h=m_minHSlice; h<m_maxHSlice; h+=m_sslevel)
+	    {
+	      voxelVol[i] = m_volPtr[d*m_width*m_height + w*m_height + h];
+	      i++;
+	    }
+    }
+  else
+    {
+      ushort *voxPtr = (ushort*)voxelVol;
+      ushort *vPtr = (ushort*)m_volPtr;
+      int i = 0;
+      for(int d=m_minDSlice; d<m_maxDSlice; d+=m_sslevel)
+	for(int w=m_minWSlice; w<m_maxWSlice; w+=m_sslevel)
+	  for(int h=m_minHSlice; h<m_maxHSlice; h+=m_sslevel)
+	    {
+	      voxPtr[i] = vPtr[d*m_width*m_height + w*m_height + h];
+	      i++;
+	    }
+    }
   progress.setValue(50);
   qApp->processEvents();
 
@@ -936,14 +974,24 @@ RcViewer::updateVoxelsForRaycast()
   glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   progress.setValue(70);
-  glTexImage3D(GL_TEXTURE_3D,
-	       0, // single resolution
-	       1,
-	       hsz, wsz, dsz,
-	       0, // no border
-	       GL_LUMINANCE,
-	       GL_UNSIGNED_BYTE,
-	       voxelVol);
+  if (m_bytesPerVoxel == 1)
+    glTexImage3D(GL_TEXTURE_3D,
+		 0, // single resolution
+		 1,
+		 hsz, wsz, dsz,
+		 0, // no border
+		 GL_LUMINANCE,
+		 GL_UNSIGNED_BYTE,
+		 voxelVol);
+  else
+    glTexImage3D(GL_TEXTURE_3D,
+		 0, // single resolution
+		 GL_LUMINANCE16,
+		 hsz, wsz, dsz,
+		 0, // no border
+		 GL_LUMINANCE,
+		 GL_UNSIGNED_SHORT,
+		 voxelVol);
   glDisable(GL_TEXTURE_3D);
   //----------------------------
 

@@ -30,6 +30,11 @@ class DrawHiresVolume : public QObject
   bool loadingData() { return m_loadingData; }
   void setRaycastMode(bool m) { m_rcMode = m; }
   
+  void setFocalPoint(float fp) { m_focalPoint = fp; }
+  void setDofTap(int tap) { m_dofTap = tap; }
+  float focalPoint() { return m_focalPoint; }
+  int dofTap() { return m_dofTap; }
+
   Vec pointUnderPixel(QPoint, bool&);
 
   double* brick0Xform();
@@ -159,6 +164,9 @@ class DrawHiresVolume : public QObject
   void histogramUpdated(QImage, QImage);
 
  private :
+  float m_focalPoint;
+  int m_dofTap;
+
   float m_frontOpMod;
   float m_backOpMod;
 
@@ -172,8 +180,8 @@ class DrawHiresVolume : public QObject
   GLuint m_shdBuffer;
   GLuint m_shdTex[2];
 
-  GLuint m_slcBuffer;
-  GLuint m_slcTex[2];
+  GLuint m_dofBuffer;
+  GLuint m_dofTex[3];
 
   int m_currentVolume;
 
@@ -302,7 +310,6 @@ class DrawHiresVolume : public QObject
   void postDrawGeometry();
   void drawGeometry(float, float, Vec,
 		    bool, bool, Vec);
-  Vec getMinZ(QList<Vec>);
 
   void collectEnclosingBoxInfo();
   void drawAxisText();
@@ -357,9 +364,11 @@ class DrawHiresVolume : public QObject
 			    bool,
 			    VolumeFileManager&);
 
-  void screenShadow(int, int, int, int);
+  void screenShadow(int, int, int, int, float);
 
   void check_MIP();
+
+  void depthOfFieldBlur(int,int,int,int,int);
 };
 
 #endif

@@ -540,6 +540,64 @@ ShaderFactory::genBlurShaderString(bool softShadows,
 }
 
 QString
+ShaderFactory::genBoxShaderString()
+{
+  QString shader;
+
+  shader += "#extension GL_ARB_texture_rectangle : enable\n";
+  shader += "uniform sampler2DRect blurTex;\n";
+  shader += "uniform vec2 direc;\n";
+  shader += "\n";
+  shader += "void main(void)\n";
+  shader += "{\n";
+  shader += "  vec4 color = vec4(0.0);\n";
+  shader += "  vec4 spos = gl_TexCoord[0];\n";
+  shader += "\n";
+//  shader += "  gl_FragColor = texture2DRect(blurTex, spos.xy)*0.29411764705882354;\n";
+//  shader += "  gl_FragColor += texture2DRect(blurTex, spos.xy+direc*1.3333333333)*0.35294117647058826;\n";
+//  shader += "  gl_FragColor += texture2DRect(blurTex, spos.xy-direc*1.3333333333)*0.35294117647058826;\n";
+
+  shader += "  gl_FragColor = texture2DRect(blurTex, spos.xy+direc*0.5)*0.5;\n";
+  shader += "  gl_FragColor+= texture2DRect(blurTex, spos.xy-direc*0.5)*0.5;\n";
+  shader += "}\n";
+
+  return shader;
+}
+//QString
+//ShaderFactory::genBoxShaderString()
+//{
+//  QString shader;
+//
+//  shader = "#extension GL_ARB_texture_rectangle : enable\n";
+//  shader += "uniform sampler2DRect blurTex;\n";
+//  shader += "uniform int tap;\n";
+//  shader += "\n";
+//  shader += "void main(void)\n";
+//  shader += "{\n";
+//  shader += "  vec4 color = vec4(0.0);\n";
+//  shader += "  vec4 spos = gl_TexCoord[0];\n";
+//  shader += "\n";
+//
+//  shader += "if (tap > 0)\n";
+//  shader += "{\n";
+//  shader += "  for (int i=-tap; i<=tap; i++)\n";
+//  shader += "  for (int j=-tap; j<=tap; j++)\n";
+//  shader += "    color += texture2DRect(blurTex, spos.xy + vec2(i,j));\n";
+//  shader += "  float dg = float(2*tap+1);\n";
+//  shader += "  gl_FragColor.rgba = color/(dg*dg);\n";
+//  shader += "  gl_FragColor = clamp(gl_FragColor, vec4(0.0,0.0,0.0,0.0), vec4(1.0,1.0,1.0,1.0));\n";
+//  shader += "}\n";
+//  shader += "else \n"; // just copy
+//  shader += "  gl_FragColor += texture2DRect(blurTex, spos.xy);\n";
+//
+//
+//  shader += "}\n";
+//
+//  return shader;
+//}
+
+
+QString
 ShaderFactory::genRectBlurShaderString(int filter)
 {
   QString shader;

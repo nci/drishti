@@ -4167,6 +4167,19 @@ Viewer::processCommand(QString cmd)
       Global::setLod(rlod);
       reloadData();
     }
+  else if (list[0] == "depthoffield")
+    {
+      if (list.size() > 1)
+	{
+	  float dof = list[1].toFloat(&ok);
+	  m_hiresVolume->setFocalPoint(dof);
+	}
+      if (list.size() > 2)
+	{
+	  int tap = list[2].toInt(&ok);
+	  m_hiresVolume->setDofTap(tap);
+	}
+    }
   else if (list[0] == "addrotationanimation")
     {
       int axis = 0;

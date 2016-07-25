@@ -184,9 +184,10 @@ DrawHiresVolume::DrawHiresVolume(Viewer *viewer,
   m_shdTex[1] = 0;
   m_shdNum = 0;
 
-  m_slcBuffer = 0;
-  m_slcTex[0] = 0;
-  m_slcTex[1] = 0;
+  m_dofBuffer = 0;
+  m_dofTex[0] = 0;
+  m_dofTex[1] = 0;
+  m_dofTex[2] = 0;
 
   renew();
 }
@@ -199,6 +200,9 @@ DrawHiresVolume::~DrawHiresVolume()
 void
 DrawHiresVolume::renew()
 {
+  m_focalPoint = -1.0;
+  m_dofTap = 13;
+
   m_frontOpMod = 1.0;
   m_backOpMod = 1.0;
   m_saveImage2Volume = false;
@@ -261,25 +265,26 @@ DrawHiresVolume::renew()
 
   Global::setUpdatePruneTexture(true);
 
-  if (m_slcBuffer) glDeleteFramebuffers(1, &m_slcBuffer);
-  if (m_slcTex[0]) glDeleteTextures(2, m_slcTex);
-  m_slcBuffer = 0;
-  m_slcTex[0] = m_slcTex[1] = 0;
-
   if (m_shdBuffer) glDeleteFramebuffers(1, &m_shdBuffer);
   if (m_shdTex[0]) glDeleteTextures(2, m_shdTex);  
   m_shdBuffer = 0;
   m_shdTex[0] = m_shdTex[1] = 0;
   m_shdNum = 0;
+
+  if (m_dofBuffer) glDeleteFramebuffers(1, &m_dofBuffer);
+  if (m_dofTex[0]) glDeleteTextures(3, m_dofTex);
+  m_dofBuffer = 0;
+  m_dofTex[0] = m_dofTex[1] = m_dofTex[2] = 0;
+
 }
 
 void
 DrawHiresVolume::cleanup()
 {
-  if (m_slcBuffer) glDeleteFramebuffers(1, &m_slcBuffer);
-  if (m_slcTex[0]) glDeleteTextures(2, m_slcTex);
-  m_slcBuffer = 0;
-  m_slcTex[0] = m_slcTex[1] = 0;
+  if (m_dofBuffer) glDeleteFramebuffers(1, &m_dofBuffer);
+  if (m_dofTex[0]) glDeleteTextures(3, m_dofTex);
+  m_dofBuffer = 0;
+  m_dofTex[0] = m_dofTex[1] = m_dofTex[2] = 0;
 
   if (m_shdBuffer) glDeleteFramebuffers(1, &m_shdBuffer);
   if (m_shdTex[0]) glDeleteTextures(2, m_shdTex);  
@@ -439,13 +444,13 @@ DrawHiresVolume::initShadowBuffers(bool force)
 
   GLuint target = GL_TEXTURE_RECTANGLE_EXT;
 
-  if (m_slcBuffer) glDeleteFramebuffers(1, &m_slcBuffer);
-  if (m_slcTex[0]) glDeleteTextures(2, m_slcTex);  
-  glGenFramebuffers(1, &m_slcBuffer);
-  glGenTextures(2, m_slcTex);
-  for(int i=0; i<2; i++)
+  if (m_dofBuffer) glDeleteFramebuffers(1, &m_dofBuffer);
+  if (m_dofTex[0]) glDeleteTextures(3, m_dofTex);  
+  glGenFramebuffers(1, &m_dofBuffer);
+  glGenTextures(3, m_dofTex);
+  for(int i=0; i<3; i++)
     {
-      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[i]);
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_dofTex[i]);
       glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,
 		   0,
 		   GL_RGBA,
@@ -946,14 +951,16 @@ void
 DrawHiresVolume::createBlurShader(bool doBlur, int blurSize, float blurRadius)
 {
   QString shaderString;
-  if (blurRadius < 1.0)
-    shaderString = ShaderFactory::genBlurShaderString(false, ceil(blurSize*m_imgSizeRatio), 0);
-  else
-    {
-      int bs = ceil(blurSize*m_imgSizeRatio)*blurRadius;
-      //shaderString = ShaderFactory::genBlurShaderString(doBlur, bs, 0.5*blurRadius);
-      shaderString = ShaderFactory::genBlurShaderString(doBlur, bs, 1.0);
-    }
+  shaderString = ShaderFactory::genBoxShaderString();
+
+//  if (blurRadius < 1.0)
+//    shaderString = ShaderFactory::genBlurShaderString(false, ceil(blurSize*m_imgSizeRatio), 0);
+//  else
+//    {
+//      int bs = ceil(blurSize*m_imgSizeRatio)*blurRadius;
+//      //shaderString = ShaderFactory::genBlurShaderString(doBlur, bs, 0.5*blurRadius);
+//      shaderString = ShaderFactory::genBlurShaderString(doBlur, bs, 1.0);
+//    }
 
   if (m_blurShader)
     glDeleteObjectARB(m_blurShader);
@@ -962,7 +969,9 @@ DrawHiresVolume::createBlurShader(bool doBlur, int blurSize, float blurRadius)
   if (! ShaderFactory::loadShader(m_blurShader,
 				  shaderString))
     exit(0);
-  m_blurParm[0] = glGetUniformLocationARB(m_blurShader, "shadowTex");
+  //m_blurParm[0] = glGetUniformLocationARB(m_blurShader, "shadowTex");
+  m_blurParm[0] = glGetUniformLocationARB(m_blurShader, "blurTex");
+  m_blurParm[1] = glGetUniformLocationARB(m_blurShader, "direc");
 }
 
 void
@@ -1447,22 +1456,6 @@ DrawHiresVolume::collectBrickInformation(bool force)
       subcorner += VECPRODUCT(m_dataMin, voxelScaling);
 
       subdim = VECPRODUCT(m_virtualTextureSize,voxelScaling) - Vec(1,1,1);
-
-//      int lod = m_Volume->getSubvolumeSubsamplingLevel();
-//      for (int i=0; i<8; i++)
-//	{
-//	  Vec tx = subvol[i]-Vec(subcorner.x, subcorner.y, 0);
-//	  tx.x /= lod;
-//	  tx.y /= lod;
-//	  texture[i] = VECDIVIDE(tx, voxelScaling);
-//	}
-//      QMessageBox::information(0, "", QString("%1 %2 %3\n%4 %5 %6").\
-//			       arg(subvol[0].x).\
-//			       arg(subvol[0].y).\
-//			       arg(subvol[0].z).\
-//			       arg(subvol[6].x).\
-//			       arg(subvol[6].y).\
-//			       arg(subvol[6].z));
 
       if (Global::flipImage())
 	{
@@ -2055,27 +2048,6 @@ DrawHiresVolume::collectEnclosingBoxInfo()
 }
 
 
-Vec
-DrawHiresVolume::getMinZ(QList<Vec> v)
-{
-  float maxD;
-  Vec pv, scr, scr0;
-  maxD = -1;
-  scr0 = m_Viewer->camera()->projectedCoordinatesOf(v[0]);
-  for(int i=1; i<v.count(); i++)
-    {
-      scr = m_Viewer->camera()->projectedCoordinatesOf(v[i]);
-      float d = (scr0.x-scr.x)*(scr0.x-scr.x) +
-	        (scr0.y-scr.y)*(scr0.y-scr.y);
-      if (i == 1 || maxD < d)
-	{
-	  pv = v[i];
-	  maxD = d;
-	}
-    }
-  return pv;
-}
-
 void
 DrawHiresVolume::postDrawGeometry()
 {
@@ -2557,14 +2529,14 @@ DrawHiresVolume::drawDefault(Vec pn,
 	}
 
 
-      // clear slice buffer
-      glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
-      for(int fbn=0; fbn<2; fbn++)
+      // clear depth of field buffer
+      glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_dofBuffer);
+      for(int fbn=0; fbn<3; fbn++)
 	{
 	  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
 				 GL_COLOR_ATTACHMENT0_EXT,
 				 GL_TEXTURE_RECTANGLE_ARB,
-				 m_slcTex[fbn],
+				 m_dofTex[fbn],
 				 0);
 	  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
 	  glClearColor(0, 0, 0, 0);
@@ -2871,14 +2843,35 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
     pnDir = -step;
   int pno = 0;
   Vec po = poStart;
+
+  //--------------depth of field--------
+  int dofSlice, maxDof;
+  if (m_dofTap > 0 && m_focalPoint >= 0.0 && m_focalPoint <= 1.0)
+    {
+      dofSlice = m_focalPoint*layers;
+      maxDof = qMax(dofSlice,layers-dofSlice);
+    }
+  //------------------------------------
+
   for(int s=0; s<layers; s++)
     {
+
       po += pnDir;
 
+      int SlcXMin, SlcXMax, SlcYMin, SlcYMax;
+      SlcXMin = SlcYMin = 100000;
+      SlcXMax = SlcYMax = 0;
+
+      float tap = 0;
+      if (m_dofTap > 0 && m_focalPoint >= 0.0 && m_focalPoint <= 1.0)
+	{
+	  tap = m_dofTap*StaticFunctions::smoothstep(0.0, 1.0,
+				 ((float)qAbs(dofSlice-s)/(float)maxDof));
+	  if (tap < 1.0) tap = 0;
+	}
 
       {
 	float sdist = qAbs((maxvert - po)*pn);
-	//float modop = qBound(0.0f, sdist/deplen, 1.0f);
 	float modop = StaticFunctions::smoothstep(0, 1, sdist/deplen);
 	modop = m_frontOpMod*(1-modop) + modop*m_backOpMod;
 	modop = qBound(0.0f, modop, 1.0f);
@@ -2899,9 +2892,50 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 	  s%shadowRenderSteps == 0)
 	{
 	  glDisable(GL_BLEND);
-	  screenShadow(ScreenXMin, ScreenXMax, ScreenYMin, ScreenYMax);
+	  screenShadow(ScreenXMin, ScreenXMax, ScreenYMin, ScreenYMax, qMax(1.0f,tap));
 	  glEnable(GL_BLEND);
 	}
+
+      //---------------------
+      if (m_drawImageType != Enums::DragImage)
+	{
+	  if (tap > 0)
+	    glViewport(0,0, m_shadowWidth/tap, m_shadowHeight/tap);
+	  else
+	    {
+	      //-------------------------------------------
+	      // restore viewport
+	      if (MainWindowUI::mainWindowUI()->actionFor3DTV->isChecked() ||
+		  MainWindowUI::mainWindowUI()->actionCrosseye->isChecked())
+		{
+		  if (MainWindowUI::mainWindowUI()->actionFor3DTV->isChecked())
+		    {
+		      if (Global::saveImageType() == Global::LeftImage)
+			glViewport(0,0, m_shadowWidth/2, m_shadowHeight);
+		      else
+			glViewport(m_shadowWidth/2,0, m_shadowWidth/2, m_shadowHeight);
+		}
+		  else
+		    {
+		      if (Global::saveImageType() == Global::LeftImage)
+			glViewport(m_shadowWidth/2,0, m_shadowWidth/2, m_shadowHeight);
+		      else
+			glViewport(0,0, m_shadowWidth/2, m_shadowHeight);
+		    }
+		}
+	    }
+	  //-------------------------------------------
+	  
+	  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_dofBuffer);
+	  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+				 GL_COLOR_ATTACHMENT0_EXT,
+				 GL_TEXTURE_RECTANGLE_ARB,
+				 m_dofTex[0],
+				 0);
+	  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
+	  glClear(GL_COLOR_BUFFER_BIT);
+	}
+      //---------------------
 
       if (m_drawGeometryPresent &&
 	  (s%Global::geoRenderSteps() == 0 || s == layers-1))
@@ -2941,6 +2975,15 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 	      pno++;
 	  
 	      //---------------------------------
+	      for(int pi=0; pi<vap->edges; pi++)
+		{  
+		  Vec scr = m_Viewer->camera()->projectedCoordinatesOf(vap->vertex[pi]);
+		  scr.y = m_shadowHeight - scr.y;
+		  SlcXMin = qMin(SlcXMin, (int)scr.x);
+		  SlcXMax = qMax(SlcXMax, (int)scr.x);
+		  SlcYMin = qMin(SlcYMin, (int)scr.y);
+		  SlcYMax = qMax(SlcYMax, (int)scr.y);
+		}
 	      for(int pi=0; pi<vap->edges; pi++)
 		{  
 		  Vec scr = m_Viewer->camera()->projectedCoordinatesOf(vap->vertex[pi]);
@@ -3011,6 +3054,7 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 			       slabstart, slabend,
 			       lenx2, leny2, lod,
 			       dragTexsize);
+
   
 	} // not DummyVolume
       //------------------------------------------------------
@@ -3022,7 +3066,51 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 	  glClear(GL_COLOR_BUFFER_BIT);
 	  //glClear(GL_DEPTH_BUFFER_BIT);
 	}
+
+      //-------------------------------------------
+      // copy to imageBuffer
+      if (m_drawImageType != Enums::DragImage)
+	{
+	  int xmin = 0;
+	  int ymin = 0;
+	  int xmax = m_shadowWidth/qMax(1.0f,tap);
+	  int ymax = m_shadowHeight/qMax(1.0f,tap);
+
+	  if (tap > 0)
+	    depthOfFieldBlur(xmin, xmax, ymin, ymax, (int)tap);
+
+	  StaticFunctions::pushOrthoView(0, 0, m_shadowWidth, m_shadowHeight);
+	  m_Viewer->imageBuffer()->bind();
+	  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
+
+	  glActiveTexture(GL_TEXTURE2);
+	  glEnable(GL_TEXTURE_RECTANGLE_ARB);
+	  if (tap < 1.0)
+	    glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_dofTex[0]);
+	  else
+	    glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_dofTex[1]);
+
+	  glUseProgramObjectARB(Global::copyShader());
+	  glUniform1iARB(Global::copyParm(0), 2); // copy from dofTex[0] into dofTex[1]
+	  if (tap > 0)
+	    StaticFunctions::drawQuad(0, 0,
+				      m_shadowWidth, m_shadowHeight, 1.0/tap);
+	  else
+	    StaticFunctions::drawQuad(0, 0,
+				      m_shadowWidth, m_shadowHeight, 1);
+
+	  StaticFunctions::popOrthoView();
+	}
+      //-------------------------------------------
+
     } // loop over s
+
+
+  if (m_drawImageType != Enums::DragImage)
+    {
+      m_Viewer->imageBuffer()->bind();
+      glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
+    }
 
   if (m_saveImage2Volume)
     {
@@ -3068,57 +3156,109 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 }
 
 void
+DrawHiresVolume::depthOfFieldBlur(int xmin, int xmax, int ymin, int ymax,
+				  int ntimes)
+{
+  glDisable(GL_DEPTH_TEST);
+
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_ONE, GL_ZERO); // replace texture
+
+  StaticFunctions::pushOrthoView(0, 0, m_shadowWidth/ntimes, m_shadowHeight/ntimes);
+  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_dofBuffer);
+  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			 GL_COLOR_ATTACHMENT0_EXT,
+			 GL_TEXTURE_RECTANGLE_ARB,
+			 m_dofTex[1],
+			 0);
+  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
+  glClear(GL_COLOR_BUFFER_BIT);
+	      
+  glActiveTexture(GL_TEXTURE2);
+  glEnable(GL_TEXTURE_RECTANGLE_ARB);
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_dofTex[0]);
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,
+		  GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,
+		  GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glUseProgramObjectARB(Global::copyShader());
+  glUniform1iARB(Global::copyParm(0), 2); // copy from dofTex[0] into dofTex[1]
+  glBegin(GL_QUADS);
+  glTexCoord2f(xmin, ymin); glVertex2f(xmin, ymin);
+  glTexCoord2f(xmax, ymin); glVertex2f(xmax, ymin);
+  glTexCoord2f(xmax, ymax); glVertex2f(xmax, ymax);
+  glTexCoord2f(xmin, ymax); glVertex2f(xmin, ymax);
+  glEnd();
+
+  glUseProgramObjectARB(m_blurShader);
+  glUniform1iARB(m_blurParm[0], 2); // copy from imageBuffer into sliceTex[0]
+
+  for(int i=0; i<qMax(2,ntimes/2); i++)
+    {
+      glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			     GL_COLOR_ATTACHMENT0_EXT,
+			     GL_TEXTURE_RECTANGLE_ARB,
+			     m_dofTex[2],
+			     0);
+      glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
+      glClear(GL_COLOR_BUFFER_BIT);
+
+      glActiveTexture(GL_TEXTURE2);
+      glEnable(GL_TEXTURE_RECTANGLE_ARB);
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_dofTex[1]);
+      
+      glUniform2fARB(m_blurParm[1], 1.0, 0.0); // direc
+      glBegin(GL_QUADS);
+      glTexCoord2f(xmin, ymin); glVertex2f(xmin, ymin);
+      glTexCoord2f(xmax, ymin); glVertex2f(xmax, ymin);
+      glTexCoord2f(xmax, ymax); glVertex2f(xmax, ymax);
+      glTexCoord2f(xmin, ymax); glVertex2f(xmin, ymax);
+      glEnd();
+      glFinish();
+
+      glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			     GL_COLOR_ATTACHMENT0_EXT,
+			     GL_TEXTURE_RECTANGLE_ARB,
+			     m_dofTex[1],
+			     0);
+      glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
+      glClear(GL_COLOR_BUFFER_BIT);
+
+      glActiveTexture(GL_TEXTURE2);
+      glEnable(GL_TEXTURE_RECTANGLE_ARB);
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_dofTex[2]);
+      
+      glUniform2fARB(m_blurParm[1], 0.0, 1.0); // direc
+      glBegin(GL_QUADS);
+      glTexCoord2f(xmin, ymin); glVertex2f(xmin, ymin);
+      glTexCoord2f(xmax, ymin); glVertex2f(xmax, ymin);
+      glTexCoord2f(xmax, ymax); glVertex2f(xmax, ymax);
+      glTexCoord2f(xmin, ymax); glVertex2f(xmin, ymax);
+      glEnd();
+      glFinish();
+    }
+  glUseProgramObjectARB(0); // disable shaders 
+
+  StaticFunctions::popOrthoView();
+
+  glEnable(GL_BLEND);
+  if (!m_backlit)
+    glBlendFunc(GL_ONE_MINUS_DST_ALPHA, GL_ONE); // for frontlit volume
+  else
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); // back to front
+
+  glEnable(GL_DEPTH_TEST);
+}
+
+void
 DrawHiresVolume::screenShadow(int ScreenXMin, int ScreenXMax,
-			      int ScreenYMin, int ScreenYMax)
+			      int ScreenYMin, int ScreenYMax,
+			      float tap)
 {
   StaticFunctions::pushOrthoView(0, 0, m_shadowWidth, m_shadowHeight);
 
   glEnable(GL_BLEND);
   glBlendFunc(GL_ONE, GL_ZERO); // replace texture in sliceTex[1]
-
-  glActiveTexture(GL_TEXTURE3);
-  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[0]);
-
-  //------------------------------------------------------------
-  // extract slice from image
-  // sliceTex[0] = (imageTex - sliceTex[1])/(1-sliceTex[1])
-  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
-  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
-			 GL_COLOR_ATTACHMENT0_EXT,
-			 GL_TEXTURE_RECTANGLE_ARB,
-			 m_slcTex[1],
-			 0);
-  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
-  glUseProgramObjectARB(Global::extractSliceShader());
-  glUniform1iARB(Global::extractSliceParm(0), 2); // imageBuffer
-  glUniform1iARB(Global::extractSliceParm(1), 3); // sliceTex[0]
-  if (MainWindowUI::mainWindowUI()->actionFor3DTV->isChecked() ||
-      MainWindowUI::mainWindowUI()->actionCrosseye->isChecked())
-    StaticFunctions::drawQuad(0, 0,
-			      m_shadowWidth, m_shadowHeight, 1);
-  else
-    StaticFunctions::drawQuad(ScreenXMin, ScreenYMin,
-			      ScreenXMax, ScreenYMax, 1);
-  //------------------------------------------------------------
-
-  //------------------------------------------------------------
-  // copy current image to sliceTex[1]
-  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
-			 GL_COLOR_ATTACHMENT0_EXT,
-			 GL_TEXTURE_RECTANGLE_ARB,
-			 m_slcTex[0],
-			 0);
-  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
-  glUseProgramObjectARB(Global::copyShader());
-  glUniform1iARB(Global::copyParm(0), 2); // copy from imageBuffer into sliceTex[0]
-  if (MainWindowUI::mainWindowUI()->actionFor3DTV->isChecked() ||
-      MainWindowUI::mainWindowUI()->actionCrosseye->isChecked())
-    StaticFunctions::drawQuad(0, 0,
-			      m_shadowWidth, m_shadowHeight, 1);
-  else
-    StaticFunctions::drawQuad(ScreenXMin, ScreenYMin,
-			      ScreenXMax, ScreenYMax, 1);
-  //------------------------------------------------------------
 
 
   int xmin = qMax(0, ScreenXMin/m_shadowLod);
@@ -3157,16 +3297,13 @@ DrawHiresVolume::screenShadow(int ScreenXMin, int ScreenXMax,
 
   glActiveTexture(GL_TEXTURE2);
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
-  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[1]);
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_dofTex[0]);
 
   //------------------------------------------------------------
   // blend slice using front to back blending into shadowbuffer
   glBlendFunc(GL_ONE_MINUS_DST_ALPHA, GL_ONE);
   glUseProgramObjectARB(Global::copyShader());
   glUniform1iARB(Global::copyParm(0), 2); // copy from sliceTex[1] to shadowbuffer
-  //glUseProgramObjectARB(Global::reduceShader());
-  //glUniform1iARB(Global::reduceParm(0), 2); // 
-  //glUniform1iARB(Global::reduceParm(1), m_shadowLod); // reduction factor
   glBegin(GL_QUADS);
   glTexCoord2f(xmin, ymin); glVertex2f(txmin, tymin);
   glTexCoord2f(xmax, ymin); glVertex2f(txmax, tymin);
@@ -3174,28 +3311,55 @@ DrawHiresVolume::screenShadow(int ScreenXMin, int ScreenXMax,
   glTexCoord2f(xmin, ymax); glVertex2f(txmin, tymax);
   glEnd();
 
-  //------------------------------------------------------------
+
+  //-------------------------------
   // smooth shadow into other shadowbuffer
   glBlendFunc(GL_ONE, GL_ZERO); // replace texture
-  glActiveTexture(GL_TEXTURE3);
-  glEnable(GL_TEXTURE_RECTANGLE_ARB);
-  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_shdTex[m_shdNum]);
-  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
-			 GL_COLOR_ATTACHMENT0_EXT,
-			 GL_TEXTURE_RECTANGLE_ARB,
-			 m_shdTex[(m_shdNum+1)%2],
-			 0);
-  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
-  glUseProgramObjectARB(m_blurShader);
-  glUniform1iARB(m_blurParm[0], 3); // copy from shadowBuffer[0] to shadowbuffer[1]
-//  glUniform1iARB(Global::reduceParm(0), 3); // copy from shadowBuffer[0] to shadowbuffer[1]
-//  glUniform1iARB(Global::reduceParm(1), 1); // reduction factor
-  glBegin(GL_QUADS);
-  glTexCoord2f(xmin, ymin); glVertex2f(txmin, tymin);
-  glTexCoord2f(xmax, ymin); glVertex2f(txmax, tymin);
-  glTexCoord2f(xmax, ymax); glVertex2f(txmax, tymax);
-  glTexCoord2f(xmin, ymax); glVertex2f(txmin, tymax);
-  glEnd();
+  for(int i=0; i<=(int)m_lightInfo.shadowBlur; i++)
+    {
+      glActiveTexture(GL_TEXTURE3);
+      glEnable(GL_TEXTURE_RECTANGLE_ARB);
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_shdTex[m_shdNum]);
+      glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			     GL_COLOR_ATTACHMENT0_EXT,
+			     GL_TEXTURE_RECTANGLE_ARB,
+			     m_shdTex[(m_shdNum+1)%2],
+			     0);
+      glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
+      glUseProgramObjectARB(m_blurShader);
+      glUniform1iARB(m_blurParm[0], 3); // copy from shadowBuffer[0] to shadowbuffer[1]
+      glUniform2fARB(m_blurParm[1], 1.0, 0.0); // direc
+      glBegin(GL_QUADS);
+      glTexCoord2f(xmin, ymin); glVertex2f(txmin, tymin);
+      glTexCoord2f(xmax, ymin); glVertex2f(txmax, tymin);
+      glTexCoord2f(xmax, ymax); glVertex2f(txmax, tymax);
+      glTexCoord2f(xmin, ymax); glVertex2f(txmin, tymax);
+      glEnd();
+
+      m_shdNum = (m_shdNum+1)%2;
+      glActiveTexture(GL_TEXTURE3);
+      glEnable(GL_TEXTURE_RECTANGLE_ARB);
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_shdTex[m_shdNum]);
+      glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			     GL_COLOR_ATTACHMENT0_EXT,
+			     GL_TEXTURE_RECTANGLE_ARB,
+			     m_shdTex[(m_shdNum+1)%2],
+			     0);
+      glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
+      glUseProgramObjectARB(m_blurShader);
+      glUniform1iARB(m_blurParm[0], 3); // copy from shadowBuffer[1] to shadowbuffer[0]
+      glUniform2fARB(m_blurParm[1], 0.0, 1.0); // direc
+      glBegin(GL_QUADS);
+      glTexCoord2f(xmin, ymin); glVertex2f(txmin, tymin);
+      glTexCoord2f(xmax, ymin); glVertex2f(txmax, tymin);
+      glTexCoord2f(xmax, ymax); glVertex2f(txmax, tymax);
+      glTexCoord2f(xmin, ymax); glVertex2f(txmin, tymax);
+      glEnd();
+    }
+
+  //-------------------------------
+
+
 
   glDisable(GL_BLEND);
   if (!m_backlit)
@@ -3345,23 +3509,9 @@ DrawHiresVolume::getSlices(Vec poStart,
   m_clipPos = GeometryObjects::clipplanes()->positions();
   m_clipNormal = GeometryObjects::clipplanes()->normals();
 
-//  QList<int> thickness = GeometryObjects::clipplanes()->thickness();
-//  QList<QVector4D> viewport = GeometryObjects::clipplanes()->viewport();
   QList<int> tfset = GeometryObjects::clipplanes()->tfset();
   QList<bool> applyclip = GeometryObjects::clipplanes()->applyClip();
   Vec voxelScaling = Global::voxelScaling();
-//  for(int i=0; i<m_clipPos.count(); i++)
-//    {
-//      QVector4D vp = viewport[i];
-//      // change clip position when textured plane and viewport active
-//      if (tfset[i] >= 0 &&
-//	  tfset[i] < Global::lutSize() &&
-//	  vp.x() >= 0.0)
-//	{
-//	  Vec tang = VECDIVIDE(m_clipNormal[i], voxelScaling);
-//	  m_clipPos[i] += tang*thickness[i];
-//	}
-//    }
 
   QList<int> tfSet;
   QList< QList<bool> > clips;

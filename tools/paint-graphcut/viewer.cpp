@@ -113,6 +113,29 @@ Viewer::setExactCoord(bool b)
   update();
 }
 
+QList<Vec>
+Viewer::clipPos()
+{
+  QList<Vec> cPos = m_clipPlanes->positions();
+  Vec RvoxelScaling = Global::relativeVoxelScaling();
+  for(int ci=0; ci<cPos.count(); ci++)
+    cPos[ci] = VECDIVIDE(cPos[ci], RvoxelScaling);
+  
+  return cPos;
+}
+QList<Vec> Viewer::clipNorm()
+{
+  QList<Vec> cNorm = m_clipPlanes->normals();
+  Vec RvoxelScaling = Global::relativeVoxelScaling();
+  for(int ci=0; ci<cNorm.count(); ci++)
+    {
+      cNorm[ci] = VECPRODUCT(cNorm[ci], RvoxelScaling);
+      cNorm[ci].normalize();
+    }
+  
+  return cNorm;
+}
+
 void
 Viewer::setUseMask(bool b)
 {
@@ -676,24 +699,18 @@ Viewer::updateViewerBox(int minD, int maxD, int minW, int maxW, int minH, int ma
   m_minHSlice = minH;
   m_maxHSlice = maxH;
 
-  setSceneCenter(Vec((m_maxHSlice+m_minHSlice),
-		     (m_maxWSlice+m_minWSlice),
-		     (m_maxDSlice+m_minDSlice))/2);		 
+  Vec voxelScaling = Global::relativeVoxelScaling();
 
+  Vec bmin = Vec(m_minHSlice, m_minWSlice, m_minDSlice);
+  Vec bmax = Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice);
+  bmin = VECPRODUCT(bmin, voxelScaling);
+  bmax = VECPRODUCT(bmax, voxelScaling);
+
+  setSceneCenter((bmin+bmax)/2);
   
-  m_clipPlanes->setBounds(Vec(m_minHSlice,
-			      m_minWSlice,
-			      m_minDSlice),
-			  Vec(m_maxHSlice,
-			      m_maxWSlice,
-			      m_maxDSlice));
+  m_clipPlanes->setBounds(bmin, bmax);
 
-  m_boundingBox.setPositions(Vec(m_minHSlice,
-				 m_minWSlice,
-				 m_minDSlice),
-			     Vec(m_maxHSlice,
-				 m_maxWSlice,
-				 m_maxDSlice));
+  m_boundingBox.setPositions(bmin, bmax);
 }
 
 void
@@ -774,6 +791,8 @@ Viewer::showSketchPad(bool b)
 void
 Viewer::keyPressEvent(QKeyEvent *event)
 {
+  Vec voxelScaling = Global::relativeVoxelScaling();
+
   if (event->key() == Qt::Key_Escape)
     {
       if (m_savingImages > 0)
@@ -860,6 +879,9 @@ Viewer::keyPressEvent(QKeyEvent *event)
     {  
       Vec bmin, bmax;
       m_boundingBox.bounds(bmin, bmax);
+      bmin = VECDIVIDE(bmin, voxelScaling);
+      bmax = VECDIVIDE(bmax, voxelScaling);
+
       if (m_tag1 > -1 && m_tag2 >= -1)
 	emit mergeTags(bmin, bmax, m_tag1, m_tag2, m_mergeTagTF);      
       else
@@ -882,6 +904,7 @@ Viewer::keyPressEvent(QKeyEvent *event)
   // process clipplane events
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
+
   m_clipPlanes->setBounds(bmin, bmax);
   if (m_clipPlanes->keyPressEvent(event))
     {
@@ -1027,6 +1050,12 @@ Viewer::processCommand(QString cmd)
   cmd = cmd.toLower();
   QStringList list = cmd.split(" ", QString::SkipEmptyParts);
  
+  Vec voxelScaling = Global::relativeVoxelScaling();
+
+  Vec bmin, bmax;
+  m_boundingBox.bounds(bmin, bmax);
+  bmin = VECDIVIDE(bmin, voxelScaling);
+  bmax = VECDIVIDE(bmax, voxelScaling);
 
   if (list[0].contains("tagsused"))
     {
@@ -1056,8 +1085,6 @@ Viewer::processCommand(QString cmd)
 	      return;
 	    }
 	}
-      Vec bmin, bmax;
-      m_boundingBox.bounds(bmin, bmax);
       emit shrinkwrap(bmin, bmax, tag1, false, 1);
       return;
     }
@@ -1086,8 +1113,6 @@ Viewer::processCommand(QString cmd)
 	      return;
 	    }
 	}
-      Vec bmin, bmax;
-      m_boundingBox.bounds(bmin, bmax);
       emit shrinkwrap(bmin, bmax, tag1, true, width);
       return;
     }
@@ -1105,8 +1130,6 @@ Viewer::processCommand(QString cmd)
 	      return;
 	    }
 	}
-      Vec bmin, bmax;
-      m_boundingBox.bounds(bmin, bmax);
       emit resetTag(bmin, bmax, tag1);
       return;
     }
@@ -1130,10 +1153,8 @@ Viewer::processCommand(QString cmd)
 	      return;
 	    }
 	}
-      Vec bmin, bmax;
-      m_boundingBox.bounds(bmin, bmax);
-      QList<Vec> cPos =  m_clipPlanes->positions();
-      QList<Vec> cNorm = m_clipPlanes->normals();
+      QList<Vec> cPos =  clipPos();
+      QList<Vec> cNorm = clipNorm();
       VolumeOperations::setClip(cPos, cNorm);
       VolumeOperations::getVolume(bmin, bmax, tag1);
       return;
@@ -1150,8 +1171,6 @@ Viewer::processCommand(QString cmd)
 				       arg(tag1));
 	      return;
 	    }
-	  Vec bmin, bmax;
-	  m_boundingBox.bounds(bmin, bmax);
 	  emit setVisible(bmin, bmax, tag1, true);
 	}
       return;
@@ -1168,8 +1187,6 @@ Viewer::processCommand(QString cmd)
 				       arg(tag1));
 	      return;
 	    }
-	  Vec bmin, bmax;
-	  m_boundingBox.bounds(bmin, bmax);
 	  emit setVisible(bmin, bmax, tag1, false);
 	}
       return;
@@ -1188,8 +1205,6 @@ Viewer::processCommand(QString cmd)
 				       arg(tag1).arg(tag2));
 	      return;
 	    }
-	  Vec bmin, bmax;
-	  m_boundingBox.bounds(bmin, bmax);
 	  emit mergeTags(bmin, bmax, tag1, tag2, true);
 	  m_tag1 = tag1;
 	  m_tag2 = tag2;
@@ -1214,8 +1229,6 @@ Viewer::processCommand(QString cmd)
 				       arg(tag1).arg(tag2));
 	      return;
 	    }
-	  Vec bmin, bmax;
-	  m_boundingBox.bounds(bmin, bmax);
 	  emit mergeTags(bmin, bmax, tag1, tag2, false);
 	  m_tag1 = tag1;
 	  m_tag2 = tag2;
@@ -1254,8 +1267,6 @@ Viewer::processCommand(QString cmd)
 				  0, 0, 255, 1);
 
       
-      Vec bmin, bmax;
-      m_boundingBox.bounds(bmin, bmax);
       emit modifyOriginalVolume(bmin, bmax, val);
       return;
     }
@@ -1281,25 +1292,21 @@ Viewer::setGridSize(int d, int w, int h)
   m_maxWSlice = w-1;
   m_maxHSlice = h-1;
 
-  m_clipPlanes->setBounds(Vec(m_minHSlice,
-			      m_minWSlice,
-			      m_minDSlice),
-			  Vec(m_maxHSlice,
-			      m_maxWSlice,
-			      m_maxDSlice));
-  
-  m_boundingBox.setBounds(Vec(m_minHSlice,
-			      m_minWSlice,
-			      m_minDSlice),
-			  Vec(m_maxHSlice,
-			      m_maxWSlice,
-			      m_maxDSlice));
+  Vec voxelScaling = Global::relativeVoxelScaling();
+
+  Vec bmax = Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice);
+  bmax = VECPRODUCT(bmax, voxelScaling);
+
+  m_clipPlanes->setBounds(Vec(0,0,0), bmax);
+
+  m_boundingBox.setBounds(Vec(0,0,0), bmax);
 
 
-  setSceneBoundingBox(Vec(0,0,0), Vec(m_height, m_width, m_depth));
-  setSceneCenter(Vec((m_maxHSlice+m_minHSlice),
-		     (m_maxWSlice+m_minWSlice),
-		     (m_maxDSlice+m_minDSlice))/2);		 
+  Vec fullBox = Vec(m_height, m_width, m_depth);
+  fullBox = VECPRODUCT(fullBox, voxelScaling);
+  setSceneBoundingBox(Vec(0,0,0), fullBox);
+
+  setSceneCenter(fullBox/2);
   showEntireScene();
 
 
@@ -1385,27 +1392,34 @@ Viewer::drawCurrentSlice(Vec subvolmin,
 void
 Viewer::drawWireframeBox()
 {
+  Vec voxelScaling = Global::relativeVoxelScaling();
 
   //setAxisIsDrawn();
   
   glColor3d(0.5,0.5,0.5);
 
   glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+  Vec fullBox = Vec(m_height, m_width, m_depth);
+  fullBox = VECPRODUCT(fullBox, voxelScaling);
+
+  Vec bmin = Vec(m_minHSlice, m_minWSlice, m_minDSlice);
+  Vec bmax = Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice);
+  bmin = VECPRODUCT(bmin, voxelScaling);
+  bmax = VECPRODUCT(bmax, voxelScaling);
+  
   
   glLineWidth(1);
-  drawEnclosingCube(Vec(0,0,0),
-		    Vec(m_height, m_width, m_depth));
-  
+  drawEnclosingCube(Vec(0,0,0), fullBox);
+    
   glLineWidth(2);
   glColor3d(0.8,0.8,0.8);
-  drawEnclosingCube(Vec(m_minHSlice, m_minWSlice, m_minDSlice),
-		    Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
+  drawEnclosingCube(bmin, bmax);
   
   
   glLineWidth(3);
   glColor3d(1.0,0.85,0.7);
-  drawCurrentSlice(Vec(0,0,0),
-		   Vec(m_height, m_width, m_depth));
+  drawCurrentSlice(Vec(0,0,0), fullBox);
   
   glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
@@ -1525,6 +1539,7 @@ Viewer::draw()
     }
 
 
+  Vec voxelScaling = Global::relativeVoxelScaling();
 
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
@@ -1587,6 +1602,8 @@ Viewer::draw()
 void
 Viewer::raycasting()
 {
+  Vec voxelScaling = Global::relativeVoxelScaling();
+
   Vec box[8];
   box[0] = Vec(m_minHSlice, m_minWSlice, m_minDSlice);
   box[1] = Vec(m_minHSlice, m_minWSlice, m_maxDSlice);
@@ -1603,6 +1620,7 @@ Viewer::raycasting()
   float maxZ = -1000000;
   for(int b=0; b<8; b++)
     {
+      box[b] = VECPRODUCT(box[b], voxelScaling);
       float zv = (box[b]-eyepos)*viewDir;
       minZ = qMin(minZ, zv);
       maxZ = qMax(maxZ, zv);
@@ -1799,13 +1817,15 @@ Viewer::drawInfo()
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glEnable(GL_POINT_SMOOTH);
+
+  Vec voxelScaling = Global::relativeVoxelScaling();
       
   if (m_paintHit || m_carveHit && m_target.x > -1)
     {
       float cpgl = camera()->pixelGLRatio(m_target);
-      int d = m_target.z;
-      int w = m_target.y;
-      int h = m_target.x;
+      int d = m_target.z * voxelScaling.z;
+      int w = m_target.y * voxelScaling.y;
+      int h = m_target.x * voxelScaling.x;
       int tag = Global::tag();
       float r = Global::tagColors()[4*tag+0]*1.0/255.0;
       float g = Global::tagColors()[4*tag+1]*1.0/255.0;
@@ -1835,6 +1855,8 @@ Viewer::drawInfo()
   tfont = QFont("Helvetica", 10);  
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
+  bmin = VECDIVIDE(bmin, voxelScaling);
+  bmax = VECDIVIDE(bmax, voxelScaling);
   mesg = QString("box(%1 %2 %3 : %4 %5 %6 : %7 %8 %9) ").		\
     arg(bmin.x).arg(bmin.y).arg(bmin.z).				\
     arg(bmax.x).arg(bmax.y).arg(bmax.z).				\
@@ -1920,8 +1942,8 @@ Viewer::drawFibers()
 bool
 Viewer::clip(int d, int w, int h)
 {
-  QList<Vec> cPos =  m_clipPlanes->positions();
-  QList<Vec> cNorm = m_clipPlanes->normals();
+  QList<Vec> cPos =  clipPos();
+  QList<Vec> cNorm = clipNorm();
 
   for(int i=0; i<cPos.count(); i++)
     {
@@ -1944,8 +1966,8 @@ Viewer::updateClipVoxels()
   if (!m_volPtr || !m_maskPtr)
     return;
   
-  QList<Vec> cPos =  m_clipPlanes->positions();
-  QList<Vec> cNorm = m_clipPlanes->normals();
+  QList<Vec> cPos =  clipPos();
+  QList<Vec> cNorm = clipNorm();
 
   uchar *lut = Global::lut();
 
@@ -1958,6 +1980,8 @@ Viewer::updateClipVoxels()
   box[5] = Vec(m_maxHSlice, m_minWSlice, m_maxDSlice);
   box[6] = Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice);
   box[7] = Vec(m_maxHSlice, m_maxWSlice, m_minDSlice);
+
+  Vec voxelScaling = Global::relativeVoxelScaling();
 
   for(int i=0; i<cPos.count(); i++)
     {
@@ -2030,11 +2054,17 @@ Viewer::updateVoxels()
       return;
     }
 
+  Vec voxelScaling = Global::relativeVoxelScaling();
+
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
-  emit updateSliceBounds(bmin, bmax);
 
   setSceneCenter((bmax+bmin)/2);
+
+  bmin = VECDIVIDE(bmin, voxelScaling);
+  bmax = VECDIVIDE(bmax, voxelScaling);
+
+  emit updateSliceBounds(bmin, bmax);
 
   m_minDSlice = bmin.z;
   m_minWSlice = bmin.y;
@@ -2237,6 +2267,10 @@ Viewer::drawVolMask()
 
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
+
+  Vec voxelScaling = Global::relativeVoxelScaling();
+  bmin = VECDIVIDE(bmin, voxelScaling);
+  bmax = VECDIVIDE(bmax, voxelScaling);
 
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -2582,6 +2616,10 @@ Viewer::drawVol()
 
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
+
+  Vec voxelScaling = Global::relativeVoxelScaling();
+  bmin = VECDIVIDE(bmin, voxelScaling);
+  bmax = VECDIVIDE(bmax, voxelScaling);
 
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -3152,7 +3190,7 @@ Viewer::pointUnderPixel_RC(QPoint scr, bool& found)
 	int a = Global::tagColors()[4*tg+3];
 	if (lut[4*v+3]*a == 0) // if we have hit transparent region go a voxel deep
 	  {
-	    pos += 1.5*camera()->viewDirection();
+	    pos += 2*camera()->viewDirection();
 	    int ax = pos.x;
 	    int ay = pos.y;
 	    int az = pos.z;
@@ -3353,8 +3391,8 @@ Viewer::drawClipSlices()
   box[6] = Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice);
   box[7] = Vec(m_maxHSlice, m_maxWSlice, m_minDSlice);
 
-  QList<Vec> cPos =  m_clipPlanes->positions();
-  QList<Vec> cNorm = m_clipPlanes->normals();
+  QList<Vec> cPos =  clipPos();
+  QList<Vec> cNorm = clipNorm();
 
 
   glUseProgramObjectARB(m_sliceShader);
@@ -3491,8 +3529,15 @@ Viewer::drawBox(GLenum glFaces)
   glEnable(GL_CULL_FACE);
   glCullFace(glFaces);
 
+
+  Vec voxelScaling = Global::relativeVoxelScaling();
+
+
   Vec bminO, bmaxO;
   m_boundingBox.bounds(bminO, bmaxO);
+
+  bminO = VECDIVIDE(bminO, voxelScaling);
+  bmaxO = VECDIVIDE(bmaxO, voxelScaling);
 
   bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
   bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
@@ -3554,6 +3599,9 @@ Viewer::drawBox(GLenum glFaces)
 	  
 	  col[6] = Vec(xmax,ymax,zmin);
 	  col[7] = Vec(xmax,ymax,zmax);
+	  
+	  for(int i=0; i<8; i++)
+	    box[i] = VECPRODUCT(box[i], voxelScaling);
 	  
 	  for(int i=0; i<6; i++)
 	    {
@@ -4283,6 +4331,10 @@ Viewer::hatch()
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
 
+  Vec voxelScaling = Global::relativeVoxelScaling();
+  bmin = VECDIVIDE(bmin, voxelScaling);
+  bmax = VECDIVIDE(bmax, voxelScaling);
+
   bool ok;
   int ctag = -1;
   ctag = QInputDialog::getInt(0,
@@ -4342,6 +4394,10 @@ Viewer::regionGrowing(bool sw)
 
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
+
+  Vec voxelScaling = Global::relativeVoxelScaling();
+  bmin = VECDIVIDE(bmin, voxelScaling);
+  bmax = VECDIVIDE(bmax, voxelScaling);
 
   if (!sw)
     {
@@ -4411,6 +4467,10 @@ Viewer::regionDilation(bool allVisible)
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
 
+  Vec voxelScaling = Global::relativeVoxelScaling();
+  bmin = VECDIVIDE(bmin, voxelScaling);
+  bmax = VECDIVIDE(bmax, voxelScaling);
+
   emit dilateConnected(d, w, h, bmin, bmax, Global::tag(), allVisible);
 }
 
@@ -4430,6 +4490,10 @@ Viewer::regionErosion()
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
 
+  Vec voxelScaling = Global::relativeVoxelScaling();
+  bmin = VECDIVIDE(bmin, voxelScaling);
+  bmax = VECDIVIDE(bmax, voxelScaling);
+
   emit erodeConnected(d, w, h, bmin, bmax, Global::tag());
 }
 
@@ -4444,6 +4508,10 @@ Viewer::tagUsingScreenSketch()
 
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
+
+  Vec voxelScaling = Global::relativeVoxelScaling();
+  bmin = VECDIVIDE(bmin, voxelScaling);
+  bmax = VECDIVIDE(bmax, voxelScaling);
 
   m_spW = size().width();
   m_spH = size().height();
@@ -4949,6 +5017,11 @@ Viewer::updateFilledBoxes()
 
   Vec bminO, bmaxO;
   m_boundingBox.bounds(bminO, bmaxO);
+
+  Vec voxelScaling = Global::relativeVoxelScaling();
+  bminO = VECDIVIDE(bminO, voxelScaling);
+  bmaxO = VECDIVIDE(bmaxO, voxelScaling);
+
   bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
   bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
 

@@ -939,6 +939,21 @@ DrishtiPaint::setFile(QString filename)
   VolumeInformation::volInfo(flnm.toLatin1().data(),
 			     pvlinfo);
   VolumeInformation::setVolumeInformation(pvlinfo);
+
+  if (StaticFunctions::checkExtension(filename, ".xml"))
+    {
+      m_tfManager->load(filename.toLatin1().data());
+      m_pvlFile = flnm;
+      m_xmlFile = filename;
+    }
+  else
+    {
+      m_pvlFile = flnm;
+      m_xmlFile.clear();
+    }
+
+  Global::setVoxelScaling(StaticFunctions::getVoxelSizeFromHeader(m_pvlFile));
+  Global::setVoxelUnit(StaticFunctions::getVoxelUnitFromHeader(m_pvlFile));
   //----------------------------
 
   if (m_volume->setFile(flnm) == false)
@@ -988,18 +1003,6 @@ DrishtiPaint::setFile(QString filename)
   updateRecentFileAction();
 
       
-  if (StaticFunctions::checkExtension(filename, ".xml"))
-    {
-      m_tfManager->load(filename.toLatin1().data());
-      m_pvlFile = flnm;
-      m_xmlFile = filename;
-    }
-  else
-    {
-      m_pvlFile = flnm;
-      m_xmlFile.clear();
-    }
-
   QString curvesfile = m_pvlFile;
   curvesfile.replace(".pvl.nc", ".curves");
   m_imageWidget->loadCurves(curvesfile);
@@ -1025,9 +1028,6 @@ DrishtiPaint::setFile(QString filename)
   m_viewDslice->setRange(0, d-1);
   m_viewWslice->setRange(0, w-1);
   m_viewHslice->setRange(0, h-1);
-
-  Global::setVoxelScaling(StaticFunctions::getVoxelSizeFromHeader(m_pvlFile));
-  Global::setVoxelUnit(StaticFunctions::getVoxelUnitFromHeader(m_pvlFile));
 
   VolumeOperations::setVolData(m_volume->memVolDataPtr());
   VolumeOperations::setMaskData(m_volume->memMaskDataPtr());
@@ -2733,7 +2733,6 @@ DrishtiPaint::on_actionExtractTag_triggered()
 
   QList<Vec> cPos =  m_viewer->clipPos();
   QList<Vec> cNorm = m_viewer->clipNorm();
-
   //----------------------------------
 
 
@@ -3849,6 +3848,7 @@ DrishtiPaint::on_actionMeshTag_triggered()
 
   QList<Vec> cPos =  m_viewer->clipPos();
   QList<Vec> cNorm = m_viewer->clipNorm();
+  
 
   int nbytes = width*height;
   uchar *raw = new uchar[width*height];
@@ -4923,6 +4923,8 @@ DrishtiPaint::tagUsingSketchPad(Vec bmin, Vec bmax, int tag)
 
   qint64 dr,wr,hr;
 
+  Vec RvoxelScaling = Global::relativeVoxelScaling();
+
   //-----------------------------
   // get first voxel to start region growing
   // just take random samples to find it out
@@ -4941,7 +4943,9 @@ DrishtiPaint::tagUsingSketchPad(Vec bmin, Vec bmax, int tag)
 	      int w2 = qBound(ws, w, we);
 	      int h2 = qBound(hs, h, he);
 
-	      Vec scr = m_viewer->camera()->projectedCoordinatesOf(Vec(h2,w2,d2));
+	      Vec vpt = Vec(h2,w2,d2);
+	      vpt = VECPRODUCT(vpt, RvoxelScaling);
+	      Vec scr = m_viewer->camera()->projectedCoordinatesOf(vpt);
 	      if (scr.x >= 0 && scr.x < spW &&
 		  scr.y >= 0 && scr.y < spH)
 		{
@@ -5012,7 +5016,10 @@ DrishtiPaint::tagUsingSketchPad(Vec bmin, Vec bmax, int tag)
 	    {
 	      bitmask.setBit(bidx, true);
 
-	      Vec scr = m_viewer->camera()->projectedCoordinatesOf(Vec(h2,w2,d2));
+	      Vec vpt = Vec(h2,w2,d2);
+	      vpt = VECPRODUCT(vpt, RvoxelScaling);
+	      Vec scr = m_viewer->camera()->projectedCoordinatesOf(vpt);
+	      //Vec scr = m_viewer->camera()->projectedCoordinatesOf(Vec(h2,w2,d2));
 	      if (scr.x >= 0 && scr.x < spW &&
 		  scr.y >= 0 && scr.y < spH)
 		{
@@ -5134,6 +5141,7 @@ DrishtiPaint::shrinkwrap(Vec bmin, Vec bmax, int tag,
 
   QList<Vec> cPos =  m_viewer->clipPos();
   QList<Vec> cNorm = m_viewer->clipNorm();
+  
   VolumeOperations::setClip(cPos, cNorm);
   VolumeOperations::shrinkwrap(bmin, bmax,
 			       tag,
@@ -5172,6 +5180,7 @@ DrishtiPaint::resetTag(Vec bmin, Vec bmax, int tag)
 
   QList<Vec> cPos =  m_viewer->clipPos();
   QList<Vec> cNorm = m_viewer->clipNorm();
+
   VolumeOperations::setClip(cPos, cNorm);
   VolumeOperations::resetTag(bmin, bmax,
 			     tag,
@@ -5197,6 +5206,7 @@ DrishtiPaint::hatchConnectedRegion(int dr, int wr, int hr,
 
   QList<Vec> cPos =  m_viewer->clipPos();
   QList<Vec> cNorm = m_viewer->clipNorm();
+
   VolumeOperations::setClip(cPos, cNorm);
   VolumeOperations::hatchConnectedRegion(dr, wr, hr,
 					 bmin, bmax,
@@ -5223,6 +5233,7 @@ DrishtiPaint::connectedRegion(int dr, int wr, int hr,
 
   QList<Vec> cPos =  m_viewer->clipPos();
   QList<Vec> cNorm = m_viewer->clipNorm();
+
   VolumeOperations::setClip(cPos, cNorm);
   VolumeOperations::connectedRegion(dr, wr, hr,
 				    bmin, bmax,
@@ -5246,6 +5257,7 @@ DrishtiPaint::setVisible(Vec bmin, Vec bmax, int tag, bool visible)
 
   QList<Vec> cPos =  m_viewer->clipPos();
   QList<Vec> cNorm = m_viewer->clipNorm();
+
   VolumeOperations::setClip(cPos, cNorm);
   VolumeOperations::setVisible(bmin, bmax,
 			       tag, visible,
@@ -5267,6 +5279,7 @@ DrishtiPaint::mergeTags(Vec bmin, Vec bmax, int tag1, int tag2, bool useTF)
 
   QList<Vec> cPos =  m_viewer->clipPos();
   QList<Vec> cNorm = m_viewer->clipNorm();
+
   VolumeOperations::setClip(cPos, cNorm);
   VolumeOperations::mergeTags(bmin, bmax,
 			      tag1, tag2, useTF,
@@ -5312,6 +5325,7 @@ DrishtiPaint::dilateConnected(int dr, int wr, int hr,
 
   QList<Vec> cPos =  m_viewer->clipPos();
   QList<Vec> cNorm = m_viewer->clipNorm();
+
   VolumeOperations::setClip(cPos, cNorm);
   VolumeOperations::dilateConnected(dr, wr, hr,
 				    bmin, bmax, tag,
@@ -5336,6 +5350,7 @@ DrishtiPaint::modifyOriginalVolume(Vec bmin, Vec bmax, int val)
 
   QList<Vec> cPos =  m_viewer->clipPos();
   QList<Vec> cNorm = m_viewer->clipNorm();
+
   VolumeOperations::setClip(cPos, cNorm);
   VolumeOperations::modifyOriginalVolume(bmin, bmax, val,
 					 minD, maxD,

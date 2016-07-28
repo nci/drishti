@@ -191,8 +191,17 @@ int Global::selectionPrecision() { return m_selpres; }
 void Global::setSelectionPrecision(int s) { m_selpres = s; }
 
 Vec Global::m_voxelScaling = Vec(1,1,1);
+Vec Global::m_relativeVoxelScaling = Vec(1,1,1);
 Vec Global::voxelScaling() { return m_voxelScaling; }
-void Global::setVoxelScaling(Vec v) { m_voxelScaling = v; }
+void Global::setVoxelScaling(Vec v)
+{
+  m_voxelScaling = v;
+  float mvs = qMin(v.x, qMin(v.y, v.z));
+  m_relativeVoxelScaling = v/mvs;
+
+}
+Vec Global::relativeVoxelScaling() { return m_relativeVoxelScaling; }
+
 
 QString Global::m_voxelUnit = "";
 QString Global::voxelUnit() { return m_voxelUnit; }

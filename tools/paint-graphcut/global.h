@@ -75,6 +75,7 @@ class Global
   static int selectionPrecision();
   static void setSelectionPrecision(int);
 
+  static Vec relativeVoxelScaling();
   static Vec voxelScaling();
   static void setVoxelScaling(Vec);
 
@@ -109,6 +110,7 @@ class Global
   static bool m_closed;
   static int m_selpres;
   static Vec m_voxelScaling;
+  static Vec m_relativeVoxelScaling;
   static QString m_voxelUnit;
 
   static GLuint m_spriteTexture;

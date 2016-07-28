@@ -53,8 +53,8 @@ class Viewer : public QGLViewer
   uchar* sketchPad() { return m_sketchPad; }
   void setUIPointer(Ui::ViewerMenu *vUI) { m_UI = vUI; }
 
-  QList<Vec> clipPos() { return m_clipPlanes->positions(); }
-  QList<Vec> clipNorm(){ return m_clipPlanes->normals(); }
+  QList<Vec> clipPos();
+  QList<Vec> clipNorm();
 
 
   Vec viewDir() { return camera()->viewDirection(); }

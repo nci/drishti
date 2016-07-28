@@ -3216,9 +3216,9 @@ ImageWidget::graphcutMouseMoveEvent(QMouseEvent *event)
       // carry on only if Alt key is not pressed
       if (validPickPoint(xpos, ypos))
 	{
-	  m_lastPickDepth = m_pickDepth;
-	  m_lastPickWidth = m_pickWidth;
-	  m_lastPickHeight= m_pickHeight;
+	  //m_lastPickDepth = m_pickDepth;
+	  //m_lastPickWidth = m_pickWidth;
+	  //m_lastPickHeight= m_pickHeight;
 
 	  if (m_sliceType == DSlice)
 	    dotImage(m_pickHeight,
@@ -3232,6 +3232,11 @@ ImageWidget::graphcutMouseMoveEvent(QMouseEvent *event)
 	    dotImage(m_pickWidth,
 		     m_pickDepth,
 		     shiftModifier);
+
+	  m_lastPickDepth = m_pickDepth;
+	  m_lastPickWidth = m_pickWidth;
+	  m_lastPickHeight= m_pickHeight;
+
 	  update();
 	}
     }
@@ -3633,7 +3638,7 @@ ImageWidget::dotImage(int x, int y, bool backgroundTag)
 {
   if (! withinBounds(x, y))
     return ;
-
+  
   int ist, ied, jst, jed;
   if (m_sliceType == DSlice)
     {
@@ -3660,6 +3665,8 @@ ImageWidget::dotImage(int x, int y, bool backgroundTag)
       jed = m_maxDSlice;
     }
 
+  //------------------------------
+
   int xstart = qMax(ist, x-Global::spread());
   int xend = qMin(ied, x+Global::spread());
   int ystart = qMax(jst, y-Global::spread());
@@ -3672,6 +3679,7 @@ ImageWidget::dotImage(int x, int y, bool backgroundTag)
   uchar g = Global::tagColors()[4*tg+1];
   uchar b = Global::tagColors()[4*tg+2];
 
+  bool redo = false;
   for(int i=xstart; i<xend; i++)
     for(int j=ystart; j<yend; j++)
       {
@@ -3683,11 +3691,27 @@ ImageWidget::dotImage(int x, int y, bool backgroundTag)
 	  {
 	    int sidx = j*m_imgWidth + i;
 	    if (m_sliceImage[4*sidx+3] > 0)
-	      m_usertags[sidx] = tg;
+	      {
+		redo = true;
+		m_usertags[sidx] = tg;
+	      }
 	  }
       }
 
-  updateMaskImage();
+  if (redo)
+    {
+      m_userimage = QImage(m_usertags,
+			   m_imgWidth,
+			   m_imgHeight,
+			   m_imgWidth,
+			   QImage::Format_Indexed8);
+      m_userimage.setColorTable(m_tagColors);
+      m_userimageScaled = m_userimage.scaled(m_simgWidth,
+					     m_simgHeight,
+					     Qt::IgnoreAspectRatio,
+					     Qt::FastTransformation);
+    }
+  //updateMaskImage();
 }
 
 void
@@ -3701,6 +3725,7 @@ ImageWidget::removeDotImage(int x, int y)
   int ystart = qMax(0, y-Global::spread());
   int yend = qMin(m_imgHeight, y+Global::spread());
 
+  bool redo = false;
   for(int i=xstart; i<xend; i++)
     for(int j=ystart; j<yend; j++)
       {
@@ -3712,11 +3737,27 @@ ImageWidget::removeDotImage(int x, int y)
 	  {
 	    int sidx = j*m_imgWidth + i;
 	    if (m_sliceImage[4*sidx+3] > 0)
-	      m_usertags[sidx] = 0;
+	      {
+		redo = true;
+		m_usertags[sidx] = 0;
+	      }
 	  }
       }
 
-  updateMaskImage();
+  if (redo)
+    {
+      m_userimage = QImage(m_usertags,
+			   m_imgWidth,
+			   m_imgHeight,
+			   m_imgWidth,
+			   QImage::Format_Indexed8);
+      m_userimage.setColorTable(m_tagColors);
+      m_userimageScaled = m_userimage.scaled(m_simgWidth,
+					     m_simgHeight,
+					     Qt::IgnoreAspectRatio,
+					     Qt::FastTransformation);
+    }
+//  updateMaskImage();
 }
 
 void

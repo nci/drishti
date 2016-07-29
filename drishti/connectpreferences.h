@@ -7,6 +7,9 @@
     connect(m_preferencesWidget, SIGNAL(tagClicked(int)),
 	    m_Viewer, SLOT(setTag(int)));
 
+    connect(m_preferencesWidget, SIGNAL(dofChanged(int, float)),
+	    m_Viewer, SLOT(setDOF(int, float)));
+
     connect(m_preferencesWidget, SIGNAL(updateLookupTable()),
 	    m_Viewer, SLOT(updateLookupTable()));
 

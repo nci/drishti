@@ -165,6 +165,14 @@ PreferencesWidget::renderQualityValue(float v)
 }
 
 void
+PreferencesWidget::setDOF(int blur, float nf)
+{
+  ui.m_dofBlur->setValue(blur);
+  ui.m_dofNearFar->setValue(qBound(0, (int)(nf*100), 100));
+  update();
+}
+
+void
 PreferencesWidget::setRenderQualityValues(float still, float drag)
 {
   int sv = renderQualityValue(still);
@@ -250,6 +258,22 @@ PreferencesWidget::on_m_drag_sliderReleased()
     ui.m_still->setValue(sv);
 
   setImageQualityStepsizes();
+}
+
+void
+PreferencesWidget::on_m_dofNearFar_sliderReleased()
+{  
+  float nf = ui.m_dofNearFar->value()*0.01;
+  int blur = ui.m_dofBlur->value();
+  emit dofChanged(blur, nf);
+}
+
+void
+PreferencesWidget::on_m_dofBlur_sliderReleased()
+{  
+  float nf = ui.m_dofNearFar->value()*0.01;
+  int blur = ui.m_dofBlur->value();
+  emit dofChanged(blur, nf);
 }
 
 void

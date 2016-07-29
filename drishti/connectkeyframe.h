@@ -39,11 +39,13 @@ connect(m_keyFrame, SIGNAL(updateFocus(float, float)),
   connect(m_keyFrame, SIGNAL(updateParameters(bool, bool, Vec, QString,
 					      int, int, QString, QString, QString,
 					      int, bool, bool, float, bool, bool,
-					      float, float)),
+					      float, float,
+					      int, float)),
 	  this, SLOT(updateParameters(bool, bool, Vec, QString,
 				      int, int, QString, QString, QString,
 				      int, bool, bool, float, bool, bool,
-				      float, float)));
+				      float, float,
+				      int, float)));
 
 
 
@@ -63,8 +65,8 @@ connect(m_keyFrame, SIGNAL(updateFocus(float, float)),
   connect(m_keyFrame, SIGNAL(currentFrameChanged(int)),
 	  m_Viewer, SLOT(setCurrentFrame(int)));
 
-connect(m_keyFrame, SIGNAL(updateLookFrom(Vec, Quaternion, float, float)),
-	m_Viewer, SLOT(updateLookFrom(Vec, Quaternion, float, float)));
+  connect(m_keyFrame, SIGNAL(updateLookFrom(Vec, Quaternion, float, float)),
+	  m_Viewer, SLOT(updateLookFrom(Vec, Quaternion, float, float)));
 
   connect(m_keyFrame, SIGNAL(updateLookupTable(unsigned char*)),
 	  m_Viewer, SLOT(updateLookupTable(unsigned char*)));

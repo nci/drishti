@@ -200,8 +200,8 @@ DrawHiresVolume::~DrawHiresVolume()
 void
 DrawHiresVolume::renew()
 {
-  m_focalPoint = -1.0;
-  m_dofTap = 13;
+  m_focalPoint = 0.0;
+  m_dofBlur = 0;
 
   m_frontOpMod = 1.0;
   m_backOpMod = 1.0;
@@ -2846,7 +2846,7 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 
   //--------------depth of field--------
   int dofSlice, maxDof;
-  if (m_dofTap > 0 && m_focalPoint >= 0.0 && m_focalPoint <= 1.0)
+  if (m_dofBlur > 0 && m_focalPoint >= 0.0 && m_focalPoint <= 1.0)
     {
       dofSlice = m_focalPoint*layers;
       maxDof = qMax(dofSlice,layers-dofSlice);
@@ -2863,9 +2863,9 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
       SlcXMax = SlcYMax = 0;
 
       float tap = 0;
-      if (m_dofTap > 0 && m_focalPoint >= 0.0 && m_focalPoint <= 1.0)
+      if (m_dofBlur > 0 && m_focalPoint >= 0.0 && m_focalPoint <= 1.0)
 	{
-	  tap = m_dofTap*StaticFunctions::smoothstep(0.0, 1.0,
+	  tap = m_dofBlur*StaticFunctions::smoothstep(0.0, 1.0,
 				 ((float)qAbs(dofSlice-s)/(float)maxDof));
 	  if (tap < 1.0) tap = 0;
 	}

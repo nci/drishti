@@ -70,6 +70,11 @@ void KeyFrameInformation::setOpMod(float fop, float bop)
   m_frontOpMod = fop;
   m_backOpMod = bop;
 }
+void KeyFrameInformation::setDOF(int b, float nf)
+{
+  m_dofBlur = b;
+  m_dofNearFar = nf;
+}
 
 
 QString KeyFrameInformation::title() { return m_title; }
@@ -133,6 +138,11 @@ void KeyFrameInformation::getOpMod(float& fop, float& bop)
 {
   fop = m_frontOpMod;
   bop = m_backOpMod;
+}
+void KeyFrameInformation::getDOF(int& b, float& nf)
+{
+  b = m_dofBlur;
+  nf = m_dofNearFar;
 }
 
 
@@ -235,6 +245,8 @@ KeyFrameInformation::KeyFrameInformation()
   m_networks.clear();
   m_frontOpMod = 1;
   m_backOpMod = 1;
+  m_dofBlur = 0;
+  m_dofNearFar = 0;
 
   m_interpBGColor = Enums::KFIT_Linear;
   m_interpCaptions = Enums::KFIT_Linear;
@@ -311,6 +323,8 @@ KeyFrameInformation::clear()
   m_networks.clear();
   m_frontOpMod = 1;
   m_backOpMod = 1;
+  m_dofBlur = 0;
+  m_dofNearFar = 0;
 
   m_interpBGColor = Enums::KFIT_Linear;
   m_interpCaptions = Enums::KFIT_Linear;
@@ -406,6 +420,8 @@ KeyFrameInformation::KeyFrameInformation(const KeyFrameInformation& kfi)
   m_frontOpMod = kfi.m_frontOpMod;
   m_backOpMod = kfi.m_backOpMod;
 
+  m_dofBlur = kfi.m_dofBlur;
+  m_dofNearFar = kfi.m_dofNearFar;
 
   m_interpBGColor = kfi.m_interpBGColor;
   m_interpCaptions = kfi.m_interpCaptions;
@@ -531,6 +547,9 @@ KeyFrameInformation::operator=(const KeyFrameInformation& kfi)
   m_frontOpMod = kfi.m_frontOpMod;
   m_backOpMod = kfi.m_backOpMod;
 
+  m_dofBlur = kfi.m_dofBlur;
+  m_dofNearFar = kfi.m_dofNearFar;
+
 
   m_interpBGColor = kfi.m_interpBGColor;
   m_interpCaptions = kfi.m_interpCaptions;
@@ -570,6 +589,7 @@ KeyFrameInformation::load(fstream &fin)
   m_pruneBlend = false;
 
   m_frontOpMod = m_backOpMod = 1;
+  m_dofBlur = m_dofNearFar = 0;
 
   m_interpBGColor = Enums::KFIT_Linear;
   m_interpCaptions = Enums::KFIT_Linear;
@@ -606,6 +626,11 @@ KeyFrameInformation::load(fstream &fin)
 	{
 	  fin.read((char*)&m_frontOpMod, sizeof(float));
 	  fin.read((char*)&m_backOpMod, sizeof(float));
+	}
+      else if (strcmp(keyword, "depthoffield") == 0)
+	{
+	  fin.read((char*)&m_dofBlur, sizeof(int));
+	  fin.read((char*)&m_dofNearFar, sizeof(float));
 	}
       else if (strcmp(keyword, "drawbox") == 0)
 	fin.read((char*)&m_drawBox, sizeof(bool));
@@ -942,6 +967,13 @@ KeyFrameInformation::save(fstream &fout)
   fout.write((char*)keyword, strlen(keyword)+1);
   fout.write((char*)&m_frontOpMod, sizeof(float));
   fout.write((char*)&m_backOpMod, sizeof(float));
+
+
+  memset(keyword, 0, 100);
+  sprintf(keyword, "depthoffield");
+  fout.write((char*)keyword, strlen(keyword)+1);
+  fout.write((char*)&m_dofBlur, sizeof(int));
+  fout.write((char*)&m_dofNearFar, sizeof(float));
 
 
   memset(keyword, 0, 100);

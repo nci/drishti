@@ -85,6 +85,7 @@ class Viewer : public QGLViewer
 
  public slots :
   void setTag(int);
+  void setDOF(int, float);
   void setCarveRadius(int);
   void updateLightBuffers();
   void updatePruneBuffer(bool);

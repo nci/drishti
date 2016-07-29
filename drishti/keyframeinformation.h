@@ -82,6 +82,7 @@ class KeyFrameInformation
   void setPruneBlend(bool);
   void setLandmarkInfo(LandmarkInformation);
   void setOpMod(float, float);
+  void setDOF(int, float);
   
   QString title();
   bool hasCaption(QStringList);
@@ -128,6 +129,7 @@ class KeyFrameInformation
   bool pruneBlend();
   LandmarkInformation landmarkInfo();
   void getOpMod(float&, float&);
+  void getDOF(int&, float&);
 
 
   // -- keyframe interpolation parameters
@@ -209,6 +211,8 @@ class KeyFrameInformation
   bool m_pruneBlend;
   LandmarkInformation m_landmarkInfo;
   float m_frontOpMod, m_backOpMod;
+  int m_dofBlur;
+  float m_dofNearFar;
 
   //-- keyframe interpolation parameters
   int m_interpBGColor;

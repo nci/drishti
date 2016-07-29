@@ -1,15 +1,4 @@
 #begin
-depthoffield
-depthoffield [focus] [blurfactor]
-
-Applies depth of field to the image.
-In order for depth of field to be applied focus should be between 0.0 (nearest point) and 1.0 (farthest point).  When focus is less than 0.0 or greater than 1.0 the depth of field will not be applied.  By default depth of field is not applied.
-
-blurfactor is integer and should be greater than 0 - higher value result in larger blur.
-Default blurfactor value is 13;
-#end
-
-#begin
 addplight
 Add point/string light source.
 

@@ -37,7 +37,8 @@ class KeyFrame : public QObject
 		   int, int, QString, QString, QString,
 		   int, bool, bool, bool,
 		   QByteArray,
-		   float, float);
+		   float, float,
+		   int, float);
 
   void setKeyFrame(Vec, Quaternion,
 		   float, float,
@@ -49,7 +50,8 @@ class KeyFrame : public QObject
 		   QList<SplineInformation>,
 		   int, int, QString, QString, QString,
 		   int, bool, bool, bool,
-		   float, float);
+		   float, float,
+		   int, float);
 
   void interpolateAt(int, float,
 		     Vec&, Quaternion&,
@@ -80,7 +82,7 @@ class KeyFrame : public QObject
   void updateParameters(bool, bool, Vec, QString,
 			int, int, QString, QString, QString,
 			int, bool, bool, float, bool, bool,
-			float, float);
+			float, float, int, float);
   void loadKeyframes(QList<int>, QList<QImage>);
   void updateVolInfo(int);
   void updateVolInfo(int, int);

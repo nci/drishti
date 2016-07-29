@@ -21,10 +21,12 @@ class PreferencesWidget : public QWidget
   void stereoSettings(float, float, float);
   void tagColorChanged();
   void tagClicked(int);
+  void dofChanged(int, float);
 
  public slots :
   void changeStill(int);
   void changeDrag(int);
+  void setDOF(int, float);
   void setRenderQualityValues(float, float);
   void setImageQualitySliderValues(int, int);
   void setTick(int, int, QString, QString, QString);
@@ -49,6 +51,8 @@ class PreferencesWidget : public QWidget
   void on_m_bgcolor_clicked();
   void on_m_newColorSet_clicked();
   void on_m_setOpacity_clicked();
+  void on_m_dofBlur_sliderReleased();
+  void on_m_dofNearFar_sliderReleased();
   void keyPressEvent(QKeyEvent*);
 
  private :

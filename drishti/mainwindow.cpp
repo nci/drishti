@@ -300,7 +300,6 @@ MainWindow::MainWindow(QWidget *parent) :
   #include "connecttfeditor.h"
   #include "connecttfmanager.h"
   #include "connectviewer.h"
-  //#include "connectviewseditor.h"
   #include "connectvolinfowidget.h"
   #include "connectgeometryobjects.h"
 
@@ -3138,6 +3137,10 @@ MainWindow::saveProject(QString xmlflnm, QString dtvfile)
   float fop, bop;
   m_Hires->getOpMod(fop, bop);
 
+  int dofblur;
+  float dofnf;
+  m_Hires->dof(dofblur, dofnf);
+
   m_keyFrame->saveProject(m_Viewer->camera()->position(),
 			  m_Viewer->camera()->orientation(),
 			  m_Viewer->camera()->focusDistance(),
@@ -3154,7 +3157,8 @@ MainWindow::saveProject(QString xmlflnm, QString dtvfile)
 			  sz, st, xl, yl, zl,
 			  mv, mc, mo, mt,
 			  PruneHandler::getPruneBuffer(),
-			  fop, bop);
+			  fop, bop,
+			  dofblur, dofnf);
 
 
   saveVolumeIntoProject(flnm, dtvfile);
@@ -3528,6 +3532,10 @@ MainWindow::setKeyFrame(Vec pos, Quaternion rot,
   float fop, bop;
   m_Hires->getOpMod(fop, bop);
 
+  int dofblur;
+  float dofnf;
+  m_Hires->dof(dofblur, dofnf);
+
   m_keyFrame->setKeyFrame(pos, rot,
 			  focus, es,
 			  fno,
@@ -3539,7 +3547,8 @@ MainWindow::setKeyFrame(Vec pos, Quaternion rot,
 			  splineInfo,
 			  sz, st, xl, yl, zl,
 			  mixvol, mixColor, mixOpacity, mixTag,
-			  fop, bop);
+			  fop, bop,
+			  dofblur, dofnf);
 
   if (m_savePathAnimation > 0)
     {
@@ -3667,10 +3676,15 @@ MainWindow::updateParameters(bool drawBox, bool drawAxis,
 			     QString xl, QString yl, QString zl,
 			     int mv, bool mc, bool mo, float iv, bool mt,
 			     bool pruneblend,
-			     float fop, float bop)
+			     float fop, float bop,
+			     int dofblur, float dofnf)
 {
   m_preferencesWidget->setTick(sz, st, xl, yl, zl);
   Global::setBackgroundColor(bgColor);
+
+  m_preferencesWidget->setDOF(dofblur, dofnf);
+
+  m_Hires->setDOF(dofblur, dofnf);
 
   //----------------
   // bgimage file is assumed to be relative to .pvl.nc file

@@ -30,10 +30,8 @@ class DrawHiresVolume : public QObject
   bool loadingData() { return m_loadingData; }
   void setRaycastMode(bool m) { m_rcMode = m; }
   
-  void setFocalPoint(float fp) { m_focalPoint = fp; }
-  void setDofTap(int tap) { m_dofTap = tap; }
-  float focalPoint() { return m_focalPoint; }
-  int dofTap() { return m_dofTap; }
+  void setDOF(int b, float fp) { m_dofBlur = b, m_focalPoint = fp; }
+  void dof(int& b, float& fp) { b = m_dofBlur, fp = m_focalPoint; }
 
   Vec pointUnderPixel(QPoint, bool&);
 
@@ -165,7 +163,7 @@ class DrawHiresVolume : public QObject
 
  private :
   float m_focalPoint;
-  int m_dofTap;
+  int m_dofBlur;
 
   float m_frontOpMod;
   float m_backOpMod;

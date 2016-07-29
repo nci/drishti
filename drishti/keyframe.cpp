@@ -150,7 +150,8 @@ KeyFrame::saveProject(Vec pos, Quaternion rot,
 		      QString xl, QString yl, QString zl,
 		      int mixvol, bool mixColor, bool mixOpacity, bool mixTag,
 		      QByteArray pb,
-		      float fop, float bop) 
+		      float fop, float bop,
+		      int dofBlur, float dofNF) 
 {
   m_savedKeyFrame.clear();
   m_savedKeyFrame.setFrameNumber(-1);
@@ -193,6 +194,7 @@ KeyFrame::saveProject(Vec pos, Quaternion rot,
   m_savedKeyFrame.setPruneBuffer(pb);
   m_savedKeyFrame.setPruneBlend(PruneHandler::blend());
   m_savedKeyFrame.setOpMod(fop, bop);
+  m_savedKeyFrame.setDOF(dofBlur, dofNF);
 
   // not saving splineInfo for savedKeyFrame
   //m_savedKeyFrame.setSplineInfo(splineInfo);
@@ -212,7 +214,8 @@ KeyFrame::setKeyFrame(Vec pos, Quaternion rot,
 		      int sz, int st,
 		      QString xl, QString yl, QString zl,
 		      int mixvol, bool mixColor, bool mixOpacity, bool mixTag,
-		      float fop, float bop)
+		      float fop, float bop,
+		      int dofBlur, float dofNF) 
 {
   int volumeNumber=0, volumeNumber2=0, volumeNumber3=0, volumeNumber4=0;
   volumeNumber = Global::volumeNumber();
@@ -248,7 +251,8 @@ KeyFrame::setKeyFrame(Vec pos, Quaternion rot,
 	      sz, st, xl, yl, zl,
 	      mixvol, mixColor, mixOpacity, mixTag,
 	      pb,
-	      fop, bop);
+	      fop, bop,
+	      dofBlur, dofNF);
 
   bool found = false;
   int kfn = -1;
@@ -336,6 +340,8 @@ KeyFrame::setKeyFrame(Vec pos, Quaternion rot,
   kfi->setPruneBuffer(pb);
   kfi->setPruneBlend(PruneHandler::blend());
   kfi->setOpMod(fop, bop);
+
+  kfi->setDOF(dofBlur, dofNF);
 
   emit setImage(kfn, image);  
   
@@ -465,6 +471,15 @@ KeyFrame::interpolateAt(int kf, float frc,
   kfi.setOpMod(fop, bop);
   //-------------------------------  
 
+  //-------------------------------  
+  int blur, blur0, blur1;
+  float nf, nf0, nf1;
+  m_keyFrameInfo[kf]->getDOF(blur0, nf0);
+  m_keyFrameInfo[kf+1]->getDOF(blur1, nf1);
+  blur = blur0 + frc*(blur1-blur0);
+  nf = nf0 + frc*(nf1-nf0);
+  kfi.setDOF(blur, nf);
+  //-------------------------------  
 
   //-------------------------------  
   if (frc < 0.5)
@@ -935,13 +950,18 @@ KeyFrame::playSavedKeyFrame()
   float fop, bop;
   m_savedKeyFrame.getOpMod(fop, bop);
 
+  int blur;
+  float nf;
+  m_savedKeyFrame.getDOF(blur, nf);
+
   emit updateParameters(drawBox, drawAxis,
 			backgroundColor,
 			backgroundImage,
 			sz, st, xl, yl, zl,
 			mv, mc, mo, 0.0f, mt,
 			m_savedKeyFrame.pruneBlend(),
-			fop, bop);
+			fop, bop,
+			blur, nf);
 
   QByteArray pb = m_savedKeyFrame.pruneBuffer();
   if (! pb.isEmpty())
@@ -1093,13 +1113,18 @@ KeyFrame::playFrameNumber(int fno)
 	  float fop, bop;
 	  m_keyFrameInfo[kf]->getOpMod(fop, bop);
 
+	  int blur;
+	  float nf;
+	  m_keyFrameInfo[kf]->getDOF(blur, nf);
+
 	  emit updateParameters(drawBox, drawAxis,
 				backgroundColor,
 				backgroundImage,
 				sz, st, xl, yl, zl,
 				mv, mc, mo, 0.0f, mt,
 				m_keyFrameInfo[kf]->pruneBlend(),
-				fop, bop);
+				fop, bop,
+				blur, nf);
 
 	  QByteArray pb = m_keyFrameInfo[kf]->pruneBuffer();
 	  if (! pb.isEmpty())
@@ -1257,13 +1282,18 @@ KeyFrame::playFrameNumber(int fno)
   float fop, bop;
   keyFrameInfo.getOpMod(fop, bop);
 
+  int blur;
+  float nf;
+  keyFrameInfo.getDOF(blur, nf);
+
   emit updateParameters(drawBox, drawAxis,
 			backgroundColor,
 			backgroundImage,
 			sz, st, xl, yl, zl,
 			mv, mc, mo, volInterp, mt,
 			keyFrameInfo.pruneBlend(),
-			fop, bop);
+			fop, bop,
+			blur, nf);
 
   QByteArray pb = keyFrameInfo.pruneBuffer();
   if (! pb.isEmpty())

@@ -113,6 +113,7 @@ void Viewer::setCurrentFrame(int fno)
 
 bool Viewer::drawToFBO() { return (m_useFBO && savingImages()); }
 void Viewer::setUseFBO(bool flag) { m_useFBO = flag; }
+void Viewer::setDOF(int b, float nf) { m_hiresVolume->setDOF(b, nf); }
 void Viewer::setFieldOfView(float fov)
 {
   camera()->setFieldOfView(fov);
@@ -4169,16 +4170,12 @@ Viewer::processCommand(QString cmd)
     }
   else if (list[0] == "depthoffield")
     {
-      if (list.size() > 1)
-	{
-	  float dof = list[1].toFloat(&ok);
-	  m_hiresVolume->setFocalPoint(dof);
-	}
-      if (list.size() > 2)
-	{
-	  int tap = list[2].toInt(&ok);
-	  m_hiresVolume->setDofTap(tap);
-	}
+      int b;
+      float fp;
+      m_hiresVolume->dof(b, fp);
+      if (list.size() > 1) fp = list[1].toFloat(&ok);
+      if (list.size() > 2) b = list[2].toInt(&ok);
+      m_hiresVolume->setDOF(b, fp);
     }
   else if (list[0] == "addrotationanimation")
     {

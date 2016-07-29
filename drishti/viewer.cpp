@@ -113,7 +113,11 @@ void Viewer::setCurrentFrame(int fno)
 
 bool Viewer::drawToFBO() { return (m_useFBO && savingImages()); }
 void Viewer::setUseFBO(bool flag) { m_useFBO = flag; }
-void Viewer::setDOF(int b, float nf) { m_hiresVolume->setDOF(b, nf); }
+void Viewer::setDOF(int b, float nf)
+{
+  m_hiresVolume->setDOF(b, nf);
+  emit updateGL();
+}
 void Viewer::setFieldOfView(float fov)
 {
   camera()->setFieldOfView(fov);

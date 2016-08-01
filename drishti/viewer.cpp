@@ -259,7 +259,6 @@ Viewer::switchToHires()
       m_rcViewer.updateVoxelsForRaycast();
     }
 
-
   if (!m_rcMode)
     {
       if (GlewInit::initialised())

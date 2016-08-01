@@ -2339,6 +2339,7 @@ MainWindow::postLoadVolume()
 
   m_bricksWidget->setTFSets(Global::lutSize());
 
+  m_preferencesWidget->setDOF(0, 0);
 
   m_tfEditor->setTransferFunction(NULL);
   m_tfManager->clearManager();
@@ -2391,7 +2392,6 @@ MainWindow::postLoadVolume()
     m_Viewer->setVolDataPtr(m_Volume->pvlFileManager(0));
   else
     m_Viewer->setVolDataPtr(0);
-  
   //---------------------
 }
 

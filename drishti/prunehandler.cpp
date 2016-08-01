@@ -1648,7 +1648,8 @@ PruneHandler::updateAndLoadPruneTexture(GLuint dataTex,
 
 
   bool forceregen = false;
-  if ((m_subVolSize-subVolSize).squaredNorm() > 0)
+  if (!m_pruneBuffer ||
+      (m_subVolSize-subVolSize).squaredNorm() > 0)
     forceregen = true;
 
   m_dtexX = dtextureX;

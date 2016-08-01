@@ -1793,6 +1793,13 @@ KeyFrame::pasteFrameOnTop(int keyFrameNumber)
 	      m_copyKeyFrame.volumeBounds(bmin, bmax);
 	      kfi->setVolumeBounds(bmin, bmax);
 	    }
+	  else if (keys[ik] == "depth of field")
+	    {
+	      int blur;
+	      float nf;
+	      m_copyKeyFrame.getDOF(blur, nf);
+	      kfi->setDOF(blur, nf);
+	    }
 	}
     }
 
@@ -1918,6 +1925,13 @@ KeyFrame::pasteFrameOnTop(int startKF, int endKF)
 		  Vec bmin, bmax;
 		  m_copyKeyFrame.volumeBounds(bmin, bmax);
 		  kfi->setVolumeBounds(bmin, bmax);
+		}
+	      else if (keys[ik] == "depth of field")
+		{
+		  int blur;
+		  float nf;
+		  m_copyKeyFrame.getDOF(blur, nf);
+		  kfi->setDOF(blur, nf);
 		}
 	    }
 	}
@@ -2079,6 +2093,11 @@ KeyFrame::copyProperties(QString title)
   vlist << QVariant(false);
   plist["volume bounds"] = vlist;
 
+  vlist.clear();
+  vlist << QVariant("checkbox");
+  vlist << QVariant(false);
+  plist["depth of field"] = vlist;
+
 
 
   QStringList keys;
@@ -2091,6 +2110,7 @@ KeyFrame::copyProperties(QString title)
   keys << "colorbars";
   keys << "scalebars";
   keys << "focus";
+  keys << "depth of field";
   keys << "tag colors";
   keys << "tick information";
   keys << "volume bounds";
@@ -2399,6 +2419,13 @@ KeyFrame::import(QString flnm)
 		  kfi->setPruneBuffer(ckf->pruneBuffer());  
 		  kfi->setPruneBlend(ckf->pruneBlend());  
 		  kfi->setInterpMop(ckf->interpMop());
+		}
+	      else if (keys[ik] == "depth of field")
+		{
+		  int blur;
+		  float nf;
+		  ckf->getDOF(blur, nf);
+		  kfi->setDOF(blur, nf);
 		}
 	    }
 	}

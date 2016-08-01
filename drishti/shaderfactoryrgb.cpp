@@ -262,6 +262,8 @@ ShaderFactoryRGB::genDefaultSliceShaderString(bool lighting,
 
   shader += "uniform float opmod;\n";
 
+  shader += "uniform float dofscale;\n";
+
   shader += ShaderFactory::genTextureCoordinate();
 
   if (tearPresent) shader += TearShaderFactory::generateTear(crops);
@@ -363,7 +365,7 @@ ShaderFactoryRGB::genDefaultSliceShaderString(bool lighting,
   shader += "  }\n";
   shader += "if (shdlod > 0)\n";
   shader += "  {\n";
-  shader += "     float sa = texture2DRect(shdTex, gl_FragCoord.xy/vec2(shdlod)).a;\n";
+  shader += "     float sa = texture2DRect(shdTex, gl_FragCoord.xy*vec2(dofscale)/vec2(shdlod)).a;\n";
   shader += "     sa = 1.0-smoothstep(0.0, shdIntensity, sa);\n";
   shader += "     sa = clamp(0.1, sa, 1.0);\n";
   shader += "     lightcol *= sa;\n";

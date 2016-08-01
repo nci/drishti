@@ -1127,6 +1127,8 @@ DrawHiresVolume::createDefaultShader()
 
   m_defaultParm[49] = glGetUniformLocationARB(m_defaultShader, "opmod");
   m_defaultParm[50] = glGetUniformLocationARB(m_defaultShader, "linearInterpolation");
+
+  m_defaultParm[51] = glGetUniformLocationARB(m_defaultShader, "dofscale");
 }
 
 void
@@ -2852,7 +2854,6 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
       maxDof = qMax(dofSlice,layers-dofSlice);
     }
   //------------------------------------
-
   for(int s=0; s<layers; s++)
     {
 
@@ -2869,6 +2870,7 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 				 ((float)qAbs(dofSlice-s)/(float)maxDof));
 	  if (tap < 1.0) tap = 0;
 	}
+      glUniform1fARB(m_defaultParm[51], qMax(1.0f, tap));
 
       {
 	float sdist = qAbs((maxvert - po)*pn);
@@ -2885,18 +2887,6 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 	  depthcue = 1.0 - qBound(0.0f, sdist/deplen, 0.95f);
 	}
 
-      //-------------------------------------------
-      if (m_useScreenShadows &&
-	  !m_forceBackToFront &&
-	  s > 0 &&
-	  s%shadowRenderSteps == 0)
-	{
-	  glDisable(GL_BLEND);
-	  screenShadow(ScreenXMin, ScreenXMax, ScreenYMin, ScreenYMax, qMax(1.0f,tap));
-	  glEnable(GL_BLEND);
-	}
-
-      //---------------------
       if (m_drawImageType != Enums::DragImage)
 	{
 	  if (tap > 0)
@@ -3103,6 +3093,19 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 	}
       //-------------------------------------------
 
+      //-------------------------------------------
+      // update shadow buffer
+      if (m_useScreenShadows &&
+	  !m_forceBackToFront &&
+	  s > 0 &&
+	  s%shadowRenderSteps == 0)
+	{
+	  glDisable(GL_BLEND);
+	  screenShadow(ScreenXMin, ScreenXMax, ScreenYMin, ScreenYMax, qMax(1.0f,tap));
+	  glEnable(GL_BLEND);
+	}
+      //-------------------------------------------
+
     } // loop over s
 
 
@@ -3305,10 +3308,10 @@ DrawHiresVolume::screenShadow(int ScreenXMin, int ScreenXMax,
   glUseProgramObjectARB(Global::copyShader());
   glUniform1iARB(Global::copyParm(0), 2); // copy from sliceTex[1] to shadowbuffer
   glBegin(GL_QUADS);
-  glTexCoord2f(xmin, ymin); glVertex2f(txmin, tymin);
-  glTexCoord2f(xmax, ymin); glVertex2f(txmax, tymin);
-  glTexCoord2f(xmax, ymax); glVertex2f(txmax, tymax);
-  glTexCoord2f(xmin, ymax); glVertex2f(txmin, tymax);
+  glTexCoord2f(txmin/tap, tymin/tap); glVertex2f(xmin, ymin);
+  glTexCoord2f(txmax/tap, tymin/tap); glVertex2f(xmax, ymin);
+  glTexCoord2f(txmax/tap, tymax/tap); glVertex2f(xmax, ymax);
+  glTexCoord2f(txmin/tap, tymax/tap); glVertex2f(xmin, ymax);
   glEnd();
 
 
@@ -3330,10 +3333,10 @@ DrawHiresVolume::screenShadow(int ScreenXMin, int ScreenXMax,
       glUniform1iARB(m_blurParm[0], 3); // copy from shadowBuffer[0] to shadowbuffer[1]
       glUniform2fARB(m_blurParm[1], 1.0, 0.0); // direc
       glBegin(GL_QUADS);
-      glTexCoord2f(xmin, ymin); glVertex2f(txmin, tymin);
-      glTexCoord2f(xmax, ymin); glVertex2f(txmax, tymin);
-      glTexCoord2f(xmax, ymax); glVertex2f(txmax, tymax);
-      glTexCoord2f(xmin, ymax); glVertex2f(txmin, tymax);
+      glTexCoord2f(txmin, tymin); glVertex2f(xmin, ymin);
+      glTexCoord2f(txmax, tymin); glVertex2f(xmax, ymin);
+      glTexCoord2f(txmax, tymax); glVertex2f(xmax, ymax);
+      glTexCoord2f(txmin, tymax); glVertex2f(xmin, ymax);
       glEnd();
 
       m_shdNum = (m_shdNum+1)%2;
@@ -3350,10 +3353,10 @@ DrawHiresVolume::screenShadow(int ScreenXMin, int ScreenXMax,
       glUniform1iARB(m_blurParm[0], 3); // copy from shadowBuffer[1] to shadowbuffer[0]
       glUniform2fARB(m_blurParm[1], 0.0, 1.0); // direc
       glBegin(GL_QUADS);
-      glTexCoord2f(xmin, ymin); glVertex2f(txmin, tymin);
-      glTexCoord2f(xmax, ymin); glVertex2f(txmax, tymin);
-      glTexCoord2f(xmax, ymax); glVertex2f(txmax, tymax);
-      glTexCoord2f(xmin, ymax); glVertex2f(txmin, tymax);
+      glTexCoord2f(txmin, tymin); glVertex2f(xmin, ymin);
+      glTexCoord2f(txmax, tymin); glVertex2f(xmax, ymin);
+      glTexCoord2f(txmax, tymax); glVertex2f(xmax, ymax);
+      glTexCoord2f(txmin, tymax); glVertex2f(xmin, ymax);
       glEnd();
     }
 

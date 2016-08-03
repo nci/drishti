@@ -2868,8 +2868,10 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
       float tap = 0;
       if (m_dofBlur > 0 && m_focalPoint >= 0.0 && m_focalPoint <= 1.0)
 	{
-	  tap = 1.0 + m_dofBlur*StaticFunctions::smoothstep(0.0, 1.0,
+	  tap = StaticFunctions::smoothstep(0.0, 1.0,
 				 ((float)qAbs(dofSlice-s)/(float)maxDof));
+	  tap *= tap;
+	  tap *= m_dofBlur;
 	  if (tap < 1.0) tap = 0;
 	}
       glUniform1fARB(m_defaultParm[51], qMax(1.0f, tap));

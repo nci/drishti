@@ -97,6 +97,7 @@ class LightHandler
     static Vec m_aoLightColor;
     static int m_aoRad, m_aoTimes;
     static float m_aoFrac, m_aoDensity1, m_aoDensity2;
+    static float m_aoOpMod;
 
     static float m_emisDecay;
     static float m_emisBoost;
@@ -195,13 +196,16 @@ class LightHandler
 
     static void updateAmbientOcclusionLightBuffer(int, float,
 						  float, float,
-						  int, Vec);
+						  int, Vec,
+						  float);
     static void updatePointLightBuffer(QList<Vec>, float,
 				       float, float,
 				       Vec, int, int,
-				       bool);
+				       bool,
+				       float);
     static void updateDirectionalLightBuffer(Vec, float, Vec,
-					     int, int);
+					     int, int,
+					     float);
 
     static void updateEmissiveBuffer(float);
 

@@ -349,6 +349,7 @@ LightShaderFactory::genAOLightShader() // surround shader
   shader += "uniform float ofrac;\n";
   shader += "uniform float den1;\n";
   shader += "uniform float den2;\n";
+  shader += "uniform float opmod;\n";
 
   shader += "void main(void)\n";
   shader += "{\n";
@@ -362,6 +363,7 @@ LightShaderFactory::genAOLightShader() // surround shader
   shader += "  int z = row*ncols + col;\n";
 
   shader += "  float op = texture2DRect(opTex, tc).x;\n"; 
+  shader += "  op = clamp(opmod*op, 0.0, 1.0);\n";
 
   shader += "  vec3 pos = vec3(x,y,z);\n";
   shader += "  bvec3 pless = lessThan(pos, vec3(0.5,0.5,0.5));\n";
@@ -383,6 +385,7 @@ LightShaderFactory::genAOLightShader() // surround shader
   shader += "        float x1 = float(col+x+i)+0.5;\n";
   shader += "        float y1 = float(row+y+j)+0.5;\n";
   shader += "        float op = texture2DRect(opTex, vec2(x1,y1)).x;\n"; 
+  shader += "        op = clamp(opmod*op, 0.0, 1.0);\n";
   shader += "        fop += step(0.1, op);\n";
   shader += "      }\n";
   shader += "   }\n";
@@ -544,6 +547,7 @@ LightShaderFactory::genInitDLightShader() // directional shader
   shader += "uniform int opgridx;\n";
   shader += "uniform int opgridy;\n";
   shader += "uniform int opncols;\n";
+  shader += "uniform float opmod;\n";
 
   shader += "void main(void)\n";
   shader += "{\n";
@@ -583,6 +587,7 @@ LightShaderFactory::genInitDLightShader() // directional shader
   shader += "    den = 1.0;\n";  
 
   shader += "  float op = texture2DRect(opTex, optc).x;\n";   
+  shader += "  op = clamp(opmod*op, 0.0, 1.0);\n";
   shader += "  gl_FragColor = vec4(den,op,den,1.0);\n";
   shader += "}\n";
 
@@ -602,7 +607,7 @@ LightShaderFactory::genDLightShader() // directional shader
   shader += "uniform int ncols;\n";
   shader += "uniform vec3 ldir;\n";
   shader += "uniform float cangle;\n";
-  
+
   shader += "void main(void)\n";
   shader += "{\n";
   shader += "  int row, col;\n";
@@ -748,6 +753,7 @@ LightShaderFactory::genInitTubeLightShader() // point shader
   shader += "uniform int opgridy;\n";
   shader += "uniform int opncols;\n";
   shader += "uniform bool doshadows;\n";
+  shader += "uniform float opmod;\n";
   
   shader += "void main(void)\n";
   shader += "{\n";
@@ -772,6 +778,7 @@ LightShaderFactory::genInitTubeLightShader() // point shader
   shader += "  vec2 optc = vec2(float(opcol)+xo, float(oprow)+yo);\n";
 
   shader += "  float op = texture2DRect(opTex, optc).x;\n";   
+  shader += "  op = clamp(opmod*op, 0.0, 1.0);\n";
   shader += "  gl_FragColor = vec4(0.0,op,0.0,1.0);\n";
 
 

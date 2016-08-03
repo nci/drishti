@@ -237,6 +237,7 @@ PropertyEditor::set(QString title,
 	                     QString("</a>");
 
 	      QLabel *txt = new QLabel(clbl);
+	      txt->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Fixed);
 	      txt->setTextInteractionFlags(Qt::LinksAccessibleByMouse);
 	      gridLayout->addWidget(txt, i, 1);
 	      

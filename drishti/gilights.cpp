@@ -309,14 +309,14 @@ GiLights::openPropertyEditor(int i)
   vlist << dcolor;
   plist["color"] = vlist;
   
-//  vlist.clear();
-//  vlist << QVariant("double");
-//  vlist << QVariant(m_giLights[i]->opacity());
-//  vlist << QVariant(0.0);
-//  vlist << QVariant(2.0);
-//  vlist << QVariant(0.1); // singlestep
-//  vlist << QVariant(1); // decimals
-//  plist["intensity"] = vlist;
+  vlist.clear();
+  vlist << QVariant("double");
+  vlist << QVariant(m_giLights[i]->opacity());
+  vlist << QVariant(0.0);
+  vlist << QVariant(5.0);
+  vlist << QVariant(0.1); // singlestep
+  vlist << QVariant(1); // decimals
+  plist["opmod"] = vlist;
   
   vlist.clear();
   vlist << QVariant("int");
@@ -413,9 +413,10 @@ GiLights::openPropertyEditor(int i)
   keys << "light type";
   keys << "light buffer size";
   keys << "light buffer smoothing";
-  keys << "color";
-  keys << "collection angle";
   keys << "gap";
+  keys << "color";
+  keys << "opmod";
+  keys << "collection angle";
   if (m_giLights[i]->lightType() == 0) // point light
     {
       keys << "size";
@@ -425,6 +426,7 @@ GiLights::openPropertyEditor(int i)
       keys << "do shadows";
       keys << "gap";
     }
+  keys << "gap";
   keys << "interpolate";
   keys << "command";
   //keys << "commandhelp";
@@ -459,8 +461,8 @@ GiLights::openPropertyEditor(int i)
 	      pcolor = Vec(r,g,b);
 	      m_giLights[i]->setColor(pcolor);
 	    }
-	  //else if (keys[ik] == "intensity")
-	  //  m_giLights[i]->setOpacity(pair.first.toDouble());
+	  else if (keys[ik] == "opmod")
+	    m_giLights[i]->setOpacity(pair.first.toDouble());
 	  else if (keys[ik] == "light buffer size")
 	    m_giLights[i]->setLod(pair.first.toInt());
 	  else if (keys[ik] == "light buffer smoothing")

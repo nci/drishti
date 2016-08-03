@@ -3200,47 +3200,33 @@ DrawHiresVolume::depthOfFieldBlur(int xmin, int xmax, int ymin, int ymax,
 
   for(int i=0; i<qMax(2,ntimes/2); i++)
     {
-      glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
-			     GL_COLOR_ATTACHMENT0_EXT,
-			     GL_TEXTURE_RECTANGLE_ARB,
-			     m_dofTex[2],
-			     0);
-      glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
-      glClear(GL_COLOR_BUFFER_BIT);
-
-      glActiveTexture(GL_TEXTURE2);
-      glEnable(GL_TEXTURE_RECTANGLE_ARB);
-      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_dofTex[1]);
+      for(int j=0; j<2; j++)
+	{
+	  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+				 GL_COLOR_ATTACHMENT0_EXT,
+				 GL_TEXTURE_RECTANGLE_ARB,
+				 m_dofTex[1+(j+1)%2],
+				 0);
+	  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
+	  glClear(GL_COLOR_BUFFER_BIT);
+	  
+	  glActiveTexture(GL_TEXTURE2);
+	  glEnable(GL_TEXTURE_RECTANGLE_ARB);
+	  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_dofTex[j+1]);
       
-      glUniform2fARB(m_blurParm[1], 1.0, 0.0); // direc
-      glBegin(GL_QUADS);
-      glTexCoord2f(xmin, ymin); glVertex2f(xmin, ymin);
-      glTexCoord2f(xmax, ymin); glVertex2f(xmax, ymin);
-      glTexCoord2f(xmax, ymax); glVertex2f(xmax, ymax);
-      glTexCoord2f(xmin, ymax); glVertex2f(xmin, ymax);
-      glEnd();
-      glFinish();
+	  if (j == 0)
+	    glUniform2fARB(m_blurParm[1], 1.0, 0.0); // direc
+	  else
+	    glUniform2fARB(m_blurParm[1], 0.0, 1.0); // direc
 
-      glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
-			     GL_COLOR_ATTACHMENT0_EXT,
-			     GL_TEXTURE_RECTANGLE_ARB,
-			     m_dofTex[1],
-			     0);
-      glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
-      glClear(GL_COLOR_BUFFER_BIT);
-
-      glActiveTexture(GL_TEXTURE2);
-      glEnable(GL_TEXTURE_RECTANGLE_ARB);
-      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_dofTex[2]);
-      
-      glUniform2fARB(m_blurParm[1], 0.0, 1.0); // direc
-      glBegin(GL_QUADS);
-      glTexCoord2f(xmin, ymin); glVertex2f(xmin, ymin);
-      glTexCoord2f(xmax, ymin); glVertex2f(xmax, ymin);
-      glTexCoord2f(xmax, ymax); glVertex2f(xmax, ymax);
-      glTexCoord2f(xmin, ymax); glVertex2f(xmin, ymax);
-      glEnd();
-      glFinish();
+	  glBegin(GL_QUADS);
+	  glTexCoord2f(xmin, ymin); glVertex2f(xmin, ymin);
+	  glTexCoord2f(xmax, ymin); glVertex2f(xmax, ymin);
+	  glTexCoord2f(xmax, ymax); glVertex2f(xmax, ymax);
+	  glTexCoord2f(xmin, ymax); glVertex2f(xmin, ymax);
+	  glEnd();
+	  glFinish();
+	}
     }
   glUseProgramObjectARB(0); // disable shaders 
 
@@ -3320,47 +3306,61 @@ DrawHiresVolume::screenShadow(int ScreenXMin, int ScreenXMax,
   //-------------------------------
   // smooth shadow into other shadowbuffer
   glBlendFunc(GL_ONE, GL_ZERO); // replace texture
-  for(int i=0; i<=(int)m_lightInfo.shadowBlur; i++)
-    {
-      glActiveTexture(GL_TEXTURE3);
-      glEnable(GL_TEXTURE_RECTANGLE_ARB);
-      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_shdTex[m_shdNum]);
-      glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
-			     GL_COLOR_ATTACHMENT0_EXT,
-			     GL_TEXTURE_RECTANGLE_ARB,
-			     m_shdTex[(m_shdNum+1)%2],
-			     0);
-      glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
-      glUseProgramObjectARB(m_blurShader);
-      glUniform1iARB(m_blurParm[0], 3); // copy from shadowBuffer[0] to shadowbuffer[1]
-      glUniform2fARB(m_blurParm[1], 1.0, 0.0); // direc
-      glBegin(GL_QUADS);
-      glTexCoord2f(txmin, tymin); glVertex2f(xmin, ymin);
-      glTexCoord2f(txmax, tymin); glVertex2f(xmax, ymin);
-      glTexCoord2f(txmax, tymax); glVertex2f(xmax, ymax);
-      glTexCoord2f(txmin, tymax); glVertex2f(xmin, ymax);
-      glEnd();
+  //for(int i=0; i<=(int)m_lightInfo.shadowBlur; i++)
 
-      m_shdNum = (m_shdNum+1)%2;
-      glActiveTexture(GL_TEXTURE3);
-      glEnable(GL_TEXTURE_RECTANGLE_ARB);
-      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_shdTex[m_shdNum]);
-      glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
-			     GL_COLOR_ATTACHMENT0_EXT,
-			     GL_TEXTURE_RECTANGLE_ARB,
-			     m_shdTex[(m_shdNum+1)%2],
-			     0);
-      glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
-      glUseProgramObjectARB(m_blurShader);
-      glUniform1iARB(m_blurParm[0], 3); // copy from shadowBuffer[1] to shadowbuffer[0]
-      glUniform2fARB(m_blurParm[1], 0.0, 1.0); // direc
-      glBegin(GL_QUADS);
-      glTexCoord2f(txmin, tymin); glVertex2f(xmin, ymin);
-      glTexCoord2f(txmax, tymin); glVertex2f(xmax, ymin);
-      glTexCoord2f(txmax, tymax); glVertex2f(xmax, ymax);
-      glTexCoord2f(txmin, tymax); glVertex2f(xmin, ymax);
-      glEnd();
+  glUseProgramObjectARB(m_blurShader);
+  glUniform1iARB(m_blurParm[0], 3); // copy from shadowBuffer[0] to shadowbuffer[1]
+  
+  for(int i=0; i<=(int)(m_lightInfo.shadowBlur*m_lightInfo.shadowBlur); i++)
+    {
+      for(int j=0; j<2; j++)
+	{
+	  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+				 GL_COLOR_ATTACHMENT0_EXT,
+				 GL_TEXTURE_RECTANGLE_ARB,
+				 m_shdTex[(m_shdNum+1)%2],
+				 0);
+	  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
+
+	  if (j == 0)
+	    glUniform2fARB(m_blurParm[1], 1.0, 0.0); // direc
+	  else
+	    glUniform2fARB(m_blurParm[1], 0.0, 1.0); // direc
+
+	  glActiveTexture(GL_TEXTURE3);
+	  glEnable(GL_TEXTURE_RECTANGLE_ARB);
+	  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_shdTex[m_shdNum]);
+
+	  glBegin(GL_QUADS);
+	  glTexCoord2f(txmin, tymin); glVertex2f(xmin, ymin);
+	  glTexCoord2f(txmax, tymin); glVertex2f(xmax, ymin);
+	  glTexCoord2f(txmax, tymax); glVertex2f(xmax, ymax);
+	  glTexCoord2f(txmin, tymax); glVertex2f(xmin, ymax);
+	  glEnd();
+	  
+	  m_shdNum = (m_shdNum+1)%2;
+	}
     }
+
+//      glActiveTexture(GL_TEXTURE3);
+//      glEnable(GL_TEXTURE_RECTANGLE_ARB);
+//      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_shdTex[m_shdNum]);
+//      glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+//			     GL_COLOR_ATTACHMENT0_EXT,
+//			     GL_TEXTURE_RECTANGLE_ARB,
+//			     m_shdTex[(m_shdNum+1)%2],
+//			     0);
+//      glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
+//      glUseProgramObjectARB(m_blurShader);
+//      glUniform1iARB(m_blurParm[0], 3); // copy from shadowBuffer[1] to shadowbuffer[0]
+//      glUniform2fARB(m_blurParm[1], 0.0, 1.0); // direc
+//      glBegin(GL_QUADS);
+//      glTexCoord2f(txmin, tymin); glVertex2f(xmin, ymin);
+//      glTexCoord2f(txmax, tymin); glVertex2f(xmax, ymin);
+//      glTexCoord2f(txmax, tymax); glVertex2f(xmax, ymax);
+//      glTexCoord2f(txmin, tymax); glVertex2f(xmin, ymax);
+//      glEnd();
+//    }
 
   //-------------------------------
 

@@ -39,6 +39,7 @@ class GiLightInfo
   Vec aoLightColor;
   int aoRad, aoTimes;
   float aoFrac, aoDensity1, aoDensity2;
+  float aoOpMod;
   
   int opacityTF;
 

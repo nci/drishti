@@ -347,7 +347,11 @@ void GiLightObject::setColor(Vec color)
   m_color = color;
   m_lightChanged = true; // for light recomputation
 }
-void GiLightObject::setOpacity(float op) { m_opacity = op; }
+void GiLightObject::setOpacity(float op)
+{
+  m_opacity = op;
+  m_lightChanged = true; // for light recomputation
+}
 void GiLightObject::setLod(int l)
 {
   m_lod = l;
@@ -820,7 +824,8 @@ GiLightObject::drawLines(QGLViewer *viewer,
 //  glEnable(GL_LINE_SMOOTH);
 //  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
 
-  Vec col = m_opacity*m_color;
+  //Vec col = m_opacity*m_color;
+  Vec col = m_color;
   if (backToFront)
     {
       if (active)
@@ -831,8 +836,9 @@ GiLightObject::drawLines(QGLViewer *viewer,
       glColor4f(col.x*0.5,
 		col.y*0.5,
 		col.z*0.5,
-		m_opacity*0.5);
-
+		0.5);
+		//m_opacity*0.5);
+      
       glBegin(GL_LINE_STRIP);
       for(int i=0; i<m_path.count(); i++)
 	glVertex3fv(m_path[i]);
@@ -896,7 +902,8 @@ GiLightObject::drawLines(QGLViewer *viewer,
       glDisable(GL_POINT_SMOOTH);
     }
 
-  glColor4f(col.x, col.y, col.z, qMin(1.0f,m_opacity));
+  //glColor4f(col.x, col.y, col.z, qMin(1.0f,m_opacity));
+  glColor4f(col.x, col.y, col.z, 1.0f);
 
   if (m_path.count() > 1)
     {
@@ -920,7 +927,8 @@ GiLightObject::drawLines(QGLViewer *viewer,
 	  glColor4f(col.x*0.5,
 		    col.y*0.5,
 		    col.z*0.5,
-		    m_opacity*0.5);
+		    0.5);
+		    //m_opacity*0.5);
 	  
 	  glBegin(GL_LINE_STRIP);
 	  for(int i=0; i<m_path.count(); i++)

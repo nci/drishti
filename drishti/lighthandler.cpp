@@ -89,6 +89,7 @@ float LightHandler::m_aoFrac = 0.7;
 float LightHandler::m_aoDensity1 = 0.3;
 float LightHandler::m_aoDensity2 = 1.0;
 int LightHandler::m_aoTimes = 5;
+float LightHandler::m_aoOpMod = 1.0;
 bool LightHandler::m_onlyAOLight = false;
 bool LightHandler::m_basicLight = false;
 bool LightHandler::m_applyClip = false;
@@ -235,6 +236,7 @@ LightHandler::giLightInfo()
   gi.aoRad = m_aoRad;
   gi.aoTimes = m_aoTimes;
   gi.aoFrac = m_aoFrac;
+  gi.aoOpMod = m_aoOpMod;
   gi.aoDensity1 = m_aoDensity1;
   gi.aoDensity2 = m_aoDensity2;
   gi.opacityTF = m_opacityTF;
@@ -266,6 +268,7 @@ LightHandler::setGiLightInfo(GiLightInfo gi)
   if (gi.aoRad != m_aoRad) lightsChanged = true;
   if (gi.aoTimes != m_aoTimes) lightsChanged = true;
   if (fabs(gi.aoFrac-m_aoFrac) > 0.001) lightsChanged = true;
+  if (fabs(gi.aoOpMod-m_aoOpMod) > 0.001) lightsChanged = true;
   if (fabs(gi.aoDensity1-m_aoDensity1) > 0.001) lightsChanged = true;
   if (fabs(gi.aoDensity2-m_aoDensity2) > 0.001) lightsChanged = true;
   if (gi.opacityTF != m_opacityTF) lodChanged = true;
@@ -284,6 +287,7 @@ LightHandler::setGiLightInfo(GiLightInfo gi)
   m_aoRad = gi.aoRad;
   m_aoTimes = gi.aoTimes;
   m_aoFrac = gi.aoFrac;
+  m_aoOpMod = gi.aoOpMod;
   m_aoDensity1 = gi.aoDensity1;
   m_aoDensity2 = gi.aoDensity2;
   m_opacityTF = gi.opacityTF;
@@ -425,6 +429,7 @@ LightHandler::reset()
   m_aoLightColor = Vec(1,1,1);
   m_aoRad = 2;
   m_aoFrac = 0.7;
+  m_aoOpMod = 1.0;
   m_aoDensity1 = 0.3;
   m_aoDensity2 = 1.0;
   m_aoTimes = 5;
@@ -862,6 +867,7 @@ LightHandler::createAmbientOcclusionLightShader()
   m_aoLightParm[7] = glGetUniformLocationARB(m_aoLightShader, "ofrac");
   m_aoLightParm[8] = glGetUniformLocationARB(m_aoLightShader, "den1");
   m_aoLightParm[9] = glGetUniformLocationARB(m_aoLightShader, "den2");
+  m_aoLightParm[10] = glGetUniformLocationARB(m_aoLightShader, "opmod");
   //---------------------------
 }
 
@@ -901,6 +907,7 @@ LightHandler::createDirectionalLightShader()
   m_initdLightParm[7] = glGetUniformLocationARB(m_initdLightShader, "opgridx");
   m_initdLightParm[8] = glGetUniformLocationARB(m_initdLightShader, "opgridy");
   m_initdLightParm[9] = glGetUniformLocationARB(m_initdLightShader, "opncols");
+  m_initdLightParm[10] = glGetUniformLocationARB(m_initdLightShader, "opmod");
   //---------------------------
 }
 
@@ -946,6 +953,7 @@ LightHandler::createPointLightShader()
   m_initpLightParm[11] = glGetUniformLocationARB(m_initpLightShader, "opgridy");
   m_initpLightParm[12] = glGetUniformLocationARB(m_initpLightShader, "opncols");
   m_initpLightParm[13] = glGetUniformLocationARB(m_initpLightShader, "doshadows");
+  m_initpLightParm[14] = glGetUniformLocationARB(m_initpLightShader, "opmod");
   //---------------------------
 
 }
@@ -1716,7 +1724,7 @@ LightHandler::updateLightBuffers()
   if (m_aoLightColor.squaredNorm() > 0.02)
     updateAmbientOcclusionLightBuffer(m_aoRad, m_aoFrac,
 				      m_aoDensity1, m_aoDensity2, m_aoTimes,
-				      m_aoLightColor);
+				      m_aoLightColor, m_aoOpMod);
 
   if (m_onlyAOLight)
     {
@@ -1734,18 +1742,20 @@ LightHandler::updateLightBuffers()
       for(int i=0; i<lightsPtr.count(); i++)
 	{
 	  Vec color = lightsPtr[i]->color();
-	  color *= lightsPtr[i]->opacity();
+	  //color *= lightsPtr[i]->opacity();
 	  if (color.squaredNorm() > 0.02)
 	    {
 	      float angle = cos(3.14159265*lightsPtr[i]->angle()/180.0);
 	      QList<Vec> pts = lightsPtr[i]->pathPoints();
 	      int clod = lightsPtr[i]->lod();
 	      int smooth = lightsPtr[i]->smooth();
+	      float opmod = lightsPtr[i]->opacity();
 	      if (lightsPtr[i]->lightType() == 1) // direction light
 		{
 		  Vec lv = (pts[0] - pts[1]).unit();
 		  updateDirectionalLightBuffer(lv, angle, color,
-					       clod, smooth);
+					       clod, smooth,
+					       opmod);
 		}
 	      else // point light
 		{
@@ -1755,7 +1765,8 @@ LightHandler::updateLightBuffers()
 		  updatePointLightBuffer(pts, rad,
 					 decay, angle,
 					 color, clod, smooth,
-					 doshadows);
+					 doshadows,
+					 opmod);
 		}
 	    }
 	}
@@ -1796,7 +1807,8 @@ LightHandler::updateAndLoadLightTexture(GLuint dataTex,
 void
 LightHandler::updateAmbientOcclusionLightBuffer(int orad, float ofrac,
 						float den1, float den2,
-						int ntimes, Vec lcol)
+						int ntimes, Vec lcol,
+						float opmod)
 {
   glActiveTexture(GL_TEXTURE2);
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
@@ -1823,6 +1835,7 @@ LightHandler::updateAmbientOcclusionLightBuffer(int orad, float ofrac,
   glUniform1fARB(m_aoLightParm[7], ofrac); // fraction for AO calculation
   glUniform1fARB(m_aoLightParm[8], den1); // light density for AO calculation
   glUniform1fARB(m_aoLightParm[9], den2); // light density for AO calculation
+  glUniform1fARB(m_aoLightParm[10], opmod); // opacity modulator
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_lightBuffer);
   glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
 			 GL_COLOR_ATTACHMENT0_EXT,
@@ -1860,7 +1873,8 @@ LightHandler::updateAmbientOcclusionLightBuffer(int orad, float ofrac,
 
 void
 LightHandler::updateDirectionalLightBuffer(Vec ldir, float cangle, Vec lcol,
-					   int clod, int smooth)
+					   int clod, int smooth,
+					   float opmod)
 {
   int sX = m_opacityBuffer->width();
   int sY = m_opacityBuffer->height();
@@ -1912,6 +1926,7 @@ LightHandler::updateDirectionalLightBuffer(Vec ldir, float cangle, Vec lcol,
   glUniform1iARB(m_initdLightParm[7], m_gridx); // opgridx
   glUniform1iARB(m_initdLightParm[8], m_gridy); // opgridy
   glUniform1iARB(m_initdLightParm[9], m_ncols); // opncols
+  glUniform1fARB(m_initdLightParm[10], opmod); // opacity modulator
 
   glActiveTexture(GL_TEXTURE2);
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
@@ -2010,7 +2025,8 @@ void
 LightHandler::updatePointLightBuffer(QList<Vec> olpos, float lradius,
 				     float ldecay, float cangle,
 				     Vec lcol, int clod, int smooth,
-				     bool doshadows)
+				     bool doshadows,
+				     float opmod)
 {
   int sX = m_opacityBuffer->width();
   int sY = m_opacityBuffer->height();
@@ -2084,6 +2100,7 @@ LightHandler::updatePointLightBuffer(QList<Vec> olpos, float lradius,
   glUniform1iARB(m_initpLightParm[11], m_gridy); // opgridy
   glUniform1iARB(m_initpLightParm[12], m_ncols); // opncols
   glUniform1iARB(m_initpLightParm[13], doshadows); // doshadows
+  glUniform1fARB(m_initpLightParm[14], opmod); // doshadows
 
   glActiveTexture(GL_TEXTURE2);
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
@@ -2460,6 +2477,15 @@ LightHandler::openPropertyEditor()
   plist["ao smoothing"] = vlist;
 
   vlist.clear();
+  vlist << QVariant("double");
+  vlist << QVariant(m_aoOpMod);
+  vlist << QVariant(0.0);
+  vlist << QVariant(5.0);
+  vlist << QVariant(0.1); // singlestep
+  vlist << QVariant(1); // decimals
+  plist["ao opmod"] = vlist;
+  
+  vlist.clear();
   vlist << QVariant("checkbox");
   vlist << QVariant(m_onlyAOLight);
   plist["only ao light"] = vlist;
@@ -2521,6 +2547,7 @@ LightHandler::openPropertyEditor()
   keys << "opacity tfset";
   keys << "gap";
   keys << "ao color";
+  keys << "ao opmod";
   keys << "ao size";
   keys << "ao fraction";
   keys << "ao dark level";
@@ -2626,6 +2653,8 @@ LightHandler::openPropertyEditor()
 	    m_aoDensity2 = pair.first.toFloat();
 	  else if (keys[ik] == "ao smoothing")
 	    m_aoTimes = pair.first.toInt();
+	  else if (keys[ik] == "ao opmod")
+	    m_aoOpMod = pair.first.toFloat();
 	}
     }
   

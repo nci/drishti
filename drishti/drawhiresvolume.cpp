@@ -3313,7 +3313,9 @@ DrawHiresVolume::screenShadow(int ScreenXMin, int ScreenXMax,
   glUseProgramObjectARB(m_blurShader);
   glUniform1iARB(m_blurParm[0], 3); // copy from shadowBuffer[0] to shadowbuffer[1]
   
-  for(int i=0; i<=(int)(m_lightInfo.shadowBlur*m_lightInfo.shadowBlur); i++)
+  int nblur = m_lightInfo.shadowBlur;
+  nblur = 2*nblur;
+  for(int i=0; i<=nblur; i++)
     {
       for(int j=0; j<2; j++)
 	{

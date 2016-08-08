@@ -75,7 +75,6 @@ class DrawHiresVolume : public QObject
   void drawDragImage(float);
   void drawStillImage(float);
   void createShaders();
-  void reCreateBlurShader(int);
 
   void setImageSizeRatio(float);
 
@@ -282,7 +281,7 @@ class DrawHiresVolume : public QObject
   void createCopyShader();
   void createReduceShader();
   void createExtractSliceShader();
-  void createBlurShader(bool, int, float);
+  void createBlurShader();
   void createBackplaneShader(float);
 
   int drawpoly(Vec, Vec,

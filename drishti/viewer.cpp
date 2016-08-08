@@ -477,7 +477,6 @@ Viewer::setImageSize(int wd, int ht)
   float ratio = qMax(1.0f, qMax((float)m_imageWidth/(float)m_origWidth,
 			       (float)m_imageHeight/(float)m_origHeight));
   m_hiresVolume->setImageSizeRatio(ratio);
-  m_hiresVolume->reCreateBlurShader(1);
 }
 
 Viewer::Viewer(QWidget *parent) :
@@ -2709,7 +2708,6 @@ Viewer::restoreOriginalWidgetSize()
       m_imageHeight != m_origHeight)
     {
       m_hiresVolume->setImageSizeRatio(1);
-      m_hiresVolume->reCreateBlurShader(1);
     }
 
   m_imageSizeFlag = false;

@@ -168,7 +168,7 @@ void
 PreferencesWidget::setDOF(int blur, float nf)
 {
   ui.m_dofBlur->setValue(blur);
-  ui.m_dofNearFar->setValue(qBound(0, (int)(nf*100), 100));
+  ui.m_dofNearFar->setValue(qBound(0, (int)(nf*100), 120));
   update();
 }
 

@@ -547,55 +547,52 @@ ShaderFactory::genBoxShaderString()
   shader += "#extension GL_ARB_texture_rectangle : enable\n";
   shader += "uniform sampler2DRect blurTex;\n";
   shader += "uniform vec2 direc;\n";
+  shader += "uniform int type;\n";
   shader += "\n";
   shader += "void main(void)\n";
   shader += "{\n";
   shader += "  vec4 color = vec4(0.0);\n";
-  shader += "  vec4 spos = gl_TexCoord[0];\n";
+  shader += "  vec2 uv = gl_TexCoord[0].xy;\n";
   shader += "\n";
-//  shader += "  gl_FragColor = texture2DRect(blurTex, spos.xy)*0.29411764705882354;\n";
-//  shader += "  gl_FragColor += texture2DRect(blurTex, spos.xy+direc*1.3333333333)*0.35294117647058826;\n";
-//  shader += "  gl_FragColor += texture2DRect(blurTex, spos.xy-direc*1.3333333333)*0.35294117647058826;\n";
-
-  shader += "  gl_FragColor = texture2DRect(blurTex, spos.xy+direc*0.5)*0.5;\n";
-  shader += "  gl_FragColor+= texture2DRect(blurTex, spos.xy-direc*0.5)*0.5;\n";
+  shader += "  if (type == 1)\n";
+  shader += "   {\n";
+  shader += "    gl_FragColor = texture2DRect(blurTex, uv+direc*0.5)*0.5;\n";
+  shader += "    gl_FragColor+= texture2DRect(blurTex, uv-direc*0.5)*0.5;\n";
+  shader += "   }\n";
+  shader += "  else if (type == 2)\n";
+  shader += "   {\n";
+  shader += "    vec2 off1 = vec2(1.3333333333333333) * direc;\n";
+  shader += "    gl_FragColor =  texture2DRect(blurTex, uv)*0.29411764705882354;\n";
+  shader += "    gl_FragColor += texture2DRect(blurTex, uv+off1)*0.35294117647058826;\n";
+  shader += "    gl_FragColor += texture2DRect(blurTex, uv-off1)*0.35294117647058826;\n";
+  shader += "   }\n";
+  shader += "  else if (type == 3)\n";
+  shader += "   {\n";
+  shader += "    vec2 off1 = vec2(1.3846153846) * direc;\n";
+  shader += "    vec2 off2 = vec2(3.2307692308) * direc;\n";
+  shader += "    gl_FragColor =  texture2DRect(blurTex, uv) * 0.2270270270;\n";
+  shader += "    gl_FragColor += texture2DRect(blurTex, uv + off1) * 0.3162162162;\n";
+  shader += "    gl_FragColor += texture2DRect(blurTex, uv - off1) * 0.3162162162;\n";
+  shader += "    gl_FragColor += texture2DRect(blurTex, uv + off2) * 0.0702702703;\n";
+  shader += "    gl_FragColor += texture2DRect(blurTex, uv - off2) * 0.0702702703;\n";
+  shader += "   }\n";
+  shader += "  else if (type == 4)\n";
+  shader += "   {\n";
+  shader += "    vec2 off1 = vec2(1.411764705882353) * direc;\n";
+  shader += "    vec2 off2 = vec2(3.2941176470588234)* direc;\n";
+  shader += "    vec2 off3 = vec2(5.176470588235294) * direc;\n";
+  shader += "    gl_FragColor =  texture2DRect(blurTex, uv) * 0.1964825501511404;\n";
+  shader += "    gl_FragColor += texture2DRect(blurTex, uv + off1) * 0.2969069646728344;\n";
+  shader += "    gl_FragColor += texture2DRect(blurTex, uv - off1) * 0.2969069646728344;\n";
+  shader += "    gl_FragColor += texture2DRect(blurTex, uv + off2) * 0.09447039785044732;\n";
+  shader += "    gl_FragColor += texture2DRect(blurTex, uv - off2) * 0.09447039785044732;\n";
+  shader += "    gl_FragColor += texture2DRect(blurTex, uv + off3) * 0.010381362401148057;\n";
+  shader += "    gl_FragColor += texture2DRect(blurTex, uv - off3) * 0.010381362401148057;\n";
+  shader += "  }\n";
   shader += "}\n";
 
   return shader;
 }
-//QString
-//ShaderFactory::genBoxShaderString()
-//{
-//  QString shader;
-//
-//  shader = "#extension GL_ARB_texture_rectangle : enable\n";
-//  shader += "uniform sampler2DRect blurTex;\n";
-//  shader += "uniform int tap;\n";
-//  shader += "\n";
-//  shader += "void main(void)\n";
-//  shader += "{\n";
-//  shader += "  vec4 color = vec4(0.0);\n";
-//  shader += "  vec4 spos = gl_TexCoord[0];\n";
-//  shader += "\n";
-//
-//  shader += "if (tap > 0)\n";
-//  shader += "{\n";
-//  shader += "  for (int i=-tap; i<=tap; i++)\n";
-//  shader += "  for (int j=-tap; j<=tap; j++)\n";
-//  shader += "    color += texture2DRect(blurTex, spos.xy + vec2(i,j));\n";
-//  shader += "  float dg = float(2*tap+1);\n";
-//  shader += "  gl_FragColor.rgba = color/(dg*dg);\n";
-//  shader += "  gl_FragColor = clamp(gl_FragColor, vec4(0.0,0.0,0.0,0.0), vec4(1.0,1.0,1.0,1.0));\n";
-//  shader += "}\n";
-//  shader += "else \n"; // just copy
-//  shader += "  gl_FragColor += texture2DRect(blurTex, spos.xy);\n";
-//
-//
-//  shader += "}\n";
-//
-//  return shader;
-//}
-
 
 QString
 ShaderFactory::genRectBlurShaderString(int filter)

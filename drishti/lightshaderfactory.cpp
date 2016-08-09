@@ -782,6 +782,18 @@ LightShaderFactory::genInitTubeLightShader() // point shader
   shader += "  gl_FragColor = vec4(0.0,op,0.0,1.0);\n";
 
 
+  // ----- testing ----
+  shader += "  if (lradius < 2)\n";
+  shader += "     {\n";
+  shader += "       bvec3 spless = lessThan(p, vec3(2.0,2.0,2.0));\n";
+  shader += "       bvec3 spgret = greaterThan(p, vec3(float(gridx)-2.0,float(gridy)-2.0,float(gridz)-2.0));\n";
+  shader += "       if (any(spless) || any(spgret))\n";
+  shader += "          gl_FragColor = vec4(1.0,op,1.0,1.0);\n";
+  shader += "       return;\n";
+  shader += "     }\n";
+  //-------------------
+
+
   //------------------------------------
   // for point group lights - find nearest light
   shader += "  vec3 closestpt=lpos[0];\n";
@@ -808,8 +820,8 @@ LightShaderFactory::genInitTubeLightShader() // point shader
   shader += "   else\n";
   shader += "     {\n";
   shader += "       bvec3 pless = lessThan(closestpt, vec3(0.5,0.5,0.5));\n";
-  shader += "  bvec3 pgret = greaterThan(closestpt, vec3(float(gridx)-1.5,float(gridy)-1.5,float(gridz)-1.5));\n";
-  // if light is outside the box
+  shader += "       bvec3 pgret = greaterThan(closestpt, vec3(float(gridx)-1.5,float(gridy)-1.5,float(gridz)-1.5));\n";
+    // if light is outside the box
   shader += "       if (!doshadows || any(pless) || any(pgret)) \n";
   shader += "        {\n";
   shader += "          vec3 ldir = normalize(closestpt-p);\n";
@@ -900,6 +912,10 @@ LightShaderFactory::genTubeLightShader() // point shader
   shader += "   }\n";
   //------------------------------------
   shader += "  vec3 ldir = normalize(closestpt-p);\n";
+
+  //-------- testing ----
+  shader += "  if (lradius < 2) ldir = -ldir;\n";
+  //--------
 
 //  shader += "  if (npts > 1)\n";
 //  shader += "   {\n";  // for tube light take ldir as vector to nearest point on tube

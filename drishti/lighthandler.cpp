@@ -2092,8 +2092,8 @@ LightHandler::updatePointLightBuffer(QList<Vec> olpos, float lradius,
   glUniform3fvARB(m_initpLightParm[6], npts, lpos); // light radius
   glUniform1fARB(m_initpLightParm[7], lradius); // light radius
   if (doshadows)
-    glUniform1fARB(m_initpLightParm[8], ldecay); // light decay
-  else // change decay value
+    glUniform1fARB(m_initpLightParm[8], qPow(ldecay, 0.5f)); // light decay
+		   else // change decay value
     glUniform1fARB(m_initpLightParm[8], qPow(ldecay, 0.1f)); // light decay
   glUniform1fARB(m_initpLightParm[9], llod); // oplod
   glUniform1iARB(m_initpLightParm[10], m_gridx); // opgridx
@@ -2137,7 +2137,10 @@ LightHandler::updatePointLightBuffer(QList<Vec> olpos, float lradius,
       glUniform1iARB(m_pLightParm[5], npts); // light radius
       glUniform3fvARB(m_pLightParm[6], npts, lpos); // light radius
       glUniform1fARB(m_pLightParm[7], lradius); // light radius
-      glUniform1fARB(m_pLightParm[8], ldecay); // light decay
+      if (doshadows)
+        glUniform1fARB(m_pLightParm[8], qPow(ldecay, 0.5f)); // light decay
+      else // change decay value
+	glUniform1fARB(m_pLightParm[8], qPow(ldecay, 0.1f)); // light decay
       glUniform1fARB(m_pLightParm[9], cangle); // collection angle
       
       glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_lightBuffer);

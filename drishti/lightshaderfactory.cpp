@@ -891,6 +891,36 @@ LightShaderFactory::genTubeLightShader() // point shader
   shader += "  int y = int(tc.y) - row*gridy;\n";
   shader += "  int z = row*ncols + col;\n";
 
+  //-------- testing ----
+  //shader += "  if (lradius < 2) ldir = -ldir;\n";
+  shader += "  if (lradius < 2)\n";
+  shader += "   {\n";
+  shader += "     gl_FragColor = texture2DRect(lightTex, tc.xy);\n";
+  shader += "     float nlit = 0.0;\n";
+  shader += "     float lit = 0.0;\n";
+  shader += "     for(int k=-1; k<=1; k++)\n";
+  shader += "      {\n";
+  shader += "       int z1 = z+k;\n";
+  shader += "       int row = z1/ncols;\n";
+  shader += "       int col = z1 - row*ncols;\n";
+  shader += "       row *= gridy;\n";
+  shader += "       col *= gridx;\n";
+  shader += "       for(int i=-1; i<=1; i++)\n";
+  shader += "       for(int j=-1; j<=1; j++)\n";
+  shader += "        {\n";
+  shader += "          float x1 = float(col+x+i)+0.5;\n";
+  shader += "          float y1 = float(row+y+j)+0.5;\n";
+  shader += "          vec2 ldop = texture2DRect(lightTex, vec2(x1,y1)).xy;\n";
+  shader += "          float alit = (1.0-ldop.y)*ldop.x;\n";
+  shader += "          nlit += step(0.01, alit);\n";
+  shader += "          lit += alit;\n";
+  shader += "        }\n";
+  shader += "      }\n";
+  shader += "     gl_FragColor.x = clamp(0.0, lit/(nlit*ldecay), 1.0);\n";
+  shader += "     return;\n";
+  shader += "   }\n";
+  //--------
+
   shader += "  vec2 dop = texture2DRect(lightTex, tc.xy).xy;\n";
   shader += "  gl_FragColor = vec4(dop,1.0,1.0);\n";
   shader += "  if (dop.x > 0.98) return;\n";
@@ -911,60 +941,35 @@ LightShaderFactory::genTubeLightShader() // point shader
   shader += "      }\n";
   shader += "   }\n";
   //------------------------------------
+
   shader += "  vec3 ldir = normalize(closestpt-p);\n";
-
-  //-------- testing ----
-  shader += "  if (lradius < 2) ldir = -ldir;\n";
-  //--------
-
-//  shader += "  if (npts > 1)\n";
-//  shader += "   {\n";  // for tube light take ldir as vector to nearest point on tube
-//  shader += "    float nearest = 10000.0;\n";
-//  shader += "    for(int i=0; i<npts-1; i++)\n";
-//  shader += "     {\n";
-//  shader += "       vec3 p0 = p-lpos[i];\n";
-//  shader += "       vec3 l0 = lpos[i+1]-lpos[i];\n";
-//  shader += "       float len = length(l0);\n";
-//  shader += "       l0 /= vec3(len,len,len);\n";
-//  shader += "       float pl = dot(p0, l0);\n";
-//  shader += "       pl = clamp(pl, 0.0, len);\n";
-//  shader += "       vec3 lp = lpos[i]+pl*l0;\n";
-//  shader += "       float dst = distance(lp, p);\n";
-//  shader += "       if (dst < nearest) \n";
-//  shader += "       {\n";
-//  shader += "         nearest = dst;\n";
-//  shader += "         ldir = normalize(lp-p);\n";
-//  shader += "       }\n";
-//  shader += "     }\n";
-//  shader += "   }\n";
-
-  shader += "   vec2 fop = vec2(0.0,0.0);\n";
-  shader += "   for(int k=-1; k<=1; k++)\n";
-  shader += "    {\n";
-  shader += "     int z1 = z+k;\n";
-  shader += "     int row = z1/ncols;\n";
-  shader += "     int col = z1 - row*ncols;\n";
-  shader += "     row *= gridy;\n";
-  shader += "     col *= gridx;\n";
-  shader += "     for(int i=-1; i<=1; i++)\n";
-  shader += "     for(int j=-1; j<=1; j++)\n";
-  shader += "      {\n";
-  shader += "        vec3 dr = vec3(i,j,k);\n";
-  shader += "        float len = length(dr);\n";
-  shader += "        if (len > 0.1)\n";
-  shader += "          {\n";
-  shader += "            dr /= vec3(len,len,len);\n";  
-  shader += "            float dotdl = dot(dr,ldir);\n";
-  shader += "            if (dotdl > cangle)\n"; // angle less than cangle
-  shader += "              {\n";
-  shader += "                float x1 = float(col+x+i)+0.5;\n";
-  shader += "                float y1 = float(row+y+j)+0.5;\n";
-  shader += "                vec2 ldop = texture2DRect(lightTex, vec2(x1,y1)).xy;\n";
-  shader += "                fop += vec2(dotdl, dotdl*(1.0-ldop.y)*ldop.x);\n";
-  shader += "              }\n";
-  shader += "          }\n";
-  shader += "      }\n";
-  shader += "    }\n";
+  shader += "  vec2 fop = vec2(0.0,0.0);\n";
+  shader += "  for(int k=-1; k<=1; k++)\n";
+  shader += "   {\n";
+  shader += "    int z1 = z+k;\n";
+  shader += "    int row = z1/ncols;\n";
+  shader += "    int col = z1 - row*ncols;\n";
+  shader += "    row *= gridy;\n";
+  shader += "    col *= gridx;\n";
+  shader += "    for(int i=-1; i<=1; i++)\n";
+  shader += "    for(int j=-1; j<=1; j++)\n";
+  shader += "     {\n";
+  shader += "       vec3 dr = vec3(i,j,k);\n";
+  shader += "       float len = length(dr);\n";
+  shader += "       if (len > 0.1)\n";
+  shader += "         {\n";
+  shader += "           dr /= vec3(len,len,len);\n";  
+  shader += "           float dotdl = dot(dr,ldir);\n";
+  shader += "           if (dotdl > cangle)\n"; // angle less than cangle
+  shader += "             {\n";
+  shader += "               float x1 = float(col+x+i)+0.5;\n";
+  shader += "               float y1 = float(row+y+j)+0.5;\n";
+  shader += "               vec2 ldop = texture2DRect(lightTex, vec2(x1,y1)).xy;\n";
+  shader += "               fop += vec2(dotdl, dotdl*(1.0-ldop.y)*ldop.x);\n";
+  shader += "             }\n";
+  shader += "         }\n";
+  shader += "     }\n";
+  shader += "   }\n";
   shader += "  dop.x = (ldecay*fop.y/fop.x);\n";
   shader += "  dop.x = clamp(dop.x, 2.0/255.0, 1.0);\n";
   shader += "  gl_FragColor = vec4(dop,1.0,1.0);\n";

@@ -332,15 +332,18 @@ GiLights::openPropertyEditor(int i)
   vlist << QVariant(10);
   plist["light buffer smoothing"] = vlist;
   
-  vlist.clear();
-  vlist << QVariant("double");
-  vlist << QVariant(m_giLights[i]->angle());
-  vlist << QVariant(10.0);
-  vlist << QVariant(80.0);
-  vlist << QVariant(10.0);// singlestep
-  vlist << QVariant(1); // decimals
-  plist["collection angle"] = vlist;
-      
+  if (m_giLights[i]->rad() > 1)
+    {
+      vlist.clear();
+      vlist << QVariant("double");
+      vlist << QVariant(m_giLights[i]->angle());
+      vlist << QVariant(10.0);
+      vlist << QVariant(80.0);
+      vlist << QVariant(10.0);// singlestep
+      vlist << QVariant(1); // decimals
+      plist["collection angle"] = vlist;
+    }
+
   vlist.clear();
   vlist << QVariant("checkbox");
   vlist << QVariant(m_giLights[i]->allowInterpolate());
@@ -360,21 +363,24 @@ GiLights::openPropertyEditor(int i)
       vlist << QVariant(m_giLights[i]->decay());
       vlist << QVariant(0.1);
       vlist << QVariant(1.0);
-      vlist << QVariant(0.1);// singlestep
+      vlist << QVariant(0.05);// singlestep
       vlist << QVariant(3); // decimals
       plist["falloff"] = vlist;
 
-      vlist.clear();
-      vlist << QVariant("int");
-      vlist << QVariant(m_giLights[i]->segments());
-      vlist << QVariant(1);
-      vlist << QVariant(100);
-      plist["smoothness"] = vlist;
-
-      vlist.clear();
-      vlist << QVariant("checkbox");
-      vlist << QVariant(m_giLights[i]->doShadows());
-      plist["do shadows"] = vlist;
+      if (m_giLights[i]->rad() > 1)
+	{
+	  vlist.clear();
+	  vlist << QVariant("int");
+	  vlist << QVariant(m_giLights[i]->segments());
+	  vlist << QVariant(1);
+	  vlist << QVariant(100);
+	  plist["smoothness"] = vlist;
+	  
+	  vlist.clear();
+	  vlist << QVariant("checkbox");
+	  vlist << QVariant(m_giLights[i]->doShadows());
+	  plist["do shadows"] = vlist;
+	}
 
     }
 
@@ -416,15 +422,19 @@ GiLights::openPropertyEditor(int i)
   keys << "gap";
   keys << "color";
   keys << "opmod";
-  keys << "collection angle";
+  if (m_giLights[i]->rad() > 1)
+    keys << "collection angle";
   if (m_giLights[i]->lightType() == 0) // point light
     {
       keys << "size";
       keys << "falloff";
-      keys << "smoothness";
-      keys << "gap";
-      keys << "do shadows";
-      keys << "gap";
+      if (m_giLights[i]->rad() > 1)
+	{
+	  keys << "smoothness";
+	  keys << "gap";
+	  keys << "do shadows";
+	  keys << "gap";
+	}
     }
   keys << "gap";
   keys << "interpolate";

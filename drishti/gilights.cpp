@@ -328,7 +328,7 @@ GiLights::openPropertyEditor(int i)
   vlist.clear();
   vlist << QVariant("int");
   vlist << QVariant(m_giLights[i]->smooth());
-  vlist << QVariant(0);
+  vlist << QVariant(1);
   vlist << QVariant(10);
   plist["light buffer smoothing"] = vlist;
   
@@ -354,7 +354,7 @@ GiLights::openPropertyEditor(int i)
       vlist.clear();
       vlist << QVariant("int");
       vlist << QVariant(m_giLights[i]->rad());
-      vlist << QVariant(1);
+      vlist << QVariant(0);
       vlist << QVariant(50);
       plist["size"] = vlist;
 
@@ -547,7 +547,16 @@ GiLights::selectForEditing(int mouseButton,
       if (m_giLights[idx]->pointPressed() == -1)
 	  emit showMessage("No point selected for removal", true);
       else
-	m_giLights[idx]->removePoint(m_giLights[idx]->pointPressed());
+	{
+	  if (m_giLights[idx]->lightType() == 1)
+	    {
+	      QMessageBox::information(0, "", "Press DEL to delete Direction Light");
+	      m_giLights[idx]->setPointPressed(-1);
+	      return;
+	    }
+	  else
+	    m_giLights[idx]->removePoint(m_giLights[idx]->pointPressed());
+	}
     }
   else if (mouseButton == Qt::LeftButton && p0 > -1)
     m_giLights[idx]->insertPointAfter(p0);

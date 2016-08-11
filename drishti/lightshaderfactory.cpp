@@ -688,6 +688,23 @@ LightShaderFactory::genFinalLightShader()
 }
 
 QString
+LightShaderFactory::genInvertLightShader()
+{
+  QString shader;
+
+  shader =  "#extension GL_ARB_texture_rectangle : enable\n";
+  shader += "uniform sampler2DRect lightTex;\n";
+
+  shader += "void main(void)\n";
+  shader += "{\n";
+  shader += "  vec3 light = texture2DRect(lightTex, gl_TexCoord[0].xy);\n";
+  shader += "  gl_FragColor = vec4(vec3(1.0)-light, 1.0);\n";
+  shader += "}\n";
+
+  return shader;
+}
+
+QString
 LightShaderFactory::genDiffuseLightShader()
 {
   QString shader;
@@ -783,7 +800,7 @@ LightShaderFactory::genInitTubeLightShader() // point shader
 
 
   // ----- testing ----
-  shader += "  if (lradius < 2)\n";
+  shader += "  if (lradius < 1)\n";
   shader += "     {\n";
   shader += "       bvec3 spless = lessThan(p, vec3(2.0,2.0,2.0));\n";
   shader += "       bvec3 spgret = greaterThan(p, vec3(float(gridx)-2.0,float(gridy)-2.0,float(gridz)-2.0));\n";
@@ -891,31 +908,43 @@ LightShaderFactory::genTubeLightShader() // point shader
   shader += "  int y = int(tc.y) - row*gridy;\n";
   shader += "  int z = row*ncols + col;\n";
 
-  //-------- testing ----
-  //shader += "  if (lradius < 2) ldir = -ldir;\n";
-  shader += "  if (lradius < 2)\n";
+  //-------- skylight ----
+  shader += "  if (lradius < 1)\n";
   shader += "   {\n";
   shader += "     gl_FragColor = texture2DRect(lightTex, tc.xy);\n";
   shader += "     float nlit = 0.0;\n";
   shader += "     float lit = 0.0;\n";
-  shader += "     for(int k=-1; k<=1; k++)\n";
+  // -- take contributions from left, right, front and back
+  shader += "       int row = z/ncols;\n";
+  shader += "       int col = z - row*ncols;\n";
+  shader += "       row *= gridy;\n";
+  shader += "       col *= gridx;\n";
+  shader += "       for(int i=-1; i<=1; i+=2)\n";
+  shader += "       for(int j=-1; j<=1; j+=2)\n";
+  shader += "        {\n";
+  shader += "          float x1 = float(col+x+i)+0.5;\n";
+  shader += "          float y1 = float(row+y+j)+0.5;\n";
+  shader += "          vec2 ldop = texture2DRect(lightTex, vec2(x1,y1)).xy;\n";
+  shader += "          float alit = (1.0-ldop.y)*ldop.x;\n";
+  shader += "          nlit += step(0.001, alit);\n";
+  shader += "          lit += alit;\n";
+  shader += "        }\n";
+  // -- take contributions from top and bottom
+  shader += "     for(int k=-1; k<=1; k+=2)\n";
   shader += "      {\n";
   shader += "       int z1 = z+k;\n";
   shader += "       int row = z1/ncols;\n";
   shader += "       int col = z1 - row*ncols;\n";
   shader += "       row *= gridy;\n";
   shader += "       col *= gridx;\n";
-  shader += "       for(int i=-1; i<=1; i++)\n";
-  shader += "       for(int j=-1; j<=1; j++)\n";
-  shader += "        {\n";
-  shader += "          float x1 = float(col+x+i)+0.5;\n";
-  shader += "          float y1 = float(row+y+j)+0.5;\n";
-  shader += "          vec2 ldop = texture2DRect(lightTex, vec2(x1,y1)).xy;\n";
-  shader += "          float alit = (1.0-ldop.y)*ldop.x;\n";
-  shader += "          nlit += step(0.01, alit);\n";
-  shader += "          lit += alit;\n";
-  shader += "        }\n";
+  shader += "       float x1 = float(col+x)+0.5;\n";
+  shader += "       float y1 = float(row+y)+0.5;\n";
+  shader += "       vec2 ldop = texture2DRect(lightTex, vec2(x1,y1)).xy;\n";
+  shader += "       float alit = (1.0-ldop.y)*ldop.x;\n";
+  shader += "       nlit += step(0.001, alit);\n";
+  shader += "       lit += alit;\n";
   shader += "      }\n";
+  shader += "     nlit = max(1.0, nlit);\n";
   shader += "     gl_FragColor.x = clamp(0.0, lit/(nlit*ldecay), 1.0);\n";
   shader += "     return;\n";
   shader += "   }\n";

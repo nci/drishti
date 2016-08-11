@@ -40,6 +40,7 @@ GLhandleARB LightHandler::m_pLightShader=0;
 GLhandleARB LightHandler::m_fLightShader=0;
 GLhandleARB LightHandler::m_efLightShader=0;
 GLhandleARB LightHandler::m_diffuseLightShader=0;
+GLhandleARB LightHandler::m_invertLightShader=0;
 GLhandleARB LightHandler::m_emisShader=0;
 GLhandleARB LightHandler::m_expandLightShader=0;
 
@@ -61,6 +62,7 @@ GLint LightHandler::m_pLightParm[20];
 GLint LightHandler::m_fLightParm[20];
 GLint LightHandler::m_efLightParm[20];
 GLint LightHandler::m_diffuseLightParm[20];
+GLint LightHandler::m_invertLightParm[20];
 GLint LightHandler::m_emisParm[20];
 GLint LightHandler::m_expandLightParm[20];
 
@@ -86,9 +88,9 @@ int LightHandler::m_lightDiffuse = 1;
 Vec LightHandler::m_aoLightColor = Vec(1,1,1);
 int LightHandler::m_aoRad = 2;
 float LightHandler::m_aoFrac = 0.7;
-float LightHandler::m_aoDensity1 = 0.3;
+float LightHandler::m_aoDensity1 = 0.95;
 float LightHandler::m_aoDensity2 = 1.0;
-int LightHandler::m_aoTimes = 5;
+int LightHandler::m_aoTimes = 1;
 float LightHandler::m_aoOpMod = 1.0;
 bool LightHandler::m_onlyAOLight = false;
 bool LightHandler::m_basicLight = false;
@@ -427,12 +429,14 @@ LightHandler::reset()
   giLights()->clear();
   m_lightLod = 2;
   m_aoLightColor = Vec(1,1,1);
+  m_aoOpMod = 1.0;
+  m_aoDensity1 = 0.95;
+  m_aoTimes = 1;
+
+  //-- not used, will be removed
   m_aoRad = 2;
   m_aoFrac = 0.7;
-  m_aoOpMod = 1.0;
-  m_aoDensity1 = 0.3;
   m_aoDensity2 = 1.0;
-  m_aoTimes = 5;
 }
 
 void LightHandler::clean()
@@ -471,6 +475,7 @@ void LightHandler::clean()
   if (m_fLightShader) glDeleteObjectARB(m_fLightShader);
   if (m_efLightShader) glDeleteObjectARB(m_efLightShader);
   if (m_diffuseLightShader) glDeleteObjectARB(m_diffuseLightShader);
+  if (m_invertLightShader) glDeleteObjectARB(m_invertLightShader);
   if (m_emisShader) glDeleteObjectARB(m_emisShader);
   if (m_expandLightShader) glDeleteObjectARB(m_expandLightShader);
   m_opacityShader = 0;
@@ -484,6 +489,7 @@ void LightHandler::clean()
   m_fLightShader = 0;
   m_efLightShader = 0;
   m_diffuseLightShader = 0;
+  m_invertLightShader = 0;
   m_emisShader = 0;
   m_expandLightShader = 0;
 }
@@ -572,6 +578,7 @@ LightHandler::createLightShaders()
   createAmbientOcclusionLightShader();
   createDirectionalLightShader();
   createDiffuseLightShader();
+  createInvertLightShader();
   createPointLightShader();
   createEmissiveShader();
   createExpandShader();
@@ -843,6 +850,22 @@ LightHandler::createDiffuseLightShader()
   m_diffuseLightParm[3] = glGetUniformLocationARB(m_diffuseLightShader, "gridz");
   m_diffuseLightParm[5] = glGetUniformLocationARB(m_diffuseLightShader, "ncols");
   m_diffuseLightParm[6] = glGetUniformLocationARB(m_diffuseLightShader, "boost");
+  //---------------------------
+}
+
+void
+LightHandler::createInvertLightShader()
+{
+  if (m_invertLightShader)
+    return;
+
+  QString shaderString;
+
+  //---------------------------
+  shaderString = LightShaderFactory::genInvertLightShader();
+  m_invertLightShader = glCreateProgramObjectARB();
+  if (! ShaderFactory::loadShader(m_invertLightShader, shaderString)) exit(0);
+  m_invertLightParm[0] = glGetUniformLocationARB(m_invertLightShader, "lightTex");
   //---------------------------
 }
 
@@ -1722,9 +1745,22 @@ LightHandler::updateLightBuffers()
   //---------------------------------------------
 
   if (m_aoLightColor.squaredNorm() > 0.02)
-    updateAmbientOcclusionLightBuffer(m_aoRad, m_aoFrac,
-				      m_aoDensity1, m_aoDensity2, m_aoTimes,
-				      m_aoLightColor, m_aoOpMod);
+    {
+//    updateAmbientOcclusionLightBuffer(m_aoRad, m_aoFrac,
+//				      m_aoDensity1, m_aoDensity2, m_aoTimes,
+//				      m_aoLightColor, m_aoOpMod);
+      QList<Vec> dpos;
+      dpos << Vec(0,0,0);
+      updatePointLightBuffer(dpos,
+			     0,
+			     qMin(m_aoDensity1,0.99f),
+			     0,
+			     m_aoLightColor,
+			     1,
+			     m_aoTimes, // m_aoTimes
+			     true,
+			     m_aoOpMod);
+    }      
 
   if (m_onlyAOLight)
     {
@@ -2160,11 +2196,8 @@ LightHandler::updatePointLightBuffer(QList<Vec> olpos, float lradius,
   int ct = 1;
   if (doshadows)
     {
-      //int ntimes = qSqrt(lgridx*lgridx+lgridy*lgridy+lgridz*lgridz);
       int maxtimes = qMax(lgridx, qMax(lgridy, lgridz));
       int ntimes = maxtimes;
-      //  if (ldecay < 1.0)
-      //    ntimes = qMin(maxtimes, (int)(log(0.09)/log(ldecay)));
       
       glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_lightBuffer);
       ct = lightBufferCalculations(ntimes, 1, ltexX, ltexY);
@@ -2189,6 +2222,8 @@ LightHandler::updatePointLightBuffer(QList<Vec> olpos, float lradius,
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
   //---------------------------------------------
 
+  if (lradius < 1 && cangle > 0.1) ct = invertLightBuffer(ct);
+
   if (smooth > 0)
     {
       glUseProgramObjectARB(m_diffuseLightShader);
@@ -2205,7 +2240,7 @@ LightHandler::updatePointLightBuffer(QList<Vec> olpos, float lradius,
     }
 
   glUseProgramObjectARB(0);
-
+  
   glActiveTexture(GL_TEXTURE2);
   glDisable(GL_TEXTURE_RECTANGLE_ARB);
 
@@ -2438,45 +2473,45 @@ LightHandler::openPropertyEditor()
   vlist << dcolor;
   plist["ao color"] = vlist;
   
-  vlist.clear();
-  vlist << QVariant("int");
-  vlist << QVariant(m_aoRad);
-  vlist << QVariant(1);
-  vlist << QVariant(7);
-  plist["ao size"] = vlist;
-
-  vlist.clear();
-  vlist << QVariant("double");
-  vlist << QVariant(m_aoFrac);
-  vlist << QVariant(0.0);
-  vlist << QVariant(0.9);
-  vlist << QVariant(0.1); // singlestep
-  vlist << QVariant(1); // decimals
-  plist["ao fraction"] = vlist;
+//  vlist.clear();
+//  vlist << QVariant("int");
+//  vlist << QVariant(m_aoRad);
+//  vlist << QVariant(1);
+//  vlist << QVariant(7);
+//  plist["ao size"] = vlist;
+//
+//  vlist.clear();
+//  vlist << QVariant("double");
+//  vlist << QVariant(m_aoFrac);
+//  vlist << QVariant(0.0);
+//  vlist << QVariant(0.9);
+//  vlist << QVariant(0.1); // singlestep
+//  vlist << QVariant(1); // decimals
+//  plist["ao fraction"] = vlist;
   
   vlist.clear();
   vlist << QVariant("double");
   vlist << QVariant(m_aoDensity1);
-  vlist << QVariant(0.0);
+  vlist << QVariant(0.1);
   vlist << QVariant(1.0);
-  vlist << QVariant(0.1); // singlestep
-  vlist << QVariant(1); // decimals
+  vlist << QVariant(0.05); // singlestep
+  vlist << QVariant(3); // decimals
   plist["ao dark level"] = vlist;
   
-  vlist.clear();
-  vlist << QVariant("double");
-  vlist << QVariant(m_aoDensity2);
-  vlist << QVariant(0.0);
-  vlist << QVariant(1.0);
-  vlist << QVariant(0.1); // singlestep
-  vlist << QVariant(1); // decimals
-  plist["ao bright level"] = vlist;
-  
+//  vlist.clear();
+//  vlist << QVariant("double");
+//  vlist << QVariant(m_aoDensity2);
+//  vlist << QVariant(0.0);
+//  vlist << QVariant(1.0);
+//  vlist << QVariant(0.1); // singlestep
+//  vlist << QVariant(1); // decimals
+//  plist["ao bright level"] = vlist;
+//  
   vlist.clear();
   vlist << QVariant("int");
   vlist << QVariant(m_aoTimes);
   vlist << QVariant(1);
-  vlist << QVariant(10);
+  vlist << QVariant(5);
   plist["ao smoothing"] = vlist;
 
   vlist.clear();
@@ -2551,10 +2586,10 @@ LightHandler::openPropertyEditor()
   keys << "gap";
   keys << "ao color";
   keys << "ao opmod";
-  keys << "ao size";
-  keys << "ao fraction";
+  //keys << "ao size";
+  //keys << "ao fraction";
   keys << "ao dark level";
-  keys << "ao bright level";
+  //keys << "ao bright level";
   keys << "ao smoothing";
   keys << "gap";
   keys << "emis tfset";
@@ -2716,6 +2751,49 @@ LightHandler::lightBufferCalculations(int ntimes, int lct, int lX, int lY)
       
       ct = (ct+1)%2;
     }
+
+  return ct;
+}
+
+int
+LightHandler::invertLightBuffer(int lct, int lX, int lY)
+{
+  glUseProgramObjectARB(m_invertLightShader);
+  glUniform1iARB(m_invertLightParm[0], 2); // finalLightBuffer
+  
+  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_lightBuffer);
+
+  int sX = m_finalLightBuffer->width();
+  int sY = m_finalLightBuffer->height();
+
+  if (lX > 0 && lY > 0)
+    {
+      sX = lX;
+      sY = lY;
+    }
+
+  int ct = 1;
+  if (lct > -1) ct = lct;
+
+  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			 GL_COLOR_ATTACHMENT0_EXT,
+			 GL_TEXTURE_RECTANGLE_ARB,
+			 m_lightTex[(ct+1)%2],
+			 0);
+      
+  glActiveTexture(GL_TEXTURE2);
+  glEnable(GL_TEXTURE_RECTANGLE_ARB);
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_lightTex[ct]);      
+  
+  StaticFunctions::pushOrthoView(0, 0, sX, sY);
+  StaticFunctions::drawQuad(0, 0, sX, sY, 1.0);
+  StaticFunctions::popOrthoView();
+  
+  glFinish();
+      
+  ct = (ct+1)%2;
+
+  glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
 
   return ct;
 }

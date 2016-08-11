@@ -28,6 +28,8 @@ class LightShaderFactory
   static QString genFinalLightShader();
   static QString genEFinalLightShader();
 
+  static QString genInvertLightShader();
+
   static QString genDiffuseLightShader();
 
   static QString genMergeOpPruneShader();

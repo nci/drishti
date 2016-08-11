@@ -855,7 +855,6 @@ GiLightObject::drawLines(QGLViewer *viewer,
       glEnable(GL_POINT_SPRITE);
       glActiveTexture(GL_TEXTURE0);
       glEnable(GL_TEXTURE_2D);
-      //glBindTexture(GL_TEXTURE_2D, Global::spriteTexture());
       glBindTexture(GL_TEXTURE_2D, Global::lightTexture());
       glTexEnvf(GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE );
       glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
@@ -890,6 +889,27 @@ GiLightObject::drawLines(QGLViewer *viewer,
 	  glPointSize(75);
 	  glBegin(GL_POINTS);
 	  Vec pt = VECPRODUCT(m_points[m_pointPressed], voxelScaling);
+	  glVertex3fv(pt);
+	  glEnd();
+	}
+
+      // "inverse ambient light"
+      if (m_rad == 0)
+	{
+	  glColor3f(1,1,1);	  
+
+	  glEnable(GL_POINT_SPRITE);
+	  glActiveTexture(GL_TEXTURE0);
+	  glEnable(GL_TEXTURE_2D);
+	  glBindTexture(GL_TEXTURE_2D, Global::hollowSpriteTexture());
+	  glTexEnvf(GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE );
+	  glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+	  glHint(GL_POINT_SMOOTH_HINT, GL_NICEST);
+	  glEnable(GL_POINT_SMOOTH);
+	  Vec voxelScaling = Global::voxelScaling();
+	  glPointSize(50);
+	  glBegin(GL_POINTS);
+	  Vec pt = VECPRODUCT(m_points[0], voxelScaling);
 	  glVertex3fv(pt);
 	  glEnd();
 	}

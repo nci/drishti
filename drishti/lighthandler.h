@@ -126,6 +126,7 @@ class LightHandler
     static GLhandleARB m_efLightShader;
     static GLhandleARB m_diffuseLightShader;
     static GLhandleARB m_emisShader;
+    static GLhandleARB m_invertLightShader;
 
     static GLhandleARB m_expandLightShader;
 
@@ -144,6 +145,7 @@ class LightHandler
     static GLint m_fLightParm[20];
     static GLint m_efLightParm[20];
     static GLint m_diffuseLightParm[20];
+    static GLint m_invertLightParm[20];
 
     static GLint m_expandLightParm[20];
 
@@ -185,6 +187,7 @@ class LightHandler
     static void createPointLightShader();
     static void createFinalLightShader();
     static void createDiffuseLightShader();
+    static void createInvertLightShader();
     static void createEmissiveShader();
     static void createExpandShader();
     static void createMergeOpPruneShader();
@@ -213,6 +216,8 @@ class LightHandler
     static void updateFinalLightBuffer(int);
 
     static void diffuseLightBuffer(int);
+
+    static int invertLightBuffer(int, int lX=0, int lY=0);
 
     static int lightBufferCalculations(int, int lct = -1, int lX=0, int lY=0);
 

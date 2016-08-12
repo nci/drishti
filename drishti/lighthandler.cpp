@@ -2224,7 +2224,7 @@ LightHandler::updatePointLightBuffer(QList<Vec> olpos, float lradius,
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
   //---------------------------------------------
 
-  if (lradius < 1 && cangle > 0.1) ct = invertLightBuffer(ct);
+  //if (lradius < 1 && cangle > 0.1) ct = invertLightBuffer(ct);
 
   if (smooth > 0)
     {
@@ -2444,14 +2444,14 @@ LightHandler::openPropertyEditor()
   vlist << QVariant(Global::lutSize());
   plist["emis tfset"] = vlist;
 
-//  vlist.clear();
-//  vlist << QVariant("double");
-//  vlist << QVariant(m_emisDecay);
-//  vlist << QVariant(0.1);
-//  vlist << QVariant(1.0);
-//  vlist << QVariant(0.1); // singlestep
-//  vlist << QVariant(1); // decimals
-//  plist["emis falloff"] = vlist;
+  vlist.clear();
+  vlist << QVariant("double");
+  vlist << QVariant(m_emisDecay);
+  vlist << QVariant(0.1);
+  vlist << QVariant(1.0);
+  vlist << QVariant(0.1); // singlestep
+  vlist << QVariant(1); // decimals
+  plist["emis falloff"] = vlist;
   
   vlist.clear();
   vlist << QVariant("int");
@@ -2596,7 +2596,7 @@ LightHandler::openPropertyEditor()
   keys << "ao smoothing";
   keys << "gap";
   keys << "emis tfset";
-  //keys << "emis falloff";
+  keys << "emis falloff";
   keys << "emis smoothing";
   keys << "emis boost";
   //keys << "command";
@@ -2654,11 +2654,11 @@ LightHandler::openPropertyEditor()
 	      m_emisTF = pair.first.toInt();
 	      emisChanged = true;
 	    }
-//	  else if (keys[ik] == "emis falloff")
-//	    {
-//	      m_emisDecay = pair.first.toFloat();
-//	      emisChanged = true;
-//	    }
+	  else if (keys[ik] == "emis falloff")
+	    {
+	      m_emisDecay = pair.first.toFloat();
+	      emisChanged = true;
+	    }
 	  else if (keys[ik] == "emis smoothing")
 	    {
 	      m_emisTimes = pair.first.toInt();

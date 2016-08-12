@@ -354,7 +354,7 @@ GiLights::openPropertyEditor(int i)
       vlist.clear();
       vlist << QVariant("int");
       vlist << QVariant(m_giLights[i]->rad());
-      vlist << QVariant(0);
+      vlist << QVariant(1);
       vlist << QVariant(50);
       plist["size"] = vlist;
 
@@ -367,21 +367,17 @@ GiLights::openPropertyEditor(int i)
       vlist << QVariant(3); // decimals
       plist["falloff"] = vlist;
 
-      if (m_giLights[i]->rad() > 1)
-	{
-	  vlist.clear();
-	  vlist << QVariant("int");
-	  vlist << QVariant(m_giLights[i]->segments());
-	  vlist << QVariant(1);
-	  vlist << QVariant(100);
-	  plist["smoothness"] = vlist;
-	  
-	  vlist.clear();
-	  vlist << QVariant("checkbox");
-	  vlist << QVariant(m_giLights[i]->doShadows());
-	  plist["do shadows"] = vlist;
-	}
-
+      vlist.clear();
+      vlist << QVariant("int");
+      vlist << QVariant(m_giLights[i]->segments());
+      vlist << QVariant(1);
+      vlist << QVariant(100);
+      plist["smoothness"] = vlist;
+      
+      vlist.clear();
+      vlist << QVariant("checkbox");
+      vlist << QVariant(m_giLights[i]->doShadows());
+      plist["do shadows"] = vlist;
     }
 
   vlist.clear();

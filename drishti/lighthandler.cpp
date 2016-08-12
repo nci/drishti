@@ -88,8 +88,8 @@ int LightHandler::m_lightDiffuse = 1;
 Vec LightHandler::m_aoLightColor = Vec(1,1,1);
 int LightHandler::m_aoRad = 2;
 float LightHandler::m_aoFrac = 0.7;
-float LightHandler::m_aoDensity1 = 0.95;
-float LightHandler::m_aoDensity2 = 1.0;
+float LightHandler::m_aoDensity1 = 0.3;
+float LightHandler::m_aoDensity2 = 0.95;
 int LightHandler::m_aoTimes = 1;
 float LightHandler::m_aoOpMod = 1.0;
 bool LightHandler::m_onlyAOLight = false;
@@ -101,8 +101,8 @@ int LightHandler::m_opacityTF=0;
 
 int LightHandler::m_emisTF=-1;
 float LightHandler::m_emisDecay=1.0;
-float LightHandler::m_emisBoost=2.0;
-int LightHandler::m_emisTimes=15;
+float LightHandler::m_emisBoost=5.0;
+int LightHandler::m_emisTimes=20;
 
 int LightHandler::m_dilatedEmisTex;
 int LightHandler::m_origEmisTex;
@@ -430,13 +430,13 @@ LightHandler::reset()
   m_lightLod = 2;
   m_aoLightColor = Vec(1,1,1);
   m_aoOpMod = 1.0;
-  m_aoDensity1 = 0.95;
+  m_aoDensity2 = 0.95;
   m_aoTimes = 1;
 
   //-- not used, will be removed
   m_aoRad = 2;
   m_aoFrac = 0.7;
-  m_aoDensity2 = 1.0;
+  m_aoDensity1 = 0.3;
 }
 
 void LightHandler::clean()
@@ -1350,9 +1350,9 @@ LightHandler::updateEmissiveBuffer(float ldecay)
   glClear(GL_COLOR_BUFFER_BIT);
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
 
-  
+
   int ntimes = qMax(m_gridx, qMax(m_gridy, m_gridz));
-  ntimes /= 2;
+//  ntimes /= 2;
 
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_lightBuffer);
   int ct = lightBufferCalculations(ntimes);
@@ -1360,6 +1360,8 @@ LightHandler::updateEmissiveBuffer(float ldecay)
 
   glUseProgramObjectARB(0);
 
+  ct = invertLightBuffer(ct);
+  
   glActiveTexture(GL_TEXTURE2);
   glDisable(GL_TEXTURE_RECTANGLE_ARB);
 
@@ -1753,7 +1755,7 @@ LightHandler::updateLightBuffers()
       dpos << Vec(0,0,0);
       updatePointLightBuffer(dpos,
 			     0,
-			     qMin(m_aoDensity1,0.99f),
+			     qMin(m_aoDensity2,0.99f),
 			     0,
 			     m_aoLightColor,
 			     1,
@@ -2442,14 +2444,14 @@ LightHandler::openPropertyEditor()
   vlist << QVariant(Global::lutSize());
   plist["emis tfset"] = vlist;
 
-  vlist.clear();
-  vlist << QVariant("double");
-  vlist << QVariant(m_emisDecay);
-  vlist << QVariant(0.1);
-  vlist << QVariant(1.0);
-  vlist << QVariant(0.1); // singlestep
-  vlist << QVariant(1); // decimals
-  plist["emis falloff"] = vlist;
+//  vlist.clear();
+//  vlist << QVariant("double");
+//  vlist << QVariant(m_emisDecay);
+//  vlist << QVariant(0.1);
+//  vlist << QVariant(1.0);
+//  vlist << QVariant(0.1); // singlestep
+//  vlist << QVariant(1); // decimals
+//  plist["emis falloff"] = vlist;
   
   vlist.clear();
   vlist << QVariant("int");
@@ -2462,7 +2464,7 @@ LightHandler::openPropertyEditor()
   vlist << QVariant("int");
   vlist << QVariant(m_emisBoost);
   vlist << QVariant(0);
-  vlist << QVariant(20);
+  vlist << QVariant(50);
   plist["emis boost"] = vlist;
 
   vlist.clear();
@@ -2491,7 +2493,8 @@ LightHandler::openPropertyEditor()
   
   vlist.clear();
   vlist << QVariant("double");
-  vlist << QVariant(m_aoDensity1);
+  //vlist << QVariant(m_aoDensity1);
+  vlist << QVariant(m_aoDensity2);
   vlist << QVariant(0.1);
   vlist << QVariant(1.0);
   vlist << QVariant(0.05); // singlestep
@@ -2593,7 +2596,7 @@ LightHandler::openPropertyEditor()
   keys << "ao smoothing";
   keys << "gap";
   keys << "emis tfset";
-  keys << "emis falloff";
+  //keys << "emis falloff";
   keys << "emis smoothing";
   keys << "emis boost";
   //keys << "command";
@@ -2651,11 +2654,11 @@ LightHandler::openPropertyEditor()
 	      m_emisTF = pair.first.toInt();
 	      emisChanged = true;
 	    }
-	  else if (keys[ik] == "emis falloff")
-	    {
-	      m_emisDecay = pair.first.toFloat();
-	      emisChanged = true;
-	    }
+//	  else if (keys[ik] == "emis falloff")
+//	    {
+//	      m_emisDecay = pair.first.toFloat();
+//	      emisChanged = true;
+//	    }
 	  else if (keys[ik] == "emis smoothing")
 	    {
 	      m_emisTimes = pair.first.toInt();
@@ -2681,18 +2684,19 @@ LightHandler::openPropertyEditor()
 	      float b = color.blueF();
 	      m_aoLightColor = Vec(r,g,b);
 	    }
-	  else if (keys[ik] == "ao size")
-	    m_aoRad = pair.first.toInt();
-	  else if (keys[ik] == "ao fraction")
-	    m_aoFrac = pair.first.toFloat();
 	  else if (keys[ik] == "ao dark level")
-	    m_aoDensity1 = pair.first.toFloat();
-	  else if (keys[ik] == "ao bright level")
+	    //m_aoDensity1 = pair.first.toFloat();
 	    m_aoDensity2 = pair.first.toFloat();
 	  else if (keys[ik] == "ao smoothing")
 	    m_aoTimes = pair.first.toInt();
 	  else if (keys[ik] == "ao opmod")
 	    m_aoOpMod = pair.first.toFloat();
+	  //else if (keys[ik] == "ao bright level")
+	  //  m_aoDensity2 = pair.first.toFloat();
+	  //else if (keys[ik] == "ao size")
+	  //  m_aoRad = pair.first.toInt();
+	  //else if (keys[ik] == "ao fraction")
+	  //  m_aoFrac = pair.first.toFloat();
 	}
     }
   

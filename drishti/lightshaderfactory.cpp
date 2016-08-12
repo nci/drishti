@@ -423,8 +423,8 @@ LightShaderFactory::genInitEmissiveShader() // tf emissive shader
   shader += "  int y = int(tc.y) - row*gridy;\n";
   shader += "  int z = row*ncols + col;\n";
 
-  //shader += "  float den = step(0.005, texture2DRect(eTex, tc).a);\n"; 
-  shader += "  float den = texture2DRect(eTex, tc).a;\n"; 
+  shader += "  float den = step(0.005, texture2DRect(eTex, tc).a);\n"; 
+  //shader += "  float den = texture2DRect(eTex, tc).a;\n"; 
   shader += "  float op = texture2DRect(opTex, tc).x;\n"; 
   shader += "  gl_FragColor = vec4(den,op,den,1.0);\n";
   shader += "}\n";
@@ -447,46 +447,81 @@ LightShaderFactory::genEmissiveShader() // tf emissive shader
   
   shader += "void main(void)\n";
   shader += "{\n";
-  shader += "  int row, col;\n";
-  shader += "  int x,y,z, x1,y1,z1;\n";
+  //shader += "  int row, col;\n";
+  //shader += "  int x,y,z, x1,y1,z1;\n";
 
-  
   shader += "  vec2 tc = gl_TexCoord[0].xy;\n";
-  shader += "  col = int(tc.x)/gridx;\n";
-  shader += "  row = int(tc.y)/gridy;\n";
-  shader += "  x = int(tc.x) - col*gridx;\n";
-  shader += "  y = int(tc.y) - row*gridy;\n";
-  shader += "  z = row*ncols + col;\n";
+  shader += "  int col = int(tc.x)/gridx;\n";
+  shader += "  int row = int(tc.y)/gridy;\n";
+  shader += "  int x = int(tc.x) - col*gridx;\n";
+  shader += "  int y = int(tc.y) - row*gridy;\n";
+  shader += "  int z = row*ncols + col;\n";
 
-  shader += "  vec2 dop = texture2DRect(lightTex, tc.xy).xy;\n";
-  shader += "  gl_FragColor = vec4(dop,1.0,1.0);\n";
-  shader += "  if (dop.x > 0.98)\n";
-  shader += "    return;\n";
-
-  shader += "  float fop = 0.0;\n";
-  shader += "  for(int k=-1; k<=1; k++)\n";
+  shader += "  gl_FragColor = texture2DRect(lightTex, tc.xy);\n";
+  shader += "  float nlit = 0.0;\n";
+  shader += "  float lit = 0.0;\n";
+  // -- take contributions from left, right, front and back
+  shader += "  row = z/ncols;\n";
+  shader += "  col = z - row*ncols;\n";
+  shader += "  row *= gridy;\n";
+  shader += "  col *= gridx;\n";
+  shader += "  for(int i=-1; i<=1; i+=2)\n";
+  shader += "  for(int j=-1; j<=1; j+=2)\n";
   shader += "   {\n";
-  shader += "     int z1 = z+k;\n";
-  shader += "     int row = z1/ncols;\n";
-  shader += "     int col = z1 - row*ncols;\n";
-  shader += "     row *= gridy;\n";
-  shader += "     col *= gridx;\n";
-  shader += "     for(int i=-1; i<=1; i++)\n";
-  shader += "     for(int j=-1; j<=1; j++)\n";
-  shader += "      {\n";
-  shader += "        float x1 = float(col+x+i)+0.5;\n";
-  shader += "        float y1 = float(row+y+j)+0.5;\n";
-  shader += "        vec2 ldop = texture2DRect(lightTex, vec2(x1,y1)).xy;\n";
-  shader += "        fop = max(fop, (1.0-ldop.y)*ldop.x);\n";
-  //shader += "        fop += (1.0-ldop.y)*ldop.x;\n";
-  shader += "      }\n";
+  shader += "     float x1 = float(col+x+i)+0.5;\n";
+  shader += "     float y1 = float(row+y+j)+0.5;\n";
+  shader += "     vec2 ldop = texture2DRect(lightTex, vec2(x1,y1)).xy;\n";
+  shader += "     float alit = (1.0-ldop.y)*ldop.x;\n";
+  shader += "     nlit += step(0.001, alit);\n";
+  shader += "     lit += alit;\n";
   shader += "   }\n";
+  // -- take contributions from top and bottom
+  shader += "  for(int k=-1; k<=1; k+=2)\n";
+  shader += "   {\n";
+  shader += "    int z1 = z+k;\n";
+  shader += "    row = z1/ncols;\n";
+  shader += "    col = z1 - row*ncols;\n";
+  shader += "    row *= gridy;\n";
+  shader += "    col *= gridx;\n";
+  shader += "    float x1 = float(col+x)+0.5;\n";
+  shader += "    float y1 = float(row+y)+0.5;\n";
+  shader += "    vec2 ldop = texture2DRect(lightTex, vec2(x1,y1)).xy;\n";
+  shader += "    float alit = (1.0-ldop.y)*ldop.x;\n";
+  shader += "    nlit += step(0.001, alit);\n";
+  shader += "    lit += alit;\n";
+  shader += "   }\n";
+  shader += "  nlit = max(1.0, nlit);\n";
+  shader += "  gl_FragColor.x = clamp(0.0, lit/(nlit*ldecay), 1.0);\n";
 
-  
-  //shader += "  dop.x = fop/27.0*ldecay;\n";
-  shader += "  dop.x = fop*ldecay;\n";
-
-  shader += "  gl_FragColor = vec4(dop,1.0,1.0);\n";
+//  shader += "  vec2 dop = texture2DRect(lightTex, tc.xy).xy;\n";
+//  shader += "  gl_FragColor = vec4(dop,1.0,1.0);\n";
+//  shader += "  if (dop.x > 0.98)\n";
+//  shader += "    return;\n";
+//
+//  shader += "  float fop = 0.0;\n";
+//  shader += "  for(int k=-1; k<=1; k++)\n";
+//  shader += "   {\n";
+//  shader += "     int z1 = z+k;\n";
+//  shader += "     int row = z1/ncols;\n";
+//  shader += "     int col = z1 - row*ncols;\n";
+//  shader += "     row *= gridy;\n";
+//  shader += "     col *= gridx;\n";
+//  shader += "     for(int i=-1; i<=1; i++)\n";
+//  shader += "     for(int j=-1; j<=1; j++)\n";
+//  shader += "      {\n";
+//  shader += "        float x1 = float(col+x+i)+0.5;\n";
+//  shader += "        float y1 = float(row+y+j)+0.5;\n";
+//  shader += "        vec2 ldop = texture2DRect(lightTex, vec2(x1,y1)).xy;\n";
+//  shader += "        fop = max(fop, (1.0-ldop.y)*ldop.x);\n";
+//  //shader += "        fop += (1.0-ldop.y)*ldop.x;\n";
+//  shader += "      }\n";
+//  shader += "   }\n";
+//
+//  
+//  //shader += "  dop.x = fop/27.0*ldecay;\n";
+//  shader += "  dop.x = fop*ldecay;\n";
+//
+//  shader += "  gl_FragColor = vec4(dop,1.0,1.0);\n";
   shader += "}\n";
 
   return shader;

@@ -258,6 +258,13 @@ MainWindow::MainWindow(QWidget *parent) :
 //  //----------------------------------------------------------
 
 
+  m_dockTF->setFloating(true);
+//  dock2->setFloating(true);
+//  dock3->setFloating(true);
+//  dock4->setFloating(true);
+//  dock5->setFloating(true);
+//  m_dockKeyframe->setFloating(true);
+
   addDockWidget(Qt::RightDockWidgetArea, m_dockTF);
   addDockWidget(Qt::RightDockWidgetArea, dock2);
   addDockWidget(Qt::RightDockWidgetArea, dock3);

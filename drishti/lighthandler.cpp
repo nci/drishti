@@ -94,8 +94,8 @@ int LightHandler::m_aoTimes = 1;
 float LightHandler::m_aoOpMod = 1.0;
 bool LightHandler::m_onlyAOLight = false;
 bool LightHandler::m_basicLight = false;
-bool LightHandler::m_applyClip = false;
-bool LightHandler::m_applyCrop = false;
+bool LightHandler::m_applyClip = true;
+bool LightHandler::m_applyCrop = true;
 
 int LightHandler::m_opacityTF=0;
 

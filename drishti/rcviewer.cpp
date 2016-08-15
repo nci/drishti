@@ -150,6 +150,9 @@ RcViewer::setVolDataPtr(VolumeFileManager *ptr)
 {
   m_vfm = ptr;
 
+  if (!m_vfm)
+    return;
+  
   m_bytesPerVoxel = m_vfm->bytesPerVoxel();
 
   m_boxMinMax.clear();
@@ -201,6 +204,9 @@ RcViewer::setGridSize(int d, int w, int h)
 void
 RcViewer::updateSubvolume(Vec bmin, Vec bmax)
 {
+  if (!m_vfm)
+    return;
+
   m_dataMin = bmin;
   m_dataMax = bmax;
 
@@ -217,6 +223,9 @@ RcViewer::updateSubvolume(Vec bmin, Vec bmax)
 void
 RcViewer::loadLookupTable()
 {
+  if (!m_vfm)
+    return;
+
   glActiveTexture(GL_TEXTURE0);
   glEnable(GL_TEXTURE_2D);
   glBindTexture(GL_TEXTURE_2D, m_lutTex);

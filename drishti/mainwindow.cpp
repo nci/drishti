@@ -2506,7 +2506,10 @@ MainWindow::loadVolume2List(QList<QString> files1,
     }
 
   if (!loadVolume2(files1, files2))
-    return;
+    {
+      QMessageBox::information(0, "Error", "Cannot load volumes");
+      return;
+    }
 
   Global::setVolumeNumber(0);
   Global::setVolumeNumber(0, 1);
@@ -3032,7 +3035,6 @@ MainWindow::loadProject(const char* flnm)
 	   projectType == Global::RGBAVolume)
     loadVolumeRGB(m_volFiles1[0].toLatin1().data());
 
-
   m_bricks->reset();
   GeometryObjects::clipplanes()->reset();
 
@@ -3064,7 +3066,6 @@ MainWindow::loadProject(const char* flnm)
   m_preferencesWidget->load(flnm);
   m_tfManager->load(flnm);
 
-  
 //  m_dockGallery->setVisible(false);
   m_dockKeyframe->setVisible(false);
 
@@ -3732,9 +3733,13 @@ MainWindow::loadViewsAndKeyFrames(const char* flnm)
   QString sflnm(flnm);
   sflnm.replace(QString(".xml"), QString(".keyframes"));
 
+
   QFileInfo fileInfo(sflnm);
   if (! fileInfo.exists())
-    return;
+    {
+      QMessageBox::information(0, "Error", QString("%1 not found").arg(sflnm));
+      return;
+    }
 
   fstream fin(sflnm.toLatin1().data(), ios::binary|ios::in);
 

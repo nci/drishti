@@ -2580,6 +2580,7 @@ Viewer::updateLightBuffers()
   
   QList<Vec> cpos, cnorm;
   m_hiresVolume->getClipForMask(cpos, cnorm);
+
   bool redolighting = LightHandler::checkClips(cpos, cnorm);
   redolighting = redolighting || LightHandler::checkCrops();
   redolighting = redolighting || LightHandler::updateOnlyLightBuffers();
@@ -2640,8 +2641,13 @@ Viewer::draw()
 
       QList<Vec> cpos, cnorm;
       m_hiresVolume->getClipForMask(cpos, cnorm);
-      bool redolighting = LightHandler::checkClips(cpos, cnorm);
-      redolighting = redolighting || LightHandler::checkCrops();
+      //bool redolighting = LightHandler::checkClips(cpos, cnorm);
+      bool redolighting = false;
+      if (!m_mouseDrag)
+	{
+	  redolighting = redolighting || LightHandler::checkClips(cpos, cnorm);
+	  redolighting = redolighting || LightHandler::checkCrops();
+	}
       redolighting = redolighting || LightHandler::updateOnlyLightBuffers();
       if (redolighting)
 	{

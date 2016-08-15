@@ -434,9 +434,9 @@ LightHandler::reset()
   m_aoTimes = 1;
 
   //-- not used, will be removed
+  m_aoDensity1 = 0.3;
   m_aoRad = 2;
   m_aoFrac = 0.7;
-  m_aoDensity1 = 0.3;
 }
 
 void LightHandler::clean()
@@ -2129,10 +2129,17 @@ LightHandler::updatePointLightBuffer(QList<Vec> olpos, float lradius,
   glUniform1iARB(m_initpLightParm[5], npts); // light radius
   glUniform3fvARB(m_initpLightParm[6], npts, lpos); // light radius
   glUniform1fARB(m_initpLightParm[7], lradius); // light radius
-  if (doshadows)
-    glUniform1fARB(m_initpLightParm[8], qPow(ldecay, 0.5f)); // light decay
-		   else // change decay value
-    glUniform1fARB(m_initpLightParm[8], qPow(ldecay, 0.1f)); // light decay
+  if (lradius < 1.0)
+    {
+      glUniform1fARB(m_initpLightParm[8], cangle); // AO lightness - using same attribute
+    }
+  else
+    {
+      if (doshadows)
+	glUniform1fARB(m_initpLightParm[8], qPow(ldecay, 0.5f)); // light decay
+      else // change decay value
+	glUniform1fARB(m_initpLightParm[8], qPow(ldecay, 0.1f)); // light decay
+    }
   glUniform1fARB(m_initpLightParm[9], llod); // oplod
   glUniform1iARB(m_initpLightParm[10], m_gridx); // opgridx
   glUniform1iARB(m_initpLightParm[11], m_gridy); // opgridy
@@ -2495,10 +2502,10 @@ LightHandler::openPropertyEditor()
   vlist << QVariant("double");
   //vlist << QVariant(m_aoDensity1);
   vlist << QVariant(m_aoDensity2);
-  vlist << QVariant(0.1);
+  vlist << QVariant(0.0);
   vlist << QVariant(1.0);
-  vlist << QVariant(0.05); // singlestep
-  vlist << QVariant(3); // decimals
+  vlist << QVariant(0.01); // singlestep
+  vlist << QVariant(2); // decimals
   plist["ao dark level"] = vlist;
   
 //  vlist.clear();
@@ -2506,10 +2513,10 @@ LightHandler::openPropertyEditor()
 //  vlist << QVariant(m_aoDensity2);
 //  vlist << QVariant(0.0);
 //  vlist << QVariant(1.0);
-//  vlist << QVariant(0.1); // singlestep
-//  vlist << QVariant(1); // decimals
+//  vlist << QVariant(0.01); // singlestep
+//  vlist << QVariant(2); // decimals
 //  plist["ao bright level"] = vlist;
-//  
+  
   vlist.clear();
   vlist << QVariant("int");
   vlist << QVariant(m_aoTimes);

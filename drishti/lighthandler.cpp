@@ -1022,7 +1022,7 @@ LightHandler::createEmissiveShader()
   m_emisParm[2] = glGetUniformLocationARB(m_emisShader, "gridy");
   m_emisParm[3] = glGetUniformLocationARB(m_emisShader, "gridz");
   m_emisParm[5] = glGetUniformLocationARB(m_emisShader, "ncols");
-  m_emisParm[6] = glGetUniformLocationARB(m_emisShader, "ldecay");
+  //m_emisParm[6] = glGetUniformLocationARB(m_emisShader, "ldecay");
   //---------------------------
 
 
@@ -1034,6 +1034,7 @@ LightHandler::createEmissiveShader()
   m_initEmisParm[1] = glGetUniformLocationARB(m_initEmisShader, "gridx");
   m_initEmisParm[2] = glGetUniformLocationARB(m_initEmisShader, "gridy");
   m_initEmisParm[3] = glGetUniformLocationARB(m_initEmisShader, "gridz");
+  m_initEmisParm[4] = glGetUniformLocationARB(m_initEmisShader, "opmod");
   m_initEmisParm[5] = glGetUniformLocationARB(m_initEmisShader, "ncols");
   m_initEmisParm[6] = glGetUniformLocationARB(m_initEmisShader, "eTex");
   //---------------------------
@@ -1312,6 +1313,7 @@ LightHandler::updateEmissiveBuffer(float ldecay)
   glUniform1iARB(m_initEmisParm[1], m_gridx); // gridx
   glUniform1iARB(m_initEmisParm[2], m_gridy); // gridy
   glUniform1iARB(m_initEmisParm[3], m_gridz); // gridz
+  glUniform1iARB(m_initEmisParm[4], ldecay); // opmod
   glUniform1iARB(m_initEmisParm[5], m_ncols); // ncols
   glUniform1iARB(m_initEmisParm[6], 3); // eTex
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_lightBuffer);
@@ -1332,12 +1334,12 @@ LightHandler::updateEmissiveBuffer(float ldecay)
   //---------------------------------------------
   // now start propagating the light front
   glUseProgramObjectARB(m_emisShader);
-  glUniform1iARB(m_emisParm[0], 2); // lightTex
+  glUniform1iARB(m_emisParm[0], 2); // opacity texture
   glUniform1iARB(m_emisParm[1], m_gridx); // gridx
   glUniform1iARB(m_emisParm[2], m_gridy); // gridy
   glUniform1iARB(m_emisParm[3], m_gridz); // gridz
   glUniform1iARB(m_emisParm[5], m_ncols); // ncols
-  glUniform1fARB(m_emisParm[6], qPow(ldecay, 0.25f)); // light falloff
+  //glUniform1fARB(m_emisParm[6], qPow(ldecay, 0.5f)); // light falloff
   
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_lightBuffer);
   glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
@@ -1352,7 +1354,7 @@ LightHandler::updateEmissiveBuffer(float ldecay)
 
 
   int ntimes = qMax(m_gridx, qMax(m_gridy, m_gridz));
-//  ntimes /= 2;
+  ntimes /= 2;
 
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_lightBuffer);
   int ct = lightBufferCalculations(ntimes);
@@ -1360,7 +1362,9 @@ LightHandler::updateEmissiveBuffer(float ldecay)
 
   glUseProgramObjectARB(0);
 
-  ct = invertLightBuffer(ct);
+  //-------------------------------------------
+  //ct = invertLightBuffer(ct);
+  //-------------------------------------------
   
   glActiveTexture(GL_TEXTURE2);
   glDisable(GL_TEXTURE_RECTANGLE_ARB);
@@ -2451,14 +2455,14 @@ LightHandler::openPropertyEditor()
   vlist << QVariant(Global::lutSize());
   plist["emis tfset"] = vlist;
 
-  vlist.clear();
-  vlist << QVariant("double");
-  vlist << QVariant(m_emisDecay);
-  vlist << QVariant(0.1);
-  vlist << QVariant(1.0);
-  vlist << QVariant(0.1); // singlestep
-  vlist << QVariant(1); // decimals
-  plist["emis falloff"] = vlist;
+//  vlist.clear();
+//  vlist << QVariant("double");
+//  vlist << QVariant(m_emisDecay);
+//  vlist << QVariant(0.1);
+//  vlist << QVariant(1.0);
+//  vlist << QVariant(0.1); // singlestep
+//  vlist << QVariant(1); // decimals
+//  plist["emis opmod"] = vlist;
   
   vlist.clear();
   vlist << QVariant("int");
@@ -2603,7 +2607,7 @@ LightHandler::openPropertyEditor()
   keys << "ao smoothing";
   keys << "gap";
   keys << "emis tfset";
-  keys << "emis falloff";
+  //keys << "emis opmod";
   keys << "emis smoothing";
   keys << "emis boost";
   //keys << "command";
@@ -2661,7 +2665,7 @@ LightHandler::openPropertyEditor()
 	      m_emisTF = pair.first.toInt();
 	      emisChanged = true;
 	    }
-	  else if (keys[ik] == "emis falloff")
+	  else if (keys[ik] == "emis opmod")
 	    {
 	      m_emisDecay = pair.first.toFloat();
 	      emisChanged = true;

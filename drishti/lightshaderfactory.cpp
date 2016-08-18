@@ -409,6 +409,7 @@ LightShaderFactory::genInitEmissiveShader() // tf emissive shader
   shader += "uniform int gridx;\n";
   shader += "uniform int gridy;\n";
   shader += "uniform int gridz;\n";
+  shader += "uniform float opmod;\n";
   shader += "uniform int ncols;\n";
   shader += "uniform sampler2DRect eTex;\n";
   
@@ -425,7 +426,7 @@ LightShaderFactory::genInitEmissiveShader() // tf emissive shader
 
   shader += "  float den = step(0.005, texture2DRect(eTex, tc).a);\n"; 
   //shader += "  float den = texture2DRect(eTex, tc).a;\n"; 
-  shader += "  float op = texture2DRect(opTex, tc).x;\n"; 
+  shader += "  float op = opmod*texture2DRect(opTex, tc).x;\n"; 
   shader += "  gl_FragColor = vec4(den,op,den,1.0);\n";
   shader += "}\n";
 
@@ -443,12 +444,9 @@ LightShaderFactory::genEmissiveShader() // tf emissive shader
   shader += "uniform int gridy;\n";
   shader += "uniform int gridz;\n";
   shader += "uniform int ncols;\n";
-  shader += "uniform float ldecay;\n";
   
   shader += "void main(void)\n";
   shader += "{\n";
-  //shader += "  int row, col;\n";
-  //shader += "  int x,y,z, x1,y1,z1;\n";
 
   shader += "  vec2 tc = gl_TexCoord[0].xy;\n";
   shader += "  int col = int(tc.x)/gridx;\n";
@@ -458,8 +456,10 @@ LightShaderFactory::genEmissiveShader() // tf emissive shader
   shader += "  int z = row*ncols + col;\n";
 
   shader += "  gl_FragColor = texture2DRect(lightTex, tc.xy);\n";
+
   shader += "  float nlit = 0.0;\n";
   shader += "  float lit = 0.0;\n";
+
   // -- take contributions from left, right, front and back
   shader += "  row = z/ncols;\n";
   shader += "  col = z - row*ncols;\n";
@@ -475,6 +475,7 @@ LightShaderFactory::genEmissiveShader() // tf emissive shader
   shader += "     nlit += step(0.001, alit);\n";
   shader += "     lit += alit;\n";
   shader += "   }\n";
+
   // -- take contributions from top and bottom
   shader += "  for(int k=-1; k<=1; k+=2)\n";
   shader += "   {\n";
@@ -490,38 +491,10 @@ LightShaderFactory::genEmissiveShader() // tf emissive shader
   shader += "    nlit += step(0.001, alit);\n";
   shader += "    lit += alit;\n";
   shader += "   }\n";
-  shader += "  nlit = max(1.0, nlit);\n";
-  shader += "  gl_FragColor.x = clamp(0.0, lit/(nlit*ldecay), 1.0);\n";
 
-//  shader += "  vec2 dop = texture2DRect(lightTex, tc.xy).xy;\n";
-//  shader += "  gl_FragColor = vec4(dop,1.0,1.0);\n";
-//  shader += "  if (dop.x > 0.98)\n";
-//  shader += "    return;\n";
-//
-//  shader += "  float fop = 0.0;\n";
-//  shader += "  for(int k=-1; k<=1; k++)\n";
-//  shader += "   {\n";
-//  shader += "     int z1 = z+k;\n";
-//  shader += "     int row = z1/ncols;\n";
-//  shader += "     int col = z1 - row*ncols;\n";
-//  shader += "     row *= gridy;\n";
-//  shader += "     col *= gridx;\n";
-//  shader += "     for(int i=-1; i<=1; i++)\n";
-//  shader += "     for(int j=-1; j<=1; j++)\n";
-//  shader += "      {\n";
-//  shader += "        float x1 = float(col+x+i)+0.5;\n";
-//  shader += "        float y1 = float(row+y+j)+0.5;\n";
-//  shader += "        vec2 ldop = texture2DRect(lightTex, vec2(x1,y1)).xy;\n";
-//  shader += "        fop = max(fop, (1.0-ldop.y)*ldop.x);\n";
-//  //shader += "        fop += (1.0-ldop.y)*ldop.x;\n";
-//  shader += "      }\n";
-//  shader += "   }\n";
-//
-//  
-//  //shader += "  dop.x = fop/27.0*ldecay;\n";
-//  shader += "  dop.x = fop*ldecay;\n";
-//
-//  shader += "  gl_FragColor = vec4(dop,1.0,1.0);\n";
+  shader += "  nlit = max(1.0, nlit);\n";
+  shader += "  gl_FragColor.x = clamp(lit/nlit, 0.0, 1.0);\n";
+
   shader += "}\n";
 
   return shader;
@@ -539,7 +512,7 @@ LightShaderFactory::genEFinalLightShader()
   shader += "void main(void)\n";
   shader += "{\n";
   shader += "  vec4 light = texture2DRect(eTex, gl_TexCoord[0].xy);\n";
-  shader += "  light.rgb *= texture2DRect(lightTex, gl_TexCoord[0].xy).xxx;\n";
+  shader += "  light.rgb *= texture2DRect(lightTex, gl_TexCoord[0].xy).x;\n";
   shader += "  gl_FragColor = vec4(light.rgb, 1.0);\n";
   shader += "}\n";
 
@@ -761,25 +734,56 @@ LightShaderFactory::genDiffuseLightShader()
   shader += "  int y = int(tc.y) - row*gridy;\n";
   shader += "  int z = row*ncols + col;\n";
 
+//  shader += "  vec4 fop = vec4(0.0,0.0,0.0,0.0);\n";
+//  shader += "  for(int k=-1; k<=1; k++)\n";
+//  shader += "   {\n";
+//  shader += "    int z1 = z+k;\n";
+//  shader += "    int row = z1/ncols;\n";
+//  shader += "    int col = z1 - row*ncols;\n";
+//  shader += "    row *= gridy;\n";
+//  shader += "    col *= gridx;\n";
+//  shader += "    for(int i=-1; i<=1; i++)\n";
+//  shader += "    for(int j=-1; j<=1; j++)\n";
+//  shader += "     {\n";
+//  shader += "       float x1 = float(col+x+i)+0.5;\n";
+//  shader += "       float y1 = float(row+y+j)+0.5;\n";
+//  shader += "       fop += texture2DRect(lightTex, vec2(x1,y1));\n";
+//  shader += "     }\n";
+//  shader += "   }\n";
+//
+//  shader += "  fop.rgb *= boost;\n";
+//  shader += "  gl_FragColor = vec4(fop.rgb/27.0, 1.0);\n";
+
   shader += "  vec4 fop = vec4(0.0,0.0,0.0,0.0);\n";
-  shader += "  for(int k=-1; k<=1; k++)\n";
+  // -- take contributions from left, right, front and back
+  shader += "  row = z/ncols;\n";
+  shader += "  col = z - row*ncols;\n";
+  shader += "  row *= gridy;\n";
+  shader += "  col *= gridx;\n";
+  shader += "  for(int i=-1; i<=1; i+=2)\n";
+  shader += "  for(int j=-1; j<=1; j+=2)\n";
+  shader += "   {\n";
+  shader += "     float x1 = float(col+x+i)+0.5;\n";
+  shader += "     float y1 = float(row+y+j)+0.5;\n";
+  shader += "     vec2 ldop = texture2DRect(lightTex, vec2(x1,y1)).xy;\n";
+  shader += "     fop += texture2DRect(lightTex, vec2(x1,y1));\n";
+  shader += "   }\n";
+  // -- take contributions from top and bottom
+  shader += "  for(int k=-1; k<=1; k+=2)\n";
   shader += "   {\n";
   shader += "    int z1 = z+k;\n";
-  shader += "    int row = z1/ncols;\n";
-  shader += "    int col = z1 - row*ncols;\n";
+  shader += "    row = z1/ncols;\n";
+  shader += "    col = z1 - row*ncols;\n";
   shader += "    row *= gridy;\n";
   shader += "    col *= gridx;\n";
-  shader += "    for(int i=-1; i<=1; i++)\n";
-  shader += "    for(int j=-1; j<=1; j++)\n";
-  shader += "     {\n";
-  shader += "       float x1 = float(col+x+i)+0.5;\n";
-  shader += "       float y1 = float(row+y+j)+0.5;\n";
-  shader += "       fop += texture2DRect(lightTex, vec2(x1,y1));\n";
-  shader += "     }\n";
+  shader += "    float x1 = float(col+x)+0.5;\n";
+  shader += "    float y1 = float(row+y)+0.5;\n";
+  shader += "    fop += texture2DRect(lightTex, vec2(x1,y1));\n";
   shader += "   }\n";
-
   shader += "  fop.rgb *= boost;\n";
-  shader += "  gl_FragColor = vec4(fop.rgb/27.0, 1.0);\n";
+  shader += "  fop.rgb = clamp(fop.rgb/6.0, vec3(0.0), vec3(1.0));\n";
+  shader += "  gl_FragColor = vec4(fop.rgb, 1.0);\n";
+
   shader += "}\n";
 
   return shader;
@@ -947,6 +951,12 @@ LightShaderFactory::genTubeLightShader() // point shader
   shader += "  if (lradius < 1)\n";
   shader += "   {\n";
   shader += "     gl_FragColor = texture2DRect(lightTex, tc.xy);\n";
+  shader += " vec3 p = vec3(x,y,z);\n";
+  shader += " bvec3 spless = lessThan(p, vec3(2.0,2.0,2.0));\n";
+  shader += " bvec3 spgret = greaterThan(p, ";
+  shader += "vec3(float(gridx)-2.0,float(gridy)-2.0,float(gridz)-2.0));\n";
+  shader += " if (any(spless) || any(spgret)) return;\n";
+
   shader += "     float nlit = 0.0;\n";
   shader += "     float lit = 0.0;\n";
   // -- take contributions from left, right, front and back
@@ -980,7 +990,7 @@ LightShaderFactory::genTubeLightShader() // point shader
   shader += "       lit += alit;\n";
   shader += "      }\n";
   shader += "     nlit = max(1.0, nlit);\n";
-  shader += "     gl_FragColor.x = clamp(0.0, lit/(nlit*ldecay), 1.0);\n";
+  shader += "     gl_FragColor.x = clamp(lit/(nlit*ldecay), 0.0, 1.0);\n";
   shader += "     return;\n";
   shader += "   }\n";
   //--------

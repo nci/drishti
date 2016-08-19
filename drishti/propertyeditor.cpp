@@ -11,6 +11,7 @@ using namespace qglviewer;
 #include <QDoubleSpinBox>
 #include <QLabel>
 #include <QScrollArea>
+#include <QSlider>
 
 
 PropertyEditor::PropertyEditor(QWidget *parent) :
@@ -218,6 +219,25 @@ PropertyEditor::set(QString title,
 	      gridLayout->addWidget(sbox, i, 1);
 	      m_widgets[keys[i]] = sbox;
 	    }
+	  else if (vlist[0] == "slider")
+	    {
+	      QSlider *slider = new QSlider(Qt::Horizontal);
+	      if (vlist.count() > 3)
+		{
+		  slider->setMinimum(vlist[2].toInt());
+		  slider->setMaximum(vlist[3].toInt());
+		}
+	      if (vlist.count() > 1)
+		slider->setValue(vlist[1].toInt());
+	      if (vlist.count() > 4)
+		{
+		  slider->setTickPosition(QSlider::TicksAbove);
+		  slider->setTickInterval(vlist[4].toInt());
+		}
+	      
+	      gridLayout->addWidget(slider, i, 1);
+	      m_widgets[keys[i]] = slider;
+	    }
 	  else if (vlist[0] == "string")
 	    {
 	      QLineEdit *ledit = new QLineEdit();
@@ -357,6 +377,14 @@ PropertyEditor::get()
 	      else
 		vmap[keys[i]] = qMakePair(QVariant(val), false);
 	    }
+	  else if (vlist[0] == "slider")
+	    {
+	      double val = ((QSlider*)m_widgets[keys[i]])->value();
+	      if (val != vlist[1].toInt())
+		vmap[keys[i]] = qMakePair(QVariant(val), true);
+	      else
+		vmap[keys[i]] = qMakePair(QVariant(val), false);
+	    }
 	  else if (vlist[0] == "string")
 	    {
 	      QString val = ((QLineEdit*)m_widgets[keys[i]])->text();
@@ -442,6 +470,8 @@ PropertyEditor::resetProperty(int i)
   else if (vlist[0] == "double" ||
 	   vlist[0] == "float")
     ((QDoubleSpinBox*)m_widgets[key])->setValue(vlist[1].toDouble());
+  else if (vlist[0] == "slider")
+    ((QSlider*)m_widgets[key])->setValue(vlist[1].toInt());
   else if (vlist[0] == "string")
     ((QLineEdit*)m_widgets[key])->setText(vlist[1].toString());
   else if (vlist[0] == "color")

@@ -2462,18 +2462,26 @@ LightHandler::openPropertyEditor()
 //  vlist << QVariant(1); // decimals
 //  plist["emis opmod"] = vlist;
   
+//  vlist.clear();
+//  vlist << QVariant("int");
+//  vlist << QVariant(m_emisTimes);
+//  vlist << QVariant(1);
+//  vlist << QVariant(100);
+//  plist["emis smoothing"] = vlist;
   vlist.clear();
-  vlist << QVariant("int");
+  vlist << QVariant("slider");
   vlist << QVariant(m_emisTimes);
   vlist << QVariant(1);
   vlist << QVariant(100);
+  vlist << QVariant(10);
   plist["emis smoothing"] = vlist;
 
   vlist.clear();
-  vlist << QVariant("int");
+  vlist << QVariant("slider");
   vlist << QVariant(m_emisBoost);
   vlist << QVariant(0);
   vlist << QVariant(50);
+  vlist << QVariant(5);
   plist["emis boost"] = vlist;
 
   vlist.clear();
@@ -2500,16 +2508,42 @@ LightHandler::openPropertyEditor()
 //  vlist << QVariant(1); // decimals
 //  plist["ao fraction"] = vlist;
   
+//  vlist.clear();
+//  vlist << QVariant("double");
+//  //vlist << QVariant(m_aoDensity1);
+//  vlist << QVariant(m_aoDensity2);
+//  vlist << QVariant(0.0);
+//  vlist << QVariant(1.0);
+//  vlist << QVariant(0.01); // singlestep
+//  vlist << QVariant(2); // decimals
+//  plist["ao dark level"] = vlist;
   vlist.clear();
-  vlist << QVariant("double");
-  //vlist << QVariant(m_aoDensity1);
-  vlist << QVariant(m_aoDensity2);
-  vlist << QVariant(0.0);
-  vlist << QVariant(1.0);
-  vlist << QVariant(0.01); // singlestep
-  vlist << QVariant(2); // decimals
+  vlist << QVariant("slider");
+  vlist << QVariant(qMax(0, (int)(m_aoDensity2*100-50)));
+  vlist << QVariant(0);
+  vlist << QVariant(50);
+  vlist << QVariant(5);
   plist["ao dark level"] = vlist;
   
+//  vlist.clear();
+//  vlist << QVariant("double");
+//  vlist << QVariant(m_aoOpMod);
+//  vlist << QVariant(0.0);
+//  vlist << QVariant(5.0);
+//  vlist << QVariant(0.1); // singlestep
+//  vlist << QVariant(1); // decimals
+//  plist["ao opmod"] = vlist;
+  vlist.clear();
+  vlist << QVariant("slider");
+  if (m_aoOpMod <= 1.0)
+    vlist << QVariant(qMax(0, (int)(m_aoOpMod*10-2)));
+  else
+    vlist << QVariant(7+(int)m_aoOpMod);
+  vlist << QVariant(0);
+  vlist << QVariant(12);
+  vlist << QVariant(1);
+  plist["ao opmod"] = vlist;
+
 //  vlist.clear();
 //  vlist << QVariant("double");
 //  vlist << QVariant(m_aoDensity2);
@@ -2520,21 +2554,13 @@ LightHandler::openPropertyEditor()
 //  plist["ao bright level"] = vlist;
   
   vlist.clear();
-  vlist << QVariant("int");
+  vlist << QVariant("slider");
   vlist << QVariant(m_aoTimes);
   vlist << QVariant(1);
   vlist << QVariant(5);
+  vlist << QVariant(1);
   plist["ao smoothing"] = vlist;
 
-  vlist.clear();
-  vlist << QVariant("double");
-  vlist << QVariant(m_aoOpMod);
-  vlist << QVariant(0.0);
-  vlist << QVariant(5.0);
-  vlist << QVariant(0.1); // singlestep
-  vlist << QVariant(1); // decimals
-  plist["ao opmod"] = vlist;
-  
   vlist.clear();
   vlist << QVariant("checkbox");
   vlist << QVariant(m_onlyAOLight);
@@ -2694,12 +2720,22 @@ LightHandler::openPropertyEditor()
 	      m_aoLightColor = Vec(r,g,b);
 	    }
 	  else if (keys[ik] == "ao dark level")
-	    //m_aoDensity1 = pair.first.toFloat();
-	    m_aoDensity2 = pair.first.toFloat();
+	    {
+	      //m_aoDensity1 = pair.first.toFloat();
+	      //m_aoDensity2 = pair.first.toFloat();
+	      m_aoDensity2 = 0.5+0.5*pair.first.toInt()/50.0;
+	    }
 	  else if (keys[ik] == "ao smoothing")
 	    m_aoTimes = pair.first.toInt();
 	  else if (keys[ik] == "ao opmod")
-	    m_aoOpMod = pair.first.toFloat();
+	    {	      
+	      //m_aoOpMod = pair.first.toFloat();
+	      float om = pair.first.toInt();
+	      if (om <= 8)
+		m_aoOpMod = 0.2+0.1*om;
+	      else
+		m_aoOpMod = om-8;
+	    }
 	  //else if (keys[ik] == "ao bright level")
 	  //  m_aoDensity2 = pair.first.toFloat();
 	  //else if (keys[ik] == "ao size")

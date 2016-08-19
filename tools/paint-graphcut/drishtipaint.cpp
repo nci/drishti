@@ -2647,7 +2647,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
 	  if (ok && !tagstr.isEmpty())
 	    {
 	      QStringList tglist = tagstr.split(" ", QString::SkipEmptyParts);
-	      if (tglist.count() == 3)
+	      if (tglist.count() == 2)
 		{
 		  scaleVox = tglist[0].toFloat();
 		  shiftVox = tglist[1].toInt();

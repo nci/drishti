@@ -180,11 +180,6 @@ LightHandler::checkClips(QList<Vec> cpos, QList<Vec> cnorm)
 
   m_clipPos = cpos;
   m_clipNorm = cnorm;
-//  if (doit)
-//    {
-//      m_clipPos = cpos;
-//      m_clipNorm = cnorm;
-//    }
 
   return doit;
 }
@@ -311,7 +306,10 @@ LightHandler::setGiLightInfo(GiLightInfo gi)
     }
 
   if (lodChanged)
-    m_doAll = true;
+    {
+      m_doAll = true;
+      m_onlyLightBuffers = true;
+    }
   else
     m_onlyLightBuffers = true;
 }

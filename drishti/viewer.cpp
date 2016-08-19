@@ -1195,7 +1195,8 @@ Viewer::updateLookupTable()
   loadLookupTable(lut);
   
   if (m_hiresVolume->raised() &&
-      (gilite || !LightHandler::willUpdateLightBuffers()))
+      (gilite || LightHandler::willUpdateLightBuffers()))
+      //(gilite || !LightHandler::willUpdateLightBuffers()))
     {
       LightHandler::setLut(m_lut);
       m_hiresVolume->initShadowBuffers(true);

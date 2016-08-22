@@ -58,6 +58,7 @@ class ClipInformation
   QList<bool> showThickness;
   QList<int> gridX;
   QList<int> gridY;
+  QList<float> opmod;
 };
 
 #endif

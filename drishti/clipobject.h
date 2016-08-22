@@ -93,6 +93,9 @@ class ClipObject
   bool apply();
   void setApply(bool);
 
+  float opmod();
+  void setOpmod(float);
+
   Vec m_tang, m_xaxis, m_yaxis;
   double m_xform[16];
 
@@ -180,6 +183,7 @@ class ClipObject
   bool m_showThickness;
   bool m_showOtherSlice;
   bool m_apply;
+  float m_opmod;
 
   Quaternion m_quaternion;
 

@@ -457,7 +457,6 @@ ShaderFactory::addLighting()
   shader += "  float Spec = pow(abs(dot(normal, reflecvec)), speccoeff);\n";
   shader += "  Spec *= specular*gl_FragColor.a;\n";
   shader += "  vec3 Amb = ambient*gl_FragColor.rgb;\n";
-  shader += "  Amb = ambient*gl_FragColor.rgb;\n";
   shader += "  float litfrac;\n";
   shader += "  litfrac = smoothstep(0.05, 0.1, grad);\n";
   shader += "  gl_FragColor.rgb = mix(gl_FragColor.rgb, Amb, litfrac);\n";

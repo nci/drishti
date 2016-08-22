@@ -4108,6 +4108,9 @@ DrawHiresVolume::drawClipPlaneInViewport(int clipOffset, Vec lpos, float depthcu
 	  clipInfo.tfSet[ic] < Global::lutSize() &&
 	  vp.x() >= 0.0)
 	{
+	  // opmod
+	  glUniform1fARB(m_defaultParm[49], clipInfo.opmod[ic]);
+
 	  // change camera settings
 	  //----------------
 	  m_Viewer->camera()->setOrientation(clipInfo.rot[ic]);

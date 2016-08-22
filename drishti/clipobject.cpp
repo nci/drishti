@@ -89,6 +89,9 @@ void ClipObject::setViewportScale(float v) { m_viewportScale = v; }
 int ClipObject::thickness() { return m_thickness; }
 void ClipObject::setThickness(int v) { m_thickness = v; }
 
+float ClipObject::opmod() { return m_opmod; }
+void ClipObject::setOpmod(float v) { m_opmod = v; }
+
 bool ClipObject::showSlice() { return m_showSlice; }
 void ClipObject::setShowSlice(bool b) { m_showSlice = b; }
 
@@ -182,6 +185,7 @@ ClipObject::ClipObject()
   m_showThickness = true;
   m_showOtherSlice = true;
   m_apply = true;
+  m_opmod = 1.0;
 
   m_applyOpacity = true;
   m_applyFlip = false;
@@ -1418,6 +1422,13 @@ ClipObject::commandEditor()
   plist["thickness"] = vlist;
 
   vlist.clear();
+  vlist << QVariant("int");
+  vlist << QVariant(m_opmod);
+  vlist << QVariant(1);
+  vlist << QVariant(10);
+  plist["opmod"] = vlist;
+
+  vlist.clear();
   vlist << QVariant("checkbox");
   vlist << QVariant(m_solidColor);
   plist["solid color"] = vlist;
@@ -1551,6 +1562,7 @@ ClipObject::commandEditor()
   keys << "gap";
   keys << "viewport";
   keys << "tfset";
+  keys << "opmod";
   keys << "thickness";
   keys << "viewport scale";
   keys << "camera type";
@@ -1608,6 +1620,8 @@ ClipObject::commandEditor()
 	    m_viewportType = (pair.first.toInt() == 1);
 	  else if (keys[ik] == "stereo")
 	    m_stereo = pair.first.toDouble();
+	  else if (keys[ik] == "opmod")
+	    m_opmod = pair.first.toInt();
 	  else if (keys[ik] == "viewport")
 	    {
 	      vpstr = pair.first.toString();

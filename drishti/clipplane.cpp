@@ -368,6 +368,7 @@ ClipPlanes::clipInfo()
       ci.tfSet.append(m_clips[i]->tfset());
       ci.gridX.append(m_clips[i]->gridX());
       ci.gridY.append(m_clips[i]->gridY());
+      ci.opmod.append(m_clips[i]->opmod());
       ci.viewport.append(m_clips[i]->viewport());
       ci.viewportType.append(m_clips[i]->viewportType());
       ci.viewportScale.append(m_clips[i]->viewportScale());
@@ -410,6 +411,7 @@ ClipPlanes::set(ClipInformation ci)
       c->setTFset(ci.tfSet[i]);
       c->setGridX(ci.gridX[i]);
       c->setGridY(ci.gridY[i]);
+      c->setOpmod(ci.opmod[i]);
       c->setViewport(ci.viewport[i]);
       c->setViewportType(ci.viewportType[i]);
       c->setViewportScale(ci.viewportScale[i]);

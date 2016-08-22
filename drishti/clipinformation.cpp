@@ -35,6 +35,7 @@ ClipInformation::ClipInformation(const ClipInformation& ci)
   showThickness = ci.showThickness;
   gridX = ci.gridX;
   gridY = ci.gridY;
+  opmod = ci.opmod;
 }
 
 ClipInformation&
@@ -67,6 +68,8 @@ ClipInformation::operator=(const ClipInformation& ci)
   showThickness = ci.showThickness;
   gridX = ci.gridX;
   gridY = ci.gridY;
+  opmod = ci.opmod;
+
 
   return *this;
 }
@@ -101,6 +104,7 @@ ClipInformation::clear()
   showThickness.clear();
   gridX.clear();
   gridY.clear();
+  opmod.clear();
 }
 
 ClipInformation
@@ -148,6 +152,9 @@ ClipInformation::interpolate(const ClipInformation clipInfo1,
 					    clipInfo1.gridX[ci]);
       int grdy = clipInfo1.gridY[ci] + frc*(clipInfo2.gridY[ci]-
 					    clipInfo1.gridY[ci]);
+
+      float opm = clipInfo1.opmod[ci] + frc*(clipInfo2.opmod[ci]-
+					     clipInfo1.opmod[ci]);
 
       int frm;
       frm = clipInfo1.imageFrame[ci] + frc*(clipInfo2.imageFrame[ci]-
@@ -235,6 +242,7 @@ ClipInformation::interpolate(const ClipInformation clipInfo1,
       clipInfo.viewport.append(vp);
       clipInfo.viewportScale.append(vps);
       clipInfo.thickness.append(thick);
+      clipInfo.opmod.append(opm);
     }
 
 //  if (clipInfo1.pos.size() < clipInfo2.pos.size())
@@ -267,6 +275,7 @@ ClipInformation::interpolate(const ClipInformation clipInfo1,
 	  clipInfo.viewport.append(clipInfo1.viewport[ci]);
 	  clipInfo.viewportScale.append(clipInfo1.viewportScale[ci]);
 	  clipInfo.thickness.append(clipInfo1.thickness[ci]);
+	  clipInfo.opmod.append(clipInfo1.opmod[ci]);
 	}
     }
   
@@ -315,6 +324,7 @@ ClipInformation::load(fstream &fin)
       thickness.append(0);
       gridX.append(0);
       gridY.append(0);
+      opmod.append(1.0);
     }
 
 
@@ -591,6 +601,15 @@ ClipInformation::load(fstream &fin)
 	      showThickness[i]=b;
 	    }
 	}
+      else if (strcmp(keyword, "opmod") == 0)
+	{
+	  for(int i=0; i<n; i++)
+	    {
+	      float sc;
+	      fin.read((char*)&sc, sizeof(float));
+	      opmod[i]=sc;
+	    }
+	}
     }
 
 }
@@ -831,6 +850,12 @@ ClipInformation::save(fstream &fout)
   fout.write((char*)keyword, strlen(keyword)+1);
   for(int i=0; i<nclip; i++)
     fout.write((char*)&stereo[i], sizeof(float));
+  
+  memset(keyword, 0, 100);
+  sprintf(keyword, "opmod");
+  fout.write((char*)keyword, strlen(keyword)+1);
+  for(int i=0; i<nclip; i++)
+    fout.write((char*)&opmod[i], sizeof(float));
   
   memset(keyword, 0, 100);
   sprintf(keyword, "end");

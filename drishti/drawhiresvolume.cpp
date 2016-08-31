@@ -2851,11 +2851,10 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
       SlcXMin = SlcYMin = 100000;
       SlcXMax = SlcYMax = 0;
 
+      // set depth of field
       float tap = 0;
       if (m_dofBlur > 0)
 	{
-	  //tap = StaticFunctions::smoothstep(0.0, 1.0,
-	  //  ((float)qAbs(dofSlice-s)/(float)maxDof));
 	  tap = (float)qAbs(dofSlice-s)/(float)maxDof;
 	  tap *= tap;
 	  tap *= m_dofBlur;
@@ -2863,13 +2862,13 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 	}
       glUniform1fARB(m_defaultParm[51], qMax(1.0f, tap));
 
-      {
-	float sdist = qAbs((maxvert - po)*pn);
-	float modop = StaticFunctions::smoothstep(0, 1, sdist/deplen);
-	modop = m_frontOpMod*(1-modop) + modop*m_backOpMod;
-	modop = qBound(0.0f, modop, 1.0f);
-	glUniform1fARB(m_defaultParm[49], modop);
-      }
+
+      // generate opacity modulation
+      float sdist = qAbs((maxvert - po)*pn);
+      float modop = StaticFunctions::smoothstep(0, 1, sdist/deplen);
+      modop = m_frontOpMod*(1-modop) + modop*m_backOpMod;
+      modop = qBound(0.0f, modop, 1.0f);
+
 
       float depthcue = 1;     
       if (Global::depthcue())
@@ -2939,6 +2938,8 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 	    {
 	      Vec lp = lpos[bno];
 	      glUniform3fARB(m_defaultParm[6], lp.x, lp.y, lp.z);
+
+	      glUniform1fARB(m_defaultParm[49], modop);
 
 	      QList<bool> clips;
 	      int tfset;
@@ -3072,11 +3073,11 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 	    glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_dofTex[1]);
 
 	  glUseProgramObjectARB(Global::copyShader());
-	  glUniform1iARB(Global::copyParm(0), 2); // copy from dofTex[0] into dofTex[1]
-	  if (tap > 0)
+	  glUniform1iARB(Global::copyParm(0), 2);
+	  if (tap > 0) // copy from dofTex[1] into viewerbuffer
 	    StaticFunctions::drawQuad(0, 0,
 				      m_shadowWidth, m_shadowHeight, 1.0/tap);
-	  else
+	  else // copy from dofTex[0] into viewerbuffer
 	    StaticFunctions::drawQuad(0, 0,
 				      m_shadowWidth, m_shadowHeight, 1);
 
@@ -3291,7 +3292,10 @@ DrawHiresVolume::screenShadow(int ScreenXMin, int ScreenXMax,
 
   glActiveTexture(GL_TEXTURE2);
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
-  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_dofTex[0]);
+  if (m_drawImageType != Enums::DragImage)
+    glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_dofTex[0]);
+  else
+    glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_Viewer->imageBuffer()->texture());
 
   //------------------------------------------------------------
   // blend slice using front to back blending into shadowbuffer
@@ -3347,27 +3351,6 @@ DrawHiresVolume::screenShadow(int ScreenXMin, int ScreenXMax,
 	  m_shdNum = (m_shdNum+1)%2;
 	}
     }
-
-
-//      glActiveTexture(GL_TEXTURE3);
-//      glEnable(GL_TEXTURE_RECTANGLE_ARB);
-//      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_shdTex[m_shdNum]);
-//      glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
-//			     GL_COLOR_ATTACHMENT0_EXT,
-//			     GL_TEXTURE_RECTANGLE_ARB,
-//			     m_shdTex[(m_shdNum+1)%2],
-//			     0);
-//      glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
-//      glUseProgramObjectARB(m_blurShader);
-//      glUniform1iARB(m_blurParm[0], 3); // copy from shadowBuffer[1] to shadowbuffer[0]
-//      glUniform2fARB(m_blurParm[1], 0.0, 1.0); // direc
-//      glBegin(GL_QUADS);
-//      glTexCoord2f(txmin, tymin); glVertex2f(xmin, ymin);
-//      glTexCoord2f(txmax, tymin); glVertex2f(xmax, ymin);
-//      glTexCoord2f(txmax, tymax); glVertex2f(xmax, ymax);
-//      glTexCoord2f(txmin, tymax); glVertex2f(xmin, ymax);
-//      glEnd();
-//    }
 
   //-------------------------------
 

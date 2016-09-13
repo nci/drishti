@@ -2986,7 +2986,7 @@ Viewer::mousePressEvent(QMouseEvent *event)
     {
       if (event->modifiers() & Qt::ShiftModifier)
 	mouseButtonPressed = event->button();
-      
+
       int ow = camera()->screenWidth();
       int oh = camera()->screenHeight();
       int ic = GeometryObjects::clipplanes()->inViewport(m_mousePressPos.x(), m_mousePressPos.y(),

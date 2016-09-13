@@ -1352,7 +1352,7 @@ LightHandler::updateEmissiveBuffer(float ldecay)
 
 
   int ntimes = qMax(m_gridx, qMax(m_gridy, m_gridz));
-  ntimes /= 2;
+  //ntimes /= 2;
 
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_lightBuffer);
   int ct = lightBufferCalculations(ntimes);

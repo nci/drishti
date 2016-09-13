@@ -883,10 +883,16 @@ ClipObject::drawLines(QGLViewer *viewer,
       else glBegin(GL_LINE_STRIP);
       glVertex3fv(c0);
       glVertex3fv(cax);
-      glVertex3fv(cbx);
+      glVertex3fv(cay);
       glVertex3fv(c0);
       glVertex3fv(cay);
+      glVertex3fv(cbx);
+      glVertex3fv(c0);
+      glVertex3fv(cbx);
       glVertex3fv(cby);
+      glVertex3fv(c0);
+      glVertex3fv(cby);
+      glVertex3fv(cax);
       if (!(quad && m_moveAxis == MoveZ)) glVertex3fv(c0);
       glEnd();
     }

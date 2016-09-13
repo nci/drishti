@@ -268,6 +268,15 @@ ClipGrabber::mouseMoveEvent(QMouseEvent* const event,
 	  else if (moveAxis() == MoveZ)
 	    {
 	      float vz = trans*tang;
+	      if (qAbs(vz) < 0.1)
+		{
+		  vz = trans.norm();
+		  if (qAbs(delta.x()) > qAbs(delta.y()))
+		    vz = (delta.x() >= 0 ? 1 : -1);
+		  else
+		    vz = (delta.y() >= 0 ? 1 : -1);
+		}
+	      
 	      trans = vz*tang;
 	    }
 	  
@@ -276,27 +285,72 @@ ClipGrabber::mouseMoveEvent(QMouseEvent* const event,
     }
   else
     {
-      Vec axis;
-      if (moveAxis() < MoveY0) axis = xaxis;
-      else if (moveAxis() < MoveZ) axis = yaxis;
-      else if (moveAxis() == MoveZ) axis = tang;
+      if (moveAxis() == MoveZ)
+	{
+	  Vec axis;
+	  axis = (delta.y()*camera->rightVector() +
+		  delta.x()*camera->upVector());
+	  rotate(axis, qMax(qAbs(delta.x()), qAbs(delta.y())));
 
-      Vec voxelScaling = Global::voxelScaling();
-      Vec pos = VECPRODUCT(position(), voxelScaling);
-      pos = Matrix::xformVec(m_xform, pos);
+	  //rotate(camera->rightVector(), delta.y());
+	  //rotate(camera->upVector(), delta.x());
+	}
+      else
+	{
+	  Vec axis;
+	  if (moveAxis() < MoveY0) axis = xaxis;
+	  else if (moveAxis() < MoveZ) axis = yaxis;
 
-      float r = size();
-      Vec trans(delta.x(), -delta.y(), 0.0f);
+	  Vec voxelScaling = Global::voxelScaling();
+	  Vec pos = VECPRODUCT(position(), voxelScaling);
+	  pos = Matrix::xformVec(m_xform, pos);
+	  
+	  float r = size();
+	  Vec trans(delta.x(), delta.y(), 0.0f);
+	  
+	  Vec p0 = camera->projectedCoordinatesOf(pos); p0 = Vec(p0.x, p0.y, 0);
+	  Vec c0 = pos + r*axis;
+	  c0 = camera->projectedCoordinatesOf(c0); c0 = Vec(c0.x, c0.y, 0);
+	  Vec perp = c0-p0;
+	  perp = Vec(-perp.y, perp.x, 0);
+	  perp.normalize();
+	  
+	  float angle = perp * trans;
+	  rotate(axis, angle);
+	}
 
-      Vec p0 = camera->projectedCoordinatesOf(pos); p0 = Vec(p0.x, p0.y, 0);
-      Vec c0 = pos + r*axis;
-      c0 = camera->projectedCoordinatesOf(c0); c0 = Vec(c0.x, c0.y, 0);
-      Vec perp = c0-p0;
-      perp = Vec(-perp.y, perp.x, 0);
-      perp.normalize();
+//      if (moveAxis() == MoveZ)
+//	{
+//	  float ag;
+//	  if (qAbs(delta.x()) > qAbs(delta.y()))
+//	    ag = delta.x();
+//	  else
+//	    ag = delta.y();
+//	  rotate(camera->viewDirection(), ag);
+//	}
+//      else
 
-      float angle = perp * trans;
-      rotate(axis, angle);
+//      Vec axis;
+//      if (moveAxis() < MoveY0) axis = xaxis;
+//      else if (moveAxis() < MoveZ) axis = yaxis;
+//      else if (moveAxis() == MoveZ) axis = tang;
+//
+//      Vec voxelScaling = Global::voxelScaling();
+//      Vec pos = VECPRODUCT(position(), voxelScaling);
+//      pos = Matrix::xformVec(m_xform, pos);
+//
+//      float r = size();
+//      Vec trans(delta.x(), -delta.y(), 0.0f);
+//
+//      Vec p0 = camera->projectedCoordinatesOf(pos); p0 = Vec(p0.x, p0.y, 0);
+//      Vec c0 = pos + r*axis;
+//      c0 = camera->projectedCoordinatesOf(c0); c0 = Vec(c0.x, c0.y, 0);
+//      Vec perp = c0-p0;
+//      perp = Vec(-perp.y, perp.x, 0);
+//      perp.normalize();
+//
+//      float angle = perp * trans;
+//      rotate(axis, angle);
     }
 
   m_prevPos = event->pos();

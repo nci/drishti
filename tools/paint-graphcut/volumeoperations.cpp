@@ -1016,7 +1016,7 @@ VolumeOperations::dilateBitmask(int nDilate, bool htype,
       if (d%10 == 0)
 	qApp->processEvents();
       for(qint64 w=0; w<my; w++)
-	for(qint64 h=0; h<mz; h++)
+	for(qint64 h=0; h<mx; h++)
 	  {
 	    qint64 bidx = d*mx*my+w*mx+h;
 	    if (bitmask.testBit(bidx) == htype)

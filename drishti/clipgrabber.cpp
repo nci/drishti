@@ -285,8 +285,12 @@ ClipGrabber::mouseMoveEvent(QMouseEvent* const event,
     }
   else
     {
-      if (moveAxis() == MoveZ)
+      bool ctrlOn =  (event->modifiers() & Qt::ControlModifier ||
+		      event->modifiers() & Qt::MetaModifier);
+
+      if (moveAxis() == MoveZ && !ctrlOn)
 	{
+
 	  Vec axis;
 	  axis = (delta.y()*camera->rightVector() +
 		  delta.x()*camera->upVector());
@@ -300,6 +304,7 @@ ClipGrabber::mouseMoveEvent(QMouseEvent* const event,
 	  Vec axis;
 	  if (moveAxis() < MoveY0) axis = xaxis;
 	  else if (moveAxis() < MoveZ) axis = yaxis;
+	  else axis = tang;
 
 	  Vec voxelScaling = Global::voxelScaling();
 	  Vec pos = VECPRODUCT(position(), voxelScaling);

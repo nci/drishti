@@ -96,3 +96,16 @@ MyBitArray::invert()
   for(int i=0; i<size;i++)
     m_bits[i] = ~m_bits[i];
 }
+
+MyBitArray&
+MyBitArray::operator=(const MyBitArray& mba)
+{
+  m_size = mba.m_size;
+  if (m_bits) delete [] m_bits;
+
+  qint64 size = (1 + (m_size+7)/8); // allocate 1 extra byte
+  m_bits = new uchar[size];
+  memcpy(m_bits, mba.m_bits, size);
+
+  return *this;
+}

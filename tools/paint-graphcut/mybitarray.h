@@ -9,6 +9,8 @@ class MyBitArray
   MyBitArray();
   ~MyBitArray();
 
+  MyBitArray& operator=(const MyBitArray&);
+
   void clear();
   qint64 resize(qint64);
   bool testBit(qint64);

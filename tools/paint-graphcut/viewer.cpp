@@ -4405,7 +4405,7 @@ Viewer::regionGrowing(bool sw)
       int ctag = -1;
       ctag = QInputDialog::getInt(0,
 				  "Fill",
-				  QString("Region will be filled with current tag value (%1).\nSpecify tag value of connected region (-1 for connected visible region).").arg(Global::tag()),
+				  QString("Connected region will be filled with current tag value (%1).\nSpecify tag value of connected region (-1 for connected visible region).").arg(Global::tag()),
 				  -1, -1, 255, 1,
 				  &ok);
       if (!ok)
@@ -4436,7 +4436,7 @@ Viewer::regionGrowing(bool sw)
       int ctag = -1;
       ctag = QInputDialog::getInt(0,
 				  "Shrinkwrap/Shell",
-				  QString("Region will be shrinkwrapped/shelled with current tag value (%1).\nSpecify tag value of connected region (-1 for connected visible region).").arg(Global::tag()),
+				  QString("Connected region will be shrinkwrapped/shelled with current tag value (%1).\nSpecify tag value of connected region (-1 for connected visible region).").arg(Global::tag()),
 				  -1, -1, 255, 1);
 
       int thickness = 1;

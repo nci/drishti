@@ -93,19 +93,27 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   m_curvesMenu = new QFrame();
   curvesUi.setupUi(m_curvesMenu);
 
-  ui.actionFibers->setStyleSheet("QPushButton:checked { background-color: #ff7700; }");
   ui.actionCurves->setStyleSheet("QPushButton:checked { background-color: #0077dd; }");
   ui.actionGraphCut->setStyleSheet("QPushButton:checked { background-color: #00aa55; }");
+
+  ui.actionCurves->setMaximumWidth(70);
+  ui.actionGraphCut->setMaximumWidth(70);
 
   ui.help->setMaximumSize(50, 50);
   ui.help->setMinimumSize(50, 50);
 
+
+  //----------------
+  ui.actionFibers->hide();
+  ui.actionFibers->setStyleSheet("QPushButton:checked { background-color: #ff7700; }");
   m_fibersMenu = new QFrame();
   fibersUi.setupUi(m_fibersMenu);
 
+  ui.sideframelayout->addWidget(m_fibersMenu);
+  //----------------
+
   ui.sideframelayout->addWidget(m_graphcutMenu);
   ui.sideframelayout->addWidget(m_curvesMenu);
-  ui.sideframelayout->addWidget(m_fibersMenu);
 
 
   m_tagColorEditor = new TagColorEditor();
@@ -5372,4 +5380,134 @@ DrishtiPaint::modifyOriginalVolume(Vec bmin, Vec bmax, int val)
   m_volume->saveModifiedOriginalVolume();
   
   QMessageBox::information(0, "", "Modified Volume Saved.");
+}
+
+void
+DrishtiPaint::on_actionBakeCurves_triggered()
+{
+  QStringList dtypes;
+  QList<int> tag;
+
+  bool ok;
+  //----------------
+  QString tagstr = QInputDialog::getText(0, "Bake curves for Tag",
+	    "Tag Numbers (tags should be separated by space.\n-2 extract whatever is visible.\n-1 for all tags;\nFor e.g. 1 2 5 will extract tags 1, 2 and 5)",
+					 QLineEdit::Normal,
+					 "-1",
+					 &ok);
+  if (!ok)
+    return;
+
+  tag.clear();
+  if (ok && !tagstr.isEmpty())
+    {
+      QStringList tglist = tagstr.split(" ", QString::SkipEmptyParts);
+      for(int i=0; i<tglist.count(); i++)
+	{
+	  int t = tglist[i].toInt();
+	  if (t == -1)
+	    {
+	      tag.clear();
+	      tag << -1;
+	      break;
+	    }
+	  else if (t == 0)
+	    {
+	      tag.clear();
+	      tag << 0;
+	      break;
+	    }
+	  else
+	    tag << t;
+	}
+    }
+  else
+    tag << -1;
+  //----------------
+
+  int depth, width, height;
+  m_volume->gridSize(depth, width, height);
+  
+  int minDSlice, maxDSlice;
+  int minWSlice, maxWSlice;
+  int minHSlice, maxHSlice;
+  m_imageWidget->getBox(minDSlice, maxDSlice,
+			minWSlice, maxWSlice,
+			minHSlice, maxHSlice);
+  qint64 tdepth = maxDSlice-minDSlice+1;
+  qint64 twidth = maxWSlice-minWSlice+1;
+  qint64 theight = maxHSlice-minHSlice+1;
+  
+  QProgressDialog progress("Baking curves into mask data",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+  //----------------------------------
+  
+  uchar *curveMask = 0;
+  try
+    {
+      curveMask = new uchar[tdepth*twidth*theight];
+    }
+  catch (exception &e)
+    {
+      QMessageBox::information(0, "", "Not enough memory : Cannot create curve mask.\nOffloading volume data and mask.");
+      m_volume->offLoadMemFile();
+      
+      curveMask = new uchar[tdepth*twidth*theight];
+    };
+  
+  memset(curveMask, 0, tdepth*twidth*theight);
+  
+  updateCurveMask(curveMask, tag,
+		  depth, width, height,
+		  tdepth, twidth, theight,
+		  minDSlice, minWSlice, minHSlice,
+		  maxDSlice, maxWSlice, maxHSlice);
+  //----------------------------------
+
+  uchar *maskData = m_volume->memMaskDataPtr();
+
+  for(int d=minDSlice; d<=maxDSlice; d++)
+    {
+      int slc = d-minDSlice;
+      progress.setValue((int)(100*(float)slc/(float)tdepth));
+      qApp->processEvents();
+
+      for(int w=minWSlice; w<=maxWSlice; w++)
+	for(int h=minHSlice; h<=maxHSlice; h++)
+	  {
+	    uchar cm = curveMask[slc*twidth*theight +
+				 (w-minWSlice)*theight +
+				 (h-minHSlice)];
+	    if (cm > 0)
+	      {
+		qint64 idx = d*width*height + w*height + h;
+		maskData[idx] = cm;
+	      }
+	  }
+      
+    }
+
+  delete [] curveMask;
+
+  m_viewer->uploadMask(minDSlice,minWSlice,minHSlice,
+		       maxDSlice,maxWSlice,maxHSlice);
+  
+  QList<int> dwh;  
+  m_blockList.clear();  
+  dwh << minDSlice << minWSlice << minHSlice;
+  m_blockList << dwh;
+  dwh.clear();
+  dwh << maxDSlice << maxWSlice << maxHSlice;
+  m_blockList << dwh;
+
+  progress.setLabelText("Save modified region to mask file");
+  qApp->processEvents();
+  m_volume->saveMaskBlock(m_blockList);
+
+  progress.setValue(100);  
+  QMessageBox::information(0, "Converted", "-----Done-----");
 }

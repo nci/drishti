@@ -2683,7 +2683,7 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
       slice = new uchar[img2vol_wd*img2vol_ht];
       saveReslicedVolume(m_image2VolumeFile,
 			 img2vol_nslices, img2vol_wd, img2vol_ht, pFileManager,
-			 false, Vec(1,1,1));
+			 false, Vec(1,1,1), 0);
     }
   //----------------------------------
 
@@ -5098,6 +5098,8 @@ DrawHiresVolume::resliceVolume(Vec pos,
   vs.z = VECPRODUCT(normal,pvlInfo.voxelSize).norm();
   vs *= subsample*vlod;
 
+  int voxtype = pvlInfo.voxelType;
+
   VolumeFileManager pFileManager;
   QString pFile;
   QString newFile;
@@ -5107,6 +5109,9 @@ DrawHiresVolume::resliceVolume(Vec pos,
   int neighbours = 26;
   if (getVolumeSurfaceArea == 0)
     {      
+      saveValue = getSaveValue();
+      if (!saveValue) voxtype = 0;
+
       //-----------------------
       // get tightFit
       QStringList items;
@@ -5140,7 +5145,7 @@ DrawHiresVolume::resliceVolume(Vec pos,
 	    return;
 	  saveReslicedVolume(pFile,
 			     nslices, wd, ht, pFileManager,
-			     true, vs);
+			     true, vs, voxtype);
 	}
       else
 	{
@@ -5149,15 +5154,20 @@ DrawHiresVolume::resliceVolume(Vec pos,
 	    return;
 	  saveReslicedVolume(pFile,
 			     nslices, wd, ht, pFileManager,
-			     false, vs);
+			     false, vs, voxtype);
 	}
 
-      saveValue = getSaveValue();
     }
   else if (getVolumeSurfaceArea == 1) // volume calculations
-    saveValue = false; // for volume calculation we need opacity    
+    {
+      saveValue = false; // for volume calculation we need opacity    
+      voxtype = 0;
+    }
   else if (getVolumeSurfaceArea == 2)
     {      
+      saveValue = false; // for surface area calculation we need opacity
+      voxtype = 0;
+
       //-----------------------
       // get neighbourhood type
       QStringList items;
@@ -5180,8 +5190,7 @@ DrawHiresVolume::resliceVolume(Vec pos,
       if (!pFile.isEmpty())
 	saveReslicedVolume(pFile,
 			   nslices, wd, ht, pFileManager,
-			   false, vs);
-      saveValue = false; // for surface area calculation we need opacity
+			   false, vs, voxtype);
       //-----------------------    }
     }
 
@@ -5217,7 +5226,15 @@ DrawHiresVolume::resliceVolume(Vec pos,
     }
   //-------------------
 
-  uchar *slice = new uchar[wd*ht];
+  uchar *slice;
+  uchar *tslice;
+  if (voxtype == 0)
+    slice = new uchar[wd*ht];
+  else
+    slice = new uchar[2*wd*ht];
+
+  if (tightFit)
+    tslice = new uchar[wd*ht];
 
   uchar *slice0, *slice1, *slice2;
   slice0 = slice1 = slice2 = 0;
@@ -5401,10 +5418,17 @@ DrawHiresVolume::resliceVolume(Vec pos,
 	  glEnd();
 	} // slabs
 
-      if (saveValue)
-	glReadPixels(0, 0, wd, ht, GL_RED, GL_UNSIGNED_BYTE, slice);
+      if (voxtype == 0)
+	{
+	  if (saveValue)
+	    glReadPixels(0, 0, wd, ht, GL_RED, GL_UNSIGNED_BYTE, slice);
+	  else
+	    glReadPixels(0, 0, wd, ht, GL_GREEN, GL_UNSIGNED_BYTE, slice);
+	}
       else
-	glReadPixels(0, 0, wd, ht, GL_GREEN, GL_UNSIGNED_BYTE, slice);
+	{
+	  glReadPixels(0, 0, wd, ht, GL_RED, GL_UNSIGNED_SHORT, slice);
+	}
 
       if (tagValue >= 0)
 	{
@@ -5439,12 +5463,30 @@ DrawHiresVolume::resliceVolume(Vec pos,
       //----------------------------
       // find bounds for tightFit
       if (tightFit)
-	getTightFit(sl,
-		    slice, wd, ht,
-		    zmindone,
-		    xmin, xmax,
-		    ymin, ymax,
-		    zmin, zmax);
+	{
+	  if (voxtype > 0)
+	    {
+	      memset(tslice, 0, wd*ht);
+	      ushort *spt = (ushort *)slice;
+	      for(int p=0; p<wd*ht; p++)
+		if (spt[p] > 0)
+		  tslice[p] = 255;
+
+	      getTightFit(sl,
+			  tslice, wd, ht,
+			  zmindone,
+			  xmin, xmax,
+			  ymin, ymax,
+			  zmin, zmax);
+	    }
+	  else
+	    getTightFit(sl,
+			slice, wd, ht,
+			zmindone,
+			xmin, xmax,
+			ymin, ymax,
+			zmin, zmax);
+	}
       
       //----------------------------
     }
@@ -5452,6 +5494,8 @@ DrawHiresVolume::resliceVolume(Vec pos,
   m_shadowBuffer->release();
 
   delete [] slice;
+  if (tightFit)
+    delete [] tslice;
   if (tagValue >= 0)
     delete [] tag;
 
@@ -5490,18 +5534,36 @@ DrawHiresVolume::resliceVolume(Vec pos,
       VolumeFileManager newManager;
       saveReslicedVolume(newFile,
 			 newd, newh, neww, newManager,
-			 false, vs);
-      uchar *slice = new uchar[wd*ht];
-      for(int sl=zmin; sl<=zmax; sl++)
+			 false, vs, voxtype);
+      if (voxtype == 0)
 	{
-	  memcpy(slice, pFileManager.getSlice(sl), wd*ht);
-	  for(int y=ymin; y<=ymax; y++)
-	    for(int x=xmin; x<=xmax; x++)
-	      slice[(y-ymin)*newh+(x-xmin)] = slice[y*wd+x];
+	  uchar *slice = new uchar[wd*ht];
+	  for(int sl=zmin; sl<=zmax; sl++)
+	    {
+	      memcpy(slice, pFileManager.getSlice(sl), wd*ht);
+	      for(int y=ymin; y<=ymax; y++)
+		for(int x=xmin; x<=xmax; x++)
+		  slice[(y-ymin)*newh+(x-xmin)] = slice[y*wd+x];
 	  
-	  newManager.setSlice(sl-zmin, slice);
-	  progress.setLabelText(QString("%1").arg(sl-zmin));
-	  progress.setValue(100*(float)(sl-zmin)/(float)newd);
+	      newManager.setSlice(sl-zmin, slice);
+	      progress.setLabelText(QString("%1").arg(sl-zmin));
+	      progress.setValue(100*(float)(sl-zmin)/(float)newd);
+	    }
+	}
+      else
+	{
+	  ushort *slice = new ushort[wd*ht];
+	  for(int sl=zmin; sl<=zmax; sl++)
+	    {
+	      memcpy((uchar*)slice, pFileManager.getSlice(sl), 2*wd*ht);
+	      for(int y=ymin; y<=ymax; y++)
+		for(int x=xmin; x<=xmax; x++)
+		  slice[(y-ymin)*newh+(x-xmin)] = slice[y*wd+x];
+	  
+	      newManager.setSlice(sl-zmin, (uchar*)slice);
+	      progress.setLabelText(QString("%1").arg(sl-zmin));
+	      progress.setValue(100*(float)(sl-zmin)/(float)newd);
+	    }
 	}
       
       QMessageBox::information(0, "Saved Resliced Volume",
@@ -6218,7 +6280,8 @@ void
 DrawHiresVolume::saveReslicedVolume(QString pFile,
 				    int nslices, int wd, int ht,
 				    VolumeFileManager &pFileManager,
-				    bool tmpfile, Vec vs)
+				    bool tmpfile, Vec vs,
+				    int voxtype)
 {
   int slabSize = nslices+1;
   if (QFile::exists(pFile)) QFile::remove(pFile);
@@ -6238,6 +6301,10 @@ DrawHiresVolume::saveReslicedVolume(QString pFile,
   pFileManager.setHeight(wd);
   pFileManager.setHeaderSize(13);
   pFileManager.setSlabSize(slabSize);
+  if (voxtype == 0)
+    pFileManager.setVoxelType(VolumeInformation::_UChar);
+  else
+    pFileManager.setVoxelType(VolumeInformation::_UShort);
   pFileManager.createFile(true);
   
   
@@ -6245,6 +6312,8 @@ DrawHiresVolume::saveReslicedVolume(QString pFile,
     {
       VolumeInformation pvlInfo = VolumeInformation::volumeInformation();
       int vtype = VolumeInformation::_UChar;
+      if (voxtype == 2)
+	vtype = VolumeInformation::_UShort;
       float vx = vs.x;
       float vy = vs.y;
       float vz = vs.z;

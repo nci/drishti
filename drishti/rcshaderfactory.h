@@ -30,6 +30,8 @@ class RcShaderFactory
 
   static QString genEdgeEnhanceShader(bool);
 
+  static QString genEntryExitShader();
+
  private :
   static QString addLighting();
   static QString getGrad();

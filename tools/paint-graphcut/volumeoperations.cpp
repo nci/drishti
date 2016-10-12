@@ -1055,6 +1055,50 @@ VolumeOperations::dilateBitmask(int nDilate, bool htype,
 	      }
 	  }
     }
+  
+
+////--------------------------
+//  // create convolution mask
+//  int crad = 2*nDilate;
+//  MyBitArray cm;
+//  cm.resize(crad*crad*crad);
+//  cm.fill(!htype);
+//  Vec cen = Vec(nDilate,nDilate,nDilate);
+//  for(int i=0; i<crad; i++)
+//    for(int j=0; j<crad; j++)
+//      for(int k=0; k<crad; k++)
+//	{
+//	  if ((Vec(i,j,k)-cen).norm() < nDilate)
+//	    cm.setBit(i*crad*crad+j*crad+k, htype);
+//	}
+//
+//  for(int tce=0; tce<edges.count(); tce++)
+//    {
+//      for(int e=0; e<edges[tce].count(); e++)
+//	{
+//	  if (e%10000 == 0)
+//	    {
+//	      progress.setValue(90*(float)e/(float)edges[tce].count());
+//	      progress.setLabelText(QString("Dilating boundary %1").arg(e));
+//	      qApp->processEvents();
+//	    }
+//	  int dx = edges[tce][e].x;
+//	  int wx = edges[tce][e].y;
+//	  int hx = edges[tce][e].z;
+//	  
+//	  for(int i=0; i<crad; i++)
+//	    for(int j=0; j<crad; j++)
+//	      for(int k=0; k<crad; k++)
+//		{
+//		  qint64 d2 = qBound(0, dx+i-nDilate, (int)mz-1);
+//		  qint64 w2 = qBound(0, wx+j-nDilate, (int)my-1);
+//		  qint64 h2 = qBound(0, hx+k-nDilate, (int)mx-1);
+//		  if (cm.testBit(i*crad*crad+j*crad+k) == htype)
+//		    bitmask.setBit(d2*mx*my+w2*mx+h2, htype);		  
+//		}	  
+//	}
+//    }
+////--------------------------
 
   for(int ne=0; ne<nDilate; ne++)
     {
@@ -1092,7 +1136,6 @@ VolumeOperations::dilateBitmask(int nDilate, bool htype,
 		  if (bitmask.testBit(bidx) != htype)
 		    {
 		      bitmask.setBit(bidx, htype);
-		      //tedges << Vec(d2,w2,h2);	  
 		      if (tedges[ce].count() >= MAXEDGES)
 			{
 			  QList<Vec> ege;

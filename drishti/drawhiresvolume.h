@@ -349,7 +349,9 @@ class DrawHiresVolume : public QObject
   bool getSaveValue();
   void saveReslicedVolume(QString,
 			  int, int, int, VolumeFileManager&,
-			  bool tmpfile=false, Vec vs=Vec(1,1,1));
+			  bool tmpfile=false,
+			  Vec vs=Vec(1,1,1),
+			  int voxtype=0);
 
   void getTightFit(int, uchar*, int, int,
 		   bool&, int&, int&, int&, int&, int&, int&);

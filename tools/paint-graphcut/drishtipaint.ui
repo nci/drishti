@@ -731,7 +731,7 @@
      <x>0</x>
      <y>0</y>
      <width>624</width>
-     <height>27</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -743,6 +743,7 @@
     <addaction name="actionLoad_Curves"/>
     <addaction name="actionLoad_Fibers"/>
     <addaction name="separator"/>
+    <addaction name="actionBakeCurves"/>
     <addaction name="actionExtractTag"/>
     <addaction name="actionMeshTag"/>
     <addaction name="separator"/>
@@ -859,6 +860,11 @@
   <action name="loadMask">
    <property name="text">
     <string>Import Mask</string>
+   </property>
+  </action>
+  <action name="actionBakeCurves">
+   <property name="text">
+    <string>BakeCurves</string>
    </property>
   </action>
  </widget>

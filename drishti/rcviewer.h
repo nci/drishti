@@ -142,6 +142,9 @@ class RcViewer : public QObject
   GLhandleARB m_blurShader;
   GLint m_blurParm[20];
 
+  GLhandleARB m_enexShader;
+  GLint m_enexParm[20];
+
   GLhandleARB m_fhShader;
   GLint m_fhParm[20];
 
@@ -193,6 +196,8 @@ class RcViewer : public QObject
 
   void pre_vray();
   void vray();
+
+  void drawGeometry(bool);
 };
 
 

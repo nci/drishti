@@ -104,7 +104,25 @@ DicomPlugin::setFile(QStringList files)
   if (files.size() == 0)
     return false;
 
-  m_fileName = files;
+  //-------------------------
+  // traverse to the sub directory which contains the .dcm files
+  QString flnm0 = files[0];
+  {
+    QDirIterator it(flnm0, QDirIterator::Subdirectories);
+    while (it.hasNext())
+      {
+	QFileInfo f(it.next());
+	if (f.isFile() && f.suffix().toLower() == "dcm")
+	  {
+	    flnm0 = f.canonicalPath();
+	    break;
+	  }
+      }
+  }  
+  //-------------------------
+
+  //m_fileName = files;
+  m_fileName << flnm0;
 
   m_imageList.clear();
 

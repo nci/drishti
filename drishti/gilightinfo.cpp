@@ -17,7 +17,7 @@ GiLightInfo::clear()
   lightDiffuse = 1;
 
   aoLightColor = Vec(1,1,1);
-  aoRad = 2;
+  aoRad = 0;
   aoTimes = 5;
   aoFrac = 0.7;
   aoDensity1 = 0.3;

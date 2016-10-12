@@ -705,7 +705,7 @@ LightShaderFactory::genInvertLightShader()
 
   shader += "void main(void)\n";
   shader += "{\n";
-  shader += "  vec3 light = texture2DRect(lightTex, gl_TexCoord[0].xy);\n";
+  shader += "  vec3 light = texture2DRect(lightTex, gl_TexCoord[0].xy).rgb;\n";
   shader += "  gl_FragColor = vec4(vec3(1.0)-light, 1.0);\n";
   shader += "}\n";
 
@@ -841,8 +841,8 @@ LightShaderFactory::genInitTubeLightShader() // point shader
   // ----- testing ----
   shader += "  if (lradius < 1)\n";
   shader += "     {\n";
-  shader += "       bvec3 spless = lessThan(p, vec3(2.0,2.0,2.0));\n";
-  shader += "       bvec3 spgret = greaterThan(p, vec3(float(gridx)-2.0,float(gridy)-2.0,float(gridz)-2.0));\n";
+  shader += "       bvec3 spless = lessThan(p, vec3(3.0,3.0,3.0));\n";
+  shader += "       bvec3 spgret = greaterThan(p, vec3(float(gridx)-3.0,float(gridy)-3.0,float(gridz)-3.0));\n";
   shader += "       if (any(spless) || any(spgret))\n";
   shader += "          gl_FragColor = vec4(1.0,op,1.0,1.0);\n";
   shader += "       return;\n";

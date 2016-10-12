@@ -86,7 +86,7 @@ int LightHandler::m_gridz=0;
 int LightHandler::m_lightLod = 2;
 int LightHandler::m_lightDiffuse = 1;
 Vec LightHandler::m_aoLightColor = Vec(1,1,1);
-int LightHandler::m_aoRad = 2;
+int LightHandler::m_aoRad = 0;
 float LightHandler::m_aoFrac = 0.7;
 float LightHandler::m_aoDensity1 = 0.3;
 float LightHandler::m_aoDensity2 = 0.95;
@@ -433,7 +433,7 @@ LightHandler::reset()
 
   //-- not used, will be removed
   m_aoDensity1 = 0.3;
-  m_aoRad = 2;
+  m_aoRad = 0;
   m_aoFrac = 0.7;
 }
 
@@ -2209,6 +2209,8 @@ LightHandler::updatePointLightBuffer(QList<Vec> olpos, float lradius,
     {
       int maxtimes = qMax(lgridx, qMax(lgridy, lgridz));
       int ntimes = maxtimes;
+
+      //int ntimes = qSqrt(lgridx*lgridx + lgridy*lgridy + lgridz*lgridz);
       
       glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_lightBuffer);
       ct = lightBufferCalculations(ntimes, 1, ltexX, ltexY);

@@ -1118,6 +1118,8 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
 
   shader += genVgx();
 
+  shader += "float value = vg.x;\n";
+
   //----------------------------------
   // this is specifically for nearest neighbour interpolating when upscaling
   // or volume and surface area calculations
@@ -1158,13 +1160,13 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
 
   if (bit16)
     {
-      shader += "int h0 = int(65535.0*vg.x);\n";
-      shader += "int h1 = h0 / 256;\n";
-      shader += "h0 = int(mod(float(h0),256.0));\n";
-      shader += "float fh0 = float(h0)/256.0;\n";
-      shader += "float fh1 = float(h1)/256.0;\n";
+      shader += "  int h0 = int(65535.0*vg.x);\n";
+      shader += "  int h1 = h0 / 256;\n";
+      shader += "  h0 = int(mod(float(h0),256.0));\n";
+      shader += "  float fh0 = float(h0)/256.0;\n";
+      shader += "  float fh1 = float(h1)/256.0;\n";
 
-      shader += QString("vg.xy = vec2(fh0, fh1*%1);\n").arg(1.0/Global::lutSize());
+      shader += QString("  vg.xy = vec2(fh0, fh1*%1);\n").arg(1.0/Global::lutSize());
     }
   else
     {
@@ -1174,10 +1176,10 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
 	shader += QString("  vg.y = grad*%1;\n").arg(1.0/Global::lutSize());
     }
 
-
   shader += "  vg1 = vg;\n";
   shader += "  vg.y += tfSet;\n";
   shader += "  gl_FragColor = texture2D(lutTex, vg.xy);\n";
+
 
   if (Global::emptySpaceSkip())
     {
@@ -1201,13 +1203,13 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
   if (Global::emptySpaceSkip())
     {
       shader += "if (delta.x > 1.0)\n";
-      shader += "  { gl_FragColor = vec4(vg.x*step(0.001,gl_FragColor.a),";
+      shader += "  { gl_FragColor = vec4(value*step(0.001,gl_FragColor.a),";
       shader += "gl_FragColor.a, prunefeather.z, 1.0); return; }\n";
     }
   else
     {
       shader += "if (delta.x > 1.0)\n";
-      shader += "  { gl_FragColor = vec4(vg.x*step(0.001,gl_FragColor.a),";
+      shader += "  { gl_FragColor = vec4(value*step(0.001,gl_FragColor.a),";
       shader += "gl_FragColor.a, 0.0, 1.0); return; }\n";
     }
 //---------------------------------

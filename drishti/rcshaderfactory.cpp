@@ -283,6 +283,21 @@ RcShaderFactory::addLighting()
 }
 
 QString
+RcShaderFactory::genEntryExitShader()
+{
+  QString shader;
+  shader += "varying vec3 pointpos;\n";
+  shader += "uniform vec3 texBoxMin;\n";
+  shader += "uniform vec3 texBoxSize;\n";
+  shader += "void main(void)\n";
+  shader += "{\n";
+  shader += "  gl_FragData[0] = vec4((pointpos-texBoxMin)/texBoxSize,1.0);\n";
+  shader += "}\n";
+  return shader;
+}
+
+
+QString
 RcShaderFactory::genIsoRaycastShader(bool nearest,
 				     QList<CropObject> crops,
 				     bool bit16)
@@ -344,6 +359,11 @@ RcShaderFactory::genIsoRaycastShader(bool nearest,
 
   shader += "gl_FragData[0] = vec4(0.0);\n";
   shader += "gl_FragData[1] = vec4(0.0);\n";
+
+  shader += "if (any(lessThan(enP.xyz,vec3(0.0))) ||\n";
+  shader += "    any(greaterThan(enP.xyz,vec3(1.0)))) return;\n";
+  shader += "if (any(lessThan(exP.xyz,vec3(0.0))) ||\n";
+  shader += "    any(greaterThan(exP.xyz,vec3(1.0)))) return;\n";
 
   shader += "if (exP.a < 0.001 || enP.a < 0.001) discard;\n";
 
@@ -779,6 +799,12 @@ RcShaderFactory::genFirstHitShader(bool nearest,
   shader += "vec4 enP = texture2DRect(entryTex, gl_FragCoord.st);\n";
 
   shader += "gl_FragColor = vec4(0.0);\n";
+
+  shader += "if (any(lessThan(enP.xyz,vec3(0.0))) ||\n";
+  shader += "    any(greaterThan(enP.xyz,vec3(1.0)))) discard;\n";
+  shader += "if (any(lessThan(exP.xyz,vec3(0.0))) ||\n";
+  shader += "    any(greaterThan(exP.xyz,vec3(1.0)))) discard;\n";
+
   shader += "if (exP.a < 0.001 || enP.a < 0.001) discard;\n";
 
   shader += "vec3 exitPoint = exP.rgb;\n";

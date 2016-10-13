@@ -89,7 +89,7 @@ Vec LightHandler::m_aoLightColor = Vec(1,1,1);
 int LightHandler::m_aoRad = 0;
 float LightHandler::m_aoFrac = 0.7;
 float LightHandler::m_aoDensity1 = 0.3;
-float LightHandler::m_aoDensity2 = 0.95;
+float LightHandler::m_aoDensity2 = 0.75;
 int LightHandler::m_aoTimes = 1;
 float LightHandler::m_aoOpMod = 1.0;
 bool LightHandler::m_onlyAOLight = false;
@@ -428,7 +428,7 @@ LightHandler::reset()
   m_lightLod = 2;
   m_aoLightColor = Vec(1,1,1);
   m_aoOpMod = 1.0;
-  m_aoDensity2 = 0.95;
+  m_aoDensity2 = 0.75;
   m_aoTimes = 1;
 
   //-- not used, will be removed
@@ -2131,17 +2131,12 @@ LightHandler::updatePointLightBuffer(QList<Vec> olpos, float lradius,
   glUniform1iARB(m_initpLightParm[5], npts); // light radius
   glUniform3fvARB(m_initpLightParm[6], npts, lpos); // light radius
   glUniform1fARB(m_initpLightParm[7], lradius); // light radius
+
   if (lradius < 1.0)
-    {
-      glUniform1fARB(m_initpLightParm[8], cangle); // AO lightness - using same attribute
-    }
+    glUniform1fARB(m_initpLightParm[8], cangle); // point light cone
   else
-    {
-      if (doshadows)
-	glUniform1fARB(m_initpLightParm[8], qPow(ldecay, 0.5f)); // light decay
-      else // change decay value
-	glUniform1fARB(m_initpLightParm[8], qPow(ldecay, 0.1f)); // light decay
-    }
+    glUniform1fARB(m_initpLightParm[8], qPow(ldecay, 2.0f)); // mix light for AO
+
   glUniform1fARB(m_initpLightParm[9], llod); // oplod
   glUniform1iARB(m_initpLightParm[10], m_gridx); // opgridx
   glUniform1iARB(m_initpLightParm[11], m_gridy); // opgridy
@@ -2723,7 +2718,6 @@ LightHandler::openPropertyEditor()
 	    }
 	  else if (keys[ik] == "ao dark level")
 	    {
-	      //m_aoDensity1 = pair.first.toFloat();
 	      //m_aoDensity2 = pair.first.toFloat();
 	      m_aoDensity2 = 0.5+0.5*pair.first.toInt()/50.0;
 	    }
@@ -2738,12 +2732,6 @@ LightHandler::openPropertyEditor()
 	      else
 		m_aoOpMod = om-8;
 	    }
-	  //else if (keys[ik] == "ao bright level")
-	  //  m_aoDensity2 = pair.first.toFloat();
-	  //else if (keys[ik] == "ao size")
-	  //  m_aoRad = pair.first.toInt();
-	  //else if (keys[ik] == "ao fraction")
-	  //  m_aoFrac = pair.first.toFloat();
 	}
     }
   

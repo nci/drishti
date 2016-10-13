@@ -2135,7 +2135,12 @@ LightHandler::updatePointLightBuffer(QList<Vec> olpos, float lradius,
   if (lradius < 1.0)
     glUniform1fARB(m_initpLightParm[8], cangle); // point light cone
   else
-    glUniform1fARB(m_initpLightParm[8], qPow(ldecay, 2.0f)); // mix light for AO
+    {
+      if (doshadows)
+        glUniform1fARB(m_pLightParm[8], qPow(ldecay, 0.5f)); // light decay
+      else // change decay value
+	glUniform1fARB(m_pLightParm[8], qPow(ldecay, 0.1f)); // light decay
+    }
 
   glUniform1fARB(m_initpLightParm[9], llod); // oplod
   glUniform1iARB(m_initpLightParm[10], m_gridx); // opgridx

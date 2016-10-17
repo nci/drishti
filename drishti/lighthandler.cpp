@@ -429,9 +429,9 @@ LightHandler::reset()
   m_aoLightColor = Vec(1,1,1);
   m_aoOpMod = 1.0;
   m_aoDensity2 = 0.75;
-  m_aoTimes = 1;
 
   //-- not used, will be removed
+  m_aoTimes = 1;
   m_aoDensity1 = 0.3;
   m_aoRad = 0;
   m_aoFrac = 0.7;
@@ -2555,13 +2555,13 @@ LightHandler::openPropertyEditor()
 //  vlist << QVariant(2); // decimals
 //  plist["ao bright level"] = vlist;
   
-  vlist.clear();
-  vlist << QVariant("slider");
-  vlist << QVariant(m_aoTimes);
-  vlist << QVariant(1);
-  vlist << QVariant(5);
-  vlist << QVariant(1);
-  plist["ao smoothing"] = vlist;
+//  vlist.clear();
+//  vlist << QVariant("slider");
+//  vlist << QVariant(m_aoTimes);
+//  vlist << QVariant(1);
+//  vlist << QVariant(5);
+//  vlist << QVariant(1);
+//  plist["ao smoothing"] = vlist;
 
   vlist.clear();
   vlist << QVariant("checkbox");
@@ -2630,7 +2630,7 @@ LightHandler::openPropertyEditor()
   //keys << "ao fraction";
   keys << "ao dark level";
   //keys << "ao bright level";
-  keys << "ao smoothing";
+  //keys << "ao smoothing";
   keys << "gap";
   keys << "emis tfset";
   //keys << "emis opmod";
@@ -2726,8 +2726,8 @@ LightHandler::openPropertyEditor()
 	      //m_aoDensity2 = pair.first.toFloat();
 	      m_aoDensity2 = 0.5+0.5*pair.first.toInt()/50.0;
 	    }
-	  else if (keys[ik] == "ao smoothing")
-	    m_aoTimes = pair.first.toInt();
+//	  else if (keys[ik] == "ao smoothing")
+//	    m_aoTimes = pair.first.toInt();
 	  else if (keys[ik] == "ao opmod")
 	    {	      
 	      //m_aoOpMod = pair.first.toFloat();

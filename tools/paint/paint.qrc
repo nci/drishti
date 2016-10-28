@@ -1,0 +1,10 @@
+<!DOCTYPE RCC><RCC version="1.0">
+<qresource>
+  <file>images/drishti_paint_32.png</file>
+  <file>curves.help</file>
+  <file>graphcut.help</file>
+  <file>fibers.help</file>
+  <file>paint.help</file>
+  <file>viewer.help</file>
+</qresource>
+</RCC>

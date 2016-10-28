@@ -130,7 +130,9 @@ class Viewer : public QGLViewer
 
     void paint3DStart();
     void paint3DEnd();
-    void paint3D(int, int, int, int, int, bool);
+    void paint3D(Vec, Vec,
+		 int, int, int,
+		 int, int, bool);
 
     void changeImageSlice(int, int, int);
 

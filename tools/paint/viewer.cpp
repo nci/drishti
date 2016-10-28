@@ -3167,9 +3167,14 @@ Viewer::getHit(QMouseEvent *event)
       else if (event->buttons() == Qt::MiddleButton) b = 3;
       
       if (m_paintHit)
-	emit paint3D(d, w, h, b,
-		     Global::tag(),
-		     m_UI->paintOnlyConnected->isChecked());
+	{
+	  Vec bmin, bmax;
+	  m_boundingBox.bounds(bmin, bmax);
+	  emit paint3D(bmin, bmax,
+		       d, w, h, b,
+		       Global::tag(),
+		       m_UI->paintOnlyConnected->isChecked());
+	}
       else if (m_carveHit)
 	carve(d, w, h, b==2);
     }

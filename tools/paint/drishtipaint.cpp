@@ -10,6 +10,7 @@
 #include <QDockWidget>
 #include <QFileDialog>
 #include <QInputDialog>
+#include <QScrollArea>
 
 #include <exception>
 #include "volumeinformation.h"
@@ -71,10 +72,10 @@ DrishtiPaint::createImageWindows()
   m_splitterTwo->setOrientation(Qt::Vertical);
 
   m_splitterOne->addWidget(m_axialFrame);
-  m_splitterOne->addWidget(m_sagitalFrame);
+  m_splitterOne->addWidget(m_viewer);
 
   m_splitterTwo->addWidget(m_coronalFrame);
-  m_splitterTwo->addWidget(m_viewer);
+  m_splitterTwo->addWidget(m_sagitalFrame);
 
   splitter_0->addWidget(m_splitterOne);
   splitter_0->addWidget(m_splitterTwo);
@@ -214,7 +215,8 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 
   ui.sideframelayout->addWidget(m_fibersMenu);
   //----------------
-
+  
+  m_curvesMenu->hide();
   ui.sideframelayout->addWidget(m_graphcutMenu);
   ui.sideframelayout->addWidget(m_curvesMenu);
 
@@ -240,8 +242,8 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   //------------------------------
   connect(m_viewer, SIGNAL(paint3DStart()),
 	  this, SLOT(paint3DStart()));
-  connect(m_viewer, SIGNAL(paint3D(int,int,int,int,int, bool)),
-	  this, SLOT(paint3D(int,int,int,int,int, bool)));
+  connect(m_viewer, SIGNAL(paint3D(Vec,Vec,int,int,int,int,int, bool)),
+	  this, SLOT(paint3D(Vec,Vec,int,int,int,int,int, bool)));
   connect(m_viewer, SIGNAL(paint3DEnd()),
 	  this, SLOT(paint3DEnd()));
 
@@ -318,11 +320,13 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   {
     dock2->setAllowedAreas(Qt::LeftDockWidgetArea | 
 			   Qt::RightDockWidgetArea);
+
     QFrame *dframe = new QFrame();
     dframe->setFrameShape(QFrame::Box);
     QVBoxLayout *layout = new QVBoxLayout();
     dframe->setLayout(layout);
     dframe->layout()->addWidget(ui.sideframe);
+
     dock2->setWidget(dframe);
   }
   //----------------------------------------------------------
@@ -332,18 +336,20 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   {
     dock3->setAllowedAreas(Qt::LeftDockWidgetArea | 
 			   Qt::RightDockWidgetArea);
+
     QFrame *dframe = new QFrame();
     dframe->setFrameShape(QFrame::Box);
     QVBoxLayout *layout = new QVBoxLayout();
     dframe->setLayout(layout);
     dframe->layout()->addWidget(viewerMenu);
+
     dock3->setWidget(dframe);
   }
   //----------------------------------------------------------
   //----------------------------------------------------------
 
   addDockWidget(Qt::LeftDockWidgetArea, dock2);
-  addDockWidget(Qt::RightDockWidgetArea, dock3);
+  addDockWidget(Qt::LeftDockWidgetArea, dock3, Qt::Vertical);
   addDockWidget(Qt::RightDockWidgetArea, dock1, Qt::Horizontal);
 
 
@@ -3247,7 +3253,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
 	      for(int w=minWSlice; w<=maxWSlice; w++)
 		for(int h=minHSlice; h<=maxHSlice; h++)
 		  {
-		    int v = (255*sliceUS[i])/65536;
+		    int v = sliceUS[i];
 		    if (raw[i] != sval &&
 			lut[4*v+3] < 5)
 		      raw[i] = sval;
@@ -4327,7 +4333,7 @@ DrishtiPaint::on_actionMeshTag_triggered()
 		    else
 		      {
 			if (raw[i] != 255 &&
-			    lut[4*((255*((ushort*)slice)[i])/65536)+3] < 5)
+			    lut[4*((ushort*)slice)[i]+3] < 5)
 			  raw[i] = 255;
 		      }
 		  }
@@ -4556,31 +4562,15 @@ DrishtiPaint::colorMesh(QList<Vec>& C,
 	      val = m_volume->rawValue(dd+minDSlice,
 				       ww+minWSlice,
 				       hh+minHSlice);
-	      if (Global::bytesPerVoxel() == 1)
+	      int pr = lut[4*val[0]+2];
+	      int pg = lut[4*val[0]+1];
+	      int pb = lut[4*val[0]+0];
+	      if (lut[4*val[0]+3] > 1)
 		{
-		  int pr = lut[4*val[0]+2];
-		  int pg = lut[4*val[0]+1];
-		  int pb = lut[4*val[0]+0];
-		  if (lut[4*val[0]+3] > 1)
-		    {
-		      vr += pr;
-		      vg += pg;
-		      vb += pb;
-		      ncl ++;
-		    }
-		}
-	      else
-		{
-		  int pr = lut[4*((255*val[0])/65536)+2];
-		  int pg = lut[4*((255*val[0])/65536)+1];
-		  int pb = lut[4*((255*val[0])/65536)+0];
-		  if (lut[4*((255*val[0])/65536)+3] > 1)
-		    {
-		      vr += pr;
-		      vg += pg;
-		      vb += pb;
-		      ncl ++;
-		    }
+		  vr += pr;
+		  vg += pg;
+		  vb += pb;
+		  ncl ++;
 		}
 	    }
 	  if (ncl > 0)
@@ -4920,7 +4910,9 @@ DrishtiPaint::paint3DStart()
 }
 
 void
-DrishtiPaint::paint3D(int d, int w, int h, int button, int otag, bool onlyConnected)
+DrishtiPaint::paint3D(Vec bmin, Vec bmax,
+		      int d, int w, int h,
+		      int button, int otag, bool onlyConnected)
 {
   int m_depth, m_width, m_height;
   m_volume->gridSize(m_depth, m_width, m_height);
@@ -4951,9 +4943,17 @@ DrishtiPaint::paint3D(int d, int w, int h, int button, int otag, bool onlyConnec
   int minDSlice, maxDSlice;
   int minWSlice, maxWSlice;
   int minHSlice, maxHSlice;
-  m_axialImage->getBox(minDSlice, maxDSlice,
-		       minWSlice, maxWSlice,
-		       minHSlice, maxHSlice);
+//  m_axialImage->getBox(minDSlice, maxDSlice,
+//		       minWSlice, maxWSlice,
+//		       minHSlice, maxHSlice);
+
+  minDSlice = bmin.z;
+  minWSlice = bmin.y;
+  minHSlice = bmin.x;
+
+  maxDSlice = bmax.z;
+  maxWSlice = bmax.y;
+  maxHSlice = bmax.x;
 
   uchar *volData = m_volume->memVolDataPtr();
   ushort *volDataUS = 0;
@@ -5082,7 +5082,7 @@ DrishtiPaint::paint3D(int d, int w, int h, int button, int otag, bool onlyConnec
 		  if (!volDataUS)
 		    val = volData[dd*m_width*m_height + ww*m_height + hh];
 		  else
-		    val = (255*volDataUS[dd*m_width*m_height + ww*m_height + hh])/65536;
+		    val = volDataUS[dd*m_width*m_height + ww*m_height + hh];
 		  uchar mtag = maskData[dd*m_width*m_height + ww*m_height + hh];
 		  bool opaque =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);
 		  if (opaque)
@@ -5396,7 +5396,7 @@ DrishtiPaint::tagUsingSketchPad(Vec bmin, Vec bmax, int tag)
 		      
 		      qint64 idx = d2*m_width*m_height + w2*m_height + h2;
 		      int val = volData[idx];
-		      if (volDataUS) val = (255*volDataUS[idx])/65536;
+		      if (volDataUS) val = volDataUS[idx];
 		      bool visible = lut[4*val+3] > 0;
 		      if (visible) // tag only visible region
 			{

@@ -73,6 +73,8 @@ class Viewer : public QGLViewer
 
   QList<int> usedTags();
 
+  void getBox(int&, int&, int&, int&, int&, int&);
+
   public slots :
     void GlewInit();  
     void resizeGL(int, int);

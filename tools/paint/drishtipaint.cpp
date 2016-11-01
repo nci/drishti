@@ -216,7 +216,7 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   ui.sideframelayout->addWidget(m_fibersMenu);
   //----------------
   
-  m_curvesMenu->hide();
+  //m_curvesMenu->hide();
   ui.sideframelayout->addWidget(m_graphcutMenu);
   ui.sideframelayout->addWidget(m_curvesMenu);
 
@@ -228,6 +228,7 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   //------------------------------
   // viewer menu
   QFrame *viewerMenu = new QFrame();
+  viewerMenu->setFrameShape(QFrame::Box);
   viewerUi.setupUi(viewerMenu);
   connectViewerMenu();
   //----------------
@@ -322,12 +323,16 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 			   Qt::RightDockWidgetArea);
 
     QFrame *dframe = new QFrame();
-    dframe->setFrameShape(QFrame::Box);
-    QVBoxLayout *layout = new QVBoxLayout();
+    QHBoxLayout *layout = new QHBoxLayout();
     dframe->setLayout(layout);
     dframe->layout()->addWidget(ui.sideframe);
 
-    dock2->setWidget(dframe);
+    QScrollArea *scrollArea = new QScrollArea;
+    scrollArea->setWidget(dframe);
+    scrollArea->setWidgetResizable(true);
+    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
+    dock2->setWidget(scrollArea);
   }
   //----------------------------------------------------------
 
@@ -338,12 +343,16 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 			   Qt::RightDockWidgetArea);
 
     QFrame *dframe = new QFrame();
-    dframe->setFrameShape(QFrame::Box);
-    QVBoxLayout *layout = new QVBoxLayout();
+    QHBoxLayout *layout = new QHBoxLayout();
     dframe->setLayout(layout);
     dframe->layout()->addWidget(viewerMenu);
 
-    dock3->setWidget(dframe);
+    QScrollArea *scrollArea = new QScrollArea;
+    scrollArea->setWidget(dframe);
+    scrollArea->setWidgetResizable(true);
+    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
+    dock3->setWidget(scrollArea);
   }
   //----------------------------------------------------------
   //----------------------------------------------------------
@@ -1721,8 +1730,6 @@ DrishtiPaint::savePvlHeader(QString volfile,
 	rawFile = dlist.at(i).toElement().text();
       else if (dlist.at(i).nodeName() == "description")
 	description = dlist.at(i).toElement().text();
-      else if (dlist.at(i).nodeName() == "voxeltype")
-	voxelType = dlist.at(i).toElement().text();
       else if (dlist.at(i).nodeName() == "voxelunit")
 	voxelUnit = dlist.at(i).toElement().text();
       else if (dlist.at(i).nodeName() == "voxelsize")
@@ -1742,7 +1749,9 @@ DrishtiPaint::savePvlHeader(QString volfile,
       rawmap = "1 255";
       pvlmap = "1 255";
     }
-
+  else if (Global::bytesPerVoxel() == 2)
+    voxelType = "unsigned short";
+  
   QDomDocument doc("Drishti_Header");
 
   QDomElement topElement = doc.createElement("PvlDotNcFileHeader");
@@ -1763,7 +1772,7 @@ DrishtiPaint::savePvlHeader(QString volfile,
     topElement.appendChild(de0);
   }
   {      
-    QDomElement de0 = doc.createElement("voxeltype");
+    QDomElement de0 = doc.createElement("pvlvoxeltype");
     QDomText tn0;
     tn0 = doc.createTextNode(voxelType);
     de0.appendChild(tn0);
@@ -1838,9 +1847,9 @@ DrishtiPaint::applyMaskOperation(int tag,
   int minDSlice, maxDSlice;
   int minWSlice, maxWSlice;
   int minHSlice, maxHSlice;
-  m_axialImage->getBox(minDSlice, maxDSlice,
-			minWSlice, maxWSlice,
-			minHSlice, maxHSlice);
+  m_viewer->getBox(minDSlice, maxDSlice,
+		   minWSlice, maxWSlice,
+		   minHSlice, maxHSlice);
   qint64 tdepth = maxDSlice-minDSlice+1;
   qint64 twidth = maxWSlice-minWSlice+1;
   qint64 theight = maxHSlice-minHSlice+1;
@@ -2905,7 +2914,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
       if (saveImageData && extractType != 9)
 	outsideVal = QInputDialog::getInt(0,
 					  "Outside value",
-					  "Set outside value to",
+					  "Set outside value (0-255) to",
 					  0, 0, 255, 1);
     }
   else
@@ -2913,8 +2922,8 @@ DrishtiPaint::on_actionExtractTag_triggered()
       if (saveImageData && extractType != 9)
 	outsideVal = QInputDialog::getInt(0,
 					  "Outside value",
-					  "Set outside value to",
-					  0, 0, 65536, 1);
+					  "Set outside value (0-65535) to",
+					  0, 0, 65535, 1);
     }
 
   //----------------
@@ -2926,9 +2935,9 @@ DrishtiPaint::on_actionExtractTag_triggered()
   int minDSlice, maxDSlice;
   int minWSlice, maxWSlice;
   int minHSlice, maxHSlice;
-  m_axialImage->getBox(minDSlice, maxDSlice,
-		       minWSlice, maxWSlice,
-		       minHSlice, maxHSlice);
+  m_viewer->getBox(minDSlice, maxDSlice,
+		   minWSlice, maxWSlice,
+		   minHSlice, maxHSlice);
   qint64 tdepth = maxDSlice-minDSlice+1;
   qint64 twidth = maxWSlice-minWSlice+1;
   qint64 theight = maxHSlice-minHSlice+1;
@@ -2956,6 +2965,10 @@ DrishtiPaint::on_actionExtractTag_triggered()
   tflnms << tflnm+".001";
   VolumeFileManager tFile;
   tFile.setFilenameList(tflnms);
+  if (Global::bytesPerVoxel() == 1)
+    tFile.setVoxelType(VolumeFileManager::_UChar);
+  else
+    tFile.setVoxelType(VolumeFileManager::_UShort);
   tFile.setDepth(tdepth);
   tFile.setWidth(twidth);
   tFile.setHeight(theight);
@@ -4100,9 +4113,9 @@ DrishtiPaint::on_actionMeshTag_triggered()
   int minDSlice, maxDSlice;
   int minWSlice, maxWSlice;
   int minHSlice, maxHSlice;
-  m_axialImage->getBox(minDSlice, maxDSlice,
-		       minWSlice, maxWSlice,
-		       minHSlice, maxHSlice);
+  m_viewer->getBox(minDSlice, maxDSlice,
+		   minWSlice, maxWSlice,
+		   minHSlice, maxHSlice);
   qint64 tdepth = maxDSlice-minDSlice+1;
   qint64 twidth = maxWSlice-minWSlice+1;
   qint64 theight = maxHSlice-minHSlice+1;
@@ -4611,9 +4624,9 @@ DrishtiPaint::saveMesh(QList<Vec> V,
   int minDSlice, maxDSlice;
   int minWSlice, maxWSlice;
   int minHSlice, maxHSlice;
-  m_axialImage->getBox(minDSlice, maxDSlice,
-		       minWSlice, maxWSlice,
-		       minHSlice, maxHSlice);
+  m_viewer->getBox(minDSlice, maxDSlice,
+		   minWSlice, maxWSlice,
+		   minHSlice, maxHSlice);
 
   Vec voxelScaling = Global::voxelScaling();
   if (noScaling) voxelScaling = Vec(1,1,1);
@@ -4943,9 +4956,6 @@ DrishtiPaint::paint3D(Vec bmin, Vec bmax,
   int minDSlice, maxDSlice;
   int minWSlice, maxWSlice;
   int minHSlice, maxHSlice;
-//  m_axialImage->getBox(minDSlice, maxDSlice,
-//		       minWSlice, maxWSlice,
-//		       minHSlice, maxHSlice);
 
   minDSlice = bmin.z;
   minWSlice = bmin.y;
@@ -5793,9 +5803,9 @@ DrishtiPaint::on_actionBakeCurves_triggered()
   int minDSlice, maxDSlice;
   int minWSlice, maxWSlice;
   int minHSlice, maxHSlice;
-  m_axialImage->getBox(minDSlice, maxDSlice,
-		       minWSlice, maxWSlice,
-		       minHSlice, maxHSlice);
+  m_viewer->getBox(minDSlice, maxDSlice,
+		   minWSlice, maxWSlice,
+		   minHSlice, maxHSlice);
   qint64 tdepth = maxDSlice-minDSlice+1;
   qint64 twidth = maxWSlice-minWSlice+1;
   qint64 theight = maxHSlice-minHSlice+1;

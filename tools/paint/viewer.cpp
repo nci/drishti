@@ -715,6 +715,24 @@ void Viewer::setVolDataPtr(uchar *ptr)
 }
 
 void
+Viewer::getBox(int& minD, int& maxD, int& minW, int& maxW, int& minH, int& maxH)
+{
+  Vec bmin, bmax;
+  m_boundingBox.bounds(bmin, bmax);
+
+  Vec voxelScaling = Global::relativeVoxelScaling();
+  bmin = VECDIVIDE(bmin, voxelScaling);
+  bmax = VECDIVIDE(bmax, voxelScaling);
+
+  minD = bmin.z;
+  maxD = bmax.z;
+  minW = bmin.y;
+  maxW = bmax.y;
+  minH = bmin.x;
+  maxH = bmax.x;
+}
+
+void
 Viewer::updateViewerBox(int minD, int maxD, int minW, int maxW, int minH, int maxH)
 {
   m_minDSlice = minD;

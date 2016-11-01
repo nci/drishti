@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>128</width>
-    <height>566</height>
+    <height>502</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -22,6 +22,9 @@
   <layout class="QVBoxLayout" name="verticalLayout">
    <property name="spacing">
     <number>5</number>
+   </property>
+   <property name="sizeConstraint">
+    <enum>QLayout::SetMinimumSize</enum>
    </property>
    <property name="leftMargin">
     <number>0</number>
@@ -159,6 +162,9 @@
      <layout class="QVBoxLayout" name="verticalLayout_10">
       <property name="spacing">
        <number>5</number>
+      </property>
+      <property name="sizeConstraint">
+       <enum>QLayout::SetMinimumSize</enum>
       </property>
       <property name="leftMargin">
        <number>2</number>

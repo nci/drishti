@@ -30,7 +30,7 @@ Viewer::Viewer(QWidget *parent) :
 
   m_clipPlanes = new ClipPlanes();
 
-  m_renderMode = 0; // 0-point, 1-raycast, 2-xray
+  m_renderMode = true; // 0-slicebased, 1-raycast
 
   m_eBuffer = 0;
   m_ebId = 0;
@@ -492,13 +492,6 @@ Viewer::createRaycastShader()
   else
     shaderString = ShaderFactory::genIsoRaycastShader(m_exactCoord, m_useMask, true);
   
-//  if (m_renderMode == 1)
-//    shaderString = ShaderFactory::genRaycastShader(maxSteps, !m_fullRender,
-//						   m_exactCoord, m_useMask);
-//  else
-//    shaderString = ShaderFactory::genXRayShader(maxSteps, !m_fullRender,
-//						m_exactCoord, m_useMask);
-
   if (m_rcShader)
     glDeleteObjectARB(m_rcShader);
 
@@ -773,41 +766,10 @@ Viewer::setShowBox(bool b)
 }
 
 void
-Viewer:: setPointRender(bool flag)
+Viewer:: setRenderMode(bool flag)
 {
-  if (flag)
-    m_renderMode = 0;
-  else
-    m_renderMode = 1;
-  updateVoxels();
-  update();
-}
+  m_renderMode = flag;
 
-void
-Viewer::setRaycastRender(bool flag)
-{
-  if (flag)
-    {
-      m_renderMode = 1;
-      createRaycastShader();
-    }
-  else
-    m_renderMode = 0;
-  updateVoxels();
-  update();
-}
-
-void
-Viewer::setRaycastStyle(int flag)
-{
-  m_fullRender = (flag>0);
-
-  if (flag > 1)
-    m_renderMode = flag;
-  else
-    m_renderMode = 1;
-
-  createRaycastShader();
   update();
 }
 
@@ -1038,10 +1000,7 @@ Viewer::commandEditor()
   QString mesg;
 
   mesg += "Subvolume Bounds :\n";
-  if (m_renderMode >= 1)
-    mesg += QString("LOD : %1\n").arg(m_sslevel);
-  else
-    mesg += QString("LOD : %1\n").arg(m_pointSkip);
+  mesg += QString("LOD : %1\n").arg(m_sslevel);
 
   mesg += QString("%1 %2 %3\n%4 %5 %6\n").			\
     arg(m_minHSlice).arg(m_minWSlice).arg(m_minDSlice).		\
@@ -1617,30 +1576,10 @@ Viewer::draw()
 
   glDisable(GL_LIGHTING);
 
-  if ((m_renderMode == 0 ||
-       (!m_volPtr || !m_maskPtr)) && m_showBox)
+  if ((!m_volPtr || !m_maskPtr) && m_showBox)
     {
       m_boundingBox.draw();
       drawWireframeBox();
-    }
-
-  if (m_renderMode == 0)
-    {
-      drawMMDCurve();
-      drawMMWCurve();
-      drawMMHCurve();
-      
-      drawLMDCurve();
-      drawLMWCurve();
-      drawLMHCurve();
-      
-      drawSWDCurve();
-      drawSWWCurve();
-      drawSWHCurve();
-      
-      glEnable(GL_LIGHTING);
-      drawFibers();
-      glDisable(GL_LIGHTING);
     }
 
   if (!m_volPtr || !m_maskPtr)
@@ -1650,12 +1589,9 @@ Viewer::draw()
       return;
     }
 
-//  if (m_renderMode == 0)
-//    pointRendering();  
-  
-//  if (m_renderMode >= 1)
-//    raycasting();
-//  else
+  if (m_renderMode)
+    raycasting();
+  else
     drawVolBySlicing();
   
 //  drawClipSlices();
@@ -1880,9 +1816,8 @@ Viewer::drawInfo()
   QFont tfont = QFont("Helvetica", 12);  
   QString mesg;
 
-  if (m_renderMode >= 1)
-    mesg += QString("LOD(%1) Vol(%2 %3 %4) ").\
-      arg(m_sslevel).arg(m_vsize.x).arg(m_vsize.y).arg(m_vsize.z);
+  mesg += QString("LOD(%1) Vol(%2 %3 %4) ").				\
+    arg(m_sslevel).arg(m_vsize.x).arg(m_vsize.y).arg(m_vsize.z);
 
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -2118,13 +2053,6 @@ Viewer::updateVoxels()
       return;
     }
 
-  if (m_renderMode == 0 && m_pointSkip == 0)
-    {
-      QMessageBox::information(0, "",
-			       "Step size is set to 0, therefore will not show the voxels");
-      return;
-    }
-
   Vec voxelScaling = Global::relativeVoxelScaling();
 
   Vec bmin, bmax;
@@ -2145,183 +2073,7 @@ Viewer::updateVoxels()
   m_maxHSlice = bmax.x;
 
 
-  if (m_renderMode >= 1) // raycast
-    {
-      updateVoxelsForRaycast();
-      return;
-    }
-
-  // renderMode == 0 => point rendering
-  if (m_voxChoice == 0)
-    {
-      updateVoxelsWithTF();
-      return;
-    }
-  
-  QProgressDialog progress("Updating voxel structure",
-			   QString(),
-			   0, 100,
-			   0);
-  progress.setMinimumDuration(0);
-
-  //----------------------------
-  m_paintedTags.clear();
-  {
-    uchar *tagColors = Global::tagColors();
-    for(int t=0; t<256; t++)
-      {
-	if (tagColors[4*t+3] > 2)
-	  m_paintedTags << t;
-      }
-    QMessageBox::information(0, "", QString("%1").arg(m_paintedTags.count()));
-    if (m_paintedTags.count() == 256) // take all tags
-      m_paintedTags.clear();
-  }
-
-  //----------------------------
-
-  bool takeall = (m_paintedTags.count() == 0 ||
-		  m_paintedTags[0] == -1);
-
-  //----------------------------------
-  // get the edges first  
-  int d,w,h;
-  d=m_minDSlice;
-  for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
-    for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
-      {
-	if (!clip(d, w, h))
-	  {
-	    uchar tag = m_maskPtr[d*m_width*m_height + w*m_height + h];
-	    if (m_paintedTags.contains(tag) ||
-		(tag > 0 && takeall))
-	      {
-		uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
-		m_voxels << d << w << h << tag << vol;
-	      }
-	  }
-      }
-  w=m_minWSlice;
-  for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
-    for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
-      {
-	if (!clip(d, w, h))
-	  {
-	    uchar tag = m_maskPtr[d*m_width*m_height + w*m_height + h];
-	    if (m_paintedTags.contains(tag) ||
-		(tag > 0 && takeall))
-	      {
-		uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
-		m_voxels << d << w << h << tag << vol;
-	      }
-	  }
-      }
-  h=m_minHSlice;
-  for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
-    for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
-      {
-	if (!clip(d, w, h))
-	  {
-	    uchar tag = m_maskPtr[d*m_width*m_height + w*m_height + h];
-	    if (m_paintedTags.contains(tag) ||
-		(tag > 0 && takeall))
-	      {
-		uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
-		m_voxels << d << w << h << tag << vol;
-	      }
-	  }
-      }
-  d=m_maxDSlice;
-  for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
-    for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
-      {
-	if (!clip(d, w, h))
-	  {
-	    uchar tag = m_maskPtr[d*m_width*m_height + w*m_height + h];
-	    if (m_paintedTags.contains(tag) ||
-		(tag > 0 && takeall))
-	      {
-		uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
-		m_voxels << d << w << h << tag << vol;
-	      }
-	  }
-      }
-  w=m_maxWSlice;
-  for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
-    for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
-      {
-	if (!clip(d, w, h))
-	  {
-	    uchar tag = m_maskPtr[d*m_width*m_height + w*m_height + h];
-	    if (m_paintedTags.contains(tag) ||
-		(tag > 0 && takeall))
-	      {
-		uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
-		m_voxels << d << w << h << tag << vol;
-	      }
-	  }
-      }
-  h=m_maxHSlice;
-  for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
-    for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
-      {
-	if (!clip(d, w, h))
-	  {
-	    uchar tag = m_maskPtr[d*m_width*m_height + w*m_height + h];
-	    if (m_paintedTags.contains(tag) ||
-		(tag > 0 && takeall))
-	      {
-		uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
-		m_voxels << d << w << h << tag << vol;
-	      }
-	  }
-      }
-  //----------------------------------
-
-
-  for(d=m_minDSlice+1; d<m_maxDSlice-1; d+=m_pointSkip)
-    {
-      progress.setValue(100*(float)(d-m_minDSlice)/(m_maxDSlice-m_minDSlice));
-      qApp->processEvents();
-      for(w=m_minWSlice+1; w<m_maxWSlice-1; w+=m_pointSkip)
-	{
-	  for(h=m_minHSlice+1; h<m_maxHSlice-1; h+=m_pointSkip)
-	    {
-	      if (!clip(d, w, h))
-		{
-		  uchar tag = m_maskPtr[d*m_width*m_height + w*m_height + h];
-		  if (m_paintedTags.contains(tag) ||
-		      (tag > 0 && takeall))
-		    {
-		      bool ok = false;
-		      for(int dd=-m_pointSkip; dd<=m_pointSkip; dd++)
-			for(int ww=-m_pointSkip; ww<=m_pointSkip; ww++)
-			  for(int hh=-m_pointSkip; hh<=m_pointSkip; hh++)
-			    {
-			      int d1 = qBound(m_minDSlice, d+dd, m_maxDSlice);
-			      int w1 = qBound(m_minWSlice, w+ww, m_maxWSlice);
-			      int h1 = qBound(m_minHSlice, h+hh, m_maxHSlice);
-			      if (m_maskPtr[d1*m_width*m_height + w1*m_height + h1] != tag)
-				{
-				  ok = true;
-				  break;
-				}
-			    }
-		      
-		      if (ok)
-			{
-			  uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
-			  m_voxels << d << w << h << tag << vol;
-			}
-		    }
-		}
-	    }
-	}
-    }
-
-  progress.setValue(100);
-
-  update();  
+  updateVoxelsForRaycast();
 }
 
 void
@@ -2391,136 +2143,6 @@ Viewer::drawVolMask()
   glDisable(GL_BLEND);
 }
 
-void
-Viewer::updateVoxelsWithTF()
-{
-  m_voxels.clear();
-  
-  if (!m_volPtr || !m_maskPtr || m_pointSkip == 0)
-    return;
-
-  uchar *lut = Global::lut();
-
-  QProgressDialog progress("Updating voxel structure",
-			   QString(),
-			   0, 100,
-			   0);
-  progress.setMinimumDuration(0);
-
-  //----------------------------------
-  // get the edges first
-  int d,w,h;
-  d=m_minDSlice;
-  for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
-    for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
-      {
-	if (!clip(d, w, h))
-	  {
-	    uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
-	    if (lut[4*vol+3] > 10)
-	      m_voxels << d << w << h << vol;
-	  }
-      }
-  w=m_minWSlice;
-  for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
-    for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
-      {
-	if (!clip(d, w, h))
-	  {
-	    uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
-	    if (lut[4*vol+3] > 10)
-	      m_voxels << d << w << h << vol;
-	  }
-      }
-  h=m_minHSlice;
-  for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
-    for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
-      {
-	if (!clip(d, w, h))
-	  {
-	    uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
-	    if (lut[4*vol+3] > 10)
-	      m_voxels << d << w << h << vol;
-	  }
-      }
-  d=m_maxDSlice;
-  for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
-    for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
-      {
-	if (!clip(d, w, h))
-	  {
-	    uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
-	    if (lut[4*vol+3] > 10)
-	      m_voxels << d << w << h << vol;
-	  }
-      }
-  w=m_maxWSlice;
-  for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
-    for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
-      {
-	if (!clip(d, w, h))
-	  {
-	    uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
-	    if (lut[4*vol+3] > 10)
-	      m_voxels << d << w << h << vol;
-	  }
-      }
-  h=m_maxHSlice;
-  for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
-    for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
-      {
-	if (!clip(d, w, h))
-	  {
-	    uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
-	    if (lut[4*vol+3] > 10)
-	      m_voxels << d << w << h << vol;
-	  }
-      }
-  //----------------------------------
-
-
-  //----------------------------------
-  // now for the interior  
-  for(d=m_minDSlice+1; d<m_maxDSlice-1; d+=m_pointSkip)
-    {
-      progress.setValue(100*(float)(d-m_minDSlice)/(m_maxDSlice-m_minDSlice));
-      qApp->processEvents();
-      for(w=m_minWSlice+1; w<m_maxWSlice-1; w+=m_pointSkip)
-	{
-	  for(h=m_minHSlice+1; h<m_maxHSlice-1; h+=m_pointSkip)
-	    {
-	      if (!clip(d, w, h))
-		{
-		  uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
-		  if (lut[4*vol+3] > 10)
-		    {
-		      bool ok = false;
-		      for(int dd=-m_pointSkip; dd<=m_pointSkip; dd++)
-			for(int ww=-m_pointSkip; ww<=m_pointSkip; ww++)
-			  for(int hh=-m_pointSkip; hh<=m_pointSkip; hh++)
-			    {
-			      int d1 = qBound(m_minDSlice, d+dd, m_maxDSlice);
-			      int w1 = qBound(m_minWSlice, w+ww, m_maxWSlice);
-			      int h1 = qBound(m_minHSlice, h+hh, m_maxHSlice);
-			      
-			      uchar v = m_volPtr[d1*m_width*m_height + w1*m_height + h1];
-			      if (lut[4*v+3] < 10)
-				{
-				  ok = true;
-				  break;
-				}
-			    }
-		      
-		      if (ok)
-			m_voxels << d << w << h << vol;
-		    }
-		}
-	    }
-	}
-    }
-  
-  progress.setValue(100);
-}
 
 void
 Viewer::updateVoxelsForRaycast()
@@ -3148,10 +2770,7 @@ Viewer::getHit(QPoint scr, bool &found)
   Vec target;
   found = false;
 
-  if (m_renderMode == 0) // point rendering
-    target = pointUnderPixel(scr, found);
-  else // raycast rendering
-    target = pointUnderPixel_RC(scr, found);
+  target = pointUnderPixel_RC(scr, found);
 
   if (!found)
     target = Vec(-1,-1,-1);
@@ -3335,8 +2954,7 @@ Viewer::mousePressEvent(QMouseEvent *event)
       return;
     }
 
-  if (event->modifiers() & Qt::ControlModifier &&
-      m_renderMode >= 1)
+  if (event->modifiers() & Qt::ControlModifier)
     {
       int d, w, h;
       bool gothit = getCoordUnderPointer(d, w, h);
@@ -4764,10 +4382,7 @@ Viewer::saveImage()
       
       if (flnm.isEmpty())
 	{
-	  if (m_renderMode == 0)
-	    m_UI->pointParam->setVisible(true);
-	  else
-	    m_UI->raycastParam->setVisible(true);
+	  m_UI->raycastParam->setVisible(true);
 	  
 	  cv->show();
 	  return;
@@ -4775,10 +4390,7 @@ Viewer::saveImage()
 
       saveSnapshot(flnm);
 
-      if (m_renderMode == 0)
-	m_UI->pointParam->setVisible(true);
-      else
-	m_UI->raycastParam->setVisible(true);
+      m_UI->raycastParam->setVisible(true);
       
       cv->show();
     }
@@ -4807,10 +4419,7 @@ Viewer::saveImageSequence()
     {
       QWidget *p = (QWidget*)parent();
       QFrame *cv = (QFrame*)parent()->children()[1];
-      if (m_renderMode == 0)
-	m_UI->pointParam->setVisible(true);
-      else
-	m_UI->raycastParam->setVisible(true);
+      m_UI->raycastParam->setVisible(true);
       
       cv->show();
       return;
@@ -4914,10 +4523,7 @@ Viewer::nextFrame()
       m_savingImages = 0;
       QWidget *p = (QWidget*)parent();
       QFrame *cv = (QFrame*)parent()->children()[1];
-      if (m_renderMode == 0)
-	m_UI->pointParam->setVisible(true);
-      else
-	m_UI->raycastParam->setVisible(true);      
+      m_UI->raycastParam->setVisible(true);      
       cv->show();
       QMessageBox::information(this, "", "Saved Image Sequence");
     }
@@ -5334,6 +4940,7 @@ Viewer::drawVolBySlicing()
 
   Vec dataMin = Vec(m_minHSlice, m_minWSlice, m_minDSlice);
   Vec dataMax = Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice);
+  Vec dataSize = dataMax - dataMin;
 
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
@@ -5428,7 +5035,8 @@ Viewer::drawVolBySlicing()
   QList<Vec> cPos =  clipPos();
   QList<Vec> cNorm = clipNorm();
 
-  Slicer3D::drawSlices(bmin, bmax, dataMax,
+  Slicer3D::drawSlices(bmin, bmax,
+		       dataMin, dataSize,
 		       pn, maxvert, minvert,
 		       layers, stepsize,
 		       cPos, cNorm);

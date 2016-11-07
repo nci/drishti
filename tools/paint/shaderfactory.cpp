@@ -154,10 +154,14 @@ ShaderFactory::genSliceShader(bool bit16)
   shader += "void main(void)\n";
   shader += "{\n";
 
-  shader += "  float val = texture3D(dataTex, gl_TexCoord[0].xyz).x;\n";
-  //shader += "vec4 color = texture2D(lutTex, vec2(val,0.0));\n";
+  shader += "  if (any(greaterThan(gl_TexCoord[0].xyz,vec3(1.0,1.0,1.0)))) \n";
+  shader += "    discard;\n";
+  shader += "  if (any(lessThan(gl_TexCoord[0].xyz,vec3(0.0,0.0,0.0)))) \n";
+  shader += "    discard;\n";
 
-  shader += "vec4 color;\n";
+  shader += "  float val = texture3D(dataTex, gl_TexCoord[0].xyz).x;\n";
+
+  shader += "  vec4 color;\n";
 
   if (!bit16)
     shader += "  color = texture2D(lutTex, vec2(val,0.0));\n";

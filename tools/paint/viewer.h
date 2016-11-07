@@ -95,9 +95,7 @@ class Viewer : public QGLViewer
     void setShowSlices(bool);
     void updateSlices();
     void uploadMask(int,int,int, int,int,int);
-    void setPointRender(bool);
-    void setRaycastRender(bool);
-    void setRaycastStyle(int);
+    void setRenderMode(bool);
     void setSkipLayers(int);
     void setSkipVoxels(int);
     void setStillAndDragStep(float, float);
@@ -194,7 +192,7 @@ class Viewer : public QGLViewer
   int m_tag1, m_tag2;
   bool m_mergeTagTF;
 
-  int m_renderMode;
+  bool m_renderMode;
 
   int m_voxChoice;
   bool m_showBox;

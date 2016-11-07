@@ -82,6 +82,7 @@ HEADERS += commonqtclasses.h \
 	coloreditor.h \
 	opacityeditor.h \
 	viewer.h \
+	viewer3d.h \
 	volume.h \
 	volumefilemanager.h \
 	volumeinformation.h \
@@ -140,6 +141,7 @@ SOURCES += drishtipaint.cpp \
 	coloreditor.cpp \
 	opacityeditor.cpp \
 	viewer.cpp \
+	viewer3d.cpp \
 	volume.cpp \
 	volumefilemanager.cpp \
 	volumeinformation.cpp \

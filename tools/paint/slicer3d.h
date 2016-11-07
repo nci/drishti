@@ -12,7 +12,8 @@ class Slicer3D
 				Vec*, float&,
 				Vec&, Vec&);
 
-  static void drawSlices(Vec, Vec, Vec,
+  static void drawSlices(Vec, Vec,
+			 Vec, Vec,
 			 Vec, Vec, Vec,
 			 int, float,
 			 QList<Vec>, QList<Vec>);
@@ -27,7 +28,6 @@ class Slicer3D
   static int drawpoly(Vec, Vec,
 		      Vec*,
 		      Vec, Vec,
-		      Vec,
 		      QList<Vec>, QList<Vec>);
 };
 

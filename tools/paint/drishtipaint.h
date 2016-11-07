@@ -17,7 +17,7 @@
 #include "curveswidget.h"
 #include "myslider.h"
 #include "volume.h"
-#include "viewer.h"
+#include "viewer3d.h"
 #include "marchingcubes.h"
 #include "ply.h"
 #include "popupslider.h"
@@ -190,6 +190,7 @@ class DrishtiPaint : public QMainWindow
 
   Vec m_prevSeed;
 
+  Viewer3D *m_viewer3D;
   Viewer *m_viewer;
   PopUpSlider *m_viewDslice;
   PopUpSlider *m_viewWslice;

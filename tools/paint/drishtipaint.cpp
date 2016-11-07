@@ -72,7 +72,7 @@ DrishtiPaint::createImageWindows()
   m_splitterTwo->setOrientation(Qt::Vertical);
 
   m_splitterOne->addWidget(m_axialFrame);
-  m_splitterOne->addWidget(m_viewer);
+  m_splitterOne->addWidget(m_viewer3D);
 
   m_splitterTwo->addWidget(m_coronalFrame);
   m_splitterTwo->addWidget(m_sagitalFrame);
@@ -223,7 +223,8 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 
   m_tagColorEditor = new TagColorEditor();
 
-  m_viewer = new Viewer();
+  m_viewer3D = new Viewer3D(this);
+  m_viewer = m_viewer3D->viewer();
 
   //------------------------------
   // viewer menu
@@ -1243,7 +1244,7 @@ DrishtiPaint::setFile(QString filename)
   VolumeOperations::setGridSize(d, w, h);
 
   viewerUi.raycastRender->setChecked(true);
-  on_raycastRender_clicked(true);
+  m_viewer->updateVoxels();
 }
 
 void
@@ -2130,7 +2131,7 @@ DrishtiPaint::on_pointRender_clicked(bool flag)
 {  
   viewerUi.raycastParam->setVisible(!flag);
 
-  m_viewer->setPointRender(flag);
+  m_viewer->setRenderMode(flag);
   viewerUi.pointParam->setVisible(flag);
 }
 
@@ -2139,7 +2140,7 @@ DrishtiPaint::on_raycastRender_clicked(bool flag)
 {
   viewerUi.pointParam->setVisible(!flag);
 
-  m_viewer->setRaycastRender(flag);
+  m_viewer->setRenderMode(flag);
   viewerUi.raycastParam->setVisible(flag);
 }
 

@@ -51,19 +51,14 @@ Slicer3D::getMinMaxVertices(Camera *cam,
 
 
 void
-Slicer3D::drawSlices(Vec bbmin, Vec bbmax, Vec dataMax,
+Slicer3D::drawSlices(Vec bbmin, Vec bbmax,
+		     Vec dataMin, Vec dataMax,
 		     Vec pn, Vec minvert, Vec maxvert,
 		     int layers, float stepsize,
 		     QList<Vec> cpos, QList<Vec> cnorm)
 {
-  float xmin, xmax, ymin, ymax, zmin, zmax;
-  Vec subdim, subcorner, subvol[8];
-
-//  Vec bbmin, bbmax;
-//  m_boundingBox.bounds(bbmin, bbmax);
-  subcorner = bbmin;
-  subdim = bbmax-bbmin;
-
+  Vec subvol[8];
+  
   subvol[0] = Vec(bbmin.x, bbmin.y, bbmin.z);
   subvol[1] = Vec(bbmax.x, bbmin.y, bbmin.z);
   subvol[2] = Vec(bbmax.x, bbmax.y, bbmin.z);
@@ -78,7 +73,9 @@ Slicer3D::drawSlices(Vec bbmin, Vec bbmax, Vec dataMax,
   for(int s=0; s<layers; s++)
     {
       po -= step;
-      drawpoly(po, pn, subvol, subdim, subcorner, dataMax,
+      drawpoly(po, pn,
+	       subvol,
+	       dataMin, dataMax,
 	       cpos, cnorm);
     }
 
@@ -144,8 +141,7 @@ Slicer3D::intersectType2(Vec Po, Vec Pn,
 int
 Slicer3D::drawpoly(Vec po, Vec pn,
 		   Vec *subvol,
-		   Vec subdim, Vec subcorner,
-		   Vec dataMax,
+		   Vec dataMin, Vec dataMax,
 		   QList<Vec> cpos, QList<Vec> cnorm)
 {
   Vec poly[10];
@@ -257,11 +253,12 @@ Slicer3D::drawpoly(Vec po, Vec pn,
   glBegin(GL_POLYGON);
   for(i=0; i<edges; i++)
     {  
-      Vec tx = tpoly[i];
-      Vec tc = VECDIVIDE(tx,dataMax);
+      Vec tc = tpoly[i];
+      Vec tx = tc - dataMin;
+      tx = VECDIVIDE(tx,dataMax);
 
-      glTexCoord3f(tc.x, tc.y, tc.z);
-      glVertex3f(tx.x, tx.y, tx.z);
+      glTexCoord3f(tx.x, tx.y, tx.z);
+      glVertex3f(tc.x, tc.y, tc.z);
     }
   glEnd();
 

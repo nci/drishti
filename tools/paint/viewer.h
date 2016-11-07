@@ -384,6 +384,8 @@ class Viewer : public QGLViewer
   bool endMovie();
   void saveMovie();
 
+  void drawVolBySlicing();
+
 };
 
 #endif

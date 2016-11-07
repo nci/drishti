@@ -36,7 +36,6 @@ class ImageWidget : public QWidget
   void setSliceType(int);
   int sliceType() { return m_sliceType; }
   void resetSliceType();
-  void setImage(uchar*, uchar*);
   void setMaskImage(uchar*);
 
   void setRawValue(QList<int>);

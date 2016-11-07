@@ -149,13 +149,18 @@ ShaderFactory::genSliceShader(bool bit16)
   shader =  "#extension GL_ARB_texture_rectangle : enable\n";
   shader += "uniform sampler3D dataTex;\n";
   shader += "uniform sampler2D lutTex;\n";
+  shader += "uniform sampler3D maskTex;\n";
+  shader += "uniform sampler1D tagTex;\n";
   shader += "void main(void)\n";
   shader += "{\n";
 
   shader += "  float val = texture3D(dataTex, gl_TexCoord[0].xyz).x;\n";
   //shader += "vec4 color = texture2D(lutTex, vec2(val,0.0));\n";
+
+  shader += "vec4 color;\n";
+
   if (!bit16)
-    shader += "  vec4 color = texture2D(lutTex, vec2(val,0.0));\n";
+    shader += "  color = texture2D(lutTex, vec2(val,0.0));\n";
   else
     {
       shader += "  int h0 = int(65535.0*val);\n";
@@ -163,8 +168,21 @@ ShaderFactory::genSliceShader(bool bit16)
       shader += "  h0 = int(mod(float(h0),256.0));\n";
       shader += "  float fh0 = float(h0)/256.0;\n";
       shader += "  float fh1 = float(h1)/256.0;\n";
-      shader += "  vec4 color = texture2D(lutTex, vec2(fh0,fh1));\n";
+      shader += "  color = texture2D(lutTex, vec2(fh0,fh1));\n";
     }
+
+  shader += "  float tag = texture3D(maskTex, gl_TexCoord[0].xyz).x;\n";
+  shader += "  vec4 tagcolor = texture1D(tagTex, tag);\n";
+  shader += "  if (tag < 0.001) tagcolor.rgb = color.rgb;\n";
+  
+  shader += "  color.rgb = mix(color.rgb, tagcolor.rgb, tagcolor.a);\n";
+  
+  // so that we can use tag opacity to hide certain tagged regions
+  // tagcolor.a should either 0 or 1
+  shader += "  color *= tagcolor.a;\n";
+
+  shader += "  color.rgb *= color.a;\n";
+
   shader += "  gl_FragColor = color;\n";    
 
   shader += "}\n";

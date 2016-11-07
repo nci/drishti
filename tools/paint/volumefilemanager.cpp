@@ -1073,6 +1073,8 @@ VolumeFileManager::getHeightSliceMem(int h)
 	       m_volData + d*bps + (j*m_height + h)*m_bytesPerVoxel,
 	       m_bytesPerVoxel);
     }
+
+
   
   return m_slice;
 }

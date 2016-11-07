@@ -506,48 +506,6 @@ ImageWidget::updateTagColors()
 }
 
 void
-ImageWidget::setImage(uchar *slice, uchar *mask)
-{
-  if (m_sliceType == DSlice)
-    {
-      m_imgWidth = m_Height;
-      m_imgHeight = m_Width;
-    }
-  else if (m_sliceType == WSlice)
-    {
-      m_imgWidth = m_Height;
-      m_imgHeight = m_Depth;
-    }
-  else
-    {
-      m_imgWidth = m_Width;
-      m_imgHeight = m_Depth;
-    }
-
-  memcpy(m_prevslicetags, m_prevtags, m_imgWidth*m_imgHeight);
-  processPrevSliceTags();
-
-  memcpy(m_slice, slice, 2*m_imgWidth*m_imgHeight);
-  memcpy(m_maskslice, mask, m_imgWidth*m_imgHeight);
-  memcpy(m_prevtags, mask, m_imgWidth*m_imgHeight);
-
-  recolorImage();
-
-  resizeImage();
-  
-  update();
-
-  qApp->processEvents();
-  if (m_applyRecursive)
-    {
-      QKeyEvent dummy(QEvent::KeyPress,
-		      m_key,
-		      Qt::NoModifier);
-      keyPressEvent(&dummy);
-    }
-}
-
-void
 ImageWidget::setMaskImage(uchar *mask)
 {
   memcpy(m_prevslicetags, m_prevtags, m_imgWidth*m_imgHeight);
@@ -692,7 +650,8 @@ ImageWidget::resizeImage()
   m_imageScaled = m_image.scaled(m_simgWidth,
 				 m_simgHeight,
 				 Qt::IgnoreAspectRatio,
-				 Qt::SmoothTransformation);
+				 //Qt::SmoothTransformation);
+				 Qt::FastTransformation);
   
   m_maskimageScaled = m_maskimage.scaled(m_simgWidth,
 					 m_simgHeight,
@@ -741,10 +700,6 @@ ImageWidget::drawSizeText(QPainter *p, int nc, int nmc)
       arg(m_maxHSlice-m_minHSlice+1).				      \
       arg(m_maxWSlice-m_minWSlice+1).				      \
       arg(m_maxDSlice-m_minDSlice+1);				      \
-
-  //txt += QString("  radius:%1").arg(Global::spread());
-  //txt += QString("  curves : %1 %2").arg(nc).arg(nmc);
-  //p->drawText(m_simgX, m_simgY-3, txt);
 }
 
 void

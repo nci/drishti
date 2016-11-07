@@ -6,6 +6,7 @@
 #include "staticfunctions.h"
 #include "propertyeditor.h"
 #include "volumeoperations.h"
+#include "slicer3d.h"
 
 #include <QDockWidget>
 #include <QInputDialog>
@@ -226,7 +227,6 @@ Viewer::GlewInit()
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
   glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, &m_max3DTexSize);
-  //m_max3DTexSize = 1024;
 }
 
 void
@@ -591,6 +591,8 @@ Viewer::createShaders()
 
   m_sliceParm[0] = glGetUniformLocationARB(m_sliceShader, "dataTex");
   m_sliceParm[1] = glGetUniformLocationARB(m_sliceShader, "lutTex");
+  m_sliceParm[2] = glGetUniformLocationARB(m_sliceShader, "maskTex");
+  m_sliceParm[3] = glGetUniformLocationARB(m_sliceShader, "tagTex");
   //----------------------
 
 
@@ -1409,7 +1411,7 @@ Viewer::drawEnclosingCube(Vec subvolmin,
 void
 Viewer::drawCurrentSlice()
 {
-  glColor4d(1.0,0.85,0.7, 0.7);
+  glColor4d(1.0,0.5,0.2, 0.7);
 
   glLineWidth(1);
 
@@ -1590,7 +1592,6 @@ Viewer::draw()
       glBegin(GL_LINE_STRIP);
       for(int j=0; j<m_poly.count(); j++)
 	glVertex2f(m_poly[j].x(),ht-m_poly[j].y());
-      //glVertex2f(m_poly[0].x(),ht-m_poly[0].y());
       glEnd();
 
       QFont tfont = QFont("Helvetica", 12);  
@@ -1649,11 +1650,13 @@ Viewer::draw()
       return;
     }
 
-  if (m_renderMode == 0)
-    pointRendering();  
+//  if (m_renderMode == 0)
+//    pointRendering();  
   
-  if (m_renderMode >= 1)
-    raycasting();
+//  if (m_renderMode >= 1)
+//    raycasting();
+//  else
+    drawVolBySlicing();
   
 //  drawClipSlices();
 
@@ -1898,6 +1901,7 @@ Viewer::drawInfo()
       float g = Global::tagColors()[4*tag+1]*1.0/255.0;
       float b = Global::tagColors()[4*tag+2]*1.0/255.0;
 
+      glActiveTexture(GL_TEXTURE0);
       glEnable(GL_POINT_SPRITE_ARB);
       glEnable(GL_TEXTURE_2D);
       glBindTexture(GL_TEXTURE_2D, Global::hollowSpriteTexture());
@@ -3499,6 +3503,8 @@ Viewer::carve(int d, int w, int h, bool b)
 void
 Viewer::drawClipSlices()
 {
+  return;
+
   Vec box[8];
   box[0] = Vec(m_minHSlice, m_minWSlice, m_minDSlice);
   box[1] = Vec(m_minHSlice, m_minWSlice, m_maxDSlice);
@@ -5303,4 +5309,142 @@ Viewer::usedTags()
     }
   qSort(ut);
   return ut;
+}
+
+void
+Viewer::drawVolBySlicing()
+{
+  glEnable(GL_DEPTH_TEST);
+
+
+  m_clipPlanes->draw(this, false);
+
+  if (m_showSlices)
+    drawCurrentSlice();
+
+  if (m_showBox)
+    {
+      m_boundingBox.draw();
+      drawWireframeBox();
+    }
+
+
+  Vec minvert, maxvert;
+  float zdepth;
+
+  Vec dataMin = Vec(m_minHSlice, m_minWSlice, m_minDSlice);
+  Vec dataMax = Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice);
+
+  Vec bmin, bmax;
+  m_boundingBox.bounds(bmin, bmax);
+
+  Vec box[8];
+  box[0] = Vec(bmin.x,bmin.y,bmin.z);
+  box[1] = Vec(bmin.x,bmin.y,bmax.z);
+  box[2] = Vec(bmin.x,bmax.y,bmin.z);
+  box[3] = Vec(bmin.x,bmax.y,bmax.z);
+  box[4] = Vec(bmax.x,bmin.y,bmin.z);
+  box[5] = Vec(bmax.x,bmin.y,bmax.z);
+  box[6] = Vec(bmax.x,bmax.y,bmin.z);
+  box[7] = Vec(bmax.x,bmax.y,bmax.z);
+
+  Slicer3D::getMinMaxVertices(camera(),
+			      box, zdepth, minvert, maxvert);
+
+  float stepsize = m_stillStep;
+  if (m_dragMode && !(m_paintHit || m_carveHit))
+    stepsize = m_dragStep;
+
+
+  Vec pn = camera()->viewDirection();
+  int layers = zdepth/stepsize;
+
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); // back to front
+  //glBlendFunc(GL_ONE_MINUS_DST_ALPHA, GL_ONE); // front to back
+
+
+  glActiveTexture(GL_TEXTURE2);
+  glEnable(GL_TEXTURE_3D);
+  glBindTexture(GL_TEXTURE_3D, m_dataTex);
+
+  if (m_exactCoord)
+    {
+      glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+      glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    }
+  else
+    {
+      glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+
+  glActiveTexture(GL_TEXTURE4);
+  glEnable(GL_TEXTURE_3D);
+  glBindTexture(GL_TEXTURE_3D, m_maskTex);
+  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+  uchar *lut = Global::lut();
+  glActiveTexture(GL_TEXTURE3);
+  glEnable(GL_TEXTURE_2D);
+  glBindTexture(GL_TEXTURE_2D, m_lutTex);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,GL_NEAREST);
+  glTexImage2D(GL_TEXTURE_2D,
+	       0, // single resolution
+	       GL_RGBA,
+	       256, Global::lutSize()*256, // width, height
+	       0, // no border
+	       GL_BGRA,
+	       GL_UNSIGNED_BYTE,
+	       lut);
+
+  uchar *tagColors = Global::tagColors();
+  glActiveTexture(GL_TEXTURE5);
+  glEnable(GL_TEXTURE_1D);
+  glBindTexture(GL_TEXTURE_1D, m_tagTex);
+  glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+  glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER,GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER,GL_NEAREST);
+  glTexImage1D(GL_TEXTURE_1D,
+	       0, // single resolution
+	       GL_RGBA,
+	       256,
+	       0, // no border
+	       GL_RGBA,
+	       GL_UNSIGNED_BYTE,
+	       tagColors);
+
+  glUseProgramObjectARB(m_sliceShader);
+  glUniform1iARB(m_sliceParm[0], 2); // datatex
+  glUniform1iARB(m_sliceParm[1], 3); // luttex
+  glUniform1iARB(m_sliceParm[2], 4); // masktex
+  glUniform1iARB(m_sliceParm[3], 5); // tagtex
+
+
+  QList<Vec> cPos =  clipPos();
+  QList<Vec> cNorm = clipNorm();
+
+  Slicer3D::drawSlices(bmin, bmax, dataMax,
+		       pn, maxvert, minvert,
+		       layers, stepsize,
+		       cPos, cNorm);
+
+
+  glUseProgramObjectARB(0);
+
+  glActiveTexture(GL_TEXTURE2);
+  glDisable(GL_TEXTURE_3D);
+
+  glActiveTexture(GL_TEXTURE3);
+  glDisable(GL_TEXTURE_2D);
+
+  glActiveTexture(GL_TEXTURE4);
+  glDisable(GL_TEXTURE_3D);
+
+  glActiveTexture(GL_TEXTURE5);
+  glDisable(GL_TEXTURE_1D);
 }

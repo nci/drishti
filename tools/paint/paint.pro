@@ -99,7 +99,8 @@ HEADERS += commonqtclasses.h \
 	popupslider.h \
 	shaderfactory.h \
 	remaphistogramline.h \
-	remaphistogramwidget.h
+	remaphistogramwidget.h \
+	slicer3d.h
 
 
 SOURCES += drishtipaint.cpp \
@@ -153,4 +154,5 @@ SOURCES += drishtipaint.cpp \
 	popupslider.cpp \
 	shaderfactory.cpp \
 	remaphistogramline.cpp \
-	remaphistogramwidget.cpp
+	remaphistogramwidget.cpp \
+	slicer3d.cpp

@@ -442,6 +442,7 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 }
 
 void DrishtiPaint::on_actionHelp_triggered() { ShowHelp::showMainHelp(); }
+
 void
 DrishtiPaint::on_help_clicked()
 {
@@ -461,6 +462,27 @@ DrishtiPaint::on_help_clicked()
       return;
     }
 }
+
+void
+DrishtiPaint::on_actionAbout_triggered()
+{
+  QString mesg;
+  mesg = QString("Drishti v")+QString(DRISHTI_VERSION)+"\n\n";
+  mesg += "Drishti is developed by\n";
+  mesg += "Ajay Limaye\n";
+  mesg += "National Computational Infrastructure,\n";
+  mesg += "Australian National University,\n";
+  mesg += "Canberra,\n";
+  mesg += "Australia\n\n";
+  mesg += "Contact :\nAjay.Limaye@anu.edu.au\n\n";
+  mesg += "How to cite :\nAjay Limaye; Drishti: a volume exploration and presentation tool. Proc. SPIE 8506, Developments in X-Ray Tomography VIII, 85060X (October 17, 2012)\n\n";
+  mesg += "Website :\nhttps://github.com/nci/drishti\n\n";
+  mesg += "Drishti User Group :\nhttps://groups.google.com/group/drishti-user-group\n\n";
+  mesg += "YouTube :\nhttps://www.youtube.com/user/900acl/videos?sort=dd&flow=list&page=1&view=1\n";
+
+  QMessageBox::information(0, "Drishti", mesg);
+}
+
 
 void DrishtiPaint::on_saveImage_triggered() { m_axialImage->saveImage(); }
 

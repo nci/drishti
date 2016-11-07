@@ -38,6 +38,7 @@ class DrishtiPaint : public QMainWindow
 
  private slots :
   void openRecentFile();   
+  void on_actionAbout_triggered();
   void on_actionHelp_triggered();
   void on_saveWork_triggered();
   void on_loadMask_triggered();

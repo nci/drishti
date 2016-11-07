@@ -4920,20 +4920,44 @@ Viewer::usedTags()
 void
 Viewer::drawVolBySlicing()
 {
-  glEnable(GL_DEPTH_TEST);
+  bool frontToback = false;
 
+  glClearColor(0,0,0,0);
 
-  m_clipPlanes->draw(this, false);
-
-  if (m_showSlices)
-    drawCurrentSlice();
-
-  if (m_showBox)
+  if (frontToback)
     {
-      m_boundingBox.draw();
-      drawWireframeBox();
+      glBlendFunc(GL_ONE_MINUS_DST_ALPHA, GL_ONE); // front to back
+      glClearDepth(0);
+      glDepthFunc(GL_GEQUAL);
+    }
+  else
+    {
+      glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); // back to front
+      glClearDepth(1);
+      glDepthFunc(GL_LEQUAL);
     }
 
+  glClear(GL_DEPTH_BUFFER_BIT);
+  glClear(GL_COLOR_BUFFER_BIT);
+
+  glEnable(GL_DEPTH_TEST);
+  glAlphaFunc(GL_GREATER, 0);
+
+  if (!frontToback)
+    {
+      m_clipPlanes->draw(this, true);
+
+      if (m_showSlices)
+	drawCurrentSlice();
+
+      if (m_showBox)
+	{
+	  m_boundingBox.draw();
+	  drawWireframeBox();
+	}
+    }
+
+  glEnable(GL_BLEND);
 
   Vec minvert, maxvert;
   float zdepth;
@@ -4965,10 +4989,6 @@ Viewer::drawVolBySlicing()
 
   Vec pn = camera()->viewDirection();
   int layers = zdepth/stepsize;
-
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); // back to front
-  //glBlendFunc(GL_ONE_MINUS_DST_ALPHA, GL_ONE); // front to back
 
 
   glActiveTexture(GL_TEXTURE2);
@@ -5039,7 +5059,8 @@ Viewer::drawVolBySlicing()
 		       dataMin, dataSize,
 		       pn, maxvert, minvert,
 		       layers, stepsize,
-		       cPos, cNorm);
+		       cPos, cNorm,
+		       frontToback);
 
 
   glUseProgramObjectARB(0);
@@ -5055,4 +5076,21 @@ Viewer::drawVolBySlicing()
 
   glActiveTexture(GL_TEXTURE5);
   glDisable(GL_TEXTURE_1D);
+
+  glDisable(GL_BLEND);
+  glDisable(GL_DEPTH_TEST);
+
+  if (frontToback)
+    {
+      m_clipPlanes->draw(this, false);
+
+      if (m_showSlices)
+	drawCurrentSlice();
+
+      if (m_showBox)
+	{
+	  m_boundingBox.draw();
+	  drawWireframeBox();
+	}
+    }
 }

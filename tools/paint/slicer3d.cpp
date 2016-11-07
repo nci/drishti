@@ -55,7 +55,8 @@ Slicer3D::drawSlices(Vec bbmin, Vec bbmax,
 		     Vec dataMin, Vec dataMax,
 		     Vec pn, Vec minvert, Vec maxvert,
 		     int layers, float stepsize,
-		     QList<Vec> cpos, QList<Vec> cnorm)
+		     QList<Vec> cpos, QList<Vec> cnorm,
+		     bool frontToback)
 {
   Vec subvol[8];
   
@@ -68,11 +69,22 @@ Slicer3D::drawSlices(Vec bbmin, Vec bbmax,
   subvol[6] = Vec(bbmax.x, bbmax.y, bbmax.z);
   subvol[7] = Vec(bbmin.x, bbmax.y, bbmax.z);
 
-  Vec step = stepsize*pn;
-  Vec po = minvert+layers*step;
+  Vec po, step;
+  if (frontToback)
+    {
+      po = minvert;
+      step = stepsize*pn;
+    }
+  else
+    {
+      //po = minvert+layers*step;
+      po = maxvert;
+      step = -stepsize*pn;
+    }
+
   for(int s=0; s<layers; s++)
     {
-      po -= step;
+      po += step;
       drawpoly(po, pn,
 	       subvol,
 	       dataMin, dataMax,

@@ -175,6 +175,8 @@ ShaderFactory::genSliceShader(bool bit16)
       shader += "  color = texture2D(lutTex, vec2(fh0,fh1));\n";
     }
 
+  shader += "  if (color.a < 0.001) discard;\n";
+
   shader += "  float tag = texture3D(maskTex, gl_TexCoord[0].xyz).x;\n";
   shader += "  vec4 tagcolor = texture1D(tagTex, tag);\n";
   shader += "  if (tag < 0.001) tagcolor.rgb = color.rgb;\n";

@@ -745,6 +745,7 @@
     <property name="title">
      <string>Help</string>
     </property>
+    <addaction name="actionAbout"/>
     <addaction name="actionHelp"/>
    </widget>
    <widget class="QMenu" name="menuMode">
@@ -902,6 +903,11 @@
   <action name="changeSliceOrdering">
    <property name="text">
     <string>Change Slice Order</string>
+   </property>
+  </action>
+  <action name="actionAbout">
+   <property name="text">
+    <string>About</string>
    </property>
   </action>
  </widget>

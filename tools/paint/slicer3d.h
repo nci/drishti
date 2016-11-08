@@ -12,13 +12,6 @@ class Slicer3D
 				Vec*, float&,
 				Vec&, Vec&);
 
-  static void drawSlices(Vec, Vec,
-			 Vec, Vec,
-			 Vec, Vec, Vec,
-			 int, float,
-			 QList<Vec>, QList<Vec>,
-			 bool);
-
   static int intersectType1(Vec, Vec,
 			    Vec, Vec,
 			    Vec&);

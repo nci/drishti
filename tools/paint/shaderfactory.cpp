@@ -198,6 +198,65 @@ ShaderFactory::genSliceShader(bool bit16)
 
 
 QString
+ShaderFactory::genShadowSliceShader()
+{
+  QString shader;
+
+  shader =  "#extension GL_ARB_texture_rectangle : enable\n";
+  shader += "uniform sampler2DRect sliceTex;\n";
+  shader += "uniform sampler2DRect shadowTex;\n";
+  shader += "uniform float darkness;\n";
+
+  shader += "\n";
+  shader += "void main(void)\n";
+  shader += "{\n";
+  shader += "  vec2 spos = gl_FragCoord.xy;\n";
+  shader += "  float alpha = texture2DRect(shadowTex, spos.xy).a;\n";  
+  shader += "  alpha = min(1.0, alpha*darkness);\n";  
+  shader += "  gl_FragColor = texture2DRect(sliceTex, spos.xy);\n";
+  shader += "  gl_FragColor.rgb *= (1.0-alpha);\n";  
+  shader += "}\n";
+
+  return shader;
+}
+
+QString
+ShaderFactory::genShadowBlurShader()
+{
+  QString shader;
+
+  shader =  "#extension GL_ARB_texture_rectangle : enable\n";
+  shader += "uniform sampler2DRect sliceTex;\n";
+  shader += "uniform sampler2DRect shadowTex;\n";
+  shader += "uniform float rot;\n";
+
+  shader += "\n";
+  shader += "void main(void)\n";
+  shader += "{\n";
+  shader += "  vec4 color;\n";
+  //shader += "  vec2 spos = gl_FragCoord.xy;\n";
+  shader += "  vec2 spos = gl_TexCoord[0].xy;\n";
+  shader += "\n";
+
+  shader += "  color  = 2.0*texture2DRect(shadowTex, spos.xy);\n";
+  shader += "  color += texture2DRect(shadowTex, spos.xy + rot*vec2( 1.5, 0.5));\n";
+  shader += "  color += texture2DRect(shadowTex, spos.xy + rot*vec2( 0.5,-1.5));\n";
+  shader += "  color += texture2DRect(shadowTex, spos.xy + rot*vec2(-1.5, -0.5));\n";
+  shader += "  color += texture2DRect(shadowTex, spos.xy + rot*vec2(-0.5, 1.5));\n";
+
+  shader += "  color /= 6.0;\n";
+
+  shader += "  vec4 slicecolor = texture2DRect(sliceTex, spos.xy);\n";
+
+  shader += "  gl_FragColor.rgba = color + (1.0-color.a)*slicecolor;\n";
+
+  shader += "}\n";
+
+  return shader;
+}
+
+
+QString
 ShaderFactory::genDepthShader()
 {
   QString shader;

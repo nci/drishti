@@ -50,49 +50,6 @@ Slicer3D::getMinMaxVertices(Camera *cam,
 }
 
 
-void
-Slicer3D::drawSlices(Vec bbmin, Vec bbmax,
-		     Vec dataMin, Vec dataMax,
-		     Vec pn, Vec minvert, Vec maxvert,
-		     int layers, float stepsize,
-		     QList<Vec> cpos, QList<Vec> cnorm,
-		     bool frontToback)
-{
-  Vec subvol[8];
-  
-  subvol[0] = Vec(bbmin.x, bbmin.y, bbmin.z);
-  subvol[1] = Vec(bbmax.x, bbmin.y, bbmin.z);
-  subvol[2] = Vec(bbmax.x, bbmax.y, bbmin.z);
-  subvol[3] = Vec(bbmin.x, bbmax.y, bbmin.z);
-  subvol[4] = Vec(bbmin.x, bbmin.y, bbmax.z);
-  subvol[5] = Vec(bbmax.x, bbmin.y, bbmax.z);
-  subvol[6] = Vec(bbmax.x, bbmax.y, bbmax.z);
-  subvol[7] = Vec(bbmin.x, bbmax.y, bbmax.z);
-
-  Vec po, step;
-  if (frontToback)
-    {
-      po = minvert;
-      step = stepsize*pn;
-    }
-  else
-    {
-      //po = minvert+layers*step;
-      po = maxvert;
-      step = -stepsize*pn;
-    }
-
-  for(int s=0; s<layers; s++)
-    {
-      po += step;
-      drawpoly(po, pn,
-	       subvol,
-	       dataMin, dataMax,
-	       cpos, cnorm);
-    }
-
-}
-
 int
 Slicer3D::intersectType1(Vec po, Vec pn,
 			 Vec v0, Vec v1,

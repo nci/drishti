@@ -47,6 +47,8 @@ Viewer::Viewer(QWidget *parent) :
   m_finalPointShader = 0;
   m_blurShader = 0;
   m_sliceShader = 0;
+  m_shadowSliceShader = 0;
+  m_shadowBlurShader = 0;
   m_rcShader = 0;
   m_eeShader = 0;
 
@@ -73,7 +75,7 @@ Viewer::Viewer(QWidget *parent) :
   m_amb = 1.0;
   m_diff = 0.0;
   m_spec = 0.0;
-  m_shadow = 10;
+  m_shadow = 5;
   m_edge = 3.0;
   m_shdX = 0;
   m_shdY = 0;
@@ -352,6 +354,14 @@ Viewer::init()
     glDeleteObjectARB(m_sliceShader);
   m_sliceShader = 0;
 
+  if (m_shadowSliceShader)
+    glDeleteObjectARB(m_shadowSliceShader);
+  m_shadowSliceShader = 0;
+
+  if (m_shadowBlurShader)
+    glDeleteObjectARB(m_shadowBlurShader);
+  m_shadowBlurShader = 0;
+
   if (m_finalPointShader)
     glDeleteObjectARB(m_finalPointShader);
   m_finalPointShader = 0;
@@ -589,9 +599,49 @@ Viewer::createShaders()
   //----------------------
 
 
-  if (m_blurShader)
+  if (m_shadowSliceShader)
     return;
   // no need to regenerate rest of the shaders
+
+
+  //----------------------
+  shaderString = ShaderFactory::genShadowSliceShader();
+
+  if (m_shadowSliceShader)
+    glDeleteObjectARB(m_shadowSliceShader);
+
+  m_shadowSliceShader = glCreateProgramObjectARB();
+  if (! ShaderFactory::loadShader(m_shadowSliceShader,
+				  shaderString))
+    {
+      m_shadowSliceShader = 0;
+      QMessageBox::information(0, "", "Cannot create shadow slice shader.");
+    }
+
+  m_shadowSliceParm[0] = glGetUniformLocationARB(m_shadowSliceShader, "sliceTex");
+  m_shadowSliceParm[1] = glGetUniformLocationARB(m_shadowSliceShader, "shadowTex");
+  m_shadowSliceParm[2] = glGetUniformLocationARB(m_shadowSliceShader, "darkness");
+  //----------------------
+
+
+  //----------------------
+  shaderString = ShaderFactory::genShadowBlurShader();
+
+  if (m_shadowBlurShader)
+    glDeleteObjectARB(m_shadowBlurShader);
+
+  m_shadowBlurShader = glCreateProgramObjectARB();
+  if (! ShaderFactory::loadShader(m_shadowBlurShader,
+				  shaderString))
+    {
+      m_shadowBlurShader = 0;
+      QMessageBox::information(0, "", "Cannot create shadow slice shader.");
+    }
+
+  m_shadowBlurParm[0] = glGetUniformLocationARB(m_shadowBlurShader, "sliceTex");
+  m_shadowBlurParm[1] = glGetUniformLocationARB(m_shadowBlurShader, "shadowTex");
+  m_shadowBlurParm[2] = glGetUniformLocationARB(m_shadowBlurShader, "rot");
+  //----------------------
 
   
   //----------------------
@@ -1593,8 +1643,6 @@ Viewer::draw()
     raycasting();
   else
     drawVolBySlicing();
-  
-//  drawClipSlices();
 
   if (m_savingImages > 0)
     saveImageFrame();
@@ -4920,8 +4968,10 @@ Viewer::usedTags()
 void
 Viewer::drawVolBySlicing()
 {
-  bool frontToback = false;
-
+  bool frontToback = true;
+  if (m_dragMode)
+    frontToback = false;
+  
   glClearColor(0,0,0,0);
 
   if (frontToback)
@@ -5055,12 +5105,12 @@ Viewer::drawVolBySlicing()
   QList<Vec> cPos =  clipPos();
   QList<Vec> cNorm = clipNorm();
 
-  Slicer3D::drawSlices(bmin, bmax,
-		       dataMin, dataSize,
-		       pn, maxvert, minvert,
-		       layers, stepsize,
-		       cPos, cNorm,
-		       frontToback);
+  drawSlices(bmin, bmax,
+	     dataMin, dataSize,
+	     pn, maxvert, minvert,
+	     layers, stepsize,
+	     cPos, cNorm,
+	     frontToback);
 
 
   glUseProgramObjectARB(0);
@@ -5093,4 +5143,169 @@ Viewer::drawVolBySlicing()
 	  drawWireframeBox();
 	}
     }
+}
+
+void
+Viewer::drawSlices(Vec bbmin, Vec bbmax,
+		   Vec dataMin, Vec dataMax,
+		   Vec pn, Vec minvert, Vec maxvert,
+		   int layers, float stepsize,
+		   QList<Vec> cpos, QList<Vec> cnorm,
+		   bool frontToback)
+{
+  Vec subvol[8];
+  
+  subvol[0] = Vec(bbmin.x, bbmin.y, bbmin.z);
+  subvol[1] = Vec(bbmax.x, bbmin.y, bbmin.z);
+  subvol[2] = Vec(bbmax.x, bbmax.y, bbmin.z);
+  subvol[3] = Vec(bbmin.x, bbmax.y, bbmin.z);
+  subvol[4] = Vec(bbmin.x, bbmin.y, bbmax.z);
+  subvol[5] = Vec(bbmax.x, bbmin.y, bbmax.z);
+  subvol[6] = Vec(bbmax.x, bbmax.y, bbmax.z);
+  subvol[7] = Vec(bbmin.x, bbmax.y, bbmax.z);
+
+  //--------------------------------
+  // back to front rendering
+  if (!frontToback)
+    {
+      //po = minvert+layers*step;
+      Vec po = maxvert;
+      Vec step = -stepsize*pn;
+
+      for(int s=0; s<layers; s++)
+	{
+	  po += step;
+	  Slicer3D::drawpoly(po, pn,
+			     subvol,
+			     dataMin, dataMax,
+			     cpos, cnorm);
+	}
+      return;
+    }
+  //--------------------------------
+
+
+  //--------------------------------
+  // front to back with shadows
+
+  Vec po = minvert;
+  Vec step = stepsize*pn;
+
+  glDisable(GL_DEPTH_TEST);
+  glEnable(GL_BLEND);
+  glClearColor(0,0,0,0);
+  glClearDepth(0);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_eBuffer);
+  for(int nb=0; nb<3; nb++)
+    {
+      glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			     GL_COLOR_ATTACHMENT0_EXT,
+			     GL_TEXTURE_RECTANGLE_ARB,
+			     m_ebTex[nb],
+			     0);
+      glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
+      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    }
+  glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
+
+  int wd = camera()->screenWidth();
+  int ht = camera()->screenHeight();
+  int shd = 0;
+  for(int s=0; s<layers; s++)
+    {
+      po += step;
+
+      glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_eBuffer);
+      glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			     GL_COLOR_ATTACHMENT0_EXT,
+			     GL_TEXTURE_RECTANGLE_ARB,
+			     m_ebTex[2],
+			     0);
+      glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
+      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+      // draw to ebTex[2]
+      glUseProgramObjectARB(m_sliceShader);
+      glUniform1iARB(m_sliceParm[0], 2); // datatex
+      glUniform1iARB(m_sliceParm[1], 3); // luttex
+      glUniform1iARB(m_sliceParm[2], 4); // masktex
+      glUniform1iARB(m_sliceParm[3], 5); // tagtex
+
+      glBlendFunc(GL_ONE, GL_ZERO); // replace texture
+      Slicer3D::drawpoly(po, pn,
+			 subvol,
+			 dataMin, dataMax,
+			 cpos, cnorm);
+
+      glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
+
+
+      //--------------------------------
+      // composite ebTex[0] and apply with shadow buffer
+      float darkness = m_shadow*0.1;
+      glUseProgramObjectARB(m_shadowSliceShader);
+      glUniform1iARB(m_shadowSliceParm[0], 1); // slice - ebTex[2]
+      glUniform1iARB(m_shadowSliceParm[1], 6); // shadow - ebTex[shd]
+      glUniform1fARB(m_shadowSliceParm[2], darkness); // darkness
+
+      glActiveTexture(GL_TEXTURE1);
+      glEnable(GL_TEXTURE_RECTANGLE_ARB);
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[2]);
+
+      glActiveTexture(GL_TEXTURE6);
+      glEnable(GL_TEXTURE_RECTANGLE_ARB);
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[shd]);
+      
+      glBlendFunc(GL_ONE_MINUS_DST_ALPHA, GL_ONE);
+      StaticFunctions::pushOrthoView(0, 0, wd, ht);
+      StaticFunctions::drawQuad(0, 0, wd, ht, 1);
+      StaticFunctions::popOrthoView();
+      //--------------------------------
+
+
+      //--------------------------------
+      // update shadow buffer
+      int shd1 = (shd+1)%2;
+      glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_eBuffer);
+      glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			     GL_COLOR_ATTACHMENT0_EXT,
+			     GL_TEXTURE_RECTANGLE_ARB,
+			     m_ebTex[shd1],
+			     0);
+      glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
+      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+      float rot = (s%2 ? 1.0 : -1.0);
+
+      glUseProgramObjectARB(m_shadowBlurShader);
+      glUniform1iARB(m_shadowBlurParm[0], 1); // slice - ebTex[2]
+      glUniform1iARB(m_shadowBlurParm[1], 6); // shadow - ebTex[shd]
+      glUniform1fARB(m_shadowBlurParm[2], rot); // shadow blur rot
+
+      glActiveTexture(GL_TEXTURE1);
+      glEnable(GL_TEXTURE_RECTANGLE_ARB);
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[2]);
+
+      glActiveTexture(GL_TEXTURE6);
+      glEnable(GL_TEXTURE_RECTANGLE_ARB);
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[shd]);
+      
+      glBlendFunc(GL_ONE, GL_ZERO); // replace texture
+      StaticFunctions::pushOrthoView(0, 0, wd, ht);
+      StaticFunctions::drawQuad(0, 0, wd, ht, 1);
+      StaticFunctions::popOrthoView();
+      //--------------------------------
+
+      glUseProgramObjectARB(0);
+      glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
+
+      shd = shd1;
+    }
+  
+  glActiveTexture(GL_TEXTURE1);
+  glDisable(GL_TEXTURE_RECTANGLE_ARB);
+
+  glActiveTexture(GL_TEXTURE6);
+  glDisable(GL_TEXTURE_RECTANGLE_ARB);
 }

@@ -271,6 +271,12 @@ class Viewer : public QGLViewer
   GLhandleARB m_sliceShader;
   GLint m_sliceParm[20];
 
+  GLhandleARB m_shadowSliceShader;
+  GLint m_shadowSliceParm[20];
+
+  GLhandleARB m_shadowBlurShader;
+  GLint m_shadowBlurParm[20];
+
   GLhandleARB m_rcShader;
   GLint m_rcParm[20];
 
@@ -324,7 +330,6 @@ class Viewer : public QGLViewer
 
   void drawPointsWithoutShader();
 
-  void updateVoxelsWithTF();
   void updateClipVoxels();
 
   void updateVoxelsForRaycast();
@@ -384,6 +389,14 @@ class Viewer : public QGLViewer
 
   void drawVolBySlicing();
 
+  void drawSlices(Vec, Vec,
+		  Vec, Vec,
+		  Vec, Vec, Vec,
+		  int, float,
+		  QList<Vec>, QList<Vec>,
+		  bool);
+
+  void drawVolume();
 };
 
 #endif

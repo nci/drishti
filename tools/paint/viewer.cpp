@@ -4392,18 +4392,6 @@ Viewer::getCoordUnderPointer(int &d, int &w, int &h)
 void
 Viewer::saveImage()
 {
-  QSize imgSize = StaticFunctions::getImageSize(size().width(),
-						size().height());
-
-  int imgwd = imgSize.width();
-  int imght = imgSize.height();
-
-  m_UI->raycastParam->setVisible(false);
-  m_UI->pointParam->setVisible(false);
-  QSplitter *p = (QSplitter*)parent();
-  QFrame *cv = (QFrame*)(p->widget(0));
-  cv->hide();
-
   QStringList savelist;
   savelist << "Save single image";
   savelist << "Save image sequence/movie";
@@ -4413,10 +4401,6 @@ Viewer::saveImage()
 					   savelist,
 					   0,
 					   false);
-
-  QDockWidget *dw = (QDockWidget*)(parent()->parent());
-  QRect geo = dw->geometry();
-  dw->setGeometry(geo.left(), geo.top(), imgwd, imght);
 
   if (savetype == "Save image sequence/movie")
     saveImageSequence();
@@ -4429,18 +4413,9 @@ Viewer::saveImage()
 		  "Image Files (*.png *.tif *.bmp *.jpg *.ppm *.xbm *.xpm)");
       
       if (flnm.isEmpty())
-	{
-	  m_UI->raycastParam->setVisible(true);
-	  
-	  cv->show();
-	  return;
-	}
+	return;
 
       saveSnapshot(flnm);
-
-      m_UI->raycastParam->setVisible(true);
-      
-      cv->show();
     }
 }
 
@@ -4464,14 +4439,7 @@ Viewer::saveImageSequence()
 
 
   if (flnm.isEmpty())
-    {
-      QWidget *p = (QWidget*)parent();
-      QFrame *cv = (QFrame*)parent()->children()[1];
-      m_UI->raycastParam->setVisible(true);
-      
-      cv->show();
-      return;
-    }
+    return;
 
   QStringList yxaxis;
   yxaxis << "Y";
@@ -4569,10 +4537,7 @@ Viewer::nextFrame()
 	endMovie();
 
       m_savingImages = 0;
-      QWidget *p = (QWidget*)parent();
-      QFrame *cv = (QFrame*)parent()->children()[1];
-      m_UI->raycastParam->setVisible(true);      
-      cv->show();
+
       QMessageBox::information(this, "", "Saved Image Sequence");
     }
 }

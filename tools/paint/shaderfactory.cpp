@@ -181,7 +181,7 @@ ShaderFactory::genSliceShader(bool bit16)
   shader += "  vec4 tagcolor = texture1D(tagTex, tag);\n";
   shader += "  if (tag < 0.001) tagcolor.rgb = color.rgb;\n";
   
-  shader += "  color.rgb = mix(color.rgb, tagcolor.rgb, tagcolor.a);\n";
+  shader += "  color.rgb = mix(color.rgb, tagcolor.rgb, 0.8);\n";
   
   // so that we can use tag opacity to hide certain tagged regions
   // tagcolor.a should either 0 or 1
@@ -229,22 +229,24 @@ ShaderFactory::genShadowBlurShader()
   shader += "uniform sampler2DRect sliceTex;\n";
   shader += "uniform sampler2DRect shadowTex;\n";
   shader += "uniform float rot;\n";
+  shader += "uniform float stp;\n";
 
   shader += "\n";
   shader += "void main(void)\n";
   shader += "{\n";
   shader += "  vec4 color;\n";
-  //shader += "  vec2 spos = gl_FragCoord.xy;\n";
-  shader += "  vec2 spos = gl_TexCoord[0].xy;\n";
+  shader += "  vec2 spos = gl_FragCoord.xy;\n";
   shader += "\n";
 
-  shader += "  color  = 2.0*texture2DRect(shadowTex, spos.xy);\n";
-  shader += "  color += texture2DRect(shadowTex, spos.xy + rot*vec2( 1.5, 0.5));\n";
-  shader += "  color += texture2DRect(shadowTex, spos.xy + rot*vec2( 0.5,-1.5));\n";
-  shader += "  color += texture2DRect(shadowTex, spos.xy + rot*vec2(-1.5, -0.5));\n";
-  shader += "  color += texture2DRect(shadowTex, spos.xy + rot*vec2(-0.5, 1.5));\n";
+  shader += "  float a = 0.75 + 0.75*stp;\n";
+  shader += "  float b = 0.25 + 0.25*stp;\n";
+  shader += "  color  = texture2DRect(shadowTex, spos.xy);\n";
+  shader += "  color += texture2DRect(shadowTex, spos.xy + vec2(rot,0.0)*vec2( a, b));\n";
+  shader += "  color += texture2DRect(shadowTex, spos.xy + vec2(rot,0.0)*vec2( b,-a));\n";
+  shader += "  color += texture2DRect(shadowTex, spos.xy + vec2(rot,0.0)*vec2(-a,-b));\n";
+  shader += "  color += texture2DRect(shadowTex, spos.xy + vec2(rot,0.0)*vec2(-b, a));\n";
 
-  shader += "  color /= 6.0;\n";
+  shader += "  color /= 5.0;\n";
 
   shader += "  vec4 slicecolor = texture2DRect(sliceTex, spos.xy);\n";
 

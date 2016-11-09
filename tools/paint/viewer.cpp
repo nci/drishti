@@ -641,6 +641,7 @@ Viewer::createShaders()
   m_shadowBlurParm[0] = glGetUniformLocationARB(m_shadowBlurShader, "sliceTex");
   m_shadowBlurParm[1] = glGetUniformLocationARB(m_shadowBlurShader, "shadowTex");
   m_shadowBlurParm[2] = glGetUniformLocationARB(m_shadowBlurShader, "rot");
+  m_shadowBlurParm[4] = glGetUniformLocationARB(m_shadowBlurShader, "stp");
   //----------------------
 
   
@@ -4934,7 +4935,7 @@ void
 Viewer::drawVolBySlicing()
 {
   bool frontToback = true;
-  if (m_dragMode)
+  if (m_dragMode || m_shadow == 0)
     frontToback = false;
   
   glClearColor(0,0,0,0);
@@ -5240,18 +5241,19 @@ Viewer::drawSlices(Vec bbmin, Vec bbmax,
 			     0);
       glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
+      
       float rot = (s%2 ? 1.0 : -1.0);
-
+      
       glUseProgramObjectARB(m_shadowBlurShader);
       glUniform1iARB(m_shadowBlurParm[0], 1); // slice - ebTex[2]
       glUniform1iARB(m_shadowBlurParm[1], 6); // shadow - ebTex[shd]
       glUniform1fARB(m_shadowBlurParm[2], rot); // shadow blur rot
-
+      glUniform1fARB(m_shadowBlurParm[3], m_edge); // edges
+      
       glActiveTexture(GL_TEXTURE1);
       glEnable(GL_TEXTURE_RECTANGLE_ARB);
       glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[2]);
-
+      
       glActiveTexture(GL_TEXTURE6);
       glEnable(GL_TEXTURE_RECTANGLE_ARB);
       glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[shd]);
@@ -5261,11 +5263,11 @@ Viewer::drawSlices(Vec bbmin, Vec bbmax,
       StaticFunctions::drawQuad(0, 0, wd, ht, 1);
       StaticFunctions::popOrthoView();
       //--------------------------------
-
+      
+      shd = shd1;
+      
       glUseProgramObjectARB(0);
       glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
-
-      shd = shd1;
     }
   
   glActiveTexture(GL_TEXTURE1);

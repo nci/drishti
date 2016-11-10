@@ -160,7 +160,7 @@ KeyFrameEditor::KeyFrameEditor(QWidget *parent):
 
 
   setMinimumSize(400, 150);
-  setMaximumSize(2000, m_editorHeight);
+  setMaximumSize(5000, m_editorHeight);
   setBaseSize(400, m_editorHeight);
 }
 

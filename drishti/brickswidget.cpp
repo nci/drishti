@@ -21,10 +21,8 @@ BricksWidget::BricksWidget(QWidget *parent,
   ui.m_axis->setValidator(validator);
   ui.m_scalepivot->setValidator(validator);
   ui.m_scale->setValidator(validator);
-
-  QRegExp floatrx("(\\-?\\d*\\.?\\d*\\s?){1,1}");
-  QRegExpValidator *floatvalidator = new QRegExpValidator(floatrx,0);
-  ui.m_angle->setValidator(floatvalidator);
+  ui.m_brickMinEdit->setValidator(validator);
+  ui.m_brickMaxEdit->setValidator(validator);
 
   ui.m_brickList->addItem("Brick 0");
 
@@ -36,11 +34,6 @@ BricksWidget::BricksWidget(QWidget *parent,
   ui.m_linkBrick->clear();
   ui.m_linkBrick->addItem("Brick 0");
 
-  QFont font = ui.m_brickMinLabel->font();
-  font.setPointSize(7);
-  ui.m_brickMinLabel->setFont(font);
-  ui.m_brickMaxLabel->setFont(font);
-  ui.m_brickSizeLabel->setFont(font);
 
   connect(ui.m_clipTable, SIGNAL(cellClicked(int, int)),
 	  this, SLOT(cellClicked(int, int)));
@@ -329,15 +322,26 @@ BricksWidget::fillInformation(int bno)
       ui.m_clipTable->setDisabled(true);
       ui.m_scalepivot->setDisabled(true);
       ui.m_scale->setDisabled(true);
+      ui.m_brickMinEdit->setDisabled(true);
+      ui.m_brickMaxEdit->setDisabled(true);
 
       return;
     }
   else
     {
       if (bno == 0)
-	ui.m_linkBrick->setDisabled(true);
+	{
+	  ui.m_linkBrick->setDisabled(true);
+	  ui.m_brickMinEdit->setEnabled(false);
+	  ui.m_brickMaxEdit->setEnabled(false);
+	}
       else
-	ui.m_linkBrick->setEnabled(true);
+	{
+	  ui.m_linkBrick->setEnabled(true);
+	  ui.m_brickMinEdit->setEnabled(true);
+	  ui.m_brickMaxEdit->setEnabled(true);
+	}
+
       ui.m_tfSet->setEnabled(true);
       ui.m_translation->setEnabled(true);
       ui.m_pivot->setEnabled(true);
@@ -357,20 +361,19 @@ BricksWidget::fillInformation(int bno)
   bmin = dataMin + VECPRODUCT(binfo.brickMin,dataSize);
   bmax = dataMin + VECPRODUCT(binfo.brickMax,dataSize);
   bsz = bmax-bmin+Vec(1,1,1);
-  
-  ui.m_brickMinLabel->setText(QString("%1 %2 %3").\
-			      arg((int)bmin.x).	  \
-			      arg((int)bmin.y).	  \
-			      arg((int)bmin.z));
-  ui.m_brickMaxLabel->setText(QString("%1 %2 %3").\
-			      arg((int)bmax.x).	  \
-			      arg((int)bmax.y).	  \
-			      arg((int)bmax.z));
-  ui.m_brickSizeLabel->setText(QString("%1 %2 %3").\
-			       arg((int)bsz.x).	   \
-			       arg((int)bsz.y).	   \
-			       arg((int)bsz.z));
 
+  ui.m_brickMinEdit->setText(QString("%1 %2 %3").\
+                              arg((int)bmin.x).   \
+                              arg((int)bmin.y).   \
+                              arg((int)bmin.z));
+  ui.m_brickMaxEdit->setText(QString("%1 %2 %3").\
+                              arg((int)bmax.x).   \
+                              arg((int)bmax.y).   \
+                              arg((int)bmax.z));
+  ui.m_brickSizeEdit->setText(QString("%1 %2 %3").\
+                               arg((int)bsz.x).    \
+                               arg((int)bsz.y).    \
+                               arg((int)bsz.z));
 
   ui.m_tfSet->setCurrentIndex(binfo.tfSet);
   
@@ -391,7 +394,7 @@ BricksWidget::fillInformation(int bno)
 		     arg(binfo.axis.y).			\
 		     arg(binfo.axis.z));
 
-  ui.m_angle->setText(QString("%1").arg(binfo.angle));
+  ui.m_angle->setValue(binfo.angle);
   ui.m_scalepivot->setText(QString("%1 %2 %3"). \
 			   arg(binfo.scalepivot.x). \
 			   arg(binfo.scalepivot.y). \
@@ -400,6 +403,8 @@ BricksWidget::fillInformation(int bno)
 		      arg(binfo.scale.x).		\
 		      arg(binfo.scale.y).		\
 		      arg(binfo.scale.z));
+
+
   
 
   updateClipTable(bno);
@@ -439,13 +444,62 @@ BricksWidget::updateBrickInformation()
   binfo.position = StaticFunctions::getVec(ui.m_translation->text());
   binfo.pivot = StaticFunctions::getVec(ui.m_pivot->text());
   binfo.axis = StaticFunctions::getVec(ui.m_axis->text());
-  binfo.angle = ui.m_angle->text().toFloat(&ok);
+
+ // remove the degree symbol at the end of angle value
+  QString astr = ui.m_angle->text();
+  astr.chop(1);
+  binfo.angle = astr.toFloat(&ok);
   binfo.scalepivot = StaticFunctions::getVec(ui.m_scalepivot->text());
   binfo.scale = StaticFunctions::getVec(ui.m_scale->text());
 
   m_bricks->setBrick(m_selected, binfo);
 
   emit updateGL();
+}
+
+void
+BricksWidget::on_m_brickMinEdit_editingFinished()
+{
+  if (m_selected < 0 || m_selected >= ui.m_brickList->count())
+    return;
+  Vec dataMin, dataMax;
+  Global::bounds(dataMin, dataMax);
+  Vec dataSize = dataMax - dataMin;
+  Vec max = StaticFunctions::getVec(ui.m_brickMaxEdit->text());
+  Vec min = StaticFunctions::getVec(ui.m_brickMinEdit->text());
+  if (min.x<dataMin.x) min.x=dataMin.x; else if (min.x>dataMax.x) min.x=dataMax.x;
+  if (min.y<dataMin.y) min.y=dataMin.y; else if (min.y>dataMax.y) min.y=dataMax.y;
+  if (min.z<dataMin.z) min.z=dataMin.z; else if (min.z>dataMax.z) min.z=dataMax.x;
+  max = Vec( qMax(min.x+1,max.x), qMax(min.y+1,max.y), qMax(min.z+1,max.z));
+  BrickInformation binfo = m_bricks->brickInformation(m_selected);
+  min = min-dataMin;
+  max = max-dataMin;
+  binfo.brickMin = VECDIVIDE(min, dataSize);
+  binfo.brickMax = VECDIVIDE(max, dataSize);
+  m_bricks->setBrick(m_selected, binfo);
+  updateBrickInformation();
+}
+
+void BricksWidget::on_m_brickMaxEdit_editingFinished()
+{
+  if (m_selected < 0 || m_selected >= ui.m_brickList->count())
+    return;
+  Vec dataMin, dataMax;
+  Global::bounds(dataMin, dataMax);
+  Vec dataSize = dataMax - dataMin;
+  Vec max = StaticFunctions::getVec(ui.m_brickMaxEdit->text());
+  Vec min = StaticFunctions::getVec(ui.m_brickMinEdit->text());
+  if (max.x<dataMin.x) max.x=dataMin.x; else if (max.x>dataMax.x) max.x=dataMax.x;
+  if (max.y<dataMin.y) max.y=dataMin.y; else if (max.y>dataMax.y) max.y=dataMax.y;
+  if (max.z<dataMin.z) max.z=dataMin.z; else if (max.z>dataMax.z) max.z=dataMax.x;
+  min =  Vec(qMin(min.x,max.x-1), qMin(min.y,max.y-1), qMin(min.z,max.z-1));
+  BrickInformation binfo = m_bricks->brickInformation(m_selected);
+  min = min-dataMin;
+  max = max-dataMin;
+  binfo.brickMin = VECDIVIDE(min, dataSize);
+  binfo.brickMax = VECDIVIDE(max, dataSize);
+  m_bricks->setBrick(m_selected, binfo);
+  updateBrickInformation();
 }
 
 void
@@ -598,7 +652,7 @@ BricksWidget::setBrickZeroRotation(int axisType, float angle)
 		     arg(axis.x).			\
 		     arg(axis.y).			\
 		     arg(axis.z));
-  ui.m_angle->setText(QString("%1").arg(angle));
+  ui.m_angle->setValue(angle);
 
   BrickInformation binfo = m_bricks->brickInformation(m_selected);
   binfo.axis = axis;

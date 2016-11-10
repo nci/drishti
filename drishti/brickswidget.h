@@ -43,6 +43,9 @@ class BricksWidget : public QWidget
   void on_m_scalepivotFromHitpoint_pressed();
   void on_m_scalepivot_editingFinished();
   void on_m_scale_editingFinished();
+  void on_m_brickMinEdit_editingFinished();
+  void on_m_brickMaxEdit_editingFinished();
+
   void fillInformation(int);
   void updateBrickInformation();
   void cellClicked(int, int);

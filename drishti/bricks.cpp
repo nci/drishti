@@ -347,6 +347,8 @@ Bricks::setBrick(int bno, BrickInformation binfo)
     return;
 
   m_bricks[bno] = binfo;
+  m_brickBox[bno]->setPositions(m_dataMin +  VECPRODUCT(binfo.brickMin, m_dataSize),
+                                m_dataMin + VECPRODUCT(binfo.brickMax, m_dataSize) );
 
   if (bno > 0)
     update();

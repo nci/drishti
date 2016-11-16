@@ -21,6 +21,9 @@ Slices::Slices(QWidget *parent) :
   vl->addLayout(hl);
 
   setLayout(vl);
+
+
+  m_imageWidget->setScrollArea(scrollArea);
 }
 
 void
@@ -33,11 +36,15 @@ Slices::createMenu(QHBoxLayout *hl,
   m_zoom0 = new QPushButton("O",this);
   m_zoomUp = new QPushButton("+",this);
   m_zoomDown = new QPushButton("-",this);
+
+  m_mesg = new QLabel("Graph Cut");
+
   thl->addWidget(m_zoom9);
   thl->addWidget(m_zoom0);
   thl->addWidget(m_zoomUp);
   thl->addWidget(m_zoomDown);
   thl->addStretch();
+  thl->addWidget(m_mesg);
 
   vl->addLayout(thl);
 
@@ -170,3 +177,15 @@ void Slices::loadLookupTable(QImage img) { m_imageWidget->loadLookupTable(img); 
 void Slices::saveImage() { m_imageWidget->saveImage(); }
 
 void Slices::setRawValue(QList<int> u) { m_imageWidget->setRawValue(u); }
+
+void
+Slices::setModeType(int mt)
+{
+  if (mt == 0)
+    m_mesg->setText("<font color=green><h2>Graph Cut</h2>");
+
+  if (mt == 1)
+    m_mesg->setText("<font color=red><h2>Superpixels</h2>");
+
+  m_imageWidget->setModeType(mt);
+}

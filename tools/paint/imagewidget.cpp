@@ -51,6 +51,9 @@ ImageWidget::ImageWidget(QWidget *parent) :
   m_volPtr = 0;
   m_maskPtr = 0;
 
+  //m_modeType = 0; // graphcut
+  m_modeType = 1; // superpixels
+
   m_hline = m_vline = 0;
 
   m_zoom = 1;
@@ -130,6 +133,15 @@ ImageWidget::ImageWidget(QWidget *parent) :
     m_prevslicetagColors[i] = qRgba(0, 0, 127, 127);
 }
 
+void
+ImageWidget::setModeType(int mt)
+{
+  m_modeType = mt;
+
+  if (m_volPtr)
+    getSlice();
+}
+
 void ImageWidget::enterEvent(QEvent *e)
 {
   //setFocus();
@@ -165,22 +177,45 @@ ImageWidget::saveImage()
 
 void
 ImageWidget::setZoom(float z)
-{
+{  
   setMinimumSize(QSize(m_imgWidth, m_imgHeight));
-  if (z < 0)
+
+  bool z9 = false;
+  int z9x, z9y, z9mx, z9my;
+  if (z < 0) // zoom to selection
     {
+      int size1, size2;
+      int imin, imax, jmin, jmax;
+      getSliceLimits(size1, size2, imin, imax, jmin, jmax);
+
       QWidget *prt = (QWidget*)parent();
       int frmHeight = prt->rect().height()-50;
       int frmWidth = prt->rect().width()-50;
-      float zn = qMin((float)frmWidth/m_imgWidth,
-		      (float)frmHeight/m_imgHeight);
-      m_zoom = qMax(0.01f, zn);
+//      float zn = qMin((float)frmWidth/m_imgWidth,
+//		      (float)frmHeight/m_imgHeight);
+
+      m_zoom = 1;
+      if (size1 > 0 && size2 > 0)
+	{
+	  m_zoom = qMin((float)frmWidth/size2,
+			(float)frmHeight/size1);
+	  m_zoom = qMax(0.01f, m_zoom);
+      
+	  z9 = true;
+	  z9x = m_zoom*(jmax+jmin)/2;
+	  z9y = m_zoom*(imax+imin)/2;
+	  z9mx = frmWidth/2;
+	  z9my = frmHeight/2;
+	}
     }
   else
     m_zoom = qMax(0.01f, z);
 
   resizeImage();
   update();
+
+  if (z9)
+    m_scrollArea->ensureVisible(z9x, z9y, z9mx, z9my);
 }
 
 void
@@ -235,6 +270,7 @@ ImageWidget::getSlice()
 		   1);
 	}
     }
+
 
   memcpy(m_prevslicetags, m_prevtags, m_imgWidth*m_imgHeight);
   processPrevSliceTags();
@@ -1140,7 +1176,8 @@ ImageWidget::graphcutModeKeyPressEvent(QKeyEvent *event)
       if (ctrlModifier) // apply paint for non-selected areas
 	m_extraPressed = true;
 
-      applyGraphCut();
+      if (m_modeType == 0) applyGraphCut();
+      if (m_modeType == 1) applySuperPixels();
     }
   else if (event->key() == Qt::Key_P) // apply paint
     {
@@ -1977,6 +2014,142 @@ ImageWidget::getSliceLimits(int &size1, int &size2,
       jmax = m_maxWSlice;
     }
 
+}
+
+void
+ImageWidget::applySuperPixels()
+{
+  uchar *imageData = new uchar[m_imgWidth*m_imgHeight];
+  uchar *maskData = new uchar[m_imgWidth*m_imgHeight];
+
+
+  for(int i=0; i<m_imgWidth*m_imgHeight; i++)
+    imageData[i] = m_sliceImage[4*i+0];
+
+
+  memset(maskData, 0, m_imgWidth*m_imgHeight);
+  for(int i=0; i<m_imgWidth*m_imgHeight; i++)
+    {
+      if (m_prevtags[i] > 0) // set as background so that we don't overwrite it
+	maskData[i] = 255;
+
+      if (m_prevtags[i] == Global::tag()) // add seed points
+	maskData[i] = Global::tag();
+    }
+  for(int i=0; i<m_imgWidth*m_imgHeight; i++) // overwrite with usertags
+    {
+      if (m_usertags[i] > 0)
+	maskData[i] = m_usertags[i];
+    }
+
+  if (Global::copyPrev())
+    {
+      for(int i=0; i<m_imgWidth*m_imgHeight; i++) // apply prevslicetags
+	{
+	  if (maskData[i] == 0)
+	    maskData[i] = m_prevslicetags[i];
+	}
+    }
+
+  int size1, size2;
+  int imin, imax, jmin, jmax;
+  getSliceLimits(size1, size2, imin, imax, jmin, jmax);
+
+  int idx=0;
+  for(int i=imin; i<=imax; i++)
+    for(int j=jmin; j<=jmax; j++)
+      {
+	maskData[idx] = maskData[i*m_imgWidth+j];
+	idx++;
+      }
+
+  idx=0;
+  for(int i=imin; i<=imax; i++)
+    for(int j=jmin; j<=jmax; j++)
+      {
+	imageData[idx] = imageData[i*m_imgWidth+j];
+	idx++;
+      }
+
+
+  ushort *sdata = new ushort[size1*size2];
+  for(int i=0; i<size1*size2; i++)
+    sdata[i] = imageData[i];
+//  if (m_bytesPerVoxel == 2)
+//    memcpy(sdata, m_slice, 2*size1*size2);
+//  else
+//    {
+//      for(int i=0; i<m_imgWidth*m_imgHeight; i++)
+//	sdata[i] = m_slice[i];
+//    }
+  int K = (size1*size2)/(Global::lambda()*10);
+//  QMessageBox::information(0, "", QString("%1 %2").arg(K).arg(Global::lambda()));
+
+  m_slic.PerformSLICO_ForGivenK(sdata,
+				size1,
+				size2,
+				K);
+
+  int* labels = m_slic.getLabels();
+  int maxlabel = m_slic.getNumLabels();
+
+  int *tlabels = new int[size1*size2];
+  memcpy(tlabels, labels, size1*size2*sizeof(int));
+  m_slic.DrawContoursAroundSegmentsTwoColors(sdata,
+					     tlabels,
+					     size1,
+					     size2);
+
+  idx=0;
+  for(int i=imin; i<=imax; i++)
+    for(int j=jmin; j<=jmax; j++)
+      {
+	if (sdata[idx] > 0)
+	  m_tags[i*m_imgWidth+j] = Global::tag();
+	idx++;
+      }
+
+  float* meanl = m_slic.getMeanL();;
+
+  QMap<int, float> mergel;
+  for(int i=0; i<size1*size2; i++)
+    if (maskData[i] == Global::tag() &&
+	!mergel.contains(labels[i]))
+      mergel[labels[i]] = meanl[i];
+
+  QList<int> mkeys = mergel.keys();
+  QList<float> lmeans = mergel.values();
+  float meanLbound = 0.1;
+  maxlabel += 100;
+  m_slic.MergeSuperPixels(labels, mkeys, lmeans, meanLbound, maxlabel);
+
+  idx=0;
+  for(int i=imin; i<=imax; i++)
+    for(int j=jmin; j<=jmax; j++)
+      {
+	if (labels[idx] > 0 &&
+	    maskData[idx] < 255 &&
+	    imageData[idx] > 0)
+	  m_tags[i*m_imgWidth+j] = Global::tag();
+	idx++;
+      }
+
+
+  delete [] sdata;
+  delete [] imageData;
+  delete [] maskData;
+
+  
+  if (m_sliceType == DSlice)
+    emit tagDSlice(m_currSlice, m_tags);
+  else if (m_sliceType == WSlice)
+    emit tagWSlice(m_currSlice, m_tags);
+  else if (m_sliceType == HSlice)
+    emit tagHSlice(m_currSlice, m_tags);
+
+  setMaskImage(m_tags);
+
+  checkRecursive();
 }
 
 void

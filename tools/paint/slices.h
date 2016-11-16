@@ -5,6 +5,7 @@
 #include <QHBoxLayout>
 #include <QPushButton>
 #include <QSlider>
+#include <QLabel>
 
 #include "imagewidget.h"
 
@@ -36,6 +37,9 @@ class Slices : public QWidget
 
   void reloadSlice();
 
+  void setModeType(int);
+
+  void zoomToSelection() { m_imageWidget->zoom9Clicked(); }
  signals :
   void sliceChanged(int);
   void xPos(int);
@@ -77,6 +81,8 @@ class Slices : public QWidget
     QPushButton *m_zoom9;
     QPushButton *m_zoomUp;
     QPushButton *m_zoomDown;
+
+    QLabel *m_mesg;
 
     QSlider *m_slider;
 

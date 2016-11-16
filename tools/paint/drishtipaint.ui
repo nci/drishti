@@ -754,6 +754,7 @@
     </property>
     <addaction name="actionGraphCut"/>
     <addaction name="actionCurves"/>
+    <addaction name="actionSuperpixels"/>
    </widget>
    <widget class="QMenu" name="menuCommands">
     <property name="title">
@@ -762,8 +763,19 @@
     <addaction name="changeSliceOrdering"/>
     <addaction name="actionBakeCurves"/>
    </widget>
+   <widget class="QMenu" name="menuWindows">
+    <property name="title">
+     <string>Layout</string>
+    </property>
+    <addaction name="actionDefaultView"/>
+    <addaction name="actionZ"/>
+    <addaction name="actionY"/>
+    <addaction name="actionX"/>
+    <addaction name="action3dView"/>
+   </widget>
    <addaction name="menuFile"/>
    <addaction name="menuView"/>
+   <addaction name="menuWindows"/>
    <addaction name="menuMode"/>
    <addaction name="menuCommands"/>
    <addaction name="menuHelp"/>
@@ -908,6 +920,57 @@
   <action name="actionAbout">
    <property name="text">
     <string>About</string>
+   </property>
+  </action>
+  <action name="actionZ">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Z</string>
+   </property>
+  </action>
+  <action name="actionY">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Y</string>
+   </property>
+  </action>
+  <action name="actionX">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>X</string>
+   </property>
+  </action>
+  <action name="action3dView">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>3d View</string>
+   </property>
+  </action>
+  <action name="actionDefaultView">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Default</string>
+   </property>
+  </action>
+  <action name="actionSuperpixels">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Superpixels</string>
    </property>
   </action>
  </widget>

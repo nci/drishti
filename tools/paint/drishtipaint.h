@@ -57,11 +57,19 @@ class DrishtiPaint : public QMainWindow
   void on_actionMeshTag_triggered();
   void on_actionCurves_triggered();
   void on_actionGraphCut_triggered();
+  void on_actionSuperpixels_triggered();
   void on_sliceLod_currentIndexChanged(int);
   void on_butZ_clicked();
   void on_butY_clicked();
   void on_butX_clicked();
   void on_help_clicked();
+
+  void on_actionDefaultView_triggered();
+  void on_actionZ_triggered();
+  void on_actionY_triggered();
+  void on_actionX_triggered();
+  void on_action3dView_triggered();
+
   void on_tagcurves_editingFinished();
   void curvetag_editingFinished();
   void fibertag_editingFinished();

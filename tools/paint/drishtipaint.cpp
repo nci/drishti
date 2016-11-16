@@ -74,8 +74,8 @@ DrishtiPaint::createImageWindows()
   m_splitterOne->addWidget(m_axialFrame);
   m_splitterOne->addWidget(m_viewer3D);
 
-  m_splitterTwo->addWidget(m_coronalFrame);
   m_splitterTwo->addWidget(m_sagitalFrame);
+  m_splitterTwo->addWidget(m_coronalFrame);
 
   splitter_0->addWidget(m_splitterOne);
   splitter_0->addWidget(m_splitterTwo);
@@ -464,6 +464,142 @@ DrishtiPaint::on_help_clicked()
 }
 
 void
+DrishtiPaint::on_actionDefaultView_triggered()
+{
+  ui.actionDefaultView->setChecked(true);
+  ui.actionZ->setChecked(false);
+  ui.actionY->setChecked(false);
+  ui.actionX->setChecked(false);
+  ui.action3dView->setChecked(false);
+
+  m_splitterOne->addWidget(m_axialFrame); //Z
+  m_splitterOne->addWidget(m_viewer3D);
+
+  m_splitterTwo->addWidget(m_sagitalFrame); // Y
+  m_splitterTwo->addWidget(m_coronalFrame); // X
+
+  QList<int> ssz;
+  ssz << 150;
+  ssz << 150;
+  m_splitterOne->setSizes(ssz);
+  m_splitterTwo->setSizes(ssz);
+
+  m_graphCutArea->setSizes({1000, 1000});
+
+  m_axialImage->zoomToSelection();
+  m_sagitalImage->zoomToSelection();
+  m_coronalImage->zoomToSelection();
+}
+void
+DrishtiPaint::on_actionZ_triggered()
+{
+  ui.actionDefaultView->setChecked(false);
+  ui.actionZ->setChecked(true);
+  ui.actionY->setChecked(false);
+  ui.actionX->setChecked(false);
+  ui.action3dView->setChecked(false);
+
+  m_splitterOne->addWidget(m_axialFrame);
+
+  m_splitterTwo->addWidget(m_sagitalFrame);
+  m_splitterTwo->addWidget(m_coronalFrame);
+  m_splitterTwo->addWidget(m_viewer3D);
+
+  QList<int> ssz;
+  ssz << 150;
+  ssz << 150;
+  ssz << 150;
+  m_splitterTwo->setSizes(ssz);
+
+  m_graphCutArea->setSizes({1000, 200});
+
+  m_axialImage->zoomToSelection();
+  m_sagitalImage->zoomToSelection();
+  m_coronalImage->zoomToSelection();
+}
+void
+DrishtiPaint::on_actionY_triggered()
+{
+  ui.actionDefaultView->setChecked(false);
+  ui.actionZ->setChecked(false);
+  ui.actionY->setChecked(true);
+  ui.actionX->setChecked(false);
+  ui.action3dView->setChecked(false);
+
+  m_splitterOne->addWidget(m_sagitalFrame);
+
+  m_splitterTwo->addWidget(m_axialFrame);
+  m_splitterTwo->addWidget(m_coronalFrame);
+  m_splitterTwo->addWidget(m_viewer3D);
+
+  QList<int> ssz;
+  ssz << 150;
+  ssz << 150;
+  ssz << 150;
+  m_splitterTwo->setSizes(ssz);
+
+  m_graphCutArea->setSizes({1000, 200});
+
+  m_axialImage->zoomToSelection();
+  m_sagitalImage->zoomToSelection();
+  m_coronalImage->zoomToSelection();
+}
+void
+DrishtiPaint::on_actionX_triggered()
+{
+  ui.actionDefaultView->setChecked(false);
+  ui.actionZ->setChecked(false);
+  ui.actionY->setChecked(false);
+  ui.actionX->setChecked(true);
+  ui.action3dView->setChecked(false);
+
+  m_splitterOne->addWidget(m_coronalFrame);
+
+  m_splitterTwo->addWidget(m_axialFrame);
+  m_splitterTwo->addWidget(m_sagitalFrame);
+  m_splitterTwo->addWidget(m_viewer3D);
+
+  QList<int> ssz;
+  ssz << 150;
+  ssz << 150;
+  ssz << 150;
+  m_splitterTwo->setSizes(ssz);
+
+  m_graphCutArea->setSizes({1000, 200});
+
+  m_axialImage->zoomToSelection();
+  m_sagitalImage->zoomToSelection();
+  m_coronalImage->zoomToSelection();
+}
+void
+DrishtiPaint::on_action3dView_triggered()
+{
+  ui.actionDefaultView->setChecked(false);
+  ui.actionZ->setChecked(false);
+  ui.actionY->setChecked(false);
+  ui.actionX->setChecked(false);
+  ui.action3dView->setChecked(true);
+
+  m_splitterOne->addWidget(m_viewer3D);
+
+  m_splitterTwo->addWidget(m_axialFrame);
+  m_splitterTwo->addWidget(m_sagitalFrame);
+  m_splitterTwo->addWidget(m_coronalFrame);
+
+  QList<int> ssz;
+  ssz << 150;
+  ssz << 150;
+  ssz << 150;
+  m_splitterTwo->setSizes(ssz);
+
+  m_graphCutArea->setSizes({1000, 200});
+
+  m_axialImage->zoomToSelection();
+  m_sagitalImage->zoomToSelection();
+  m_coronalImage->zoomToSelection();
+}
+
+void
 DrishtiPaint::on_actionAbout_triggered()
 {
   QString mesg;
@@ -570,7 +706,7 @@ DrishtiPaint::on_actionCurves_triggered()
 
   ui.actionCurves->setChecked(true);
   ui.actionGraphCut->setChecked(false);
-  //ui.actionFibers->setChecked(false);  
+  ui.actionSuperpixels->setChecked(false);  
 
   m_curvesWidget->setFiberMode(false);
   m_curvesWidget->setCurve(true);
@@ -608,7 +744,52 @@ DrishtiPaint::on_actionGraphCut_triggered()
 
   ui.actionGraphCut->setChecked(true);  
   ui.actionCurves->setChecked(false);
-  //ui.actionFibers->setChecked(false);
+  ui.actionSuperpixels->setChecked(false);  
+
+  m_axialImage->setModeType(0);
+  m_sagitalImage->setModeType(0);
+  m_coronalImage->setModeType(0);
+
+  m_curvesWidget->setFiberMode(false);
+  m_curvesWidget->setCurve(false);
+  curvesUi.livewire->setChecked(false);
+
+  curvesUi.modify->setChecked(false);
+  curvesUi.propagate->setChecked(false);
+  m_curvesWidget->freezeModifyUsingLivewire();
+
+  m_curvesWidget->endFiber();
+}
+
+void
+DrishtiPaint::on_actionSuperpixels_triggered()
+{
+  QString hss;
+  hss += "QToolButton { border-width:5; border-style:solid; border-radius:25px;";
+  hss += "color:#00aa55; }";
+  ui.help->setStyleSheet(hss);
+
+  m_graphCutArea->show();
+  m_scrollAreaC->hide();
+
+  ui.sliderFrame->hide();
+  ui.buttonBox->hide();
+  ui.curveSelTex->hide();
+  ui.sizeSel->hide();
+
+  m_curvesMenu->hide();
+  m_graphcutMenu->show();
+  m_fibersMenu->hide();
+  ui.wdptszframe->hide();
+  ui.spreadframe->show();
+
+  ui.actionGraphCut->setChecked(false);  
+  ui.actionCurves->setChecked(false);
+  ui.actionSuperpixels->setChecked(true);  
+
+  m_axialImage->setModeType(1);
+  m_sagitalImage->setModeType(1);
+  m_coronalImage->setModeType(1);
 
   m_curvesWidget->setFiberMode(false);
   m_curvesWidget->setCurve(false);

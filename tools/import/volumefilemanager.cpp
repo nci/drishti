@@ -134,12 +134,14 @@ VolumeFileManager::createFile(bool writeHeader)
 	  m_qfile.write((char*)&m_height, 4);
 	}
 
-//      for(int t=0; t<nslices; t++)
-//	{
-//	  progress.setValue((int)(100*(float)t/(float)nslices));
-//	  qApp->processEvents();
-//	  m_qfile.write((char*)m_slice, bps);
-//	}
+      //--------------------
+      for(int t=0; t<nslices; t++)
+	{
+	  //progress.setValue((int)(100*(float)t/(float)nslices));
+	  //qApp->processEvents();
+	  m_qfile.write((char*)m_slice, bps);
+	}
+      //--------------------
 
       m_qfile.close();
     }

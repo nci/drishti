@@ -16,7 +16,8 @@ DESTDIR = ../../bin
 
 TARGET = drishtipaint
 
-INCLUDEPATH += graphcut
+INCLUDEPATH += graphcut \
+	       slic
 
 include( ../../drishti.pri )
 
@@ -101,7 +102,8 @@ HEADERS += commonqtclasses.h \
 	shaderfactory.h \
 	remaphistogramline.h \
 	remaphistogramwidget.h \
-	slicer3d.h
+	slicer3d.h \
+	slic/slic.h
 
 
 SOURCES += drishtipaint.cpp \
@@ -157,4 +159,5 @@ SOURCES += drishtipaint.cpp \
 	shaderfactory.cpp \
 	remaphistogramline.cpp \
 	remaphistogramwidget.cpp \
-	slicer3d.cpp
+	slicer3d.cpp \
+	slic/slic.cpp

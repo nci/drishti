@@ -10,6 +10,9 @@
 #include <QTextEdit>
 #include <QVBoxLayout>
 #include <QVector3D>
+#include <QScrollArea>
+
+#include "slic.h"
 
 #include <QGLViewer/vec.h>
 using namespace qglviewer;
@@ -28,6 +31,8 @@ class ImageWidget : public QWidget
   };
 
   void saveImage();
+
+  void setScrollArea(QScrollArea *sa) { m_scrollArea = sa; }
 
   void setVolPtr(uchar *vp) {m_volPtr = vp;}
   void setMaskPtr(uchar *mp) {m_maskPtr = mp;}
@@ -82,6 +87,8 @@ class ImageWidget : public QWidget
   void shrinkwrapPaintedRegion();
   void shrinkwrapVisibleRegion();
 
+  void setModeType(int);
+
  signals :
   void xPos(int);
   void yPos(int);
@@ -123,8 +130,17 @@ class ImageWidget : public QWidget
 		       int, int);
   
  private :
+  QScrollArea *m_scrollArea;
+
   uchar *m_volPtr;
   uchar *m_maskPtr;
+
+  //modeType 
+  // 0 - graphcut
+  // 1 - superpixel
+  int m_modeType;
+
+  SLIC m_slic;
 
   int m_maxSlice;
   int m_currSlice;
@@ -216,6 +232,7 @@ class ImageWidget : public QWidget
   void dotImage(int, int, bool);
   void removeDotImage(int, int);
 
+  void applySuperPixels();
   void applyGraphCut();
   void applyPaint(bool);
   void applyReset();

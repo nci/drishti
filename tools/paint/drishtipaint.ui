@@ -763,19 +763,8 @@
     <addaction name="changeSliceOrdering"/>
     <addaction name="actionBakeCurves"/>
    </widget>
-   <widget class="QMenu" name="menuWindows">
-    <property name="title">
-     <string>Layout</string>
-    </property>
-    <addaction name="actionDefaultView"/>
-    <addaction name="actionZ"/>
-    <addaction name="actionY"/>
-    <addaction name="actionX"/>
-    <addaction name="action3dView"/>
-   </widget>
    <addaction name="menuFile"/>
    <addaction name="menuView"/>
-   <addaction name="menuWindows"/>
    <addaction name="menuMode"/>
    <addaction name="menuCommands"/>
    <addaction name="menuHelp"/>

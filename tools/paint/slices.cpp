@@ -1,4 +1,5 @@
 #include "slices.h"
+#include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QScrollArea>
 #include <QMessageBox>
@@ -37,7 +38,7 @@ Slices::createMenu(QHBoxLayout *hl,
   m_zoomUp = new QPushButton("+",this);
   m_zoomDown = new QPushButton("-",this);
 
-  m_changeLayout = new QPushButton("L",this);
+  m_changeLayout = new QPushButton("M",this);
 
   m_mesg = new QLabel("Graph Cut");
 
@@ -187,11 +188,19 @@ void Slices::setRawValue(QList<int> u) { m_imageWidget->setRawValue(u); }
 void
 Slices::setModeType(int mt)
 {
+  QString st;
+  if (m_imageWidget->sliceType() == ImageWidget::DSlice)
+    st = "Z";
+  if (m_imageWidget->sliceType() == ImageWidget::WSlice)
+    st = "Y";
+  if (m_imageWidget->sliceType() == ImageWidget::HSlice)
+    st = "X";
+
   if (mt == 0)
-    m_mesg->setText("<font color=green><h2>Graph Cut</h2>");
+    m_mesg->setText(QString("<font color=green><h2>Graph Cut (%1)</h2>").arg(st));
 
   if (mt == 1)
-    m_mesg->setText("<font color=red><h2>Superpixels</h2>");
+    m_mesg->setText(QString("<font color=red><h2>Superpixels (%1)</h2>").arg(st));
 
   m_imageWidget->setModeType(mt);
 }

@@ -233,6 +233,9 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   m_viewer3D = new Viewer3D(this);
   m_viewer = m_viewer3D->viewer();
 
+  connect(m_viewer3D, SIGNAL(changeLayout()),
+	  this, SLOT(on_action3dView_triggered()));
+
   //------------------------------
   // viewer menu
   QFrame *viewerMenu = new QFrame();
@@ -473,11 +476,10 @@ DrishtiPaint::on_help_clicked()
 void
 DrishtiPaint::on_actionDefaultView_triggered()
 {
-  ui.actionDefaultView->setChecked(true);
-  ui.actionZ->setChecked(false);
-  ui.actionY->setChecked(false);
-  ui.actionX->setChecked(false);
-  ui.action3dView->setChecked(false);
+  m_viewer3D->setLarge(false);
+  m_axialImage->setLarge(false);
+  m_sagitalImage->setLarge(false);
+  m_coronalImage->setLarge(false);
 
   m_splitterOne->addWidget(m_axialFrame); //Z
   m_splitterOne->addWidget(m_viewer3D);
@@ -500,11 +502,16 @@ DrishtiPaint::on_actionDefaultView_triggered()
 void
 DrishtiPaint::on_actionZ_triggered()
 {
-  ui.actionDefaultView->setChecked(false);
-  ui.actionZ->setChecked(true);
-  ui.actionY->setChecked(false);
-  ui.actionX->setChecked(false);
-  ui.action3dView->setChecked(false);
+  if (m_axialImage->enlarged())
+    {
+      on_actionDefaultView_triggered();
+      return;
+    }
+
+  m_axialImage->setLarge(true);
+  m_sagitalImage->setLarge(false);
+  m_coronalImage->setLarge(false);
+  m_viewer3D->setLarge(false);
 
   m_splitterOne->addWidget(m_axialFrame);
 
@@ -527,11 +534,16 @@ DrishtiPaint::on_actionZ_triggered()
 void
 DrishtiPaint::on_actionY_triggered()
 {
-  ui.actionDefaultView->setChecked(false);
-  ui.actionZ->setChecked(false);
-  ui.actionY->setChecked(true);
-  ui.actionX->setChecked(false);
-  ui.action3dView->setChecked(false);
+  if (m_sagitalImage->enlarged())
+    {
+      on_actionDefaultView_triggered();
+      return;
+    }
+
+  m_axialImage->setLarge(false);
+  m_sagitalImage->setLarge(true);
+  m_coronalImage->setLarge(false);
+  m_viewer3D->setLarge(false);
 
   m_splitterOne->addWidget(m_sagitalFrame);
 
@@ -554,11 +566,16 @@ DrishtiPaint::on_actionY_triggered()
 void
 DrishtiPaint::on_actionX_triggered()
 {
-  ui.actionDefaultView->setChecked(false);
-  ui.actionZ->setChecked(false);
-  ui.actionY->setChecked(false);
-  ui.actionX->setChecked(true);
-  ui.action3dView->setChecked(false);
+  if (m_coronalImage->enlarged())
+    {
+      on_actionDefaultView_triggered();
+      return;
+    }
+
+  m_axialImage->setLarge(false);
+  m_sagitalImage->setLarge(false);
+  m_coronalImage->setLarge(true);
+  m_viewer3D->setLarge(false);
 
   m_splitterOne->addWidget(m_coronalFrame);
 
@@ -581,11 +598,16 @@ DrishtiPaint::on_actionX_triggered()
 void
 DrishtiPaint::on_action3dView_triggered()
 {
-  ui.actionDefaultView->setChecked(false);
-  ui.actionZ->setChecked(false);
-  ui.actionY->setChecked(false);
-  ui.actionX->setChecked(false);
-  ui.action3dView->setChecked(true);
+  if (m_viewer3D->enlarged())
+    {
+      on_actionDefaultView_triggered();
+      return;
+    }
+
+  m_axialImage->setLarge(false);
+  m_sagitalImage->setLarge(false);
+  m_coronalImage->setLarge(false);
+  m_viewer3D->setLarge(true);
 
   m_splitterOne->addWidget(m_viewer3D);
 

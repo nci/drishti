@@ -40,6 +40,10 @@ class Slices : public QWidget
   void setModeType(int);
 
   void zoomToSelection() { m_imageWidget->zoom9Clicked(); }
+
+  void setLarge(bool ms) { m_maximized = ms; }
+  bool enlarged() { return m_maximized; }
+
  signals :
   void changeLayout();
   void sliceChanged(int);
@@ -87,6 +91,8 @@ class Slices : public QWidget
     QLabel *m_mesg;
 
     QSlider *m_slider;
+
+    bool m_maximized;
 
     void createMenu(QHBoxLayout*, QVBoxLayout*);
 };

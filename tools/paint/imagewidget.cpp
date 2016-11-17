@@ -183,6 +183,9 @@ ImageWidget::saveImage()
 void
 ImageWidget::setZoom(float z)
 {  
+  if (!m_volPtr)
+    return;
+
   setMinimumSize(QSize(m_imgWidth, m_imgHeight));
 
   bool z9 = false;

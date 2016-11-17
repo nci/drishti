@@ -112,6 +112,13 @@ DrishtiPaint::createImageWindows()
     m_coronalFrame->layout()->addWidget(m_coronalImage);
   }
 
+  connect(m_axialImage, SIGNAL(changeLayout()),
+	  this, SLOT(on_actionZ_triggered()));
+  connect(m_sagitalImage, SIGNAL(changeLayout()),
+	  this, SLOT(on_actionY_triggered()));
+  connect(m_coronalImage, SIGNAL(changeLayout()),
+	  this, SLOT(on_actionX_triggered()));
+
   connect(m_axialImage, SIGNAL(sliceChanged(int)),
 	  m_sagitalImage, SLOT(setVLine(int)));
   connect(m_axialImage, SIGNAL(sliceChanged(int)),

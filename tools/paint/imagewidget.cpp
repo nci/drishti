@@ -69,6 +69,8 @@ ImageWidget::ImageWidget(QWidget *parent) :
   m_prevslicetagimageScaled = QImage(100, 100, QImage::Format_Indexed8);
   m_userimage = QImage(100, 100, QImage::Format_Indexed8);
   m_userimageScaled = QImage(100, 100, QImage::Format_Indexed8);
+  m_spcimage = QImage(100, 100, QImage::Format_ARGB32);
+  m_spcimageScaled = QImage(100, 100, QImage::Format_ARGB32);
 
   m_image.fill(0);
   m_imageScaled.fill(0);
@@ -78,6 +80,8 @@ ImageWidget::ImageWidget(QWidget *parent) :
   m_prevslicetagimageScaled.fill(0);
   m_userimage.fill(0);
   m_userimageScaled.fill(0);
+  m_spcimage.fill(0);
+  m_spcimageScaled.fill(0);
 
   m_slice = 0;
   m_sliceImage = 0;
@@ -86,7 +90,8 @@ ImageWidget::ImageWidget(QWidget *parent) :
   m_prevtags = 0;
   m_usertags = 0;
   m_prevslicetags = 0;
-
+  m_labels = 0;
+  
   m_currSlice = 0;
   m_minDSlice = m_maxDSlice = 0;
   m_minWSlice = m_maxWSlice = 0;
@@ -277,6 +282,8 @@ ImageWidget::getSlice()
 
   memcpy(m_prevtags, m_maskslice, m_imgWidth*m_imgHeight);
 
+  m_spcimage.fill(0);
+
   recolorImage();
 
   resizeImage();
@@ -435,6 +442,11 @@ ImageWidget::resetSliceType()
   
   if (m_sliceImage) delete [] m_sliceImage;
   m_sliceImage = new uchar[4*wd*ht];
+
+  if (m_labels) delete [] m_labels;
+  m_labels = new int[wd*ht];
+  for(int i=0; i<wd*ht; i++)
+    m_labels[i] = -1;
   //---------------------------------
 
 
@@ -704,6 +716,11 @@ ImageWidget::resizeImage()
 							 Qt::IgnoreAspectRatio,
 							 Qt::FastTransformation);
 
+
+  m_spcimageScaled = m_spcimage.scaled(m_simgWidth,
+				       m_simgHeight,
+				       Qt::IgnoreAspectRatio,
+				       Qt::FastTransformation);  
 }
 
 void
@@ -753,6 +770,9 @@ ImageWidget::paintEvent(QPaintEvent *event)
   p.drawImage(0, 0, m_maskimageScaled);
   p.drawImage(0, 0, m_userimageScaled);
 
+  if (m_modeType == 1)
+    p.drawImage(0, 0, m_spcimageScaled);    
+
   if (Global::copyPrev())
     p.drawImage(0, 0, m_prevslicetagimageScaled);
   
@@ -788,18 +808,26 @@ ImageWidget::paintEvent(QPaintEvent *event)
 	  int rad = Global::spread()*(float)m_simgWidth/(float)m_imgWidth;
 	  p.setPen(QPen(Qt::white, 0.5));
 	  //p.setBrush(QColor(50, 0, 0, 10));
-	  p.drawEllipse(xpos-rad,
-			ypos-rad,
-			2*rad, 2*rad);
+	  if (m_modeType == 0) // graphcut
+	    p.drawEllipse(xpos-rad,
+			  ypos-rad,
+			  2*rad, 2*rad);
+	  else
+	    {
+	      p.drawLine(xpos-rad, ypos,
+			 xpos+rad, ypos);
+	      p.drawLine(xpos, ypos-rad,
+			 xpos, ypos+rad);
+	    }
 	}
-    }
-
+    }     
   if (hasFocus())
     {
       p.setPen(QPen(QColor(250, 100, 0), 2));
       p.setBrush(Qt::transparent);
       p.drawRect(rect());
     }
+
 }
 
 void
@@ -1004,6 +1032,13 @@ ImageWidget::graphcutModeKeyPressEvent(QKeyEvent *event)
   int shiftModifier = event->modifiers() & Qt::ShiftModifier;
   int ctrlModifier = event->modifiers() & Qt::ControlModifier;
 
+  if (event->key() == Qt::Key_Space && m_modeType == 1)
+    {
+      genSuperPixels();
+      update();
+      return;
+    }
+
   if (event->key() == Qt::Key_S &&
       (event->modifiers() & Qt::AltModifier) )
     {
@@ -1177,7 +1212,6 @@ ImageWidget::graphcutModeKeyPressEvent(QKeyEvent *event)
 	m_extraPressed = true;
 
       if (m_modeType == 0) applyGraphCut();
-      if (m_modeType == 1) applySuperPixels();
     }
   else if (event->key() == Qt::Key_P) // apply paint
     {
@@ -1311,24 +1345,24 @@ ImageWidget::mouseDoubleClickEvent(QMouseEvent *event)
   float bottom = m_rubberBand.bottom();
   if (m_sliceType == DSlice)
     {
-      m_minHSlice = left*m_Height;
-      m_maxHSlice = right*m_Height;
-      m_minWSlice = top*m_Width;
-      m_maxWSlice = bottom*m_Width;
+      m_minHSlice = qBound(0, (int)(left*m_Height), m_Height-1);
+      m_maxHSlice = qBound(0, (int)(right*m_Height), m_Height-1);
+      m_minWSlice = qBound(0, (int)(top*m_Width), m_Width-1);
+      m_maxWSlice = qBound(0, (int)(bottom*m_Width), m_Width-1);
     }
   else if (m_sliceType == WSlice)
     {
-      m_minHSlice = left*m_Height;
-      m_maxHSlice = right*m_Height;
-      m_minDSlice = top*m_Depth;
-      m_maxDSlice = bottom*m_Depth;
+      m_minHSlice = qBound(0, (int)(left*m_Height), m_Height-1);
+      m_maxHSlice = qBound(0, (int)(right*m_Height), m_Height-1);
+      m_minDSlice = qBound(0, (int)(top*m_Depth), m_Depth-1);
+      m_maxDSlice = qBound(0, (int)(bottom*m_Depth), m_Depth-1);
     }
   else
     {
-      m_minWSlice = left*m_Width;
-      m_maxWSlice = right*m_Width;
-      m_minDSlice = top*m_Depth;
-      m_maxDSlice = bottom*m_Depth;
+      m_minWSlice = qBound(0, (int)(left*m_Width), m_Width-1);
+      m_maxWSlice = qBound(0, (int)(right*m_Width), m_Width-1);
+      m_minDSlice = qBound(0, (int)(top*m_Depth), m_Depth-1);
+      m_maxDSlice = qBound(0, (int)(bottom*m_Depth), m_Depth-1);
     }
 
   emit updateViewerBox(m_minDSlice, m_maxDSlice,
@@ -1346,15 +1380,15 @@ ImageWidget::graphcutMousePressEvent(QMouseEvent *event)
   float ypos = pp.y();
   float xpos = pp.x();
   
-  m_cursorPos = pp;
-  m_pickPoint = false;
-
-  if (!validPickPoint(xpos, ypos))
-    return;
-  
-  m_lastPickDepth = m_pickDepth;
-  m_lastPickWidth = m_pickWidth;
-  m_lastPickHeight= m_pickHeight;
+//  m_cursorPos = pp;
+//  m_pickPoint = false;
+//
+//  if (!validPickPoint(xpos, ypos))
+//    return;
+//  
+//  m_lastPickDepth = m_pickDepth;
+//  m_lastPickWidth = m_pickWidth;
+//  m_lastPickHeight= m_pickHeight;
 
   bool shiftModifier = event->modifiers() & Qt::ShiftModifier;
   bool ctrlModifier = event->modifiers() & Qt::ControlModifier;
@@ -1362,11 +1396,11 @@ ImageWidget::graphcutMousePressEvent(QMouseEvent *event)
 
   if (m_button == Qt::LeftButton)
     {
-      if (altModifier)
-	{
-	  checkRubberBand(xpos, ypos);
-	  return;
-	}
+//      if (altModifier)
+//	{
+//	  checkRubberBand(xpos, ypos);
+//	  return;
+//	}
       // carry on only if Alt key is not pressed
       if (m_sliceType == DSlice)
 	dotImage(m_pickHeight,
@@ -1406,28 +1440,77 @@ ImageWidget::graphcutMousePressEvent(QMouseEvent *event)
     }
 }
 
+void
+ImageWidget::superpixelEvent()
+{
+  if (m_button == Qt::MiddleButton)
+    return;
+
+  bool paint = true;
+  if (m_button == Qt::RightButton)
+    paint = false;
+
+  if (m_sliceType == DSlice)
+    applySuperPixels(m_pickHeight,
+		     m_pickWidth,
+		     paint);
+  else if (m_sliceType == WSlice)
+    applySuperPixels(m_pickHeight,
+		     m_pickDepth,
+		     paint);
+  else
+    applySuperPixels(m_pickWidth,
+		     m_pickDepth,
+		     paint);      
+  
+  update();
+}
 
 void
 ImageWidget::mousePressEvent(QMouseEvent *event)
 {
   m_button = event->button();
 
+  QPoint pp = event->pos();
+  float ypos = pp.y();
+  float xpos = pp.x();
+  
+  m_cursorPos = pp;
+  m_pickPoint = false;
+
+  if (!validPickPoint(xpos, ypos))
+    return;
+  
+  m_lastPickDepth = m_pickDepth;
+  m_lastPickWidth = m_pickWidth;
+  m_lastPickHeight= m_pickHeight;
+
   bool ctrlModifier = event->modifiers() & Qt::ControlModifier;
+  if (ctrlModifier)
+    {
+      m_vline = ypos/m_zoom;
+      m_hline = xpos/m_zoom;
+      emit xPos(m_hline);
+      emit yPos(m_vline);
+    }
+
+  bool altModifier = event->modifiers() & Qt::AltModifier;
+
+  if (m_button == Qt::LeftButton)
+    {
+      if (altModifier)
+	{
+	  checkRubberBand(xpos, ypos);
+	  return;
+	}
+    }
 
   if (!ctrlModifier)
-    graphcutMousePressEvent(event);
-  else
     {
-      QPoint pp = event->pos();
-      float yp = pp.y();
-      float xp = pp.x();
-      if (validPickPoint(xp, yp))
-	{
-	  m_vline = yp/m_zoom;
-	  m_hline = xp/m_zoom;
-	  emit xPos(m_hline);
-	  emit yPos(m_vline);
-	}
+      if (m_modeType == 0) // graphcut
+	graphcutMousePressEvent(event);
+      else // superpixels
+	superpixelEvent();
     }
 
   update();
@@ -1450,14 +1533,14 @@ ImageWidget::graphcutMouseMoveEvent(QMouseEvent *event)
     }
   else if (m_button == Qt::LeftButton)
     {
-      if (m_rubberBandActive)
-	{
-	  updateRubberBand(xpos, ypos);
-	  update();
-	  return;
-	}
-      if (altModifier)
-	return;
+//      if (m_rubberBandActive)
+//	{
+//	  updateRubberBand(xpos, ypos);
+//	  update();
+//	  return;
+//	}
+//      if (altModifier)
+//	return;
 
       // carry on only if Alt key is not pressed
       if (validPickPoint(xpos, ypos))
@@ -1532,16 +1615,44 @@ ImageWidget::mouseMoveEvent(QMouseEvent *event)
   
   bool ctrlModifier = event->modifiers() & Qt::ControlModifier;
 
-  if (!ctrlModifier)
-    graphcutMouseMoveEvent(event);
-  else if (validPickPoint(xpos, ypos))
+  if (ctrlModifier)
     {
-      m_vline = ypos/m_zoom;
-      m_hline = xpos/m_zoom;
-      emit xPos(m_hline);
-      emit yPos(m_vline);
-      update();
+      if (validPickPoint(xpos, ypos))
+	{
+	  m_vline = ypos/m_zoom;
+	  m_hline = xpos/m_zoom;
+	  emit xPos(m_hline);
+	  emit yPos(m_vline);
+	  update();
+	}
+      return;
     }
+
+
+  bool altModifier = event->modifiers() & Qt::AltModifier;
+  if (event->buttons() == Qt::NoButton)
+    {
+      m_pickPoint = false;
+      preselect();
+      return;
+    }
+  else if (m_button == Qt::LeftButton)
+    {
+      if (m_rubberBandActive)
+	{
+	  updateRubberBand(xpos, ypos);
+	  update();
+	  return;
+	}
+      if (altModifier)
+	return;
+    }
+
+
+  if (m_modeType == 0) // graphcut
+    graphcutMouseMoveEvent(event);
+  else // superpixels
+    superpixelEvent();
 }
 
 void
@@ -2017,39 +2128,12 @@ ImageWidget::getSliceLimits(int &size1, int &size2,
 }
 
 void
-ImageWidget::applySuperPixels()
+ImageWidget::genSuperPixels()
 {
   uchar *imageData = new uchar[m_imgWidth*m_imgHeight];
-  uchar *maskData = new uchar[m_imgWidth*m_imgHeight];
-
 
   for(int i=0; i<m_imgWidth*m_imgHeight; i++)
     imageData[i] = m_sliceImage[4*i+0];
-
-
-  memset(maskData, 0, m_imgWidth*m_imgHeight);
-  for(int i=0; i<m_imgWidth*m_imgHeight; i++)
-    {
-      if (m_prevtags[i] > 0) // set as background so that we don't overwrite it
-	maskData[i] = 255;
-
-      if (m_prevtags[i] == Global::tag()) // add seed points
-	maskData[i] = Global::tag();
-    }
-  for(int i=0; i<m_imgWidth*m_imgHeight; i++) // overwrite with usertags
-    {
-      if (m_usertags[i] > 0)
-	maskData[i] = m_usertags[i];
-    }
-
-  if (Global::copyPrev())
-    {
-      for(int i=0; i<m_imgWidth*m_imgHeight; i++) // apply prevslicetags
-	{
-	  if (maskData[i] == 0)
-	    maskData[i] = m_prevslicetags[i];
-	}
-    }
 
   int size1, size2;
   int imin, imax, jmin, jmax;
@@ -2059,31 +2143,18 @@ ImageWidget::applySuperPixels()
   for(int i=imin; i<=imax; i++)
     for(int j=jmin; j<=jmax; j++)
       {
-	maskData[idx] = maskData[i*m_imgWidth+j];
-	idx++;
-      }
-
-  idx=0;
-  for(int i=imin; i<=imax; i++)
-    for(int j=jmin; j<=jmax; j++)
-      {
 	imageData[idx] = imageData[i*m_imgWidth+j];
 	idx++;
       }
 
-
   ushort *sdata = new ushort[size1*size2];
   for(int i=0; i<size1*size2; i++)
     sdata[i] = imageData[i];
-//  if (m_bytesPerVoxel == 2)
-//    memcpy(sdata, m_slice, 2*size1*size2);
-//  else
-//    {
-//      for(int i=0; i<m_imgWidth*m_imgHeight; i++)
-//	sdata[i] = m_slice[i];
-//    }
-  int K = (size1*size2)/(Global::lambda()*10);
-//  QMessageBox::information(0, "", QString("%1 %2").arg(K).arg(Global::lambda()));
+
+
+  delete [] imageData;
+
+  int K = (size1*size2)/(Global::lambda()*100);
 
   m_slic.PerformSLICO_ForGivenK(sdata,
 				size1,
@@ -2091,65 +2162,123 @@ ImageWidget::applySuperPixels()
 				K);
 
   int* labels = m_slic.getLabels();
-  int maxlabel = m_slic.getNumLabels();
+  //----------------------
+  // copy labels
 
-  int *tlabels = new int[size1*size2];
-  memcpy(tlabels, labels, size1*size2*sizeof(int));
+  for(int i=0; i<m_imgWidth*m_imgHeight; i++)
+    m_labels[i] = -1;
+
+  idx=0;
+  for(int i=imin; i<=imax; i++)
+    for(int j=jmin; j<=jmax; j++)
+      {
+	int ibdx = i*m_imgWidth+j;
+	m_labels[ibdx] = labels[idx];
+	idx++;
+      }
+  //----------------------
+
   m_slic.DrawContoursAroundSegmentsTwoColors(sdata,
-					     tlabels,
+					     labels,
 					     size1,
 					     size2);
 
+  m_spcimage = QImage(m_imgWidth,
+		      m_imgHeight,
+		      QImage::Format_ARGB32);
+  m_spcimage.fill(0);
+
+
   idx=0;
+  uchar *bits = m_spcimage.bits();
   for(int i=imin; i<=imax; i++)
     for(int j=jmin; j<=jmax; j++)
       {
 	if (sdata[idx] > 0)
-	  m_tags[i*m_imgWidth+j] = Global::tag();
+	  {
+	    int ibdx = i*m_imgWidth+j;
+	    bits[4*ibdx+0] = 0;
+	    bits[4*ibdx+1] = 0;
+	    bits[4*ibdx+2] = 250;
+	    bits[4*ibdx+3] = 255;
+	  }
 	idx++;
       }
-
-  float* meanl = m_slic.getMeanL();;
-
-  QMap<int, float> mergel;
-  for(int i=0; i<size1*size2; i++)
-    if (maskData[i] == Global::tag() &&
-	!mergel.contains(labels[i]))
-      mergel[labels[i]] = meanl[i];
-
-  QList<int> mkeys = mergel.keys();
-  QList<float> lmeans = mergel.values();
-  float meanLbound = 0.1;
-  maxlabel += 100;
-  m_slic.MergeSuperPixels(labels, mkeys, lmeans, meanLbound, maxlabel);
-
-  idx=0;
-  for(int i=imin; i<=imax; i++)
-    for(int j=jmin; j<=jmax; j++)
-      {
-	if (labels[idx] > 0 &&
-	    maskData[idx] < 255 &&
-	    imageData[idx] > 0)
-	  m_tags[i*m_imgWidth+j] = Global::tag();
-	idx++;
-      }
-
 
   delete [] sdata;
-  delete [] imageData;
-  delete [] maskData;
 
+  m_spcimageScaled = m_spcimage.scaled(m_simgWidth,
+				       m_simgHeight,
+				       Qt::IgnoreAspectRatio,
+				       Qt::FastTransformation);  
+}
+
+void
+ImageWidget::applySuperPixels(int x, int y, bool paint)
+{
+  if (! withinBounds(x, y))
+    return ;
+
+  if (m_labels[y*m_imgWidth + x] < 0)
+    return;
   
-  if (m_sliceType == DSlice)
-    emit tagDSlice(m_currSlice, m_tags);
-  else if (m_sliceType == WSlice)
-    emit tagWSlice(m_currSlice, m_tags);
-  else if (m_sliceType == HSlice)
-    emit tagHSlice(m_currSlice, m_tags);
+  int size1, size2;
+  int imin, imax, jmin, jmax;
+  getSliceLimits(size1, size2, imin, imax, jmin, jmax);
 
-  setMaskImage(m_tags);
+  if (y<imin || y>imax ||
+      x<jmin || x>jmax)
+    return;
+  
+  QBitArray bitmask;
+  bitmask.resize(m_imgWidth*m_imgHeight);
+  bitmask.fill(false);
 
-  checkRecursive();
+  int lbl = m_labels[y*m_imgWidth+x];
+  QQueue<QPoint> que;
+  que << QPoint(x,y);
+  bitmask.setBit(y*m_imgWidth+x);
+
+  uchar ptag = Global::tag();
+  if (!paint)
+    ptag = 0;
+
+  m_usertags[y*m_imgWidth+x] = ptag;
+  
+  const int dx4[4] = {-1,  0,  1,  0};
+  const int dy4[4] = { 0, -1,  0,  1};
+  while (!que.isEmpty())
+    {
+      QPoint ij = que.dequeue();
+      int i = ij.x();
+      int j = ij.y();
+      for( int n = 0; n < 4; n++ )
+	{
+	  int a = i + dx4[n];
+	  int b = j + dy4[n];
+	  int idx = b*m_imgWidth + a;
+	  if( (a >= 0 && a < m_imgWidth) &&
+	      (b >= 0 && b < m_imgHeight) &&
+	      m_labels[idx] == lbl &&
+	      !bitmask.testBit(idx))
+	    {
+	      que << QPoint(a,b);
+	      bitmask.setBit(idx);
+	      m_usertags[idx] = ptag;
+	    }
+	}
+    }
+
+  m_userimage = QImage(m_usertags,
+		       m_imgWidth,
+		       m_imgHeight,
+		       m_imgWidth,
+		       QImage::Format_Indexed8);
+  m_userimage.setColorTable(m_tagColors);
+  m_userimageScaled = m_userimage.scaled(m_simgWidth,
+					 m_simgHeight,
+					 Qt::IgnoreAspectRatio,
+					 Qt::FastTransformation);
 }
 
 void

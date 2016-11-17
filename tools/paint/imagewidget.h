@@ -141,6 +141,9 @@ class ImageWidget : public QWidget
   int m_modeType;
 
   SLIC m_slic;
+  int *m_labels;
+  QImage m_spcimage;
+  QImage m_spcimageScaled;
 
   int m_maxSlice;
   int m_currSlice;
@@ -232,7 +235,9 @@ class ImageWidget : public QWidget
   void dotImage(int, int, bool);
   void removeDotImage(int, int);
 
-  void applySuperPixels();
+  void genSuperPixels();
+  void applySuperPixels(int, int, bool);
+
   void applyGraphCut();
   void applyPaint(bool);
   void applyReset();
@@ -252,6 +257,8 @@ class ImageWidget : public QWidget
   void graphcutModeKeyPressEvent(QKeyEvent*);
   void graphcutMousePressEvent(QMouseEvent*);
   void graphcutMouseMoveEvent(QMouseEvent*);
+
+  void superpixelEvent();
 
   void doAnother(int);
 

@@ -562,21 +562,21 @@ SLIC::MergeSuperPixels(int* nlabels,
 	ignore.setBit(i,false);
     }
 
-  for( int i = 0; i < sz; i++ )
-    {
-      if (ignore.testBit(i))
-	{
-	  float lme = m_meanl[i];
-	  for(int a=0; a<lmeans.count(); a++)
-	    {
-	      if (lme > 0 && qAbs(lme-lmeans[a]) < meanLbound)
-		{
-		  ignore.setBit(i, false);
-		  break;
-		}
-	    }
-	}
-    }
+//  for( int i = 0; i < sz; i++ )
+//    {
+//      if (ignore.testBit(i))
+//	{
+//	  float lme = m_meanl[i];
+//	  for(int a=0; a<lmeans.count(); a++)
+//	    {
+//	      if (lme > 0 && qAbs(lme-lmeans[a]) < meanLbound)
+//		{
+//		  ignore.setBit(i, false);
+//		  break;
+//		}
+//	    }
+//	}
+//    }
 
   QMap<int, int> all_labels;
   for( int i = 0; i < sz; i++ )

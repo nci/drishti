@@ -41,6 +41,7 @@ class Slices : public QWidget
 
   void zoomToSelection() { m_imageWidget->zoom9Clicked(); }
  signals :
+  void changeLayout();
   void sliceChanged(int);
   void xPos(int);
   void yPos(int);
@@ -81,6 +82,7 @@ class Slices : public QWidget
     QPushButton *m_zoom9;
     QPushButton *m_zoomUp;
     QPushButton *m_zoomDown;
+    QPushButton *m_changeLayout;
 
     QLabel *m_mesg;
 

@@ -37,6 +37,8 @@ Slices::createMenu(QHBoxLayout *hl,
   m_zoomUp = new QPushButton("+",this);
   m_zoomDown = new QPushButton("-",this);
 
+  m_changeLayout = new QPushButton("L",this);
+
   m_mesg = new QLabel("Graph Cut");
 
   thl->addWidget(m_zoom9);
@@ -45,6 +47,7 @@ Slices::createMenu(QHBoxLayout *hl,
   thl->addWidget(m_zoomDown);
   thl->addStretch();
   thl->addWidget(m_mesg);
+  thl->addWidget(m_changeLayout);
 
   vl->addLayout(thl);
 
@@ -56,9 +59,12 @@ Slices::createMenu(QHBoxLayout *hl,
   m_zoom0->setMaximumSize(30,30);
   m_zoomUp->setMaximumSize(30,30);
   m_zoomDown->setMaximumSize(30,30);
+  m_changeLayout->setMaximumSize(30,30);
 
   m_zoomUp->setAutoRepeat(true);
   m_zoomDown->setAutoRepeat(true);
+
+  connect(m_changeLayout, SIGNAL(clicked()), this, SIGNAL(changeLayout()));
 
   connect(m_zoom0, SIGNAL(clicked()), m_imageWidget, SLOT(zoom0Clicked()));
   connect(m_zoom9, SIGNAL(clicked()), m_imageWidget, SLOT(zoom9Clicked()));

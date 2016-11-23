@@ -196,15 +196,13 @@ ImageWidget::setZoom(float z)
       int imin, imax, jmin, jmax;
       getSliceLimits(size1, size2, imin, imax, jmin, jmax);
 
-      QWidget *prt = (QWidget*)parent();
-      int frmHeight = prt->rect().height()-50;
-      int frmWidth = prt->rect().width()-50;
-//      float zn = qMin((float)frmWidth/m_imgWidth,
-//		      (float)frmHeight/m_imgHeight);
-
       m_zoom = 1;
       if (size1 > 0 && size2 > 0)
 	{
+	  QWidget *prt = (QWidget*)parent();
+	  int frmHeight = prt->rect().height()-50;
+	  int frmWidth = prt->rect().width()-50;
+
 	  m_zoom = qMin((float)frmWidth/size2,
 			(float)frmHeight/size1);
 	  m_zoom = qMax(0.01f, m_zoom);
@@ -212,8 +210,8 @@ ImageWidget::setZoom(float z)
 	  z9 = true;
 	  z9x = m_zoom*(jmax+jmin)/2;
 	  z9y = m_zoom*(imax+imin)/2;
-	  z9mx = frmWidth/2;
-	  z9my = frmHeight/2;
+	  z9mx = (frmWidth+65)/2;
+	  z9my = (frmHeight+65)/2;
 	}
     }
   else
@@ -723,7 +721,7 @@ ImageWidget::resizeImage()
   m_spcimageScaled = m_spcimage.scaled(m_simgWidth,
 				       m_simgHeight,
 				       Qt::IgnoreAspectRatio,
-				       Qt::FastTransformation);  
+				       Qt::SmoothTransformation); 
 }
 
 void
@@ -2203,7 +2201,7 @@ ImageWidget::genSuperPixels()
 	    bits[4*ibdx+0] = 0;
 	    bits[4*ibdx+1] = 0;
 	    bits[4*ibdx+2] = 250;
-	    bits[4*ibdx+3] = 255;
+	    bits[4*ibdx+3] = 200;
 	  }
 	idx++;
       }

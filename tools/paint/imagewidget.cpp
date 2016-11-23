@@ -2213,7 +2213,7 @@ ImageWidget::genSuperPixels()
   m_spcimageScaled = m_spcimage.scaled(m_simgWidth,
 				       m_simgHeight,
 				       Qt::IgnoreAspectRatio,
-				       Qt::FastTransformation);  
+				       Qt::SmoothTransformation);  
 }
 
 void

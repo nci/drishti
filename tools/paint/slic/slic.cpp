@@ -4,6 +4,7 @@
 #include <QMap>
 #include <QQueue>
 #include <QBitArray>
+#include <QtMath>
 
 SLIC::SLIC()
 {
@@ -109,6 +110,60 @@ void
 SLIC::DetectEdges()
 {
   for( int j = 1; j < m_height-1; j++ )
+    {
+      int k = 0;
+      int i = j*m_width+k;
+
+      float dx = (m_lvec[i]-m_lvec[i+1])*
+	         (m_lvec[i]-m_lvec[i+1]);
+      
+      float dy = (m_lvec[i-m_width]-m_lvec[i+m_width])*
+	         (m_lvec[i-m_width]-m_lvec[i+m_width]);
+      
+      m_edgemag[i] = (dx + dy);
+    }
+
+  for( int j = 1; j < m_height-1; j++ )
+    {
+      int k = m_width-1;
+      int i = j*m_width+k;
+
+      float dx = (m_lvec[i-1]-m_lvec[i])*
+	         (m_lvec[i-1]-m_lvec[i]);
+      
+      float dy = (m_lvec[i-m_width]-m_lvec[i+m_width])*
+	         (m_lvec[i-m_width]-m_lvec[i+m_width]);
+      
+      m_edgemag[i] = (dx + dy);
+    }
+
+  for( int k = 1; k < m_width-1; k++ )
+    {
+      int j = 0;
+      int i = j*m_width+k;
+      float dx = (m_lvec[i-1]-m_lvec[i+1])*
+	         (m_lvec[i-1]-m_lvec[i+1]);
+      
+      float dy = (m_lvec[i]-m_lvec[i+m_width])*
+	         (m_lvec[i]-m_lvec[i+m_width]);
+      
+      m_edgemag[i] = (dx + dy);
+    }
+  for( int k = 1; k < m_width-1; k++ )
+    {
+      int j = m_height-1;
+      int i = j*m_width+k;
+      float dx = (m_lvec[i-1]-m_lvec[i+1])*
+	         (m_lvec[i-1]-m_lvec[i+1]);
+      
+      float dy = (m_lvec[i-m_width]-m_lvec[i])*
+	         (m_lvec[i-m_width]-m_lvec[i]);
+      
+      m_edgemag[i] = (dx + dy);
+    }
+
+
+  for( int j = 1; j < m_height-1; j++ )
     for( int k = 1; k < m_width-1; k++ )
       {
 	int i = j*m_width+k;
@@ -154,6 +209,7 @@ SLIC::GetSeeds_ForGivenK(int K, bool perturbseeds)
 	  ksl << m_lvec[i];
 	  ksx << X;
 	  ksy << Y;
+
 	  n++;
 	}
       r++;
@@ -284,13 +340,14 @@ SLIC::PerformSuperpixelSegmentation_VariableSandM(int STEP,
 		  
 		  float l = m_lvec[i];
 		  
-		  distlab[i] = (l - m_kseedsl[n])*(l - m_kseedsl[n]);
-		  distxy[i] = (x - m_kseedsx[n])*(x - m_kseedsx[n]) +
-		              (y - m_kseedsy[n])*(y - m_kseedsy[n]);
+		  distlab[i] = qSqrt((l - m_kseedsl[n])*(l - m_kseedsl[n]));
+
+		  distxy[i] = qSqrt((x - m_kseedsx[n])*(x - m_kseedsx[n]) +
+				    (y - m_kseedsy[n])*(y - m_kseedsy[n]));
 		  
 		  //------------------------------------------------------------------------
-		  float dist = distlab[i]/maxlab[n] + distxy[i]*invxywt; //only varying m, prettier superpixels
-		  //float dist = distlab[i]/maxlab[n] + distxy[i]/maxxy[n];//varying both m and S
+		  //float dist = distlab[i]/maxlab[n] + distxy[i]*invxywt; //only varying m, prettier superpixels
+		  float dist = distlab[i]/maxlab[n] + distxy[i]/maxxy[n];//varying both m and S
 		  //------------------------------------------------------------------------
 		  
 		  if(dist < distvec[i])

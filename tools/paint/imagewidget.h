@@ -140,6 +140,8 @@ class ImageWidget : public QWidget
   // 1 - superpixel
   int m_modeType;
 
+  bool m_hideLabels;
+  bool m_autoGenSuperPixels;
   SLIC m_slic;
   int *m_labels;
   QImage m_spcimage;
@@ -237,6 +239,7 @@ class ImageWidget : public QWidget
 
   void genSuperPixels();
   void applySuperPixels(int, int, bool);
+  void applySuperPixels();
 
   void applyGraphCut();
   void applyPaint(bool);

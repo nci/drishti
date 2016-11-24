@@ -86,6 +86,13 @@ SLIC::PerformSLICO_ForGivenK(ushort *ubuff,
   int STEP = sqrt(float(sz)/float(K)) + 2.0;//adding a small value in the even the STEP size is too small.
   PerformSuperpixelSegmentation_VariableSandM(STEP,10);
 
+  int* nlabels = new int[sz];
+  EnforceLabelConnectivity(nlabels, K);
+
+  for(int i = 0; i < sz; i++ )
+    m_klabels[i] = nlabels[i];
+
+  delete [] nlabels;
 
   //---------------------
   // store meanl at every pixel
@@ -95,14 +102,6 @@ SLIC::PerformSLICO_ForGivenK(ushort *ubuff,
     m_meanl[i] = m_kseedsl[m_klabels[i]];
   //---------------------
 
-
-  int* nlabels = new int[sz];
-  EnforceLabelConnectivity(nlabels, K);
-
-  for(int i = 0; i < sz; i++ )
-    m_klabels[i] = nlabels[i];
-
-  delete [] nlabels;
 }
 
 
@@ -340,14 +339,20 @@ SLIC::PerformSuperpixelSegmentation_VariableSandM(int STEP,
 		  
 		  float l = m_lvec[i];
 		  
-		  distlab[i] = qSqrt((l - m_kseedsl[n])*(l - m_kseedsl[n]));
+//		  distlab[i] = qSqrt((l - m_kseedsl[n])*(l - m_kseedsl[n]));
 
-		  distxy[i] = qSqrt((x - m_kseedsx[n])*(x - m_kseedsx[n]) +
-				    (y - m_kseedsy[n])*(y - m_kseedsy[n]));
+//		  distxy[i] = qSqrt((x - m_kseedsx[n])*(x - m_kseedsx[n]) +
+//				    (y - m_kseedsy[n])*(y - m_kseedsy[n]));
 		  
+
+		  distlab[i] = ((l - m_kseedsl[n])*(l - m_kseedsl[n]));
+
+		  distxy[i] = ((x - m_kseedsx[n])*(x - m_kseedsx[n]) +
+			       (y - m_kseedsy[n])*(y - m_kseedsy[n]));
+
 		  //------------------------------------------------------------------------
-		  //float dist = distlab[i]/maxlab[n] + distxy[i]*invxywt; //only varying m, prettier superpixels
-		  float dist = distlab[i]/maxlab[n] + distxy[i]/maxxy[n];//varying both m and S
+		  float dist = distlab[i]/maxlab[n] + distxy[i]*invxywt; //only varying m, prettier superpixels
+		  //float dist = distlab[i]/maxlab[n] + distxy[i]/maxxy[n];//varying both m and S
 		  //------------------------------------------------------------------------
 		  
 		  if(dist < distvec[i])
@@ -559,7 +564,7 @@ SLIC::DrawContoursAroundSegmentsTwoColors(ushort* img,
 		{
 		  int index = y*width + x;
 		  
-		  //if( false == istaken[index] )//comment this to obtain internal contours
+		  if( false == istaken[index] )//comment this to obtain internal contours
 		  {
 		    if( labels[mainindex] != labels[index] ) np++;
 		  }
@@ -619,21 +624,21 @@ SLIC::MergeSuperPixels(int* nlabels,
 	ignore.setBit(i,false);
     }
 
-//  for( int i = 0; i < sz; i++ )
-//    {
-//      if (ignore.testBit(i))
-//	{
-//	  float lme = m_meanl[i];
-//	  for(int a=0; a<lmeans.count(); a++)
-//	    {
-//	      if (lme > 0 && qAbs(lme-lmeans[a]) < meanLbound)
-//		{
-//		  ignore.setBit(i, false);
-//		  break;
-//		}
-//	    }
-//	}
-//    }
+  for( int i = 0; i < sz; i++ )
+    {
+      if (ignore.testBit(i))
+	{
+	  float lme = m_meanl[i];
+	  for(int a=0; a<lmeans.count(); a++)
+	    {
+	      if (lme > 0 && qAbs(lme-lmeans[a]) < meanLbound)
+		{
+		  ignore.setBit(i, false);
+		  break;
+		}
+	    }
+	}
+    }
 
   QMap<int, int> all_labels;
   for( int i = 0; i < sz; i++ )
@@ -712,7 +717,7 @@ SLIC::MergeSuperPixels(int* nlabels,
   //------------------------------------------------
   //------------------------------------------------
 
-  m_numlabels = labelkeys.count();
+  //m_numlabels = labelkeys.count();
   
   memcpy(nlabels, newlabels, sz*sizeof(int));
 

@@ -149,6 +149,7 @@ class ImageWidget : public QWidget
   int m_superPixelSize;
   SLIC m_slic;
   int *m_labels;
+  float *m_lmeans;
   QImage m_spcimage;
   QImage m_spcimageScaled;
 

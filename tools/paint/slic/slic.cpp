@@ -86,13 +86,6 @@ SLIC::PerformSLICO_ForGivenK(ushort *ubuff,
   int STEP = sqrt(float(sz)/float(K)) + 2.0;//adding a small value in the even the STEP size is too small.
   PerformSuperpixelSegmentation_VariableSandM(STEP,10);
 
-  int* nlabels = new int[sz];
-  EnforceLabelConnectivity(nlabels, K);
-
-  for(int i = 0; i < sz; i++ )
-    m_klabels[i] = nlabels[i];
-
-  delete [] nlabels;
 
   //---------------------
   // store meanl at every pixel
@@ -102,6 +95,14 @@ SLIC::PerformSLICO_ForGivenK(ushort *ubuff,
     m_meanl[i] = m_kseedsl[m_klabels[i]];
   //---------------------
 
+
+  int* nlabels = new int[sz];
+  EnforceLabelConnectivity(nlabels, K);
+
+  for(int i = 0; i < sz; i++ )
+    m_klabels[i] = nlabels[i];
+
+  delete [] nlabels;
 }
 
 
@@ -604,124 +605,4 @@ SLIC::DrawContoursAroundSegmentsTwoColors(ushort* img,
 //	    }
 //	}
     }
-}
-
-void
-SLIC::MergeSuperPixels(int* nlabels,
-		       QList<int> mkeys,
-		       QList<float> lmeans,
-		       float meanLbound,
-		       int maxlabel)
-{
-  const int sz = m_width*m_height;
-
-  QBitArray ignore;
-  ignore.resize(sz);
-  ignore.fill(true);
-
-  QList<int> mels;
-  for( int i = 0; i < sz; i++ )
-    {
-      if (mkeys.contains(nlabels[i]))	  
-	ignore.setBit(i,false);
-    }
-
-  for( int i = 0; i < sz; i++ )
-    {
-      if (ignore.testBit(i))
-	{
-	  float lme = m_meanl[i];
-	  for(int a=0; a<lmeans.count(); a++)
-	    {
-	      if (lme > 0 && qAbs(lme-lmeans[a]) < meanLbound)
-		{
-		  ignore.setBit(i, false);
-		  break;
-		}
-	    }
-	}
-    }
-
-  QMap<int, int> all_labels;
-  for( int i = 0; i < sz; i++ )
-    {
-      if (!ignore.testBit(i))
-	all_labels[nlabels[i]] = 1;
-    }
-  
-  QList<int> labelkeys = all_labels.uniqueKeys();
-  //QMessageBox::information(0, "", QString("labels : %1").arg(labelkeys.count()));
-  
-  int *newlabels = new int[sz]; 
-  for( int i = 0; i < sz; i++ )
-    newlabels[i] = -1;
-
-  //------------------------------------------------
-  //------------------------------------------------
-
-  //int maxlabel = labelkeys.count() + 10;
-
-  QQueue<QPoint> que;
-  QBitArray bitmask;
-  bitmask.resize(sz);
-  bitmask.fill(false);
-
-  for( int j = 0; j < m_height; j++ )
-    for( int k = 0; k < m_width; k++ )
-      {
-	int idx = j*m_width + k;
-	if (mkeys.contains(nlabels[idx]))
-	  {
-	    bitmask.setBit(idx, true);
-	    newlabels[idx] = maxlabel;
-	    que << QPoint(j,k);
-	  }
-      }
-
-  const int dx4[4] = {-1,  0,  1,  0};
-  const int dy4[4] = { 0, -1,  0,  1};
-  while (!que.isEmpty())
-    {
-      QPoint jk = que.dequeue();
-      int j = jk.x();
-      int k = jk.y();
-      for( int n = 0; n < 4; n++ )
-	{
-	  int x = k + dx4[n];
-	  int y = j + dy4[n];
-	  int idx = y*m_width + x;
-	  if( (x >= 0 && x < m_width) &&
-	      (y >= 0 && y < m_height) &&
-	      !ignore.testBit(idx) &&
-	      !bitmask.testBit(idx))
-	    {
-	      bitmask.setBit(idx, true);
-	      newlabels[idx] = maxlabel;
-	      que << QPoint(y,x);
-	    }	  
-	}
-    }
-
-  for( int i = 0; i < sz; i++ )
-    {
-      if (newlabels[i] != maxlabel)
-	newlabels[i] = 0;
-    }
-
-  all_labels.clear();
-  for( int i = 0; i < sz; i++ )
-    all_labels[newlabels[i]] = 1;
-
-
-  labelkeys = all_labels.uniqueKeys();
-  //QMessageBox::information(0, "", QString("merged labels : %1").arg(labelkeys.count()));
-
-  //------------------------------------------------
-  //------------------------------------------------
-
-  //m_numlabels = labelkeys.count();
-  
-  memcpy(nlabels, newlabels, sz*sizeof(int));
-
-  delete newlabels;
 }

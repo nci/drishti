@@ -23,9 +23,6 @@ class SLIC
   void DrawContoursAroundSegmentsTwoColors(ushort*, int*,
 					   int, int);
 
-  void MergeSuperPixels(int*, QList<int>, QList<float>,
-			float, int);
-
  private :
   int m_width, m_height, m_depth;				     
   ushort* m_data;

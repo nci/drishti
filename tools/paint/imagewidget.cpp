@@ -91,6 +91,7 @@ ImageWidget::ImageWidget(QWidget *parent) :
   m_usertags = 0;
   m_prevslicetags = 0;
   m_labels = 0;
+  m_lmeans = 0;
   
   m_currSlice = 0;
   m_minDSlice = m_maxDSlice = 0;
@@ -146,6 +147,10 @@ void
 ImageWidget::setSuperPixelSize(int sz)
 {
   m_superPixelSize = sz;
+
+  if (!m_volPtr)
+    return;
+
   if (m_modeType == 1)
     {
       genSuperPixels();
@@ -466,6 +471,11 @@ ImageWidget::resetSliceType()
   m_labels = new int[wd*ht];
   for(int i=0; i<wd*ht; i++)
     m_labels[i] = -1;
+
+  if (m_lmeans) delete [] m_lmeans;
+  m_lmeans = new float[wd*ht];
+  for(int i=0; i<wd*ht; i++)
+    m_lmeans[i] = -1;
   //---------------------------------
 
 
@@ -1521,7 +1531,7 @@ ImageWidget::mousePressEvent(QMouseEvent *event)
 
   if (!ctrlModifier)
     {
-      if (m_modeType == 0 || shiftModifier) // graphcut
+      if (m_modeType == 0) // graphcut
 	graphcutMousePressEvent(event);
       else // superpixels
 	superpixelEvent();
@@ -1661,7 +1671,7 @@ ImageWidget::mouseMoveEvent(QMouseEvent *event)
     }
 
 
-  if (m_modeType == 0 || shiftModifier) // graphcut
+  if (m_modeType == 0) // graphcut
     graphcutMouseMoveEvent(event);
   else // superpixels
     superpixelEvent();
@@ -2177,10 +2187,9 @@ ImageWidget::genSuperPixels()
 				size2,
 				K);
 
-  int* labels = m_slic.getLabels();
   //----------------------
   // copy labels
-
+  int* labels = m_slic.getLabels();
   for(int i=0; i<m_imgWidth*m_imgHeight; i++)
     m_labels[i] = -1;
 
@@ -2193,6 +2202,23 @@ ImageWidget::genSuperPixels()
 	idx++;
       }
   //----------------------
+
+  //----------------------
+  // copy lmeans
+  float* lmeans = m_slic.getMeanL();
+  for(int i=0; i<m_imgWidth*m_imgHeight; i++)
+    m_lmeans[i] = -1;
+
+  idx=0;
+  for(int i=imin; i<=imax; i++)
+    for(int j=jmin; j<=jmax; j++)
+      {
+	int ibdx = i*m_imgWidth+j;
+	m_lmeans[ibdx] = lmeans[idx];
+	idx++;
+      }
+  //----------------------
+
 
 
   m_slic.DrawContoursAroundSegmentsTwoColors(sdata,
@@ -2220,7 +2246,7 @@ ImageWidget::genSuperPixels()
 	  {
 	    int ibdx = i*m_imgWidth+j;
 	    bits[4*ibdx+0] = 0;
-	    bits[4*ibdx+1] = 0;
+	    bits[4*ibdx+1] = 200;
 	    bits[4*ibdx+2] = 200;
 	    bits[4*ibdx+3] = 200;
 	  }
@@ -2267,6 +2293,10 @@ ImageWidget::applySuperPixels(int x, int y, bool paint)
   if (!paint)
     ptag = 0;
 
+  int shiftModifier = QGuiApplication::keyboardModifiers() & Qt::ShiftModifier;
+  if (shiftModifier)
+    ptag = 255;
+  
   m_usertags[y*m_imgWidth+x] = ptag;
   
   const int dx4[4] = {-1,  0,  1,  0};
@@ -2304,47 +2334,91 @@ ImageWidget::applySuperPixels(int x, int y, bool paint)
 					 Qt::IgnoreAspectRatio,
 					 Qt::FastTransformation);
 }
-
 void
 ImageWidget::applySuperPixels()
 {
-  QList<int> mkeys;
-  QList<float> meanls;
-  QMap<int, float> lmm;
-  float *lmeans = m_slic.getMeanL();
-  int numlabels = m_slic.getNumLabels();
+  uchar *imageData = new uchar[m_imgWidth*m_imgHeight];
+  uchar *maskData = new uchar[m_imgWidth*m_imgHeight];
 
+
+  for(int i=0; i<m_imgWidth*m_imgHeight; i++)
+    imageData[i] = m_lmeans[i];
+  
+
+  memset(maskData, 0, m_imgWidth*m_imgHeight);
+  for(int i=0; i<m_imgWidth*m_imgHeight; i++)
+    {
+      if (m_prevtags[i] > 0) // set as background so that we don't overwrite it
+	maskData[i] = 255;
+
+      if (m_prevtags[i] == Global::tag()) // add seed points
+	maskData[i] = Global::tag();
+    }
   for(int i=0; i<m_imgWidth*m_imgHeight; i++) // overwrite with usertags
     {
-      if (m_usertags[i] > 0 && m_labels[i] >= 0)
-	lmm[m_labels[i]] = lmeans[i]; 
+      if (m_usertags[i] > 0)
+	maskData[i] = m_usertags[i];
     }
-  mkeys = lmm.keys();
-  meanls = lmm.values();
 
-  int *labels = new int[m_imgWidth*m_imgHeight];
-  memcpy(labels, m_labels, sizeof(int)*m_imgWidth*m_imgHeight);
-  m_slic.MergeSuperPixels(labels,
-			  mkeys,
-			  meanls,
-			  Global::prevErode(),
-			  numlabels);
+  if (Global::copyPrev())
+    {
+      for(int i=0; i<m_imgWidth*m_imgHeight; i++) // apply prevslicetags
+	{
+	  if (maskData[i] == 0)
+	    maskData[i] = m_prevslicetags[i];
+	}
+    }
 
   int size1, size2;
   int imin, imax, jmin, jmax;
   getSliceLimits(size1, size2, imin, imax, jmin, jmax);
 
+  int idx=0;
   for(int i=imin; i<=imax; i++)
     for(int j=jmin; j<=jmax; j++)
       {
-	int idx = i*m_imgWidth+j;
-	if (labels[idx] > 0 &&
-	    m_tags[i*m_imgWidth+j] == 0)
-	  m_tags[i*m_imgWidth+j] = Global::tag();
+	maskData[idx] = maskData[i*m_imgWidth+j];
 	idx++;
       }
 
-  delete [] labels;
+  idx=0;
+  for(int i=imin; i<=imax; i++)
+    for(int j=jmin; j<=jmax; j++)
+      {
+	imageData[idx] = imageData[i*m_imgWidth+j];
+	idx++;
+      }
+
+  MaxFlowMinCut mfmc;
+  memset(m_tags, 0, size1*size2);
+  int tagged = mfmc.run(size1, size2,
+			Global::boxSize(),
+			Global::lambda()*0.1,
+			Global::tagSimilar(), // tag similar looking features
+			imageData, maskData,
+			Global::tag(), m_tags);
+
+  memcpy(maskData, m_tags, size1*size2);
+  memset(m_tags, 0, m_imgWidth*m_imgHeight);
+
+  idx=0;
+  for(int i=imin; i<=imax; i++)
+    for(int j=jmin; j<=jmax; j++)
+      {
+	m_tags[i*m_imgWidth+j] = maskData[idx];
+	idx++;
+      }
+
+  
+  for(int i=0; i<m_imgWidth*m_imgHeight; i++)
+    {
+      if (m_tags[i] == 0)
+	m_tags[i] = m_prevtags[i];
+    }
+
+  delete [] imageData;
+  delete [] maskData;
+
   
   if (m_sliceType == DSlice)
     emit tagDSlice(m_currSlice, m_tags);
@@ -2357,6 +2431,7 @@ ImageWidget::applySuperPixels()
 
   checkRecursive();
 }
+
 
 
 void

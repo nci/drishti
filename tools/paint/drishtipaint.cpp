@@ -1152,7 +1152,7 @@ void
 DrishtiPaint::on_supPixSize()
 {
   int spsz = superpixelUi.supPixSize->value();
-  spsz *= 50;
+  spsz *= 25;
   superpixelUi.supPixSizeLabel->setText(QString("%1").arg(spsz));
 
   m_axialImage->setSuperPixelSize(spsz);
@@ -2864,11 +2864,6 @@ DrishtiPaint::connectGraphCutMenu()
 void
 DrishtiPaint::connectSuperPixelMenu()
 {
-  superpixelUi.supPixSize->setValue(25);
-  int spsz = superpixelUi.supPixSize->value();
-  spsz *= 20;
-  superpixelUi.supPixSizeLabel->setText(QString("%1").arg(spsz));
-
   connect(superpixelUi.autoGenSupPix, SIGNAL(clicked(bool)),
 	  this, SLOT(on_autoGenSupPix_clicked(bool)));
 
@@ -2877,6 +2872,15 @@ DrishtiPaint::connectSuperPixelMenu()
 
   connect(superpixelUi.supPixSize, SIGNAL(sliderReleased()),
 	  this, SLOT(on_supPixSize()));
+
+  superpixelUi.hideSupPix->setChecked(false);
+  on_hideSupPix_clicked(false);
+
+  superpixelUi.autoGenSupPix->setChecked(true);
+  on_autoGenSupPix_clicked(true);
+
+  superpixelUi.supPixSize->setValue(10);
+  on_supPixSize();
 }
 
 void

@@ -212,6 +212,9 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   m_curvesMenu = new QFrame();
   curvesUi.setupUi(m_curvesMenu);
 
+  m_superpixelMenu = new QFrame();
+  superpixelUi.setupUi(m_superpixelMenu);
+
   ui.help->setMaximumSize(50, 50);
   ui.help->setMinimumSize(50, 50);
 
@@ -225,6 +228,7 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   
   //m_curvesMenu->hide();
   ui.sideframelayout->addWidget(m_graphcutMenu);
+  ui.sideframelayout->addWidget(m_superpixelMenu);
   ui.sideframelayout->addWidget(m_curvesMenu);
 
 
@@ -437,6 +441,7 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   connectCurvesWidget();
   connectCurvesMenu();
   connectGraphCutMenu();
+  connectSuperPixelMenu();
   connectFibersMenu();
   //------------------------
 
@@ -466,6 +471,11 @@ DrishtiPaint::on_help_clicked()
       ShowHelp::showGraphCutHelp();
       return;
     }
+//  if (m_superpixelMenu->isVisible())
+//    {
+//      ShowHelp::showSuperPixelHelp();
+//      return;
+//    }
   if (m_fibersMenu->isVisible())
     {
       ShowHelp::showFibersHelp();
@@ -729,6 +739,7 @@ DrishtiPaint::on_actionCurves_triggered()
 
   m_curvesMenu->show();
   m_graphcutMenu->hide();
+  m_superpixelMenu->hide();
   m_fibersMenu->hide();
   ui.wdptszframe->show();
   ui.spreadframe->hide();
@@ -767,6 +778,7 @@ DrishtiPaint::on_actionGraphCut_triggered()
 
   m_curvesMenu->hide();
   m_graphcutMenu->show();
+  m_superpixelMenu->hide();
   m_fibersMenu->hide();
   ui.wdptszframe->hide();
   ui.spreadframe->show();
@@ -807,7 +819,8 @@ DrishtiPaint::on_actionSuperpixels_triggered()
   ui.sizeSel->hide();
 
   m_curvesMenu->hide();
-  m_graphcutMenu->show();
+  m_graphcutMenu->hide();
+  m_superpixelMenu->show();
   m_fibersMenu->hide();
   ui.wdptszframe->hide();
   ui.spreadframe->show();
@@ -1117,6 +1130,34 @@ DrishtiPaint::on_preverode_valueChanged(int t)
   m_axialImage->processPrevSliceTags();
   m_sagitalImage->processPrevSliceTags();
   m_coronalImage->processPrevSliceTags();
+}
+
+void
+DrishtiPaint::on_autoGenSupPix_clicked(bool b)
+{
+  m_axialImage->setAutoGenSuperPixels(b);
+  m_sagitalImage->setAutoGenSuperPixels(b);
+  m_coronalImage->setAutoGenSuperPixels(b);
+}
+
+void
+DrishtiPaint::on_hideSupPix_clicked(bool b)
+{
+  m_axialImage->setHideSuperPixels(b);
+  m_sagitalImage->setHideSuperPixels(b);
+  m_coronalImage->setHideSuperPixels(b);
+}
+
+void
+DrishtiPaint::on_supPixSize()
+{
+  int spsz = superpixelUi.supPixSize->value();
+  spsz *= 50;
+  superpixelUi.supPixSizeLabel->setText(QString("%1").arg(spsz));
+
+  m_axialImage->setSuperPixelSize(spsz);
+  m_sagitalImage->setSuperPixelSize(spsz);
+  m_coronalImage->setSuperPixelSize(spsz);
 }
 
 void
@@ -2818,6 +2859,24 @@ DrishtiPaint::connectGraphCutMenu()
 	  this, SLOT(on_lambda_valueChanged(int)));
   connect(graphcutUi.boxSize, SIGNAL(valueChanged(int)),
 	  this, SLOT(on_boxSize_valueChanged(int)));
+}
+
+void
+DrishtiPaint::connectSuperPixelMenu()
+{
+  superpixelUi.supPixSize->setValue(25);
+  int spsz = superpixelUi.supPixSize->value();
+  spsz *= 20;
+  superpixelUi.supPixSizeLabel->setText(QString("%1").arg(spsz));
+
+  connect(superpixelUi.autoGenSupPix, SIGNAL(clicked(bool)),
+	  this, SLOT(on_autoGenSupPix_clicked(bool)));
+
+  connect(superpixelUi.hideSupPix, SIGNAL(clicked(bool)),
+	  this, SLOT(on_hideSupPix_clicked(bool)));
+
+  connect(superpixelUi.supPixSize, SIGNAL(sliderReleased()),
+	  this, SLOT(on_supPixSize()));
 }
 
 void

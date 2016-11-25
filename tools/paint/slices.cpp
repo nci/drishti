@@ -23,6 +23,7 @@ Slices::Slices(QWidget *parent) :
 
   setLayout(vl);
 
+  m_maximized = false;
 
   m_imageWidget->setScrollArea(scrollArea);
 }
@@ -148,6 +149,10 @@ Slices::setGridSize(int d, int w, int h)
 
 void Slices::setHLine(int h) { m_imageWidget->setHLine(h); }
 void Slices::setVLine(int v) { m_imageWidget->setVLine(v); }
+
+void Slices::setSuperPixelSize(int spsz) { m_imageWidget->setSuperPixelSize(spsz); }
+void Slices::setAutoGenSuperPixels(bool b) { m_imageWidget->setAutoGenSuperPixels(b); }
+void Slices::setHideSuperPixels(bool b) { m_imageWidget->setHideSuperPixels(b); }
 
 void
 Slices::reloadSlice()

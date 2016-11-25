@@ -79,6 +79,10 @@ class Slices : public QWidget
    //void bbupdated(Vec, Vec);
    void fitImage() { m_imageWidget->zoom9Clicked(); }
 
+   void setAutoGenSuperPixels(bool);
+   void setHideSuperPixels(bool);
+   void setSuperPixelSize(int);
+
  private:
     ImageWidget *m_imageWidget;
     

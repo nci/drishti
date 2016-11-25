@@ -6,6 +6,7 @@
 
 #include "ui_drishtipaint.h"
 #include "ui_viewermenu.h"
+#include "ui_superpixelmenu.h"
 #include "ui_graphcutmenu.h"
 #include "ui_curvesmenu.h"
 #include "ui_fibersmenu.h"
@@ -114,6 +115,10 @@ class DrishtiPaint : public QMainWindow
   void tagHSlice(int, uchar*);
   void changeImageSlice(int, int, int);
 
+  void on_autoGenSupPix_clicked(bool);
+  void on_hideSupPix_clicked(bool);
+  void on_supPixSize();
+
   void applyMaskOperation(int, int, int);
 
   void paint3DStart();
@@ -160,10 +165,12 @@ class DrishtiPaint : public QMainWindow
   Ui::DrishtiPaint ui;
   Ui::ViewerMenu viewerUi;
   Ui::GraphCutMenu graphcutUi;
+  Ui::SuperPixelMenu superpixelUi;
   Ui::CurvesMenu curvesUi;
   Ui::FibersMenu fibersUi;
   QFrame *m_curvesMenu;
   QFrame *m_graphcutMenu;
+  QFrame *m_superpixelMenu;
   QFrame *m_fibersMenu;
 
   TagColorEditor *m_tagColorEditor;
@@ -261,6 +268,7 @@ class DrishtiPaint : public QMainWindow
 
   void connectViewerMenu();
   void connectGraphCutMenu();
+  void connectSuperPixelMenu();
   void connectCurvesMenu();
   void connectFibersMenu();
   void connectImageWidget();

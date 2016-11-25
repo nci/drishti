@@ -79,6 +79,10 @@ class ImageWidget : public QWidget
   void keyPressEvent(QKeyEvent*);
   void setSlice(int);
 
+  void setAutoGenSuperPixels(bool b) { m_autoGenSuperPixels = b; }
+  void setHideSuperPixels(bool b) { m_hideSuperPixels = b; update(); }
+  void setSuperPixelSize(int);
+
   void zoom0Clicked();
   void zoom9Clicked();
   void zoomUpClicked();
@@ -140,8 +144,9 @@ class ImageWidget : public QWidget
   // 1 - superpixel
   int m_modeType;
 
-  bool m_hideLabels;
+  bool m_hideSuperPixels;
   bool m_autoGenSuperPixels;
+  int m_superPixelSize;
   SLIC m_slic;
   int *m_labels;
   QImage m_spcimage;

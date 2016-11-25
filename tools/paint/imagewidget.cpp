@@ -137,8 +137,20 @@ ImageWidget::ImageWidget(QWidget *parent) :
   for(int i=1; i<256; i++)
     m_prevslicetagColors[i] = qRgba(0, 0, 127, 127);
 
-  m_hideLabels = false;
+  m_hideSuperPixels = false;
   m_autoGenSuperPixels = false;
+  m_superPixelSize = 100;
+}
+
+void
+ImageWidget::setSuperPixelSize(int sz)
+{
+  m_superPixelSize = sz;
+  if (m_modeType == 1)
+    {
+      genSuperPixels();
+      update();
+    }
 }
 
 void
@@ -777,7 +789,7 @@ ImageWidget::paintEvent(QPaintEvent *event)
   p.drawImage(0, 0, m_maskimageScaled);
   p.drawImage(0, 0, m_userimageScaled);
 
-  if (m_modeType == 1 && !m_hideLabels)
+  if (m_modeType == 1 && !m_hideSuperPixels)
     p.drawImage(0, 0, m_spcimageScaled);    
 
   if (Global::copyPrev())
@@ -1041,20 +1053,6 @@ ImageWidget::graphcutModeKeyPressEvent(QKeyEvent *event)
 
   if (m_modeType == 1)
     {
-      if (event->key() == Qt::Key_H)
-	{
-	  m_hideLabels = !m_hideLabels;
-	  update();
-	  return;
-	}
-
-      if (event->key() == Qt::Key_A)
-	{
-	  m_autoGenSuperPixels = !m_autoGenSuperPixels;
-	  update();
-	  return;
-	}
-
       if (event->key() == Qt::Key_Space)
 	{
 	  genSuperPixels();
@@ -2171,7 +2169,8 @@ ImageWidget::genSuperPixels()
 
   delete [] imageData;
 
-  int K = (size1*size2)/(Global::lambda()*10);
+  //int K = (size1*size2)/(Global::lambda()*10);
+  int K = (size1*size2)/m_superPixelSize;
 
   m_slic.PerformSLICO_ForGivenK(sdata,
 				size1,

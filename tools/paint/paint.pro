@@ -22,7 +22,10 @@ INCLUDEPATH += graphcut \
 include( ../../drishti.pri )
 
 # Input
-FORMS += drishtipaint.ui viewermenu.ui graphcutmenu.ui curvesmenu.ui fibersmenu.ui propertyeditor.ui
+FORMS += drishtipaint.ui viewermenu.ui \
+	graphcutmenu.ui curvesmenu.ui \
+	fibersmenu.ui propertyeditor.ui \
+	superpixelmenu.ui
 
 #----------------------------------------------------------------
 # Windows setup for 64-bit system

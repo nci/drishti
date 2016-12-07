@@ -2155,29 +2155,18 @@ ImageWidget::getSliceLimits(int &size1, int &size2,
 void
 ImageWidget::genSuperPixels()
 {
-  uchar *imageData = new uchar[m_imgWidth*m_imgHeight];
-
-  for(int i=0; i<m_imgWidth*m_imgHeight; i++)
-    imageData[i] = m_sliceImage[4*i+0];
-
   int size1, size2;
   int imin, imax, jmin, jmax;
   getSliceLimits(size1, size2, imin, imax, jmin, jmax);
 
+  ushort *sdata = new ushort[size1*size2];
   int idx=0;
   for(int i=imin; i<=imax; i++)
     for(int j=jmin; j<=jmax; j++)
       {
-	imageData[idx] = imageData[i*m_imgWidth+j];
+	sdata[idx] = m_sliceImage[4*(i*m_imgWidth+j)+1];
 	idx++;
       }
-
-  ushort *sdata = new ushort[size1*size2];
-  for(int i=0; i<size1*size2; i++)
-    sdata[i] = imageData[i];
-
-
-  delete [] imageData;
 
   //int K = (size1*size2)/(Global::lambda()*10);
   int K = (size1*size2)/m_superPixelSize;

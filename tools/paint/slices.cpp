@@ -36,10 +36,10 @@ Slices::createMenu(QHBoxLayout *hl,
   
   m_zoom9 = new QPushButton("F",this);
   m_zoom0 = new QPushButton("O",this);
-  m_zoomUp = new QPushButton("+",this);
-  m_zoomDown = new QPushButton("-",this);
+  m_zoomUp = new QPushButton(QIcon(":/images/zoom-in.png"),"");
+  m_zoomDown = new QPushButton(QIcon(":/images/zoom-out.png"),"");
 
-  m_changeLayout = new QPushButton("M",this);
+  m_changeLayout = new QPushButton(QIcon(":/images/enlarge.png"),"");
 
   m_mesg = new QLabel("Graph Cut");
 
@@ -57,11 +57,11 @@ Slices::createMenu(QHBoxLayout *hl,
   m_slider->setInvertedAppearance(true);
   hl->addWidget(m_slider);
 
-  m_zoom9->setMaximumSize(30,30);
-  m_zoom0->setMaximumSize(30,30);
-  m_zoomUp->setMaximumSize(30,30);
-  m_zoomDown->setMaximumSize(30,30);
-  m_changeLayout->setMaximumSize(30,30);
+  m_zoom9->setMaximumSize(32,32);
+  m_zoom0->setMaximumSize(32,32);
+  m_zoomUp->setMaximumSize(32,32);
+  m_zoomDown->setMaximumSize(32,32);
+  m_changeLayout->setMaximumSize(32,32);
 
   m_zoomUp->setAutoRepeat(true);
   m_zoomDown->setAutoRepeat(true);
@@ -208,4 +208,15 @@ Slices::setModeType(int mt)
     m_mesg->setText(QString("<font color=red><h2>Superpixels (%1)</h2>").arg(st));
 
   m_imageWidget->setModeType(mt);
+}
+
+void
+Slices::setLarge(bool ms)
+{
+  m_maximized = ms;
+
+  if (m_maximized)
+    m_changeLayout->setIcon(QIcon(":/images/shrink.png"));
+  else
+    m_changeLayout->setIcon(QIcon(":/images/enlarge.png"));
 }

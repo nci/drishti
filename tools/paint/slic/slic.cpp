@@ -201,7 +201,7 @@ SLIC::GetSeeds_ForGivenK(int K, bool perturbseeds)
       for( int x = 0; x < m_width; x++ )
 	{
 	  //int X = x*step + xoff;//square grid
-	  int X = x*step + (xoff<<(r&0x1));//hex grid
+	  int X = x*step + xoff + xoff*(r%2);//hex grid
 	  if(X > m_width-1) break;
 	  
 	  int i = Y*m_width + X;

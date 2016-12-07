@@ -41,7 +41,7 @@ class Slices : public QWidget
 
   void zoomToSelection() { m_imageWidget->zoom9Clicked(); }
 
-  void setLarge(bool ms) { m_maximized = ms; }
+  void setLarge(bool);
   bool enlarged() { return m_maximized; }
 
  signals :

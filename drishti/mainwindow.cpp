@@ -291,6 +291,8 @@ MainWindow::MainWindow(QWidget *parent) :
   ui.menuView->addSeparator();
   ui.menuView->addAction(dock5->toggleViewAction());
 
+  registerMenuViewerFunctions();
+
   createHiresLowresWindows();
 
   QTimer::singleShot(2000, this, SLOT(GlewInit()));
@@ -315,6 +317,45 @@ MainWindow::MainWindow(QWidget *parent) :
 
   loadSettings();
   
+}
+
+void
+MainWindow::registerMenuViewerFunctions()
+{
+  m_menuViewerFunctions = m_Viewer->registerMenuFunctions();
+
+  QStringList fnames = m_menuViewerFunctions.keys();
+
+  for(int i=0; i<fnames.count(); i++)
+    {
+      QAction *action = new QAction(this);
+      action->setText(fnames[i]);
+      action->setData(fnames[i]);
+      action->setVisible(true);      
+      connect(action, SIGNAL(triggered()),
+	      this, SLOT(menuViewerFunction()));
+
+//      connect(action, SIGNAL(triggered()),
+//	      m_Viewer, SLOT(m_menuViewerFunctions[fnames[i]]()));
+
+      ui.menuFunctions->addAction(action);
+    }
+}
+
+void
+MainWindow::menuViewerFunction()
+{
+  if (!m_Volume->valid() ||
+      Global::volumeType() == Global::DummyVolume)
+    {
+      QMessageBox::information(0, "Error", "No volume to work on !");
+      return;
+    }
+
+  QAction *action = qobject_cast<QAction *>(sender());
+  QString mvf = action->data().toString();
+
+  (m_Viewer->*m_menuViewerFunctions[mvf])();
 }
 
 void

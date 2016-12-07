@@ -169,6 +169,7 @@ HEADERS += boundingbox.h \
            mainwindow.h \
            mainwindowui.h \
 	   matrix.h \
+	   menuviewerfunctions.h \
 	   messagedisplayer.h \
 	   mymanipulatedframe.h \
 	   networkinformation.h \

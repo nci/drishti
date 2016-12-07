@@ -4047,16 +4047,16 @@ Viewer::processCommand(QString cmd)
       updateGL();
       return;
     }
-  else if (list[0] == "image2volume")
-    {
-      QString pfile = m_hiresVolume->getResliceFileName();
-      if (! pfile.isEmpty())
-	{
-	  m_hiresVolume->saveImage2Volume(pfile);
-	  updateGL();
-	}
-      return;
-    }
+//  else if (list[0] == "image2volume")
+//    {
+//      QString pfile = m_hiresVolume->getResliceFileName();
+//      if (! pfile.isEmpty())
+//	{
+//	  m_hiresVolume->saveImage2Volume(pfile);
+//	  updateGL();
+//	}
+//      return;
+//    }
   else if (list[0] == "fullscreen")
     {
       bool flag = true;
@@ -4870,43 +4870,43 @@ Viewer::processCommand(QString cmd)
       changeSliceOrdering();
       return;
     }
-  else if (list[0].contains("reslice") ||
-	   list[0].contains("rescale"))
-    {
-      if (!m_hiresVolume->raised())
-	{
-	  QMessageBox::critical(0, "Error", "Cannot apply command in Lowres mode");
-	  return;
-	}
-
-      float subsample = 1;
-      int tagvalue = -1;
-      if (list.size() > 1) subsample = qMax(0.0f, list[1].toFloat(&ok));
-      if (list.size() > 2) tagvalue = list[2].toInt(&ok);
-
-      if (list[0] == "rescale")      
-	{
-
-	  Vec smin = m_lowresVolume->volumeMin();
-	  Vec smax = m_lowresVolume->volumeMax();
-	  Vec pos = Vec((smax.x+smin.x)*0.5,(smax.y+smin.y)*0.5,smax.z+10);
-	  m_hiresVolume->resliceVolume(pos,
-				       Vec(0,0,-1), Vec(1,0,0), Vec(0,1,0),
-				       subsample,
-				       0, tagvalue);
-	}
-      else
-	{
-	  m_hiresVolume->resliceVolume(camera()->position(),
-				       camera()->viewDirection(),
-				       camera()->rightVector(),
-				       camera()->upVector(),
-				       subsample,
-				       0, tagvalue);
-	}
-
-      return;
-    }
+//  else if (list[0].contains("reslice") ||
+//	   list[0].contains("rescale"))
+//    {
+//      if (!m_hiresVolume->raised())
+//	{
+//	  QMessageBox::critical(0, "Error", "Cannot apply command in Lowres mode");
+//	  return;
+//	}
+//
+//      float subsample = 1;
+//      int tagvalue = -1;
+//      if (list.size() > 1) subsample = qMax(0.0f, list[1].toFloat(&ok));
+//      if (list.size() > 2) tagvalue = list[2].toInt(&ok);
+//
+//      if (list[0] == "rescale")      
+//	{
+//
+//	  Vec smin = m_lowresVolume->volumeMin();
+//	  Vec smax = m_lowresVolume->volumeMax();
+//	  Vec pos = Vec((smax.x+smin.x)*0.5,(smax.y+smin.y)*0.5,smax.z+10);
+//	  m_hiresVolume->resliceVolume(pos,
+//				       Vec(0,0,-1), Vec(1,0,0), Vec(0,1,0),
+//				       subsample,
+//				       0, tagvalue);
+//	}
+//      else
+//	{
+//	  m_hiresVolume->resliceVolume(camera()->position(),
+//				       camera()->viewDirection(),
+//				       camera()->rightVector(),
+//				       camera()->upVector(),
+//				       subsample,
+//				       0, tagvalue);
+//	}
+//
+//      return;
+//    }
   else if ((list[0] == "getvolume" ||
 	    list[0] == "getsurfacearea") &&
 	   list.size() <= 2)
@@ -5961,18 +5961,7 @@ Viewer::on_raycastdragStep_changed(double step)
   m_rcViewer.setStillAndDragStep(ss, step);
 }
 
-void
-Viewer::changeSliceOrdering()
-{
-  if (Global::volumeType() != Global::SingleVolume)
-    {
-      QMessageBox::information(0, "", "Will only on single volume.");
-      return;
-    }
-
-  m_Volume->pvlFileManager(0)->changeSliceOrdering();
-  reloadData();
-  updateGL();
-
-  QMessageBox::information(0, "", "Done.");
-}
+//----------------------------------
+// these are the functions called via menubar
+#include "menuviewerfunctions.h"
+//----------------------------------

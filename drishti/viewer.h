@@ -22,6 +22,8 @@ using namespace qglviewer;
 #include "ui_raycastmenu.h"
 #include "rcviewer.h"
 
+typedef void (Viewer::*MenuViewerFncPtr)();
+
 class ViewerUndo
 {
  public :
@@ -83,6 +85,8 @@ class Viewer : public QGLViewer
 
   void setVolDataPtr(VolumeFileManager*);
 
+  QMap<QString, MenuViewerFncPtr> registerMenuFunctions();
+
  public slots :
   void setTag(int);
   void setDOF(int, float);
@@ -142,7 +146,13 @@ class Viewer : public QGLViewer
   void on_raycaststillStep_changed(double);
   void on_raycastdragStep_changed(double);
 
+  //------------
+  //menu viewer functions
+  void reslice();
+  void rescale();
+  void image2volume();
   void changeSliceOrdering();
+  //------------
 
  signals:
   void resetFlipImage();

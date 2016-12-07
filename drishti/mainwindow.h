@@ -204,6 +204,7 @@ class MainWindow : public QMainWindow
    void transferFunctionUpdated();
 
    void loadPlugin();
+   void menuViewerFunction();
 
  private :
    Ui::MainWindow ui;
@@ -257,6 +258,8 @@ class MainWindow : public QMainWindow
    QList<QStringList> m_pluginList;
    QStringList m_pluginDll;;
 
+   QMap<QString, MenuViewerFncPtr> m_menuViewerFunctions;
+
    void initializeRecentFiles();
 
    void createHiresLowresWindows();
@@ -309,6 +312,7 @@ class MainWindow : public QMainWindow
    bool haveGrid();
 
    void registerPlugins();
+   void registerMenuViewerFunctions();
 };
 
 

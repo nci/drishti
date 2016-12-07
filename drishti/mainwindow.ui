@@ -26,7 +26,7 @@
      <x>0</x>
      <y>0</y>
      <width>570</width>
-     <height>27</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -160,11 +160,17 @@
      <string>Plugins</string>
     </property>
    </widget>
+   <widget class="QMenu" name="menuFunctions">
+    <property name="title">
+     <string>Functions</string>
+    </property>
+   </widget>
    <addaction name="menuFile"/>
    <addaction name="menuView"/>
-   <addaction name="menuImage_Size"/>
    <addaction name="menuToggle"/>
+   <addaction name="menuFunctions"/>
    <addaction name="menuPlugins"/>
+   <addaction name="menuImage_Size"/>
    <addaction name="menuHelp"/>
   </widget>
   <widget class="QStatusBar" name="statusBar">

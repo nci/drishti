@@ -4865,6 +4865,11 @@ Viewer::processCommand(QString cmd)
 
       emit countIsolatedRegions();
     }
+  else if (list[0].contains("changesliceorder"))
+    {
+      changeSliceOrdering();
+      return;
+    }
   else if (list[0].contains("reslice") ||
 	   list[0].contains("rescale"))
     {
@@ -5956,3 +5961,18 @@ Viewer::on_raycastdragStep_changed(double step)
   m_rcViewer.setStillAndDragStep(ss, step);
 }
 
+void
+Viewer::changeSliceOrdering()
+{
+  if (Global::volumeType() != Global::SingleVolume)
+    {
+      QMessageBox::information(0, "", "Will only on single volume.");
+      return;
+    }
+
+  m_Volume->pvlFileManager(0)->changeSliceOrdering();
+  reloadData();
+  updateGL();
+
+  QMessageBox::information(0, "", "Done.");
+}

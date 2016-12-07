@@ -278,7 +278,7 @@ VolumeFileManager::getSlice(int d)
       // if we cannot open file in readwrite mode
       // then open it in readonly mode
       if (! m_qfile.open(QFile::ReadWrite))
-	m_qfile.open(QFile::ReadWrite);
+	m_qfile.open(QFile::ReadOnly);
     }
   m_qfile.seek((qint64)(m_header + (d-m_slabno*m_slabSize)*bps));
   m_qfile.read((char*)m_slice, bps);
@@ -1199,4 +1199,63 @@ VolumeFileManager::saveBlock(int dmin, int dmax,
 			hbts);
 	}      
     }
+}
+
+void
+VolumeFileManager::changeSliceOrdering()
+{
+  if (m_depth/m_slabSize > 1)
+    {
+      QMessageBox::information(0, "", "Cannot change ordering : slices spread across multiple files.");
+      return;
+    }
+
+  QString flnm;
+  if (m_filenames.count() > 0)
+    flnm = m_filenames[0];
+  else
+    flnm = m_baseFilename + ".001";
+
+  if (!m_qfile.isOpen() ||
+      !m_qfile.isReadable())
+    {
+      if (m_qfile.isOpen()) m_qfile.close();
+      m_qfile.setFileName(flnm);
+
+      // if we cannot open file in readwrite mode
+      // then open it in readonly mode
+      if (! m_qfile.open(QFile::ReadWrite))
+	{
+	  QMessageBox::information(0, "", "Cannot change ordering : cannot open file for writing.");
+	  return;
+	}
+    }
+
+  int bps = m_width*m_height*m_bytesPerVoxel;
+  if (!m_slice)
+    {
+      int a = qMax(m_width, qMax(m_height, m_depth));
+      m_slice = new uchar[a*a*m_bytesPerVoxel];
+    }
+
+  uchar* tslice = new uchar[m_width*m_height*m_bytesPerVoxel];
+
+  for(int d=0; d<m_depth/2; d++)
+    {
+      m_qfile.seek((qint64)(m_header + d*bps));
+      m_qfile.read((char*)m_slice, bps);
+
+      m_qfile.seek((qint64)(m_header + (m_depth-1-d)*bps));
+      m_qfile.read((char*)tslice, bps);
+
+      m_qfile.seek((qint64)(m_header + d*bps));
+      m_qfile.write((char*)tslice, bps);
+
+      m_qfile.seek((qint64)(m_header + (m_depth-1-d)*bps));
+      m_qfile.write((char*)m_slice, bps);
+    }
+
+  delete [] tslice;
+
+  m_qfile.close();
 }

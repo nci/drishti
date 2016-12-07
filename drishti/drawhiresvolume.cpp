@@ -5098,7 +5098,8 @@ DrawHiresVolume::resliceVolume(Vec pos,
   vs.z = VECPRODUCT(normal,pvlInfo.voxelSize).norm();
   vs *= subsample*vlod;
 
-  int voxtype = pvlInfo.voxelType;
+  //int voxtype = pvlInfo.voxelType;
+  int voxtype = Global::pvlVoxelType();
 
   VolumeFileManager pFileManager;
   QString pFile;

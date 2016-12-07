@@ -142,6 +142,8 @@ class Viewer : public QGLViewer
   void on_raycaststillStep_changed(double);
   void on_raycastdragStep_changed(double);
 
+  void changeSliceOrdering();
+
  signals:
   void resetFlipImage();
   void quitDrishti();

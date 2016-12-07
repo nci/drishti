@@ -42,6 +42,17 @@ Users can merge multiple volumes, used bricks to translate/rotate/scale parts of
 #end
 
 #begin
+changesliceorder
+changesliceorder
+
+Changes the slice ordering - top and bottom slices exchange positions.
+
+** Left and Right sides will be exchanged **
+
+#end
+
+
+#begin
 reslice
 reslice
 reslice [sampling] [tag]

@@ -93,8 +93,8 @@ SplineEditor::SplineEditor(QWidget *parent) :
   m_mapping.clear();
 
   m_show2D = true;
-  m_showOverlay = true;
-  m_showGrid = true;
+  m_showOverlay = false;
+  m_showGrid = false;
 
   save_transferfunction_image_action = new QAction(tr("Save Transfer Function Image"), this);
   connect(save_transferfunction_image_action, SIGNAL(triggered()),

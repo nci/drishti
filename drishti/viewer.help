@@ -1117,6 +1117,8 @@ Translate camera.
 #begin
 Mouse left button drag
 Rotate object
+
+When Control is pressed rotate around an axis orthogonal to the screen.
 #end
 
 #begin

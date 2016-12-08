@@ -160,6 +160,18 @@ class Viewer : public QGLViewer
   void getVolume();
   void addPoint();
   void removePoints();
+  void mix();
+  void mop();
+  void interpolateVolumes();
+  void path();
+  void clip();
+  void crop();
+  void blend();
+  void disect();
+  void glow();
+  void displace();
+  void opmod();
+  void showGiLightDialog();
   //------------
 
  signals:

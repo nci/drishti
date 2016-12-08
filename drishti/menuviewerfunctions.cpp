@@ -5,11 +5,29 @@ Viewer::registerMenuFunctions()
   
   {
     QMap<QString, MenuViewerFncPtr> m1;
+    m1["Gi Lighting"] = &Viewer::showGiLightDialog;
+    menuFnc[""] = m1;
+  }
+
+  {
+    QMap<QString, MenuViewerFncPtr> m1;
     m1["Change Slice Ordering"] = &Viewer::changeSliceOrdering;
     m1["Image to Volume"] = &Viewer::image2volume;
     m1["Reslice"] = &Viewer::reslice;
     m1["Rescale"] = &Viewer::rescale;
     menuFnc["Data Ops"] = m1;
+  }
+
+  {
+    QMap<QString, MenuViewerFncPtr> m1;
+    m1["Clip"] = &Viewer::clip;
+    m1["Crop"] = &Viewer::crop;
+    m1["Blend"] = &Viewer::blend;
+    m1["Disect"] = &Viewer::disect;
+    m1["Glow"] = &Viewer::glow;
+    m1["Displace"] = &Viewer::displace;
+    m1["Path"] = &Viewer::path;
+    menuFnc["3D Widgets"] = m1;
   }
 
   {
@@ -25,6 +43,7 @@ Viewer::registerMenuFunctions()
     m1["Float Precision"] = &Viewer::setFloatPrecision;
     m1["Volume"] = &Viewer::getVolume;
     m1["Surface Area"] = &Viewer::getSurfaceArea;
+    m1["Path"] = &Viewer::path;
     menuFnc["Measurements"] = m1;
   }
 
@@ -33,6 +52,15 @@ Viewer::registerMenuFunctions()
     m1["Add Point"] = &Viewer::addPoint;
     m1["Remove Points"] = &Viewer::removePoints;
     menuFnc["Points"] = m1;
+  }
+
+  {
+    QMap<QString, MenuViewerFncPtr> m1;
+    m1["Opacity Modulation"] = &Viewer::opmod;
+    m1["Mop"] = &Viewer::mop;
+    m1["Mix"] = &Viewer::mix;
+    m1["Interpolate Volumes"] = &Viewer::interpolateVolumes;
+    menuFnc["Misc"] = m1;
   }
 
   return menuFnc;
@@ -211,7 +239,7 @@ Viewer::colorBar()
     {      
       QStringList list = text.split(" ", QString::SkipEmptyParts);
       if (list.size() > 0)
-	tfset = list[0].toInt(&ok);
+	tfset = qMax(0, list[0].toInt(&ok));
     }
 
   ColorBarObject cbo;
@@ -244,7 +272,7 @@ Viewer::scaleBar()
     {      
       QStringList list = text.split(" ", QString::SkipEmptyParts);
       if (list.size() > 0)
-	nvox= list[0].toFloat(&ok);
+	nvox= qMax(0.0f, list[0].toFloat(&ok));
     }
 
   ScaleBarObject sbo;
@@ -308,7 +336,7 @@ Viewer::getVolume()
     {      
       QStringList list = text.split(" ", QString::SkipEmptyParts);
       if (list.size() > 0)
-	tag = list[0].toInt(&ok);
+	tag = qMax(-1, list[0].toInt(&ok));
     }
 
   
@@ -316,7 +344,7 @@ Viewer::getVolume()
   Vec smax = m_lowresVolume->volumeMax();
 
   Vec pos = Vec((smax.x+smin.x)*0.5,(smax.y+smin.y)*0.5,smax.z+10);
-  if (tag >= -1)
+  if (tag >= -1 && tag <= 255)
     {
       Vec pos = Vec((smax.x+smin.x)*0.5,(smax.y+smin.y)*0.5,smax.z+10);
       m_hiresVolume->resliceVolume(pos,
@@ -355,13 +383,13 @@ Viewer::getSurfaceArea()
     {      
       QStringList list = text.split(" ", QString::SkipEmptyParts);
       if (list.size() > 0)
-	tag = list[0].toInt(&ok);
+	tag = qMax(-1, list[0].toInt(&ok));
     }
 
   
   Vec smin = m_lowresVolume->volumeMin();
   Vec smax = m_lowresVolume->volumeMax();
-  if (tag >= -1)
+  if (tag >= -1 && tag <= 255)
     {
       Vec pos = Vec((smax.x+smin.x)*0.5,(smax.y+smin.y)*0.5,smax.z+10);
       m_hiresVolume->resliceVolume(pos,
@@ -394,8 +422,8 @@ Viewer::setFloatPrecision()
     {      
       QStringList list = text.split(" ", QString::SkipEmptyParts);
       if (list.size() > 0)
-	fp = list[0].toInt(&ok);
-
+	fp = qMax(0, list[0].toInt(&ok));
+		  
       Global::setFloatPrecision(fp);
     }
 }
@@ -449,4 +477,313 @@ Viewer::removePoints()
     GeometryObjects::hitpoints()->clear();
   else
     GeometryObjects::hitpoints()->removeActive();
+}
+
+void
+Viewer::interpolateVolumes()
+{
+  showMenuFunctionHelp("interpolatevolumes");
+
+  QStringList items;
+  items << "Off";
+  items << "Color";
+  items << "Value";
+  bool ok;
+  QString str;
+  str = QInputDialog::getItem(0,
+			      "Interpolate Volumes",
+			      "Interpolate Volumes",
+			      items,
+			      0,
+			      false, // text is not editable
+			      &ok);
+  int iv = 0;
+  if (ok)
+    {
+      if (str == "Color") iv = 1;
+      if (str == "Value") iv = 2;
+    }
+
+  m_hiresVolume->setInterpolateVolumes(iv);
+}
+
+void
+Viewer::mix()
+{
+  showMenuFunctionHelp("mix");
+
+  int mv = 0;
+  bool mc = false;
+  bool mo = false;
+  bool mt = false;
+  bool mtok = false;
+
+  bool ok;
+  QString text;
+  text = QInputDialog::getText(this,
+			       "Mix",
+			       "Mix Parameters",
+			       QLineEdit::Normal,
+			       "",
+			       &ok);
+  
+  if (ok && !text.isEmpty())
+    {      
+      QStringList list = text.split(" ", QString::SkipEmptyParts);
+      int idx = 0;
+      if (list.size() > 0)
+	{
+	  if (list[0] == "0") { mv = 0; idx++; }
+	  else if (list[0] == "1") { mv = 1; idx++; }
+	  else if (list[0] == "2") { mv = 2; idx++; }
+	}
+
+      while (idx < list.size())
+	{
+	  if (list[idx] == "no" || list[idx] == "off") { mc = false; mo = false; }
+	  else if (list[idx] == "color") mc = true;
+	  else if (list[idx] == "opacity") mo = true;	  
+	  else if (list[idx] == "tag" || list[idx] == "tags")
+	    {
+	      mtok = true;
+	      mt = true;	  
+	      if (idx+1 < list.size())
+		{
+		  idx++;
+		  if (list[idx] == "no" || list[idx] == "off")
+		    mt = false;
+		}
+	    }
+	  idx ++;
+	}
+
+      if (!mtok)
+	m_hiresVolume->setMix(mv, mc, mo);
+      else
+	{
+	  updateTagColors();
+	  m_hiresVolume->setMixTag(mt);
+	  m_rcViewer.setMixTag(mt);
+	}
+    }
+}
+
+void
+Viewer::mop()
+{
+  processMorphologicalOperations();
+}
+
+void
+Viewer::path()
+{
+  showMenuFunctionHelp("path");
+
+  QList<Vec> pts;
+  if (GeometryObjects::hitpoints()->activeCount())
+    pts = GeometryObjects::hitpoints()->activePoints();
+  else
+    pts = GeometryObjects::hitpoints()->points();
+  
+  if (pts.count() > 1)
+    {
+      GeometryObjects::paths()->addPath(pts);
+      
+      // now remove points that were used to make the path
+      if (GeometryObjects::hitpoints()->activeCount())
+	GeometryObjects::hitpoints()->removeActive();
+      else
+	GeometryObjects::hitpoints()->clear();
+    }
+  else
+    QMessageBox::critical(0, "Error", "Need at least 2 points to form a path"); 
+}
+
+void
+Viewer::crop()
+{
+  showMenuFunctionHelp("crop");
+
+  QList<Vec> pts;
+  if (GeometryObjects::hitpoints()->activeCount())
+    pts = GeometryObjects::hitpoints()->activePoints();
+  else
+    pts = GeometryObjects::hitpoints()->points();
+  
+  if (pts.count() == 2)
+    {
+      GeometryObjects::crops()->addCrop(pts);
+
+      // now remove points that were used to make the crop
+      if (GeometryObjects::hitpoints()->activeCount())
+	GeometryObjects::hitpoints()->removeActive();
+      else
+	GeometryObjects::hitpoints()->clear();
+    }
+  else
+    QMessageBox::critical(0, "Error", "Need exactly 2 points to form a crop/dissect/blend/displace/glow"); 
+}
+
+void
+Viewer::blend()
+{
+  showMenuFunctionHelp("blend");
+
+  QList<Vec> pts;
+  if (GeometryObjects::hitpoints()->activeCount())
+    pts = GeometryObjects::hitpoints()->activePoints();
+  else
+    pts = GeometryObjects::hitpoints()->points();
+  
+  if (pts.count() == 2)
+    {
+      GeometryObjects::crops()->addView(pts);
+
+      // now remove points that were used to make the crop
+      if (GeometryObjects::hitpoints()->activeCount())
+	GeometryObjects::hitpoints()->removeActive();
+      else
+	GeometryObjects::hitpoints()->clear();
+    }
+  else
+    QMessageBox::critical(0, "Error", "Need exactly 2 points to form a crop/dissect/blend/displace/glow"); 
+}
+
+void
+Viewer::disect()
+{
+  showMenuFunctionHelp("disect");
+
+  QList<Vec> pts;
+  if (GeometryObjects::hitpoints()->activeCount())
+    pts = GeometryObjects::hitpoints()->activePoints();
+  else
+    pts = GeometryObjects::hitpoints()->points();
+  
+  if (pts.count() == 2)
+    {
+      GeometryObjects::crops()->addTear(pts);
+
+      // now remove points that were used to make the crop
+      if (GeometryObjects::hitpoints()->activeCount())
+	GeometryObjects::hitpoints()->removeActive();
+      else
+	GeometryObjects::hitpoints()->clear();
+    }
+  else
+    QMessageBox::critical(0, "Error", "Need exactly 2 points to form a crop/disect/blend/displace/glow"); 
+}
+
+void
+Viewer::glow()
+{
+  showMenuFunctionHelp("glow");
+
+  QList<Vec> pts;
+  if (GeometryObjects::hitpoints()->activeCount())
+    pts = GeometryObjects::hitpoints()->activePoints();
+  else
+    pts = GeometryObjects::hitpoints()->points();
+  
+  if (pts.count() == 2)
+    {
+      GeometryObjects::crops()->addGlow(pts);
+
+      // now remove points that were used to make the crop
+      if (GeometryObjects::hitpoints()->activeCount())
+	GeometryObjects::hitpoints()->removeActive();
+      else
+	GeometryObjects::hitpoints()->clear();
+    }
+  else
+    QMessageBox::critical(0, "Error", "Need exactly 2 points to form a crop/disect/blend/displace/glow"); 
+}
+
+void
+Viewer::displace()
+{
+  showMenuFunctionHelp("displace");
+
+  QList<Vec> pts;
+  if (GeometryObjects::hitpoints()->activeCount())
+    pts = GeometryObjects::hitpoints()->activePoints();
+  else
+    pts = GeometryObjects::hitpoints()->points();
+  
+  if (pts.count() == 2)
+    {
+      GeometryObjects::crops()->addDisplace(pts);
+
+      // now remove points that were used to make the crop
+      if (GeometryObjects::hitpoints()->activeCount())
+	GeometryObjects::hitpoints()->removeActive();
+      else
+	GeometryObjects::hitpoints()->clear();
+    }
+  else
+    QMessageBox::critical(0, "Error", "Need exactly 2 points to form a crop/disect/blend/displace/glow"); 
+}
+
+void
+Viewer::clip()
+{
+  showMenuFunctionHelp("clip");
+  
+  QList<Vec> pts;
+  if (GeometryObjects::hitpoints()->activeCount())
+    pts = GeometryObjects::hitpoints()->activePoints();
+  else
+    pts = GeometryObjects::hitpoints()->points();
+  
+  if (pts.count() == 3)
+    {
+      GeometryObjects::clipplanes()->addClip(pts[0],
+					     pts[1],
+					     pts[2]);
+      
+      // now remove points that were used to make the clip
+      if (GeometryObjects::hitpoints()->activeCount())
+	GeometryObjects::hitpoints()->removeActive();
+      else
+	GeometryObjects::hitpoints()->clear();
+    }
+  else
+    GeometryObjects::clipplanes()->addClip(); 
+}
+
+void
+Viewer::opmod()
+{
+  showMenuFunctionHelp("opmod");
+
+  float fop, bop;
+  m_hiresVolume->getOpMod(fop, bop);
+
+  bool ok;
+  QString text;
+  text = QInputDialog::getText(this,
+			       "Opacity Modulation",
+			       "Front and Back opacity modulation",
+			       QLineEdit::Normal,
+			       QString("%1 %2").arg(fop).arg(bop),
+			       &ok);
+  
+  if (ok && !text.isEmpty())
+    {      
+      QStringList list = text.split(" ", QString::SkipEmptyParts);
+      if (list.size() > 0) bop = fop = list[0].toFloat(&ok);
+      if (list.size() > 1) bop = list[1].toFloat(&ok);
+      
+      m_hiresVolume->setOpMod(fop, bop);
+    }
+}
+
+void
+Viewer::showGiLightDialog()
+{
+  if (LightHandler::openPropertyEditor())
+    {
+      m_hiresVolume->initShadowBuffers(true);
+      updateGL();
+    }
 }

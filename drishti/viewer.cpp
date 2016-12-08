@@ -3931,6 +3931,8 @@ Viewer::init()
 
   setMouseBinding(Qt::SHIFT+Qt::RightButton, SELECT);
 
+  setMouseBinding(Qt::ControlModifier, Qt::LeftButton, CAMERA, SCREEN_ROTATE);
+
   glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
   //  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
   //  glEnable(GL_LINE_SMOOTH);  // antialias lines	
@@ -4865,11 +4867,11 @@ Viewer::processCommand(QString cmd)
 
       emit countIsolatedRegions();
     }
-  else if (list[0].contains("changesliceorder"))
-    {
-      changeSliceOrdering();
-      return;
-    }
+//  else if (list[0].contains("changesliceorder"))
+//    {
+//      changeSliceOrdering();
+//      return;
+//    }
 //  else if (list[0].contains("reslice") ||
 //	   list[0].contains("rescale"))
 //    {
@@ -4907,69 +4909,69 @@ Viewer::processCommand(QString cmd)
 //
 //      return;
 //    }
-  else if ((list[0] == "getvolume" ||
-	    list[0] == "getsurfacearea") &&
-	   list.size() <= 2)
-    {
-      if (!m_hiresVolume->raised())
-	{
-	  QMessageBox::critical(0, "Error", "Cannot apply command in Lowres mode");
-	  return;
-	}
-
-      int getVolume = 1;
-      if (list[0] == "getsurfacearea")
-	getVolume = 2;
-	      
-      Vec smin = m_lowresVolume->volumeMin();
-      Vec smax = m_lowresVolume->volumeMax();
-      if (list.size() == 1)
-	{
-	  Vec pos = Vec((smax.x+smin.x)*0.5,(smax.y+smin.y)*0.5,smax.z+10);
-	  m_hiresVolume->resliceVolume(pos,
-				       Vec(0,0,-1), Vec(1,0,0), Vec(0,1,0),
-				       1,
-				       getVolume, -1); // use opacity to getVolume/SurfaceArea
-	}
-      else
-	{
-	  int tag = list[1].toInt(&ok);
-	  if (ok && tag >= 0 && tag <= 255)
-	    m_hiresVolume->resliceVolume((smax+smin)*0.5,
-					 Vec(0,0,1), Vec(1,0,0), Vec(0,1,0),
-					 1,
-					 getVolume, tag); // use opacity to getVolume/SurfaceArea
-	  else
-	    QMessageBox::critical(0, "Error",
-				     "Tag value should be between 0 and 255");
-	}
-    }
-  else if (list[0] == "caption")
-    {
-      CaptionDialog cd(0,
-		       "Caption",
-		       QFont("Helvetica", 15),
-		       QColor::fromRgbF(1,1,1,1),
-		       QColor::fromRgbF(1,1,1,1),
-		       0);
-      cd.hideAngle(false);
-      cd.move(QCursor::pos());
-      if (cd.exec() == QDialog::Accepted)
-	{
-	  QString text = cd.text();
-	  QFont font = cd.font();
-	  QColor color = cd.color();
-	  QColor haloColor = cd.haloColor();
-	  float angle = cd.angle();
-	  
-	  CaptionObject co;
-	  co.set(QPointF(0.5, 0.5),
-		 text, font,
-		 color, haloColor,
-		 angle);
-	  GeometryObjects::captions()->add(co);
-	}
-    }
+//  else if ((list[0] == "getvolume" ||
+//	    list[0] == "getsurfacearea") &&
+//	   list.size() <= 2)
+//    {
+//      if (!m_hiresVolume->raised())
+//	{
+//	  QMessageBox::critical(0, "Error", "Cannot apply command in Lowres mode");
+//	  return;
+//	}
+//
+//      int getVolume = 1;
+//      if (list[0] == "getsurfacearea")
+//	getVolume = 2;
+//	      
+//      Vec smin = m_lowresVolume->volumeMin();
+//      Vec smax = m_lowresVolume->volumeMax();
+//      if (list.size() == 1)
+//	{
+//	  Vec pos = Vec((smax.x+smin.x)*0.5,(smax.y+smin.y)*0.5,smax.z+10);
+//	  m_hiresVolume->resliceVolume(pos,
+//				       Vec(0,0,-1), Vec(1,0,0), Vec(0,1,0),
+//				       1,
+//				       getVolume, -1); // use opacity to getVolume/SurfaceArea
+//	}
+//      else
+//	{
+//	  int tag = list[1].toInt(&ok);
+//	  if (ok && tag >= 0 && tag <= 255)
+//	    m_hiresVolume->resliceVolume((smax+smin)*0.5,
+//					 Vec(0,0,1), Vec(1,0,0), Vec(0,1,0),
+//					 1,
+//					 getVolume, tag); // use opacity to getVolume/SurfaceArea
+//	  else
+//	    QMessageBox::critical(0, "Error",
+//				     "Tag value should be between 0 and 255");
+//	}
+//    }
+//  else if (list[0] == "caption")
+//    {
+//      CaptionDialog cd(0,
+//		       "Caption",
+//		       QFont("Helvetica", 15),
+//		       QColor::fromRgbF(1,1,1,1),
+//		       QColor::fromRgbF(1,1,1,1),
+//		       0);
+//      cd.hideAngle(false);
+//      cd.move(QCursor::pos());
+//      if (cd.exec() == QDialog::Accepted)
+//	{
+//	  QString text = cd.text();
+//	  QFont font = cd.font();
+//	  QColor color = cd.color();
+//	  QColor haloColor = cd.haloColor();
+//	  float angle = cd.angle();
+//	  
+//	  CaptionObject co;
+//	  co.set(QPointF(0.5, 0.5),
+//		 text, font,
+//		 color, haloColor,
+//		 angle);
+//	  GeometryObjects::captions()->add(co);
+//	}
+//    }
   else if (list[0] == "search")
     {
       if (list.size() > 1)

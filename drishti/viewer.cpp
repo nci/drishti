@@ -4145,20 +4145,20 @@ Viewer::processCommand(QString cmd)
     {
       m_hiresVolume->disableSubvolumeUpdates();
     }
-  else if (list[0] == "colorbar")
-    {
-      int tfset = 0;
-      if (list.size() > 1)
-	tfset = list[1].toInt(&ok);
-      ColorBarObject cbo;
-      cbo.set(QPointF(0.5, 0.5),
-	      1, // vertical
-	      tfset,
-	      50, // width
-	      200, // height
-	      true); // color only
-      GeometryObjects::colorbars()->add(cbo);
-    }
+//  else if (list[0] == "colorbar")
+//    {
+//      int tfset = 0;
+//      if (list.size() > 1)
+//	tfset = list[1].toInt(&ok);
+//      ColorBarObject cbo;
+//      cbo.set(QPointF(0.5, 0.5),
+//	      1, // vertical
+//	      tfset,
+//	      50, // width
+//	      200, // height
+//	      true); // color only
+//      GeometryObjects::colorbars()->add(cbo);
+//    }
   else if (list[0] == "scalebar")
     {
       float nvox = 100;
@@ -4944,28 +4944,6 @@ Viewer::processCommand(QString cmd)
 				     "Tag value should be between 0 and 255");
 	}
     }
-//  else if (list[0] == "getsurfacearea" &&
-//	   list.size() <= 2)
-//    {
-//      if (! m_hiresVolume->raised())
-//	{
-//	  emit showMessage("Cannot apply command in Lowres mode", true);
-//	  return;
-//	}
-//
-//      if (list.size() == 1)
-//	emit getSurfaceArea();
-//      else
-//	{
-//	  int tag = list[1].toInt(&ok);
-//	  if (ok &&
-//	      tag >= 0 && tag <= 255)
-//	    emit getSurfaceArea((unsigned char)tag);
-//	  else
-//	    QMessageBox::critical(0, "Error",
-//				     "Tag value should be between 0 and 255");
-//	}
-//    }
   else if (list[0] == "caption")
     {
       CaptionDialog cd(0,
@@ -5963,5 +5941,5 @@ Viewer::on_raycastdragStep_changed(double step)
 
 //----------------------------------
 // these are the functions called via menubar
-#include "menuviewerfunctions.h"
+#include "menuviewerfunctions.cpp" 
 //----------------------------------

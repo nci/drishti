@@ -85,7 +85,7 @@ class Viewer : public QGLViewer
 
   void setVolDataPtr(VolumeFileManager*);
 
-  QMap<QString, MenuViewerFncPtr> registerMenuFunctions();
+  QMap<QString, QMap<QString, MenuViewerFncPtr> > registerMenuFunctions();
 
  public slots :
   void setTag(int);
@@ -152,6 +152,14 @@ class Viewer : public QGLViewer
   void rescale();
   void image2volume();
   void changeSliceOrdering();
+  void colorBar();
+  void scaleBar();
+  void caption();
+  void setFloatPrecision();
+  void getSurfaceArea();
+  void getVolume();
+  void addPoint();
+  void removePoints();
   //------------
 
  signals:
@@ -176,10 +184,6 @@ class Viewer : public QGLViewer
   void saveVolume();
   void maskRawVolume();
   void countIsolatedRegions();
-  void getVolume();
-  void getVolume(unsigned char);
-  void getSurfaceArea();
-  void getSurfaceArea(unsigned char);
 
   void searchCaption(QStringList);
   void addRotationAnimation(int, float, int);
@@ -336,4 +340,6 @@ class Viewer : public QGLViewer
 
   void setupRaycastUI();
   void setupRaycastLightParameters();
+
+  void showMenuFunctionHelp(QString);
 };

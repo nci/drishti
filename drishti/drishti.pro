@@ -169,7 +169,6 @@ HEADERS += boundingbox.h \
            mainwindow.h \
            mainwindowui.h \
 	   matrix.h \
-	   menuviewerfunctions.h \
 	   messagedisplayer.h \
 	   mymanipulatedframe.h \
 	   networkinformation.h \
@@ -307,6 +306,7 @@ SOURCES += boundingbox.cpp \
            mainwindow.cpp \
            mainwindowui.cpp \
 	   matrix.cpp \
+	   menuviewerfunctions.cpp \
 	   messagedisplayer.cpp \
 	   mymanipulatedframe.cpp \
 	   networkinformation.cpp \

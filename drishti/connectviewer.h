@@ -31,12 +31,6 @@
   connect(m_Viewer, SIGNAL(countIsolatedRegions()),
 	  this, SLOT(countIsolatedRegions()));
 
-  connect(m_Viewer, SIGNAL(getSurfaceArea()),
-	  this, SLOT(getSurfaceArea()));
-
-  connect(m_Viewer, SIGNAL(getSurfaceArea(unsigned char)),
-	  this, SLOT(getSurfaceArea(unsigned char)));
-
   connect(m_Viewer, SIGNAL(setView(Vec, Quaternion,
 				   QImage, float)),
 	  this, SLOT(setView(Vec, Quaternion,

@@ -322,23 +322,40 @@ MainWindow::MainWindow(QWidget *parent) :
 void
 MainWindow::registerMenuViewerFunctions()
 {
-  m_menuViewerFunctions = m_Viewer->registerMenuFunctions();
+  QMap<QString, QMap<QString, MenuViewerFncPtr> > menuFnc;
 
-  QStringList fnames = m_menuViewerFunctions.keys();
+  menuFnc = m_Viewer->registerMenuFunctions();
+
+  QStringList fnames = menuFnc.keys();
+
+  QMenu *menu=0;
 
   for(int i=0; i<fnames.count(); i++)
     {
-      QAction *action = new QAction(this);
-      action->setText(fnames[i]);
-      action->setData(fnames[i]);
-      action->setVisible(true);      
-      connect(action, SIGNAL(triggered()),
-	      this, SLOT(menuViewerFunction()));
+      if (!fnames[i].isEmpty())
+	{
+	  menu = new QMenu(fnames[i]);
+	  ui.menuFunctions->addMenu(menu);
+	}
+      else
+	menu = ui.menuFunctions;
 
-//      connect(action, SIGNAL(triggered()),
-//	      m_Viewer, SLOT(m_menuViewerFunctions[fnames[i]]()));
+      QMap<QString, MenuViewerFncPtr> m1 = menuFnc[fnames[i]];
+      QStringList fnm = m1.keys();
+      for(int j=0; j<fnm.count(); j++)
+	{
+	  QAction *action = new QAction(this);
+	  action->setText(fnm[j]);
+	  action->setData(fnm[j]);
+	  action->setVisible(true);      
+	  connect(action, SIGNAL(triggered()),
+		  this, SLOT(menuViewerFunction()));
+	  
+	  menu->addAction(action);
+	  
+	  m_menuViewerFunctions[fnm[j]] = m1[fnm[j]];
+	}
 
-      ui.menuFunctions->addAction(action);
     }
 }
 

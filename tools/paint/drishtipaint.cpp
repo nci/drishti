@@ -190,6 +190,15 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
       ui.menuFile->addAction(m_recentFileActions[i]);
     }
 
+  { // add showVolumeInformation to menuCommands
+    QAction *action = new QAction(this);
+    action->setText("Volume Information");
+    action->setVisible(true);
+    connect(action, SIGNAL(triggered()),
+	    this, SLOT(showVolumeInformation()));
+    ui.menuCommands->addAction(action);
+  }
+
   setAcceptDrops(true);
 
   initTagColors();
@@ -6053,6 +6062,12 @@ DrishtiPaint::modifyOriginalVolume(Vec bmin, Vec bmax, int val)
 void
 DrishtiPaint::on_actionBakeCurves_triggered()
 {
+  if (!m_volume->isValid())
+    {
+      QMessageBox::information(0, "Error", "No volume data found !");
+      return;
+    }
+
   QStringList dtypes;
   QList<int> tag;
 
@@ -6183,6 +6198,12 @@ DrishtiPaint::on_actionBakeCurves_triggered()
 void
 DrishtiPaint::on_changeSliceOrdering_triggered()
 {
+  if (!m_volume->isValid())
+    {
+      QMessageBox::information(0, "Error", "No volume data found !");
+      return;
+    }
+
   uchar *vol = m_volume->memVolDataPtr();
   ushort *volUS = 0;
   if (Global::bytesPerVoxel() == 2)
@@ -6235,4 +6256,23 @@ DrishtiPaint::on_changeSliceOrdering_triggered()
 
   m_volume->saveModifiedOriginalVolume();
   m_volume->saveIntermediateResults(true);
+}
+
+void
+DrishtiPaint::showVolumeInformation()
+{
+  if (!m_volume->isValid())
+    {
+      QMessageBox::information(0, "Error", "No volume data found !");
+      return;
+    }
+
+  QString mesg;
+  mesg += "File : " + m_volume->fileName() + "\n";
+  
+  int d, w, h;
+  m_volume->gridSize(d, w, h);
+  mesg += QString("Size : %1 %2 %3\n").arg(h).arg(w).arg(d);
+
+  QMessageBox::information(0, "Volume Information", mesg);
 }

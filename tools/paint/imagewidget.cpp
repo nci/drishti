@@ -84,6 +84,7 @@ ImageWidget::ImageWidget(QWidget *parent) :
   m_spcimageScaled.fill(0);
 
   m_slice = 0;
+  m_sliceFiltered = 0;
   m_sliceImage = 0;
   m_maskslice = 0;
   m_tags = 0;
@@ -297,6 +298,7 @@ ImageWidget::getSlice()
 	}
     }
 
+  applyFilters();
 
   memcpy(m_prevslicetags, m_prevtags, m_imgWidth*m_imgHeight);
   processPrevSliceTags();
@@ -460,6 +462,9 @@ ImageWidget::resetSliceType()
 
   if (m_slice) delete [] m_slice;
   m_slice = new uchar[wd*ht*m_bytesPerVoxel];
+
+  if (m_sliceFiltered) delete [] m_sliceFiltered;
+  m_sliceFiltered = new uchar[wd*ht*m_bytesPerVoxel];
 
   if (m_maskslice) delete [] m_maskslice;
   m_maskslice = new uchar[wd*ht];
@@ -666,9 +671,9 @@ ImageWidget::recolorImage()
 {
   for(int i=0; i<m_imgHeight*m_imgWidth; i++)
     {
-      int idx = m_slice[i];
+      int idx = m_sliceFiltered[i];
       if (m_bytesPerVoxel == 2)
-	idx = ((ushort*)m_slice)[i];
+	idx = ((ushort*)m_sliceFiltered)[i];
 
       m_sliceImage[4*i+0] = m_lut[4*idx+0];
       m_sliceImage[4*i+1] = m_lut[4*idx+1];
@@ -2879,4 +2884,27 @@ ImageWidget::shrinkwrapVisibleRegion()
   setMaskImage(m_tags);
 
   checkRecursive();
+}
+
+void
+ImageWidget::applyFilters()
+{
+  if (m_bytesPerVoxel == 1)
+    {
+      for(int j=0; j<m_imgHeight; j++)
+	for(int i=0; i<m_imgWidth; i++)
+	  {
+	    m_sliceFiltered[j*m_imgWidth+i] = m_slice[j*m_imgWidth+i];
+	  }
+    }
+  else
+    {
+      ushort *slcf = (ushort*)m_sliceFiltered;
+      ushort *slc = (ushort*)m_slice;
+      for(int j=0; j<m_imgHeight; j++)
+	for(int i=0; i<m_imgWidth; i++)
+	  {
+	    slcf[j*m_imgWidth+i] = slc[j*m_imgWidth+i];
+	  }
+    }
 }

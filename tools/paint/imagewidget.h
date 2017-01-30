@@ -93,6 +93,8 @@ class ImageWidget : public QWidget
 
   void setModeType(int);
 
+  void applyFilters();
+
  signals :
   void xPos(int);
   void yPos(int);
@@ -189,6 +191,7 @@ class ImageWidget : public QWidget
   QImage m_gradImageScaled;
 
   uchar *m_slice;
+  uchar *m_sliceFiltered;
   uchar *m_sliceImage;
 
   uchar *m_maskslice;

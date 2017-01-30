@@ -5138,14 +5138,17 @@ Viewer::drawSlices(Vec bbmin, Vec bbmax,
       Vec po = maxvert;
       Vec step = -stepsize*pn;
 
+      Slicer3D::start();
       for(int s=0; s<layers; s++)
 	{
 	  po += step;
-	  Slicer3D::drawpoly(po, pn,
-			     subvol,
-			     dataMin, dataMax,
-			     cpos, cnorm);
+	  Slicer3D::genpoly(po, pn,
+			    subvol,
+			    dataMin, dataMax,
+			    cpos, cnorm);
 	}
+      Slicer3D::draw();
+
       return;
     }
   //--------------------------------

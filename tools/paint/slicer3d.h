@@ -19,10 +19,24 @@ class Slicer3D
   static int intersectType2(Vec, Vec,
 			    Vec&, Vec&);
 
+  static int genpoly(Vec, Vec,
+		     Vec*,
+		     Vec, Vec,
+		     QList<Vec>, QList<Vec>);
+
   static int drawpoly(Vec, Vec,
 		      Vec*,
 		      Vec, Vec,
 		      QList<Vec>, QList<Vec>);
+
+  static void start();
+  static void draw();
+
+ private :
+  static QList<int> m_polyidx;
+  static QList<Vec> m_polyvt;
+
+
 };
 
 #endif

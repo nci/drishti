@@ -428,7 +428,7 @@ Volume::generateHistogramImage()
 
 
   int *hist1D = m_1dHistogram;
-  memset(m_histImageData1D, 0, 4*256*256);
+  //memset(m_histImageData1D, 0, 4*256*256);
   for (int i=0; i<256; i++)
     {
       for (int j=0; j<256; j++)
@@ -437,14 +437,14 @@ Volume::generateHistogramImage()
 	  m_histImageData1D[4*idx + 3] = 255;
 	}
 
-      int h = hist1D[i];
-      for (int j=0; j<h; j++)
-	{
-	  int idx = 256*j + i;
-	  m_histImageData1D[4*idx + 0] = 255*j/h;
-	  m_histImageData1D[4*idx + 1] = 255*j/h;
-	  m_histImageData1D[4*idx + 2] = 255*j/h;
-	}
+//      int h = hist1D[i];
+//      for (int j=0; j<h; j++)
+//	{
+//	  int idx = 256*j + i;
+//	  m_histImageData1D[4*idx + 0] = 255*j/h;
+//	  m_histImageData1D[4*idx + 1] = 255*j/h;
+//	  m_histImageData1D[4*idx + 2] = 255*j/h;
+//	}
     }
   m_histogramImage1D = QImage(m_histImageData1D,
 			      256, 256,

@@ -22,6 +22,10 @@ Download the current version of Drishti (v2.6.3) for<br>
 
 [**All other releases**](https://github.com/AjayLimaye/drishti/releases/)
 
+## Drishti Prayog
+http://nci.org.au/systems-services/scientific-visualisation/visualisation-services/drishti-prayog/
+<br>Updated version and help available at http://sf.anu.edu.au/~acl900/DrishtiPrayog/
+
 ## Drishti Tutorials
 http://sf.anu.edu.au/~acl900/drishti_perpetualbeta/Tutorials/
 

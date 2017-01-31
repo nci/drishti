@@ -31,67 +31,6 @@ opmod 0.1 0.5 : front slice opacity will be multiplied by 0.1.
 
 
 #begin
-image2volume
-image2volume
-Save the volume rendered image seen on the screen as a 3D volume.  Only the opacity part will be saved as volume.
-
-Volumetric data is constructed by saving opacity information for each slice used to create the final rendered image.  The voxel size for the generated volumetric data is decided by the stepsize (which determines the number of slices used to generate the final rendered image) and scaling of the image (ie. how close is camera to the scene).
-
-Users can merge multiple volumes, used bricks to translate/rotate/scale parts of data.  Essentially whatever you see on the screen will be saved in the 3D volume.
-
-#end
-
-#begin
-changesliceorder
-changesliceorder
-
-Changes the slice ordering - top and bottom slices exchange positions.
-
-** Left and Right sides will be exchanged **
-
-#end
-
-
-#begin
-reslice
-reslice
-reslice [sampling] [tag]
-
-Save resliced volume as defined by the current orientation. The selected subvolume is resliced along the view direction.  Users can save value or opacity using this option.
-
-The amount of sampling is governed by the sampling parameter.  Default value is 1 - i.e. take every voxel.  Sampling parameter can take real values - for e.g. 0.5 (upscale by factor of 2), 0.25 (upscale by factor of 4), 2.5 (downsample by factor of 2.5) etc.  Values greater than 1 will result in downscaling the volume and those less than 1 will result in upscaled volume.
-
-The tag parameter controls the tagged voxels that are saved.  Default value is -1 - i.e. save all voxels whether they are tagged or not.
-
-Applying this operation to double volumes gives the ability to perform volume calculations such as A-B, |A-B|, A+B, min(A,B), max(A,B), A*B and A/B, where A and B are voxel value/opacity of respective volumes.
-
-Example :
-reslice 2 : downsample by factor of 2, save all voxels.
-reslice 2 0 : downsample by factor of 2, save only voxels that are tagged 0.
-reslice 2 1 : downsample by factor of 2, save only voxels that are tagged 1.
-reslice 0.5 : upsample by factor of 2, save all voxels.
-reslice 0.25 : upsample by factor of 4, save all voxels.
-#end
-
-#begin
-rescale
-rescale
-rescale [sampling] [tag]
-
-Similar to reslice, except the data is saved in the original orientation.
-
-User can specify new volume size.
-This facility can be used to upscale as well as downscale the volumes along any of the dimensions.
-
-The amount of sampling is governed by the sampling parameter.  Default value is 1 - i.e. take every voxel.  Sampling parameter can take real values - for e.g. 0.5 (upscale by factor of 2), 0.25 (upscale by factor of 4), 2.5 (downsample by factor of 2.5) etc.  Values greater than 1 will result in downscaling the volume and those less than 1 will result in upscaled volume.
-
-User will be asked to check and set new volume size.  This facility can be used to upscale as well as downscale the volumes along any of the dimensions.
-
-Applying this operation to double volumes gives the ability to perform volume calculations such as A-B, |A-B|, A+B, min(A,B), max(A,B), A*B and A/B, where A and B are voxel value/opacity of respective volumes.
-
-#end
-
-#begin
 tempdir
 tempdir/resettempdir
 Set temporary directory to store temporary files created by the program.
@@ -279,31 +218,6 @@ Sets the precision for displaying floating point numbers - i.e. maximum number o
 Default value is 2 - i.e. 2 digits after decimal point.
 #end
 
-#begin
-caption
-caption
-Opens up dialog to add caption.  Once the captions are added, they can be edited, moved and animated.
-
-Hover over a caption to activate it and press spacebar to edit text, colour and rotation.
-Also when activated and press "c" to specify normalised screen position for the caption - (0,0) is top left and (1,1) is bottom right corners.
-
-Users can display text embedded with frame number - $#f, time step number in volume - $#v[0-3], interpolated values - $n(value) and dial - $d(value), within caption.
-
-For $n(v) & $d(v), the values v will be interpolated for inbetween frames.  In the case of $n, these values will be displayed as numbers, where as in the case of $d, these values will be displayed as a pie (0-360 degrees).  The values for pie can be greater than 360 or less than 0 - the pie displayed will change accordingly.  Caption halocolor is used as background and color is used as foreground for the pie, but these colors flip with the number of complete turns.
-
-Dial will always be shown at the start of the text.
-
-Example :
-$4f will display frame numbers with padded 0s.
-$3v0 will display time step number for volume 0.
-$2v1 will display time step number for volume 1.
-$d(90) will display quarter dial with halocolor as background.
-$d(450) will also display quarter dial with halocolor as foreground.
-"Temperature : $n(3.032)" will display "Temperature : 3.03" if "floatprecision" is set to 2.
-"Temperature : $n(3.032)" will display "Temperature : 3" if "floatprecision" is set to 0.
-If one keyframe has $n(val1) and subsequent keyframe has $n(val2) then the intermediate frames will have interpolated values between val1 and val2.
-
-#end
 
 #begin
 clip
@@ -412,42 +326,6 @@ Linearly interpolates color/voxel values between two volumes in double volume.  
 Default is no interpolation between the volumes.
 #end
 
-#begin
-colorbar
-Adds color legend / colormap to the display.
-By default color legend will display colormap from set 0 transfer functions.
-Multiple color legends can be added.
-
-The color legend can be moved around using left mouse button.  It can be scaled using right mouse button.
-
-Hover over the colorbar to select and change it.
-Press 0,1,.. to change transfer function set.
-Press h/v to change the style - horizontal/vertical.
-Press DEL to remove it.
-#end
-
-#begin
-scalebar
-scalebar [voxels/voxelunit]
-Adds scale bar to the display.
-Multiple scale bars can be added.
-
-By default scalebar will display 100 voxels/voxelunits across. If the dataset has voxelunits specified in the volume information, then the number is taken in voxelunits (i.e. micron, cm, mm etc), otherwise it is taken to mean number of voxels.
-
-The scale is correct for orthographic projection.
-For perspective projection the scale is correct for the central portion of the object.  In perspective projection, the object scaling will be larger for closer regions than for the away regions.  Hence the scalebar displays the scale that is correct at the center of the object.
-
-Hover over scalebar to activate it.
-The scalebar can be moved around.
-Press h/v to change the style - horizontal/vertical.
-Press u/d/l/r to change the text position - up/down/left/right for appropriate style.
-Press DEL to remove it.
-
-Scalebars positions can be animated.
-
-Examples :
-scalebar 10 - If voxelunits are specified then the scalebar is drawn such that it shows 10 voxelunits across otherwise it will be 10 voxels across.
-#end
 
 #begin
 addrotationanimation
@@ -601,17 +479,6 @@ countcells
 Count the number of isolated regions, as defined by the transfer function. Only those voxels that have opacity greater than zero according to the current transfer function will be considered for locating isolated regions.
 #end
 
-#begin
-getvolume
-getvolume [tag]
-Calculate volume by counting voxels that have non-zero opacity, i.e. count voxels that are shown.  When getvolume is supplied with tag, only those voxels that have the given tag value are counted.
-#end
-
-#begin
-getsurfacearea
-getsurfacearea [tag]
-Calculate surface area by counting surface voxels (similar to getvolume).  When getsurfacearea is supplied with tag, only those surface voxels that have the given tag value are counted.
-#end
 
 #begin
 getangle

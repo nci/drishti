@@ -369,6 +369,13 @@ MainWindow::menuViewerFunction()
       return;
     }
 
+  if (!m_Hires->raised())
+    {
+      QMessageBox::information(0, "Error", "Functions available only in hires mode.");
+      return;
+    }
+
+
   QAction *action = qobject_cast<QAction *>(sender());
   QString mvf = action->data().toString();
 

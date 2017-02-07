@@ -1647,6 +1647,36 @@ Raw2Pvl::savePvl(VolumeData* volData,
   int pvlVoxelType = 0;
   if (pvlbpv == 2) pvlVoxelType = 2;
 
+  bool subsample = (svsl > 1 || svslz > 1);
+
+  //--------------------------
+  int filterType = 0;
+  if (subsample && spread > 0)
+    {
+      bool ok = true;
+      
+      QStringList items;
+      items << "Tri-Linear Interpolation";
+      items << "No Interpolation";
+      QString item = QInputDialog::getItem(0,
+					   QString("Subsampling Filter (%1)").arg(spread),
+					   "FOR SEGMENTED DATA USE - NO INTERPOLATION",
+					   items,
+					   0,
+					   false,
+					   &ok);
+      if (ok && !item.isEmpty())
+	{
+	  QStringList op = item.split(' ');
+	  if (op[0] == "No")
+	    {
+	      filterType = 1;
+	      spread = 0;
+	    }
+	}
+    }
+  //--------------------------
+  
   int nbytes = rvwidth*rvheight*bpv;
   double *filtervol = new double[wsz2*hsz2];
   uchar *pvlslice = new uchar[pvlbpv*wsz2*hsz2];
@@ -1661,7 +1691,6 @@ Raw2Pvl::savePvl(VolumeData* volData,
   int rawSize = rawMap.size()-1;
   int width = wsz2;
   int height = hsz2;
-  bool subsample = (svsl > 1 || svslz > 1);
   bool trim = (dmin != 0 ||
 	       wmin != 0 ||
 	       hmin != 0 ||
@@ -1673,6 +1702,7 @@ Raw2Pvl::savePvl(VolumeData* volData,
 
   VolumeFileManager rawFileManager;
   VolumeFileManager pvlFileManager;
+
 
   QProgressDialog progress("Saving processed volume",
 			   "Cancel",
@@ -1780,6 +1810,12 @@ Raw2Pvl::savePvl(VolumeData* volData,
 	{
 	  int d0 = dmin + dd*svslz; 
 	  int d1 = d0 + svslz-1;
+
+	  if (spread == 0) // No Filter - Nearest Neighbour
+	    {
+	      d0 = dmin + dd*svslz;
+	      d1 = d0;
+	    }
 	  
 	  progress.setValue((int)(100*(float)dd/(float)dsz2));
 	  qApp->processEvents();
@@ -1835,7 +1871,7 @@ Raw2Pvl::savePvl(VolumeData* volData,
 					     spread, dilateFilter);
 		    }		  
 		}
-	      else
+	      else // spread == 0
 		volData->getDepthSlice(d, raw);
 	      
 	      if (spread > 0)
@@ -1865,18 +1901,36 @@ Raw2Pvl::savePvl(VolumeData* volData,
 			  for(int y=y0; y<=y1; y++)
 			    for(int x=x0; x<=x1; x++)
 			      {
-				if (voxelType == _UChar)
-				  { uchar *ptr = raw; filtervol[fi] += ptr[y*rvheight+x]; }
-				else if (voxelType == _Char)
-				  { char *ptr = (char*)raw; filtervol[fi] += ptr[y*rvheight+x]; }
-				else if (voxelType == _UShort)
-				  { ushort *ptr = (ushort*)raw; filtervol[fi] += ptr[y*rvheight+x]; }
-				else if (voxelType == _Short)
-				  { short *ptr = (short*)raw; filtervol[fi] += ptr[y*rvheight+x]; }
-				else if (voxelType == _Int)
-				  { int *ptr = (int*)raw; filtervol[fi] += ptr[y*rvheight+x]; }
-				else if (voxelType == _Float)
-				  { float *ptr = (float*)raw; filtervol[fi] += ptr[y*rvheight+x]; }
+				if (spread > 0)
+				  {
+				    if (voxelType == _UChar)
+				      { uchar *ptr = raw; filtervol[fi] += ptr[y*rvheight+x]; }
+				    else if (voxelType == _Char)
+				      { char *ptr = (char*)raw; filtervol[fi] += ptr[y*rvheight+x]; }
+				    else if (voxelType == _UShort)
+				      { ushort *ptr = (ushort*)raw; filtervol[fi] += ptr[y*rvheight+x]; }
+				    else if (voxelType == _Short)
+				      { short *ptr = (short*)raw; filtervol[fi] += ptr[y*rvheight+x]; }
+				    else if (voxelType == _Int)
+				      { int *ptr = (int*)raw; filtervol[fi] += ptr[y*rvheight+x]; }
+				    else if (voxelType == _Float)
+				      { float *ptr = (float*)raw; filtervol[fi] += ptr[y*rvheight+x]; }
+				  }
+				else // no filter
+				  {
+				    if (voxelType == _UChar)
+				      { uchar *ptr = raw; filtervol[fi] = ptr[y*rvheight+x]; }
+				    else if (voxelType == _Char)
+				      { char *ptr = (char*)raw; filtervol[fi] = ptr[y*rvheight+x]; }
+				    else if (voxelType == _UShort)
+				      { ushort *ptr = (ushort*)raw; filtervol[fi] = ptr[y*rvheight+x]; }
+				    else if (voxelType == _Short)
+				      { short *ptr = (short*)raw; filtervol[fi] = ptr[y*rvheight+x]; }
+				    else if (voxelType == _Int)
+				      { int *ptr = (int*)raw; filtervol[fi] = ptr[y*rvheight+x]; }
+				    else if (voxelType == _Float)
+				      { float *ptr = (float*)raw; filtervol[fi] = ptr[y*rvheight+x]; }
+				  }
 			      }
 			  fi++;
 			}
@@ -1886,7 +1940,7 @@ Raw2Pvl::savePvl(VolumeData* volData,
 	  
 	  if (trim || subsample)
 	    {
-	      if (subsample)
+	      if (spread > 0)
 		{
 		  for(int fi=0; fi<wsz2*hsz2; fi++)
 		    filtervol[fi] /= svsl3;

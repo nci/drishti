@@ -3320,6 +3320,7 @@ DrawHiresVolume::screenShadow(int ScreenXMin, int ScreenXMax,
   int nblur = m_lightInfo.shadowBlur;
   int nit = 2;
   if (nblur > 4) nit = 3;
+  nit *= m_imgSizeRatio;
   for(int i=0; i<nit; i++)
     {
       glUniform1iARB(m_blurParm[2], qBound(1, nblur, 4)); // type

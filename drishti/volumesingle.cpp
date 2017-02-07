@@ -855,8 +855,7 @@ VolumeSingle::saveVolume(uchar *lut,
   uchar vt = 0;
 
   //*** max 1Gb per slab
-  int opslabSize;
-//  opslabSize = (1024*1024*1024)/(ny*nx);
+//  int opslabSize = (1024*1024*1024)/(ny*nx);
 //  //------------------------------------------------------
 //  if (opslabSize < nz)
 //    {  
@@ -872,7 +871,7 @@ VolumeSingle::saveVolume(uchar *lut,
 //	opslabSize = nz+1;
 //    }
 //  //------------------------------------------------------
-  opslabSize = nz+1; // put all in a single file
+  int opslabSize = nz+1; // put all in a single file
 
 
   if (savePvl)
@@ -1283,20 +1282,22 @@ VolumeSingle::saveSubsampledVolume()
 
   //*** number of slices in each tmp file
   //*** max 1Gb per slab
-  int lodslabSize = (1024*1024*1024)/(bpv*lenx2*leny2);
-  if (lodslabSize < lenz2)
-    {  
-      QStringList items;
-      items << "yes" << "no";
-      QString yn = QInputDialog::getItem(0, "Split Subsampled Volume",
-					 "Split subsampled volume larger than 1Gb into multiple files ?",
-					 items,
-					 0,
-					 false);
-      //*** max 1Gb per slab
-      if (yn != "yes") // put all in a single file
-	lodslabSize = lenz2+1;
-    }
+//  int lodslabSize = (1024*1024*1024)/(bpv*lenx2*leny2);
+//  if (lodslabSize < lenz2)
+//    {  
+//      QStringList items;
+//      items << "yes" << "no";
+//      QString yn = QInputDialog::getItem(0, "Split Subsampled Volume",
+//					 "Split subsampled volume larger than 1Gb into multiple files ?",
+//					 items,
+//					 0,
+//					 false);
+//      //*** max 1Gb per slab
+//      if (yn != "yes") // put all in a single file
+//	lodslabSize = lenz2+1;
+//    }
+
+  int lodslabSize = lenz2+1;
 
   QString lodflnm = m_volumeFiles[m_volnum]+QString(".lod%1").arg(m_subvolumeSubsamplingLevel);
   lodflnm = StaticFunctions::replaceDirectory(Global::tempDir(),
@@ -1324,12 +1325,13 @@ VolumeSingle::saveSubsampledVolume()
   for(int kslc=0; kslc<lenz2; kslc++)
     {
       int kmin = kslc*m_subvolumeSubsamplingLevel;
-      int kmax = kmin + m_subvolumeSubsamplingLevel-1;
+      //int kmax = kmin + m_subvolumeSubsamplingLevel-1;
 
       Global::progressBar()->setValue((int)(100.0*(float)kslc/(float)lenz2));
 
       memset(tmp, 0, 4*leny2*lenx2);
-      for(int k=kmin; k<=kmax; k++)
+      //for(int k=kmin; k<=kmax; k++)
+      int k = kmin;
 	{
 	  uchar *vslice = m_pvlFileManager.getSlice(k);
 	  memcpy(m_sliceTemp, vslice, bpv*m_width*m_height);
@@ -1338,32 +1340,42 @@ VolumeSingle::saveSubsampledVolume()
 	  for(int j=0; j<leny2; j++)
 	    { 
 	      int y = j*m_subvolumeSubsamplingLevel;
-	      int hiy = y+m_subvolumeSubsamplingLevel-1;
+	      //int hiy = y+m_subvolumeSubsamplingLevel-1;
 	      for(int i=0; i<lenx2; i++) 
 		{ 
 		  int x = i*m_subvolumeSubsamplingLevel; 
-		  int hix = x+m_subvolumeSubsamplingLevel-1;
-		  float sumv = 0; 
 		  if (bpv == 1)
-		    {
-		      for(int jy=y; jy<=hiy; jy++) 
-			for(int ix=x; ix<=hix; ix++) 
-			  {
-			    int idx = jy*m_height+ix;
-			    sumv += m_sliceTemp[idx];
-			  }
-		    }
+		    tmp[ji] = m_sliceTemp[y*m_height+x];
 		  else
-		    {
-		      for(int jy=y; jy<=hiy; jy++) 
-			for(int ix=x; ix<=hix; ix++) 
-			  {
-			    int idx = jy*m_height+ix;
-			    sumv += ((ushort*)m_sliceTemp)[idx];
-			  }
-		    }
-		  tmp[ji] += sumv; 
+		    tmp[ji] = ((ushort*)m_sliceTemp)[y*m_height+x];
 		  ji++;
+
+		  //---------------------------------
+		  // tri-linear interpolation
+		  //int x = i*m_subvolumeSubsamplingLevel; 
+		  //int hix = x+m_subvolumeSubsamplingLevel-1;
+		  //float sumv = 0; 
+		  //if (bpv == 1)
+		  //  {
+		  //    for(int jy=y; jy<=hiy; jy++) 
+		  //      for(int ix=x; ix<=hix; ix++) 
+		  //        {
+		  //          int idx = jy*m_height+ix;
+		  //          sumv += m_sliceTemp[idx];
+		  //        }
+		  //  }
+		  //else
+		  //  {
+		  //    for(int jy=y; jy<=hiy; jy++) 
+		  //      for(int ix=x; ix<=hix; ix++) 
+		  //        {
+		  //          int idx = jy*m_height+ix;
+		  //          sumv += ((ushort*)m_sliceTemp)[idx];
+		  //        }
+		  //  }
+		  //tmp[ji] += sumv; 
+		  //ji++;
+		  //---------------------------------
 		}
 	    }
 	}
@@ -1371,13 +1383,26 @@ VolumeSingle::saveSubsampledVolume()
       if (bpv == 1)
 	{
 	  for(int j=0; j<leny2*lenx2; j++)
-	    m_sliceTemp[j] = tmp[j]/svsl3;
+	    m_sliceTemp[j] = tmp[j];
 	}
       else
 	{
 	  for(int j=0; j<leny2*lenx2; j++)
-	    ((ushort*)m_sliceTemp)[j] = tmp[j]/svsl3;
+	    ((ushort*)m_sliceTemp)[j] = tmp[j];
 	}
+      //---------------------------------
+      // tri-linear interpolation
+      //if (bpv == 1)
+      //  {
+      //    for(int j=0; j<leny2*lenx2; j++)
+      //      m_sliceTemp[j] = tmp[j]/svsl3;
+      //  }
+      //else
+      //  {
+      //    for(int j=0; j<leny2*lenx2; j++)
+      //      ((ushort*)m_sliceTemp)[j] = tmp[j]/svsl3;
+      //  }
+      ////---------------------------------
 
       m_lodFileManager.setSlice(kslc, m_sliceTemp);
     }  

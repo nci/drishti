@@ -3838,7 +3838,7 @@ void
 Viewer::grabScreenShot()
 {
   QSize imgSize = StaticFunctions::getImageSize(size().width(),size().height());
-  setImageSize(imgSize.width(), imgSize.height());
+  //setImageSize(imgSize.width(), imgSize.height());
 
   QString flnm;
   flnm = QFileDialog::getSaveFileName(0,
@@ -3877,6 +3877,9 @@ Viewer::grabScreenShot()
   setCurrentFrame(-1);
   setImageFileName(flnm);
   setSaveSnapshots(true);
+
+  setImageSize(imgSize.width(), imgSize.height());
+
   dummydraw();
   draw();
   endPlay();

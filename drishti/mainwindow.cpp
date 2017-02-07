@@ -1318,7 +1318,7 @@ MainWindow::on_actionSave_Movie_triggered()
   QSize imgSize = StaticFunctions::getImageSize(m_Viewer->size().width(),
 						m_Viewer->size().height());
 
-  //m_Viewer->setImageSize(imgSize.width(), imgSize.height());
+  m_Viewer->setImageSize(imgSize.width(), imgSize.height());
 
 #if defined(Q_OS_WIN32)
   if (imgSize.width()%16 > 0 ||
@@ -1356,8 +1356,6 @@ MainWindow::on_actionSave_Movie_triggered()
 
       m_Viewer->setSaveSnapshots(false);
       m_Viewer->setSaveMovie(true);
-
-      m_Viewer->setImageSize(imgSize.width(), imgSize.height());
 
       m_Viewer->dummydraw();
 

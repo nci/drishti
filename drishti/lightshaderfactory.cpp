@@ -839,7 +839,7 @@ LightShaderFactory::genInitTubeLightShader() // point shader
 
 
   // ----- testing ----
-  shader += "  if (lradius < 1)\n";
+  shader += "  if (lradius < 1.0)\n";
   shader += "     {\n";
   shader += "       bvec3 spless = lessThan(p, vec3(3.0,3.0,3.0));\n";
   shader += "       bvec3 spgret = greaterThan(p, vec3(float(gridx)-3.0,float(gridy)-3.0,float(gridz)-3.0));\n";
@@ -948,7 +948,7 @@ LightShaderFactory::genTubeLightShader() // point shader
   shader += "  int z = row*ncols + col;\n";
 
   //-------- skylight ----
-  shader += "  if (lradius < 1)\n";
+  shader += "  if (lradius < 1.0)\n";
   shader += "   {\n";
   shader += "     gl_FragColor = texture2DRect(lightTex, tc.xy);\n";
   shader += "     vec3 p = vec3(x,y,z);\n";

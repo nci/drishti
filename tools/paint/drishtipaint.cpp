@@ -512,7 +512,9 @@ DrishtiPaint::on_actionDefaultView_triggered()
   m_splitterOne->setSizes(ssz);
   m_splitterTwo->setSizes(ssz);
 
-  m_graphCutArea->setSizes({1000, 1000});
+  QList<int> gcas;
+  gcas << 1000 << 1000;
+  m_graphCutArea->setSizes(gcas);
 
   m_axialImage->zoomToSelection();
   m_sagitalImage->zoomToSelection();
@@ -544,7 +546,9 @@ DrishtiPaint::on_actionZ_triggered()
   ssz << 150;
   m_splitterTwo->setSizes(ssz);
 
-  m_graphCutArea->setSizes({1000, 200});
+  QList<int> gcas;
+  gcas << 1000 << 200;
+  m_graphCutArea->setSizes(gcas);
 
   m_axialImage->zoomToSelection();
   m_sagitalImage->zoomToSelection();
@@ -576,7 +580,9 @@ DrishtiPaint::on_actionY_triggered()
   ssz << 150;
   m_splitterTwo->setSizes(ssz);
 
-  m_graphCutArea->setSizes({1000, 200});
+  QList<int> gcas;
+  gcas << 1000 << 200;
+  m_graphCutArea->setSizes(gcas);
 
   m_axialImage->zoomToSelection();
   m_sagitalImage->zoomToSelection();
@@ -608,7 +614,9 @@ DrishtiPaint::on_actionX_triggered()
   ssz << 150;
   m_splitterTwo->setSizes(ssz);
 
-  m_graphCutArea->setSizes({1000, 200});
+  QList<int> gcas;
+  gcas << 1000 << 200;
+  m_graphCutArea->setSizes(gcas);
 
   m_axialImage->zoomToSelection();
   m_sagitalImage->zoomToSelection();
@@ -640,7 +648,9 @@ DrishtiPaint::on_action3dView_triggered()
   ssz << 150;
   m_splitterTwo->setSizes(ssz);
 
-  m_graphCutArea->setSizes({1000, 200});
+  QList<int> gcas;
+  gcas << 1000 << 200;
+  m_graphCutArea->setSizes(gcas);
 
   m_axialImage->zoomToSelection();
   m_sagitalImage->zoomToSelection();

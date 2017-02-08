@@ -1225,7 +1225,6 @@ MainWindow::updateRecentFileAction()
 
 }
 
-#include <Windows.h>
 void
 MainWindow::on_actionSave_Image_triggered()
 {

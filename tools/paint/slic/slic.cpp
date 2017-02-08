@@ -6,6 +6,8 @@
 #include <QBitArray>
 #include <QtMath>
 
+#include <float.h>
+
 SLIC::SLIC()
 {
   m_klabels = 0;

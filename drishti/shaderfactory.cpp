@@ -302,7 +302,7 @@ ShaderFactory::genDefaultShaderString(bool bit16,
 	      else if (i == 3) c = "z";
 	      else if (i == 4) c = "w";
 	      
-	      shader += QString("  vec2 vol%1 = vec2(vg.%2, tfSet+%3);\n"). \
+	      shader += QString("  vec2 vol%1 = vec2(vg.%2, tfSet+float(%3));\n"). \
 		arg(i).arg(c).arg((float)(i-1)/Global::lutSize());
 	    }
 	}

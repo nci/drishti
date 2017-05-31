@@ -120,6 +120,8 @@ class DrishtiPaint : public QMainWindow
   void on_hideSupPix_clicked(bool);
   void on_supPixSize();
 
+  void setShowSlices(bool);
+
   void applyMaskOperation(int, int, int);
 
   void paint3DStart();

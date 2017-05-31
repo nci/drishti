@@ -114,6 +114,11 @@ Start Keyboard help
 #end
 
 #begin
+Ctrl+Left click
+Ctrl+Left click to change position cross marker.
+#end
+
+#begin
 ?
 Show/hide information text.
 #end
@@ -229,5 +234,3 @@ When in Sketch Pad Mode - tag with current tag value all visible region under by
 m
 Repeat last merge/mergetf operation using previously used tag parameters.
 #end
-
-

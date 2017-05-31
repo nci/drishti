@@ -44,6 +44,12 @@ Mark pixels with current tag for object selection.
 #end
 
 #begin
+Ctrl
+Press Control button and move mouse to change slice positions in other slice windows.
+No need to press mouse button to change the slice positions.
+#end
+
+#begin
 Shift + Left mouse
 Mark pixels red with value 255 for background selection.  Pure black/transparent region is automatically treated as background.
 #end

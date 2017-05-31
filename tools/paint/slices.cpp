@@ -220,3 +220,9 @@ Slices::setLarge(bool ms)
   else
     m_changeLayout->setIcon(QIcon(":/images/enlarge.png"));
 }
+
+void
+Slices::setShowSlices(bool s)
+{
+  m_imageWidget->setShowSlices(s);
+}

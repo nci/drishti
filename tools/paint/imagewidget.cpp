@@ -54,6 +54,7 @@ ImageWidget::ImageWidget(QWidget *parent) :
   //m_modeType = 0; // graphcut
   m_modeType = 1; // superpixels
 
+  m_showSlices = true;
   m_hline = m_vline = 0;
 
   m_zoom = 1;
@@ -142,6 +143,17 @@ ImageWidget::ImageWidget(QWidget *parent) :
   m_hideSuperPixels = false;
   m_autoGenSuperPixels = false;
   m_superPixelSize = 100;
+}
+
+void
+ImageWidget::setShowSlices(bool s)
+{
+  m_showSlices = s;
+
+  if (!m_volPtr)
+    return;
+
+  update();
 }
 
 void
@@ -812,9 +824,12 @@ ImageWidget::paintEvent(QPaintEvent *event)
   
   //----------------------------------------------------
   // draw slice positions for other 2 slice directions
-  p.setPen(QPen(Qt::cyan, 0.7));
-  p.drawLine(m_hline*m_zoom, 0, m_hline*m_zoom, m_simgHeight);
-  p.drawLine(0, m_vline*m_zoom, m_simgWidth, m_vline*m_zoom);
+  if (m_showSlices)
+    {
+      p.setPen(QPen(Qt::cyan, 0.7));
+      p.drawLine(m_hline*m_zoom, 0, m_hline*m_zoom, m_simgHeight);
+      p.drawLine(0, m_vline*m_zoom, m_simgWidth, m_vline*m_zoom);
+    }
   //----------------------------------------------------
 
   drawRubberBand(&p);

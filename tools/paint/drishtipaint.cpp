@@ -2587,6 +2587,14 @@ DrishtiPaint::connectCurvesWidget()
 }
 
 void
+DrishtiPaint::setShowSlices(bool b)
+{
+  m_axialImage->setShowSlices(b);
+  m_sagitalImage->setShowSlices(b);
+  m_coronalImage->setShowSlices(b);
+}
+
+void
 DrishtiPaint::connectViewerMenu()
 {
   m_viewer->setUIPointer(&viewerUi);
@@ -2618,6 +2626,9 @@ DrishtiPaint::connectViewerMenu()
 	  viewerUi.box, SLOT(setChecked(bool)));
   connect(viewerUi.showSlices, SIGNAL(clicked(bool)),
 	  m_viewer, SLOT(setShowSlices(bool)));
+
+  connect(viewerUi.showSlices, SIGNAL(clicked(bool)),
+	  this, SLOT(setShowSlices(bool)));
 
   connect(viewerUi.snapshot, SIGNAL(clicked()),
 	  m_viewer, SLOT(saveImage()));

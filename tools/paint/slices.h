@@ -44,6 +44,8 @@ class Slices : public QWidget
   void setLarge(bool);
   bool enlarged() { return m_maximized; }
 
+  void setShowSlices(bool);
+
  signals :
   void changeLayout();
   void sliceChanged(int);
@@ -76,6 +78,7 @@ class Slices : public QWidget
    void setHLine(int);
    void setVLine(int);
    void setSlice(int);
+
    //void bbupdated(Vec, Vec);
    void fitImage() { m_imageWidget->zoom9Clicked(); }
 

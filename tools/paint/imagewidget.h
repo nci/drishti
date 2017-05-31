@@ -69,9 +69,12 @@ class ImageWidget : public QWidget
 
   QVector3D pickedPoint() { return QVector3D(m_lastPickDepth, m_lastPickWidth, m_lastPickHeight); };
 
+  void setShowSlices(bool);
+
  public slots :
   void setHLine(int);
   void setVLine(int);
+
   //void bbupdated(Vec, Vec);
   void updateTagColors();
   void userRangeChanged(int, int);
@@ -173,6 +176,7 @@ class ImageWidget : public QWidget
   int m_imgHeight, m_imgWidth;
   int m_simgHeight, m_simgWidth;
 
+  bool m_showSlices;
   int m_hline;
   int m_vline;
 

@@ -4,4 +4,4 @@ SUBDIRS = drishti \
           drishti\mopplugin \
           tools\import \
           tools\import\plugins \
-          tools\paint-graphcut
+          tools\paint

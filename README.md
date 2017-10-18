@@ -14,9 +14,11 @@ Drishti stands for vision or insight in Sanskrit, an Indian language.
 Ajay Limaye; Drishti: a volume exploration and presentation tool. Proc. SPIE 8506, Developments in X-Ray Tomography VIII, 85060X (October 17, 2012)
 
 ## Releases
-Download the current version of Drishti (v2.6.3) for<br>
-  * [**Windows**](https://github.com/AjayLimaye/drishti/releases/tag/v2.6.3win)<br>
-  * [**Mac**](https://github.com/AjayLimaye/drishti/releases/tag/v2.6.3mac)<br>
+Download the current version of Drishti (v2.6.4) for<br>
+  * [**Windows**](https://github.com/AjayLimaye/drishti/releases/tag/v2.6.4win)<br>
+  * [**Mac**](https://github.com/AjayLimaye/drishti/releases/tag/v2.6.4mac)<br>  
+
+Download the Linux version of Drishti (v2.6.3) <br>
   * [**Linux**](https://github.com/AjayLimaye/drishti/releases/tag/v2.6.3linux)<br>
 
 

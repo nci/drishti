@@ -4,6 +4,7 @@
 #include "matrix.h"
 #include <netcdfcpp.h>
 
+
 void NetworkObject::setScale(float s) { m_scaleV = m_scaleE = s; }
 float NetworkObject::scaleV() { return m_scaleV; }
 void NetworkObject::setScaleV(float s) { m_scaleV = s; }
@@ -1515,6 +1516,13 @@ NetworkObject::getKey(QDomElement main)
 {
   m_nodeAtt.clear();
   m_edgeAtt.clear();
+  m_nodeAttName.clear();
+  m_edgeAttName.clear();
+
+  m_nodePosAttr.clear();
+  m_nodePosAttr << "x";
+  m_nodePosAttr << "y";
+  m_nodePosAttr << "z";
 
   QDomNodeList dlist = main.childNodes();
   for(int i=0; i<dlist.count(); i++)
@@ -1534,23 +1542,88 @@ NetworkObject::getKey(QDomElement main)
 		  QDomNode node = attr.item(na);
 		  QString name = node.nodeName();
 		  QString val = node.nodeValue();
-		  if (val == "node") { isnode = true; break; }
-		  if (val == "edge") { isedge = true; break; }
+		  if (name == "for" && val == "node") { isnode = true; break; }
+		  if (name == "for" && val == "edge") { isedge = true; break; }
 		}
-	      for(int na=0; na<nattr; na++)
+	      if (isedge)
 		{
-		  QDomNode node = attr.item(na);
-		  QString name = node.nodeName();
-		  QString val = node.nodeValue();
-		  if (isnode && name == "id")
+		  bool notstr = true;
+		  for(int na=0; na<nattr; na++)
 		    {
-		      if (val != "x" &&
-			  val != "y" &&
-			  val != "z")
-			m_nodeAtt << val;
+		      QDomNode node = attr.item(na);
+		      QString name = node.nodeName();
+		      QString val = node.nodeValue();
+
+		      if (name == "attr.type" &&
+			  val == "string")
+			{
+			  notstr = false;
+			  break;
+			}
 		    }
-		  if (isedge && name == "id")
-		    m_edgeAtt << val;
+		  if (notstr)
+		    {
+		      for(int na=0; na<nattr; na++)
+			{
+			  QDomNode node = attr.item(na);
+			  QString name = node.nodeName();
+			  QString val = node.nodeValue();
+			  
+			  if (name == "id")
+			    m_edgeAtt << val;
+			  if (name == "attr.name")
+			    m_edgeAttName << val;
+			}
+		    }
+		}
+
+	      if (isnode)
+		{
+		  bool posatt = false;
+		  for(int na=0; na<nattr; na++)
+		    {
+		      QDomNode node = attr.item(na);
+		      QString name = node.nodeName();
+		      QString val = node.nodeValue();
+
+		      if (name == "attr.name" &&
+			  (val == "Position X" ||
+			   val == "Position Y" ||
+			   val == "Position Z"))
+			{
+			  posatt = true;
+			  for(int a=0; a<nattr; a++)
+			    {
+			      QDomNode nde = attr.item(a);
+			      QString nme = nde.nodeName();
+			      QString vle = nde.nodeValue();
+			      if (nme == "id")
+				{
+				  int pa = 0;
+				  if (val == "Position X") pa = 0;
+				  if (val == "Position Y") pa = 1;
+				  if (val == "Position Z") pa = 2;
+				  m_nodePosAttr[pa] = vle;
+				}
+			    }
+			  break;
+			}
+		    }		    
+		  if (!posatt) // not position attribute
+		    {
+		      for(int na=0; na<nattr; na++)
+			{
+			  QDomNode node = attr.item(na);
+			  QString name = node.nodeName();
+			  QString val = node.nodeValue();
+			  
+			  //if (val == "attr.name")
+			  if (name == "id")
+			    m_nodeAtt << val;
+			  if (name == "attr.name")
+			    m_nodeAttName << val;
+			}
+		    }
 		}
 	    }
 	}
@@ -1610,9 +1683,9 @@ NetworkObject::loadNodeInfo(QDomNodeList nnodes)
 	  QDomNamedNodeMap attr = ele.attributes();
 	  QString name = attr.item(0).nodeName();
 	  QString val = attr.item(0).nodeValue();
-	  if (val == "x") pos.x = et.toFloat();
-	  else if (val == "y") pos.y = et.toFloat();
-	  else if (val == "z") pos.z = et.toFloat();
+	  if (val == m_nodePosAttr[0]) pos.x = et.toFloat();
+	  else if (val == m_nodePosAttr[1]) pos.y = et.toFloat();
+	  else if (val == m_nodePosAttr[2]) pos.z = et.toFloat();
 	  else 
 	    {
 	      int vi = m_nodeAtt.indexOf(val);
@@ -1641,7 +1714,7 @@ NetworkObject::loadNodeInfo(QDomNodeList nnodes)
 
 
   for(int vi=0; vi<m_nodeAtt.count(); vi++)
-    m_vertexAttribute << qMakePair(m_nodeAtt[vi], vat[vi]);      
+    m_vertexAttribute << qMakePair(m_nodeAttName[vi], vat[vi]);      
 
   if (m_vertexRadiusAttribute == -1)
     {
@@ -1715,7 +1788,7 @@ NetworkObject::loadEdgeInfo(QDomNodeList nnodes)
     }
 
   for(int vi=0; vi<m_edgeAtt.count(); vi++)
-    m_edgeAttribute << qMakePair(m_edgeAtt[vi], vat[vi]);      
+    m_edgeAttribute << qMakePair(m_edgeAttName[vi], vat[vi]);      
 
   if (m_edgeRadiusAttribute == -1)
     {

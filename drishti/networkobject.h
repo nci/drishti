@@ -135,6 +135,9 @@ class NetworkObject
   QStringList m_nodeId;
   QStringList m_nodeAtt;
   QStringList m_edgeAtt;
+  QStringList m_nodePosAttr;
+  QStringList m_nodeAttName;
+  QStringList m_edgeAttName;
   //-------------------
 
 

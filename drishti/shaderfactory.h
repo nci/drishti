@@ -8,6 +8,8 @@ class ShaderFactory
 {
  public :
   static bool loadShader(GLhandleARB&, QString);
+  static bool loadShader(GLhandleARB&, QString, QString);
+
 
   static QString genDefaultShaderString(bool, bool, int);
 
@@ -33,13 +35,23 @@ class ShaderFactory
 
   static QString genLutShaderString(bool);
 
+  static GLuint meshShader();
+  static GLint* meshShaderParm();
+
+
  private :
+  static GLuint m_meshShader;
+  static GLint m_meshShaderParm[20];
+
   static QString getNormal();
   static QString addLighting();
   static QString tagVolume();
   static QString blendVolume();
   static QString genPeelShader(bool, int, float, float, float, bool);
   static QString genVgx();
+
+  static QString meshShaderV();
+  static QString meshShaderF();
 };
 
 #endif

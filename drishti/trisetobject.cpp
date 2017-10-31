@@ -1,4 +1,5 @@
 #include "global.h"
+#include "shaderfactory.h"
 #include "staticfunctions.h"
 #include "trisetobject.h"
 #include "matrix.h"
@@ -44,6 +45,11 @@ TrisetObject::TrisetObject()
 
   m_scrV = 0;
   m_scrD = 0;
+
+  m_glVertBuffer = 0;
+  m_glIndexBuffer = 0;
+  m_glVertArray = 0;
+
   clear();
 }
 
@@ -72,7 +78,7 @@ TrisetObject::clear()
   m_diffuse = 1.0f;
   m_ambient = 0.0f;
   m_pointMode = true;
-  m_blendMode = false;
+  m_blendMode = true;
   m_shadows = false;
   m_flipNormals = false;
   m_screenDoor = false;
@@ -91,17 +97,192 @@ TrisetObject::clear()
   if (m_scrD) delete [] m_scrD;
   m_scrV = 0;
   m_scrD = 0;
+
+  if(m_glVertArray)
+    {
+      glDeleteBuffers(1, &m_glIndexBuffer);
+      glDeleteVertexArrays( 1, &m_glVertArray );
+      glDeleteBuffers(1, &m_glVertBuffer);
+      m_glIndexBuffer = 0;
+      m_glVertArray = 0;
+      m_glVertBuffer = 0;
+    }
+
 }
 
 bool
 TrisetObject::load(QString flnm)
 {
+  bool loaded;
   if (StaticFunctions::checkExtension(flnm, ".triset"))
-    return loadTriset(flnm);
+    loaded = loadTriset(flnm);
   else
-    return loadPLY(flnm);
+    loaded = loadPLY(flnm);
 
+  if (loaded)
+    {
+      loadVertexBufferData();
+      return true;
+    }
   return false;
+}
+
+void
+TrisetObject::loadVertexBufferData()
+{
+  int stride = 1;
+  if (m_normals.count()) stride++; // per vertex normal
+  if (m_vcolor.count()) stride++; // per vertex color
+  
+  int nvert = m_vertices.count();
+  int nv = 3*stride*nvert;
+  int ni = m_triangles.count();
+  //---------------------
+
+  //---------------------
+  float *vertData;
+  vertData = new float[nv];
+  for(int i=0; i<nvert; i++)
+    {
+      vertData[9*i + 0] = m_vertices[i].x + m_position.x;
+      vertData[9*i + 1] = m_vertices[i].y + m_position.y;
+      vertData[9*i + 2] = m_vertices[i].z + m_position.z;
+      vertData[9*i + 3] = m_normals[i].x;
+      vertData[9*i + 4] = m_normals[i].y;
+      vertData[9*i + 5] = m_normals[i].z;
+      vertData[9*i + 6] = m_vcolor[i].x;
+      vertData[9*i + 7] = m_vcolor[i].y;
+      vertData[9*i + 8] = m_vcolor[i].z;
+    }
+
+//  for(int i=0; i<nvert; i++)
+//    {
+//      vertData[stride*3*i + 0] = m_vertices[i].x + m_position.x;
+//      vertData[stride*3*i + 1] = m_vertices[i].y + m_position.y;
+//      vertData[stride*3*i + 2] = m_vertices[i].z + m_position.z;
+//
+//      if (m_normals.count() > 0)
+//	{
+//	  vertData[stride*3*i + 3] = m_normals[i].x;
+//	  vertData[stride*3*i + 4] = m_normals[i].y;
+//	  vertData[stride*3*i + 5] = m_normals[i].z;
+//	  if (m_vcolor.count() > 0)
+//	    {
+//	      vertData[stride*3*i + 6] = m_vcolor[i].x;
+//	      vertData[stride*3*i + 7] = m_vcolor[i].y;
+//	      vertData[stride*3*i + 8] = m_vcolor[i].z;
+//	    }
+//	}
+//      else if (m_vcolor.count() > 0)
+//	{
+//	  vertData[stride*3*i + 3] = m_vcolor[i].x;
+//	  vertData[stride*3*i + 4] = m_vcolor[i].y;
+//	  vertData[stride*3*i + 5] = m_vcolor[i].z;
+//	}
+//    }
+
+  unsigned int *indexData;
+  indexData = new unsigned int[ni];
+  for(int i=0; i<m_triangles.count(); i++)
+    indexData[i] = m_triangles[i];
+  //---------------------
+
+
+  glGenVertexArrays(1, &m_glVertArray);
+  glBindVertexArray(m_glVertArray);
+      
+  // Populate a vertex buffer
+  glGenBuffers(1, &m_glVertBuffer);
+  glBindBuffer(GL_ARRAY_BUFFER, m_glVertBuffer);
+  glBufferData(GL_ARRAY_BUFFER,
+	       sizeof(float)*nv,
+	       vertData,
+	       GL_STATIC_DRAW);
+
+  // Identify the components in the vertex buffer
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE,
+			sizeof(float)*3*stride, // stride
+			(void *)0); // starting offset
+
+  if (stride > 1)
+    {
+      glEnableVertexAttribArray(1);
+      glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE,
+			    sizeof(float)*3*stride,
+			    (char *)NULL + sizeof(float)*3);
+    }
+  
+  if (stride > 2)
+    {
+      glEnableVertexAttribArray(2);
+      glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 
+			    sizeof(float)*3*stride,
+			    (char *)NULL + sizeof(float)*6);
+    }
+
+  // Create and populate the index buffer
+  glGenBuffers(1, &m_glIndexBuffer);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_glIndexBuffer);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+	       sizeof(unsigned int)*ni,
+	       indexData,
+	       GL_STATIC_DRAW);
+  
+  glBindVertexArray(0);
+
+  delete [] vertData;
+  delete [] indexData;
+
+  // create shader
+  ShaderFactory::meshShader();
+}
+
+void
+TrisetObject::drawTrisetBuffer(QGLViewer *viewer,
+			       float pnear, float pfar)
+{
+  //glDisable(GL_BLEND);
+
+  int ni = m_triangles.count();
+  glBindVertexArray(m_glVertArray);
+  glBindBuffer(GL_ARRAY_BUFFER, m_glVertBuffer);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_glIndexBuffer);  
+  glEnableVertexAttribArray(0);
+  glEnableVertexAttribArray(1);
+  glEnableVertexAttribArray(2);
+
+  // model-view-projection matrix
+  GLdouble m[16];
+  GLfloat mvp[16];
+  viewer->camera()->getModelViewProjectionMatrix(m);
+  for(int i=0; i<16; i++) mvp[i] = m[i];
+
+  Vec vd = viewer->camera()->viewDirection();
+
+  glUseProgram(ShaderFactory::meshShader());
+  
+  GLint *meshShaderParm = ShaderFactory::meshShaderParm();  
+
+  glUniformMatrix4fv(meshShaderParm[0], 1, GL_FALSE, mvp);
+  glUniform3f(meshShaderParm[1], vd.x, vd.y, vd.z); // view direction
+  glUniform3f(meshShaderParm[2], m_pn.x, m_pn.y, m_pn.z);
+  glUniform1f(meshShaderParm[3], pnear);
+  glUniform1f(meshShaderParm[4], pfar);
+  glUniform1f(meshShaderParm[5], m_opacity);
+  glUniform1f(meshShaderParm[6], m_ambient);
+  glUniform1f(meshShaderParm[7], m_diffuse);
+  glUniform1f(meshShaderParm[8], m_specular);
+
+  glDrawElements(GL_TRIANGLES, ni, GL_UNSIGNED_INT, 0);  
+
+
+  glDisableVertexAttribArray(0);
+  glDisableVertexAttribArray(1);
+  glDisableVertexAttribArray(2);
+  glBindVertexArray(0);
+
+  glUseProgram(0);
 }
 
 bool
@@ -612,10 +793,15 @@ TrisetObject::draw(QGLViewer *viewer,
 	    m_color.z*m_opacity,
 	    m_opacity);
 
+//  if (m_blendMode)
+//    drawTriset(pnear, pfar, step);
+//  else
+//    drawTriset();
+
   if (m_blendMode)
-    drawTriset(pnear, pfar, step);
+    drawTrisetBuffer(viewer, pnear, pfar);
   else
-    drawTriset();
+    drawTrisetBuffer(viewer, 0, -1);
 
   { // reset emissivity
     float emiss[] = { 0, 0, 0, 1 };
@@ -631,6 +817,8 @@ TrisetObject::predraw(QGLViewer *viewer,
 		      Vec pn,
 		      bool shadows, int shadowWidth, int shadowHeight)
 {
+  m_pn = pn;
+
   if (m_opacity < 0.05)
     return;
 
@@ -971,6 +1159,7 @@ TrisetObject::drawTriset()
       glEnd();
     }
 }
+
 
 QDomElement
 TrisetObject::domElement(QDomDocument &doc)

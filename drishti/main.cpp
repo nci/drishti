@@ -14,6 +14,7 @@ int main(int argc, char** argv)
   glFormat.setDoubleBuffer(true);
   glFormat.setRgba(true);
   glFormat.setAlpha(true);
+  glFormat.setDepth(true);
 
 //  //-----------------------------
 //  // did not work - still getting 8bit buffers

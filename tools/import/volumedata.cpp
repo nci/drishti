@@ -47,6 +47,7 @@ QString VolumeData::description() { return m_volInterface->description(); }
 int VolumeData::voxelType() { return m_volInterface->voxelType(); }
 int VolumeData::voxelUnit() { return m_volInterface->voxelUnit(); }
 int VolumeData::headerBytes() { return m_headerBytes; }
+int VolumeData::bytesPerVoxel() { return m_bytesPerVoxel; }
 
 void
 VolumeData::setMinMax(float rmin, float rmax)
@@ -198,7 +199,7 @@ VolumeData::setFile(QStringList files,
 
 void
 VolumeData::getDepthSlice(int slc,
-			      uchar *slice)
+			  uchar *slice)
 {
   m_volInterface->getDepthSlice(slc, slice);
 }

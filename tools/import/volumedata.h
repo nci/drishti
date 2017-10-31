@@ -21,6 +21,7 @@ class VolumeData : public QObject
   int voxelUnit();
   int voxelType();
   int headerBytes();
+  int bytesPerVoxel();
 
   QList<uint> histogram();
   

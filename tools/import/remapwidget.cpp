@@ -1,4 +1,5 @@
 #include "global.h"
+#include "staticfunctions.h"
 #include "common.h"
 #include "remapwidget.h"
 #include "raw2pvl.h"
@@ -395,7 +396,7 @@ RemapWidget::saveTrimmedImages(int dmin, int dmax,
   imgflnm = QFileDialog::getSaveFileName(0,
 					 "Save images with basename as",
 					 Global::previousDirectory(),
-					 "Image Files (*.png *.tif *.bmp *.jpg)",
+					 "Image Files (*.png *.tif *.bmp *.jpg *.raw)",
 					 0,
 					 QFileDialog::DontUseNativeDialog);
 
@@ -404,7 +405,6 @@ RemapWidget::saveTrimmedImages(int dmin, int dmax,
 
   QFileInfo f(imgflnm);	
   QChar fillChar = '0';
-  QImage timage;
 
   QProgressDialog progress("Saving images",
 			   "Cancel",
@@ -414,22 +414,68 @@ RemapWidget::saveTrimmedImages(int dmin, int dmax,
   int dsz = dmax-dmin+1;
   int wsz = wmax-wmin+1;
   int hsz = hmax-hmin+1;
-  QVector<QRgb> colorMap = m_imageWidget->colorMap();
-  for(int d=dmin; d<=dmax; d++)
+
+  if (StaticFunctions::checkExtension(imgflnm, ".raw"))
     {
-      timage = m_volData.getDepthSliceImage(d);
-      if (timage.format() == QImage::Format_Indexed8)
-	timage.setColorTable(colorMap);  
-      timage = timage.copy(hmin, wmin, hsz, wsz);
+      int nX,nY,nZ, bps;
+      m_volData.gridSize(nX,nY,nZ);
+      bps = m_volData.bytesPerVoxel();
+      int vtype = m_volData.voxelType();
+      uchar vt;
+      if (vtype == _UChar) vt = 0; // unsigned byte
+      if (vtype == _Char) vt = 1; // signed byte
+      if (vtype == _UShort) vt = 2; // unsigned short
+      if (vtype == _Short) vt = 3; // signed short
+      if (vtype == _Int) vt = 4; // int
+      if (vtype == _Float) vt = 8; // float
+      uchar *slc;
+      slc = new uchar[nY*nZ*bps];
+      for(int d=dmin; d<=dmax; d++)
+	{
+	  progress.setValue((int)(100*(float)(d-dmin)/(float)dsz));
 
-      QString flname = f.absolutePath() + QDir::separator() +
-	               f.baseName();
-      flname += QString("%1").arg((int)d, 5, 10, fillChar);
-      flname += ".";
-      flname += f.completeSuffix();
+	  m_volData.getDepthSlice(d, slc);
+	  for(uint j=wmin; j<=wmax; j++)
+	    memcpy(slc+(j-wmin)*hsz*bps,
+		   slc+(j*nZ + hmin)*bps,
+		   hsz*bps);	  
 
-      timage.save(flname);
-      progress.setValue((int)(100*(float)(d-dmin)/(float)dsz));
+	  QString flname = f.absolutePath() +
+	                   QDir::separator() +
+	                   f.baseName();
+	  flname += QString("%1").arg((int)d, 5, 10, fillChar);
+	  flname += ".";
+	  flname += f.completeSuffix();
+	  QFile fout(flname);
+	  fout.open(QFile::WriteOnly);	  
+	  fout.write((char*)&vt, 1);
+	  fout.write((char*)&wsz, 4);
+	  fout.write((char*)&hsz, 4);
+	  fout.write((char*)slc, wsz*hsz*bps);
+	  fout.close();
+	}
+      delete [] slc;
+    }      
+  else
+    {
+      QImage timage;
+      QVector<QRgb> colorMap = m_imageWidget->colorMap();
+      for(int d=dmin; d<=dmax; d++)
+	{
+	  timage = m_volData.getDepthSliceImage(d);
+	  if (timage.format() == QImage::Format_Indexed8)
+	    timage.setColorTable(colorMap);  
+	  timage = timage.copy(hmin, wmin, hsz, wsz);
+	  
+	  QString flname = f.absolutePath() + QDir::separator() +
+	    f.baseName();
+	  flname += QString("%1").arg((int)d, 5, 10, fillChar);
+	  flname += ".";
+	  flname += f.completeSuffix();
+	  
+	  timage.save(flname);
+	  progress.setValue((int)(100*(float)(d-dmin)/(float)dsz));
+	}
     }
   progress.setValue(100);
 }

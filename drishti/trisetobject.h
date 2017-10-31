@@ -131,8 +131,16 @@ class TrisetObject
   uint *m_scrV;
   float *m_scrD;
 
+  Vec m_pn;
+  GLuint m_glVertBuffer;
+  GLuint m_glIndexBuffer;
+  GLuint m_glVertArray;
+
   void drawTriset(float, float, Vec);
   void drawTriset();
+
+  void loadVertexBufferData();
+  void drawTrisetBuffer(QGLViewer*, float, float);
 
   bool loadTriset(QString);
   bool loadPLY(QString);

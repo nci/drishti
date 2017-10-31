@@ -1,4 +1,5 @@
 #include "global.h"
+#include "shaderfactory.h"
 #include "staticfunctions.h"
 #include "dcolordialog.h"
 #include "trisets.h"
@@ -197,63 +198,74 @@ Trisets::draw(QGLViewer *viewer,
 
   for(int i=0; i<m_trisets.count();i++)
     {
-      if ((m_trisets[i]->blendMode() && geoblend) ||
-	  (!m_trisets[i]->blendMode() && !geoblend))
-	{
-	  if (! m_trisets[i]->pointMode())
-	    {
-	      if (applyShadows &&
-		  m_trisets[i]->shadows())
-		{
-		  if (applyShadowShader)
-		    {
-		      glUseProgramObjectARB(m_geoShadowShader);
-		      glUniform1iARB(m_shadowParm[0], nclip);
-		      glUniform3fvARB(m_shadowParm[1], nclip, m_cpos);
-		      glUniform3fvARB(m_shadowParm[2], nclip, m_cnormal);
-		    }
-		  else
-		    {
-		      Vec cb = m_trisets[i]->cropBorderColor();
+      glUseProgram(ShaderFactory::meshShader());
+      GLint *meshShaderParm = ShaderFactory::meshShaderParm();  
+      glUniform1iARB(meshShaderParm[9],  nclip);
+      glUniform3fvARB(meshShaderParm[10], nclip, m_cpos);
+      glUniform3fvARB(meshShaderParm[11], nclip, m_cnormal);
+      
+      m_trisets[i]->draw(viewer,
+			 m_trisets[i]->grabsMouse(),
+			 lightVec,
+			 pnear, pfar, step/2);
 
-		      glActiveTexture(GL_TEXTURE2);
-		      glEnable(GL_TEXTURE_RECTANGLE_ARB);
-
-		      glUseProgramObjectARB(m_geoHighQualityShader);
-		      glUniform3fARB(m_highqualityParm[0], eyepos.x, eyepos.y, eyepos.z);
-		      glUniform1iARB(m_highqualityParm[1], 2); // blurred shadowBuffer
-		      glUniform1iARB(m_highqualityParm[2], m_trisets[i]->screenDoor());
-		      glUniform3fARB(m_highqualityParm[3], cb.x, cb.y, cb.z);
-		      glUniform1iARB(m_highqualityParm[4], nclip);
-		      glUniform3fvARB(m_highqualityParm[5], nclip, m_cpos);
-		      glUniform3fvARB(m_highqualityParm[6], nclip, m_cnormal);
-
-		      glActiveTexture(GL_TEXTURE2);
-		      glDisable(GL_TEXTURE_RECTANGLE_ARB);
-		    }
-		}
-	      else
-		{
-		  Vec cb = m_trisets[i]->cropBorderColor();
-		  glUseProgramObjectARB(m_geoDefaultShader);
-		  glUniform3fARB(m_defaultParm[0], eyepos.x, eyepos.y, eyepos.z);
-		  glUniform1iARB(m_defaultParm[1], m_trisets[i]->screenDoor());
-		  glUniform3fARB(m_defaultParm[2], cb.x, cb.y, cb.z);
-		  glUniform1iARB(m_defaultParm[3], nclip);
-		  glUniform3fvARB(m_defaultParm[4], nclip, m_cpos);
-		  glUniform3fvARB(m_defaultParm[5], nclip, m_cnormal);
-		}
-	    }
-	  else
-	    glUseProgramObjectARB(0);
-
-	  m_trisets[i]->draw(viewer,
-			     m_trisets[i]->grabsMouse(),
-			     lightVec,
-			     pnear, pfar, step/2);
-	  
-	  glUseProgramObjectARB(0);
-	}
+//      if ((m_trisets[i]->blendMode() && geoblend) ||
+//	  (!m_trisets[i]->blendMode() && !geoblend))
+//	{
+//	  if (! m_trisets[i]->pointMode())
+//	    {
+//	      if (applyShadows &&
+//		  m_trisets[i]->shadows())
+//		{
+//		  if (applyShadowShader)
+//		    {
+//		      glUseProgramObjectARB(m_geoShadowShader);
+//		      glUniform1iARB(m_shadowParm[0], nclip);
+//		      glUniform3fvARB(m_shadowParm[1], nclip, m_cpos);
+//		      glUniform3fvARB(m_shadowParm[2], nclip, m_cnormal);
+//		    }
+//		  else
+//		    {
+//		      Vec cb = m_trisets[i]->cropBorderColor();
+//
+//		      glActiveTexture(GL_TEXTURE2);
+//		      glEnable(GL_TEXTURE_RECTANGLE_ARB);
+//
+//		      glUseProgramObjectARB(m_geoHighQualityShader);
+//		      glUniform3fARB(m_highqualityParm[0], eyepos.x, eyepos.y, eyepos.z);
+//		      glUniform1iARB(m_highqualityParm[1], 2); // blurred shadowBuffer
+//		      glUniform1iARB(m_highqualityParm[2], m_trisets[i]->screenDoor());
+//		      glUniform3fARB(m_highqualityParm[3], cb.x, cb.y, cb.z);
+//		      glUniform1iARB(m_highqualityParm[4], nclip);
+//		      glUniform3fvARB(m_highqualityParm[5], nclip, m_cpos);
+//		      glUniform3fvARB(m_highqualityParm[6], nclip, m_cnormal);
+//
+//		      glActiveTexture(GL_TEXTURE2);
+//		      glDisable(GL_TEXTURE_RECTANGLE_ARB);
+//		    }
+//		}
+//	      else
+//		{
+//		  Vec cb = m_trisets[i]->cropBorderColor();
+//		  glUseProgramObjectARB(m_geoDefaultShader);
+//		  glUniform3fARB(m_defaultParm[0], eyepos.x, eyepos.y, eyepos.z);
+//		  glUniform1iARB(m_defaultParm[1], m_trisets[i]->screenDoor());
+//		  glUniform3fARB(m_defaultParm[2], cb.x, cb.y, cb.z);
+//		  glUniform1iARB(m_defaultParm[3], nclip);
+//		  glUniform3fvARB(m_defaultParm[4], nclip, m_cpos);
+//		  glUniform3fvARB(m_defaultParm[5], nclip, m_cnormal);
+//		}
+//	    }
+//	  else
+//	    glUseProgramObjectARB(0);
+//
+//	  m_trisets[i]->draw(viewer,
+//			     m_trisets[i]->grabsMouse(),
+//			     lightVec,
+//			     pnear, pfar, step/2);
+//	  
+//	  glUseProgramObjectARB(0);
+//	}
     }
 
 }
@@ -310,27 +322,27 @@ Trisets::keyPressEvent(QKeyEvent *event)
 
 	      QVariantList vlist;
 
-	      Vec pos = m_trisets[i]->position();
-	      vlist.clear();
-	      vlist << QVariant("string");
-	      vlist << QVariant(QString("%1 %2 %3").arg(pos.x).arg(pos.y).arg(pos.z));
-	      plist["position"] = vlist;
-
-	      pos = m_trisets[i]->scale();
-	      vlist.clear();
-	      vlist << QVariant("string");
-	      vlist << QVariant(QString("%1 %2 %3").arg(pos.x).arg(pos.y).arg(pos.z));
-	      plist["scale"] = vlist;
-
-	      vlist.clear();
-	      vlist << QVariant("checkbox");
-	      vlist << QVariant(m_trisets[i]->flipNormals());
-	      plist["flip normals"] = vlist;
-
-	      vlist.clear();
-	      vlist << QVariant("checkbox");
-	      vlist << QVariant(m_trisets[i]->screenDoor());
-	      plist["screendoor transparency"] = vlist;
+//	      Vec pos = m_trisets[i]->position();
+//	      vlist.clear();
+//	      vlist << QVariant("string");
+//	      vlist << QVariant(QString("%1 %2 %3").arg(pos.x).arg(pos.y).arg(pos.z));
+//	      plist["position"] = vlist;
+//
+//	      pos = m_trisets[i]->scale();
+//	      vlist.clear();
+//	      vlist << QVariant("string");
+//	      vlist << QVariant(QString("%1 %2 %3").arg(pos.x).arg(pos.y).arg(pos.z));
+//	      plist["scale"] = vlist;
+//
+//	      vlist.clear();
+//	      vlist << QVariant("checkbox");
+//	      vlist << QVariant(m_trisets[i]->flipNormals());
+//	      plist["flip normals"] = vlist;
+//
+//	      vlist.clear();
+//	      vlist << QVariant("checkbox");
+//	      vlist << QVariant(m_trisets[i]->screenDoor());
+//	      plist["screendoor transparency"] = vlist;
 
 	      vlist.clear();
 	      vlist << QVariant("double");
@@ -368,53 +380,53 @@ Trisets::keyPressEvent(QKeyEvent *event)
 	      vlist << QVariant(1); // decimals
 	      plist["specular"] = vlist;
 
-	      vlist.clear();
-	      vlist << QVariant("color");
-	      Vec pcolor = m_trisets[i]->color();
-	      QColor dcolor = QColor::fromRgbF(pcolor.x,
-					       pcolor.y,
-					       pcolor.z);
-	      vlist << dcolor;
-	      plist["color"] = vlist;
-
-
-	      vlist.clear();
-	      vlist << QVariant("checkbox");
-	      vlist << QVariant(m_trisets[i]->pointMode());
-	      plist["pointmode"] = vlist;
-
-	      vlist.clear();
-	      vlist << QVariant("int");
-	      vlist << QVariant(m_trisets[i]->pointsize());
-	      vlist << QVariant(1);
-	      vlist << QVariant(50);
-	      plist["pointsize"] = vlist;
-
-	      vlist.clear();
-	      vlist << QVariant("int");
-	      vlist << QVariant(m_trisets[i]->pointstep());
-	      vlist << QVariant(1);
-	      vlist << QVariant(100);
-	      plist["pointstep"] = vlist;
-
-	      vlist.clear();
-	      vlist << QVariant("checkbox");
-	      vlist << QVariant(m_trisets[i]->shadows());
-	      plist["shadows"] = vlist;
+//	      vlist.clear();
+//	      vlist << QVariant("color");
+//	      Vec pcolor = m_trisets[i]->color();
+//	      QColor dcolor = QColor::fromRgbF(pcolor.x,
+//					       pcolor.y,
+//					       pcolor.z);
+//	      vlist << dcolor;
+//	      plist["color"] = vlist;
+//
+//
+//	      vlist.clear();
+//	      vlist << QVariant("checkbox");
+//	      vlist << QVariant(m_trisets[i]->pointMode());
+//	      plist["pointmode"] = vlist;
+//
+//	      vlist.clear();
+//	      vlist << QVariant("int");
+//	      vlist << QVariant(m_trisets[i]->pointsize());
+//	      vlist << QVariant(1);
+//	      vlist << QVariant(50);
+//	      plist["pointsize"] = vlist;
+//
+//	      vlist.clear();
+//	      vlist << QVariant("int");
+//	      vlist << QVariant(m_trisets[i]->pointstep());
+//	      vlist << QVariant(1);
+//	      vlist << QVariant(100);
+//	      plist["pointstep"] = vlist;
+//
+//	      vlist.clear();
+//	      vlist << QVariant("checkbox");
+//	      vlist << QVariant(m_trisets[i]->shadows());
+//	      plist["shadows"] = vlist;
 
 	      vlist.clear();
 	      vlist << QVariant("checkbox");
 	      vlist << QVariant(m_trisets[i]->blendMode());
 	      plist["blend with volume"] = vlist;
 
-	      vlist.clear();
-	      vlist << QVariant("color");
-	      pcolor = m_trisets[i]->cropBorderColor();
-	      dcolor = QColor::fromRgbF(pcolor.x,
-					pcolor.y,
-					pcolor.z);
-	      vlist << dcolor;
-	      plist["crop border color"] = vlist;
+//	      vlist.clear();
+//	      vlist << QVariant("color");
+//	      pcolor = m_trisets[i]->cropBorderColor();
+//	      dcolor = QColor::fromRgbF(pcolor.x,
+//					pcolor.y,
+//					pcolor.z);
+//	      vlist << dcolor;
+//	      plist["crop border color"] = vlist;
 
 
 	      vlist.clear();
@@ -455,27 +467,27 @@ Trisets::keyPressEvent(QKeyEvent *event)
 
 
 	      QStringList keys;
-	      keys << "position";
-	      keys << "scale";
-	      keys << "gap";
-	      keys << "flip normals";
-	      keys << "screendoor transparency";
-	      keys << "gap";
-	      keys << "color";
+	      //keys << "position";
+	      //keys << "scale";
+	      //keys << "gap";
+	      //keys << "flip normals";
+	      //keys << "screendoor transparency";
+	      //keys << "gap";
+	      //keys << "color";
 	      keys << "opacity";
 	      keys << "gap";
 	      keys << "ambient";
 	      keys << "diffuse";
 	      keys << "specular";
 	      keys << "gap";
-	      keys << "pointmode";
-	      keys << "pointstep";
-	      keys << "pointsize";
-	      keys << "gap";
-	      keys << "shadows";
+	      //keys << "pointmode";
+	      //keys << "pointstep";
+	      //keys << "pointsize";
+	      //keys << "gap";
+	      //keys << "shadows";
 	      keys << "blend with volume";
-	      keys << "gap";
-	      keys << "crop border color";
+	      //keys << "gap";
+	      //keys << "crop border color";
 	      keys << "commandhelp";
 	      keys << "message";
 	      
@@ -522,7 +534,7 @@ Trisets::keyPressEvent(QKeyEvent *event)
 			  float r = color.redF();
 			  float g = color.greenF();
 			  float b = color.blueF();
-			  pcolor = Vec(r,g,b);
+			  Vec pcolor = Vec(r,g,b);
 			  m_trisets[i]->setColor(pcolor);
 			}
 		      else if (keys[ik] == "crop border color")
@@ -531,7 +543,7 @@ Trisets::keyPressEvent(QKeyEvent *event)
 			  float r = color.redF();
 			  float g = color.greenF();
 			  float b = color.blueF();
-			  pcolor = Vec(r,g,b);
+			  Vec pcolor = Vec(r,g,b);
 			  m_trisets[i]->setCropBorderColor(pcolor);
 			}
 		      else if (keys[ik] == "flip normals")

@@ -747,6 +747,39 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest, bool 
   shader += "uniform int skipLayers;\n";
   shader += "uniform sampler2DRect entryTex;\n";
   shader += "uniform vec3 bgcolor;\n";
+  shader += "uniform int skipVoxels;\n";
+  shader += "uniform int nclip;\n";
+  shader += "uniform vec3 clipPos[5];\n";
+  shader += "uniform vec3 clipNormal[5];\n";
+
+
+  //---------------------
+  // apply clip planes to modify entry and exit points
+  shader += "vec3 clip(vec3 pt0, vec3 dir)\n";
+  shader += "{\n";
+  shader += " vec3 pt = pt0;\n";
+  shader += " vec3 nomod = vsize/max(vsize.x, max(vsize.y, vsize.z));\n";
+  shader += " if (nclip > 0)\n";
+  shader += "  {\n";
+  shader += "    for(int c=0; c<nclip; c++)\n";
+  shader += "      {\n";
+  shader += "        vec3 cpos = clipPos[c];\n";
+  shader += "        vec3 cnorm = clipNormal[c];\n";
+  shader += "        cnorm *= nomod;\n";
+  shader += "        float deno = dot(dir, cnorm);\n";
+  shader += "        if (deno > 0.0)\n";
+  shader += "          {\n";
+  shader += "            float t = -dot((pt-cpos),cnorm)/deno;\n";
+  shader += "            if (t >= 0)\n";
+  shader += "             {\n";
+  shader += "               pt = pt + t*dir;\n";
+  shader += "             }\n";
+  shader += "          }\n";
+  shader += "      }\n";
+  shader += "  }\n";
+  shader += " return pt;\n";
+  shader += "}\n";
+  //---------------------
 
   shader += "void main(void)\n";
   shader += "{\n";
@@ -760,6 +793,14 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest, bool 
   shader += "vec3 entryPoint = enP.rgb;\n";
 
   shader += "vec3 dir = (exitPoint-entryPoint);\n";
+
+  shader += "entryPoint = clip(entryPoint, dir);\n";
+  shader += "exitPoint = clip(exitPoint, -dir);\n";
+  shader += "vec3 dirN = (exitPoint-entryPoint);\n";
+  shader += "if (dot(dir, dirN) <= 0) discard;\n";
+  shader += "dir = dirN;\n";
+  
+
   shader += "float len = length(dir);\n";
   shader += "if (len < 0.001) discard;\n";
 
@@ -793,6 +834,8 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest, bool 
     shader += "  float val = texture3D(dataTex, voxelCoord).x;\n";
 
   shader += "  vec4 colorSample = vec4(0.0);\n";
+
+  shader += "  colorSample = vec4(val);\n";
 
   if (!bit16)
     shader += "  colorSample = texture2D(lutTex, vec2(val,0.0));\n";

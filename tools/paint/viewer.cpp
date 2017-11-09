@@ -248,6 +248,9 @@ Viewer::setBoxSize(int b)
 void
 Viewer::init()
 {
+  m_lmax = -1;
+  m_lmin = -1;
+  
   m_skipVoxels = 0;
 
   m_infoText = true;
@@ -516,8 +519,10 @@ Viewer::createRaycastShader()
 
   if (Global::bytesPerVoxel() == 1)
     shaderString = ShaderFactory::genIsoRaycastShader(m_exactCoord, m_useMask, false);
+  //shaderString = ShaderFactory::genRaycastShader(maxSteps, false, m_exactCoord, m_useMask, false);
   else
     shaderString = ShaderFactory::genIsoRaycastShader(m_exactCoord, m_useMask, true);
+  //shaderString = ShaderFactory::genRaycastShader(maxSteps, false, m_exactCoord, m_useMask, true);
   
   if (m_rcShader)
     glDeleteObjectARB(m_rcShader);
@@ -5120,18 +5125,8 @@ Viewer::usedTags()
 //---------------------------
 //---------------------------
 void
-Viewer::updateFilledBoxes()
+Viewer::updateTF()
 {
-  if (m_boxMinMax.count() == 0)
-    return;
-  
-  QProgressDialog progress("Updating voxel structure",
-			   QString(),
-			   0, 100,
-			   0);
-  progress.setMinimumDuration(0);
-
-
   uchar *lut = Global::lut();
   int lmin = 255;
   int lmax = 0;
@@ -5160,6 +5155,27 @@ Viewer::updateFilledBoxes()
 	  break;
 	}
     }
+
+  if (m_lmax != lmax ||
+      m_lmin != lmin)
+    {
+      m_lmax = lmax;
+      m_lmin = lmin;
+      updateFilledBoxes();
+    }
+}
+void
+Viewer::updateFilledBoxes()
+{
+  if (m_boxMinMax.count() == 0)
+    return;
+  
+  QProgressDialog progress("Updating voxel structure",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
 
   progress.setValue(10);
   qApp->processEvents();
@@ -5199,8 +5215,8 @@ Viewer::updateFilledBoxes()
 	    {
 	      int bmin = m_boxMinMax[2*idx+0];
 	      int bmax = m_boxMinMax[2*idx+1];
-	      if ((bmin < lmin && bmax < lmin) || 
-		  (bmin > lmax && bmax > lmax))
+	      if ((bmin < m_lmin && bmax < m_lmin) || 
+		  (bmin > m_lmax && bmax > m_lmax))
 		m_filledBoxes.setBit(idx, false);
 	    }
 	  else

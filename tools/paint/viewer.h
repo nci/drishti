@@ -105,6 +105,7 @@ class Viewer : public QGLViewer
     void saveImageSequence();
     void nextFrame();
     void updateFilledBoxes();
+    void updateTF();
     void setAmb(int a) { m_amb = (float)a/10.0f; update(); };
     void setDiff(int a) { m_diff = (float)a/10.0f; update(); };
     void setSpec(int a) { m_spec = (float)a/10.0f; update(); };
@@ -303,6 +304,7 @@ class Viewer : public QGLViewer
 
   //-------------
   // vbo for uploading valid boxes
+  int m_lmin, m_lmax;
   int m_ntri;
   QList<Vec> m_vboSoup;
   GLuint m_glVertBuffer;

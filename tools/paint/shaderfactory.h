@@ -8,6 +8,7 @@ class ShaderFactory
 {
  public :
   static bool loadShader(GLhandleARB&, QString);
+  static bool loadShader(GLhandleARB&, QString, QString);
 
   static QString genDepthShader();
 
@@ -29,9 +30,18 @@ class ShaderFactory
 
   static QString genEdgeEnhanceShader(bool);
 
+  static GLuint boxShader();
+  static GLint* boxShaderParm();
+
  private :
   static QString addLighting();
   static QString getGrad();
+
+  static GLuint m_boxShader;
+  static GLint m_boxShaderParm[20];
+
+  static QString boxShaderV();
+  static QString boxShaderF();
 };
 
 #endif

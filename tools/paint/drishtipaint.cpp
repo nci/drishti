@@ -1295,6 +1295,7 @@ DrishtiPaint::updateComposite()
 
   m_curvesWidget->loadLookupTable(colorMap);
 
+  m_viewer->updateFilledBoxes();
   m_viewer->update();
 }
 

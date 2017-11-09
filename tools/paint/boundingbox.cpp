@@ -297,12 +297,31 @@ void
 BoundingBox::update()
 {
   updateMidPoints();
-  emit updated();
+  
+  m_emitUpdate = true;
 }
 
 void
 BoundingBox::draw()
 {
+  if (m_emitUpdate)
+    {
+      bool ok = true;
+      for (int i=0; i<6; i++)
+	{      
+	  if (m_bounds[i].grabsMouse())
+	    {
+	      ok = false;
+	      break;
+	    }
+	}
+      if (ok)
+	{
+	  emit updated();
+	  m_emitUpdate = false;
+	}
+    }
+
   Vec bmin, bmax;  
 
   bounds(bmin, bmax);

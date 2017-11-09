@@ -84,6 +84,10 @@ Viewer::Viewer(QWidget *parent) :
   m_edgeColor = Vec(0.0,0.0,0.0);
   m_bgColor = Vec(0.0,0.0,0.0);
 
+  m_vboSoup.clear();
+  m_glVertBuffer = 0;
+  m_glIndexBuffer = 0;
+  m_glVertArray = 0;
 
 #ifdef USE_GLMEDIA
   m_movieWriter = 0;
@@ -99,6 +103,9 @@ Viewer::Viewer(QWidget *parent) :
 
   connect(this, SIGNAL(renderNextFrame()),
 	  this, SLOT(nextFrame()));
+
+  connect(&m_boundingBox, SIGNAL(updated()),
+	  this, SLOT(updateFilledBoxes()));
 }
 
 Viewer::~Viewer()
@@ -255,7 +262,7 @@ Viewer::init()
   m_exactCoord = false;
 
   m_dbox = m_wbox = m_hbox = 0;
-  m_boxSize = 64;
+  m_boxSize = 8;
   m_boxMinMax.clear();
   m_filledBoxes.clear();
 
@@ -396,6 +403,16 @@ Viewer::init()
   m_vsize = Vec(1,1,1);
   m_sslevel = 1;
 
+  if(m_glVertArray)
+    {
+      m_vboSoup.clear();
+      glDeleteBuffers(1, &m_glIndexBuffer);
+      glDeleteVertexArrays( 1, &m_glVertArray );
+      glDeleteBuffers(1, &m_glVertBuffer);
+      m_glIndexBuffer = 0;
+      m_glVertArray = 0;
+      m_glVertBuffer = 0;
+    }
 }
 
 void
@@ -530,6 +547,9 @@ Viewer::createRaycastShader()
   m_rcParm[14] = glGetUniformLocationARB(m_rcShader, "entryTex");
   m_rcParm[15] = glGetUniformLocationARB(m_rcShader, "bgcolor");
   m_rcParm[16] = glGetUniformLocationARB(m_rcShader, "skipVoxels");
+  m_rcParm[17] = glGetUniformLocationARB(m_rcShader, "nclip");
+  m_rcParm[18] = glGetUniformLocationARB(m_rcShader, "clipPos");
+  m_rcParm[19] = glGetUniformLocationARB(m_rcShader, "clipNormal");
 }
 
 void
@@ -3407,89 +3427,21 @@ Viewer::drawBox(GLenum glFaces)
 	      drawFace(4, &poly[0], &tex[0]);
 	    }
 	  
-	  drawClipFaces(&box[0], &col[0]);
+	  //drawClipFaces(&box[0], &col[0]);
 	}
     }
 
   glDisable(GL_CULL_FACE);
 }
 
-//void
-//Viewer::drawBox(GLenum glFaces)
-//{
-//  int faces[] = {1, 5, 7, 3,
-//		 0, 2, 6, 4,
-//		 0, 1, 3, 2,
-//		 7, 5, 4, 6,
-//		 2, 3, 7, 6,
-//		 1, 0, 4, 5};
-//	  
-//  glEnable(GL_CULL_FACE);
-//  glCullFace(glFaces);
-//
-//  Vec bmin, bmax;
-//  m_boundingBox.bounds(bmin, bmax);
-//
-//  bmin = StaticFunctions::maxVec(bmin, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
-//  bmax = StaticFunctions::minVec(bmax, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
-//
-//  Vec box[8];
-//  box[0] = Vec(bmin.x,bmin.y,bmin.z);
-//  box[1] = Vec(bmin.x,bmin.y,bmax.z);
-//  box[2] = Vec(bmin.x,bmax.y,bmin.z);
-//  box[3] = Vec(bmin.x,bmax.y,bmax.z);
-//  box[4] = Vec(bmax.x,bmin.y,bmin.z);
-//  box[5] = Vec(bmax.x,bmin.y,bmax.z);
-//  box[6] = Vec(bmax.x,bmax.y,bmin.z);
-//  box[7] = Vec(bmax.x,bmax.y,bmax.z);
-//
-//  float xmin, xmax, ymin, ymax, zmin, zmax;
-//  xmin = (bmin.x-m_minHSlice)/(m_maxHSlice-m_minHSlice);
-//  xmax = (bmax.x-m_minHSlice)/(m_maxHSlice-m_minHSlice);
-//  ymin = (bmin.y-m_minWSlice)/(m_maxWSlice-m_minWSlice);
-//  ymax = (bmax.y-m_minWSlice)/(m_maxWSlice-m_minWSlice);
-//  zmin = (bmin.z-m_minDSlice)/(m_maxDSlice-m_minDSlice);
-//  zmax = (bmax.z-m_minDSlice)/(m_maxDSlice-m_minDSlice);
-//  
-//  Vec col[8];
-//  col[0] = Vec(xmin,ymin,zmin);
-//  col[1] = Vec(xmin,ymin,zmax);
-//  
-//  col[2] = Vec(xmin,ymax,zmin);
-//  col[3] = Vec(xmin,ymax,zmax);
-//  
-//  col[4] = Vec(xmax,ymin,zmin);
-//  col[5] = Vec(xmax,ymin,zmax);
-//  
-//  col[6] = Vec(xmax,ymax,zmin);
-//  col[7] = Vec(xmax,ymax,zmax);
-//  
-//  for(int i=0; i<6; i++)
-//    {
-//      Vec poly[100];
-//      Vec tex[100];
-//      for(int j=0; j<4; j++)
-//	{
-//	  int idx = faces[4*i+j];
-//	  poly[j] = box[idx];
-//	  tex[j] = col[idx];
-//	}
-//      drawFace(4, &poly[0], &tex[0]);
-//    }
-//  
-//  drawClipFaces(&box[0], &col[0]);
-//
-//  glDisable(GL_CULL_FACE);
-//}
-
 void
 Viewer::drawFace(int oedges, Vec *opoly, Vec *otex)
 {
-  QList<Vec> cPos =  m_clipPlanes->positions();
-  QList<Vec> cNorm = m_clipPlanes->normals();
-
-  cPos << camera()->position()+50*camera()->viewDirection();
-  cNorm << -camera()->viewDirection();
+//  QList<Vec> cPos =  m_clipPlanes->positions();
+//  QList<Vec> cNorm = m_clipPlanes->normals();
+//
+//  cPos << camera()->position()+50*camera()->viewDirection();
+//  cNorm << -camera()->viewDirection();
 
 
   int edges = oedges;
@@ -3498,66 +3450,79 @@ Viewer::drawFace(int oedges, Vec *opoly, Vec *otex)
   for(int i=0; i<edges; i++) poly[i] = opoly[i];
   for(int i=0; i<edges; i++) tex[i] = otex[i];
 
-  //---- apply clipping
-  for(int ci=0; ci<cPos.count(); ci++)
-    {
-      Vec cpo = cPos[ci];
-      Vec cpn = cNorm[ci];
-      
-      int tedges = 0;
-      Vec tpoly[100];
-      Vec ttex[100];
-      for(int i=0; i<edges; i++)
-	{
-	  Vec v0, v1, t0, t1;
-	  
-	  v0 = poly[i];
-	  t0 = tex[i];
-	  if (i<edges-1)
-	    {
-	      v1 = poly[i+1];
-	      t1 = tex[i+1];
-	    }
-	  else
-	    {
-	      v1 = poly[0];
-	      t1 = tex[0];
-	    }
-	  
-	  int ret = StaticFunctions::intersectType2WithTexture(cpo, cpn,
-							       v0, v1,
-							       t0, t1);
-	  if (ret)
-	    {
-	      tpoly[tedges] = v0;
-	      ttex[tedges] = t0;
-	      tedges ++;
-	      if (ret == 2)
-		{
-		  tpoly[tedges] = v1;
-		  ttex[tedges] = t1;
-		  tedges ++;
-		}
-	    }
-	}
-
-      //QMessageBox::information(0, "", QString("%1").arg(tedges));
-
-      edges = tedges;
-      for(int i=0; i<edges; i++) poly[i] = tpoly[i];
-      for(int i=0; i<edges; i++) tex[i] = ttex[i];
-    }
-  //---- clipping applied
+//  //---- apply clipping
+//  for(int ci=0; ci<cPos.count(); ci++)
+//    {
+//      Vec cpo = cPos[ci];
+//      Vec cpn = cNorm[ci];
+//      
+//      int tedges = 0;
+//      Vec tpoly[100];
+//      Vec ttex[100];
+//      for(int i=0; i<edges; i++)
+//	{
+//	  Vec v0, v1, t0, t1;
+//	  
+//	  v0 = poly[i];
+//	  t0 = tex[i];
+//	  if (i<edges-1)
+//	    {
+//	      v1 = poly[i+1];
+//	      t1 = tex[i+1];
+//	    }
+//	  else
+//	    {
+//	      v1 = poly[0];
+//	      t1 = tex[0];
+//	    }
+//	  
+//	  int ret = StaticFunctions::intersectType2WithTexture(cpo, cpn,
+//							       v0, v1,
+//							       t0, t1);
+//	  if (ret)
+//	    {
+//	      tpoly[tedges] = v0;
+//	      ttex[tedges] = t0;
+//	      tedges ++;
+//	      if (ret == 2)
+//		{
+//		  tpoly[tedges] = v1;
+//		  ttex[tedges] = t1;
+//		  tedges ++;
+//		}
+//	    }
+//	}
+//
+//      //QMessageBox::information(0, "", QString("%1").arg(tedges));
+//
+//      edges = tedges;
+//      for(int i=0; i<edges; i++) poly[i] = tpoly[i];
+//      for(int i=0; i<edges; i++) tex[i] = ttex[i];
+//    }
+//  //---- clipping applied
 
   if (edges > 0)
     {
-      glBegin(GL_POLYGON);
-      for(int i=0; i<edges; i++)
+//      glBegin(GL_POLYGON);
+//      for(int i=0; i<edges; i++)
+//	{
+//	  glColor3f(tex[i].x, tex[i].y, tex[i].z);
+//	  glVertex3f(poly[i].x, poly[i].y, poly[i].z);
+//	}
+//      glEnd();
+
+      // put in vboSoup
+      for(int i=0; i<edges-2; i++)
 	{
-	  glColor3f(tex[i].x, tex[i].y, tex[i].z);
-	  glVertex3f(poly[i].x, poly[i].y, poly[i].z);
+	  m_vboSoup << poly[0];
+	  m_vboSoup << tex[0];
+
+	  m_vboSoup << poly[i+1];
+	  m_vboSoup << tex[i+1];
+
+	  m_vboSoup << poly[i+2];
+	  m_vboSoup << tex[i+2];
 	}
-      glEnd();
     }  
 }
 
@@ -3580,7 +3545,7 @@ Viewer::drawClipFaces(Vec *subvol, Vec *texture)
   QList<Vec> cPos =  m_clipPlanes->positions();
   QList<Vec> cNorm = m_clipPlanes->normals();
 
-  cPos << camera()->position()+50*camera()->viewDirection();
+  cPos << camera()->position()+100*camera()->viewDirection();
   cNorm << -camera()->viewDirection();
 
   for(int oci=0; oci<cPos.count(); oci++)
@@ -3718,7 +3683,7 @@ Viewer::drawClipFaces(Vec *subvol, Vec *texture)
 void
 Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
 {
-  updateFilledBoxes();
+  //  updateFilledBoxes();
 
   Vec eyepos = camera()->position();
   Vec viewDir = camera()->viewDirection();
@@ -3755,10 +3720,11 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
 			 0);
   glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
   glDepthFunc(GL_GEQUAL);
-  drawBox(GL_FRONT);
+  //drawBox(GL_FRONT);
+  drawVBOBox(GL_FRONT);
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
   //----------------------------
-
+  
   //----------------------------
   // create entry points
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
@@ -3771,9 +3737,11 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
   glClearDepth(1);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   glDepthFunc(GL_LEQUAL);
-  drawBox(GL_BACK);
+  //drawBox(GL_BACK);
+  drawVBOBox(GL_BACK);
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
   //----------------------------
+
 
   //----------------------------
   if (!m_fullRender || firstPartOnly)
@@ -3834,6 +3802,33 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
 		               m_bgColor.z/255);
   glUniform1iARB(m_rcParm[16],m_skipVoxels); // skip first voxels
 
+
+  { // apply clip planes to modify entry and exit points
+    QList<Vec> cPos =  m_clipPlanes->positions();
+    QList<Vec> cNorm = m_clipPlanes->normals();
+    cPos << camera()->position()+100*camera()->viewDirection();
+    cNorm << -camera()->viewDirection();
+    int nclip = cPos.count();
+    float cpos[100];
+    float cnormal[100];
+    for(int c=0; c<nclip; c++)
+      {
+	cpos[3*c+0] = (cPos[c].x-m_minHSlice)/(m_maxHSlice-m_minHSlice);
+	cpos[3*c+1] = (cPos[c].y-m_minWSlice)/(m_maxWSlice-m_minWSlice);
+	cpos[3*c+2] = (cPos[c].z-m_minDSlice)/(m_maxDSlice-m_minDSlice);
+      }
+    for(int c=0; c<nclip; c++)
+      {
+	cnormal[3*c+0] = -cNorm[c].x;
+	cnormal[3*c+1] = -cNorm[c].y;
+	cnormal[3*c+2] = -cNorm[c].z;
+      }
+    glUniform1i(m_rcParm[17], nclip); // clipplanes
+    glUniform3fv(m_rcParm[18], nclip, cpos); // clipplanes
+    glUniform3fv(m_rcParm[19], nclip, cnormal); // clipplanes
+  }
+
+  
   glActiveTexture(GL_TEXTURE1);
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
   glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[1]);
@@ -4749,189 +4744,6 @@ Viewer::generateBoxMinMax()
 }
 
 void
-Viewer::updateFilledBoxes()
-{
-  uchar *lut = Global::lut();
-  int lmin = 255;
-  int lmax = 0;
-
-  int iend = 255;
-  if (Global::bytesPerVoxel() == 1)
-    {
-      lmin = 65535;
-      iend = 65535;
-    }
-
-  for(int i=0; i<iend; i++)
-    {
-      if (lut[4*i+3] > 2)
-	{
-	  lmin = i;
-	  break;
-	}
-    }
-  
-  for(int i=iend; i>0; i--)
-    {
-      if (lut[4*i+3] > 2)
-	{
-	  lmax = i;
-	  break;
-	}
-    }
-
-
-  Vec bminO, bmaxO;
-  m_boundingBox.bounds(bminO, bmaxO);
-
-  Vec voxelScaling = Global::relativeVoxelScaling();
-  bminO = VECDIVIDE(bminO, voxelScaling);
-  bmaxO = VECDIVIDE(bmaxO, voxelScaling);
-
-  bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
-  bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
-
-  m_filledBoxes.resize(m_dbox*m_wbox*m_hbox);
-  m_filledBoxes.fill(true);
-  for(int d=0; d<m_dbox; d++)
-    for(int w=0; w<m_wbox; w++)
-      for(int h=0; h<m_hbox; h++)
-	{
-	  bool ok = true;
-	  // consider only current bounding box	 
-	  if ((d*m_boxSize < bminO.z && (d+1)*m_boxSize < bminO.z) ||
-	      (d*m_boxSize > bmaxO.z && (d+1)*m_boxSize > bmaxO.z) ||
-	      (w*m_boxSize < bminO.y && (w+1)*m_boxSize < bminO.y) ||
-	      (w*m_boxSize > bmaxO.y && (w+1)*m_boxSize > bmaxO.y) ||
-	      (h*m_boxSize < bminO.x && (h+1)*m_boxSize < bminO.x) ||
-	      (h*m_boxSize > bmaxO.x && (h+1)*m_boxSize > bmaxO.x))
-	    ok = false;
-	  
-	  int idx = d*m_wbox*m_hbox+w*m_hbox+h;
-	  if (ok)
-	    {
-	      int bmin = m_boxMinMax[2*idx+0];
-	      int bmax = m_boxMinMax[2*idx+1];
-	      if ((bmin < lmin && bmax < lmin) || 
-		  (bmin > lmax && bmax > lmax))
-		m_filledBoxes.setBit(idx, false);
-	    }
-	  else
-	    m_filledBoxes.setBit(idx, false);
-	}
-
-
-  MyBitArray tfb;
-  tfb.resize(m_filledBoxes.size());
-  for(int i=0; i<m_filledBoxes.size(); i++)
-    tfb.setBit(i, m_filledBoxes.testBit(i));
-
-  // now remove the internal ones
-  for(int d=1; d<m_dbox-1; d++)
-    for(int w=1; w<m_wbox-1; w++)
-      for(int h=1; h<m_hbox-1; h++)
-	{
-	  int idx = d*m_wbox*m_hbox+w*m_hbox+h;
-	  if (tfb.testBit(idx))
-	    {
-	      bool ok = false;
-	      for(int d1=d-1; d1<=d+1; d1++)
-		for(int w1=w-1; w1<=w+1; w1++)
-		  for(int h1=h-1; h1<=h+1; h1++)
-		    {
-		      int idx1 = d1*m_wbox*m_hbox+w1*m_hbox+h1;
-		      if (!tfb.testBit(idx1))
-			{
-			  ok = true;
-			  break;
-			}
-		    }
-	      m_filledBoxes.setBit(idx, ok);
-	    }
-	}
-
-
-  QList<Vec> cPos =  m_clipPlanes->positions();
-  QList<Vec> cNorm = m_clipPlanes->normals();
-
-  cPos << camera()->position()+50*camera()->viewDirection();
-  cNorm << -camera()->viewDirection();
-
-  // now check internal ones for clipping and boundary
-  for(int d=1; d<m_dbox-1; d++)
-    for(int w=1; w<m_wbox-1; w++)
-      for(int h=1; h<m_hbox-1; h++)
-	{
-	  int idx = d*m_wbox*m_hbox+w*m_hbox+h;
-	  if (!m_filledBoxes.testBit(idx) && tfb.testBit(idx)) // interior box
-	    {
-	      // check whether on clipping plane
-	      for(int ci=0; ci<cPos.count(); ci++)
-		{
-		  Vec cpo = cPos[ci];
-		  Vec cpn = cNorm[ci];
-
-		  Vec bmin = Vec(h*m_boxSize,w*m_boxSize,d*m_boxSize);
-		  Vec bmax = Vec((h+1)*m_boxSize,(w+1)*m_boxSize,(d+1)*m_boxSize);
-		  Vec box[8];
-		  box[0] = Vec(bmin.x,bmin.y,bmin.z);
-		  box[1] = Vec(bmin.x,bmin.y,bmax.z);
-		  box[2] = Vec(bmin.x,bmax.y,bmin.z);
-		  box[3] = Vec(bmin.x,bmax.y,bmax.z);
-		  box[4] = Vec(bmax.x,bmin.y,bmin.z);
-		  box[5] = Vec(bmax.x,bmin.y,bmax.z);
-		  box[6] = Vec(bmax.x,bmax.y,bmin.z);
-		  box[7] = Vec(bmax.x,bmax.y,bmax.z);
-
-		  bool border = false;
-		  for(int b=0; b<8; b++)
-		    {
-		      if (qAbs((box[b]-cpo)*cpn) <= m_boxSize)
-			{
-			  border = true;
-			  break;
-			}
-		    }
-
-		  if (border)
-		    {
-		      m_filledBoxes.setBit(idx);		    
-		      break;
-		    }
-		} // loop over clip planes
-	    }
-	}
-
-
-  tfb.clear();
-}
-
-QList<int>
-Viewer::usedTags()
-{
-  QProgressDialog progress("Calculating Tags Used",
-			   QString(),
-			   0, 100,
-			   0);
-  progress.setMinimumDuration(0);
-
-  QList<int> ut;
-  qint64 tvox = m_depth*m_width*m_height;
-  for(qint64 i=0; i<tvox; i++)
-    {
-      if (i%100000 == 0)
-	{
-	  progress.setValue(100*(float)i/(float)tvox);
-	  qApp->processEvents();
-	}
-      if (!ut.contains(m_maskPtr[i]))
-	ut << m_maskPtr[i];      
-    }
-  qSort(ut);
-  return ut;
-}
-
-void
 Viewer::drawVolBySlicing()
 {
   bool frontToback = true;
@@ -5278,4 +5090,386 @@ Viewer::drawSlices(Vec bbmin, Vec bbmax,
 
   glActiveTexture(GL_TEXTURE6);
   glDisable(GL_TEXTURE_RECTANGLE_ARB);
+}
+
+QList<int>
+Viewer::usedTags()
+{
+  QProgressDialog progress("Calculating Tags Used",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+  QList<int> ut;
+  qint64 tvox = m_depth*m_width*m_height;
+  for(qint64 i=0; i<tvox; i++)
+    {
+      if (i%100000 == 0)
+	{
+	  progress.setValue(100*(float)i/(float)tvox);
+	  qApp->processEvents();
+	}
+      if (!ut.contains(m_maskPtr[i]))
+	ut << m_maskPtr[i];      
+    }
+  qSort(ut);
+  return ut;
+}
+
+//---------------------------
+//---------------------------
+void
+Viewer::updateFilledBoxes()
+{
+  if (m_boxMinMax.count() == 0)
+    return;
+  
+  QProgressDialog progress("Updating voxel structure",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+
+  uchar *lut = Global::lut();
+  int lmin = 255;
+  int lmax = 0;
+
+  int iend = 255;
+  if (Global::bytesPerVoxel() == 1)
+    {
+      lmin = 65535;
+      iend = 65535;
+    }
+
+  for(int i=0; i<iend; i++)
+    {
+      if (lut[4*i+3] > 2)
+	{
+	  lmin = i;
+	  break;
+	}
+    }
+  
+  for(int i=iend; i>0; i--)
+    {
+      if (lut[4*i+3] > 2)
+	{
+	  lmax = i;
+	  break;
+	}
+    }
+
+  progress.setValue(10);
+  qApp->processEvents();
+
+  Vec bminO, bmaxO;
+  m_boundingBox.bounds(bminO, bmaxO);
+
+  Vec voxelScaling = Global::relativeVoxelScaling();
+  bminO = VECDIVIDE(bminO, voxelScaling);
+  bmaxO = VECDIVIDE(bmaxO, voxelScaling);
+
+  bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
+  bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
+
+  
+  progress.setValue(20);
+  qApp->processEvents();
+  
+  m_filledBoxes.resize(m_dbox*m_wbox*m_hbox);
+  m_filledBoxes.fill(true);
+  for(int d=0; d<m_dbox; d++)
+    for(int w=0; w<m_wbox; w++)
+      for(int h=0; h<m_hbox; h++)
+	{
+	  bool ok = true;
+	  // consider only current bounding box	 
+	  if ((d*m_boxSize < bminO.z && (d+1)*m_boxSize < bminO.z) ||
+	      (d*m_boxSize > bmaxO.z && (d+1)*m_boxSize > bmaxO.z) ||
+	      (w*m_boxSize < bminO.y && (w+1)*m_boxSize < bminO.y) ||
+	      (w*m_boxSize > bmaxO.y && (w+1)*m_boxSize > bmaxO.y) ||
+	      (h*m_boxSize < bminO.x && (h+1)*m_boxSize < bminO.x) ||
+	      (h*m_boxSize > bmaxO.x && (h+1)*m_boxSize > bmaxO.x))
+	    ok = false;
+	  
+	  int idx = d*m_wbox*m_hbox+w*m_hbox+h;
+	  if (ok)
+	    {
+	      int bmin = m_boxMinMax[2*idx+0];
+	      int bmax = m_boxMinMax[2*idx+1];
+	      if ((bmin < lmin && bmax < lmin) || 
+		  (bmin > lmax && bmax > lmax))
+		m_filledBoxes.setBit(idx, false);
+	    }
+	  else
+	    m_filledBoxes.setBit(idx, false);
+	}
+
+  progress.setValue(50);
+  qApp->processEvents();
+
+  MyBitArray tfb;
+  tfb.resize(m_filledBoxes.size());
+  for(int i=0; i<m_filledBoxes.size(); i++)
+    tfb.setBit(i, m_filledBoxes.testBit(i));
+
+  progress.setValue(60);
+  qApp->processEvents();
+
+  // now remove the internal ones
+  for(int d=1; d<m_dbox-1; d++)
+    for(int w=1; w<m_wbox-1; w++)
+      for(int h=1; h<m_hbox-1; h++)
+	{
+	  int idx = d*m_wbox*m_hbox+w*m_hbox+h;
+	  if (tfb.testBit(idx))
+	    {
+	      bool ok = false;
+	      for(int d1=d-1; d1<=d+1; d1++)
+		for(int w1=w-1; w1<=w+1; w1++)
+		  for(int h1=h-1; h1<=h+1; h1++)
+		    {
+		      int idx1 = d1*m_wbox*m_hbox+w1*m_hbox+h1;
+		      if (!tfb.testBit(idx1))
+			{
+			  ok = true;
+			  break;
+			}
+		    }
+	      m_filledBoxes.setBit(idx, ok);
+	    }
+	}
+
+  progress.setValue(90);
+  qApp->processEvents();
+
+  //----------------
+  m_vboSoup.clear();
+  drawBox(GL_FRONT);
+  loadVertexBufferData();
+  //----------------
+  
+//  QList<Vec> cPos =  m_clipPlanes->positions();
+//  QList<Vec> cNorm = m_clipPlanes->normals();
+//
+//  cPos << camera()->position()+50*camera()->viewDirection();
+//  cNorm << -camera()->viewDirection();
+//
+//  // now check internal ones for clipping and boundary
+//  for(int d=1; d<m_dbox-1; d++)
+//    for(int w=1; w<m_wbox-1; w++)
+//      for(int h=1; h<m_hbox-1; h++)
+//	{
+//	  int idx = d*m_wbox*m_hbox+w*m_hbox+h;
+//	  if (!m_filledBoxes.testBit(idx) && tfb.testBit(idx)) // interior box
+//	    {
+//	      // check whether on clipping plane
+//	      for(int ci=0; ci<cPos.count(); ci++)
+//		{
+//		  Vec cpo = cPos[ci];
+//		  Vec cpn = cNorm[ci];
+//
+//		  Vec bmin = Vec(h*m_boxSize,w*m_boxSize,d*m_boxSize);
+//		  Vec bmax = Vec((h+1)*m_boxSize,(w+1)*m_boxSize,(d+1)*m_boxSize);
+//		  Vec box[8];
+//		  box[0] = Vec(bmin.x,bmin.y,bmin.z);
+//		  box[1] = Vec(bmin.x,bmin.y,bmax.z);
+//		  box[2] = Vec(bmin.x,bmax.y,bmin.z);
+//		  box[3] = Vec(bmin.x,bmax.y,bmax.z);
+//		  box[4] = Vec(bmax.x,bmin.y,bmin.z);
+//		  box[5] = Vec(bmax.x,bmin.y,bmax.z);
+//		  box[6] = Vec(bmax.x,bmax.y,bmin.z);
+//		  box[7] = Vec(bmax.x,bmax.y,bmax.z);
+//
+//		  bool border = false;
+//		  for(int b=0; b<8; b++)
+//		    {
+//		      if (qAbs((box[b]-cpo)*cpn) <= m_boxSize)
+//			{
+//			  border = true;
+//			  break;
+//			}
+//		    }
+//
+//		  if (border)
+//		    {
+//		      m_filledBoxes.setBit(idx);		    
+//		      break;
+//		    }
+//		} // loop over clip planes
+//	    }
+//	}
+
+
+  tfb.clear();
+}
+
+void
+Viewer::loadVertexBufferData()
+{
+  int nvert = m_vboSoup.count();
+  m_ntri = nvert/6;
+  int nv = 3*nvert;
+  int ni = 3*m_ntri;
+  //---------------------
+
+  //---------------------
+  float *vertData;
+  vertData = new float[nv];
+  for(int i=0; i<nvert; i++)
+    {
+      vertData[3*i+0] = m_vboSoup[i].x;
+      vertData[3*i+1] = m_vboSoup[i].y;
+      vertData[3*i+2] = m_vboSoup[i].z;
+    }
+
+
+  unsigned int *indexData;
+  indexData = new unsigned int[ni];
+  for(int i=0; i<ni; i++)
+    indexData[i] = i;
+  //---------------------
+
+
+  if(m_glVertArray)
+    {
+      glDeleteBuffers(1, &m_glIndexBuffer);
+      glDeleteVertexArrays( 1, &m_glVertArray );
+      glDeleteBuffers(1, &m_glVertBuffer);
+      m_glIndexBuffer = 0;
+      m_glVertArray = 0;
+      m_glVertBuffer = 0;
+    }
+
+  glGenVertexArrays(1, &m_glVertArray);
+  glBindVertexArray(m_glVertArray);
+      
+  // Populate a vertex buffer
+  glGenBuffers(1, &m_glVertBuffer);
+  glBindBuffer(GL_ARRAY_BUFFER, m_glVertBuffer);
+  glBufferData(GL_ARRAY_BUFFER,
+	       sizeof(float)*nv,
+	       vertData,
+	       GL_STATIC_DRAW);
+
+  // Identify the components in the vertex buffer
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE,
+			sizeof(float)*6, // stride
+			(void *)0); // starting offset
+
+  glEnableVertexAttribArray(1);
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE,
+			sizeof(float)*6,
+			(char *)NULL + sizeof(float)*3);
+
+  
+  // Create and populate the index buffer
+  glGenBuffers(1, &m_glIndexBuffer);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_glIndexBuffer);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+	       sizeof(unsigned int)*ni,
+	       indexData,
+	       GL_STATIC_DRAW);
+  
+  glBindVertexArray(0);
+
+  delete [] vertData;
+  delete [] indexData;
+}
+
+void
+Viewer::drawVBOBox(GLenum glFaces)
+{
+  glEnable(GL_CULL_FACE);
+  glCullFace(glFaces);
+
+  glBindVertexArray(m_glVertArray);
+  glBindBuffer(GL_ARRAY_BUFFER, m_glVertBuffer);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_glIndexBuffer);  
+
+  glEnableVertexAttribArray(0);
+  glEnableVertexAttribArray(1);
+
+  glUseProgram(ShaderFactory::boxShader());
+
+  // model-view-projection matrix
+  GLdouble m[16];
+  GLfloat mvp[16];
+  camera()->getModelViewProjectionMatrix(m);
+  for(int i=0; i<16; i++) mvp[i] = m[i];
+
+  GLint *boxShaderParm = ShaderFactory::boxShaderParm();  
+
+  glUniformMatrix4fv(boxShaderParm[0], 1, GL_FALSE, mvp);
+
+  glDrawElements(GL_TRIANGLES, 3*m_ntri, GL_UNSIGNED_INT, 0);  
+  
+  glDisableVertexAttribArray(0);
+  glDisableVertexAttribArray(1);
+
+  glBindVertexArray(0);
+
+  glUseProgram(0);
+
+//  {
+//    if (glFaces == GL_BACK)
+//      glDepthFunc(GL_GEQUAL);
+//    
+//    Vec voxelScaling = Global::relativeVoxelScaling();
+//
+//    Vec bminO, bmaxO;
+//    m_boundingBox.bounds(bminO, bmaxO);
+//    
+//    bminO = VECDIVIDE(bminO, voxelScaling);
+//    bmaxO = VECDIVIDE(bmaxO, voxelScaling);
+//    
+//    bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
+//    bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
+//
+//    Vec bmin = bminO;
+//    Vec bmax = bmaxO;
+//    
+//    Vec box[8];
+//    box[0] = Vec(bmin.x,bmin.y,bmin.z);
+//    box[1] = Vec(bmin.x,bmin.y,bmax.z);
+//    box[2] = Vec(bmin.x,bmax.y,bmin.z);
+//    box[3] = Vec(bmin.x,bmax.y,bmax.z);
+//    box[4] = Vec(bmax.x,bmin.y,bmin.z);
+//    box[5] = Vec(bmax.x,bmin.y,bmax.z);
+//    box[6] = Vec(bmax.x,bmax.y,bmin.z);
+//    box[7] = Vec(bmax.x,bmax.y,bmax.z);
+//    
+//    float xmin, xmax, ymin, ymax, zmin, zmax;
+//    xmin = (bmin.x-m_minHSlice)/(m_maxHSlice-m_minHSlice);
+//    xmax = (bmax.x-m_minHSlice)/(m_maxHSlice-m_minHSlice);
+//    ymin = (bmin.y-m_minWSlice)/(m_maxWSlice-m_minWSlice);
+//    ymax = (bmax.y-m_minWSlice)/(m_maxWSlice-m_minWSlice);
+//    zmin = (bmin.z-m_minDSlice)/(m_maxDSlice-m_minDSlice);
+//    zmax = (bmax.z-m_minDSlice)/(m_maxDSlice-m_minDSlice);
+//    
+//    Vec col[8];
+//    col[0] = Vec(xmin,ymin,zmin);
+//    col[1] = Vec(xmin,ymin,zmax);
+//    
+//    col[2] = Vec(xmin,ymax,zmin);
+//    col[3] = Vec(xmin,ymax,zmax);
+//    
+//    col[4] = Vec(xmax,ymin,zmin);
+//    col[5] = Vec(xmax,ymin,zmax);
+//    
+//    col[6] = Vec(xmax,ymax,zmin);
+//    col[7] = Vec(xmax,ymax,zmax);
+//    
+//    for(int i=0; i<8; i++)
+//      box[i] = VECPRODUCT(box[i], voxelScaling);
+//
+//    drawClipFaces(&box[0], &col[0]);
+//  }
+//
+//  glDepthFunc(GL_LEQUAL);
+
+  glDisable(GL_CULL_FACE);
 }

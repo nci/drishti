@@ -300,6 +300,19 @@ class Viewer : public QGLViewer
   float m_startAngle, m_endAngle;
   Quaternion m_stepRot;
 
+
+  //-------------
+  // vbo for uploading valid boxes
+  int m_ntri;
+  QList<Vec> m_vboSoup;
+  GLuint m_glVertBuffer;
+  GLuint m_glIndexBuffer;
+  GLuint m_glVertArray;
+  void loadVertexBufferData();
+  void drawVBOBox(GLenum);
+  //-------------
+  
+  
 #ifdef USE_GLMEDIA
   glmedia_movie_writer_t m_movieWriter;
 #endif // USE_GLMEDIA

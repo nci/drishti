@@ -835,8 +835,6 @@ ShaderFactory::genRaycastShader(int maxSteps, bool firstHit, bool nearest, bool 
 
   shader += "  vec4 colorSample = vec4(0.0);\n";
 
-  shader += "  colorSample = vec4(val);\n";
-
   if (!bit16)
     shader += "  colorSample = texture2D(lutTex, vec2(val,0.0));\n";
   else

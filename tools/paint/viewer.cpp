@@ -5132,7 +5132,7 @@ Viewer::updateTF()
   int lmax = 0;
 
   int iend = 255;
-  if (Global::bytesPerVoxel() == 1)
+  if (Global::bytesPerVoxel() == 2)
     {
       lmin = 65535;
       iend = 65535;

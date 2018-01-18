@@ -97,6 +97,21 @@ AnalyzePlugin::replaceFile(QString flnm)
 {
   m_fileName.clear();
   m_fileName << flnm;
+
+  if (checkExtension(m_fileName[0], "hdr"))
+    {
+      m_hdrFile = m_fileName[0];
+      m_imgFile = m_hdrFile;
+      m_imgFile.chop(3);
+      m_imgFile += "img";
+    }
+  else if (checkExtension(m_fileName[0], "img"))
+    {
+      m_imgFile = m_fileName[0];
+      m_hdrFile = m_imgFile;
+      m_hdrFile.chop(3);
+      m_hdrFile += "hdr";
+    }
 }
 
 bool

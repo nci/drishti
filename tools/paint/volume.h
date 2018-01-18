@@ -60,6 +60,11 @@ class Volume : public QObject
 
   void saveModifiedOriginalVolume();
 
+  void findStartEndForTag(int,
+			  int&, int&,
+			  int&, int&,
+			  int&, int&);
+
  signals :
   void progressChanged(int);
   void progressReset();

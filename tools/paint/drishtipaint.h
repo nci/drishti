@@ -241,7 +241,7 @@ class DrishtiPaint : public QMainWindow
   void sliceSmooth(int, int, uchar*, uchar*, int, int, int);
   void smooth(int, int, uchar**, uchar*, int, int, int);
 
-  void savePvlHeader(QString, QString, int, int, int, bool);
+  void savePvlHeader(QString, QString, int, int, int, bool, int);
 
   void processAndSaveMesh(int,
 			  QString,
@@ -307,6 +307,9 @@ class DrishtiPaint : public QMainWindow
   bool sliceZeroAtTop();
 
   QSplitter* createImageWindows();
+
+  void extractFromAnotherVolume(QList<int>);
+
 };
 
 #endif

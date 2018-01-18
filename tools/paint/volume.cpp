@@ -476,3 +476,143 @@ Volume::saveModifiedOriginalVolume()
   m_pvlFileManager.setMemChanged(true);
   m_pvlFileManager.saveMemFile();    
 }
+
+
+void
+Volume::findStartEndForTag(int tag,
+			   int &minD, int &maxD,
+			   int &minW, int &maxW,
+			   int &minH, int &maxH)
+{
+  uchar *maskData = memMaskDataPtr();
+  
+  minD = 0;
+  maxD = m_depth-1;
+  minW = 0;
+  maxW = m_width-1;
+  minH = 0;
+  maxH = m_height-1;
+
+  bool ok;
+
+  //--------------
+  ok = false;
+  for(int d=0; d<m_depth; d++)
+    {
+      for(int w=0; w<m_width; w++)
+      for(int h=0; h<m_height; h++)
+	{
+	  if (maskData[d*m_width*m_height + w*m_height + h] == tag)
+	    {
+	      minD = d;
+	      ok = true;
+	      break;
+	    }
+	}
+      if (ok)
+	break;
+    }
+  ok = false;
+  for(int d=m_depth-1; d>minD; d--)
+    {
+      for(int w=0; w<m_width; w++)
+      for(int h=0; h<m_height; h++)
+	{
+	  if (maskData[d*m_width*m_height + w*m_height + h] == tag)
+	    {
+	      maxD = d;
+	      ok = true;
+	      break;
+	    }
+	}
+      if (ok)
+	break;
+    }
+  //--------------
+
+  //--------------
+  ok = false;
+  for(int w=0; w<m_width; w++)
+    {
+      for(int d=minD; d<=maxD; d++)
+      for(int h=0; h<m_height; h++)
+	{
+	  if (maskData[d*m_width*m_height + w*m_height + h] == tag)
+	    {
+	      minW = w;
+	      ok = true;
+	      break;
+	    }
+	}
+      if (ok)
+	break;
+    }
+  ok = false;
+  for(int w=m_width-1; w>minW; w--)
+    {
+      for(int d=minD; d<=maxD; d++)
+      for(int h=0; h<m_height; h++)
+	{
+	  if (maskData[d*m_width*m_height + w*m_height + h] == tag)
+	    {
+	      maxW = w;
+	      ok = true;
+	      break;
+	    }
+	}
+      if (ok)
+	break;
+    }
+  //--------------
+
+  //--------------
+  ok = false;
+  for(int h=0; h<m_height; h++)
+    {
+      for(int d=minD; d<=maxD; d++)
+	for(int w=minW; w<=maxW; w++)
+	{
+	  if (maskData[d*m_width*m_height + w*m_height + h] == tag)
+	    {
+	      minH = h;
+	      ok = true;
+	      break;
+	    }
+	}
+      if (ok)
+	break;
+    }
+  ok = false;
+  for(int h=m_height-1; h>minH; h--)
+    {
+      for(int d=minD; d<=maxD; d++)
+	for(int w=minW; w<=maxW; w++)
+	{
+	  if (maskData[d*m_width*m_height + w*m_height + h] == tag)
+	    {
+	      maxH = h;
+	      ok = true;
+	      break;
+	    }
+	}
+      if (ok)
+	break;
+    }
+  //--------------
+
+  int clearance = QInputDialog::getInt(0,
+				       "Clearance for tight fit",
+				       "Gap from edge to first contributing voxel",
+				       0, 0, 20);
+
+  minD = qMax(0, minD-clearance);
+  maxD = qMin(m_depth-1, maxD+clearance);
+  minW = qMax(0, minW-clearance);
+  maxW = qMin(m_width-1, maxW+clearance);
+  minH = qMax(0, minH-clearance);
+  maxH = qMin(m_height-1, maxH+clearance);
+  
+  QMessageBox::information(0, "", QString("Volume Size :\n%1 %2\n%3 %4\n%5 %6").\
+			   arg(minD).arg(maxD).arg(minW).arg(maxW).\
+			   arg(minH).arg(maxH));
+}

@@ -92,6 +92,8 @@ TiffPlugin::replaceFile(QString flnm)
 {
   m_fileName.clear();
   m_fileName << flnm;
+
+  m_imageList = m_fileName;
 }
 
 void

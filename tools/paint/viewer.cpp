@@ -1400,9 +1400,9 @@ Viewer::setGridSize(int d, int w, int h)
 
 
   // set optimal box size
-  //m_boxSize = qMax(m_height/16, m_width/16);
-  //m_boxSize = qMax((qint64)m_boxSize, m_depth/16);
-  //m_boxSize = qMax(m_boxSize, 16);
+  m_boxSize = qMax(m_height/128, m_width/128);
+  m_boxSize = qMax((qint64)m_boxSize, m_depth/128);
+  m_boxSize = qMax(m_boxSize, 8);
 
   generateBoxMinMax();
 }

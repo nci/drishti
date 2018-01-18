@@ -1034,27 +1034,41 @@ DrishtiPaint::getTags(QString text)
   tag.clear();
   for(int i=0; i<tglist.count(); i++)
     {
-      int t = tglist[i].toInt();
-      if (t == -1)
+      if (tglist[i].contains("-"))
 	{
-	  tag.clear();
-	  tag << -1;
-	  break;
+	  QStringList tl = tglist[i].split("-", QString::SkipEmptyParts);
+	  if (tl.count() == 2)
+	    {
+	      int t1 = tl[0].toInt();
+	      int t2 = tl[1].toInt();
+	      for(int t=t1; t<=t2; t++)
+		tag << t;
+	    }
 	}
-      else if (t == 0)
+      else
 	{
-	  tag.clear();
-	  tag << 0;
-	  break;
+	  int t = tglist[i].toInt();
+	  if (t == -1)
+	    {
+	      tag.clear();
+	      tag << -1;
+	      break;
+	    }
+	  else if (t == 0)
+	    {
+	      tag.clear();
+	      tag << 0;
+	      break;
+	    }
+	  else if (t > 0)
+	    tag << t;
 	}
-      else if (t > 0)
-	tag << t;
     }
 
   QString tgstr;
   for(int i=0; i<tag.count(); i++)
     tgstr += QString("%1 ").arg(tag[i]);
-
+  
   return qMakePair(tgstr, tag);
 }
 
@@ -3095,7 +3109,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
   bool ok;
   //----------------
   QString tagstr = QInputDialog::getText(0, "Extract volume data for Tag",
-	    "Tag Numbers (tags should be separated by space.\n-2 extract whatever is visible.\n-1 for all tags;\nFor e.g. 1 2 5 will extract tags 1, 2 and 5)",
+	    "Tag Numbers (tags should be separated by space.\n-2 extract whatever is visible.\n-1 for all tags;\nFor e.g. 1 2 5 will extract tags 1, 2 and 5\n2-5 is same as specifying  2 3 4 5)",
 					 QLineEdit::Normal,
 					 "-1",
 					 &ok);
@@ -3105,27 +3119,41 @@ DrishtiPaint::on_actionExtractTag_triggered()
       QStringList tglist = tagstr.split(" ", QString::SkipEmptyParts);
       for(int i=0; i<tglist.count(); i++)
 	{
-	  int t = tglist[i].toInt();
-	  if (t == -2)
+	  if (tglist[i].contains("-"))
 	    {
-	      tag.clear();
-	      tag << -2;
-	      break;
-	    }
-	  else if (t == -1)
-	    {
-	      tag.clear();
-	      tag << -1;
-	      break;
-	    }
-	  else if (t == 0)
-	    {
-	      tag.clear();
-	      tag << 0;
-	      break;
+	      QStringList tl = tglist[i].split("-", QString::SkipEmptyParts);
+	      if (tl.count() == 2)
+		{
+		  int t1 = tl[0].toInt();
+		  int t2 = tl[1].toInt();
+		  for(int t=t1; t<=t2; t++)
+		    tag << t;
+		}
 	    }
 	  else
-	    tag << t;
+	    {
+	      int t = tglist[i].toInt();
+	      if (t == -2)
+		{
+		  tag.clear();
+		  tag << -2;
+		  break;
+		}
+	      else if (t == -1)
+		{
+		  tag.clear();
+		  tag << -1;
+		  break;
+		}
+	      else if (t == 0)
+		{
+		  tag.clear();
+		  tag << 0;
+		  break;
+		}
+	      else
+		tag << t;
+	    }
 	}
     }
   else
@@ -6311,9 +6339,6 @@ DrishtiPaint::showVolumeInformation()
 void
 DrishtiPaint::extractFromAnotherVolume(QList<int> tags)
 {
-  // currently take only first tag
-  int tag = tags[0];
-  
   QString flnm;
   flnm = QFileDialog::getOpenFileName(0,
 				      "Another Volume file to extract from",
@@ -6381,137 +6406,172 @@ DrishtiPaint::extractFromAnotherVolume(QList<int> tags)
     }
   //----------------
 
-  // original volume
-  int depth, width, height;
-  m_volume->gridSize(depth, width, height);
-  
-  int minDSlice, maxDSlice;
-  int minWSlice, maxWSlice;
-  int minHSlice, maxHSlice;
-  m_volume->findStartEndForTag(tag,
-			       minDSlice, maxDSlice,
-			       minWSlice, maxWSlice,
-			       minHSlice, maxHSlice);
-
-  float scld = (float)aDepth/(float)depth;
-  float sclw = (float)aWidth/(float)width;
-  float sclh = (float)aHeight/(float)height;
-
-
-  int aminD = scld*minDSlice;
-  int amaxD = scld*maxDSlice;
-  int aminW = sclw*minWSlice;
-  int amaxW = sclw*maxWSlice;
-  int aminH = sclh*minHSlice;
-  int amaxH = sclh*maxHSlice;
-  qint64 atdepth = amaxD-aminD+1;
-  qint64 atwidth = amaxW-aminW+1;
-  qint64 atheight = amaxH-aminH+1;
+  //----------------
+  int clearance = QInputDialog::getInt(0,
+				       "Clearance for tight fit",
+				       "Gap from edge to first contributing voxel",
+				       0, 0, 20);
+  //----------------
 
   
+  //----------------
   QString pvlFilename = m_volume->fileName();
-  QString tflnm = QFileDialog::getSaveFileName(0,
+  QString tagflnm = QFileDialog::getSaveFileName(0,
 					       "Save extracted volume into",
 					       QFileInfo(pvlFilename).absolutePath(),
 					       "Volume Data Files (*.pvl.nc)",
 					       0,
 					       QFileDialog::DontUseNativeDialog);
   
-  if (tflnm.isEmpty())
+  if (tagflnm.isEmpty())
     return;
-
-  if (!tflnm.endsWith(".pvl.nc"))
-    tflnm += ".pvl.nc";
-
-  savePvlHeader(m_volume->fileName(),
-		tflnm,
-		atdepth, atwidth, atheight,
-		true,
-		bpv);
+  //----------------
   
-  QStringList tflnms;
-  tflnms << tflnm+".001";
-  VolumeFileManager tFile;
-  tFile.setFilenameList(tflnms);
-  if (bpv == 1)
-    tFile.setVoxelType(VolumeFileManager::_UChar);
-  else
-    tFile.setVoxelType(VolumeFileManager::_UShort);
-  tFile.setDepth(atdepth);
-  tFile.setWidth(atwidth);
-  tFile.setHeight(atheight);
-  tFile.setSlabSize(atdepth+1);
-  tFile.createFile(true, false);
+  //----------------
+  // original volume
+  int depth, width, height;
+  m_volume->gridSize(depth, width, height);
+  //----------------
 
+  
   QProgressDialog progress("Extracting tagged region from volume data",
 			   QString(),
 			   0, 100,
 			   0);
   progress.setMinimumDuration(0);
-
-  uchar *maskData = m_volume->memMaskDataPtr();
-
-  int nbytes = aWidth*aHeight*bpv;
-  uchar *raw = new uchar[nbytes];
-  
-  for(int d=aminD; d<=amaxD; d++)
+      
+  // currently take only first tag
+  for (int tt=0; tt<tags.count(); tt++)
     {
-      int d2 = d/scld;
+      int tag = tags[tt];
+      
+      QString tflnm = tagflnm;
+      if (tflnm.endsWith(".pvl.nc"))
+	tflnm = tflnm.left(7);
+      tflnm += QString("-%1.pvl.nc").arg(tag);
 
-      int slc = d-aminD;
-      progress.setValue((int)(100*(float)slc/(float)atdepth));
-      qApp->processEvents();
-
-      uchar *slice = aVolume.getSlice(d);
-      ushort *sliceUS = 0;
-      ushort *rawUS = 0;
-      if (bpv == 2)
-	{
-	  sliceUS = (ushort*)slice;
-	  rawUS = (ushort*)raw;
-	}
-
-      // we get value+grad from volume
-      // we need only value part
+      progress.setLabelText(QString("Extracting tag %1 to %2").	\
+			    arg(tag).arg(tflnm));
+  
+      int minDSlice, maxDSlice;
+      int minWSlice, maxWSlice;
+      int minHSlice, maxHSlice;
+      m_volume->findStartEndForTag(tag,
+				   minDSlice, maxDSlice,
+				   minWSlice, maxWSlice,
+				   minHSlice, maxHSlice);
+      
+      minDSlice = qMax(0, minDSlice-clearance);
+      maxDSlice = qMin(depth-1, maxDSlice+clearance);
+      minWSlice = qMax(0, minWSlice-clearance);
+      maxWSlice = qMin(width-1, maxWSlice+clearance);
+      minHSlice = qMax(0, minHSlice-clearance);
+      maxHSlice = qMin(height-1, maxHSlice+clearance);
+      
+//      QMessageBox::information(0, "", QString("Volume Size :\n%1 %2\n%3 %4\n%5 %6"). \
+//			       arg(minD).arg(maxD).arg(minW).arg(maxW).	\
+//			       arg(minH).arg(maxH));
+      
+      float scld = (float)aDepth/(float)depth;
+      float sclw = (float)aWidth/(float)width;
+      float sclh = (float)aHeight/(float)height;
+      
+      
+      int aminD = scld*minDSlice;
+      int amaxD = scld*maxDSlice;
+      int aminW = sclw*minWSlice;
+      int amaxW = sclw*maxWSlice;
+      int aminH = sclh*minHSlice;
+      int amaxH = sclh*maxHSlice;
+      qint64 atdepth = amaxD-aminD+1;
+      qint64 atwidth = amaxW-aminW+1;
+      qint64 atheight = amaxH-aminH+1;
+      
+      
+      savePvlHeader(m_volume->fileName(),
+		    tflnm,
+		    atdepth, atwidth, atheight,
+		    true,
+		    bpv);
+      
+      QStringList tflnms;
+      tflnms << tflnm+".001";
+      VolumeFileManager tFile;
+      tFile.setFilenameList(tflnms);
       if (bpv == 1)
-	{
-	  int i=0;
-	  for(int w=aminW; w<=amaxW; w++)
-	    {
-	      int w2 = w/sclw;
-	      for(int h=aminH; h<=amaxH; h++)
-		{
-		  int h2 = h/sclh;
-		  if (maskData[d2*width*height + w2*height + h2] == tag)
-		    raw[i] = slice[w*aHeight+h];
-		  else
-		    raw[i] = outsideVal;
-		  i++;
-		}
-	    }
-	}
+	tFile.setVoxelType(VolumeFileManager::_UChar);
       else
+	tFile.setVoxelType(VolumeFileManager::_UShort);
+      tFile.setDepth(atdepth);
+      tFile.setWidth(atwidth);
+      tFile.setHeight(atheight);
+      tFile.setSlabSize(atdepth+1);
+      tFile.createFile(true, false);
+      
+      uchar *maskData = m_volume->memMaskDataPtr();
+      
+      int nbytes = aWidth*aHeight*bpv;
+      uchar *raw = new uchar[nbytes];
+      
+      for(int d=aminD; d<=amaxD; d++)
 	{
-	  int i=0;
-	  for(int w=aminW; w<=amaxW; w++)
+	  int d2 = d/scld;
+	  
+	  int slc = d-aminD;
+	  progress.setValue((int)(100*(float)slc/(float)atdepth));
+	  qApp->processEvents();
+	  
+	  uchar *slice = aVolume.getSlice(d);
+	  ushort *sliceUS = 0;
+	  ushort *rawUS = 0;
+	  if (bpv == 2)
 	    {
-	      int w2 = w/sclw;
-	      for(int h=aminH; h<=amaxH; h++)
+	      sliceUS = (ushort*)slice;
+	      rawUS = (ushort*)raw;
+	    }
+	  
+	  // we get value+grad from volume
+	  // we need only value part
+	  if (bpv == 1)
+	    {
+	      int i=0;
+	      for(int w=aminW; w<=amaxW; w++)
 		{
-		  int h2 = h/sclh;
-		  if (maskData[d2*width*height + w2*height + h2] == tag)
-		    rawUS[i] = sliceUS[w*aHeight+h];
-		  else
-		    rawUS[i] = outsideVal;
-		  i++;
+		  int w2 = w/sclw;
+		  for(int h=aminH; h<=amaxH; h++)
+		    {
+		      int h2 = h/sclh;
+		      if (maskData[d2*width*height + w2*height + h2] == tag)
+			raw[i] = slice[w*aHeight+h];
+		      else
+			raw[i] = outsideVal;
+		      i++;
+		    }
 		}
 	    }
-	}
+	  else
+	    {
+	      int i=0;
+	      for(int w=aminW; w<=amaxW; w++)
+		{
+		  int w2 = w/sclw;
+		  for(int h=aminH; h<=amaxH; h++)
+		    {
+		      int h2 = h/sclh;
+		      if (maskData[d2*width*height + w2*height + h2] == tag)
+			rawUS[i] = sliceUS[w*aHeight+h];
+		      else
+			rawUS[i] = outsideVal;
+		      i++;
+		    }
+		}
+	    }
+	  
+	  tFile.setSlice(slc, raw);
+	} // loop on slices
 
-      tFile.setSlice(slc, raw);
-    }
-
-  delete [] raw;
+      delete [] raw;
+    } // loop on tags
 
   progress.setValue(100);  
   QMessageBox::information(0, "Save", "-----Done-----");

@@ -599,20 +599,4 @@ Volume::findStartEndForTag(int tag,
 	break;
     }
   //--------------
-
-  int clearance = QInputDialog::getInt(0,
-				       "Clearance for tight fit",
-				       "Gap from edge to first contributing voxel",
-				       0, 0, 20);
-
-  minD = qMax(0, minD-clearance);
-  maxD = qMin(m_depth-1, maxD+clearance);
-  minW = qMax(0, minW-clearance);
-  maxW = qMin(m_width-1, maxW+clearance);
-  minH = qMax(0, minH-clearance);
-  maxH = qMin(m_height-1, maxH+clearance);
-  
-  QMessageBox::information(0, "", QString("Volume Size :\n%1 %2\n%3 %4\n%5 %6").\
-			   arg(minD).arg(maxD).arg(minW).arg(maxW).\
-			   arg(minH).arg(maxH));
 }

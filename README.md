@@ -27,6 +27,7 @@ Download the Linux version of Drishti (v2.6.3) <br>
 ## Drishti Prayog
 http://nci.org.au/systems-services/scientific-visualisation/visualisation-services/drishti-prayog/
 <br>Updated version and help available at http://sf.anu.edu.au/~acl900/DrishtiPrayog/
+<br>Drishti Prayog [guide](https://www.ccpi.ac.uk/sites/www.ccpi.ac.uk/files/uploaded_documents/Drishti%20Prayog%20User%20Guide.pdf) on [CCPi](https://www.ccpi.ac.uk/) website 
 
 ## Drishti Tutorials
 http://sf.anu.edu.au/~acl900/drishti_perpetualbeta/Tutorials/

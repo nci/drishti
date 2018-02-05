@@ -7,6 +7,8 @@ QT += multimedia multimediawidgets
 
 CONFIG += release
 
+TRANSLATIONS = drishtitr_ch.ts
+
 FORMS += mainwindow.ui \
 	 saveimgseq.ui \
 	 savemovie.ui \

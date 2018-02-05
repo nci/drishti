@@ -191,7 +191,7 @@ MainWindow::MainWindow(QWidget *parent) :
   m_Viewer->setKeyFrame(m_keyFrame);
 
   //----------------------------------------------------------
-  m_dockTF = new QDockWidget("Transfer Function Editor", this);
+  m_dockTF = new QDockWidget(QWidget::tr("Transfer Function Editor"), this);
   m_dockTF->setAllowedAreas(Qt::LeftDockWidgetArea | 
 			    Qt::RightDockWidgetArea);
   QSplitter *splitter = new QSplitter(Qt::Vertical, m_dockTF);
@@ -202,7 +202,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
   //----------------------------------------------------------
   m_lightingWidget = new LightingWidget();
-  QDockWidget *dock2 = new QDockWidget("Shader Widget", this);
+  QDockWidget *dock2 = new QDockWidget(QWidget::tr("Shader Widget"), this);
   dock2->setAllowedAreas(Qt::LeftDockWidgetArea | 
 			 Qt::RightDockWidgetArea);
   dock2->setWidget(m_lightingWidget);
@@ -211,7 +211,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
   //----------------------------------------------------------
   m_bricksWidget = new BricksWidget(NULL, m_bricks);
-  QDockWidget *dock3 = new QDockWidget("Bricks Editor", this);
+  QDockWidget *dock3 = new QDockWidget(QWidget::tr("Bricks Editor"), this);
   dock3->setAllowedAreas(Qt::LeftDockWidgetArea | 
 			 Qt::RightDockWidgetArea);
   dock3->setWidget(m_bricksWidget);
@@ -220,7 +220,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
   //----------------------------------------------------------
   m_volInfoWidget = new VolumeInformationWidget();
-  QDockWidget *dock4 = new QDockWidget("Volume Information", this);
+  QDockWidget *dock4 = new QDockWidget(QWidget::tr("Volume Information"), this);
   dock4->setAllowedAreas(Qt::LeftDockWidgetArea | 
 			 Qt::RightDockWidgetArea);
   dock4->setWidget(m_volInfoWidget);
@@ -233,7 +233,7 @@ MainWindow::MainWindow(QWidget *parent) :
                  m_Viewer->camera()->focusDistance(),
                  m_Viewer->camera()->IODistance(),
                  m_Viewer->camera()->physicalScreenWidth());
-  QDockWidget *dock5 = new QDockWidget("Preferences", this);
+  QDockWidget *dock5 = new QDockWidget(QWidget::tr("Preferences"), this);
   dock5->setAllowedAreas(Qt::LeftDockWidgetArea | 
 			 Qt::RightDockWidgetArea);
   dock5->setWidget(m_preferencesWidget);
@@ -241,7 +241,7 @@ MainWindow::MainWindow(QWidget *parent) :
   //----------------------------------------------------------
 
   //----------------------------------------------------------
-  m_dockKeyframe = new QDockWidget("KeyFrame Editor", this);
+  m_dockKeyframe = new QDockWidget(QWidget::tr("KeyFrame Editor"), this);
   m_dockKeyframe->setAllowedAreas(Qt::BottomDockWidgetArea | 
         			  Qt::TopDockWidgetArea);
   m_keyFrameEditor = new KeyFrameEditor();
@@ -275,9 +275,9 @@ MainWindow::MainWindow(QWidget *parent) :
 
   QString tstr = QString("Drishti v") +
                  Global::DrishtiVersion() +
-                 " - Volume Exploration and Presentation Tool";
+                 QWidget::tr(" - Volume Exploration and Presentation Tool");
   if (QGLFormat::defaultFormat().stereo())
-    tstr = "(Stereo)"+tstr;
+    tstr = QWidget::tr("(Stereo)")+tstr;
 
   setWindowTitle(tstr);
 
@@ -669,8 +669,8 @@ MainWindow::setTextureMemory()
   texlist << "12.0 Gb";
   texlist << "16.0 Gb";
   QString texstr = QInputDialog::getItem(0,
-					 "Texture Memory",
-					 "Texture Memory Size",
+					 QWidget::tr("Texture Memory"),
+					 QWidget::tr("Texture Memory Size"),
 					 texlist, 0, false,
 					 &ok);
   int texmem = 128;
@@ -1062,8 +1062,8 @@ MainWindow::closeEvent(QCloseEvent *event)
   if (m_Volume->valid() &&
       Global::volumeType() != Global::DummyVolume)
     {
-      int ok = QMessageBox::question(0, "Exit Drishti",
-				     QString("Would you like to save project before quitting ?"),
+      int ok = QMessageBox::question(0, QWidget::tr("Exit Drishti"),
+				     QString(QWidget::tr("Would you like to save project before quitting ?")),
 				     QMessageBox::Yes | QMessageBox::No);
       if (ok == QMessageBox::Yes)
 	on_actionSave_Project_triggered();

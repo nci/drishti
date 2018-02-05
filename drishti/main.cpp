@@ -3,6 +3,8 @@
 #include <QApplication>
 #include "mainwindow.h"
 
+#include <QTranslator>
+
 int main(int argc, char** argv)
 {
   char *flnm;
@@ -32,6 +34,14 @@ int main(int argc, char** argv)
 
   QGLFormat::setDefaultFormat(glFormat);
 
+  //----------------------
+  QTranslator translator;
+  translator.load(qApp->applicationDirPath() +
+		  QDir::separator() +
+		  "drishtitr_ch");
+  application.installTranslator(&translator);
+  //----------------------
+  
   MainWindow mainwindow;
   mainwindow.show();
   

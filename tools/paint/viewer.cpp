@@ -5226,37 +5226,37 @@ Viewer::updateFilledBoxes()
   progress.setValue(50);
   qApp->processEvents();
 
-  MyBitArray tfb;
-  tfb.resize(m_filledBoxes.size());
-  for(int i=0; i<m_filledBoxes.size(); i++)
-    tfb.setBit(i, m_filledBoxes.testBit(i));
-
-  progress.setValue(60);
-  qApp->processEvents();
-
-  // now remove the internal ones
-  for(int d=1; d<m_dbox-1; d++)
-    for(int w=1; w<m_wbox-1; w++)
-      for(int h=1; h<m_hbox-1; h++)
-	{
-	  int idx = d*m_wbox*m_hbox+w*m_hbox+h;
-	  if (tfb.testBit(idx))
-	    {
-	      bool ok = false;
-	      for(int d1=d-1; d1<=d+1; d1++)
-		for(int w1=w-1; w1<=w+1; w1++)
-		  for(int h1=h-1; h1<=h+1; h1++)
-		    {
-		      int idx1 = d1*m_wbox*m_hbox+w1*m_hbox+h1;
-		      if (!tfb.testBit(idx1))
-			{
-			  ok = true;
-			  break;
-			}
-		    }
-	      m_filledBoxes.setBit(idx, ok);
-	    }
-	}
+//  MyBitArray tfb;
+//  tfb.resize(m_filledBoxes.size());
+//  for(int i=0; i<m_filledBoxes.size(); i++)
+//    tfb.setBit(i, m_filledBoxes.testBit(i));
+//
+//  progress.setValue(60);
+//  qApp->processEvents();
+//
+//  // now remove the internal ones
+//  for(int d=1; d<m_dbox-1; d++)
+//    for(int w=1; w<m_wbox-1; w++)
+//      for(int h=1; h<m_hbox-1; h++)
+//	{
+//	  int idx = d*m_wbox*m_hbox+w*m_hbox+h;
+//	  if (tfb.testBit(idx))
+//	    {
+//	      bool ok = false;
+//	      for(int d1=d-1; d1<=d+1; d1++)
+//		for(int w1=w-1; w1<=w+1; w1++)
+//		  for(int h1=h-1; h1<=h+1; h1++)
+//		    {
+//		      int idx1 = d1*m_wbox*m_hbox+w1*m_hbox+h1;
+//		      if (!tfb.testBit(idx1))
+//			{
+//			  ok = true;
+//			  break;
+//			}
+//		    }
+//	      m_filledBoxes.setBit(idx, ok);
+//	    }
+//	}
 
   progress.setValue(90);
   qApp->processEvents();
@@ -5319,7 +5319,7 @@ Viewer::updateFilledBoxes()
 //	}
 
 
-  tfb.clear();
+//  tfb.clear();
 }
 
 void

@@ -1034,7 +1034,7 @@ DrishtiPaint::getTags(QString text)
   tag.clear();
   for(int i=0; i<tglist.count(); i++)
     {
-      if (tglist[i].contains("-"))
+      if (tglist[i].count()>2 && tglist[i].contains("-"))
 	{
 	  QStringList tl = tglist[i].split("-", QString::SkipEmptyParts);
 	  if (tl.count() == 2)
@@ -3119,7 +3119,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
       QStringList tglist = tagstr.split(" ", QString::SkipEmptyParts);
       for(int i=0; i<tglist.count(); i++)
 	{
-	  if (tglist[i].contains("-"))
+	  if (tglist[i].count()>2 && tglist[i].contains("-"))
 	    {
 	      QStringList tl = tglist[i].split("-", QString::SkipEmptyParts);
 	      if (tl.count() == 2)
@@ -3159,6 +3159,8 @@ DrishtiPaint::on_actionExtractTag_triggered()
   else
     tag << -1;
   //----------------
+
+  QMessageBox::information(0, "", QString("%1 : %2").arg(tag.count()).arg(tag[0]));
 
   bool saveImageData = true;
   int shiftVox = 128;

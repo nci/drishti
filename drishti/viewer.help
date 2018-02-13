@@ -752,6 +752,25 @@ xor
 #end
 
 #begin
+relativedatapos
+relativedatapos x y z
+Relative placement of smaller volumes (for multiple/time series volumes).
+Allowed values of x,y,z are -1, 0 and 1.
+For a given axis :
+-1 implies bottom of smaller volumes is aligned to the bottom of the bigger volume.
+0 implies the smaller volume is centered w.r.t the bigger volume.
+1 implies top of smaller volumes is aligned to the top of the bigger volume.
+
+Default value is 0 for all x,y and z.
+
+For e.g.
+relativedatapos 0 0 1 - align x and y for the center and z for the top
+relativedatapos 0 0 -1 - align x and y for the center and z for the bottom
+
+#end
+
+
+#begin
 keyboard
 Start Keyboard help
 #end

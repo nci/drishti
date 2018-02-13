@@ -4860,6 +4860,16 @@ Viewer::processCommand(QString cmd)
       else
 	QMessageBox::critical(0, "Error", "Need 3 points to add clipplane"); 
     }
+  else if (list[0] == "relativedatapos")
+    {
+      Vec pos;
+      float x=0,y=0,z=0;
+      if (list.size() > 1) x = qBound(-1.0f, list[1].toFloat(&ok), 1.0f);
+      if (list.size() > 2) y = qBound(-1.0f, list[2].toFloat(&ok), 1.0f);
+      if (list.size() > 3) z = qBound(-1.0f, list[3].toFloat(&ok), 1.0f);
+      pos = Vec(x,y,z);
+      Global::setRelDataPos(pos);
+    }
   else if (list[0] == "countcells")
     {
       if (!m_hiresVolume->raised())

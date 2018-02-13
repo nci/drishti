@@ -263,20 +263,6 @@ VolumeSingle::setSubvolume(Vec boxMin, Vec boxMax,
 
   int volnum = timestepNumber(volnum1);  
 
-//  int n_depth, n_width, n_height;
-//  XmlHeaderFunctions::getDimensionsFromHeader(m_volumeFiles[volnum],
-//					      n_depth, n_width, n_height);
-//
-//  boxMin = StaticFunctions::clampVec(Vec(0,0,0),
-//				     boxMin-Vec(m_offH, m_offW, m_offD),
-//				     Vec(n_height-1, n_width-1, n_depth-1));
-//  boxMax = StaticFunctions::clampVec(Vec(0,0,0),
-//				     boxMax-Vec(m_offH, m_offW, m_offD),
-//				     Vec(n_height-1, n_width-1, n_depth-1));
-
-//  boxMin -= Vec(m_offH, m_offW, m_offD);
-//  boxMax -= Vec(m_offH, m_offW, m_offD);
-
   boxMin = StaticFunctions::clampVec(Vec(0,0,0),
 				     boxMin,
 				     Vec(m_maxHeight-1, m_maxWidth-1, m_maxDepth-1));
@@ -304,15 +290,6 @@ VolumeSingle::setSubvolume(Vec boxMin, Vec boxMax,
   m_offW = (m_maxWidth - m_width)/2;
   m_offD = (m_maxDepth - m_depth)/2;
 
-//  QMessageBox::information(0, "", QString("%1 %2 %3\n%4 %5 %6").\
-//			   arg(m_dataMin.x).arg(m_dataMin.y).arg(m_dataMin.z).\
-//			   arg(m_dataMax.x).arg(m_dataMax.y).arg(m_dataMax.z));
-//  QMessageBox::information(0, 
-//			   m_pvlFileManager.fileName(),
-//			   QString("Max Dimensions\n%1 %2 %3\n%4 %5 %6\n%7 %8 %9").\
-//			   arg(m_maxHeight).arg(m_maxWidth).arg(m_maxDepth).\
-//			   arg(m_offH).arg(m_offW).arg(m_offD).\
-//			   arg(m_height).arg(m_width).arg(m_depth));
 
   if (m_volumeFiles.count() > 1)
     setBasicInformation(m_volnum);
@@ -1147,29 +1124,11 @@ VolumeSingle::setMaxDimensions(int maxH, int maxW, int maxD)
   m_maxHeight = maxH;
   m_maxWidth = maxW;
   m_maxDepth = maxD;
-
-//  int cd, cw, ch;
-//  XmlHeaderFunctions::getDimensionsFromHeader(m_volumeFiles[m_volnum],
-//					      cd, cw, ch);
-//  m_offH = (maxH - ch)/2;
-//  m_offW = (maxW - cw)/2;
-//  m_offD = (maxD - cd)/2;
-
-//  if (m_offH > 0 && m_offH*2 + ch >= maxH) m_offH--;
-//  if (m_offW > 0 && m_offW*2 + cw >= maxW) m_offW--;
-//  if (m_offD > 0 && m_offD*2 + cd >= maxD) m_offD--;
   //-------------------------
 
   int bpv = 1;
   if (m_pvlVoxelType > 0) bpv = 2;
   m_sliceTemp = new uchar [bpv*m_maxWidth*m_maxHeight];
-
-//  QMessageBox::information(0, 
-//			   m_pvlFileManager.fileName(),
-//			   QString("Max Dimensions\n%1 %2 %3\n%4 %5 %6\n%7 %8 %9").\
-//			   arg(maxH).arg(maxW).arg(maxD).\
-//			   arg(m_offH).arg(m_offW).arg(m_offD).\
-//			   arg(m_height).arg(m_width).arg(m_depth));
 }
 
 void
@@ -1488,6 +1447,15 @@ VolumeSingle::getSliceTextureSlab(int minz, int maxz)
       int maxHsl = m_maxHeight/m_subvolumeSubsamplingLevel;
       int maxWsl = m_maxWidth/m_subvolumeSubsamplingLevel;
 
+      Vec relDataPos = Global::relDataPos();
+      if (relDataPos.x < -0.5) offH = 0;
+      if (relDataPos.y < -0.5) offW = 0;
+      if (relDataPos.z < -0.5) offD = 0;
+
+      if (relDataPos.x > 0.5) offH = (m_maxHeight-m_height)/m_subvolumeSubsamplingLevel;;
+      if (relDataPos.y > 0.5) offW = (m_maxWidth-m_width)/m_subvolumeSubsamplingLevel;;
+      if (relDataPos.z > 0.5) offD = (m_maxDepth-m_depth)/m_subvolumeSubsamplingLevel;;
+
       uchar *sliceTemp1 = new uchar [bpv*maxWsl*maxHsl];
 
       // additional slice at the top and bottom
@@ -1651,13 +1619,26 @@ VolumeSingle::getSliceTextureSlab(int minz, int maxz)
   int nbytes = bpv*m_width*m_height;
   int kslc = 0;
 
+  int offD = m_offD;
+  int offW = m_offW;
+  int offH = m_offH;
+
+  Vec relDataPos = Global::relDataPos();
+  if (relDataPos.x < -0.5) offH = 0;
+  if (relDataPos.y < -0.5) offW = 0;
+  if (relDataPos.z < -0.5) offD = 0;
+  
+  if (relDataPos.x > 0.5) offH = m_maxHeight- m_height;
+  if (relDataPos.y > 0.5) offW = m_maxWidth - m_width;
+  if (relDataPos.z > 0.5) offD = m_maxDepth - m_depth;
+
   uchar *sliceTemp1 = new uchar [bpv*m_maxWidth*m_maxHeight];
 
   // additional slice at the top and bottom
   //-------------------------------------------------------
   for(int k0=minz-1; k0<=maxz+1; k0++)
     {
-      int k = k0 - m_offD; // shift slice by given depth offset
+      int k = k0 - offD; // shift slice by given depth offset
       
       if (k >= 0 && k < m_depth)
 	{
@@ -1672,7 +1653,7 @@ VolumeSingle::getSliceTextureSlab(int minz, int maxz)
       //---
       memset(sliceTemp1, 0, bpv*m_maxWidth*m_maxHeight);
       for(int j=0; j<m_width; j++)
-	memcpy(sliceTemp1 + bpv*((j+m_offW)*m_maxHeight + m_offH),
+	memcpy(sliceTemp1 + bpv*((j+offW)*m_maxHeight + offH),
 	       m_sliceTemp + bpv*j*m_height,
 	       bpv*m_height);
 

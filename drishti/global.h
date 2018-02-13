@@ -293,6 +293,9 @@ class Global
   static void setPvlVoxelType(int);
   static int pvlVoxelType();
 
+  static void setRelDataPos(Vec);
+  static Vec relDataPos();
+  
  private :
   static QString m_documentationPath;
   static bool m_useFBO;
@@ -398,6 +401,8 @@ class Global
   static int m_dpi;
 
   static int m_pvlVoxelType;
+
+  static Vec m_relDataPos;
 };
 
 #endif

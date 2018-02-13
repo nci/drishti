@@ -1036,3 +1036,6 @@ int Global::m_pvlVoxelType = 0; // uchar
 void Global::setPvlVoxelType(int v) { m_pvlVoxelType = v; }
 int Global::pvlVoxelType() { return m_pvlVoxelType; }
 
+Vec Global::m_relDataPos = Vec(0,0,0);
+void Global::setRelDataPos(Vec rp) { m_relDataPos = rp; }
+Vec Global::relDataPos() { return m_relDataPos; }

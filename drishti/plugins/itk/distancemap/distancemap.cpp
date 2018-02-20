@@ -29,6 +29,7 @@ DistanceMap::init()
   m_previousDirectory = qApp->applicationDirPath();
   m_pruneLod = m_pruneX = m_pruneY = m_pruneZ = 0;
   m_pruneData.clear();
+  m_batchMode = false;
 }
 
 void DistanceMap::setPvlFileManager(VolumeFileManager *p) { m_pvlFileManager = p; }

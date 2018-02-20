@@ -30,6 +30,8 @@ MeshPlugin::init()
   m_pruneLod = m_pruneX = m_pruneY = m_pruneZ = 0;
   m_pruneData.clear();
   m_tagColors.clear();
+
+  m_batchMode = false;
 }
 
 void MeshPlugin::setPvlFileManager(VolumeFileManager *p) { m_pvlFileManager = p; }
@@ -66,6 +68,8 @@ MeshPlugin::setPruneData(int lod,
 
 void MeshPlugin::setTagColors(QVector<uchar> t) { m_tagColors = t; }
 
+void MeshPlugin::setBatchMode(bool b) { m_batchMode = b; }
+
 void
 MeshPlugin::start()
 {
@@ -80,7 +84,7 @@ MeshPlugin::start()
   vscale = m_voxelScaling;
   samplingLevel = m_samplingLevel;
 
-  if (samplingLevel > 1)
+  if (!m_batchMode && samplingLevel > 1)
     {
       int od,ow,oh,ld,lw,lh;
       od = m_pvlFileManager->depth();
@@ -148,7 +152,8 @@ MeshPlugin::start()
 		      lut,
 		      m_pruneLod, m_pruneX, m_pruneY, m_pruneZ,
 		      m_pruneData,
-		      m_tagColors);
+		      m_tagColors,
+		      m_batchMode);
 
   delete [] lut;
   lut = 0;

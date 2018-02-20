@@ -313,6 +313,8 @@ class MainWindow : public QMainWindow
 
    void registerPlugins();
    void registerMenuViewerFunctions();
+
+   void runPlugin(int, bool);
 };
 
 

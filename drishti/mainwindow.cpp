@@ -503,6 +503,11 @@ MainWindow::loadPlugin()
   QAction *action = qobject_cast<QAction *>(sender());
   int idx = action->data().toInt();
 
+  runPlugin(idx, false);
+}
+
+void MainWindow::runPlugin(int idx, bool batchMode)
+{
   QPluginLoader pluginLoader(m_pluginDll[idx]);
   QObject *plugin = pluginLoader.instance();
 
@@ -511,10 +516,6 @@ MainWindow::loadPlugin()
       QMessageBox::information(0, "Error", "Cannot load plugin");
       return;
     }
-
-//  QMessageBox::information(0, "",
-//			   QString("Load : %1\n %2\n %3").	\
-//			   arg(idx).arg(m_pluginList[idx][0]).arg(m_pluginDll[idx]));
   
 
   RenderPluginInterface *pluginInterface = qobject_cast<RenderPluginInterface *>(plugin);
@@ -524,10 +525,15 @@ MainWindow::loadPlugin()
       return;
     }
 
+//  QMessageBox::information(0, "",
+//			   QString("Load : %1\n %2\n %3").	\
+//			   arg(idx).arg(m_pluginList[idx][0]).arg(m_pluginDll[idx]));
+
   QList<Vec> clipPos;
   QList<Vec> clipNormal;
   m_Hires->getClipForMask(clipPos, clipNormal);
 
+  
   Vec dataMin, dataMax;
   Vec vscale;
   if (m_Hires->raised())
@@ -535,10 +541,12 @@ MainWindow::loadPlugin()
   else
     m_Lowres->subvolumeBounds(dataMin, dataMax);
   vscale = VolumeInformation::volumeInformation().voxelSize;
+  
 
   QImage lutImage = QImage(Global::lutSize()*256, 256, QImage::Format_ARGB32);
   uchar *bits = lutImage.bits();
   memcpy(bits, m_Viewer->lookupTable(), Global::lutSize()*256*256*4);
+
 
   Vec subvolumeSize, dragTextureInfo;
   int subsamplinglevel = 1;
@@ -569,6 +577,7 @@ MainWindow::loadPlugin()
       
       subvolumeSize = dataMax-dataMin+Vec(1,1,1);
     }
+  
 
   plod = dragTextureInfo.z;
   px = subvolumeSize.x/plod;
@@ -576,6 +585,7 @@ MainWindow::loadPlugin()
   pz = subvolumeSize.z/plod;
   prune = new uchar[3*px*py*pz];
 
+  
   if (m_Hires->raised())
     {
       PruneHandler::getRaw(prune,
@@ -586,14 +596,20 @@ MainWindow::loadPlugin()
   else
     memset(prune, 255, 3*px*py*pz);
 
+
+  
   QVector<uchar> pruneData(3*px*py*pz);
   memcpy(pruneData.data(), prune, 3*px*py*pz);
   delete [] prune;
 
+
+  
   QVector<uchar> tagData(1024);
   memcpy(tagData.data(), Global::tagColors(), 1024);
 
 
+
+  
   pluginInterface->init();
 
   pluginInterface->setPvlFileManager(m_Volume->pvlFileManager(0));
@@ -609,6 +625,8 @@ MainWindow::loadPlugin()
   pluginInterface->setPruneData(plod, px, py, pz, pruneData);
   pluginInterface->setTagColors(tagData);
 
+  pluginInterface->setBatchMode(batchMode);
+    
   pluginInterface->start();
 }
 
@@ -735,6 +753,7 @@ MainWindow::GlewInit()
 	    }
 	}
     }
+
 }
 
 bool
@@ -818,6 +837,12 @@ MainWindow::fromStringList(QStringList arguments,
 	  if (tokens.count() > 0) bj.startFrame = tokens[0].toInt();
 	  if (tokens.count() > 1) bj.endFrame = tokens[1].toInt();
 	  if (tokens.count() > 2) bj.stepFrame = tokens[2].toInt();
+	}
+      else if (arg.contains("plugin="))
+	{
+	  bj.plugin = true;
+	  QStringList tokens = arg.split("=");
+	  bj.pluginName = tokens[1].trimmed();
 	}
       else if (arg.contains("image="))
 	{
@@ -1033,6 +1058,19 @@ MainWindow::loadProjectRunKeyframesAndExit()
 	  disconnect(this, SIGNAL(playKeyFrames(int,int,int)),
 		     m_keyFrameEditor, SLOT(playKeyFrames(int,int,int)));
 	}
+      else if (bj.plugin)
+	{
+	  for(int i=0; i<m_pluginList.count(); i++)
+	    {
+	      if (m_pluginList[i].contains(bj.pluginName))
+		{
+		  m_Viewer->switchDrawVolume();
+
+		  runPlugin(i, true);
+		}
+	    }
+	  exit(0);
+	}
       else
 	{
 	  m_Viewer->setCurrentFrame(-1);
@@ -1041,7 +1079,7 @@ MainWindow::loadProjectRunKeyframesAndExit()
 	  m_Viewer->dummydraw();
 	  m_Viewer->updateGL();
 	  m_Viewer->endPlay();
-	  qApp->quit();
+	  exit(0);
 	}
     }
 }
@@ -3806,7 +3844,7 @@ MainWindow::loadViewsAndKeyFrames(const char* flnm)
   QFileInfo fileInfo(sflnm);
   if (! fileInfo.exists())
     {
-      QMessageBox::information(0, "Error", QString("%1 not found").arg(sflnm));
+      QMessageBox::information(0, "Error loading keyframes file", QString("%1 not found").arg(sflnm));
       return;
     }
 

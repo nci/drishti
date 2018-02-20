@@ -27,6 +27,8 @@ class ConnectedComponent : public QObject, RenderPluginInterface
   void setPruneData(int, int, int, int, QVector<uchar>);
   void setTagColors(QVector<uchar> t) { m_tagColors = t; }
 
+  void setBatchMode(bool b) { m_batchMode = b; }
+
   void init();
   void start();
 
@@ -46,6 +48,8 @@ class ConnectedComponent : public QObject, RenderPluginInterface
   int m_pruneLod, m_pruneX, m_pruneY, m_pruneZ;
   QVector<uchar> m_pruneData;
   QVector<uchar> m_tagColors;
+
+  bool m_batchMode;
 };
 
 #endif

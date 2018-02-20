@@ -58,6 +58,7 @@ BatchJob::BatchJob()
   startProject = false;
   backgroundrender = true;
   renderFrames = false;
+  plugin = false;
   image = false;
   movie = false;
   imagesize = false;
@@ -77,6 +78,7 @@ BatchJob::BatchJob()
   projectFilename.clear();
   imageFilename.clear();
   movieFilename.clear();
+  pluginName.clear();
 }
 BatchJob&
 BatchJob::operator=(const BatchJob& bj)
@@ -84,6 +86,7 @@ BatchJob::operator=(const BatchJob& bj)
   startProject = bj.startProject;
   backgroundrender = bj.backgroundrender;
   renderFrames = bj.renderFrames;
+  plugin = bj.plugin;
   image = bj.image;
   movie = bj.movie;
   imagesize = bj.imagesize;
@@ -104,6 +107,7 @@ BatchJob::operator=(const BatchJob& bj)
   projectFilename = bj.projectFilename;
   imageFilename = bj.imageFilename;
   movieFilename = bj.movieFilename;
+  pluginName = bj.pluginName;
   
   return *this;
 }

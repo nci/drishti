@@ -43,7 +43,8 @@ class MeshGenerator
 		uchar*,
 		int, int, int, int,
 		QVector<uchar>,
-		QVector<uchar>);
+		QVector<uchar>,
+		bool);
 
  private :
   QTextEdit *m_meshLog;
@@ -73,6 +74,8 @@ class MeshGenerator
 
   float m_scaleModel;
 
+  bool m_batchMode;
+  
   void generateMesh(int, int,
 		    QString,
 		    int, int,

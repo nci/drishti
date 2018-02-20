@@ -112,6 +112,9 @@ MeshGenerator::getValues(int &isoval, float &isovalf,
 	 << QGradientStop(1.0, QColor(255,255,255,255));
 
   if (doBorder) fillValue = 0;
+
+  if (m_batchMode)
+    return true;
   
   PropertyEditor propertyEditor;
   QMap<QString, QVariantList> plist;
@@ -379,7 +382,8 @@ MeshGenerator::start(VolumeFileManager *vfm,
 		     uchar *lut,
 		     int pruneLod, int pruneX, int pruneY, int pruneZ,
 		     QVector<uchar> pruneData,
-		     QVector<uchar> tagColors)
+		     QVector<uchar> tagColors,
+		     bool bm)
 {
   m_vfm = vfm;
   m_voxelType = m_vfm->voxelType();
@@ -402,6 +406,8 @@ MeshGenerator::start(VolumeFileManager *vfm,
   m_tagColors = tagColors;
   m_samplingLevel = samplingLevel;
 
+  m_batchMode = bm;
+  
   // pruneLod that we get is wrt the original sized volume.
   // set pruneLod to reflect the selected sampling level.
   m_pruneLod = qMax((float)m_nX/(float)m_pruneZ,
@@ -461,9 +467,12 @@ MeshGenerator::start(VolumeFileManager *vfm,
 
 
   float memGb = 0.5;
-  memGb = QInputDialog::getDouble(0,
-				  "Use memory",
-				  "Max memory we can use (GB)", memGb, 0.1, 1000, 2);
+  if (!m_batchMode)
+    memGb = QInputDialog::getDouble(0,
+				    "Use memory",
+				    "Max memory we can use (GB)", memGb, 0.1, 1000, 2);
+  else
+    memGb = 5.0; // for batch mode assume 5GB
 
   qint64 gb = 1024*1024*1024;
   qint64 memsize = memGb*gb; // max memory we can use (in GB)
@@ -501,10 +510,17 @@ MeshGenerator::start(VolumeFileManager *vfm,
   
 
   //---- export the grid ---
-  QString flnm = QFileDialog::getSaveFileName(0,
-					      "Export mesh to file",
-					      prevDir,
-					      "*.ply ;; *.stl");
+  QString flnm;
+  if (!m_batchMode)
+    flnm = QFileDialog::getSaveFileName(0,
+					"Export mesh to file",
+					prevDir,
+					"*.ply ;; *.stl");
+  else
+    {
+      flnm = QDir(prevDir).filePath("mesh.ply");
+    }
+  
   if (flnm.size() == 0)
     {
       meshWindow->close();
@@ -1905,7 +1921,8 @@ MeshGenerator::generateMesh(int nSlabs,
   m_meshLog->moveCursor(QTextCursor::End);
   m_meshLog->insertPlainText("Mesh saved in "+flnm);
 
-  QMessageBox::information(0, "", QString("Mesh saved in "+flnm));
+  if (!m_batchMode)
+    QMessageBox::information(0, "", QString("Mesh saved in "+flnm));
 
 
 }

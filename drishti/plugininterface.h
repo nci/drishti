@@ -31,7 +31,8 @@ class RenderPluginInterface
   virtual void setPruneData(int, int, int, int, QVector<uchar>)=0;
   virtual void setTagColors(QVector<uchar>)=0;
 
-
+  virtual void setBatchMode(bool)=0;
+  
   virtual void init() = 0;
   virtual void start() = 0;
 };

@@ -31,6 +31,8 @@ MeshPaintPlugin::init()
   m_pruneLod = m_pruneX = m_pruneY = m_pruneZ = 0;
   m_pruneData.clear();
   m_tagColors.clear();
+
+  m_batchMode = false;
 }
 
 void MeshPaintPlugin::setPvlFileManager(VolumeFileManager *p) { m_pvlFileManager = p; }
@@ -66,6 +68,8 @@ MeshPaintPlugin::setPruneData(int lod,
 }
 
 void MeshPaintPlugin::setTagColors(QVector<uchar> t) { m_tagColors = t; }
+
+void MeshPaintPlugin::setBatchMode(bool b) { m_batchMode = b; }
 
 void
 MeshPaintPlugin::start()

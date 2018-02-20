@@ -42,6 +42,7 @@ class BatchJob
   bool startProject;
   bool backgroundrender;
   bool renderFrames;
+  bool plugin;
   bool image;
   bool movie;
   bool imagesize;
@@ -56,6 +57,7 @@ class BatchJob
   int imageMode;
   QString projectFilename;
   QString imageFilename, movieFilename;  
+  QString pluginName;
 };
 
 #endif

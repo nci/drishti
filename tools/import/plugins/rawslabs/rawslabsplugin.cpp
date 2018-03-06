@@ -627,7 +627,7 @@ void
 RawSlabsPlugin::getDepthSlice(int slc,
 			     uchar *slice)
 {
-  int nbytes = m_width*m_height*m_bytesPerVoxel;
+  qint64 nbytes = m_width*m_height*m_bytesPerVoxel;
   if (slc < 0 || slc >= m_depth)
     {
       memset(slice, 0, nbytes);
@@ -683,8 +683,8 @@ RawSlabsPlugin::getWidthSlice(int slc,
       int slcno = ((fno > 0) ? k-m_slices[fno-1] : k);
 
       fin.seek((qint64)(m_skipBytes +
-	       (slcno*m_width*m_height + 
-		slc*m_height)*m_bytesPerVoxel));
+	       ((qint64)slcno*m_width*m_height + 
+		(qint64)slc*m_height)*m_bytesPerVoxel));
       fin.read((char*)(slice+(qint64)(k*m_height*m_bytesPerVoxel)),
 	       (qint64)(m_height*m_bytesPerVoxel));
     }

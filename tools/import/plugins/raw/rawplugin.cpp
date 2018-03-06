@@ -141,9 +141,9 @@ RawPlugin::setFile(QStringList files)
       else if (m_voxelType == _Int) bpv = 4;
       else if (m_voxelType == _Float) bpv = 4;
 
-      if (fin.size() == 13+nX*nY*nZ*bpv)
+      if (fin.size() == 13+(qint64)nX*(qint64)nY*(qint64)nZ*(qint64)bpv)
 	m_skipBytes = 13;
-      else if (fin.size() == 12+nX*nY*nZ*bpv)
+      else if (fin.size() == 12+(qint64)nX*(qint64)nY*(qint64)nZ*(qint64)bpv)
 	m_skipBytes = 12;
       else
 	m_skipBytes = 0;

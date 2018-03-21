@@ -204,10 +204,19 @@ ImageWidget::saveImage()
   if (imgFile.isEmpty())
     return;
 
+  if (!StaticFunctions::checkExtension(imgFile, ".png") &&
+      !StaticFunctions::checkExtension(imgFile, ".tif") &&
+      !StaticFunctions::checkExtension(imgFile, ".bmp") &&
+      !StaticFunctions::checkExtension(imgFile, ".jpg"))
+    imgFile += ".png";
+
   QImage sImage = m_image;
   QPainter p(&sImage);
-  p.setCompositionMode(QPainter::CompositionMode_Overlay);
-  p.drawImage(0,0, m_maskimage);
+
+  p.setRenderHint(QPainter::Antialiasing);
+  p.setCompositionMode(QPainter::CompositionMode_SourceOver);
+  p.drawImage(0, 0, m_image);
+  p.drawImage(0, 0, m_maskimage);
 
   sImage.save(imgFile);
   QMessageBox::information(0, "Save Image", "Done");

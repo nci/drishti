@@ -678,7 +678,30 @@ DrishtiPaint::on_actionAbout_triggered()
 }
 
 
-void DrishtiPaint::on_saveImage_triggered() { m_axialImage->saveImage(); }
+void DrishtiPaint::on_saveImage_triggered()
+{
+  QStringList itype;
+  itype << "Z";  
+  itype << "Y";
+  itype << "X";
+  bool ok;
+  QString option = QInputDialog::getItem(0,
+					 "Save Image Slice",
+					 "Image plane",
+					 itype,
+					 0,
+					 false,
+					 &ok);
+  if (ok)
+    {
+      if (option.contains("Z"))
+	m_axialImage->saveImage();
+      else if (option.contains("Y"))
+	m_sagitalImage->saveImage();
+      else
+	m_coronalImage->saveImage();
+    }
+}
 
 void
 DrishtiPaint::on_saveWork_triggered()

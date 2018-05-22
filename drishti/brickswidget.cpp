@@ -448,6 +448,10 @@ BricksWidget::updateBrickInformation()
  // remove the degree symbol at the end of angle value
   QString astr = ui.m_angle->text();
   astr.chop(1);
+  if (astr.contains(","))
+    {
+      astr = astr.replace(',','.');
+    }
   binfo.angle = astr.toFloat(&ok);
   binfo.scalepivot = StaticFunctions::getVec(ui.m_scalepivot->text());
   binfo.scale = StaticFunctions::getVec(ui.m_scale->text());

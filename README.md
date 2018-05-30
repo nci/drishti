@@ -39,6 +39,9 @@ http://www.scribd.com/doc/191007517/The-Basics-of-Drishti-A-Free-To-Download-Vol
 ## You tube channel
 https://www.youtube.com/user/900acl/videos?sort=dd&flow=list&page=1&view=1
 
+## Help videos from Robert Asher
+https://www.youtube.com/playlist?list=PLvCBlNTgzwb9OrBO20JGFl4aEaBA8TZZI
+
 ## Some more help videos
 http://sf.anu.edu.au/~acl900/tmp/help-videos/
 http://sf.anu.edu.au/Vizlab/drishti/help.shtml

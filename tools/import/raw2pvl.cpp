@@ -1633,9 +1633,11 @@ Raw2Pvl::savePvl(VolumeData* volData,
 
   int spread = savePvlDialog.volumeFilter();
   bool dilateFilter = savePvlDialog.dilateFilter();
+  bool invertData = savePvlDialog.invertData();
   int voxelUnit = savePvlDialog.voxelUnit();
   QString description = savePvlDialog.description();
   savePvlDialog.voxelSize(vx, vy, vz);
+
 
   QList<float> rawMap = volData->rawMap();
   QList<int> pvlMap = volData->pvlMap();
@@ -1991,6 +1993,21 @@ Raw2Pvl::savePvl(VolumeData* volData,
 		       pvlslice, pvlbpv, pvlMap,
 		       width, height);
 
+	  if (invertData)
+	    {
+	      if (pvlbpv == 1)
+		{
+		  for(int fi=0; fi<wsz2*hsz2; fi++)
+		    pvlslice[fi] = 255-pvlslice[fi];
+		}
+	      else
+		{
+		  ushort *ptr = (ushort*)pvlslice;
+		  for(int fi=0; fi<wsz2*hsz2; fi++)
+		    ptr[fi] = 65535-ptr[fi];
+		}
+	    }
+	  
 	  if (sfw == 0 && sfh == 0)
 	    pvlFileManager.setSlice(sfd+dd, pvlslice);
 	  else // add padding if required

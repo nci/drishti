@@ -21,6 +21,7 @@ class SavePvlDialog : public QDialog
   QString description ();
   int volumeFilter();
   bool dilateFilter();
+  bool invertData();
 
 
  private :

@@ -28,6 +28,7 @@ int SavePvlDialog::voxelUnit() { return ui.voxelUnit->currentIndex(); }
 int SavePvlDialog::volumeFilter() { return ui.volumeFilter->currentIndex(); }
 QString SavePvlDialog::description() { return ui.description->text(); }
 bool SavePvlDialog::dilateFilter() { return ui.dilateFilter->isChecked(); }
+bool SavePvlDialog::invertData() { return ui.invert->isChecked(); }
 
 void
 SavePvlDialog::voxelSize(float& vx, float& vy, float& vz)

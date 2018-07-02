@@ -3183,7 +3183,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
     tag << -1;
   //----------------
 
-  QMessageBox::information(0, "", QString("%1 : %2").arg(tag.count()).arg(tag[0]));
+  //  QMessageBox::information(0, "", QString("%1 : %2").arg(tag.count()).arg(tag[0]));
 
   bool saveImageData = true;
   int shiftVox = 128;

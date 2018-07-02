@@ -21,14 +21,104 @@ p, li { white-space: pre-wrap; }
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-size:8pt;&quot;&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
   </property>
   <layout class="QGridLayout">
-   <item row="0" column="0">
-    <widget class="QLabel" name="label">
+   <item row="0" column="5" rowspan="3">
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Ok</set>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="1" colspan="2">
+    <widget class="QLineEdit" name="voxelSize">
      <property name="text">
-      <string>Voxel Unit</string>
+      <string>1 1 1</string>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="0">
+    <widget class="QLabel" name="label_2">
+     <property name="text">
+      <string>Voxel Size</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
      </property>
+    </widget>
+   </item>
+   <item row="0" column="3" colspan="2">
+    <spacer>
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>53</width>
+       <height>20</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+   <item row="1" column="3" colspan="2">
+    <spacer>
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>53</width>
+       <height>20</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+   <item row="2" column="0">
+    <widget class="QLabel" name="label_3">
+     <property name="text">
+      <string>Description</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="1">
+    <widget class="QComboBox" name="volumeFilter">
+     <property name="toolTip">
+      <string>Averaging filters.</string>
+     </property>
+     <item>
+      <property name="text">
+       <string>no filter</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>3x3</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>5x5</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>7x7</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>9x9</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>11x11</string>
+      </property>
+     </item>
     </widget>
    </item>
    <item row="0" column="1" colspan="2">
@@ -85,121 +175,11 @@ p, li { white-space: pre-wrap; }
      </item>
     </widget>
    </item>
-   <item row="0" column="3" colspan="2">
-    <spacer>
-     <property name="orientation">
-      <enum>Qt::Horizontal</enum>
-     </property>
-     <property name="sizeHint" stdset="0">
-      <size>
-       <width>53</width>
-       <height>20</height>
-      </size>
-     </property>
-    </spacer>
-   </item>
-   <item row="0" column="5" rowspan="3">
-    <widget class="QDialogButtonBox" name="buttonBox">
-     <property name="orientation">
-      <enum>Qt::Vertical</enum>
-     </property>
-     <property name="standardButtons">
-      <set>QDialogButtonBox::Ok</set>
-     </property>
-    </widget>
-   </item>
-   <item row="1" column="0">
-    <widget class="QLabel" name="label_2">
-     <property name="text">
-      <string>Voxel Size</string>
-     </property>
-     <property name="alignment">
-      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-     </property>
-    </widget>
-   </item>
-   <item row="1" column="1" colspan="2">
-    <widget class="QLineEdit" name="voxelSize">
-     <property name="text">
-      <string>1 1 1</string>
-     </property>
-    </widget>
-   </item>
-   <item row="1" column="3" colspan="2">
-    <spacer>
-     <property name="orientation">
-      <enum>Qt::Horizontal</enum>
-     </property>
-     <property name="sizeHint" stdset="0">
-      <size>
-       <width>53</width>
-       <height>20</height>
-      </size>
-     </property>
-    </spacer>
-   </item>
-   <item row="2" column="0">
-    <widget class="QLabel" name="label_3">
-     <property name="text">
-      <string>Description</string>
-     </property>
-     <property name="alignment">
-      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-     </property>
-    </widget>
-   </item>
    <item row="2" column="1" colspan="4">
     <widget class="QLineEdit" name="description">
      <property name="text">
       <string>Information about volume</string>
      </property>
-    </widget>
-   </item>
-   <item row="3" column="0">
-    <widget class="QLabel" name="label_4">
-     <property name="text">
-      <string>Volume Filter</string>
-     </property>
-     <property name="alignment">
-      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-     </property>
-    </widget>
-   </item>
-   <item row="3" column="1">
-    <widget class="QComboBox" name="volumeFilter">
-     <property name="toolTip">
-      <string>Averaging filters.</string>
-     </property>
-     <item>
-      <property name="text">
-       <string>no filter</string>
-      </property>
-     </item>
-     <item>
-      <property name="text">
-       <string>3x3</string>
-      </property>
-     </item>
-     <item>
-      <property name="text">
-       <string>5x5</string>
-      </property>
-     </item>
-     <item>
-      <property name="text">
-       <string>7x7</string>
-      </property>
-     </item>
-     <item>
-      <property name="text">
-       <string>9x9</string>
-      </property>
-     </item>
-     <item>
-      <property name="text">
-       <string>11x11</string>
-      </property>
-     </item>
     </widget>
    </item>
    <item row="3" column="4">
@@ -213,6 +193,33 @@ p, li { white-space: pre-wrap; }
      </property>
      <property name="text">
       <string>Dilate</string>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="0">
+    <widget class="QLabel" name="label_4">
+     <property name="text">
+      <string>Volume Filter</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="0">
+    <widget class="QLabel" name="label">
+     <property name="text">
+      <string>Voxel Unit</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="5">
+    <widget class="QCheckBox" name="invert">
+     <property name="text">
+      <string>Invert Data</string>
      </property>
     </widget>
    </item>

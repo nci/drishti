@@ -14,6 +14,8 @@
 #include "itksegmentation.h"
 #include "mainwindowui.h"
 
+#include "cube2sphere.h"
+
 #include <stdio.h>
 #include <math.h>
 #include <fstream>
@@ -2179,6 +2181,54 @@ uint PREMUL(uint x)
   return (uint(t)) | (uint(t >> 24)) | (a << 24);
 }
 
+QImage
+Viewer::getSnapshot()
+{
+  int wd, ht;
+  uchar *imgbuf = 0;
+
+  if (drawToFBO() && !m_rcMode)
+    {
+      wd = m_imageBuffer->width();
+      ht = m_imageBuffer->height();
+      imgbuf = new uchar[wd*ht*4];
+
+      if (m_imageBuffer->bind())
+	{
+	  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
+	  glReadPixels(0, 0, wd, ht, GL_RGBA, GL_UNSIGNED_BYTE, imgbuf);
+	  m_imageBuffer->release();
+	}
+    }
+  else
+    {
+      wd = width();
+      ht = height();
+      imgbuf = new uchar[wd*ht*4];
+      glReadPixels(0, 0, wd, ht, GL_RGBA, GL_UNSIGNED_BYTE, imgbuf);
+    }
+
+  for(int i=0; i<wd*ht; i++)
+    {
+      uchar r = imgbuf[4*i+0];
+      uchar g = imgbuf[4*i+1];
+      uchar b = imgbuf[4*i+2];
+      uchar a = imgbuf[4*i+3];
+      
+      uchar ma = qMax(qMax(r,g),qMax(b,a));
+      imgbuf[4*i+3] = ma;
+    }
+
+  QImage img(wd, ht, QImage::Format_ARGB32);
+  uchar *bits = img.bits();
+  memcpy(bits, imgbuf, wd*ht*4);
+  delete [] imgbuf;
+
+  StaticFunctions::convertFromGLImage(img, wd, ht);
+
+  return img;
+}
+
 void
 Viewer::saveSnapshot(QString imgFile)
 {
@@ -2347,6 +2397,92 @@ Viewer::saveCubicImage(QString localImageFileName,
 }
 
 void
+Viewer::save360Image(QString localImageFileName,
+		     QChar fillChar, int fieldWidth)
+{
+  QFileInfo f(localImageFileName);	  
+
+  float fov = camera()->fieldOfView();
+  Quaternion origOrientation = camera()->orientation();
+
+  setFieldOfView((float)(M_PI/2.0));
+
+  QString imgFile;
+  QList<QImage> cubicImages;
+
+  Global::setSaveImageType(Global::CubicFrontImage);
+  drawImageOnScreen();	  
+  QImage frontImage = getSnapshot();
+
+  Quaternion q, cq;  
+  Vec upVector = camera()->upVector();
+  Vec rightVector = camera()->rightVector(); 
+  
+  //----
+  q = Quaternion(upVector, -M_PI/2);
+  cq = q*origOrientation;
+  camera()->setOrientation(cq);
+  Global::setSaveImageType(Global::CubicRightImage);
+  drawImageOnScreen();
+  cubicImages << getSnapshot();
+
+  q = Quaternion(upVector, M_PI/2);
+  cq = q*origOrientation;
+  camera()->setOrientation(cq);
+  Global::setSaveImageType(Global::CubicLeftImage);
+  drawImageOnScreen();
+  cubicImages << getSnapshot();
+  //----
+
+  //----
+  q = Quaternion(rightVector, M_PI/2);
+  cq = q*origOrientation;
+  camera()->setOrientation(cq);
+  Global::setSaveImageType(Global::CubicTopImage);
+  drawImageOnScreen();
+  cubicImages << getSnapshot().mirrored(true, false);
+
+  q = Quaternion(rightVector, -M_PI/2);
+  cq = q*origOrientation;
+  camera()->setOrientation(cq);
+  Global::setSaveImageType(Global::CubicBottomImage);
+  drawImageOnScreen();
+  cubicImages << getSnapshot().mirrored(true, false);
+  //----
+
+  
+  //----
+  q = Quaternion(upVector, M_PI);
+  cq = q*origOrientation;
+  camera()->setOrientation(cq);
+  Global::setSaveImageType(Global::CubicBackImage);
+  drawImageOnScreen();	  
+  cubicImages << getSnapshot();
+
+  cubicImages << frontImage;
+  //----
+
+
+  
+  QImage panoImage = Cube2Sphere::convert(cubicImages);
+
+
+  
+  //---------------------------------------------------------
+  imgFile = f.absolutePath() + QDir::separator() + f.baseName();
+  if (m_currFrame >= 0)
+    imgFile += QString("%1").arg((int)m_currFrame, fieldWidth, 10, fillChar);
+  imgFile += ".";
+  imgFile += f.completeSuffix();
+
+  panoImage.save(imgFile);
+  //---------------------------------------------------------
+  
+  camera()->setOrientation(origOrientation);
+  setFieldOfView(fov);
+}
+
+void
 Viewer::saveStereoImage(QString localImageFileName,
 			QChar fillChar, int fieldWidth)
 {
@@ -2428,6 +2564,8 @@ Viewer::saveImage()
     saveStereoImage(localImageFileName, fillChar, fieldWidth);
   else if (m_imageMode == Enums::CubicImageMode)
     saveCubicImage(localImageFileName, fillChar, fieldWidth);
+  else if (m_imageMode == Enums::PanoImageMode)
+    save360Image(localImageFileName, fillChar, fieldWidth);
 }
 
 void
@@ -3854,6 +3992,7 @@ Viewer::grabScreenShot()
   items << "Mono Image";
   items << "Stereo Image";
   items << "Cubic Image";
+  items << "Pano Image";
   bool ok;
   QString str;
   str = QInputDialog::getItem(0,
@@ -3870,8 +4009,10 @@ Viewer::grabScreenShot()
     {
       if (str == "Stereo Image")
 	setImageMode(Enums::StereoImageMode);
-      else
+      else if (str == "Cubic Image")
 	setImageMode(Enums::CubicImageMode);
+      else
+	setImageMode(Enums::PanoImageMode);
     }
 
   setCurrentFrame(-1);

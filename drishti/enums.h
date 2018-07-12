@@ -33,6 +33,7 @@ class Enums
       MonoImageMode = 0,
       StereoImageMode,
       CubicImageMode,
+      PanoImageMode,
       RedCyanImageMode,
       RedBlueImageMode,
       CrosseyeImageMode,

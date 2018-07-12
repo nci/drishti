@@ -310,12 +310,14 @@ class Viewer : public QGLViewer
   void saveMonoImage(QString, QChar, int);
   void saveStereoImage(QString, QChar, int);
   void saveCubicImage(QString, QChar, int);
+  void save360Image(QString, QChar, int);
 
   void loadLookupTable(unsigned char*);
 
   void processCommand(QString);
   void processLight(QStringList);
 
+  QImage getSnapshot();
   void saveSnapshot(QString);
   void fboToMovieFrame();
   void screenToMovieFrame();

@@ -133,6 +133,7 @@ HEADERS += boundingbox.h \
 	   cropobject.h \
 	   cropgrabber.h \
            cropshaderfactory.h \
+           cube2sphere.h \
            dcolordialog.h \
            dcolorwheel.h \
 	   doublespinboxdelegate.h \
@@ -270,6 +271,7 @@ SOURCES += boundingbox.cpp \
 	   cropobject.cpp \
 	   cropgrabber.cpp \
            cropshaderfactory.cpp \
+           cube2sphere.cpp \
            dcolordialog.cpp \
            dcolorwheel.cpp \
 	   doublespinboxdelegate.cpp \

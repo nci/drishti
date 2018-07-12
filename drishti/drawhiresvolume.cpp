@@ -1622,7 +1622,7 @@ DrawHiresVolume::loadCameraMatrices()
 	}
       else
 	{
-	  // Cubic Images
+	  // Cubic Images (or Pano)
 	  m_Viewer->camera()->loadProjectionMatrix(true);
 	  m_Viewer->camera()->loadModelViewMatrix(true);
 	}

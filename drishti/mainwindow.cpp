@@ -868,6 +868,8 @@ MainWindow::fromStringList(QStringList arguments,
 	    bj.imageMode = Enums::StereoImageMode;
 	  else if (tokens[1]=="cubic")
 	    bj.imageMode = Enums::CubicImageMode;
+	  else if (tokens[1]=="pano")
+	    bj.imageMode = Enums::PanoImageMode;
 	  else if (tokens[1]=="redcyan")
 	    bj.imageMode = Enums::RedCyanImageMode;
 	  else if (tokens[1]=="redblue")
@@ -965,7 +967,8 @@ MainWindow::loadProjectRunKeyframesAndExit()
       if (bj.shading)
 	m_Hires->setRenderQuality(Enums::RenderHighQuality);
 
-      if (bj.imageMode == Enums::CubicImageMode)
+      if (bj.imageMode == Enums::CubicImageMode ||
+	  bj.imageMode == Enums::PanoImageMode)
 	{
 	  bj.imgWidth = qMax(bj.imgWidth, bj.imgHeight);
 	  bj.imgHeight = bj.imgWidth;
@@ -1302,7 +1305,8 @@ MainWindow::on_actionSave_ImageSequence_triggered()
       QString flnm = saveImg.fileName();
       int imgMode = saveImg.imageMode();
 
-      if (imgMode == Enums::CubicImageMode)
+      if (imgMode == Enums::CubicImageMode ||
+	  imgMode == Enums::PanoImageMode)
 	{
 	  if (imgSize.width() != imgSize.height())
 	    {

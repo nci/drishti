@@ -43,9 +43,23 @@ LightShaderFactory::genOpacityShader(bool bit16)
   }
   //-----------------------------------------
 
-  shader += "  x *= float(llod);\n";
-  shader += "  y *= float(llod);\n";
-  shader += "  z *= float(llod);\n";
+//  shader += "  x *= float(llod);\n";
+//  shader += "  y *= float(llod);\n";
+//  shader += "  z *= float(llod);\n";
+
+  shader += "  float xO = x*float(llod);\n";
+  shader += "  float yO = y*float(llod);\n";
+  shader += "  float zO = z*float(llod);\n";
+
+  shader += "int alod = llod-1;\n";
+  shader += "vec4 fcolor = vec4(0.0,0.0,0.0,0.0);\n";
+  shader += "for(int xa=-alod; xa<=alod; xa++)\n";
+  shader += "for(int ya=-alod; ya<=alod; ya++)\n";
+  shader += "for(int za=-alod; za<=alod; za++)\n";
+  shader += "{\n";
+  shader += "  float x = xO + xa;\n";
+  shader += "  float y = yO + ya;\n";
+  shader += "  float z = zO + za;\n";
   
   // convert x,y,z to dragtexture space
   shader += "  int row = int(z)/ncols;\n";
@@ -98,25 +112,36 @@ LightShaderFactory::genOpacityShader(bool bit16)
     }
 
   shader += "float val = vg.x;\n";
-  //shader += "float grad = vg.y;\n";
-
-  //shader += QString("  vg.y = tfSet + vg.y*%1;\n").arg(1.0/Global::lutSize());
-
   shader += QString("float grad = vg.y*%1;\n").arg(1.0/Global::lutSize());
   shader += "vg.y = tfSet + grad;\n";
 
+//  shader += " if (opshader)\n";
+//  shader += "   {\n";
+//  shader += "     float alpha = texture2D(lutTex, vg.xy).a;\n";
+//  shader += "     gl_FragColor = vec4(val, grad, alpha, 1.0);\n"; 
+//  shader += "   }\n";
+//  shader += " else\n";
+//  shader += "   {\n";
+//  shader += "     gl_FragColor = texture2D(lutTex, vg.xy);\n";  
+//  shader += "     gl_FragColor.rgb *= gl_FragColor.a;\n";  
+//  shader += "     gl_FragColor.a = step(0.01, gl_FragColor.a);\n";
+//  shader += "   }\n";
+
   shader += " if (opshader)\n";
-  //shader += "   gl_FragColor = texture2D(lutTex, vg.xy).aaaa;\n";  
   shader += "   {\n";
   shader += "     float alpha = texture2D(lutTex, vg.xy).a;\n";
-  shader += "     gl_FragColor = vec4(val, grad, alpha, 1.0);\n"; 
+  shader += "     fcolor += vec4(val, grad, alpha, 1.0);\n"; 
   shader += "   }\n";
   shader += " else\n";
   shader += "   {\n";
-  shader += "     gl_FragColor = texture2D(lutTex, vg.xy);\n";  
-  shader += "     gl_FragColor.rgb *= gl_FragColor.a;\n";  
-  shader += "     gl_FragColor.a = step(0.01, gl_FragColor.a);\n";
+  shader += "     vec4 clr = texture2D(lutTex, vg.xy);\n";  
+  shader += "     clr.rgb *= clr.a;\n";  
+  shader += "     clr.a = step(0.01, clr.a);\n";
+  shader += "     fcolor += clr;\n";
   shader += "   }\n";
+  shader += "}\n";
+
+  shader += " gl_FragColor = fcolor/pow(2.0*(float)alod+1, 3.0);\n";
 
   shader += "}\n";
 
@@ -457,8 +482,10 @@ LightShaderFactory::genEmissiveShader() // tf emissive shader
 
   shader += "  gl_FragColor = texture2DRect(lightTex, tc.xy);\n";
 
-  shader += "  float nlit = 0.0;\n";
-  shader += "  float lit = 0.0;\n";
+  //shader += "  float nlit = 0.0;\n";
+  //shader += "  float lit = 0.0;\n";
+  shader += "  float nlit = 1.0;\n";
+  shader += "  float lit = gl_FragColor.x;\n";
 
   // -- take contributions from left, right, front and back
   shader += "  row = z/ncols;\n";
@@ -838,16 +865,16 @@ LightShaderFactory::genInitTubeLightShader() // point shader
   shader += "  gl_FragColor = vec4(0.0,op,0.0,1.0);\n";
 
 
-  // ----- testing ----
+  // ----- ambient occlusion ----
   shader += "  if (lradius < 1.0)\n";
   shader += "     {\n";
-  shader += "       bvec3 spless = lessThan(p, vec3(3.0,3.0,3.0));\n";
-  shader += "       bvec3 spgret = greaterThan(p, vec3(float(gridx)-3.0,float(gridy)-3.0,float(gridz)-3.0));\n";
-  shader += "       if (any(spless) || any(spgret))\n";
+  shader += "       bvec3 spless = lessThan(p, vec3(1.0,1.0,1.0));\n";
+  shader += "       bvec3 spgret = greaterThan(p, vec3(float(gridx)-1.0,float(gridy)-1.0,float(gridz)-1.0));\n";
+  shader += "       if (any(spless) || any(spgret) || op<0.01)\n";
   shader += "          gl_FragColor = vec4(1.0,op,1.0,1.0);\n";
   shader += "       return;\n";
   shader += "     }\n";
-  //-------------------
+  //-----------------------------
 
 
   //------------------------------------
@@ -947,14 +974,15 @@ LightShaderFactory::genTubeLightShader() // point shader
   shader += "  int y = int(tc.y) - row*gridy;\n";
   shader += "  int z = row*ncols + col;\n";
 
-  //-------- skylight ----
+  //-------- ambient occlusion ----
   shader += "  if (lradius < 1.0)\n";
   shader += "   {\n";
   shader += "     gl_FragColor = texture2DRect(lightTex, tc.xy);\n";
   shader += "     vec3 p = vec3(x,y,z);\n";
-  shader += "     bvec3 spless = lessThan(p, vec3(2.0,2.0,2.0));\n";
+  shader += "     float ig = 1.0;\n";
+  shader += "     bvec3 spless = lessThan(p, vec3(ig));\n";
   shader += "     bvec3 spgret = greaterThan(p, ";
-  shader += "     vec3(float(gridx)-2.0,float(gridy)-2.0,float(gridz)-2.0));\n";
+  shader += "                    vec3(gridx,gridy,gridz)-vec3(ig));\n";
   shader += "     if (any(spless) || any(spgret)) return;\n";
 
   shader += "     float nlit = 0.0;\n";
@@ -999,8 +1027,11 @@ LightShaderFactory::genTubeLightShader() // point shader
   shader += "     gl_FragColor.x = clamp(lit, 0.0, 1.0);\n";
   shader += "     return;\n";
   shader += "   }\n";
-  //--------
+  //----------------------------------------------
+  //----------------------------------------------
 
+  
+  // ---- point/tube light -------------
   shader += "  vec2 dop = texture2DRect(lightTex, tc.xy).xy;\n";
   shader += "  gl_FragColor = vec4(dop,1.0,1.0);\n";
   shader += "  if (dop.x > 0.98) return;\n";
@@ -1087,18 +1118,41 @@ LightShaderFactory::genExpandLightShader()
   shader += "  float y = tc.y - float(row*gridy);\n";
   shader += "  float z = float(row*ncols + col);\n";
   
-  // convert x,y,z to lighttexture space
-  shader += "  x *= llod;\n";
-  shader += "  y *= llod;\n";
-  shader += "  z *= llod;\n";
+//  // convert x,y,z to lighttexture space
+//  shader += "  x *= llod;\n";
+//  shader += "  y *= llod;\n";
+//  shader += "  z *= llod;\n";
+//  shader += "  int lrow = int(z)/lncols;\n";
+//  shader += "  int lcol = int(z) - lrow*lncols;\n";
+//  shader += "  lrow *= lgridy;\n";
+//  shader += "  lcol *= lgridx;\n";
+//  shader += "  vec2 ltc = vec2(float(lcol)+x, float(lrow)+y);\n";
+//
+//  shader += "  gl_FragColor = vec4(texture2DRect(lightTex, ltc).rgb, 1.0);\n";   
+
+
+  shader += "  float xO = x*float(llod);\n";
+  shader += "  float yO = y*float(llod);\n";
+  shader += "  float zO = z*float(llod);\n";
+
+  shader += "int alod = llod-1;\n";
+  shader += "vec4 fcolor = vec4(0.0,0.0,0.0,0.0);\n";
+  shader += "for(int xa=-alod; xa<=alod; xa++)\n";
+  shader += "for(int ya=-alod; ya<=alod; ya++)\n";
+  shader += "for(int za=-alod; za<=alod; za++)\n";
+  shader += "{\n";
+  shader += "  float x = xO + xa;\n";
+  shader += "  float y = yO + ya;\n";
+  shader += "  float z = zO + za;\n";
   shader += "  int lrow = int(z)/lncols;\n";
   shader += "  int lcol = int(z) - lrow*lncols;\n";
   shader += "  lrow *= lgridy;\n";
   shader += "  lcol *= lgridx;\n";
   shader += "  vec2 ltc = vec2(float(lcol)+x, float(lrow)+y);\n";
-
-
-  shader += "  gl_FragColor = vec4(texture2DRect(lightTex, ltc).rgb, 1.0);\n";   
+  shader += "  fcolor += vec4(texture2DRect(lightTex, ltc).rgb, 1.0);\n";   
+  shader += "}\n";
+  
+  shader += " gl_FragColor = fcolor/pow(2.0*(float)alod+1, 3.0);\n";
 
   shader += "}\n";
 

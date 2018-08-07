@@ -614,19 +614,6 @@
         <property name="verticalSpacing">
          <number>0</number>
         </property>
-        <item row="2" column="1">
-         <widget class="QDoubleSpinBox" name="dragStep">
-          <property name="minimum">
-           <double>0.200000000000000</double>
-          </property>
-          <property name="maximum">
-           <double>10.000000000000000</double>
-          </property>
-          <property name="singleStep">
-           <double>0.100000000000000</double>
-          </property>
-         </widget>
-        </item>
         <item row="1" column="1">
          <widget class="QDoubleSpinBox" name="stillStep">
           <property name="minimum">
@@ -640,20 +627,10 @@
           </property>
          </widget>
         </item>
-        <item row="2" column="0">
-         <widget class="QLabel" name="label_10">
-          <property name="text">
-           <string>Drag</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
-          </property>
-         </widget>
-        </item>
         <item row="1" column="0">
          <widget class="QLabel" name="label_9">
           <property name="text">
-           <string>Still</string>
+           <string>Stepsize</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignCenter</set>

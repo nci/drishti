@@ -32,6 +32,10 @@ Viewer::Viewer(QWidget *parent) :
 
   m_renderMode = true; // 0-slicebased, 1-raycast
 
+  m_depth = 0;
+  m_width = 0;
+  m_height = 0;
+
   m_eBuffer = 0;
   m_ebId = 0;
   m_ebTex[0] = 0;
@@ -44,7 +48,6 @@ Viewer::Viewer(QWidget *parent) :
   m_slcTex[1] = 0;
 
   m_depthShader = 0;
-  m_finalPointShader = 0;
   m_blurShader = 0;
   m_sliceShader = 0;
   m_shadowSliceShader = 0;
@@ -84,11 +87,14 @@ Viewer::Viewer(QWidget *parent) :
   m_edgeColor = Vec(0.0,0.0,0.0);
   m_bgColor = Vec(0.0,0.0,0.0);
 
-  m_vboSoup.clear();
   m_glVertBuffer = 0;
   m_glIndexBuffer = 0;
   m_glVertArray = 0;
 
+  m_mdEle = 0;
+  m_mdCount = 0;
+  m_mdIndices = 0;
+  
 #ifdef USE_GLMEDIA
   m_movieWriter = 0;
 #endif // USE_GLMEDIA
@@ -104,8 +110,10 @@ Viewer::Viewer(QWidget *parent) :
   connect(this, SIGNAL(renderNextFrame()),
 	  this, SLOT(nextFrame()));
 
+//  connect(&m_boundingBox, SIGNAL(updated()),
+//	  this, SLOT(updateFilledBoxes()));
   connect(&m_boundingBox, SIGNAL(updated()),
-	  this, SLOT(updateFilledBoxes()));
+	  this, SLOT(boundingBoxChanged()));
 }
 
 Viewer::~Viewer()
@@ -260,7 +268,6 @@ Viewer::init()
   m_mergeTagTF = false;
 
   m_skipLayers = 0;
-  m_fullRender = false;
   m_dragMode = true;
   m_exactCoord = false;
 
@@ -372,10 +379,6 @@ Viewer::init()
     glDeleteObjectARB(m_shadowBlurShader);
   m_shadowBlurShader = 0;
 
-  if (m_finalPointShader)
-    glDeleteObjectARB(m_finalPointShader);
-  m_finalPointShader = 0;
-
   if (m_eBuffer) glDeleteFramebuffers(1, &m_eBuffer);
   if (m_ebId) glDeleteRenderbuffers(1, &m_ebId);
   if (m_ebTex[0]) glDeleteTextures(3, m_ebTex);
@@ -408,7 +411,6 @@ Viewer::init()
 
   if(m_glVertArray)
     {
-      m_vboSoup.clear();
       glDeleteBuffers(1, &m_glIndexBuffer);
       glDeleteVertexArrays( 1, &m_glVertArray );
       glDeleteBuffers(1, &m_glVertBuffer);
@@ -416,6 +418,12 @@ Viewer::init()
       m_glVertArray = 0;
       m_glVertBuffer = 0;
     }
+
+  m_mdEle = 0;
+  if (m_mdCount) delete [] m_mdCount;
+  if (m_mdIndices) delete [] m_mdIndices;  
+  m_mdCount = 0;
+  m_mdIndices = 0;
 }
 
 void
@@ -459,11 +467,11 @@ Viewer::createFBO()
       glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[i]);
       glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,
 		   0,
-		   GL_RGBA16,
+		   GL_RGBA16F,
 		   wd, ht,
 		   0,
 		   GL_RGBA,
-		   GL_UNSIGNED_SHORT,
+		   GL_FLOAT,
 		   0);
     }
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -494,11 +502,11 @@ Viewer::createFBO()
       glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[i]);
       glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,
 		   0,
-		   GL_RGBA16,
+		   GL_RGBA16F,
 		   wd, ht,
 		   0,
 		   GL_RGBA,
-		   GL_UNSIGNED_SHORT,
+		   GL_FLOAT,
 		   0);
     }
 
@@ -555,6 +563,7 @@ Viewer::createRaycastShader()
   m_rcParm[17] = glGetUniformLocationARB(m_rcShader, "nclip");
   m_rcParm[18] = glGetUniformLocationARB(m_rcShader, "clipPos");
   m_rcParm[19] = glGetUniformLocationARB(m_rcShader, "clipNormal");
+  m_rcParm[20] = glGetUniformLocationARB(m_rcShader, "voxelScale");
 }
 
 void
@@ -582,7 +591,6 @@ Viewer::createShaders()
       QMessageBox::information(0, "", "Cannot create ee shader.");
     }
 
-  m_eeParm[0] = glGetUniformLocationARB(m_eeShader, "normalTex");
   m_eeParm[1] = glGetUniformLocationARB(m_eeShader, "minZ");
   m_eeParm[2] = glGetUniformLocationARB(m_eeShader, "maxZ");
   m_eeParm[3] = glGetUniformLocationARB(m_eeShader, "eyepos");
@@ -670,21 +678,21 @@ Viewer::createShaders()
   //----------------------
 
   
-  //----------------------
-  shaderString = ShaderFactory::genRectBlurShaderString(1); // bilateral filter
-
-  m_blurShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_blurShader,
-				  shaderString))
-    {
-      m_blurShader = 0;
-      QMessageBox::information(0, "", "Cannot create blur shader.");
-    }
-
-  m_blurParm[0] = glGetUniformLocationARB(m_blurShader, "blurTex");
-  m_blurParm[1] = glGetUniformLocationARB(m_blurShader, "minZ");
-  m_blurParm[2] = glGetUniformLocationARB(m_blurShader, "maxZ");
-  //----------------------
+//  //----------------------
+//  shaderString = ShaderFactory::genRectBlurShaderString(1); // bilateral filter
+//
+//  m_blurShader = glCreateProgramObjectARB();
+//  if (! ShaderFactory::loadShader(m_blurShader,
+//				  shaderString))
+//    {
+//      m_blurShader = 0;
+//      QMessageBox::information(0, "", "Cannot create blur shader.");
+//    }
+//
+//  m_blurParm[0] = glGetUniformLocationARB(m_blurShader, "blurTex");
+//  m_blurParm[1] = glGetUniformLocationARB(m_blurShader, "minZ");
+//  m_blurParm[2] = glGetUniformLocationARB(m_blurShader, "maxZ");
+//  //----------------------
 
 
   //----------------------
@@ -702,27 +710,7 @@ Viewer::createShaders()
   m_depthParm[1] = glGetUniformLocationARB(m_depthShader, "maxZ");
   m_depthParm[2] = glGetUniformLocationARB(m_depthShader, "eyepos");
   m_depthParm[3] = glGetUniformLocationARB(m_depthShader, "viewDir");
-  //----------------------
-
-
-  //----------------------
-  shaderString = ShaderFactory::genFinalPointShader();
-
-  m_finalPointShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_finalPointShader,
-				    shaderString))
-    {
-      m_finalPointShader = 0;
-      QMessageBox::information(0, "", "Cannot create final point shader.");
-    }
-
-  m_fpsParm[0] = glGetUniformLocationARB(m_finalPointShader, "blurTex");
-  m_fpsParm[1] = glGetUniformLocationARB(m_finalPointShader, "minZ");
-  m_fpsParm[2] = glGetUniformLocationARB(m_finalPointShader, "maxZ");
-  m_fpsParm[3] = glGetUniformLocationARB(m_finalPointShader, "eyepos");
-  m_fpsParm[4] = glGetUniformLocationARB(m_finalPointShader, "viewDir");
-  m_fpsParm[5] = glGetUniformLocationARB(m_finalPointShader, "dzScale");
-  
+  //----------------------  
 }
 
 
@@ -1405,6 +1393,10 @@ Viewer::setGridSize(int d, int w, int h)
   m_boxSize = qMax(m_boxSize, 8);
 
   generateBoxMinMax();
+
+  generateBoxes();
+
+  loadAllBoxesToVBO();
 }
 
 void
@@ -1558,55 +1550,11 @@ Viewer::setFibers(QList<Fiber*> *fb)
 }
 
 void
-Viewer::drawPointsWithoutShader()
-{
-  if (!m_volPtr || !m_maskPtr)
-    return;
-
-  glEnable(GL_ALPHA_TEST);
-  glAlphaFunc(GL_GREATER, 0.1);
-
-  //--------------------------------
-  // set point scaling based on distance to the viewer
-
-  GLfloat sizes[2];
-  GLfloat coeff[] = {1.0, 0.0, 0.0}; // constant, linear, quadratic
-  // ptsize = PointSize*sqrt(1/(constant + linear*d + quadratic*d*d))
-
-  glGetFloatv(GL_ALIASED_POINT_SIZE_RANGE, sizes);
-  glPointParameterf(GL_POINT_SIZE_MAX, sizes[1]);
-  glPointParameterf(GL_POINT_SIZE_MIN, sizes[0]);
-  glPointParameterfv(GL_POINT_DISTANCE_ATTENUATION, coeff);
-
-  Vec box[8];
-  box[0] = Vec(m_minHSlice, m_minWSlice, m_minDSlice);
-  box[1] = Vec(m_minHSlice, m_minWSlice, m_maxDSlice);
-  box[2] = Vec(m_minHSlice, m_maxWSlice, m_maxDSlice);
-  box[3] = Vec(m_minHSlice, m_maxWSlice, m_minDSlice);
-  box[4] = Vec(m_maxHSlice, m_minWSlice, m_minDSlice);
-  box[5] = Vec(m_maxHSlice, m_minWSlice, m_maxDSlice);
-  box[6] = Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice);
-  box[7] = Vec(m_maxHSlice, m_maxWSlice, m_minDSlice);
-  float pglmax = 0;
-  float pglmin = 100000;
-  for(int b=0; b<8; b++)
-    {
-      float cpgl = camera()->pixelGLRatio(box[b]);
-      pglmin = qMin(pglmin, cpgl);
-      pglmax = qMax(pglmax, cpgl);
-    }
-  float pglr = (pglmax+pglmin)*0.5;
-  int ptsz = m_pointScaling*m_pointSize/pglr;
-  glPointSize(ptsz);
-  //--------------------------------
-
-  if (m_pointSkip > 0 && m_maskPtr)
-    drawVolMask();
-}
-
-void
 Viewer::draw()
 {
+  if (!m_dataTex)
+    return;
+
   if (m_sketchPadMode)
     {
       glDisable(GL_DEPTH_TEST);
@@ -1728,156 +1676,6 @@ Viewer::raycasting()
   glEnable(GL_DEPTH_TEST);
 }
 
-void
-Viewer::pointRendering()
-{
-  glEnable(GL_ALPHA_TEST);
-  glAlphaFunc(GL_GREATER, 0.1);
-
-  GLfloat sizes[2];
-  GLfloat coeff[] = {1.0, 0.0, 0.0}; // constant, linear, quadratic
-  // ptsize = PointSize*sqrt(1/(constant + linear*d + quadratic*d*d))
-
-  glGetFloatv(GL_ALIASED_POINT_SIZE_RANGE, sizes);
-  glPointParameterf(GL_POINT_SIZE_MAX, sizes[1]);
-  glPointParameterf(GL_POINT_SIZE_MIN, sizes[0]);
-  glPointParameterfv(GL_POINT_DISTANCE_ATTENUATION, coeff);
-
-  Vec box[8];
-  box[0] = Vec(m_minHSlice, m_minWSlice, m_minDSlice);
-  box[1] = Vec(m_minHSlice, m_minWSlice, m_maxDSlice);
-  box[2] = Vec(m_minHSlice, m_maxWSlice, m_maxDSlice);
-  box[3] = Vec(m_minHSlice, m_maxWSlice, m_minDSlice);
-  box[4] = Vec(m_maxHSlice, m_minWSlice, m_minDSlice);
-  box[5] = Vec(m_maxHSlice, m_minWSlice, m_maxDSlice);
-  box[6] = Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice);
-  box[7] = Vec(m_maxHSlice, m_maxWSlice, m_minDSlice);
-
-  //--------------------------------
-  Vec eyepos = camera()->position();
-  Vec viewDir = camera()->viewDirection();
-  float minZ = 1000000;
-  float maxZ = -1000000;
-  for(int b=0; b<8; b++)
-    {
-      float zv = (box[b]-eyepos)*viewDir;
-      minZ = qMin(minZ, zv);
-      maxZ = qMax(maxZ, zv);
-    }
-  //--------------------------------
-
-  //--------------------------------
-  // set point scaling based on distance to the viewer
-  float pglmax = 0;
-  float pglmin = 100000;
-  for(int b=0; b<8; b++)
-    {
-      float cpgl = camera()->pixelGLRatio(box[b]);
-      pglmin = qMin(pglmin, cpgl);
-      pglmax = qMax(pglmax, cpgl);
-    }
-  float pglr = (pglmax+pglmin)*0.5;
-  int ptsz = m_pointScaling*m_pointSize/pglr;
-  glPointSize(ptsz);
-  //--------------------------------
-
-
-
-  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
-  for(int fbn=0; fbn<2; fbn++)
-    {
-      glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
-			     GL_COLOR_ATTACHMENT0_EXT,
-			     GL_TEXTURE_RECTANGLE_ARB,
-			     m_slcTex[fbn],
-			     0);
-      glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
-      glClearColor(0, 0, 0, 0);
-      glClear(GL_COLOR_BUFFER_BIT);
-      glClear(GL_DEPTH_BUFFER_BIT);
-    }
-  glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
-
-  //--------------------------------
-  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
-  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
-			 GL_COLOR_ATTACHMENT0_EXT,
-			 GL_TEXTURE_RECTANGLE_ARB,
-			 m_slcTex[0],
-			 0);
-  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
-
-  glUseProgramObjectARB(m_depthShader);
-  glUniform1fARB(m_depthParm[0], minZ); // minZ
-  glUniform1fARB(m_depthParm[1], maxZ); // maxZ
-  glUniform3fARB(m_depthParm[2], eyepos.x, eyepos.y, eyepos.z); // eyepos
-  glUniform3fARB(m_depthParm[3], viewDir.x, viewDir.y, viewDir.z); // viewDir
-  //--------------------------------
-
-  if (m_pointSkip > 0 && m_maskPtr)
-    drawVolMask();
-
-  glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
-  //--------------------------------
-
-
-  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
-  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
-			 GL_COLOR_ATTACHMENT0_EXT,
-			 GL_TEXTURE_RECTANGLE_ARB,
-			 m_slcTex[1],
-			 0);
-  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
-
-  glUseProgramObjectARB(m_blurShader);
-  glActiveTexture(GL_TEXTURE1);
-  glEnable(GL_TEXTURE_RECTANGLE_ARB);
-  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[0]);
-  glUniform1iARB(m_blurParm[0], 1); // blurTex
-  glUniform1fARB(m_blurParm[1], minZ); // minZ
-  glUniform1fARB(m_blurParm[2], maxZ); // maxZ
-
-  int wd = camera()->screenWidth();
-  int ht = camera()->screenHeight();
-  StaticFunctions::pushOrthoView(0, 0, wd, ht);
-  StaticFunctions::drawQuad(0, 0, wd, ht, 1);
-  StaticFunctions::popOrthoView();
-
-  glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
-  //--------------------------------
-
-
-
-  //--------------------------------
-  glUseProgramObjectARB(m_finalPointShader);
-  glActiveTexture(GL_TEXTURE1);
-  glEnable(GL_TEXTURE_RECTANGLE_ARB);
-  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[1]);
-  glUniform1iARB(m_fpsParm[0], 1); // slctex
-  glUniform1fARB(m_fpsParm[1], minZ); // minZ
-  glUniform1fARB(m_fpsParm[2], maxZ); // maxZ
-  glUniform3fARB(m_fpsParm[3], eyepos.x, eyepos.y, eyepos.z); // eyepos
-  glUniform3fARB(m_fpsParm[4], viewDir.x, viewDir.y, viewDir.z); // viewDir
-  glUniform1fARB(m_fpsParm[5], m_edge);
-
-  glPointSize(ptsz);
-
-  if (m_pointSkip > 0 && m_maskPtr)
-    drawVolMask();
-
-  //--------------------------------
-  glUseProgramObjectARB(0);
-  //--------------------------------
-
-  glActiveTexture(GL_TEXTURE1);
-  glDisable(GL_TEXTURE_RECTANGLE_ARB);
-
-
-  if (m_showSlices)
-    drawSlices();
-
-  drawClip();
-}
 
 void
 Viewer::drawInfo()
@@ -2151,74 +1949,6 @@ Viewer::updateVoxels()
 }
 
 void
-Viewer::drawVolMask()
-{
-  if (!m_volPtr || !m_maskPtr || m_pointSkip == 0)
-    return;
-
-  if (m_voxChoice == 0)
-    {
-      drawVol();
-      return;
-    }
-
-  Vec bmin, bmax;
-  m_boundingBox.bounds(bmin, bmax);
-
-  Vec voxelScaling = Global::relativeVoxelScaling();
-  bmin = VECDIVIDE(bmin, voxelScaling);
-  bmax = VECDIVIDE(bmax, voxelScaling);
-
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  glEnable(GL_POINT_SMOOTH);
-
-  glEnable(GL_POINT_SPRITE_ARB);
-  glEnable(GL_TEXTURE_2D);
-  glBindTexture(GL_TEXTURE_2D, Global::spriteTexture());
-  glTexEnvi(GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE);
-
-  glBegin(GL_POINTS);
-  int nv = m_voxels.count()/5;
-  for(int i=0; i<nv; i++)
-    {
-      int d = m_voxels[5*i+0];
-      int w = m_voxels[5*i+1];
-      int h = m_voxels[5*i+2];
-
-      if (d < bmin.z || d > bmax.z ||
-	  w < bmin.y || w > bmax.y ||
-	  h < bmin.x || h > bmax.x)
-	{}
-      else
-	{
-	  int t = m_voxels[5*i+3];
-	  if (Global::tagColors()[4*t+3] > 0)
-	    {
-	      float v = (float)m_voxels[5*i+4]/255.0;
-	      float r = Global::tagColors()[4*t+0]*1.0/255.0;
-	      float g = Global::tagColors()[4*t+1]*1.0/255.0;
-	      float b = Global::tagColors()[4*t+2]*1.0/255.0;
-	      r = r*0.3 + 0.7*v;
-	      g = g*0.3 + 0.7*v;
-	      b = b*0.3 + 0.7*v;
-	      glColor3f(r,g,b);
-	      glVertex3f(h, w, d);
-	    }
-	}
-    }
-  glEnd();
-
-  glDisable(GL_POINT_SPRITE);
-  glDisable(GL_TEXTURE_2D);
-
-  glDisable(GL_POINT_SMOOTH);
-  glBlendFunc(GL_NONE, GL_NONE);
-  glDisable(GL_BLEND);
-}
-
-
-void
 Viewer::updateVoxelsForRaycast()
 {
   m_voxels.clear();
@@ -2398,86 +2128,6 @@ Viewer::updateVoxelsForRaycast()
   progress.setValue(100);
 
   update();
-}
-
-void
-Viewer::drawVol()
-{
-  if (!m_volPtr || !m_maskPtr || m_pointSkip == 0)
-    return;
-
-  uchar *lut = Global::lut();
-
-  Vec bmin, bmax;
-  m_boundingBox.bounds(bmin, bmax);
-
-  Vec voxelScaling = Global::relativeVoxelScaling();
-  bmin = VECDIVIDE(bmin, voxelScaling);
-  bmax = VECDIVIDE(bmax, voxelScaling);
-
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  glEnable(GL_POINT_SMOOTH);
-
-  glEnable(GL_POINT_SPRITE_ARB);
-  glEnable(GL_TEXTURE_2D);
-  glBindTexture(GL_TEXTURE_2D, Global::spriteTexture());
-  glTexEnvi(GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE);
-
-  glBegin(GL_POINTS);
-
-  int nv = m_voxels.count()/4;
-  for(int i=0; i<nv; i++)
-    {
-      qint64 d = m_voxels[4*i+0];
-      int w = m_voxels[4*i+1];
-      int h = m_voxels[4*i+2];
-
-      qint64 idx = d*m_width*m_height + w*m_height + h;
-      if (d < bmin.z || d > bmax.z ||
-	  w < bmin.y || w > bmax.y ||
-	  h < bmin.x || h > bmax.x ||
-	  !m_bitmask.testBit(idx)) // carved
-	{}
-      else
-	{
-	  int v = m_voxels[4*i+3];
-	  int t = m_maskPtr[d*m_width*m_height + w*m_height + h];
-
-	  if (Global::tagColors()[4*t+3] > 0)
-	    {
-	      float r = lut[4*v+2]*1.0/255.0;
-	      float g = lut[4*v+1]*1.0/255.0;
-	      float b = lut[4*v+0]*1.0/255.0;
-	      
-	      float rt = r;
-	      float gt = g;
-	      float bt = b;
-	      if (t > 0)
-		{
-		  rt = Global::tagColors()[4*t+0]*1.0/255.0;
-		  gt = Global::tagColors()[4*t+1]*1.0/255.0;
-		  bt = Global::tagColors()[4*t+2]*1.0/255.0;
-		}
-	  
-	      r = r*0.5 + rt*0.5;
-	      g = g*0.5 + gt*0.5;
-	      b = b*0.5 + bt*0.5;
-	      
-	      glColor3f(r,g,b);
-	      glVertex3f(h, w, d);
-	    }
-	}
-    }
-
-  glEnd();
-
-  glDisable(GL_POINT_SPRITE);
-  glDisable(GL_TEXTURE_2D);
-
-  glDisable(GL_POINT_SMOOTH);
-  glBlendFunc(GL_NONE, GL_NONE);
-  glDisable(GL_BLEND);
 }
 
 
@@ -2896,34 +2546,6 @@ Viewer::getHit(QMouseEvent *event)
 }
 
 Vec
-Viewer::pointUnderPixel(QPoint scr, bool& found)
-{
-  int sw = camera()->screenWidth();
-  int sh = camera()->screenHeight();  
-
-  Vec pos;
-  int cx = scr.x();
-  int cy = scr.y();
-  GLfloat depth = 0;
-  
-  glEnable(GL_SCISSOR_TEST);
-  glScissor(cx, sh-1-cy, 1, 1);
-  drawPointsWithoutShader();
-  glDisable(GL_SCISSOR_TEST);
-
-  glReadPixels(cx, sh-1-cy, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &depth);
-
-  found = false;
-  if (depth > 0.0 && depth < 1.0)
-    {
-      pos = camera()->unprojectedCoordinatesOf(Vec(cx, cy, depth));
-      found = true;
-    }
-
-  return pos;
-}
-
-Vec
 Viewer::pointUnderPixel_RC(QPoint scr, bool& found)
 {
   found = false;
@@ -3193,148 +2815,29 @@ Viewer::carve(int d, int w, int h, bool b)
 }
 
 void
-Viewer::drawClipSlices()
+Viewer::boundingBoxChanged()
 {
-  return;
+  if (m_depth == 0) // we don't have a volume yet
+    return;
+    
+  generateBoxes();
 
-  Vec box[8];
-  box[0] = Vec(m_minHSlice, m_minWSlice, m_minDSlice);
-  box[1] = Vec(m_minHSlice, m_minWSlice, m_maxDSlice);
-  box[2] = Vec(m_minHSlice, m_maxWSlice, m_maxDSlice);
-  box[3] = Vec(m_minHSlice, m_maxWSlice, m_minDSlice);
-  box[4] = Vec(m_maxHSlice, m_minWSlice, m_minDSlice);
-  box[5] = Vec(m_maxHSlice, m_minWSlice, m_maxDSlice);
-  box[6] = Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice);
-  box[7] = Vec(m_maxHSlice, m_maxWSlice, m_minDSlice);
+  loadAllBoxesToVBO();  
 
-  QList<Vec> cPos =  clipPos();
-  QList<Vec> cNorm = clipNorm();
-
-
-  glUseProgramObjectARB(m_sliceShader);
-  glUniform1iARB(m_sliceParm[0], 2); // dataTex
-  glUniform1iARB(m_sliceParm[1], 3); // lutTex
-
-
-  glActiveTexture(GL_TEXTURE2);
-  glEnable(GL_TEXTURE_3D);
-  glBindTexture(GL_TEXTURE_3D, m_dataTex);
-
-  uchar *lut = Global::lut();
-  glActiveTexture(GL_TEXTURE3);
-  glEnable(GL_TEXTURE_2D);
-  glBindTexture(GL_TEXTURE_2D, m_lutTex);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,GL_NEAREST);
-  glTexImage2D(GL_TEXTURE_2D,
-	       0, // single resolution
-	       GL_RGBA,
-	       256, Global::lutSize()*256, // width, height
-	       0, // no border
-	       GL_BGRA,
-	       GL_UNSIGNED_BYTE,
-	       lut);
-
-  for(int i=0; i<cPos.count(); i++)
-    {
-      Vec cpos = cPos[i];
-      Vec cnorm = cNorm[i];
-
-      drawPoly(cpos, cnorm, box);
-    }
-
-  glUseProgramObjectARB(0);
-
-  glActiveTexture(GL_TEXTURE3);
-  glDisable(GL_TEXTURE_2D);
-
-  glActiveTexture(GL_TEXTURE2);
-  glDisable(GL_TEXTURE_3D);
-}
-
-int
-Viewer::drawPoly(Vec po, Vec pn, Vec *subvol)
-{
-  Vec poly[20];
-  int edges = 0;
-
-  edges += StaticFunctions::intersectType1(po, pn,  subvol[0], subvol[1], poly[edges]);
-  edges += StaticFunctions::intersectType1(po, pn,  subvol[0], subvol[3], poly[edges]);
-  edges += StaticFunctions::intersectType1(po, pn,  subvol[2], subvol[1], poly[edges]);
-  edges += StaticFunctions::intersectType1(po, pn,  subvol[2], subvol[3], poly[edges]);
-  edges += StaticFunctions::intersectType1(po, pn,  subvol[4], subvol[5], poly[edges]);
-  edges += StaticFunctions::intersectType1(po, pn,  subvol[4], subvol[7], poly[edges]);
-  edges += StaticFunctions::intersectType1(po, pn,  subvol[6], subvol[5], poly[edges]);
-  edges += StaticFunctions::intersectType1(po, pn,  subvol[6], subvol[7], poly[edges]);
-  edges += StaticFunctions::intersectType1(po, pn,  subvol[0], subvol[4], poly[edges]);
-  edges += StaticFunctions::intersectType1(po, pn,  subvol[1], subvol[5], poly[edges]);
-  edges += StaticFunctions::intersectType1(po, pn,  subvol[2], subvol[6], poly[edges]);
-  edges += StaticFunctions::intersectType1(po, pn,  subvol[3], subvol[7], poly[edges]);
-
-  if (!edges) return 0;
-
-  Vec cen;
-  int i;
-  for(i=0; i<edges; i++)
-    cen += poly[i];
-  cen/=edges;
-
-  float angle[12];
-  Vec vaxis, vperp;
-  vaxis = poly[0]-cen;
-  vaxis.normalize();
-
-  vperp = vaxis^(poly[1]-cen);
-  vperp = vperp^vaxis;
-  vperp.normalize();
-
-  angle[0] = 1;
-  for(i=1; i<edges; i++)
-    {
-      Vec v;
-      v = poly[i]-cen;
-      v.normalize();
-      angle[i] = vaxis*v;
-      if (vperp*v < 0)
-	angle[i] = -2 - angle[i];
-    }
-
-  // sort angle
-  int order[] = {0, 1, 2, 3, 4, 5 };
-  for(i=edges-1; i>=0; i--)
-    for(int j=1; j<=i; j++)
-      {
-	if (angle[order[i]] < angle[order[j]])
-	  {
-	    int tmp = order[i];
-	    order[i] = order[j];
-	    order[j] = tmp;
-	  }
-      }
-
-  glBegin(GL_POLYGON);
-  for(i=0; i<edges; i++)
-    {  
-      Vec tx, tc;
-      Vec p = poly[order[i]];
-      tx = p-m_corner;
-      tx /= m_sslevel;
-      tx = VECDIVIDE(tx,m_vsize);
-
-      glTexCoord3f(tx.x, tx.y, tx.z);
-      glVertex3f(p.x, p.y, p.z);
-    }
-  glEnd();
-
-
-  return 1;
+  updateFilledBoxes();
 }
 
 void
-Viewer::drawBox(GLenum glFaces)
+Viewer::generateBoxes()
 {
+  QProgressDialog progress("Updating box structure",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+  m_boxSoup.clear();
+  
   int faces[] = {1, 5, 7, 3,
 		 0, 2, 6, 4,
 		 0, 1, 3, 2,
@@ -3342,10 +2845,6 @@ Viewer::drawBox(GLenum glFaces)
 		 2, 3, 7, 6,
 		 1, 0, 4, 5};
 	  
-  glEnable(GL_CULL_FACE);
-  glCullFace(glFaces);
-
-
   Vec voxelScaling = Global::relativeVoxelScaling();
 
 
@@ -3370,326 +2869,74 @@ Viewer::drawBox(GLenum glFaces)
   if (kmax*m_boxSize < (int)bmaxO.z) kmax++;
   
   for(int k=kmin; k<kmax; k++)
-  for(int j=jmin; j<jmax; j++)
-  for(int i=imin; i<imax; i++)
     {
-      int idx = k*m_wbox*m_hbox+j*m_hbox+i;
-      if (m_filledBoxes.testBit(idx))
-	{
-	  Vec bmin, bmax;
-	  bmin = Vec(qMax(i*m_boxSize, (int)bminO.x),
-		     qMax(j*m_boxSize, (int)bminO.y),
-		     qMax(k*m_boxSize, (int)bminO.z));
-
-	  bmax = Vec(qMin((i+1)*m_boxSize, (int)bmaxO.x),
-		     qMin((j+1)*m_boxSize, (int)bmaxO.y),
-		     qMin((k+1)*m_boxSize, (int)bmaxO.z));
-
-	  Vec box[8];
-	  box[0] = Vec(bmin.x,bmin.y,bmin.z);
-	  box[1] = Vec(bmin.x,bmin.y,bmax.z);
-	  box[2] = Vec(bmin.x,bmax.y,bmin.z);
-	  box[3] = Vec(bmin.x,bmax.y,bmax.z);
-	  box[4] = Vec(bmax.x,bmin.y,bmin.z);
-	  box[5] = Vec(bmax.x,bmin.y,bmax.z);
-	  box[6] = Vec(bmax.x,bmax.y,bmin.z);
-	  box[7] = Vec(bmax.x,bmax.y,bmax.z);
-	  
-	  float xmin, xmax, ymin, ymax, zmin, zmax;
-	  xmin = (bmin.x-m_minHSlice)/(m_maxHSlice-m_minHSlice);
-	  xmax = (bmax.x-m_minHSlice)/(m_maxHSlice-m_minHSlice);
-	  ymin = (bmin.y-m_minWSlice)/(m_maxWSlice-m_minWSlice);
-	  ymax = (bmax.y-m_minWSlice)/(m_maxWSlice-m_minWSlice);
-	  zmin = (bmin.z-m_minDSlice)/(m_maxDSlice-m_minDSlice);
-	  zmax = (bmax.z-m_minDSlice)/(m_maxDSlice-m_minDSlice);
-	  
-	  Vec col[8];
-	  col[0] = Vec(xmin,ymin,zmin);
-	  col[1] = Vec(xmin,ymin,zmax);
-	  
-	  col[2] = Vec(xmin,ymax,zmin);
-	  col[3] = Vec(xmin,ymax,zmax);
-	  
-	  col[4] = Vec(xmax,ymin,zmin);
-	  col[5] = Vec(xmax,ymin,zmax);
-	  
-	  col[6] = Vec(xmax,ymax,zmin);
-	  col[7] = Vec(xmax,ymax,zmax);
-	  
-	  for(int i=0; i<8; i++)
-	    box[i] = VECPRODUCT(box[i], voxelScaling);
-	  
-	  for(int i=0; i<6; i++)
-	    {
-	      Vec poly[100];
-	      Vec tex[100];
-	      for(int j=0; j<4; j++)
-		{
-		  int idx = faces[4*i+j];
-		  poly[j] = box[idx];
-		  tex[j] = col[idx];
-		}
-	      drawFace(4, &poly[0], &tex[0]);
-	    }
-	  
-	  //drawClipFaces(&box[0], &col[0]);
-	}
-    }
-
-  glDisable(GL_CULL_FACE);
-}
-
-void
-Viewer::drawFace(int oedges, Vec *opoly, Vec *otex)
-{
-//  QList<Vec> cPos =  m_clipPlanes->positions();
-//  QList<Vec> cNorm = m_clipPlanes->normals();
-//
-//  cPos << camera()->position()+50*camera()->viewDirection();
-//  cNorm << -camera()->viewDirection();
+      progress.setValue(100*(float)k/(float)kmax);
+      qApp->processEvents();
 
 
-  int edges = oedges;
-  Vec poly[100];
-  Vec tex[100];
-  for(int i=0; i<edges; i++) poly[i] = opoly[i];
-  for(int i=0; i<edges; i++) tex[i] = otex[i];
-
-//  //---- apply clipping
-//  for(int ci=0; ci<cPos.count(); ci++)
-//    {
-//      Vec cpo = cPos[ci];
-//      Vec cpn = cNorm[ci];
-//      
-//      int tedges = 0;
-//      Vec tpoly[100];
-//      Vec ttex[100];
-//      for(int i=0; i<edges; i++)
-//	{
-//	  Vec v0, v1, t0, t1;
-//	  
-//	  v0 = poly[i];
-//	  t0 = tex[i];
-//	  if (i<edges-1)
-//	    {
-//	      v1 = poly[i+1];
-//	      t1 = tex[i+1];
-//	    }
-//	  else
-//	    {
-//	      v1 = poly[0];
-//	      t1 = tex[0];
-//	    }
-//	  
-//	  int ret = StaticFunctions::intersectType2WithTexture(cpo, cpn,
-//							       v0, v1,
-//							       t0, t1);
-//	  if (ret)
-//	    {
-//	      tpoly[tedges] = v0;
-//	      ttex[tedges] = t0;
-//	      tedges ++;
-//	      if (ret == 2)
-//		{
-//		  tpoly[tedges] = v1;
-//		  ttex[tedges] = t1;
-//		  tedges ++;
-//		}
-//	    }
-//	}
-//
-//      //QMessageBox::information(0, "", QString("%1").arg(tedges));
-//
-//      edges = tedges;
-//      for(int i=0; i<edges; i++) poly[i] = tpoly[i];
-//      for(int i=0; i<edges; i++) tex[i] = ttex[i];
-//    }
-//  //---- clipping applied
-
-  if (edges > 0)
-    {
-//      glBegin(GL_POLYGON);
-//      for(int i=0; i<edges; i++)
-//	{
-//	  glColor3f(tex[i].x, tex[i].y, tex[i].z);
-//	  glVertex3f(poly[i].x, poly[i].y, poly[i].z);
-//	}
-//      glEnd();
-
-      // put in vboSoup
-      for(int i=0; i<edges-2; i++)
-	{
-	  m_vboSoup << poly[0];
-	  m_vboSoup << tex[0];
-
-	  m_vboSoup << poly[i+1];
-	  m_vboSoup << tex[i+1];
-
-	  m_vboSoup << poly[i+2];
-	  m_vboSoup << tex[i+2];
-	}
-    }  
-}
-
-void
-Viewer::drawClipFaces(Vec *subvol, Vec *texture)
-{
-  int sidx[] = {0, 1,
-		0, 2,
-		0, 4,
-		7, 5,
-		7, 3,
-		7, 6,
-		1, 3,
-		1, 5,
-		2, 3,
-		2, 6,
-		4, 5,
-		4, 6 };
-
-  QList<Vec> cPos =  m_clipPlanes->positions();
-  QList<Vec> cNorm = m_clipPlanes->normals();
-
-  cPos << camera()->position()+100*camera()->viewDirection();
-  cNorm << -camera()->viewDirection();
-
-  for(int oci=0; oci<cPos.count(); oci++)
-    {
-      Vec cpo = cPos[oci];
-      Vec cpn = cNorm[oci];
-
-      Vec opoly[100];
-      Vec otex[100];
-      int edges = 0;
-
-      QString mesg;
-      for(int si=0; si<12; si++)
-	{
-	  int k = sidx[2*si];
-	  int l = sidx[2*si+1];
-	  edges += StaticFunctions::intersectType1WithTexture(cpo, cpn,
-							      subvol[k], subvol[l],
-							      texture[k], texture[l],
-							      opoly[edges], otex[edges]);
-	}
-
-      if (edges > 2)
-	{      
-	  Vec cen;
-	  int i;
-	  for(i=0; i<edges; i++)
-	    cen += opoly[i];
-	  cen/=edges;
-	  
-	  float angle[12];
-	  Vec vaxis, vperp;
-	  vaxis = opoly[0]-cen;
-	  vaxis.normalize();
-	  
-	  vperp = cpn ^ vaxis ;
-	  
-	  angle[0] = 1;
-	  for(i=1; i<edges; i++)
-	    {
-	      Vec v;
-	      v = opoly[i]-cen;
-	      v.normalize();
-	      angle[i] = vaxis*v;
-	      if (vperp*v < 0)
-		angle[i] = -2 - angle[i];
-	    }
-	  
-	  // sort angle
-	  int order[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
-	  for(i=edges-1; i>=0; i--)
-	    for(int j=1; j<=i; j++)
+      for(int j=jmin; j<jmax; j++)
+	for(int i=imin; i<imax; i++)
+	  {
+	    int idx = k*m_wbox*m_hbox+j*m_hbox+i;
+	    
+	    Vec bmin, bmax;
+	    bmin = Vec(qMax(i*m_boxSize, (int)bminO.x),
+		       qMax(j*m_boxSize, (int)bminO.y),
+		       qMax(k*m_boxSize, (int)bminO.z));
+	    
+	    bmax = Vec(qMin((i+1)*m_boxSize, (int)bmaxO.x),
+		       qMin((j+1)*m_boxSize, (int)bmaxO.y),
+		       qMin((k+1)*m_boxSize, (int)bmaxO.z));
+	    
+	    Vec box[8];
+	    box[0] = Vec(bmin.x,bmin.y,bmin.z);
+	    box[1] = Vec(bmin.x,bmin.y,bmax.z);
+	    box[2] = Vec(bmin.x,bmax.y,bmin.z);
+	    box[3] = Vec(bmin.x,bmax.y,bmax.z);
+	    box[4] = Vec(bmax.x,bmin.y,bmin.z);
+	    box[5] = Vec(bmax.x,bmin.y,bmax.z);
+	    box[6] = Vec(bmax.x,bmax.y,bmin.z);
+	    box[7] = Vec(bmax.x,bmax.y,bmax.z);
+	    
+	    float xmin, xmax, ymin, ymax, zmin, zmax;
+	    xmin = (bmin.x-m_minHSlice)/(m_maxHSlice-m_minHSlice);
+	    xmax = (bmax.x-m_minHSlice)/(m_maxHSlice-m_minHSlice);
+	    ymin = (bmin.y-m_minWSlice)/(m_maxWSlice-m_minWSlice);
+	    ymax = (bmax.y-m_minWSlice)/(m_maxWSlice-m_minWSlice);
+	    zmin = (bmin.z-m_minDSlice)/(m_maxDSlice-m_minDSlice);
+	    zmax = (bmax.z-m_minDSlice)/(m_maxDSlice-m_minDSlice);
+	    
+	    for(int b=0; b<8; b++)
+	      box[b] = VECPRODUCT(box[b], voxelScaling);
+	      
+	    QList<Vec> vboSoup;
+	    for(int v=0; v<6; v++)
 	      {
-		if (angle[order[i]] > angle[order[j]])
+		Vec poly[4];
+		for(int w=0; w<4; w++)
 		  {
-		    int tmp = order[i];
-		    order[i] = order[j];
-		    order[j] = tmp;
+		    int idx = faces[4*v+w];
+		    poly[w] = box[idx];
+		  }
+		
+		// put in vboSoup
+		for(int t=0; t<2; t++)
+		  {
+		    vboSoup << poly[0];
+		    vboSoup << poly[t+1];		    
+		    vboSoup << poly[t+2];
 		  }
 	      }
-	  
-	  Vec poly[100];
-	  Vec tex[100];
-	  for(int i=0; i<edges; i++) poly[i] = opoly[order[i]];
-	  for(int i=0; i<edges; i++) tex[i] = otex[order[i]];
-
-	  //---- apply clipping
-	  for(int ci=0; ci<cPos.count(); ci++)
-	    {
-	      if (ci != oci)
-		{
-		  Vec cpo = cPos[ci];
-		  Vec cpn = cNorm[ci];
-		  
-		  int tedges = 0;
-		  Vec tpoly[100];
-		  Vec ttex[100];
-		  for(int i=0; i<edges; i++)
-		    {
-		      Vec v0, v1, t0, t1;
-		      
-		      v0 = poly[i];
-		      t0 = tex[i];
-		      if (i<edges-1)
-			{
-			  v1 = poly[i+1];
-			  t1 = tex[i+1];
-			}
-		      else
-			{
-			  v1 = poly[0];
-			  t1 = tex[0];
-			}
-		      
-		      // clip on texture coordinates
-		      int ret = StaticFunctions::intersectType2WithTexture(cpo, cpn,
-									   v0, v1,
-									   t0, t1);
-		      if (ret)
-			{
-			  tpoly[tedges] = v0;
-			  ttex[tedges] = t0;
-			  tedges ++;
-			  if (ret == 2)
-			    {
-			      tpoly[tedges] = v1;
-			      ttex[tedges] = t1;
-			      tedges ++;
-			    }
-			}
-		    }
-		  
-		  edges = tedges;
-		  for(int i=0; i<edges; i++) poly[i] = tpoly[i];
-		  for(int i=0; i<edges; i++) tex[i] = ttex[i];
-		}
-	    }
-	  //---- clipping applied
-	  
-	  if (edges > 0)
-	    {
-	      glBegin(GL_POLYGON);
-	      for(int i=0; i<edges; i++)
-		{
-		  glColor3f(tex[i].x, tex[i].y, tex[i].z);
-		  glVertex3f(poly[i].x, poly[i].y, poly[i].z);
-		}
-	      glEnd();
-	    }  
-	}
-    }
+	    m_boxSoup << vboSoup;
+	  } //i j
+    } // k
+  
+  progress.setValue(100);
 }
-
 
 void
 Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
 {
-  //  updateFilledBoxes();
-
   Vec eyepos = camera()->position();
   Vec viewDir = camera()->viewDirection();
   Vec subvolcorner = Vec(m_minHSlice, m_minWSlice, m_minDSlice);
@@ -3725,7 +2972,6 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
 			 0);
   glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
   glDepthFunc(GL_GEQUAL);
-  //drawBox(GL_FRONT);
   drawVBOBox(GL_FRONT);
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
   //----------------------------
@@ -3742,49 +2988,33 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
   glClearDepth(1);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   glDepthFunc(GL_LEQUAL);
-  //drawBox(GL_BACK);
   drawVBOBox(GL_BACK);
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
   //----------------------------
 
 
   //----------------------------
-  if (!m_fullRender || firstPartOnly)
-    {
-      glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_eBuffer);
-
-      glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
-			     GL_COLOR_ATTACHMENT0_EXT,
-			     GL_TEXTURE_RECTANGLE_ARB,
-			     m_ebTex[0],
-			     0);
-
-      glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
-			     GL_COLOR_ATTACHMENT1_EXT,
-			     GL_TEXTURE_RECTANGLE_ARB,
-			     m_ebTex[1],
-			     0);
-
-      GLenum buffers[2] = { GL_COLOR_ATTACHMENT0_EXT,
-			    GL_COLOR_ATTACHMENT1_EXT };
-      glDrawBuffersARB(2, buffers);
-
-      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    }
-  else
-    {
-      glClearColor(m_bgColor.x/255, m_bgColor.y/255, m_bgColor.z/255, 0);
-      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    }
+  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_eBuffer);
+  
+  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			 GL_COLOR_ATTACHMENT0_EXT,
+			 GL_TEXTURE_RECTANGLE_ARB,
+			 m_ebTex[0],
+			 0);
+  
+  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
+  
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   //----------------------------
 
 
   float stepsize = m_stillStep;
-  if (m_dragMode && !(m_paintHit || m_carveHit))
-    stepsize = m_dragStep;
+//  if (m_dragMode && !(m_paintHit || m_carveHit))
+//    stepsize = m_dragStep;
 
   stepsize /= qMax(m_vsize.x,qMax(m_vsize.y,m_vsize.z));
 
+  Vec voxelScaling = Global::relativeVoxelScaling();
 
   glUseProgramObjectARB(m_rcShader);
   glUniform1iARB(m_rcParm[0], 2); // dataTex
@@ -3795,6 +3025,7 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
   glUniform3fARB(m_rcParm[5], viewDir.x, viewDir.y, viewDir.z); // viewDir
   glUniform3fARB(m_rcParm[6], subvolcorner.x, subvolcorner.y, subvolcorner.z);
   glUniform3fARB(m_rcParm[7], m_vsize.x, m_vsize.y, m_vsize.z);
+  glUniform3fARB(m_rcParm[20], voxelScaling.x, voxelScaling.y, voxelScaling.z);
   glUniform1fARB(m_rcParm[8], minZ); // minZ
   glUniform1fARB(m_rcParm[9], maxZ); // maxZ
   glUniform1iARB(m_rcParm[10],4); // maskTex
@@ -3903,9 +3134,6 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
   StaticFunctions::pushOrthoView(0, 0, wd, ht);
   StaticFunctions::drawQuad(0, 0, wd, ht, 1);
   StaticFunctions::popOrthoView();
-
-  if (!m_fullRender || firstPartOnly)
-    glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
   //----------------------------
 
   glActiveTexture(GL_TEXTURE4);
@@ -3932,105 +3160,49 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
       glDisable(GL_TEXTURE_RECTANGLE_ARB);
       return;
     }
+    
+  
+  //--------------------------------
+  glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
+  glUseProgram(m_eeShader);
+  
+  glActiveTexture(GL_TEXTURE1);
+  glEnable(GL_TEXTURE_RECTANGLE_ARB);
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[0]);
+  
+//  uchar *tagColors = Global::tagColors();
+  glActiveTexture(GL_TEXTURE5);
+  glEnable(GL_TEXTURE_1D);
+  glBindTexture(GL_TEXTURE_1D, m_tagTex);
+  
+  glUniform1f(m_eeParm[1], minZ); // minZ
+  glUniform1f(m_eeParm[2], maxZ); // maxZ
+  glUniform3f(m_eeParm[3], eyepos.x, eyepos.y, eyepos.z); // eyepos
+  glUniform3f(m_eeParm[4], viewDir.x, viewDir.y, viewDir.z); // viewDir
+  glUniform1f(m_eeParm[5], m_edge);
+  glUniform1i(m_eeParm[6], 5); // tagtex
+  glUniform1i(m_eeParm[7], 3); // luttex
+  glUniform1i(m_eeParm[8], 1); // pos, val, tag tex
+  glUniform3f(m_eeParm[9], m_amb, m_diff, m_spec); // lightparm
+  glUniform1i(m_eeParm[10], m_shadow); // shadows
+  glUniform3f(m_eeParm[11], m_shadowColor.x/255,
+	      m_shadowColor.y/255,
+	      m_shadowColor.z/255);
+  glUniform3f(m_eeParm[12], m_edgeColor.x/255,
+	      m_edgeColor.y/255,
+	      m_edgeColor.z/255);
+  glUniform3f(m_eeParm[13], m_bgColor.x/255,
+	      m_bgColor.y/255,
+	      m_bgColor.z/255);
+  glUniform2f(m_eeParm[14], m_shdX, -m_shdY);
+  
+  StaticFunctions::pushOrthoView(0, 0, wd, ht);
+  StaticFunctions::drawQuad(0, 0, wd, ht, 1);
+  StaticFunctions::popOrthoView();
+  //----------------------------
 
-  if (!m_fullRender)
-    {
-      int wd = camera()->screenWidth();
-      int ht = camera()->screenHeight();
-
-      //--------------------------------
-      glUseProgramObjectARB(m_blurShader);
-      glUniform1iARB(m_blurParm[0], 1); // blurTex
-      glUniform1fARB(m_blurParm[1], minZ); // minZ
-      glUniform1fARB(m_blurParm[2], maxZ); // maxZ
-      
-      int eb0 = 0;
-      int eb2 = 2;
-      for(int nb=0; nb<3; nb++)
-	{
-	  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_eBuffer);
-	  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
-				 GL_COLOR_ATTACHMENT2_EXT,
-				 GL_TEXTURE_RECTANGLE_ARB,
-				 m_ebTex[eb2],
-				 0);
-	  glDrawBuffer(GL_COLOR_ATTACHMENT2_EXT);  
-	  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	  glActiveTexture(GL_TEXTURE1);
-	  glEnable(GL_TEXTURE_RECTANGLE_ARB);
-	  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[eb0]);
-
-	  StaticFunctions::pushOrthoView(0, 0, wd, ht);
-	  StaticFunctions::drawQuad(0, 0, wd, ht, 1);
-	  StaticFunctions::popOrthoView();
-
-	  int ebidx = eb0;
-	  eb0 = eb2;
-	  eb2 = ebidx;
-	}
-
-      glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
-      //--------------------------------
-
-
-
-      //--------------------------------
-      glUseProgramObjectARB(m_eeShader);
-      
-      glActiveTexture(GL_TEXTURE6);
-      glEnable(GL_TEXTURE_RECTANGLE_ARB);
-      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[1]);
-      
-      glActiveTexture(GL_TEXTURE1);
-      glEnable(GL_TEXTURE_RECTANGLE_ARB);
-      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[eb2]);
-
-      uchar *tagColors = Global::tagColors();
-      glActiveTexture(GL_TEXTURE5);
-      glEnable(GL_TEXTURE_1D);
-      glBindTexture(GL_TEXTURE_1D, m_tagTex);
-      glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
-      glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER,GL_NEAREST);
-      glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER,GL_NEAREST);
-      glTexImage1D(GL_TEXTURE_1D,
-		   0, // single resolution
-		   GL_RGBA,
-		   256,
-		   0, // no border
-		   GL_RGBA,
-		   GL_UNSIGNED_BYTE,
-		   tagColors);
-
-      glUniform1iARB(m_eeParm[0], 6); // normals tex
-      glUniform1fARB(m_eeParm[1], minZ); // minZ
-      glUniform1fARB(m_eeParm[2], maxZ); // maxZ
-      glUniform3fARB(m_eeParm[3], eyepos.x, eyepos.y, eyepos.z); // eyepos
-      glUniform3fARB(m_eeParm[4], viewDir.x, viewDir.y, viewDir.z); // viewDir
-      glUniform1fARB(m_eeParm[5], m_edge);
-      glUniform1iARB(m_eeParm[6], 5); // tagtex
-      glUniform1iARB(m_eeParm[7], 3); // luttex
-      glUniform1iARB(m_eeParm[8], 1); // pos, val, tag tex
-      glUniform3fARB(m_eeParm[9], m_amb, m_diff, m_spec); // lightparm
-      glUniform1iARB(m_eeParm[10], m_shadow); // shadows
-      glUniform3fARB(m_eeParm[11], m_shadowColor.x/255,
-		                   m_shadowColor.y/255,
-		                   m_shadowColor.z/255);
-      glUniform3fARB(m_eeParm[12], m_edgeColor.x/255,
-		                   m_edgeColor.y/255,
-		                   m_edgeColor.z/255);
-      glUniform3fARB(m_eeParm[13], m_bgColor.x/255,
-		                   m_bgColor.y/255,
-		                   m_bgColor.z/255);
-      glUniform2fARB(m_eeParm[14], m_shdX, -m_shdY);
-
-      StaticFunctions::pushOrthoView(0, 0, wd, ht);
-      StaticFunctions::drawQuad(0, 0, wd, ht, 1);
-      StaticFunctions::popOrthoView();
-      //----------------------------
-    }
-
-  glUseProgramObjectARB(0);
+  
+  glUseProgram(0);
 
   glActiveTexture(GL_TEXTURE6);
   glDisable(GL_TEXTURE_RECTANGLE_ARB);
@@ -4699,9 +3871,6 @@ Viewer::generateBoxMinMax()
   m_boxMinMax.clear();
   m_boxMinMax.reserve(2*m_dbox*m_wbox*m_hbox);
 
-  m_filledBoxes.resize(m_dbox*m_wbox*m_hbox);
-  m_filledBoxes.fill(false);
-
   for(int d=0; d<m_dbox; d++)
     {
       progress.setValue(100*(float)d/m_dbox);
@@ -5170,7 +4339,7 @@ Viewer::updateFilledBoxes()
   if (m_boxMinMax.count() == 0)
     return;
   
-  QProgressDialog progress("Updating voxel structure",
+  QProgressDialog progress("Marking valid boxes",
 			   QString(),
 			   0, 100,
 			   0);
@@ -5223,130 +4392,133 @@ Viewer::updateFilledBoxes()
 	    m_filledBoxes.setBit(idx, false);
 	}
 
-  progress.setValue(50);
+  progress.setValue(100);
   qApp->processEvents();
 
-//  MyBitArray tfb;
-//  tfb.resize(m_filledBoxes.size());
-//  for(int i=0; i<m_filledBoxes.size(); i++)
-//    tfb.setBit(i, m_filledBoxes.testBit(i));
-//
-//  progress.setValue(60);
-//  qApp->processEvents();
-//
-//  // now remove the internal ones
-//  for(int d=1; d<m_dbox-1; d++)
-//    for(int w=1; w<m_wbox-1; w++)
-//      for(int h=1; h<m_hbox-1; h++)
-//	{
-//	  int idx = d*m_wbox*m_hbox+w*m_hbox+h;
-//	  if (tfb.testBit(idx))
-//	    {
-//	      bool ok = false;
-//	      for(int d1=d-1; d1<=d+1; d1++)
-//		for(int w1=w-1; w1<=w+1; w1++)
-//		  for(int h1=h-1; h1<=h+1; h1++)
-//		    {
-//		      int idx1 = d1*m_wbox*m_hbox+w1*m_hbox+h1;
-//		      if (!tfb.testBit(idx1))
-//			{
-//			  ok = true;
-//			  break;
-//			}
-//		    }
-//	      m_filledBoxes.setBit(idx, ok);
-//	    }
-//	}
-
-  progress.setValue(90);
-  qApp->processEvents();
-
-  //----------------
-  m_vboSoup.clear();
-  drawBox(GL_FRONT);
-  loadVertexBufferData();
-  //----------------
-  
-//  QList<Vec> cPos =  m_clipPlanes->positions();
-//  QList<Vec> cNorm = m_clipPlanes->normals();
-//
-//  cPos << camera()->position()+50*camera()->viewDirection();
-//  cNorm << -camera()->viewDirection();
-//
-//  // now check internal ones for clipping and boundary
-//  for(int d=1; d<m_dbox-1; d++)
-//    for(int w=1; w<m_wbox-1; w++)
-//      for(int h=1; h<m_hbox-1; h++)
-//	{
-//	  int idx = d*m_wbox*m_hbox+w*m_hbox+h;
-//	  if (!m_filledBoxes.testBit(idx) && tfb.testBit(idx)) // interior box
-//	    {
-//	      // check whether on clipping plane
-//	      for(int ci=0; ci<cPos.count(); ci++)
-//		{
-//		  Vec cpo = cPos[ci];
-//		  Vec cpn = cNorm[ci];
-//
-//		  Vec bmin = Vec(h*m_boxSize,w*m_boxSize,d*m_boxSize);
-//		  Vec bmax = Vec((h+1)*m_boxSize,(w+1)*m_boxSize,(d+1)*m_boxSize);
-//		  Vec box[8];
-//		  box[0] = Vec(bmin.x,bmin.y,bmin.z);
-//		  box[1] = Vec(bmin.x,bmin.y,bmax.z);
-//		  box[2] = Vec(bmin.x,bmax.y,bmin.z);
-//		  box[3] = Vec(bmin.x,bmax.y,bmax.z);
-//		  box[4] = Vec(bmax.x,bmin.y,bmin.z);
-//		  box[5] = Vec(bmax.x,bmin.y,bmax.z);
-//		  box[6] = Vec(bmax.x,bmax.y,bmin.z);
-//		  box[7] = Vec(bmax.x,bmax.y,bmax.z);
-//
-//		  bool border = false;
-//		  for(int b=0; b<8; b++)
-//		    {
-//		      if (qAbs((box[b]-cpo)*cpn) <= m_boxSize)
-//			{
-//			  border = true;
-//			  break;
-//			}
-//		    }
-//
-//		  if (border)
-//		    {
-//		      m_filledBoxes.setBit(idx);		    
-//		      break;
-//		    }
-//		} // loop over clip planes
-//	    }
-//	}
-
-
-//  tfb.clear();
+  drawBox();
 }
 
 void
-Viewer::loadVertexBufferData()
-{
-  int nvert = m_vboSoup.count();
-  m_ntri = nvert/6;
-  int nv = 3*nvert;
-  int ni = 3*m_ntri;
-  //---------------------
+Viewer::drawBox()
+{ 
+  m_mdEle = 0;
+  
+  Vec voxelScaling = Global::relativeVoxelScaling();
 
-  //---------------------
-  float *vertData;
-  vertData = new float[nv];
-  for(int i=0; i<nvert; i++)
+  Vec bminO, bmaxO;
+  m_boundingBox.bounds(bminO, bmaxO);
+
+  bminO = VECDIVIDE(bminO, voxelScaling);
+  bmaxO = VECDIVIDE(bmaxO, voxelScaling);
+
+  bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
+  bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
+
+  int imin = (int)bminO.x/m_boxSize;
+  int jmin = (int)bminO.y/m_boxSize;
+  int kmin = (int)bminO.z/m_boxSize;
+
+  int imax = (int)bmaxO.x/m_boxSize;
+  int jmax = (int)bmaxO.y/m_boxSize;
+  int kmax = (int)bmaxO.z/m_boxSize;
+  if (imax*m_boxSize < (int)bmaxO.x) imax++;
+  if (jmax*m_boxSize < (int)bmaxO.y) jmax++;
+  if (kmax*m_boxSize < (int)bmaxO.z) kmax++;
+
+  int mdC = 0;
+  int mdI = -1;
+
+  int bid = 0;
+  for(int k=kmin; k<kmax; k++)
+  for(int j=jmin; j<jmax; j++)
+  for(int i=imin; i<imax; i++)
     {
-      vertData[3*i+0] = m_vboSoup[i].x;
-      vertData[3*i+1] = m_vboSoup[i].y;
-      vertData[3*i+2] = m_vboSoup[i].z;
+      int idx = k*m_wbox*m_hbox+j*m_hbox+i;
+      if (m_filledBoxes.testBit(idx))
+	{
+	  if (mdI < 0) mdI = bid;
+	  mdC++;
+	}
+      else
+	{
+	  if (mdI > -1)
+	    {
+	      // 2 triangles per face - 36 triangles in all for a cube
+	      m_mdIndices[m_mdEle] = mdI*36;
+	      m_mdCount[m_mdEle] = mdC*36;
+	      m_mdEle++;
+	      if (m_mdEle >= m_boxSoup.count())
+		QMessageBox::information(0, "", QString("ele > %1").arg(m_boxSoup.count()));
+
+	      mdI = -1;
+	      mdC = 0;
+	    }
+	}
+      bid++;
     }
 
+  if (mdI > -1)
+    {
+      m_mdIndices[m_mdEle] = mdI*36;
+      m_mdCount[m_mdEle] = mdC*36;
+      m_mdEle++;
+    }
+}
 
+void
+Viewer::loadAllBoxesToVBO()
+{
+  QProgressDialog progress("Loading box structure to vbo",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+  m_mdEle = 0;
+  if (m_mdCount) delete [] m_mdCount;
+  if (m_mdIndices) delete [] m_mdIndices;  
+  m_mdCount = new GLsizei[m_boxSoup.count()];
+  m_mdIndices = new GLint[m_boxSoup.count()];
+  
+  //---------------------
+  int bcount = m_boxSoup.count();
+  int nvert = 0;
+  for(int i=0; i<bcount; i++)
+    nvert += m_boxSoup[i].count();
+
+  m_ntri = nvert/3;
+  int nv = 3*nvert;
+  int ni = 3*m_ntri;
+  float *vertData;
+  vertData = new float[nv];
+  int vi=0;
+  for(int i=0; i<bcount; i++)
+    {
+      if ((i/100)%10 == 0)
+	{
+	  progress.setValue(100*(float)i/(float)bcount);
+	  qApp->processEvents();
+	}
+      for(int b=0; b<m_boxSoup[i].count(); b++)
+	{
+	  vertData[3*vi+0] = m_boxSoup[i][b].x;
+	  vertData[3*vi+1] = m_boxSoup[i][b].y;
+	  vertData[3*vi+2] = m_boxSoup[i][b].z;
+	  vi++;
+	}
+    }
+  //---------------------
+
+
+  
   unsigned int *indexData;
   indexData = new unsigned int[ni];
   for(int i=0; i<ni; i++)
     indexData[i] = i;
   //---------------------
+
+  progress.setValue(50);
+  qApp->processEvents();
 
 
   if(m_glVertArray)
@@ -5370,16 +4542,15 @@ Viewer::loadVertexBufferData()
 	       vertData,
 	       GL_STATIC_DRAW);
 
+  progress.setValue(70);
+  qApp->processEvents();
+
+
   // Identify the components in the vertex buffer
   glEnableVertexAttribArray(0);
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE,
-			sizeof(float)*6, // stride
+			sizeof(float)*3, // stride
 			(void *)0); // starting offset
-
-  glEnableVertexAttribArray(1);
-  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE,
-			sizeof(float)*6,
-			(char *)NULL + sizeof(float)*3);
 
   
   // Create and populate the index buffer
@@ -5390,15 +4561,22 @@ Viewer::loadVertexBufferData()
 	       indexData,
 	       GL_STATIC_DRAW);
   
+  progress.setValue(90);
+  qApp->processEvents();
+
+
   glBindVertexArray(0);
 
   delete [] vertData;
   delete [] indexData;
+
+  progress.setValue(100);
+  qApp->processEvents();
 }
 
 void
 Viewer::drawVBOBox(GLenum glFaces)
-{
+{  
   glEnable(GL_CULL_FACE);
   glCullFace(glFaces);
 
@@ -5421,71 +4599,15 @@ Viewer::drawVBOBox(GLenum glFaces)
 
   glUniformMatrix4fv(boxShaderParm[0], 1, GL_FALSE, mvp);
 
-  glDrawElements(GL_TRIANGLES, 3*m_ntri, GL_UNSIGNED_INT, 0);  
+  glMultiDrawArrays(GL_TRIANGLES, m_mdIndices, m_mdCount, m_mdEle);  
   
+
   glDisableVertexAttribArray(0);
   glDisableVertexAttribArray(1);
 
   glBindVertexArray(0);
 
   glUseProgram(0);
-
-//  {
-//    if (glFaces == GL_BACK)
-//      glDepthFunc(GL_GEQUAL);
-//    
-//    Vec voxelScaling = Global::relativeVoxelScaling();
-//
-//    Vec bminO, bmaxO;
-//    m_boundingBox.bounds(bminO, bmaxO);
-//    
-//    bminO = VECDIVIDE(bminO, voxelScaling);
-//    bmaxO = VECDIVIDE(bmaxO, voxelScaling);
-//    
-//    bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
-//    bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
-//
-//    Vec bmin = bminO;
-//    Vec bmax = bmaxO;
-//    
-//    Vec box[8];
-//    box[0] = Vec(bmin.x,bmin.y,bmin.z);
-//    box[1] = Vec(bmin.x,bmin.y,bmax.z);
-//    box[2] = Vec(bmin.x,bmax.y,bmin.z);
-//    box[3] = Vec(bmin.x,bmax.y,bmax.z);
-//    box[4] = Vec(bmax.x,bmin.y,bmin.z);
-//    box[5] = Vec(bmax.x,bmin.y,bmax.z);
-//    box[6] = Vec(bmax.x,bmax.y,bmin.z);
-//    box[7] = Vec(bmax.x,bmax.y,bmax.z);
-//    
-//    float xmin, xmax, ymin, ymax, zmin, zmax;
-//    xmin = (bmin.x-m_minHSlice)/(m_maxHSlice-m_minHSlice);
-//    xmax = (bmax.x-m_minHSlice)/(m_maxHSlice-m_minHSlice);
-//    ymin = (bmin.y-m_minWSlice)/(m_maxWSlice-m_minWSlice);
-//    ymax = (bmax.y-m_minWSlice)/(m_maxWSlice-m_minWSlice);
-//    zmin = (bmin.z-m_minDSlice)/(m_maxDSlice-m_minDSlice);
-//    zmax = (bmax.z-m_minDSlice)/(m_maxDSlice-m_minDSlice);
-//    
-//    Vec col[8];
-//    col[0] = Vec(xmin,ymin,zmin);
-//    col[1] = Vec(xmin,ymin,zmax);
-//    
-//    col[2] = Vec(xmin,ymax,zmin);
-//    col[3] = Vec(xmin,ymax,zmax);
-//    
-//    col[4] = Vec(xmax,ymin,zmin);
-//    col[5] = Vec(xmax,ymin,zmax);
-//    
-//    col[6] = Vec(xmax,ymax,zmin);
-//    col[7] = Vec(xmax,ymax,zmax);
-//    
-//    for(int i=0; i<8; i++)
-//      box[i] = VECPRODUCT(box[i], voxelScaling);
-//
-//    drawClipFaces(&box[0], &col[0]);
-//  }
-//
-//  glDepthFunc(GL_LEQUAL);
 
   glDisable(GL_CULL_FACE);
 }

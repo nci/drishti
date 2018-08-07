@@ -1559,7 +1559,7 @@ DrishtiPaint::setFile(QString filename)
   viewerUi.fibertags->setText("-1");
   viewerUi.curvetags->setText("-1");
 
-  viewerUi.dragStep->setValue(m_viewer->dragStep());
+  //viewerUi.dragStep->setValue(m_viewer->dragStep());
   viewerUi.stillStep->setValue(m_viewer->stillStep());
 
   viewerUi.sketchPad->setChecked(false);
@@ -2478,15 +2478,15 @@ DrishtiPaint::on_raycastRender_clicked(bool flag)
 void
 DrishtiPaint::on_stillStep_changed(double step)
 {
-  float ds = m_viewer->dragStep();
-
-  if (step > ds)
-    {
-      viewerUi.dragStep->setValue(step);
-      ds = step;
-    }
-
-  m_viewer->setStillAndDragStep(step, ds);
+//  float ds = m_viewer->dragStep();
+//
+//  if (step > ds)
+//    {
+//      viewerUi.dragStep->setValue(step);
+//      ds = step;
+//    }
+//
+  m_viewer->setStillAndDragStep(step, step);
 }
 
 void
@@ -2690,8 +2690,8 @@ DrishtiPaint::connectViewerMenu()
 
   connect(viewerUi.stillStep, SIGNAL(valueChanged(double)),
 	  this, SLOT(on_stillStep_changed(double)));
-  connect(viewerUi.dragStep, SIGNAL(valueChanged(double)),
-	  this, SLOT(on_dragStep_changed(double)));
+//  connect(viewerUi.dragStep, SIGNAL(valueChanged(double)),
+//	  this, SLOT(on_dragStep_changed(double)));
 
 
   connect(viewerUi.sketchPad, SIGNAL(clicked(bool)),

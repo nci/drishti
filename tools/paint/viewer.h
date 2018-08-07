@@ -105,6 +105,7 @@ class Viewer : public QGLViewer
     void saveImageSequence();
     void nextFrame();
     void updateFilledBoxes();
+    void boundingBoxChanged();
     void updateTF();
     void setAmb(int a) { m_amb = (float)a/10.0f; update(); };
     void setDiff(int a) { m_diff = (float)a/10.0f; update(); };
@@ -263,9 +264,6 @@ class Viewer : public QGLViewer
   GLhandleARB m_depthShader;
   GLint m_depthParm[20];
 
-  GLhandleARB m_finalPointShader;
-  GLint m_fpsParm[20];
-
   GLhandleARB m_blurShader;
   GLint m_blurParm[20];
 
@@ -279,13 +277,12 @@ class Viewer : public QGLViewer
   GLint m_shadowBlurParm[20];
 
   GLhandleARB m_rcShader;
-  GLint m_rcParm[20];
+  GLint m_rcParm[30];
 
   GLhandleARB m_eeShader;
   GLint m_eeParm[20];
 
   bool m_exactCoord;
-  bool m_fullRender;
   bool m_dragMode;
 
   int m_spH, m_spW;
@@ -306,12 +303,16 @@ class Viewer : public QGLViewer
   // vbo for uploading valid boxes
   int m_lmin, m_lmax;
   int m_ntri;
-  QList<Vec> m_vboSoup;
   GLuint m_glVertBuffer;
   GLuint m_glIndexBuffer;
   GLuint m_glVertArray;
-  void loadVertexBufferData();
+  void loadAllBoxesToVBO();
   void drawVBOBox(GLenum);
+  void generateBoxes();
+  GLint m_mdEle;
+  GLsizei *m_mdCount;
+  GLint *m_mdIndices;
+  QList<QList<Vec> > m_boxSoup;
   //-------------
   
   
@@ -340,9 +341,6 @@ class Viewer : public QGLViewer
 
   void drawFibers();
 
-  void drawVolMask();
-  void drawVol();
-
   void drawPointsWithoutShader();
 
   void updateClipVoxels();
@@ -365,23 +363,17 @@ class Viewer : public QGLViewer
   void carve(int, int, int, bool);
 
   void drawSlices();
-  void drawClipSlices();
-  int drawPoly(Vec, Vec, Vec*);
 
-  void drawBox(GLenum);
+  void drawBox();
 
   void volumeRaycast(float, float, bool);
 
-  Vec pointUnderPixel(QPoint, bool&);
   Vec pointUnderPixel_RC(QPoint, bool&);
   void getHit(QMouseEvent*);
   
   void setTextureMemorySize();
 
-  void drawFace(int, Vec*, Vec*);
-  void drawClipFaces(Vec*, Vec*);
-
-  void pointRendering();
+  //void drawFace(int, Vec*, Vec*);
 
   void hatch();
   void regionGrowing(bool);

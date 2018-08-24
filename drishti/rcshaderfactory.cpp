@@ -1822,7 +1822,7 @@ RcShaderFactory::genRaycastShader_1(bool nearest,
 //  shader += "    }\n";
   
   // reduce opacity
-  shader += "  colorSample.a *= colorSample.a;\n";
+  //shader += "  colorSample.a *= colorSample.a;\n";
 
   // --- handle tags ---
   shader += "    if (mixTag)\n";

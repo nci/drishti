@@ -68,6 +68,7 @@ class RcViewer : public QObject
   void loadLookupTable();
 
   public slots :
+    void boundingBoxChanged();
     void updateVoxelsForRaycast();
     void setRaycastStyle(int);
     void setSkipLayers(int l) { m_skipLayers = l; m_viewer->update(); }
@@ -112,7 +113,7 @@ class RcViewer : public QObject
   MyBitArray m_filledBoxes;
 
   int m_amb, m_diff, m_spec;
-  int m_shadow;
+  float m_shadow;
   float m_edge;
   Vec m_shadowColor, m_edgeColor;
   int m_shdX, m_shdY;
@@ -198,6 +199,28 @@ class RcViewer : public QObject
   void vray();
 
   void drawGeometry(bool);
+
+
+  //-------------
+  // vbo for uploading valid boxes
+  int m_lmin, m_lmax;
+  QList<int> m_limits;
+  int m_ntri;
+  GLuint m_glVertBuffer;
+  GLuint m_glIndexBuffer;
+  GLuint m_glVertArray;
+  int m_mdEle;
+  GLsizei *m_mdCount;
+  GLint *m_mdIndices;
+  QList<QList<Vec> > m_boxSoup;
+  //-------------
+
+
+  void drawBox();
+  void loadAllBoxesToVBO();
+  void drawVBOBox(GLenum);
+  void generateBoxes();
+
 };
 
 

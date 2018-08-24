@@ -25,6 +25,15 @@ RcViewer::RcViewer() :
   m_slcTex[3] = 0;
   m_slcTex[4] = 0;
 
+  m_glVertBuffer = 0;
+  m_glIndexBuffer = 0;
+  m_glVertArray = 0;
+
+  m_mdEle = 0;
+  m_mdCount = 0;
+  m_mdIndices = 0;
+  
+
   m_blurShader = 0;
   m_fhShader = 0;
   m_rcShader = 0;
@@ -47,8 +56,8 @@ RcViewer::RcViewer() :
   m_amb = 10;
   m_diff = 0;
   m_spec = 10;
-  m_shadow = 10;
-  m_edge = 7.0;
+  m_shadow = 5.0;
+  m_edge = 5.0;
   m_shdX = 0;
   m_shdY = 0;
   m_smoothDepth = 1;
@@ -65,6 +74,10 @@ RcViewer::RcViewer() :
   m_crops.clear();
 
   m_maxRayLen = 5;
+
+
+  connect(&m_boundingBox, SIGNAL(updated()),
+	  this, SLOT(boundingBoxChanged()));
 
   init();
 }
@@ -84,7 +97,7 @@ RcViewer::init()
   m_exactCoord = false;
 
   m_dbox = m_wbox = m_hbox = 0;
-  m_boxSize = 64;
+  m_boxSize = 8;
   m_boxMinMax.clear();
   if (m_ftBoxes) delete [] m_ftBoxes;
   m_ftBoxes = 0;
@@ -145,6 +158,23 @@ RcViewer::init()
   m_mixTag = false;
 
   m_crops.clear();
+
+  if(m_glVertArray)
+    {
+      glDeleteBuffers(1, &m_glIndexBuffer);
+      glDeleteVertexArrays( 1, &m_glVertArray );
+      glDeleteBuffers(1, &m_glVertBuffer);
+      m_glIndexBuffer = 0;
+      m_glVertArray = 0;
+      m_glVertBuffer = 0;
+    }
+  
+  m_mdEle = 0;
+  if (m_mdCount) delete [] m_mdCount;
+  if (m_mdIndices) delete [] m_mdIndices;  
+  m_mdCount = 0;
+  m_mdIndices = 0;
+
 }
 
 void RcViewer::setLut(uchar *l) { m_lut = l; }
@@ -181,6 +211,10 @@ RcViewer::setGridSize(int d, int w, int h)
   m_depth = d;
   m_width = w;
   m_height = h;
+
+  m_boxSize = qMax((int)m_height/128, (int)m_width/128);
+  m_boxSize = qMax(m_boxSize, (int)m_depth/128);
+  m_boxSize = qMax(m_boxSize, 8);
 
   m_dataMin = Vec(0,0,0);
   m_dataMax = Vec(h,w,d);
@@ -247,6 +281,8 @@ RcViewer::loadLookupTable()
 	       GL_UNSIGNED_BYTE,
 	       m_lut);
   glDisable(GL_TEXTURE_2D);
+
+  updateFilledBoxes();  
 }
 
 void
@@ -522,38 +558,38 @@ RcViewer::updateFilledBoxes()
 
 
 
-  //-------------------------------------------
-  // now remove the internal ones for drawing boxes for entry and exit points
-  MyBitArray tfb;
-  tfb.resize(m_filledBoxes.size());
-  for(int i=0; i<m_filledBoxes.size(); i++)
-    tfb.setBit(i, m_filledBoxes.testBit(i));
-
-  for(int d=1; d<m_dbox-1; d++)
-    for(int w=1; w<m_wbox-1; w++)
-      for(int h=1; h<m_hbox-1; h++)
-	{
-	  int idx = d*m_wbox*m_hbox+w*m_hbox+h;
-	  if (tfb.testBit(idx))
-	    {
-	      bool ok = false;
-	      for(int d1=d-1; d1<=d+1; d1++)
-		for(int w1=w-1; w1<=w+1; w1++)
-		  for(int h1=h-1; h1<=h+1; h1++)
-		    {
-		      int idx1 = d1*m_wbox*m_hbox+w1*m_hbox+h1;
-		      if (!tfb.testBit(idx1))
-			{
-			  ok = true;
-			  break;
-			}
-		    }
-	      m_filledBoxes.setBit(idx, ok);
-	    }
-	}
-  
-  tfb.clear();
-  //-------------------------------------------
+//  //-------------------------------------------
+//  // now remove the internal ones for drawing boxes for entry and exit points
+//  MyBitArray tfb;
+//  tfb.resize(m_filledBoxes.size());
+//  for(int i=0; i<m_filledBoxes.size(); i++)
+//    tfb.setBit(i, m_filledBoxes.testBit(i));
+//
+//  for(int d=1; d<m_dbox-1; d++)
+//    for(int w=1; w<m_wbox-1; w++)
+//      for(int h=1; h<m_hbox-1; h++)
+//	{
+//	  int idx = d*m_wbox*m_hbox+w*m_hbox+h;
+//	  if (tfb.testBit(idx))
+//	    {
+//	      bool ok = false;
+//	      for(int d1=d-1; d1<=d+1; d1++)
+//		for(int w1=w-1; w1<=w+1; w1++)
+//		  for(int h1=h-1; h1<=h+1; h1++)
+//		    {
+//		      int idx1 = d1*m_wbox*m_hbox+w1*m_hbox+h1;
+//		      if (!tfb.testBit(idx1))
+//			{
+//			  ok = true;
+//			  break;
+//			}
+//		    }
+//	      m_filledBoxes.setBit(idx, ok);
+//	    }
+//	}
+//  
+//  tfb.clear();
+//  //-------------------------------------------
 
 
 
@@ -587,6 +623,9 @@ RcViewer::updateFilledBoxes()
 	       m_ftBoxes);
   glDisable(GL_TEXTURE_3D);
   //-------------------------------------------
+
+
+  drawBox();
 }
 
 void
@@ -599,8 +638,8 @@ RcViewer::fastDraw()
 
   raycasting();
 
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // blend on top
+//  glEnable(GL_BLEND);
+//  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // blend on top
 
   GeometryObjects::crops()->postdraw(m_viewer);
   GeometryObjects::clipplanes()->postdraw(m_viewer);
@@ -625,8 +664,8 @@ RcViewer::draw()
 
   raycasting();
 
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // blend on top
+//  glEnable(GL_BLEND);
+//  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // blend on top
 
   GeometryObjects::crops()->postdraw(m_viewer);
   GeometryObjects::clipplanes()->postdraw(m_viewer);
@@ -671,11 +710,11 @@ RcViewer::createFBO()
       glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[i]);
       glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,
 		   0,
-		   GL_RGBA16,
+		   GL_RGBA32F,
 		   wd, ht,
 		   0,
 		   GL_RGBA,
-		   GL_UNSIGNED_SHORT,
+		   GL_FLOAT,
 		   0);
     }
 
@@ -718,12 +757,47 @@ RcViewer::createFirstHitShader()
 void
 RcViewer::createIsoRaycastShader()
 {
+//  QString shaderString;
+//
+//  shaderString = RcShaderFactory::genIsoRaycastShader(m_exactCoord, m_crops, m_bytesPerVoxel==2);
+//
+//  if (m_ircShader)
+//    glDeleteObjectARB(m_ircShader);
+//
+//  m_ircShader = glCreateProgramObjectARB();
+//  if (! RcShaderFactory::loadShader(m_ircShader,
+//				    shaderString))
+//    {
+//      m_ircShader = 0;
+//      QMessageBox::information(0, "", "Cannot create surface shader.");
+//    }
+//
+//  m_ircParm[0] = glGetUniformLocationARB(m_ircShader, "dataTex");
+//  m_ircParm[1] = glGetUniformLocationARB(m_ircShader, "lutTex");
+//  m_ircParm[2] = glGetUniformLocationARB(m_ircShader, "exitTex");
+//  m_ircParm[3] = glGetUniformLocationARB(m_ircShader, "stepSize");
+//  m_ircParm[4] = glGetUniformLocationARB(m_ircShader, "eyepos");
+//  m_ircParm[5] = glGetUniformLocationARB(m_ircShader, "viewDir");
+//  m_ircParm[6] = glGetUniformLocationARB(m_ircShader, "vcorner");
+//  m_ircParm[7] = glGetUniformLocationARB(m_ircShader, "vsize");
+//  m_ircParm[8] = glGetUniformLocationARB(m_ircShader, "minZ");
+//  m_ircParm[9] = glGetUniformLocationARB(m_ircShader, "maxZ");
+//  //m_ircParm[10]= glGetUniformLocationARB(m_ircShader, "maskTex");
+//  m_ircParm[11]= glGetUniformLocationARB(m_ircShader, "saveCoord");
+//  m_ircParm[12]= glGetUniformLocationARB(m_ircShader, "skipLayers");
+//  m_ircParm[13]= glGetUniformLocationARB(m_ircShader, "tagTex");
+//  m_ircParm[14] = glGetUniformLocationARB(m_ircShader, "entryTex");
+//  m_ircParm[16] = glGetUniformLocationARB(m_ircShader, "filledTex");
+//  m_ircParm[17] = glGetUniformLocationARB(m_ircShader, "ftsize");
+//  m_ircParm[18] = glGetUniformLocationARB(m_ircShader, "boxSize");
+//  m_ircParm[19] = glGetUniformLocationARB(m_ircShader, "mixTag");
+//  m_ircParm[20] = glGetUniformLocationARB(m_ircShader, "skipVoxels");
+//  m_ircParm[21] = glGetUniformLocationARB(m_ircShader, "lod");
+
+
   QString shaderString;
 
-  shaderString = RcShaderFactory::genIsoRaycastShader(m_exactCoord, m_crops, m_bytesPerVoxel==2);
-
-  if (m_ircShader)
-    glDeleteObjectARB(m_ircShader);
+  shaderString = RcShaderFactory::genRaycastShader_1(m_exactCoord, m_crops, m_bytesPerVoxel==2);
 
   m_ircShader = glCreateProgramObjectARB();
   if (! RcShaderFactory::loadShader(m_ircShader,
@@ -732,28 +806,29 @@ RcViewer::createIsoRaycastShader()
       m_ircShader = 0;
       QMessageBox::information(0, "", "Cannot create surface shader.");
     }
-
+  
   m_ircParm[0] = glGetUniformLocationARB(m_ircShader, "dataTex");
   m_ircParm[1] = glGetUniformLocationARB(m_ircShader, "lutTex");
   m_ircParm[2] = glGetUniformLocationARB(m_ircShader, "exitTex");
-  m_ircParm[3] = glGetUniformLocationARB(m_ircShader, "stepSize");
-  m_ircParm[4] = glGetUniformLocationARB(m_ircShader, "eyepos");
-  m_ircParm[5] = glGetUniformLocationARB(m_ircShader, "viewDir");
-  m_ircParm[6] = glGetUniformLocationARB(m_ircShader, "vcorner");
-  m_ircParm[7] = glGetUniformLocationARB(m_ircShader, "vsize");
-  m_ircParm[8] = glGetUniformLocationARB(m_ircShader, "minZ");
-  m_ircParm[9] = glGetUniformLocationARB(m_ircShader, "maxZ");
-  //m_ircParm[10]= glGetUniformLocationARB(m_ircShader, "maskTex");
-  m_ircParm[11]= glGetUniformLocationARB(m_ircShader, "saveCoord");
-  m_ircParm[12]= glGetUniformLocationARB(m_ircShader, "skipLayers");
-  m_ircParm[13]= glGetUniformLocationARB(m_ircShader, "tagTex");
-  m_ircParm[14] = glGetUniformLocationARB(m_ircShader, "entryTex");
-  m_ircParm[16] = glGetUniformLocationARB(m_ircShader, "filledTex");
-  m_ircParm[17] = glGetUniformLocationARB(m_ircShader, "ftsize");
-  m_ircParm[18] = glGetUniformLocationARB(m_ircShader, "boxSize");
-  m_ircParm[19] = glGetUniformLocationARB(m_ircShader, "mixTag");
-  m_ircParm[20] = glGetUniformLocationARB(m_ircShader, "skipVoxels");
-  m_ircParm[21] = glGetUniformLocationARB(m_ircShader, "lod");
+  m_ircParm[3] = glGetUniformLocationARB(m_ircShader, "entryTex");
+  m_ircParm[4] = glGetUniformLocationARB(m_ircShader, "tagTex");
+  m_ircParm[5] = glGetUniformLocationARB(m_ircShader, "stepSize");
+  m_ircParm[6] = glGetUniformLocationARB(m_ircShader, "eyepos");
+  m_ircParm[7] = glGetUniformLocationARB(m_ircShader, "vcorner");
+  m_ircParm[8] = glGetUniformLocationARB(m_ircShader, "vsize");
+  m_ircParm[9] = glGetUniformLocationARB(m_ircShader, "voxelScale");
+  m_ircParm[10]= glGetUniformLocationARB(m_ircShader, "saveCoord");
+  m_ircParm[11]= glGetUniformLocationARB(m_ircShader, "skipLayers");
+  m_ircParm[12]= glGetUniformLocationARB(m_ircShader, "skipVoxels");
+  m_ircParm[13]= glGetUniformLocationARB(m_ircShader, "mixTag");
+  m_ircParm[14]= glGetUniformLocationARB(m_ircShader, "nclip");
+  m_ircParm[15]= glGetUniformLocationARB(m_ircShader, "clipPos");
+  m_ircParm[16]= glGetUniformLocationARB(m_ircShader, "clipNormal");
+  m_ircParm[17]= glGetUniformLocationARB(m_ircShader, "maxDeep");
+  m_ircParm[18]= glGetUniformLocationARB(m_ircShader, "minGrad");
+  m_ircParm[19]= glGetUniformLocationARB(m_ircShader, "maxGrad");
+  m_ircParm[20]= glGetUniformLocationARB(m_ircShader, "sslevel");
+  m_ircParm[21]= glGetUniformLocationARB(m_ircShader, "MVP");
 }
 
 void
@@ -815,7 +890,32 @@ RcViewer::createShaders()
 
 
   //----------------------
-  shaderString = RcShaderFactory::genEdgeEnhanceShader(m_bytesPerVoxel==2);
+//  shaderString = RcShaderFactory::genEdgeEnhanceShader(m_bytesPerVoxel==2);
+//
+//  m_eeShader = glCreateProgramObjectARB();
+//  if (! RcShaderFactory::loadShader(m_eeShader,
+//				  shaderString))
+//    {
+//      m_eeShader = 0;
+//      QMessageBox::information(0, "", "Cannot create ee shader.");
+//    }
+//
+//  m_eeParm[0] = glGetUniformLocationARB(m_eeShader, "normalTex");
+//  m_eeParm[1] = glGetUniformLocationARB(m_eeShader, "minZ");
+//  m_eeParm[2] = glGetUniformLocationARB(m_eeShader, "maxZ");
+//  m_eeParm[5] = glGetUniformLocationARB(m_eeShader, "dzScale");
+//  m_eeParm[6] = glGetUniformLocationARB(m_eeShader, "tagTex");
+//  m_eeParm[7] = glGetUniformLocationARB(m_eeShader, "lutTex");
+//  m_eeParm[8] = glGetUniformLocationARB(m_eeShader, "pvtTex");
+//  m_eeParm[9] = glGetUniformLocationARB(m_eeShader, "lightparm");
+//  m_eeParm[10] = glGetUniformLocationARB(m_eeShader, "isoshadow");
+//  m_eeParm[11] = glGetUniformLocationARB(m_eeShader, "shadowcolor");
+//  m_eeParm[12] = glGetUniformLocationARB(m_eeShader, "edgecolor");
+//  m_eeParm[14] = glGetUniformLocationARB(m_eeShader, "shdoffset");
+//  m_eeParm[15] = glGetUniformLocationARB(m_eeShader, "edgethickness");
+//  m_eeParm[16] = glGetUniformLocationARB(m_eeShader, "mixTag");
+
+  shaderString = RcShaderFactory::genEdgeEnhanceShader_1();
 
   m_eeShader = glCreateProgramObjectARB();
   if (! RcShaderFactory::loadShader(m_eeShader,
@@ -826,20 +926,12 @@ RcViewer::createShaders()
     }
 
   m_eeParm[0] = glGetUniformLocationARB(m_eeShader, "normalTex");
-  m_eeParm[1] = glGetUniformLocationARB(m_eeShader, "minZ");
-  m_eeParm[2] = glGetUniformLocationARB(m_eeShader, "maxZ");
-  m_eeParm[5] = glGetUniformLocationARB(m_eeShader, "dzScale");
-  m_eeParm[6] = glGetUniformLocationARB(m_eeShader, "tagTex");
-  m_eeParm[7] = glGetUniformLocationARB(m_eeShader, "lutTex");
-  m_eeParm[8] = glGetUniformLocationARB(m_eeShader, "pvtTex");
-  m_eeParm[9] = glGetUniformLocationARB(m_eeShader, "lightparm");
-  m_eeParm[10] = glGetUniformLocationARB(m_eeShader, "isoshadow");
-  m_eeParm[11] = glGetUniformLocationARB(m_eeShader, "shadowcolor");
-  m_eeParm[12] = glGetUniformLocationARB(m_eeShader, "edgecolor");
-  m_eeParm[14] = glGetUniformLocationARB(m_eeShader, "shdoffset");
-  m_eeParm[15] = glGetUniformLocationARB(m_eeShader, "edgethickness");
-  m_eeParm[16] = glGetUniformLocationARB(m_eeShader, "mixTag");
-  //----------------------
+  m_eeParm[1] = glGetUniformLocationARB(m_eeShader, "pvtTex");
+  m_eeParm[2] = glGetUniformLocationARB(m_eeShader, "minZ");
+  m_eeParm[3] = glGetUniformLocationARB(m_eeShader, "maxZ");
+  m_eeParm[4] = glGetUniformLocationARB(m_eeShader, "dzScale");
+  m_eeParm[5] = glGetUniformLocationARB(m_eeShader, "isoshadow");
+//----------------------
 
 
 
@@ -884,13 +976,18 @@ RcViewer::updateVoxelsForRaycast()
 
   if (m_filledBoxes.count() == 0)
     {      
-    m_vfm->setMemMapped(true);
-    m_vfm->loadMemFile();
-    m_volPtr = m_vfm->memVolDataPtr();
-    if (m_volPtr)
-      generateBoxMinMax();
-  }
-
+      m_vfm->setMemMapped(true);
+      m_vfm->loadMemFile();
+      m_volPtr = m_vfm->memVolDataPtr();
+      if (m_volPtr)
+	generateBoxMinMax();
+      
+      // generate required structures
+      generateBoxes();
+      
+      loadAllBoxesToVBO();  
+    }
+  
   if (!m_volPtr)
     return;
 
@@ -965,6 +1062,7 @@ RcViewer::updateVoxelsForRaycast()
   // load data volume
   progress.setValue(20);
   qApp->processEvents();
+
   if (m_bytesPerVoxel == 1)
     {
       int i = 0;
@@ -1120,7 +1218,7 @@ RcViewer::raycasting()
 
 
   checkCrops();
-  updateFilledBoxes();
+  //updateFilledBoxes();
 
 
   if (!m_fullRender ||
@@ -1197,6 +1295,58 @@ RcViewer::surfaceRaycast(float minZ, float maxZ, bool firstPartOnly)
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
 
 
+//  //----------------------------
+//  // create exit points
+//  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
+//  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+//			 GL_COLOR_ATTACHMENT0_EXT,
+//			 GL_TEXTURE_RECTANGLE_ARB,
+//			 m_slcTex[1],
+//			 0);
+//  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
+//  glDepthFunc(GL_GEQUAL);
+//  drawBox(GL_FRONT);
+//
+//  glDepthFunc(GL_LEQUAL);
+//  glUseProgramObjectARB(m_enexShader);
+//  glUniform3fARB(m_enexParm[0], m_minHSlice, m_minWSlice, m_minDSlice);
+//  glUniform3fARB(m_enexParm[1], m_maxHSlice-m_minHSlice,
+//		                m_maxWSlice-m_minWSlice,
+//		                m_maxDSlice-m_minDSlice);
+//  drawGeometry(true);
+//  glUseProgramObjectARB(0);
+//
+//  glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
+//  //----------------------------
+//
+//
+//  //----------------------------
+//  // create entry points
+//  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
+//  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+//			 GL_COLOR_ATTACHMENT0_EXT,
+//			 GL_TEXTURE_RECTANGLE_ARB,
+//			 m_slcTex[0],
+//			 0);
+//  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
+//  glClearDepth(1);
+//  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+//  glDepthFunc(GL_LEQUAL);
+//  drawBox(GL_BACK);
+//
+//  glUseProgramObjectARB(m_enexShader);
+//  glUniform3fARB(m_enexParm[0], m_minHSlice, m_minWSlice, m_minDSlice);
+//  glUniform3fARB(m_enexParm[1], m_maxHSlice-m_minHSlice,
+//		                m_maxWSlice-m_minWSlice,
+//		                m_maxDSlice-m_minDSlice);
+//  drawGeometry(true);
+//  glUseProgramObjectARB(0);
+//
+//  glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
+//  //----------------------------
+//  glUseProgramObjectARB(0);
+
+
   //----------------------------
   // create exit points
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
@@ -1207,21 +1357,10 @@ RcViewer::surfaceRaycast(float minZ, float maxZ, bool firstPartOnly)
 			 0);
   glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
   glDepthFunc(GL_GEQUAL);
-  drawBox(GL_FRONT);
-
-  glDepthFunc(GL_LEQUAL);
-  glUseProgramObjectARB(m_enexShader);
-  glUniform3fARB(m_enexParm[0], m_minHSlice, m_minWSlice, m_minDSlice);
-  glUniform3fARB(m_enexParm[1], m_maxHSlice-m_minHSlice,
-		                m_maxWSlice-m_minWSlice,
-		                m_maxDSlice-m_minDSlice);
-  drawGeometry(true);
-  glUseProgramObjectARB(0);
-
+  drawVBOBox(GL_FRONT);
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
   //----------------------------
-
-
+  
   //----------------------------
   // create entry points
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
@@ -1234,19 +1373,9 @@ RcViewer::surfaceRaycast(float minZ, float maxZ, bool firstPartOnly)
   glClearDepth(1);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   glDepthFunc(GL_LEQUAL);
-  drawBox(GL_BACK);
-
-  glUseProgramObjectARB(m_enexShader);
-  glUniform3fARB(m_enexParm[0], m_minHSlice, m_minWSlice, m_minDSlice);
-  glUniform3fARB(m_enexParm[1], m_maxHSlice-m_minHSlice,
-		                m_maxWSlice-m_minWSlice,
-		                m_maxDSlice-m_minDSlice);
-  drawGeometry(true);
-  glUseProgramObjectARB(0);
-
+  drawVBOBox(GL_BACK);
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
   //----------------------------
-  glUseProgramObjectARB(0);
 
   //----------------------------
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
@@ -1272,8 +1401,8 @@ RcViewer::surfaceRaycast(float minZ, float maxZ, bool firstPartOnly)
 
 
   float stepsize = m_stillStep;
-  if (m_dragMode)
-    stepsize = m_dragStep; 
+//  if (m_dragMode)
+//    stepsize = m_dragStep; 
  
   stepsize /= qMax(m_vsize.x,qMax(m_vsize.y,m_vsize.z));
 
@@ -1282,29 +1411,94 @@ RcViewer::surfaceRaycast(float minZ, float maxZ, bool firstPartOnly)
   viewDir = Matrix::rotateVec(m_b0xformInv, viewDir);
 
 
+//  glUseProgramObjectARB(m_ircShader);
+//  glUniform1iARB(m_ircParm[0], 1); // dataTex
+//  glUniform1iARB(m_ircParm[1], 0); // lutTex
+//  glUniform1iARB(m_ircParm[2], 2); // slcTex[1] - contains exit coordinates
+//  glUniform1fARB(m_ircParm[3], stepsize); // stepSize
+//  glUniform3fARB(m_ircParm[4], eyepos.x, eyepos.y, eyepos.z); // eyepos
+//  glUniform3fARB(m_ircParm[5], viewDir.x, viewDir.y, viewDir.z); // viewDir
+//  glUniform3fARB(m_ircParm[6], subvolcorner.x, subvolcorner.y, subvolcorner.z);
+//  glUniform3fARB(m_ircParm[7], m_vsize.x, m_vsize.y, m_vsize.z);
+//  glUniform1fARB(m_ircParm[8], minZ); // minZ
+//  glUniform1fARB(m_ircParm[9], maxZ); // maxZ
+//  glUniform1iARB(m_ircParm[11],firstPartOnly); // save voxel coordinates
+//  glUniform1iARB(m_ircParm[12],m_skipLayers); // skip first layers
+//  glUniform1iARB(m_ircParm[14],6); // slcTex[0] - contains entry coordinates
+//  glUniform1iARB(m_ircParm[16],3); // filledTex
+//  glUniform3fARB(m_ircParm[17], m_hbox, m_wbox, m_dbox);
+//  glUniform1fARB(m_ircParm[18], m_boxSize); // boxSize
+//
+//  glUniform1iARB(m_ircParm[13], 5); // tagTex
+//  glUniform1iARB(m_ircParm[19], m_mixTag); // mixTag
+//  glUniform1iARB(m_ircParm[20], m_skipVoxels);
+//  glUniform1iARB(m_ircParm[21], m_sslevel);
+
+
+  Vec voxelScaling = Global::voxelScaling();
+
+  //---------
+  //---------
   glUseProgramObjectARB(m_ircShader);
   glUniform1iARB(m_ircParm[0], 1); // dataTex
   glUniform1iARB(m_ircParm[1], 0); // lutTex
   glUniform1iARB(m_ircParm[2], 2); // slcTex[1] - contains exit coordinates
-  glUniform1fARB(m_ircParm[3], stepsize); // stepSize
-  glUniform3fARB(m_ircParm[4], eyepos.x, eyepos.y, eyepos.z); // eyepos
-  glUniform3fARB(m_ircParm[5], viewDir.x, viewDir.y, viewDir.z); // viewDir
-  glUniform3fARB(m_ircParm[6], subvolcorner.x, subvolcorner.y, subvolcorner.z);
-  glUniform3fARB(m_ircParm[7], m_vsize.x, m_vsize.y, m_vsize.z);
-  glUniform1fARB(m_ircParm[8], minZ); // minZ
-  glUniform1fARB(m_ircParm[9], maxZ); // maxZ
-  glUniform1iARB(m_ircParm[11],firstPartOnly); // save voxel coordinates
-  glUniform1iARB(m_ircParm[12],m_skipLayers); // skip first layers
-  glUniform1iARB(m_ircParm[14],6); // slcTex[0] - contains entry coordinates
-  glUniform1iARB(m_ircParm[16],3); // filledTex
-  glUniform3fARB(m_ircParm[17], m_hbox, m_wbox, m_dbox);
-  glUniform1fARB(m_ircParm[18], m_boxSize); // boxSize
+  glUniform1iARB(m_ircParm[3], 6); // slcTex[0] - contains entry coordinates
+  glUniform1iARB(m_ircParm[4], 5); // tagTex
+  glUniform1fARB(m_ircParm[5], stepsize); // stepSize
+  glUniform3fARB(m_ircParm[6], eyepos.x, eyepos.y, eyepos.z); // eyepos
+  glUniform3fARB(m_ircParm[7], subvolcorner.x, subvolcorner.y, subvolcorner.z);
+  glUniform3fARB(m_ircParm[8], m_sslevel*m_vsize.x, m_sslevel*m_vsize.y, m_sslevel*m_vsize.z);
+  glUniform3fARB(m_ircParm[9], voxelScaling.x, voxelScaling.y, voxelScaling.z);
+  glUniform1iARB(m_ircParm[10],firstPartOnly); // save voxel coordinates
+  glUniform1iARB(m_ircParm[11],m_skipLayers); // skip first layers
+  glUniform1iARB(m_ircParm[12],m_skipVoxels); // skip first voxels
+  glUniform1iARB(m_ircParm[13],m_mixTag); // mixTag
 
-  glUniform1iARB(m_ircParm[13], 5); // tagTex
-  glUniform1iARB(m_ircParm[19], m_mixTag); // mixTag
-  glUniform1iARB(m_ircParm[20], m_skipVoxels);
-  glUniform1iARB(m_ircParm[21], m_sslevel);
+  { // apply clip planes to modify entry and exit points
+    QList<Vec> cPos;
+    QList<Vec> cNorm;
+    cPos << m_viewer->camera()->position();
+    cNorm << -m_viewer->camera()->viewDirection();
+    cPos += GeometryObjects::clipplanes()->positions();
+    cNorm += GeometryObjects::clipplanes()->normals();
+    int nclip = cPos.count();
+    float cpos[100];
+    float cnormal[100];
+    for(int c=0; c<nclip; c++)
+      {
+	cpos[3*c+0] = cPos[c].x;
+	cpos[3*c+1] = cPos[c].y;
+	cpos[3*c+2] = cPos[c].z;
+      }
+    for(int c=0; c<nclip; c++)
+      {
+	cnormal[3*c+0] = -cNorm[c].x;
+	cnormal[3*c+1] = -cNorm[c].y;
+	cnormal[3*c+2] = -cNorm[c].z;
+      }
+    glUniform1i(m_ircParm[14], nclip); // clipplanes
+    glUniform3fv(m_ircParm[15], nclip, cpos); // clipplanes
+    glUniform3fv(m_ircParm[16], nclip, cnormal); // clipplanes
+  }
 
+  glUniform1f(m_ircParm[17], qPow(2,m_maxRayLen)); // go m_deep voxels deep
+
+  glUniform1f(m_ircParm[18], 0.0); // min gradient magnitute
+  glUniform1f(m_ircParm[19], 1.0); // max gradient magnitute
+
+  glUniform1fARB(m_ircParm[20], m_sslevel);
+
+  { // feed model-view-projection matrix for depth calculations
+    GLdouble m[16];
+    GLfloat mvp[16];
+    m_viewer->camera()->getModelViewProjectionMatrix(m);
+    for(int i=0; i<16; i++) mvp[i] = m[i];
+    
+    glUniformMatrix4fv(m_ircParm[21], 1, GL_FALSE, mvp);
+  }
+  //---------
+  //---------
 
 
   if (m_mixTag)
@@ -1381,40 +1575,40 @@ RcViewer::surfaceRaycast(float minZ, float maxZ, bool firstPartOnly)
       return;
     }
   
-  //--------------------------------
-  glUseProgramObjectARB(m_blurShader);
-  glUniform1iARB(m_blurParm[0], 2); // blurTex
-  glUniform1fARB(m_blurParm[1], minZ); // minZ
-  glUniform1fARB(m_blurParm[2], maxZ); // maxZ
-  
-  int dtex = 4;
-  int sdtex = 2;
-  for(int nb=0; nb<m_smoothDepth; nb++)
-    {
-      int ebidx = dtex;
-      dtex = sdtex;
-      sdtex = ebidx;
-      
-      glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
-      glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
-			     GL_COLOR_ATTACHMENT2_EXT,
-			     GL_TEXTURE_RECTANGLE_ARB,
-			     m_slcTex[sdtex],
-			     0);
-      glDrawBuffer(GL_COLOR_ATTACHMENT2_EXT);  
-      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-      
-      glActiveTexture(GL_TEXTURE2);
-      glEnable(GL_TEXTURE_RECTANGLE_ARB);
-      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[dtex]);
-      
-      StaticFunctions::pushOrthoView(0, 0, wd, ht);
-      StaticFunctions::drawQuad(0, 0, wd, ht, 1);
-      StaticFunctions::popOrthoView();
-    }
-
-  glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
-  //--------------------------------
+//  //--------------------------------
+//  glUseProgramObjectARB(m_blurShader);
+//  glUniform1iARB(m_blurParm[0], 2); // blurTex
+//  glUniform1fARB(m_blurParm[1], minZ); // minZ
+//  glUniform1fARB(m_blurParm[2], maxZ); // maxZ
+//  
+//  int dtex = 4;
+//  int sdtex = 2;
+//  for(int nb=0; nb<m_smoothDepth; nb++)
+//    {
+//      int ebidx = dtex;
+//      dtex = sdtex;
+//      sdtex = ebidx;
+//      
+//      glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
+//      glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+//			     GL_COLOR_ATTACHMENT2_EXT,
+//			     GL_TEXTURE_RECTANGLE_ARB,
+//			     m_slcTex[sdtex],
+//			     0);
+//      glDrawBuffer(GL_COLOR_ATTACHMENT2_EXT);  
+//      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+//      
+//      glActiveTexture(GL_TEXTURE2);
+//      glEnable(GL_TEXTURE_RECTANGLE_ARB);
+//      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[dtex]);
+//      
+//      StaticFunctions::pushOrthoView(0, 0, wd, ht);
+//      StaticFunctions::drawQuad(0, 0, wd, ht, 1);
+//      StaticFunctions::popOrthoView();
+//    }
+//
+//  glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
+//  //--------------------------------
 
   glClearColor(bgColor.x, bgColor.y, bgColor.z, 1);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -1431,29 +1625,37 @@ RcViewer::surfaceRaycast(float minZ, float maxZ, bool firstPartOnly)
   
   glActiveTexture(GL_TEXTURE2);
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
-  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[sdtex]);
+  //glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[sdtex]);
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[2]);
   
   
+//  glUniform1iARB(m_eeParm[0], 6); // normals (slctex[3]) tex
+//  glUniform1fARB(m_eeParm[1], minZ); // minZ
+//  glUniform1fARB(m_eeParm[2], maxZ); // maxZ
+//  glUniform1fARB(m_eeParm[5], m_edge);
+//  glUniform1iARB(m_eeParm[6], 5); // tagtex
+//  glUniform1iARB(m_eeParm[7], 0); // luttex
+//  glUniform1iARB(m_eeParm[8], 2); // pos, val, tag tex (slctex[sdtex])
+//  //glUniform3fARB(m_eeParm[9], m_amb*0.1, m_diff*0.1, m_spec*0.1); // lightparm
+//  glUniform3fARB(m_eeParm[9], 1.0, 0.0, m_spec*0.1); // lightparm
+//  glUniform1iARB(m_eeParm[10], m_shadow); // shadows
+//  glUniform3fARB(m_eeParm[11], m_shadowColor.x/255,
+//		 m_shadowColor.y/255,
+//		 m_shadowColor.z/255);
+//  glUniform3fARB(m_eeParm[12], m_edgeColor.x/255,
+//		 m_edgeColor.y/255,
+//		 m_edgeColor.z/255);
+//  glUniform2fARB(m_eeParm[14], m_shdX, -m_shdY);
+//  glUniform1fARB(m_eeParm[15], m_edgeThickness);
+//  glUniform1iARB(m_eeParm[16], m_mixTag);
+
   glUniform1iARB(m_eeParm[0], 6); // normals (slctex[3]) tex
-  glUniform1fARB(m_eeParm[1], minZ); // minZ
-  glUniform1fARB(m_eeParm[2], maxZ); // maxZ
-  glUniform1fARB(m_eeParm[5], m_edge);
-  glUniform1iARB(m_eeParm[6], 5); // tagtex
-  glUniform1iARB(m_eeParm[7], 0); // luttex
-  glUniform1iARB(m_eeParm[8], 2); // pos, val, tag tex (slctex[sdtex])
-  //glUniform3fARB(m_eeParm[9], m_amb*0.1, m_diff*0.1, m_spec*0.1); // lightparm
-  glUniform3fARB(m_eeParm[9], 1.0, 0.0, m_spec*0.1); // lightparm
-  glUniform1iARB(m_eeParm[10], m_shadow); // shadows
-  glUniform3fARB(m_eeParm[11], m_shadowColor.x/255,
-		 m_shadowColor.y/255,
-		 m_shadowColor.z/255);
-  glUniform3fARB(m_eeParm[12], m_edgeColor.x/255,
-		 m_edgeColor.y/255,
-		 m_edgeColor.z/255);
-  glUniform2fARB(m_eeParm[14], m_shdX, -m_shdY);
-  glUniform1fARB(m_eeParm[15], m_edgeThickness);
-  glUniform1iARB(m_eeParm[16], m_mixTag);
-  
+  glUniform1iARB(m_eeParm[1], 2); // pos, val, tag tex (slctex[sdtex])
+  glUniform1fARB(m_eeParm[2], minZ); // minZ
+  glUniform1fARB(m_eeParm[3], maxZ); // maxZ
+  glUniform1fARB(m_eeParm[4], m_edge); // edges
+  glUniform1fARB(m_eeParm[5], m_shadow); // shadows
+
   StaticFunctions::pushOrthoView(0, 0, wd, ht);
   StaticFunctions::drawQuad(0, 0, wd, ht, 1);
   StaticFunctions::popOrthoView();
@@ -2423,3 +2625,343 @@ RcViewer::checkCrops()
       createRaycastShader();
     }
 }
+
+//---------------------
+//---------------------
+//---------------------
+
+void
+RcViewer::boundingBoxChanged()
+{
+  if (m_depth == 0) // we don't have a volume yet
+    return;
+    
+  generateBoxes();
+
+  loadAllBoxesToVBO();  
+
+  updateFilledBoxes();
+}
+
+void
+RcViewer::generateBoxes()
+{
+  QProgressDialog progress("Updating box structure",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+  m_boxSoup.clear();
+  
+  int faces[] = {1, 5, 7, 3,
+		 0, 2, 6, 4,
+		 0, 1, 3, 2,
+		 7, 5, 4, 6,
+		 2, 3, 7, 6,
+		 1, 0, 4, 5};
+	  
+  Vec voxelScaling = Global::relativeVoxelScaling();
+
+
+  Vec bminO, bmaxO;
+  m_boundingBox.bounds(bminO, bmaxO);
+
+  bminO = VECDIVIDE(bminO, voxelScaling);
+  bmaxO = VECDIVIDE(bmaxO, voxelScaling);
+
+  bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
+  bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
+
+  int imin = (int)bminO.x/m_boxSize;
+  int jmin = (int)bminO.y/m_boxSize;
+  int kmin = (int)bminO.z/m_boxSize;
+
+  int imax = (int)bmaxO.x/m_boxSize;
+  int jmax = (int)bmaxO.y/m_boxSize;
+  int kmax = (int)bmaxO.z/m_boxSize;
+  if (imax*m_boxSize < (int)bmaxO.x) imax++;
+  if (jmax*m_boxSize < (int)bmaxO.y) jmax++;
+  if (kmax*m_boxSize < (int)bmaxO.z) kmax++;
+  
+  for(int k=kmin; k<kmax; k++)
+    {
+      progress.setValue(100*(float)k/(float)kmax);
+      qApp->processEvents();
+
+
+      for(int j=jmin; j<jmax; j++)
+	for(int i=imin; i<imax; i++)
+	  {
+	    int idx = k*m_wbox*m_hbox+j*m_hbox+i;
+	    
+	    Vec bmin, bmax;
+	    bmin = Vec(qMax(i*m_boxSize, (int)bminO.x),
+		       qMax(j*m_boxSize, (int)bminO.y),
+		       qMax(k*m_boxSize, (int)bminO.z));
+	    
+	    bmax = Vec(qMin((i+1)*m_boxSize, (int)bmaxO.x),
+		       qMin((j+1)*m_boxSize, (int)bmaxO.y),
+		       qMin((k+1)*m_boxSize, (int)bmaxO.z));
+	    
+	    Vec box[8];
+	    box[0] = Vec(bmin.x,bmin.y,bmin.z);
+	    box[1] = Vec(bmin.x,bmin.y,bmax.z);
+	    box[2] = Vec(bmin.x,bmax.y,bmin.z);
+	    box[3] = Vec(bmin.x,bmax.y,bmax.z);
+	    box[4] = Vec(bmax.x,bmin.y,bmin.z);
+	    box[5] = Vec(bmax.x,bmin.y,bmax.z);
+	    box[6] = Vec(bmax.x,bmax.y,bmin.z);
+	    box[7] = Vec(bmax.x,bmax.y,bmax.z);
+	    
+	    float xmin, xmax, ymin, ymax, zmin, zmax;
+	    xmin = (bmin.x-m_minHSlice)/(m_maxHSlice-m_minHSlice);
+	    xmax = (bmax.x-m_minHSlice)/(m_maxHSlice-m_minHSlice);
+	    ymin = (bmin.y-m_minWSlice)/(m_maxWSlice-m_minWSlice);
+	    ymax = (bmax.y-m_minWSlice)/(m_maxWSlice-m_minWSlice);
+	    zmin = (bmin.z-m_minDSlice)/(m_maxDSlice-m_minDSlice);
+	    zmax = (bmax.z-m_minDSlice)/(m_maxDSlice-m_minDSlice);
+	    
+	    for(int b=0; b<8; b++)
+	      box[b] = VECPRODUCT(box[b], voxelScaling);
+	      
+	    QList<Vec> vboSoup;
+	    for(int v=0; v<6; v++)
+	      {
+		Vec poly[4];
+		for(int w=0; w<4; w++)
+		  {
+		    int idx = faces[4*v+w];
+		    poly[w] = box[idx];
+		  }
+		
+		// put in vboSoup
+		for(int t=0; t<2; t++)
+		  {
+		    vboSoup << poly[0];
+		    vboSoup << poly[t+1];		    
+		    vboSoup << poly[t+2];
+		  }
+	      }
+	    m_boxSoup << vboSoup;
+	  } //i j
+    } // k
+  
+  progress.setValue(100);
+}
+
+void
+RcViewer::drawBox()
+{ 
+  m_mdEle = 0;
+  
+  Vec voxelScaling = Global::voxelScaling();
+
+  Vec bminO, bmaxO;
+  m_boundingBox.bounds(bminO, bmaxO);
+
+  bminO = VECDIVIDE(bminO, voxelScaling);
+  bmaxO = VECDIVIDE(bmaxO, voxelScaling);
+
+  bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
+  bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
+
+  int imin = (int)bminO.x/m_boxSize;
+  int jmin = (int)bminO.y/m_boxSize;
+  int kmin = (int)bminO.z/m_boxSize;
+
+  int imax = (int)bmaxO.x/m_boxSize;
+  int jmax = (int)bmaxO.y/m_boxSize;
+  int kmax = (int)bmaxO.z/m_boxSize;
+  if (imax*m_boxSize < (int)bmaxO.x) imax++;
+  if (jmax*m_boxSize < (int)bmaxO.y) jmax++;
+  if (kmax*m_boxSize < (int)bmaxO.z) kmax++;
+
+  int mdC = 0;
+  int mdI = -1;
+  
+  int bid = 0;
+  for(int k=kmin; k<kmax; k++)
+  for(int j=jmin; j<jmax; j++)
+  for(int i=imin; i<imax; i++)
+    {
+      int idx = k*m_wbox*m_hbox+j*m_hbox+i;
+      if (m_filledBoxes.testBit(idx))
+	{
+	  if (mdI < 0) mdI = bid;
+	  mdC++;
+	}
+      else
+	{
+	  if (mdI > -1)
+	    {
+	      // 2 triangles per face - 36 triangles in all for a cube
+	      m_mdIndices[m_mdEle] = mdI*36;
+	      m_mdCount[m_mdEle] = mdC*36;
+	      m_mdEle++;
+	      if (m_mdEle >= m_boxSoup.count())
+		QMessageBox::information(0, "", QString("ele > %1").arg(m_boxSoup.count()));
+	      
+	      mdI = -1;
+	      mdC = 0;
+	    }
+	}
+      bid++;
+    }
+
+  if (mdI > -1)
+    {
+      m_mdIndices[m_mdEle] = mdI*36;
+      m_mdCount[m_mdEle] = mdC*36;
+      m_mdEle++;
+    }
+
+}
+
+void
+RcViewer::loadAllBoxesToVBO()
+{
+  QProgressDialog progress("Loading box structure to vbo",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+  m_mdEle = 0;
+  if (m_mdCount) delete [] m_mdCount;
+  if (m_mdIndices) delete [] m_mdIndices;  
+  m_mdCount = new GLsizei[m_boxSoup.count()];
+  m_mdIndices = new GLint[m_boxSoup.count()];
+
+  //---------------------
+  int bcount = m_boxSoup.count();
+  int nvert = 0;
+  for(int i=0; i<bcount; i++)
+    nvert += m_boxSoup[i].count();
+
+  m_ntri = nvert/3;
+  int nv = 3*nvert;
+  int ni = 3*m_ntri;
+  float *vertData;
+  vertData = new float[nv];
+  int vi=0;
+  for(int i=0; i<bcount; i++)
+    {
+      if ((i/100)%10 == 0)
+	{
+	  progress.setValue(100*(float)i/(float)bcount);
+	  qApp->processEvents();
+	}
+      for(int b=0; b<m_boxSoup[i].count(); b++)
+	{
+	  vertData[3*vi+0] = m_boxSoup[i][b].x;
+	  vertData[3*vi+1] = m_boxSoup[i][b].y;
+	  vertData[3*vi+2] = m_boxSoup[i][b].z;
+	  vi++;
+	}
+    }
+  //---------------------
+
+
+  
+  unsigned int *indexData;
+  indexData = new unsigned int[ni];
+  for(int i=0; i<ni; i++)
+    indexData[i] = i;
+  //---------------------
+
+  progress.setValue(50);
+  qApp->processEvents();
+
+
+  if(m_glVertArray)
+    {
+      glDeleteBuffers(1, &m_glIndexBuffer);
+      glDeleteVertexArrays( 1, &m_glVertArray );
+      glDeleteBuffers(1, &m_glVertBuffer);
+      m_glIndexBuffer = 0;
+      m_glVertArray = 0;
+      m_glVertBuffer = 0;
+    }
+
+  glGenVertexArrays(1, &m_glVertArray);
+  glBindVertexArray(m_glVertArray);
+      
+  // Populate a vertex buffer
+  glGenBuffers(1, &m_glVertBuffer);
+  glBindBuffer(GL_ARRAY_BUFFER, m_glVertBuffer);
+  glBufferData(GL_ARRAY_BUFFER,
+	       sizeof(float)*nv,
+	       vertData,
+	       GL_STATIC_DRAW);
+
+  progress.setValue(70);
+  qApp->processEvents();
+
+
+  // Identify the components in the vertex buffer
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE,
+			sizeof(float)*3, // stride
+			(void *)0); // starting offset
+
+  
+  // Create and populate the index buffer
+  glGenBuffers(1, &m_glIndexBuffer);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_glIndexBuffer);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+	       sizeof(unsigned int)*ni,
+	       indexData,
+	       GL_STATIC_DRAW);
+  
+  progress.setValue(90);
+  qApp->processEvents();
+
+
+  glBindVertexArray(0);
+
+  delete [] vertData;
+  delete [] indexData;
+
+  progress.setValue(100);
+  qApp->processEvents();
+}
+
+void
+RcViewer::drawVBOBox(GLenum glFaces)
+{
+  glEnable(GL_CULL_FACE);
+  glCullFace(glFaces);
+
+  glBindVertexArray(m_glVertArray);
+  glBindBuffer(GL_ARRAY_BUFFER, m_glVertBuffer);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_glIndexBuffer);  
+
+  glEnableVertexAttribArray(0);
+  glEnableVertexAttribArray(1);
+
+  glUseProgram(RcShaderFactory::boxShader());
+
+  
+  GLint *boxShaderParm = RcShaderFactory::boxShaderParm();  
+
+  // model-view-projection matrix
+  GLdouble m[16];
+  GLfloat mvp[16];
+  m_viewer->camera()->getModelViewProjectionMatrix(m);
+  for(int i=0; i<16; i++) mvp[i] = m[i];
+
+  glUniformMatrix4fv(boxShaderParm[0], 1, GL_FALSE, mvp);
+
+  glMultiDrawArrays(GL_TRIANGLES, m_mdIndices, m_mdCount, m_mdEle);  
+  
+  glDisableVertexAttribArray(0);
+  glDisableVertexAttribArray(1);
+
+  glBindVertexArray(0);
+
+  glUseProgram(0);
+
+  glDisable(GL_CULL_FACE);
+}
+

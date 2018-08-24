@@ -142,9 +142,7 @@ class Viewer : public QGLViewer
 
   void readSocket();
 
-  void raycastLightOnOff(int);
   void on_raycaststillStep_changed(double);
-  void on_raycastdragStep_changed(double);
 
   //------------
   //menu viewer functions
@@ -353,7 +351,6 @@ class Viewer : public QGLViewer
   bool mouseMoveEventInPathViewport(int, QMouseEvent*);  
 
   void setupRaycastUI();
-  void setupRaycastLightParameters();
 
   void showMenuFunctionHelp(QString);
 };

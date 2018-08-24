@@ -604,10 +604,6 @@ Viewer::setupRaycastUI()
   connect(m_raycastUI.update, SIGNAL(clicked()),
 	  &m_rcViewer, SLOT(updateVoxelsForRaycast()));
 
-  connect(m_raycastUI.raycastStyle, SIGNAL(currentIndexChanged(int)),
-	  &m_rcViewer, SLOT(setRaycastStyle(int)));
-  connect(m_raycastUI.raycastStyle, SIGNAL(currentIndexChanged(int)),
-	  this, SLOT(raycastLightOnOff(int)));
   connect(m_raycastUI.skipLayers, SIGNAL(valueChanged(int)),
 	  &m_rcViewer, SLOT(setSkipLayers(int)));
   connect(m_raycastUI.skipVoxels, SIGNAL(valueChanged(int)),
@@ -616,148 +612,41 @@ Viewer::setupRaycastUI()
 	  &m_rcViewer, SLOT(setExactCoord(bool)));
   connect(m_raycastUI.stillStep, SIGNAL(valueChanged(double)),
 	  this, SLOT(on_raycaststillStep_changed(double)));
-  connect(m_raycastUI.dragStep, SIGNAL(valueChanged(double)),
-	  this, SLOT(on_raycastdragStep_changed(double)));
 
 
-
-  setupRaycastLightParameters();
-}
-
-void
-Viewer::raycastLightOnOff(int voxchoice)
-{
-  if (voxchoice > 0)
-    {
-      m_raycastUI.surfaceBox->setVisible(false);
-      m_raycastUI.raycastBox->setVisible(true);
-      m_spec->setValue(m_rcViewer.spec());
-    }
-  else
-    {
-      m_raycastUI.surfaceBox->setVisible(true);
-      m_raycastUI.raycastBox->setVisible(false);
-      m_viewSpec->setValue(m_rcViewer.spec());
-    }
-}
-
-void
-Viewer::setupRaycastLightParameters()
-{
-  m_viewSpec = new PopUpSlider(this, Qt::Horizontal);
   m_viewEdge = new PopUpSlider(this, Qt::Horizontal);
-  m_thickEdge = new PopUpSlider(this, Qt::Horizontal);
   m_viewShadow = new PopUpSlider(this, Qt::Horizontal);
-  m_shadowX = new PopUpSlider(this, Qt::Horizontal);
-  m_shadowY = new PopUpSlider(this, Qt::Horizontal);
-  m_shadowButton = new QPushButton("Color");
-  m_edgeButton = new QPushButton("Color");
+  m_raylen = new PopUpSlider(this, Qt::Horizontal);
 
-  m_viewSpec->setText("Specular");
   m_viewEdge->setText("Edges");
-  m_thickEdge->setText("Prominence");
   m_viewShadow->setText("Shadow");
-  m_shadowX->setText("X offset");
-  m_shadowY->setText("Y offset");
-
-  m_viewSpec->setRange(0, 10);
-  m_viewSpec->setValue(10);
+  m_raylen->setText("Ray Depth");
+  
   m_viewEdge->setRange(0, 10);
-  m_viewEdge->setValue(3);
-  m_thickEdge->setRange(1, 10);
-  m_thickEdge->setValue(6);
-  m_viewShadow->setRange(0, 20);
-  m_viewShadow->setValue(10);
-  m_shadowX->setRange(-5, 5);
-  m_shadowX->setValue(0);
-  m_shadowY->setRange(-5, 5);
-  m_shadowY->setValue(0);
+  m_viewEdge->setValue(5);
+  m_viewShadow->setRange(0, 10);
+  m_viewShadow->setValue(5);
+  m_raylen->setRange(0, 10);
+  m_raylen->setValue(5);
 
   QSpacerItem *spitem0 = new QSpacerItem(5,5,QSizePolicy::Minimum, QSizePolicy::Fixed);
   QSpacerItem *spitem1 = new QSpacerItem(5,5,QSizePolicy::Minimum, QSizePolicy::Fixed);
   QSpacerItem *spitem2 = new QSpacerItem(5,5,QSizePolicy::Minimum, QSizePolicy::Fixed);
   
-  m_raycastUI.popupLight->setMargin(2);
-  m_raycastUI.popupLight->addWidget(m_viewSpec);
-  m_raycastUI.popupLight->addItem(spitem0);
-  m_raycastUI.popupLight->addWidget(m_viewEdge);
-  m_raycastUI.popupLight->addWidget(m_thickEdge);
-  m_raycastUI.popupLight->addWidget(m_edgeButton);
-  m_raycastUI.popupLight->addItem(spitem1);
-  m_raycastUI.popupLight->addWidget(m_viewShadow);
-  m_raycastUI.popupLight->addWidget(m_shadowButton);
-  m_raycastUI.popupLight->addWidget(m_shadowX);
-  m_raycastUI.popupLight->addWidget(m_shadowY);
-  m_raycastUI.popupLight->addItem(spitem2);
-
-
-  connect(m_viewSpec, SIGNAL(valueChanged(int)),
-	  &m_rcViewer, SLOT(setSpec(int)));
-  connect(m_viewEdge, SIGNAL(valueChanged(int)),
-	  &m_rcViewer, SLOT(setEdge(int)));
-  connect(m_thickEdge, SIGNAL(valueChanged(int)),
-	  &m_rcViewer, SLOT(setEdgeThickness(int)));
-  connect(m_viewShadow, SIGNAL(valueChanged(int)),
-	  &m_rcViewer, SLOT(setShadow(int)));
-  connect(m_shadowX, SIGNAL(valueChanged(int)),
-	  &m_rcViewer, SLOT(setShadowOffsetX(int)));
-  connect(m_shadowY, SIGNAL(valueChanged(int)),
-	  &m_rcViewer, SLOT(setShadowOffsetY(int)));
-
-  connect(m_shadowButton, SIGNAL(clicked()),
-	  &m_rcViewer, SLOT(setShadowColor()));
-  connect(m_edgeButton, SIGNAL(clicked()),
-	  &m_rcViewer, SLOT(setEdgeColor()));
-
-  //-----------------------
-  m_raylen = new PopUpSlider(this, Qt::Horizontal);
-  m_raylen->setText("Ray Length");
-  m_raylen->setRange(1, 10);
-  m_raylen->setValue(5);
-  //-----------------------
-
-  //-----------------------
-  m_amb = new PopUpSlider(this, Qt::Horizontal);
-  m_amb->setText("Ambient");
-  m_amb->setRange(0, 10);
-  m_amb->setValue(10);
-
-  m_diff = new PopUpSlider(this, Qt::Horizontal);
-  m_diff->setText("Diffuse");
-  m_diff->setRange(0, 10);
-  m_diff->setValue(0);
-
-  m_spec = new PopUpSlider(this, Qt::Horizontal);
-  m_spec->setText("Specular");
-  m_spec->setRange(0, 10);
-  m_spec->setValue(10);
-
-  m_aolevel = new PopUpSlider(this, Qt::Horizontal);
-  m_aolevel->setText("Ambient Occlusion");
-  m_aolevel->setRange(0, 5);
-  m_aolevel->setValue(0);
-  //-----------------------
-
   m_raycastUI.popupRay->setMargin(2);
   m_raycastUI.popupRay->addWidget(m_raylen);
-  m_raycastUI.popupRay->addWidget(m_amb);
-  m_raycastUI.popupRay->addWidget(m_diff);
-  m_raycastUI.popupRay->addWidget(m_spec);
-  m_raycastUI.popupRay->addWidget(m_aolevel);
+  m_raycastUI.popupRay->addItem(spitem1);
+  m_raycastUI.popupRay->addWidget(m_viewEdge);
+  m_raycastUI.popupRay->addItem(spitem0);
+  m_raycastUI.popupRay->addWidget(m_viewShadow);
+  m_raycastUI.popupRay->addItem(spitem2);
 
+  connect(m_viewEdge, SIGNAL(valueChanged(int)),
+	  &m_rcViewer, SLOT(setEdge(int)));
+  connect(m_viewShadow, SIGNAL(valueChanged(int)),
+	  &m_rcViewer, SLOT(setShadow(int)));
   connect(m_raylen, SIGNAL(valueChanged(int)),
 	  &m_rcViewer, SLOT(setMaxRayLen(int)));
-  connect(m_amb, SIGNAL(valueChanged(int)),
-	  &m_rcViewer, SLOT(setAmbient(int)));
-  connect(m_diff, SIGNAL(valueChanged(int)),
-	  &m_rcViewer, SLOT(setDiffuse(int)));
-  connect(m_spec, SIGNAL(valueChanged(int)),
-	  &m_rcViewer, SLOT(setSpecular(int)));
-  connect(m_aolevel, SIGNAL(valueChanged(int)),
-	  &m_rcViewer, SLOT(setAOLevel(int)));
-
-  m_raycastUI.raycastBox->setVisible(false);
-
 }
 
 
@@ -3742,10 +3631,12 @@ Viewer::keyPressEvent(QKeyEvent *event)
       if (m_lowresVolume->raised())
 	{
 	  m_rcMode = true;
-	  m_raycastUI.dragStep->setValue(m_rcViewer.dragStep());
 	  m_raycastUI.stillStep->setValue(m_rcViewer.stillStep());
 	  m_raycastUI.skipLayers->setValue(m_rcViewer.skipLayers());
 	  m_raycastUI.skipVoxels->setValue(m_rcViewer.skipVoxels());
+
+	  MainWindowUI::mainWindowUI()->actionSwitch_To1D->setChecked(Global::use1D());
+	  Global::setUse1D(true);
 	}
       else
 	m_rcMode = false;
@@ -6064,36 +5955,14 @@ Viewer::setVolDataPtr(VolumeFileManager *ptr)
       Vec fullVolSize = m_Volume->getFullVolumeSize();
       m_rcViewer.setGridSize(fullVolSize.z,fullVolSize.y,fullVolSize.x);
     }
-  m_raycastUI.raycastStyle->setCurrentIndex(0);
 }
 
 void
 Viewer::on_raycaststillStep_changed(double step)
 {
-  float ds = m_rcViewer.dragStep();
-
-  if (step > ds)
-    {
-      m_raycastUI.dragStep->setValue(step);
-      ds = step;
-    }
-
-  m_rcViewer.setStillAndDragStep(step, ds);
+  m_rcViewer.setStillAndDragStep(step, step);
 }
 
-void
-Viewer::on_raycastdragStep_changed(double step)
-{
-  float ss = m_rcViewer.stillStep();
-
-  if (ss > step)
-    {
-      m_raycastUI.stillStep->setValue(step);
-      ss = step;
-    }
-
-  m_rcViewer.setStillAndDragStep(ss, step);
-}
 
 //----------------------------------
 // these are the functions called via menubar

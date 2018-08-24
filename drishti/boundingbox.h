@@ -31,6 +31,8 @@ class BoundingBox : public QObject {
   Vec m_dataMin, m_dataMax;
   Vec boxColor, defaultColor, selectColor;
 
+  bool m_emitUpdate;
+  
   void drawX(float, Vec, Vec, Vec);
   void drawY(float, Vec, Vec, Vec);
   void drawZ(float, Vec, Vec, Vec);

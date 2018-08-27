@@ -167,7 +167,7 @@ class RcViewer : public QObject
   void createFBO();
 
   void raycasting();
-  void raycast(float, float, bool);
+  void raycast(Vec, float, float, bool);
 
   void drawInfo();
 

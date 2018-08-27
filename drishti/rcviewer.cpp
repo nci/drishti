@@ -854,7 +854,6 @@ RcViewer::updateVoxelsForRaycast()
     m_maxDSlice = bmax.z;
     m_maxWSlice = bmax.y;
     m_maxHSlice = bmax.x;
-    //m_viewer->camera()->setRevolveAroundPoint((bmax+bmin)/2);  
   }
   
   qint64 dsz = (m_maxDSlice-m_minDSlice);
@@ -1037,47 +1036,39 @@ RcViewer::raycasting()
   Vec bminO, bmaxO;
   m_boundingBox.bounds(bminO, bmaxO);
 
-  //m_viewer->camera()->setRevolveAroundPoint((bmaxO+bminO)/2);  
-
-  bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
-  bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
-
   bminO = VECPRODUCT(bminO, voxelScaling);
   bmaxO = VECPRODUCT(bmaxO, voxelScaling);
 
   Vec pivot = m_brickInfo[0].getCorrectedPivot();
   Vec axis = m_brickInfo[0].axis;
   float angle = m_brickInfo[0].angle;
+  pivot = VECPRODUCT((Vec(1,1,1)-pivot),bminO) + VECPRODUCT(pivot,bmaxO);
   QMatrix4x4 b0xform;
   b0xform.setToIdentity();
   b0xform.translate(pivot.x, pivot.y, pivot.z);
   b0xform.rotate(angle, axis.x, axis.y, axis.z);
   b0xform.translate(-pivot.x, -pivot.y, -pivot.z);
-
+  b0xform = b0xform.inverted();
+  
   QVector3D box[8];
-  box[0] = b0xform.map(QVector3D(bminO.x, bminO.y, bminO.z));
-  box[1] = b0xform.map(QVector3D(bminO.x, bminO.y, bmaxO.z));
-  box[2] = b0xform.map(QVector3D(bminO.x, bmaxO.y, bminO.z));
-  box[3] = b0xform.map(QVector3D(bminO.x, bmaxO.y, bmaxO.z));
-  box[4] = b0xform.map(QVector3D(bmaxO.x, bminO.y, bminO.z));
-  box[5] = b0xform.map(QVector3D(bmaxO.x, bminO.y, bmaxO.z));
-  box[6] = b0xform.map(QVector3D(bmaxO.x, bmaxO.y, bminO.z));
-  box[7] = b0xform.map(QVector3D(bmaxO.x, bmaxO.y, bmaxO.z));
+  box[0] = QVector3D(bminO.x, bminO.y, bminO.z);
+  box[1] = QVector3D(bminO.x, bminO.y, bmaxO.z);
+  box[2] = QVector3D(bminO.x, bmaxO.y, bminO.z);
+  box[3] = QVector3D(bminO.x, bmaxO.y, bmaxO.z);
+  box[4] = QVector3D(bmaxO.x, bminO.y, bminO.z);
+  box[5] = QVector3D(bmaxO.x, bminO.y, bmaxO.z);
+  box[6] = QVector3D(bmaxO.x, bmaxO.y, bminO.z);
+  box[7] = QVector3D(bmaxO.x, bmaxO.y, bmaxO.z);
 
-//  for (int i=0; i<8; i++)
-//    box[i] = Matrix::xformVec(m_b0xform, box[i]);
 
   Vec eyepos = m_viewer->camera()->position();
-  Vec viewDir = m_viewer->camera()->viewDirection();
-
-  QVector3D ep(eyepos.x, eyepos.y, eyepos.z);
-  QVector3D vd(viewDir.x, viewDir.y, viewDir.z);
+  QVector3D e = QVector3D(b0xform.map(QVector4D(eyepos.x, eyepos.y, eyepos.z, 1.0)));
   
   float minZ = 1000000;
   float maxZ = -1000000;
   for(int b=0; b<8; b++)
     {
-      float zv = QVector3D::dotProduct((box[b]-ep),vd);
+      float zv = (box[b]-e).length();
       minZ = qMin(minZ, zv);
       maxZ = qMax(maxZ, zv);
     }
@@ -1087,26 +1078,25 @@ RcViewer::raycasting()
 
 
   checkCrops();
-  //updateFilledBoxes();
 
 
-  raycast(minZ, maxZ, false); // raycast surface process
+  raycast(Vec(e.x(), e.y(), e.z()), minZ, maxZ, false); // raycast surface process
 }
 
 
 void
-RcViewer::raycast(float minZ, float maxZ, bool firstPartOnly)
+RcViewer::raycast(Vec eyepos, float minZ, float maxZ, bool firstPartOnly)
 {
   Vec voxelScaling = Global::voxelScaling();
 
   Vec bgColor = Global::backgroundColor();
-
-  Vec eyepos = m_viewer->camera()->position();
+ 
   Vec viewDir = m_viewer->camera()->viewDirection();
   Vec subvolcorner = Vec(m_minHSlice, m_minWSlice, m_minDSlice);
   Vec subvolsize = Vec(m_maxHSlice-m_minHSlice+1,
 		       m_maxWSlice-m_minWSlice+1,
 		       m_maxDSlice-m_minDSlice+1);
+  
 
   glClearDepth(0);
   glClearColor(0, 0, 0, 0);
@@ -1186,11 +1176,6 @@ RcViewer::raycast(float minZ, float maxZ, bool firstPartOnly)
  
   stepsize /= qMax(m_vsize.x,qMax(m_vsize.y,m_vsize.z));
 
-
-  //eyepos = Matrix::xformVec(m_b0xformInv, eyepos);
-  //viewDir = Matrix::rotateVec(m_b0xformInv, viewDir);
-
-
   //---------
   //---------
   glUseProgramObjectARB(m_ircShader);
@@ -1212,7 +1197,8 @@ RcViewer::raycast(float minZ, float maxZ, bool firstPartOnly)
   { // apply clip planes to modify entry and exit points
     QList<Vec> cPos;
     QList<Vec> cNorm;
-    cPos << m_viewer->camera()->position();
+    //cPos << m_viewer->camera()->position();
+    cPos << m_viewer->camera()->position()+100*m_viewer->camera()->viewDirection();
     cNorm << -m_viewer->camera()->viewDirection();
     cPos += GeometryObjects::clipplanes()->positions();
     cNorm += GeometryObjects::clipplanes()->normals();
@@ -1469,47 +1455,12 @@ bool
 RcViewer::getHit(const QMouseEvent *event)
 {
   bool found = false;
-  QPoint scr = event->pos();
-
-  Vec bminO, bmaxO;
-  m_boundingBox.bounds(bminO, bmaxO);
-
-  bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
-  bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
-
-  Vec box[8];
-  box[0] = Vec(bminO.x, bminO.y, bminO.z);
-  box[1] = Vec(bminO.x, bminO.y, bmaxO.z);
-  box[2] = Vec(bminO.x, bmaxO.y, bminO.z);
-  box[3] = Vec(bminO.x, bmaxO.y, bmaxO.z);
-  box[4] = Vec(bmaxO.x, bminO.y, bminO.z);
-  box[5] = Vec(bmaxO.x, bminO.y, bmaxO.z);
-  box[6] = Vec(bmaxO.x, bmaxO.y, bminO.z);
-  box[7] = Vec(bmaxO.x, bmaxO.y, bmaxO.z);
-
-//  for (int i=0; i<8; i++)
-//    box[i] = Matrix::xformVec(m_b0xform, box[i]);
-
-  //--------------------------------
-  Vec eyepos = m_viewer->camera()->position();
-  Vec viewDir = m_viewer->camera()->viewDirection();
-  float minZ = 1000000;
-  float maxZ = -1000000;
-  for(int b=0; b<8; b++)
-    {
-      float zv = (box[b]-eyepos)*viewDir;
-      minZ = qMin(minZ, zv);
-      maxZ = qMax(maxZ, zv);
-    }
-  //--------------------------------
-
-
-  int sw = m_viewer->camera()->screenWidth();
-  int sh = m_viewer->camera()->screenHeight();  
-
   Vec pos;
+  QPoint scr = event->pos();
   int cx = scr.x();
   int cy = scr.y();
+  int sw = m_viewer->camera()->screenWidth();
+  int sh = m_viewer->camera()->screenHeight();  
   GLfloat depth = 0;
   
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
@@ -1916,8 +1867,8 @@ RcViewer::drawVBOBox(GLenum glFaces)
 
   Vec bminO, bmaxO;
   m_boundingBox.bounds(bminO, bmaxO);
-  bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
-  bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
+//  bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
+//  bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
 
   pivot = VECPRODUCT((Vec(1,1,1)-pivot),bminO) + VECPRODUCT(pivot,bmaxO);
     

@@ -624,6 +624,9 @@ RcShaderFactory::genRaycastShader_1(bool nearest,
   shader += "    }\n";
   // --------------------
   
+  // reduce opacity
+  shader += " colorSample.a *= colorSample.a;\n";
+  
   // ----------------------------
   shader += "  colorSample *= step(float(skipVoxels), length(voxelCoord*vsize-skipVoxStart));\n";
   // ----------------------------
@@ -638,7 +641,6 @@ RcShaderFactory::genRaycastShader_1(bool nearest,
       shader += "  if (feather > 0.5)\n";
       shader += "    colorSample.a = 0.0;\n"; // cropped
     }
-  
 
   shader += "  if (nskipped > skipLayers)\n";
   shader += "  {\n";
@@ -763,6 +765,7 @@ RcShaderFactory::genEdgeEnhanceShader_1()
   shader += "    float dy = texture2DRect(normalTex, sy1).z - texture2DRect(normalTex, sy0).z;\n";
   shader += "    float zedge = (maxZ-minZ)*0.5/dzScale;\n";
   shader += "    vec3 norm = normalize(vec3(dx, dy, (zedge*zedge)/(maxZ-minZ)));\n";  
+
   shader += "    color.rgb *= norm.z;\n";
   shader += "  }\n";
     

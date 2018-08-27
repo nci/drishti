@@ -1965,17 +1965,9 @@ Viewer::drawImageOnScreen()
 {
   if (m_rcMode) // don't draw here when in Raycast mode
     {
-      m_rcViewer.setXformMatrix(m_hiresVolume->brick0Xform());
+      //m_rcViewer.setXformMatrix(m_hiresVolume->brick0Xform());
+      m_rcViewer.setBrickInfo(m_hiresVolume->bricks());
       m_rcViewer.draw();      
-      if (m_rcViewer.doNextLot())
-	{
-	  m_autoUpdateTimer.start();
-	}
-      else if (m_autoUpdateTimer.isActive())
-	{
-	  m_autoUpdateTimer.stop();
-	  m_rcViewer.resetNextLot();
-	}
       
       return;
     }
@@ -2554,8 +2546,8 @@ Viewer::fastDraw()
       glClearColor(0,0,0,1);
       glClear(GL_COLOR_BUFFER_BIT);
 
-      m_rcViewer.setXformMatrix(m_hiresVolume->brick0Xform());
-      m_rcViewer.resetNextLot();
+      //m_rcViewer.setXformMatrix(m_hiresVolume->brick0Xform());
+      m_rcViewer.setBrickInfo(m_hiresVolume->bricks());
       m_rcViewer.fastDraw();
     }
   else

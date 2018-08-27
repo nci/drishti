@@ -12,28 +12,6 @@ class RcShaderFactory
 
   static QString genRectBlurShaderString(int);
 
-  static QString genFirstHitShader(bool,
-				   QList<CropObject>,
-				   bool);
-
-  static QString genIsoRaycastShader(bool,
-				     QList<CropObject>,
-				     bool);
-
-  static QString genRaycastShader(bool,
-				  QList<CropObject>,
-				  bool);
-
-  static QString genXRayShader(bool,
-			       QList<CropObject>,
-			       bool);
-
-  static QString genEdgeEnhanceShader(bool);
-
-  static QString genEntryExitShader();
-
-
-
   static QString genRaycastShader_1(bool,
 				    QList<CropObject>,
 				    bool);

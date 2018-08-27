@@ -1,6 +1,7 @@
 #ifndef RCVIEWER_H
 #define RCVIEWER_H
 
+#include "brickinformation.h"
 
 #include <QGLViewer/qglviewer.h>
 #include <QGLViewer/vec.h>
@@ -41,8 +42,8 @@ class RcViewer : public QObject
 
   void activateBounds(bool);
 
-  void setXformMatrix(double*);
-
+  void setBrickInfo(QList<BrickInformation>);
+  
   int aoLevel() { return m_aoLevel; }
   bool exactCoord() { return m_exactCoord; }
   int skipLayers() { return m_skipLayers; }
@@ -62,15 +63,11 @@ class RcViewer : public QObject
 
   bool getHit(const QMouseEvent*);
 
-  void resetNextLot() { m_currSlab = 0; }
-  bool doNextLot();
-
   void loadLookupTable();
 
   public slots :
     void boundingBoxChanged();
     void updateVoxelsForRaycast();
-    void setRaycastStyle(int);
     void setSkipLayers(int l) { m_skipLayers = l; m_viewer->update(); }
     void setSkipVoxels(int l) { m_skipVoxels = l; m_viewer->update(); }
     void setShadowColor();
@@ -98,9 +95,6 @@ class RcViewer : public QObject
   uchar *m_volPtr;
   uchar *m_lut;
   int m_bytesPerVoxel;
-
-  double m_b0xform[16];
-  double m_b0xformInv[16];
 
   qint64 m_depth, m_width, m_height;
   int m_minDSlice, m_maxDSlice;
@@ -143,17 +137,8 @@ class RcViewer : public QObject
   GLhandleARB m_blurShader;
   GLint m_blurParm[20];
 
-  GLhandleARB m_enexShader;
-  GLint m_enexParm[20];
-
-  GLhandleARB m_fhShader;
-  GLint m_fhParm[20];
-
   GLhandleARB m_ircShader;
   GLint m_ircParm[50];
-
-  GLhandleARB m_rcShader;
-  GLint m_rcParm[50];
 
   GLhandleARB m_eeShader;
   GLint m_eeParm[20];
@@ -177,28 +162,18 @@ class RcViewer : public QObject
   void generateBoxMinMax();
   void updateFilledBoxes();
 
-  void createFirstHitShader();
   void createIsoRaycastShader();
-  void createRaycastShader();
   void createShaders();
   void createFBO();
 
   void raycasting();
-  void surfaceRaycast(float, float, bool);
-  void volumeRaycast(float, float);
-
-  void drawBox(GLenum);
-  void drawFace(int, Vec*, Vec*);
-  void drawClipFaces(Vec*, Vec*);
+  void raycast(float, float, bool);
 
   void drawInfo();
 
   void checkCrops();
 
-  void pre_vray();
-  void vray();
-
-  void drawGeometry(bool);
+  void drawGeometry();
 
 
   //-------------
@@ -215,8 +190,9 @@ class RcViewer : public QObject
   QList<QList<Vec> > m_boxSoup;
   //-------------
 
-
-  void drawBox();
+  QList<BrickInformation> m_brickInfo;
+  
+  void identifyBoxes();
   void loadAllBoxesToVBO();
   void drawVBOBox(GLenum);
   void generateBoxes();

@@ -120,6 +120,8 @@ class Viewer : public QGLViewer
   void reloadData();
   void switchToHires();
   void switchDrawVolume();
+  void switchSliceMode();
+  void switchRaycastMode();
   void enableTextureUnits();
   void disableTextureUnits();
   void setKeyFrame(int);
@@ -173,12 +175,14 @@ class Viewer : public QGLViewer
   //------------
 
  signals:
+  void show16BitEditor(bool);
   void resetFlipImage();
   void quitDrishti();
   void showMessage(QString, bool);
   void stereoSettings(float, float, float);
   void focusSetting(float);
   void histogramUpdated(QImage, QImage);
+  void histogramUpdated(int*);
   void setHiresMode(bool);
   void changeStill(int);
   void changeDrag(int); 

@@ -30,6 +30,8 @@ class RemapHistogramLine : public QObject
 
   void setTicks(float, float);
 
+  void setTickMaxKey(uint);
+
  signals :
   void addTick(int);
   void removeTick();

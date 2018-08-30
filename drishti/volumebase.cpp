@@ -13,8 +13,7 @@ Vec VolumeBase::getLowresTextureVolumeSize() { return m_lowresTextureVolumeSize;
 int VolumeBase::getLowresSubsamplingLevel() { return m_subSamplingLevel; }
 
 int* VolumeBase::getLowres1dHistogram() { return m_1dHistogram; }
-int* VolumeBase::getLowres2dHistogram()
-{ return m_2dHistogram; }
+int* VolumeBase::getLowres2dHistogram() { return m_2dHistogram; }
 
 unsigned char* VolumeBase::getLowresVolume() { return m_lowresVolume; }
 unsigned char* VolumeBase::getLowresTextureVolume() { return m_lowresTextureVolume; }

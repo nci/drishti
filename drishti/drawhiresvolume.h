@@ -61,6 +61,7 @@ class DrawHiresVolume : public QObject
 
   QImage histogramImage1D();
   QImage histogramImage2D();
+  int* histogram1D();
   int* histogram2D();
 
   LightingInformation lightInfo();

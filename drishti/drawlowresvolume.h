@@ -27,6 +27,7 @@ class DrawLowresVolume : public QObject
   void loadVolume();
   QImage histogramImage1D();
   QImage histogramImage2D();
+  int* histogram1D();
   int* histogram2D();
 
   Vec volumeSize();

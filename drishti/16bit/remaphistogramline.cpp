@@ -30,6 +30,22 @@ RemapHistogramLine::RemapHistogramLine()
 bool RemapHistogramLine::grabsMouse() { return m_keepGrabbing; }
 
 void
+RemapHistogramLine::setTickMaxKey(uint tmax)
+{
+  m_tickMinKey = 0;
+  m_tickMaxKey = tmax;
+
+  m_activeB1 = m_tickMinKey;
+  m_activeB2 = m_tickMaxKey;
+
+  m_ticks[0] = 0;
+  m_ticks[m_tickMaxKey] = m_tickMaxKey;
+
+  m_ticksOriginal[0] = 0;
+  m_ticksOriginal[m_tickMaxKey] = m_tickMaxKey;
+}
+
+void
 RemapHistogramLine::setLine(int x, int w)
 {
   m_start = x;

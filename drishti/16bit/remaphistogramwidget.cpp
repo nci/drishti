@@ -115,6 +115,19 @@ RemapHistogramWidget::setHistogram(QList<uint> hist)
 {
   m_histogram = hist;
   
+
+  if (m_histogram.size() == 256)
+    {
+      m_rawMin = 0;
+      m_rawMax = 256;
+      m_Line->setTickMaxKey(256);
+    }
+  else
+    {
+      m_rawMin = 0;
+      m_rawMax = 65535;
+    }
+
   m_histMax = 0;
   for(uint i=0; i<m_histogram.size(); i++)
     m_histMax = qMax(m_histMax, m_histogram[i]);

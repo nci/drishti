@@ -1,6 +1,9 @@
 #ifndef CONNECTVIEWER_H
 #define CONNECTVIEWER_H
 
+  connect(m_Viewer, SIGNAL(show16BitEditor(bool)),
+	  this, SLOT(show16BitEditor(bool)));
+
   connect(m_Viewer, SIGNAL(resetFlipImage()),
 	  this, SLOT(resetFlipImage()));
 
@@ -57,6 +60,8 @@
   connect(m_Viewer, SIGNAL(histogramUpdated(QImage, QImage)),
 	  m_tfEditor, SLOT(setHistogramImage(QImage, QImage)));
 
+  connect(m_Viewer, SIGNAL(histogramUpdated(int*)),
+	  m_tfEditor, SLOT(setHistogram2D(int*)));
 
 
 #endif

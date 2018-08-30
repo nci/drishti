@@ -99,6 +99,13 @@ QImage DrawHiresVolume::histogramImage2D()
     return m_histogramDrag2D;
 }
 
+int* DrawHiresVolume::histogram1D()
+{
+  if (!Global::useDragVolume())
+    return m_Volume->getSubvolume1dHistogram(m_currentVolume);
+  else
+    return m_Volume->getDrag1dHistogram(m_currentVolume);
+}
 int* DrawHiresVolume::histogram2D()
 {
   if (!Global::useDragVolume())

@@ -122,6 +122,7 @@
     <addaction name="actionStatusBar"/>
     <addaction name="separator"/>
     <addaction name="actionHiresMode"/>
+    <addaction name="actionRaycastMode"/>
     <addaction name="separator"/>
     <addaction name="actionShadowRender"/>
     <addaction name="actionMIP"/>
@@ -614,6 +615,14 @@
    </property>
    <property name="text">
     <string>MIP (6)</string>
+   </property>
+  </action>
+  <action name="actionRaycastMode">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Raycast Mode (F3)</string>
    </property>
   </action>
  </widget>

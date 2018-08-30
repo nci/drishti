@@ -156,8 +156,38 @@ SplineEditorWidget::SplineEditorWidget(QWidget *parent) :
   setMinimumSize(200, 200);
 
   m_16bitEditor->hide();
+  m_show16BitEditor = false;
 }
 
+void
+SplineEditorWidget::show16BitEditor(bool b)
+{
+  m_show16BitEditor = b;
+  if (m_show16BitEditor)
+    {
+      m_16bitEditor->show();
+
+      m_splineEditor->hide();
+      m_1dHist->hide();
+      m_2dHist->hide();
+      m_gbotValue->hide();
+      m_gtopValue->hide();
+      m_gbotSlider->hide();
+      m_gtopSlider->hide();
+    }
+  else
+    {
+      m_16bitEditor->hide();
+
+      m_splineEditor->show();
+      m_1dHist->show();
+      m_2dHist->show();
+      m_gbotValue->show();
+      m_gtopValue->show();
+      m_gbotSlider->show();
+      m_gtopSlider->show();
+    }
+}
 void
 SplineEditorWidget::gbotSliderReleased()
 {
@@ -349,7 +379,7 @@ SplineEditorWidget::setTransferFunction(SplineTransferFunction *stf)
     
   m_splineEditor->setTransferFunction(stf);
 
-  if (Global::pvlVoxelType() > 0)
+//  if (Global::pvlVoxelType() > 0)
     {
       if (stf != NULL)
 	{
@@ -367,11 +397,11 @@ SplineEditorWidget::setTransferFunction(SplineTransferFunction *stf)
 void
 SplineEditorWidget::setMapping(QPolygonF fmap)
 {
-  if (Global::pvlVoxelType() > 0)
+  if (m_show16BitEditor)
     {
-      m_splineEditor->hide();
       m_16bitEditor->show();
-      //m_16bitEditor->setPvlMapMax(65535);
+
+      m_splineEditor->hide();
       m_1dHist->hide();
       m_2dHist->hide();
       m_gbotValue->hide();
@@ -405,11 +435,19 @@ SplineEditorWidget::setHistogramImage(QImage histImg1,
 void
 SplineEditorWidget::setHistogram2D(int* hist2D)
 {
-  if (Global::pvlVoxelType() > 0)
+  //if (Global::pvlVoxelType() > 0)
     {
       QList<uint> h;
-      for(int i=0; i<256*256; i++)
-	h << hist2D[i];
+      if (Global::pvlVoxelType() == 0)
+	{
+	  for(int i=0; i<256; i++)
+	    h << hist2D[i];
+	}
+      else
+	{
+	  for(int i=0; i<256*256; i++)
+	    h << hist2D[i];
+	}
       m_16bitEditor->setHistogram(h);
     }
 }
@@ -418,7 +456,7 @@ void
 SplineEditorWidget::setGradientStops(QGradientStops stops)
 {
   m_splineEditor->setGradientStops(stops);
-  if (Global::pvlVoxelType() > 0)
+  //  if (Global::pvlVoxelType() > 0)
     m_16bitEditor->setGradientStops(stops);
 }
 

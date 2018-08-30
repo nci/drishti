@@ -198,17 +198,17 @@ Viewer::reloadData()
 				   Global::volumeNumber(3),
 				   bmin, bmax, true);
 
+
   
   if (m_rcMode)
     {
       m_rcViewer.updateSubvolume(bmin, bmax);
       m_rcViewer.updateVoxelsForRaycast();
     }
-
-
-  if (!m_rcMode)
+  else
     emit histogramUpdated(m_hiresVolume->histogramImage1D(),
 			  m_hiresVolume->histogramImage2D());
+  
 
   qApp->restoreOverrideCursor();
 }
@@ -272,6 +272,23 @@ Viewer::switchToHires()
 }
 
 void
+Viewer::switchSliceMode()
+{
+  QKeyEvent ke = QKeyEvent(QEvent::KeyPress,
+			   Qt::Key_F2,
+			   Qt::NoModifier);
+  keyPressEvent(&ke);
+}
+void
+Viewer::switchRaycastMode()
+{
+  QKeyEvent ke = QKeyEvent(QEvent::KeyPress,
+			   Qt::Key_F3,
+			   Qt::NoModifier);
+  keyPressEvent(&ke);
+}
+
+void
 Viewer::switchDrawVolume()
 {
   qApp->setOverrideCursor(QCursor(Qt::WaitCursor));
@@ -288,6 +305,14 @@ Viewer::switchDrawVolume()
 	emit histogramUpdated(m_hiresVolume->histogramImage1D(),
 			      m_hiresVolume->histogramImage2D());
 
+//      if (m_rcMode)
+//	{
+//	  if (Global::pvlVoxelType() == 0)
+//	    emit histogramUpdated(m_hiresVolume->histogram1D());
+//	  else
+//	    emit histogramUpdated(m_hiresVolume->histogram2D());
+//	}
+      
       emit setHiresMode(true);
 
       createImageBuffers();
@@ -298,9 +323,19 @@ Viewer::switchDrawVolume()
 
       if (Global::volumeType() != Global::DummyVolume)
 	updateLookupTable(); 
+
+      MainWindowUI::mainWindowUI()->actionHiresMode->setChecked(false);
+      MainWindowUI::mainWindowUI()->actionRaycastMode->setChecked(false);
+      if (!m_rcMode)
+	MainWindowUI::mainWindowUI()->actionHiresMode->setChecked(true);
+      else
+	MainWindowUI::mainWindowUI()->actionRaycastMode->setChecked(true);
     }
   else
     {
+      MainWindowUI::mainWindowUI()->actionHiresMode->setChecked(false);
+      MainWindowUI::mainWindowUI()->actionRaycastMode->setChecked(false);
+
       PruneHandler::setCarve(false);
       PruneHandler::setPaint(false);
       //GeometryObjects::hitpoints()->ignore(false);
@@ -3611,6 +3646,11 @@ Viewer::keyPressEvent(QKeyEvent *event)
 	    
   if (event->key() == Qt::Key_F2)
     {
+      if (m_rcMode && !m_lowresVolume->raised())
+	{
+	  m_lowresVolume->raise();
+	  m_hiresVolume->lower();
+	}
       m_rcMode = false;
       m_raycastMenu->hide();
       switchDrawVolume();
@@ -3618,6 +3658,8 @@ Viewer::keyPressEvent(QKeyEvent *event)
       return ;
     }
 
+  //-----
+  // raycast
   if (event->key() == Qt::Key_F3)
     {
       if (m_lowresVolume->raised())
@@ -3627,12 +3669,34 @@ Viewer::keyPressEvent(QKeyEvent *event)
 	  m_raycastUI.skipLayers->setValue(m_rcViewer.skipLayers());
 	  m_raycastUI.skipVoxels->setValue(m_rcViewer.skipVoxels());
 
-	  MainWindowUI::mainWindowUI()->actionSwitch_To1D->setChecked(Global::use1D());
 	  Global::setUse1D(true);
+	  MainWindowUI::mainWindowUI()->actionSwitch_To1D->setChecked(Global::use1D());
+	  emit show16BitEditor(true);
 	}
       else
-	m_rcMode = false;
-      
+	{
+	  if (m_rcMode)
+	    {
+	      m_rcMode = false;
+	      Global::setUse1D(false);
+	      MainWindowUI::mainWindowUI()->actionSwitch_To1D->setChecked(Global::use1D());
+	      emit show16BitEditor(false);
+	    }
+	  else
+	    {
+	      m_lowresVolume->raise();
+	      m_hiresVolume->lower();
+	      m_rcMode = true;
+	      m_raycastUI.stillStep->setValue(m_rcViewer.stillStep());
+	      m_raycastUI.skipLayers->setValue(m_rcViewer.skipLayers());
+	      m_raycastUI.skipVoxels->setValue(m_rcViewer.skipVoxels());
+	      
+	      Global::setUse1D(true);
+	      MainWindowUI::mainWindowUI()->actionSwitch_To1D->setChecked(Global::use1D());
+	      emit show16BitEditor(true);
+	    }
+	}
+
       m_rcViewer.activateBounds(m_rcMode && Global::drawBox());
 
       switchDrawVolume();
@@ -3643,7 +3707,9 @@ Viewer::keyPressEvent(QKeyEvent *event)
 	m_raycastMenu->hide();
       return ;
     }
+  //-----
 
+  
   if (m_hiresVolume->raised() &&
       (PruneHandler::carve() || PruneHandler::paint()))
     {

@@ -40,6 +40,12 @@ TransferFunctionEditorWidget::changeVol(int i)
 }
 
 void
+TransferFunctionEditorWidget::show16BitEditor(bool b)
+{
+  m_splineEditorWidget->show16BitEditor(b);
+}
+
+void
 TransferFunctionEditorWidget::changeHistogram(int i)
 {
   emit giveHistogram(i);

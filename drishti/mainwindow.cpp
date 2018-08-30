@@ -319,6 +319,22 @@ MainWindow::MainWindow(QWidget *parent) :
   
 }
 
+
+void
+MainWindow::show16BitEditor(bool b)
+{
+  if (b)
+    {
+      m_tfEditor->show16BitEditor(true);
+      return;
+    }
+  
+  if (m_Volume->pvlVoxelType(0) == 0)
+    m_tfEditor->show16BitEditor(false);
+  else
+    m_tfEditor->show16BitEditor(true);
+}
+
 void
 MainWindow::registerMenuViewerFunctions()
 {
@@ -1130,7 +1146,15 @@ void
 MainWindow::on_actionHiresMode_triggered()
 {
   if (m_Volume->valid())
-    m_Viewer->switchDrawVolume();
+    m_Viewer->switchSliceMode();
+    //m_Viewer->switchDrawVolume();
+}
+
+void
+MainWindow::on_actionRaycastMode_triggered()
+{
+  if (m_Volume->valid())
+    m_Viewer->switchRaycastMode();
 }
 
 void
@@ -2475,10 +2499,17 @@ MainWindow::postLoadVolume()
       m_tfEditor->setMapping(fmap);
       
       if (m_Volume->pvlVoxelType(0) == 0)
-	m_tfEditor->setHistogramImage(m_Lowres->histogramImage1D(),
-				      m_Lowres->histogramImage2D());
+	{
+	  m_tfEditor->show16BitEditor(false);
+	  m_tfEditor->setHistogramImage(m_Lowres->histogramImage1D(),
+					m_Lowres->histogramImage2D());
+	  m_tfEditor->setHistogram2D(m_Lowres->histogram1D());
+	}
       else
-	m_tfEditor->setHistogram2D(m_Lowres->histogram2D());
+	{
+	  m_tfEditor->show16BitEditor(true);
+	  m_tfEditor->setHistogram2D(m_Lowres->histogram2D());
+	}
     }
 
   m_Lowres->raise();
@@ -3191,8 +3222,11 @@ MainWindow::loadProject(const char* flnm)
   if (Global::volumeType() != Global::DummyVolume)
     {
       if (m_Volume->pvlVoxelType(0) == 0)
-	m_tfEditor->setHistogramImage(m_Hires->histogramImage1D(),
-				      m_Hires->histogramImage2D());
+	{
+	  m_tfEditor->setHistogramImage(m_Hires->histogramImage1D(),
+					m_Hires->histogramImage2D());
+	  m_tfEditor->setHistogram2D(m_Hires->histogram1D());
+	}
       else
 	m_tfEditor->setHistogram2D(m_Hires->histogram2D());
     }
@@ -4279,16 +4313,22 @@ MainWindow::changeHistogram(int volnum)
   if (m_Lowres->raised())
     {
       if (m_Volume->pvlVoxelType(0) == 0)
-	emit histogramUpdated(m_Lowres->histogramImage1D(),
-			      m_Lowres->histogramImage2D());
+	{
+	  emit histogramUpdated(m_Lowres->histogramImage1D(),
+				m_Lowres->histogramImage2D());
+	  emit histogramUpdated(m_Lowres->histogram1D());
+	}
       else
 	emit histogramUpdated(m_Lowres->histogram2D());
     }
   else
     {
       if (m_Volume->pvlVoxelType(0) == 0)
-	emit histogramUpdated(m_Hires->histogramImage1D(),
-			      m_Hires->histogramImage2D());
+	{
+	  emit histogramUpdated(m_Hires->histogramImage1D(),
+				m_Hires->histogramImage2D());
+	  emit histogramUpdated(m_Hires->histogram1D());
+	}
       else
 	emit histogramUpdated(m_Hires->histogram2D());
     }

@@ -25,6 +25,8 @@ class TransferFunctionEditorWidget : public QSplitter
   void changeHistogram(int);
   void changeVol(int);
 
+  void show16BitEditor(bool);
+
  signals :
   void transferFunctionUpdated();
   void updateComposite();

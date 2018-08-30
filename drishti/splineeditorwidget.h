@@ -41,6 +41,8 @@ class SplineEditorWidget : public QWidget
   void gtopSliderReleased();
   void gbotSliderReleased();
 
+  void show16BitEditor(bool);
+  
  signals :
   void transferFunctionChanged(QImage);
   void selectEvent(QGradientStops);
@@ -58,6 +60,8 @@ class SplineEditorWidget : public QWidget
   QRadioButton *m_vol3, *m_vol4;
   QLineEdit *m_gtopValue, *m_gbotValue;
   QSlider *m_gtopSlider, *m_gbotSlider;
+
+  bool m_show16BitEditor;
 };
 
 #endif

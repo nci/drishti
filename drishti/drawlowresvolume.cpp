@@ -16,9 +16,9 @@ void DrawLowresVolume::raise()
   showing = true;
   m_boundingBox.activateBounds();
   load3dTexture();
-
-  if (MainWindowUI::mainWindowUI()->actionHiresMode->isChecked())
-    MainWindowUI::mainWindowUI()->actionHiresMode->setChecked(false);
+//
+//  if (MainWindowUI::mainWindowUI()->actionHiresMode->isChecked())
+//    MainWindowUI::mainWindowUI()->actionHiresMode->setChecked(false);
 }
 void DrawLowresVolume::lower()
 {
@@ -27,9 +27,9 @@ void DrawLowresVolume::lower()
   if (m_dataTex)
     glDeleteTextures(1, &m_dataTex);
   m_dataTex = 0;
-
-  if (!MainWindowUI::mainWindowUI()->actionHiresMode->isChecked())
-    MainWindowUI::mainWindowUI()->actionHiresMode->setChecked(true);
+//
+//  if (!MainWindowUI::mainWindowUI()->actionHiresMode->isChecked())
+//    MainWindowUI::mainWindowUI()->actionHiresMode->setChecked(true);
 }
 
 void DrawLowresVolume::setCurrentVolume(int vnum) { m_currentVolume = vnum; }
@@ -38,6 +38,7 @@ QImage DrawLowresVolume::histogramImage1D() { return m_histogramImage1D; }
 QImage DrawLowresVolume::histogramImage2D() { return m_histogramImage2D; }
 
 int* DrawLowresVolume::histogram2D() { return m_Volume->getLowres2dHistogram(m_currentVolume); }
+int* DrawLowresVolume::histogram1D() { return m_Volume->getLowres1dHistogram(m_currentVolume); }
 
 Vec DrawLowresVolume::volumeSize() { return m_virtualTextureSize; }
 Vec DrawLowresVolume::volumeMin() { return m_dataMin; }

@@ -167,9 +167,9 @@ DrawLowresVolume::load3dTexture()
   Vec textureSize = m_Volume->getLowresTextureVolumeSize();
   glActiveTexture(GL_TEXTURE1);
   glBindTexture(GL_TEXTURE_3D, m_dataTex);
-  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
-  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
-  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER); 
+  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER); 
+  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
   if (Global::interpolationType(Global::TextureInterpolation)) // linear
     {
       glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -677,7 +677,7 @@ DrawLowresVolume::drawSlices(Vec pn, Vec minvert, Vec maxvert,
   subvol[7] = Vec(xmin, ymax, zmax);
 
   subcorner = m_virtualTextureMin,
-     subdim = m_virtualTextureSize - Vec(1,1,1);
+    subdim = m_virtualTextureSize - Vec(1,1,1);
 
   Vec step = stepsize*pn;
   Vec po = minvert+layers*step;

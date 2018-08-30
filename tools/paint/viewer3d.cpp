@@ -7,13 +7,13 @@ Viewer3D::Viewer3D(QWidget *parent) :
 
   m_viewer = new Viewer(this);
 
-  m_raycast = new QCheckBox("Raycast");
-  m_raycast->setChecked(true);
+//  m_raycast = new QCheckBox("Raycast");
+//  m_raycast->setChecked(true);
 
   m_changeLayout = new QPushButton(QIcon(":/images/enlarge.png"),"");
 
   QHBoxLayout *hl = new QHBoxLayout();
-  hl->addWidget(m_raycast);
+//  hl->addWidget(m_raycast);
   hl->addStretch();
   hl->addWidget(m_changeLayout);
 
@@ -23,8 +23,8 @@ Viewer3D::Viewer3D(QWidget *parent) :
 
   setLayout(vl);
 
-  connect(m_raycast, SIGNAL(clicked(bool)),
-	  m_viewer, SLOT(setRenderMode(bool)));
+//  connect(m_raycast, SIGNAL(clicked(bool)),
+//	  m_viewer, SLOT(setRenderMode(bool)));
 
   connect(m_changeLayout, SIGNAL(clicked()),
 	  this, SIGNAL(changeLayout()));

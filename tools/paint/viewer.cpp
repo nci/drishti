@@ -527,10 +527,8 @@ Viewer::createRaycastShader()
 
   if (Global::bytesPerVoxel() == 1)
     shaderString = ShaderFactory::genIsoRaycastShader(m_exactCoord, m_useMask, false);
-  //shaderString = ShaderFactory::genRaycastShader(maxSteps, false, m_exactCoord, m_useMask, false);
   else
     shaderString = ShaderFactory::genIsoRaycastShader(m_exactCoord, m_useMask, true);
-  //shaderString = ShaderFactory::genRaycastShader(maxSteps, false, m_exactCoord, m_useMask, true);
   
   if (m_rcShader)
     glDeleteObjectARB(m_rcShader);
@@ -551,8 +549,6 @@ Viewer::createRaycastShader()
   m_rcParm[5] = glGetUniformLocationARB(m_rcShader, "viewDir");
   m_rcParm[6] = glGetUniformLocationARB(m_rcShader, "vcorner");
   m_rcParm[7] = glGetUniformLocationARB(m_rcShader, "vsize");
-  m_rcParm[8] = glGetUniformLocationARB(m_rcShader, "minZ");
-  m_rcParm[9] = glGetUniformLocationARB(m_rcShader, "maxZ");
   m_rcParm[10]= glGetUniformLocationARB(m_rcShader, "maskTex");
   m_rcParm[11]= glGetUniformLocationARB(m_rcShader, "saveCoord");
   m_rcParm[12]= glGetUniformLocationARB(m_rcShader, "skipLayers");
@@ -1613,10 +1609,10 @@ Viewer::draw()
       return;
     }
 
-  if (m_renderMode)
-    raycasting();
-  else
-    drawVolBySlicing();
+  //if (m_renderMode)
+  raycasting();
+  //else
+  //drawVolBySlicing();
 
   if (m_savingImages > 0)
     saveImageFrame();
@@ -3026,8 +3022,6 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
   glUniform3fARB(m_rcParm[6], subvolcorner.x, subvolcorner.y, subvolcorner.z);
   glUniform3fARB(m_rcParm[7], m_vsize.x, m_vsize.y, m_vsize.z);
   glUniform3fARB(m_rcParm[20], voxelScaling.x, voxelScaling.y, voxelScaling.z);
-  glUniform1fARB(m_rcParm[8], minZ); // minZ
-  glUniform1fARB(m_rcParm[9], maxZ); // maxZ
   glUniform1iARB(m_rcParm[10],4); // maskTex
   glUniform1iARB(m_rcParm[11],firstPartOnly); // save voxel coordinates
   glUniform1iARB(m_rcParm[12],m_skipLayers); // skip first layers

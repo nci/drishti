@@ -40,19 +40,6 @@ class Raw2Pvl
 			   uchar*, int, QList<int>,
 			   int, int);
 
-  static void applyFilter(uchar*, uchar*, uchar*,
-			  uchar*, int, int, int,
-			  int);
-  
-  static void applyVolumeFilter(QString, QString,
-				int, int, int, int, int,
-				int);
-
-  static void subsampleVolume(QString, QString,
-			      int, int,
-			      int, int, int,
-			      int, int);
-
   static void savePvl(VolumeData*,
 		      int, int,
 		      int, int,
@@ -64,8 +51,6 @@ class Raw2Pvl
 			     int, int,
 			     int, int,
 			     QStringList);
-
-  static void Old2New(QString, QString);
 
   static void batchProcess(VolumeData*, QStringList);
 
@@ -91,16 +76,14 @@ class Raw2Pvl
   static void applyMeanFilter(uchar**, uchar*,
 			      int,
 			      int, int,
-			      int, bool);
+			      int, bool,
+			      float*);
   static void applyMeanFilterToSlice(uchar*, uchar*,
 				     int,
 				     int, int,
-				     int, bool);
+				     int, bool,
+				     float*);
   
-
-  static void Old2NewScalar(QString, QString);
-  static void Old2NewRGBA(QString, QString);
-
   static void saveMHD(QString,
 		      VolumeData*,
 		      int, int,

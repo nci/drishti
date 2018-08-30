@@ -384,37 +384,6 @@ DrishtiImport::saveSettings()
 }
 
 void
-DrishtiImport::Old2New(QStringList flnms)
-{
-  if (flnms.count() > 1)
-    {
-      FilesListDialog fld(flnms);
-      fld.exec();
-      if (fld.result() == QDialog::Rejected)
-	{
-	  QMessageBox::information(0, "Convert", "No conversion done");
-	  return;
-	}
-    }
-
-  QFileInfo f(flnms[0]);
-  Global::setPreviousDirectory(f.absolutePath());
-
-
-  QString direc = QFileDialog::getExistingDirectory(0,
-						    "Save Converted file to",
-						    Global::previousDirectory(),
-						    QFileDialog::ShowDirsOnly |
-						    QFileDialog::DontResolveSymlinks |
-						    QFileDialog::DontUseNativeDialog); 
-
-  for (uint i=0; i<flnms.count(); i++)
-    Raw2Pvl::Old2New(flnms[i], direc);
-
-  QMessageBox::information(0, "Conversion", "-----Done-----");
-}
-
-void
 DrishtiImport::on_action8_bit_triggered()
 {
   if (ui.action16_bit->isChecked())
@@ -440,23 +409,6 @@ DrishtiImport::on_action16_bit_triggered()
     m_remapWidget->setPvlMapMax(255);
   else
     m_remapWidget->setPvlMapMax(65535);
-}
-
-void
-DrishtiImport::on_actionConvert_triggered()
-{
-  QStringList flnms;
-  flnms = QFileDialog::getOpenFileNames(0,
-					"Load Old-style NetCDF File/s",
-					Global::previousDirectory(),
-					"NetCDF Files (*.nc)",
-					0,
-					QFileDialog::DontUseNativeDialog);
-  
-  if (flnms.size() == 0)
-    return;
-
-  Old2New(flnms);
 }
 
 void

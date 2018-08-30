@@ -24,10 +24,6 @@ class ShaderFactory
 
   static QString genIsoRaycastShader(bool, bool, bool);
 
-  static QString genRaycastShader(int, bool, bool, bool, bool);
-
-  static QString genXRayShader(int, bool, bool, bool, bool);
-
   static QString genEdgeEnhanceShader(bool);
 
   static GLuint boxShader();

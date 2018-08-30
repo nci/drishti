@@ -309,15 +309,15 @@ VolumeBase::createLowresVolume(bool redo)
 	       bpv*jend*iend);
     }
 
-  int actualdepth = StaticFunctions::getScaledown(m_subSamplingLevel, m_depth);
-  if (actualdepth < depth)
-    {
-      // replicate the data
-      for (int dd=actualdepth; dd<depth; dd++)
-	memcpy(m_lowresVolume + bpv*dd*jend*iend,
-	       m_lowresVolume + bpv*(dd-1)*jend*iend,
-	       bpv*jend*iend);
-    }
+//  int actualdepth = StaticFunctions::getScaledown(m_subSamplingLevel, m_depth);
+//  if (actualdepth < depth)
+//    {
+//      // replicate the data
+//      for (int dd=actualdepth; dd<depth; dd++)
+//	memcpy(m_lowresVolume + bpv*dd*jend*iend,
+//	       m_lowresVolume + bpv*(dd-1)*jend*iend,
+//	       bpv*jend*iend);
+//    }
 
   delete [] g0;
   delete [] g1;

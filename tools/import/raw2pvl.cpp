@@ -153,803 +153,6 @@ Raw2Pvl::applyMapping(uchar *raw, int voxelType,
     }
 }
 
-//-----------------------------------------
-//-----------------------------------------
-#define MEANFILTER()				\
-  {						\
-    for(int j=0; j<width; j++)			\
-      for(int k=0; k<height; k++)		\
-	{					\
-	  int js = qMax(0, j-1);		\
-	  int je = qMin(width-1, j+1);		\
-	  int ks = qMax(0, k-1);		\
-	  int ke = qMin(height-1, k+1);		\
-						\
-	  int dn = 0;				\
-	  float avg = 0;			\
-	  for(int j1=js; j1<=je; j1++)		\
-	    for(int k1=ks; k1<=ke; k1++)	\
-	      {					\
-		int idx = j1*height+k1;		\
-		float savg = (p0[idx] +		\
-			      4*p1[idx] +	\
-			      p2[idx]);		\
-		dn += 6;			\
-		if (j1 == j)			\
-		  {				\
-		    avg += 4*savg;		\
-		    dn += 18;			\
-		  }				\
-		else				\
-		  avg += savg;			\
-	      }					\
-	  avg = avg/dn;				\
-	  p[j*height + k] = avg;		\
-	}					\
-  }
-
-#define MEDIANFILTER()				\
-  {						\
-    for(int j=0; j<width; j++)			\
-      for(int k=0; k<height; k++)		\
-	{					\
-	  int js = qMax(0, j-1);		\
-	  int je = qMin(width-1, j+1);		\
-	  int ks = qMax(0, k-1);		\
-	  int ke = qMin(height-1, k+1);		\
-	  					\
-	  QList<float> vlist;			\
-	  for(int j1=js; j1<=je; j1++)		\
-	    for(int k1=ks; k1<=ke; k1++)	\
-	      {					\
-		int idx = j1*height+k1;		\
-		vlist.append((float)p0[idx]);	\
-		vlist.append((float)p1[idx]);	\
-		vlist.append((float)p2[idx]);	\
-	      }					\
-	  qSort(vlist.begin(), vlist.end());	\
-	  p[j*height + k] = vlist[vlist.size()/2];\
-	}					\
-  }
-
-//-----------------------------------------
-// sigma2 is used to define the domain filter
-// it will decide the decay based on how far the
-// value is from the central voxel value
-#define BILATERALFILTER(dsigma)			\
-  {						\
-    float sigma2 = 2*dsigma*dsigma;		\
-    for(int j=0; j<width; j++)			\
-      for(int k=0; k<height; k++)		\
-	{					\
-	  int js = qMax(0, j-1);		\
-	  int je = qMin(width-1, j+1);		\
-	  int ks = qMax(0, k-1);		\
-	  int ke = qMin(height-1, k+1);		\
-						\
-	  float cv = p1[j*height + k];		\
-	  float dn = 0;				\
-	  float avg = 0;			\
-	  for(int j1=js; j1<=je; j1++)		\
-	    for(int k1=ks; k1<=ke; k1++)	\
-	      {					\
-		int idx = j1*height+k1;		\
-		float a0 = exp(-((p0[idx]-cv)*(p0[idx]-cv))/sigma2);\
-		float a1 = exp(-((p1[idx]-cv)*(p1[idx]-cv))/sigma2);\
-		float a2 = exp(-((p2[idx]-cv)*(p2[idx]-cv))/sigma2);\
-		float savg = (a0*p0[idx] +			    \
-			      4*a1*p1[idx] +			    \
-			      a2*p2[idx]);			    \
-		float ddn = a0+4*a1+a2;				    \
-		if (j1 != j && k1 != k)			\
-		  {					\
-		    avg += savg;			\
-		    dn += ddn;				\
-		  }					\
-		else					\
-		  {					\
-		    if (j1 == j)			\
-		      {					\
-			avg += 4*savg;			\
-			dn += 4*ddn;			\
-		      }					\
-		    if (k1 == k)			\
-		      {					\
-			avg += 4*savg;			\
-			dn += 4*ddn;			\
-		      }					\
-		  }					\
-	      }					\
-	  avg = avg/dn;				\
-	  p[j*height + k] = avg;		\
-	}					\
-  }
-
-
-void
-Raw2Pvl::applyFilter(uchar *val0,
-		     uchar *val1,
-		     uchar *val2,
-		     uchar *vg,
-		     int voxelType,
-		     int width, int height,
-		     int filter)
-{
-  if (voxelType == _UChar)
-    {
-      uchar *p0 = val0;
-      uchar *p1 = val1;
-      uchar *p2 = val2;
-      uchar *p  = vg;
-      if (filter == _MeanFilter)
-	MEANFILTER()
-      else if (filter == _MedianFilter)
-	MEDIANFILTER()
-//      else if (filter == _BilateralFilter)
-//	BILATERALFILTER(dsigma)
-    }
-  else if (voxelType == _Char)
-    {
-      char *p0 = (char*)val0;
-      char *p1 = (char*)val1;
-      char *p2 = (char*)val2;
-      char *p  = (char*)vg;
-      if (filter == _MeanFilter)
-	MEANFILTER()
-      else if (filter == _MedianFilter)
-	MEDIANFILTER()
-//      else if (filter == _BilateralFilter)
-//	BILATERALFILTER(dsigma)
-    }
-  else if (voxelType == _UShort)
-    {
-      ushort *p0 = (ushort*)val0;
-      ushort *p1 = (ushort*)val1;
-      ushort *p2 = (ushort*)val2;
-      ushort *p  = (ushort*)vg;
-      if (filter == _MeanFilter)
-	MEANFILTER()
-      else if (filter == _MedianFilter)
-	MEDIANFILTER()
-//      else if (filter == _BilateralFilter)
-//	BILATERALFILTER(dsigma)
-    }
-  else if (voxelType == _Short)
-    {
-      short *p0 = (short*)val0;
-      short *p1 = (short*)val1;
-      short *p2 = (short*)val2;
-      short *p  = (short*)vg;
-      if (filter == _MeanFilter)
-	MEANFILTER()
-      else if (filter == _MedianFilter)
-	MEDIANFILTER()
-//      else if (filter == _BilateralFilter)
-//	BILATERALFILTER(dsigma)
-    }
-  else if (voxelType == _Int)
-    {
-      int *p0 = (int*)val0;
-      int *p1 = (int*)val1;
-      int *p2 = (int*)val2;
-      int *p  = (int*)vg;
-      if (filter == _MeanFilter)
-	MEANFILTER()
-      else if (filter == _MedianFilter)
-	MEDIANFILTER()
-//      else if (filter == _BilateralFilter)
-//	BILATERALFILTER(dsigma)
-    }
-  else if (voxelType == _Float)
-    {
-      float *p0 = (float*)val0;
-      float *p1 = (float*)val1;
-      float *p2 = (float*)val2;
-      float *p  = (float*)vg;
-      if (filter == _MeanFilter)
-	MEANFILTER()
-      else if (filter == _MedianFilter)
-	MEDIANFILTER()
-//      else if (filter == _BilateralFilter)
-//	BILATERALFILTER(dsigma)
-    }
-}
-
-void
-Raw2Pvl::applyVolumeFilter(QString rawFile,
-			   QString smoothFile,
-			   int voxelType,
-			   int headerBytes,
-			   int depth,
-			   int width,
-			   int height,
-			   int filter)
-{
-  QString ftxt;
-//  if (filter == _BilateralFilter)
-//    {
-//      if (dsigma > 0.0)
-//	ftxt = QString("Applying Bilateral Filter (sigma-D = %1)").arg(dsigma);
-//      else
-//	filter = _MeanFilter;
-//    }
-
-  if (filter == _MeanFilter)
-    ftxt = "Applying Gaussian Filter";
-  else if (filter == _MedianFilter)
-    ftxt = "Applying Median Filter";
-    
-  QProgressDialog progress(ftxt,
-			   "Cancel",
-			   0, 100,
-			   0);
-  progress.setMinimumDuration(0);
-
-
-  QFile fin(rawFile);
-  fin.open(QFile::ReadOnly);
-
-  QFile fout(smoothFile);
-  fout.open(QFile::WriteOnly);
-
-  if (headerBytes > 0)
-    {
-      uchar *hb = new uchar[headerBytes];  
-      fin.read((char*)hb, headerBytes);
-      fout.write((char*)hb, headerBytes);
-      delete [] hb;
-    }
-
-  int bpv = 1;
-  if (voxelType == _UChar) bpv = 1;
-  else if (voxelType == _Char) bpv = 1;
-  else if (voxelType == _UShort) bpv = 2;
-  else if (voxelType == _Short) bpv = 2;
-  else if (voxelType == _Int) bpv = 4;
-  else if (voxelType == _Float) bpv = 4;
-
-  int nbytes = width*height*bpv;
-  uchar *val0 = new uchar[nbytes];
-  uchar *val1 = new uchar[nbytes];
-  uchar *val2 = new uchar[nbytes];
-  uchar *vg   = new uchar[nbytes];
-
-  fin.read((char*)val1, nbytes);
-  fin.read((char*)val2, nbytes);
-  memcpy(val0, val1, nbytes);
-
-  applyFilter(val0, val1, val2, vg,
-	      voxelType, width, height,
-	      filter);
-  fout.write((char*)vg, nbytes);
-
-  for(uint d=1; d<depth-1; d++)
-    {
-      progress.setValue((int)(100.0*(float)d/(float)depth));
-      qApp->processEvents();
-
-      // shift the planes
-      uchar *tmp = val0;
-      val0 = val1;
-      val1 = val2;
-      val2 = tmp;
-    
-      fin.read((char*)val2, nbytes);
-
-      applyFilter(val0, val1, val2, vg,
-		  voxelType, width, height,
-		  filter);
-      fout.write((char*)vg, nbytes);
-    }
-  fin.close();
-  
-  // shift the planes
-  uchar *tmp = val0;
-  val0 = val1;
-  val1 = val2;
-  val2 = tmp;
-  memcpy(val2, val1, nbytes);
-
-  applyFilter(val0, val1, val2, vg,
-	      voxelType, width, height,
-	      filter);
-  fout.write((char*)vg, nbytes);
-
-  fout.close();
-
-  delete [] val0;
-  delete [] val1;
-  delete [] val2;
-  delete [] vg;
-
-  progress.setValue(100);
-  qApp->processEvents();
-}
-
-
-#define MEANSLICEFILTER(T)						\
-  {									\
-    T *ptr = (T*)tmp;							\
-    T *ptr1 = (T*)tmp1;							\
-									\
-    int ji=0;								\
-    for(int j=0; j<sw; j++)						\
-      {									\
-	int y = j*subSamplingLevel;					\
-	int loy = qMax(0, y-subSamplingLevel+1);			\
-	int hiy = qMin(width-1, y+subSamplingLevel-1);			\
-	for(int i=0; i<sh; i++)						\
-	  {								\
-	    int x = i*subSamplingLevel;					\
-	    int lox = qMax(0, x-subSamplingLevel+1);			\
-	    int hix = qMin(height-1, x+subSamplingLevel-1);		\
-									\
-	    int dn = 0;							\
-	    float sum = 0;						\
-	    for(int jy=loy; jy<=hiy; jy++)				\
-	      {								\
-		for(int ix=lox; ix<=hix; ix++)				\
-		  {							\
-		    int idx = jy*height+ix;				\
-		    float v = ptr[idx];					\
-		    int ddn = 1;					\
-		    if (jy == y)					\
-		      {							\
-			v *= 4;						\
-			ddn *= 4;					\
-		      }							\
-		    if (ix == x)					\
-		      {							\
-			v *= 4;						\
-			ddn *= 4;					\
-		      }							\
-		    sum += v;						\
-		    dn += ddn;						\
-		  }							\
-	      }								\
-	    ptr1[ji] = sum/dn;						\
-	    ji++;							\
-	  }								\
-      }									\
-									\
-    uchar *vptr = volX[0];						\
-    for (int c=0; c<totcount-1; c++)					\
-      volX[c] = volX[c+1];						\
-    volX[totcount-1] = vptr;						\
-									\
-    memcpy(volX[totcount-1], tmp1, bpv*sw*sh);				\
-  }
-
-
-#define MEDIANSLICEFILTER(T)						\
-  {									\
-    T *ptr = (T*)tmp;							\
-    T *ptr1 = (T*)tmp1;							\
-									\
-    int ji=0;								\
-    for(int j=0; j<sw; j++)						\
-      {									\
-	int y = j*subSamplingLevel;					\
-	int loy = qMax(0, y-subSamplingLevel+1);			\
-	int hiy = qMin(width-1, y+subSamplingLevel-1);			\
-	for(int i=0; i<sh; i++)						\
-	  {								\
-	    int x = i*subSamplingLevel;					\
-	    int lox = qMax(0, x-subSamplingLevel+1);			\
-	    int hix = qMin(height-1, x+subSamplingLevel-1);		\
-									\
-	    QList<T> vlist;						\
-	    for(int jy=loy; jy<=hiy; jy++)				\
-	      {								\
-		for(int ix=lox; ix<=hix; ix++)				\
-		  {							\
-		    int idx = jy*height+ix;				\
-		    vlist.append(ptr[idx]);				\
-		  }							\
-	      }								\
-	    qSort(vlist.begin(), vlist.end());				\
-	    ptr1[ji] = vlist[vlist.size()/2];				\
-	    ji++;							\
-	  }								\
-      }									\
-									\
-    uchar *vptr = volX[0];						\
-    for (int c=0; c<totcount-1; c++)					\
-      volX[c] = volX[c+1];						\
-    volX[totcount-1] = vptr;						\
-									\
-    memcpy(volX[totcount-1], tmp1, bpv*sw*sh);				\
-  }
-
-
-#define BILATERALSLICEFILTER(T)						\
-  {									\
-    T *ptr = (T*)tmp;							\
-    T *ptr1 = (T*)tmp1;							\
-									\
-    int ji=0;								\
-    for(int j=0; j<sw; j++)						\
-      {									\
-	int y = j*subSamplingLevel;					\
-	int loy = qMax(0, y-subSamplingLevel+1);			\
-	int hiy = qMin(width-1, y+subSamplingLevel-1);			\
-	for(int i=0; i<sh; i++)						\
-	  {								\
-	    int x = i*subSamplingLevel;					\
-	    int lox = qMax(0, x-subSamplingLevel+1);			\
-	    int hix = qMin(height-1, x+subSamplingLevel-1);		\
-									\
-	    float vmin = ptr[loy*height+lox];				\
-	    float vmax = ptr[loy*height+lox];				\
-	    for(int jy=loy; jy<=hiy; jy++)				\
-	      {								\
-		for(int ix=lox; ix<=hix; ix++)				\
-		  {							\
-		    if (jy!=y || ix!=x)					\
-		      {							\
-			int idx = jy*height+ix;				\
-			vmin = qMin(vmin, (float)ptr[idx]);		\
-			vmax = qMax(vmax, (float)ptr[idx]);		\
-		      }							\
-		  }							\
-	      }								\
-	    int idx = y*height+x;					\
-	    ptr1[ji] = qBound(vmin, (float)ptr[idx], vmax);		\
-	    ji++;							\
-	  }								\
-      }									\
-									\
-    uchar *vptr = volX[0];						\
-    for (int c=0; c<totcount-1; c++)					\
-      volX[c] = volX[c+1];						\
-    volX[totcount-1] = vptr;						\
-									\
-    memcpy(volX[totcount-1], tmp1, bpv*sw*sh);				\
-  }
-
-#define NOSLICEFILTER(T)						\
-  {									\
-    T *ptr = (T*)tmp;							\
-    T *ptr1 = (T*)tmp1;							\
-									\
-    int ji=0;								\
-    for(int j=0; j<sw; j++)						\
-      {									\
-	int y = j*subSamplingLevel;					\
-	for(int i=0; i<sh; i++)						\
-	  {								\
-	    int x = i*subSamplingLevel;					\
-	    int idx = y*height+x;					\
-	    ptr1[ji] = ptr[idx];					\
-	    ji++;							\
-	  }								\
-      }									\
-									\
-    uchar *vptr = volX[0];						\
-    for (int c=0; c<totcount-1; c++)					\
-      volX[c] = volX[c+1];						\
-    volX[totcount-1] = vptr;						\
-									\
-    memcpy(volX[totcount-1], tmp1, bpv*sw*sh);				\
-  }
-
-
-
-#define MEANSUBSAMPLE(T)			\
-  {						\
-    memset(tmp1f, 0, 4*width*height);		\
-    memset(tmp1, 0, bpv*sw*sh);			\
-						\
-    T *ptr1 = (T*)tmp1;				\
-    T **volS;					\
-    volS = new T*[totcount];			\
-    for(uint i=0; i<totcount; i++)		\
-      volS[i] = (T*)volX[i];			\
-    						\
-    for(int x=0; x<totcount; x++)		\
-      for(int j=0; j<sw*sh; j++)		\
-	tmp1f[j]+=volS[x][j];			\
-    for(int j=0; j<sw*sh; j++)			\
-      ptr1[j] = tmp1f[j]/totcount;		\
-    						\
-    delete [] volS;				\
-  }
-
-
-#define MEDIANSUBSAMPLE(T)			\
-  {						\
-    memset(tmp1, 0, bpv*sw*sh);			\
-						\
-    T *ptr1 = (T*)tmp1;				\
-						\
-    T **volS;					\
-    volS = new T*[totcount];			\
-    for(uint i=0; i<totcount; i++)		\
-      volS[i] = (T*)volX[i];			\
-						\
-    for(int j=0; j<sw*sh; j++)			\
-      {						\
-	QList<T> vlist;				\
-	for(int x=0; x<totcount; x++)		\
-	  vlist.append(volS[x][j]);		\
-	qSort(vlist.begin(), vlist.end());	\
-	ptr1[j] = vlist[vlist.size()/2];	\
-      }						\
-    						\
-    delete [] volS;				\
-  }
-
-
-#define BILATERALSUBSAMPLE(T)			  \
-  {							  \
-    memset(tmp1, 0, bpv*sw*sh);				  \
-    T *ptr1 = (T*)tmp1;					  \
-    T **volS;						  \
-    volS = new T*[totcount];				  \
-    for(uint i=0; i<totcount; i++)			  \
-      volS[i] = (T*)volX[i];				  \
-    							  \
-    int tc2 = totcount/2;				  \
-    for(int j=0; j<sw*sh; j++)				  \
-      {							  \
-	float vmin = volS[0][0];			  \
-	float vmax = volS[0][0];			  \
-	for(int x=0; x<tc2; x++)			  \
-	  {						  \
-	    vmin = qMin(vmin, (float)volS[x][j]);	  \
-	    vmax = qMax(vmax, (float)volS[x][j]);	  \
-	  }						  \
-	for(int x=tc2+1; x<totcount; x++)		  \
-	  {						  \
-	    vmin = qMin(vmin, (float)volS[x][j]);	  \
-	    vmax = qMax(vmax, (float)volS[x][j]);	  \
-	  }						  \
-	ptr1[j] = qBound(vmin, (float)volS[tc2][j], vmax);\
-      }							  \
-    							  \
-    delete [] volS;					  \
-  }
-
-
-#define SUBSAMPLE(T)				\
-  {						\
-    int x = totcount/2;				\
-    memcpy(tmp1, volX[x], bpv*sw*sh);		\
-  }
-
-void
-Raw2Pvl::subsampleVolume(QString rawFilename,
-			 QString subsampledFilename,
-			 int voxelType, int headerBytes,
-			 int depth, int width, int height,
-			 int subSamplingLevel, int filter)
-{
-  QProgressDialog progress(QString("Subsampling %1").arg(rawFilename),
-			   "Cancel",
-			   0, 100,
-			   0);
-  progress.setMinimumDuration(0);
-
-
-  int sd = StaticFunctions::getScaledown(subSamplingLevel, depth);
-  int sw = width/subSamplingLevel;
-  int sh = height/subSamplingLevel;
-
-  QFile fout(subsampledFilename);
-  fout.open(QFile::WriteOnly);
-  uchar svt = voxelType;
-
-  if (svt == 5) // _Float
-    svt = 8;
-
-  fout.write((char*)&svt, 1);
-  fout.write((char*)&sd, sizeof(int));
-  fout.write((char*)&sw, sizeof(int));
-  fout.write((char*)&sh, sizeof(int));
-
-  QFile fin(rawFilename);
-  fin.open(QFile::ReadOnly);
-  fin.seek(headerBytes);
-
-  int bpv = 1;
-  if (voxelType == _UChar) bpv = 1;
-  else if (voxelType == _Char) bpv = 1;
-  else if (voxelType == _UShort) bpv = 2;
-  else if (voxelType == _Short) bpv = 2;
-  else if (voxelType == _Int) bpv = 4;
-  else if (voxelType == _Float) bpv = 4;
-
-  int nbytes = width*height*bpv;
-  uchar *tmp = new uchar[nbytes];
-  uchar *tmp1 = new uchar [nbytes];  
-  float *tmp1f = new float [width*height];
-
-  int totcount = 2*subSamplingLevel-1;
-  uchar **volX;
-  volX = 0;
-  if (totcount > 1)
-    {
-      volX = new uchar*[totcount];
-      for(int i=0; i<totcount; i++)
-	volX[i] = new uchar[nbytes];
-    }
-
-  int count=0;
-  int kslc=0;
-  for(uint k=0; k<depth; k++)
-    {
-      progress.setValue((int)(100.0*(float)k/(float)depth));
-      qApp->processEvents();
-      
-      fin.read((char*)tmp, nbytes);
-
-      // apply filter and scaledown the slice
-      if (voxelType == _UChar)
-	{
-	  if (filter == _NoFilter)
-	      NOSLICEFILTER(uchar)
-	  else if (filter == _BilateralFilter)
-	    BILATERALSLICEFILTER(uchar)
-	  else if (filter == _MeanFilter)
-	    MEANSLICEFILTER(uchar)
-	  else
-	    MEDIANSLICEFILTER(uchar)
-	}
-      else if (voxelType == _Char)
-	{
-	  if (filter == _NoFilter)
-	    NOSLICEFILTER(char)
-	  else if (filter == _BilateralFilter)
-	    BILATERALSLICEFILTER(char)
-	  else if (filter == _MeanFilter)
-	    MEANSLICEFILTER(char)
-	  else
-	    MEDIANSLICEFILTER(char)
-	}
-      else if (voxelType == _UShort)
-	{
-	  if (filter == _NoFilter)
-	    NOSLICEFILTER(ushort)
-	  else if (filter == _BilateralFilter)
-	    BILATERALSLICEFILTER(ushort)
-	  else if (filter == _MeanFilter)
-	    MEANSLICEFILTER(ushort)
-	  else
-	    MEDIANSLICEFILTER(ushort)
-	}
-      else if (voxelType == _Short)
-	{
-	  if (filter == _NoFilter)
-	    NOSLICEFILTER(short)
-	  else if (filter == _BilateralFilter)
-	    BILATERALSLICEFILTER(short)
-	  else if (filter == _MeanFilter)
-	    MEANSLICEFILTER(short)
-	  else
-	    MEDIANSLICEFILTER(short)
-	}
-      else if (voxelType == _Int)
-	{
-	  if (filter == _NoFilter)
-	    NOSLICEFILTER(int)
-	  else if (filter == _BilateralFilter)
-	    BILATERALSLICEFILTER(int)
-	  else if (filter == _MeanFilter)
-	    MEANSLICEFILTER(int)
-	  else
-	    MEDIANSLICEFILTER(int)
-	}
-      else if (voxelType == _Float)
-	{
-	  if (filter == _NoFilter)
-	    NOSLICEFILTER(float)
-	  else if (filter == _BilateralFilter)
-	    BILATERALSLICEFILTER(float)
-	  else if (filter == _MeanFilter)
-	    MEANSLICEFILTER(float)
-	  else
-	    MEDIANSLICEFILTER(float)
-	}
-
-      count ++;
-
-      if (count == totcount)
-	{
-	  if (voxelType == _UChar)
-	    {
-	      if (filter == _NoFilter)
-		SUBSAMPLE(uchar)
-	      else if (filter == _BilateralFilter)
-		BILATERALSUBSAMPLE(uchar)
-	      else if (filter == _MeanFilter)
-		MEANSUBSAMPLE(uchar)	    
-	      else
-		MEDIANSUBSAMPLE(uchar)
-          }
-	  else if (voxelType == _Char)
-	    {
-	      if (filter == _NoFilter)
-		SUBSAMPLE(char)
-	      else if (filter == _BilateralFilter)
-		BILATERALSUBSAMPLE(char)
-	      else if (filter == _MeanFilter)
-		MEANSUBSAMPLE(char)	    
-	      else
-		MEDIANSUBSAMPLE(char)
-	    }
-	  else if (voxelType == _UShort)
-	    {
-	      if (filter == _NoFilter)
-		SUBSAMPLE(ushort)
-	      else if (filter == _BilateralFilter)
-		BILATERALSUBSAMPLE(ushort)
-	      else if (filter == _MeanFilter)
-		MEANSUBSAMPLE(ushort)	    
-	      else
-		MEDIANSUBSAMPLE(ushort)
-	    }
-	  else if (voxelType == _Short)
-	    {
-	      if (filter == _NoFilter)
-		SUBSAMPLE(short)
-	      else if (filter == _BilateralFilter)
-		BILATERALSUBSAMPLE(short)
-	      else if (filter == _MeanFilter)
-		MEANSUBSAMPLE(short)	    
-	      else
-		MEDIANSUBSAMPLE(short)
-	    }
-	  else if (voxelType == _Int)
-	    {
-	      if (filter == _NoFilter)
-		SUBSAMPLE(int)
-	      else if (filter == _BilateralFilter)
-		BILATERALSUBSAMPLE(int)
-	      else if (filter == _MeanFilter)
-		MEANSUBSAMPLE(int)	    
-	      else
-		MEDIANSUBSAMPLE(int)
-	    }
-	  else if (voxelType == _Float)
-	    {
-	      if (filter == _NoFilter)
-		SUBSAMPLE(float)
-	      else if (filter == _BilateralFilter)
-		BILATERALSUBSAMPLE(float)
-	      else if (filter == _MeanFilter)
-		MEANSUBSAMPLE(float)	    
-	      else
-		MEDIANSUBSAMPLE(float)
-	    }
-
-	  count = totcount/2;
-	  
-	  // save subsampled slice
-	  fout.write((char*)tmp1, bpv*sw*sh);
-
-	  // increment slice number
-	  kslc++;
-	  if (kslc == sd)
-	    break;
-	}
-    }
-
-  delete [] tmp;
-  delete [] tmp1;
-  delete [] tmp1f;
-  if (totcount > 1)
-    {
-      for(int i=0; i<totcount; i++)
-	delete [] volX[i];
-      delete [] volX;
-    }
-
-  fin.close();
-  fout.close();
-
-  progress.setValue(100);
-}
-
 //-----------------------------
 QString
 getPvlNcFilename()
@@ -1114,10 +317,10 @@ getXYSubsampling(int svslz, int dsz, int wsz, int hsz)
     for(int j=0; j<width; j++)			\
       for(int k=0; k<height; k++)		\
 	{					\
-	  float avg = 0;			\
+	  float sum = 0;			\
 	  for(int i=0; i<2*n+1; i++)		\
-	    avg += pv[i][j*height+k]; 		\
-	  p[j*height + k] = avg/(2*n+1);	\
+	    sum += weights[i]*pv[i][j*height+k]; \
+	  p[j*height + k] = sum/wsum;		\
 	}					\
   }
 
@@ -1137,8 +340,11 @@ void
 Raw2Pvl::applyMeanFilter(uchar **val, uchar *vg,
 			 int voxelType,
 			 int width, int height,
-			 int spread, bool dilateFilter)
+			 int spread, bool dilateFilter,
+			 float *weights)
 {
+  float wsum = weights[2*spread+2];
+ 
   if (voxelType == _UChar)
     {
       uchar **pv = val;
@@ -1196,34 +402,38 @@ Raw2Pvl::applyMeanFilter(uchar **val, uchar *vg,
 }
 
 
-
 #define SLICEAVERAGEFILTER(n)					\
   {								\
     for(int i=0; i<height; i++)					\
       for(int j=0; j<width; j++)				\
 	{							\
 	  float pj = 0;						\
+	  int jdx = 0;						\
 	  for(int j1=j-n; j1<=j+n; j1++)			\
 	    {							\
 	      int idx = qBound(0, j1, width-1)*height+i;	\
-	      pj += pv[idx];					\
+	      pj += weights[jdx]*p[idx];			\
+	      jdx ++;						\
 	    }							\
-	  p[j*height+i] = pj/(2*n+1);				\
+	  pv[j*height+i] = pj/wsum;				\
 	}							\
     								\
     for(int j=0; j<width; j++)					\
       for(int i=0; i<height; i++)				\
 	{							\
-	  float pi = 0;						\
+	  float pj = 0;						\
+	  int jdx = 0;						\
 	  for(int i1=i-n; i1<=i+n; i1++)			\
 	    {							\
 	      int idx = j*height + qBound(0, i1, height-1);	\
-	      pi += p[idx];					\
+	      pj += weights[jdx]*pv[idx];			\
+	      jdx ++;						\
 	    }							\
-	  pv[j*height+i] = pi/(2*n+1);				\
+	  p[j*height+i] = pj/wsum;				\
 	}							\
     								\
   }
+
 
 #define SLICEDILATEFILTER(n)					\
   {								\
@@ -1236,9 +446,9 @@ Raw2Pvl::applyMeanFilter(uchar **val, uchar *vg,
 	  for(int j1=jst; j1<=jed; j1++)			\
 	    {							\
 	      int idx = qBound(0, j1, width-1)*height+i;	\
-	      pj = qMax((float)pv[idx],pj);			\
+	      pj = qMax((float)p[idx],pj);			\
 	    }							\
-	  p[j*height+i] = pj;					\
+	  pv[j*height+i] = pj;					\
 	}							\
     								\
     for(int j=0; j<width; j++)					\
@@ -1250,9 +460,9 @@ Raw2Pvl::applyMeanFilter(uchar **val, uchar *vg,
 	  for(int i1=ist; i1<=ied; i1++)			\
 	    {							\
 	      int idx = j*height+qBound(0, i1, height-1);	\
-	      pi = qMax((float)p[idx],pi);			\
+	      pi = qMax((float)pv[idx],pi);			\
 	    }							\
-	  pv[j*height+i] = pi;					\
+	  p[j*height+i] = pi;					\
 	}							\
   }
 
@@ -1261,30 +471,33 @@ Raw2Pvl::applyMeanFilterToSlice(uchar *val, uchar *vg,
 				int voxelType,
 				int width, int height,
 				int spread,
-				bool dilateFilter)
+				bool dilateFilter,
+				float *weights)
 {
+  float wsum = weights[2*spread+2];
+ 
   if (voxelType == _UChar)
     {
-      uchar *pv = val;
-      uchar *p  = vg;
+      uchar *p = val;
+      uchar *pv  = vg;
       if (dilateFilter)
 	SLICEDILATEFILTER(spread)
       else
-        SLICEAVERAGEFILTER(spread)
+	SLICEAVERAGEFILTER(spread)
     }
   else if (voxelType == _Char)
     {
-      char *pv = (char*)val;
-      char *p  = (char*)vg;
+      char *p = (char*)val;
+      char *pv = (char*)vg;
       if (dilateFilter)
 	SLICEDILATEFILTER(spread)
       else
-        SLICEAVERAGEFILTER(spread)
+	SLICEAVERAGEFILTER(spread)
     }
   else if (voxelType == _UShort)
     {
-      ushort *pv = (ushort*)val;
-      ushort *p  = (ushort*)vg;
+      ushort *p = (ushort*)val;
+      ushort *pv = (ushort*)vg;
       if (dilateFilter)
 	SLICEDILATEFILTER(spread)
       else
@@ -1292,8 +505,8 @@ Raw2Pvl::applyMeanFilterToSlice(uchar *val, uchar *vg,
     }
   else if (voxelType == _Short)
     {
-      short *pv = (short*)val;
-      short *p  = (short*)vg;
+      short *p = (short*)val;
+      short *pv = (short*)vg;
       if (dilateFilter)
 	SLICEDILATEFILTER(spread)
       else
@@ -1301,8 +514,8 @@ Raw2Pvl::applyMeanFilterToSlice(uchar *val, uchar *vg,
     }
   else if (voxelType == _Int)
     {
-      int *pv = (int*)val;
-      int *p  = (int*)vg;
+      int *p = (int*)val;
+      int *pv = (int*)vg;
       if (dilateFilter)
 	SLICEDILATEFILTER(spread)
       else
@@ -1310,8 +523,8 @@ Raw2Pvl::applyMeanFilterToSlice(uchar *val, uchar *vg,
     }
   else if (voxelType == _Float)
     {
-      float *pv = (float*)val;
-      float *p  = (float*)vg;
+      float *p = (float*)val;
+      float *pv = (float*)vg;
       if (dilateFilter)
 	SLICEDILATEFILTER(spread)
       else
@@ -1808,6 +1021,20 @@ Raw2Pvl::savePvl(VolumeData* volData,
       // ------------------
 	
 
+      // ------------------
+      // calculate weights for Gaussian filter
+      float weights[100];
+      float wsum = 0.0;
+      for(int i=-spread; i<=spread; i++)
+	{
+	  float wgt = qExp(-qAbs(i)/(2.0*spread*spread))/(M_PI*2*spread*spread);
+	  wsum +=  wgt;
+	  weights[i+spread] = wgt;
+	}
+      weights[2*spread+2] = wsum;
+      // ------------------
+      
+      
       for(int dd=0; dd<dsz2; dd++)
 	{
 	  int d0 = dmin + dd*svslz; 
@@ -1832,7 +1059,7 @@ Raw2Pvl::savePvl(VolumeData* volData,
 		      volData->getDepthSlice(d, val[spread]);
 		      applyMeanFilterToSlice(val[spread], raw,
 					     voxelType, rvwidth, rvheight,
-					     spread, dilateFilter);
+					     spread, dilateFilter, weights);
 
 		      for(int i=-spread; i<0; i++)
 			{
@@ -1843,7 +1070,7 @@ Raw2Pvl::savePvl(VolumeData* volData,
 
 			  applyMeanFilterToSlice(val[spread+i], raw,
 						 voxelType, rvwidth, rvheight,
-						 spread, dilateFilter);
+						 spread, dilateFilter, weights);
 			}
 		      
 		      for(int i=1; i<=spread; i++)
@@ -1855,7 +1082,7 @@ Raw2Pvl::savePvl(VolumeData* volData,
 
 			  applyMeanFilterToSlice(val[spread+i], raw,
 						 voxelType, rvwidth, rvheight,
-						 spread, dilateFilter);
+						 spread, dilateFilter, weights);
 			}
 		    }
 		  else if (d < rvdepth-spread)
@@ -1863,15 +1090,18 @@ Raw2Pvl::savePvl(VolumeData* volData,
 		      volData->getDepthSlice(d+spread, val[2*spread]);
 		      applyMeanFilterToSlice(val[2*spread], raw,
 					     voxelType, rvwidth, rvheight,
-					     spread, dilateFilter);
+					     spread, dilateFilter, weights);
 		    }		  
 		  else
 		    {
 		      volData->getDepthSlice(rvdepth-1, val[2*spread]);
 		      applyMeanFilterToSlice(val[2*spread], raw,
 					     voxelType, rvwidth, rvheight,
-					     spread, dilateFilter);
+					     spread, dilateFilter, weights);
 		    }		  
+		  // smoothed data is now in val[2*spread]
+		  // copy that into raw
+		  memcpy(raw, val[2*spread], rvwidth*rvheight*bpv);
 		}
 	      else // spread == 0
 		volData->getDepthSlice(d, raw);
@@ -1880,7 +1110,7 @@ Raw2Pvl::savePvl(VolumeData* volData,
 		{
 		  applyMeanFilter(val, raw,
 				  voxelType, rvwidth, rvheight,
-				  spread, dilateFilter);
+				  spread, dilateFilter, weights);
 		  
 		  // now shift the planes
 		  uchar *tmp = val[0];
@@ -2055,46 +1285,6 @@ Raw2Pvl::savePvl(VolumeData* volData,
   progress.setValue(100);
   
   QMessageBox::information(0, "Save", "-----Done-----");
-}
-
-void
-Raw2Pvl::Old2New(QString oldflnm, QString direc)
-{
-  NcError err(NcError::verbose_nonfatal);
-
-  NcFile pvlFile(oldflnm.toLatin1().data(), NcFile::ReadOnly);
-
-  if (!pvlFile.is_valid())
-    {
-      QMessageBox::information(0, "Error",
-			       QString("%1 is not a valid preprocessed volume file").arg(oldflnm));
-      return;
-    }
-
-  bool ok = true;
-  NcVar *ncvar;
-  ncvar = pvlFile.get_var("RVolume"); ok &= (ncvar != 0);
-  ncvar = pvlFile.get_var("GVolume"); ok &= (ncvar != 0);
-  ncvar = pvlFile.get_var("BVolume"); ok &= (ncvar != 0);  
-  pvlFile.close();
-
-  if (ok)
-    Old2NewRGBA(oldflnm, direc);
-  else
-    Old2NewScalar(oldflnm, direc);
-}
-
-void
-Raw2Pvl::Old2NewScalar(QString oldflnm, QString direc)
-{
-  QMessageBox::information(0, "Error", "Sorry not implemented");
-}
-
-
-void
-Raw2Pvl::Old2NewRGBA(QString oldflnm, QString direc)
-{
-  QMessageBox::information(0, "Error", "Sorry not implemented");
 }
 
 void
@@ -2374,6 +1564,19 @@ Raw2Pvl::batchProcess(VolumeData* volData,
 
       progress.setLabelText(pvlflnm);
       
+      // ------------------
+      // calculate weights for Gaussian filter
+      float weights[100];
+      float wsum = 0.0;
+      for(int i=-spread; i<=spread; i++)
+	{
+	  float wgt = qExp(-i/(2.0*spread*spread))/(M_PI*2*spread*spread);
+	  wsum +=  wgt;
+	  weights[i+spread] = wgt;
+	}
+      weights[2*spread+2] = wsum;
+      // ------------------
+      
       for(int dd=0; dd<dsz2; dd++)
 	{
 	  int d0 = dmin + dd*svslz; 
@@ -2392,7 +1595,7 @@ Raw2Pvl::batchProcess(VolumeData* volData,
 		      volData->getDepthSlice(d, val[spread]);
 		      applyMeanFilterToSlice(val[spread], raw,
 					     voxelType, rvwidth, rvheight,
-					     spread, dilateFilter);
+					     spread, dilateFilter, weights);
 
 		      for(int i=-spread; i<0; i++)
 			{
@@ -2403,7 +1606,7 @@ Raw2Pvl::batchProcess(VolumeData* volData,
 
 			  applyMeanFilterToSlice(val[spread+i], raw,
 						 voxelType, rvwidth, rvheight,
-						 spread, dilateFilter);
+						 spread, dilateFilter, weights);
 			}
 		      
 		      for(int i=1; i<=spread; i++)
@@ -2415,7 +1618,7 @@ Raw2Pvl::batchProcess(VolumeData* volData,
 
 			  applyMeanFilterToSlice(val[spread+i], raw,
 						 voxelType, rvwidth, rvheight,
-						 spread, dilateFilter);
+						 spread, dilateFilter, weights);
 			}
 		    }
 		  else if (d < rvdepth-spread)
@@ -2423,14 +1626,14 @@ Raw2Pvl::batchProcess(VolumeData* volData,
 		      volData->getDepthSlice(d+spread, val[2*spread]);
 		      applyMeanFilterToSlice(val[2*spread], raw,
 					     voxelType, rvwidth, rvheight,
-					     spread, dilateFilter);
+					     spread, dilateFilter, weights);
 		    }
 		  else
 		    {
 		      volData->getDepthSlice(rvdepth-1, val[2*spread]);
 		      applyMeanFilterToSlice(val[2*spread], raw,
 					     voxelType, rvwidth, rvheight,
-					     spread, dilateFilter);
+					     spread, dilateFilter, weights);
 		    }
 		}
 	      else
@@ -2440,7 +1643,7 @@ Raw2Pvl::batchProcess(VolumeData* volData,
 		{
 		  applyMeanFilter(val, raw,
 				  voxelType, rvwidth, rvheight,
-				  spread, dilateFilter);
+				  spread, dilateFilter, weights);
 		  
 		  // now shift the planes
 		  uchar *tmp = val[0];
@@ -2734,6 +1937,19 @@ Raw2Pvl::saveMHD(QString mhdFilename,
 			     0);
     progress.setMinimumDuration(0);
     
+    // ------------------
+    // calculate weights for Gaussian filter
+    float weights[100];
+    float wsum = 0.0;
+    for(int i=-spread; i<=spread; i++)
+      {
+	float wgt = qExp(-i/(2.0*spread*spread))/(M_PI*2*spread*spread);
+	wsum +=  wgt;
+	weights[i+spread] = wgt;
+      }
+    weights[2*spread+2] = wsum;
+    // ------------------
+      
     for(int dd=0; dd<dsz2; dd++)
       {
 	int d0 = dmin + dd*svslz; 
@@ -2752,7 +1968,7 @@ Raw2Pvl::saveMHD(QString mhdFilename,
 		    volData->getDepthSlice(d, val[spread]);
 		    applyMeanFilterToSlice(val[spread], raw,
 					   voxelType, rvwidth, rvheight,
-					   spread, dilateFilter);
+					   spread, dilateFilter, weights);
 		    
 		    for(int i=-spread; i<0; i++)
 		      {
@@ -2763,7 +1979,7 @@ Raw2Pvl::saveMHD(QString mhdFilename,
 			
 			applyMeanFilterToSlice(val[spread+i], raw,
 					       voxelType, rvwidth, rvheight,
-					       spread, dilateFilter);
+					       spread, dilateFilter, weights);
 		      }
 		    
 		    for(int i=1; i<=spread; i++)
@@ -2775,7 +1991,7 @@ Raw2Pvl::saveMHD(QString mhdFilename,
 			
 			applyMeanFilterToSlice(val[spread+i], raw,
 					       voxelType, rvwidth, rvheight,
-					       spread, dilateFilter);
+					       spread, dilateFilter, weights);
 		      }
 		  }
 		else if (d < rvdepth-spread)
@@ -2783,14 +1999,14 @@ Raw2Pvl::saveMHD(QString mhdFilename,
 		    volData->getDepthSlice(d+spread, val[2*spread]);
 		    applyMeanFilterToSlice(val[2*spread], raw,
 					   voxelType, rvwidth, rvheight,
-					   spread, dilateFilter);
+					   spread, dilateFilter, weights);
 		  }		  
 		else
 		  {
 		    volData->getDepthSlice(rvdepth-1, val[2*spread]);
 		    applyMeanFilterToSlice(val[2*spread], raw,
 					   voxelType, rvwidth, rvheight,
-					   spread, dilateFilter);
+					   spread, dilateFilter, weights);
 		  }		  
 	      }
 	    else
@@ -2800,7 +2016,7 @@ Raw2Pvl::saveMHD(QString mhdFilename,
 	      {
 		applyMeanFilter(val, raw,
 				voxelType, rvwidth, rvheight,
-				spread, dilateFilter);
+				spread, dilateFilter, weights);
 		
 		// now shift the planes
 		uchar *tmp = val[0];

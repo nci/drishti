@@ -22,7 +22,6 @@ class DrishtiImport : public QMainWindow
   void on_action8_bit_triggered();
   void on_action16_bit_triggered();
 
-  void on_actionConvert_triggered();
   void on_actionTimeSeries_triggered();
 
   void on_actionSave_Images_triggered();

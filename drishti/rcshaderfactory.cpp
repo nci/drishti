@@ -246,6 +246,26 @@ RcShaderFactory::genRectBlurShaderString(int filter)
 }
 
 QString
+RcShaderFactory::gradMagnitude()
+{
+  QString shader;
+
+  shader += "float gradMagnitude(vec3 voxelCoord, vec3 onev)\n";
+  shader += "{\n";
+  shader += "  float dx = (texture3D(dataTex, voxelCoord+vec3(onev.x,0,0)).x-\n";
+  shader += "	           texture3D(dataTex, voxelCoord-vec3(onev.x,0,0)).x);\n";
+  shader += "  float dy = (texture3D(dataTex, voxelCoord+vec3(0,onev.y,0)).x-\n";
+  shader += "	           texture3D(dataTex, voxelCoord-vec3(0,onev.y,0)).x);\n";
+  shader += "  float dz = (texture3D(dataTex, voxelCoord+vec3(0,0,onev.z)).x-\n";
+  shader += "	           texture3D(dataTex, voxelCoord-vec3(0,0,onev.z)).x);\n";
+  shader += "\n";
+  shader += "  return sqrt(dx*dx + dy*dy + dz*dz);\n";
+  shader += "}\n";
+
+  return shader;
+}
+
+QString
 RcShaderFactory::getGrad()
 {
   QString shader;
@@ -340,8 +360,7 @@ RcShaderFactory::getExactVoxelCoord()
 }
 
 QString
-RcShaderFactory::genRaycastShader_1(bool nearest,
-				    QList<CropObject> crops,
+RcShaderFactory::genRaycastShader_1(QList<CropObject> crops,
 				    bool bit16)
 {
   //------------------------------------
@@ -402,6 +421,12 @@ RcShaderFactory::genRaycastShader_1(bool nearest,
 
   //---------------------
   // gradient and gradient magnitude evaluation
+  //shader += getGrad();
+  //---------------------
+
+  //---------------------
+  // gradient and gradient magnitude evaluation
+  shader += gradMagnitude();
   //shader += getGrad();
   //---------------------
 
@@ -496,13 +521,13 @@ RcShaderFactory::genRaycastShader_1(bool nearest,
       shader += "  colorSample = texture2D(lutTex, vec2(fh0,fh1));\n";
     }
 
-//  // find gradient magnitude
-//  shader += "  if (checkGrad > 0 && colorSample.a > 0.001)\n";  
-//  shader += "    {\n";
-//  shader += "      float gradMag = gradMagnitude(voxelCoord, onev);\n";
-//  shader += "      colorSample = mix(vec4(0.0), colorSample,\n";
-//  shader += "                        step(minGrad, gradMag)*step(gradMag, maxGrad));\n";
-//  shader += "    }\n";
+  // find gradient magnitude
+  shader += "  if (checkGrad > 0 && colorSample.a > 0.001)\n";  
+  shader += "    {\n";
+  shader += "      float gradMag = gradMagnitude(voxelCoord, onev);\n";
+  shader += "      colorSample = mix(vec4(0.0), colorSample,\n";
+  shader += "                        step(minGrad, gradMag)*step(gradMag, maxGrad));\n";
+  shader += "    }\n";
 
   // reduce opacity
   shader += " colorSample.a *= colorSample.a;\n";
@@ -599,16 +624,13 @@ RcShaderFactory::genRaycastShader_1(bool nearest,
       shader += "  colorSample = texture2D(lutTex, vec2(fh0,fh1));\n";
     }
 
-//  // find gradient magnitude
-//  shader += "  if (checkGrad > 0 && colorSample.a > 0.001)\n";  
-//  shader += "    {\n";
-//  shader += "      float gradMag = gradMagnitude(voxelCoord, onev);\n";
-//  shader += "      colorSample = mix(vec4(0.0), colorSample,\n";
-//  shader += "                        step(minGrad, gradMag)*step(gradMag, maxGrad));\n";
-//  shader += "    }\n";
-  
-  // reduce opacity
-  //shader += "  colorSample.a *= colorSample.a;\n";
+  // find gradient magnitude
+  shader += "  if (checkGrad > 0 && colorSample.a > 0.001)\n";  
+  shader += "    {\n";
+  shader += "      float gradMag = gradMagnitude(voxelCoord, onev);\n";
+  shader += "      colorSample = mix(vec4(0.0), colorSample,\n";
+  shader += "                        step(minGrad, gradMag)*step(gradMag, maxGrad));\n";
+  shader += "    }\n";
 
   // --- handle tags ---
   shader += "    if (mixTag)\n";

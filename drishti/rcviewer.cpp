@@ -15,8 +15,6 @@ RcViewer::RcViewer() :
 {
   m_lut = 0;
 
-  m_aoLevel = 0;
-
   m_slcBuffer = 0;
   m_rboId = 0;
   m_slcTex[0] = 0;
@@ -49,19 +47,12 @@ RcViewer::RcViewer() :
   m_filledTex = 0;
   m_ftBoxes = 0;
 
-  m_amb = 10;
-  m_diff = 0;
-  m_spec = 10;
+  m_maxRayLen = 50;
   m_shadow = 5.0;
   m_edge = 5.0;
-  m_shdX = 0;
-  m_shdY = 0;
-  m_smoothDepth = 1;
-  m_edgeThickness = 0.6;
-
-  m_shadowColor = Vec(0.0,0.0,0.0);
-  m_edgeColor = Vec(0.0,0.0,0.0);
-
+  m_minGrad = 0;
+  m_maxGrad = 20;
+  
   m_stillStep = Global::stepsizeStill();
   m_dragStep = Global::stepsizeDrag();
 
@@ -69,7 +60,6 @@ RcViewer::RcViewer() :
 
   m_crops.clear();
 
-  m_maxRayLen = 5;
 
 
   connect(&m_boundingBox, SIGNAL(updated()),
@@ -96,7 +86,6 @@ RcViewer::init()
   m_skipVoxels = 0;
   m_fullRender = false;
   m_dragMode = true;
-  m_exactCoord = false;
 
   m_dbox = m_wbox = m_hbox = 0;
   m_boxSize = 8;
@@ -740,7 +729,7 @@ RcViewer::createIsoRaycastShader()
 {
   QString shaderString;
 
-  shaderString = RcShaderFactory::genRaycastShader_1(m_exactCoord, m_crops, m_bytesPerVoxel==2);
+  shaderString = RcShaderFactory::genRaycastShader_1(m_crops, m_bytesPerVoxel==2);
 
   m_ircShader = glCreateProgramObjectARB();
   if (! RcShaderFactory::loadShader(m_ircShader,
@@ -1222,10 +1211,10 @@ RcViewer::raycast(Vec eyepos, float minZ, float maxZ, bool firstPartOnly)
     glUniform3fv(m_ircParm[16], nclip, cnormal); // clipplanes
   }
 
-  glUniform1f(m_ircParm[17], qPow(2,m_maxRayLen)); // go m_deep voxels deep
+  glUniform1f(m_ircParm[17], qPow(2.0f,0.1f*m_maxRayLen)); // go m_deep voxels deep
 
-  glUniform1f(m_ircParm[18], 0.0); // min gradient magnitute
-  glUniform1f(m_ircParm[19], 1.0); // max gradient magnitute
+  glUniform1f(m_ircParm[18], m_minGrad*0.05); // min gradient magnitute
+  glUniform1f(m_ircParm[19], m_maxGrad*0.05); // max gradient magnitute
 
   glUniform1fARB(m_ircParm[20], m_sslevel);
 
@@ -1263,7 +1252,8 @@ RcViewer::raycast(Vec eyepos, float minZ, float maxZ, bool firstPartOnly)
   glActiveTexture(GL_TEXTURE1);
   glEnable(GL_TEXTURE_3D);
   glBindTexture(GL_TEXTURE_3D, m_dataTex);
-  if (firstPartOnly || m_exactCoord)
+  if (firstPartOnly ||
+      !Global::interpolationType(Global::TextureInterpolation)) // linear
     {
       glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
       glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -1402,45 +1392,6 @@ RcViewer::drawGeometry()
 
       m_boundingBox.draw();
     }
-}
-
-
-void
-RcViewer::setShadowColor()
-{
-  Vec sclr = m_shadowColor;
-
-  QColor clr = QColor(sclr.x, sclr.y, sclr.z);
-  clr = DColorDialog::getColor(clr);
-  if (!clr.isValid())
-    return;
-
-  sclr = Vec(clr.red(), clr.green(), clr.blue());
-  m_shadowColor = sclr;
-  m_viewer->update();
-}
-
-void
-RcViewer::setEdgeColor()
-{
-  Vec sclr = m_edgeColor;
-
-  QColor clr = QColor(sclr.x, sclr.y, sclr.z);
-  clr = DColorDialog::getColor(clr);
-  if (!clr.isValid())
-    return;
-
-  sclr = Vec(clr.red(), clr.green(), clr.blue());
-  m_edgeColor = sclr;
-  m_viewer->update();
-}
-
-void
-RcViewer::setExactCoord(bool b)
-{
-  m_exactCoord = b;
-  createIsoRaycastShader();
-  m_viewer->update();
 }
 
 void

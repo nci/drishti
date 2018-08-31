@@ -46,6 +46,8 @@ class MainWindow : public QMainWindow
    void histogramUpdated(QImage, QImage);
    void histogramUpdated(int*);
 
+   void dockAdded(QDockWidget*);
+   
  protected :
    virtual void dragEnterEvent(QDragEnterEvent*);
    virtual void dropEvent(QDropEvent*);
@@ -208,7 +210,9 @@ class MainWindow : public QMainWindow
    void menuViewerFunction();
 
    void show16BitEditor(bool);
-   
+
+   void addDockFrame(QString, QFrame*);
+     
  private :
    Ui::MainWindow ui;
 

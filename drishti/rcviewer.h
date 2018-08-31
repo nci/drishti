@@ -44,23 +44,16 @@ class RcViewer : public QObject
 
   void setBrickInfo(QList<BrickInformation>);
   
-  int aoLevel() { return m_aoLevel; }
-  bool exactCoord() { return m_exactCoord; }
   int skipLayers() { return m_skipLayers; }
   int skipVoxels() { return m_skipVoxels; }
-  int amb() { return m_amb; }
-  int diff() { return m_diff; }
-  int spec() { return m_spec; }
   int edge() { return m_edge; }
   int shadow() { return m_shadow; }
-  Vec shadowColor() { return m_shadowColor; }
-  Vec edgeColor() { return m_edgeColor; }
   float stillStep() { return m_stillStep; }
   float dragStep() { return m_dragStep; }
-  int smoothDepth() { return m_smoothDepth; }
-  float edgeThickness() { return m_edgeThickness; }
   int maxRayLen() { return m_maxRayLen; }
-
+  int minGrad() { return m_minGrad; }
+  int maxGrad() { return m_maxGrad; }
+  
   bool getHit(const QMouseEvent*);
 
   void loadLookupTable();
@@ -68,24 +61,14 @@ class RcViewer : public QObject
   public slots :
     void boundingBoxChanged();
     void updateVoxelsForRaycast();
+    void setStillAndDragStep(float, float);
     void setSkipLayers(int l) { m_skipLayers = l; m_viewer->update(); }
     void setSkipVoxels(int l) { m_skipVoxels = l; m_viewer->update(); }
-    void setShadowColor();
-    void setEdgeColor();
-    void setSpec(int a) { m_spec = a; m_viewer->update(); }
     void setEdge(int e) { m_edge = e; m_viewer->update(); }
     void setShadow(int e) { m_shadow = e; m_viewer->update(); }
-    void setSmoothDepth(int e) { m_smoothDepth = e; m_viewer->update(); }
-    void setShadowOffsetX(int x) { m_shdX = x; m_viewer->update(); }
-    void setShadowOffsetY(int y) { m_shdY = y; m_viewer->update(); }
-    void setExactCoord(bool);
-    void setStillAndDragStep(float, float);
-    void setEdgeThickness(int e) { m_edgeThickness = 0.1*e; m_viewer->update(); }
     void setMaxRayLen(int r) { m_maxRayLen = r;  m_viewer->update();}
-    void setAmbient(int r) { m_amb = r;  m_viewer->update();}
-    void setDiffuse(int r) { m_diff = r;  m_viewer->update();}
-    void setSpecular(int r) { m_spec = r;  m_viewer->update();}
-    void setAOLevel(int ao) { m_aoLevel = ao;  m_viewer->update();} 
+    void setMinGrad(int e) { m_minGrad = e; m_viewer->update(); }
+    void setMaxGrad(int e) { m_maxGrad = e; m_viewer->update(); }
     
  private :
 
@@ -106,15 +89,10 @@ class RcViewer : public QObject
   QList<int> m_boxMinMax;
   MyBitArray m_filledBoxes;
 
-  int m_amb, m_diff, m_spec;
   float m_shadow;
   float m_edge;
-  Vec m_shadowColor, m_edgeColor;
-  int m_shdX, m_shdY;
-  int m_smoothDepth;
-  float m_edgeThickness;
-  int m_aoLevel;
-
+  float m_minGrad, m_maxGrad;
+  
   int m_max3DTexSize;
   int m_skipLayers, m_skipVoxels;
   float m_stillStep, m_dragStep;
@@ -143,7 +121,6 @@ class RcViewer : public QObject
   GLhandleARB m_eeShader;
   GLint m_eeParm[20];
 
-  bool m_exactCoord;
   bool m_fullRender;
   bool m_dragMode;
   int m_renderMode;

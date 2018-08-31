@@ -12,6 +12,7 @@ PopUpSlider::PopUpSlider(QWidget *parent, Qt::Orientation sliderType) :
   
   slider = new QSlider(sliderType, popup);
   slider->setRange(0, 1000);
+  slider->setMinimumWidth(200);
   connect(slider, SIGNAL(valueChanged(int)), this, SIGNAL(valueChanged(int)));
   connect(slider, SIGNAL(sliderReleased()), this, SLOT(emitSliderReleased()));
   

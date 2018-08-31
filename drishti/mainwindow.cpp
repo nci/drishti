@@ -319,6 +319,23 @@ MainWindow::MainWindow(QWidget *parent) :
   
 }
 
+void
+MainWindow::addDockFrame(QString name, QFrame *menu)
+{
+  //----------------------------------------------------------
+  QDockWidget *dockW = new QDockWidget(name, this);
+  dockW->setAllowedAreas(Qt::LeftDockWidgetArea | 
+			 Qt::RightDockWidgetArea);
+  dockW->setWidget(menu);
+  dockW->hide();
+  //----------------------------------------------------------
+  addDockWidget(Qt::RightDockWidgetArea, dockW);
+
+  ui.menuView->addSeparator();
+  ui.menuView->addAction(dockW->toggleViewAction());
+
+  emit dockAdded(dockW);
+}
 
 void
 MainWindow::show16BitEditor(bool b)

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>117</width>
-    <height>387</height>
+    <width>189</width>
+    <height>377</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -18,13 +18,13 @@
   </property>
   <property name="minimumSize">
    <size>
-    <width>50</width>
+    <width>100</width>
     <height>0</height>
    </size>
   </property>
   <property name="maximumSize">
    <size>
-    <width>200</width>
+    <width>300</width>
     <height>16777215</height>
    </size>
   </property>
@@ -125,13 +125,6 @@
        </widget>
       </item>
       <item>
-       <widget class="QCheckBox" name="nearest">
-        <property name="text">
-         <string>Near Neighbour</string>
-        </property>
-       </widget>
-      </item>
-      <item>
        <layout class="QGridLayout" name="gridLayout_2" columnstretch="0,1">
         <property name="topMargin">
          <number>0</number>
@@ -204,49 +197,6 @@
          <widget class="QSpinBox" name="skipVoxels">
           <property name="maximum">
            <number>500</number>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </item>
-      <item>
-       <layout class="QGridLayout" name="gridLayout" columnstretch="0,0">
-        <property name="topMargin">
-         <number>0</number>
-        </property>
-        <property name="spacing">
-         <number>2</number>
-        </property>
-        <item row="1" column="0" colspan="2">
-         <widget class="QLabel" name="label_4">
-          <property name="text">
-           <string>Step Size</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
-          </property>
-         </widget>
-        </item>
-        <item row="2" column="1">
-         <widget class="QDoubleSpinBox" name="stillStep">
-          <property name="minimum">
-           <double>0.100000000000000</double>
-          </property>
-          <property name="maximum">
-           <double>10.000000000000000</double>
-          </property>
-          <property name="singleStep">
-           <double>0.100000000000000</double>
-          </property>
-         </widget>
-        </item>
-        <item row="2" column="0">
-         <widget class="QLabel" name="label_9">
-          <property name="text">
-           <string>Step size</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
           </property>
          </widget>
         </item>

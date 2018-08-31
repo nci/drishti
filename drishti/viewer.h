@@ -1,13 +1,13 @@
 #include "glewinitialisation.h"
 
 #include <QObject>
-
 #include <QUdpSocket>
 
 #include <QGLViewer/qglviewer.h>
 using namespace qglviewer;
 
 #include <QSpinBox>
+#include <QDockWidget>
 
 #include "drawhiresvolume.h"
 #include "drawlowresvolume.h"
@@ -88,90 +88,89 @@ class Viewer : public QGLViewer
   QMap<QString, QMap<QString, MenuViewerFncPtr> > registerMenuFunctions();
 
  public slots :
-  void setTag(int);
-  void setDOF(int, float);
-  void setCarveRadius(int);
-  void updateLightBuffers();
-  void updatePruneBuffer(bool);
-  void displayMessage(QString, bool);
-  void showFullScene();
-  void updateStereoSettings(float, float, float);
-  void updateScaling();
-  virtual void resizeGL(int, int);
-
-  virtual void keyPressEvent(QKeyEvent*);
-
-  virtual void enterEvent(QEvent*);
-  virtual void leaveEvent(QEvent*);
-  virtual void wheelEvent(QWheelEvent*);
-  virtual void mousePressEvent(QMouseEvent*);
-  virtual void mouseReleaseEvent(QMouseEvent*);
-  virtual void mouseMoveEvent(QMouseEvent*);
-  virtual void closeEvent(QCloseEvent*);
-
-  void updateLookFrom(Vec, Quaternion, float, float);
-
-  void resetLookupTable();
-  void loadLookupTable(QList<QImage>);
-  void updateLookupTable(unsigned char*);
-  void updateLookupTable();
-
-  void checkPointSelected(const QMouseEvent*);
-  void reloadData();
-  void switchToHires();
-  void switchDrawVolume();
-  void switchSliceMode();
-  void switchRaycastMode();
-  void enableTextureUnits();
-  void disableTextureUnits();
-  void setKeyFrame(int);
-  void captureKeyFrameImage(int);
-  void setSaveSnapshots(bool);
-  void setSaveMovie(bool);
-  void setCurrentFrame(int);
-  void setImageMode(int);
-  void endPlay();
-  void setImageFileName(QString);
-
-  bool startMovie(QString, int, int, bool);
-  bool endMovie();
-
-  void currentView();
-  void updateTagColors();
-
-  void grabScreenShot();
-  void processMorphologicalOperations();
-
-  void readSocket();
-
-  void on_raycaststillStep_changed(double);
-
-  //------------
-  //menu viewer functions
-  void reslice();
-  void rescale();
-  void image2volume();
-  void changeSliceOrdering();
-  void colorBar();
-  void scaleBar();
-  void caption();
-  void setFloatPrecision();
-  void getSurfaceArea();
-  void getVolume();
-  void addPoint();
-  void removePoints();
-  void mix();
-  void mop();
-  void interpolateVolumes();
-  void path();
-  void clip();
-  void crop();
-  void blend();
-  void disect();
-  void glow();
-  void displace();
-  void opmod();
-  void showGiLightDialog();
+   void dockAdded(QDockWidget*);
+   void setTag(int);
+   void setDOF(int, float);
+   void setCarveRadius(int);
+   void updateLightBuffers();
+   void updatePruneBuffer(bool);
+   void displayMessage(QString, bool);
+   void showFullScene();
+   void updateStereoSettings(float, float, float);
+   void updateScaling();
+   virtual void resizeGL(int, int);
+   
+   virtual void keyPressEvent(QKeyEvent*);
+   
+   virtual void enterEvent(QEvent*);
+   virtual void leaveEvent(QEvent*);
+   virtual void wheelEvent(QWheelEvent*);
+   virtual void mousePressEvent(QMouseEvent*);
+   virtual void mouseReleaseEvent(QMouseEvent*);
+   virtual void mouseMoveEvent(QMouseEvent*);
+   virtual void closeEvent(QCloseEvent*);
+   
+   void updateLookFrom(Vec, Quaternion, float, float);
+   
+   void resetLookupTable();
+   void loadLookupTable(QList<QImage>);
+   void updateLookupTable(unsigned char*);
+   void updateLookupTable();
+   
+   void checkPointSelected(const QMouseEvent*);
+   void reloadData();
+   void switchToHires();
+   void switchDrawVolume();
+   void switchSliceMode();
+   void switchRaycastMode();
+   void enableTextureUnits();
+   void disableTextureUnits();
+   void setKeyFrame(int);
+   void captureKeyFrameImage(int);
+   void setSaveSnapshots(bool);
+   void setSaveMovie(bool);
+   void setCurrentFrame(int);
+   void setImageMode(int);
+   void endPlay();
+   void setImageFileName(QString);
+   
+   bool startMovie(QString, int, int, bool);
+   bool endMovie();
+   
+   void currentView();
+   void updateTagColors();
+   
+   void grabScreenShot();
+   void processMorphologicalOperations();
+   
+   void readSocket();
+   
+   //------------
+   //menu viewer functions
+   void reslice();
+   void rescale();
+   void image2volume();
+   void changeSliceOrdering();
+   void colorBar();
+   void scaleBar();
+   void caption();
+   void setFloatPrecision();
+   void getSurfaceArea();
+   void getVolume();
+   void addPoint();
+   void removePoints();
+   void mix();
+   void mop();
+   void interpolateVolumes();
+   void path();
+   void clip();
+   void crop();
+   void blend();
+   void disect();
+   void glow();
+   void displace();
+   void opmod();
+   void showGiLightDialog();
   //------------
 
  signals:
@@ -205,6 +204,8 @@ class Viewer : public QGLViewer
   void processMops();
   void moveToKeyframe(int);
 
+  void addDockFrame(QString, QFrame*);
+  
  protected :  
   virtual void draw();
   virtual void fastDraw();
@@ -214,22 +215,14 @@ class Viewer : public QGLViewer
  private :
   QWidget *m_parent;
 
+  QDockWidget* m_raycastMenu;
   Ui::RaycastMenu m_raycastUI;
-  QFrame *m_raycastMenu;
-  PopUpSlider *m_viewSpec;
-  PopUpSlider *m_thickEdge;
+  QFrame *m_raycastParameters;
   PopUpSlider *m_viewEdge;
   PopUpSlider *m_viewShadow;
-  PopUpSlider *m_shadowX;
-  PopUpSlider *m_shadowY;
-  QPushButton *m_shadowButton;
-  QPushButton *m_edgeButton;
-
   PopUpSlider *m_raylen;
-  PopUpSlider *m_amb;
-  PopUpSlider *m_diff;
-  PopUpSlider *m_spec;
-  PopUpSlider *m_aolevel;
+  PopUpSlider *m_minGrad;
+  PopUpSlider *m_maxGrad;
 
   ViewerUndo m_undo;
 

@@ -250,16 +250,28 @@ RcShaderFactory::gradMagnitude()
 {
   QString shader;
 
+//  shader += "float gradMagnitude(vec3 voxelCoord, vec3 onev)\n";
+//  shader += "{\n";
+//  shader += "  float dx = (texture3D(dataTex, voxelCoord+vec3(onev.x,0,0)).x-\n";
+//  shader += "	           texture3D(dataTex, voxelCoord-vec3(onev.x,0,0)).x);\n";
+//  shader += "  float dy = (texture3D(dataTex, voxelCoord+vec3(0,onev.y,0)).x-\n";
+//  shader += "	           texture3D(dataTex, voxelCoord-vec3(0,onev.y,0)).x);\n";
+//  shader += "  float dz = (texture3D(dataTex, voxelCoord+vec3(0,0,onev.z)).x-\n";
+//  shader += "	           texture3D(dataTex, voxelCoord-vec3(0,0,onev.z)).x);\n";
+//  shader += "\n";
+//  shader += "  return sqrt(dx*dx + dy*dy + dz*dz);\n";
+//  shader += "}\n";
+
+  // using tetrahedron technique - iquilezles.org (normalsSDF) - Paul Malin in ShaderToy
   shader += "float gradMagnitude(vec3 voxelCoord, vec3 onev)\n";
   shader += "{\n";
-  shader += "  float dx = (texture3D(dataTex, voxelCoord+vec3(onev.x,0,0)).x-\n";
-  shader += "	           texture3D(dataTex, voxelCoord-vec3(onev.x,0,0)).x);\n";
-  shader += "  float dy = (texture3D(dataTex, voxelCoord+vec3(0,onev.y,0)).x-\n";
-  shader += "	           texture3D(dataTex, voxelCoord-vec3(0,onev.y,0)).x);\n";
-  shader += "  float dz = (texture3D(dataTex, voxelCoord+vec3(0,0,onev.z)).x-\n";
-  shader += "	           texture3D(dataTex, voxelCoord-vec3(0,0,onev.z)).x);\n";
-  shader += "\n";
-  shader += "  return sqrt(dx*dx + dy*dy + dz*dz);\n";
+  shader += "  vec2 k = vec2(1.0, -1.0);\n";
+  shader += "  vec3 grad = (k.xyy * texture(dataTex, voxelCoord+k.xyy*onev).x +\n";
+  shader += "               k.yyx * texture(dataTex, voxelCoord+k.yyx*onev).x +\n";
+  shader += "               k.yxy * texture(dataTex, voxelCoord+k.yxy*onev).x +\n";
+  shader += "               k.xxx * texture(dataTex, voxelCoord+k.xxx*onev).x);\n";
+  shader += "  grad = grad/2.0;\n";  // should be actually divided by 4
+  shader += "  return length(grad);\n";
   shader += "}\n";
 
   return shader;
@@ -386,7 +398,7 @@ RcShaderFactory::genRaycastShader_1(QList<CropObject> crops,
   //------------------------------------
 
   QString shader;
-  shader += "#extension GL_ARB_texture_rectangle : enable\n";
+  shader += "#version 450 core\n";
   shader += "uniform sampler3D dataTex;\n";
   shader += "uniform sampler2D lutTex;\n";
   shader += "uniform sampler2DRect exitTex;\n";
@@ -409,6 +421,9 @@ RcShaderFactory::genRaycastShader_1(QList<CropObject> crops,
   shader += "uniform float maxGrad;\n";
   shader += "uniform float sslevel;\n";
   shader += "uniform mat4 MVP;\n";
+
+  shader += "layout(location = 0) out vec4 outColor;\n";
+  shader += "layout(location = 1) out vec4 outDepth;\n";
   
   if (cropPresent) shader += CropShaderFactory::generateCropping(crops);
   if (viewPresent) shader += BlendShaderFactory::generateBlend(crops);
@@ -427,7 +442,6 @@ RcShaderFactory::genRaycastShader_1(QList<CropObject> crops,
   //---------------------
   // gradient and gradient magnitude evaluation
   shader += gradMagnitude();
-  //shader += getGrad();
   //---------------------
 
   //---------------------
@@ -438,11 +452,11 @@ RcShaderFactory::genRaycastShader_1(QList<CropObject> crops,
   shader += "void main(void)\n";
   shader += "{\n";
 
-  shader += "vec4 exP = texture2DRect(exitTex, gl_FragCoord.st);\n";
-  shader += "vec4 enP = texture2DRect(entryTex, gl_FragCoord.st);\n";
+  shader += "vec4 exP = texture(exitTex, gl_FragCoord.st);\n";
+  shader += "vec4 enP = texture(entryTex, gl_FragCoord.st);\n";
 
-  shader += "gl_FragData[0] = vec4(0.0);\n";
-  shader += "gl_FragData[1] = vec4(0.0);\n";
+  shader += "outColor = vec4(0.0);\n";
+  shader += "outDepth = vec4(0.0);\n";
 
   shader += "if (exP.a < 0.001 || enP.a < 0.001) return;\n";
 
@@ -504,12 +518,12 @@ RcShaderFactory::genRaycastShader_1(QList<CropObject> crops,
   shader += "for(int i=0; i<iend; i++)\n";
   shader += "{\n";
   shader += "  istart = i;\n";
-  shader += "  float val = texture3D(dataTex, voxelCoord).x;\n";
+  shader += "  float val = texture(dataTex, voxelCoord).x;\n";
   shader += "  vec4 colorSample = vec4(0.0);\n";
 
   if (!bit16)
     {
-      shader += "  colorSample = texture2D(lutTex, vec2(val,0.0));\n";
+      shader += "  colorSample = texture(lutTex, vec2(val,0.0));\n";
     }
   else
     {
@@ -518,7 +532,7 @@ RcShaderFactory::genRaycastShader_1(QList<CropObject> crops,
       shader += "  h0 = int(mod(float(h0),256.0));\n";
       shader += "  float fh0 = float(h0)/256.0;\n";
       shader += "  float fh1 = float(h1)/256.0;\n";
-      shader += "  colorSample = texture2D(lutTex, vec2(fh0,fh1));\n";
+      shader += "  colorSample = texture(lutTex, vec2(fh0,fh1));\n";
     }
 
   // find gradient magnitude
@@ -547,9 +561,9 @@ RcShaderFactory::genRaycastShader_1(QList<CropObject> crops,
   shader += "    if (mixTag)\n";
   shader += "    {\n";
   if (!bit16)
-    shader += "      vec4 tagcolor = texture1D(tagTex, val);\n";
+    shader += "      vec4 tagcolor = texture(tagTex, val);\n";
   else
-    shader += "      vec4 tagcolor = texture1D(tagTex, fh0);\n";
+    shader += "      vec4 tagcolor = texture(tagTex, fh0);\n";
   shader += "      if (tagcolor.a > 0.0)\n";
   shader += "        colorSample.rgb = mix(colorSample.rgb, tagcolor.rgb, tagcolor.a);\n";
   shader += "      else\n";
@@ -565,8 +579,8 @@ RcShaderFactory::genRaycastShader_1(QList<CropObject> crops,
   shader += "    for (int b=0; b<5; b++)\n";
   shader += "    {\n";
   shader += "      voxelCoord += dD;\n";
-  shader += "      val = texture3D(dataTex, voxelCoord).x;\n";
-  shader += "      vec4 cS = texture2D(lutTex, vec2(val,0.0));\n";
+  shader += "      val = texture(dataTex, voxelCoord).x;\n";
+  shader += "      vec4 cS = texture(lutTex, vec2(val,0.0));\n";
   shader += "      dD = dD*0.5;\n";
   shader += "      dD *= mix(-1.0, 1.0, step(0.001, cS.a));\n";
   shader += "      colorSample = mix(colorSample, cS, step(0.001, cS.a));\n";
@@ -577,7 +591,7 @@ RcShaderFactory::genRaycastShader_1(QList<CropObject> crops,
   shader += "    if (saveCoord)";
   shader += "      {\n";
   shader += "        vec3 vC = exactVoxelCoordinate(voxelCoord, vsize);\n";
-  shader += "        gl_FragData[0] = vec4(vC,1.0);\n";
+  shader += "        outColor = vec4(vC,1.0);\n";
   shader += "        return;\n";
   shader += "      }\n";
   shader += "  }\n";
@@ -607,12 +621,12 @@ RcShaderFactory::genRaycastShader_1(QList<CropObject> crops,
   shader += "float deep = 0.0;\n";
   shader += "for(int i=istart; i<iend; i++)\n";
   shader += "{\n";
-  shader += "  float val = texture3D(dataTex, voxelCoord).x;\n";
+  shader += "  float val = texture(dataTex, voxelCoord).x;\n";
   shader += "  vec4 colorSample = vec4(0.0);\n";
 
   if (!bit16)
     {
-      shader += "  colorSample = texture2D(lutTex, vec2(val,0.0));\n";
+      shader += "  colorSample = texture(lutTex, vec2(val,0.0));\n";
     }
   else
     {
@@ -621,7 +635,7 @@ RcShaderFactory::genRaycastShader_1(QList<CropObject> crops,
       shader += "  h0 = int(mod(float(h0),256.0));\n";
       shader += "  float fh0 = float(h0)/256.0;\n";
       shader += "  float fh1 = float(h1)/256.0;\n";
-      shader += "  colorSample = texture2D(lutTex, vec2(fh0,fh1));\n";
+      shader += "  colorSample = texture(lutTex, vec2(fh0,fh1));\n";
     }
 
   // find gradient magnitude
@@ -636,9 +650,9 @@ RcShaderFactory::genRaycastShader_1(QList<CropObject> crops,
   shader += "    if (mixTag)\n";
   shader += "    {\n";
   if (!bit16)
-    shader += "      vec4 tagcolor = texture1D(tagTex, val);\n";
+    shader += "      vec4 tagcolor = texture(tagTex, val);\n";
   else
-    shader += "      vec4 tagcolor = texture1D(tagTex, fh0);\n";
+    shader += "      vec4 tagcolor = texture(tagTex, fh0);\n";
   shader += "      if (tagcolor.a > 0.0)\n";
   shader += "        colorSample.rgb = mix(colorSample.rgb, tagcolor.rgb, tagcolor.a);\n";
   shader += "      else\n";
@@ -680,11 +694,12 @@ RcShaderFactory::genRaycastShader_1(QList<CropObject> crops,
   shader += "                     gl_DepthRange.near + gl_DepthRange.far) / 2.0;\n";
   shader += "         gl_FragDepth = z;\n";
   shader += "         float zLinear = length(vcorner+voxelCoord*vsize - eyepos);\n";
-  shader += "         gl_FragData[1] = vec4(z,val,zLinear,1.0);\n";
+  shader += "         outDepth = vec4(z,val,zLinear,1.0);\n";
   shader += "       }\n";
   shader += "      if (colorAcum.a > 0.95 || deep >= maxDepth)\n";
   shader += "       {\n";
-  shader += "         gl_FragData[0] = colorAcum/colorAcum.a;\n";
+  shader += "         outColor = colorAcum/colorAcum.a;\n";
+  //shader += "         outColor = colorAcum;\n";
   shader += "         return;\n";
   shader += "       }\n";
   shader += "    }\n"; // colorsample || deep
@@ -714,7 +729,8 @@ RcShaderFactory::genRaycastShader_1(QList<CropObject> crops,
 
   shader += "}\n";
 
-  shader += "if (colorAcum.a > 0.001) gl_FragData[0] = colorAcum/colorAcum.a;\n";
+  shader += "if (colorAcum.a > 0.001) outColor = colorAcum/colorAcum.a;\n";
+  //shader += " outColor = colorAcum;\n";
 
   shader += "}\n";
 
@@ -726,9 +742,7 @@ RcShaderFactory::genEdgeEnhanceShader_1()
 {
   QString shader;
 
-  shader += "#version 420 core\n";
-  shader += "in vec3 pointpos;\n";
-  shader += "out vec4 glFragColor;\n";
+  shader += "#version 450 core\n";
   
   shader += "uniform sampler2DRect normalTex;\n";
   shader += "uniform sampler2DRect pvtTex;\n";
@@ -737,19 +751,21 @@ RcShaderFactory::genEdgeEnhanceShader_1()
   shader += "uniform float dzScale;\n";
   shader += "uniform float isoshadow;\n";
 
+  shader += "out vec4 glFragColor;\n";
+
   shader += "void main(void)\n";
   shader += "{\n";
   shader += "  glFragColor = vec4(0.0);\n";
   
   shader += "  vec2 spos0 = gl_FragCoord.xy;\n";
 
-  shader += "  vec4 color = texture2DRect(pvtTex, spos0);\n";
-  shader += "  vec3 dvt = texture2DRect(normalTex, spos0).xyz;\n";
+  shader += "  vec4 color = texture(pvtTex, spos0);\n";
+  shader += "  vec3 dvt = texture(normalTex, spos0).xyz;\n";
 
   shader += "  gl_FragDepth = dvt.x;\n";
   
   //---------------------
-  shader += "  if (color.a < 0.01)\n";
+  shader += "  if (color.a < 0.001)\n";
   shader += "    discard;\n";
   //---------------------
 

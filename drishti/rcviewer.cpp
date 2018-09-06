@@ -53,13 +53,17 @@ RcViewer::RcViewer() :
   m_minGrad = 0;
   m_maxGrad = 20;
   
-  m_stillStep = Global::stepsizeStill();
-  m_dragStep = Global::stepsizeDrag();
-
   m_renderMode = 1; // 0-point, 1-raycast, 2-xray
 
   m_crops.clear();
 
+
+  m_flhist1D = new float[256];
+  m_flhist2D = new float[256*256];
+  m_subvolume1dHistogram = new int[256];
+  m_subvolume2dHistogram = new int[256*256];
+  memset(m_subvolume1dHistogram, 0, 256*4);
+  memset(m_subvolume2dHistogram, 0, 256*256*4);
 
 
   connect(&m_boundingBox, SIGNAL(updated()),
@@ -200,17 +204,11 @@ RcViewer::setGridSize(int d, int w, int h)
   m_minDSlice = 0;
   m_minWSlice = 0;
   m_minHSlice = 0;
-//  m_maxDSlice = m_depth-1;
-//  m_maxWSlice = m_width-1;
-//  m_maxHSlice = m_height-1;  
   m_maxDSlice = m_depth;
   m_maxWSlice = m_width;
   m_maxHSlice = m_height;  
 
   glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, &m_max3DTexSize);
-
-  m_stillStep = Global::stepsizeStill();
-  m_dragStep = Global::stepsizeDrag();
 
   createShaders();
 
@@ -265,7 +263,6 @@ RcViewer::loadLookupTable()
 	       0, // single resolution
 	       GL_RGBA,
 	       256, Global::lutSize()*256, // width, height
-	       //256, 256,  // take only TF-0
 	       0, // no border
 	       GL_RGBA,
 	       GL_UNSIGNED_BYTE,
@@ -397,18 +394,11 @@ RcViewer::updateFilledBoxes()
 	  break;
 	}
     }
-
+    
   Vec bminO, bmaxO;
   m_boundingBox.bounds(bminO, bmaxO);
   bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
   bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
-
-
-//  QList<Vec> cPos = GeometryObjects::clipplanes()->positions();
-//  QList<Vec> cNorm = GeometryObjects::clipplanes()->normals();
-//  cPos << m_viewer->camera()->position() + 50*m_viewer->camera()->viewDirection();
-//  cNorm << -(m_viewer->camera()->viewDirection());
-
 
   m_filledBoxes.fill(true);
 
@@ -557,50 +547,6 @@ RcViewer::updateFilledBoxes()
     if (m_filledBoxes.testBit(i))
       m_ftBoxes[i] = 255;
   //-------------------------------------------
-
-
-
-//  //-------------------------------------------
-//  // now remove the internal ones for drawing boxes for entry and exit points
-//  MyBitArray tfb;
-//  tfb.resize(m_filledBoxes.size());
-//  for(int i=0; i<m_filledBoxes.size(); i++)
-//    tfb.setBit(i, m_filledBoxes.testBit(i));
-//
-//  for(int d=1; d<m_dbox-1; d++)
-//    for(int w=1; w<m_wbox-1; w++)
-//      for(int h=1; h<m_hbox-1; h++)
-//	{
-//	  int idx = d*m_wbox*m_hbox+w*m_hbox+h;
-//	  if (tfb.testBit(idx))
-//	    {
-//	      bool ok = false;
-//	      for(int d1=d-1; d1<=d+1; d1++)
-//		for(int w1=w-1; w1<=w+1; w1++)
-//		  for(int h1=h-1; h1<=h+1; h1++)
-//		    {
-//		      int idx1 = d1*m_wbox*m_hbox+w1*m_hbox+h1;
-//		      if (!tfb.testBit(idx1))
-//			{
-//			  ok = true;
-//			  break;
-//			}
-//		    }
-//	      m_filledBoxes.setBit(idx, ok);
-//	    }
-//	}
-//  
-//  tfb.clear();
-//  //-------------------------------------------
-
-
-
-//  //-------------------------------------------
-//  memset(m_ftBoxes, 0, m_dbox*m_wbox*m_hbox);
-//  for(int i=0; i<m_dbox*m_wbox*m_hbox; i++)
-//    if (m_filledBoxes.testBit(i))
-//      m_ftBoxes[i] = 255;
-//  //-------------------------------------------
 
 
 
@@ -835,14 +781,17 @@ RcViewer::updateVoxelsForRaycast()
   if (!m_lutTex) glGenTextures(1, &m_lutTex);
 
   { // update box for voxel upload
+    Vec voxelScaling = Global::voxelScaling();
     Vec bmin, bmax;
     m_boundingBox.bounds(bmin, bmax);
+    bmin = VECDIVIDE(bmin, voxelScaling);
+    bmax = VECDIVIDE(bmax, voxelScaling);
     m_minDSlice = bmin.z;
     m_minWSlice = bmin.y;
     m_minHSlice = bmin.x;
-    m_maxDSlice = bmax.z;
-    m_maxWSlice = bmax.y;
-    m_maxHSlice = bmax.x;
+    m_maxDSlice = qCeil(bmax.z); // because we are getting it as float
+    m_maxWSlice = qCeil(bmax.y);
+    m_maxHSlice = qCeil(bmax.x);
   }
   
   qint64 dsz = (m_maxDSlice-m_minDSlice);
@@ -865,7 +814,7 @@ RcViewer::updateVoxelsForRaycast()
       if (wsz*m_sslevel < m_maxWSlice-m_minWSlice) wsz++;
       if (hsz*m_sslevel < m_maxHSlice-m_minHSlice) hsz++;
 
-      tsz = dsz*wsz*hsz;      
+      tsz = dsz*wsz*hsz*m_bytesPerVoxel;      
     }
 
   //-------------------------
@@ -880,17 +829,13 @@ RcViewer::updateVoxelsForRaycast()
   if (dsz*m_sslevel < m_maxDSlice-m_minDSlice) dsz++;
   if (wsz*m_sslevel < m_maxWSlice-m_minWSlice) wsz++;
   if (hsz*m_sslevel < m_maxHSlice-m_minHSlice) hsz++;
-  tsz = dsz*wsz*hsz;      
+  tsz = dsz*wsz*hsz*m_bytesPerVoxel;      
   //-------------------------
 
   m_corner = Vec(m_minHSlice, m_minWSlice, m_minDSlice);
   m_vsize = Vec(hsz, wsz, dsz);
 
-  m_stillStep = Global::stepsizeStill();
-  m_dragStep = Global::stepsizeDrag();
-
-
-  uchar *voxelVol = new uchar[m_bytesPerVoxel*tsz];
+  uchar *voxelVol = new uchar[tsz];
 
 
   QProgressDialog progress("Updating voxel structure",
@@ -903,6 +848,9 @@ RcViewer::updateVoxelsForRaycast()
   progress.setValue(20);
   qApp->processEvents();
 
+  memset(m_flhist1D, 0, 256*4);
+  memset(m_flhist2D, 0, 256*256*4);
+
   if (m_bytesPerVoxel == 1)
     {
       int i = 0;
@@ -910,8 +858,10 @@ RcViewer::updateVoxelsForRaycast()
 	for(int w=m_minWSlice; w<m_maxWSlice; w+=m_sslevel)
 	  for(int h=m_minHSlice; h<m_maxHSlice; h+=m_sslevel)
 	    {
-	      voxelVol[i] = m_volPtr[d*m_width*m_height + w*m_height + h];
+	      uchar v = m_volPtr[d*m_width*m_height + w*m_height + h];
+	      voxelVol[i] = v;
 	      i++;
+	      m_flhist1D[v]++;
 	    }
     }
   else
@@ -923,10 +873,17 @@ RcViewer::updateVoxelsForRaycast()
 	for(int w=m_minWSlice; w<m_maxWSlice; w+=m_sslevel)
 	  for(int h=m_minHSlice; h<m_maxHSlice; h+=m_sslevel)
 	    {
-	      voxPtr[i] = vPtr[d*m_width*m_height + w*m_height + h];
+	      ushort v = vPtr[d*m_width*m_height + w*m_height + h];
+	      voxPtr[i] = v;
 	      i++;
+
+	      int g = v/256;
+	      int vg = v - g*256;
+	      m_flhist1D[v/256]++;
+	      m_flhist2D[g*256 + vg]++;
 	    }
     }
+
   progress.setValue(50);
   qApp->processEvents();
 
@@ -952,7 +909,7 @@ RcViewer::updateVoxelsForRaycast()
   else
     glTexImage3D(GL_TEXTURE_3D,
 		 0, // single resolution
-		 GL_LUMINANCE16,
+		 1,
 		 hsz, wsz, dsz,
 		 0, // no border
 		 GL_LUMINANCE,
@@ -960,10 +917,22 @@ RcViewer::updateVoxelsForRaycast()
 		 voxelVol);
   glDisable(GL_TEXTURE_3D);
   //----------------------------
-
+    
   delete [] voxelVol;
   
   progress.setValue(100);
+  
+  if (m_bytesPerVoxel == 1)
+    StaticFunctions::generateHistograms(m_flhist1D, m_flhist2D,
+					m_subvolume1dHistogram,
+					m_subvolume2dHistogram);
+  else // just copy
+    {
+      for(int i=0; i<256; i++)
+	m_subvolume1dHistogram[i] = m_flhist1D[i];
+      for(int i=0; i<256*256; i++)
+	m_subvolume2dHistogram[i] = m_flhist2D[i];
+    }
 }
 
 void
@@ -983,8 +952,8 @@ RcViewer::drawInfo()
   QFont tfont = QFont("Helvetica", 12);  
   QString mesg;
 
-  mesg += QString("LOD(%1) Vol(%2 %3 %4) ").				\
-    arg(m_sslevel).arg(m_vsize.x).arg(m_vsize.y).arg(m_vsize.z);
+//  mesg += QString("LOD(%1) Vol(%2 %3 %4) ").				\
+//    arg(m_sslevel).arg(m_vsize.x).arg(m_vsize.y).arg(m_vsize.z);
 
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -993,23 +962,27 @@ RcViewer::drawInfo()
   int wd = m_viewer->camera()->screenWidth();
   int ht = m_viewer->camera()->screenHeight();
   StaticFunctions::pushOrthoView(0, 0, wd, ht);
-  StaticFunctions::renderText(10,10, mesg, tfont, Qt::black, Qt::lightGray);
+//  StaticFunctions::renderText(10,10, mesg, tfont, Qt::black, Qt::lightGray);
 
-  tfont = QFont("Helvetica", 10);  
+  tfont = QFont("Helvetica", 12);  
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
-  mesg = QString("box(%1 %2 %3 : %4 %5 %6 : %7 %8 %9) ").		\
+  float step = Global::stepsizeStill();
+  mesg = QString("box(%1 %2 %3 : %4 %5 %6 : %7 %8 %9) step(%10)").	\
     arg(bmin.x).arg(bmin.y).arg(bmin.z).				\
     arg(bmax.x).arg(bmax.y).arg(bmax.z).				\
-    arg(bmax.x-bmin.x).arg(bmax.y-bmin.y).arg(bmax.z-bmin.z);
-  float vszgb = (bmax.x-bmin.x)*(bmax.y-bmin.y)*(bmax.z-bmin.z);
-  vszgb /= m_sslevel;
-  vszgb /= m_sslevel;
-  vszgb /= m_sslevel;
-  vszgb /= 1024;
-  vszgb /= 1024;
-  mesg += QString("mb(%1 @ %2)").arg(vszgb).arg(m_sslevel);
-  StaticFunctions::renderText(10,30, mesg, tfont, Qt::black, Qt::lightGray);
+    arg(bmax.x-bmin.x).arg(bmax.y-bmin.y).arg(bmax.z-bmin.z).\
+    arg(step);
+//  float vszgb = (bmax.x-bmin.x)*(bmax.y-bmin.y)*(bmax.z-bmin.z);
+//  vszgb /= m_sslevel;
+//  vszgb /= m_sslevel;
+//  vszgb /= m_sslevel;
+//  vszgb /= 1024;
+//  vszgb /= 1024;
+//  mesg += QString("mb(%1 @ %2)").arg(vszgb).arg(m_sslevel);
+//  StaticFunctions::renderText(10,30, mesg, tfont, Qt::black, Qt::lightGray);
+
+  StaticFunctions::renderText(10,10, mesg, tfont, Qt::black, Qt::lightGray);
 
   StaticFunctions::popOrthoView();
 
@@ -1161,7 +1134,7 @@ RcViewer::raycast(Vec eyepos, float minZ, float maxZ, bool firstPartOnly)
   //----------------------------
 
 
-  float stepsize = m_stillStep;
+  float stepsize = Global::stepsizeStill();
  
   stepsize /= qMax(m_vsize.x,qMax(m_vsize.y,m_vsize.z));
 
@@ -1394,13 +1367,6 @@ RcViewer::drawGeometry()
     }
 }
 
-void
-RcViewer::setStillAndDragStep(float ss, float ds)
-{
-  m_stillStep = qMax(0.1f,ss);
-  m_dragStep = qMax(0.1f,ds);
-  m_viewer->update();
-}
 
 bool
 RcViewer::getHit(const QMouseEvent *event)

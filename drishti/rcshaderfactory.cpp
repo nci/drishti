@@ -532,7 +532,8 @@ RcShaderFactory::genRaycastShader_1(QList<CropObject> crops,
       shader += "  h0 = int(mod(float(h0),256.0));\n";
       shader += "  float fh0 = float(h0)/256.0;\n";
       shader += "  float fh1 = float(h1)/256.0;\n";
-      shader += "  colorSample = texture(lutTex, vec2(fh0,fh1));\n";
+      shader += QString("  colorSample = texture(lutTex, vec2(fh0,fh1/float(%1)));\n").\
+	        arg(Global::lutSize());
     }
 
   // find gradient magnitude
@@ -635,7 +636,8 @@ RcShaderFactory::genRaycastShader_1(QList<CropObject> crops,
       shader += "  h0 = int(mod(float(h0),256.0));\n";
       shader += "  float fh0 = float(h0)/256.0;\n";
       shader += "  float fh1 = float(h1)/256.0;\n";
-      shader += "  colorSample = texture(lutTex, vec2(fh0,fh1));\n";
+      shader += QString("  colorSample = texture(lutTex, vec2(fh0,fh1/float(%1)));\n").\
+	        arg(Global::lutSize());
     }
 
   // find gradient magnitude

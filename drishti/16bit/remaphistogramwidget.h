@@ -17,7 +17,6 @@ class RemapHistogramWidget : public QWidget
 
   void setMapping(float, float);
 
-  void setRawMinMax(float, float, int, int);
   void setHistogram(QList<uint>);
 
   void paintEvent(QPaintEvent*);

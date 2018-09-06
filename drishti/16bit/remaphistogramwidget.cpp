@@ -75,55 +75,30 @@ RemapHistogramWidget::setGradientStops(QGradientStops stops)
 }
 
 void
-RemapHistogramWidget::setRawMinMax(float rmin, float rmax,
-				   int tminr, int tmaxr)
-{
-  m_rawMin = rmin;
-  m_rawMax = rmax;
-  if (!m_validRawMinMax)
-    {
-      m_orawMin = rmin;
-      m_orawMax = rmax;
-      m_validRawMinMax = true;
-    }
-  
-  if (tminr == tmaxr)
-    return;
-
-  m_scale = (float)(tmaxr-tminr)/(float)(m_rawMax-m_rawMin);
-  m_shift = m_scale*m_width*(tminr-m_rawMin)/(float)(tmaxr-tminr);
-
-  if (tminr <= m_rawMin)
-    {
-      float frc = (m_rawMin-tminr)/(float)(tmaxr-tminr);
-      m_Line->moveTick(0, frc);
-    }
-  if (tmaxr >= m_rawMax)
-    {
-      float frc = (m_rawMax-tminr)/(float)(tmaxr-tminr);
-      m_Line->moveTick(1, frc);
-    }
-
-  m_rawMin = tminr;
-  m_rawMax = tmaxr;
-
-  resizeLine();
-}
-
-void
 RemapHistogramWidget::setHistogram(QList<uint> hist)
 {
   m_histogram = hist;
-  
 
+  bool redomapping = false;
   if (m_histogram.size() == 256)
     {
+      if (m_rawMax != 256)
+	{
+	  m_Line->setTickMaxKey(256);
+	  redomapping = true;
+	}
+      
       m_rawMin = 0;
       m_rawMax = 256;
-      m_Line->setTickMaxKey(256);
     }
   else
     {
+      if (m_rawMax != 256)
+	{
+	  m_Line->setTickMaxKey(65535);
+	  redomapping = true;
+	}
+
       m_rawMin = 0;
       m_rawMax = 65535;
     }
@@ -141,7 +116,9 @@ RemapHistogramWidget::setHistogram(QList<uint> hist)
 
   rescaleHistogram();
 
-  defineMapping();
+  if (redomapping)
+    defineMapping();
+
   update();
 }
 
@@ -599,7 +576,7 @@ RemapHistogramWidget::defineMapping()
   QList<float> otk = m_Line->ticksOriginal();
 
   float tklen = tk[tk.size()-1]-tk[0];
-
+  
   m_rawMap.clear();
   m_pvlMap.clear();
 

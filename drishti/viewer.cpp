@@ -305,13 +305,13 @@ Viewer::switchDrawVolume()
 	emit histogramUpdated(m_hiresVolume->histogramImage1D(),
 			      m_hiresVolume->histogramImage2D());
 
-//      if (m_rcMode)
-//	{
-//	  if (Global::pvlVoxelType() == 0)
-//	    emit histogramUpdated(m_hiresVolume->histogram1D());
-//	  else
-//	    emit histogramUpdated(m_hiresVolume->histogram2D());
-//	}
+      if (m_rcMode)
+	{
+	  if (Global::pvlVoxelType() == 0)
+	    emit histogramUpdated(m_rcViewer.histogram1D());
+	  else
+	    emit histogramUpdated(m_rcViewer.histogram2D());
+	}
       
       emit setHiresMode(true);
 
@@ -982,7 +982,8 @@ Viewer::resetLookupTable()
   updateLookupTable();
   update();
 
-  m_rcViewer.setLut(m_lut);
+  if (Global::volumeType() == Global::SingleVolume)
+    m_rcViewer.setLut(m_lut);
 }
 
 void
@@ -1048,8 +1049,6 @@ Viewer::updateLookupTable()
 {
   if (m_rcMode)
     {
-      float step = Global::stepsizeStill();
-      m_rcViewer.setStillAndDragStep(step, step);
       m_rcViewer.loadLookupTable();
       return;
     }
@@ -3683,11 +3682,18 @@ Viewer::keyPressEvent(QKeyEvent *event)
   // raycast
   if (event->key() == Qt::Key_F3)
     {
+      if (Global::volumeType() != Global::SingleVolume)
+	{
+	  QMessageBox::information(0, "", "Raycast option presently available only for single volumes");
+	  return;
+	}
+
       if (m_lowresVolume->raised())
 	{
 	  m_rcMode = true;
 	  m_raycastUI.skipLayers->setValue(m_rcViewer.skipLayers());
 	  m_raycastUI.skipVoxels->setValue(m_rcViewer.skipVoxels());
+	  m_rcViewer.setLut(m_lut);
 
 	  Global::setUse1D(true);
 	  MainWindowUI::mainWindowUI()->actionSwitch_To1D->setChecked(Global::use1D());
@@ -3709,6 +3715,7 @@ Viewer::keyPressEvent(QKeyEvent *event)
 	      m_rcMode = true;
 	      m_raycastUI.skipLayers->setValue(m_rcViewer.skipLayers());
 	      m_raycastUI.skipVoxels->setValue(m_rcViewer.skipVoxels());
+	      m_rcViewer.setLut(m_lut);
 	      
 	      Global::setUse1D(true);
 	      MainWindowUI::mainWindowUI()->actionSwitch_To1D->setChecked(Global::use1D());
@@ -6026,12 +6033,15 @@ Viewer::setVolDataPtr(VolumeFileManager *ptr)
   m_raycastMenu->hide();
   m_rcViewer.activateBounds(false);
   m_rcViewer.init();
-  m_rcViewer.setVolDataPtr(ptr);
-  if (ptr)
+  if (Global::volumeType() == Global::SingleVolume)
     {
-      Vec fullVolSize = m_Volume->getFullVolumeSize();
-      m_rcViewer.setGridSize(fullVolSize.z,fullVolSize.y,fullVolSize.x);
-    }
+      m_rcViewer.setVolDataPtr(ptr);
+      if (ptr)
+	{
+	  Vec fullVolSize = m_Volume->getFullVolumeSize();
+	  m_rcViewer.setGridSize(fullVolSize.z,fullVolSize.y,fullVolSize.x);
+	}
+    }  
 }
 
 

@@ -36,7 +36,10 @@ class RcViewer : public QObject
   void setVolDataPtr(VolumeFileManager*);
   void updateSubvolume(Vec, Vec);
 
-  void resizeGL(int, int);
+  int* histogram1D() { return m_subvolume1dHistogram; }
+  int* histogram2D() { return m_subvolume2dHistogram; }
+
+ void resizeGL(int, int);
 
   void setLut(uchar*);
 
@@ -48,8 +51,6 @@ class RcViewer : public QObject
   int skipVoxels() { return m_skipVoxels; }
   int edge() { return m_edge; }
   int shadow() { return m_shadow; }
-  float stillStep() { return m_stillStep; }
-  float dragStep() { return m_dragStep; }
   int maxRayLen() { return m_maxRayLen; }
   int minGrad() { return m_minGrad; }
   int maxGrad() { return m_maxGrad; }
@@ -61,7 +62,6 @@ class RcViewer : public QObject
   public slots :
     void boundingBoxChanged();
     void updateVoxelsForRaycast();
-    void setStillAndDragStep(float, float);
     void setSkipLayers(int l) { m_skipLayers = l; m_viewer->update(); }
     void setSkipVoxels(int l) { m_skipVoxels = l; m_viewer->update(); }
     void setEdge(int e) { m_edge = e; m_viewer->update(); }
@@ -95,7 +95,6 @@ class RcViewer : public QObject
   
   int m_max3DTexSize;
   int m_skipLayers, m_skipVoxels;
-  float m_stillStep, m_dragStep;
 
   GLuint m_slcBuffer;
   GLuint m_rboId;
@@ -169,6 +168,10 @@ class RcViewer : public QObject
 
   QList<BrickInformation> m_brickInfo;
   
+  float *m_flhist1D, *m_flhist2D;
+  int *m_subvolume1dHistogram, *m_subvolume2dHistogram;
+
+
   void identifyBoxes();
   void loadAllBoxesToVBO();
   void drawVBOBox(GLenum);

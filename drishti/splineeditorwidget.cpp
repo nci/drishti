@@ -436,6 +436,7 @@ void
 SplineEditorWidget::setHistogram2D(int* hist2D)
 {
   //if (Global::pvlVoxelType() > 0)
+  if (Global::volumeType() == Global::SingleVolume)
     {
       QList<uint> h;
       if (Global::pvlVoxelType() == 0)
@@ -482,11 +483,15 @@ SplineEditorWidget::updateTransferFunction()
 void
 SplineEditorWidget::updateTransferFunction(float tmin, float tmax)
 {
-  if (m_splineEditor->set16BitPoint(tmin, tmax))
+  if (Global::volumeType() == Global::SingleVolume)
     {
-      QImage lookupTable = m_splineEditor->colorMapImage();
-      emit transferFunctionChanged(lookupTable);
+      if (m_splineEditor->set16BitPoint(tmin, tmax))
+	{
+	  QImage lookupTable = m_splineEditor->colorMapImage();
+	  emit transferFunctionChanged(lookupTable);
+	}
     }
+      
 }
 
 void

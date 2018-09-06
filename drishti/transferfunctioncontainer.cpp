@@ -87,8 +87,9 @@ TransferFunctionContainer::removeSplineTF(int row)
 {
   if (row>=0 && row<m_splineTF.count())
     {
-      delete m_splineTF[row];
-      m_splineTF.removeAt(row);
+      delete m_splineTF.takeAt(row);
+      //delete m_splineTF[row];
+      //m_splineTF.removeAt(row);
     }
 }
 

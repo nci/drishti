@@ -1172,6 +1172,8 @@ MainWindow::on_actionRaycastMode_triggered()
 {
   if (m_Volume->valid())
     m_Viewer->switchRaycastMode();
+  else
+    MainWindowUI::mainWindowUI()->actionRaycastMode->setChecked(false);
 }
 
 void
@@ -1553,7 +1555,7 @@ MainWindow::changeTransferFunctionDisplay(int tfnum, QList<bool> on)
 	}
       else if (Global::volumeType() == Global::TripleVolume)
 	{
-	  if (on.count() > 1)
+	  if (on.count() > 2)
 	    {
 	      if (on[0])
 		m_tfEditor->changeVol(0);
@@ -1565,7 +1567,7 @@ MainWindow::changeTransferFunctionDisplay(int tfnum, QList<bool> on)
 	}
       else if (Global::volumeType() == Global::QuadVolume)
 	{
-	  if (on.count() > 1)
+	  if (on.count() > 3)
 	    {
 	      if (on[0])
 		m_tfEditor->changeVol(0);
@@ -1580,7 +1582,7 @@ MainWindow::changeTransferFunctionDisplay(int tfnum, QList<bool> on)
       else if (Global::volumeType() == Global::RGBVolume ||
 	       Global::volumeType() == Global::RGBAVolume)
 	{
-	  if (on.count() > 1)
+	  if (on.count() > 3)
 	    {
 	      if (on[0])
 		m_tfEditor->changeVol(0);
@@ -2478,6 +2480,12 @@ MainWindow::preLoadVolume()
 void
 MainWindow::postLoadVolume()
 {
+  if (Global::volumeType() != Global::SingleVolume)
+    MainWindowUI::mainWindowUI()->actionRaycastMode->setEnabled(false);
+  else
+    MainWindowUI::mainWindowUI()->actionRaycastMode->setEnabled(true);
+
+  
   if (Global::volumeType() == Global::RGBVolume ||
       Global::volumeType() == Global::RGBAVolume)
     {

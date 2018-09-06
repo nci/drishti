@@ -238,7 +238,7 @@ TransferFunctionManager::cellClicked(int row, int col)
   for (int i=0; i<m_tfContainer->maxSets(); i++)
     {
       QTableWidgetItem *wi;
-      wi = m_tableWidget->item(row, i);
+      wi = m_tableWidget->item(row, i+1);
       bool flag = wi->checkState() == Qt::Checked;
       on.append(flag);
     }
@@ -390,7 +390,7 @@ TransferFunctionManager::loadDefaultTF()
   QPolygonF poly;
 
   poly << QPointF(0.5, 1.0)
-       << QPointF(0.5, 0.2);
+       << QPointF(0.5, 0.0);
   si.setPoints(poly);
   poly.clear();
 

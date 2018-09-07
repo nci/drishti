@@ -38,10 +38,15 @@ class ShaderFactory
   static GLuint meshShader();
   static GLint* meshShaderParm();
 
+  static GLuint ptShader();
+  static GLint* ptShaderParm();
 
  private :
   static GLuint m_meshShader;
   static GLint m_meshShaderParm[20];
+
+  static GLuint m_ptShader;
+  static GLint m_ptShaderParm[20];
 
   static QString getNormal();
   static QString addLighting();
@@ -52,6 +57,9 @@ class ShaderFactory
 
   static QString meshShaderV();
   static QString meshShaderF();
+
+  static QString ptShaderV();
+  static QString ptShaderF();
 };
 
 #endif

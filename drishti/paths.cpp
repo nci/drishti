@@ -335,10 +335,13 @@ Paths::updateScaling()
 }
 
 void
-Paths::draw(QGLViewer *viewer, bool backToFront, Vec lightVec)
+Paths::draw(QGLViewer *viewer,
+	    Vec pn, float pnear, float pfar,
+	    bool backToFront, Vec lightVec)
 {
   for(int i=0; i<m_paths.count();i++)
     m_paths[i]->draw(viewer,
+		     pn, pnear, pfar,
 		     m_paths[i]->grabsMouse(),
 		     backToFront,
 		     lightVec);

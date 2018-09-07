@@ -1339,7 +1339,24 @@ RcViewer::drawGeometry()
   GeometryObjects::crops()->draw(m_viewer, false);
   GeometryObjects::clipplanes()->draw(m_viewer, false);
   GeometryObjects::hitpoints()->draw(m_viewer, false);
-  GeometryObjects::paths()->draw(m_viewer, false, eyepos);
+
+  Vec pn = Vec(0,0,0);
+  float pnear = 10000;
+  float pfar = -10000;
+  GeometryObjects::paths()->draw(m_viewer, pn, pnear, pfar, false, eyepos);
+
+  QList<Vec> clipPos;
+  QList<Vec> clipNormal;
+  clipPos = GeometryObjects::clipplanes()->positions();
+  clipNormal = GeometryObjects::clipplanes()->normals();
+  GeometryObjects::trisets()->draw(m_viewer,
+				   eyepos,
+				   pnear, pfar,
+				   Vec(1,1,1), // dummy
+				   false, false,
+				   eyepos,
+				   clipPos, clipNormal,
+				   false);
 
   if (Global::drawBox())
     {

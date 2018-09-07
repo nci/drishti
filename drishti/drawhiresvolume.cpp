@@ -2209,7 +2209,7 @@ DrawHiresVolume::renderGeometry(int s, int layers,
 	  pstep *= 1.0f/Global::geoRenderSteps();
 	}
       
-      drawGeometry(pstart, pend, pstep,
+      drawGeometry(pn, pstart, pend, pstep,
 		   shadow, shadowshader, eyepos);
       
       postDrawGeometry();
@@ -2219,7 +2219,7 @@ DrawHiresVolume::renderGeometry(int s, int layers,
 }
 
 void
-DrawHiresVolume::drawGeometry(float pnear, float pfar, Vec step,
+DrawHiresVolume::drawGeometry(Vec pn, float pnear, float pfar, Vec step,
 			      bool applyShadows, bool applyshadowShader,
 			      Vec eyepos)
 {
@@ -2283,7 +2283,7 @@ DrawHiresVolume::drawGeometry(float pnear, float pfar, Vec step,
   //-----------------------------------------
 
   GeometryObjects::crops()->draw(m_Viewer, m_backlit);
-  GeometryObjects::paths()->draw(m_Viewer, m_backlit, m_lightPosition);
+  GeometryObjects::paths()->draw(m_Viewer, pn, pnear, pfar, m_backlit, m_lightPosition);
   GeometryObjects::grids()->draw(m_Viewer, m_backlit, m_lightPosition);
   GeometryObjects::pathgroups()->draw(m_Viewer, m_backlit, m_lightPosition, true);
   GeometryObjects::hitpoints()->draw(m_Viewer, m_backlit);
@@ -4205,28 +4205,32 @@ DrawHiresVolume::drawClipPlaneInViewport(int clipOffset, Vec lpos, float depthcu
 	  
 	  GeometryObjects::clipplanes()->drawOtherSlicesInViewport(m_Viewer, ic);
 
-	  GLdouble eqn[4];
-	  eqn[0] = -m_clipNormal[ic].x;
-	  eqn[1] = -m_clipNormal[ic].y;
-	  eqn[2] = -m_clipNormal[ic].z;
-	  eqn[3] = m_clipNormal[ic]*(cpos+m_clipNormal[ic]*1.5);
+	  GLdouble neqn[4];
+	  neqn[0] = -m_clipNormal[ic].x;
+	  neqn[1] = -m_clipNormal[ic].y;
+	  neqn[2] = -m_clipNormal[ic].z;
+	  neqn[3] = m_clipNormal[ic]*(cpos+m_clipNormal[ic]*1.5);
 	  glEnable(GL_CLIP_PLANE0);
-	  glClipPlane(GL_CLIP_PLANE0, eqn);
+	  glClipPlane(GL_CLIP_PLANE0, neqn);
 	  glEnable(GL_CLIP_DISTANCE0);
-	  glUniform4fARB(m_vertParm[0], eqn[0], eqn[1], eqn[2], eqn[3]);
+	  glUniform4fARB(m_vertParm[0], neqn[0], neqn[1], neqn[2], neqn[3]);
 
-	  eqn[0] = m_clipNormal[ic].x;
-	  eqn[1] = m_clipNormal[ic].y;
-	  eqn[2] = m_clipNormal[ic].z;
-	  eqn[3] = -m_clipNormal[ic]*(cpos-m_clipNormal[ic]*(2*clipInfo.thickness[ic]+1.5));
+	  GLdouble feqn[4];
+	  feqn[0] = m_clipNormal[ic].x;
+	  feqn[1] = m_clipNormal[ic].y;
+	  feqn[2] = m_clipNormal[ic].z;
+	  feqn[3] = -m_clipNormal[ic]*(cpos-m_clipNormal[ic]*(2*clipInfo.thickness[ic]+1.5));
 	  glEnable(GL_CLIP_PLANE1);
-	  glClipPlane(GL_CLIP_PLANE1, eqn);      
+	  glClipPlane(GL_CLIP_PLANE1, feqn);      
 	  glEnable(GL_CLIP_DISTANCE1);
-	  glUniform4fARB(m_vertParm[1], eqn[0], eqn[1], eqn[2], eqn[3]);
+	  glUniform4fARB(m_vertParm[1], feqn[0], feqn[1], feqn[2], feqn[3]);
 
 	  GeometryObjects::hitpoints()->draw(m_Viewer, m_backlit);
 
-	  GeometryObjects::paths()->draw(m_Viewer, m_backlit, m_lightPosition);
+	  Vec pn = -m_clipNormal[ic];
+	  float pnear = neqn[3];
+	  float pfar = feqn[3];
+	  GeometryObjects::paths()->draw(m_Viewer, pn, pnear, pfar, m_backlit, m_lightPosition);
 
 	  glDisable(GL_CLIP_DISTANCE0);
 	  glDisable(GL_CLIP_DISTANCE1);

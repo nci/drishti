@@ -306,7 +306,7 @@ class DrawHiresVolume : public QObject
 
   void preDrawGeometry(int, int, Vec, Vec, Vec, bool fromclip=false);
   void postDrawGeometry();
-  void drawGeometry(float, float, Vec,
+  void drawGeometry(Vec, float, float, Vec,
 		    bool, bool, Vec);
 
   void collectEnclosingBoxInfo();

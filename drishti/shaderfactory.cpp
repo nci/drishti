@@ -1384,6 +1384,90 @@ ShaderFactory::meshShaderF()
   return shader;
 }
 
+//----------------------------
+//----------------------------
+
+GLint ShaderFactory::m_ptShaderParm[20];
+GLint* ShaderFactory::ptShaderParm() { return &m_ptShaderParm[0]; }
+
+GLuint ShaderFactory::m_ptShader = 0;
+GLuint ShaderFactory::ptShader()
+{
+  if (!m_ptShader)
+    {
+      m_ptShader = glCreateProgram();
+      QString vertShaderString = ptShaderV();
+      QString fragShaderString = ptShaderF();
+  
+      bool ok = loadShader(m_ptShader,
+			   vertShaderString,
+			   fragShaderString);  
+
+      if (!ok)
+	{
+	  QMessageBox::information(0, "", "Cannot load pt shaders");
+	  return 0;
+	}
+	
+	m_ptShaderParm[0] = glGetUniformLocation(m_ptShader, "MVP");
+	m_ptShaderParm[1] = glGetUniformLocation(m_ptShader, "diffuseTex");
+	m_ptShaderParm[2] = glGetUniformLocation(m_ptShader, "pn");
+	m_ptShaderParm[3] = glGetUniformLocation(m_ptShader, "pnear");
+	m_ptShaderParm[4] = glGetUniformLocation(m_ptShader, "pfar");
+    }
+
+  return m_ptShader;
+}
+
+QString
+ShaderFactory::ptShaderV() // position, normal, texture
+{
+  QString shader;
+
+  shader += "#version 410\n";
+  shader += "uniform mat4 MVP;\n";
+  shader += "layout(location = 0) in vec3 position;\n";
+  shader += "layout(location = 1) in vec2 texIn;\n";
+  shader += "out vec2 v2Tex;\n";
+  shader += "out vec3 pointPos;\n";
+  shader += "void main()\n";
+  shader += "{\n";
+  shader += "   pointPos = position;\n";
+  shader += "   v2Tex = texIn;\n";
+  shader += "   gl_Position = MVP * vec4(position, 1);\n";
+  shader += "}\n";
+
+  return shader;
+}
+QString
+ShaderFactory::ptShaderF()
+{
+  QString shader;
+
+  shader += "#version 410 core\n";
+  shader += "uniform sampler2D diffuseTex;\n";
+  shader += "uniform float opacity;\n";
+  shader += "uniform vec3 pn;\n";
+  shader += "uniform float pnear;\n";
+  shader += "uniform float pfar;\n";
+  shader += "in vec3 pointPos;\n";
+  shader += "\n";
+  shader += "in vec2 v2Tex;\n";
+  shader += "out vec4 outputColor;\n";
+  shader += "void main()\n";
+  shader += "{\n";
+
+  shader += "   float d = dot(pn, pointPos);\n";
+  shader += "   if (pnear < pfar && (d < pnear || d > pfar))\n";
+  shader += "     discard;\n";
+
+  shader += "  outputColor = texture(diffuseTex, v2Tex);\n";
+  shader += "  outputColor.rgb *= outputColor.a;\n";
+  shader += "}\n";
+
+  return shader;
+}
+
 bool
 ShaderFactory::loadShader(GLhandleARB &progObj,
 			  QString vertShaderString,

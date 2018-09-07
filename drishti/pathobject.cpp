@@ -1,4 +1,5 @@
 #include "global.h"
+#include "shaderfactory.h"
 #include "pathobject.h"
 #include "staticfunctions.h"
 #include "volumeinformation.h"
@@ -290,12 +291,12 @@ PathObject::loadCaption(QString ct, QFont cf,
   glGenTextures(1, &m_imageTex);
 
   glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_imageTex);
-  glTexParameterf(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
-  glTexParameterf(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
-  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,
+    glBindTexture(GL_TEXTURE_2D, m_imageTex);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexImage2D(GL_TEXTURE_2D,
 	       0,
 	       4,
 	       m_textureWidth,
@@ -304,17 +305,14 @@ PathObject::loadCaption(QString ct, QFont cf,
 	       GL_RGBA,
 	       GL_UNSIGNED_BYTE,
 	       m_cImage.bits());
-  glDisable(GL_TEXTURE_RECTANGLE_ARB);
+  glDisable(GL_TEXTURE_2D);
 
   m_imagePresent = false;
   m_imageName = QString();
 
   m_captionPresent = true;
 
-  // generate the displaylist
-  glNewList(m_displayListCaption, GL_COMPILE);
   generateRibbon(1.0);
-  glEndList();
 }
 
 void
@@ -414,12 +412,12 @@ PathObject::loadImage(QString imgFile)
   glGenTextures(1, &m_imageTex);
 
   glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_imageTex);
-  glTexParameterf(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
-  glTexParameterf(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
-  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,
+    glBindTexture(GL_TEXTURE_2D, m_imageTex);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexImage2D(GL_TEXTURE_2D,
 	       0,
 	       rgb,
 	       m_textureWidth,
@@ -428,17 +426,14 @@ PathObject::loadImage(QString imgFile)
 	       fmt,
 	       GL_UNSIGNED_BYTE,
 	       m_image.bits());
-  glDisable(GL_TEXTURE_RECTANGLE_ARB);
+  glDisable(GL_TEXTURE_2D);
 
   m_imagePresent = true;
 
   resetCaption();
 
 
-  // generate the displaylist
-  glNewList(m_displayListCaption, GL_COMPILE);
   generateRibbon(1.0);
-  glEndList();
 }
 
 
@@ -457,11 +452,16 @@ PathObject::set(const PathObject &po)
 
   if (m_imageTex) glDeleteTextures(1, &m_imageTex);
   if (m_displayList > 0) glDeleteLists(m_displayList, 1);
-  if (m_displayListCaption > 0) glDeleteLists(m_displayListCaption, 1);
 
   m_imageTex = 0;
   m_displayList = 0;
-  m_displayListCaption = 0;
+
+  if (m_glVertArray) glDeleteVertexArrays( 1, &m_glVertArray );
+  if (m_glVertBuffer) glDeleteBuffers(1, &m_glVertBuffer);
+  if (m_glIndexBuffer) glDeleteBuffers(1, &m_glIndexBuffer);
+  m_glVertBuffer = 0;
+  m_glIndexBuffer = 0;
+  m_glVertArray = 0;
 
   m_updateFlag = true; // for recomputation
 
@@ -535,11 +535,16 @@ PathObject::operator=(const PathObject &po)
 
   if (m_imageTex) glDeleteTextures(1, &m_imageTex);
   if (m_displayList > 0) glDeleteLists(m_displayList, 1);
-  if (m_displayListCaption > 0) glDeleteLists(m_displayListCaption, 1);
 
   m_imageTex = 0;
   m_displayList = 0;
-  m_displayListCaption = 0;
+
+  if (m_glVertArray) glDeleteVertexArrays( 1, &m_glVertArray );
+  if (m_glVertBuffer) glDeleteBuffers(1, &m_glVertBuffer);
+  if (m_glIndexBuffer) glDeleteBuffers(1, &m_glIndexBuffer);
+  m_glVertBuffer = 0;
+  m_glIndexBuffer = 0;
+  m_glVertArray = 0;
 
   m_updateFlag = true; // for recomputation
 
@@ -668,7 +673,6 @@ PathObject::PathObject()
 
   m_imageTex = 0;
   m_displayList = 0;
-  m_displayListCaption = 0;
 
   m_viewportStyle = true; // horizontal;
   m_viewportTF = -1;
@@ -676,6 +680,11 @@ PathObject::PathObject()
   m_viewport = QVector4D(-1,-1,-1,-1);
   m_viewportCamPos = Vec(0, 0, 0);
   m_viewportCamRot = 0.0;
+
+
+  m_glVertBuffer = 0;
+  m_glIndexBuffer = 0;
+  m_glVertArray = 0;
 }
 
 PathObject::~PathObject()
@@ -704,11 +713,16 @@ PathObject::~PathObject()
 
   if (m_imageTex) glDeleteTextures(1, &m_imageTex);
   if (m_displayList > 0) glDeleteLists(m_displayList, 1);
-  if (m_displayListCaption > 0) glDeleteLists(m_displayListCaption, 1);
 
   m_imageTex = 0;
   m_displayList = 0;
-  m_displayListCaption = 0;
+
+  if (m_glVertArray) glDeleteVertexArrays( 1, &m_glVertArray );
+  if (m_glVertBuffer) glDeleteBuffers(1, &m_glVertBuffer);
+  if (m_glIndexBuffer) glDeleteBuffers(1, &m_glIndexBuffer);
+  m_glVertBuffer = 0;
+  m_glIndexBuffer = 0;
+  m_glVertArray = 0;
 }
 
 void
@@ -1345,12 +1359,8 @@ PathObject::computePathLength()
 
 
   if (m_displayList > 0) glDeleteLists(m_displayList, 1);
-  if (m_displayListCaption > 0) glDeleteLists(m_displayListCaption, 1);
 
-  // generate the displaylists
-  glNewList(m_displayListCaption, GL_COMPILE);
   generateRibbon(1.0);
-  glEndList();
 
   glNewList(m_displayList, GL_COMPILE);
   generateTube(1.0);
@@ -1796,6 +1806,7 @@ PathObject::postdrawInViewport(QGLViewer *viewer,
 
 void
 PathObject::draw(QGLViewer *viewer,
+		 Vec pn, float pnear, float pfar,
 		 bool active,
 		 bool backToFront,
 		 Vec lightPosition)
@@ -1803,9 +1814,6 @@ PathObject::draw(QGLViewer *viewer,
   // create display lists if not already created
   if (m_displayList == 0)
     m_displayList = glGenLists(1);
-
-  if (m_displayListCaption == 0)
-    m_displayListCaption = glGenLists(1);
 
   if (m_updateFlag)
     {
@@ -1815,13 +1823,16 @@ PathObject::draw(QGLViewer *viewer,
     }
 
   if (m_tube)
-    drawTube(viewer, active, lightPosition);
+    drawTube(viewer,
+	     pn, pnear, pfar,
+	     active, lightPosition);
   else
     drawLines(viewer, active, backToFront);
 }
 
 void
 PathObject::drawTube(QGLViewer *viewer,
+		     Vec pn, float pnear, float pfar,
 		     bool active,
 		     Vec lightPosition)
 {
@@ -1878,7 +1889,7 @@ PathObject::drawTube(QGLViewer *viewer,
       (m_captionPresent && !m_captionLabel) )
     {
       glActiveTexture(GL_TEXTURE0);
-      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_imageTex);
+      glBindTexture(GL_TEXTURE_2D, m_imageTex);
 
       if (m_imagePresent)
 	{
@@ -1889,7 +1900,7 @@ PathObject::drawTube(QGLViewer *viewer,
 	  else if (rgb == 2) fmt = GL_LUMINANCE_ALPHA;
 	  else if (rgb == 3) fmt = GL_RGB;
 	  else if (rgb == 4) fmt = GL_BGRA;
-	  glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,
+	  glTexImage2D(GL_TEXTURE_2D,
 		       0,
 		       rgb,
 		       m_textureWidth,
@@ -1901,7 +1912,7 @@ PathObject::drawTube(QGLViewer *viewer,
 	}
       else
 	{
-	  glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,
+	  glTexImage2D(GL_TEXTURE_2D,
 		       0,
 		       4,
 		       m_textureWidth,
@@ -1912,19 +1923,56 @@ PathObject::drawTube(QGLViewer *viewer,
 		       m_cImage.bits());
 	}
 
-      glTexEnvf(GL_TEXTURE_ENV,
-		GL_TEXTURE_ENV_MODE,
-		GL_MODULATE);
-      glEnable(GL_TEXTURE_RECTANGLE_ARB);
+      glEnable(GL_TEXTURE_2D);
       
       glColor4f(m_opacity,
 		m_opacity,
 		m_opacity,
 		m_opacity);
       
-      glCallList(m_displayListCaption);
+      if (m_glVertArray)
+	{
+	  // model-view-projection matrix
+	  GLdouble m[16];
+	  GLfloat mvp[16];
+	  viewer->camera()->getModelViewProjectionMatrix(m);
+	  for(int i=0; i<16; i++) mvp[i] = m[i];
+
+	  glUseProgram(ShaderFactory::ptShader());
+  
+	  GLint *ptShaderParm = ShaderFactory::ptShaderParm();  
+	  glUniformMatrix4fv(ptShaderParm[0], 1, GL_FALSE, mvp);
+	  glUniform1i(ptShaderParm[1], 0);
+	  glUniform3f(ptShaderParm[2], pn.x, pn.y, pn.z);
+	  glUniform1f(ptShaderParm[3], pnear);
+	  glUniform1f(ptShaderParm[4], pfar);
+	  
+	  glBindVertexArray( m_glVertArray );
+	  glBindBuffer( GL_ARRAY_BUFFER, m_glVertBuffer );
+	  // Identify the components in the vertex buffer
+	  glEnableVertexAttribArray( 0 );
+	  glVertexAttribPointer( 0, //attribute 0
+				 3, // position (3 floats)
+				 GL_FLOAT, // type
+				 GL_FALSE, // normalized
+				 sizeof(float)*5, // stride
+				 (void *)0 ); // starting offset
+	  glEnableVertexAttribArray( 1 );
+	  glVertexAttribPointer( 1,
+				 2, // 2d texture coordinate (2 floats)
+				 GL_FLOAT,
+				 GL_FALSE,
+				 sizeof(float)*5,
+				 (char *)NULL + sizeof(float)*3 );      
+
+	  glDrawArrays(GL_TRIANGLE_STRIP,
+		       0,
+		       2*m_path.count());
+	  
+	  glUseProgram(0);
+	}
       
-      glDisable(GL_TEXTURE_RECTANGLE_ARB);
+      glDisable(GL_TEXTURE_2D);
     }
   else
     glCallList(m_displayList);
@@ -2146,7 +2194,9 @@ PathObject::drawLines(QGLViewer *viewer,
 
 void
 PathObject::generateRibbon(float scale)
-{
+{  
+  Vec voxelScaling = Global::voxelScaling();
+
   float prevtex = 0;
   Vec prevp0, prevp1;
   int npaths = m_path.count();
@@ -2155,47 +2205,108 @@ PathObject::generateRibbon(float scale)
   for(int i=1; i<npaths; i++)
     totlength += (m_path[i]-m_path[i-1]).norm();
 
+//  float pathlength = 0;
+//  for(int i=0; i<npaths; i++)
+//    {
+//      Vec shft = VECPRODUCT(m_radX[i]*scale*m_pathX[i], voxelScaling);
+//
+//      Vec pp0 = m_path[i] - shft;
+//      Vec pp1 = m_path[i] + shft;
+//
+//      if (i > 0)
+//	pathlength += (m_path[i]-m_path[i-1]).norm();
+//      float tex = pathlength/totlength;
+//
+//      //---------------------------------------------
+//      if (i > 0)
+//	{
+//	  glBegin(GL_TRIANGLE_STRIP);
+//
+//	  glTexCoord2f(prevtex*m_textureWidth, 0);
+//	  glNormal3fv(-m_pathY[i-1]);
+//	  glVertex3fv(prevp0);
+//
+//	  glTexCoord2f(prevtex*m_textureWidth, m_textureHeight);
+//	  glNormal3fv(-m_pathY[i-1]);
+//	  glVertex3fv(prevp1);
+//	      
+//	  glTexCoord2f(tex*m_textureWidth, 0);
+//	  glNormal3fv(-m_pathY[i]);
+//	  glVertex3fv(pp0);
+//
+//	  glTexCoord2f(tex*m_textureWidth, m_textureHeight);
+//	  glNormal3fv(-m_pathY[i]);
+//	  glVertex3fv(pp1);
+//	  glEnd();
+//	}
+//      //---------------------------------------------
+//
+//      prevp0 = pp0;
+//      prevp1 = pp1;
+//      prevtex = tex;
+//    }
+//
+
+  //---------------------------------------------
+  //---------------------------------------------
   float pathlength = 0;
+  float *va = new float[10*npaths];
   for(int i=0; i<npaths; i++)
     {
-      Vec voxelScaling = Global::voxelScaling();
       Vec shft = VECPRODUCT(m_radX[i]*scale*m_pathX[i], voxelScaling);
-
       Vec pp0 = m_path[i] - shft;
       Vec pp1 = m_path[i] + shft;
-
-      if (i > 0)
-	pathlength += (m_path[i]-m_path[i-1]).norm();
       float tex = pathlength/totlength;
-
       //---------------------------------------------
-      if (i > 0)
-	{
-	  glBegin(GL_TRIANGLE_STRIP);
+      va[10*i+0] = pp0.x;
+      va[10*i+1] = pp0.y;
+      va[10*i+2] = pp0.z;
+      va[10*i+3] = tex;
+      va[10*i+4] = 0;
 
-	  glTexCoord2f(prevtex*m_textureWidth, 0);
-	  glNormal3fv(-m_pathY[i-1]);
-	  glVertex3fv(prevp0);
-
-	  glTexCoord2f(prevtex*m_textureWidth, m_textureHeight);
-	  glNormal3fv(-m_pathY[i-1]);
-	  glVertex3fv(prevp1);
-	      
-	  glTexCoord2f(tex*m_textureWidth, 0);
-	  glNormal3fv(-m_pathY[i]);
-	  glVertex3fv(pp0);
-
-	  glTexCoord2f(tex*m_textureWidth, m_textureHeight);
-	  glNormal3fv(-m_pathY[i]);
-	  glVertex3fv(pp1);
-	  glEnd();
-	}
+      va[10*i+5] = pp1.x;
+      va[10*i+6] = pp1.y;
+      va[10*i+7] = pp1.z;
+      va[10*i+8] = tex;
+      va[10*i+9] = 1.0;
       //---------------------------------------------
 
-      prevp0 = pp0;
-      prevp1 = pp1;
-      prevtex = tex;
+      if (i < npaths-1)
+	pathlength += (m_path[i+1]-m_path[i]).norm();
     }
+
+  if (!m_glVertArray) glGenVertexArrays( 1, &m_glVertArray );
+  if (!m_glVertBuffer) glGenBuffers( 1, &m_glVertBuffer );
+
+  glBindVertexArray( m_glVertArray );
+      
+      // Populate a vertex buffer
+  glBindBuffer( GL_ARRAY_BUFFER, m_glVertBuffer );
+  glBufferData( GL_ARRAY_BUFFER,
+		sizeof(float)*10*npaths,
+		&va[0],
+		GL_STATIC_DRAW );
+      
+  // Identify the components in the vertex buffer
+  glEnableVertexAttribArray( 0 );
+  glVertexAttribPointer( 0, //attribute 0
+			 3, // size
+			 GL_FLOAT, // type
+			 GL_FALSE, // normalized
+			 sizeof(float)*5, // stride
+			 (void *)0 ); // starting offset
+
+  glEnableVertexAttribArray( 1 );
+  glVertexAttribPointer( 1,
+			 2,
+			 GL_FLOAT,
+			 GL_FALSE,
+			 sizeof(float)*5,
+			 (char *)NULL + sizeof(float)*3 );  
+
+  delete [] va;
+
+  ShaderFactory::ptShader(); // make sure that ptShader is created
 }
 
 void

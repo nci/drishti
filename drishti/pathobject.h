@@ -201,7 +201,9 @@ class PathObject
   void setPointPressed(int);
   int getPointPressed();
 
-  void draw(QGLViewer*, bool, bool, Vec);
+  void draw(QGLViewer*,
+	    Vec, float, float,
+	    bool, bool, Vec);
   void postdraw(QGLViewer*, int, int, bool, float scale = 0.15);
 
   void postdrawInViewport(QGLViewer*, int, int, bool,
@@ -292,7 +294,6 @@ class PathObject
   QList<float> m_radY;
   QList<float> m_angle;
   GLuint m_displayList;
-  GLuint m_displayListCaption;
   
   GLuint m_imageTex;
   bool m_imagePresent;
@@ -334,7 +335,9 @@ class PathObject
   void addFlatCaps(int, Vec, QList<Vec>);
   void addRoundCaps(int, Vec, QList<Vec>, QList<Vec>);
 
-  void drawTube(QGLViewer*, bool, Vec);
+  void drawTube(QGLViewer*,
+		Vec, float, float,
+		bool, Vec);
   void drawLines(QGLViewer*, bool, bool);
 
   QList<Vec> getCrossSection(float,
@@ -355,6 +358,12 @@ class PathObject
   void postdrawGrab(QGLViewer*, int, int);
   void postdrawLength(QGLViewer*);
   void postdrawAngle(QGLViewer*);
+
+  
+  GLuint m_glVertBuffer;
+  GLuint m_glIndexBuffer;
+  GLuint m_glVertArray;
+
 };
 
 #endif

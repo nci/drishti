@@ -31,7 +31,9 @@ class Paths : public QObject
 
   void addFibers(QString);
 
-  void draw(QGLViewer*, bool, Vec);
+  void draw(QGLViewer*,
+	    Vec, float, float,
+	    bool, Vec);
   void postdraw(QGLViewer*);
 
   void postdrawInViewport(QGLViewer*,

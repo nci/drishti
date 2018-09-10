@@ -49,9 +49,6 @@ Viewer::Viewer(QWidget *parent) :
 
   m_depthShader = 0;
   m_blurShader = 0;
-  m_sliceShader = 0;
-  m_shadowSliceShader = 0;
-  m_shadowBlurShader = 0;
   m_rcShader = 0;
   m_eeShader = 0;
 
@@ -276,8 +273,6 @@ Viewer::init()
   m_boxMinMax.clear();
   m_filledBoxes.clear();
 
-  m_bitmask.clear();
-
   m_spW = m_spH = 0;
   if (m_sketchPad)
     delete [] m_sketchPad;
@@ -289,7 +284,6 @@ Viewer::init()
   m_screenImageBuffer = 0;
 
   m_paintHit = false;
-  m_carveHit = false;
   m_target = Vec(-1,-1,-1);
 
   m_Dcg = 0;
@@ -366,18 +360,6 @@ Viewer::init()
   if (m_blurShader)
     glDeleteObjectARB(m_blurShader);
   m_blurShader = 0;
-
-  if (m_sliceShader)
-    glDeleteObjectARB(m_sliceShader);
-  m_sliceShader = 0;
-
-  if (m_shadowSliceShader)
-    glDeleteObjectARB(m_shadowSliceShader);
-  m_shadowSliceShader = 0;
-
-  if (m_shadowBlurShader)
-    glDeleteObjectARB(m_shadowBlurShader);
-  m_shadowBlurShader = 0;
 
   if (m_eBuffer) glDeleteFramebuffers(1, &m_eBuffer);
   if (m_ebId) glDeleteRenderbuffers(1, &m_ebId);
@@ -604,92 +586,6 @@ Viewer::createShaders()
   //----------------------
 
 
-  //----------------------
-  if (Global::bytesPerVoxel() == 1)
-    shaderString = ShaderFactory::genSliceShader(false);
-  else
-    shaderString = ShaderFactory::genSliceShader(true);
-
-  if (m_sliceShader)
-    glDeleteObjectARB(m_sliceShader);
-
-  m_sliceShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_sliceShader,
-				  shaderString))
-    {
-      m_sliceShader = 0;
-      QMessageBox::information(0, "", "Cannot create slice shader.");
-    }
-
-  m_sliceParm[0] = glGetUniformLocationARB(m_sliceShader, "dataTex");
-  m_sliceParm[1] = glGetUniformLocationARB(m_sliceShader, "lutTex");
-  m_sliceParm[2] = glGetUniformLocationARB(m_sliceShader, "maskTex");
-  m_sliceParm[3] = glGetUniformLocationARB(m_sliceShader, "tagTex");
-  //----------------------
-
-
-  if (m_shadowSliceShader)
-    return;
-  // no need to regenerate rest of the shaders
-
-
-  //----------------------
-  shaderString = ShaderFactory::genShadowSliceShader();
-
-  if (m_shadowSliceShader)
-    glDeleteObjectARB(m_shadowSliceShader);
-
-  m_shadowSliceShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_shadowSliceShader,
-				  shaderString))
-    {
-      m_shadowSliceShader = 0;
-      QMessageBox::information(0, "", "Cannot create shadow slice shader.");
-    }
-
-  m_shadowSliceParm[0] = glGetUniformLocationARB(m_shadowSliceShader, "sliceTex");
-  m_shadowSliceParm[1] = glGetUniformLocationARB(m_shadowSliceShader, "shadowTex");
-  m_shadowSliceParm[2] = glGetUniformLocationARB(m_shadowSliceShader, "darkness");
-  //----------------------
-
-
-  //----------------------
-  shaderString = ShaderFactory::genShadowBlurShader();
-
-  if (m_shadowBlurShader)
-    glDeleteObjectARB(m_shadowBlurShader);
-
-  m_shadowBlurShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_shadowBlurShader,
-				  shaderString))
-    {
-      m_shadowBlurShader = 0;
-      QMessageBox::information(0, "", "Cannot create shadow slice shader.");
-    }
-
-  m_shadowBlurParm[0] = glGetUniformLocationARB(m_shadowBlurShader, "sliceTex");
-  m_shadowBlurParm[1] = glGetUniformLocationARB(m_shadowBlurShader, "shadowTex");
-  m_shadowBlurParm[2] = glGetUniformLocationARB(m_shadowBlurShader, "rot");
-  m_shadowBlurParm[4] = glGetUniformLocationARB(m_shadowBlurShader, "stp");
-  //----------------------
-
-  
-//  //----------------------
-//  shaderString = ShaderFactory::genRectBlurShaderString(1); // bilateral filter
-//
-//  m_blurShader = glCreateProgramObjectARB();
-//  if (! ShaderFactory::loadShader(m_blurShader,
-//				  shaderString))
-//    {
-//      m_blurShader = 0;
-//      QMessageBox::information(0, "", "Cannot create blur shader.");
-//    }
-//
-//  m_blurParm[0] = glGetUniformLocationARB(m_blurShader, "blurTex");
-//  m_blurParm[1] = glGetUniformLocationARB(m_blurShader, "minZ");
-//  m_blurParm[2] = glGetUniformLocationARB(m_blurShader, "maxZ");
-//  //----------------------
-
 
   //----------------------
   shaderString = ShaderFactory::genDepthShader();
@@ -712,22 +608,10 @@ Viewer::createShaders()
 
 void Viewer::setShowSlices(bool b) { m_showSlices = b; update(); }
 
-void
-Viewer::updateSlices()
-{
-  setDSlice(m_dslice);
-  setWSlice(m_wslice);
-  setHSlice(m_hslice);
-}
-
-
 void Viewer::setVoxelChoice(int p) { m_voxChoice = p; }
 void Viewer::setVoxelInterval(int p)
 {
   m_pointSkip = p;
-  setDSlice(m_dslice);
-  setWSlice(m_wslice);
-  setHSlice(m_hslice);
 }
 
 void
@@ -1353,10 +1237,6 @@ Viewer::setGridSize(int d, int w, int h)
   m_width = w;
   m_height = h;
 
-  qint64 bsz = m_depth*m_width*m_height;
-  m_bitmask.resize(bsz);
-  m_bitmask.fill(true);
-
   m_minDSlice = 0;
   m_minWSlice = 0;
   m_minHSlice = 0;
@@ -1609,10 +1489,7 @@ Viewer::draw()
       return;
     }
 
-  //if (m_renderMode)
   raycasting();
-  //else
-  //drawVolBySlicing();
 
   if (m_savingImages > 0)
     saveImageFrame();
@@ -1693,7 +1570,7 @@ Viewer::drawInfo()
 
   Vec voxelScaling = Global::relativeVoxelScaling();
       
-  if (m_paintHit || m_carveHit && m_target.x > -1)
+  if (m_paintHit && m_target.x > -1)
     {
       float cpgl = camera()->pixelGLRatio(m_target);
       int d = m_target.z * voxelScaling.z;
@@ -1936,9 +1813,9 @@ Viewer::updateVoxels()
   m_minDSlice = bmin.z;
   m_minWSlice = bmin.y;
   m_minHSlice = bmin.x;
-  m_maxDSlice = bmax.z;
-  m_maxWSlice = bmax.y;
-  m_maxHSlice = bmax.x;
+  m_maxDSlice = qCeil(bmax.z); // because we are getting it as float
+  m_maxWSlice = qCeil(bmax.y);
+  m_maxHSlice = qCeil(bmax.x);
 
 
   updateVoxelsForRaycast();
@@ -2226,157 +2103,6 @@ Viewer::drawLMHCurve()
   glLineWidth(1);
 }
 
-void
-Viewer::setDSlice(int d)
-{
-  m_dslice = d;
-  m_dvoxels.clear();
-
-  if (m_volPtr && m_dslice >= 0)
-    {
-      uchar *lut = Global::lut();  
-      int d=m_dslice;
-//      for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
-//	for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
-      for(int w=m_minWSlice; w<m_maxWSlice; w++)
-	for(int h=m_minHSlice; h<m_maxHSlice; h++)
-	  {
-	    uchar v = m_volPtr[d*m_width*m_height + w*m_height + h];
-	    if (lut[4*v+3] > 10)
-	      {
-		int r = lut[4*v+2];
-		int g = lut[4*v+1];
-		int b = lut[4*v+0];
-		m_dvoxels << w << h << r << g << b;
-	      }
-	  }
-    }      
-
-  update();
-}
-
-void
-Viewer::setWSlice(int w)
-{
-  m_wslice = w;
-  m_wvoxels.clear();
-
-  if (m_volPtr && m_wslice >= 0)
-    {
-      uchar *lut = Global::lut();  
-      int w=m_wslice;
-//      for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
-//	for(int h=m_minHSlice; h<m_maxHSlice; h+=m_pointSkip)
-      for(int d=m_minDSlice; d<m_maxDSlice; d++)
-	for(int h=m_minHSlice; h<m_maxHSlice; h++)
-	  {
-	    uchar v = m_volPtr[d*m_width*m_height + w*m_height + h];
-	    if (lut[4*v+3] > 10)
-	      {
-		int r = lut[4*v+2];
-		int g = lut[4*v+1];
-		int b = lut[4*v+0];
-		m_wvoxels << d << h << r << g << b;
-	      }
-	  }
-    }      
-
-  update();
-}
-
-void
-Viewer::setHSlice(int h)
-{
-  m_hslice = h;
-  m_hvoxels.clear();
-
-  if (m_volPtr && m_hslice >= 0)
-    {
-      uchar *lut = Global::lut();  
-      int h=m_hslice;
-//      for(int d=m_minDSlice; d<m_maxDSlice; d+=m_pointSkip)
-//	for(int w=m_minWSlice; w<m_maxWSlice; w+=m_pointSkip)
-      for(int d=m_minDSlice; d<m_maxDSlice; d++)
-	for(int w=m_minWSlice; w<m_maxWSlice; w++)
-	  {
-	    uchar v = m_volPtr[d*m_width*m_height + w*m_height + h];
-	    if (lut[4*v+3] > 10)
-	      {
-		int r = lut[4*v+2];
-		int g = lut[4*v+1];
-		int b = lut[4*v+0];
-		m_hvoxels << d << w << r << g << b;
-	      }
-	  }
-    }      
-
-  update();
-}
-
-void
-Viewer::drawSlices()
-{
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  glEnable(GL_POINT_SMOOTH);
-
-//  glEnable(GL_POINT_SPRITE_ARB);
-//  glEnable(GL_TEXTURE_2D);
-//  glBindTexture(GL_TEXTURE_2D, Global::spriteTexture());
-//  glTexEnvi(GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE);
-
-  //glPointSize(m_pointSize);
-  Vec ptpos = camera()->sceneCenter();
-  float pglr = camera()->pixelGLRatio(ptpos);
-  int ptsz = m_pointSize/pglr;
-  glPointSize(ptsz);
-
-  for(int i=0; i<m_dvoxels.count()/5; i++)
-    {
-      int w = m_dvoxels[5*i+0];
-      int h = m_dvoxels[5*i+1];
-      float r = (float)m_dvoxels[5*i+2]/255.0;
-      float g = (float)m_dvoxels[5*i+3]/255.0;
-      float b = (float)m_dvoxels[5*i+4]/255.0;
-      glBegin(GL_POINTS);
-      glColor3f(r,g,b);
-      glVertex3f(h, w, m_dslice);
-      glEnd();
-    }
-
-  for(int i=0; i<m_wvoxels.count()/5; i++)
-    {
-      int d = m_wvoxels[5*i+0];
-      int h = m_wvoxels[5*i+1];
-      float r = (float)m_wvoxels[5*i+2]/255.0;
-      float g = (float)m_wvoxels[5*i+3]/255.0;
-      float b = (float)m_wvoxels[5*i+4]/255.0;
-      glBegin(GL_POINTS);
-      glColor3f(r,g,b);
-      glVertex3f(h, m_wslice, d);
-      glEnd();
-    }
-
-  for(int i=0; i<m_hvoxels.count()/5; i++)
-    {
-      int d = m_hvoxels[5*i+0];
-      int w = m_hvoxels[5*i+1];
-      float r = (float)m_hvoxels[5*i+2]/255.0;
-      float g = (float)m_hvoxels[5*i+3]/255.0;
-      float b = (float)m_hvoxels[5*i+4]/255.0;
-      glBegin(GL_POINTS);
-      glColor3f(r,g,b);
-      glVertex3f(m_hslice, w, d);
-      glEnd();
-    }
-
-//  glDisable(GL_POINT_SPRITE);
-//  glDisable(GL_TEXTURE_2D);
-
-  glDisable(GL_POINT_SMOOTH);
-  glBlendFunc(GL_NONE, GL_NONE);
-  glDisable(GL_BLEND);
-}
 
 void
 Viewer::drawCurve(int type, Curve *c, int slc)
@@ -2511,7 +2237,6 @@ Viewer::getHit(QMouseEvent *event)
       if (!m_useMask)
 	{
 	  QMessageBox::information(0, "Error", "Switch on Load Tags before applying the operation.");
-	  m_carveHit = false;
 	  m_paintHit = false;
 	  m_target = Vec(-1,-1,-1);
 	  return;
@@ -2522,6 +2247,11 @@ Viewer::getHit(QMouseEvent *event)
       w = m_target.y;
       h = m_target.x;
 
+      if (d < 0 || d > m_depth-1 &&
+	  w < 0 || w > m_width-1 &&
+	  h < 0 || h > m_height-1)
+	return;
+	
       int b = 0;
       if (event->buttons() == Qt::LeftButton) b = 1;
       else if (event->buttons() == Qt::RightButton) b = 2;
@@ -2531,13 +2261,14 @@ Viewer::getHit(QMouseEvent *event)
 	{
 	  Vec bmin, bmax;
 	  m_boundingBox.bounds(bmin, bmax);
+	  Vec voxelScaling = Global::relativeVoxelScaling();
+	  bmin = VECDIVIDE(bmin, voxelScaling);
+	  bmax = VECDIVIDE(bmax, voxelScaling);
 	  emit paint3D(bmin, bmax,
 		       d, w, h, b,
 		       Global::tag(),
 		       m_UI->paintOnlyConnected->isChecked());
 	}
-      else if (m_carveHit)
-	carve(d, w, h, b==2);
     }
 }
 
@@ -2580,13 +2311,11 @@ Viewer::pointUnderPixel_RC(QPoint scr, bool& found)
   
   glEnable(GL_SCISSOR_TEST);
   glScissor(cx, sh-cy, 1, 1);
-
   volumeRaycast(minZ, maxZ, true); // run only one part of raycast process
+  glDisable(GL_SCISSOR_TEST);
 
   glBindFramebuffer(GL_FRAMEBUFFER, m_eBuffer);
   glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[0]);
-
-  glDisable(GL_SCISSOR_TEST);
 
   GLfloat d4[4];
   glReadPixels(cx, sh-cy, 1, 1, GL_RGBA, GL_FLOAT, &d4);
@@ -2595,7 +2324,6 @@ Viewer::pointUnderPixel_RC(QPoint scr, bool& found)
       pos = Vec(d4[0], d4[1], d4[2]);
       Vec vsz = m_sslevel*m_vsize;
       pos = m_corner + VECPRODUCT(pos, vsz);
-
       //-----------
       {
 	int v;
@@ -2636,7 +2364,6 @@ void
 Viewer::mousePressEvent(QMouseEvent *event)
 {
   m_paintHit = false;
-  m_carveHit = false;
   m_target = Vec(-1,-1,-1);
 
   if (m_sketchPadMode)
@@ -2665,13 +2392,6 @@ Viewer::mousePressEvent(QMouseEvent *event)
       return;
     }
 
-  if (event->modifiers() & Qt::ControlModifier)
-    {
-      m_carveHit = true;
-      getHit(event);
-      return;
-    }
-
   QGLViewer::mousePressEvent(event);
 }
 
@@ -2687,7 +2407,6 @@ Viewer::mouseReleaseEvent(QMouseEvent *event)
   if (m_paintHit)
     emit paint3DEnd();
   
-  m_carveHit = false;
   m_paintHit = false;
   m_target = Vec(-1,-1,-1);
 
@@ -2709,7 +2428,7 @@ Viewer::mouseMoveEvent(QMouseEvent *event)
       return;
     }
       
-  if (m_paintHit || m_carveHit)
+  if (m_paintHit)
     {
       getHit(event);
       return;
@@ -2774,41 +2493,6 @@ Viewer::drawClip()
   glDisable(GL_BLEND);
 }
 
-
-void
-Viewer::carve(int d, int w, int h, bool b)
-{
-  if (d<0 || w<0 || h<0 ||
-      d>m_depth-1 ||
-      w>m_width-1 ||
-      h>m_height-1)
-    return;
-
-  int rad = Global::spread();
-  
-  int ds, de, ws, we, hs, he;
-  ds = qMax(m_minDSlice, d-rad);
-  de = qMin(m_maxDSlice, d+rad);
-  ws = qMax(m_minWSlice, w-rad);
-  we = qMin(m_maxWSlice, w+rad);
-  hs = qMax(m_minHSlice, h-rad);
-  he = qMin(m_maxHSlice, h+rad);
-  for(qint64 dd=ds; dd<=de; dd++)
-    for(int ww=ws; ww<=we; ww++)
-      for(int hh=hs; hh<=he; hh++)
-	{
-	  float p = ((d-dd)*(d-dd)+
-		     (w-ww)*(w-ww)+
-		     (h-hh)*(h-hh));
-	  if (p < rad*rad)
-	    {
-	      qint64 idx = dd*m_width*m_height + ww*m_height + hh;
-	      m_bitmask.setBit(idx, b); 
-	    }
-	}
-
-  update();
-}
 
 void
 Viewer::boundingBoxChanged()
@@ -3005,8 +2689,6 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
 
 
   float stepsize = m_stillStep;
-//  if (m_dragMode && !(m_paintHit || m_carveHit))
-//    stepsize = m_dragStep;
 
   stepsize /= qMax(m_vsize.x,qMax(m_vsize.y,m_vsize.z));
 
@@ -3020,7 +2702,8 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
   glUniform3fARB(m_rcParm[4], eyepos.x, eyepos.y, eyepos.z); // eyepos
   glUniform3fARB(m_rcParm[5], viewDir.x, viewDir.y, viewDir.z); // viewDir
   glUniform3fARB(m_rcParm[6], subvolcorner.x, subvolcorner.y, subvolcorner.z);
-  glUniform3fARB(m_rcParm[7], m_vsize.x, m_vsize.y, m_vsize.z);
+  //glUniform3fARB(m_rcParm[7], m_vsize.x, m_vsize.y, m_vsize.z);
+  glUniform3fARB(m_rcParm[7], m_sslevel*m_vsize.x, m_sslevel*m_vsize.y, m_sslevel*m_vsize.z);
   glUniform3fARB(m_rcParm[20], voxelScaling.x, voxelScaling.y, voxelScaling.z);
   glUniform1iARB(m_rcParm[10],4); // maskTex
   glUniform1iARB(m_rcParm[11],firstPartOnly); // save voxel coordinates
@@ -3911,354 +3594,6 @@ Viewer::generateBoxMinMax()
   progress.setValue(100);
 }
 
-void
-Viewer::drawVolBySlicing()
-{
-  bool frontToback = true;
-  if (m_dragMode || m_shadow == 0)
-    frontToback = false;
-  
-  glClearColor(0,0,0,0);
-
-  if (frontToback)
-    {
-      glBlendFunc(GL_ONE_MINUS_DST_ALPHA, GL_ONE); // front to back
-      glClearDepth(0);
-      glDepthFunc(GL_GEQUAL);
-    }
-  else
-    {
-      glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); // back to front
-      glClearDepth(1);
-      glDepthFunc(GL_LEQUAL);
-    }
-
-  glClear(GL_DEPTH_BUFFER_BIT);
-  glClear(GL_COLOR_BUFFER_BIT);
-
-  glEnable(GL_DEPTH_TEST);
-  glAlphaFunc(GL_GREATER, 0);
-
-  if (!frontToback)
-    {
-      m_clipPlanes->draw(this, true);
-
-      if (m_showSlices)
-	drawCurrentSlice();
-
-      if (m_showBox)
-	{
-	  m_boundingBox.draw();
-	  drawWireframeBox();
-	}
-    }
-
-  glEnable(GL_BLEND);
-
-  Vec minvert, maxvert;
-  float zdepth;
-
-  Vec dataMin = Vec(m_minHSlice, m_minWSlice, m_minDSlice);
-  Vec dataMax = Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice);
-  Vec dataSize = dataMax - dataMin;
-
-  Vec bmin, bmax;
-  m_boundingBox.bounds(bmin, bmax);
-
-  Vec box[8];
-  box[0] = Vec(bmin.x,bmin.y,bmin.z);
-  box[1] = Vec(bmin.x,bmin.y,bmax.z);
-  box[2] = Vec(bmin.x,bmax.y,bmin.z);
-  box[3] = Vec(bmin.x,bmax.y,bmax.z);
-  box[4] = Vec(bmax.x,bmin.y,bmin.z);
-  box[5] = Vec(bmax.x,bmin.y,bmax.z);
-  box[6] = Vec(bmax.x,bmax.y,bmin.z);
-  box[7] = Vec(bmax.x,bmax.y,bmax.z);
-
-  Slicer3D::getMinMaxVertices(camera(),
-			      box, zdepth, minvert, maxvert);
-
-  float stepsize = m_stillStep;
-  if (m_dragMode && !(m_paintHit || m_carveHit))
-    stepsize = m_dragStep;
-
-
-  Vec pn = camera()->viewDirection();
-  int layers = zdepth/stepsize;
-
-
-  glActiveTexture(GL_TEXTURE2);
-  glEnable(GL_TEXTURE_3D);
-  glBindTexture(GL_TEXTURE_3D, m_dataTex);
-
-  if (m_exactCoord)
-    {
-      glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-      glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    }
-  else
-    {
-      glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-      glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-
-  glActiveTexture(GL_TEXTURE4);
-  glEnable(GL_TEXTURE_3D);
-  glBindTexture(GL_TEXTURE_3D, m_maskTex);
-  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-  uchar *lut = Global::lut();
-  glActiveTexture(GL_TEXTURE3);
-  glEnable(GL_TEXTURE_2D);
-  glBindTexture(GL_TEXTURE_2D, m_lutTex);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,GL_NEAREST);
-  glTexImage2D(GL_TEXTURE_2D,
-	       0, // single resolution
-	       GL_RGBA,
-	       256, Global::lutSize()*256, // width, height
-	       0, // no border
-	       GL_BGRA,
-	       GL_UNSIGNED_BYTE,
-	       lut);
-
-  uchar *tagColors = Global::tagColors();
-  glActiveTexture(GL_TEXTURE5);
-  glEnable(GL_TEXTURE_1D);
-  glBindTexture(GL_TEXTURE_1D, m_tagTex);
-  glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
-  glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER,GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER,GL_NEAREST);
-  glTexImage1D(GL_TEXTURE_1D,
-	       0, // single resolution
-	       GL_RGBA,
-	       256,
-	       0, // no border
-	       GL_RGBA,
-	       GL_UNSIGNED_BYTE,
-	       tagColors);
-
-  glUseProgramObjectARB(m_sliceShader);
-  glUniform1iARB(m_sliceParm[0], 2); // datatex
-  glUniform1iARB(m_sliceParm[1], 3); // luttex
-  glUniform1iARB(m_sliceParm[2], 4); // masktex
-  glUniform1iARB(m_sliceParm[3], 5); // tagtex
-
-
-  QList<Vec> cPos =  clipPos();
-  QList<Vec> cNorm = clipNorm();
-
-  drawSlices(bmin, bmax,
-	     dataMin, dataSize,
-	     pn, maxvert, minvert,
-	     layers, stepsize,
-	     cPos, cNorm,
-	     frontToback);
-
-
-  glUseProgramObjectARB(0);
-
-  glActiveTexture(GL_TEXTURE2);
-  glDisable(GL_TEXTURE_3D);
-
-  glActiveTexture(GL_TEXTURE3);
-  glDisable(GL_TEXTURE_2D);
-
-  glActiveTexture(GL_TEXTURE4);
-  glDisable(GL_TEXTURE_3D);
-
-  glActiveTexture(GL_TEXTURE5);
-  glDisable(GL_TEXTURE_1D);
-
-  glDisable(GL_BLEND);
-  glDisable(GL_DEPTH_TEST);
-
-  if (frontToback)
-    {
-      m_clipPlanes->draw(this, false);
-
-      if (m_showSlices)
-	drawCurrentSlice();
-
-      if (m_showBox)
-	{
-	  m_boundingBox.draw();
-	  drawWireframeBox();
-	}
-    }
-}
-
-void
-Viewer::drawSlices(Vec bbmin, Vec bbmax,
-		   Vec dataMin, Vec dataMax,
-		   Vec pn, Vec minvert, Vec maxvert,
-		   int layers, float stepsize,
-		   QList<Vec> cpos, QList<Vec> cnorm,
-		   bool frontToback)
-{
-  Vec subvol[8];
-  
-  subvol[0] = Vec(bbmin.x, bbmin.y, bbmin.z);
-  subvol[1] = Vec(bbmax.x, bbmin.y, bbmin.z);
-  subvol[2] = Vec(bbmax.x, bbmax.y, bbmin.z);
-  subvol[3] = Vec(bbmin.x, bbmax.y, bbmin.z);
-  subvol[4] = Vec(bbmin.x, bbmin.y, bbmax.z);
-  subvol[5] = Vec(bbmax.x, bbmin.y, bbmax.z);
-  subvol[6] = Vec(bbmax.x, bbmax.y, bbmax.z);
-  subvol[7] = Vec(bbmin.x, bbmax.y, bbmax.z);
-
-  //--------------------------------
-  // back to front rendering
-  if (!frontToback)
-    {
-      //po = minvert+layers*step;
-      Vec po = maxvert;
-      Vec step = -stepsize*pn;
-
-      Slicer3D::start();
-      for(int s=0; s<layers; s++)
-	{
-	  po += step;
-	  Slicer3D::genpoly(po, pn,
-			    subvol,
-			    dataMin, dataMax,
-			    cpos, cnorm);
-	}
-      Slicer3D::draw();
-
-      return;
-    }
-  //--------------------------------
-
-
-  //--------------------------------
-  // front to back with shadows
-
-  Vec po = minvert;
-  Vec step = stepsize*pn;
-
-  glDisable(GL_DEPTH_TEST);
-  glEnable(GL_BLEND);
-  glClearColor(0,0,0,0);
-  glClearDepth(0);
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_eBuffer);
-  for(int nb=0; nb<3; nb++)
-    {
-      glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
-			     GL_COLOR_ATTACHMENT0_EXT,
-			     GL_TEXTURE_RECTANGLE_ARB,
-			     m_ebTex[nb],
-			     0);
-      glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
-      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    }
-  glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
-
-  int wd = camera()->screenWidth();
-  int ht = camera()->screenHeight();
-  int shd = 0;
-  for(int s=0; s<layers; s++)
-    {
-      po += step;
-
-      glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_eBuffer);
-      glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
-			     GL_COLOR_ATTACHMENT0_EXT,
-			     GL_TEXTURE_RECTANGLE_ARB,
-			     m_ebTex[2],
-			     0);
-      glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
-      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-      // draw to ebTex[2]
-      glUseProgramObjectARB(m_sliceShader);
-      glUniform1iARB(m_sliceParm[0], 2); // datatex
-      glUniform1iARB(m_sliceParm[1], 3); // luttex
-      glUniform1iARB(m_sliceParm[2], 4); // masktex
-      glUniform1iARB(m_sliceParm[3], 5); // tagtex
-
-      glBlendFunc(GL_ONE, GL_ZERO); // replace texture
-      Slicer3D::drawpoly(po, pn,
-			 subvol,
-			 dataMin, dataMax,
-			 cpos, cnorm);
-
-      glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
-
-
-      //--------------------------------
-      // composite ebTex[0] and apply with shadow buffer
-      float darkness = m_shadow*0.1;
-      glUseProgramObjectARB(m_shadowSliceShader);
-      glUniform1iARB(m_shadowSliceParm[0], 1); // slice - ebTex[2]
-      glUniform1iARB(m_shadowSliceParm[1], 6); // shadow - ebTex[shd]
-      glUniform1fARB(m_shadowSliceParm[2], darkness); // darkness
-
-      glActiveTexture(GL_TEXTURE1);
-      glEnable(GL_TEXTURE_RECTANGLE_ARB);
-      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[2]);
-
-      glActiveTexture(GL_TEXTURE6);
-      glEnable(GL_TEXTURE_RECTANGLE_ARB);
-      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[shd]);
-      
-      glBlendFunc(GL_ONE_MINUS_DST_ALPHA, GL_ONE);
-      StaticFunctions::pushOrthoView(0, 0, wd, ht);
-      StaticFunctions::drawQuad(0, 0, wd, ht, 1);
-      StaticFunctions::popOrthoView();
-      //--------------------------------
-
-
-      //--------------------------------
-      // update shadow buffer
-      int shd1 = (shd+1)%2;
-      glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_eBuffer);
-      glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
-			     GL_COLOR_ATTACHMENT0_EXT,
-			     GL_TEXTURE_RECTANGLE_ARB,
-			     m_ebTex[shd1],
-			     0);
-      glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
-      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-      
-      float rot = (s%2 ? 1.0 : -1.0);
-      
-      glUseProgramObjectARB(m_shadowBlurShader);
-      glUniform1iARB(m_shadowBlurParm[0], 1); // slice - ebTex[2]
-      glUniform1iARB(m_shadowBlurParm[1], 6); // shadow - ebTex[shd]
-      glUniform1fARB(m_shadowBlurParm[2], rot); // shadow blur rot
-      glUniform1fARB(m_shadowBlurParm[3], m_edge); // edges
-      
-      glActiveTexture(GL_TEXTURE1);
-      glEnable(GL_TEXTURE_RECTANGLE_ARB);
-      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[2]);
-      
-      glActiveTexture(GL_TEXTURE6);
-      glEnable(GL_TEXTURE_RECTANGLE_ARB);
-      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[shd]);
-      
-      glBlendFunc(GL_ONE, GL_ZERO); // replace texture
-      StaticFunctions::pushOrthoView(0, 0, wd, ht);
-      StaticFunctions::drawQuad(0, 0, wd, ht, 1);
-      StaticFunctions::popOrthoView();
-      //--------------------------------
-      
-      shd = shd1;
-      
-      glUseProgramObjectARB(0);
-      glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
-    }
-  
-  glActiveTexture(GL_TEXTURE1);
-  glDisable(GL_TEXTURE_RECTANGLE_ARB);
-
-  glActiveTexture(GL_TEXTURE6);
-  glDisable(GL_TEXTURE_RECTANGLE_ARB);
-}
 
 QList<int>
 Viewer::usedTags()

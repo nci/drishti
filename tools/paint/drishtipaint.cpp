@@ -149,14 +149,6 @@ DrishtiPaint::createImageWindows()
   connect(m_coronalImage, SIGNAL(yPos(int)),
 	  m_axialImage, SLOT(setSlice(int)));
 
-
-  connect(m_axialImage, SIGNAL(sliceChanged(int)),
-	  m_viewer, SLOT(setDSlice(int)));
-  connect(m_sagitalImage, SIGNAL(sliceChanged(int)),
-	  m_viewer, SLOT(setWSlice(int)));
-  connect(m_coronalImage, SIGNAL(sliceChanged(int)),
-	  m_viewer, SLOT(setHSlice(int)));
-
   return splitter_0;
 }
 

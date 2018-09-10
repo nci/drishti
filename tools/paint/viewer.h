@@ -89,11 +89,7 @@ class Viewer : public QGLViewer
     void setPaintedTags(QList<int>);
     void setCurveTags(QList<int>);
     void setFiberTags(QList<int>);
-    void setDSlice(int);
-    void setWSlice(int);
-    void setHSlice(int);
     void setShowSlices(bool);
-    void updateSlices();
     void uploadMask(int,int,int, int,int,int);
     void setRenderMode(bool);
     void setSkipLayers(int);
@@ -267,15 +263,6 @@ class Viewer : public QGLViewer
   GLhandleARB m_blurShader;
   GLint m_blurParm[20];
 
-  GLhandleARB m_sliceShader;
-  GLint m_sliceParm[20];
-
-  GLhandleARB m_shadowSliceShader;
-  GLint m_shadowSliceParm[20];
-
-  GLhandleARB m_shadowBlurShader;
-  GLint m_shadowBlurParm[20];
-
   GLhandleARB m_rcShader;
   GLint m_rcParm[30];
 
@@ -360,10 +347,6 @@ class Viewer : public QGLViewer
 
   void drawInfo();
 
-  void carve(int, int, int, bool);
-
-  void drawSlices();
-
   void drawBox();
 
   void volumeRaycast(float, float, bool);
@@ -372,8 +355,6 @@ class Viewer : public QGLViewer
   void getHit(QMouseEvent*);
   
   void setTextureMemorySize();
-
-  //void drawFace(int, Vec*, Vec*);
 
   void hatch();
   void regionGrowing(bool);
@@ -393,15 +374,6 @@ class Viewer : public QGLViewer
   bool startMovie(QString, int, int, bool);
   bool endMovie();
   void saveMovie();
-
-  void drawVolBySlicing();
-
-  void drawSlices(Vec, Vec,
-		  Vec, Vec,
-		  Vec, Vec, Vec,
-		  int, float,
-		  QList<Vec>, QList<Vec>,
-		  bool);
 
   void drawVolume();
 };

@@ -28,6 +28,7 @@ void VolumeFileManager::setMemMapped(bool b)
 
   m_memChanged = false;
   m_mcTimes = 0;
+  m_saveSlices.clear();
 }
 
 bool VolumeFileManager::isMemMapped() { return m_memmapped; }
@@ -66,6 +67,7 @@ VolumeFileManager::reset()
   m_memmapped = false;
   m_memChanged = false;
   m_mcTimes = 0;
+  m_saveSlices.clear();
 }
 
 int VolumeFileManager::depth() { return m_depth; }
@@ -818,11 +820,76 @@ VolumeFileManager::blockInterpolatedRawValue(float dv, float wv, float hv)
 }
 
 void
+VolumeFileManager::saveSlicesToFile()
+{
+  uchar vt;
+  if (m_voxelType == _UChar) vt = 0; // unsigned byte
+  if (m_voxelType == _Char) vt = 1; // signed byte
+  if (m_voxelType == _UShort) vt = 2; // unsigned short
+  if (m_voxelType == _Short) vt = 3; // signed short
+  if (m_voxelType == _Int) vt = 4; // int
+  if (m_voxelType == _Float) vt = 8; // float
+
+  QProgressDialog progress(QString("Saving %1").\
+			   arg(m_baseFilename),
+			   "Cancel",
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+  progress.setCancelButton(0);
+
+  qint64 bps = m_width*m_height*m_bytesPerVoxel;
+
+  for(int i=0; i<m_saveSlices.count(); i++)
+    {
+      progress.setValue((int)(100*(float)i/(float)m_saveSlices.count()));
+      qApp->processEvents();
+
+      int d = m_saveSlices[i];
+      int ns = d/m_slabSize;
+      
+      QString pflnm = m_filename;
+      m_slabno = d/m_slabSize;
+      if (m_slabno < m_filenames.count())
+	m_filename = m_filenames[m_slabno];
+      else
+	m_filename = m_baseFilename +
+                     QString(".%1").arg(m_slabno+1, 3, 10, QChar('0'));
+
+      if (pflnm != m_filename ||
+	  !m_qfile.isOpen() ||
+	  !m_qfile.isWritable())
+	{
+	  if (m_qfile.isOpen()) m_qfile.close();
+	  m_qfile.setFileName(m_filename);
+	  m_qfile.open(QFile::ReadWrite);
+	}
+      
+      m_qfile.seek((qint64)(m_header + (d-m_slabno*m_slabSize)*bps));
+      m_qfile.write((char*)(m_volData + (qint64)d*bps), bps);
+    }
+
+  m_qfile.close();
+
+  progress.setValue(100);
+
+  m_memChanged = false;
+  m_mcTimes = 0;
+  m_saveSlices.clear();
+}
+
+void
 VolumeFileManager::saveMemFile()
 {
   if (!m_memChanged)
     return;
 
+  if (m_saveSlices.count() > 0)
+    {
+      saveSlicesToFile();
+      return;
+    }
+  
   uchar vt;
   if (m_voxelType == _UChar) vt = 0; // unsigned byte
   if (m_voxelType == _Char) vt = 1; // signed byte
@@ -884,6 +951,7 @@ VolumeFileManager::saveMemFile()
 
   m_memChanged = false;
   m_mcTimes = 0;
+  m_saveSlices.clear();
 }
 
 void
@@ -939,6 +1007,7 @@ VolumeFileManager::loadMemFile()
 
   m_memChanged = false;
   m_mcTimes = 0;
+  m_saveSlices.clear();
 }
 
 void
@@ -982,33 +1051,36 @@ VolumeFileManager::setSliceMem(int d, uchar *tmp)
   qint64 bps = m_width*m_height*m_bytesPerVoxel;
   memcpy(m_volData+d*bps, tmp, bps);
 
-//  m_memChanged = true;
-//  m_mcTimes++;
-//  if (m_mcTimes > m_saveFreq)
-//    saveMemFile();
+  m_saveSlices << d;
   
-  //--------
-  // save to file straight away
-  QString pflnm = m_filename;
-  m_slabno = d/m_slabSize;
-  if (m_slabno < m_filenames.count())
-    m_filename = m_filenames[m_slabno];
-  else
-    m_filename = m_baseFilename +
-                 QString(".%1").arg(m_slabno+1, 3, 10, QChar('0'));
-
-  if (pflnm != m_filename ||
-      !m_qfile.isOpen() ||
-      !m_qfile.isWritable())
-    {
-      if (m_qfile.isOpen()) m_qfile.close();
-      m_qfile.setFileName(m_filename);
-      m_qfile.open(QFile::ReadWrite);
-    }
-  m_qfile.seek((qint64)(m_header + (d-m_slabno*m_slabSize)*bps));
-  m_qfile.write((char*)tmp, bps);
-  m_qfile.close();
-  //--------
+  m_memChanged = true;
+  m_mcTimes++;
+  if (m_mcTimes > m_saveFreq)
+    saveSlicesToFile();
+    //saveMemFile();
+  
+//  //--------
+//  // save to file straight away
+//  QString pflnm = m_filename;
+//  m_slabno = d/m_slabSize;
+//  if (m_slabno < m_filenames.count())
+//    m_filename = m_filenames[m_slabno];
+//  else
+//    m_filename = m_baseFilename +
+//                 QString(".%1").arg(m_slabno+1, 3, 10, QChar('0'));
+//
+//  if (pflnm != m_filename ||
+//      !m_qfile.isOpen() ||
+//      !m_qfile.isWritable())
+//    {
+//      if (m_qfile.isOpen()) m_qfile.close();
+//      m_qfile.setFileName(m_filename);
+//      m_qfile.open(QFile::ReadWrite);
+//    }
+//  m_qfile.seek((qint64)(m_header + (d-m_slabno*m_slabSize)*bps));
+//  m_qfile.write((char*)tmp, bps);
+//  m_qfile.close();
+//  //--------
 }
 
 uchar*
@@ -1197,7 +1269,7 @@ VolumeFileManager::saveBlock(int dmin, int dmax,
 
   for(int d=dmin; d<=dmax; d++)
     {
-      if (dmax-dmin > 300) // show only for substantial amount of writing to disk
+      if (dmax-dmin > 50) // show only for substantial amount of writing to disk
 	{
 	  progress.setValue((int)(100*(float)(d-dmin)/(float)(dmax-dmin+1)));
 	  qApp->processEvents();

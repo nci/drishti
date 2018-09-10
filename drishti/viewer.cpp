@@ -3666,11 +3666,24 @@ Viewer::keyPressEvent(QKeyEvent *event)
 	    
   if (event->key() == Qt::Key_F2)
     {
-      if (m_rcMode && !m_lowresVolume->raised())
+      //if (m_rcMode && !m_lowresVolume->raised())
+      //	{
+      //  m_lowresVolume->raise();
+      //  m_hiresVolume->lower();
+
+      if (m_rcMode)
 	{
-	  m_lowresVolume->raise();
+	  m_lowresVolume->lower();
 	  m_hiresVolume->lower();
+
+	  if (m_Volume->pvlVoxelType(0) == 0)
+	    {
+	      Global::setUse1D(false);
+	      MainWindowUI::mainWindowUI()->actionSwitch_To1D->setChecked(Global::use1D());
+	      emit show16BitEditor(false);
+	    }
 	}
+
       m_rcMode = false;
       m_raycastMenu->hide();
       switchDrawVolume();
@@ -3704,9 +3717,12 @@ Viewer::keyPressEvent(QKeyEvent *event)
 	  if (m_rcMode)
 	    {
 	      m_rcMode = false;
-	      Global::setUse1D(false);
-	      MainWindowUI::mainWindowUI()->actionSwitch_To1D->setChecked(Global::use1D());
-	      emit show16BitEditor(false);
+	      if (m_Volume->pvlVoxelType(0) == 0)
+		{
+		  Global::setUse1D(false);
+		  MainWindowUI::mainWindowUI()->actionSwitch_To1D->setChecked(Global::use1D());
+		  emit show16BitEditor(false);
+		}
 	    }
 	  else
 	    {

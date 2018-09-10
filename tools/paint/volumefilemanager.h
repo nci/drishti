@@ -92,6 +92,8 @@ class VolumeFileManager
 
   void saveBlock(int, int, int, int, int, int);
 
+  void saveSlicesToFile();
+
  private :
   bool m_memmapped;
   bool m_memChanged;
@@ -112,9 +114,12 @@ class VolumeFileManager
 
   uchar *m_volData;
 
+  QList<int> m_saveSlices;
+    
   void readBlocks(int);
 
-  void createMemFile();  
+  void createMemFile();
+
 };
 
 #endif

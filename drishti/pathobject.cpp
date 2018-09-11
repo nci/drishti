@@ -1838,48 +1838,12 @@ PathObject::drawTube(QGLViewer *viewer,
 		     GLint* pnShaderParm)
 
 {
-  if ( m_imagePresent ||
-      (m_captionPresent && !m_captionLabel) )
+  if (m_imageTex &&
+      (m_imagePresent ||
+       (m_captionPresent && !m_captionLabel)))
     {
       glActiveTexture(GL_TEXTURE0);
       glBindTexture(GL_TEXTURE_2D, m_imageTex);
-
-      if (m_imagePresent)
-	{
-	  int nbytes = m_image.byteCount();
-	  int rgb = nbytes/(m_textureWidth*m_textureHeight);
-	  GLuint fmt;
-	  if (rgb == 1) fmt = GL_LUMINANCE;
-	  else if (rgb == 2) fmt = GL_LUMINANCE_ALPHA;
-	  else if (rgb == 3) fmt = GL_RGB;
-	  else if (rgb == 4) fmt = GL_BGRA;
-	  glTexImage2D(GL_TEXTURE_2D,
-		       0,
-		       rgb,
-		       m_textureWidth,
-		       m_textureHeight,
-		       0,
-		       fmt,
-		       GL_UNSIGNED_BYTE,
-		       m_image.bits());
-	}
-      else
-	{
-	  glTexImage2D(GL_TEXTURE_2D,
-		       0,
-		       4,
-		       m_textureWidth,
-		       m_textureHeight,
-		       0,
-		       GL_RGBA,
-		       GL_UNSIGNED_BYTE,
-		       m_cImage.bits());
-	}
-      
-      glColor4f(m_opacity,
-		m_opacity,
-		m_opacity,
-		m_opacity);
       
       if (m_glVertArrayC)
 	{

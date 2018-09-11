@@ -203,7 +203,11 @@ class PathObject
 
   void draw(QGLViewer*,
 	    Vec, float, float,
-	    bool, bool, Vec);
+	    bool, bool, Vec,
+	    GLuint,
+	    GLint*,
+	    GLuint,
+	    GLint*);
   void postdraw(QGLViewer*, int, int, bool, float scale = 0.15);
 
   void postdrawInViewport(QGLViewer*, int, int, bool,
@@ -279,7 +283,8 @@ class PathObject
   int m_segments;
   int m_sections;
   float m_length;
-
+  QList<int> m_tubeVert;
+  
   int m_pointPressed;
 
   bool m_updateFlag;
@@ -293,7 +298,6 @@ class PathObject
   QList<float> m_radX;
   QList<float> m_radY;
   QList<float> m_angle;
-  GLuint m_displayList;
   
   GLuint m_imageTex;
   bool m_imagePresent;
@@ -332,12 +336,11 @@ class PathObject
   void generateTube(float);
   void generateRibbon(float);
 
-  void addFlatCaps(int, Vec, QList<Vec>);
-  void addRoundCaps(int, Vec, QList<Vec>, QList<Vec>);
-
   void drawTube(QGLViewer*,
 		Vec, float, float,
-		bool, Vec);
+		bool, Vec,
+		GLuint, GLint*,
+		GLuint, GLint*);
   void drawLines(QGLViewer*, bool, bool);
 
   QList<Vec> getCrossSection(float,
@@ -346,12 +349,14 @@ class PathObject
 			     Vec, Vec, Vec);
   QList<Vec> getNormals(QList<Vec>, Vec);
 
-  void addArrowHead(int, float,
-		    Vec,
-		    Vec, Vec, Vec,
-		    float, float,
-		    QList<Vec>,
-		    QList<Vec>);
+  QList<Vec> addFlatCaps(int, Vec, QList<Vec>);
+  QList<Vec> addRoundCaps(int, Vec, QList<Vec>, QList<Vec>);
+  QList<Vec> addArrowHead(int, float,
+			  Vec,
+			  Vec, Vec, Vec,
+			  float, float,
+			  QList<Vec>,
+			  QList<Vec>);
 
   void postdrawCaption(QGLViewer*);
   void postdrawPointNumbers(QGLViewer*);
@@ -360,9 +365,10 @@ class PathObject
   void postdrawAngle(QGLViewer*);
 
   
-  GLuint m_glVertBuffer;
-  GLuint m_glIndexBuffer;
-  GLuint m_glVertArray;
+  GLuint m_glVertArrayC;
+  GLuint m_glVertArrayT;
+  GLuint m_glVertBufferC;
+  GLuint m_glVertBufferT;
 
 };
 

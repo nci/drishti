@@ -3,6 +3,7 @@
 #include "staticfunctions.h"
 #include "propertyeditor.h"
 #include "captiondialog.h"
+#include "shaderfactory.h"
 
 #include <QFileDialog>
 
@@ -340,11 +341,17 @@ Paths::draw(QGLViewer *viewer,
 	    bool backToFront, Vec lightVec)
 {
   for(int i=0; i<m_paths.count();i++)
-    m_paths[i]->draw(viewer,
-		     pn, pnear, pfar,
-		     m_paths[i]->grabsMouse(),
-		     backToFront,
-		     lightVec);
+    {
+      m_paths[i]->draw(viewer,
+		       pn, pnear, pfar,
+		       m_paths[i]->grabsMouse(),
+		       backToFront,
+		       lightVec,
+		       ShaderFactory::ptShader(),
+		       ShaderFactory::ptShaderParm(),
+		       ShaderFactory::pnShader(),
+		       ShaderFactory::pnShaderParm());
+    }
 }
 
 void

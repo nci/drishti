@@ -940,7 +940,10 @@ Viewer::GlewInit()
 
 
   setupRaycastUI();
-  //m_raycastMenu->hide();
+  
+  // create shaders
+  ShaderFactory::ptShader();
+  ShaderFactory::pnShader();
 }
 
 void

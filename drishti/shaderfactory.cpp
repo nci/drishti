@@ -1414,6 +1414,7 @@ GLuint ShaderFactory::ptShader()
 	m_ptShaderParm[2] = glGetUniformLocation(m_ptShader, "pn");
 	m_ptShaderParm[3] = glGetUniformLocation(m_ptShader, "pnear");
 	m_ptShaderParm[4] = glGetUniformLocation(m_ptShader, "pfar");
+	m_ptShaderParm[5] = glGetUniformLocation(m_ptShader, "opacity");
     }
 
   return m_ptShader;
@@ -1446,10 +1447,10 @@ ShaderFactory::ptShaderF()
 
   shader += "#version 410 core\n";
   shader += "uniform sampler2D diffuseTex;\n";
-  shader += "uniform float opacity;\n";
   shader += "uniform vec3 pn;\n";
   shader += "uniform float pnear;\n";
   shader += "uniform float pfar;\n";
+  shader += "uniform float opacity;\n";
   shader += "in vec3 pointPos;\n";
   shader += "\n";
   shader += "in vec2 v2Tex;\n";
@@ -1462,11 +1463,114 @@ ShaderFactory::ptShaderF()
   shader += "     discard;\n";
 
   shader += "  outputColor = texture(diffuseTex, v2Tex);\n";
-  shader += "  outputColor.rgb *= outputColor.a;\n";
+  //shader += "  outputColor.rgb *= outputColor.a;\n";
+  shader += "  outputColor *= opacity;\n";
   shader += "}\n";
 
   return shader;
 }
+
+//----------------------------
+//----------------------------
+
+GLint ShaderFactory::m_pnShaderParm[20];
+GLint* ShaderFactory::pnShaderParm() { return &m_pnShaderParm[0]; }
+
+GLuint ShaderFactory::m_pnShader = 0;
+GLuint ShaderFactory::pnShader()
+{
+  if (!m_pnShader)
+    {
+      m_pnShader = glCreateProgram();
+      QString vertShaderString = pnShaderV();
+      QString fragShaderString = pnShaderF();
+  
+      bool ok = loadShader(m_pnShader,
+			   vertShaderString,
+			   fragShaderString);  
+
+      if (!ok)
+	{
+	  QMessageBox::information(0, "", "Cannot load pt shaders");
+	  return 0;
+	}
+	
+	m_pnShaderParm[0] = glGetUniformLocation(m_pnShader, "MVP");
+	m_pnShaderParm[1] = glGetUniformLocation(m_pnShader, "pn");
+	m_pnShaderParm[2] = glGetUniformLocation(m_pnShader, "pnear");
+	m_pnShaderParm[3] = glGetUniformLocation(m_pnShader, "pfar");
+	m_pnShaderParm[4] = glGetUniformLocation(m_pnShader, "opacity");
+	m_pnShaderParm[5] = glGetUniformLocation(m_pnShader, "color");
+	m_pnShaderParm[6] = glGetUniformLocation(m_pnShader, "lightvec");
+    }
+
+  return m_pnShader;
+}
+
+QString
+ShaderFactory::pnShaderV() // position, normal, texture
+{
+  QString shader;
+
+  shader += "#version 410\n";
+  shader += "uniform mat4 MVP;\n";
+  shader += "layout(location = 0) in vec3 position;\n";
+  shader += "layout(location = 1) in vec3 normalIn;\n";
+  shader += "out vec3 normal;\n";
+  shader += "out vec3 pointPos;\n";
+  shader += "void main()\n";
+  shader += "{\n";
+  shader += "   pointPos = position;\n";
+  shader += "   normal = normalIn;\n";
+  shader += "   gl_Position = MVP * vec4(position, 1);\n";
+  shader += "}\n";
+
+  return shader;
+}
+QString
+ShaderFactory::pnShaderF()
+{
+  QString shader;
+
+  shader += "#version 410 core\n";
+  shader += "uniform vec3 pn;\n";
+  shader += "uniform float pnear;\n";
+  shader += "uniform float pfar;\n";
+  shader += "uniform float opacity;\n";
+  shader += "uniform vec3 color;\n";
+  shader += "uniform vec3 lightvec;\n";
+  shader += "in vec3 normal;\n";
+  shader += "in vec3 pointPos;\n";
+  shader += "\n";
+  shader += "out vec4 outputColor;\n";
+  shader += "void main()\n";
+  shader += "{\n";
+
+  shader += "   float d = dot(pn, pointPos);\n";
+  shader += "   if (pnear < pfar && (d < pnear || d > pfar))\n";
+  shader += "     discard;\n";
+
+  shader += "  outputColor = vec4(color,1.0);\n";
+  shader += "  outputColor *= opacity;\n";
+
+  shader += "  vec3 reflecvec = reflect(lightvec, normal);\n";
+  shader += "  float DiffMag = abs(dot(normal, lightvec));\n";
+  shader += "  vec3 Diff = (0.8*DiffMag)*outputColor.rgb;\n";
+  shader += "  float Spec = pow(abs(dot(normal, reflecvec)), 32.0);\n";
+  shader += "  Spec *= 1.0*outputColor.a;\n";
+  shader += "  vec3 Amb = 0.2*outputColor.rgb;\n";
+  shader += "  outputColor.rgb = Amb + Diff + Spec;\n";
+  shader += "  outputColor = clamp(outputColor, vec4(0.0), vec4(1.0));\n";
+
+  shader += "}\n";
+
+  return shader;
+}
+
+
+//----------------------------
+//----------------------------
+
 
 bool
 ShaderFactory::loadShader(GLhandleARB &progObj,

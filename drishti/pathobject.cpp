@@ -1,5 +1,4 @@
 #include "global.h"
-#include "shaderfactory.h"
 #include "pathobject.h"
 #include "staticfunctions.h"
 #include "volumeinformation.h"
@@ -312,7 +311,7 @@ PathObject::loadCaption(QString ct, QFont cf,
 
   m_captionPresent = true;
 
-  generateRibbon(1.0);
+  m_updateFlag = true; // for recomputation
 }
 
 void
@@ -432,8 +431,7 @@ PathObject::loadImage(QString imgFile)
 
   resetCaption();
 
-
-  generateRibbon(1.0);
+  m_updateFlag = true; // for recomputation
 }
 
 
@@ -451,17 +449,17 @@ PathObject::set(const PathObject &po)
   m_pointPressed = -1;
 
   if (m_imageTex) glDeleteTextures(1, &m_imageTex);
-  if (m_displayList > 0) glDeleteLists(m_displayList, 1);
 
   m_imageTex = 0;
-  m_displayList = 0;
 
-  if (m_glVertArray) glDeleteVertexArrays( 1, &m_glVertArray );
-  if (m_glVertBuffer) glDeleteBuffers(1, &m_glVertBuffer);
-  if (m_glIndexBuffer) glDeleteBuffers(1, &m_glIndexBuffer);
-  m_glVertBuffer = 0;
-  m_glIndexBuffer = 0;
-  m_glVertArray = 0;
+  if (m_glVertArrayC) glDeleteVertexArrays( 1, &m_glVertArrayC );
+  if (m_glVertArrayT) glDeleteVertexArrays( 1, &m_glVertArrayT );
+  if (m_glVertBufferC) glDeleteBuffers(1, &m_glVertBufferC);
+  if (m_glVertBufferT) glDeleteBuffers(1, &m_glVertBufferT);
+  m_glVertArrayC = 0;
+  m_glVertBufferC = 0;
+  m_glVertArrayT = 0;
+  m_glVertBufferT = 0;
 
   m_updateFlag = true; // for recomputation
 
@@ -534,17 +532,17 @@ PathObject::operator=(const PathObject &po)
   m_pointPressed = po.m_pointPressed;
 
   if (m_imageTex) glDeleteTextures(1, &m_imageTex);
-  if (m_displayList > 0) glDeleteLists(m_displayList, 1);
 
   m_imageTex = 0;
-  m_displayList = 0;
 
-  if (m_glVertArray) glDeleteVertexArrays( 1, &m_glVertArray );
-  if (m_glVertBuffer) glDeleteBuffers(1, &m_glVertBuffer);
-  if (m_glIndexBuffer) glDeleteBuffers(1, &m_glIndexBuffer);
-  m_glVertBuffer = 0;
-  m_glIndexBuffer = 0;
-  m_glVertArray = 0;
+  if (m_glVertArrayC) glDeleteVertexArrays( 1, &m_glVertArrayC );
+  if (m_glVertArrayT) glDeleteVertexArrays( 1, &m_glVertArrayT );
+  if (m_glVertBufferC) glDeleteBuffers(1, &m_glVertBufferC);
+  if (m_glVertBufferT) glDeleteBuffers(1, &m_glVertBufferT);
+  m_glVertArrayC = 0;
+  m_glVertBufferC = 0;
+  m_glVertArrayT = 0;
+  m_glVertBufferT = 0;
 
   m_updateFlag = true; // for recomputation
 
@@ -647,7 +645,8 @@ PathObject::PathObject()
   m_arrowDirection = true;
   m_arrowForAll = false;
   m_halfSection = false;
-  
+
+  m_tubeVert.clear();
   m_length = 0;
   m_tgP.clear();
   m_xaxis.clear();
@@ -672,7 +671,6 @@ PathObject::PathObject()
   m_captionHaloColor = Qt::black;
 
   m_imageTex = 0;
-  m_displayList = 0;
 
   m_viewportStyle = true; // horizontal;
   m_viewportTF = -1;
@@ -682,9 +680,10 @@ PathObject::PathObject()
   m_viewportCamRot = 0.0;
 
 
-  m_glVertBuffer = 0;
-  m_glIndexBuffer = 0;
-  m_glVertArray = 0;
+  m_glVertBufferC = 0;
+  m_glVertBufferT = 0;
+  m_glVertArrayC = 0;
+  m_glVertArrayT = 0;
 }
 
 PathObject::~PathObject()
@@ -712,17 +711,17 @@ PathObject::~PathObject()
   m_pathY.clear();
 
   if (m_imageTex) glDeleteTextures(1, &m_imageTex);
-  if (m_displayList > 0) glDeleteLists(m_displayList, 1);
 
   m_imageTex = 0;
-  m_displayList = 0;
 
-  if (m_glVertArray) glDeleteVertexArrays( 1, &m_glVertArray );
-  if (m_glVertBuffer) glDeleteBuffers(1, &m_glVertBuffer);
-  if (m_glIndexBuffer) glDeleteBuffers(1, &m_glIndexBuffer);
-  m_glVertBuffer = 0;
-  m_glIndexBuffer = 0;
-  m_glVertArray = 0;
+  if (m_glVertArrayC) glDeleteVertexArrays( 1, &m_glVertArrayC );
+  if (m_glVertArrayT) glDeleteVertexArrays( 1, &m_glVertArrayT );
+  if (m_glVertBufferC) glDeleteBuffers(1, &m_glVertBufferC);
+  if (m_glVertBufferT) glDeleteBuffers(1, &m_glVertBufferT);
+  m_glVertArrayC = 0;
+  m_glVertBufferC = 0;
+  m_glVertArrayT = 0;
+  m_glVertBufferT = 0;
 }
 
 void
@@ -1358,14 +1357,9 @@ PathObject::computePathLength()
     }
 
 
-  if (m_displayList > 0) glDeleteLists(m_displayList, 1);
-
   generateRibbon(1.0);
 
-  glNewList(m_displayList, GL_COMPILE);
   generateTube(1.0);
-  glEndList();
-
 }
 
 void
@@ -1809,12 +1803,13 @@ PathObject::draw(QGLViewer *viewer,
 		 Vec pn, float pnear, float pfar,
 		 bool active,
 		 bool backToFront,
-		 Vec lightPosition)
-{
-  // create display lists if not already created
-  if (m_displayList == 0)
-    m_displayList = glGenLists(1);
+		 Vec lightPosition,
+		 GLuint ptShader,
+		 GLint* ptShaderParm,
+		 GLuint pnShader,
+		 GLint* pnShaderParm)
 
+{
   if (m_updateFlag)
     {
       m_updateFlag = false;
@@ -1825,7 +1820,9 @@ PathObject::draw(QGLViewer *viewer,
   if (m_tube)
     drawTube(viewer,
 	     pn, pnear, pfar,
-	     active, lightPosition);
+	     active, lightPosition,
+	     ptShader, ptShaderParm,
+	     pnShader, pnShaderParm);
   else
     drawLines(viewer, active, backToFront);
 }
@@ -1834,57 +1831,13 @@ void
 PathObject::drawTube(QGLViewer *viewer,
 		     Vec pn, float pnear, float pfar,
 		     bool active,
-		     Vec lightPosition)
+		     Vec lightVec,
+		     GLuint ptShader,
+		     GLint* ptShaderParm,
+		     GLuint pnShader,
+		     GLint* pnShaderParm)
+
 {
-  float pos[4];
-  float diff[4] = { 1.0, 1.0, 1.0, 1.0 };
-  float spec[4] = { 1.0, 1.0, 1.0, 1.0 };
-  float shine = 128;
-
-  glEnable(GL_LIGHTING);
-  glShadeModel(GL_SMOOTH);
-  glEnable(GL_LIGHT0);
-
-  glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, GL_TRUE);
-  glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
-
-  if (shine < 1)
-    {
-      spec[0] = spec[1] = spec[2] = 0;
-    }
-
-  glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, spec);
-  glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, &shine);
-
-  glLightfv(GL_LIGHT0, GL_DIFFUSE, diff);
-
-  glEnable(GL_COLOR_MATERIAL);
-  glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
-
-  pos[0] = lightPosition.x;
-  pos[1] = lightPosition.y;
-  pos[2] = lightPosition.z;
-  pos[3] = 0;
-  glLightfv(GL_LIGHT0, GL_POSITION, pos);
-
-  glColor4f(m_color.x*m_opacity,
-	    m_color.y*m_opacity,
-	    m_color.z*m_opacity,
-	    m_opacity);
-
-  // emissive when active
-  if (active)
-    {
-      float emiss[] = { 0.5, 0.0, 0.0, 1.0 };
-      glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, emiss);
-    }
-  else
-    {
-      float emiss[] = { 0.0, 0.0, 0.0, 1.0 };
-      glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, emiss);
-    }
-
-
   if ( m_imagePresent ||
       (m_captionPresent && !m_captionLabel) )
     {
@@ -1922,15 +1875,13 @@ PathObject::drawTube(QGLViewer *viewer,
 		       GL_UNSIGNED_BYTE,
 		       m_cImage.bits());
 	}
-
-      glEnable(GL_TEXTURE_2D);
       
       glColor4f(m_opacity,
 		m_opacity,
 		m_opacity,
 		m_opacity);
       
-      if (m_glVertArray)
+      if (m_glVertArrayC)
 	{
 	  // model-view-projection matrix
 	  GLdouble m[16];
@@ -1938,32 +1889,16 @@ PathObject::drawTube(QGLViewer *viewer,
 	  viewer->camera()->getModelViewProjectionMatrix(m);
 	  for(int i=0; i<16; i++) mvp[i] = m[i];
 
-	  glUseProgram(ShaderFactory::ptShader());
+	  glUseProgram(ptShader);
   
-	  GLint *ptShaderParm = ShaderFactory::ptShaderParm();  
 	  glUniformMatrix4fv(ptShaderParm[0], 1, GL_FALSE, mvp);
 	  glUniform1i(ptShaderParm[1], 0);
 	  glUniform3f(ptShaderParm[2], pn.x, pn.y, pn.z);
 	  glUniform1f(ptShaderParm[3], pnear);
 	  glUniform1f(ptShaderParm[4], pfar);
+	  glUniform1f(ptShaderParm[5], m_opacity);
 	  
-	  glBindVertexArray( m_glVertArray );
-	  glBindBuffer( GL_ARRAY_BUFFER, m_glVertBuffer );
-	  // Identify the components in the vertex buffer
-	  glEnableVertexAttribArray( 0 );
-	  glVertexAttribPointer( 0, //attribute 0
-				 3, // position (3 floats)
-				 GL_FLOAT, // type
-				 GL_FALSE, // normalized
-				 sizeof(float)*5, // stride
-				 (void *)0 ); // starting offset
-	  glEnableVertexAttribArray( 1 );
-	  glVertexAttribPointer( 1,
-				 2, // 2d texture coordinate (2 floats)
-				 GL_FLOAT,
-				 GL_FALSE,
-				 sizeof(float)*5,
-				 (char *)NULL + sizeof(float)*3 );      
+	  glBindVertexArray( m_glVertArrayC );
 
 	  glDrawArrays(GL_TRIANGLE_STRIP,
 		       0,
@@ -1971,11 +1906,51 @@ PathObject::drawTube(QGLViewer *viewer,
 	  
 	  glUseProgram(0);
 	}
-      
-      glDisable(GL_TEXTURE_2D);
     }
   else
-    glCallList(m_displayList);
+    {      
+      if (m_glVertArrayT)
+	{
+	  // model-view-projection matrix
+	  GLdouble m[16];
+	  GLfloat mvp[16];
+	  viewer->camera()->getModelViewProjectionMatrix(m);
+	  for(int i=0; i<16; i++) mvp[i] = m[i];
+
+	  glUseProgram(pnShader);
+
+	  lightVec.normalize();
+	    
+	  glUniformMatrix4fv(pnShaderParm[0], 1, GL_FALSE, mvp);
+	  glUniform3f(pnShaderParm[1], pn.x, pn.y, pn.z);
+	  glUniform1f(pnShaderParm[2], pnear);
+	  glUniform1f(pnShaderParm[3], pfar);
+	  glUniform1f(pnShaderParm[4], m_opacity);
+	  Vec col = m_color;
+	  if (active)
+	    col.x = 0.8 + 0.2*col.x;	  
+	    glUniform3f(pnShaderParm[5], col.x, col.y, col.z);
+	  glUniform3f(pnShaderParm[6], lightVec.x, lightVec.y, lightVec.z);
+	  
+	  glBindVertexArray( m_glVertArrayT );
+
+	  glDrawArrays(GL_TRIANGLE_STRIP,
+		       0,
+		       m_tubeVert[0]);
+
+	  if (m_tubeVert[1] > m_tubeVert[0])
+	    {
+	      glDrawArrays(GL_TRIANGLE_STRIP,
+			   m_tubeVert[0],
+			   m_tubeVert[1]-m_tubeVert[0]);
+	      glDrawArrays(GL_TRIANGLE_STRIP,
+			   m_tubeVert[1],
+			   m_tubeVert[2]-m_tubeVert[1]);
+	    }
+	    
+	  glUseProgram(0);
+	}
+    }
 
 
   { // reset emissivity
@@ -2205,48 +2180,6 @@ PathObject::generateRibbon(float scale)
   for(int i=1; i<npaths; i++)
     totlength += (m_path[i]-m_path[i-1]).norm();
 
-//  float pathlength = 0;
-//  for(int i=0; i<npaths; i++)
-//    {
-//      Vec shft = VECPRODUCT(m_radX[i]*scale*m_pathX[i], voxelScaling);
-//
-//      Vec pp0 = m_path[i] - shft;
-//      Vec pp1 = m_path[i] + shft;
-//
-//      if (i > 0)
-//	pathlength += (m_path[i]-m_path[i-1]).norm();
-//      float tex = pathlength/totlength;
-//
-//      //---------------------------------------------
-//      if (i > 0)
-//	{
-//	  glBegin(GL_TRIANGLE_STRIP);
-//
-//	  glTexCoord2f(prevtex*m_textureWidth, 0);
-//	  glNormal3fv(-m_pathY[i-1]);
-//	  glVertex3fv(prevp0);
-//
-//	  glTexCoord2f(prevtex*m_textureWidth, m_textureHeight);
-//	  glNormal3fv(-m_pathY[i-1]);
-//	  glVertex3fv(prevp1);
-//	      
-//	  glTexCoord2f(tex*m_textureWidth, 0);
-//	  glNormal3fv(-m_pathY[i]);
-//	  glVertex3fv(pp0);
-//
-//	  glTexCoord2f(tex*m_textureWidth, m_textureHeight);
-//	  glNormal3fv(-m_pathY[i]);
-//	  glVertex3fv(pp1);
-//	  glEnd();
-//	}
-//      //---------------------------------------------
-//
-//      prevp0 = pp0;
-//      prevp1 = pp1;
-//      prevtex = tex;
-//    }
-//
-
   //---------------------------------------------
   //---------------------------------------------
   float pathlength = 0;
@@ -2275,13 +2208,13 @@ PathObject::generateRibbon(float scale)
 	pathlength += (m_path[i+1]-m_path[i]).norm();
     }
 
-  if (!m_glVertArray) glGenVertexArrays( 1, &m_glVertArray );
-  if (!m_glVertBuffer) glGenBuffers( 1, &m_glVertBuffer );
+  if (!m_glVertArrayC) glGenVertexArrays( 1, &m_glVertArrayC );
+  if (!m_glVertBufferC) glGenBuffers( 1, &m_glVertBufferC );
 
-  glBindVertexArray( m_glVertArray );
-      
-      // Populate a vertex buffer
-  glBindBuffer( GL_ARRAY_BUFFER, m_glVertBuffer );
+  glBindVertexArray( m_glVertArrayC );
+
+  // Populate a vertex buffer
+  glBindBuffer( GL_ARRAY_BUFFER, m_glVertBufferC );
   glBufferData( GL_ARRAY_BUFFER,
 		sizeof(float)*10*npaths,
 		&va[0],
@@ -2305,13 +2238,14 @@ PathObject::generateRibbon(float scale)
 			 (char *)NULL + sizeof(float)*3 );  
 
   delete [] va;
-
-  ShaderFactory::ptShader(); // make sure that ptShader is created
 }
 
 void
 PathObject::generateTube(float scale)
 {
+  QList<Vec> tube;
+  QList<Vec> caps;
+    
   QList<Vec> csec1, norm1;
 
   Vec pxaxis = Vec(1,0,0);
@@ -2338,7 +2272,7 @@ PathObject::generateTube(float scale)
       if (m_capType == FLAT)
 	{
 	  if (!m_closed && (i == 0 || i==npaths-1))
-	    addFlatCaps(i, m_pathT[i], csec2);
+	    caps += addFlatCaps(i, m_pathT[i], csec2);
 	}
       //---------------------------------------------
 
@@ -2346,7 +2280,7 @@ PathObject::generateTube(float scale)
       if (m_capType == ROUND)
 	{
 	  if (!m_closed && (i == 0 || i==npaths-1))
-	    addRoundCaps(i, m_pathT[i], csec2, norm2);
+	    caps += addRoundCaps(i, m_pathT[i], csec2, norm2);
 	}
       //---------------------------------------------
 
@@ -2365,26 +2299,24 @@ PathObject::generateTube(float scale)
 	    }
 	  if (frc1 >= 1 && frc2 < 1)
 	    {
-	      addArrowHead(i, scale,
-			   nextArrowHead,
-			   m_pathT[i-1], m_pathX[i-1], m_pathY[i-1],
-			   frc1, frc2,
-			   csec1, norm1);
+	      tube += addArrowHead(i, scale,
+				   nextArrowHead,
+				   m_pathT[i-1], m_pathX[i-1], m_pathY[i-1],
+				   frc1, frc2,
+				   csec1, norm1);
 	    }
 	  else if (frc2 >= 1)
 	    {
-	      glBegin(GL_TRIANGLE_STRIP);
 	      for(int j=0; j<csec1.count(); j++)
 		{
 		  Vec vox1 = m_path[i-1] + csec1[j];
-		  glNormal3fv(norm1[j]);
-		  glVertex3fv(vox1);
+		  tube << vox1;
+		  tube << norm1[j];
 		  
 		  Vec vox2 = m_path[i] + csec2[j];
-		  glNormal3fv(norm2[j]);
-		  glVertex3fv(vox2);
+		  tube << vox2;
+		  tube << norm2[j];
 		}	      
-	      glEnd();
 	    }
 	}
       //---------------------------------------------
@@ -2424,39 +2356,87 @@ PathObject::generateTube(float scale)
 
   csec1.clear();
   norm1.clear();
+
+
+  if (!m_glVertArrayT) glGenVertexArrays( 1, &m_glVertArrayT );
+  if (!m_glVertBufferT) glGenBuffers( 1, &m_glVertBufferT );
+
+  glBindVertexArray( m_glVertArrayT );
+  // Populate a vertex buffer
+  m_tubeVert.clear();
+  m_tubeVert << tube.count()/2;
+  m_tubeVert << m_tubeVert[0] + caps.count()/4;
+  m_tubeVert << m_tubeVert[1] + caps.count()/4;
+  tube += caps;
+  float* va = new float[m_tubeVert[2]*6];
+  for(int v=0; v<tube.count(); v++)
+    {
+      va[3*v+0] = tube[v].x;
+      va[3*v+1] = tube[v].y;
+      va[3*v+2] = tube[v].z;
+    }
+    
+  glBindBuffer(GL_ARRAY_BUFFER, m_glVertBufferT );
+  glBufferData(GL_ARRAY_BUFFER,
+	       sizeof(float)*m_tubeVert[2]*6,
+	       &va[0],
+	       GL_STATIC_DRAW);
+
+  // Identify the components in the vertex buffer
+  glEnableVertexAttribArray( 0 );
+  glVertexAttribPointer(0, //attribute 0
+			3, // size
+			GL_FLOAT, // type
+			GL_FALSE, // normalized
+			sizeof(float)*6, // stride
+			(void *)0 ); // starting offset
+
+  glEnableVertexAttribArray( 1 );
+  glVertexAttribPointer(1,
+			3,
+			GL_FLOAT,
+			GL_FALSE,
+			sizeof(float)*6,
+			(char *)NULL + sizeof(float)*3 );  
+
+  delete [] va;
 }
 
-void
+QList<Vec>
 PathObject::addFlatCaps(int i,
 			Vec tang,
 			QList<Vec> csec)
 {
+  QList<Vec> tube;
+  
   Vec norm = -tang;
   int sections = csec.count()-1;
   int halfway = sections/2;
-  glBegin(GL_TRIANGLE_STRIP);
   for(int j=0; j<=halfway; j++)
     {
       Vec vox2 = m_path[i] + csec[j];
-      glNormal3fv(norm);
-      glVertex3fv(vox2);
+      tube << vox2;
+      tube << norm;
 
       if (j < halfway)
 	{
 	  vox2 = m_path[i] + csec[sections-j];
-	  glNormal3fv(norm);
-	  glVertex3fv(vox2);
+	  tube << vox2;
+	  tube << norm;
 	}
     }
-  glEnd();
+
+  return tube;
 }
 
-void
+QList<Vec>
 PathObject::addRoundCaps(int i,
 			 Vec tang,
 			 QList<Vec> csec2,
 			 QList<Vec> norm2)
 {
+  QList<Vec> tube;
+  
   int npaths = m_path.count();
   int sections = csec2.count()-1;
   int ksteps = 4;
@@ -2470,49 +2450,48 @@ PathObject::addRoundCaps(int i,
       float ct2 = cos(1.57*(float)(k+1)/(float)ksteps);
       float st1 = sin(1.57*(float)k/(float)ksteps);
       float st2 = sin(1.57*(float)(k+1)/(float)ksteps);
-      glBegin(GL_TRIANGLE_STRIP);	  
       for(int j=0; j<csec2.count(); j++)
 	{
 	  Vec norm = csec2[j]*ct1 - ctang*rad*st1;
 	  Vec vox2 = m_path[i] + norm;
+	  tube << vox2;
 	  if (k==0)
 	    {
 	      if (i==0)
-		glNormal3fv(-norm2[j]);
+		tube << -norm2[j];
 	      else
-		glNormal3fv(norm2[j]);
+		tube << norm2[j];
 	    }
 	  else
 	    {  
 	      norm.normalize();
 	      if (i==npaths-1) norm=-norm;
-	      glNormal3fv(norm);
+	      tube << norm;
 	    }
-	  glVertex3fv(vox2);
 	  
 	  norm = csec2[j]*ct2 - ctang*rad*st2;
 	  vox2 = m_path[i] + norm;
 	  norm.normalize();
 	  if (i==npaths-1) norm=-norm;
-	  glNormal3fv(norm);
-	  glVertex3fv(vox2);
+
+	  tube << vox2;
+	  tube << norm;
 	}
-      glEnd();
     }
   
   // add flat ends
   float ct2 = cos(1.57*(float)(ksteps-1)/(float)ksteps);
   float st2 = sin(1.57*(float)(ksteps-1)/(float)ksteps);
   int halfway = sections/2;
-  glBegin(GL_TRIANGLE_STRIP);
   for(int j=0; j<=halfway; j++)
     {
       Vec norm = csec2[j]*ct2 - ctang*rad*st2;
       Vec vox2 = m_path[i] + norm;
       norm.normalize();
       if (i==npaths-1) norm=-norm;
-      glNormal3fv(norm);
-      glVertex3fv(vox2);
+
+      tube << vox2;
+      tube << norm;
       
       if (j < halfway)
 	{
@@ -2521,13 +2500,14 @@ PathObject::addRoundCaps(int i,
 	  vox2 = m_path[i] + norm;
 	  norm.normalize();
 	  if (i==npaths-1) norm=-norm;
-	  glNormal3fv(norm);
-	  glVertex3fv(vox2);
+
+	  tube << vox2;
+	  tube << norm;
 	}
     }
-  glEnd();
+  return tube;
 }
-void
+QList<Vec>
 PathObject::addArrowHead(int i, float scale,
 			 Vec nextArrowHead,
 			 Vec ptang, Vec pxaxis, Vec pyaxis,
@@ -2535,36 +2515,10 @@ PathObject::addArrowHead(int i, float scale,
 			 QList<Vec> csec1,
 			 QList<Vec> norm1)
 {
+  QList<Vec> tube;
+  
   //---------------------------------------------
   Vec tangm, xaxism, yaxism;
-//  tangm = m_path[i]-m_path[i-1];
-//  if (tangm.norm() > 0)
-//    tangm.normalize();
-//  else
-//    tangm = Vec(1,0,0); // should really scold the user
-//
-//  //----------------
-//  if (ptang*tangm > 0.99) // ptang and tang are same
-//    {
-//      xaxism = pxaxis;
-//    }
-//  else
-//    {
-//      Vec axis;
-//      float angle;      
-//      StaticFunctions::getRotationBetweenVectors(ptang, tangm, axis, angle);
-//      Quaternion q(axis, angle);
-//      
-//      xaxism = q.rotate(pxaxis);
-//    }
-//
-//  //apply offset rotation
-//  float angle = m_angle[i];
-//  if (i > 0) angle = m_angle[i]-m_angle[i-1];
-//  Quaternion q = Quaternion(tangm, angle);
-//  xaxism = q.rotate(xaxism);
-//  
-//  yaxism = tangm^xaxism;
 
   tangm = m_pathT[i];
   xaxism = m_pathX[i];
@@ -2581,44 +2535,39 @@ PathObject::addArrowHead(int i, float scale,
   float t = (1.0-frc2)/(frc1-frc2);
   Vec mid = m_path[i] + t*(m_path[i-1]-m_path[i]);
 
-  glBegin(GL_TRIANGLE_STRIP);
   for(int j=0; j<csec1.count(); j++)
     {
       Vec vox1 = m_path[i-1] + csec1[j];
-      glNormal3fv(norm1[j]);
-      glVertex3fv(vox1);
+      tube << vox1;
+      tube << norm1[j];
       
       Vec vox2 = mid + csecm[j];
-      glNormal3fv(normm[j]);
-      glVertex3fv(vox2);
+      tube << vox2;
+      tube << normm[j];
     }
-  glEnd();
 
-  glBegin(GL_TRIANGLE_STRIP);
   for(int j=0; j<csecm.count(); j++)
     {
       Vec vox1 = mid + csecm[j];
-      glNormal3fv(normm[j]);
-      glVertex3fv(vox1);
+      tube << vox1;
+      tube << normm[j];
       
       Vec vox2 = mid + 2*csecm[j];
-      glNormal3fv(normm[j]);
-      glVertex3fv(vox2);
+      tube << vox2;
+      tube << normm[j];
     }
-  glEnd();
 
-  glBegin(GL_TRIANGLE_STRIP);
   for(int j=0; j<csecm.count(); j++)
     {
       Vec vox1 = mid + 2*csecm[j];
-      glNormal3fv(normm[j]);
-      glVertex3fv(vox1);
+      tube << vox1;
+      tube << normm[j];
       
       Vec vox2 = nextArrowHead;
-      glNormal3fv(tangm);
-      glVertex3fv(vox2);
+      tube << vox2;
+      tube << tangm;
     }
-  glEnd();
+  return tube;
 }
 
 QList<Vec>

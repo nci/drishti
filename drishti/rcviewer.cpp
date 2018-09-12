@@ -208,6 +208,13 @@ RcViewer::setGridSize(int d, int w, int h)
   m_maxWSlice = m_width;
   m_maxHSlice = m_height;  
 
+  m_cminD = 0;
+  m_cminW = 0;
+  m_cminH = 0;
+  m_cmaxD = m_depth;
+  m_cmaxW = m_width;
+  m_cmaxH = m_height;  
+
   glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, &m_max3DTexSize);
 
   createShaders();
@@ -343,237 +350,6 @@ RcViewer::generateBoxMinMax()
     }
 
   progress.setValue(100);
-}
-
-void
-RcViewer::updateFilledBoxes()
-{
-//  //------------------------------------
-//  bool cropPresent = false;
-//  bool tearPresent = false;
-//  bool blendPresent = false;
-//  bool glowPresent = false;
-//  for(int i=0; i<m_crops.count(); i++)
-//    if (m_crops[i].cropType() < CropObject::Tear_Tear)
-//      cropPresent = true;
-//    else if (m_crops[i].cropType() < CropObject::View_Tear)
-//      tearPresent = true;
-//    else if (m_crops[i].cropType() < CropObject::Glow_Ball)
-//      blendPresent = true;
-//    else
-//      glowPresent = true;
-//
-//  for(int i=0; i<m_crops.count(); i++)
-//    if (m_crops[i].cropType() >= CropObject::View_Tear &&
-//	m_crops[i].cropType() <= CropObject::View_Block &&
-//	m_crops[i].magnify() > 1.0)
-//      tearPresent = true;
-//  //------------------------------------
-
-
-  int lmin = 255;
-  int lmax = 0;
-
-  int iend = 255;
-  if (m_bytesPerVoxel == 2)
-    iend = 65535;
-  
-  for(int i=0; i<iend; i++)
-    {
-      if (m_lut[4*i+3] > 2)
-	{
-	  lmin = i;
-	  break;
-	}
-    }
-  for(int i=iend; i>0; i--)
-    {
-      if (m_lut[4*i+3] > 2)
-	{
-	  lmax = i;
-	  break;
-	}
-    }
-    
-  Vec bminO, bmaxO;
-  m_boundingBox.bounds(bminO, bmaxO);
-  bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
-  bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
-
-  m_filledBoxes.fill(true);
-
-  //-------------------------------------------
-  //-- identify filled boxes
-  for(int d=0; d<m_dbox; d++)
-    for(int w=0; w<m_wbox; w++)
-      for(int h=0; h<m_hbox; h++)
-	{
-	  bool ok = true;
-
-	  // consider only current bounding box	 
-	  if ((d*m_boxSize < bminO.z && (d+1)*m_boxSize < bminO.z) ||
-	      (d*m_boxSize > bmaxO.z && (d+1)*m_boxSize > bmaxO.z) ||
-	      (w*m_boxSize < bminO.y && (w+1)*m_boxSize < bminO.y) ||
-	      (w*m_boxSize > bmaxO.y && (w+1)*m_boxSize > bmaxO.y) ||
-	      (h*m_boxSize < bminO.x && (h+1)*m_boxSize < bminO.x) ||
-	      (h*m_boxSize > bmaxO.x && (h+1)*m_boxSize > bmaxO.x))
-	    ok = false;
-	  
-	  int idx = d*m_wbox*m_hbox+w*m_hbox+h;
-	  if (ok)
-	    {
-	      int vmin = m_boxMinMax[2*idx+0];
-	      int vmax = m_boxMinMax[2*idx+1];
-	      if ((vmin < lmin && vmax < lmin) || 
-		  (vmin > lmax && vmax > lmax))
-		ok = false;
-	    }
-
-	  m_filledBoxes.setBit(idx, ok);
-	}
-  
-//	  Vec bmin = Vec(h*m_boxSize,w*m_boxSize,d*m_boxSize);
-//	  Vec bmax = Vec((h+1)*m_boxSize,(w+1)*m_boxSize,(d+1)*m_boxSize);
-//	  Vec box[8];
-//	  box[0] = Vec(bmin.x,bmin.y,bmin.z);
-//	  box[1] = Vec(bmin.x,bmin.y,bmax.z);
-//	  box[2] = Vec(bmin.x,bmax.y,bmin.z);
-//	  box[3] = Vec(bmin.x,bmax.y,bmax.z);
-//	  box[4] = Vec(bmax.x,bmin.y,bmin.z);
-//	  box[5] = Vec(bmax.x,bmin.y,bmax.z);
-//	  box[6] = Vec(bmax.x,bmax.y,bmin.z);
-//	  box[7] = Vec(bmax.x,bmax.y,bmax.z);
-//	  
-//	  for (int b=0; b<8; b++)
-//	    box[b] = Matrix::xformVec(m_b0xform, box[b]);
-//	      
-//
-//	  //--------------------------------
-//	  // check whether clipped
-//	  if (ok)
-//	    {
-//	      for(int ci=0; ci<cPos.count(); ci++)
-//		{
-//		  Vec cpo = cPos[ci];
-//		  Vec cpn = cNorm[ci];
-//		  
-//		  int clipped = 0;
-//		  for(int b=0; b<8; b++)
-//		    {
-//		      if ((box[b]-cpo)*cpn > 0)
-//			clipped++;
-//		    }
-//		  if (clipped == 8)
-//		    {
-//		      ok = false;
-//		      break;
-//		    }
-//		}
-//	    }
-//	  //--------------------------------	      
-//
-//	  //--------------------------------
-//	  // check cropped
-//	  if (ok && cropPresent)
-//	    {
-//	      int ncr = 0;
-//	      for(int b=0; b<8; b++)
-//		{
-//		  Vec po = box[b];
-//		  bool cropped = false;
-//		  for(int ci=0; ci<m_crops.count(); ci++)
-//		    {
-//		      if (m_crops[ci].cropType() < CropObject::Tear_Tear)
-//			// take union
-//			cropped |= m_crops[ci].checkCropped(po);
-//		    }
-//		  if (!cropped)
-//		    ncr ++;
-//		}
-//	      if (ncr == 8)
-//		ok = false;
-//	    }
-//	  //--------------------------------
-//
-//	  int idx = d*m_wbox*m_hbox+w*m_hbox+h;
-//
-//	  if (ok)
-//	    {
-//	      //--------------------------------
-//	      // check blend
-//	      int blended = 0;
-//	      if (blendPresent)
-//		{
-//		  for(int b=0; b<8; b++)
-//		    {
-//		      Vec po = box[b];
-//		      bool blend = false;
-//		      for(int ci=0; ci<m_crops.count(); ci++)
-//			{
-//			  if (m_crops[ci].cropType() > CropObject::Displace_Displace &&
-//			      m_crops[ci].cropType() < CropObject::Glow_Ball)
-//			    {
-//			      if (m_crops[ci].checkBlend(po) > 0)
-//				blend = true;
-//			    }
-//			  if (blend)
-//			    blended ++;
-//			}
-//		    }
-//		}
-//	      //--------------------------------
-//
-//
-//	      int vmin = m_boxMinMax[2*idx+0];
-//	      int vmax = m_boxMinMax[2*idx+1];
-//	      if (blended == 0 &&
-//		  ((vmin < lmin && vmax < lmin) || 
-//		   (vmin > lmax && vmax > lmax)))
-//		{
-//		  m_filledBoxes.setBit(idx, false);
-//		}
-//	    }
-//	  else
-//	    m_filledBoxes.setBit(idx, false);
-//	}
-//  //-------------------------------------------
-
-
-
-  //-------------------------------------------
-  //-- set the filled boxes for uploading to gpu
-  memset(m_ftBoxes, 0, m_dbox*m_wbox*m_hbox);
-  for(int i=0; i<m_dbox*m_wbox*m_hbox; i++)
-    if (m_filledBoxes.testBit(i))
-      m_ftBoxes[i] = 255;
-  //-------------------------------------------
-
-
-
-  //-------------------------------------------
-  // -- upload to gpu
-  if (!m_filledTex) glGenTextures(1, &m_filledTex);
-  glActiveTexture(GL_TEXTURE3);
-  glEnable(GL_TEXTURE_3D);
-  glBindTexture(GL_TEXTURE_3D, m_filledTex);	 
-  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
-  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
-  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE); 
-  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-  glTexImage3D(GL_TEXTURE_3D,
-	       0, // single resolution
-	       1,
-	       m_hbox, m_wbox, m_dbox,
-	       0, // no border
-	       GL_LUMINANCE,
-	       GL_UNSIGNED_BYTE,
-	       m_ftBoxes);
-  glDisable(GL_TEXTURE_3D);
-  //-------------------------------------------
-
-
-  identifyBoxes();
 }
 
 void
@@ -1210,9 +986,9 @@ RcViewer::raycast(Vec eyepos, float minZ, float maxZ, bool firstPartOnly)
       glEnable(GL_TEXTURE_1D);
     }
 
-  glActiveTexture(GL_TEXTURE3);
-  glEnable(GL_TEXTURE_3D);
-  glBindTexture(GL_TEXTURE_3D, m_filledTex);
+//  glActiveTexture(GL_TEXTURE3);
+//  glEnable(GL_TEXTURE_3D);
+//  glBindTexture(GL_TEXTURE_3D, m_filledTex);
 
   glActiveTexture(GL_TEXTURE2);
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
@@ -1253,8 +1029,8 @@ RcViewer::raycast(Vec eyepos, float minZ, float maxZ, bool firstPartOnly)
   glActiveTexture(GL_TEXTURE6);
   glDisable(GL_TEXTURE_RECTANGLE_ARB);
 
-  glActiveTexture(GL_TEXTURE3);
-  glDisable(GL_TEXTURE_3D);
+//  glActiveTexture(GL_TEXTURE3);
+//  glDisable(GL_TEXTURE_3D);
 
   if (firstPartOnly)
     {
@@ -1474,7 +1250,30 @@ RcViewer::boundingBoxChanged()
 {
   if (m_depth == 0) // we don't have a volume yet
     return;
-    
+
+  //----
+  Vec bmin, bmax;
+  m_boundingBox.bounds(bmin, bmax);
+  Vec voxelScaling = Global::voxelScaling();
+  bmin = VECDIVIDE(bmin, voxelScaling);
+  bmax = VECDIVIDE(bmax, voxelScaling);
+  int minD = bmin.z;
+  int minW = bmin.y;
+  int minH = bmin.x;
+  int maxD = qCeil(bmax.z); // because we are getting it as float
+  int maxW = qCeil(bmax.y);
+  int maxH = qCeil(bmax.x);
+
+  if (minD == m_cminD &&
+      maxD == m_cmaxD &&
+      minW == m_cminW &&
+      maxW == m_cmaxW &&
+      minH == m_cminH &&
+      maxH == m_cmaxH)
+    return; // no change
+  //----
+  
+  
   generateBoxes();
 
   loadAllBoxesToVBO();  
@@ -1511,6 +1310,13 @@ RcViewer::generateBoxes()
 
   bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
   bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
+
+  m_cminD = bminO.z;
+  m_cminW = bminO.y;
+  m_cminH = bminO.x;
+  m_cmaxD = qCeil(bmaxO.z); // because we are getting it as float
+  m_cmaxW = qCeil(bmaxO.y);
+  m_cmaxH = qCeil(bmaxO.x);
 
   int imin = (int)bminO.x/m_boxSize;
   int jmin = (int)bminO.y/m_boxSize;
@@ -1587,74 +1393,6 @@ RcViewer::generateBoxes()
     } // k
   
   progress.setValue(100);
-}
-
-void
-RcViewer::identifyBoxes()
-{ 
-  m_mdEle = 0;
-  
-  Vec voxelScaling = Global::voxelScaling();
-
-  Vec bminO, bmaxO;
-  m_boundingBox.bounds(bminO, bmaxO);
-
-  bminO = VECDIVIDE(bminO, voxelScaling);
-  bmaxO = VECDIVIDE(bmaxO, voxelScaling);
-
-  bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
-  bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
-
-  int imin = (int)bminO.x/m_boxSize;
-  int jmin = (int)bminO.y/m_boxSize;
-  int kmin = (int)bminO.z/m_boxSize;
-
-  int imax = (int)bmaxO.x/m_boxSize;
-  int jmax = (int)bmaxO.y/m_boxSize;
-  int kmax = (int)bmaxO.z/m_boxSize;
-  if (imax*m_boxSize < (int)bmaxO.x) imax++;
-  if (jmax*m_boxSize < (int)bmaxO.y) jmax++;
-  if (kmax*m_boxSize < (int)bmaxO.z) kmax++;
-
-  int mdC = 0;
-  int mdI = -1;
-  
-  int bid = 0;
-  for(int k=kmin; k<kmax; k++)
-  for(int j=jmin; j<jmax; j++)
-  for(int i=imin; i<imax; i++)
-    {
-      int idx = k*m_wbox*m_hbox+j*m_hbox+i;
-      if (m_filledBoxes.testBit(idx))
-	{
-	  if (mdI < 0) mdI = bid;
-	  mdC++;
-	}
-      else
-	{
-	  if (mdI > -1)
-	    {
-	      // 2 triangles per face - 36 triangles in all for a cube
-	      m_mdIndices[m_mdEle] = mdI*36;
-	      m_mdCount[m_mdEle] = mdC*36;
-	      m_mdEle++;
-	      if (m_mdEle >= m_boxSoup.count())
-		QMessageBox::information(0, "", QString("ele > %1").arg(m_boxSoup.count()));
-	      
-	      mdI = -1;
-	      mdC = 0;
-	    }
-	}
-      bid++;
-    }
-
-  if (mdI > -1)
-    {
-      m_mdIndices[m_mdEle] = mdI*36;
-      m_mdCount[m_mdEle] = mdC*36;
-      m_mdEle++;
-    }
-
 }
 
 void
@@ -1761,6 +1499,182 @@ RcViewer::loadAllBoxesToVBO()
 
   delete [] vertData;
   delete [] indexData;
+
+  progress.setValue(100);
+  qApp->processEvents();
+}
+
+void
+RcViewer::updateFilledBoxes()
+{
+  int lmin = 255;
+  int lmax = 0;
+
+  int iend = 255;
+  if (m_bytesPerVoxel == 2)
+    iend = 65535;
+  
+  for(int i=0; i<iend; i++)
+    {
+      if (m_lut[4*i+3] > 2)
+	{
+	  lmin = i;
+	  break;
+	}
+    }
+  for(int i=iend; i>0; i--)
+    {
+      if (m_lut[4*i+3] > 2)
+	{
+	  lmax = i;
+	  break;
+	}
+    }
+    
+  Vec bminO, bmaxO;
+  m_boundingBox.bounds(bminO, bmaxO);
+
+  Vec voxelScaling = Global::relativeVoxelScaling();
+  bminO = VECDIVIDE(bminO, voxelScaling);
+  bmaxO = VECDIVIDE(bmaxO, voxelScaling);
+
+  bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
+  bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
+
+  m_filledBoxes.fill(true);
+
+  //-------------------------------------------
+  //-- identify filled boxes
+  QProgressDialog progress("Marking valid boxes - (1/2)",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+
+  progress.setValue(10);
+  qApp->processEvents();
+
+  for(int d=0; d<m_dbox; d++)
+    {
+      progress.setValue(100*d/m_dbox);
+      qApp->processEvents();
+
+      for(int w=0; w<m_wbox; w++)
+	for(int h=0; h<m_hbox; h++)
+	  {
+	    bool ok = true;
+	    
+	    // consider only current bounding box	 
+	    if ((d*m_boxSize < bminO.z && (d+1)*m_boxSize < bminO.z) ||
+		(d*m_boxSize > bmaxO.z && (d+1)*m_boxSize > bmaxO.z) ||
+		(w*m_boxSize < bminO.y && (w+1)*m_boxSize < bminO.y) ||
+		(w*m_boxSize > bmaxO.y && (w+1)*m_boxSize > bmaxO.y) ||
+		(h*m_boxSize < bminO.x && (h+1)*m_boxSize < bminO.x) ||
+		(h*m_boxSize > bmaxO.x && (h+1)*m_boxSize > bmaxO.x))
+	      ok = false;
+	    
+	    int idx = d*m_wbox*m_hbox+w*m_hbox+h;
+	    if (ok)
+	      {
+		int vmin = m_boxMinMax[2*idx+0];
+		int vmax = m_boxMinMax[2*idx+1];
+		if ((vmin < lmin && vmax < lmin) || 
+		    (vmin > lmax && vmax > lmax))
+		  ok = false;
+	      }
+
+	    m_filledBoxes.setBit(idx, ok);
+	  }
+    }
+  progress.setValue(100);
+  qApp->processEvents();
+
+
+  generateDrawBoxes();
+}
+
+void
+RcViewer::generateDrawBoxes()
+{ 
+  QProgressDialog progress("Marking valid boxes - (2/2)",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+
+  progress.setValue(10);
+  qApp->processEvents();
+
+
+  m_mdEle = 0;
+  
+  Vec voxelScaling = Global::voxelScaling();
+
+  Vec bminO, bmaxO;
+  m_boundingBox.bounds(bminO, bmaxO);
+
+  bminO = VECDIVIDE(bminO, voxelScaling);
+  bmaxO = VECDIVIDE(bmaxO, voxelScaling);
+
+  bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
+  bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
+
+  int imin = (int)bminO.x/m_boxSize;
+  int jmin = (int)bminO.y/m_boxSize;
+  int kmin = (int)bminO.z/m_boxSize;
+
+  int imax = (int)bmaxO.x/m_boxSize;
+  int jmax = (int)bmaxO.y/m_boxSize;
+  int kmax = (int)bmaxO.z/m_boxSize;
+  if (imax*m_boxSize < (int)bmaxO.x) imax++;
+  if (jmax*m_boxSize < (int)bmaxO.y) jmax++;
+  if (kmax*m_boxSize < (int)bmaxO.z) kmax++;
+
+  int mdC = 0;
+  int mdI = -1;
+  
+  int bid = 0;
+  for(int k=kmin; k<kmax; k++)
+    {
+      progress.setValue(100*k/kmax);
+      qApp->processEvents();
+  
+      for(int j=jmin; j<jmax; j++)
+	for(int i=imin; i<imax; i++)
+	  {
+	    int idx = k*m_wbox*m_hbox+j*m_hbox+i;
+	    if (m_filledBoxes.testBit(idx))
+	      {
+		if (mdI < 0) mdI = bid;
+		mdC++;
+	      }
+	    else
+	      {
+		if (mdI > -1)
+		  {
+		    // 2 triangles per face - 36 triangles in all for a cube
+		    m_mdIndices[m_mdEle] = mdI*36;
+		    m_mdCount[m_mdEle] = mdC*36;
+		    m_mdEle++;
+		    if (m_mdEle >= m_boxSoup.count())
+		QMessageBox::information(0, "", QString("ele > %1").arg(m_boxSoup.count()));
+		    
+		    mdI = -1;
+		    mdC = 0;
+		  }
+	      }
+	    bid++;
+	  }
+    }
+
+  if (mdI > -1)
+    {
+      m_mdIndices[m_mdEle] = mdI*36;
+      m_mdCount[m_mdEle] = mdC*36;
+      m_mdEle++;
+    }
 
   progress.setValue(100);
   qApp->processEvents();

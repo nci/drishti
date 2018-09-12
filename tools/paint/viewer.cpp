@@ -333,6 +333,13 @@ Viewer::init()
   m_minHSlice = 0;
   m_maxHSlice = 0;  
 
+  m_cminD = m_minDSlice;
+  m_cminW = m_minWSlice;
+  m_cminH = m_minHSlice;
+  m_cmaxD = m_maxDSlice;
+  m_cmaxW = m_maxWSlice;
+  m_cmaxH = m_maxHSlice;
+
   m_paintedTags.clear();
   m_paintedTags << -1;
 
@@ -683,6 +690,13 @@ Viewer::updateViewerBox(int minD, int maxD, int minW, int maxW, int minH, int ma
 
   m_minHSlice = minH;
   m_maxHSlice = maxH;
+
+  m_cminD = m_minDSlice;
+  m_cminW = m_minWSlice;
+  m_cminH = m_minHSlice;
+  m_cmaxD = m_maxDSlice;
+  m_cmaxW = m_maxWSlice;
+  m_cmaxH = m_maxHSlice;
 
   Vec voxelScaling = Global::relativeVoxelScaling();
 
@@ -1246,6 +1260,13 @@ Viewer::setGridSize(int d, int w, int h)
   m_maxWSlice = w-1;
   m_maxHSlice = h-1;
 
+  m_cminD = m_minDSlice;
+  m_cminW = m_minWSlice;
+  m_cminH = m_minHSlice;
+  m_cmaxD = m_maxDSlice;
+  m_cmaxW = m_maxWSlice;
+  m_cmaxH = m_maxHSlice;
+
   Vec voxelScaling = Global::relativeVoxelScaling();
 
   Vec bmax = Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice);
@@ -1536,7 +1557,7 @@ Viewer::drawInfo()
   QString mesg;
 
   mesg += QString("LOD(%1) Vol(%2 %3 %4) ").				\
-    arg(m_sslevel).arg(m_vsize.x).arg(m_vsize.y).arg(m_vsize.z);
+    arg(m_sslevel).arg(m_vsize.x+1).arg(m_vsize.y+1).arg(m_vsize.z+1);
 
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -1582,11 +1603,17 @@ Viewer::drawInfo()
   m_boundingBox.bounds(bmin, bmax);
   bmin = VECDIVIDE(bmin, voxelScaling);
   bmax = VECDIVIDE(bmax, voxelScaling);
+  int bminz = bmin.z;
+  int bminy = bmin.y;
+  int bminx = bmin.x;
+  int bmaxz = qCeil(bmax.z); // because we are getting it as float
+  int bmaxy = qCeil(bmax.y);
+  int bmaxx = qCeil(bmax.x);
   mesg = QString("box(%1 %2 %3 : %4 %5 %6 : %7 %8 %9) ").		\
-    arg(bmin.x).arg(bmin.y).arg(bmin.z).				\
-    arg(bmax.x).arg(bmax.y).arg(bmax.z).				\
-    arg(bmax.x-bmin.x).arg(bmax.y-bmin.y).arg(bmax.z-bmin.z);
-  float vszgb = (bmax.x-bmin.x)*(bmax.y-bmin.y)*(bmax.z-bmin.z);
+    arg(bminx).arg(bminy).arg(bminz).				\
+    arg(bmaxx).arg(bmaxy).arg(bmaxz).		\
+    arg(bmaxx-bminx+1).arg(bmaxy-bminy+1).arg(bmaxz-bminz+1);
+  float vszgb = (bmaxx-bminx)*(bmaxy-bminy)*(bmaxz-bminz);
   vszgb /= m_sslevel;
   vszgb /= m_sslevel;
   vszgb /= m_sslevel;
@@ -2509,6 +2536,29 @@ Viewer::boundingBoxChanged()
   if (m_depth == 0) // we don't have a volume yet
     return;
     
+
+  //----
+  Vec bmin, bmax;
+  m_boundingBox.bounds(bmin, bmax);
+  Vec voxelScaling = Global::relativeVoxelScaling();
+  bmin = VECDIVIDE(bmin, voxelScaling);
+  bmax = VECDIVIDE(bmax, voxelScaling);
+  int minD = bmin.z;
+  int minW = bmin.y;
+  int minH = bmin.x;
+  int maxD = qCeil(bmax.z); // because we are getting it as float
+  int maxW = qCeil(bmax.y);
+  int maxH = qCeil(bmax.x);
+
+  if (minD == m_cminD &&
+      maxD == m_cmaxD &&
+      minW == m_cminW &&
+      maxW == m_cmaxW &&
+      minH == m_cminH &&
+      maxH == m_cmaxH)
+    return; // no change
+  //----
+    
   generateBoxes();
 
   loadAllBoxesToVBO();  
@@ -2545,6 +2595,13 @@ Viewer::generateBoxes()
 
   bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
   bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
+
+  m_cminD = bminO.z;
+  m_cminW = bminO.y;
+  m_cminH = bminO.x;
+  m_cmaxD = qCeil(bmaxO.z); // because we are getting it as float
+  m_cmaxW = qCeil(bmaxO.y);
+  m_cmaxH = qCeil(bmaxO.x);
 
   int imin = (int)bminO.x/m_boxSize;
   int jmin = (int)bminO.y/m_boxSize;

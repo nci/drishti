@@ -190,6 +190,11 @@ class Viewer : public QGLViewer
   int m_minWSlice, m_maxWSlice;
   int m_minHSlice, m_maxHSlice;
 
+  int m_cminD, m_cmaxD;
+  int m_cminW, m_cmaxW;
+  int m_cminH, m_cmaxH;
+
+  
   int m_tag1, m_tag2;
   bool m_mergeTagTF;
 

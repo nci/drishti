@@ -85,10 +85,15 @@ class RcViewer : public QObject
   int m_minHSlice, m_maxHSlice;
   Vec m_dataMin, m_dataMax;
 
+  int m_cminD, m_cmaxD;
+  int m_cminW, m_cmaxW;
+  int m_cminH, m_cmaxH;
+
   int m_dbox, m_wbox, m_hbox, m_boxSize;
   QList<int> m_boxMinMax;
   MyBitArray m_filledBoxes;
-
+  QList< QVector<int> > m_boxHistogram;
+  
   float m_shadow;
   float m_edge;
   float m_minGrad, m_maxGrad;
@@ -172,7 +177,7 @@ class RcViewer : public QObject
   int *m_subvolume1dHistogram, *m_subvolume2dHistogram;
 
 
-  void identifyBoxes();
+  void generateDrawBoxes();
   void loadAllBoxesToVBO();
   void drawVBOBox(GLenum);
   void generateBoxes();

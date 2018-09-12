@@ -115,7 +115,14 @@ Start Keyboard help
 
 #begin
 Ctrl+Left click
-Ctrl+Left click to change position cross marker.
+Ctrl+Left click to change position cross marker.  Image slices in the respective orthogonal slices widget are updated.
+#end
+
+#begin
+Ctrl+Right click
+Ctrl+Right click to change center of rotation.
+When a visible point is found under the mouse position, the center of rotation is set to that point.
+When no visible point is found under the mouse position, the center of rotation is reset to the centre of the data box.
 #end
 
 #begin

@@ -89,6 +89,9 @@ class Viewer : public QGLViewer
     void setPaintedTags(QList<int>);
     void setCurveTags(QList<int>);
     void setFiberTags(QList<int>);
+    void setDSlice(int);
+    void setWSlice(int);
+    void setHSlice(int);
     void setShowSlices(bool);
     void uploadMask(int,int,int, int,int,int);
     void setRenderMode(bool);
@@ -232,9 +235,6 @@ class Viewer : public QGLViewer
 
   bool m_showSlices;
   int m_dslice, m_wslice, m_hslice;
-  QList<ushort> m_dvoxels;
-  QList<ushort> m_wvoxels;
-  QList<ushort> m_hvoxels;
 
   int m_dbox, m_wbox, m_hbox, m_boxSize;
   QList<int> m_boxMinMax;
@@ -347,7 +347,7 @@ class Viewer : public QGLViewer
 
   void drawInfo();
 
-  void drawBox();
+  void generateDrawBoxes();
 
   void volumeRaycast(float, float, bool);
 

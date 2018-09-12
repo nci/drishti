@@ -120,6 +120,10 @@ Viewer::~Viewer()
 
 bool Viewer::exactCoord() { return m_exactCoord; }
 
+void Viewer::setDSlice(int d) { m_dslice = d; }
+void Viewer::setWSlice(int w) { m_wslice = w; }
+void Viewer::setHSlice(int h) { m_hslice = h; }
+	  
 void
 Viewer::setExactCoord(bool b)
 {
@@ -321,9 +325,6 @@ Viewer::init()
   m_dslice = 0;
   m_wslice = 0;
   m_hslice = 0;
-  m_dvoxels.clear();
-  m_wvoxels.clear();
-  m_hvoxels.clear();
 
   m_minDSlice = 0;
   m_maxDSlice = 0;
@@ -1318,44 +1319,17 @@ Viewer::drawCurrentSlice()
 
   glLineWidth(1);
 
-  glBegin(GL_LINES);
-  glVertex3d(m_hslice-50, m_wslice,    m_dslice);
-  glVertex3d(m_hslice+50, m_wslice,    m_dslice);
-  glVertex3d(m_hslice,    m_wslice-50, m_dslice);
-  glVertex3d(m_hslice,    m_wslice+50, m_dslice);
-  glVertex3d(m_hslice,    m_wslice,    m_dslice-50);
-  glVertex3d(m_hslice,    m_wslice,    m_dslice+50);
-  glEnd();
+  Vec voxelScaling = Global::relativeVoxelScaling();
+  Vec pos = VECPRODUCT(Vec(m_hslice, m_wslice, m_dslice), voxelScaling);
 
-//  if (m_currSliceType == 0)
-//    {
-//      glBegin(GL_QUADS);  
-//      glVertex3f(subvolmin.x, subvolmin.y, m_currSlice);
-//      glVertex3f(subvolmax.x, subvolmin.y, m_currSlice);
-//      glVertex3f(subvolmax.x, subvolmax.y, m_currSlice);
-//      glVertex3f(subvolmin.x, subvolmax.y, m_currSlice);
-//      glEnd();  
-//    }
-//
-//  if (m_currSliceType == 1)
-//    {
-//      glBegin(GL_QUADS);  
-//      glVertex3f(subvolmin.x, m_currSlice, subvolmin.z);
-//      glVertex3f(subvolmax.x, m_currSlice, subvolmin.z);
-//      glVertex3f(subvolmax.x, m_currSlice, subvolmax.z);
-//      glVertex3f(subvolmin.x, m_currSlice, subvolmax.z);  
-//      glEnd();    
-//    }
-//
-//  if (m_currSliceType == 2)
-//    {
-//      glBegin(GL_QUADS);  
-//      glVertex3f(m_currSlice, subvolmin.y, subvolmin.z);
-//      glVertex3f(m_currSlice, subvolmax.y, subvolmin.z);
-//      glVertex3f(m_currSlice, subvolmax.y, subvolmax.z);
-//      glVertex3f(m_currSlice, subvolmin.y, subvolmax.z);  
-//      glEnd();    
-//    }
+  glBegin(GL_LINES);
+  glVertex3d(pos.x-50, pos.y,    pos.z);
+  glVertex3d(pos.x+50, pos.y,    pos.z);
+  glVertex3d(pos.x,    pos.y-50, pos.z);
+  glVertex3d(pos.x,    pos.y+50, pos.z);
+  glVertex3d(pos.x,    pos.y,    pos.z-50);
+  glVertex3d(pos.x,    pos.y,    pos.z+50);
+  glEnd();
 }
 
 void
@@ -1465,9 +1439,9 @@ Viewer::draw()
 
   Vec voxelScaling = Global::relativeVoxelScaling();
 
-  Vec bmin, bmax;
-  m_boundingBox.bounds(bmin, bmax);
-  camera()->setRevolveAroundPoint((bmax+bmin)/2);
+  //Vec bmin, bmax;
+  //m_boundingBox.bounds(bmin, bmax);
+  //camera()->setRevolveAroundPoint((bmax+bmin)/2);
 
 
   glClearColor(0, 0, 0, 1);
@@ -2232,6 +2206,29 @@ Viewer::getHit(QMouseEvent *event)
 
   m_target = getHit(scr, found);
 
+  //-------------------------
+  // rotation pivot
+  if (event->modifiers() & Qt::ControlModifier)
+    {
+      if (found) // move rotation pivot
+	{
+	  Vec voxelScaling = Global::relativeVoxelScaling();
+	  Vec pivot = VECPRODUCT(m_target, voxelScaling);
+	  camera()->setRevolveAroundPoint(pivot);
+	  QMessageBox::information(0, "", "Rotation pivot changed");
+	}
+      else // reset rotation pivot
+	{
+	  camera()->setRevolveAroundPoint(sceneCenter());
+	  QMessageBox::information(0, "", "Rotation pivot reset to scene center");
+	}
+      return;
+    }
+  //-------------------------
+  
+
+  //-------------------------
+  // paint
   if (found)
     {
       if (!m_useMask)
@@ -2375,10 +2372,22 @@ Viewer::mousePressEvent(QMouseEvent *event)
 
   if (event->modifiers() & Qt::ControlModifier)
     {
+      // change rotation pivot
+      if (event->modifiers() & Qt::ControlModifier &&
+	  event->buttons() == Qt::RightButton)
+	{
+	  getHit(event);
+	  return;
+	}
+
+      // change orthogonal slices
       int d, w, h;
       bool gothit = getCoordUnderPointer(d, w, h);
       if (gothit)
 	{
+	  m_dslice = d;
+	  m_wslice = w;
+	  m_hslice = h;
 	  emit changeImageSlice(d, w, h);
 	  return;
 	}
@@ -3548,6 +3557,8 @@ Viewer::generateBoxMinMax()
   m_boxMinMax.clear();
   m_boxMinMax.reserve(2*m_dbox*m_wbox*m_hbox);
 
+  m_filledBoxes.resize(m_dbox*m_wbox*m_hbox);
+
   for(int d=0; d<m_dbox; d++)
     {
       progress.setValue(100*(float)d/m_dbox);
@@ -3668,7 +3679,7 @@ Viewer::updateFilledBoxes()
   if (m_boxMinMax.count() == 0)
     return;
   
-  QProgressDialog progress("Marking valid boxes",
+  QProgressDialog progress("Marking valid boxes - (1/2)",
 			   QString(),
 			   0, 100,
 			   0);
@@ -3692,9 +3703,12 @@ Viewer::updateFilledBoxes()
   progress.setValue(20);
   qApp->processEvents();
   
-  m_filledBoxes.resize(m_dbox*m_wbox*m_hbox);
   m_filledBoxes.fill(true);
   for(int d=0; d<m_dbox; d++)
+    {
+      progress.setValue(100*d/m_dbox);
+      qApp->processEvents();
+  
     for(int w=0; w<m_wbox; w++)
       for(int h=0; h<m_hbox; h++)
 	{
@@ -3720,16 +3734,27 @@ Viewer::updateFilledBoxes()
 	  else
 	    m_filledBoxes.setBit(idx, false);
 	}
-
+    }
   progress.setValue(100);
   qApp->processEvents();
 
-  drawBox();
+  generateDrawBoxes();
 }
 
 void
-Viewer::drawBox()
+Viewer::generateDrawBoxes()
 { 
+  QProgressDialog progress("Marking valid boxes - (2/2)",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+
+  progress.setValue(10);
+  qApp->processEvents();
+
+
   m_mdEle = 0;
   
   Vec voxelScaling = Global::relativeVoxelScaling();
@@ -3759,31 +3784,36 @@ Viewer::drawBox()
 
   int bid = 0;
   for(int k=kmin; k<kmax; k++)
-  for(int j=jmin; j<jmax; j++)
-  for(int i=imin; i<imax; i++)
     {
-      int idx = k*m_wbox*m_hbox+j*m_hbox+i;
-      if (m_filledBoxes.testBit(idx))
-	{
-	  if (mdI < 0) mdI = bid;
-	  mdC++;
-	}
-      else
-	{
-	  if (mdI > -1)
-	    {
-	      // 2 triangles per face - 36 triangles in all for a cube
-	      m_mdIndices[m_mdEle] = mdI*36;
-	      m_mdCount[m_mdEle] = mdC*36;
-	      m_mdEle++;
-	      if (m_mdEle >= m_boxSoup.count())
+      progress.setValue(100*k/kmax);
+      qApp->processEvents();
+  
+      for(int j=jmin; j<jmax; j++)
+	for(int i=imin; i<imax; i++)
+	  {
+	    int idx = k*m_wbox*m_hbox+j*m_hbox+i;
+	    if (m_filledBoxes.testBit(idx))
+	      {
+		if (mdI < 0) mdI = bid;
+		mdC++;
+	      }
+	    else
+	      {
+		if (mdI > -1)
+		  {
+		    // 2 triangles per face - 36 triangles in all for a cube
+		    m_mdIndices[m_mdEle] = mdI*36;
+		    m_mdCount[m_mdEle] = mdC*36;
+		    m_mdEle++;
+		    if (m_mdEle >= m_boxSoup.count())
 		QMessageBox::information(0, "", QString("ele > %1").arg(m_boxSoup.count()));
-
-	      mdI = -1;
-	      mdC = 0;
-	    }
-	}
-      bid++;
+		    
+		    mdI = -1;
+		    mdC = 0;
+		  }
+	      }
+	    bid++;
+	  }
     }
 
   if (mdI > -1)
@@ -3792,6 +3822,9 @@ Viewer::drawBox()
       m_mdCount[m_mdEle] = mdC*36;
       m_mdEle++;
     }
+
+  progress.setValue(100);
+  qApp->processEvents();
 }
 
 void

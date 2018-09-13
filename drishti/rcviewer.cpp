@@ -69,6 +69,9 @@ RcViewer::RcViewer() :
   connect(&m_boundingBox, SIGNAL(updated()),
 	  this, SLOT(boundingBoxChanged()));
 
+
+  //m_boxHistogram.clear();
+
   init();
 }
 
@@ -98,6 +101,13 @@ RcViewer::init()
   m_ftBoxes = 0;
   m_filledBoxes.clear();
 
+//  if (m_boxHistogram.count() > 0)
+//    {
+//      for(int b=0; b<m_boxHistogram.count(); b++)
+//	delete [] m_boxHistogram[b];
+//      m_boxHistogram.clear();
+//    }
+  
   m_bytesPerVoxel = 1;
   m_volPtr = 0;
   m_vfm = 0;
@@ -629,6 +639,20 @@ RcViewer::updateVoxelsForRaycast()
 
   if (m_bytesPerVoxel == 1)
     {
+//      if (m_boxHistogram.count() > 0)
+//	{
+//	  for(int b=0; b<m_boxHistogram.count(); b++)
+//	    delete [] m_boxHistogram[b];
+//	  m_boxHistogram.clear();
+//	}
+//      
+//      for(int b=0; b<m_filledBoxes.count(); b++)
+//	{
+//	  int *hist = new int[256];
+//	  memset(hist, 0, 256*sizeof(int));
+//	  m_boxHistogram << hist;
+//	}
+	    
       int i = 0;
       for(int d=m_minDSlice; d<m_maxDSlice; d+=m_sslevel)
 	for(int w=m_minWSlice; w<m_maxWSlice; w+=m_sslevel)
@@ -638,6 +662,12 @@ RcViewer::updateVoxelsForRaycast()
 	      voxelVol[i] = v;
 	      i++;
 	      m_flhist1D[v]++;
+
+	      //int x = d/m_boxSize;
+	      //int y = w/m_boxSize;
+	      //int z = h/m_boxSize;
+	      //int idx = x*m_wbox*m_hbox+y*m_hbox+z;
+	      //m_boxHistogram[idx][v]++;
 	    }
     }
   else
@@ -1555,6 +1585,8 @@ RcViewer::updateFilledBoxes()
   progress.setValue(10);
   qApp->processEvents();
 
+  int boxVoxPerc = qPow((m_boxSize/m_sslevel),3)*0.5; //10 percent
+  
   for(int d=0; d<m_dbox; d++)
     {
       progress.setValue(100*d/m_dbox);
@@ -1582,6 +1614,15 @@ RcViewer::updateFilledBoxes()
 		if ((vmin < lmin && vmax < lmin) || 
 		    (vmin > lmax && vmax > lmax))
 		  ok = false;
+
+//		if (ok)
+//		  {
+//		    int nvo = 0;
+//		    for(int hv=lmin; hv<=lmax; hv++)
+//		      nvo += m_boxHistogram[idx][hv];
+//		    if (nvo < boxVoxPerc)
+//		      ok = false;
+//		  }
 	      }
 
 	    m_filledBoxes.setBit(idx, ok);

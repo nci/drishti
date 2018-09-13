@@ -4,6 +4,8 @@
 
 VolumeFileManager::VolumeFileManager()
 {
+  m_thread = 0;
+  m_handler = 0;
   m_slice = 0;
   m_block = 0;
   m_blockSlices = 10;
@@ -16,7 +18,48 @@ VolumeFileManager::VolumeFileManager()
   reset();
 }
 
-VolumeFileManager::~VolumeFileManager() { reset(); }
+VolumeFileManager::~VolumeFileManager()
+{
+  if (m_thread)
+    {
+      m_thread->terminate();
+      m_thread->wait();
+    }
+  
+  reset();
+}
+
+void
+VolumeFileManager::startFileHandlerThread()
+{
+  if (!m_thread)
+    {
+      qRegisterMetaType< IntList >( "IntList" );
+
+      m_thread = new QThread();
+      m_handler = new FileHandler();
+      m_handler->moveToThread(m_thread);
+      
+      connect(this, SIGNAL(saveDataBlock(int,int,int,int,int,int)),
+	   m_handler, SLOT(saveDataBlock(int,int,int,int,int,int)));
+
+      connect(this, SIGNAL(saveSlices(IntList)),
+	   m_handler, SLOT(saveSlices(IntList)));
+
+      m_thread->start();
+    }
+
+  m_handler->setFilenameList(m_filenames);
+  m_handler->setBaseFilename(m_baseFilename);
+  m_handler->setDepth(m_depth);
+  m_handler->setWidth(m_width);
+  m_handler->setHeight(m_height);
+  m_handler->setHeaderSize(m_header);
+  m_handler->setSlabSize(m_slabSize);
+  m_handler->setVoxelType(m_voxelType);
+  m_handler->setVolData(m_volData);
+}
+
 
 void VolumeFileManager::setMemMapped(bool b)
 {
@@ -822,6 +865,16 @@ VolumeFileManager::blockInterpolatedRawValue(float dv, float wv, float hv)
 void
 VolumeFileManager::saveSlicesToFile()
 {
+  if (m_thread)
+    {
+      emit saveSlices(m_saveSlices);
+      m_mcTimes = 0;
+      m_saveSlices.clear();
+      return;
+    }
+  
+
+
   uchar vt;
   if (m_voxelType == _UChar) vt = 0; // unsigned byte
   if (m_voxelType == _Char) vt = 1; // signed byte
@@ -889,7 +942,16 @@ VolumeFileManager::saveMemFile()
       saveSlicesToFile();
       return;
     }
+
+  if (m_thread)
+    {
+      emit saveDataBlock(0, m_depth, 0, m_width, 0, m_height);
+      m_mcTimes = 0;
+      m_saveSlices.clear();
+      return;
+    }
   
+
   uchar vt;
   if (m_voxelType == _UChar) vt = 0; // unsigned byte
   if (m_voxelType == _Char) vt = 1; // signed byte
@@ -1238,6 +1300,13 @@ VolumeFileManager::saveBlock(int dmin, int dmax,
 {
   if (!m_memmapped)
     return;
+
+  if (m_thread)
+    {
+      emit saveDataBlock(dmin, dmax, wmin, wmax, hmin, hmax);
+      return;
+    }
+  
 
   if (dmin == -1 || wmin == -1 || hmin == -1 ||
       dmax == -1 || wmax == -1 || hmax == -1)

@@ -92,7 +92,7 @@ class RcViewer : public QObject
   int m_dbox, m_wbox, m_hbox, m_boxSize;
   QList<int> m_boxMinMax;
   MyBitArray m_filledBoxes;
-  QList< QVector<int> > m_boxHistogram;
+  //QList<int*> m_boxHistogram;
   
   float m_shadow;
   float m_edge;

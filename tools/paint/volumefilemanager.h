@@ -6,9 +6,17 @@
 #include <QProgressDialog>
 #include <QStringList>
 #include <QFile>
+#include <QThread>
 
-class VolumeFileManager
+#include "filehandler.h"
+
+
+typedef QList<int> IntList;
+
+class VolumeFileManager : public QObject
 {
+  Q_OBJECT
+  
  public :
   VolumeFileManager();
   ~VolumeFileManager();
@@ -94,6 +102,12 @@ class VolumeFileManager
 
   void saveSlicesToFile();
 
+  void startFileHandlerThread();
+  
+ signals :
+    void saveSlices(IntList);
+    void saveDataBlock(int,int,int,int,int,int);
+    
  private :
   bool m_memmapped;
   bool m_memChanged;
@@ -120,6 +134,8 @@ class VolumeFileManager
 
   void createMemFile();
 
+  QThread* m_thread;
+  FileHandler *m_handler;
 };
 
 #endif

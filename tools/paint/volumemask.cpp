@@ -153,6 +153,8 @@ VolumeMask::setGridSize(int d, int w, int h, int slabsize)
     m_maskFileManager.loadMemFile();
   else
     checkMaskFile();
+
+  m_maskFileManager.startFileHandlerThread();
 }
 
 void

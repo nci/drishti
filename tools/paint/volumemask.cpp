@@ -29,6 +29,17 @@ VolumeMask::reset()
 }
 
 void
+VolumeMask::checkPoint()
+{
+  m_maskFileManager.checkPoint();
+}
+void
+VolumeMask::loadCheckPoint()
+{
+  m_maskFileManager.loadCheckPoint();
+}
+
+void
 VolumeMask::offLoadMemFile()
 {
   m_maskFileManager.setMemMapped(false);

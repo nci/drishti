@@ -721,6 +721,9 @@
     <addaction name="actionLoad_Curves"/>
     <addaction name="actionLoad_Fibers"/>
     <addaction name="separator"/>
+    <addaction name="actionCheckpoint"/>
+    <addaction name="actionLoadCheckpoint"/>
+    <addaction name="separator"/>
     <addaction name="actionExtractTag"/>
     <addaction name="actionMeshTag"/>
     <addaction name="separator"/>
@@ -960,6 +963,16 @@
    </property>
    <property name="text">
     <string>Superpixels</string>
+   </property>
+  </action>
+  <action name="actionCheckpoint">
+   <property name="text">
+    <string>Checkpoint</string>
+   </property>
+  </action>
+  <action name="actionLoadCheckpoint">
+   <property name="text">
+    <string>Load Checkpoint</string>
    </property>
   </action>
  </widget>

@@ -9,6 +9,9 @@ Volume::saveIntermediateResults(bool forceSave)
   m_mask.saveIntermediateResults(forceSave);
 }
 
+void Volume::checkPoint() { m_mask.checkPoint(); }
+void Volume::loadCheckPoint() { m_mask.loadCheckPoint(); }
+
 void
 Volume::saveMaskBlock(int d, int w, int h, int rad)
 {

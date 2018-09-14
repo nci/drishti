@@ -6621,3 +6621,24 @@ DrishtiPaint::extractFromAnotherVolume(QList<int> tags)
   progress.setValue(100);  
   QMessageBox::information(0, "Save", "-----Done-----");
 }
+
+void
+DrishtiPaint::on_actionCheckpoint_triggered()
+{
+  m_volume->checkPoint();
+}
+
+void
+DrishtiPaint::on_actionLoadCheckpoint_triggered()
+{
+  m_volume->loadCheckPoint();
+
+  // update all windows
+  m_axialImage->reloadSlice();
+  m_sagitalImage->reloadSlice();
+  m_coronalImage->reloadSlice();
+
+  m_viewer->updateVoxels();
+
+  QMessageBox::information(0, "Checkpoint", "If you are happy with the restore, save it to mask file using Save Work");
+}

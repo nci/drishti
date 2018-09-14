@@ -1,6 +1,12 @@
+#include "global.h"
 #include "volumefilemanager.h"
+#include "staticfunctions.h"
+
 #include <QtGui>
 #include <QMessageBox>
+#include <QFileDialog>
+
+#include "blosc.h"
 
 VolumeFileManager::VolumeFileManager()
 {
@@ -27,6 +33,138 @@ VolumeFileManager::~VolumeFileManager()
     }
   
   reset();
+}
+
+void
+VolumeFileManager::loadCheckPoint()
+{
+  QString flnm;
+  flnm = QFileDialog::getOpenFileName(0,
+				      "Save Checkpoint Information",
+				      Global::previousDirectory(),
+				      "Checkpoint Files (*.chk)",
+				      0,
+				      QFileDialog::DontUseNativeDialog);
+
+  
+  if (flnm.isEmpty())
+    return;
+
+  QProgressDialog progress("Loading checkpoint file",
+			   "Cancel",
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+  progress.setCancelButton(0);
+
+  progress.setLabelText(flnm);
+  qApp->processEvents();
+  
+
+  qint64 vsz = m_depth;
+  vsz *= m_width;
+  vsz *= m_height;
+  uchar *vBuf = new uchar[vsz];
+
+  int bufsize;
+
+  progress.setValue(10);
+  qApp->processEvents();
+
+  QFile cfile;
+  cfile.setFileName(flnm);
+  cfile.open(QFile::ReadOnly);
+  cfile.read((char*)&bufsize, 4);
+  cfile.read((char*)vBuf, bufsize);
+  cfile.close();
+
+  progress.setValue(70);
+  qApp->processEvents();
+
+  bufsize = blosc_decompress(vBuf, m_volData, vsz);
+  if (bufsize < 0)
+    {
+      QMessageBox::information(0, "", "Error in decompression : checkpoint file not read");
+      return;
+    }
+
+  delete [] vBuf;
+
+  QMessageBox::information(0, "Checkpoint", "Checkpoint information restored");  
+}
+
+void
+VolumeFileManager::checkPoint()
+{
+  QString flnm;
+  flnm = QFileDialog::getSaveFileName(0,
+				      "Save Checkpoint Information",
+				      Global::previousDirectory(),
+				      "Checkpoint Files (*.chk)",
+				      0,
+				      QFileDialog::DontUseNativeDialog);
+
+  
+  if (flnm.isEmpty())
+    return;
+
+  if (!StaticFunctions::checkExtension(flnm, ".chk"))
+    flnm += ".chk";
+  
+  QProgressDialog progress("Saving checkpoint file",
+			   "Cancel",
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+  progress.setCancelButton(0);
+
+  progress.setLabelText(flnm);
+  qApp->processEvents();
+  
+  int nthreads, pnthreads;
+  nthreads = 4;
+  blosc_init();
+  // use nthreads for compression
+  // previously using threads in pnthreads
+  pnthreads = blosc_set_nthreads(nthreads);
+
+  qint64 vsz = m_depth;
+  vsz *= m_width;
+  vsz *= m_height;
+  uchar *vBuf = new uchar[vsz];
+  
+  progress.setValue(10);
+  qApp->processEvents();
+
+  int bufsize;
+  bufsize = blosc_compress(5, // compression level
+			   BLOSC_SHUFFLE, // bit/byte-wise shuffle
+			   8, // typesize
+			   vsz, // input size
+			   m_volData,
+			   vBuf,
+			   vsz); // destination size
+  if (bufsize < 0)
+    {
+      QMessageBox::information(0, "", "Error in compression : checkpoint file not saved");
+      return;
+    }
+
+  progress.setValue(70);
+  qApp->processEvents();
+  
+  QFile cfile;
+  cfile.setFileName(flnm);
+  cfile.open(QFile::ReadWrite);
+  cfile.write((char*)&bufsize, 4);
+  cfile.write((char*)vBuf, bufsize);
+  cfile.close();
+
+  progress.setValue(100);
+
+  delete [] vBuf;
+  
+  QMessageBox::information(0, "Checkpoint", QString("Saved checkpoint information to\n%1").arg(flnm));
 }
 
 void

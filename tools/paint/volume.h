@@ -20,6 +20,9 @@ class Volume : public QObject
   bool setFile(QString);
   QString fileName() { return m_fileName; }
 
+  void checkPoint();
+  void loadCheckPoint();
+
   void offLoadMemFile();
   void loadMemFile();
 

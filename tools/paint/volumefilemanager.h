@@ -69,14 +69,6 @@ class VolumeFileManager : public QObject
 
   void removeFile();
 
-  uchar* getSlice(int);
-  uchar* getWidthSlice(int);
-  uchar* getHeightSlice(int);
-
-  void setSlice(int, uchar*);
-  void setWidthSlice(int, uchar*);
-  void setHeightSlice(int, uchar*);
-
   uchar* rawValue(int, int, int);
   uchar* interpolatedRawValue(float, float, float);
 
@@ -86,15 +78,20 @@ class VolumeFileManager : public QObject
 
   void loadMemFile();
   void saveMemFile();
-  uchar* getSliceMem(int);
-  void setSliceMem(int, uchar*);
-  uchar* getWidthSliceMem(int);
+
+  uchar* getSlice(int);
+  void setSlice(int, uchar*);
+
+  void setDepthSliceMem(int, uchar*);
   void setWidthSliceMem(int, uchar*);
-  uchar* getHeightSliceMem(int);
   void setHeightSliceMem(int, uchar*);
-  uchar* rawValueMem(int, int, int);
+
+  uchar* getDepthSliceMem(int);
+  uchar* getWidthSliceMem(int);
+  uchar* getHeightSliceMem(int);
 
   bool setValueMem(int, int, int, int);
+  uchar* rawValueMem(int, int, int);
 
   uchar* memVolDataPtr() { return m_volData; }
 
@@ -105,7 +102,9 @@ class VolumeFileManager : public QObject
   void startFileHandlerThread();
   
  signals :
-    void saveSlices(IntList);
+    void saveDepthSlices(IntList);
+    void saveWidthSlices(IntList);
+    void saveHeightSlices(IntList);
     void saveDataBlock(int,int,int,int,int,int);
     
  private :
@@ -128,11 +127,19 @@ class VolumeFileManager : public QObject
 
   uchar *m_volData;
 
-  QList<int> m_saveSlices;
+  QList<int> m_saveDSlices;
+  QList<int> m_saveWSlices;
+  QList<int> m_saveHSlices;
     
   void readBlocks(int);
 
   void createMemFile();
+
+  uchar* getWidthSlice(int);
+  uchar* getHeightSlice(int);
+
+  void setWidthSlice(int, uchar*);
+  void setHeightSlice(int, uchar*);
 
   QThread* m_thread;
   FileHandler *m_handler;

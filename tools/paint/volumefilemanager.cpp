@@ -43,9 +43,15 @@ VolumeFileManager::startFileHandlerThread()
       connect(this, SIGNAL(saveDataBlock(int,int,int,int,int,int)),
 	   m_handler, SLOT(saveDataBlock(int,int,int,int,int,int)));
 
-      connect(this, SIGNAL(saveSlices(IntList)),
-	   m_handler, SLOT(saveSlices(IntList)));
+      connect(this, SIGNAL(saveDepthSlices(IntList)),
+	   m_handler, SLOT(saveDepthSlices(IntList)));
 
+      connect(this, SIGNAL(saveWidthSlices(IntList)),
+	   m_handler, SLOT(saveWidthSlices(IntList)));
+
+      connect(this, SIGNAL(saveHeightSlices(IntList)),
+	   m_handler, SLOT(saveHeightSlices(IntList)));
+      
       m_thread->start();
     }
 
@@ -71,7 +77,9 @@ void VolumeFileManager::setMemMapped(bool b)
 
   m_memChanged = false;
   m_mcTimes = 0;
-  m_saveSlices.clear();
+  m_saveDSlices.clear();
+  m_saveWSlices.clear();
+  m_saveHSlices.clear();
 }
 
 bool VolumeFileManager::isMemMapped() { return m_memmapped; }
@@ -110,7 +118,9 @@ VolumeFileManager::reset()
   m_memmapped = false;
   m_memChanged = false;
   m_mcTimes = 0;
-  m_saveSlices.clear();
+  m_saveDSlices.clear();
+  m_saveWSlices.clear();
+  m_saveHSlices.clear();
 }
 
 int VolumeFileManager::depth() { return m_depth; }
@@ -867,9 +877,9 @@ VolumeFileManager::saveSlicesToFile()
 {
   if (m_thread)
     {
-      emit saveSlices(m_saveSlices);
+      emit saveDepthSlices(m_saveDSlices);
       m_mcTimes = 0;
-      m_saveSlices.clear();
+      m_saveDSlices.clear();
       return;
     }
   
@@ -893,12 +903,12 @@ VolumeFileManager::saveSlicesToFile()
 
   qint64 bps = m_width*m_height*m_bytesPerVoxel;
 
-  for(int i=0; i<m_saveSlices.count(); i++)
+  for(int i=0; i<m_saveDSlices.count(); i++)
     {
-      progress.setValue((int)(100*(float)i/(float)m_saveSlices.count()));
+      progress.setValue((int)(100*(float)i/(float)m_saveDSlices.count()));
       qApp->processEvents();
 
-      int d = m_saveSlices[i];
+      int d = m_saveDSlices[i];
       int ns = d/m_slabSize;
       
       QString pflnm = m_filename;
@@ -928,7 +938,7 @@ VolumeFileManager::saveSlicesToFile()
 
   m_memChanged = false;
   m_mcTimes = 0;
-  m_saveSlices.clear();
+  m_saveDSlices.clear();
 }
 
 void
@@ -937,20 +947,48 @@ VolumeFileManager::saveMemFile()
   if (!m_memChanged)
     return;
 
-  if (m_saveSlices.count() > 0)
+  //--------------------
+  // for volume saved in separate thread
+  if (m_thread)
+    {
+      if (m_saveDSlices.count() > 0)
+	{
+	  emit saveDepthSlices(m_saveDSlices);
+	  m_mcTimes = 0;
+	  m_saveDSlices.clear();
+	  return;
+	}
+      if (m_saveWSlices.count() > 0)
+	{
+	  emit saveWidthSlices(m_saveWSlices);
+	  m_mcTimes = 0;
+	  m_saveWSlices.clear();
+	  return;
+	}
+      if (m_saveHSlices.count() > 0)
+	{
+	  emit saveHeightSlices(m_saveHSlices);
+	  m_mcTimes = 0;
+	  m_saveHSlices.clear();
+	  return;
+	}
+      // otherwise save the entire volume
+      {
+	emit saveDataBlock(0, m_depth, 0, m_width, 0, m_height);
+	m_mcTimes = 0;
+	m_saveDSlices.clear();
+	return;
+      }
+    }
+  //--------------------
+  
+  
+  if (m_saveDSlices.count() > 0)
     {
       saveSlicesToFile();
       return;
     }
 
-  if (m_thread)
-    {
-      emit saveDataBlock(0, m_depth, 0, m_width, 0, m_height);
-      m_mcTimes = 0;
-      m_saveSlices.clear();
-      return;
-    }
-  
 
   uchar vt;
   if (m_voxelType == _UChar) vt = 0; // unsigned byte
@@ -1013,7 +1051,7 @@ VolumeFileManager::saveMemFile()
 
   m_memChanged = false;
   m_mcTimes = 0;
-  m_saveSlices.clear();
+  m_saveDSlices.clear();
 }
 
 void
@@ -1069,7 +1107,7 @@ VolumeFileManager::loadMemFile()
 
   m_memChanged = false;
   m_mcTimes = 0;
-  m_saveSlices.clear();
+  m_saveDSlices.clear();
 }
 
 void
@@ -1084,8 +1122,79 @@ VolumeFileManager::createMemFile()
   memset(m_volData, 0, vsize);
 }
 
+void
+VolumeFileManager::setDepthSliceMem(int d, uchar *tmp)
+{
+  if (!m_memmapped)
+    {
+      setSlice(d, tmp);
+      return;
+    }    
+
+  qint64 bps = m_width*m_height*m_bytesPerVoxel;
+  memcpy(m_volData+d*bps, tmp, bps);
+
+  m_saveDSlices << d;
+  
+  m_memChanged = true;
+  m_mcTimes++;
+  if (m_mcTimes > m_saveFreq)
+    saveMemFile();
+  //saveSlicesToFile();
+}
+void
+VolumeFileManager::setWidthSliceMem(int w, uchar *tmp)
+{
+  if (!m_memmapped)
+    {
+      setWidthSlice(w, tmp);
+      return;
+    }    
+
+  qint64 bps = m_width*m_height*m_bytesPerVoxel;
+  for(int d=0; d<m_depth; d++)
+    memcpy(m_volData + d*bps + w*m_height*m_bytesPerVoxel,
+	   tmp + d*m_height*m_bytesPerVoxel,
+	   m_height*m_bytesPerVoxel);
+
+  m_saveWSlices << w;
+
+  m_memChanged = true;
+  m_mcTimes++;
+  if (m_mcTimes > m_saveFreq)
+    saveMemFile();
+}
+void
+VolumeFileManager::setHeightSliceMem(int h, uchar *tmp)
+{
+  if (!m_memmapped)
+    {
+      setHeightSlice(h, tmp);
+      return;
+    }    
+
+  qint64 bps = m_width*m_height*m_bytesPerVoxel;
+  int it = 0;
+  for(int d=0; d<m_depth; d++)
+    {
+      for(int j=0; j<m_width; j++, it++)
+	memcpy(m_volData + d*bps + (j*m_height + h)*m_bytesPerVoxel,
+	       tmp + it*m_bytesPerVoxel,
+	       m_bytesPerVoxel);
+    }
+
+
+  m_saveHSlices << h;
+
+  m_memChanged = true;
+  m_mcTimes++;
+  if (m_mcTimes > m_saveFreq)
+    saveMemFile();
+}
+
+
 uchar*
-VolumeFileManager::getSliceMem(int d)
+VolumeFileManager::getDepthSliceMem(int d)
 {
   if (!m_memmapped)
     return getSlice(d);
@@ -1100,49 +1209,6 @@ VolumeFileManager::getSliceMem(int d)
   memcpy(m_slice, m_volData+d*bps, bps);
 
   return m_slice;
-}
-void
-VolumeFileManager::setSliceMem(int d, uchar *tmp)
-{
-  if (!m_memmapped)
-    {
-      setSlice(d, tmp);
-      return;
-    }    
-
-  qint64 bps = m_width*m_height*m_bytesPerVoxel;
-  memcpy(m_volData+d*bps, tmp, bps);
-
-  m_saveSlices << d;
-  
-  m_memChanged = true;
-  m_mcTimes++;
-  if (m_mcTimes > m_saveFreq)
-    saveSlicesToFile();
-    //saveMemFile();
-  
-//  //--------
-//  // save to file straight away
-//  QString pflnm = m_filename;
-//  m_slabno = d/m_slabSize;
-//  if (m_slabno < m_filenames.count())
-//    m_filename = m_filenames[m_slabno];
-//  else
-//    m_filename = m_baseFilename +
-//                 QString(".%1").arg(m_slabno+1, 3, 10, QChar('0'));
-//
-//  if (pflnm != m_filename ||
-//      !m_qfile.isOpen() ||
-//      !m_qfile.isWritable())
-//    {
-//      if (m_qfile.isOpen()) m_qfile.close();
-//      m_qfile.setFileName(m_filename);
-//      m_qfile.open(QFile::ReadWrite);
-//    }
-//  m_qfile.seek((qint64)(m_header + (d-m_slabno*m_slabSize)*bps));
-//  m_qfile.write((char*)tmp, bps);
-//  m_qfile.close();
-//  //--------
 }
 
 uchar*
@@ -1164,26 +1230,6 @@ VolumeFileManager::getWidthSliceMem(int w)
 	   m_height*m_bytesPerVoxel);
 
   return m_slice;
-}
-void
-VolumeFileManager::setWidthSliceMem(int w, uchar *tmp)
-{
-  if (!m_memmapped)
-    {
-      setWidthSlice(w, tmp);
-      return;
-    }    
-
-  qint64 bps = m_width*m_height*m_bytesPerVoxel;
-  for(int d=0; d<m_depth; d++)
-    memcpy(m_volData + d*bps + w*m_height*m_bytesPerVoxel,
-	   tmp + d*m_height*m_bytesPerVoxel,
-	   m_height*m_bytesPerVoxel);
-
-  m_memChanged = true;
-  m_mcTimes++;
-  if (m_mcTimes > m_saveFreq)
-    saveMemFile();
 }
 
 uchar*
@@ -1212,31 +1258,6 @@ VolumeFileManager::getHeightSliceMem(int h)
   
   return m_slice;
 }
-void
-VolumeFileManager::setHeightSliceMem(int h, uchar *tmp)
-{
-  if (!m_memmapped)
-    {
-      setHeightSlice(h, tmp);
-      return;
-    }    
-
-  qint64 bps = m_width*m_height*m_bytesPerVoxel;
-  int it = 0;
-  for(int d=0; d<m_depth; d++)
-    {
-      for(int j=0; j<m_width; j++, it++)
-	memcpy(m_volData + d*bps + (j*m_height + h)*m_bytesPerVoxel,
-	       tmp + it*m_bytesPerVoxel,
-	       m_bytesPerVoxel);
-    }
-
-  m_memChanged = true;
-  m_mcTimes++;
-  if (m_mcTimes > m_saveFreq)
-    saveMemFile();
-}
-
 uchar*
 VolumeFileManager::rawValueMem(int d, int w, int h)
 {

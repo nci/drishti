@@ -24,6 +24,7 @@ Viewer::Viewer(QWidget *parent) :
   setStateFileName(QString());
   setMouseTracking(true);
 
+  m_draw = true;
   m_useMask = true;
 
   m_memSize = 1000; // size in MB
@@ -107,10 +108,11 @@ Viewer::Viewer(QWidget *parent) :
   connect(this, SIGNAL(renderNextFrame()),
 	  this, SLOT(nextFrame()));
 
+// we are treating bounding box as 6 clip planes
 //  connect(&m_boundingBox, SIGNAL(updated()),
 //	  this, SLOT(updateFilledBoxes()));
-  connect(&m_boundingBox, SIGNAL(updated()),
-	  this, SLOT(boundingBoxChanged()));
+//  connect(&m_boundingBox, SIGNAL(updated()),
+//	  this, SLOT(boundingBoxChanged()));
 }
 
 Viewer::~Viewer()
@@ -416,11 +418,23 @@ Viewer::init()
   m_mdIndices = 0;
 }
 
+void Viewer::stopDrawing() { m_draw = false; }
+void
+Viewer::startDrawing()
+{
+  m_draw = true;
+  resizeGL(size().width(), size().height());
+  updateGL();
+}
+
 void
 Viewer::resizeGL(int width, int height)
 {
   QGLViewer::resizeGL(width, height);
 
+  if (!m_draw)
+    return;
+  
   createFBO();
 
   if (m_sketchPadMode)
@@ -1426,6 +1440,13 @@ Viewer::draw()
   if (!m_dataTex)
     return;
 
+  if (!m_draw)
+    {
+      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+      drawInfo();
+      return;
+    }
+  
   if (m_sketchPadMode)
     {
       glDisable(GL_DEPTH_TEST);
@@ -1840,7 +1861,7 @@ Viewer::updateVoxelsForRaycast()
   qint64 hsz = (m_maxHSlice-m_minHSlice);
   qint64 tsz = dsz*wsz*hsz*Global::bytesPerVoxel();
 
-  if ((m_vsize-Vec(hsz, wsz, dsz)).squaredNorm() > 1)
+//  if ((m_vsize-Vec(hsz, wsz, dsz)).squaredNorm() > 1)
     {
       m_sslevel = 1;
       while (tsz/1024.0/1024.0 > m_memSize ||
@@ -2533,37 +2554,36 @@ Viewer::drawClip()
 void
 Viewer::boundingBoxChanged()
 {
-  if (m_depth == 0) // we don't have a volume yet
-    return;
-    
-
-  //----
-  Vec bmin, bmax;
-  m_boundingBox.bounds(bmin, bmax);
-  Vec voxelScaling = Global::relativeVoxelScaling();
-  bmin = VECDIVIDE(bmin, voxelScaling);
-  bmax = VECDIVIDE(bmax, voxelScaling);
-  int minD = bmin.z;
-  int minW = bmin.y;
-  int minH = bmin.x;
-  int maxD = qCeil(bmax.z); // because we are getting it as float
-  int maxW = qCeil(bmax.y);
-  int maxH = qCeil(bmax.x);
-
-  if (minD == m_cminD &&
-      maxD == m_cmaxD &&
-      minW == m_cminW &&
-      maxW == m_cmaxW &&
-      minH == m_cminH &&
-      maxH == m_cmaxH)
-    return; // no change
-  //----
-    
-  generateBoxes();
-
-  loadAllBoxesToVBO();  
-
-  updateFilledBoxes();
+//  if (m_depth == 0) // we don't have a volume yet
+//    return;
+//    
+//  //----
+//  Vec bmin, bmax;
+//  m_boundingBox.bounds(bmin, bmax);
+//  Vec voxelScaling = Global::relativeVoxelScaling();
+//  bmin = VECDIVIDE(bmin, voxelScaling);
+//  bmax = VECDIVIDE(bmax, voxelScaling);
+//  int minD = bmin.z;
+//  int minW = bmin.y;
+//  int minH = bmin.x;
+//  int maxD = qCeil(bmax.z); // because we are getting it as float
+//  int maxW = qCeil(bmax.y);
+//  int maxH = qCeil(bmax.x);
+//
+//  if (minD == m_cminD &&
+//      maxD == m_cmaxD &&
+//      minW == m_cminW &&
+//      maxW == m_cmaxW &&
+//      minH == m_cminH &&
+//      maxH == m_cmaxH)
+//    return; // no change
+//  //----
+//    
+//  generateBoxes();
+//
+//  loadAllBoxesToVBO();  
+//
+//  updateFilledBoxes();
 }
 
 void
@@ -2785,8 +2805,26 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
   { // apply clip planes to modify entry and exit points
     QList<Vec> cPos =  m_clipPlanes->positions();
     QList<Vec> cNorm = m_clipPlanes->normals();
-    cPos << camera()->position()+100*camera()->viewDirection();
+    cPos << camera()->position()+50*camera()->viewDirection();
     cNorm << -camera()->viewDirection();
+
+    //--------------------------
+    // 6 planes of bounding box
+    {
+      Vec bminO, bmaxO;
+      m_boundingBox.bounds(bminO, bmaxO);
+      
+      bminO = VECDIVIDE(bminO, voxelScaling);
+      bmaxO = VECDIVIDE(bmaxO, voxelScaling);
+      if (bminO.x > 0) { cPos << bminO; cNorm << Vec(-1,0,0); }
+      if (bminO.y > 0) { cPos << bminO; cNorm << Vec(0,-1,0); }
+      if (bminO.z > 0) { cPos << bminO; cNorm << Vec(0,0,-1); }
+      if (bmaxO.x < m_maxHSlice) { cPos << bmaxO; cNorm << Vec(1,0,0); }
+      if (bmaxO.y < m_maxWSlice) { cPos << bmaxO; cNorm << Vec(0,1,0); }
+      if (bmaxO.y < m_maxDSlice) { cPos << bmaxO; cNorm << Vec(0,0,1); }
+    }
+    //--------------------------
+
     int nclip = cPos.count();
     float cpos[100];
     float cnormal[100];

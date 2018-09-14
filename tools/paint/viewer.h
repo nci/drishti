@@ -125,7 +125,10 @@ class Viewer : public QGLViewer
 
     void setUseMask(bool);
     void setBoxSize(int);
-    
+
+    void stopDrawing();
+    void startDrawing();
+
  signals :
     void showBoxChanged(bool);
 
@@ -167,10 +170,12 @@ class Viewer : public QGLViewer
   Ui::ViewerMenu *m_UI;
 
   bool m_glewInitdone;
-
+  bool m_draw;
   bool m_useMask;
 
   BoundingBox m_boundingBox;
+  QList<Vec> m_bclipPos;
+  QList<Vec> m_bclipNormal;
   
   float m_amb, m_diff, m_spec;
   int m_shadow;

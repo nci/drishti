@@ -451,8 +451,8 @@ ShaderFactory::genIsoRaycastShader(bool nearest,
   shader += "uniform vec3 bgcolor;\n";
   shader += "uniform int skipVoxels;\n";
   shader += "uniform int nclip;\n";
-  shader += "uniform vec3 clipPos[5];\n";
-  shader += "uniform vec3 clipNormal[5];\n";
+  shader += "uniform vec3 clipPos[15];\n";
+  shader += "uniform vec3 clipNormal[15];\n";
 
 
   //---------------------

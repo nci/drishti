@@ -495,6 +495,8 @@ DrishtiPaint::on_help_clicked()
 void
 DrishtiPaint::on_actionDefaultView_triggered()
 {
+  m_viewer->stopDrawing();
+    
   m_viewer3D->setLarge(false);
   m_axialImage->setLarge(false);
   m_sagitalImage->setLarge(false);
@@ -519,6 +521,8 @@ DrishtiPaint::on_actionDefaultView_triggered()
   m_axialImage->zoomToSelection();
   m_sagitalImage->zoomToSelection();
   m_coronalImage->zoomToSelection();
+
+  QTimer::singleShot(200, m_viewer, SLOT(startDrawing()));
 }
 void
 DrishtiPaint::on_actionZ_triggered()
@@ -529,6 +533,8 @@ DrishtiPaint::on_actionZ_triggered()
       return;
     }
 
+  m_viewer->stopDrawing();
+    
   m_axialImage->setLarge(true);
   m_sagitalImage->setLarge(false);
   m_coronalImage->setLarge(false);
@@ -553,6 +559,8 @@ DrishtiPaint::on_actionZ_triggered()
   m_axialImage->zoomToSelection();
   m_sagitalImage->zoomToSelection();
   m_coronalImage->zoomToSelection();
+
+  QTimer::singleShot(200, m_viewer, SLOT(startDrawing()));
 }
 void
 DrishtiPaint::on_actionY_triggered()
@@ -563,6 +571,8 @@ DrishtiPaint::on_actionY_triggered()
       return;
     }
 
+  m_viewer->stopDrawing();
+    
   m_axialImage->setLarge(false);
   m_sagitalImage->setLarge(true);
   m_coronalImage->setLarge(false);
@@ -587,6 +597,8 @@ DrishtiPaint::on_actionY_triggered()
   m_axialImage->zoomToSelection();
   m_sagitalImage->zoomToSelection();
   m_coronalImage->zoomToSelection();
+
+  QTimer::singleShot(200, m_viewer, SLOT(startDrawing()));
 }
 void
 DrishtiPaint::on_actionX_triggered()
@@ -597,6 +609,8 @@ DrishtiPaint::on_actionX_triggered()
       return;
     }
 
+  m_viewer->stopDrawing();
+    
   m_axialImage->setLarge(false);
   m_sagitalImage->setLarge(false);
   m_coronalImage->setLarge(true);
@@ -621,6 +635,8 @@ DrishtiPaint::on_actionX_triggered()
   m_axialImage->zoomToSelection();
   m_sagitalImage->zoomToSelection();
   m_coronalImage->zoomToSelection();
+
+  QTimer::singleShot(200, m_viewer, SLOT(startDrawing()));
 }
 void
 DrishtiPaint::on_action3dView_triggered()
@@ -631,6 +647,8 @@ DrishtiPaint::on_action3dView_triggered()
       return;
     }
 
+  m_viewer->stopDrawing();
+    
   m_axialImage->setLarge(false);
   m_sagitalImage->setLarge(false);
   m_coronalImage->setLarge(false);
@@ -655,6 +673,8 @@ DrishtiPaint::on_action3dView_triggered()
   m_axialImage->zoomToSelection();
   m_sagitalImage->zoomToSelection();
   m_coronalImage->zoomToSelection();
+
+  QTimer::singleShot(200, m_viewer, SLOT(startDrawing()));
 }
 
 void
@@ -2641,23 +2661,23 @@ DrishtiPaint::connectViewerMenu()
   connect(ui.radius, SIGNAL(valueChanged(int)),
 	  viewerUi.radiusSurface, SLOT(setValue(int)));
 
-  connect(viewerUi.pointRender, SIGNAL(clicked(bool)),
-	  this, SLOT(on_pointRender_clicked(bool)));
-  connect(viewerUi.raycastRender, SIGNAL(clicked(bool)),
-	  this, SLOT(on_raycastRender_clicked(bool)));
+//  connect(viewerUi.pointRender, SIGNAL(clicked(bool)),
+//	  this, SLOT(on_pointRender_clicked(bool)));
+//  connect(viewerUi.raycastRender, SIGNAL(clicked(bool)),
+//	  this, SLOT(on_raycastRender_clicked(bool)));
   
   connect(viewerUi.update, SIGNAL(clicked()),
 	  m_viewer, SLOT(updateVoxels()));
-  connect(viewerUi.interval, SIGNAL(sliderReleased()),
-	  m_viewer, SLOT(updateVoxels()));
-  connect(viewerUi.interval, SIGNAL(valueChanged(int)),
-	  m_viewer, SLOT(setVoxelInterval(int)));
-  connect(viewerUi.ptsize, SIGNAL(valueChanged(int)),
-	  m_viewer, SLOT(setPointSize(int)));
-  connect(viewerUi.ptscaling, SIGNAL(valueChanged(int)),
-	  m_viewer, SLOT(setPointScaling(int)));
-  connect(viewerUi.voxchoice, SIGNAL(currentIndexChanged(int)),
-	  m_viewer, SLOT(setVoxelChoice(int)));
+//  connect(viewerUi.interval, SIGNAL(sliderReleased()),
+//	  m_viewer, SLOT(updateVoxels()));
+//  connect(viewerUi.interval, SIGNAL(valueChanged(int)),
+//	  m_viewer, SLOT(setVoxelInterval(int)));
+//  connect(viewerUi.ptsize, SIGNAL(valueChanged(int)),
+//	  m_viewer, SLOT(setPointSize(int)));
+//  connect(viewerUi.ptscaling, SIGNAL(valueChanged(int)),
+//	  m_viewer, SLOT(setPointScaling(int)));
+//  connect(viewerUi.voxchoice, SIGNAL(currentIndexChanged(int)),
+//	  m_viewer, SLOT(setVoxelChoice(int)));
 
   connect(viewerUi.box, SIGNAL(clicked(bool)),
 	  m_viewer, SLOT(setShowBox(bool)));
@@ -2671,15 +2691,15 @@ DrishtiPaint::connectViewerMenu()
 
   connect(viewerUi.snapshot, SIGNAL(clicked()),
 	  m_viewer, SLOT(saveImage()));
-  connect(viewerUi.curvetags, SIGNAL(editingFinished()),
-	  this, SLOT(curvetag_editingFinished()));
-  connect(viewerUi.fibertags, SIGNAL(editingFinished()),
-	  this, SLOT(fibertag_editingFinished()));
-
-  connect(viewerUi.slicesBox, SIGNAL(clicked(bool)),
-	  m_viewer, SLOT(setShowSlices(bool)));
-  connect(viewerUi.updateSlices, SIGNAL(clicked()),
-	  m_viewer, SLOT(updateSlices()));
+//  connect(viewerUi.curvetags, SIGNAL(editingFinished()),
+//	  this, SLOT(curvetag_editingFinished()));
+//  connect(viewerUi.fibertags, SIGNAL(editingFinished()),
+//	  this, SLOT(fibertag_editingFinished()));
+//
+//  connect(viewerUi.slicesBox, SIGNAL(clicked(bool)),
+//	  m_viewer, SLOT(setShowSlices(bool)));
+//  connect(viewerUi.updateSlices, SIGNAL(clicked()),
+//	  m_viewer, SLOT(updateSlices()));
 
   connect(viewerUi.skipLayers, SIGNAL(valueChanged(int)),
 	  m_viewer, SLOT(setSkipLayers(int)));
@@ -2701,9 +2721,9 @@ DrishtiPaint::connectViewerMenu()
 //  connect(viewerUi.useMask, SIGNAL(clicked(bool)),
 //	  m_viewer, SLOT(setUseMask(bool)));
 
-  m_viewer->setPointScaling(viewerUi.ptscaling->value());
-  m_viewer->setPointSize(viewerUi.ptsize->value());
-  m_viewer->setVoxelInterval(viewerUi.interval->value());
+//  m_viewer->setPointScaling(viewerUi.ptscaling->value());
+//  m_viewer->setPointSize(viewerUi.ptsize->value());
+//  m_viewer->setVoxelInterval(viewerUi.interval->value());
 
   setupSlicesParameters();
   setupLightParameters();

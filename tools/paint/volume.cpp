@@ -269,7 +269,7 @@ Volume::genHistogram(bool forceHistogram)
 	  qApp->processEvents();
 	  
 	  uchar *vslice;
-	  vslice = m_pvlFileManager.getSliceMem(slc);
+	  vslice = m_pvlFileManager.getDepthSliceMem(slc);
 	  memcpy(v, vslice, nbytes);
 	  
 	  for(int j=0; j<m_width*m_height; j++)
@@ -284,7 +284,7 @@ Volume::genHistogram(bool forceHistogram)
 	  qApp->processEvents();
 	  
 	  uchar *vslice;
-	  vslice = m_pvlFileManager.getSliceMem(slc);
+	  vslice = m_pvlFileManager.getDepthSliceMem(slc);
 	  memcpy(v, vslice, nbytes);
 	  
 	  for(int j=0; j<m_width*m_height; j++)
@@ -339,7 +339,7 @@ Volume::getDepthSliceImage(int slc)
   memset(m_slice, 0, nbytes);
 
   uchar *vslice;
-  vslice = m_pvlFileManager.getSliceMem(slc);
+  vslice = m_pvlFileManager.getDepthSliceMem(slc);
   memcpy(m_slice, vslice, nbytes);
 
   return m_slice;

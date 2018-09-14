@@ -5,6 +5,7 @@
 
 #include <QProgressDialog>
 #include <QFile>
+#include <QMutexLocker>
 
 typedef QList<int> IntList;
 
@@ -32,7 +33,9 @@ class FileHandler : public QObject
 		       int,int,
 		       int,int);
 
-    void saveSlices(IntList);
+    void saveDepthSlices(IntList);
+    void saveWidthSlices(IntList);
+    void saveHeightSlices(IntList);
     
  private:
     QFile m_qfile;
@@ -46,6 +49,8 @@ class FileHandler : public QObject
 
     uchar *m_volData;    
 
+    QMutex m_mutex;
+    
     void reset();
 };
 

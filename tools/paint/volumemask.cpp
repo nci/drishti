@@ -262,7 +262,7 @@ void
 VolumeMask::setMaskDepthSlice(int slc, uchar* tagData)
 {
   checkMaskFile();
-  m_maskFileManager.setSliceMem(slc, tagData);
+  m_maskFileManager.setDepthSliceMem(slc, tagData);
 }
 
 uchar*
@@ -275,7 +275,7 @@ VolumeMask::getMaskDepthSliceImage(int slc)
   int nbytes = m_width*m_height;
   m_maskslice = new uchar[nbytes];
 
-  uchar *mslice = m_maskFileManager.getSliceMem(slc);
+  uchar *mslice = m_maskFileManager.getDepthSliceMem(slc);
   memcpy(m_maskslice, mslice, nbytes);
 
   return m_maskslice;
@@ -335,7 +335,7 @@ void
 VolumeMask::tagDSlice(int d, uchar *tags)
 {
   checkMaskFile();
-  m_maskFileManager.setSliceMem(d, tags);
+  m_maskFileManager.setDepthSliceMem(d, tags);
 }
 void
 VolumeMask::tagWSlice(int w, uchar *tags)

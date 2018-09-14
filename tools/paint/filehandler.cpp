@@ -56,6 +56,8 @@ FileHandler::saveDataBlock(int dmin, int dmax,
       return;
     }
 
+  QMutexLocker locker(&m_mutex);
+  
   dmin = qMax(0, dmin);
   wmin = qMax(0, wmin);
   hmin = qMax(0, hmin);
@@ -101,43 +103,76 @@ FileHandler::saveDataBlock(int dmin, int dmax,
 }
 
 void
-FileHandler::saveSlices(QList<int> slices)
+FileHandler::saveDepthSlices(QList<int> slices)
 {
-  uchar vt;
-  if (m_voxelType == 0) vt = 0; // unsigned byte
-  if (m_voxelType == 1) vt = 1; // signed byte
-  if (m_voxelType == 2) vt = 2; // unsigned short
-  if (m_voxelType == 3) vt = 3; // signed short
-  if (m_voxelType == 4) vt = 4; // int
-  if (m_voxelType == 5) vt = 8; // float
-
-  qint64 bps = m_width*m_height*m_bytesPerVoxel;
-
-  for(int i=0; i<slices.count(); i++)
+  int dmin = slices[0];
+  int dmax = slices[0];
+  for(int i=1; i<slices.count(); i++)
     {
-      int d = slices[i];
-      int ns = d/m_slabSize;
-      
-      QString pflnm = m_filename;
-      int slabno = d/m_slabSize;
-      if (slabno < m_filenames.count())
-	m_filename = m_filenames[slabno];
+      if (slices[i] == dmax+1)
+	dmax++;
+      else if (slices[i] == dmin-1)
+	dmin--;
       else
-	m_filename = m_baseFilename +
-                     QString(".%1").arg(slabno+1, 3, 10, QChar('0'));
-
-      if (pflnm != m_filename ||
-	  !m_qfile.isOpen() ||
-	  !m_qfile.isWritable())
 	{
-	  if (m_qfile.isOpen()) m_qfile.close();
-	  m_qfile.setFileName(m_filename);
-	  m_qfile.open(QFile::ReadWrite);
+	  saveDataBlock(dmin, dmax,
+			0, m_width-1,
+			0, m_height-1);
+	  dmin = slices[i];
+	  dmax = slices[i];	  
 	}
-      
-      m_qfile.seek((qint64)(m_header + (d-slabno*m_slabSize)*bps));
-      m_qfile.write((char*)(m_volData + (qint64)d*bps), bps);
     }
+  saveDataBlock(dmin, dmax,
+		0, m_width-1,
+		0, m_height-1);  
+}
 
-  m_qfile.close();
+void
+FileHandler::saveWidthSlices(QList<int> slices)
+{
+  int wmin = slices[0];
+  int wmax = slices[0];
+  for(int i=1; i<slices.count(); i++)
+    {
+      if (slices[i] == wmax+1)
+	wmax++;
+      else if (slices[i] == wmin-1)
+	wmin--;
+      else
+	{
+	  saveDataBlock(0, m_depth-1,
+			wmin, wmax,
+			0, m_height-1);
+	  wmin = slices[i];
+	  wmax = slices[i];	  
+	}
+    }
+  saveDataBlock(0, m_depth-1,
+		wmin, wmax,
+		0, m_height-1);  
+}
+
+void
+FileHandler::saveHeightSlices(QList<int> slices)
+{
+  int hmin = slices[0];
+  int hmax = slices[0];
+  for(int i=1; i<slices.count(); i++)
+    {
+      if (slices[i] == hmax+1)
+	hmax++;
+      else if (slices[i] == hmin-1)
+	hmin--;
+      else
+	{
+	  saveDataBlock(0, m_depth-1,
+			0, m_width-1,
+			hmin, hmax);
+	  hmin = slices[i];
+	  hmax = slices[i];	  
+	}
+    }
+  saveDataBlock(0, m_depth-1,
+		0, m_width-1,
+		hmin, hmax);
 }

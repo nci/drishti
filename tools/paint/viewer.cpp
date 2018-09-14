@@ -247,6 +247,9 @@ Viewer::GlewInit()
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
   glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, &m_max3DTexSize);
+
+  // turn off autospin
+  camera()->frame()->setSpinningSensitivity(100.0);
 }
 
 void

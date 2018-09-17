@@ -1,5 +1,7 @@
 #include "filehandler.h"
 
+#include "blosc.h"
+
 #include <QMessageBox>
 
 
@@ -23,6 +25,8 @@ FileHandler::reset()
   m_voxelType = 0;
   m_bytesPerVoxel = 1;
   m_volData = 0;
+
+  m_savingFile = false;
 }
 
 void FileHandler::setFilenameList(QStringList flist) { m_filenames = flist; }
@@ -44,6 +48,106 @@ void FileHandler::setVoxelType(int vt)
 }
 void FileHandler::setVolData(uchar *v) { m_volData = v; }
 
+
+void
+FileHandler::loadMemFile()
+{
+  qint64 vsz = m_depth;
+  vsz *= m_width;
+  vsz *= m_height;
+  int mb100, nblocks;
+  char chkver[10];
+  memset(chkver, 0, 10);
+
+  m_qfile.setFileName(m_filenames[0]);
+  m_qfile.open(QFile::ReadOnly);
+  m_qfile.read((char*)chkver, 6);
+  m_qfile.read((char*)&nblocks, 4);
+  m_qfile.read((char*)&mb100, 4);
+  uchar *vBuf = new uchar[mb100];
+  for(qint64 i=0; i<nblocks; i++)
+    {
+      int vbsize;
+      m_qfile.read((char*)&vbsize, 4);
+      m_qfile.read((char*)vBuf, vbsize);
+      int bufsize = blosc_decompress(vBuf, m_volData+i*mb100, mb100);
+      if (bufsize < 0)
+	{
+	  QMessageBox::information(0, "", "Error in decompression : .cmask file not read");
+	  m_qfile.close();
+	  return;
+	}
+    }
+  m_qfile.close();
+  delete [] vBuf;
+}
+
+
+void
+FileHandler::saveMemFile()
+{
+  QMutexLocker locker(&m_mutex);
+  
+  m_savingFile = true;
+  
+  int nthreads, pnthreads;
+  nthreads = 4;
+  blosc_init();
+  // use nthreads for compression
+  // previously using threads in pnthreads
+  pnthreads = blosc_set_nthreads(nthreads);
+
+  qint64 vsz = m_depth;
+  vsz *= m_width;
+  vsz *= m_height;
+
+
+  // -----
+  int mb100 = 100*1024*1024;
+  uchar *vBuf = new uchar[mb100];
+  int nblocks = vsz/mb100;
+  if (nblocks * mb100 < vsz) nblocks++;
+  char chkver[10];
+  memset(chkver,0,10);
+  // drishti paint checkpoint v100
+  sprintf(chkver,"dpc100");
+
+  m_qfile.setFileName(m_filenames[0]);
+  m_qfile.open(QFile::WriteOnly);
+  m_qfile.write((char*)chkver, 6);
+  m_qfile.write((char*)&nblocks, 4);
+  m_qfile.write((char*)&mb100, 4);
+  for(qint64 i=0; i<nblocks; i++)
+    {
+      int bsz = mb100;
+      if ((i+1)*mb100 > vsz)
+	bsz = vsz-(i*mb100);
+
+      int bufsize;
+      bufsize = blosc_compress(9, // compression level
+			       BLOSC_SHUFFLE, // bit/byte-wise shuffle
+			       8, // typesize
+			       bsz, // input size
+			       m_volData+i*mb100,
+			       vBuf,
+			       mb100); // destination size
+      if (bufsize < 0)
+	{
+	  QMessageBox::information(0, "", "Error in compression : .cmask file not saved");
+	  m_qfile.close();
+	  return;
+	}
+      m_qfile.write((char*)&bufsize, 4);
+      m_qfile.write((char*)vBuf, bufsize);
+    }
+  m_qfile.close();  
+  // -----
+
+  delete [] vBuf;
+
+  m_savingFile = false;
+}
+
 void
 FileHandler::saveDataBlock(int dmin, int dmax,
 			   int wmin, int wmax,
@@ -56,7 +160,10 @@ FileHandler::saveDataBlock(int dmin, int dmax,
       return;
     }
 
-  QMutexLocker locker(&m_mutex);
+  //-----------  
+  saveMemFile();
+  return;
+  //-----------
   
   dmin = qMax(0, dmin);
   wmin = qMax(0, wmin);

@@ -28,28 +28,40 @@ VolumeFileManager::~VolumeFileManager()
 {
   if (m_thread)
     {
-      m_thread->terminate();
-      m_thread->wait();
+      if (m_handler->savingFile())
+	{
+	  QMessageBox::information(0, "Saving Mask File", "Please Wait");
+	}
     }
   
-  reset();
+//  if (m_thread)
+//    {
+//      m_thread->terminate();
+//      m_thread->wait();
+//    }  
+//  reset();
 }
 
-void
+bool
 VolumeFileManager::loadCheckPoint()
 {
   QString flnm;
   flnm = QFileDialog::getOpenFileName(0,
 				      "Save Checkpoint Information",
 				      Global::previousDirectory(),
-				      "Checkpoint Files (*.chk)",
+				      "Checkpoint Files (*.checkpoint)",
 				      0,
 				      QFileDialog::DontUseNativeDialog);
 
   
   if (flnm.isEmpty())
-    return;
+    return false;
 
+  return loadCheckPoint(flnm);
+}
+bool
+VolumeFileManager::loadCheckPoint(QString flnm)
+{
   QProgressDialog progress("Loading checkpoint file",
 			   "Cancel",
 			   0, 100,
@@ -59,38 +71,44 @@ VolumeFileManager::loadCheckPoint()
 
   progress.setLabelText(flnm);
   qApp->processEvents();
-  
-
-  qint64 vsz = m_depth;
-  vsz *= m_width;
-  vsz *= m_height;
-  uchar *vBuf = new uchar[vsz];
 
   int bufsize;
 
   progress.setValue(10);
   qApp->processEvents();
 
+  qint64 vsz = m_depth;
+  vsz *= m_width;
+  vsz *= m_height;
+  int mb100, nblocks;
+  char chkver[10];
+  memset(chkver, 0, 10);
   QFile cfile;
   cfile.setFileName(flnm);
   cfile.open(QFile::ReadOnly);
-  cfile.read((char*)&bufsize, 4);
-  cfile.read((char*)vBuf, bufsize);
-  cfile.close();
-
-  progress.setValue(70);
-  qApp->processEvents();
-
-  bufsize = blosc_decompress(vBuf, m_volData, vsz);
-  if (bufsize < 0)
+  cfile.read((char*)chkver, 6);
+  cfile.read((char*)&nblocks, 4);
+  cfile.read((char*)&mb100, 4);
+  uchar *vBuf = new uchar[mb100];
+  for(qint64 i=0; i<nblocks; i++)
     {
-      QMessageBox::information(0, "", "Error in decompression : checkpoint file not read");
-      return;
+      progress.setValue(100*i/nblocks);
+      qApp->processEvents();
+      int vbsize;
+      cfile.read((char*)&vbsize, 4);
+      cfile.read((char*)vBuf, vbsize);
+      int bufsize = blosc_decompress(vBuf, m_volData+i*mb100, mb100);
+      if (bufsize < 0)
+	{
+	  QMessageBox::information(0, "", "Error in decompression : checkpoint file not read");
+	  return false;
+	}
     }
-
+  cfile.close();
   delete [] vBuf;
 
-  QMessageBox::information(0, "Checkpoint", "Checkpoint information restored");  
+  //QMessageBox::information(0, "Checkpoint", "Checkpoint information restored");  
+  return true;
 }
 
 void
@@ -100,7 +118,7 @@ VolumeFileManager::checkPoint()
   flnm = QFileDialog::getSaveFileName(0,
 				      "Save Checkpoint Information",
 				      Global::previousDirectory(),
-				      "Checkpoint Files (*.chk)",
+				      "Checkpoint Files (*.checkpoint)",
 				      0,
 				      QFileDialog::DontUseNativeDialog);
 
@@ -108,8 +126,8 @@ VolumeFileManager::checkPoint()
   if (flnm.isEmpty())
     return;
 
-  if (!StaticFunctions::checkExtension(flnm, ".chk"))
-    flnm += ".chk";
+  if (!StaticFunctions::checkExtension(flnm, ".checkpoint"))
+    flnm += ".checkpoint";
   
   QProgressDialog progress("Saving checkpoint file",
 			   "Cancel",
@@ -131,34 +149,55 @@ VolumeFileManager::checkPoint()
   qint64 vsz = m_depth;
   vsz *= m_width;
   vsz *= m_height;
-  uchar *vBuf = new uchar[vsz];
+
   
   progress.setValue(10);
   qApp->processEvents();
 
-  int bufsize;
-  bufsize = blosc_compress(5, // compression level
-			   BLOSC_SHUFFLE, // bit/byte-wise shuffle
-			   8, // typesize
-			   vsz, // input size
-			   m_volData,
-			   vBuf,
-			   vsz); // destination size
-  if (bufsize < 0)
-    {
-      QMessageBox::information(0, "", "Error in compression : checkpoint file not saved");
-      return;
-    }
 
-  progress.setValue(70);
-  qApp->processEvents();
-  
+  // -----
+  int mb100 = 100*1024*1024;
+  uchar *vBuf = new uchar[mb100];
+  int nblocks = vsz/mb100;
+  if (nblocks * mb100 < vsz) nblocks++;
+  char chkver[10];
+  memset(chkver,0,10);
+  // drishti paint checkpoint v100
+  sprintf(chkver,"dpc100");
   QFile cfile;
   cfile.setFileName(flnm);
   cfile.open(QFile::ReadWrite);
-  cfile.write((char*)&bufsize, 4);
-  cfile.write((char*)vBuf, bufsize);
-  cfile.close();
+  cfile.write((char*)chkver, 6);
+  cfile.write((char*)&nblocks, 4);
+  cfile.write((char*)&mb100, 4);
+  for(qint64 i=0; i<nblocks; i++)
+    {
+      progress.setValue(100*i/nblocks);
+      qApp->processEvents();
+
+      int bsz = mb100;
+      if ((i+1)*mb100 > vsz)
+	bsz = vsz-(i*mb100);
+      
+      int bufsize;
+      bufsize = blosc_compress(9, // compression level
+			       BLOSC_SHUFFLE, // bit/byte-wise shuffle
+			       8, // typesize
+			       bsz, // input size
+			       m_volData+i*mb100,
+			       vBuf,
+			       mb100); // destination size
+      if (bufsize < 0)
+	{
+	  QMessageBox::information(0, "", "Error in compression : checkpoint file not saved");
+	  cfile.close();
+	  return;
+	}
+      cfile.write((char*)&bufsize, 4);
+      cfile.write((char*)vBuf, bufsize);
+    }
+  cfile.close();  
+  // -----
 
   progress.setValue(100);
 
@@ -193,7 +232,23 @@ VolumeFileManager::startFileHandlerThread()
       m_thread->start();
     }
 
-  m_handler->setFilenameList(m_filenames);
+  if (m_filenames.count() == 1)
+    {
+      if (StaticFunctions::checkExtension(m_filenames[0], ".mask"))
+	{
+	  QString mflnm = m_filenames[0];
+	  mflnm.chop(4);
+	  mflnm += "cmask";
+	  QStringList mflnms;
+	  mflnms << mflnm;
+	  m_handler->setFilenameList(mflnms);
+	}
+      else if (StaticFunctions::checkExtension(m_filenames[0], ".cmask"))
+	{
+	  m_handler->setFilenameList(m_filenames);
+	}
+    }
+  //m_handler->setFilenameList(m_filenames);
   m_handler->setBaseFilename(m_baseFilename);
   m_handler->setDepth(m_depth);
   m_handler->setWidth(m_width);
@@ -353,6 +408,32 @@ VolumeFileManager::exists()
 
       m_qfile.setFileName(m_filename);
 
+      if (StaticFunctions::checkExtension(m_filename, ".cmask"))
+	{
+	  if (m_qfile.exists() == false)
+	    return false;
+	  else
+	    return true;
+	}
+      
+      if (StaticFunctions::checkExtension(m_filename, ".mask"))
+	{ // check for .cmask instead
+	  QString mflnm = m_filename;
+	  mflnm.chop(4);
+	  mflnm += "cmask";
+
+	  QStringList mflnms;
+	  mflnms << mflnm;
+	  setFilenameList(mflnms);
+
+	  m_qfile.setFileName(mflnm);
+	  if (m_qfile.exists() == false)
+	    return false;
+	  else
+	    return true;
+	}
+      
+
       if (m_qfile.exists() == false ||
 	  m_qfile.size() != m_header+fsize)
 	return false;
@@ -364,6 +445,60 @@ VolumeFileManager::exists()
 void
 VolumeFileManager::createFile(bool writeHeader, bool writeData)
 {
+  //----------------------
+  if (StaticFunctions::checkExtension(m_filenames[0], ".cmask"))
+    {
+      QString mflnm = m_filenames[0];
+      mflnm.chop(5);
+      mflnm += "mask";
+      qint64 fsize = m_depth;
+      qint64 bps = m_width*m_height*m_bytesPerVoxel;
+      fsize *= bps;
+
+      m_qfile.setFileName(mflnm);
+
+      // load .mask and save to .cmask file
+      if (m_qfile.exists() &&
+	  m_qfile.size() == m_header+fsize)
+	{
+	  QProgressDialog progress(QString("Loading %1").	\
+				   arg(mflnm),
+				   "Cancel",
+				   0, 100,
+				   0);
+	  progress.setMinimumDuration(0);
+	  progress.setCancelButton(0);
+	  
+	  createMemFile();      
+
+	  qint64 bps = m_width*m_height*m_bytesPerVoxel;
+	  m_qfile.open(QFile::ReadOnly);
+	  m_qfile.seek((qint64)m_header);	      	      
+	  for(int d=0; d<m_depth; d++)
+	    {
+	      m_qfile.read((char*)(m_volData + (qint64)d*bps), bps);
+	      	      
+	      progress.setValue((int)(100*(float)d/(float)m_depth));
+	      qApp->processEvents();
+	    }
+	  
+	  m_qfile.close(); 
+	  progress.setValue(100);
+
+	  m_handler->setVolData(m_volData);
+	  m_handler->saveMemFile();
+
+	  // converted to .cmask
+	  // remove mask file now
+	  m_qfile.remove();
+	    
+	  return;
+	}
+    }
+  //----------------------
+  
+  // .mask file does not exist, just proceed to create .cmask file
+
   qint64 bps = m_width*m_height*m_bytesPerVoxel;
   if (!m_slice)
     {
@@ -374,70 +509,79 @@ VolumeFileManager::createFile(bool writeHeader, bool writeData)
   memset(m_slice, 0, bps);
 
   m_slabno = m_prevslabno = -1;
-  int nslabs = m_depth/m_slabSize;
-  if (nslabs*m_slabSize < m_depth) nslabs++;
-  
-  uchar vt;
-  if (m_voxelType == _UChar) vt = 0; // unsigned byte
-  if (m_voxelType == _Char) vt = 1; // signed byte
-  if (m_voxelType == _UShort) vt = 2; // unsigned short
-  if (m_voxelType == _Short) vt = 3; // signed short
-  if (m_voxelType == _Int) vt = 4; // int
-  if (m_voxelType == _Float) vt = 8; // float
 
-  QProgressDialog progress(QString("Allocating space for\n%1\non disk").\
-			   arg(m_baseFilename),
-			   "Cancel",
-			   0, 100,
-			   0);
-  progress.setMinimumDuration(0);
-  progress.setCancelButton(0);
-
-  for(int ns=0; ns<nslabs; ns++)
-    {
-      if (ns < m_filenames.count())
-	m_filename = m_filenames[ns];
-      else
-	m_filename = m_baseFilename +
-	  QString(".%1").arg(ns+1, 3, 10, QChar('0'));
-
-      progress.setLabelText(m_filename);
-      qApp->processEvents();
-
-      if (m_qfile.isOpen())
-	m_qfile.close();
-
-      m_qfile.setFileName(m_filename);
-      m_qfile.open(QFile::WriteOnly);
-
-      int nslices = qMin(m_slabSize, m_depth-ns*m_slabSize);      
-      if (writeHeader)
-	{
-	  m_qfile.write((char*)&vt, 1);
-	  m_qfile.write((char*)&nslices, 4);
-	  m_qfile.write((char*)&m_width, 4);
-	  m_qfile.write((char*)&m_height, 4);
-	  m_header = 13;
-	}
-
-      progress.setValue(10);
-
-      if (writeData)
-	{
-	  for(int t=0; t<nslices; t++)
-	    {
-	      m_qfile.write((char*)m_slice, bps);
-	      progress.setValue((int)(100*(float)t/(float)nslices));
-	      qApp->processEvents();
-	    }
-	}
-    }
-  m_qfile.close();
-
-  progress.setValue(100);
 
   if (m_memmapped)
-    createMemFile();
+    {
+      createMemFile();      
+      m_handler->saveMemFile();
+      return;
+    }
+
+//  int nslabs = m_depth/m_slabSize;
+//  if (nslabs*m_slabSize < m_depth) nslabs++;
+//  
+//  uchar vt;
+//  if (m_voxelType == _UChar) vt = 0; // unsigned byte
+//  if (m_voxelType == _Char) vt = 1; // signed byte
+//  if (m_voxelType == _UShort) vt = 2; // unsigned short
+//  if (m_voxelType == _Short) vt = 3; // signed short
+//  if (m_voxelType == _Int) vt = 4; // int
+//  if (m_voxelType == _Float) vt = 8; // float
+//
+//  QProgressDialog progress(QString("Allocating space for\n%1\non disk").\
+//			   arg(m_baseFilename),
+//			   "Cancel",
+//			   0, 100,
+//			   0);
+//  progress.setMinimumDuration(0);
+//  progress.setCancelButton(0);
+//
+//  for(int ns=0; ns<nslabs; ns++)
+//    {
+//      if (ns < m_filenames.count())
+//	m_filename = m_filenames[ns];
+//      else
+//	m_filename = m_baseFilename +
+//	  QString(".%1").arg(ns+1, 3, 10, QChar('0'));
+//
+//      progress.setLabelText(m_filename);
+//      qApp->processEvents();
+//
+//      if (m_qfile.isOpen())
+//	m_qfile.close();
+//
+//      m_qfile.setFileName(m_filename);
+//      m_qfile.open(QFile::WriteOnly);
+//
+//      int nslices = qMin(m_slabSize, m_depth-ns*m_slabSize);      
+//      if (writeHeader)
+//	{
+//	  m_qfile.write((char*)&vt, 1);
+//	  m_qfile.write((char*)&nslices, 4);
+//	  m_qfile.write((char*)&m_width, 4);
+//	  m_qfile.write((char*)&m_height, 4);
+//	  m_header = 13;
+//	}
+//
+//      progress.setValue(10);
+//
+//      if (writeData)
+//	{
+//	  for(int t=0; t<nslices; t++)
+//	    {
+//	      m_qfile.write((char*)m_slice, bps);
+//	      progress.setValue((int)(100*(float)t/(float)nslices));
+//	      qApp->processEvents();
+//	    }
+//	}
+//    }
+//  m_qfile.close();
+//
+//  progress.setValue(100);
+//
+//  if (m_memmapped)
+//    createMemFile();
 }
 
 uchar*
@@ -1127,7 +1271,10 @@ VolumeFileManager::saveMemFile()
       return;
     }
 
-
+  QMessageBox::information(0,
+			   "Why are we here ?",
+			   "We really shouldn't be in this part of the code !!");
+    
   uchar vt;
   if (m_voxelType == _UChar) vt = 0; // unsigned byte
   if (m_voxelType == _Char) vt = 1; // signed byte
@@ -1198,7 +1345,31 @@ VolumeFileManager::loadMemFile()
   if (!m_memmapped)
     return;
 
+  
+  m_memChanged = false;
+  m_mcTimes = 0;
+  m_saveDSlices.clear();
+  m_saveWSlices.clear();
+  m_saveHSlices.clear();
+
+  
   createMemFile();
+
+  // --------------------
+  // .cmask file loading here
+  if (m_filenames.count() > 0)
+    {
+      if (StaticFunctions::checkExtension(m_filenames[0], ".cmask"))
+	{
+	  m_qfile.setFileName(m_filenames[0]);
+	  if (m_qfile.exists())
+	    {
+	      m_handler->loadMemFile();
+	      return;
+	    }
+	}
+    }
+  // --------------------
 
   QProgressDialog progress(QString("Loading %1").\
 			   arg(m_baseFilename),
@@ -1243,9 +1414,17 @@ VolumeFileManager::loadMemFile()
     }
   progress.setValue(100);
 
-  m_memChanged = false;
-  m_mcTimes = 0;
-  m_saveDSlices.clear();
+  // --------------------
+  // -- convert .mask to .cmask file here
+  if (m_filenames.count() > 0)
+    {
+      if (StaticFunctions::checkExtension(m_filenames[0], ".mask"))
+	{
+	  QMessageBox::information(0, "", "saveMemFile - from loadMemFile");
+	  m_handler->saveMemFile();
+	}
+    }
+  // --------------------
 }
 
 void
@@ -1258,6 +1437,9 @@ VolumeFileManager::createMemFile()
   vsize *= m_depth;
   m_volData = new uchar[vsize];
   memset(m_volData, 0, vsize);
+
+  if (m_handler)
+    m_handler->setVolData(m_volData);
 }
 
 void

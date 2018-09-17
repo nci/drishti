@@ -734,7 +734,7 @@ DrishtiPaint::on_saveWork_triggered()
 
       m_volume->saveIntermediateResults(true);
 
-      QMessageBox::information(0, "Save Work", "Tags, Curves and Fibers saved");
+      QMessageBox::information(0, "Save Work", "Saved");
     }
 }
 void
@@ -1326,8 +1326,8 @@ DrishtiPaint::on_actionExit_triggered()
       m_curvesWidget->saveCurves(curvesfile);
     }
 
-  m_viewer->init();
-  m_volume->reset();
+//  m_viewer->init();
+//  m_volume->reset();
 
   m_viewer->close();
 
@@ -1389,7 +1389,8 @@ DrishtiPaint::dragEnterEvent(QDragEnterEvent *event)
 	  if (StaticFunctions::checkURLs(urls, ".pvl.nc") ||
 	      StaticFunctions::checkURLs(urls, ".xml") ||
 	      StaticFunctions::checkURLs(urls, ".curves") ||
-	      StaticFunctions::checkURLs(urls, ".fibers"))
+	      StaticFunctions::checkURLs(urls, ".fibers") ||
+	      StaticFunctions::checkURLs(urls, ".checkpoint"))
 	    event->acceptProposedAction();
 	}
     }
@@ -1422,6 +1423,11 @@ DrishtiPaint::dropEvent(QDropEvent *event)
 		{
 		  QString flnm = (data->urls())[0].toLocalFile();
 		  setFile(flnm);
+		}
+	      else if (StaticFunctions::checkExtension(url.toLocalFile(), ".checkpoint"))
+		{
+		  QString flnm = (data->urls())[0].toLocalFile();
+		  loadCheckPoint(flnm);
 		}
 	    }
 	}
@@ -5890,7 +5896,7 @@ DrishtiPaint::updateModifiedRegion(int minD, int maxD,
   maxD = qMin(maxD+1, m_depth);
   maxW = qMin(maxW+1, m_width);
   maxH = qMin(maxH+1, m_height);
-
+    
   progress.setLabelText("Update modified region on gpu");
   qApp->processEvents();
   m_viewer->uploadMask(minD,minW,minH, maxD,maxW,maxH);
@@ -6631,7 +6637,8 @@ DrishtiPaint::on_actionCheckpoint_triggered()
 void
 DrishtiPaint::on_actionLoadCheckpoint_triggered()
 {
-  m_volume->loadCheckPoint();
+  if (!m_volume->loadCheckPoint())
+    return;
 
   // update all windows
   m_axialImage->reloadSlice();
@@ -6640,5 +6647,20 @@ DrishtiPaint::on_actionLoadCheckpoint_triggered()
 
   m_viewer->updateVoxels();
 
-  QMessageBox::information(0, "Checkpoint", "If you are happy with the restore, save it to mask file using Save Work");
+  QMessageBox::information(0, "Checkpoint Restored", "If you are happy with the restore,\nsave to to mask file using Save Work");
+}
+void
+DrishtiPaint::loadCheckPoint(QString flnm)
+{
+  if (!m_volume->loadCheckPoint(flnm))
+    return;
+
+  // update all windows
+  m_axialImage->reloadSlice();
+  m_sagitalImage->reloadSlice();
+  m_coronalImage->reloadSlice();
+
+  m_viewer->updateVoxels();
+
+  QMessageBox::information(0, "Checkpoint Restored", "If you are happy with the restore,\nsave to to mask file using Save Work");
 }

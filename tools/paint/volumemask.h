@@ -16,7 +16,8 @@ class VolumeMask : public QObject
   void setGridSize(int, int, int, int);
 
   void checkPoint();
-  void loadCheckPoint();
+  bool loadCheckPoint();
+  bool loadCheckPoint(QString);
   
   void offLoadMemFile();
   void loadMemFile();

@@ -17,6 +17,8 @@ class FileHandler : public QObject
   FileHandler();
   ~FileHandler();
 
+  bool savingFile() { return m_savingFile; }
+
   public slots :
     void setFilenameList(QStringList);
     void setBaseFilename(QString);
@@ -29,6 +31,9 @@ class FileHandler : public QObject
 
     void setVolData(uchar*);
     
+    void saveMemFile();
+    void loadMemFile();
+    
     void saveDataBlock(int,int,
 		       int,int,
 		       int,int);
@@ -38,6 +43,7 @@ class FileHandler : public QObject
     void saveHeightSlices(IntList);
     
  private:
+    bool m_savingFile;
     QFile m_qfile;
     QString m_filename;
     QString m_baseFilename;

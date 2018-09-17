@@ -33,10 +33,15 @@ VolumeMask::checkPoint()
 {
   m_maskFileManager.checkPoint();
 }
-void
+bool
 VolumeMask::loadCheckPoint()
 {
-  m_maskFileManager.loadCheckPoint();
+  return m_maskFileManager.loadCheckPoint();
+}
+bool
+VolumeMask::loadCheckPoint(QString flnm)
+{
+  return m_maskFileManager.loadCheckPoint(flnm);
 }
 
 void
@@ -160,12 +165,12 @@ VolumeMask::setGridSize(int d, int w, int h, int slabsize)
   // do not split data across multiple files
   m_maskFileManager.setSlabSize(m_depth+1);
 
+  m_maskFileManager.startFileHandlerThread();
+
   if (m_maskFileManager.exists())
     m_maskFileManager.loadMemFile();
   else
     checkMaskFile();
-
-  m_maskFileManager.startFileHandlerThread();
 }
 
 void

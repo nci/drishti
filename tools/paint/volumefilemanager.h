@@ -37,7 +37,8 @@ class VolumeFileManager : public QObject
   bool exists();
 
   void checkPoint();
-  void loadCheckPoint();
+  bool loadCheckPoint();
+  bool loadCheckPoint(QString);
   
   void setMemMapped(bool);
   bool isMemMapped();

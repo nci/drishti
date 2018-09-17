@@ -10,7 +10,8 @@ Volume::saveIntermediateResults(bool forceSave)
 }
 
 void Volume::checkPoint() { m_mask.checkPoint(); }
-void Volume::loadCheckPoint() { m_mask.loadCheckPoint(); }
+bool Volume::loadCheckPoint() { return m_mask.loadCheckPoint(); }
+bool Volume::loadCheckPoint(QString flnm) { return m_mask.loadCheckPoint(flnm); }
 
 void
 Volume::saveMaskBlock(int d, int w, int h, int rad)

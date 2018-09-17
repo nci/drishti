@@ -312,6 +312,7 @@ class DrishtiPaint : public QMainWindow
 
   void extractFromAnotherVolume(QList<int>);
 
+  void loadCheckPoint(QString);
 };
 
 #endif

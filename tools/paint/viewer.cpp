@@ -3007,6 +3007,12 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
 void
 Viewer::uploadMask(int dst, int wst, int hst, int ded, int wed, int hed)
 {
+//  QProgressDialog progress("Updating the mask",
+//			   QString(),
+//			   0, 100,
+//			   0);
+//  progress.setMinimumDuration(0);
+
   int ds = m_minDSlice + m_sslevel*qFloor((dst-m_minDSlice)/m_sslevel);
   int ws = m_minWSlice + m_sslevel*qFloor((wst-m_minWSlice)/m_sslevel);
   int hs = m_minHSlice + m_sslevel*qFloor((hst-m_minHSlice)/m_sslevel);
@@ -3023,22 +3029,29 @@ Viewer::uploadMask(int dst, int wst, int hst, int ded, int wed, int hed)
   we = qBound(m_minWSlice, we, m_maxWSlice);
   he = qBound(m_minHSlice, he, m_maxHSlice);
 
-  int dsz = (de-ds)/m_sslevel;
-  int wsz = (we-ws)/m_sslevel;
-  int hsz = (he-hs)/m_sslevel;
+  qint64 dsz = (de-ds)/m_sslevel;
+  qint64 wsz = (we-ws)/m_sslevel;
+  qint64 hsz = (he-hs)/m_sslevel;
   if (dsz*m_sslevel < de-ds) dsz++;
   if (wsz*m_sslevel < we-ws) wsz++;
   if (hsz*m_sslevel < he-hs) hsz++;
-  int tsz = dsz*wsz*hsz;      
+  qint64 tsz = dsz*wsz*hsz;      
   uchar *voxelVol = new uchar[tsz];
   int i = 0;
   for(int d=ds; d<de; d+=m_sslevel)
-    for(int w=ws; w<we; w+=m_sslevel)
+    {
+//      progress.setValue(100*d/de);
+//      qApp->processEvents();
+      for(int w=ws; w<we; w+=m_sslevel)
       for(int h=hs; h<he; h+=m_sslevel)
 	{
 	  voxelVol[i] = m_maskPtr[d*m_width*m_height + w*m_height + h];
 	  i++;
 	}
+    }
+  
+//  progress.setValue(90);
+//  qApp->processEvents();
 
   int doff = (ds-m_minDSlice)/m_sslevel;
   int woff = (ws-m_minWSlice)/m_sslevel;
@@ -3056,9 +3069,13 @@ Viewer::uploadMask(int dst, int wst, int hst, int ded, int wed, int hed)
 		  voxelVol);
   glDisable(GL_TEXTURE_3D);
 
+  
   update();
 
   delete [] voxelVol;
+
+//  progress.setValue(100);
+//  qApp->processEvents();
 }
 
 void

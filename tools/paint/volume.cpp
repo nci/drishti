@@ -9,6 +9,7 @@ Volume::saveIntermediateResults(bool forceSave)
   m_mask.saveIntermediateResults(forceSave);
 }
 
+void Volume::exportMask() { m_mask.exportMask(); }
 void Volume::checkPoint() { m_mask.checkPoint(); }
 bool Volume::loadCheckPoint() { return m_mask.loadCheckPoint(); }
 bool Volume::loadCheckPoint(QString flnm) { return m_mask.loadCheckPoint(flnm); }

@@ -29,6 +29,11 @@ VolumeMask::reset()
 }
 
 void
+VolumeMask::exportMask()
+{
+  m_maskFileManager.exportMask();
+}
+void
 VolumeMask::checkPoint()
 {
   m_maskFileManager.checkPoint();

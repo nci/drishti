@@ -45,6 +45,7 @@ class DrishtiPaint : public QMainWindow
   void on_saveWork_triggered();
   void on_loadMask_triggered();
   void saveWork();
+  void on_actionExportMask_triggered();
   void on_actionCheckpoint_triggered();
   void on_actionLoadCheckpoint_triggered();
   void on_actionLoad_TF_triggered();

@@ -15,6 +15,7 @@ class VolumeMask : public QObject
   void setFile(QString, bool);
   void setGridSize(int, int, int, int);
 
+  void exportMask();
   void checkPoint();
   bool loadCheckPoint();
   bool loadCheckPoint(QString);

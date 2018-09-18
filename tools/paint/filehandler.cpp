@@ -113,7 +113,7 @@ FileHandler::saveMemFile()
   sprintf(chkver,"dpc100");
 
   m_qfile.setFileName(m_filenames[0]);
-  m_qfile.open(QFile::WriteOnly);
+  m_qfile.open(QFile::ReadWrite);
   m_qfile.write((char*)chkver, 6);
   m_qfile.write((char*)&nblocks, 4);
   m_qfile.write((char*)&mb100, 4);
@@ -140,6 +140,10 @@ FileHandler::saveMemFile()
       m_qfile.write((char*)&bufsize, 4);
       m_qfile.write((char*)vBuf, bufsize);
     }
+  // to truncate the file at current position
+  // file size will change based on compression achieved
+  m_qfile.resize(m_qfile.pos());
+
   m_qfile.close();  
   // -----
 

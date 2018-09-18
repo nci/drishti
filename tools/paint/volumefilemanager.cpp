@@ -30,7 +30,7 @@ VolumeFileManager::~VolumeFileManager()
     {
       if (m_handler->savingFile())
 	{
-	  QMessageBox::information(0, "Saving Mask File", "Please Wait");
+	  QMessageBox::information(0, "Saving Mask File", "Please wait a minute and then close this window");
 	}
     }
   
@@ -1271,10 +1271,31 @@ VolumeFileManager::saveMemFile()
       return;
     }
 
+
   QMessageBox::information(0,
 			   "Why are we here ?",
 			   "We really shouldn't be in this part of the code !!");
     
+}
+
+void
+VolumeFileManager::exportMask()
+{
+  QString flnm;
+  flnm = QFileDialog::getSaveFileName(0,
+				      "Export to .mask file",
+				      Global::previousDirectory(),
+				      "Mask Files (*.mask)",
+				      0,
+				      QFileDialog::DontUseNativeDialog);
+
+  
+  if (flnm.isEmpty())
+    return;
+
+  if (!StaticFunctions::checkExtension(flnm, ".mask"))
+    flnm += ".mask";
+
   uchar vt;
   if (m_voxelType == _UChar) vt = 0; // unsigned byte
   if (m_voxelType == _Char) vt = 1; // signed byte
@@ -1283,8 +1304,7 @@ VolumeFileManager::saveMemFile()
   if (m_voxelType == _Int) vt = 4; // int
   if (m_voxelType == _Float) vt = 8; // float
 
-  QProgressDialog progress(QString("Saving %1").\
-			   arg(m_baseFilename),
+  QProgressDialog progress(QString("Saving %1").arg(flnm),
 			   "Cancel",
 			   0, 100,
 			   0);
@@ -1292,51 +1312,26 @@ VolumeFileManager::saveMemFile()
   progress.setCancelButton(0);
 
   qint64 bps = m_width*m_height*m_bytesPerVoxel;
-  int d = -1;
-  int nslabs = m_depth/m_slabSize;
-  if (nslabs*m_slabSize < m_depth) nslabs++;
-  for(int ns=0; ns<nslabs; ns++)
+
+  if (m_qfile.isOpen())
+    m_qfile.close();
+
+  m_qfile.setFileName(flnm);
+  m_qfile.open(QFile::WriteOnly);
+  m_qfile.write((char*)&vt, 1);
+  m_qfile.write((char*)&m_depth, 4);
+  m_qfile.write((char*)&m_width, 4);
+  m_qfile.write((char*)&m_height, 4);
+  for(int d=0; d<m_depth; d++)
     {
-      if (ns < m_filenames.count())
-	m_filename = m_filenames[ns];
-      else
-	m_filename = m_baseFilename +
-	  QString(".%1").arg(ns+1, 3, 10, QChar('0'));
-
-      progress.setLabelText(m_filename);
+      m_qfile.write((char*)(m_volData + (qint64)d*bps), bps);      
+      progress.setValue((int)(100*(float)d/(float)m_depth));
       qApp->processEvents();
-
-      if (m_qfile.isOpen())
-	m_qfile.close();
-
-      m_qfile.setFileName(m_filename);
-      m_qfile.open(QFile::ReadWrite);
-
-      int nslices = qMin(m_slabSize, m_depth-ns*m_slabSize);      
-      m_qfile.write((char*)&vt, 1);
-      m_qfile.write((char*)&nslices, 4);
-      m_qfile.write((char*)&m_width, 4);
-      m_qfile.write((char*)&m_height, 4);
-      m_header = 13;
-
-      int slast = (m_depth-1-d);
-      for(int s=0; s<qMin(m_slabSize, (qint64)slast); s++)
-	{
-	  d++;
-	  m_qfile.write((char*)(m_volData + (qint64)d*bps), bps);
-
-	  progress.setValue((int)(100*(float)d/(float)m_depth));
-	  qApp->processEvents();
-	}
-
-      m_qfile.close();
     }
+  
+  m_qfile.close();
 
   progress.setValue(100);
-
-  m_memChanged = false;
-  m_mcTimes = 0;
-  m_saveDSlices.clear();
 }
 
 void

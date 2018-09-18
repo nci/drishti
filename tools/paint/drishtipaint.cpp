@@ -6629,6 +6629,12 @@ DrishtiPaint::extractFromAnotherVolume(QList<int> tags)
 }
 
 void
+DrishtiPaint::on_actionExportMask_triggered()
+{
+  m_volume->exportMask();
+}
+
+void
 DrishtiPaint::on_actionCheckpoint_triggered()
 {
   m_volume->checkPoint();

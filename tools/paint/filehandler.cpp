@@ -73,7 +73,7 @@ FileHandler::loadMemFile()
       int bufsize = blosc_decompress(vBuf, m_volData+i*mb100, mb100);
       if (bufsize < 0)
 	{
-	  QMessageBox::information(0, "", "Error in decompression : .cmask file not read");
+	  QMessageBox::information(0, "", "Error in decompression : .mask.sc file not read");
 	  m_qfile.close();
 	  return;
 	}
@@ -133,7 +133,7 @@ FileHandler::saveMemFile()
 			       mb100); // destination size
       if (bufsize < 0)
 	{
-	  QMessageBox::information(0, "", "Error in compression : .cmask file not saved");
+	  QMessageBox::information(0, "", "Error in compression : .mask.sc file not saved");
 	  m_qfile.close();
 	  return;
 	}

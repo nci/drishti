@@ -237,13 +237,12 @@ VolumeFileManager::startFileHandlerThread()
       if (StaticFunctions::checkExtension(m_filenames[0], ".mask"))
 	{
 	  QString mflnm = m_filenames[0];
-	  mflnm.chop(4);
-	  mflnm += "cmask";
+	  mflnm += ".sc";
 	  QStringList mflnms;
 	  mflnms << mflnm;
 	  m_handler->setFilenameList(mflnms);
 	}
-      else if (StaticFunctions::checkExtension(m_filenames[0], ".cmask"))
+      else if (StaticFunctions::checkExtension(m_filenames[0], ".mask.sc"))
 	{
 	  m_handler->setFilenameList(m_filenames);
 	}
@@ -408,7 +407,7 @@ VolumeFileManager::exists()
 
       m_qfile.setFileName(m_filename);
 
-      if (StaticFunctions::checkExtension(m_filename, ".cmask"))
+      if (StaticFunctions::checkExtension(m_filename, ".mask.sc"))
 	{
 	  if (m_qfile.exists() == false)
 	    return false;
@@ -417,10 +416,9 @@ VolumeFileManager::exists()
 	}
       
       if (StaticFunctions::checkExtension(m_filename, ".mask"))
-	{ // check for .cmask instead
+	{ // check for .mask.sc instead
 	  QString mflnm = m_filename;
-	  mflnm.chop(4);
-	  mflnm += "cmask";
+	  mflnm += ".sc";
 
 	  QStringList mflnms;
 	  mflnms << mflnm;
@@ -446,10 +444,10 @@ void
 VolumeFileManager::createFile(bool writeHeader, bool writeData)
 {
   //----------------------
-  if (StaticFunctions::checkExtension(m_filenames[0], ".cmask"))
+  if (StaticFunctions::checkExtension(m_filenames[0], ".mask.sc"))
     {
       QString mflnm = m_filenames[0];
-      mflnm.chop(5);
+      mflnm.chop(7);
       mflnm += "mask";
       qint64 fsize = m_depth;
       qint64 bps = m_width*m_height*m_bytesPerVoxel;
@@ -457,7 +455,7 @@ VolumeFileManager::createFile(bool writeHeader, bool writeData)
 
       m_qfile.setFileName(mflnm);
 
-      // load .mask and save to .cmask file
+      // load .mask and save to .mask.sc file
       if (m_qfile.exists() &&
 	  m_qfile.size() == m_header+fsize)
 	{
@@ -488,7 +486,7 @@ VolumeFileManager::createFile(bool writeHeader, bool writeData)
 	  m_handler->setVolData(m_volData);
 	  m_handler->saveMemFile();
 
-	  // converted to .cmask
+	  // converted to .mask.sc
 	  // remove mask file now
 	  m_qfile.remove();
 	    
@@ -497,7 +495,7 @@ VolumeFileManager::createFile(bool writeHeader, bool writeData)
     }
   //----------------------
   
-  // .mask file does not exist, just proceed to create .cmask file
+  // .mask file does not exist, just proceed to create .mask.sc file
 
   qint64 bps = m_width*m_height*m_bytesPerVoxel;
   if (!m_slice)
@@ -1351,10 +1349,10 @@ VolumeFileManager::loadMemFile()
   createMemFile();
 
   // --------------------
-  // .cmask file loading here
+  // .mask.sc file loading here
   if (m_filenames.count() > 0)
     {
-      if (StaticFunctions::checkExtension(m_filenames[0], ".cmask"))
+      if (StaticFunctions::checkExtension(m_filenames[0], ".mask.sc"))
 	{
 	  m_qfile.setFileName(m_filenames[0]);
 	  if (m_qfile.exists())
@@ -1410,7 +1408,7 @@ VolumeFileManager::loadMemFile()
   progress.setValue(100);
 
   // --------------------
-  // -- convert .mask to .cmask file here
+  // -- convert .mask to .mask.sc file here
   if (m_filenames.count() > 0)
     {
       if (StaticFunctions::checkExtension(m_filenames[0], ".mask"))

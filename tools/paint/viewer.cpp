@@ -111,8 +111,8 @@ Viewer::Viewer(QWidget *parent) :
 // we are treating bounding box as 6 clip planes
 //  connect(&m_boundingBox, SIGNAL(updated()),
 //	  this, SLOT(updateFilledBoxes()));
-//  connect(&m_boundingBox, SIGNAL(updated()),
-//	  this, SLOT(boundingBoxChanged()));
+  connect(&m_boundingBox, SIGNAL(updated()),
+	  this, SLOT(boundingBoxChanged()));
 }
 
 Viewer::~Viewer()
@@ -2557,36 +2557,45 @@ Viewer::drawClip()
 void
 Viewer::boundingBoxChanged()
 {
-//  if (m_depth == 0) // we don't have a volume yet
-//    return;
-//    
-//  //----
-//  Vec bmin, bmax;
-//  m_boundingBox.bounds(bmin, bmax);
-//  Vec voxelScaling = Global::relativeVoxelScaling();
-//  bmin = VECDIVIDE(bmin, voxelScaling);
-//  bmax = VECDIVIDE(bmax, voxelScaling);
-//  int minD = bmin.z;
-//  int minW = bmin.y;
-//  int minH = bmin.x;
-//  int maxD = qCeil(bmax.z); // because we are getting it as float
-//  int maxW = qCeil(bmax.y);
-//  int maxH = qCeil(bmax.x);
-//
-//  if (minD == m_cminD &&
-//      maxD == m_cmaxD &&
-//      minW == m_cminW &&
-//      maxW == m_cmaxW &&
-//      minH == m_cminH &&
-//      maxH == m_cmaxH)
-//    return; // no change
-//  //----
-//    
+  if (m_depth == 0) // we don't have a volume yet
+    return;
+    
+  //----
+  Vec bmin, bmax;
+  m_boundingBox.bounds(bmin, bmax);
+  Vec voxelScaling = Global::relativeVoxelScaling();
+  bmin = VECDIVIDE(bmin, voxelScaling);
+  bmax = VECDIVIDE(bmax, voxelScaling);
+  int minD = bmin.z;
+  int minW = bmin.y;
+  int minH = bmin.x;
+  int maxD = qCeil(bmax.z); // because we are getting it as float
+  int maxW = qCeil(bmax.y);
+  int maxH = qCeil(bmax.x);
+
+  if (minD == m_cminD &&
+      maxD == m_cmaxD &&
+      minW == m_cminW &&
+      maxW == m_cmaxW &&
+      minH == m_cminH &&
+      maxH == m_cmaxH)
+    return; // no change
+
+  bmin = StaticFunctions::maxVec(bmin, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
+  bmax = StaticFunctions::minVec(bmax, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
+  m_cminD = bmin.z;
+  m_cminW = bmin.y;
+  m_cminH = bmin.x;
+  m_cmaxD = qCeil(bmax.z); // because we are getting it as float
+  m_cmaxW = qCeil(bmax.y);
+  m_cmaxH = qCeil(bmax.x);
+  //----
+
 //  generateBoxes();
 //
 //  loadAllBoxesToVBO();  
 //
-//  updateFilledBoxes();
+  updateFilledBoxes();
 }
 
 void
@@ -2811,22 +2820,22 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
     cPos << camera()->position()+50*camera()->viewDirection();
     cNorm << -camera()->viewDirection();
 
-    //--------------------------
-    // 6 planes of bounding box
-    {
-      Vec bminO, bmaxO;
-      m_boundingBox.bounds(bminO, bmaxO);
-      
-      bminO = VECDIVIDE(bminO, voxelScaling);
-      bmaxO = VECDIVIDE(bmaxO, voxelScaling);
-      if (bminO.x > 0) { cPos << bminO; cNorm << Vec(-1,0,0); }
-      if (bminO.y > 0) { cPos << bminO; cNorm << Vec(0,-1,0); }
-      if (bminO.z > 0) { cPos << bminO; cNorm << Vec(0,0,-1); }
-      if (bmaxO.x < m_maxHSlice) { cPos << bmaxO; cNorm << Vec(1,0,0); }
-      if (bmaxO.y < m_maxWSlice) { cPos << bmaxO; cNorm << Vec(0,1,0); }
-      if (bmaxO.y < m_maxDSlice) { cPos << bmaxO; cNorm << Vec(0,0,1); }
-    }
-    //--------------------------
+//    //--------------------------
+//    // 6 planes of bounding box
+//    {
+//      Vec bminO, bmaxO;
+//      m_boundingBox.bounds(bminO, bmaxO);
+//      
+//      bminO = VECDIVIDE(bminO, voxelScaling);
+//      bmaxO = VECDIVIDE(bmaxO, voxelScaling);
+//      if (bminO.x > 0) { cPos << bminO; cNorm << Vec(-1,0,0); }
+//      if (bminO.y > 0) { cPos << bminO; cNorm << Vec(0,-1,0); }
+//      if (bminO.z > 0) { cPos << bminO; cNorm << Vec(0,0,-1); }
+//      if (bmaxO.x < m_maxHSlice) { cPos << bmaxO; cNorm << Vec(1,0,0); }
+//      if (bmaxO.y < m_maxWSlice) { cPos << bmaxO; cNorm << Vec(0,1,0); }
+//      if (bmaxO.y < m_maxDSlice) { cPos << bmaxO; cNorm << Vec(0,0,1); }
+//    }
+//    //--------------------------
 
     int nclip = cPos.count();
     float cpos[100];
@@ -3804,17 +3813,19 @@ Viewer::updateFilledBoxes()
   progress.setValue(10);
   qApp->processEvents();
 
-  Vec bminO, bmaxO;
-  m_boundingBox.bounds(bminO, bmaxO);
+//  Vec bminO, bmaxO;
+//  m_boundingBox.bounds(bminO, bmaxO);
+//
+//  Vec voxelScaling = Global::relativeVoxelScaling();
+//  bminO = VECDIVIDE(bminO, voxelScaling);
+//  bmaxO = VECDIVIDE(bmaxO, voxelScaling);
+//
+//  bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
+//  bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
 
-  Vec voxelScaling = Global::relativeVoxelScaling();
-  bminO = VECDIVIDE(bminO, voxelScaling);
-  bmaxO = VECDIVIDE(bmaxO, voxelScaling);
+  Vec bminO(m_cminH, m_cminW, m_cminD);
+  Vec bmaxO(m_cmaxH, m_cmaxW, m_cmaxD);
 
-  bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
-  bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
-
-  
   progress.setValue(20);
   qApp->processEvents();
   
@@ -3874,14 +3885,17 @@ Viewer::generateDrawBoxes()
   
   Vec voxelScaling = Global::relativeVoxelScaling();
 
-  Vec bminO, bmaxO;
-  m_boundingBox.bounds(bminO, bmaxO);
+//  Vec bminO, bmaxO;
+//  m_boundingBox.bounds(bminO, bmaxO);
+//
+//  bminO = VECDIVIDE(bminO, voxelScaling);
+//  bmaxO = VECDIVIDE(bmaxO, voxelScaling);
+//
+//  bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
+//  bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
 
-  bminO = VECDIVIDE(bminO, voxelScaling);
-  bmaxO = VECDIVIDE(bmaxO, voxelScaling);
-
-  bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
-  bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
+  Vec bminO(m_minHSlice, m_minWSlice, m_minDSlice);
+  Vec bmaxO(m_maxHSlice, m_maxWSlice, m_maxDSlice);
 
   int imin = (int)bminO.x/m_boxSize;
   int jmin = (int)bminO.y/m_boxSize;

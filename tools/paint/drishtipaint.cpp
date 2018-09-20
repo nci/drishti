@@ -16,6 +16,8 @@
 #include "volumeinformation.h"
 #include "volumeoperations.h"
 
+#include "blosc.h"
+
 void
 DrishtiPaint::initTagColors()
 {
@@ -3064,7 +3066,7 @@ DrishtiPaint::on_loadMask_triggered()
   flnm = QFileDialog::getOpenFileName(0,
 				      "Load Mask File",
 				      Global::previousDirectory(),
-				      "MASK Files (*.mask)",
+				      "MASK Files (*.mask.sc | *.mask)",
 				      0,
 				      QFileDialog::DontUseNativeDialog);
 
@@ -3072,39 +3074,78 @@ DrishtiPaint::on_loadMask_triggered()
   if (flnm.isEmpty())
     return;
 
-
   uchar vt;
   int lrd, lrw, lrh;
-  
-  QFile mfile;
-  mfile.setFileName(flnm);
-  mfile.open(QFile::ReadOnly);
 
-  mfile.read((char*)&vt, 1);
-  mfile.read((char*)&lrd, 4);
-  mfile.read((char*)&lrw, 4);
-  mfile.read((char*)&lrh, 4);
   int m_depth, m_width, m_height;
   m_volume->gridSize(m_depth, m_width, m_height);
 
+  QFile mfile;
+  if (StaticFunctions::checkExtension(flnm, ".mask"))
+    {
+      mfile.setFileName(flnm);
+      mfile.open(QFile::ReadOnly);
+      mfile.read((char*)&vt, 1);
+      mfile.read((char*)&lrd, 4);
+      mfile.read((char*)&lrw, 4);
+      mfile.read((char*)&lrh, 4);
+    }
+  else if (StaticFunctions::checkExtension(flnm, ".mask.sc"))
+    {
+      char chkver[10];
+      mfile.setFileName(flnm);
+      mfile.open(QFile::ReadOnly);
+      mfile.read((char*)chkver, 6);
+      mfile.read((char*)&vt, 1);
+      mfile.read((char*)&lrd, 4);
+      mfile.read((char*)&lrw, 4);
+      mfile.read((char*)&lrh, 4);
+    }
+  
   float scld = (float)m_depth/lrd;
   float sclw = (float)m_width/lrw;
   float sclh = (float)m_height/lrh;
-
+  
   QString mesg;
-  mesg += QString("Volume Size : %1 %2 %3\n").\
-                  arg(m_height).arg(m_width).arg(m_depth);
-  mesg += QString("Input Mask Size : %1 %2 %3\n").\
-                  arg(lrh).arg(lrw).arg(lrd);
-  mesg += QString("Scaling applied : %1 %2 %3").\
-		   arg(sclh).arg(sclw).arg(scld);
+  mesg += QString("Volume Size : %1 %2 %3\n").			\
+	              arg(m_height).arg(m_width).arg(m_depth);
+  mesg += QString("Input Mask Size : %1 %2 %3\n").	\
+	              arg(lrh).arg(lrw).arg(lrd);
+  mesg += QString("Scaling applied : %1 %2 %3").	\
+	              arg(sclh).arg(sclw).arg(scld);
   QMessageBox::information(0, "", mesg);
 
   uchar *lmask;
   lmask = new uchar[(qint64)lrd*(qint64)lrw*(qint64)lrh];
 
-  mfile.read((char*)lmask, (qint64)lrd*(qint64)lrw*(qint64)lrh);
+  if (StaticFunctions::checkExtension(flnm, ".mask"))
+    {
+      mfile.read((char*)lmask, (qint64)lrd*(qint64)lrw*(qint64)lrh);
+    }
+  else if (StaticFunctions::checkExtension(flnm, ".mask.sc"))
+    {
+      int mb100, nblocks;
+      mfile.read((char*)&nblocks, 4);
+      mfile.read((char*)&mb100, 4);
+      uchar *vBuf = new uchar[mb100];
+      for(qint64 i=0; i<nblocks; i++)
+	{
+	  int vbsize;
+	  mfile.read((char*)&vbsize, 4);
+	  mfile.read((char*)vBuf, vbsize);
+	  int bufsize = blosc_decompress(vBuf, lmask+i*mb100, mb100);
+	  if (bufsize < 0)
+	    {
+	      QMessageBox::information(0, "", "Error in decompression : .mask.sc file not read");
+	      mfile.close();
+	      return;
+	    }
+	}
+    }
+  
+  mfile.close();
 
+  
   uchar *maskptr = m_volume->memMaskDataPtr();
 
   bool s0top = sliceZeroAtTop();

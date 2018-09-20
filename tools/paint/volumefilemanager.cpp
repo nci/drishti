@@ -77,6 +77,9 @@ VolumeFileManager::loadCheckPoint(QString flnm)
   progress.setValue(10);
   qApp->processEvents();
 
+  uchar vt;
+  int dpt, wdt, ht;
+  
   qint64 vsz = m_depth;
   vsz *= m_width;
   vsz *= m_height;
@@ -87,6 +90,19 @@ VolumeFileManager::loadCheckPoint(QString flnm)
   cfile.setFileName(flnm);
   cfile.open(QFile::ReadOnly);
   cfile.read((char*)chkver, 6);
+  cfile.read((char*)&vt, 1);
+  cfile.read((char*)&dpt, 4);
+  cfile.read((char*)&wdt, 4);
+  cfile.read((char*)&ht, 4);
+  if (dpt != m_depth ||
+      wdt != m_width ||
+      ht != m_height)
+    {
+      QMessageBox::information(0, "Error",
+			       QString("Cannot load checkpoint file : Grid sizes do not match - %1 %2 %3").arg(ht).arg(wdt).arg(dpt));
+      cfile.close();
+    }
+  
   cfile.read((char*)&nblocks, 4);
   cfile.read((char*)&mb100, 4);
   uchar *vBuf = new uchar[mb100];
@@ -162,12 +178,16 @@ VolumeFileManager::checkPoint()
   if (nblocks * mb100 < vsz) nblocks++;
   char chkver[10];
   memset(chkver,0,10);
-  // drishti paint checkpoint v100
-  sprintf(chkver,"dpc100");
+  // drishti paint mask v100
+  sprintf(chkver,"dpm100");
   QFile cfile;
   cfile.setFileName(flnm);
   cfile.open(QFile::ReadWrite);
   cfile.write((char*)chkver, 6);
+  cfile.write((char*)&m_voxelType, 1);
+  cfile.write((char*)&m_depth, 4);
+  cfile.write((char*)&m_width, 4);
+  cfile.write((char*)&m_height, 4);
   cfile.write((char*)&nblocks, 4);
   cfile.write((char*)&mb100, 4);
   for(qint64 i=0; i<nblocks; i++)

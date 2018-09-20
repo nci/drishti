@@ -62,6 +62,7 @@ FileHandler::loadMemFile()
   m_qfile.setFileName(m_filenames[0]);
   m_qfile.open(QFile::ReadOnly);
   m_qfile.read((char*)chkver, 6);
+  m_qfile.seek(13); // skip 13 bytes
   m_qfile.read((char*)&nblocks, 4);
   m_qfile.read((char*)&mb100, 4);
   uchar *vBuf = new uchar[mb100];
@@ -109,12 +110,16 @@ FileHandler::saveMemFile()
   if (nblocks * mb100 < vsz) nblocks++;
   char chkver[10];
   memset(chkver,0,10);
-  // drishti paint checkpoint v100
-  sprintf(chkver,"dpc100");
+  // drishti paint mask v100
+  sprintf(chkver,"dpm100");
 
   m_qfile.setFileName(m_filenames[0]);
   m_qfile.open(QFile::ReadWrite);
   m_qfile.write((char*)chkver, 6);
+  m_qfile.write((char*)&m_voxelType, 1);
+  m_qfile.write((char*)&m_depth, 4);
+  m_qfile.write((char*)&m_width, 4);
+  m_qfile.write((char*)&m_height, 4);
   m_qfile.write((char*)&nblocks, 4);
   m_qfile.write((char*)&mb100, 4);
   for(qint64 i=0; i<nblocks; i++)

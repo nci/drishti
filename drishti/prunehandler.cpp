@@ -2538,7 +2538,7 @@ PruneHandler::fillPathPatch(Vec dmin,
 {
   if (!standardChecks()) return;
   if (points.count() < 3) return;
-
+  
   m_mopActive = true;
   
   int lod = m_dragInfo.z;

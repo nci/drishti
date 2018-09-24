@@ -62,7 +62,21 @@ FileHandler::loadMemFile()
   m_qfile.setFileName(m_filenames[0]);
   m_qfile.open(QFile::ReadOnly);
   m_qfile.read((char*)chkver, 6);
-  m_qfile.seek(13); // skip 13 bytes
+  uchar vt;
+  int dpt, wdt, ht;
+  m_qfile.read((char*)&vt, 1);
+  m_qfile.read((char*)&dpt, 4);
+  m_qfile.read((char*)&wdt, 4);
+  m_qfile.read((char*)&ht, 4);
+  if (dpt != m_depth ||
+      wdt != m_width ||
+      ht != m_height)
+    {
+      QMessageBox::information(0, "Error",
+			       QString("Cannot load mask.sc file : Grid sizes do not match - %1 %2 %3").arg(ht).arg(wdt).arg(dpt));
+      m_qfile.close();
+      return;
+    }
   m_qfile.read((char*)&nblocks, 4);
   m_qfile.read((char*)&mb100, 4);
   uchar *vBuf = new uchar[mb100];

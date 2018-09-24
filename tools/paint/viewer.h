@@ -309,7 +309,8 @@ class Viewer : public QGLViewer
   GLint m_mdEle;
   GLsizei *m_mdCount;
   GLint *m_mdIndices;
-  QList<QList<Vec> > m_boxSoup;
+  QVector<QList<Vec> > m_boxSoup;
+  int m_numBoxes;
   //-------------
   
   

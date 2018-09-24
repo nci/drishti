@@ -92,6 +92,7 @@ Viewer::Viewer(QWidget *parent) :
   m_mdEle = 0;
   m_mdCount = 0;
   m_mdIndices = 0;
+  m_numBoxes = 0;
   
 #ifdef USE_GLMEDIA
   m_movieWriter = 0;
@@ -786,7 +787,6 @@ Viewer::keyPressEvent(QKeyEvent *event)
 	    endMovie();
 	  
 	  m_savingImages = 0;
-	  QWidget *p = (QWidget*)parent();
 	  QFrame *cv = (QFrame*)parent()->children()[1];
 	  cv->show();
 	  QMessageBox::information(0, "", "Stopped Saving Image Sequence");
@@ -1582,7 +1582,9 @@ Viewer::drawInfo()
 
   mesg += QString("LOD(%1) Vol(%2 %3 %4) ").				\
     arg(m_sslevel).arg(m_vsize.x+1).arg(m_vsize.y+1).arg(m_vsize.z+1);
-
+//  mesg += QString("   %1").\
+//    arg(m_numBoxes*(4+4+36*4*3)/(1024.0*1024.0));
+  
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glEnable(GL_POINT_SMOOTH);
@@ -2688,6 +2690,7 @@ Viewer::generateBoxes()
 	      box[b] = VECPRODUCT(box[b], voxelScaling);
 	      
 	    QList<Vec> vboSoup;
+	    vboSoup.reserve(36);
 	    for(int v=0; v<6; v++)
 	      {
 		Vec poly[4];
@@ -2710,6 +2713,9 @@ Viewer::generateBoxes()
     } // k
   
   progress.setValue(100);
+
+  m_numBoxes = m_boxSoup.count();
+  m_boxSoup.squeeze();
 }
 
 void
@@ -3934,8 +3940,9 @@ Viewer::generateDrawBoxes()
 		    m_mdIndices[m_mdEle] = mdI*36;
 		    m_mdCount[m_mdEle] = mdC*36;
 		    m_mdEle++;
-		    if (m_mdEle >= m_boxSoup.count())
-		QMessageBox::information(0, "", QString("ele > %1").arg(m_boxSoup.count()));
+		    //if (m_mdEle >= m_boxSoup.count())
+		    if (m_mdEle >= m_numBoxes)
+		QMessageBox::information(0, "", QString("ele > %1").arg(m_numBoxes));
 		    
 		    mdI = -1;
 		    mdC = 0;
@@ -3968,13 +3975,13 @@ Viewer::loadAllBoxesToVBO()
   m_mdEle = 0;
   if (m_mdCount) delete [] m_mdCount;
   if (m_mdIndices) delete [] m_mdIndices;  
-  m_mdCount = new GLsizei[m_boxSoup.count()];
-  m_mdIndices = new GLint[m_boxSoup.count()];
+  m_mdCount = new GLsizei[m_numBoxes];
+  m_mdIndices = new GLint[m_numBoxes];
   
   //---------------------
-  int bcount = m_boxSoup.count();
+  //int bcount = m_boxSoup.count();
   int nvert = 0;
-  for(int i=0; i<bcount; i++)
+  for(int i=0; i<m_numBoxes; i++)
     nvert += m_boxSoup[i].count();
 
   m_ntri = nvert/3;
@@ -3983,11 +3990,11 @@ Viewer::loadAllBoxesToVBO()
   float *vertData;
   vertData = new float[nv];
   int vi=0;
-  for(int i=0; i<bcount; i++)
+  for(int i=0; i<m_numBoxes; i++)
     {
       if ((i/100)%10 == 0)
 	{
-	  progress.setValue(100*(float)i/(float)bcount);
+	  progress.setValue(100*(float)i/(float)m_numBoxes);
 	  qApp->processEvents();
 	}
       for(int b=0; b<m_boxSoup[i].count(); b++)
@@ -4061,6 +4068,8 @@ Viewer::loadAllBoxesToVBO()
   delete [] vertData;
   delete [] indexData;
 
+  m_boxSoup.clear();
+  
   progress.setValue(100);
   qApp->processEvents();
 }

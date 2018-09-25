@@ -173,6 +173,8 @@ DrishtiPaint::changeImageSlice(int d, int w, int h)
 DrishtiPaint::DrishtiPaint(QWidget *parent) :
   QMainWindow(parent)
 {
+  Global::setMainWindow(this);
+    
   ui.setupUi(this);
 //  ui.statusbar->setEnabled(true);
 //  ui.statusbar->setSizeGripEnabled(true);
@@ -2100,6 +2102,7 @@ DrishtiPaint::savePvlHeader(QString volfile,
 	pvlmap = dlist.at(i).toElement().text();
     }
 
+  voxelType = "unsigned char";
   if (!saveImageData)
     {
       rawFile = "";
@@ -2111,6 +2114,7 @@ DrishtiPaint::savePvlHeader(QString volfile,
     }
   else if (bpv == 2)
     voxelType = "unsigned short";
+  
   
   QDomDocument doc("Drishti_Header");
 
@@ -2125,9 +2129,9 @@ DrishtiPaint::savePvlHeader(QString volfile,
     topElement.appendChild(de0);
   }
   {      
-    QDomElement de0 = doc.createElement("description");
+    QDomElement de0 = doc.createElement("voxeltype");
     QDomText tn0;
-    tn0 = doc.createTextNode(description);
+    tn0 = doc.createTextNode(voxelType);
     de0.appendChild(tn0);
     topElement.appendChild(de0);
   }
@@ -2135,6 +2139,13 @@ DrishtiPaint::savePvlHeader(QString volfile,
     QDomElement de0 = doc.createElement("pvlvoxeltype");
     QDomText tn0;
     tn0 = doc.createTextNode(voxelType);
+    de0.appendChild(tn0);
+    topElement.appendChild(de0);
+  }
+  {      
+    QDomElement de0 = doc.createElement("gridsize");
+    QDomText tn0;
+    tn0 = doc.createTextNode(QString("%1 %2 %3").arg(d).arg(w).arg(h));
     de0.appendChild(tn0);
     topElement.appendChild(de0);
   }
@@ -2153,9 +2164,9 @@ DrishtiPaint::savePvlHeader(QString volfile,
     topElement.appendChild(de0);
   }
   {      
-    QDomElement de0 = doc.createElement("gridsize");
+    QDomElement de0 = doc.createElement("description");
     QDomText tn0;
-    tn0 = doc.createTextNode(QString("%1 %2 %3").arg(d).arg(w).arg(h));
+    tn0 = doc.createTextNode(description);
     de0.appendChild(tn0);
     topElement.appendChild(de0);
   }
@@ -2225,7 +2236,8 @@ DrishtiPaint::applyMaskOperation(int tag,
   QProgressDialog progress(QString("%1 tagged(%2) region").arg(mesg).arg(tag),
 			   QString(),
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
   int nbytes = width*height;
@@ -3153,7 +3165,8 @@ DrishtiPaint::on_loadMask_triggered()
   QProgressDialog progress("Updating voxel structure",
 			   QString(),
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
   int d;
   for(qint64 slc=0; slc<lrd; slc++)
@@ -3428,13 +3441,15 @@ DrishtiPaint::on_actionExtractTag_triggered()
   tFile.setDepth(tdepth);
   tFile.setWidth(twidth);
   tFile.setHeight(theight);
+  tFile.setHeaderSize(13);
   tFile.setSlabSize(tdepth+1);
   tFile.createFile(true, false);
 
   QProgressDialog progress("Extracting tagged region from volume data",
 			   QString(),
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
   uchar *lut = Global::lut();
@@ -4037,7 +4052,8 @@ DrishtiPaint::updateCurveMask(uchar *curveMask, QList<int> tag,
   QProgressDialog progress("Generating Curve Mask",
 			   QString(),
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
   if (m_curvesWidget->dCurvesPresent())
@@ -4122,7 +4138,8 @@ DrishtiPaint::updateFiberMask(uchar *curveMask, QList<int> tag,
   QProgressDialog progress("Generating Fiber Mask",
 			   QString(),
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
   QList<Fiber*> *fibers = m_curvesWidget->fibers();
@@ -4176,7 +4193,8 @@ DrishtiPaint::processHoles(uchar* data,
   QProgressDialog progress("Closing holes",
 			   QString(),
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   if (holeSize < 0)
     progress.setLabelText("Opening holes");
 
@@ -4274,7 +4292,8 @@ DrishtiPaint::dilateAndSmooth(uchar* data,
   QProgressDialog progress("Dilating before smoothing",
 			   QString(),
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
   // dilate spread times before applying smoothing
@@ -4343,7 +4362,8 @@ DrishtiPaint::smoothData(uchar *gData,
   QProgressDialog progress("Smoothing before meshing",
 			   QString(),
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
   uchar *tmp = new uchar[qMax(nX, qMax(nY, nZ))];
@@ -4617,7 +4637,8 @@ DrishtiPaint::on_actionMeshTag_triggered()
   QProgressDialog progress("Meshing tagged region from volume data",
 			   "",
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
   uchar *meshingData = new uchar[tdepth*twidth*theight];
@@ -4968,7 +4989,8 @@ DrishtiPaint::colorMesh(QList<Vec>& C,
   QProgressDialog progress("Colouring mesh",
 			   QString(),
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
   
   int bsz = spread+1;
@@ -5090,7 +5112,8 @@ DrishtiPaint::saveMesh(QList<Vec> V,
   QProgressDialog progress("Saving mesh ...",
 			   QString(),
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
   QStringList ps;
@@ -5241,7 +5264,8 @@ DrishtiPaint::smoothMesh(QList<Vec>& V,
   QProgressDialog progress("Mesh smoothing in progress ... ",
 			   QString(),
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
   //----------------------------
@@ -5718,7 +5742,8 @@ DrishtiPaint::tagUsingSketchPad(Vec bmin, Vec bmax, int tag)
   QProgressDialog progress("Updating voxel structure",
 			   QString(),
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
   progress.setLabelText("Locating initial seed");
 
@@ -5923,7 +5948,8 @@ DrishtiPaint::updateModifiedRegion(int minD, int maxD,
   QProgressDialog progress("Update modified region in 2D slice viewer",
 			   QString(),
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
   getSlice(m_currSlice);
@@ -6275,7 +6301,8 @@ DrishtiPaint::on_actionBakeCurves_triggered()
   QProgressDialog progress("Baking curves into mask data",
 			   QString(),
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
   //----------------------------------
@@ -6529,7 +6556,8 @@ DrishtiPaint::extractFromAnotherVolume(QList<int> tags)
   QProgressDialog progress("Extracting tagged region from volume data",
 			   QString(),
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
       
   // currently take only first tag

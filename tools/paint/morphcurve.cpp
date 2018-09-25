@@ -1267,7 +1267,8 @@ MorphCurve::getAllPerimeters(QList<Perimeter> perimeters,
   QProgressDialog progress(QString("Morphing Curves"),
 			   QString(),
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
   qApp->processEvents();
 

@@ -169,6 +169,7 @@ class RcViewer : public QObject
   GLsizei *m_mdCount;
   GLint *m_mdIndices;
   QList<QList<Vec> > m_boxSoup;
+  int m_numBoxes;
   //-------------
 
   QList<BrickInformation> m_brickInfo;

@@ -101,6 +101,8 @@ RcViewer::init()
   m_ftBoxes = 0;
   m_filledBoxes.clear();
 
+  m_numBoxes = 0;
+  
 //  if (m_boxHistogram.count() > 0)
 //    {
 //      for(int b=0; b<m_boxHistogram.count(); b++)
@@ -1422,6 +1424,8 @@ RcViewer::generateBoxes()
 	  } //i j
     } // k
   
+  m_numBoxes = m_boxSoup.count();
+
   progress.setValue(100);
 }
 
@@ -1437,13 +1441,12 @@ RcViewer::loadAllBoxesToVBO()
   m_mdEle = 0;
   if (m_mdCount) delete [] m_mdCount;
   if (m_mdIndices) delete [] m_mdIndices;  
-  m_mdCount = new GLsizei[m_boxSoup.count()];
-  m_mdIndices = new GLint[m_boxSoup.count()];
+  m_mdCount = new GLsizei[m_numBoxes];
+  m_mdIndices = new GLint[m_numBoxes];
 
   //---------------------
-  int bcount = m_boxSoup.count();
   int nvert = 0;
-  for(int i=0; i<bcount; i++)
+  for(int i=0; i<m_numBoxes; i++)
     nvert += m_boxSoup[i].count();
 
   m_ntri = nvert/3;
@@ -1452,11 +1455,11 @@ RcViewer::loadAllBoxesToVBO()
   float *vertData;
   vertData = new float[nv];
   int vi=0;
-  for(int i=0; i<bcount; i++)
+  for(int i=0; i<m_numBoxes; i++)
     {
       if ((i/100)%10 == 0)
 	{
-	  progress.setValue(100*(float)i/(float)bcount);
+	  progress.setValue(100*(float)i/(float)m_numBoxes);
 	  qApp->processEvents();
 	}
       for(int b=0; b<m_boxSoup[i].count(); b++)
@@ -1530,6 +1533,8 @@ RcViewer::loadAllBoxesToVBO()
   delete [] vertData;
   delete [] indexData;
 
+  m_boxSoup.clear();
+  
   progress.setValue(100);
   qApp->processEvents();
 }
@@ -1699,8 +1704,8 @@ RcViewer::generateDrawBoxes()
 		    m_mdIndices[m_mdEle] = mdI*36;
 		    m_mdCount[m_mdEle] = mdC*36;
 		    m_mdEle++;
-		    if (m_mdEle >= m_boxSoup.count())
-		QMessageBox::information(0, "", QString("ele > %1").arg(m_boxSoup.count()));
+		    if (m_mdEle >= m_numBoxes)
+		QMessageBox::information(0, "", QString("ele > %1").arg(m_numBoxes));
 		    
 		    mdI = -1;
 		    mdC = 0;

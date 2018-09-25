@@ -91,7 +91,12 @@ class Global
   static void setBytesPerVoxel(int);
   static int bytesPerVoxel();
 
+  static QWidget* mainWindow();
+  static void setMainWindow(QWidget*);
+  
+
  private :
+  static QWidget* m_mainWindow;
   static QString m_documentationPath;
   static int m_lutSize;
   static uchar* m_lut;

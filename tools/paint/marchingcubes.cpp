@@ -101,7 +101,11 @@ void MarchingCubes::run( real iso )
 
   compute_intersection_points( iso ) ;
 
-  QProgressDialog progress("Mesh Generation : Generating triangles", QString(), 0, 100);
+  QProgressDialog progress("Mesh Generation : Generating triangles",
+			   QString(),
+			   0, 100,
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
   for( _k = 0 ; _k < _size_z-1 ; _k++ )
@@ -239,7 +243,12 @@ void MarchingCubes::clean_all()
 void MarchingCubes::compute_intersection_points( real iso )
 //-----------------------------------------------------------------------------
 {
-  QProgressDialog progress("Mesh Generation : Compute intersection points", QString(), 0, 100);
+  QProgressDialog progress("Mesh Generation : Compute intersection points",
+			   QString(),
+			   0, 100,
+			   0,
+			   Qt::WindowStaysOnTopHint);
+
   progress.setMinimumDuration(0);
 
   for( _k = 0 ; _k < _size_z ; _k++ )

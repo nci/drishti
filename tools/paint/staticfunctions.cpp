@@ -246,7 +246,8 @@ StaticFunctions::generateHistograms(float *flhist1D,
   QProgressDialog progress("Generating Histograms",
 			   "Cancel",
 			   0, 100,
-			   0); 
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
   progress.setValue(0);
@@ -1024,3 +1025,5 @@ StaticFunctions::line3d(Vec v0, Vec v1)
   
   return line;
 }
+
+

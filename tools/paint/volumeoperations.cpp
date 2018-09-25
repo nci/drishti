@@ -42,7 +42,8 @@ void VolumeOperations::getVolume(Vec bmin, Vec bmax, int tag)
   QProgressDialog progress("Calculating Volume",
 			   QString(),
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
   int ds = bmin.z;
@@ -128,7 +129,8 @@ VolumeOperations::resetTag(Vec bmin, Vec bmax, int tag,
   QProgressDialog progress("Updating voxel structure",
 			   QString(),
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
   minD = maxD = -1;
@@ -230,7 +232,8 @@ VolumeOperations::hatchConnectedRegion(int dr, int wr, int hr,
   QProgressDialog progress("Updating voxel structure",
 			   QString(),
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
   //----------------------------  
@@ -320,7 +323,8 @@ VolumeOperations::connectedRegion(int dr, int wr, int hr,
   QProgressDialog progress("Updating voxel structure",
 			   QString(),
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
   //----------------------------  
@@ -367,7 +371,8 @@ VolumeOperations::getConnectedRegion(int dr, int wr, int hr,
   QProgressDialog progress("Identifying connected region",
 			   QString(),
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
   qint64 mx = he-hs+1;
@@ -533,7 +538,8 @@ VolumeOperations::getTransparentRegion(int ds, int ws, int hs,
   QProgressDialog progress("Identifying transparent region",
 			   QString(),
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
   qint64 mx = he-hs+1;
@@ -665,7 +671,8 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
   QProgressDialog progress("Shrinkwrap",
 			   QString(),
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
   int startd = de;
@@ -1003,7 +1010,8 @@ VolumeOperations::dilateBitmask(int nDilate, bool htype,
   QProgressDialog progress("Dilate bitmask",
 			   QString(),
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
   int indices[] = {-1, 0, 0,
@@ -1191,7 +1199,8 @@ VolumeOperations::setVisible(Vec bmin, Vec bmax,
   QProgressDialog progress("Updating voxel structure",
 			   QString(),
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
   minD = maxD = -1;
@@ -1274,7 +1283,8 @@ VolumeOperations::mergeTags(Vec bmin, Vec bmax,
   QProgressDialog progress("Updating voxel structure",
 			   QString(),
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
   if (useTF)
@@ -1414,7 +1424,8 @@ VolumeOperations::erodeConnected(int dr, int wr, int hr,
   QProgressDialog progress("Updating voxel structure",
 			   QString(),
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
 
@@ -1641,7 +1652,8 @@ VolumeOperations::dilateConnected(int dr, int wr, int hr,
   QProgressDialog progress("Updating voxel structure",
 			   QString(),
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
   int ds = qMax(0, (int)bmin.z);
@@ -1937,7 +1949,8 @@ VolumeOperations::modifyOriginalVolume(Vec bmin, Vec bmax,
   QProgressDialog progress("Updating Original Volume",
 			   QString(),
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
   minD = maxD = -1;

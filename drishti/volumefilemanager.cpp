@@ -160,7 +160,7 @@ VolumeFileManager::exists()
       fsize *= bps;
 
       m_qfile.setFileName(m_filename);
-
+			       
       if (m_qfile.exists() == false ||
 	  m_qfile.size() != m_header+fsize)
 	return false;

@@ -258,7 +258,8 @@ Volume::genHistogram(bool forceHistogram)
   QProgressDialog progress("Histogram Generation",
 			   "Cancel",
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
   progress.setCancelButton(0);
   qApp->processEvents();

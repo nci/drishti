@@ -65,7 +65,8 @@ VolumeFileManager::loadCheckPoint(QString flnm)
   QProgressDialog progress("Loading checkpoint file",
 			   "Cancel",
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
   progress.setCancelButton(0);
 
@@ -148,7 +149,8 @@ VolumeFileManager::checkPoint()
   QProgressDialog progress("Saving checkpoint file",
 			   "Cancel",
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
   progress.setCancelButton(0);
 
@@ -483,7 +485,8 @@ VolumeFileManager::createFile(bool writeHeader, bool writeData)
 				   arg(mflnm),
 				   "Cancel",
 				   0, 100,
-				   0);
+				   0,
+				   Qt::WindowStaysOnTopHint);
 	  progress.setMinimumDuration(0);
 	  progress.setCancelButton(0);
 	  
@@ -536,67 +539,67 @@ VolumeFileManager::createFile(bool writeHeader, bool writeData)
       return;
     }
 
-//  int nslabs = m_depth/m_slabSize;
-//  if (nslabs*m_slabSize < m_depth) nslabs++;
-//  
-//  uchar vt;
-//  if (m_voxelType == _UChar) vt = 0; // unsigned byte
-//  if (m_voxelType == _Char) vt = 1; // signed byte
-//  if (m_voxelType == _UShort) vt = 2; // unsigned short
-//  if (m_voxelType == _Short) vt = 3; // signed short
-//  if (m_voxelType == _Int) vt = 4; // int
-//  if (m_voxelType == _Float) vt = 8; // float
-//
-//  QProgressDialog progress(QString("Allocating space for\n%1\non disk").\
-//			   arg(m_baseFilename),
-//			   "Cancel",
-//			   0, 100,
-//			   0);
-//  progress.setMinimumDuration(0);
-//  progress.setCancelButton(0);
-//
-//  for(int ns=0; ns<nslabs; ns++)
-//    {
-//      if (ns < m_filenames.count())
-//	m_filename = m_filenames[ns];
-//      else
-//	m_filename = m_baseFilename +
-//	  QString(".%1").arg(ns+1, 3, 10, QChar('0'));
-//
-//      progress.setLabelText(m_filename);
-//      qApp->processEvents();
-//
-//      if (m_qfile.isOpen())
-//	m_qfile.close();
-//
-//      m_qfile.setFileName(m_filename);
-//      m_qfile.open(QFile::WriteOnly);
-//
-//      int nslices = qMin(m_slabSize, m_depth-ns*m_slabSize);      
-//      if (writeHeader)
-//	{
-//	  m_qfile.write((char*)&vt, 1);
-//	  m_qfile.write((char*)&nslices, 4);
-//	  m_qfile.write((char*)&m_width, 4);
-//	  m_qfile.write((char*)&m_height, 4);
-//	  m_header = 13;
-//	}
-//
-//      progress.setValue(10);
-//
-//      if (writeData)
-//	{
-//	  for(int t=0; t<nslices; t++)
-//	    {
-//	      m_qfile.write((char*)m_slice, bps);
-//	      progress.setValue((int)(100*(float)t/(float)nslices));
-//	      qApp->processEvents();
-//	    }
-//	}
-//    }
-//  m_qfile.close();
-//
-//  progress.setValue(100);
+  int nslabs = m_depth/m_slabSize;
+  if (nslabs*m_slabSize < m_depth) nslabs++;
+  
+  uchar vt;
+  if (m_voxelType == _UChar) vt = 0; // unsigned byte
+  if (m_voxelType == _Char) vt = 1; // signed byte
+  if (m_voxelType == _UShort) vt = 2; // unsigned short
+  if (m_voxelType == _Short) vt = 3; // signed short
+  if (m_voxelType == _Int) vt = 4; // int
+  if (m_voxelType == _Float) vt = 8; // float
+
+  QProgressDialog progress(QString("Allocating space for\n%1\non disk").\
+			   arg(m_baseFilename),
+			   "Cancel",
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+  progress.setCancelButton(0);
+
+  for(int ns=0; ns<nslabs; ns++)
+    {
+      if (ns < m_filenames.count())
+	m_filename = m_filenames[ns];
+      else
+	m_filename = m_baseFilename +
+	  QString(".%1").arg(ns+1, 3, 10, QChar('0'));
+
+      progress.setLabelText(m_filename);
+      qApp->processEvents();
+
+      if (m_qfile.isOpen())
+	m_qfile.close();
+
+      m_qfile.setFileName(m_filename);
+      m_qfile.open(QFile::WriteOnly);
+
+      int nslices = qMin(m_slabSize, m_depth-ns*m_slabSize);      
+      if (writeHeader)
+	{
+	  m_qfile.write((char*)&vt, 1);
+	  m_qfile.write((char*)&nslices, 4);
+	  m_qfile.write((char*)&m_width, 4);
+	  m_qfile.write((char*)&m_height, 4);
+	  m_header = 13;
+	}
+
+      progress.setValue(10);
+
+      if (writeData)
+	{
+	  for(int t=0; t<nslices; t++)
+	    {
+	      m_qfile.write((char*)m_slice, bps);
+	      progress.setValue((int)(100*(float)t/(float)nslices));
+	      qApp->processEvents();
+	    }
+	}
+    }
+  m_qfile.close();
+
+  progress.setValue(100);
 //
 //  if (m_memmapped)
 //    createMemFile();
@@ -1197,7 +1200,8 @@ VolumeFileManager::saveSlicesToFile()
 			   arg(m_baseFilename),
 			   "Cancel",
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
   progress.setCancelButton(0);
 
@@ -1325,7 +1329,8 @@ VolumeFileManager::exportMask()
   QProgressDialog progress(QString("Saving %1").arg(flnm),
 			   "Cancel",
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
   progress.setCancelButton(0);
 
@@ -1388,7 +1393,8 @@ VolumeFileManager::loadMemFile()
 			   arg(m_baseFilename),
 			   "Cancel",
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
   progress.setCancelButton(0);
 
@@ -1686,7 +1692,8 @@ VolumeFileManager::saveBlock(int dmin, int dmax,
 			   arg(m_baseFilename),
 			   "Cancel",
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
   progress.setCancelButton(0);
 

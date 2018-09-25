@@ -1584,7 +1584,8 @@ Viewer::drawInfo()
     arg(m_sslevel).arg(m_vsize.x+1).arg(m_vsize.y+1).arg(m_vsize.z+1);
 //  mesg += QString("   %1").\
 //    arg(m_numBoxes*(4+4+36*4*3)/(1024.0*1024.0));
-  
+
+      
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glEnable(GL_POINT_SMOOTH);
@@ -1624,7 +1625,7 @@ Viewer::drawInfo()
   StaticFunctions::pushOrthoView(0, 0, wd, ht);
   StaticFunctions::renderText(10,10, mesg, tfont, Qt::black, Qt::lightGray);
 
-  tfont = QFont("Helvetica", 10);  
+  tfont = QFont("Helvetica", 10); 
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
   bmin = VECDIVIDE(bmin, voxelScaling);
@@ -1639,13 +1640,16 @@ Viewer::drawInfo()
     arg(bminx).arg(bminy).arg(bminz).				\
     arg(bmaxx).arg(bmaxy).arg(bmaxz).		\
     arg(bmaxx-bminx+1).arg(bmaxy-bminy+1).arg(bmaxz-bminz+1);
-  float vszgb = (bmaxx-bminx)*(bmaxy-bminy)*(bmaxz-bminz);
+  float vszgb = (float)(bmaxx-bminx)*(float)(bmaxy-bminy)*(float)(bmaxz-bminz);
   vszgb /= m_sslevel;
   vszgb /= m_sslevel;
   vszgb /= m_sslevel;
   vszgb /= 1024;
   vszgb /= 1024;
-  mesg += QString("mb(%1 @ %2)").arg(vszgb).arg(m_sslevel);
+  if (vszgb < 1000)
+    mesg += QString("mb(%1 @ %2)").arg(vszgb).arg(m_sslevel);
+  else
+    mesg += QString("gb(%1 @ %2)").arg(vszgb/1024).arg(m_sslevel);
   StaticFunctions::renderText(10,30, mesg, tfont, Qt::black, Qt::lightGray);
 
   int sh = camera()->screenHeight();  
@@ -1846,6 +1850,8 @@ Viewer::updateVoxels()
 
 
   updateVoxelsForRaycast();
+
+  updateFilledBoxes();
 }
 
 void
@@ -1913,7 +1919,8 @@ Viewer::updateVoxelsForRaycast()
   QProgressDialog progress("Updating voxel structure",
 			   QString(),
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
   //----------------------------
   // load data volume
@@ -2606,7 +2613,8 @@ Viewer::generateBoxes()
   QProgressDialog progress("Updating box structure",
 			   QString(),
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
   m_boxSoup.clear();
@@ -2826,22 +2834,26 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
     cPos << camera()->position()+50*camera()->viewDirection();
     cNorm << -camera()->viewDirection();
 
-//    //--------------------------
-//    // 6 planes of bounding box
-//    {
-//      Vec bminO, bmaxO;
-//      m_boundingBox.bounds(bminO, bmaxO);
-//      
-//      bminO = VECDIVIDE(bminO, voxelScaling);
-//      bmaxO = VECDIVIDE(bmaxO, voxelScaling);
-//      if (bminO.x > 0) { cPos << bminO; cNorm << Vec(-1,0,0); }
-//      if (bminO.y > 0) { cPos << bminO; cNorm << Vec(0,-1,0); }
-//      if (bminO.z > 0) { cPos << bminO; cNorm << Vec(0,0,-1); }
-//      if (bmaxO.x < m_maxHSlice) { cPos << bmaxO; cNorm << Vec(1,0,0); }
-//      if (bmaxO.y < m_maxWSlice) { cPos << bmaxO; cNorm << Vec(0,1,0); }
-//      if (bmaxO.y < m_maxDSlice) { cPos << bmaxO; cNorm << Vec(0,0,1); }
-//    }
-//    //--------------------------
+    //--------------------------
+    // 6 planes of bounding box
+    {
+      Vec bmin, bmax;
+      m_boundingBox.bounds(bmin, bmax);
+      
+      bmin = VECDIVIDE(bmin, voxelScaling);
+      bmax = VECDIVIDE(bmax, voxelScaling);
+
+      bmin = StaticFunctions::maxVec(bmin, Vec(m_minHSlice, m_minWSlice, m_minDSlice));     
+      { cPos << bmin; cNorm << Vec(-1,0,0); }
+      { cPos << bmin; cNorm << Vec(0,-1,0); }
+      { cPos << bmin; cNorm << Vec(0,0,-1); }
+
+      bmax = StaticFunctions::minVec(bmax, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
+      { cPos << bmax; cNorm << Vec(1,0,0); }
+      { cPos << bmax; cNorm << Vec(0,1,0); }
+      { cPos << bmax; cNorm << Vec(0,0,1); }
+    }
+    //--------------------------
 
     int nclip = cPos.count();
     float cpos[100];
@@ -3674,7 +3686,8 @@ Viewer::generateBoxMinMax()
   QProgressDialog progress(QString("Updating min-max structure (%1)").arg(m_boxSize),
 			   QString(),
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
   m_dbox = m_depth/m_boxSize;
@@ -3742,7 +3755,8 @@ Viewer::usedTags()
   QProgressDialog progress("Calculating Tags Used",
 			   QString(),
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
   QList<int> ut;
@@ -3812,25 +3826,23 @@ Viewer::updateFilledBoxes()
   QProgressDialog progress("Marking valid boxes - (1/2)",
 			   QString(),
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
 
   progress.setValue(10);
   qApp->processEvents();
 
-//  Vec bminO, bmaxO;
-//  m_boundingBox.bounds(bminO, bmaxO);
-//
-//  Vec voxelScaling = Global::relativeVoxelScaling();
-//  bminO = VECDIVIDE(bminO, voxelScaling);
-//  bmaxO = VECDIVIDE(bmaxO, voxelScaling);
-//
-//  bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
-//  bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
+  Vec bminO, bmaxO;
+  m_boundingBox.bounds(bminO, bmaxO);
 
-  Vec bminO(m_cminH, m_cminW, m_cminD);
-  Vec bmaxO(m_cmaxH, m_cmaxW, m_cmaxD);
+  Vec voxelScaling = Global::relativeVoxelScaling();
+  bminO = VECDIVIDE(bminO, voxelScaling);
+  bmaxO = VECDIVIDE(bmaxO, voxelScaling);
+
+  bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
+  bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
 
   progress.setValue(20);
   qApp->processEvents();
@@ -3879,7 +3891,8 @@ Viewer::generateDrawBoxes()
   QProgressDialog progress("Marking valid boxes - (2/2)",
 			   QString(),
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
 
@@ -3891,29 +3904,12 @@ Viewer::generateDrawBoxes()
   
   Vec voxelScaling = Global::relativeVoxelScaling();
 
-//  Vec bminO, bmaxO;
-//  m_boundingBox.bounds(bminO, bmaxO);
-//
-//  bminO = VECDIVIDE(bminO, voxelScaling);
-//  bmaxO = VECDIVIDE(bmaxO, voxelScaling);
-//
-//  bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
-//  bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
-
-  Vec bminO(m_minHSlice, m_minWSlice, m_minDSlice);
-  Vec bmaxO(m_maxHSlice, m_maxWSlice, m_maxDSlice);
-
-  int imin = (int)bminO.x/m_boxSize;
-  int jmin = (int)bminO.y/m_boxSize;
-  int kmin = (int)bminO.z/m_boxSize;
-
-  int imax = (int)bmaxO.x/m_boxSize;
-  int jmax = (int)bmaxO.y/m_boxSize;
-  int kmax = (int)bmaxO.z/m_boxSize;
-  if (imax*m_boxSize < (int)bmaxO.x) imax++;
-  if (jmax*m_boxSize < (int)bmaxO.y) jmax++;
-  if (kmax*m_boxSize < (int)bmaxO.z) kmax++;
-
+  int imin,jmin,kmin;
+  imin = jmin = kmin = 0;
+  int imax = m_hbox;
+  int jmax = m_wbox;
+  int kmax = m_dbox;
+  
   int mdC = 0;
   int mdI = -1;
 
@@ -3940,9 +3936,8 @@ Viewer::generateDrawBoxes()
 		    m_mdIndices[m_mdEle] = mdI*36;
 		    m_mdCount[m_mdEle] = mdC*36;
 		    m_mdEle++;
-		    //if (m_mdEle >= m_boxSoup.count())
 		    if (m_mdEle >= m_numBoxes)
-		QMessageBox::information(0, "", QString("ele > %1").arg(m_numBoxes));
+		      QMessageBox::information(0, "", QString("ele > %1").arg(m_numBoxes));
 		    
 		    mdI = -1;
 		    mdC = 0;
@@ -3969,7 +3964,8 @@ Viewer::loadAllBoxesToVBO()
   QProgressDialog progress("Loading box structure to vbo",
 			   QString(),
 			   0, 100,
-			   0);
+			   0,
+			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
   m_mdEle = 0;
@@ -3979,7 +3975,6 @@ Viewer::loadAllBoxesToVBO()
   m_mdIndices = new GLint[m_numBoxes];
   
   //---------------------
-  //int bcount = m_boxSoup.count();
   int nvert = 0;
   for(int i=0; i<m_numBoxes; i++)
     nvert += m_boxSoup[i].count();

@@ -51,96 +51,16 @@ VolumeFileManager::loadCheckPoint()
   if (StaticFunctions::checkExtension(cflnm, "mask.sc"))
     cflnm.chop(3);
   cflnm += ".checkpoint";
-  CheckpointHandler::loadCheckpoint(cflnm,
-				    m_voxelType,
-				    m_depth, m_width, m_height,
-				    m_volData);
-  return true;
-  //-----------------------------
-  //-----------------------------
 
-
-  QString flnm;
-  flnm = QFileDialog::getOpenFileName(0,
-				      "Save Checkpoint Information",
-				      Global::previousDirectory(),
-				      "Checkpoint Files (*.checkpoint)",
-				      0,
-				      QFileDialog::DontUseNativeDialog);
-
-  
-  if (flnm.isEmpty())
-    return false;
-
-  return loadCheckPoint(flnm);
+  return loadCheckPoint(cflnm);
 }
 bool
 VolumeFileManager::loadCheckPoint(QString flnm)
 {
-  QProgressDialog progress("Loading checkpoint file",
-			   "Cancel",
-			   0, 100,
-			   0,
-			   Qt::WindowStaysOnTopHint);
-  progress.setMinimumDuration(0);
-  progress.setCancelButton(0);
-
-  progress.setLabelText(flnm);
-  qApp->processEvents();
-
-  int bufsize;
-
-  progress.setValue(10);
-  qApp->processEvents();
-
-  uchar vt;
-  int dpt, wdt, ht;
-  
-  qint64 vsz = m_depth;
-  vsz *= m_width;
-  vsz *= m_height;
-  int mb100, nblocks;
-  char chkver[10];
-  memset(chkver, 0, 10);
-  QFile cfile;
-  cfile.setFileName(flnm);
-  cfile.open(QFile::ReadOnly);
-  cfile.read((char*)chkver, 6);
-  cfile.read((char*)&vt, 1);
-  cfile.read((char*)&dpt, 4);
-  cfile.read((char*)&wdt, 4);
-  cfile.read((char*)&ht, 4);
-  if (dpt != m_depth ||
-      wdt != m_width ||
-      ht != m_height)
-    {
-      QMessageBox::information(0, "Error",
-			       QString("Cannot load checkpoint file : Grid sizes do not match - %1 %2 %3").arg(ht).arg(wdt).arg(dpt));
-      cfile.close();
-    }
-  
-  cfile.read((char*)&nblocks, 4);
-  cfile.read((char*)&mb100, 4);
-  uchar *vBuf = new uchar[mb100];
-  for(qint64 i=0; i<nblocks; i++)
-    {
-      progress.setValue(100*i/nblocks);
-      qApp->processEvents();
-      int vbsize;
-      cfile.read((char*)&vbsize, 4);
-      cfile.read((char*)vBuf, vbsize);
-      int bufsize = blosc_decompress(vBuf, m_volData+i*mb100, mb100);
-      if (bufsize < 0)
-	{
-	  QMessageBox::information(0, "", "Error in decompression : checkpoint file not read");
-	  return false;
-	}
-    }
-  cfile.close();
-  delete [] vBuf;
-
-  //QMessageBox::information(0, "Checkpoint", "Checkpoint information restored");  
-  return true;
+  return CheckpointHandler::loadCheckpoint(flnm,
+					   m_voxelType,
+					   m_depth, m_width, m_height,
+					   m_volData);
 }
 
 void
@@ -170,105 +90,6 @@ VolumeFileManager::checkPoint()
 				    m_volData,
 				    desc);
   return;
-  //-----------------------------
-  //-----------------------------
-
-
-  QString flnm;
-  flnm = QFileDialog::getSaveFileName(0,
-				      "Save Checkpoint Information",
-				      Global::previousDirectory(),
-				      "Checkpoint Files (*.checkpoint)",
-				      0,
-				      QFileDialog::DontUseNativeDialog);
-
-  
-  if (flnm.isEmpty())
-    return;
-
-  if (!StaticFunctions::checkExtension(flnm, ".checkpoint"))
-    flnm += ".checkpoint";
-  
-  QProgressDialog progress("Saving checkpoint file",
-			   "Cancel",
-			   0, 100,
-			   0,
-			   Qt::WindowStaysOnTopHint);
-  progress.setMinimumDuration(0);
-  progress.setCancelButton(0);
-
-  progress.setLabelText(flnm);
-  qApp->processEvents();
-  
-  int nthreads, pnthreads;
-  nthreads = 4;
-  blosc_init();
-  // use nthreads for compression
-  // previously using threads in pnthreads
-  pnthreads = blosc_set_nthreads(nthreads);
-
-  qint64 vsz = m_depth;
-  vsz *= m_width;
-  vsz *= m_height;
-
-  
-  progress.setValue(10);
-  qApp->processEvents();
-
-
-  // -----
-  int mb100 = 100*1024*1024;
-  uchar *vBuf = new uchar[mb100];
-  int nblocks = vsz/mb100;
-  if (nblocks * mb100 < vsz) nblocks++;
-  char chkver[10];
-  memset(chkver,0,10);
-  // drishti paint mask v100
-  sprintf(chkver,"dpm100");
-  QFile cfile;
-  cfile.setFileName(flnm);
-  cfile.open(QFile::ReadWrite);
-  cfile.write((char*)chkver, 6);
-  cfile.write((char*)&m_voxelType, 1);
-  cfile.write((char*)&m_depth, 4);
-  cfile.write((char*)&m_width, 4);
-  cfile.write((char*)&m_height, 4);
-  cfile.write((char*)&nblocks, 4);
-  cfile.write((char*)&mb100, 4);
-  for(qint64 i=0; i<nblocks; i++)
-    {
-      progress.setValue(100*i/nblocks);
-      qApp->processEvents();
-
-      int bsz = mb100;
-      if ((i+1)*mb100 > vsz)
-	bsz = vsz-(i*mb100);
-      
-      int bufsize;
-      bufsize = blosc_compress(9, // compression level
-			       BLOSC_SHUFFLE, // bit/byte-wise shuffle
-			       8, // typesize
-			       bsz, // input size
-			       m_volData+i*mb100,
-			       vBuf,
-			       mb100); // destination size
-      if (bufsize < 0)
-	{
-	  QMessageBox::information(0, "", "Error in compression : checkpoint file not saved");
-	  cfile.close();
-	  return;
-	}
-      cfile.write((char*)&bufsize, 4);
-      cfile.write((char*)vBuf, bufsize);
-    }
-  cfile.close();  
-  // -----
-
-  progress.setValue(100);
-
-  delete [] vBuf;
-  
-  QMessageBox::information(0, "Checkpoint", QString("Saved checkpoint information to\n%1").arg(flnm));
 }
 
 void

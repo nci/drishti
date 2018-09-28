@@ -6794,7 +6794,7 @@ DrishtiPaint::on_actionLoadCheckpoint_triggered()
 
   m_viewer->updateVoxels();
 
-  QMessageBox::information(0, "Checkpoint Restored", "If you are happy with the restore,\nsave to to mask file using Save Work");
+  QMessageBox::information(0, "Checkpoint Restored", "If you are happy with the restore,\nplease save it to the mask file using Save Work");
 }
 void
 DrishtiPaint::loadCheckPoint(QString flnm)
@@ -6809,5 +6809,5 @@ DrishtiPaint::loadCheckPoint(QString flnm)
 
   m_viewer->updateVoxels();
 
-  QMessageBox::information(0, "Checkpoint Restored", "If you are happy with the restore,\nsave to to mask file using Save Work");
+  QMessageBox::information(0, "Checkpoint Restored", "If you are happy with the restore,\nplease save it to the mask file using Save Work");
 }

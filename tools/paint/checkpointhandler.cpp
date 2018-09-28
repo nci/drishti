@@ -129,10 +129,12 @@ CheckpointHandler::saveCheckpoint(QString flnm,
 
   qfile.close();
   // -----
+
+  QMessageBox::information(0, "Checkpoint", QString("Saved checkpoint information to\n%1").arg(flnm));
 }
 
 
-void
+bool
 CheckpointHandler::loadCheckpoint(QString flnm,
 				  int voxelType,
 				  int depth, int width, int height,
@@ -141,7 +143,11 @@ CheckpointHandler::loadCheckpoint(QString flnm,
   // load the checkpoint buffer record from file
   QFile qfile;
   qfile.setFileName(flnm);
-  qfile.open(QFile::ReadOnly);
+  if (!qfile.open(QFile::ReadOnly))
+    {
+      QMessageBox::information(0, "Checkpoint Error", "Cannot read checkpoint file "+flnm);
+      return false;
+    }
     
   int nrecords;
   qfile.read((char*)&nrecords, 4);
@@ -174,13 +180,13 @@ CheckpointHandler::loadCheckpoint(QString flnm,
 				       false,
 				       &ok);
   if (!ok)
-    return;
+    return false;
   
   int rid = records.indexOf(item);
   if (rid < 0)
     {
       QMessageBox::information(0, "Checkpoint Error", "Cannot find record : "+item);
-      return;
+      return false;
     }
 
 
@@ -210,7 +216,7 @@ CheckpointHandler::loadCheckpoint(QString flnm,
       QMessageBox::information(0, "Error",
 			       QString("Cannot load checkpoint file : Grid sizes do not match - %1 %2 %3").arg(ht).arg(wdt).arg(dpt));
       qfile.close();
-      return;
+      return false;
     }
 
   progress.setValue(10);
@@ -233,7 +239,7 @@ CheckpointHandler::loadCheckpoint(QString flnm,
 	{
 	  QMessageBox::information(0, "", "Error in decompression : .mask.sc file not read");
 	  qfile.close();
-	  return;
+	  return false;
 	}
     }
   qfile.close();
@@ -242,4 +248,6 @@ CheckpointHandler::loadCheckpoint(QString flnm,
 
   progress.setValue(100);
   qApp->processEvents();
+
+  return true;
 }

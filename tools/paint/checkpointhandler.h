@@ -10,7 +10,7 @@ class CheckpointHandler
 			     int, int, int, int,
 			     uchar*, QString);
 			     
-  static void loadCheckpoint(QString,
+  static bool loadCheckpoint(QString,
 			     int, int, int, int,
 			     uchar*);  
 };

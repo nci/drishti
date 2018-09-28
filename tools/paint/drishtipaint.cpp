@@ -4289,69 +4289,122 @@ DrishtiPaint::dilateAndSmooth(uchar* data,
 			      int d, int w, int h,
 			      int spread)
 {
-  QProgressDialog progress("Dilating before smoothing",
-			   QString(),
-			   0, 100,
-			   0,
-			   Qt::WindowStaysOnTopHint);
-  progress.setMinimumDuration(0);
+//  QProgressDialog progress("Dilating before smoothing",
+//			   QString(),
+//			   0, 100,
+//			   0,
+//			   Qt::WindowStaysOnTopHint);
+//  progress.setMinimumDuration(0);
+//
+//  // dilate spread times before applying smoothing
+//  QList<uchar*> slc;
+//  for(int diter=0; diter<=spread; diter++)
+//    slc << new uchar[w*h];
+//
+//  for(int diter=0; diter<=spread; diter++)
+//    memcpy(slc[diter], data+(diter+1)*w*h, w*h);
+//
+//  for(int i=1; i<d-1; i++)
+//    {
+//      progress.setValue((int)(100.0*(float)i/(float)(d)));
+//      qApp->processEvents();
+//
+//      for(int j=1; j<w-1; j++)
+//	for(int k=1; k<h-1; k++)
+//	  {
+//	    int val = slc[0][j*h + k];
+//	    if (val == 0)
+//	      {
+//		int is = qMax(0, i-spread);
+//		int js = qMax(0, j-spread);
+//		int ks = qMax(0, k-spread);
+//		int ie = qMin(d-1, i+spread);
+//		int je = qMin(w-1, j+spread);
+//		int ke = qMin(h-1, k+spread);
+//		for(int ii=is; ii<=ie; ii++)
+//		  for(int jj=js; jj<=je; jj++)
+//		    for(int kk=ks; kk<=ke; kk++)
+//		      {
+//			float p = ((i-ii)*(i-ii)+
+//				   (j-jj)*(j-jj)+
+//				   (k-kk)*(k-kk));
+//			if (p < spread*spread)
+//			  data[ii*w*h + jj*h + kk] = 0;
+//		      }
+//	      }
+//	  }
+//      
+//      uchar *tmp = slc[0];
+//      for(int diter=0; diter<=spread; diter++)
+//	{
+//	  if (diter<spread)
+//	    slc[diter] = slc[diter+1];
+//	  else
+//	    slc[diter] = tmp;
+//	}
+//      if (i < d-spread-1)
+//	memcpy(slc[spread], data+(i+spread+1)*w*h, w*h);
+//    }
+//
+//  for(int diter=0; diter<=spread; diter++)
+//    delete [] slc[diter];
+//
+//  progress.setValue(100);
 
-  // dilate spread times before applying smoothing
-  QList<uchar*> slc;
-  for(int diter=0; diter<=spread; diter++)
-    slc << new uchar[w*h];
+//  // dilate 0s via smoothing followed by saturation
+//  smoothData(data, d, w, h, qMax(1,spread-1));
+//  qint64 dwh = d;
+//  dwh *= w;
+//  dwh *= h;
+//  int val = 255.0/qPow(spread, 3.0);
+//  for(qint64 i=0; i<dwh; i++)
+//    {
+//      data[i] = (data[i] < val ? 0 : data[i]);
+//    }
+//
 
-  for(int diter=0; diter<=spread; diter++)
-    memcpy(slc[diter], data+(diter+1)*w*h, w*h);
-
-  for(int i=1; i<d-1; i++)
-    {
-      progress.setValue((int)(100.0*(float)i/(float)(d)));
-      qApp->processEvents();
-
-      for(int j=1; j<w-1; j++)
-	for(int k=1; k<h-1; k++)
-	  {
-	    int val = slc[0][j*h + k];
-	    if (val == 0)
-	      {
-		int is = qMax(0, i-spread);
-		int js = qMax(0, j-spread);
-		int ks = qMax(0, k-spread);
-		int ie = qMin(d-1, i+spread);
-		int je = qMin(w-1, j+spread);
-		int ke = qMin(h-1, k+spread);
-		for(int ii=is; ii<=ie; ii++)
-		  for(int jj=js; jj<=je; jj++)
-		    for(int kk=ks; kk<=ke; kk++)
-		      {
-			float p = ((i-ii)*(i-ii)+
-				   (j-jj)*(j-jj)+
-				   (k-kk)*(k-kk));
-			if (p < spread*spread)
-			  data[ii*w*h + jj*h + kk] = 0;
-		      }
-	      }
-	  }
-      
-      uchar *tmp = slc[0];
-      for(int diter=0; diter<=spread; diter++)
-	{
-	  if (diter<spread)
-	    slc[diter] = slc[diter+1];
-	  else
-	    slc[diter] = tmp;
-	}
-      if (i < d-spread-1)
-	memcpy(slc[spread], data+(i+spread+1)*w*h, w*h);
-    }
-
-  for(int diter=0; diter<=spread; diter++)
-    delete [] slc[diter];
-
-  progress.setValue(100);
-  
+  // now apply final smoothing
   smoothData(data, d, w, h, qMax(1,spread-1));
+
+ // set boundary
+  // x=0
+  for(int j=0; j<w; j++)
+    for(int k=0; k<h; k++)
+      data[j*h + k] = 255;
+
+  // x=d-1
+  for(int j=0; j<w; j++)
+    for(int k=0; k<h; k++)
+      data[(d-1)*w*h + j*h + k] = 255;
+
+  // y=0
+  for(int i=0; i<d; i++)
+    for(int k=0; k<h; k++)
+      data[i*w*h + k] = 255;
+
+  // y=w-1
+  for(int i=0; i<d; i++)
+    for(int k=0; k<h; k++)
+      data[i*w*h + (w-1)*h + k] = 255;
+
+  // z=0
+  for(int i=0; i<d; i++)
+    for(int j=0; j<w; j++)
+      data[i*w*h + j*h] = 255;
+
+  // z=h-1
+  for(int i=0; i<d; i++)
+    for(int j=0; j<w; j++)
+      data[i*w*h + j*h + (h-1)] = 255;
+  
+//  // invert
+//  {
+//    qint64 dwh = d;
+//    dwh *= w;
+//    dwh *= h;
+//    for(qint64 i=0; i<dwh; i++)
+//      data[i] = 255 - data[i];
+//  }
 }
 
 void
@@ -4359,7 +4412,20 @@ DrishtiPaint::smoothData(uchar *gData,
 			 int nX, int nY, int nZ,
 			 int spread)
 {
-  QProgressDialog progress("Smoothing before meshing",
+  // ------------------
+  // calculate weights for Gaussian filter
+  float weights[100];
+  float wsum = 0.0;
+  for(int i=-spread; i<=spread; i++)
+    {
+      float wgt = qExp(-qAbs(i)/(2.0*spread*spread))/(M_PI*2*spread*spread);
+      wsum +=  wgt;
+      weights[i+spread] = wgt;
+    }
+  //weights[2*spread+2] = wsum;
+  // ------------------
+
+  QProgressDialog progress("Applying gaussian smoothing before meshing",
 			   QString(),
 			   0, 100,
 			   0,
@@ -4382,10 +4448,10 @@ DrishtiPaint::smoothData(uchar *gData,
 	      int nt = 0;
 	      for(int i0=qMax(0,i-spread); i0<=qMin(nZ-1,i+spread); i0++)
 		{
+		  v += gData[k*nY*nZ + j*nZ + i0] * weights[nt];
 		  nt++;
-		  v += gData[k*nY*nZ + j*nZ + i0];
 		}
-	      tmp[i] = v/nt;
+	      tmp[i] = v/wsum;
 	    }
 	  
 	  for(int i=0; i<nZ; i++)
@@ -4408,10 +4474,10 @@ DrishtiPaint::smoothData(uchar *gData,
 	      int nt = 0;
 	      for(int j0=qMax(0,j-spread); j0<=qMin(nY-1,j+spread); j0++)
 		{
+		  v += gData[k*nY*nZ + j0*nZ + i] * weights[nt];
 		  nt++;
-		  v += gData[k*nY*nZ + j0*nZ + i];
 		}
-	      tmp[j] = v/nt;
+	      tmp[j] = v/wsum;
 	    }	  
 	  for(int j=0; j<nY; j++)
 	    gData[k*nY*nZ + j*nZ + i] = tmp[j];
@@ -4432,10 +4498,10 @@ DrishtiPaint::smoothData(uchar *gData,
 	      int nt = 0;
 	      for(int k0=qMax(0,k-spread); k0<=qMin(nX-1,k+spread); k0++)
 		{
+		  v += gData[k0*nY*nZ + j*nZ + i] * weights[nt];
 		  nt++;
-		  v += gData[k0*nY*nZ + j*nZ + i];
 		}
-	      tmp[k] = v/nt;
+	      tmp[k] = v/wsum;
 	    }
 	  for(int k=0; k<nX; k++)
 	    gData[k*nY*nZ + j*nZ + i] = tmp[k];
@@ -4626,13 +4692,13 @@ DrishtiPaint::on_actionMeshTag_triggered()
   dataspread = QInputDialog::getInt(0,
 				"Smooth Data Before Meshing",
 				"Apply data smoothing before meshing (0 means no smoothing)",
-				1, 0, 3, 1);
+				2, 0, 5, 1);
 
   int spread = 0;
   spread = QInputDialog::getInt(0,
 				"Smooth Mesh",
 				"Apply mesh smoothing (0 means no smoothing)",
-				1, 0, 5, 1);
+				0, 0, 5, 1);
 
   QProgressDialog progress("Meshing tagged region from volume data",
 			   "",
@@ -4904,10 +4970,16 @@ DrishtiPaint::on_actionMeshTag_triggered()
   mc.set_resolution(theight, twidth, tdepth);
   mc.set_ext_data(meshingData);
   mc.init_all();
+
+//  if (dataspread == 0)
+//    mc.run(32);
+//  else    
+//    mc.run(32 - 3*dataspread);
+
   if (dataspread == 0)
-    mc.run(32);
+    mc.run(128);
   else    
-    mc.run(32 - 3*dataspread);
+    mc.run(128 - qPow(dataspread,3));
 
   processAndSaveMesh(colorType,
 		     tflnm,

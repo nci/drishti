@@ -1,10 +1,12 @@
 #include "global.h"
 #include "volumefilemanager.h"
 #include "staticfunctions.h"
+#include "checkpointhandler.h"
 
 #include <QtGui>
 #include <QMessageBox>
 #include <QFileDialog>
+#include <QInputDialog>
 
 #include "blosc.h"
 
@@ -45,6 +47,19 @@ VolumeFileManager::~VolumeFileManager()
 bool
 VolumeFileManager::loadCheckPoint()
 {
+  QString cflnm = m_filenames[0];
+  if (StaticFunctions::checkExtension(cflnm, "mask.sc"))
+    cflnm.chop(3);
+  cflnm += ".checkpoint";
+  CheckpointHandler::loadCheckpoint(cflnm,
+				    m_voxelType,
+				    m_depth, m_width, m_height,
+				    m_volData);
+  return true;
+  //-----------------------------
+  //-----------------------------
+
+
   QString flnm;
   flnm = QFileDialog::getOpenFileName(0,
 				      "Save Checkpoint Information",
@@ -131,6 +146,34 @@ VolumeFileManager::loadCheckPoint(QString flnm)
 void
 VolumeFileManager::checkPoint()
 {
+  QString cflnm = m_filenames[0];
+  if (StaticFunctions::checkExtension(cflnm, "mask.sc"))
+    cflnm.chop(3);
+  cflnm += ".checkpoint";
+  bool ok;
+  QString desc = QInputDialog::getText(0,
+				       "Checkpoint",
+				       "Description",
+				       QLineEdit::Normal,
+				       "",
+				       &ok);
+  desc = desc.trimmed();
+  if (!ok || desc.isEmpty())
+    {
+      QMessageBox::information(0, "Checkpoint", "Empty description not allowed - checkpoint not saved\nPlease try again.");
+      return;
+    }
+  
+  CheckpointHandler::saveCheckpoint(cflnm,
+				    m_voxelType,
+				    m_depth, m_width, m_height,
+				    m_volData,
+				    desc);
+  return;
+  //-----------------------------
+  //-----------------------------
+
+
   QString flnm;
   flnm = QFileDialog::getSaveFileName(0,
 				      "Save Checkpoint Information",

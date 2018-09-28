@@ -1808,7 +1808,7 @@ void
 ImageWidget::wheelEvent(QWheelEvent *event)
 {
   int numSteps = event->delta()/8.0f/15.0f;
-  doAnother(-numSteps);
+  doAnother(numSteps);
 }
 
 void

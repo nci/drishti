@@ -114,7 +114,8 @@ HEADERS += commonqtclasses.h \
 	remaphistogramwidget.h \
 	slicer3d.h \
         slic/slic.h \
-        filehandler.h
+        filehandler.h \
+        checkpointhandler.h
 
 
 SOURCES += drishtipaint.cpp \
@@ -172,4 +173,5 @@ SOURCES += drishtipaint.cpp \
 	remaphistogramwidget.cpp \
 	slicer3d.cpp \
 	slic/slic.cpp \
-        filehandler.cpp
+        filehandler.cpp \
+        checkpointhandler.cpp

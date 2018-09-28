@@ -41,7 +41,7 @@ Slices::createMenu(QHBoxLayout *hl,
 
   m_changeLayout = new QPushButton(QIcon(":/images/enlarge.png"),"");
 
-  m_mesg = new QLabel("Graph Cut");
+  m_mesg = new QLabel("");
 
   thl->addWidget(m_zoom9);
   thl->addWidget(m_zoom0);
@@ -49,12 +49,13 @@ Slices::createMenu(QHBoxLayout *hl,
   thl->addWidget(m_zoomDown);
   thl->addStretch();
   thl->addWidget(m_mesg);
+  thl->addStretch();
   thl->addWidget(m_changeLayout);
 
   vl->addLayout(thl);
 
   m_slider = new QSlider(Qt::Vertical, this);
-  m_slider->setInvertedAppearance(true);
+  //m_slider->setInvertedAppearance(true);
   hl->addWidget(m_slider);
 
   m_zoom9->setMaximumSize(32,32);
@@ -74,6 +75,8 @@ Slices::createMenu(QHBoxLayout *hl,
   connect(m_zoomDown, SIGNAL(clicked()), m_imageWidget, SLOT(zoomDownClicked()));
   
   connect(m_slider, SIGNAL(valueChanged(int)), m_imageWidget, SLOT(setSlice(int)));
+
+  connect(m_slider, SIGNAL(valueChanged(int)), this, SLOT(setSlice(int)));
 
   connect(m_slider, SIGNAL(valueChanged(int)), this, SIGNAL(sliceChanged(int)));
 
@@ -164,6 +167,7 @@ void
 Slices::setSlice(int s)
 {
   m_slider->setValue(s);
+  m_mesg->setText(QString("<font color=green><h2>%1</h2></font>").arg(s));
 }
 
 //void Slices::bbupdated(Vec bmin, Vec bmax) { m_imageWidget->bbupdated(bmin, bmax); }
@@ -193,19 +197,19 @@ void Slices::setRawValue(QList<int> u) { m_imageWidget->setRawValue(u); }
 void
 Slices::setModeType(int mt)
 {
-  QString st;
-  if (m_imageWidget->sliceType() == ImageWidget::DSlice)
-    st = "Z";
-  if (m_imageWidget->sliceType() == ImageWidget::WSlice)
-    st = "Y";
-  if (m_imageWidget->sliceType() == ImageWidget::HSlice)
-    st = "X";
-
-  if (mt == 0)
-    m_mesg->setText(QString("<font color=green><h2>Graph Cut (%1)</h2>").arg(st));
-
-  if (mt == 1)
-    m_mesg->setText(QString("<font color=red><h2>Superpixels (%1)</h2>").arg(st));
+//  QString st;
+//  if (m_imageWidget->sliceType() == ImageWidget::DSlice)
+//    st = "Z";
+//  if (m_imageWidget->sliceType() == ImageWidget::WSlice)
+//    st = "Y";
+//  if (m_imageWidget->sliceType() == ImageWidget::HSlice)
+//    st = "X";
+//
+//  if (mt == 0)
+//    m_mesg->setText(QString("<font color=green><h2>Graph Cut (%1)</h2>").arg(st));
+//
+//  if (mt == 1)
+//    m_mesg->setText(QString("<font color=red><h2>Superpixels (%1)</h2>").arg(st));
 
   m_imageWidget->setModeType(mt);
 }

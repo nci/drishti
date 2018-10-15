@@ -6,6 +6,7 @@
 #include <QPushButton>
 #include <QSlider>
 #include <QLabel>
+#include <QLineEdit>
 
 #include "imagewidget.h"
 
@@ -79,6 +80,8 @@ class Slices : public QWidget
    void setVLine(int);
    void setSlice(int);
 
+   void sliceNumChanged();
+   
    //void bbupdated(Vec, Vec);
    void fitImage() { m_imageWidget->zoom9Clicked(); }
 
@@ -95,7 +98,8 @@ class Slices : public QWidget
     QPushButton *m_zoomDown;
     QPushButton *m_changeLayout;
 
-    QLabel *m_mesg;
+    //QLabel *m_mesg;
+    QLineEdit *m_mesg;
 
     QSlider *m_slider;
 

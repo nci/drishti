@@ -41,8 +41,15 @@ Slices::createMenu(QHBoxLayout *hl,
 
   m_changeLayout = new QPushButton(QIcon(":/images/enlarge.png"),"");
 
-  m_mesg = new QLabel("");
+  //m_mesg = new QLabel("");
+  m_mesg = new QLineEdit("");
 
+  QFont font("Helvetica", 15);
+  m_mesg->setFont(font);
+  QFontMetrics metric(font);
+  int mwd = metric.width("000000");
+  m_mesg->setMaximumWidth(mwd);
+  
   thl->addWidget(m_zoom9);
   thl->addWidget(m_zoom0);
   thl->addWidget(m_zoomUp);
@@ -121,6 +128,10 @@ Slices::createMenu(QHBoxLayout *hl,
 
   connect(m_imageWidget, SIGNAL(connectedRegion(int,int,int,Vec,Vec,int,int)),
 	  this, SIGNAL(connectedRegion(int,int,int,Vec,Vec,int,int)));
+
+
+  connect(m_mesg, SIGNAL(editingFinished()),
+	  this, SLOT(sliceNumChanged()));
 }
 
 void Slices::setSliceType(int s) { m_imageWidget->setSliceType(s);}
@@ -137,17 +148,23 @@ Slices::setGridSize(int d, int w, int h)
     {
       m_slider->setMaximum(d-1);
       m_slider->setValue(d/2);
+      QValidator *valid = new QIntValidator(0, d-1);
+      m_mesg->setValidator(valid);
     }
   if (m_imageWidget->sliceType() == ImageWidget::WSlice)
     {
       m_slider->setMaximum(w-1);
       m_slider->setValue(w/2);
+      QValidator *valid = new QIntValidator(0, w-1);
+      m_mesg->setValidator(valid);
     }
   if (m_imageWidget->sliceType() == ImageWidget::HSlice)
     {
       m_slider->setMaximum(h-1);
       m_slider->setValue(h/2);
-    }
+      QValidator *valid = new QIntValidator(0, h-1);
+      m_mesg->setValidator(valid);
+    }  
 }
 
 void Slices::setHLine(int h) { m_imageWidget->setHLine(h); }
@@ -164,10 +181,19 @@ Slices::reloadSlice()
 }
 
 void
+Slices::sliceNumChanged()
+{
+  int s = m_mesg->text().toInt();
+  m_slider->setValue(s);  
+  m_imageWidget->setSlice(s);
+}
+
+void
 Slices::setSlice(int s)
 {
   m_slider->setValue(s);
-  m_mesg->setText(QString("<font color=green><h2>%1</h2></font>").arg(s));
+  //m_mesg->setText(QString("<font color=green><h2>%1</h2></font>").arg(s));
+  m_mesg->setText(QString("%1").arg(s));
 }
 
 //void Slices::bbupdated(Vec bmin, Vec bmax) { m_imageWidget->bbupdated(bmin, bmax); }

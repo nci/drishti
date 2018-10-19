@@ -4651,6 +4651,34 @@ DrishtiPaint::on_actionMeshTag_triggered()
   //----------------
   int depth, width, height;
   m_volume->gridSize(depth, width, height);
+
+  int lod = 1;
+  // get subsampling level for mesh generation
+  {
+      dtypes.clear();
+      dtypes << "1"
+	     << "2"
+      	     << "3"
+      	     << "4"
+      	     << "5"
+      	     << "6";
+      
+      QString option = QInputDialog::getItem(0,
+					     "Level Of Details",
+					     "Subsampling level for mesh generation",
+					     dtypes,
+					     0,
+					     false,
+					     &ok);
+      if (ok)
+	{
+	  if (option == "2") lod = 2;
+	  if (option == "3") lod = 3;
+	  if (option == "4") lod = 4;
+	  if (option == "5") lod = 5;
+	  if (option == "6") lod = 6;
+	}      
+  }
   
   int minDSlice, maxDSlice;
   int minWSlice, maxWSlice;
@@ -4661,10 +4689,17 @@ DrishtiPaint::on_actionMeshTag_triggered()
   qint64 tdepth = maxDSlice-minDSlice+1;
   qint64 twidth = maxWSlice-minWSlice+1;
   qint64 theight = maxHSlice-minHSlice+1;
+  //qint64 tdepth = maxDSlice-minDSlice+1;
+  //qint64 twidth = maxWSlice-minWSlice+1;
+  //qint64 theight = maxHSlice-minHSlice+1;
+  qint64 mtdepth = tdepth/lod;
+  qint64 mtwidth = twidth/lod;
+  qint64 mtheight= theight/lod;
   
   QString pvlFilename = m_volume->fileName();
   QString tflnm = QFileDialog::getSaveFileName(0,
-					       "Save mesh",
+					       QString("Save mesh (%1x%2x%3)").\
+					       arg(mtdepth).arg(mtwidth).arg(mtheight),
 					       QFileInfo(pvlFilename).absolutePath(),
 					       "Polygon Files (*.ply)",
 					       0,
@@ -4707,13 +4742,14 @@ DrishtiPaint::on_actionMeshTag_triggered()
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
-  uchar *meshingData = new uchar[tdepth*twidth*theight];
-  memset(meshingData, 0, tdepth*twidth*theight);
+  uchar *meshingData = new uchar[mtdepth*mtwidth*mtheight];
+  memset(meshingData, 0, mtdepth*mtwidth*mtheight);
 
   //----------------------------------
-  uchar *curveMask = new uchar[tdepth*twidth*theight];
+  uchar *curveMask;
+  curveMask = new uchar[tdepth*twidth*theight];
   memset(curveMask, 0, tdepth*twidth*theight);
-
+  
   if (tag[0] != -2)
     updateCurveMask(curveMask, tag,
 		    depth, width, height,
@@ -4731,10 +4767,15 @@ DrishtiPaint::on_actionMeshTag_triggered()
   int nbytes = width*height;
   uchar *raw = new uchar[width*height];
   uchar *mask = new uchar[width*height]; 
-  for(int d=minDSlice; d<=maxDSlice; d++)
+  //for(int d=minDSlice; d<=maxDSlice; d++)
+  //for(int d=minDSlice; d<=maxDSlice; d+=lod)
+  for(int dsn=0; dsn<mtdepth; dsn++)
     {
-      int slc = d-minDSlice;
-      progress.setValue((int)(100*(float)slc/(float)tdepth));
+      int d = minDSlice + dsn*lod;
+      int slc = dsn;
+      
+      //int slc = d-minDSlice;
+      progress.setValue((int)(100*(float)slc/(float)mtdepth));
       qApp->processEvents();
 
       uchar *slice = 0;
@@ -4928,7 +4969,31 @@ DrishtiPaint::on_actionMeshTag_triggered()
 	}
       //-----------------------------
 
-      memcpy(meshingData+slc*twidth*theight, raw, twidth*theight);
+      //-----------------------------
+      // reduce slice resolution if required
+      if (lod > 1)
+	{
+	  // reduce resolution for meshingData
+	  int i=0;
+	  for(int w=0; w<mtwidth; w++)
+	    for(int h=0; h<mtheight; h++)
+	      {
+		raw[i] = raw[lod*w*theight+lod*h];
+		i++;
+	      }
+	  // reduce resolution for curveMask as well
+	  qint64 cmidx = slc*mtwidth*mtheight;
+	  i=0;
+	  for(int w=0; w<mtwidth; w++)
+	    for(int h=0; h<mtheight; h++)
+	      {
+		curveMask[cmidx + i] = curveMask[cmidx + lod*w*theight+lod*h];
+		i++;
+	      }
+	}
+      //-----------------------------
+      
+      memcpy(meshingData+slc*mtwidth*mtheight, raw, mtwidth*mtheight);
     }
 
   delete [] raw;
@@ -4942,32 +5007,32 @@ DrishtiPaint::on_actionMeshTag_triggered()
   //----------------------------------
   if (holeSize != 0)
     processHoles(meshingData,
-		tdepth, twidth, theight,
+		mtdepth, mtwidth, mtheight,
 		holeSize);
   //----------------------------------
 
   //----------------------------------
   // add a border to make a watertight mesh when the isosurface
   // touches the border
-  for(int i=0; i<tdepth; i++)
-    for(int j=0;j<twidth; j++)
-      for(int k=0;k<theight; k++)
+  for(int i=0; i<mtdepth; i++)
+    for(int j=0;j<mtwidth; j++)
+      for(int k=0;k<mtheight; k++)
 	{
-	  if (i==0 || i == tdepth-1 ||
-	      j==0 || j == twidth-1 ||
-	      k==0 || k == theight-1)
-	    if (meshingData[i*twidth*theight+j*theight+k] < 255)
-	      meshingData[i*twidth*theight+j*theight+k] = 255;
+	  if (i==0 || i == mtdepth-1 ||
+	      j==0 || j == mtwidth-1 ||
+	      k==0 || k == mtheight-1)
+	    if (meshingData[i*mtwidth*mtheight+j*mtheight+k] < 255)
+	      meshingData[i*mtwidth*mtheight+j*mtheight+k] = 255;
 	}
   //----------------------------------
 
   //-----------------
   if (dataspread > 0)
-    dilateAndSmooth(meshingData, tdepth, twidth, theight, dataspread+1);
+    dilateAndSmooth(meshingData, mtdepth, mtwidth, mtheight, dataspread+1);
   //-----------------
 
   MarchingCubes mc;
-  mc.set_resolution(theight, twidth, tdepth);
+  mc.set_resolution(mtheight, mtwidth, mtdepth);
   mc.set_ext_data(meshingData);
   mc.init_all();
 
@@ -4986,8 +5051,8 @@ DrishtiPaint::on_actionMeshTag_triggered()
 		     &mc,
 		     curveMask,
 		     minHSlice, minWSlice, minDSlice,
-		     theight, twidth, tdepth, spread,
-		     userColor, noScaling);
+		     mtheight, mtwidth, mtdepth, spread,
+		     userColor, noScaling, lod);
   
   mc.clean_all();
 
@@ -5005,7 +5070,8 @@ DrishtiPaint::processAndSaveMesh(int colorType,
 				 int minHSlice, int minWSlice, int minDSlice,
 				 int theight, int twidth, int tdepth,
 				 int spread, Vec userColor,
-				 bool noScaling)
+				 bool noScaling,
+				 int lod)
 {
   QList<Vec> V;
   QList<Vec> N;
@@ -5038,12 +5104,13 @@ DrishtiPaint::processAndSaveMesh(int colorType,
     colorMesh(C, V, N,
 	      colorType, tagdata,
 	      minHSlice, minWSlice, minDSlice,
-	      theight, twidth, tdepth, spread);
+	      theight, twidth, tdepth, spread,
+	      lod);
 	      
   if (spread > 0)
     smoothMesh(V, N, E, 5*spread);
     
-  saveMesh(V, N, C, E, flnm, noScaling);
+  saveMesh(V, N, C, E, flnm, noScaling, lod);
 }
 
 void
@@ -5054,7 +5121,7 @@ DrishtiPaint::colorMesh(QList<Vec>& C,
 			uchar *tagdata,
 			int minHSlice, int minWSlice, int minDSlice,
 			int theight, int twidth, int tdepth,
-			int spread)
+			int spread, int lod)
 {
   uchar *lut = Global::lut();
 
@@ -5122,9 +5189,9 @@ DrishtiPaint::colorMesh(QList<Vec>& C,
 	      int hh = qBound(0, (int)pt.x, theight-1);
 	      int ww = qBound(0, (int)pt.y, twidth-1);
 	      int dd = qBound(0, (int)pt.z, tdepth-1);
-	      val = m_volume->rawValue(dd+minDSlice,
-				       ww+minWSlice,
-				       hh+minHSlice);
+	      val = m_volume->rawValue(lod*dd+minDSlice,
+				       lod*ww+minWSlice,
+				       lod*hh+minHSlice);
 	      int pr = lut[4*val[0]+2];
 	      int pg = lut[4*val[0]+1];
 	      int pb = lut[4*val[0]+0];
@@ -5169,7 +5236,8 @@ DrishtiPaint::saveMesh(QList<Vec> V,
 		       QList<Vec> C,
 		       QList<Vec> E,
 		       QString flnm,
-		       bool noScaling)
+		       bool noScaling,
+		       int lod)
 {
   int minDSlice, maxDSlice;
   int minWSlice, maxWSlice;
@@ -5178,7 +5246,7 @@ DrishtiPaint::saveMesh(QList<Vec> V,
 		   minWSlice, maxWSlice,
 		   minHSlice, maxHSlice);
 
-  Vec voxelScaling = Global::voxelScaling();
+  Vec voxelScaling = lod*Global::voxelScaling();
   if (noScaling) voxelScaling = Vec(1,1,1);
   
   QProgressDialog progress("Saving mesh ...",

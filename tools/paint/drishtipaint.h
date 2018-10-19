@@ -252,14 +252,16 @@ class DrishtiPaint : public QMainWindow
 			  uchar*,
 			  int, int, int,
 			  int, int, int,
-			  int, Vec, bool);
+			  int, Vec, bool,
+			  int);
 
   void colorMesh(QList<Vec>&,
 		 QList<Vec>,
 		 QList<Vec>,
 		 int, uchar*,
 		 int, int, int,
-		 int, int, int, int);
+		 int, int, int, int,
+		 int);
 
   void smoothMesh(QList<Vec>&,
 		  QList<Vec>&,
@@ -268,7 +270,8 @@ class DrishtiPaint : public QMainWindow
 
   void saveMesh(QList<Vec>, QList<Vec>,
 		QList<Vec>, QList<Vec>,
-		QString, bool);
+		QString, bool,
+		int);
 
   QPair<QString, QList<int> > getTags(QString);
 

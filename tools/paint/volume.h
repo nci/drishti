@@ -24,6 +24,7 @@ class Volume : public QObject
   void checkPoint();
   bool loadCheckPoint();
   bool loadCheckPoint(QString);
+  bool deleteCheckPoint();
 
   void offLoadMemFile();
   void loadMemFile();

@@ -6879,3 +6879,8 @@ DrishtiPaint::loadCheckPoint(QString flnm)
 
   QMessageBox::information(0, "Checkpoint Restored", "If you are happy with the restore,\nplease save it to the mask file using Save Work");
 }
+void
+DrishtiPaint::on_actionDeleteCheckpoint_triggered()
+{
+  m_volume->deleteCheckPoint();
+}

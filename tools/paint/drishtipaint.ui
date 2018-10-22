@@ -764,6 +764,7 @@
     </property>
     <addaction name="actionCheckpoint"/>
     <addaction name="actionLoadCheckpoint"/>
+    <addaction name="actionDeleteCheckpoint"/>
     <addaction name="separator"/>
     <addaction name="changeSliceOrdering"/>
     <addaction name="actionBakeCurves"/>
@@ -980,6 +981,11 @@
   <action name="actionExportMask">
    <property name="text">
     <string>Export .mask</string>
+   </property>
+  </action>
+  <action name="actionDeleteCheckpoint">
+   <property name="text">
+    <string>Delete Checkpoint</string>
    </property>
   </action>
  </widget>

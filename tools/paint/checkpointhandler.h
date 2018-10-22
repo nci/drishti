@@ -13,6 +13,10 @@ class CheckpointHandler
   static bool loadCheckpoint(QString,
 			     int, int, int, int,
 			     uchar*);  
+
+  static bool deleteCheckpoint(QString,
+			       int, int, int, int,
+			       uchar*);  
 };
 
 #endif

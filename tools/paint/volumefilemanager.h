@@ -40,6 +40,7 @@ class VolumeFileManager : public QObject
   void checkPoint();
   bool loadCheckPoint();
   bool loadCheckPoint(QString);
+  bool deleteCheckPoint();
   
   void setMemMapped(bool);
   bool isMemMapped();

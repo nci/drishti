@@ -62,6 +62,19 @@ VolumeFileManager::loadCheckPoint(QString flnm)
 					   m_depth, m_width, m_height,
 					   m_volData);
 }
+bool
+VolumeFileManager::deleteCheckPoint()
+{
+  QString cflnm = m_filenames[0];
+  if (StaticFunctions::checkExtension(cflnm, "mask.sc"))
+    cflnm.chop(3);
+  cflnm += ".checkpoint";
+
+  return CheckpointHandler::deleteCheckpoint(cflnm,
+					     m_voxelType,
+					     m_depth, m_width, m_height,
+					     m_volData);
+}
 
 void
 VolumeFileManager::checkPoint()

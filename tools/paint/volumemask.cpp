@@ -48,6 +48,11 @@ VolumeMask::loadCheckPoint(QString flnm)
 {
   return m_maskFileManager.loadCheckPoint(flnm);
 }
+bool
+VolumeMask::deleteCheckPoint()
+{
+  return m_maskFileManager.deleteCheckPoint();
+}
 
 void
 VolumeMask::offLoadMemFile()

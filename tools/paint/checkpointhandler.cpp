@@ -158,6 +158,13 @@ CheckpointHandler::loadCheckpoint(QString flnm,
   int nrecords;
   qfile.read((char*)&nrecords, 4);
 //  QMessageBox::information(0, "", QString("Number of checkpoint records : %1").arg(nrecords));
+
+  if (nrecords == 0)
+    {
+      QMessageBox::information(0, "Load checkpoint", "No checkpoint records found");
+      qfile.close();
+      return false;
+    }
   
   QList<qint64> rfpos;
   QList<qint64> rbufsize;
@@ -281,6 +288,13 @@ CheckpointHandler::deleteCheckpoint(QString flnm,
   int nrecords;
   qfile.read((char*)&nrecords, 4);
 //  QMessageBox::information(0, "", QString("Number of checkpoint records : %1").arg(nrecords));
+
+  if (nrecords == 0)
+    {
+      QMessageBox::information(0, "Delete checkpoint", "No checkpoint records found");
+      qfile.close();
+      return false;
+    }
   
   QList<qint64> rfpos;
   QList<qint64> rbufsize;
@@ -379,8 +393,12 @@ CheckpointHandler::deleteCheckpoint(QString flnm,
 
   if (fpos1 == 0)
     {
+      qint64 fsize;
       // last record was removed so no need to shift
-      qint64 fsize = rfpos[nrecords-1]+rbufsize[nrecords-1];
+      if (nrecords == 0)
+	fsize = 10000*100 + 4;
+      else
+	fsize = rfpos[nrecords-1]+rbufsize[nrecords-1];
       qfile.resize(fsize);
       qfile.close();
     }

@@ -96,6 +96,16 @@ VolumeSingle::VolumeSingle() :
   m_texHeight = 0;
 
   m_nonZeroVoxels = 0;
+
+  m_foffH = m_foffW = m_foffD = 0.5;
+}
+
+void
+VolumeSingle::setOffsets(float od, float ow, float oh)
+{
+  m_foffD = od;
+  m_foffW = ow;
+  m_foffH = oh;
 }
 
 VolumeSingle::~VolumeSingle()
@@ -286,11 +296,14 @@ VolumeSingle::setSubvolume(Vec boxMin, Vec boxMax,
   int cd, cw, ch;
   XmlHeaderFunctions::getDimensionsFromHeader(m_volumeFiles[m_volnum],
 					      m_depth, m_width, m_height);
-  m_offH = (m_maxHeight- m_height)/2;
-  m_offW = (m_maxWidth - m_width)/2;
-  m_offD = (m_maxDepth - m_depth)/2;
+//  m_offH = (m_maxHeight- m_height)/2;
+//  m_offW = (m_maxWidth - m_width)/2;
+//  m_offD = (m_maxDepth - m_depth)/2;
 
-
+  m_offH = (m_maxHeight-m_height)*m_foffH;
+  m_offW = (m_maxWidth - m_width)*m_foffW;
+  m_offD = (m_maxDepth - m_depth)*m_foffD;
+    
   if (m_volumeFiles.count() > 1)
     setBasicInformation(m_volnum);
 
@@ -1126,6 +1139,9 @@ VolumeSingle::setMaxDimensions(int maxH, int maxW, int maxD)
   m_maxDepth = maxD;
   //-------------------------
 
+  if (m_sliceTemp)
+    delete [] m_sliceTemp;
+  
   int bpv = 1;
   if (m_pvlVoxelType > 0) bpv = 2;
   m_sliceTemp = new uchar [bpv*m_maxWidth*m_maxHeight];

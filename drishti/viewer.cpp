@@ -210,6 +210,11 @@ Viewer::reloadData()
 			  m_hiresVolume->histogramImage2D());
   
 
+//  // force prunebuffer and lightbuffer regeneration
+//  updateLookupTable();
+//  updatePruneBuffer(true);
+//  updateLightBuffers();
+  
   qApp->restoreOverrideCursor();
 }
 
@@ -3493,6 +3498,16 @@ Viewer::keyPressEvent(QKeyEvent *event)
       return;
     }
 
+  if (event->key() == Qt::Key_Space)
+    {
+      if (m_rcMode)
+	m_raycastMenu->show();
+
+      commandEditor();
+      updateGL();
+
+      return;
+    }
 
   if (!m_lowresVolume->raised() &&
       !m_hiresVolume->raised())
@@ -3929,16 +3944,16 @@ Viewer::keyPressEvent(QKeyEvent *event)
     }
 
 
-  if (event->key() == Qt::Key_Space)
-    {
-      if (m_rcMode)
-	m_raycastMenu->show();
-
-      commandEditor();
-      updateGL();
-
-      return;
-    }
+//  if (event->key() == Qt::Key_Space)
+//    {
+//      if (m_rcMode)
+//	m_raycastMenu->show();
+//
+//      commandEditor();
+//      updateGL();
+//
+//      return;
+//    }
 
   if (event->key() == Qt::Key_Escape)
     {
@@ -4314,6 +4329,30 @@ Viewer::processCommand(QString cmd)
       if (list.size() > 1)
 	rlod = list[1].toInt(&ok);
       Global::setLod(rlod);
+      reloadData();
+    }
+  else if (list[0] == "scalebb")
+    {
+      float vs = 1;
+      if (list.size() > 1)
+	vs = list[1].toFloat(&ok);
+      vs = qMax(1.0f, vs);
+      
+      m_Volume->setBBScale(vs);
+    }
+  else if (list[0] == "voloffset")
+    {
+      int v = -1;
+      float offd, offw, offh;
+      offd = offw = offh = 0.5;
+      if (list.size() > 1) v = list[1].toInt(&ok);
+      if (list.size() > 2) offh = list[2].toFloat(&ok);
+      if (list.size() > 3) offw = list[3].toFloat(&ok);
+      if (list.size() > 4) offd = list[4].toFloat(&ok);
+      offh = qBound(0.0f, offh, 1.0f);
+      offw = qBound(0.0f, offw, 1.0f);
+      offd = qBound(0.0f, offd, 1.0f);
+      m_Volume->setOffsets(v, offd, offw, offh);
       reloadData();
     }
   else if (list[0] == "depthoffield")
@@ -5344,6 +5383,19 @@ Viewer::commandEditor()
       mesg += QString("\nTemp directory is set to %1\n").arg(tdir);
   }
 
+  {
+    float vscl = m_Volume->bbScale();
+    mesg += QString("\nBounding Box Scale : %1").arg(vscl);
+    QList<Vec> voffsets;
+    voffsets = m_Volume->offsets();
+    mesg += "\nVolume Offsets :\n";
+    for(int i=0; i<voffsets.count(); i++)
+      {
+	mesg += QString("%1 : %2 %3 %4\n").arg(i).\
+	  arg(voffsets[i].z).arg(voffsets[i].y).arg(voffsets[i].x);
+      }
+  }
+  
   vlist << mesg;
 
   plist["message"] = vlist;

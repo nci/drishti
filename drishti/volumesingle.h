@@ -115,6 +115,9 @@ class VolumeSingle : public VolumeBase
 			    QList<CropObject>,
 			    QList<PathObject>);
 
+  void setOffsets(float, float, float);
+  Vec offset() { return Vec(m_foffD, m_foffW, m_foffH); }
+  
  private :
   VolumeFileManager m_pvlFileManager;
   VolumeFileManager m_gradFileManager;
@@ -138,6 +141,7 @@ class VolumeSingle : public VolumeBase
   uchar* m_sliceTexture;
   uchar* m_sliceTemp;
 
+  float m_foffH, m_foffW, m_foffD;
   int m_offH, m_offW, m_offD;
   int m_maxHeight, m_maxWidth, m_maxDepth;
 

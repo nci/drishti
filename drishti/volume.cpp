@@ -7,6 +7,46 @@
 
 bool Volume::valid() { return (m_volume.count() > 0); }
 
+float Volume::bbScale() { return m_bbScale; }
+
+void
+Volume::setBBScale(float vs)
+{
+  m_bbScale = vs;
+  if (m_volume.count() > 0)
+    QMessageBox::information(0, "Volume Bounding Box",
+			     "Cannot change bounding box size once the data is loaded.\n Change will be reflected when you load datasets in the current session.\n Changes in bounding box are not persistent across the sessions.");
+  else
+    QMessageBox::information(0, "Volume Bounding Box",
+			     "Scaled bounding box will be available in hires mode when you load project or dataset in this session.\nChanges in bounding box are not persistent across the sessions.");
+}
+
+QList<Vec>
+Volume::offsets()
+{
+  QList<Vec> off;
+  
+  for (int i=0; i<m_volume.count(); i++)
+    off << m_volume[i]->offset();
+
+  return off;
+}
+  
+void
+Volume::setOffsets(int v, float od, float ow, float oh)
+{
+  if (v == -1)
+    {
+      for (int i=0; i<m_volume.count(); i++)
+	m_volume[i]->setOffsets(od, ow, oh);
+    }
+  else
+    {
+      if (v>=0 && v<m_volume.count())
+	m_volume[v]->setOffsets(od, ow, oh);
+    }
+}
+		   
 int
 Volume::pvlVoxelType(int vol)
 {
@@ -611,6 +651,7 @@ Volume::Volume()
   m_subvolumeTexture = 0;
   m_dragTexture = 0;
   m_lowresTexture = 0;
+  m_bbScale = 1.0;
 }
 
 Volume::~Volume()
@@ -1129,6 +1170,8 @@ Vec Volume::getFullVolumeSize()
   for (int v=1; v<nvol; v++)
     vsize = StaticFunctions::maxVec(vsize,
 		 m_volume[v]->getFullVolumeSize());
+
+  vsize *= m_bbScale;
   
   return vsize;
 }

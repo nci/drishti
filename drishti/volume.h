@@ -143,6 +143,12 @@ class Volume : public QObject
 			    QList<CropObject>,
 			    QList<PathObject>);
 
+  void setOffsets(int, float, float, float);
+  QList<Vec> offsets();
+
+  void setBBScale(float);
+  float bbScale();
+
  private :
   QList<VolumeSingle*> m_volume;
 
@@ -151,6 +157,8 @@ class Volume : public QObject
   uchar* m_subvolumeTexture;
   uchar* m_dragTexture;
   uchar* m_lowresTexture;
+
+  float m_bbScale;
 };
 
 #endif

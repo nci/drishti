@@ -79,6 +79,33 @@ To set level 3 subsampled volume as the most detailed version : setlod 3
 #end
 
 #begin
+scalebb
+scalebb scale
+
+Increase the bounding box size in order to realign volumes in the case of multiple volumes.
+Default value of scale is 1.0 - i.e. no increase in bounding box size.
+
+For e.g.
+scalebb 1.2 - increase bounding box by 20%
+
+#end
+
+#begin
+voloffset
+voloffset vnum offsetX offsetY offsetZ
+
+When multiple volumes with different grid sizes are loaded, they are aligned to be in the center of the bounding box.  With voloffset, you can offset the volumes relative to each other within the bounding box.
+vnum specifies the volume number to offset
+offsetX, offsetY, offsetZ (values between 0.0 and 1.0) are offsets within the bounding box.  Default value for the offsets is 0.5 i.e. align in the center.
+
+For e.g.
+voloffset 0 0 0 0 - align volume 0 to be in the bottom corner
+voloffset 1 0 1.0 0 - align volume 1 to the top of Y axis
+voloffset 0 0.5 0.5 0.5 - align volume 0 in the center
+
+#end
+
+#begin
 savepoints
 Save points into a file. User will be asked for the text file name into which the points will be saved. This file will have number of points at the top followed by one point (i.e. 3 values) per line.
 #end

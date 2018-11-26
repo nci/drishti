@@ -269,6 +269,8 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   //------------------------------
 
   //------------------------------
+  connect(m_viewer, SIGNAL(undoPaint3D()),
+	  this, SLOT(undoPaint3D()));
   connect(m_viewer, SIGNAL(paint3DStart()),
 	  this, SLOT(paint3DStart()));
   connect(m_viewer, SIGNAL(paint3D(Vec,Vec,int,int,int,int,int, bool)),
@@ -467,6 +469,9 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   m_curvesWidget->updateTagColors();
 
   setGeometry(100, 100, 700, 700);
+
+  m_undoBlock.clear();
+  m_blockList.clear();
 }
 
 void DrishtiPaint::on_actionHelp_triggered() { ShowHelp::showMainHelp(); }
@@ -724,6 +729,31 @@ void DrishtiPaint::on_saveImage_triggered()
 	m_sagitalImage->saveImage();
       else
 	m_coronalImage->saveImage();
+    }
+}
+
+void DrishtiPaint::on_saveImageSequence_triggered()
+{
+  QStringList itype;
+  itype << "Z";  
+  itype << "Y";
+  itype << "X";
+  bool ok;
+  QString option = QInputDialog::getItem(0,
+					 "Save All Image Slices ",
+					 "Image plane",
+					 itype,
+					 0,
+					 false,
+					 &ok);
+  if (ok)
+    {
+      if (option.contains("Z"))
+	m_axialImage->saveImageSequence();
+      else if (option.contains("Y"))
+	m_sagitalImage->saveImageSequence();
+      else
+	m_coronalImage->saveImageSequence();
     }
 }
 
@@ -1438,6 +1468,7 @@ DrishtiPaint::dropEvent(QDropEvent *event)
     }
 }
 
+
 void
 DrishtiPaint::setFile(QString filename)
 {
@@ -1449,6 +1480,7 @@ DrishtiPaint::setFile(QString filename)
     }
 
   m_blockList.clear();
+  clearUndoBlock();
 
   QString flnm;
 
@@ -5540,6 +5572,7 @@ DrishtiPaint::paint3DStart()
 {
   m_prevSeed = Vec(-1,-1,-1);
   m_blockList.clear();
+  clearUndoBlock();
 }
 
 void
@@ -5728,6 +5761,8 @@ DrishtiPaint::paint3D(Vec bmin, Vec bmax,
 
   if (!onlyConnected)
     {
+      //addUndoBlock(ds, de, ws, we, hs, he);
+      
       for(qint64 dd=ds; dd<=de; dd++)
 	for(qint64 ww=ws; ww<=we; ww++)
 	  for(qint64 hh=hs; hh<=he; hh++)
@@ -5745,13 +5780,23 @@ DrishtiPaint::paint3D(Vec bmin, Vec bmax,
 	    }
     }
   else
-    {
+    {      
+//      for(int i=0; i<seeds.count(); i++)
+//	{
+//	  qint64 h0 = seeds[i].x;
+//	  qint64 w0 = seeds[i].y;
+//	  qint64 d0 = seeds[i].z;
+//	  addUndoBlock(d0-rad0, d0+rad0,
+//		       w0-rad0, w0+rad0,
+//		       h0-rad0, h0+rad0);
+//	}
+
       int indices[] = {-1, 0, 0,
-		       1, 0, 0,
-		       0,-1, 0,
-		       0, 1, 0,
-		       0, 0,-1,
-		       0, 0, 1};
+		        1, 0, 0,
+		        0,-1, 0,
+		        0, 1, 0,
+		        0, 0,-1,
+		        0, 0, 1};
       
       // tag only connected region
       
@@ -6883,4 +6928,120 @@ void
 DrishtiPaint::on_actionDeleteCheckpoint_triggered()
 {
   m_volume->deleteCheckPoint();
+}
+
+
+void
+DrishtiPaint::clearUndoBlock()
+{
+  if (m_undoBlock.count() > 0)
+    {
+      for(int i=0; i<m_undoBlock.count(); i++)
+	{
+	  delete [] m_undoBlock[i]->data;
+	  delete m_undoBlock[i];
+	}
+    }
+  m_undoBlock.clear();
+}
+
+void
+DrishtiPaint::addUndoBlock(int ds0, int de0,
+			   int ws0, int we0,
+			   int hs0, int he0)
+{
+  int m_depth, m_width, m_height;
+  m_volume->gridSize(m_depth, m_width, m_height);
+
+  int ds = qMax(0, ds0);
+  int ws = qMax(0, ws0);
+  int hs = qMax(0, hs0);
+  
+  int de = qMin(m_depth-1, de0);
+  int we = qMin(m_width-1, we0);
+  int he = qMin(m_height-1, he0);
+  
+  uchar *maskData = m_volume->memMaskDataPtr();
+
+  int dsz = de-ds+1;
+  int wsz = we-ws+1;
+  int hsz = he-hs+1;
+  uchar *data = new uchar[dsz*wsz*hsz];
+  memset(data, 0, dsz*wsz*hsz);
+
+  int i=0;
+  for(qint64 dd=ds; dd<=de; dd++)
+    for(qint64 ww=ws; ww<=we; ww++)
+      for(qint64 hh=hs; hh<=he; hh++)
+	{
+	  data[i] = maskData[dd*m_width*m_height + ww*m_height + hh];
+	  i++;
+	}
+
+  UndoBlock *ub = new UndoBlock;
+  ub->ds = ds;  ub->de = de;
+  ub->ws = ws;  ub->we = we;
+  ub->hs = hs;  ub->he = he;
+  ub->data = data;
+  
+  m_undoBlock << ub;
+}
+
+void
+DrishtiPaint::undoPaint3D()
+{
+  m_volume->undo();
+
+  int m_depth, m_width, m_height;
+  m_volume->gridSize(m_depth, m_width, m_height);
+  m_viewer->uploadMask(0,0,0, m_depth-1,m_width-1,m_height-1);
+  //QMessageBox::information(0, "", "done");
+    
+  //  if (m_undoBlock.count() == 0)
+//    {
+//      QMessageBox::information(0, "", "Nothing to restore");
+//      return;
+//    }
+//
+//  int m_depth, m_width, m_height;
+//  m_volume->gridSize(m_depth, m_width, m_height);
+//
+//
+//  uchar *maskData = m_volume->memMaskDataPtr();
+//  int minD,maxD, minW,maxW, minH,maxH;
+//  minD = minH = minW = 1000000;
+//  maxD = maxH = maxW = -1000000;
+//  
+//  for (int u=0; u<m_undoBlock.count(); u++)
+//    {
+//      int ds, de, ws, we, hs, he;
+//      
+//      UndoBlock *ub = m_undoBlock[u];
+//      ds = ub->ds;  de = ub->de;
+//      ws = ub->ws;  we = ub->we;
+//      hs = ub->hs;  he = ub->he;
+//      
+//      uchar *data = ub->data;
+//      
+//      int i=0;
+//      for(qint64 dd=ds; dd<=de; dd++)
+//	for(qint64 ww=ws; ww<=we; ww++)
+//	  for(qint64 hh=hs; hh<=he; hh++)
+//	    {
+//	      maskData[dd*m_width*m_height + ww*m_height + hh] = data[i];
+//	      i++;
+//	    }      
+//
+//      minD = qMin(minD, (int)ds);
+//      minW = qMin(minW, (int)ws);
+//      minH = qMin(minH, (int)hs);
+//
+//      maxD = qMax(maxD, (int)de);
+//      maxW = qMax(maxW, (int)we);
+//      maxH = qMax(maxH, (int)he);
+//    }
+//  
+//  m_viewer->uploadMask(minD,minW,minH, maxD,maxW,maxH);
+//
+//  clearUndoBlock();
 }

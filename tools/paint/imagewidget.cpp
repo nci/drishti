@@ -223,6 +223,73 @@ ImageWidget::saveImage()
 }
 
 void
+ImageWidget::saveImageSequence()
+{
+  QString imgFile = QFileDialog::getSaveFileName(0,
+			 "Save composite image",
+			 Global::previousDirectory(),
+			 "Image Files (*.png *.tif *.bmp *.jpg)",
+		         0,
+		         QFileDialog::DontUseNativeDialog);
+
+  if (imgFile.isEmpty())
+    return;
+
+  if (!StaticFunctions::checkExtension(imgFile, ".png") &&
+      !StaticFunctions::checkExtension(imgFile, ".tif") &&
+      !StaticFunctions::checkExtension(imgFile, ".bmp") &&
+      !StaticFunctions::checkExtension(imgFile, ".jpg"))
+    imgFile += ".png";
+
+  QString ext = imgFile.right(4);
+  imgFile.chop(4);
+    
+  int iend = 0;
+  if (m_sliceType == DSlice) iend = m_Depth;
+  if (m_sliceType == WSlice) iend = m_Width;
+  if (m_sliceType == HSlice) iend = m_Height;
+
+  int cs = m_currSlice;
+  
+  QProgressDialog progress("Save All Image Slices",
+			   QString("Stop"),
+			   0, 100,
+			   0,
+			   Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);
+
+  for(int i=0; i<iend; i++)
+    {        
+      progress.setValue(100*(float)i/(float)iend);
+      qApp->processEvents();
+			
+      setSlice(i);
+      
+      QImage sImage = m_image;
+      QPainter p(&sImage);
+      
+      p.setRenderHint(QPainter::Antialiasing);
+      p.setCompositionMode(QPainter::CompositionMode_SourceOver);
+      p.drawImage(0, 0, m_image);
+      p.drawImage(0, 0, m_maskimage);
+      
+      QString imgno = QString("%1").arg(i, 5, 10, QChar('0'));
+      sImage.save(imgFile+imgno+ext);
+
+      if (progress.wasCanceled())
+	{
+	  QMessageBox::information(0, "", "Save Image Slices Stopped");
+	  break;
+	}
+    }
+
+  progress.setValue(100);
+
+  setSlice(cs);
+  QMessageBox::information(0, "Save All Image Slices", "Done");
+}
+
+void
 ImageWidget::setZoom(float z)
 {  
   if (!m_volPtr)

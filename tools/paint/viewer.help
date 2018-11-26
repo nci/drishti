@@ -114,6 +114,13 @@ Start Keyboard help
 #end
 
 #begin
+Ctrl+z
+Ctrl+z allows for a single undo operation.
+
+*Currently redo operation is not supported.
+#end
+
+#begin
 Ctrl+Left click
 Ctrl+Left click to change position cross marker.  Image slices in the respective orthogonal slices widget are updated.
 #end

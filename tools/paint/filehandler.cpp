@@ -29,7 +29,12 @@ FileHandler::reset()
   m_savingFile = false;
 }
 
-void FileHandler::setFilenameList(QStringList flist) { m_filenames = flist; }
+void FileHandler::setFilenameList(QStringList flist)
+{
+  m_filenames = flist;
+  m_tempFile = m_filenames[0]+".tmp";
+
+}
 void FileHandler::setBaseFilename(QString bfn) { m_baseFilename = bfn; }
 void FileHandler::setDepth(int d) { m_depth = d; }
 void FileHandler::setWidth(int w) { m_width = w; }
@@ -48,9 +53,14 @@ void FileHandler::setVoxelType(int vt)
 }
 void FileHandler::setVolData(uchar *v) { m_volData = v; }
 
-
 void
 FileHandler::loadMemFile()
+{
+  loadMemFile(m_filenames[0]);
+}
+
+void
+FileHandler::loadMemFile(QString flnm)
 {
   qint64 vsz = m_depth;
   vsz *= m_width;
@@ -59,7 +69,7 @@ FileHandler::loadMemFile()
   char chkver[10];
   memset(chkver, 0, 10);
 
-  m_qfile.setFileName(m_filenames[0]);
+  m_qfile.setFileName(flnm);
   m_qfile.open(QFile::ReadOnly);
   m_qfile.read((char*)chkver, 6);
   uchar vt;
@@ -172,6 +182,30 @@ FileHandler::saveMemFile()
 }
 
 void
+FileHandler::genUndo()
+{
+  QMutexLocker locker(&m_mutex);
+  
+  if (QFile::exists(m_tempFile))
+    QFile::remove(m_tempFile);
+      
+  QFile::copy(m_filenames[0], m_tempFile);
+}
+
+void
+FileHandler::undo()
+{
+  QMutexLocker locker(&m_mutex);
+  
+  if (QFile::exists(m_tempFile))
+    {
+      QFile::remove(m_filenames[0]);
+      QFile::copy(m_tempFile, m_filenames[0]);
+      loadMemFile();
+    }
+}
+
+void
 FileHandler::saveDataBlock(int dmin, int dmax,
 			   int wmin, int wmax,
 			   int hmin, int hmax)
@@ -182,7 +216,7 @@ FileHandler::saveDataBlock(int dmin, int dmax,
       //if (m_qfile.isOpen()) m_qfile.close();
       return;
     }
-
+   
   //-----------  
   saveMemFile();
   return;

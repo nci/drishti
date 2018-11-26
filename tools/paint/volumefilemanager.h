@@ -106,7 +106,9 @@ class VolumeFileManager : public QObject
   void saveSlicesToFile();
 
   void startFileHandlerThread();
-  
+
+  void undo();
+
  signals :
     void saveDepthSlices(IntList);
     void saveWidthSlices(IntList);

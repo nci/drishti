@@ -1235,6 +1235,12 @@ VolumeFileManager::exportMask()
 }
 
 void
+VolumeFileManager::undo()
+{
+  m_handler->undo();
+}
+
+void
 VolumeFileManager::loadMemFile()
 {
   if (!m_memmapped)
@@ -1327,7 +1333,10 @@ void
 VolumeFileManager::createMemFile()
 {
   if (m_volData)
-    delete [] m_volData;
+    return;
+    
+//  if (m_volData)
+//    delete [] m_volData;
 
   qint64 vsize = m_width*m_height*m_bytesPerVoxel;
   vsize *= m_depth;
@@ -1540,6 +1549,8 @@ VolumeFileManager::saveBlock(int dmin, int dmax,
 
   if (m_thread)
     {
+      m_handler->genUndo();
+      
       emit saveDataBlock(dmin, dmax, wmin, wmax, hmin, hmax);
       return;
     }

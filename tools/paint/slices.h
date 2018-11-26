@@ -33,6 +33,7 @@ class Slices : public QWidget
   void loadLookupTable(QImage);
 
   void saveImage();
+  void saveImageSequence();
 
   void setRawValue(QList<int>);
 

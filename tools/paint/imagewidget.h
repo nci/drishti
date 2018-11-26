@@ -31,6 +31,7 @@ class ImageWidget : public QWidget
   };
 
   void saveImage();
+  void saveImageSequence();
 
   void setScrollArea(QScrollArea *sa) { m_scrollArea = sa; }
 

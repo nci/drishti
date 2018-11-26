@@ -23,6 +23,14 @@
 #include "ply.h"
 #include "popupslider.h"
 
+class UndoBlock
+{
+ public :
+  int ds, de;
+  int ws, we;
+  int hs, he;
+  uchar *data;
+};
 
 class DrishtiPaint : public QMainWindow
 {
@@ -52,6 +60,7 @@ class DrishtiPaint : public QMainWindow
   void on_actionLoad_TF_triggered();
   void on_actionSave_TF_triggered();
   void on_saveImage_triggered();
+  void on_saveImageSequence_triggered();
   void on_actionLoad_triggered();
   void on_actionLoad_Curves_triggered();
   void on_actionSave_Curves_triggered();
@@ -168,6 +177,8 @@ class DrishtiPaint : public QMainWindow
 
   void on_changeSliceOrdering_triggered();
 
+  void undoPaint3D();
+  
  private :
   Ui::DrishtiPaint ui;
   Ui::ViewerMenu viewerUi;
@@ -211,6 +222,8 @@ class DrishtiPaint : public QMainWindow
 
   QList< QList<int> > m_blockList;
 
+  QList<UndoBlock*> m_undoBlock;
+  
   Vec m_prevSeed;
 
   Viewer3D *m_viewer3D;
@@ -318,6 +331,9 @@ class DrishtiPaint : public QMainWindow
   void extractFromAnotherVolume(QList<int>);
 
   void loadCheckPoint(QString);
+
+  void addUndoBlock(int,int,int,int,int,int);
+  void clearUndoBlock();
 };
 
 #endif

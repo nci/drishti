@@ -11,6 +11,8 @@ class VolumeMask : public QObject
   VolumeMask();
   ~VolumeMask();
 
+  void undo() { m_maskFileManager.undo(); }
+
   void reset();
   void setFile(QString, bool);
   void setGridSize(int, int, int, int);

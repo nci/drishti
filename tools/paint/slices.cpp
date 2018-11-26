@@ -217,6 +217,7 @@ void Slices::processPrevSliceTags() { m_imageWidget->processPrevSliceTags(); }
 void Slices::loadLookupTable(QImage img) { m_imageWidget->loadLookupTable(img); }
 
 void Slices::saveImage() { m_imageWidget->saveImage(); }
+void Slices::saveImageSequence() { m_imageWidget->saveImageSequence(); }
 
 void Slices::setRawValue(QList<int> u) { m_imageWidget->setRawValue(u); }
 

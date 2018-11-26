@@ -33,6 +33,9 @@ class FileHandler : public QObject
     
     void saveMemFile();
     void loadMemFile();
+
+    void genUndo();
+    void undo();
     
     void saveDataBlock(int,int,
 		       int,int,
@@ -56,8 +59,12 @@ class FileHandler : public QObject
     uchar *m_volData;    
 
     QMutex m_mutex;
+
+    QString m_tempFile;
     
     void reset();
+
+    void loadMemFile(QString);
 };
 
 #endif

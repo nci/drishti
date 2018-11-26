@@ -132,6 +132,7 @@ class Viewer : public QGLViewer
  signals :
     void showBoxChanged(bool);
 
+    void undoPaint3D();
     void paint3DStart();
     void paint3DEnd();
     void paint3D(Vec, Vec,

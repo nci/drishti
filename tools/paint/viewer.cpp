@@ -531,7 +531,6 @@ Viewer::createRaycastShader()
 		       m_vsize.y*m_vsize.y +
 		       m_vsize.z*m_vsize.z);
   maxSteps *= 1.0/m_stillStep;
-  //QMessageBox::information(0, "", QString("%1 %2").arg(m_stillStep).arg(maxSteps));
 
   if (Global::bytesPerVoxel() == 1)
     shaderString = ShaderFactory::genIsoRaycastShader(m_exactCoord, m_useMask, false);
@@ -808,6 +807,16 @@ Viewer::keyPressEvent(QKeyEvent *event)
     {
       m_infoText = !m_infoText;
       update();
+      return;
+    }
+
+  if (event->key() == Qt::Key_Z)
+    {  
+      if (event->modifiers() & Qt::ControlModifier)
+	{
+	  emit undoPaint3D();
+	  update();
+	}
       return;
     }
 
@@ -1276,6 +1285,9 @@ Viewer::setGridSize(int d, int w, int h)
   m_maxDSlice = d-1;
   m_maxWSlice = w-1;
   m_maxHSlice = h-1;
+//  m_maxDSlice = d;
+//  m_maxWSlice = w;
+//  m_maxHSlice = h;
 
   m_cminD = m_minDSlice;
   m_cminW = m_minWSlice;
@@ -1848,7 +1860,6 @@ Viewer::updateVoxels()
   m_maxWSlice = qCeil(bmax.y);
   m_maxHSlice = qCeil(bmax.x);
 
-
   updateVoxelsForRaycast();
 
   updateFilledBoxes();
@@ -1907,10 +1918,10 @@ Viewer::updateVoxelsForRaycast()
       tsz = dsz*wsz*hsz*Global::bytesPerVoxel();      
       //-------------------------
     }
-
+  
   m_corner = Vec(m_minHSlice, m_minWSlice, m_minDSlice);
   m_vsize = Vec(hsz, wsz, dsz);
-
+  
   createRaycastShader();
 
   uchar *voxelVol = new uchar[tsz];
@@ -2645,25 +2656,14 @@ Viewer::generateBoxes()
   m_cmaxW = qCeil(bmaxO.y);
   m_cmaxH = qCeil(bmaxO.x);
 
-  int imin = (int)bminO.x/m_boxSize;
-  int jmin = (int)bminO.y/m_boxSize;
-  int kmin = (int)bminO.z/m_boxSize;
 
-  int imax = (int)bmaxO.x/m_boxSize;
-  int jmax = (int)bmaxO.y/m_boxSize;
-  int kmax = (int)bmaxO.z/m_boxSize;
-  if (imax*m_boxSize < (int)bmaxO.x) imax++;
-  if (jmax*m_boxSize < (int)bmaxO.y) jmax++;
-  if (kmax*m_boxSize < (int)bmaxO.z) kmax++;
-  
-  for(int k=kmin; k<kmax; k++)
+  for(int k=0; k<m_dbox; k++)
     {
-      progress.setValue(100*(float)k/(float)kmax);
+      progress.setValue(100*(float)k/(float)m_dbox);
       qApp->processEvents();
 
-
-      for(int j=jmin; j<jmax; j++)
-	for(int i=imin; i<imax; i++)
+      for(int j=0; j<m_wbox; j++)
+	for(int i=0; i<m_hbox; i++)
 	  {
 	    int idx = k*m_wbox*m_hbox+j*m_hbox+i;
 	    
@@ -3902,8 +3902,6 @@ Viewer::generateDrawBoxes()
 
   m_mdEle = 0;
   
-  Vec voxelScaling = Global::relativeVoxelScaling();
-
   int imin,jmin,kmin;
   imin = jmin = kmin = 0;
   int imax = m_hbox;

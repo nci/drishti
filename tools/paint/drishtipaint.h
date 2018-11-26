@@ -23,15 +23,6 @@
 #include "ply.h"
 #include "popupslider.h"
 
-class UndoBlock
-{
- public :
-  int ds, de;
-  int ws, we;
-  int hs, he;
-  uchar *data;
-};
-
 class DrishtiPaint : public QMainWindow
 {
   Q_OBJECT
@@ -221,8 +212,6 @@ class DrishtiPaint : public QMainWindow
   QList <QAction*> m_recentFileActions;
 
   QList< QList<int> > m_blockList;
-
-  QList<UndoBlock*> m_undoBlock;
   
   Vec m_prevSeed;
 
@@ -331,9 +320,6 @@ class DrishtiPaint : public QMainWindow
   void extractFromAnotherVolume(QList<int>);
 
   void loadCheckPoint(QString);
-
-  void addUndoBlock(int,int,int,int,int,int);
-  void clearUndoBlock();
 };
 
 #endif

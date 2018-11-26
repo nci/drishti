@@ -54,6 +54,7 @@ class VolumeMask : public QObject
   uchar* m_maskslice;
 
   void checkMaskFile();
+  void createPvlNc(QString);
 };
 
 #endif

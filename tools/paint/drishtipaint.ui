@@ -983,7 +983,7 @@
   </action>
   <action name="actionExportMask">
    <property name="text">
-    <string>Export .mask</string>
+    <string>Export .rawmask</string>
    </property>
   </action>
   <action name="actionDeleteCheckpoint">

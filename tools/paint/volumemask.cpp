@@ -31,7 +31,9 @@ VolumeMask::reset()
 void
 VolumeMask::exportMask()
 {
-  m_maskFileManager.exportMask();
+  QString maskfile = m_maskFileManager.exportMask();
+  if (!maskfile.isEmpty())
+    createPvlNc(maskfile);
 }
 void
 VolumeMask::checkPoint()
@@ -184,13 +186,8 @@ VolumeMask::setGridSize(int d, int w, int h, int slabsize)
 }
 
 void
-VolumeMask::checkMaskFile()
+VolumeMask::createPvlNc(QString maskfile)
 {
-  // create mask file if not present
-  if (!m_maskFileManager.exists())
-    {
-      m_maskFileManager.createFile(true, true);
-
       QDomDocument doc("Drishti_Header");
       
       QDomElement topElement = doc.createElement("PvlDotNcFileHeader");
@@ -206,9 +203,9 @@ VolumeMask::checkMaskFile()
       {      
 	QDomElement de0 = doc.createElement("pvlnames");
 	QDomText tn0;
-	QFileInfo fileInfo(m_maskfile);
+	QFileInfo fileInfo(maskfile);
 	QDir direc = fileInfo.absoluteDir();
-	QString vstr = direc.relativeFilePath(m_maskfile);
+	QString vstr = direc.relativeFilePath(maskfile);
 	tn0 = doc.createTextNode(vstr);
 	de0.appendChild(tn0);
 	topElement.appendChild(de0);
@@ -270,8 +267,7 @@ VolumeMask::checkMaskFile()
 	topElement.appendChild(de0);
       }
       
-      QString pvlfile = m_maskfile;
-      //pvlfile.chop(4);
+      QString pvlfile = maskfile;
       pvlfile += ".pvl.nc";
       QFile pf(pvlfile.toLatin1().data());
       if (pf.open(QIODevice::WriteOnly))
@@ -279,8 +275,18 @@ VolumeMask::checkMaskFile()
 	  QTextStream out(&pf);
 	  doc.save(out, 2);
 	  pf.close();
-	}
-      
+	}      
+}
+
+void
+VolumeMask::checkMaskFile()
+{
+  // create mask file if not present
+  if (!m_maskFileManager.exists())
+    {
+      m_maskFileManager.createFile(true, true);
+
+      createPvlNc(m_maskfile);
     }
 } 
 

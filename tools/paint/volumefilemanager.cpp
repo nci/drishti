@@ -1177,23 +1177,23 @@ VolumeFileManager::saveMemFile()
     
 }
 
-void
+QString
 VolumeFileManager::exportMask()
 {
   QString flnm;
   flnm = QFileDialog::getSaveFileName(0,
-				      "Export to .mask file",
+				      "Export to .rawmask file",
 				      Global::previousDirectory(),
-				      "Mask Files (*.mask)",
+				      "Mask Files (*.rawmask)",
 				      0,
 				      QFileDialog::DontUseNativeDialog);
 
   
   if (flnm.isEmpty())
-    return;
+    return QString();
 
-  if (!StaticFunctions::checkExtension(flnm, ".mask"))
-    flnm += ".mask";
+  if (!StaticFunctions::checkExtension(flnm, ".rawmask"))
+    flnm += ".rawmask";
 
   uchar vt;
   if (m_voxelType == _UChar) vt = 0; // unsigned byte
@@ -1232,6 +1232,8 @@ VolumeFileManager::exportMask()
   m_qfile.close();
 
   progress.setValue(100);
+
+  return flnm;
 }
 
 void

@@ -17,7 +17,7 @@ Ajay Limaye; Drishti: a volume exploration and presentation tool. Proc. SPIE 850
 Download the current version of Drishti (v2.6.5) for<br>
   * [**Windows**](https://github.com/AjayLimaye/drishti/releases/tag/v2.6.5win)<br>
   
-  [**Chinese v2.6.5 Update**] https://github.com/nci/drishti/wiki/Drishti-2.6.5---Chinese-Update
+  [**Chinese v2.6.5 Update**](https://github.com/nci/drishti/wiki/Drishti-2.6.5---Chinese-Update)
 
 [**All other releases**](https://github.com/AjayLimaye/drishti/releases/)
 

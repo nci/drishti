@@ -5598,9 +5598,9 @@ Viewer::handleMorphologicalOperations(QStringList list)
 	pflnm = QFileDialog::getSaveFileName(0,
 					     "Save histogram to text file ?",
 					     Global::previousDirectory(),
-					     "Files (*.txt)",
-					     0,
-					     QFileDialog::DontUseNativeDialog);
+					     "Files (*.txt)");
+//					     0,
+//					     QFileDialog::DontUseNativeDialog);
 	
 	
 	if (! pflnm.isEmpty())

@@ -3428,9 +3428,9 @@ MainWindow::on_actionSave_Project_triggered()
     flnm = QFileDialog::getSaveFileName(0,
 					"Save Project",
 					Global::previousDirectory(),
-					"xml Files (*.xml)",
-					0,
-					QFileDialog::DontUseNativeDialog);
+					"xml Files (*.xml)");
+//					0,
+//					QFileDialog::DontUseNativeDialog);
 
 
   if (flnm.isEmpty())
@@ -3448,9 +3448,9 @@ MainWindow::on_actionSave_InformationForDrishtiPrayog_triggered()
   flnm = QFileDialog::getSaveFileName(0,
 				      "Save Information for Drishti-Prayog",
 				      Global::previousDirectory(),
-				      "DrishtiPrayog Files (*.drishtiprayog)",
-				      0,
-				      QFileDialog::DontUseNativeDialog);
+				      "DrishtiPrayog Files (*.drishtiprayog)");
+//				      0,
+//				      QFileDialog::DontUseNativeDialog);
 
   if (!StaticFunctions::checkExtension(flnm, ".drishtiprayog"))
     flnm += ".drishtiprayog";
@@ -3468,9 +3468,9 @@ MainWindow::on_actionSave_ProjectAs_triggered()
   flnm = QFileDialog::getSaveFileName(0,
 				      "Save Project As",
 				      Global::previousDirectory(),
-				      "Drishti Project - xml Files (*.xml)",
-				      0,
-				      QFileDialog::DontUseNativeDialog);
+				      "Drishti Project - xml Files (*.xml)");
+//				      0,
+//				      QFileDialog::DontUseNativeDialog);
 
   if (flnm.isEmpty())
     return;
@@ -4881,9 +4881,9 @@ MainWindow::viewProfile(int segments,
   pflnm = QFileDialog::getSaveFileName(0,
 				       "Save profile to text file ?",
 				       Global::previousDirectory(),
-				       "Files (*.txt)",
-				       0,
-				       QFileDialog::DontUseNativeDialog);
+				       "Files (*.txt)");
+//				       0,
+//				       QFileDialog::DontUseNativeDialog);
   
   
   if (! pflnm.isEmpty())
@@ -5006,9 +5006,9 @@ MainWindow::viewThicknessProfile(int searchType,
   pflnm = QFileDialog::getSaveFileName(0,
 				       "Save thickness profile to text file ?",
 				       Global::previousDirectory(),
-				       "Files (*.txt)",
-				       0,
-				       QFileDialog::DontUseNativeDialog);
+				       "Files (*.txt)");
+//				       0,
+//				       QFileDialog::DontUseNativeDialog);
 
   //------
   if (! pflnm.isEmpty())

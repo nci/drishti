@@ -396,9 +396,9 @@ RemapWidget::saveTrimmedImages(int dmin, int dmax,
   imgflnm = QFileDialog::getSaveFileName(0,
 					 "Save images with basename as",
 					 Global::previousDirectory(),
-					 "Image Files (*.png *.tif *.bmp *.jpg *.raw)",
-					 0,
-					 QFileDialog::DontUseNativeDialog);
+					 "Image Files (*.png *.tif *.bmp *.jpg *.raw)");
+//					 0,
+//					 QFileDialog::DontUseNativeDialog);
 
   if (imgflnm.isEmpty())
     return;

@@ -167,9 +167,9 @@ RemapImage::saveLimits()
   QString flnm = QFileDialog::getSaveFileName(0,
 					      "Save limits information",
 					      Global::previousDirectory(),
-					      "Files (*.txt)",
-					      0,
-					      QFileDialog::DontUseNativeDialog);
+					      "Files (*.txt)");
+//					      0,
+//					      QFileDialog::DontUseNativeDialog);
 
   if (flnm.isEmpty())
     return;
@@ -197,13 +197,17 @@ RemapImage::saveLimits()
 void
 RemapImage::saveImage()
 {
+//  QString imgFile = QFileDialog::getSaveFileName(0,
+//						 "Save composite image",
+//						 Global::previousDirectory(),
+//						 "Image Files (*.png *.tif *.bmp *.jpg)",
+//						 0,
+//						 QFileDialog::DontUseNativeDialog);
+
   QString imgFile = QFileDialog::getSaveFileName(0,
 						 "Save composite image",
 						 Global::previousDirectory(),
-						 "Image Files (*.png *.tif *.bmp *.jpg)",
-						 0,
-						 QFileDialog::DontUseNativeDialog);
-
+						 "Image Files (*.png *.tif *.bmp *.jpg)");
   if (imgFile.isEmpty())
     return;
 

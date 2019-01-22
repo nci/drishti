@@ -247,9 +247,9 @@ getRawFilename(QString pvlFilename)
   QString rawfile = QFileDialog::getSaveFileName(0,
 						 "Save processed volume",
 						 QFileInfo(pvlFilename).absolutePath(),
-						 "RAW Files (*.raw)",
-						 0,
-						 QFileDialog::DontUseNativeDialog);
+						 "RAW Files (*.raw)");
+//						 0,
+//						 QFileDialog::DontUseNativeDialog);
   return rawfile;
 }
 
@@ -1842,9 +1842,9 @@ Raw2Pvl::saveMHD(QString mhdFilename,
       QString zfl = QFileDialog::getSaveFileName(0,
 						 "Save raw volume",
 						 Global::previousDirectory(),
-						 "File (*.raw)",
-						 0,
-						 QFileDialog::DontUseNativeDialog);
+						 "File (*.raw)");
+//						 0,
+//						 QFileDialog::DontUseNativeDialog);
 
       if (zfl.isEmpty())
 	{

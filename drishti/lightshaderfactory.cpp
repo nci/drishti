@@ -51,7 +51,8 @@ LightShaderFactory::genOpacityShader(bool bit16)
   shader += "  float yO = y*float(llod);\n";
   shader += "  float zO = z*float(llod);\n";
 
-  shader += "int alod = llod-1;\n";
+
+  shader += "int alod = int(max(1.0, float(llod)-1.0));\n";
   shader += "vec4 fcolor = vec4(0.0,0.0,0.0,0.0);\n";
   shader += "for(int xa=-alod; xa<=alod; xa++)\n";
   shader += "for(int ya=-alod; ya<=alod; ya++)\n";
@@ -141,7 +142,9 @@ LightShaderFactory::genOpacityShader(bool bit16)
   shader += "   }\n";
   shader += "}\n";
 
-  shader += " gl_FragColor = fcolor/pow(2.0*(float)alod+1, 3.0);\n";
+  //shader += " gl_FragColor = fcolor/pow(2.0*(float)alod+1, 3.0);\n";
+  shader += " gl_FragColor = fcolor/pow(2.0*float(alod)+1.0, 3.0);\n";
+
 
   shader += "}\n";
 
@@ -870,7 +873,8 @@ LightShaderFactory::genInitTubeLightShader() // point shader
   shader += "     {\n";
   shader += "       bvec3 spless = lessThan(p, vec3(1.0,1.0,1.0));\n";
   shader += "       bvec3 spgret = greaterThan(p, vec3(float(gridx)-1.0,float(gridy)-1.0,float(gridz)-1.0));\n";
-  shader += "       if (any(spless) || any(spgret) || op<0.01)\n";
+  //shader += "       if (any(spless) || any(spgret) || op<0.01)\n";
+  shader += "       if (any(spless) || any(spgret))\n";
   shader += "          gl_FragColor = vec4(1.0,op,1.0,1.0);\n";
   shader += "       return;\n";
   shader += "     }\n";
@@ -978,6 +982,7 @@ LightShaderFactory::genTubeLightShader() // point shader
   shader += "  if (lradius < 1.0)\n";
   shader += "   {\n";
   shader += "     gl_FragColor = texture2DRect(lightTex, tc.xy);\n";
+
   shader += "     vec3 p = vec3(x,y,z);\n";
   shader += "     float ig = 1.0;\n";
   shader += "     bvec3 spless = lessThan(p, vec3(ig));\n";
@@ -988,13 +993,30 @@ LightShaderFactory::genTubeLightShader() // point shader
   shader += "     float nlit = 0.0;\n";
   shader += "     float lit = 0.0;\n";
   shader += "     float maxlit = 0.0;\n";
-  // -- take contributions from left, right, front and back
+
+  // -- take contributions from all faces
   shader += "     int row = z/ncols;\n";
   shader += "     int col = z - row*ncols;\n";
   shader += "     row *= gridy;\n";
   shader += "     col *= gridx;\n";
-  shader += "     for(int i=-1; i<=1; i+=2)\n";
-  shader += "     for(int j=-1; j<=1; j+=2)\n";
+
+  shader += "     int i,j;\n";
+
+//  shader += "     for(i=-1; i<=1; i+=2)\n";
+//  shader += "     for(j=-1; j<=1; j+=2)\n";
+//  shader += "      {\n";
+//  shader += "        float x1 = float(col+x+i)+0.5;\n";
+//  shader += "        float y1 = float(row+y+j)+0.5;\n";
+//  shader += "        vec2 ldop = texture2DRect(lightTex, vec2(x1,y1)).xy;\n";
+//  shader += "        float alit = (1.0-ldop.y)*ldop.x;\n";
+//  shader += "        nlit += step(0.001, alit);\n";
+//  shader += "        lit += alit;\n";
+//  shader += "        maxlit = max(alit, maxlit);\n";
+//  shader += "      }\n";
+
+  // -- take contributions from left and right
+  shader += "     j = 0;\n";
+  shader += "     for(i=-1; i<=1; i+=2)\n";
   shader += "      {\n";
   shader += "        float x1 = float(col+x+i)+0.5;\n";
   shader += "        float y1 = float(row+y+j)+0.5;\n";
@@ -1004,6 +1026,20 @@ LightShaderFactory::genTubeLightShader() // point shader
   shader += "        lit += alit;\n";
   shader += "        maxlit = max(alit, maxlit);\n";
   shader += "      }\n";
+  
+  // -- take contributions from front and back
+  shader += "     i = 0;\n";
+  shader += "     for(j=-1; j<=1; j+=2)\n";
+  shader += "      {\n";
+  shader += "        float x1 = float(col+x+i)+0.5;\n";
+  shader += "        float y1 = float(row+y+j)+0.5;\n";
+  shader += "        vec2 ldop = texture2DRect(lightTex, vec2(x1,y1)).xy;\n";
+  shader += "        float alit = (1.0-ldop.y)*ldop.x;\n";
+  shader += "        nlit += step(0.001, alit);\n";
+  shader += "        lit += alit;\n";
+  shader += "        maxlit = max(alit, maxlit);\n";
+  shader += "      }\n";
+
   // -- take contributions from top and bottom
   shader += "     for(int k=-1; k<=1; k+=2)\n";
   shader += "      {\n";
@@ -1020,6 +1056,7 @@ LightShaderFactory::genTubeLightShader() // point shader
   shader += "        lit += alit;\n";
   shader += "        maxlit = max(alit, maxlit);\n";
   shader += "      }\n";
+
   // -- merge all contributions
   shader += "     nlit = max(1.0, nlit);\n";
   shader += "     lit /= nlit;\n";
@@ -1137,22 +1174,25 @@ LightShaderFactory::genExpandLightShader()
 
   shader += "int alod = llod-1;\n";
   shader += "vec4 fcolor = vec4(0.0,0.0,0.0,0.0);\n";
-  shader += "for(int xa=-alod; xa<=alod; xa++)\n";
-  shader += "for(int ya=-alod; ya<=alod; ya++)\n";
   shader += "for(int za=-alod; za<=alod; za++)\n";
   shader += "{\n";
-  shader += "  float x = xO + xa;\n";
-  shader += "  float y = yO + ya;\n";
   shader += "  float z = zO + za;\n";
   shader += "  int lrow = int(z)/lncols;\n";
   shader += "  int lcol = int(z) - lrow*lncols;\n";
   shader += "  lrow *= lgridy;\n";
   shader += "  lcol *= lgridx;\n";
-  shader += "  vec2 ltc = vec2(float(lcol)+x, float(lrow)+y);\n";
-  shader += "  fcolor += vec4(texture2DRect(lightTex, ltc).rgb, 1.0);\n";   
+  shader += "  for(int xa=-alod; xa<=alod; xa++)\n";
+  shader += "  for(int ya=-alod; ya<=alod; ya++)\n";
+  shader += "  {\n";
+  shader += "    float x = xO + xa;\n";
+  shader += "    float y = yO + ya;\n";
+  shader += "    vec2 ltc = vec2(float(lcol)+x, float(lrow)+y);\n";
+  shader += "    fcolor += vec4(texture2DRect(lightTex, ltc).rgb, 1.0);\n";   
+  shader += "  }\n";
   shader += "}\n";
   
-  shader += " gl_FragColor = fcolor/pow(2.0*(float)alod+1, 3.0);\n";
+  //shader += " gl_FragColor = fcolor/pow(2.0*(float)alod+1, 3.0);\n";
+  shader += " gl_FragColor = fcolor/pow(2.0*float(alod)+1.0, 3.0);\n";
 
   shader += "}\n";
 

@@ -227,7 +227,9 @@ RcViewer::setGridSize(int d, int w, int h)
   m_cmaxW = m_width;
   m_cmaxH = m_height;  
 
-  glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, &m_max3DTexSize);
+  glGetIntegerv(GL_MAX_TEXTURE_SIZE, &m_max2DTexSize);
+  //glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, &m_max3DTexSize);
+  glGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &m_max3DTexSize);
 
   createShaders();
 
@@ -590,8 +592,8 @@ RcViewer::updateVoxelsForRaycast()
   m_sslevel = 1;
   while (tsz/1024.0/1024.0 > Global::textureMemorySize() ||
 	 dsz > m_max3DTexSize ||
-	 wsz > m_max3DTexSize ||
-	 hsz > m_max3DTexSize)
+	 wsz > m_max2DTexSize ||
+	 hsz > m_max2DTexSize)
     {
       m_sslevel++;
       dsz = (m_maxDSlice-m_minDSlice)/m_sslevel;
@@ -695,35 +697,68 @@ RcViewer::updateVoxelsForRaycast()
   progress.setValue(50);
   qApp->processEvents();
 
+  int vtype = GL_UNSIGNED_BYTE;
+  if (m_bytesPerVoxel == 2)
+    vtype = GL_UNSIGNED_SHORT;
+
   if (!m_dataTex) glGenTextures(1, &m_dataTex);
   glActiveTexture(GL_TEXTURE1);
-  glEnable(GL_TEXTURE_3D);
-  glBindTexture(GL_TEXTURE_3D, m_dataTex);	 
-  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
-  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
-  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE); 
-  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+  glEnable(GL_TEXTURE_2D_ARRAY);
+  glBindTexture(GL_TEXTURE_2D_ARRAY, m_dataTex);
+  glTexImage3D(GL_TEXTURE_2D_ARRAY,
+	       0, // single resolution
+	       1, // internalFormat
+	       hsz, wsz, dsz,
+	       0, // no border
+	       GL_LUMINANCE,
+	       vtype,
+	       voxelVol);
+
+  glTexParameterf(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+  glTexParameterf(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
+  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glDisable(GL_TEXTURE_2D_ARRAY);
+
+//  glEnable(GL_TEXTURE_3D);
+//  glBindTexture(GL_TEXTURE_3D, m_dataTex);	 
+//  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+//  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
+//  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE); 
+//  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+//  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   progress.setValue(70);
-  if (m_bytesPerVoxel == 1)
-    glTexImage3D(GL_TEXTURE_3D,
-		 0, // single resolution
-		 1,
-		 hsz, wsz, dsz,
-		 0, // no border
-		 GL_LUMINANCE,
-		 GL_UNSIGNED_BYTE,
-		 voxelVol);
-  else
-    glTexImage3D(GL_TEXTURE_3D,
-		 0, // single resolution
-		 1,
-		 hsz, wsz, dsz,
-		 0, // no border
-		 GL_LUMINANCE,
-		 GL_UNSIGNED_SHORT,
-		 voxelVol);
-  glDisable(GL_TEXTURE_3D);
+
+//  glTexImage3D(GL_TEXTURE_3D,
+//	       0, // single resolution
+//	       1,
+//	       hsz, wsz, dsz,
+//	       0, // no border
+//	       GL_LUMINANCE,
+//	       vtype,
+//	       voxelVol);
+//  glDisable(GL_TEXTURE_3D);
+
+//  if (m_bytesPerVoxel == 1)
+//    glTexImage3D(GL_TEXTURE_3D,
+//		 0, // single resolution
+//		 1,
+//		 hsz, wsz, dsz,
+//		 0, // no border
+//		 GL_LUMINANCE,
+//		 GL_UNSIGNED_BYTE,
+//		 voxelVol);
+//  else
+//    glTexImage3D(GL_TEXTURE_3D,
+//		 0, // single resolution
+//		 1,
+//		 hsz, wsz, dsz,
+//		 0, // no border
+//		 GL_LUMINANCE,
+//		 GL_UNSIGNED_SHORT,
+//		 voxelVol);
+//  glDisable(GL_TEXTURE_3D);
   //----------------------------
     
   delete [] voxelVol;
@@ -1031,18 +1066,25 @@ RcViewer::raycast(Vec eyepos, float minZ, float maxZ, bool firstPartOnly)
   glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[0]);
 
   glActiveTexture(GL_TEXTURE1);
-  glEnable(GL_TEXTURE_3D);
-  glBindTexture(GL_TEXTURE_3D, m_dataTex);
+  //glEnable(GL_TEXTURE_3D);
+  //glBindTexture(GL_TEXTURE_3D, m_dataTex);
+  glEnable(GL_TEXTURE_2D_ARRAY);
+  glBindTexture(GL_TEXTURE_2D_ARRAY, m_dataTex);
+
   if (firstPartOnly ||
       !Global::interpolationType(Global::TextureInterpolation)) // linear
     {
-      glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-      glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+      //glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+      //glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+      glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+      glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     }
   else
     {
-      glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-      glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      //glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      //glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     }
 
   glActiveTexture(GL_TEXTURE0);
@@ -1079,7 +1121,8 @@ RcViewer::raycast(Vec eyepos, float minZ, float maxZ, bool firstPartOnly)
       glDisable(GL_TEXTURE_2D);
       
       glActiveTexture(GL_TEXTURE1);
-      glDisable(GL_TEXTURE_3D);
+      //glDisable(GL_TEXTURE_3D);
+      glDisable(GL_TEXTURE_2D_ARRAY);
       
       glActiveTexture(GL_TEXTURE2);
       glDisable(GL_TEXTURE_RECTANGLE_ARB);
@@ -1131,7 +1174,8 @@ RcViewer::raycast(Vec eyepos, float minZ, float maxZ, bool firstPartOnly)
   glDisable(GL_TEXTURE_2D);
 
   glActiveTexture(GL_TEXTURE1);
-  glDisable(GL_TEXTURE_3D);
+  //glDisable(GL_TEXTURE_3D);
+  glDisable(GL_TEXTURE_2D_ARRAY);
 
   glActiveTexture(GL_TEXTURE2);
   glDisable(GL_TEXTURE_RECTANGLE_ARB);

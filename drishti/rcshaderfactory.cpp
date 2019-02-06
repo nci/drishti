@@ -263,13 +263,17 @@ RcShaderFactory::gradMagnitude()
 //  shader += "}\n";
 
   // using tetrahedron technique - iquilezles.org (normalsSDF) - Paul Malin in ShaderToy
-  shader += "float gradMagnitude(vec3 voxelCoord, vec3 onev)\n";
+  shader += "float gradMagnitude(vec3 voxelCoord, vec3 onev, float maxLayers)\n";
   shader += "{\n";
   shader += "  vec2 k = vec2(1.0, -1.0);\n";
-  shader += "  vec3 grad = (k.xyy * texture(dataTex, voxelCoord+k.xyy*onev).x +\n";
-  shader += "               k.yyx * texture(dataTex, voxelCoord+k.yyx*onev).x +\n";
-  shader += "               k.yxy * texture(dataTex, voxelCoord+k.yxy*onev).x +\n";
-  shader += "               k.xxx * texture(dataTex, voxelCoord+k.xxx*onev).x);\n";
+//  shader += "  vec3 grad = (k.xyy * texture(dataTex, voxelCoord+k.xyy*onev).x +\n";
+//  shader += "               k.yyx * texture(dataTex, voxelCoord+k.yyx*onev).x +\n";
+//  shader += "               k.yxy * texture(dataTex, voxelCoord+k.yxy*onev).x +\n";
+//  shader += "               k.xxx * texture(dataTex, voxelCoord+k.xxx*onev).x);\n";
+  shader += "  vec3 grad = (k.xyy * getVal(voxelCoord+k.xyy*onev, maxLayers) +\n";
+  shader += "               k.yyx * getVal(voxelCoord+k.yyx*onev, maxLayers) +\n";
+  shader += "               k.yxy * getVal(voxelCoord+k.yxy*onev, maxLayers) +\n";
+  shader += "               k.xxx * getVal(voxelCoord+k.xxx*onev, maxLayers));\n";
   shader += "  grad = grad/2.0;\n";  // should be actually divided by 4
   shader += "  return length(grad);\n";
   shader += "}\n";
@@ -371,6 +375,28 @@ RcShaderFactory::getExactVoxelCoord()
   return shader;
 }
 
+
+QString
+RcShaderFactory::getVal()
+{
+  QString shader;
+  shader += "float getVal(vec3 voxelCoord, float maxLayers)\n";
+  shader += "{\n";
+  shader += "  float layer = voxelCoord.z*maxLayers;\n";
+  shader += "  float layer0 = min(vsize.z-1.0,floor(voxelCoord.z*maxLayers));\n";
+  shader += "  float layer1 = layer0+1.0;\n";
+  shader += "  float frc = layer-layer0;\n";
+  shader += "  vec3 vcrd0 = vec3(voxelCoord.xy, layer0);\n";
+  shader += "  vec3 vcrd1 = vec3(voxelCoord.xy, layer1);\n";
+  shader += "  float val0 = texture(dataTex, vcrd0).x;\n";
+  shader += "  float val1 = texture(dataTex, vcrd1).x;\n";
+  shader += "  float val = mix(val0, val1, frc);\n";
+  shader += "  return val;\n";
+  shader += "}\n";  
+
+  return shader;
+}
+
 QString
 RcShaderFactory::genRaycastShader_1(QList<CropObject> crops,
 				    bool bit16)
@@ -399,7 +425,8 @@ RcShaderFactory::genRaycastShader_1(QList<CropObject> crops,
 
   QString shader;
   shader += "#version 450 core\n";
-  shader += "uniform sampler3D dataTex;\n";
+  //shader += "uniform sampler3D dataTex;\n";
+  shader += "uniform sampler2DArray dataTex;\n";
   shader += "uniform sampler2D lutTex;\n";
   shader += "uniform sampler2DRect exitTex;\n";
   shader += "uniform sampler2DRect entryTex;\n";
@@ -429,6 +456,11 @@ RcShaderFactory::genRaycastShader_1(QList<CropObject> crops,
   if (viewPresent) shader += BlendShaderFactory::generateBlend(crops);
 
   
+  //---------------------
+  // get voxel value from array texture
+  shader += getVal();
+  //---------------------
+
   //---------------------
   // apply clip planes to modify entry and exit points
   shader += clip();
@@ -511,6 +543,8 @@ RcShaderFactory::genRaycastShader_1(QList<CropObject> crops,
 
   shader += "int iend = int(length(exitPoint-entryPoint)/stepSize);\n";
   
+  shader += "float maxLayers = vsize.z/sslevel;\n";
+
   //-------------------------
   // get the first hit
   //-------------------------
@@ -518,7 +552,8 @@ RcShaderFactory::genRaycastShader_1(QList<CropObject> crops,
   shader += "for(int i=0; i<iend; i++)\n";
   shader += "{\n";
   shader += "  istart = i;\n";
-  shader += "  float val = texture(dataTex, voxelCoord).x;\n";
+  //shader += "  float val = texture(dataTex, voxelCoord).x;\n";
+  shader += "  float val = getVal(voxelCoord, maxLayers);\n";
   shader += "  vec4 colorSample = vec4(0.0);\n";
 
   if (!bit16)
@@ -539,7 +574,7 @@ RcShaderFactory::genRaycastShader_1(QList<CropObject> crops,
   // find gradient magnitude
   shader += "  if (checkGrad > 0 && colorSample.a > 0.001)\n";  
   shader += "    {\n";
-  shader += "      float gradMag = gradMagnitude(voxelCoord, onev);\n";
+  shader += "      float gradMag = gradMagnitude(voxelCoord, onev, maxLayers);\n";
   shader += "      colorSample = mix(vec4(0.0), colorSample,\n";
   shader += "                        step(minGrad, gradMag)*step(gradMag, maxGrad));\n";
   shader += "    }\n";
@@ -580,7 +615,8 @@ RcShaderFactory::genRaycastShader_1(QList<CropObject> crops,
   shader += "    for (int b=0; b<5; b++)\n";
   shader += "    {\n";
   shader += "      voxelCoord += dD;\n";
-  shader += "      val = texture(dataTex, voxelCoord).x;\n";
+  //shader += "      val = texture(dataTex, voxelCoord).x;\n";
+  shader += "      val = getVal(voxelCoord, maxLayers);\n";
   shader += "      vec4 cS = texture(lutTex, vec2(val,0.0));\n";
   shader += "      dD = dD*0.5;\n";
   shader += "      dD *= mix(-1.0, 1.0, step(0.001, cS.a));\n";
@@ -622,7 +658,8 @@ RcShaderFactory::genRaycastShader_1(QList<CropObject> crops,
   shader += "float deep = 0.0;\n";
   shader += "for(int i=istart; i<iend; i++)\n";
   shader += "{\n";
-  shader += "  float val = texture(dataTex, voxelCoord).x;\n";
+  //shader += "  float val = texture(dataTex, voxelCoord).x;\n";
+  shader += "  float val = getVal(voxelCoord, maxLayers);\n";
   shader += "  vec4 colorSample = vec4(0.0);\n";
 
   if (!bit16)
@@ -643,7 +680,7 @@ RcShaderFactory::genRaycastShader_1(QList<CropObject> crops,
   // find gradient magnitude
   shader += "  if (checkGrad > 0 && colorSample.a > 0.001)\n";  
   shader += "    {\n";
-  shader += "      float gradMag = gradMagnitude(voxelCoord, onev);\n";
+  shader += "      float gradMag = gradMagnitude(voxelCoord, onev, maxLayers);\n";
   shader += "      colorSample = mix(vec4(0.0), colorSample,\n";
   shader += "                        step(minGrad, gradMag)*step(gradMag, maxGrad));\n";
   shader += "    }\n";

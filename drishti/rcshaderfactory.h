@@ -29,6 +29,7 @@ class RcShaderFactory
   static QString addLighting();
   static QString getGrad();
   static QString gradMagnitude();
+  static QString getVal();
   
   static QString getExactVoxelCoord();
   static QString clip();

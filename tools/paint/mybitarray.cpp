@@ -48,7 +48,7 @@ MyBitArray::setBit(qint64 i, bool val)
 {
   if (i < 0 || i > m_size)
     {
-      QMessageBox::information(0, "", QString("Out of bounds : %1 <%2>").arg(i).arg(m_size));
+      //QMessageBox::information(0, "", QString("Out of bounds : %1 <%2>").arg(i).arg(m_size));
       return;
     }
 
@@ -63,7 +63,7 @@ MyBitArray::setBit(qint64 i)
 {
   if (i < 0 || i > m_size)
     {
-      QMessageBox::information(0, "", QString("Out of bounds : %1 <%2>").arg(i).arg(m_size));
+      //QMessageBox::information(0, "", QString("Out of bounds : %1 <%2>").arg(i).arg(m_size));
       return;
     }
 
@@ -75,7 +75,7 @@ MyBitArray::clearBit(qint64 i)
 {
   if (i < 0 || i > m_size)
     {
-      QMessageBox::information(0, "", QString("Out of bounds : %1 <%2>").arg(i).arg(m_size));
+      //QMessageBox::information(0, "", QString("Out of bounds : %1 <%2>").arg(i).arg(m_size));
       return;
     }
 

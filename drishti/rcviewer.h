@@ -98,6 +98,7 @@ class RcViewer : public QObject
   float m_edge;
   float m_minGrad, m_maxGrad;
   
+  int m_max2DTexSize;
   int m_max3DTexSize;
   int m_skipLayers, m_skipVoxels;
 

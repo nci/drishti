@@ -44,6 +44,9 @@ class ShaderFactory
   static GLuint pnShader();
   static GLint* pnShaderParm();
 
+  static QString genPreVgx();
+  static QString getVal();
+
  private :
   static GLuint m_meshShader;
   static GLint m_meshShaderParm[20];
@@ -61,6 +64,7 @@ class ShaderFactory
   static QString genPeelShader(bool, int, float, float, float, bool);
   static QString genVgx();
 
+  
   static QString meshShaderV();
   static QString meshShaderF();
 

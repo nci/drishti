@@ -909,6 +909,9 @@ Global::getSlabs(int samplingLevel,
       slabinfo.append(Vec(ntex,
 			  (int)m_dataMin.z+(samplingLevel*pslc),
 			  (int)m_dataMin.z+(samplingLevel*slc)));
+
+////for array texture
+      done = true;
     }
 
 
@@ -919,13 +922,20 @@ Global::getSlabs(int samplingLevel,
   // taking rectangular textures
   ncols = gridx;
   nrows = gridy;
-  if (slabinfo.count() == 2)
-    {
-      nrows = (lenz2+2)/ncols;
-      if (nrows*ncols <= (lenz2+2)) nrows++;
-      if ((lenz2+2) < ncols) ncols = (lenz2+2);
-      slabinfo.removeFirst(); // we don't need any drag volume
-    }
+
+//----------------------------  
+////removed for array texture
+////we will return slabinfo which contains atleast 2 elements
+////ensuring that there will always be dragVol and subVol
+//  if (slabinfo.count() == 2)
+//    {
+//      nrows = (lenz2+2)/ncols;
+//      if (nrows*ncols <= (lenz2+2)) nrows++;
+//      if ((lenz2+2) < ncols) ncols = (lenz2+2);
+//
+//      //slabinfo.removeFirst(); // we don't need any drag volume
+//    }
+//----------------------------  
 
   return slabinfo;
 }

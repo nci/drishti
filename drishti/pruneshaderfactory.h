@@ -7,7 +7,9 @@
 class PruneShaderFactory
 {
  public :
-  static QString genPruneTexture(bool);
+  static QString getVal();
+  static QString getGradient();
+  static QString genPruneTexture(int, bool);
   static QString dilate();
   static QString erode();
   static QString shrink();

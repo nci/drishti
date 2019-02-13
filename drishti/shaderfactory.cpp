@@ -23,23 +23,24 @@ ShaderFactory::tagVolume()
   shader += "    ptx = vg.x;\n"; // -- take voxel value
 
   //shader += "  float ptx = prunefeather.z;\n";
-  shader += "  vec4 paintColor = texture1D(paintTex, ptx);\n";
+  //shader += "  vec4 paintColor = texture1D(paintTex, ptx);\n";
+  shader += "  vec4 paintColor = texture(paintTex, ptx);\n";
 
-  //  shader += "  gl_FragColor = vec4(paintColor.a,0.1,0.1,0.1);\n";
+  //  shader += "  glFragColor = vec4(paintColor.a,0.1,0.1,0.1);\n";
 
   shader += "  ptx *= 255.0;\n";
 
   shader += "  if (ptx > 0.0 || mixTag) \n";
   shader += "  {\n";
-  shader += "    paintColor.rgb *= gl_FragColor.a;\n";
+  shader += "    paintColor.rgb *= glFragColor.a;\n";
  // if paintColor is black then change only the transparency
   shader += "    if (paintColor.r+paintColor.g+paintColor.b > 0.01)\n";
-  shader += "      gl_FragColor.rgb = mix(gl_FragColor.rgb, paintColor.rgb, paintColor.a);\n";
+  shader += "      glFragColor.rgb = mix(glFragColor.rgb, paintColor.rgb, paintColor.a);\n";
   shader += "    else\n";
-  shader += "      gl_FragColor *= paintColor.a;\n";
+  shader += "      glFragColor *= paintColor.a;\n";
   shader += "  }\n";
   shader += "  else\n";
-  shader += "    gl_FragColor *= paintColor.a;\n";
+  shader += "    glFragColor *= paintColor.a;\n";
 
   return shader;
 }
@@ -56,7 +57,7 @@ ShaderFactory::blendVolume()
   shader += "  {\n";
   shader += QString("    vec2 vgc = vec2(vg.x, vg.y+ptx/float(%1));\n"). \
     arg(float(Global::lutSize()));
-  shader += "    gl_FragColor = texture2D(lutTex, vgc);\n";
+  shader += "    glFragColor = texture2D(lutTex, vgc);\n";
   shader += "  }\n";
 
   return shader;
@@ -110,7 +111,8 @@ ShaderFactory::loadShader(GLhandleARB &progObj,
     qstr += "uniform vec4 ClipPlane0;\n";
     qstr += "uniform vec4 ClipPlane1;\n";
 #endif
-    qstr += "varying vec3 pointpos;\n";
+    qstr += "out vec3 pointpos;\n";
+    qstr += "out vec3 glTexCoord0;\n";
     qstr += "void main(void)\n";
     qstr += "{\n";
     qstr += "  // Transform vertex position into homogenous clip-space.\n";
@@ -121,6 +123,7 @@ ShaderFactory::loadShader(GLhandleARB &progObj,
     qstr += "  gl_TexCoord[1] = gl_TextureMatrix[1] * gl_MultiTexCoord1;\n";
     qstr += "  gl_TexCoord[2] = gl_TextureMatrix[2] * gl_MultiTexCoord2;\n";
     qstr += "  pointpos = gl_Vertex.xyz;\n";
+    qstr += "  glTexCoord0 = gl_TexCoord[0].xyz;\n";
 #ifndef Q_OS_MACX
     qstr += "  gl_ClipDistance[0] = dot(gl_Vertex, ClipPlane0);\n";
     qstr += "  gl_ClipDistance[1] = dot(gl_Vertex, ClipPlane1);\n";
@@ -393,83 +396,6 @@ ShaderFactory::genDefaultShaderString(bool bit16,
 
 
   shader += "}\n";
-
-  return shader;
-}
-
-QString
-ShaderFactory::getNormal()
-{
-  QString shader;
-
-  shader += "  vec3 sample1, sample2;\n";
-  shader += "  float grad;\n";
-  shader += "  vec3 normal;\n";
-
-  shader += "  float tv;\n";
-  shader += "  sample1.x = texture2DRect(dataTex, t0+vec2(1,0)).x;\n";
-  shader += "         tv = texture2DRect(dataTex, t1+vec2(1,0)).x;\n";
-  shader += "  sample1.x = mix(sample1.x, tv, slicef);\n";
-
-  shader += "  sample2.x = texture2DRect(dataTex, t0-vec2(1,0)).x;\n";
-  shader += "         tv = texture2DRect(dataTex, t1-vec2(1,0)).x;\n";
-  shader += "  sample2.x = mix(sample2.x, tv, slicef);\n";
-
-  shader += "  sample1.y = texture2DRect(dataTex, t0+vec2(0,1)).x;\n";
-  shader += "         tv = texture2DRect(dataTex, t1+vec2(0,1)).x;\n";
-  shader += "  sample1.y = mix(sample1.y, tv, slicef);\n";
-
-  shader += "  sample2.y = texture2DRect(dataTex, t0-vec2(0,1)).x;\n";
-  shader += "         tv = texture2DRect(dataTex, t1-vec2(0,1)).x;\n";
-  shader += "  sample2.y = mix(sample2.y, tv, slicef);\n";
-
-  shader += "  t1 = getTextureCoordinate(slice+2, gridx, tsizex, tsizey, texCoord.xy);";
-  shader += "  tv = (texture2DRect(dataTex, t1)).x;\n";
-  shader += "  sample1.z = mix(val1, tv, slicef);\n";
-
-  shader += "  t1 = getTextureCoordinate(slice-1, gridx, tsizex, tsizey, texCoord.xy);";
-  shader += "  sample2.z = (texture2DRect(dataTex, t1)).x;\n";
-  shader += "  sample2.z = mix(sample2.z, val0, slicef);\n";
-
-  shader += "  grad = clamp(distance(sample1, sample2), 0.0, 0.996);\n";
-
-  return shader;
-}
-
-QString
-ShaderFactory::addLighting()
-{
-  QString shader;
-
-  // grad, sample1, sample2 defined in getNormal()
-  shader += "  normal = normalize(sample1 - sample2);\n";
-  shader += "  normal = mix(vec3(0.0,0.0,0.0), normal, step(0.0, grad));"; 
-
-  shader += "  vec3 voxpos = pointpos;\n";
-  shader += "  vec3 I = voxpos - eyepos;\n";
-  shader += "  vec3 lightvec = voxpos - lightpos;\n";
-  shader += "  I = normalize(I);\n";
-  shader += "  lightvec = normalize(lightvec);\n";
-
-  shader += "  vec3 reflecvec = reflect(lightvec, normal);\n";
-  shader += "  float DiffMag = abs(dot(normal, lightvec));\n";
-  shader += "  vec3 Diff = (diffuse*DiffMag)*gl_FragColor.rgb;\n";
-  shader += "  float Spec = pow(abs(dot(normal, reflecvec)), speccoeff);\n";
-  shader += "  Spec *= specular*gl_FragColor.a;\n";
-  shader += "  vec3 Amb = ambient*gl_FragColor.rgb;\n";
-  shader += "  float litfrac;\n";
-  shader += "  litfrac = smoothstep(0.05, 0.1, grad);\n";
-  shader += "  gl_FragColor.rgb = mix(gl_FragColor.rgb, Amb, litfrac);\n";
-  shader += "  if (litfrac > 0.0)\n";
-  shader += "   {\n";
-  shader += "     vec3 frgb = gl_FragColor.rgb + litfrac*(Diff + Spec);\n";
-  shader += "     if (any(greaterThan(frgb,vec3(1.0,1.0,1.0)))) \n";
-  shader += "        frgb = vec3(1.0,1.0,1.0);\n";
-  shader += "     if (any(greaterThan(frgb,gl_FragColor.aaa))) \n";  
-  shader += "        frgb = gl_FragColor.aaa;\n";
-  shader += "     gl_FragColor.rgb = frgb;\n";
-  shader += "   }\n";
-  shader += "  gl_FragColor.rgb *= lightcol;\n";
 
   return shader;
 }
@@ -859,24 +785,6 @@ ShaderFactory::genPassThruShaderString()
 }
 
 QString
-ShaderFactory::genTextureCoordinate()
-{
-  QString shader;
-  shader = "vec2 getTextureCoordinate(int slice, int gridx,\n";
-  shader += "                         int tsizex, int tsizey,\n";
-  shader += "                         vec2 texcoord)\n";
-  shader += "{\n";
-  shader += "  int row = slice/gridx;\n";
-  shader += "  int col = slice - row*gridx;\n";
-  shader += "  vec2 tc = vec2(texcoord.x + float(col*tsizex),\n";
-  shader += "                 texcoord.y + float(row*tsizey));\n";
-  shader += "  return tc;\n";
-  shader += "}\n";
-
-  return shader;
-}
-
-QString
 ShaderFactory::genPeelShader(bool peel, int peelType,
 			     float peelMin, float peelMax, float peelMix,
 			     bool lighting)
@@ -909,14 +817,91 @@ ShaderFactory::genPeelShader(bool peel, int peelType,
 	}
 
       shader += QString("  IdotN = mix(val1, 1.0, float(%1));\n").arg(peelMix);
-      shader += "  gl_FragColor.rgba *= IdotN;\n";
+      shader += "  glFragColor.rgba *= IdotN;\n";
     }
 
   return shader;
 }
 
 QString
-ShaderFactory::genVgx()
+ShaderFactory::genTextureCoordinate()
+{
+  QString shader;
+  shader = "vec2 getTextureCoordinate(int slice, int gridx,\n";
+  shader += "                         int tsizex, int tsizey,\n";
+  shader += "                         vec2 texcoord)\n";
+  shader += "{\n";
+  shader += "  int row = slice/gridx;\n";
+  shader += "  int col = slice - row*gridx;\n";
+  shader += "  vec2 tc = vec2(texcoord.x + float(col*tsizex),\n";
+  shader += "                 texcoord.y + float(row*tsizey));\n";
+  shader += "  return tc;\n";
+  shader += "}\n";
+
+  return shader;
+}
+
+QString
+ShaderFactory::getNormal()
+{
+  QString shader;
+  // using tetrahedron technique - iquilezles.org (normalsSDF) - Paul Malin in ShaderToy
+  shader += "vec3 getNormal(vec3 voxelCoord)\n";
+  shader += "{\n";
+  shader += "  vec2 k = vec2(1.0, -1.0);\n";
+  shader += "  vec3 grad = (k.xyy * getVal(voxelCoord+k.xyy)[0].x +\n";
+  shader += "               k.yyx * getVal(voxelCoord+k.yyx)[0].x +\n";
+  shader += "               k.yxy * getVal(voxelCoord+k.yxy)[0].x +\n";
+  shader += "               k.xxx * getVal(voxelCoord+k.xxx)[0].x);\n";
+  shader += "  grad = grad/2.0;\n";  // should be actually divided by 4
+  //shader += "  grad = grad/4.0;\n";  // should be actually divided by 4
+  shader += "  return grad;\n";
+  shader += "}\n";
+
+  return shader;
+}
+
+QString
+ShaderFactory::addLighting()
+{
+  QString shader;
+
+  // grad, sample1, sample2 defined in getNormal()
+  //shader += "  normal = normalize(sample1 - sample2);\n";
+  shader += "  normal = normalize(normal);\n";
+  shader += "  normal = mix(vec3(0.0,0.0,0.0), normal, step(0.0, grad));"; 
+
+  shader += "  vec3 voxpos = pointpos;\n";
+  shader += "  vec3 I = voxpos - eyepos;\n";
+  shader += "  vec3 lightvec = voxpos - lightpos;\n";
+  shader += "  I = normalize(I);\n";
+  shader += "  lightvec = normalize(lightvec);\n";
+
+  shader += "  vec3 reflecvec = reflect(lightvec, normal);\n";
+  shader += "  float DiffMag = abs(dot(normal, lightvec));\n";
+  shader += "  vec3 Diff = (diffuse*DiffMag)*glFragColor.rgb;\n";
+  shader += "  float Spec = pow(abs(dot(normal, reflecvec)), speccoeff);\n";
+  shader += "  Spec *= specular*glFragColor.a;\n";
+  shader += "  vec3 Amb = ambient*glFragColor.rgb;\n";
+  shader += "  float litfrac;\n";
+  shader += "  litfrac = smoothstep(0.05, 0.1, grad);\n";
+  shader += "  glFragColor.rgb = mix(glFragColor.rgb, Amb, litfrac);\n";
+  shader += "  if (litfrac > 0.0)\n";
+  shader += "   {\n";
+  shader += "     vec3 frgb = glFragColor.rgb + litfrac*(Diff + Spec);\n";
+  shader += "     if (any(greaterThan(frgb,vec3(1.0,1.0,1.0)))) \n";
+  shader += "        frgb = vec3(1.0,1.0,1.0);\n";
+  shader += "     if (any(greaterThan(frgb,glFragColor.aaa))) \n";  
+  shader += "        frgb = glFragColor.aaa;\n";
+  shader += "     glFragColor.rgb = frgb;\n";
+  shader += "   }\n";
+  shader += "  glFragColor.rgb *= lightcol;\n";
+
+  return shader;
+}
+
+QString
+ShaderFactory::genPreVgx()
 {
   QString shader;
 
@@ -934,8 +919,8 @@ ShaderFactory::genVgx()
     {      
       shader += "  vec2 pvg = texCoord.xy / prunelod;\n";
 
-      shader += "  int pZslc = int(float(zoffset+slice)/float(prunelod));\n";
-      shader += "  float pZslcf = fract(float(zoffset+slice)/float(prunelod));\n";
+      shader += "  int pZslc = int(float(slice)/float(prunelod));\n";
+      shader += "  float pZslcf = fract(float(slice)/float(prunelod));\n";
 
       shader += "  vec2 pvg0 = getTextureCoordinate(pZslc, ";
       shader += "              prunegridx, prunetsizex, prunetsizey, pvg);\n";      
@@ -953,27 +938,55 @@ ShaderFactory::genVgx()
       //shader += "  if (delta.x < 1.0 && prunefeather.x < 0.005) discard;\n";
 
       // tag values should be non interpolated - nearest neighbour
-      shader += "  prunefeather.z = texture2DRect(pruneTex, vec2(floor(pvg0.x)+0.5,floor(pvg0.y)+0.5)).z;\n";
+      shader += "  prunefeather.z = texture2DRect(pruneTex, vec2(floor(pvg0.xy)+vec2(0.5))).z;\n";
     }
   //---------------------------------------------------------------------
-
-  shader += "  t0 = getTextureCoordinate(slice, gridx, tsizex, tsizey, texCoord.xy);\n";
-  shader += "  if (linearInterpolation && !mixTag)\n";
-  shader += "   {\n";
-  shader += "     val0 = (texture2DRect(dataTex, t0)).x;\n";
-  shader += "     t1 = getTextureCoordinate(slice+1, gridx, tsizex, tsizey, texCoord.xy);\n";
-  shader += "     val1 = (texture2DRect(dataTex, t1)).x;\n";
-  shader += "     vg.x = mix(val0, val1, slicef);\n";
-  shader += "   }\n";
-  shader += "   else\n"; // nearest neighbour interpolation
-  shader += "   {\n";
-  shader += "     val0 = (texture2DRect(dataTex, floor(t0)+vec2(0.5))).x;\n";
-  shader += "     vg.x = val0;\n";
-  shader += "   }\n";
 
 
   return shader;
 }
+
+
+QString
+ShaderFactory::genVgx()
+{
+  QString shader;
+
+  shader += "  vec4 voxValues[3] = getVal(vtexCoord);\n"; // interpolated
+
+  shader += "  if (linearInterpolation && !mixTag)\n";
+  shader += "    vg.x = voxValues[0].x;\n"; // interpolated
+  shader += "  else\n";
+  shader += "    vg.x = voxValues[1].x;\n"; // nearest neighbour
+
+  return shader;
+}
+
+QString
+ShaderFactory::getVal()
+{
+  QString shader;
+  shader += "vec4[3] getVal(vec3 voxelCoord)\n";  
+  shader += "{\n";
+  shader += "  float layer = voxelCoord.z;\n";
+  shader += "  float layer0 = min(vsize.z-1.0,floor(voxelCoord.z));\n";
+  shader += "  float layer1 = layer0+1.0;\n";
+  shader += "  float frc = layer-layer0;\n";
+  shader += "  vec3 vcrd0 = vec3(voxelCoord.xy/vsize.xy, layer0);\n";
+  shader += "  vec3 vcrd1 = vec3(voxelCoord.xy/vsize.xy, layer1);\n";
+
+  shader += "  vec4 values[3];\n";
+  shader += "  values[1] = texture(dataTexAT, vcrd0);\n";
+  shader += "  values[2] = texture(dataTexAT, vcrd1);\n";
+  shader += "  values[0] = mix(values[1], values[2], frc);\n";
+  
+  
+  shader += "  return values;\n";
+  shader += "}\n";
+
+  return shader;
+}
+
 
 QString
 ShaderFactory::genDefaultSliceShaderString(bool bit16,
@@ -1009,10 +1022,13 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
   float lastSet = (Global::lutSize()-1.0)/Global::lutSize();
   QString shader;
 
-  shader =  "#extension GL_ARB_texture_rectangle : enable\n";
-  shader += "varying vec3 pointpos;\n";
+  shader = "#version 450 core\n";
+  shader += "#extension GL_ARB_texture_rectangle : enable\n";
+  shader += "in vec3 pointpos;\n";
+  shader += "in vec3 glTexCoord0;\n";
   shader += "uniform sampler2D lutTex;\n";
   shader += "uniform sampler2DRect dataTex;\n";
+  shader += "uniform sampler2DArray dataTexAT;\n";
   shader += "uniform sampler1D paintTex;\n";
 
   shader += "uniform float tfSet;\n";
@@ -1066,7 +1082,18 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
 
   shader += "uniform float dofscale;\n";
 
+  shader += "uniform vec3 vsize;\n";
+  shader += "uniform vec3 vmin;\n";
+
+  shader += "out vec4 glFragColor;\n";
+
   shader += genTextureCoordinate();
+
+  //---------------------
+  // get voxel value from array texture
+  shader += getVal();
+  shader += getNormal();
+  //---------------------
 
   if (tearPresent) shader += TearShaderFactory::generateTear(crops);
   if (cropPresent) shader += CropShaderFactory::generateCropping(crops);
@@ -1080,16 +1107,24 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
 
   shader += "  vec3 lightcol = vec3(1.0,1.0,1.0);\n";
 
-  shader += "  vec3 texCoord = gl_TexCoord[0].xyz;\n";
+  shader += "  vec3 texCoord = glTexCoord0.xyz;\n";
 
-  shader += "if (any(lessThan(texCoord,brickMin)) || ";
-  shader += "any(greaterThan(texCoord, brickMax)))\n";
-  //shader += "    if (any(lessThan(texCoord,brickMin-vec3(0.5,0.5,0.5))) || ";
-  //shader += "    any(greaterThan(texCoord, brickMax+vec3(0.5,0.5,0.5))))\n";
-  //shader += "    if (any(lessThan(texCoord,brickMin-vec3(1,1,1))) || ";
-  //shader += "    any(greaterThan(texCoord, brickMax+vec3(1,1,1))))\n";
-  shader += "  discard;\n";
+  shader += "  if (any(lessThan(texCoord,brickMin)) || ";
+  shader += "  any(greaterThan(texCoord, brickMax)))\n";
+  shader += "    discard;\n";
 
+  shader += "vec3 vtexCoord = (texCoord-vmin)/lod;\n";
+
+  // for nearest neighbour interpolation
+  shader += "if (!linearInterpolation || mixTag)\n";
+  shader += "{\n";
+  shader += "  vtexCoord = vec3(floor(vtexCoord)+vec3(0.5));\n";
+  shader += "}\n";
+
+//  shader += "glFragColor = vec4(0.1*getVal(vtexCoord)[0].x);\n";
+//  shader += "return;\n";
+  
+  
   if (crops.count() > 0)
     {
       shader += "  vec3 otexCoord = texCoord;\n";
@@ -1112,27 +1147,29 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
   if (cropPresent) shader += "feather *= crop(texCoord, true);\n";
   if (pathCropPresent) shader += "feather *= pathcrop(texCoord, true);\n";
 
-  shader += "texCoord.x = 1.0 + float(tsizex-2)*(texCoord.x-dataMin.x)/dataSize.x;\n";
-  shader += "texCoord.y = 1.0 + float(tsizey-2)*(texCoord.y-dataMin.y)/dataSize.y;\n";  
-  shader += "texCoord.z = 1.0 + (texCoord.z-float(tminz))/float(lod);\n";
+  shader += "texCoord.xy = vec2(tsizex,tsizey)*(vtexCoord.xy/vsize.xy);\n";
+  shader += "texCoord.z = vtexCoord.z;\n";
 
-  shader += genVgx();
+
+  shader += genPreVgx();
+  shader += genVgx(); // array texture
 
   shader += "float value = vg.x;\n";
 
   //----------------------------------
-  // this is specifically for nearest neighbour interpolating when upscaling
-  // or volume and surface area calculations
-  shader += "  if (depthcue > 1.0) vg.x = val0;\n";
+  // for upscaling or volume and surface area calculations
+  // use nearest neighbour interpolation
+  shader += "  if (depthcue > 1.0) vg.x = voxValues[1].x;\n";
   //----------------------------------
 
   //----------------------------------
   //------------------------------------
   shader += "if (lightlod > 0)\n";
   shader += "  {\n"; // calculate light color
-  shader += "    vec2 pvg = texCoord.xy/(prunelod*float(lightlod));\n";	       
-  shader += "    int lbZslc = int(float(zoffset+slice)/(prunelod*float(lightlod)));\n";
-  shader += "    float lbZslcf = fract(float(zoffset+slice)/(prunelod*float(lightlod)));\n";
+  shader += "    float llod = prunelod*float(lightlod);\n";
+  shader += "    vec2 pvg = texCoord.xy/llod;\n";
+  shader += "    int lbZslc = int(texCoord.z/llod);\n";
+  shader += "    float lbZslcf = fract(texCoord.z/llod);\n";
   shader += "    vec2 pvg0 = getTextureCoordinate(lbZslc, ";
   shader += "                  lightncols, lightgridx, lightgridy, pvg);\n";
   shader += "    vec2 pvg1 = getTextureCoordinate(lbZslc+1, ";
@@ -1155,8 +1192,11 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
   //----------------------------------
 
   if (peel || lighting || !Global::use1D())
-    shader += getNormal();
-
+    {
+      shader += "  vec3 normal;\n";
+      shader += "  normal = getNormal(vtexCoord);\n";
+      shader += "  float grad = clamp(length(normal), 0.0, 0.996);\n";
+    }
 
   if (bit16)
     {
@@ -1178,12 +1218,12 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
 
   shader += "  vg1 = vg;\n";
   shader += "  vg.y += tfSet;\n";
-  shader += "  gl_FragColor = texture2D(lutTex, vg.xy);\n";
-
+  shader += "  glFragColor = texture2D(lutTex, vg.xy);\n";
+  
 
   if (Global::emptySpaceSkip())
     {
-      shader += "  gl_FragColor.rgba = mix(vec4(0.0,0.0,0.0,0.0), gl_FragColor.rgba, prunefeather.x);\n";
+      shader += "  glFragColor.rgba = mix(vec4(0.0,0.0,0.0,0.0), glFragColor.rgba, prunefeather.x);\n";
       if (PruneHandler::blend())
 	shader += blendVolume();
       else
@@ -1192,35 +1232,35 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
 
 
   if (tearPresent || cropPresent || pathCropPresent)
-    shader += "  gl_FragColor.rgba = mix(gl_FragColor.rgba, vec4(0.0,0.0,0.0,0.0), feather);\n";
+    shader += "  glFragColor.rgba = mix(glFragColor.rgba, vec4(0.0,0.0,0.0,0.0), feather);\n";
 
-  if (viewPresent) shader += "  blend(false, otexCoord, vg, gl_FragColor);\n";
+  if (viewPresent) shader += "  blend(false, otexCoord, vg, glFragColor);\n";
   
-  if (pathViewPresent) shader += "pathblend(otexCoord, vg, gl_FragColor);\n";
+  if (pathViewPresent) shader += "pathblend(otexCoord, vg, glFragColor);\n";
   
 
 //---------------------------------
   if (Global::emptySpaceSkip())
     {
       shader += "if (delta.x > 1.0)\n";
-      shader += "  { gl_FragColor = vec4(value*step(0.001,gl_FragColor.a),";
-      shader += "gl_FragColor.a, prunefeather.z, 1.0); return; }\n";
+      shader += "  { glFragColor = vec4(value*step(0.001,glFragColor.a),";
+      shader += "glFragColor.a, prunefeather.z, 1.0); return; }\n";
     }
   else
     {
       shader += "if (delta.x > 1.0)\n";
-      shader += "  { gl_FragColor = vec4(value*step(0.001,gl_FragColor.a),";
-      shader += "gl_FragColor.a, 0.0, 1.0); return; }\n";
+      shader += "  { glFragColor = vec4(value*step(0.001,glFragColor.a),";
+      shader += "glFragColor.a, 0.0, 1.0); return; }\n";
     }
 //---------------------------------
 
 //------------------------------------
-  shader += "gl_FragColor = 1.0-pow((vec4(1,1,1,1)-gl_FragColor),";
+  shader += "glFragColor = 1.0-pow((vec4(1,1,1,1)-glFragColor),";
   shader += "vec4(lod,lod,lod,lod));\n";
 //------------------------------------
 
   shader += "\n";
-  shader += "  if (gl_FragColor.a < 0.005)\n";
+  shader += "  if (glFragColor.a < 0.005)\n";
   shader += "	discard;\n";
 
   if (lighting)
@@ -1233,17 +1273,17 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
   if (emissive)
     {
       shader += QString("  vg1.y += float(%1);\n").arg(lastSet);
-      shader += "  gl_FragColor.rgb += texture2D(lutTex, vg1.xy).rgb;\n";
+      shader += "  glFragColor.rgb += texture2D(lutTex, vg1.xy).rgb;\n";
     }
 
   // -- depth cueing
-  shader += "  gl_FragColor.rgb *= min(1.0,depthcue);\n";
+  shader += "  glFragColor.rgb *= min(1.0,depthcue);\n";
 
-  shader += "  gl_FragColor *= opmod;\n";
+  shader += "  glFragColor *= opmod;\n";
 
-  if (glowPresent) shader += "  gl_FragColor.rgb += glow(otexCoord);\n";
+  if (glowPresent) shader += "  glFragColor.rgb += glow(otexCoord);\n";
 
-  shader += "  gl_FragColor = clamp(gl_FragColor, vec4(0.0,0.0,0.0,0.0), vec4(1.0,1.0,1.0,1.0));\n";
+  shader += "  glFragColor = clamp(glFragColor, vec4(0.0,0.0,0.0,0.0), vec4(1.0,1.0,1.0,1.0));\n";
 
   shader += "}\n";
 

@@ -46,6 +46,11 @@ class VolumeSingle : public VolumeBase
   uchar* getSliceTextureSlab(int, int);
   void deleteTextureSlab();
 
+  uchar* getSubvolume();
+  uchar* getDragSubvolumeTexture();
+  Vec getDragSubvolumeTextureSize();
+  int getDragSubvolumeSubsamplingLevel();
+  
   bool loadVolume(QList<QString>, bool);
   bool loadDummyVolume(int, int, int);
   
@@ -131,6 +136,10 @@ class VolumeSingle : public VolumeBase
   Vec m_subvolumeSize, m_subvolumeTextureSize;
   int m_subvolumeSubsamplingLevel;
   unsigned char* m_subvolumeTexture;
+  
+  Vec m_dragSubvolumeTextureSize;
+  int m_dragSubvolumeSubsamplingLevel;
+  unsigned char* m_dragSubvolumeTexture;
 
   int m_texColumns, m_texRows;
   int m_texWidth, m_texHeight;

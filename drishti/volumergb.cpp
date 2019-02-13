@@ -328,9 +328,9 @@ VolumeRGB::setSubvolume(Vec boxMin, Vec boxMax,
 
   m_subvolumeSize = m_dataMax - m_dataMin + Vec(1,1,1); 
 
-  int tms = Global::textureMemorySize(); // in Mb
-  m_subvolumeSubsamplingLevel = StaticFunctions::getSubsamplingLevel(tms,
-						      nRGB, boxMin, boxMax);
+  m_subvolumeSubsamplingLevel = StaticFunctions::getSubsamplingLevel(Global::textureMemorySize(),
+								     Global::textureSizeLimit(),
+								     nRGB, boxMin, boxMax);
 
   if (m_subvolumeTexture) delete [] m_subvolumeTexture;
   m_subvolumeTexture = 0;

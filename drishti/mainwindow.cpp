@@ -597,7 +597,9 @@ void MainWindow::runPlugin(int idx, bool batchMode)
       int bpv = 1;
       if (m_Volume->pvlVoxelType(0) > 0) bpv = 2;
       int tms = Global::textureMemorySize(); // in Mb
-      subsamplinglevel = StaticFunctions::getSubsamplingLevel(tms, bpv,
+      subsamplinglevel = StaticFunctions::getSubsamplingLevel(tms,
+							      Global::textureSizeLimit(),
+							      bpv,
 							      dataMin, dataMax);
       QList<Vec> slabinfo = Global::getSlabs(subsamplinglevel,
 					     dataMin, dataMax,
@@ -754,9 +756,14 @@ MainWindow::GlewInit()
 
   registerPlugins();
 
-  // query 3d texture size limits
   GLint textureSize;
-  glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, &textureSize);
+  // query 3d texture size limits
+  //glGetIntegerv(GL_MAX_TEXTURE_SIZE, &m_max2DTexSize);
+  //glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, &m_max3DTexSize);
+  glGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &textureSize);
+
+  //GLint textureSize;
+  //glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, &textureSize);
   Global::setTextureSizeLimit(textureSize);
   m_preferencesWidget->updateTextureMemory();
 

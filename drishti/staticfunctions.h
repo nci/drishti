@@ -28,7 +28,7 @@ class StaticFunctions
   static Vec maxVec(Vec, Vec);
   static Vec minVec(Vec, Vec);
 
-  static int getSubsamplingLevel(int, int, Vec, Vec);
+  static int getSubsamplingLevel(int, int, int, Vec, Vec);
 
   static void getRotationBetweenVectors(Vec, Vec, Vec&, float&);
 

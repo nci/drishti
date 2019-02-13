@@ -76,6 +76,7 @@ Vec LightHandler::m_dragInfo;
 Vec LightHandler::m_subVolSize;
 Vec LightHandler::m_dataMin;
 Vec LightHandler::m_dataMax;
+Vec LightHandler::m_dragVolSize;
 
 int LightHandler::m_ncols=0;
 int LightHandler::m_nrows=0;
@@ -340,7 +341,7 @@ LightHandler::setLut(uchar *vlut)
   if (gilite || m_doAll)
     updateAndLoadLightTexture(m_dataTex,
 			      m_dtexX, m_dtexY,
-			      m_dragInfo,
+			      m_dragInfo, m_dragVolSize,
 			      m_dataMin, m_dataMax,
 			      m_subVolSize,
 			      vlut);
@@ -530,9 +531,7 @@ LightHandler::createOpacityShader(bool bit16)
   QString shaderString;
 
   //---------------------------
-  if (Global::volumeType() == Global::SingleVolume)
-    shaderString = LightShaderFactory::genOpacityShader(bit16);
-  else if (Global::volumeType() == Global::RGBVolume ||
+  if (Global::volumeType() == Global::RGBVolume ||
 	   Global::volumeType() == Global::RGBAVolume)
     shaderString = LightShaderFactory::genOpacityShaderRGB();
   else
@@ -542,7 +541,7 @@ LightHandler::createOpacityShader(bool bit16)
       if (Global::volumeType() == Global::TripleVolume) nvol = 3;
       if (Global::volumeType() == Global::QuadVolume) nvol = 4;
 
-      shaderString = LightShaderFactory::genOpacityShader2(nvol);
+      shaderString = LightShaderFactory::genOpacityShader(nvol, bit16);
     }    
 
   if (m_opacityShader)
@@ -566,6 +565,7 @@ LightHandler::createOpacityShader(bool bit16)
   m_opacityParm[12] = glGetUniformLocationARB(m_opacityShader, "lncols");
   m_opacityParm[13] = glGetUniformLocationARB(m_opacityShader, "opshader");
   m_opacityParm[14] = glGetUniformLocationARB(m_opacityShader, "tfSet");
+  m_opacityParm[15] = glGetUniformLocationARB(m_opacityShader, "dragsize");
   //---------------------------
 }
 
@@ -1051,10 +1051,10 @@ LightHandler::generateOpacityTexture()
 
   // enable drag texture
   glActiveTexture(GL_TEXTURE1);
-  glEnable(GL_TEXTURE_RECTANGLE_ARB);
-  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_dataTex);
-  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
-  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
+  glEnable(GL_TEXTURE_2D_ARRAY);
+  glBindTexture(GL_TEXTURE_2D_ARRAY, m_dataTex);
+  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
 
 
   // generate opacity texture on gpu
@@ -1090,6 +1090,9 @@ LightHandler::generateOpacityTexture()
   glUniform1iARB(m_opacityParm[12], m_ncols); // light ncols
   glUniform1iARB(m_opacityParm[13], opshader); // opacity shader
   glUniform1fARB(m_opacityParm[14], tfSet); // opacity tfSet
+  glUniform3fARB(m_opacityParm[15], m_dragVolSize.x,
+		                    m_dragVolSize.y,
+		                    m_dragVolSize.z);
 
   StaticFunctions::pushOrthoView(0, 0, sX, sY);
   StaticFunctions::drawQuad(0, 0, sX, sY, 1.0);
@@ -1100,7 +1103,7 @@ LightHandler::generateOpacityTexture()
   glUseProgramObjectARB(0);
 
   glActiveTexture(GL_TEXTURE1);
-  glDisable(GL_TEXTURE_RECTANGLE_ARB);
+  glDisable(GL_TEXTURE_2D_ARRAY);
 
   glActiveTexture(GL_TEXTURE2);
   glDisable(GL_TEXTURE_2D);
@@ -1135,10 +1138,10 @@ LightHandler::generateEmissiveTexture()
 
   // enable drag texture
   glActiveTexture(GL_TEXTURE1);
-  glEnable(GL_TEXTURE_RECTANGLE_ARB);
-  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_dataTex);
-  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
-  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
+  glEnable(GL_TEXTURE_2D_ARRAY);
+  glBindTexture(GL_TEXTURE_2D_ARRAY, m_dataTex);
+  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
 
 
   m_origEmisTex = 0;
@@ -1181,6 +1184,9 @@ LightHandler::generateEmissiveTexture()
   glUniform1iARB(m_opacityParm[12], m_ncols); // light ncols
   glUniform1iARB(m_opacityParm[13], opshader); // opacity shader
   glUniform1fARB(m_opacityParm[14], tfSet); // emissive tfSet
+  glUniform3fARB(m_opacityParm[15], m_dragVolSize.x,
+		                    m_dragVolSize.y,
+		                    m_dragVolSize.z);
 
   StaticFunctions::pushOrthoView(0, 0, sX, sY);
   StaticFunctions::drawQuad(0, 0, sX, sY, 1.0);
@@ -1190,7 +1196,7 @@ LightHandler::generateEmissiveTexture()
   glUseProgramObjectARB(0);
 
   glActiveTexture(GL_TEXTURE1);
-  glDisable(GL_TEXTURE_RECTANGLE_ARB);
+  glDisable(GL_TEXTURE_2D_ARRAY);
 
 
   glActiveTexture(GL_TEXTURE2);
@@ -1459,7 +1465,7 @@ LightHandler::genBuffers()
 void
 LightHandler::updateOpacityTexture(GLuint dataTex,
 				   int dtX, int dtY,
-				   Vec dragInfo,
+				   Vec dragInfo, Vec dragVolSize,
 				   Vec dataMin, Vec dataMax,
 				   Vec subVolSize,
 				   uchar *vlut)
@@ -1471,6 +1477,7 @@ LightHandler::updateOpacityTexture(GLuint dataTex,
   m_dataTex = dataTex;
   m_dataMin = dataMin;
   m_dataMax = dataMax;
+  m_dragVolSize = dragVolSize;
 
   if (vlut)
     {
@@ -1828,7 +1835,7 @@ LightHandler::updateLightBuffers()
 void
 LightHandler::updateAndLoadLightTexture(GLuint dataTex,
 					int dtX, int dtY,
-					Vec dragInfo,
+					Vec dragInfo, Vec dragVolSize,
 					Vec dataMin, Vec dataMax,
 					Vec subVolSize,
 					uchar *vlut)
@@ -1836,7 +1843,7 @@ LightHandler::updateAndLoadLightTexture(GLuint dataTex,
   m_doAll = false;
   updateOpacityTexture(dataTex,
 		       dtX, dtY,
-		       dragInfo, 
+		       dragInfo, dragVolSize,
 		       dataMin, dataMax,
 		       subVolSize,
 		       vlut);
@@ -2743,7 +2750,7 @@ LightHandler::openPropertyEditor()
   if (lightlodChanged)
     updateAndLoadLightTexture(m_dataTex,
 			      m_dtexX, m_dtexY,
-			      m_dragInfo,
+			      m_dragInfo, m_dragVolSize,
 			      m_dataMin, m_dataMax,
 			      m_subVolSize,
 			      NULL);

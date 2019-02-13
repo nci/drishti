@@ -1,18 +1,76 @@
 #include "pruneshaderfactory.h"
 
 QString
-PruneShaderFactory::genPruneTexture(bool bit16)
+PruneShaderFactory::getGradient()
+{
+  QString shader;
+  // using tetrahedron technique - iquilezles.org (normalsSDF) - Paul Malin in ShaderToy
+  shader += "float getGradient(vec3 voxelCoord)\n";
+  shader += "{\n";
+  shader += "  vec2 k = vec2(1.0, -1.0);\n";
+  shader += "  vec3 grad = (k.xyy * getVal(voxelCoord+k.xyy).x +\n";
+  shader += "               k.yyx * getVal(voxelCoord+k.yyx).x +\n";
+  shader += "               k.yxy * getVal(voxelCoord+k.yxy).x +\n";
+  shader += "               k.xxx * getVal(voxelCoord+k.xxx).x);\n";
+  shader += "  grad = grad/2.0;\n";  // should be actually divided by 4
+  //shader += "  grad = grad/4.0;\n";  // should be actually divided by 4
+  shader += "  return length(grad);\n";
+  shader += "}\n";
+
+  return shader;
+}
+
+QString
+PruneShaderFactory::getVal()
+{
+  QString shader;
+  shader += "vec4 getVal(vec3 voxelCoord)\n";  
+  shader += "{\n";
+  shader += "  float layer = voxelCoord.z;\n";
+  shader += "  vec3 vcrd0 = vec3(voxelCoord.xy/dragsize.xy, layer);\n";
+  shader += "  return texture(dragTex, vcrd0);\n";
+  shader += "}\n";
+
+  return shader;
+}
+
+QString
+PruneShaderFactory::genPruneTexture(int nvol, bool bit16)
 {
   QString shader;
 
-  shader =  "#extension GL_ARB_texture_rectangle : enable\n";
+  QString vstr;
+  vstr = "  float";
+  if (nvol == 2) vstr = "  vec2";
+  else if (nvol == 3) vstr = "  vec3";
+  else if (nvol == 4) vstr = "  vec4";
+
+  QString xyzw;
+  xyzw = "x";
+  if (nvol == 2) xyzw = "xw";
+  else if (nvol == 3) xyzw = "xyz";
+  else if (nvol == 4) xyzw = "xyzw";
+
+
+  shader = "#version 450 core\n";
+  shader += "#extension GL_ARB_texture_rectangle : enable\n";
+  shader += "in vec3 glTexCoord0;\n";
   shader += "uniform sampler2D lutTex;\n";
-  shader += "uniform sampler2DRect dragTex;\n";
+  shader += "uniform sampler2DArray dragTex;\n";
   shader += "uniform int gridx;\n";
   shader += "uniform int gridy;\n";
   shader += "uniform int gridz;\n";
   shader += "uniform int nrows;\n";
   shader += "uniform int ncols;\n";
+  shader += "uniform vec3 dragsize;\n";
+
+  shader += "out vec4 glFragColor;\n";
+
+  //---------------------
+  // get voxel value from array texture
+  shader += getVal();
+  //shader += getGradient();
+  //---------------------
 
   shader += "void main(void)\n";
   shader += "{\n";
@@ -21,58 +79,58 @@ PruneShaderFactory::genPruneTexture(bool bit16)
   shader += "  int row, col;\n";
   shader += "  int x,y,z, x1,y1,z1;\n";
 
-  shader += "  col = int(gl_TexCoord[0].x)/gridx;\n";
-  shader += "  row = int(gl_TexCoord[0].y)/gridy;\n";
-  shader += "  x = int(gl_TexCoord[0].x) - col*gridx;\n";
-  shader += "  y = int(gl_TexCoord[0].y) - row*gridy;\n";
+  shader += "  col = int(glTexCoord0.x)/gridx;\n";
+  shader += "  row = int(glTexCoord0.y)/gridy;\n";
+  shader += "  x = int(glTexCoord0.x) - col*gridx;\n";
+  shader += "  y = int(glTexCoord0.y) - row*gridy;\n";
   shader += "  z = row*ncols + col;\n";
   shader += "  col *= gridx;\n";
   shader += "  row *= gridy;\n";
 
-  shader += "  vg.x = texture2DRect(dragTex, gl_TexCoord[0].xy).x;\n";
+  shader += vstr + " val;\n";
+  shader += "  vec3 vcrd = vec3(x,y,z);\n";
+  shader += "  val = getVal(vcrd)."+xyzw+";\n";
 
-  if (!bit16)
-    {
-      shader += "  x1 = int(max(0.0, float(x-1)));\n";
-      shader += "  sample1.x = texture2DRect(dragTex, vec2(col+x1, row+y)).x;\n";
-      shader += "  x1 = int(min(float(gridx-1), float(x+1)));\n";
-      shader += "  sample2.x = texture2DRect(dragTex, vec2(col+x1, row+y)).x;\n";
-
-      shader += "  y1 = int(max(0.0, float(y-1)));\n";
-      shader += "  sample1.y = texture2DRect(dragTex, vec2(col+x, row+y1)).x;\n";
-      shader += "  y1 = int(min(float(gridy-1), float(y+1)));\n";
-      shader += "  sample2.y = texture2DRect(dragTex, vec2(col+x, row+y1)).x;\n";
-
-      shader += "  z1 = int(max(0.0, float(z-1)));\n";
-      shader += "  row = z1/ncols;\n";
-      shader += "  col = z1 - row*ncols;\n";
-      shader += "  row *= gridy;\n";
-      shader += "  col *= gridx;\n";
-      shader += "  sample1.z = texture2DRect(dragTex, vec2(col+x, row+y)).x;\n";
-      shader += "  z1 = int(min(float(gridz-1), float(z+1)));\n";
-      shader += "  row = z1/ncols;\n";
-      shader += "  col = z1 - row*ncols;\n";
-      shader += "  row *= gridy;\n";
-      shader += "  col *= gridx;\n";
-      shader += "  sample2.z = texture2DRect(dragTex, vec2(col+x, row+y)).x;\n";
-    
-      shader += "  vg.y = distance(sample1, sample2);\n";
-    }
-  else
-    {
-      shader += "int h0 = int(65535.0*vg.x);\n";
-      shader += "int h1 = h0 / 256;\n";
-      shader += "h0 = int(mod(float(h0),256.0));\n";
-      shader += "float fh0 = float(h0)/256.0;\n";
-      shader += "float fh1 = float(h1)/256.0;\n";
-
-      shader += "vg.xy = vec2(fh0, fh1);\n";
-    }
-
-  shader += "  float op = texture2D(lutTex, vg.xy).x;\n";
-  shader += "  float s = step(0.9/255.0, op);\n";
+  shader += "  vec2 k = vec2(1.0, -1.0);\n";
+  shader += vstr + " g1,g2,g3,g4;\n";
+  shader += "  float g;\n";
+  shader += "  vec3 grad;\n";
+  shader += "  int h0, h1;\n";
   
-  shader += "  gl_FragColor = vec4(s,op,0.0,1.0);\n";
+  //----------------
+  shader +="   float op = 0.0;\n";
+  for(int i=1; i<=nvol; i++)
+    {
+      QString c;
+      if (i == 1) c = "x";
+      else if (i == 2) c = "y";
+      else if (i == 3) c = "z";
+      else if (i == 4) c = "w";
+      
+      if (!bit16)
+	{
+	  shader += "  g1 = getVal(vcrd+k.xyy)."+xyzw+";\n";
+	  shader += "  g2 = getVal(vcrd+k.yyx)."+xyzw+";\n";
+	  shader += "  g3 = getVal(vcrd+k.yxy)."+xyzw+";\n";
+	  shader += "  g4 = getVal(vcrd+k.xxx)."+xyzw+";\n";
+	  shader += "  grad = (k.xyy * g1."+c+" + k.yyx * g2."+c+" + k.yxy * g3."+c+" + k.xxx * g4."+c+");\n";
+	  shader += "  g = length(grad/2.0);\n";
+	}
+      else
+	{
+	  shader += "h0 = int(65535.0*val."+c+");\n";
+	  shader += "h1 = h0 / 256;\n";
+	  shader += "h0 = int(mod(float(h0),256.0));\n";
+	  shader += "val."+c+" = float(h0)/256.0;\n";
+	  shader += "g = float(h1)/256.0;\n";
+	}
+
+      // lutTex contains max for all lut textures
+      shader += "  op = max(op, texture(lutTex, vec2(val."+c+",g)).x);\n";
+    }
+  shader += "  float s = step(0.9/255.0, op);\n";
+  shader += "  glFragColor = vec4(s,op,0.0,1.0);\n";
+  //----------------  
 
   shader += "}\n";
 

@@ -27,12 +27,12 @@ class LightHandler
 
     static void updateOpacityTexture(GLuint,
 				     int, int,
-				     Vec,
+				     Vec, Vec,
 				     Vec, Vec, Vec,
 				     uchar*);
     static void updateAndLoadLightTexture(GLuint,
 					  int, int,
-					  Vec,
+					  Vec, Vec,
 					  Vec, Vec, Vec,
 					  uchar*);
 
@@ -106,7 +106,7 @@ class LightHandler
     static bool m_applyClip, m_applyCrop;
 
     static int m_dtexX, m_dtexY;
-    static Vec m_dragInfo, m_subVolSize;
+    static Vec m_dragInfo, m_subVolSize, m_dragVolSize;
     static Vec m_dataMin, m_dataMax;
     static int m_opacityTF, m_emisTF;
 

@@ -85,7 +85,7 @@ StaticFunctions::minVec(Vec a, Vec b)
 }
 
 int
-StaticFunctions::getSubsamplingLevel(int tms,
+StaticFunctions::getSubsamplingLevel(int tms, int textureSize,
 				     int bytesPerVoxel,
 				     Vec boxMin, Vec boxMax)
 {
@@ -99,7 +99,8 @@ StaticFunctions::getSubsamplingLevel(int tms,
   volsize /= mb; // vosize in Mb
   
   int lod = 1;
-  while (volsize >= (tms-32))
+  while (nz/lod > textureSize ||  // check for array texture
+	 volsize >= (tms-32))
     {
       lod ++;
       qint64 x = nx/lod;

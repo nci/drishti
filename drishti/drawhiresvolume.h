@@ -334,6 +334,7 @@ class DrawHiresVolume : public QObject
 
   void emptySpaceSkip();
   void bindDataTextures(int);
+  void releaseDataTextures(int);
 
   void drawClipPlaneDefault(int, int, Vec, Vec, Vec,
 			    int, Vec, float, int, int,

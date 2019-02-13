@@ -431,7 +431,9 @@ Volume::getSliceTextureSizeSlabs()
 
       int bpv = nvol;
       int tms = Global::textureMemorySize(); // in Mb
-      int svsl = StaticFunctions::getSubsamplingLevel(tms, bpv,
+      int svsl = StaticFunctions::getSubsamplingLevel(tms,
+						      Global::textureSizeLimit(),
+						      bpv,
 						      dataMin, dataMax);
 
       int nrows, ncols;
@@ -472,6 +474,9 @@ Volume::deleteTextureSlab()
 
   if (m_subvolumeTexture) delete [] m_subvolumeTexture;
   m_subvolumeTexture = 0;
+
+  if (m_dragSubvolumeTexture) delete [] m_dragSubvolumeTexture;
+  m_dragSubvolumeTexture = 0;
 
   if (Global::volumeType() == Global::RGBVolume ||
       Global::volumeType() == Global::RGBAVolume)
@@ -523,6 +528,7 @@ Volume::getSliceTextureSlab(int minz, int maxz)
       return m_subvolumeTexture;
     }
 }
+
 
 void Volume::forceCreateLowresVolume()
 {
@@ -649,6 +655,7 @@ Volume::Volume()
   m_volume.clear();
   m_volumeRGB = 0;
   m_subvolumeTexture = 0;
+  m_dragSubvolumeTexture = 0;
   m_dragTexture = 0;
   m_lowresTexture = 0;
   m_bbScale = 1.0;
@@ -665,6 +672,10 @@ Volume::clearVolumes()
   if (m_subvolumeTexture)
     delete [] m_subvolumeTexture;
   m_subvolumeTexture = 0;
+
+  if (m_dragSubvolumeTexture)
+    delete [] m_dragSubvolumeTexture;
+  m_dragSubvolumeTexture = 0;
 
   if (m_dragTexture)
     delete [] m_dragTexture;
@@ -955,7 +966,9 @@ Volume::setSubvolume(Vec boxMin, Vec boxMax,
       int bpv = 1;
 
       int tms = Global::textureMemorySize(); // in Mb
-      int sslevel = StaticFunctions::getSubsamplingLevel(tms, bpv,
+      int sslevel = StaticFunctions::getSubsamplingLevel(tms,
+							 Global::textureSizeLimit(),
+							 bpv,
 							 boxMin, boxMax);
       sslevel = qMax(sslevel, Global::lod());
 
@@ -973,7 +986,9 @@ Volume::setSubvolume(Vec boxMin, Vec boxMax,
 {  
   int bpv = 2;
   int tms = Global::textureMemorySize(); // in Mb
-  int sslevel = StaticFunctions::getSubsamplingLevel(tms, bpv,
+  int sslevel = StaticFunctions::getSubsamplingLevel(tms,
+						     Global::textureSizeLimit(),
+						     bpv,
 						     boxMin, boxMax);
 
   sslevel = qMax(sslevel, Global::lod());
@@ -999,7 +1014,9 @@ Volume::setSubvolume(Vec boxMin, Vec boxMax,
 {  
   int bpv = 3;
   int tms = Global::textureMemorySize(); // in Mb
-  int sslevel = StaticFunctions::getSubsamplingLevel(tms, bpv,
+  int sslevel = StaticFunctions::getSubsamplingLevel(tms,
+						     Global::textureSizeLimit(),
+						     bpv,
 						     boxMin, boxMax);
 
   sslevel = qMax(sslevel, Global::lod());
@@ -1032,7 +1049,9 @@ Volume::setSubvolume(Vec boxMin, Vec boxMax,
   int bpv = 4;
 
   int tms = Global::textureMemorySize(); // in Mb
-  int sslevel = StaticFunctions::getSubsamplingLevel(tms, bpv,
+  int sslevel = StaticFunctions::getSubsamplingLevel(tms,
+						     Global::textureSizeLimit(),
+						     bpv,
 						     boxMin, boxMax);
 
   sslevel = qMax(sslevel, Global::lod());
@@ -1104,11 +1123,33 @@ Vec Volume::getSubvolumeSize()
   return vsize;
 }
 
+Vec Volume::getDragSubvolumeTextureSize()
+{
+//  if (Global::volumeType() == Global::RGBVolume ||
+//      Global::volumeType() == Global::RGBAVolume)
+//    return m_volumeRGB->getDragSubvolumeTextureSize();
+
+  if (Global::volumeType() == Global::SingleVolume ||
+      Global::volumeType() == Global::DummyVolume)
+    return m_volume[0]->getDragSubvolumeTextureSize();
+
+  int nvol = 2;
+  if (Global::volumeType() == Global::DoubleVolume) nvol = 2;
+  if (Global::volumeType() == Global::TripleVolume) nvol = 3;
+  if (Global::volumeType() == Global::QuadVolume) nvol = 4;
+  Vec vsize = m_volume[0]->getDragSubvolumeTextureSize();
+  for (int v=1; v<nvol; v++)
+    vsize = StaticFunctions::maxVec(vsize,
+		 m_volume[v]->getDragSubvolumeTextureSize());
+
+  return vsize;
+}
+
 Vec Volume::getSubvolumeTextureSize()
 {
-  if (Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
-    return m_volumeRGB->getSubvolumeTextureSize();
+//  if (Global::volumeType() == Global::RGBVolume ||
+//      Global::volumeType() == Global::RGBAVolume)
+//    return m_volumeRGB->getSubvolumeTextureSize();
 
   if (Global::volumeType() == Global::SingleVolume ||
       Global::volumeType() == Global::DummyVolume)
@@ -1138,16 +1179,16 @@ int Volume::getSubvolumeSubsamplingLevel()
   return m_volume[0]->getSubvolumeSubsamplingLevel();
 }
 
-
-uchar* Volume::getSubvolumeTexture()
+int Volume::getDragSubvolumeSubsamplingLevel()
 {
   if (Global::volumeType() == Global::DummyVolume)
-    return 0;
-  else if (Global::volumeType() == Global::RGBVolume ||
-	   Global::volumeType() == Global::RGBAVolume)
-    return m_volumeRGB->getSubvolumeTexture();
+    return 1;
 
-  return 0;
+//  if (Global::volumeType() == Global::RGBVolume ||
+//      Global::volumeType() == Global::RGBAVolume)
+//    return m_volumeRGB->getDragSubvolumeSubsamplingLevel();
+
+  return m_volume[0]->getDragSubvolumeSubsamplingLevel();
 }
 
 Vec Volume::getFullVolumeSize()
@@ -1175,6 +1216,102 @@ Vec Volume::getFullVolumeSize()
   
   return vsize;
 }
+
+
+//--------------------
+// for array textures
+//--------------------
+uchar* Volume::getDragSubvolumeTexture()
+{
+  if (Global::volumeType() == Global::DummyVolume)
+    return NULL;
+
+  // single volume
+  if (Global::volumeType() == Global::SingleVolume)
+    return m_volume[0]->getDragSubvolumeTexture();
+
+//  // rgb volume
+//  if (Global::volumeType() == Global::RGBVolume ||
+//      Global::volumeType() == Global::RGBAVolume)
+//    return m_volumeRGB->getDragSubvolumeTexture();
+
+  // multiple volumes
+  int nvol = 0;
+  if (Global::volumeType() == Global::DoubleVolume) nvol = 2;
+  if (Global::volumeType() == Global::TripleVolume) nvol = 3;
+  if (Global::volumeType() == Global::QuadVolume) nvol = 4;
+
+  if (nvol < 1) return 0;
+
+  
+  Vec vsize;
+  vsize = m_volume[0]->getDragSubvolumeTextureSize();
+
+  int nx,ny,nz;
+  nx = vsize.x;
+  ny = vsize.y;
+  nz = vsize.z;
+  if (m_dragSubvolumeTexture) delete [] m_dragSubvolumeTexture;
+  m_dragSubvolumeTexture = new uchar[nvol*nx*ny*nz];
+  memset(m_dragSubvolumeTexture, 0, nvol*nx*ny*nz);
+
+  for (int v=0; v<nvol; v++)
+    {
+      uchar *tex = m_volume[v]->getDragSubvolumeTexture();
+      for (int i=0; i<nx*ny*nz; i++)
+	m_dragSubvolumeTexture[i*nvol+v] = tex[i];
+    }
+  
+  return m_dragSubvolumeTexture;
+}
+
+uchar* Volume::getSubvolumeTexture()
+{
+  if (Global::volumeType() == Global::DummyVolume)
+    return 0;
+
+  // single volume
+  if (Global::volumeType() == Global::SingleVolume)
+    //return m_volume[0]->getSubvolumeTexture();
+    return m_volume[0]->getSubvolume();
+
+//  // rgb volume
+//  if (Global::volumeType() == Global::RGBVolume ||
+//      Global::volumeType() == Global::RGBAVolume)
+//    return m_volumeRGB->getSubvolumeTexture();
+
+  // multiple volumes
+  int nvol = 0;
+  if (Global::volumeType() == Global::DoubleVolume) nvol = 2;
+  if (Global::volumeType() == Global::TripleVolume) nvol = 3;
+  if (Global::volumeType() == Global::QuadVolume) nvol = 4;
+
+  if (nvol < 1) return 0;
+
+  
+  Vec vsize;
+  vsize = m_volume[0]->getSubvolumeTextureSize();
+
+  int nx,ny,nz;
+  nx = vsize.x;
+  ny = vsize.y;
+  nz = vsize.z;
+  if (m_subvolumeTexture) delete [] m_subvolumeTexture;
+  m_subvolumeTexture = new uchar[nvol*nx*ny*nz];
+  memset(m_subvolumeTexture, 0, nvol*nx*ny*nz);
+
+  for (int v=0; v<nvol; v++)
+    {
+      //uchar *tex = m_volume[v]->getSubvolumeTexture();
+      uchar *tex = m_volume[v]->getSubvolume();
+      for (int i=0; i<nx*ny*nz; i++)
+	m_subvolumeTexture[i*nvol+v] = tex[i];
+    }
+  
+  return m_subvolumeTexture;
+}
+//--------------------
+
 
 Vec Volume::getLowresVolumeSize()
 {

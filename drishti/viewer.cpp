@@ -1565,26 +1565,42 @@ Viewer::drawInfoString(int imagequality,
 
   QString lodMesg;
   if (lod == 1)
-    lodMesg = QString("LoD(%1) : Size : %2x%3x%4 (%5:%6x%7)").			\
+    lodMesg = QString("LoD(%1) : Size : %2x%3x%4").			\
 	   arg(lod).							\
 	   arg(maxX-minX+1).						\
 	   arg(maxY-minY+1).						\
-	   arg(maxZ-minZ+1).						\
-	   arg(ntex).							\
-	   arg(textureX).						\
-           arg(textureY);
+           arg(maxZ-minZ+1);
   else
-    lodMesg = QString("LoD(%1) : Size : %2x%3x%4 (%5x%6x%7 - %8:%9x%10)").	\
+    lodMesg = QString("LoD(%1) : Size : %2x%3x%4 (%5x%6x%7)").		\
 	   arg(lod).							\
 	   arg(maxX-minX+1).						\
 	   arg(maxY-minY+1).						\
 	   arg(maxZ-minZ+1).						\
 	   arg((maxX-minX+1)/lod).					\
 	   arg((maxY-minY+1)/lod).					\
-	   arg((maxZ-minZ+1)/lod).					\
-	   arg(ntex).							\
-	   arg(textureX).						\
-           arg(textureY);
+           arg((maxZ-minZ+1)/lod);
+
+//  if (lod == 1)
+//    lodMesg = QString("LoD(%1) : Size : %2x%3x%4 (%5:%6x%7)").			\
+//	   arg(lod).							\
+//	   arg(maxX-minX+1).						\
+//	   arg(maxY-minY+1).						\
+//	   arg(maxZ-minZ+1).						\
+//	   arg(ntex).							\
+//	   arg(textureX).						\
+//           arg(textureY);
+//  else
+//    lodMesg = QString("LoD(%1) : Size : %2x%3x%4 (%5x%6x%7 - %8:%9x%10)").	\
+//	   arg(lod).							\
+//	   arg(maxX-minX+1).						\
+//	   arg(maxY-minY+1).						\
+//	   arg(maxZ-minZ+1).						\
+//	   arg((maxX-minX+1)/lod).					\
+//	   arg((maxY-minY+1)/lod).					\
+//	   arg((maxZ-minZ+1)/lod).					\
+//	   arg(ntex).							\
+//	   arg(textureX).						\
+//           arg(textureY);
 
   StaticFunctions::renderText(posx, posy,
 			      lodMesg, tfont,

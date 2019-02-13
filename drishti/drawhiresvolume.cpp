@@ -621,7 +621,7 @@ DrawHiresVolume::postUpdateSubvolume(Vec boxMin, Vec boxMax)
   loadTextureMemory();
   m_Volume->endHistogramCalculation();
 
-  loadDragTexture();
+  //loadDragTexture();
 
   // update saved buffer after every subvolume change
   PruneHandler::setUseSavedBuffer(false);
@@ -676,9 +676,12 @@ DrawHiresVolume::updateAndLoadPruneTexture()
   Vec dragInfo = m_Volume->getDragTextureInfo();
   Vec subVolSize = m_Volume->getSubvolumeSize();
 
+  Vec dragvsz = m_Volume->getDragSubvolumeTextureSize();
+
   PruneHandler::updateAndLoadPruneTexture(m_dataTex[0],
 					  dtextureX, dtextureY,
 					  dragInfo, subVolSize,
+					  dragvsz,
 					  m_Viewer->lookupTable());
 
   MainWindowUI::mainWindowUI()->menubar->parentWidget()->\
@@ -704,9 +707,11 @@ DrawHiresVolume::updateAndLoadLightTexture()
   getClipForMask(cpos, cnorm);
   LightHandler::setClips(cpos, cnorm);
  
+  Vec dragvsz = m_Volume->getDragSubvolumeTextureSize();
+
   LightHandler::updateAndLoadLightTexture(m_dataTex[0],
 					  dtextureX, dtextureY,
-					  dragInfo,
+					  dragInfo, dragvsz,
 					  m_dataMin, m_dataMax,
 					  subVolSize,
 					  m_Viewer->lookupTable());
@@ -720,6 +725,9 @@ DrawHiresVolume::loadDragTexture()
 
   if (m_dataTexSize <= 1) // no drag texture
     return;
+
+
+  //QMessageBox::information(0, "", "load drag texture");
 
   // -- disable screen updates 
   bool uv = Global::updateViewer();
@@ -762,6 +770,9 @@ DrawHiresVolume::loadDragTexture()
   Vec dragInfo = m_Volume->getDragTextureInfo();
   int texX, texY;
   m_Volume->getDragTextureSize(texX, texY);
+//  QMessageBox::information(0, "", QString("drag texture %1 %2").\
+//			   arg(texX).arg(texY));
+
 
   glActiveTexture(GL_TEXTURE1);
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
@@ -798,6 +809,7 @@ DrawHiresVolume::loadDragTexture()
       Global::enableViewerUpdate();
       MainWindowUI::changeDrishtiIcon(true);
     }
+  //QMessageBox::information(0, "", "drag texture loaded");
 }
 
 void
@@ -866,7 +878,7 @@ DrawHiresVolume::loadTextureMemory()
   m_dataTexSize = m_textureSlab.count();
   if (m_dataTexSize <= 0)
     return;
-
+			   
   // -- disable screen updates 
   bool uv = Global::updateViewer();
   if (uv)
@@ -882,55 +894,118 @@ DrawHiresVolume::loadTextureMemory()
     setWindowTitle(QString("Uploading slices"));
   Global::progressBar()->show();
 
-  for(int i=0; i<m_dataTexSize; i++)
+//  for(int i=0; i<m_dataTexSize; i++)
     {      
-      if (m_dataTexSize > 1 && i == 0) i++; // do not load drag texture right now
-
-      int minz, maxz, texX, texY; 
-      minz = m_textureSlab[i].y;
-      maxz = m_textureSlab[i].z;
-      texX = textureX;
-      texY = textureY;
-     
-      MainWindowUI::mainWindowUI()->statusBar->showMessage(	      \
-			    QString("loading slab %1 [%2 %3]"). \
-			    arg(i).arg(minz).arg(maxz));
-
-      glActiveTexture(GL_TEXTURE1);
-      glEnable(GL_TEXTURE_RECTANGLE_ARB);
-
-      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_dataTex[i]);
-	  
-      glTexParameterf(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
-      glTexParameterf(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
-      if (Global::interpolationType(Global::TextureInterpolation)) // linear
-	{
-	  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	}
-      else
-	{
-	  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	}
+//      if (m_dataTexSize > 1 && i == 0) i++; // do not load drag texture right now
       
-      uchar *textureSlab = NULL;
-
+      uchar *voxelVol = NULL;
       if (!Global::loadDragOnly())
-	textureSlab = m_Volume->getSliceTextureSlab(minz, maxz);
+	voxelVol = m_Volume->getSubvolumeTexture();
       
-      glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,
+      Vec vsz = m_Volume->getSubvolumeTextureSize();
+      int hsz = vsz.x;
+      int wsz = vsz.y;
+      int dsz = vsz.z;
+      
+      glActiveTexture(GL_TEXTURE1);
+      glEnable(GL_TEXTURE_2D_ARRAY);
+      glBindTexture(GL_TEXTURE_2D_ARRAY, m_dataTex[1]);
+      glTexImage3D(GL_TEXTURE_2D_ARRAY,
 		   0, // single resolution
 		   internalFormat,
-		   texX, texY,
+		   hsz, wsz, dsz,
 		   0, // no border
 		   format,
 		   vtype,
-		   textureSlab);
-
-      glFlush();
-      glFinish();
+		   voxelVol);
+      glTexParameterf(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+      glTexParameterf(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
+      glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glDisable(GL_TEXTURE_2D_ARRAY);
     }
+
+  // now load drag texture
+  if (m_dataTexSize > 1)
+    {
+      uchar *voxelVol = NULL;
+      voxelVol = m_Volume->getDragSubvolumeTexture();
+
+      Vec vsz = m_Volume->getDragSubvolumeTextureSize();
+      int hsz = vsz.x;
+      int wsz = vsz.y;
+      int dsz = vsz.z;
+      
+      glActiveTexture(GL_TEXTURE1);
+      glEnable(GL_TEXTURE_2D_ARRAY);
+      glBindTexture(GL_TEXTURE_2D_ARRAY, m_dataTex[0]);
+      glTexImage3D(GL_TEXTURE_2D_ARRAY,
+		   0, // single resolution
+		   internalFormat,
+		   hsz, wsz, dsz,
+		   0, // no border
+		   format,
+		   vtype,
+		   voxelVol);
+      glTexParameterf(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+      glTexParameterf(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
+      glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glDisable(GL_TEXTURE_2D_ARRAY);
+    }
+
+  
+  
+//  for(int i=0; i<m_dataTexSize; i++)
+//    {      
+//      if (m_dataTexSize > 1 && i == 0) i++; // do not load drag texture right now
+//
+//
+//      int minz, maxz, texX, texY; 
+//      minz = m_textureSlab[i].y;
+//      maxz = m_textureSlab[i].z;
+//      texX = textureX;
+//      texY = textureY;
+//     
+//      MainWindowUI::mainWindowUI()->statusBar->showMessage(	      \
+//			    QString("loading slab %1 [%2 %3]"). \
+//			    arg(i).arg(minz).arg(maxz));
+//
+//      glActiveTexture(GL_TEXTURE1);
+//      glEnable(GL_TEXTURE_RECTANGLE_ARB);
+//
+//      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_dataTex[i]);
+//	  
+//      glTexParameterf(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+//      glTexParameterf(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
+//      if (Global::interpolationType(Global::TextureInterpolation)) // linear
+//	{
+//	  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+//	  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+//	}
+//      else
+//	{
+//	  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+//	  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+//	}
+//      
+//      uchar *textureSlab = NULL;
+//
+//      if (!Global::loadDragOnly())
+//	textureSlab = m_Volume->getSliceTextureSlab(minz, maxz);
+//      
+//      glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,
+//		   0, // single resolution
+//		   internalFormat,
+//		   texX, texY,
+//		   0, // no border
+//		   format,
+//		   vtype,
+//		   textureSlab);
+//
+//      glFlush();
+//      glFinish();
+//    }
 
   Global::hideProgressBar();
   MainWindowUI::mainWindowUI()->statusBar->showMessage("Ready");
@@ -1122,6 +1197,10 @@ DrawHiresVolume::createDefaultShader()
   m_defaultParm[50] = glGetUniformLocationARB(m_defaultShader, "linearInterpolation");
 
   m_defaultParm[51] = glGetUniformLocationARB(m_defaultShader, "dofscale");
+
+  m_defaultParm[52] = glGetUniformLocationARB(m_defaultShader, "vsize");
+  m_defaultParm[53] = glGetUniformLocationARB(m_defaultShader, "vmin");
+  m_defaultParm[54] = glGetUniformLocationARB(m_defaultShader, "dataTexAT");
 }
 
 void
@@ -1239,10 +1318,10 @@ DrawHiresVolume::enableTextureUnits()
 {
   m_Viewer->enableTextureUnits();
 
-  glActiveTexture(GL_TEXTURE1);
-  glEnable(GL_TEXTURE_RECTANGLE_ARB);
-  glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+//  glActiveTexture(GL_TEXTURE1);
+//  glEnable(GL_TEXTURE_RECTANGLE_ARB);
+//  glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+//  glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
   glActiveTexture(GL_TEXTURE2);
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
@@ -1270,8 +1349,8 @@ DrawHiresVolume::disableTextureUnits()
 {
   m_Viewer->disableTextureUnits();
 
-  glActiveTexture(GL_TEXTURE1);
-  glDisable(GL_TEXTURE_RECTANGLE_ARB);
+//  glActiveTexture(GL_TEXTURE1);
+//  glDisable(GL_TEXTURE_RECTANGLE_ARB);
 
   glActiveTexture(GL_TEXTURE2);
   glDisable(GL_TEXTURE_RECTANGLE_ARB);
@@ -2353,6 +2432,7 @@ DrawHiresVolume::setRenderDefault()
 
   glUniform1iARB(m_defaultParm[0], 0); // lutTex
   glUniform1iARB(m_defaultParm[1], 1); // dataTex
+  glUniform1iARB(m_defaultParm[54], 1); // dataTexAT
 
   if (Global::volumeType() != Global::DummyVolume)
     {
@@ -2464,6 +2544,20 @@ DrawHiresVolume::setRenderDefault()
       float frc = Global::stepsizeStill();
       glUniform1fARB(m_defaultParm[3], frc);
     }  
+
+  if (m_drawImageType != Enums::DragImage)
+    {
+      Vec vsize = m_Volume->getSubvolumeTextureSize();
+      glUniform3fARB(m_defaultParm[52], vsize.x, vsize.y, vsize.z);
+    }
+  else
+    {
+      Vec vsize = m_Volume->getDragSubvolumeTextureSize();
+      glUniform3fARB(m_defaultParm[52], vsize.x, vsize.y, vsize.z);
+    }
+
+  glUniform3fARB(m_defaultParm[53], m_dataMin.x, m_dataMin.y, m_dataMin.z);
+
 }
 
 void
@@ -2848,7 +2942,6 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
     }
   //------------------------------------
 
-
   for(int s=0; s<layers; s++)
     {
 
@@ -2869,7 +2962,7 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 	}
       glUniform1fARB(m_defaultParm[51], qMax(1.0f, tap));
 
-
+      
       // generate opacity modulation
       float sdist = qAbs((maxvert - po)*pn);
       float modop = StaticFunctions::smoothstep(0, 1, sdist/deplen);
@@ -2993,41 +3086,39 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 		  glUniform1fARB(m_defaultParm[18], depthcue);
 
 		  for(int b=slabstart; b<slabend; b++)
-		    {
+		  {
 		      float tminz = m_dataMin.z;
 		      float tmaxz = m_dataMax.z;
-		      if (slabend > 1)
-			{
-			  tminz = m_textureSlab[b].y;
-			  tmaxz = m_textureSlab[b].z;
-			}
+//		      if (slabend > 1)
+//			{
+//			  tminz = m_textureSlab[b].y;
+//			  tmaxz = m_textureSlab[b].z;
+//			}
 		      glUniform3fARB(m_defaultParm[42], m_dataMin.x, m_dataMin.y, tminz);
 		      glUniform3fARB(m_defaultParm[43], m_dataMax.x, m_dataMax.y, tmaxz);
 
 		      bindDataTextures(b);
-
-		      if (Global::interpolationType(Global::TextureInterpolation)) // linear
-			{
-			  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,
-					  GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-			  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,
-					  GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-			}
-		      else
-			{
-			  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,
-					  GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-			  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,
-					  GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-			}
-    
-		      if (m_drawImageType != Enums::DragImage ||
-			  m_dataTexSize == 1)
-			renderSlicedSlice(0,
-					  vap, false,
-					  lenx2, leny2, b, lod);
-		      else
+		      
+		      //-------------------------
+		      if (b == 0)
 			renderDragSlice(vap, false, dragTexsize);
+		      else
+			renderSlicedSlice(0,
+					  vap,
+					  false,
+					  lenx2, leny2, b, lod);
+			
+		      
+		      releaseDataTextures(b);
+		      //-------------------------
+
+//		      if (m_drawImageType != Enums::DragImage ||
+//			  m_dataTexSize == 1)
+//			renderSlicedSlice(0,
+//					  vap, false,
+//					  lenx2, leny2, b, lod);
+//		      else
+//			renderDragSlice(vap, false, dragTexsize);
 		      
 		    } // loop over b
 		}
@@ -3630,11 +3721,57 @@ DrawHiresVolume::emptySpaceSkip()
 }
 
 void
+DrawHiresVolume::releaseDataTextures(int b)
+{
+  GLuint target;
+  
+//  if (b == 0) // drag volume texture
+//    {
+//      glActiveTexture(GL_TEXTURE1);
+//      target = GL_TEXTURE_RECTANGLE_EXT;
+//    }
+//  else // sub volume texture
+    {
+      glActiveTexture(GL_TEXTURE1);
+      target = GL_TEXTURE_2D_ARRAY;
+    }
+
+  glDisable(target);
+}
+
+void
 DrawHiresVolume::bindDataTextures(int b)
 {
-  glActiveTexture(GL_TEXTURE1);
-  glEnable(GL_TEXTURE_RECTANGLE_ARB);
-  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_dataTex[b]);
+  GLuint target;
+  
+//  if (b == 0) // drag volume texture
+//    {
+//      glActiveTexture(GL_TEXTURE1);
+//      target = GL_TEXTURE_RECTANGLE_EXT;
+//    }
+//  else // sub volume texture
+    {
+      glActiveTexture(GL_TEXTURE1);
+      target = GL_TEXTURE_2D_ARRAY;
+    }
+
+  glEnable(target);
+  glBindTexture(target, m_dataTex[b]);
+  
+  if (Global::interpolationType(Global::TextureInterpolation)) // linear
+    {
+      glTexParameteri(target,
+		      GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      glTexParameteri(target,
+		      GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+  else
+    {
+      glTexParameteri(target,
+		      GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+      glTexParameteri(target,
+		      GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    }
 }
 
 void
@@ -3684,7 +3821,8 @@ DrawHiresVolume::renderSlicedSlice(int type,
   Vec vp0 = Vec(0, 0, tminz-lod);
   Vec vp1 = Vec(0, 0, tmaxz+lod);
 			  
-  clipSlab(vp0, vp1, edges, poly, tex, sha);
+  // using array texture
+  //clipSlab(vp0, vp1, edges, poly, tex, sha);
 			  
   if (edges == 0)
     return;
@@ -3751,6 +3889,20 @@ DrawHiresVolume::drawPathInViewport(int pathOffset, Vec lpos, float depthcue,
 
   GLint *parm; 
   parm = m_defaultParm;
+
+  if (slabstart > 0)
+    {
+      Vec vsize = m_Volume->getSubvolumeTextureSize();
+      glUniform3fARB(m_defaultParm[52], vsize.x, vsize.y, vsize.z);
+    }
+  else
+    {
+      Vec vsize = m_Volume->getDragSubvolumeTextureSize();
+      glUniform3fARB(m_defaultParm[52], vsize.x, vsize.y, vsize.z);
+    }
+  
+  glUniform3fARB(m_defaultParm[53], m_dataMin.x, m_dataMin.y, m_dataMin.z);
+
 
   glUniform3fARB(parm[6], lpos.x, lpos.y, lpos.z);
 
@@ -3890,14 +4042,14 @@ DrawHiresVolume::drawPathInViewport(int pathOffset, Vec lpos, float depthcue,
 		{
 		  float tminz = m_dataMin.z;
 		  float tmaxz = m_dataMax.z;
-		  if (slabend > 1)
-		    {
-		      tminz = m_textureSlab[b].y;
-		      tmaxz = m_textureSlab[b].z;
-
-		      glUniform1iARB(parm[24], (tminz-m_dataMin.z)/lod); // zoffset
-		      glUniform1iARB(parm[27], tminz);
-		    }		  
+//		  if (slabend > 1)
+//		    {
+//		      tminz = m_textureSlab[b].y;
+//		      tmaxz = m_textureSlab[b].z;
+//
+//		      glUniform1iARB(parm[24], (tminz-m_dataMin.z)/lod); // zoffset
+//		      glUniform1iARB(parm[27], tminz);
+//		    }		  
 		  
 		  glUniform3fARB(parm[42], m_dataMin.x, m_dataMin.y, tminz);
 		  glUniform3fARB(parm[43], m_dataMax.x, m_dataMax.y, tmaxz);
@@ -4044,6 +4196,20 @@ DrawHiresVolume::drawClipPlaneInViewport(int clipOffset, Vec lpos, float depthcu
     }
   setShader2DTextureParameter(true, defaultShader);
 
+  if (slabstart > 0)
+    {
+      Vec vsize = m_Volume->getSubvolumeTextureSize();
+      glUniform3fARB(m_defaultParm[52], vsize.x, vsize.y, vsize.z);
+    }
+  else
+    {
+      Vec vsize = m_Volume->getDragSubvolumeTextureSize();
+      glUniform3fARB(m_defaultParm[52], vsize.x, vsize.y, vsize.z);
+    }
+  
+  glUniform3fARB(m_defaultParm[53], m_dataMin.x, m_dataMin.y, m_dataMin.z);
+
+
   bool ok = false;
   Vec voxelScaling = Global::voxelScaling();
   int nclipPlanes = (GeometryObjects::clipplanes()->positions()).count();
@@ -4166,11 +4332,11 @@ DrawHiresVolume::drawClipPlaneInViewport(int clipOffset, Vec lpos, float depthcu
 		{
 		  float tminz = m_dataMin.z;
 		  float tmaxz = m_dataMax.z;
-		  if (slabend > 1)
-		    {
-		      tminz = m_textureSlab[b].y;
-		      tmaxz = m_textureSlab[b].z;
-		    }
+//		  if (slabend > 1)
+//		    {
+//		      tminz = m_textureSlab[b].y;
+//		      tmaxz = m_textureSlab[b].z;
+//		    }
 		  glUniform3fARB(parm[42], m_dataMin.x, m_dataMin.y, tminz);
 		  glUniform3fARB(parm[43], m_dataMax.x, m_dataMax.y, tmaxz);
 
@@ -4296,6 +4462,20 @@ DrawHiresVolume::drawClipPlaneDefault(int s, int layers,
   preDrawGeometry(s, layers,
 		  po, pn, step, true);
 
+  if (slabstart > 0)
+    {
+      Vec vsize = m_Volume->getSubvolumeTextureSize();
+      glUniform3fARB(m_defaultParm[52], vsize.x, vsize.y, vsize.z);
+    }
+  else
+    {
+      Vec vsize = m_Volume->getDragSubvolumeTextureSize();
+      glUniform3fARB(m_defaultParm[52], vsize.x, vsize.y, vsize.z);
+    }
+
+  glUniform3fARB(m_defaultParm[53], m_dataMin.x, m_dataMin.y, m_dataMin.z);
+
+  
   glUniform3fARB(m_defaultParm[6], lpos.x, lpos.y, lpos.z);
 
   // use only ambient component
@@ -4336,11 +4516,11 @@ DrawHiresVolume::drawClipPlaneDefault(int s, int layers,
 	    {
 	      float tminz = m_dataMin.z;
 	      float tmaxz = m_dataMax.z;
-	      if (slabend > 1)
-		{
-		  tminz = m_textureSlab[b].y;
-		  tmaxz = m_textureSlab[b].z;
-		}
+//	      if (slabend > 1)
+//		{
+//		  tminz = m_textureSlab[b].y;
+//		  tmaxz = m_textureSlab[b].z;
+//		}
 	      glUniform3fARB(m_defaultParm[42], m_dataMin.x, m_dataMin.y, tminz);
 	      glUniform3fARB(m_defaultParm[43], m_dataMax.x, m_dataMax.y, tmaxz);
 
@@ -4361,13 +4541,20 @@ DrawHiresVolume::drawClipPlaneDefault(int s, int layers,
 				  GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		}
 	      
-	      if (m_drawImageType != Enums::DragImage ||
-		  m_dataTexSize == 1)
+	      if (b == 0)
+		renderDragSlice(vap, false, dragTexsize);		  
+	      else
 		renderSlicedSlice(0,
 				  vap, false,
 				  lenx2, leny2, b, lod);
-	      else
-		renderDragSlice(vap, false, dragTexsize);		  
+	      
+//	      if (m_drawImageType != Enums::DragImage ||
+//		  m_dataTexSize == 1)
+//		renderSlicedSlice(0,
+//				  vap, false,
+//				  lenx2, leny2, b, lod);
+//	      else
+//		renderDragSlice(vap, false, dragTexsize);		  
 	    } // loop over b
 	} // valid tfset
     } // loop over clipplanes
@@ -5310,12 +5497,27 @@ DrawHiresVolume::resliceVolume(Vec pos,
       slabstart = 0;
       slabend = 1;
     }
+  
 
   if (slabend > 1)
     setShader2DTextureParameter(true, true);
   else
     setShader2DTextureParameter(false, true);
+
+  if (slabstart > 0)
+    {
+      Vec vsize = m_Volume->getSubvolumeTextureSize();
+      glUniform3fARB(m_defaultParm[52], vsize.x, vsize.y, vsize.z);
+    }
+  else
+    {
+      Vec vsize = m_Volume->getDragSubvolumeTextureSize();
+      glUniform3fARB(m_defaultParm[52], vsize.x, vsize.y, vsize.z);
+    }
   
+  glUniform3fARB(m_defaultParm[53], m_dataMin.x, m_dataMin.y, m_dataMin.z);
+
+
   StaticFunctions::pushOrthoView(0, 0, wd, ht);
   glBlendFunc(GL_ONE_MINUS_DST_ALPHA, GL_ONE); // for frontlit volume
 
@@ -5380,15 +5582,16 @@ DrawHiresVolume::resliceVolume(Vec pos,
 	{
 	  float tminz = m_dataMin.z;
 	  float tmaxz = m_dataMax.z;
-	  if (slabend > 1)
-	    {
-	      tminz = m_textureSlab[b].y;
-	      tmaxz = m_textureSlab[b].z;
-	      
-	      glUniform1iARB(parm[24], (tminz-m_dataMin.z)/lod); // zoffset
-	      glUniform1iARB(parm[27], tminz);
-	    }		  
-	  
+
+//	  if (slabend > 1)
+//	    {
+//	      tminz = m_textureSlab[b].y;
+//	      tmaxz = m_textureSlab[b].z;
+//	      
+//	      glUniform1iARB(parm[24], (tminz-m_dataMin.z)/lod); // zoffset
+//	      glUniform1iARB(parm[27], tminz);
+//	    }		  
+//	  
 	  glUniform3fARB(parm[42], m_dataMin.x, m_dataMin.y, tminz);
 	  glUniform3fARB(parm[43], m_dataMax.x, m_dataMax.y, tmaxz);
 	  
@@ -5741,6 +5944,20 @@ DrawHiresVolume::resliceUsingPath(int pathIdx, bool fullThickness,
   else
     setShader2DTextureParameter(false, true);
   
+  if (slabstart > 0)
+    {
+      Vec vsize = m_Volume->getSubvolumeTextureSize();
+      glUniform3fARB(m_defaultParm[52], vsize.x, vsize.y, vsize.z);
+    }
+  else
+    {
+      Vec vsize = m_Volume->getDragSubvolumeTextureSize();
+      glUniform3fARB(m_defaultParm[52], vsize.x, vsize.y, vsize.z);
+    }
+  
+  glUniform3fARB(m_defaultParm[53], m_dataMin.x, m_dataMin.y, m_dataMin.z);
+
+
   StaticFunctions::pushOrthoView(0, 0, wd, ht);
   glBlendFunc(GL_ONE_MINUS_DST_ALPHA, GL_ONE); // for frontlit volume
 
@@ -5791,14 +6008,15 @@ DrawHiresVolume::resliceUsingPath(int pathIdx, bool fullThickness,
 	{
 	  float tminz = m_dataMin.z;
 	  float tmaxz = m_dataMax.z;
-	  if (slabend > 1)
-	    {
-	      tminz = m_textureSlab[b].y;
-	      tmaxz = m_textureSlab[b].z;
-	      
-	      glUniform1iARB(parm[24], (tminz-m_dataMin.z)/lod); // zoffset
-	      glUniform1iARB(parm[27], tminz);
-	    }		  
+
+//	  if (slabend > 1)
+//	    {
+//	      tminz = m_textureSlab[b].y;
+//	      tmaxz = m_textureSlab[b].z;
+//	      
+//	      glUniform1iARB(parm[24], (tminz-m_dataMin.z)/lod); // zoffset
+//	      glUniform1iARB(parm[27], tminz);
+//	    }		  
 	  
 	  glUniform3fARB(parm[42], m_dataMin.x, m_dataMin.y, tminz);
 	  glUniform3fARB(parm[43], m_dataMax.x, m_dataMax.y, tmaxz);
@@ -6009,6 +6227,21 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
   else
     setShader2DTextureParameter(false, true);
   
+
+  if (slabstart > 0)
+    {
+      Vec vsize = m_Volume->getSubvolumeTextureSize();
+      glUniform3fARB(m_defaultParm[52], vsize.x, vsize.y, vsize.z);
+    }
+  else
+    {
+      Vec vsize = m_Volume->getDragSubvolumeTextureSize();
+      glUniform3fARB(m_defaultParm[52], vsize.x, vsize.y, vsize.z);
+    }
+
+  glUniform3fARB(m_defaultParm[53], m_dataMin.x, m_dataMin.y, m_dataMin.z);
+
+  
   StaticFunctions::pushOrthoView(0, 0, wd, ht);
   glBlendFunc(GL_ONE_MINUS_DST_ALPHA, GL_ONE); // for frontlit volume
 
@@ -6064,14 +6297,15 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
 	{
 	  float tminz = m_dataMin.z;
 	  float tmaxz = m_dataMax.z;
-	  if (slabend > 1)
-	    {
-	      tminz = m_textureSlab[b].y;
-	      tmaxz = m_textureSlab[b].z;
-	      
-	      glUniform1iARB(parm[24], (tminz-m_dataMin.z)/lod); // zoffset
-	      glUniform1iARB(parm[27], tminz);
-	    }		  
+
+//	  if (slabend > 1)
+//	    {
+//	      tminz = m_textureSlab[b].y;
+//	      tmaxz = m_textureSlab[b].z;
+//	      
+//	      glUniform1iARB(parm[24], (tminz-m_dataMin.z)/lod); // zoffset
+//	      glUniform1iARB(parm[27], tminz);
+//	    }		  
 	  
 	  glUniform3fARB(parm[42], m_dataMin.x, m_dataMin.y, tminz);
 	  glUniform3fARB(parm[43], m_dataMax.x, m_dataMax.y, tmaxz);

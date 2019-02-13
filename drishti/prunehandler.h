@@ -58,6 +58,7 @@ class PruneHandler
     static void updateAndLoadPruneTexture(GLuint,
 					  int, int,
 					  Vec, Vec,
+					  Vec,
 					  uchar*);
 
     static void createPruneShader(bool);
@@ -168,6 +169,7 @@ class PruneHandler
     static int m_channel;
     static int m_dtexX, m_dtexY;
     static Vec m_dragInfo, m_subVolSize;
+    static Vec m_dragVolSize;
 
     static bool m_useSavedBuffer;
 

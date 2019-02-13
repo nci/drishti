@@ -104,6 +104,7 @@ int PruneHandler::m_dtexX = 0;
 int PruneHandler::m_dtexY = 0;
 Vec PruneHandler::m_dragInfo;
 Vec PruneHandler::m_subVolSize;
+Vec PruneHandler::m_dragVolSize;
 
 void PruneHandler::clean()
 {
@@ -1097,16 +1098,17 @@ PruneHandler::createPruneShader(bool bit16)
   QString shaderString;
 
   //---------------------------
-  if (Global::volumeType() == Global::SingleVolume)
-    shaderString = PruneShaderFactory::genPruneTexture(bit16);
-  else
+//  if (Global::volumeType() == Global::SingleVolume)
+//    shaderString = PruneShaderFactory::genPruneTexture(bit16);
+//  else
     {
       int nvol = 1;
       if (Global::volumeType() == Global::DoubleVolume) nvol = 2;
       if (Global::volumeType() == Global::TripleVolume) nvol = 3;
       if (Global::volumeType() == Global::QuadVolume) nvol = 4;
 
-      shaderString = ShaderFactory2::genPruneTexture(nvol);
+      //shaderString = ShaderFactory2::genPruneTexture(nvol);
+      shaderString = PruneShaderFactory::genPruneTexture(nvol, bit16);
     }    
 
   if (m_pruneShader)
@@ -1124,6 +1126,7 @@ PruneHandler::createPruneShader(bool bit16)
   m_pruneParm[4] = glGetUniformLocationARB(m_pruneShader, "gridz");
   m_pruneParm[5] = glGetUniformLocationARB(m_pruneShader, "nrows");
   m_pruneParm[6] = glGetUniformLocationARB(m_pruneShader, "ncols");
+  m_pruneParm[7] = glGetUniformLocationARB(m_pruneShader, "dragsize");
   //---------------------------
 }
 
@@ -1188,8 +1191,10 @@ PruneHandler::generatePruneTexture(QGLFramebufferObject *pruneBuffer1,
 
   // enable drag texture
   glActiveTexture(GL_TEXTURE1);
-  glEnable(GL_TEXTURE_RECTANGLE_ARB);
-  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_dataTex);
+  //glEnable(GL_TEXTURE_RECTANGLE_ARB);
+  //glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_dataTex);
+  glEnable(GL_TEXTURE_2D_ARRAY);
+  glBindTexture(GL_TEXTURE_2D_ARRAY, m_dataTex);
 
 
   // generate prune texture on gpu
@@ -1216,6 +1221,9 @@ PruneHandler::generatePruneTexture(QGLFramebufferObject *pruneBuffer1,
   glUniform1iARB(m_pruneParm[4], gridz); // gridz
   glUniform1iARB(m_pruneParm[5], nrows); // nrows
   glUniform1iARB(m_pruneParm[6], ncols); // ncols
+  glUniform3fARB(m_pruneParm[7], m_dragVolSize.x,
+		                 m_dragVolSize.y,
+		                 m_dragVolSize.z);
 
   StaticFunctions::pushOrthoView(0, 0, dtextureX, dtextureY);
   StaticFunctions::drawQuad(0, 0, dtextureX, dtextureY, 1.0);
@@ -1223,7 +1231,7 @@ PruneHandler::generatePruneTexture(QGLFramebufferObject *pruneBuffer1,
 
   glFinish();
   pruneBuffer1->release();
-  glDisable(GL_TEXTURE_RECTANGLE_ARB);
+  glDisable(GL_TEXTURE_2D_ARRAY);
   glUseProgramObjectARB(0);
 }
 
@@ -1641,6 +1649,7 @@ void
 PruneHandler::updateAndLoadPruneTexture(GLuint dataTex,
 					int dtextureX, int dtextureY,
 					Vec dragInfo, Vec subVolSize,
+					Vec dragVolSize,
 					uchar *vlut)
 {
   bool prevModified = m_mopActive;
@@ -1657,6 +1666,7 @@ PruneHandler::updateAndLoadPruneTexture(GLuint dataTex,
   m_dragInfo = dragInfo;
   m_subVolSize = subVolSize;
   m_dataTex = dataTex;
+  m_dragVolSize = dragVolSize;
 
   if (!standardChecks()) return;
   

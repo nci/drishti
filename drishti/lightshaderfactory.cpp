@@ -2,173 +2,41 @@
 #include "lightshaderfactory.h"
 
 QString
-LightShaderFactory::genOpacityShader(bool bit16)
+LightShaderFactory::getVal()
 {
   QString shader;
-
-  shader =  "#extension GL_ARB_texture_rectangle : enable\n";
-  shader += "uniform sampler2D lutTex;\n";
-  shader += "uniform sampler2DRect dragTex;\n";
-  shader += "uniform int gridx;\n";
-  shader += "uniform int gridy;\n";
-  shader += "uniform int gridz;\n";
-  shader += "uniform int ncols;\n";
-  shader += "uniform int llod;\n";
-  shader += "uniform int lgridx;\n";
-  shader += "uniform int lgridy;\n";
-  shader += "uniform int lgridz;\n";
-  shader += "uniform int lncols;\n";
-  shader += "uniform bool opshader;\n";
-  shader += "uniform float tfSet;\n";
-
-  shader += "void main(void)\n";
+  shader += "vec4 getVal(vec3 voxelCoord)\n";  
   shader += "{\n";
-
-  // we are in lighttexture space
-  shader += "  vec2 tc = gl_TexCoord[0].xy;\n";
-  shader += "  int lcol = int(tc.x)/lgridx;\n";
-  shader += "  int lrow = int(tc.y)/lgridy;\n";
-  shader += "  float x = tc.x - float(lcol*lgridx);\n";
-  shader += "  float y = tc.y - float(lrow*lgridy);\n";
-  shader += "  float z = float(lrow*lncols + lcol);\n";
-
-  //-----------------------------------------
-  // set border voxels to 0 opacity
-  {
-    shader += "  vec3 pos = vec3(x,y,z);\n";
-    shader += "  bvec3 pless = lessThan(pos, vec3(1.5,1.5,1.5));\n";
-    shader += "  bvec3 pgret = greaterThan(pos, vec3(float(lgridx)-2.5,float(lgridy)-2.5,float(lgridz)-2.5));\n";
-    shader += "  if (any(pless) || any(pgret)) \n";
-    shader += "    { gl_FragColor = vec4(0.0,0.0,0.0,0.0); return; }\n";
-  }
-  //-----------------------------------------
-
-//  shader += "  x *= float(llod);\n";
-//  shader += "  y *= float(llod);\n";
-//  shader += "  z *= float(llod);\n";
-
-  shader += "  float xO = x*float(llod);\n";
-  shader += "  float yO = y*float(llod);\n";
-  shader += "  float zO = z*float(llod);\n";
-
-
-  shader += "int alod = int(max(1.0, float(llod)-1.0));\n";
-  shader += "vec4 fcolor = vec4(0.0,0.0,0.0,0.0);\n";
-  shader += "for(int xa=-alod; xa<=alod; xa++)\n";
-  shader += "for(int ya=-alod; ya<=alod; ya++)\n";
-  shader += "for(int za=-alod; za<=alod; za++)\n";
-  shader += "{\n";
-  shader += "  float x = xO + xa;\n";
-  shader += "  float y = yO + ya;\n";
-  shader += "  float z = zO + za;\n";
-  
-  // convert x,y,z to dragtexture space
-  shader += "  int row = int(z)/ncols;\n";
-  shader += "  int col = int(z) - row*ncols;\n";
-  shader += "  row *= gridy;\n";
-  shader += "  col *= gridx;\n";
-  shader += "  tc = vec2(float(col)+x, float(row)+y);\n";
-
-  shader += "  vec2 vg;\n";
-  shader += "  vg.x = texture2DRect(dragTex, tc.xy).x;\n";
-
-  if (!bit16)
-    {
-      shader += "  vec3 sample1, sample2;\n";
-
-      shader += "  float x1 = max(0.0, float(x-1.0));\n";
-      shader += "  sample1.x = texture2DRect(dragTex, vec2(float(col)+x1, float(row)+y)).x;\n";
-      shader += "  x1 = min(float(gridx-1), float(x+1.0));\n";
-      shader += "  sample2.x = texture2DRect(dragTex, vec2(float(col)+x1, float(row)+y)).x;\n";
-
-      shader += "  float y1 = max(0.0, float(y-1.0));\n";
-      shader += "  sample1.y = texture2DRect(dragTex, vec2(float(col)+x, float(row)+y1)).x;\n";
-      shader += "  y1 = min(float(gridy-1), float(y+1.0));\n";
-      shader += "  sample2.y = texture2DRect(dragTex, vec2(float(col)+x, float(row)+y1)).x;\n";
-
-      shader += "  int z1 = int(max(0.0, float(z-1.0)));\n";
-      shader += "  row = z1/ncols;\n";
-      shader += "  col = z1 - row*ncols;\n";
-      shader += "  row *= gridy;\n";
-      shader += "  col *= gridx;\n";
-      shader += "  sample1.z = texture2DRect(dragTex, vec2(float(col)+x, float(row)+y)).x;\n";
-      shader += "  z1 = int(min(float(gridz-1), float(z+1.0)));\n";
-      shader += "  row = z1/ncols;\n";
-      shader += "  col = z1 - row*ncols;\n";
-      shader += "  row *= gridy;\n";
-      shader += "  col *= gridx;\n";
-      shader += "  sample2.z = texture2DRect(dragTex, vec2(float(col)+x, float(row)+y)).x;\n";
-    
-      shader += "  vg.y = distance(sample1, sample2);\n";
-    }
-  else
-    {
-      shader += "int h0 = int(65535.0*vg.x);\n";
-      shader += "int h1 = h0 / 256;\n";
-      shader += "h0 = int(mod(float(h0),256.0));\n";
-      shader += "float fh0 = float(h0)/256.0;\n";
-      shader += "float fh1 = float(h1)/256.0;\n";
-
-      shader += "vg.xy = vec2(fh0, fh1);\n";
-    }
-
-  shader += "float val = vg.x;\n";
-  shader += QString("float grad = vg.y*%1;\n").arg(1.0/Global::lutSize());
-  shader += "vg.y = tfSet + grad;\n";
-
-//  shader += " if (opshader)\n";
-//  shader += "   {\n";
-//  shader += "     float alpha = texture2D(lutTex, vg.xy).a;\n";
-//  shader += "     gl_FragColor = vec4(val, grad, alpha, 1.0);\n"; 
-//  shader += "   }\n";
-//  shader += " else\n";
-//  shader += "   {\n";
-//  shader += "     gl_FragColor = texture2D(lutTex, vg.xy);\n";  
-//  shader += "     gl_FragColor.rgb *= gl_FragColor.a;\n";  
-//  shader += "     gl_FragColor.a = step(0.01, gl_FragColor.a);\n";
-//  shader += "   }\n";
-
-  shader += " if (opshader)\n";
-  shader += "   {\n";
-  shader += "     float alpha = texture2D(lutTex, vg.xy).a;\n";
-  shader += "     fcolor += vec4(val, grad, alpha, 1.0);\n"; 
-  shader += "   }\n";
-  shader += " else\n";
-  shader += "   {\n";
-  shader += "     vec4 clr = texture2D(lutTex, vg.xy);\n";  
-  shader += "     clr.rgb *= clr.a;\n";  
-  shader += "     clr.a = step(0.01, clr.a);\n";
-  shader += "     fcolor += clr;\n";
-  shader += "   }\n";
-  shader += "}\n";
-
-  //shader += " gl_FragColor = fcolor/pow(2.0*(float)alod+1, 3.0);\n";
-  shader += " gl_FragColor = fcolor/pow(2.0*float(alod)+1.0, 3.0);\n";
-
-
+  shader += "  float layer = voxelCoord.z;\n";
+  shader += "  vec3 vcrd0 = vec3(voxelCoord.xy/dragsize.xy, layer);\n";
+  shader += "  return texture(dragTex, vcrd0);\n";
   shader += "}\n";
 
   return shader;
 }
 
 QString
-LightShaderFactory::genOpacityShader2(int nvol)
+LightShaderFactory::genOpacityShader(int nvol, bool bit16)
 {
   QString shader;
 
   QString vstr;
+  vstr = "  float";
   if (nvol == 2) vstr = "  vec2";
   else if (nvol == 3) vstr = "  vec3";
   else if (nvol == 4) vstr = "  vec4";
 
   QString xyzw;
+  xyzw = "x";
   if (nvol == 2) xyzw = "xw";
   else if (nvol == 3) xyzw = "xyz";
   else if (nvol == 4) xyzw = "xyzw";
 
-  shader =  "#extension GL_ARB_texture_rectangle : enable\n";
+  shader = "#version 450 core\n";
+  shader +=  "#extension GL_ARB_texture_rectangle : enable\n";
+  shader += "in vec3 glTexCoord0;\n";
   shader += "uniform sampler2D lutTex;\n";
-  shader += "uniform sampler2DRect dragTex;\n";
+  shader += "uniform sampler2DArray dragTex;\n";
   shader += "uniform int gridx;\n";
   shader += "uniform int gridy;\n";
   shader += "uniform int gridz;\n";
@@ -180,18 +48,22 @@ LightShaderFactory::genOpacityShader2(int nvol)
   shader += "uniform int lncols;\n";
   shader += "uniform bool opshader;\n";
   shader += "uniform float tfSet;\n";
+  shader += "uniform vec3 dragsize;\n";
+
+  shader += "out vec4 glFragColor;\n";
   
+  //---------------------
+  // get voxel value from array texture
+  shader += getVal();
+  //---------------------
+
   shader += "void main(void)\n";
   shader += "{\n";
-  shader += vstr + " samplex1, samplex2;\n";
-  shader += vstr + " sampley1, sampley2;\n";
-  shader += vstr + " samplez1, samplez2;\n";
   shader += vstr + " val;\n";
   shader += "  float g;\n";
-  shader += "  vec3 sample1, sample2;\n";
 
   // we are in lighttexture space
-  shader += "  vec2 tc = gl_TexCoord[0].xy;\n";
+  shader += "  vec2 tc = glTexCoord0.xy;\n";
   shader += "  int lcol = int(tc.x)/lgridx;\n";
   shader += "  int lrow = int(tc.y)/lgridy;\n";
   shader += "  float x = tc.x - float(lcol*lgridx);\n";
@@ -205,7 +77,7 @@ LightShaderFactory::genOpacityShader2(int nvol)
     shader += "  bvec3 pless = lessThan(pos, vec3(1.5,1.5,1.5));\n";
     shader += "  bvec3 pgret = greaterThan(pos, vec3(float(lgridx)-2.5,float(lgridy)-2.5,float(lgridz)-2.5));\n";
     shader += "  if (any(pless) || any(pgret)) \n";
-    shader += "    { gl_FragColor = vec4(0.0,0.0,0.0,0.0); return; }\n";
+    shader += "    { glFragColor = vec4(0.0,0.0,0.0,0.0); return; }\n";
   }
   //-----------------------------------------
 
@@ -213,43 +85,19 @@ LightShaderFactory::genOpacityShader2(int nvol)
   shader += "  y *= float(llod);\n";
   shader += "  z *= float(llod);\n";
   
-  // convert x,y,z to dragtexture space
-  shader += "  int row = int(z)/ncols;\n";
-  shader += "  int col = int(z) - row*ncols;\n";
-  shader += "  row *= gridy;\n";
-  shader += "  col *= gridx;\n";
-  shader += "  tc = vec2(float(col)+x, float(row)+y);\n";
-
-  shader += "  float x1 = max(0.0, x-1.0);\n";
-  shader += "  samplex1 = texture2DRect(dragTex, vec2(float(col)+x1, float(row)+y))."+xyzw+";\n";
-  shader += "  x1 = min(float(gridx-1), x+1.0);\n";
-  shader += "  samplex2 = texture2DRect(dragTex, vec2(float(col)+x1, float(row)+y))."+xyzw+";\n";
-
-  shader += "  float y1 = max(0.0, y-1.0);\n";
-  shader += "  sampley1 = texture2DRect(dragTex, vec2(float(col)+x, float(row)+y1))."+xyzw+";\n";
-  shader += "  y1 = min(float(gridy-1), y+1.0);\n";
-  shader += "  sampley2 = texture2DRect(dragTex, vec2(float(col)+x, float(row)+y1))."+xyzw+";\n";
-
-  shader += "  int z1 = int(max(0.0, z-1.0));\n";
-  shader += "  row = z1/ncols;\n";
-  shader += "  row *= gridy;\n";
-  shader += "  col = z1 - row*ncols;\n";
-  shader += "  col *= gridx;\n";
-  shader += "  samplez1 = texture2DRect(dragTex, vec2(float(col)+x, float(row)+y))."+xyzw+";\n";
-  shader += "  z1 = int(min(float(gridz-1), z+1.0));\n";
-  shader += "  row = z1/ncols;\n";
-  shader += "  row *= gridy;\n";
-  shader += "  col =z1 - row*ncols;\n";
-  shader += "  col *= gridx;\n";
-  shader += "  samplez2 = texture2DRect(dragTex, vec2(float(col)+x, float(row)+y))."+xyzw+";\n";
-
-  shader += "  val = texture2DRect(dragTex, tc.xy)."+xyzw+";\n";
-
   shader += "  float alpha = 0.0;\n";
   shader += "  float totalpha = 0.0;\n";
   shader += "  vec3 rgb = vec3(0.0,0.0,0.0);\n";
   shader += "  vec4 color;\n";
 
+  shader += "  vec3 vcrd = vec3(x,y,z);\n";
+  shader += "  val = getVal(vcrd)."+xyzw+";\n";
+
+  shader += "  vec2 k = vec2(1.0, -1.0);\n";
+  shader += vstr + " g1,g2,g3,g4;\n";
+  shader += "  vec3 grad;\n";
+  shader += "  int h0, h1;\n";
+  
   for(int i=1; i<=nvol; i++)
     {
       QString c;
@@ -258,26 +106,40 @@ LightShaderFactory::genOpacityShader2(int nvol)
       else if (i == 3) c = "z";
       else if (i == 4) c = "w";
       
-      shader += QString("  sample1 = vec3(samplex1.%1, sampley1.%1, samplez1.%1);\n").arg(c);
-      shader += QString("  sample2 = vec3(samplex2.%1, sampley2.%1, samplez2.%1);\n").arg(c);
-      shader += "  g = distance(sample1, sample2);\n";
+      if (!bit16)
+	{
+	  shader += "  g1 = getVal(vcrd+k.xyy)."+xyzw+";\n";
+	  shader += "  g2 = getVal(vcrd+k.yyx)."+xyzw+";\n";
+	  shader += "  g3 = getVal(vcrd+k.yxy)."+xyzw+";\n";
+	  shader += "  g4 = getVal(vcrd+k.xxx)."+xyzw+";\n";
+	  shader += "  grad = (k.xyy * g1."+c+" + k.yyx * g2."+c+" + k.yxy * g3."+c+" + k.xxx * g4."+c+");\n";
+	  shader += "  g = length(grad/2.0);\n";
+	}
+      else
+	{
+	  shader += "h0 = int(65535.0*val."+c+");\n";
+	  shader += "h1 = h0 / 256;\n";
+	  shader += "h0 = int(mod(float(h0),256.0));\n";
+	  shader += "val."+c+"+ = float(h0)/256.0;\n";
+	  shader += "g = float(h1)/256.0;\n";
+	}
       //shader += QString("  g = (float(%1) + g)/float(%2);\n").arg(i-1).arg(nvol);
       shader += QString("  g = tfSet + (float(%1) + g)/float(%2);\n").arg(i-1).arg(Global::lutSize());
-      shader += QString("  color = texture2D(lutTex, vec2(val.%1,g));\n").arg(c);
+      shader += "  color = texture(lutTex, vec2(val."+c+",g));\n";
       shader += "  rgb += color.rgb;\n";
       shader += "  alpha = max(alpha, color.a);\n";
       shader += "  totalpha += color.a;\n";
     }
   
-  shader += "  gl_FragColor.a = alpha;\n";
-  shader += "  gl_FragColor.rgb = alpha*rgb/totalpha;\n";
+  shader += "  glFragColor.a = alpha;\n";
+  shader += "  glFragColor.rgb = alpha*rgb/totalpha;\n";
 
   shader += " if (opshader)\n";
-  shader += "   gl_FragColor = gl_FragColor.aaaa;\n";  
+  shader += "   glFragColor = glFragColor.aaaa;\n";  
   shader += " else\n";
   shader += "   {\n";
-  shader += "     gl_FragColor.rgb *= gl_FragColor.a;\n";  
-  shader += "     gl_FragColor.a = step(0.01, gl_FragColor.a);\n";
+  shader += "     glFragColor.rgb *= glFragColor.a;\n";  
+  shader += "     glFragColor.a = step(0.01, glFragColor.a);\n";
   shader += "   }\n";
 
   shader += "}\n";

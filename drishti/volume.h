@@ -66,9 +66,14 @@ class Volume : public QObject
   void setRepeatType(int, bool);
   void setRepeatType(QList<bool>);
 
+  Vec getDragSubvolumeTextureSize();
+  int getDragSubvolumeSubsamplingLevel();
+  unsigned char* getDragSubvolumeTexture();
+
   Vec getSubvolumeSize();
   Vec getSubvolumeTextureSize();
   int getSubvolumeSubsamplingLevel();
+  unsigned char* getSubvolumeTexture();
 
   int* getLowres1dHistogram(int vol=0);
   int* getLowres2dHistogram(int vol=0);
@@ -79,7 +84,6 @@ class Volume : public QObject
   int* getDrag1dHistogram(int vol=0);
   int* getDrag2dHistogram(int vol=0);
 
-  unsigned char* getSubvolumeTexture();
 
   VolumeInformation volInfo(int vnum=0, int vol=0);
 
@@ -155,6 +159,8 @@ class Volume : public QObject
   VolumeRGB* m_volumeRGB;
 
   uchar* m_subvolumeTexture;
+  uchar* m_dragSubvolumeTexture;
+
   uchar* m_dragTexture;
   uchar* m_lowresTexture;
 

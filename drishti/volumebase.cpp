@@ -208,6 +208,7 @@ VolumeBase::createLowresVolume(bool redo)
 
   MainWindowUI::mainWindowUI()->menubar->parentWidget()->\
     setWindowTitle(QString("Generating Lowres Version"));
+  MainWindowUI::mainWindowUI()->statusBar->showMessage("");
   Global::progressBar()->show();
 
   int nbytes = bpv*m_width*m_height;

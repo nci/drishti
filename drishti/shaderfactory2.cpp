@@ -324,91 +324,6 @@ ShaderFactory2::genVgx(int nvol)
   return shader;
 }
 
-//QString
-//ShaderFactory2::genVgx(int nvol)
-//{
-//  QString shader;
-//
-//  shader += "  int row, col, slice;\n";
-//  shader += "  vec2 t0, t1;\n";
-//  shader += "  float zcoord, slicef;\n";
-//  shader += "  zcoord = max(1.0, texCoord.z);\n";
-//  shader += "  slice = int(floor(zcoord));\n";
-//  shader += "  slicef = fract(zcoord);\n";
-//
-//  //---------------------------------------------------------------------
-//  if (Global::emptySpaceSkip())
-//    {      
-//      shader += "  vec2 pvg = texCoord.xy / prunelod;\n";
-//
-//      shader += "  int pZslc = int(float(zoffset+slice)/float(prunelod));\n";
-//      shader += "  float pZslcf = fract(float(zoffset+slice)/float(prunelod));\n";
-//
-//      shader += "  vec2 pvg0 = getTextureCoordinate(pZslc, ";
-//      shader += "              prunegridx, prunetsizex, prunetsizey, pvg);\n";      
-//      shader += "  vec2 pvg1 = getTextureCoordinate(pZslc+1, ";
-//      shader += "              prunegridx, prunetsizex, prunetsizey, pvg);\n";
-//
-//      shader += "  vec4 pf0 = texture2DRect(pruneTex, pvg0);\n";
-//      shader += "  vec4 pf1 = texture2DRect(pruneTex, pvg1);\n";
-//      shader += "  pf0 = mix(pf0, pf1, pZslcf);\n";
-//
-//      shader += "  vec4 prunefeather = pf0;\n";
-//      shader += "  if (prunefeather.x < 0.005) discard;\n";
-//
-//      // delta condition added for reslicing/ option
-//      //shader += "  if (delta.x < 1.0 && prunefeather.x < 0.005) discard;\n";
-//
-//      // tag values should be non interpolated - nearest neighbour
-//      shader += "  prunefeather.z = texture2DRect(pruneTex, vec2(floor(pvg0.x)+0.5,floor(pvg0.y)+0.5)).z;\n";
-//    }
-//  //---------------------------------------------------------------------
-//
-//  QString vstr, xyzw;
-//  if (nvol == 2)
-//    {
-//      xyzw = "xw";
-//      vstr = "  vec2";
-//    }
-//  else if (nvol == 3)
-//    {
-//      xyzw = "xyz";
-//      vstr = "  vec3";
-//    }
-//  else if (nvol == 4)
-//    {
-//      xyzw = "xyzw";
-//      vstr = "  vec4";
-//    }
-//
-//  shader += vstr + "  vg;\n";
-//  shader += vstr + "  val0, val1;\n";
-//
-//  shader += "  t0 = getTextureCoordinate(slice, gridx, tsizex, tsizey, texCoord.xy);\n";
-//  shader += "  if (linearInterpolation)\n";
-//  shader += "   {\n";
-//  shader += "     val0 = (texture2DRect(dataTex, t0))."+xyzw+";\n";
-//  shader += "     t1 = getTextureCoordinate(slice+1, gridx, tsizex, tsizey, texCoord.xy);\n";
-//  shader += "     val1 = (texture2DRect(dataTex, t1))."+xyzw+";\n";
-//  shader += "     vg = mix(val0, val1, slicef);\n";
-//  shader += "   }\n";
-//  shader += "   else\n"; // nearest neighbour interpolation
-//  shader += "   {\n";
-//  shader += "     val0 = (texture2DRect(dataTex, floor(t0)+vec2(0.5)))."+xyzw+";\n";
-//  shader += "     vg = val0;\n";
-//  shader += "   }\n";
-//
-//  // if mixTag then perform nearest neighbour interpolation
-//  shader += "  if (mixTag) \n";
-//  if (nvol == 2)
-//    shader += "    vg.y = texture2DRect(dataTex, floor(t0)+vec2(0.5)).w;\n";
-//  else
-//    shader += "    vg.y = texture2DRect(dataTex, floor(t0)+vec2(0.5)).y;\n";
-//
-//  return shader;
-//}
-
-
 QString
 ShaderFactory2::genDefaultSliceShaderString(bool lighting,
 					    bool emissive,
@@ -429,6 +344,12 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
       tearPresent = true;
     else
       viewPresent = true;
+
+  for(int i=0; i<crops.count(); i++)
+    if (crops[i].cropType() >= CropObject::View_Tear &&
+	crops[i].cropType() <= CropObject::View_Block &&
+	crops[i].magnify() > 1.0)
+      tearPresent = true;
 
   bool pathCropPresent = PathShaderFactory::cropPresent();
   bool pathViewPresent = PathShaderFactory::blendPresent();
@@ -534,7 +455,6 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
   shader += "any(greaterThan(texCoord, brickMax)))\n";
   shader += "  discard;\n";
 
-  shader += "vec3 vtexCoord = (texCoord-vmin)/lod;\n";
 
   if (crops.count() > 0)
     {
@@ -558,16 +478,19 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
   if (cropPresent) shader += "feather *= crop(texCoord, true);\n";
   if (pathCropPresent) shader += "feather *= pathcrop(texCoord, true);\n";
 
+  //------
+  shader += "vec3 vtexCoord = (texCoord-vmin)/lod;\n";
+  // for nearest neighbour interpolation
+  shader += "if (!linearInterpolation || mixTag)\n";
+  shader += "{\n";
+  shader += "  vtexCoord = vec3(floor(vtexCoord)+vec3(0.5));\n";
+  shader += "}\n";
+  //------
 
   shader += "texCoord.xy = vec2(tsizex,tsizey)*(vtexCoord.xy/vsize.xy);\n";
   shader += "texCoord.z = vtexCoord.z;\n";
 
-//  shader += "texCoord.x = float(tsizex)*(texCoord.x-dataMin.x)/dataSize.x;\n";
-//  shader += "texCoord.y = float(tsizey)*(texCoord.y-dataMin.y)/dataSize.y;\n";  
-//  shader += "texCoord.z = texCoord.z/float(lod);\n";
-
-  shader += ShaderFactory::genPreVgx();
-  
+  shader += ShaderFactory::genPreVgx();  
   shader += genVgx(nvol);
 
   //----------------------------------

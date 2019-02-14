@@ -1113,18 +1113,7 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
   shader += "  any(greaterThan(texCoord, brickMax)))\n";
   shader += "    discard;\n";
 
-//  shader += "vec3 vtexCoord = (texCoord-vmin)/lod;\n";
-//
-//  // for nearest neighbour interpolation
-//  shader += "if (!linearInterpolation || mixTag)\n";
-//  shader += "{\n";
-//  shader += "  vtexCoord = vec3(floor(vtexCoord)+vec3(0.5));\n";
-//  shader += "}\n";
 
-//  shader += "glFragColor = vec4(0.1*getVal(vtexCoord)[0].x);\n";
-//  shader += "return;\n";
-  
-  
   if (crops.count() > 0)
     {
       shader += "  vec3 otexCoord = texCoord;\n";
@@ -1154,7 +1143,6 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
   shader += "{\n";
   shader += "  vtexCoord = vec3(floor(vtexCoord)+vec3(0.5));\n";
   shader += "}\n";
-  shader += "vec4 voxValues[3] = getVal(vtexCoord);\n"; // interpolated
   //------
 
   shader += "texCoord.xy = vec2(tsizex,tsizey)*(vtexCoord.xy/vsize.xy);\n";
@@ -1162,11 +1150,7 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
 
 
   shader += genPreVgx();
-
-  shader += "  if (linearInterpolation && !mixTag)\n";
-  shader += "    vg.x = voxValues[0].x;\n"; // interpolated
-  shader += "  else\n";
-  shader += "    vg.x = voxValues[1].x;\n"; // nearest neighbour
+  shader += genVgx();
 
   shader += "  float value = vg.x;\n";
 

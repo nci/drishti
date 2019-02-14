@@ -138,6 +138,8 @@ LightShaderFactory::genOpacityShader(int nvol, bool bit16)
   {
     if (nvol == 1)
       shader += "   glFragColor = vec4(val.x, g, glFragColor.a, 1.0);\n";
+    else if (nvol == 2)
+      shader += "   glFragColor = vec4(val.y, g, glFragColor.a, 1.0);\n";
     else
       shader += "   glFragColor = glFragColor.aaaa;\n";  
   }

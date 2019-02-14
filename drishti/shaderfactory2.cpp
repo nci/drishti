@@ -651,8 +651,6 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
 	shader += tagVolume();
     }
 
-  if (lighting)
-    shader += addLighting(nvol);
 
   //------------------
   if (peel)
@@ -746,13 +744,8 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
       if (nvol == 4) shader += "pathblend(otexCoord, vol1, vol2, vol3, vol4, grad1, grad2, grad3, grad4, color1, color2, color3, color4);\n";
     }
 
-//  if (Global::emptySpaceSkip())
-//    {
-//      if (PruneHandler::blend())
-//	shader += blendVolume(nvol);
-//      else
-//	shader += tagVolume();
-//    }
+  if (lighting)
+    shader += addLighting(nvol);
   
   if (interpolateVolumes > 0 && nvol == 2)
     {
@@ -772,7 +765,7 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
     shader += "  glFragColor.rgba = mix(glFragColor.rgba, vec4(0.0,0.0,0.0,0.0), feather);\n";
 
 
-//---------------------------------
+  //---------------------------------
   if (Global::emptySpaceSkip())
     {
       shader += "if (delta.x > 1.0)\n";

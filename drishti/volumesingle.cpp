@@ -93,7 +93,6 @@ VolumeSingle::VolumeSingle() :
   m_dragTexture = 0;
   m_dgTexture = 0;
   m_sliceTemp = 0;
-  m_sliceTexture = 0;
   
   m_texColumns = 0;
   m_texRows = 0;
@@ -142,11 +141,9 @@ VolumeSingle::~VolumeSingle()
 
   if(m_dragTexture) delete [] m_dragTexture;
   if(m_dgTexture) delete [] m_dgTexture;
-  if(m_sliceTexture) delete [] m_sliceTexture;
   if(m_sliceTemp) delete [] m_sliceTemp;
   m_dragTexture = 0;
   m_dgTexture = 0;
-  m_sliceTexture = 0;
   m_sliceTemp = 0;
 }
 
@@ -1189,9 +1186,6 @@ VolumeSingle::forMultipleVolumes(int svsl,
   int bpv = 1;
   if (m_pvlVoxelType > 0) bpv = 2;
 
-  if (m_sliceTexture) delete [] m_sliceTexture;
-  m_sliceTexture = new uchar[bpv*m_texWidth*m_texHeight];
-
   if (m_dragTexture) delete [] m_dragTexture;
   m_dragTexture = new uchar[bpv*m_dragTexWidth*m_dragTexHeight];
   memset(m_dragTexture, 0, bpv*m_dragTexWidth*m_dragTexHeight);
@@ -1247,9 +1241,6 @@ VolumeSingle::getSliceTextureSizeSlabs()
 
   m_texWidth = ncols*lenx2;
   m_texHeight = nrows*leny2;
-
-  if (m_sliceTexture) delete [] m_sliceTexture;
-  m_sliceTexture = new uchar[bpv*m_texWidth*m_texHeight];
 
   if (m_dragTexture) delete [] m_dragTexture;
   m_dragTexture = new uchar[bpv*m_dragTexWidth*m_dragTexHeight];
@@ -1412,25 +1403,12 @@ VolumeSingle::saveSubsampledVolume()
   Global::hideProgressBar();
 }
 
-void
-VolumeSingle::deleteTextureSlab()
-{
-  if (m_sliceTexture) delete [] m_sliceTexture;
-  m_sliceTexture = 0;
-}
-
 //----------------------------
 // for array texture
 //----------------------------
 uchar*
 VolumeSingle::getSubvolume()
 {
-//  QProgressDialog progress("Uploading Volume",
-//			   QString(),
-//			   0, 100,
-//			   0);
-//  progress.setCancelButton(0);
-
   Global::progressBar()->show();
 
   int bpv = 1;
@@ -1453,15 +1431,11 @@ VolumeSingle::getSubvolume()
   int lenz2 = m_subvolumeTextureSize.z;
 
   //-------- for dragTexure ---------------
-  int dtncols = m_dragTextureInfo.x;
-  int dtnrows = m_dragTextureInfo.y;
   int dtlod = m_dragTextureInfo.z;
   int dtlenx2 = lenx/dtlod;
   int dtleny2 = leny/dtlod;
   int dtlenz2 = lenz/dtlod;
   float stp = (float)dtlod/(float)m_subvolumeSubsamplingLevel;
-  int dtmaxlenx2 = m_dragTexWidth/dtncols;
-  int dtmaxleny2 = m_dragTexHeight/dtnrows;
   uchar *tmp = new uchar[bpv*dtlenx2*dtleny2];
   //---------------------------------------
 
@@ -1821,391 +1795,6 @@ VolumeSingle::getSubvolume()
 
 }
 
-uchar*
-VolumeSingle::getSliceTextureSlab(int minz, int maxz)
-{
-  int bpv = 1;
-  if (m_pvlVoxelType > 0) bpv = 2;
-
-  int minx = m_dataMin.x;
-  int miny = m_dataMin.y;
-  int lenx = m_subvolumeSize.x;
-  int leny = m_subvolumeSize.y;
-  int lenz = m_subvolumeSize.z;
-  int lenx2 = lenx/m_subvolumeSubsamplingLevel;
-  int leny2 = leny/m_subvolumeSubsamplingLevel;
-  int lenz2 = lenz/m_subvolumeSubsamplingLevel;
-
-  int ncols = m_texColumns;
-  int nrows = m_texRows;
-
-  int maxlenx2 = m_texWidth/m_texColumns;
-  int maxleny2 = m_texHeight/m_texRows;
-
-  memset(m_sliceTexture, 0, bpv*m_texWidth*m_texHeight);  
-
-  uchar *g0, *g1, *g2, *g3;
-  g0 = new uchar [bpv*m_maxWidth*m_maxHeight];
-  g1 = new uchar [bpv*m_maxWidth*m_maxHeight];
-  g2 = new uchar [bpv*m_maxWidth*m_maxHeight];
-  g3 = new uchar [bpv*m_maxWidth*m_maxHeight];
-
-  //-------- for dragTexure ---------------
-  int dtncols = m_dragTextureInfo.x;
-  int dtnrows = m_dragTextureInfo.y;
-  int dtlod = m_dragTextureInfo.z;
-  int dtminz = m_dataMin.z;
-  int dtlenx2 = lenx/dtlod;
-  int dtleny2 = leny/dtlod;
-  int dtlenz2 = lenz/dtlod;
-  float stp = (float)dtlod/(float)m_subvolumeSubsamplingLevel;
-  int dtmaxlenx2 = m_dragTexWidth/dtncols;
-  int dtmaxleny2 = m_dragTexHeight/dtnrows;
-  uchar *tmp = new uchar[bpv*dtlenx2*dtleny2];
-
-  //---------------------------------------------------------
-  if (m_subvolumeSubsamplingLevel > 1)
-    {
-      int kmin = minz/m_subvolumeSubsamplingLevel;
-      int kmax = maxz/m_subvolumeSubsamplingLevel;
-
-      int leni2 = m_height/m_subvolumeSubsamplingLevel;
-      int lenj2 = m_width/m_subvolumeSubsamplingLevel;
-      int lenk2 = m_depth/m_subvolumeSubsamplingLevel;
-
-      int imin = minx/m_subvolumeSubsamplingLevel;
-      int jmin = miny/m_subvolumeSubsamplingLevel;
-
-      int kbytes = bpv*leni2*lenj2;
-
-      int kslc = 0;
-
-      int offD = m_offD/m_subvolumeSubsamplingLevel;
-      int offW = m_offW/m_subvolumeSubsamplingLevel;
-      int offH = m_offH/m_subvolumeSubsamplingLevel;
-
-      int maxHsl = m_maxHeight/m_subvolumeSubsamplingLevel;
-      int maxWsl = m_maxWidth/m_subvolumeSubsamplingLevel;
-
-      Vec relDataPos = Global::relDataPos();
-      if (relDataPos.x < -0.5) offH = 0;
-      if (relDataPos.y < -0.5) offW = 0;
-      if (relDataPos.z < -0.5) offD = 0;
-
-      if (relDataPos.x > 0.5) offH = (m_maxHeight-m_height)/m_subvolumeSubsamplingLevel;;
-      if (relDataPos.y > 0.5) offW = (m_maxWidth-m_width)/m_subvolumeSubsamplingLevel;;
-      if (relDataPos.z > 0.5) offD = (m_maxDepth-m_depth)/m_subvolumeSubsamplingLevel;;
-
-      uchar *sliceTemp1 = new uchar [bpv*maxWsl*maxHsl];
-
-      // additional slice at the top and bottom
-      for(int k0=kmin-1; k0<=kmax+1; k0++)
-	{
-	  int k = k0 - offD; // shift slice by given depth offset
-
-	  if (k >= 0 && k<lenk2)
-	    {
-	      uchar *vslice = m_lodFileManager.getSlice(k);
-	      memcpy(m_sliceTemp, vslice, kbytes);
-	    }
-	  else
-	    {
-	      memset(m_sliceTemp, 0, kbytes);
-	    }
-
-	  //---
-	  memset(sliceTemp1, 0, bpv*maxWsl*maxHsl);
-	  for(int j=0; j<lenj2; j++)
-	    memcpy(sliceTemp1 + bpv*((j+offW)*maxHsl + offH),
-		   m_sliceTemp + bpv*j*leni2,
-		   bpv*leni2);
-	  
-	  for(int j=0; j<leny2; j++)
-	    memcpy(m_sliceTemp + bpv*j*lenx2,
-		   sliceTemp1 + bpv*((j+jmin)*maxHsl + imin),
-		   bpv*lenx2);
-	  
-	  int col = (k0-kmin+1)%ncols;
-	  int row = (k0-kmin+1)/ncols; 
-	  if (row == nrows && col > 0)
-	    QMessageBox::information(0, "ERROR", QString("row, col ?? %1 %2 , %3").\
-				     arg(row).arg(nrows).arg(col));
-	  int grow = row*maxleny2;
-	  for(int j=0; j<leny2; j++)
-	    memcpy(m_sliceTexture + bpv*(col*maxlenx2 +
-					 (grow+j)*m_texWidth),
-		   m_sliceTemp + bpv*j*lenx2,
-		   bpv*lenx2);
-	  //---
-
-
-	  memcpy(g2, m_sliceTemp, bpv*lenx2*leny2);
-	  memset(tmp, 0, bpv*dtlenx2*dtleny2);
-
-	  //-------- form dragTexure ---------------
-	  if (k >= (int)(m_dataMin.z/m_subvolumeSubsamplingLevel) &&
-	      k <= (int)(m_dataMax.z/m_subvolumeSubsamplingLevel))
-	    {
-	      int ji=0;
-	      if (bpv == 1)
-		{
-		  for(int j=0; j<dtleny2; j++)
-		    { 
-		      int y = j*stp;
-		      for(int i=0; i<dtlenx2; i++) 
-			{ 
-			  int x = i*stp; 
-			  tmp[ji] = g2[y*lenx2+x];
-			  ji++;
-			}
-		    }
-		}
-	      else
-		{
-		  for(int j=0; j<dtleny2; j++)
-		    { 
-		      int y = j*stp;
-		    for(int i=0; i<dtlenx2; i++) 
-		      { 
-			int x = i*stp; 
-			((ushort*)tmp)[ji] = ((ushort*)g2)[y*lenx2+x];
-			ji++;
-		      }
-		  }
-		}
-
-	      int dtkslc = qBound(0,
-				  (int)((k0-(m_dataMin.z/m_subvolumeSubsamplingLevel))/stp),
-				  dtlenz2-1);
-	      int col = dtkslc%dtncols;
-	      int row = dtkslc/dtncols; 	      
-	      int grow = row*dtmaxleny2;
-	      for(int j=0; j<dtleny2; j++)
-		memcpy(m_dragTexture + bpv*(col*dtmaxlenx2 +
-					    (grow+j)*m_dragTexWidth),
-		       tmp + bpv*(j*dtlenx2),
-		       bpv*dtlenx2);
-	    }
-	  //---------------------------------------
-
-	  if (bpv == 1)
-	    {
-	      for(int j=0; j<lenx2*leny2; j++)
-		m_flhist1D[g2[j]]++;
-
-	      if (kslc >= 2)
-		{
-		  for(int j=1; j<leny2-1; j++)
-		    for(int i=1; i<lenx2-1; i++)
-		      {
-			int gx = g1[j*lenx2+(i+1)] - g1[j*lenx2+(i-1)];
-			int gy = g1[(j+1)*lenx2+i] - g1[(j-1)*lenx2+i];
-			int gz = g2[j*lenx2+i] - g0[j*lenx2+i];
-			int gsum = sqrtf(gx*gx+gy*gy+gz*gz);
-			gsum = qBound(0, gsum, 255);
-			int v = g1[j*lenx2+i];
-			m_flhist2D[gsum*256 + v]++;
-		      }
-		}
-	    }
-	  else
-	    {
-	      for(int j=0; j<lenx2*leny2; j++)
-		m_flhist1D[((ushort*)g2)[j]/256]++;
-
-	      if (kslc >= 2)
-		{
-		  for(int j=1; j<leny2-1; j++)
-		    for(int i=1; i<lenx2-1; i++)
-		      {
-			int gx = ((ushort*)g1)[j*lenx2+(i+1)] -
-			         ((ushort*)g1)[j*lenx2+(i-1)];
-			int gy = ((ushort*)g1)[(j+1)*lenx2+i] -
-			         ((ushort*)g1)[(j-1)*lenx2+i];
-			int gz = ((ushort*)g2)[j*lenx2+i] -
-			         ((ushort*)g0)[j*lenx2+i];
-			int gsum = sqrtf(gx*gx+gy*gy+gz*gz);
-			gsum = qBound(0, gsum/256, 255);
-			int v = ((ushort*)g1)[j*lenx2+i]/256;
-			m_flhist2D[gsum*256 + v]++;
-		      }
-		}
-	    }
-
-	  
-	  uchar *gt = g0;
-	  g0 = g1;
-	  g1 = g2;
-	  g2 = gt;
-
-	  kslc ++;
-	}
-
-      delete [] g0;
-      delete [] g1;
-      delete [] g2;
-      delete [] g3;
-      delete [] tmp;
-      delete [] sliceTemp1;
-
-      return m_sliceTexture;
-    }
-  //---------------------------------------------------------
-
-
-  //---------------------------------------------------------
-  //m_subvolumeSubsamplingLevel == 1
-  //---------------------------------------------------------
-  int nbytes = bpv*m_width*m_height;
-  int kslc = 0;
-
-  int offD = m_offD;
-  int offW = m_offW;
-  int offH = m_offH;
-
-  Vec relDataPos = Global::relDataPos();
-  if (relDataPos.x < -0.5) offH = 0;
-  if (relDataPos.y < -0.5) offW = 0;
-  if (relDataPos.z < -0.5) offD = 0;
-  
-  if (relDataPos.x > 0.5) offH = m_maxHeight- m_height;
-  if (relDataPos.y > 0.5) offW = m_maxWidth - m_width;
-  if (relDataPos.z > 0.5) offD = m_maxDepth - m_depth;
-
-  uchar *sliceTemp1 = new uchar [bpv*m_maxWidth*m_maxHeight];
-
-  // additional slice at the top and bottom
-  //-------------------------------------------------------
-  for(int k0=minz-1; k0<=maxz+1; k0++)
-    {
-      int k = k0 - offD; // shift slice by given depth offset
-      
-      if (k >= 0 && k < m_depth)
-	{
-	  uchar *vslice = m_pvlFileManager.getSlice(k);
-	  memcpy(m_sliceTemp, vslice, nbytes);
-	}
-      else
-	{
-	  memset(m_sliceTemp, 0, nbytes);
-	}
-
-      //---
-      memset(sliceTemp1, 0, bpv*m_maxWidth*m_maxHeight);
-      for(int j=0; j<m_width; j++)
-	memcpy(sliceTemp1 + bpv*((j+offW)*m_maxHeight + offH),
-	       m_sliceTemp + bpv*j*m_height,
-	       bpv*m_height);
-
-      for(int j=0; j<leny2; j++)
-	memcpy(m_sliceTemp + bpv*j*lenx2,
-	       sliceTemp1 + bpv*((j+miny)*m_maxHeight + minx),
-	       bpv*lenx2);
-
-      int col = (k0-minz+1)%ncols;
-      int row = (k0-minz+1)/ncols; 
-      if (row == nrows && col > 0)
-	QMessageBox::information(0, "ERROR", QString("row, col ?? %1 %2 , %3").	\
-				 arg(row).arg(nrows).arg(col));      
-      int grow = row*maxleny2;
-      for(int j=0; j<leny2; j++)
-	memcpy(m_sliceTexture + bpv*(col*maxlenx2 +
-				     (grow+j)*m_texWidth),
-	       m_sliceTemp + bpv*j*lenx2,
-	       bpv*lenx2);
-      //---
-      
-      memcpy(g2, m_sliceTemp, bpv*lenx2*leny2);
-
-      //-------- form dragTexure ---------------
-      if (k >= (int)m_dataMin.z && k <= (int)m_dataMax.z)
-	{
-	  int ji=0;
-	  if (bpv == 1)
-	    {
-	      for(int j=0; j<dtleny2; j++)
-		{ 
-		  int y = j*stp;
-		  for(int i=0; i<dtlenx2; i++) 
-		    { 
-		      int x = i*stp; 
-		      tmp[ji] = g2[y*lenx2+x];
-		      ji++;
-		    }
-		}
-	    }
-	  else
-	    {
-	      for(int j=0; j<dtleny2; j++)
-		{ 
-		  int y = j*stp;
-		  for(int i=0; i<dtlenx2; i++) 
-		    { 
-		      int x = i*stp; 
-		      ((ushort*)tmp)[ji] = ((ushort*)g2)[y*lenx2+x];
-		      ji++;
-		    }
-		}
-	    }
-	  
-	  int dtkslc = qMin(dtlenz2-1, (int)((k0-(int)m_dataMin.z)/stp));
-	  int col = dtkslc%dtncols;
-	  int row = dtkslc/dtncols; 	      
-	  int grow = row*dtmaxleny2;
-	  for(int j=0; j<dtleny2; j++)
-	    memcpy(m_dragTexture + bpv*(col*dtmaxlenx2 +
-					(grow+j)*m_dragTexWidth),
-		   tmp + bpv*(j*dtlenx2),
-		   bpv*dtlenx2);
-	}
-      //---------------------------------------
-
-      if (bpv == 1)
-	{
-	  for(int j=0; j<lenx2*leny2; j++)
-	    m_flhist1D[g2[j]]++;
-	  
-	  if (kslc >= 2)
-	    {
-	      for(int j=1; j<leny2-1; j++)
-		for(int i=1; i<lenx2-1; i++)
-		  {
-		    int gx = g1[j*lenx2+(i+1)] - g1[j*lenx2+(i-1)];
-		    int gy = g1[(j+1)*lenx2+i] - g1[(j-1)*lenx2+i];
-		    int gz = g2[j*lenx2+i] - g0[j*lenx2+i];
-		    int gsum = sqrtf(gx*gx+gy*gy+gz*gz);
-		    gsum = qBound(0, gsum, 255);
-		    int v = g1[j*lenx2+i];
-		    m_flhist2D[gsum*256 + v]++;
-		  }	  
-	    }
-	}
-      else
-	{
-	  for(int j=0; j<lenx2*leny2; j++)
-	    m_flhist1D[((ushort*)g2)[j]/256]++;
-	  
-	  for(int j=0; j<lenx2*leny2; j++)
-	    m_flhist2D[((ushort*)g2)[j]]++;
-	}
- 
-      uchar *gt = g0;
-      g0 = g1;
-      g1 = g2;
-      g2 = gt;
-
-      kslc ++;
-    }
-
-  delete [] g0;
-  delete [] g1;
-  delete [] g2;
-  delete [] g3;
-  delete [] tmp;
-  delete [] sliceTemp1;
-
-  return m_sliceTexture;
-}
 
 void
 VolumeSingle::startHistogramCalculation()

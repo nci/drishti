@@ -135,7 +135,12 @@ LightShaderFactory::genOpacityShader(int nvol, bool bit16)
   shader += "  glFragColor.rgb = alpha*rgb/totalpha;\n";
 
   shader += " if (opshader)\n";
-  shader += "   glFragColor = glFragColor.aaaa;\n";  
+  {
+    if (nvol == 1)
+      shader += "   glFragColor = vec4(val.x, g, glFragColor.a, 1.0);\n";
+    else
+      shader += "   glFragColor = glFragColor.aaaa;\n";  
+  }
   shader += " else\n";
   shader += "   {\n";
   shader += "     glFragColor.rgb *= glFragColor.a;\n";  
@@ -252,7 +257,7 @@ LightShaderFactory::genAOLightShader() // surround shader
   shader += "  int y = int(tc.y) - row*gridy;\n";
   shader += "  int z = row*ncols + col;\n";
 
-  shader += "  float op = texture2DRect(opTex, tc).x;\n"; 
+  shader += "  float op = texture2DRect(opTex, tc).z;\n"; 
   shader += "  op = clamp(opmod*op, 0.0, 1.0);\n";
 
   shader += "  vec3 pos = vec3(x,y,z);\n";
@@ -274,7 +279,7 @@ LightShaderFactory::genAOLightShader() // surround shader
   shader += "      {\n";
   shader += "        float x1 = float(col+x+i)+0.5;\n";
   shader += "        float y1 = float(row+y+j)+0.5;\n";
-  shader += "        float op = texture2DRect(opTex, vec2(x1,y1)).x;\n"; 
+  shader += "        float op = texture2DRect(opTex, vec2(x1,y1)).z;\n"; 
   shader += "        op = clamp(opmod*op, 0.0, 1.0);\n";
   shader += "        fop += step(0.1, op);\n";
   shader += "      }\n";
@@ -316,7 +321,7 @@ LightShaderFactory::genInitEmissiveShader() // tf emissive shader
 
   shader += "  float den = step(0.005, texture2DRect(eTex, tc).a);\n"; 
   //shader += "  float den = texture2DRect(eTex, tc).a;\n"; 
-  shader += "  float op = opmod*texture2DRect(opTex, tc).x;\n"; 
+  shader += "  float op = opmod*texture2DRect(opTex, tc).z;\n"; 
   shader += "  gl_FragColor = vec4(den,op,den,1.0);\n";
   shader += "}\n";
 
@@ -423,7 +428,7 @@ LightShaderFactory::genMergeOpPruneShader()
   shader += "void main(void)\n";
   shader += "{\n";
   //shader += "  vec4 op = texture2DRect(opTex, gl_TexCoord[0].xy);\n";
-  shader += "  vec4 op = texture2DRect(opTex, gl_TexCoord[0].xy).bbbb;\n";
+  shader += "  vec4 op = texture2DRect(opTex, gl_TexCoord[0].xy).zzzz;\n";
   shader += "  op.rgb *= texture2DRect(lightTex, gl_TexCoord[0].xy).xxx;\n";
   shader += "  gl_FragColor = op;\n";
   shader += "}\n";
@@ -486,7 +491,7 @@ LightShaderFactory::genInitDLightShader() // directional shader
   shader += "  if (any(pless) || any(pgret)) \n";
   shader += "    den = 1.0;\n";  
 
-  shader += "  float op = texture2DRect(opTex, optc).x;\n";   
+  shader += "  float op = texture2DRect(opTex, optc).z;\n";   
   shader += "  op = clamp(opmod*op, 0.0, 1.0);\n";
   shader += "  gl_FragColor = vec4(den,op,den,1.0);\n";
   shader += "}\n";
@@ -725,7 +730,7 @@ LightShaderFactory::genInitTubeLightShader() // point shader
   shader += "  opcol *= opgridx;\n";
   shader += "  vec2 optc = vec2(float(opcol)+xo, float(oprow)+yo);\n";
 
-  shader += "  float op = texture2DRect(opTex, optc).x;\n";   
+  shader += "  float op = texture2DRect(opTex, optc).z;\n";   
   shader += "  op = clamp(opmod*op, 0.0, 1.0);\n";
   shader += "  gl_FragColor = vec4(0.0,op,0.0,1.0);\n";
 

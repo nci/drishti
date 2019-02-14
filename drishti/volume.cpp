@@ -484,13 +484,6 @@ Volume::deleteTextureSlab()
       m_volumeRGB->deleteTextureSlab();
       return;
     }
-
-  int nvol = 1;
-  if (Global::volumeType() == Global::DoubleVolume) nvol = 2;
-  if (Global::volumeType() == Global::TripleVolume) nvol = 3;
-  if (Global::volumeType() == Global::QuadVolume) nvol = 4;
-  for (int v=0; v<nvol; v++)
-    m_volume[v]->deleteTextureSlab();    
 }
 
 uchar*
@@ -499,34 +492,9 @@ Volume::getSliceTextureSlab(int minz, int maxz)
   if (Global::volumeType() == Global::DummyVolume)
     return NULL;
 
-  if (Global::volumeType() == Global::SingleVolume)
-    return m_volume[0]->getSliceTextureSlab(minz, maxz);
-  else if (Global::volumeType() == Global::RGBVolume ||
+  if (Global::volumeType() == Global::RGBVolume ||
 	   Global::volumeType() == Global::RGBAVolume)
     return m_volumeRGB->getSliceTextureSlab(minz, maxz);
-  else
-    {
-      int nvol = 2;
-      if (Global::volumeType() == Global::DoubleVolume) nvol = 2;
-      if (Global::volumeType() == Global::TripleVolume) nvol = 3;
-      if (Global::volumeType() == Global::QuadVolume) nvol = 4;
-
-      int texWidth, texHeight;
-      m_volume[0]->getSliceTextureSize(texWidth, texHeight);
-	  
-      if (m_subvolumeTexture) delete [] m_subvolumeTexture;
-      m_subvolumeTexture = new uchar[nvol*texWidth*texHeight];
-      memset(m_subvolumeTexture, 0, nvol*texWidth*texHeight);
-
-      for (int v=0; v<nvol; v++)
-	{
-	  uchar *tex = m_volume[v]->getSliceTextureSlab(minz, maxz);
-	  for (int i=0; i<texWidth*texHeight; i++)
-	    m_subvolumeTexture[i*nvol+v] = tex[i];
-	}
-
-      return m_subvolumeTexture;
-    }
 }
 
 

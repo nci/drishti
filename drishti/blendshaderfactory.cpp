@@ -21,8 +21,8 @@ BlendShaderFactory::generateBlend(QList<CropObject> crops,
   shader += "  vec3 op0, opvec, osaxis, otaxis;\n";
   shader += "  float plen, srad1, srad2, trad1, trad2;\n";
 
-  shader += QString("  otexCoord *= vec3(%1,%2,%3);\n").\
-    arg(voxelScaling.x).arg(voxelScaling.y).arg(voxelScaling.z);
+//  shader += QString("  otexCoord *= vec3(%1,%2,%3);\n").\
+//    arg(voxelScaling.x).arg(voxelScaling.y).arg(voxelScaling.z);
 
   if (crops.count() > 0)
     {
@@ -67,12 +67,17 @@ BlendShaderFactory::generateBlend(QList<CropObject> crops,
 	  lift = crops[ci].lift();
 
 	  pvec = pts[1]-pts[0];
+	  pvec = VECPRODUCT(pvec, voxelScaling);
 	  plen = pvec.norm();
 
 	  pvec = crops[ci].m_tang;
 	  saxis = crops[ci].m_xaxis;
 	  taxis = crops[ci].m_yaxis;
 
+	  pvec = VECPRODUCT(pvec, voxelScaling);
+	  saxis = VECPRODUCT(saxis, voxelScaling);
+	  taxis = VECPRODUCT(taxis, voxelScaling);
+	    
 	  if (crops[ci].cropType() >= CropObject::View_Tear)
 	    {
 	      int viewType = crops[ci].cropType();
@@ -90,10 +95,11 @@ BlendShaderFactory::generateBlend(QList<CropObject> crops,
 		    arg(p0.x).arg(p0.y).arg(p0.z);
 		  shader += "saxis = otexCoord-p0;\n";
 		  shader += "infront = dot(saxis, otexCoord-eyepos) < 0.0;\n";
+		  shader += "if (eyepos.z < -999) infront = false;\n";
 		  shader += "otexCoord = p0 + dot(saxis,dirUp)*dirUp + dot(saxis,dirRight)*dirRight;\n";
 		
 		  shader += "viewMix = 0.0;\n";
-		  shader += applyBlend((pts[0]+pts[1])*0.5f,
+		  shader += applyBlend(p0,
 				       plen*0.5f,
 				       saxis, taxis, pvec,
 				       radX[0], radX[1],
@@ -111,7 +117,8 @@ BlendShaderFactory::generateBlend(QList<CropObject> crops,
 		}
 
 	      shader += "viewMix = 0.0;\n";
-	      shader += applyBlend((pts[0]+pts[1])*0.5f,
+	      Vec p0 = (pts[0]+pts[1])*0.5f;
+	      shader += applyBlend(p0,
 				   plen*0.5f,
 				   saxis, taxis, pvec,
 				   radX[0], radX[1],
@@ -235,7 +242,7 @@ BlendShaderFactory::applyBlend(Vec p0, float plen,
       shader += "vec3 w0 = p0-plen*pvec;\n"; // we are given center p0 - now get bottom point
       shader += "v0 = otexCoord-w0;\n";
       shader += "pvlen = dot(pvec, v0);\n";
-      shader += "pvlen /= (2.0*plen);\n";
+      shader += "pvlen /= (2.0*plen*length(pvec));\n";
     }
 
   shader += "v0 = otexCoord-p0;\n";

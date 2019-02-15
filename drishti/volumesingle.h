@@ -40,8 +40,6 @@ class VolumeSingle : public VolumeBase
   Vec getDragTextureInfo();
   void getDragTextureSize(int&, int&);
 
-  uchar* getDragTexture();
-
   QList<Vec> getSliceTextureSizeSlabs();
   uchar* getSliceTextureSlab(int, int);
   void deleteTextureSlab();

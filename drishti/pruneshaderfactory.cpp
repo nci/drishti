@@ -131,7 +131,7 @@ PruneShaderFactory::genPruneTexture(int nvol, bool bit16)
   shader += "  float s = step(0.9/255.0, op);\n";
   shader += "  glFragColor = vec4(s,op,0.0,1.0);\n";
   //----------------  
-
+  
   shader += "}\n";
 
   return shader;

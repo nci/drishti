@@ -363,33 +363,9 @@ uchar* Volume::getDragTexture()
   if (Global::volumeType() == Global::DummyVolume)
     return NULL;
 
-  if (Global::volumeType() == Global::SingleVolume)
-    return m_volume[0]->getDragTexture();
-
   if (Global::volumeType() == Global::RGBVolume ||
       Global::volumeType() == Global::RGBAVolume)
     return m_volumeRGB->getDragTexture();
-
-  int nvol = 2;
-  if (Global::volumeType() == Global::DoubleVolume) nvol = 2;
-  if (Global::volumeType() == Global::TripleVolume) nvol = 3;
-  if (Global::volumeType() == Global::QuadVolume) nvol = 4;
-
-  int texWidth, texHeight;
-  m_volume[0]->getDragTextureSize(texWidth, texHeight);
-	  
-  if (m_dragTexture) delete [] m_dragTexture;
-  m_dragTexture = new uchar[nvol*texWidth*texHeight];
-  memset(m_dragTexture, 0, nvol*texWidth*texHeight);
-  
-  for (int v=0; v<nvol; v++)
-    {
-      uchar *tex = m_volume[v]->getDragTexture();
-      for (int i=0; i<texWidth*texHeight; i++)
-	m_dragTexture[i*nvol+v] = tex[i];
-    }
-  
-  return m_dragTexture;
 }
 
 QList<Vec>

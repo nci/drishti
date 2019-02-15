@@ -1820,131 +1820,93 @@ VolumeSingle::endHistogramCalculation()
       for(int i=0; i<256*256; i++)
 	m_subvolume2dHistogram[i] = m_flhist2D[i];
     }
-}
 
-uchar*
-VolumeSingle::getDragTexture()
-{
   calculateGradientsForDragTexture();
-
-  MainWindowUI::mainWindowUI()->menubar->parentWidget()->\
-    setWindowTitle(QString("Drishti"));
-  Global::hideProgressBar();
-
-  return m_dragTexture;
 }
 
 void
 VolumeSingle::calculateGradientsForDragTexture()
 {
+  Global::progressBar()->show();
+  qApp->processEvents();
+
+  memset(m_flhist1D, 0, 256*4);
+  memset(m_flhist2D, 0, 256*256*4);
+
   int bpv = 1;
   if (m_pvlVoxelType > 0) bpv = 2;
-
-  int ncols = m_dragTextureInfo.x;
-  int nrows = m_dragTextureInfo.y;
-  int lod = m_dragTextureInfo.z;
-
-  int minx = m_dataMin.x;
-  int miny = m_dataMin.y;
-  int minz = m_dataMin.z;
-  int maxz = m_dataMax.z;
 
   int lenx = m_subvolumeSize.x;
   int leny = m_subvolumeSize.y;
   int lenz = m_subvolumeSize.z;
-  int lenx2 = lenx/lod;
-  int leny2 = leny/lod;
-  int lenz2 = lenz/lod;
-  
-  MainWindowUI::mainWindowUI()->menubar->parentWidget()->\
-    setWindowTitle(QString("Evaluating gradients for drag texture"));
-  Global::progressBar()->show();
+  int dtlod = m_dragTextureInfo.z;
+  int dtlenx2 = lenx/dtlod;
+  int dtleny2 = leny/dtlod;
+  int dtlenz2 = lenz/dtlod;
 
-  int maxlenx2 = m_dragTexWidth/ncols;
-  int maxleny2 = m_dragTexHeight/nrows;
-
-//  uchar *g0 = new uchar [bpv*m_width*m_height];
-//  uchar *g1 = new uchar [bpv*m_width*m_height];
-//  uchar *g2 = new uchar [bpv*m_width*m_height];
-  uchar *g0 = new uchar [bpv*m_maxWidth*m_maxHeight];
-  uchar *g1 = new uchar [bpv*m_maxWidth*m_maxHeight];
-  uchar *g2 = new uchar [bpv*m_maxWidth*m_maxHeight];
-
-//  memset(g0, 0, bpv*m_width*m_height);
-//  memset(g1, 0, bpv*m_width*m_height);
-//  memset(g2, 0, bpv*m_width*m_height);
-  memset(g0, 0, bpv*m_maxWidth*m_maxHeight);
-  memset(g1, 0, bpv*m_maxWidth*m_maxHeight);
-  memset(g2, 0, bpv*m_maxWidth*m_maxHeight);
-
-  //-----
-  // for drag histogram calculation
-  memset(m_flhist1D, 0, 256*4);
-  memset(m_flhist2D, 0, 256*256*4);
-  //-----
-
-  for(int kslc=0; kslc<lenz2; kslc++)
+  for(int i=0;i<dtlenz2;i++)
     {
-      Global::progressBar()->setValue((int)(100.0*(float)(kslc)/(float)(lenz2)));
+      Global::progressBar()->setValue((int)(100.0*(float)i/(float)dtlenz2));
+      if (i%10==0) qApp->processEvents();
 
-      int col = kslc%ncols;
-      int row = kslc/ncols; 
-      int grow = row*maxleny2;
-      for(int j=0; j<leny2; j++)
-	memcpy(m_sliceTemp + bpv*(j*lenx2),
-	       m_dragTexture + bpv*(col*maxlenx2 +
-				    (grow+j)*m_dragTexWidth),
-	       bpv*lenx2);
+      for(int j=0;j<dtleny2;j++)
+	for(int k=0;k<dtlenx2;k++)
+	  {
+	    int i0,j0,k0;
+	    
+	    int v = m_dragSubvolumeTexture[i*dtleny2*dtlenx2 + j*dtlenx2 + k];
+	    m_flhist1D[v]++;
+	    
+	    float dval;
+	    float ax = 1.0;
+	    float ay = -1.0;
+	    
+	    i0 = qBound(0, i + (int)ax, dtlenz2-1);
+	    j0 = qBound(0, j + (int)ay, dtleny2-1);
+	    k0 = qBound(0, k + (int)ay, dtlenx2-1);
+	    if (bpv == 1)
+	      dval = m_dragSubvolumeTexture[i0*dtleny2*dtlenx2 + j0*dtlenx2 + k0];
+	    else
+	      dval = ((ushort*)m_dragSubvolumeTexture)[i0*dtleny2*dtlenx2 + j0*dtlenx2 + k0];
+	    Vec gxyy = Vec(ax, ay, ay) * dval;
 
-      // calculate gradient
-      memcpy(g2, m_sliceTemp, bpv*lenx2*leny2);
+	    
+	    i0 = qBound(0, i + (int)ay, dtlenz2-1);
+	    j0 = qBound(0, j + (int)ay, dtleny2-1);
+	    k0 = qBound(0, k + (int)ax, dtlenx2-1);
+	    if (bpv == 1)
+	      dval = m_dragSubvolumeTexture[i0*dtleny2*dtlenx2 + j0*dtlenx2 + k0];
+	    else
+	      dval = ((ushort*)m_dragSubvolumeTexture)[i0*dtleny2*dtlenx2 + j0*dtlenx2 + k0];
+	    Vec gyyx = Vec(ay, ay, ax) * dval;
 
-      if (kslc >= 2)
-	{
-	  if (bpv == 1)
-	    {
-	      for(int j=1; j<leny2-1; j++)
-		for(int i=1; i<lenx2-1; i++)
-		  {
-		    int idx = j*lenx2+i;
-		    int gx = g1[idx+1] - g1[idx-1];
-		    int gy = g1[(j+1)*lenx2+i] - g1[(j-1)*lenx2+i];
-		    int gz = g2[idx] - g0[idx];
-		    int g = sqrtf(gx*gx+gy*gy+gz*gz);
-		    g = qBound(0, g, 255);
-		    int v = m_sliceTemp[idx];
-		    m_flhist1D[v]++;
-		    m_flhist2D[g*256 + v]++;
-		  }
-	    }
-	  else
-	    {
-	      for(int j=1; j<leny2-1; j++)
-		for(int i=1; i<lenx2-1; i++)
-		  {
-		    int idx = j*lenx2+i;
-		    int v = ((ushort*)m_sliceTemp)[idx];
-		    int g = v/256;
-		    int vg = v - g*256;
-		    m_flhist1D[v/256]++;
-		    m_flhist2D[g*256 + vg]++;
-		  }
-	    }
-	}
+	    
+	    i0 = qBound(0, i + (int)ay, dtlenz2-1);
+	    j0 = qBound(0, j + (int)ax, dtleny2-1);
+	    k0 = qBound(0, k + (int)ay, dtlenx2-1);
+	    if (bpv == 1)
+	      dval = m_dragSubvolumeTexture[i0*dtleny2*dtlenx2 + j0*dtlenx2 + k0];
+	    else
+	      dval = ((ushort*)m_dragSubvolumeTexture)[i0*dtleny2*dtlenx2 + j0*dtlenx2 + k0];
+	    Vec gyxy = Vec(ay, ax, ay) * dval;
 
-      uchar *gt = g0;
-      g0 = g1;
-      g1 = g2;
-      g2 = gt;
+	    
+	    i0 = qBound(0, i + (int)ax, dtlenz2-1);
+	    j0 = qBound(0, j + (int)ax, dtleny2-1);
+	    k0 = qBound(0, k + (int)ax, dtlenx2-1);
+	    if (bpv == 1)
+	      dval = m_dragSubvolumeTexture[i0*dtleny2*dtlenx2 + j0*dtlenx2 + k0];
+	    else
+	      dval = ((ushort*)m_dragSubvolumeTexture)[i0*dtleny2*dtlenx2 + j0*dtlenx2 + k0];
+	    Vec gxxx = Vec(ax, ax, ax) * dval;
 
-      if (row == nrows && col > 0)
-	QMessageBox::information(0, "ERROR", QString("row, col ?? %1 %2 , %3").	\
-				 arg(row).arg(nrows).arg(col));
+	    
+	    Vec grad = (gxyy+gyyx+gyxy+gxxx)/2.0;
+	    int g = qBound(0.0, grad.norm(), 255.0);
+	    
+	    m_flhist2D[(int)g*256 + v]++;
+	  }
     }
-
-  delete [] g0;
-  delete [] g1;
-  delete [] g2;
 
   //-----
   // for drag histogram calculation

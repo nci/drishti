@@ -143,7 +143,6 @@ class VolumeSingle : public VolumeBase
   int m_texWidth, m_texHeight;
   Vec m_dragTextureInfo;
   int m_dragTexWidth, m_dragTexHeight;
-  uchar* m_dragTexture;
   uchar* m_sliceTemp;
 
   float m_foffH, m_foffW, m_foffD;

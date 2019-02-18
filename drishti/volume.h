@@ -128,10 +128,8 @@ class Volume : public QObject
   uchar* getSlabTexture(int);
 
   QList<Vec> getSliceTextureSizeSlabs();
-  uchar* getSliceTextureSlab(int, int);
   void deleteTextureSlab();
 
-  uchar* getDragTexture();
   Vec getDragTextureInfo();
   void getDragTextureSize(int&, int&);
 

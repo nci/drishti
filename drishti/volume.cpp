@@ -358,16 +358,6 @@ Volume::getDragTextureSize(int &dtexX, int &dtexY)
   m_volume[0]->getDragTextureSize(dtexX, dtexY);
 }
 
-uchar* Volume::getDragTexture()
-{
-  if (Global::volumeType() == Global::DummyVolume)
-    return NULL;
-
-  if (Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
-    return m_volumeRGB->getDragTexture();
-}
-
 QList<Vec>
 Volume::getSliceTextureSizeSlabs()
 {
@@ -453,26 +443,7 @@ Volume::deleteTextureSlab()
 
   if (m_dragSubvolumeTexture) delete [] m_dragSubvolumeTexture;
   m_dragSubvolumeTexture = 0;
-
-  if (Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
-    {
-      m_volumeRGB->deleteTextureSlab();
-      return;
-    }
 }
-
-uchar*
-Volume::getSliceTextureSlab(int minz, int maxz)
-{
-  if (Global::volumeType() == Global::DummyVolume)
-    return NULL;
-
-  if (Global::volumeType() == Global::RGBVolume ||
-	   Global::volumeType() == Global::RGBAVolume)
-    return m_volumeRGB->getSliceTextureSlab(minz, maxz);
-}
-
 
 void Volume::forceCreateLowresVolume()
 {

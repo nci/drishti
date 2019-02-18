@@ -103,7 +103,6 @@ class DrawHiresVolume : public QObject
   void updateAndLoadPruneTexture();
   void updateAndLoadLightTexture();
   void loadTextureMemory();  
-  void loadDragTexture();  
   void updateScaling();
   void updateSubvolume();
   void updateSubvolume(int, Vec, Vec, bool force=false);

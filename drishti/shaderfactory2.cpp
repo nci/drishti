@@ -315,6 +315,9 @@ ShaderFactory2::genVgx(int nvol)
   shader += "  else\n";
   shader += "    vg."+xyzw+" = voxValues[1]."+xyzw+";\n"; // nearest neighbour
 
+  if (nvol == 2)
+    shader += "    vg.y = vg.w;\n";
+
   shader += "  if (mixTag) \n";
   if (nvol == 2)
     shader += "    vg.y = voxValues[1].w;\n";

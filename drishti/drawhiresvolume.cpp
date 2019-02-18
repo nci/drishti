@@ -621,7 +621,6 @@ DrawHiresVolume::postUpdateSubvolume(Vec boxMin, Vec boxMax)
   loadTextureMemory();
   m_Volume->endHistogramCalculation();
 
-  //loadDragTexture();
 
   // update saved buffer after every subvolume change
   PruneHandler::setUseSavedBuffer(false);
@@ -717,100 +716,6 @@ DrawHiresVolume::updateAndLoadLightTexture()
 					  m_Viewer->lookupTable());
 }
 
-void
-DrawHiresVolume::loadDragTexture()
-{
-  if (Global::volumeType() == Global::DummyVolume)
-    return;
-
-  if (m_dataTexSize <= 1) // no drag texture
-    return;
-
-
-  //QMessageBox::information(0, "", "load drag texture");
-
-  // -- disable screen updates 
-  bool uv = Global::updateViewer();
-  if (uv)
-    {
-      Global::disableViewerUpdate();
-      MainWindowUI::changeDrishtiIcon(false);
-    }
-
-  int nvol = 1;
-  if (Global::volumeType() == Global::DoubleVolume) nvol = 2;
-  if (Global::volumeType() == Global::TripleVolume) nvol = 3;
-  if (Global::volumeType() == Global::QuadVolume) nvol = 4;
-  if (Global::volumeType() == Global::RGBVolume) nvol = 3;
-  if (Global::volumeType() == Global::RGBAVolume) nvol = 4;
-  
-  int format = GL_LUMINANCE;
-  if (nvol == 2) format = GL_LUMINANCE_ALPHA;
-  else if (nvol == 3) format = GL_RGB;
-  else if (nvol == 4) format = GL_RGBA;
-
-  int internalFormat = nvol;
-  int vtype = GL_UNSIGNED_BYTE;
-
-  if (m_Volume->pvlVoxelType(0) > 0)
-    {
-      if (nvol == 1) internalFormat = GL_LUMINANCE16;
-      if (nvol == 2) internalFormat = GL_LUMINANCE16_ALPHA16;
-      if (nvol == 3) internalFormat = GL_RGB16;
-      if (nvol == 4) internalFormat = GL_RGBA16;
-      
-      if (nvol == 1) format = GL_LUMINANCE;
-      if (nvol == 2) format = GL_LUMINANCE_ALPHA;
-      if (nvol == 3) format = GL_RGB;
-      if (nvol == 4) format = GL_RGBA;
-      
-      vtype = GL_UNSIGNED_SHORT;
-    }
-
-  Vec dragInfo = m_Volume->getDragTextureInfo();
-  int texX, texY;
-  m_Volume->getDragTextureSize(texX, texY);
-//  QMessageBox::information(0, "", QString("drag texture %1 %2").\
-//			   arg(texX).arg(texY));
-
-
-  glActiveTexture(GL_TEXTURE1);
-  glEnable(GL_TEXTURE_RECTANGLE_ARB);
-  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_dataTex[0]);	 
-  glTexParameterf(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
-  glTexParameterf(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
-  if (Global::interpolationType(Global::TextureInterpolation)) // linear
-    {
-      glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-      glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-  else
-    {
-      glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-      glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    }
-  
-  uchar *textureSlab = m_Volume->getDragTexture();
-      
-  glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,
-	       0, // single resolution
-	       internalFormat, 
-	       texX, texY,
-	       0, // no border
-	       format,
-	       vtype,
-	       textureSlab);
-  
-  glFlush();
-  glFinish();
-
-  if (uv)
-    {
-      Global::enableViewerUpdate();
-      MainWindowUI::changeDrishtiIcon(true);
-    }
-  //QMessageBox::information(0, "", "drag texture loaded");
-}
 
 void
 DrawHiresVolume::loadTextureMemory()

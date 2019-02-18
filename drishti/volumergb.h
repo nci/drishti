@@ -21,15 +21,10 @@ class VolumeRGB : public VolumeRGBBase
   void getColumnsAndRows(int&, int&);
   void getSliceTextureSize(int&, int&);
 
-  uchar* getDragTexture();
-  void deleteDragTexture();
-
   Vec getDragTextureInfo();
   void getDragTextureSize(int&, int&);
 
   QList<Vec> getSliceTextureSizeSlabs();
-  uchar* getSliceTextureSlab(int, int);
-  void deleteTextureSlab();
 
   uchar* getSubvolume();
   uchar* getDragSubvolumeTexture();
@@ -92,7 +87,6 @@ class VolumeRGB : public VolumeRGBBase
   int m_texWidth, m_texHeight;
   Vec m_dragTextureInfo;
   int m_dragTexWidth, m_dragTexHeight;
-  unsigned char* m_dragTexture;
   unsigned char* m_sliceTemp;
 
   int *m_subvolume1dHistogramR, *m_subvolume2dHistogramR;

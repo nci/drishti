@@ -90,7 +90,6 @@ VolumeSingle::VolumeSingle() :
 
   m_bitmask.clear();
 
-  m_dragTexture = 0;
   m_sliceTemp = 0;
   
   m_texColumns = 0;
@@ -138,9 +137,7 @@ VolumeSingle::~VolumeSingle()
 
   m_bitmask.clear();
 
-  if(m_dragTexture) delete [] m_dragTexture;
   if(m_sliceTemp) delete [] m_sliceTemp;
-  m_dragTexture = 0;
   m_sliceTemp = 0;
 }
 
@@ -1178,10 +1175,6 @@ VolumeSingle::forMultipleVolumes(int svsl,
 
   int bpv = 1;
   if (m_pvlVoxelType > 0) bpv = 2;
-
-  if (m_dragTexture) delete [] m_dragTexture;
-  m_dragTexture = new uchar[bpv*m_dragTexWidth*m_dragTexHeight];
-  memset(m_dragTexture, 0, bpv*m_dragTexWidth*m_dragTexHeight);
 }
 
 QList<Vec>
@@ -1234,11 +1227,6 @@ VolumeSingle::getSliceTextureSizeSlabs()
 
   m_texWidth = ncols*lenx2;
   m_texHeight = nrows*leny2;
-
-  if (m_dragTexture) delete [] m_dragTexture;
-  m_dragTexture = new uchar[bpv*m_dragTexWidth*m_dragTexHeight];
-  memset(m_dragTexture, 0, bpv*m_dragTexWidth*m_dragTexHeight);
-
 
   MainWindowUI::mainWindowUI()->menubar->parentWidget()->\
     setWindowTitle(QString("Drishti"));

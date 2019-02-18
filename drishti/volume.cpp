@@ -1069,9 +1069,9 @@ Vec Volume::getSubvolumeSize()
 
 Vec Volume::getDragSubvolumeTextureSize()
 {
-//  if (Global::volumeType() == Global::RGBVolume ||
-//      Global::volumeType() == Global::RGBAVolume)
-//    return m_volumeRGB->getDragSubvolumeTextureSize();
+  if (Global::volumeType() == Global::RGBVolume ||
+      Global::volumeType() == Global::RGBAVolume)
+    return m_volumeRGB->getDragSubvolumeTextureSize();
 
   if (Global::volumeType() == Global::SingleVolume ||
       Global::volumeType() == Global::DummyVolume)
@@ -1091,9 +1091,9 @@ Vec Volume::getDragSubvolumeTextureSize()
 
 Vec Volume::getSubvolumeTextureSize()
 {
-//  if (Global::volumeType() == Global::RGBVolume ||
-//      Global::volumeType() == Global::RGBAVolume)
-//    return m_volumeRGB->getSubvolumeTextureSize();
+  if (Global::volumeType() == Global::RGBVolume ||
+      Global::volumeType() == Global::RGBAVolume)
+    return m_volumeRGB->getSubvolumeTextureSize();
 
   if (Global::volumeType() == Global::SingleVolume ||
       Global::volumeType() == Global::DummyVolume)
@@ -1174,10 +1174,10 @@ uchar* Volume::getDragSubvolumeTexture()
   if (Global::volumeType() == Global::SingleVolume)
     return m_volume[0]->getDragSubvolumeTexture();
 
-//  // rgb volume
-//  if (Global::volumeType() == Global::RGBVolume ||
-//      Global::volumeType() == Global::RGBAVolume)
-//    return m_volumeRGB->getDragSubvolumeTexture();
+  // rgb volume
+  if (Global::volumeType() == Global::RGBVolume ||
+      Global::volumeType() == Global::RGBAVolume)
+    return m_volumeRGB->getDragSubvolumeTexture();
 
   // multiple volumes
   int nvol = 0;
@@ -1216,13 +1216,12 @@ uchar* Volume::getSubvolumeTexture()
 
   // single volume
   if (Global::volumeType() == Global::SingleVolume)
-    //return m_volume[0]->getSubvolumeTexture();
     return m_volume[0]->getSubvolume();
 
-//  // rgb volume
-//  if (Global::volumeType() == Global::RGBVolume ||
-//      Global::volumeType() == Global::RGBAVolume)
-//    return m_volumeRGB->getSubvolumeTexture();
+  // rgb volume
+  if (Global::volumeType() == Global::RGBVolume ||
+      Global::volumeType() == Global::RGBAVolume)
+    return m_volumeRGB->getSubvolume();
 
   // multiple volumes
   int nvol = 0;
@@ -1246,7 +1245,6 @@ uchar* Volume::getSubvolumeTexture()
 
   for (int v=0; v<nvol; v++)
     {
-      //uchar *tex = m_volume[v]->getSubvolumeTexture();
       uchar *tex = m_volume[v]->getSubvolume();
       for (int i=0; i<nx*ny*nz; i++)
 	m_subvolumeTexture[i*nvol+v] = tex[i];

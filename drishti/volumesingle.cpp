@@ -91,7 +91,6 @@ VolumeSingle::VolumeSingle() :
   m_bitmask.clear();
 
   m_dragTexture = 0;
-  m_dgTexture = 0;
   m_sliceTemp = 0;
   
   m_texColumns = 0;
@@ -140,10 +139,8 @@ VolumeSingle::~VolumeSingle()
   m_bitmask.clear();
 
   if(m_dragTexture) delete [] m_dragTexture;
-  if(m_dgTexture) delete [] m_dgTexture;
   if(m_sliceTemp) delete [] m_sliceTemp;
   m_dragTexture = 0;
-  m_dgTexture = 0;
   m_sliceTemp = 0;
 }
 
@@ -165,10 +162,6 @@ VolumeSingle::loadVolume(QList<QString> vfiles, bool redo)
   
   bool ok = VolumeBase::loadVolume(m_volumeFiles[0].toLatin1().data(),
 				   redo);
-
-  //int bpv = 1;
-  //if (m_pvlVoxelType > 0) bpv = 2;
-  //m_sliceTemp = new uchar [bpv*m_width*m_height];
 
   setBasicInformation(m_volnum);
 

@@ -643,20 +643,6 @@ RcViewer::updateVoxelsForRaycast()
 
   if (m_bytesPerVoxel == 1)
     {
-//      if (m_boxHistogram.count() > 0)
-//	{
-//	  for(int b=0; b<m_boxHistogram.count(); b++)
-//	    delete [] m_boxHistogram[b];
-//	  m_boxHistogram.clear();
-//	}
-//      
-//      for(int b=0; b<m_filledBoxes.count(); b++)
-//	{
-//	  int *hist = new int[256];
-//	  memset(hist, 0, 256*sizeof(int));
-//	  m_boxHistogram << hist;
-//	}
-	    
       int i = 0;
       for(int d=m_minDSlice; d<m_maxDSlice; d+=m_sslevel)
 	for(int w=m_minWSlice; w<m_maxWSlice; w+=m_sslevel)
@@ -666,12 +652,6 @@ RcViewer::updateVoxelsForRaycast()
 	      voxelVol[i] = v;
 	      i++;
 	      m_flhist1D[v]++;
-
-	      //int x = d/m_boxSize;
-	      //int y = w/m_boxSize;
-	      //int z = h/m_boxSize;
-	      //int idx = x*m_wbox*m_hbox+y*m_hbox+z;
-	      //m_boxHistogram[idx][v]++;
 	    }
     }
   else
@@ -721,44 +701,7 @@ RcViewer::updateVoxelsForRaycast()
   glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glDisable(GL_TEXTURE_2D_ARRAY);
 
-//  glEnable(GL_TEXTURE_3D);
-//  glBindTexture(GL_TEXTURE_3D, m_dataTex);	 
-//  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
-//  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
-//  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE); 
-//  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-//  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   progress.setValue(70);
-
-//  glTexImage3D(GL_TEXTURE_3D,
-//	       0, // single resolution
-//	       1,
-//	       hsz, wsz, dsz,
-//	       0, // no border
-//	       GL_LUMINANCE,
-//	       vtype,
-//	       voxelVol);
-//  glDisable(GL_TEXTURE_3D);
-
-//  if (m_bytesPerVoxel == 1)
-//    glTexImage3D(GL_TEXTURE_3D,
-//		 0, // single resolution
-//		 1,
-//		 hsz, wsz, dsz,
-//		 0, // no border
-//		 GL_LUMINANCE,
-//		 GL_UNSIGNED_BYTE,
-//		 voxelVol);
-//  else
-//    glTexImage3D(GL_TEXTURE_3D,
-//		 0, // single resolution
-//		 1,
-//		 hsz, wsz, dsz,
-//		 0, // no border
-//		 GL_LUMINANCE,
-//		 GL_UNSIGNED_SHORT,
-//		 voxelVol);
-//  glDisable(GL_TEXTURE_3D);
   //----------------------------
     
   delete [] voxelVol;

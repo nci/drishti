@@ -159,9 +159,11 @@ LightShaderFactory::genOpacityShaderRGB()
 {
   QString shader;
 
-  shader =  "#extension GL_ARB_texture_rectangle : enable\n";
+  shader = "#version 450 core\n";
+  shader +=  "#extension GL_ARB_texture_rectangle : enable\n";
+  shader += "in vec3 glTexCoord0;\n";
   shader += "uniform sampler2D lutTex;\n";
-  shader += "uniform sampler2DRect dragTex;\n";
+  shader += "uniform sampler2DArray dragTex;\n";
   shader += "uniform int gridx;\n";
   shader += "uniform int gridy;\n";
   shader += "uniform int gridz;\n";
@@ -173,30 +175,44 @@ LightShaderFactory::genOpacityShaderRGB()
   shader += "uniform int lncols;\n";
   shader += "uniform bool opshader;\n";
   shader += "uniform float tfSet;\n";
+  shader += "uniform vec3 dragsize;\n";
+
+  shader += "out vec4 glFragColor;\n";
   
+  //---------------------
+  // get voxel value from array texture
+  shader += getVal();
+  //---------------------
+
   shader += "void main(void)\n";
   shader += "{\n";
 
   // we are in lighttexture space
-  shader += "  vec2 tc = gl_TexCoord[0].xy;\n";
+  shader += "  vec2 tc = glTexCoord0.xy;\n";
   shader += "  int lcol = int(tc.x)/lgridx;\n";
   shader += "  int lrow = int(tc.y)/lgridy;\n";
   shader += "  float x = tc.x - float(lcol*lgridx);\n";
   shader += "  float y = tc.y - float(lrow*lgridy);\n";
   shader += "  float z = float(lrow*lncols + lcol);\n";
+
+  //-----------------------------------------
+  // set every border voxel to 0
+  {
+    shader += "  vec3 pos = vec3(x,y,z);\n";
+    shader += "  bvec3 pless = lessThan(pos, vec3(1.5,1.5,1.5));\n";
+    shader += "  bvec3 pgret = greaterThan(pos, vec3(float(lgridx)-2.5,float(lgridy)-2.5,float(lgridz)-2.5));\n";
+    shader += "  if (any(pless) || any(pgret)) \n";
+    shader += "    { glFragColor = vec4(0.0,0.0,0.0,0.0); return; }\n";
+  }
+  //-----------------------------------------
+
+
   shader += "  x *= float(llod);\n";
   shader += "  y *= float(llod);\n";
   shader += "  z *= float(llod);\n";
   
-  // convert x,y,z to dragtexture space
-  shader += "  int row = int(z)/ncols;\n";
-  shader += "  int col = int(z) - row*ncols;\n";
-  shader += "  row *= gridy;\n";
-  shader += "  col *= gridx;\n";
-  shader += "  tc = vec2(float(col)+x, float(row)+y);\n";
-
-  shader += "  vec4 colOp = vec4(texture2DRect(dragTex, tc).rgb, 1.0);\n";
-
+  shader += "  vec4 colOp = vec4(getVal(vec3(x,y,z)).xyz, 1.0);\n";
+  
   float lutStep = 1.0/(float)Global::lutSize();
   shader += "  vec2 rgLut = colOp.rg;\n";
   shader += QString("  rgLut.y *= %1;\n").arg(lutStep);
@@ -219,12 +235,13 @@ LightShaderFactory::genOpacityShaderRGB()
 
   shader += "  colOp.a *= alpha;\n";      
 
-  shader += "  gl_FragColor.rgba = vec4(colOp.rgb,1.0)*colOp.a;\n";
+  shader += "  glFragColor.rgba = vec4(colOp.rgb,1.0)*colOp.a;\n";
 
   shader += " if (opshader)\n";
-  shader += "   gl_FragColor = gl_FragColor.aaaa;\n";  
+  shader += "   glFragColor = glFragColor.aaaa;\n";  
   shader += " else\n";
-  shader += "   gl_FragColor.a = step(0.01, gl_FragColor.a);\n";
+  shader += "   glFragColor.a = step(0.01, glFragColor.a);\n";
+
 
   shader += "}\n";
 

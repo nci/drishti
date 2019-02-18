@@ -31,6 +31,11 @@ class VolumeRGB : public VolumeRGBBase
   uchar* getSliceTextureSlab(int, int);
   void deleteTextureSlab();
 
+  uchar* getSubvolume();
+  uchar* getDragSubvolumeTexture();
+  Vec getDragSubvolumeTextureSize();
+  int getDragSubvolumeSubsamplingLevel();
+
   bool setSubvolume(Vec, Vec,
 		    int volnum = 0,
 		    bool force=false);
@@ -79,12 +84,15 @@ class VolumeRGB : public VolumeRGBBase
   int m_subvolumeSubsamplingLevel;
   unsigned char* m_subvolumeTexture;
 
+  Vec m_dragSubvolumeTextureSize;
+  int m_dragSubvolumeSubsamplingLevel;
+  unsigned char* m_dragSubvolumeTexture;
+
   int m_texColumns, m_texRows;
   int m_texWidth, m_texHeight;
   Vec m_dragTextureInfo;
   int m_dragTexWidth, m_dragTexHeight;
   unsigned char* m_dragTexture;
-  unsigned char* m_sliceTexture;
   unsigned char* m_sliceTemp;
 
   int *m_subvolume1dHistogramR, *m_subvolume2dHistogramR;

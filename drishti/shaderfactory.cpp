@@ -905,7 +905,8 @@ ShaderFactory::genPreVgx()
 {
   QString shader;
 
-  shader += "  vec2 vg, vg1;\n";
+  //shader += "  vec2 vg, vg1;\n";
+  shader += "  vec4 vg, vg1;\n";
   shader += "  float val0, val1;\n";
   shader += "  int row, col, slice;\n";
   shader += "  vec2 t0, t1;\n";

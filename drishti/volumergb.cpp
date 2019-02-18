@@ -12,8 +12,11 @@ Vec VolumeRGB::getSubvolumeMax() { return m_dataMax; }
 Vec VolumeRGB::getSubvolumeSize() { return m_subvolumeSize; }
 Vec VolumeRGB::getSubvolumeTextureSize() { return m_subvolumeTextureSize; }
 int VolumeRGB::getSubvolumeSubsamplingLevel() { return m_subvolumeSubsamplingLevel; }
-
 unsigned char* VolumeRGB::getSubvolumeTexture() { return m_subvolumeTexture; }
+
+Vec VolumeRGB::getDragSubvolumeTextureSize() { return m_dragSubvolumeTextureSize; }
+int VolumeRGB::getDragSubvolumeSubsamplingLevel() { return m_dragSubvolumeSubsamplingLevel; }
+uchar* VolumeRGB::getDragSubvolumeTexture() { return m_dragSubvolumeTexture; }
 
 QList<QString> VolumeRGB::volumeFiles() { return m_volumeFiles; }
 
@@ -91,6 +94,7 @@ VolumeRGB::VolumeRGB() :
   
   m_volumeFiles.clear();
 
+  m_dragSubvolumeTexture = 0;
   m_subvolumeTexture = 0;
 
   m_subvolume1dHistogramR = new int[256];
@@ -156,7 +160,6 @@ VolumeRGB::VolumeRGB() :
 
   m_dragTexture = 0;
   m_sliceTemp = 0;
-  m_sliceTexture = 0;
 
   m_texColumns = 0;
   m_texRows = 0;
@@ -181,6 +184,7 @@ VolumeRGB::~VolumeRGB()
   m_flhist1DA = 0;
   m_flhist2DA = 0;
 
+  if(m_dragSubvolumeTexture) delete [] m_dragSubvolumeTexture;
   if(m_subvolumeTexture) delete [] m_subvolumeTexture;
 
   if(m_subvolume1dHistogramR) delete [] m_subvolume1dHistogramR;
@@ -226,10 +230,8 @@ VolumeRGB::~VolumeRGB()
   m_volumeFiles.clear();
 
   if(m_dragTexture) delete [] m_dragTexture;
-  if(m_sliceTexture) delete [] m_sliceTexture;
   if(m_sliceTemp) delete [] m_sliceTemp;
   m_dragTexture = 0;
-  m_sliceTexture = 0;
   m_sliceTemp = 0;
 }
 
@@ -332,10 +334,21 @@ VolumeRGB::setSubvolume(Vec boxMin, Vec boxMax,
 								     Global::textureSizeLimit(),
 								     nRGB, boxMin, boxMax);
 
+  //-------------
+  int lenx = m_subvolumeSize.x;
+  int leny = m_subvolumeSize.y;
+  int lenz = m_subvolumeSize.z;
+  int lenx2 = lenx/m_subvolumeSubsamplingLevel;
+  int leny2 = leny/m_subvolumeSubsamplingLevel;
+  int lenz2 = lenz/m_subvolumeSubsamplingLevel;
+  m_subvolumeTextureSize = Vec(lenx2, leny2, lenz2);
+  //-------------
+
   if (m_subvolumeTexture) delete [] m_subvolumeTexture;
   m_subvolumeTexture = 0;
 
-  m_subvolumeTextureSize = Vec(1,1,1);
+  if (m_dragSubvolumeTexture) delete [] m_dragSubvolumeTexture;
+  m_dragSubvolumeTexture = 0;
 
   return true;
 }
@@ -436,8 +449,6 @@ VolumeRGB::getSliceTextureSizeSlabs()
   m_texColumns = ncols;
   m_texRows = nrows;
 
-  if (m_sliceTexture) delete [] m_sliceTexture;
-
   int lenx = m_subvolumeSize.x;
   int leny = m_subvolumeSize.y;
   int lenx2 = lenx/m_subvolumeSubsamplingLevel;
@@ -448,29 +459,17 @@ VolumeRGB::getSliceTextureSizeSlabs()
 
   Global::progressBar()->setValue(50);
 
-  if (m_sliceTexture) delete [] m_sliceTexture;
-  m_sliceTexture = new unsigned char[nRGB*m_texWidth*m_texHeight];
-
   Global::progressBar()->setValue(100);
   Global::hideProgressBar();
 
   return slabinfo;
 }
 
-void
-VolumeRGB::deleteTextureSlab()
-{
-  if (m_sliceTexture) delete [] m_sliceTexture;
-}
-void
-VolumeRGB::deleteDragTexture()
-{
-  if (m_dragTexture) delete [] m_dragTexture;
-}
-
-
+//----------------------------
+// for array texture
+//----------------------------
 uchar*
-VolumeRGB::getSliceTextureSlab(int minz, int maxz)
+VolumeRGB::getSubvolume()
 {
   //---------------
   int nRGB = 3;
@@ -479,20 +478,42 @@ VolumeRGB::getSliceTextureSlab(int minz, int maxz)
   //---------------
 
   int lod = m_subvolumeSubsamplingLevel;
+
   int minx = m_dataMin.x;
   int miny = m_dataMin.y;
+  int minz = m_dataMin.z;
+  
+  int maxx = m_dataMax.x;
+  int maxy = m_dataMax.y;
+  int maxz = m_dataMax.z;
+
   int lenx = m_subvolumeSize.x;
   int leny = m_subvolumeSize.y;
-  int lenx2 = lenx/lod;
-  int leny2 = leny/lod;
+  int lenz = m_subvolumeSize.z;
 
-  int ncols = m_texColumns;
-  int nrows = m_texRows;
+  int lenx2 = m_subvolumeTextureSize.x;
+  int leny2 = m_subvolumeTextureSize.y;
+  int lenz2 = m_subvolumeTextureSize.z;
 
-  memset(m_sliceTexture, 0, nRGB*m_texWidth*m_texHeight);
+  //-------- for dragTexure ---------------
+  int dtlod = m_dragTextureInfo.z;
+  int dtlenx2 = lenx/dtlod;
+  int dtleny2 = leny/dtlod;
+  int dtlenz2 = lenz/dtlod;
+  float stp = (float)dtlod/(float)m_subvolumeSubsamplingLevel;
+  //uchar *tmp = new uchar[nRGB*dtlenx2*dtleny2];
+  //---------------------------------------
 
-  MainWindowUI::mainWindowUI()->menubar->parentWidget()->\
-    setWindowTitle(QString("loading block (%1-%2)").arg(minz).arg(maxz));
+
+  m_dragSubvolumeSubsamplingLevel = dtlod;
+  m_dragSubvolumeTextureSize = Vec(dtlenx2, dtleny2, dtlenz2);
+  
+  if (m_subvolumeTexture) delete [] m_subvolumeTexture;
+  if (m_dragSubvolumeTexture) delete [] m_dragSubvolumeTexture;
+
+  m_subvolumeTexture = new uchar[nRGB*lenx2*leny2*lenz2];
+  m_dragSubvolumeTexture = new uchar[nRGB*dtlenx2*dtleny2*dtlenz2];
+
   Global::progressBar()->show();
 
   int totcount = 2*lod-1;
@@ -509,12 +530,19 @@ VolumeRGB::getSliceTextureSlab(int minz, int maxz)
   int nbytes = m_width*m_height;
   uchar *tmp = new uchar[nRGB*nbytes];
 
-  int row = 0;
-  int col = 0;
+  int kmin = minz/m_subvolumeSubsamplingLevel;
+  int kmax = maxz/m_subvolumeSubsamplingLevel;
+
+  int imin = minx/m_subvolumeSubsamplingLevel;
+  int jmin = miny/m_subvolumeSubsamplingLevel;
+  
+  int kslc = 0;
+
   // additional slice at the top and bottom
-  for(int k=minz-1; k<=maxz+1; k++)
+  for(int k=minz; k<=maxz; k++)
     {
-      Global::progressBar()->setValue((int)(100.0*(float)(k-minz+1)/(float)(maxz-minz+3)));
+      Global::progressBar()->setValue((int)(100.0*(float)(kslc)/(float)(lenz2)));
+      if (kslc%100==0) qApp->processEvents();
 
       if (k >= 0 && k < m_depth)
 	{
@@ -588,26 +616,36 @@ VolumeRGB::getSliceTextureSlab(int minz, int maxz)
 	      count = totcount/2;
 
 	      
-	      int grow = row*leny2;
-	      for(int j=0; j<leny2; j++)
-		memcpy(m_sliceTexture + nRGB*(col*lenx2 +
-					     (grow+j)*m_texWidth),
-		       m_sliceTemp + nRGB*(j*lenx2),
-		       nRGB*lenx2);
+	      // copy into array texture
+	      memcpy(m_subvolumeTexture + nRGB*kslc*lenx2*leny2,
+		     m_sliceTemp,
+		     nRGB*lenx2*leny2);
+	      //---
 
-	      if (row == nrows && col > 0)
-		QMessageBox::information(0, "ERROR", QString("row, col ?? %1 %2 , %3"). \
-					 arg(row).arg(nrows).arg(col));
-	      col++;
-	      if (col >= ncols)
-		{
-		  col = 0;
-		  row++;
+	      //---
+	      int ji=0;
+	      for(int j=0; j<dtleny2; j++)
+		{ 
+		  int y = j*stp;
+		  for(int i=0; i<dtlenx2; i++) 
+		    { 
+		      int x = i*stp; 
+		      for(int a=0; a<nRGB; a++)
+			tmp[nRGB*ji+a] = m_sliceTemp[nRGB*(y*lenx2+x)+a];
+		      ji++;
+		    }
 		}
+	      // copy into drag array texture
+	      int dtkslc = qBound(0, (int)(kslc/stp), dtlenz2-1);
+	      memcpy(m_dragSubvolumeTexture + nRGB*dtkslc*dtlenx2*dtleny2,
+		     tmp,
+		     nRGB*dtlenx2*dtleny2);
+	      //---
 
+	      
 	      doHist = true;
 	    }
-	}
+	} // lod > 1
       //------------------------
       else
 	{
@@ -615,26 +653,34 @@ VolumeRGB::getSliceTextureSlab(int minz, int maxz)
 	    memcpy(m_sliceTemp + nRGB*j*lenx2,
 		   m_sliceTemp + nRGB*((j+miny)*m_height + minx),
 		   nRGB*lenx2);
-	  
-	  int grow = row*leny2;
-	  for(int j=0; j<leny2; j++)
-	    memcpy(m_sliceTexture + nRGB*(col*lenx2 +
-					  (grow+j)*m_texWidth),
-		   m_sliceTemp + nRGB*(j*lenx2),
-		   nRGB*lenx2);
 
+	  // copy into array texture
+	  memcpy(m_subvolumeTexture + nRGB*kslc*lenx2*leny2,
+		 m_sliceTemp,
+		 nRGB*lenx2*leny2);
+	  //---
 
-	  if (row == nrows && col > 0)
-	    QMessageBox::information(0, "ERROR", QString("row, col ?? %1 %2 , %3"). \
-				     arg(row).arg(nrows).arg(col));
-	  
-	  col++;
-	  if (col >= ncols)
-	    {
-	      col = 0;
-	      row++;
+	  //---
+	  int ji=0;
+	  for(int j=0; j<dtleny2; j++)
+	    { 
+	      int y = j*stp;
+	      for(int i=0; i<dtlenx2; i++) 
+		{ 
+		  int x = i*stp; 
+		  for(int a=0; a<nRGB; a++)
+		    tmp[nRGB*ji+a] = m_sliceTemp[nRGB*(y*lenx2+x)+a];
+		  ji++;
+		}
 	    }
+	  // copy into drag array texture
+	  int dtkslc = qBound(0, (int)(kslc/stp), dtlenz2-1);
+	  memcpy(m_dragSubvolumeTexture + nRGB*dtkslc*dtlenx2*dtleny2,
+		 tmp,
+		 nRGB*dtlenx2*dtleny2);
+	  //---
 
+	  
 	  doHist = true;
 	}
       //---------------------
@@ -657,7 +703,8 @@ VolumeRGB::getSliceTextureSlab(int minz, int maxz)
 	}
       //---------------------
 
-    }
+      kslc ++;
+    } // look over k
   
   delete [] tmp;
 
@@ -669,9 +716,227 @@ VolumeRGB::getSliceTextureSlab(int minz, int maxz)
     }
 
   Global::progressBar()->setValue(100);
-  Global::hideProgressBar();
+  MainWindowUI::mainWindowUI()->statusBar->showMessage("Ready");
 
-  return m_sliceTexture;
+  return m_subvolumeTexture;
+}
+
+
+void
+VolumeRGB::deleteTextureSlab()
+{
+}
+void
+VolumeRGB::deleteDragTexture()
+{
+  if (m_dragTexture) delete [] m_dragTexture;
+}
+
+
+uchar*
+VolumeRGB::getSliceTextureSlab(int minz, int maxz)
+{
+  return NULL;
+//  //---------------
+//  int nRGB = 3;
+//  if (Global::volumeType() == Global::RGBAVolume)
+//    nRGB = 4;
+//  //---------------
+//
+//  int lod = m_subvolumeSubsamplingLevel;
+//  int minx = m_dataMin.x;
+//  int miny = m_dataMin.y;
+//  int lenx = m_subvolumeSize.x;
+//  int leny = m_subvolumeSize.y;
+//  int lenx2 = lenx/lod;
+//  int leny2 = leny/lod;
+//
+//  int ncols = m_texColumns;
+//  int nrows = m_texRows;
+//
+//  memset(m_sliceTexture, 0, nRGB*m_texWidth*m_texHeight);
+//
+//  MainWindowUI::mainWindowUI()->menubar->parentWidget()->\
+//    setWindowTitle(QString("loading block (%1-%2)").arg(minz).arg(maxz));
+//  Global::progressBar()->show();
+//
+//  int totcount = 2*lod-1;
+//  int count=0;
+//  unsigned char **volX;
+//  volX = 0;
+//  if (lod > 1)
+//    {
+//      volX = new unsigned char*[totcount];
+//      for(int i=0; i<totcount; i++)
+//	volX[i] = new unsigned char[nRGB*leny2*lenx2];
+//    }  
+//
+//  int nbytes = m_width*m_height;
+//  uchar *tmp = new uchar[nRGB*nbytes];
+//
+//  int row = 0;
+//  int col = 0;
+//  // additional slice at the top and bottom
+//  for(int k=minz-1; k<=maxz+1; k++)
+//    {
+//      Global::progressBar()->setValue((int)(100.0*(float)(k-minz+1)/(float)(maxz-minz+3)));
+//
+//      if (k >= 0 && k < m_depth)
+//	{
+//	  for (int a=0; a<nRGB; a++)
+//	    {
+//	      uchar *vslice = m_rgbaFileManager[a].getSlice(k);
+//	      memcpy(tmp, vslice, nbytes);
+//
+//	      for (int ij=0; ij<m_width*m_height; ij++)
+//		m_sliceTemp[nRGB*ij+a] = tmp[ij];
+//	    }
+//	}
+//      else
+//	{
+//	  memset(m_sliceTemp, 0, nRGB*m_width*m_height);
+//	}
+//
+//      bool doHist = false;
+//      //------------------------
+//      if (lod > 1)
+//	{
+//	  int ji=0;
+//	  for(int j=0; j<leny2; j++)
+//	    { 
+//	      int y = miny + j*lod;
+//	      int loy = qMax(miny+0, y-lod+1);
+//	      int hiy = qMin(miny+leny-1, y+lod-1);
+//	      for(int i=0; i<lenx2; i++) 
+//		{ 
+//		  int x = minx + i*lod; 
+//		  int lox = qMax(minx+0, x-lod+1); 
+//		  int hix = qMin(minx+lenx-1, x+lod-1);
+//		  float sumv[4] = {0, 0, 0, 0}; 
+//		  for(int jy=loy; jy<=hiy; jy++) 
+//		    {
+//		      for(int ix=lox; ix<=hix; ix++) 
+//			{
+//			  int idx = jy*m_height+ix;
+//			  for(int a=0; a<nRGB; a++)
+//			    sumv[a] += m_sliceTemp[nRGB*idx+a];
+//			}
+//		    }
+//
+//		  for(int a=0; a<nRGB; a++)
+//		    tmp[nRGB*ji+a] = sumv[a]/((hiy-loy+1)*(hix-lox+1)); 
+//
+//		  ji++;
+//		}
+//	    }
+//	  memcpy(m_sliceTemp, tmp, nRGB*leny2*lenx2);
+//
+//	  unsigned char *vptr;
+//	  vptr = volX[0];
+//	  for (int c=0; c<totcount-1; c++)
+//	    volX[c] = volX[c+1];
+//	  volX[totcount-1] = vptr;
+//	  
+//	  memcpy(volX[totcount-1], m_sliceTemp, nRGB*leny2*lenx2);
+//      
+//	  count ++;
+//	  if (count == totcount)
+//	    {
+//	      for(int j=0; j<nRGB*leny2*lenx2; j++)
+//		{
+//		  float sum=0;
+//		  for(int x=0; x<totcount; x++)
+//		    sum += volX[x][j];
+//		  m_sliceTemp[j] = sum/totcount;
+//		}
+//	      
+//	      count = totcount/2;
+//
+//	      
+//	      int grow = row*leny2;
+//	      for(int j=0; j<leny2; j++)
+//		memcpy(m_sliceTexture + nRGB*(col*lenx2 +
+//					     (grow+j)*m_texWidth),
+//		       m_sliceTemp + nRGB*(j*lenx2),
+//		       nRGB*lenx2);
+//
+//	      if (row == nrows && col > 0)
+//		QMessageBox::information(0, "ERROR", QString("row, col ?? %1 %2 , %3"). \
+//					 arg(row).arg(nrows).arg(col));
+//	      col++;
+//	      if (col >= ncols)
+//		{
+//		  col = 0;
+//		  row++;
+//		}
+//
+//	      doHist = true;
+//	    }
+//	}
+//      //------------------------
+//      else
+//	{
+//	  for(int j=0; j<leny2; j++)
+//	    memcpy(m_sliceTemp + nRGB*j*lenx2,
+//		   m_sliceTemp + nRGB*((j+miny)*m_height + minx),
+//		   nRGB*lenx2);
+//	  
+//	  int grow = row*leny2;
+//	  for(int j=0; j<leny2; j++)
+//	    memcpy(m_sliceTexture + nRGB*(col*lenx2 +
+//					  (grow+j)*m_texWidth),
+//		   m_sliceTemp + nRGB*(j*lenx2),
+//		   nRGB*lenx2);
+//
+//
+//	  if (row == nrows && col > 0)
+//	    QMessageBox::information(0, "ERROR", QString("row, col ?? %1 %2 , %3"). \
+//				     arg(row).arg(nrows).arg(col));
+//	  
+//	  col++;
+//	  if (col >= ncols)
+//	    {
+//	      col = 0;
+//	      row++;
+//	    }
+//
+//	  doHist = true;
+//	}
+//      //---------------------
+//      for(int ji=0; ji<leny2*lenx2; ji++)
+//	{
+//	  uchar r = m_sliceTemp[nRGB*ji];
+//	  uchar g = m_sliceTemp[nRGB*ji+1];
+//	  uchar b = m_sliceTemp[nRGB*ji+2];
+//	  
+//	  m_flhist1DR[r]++;  m_flhist2DR[g*256 + r]++;
+//	  m_flhist1DG[g]++;  m_flhist2DG[b*256 + g]++;
+//	  m_flhist1DB[b]++;  m_flhist2DB[r*256 + b]++;
+//
+//	  if (nRGB == 4)
+//	    {
+//	      uchar a = m_sliceTemp[nRGB*ji+3];
+//	      uchar rgb = qMax(r, qMax(g, b));
+//	      m_flhist1DA[a]++; m_flhist2DA[rgb*256 + a]++;
+//	    }
+//	}
+//      //---------------------
+//
+//    }
+//  
+//  delete [] tmp;
+//
+//  if (lod > 1)
+//    {
+//      for(int i=0; i<totcount; i++)
+//	delete [] volX[i];
+//      delete [] volX;
+//    }
+//
+//  Global::progressBar()->setValue(100);
+//  Global::hideProgressBar();
+//
+//  return m_sliceTexture;
 }
 
 void

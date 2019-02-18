@@ -311,9 +311,9 @@ ShaderFactory2::genVgx(int nvol)
   shader += "  vec4 voxValues[3] = getVal(vtexCoord);\n"; // interpolated
 
   shader += "  if (linearInterpolation)\n";
-  shader += "    vg = voxValues[0]."+xyzw+";\n"; // interpolated
+  shader += "    vg."+xyzw+" = voxValues[0]."+xyzw+";\n"; // interpolated
   shader += "  else\n";
-  shader += "    vg = voxValues[1]."+xyzw+";\n"; // nearest neighbour
+  shader += "    vg."+xyzw+" = voxValues[1]."+xyzw+";\n"; // nearest neighbour
 
   shader += "  if (mixTag) \n";
   if (nvol == 2)

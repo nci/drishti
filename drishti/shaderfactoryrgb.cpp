@@ -19,15 +19,17 @@ ShaderFactoryRGB::getColorOpacity(bool lowres)
     shader += "  colOp = texture3D(dataTex, gl_TexCoord[0].xyz);\n";
   else
     {
-      shader += "  slice = int(floor(texCoord.z));\n";
-      shader += "  slicef = fract(texCoord.z);\n";
+      shader += "  colOp = getVal(vtexCoord)[0];\n";
 
-      shader += "  t0 = getTextureCoordinate(slice, gridx, tsizex, tsizey, texCoord.xy);";
-      shader += "  t1 = getTextureCoordinate(slice+1, gridx, tsizex, tsizey, texCoord.xy);";
-
-      shader += "  vg = texture2DRect(dataTex, t0);\n";
-      shader += "  vg1 = texture2DRect(dataTex, t1);\n";
-      shader += "  colOp = mix(vg, vg1, slicef);\n";
+//      shader += "  slice = int(floor(texCoord.z));\n";
+//      shader += "  slicef = fract(texCoord.z);\n";
+//
+//      shader += "  t0 = getTextureCoordinate(slice, gridx, tsizex, tsizey, texCoord.xy);";
+//      shader += "  t1 = getTextureCoordinate(slice+1, gridx, tsizex, tsizey, texCoord.xy);";
+//
+//      shader += "  vg = texture2DRect(dataTex, t0);\n";
+//      shader += "  vg1 = texture2DRect(dataTex, t1);\n";
+//      shader += "  colOp = mix(vg, vg1, slicef);\n";
     }
 
   shader += "  colOp.rgb = min(colOp.rgb, vec3(0.996, 0.996, 0.996));\n";  
@@ -89,19 +91,21 @@ ShaderFactoryRGB::genEmissiveColor(bool lowres)
     shader += "  emis = texture3D(dataTex, gl_TexCoord[0].xyz);\n";
   else
     {
-      shader += "  vec4 vg, vg1;\n";
-      shader += "  int row, col, slice;\n";
-      shader += "  vec2 t0, t1;\n";
-      shader += "  float slicef;\n";
-      shader += "  slice = int(floor(texCoord.z));\n";
-      shader += "  slicef = fract(texCoord.z);\n";
+      shader += "  emis = getVal(texCoord)[0];\n";
 
-      shader += "  t0 = getTextureCoordinate(slice, gridx, tsizex, tsizey, texCoord.xy);";
-      shader += "  t1 = getTextureCoordinate(slice+1, gridx, tsizex, tsizey, texCoord.xy);";
-  
-      shader += "  vg = texture2DRect(dataTex, t0);\n";
-      shader += "  vg1 = texture2DRect(dataTex, t1);\n";
-      shader += "  emis = mix(vg, vg1, slicef);\n";
+//      shader += "  vec4 vg, vg1;\n";
+//      shader += "  int row, col, slice;\n";
+//      shader += "  vec2 t0, t1;\n";
+//      shader += "  float slicef;\n";
+//      shader += "  slice = int(floor(texCoord.z));\n";
+//      shader += "  slicef = fract(texCoord.z);\n";
+//
+//      shader += "  t0 = getTextureCoordinate(slice, gridx, tsizex, tsizey, texCoord.xy);";
+//      shader += "  t1 = getTextureCoordinate(slice+1, gridx, tsizex, tsizey, texCoord.xy);";
+//  
+//      shader += "  vg = texture2DRect(dataTex, t0);\n";
+//      shader += "  vg1 = texture2DRect(dataTex, t1);\n";
+//      shader += "  emis = mix(vg, vg1, slicef);\n";
     }
 
   shader += "  emis.rgb = min(emis.rgb, vec3(0.996, 0.996, 0.996));\n";  
@@ -154,9 +158,10 @@ ShaderFactoryRGB::getAlpha()
 
   QString shader;
 
-  shader = "float getAlpha(vec2 da)\n";
+  shader = "float getAlpha(vec3 da)\n";
   shader += "{\n";
-  shader += "  vec4 samp = texture2DRect(dataTex, da);\n";
+  //shader += "  vec4 samp = texture2DRect(dataTex, da);\n";
+  shader += "  vec4 samp = getVal(da)[0];\n";
 
   shader += "  vec2 rgLut = samp.rg;\n";
   shader += QString("  rgLut.y *= %1;\n").arg(lutStep);
@@ -215,10 +220,14 @@ ShaderFactoryRGB::genDefaultSliceShaderString(bool lighting,
 
   QString shader;
 
-  shader =  "#extension GL_ARB_texture_rectangle : enable\n";
-  shader += "varying vec3 pointpos;\n";
+  shader = "#version 450 core\n";
+  shader += "#extension GL_ARB_texture_rectangle : enable\n";
+  shader += "in vec3 pointpos;\n";
+  shader += "in vec3 glTexCoord0;\n";
+
   shader += "uniform sampler2D lutTex;\n";
   shader += "uniform sampler2DRect dataTex;\n";
+  shader += "uniform sampler2DArray dataTexAT;\n";
 
   shader += "uniform float layerSpacing;\n";
   shader += "uniform vec3 eyepos;\n";
@@ -264,7 +273,17 @@ ShaderFactoryRGB::genDefaultSliceShaderString(bool lighting,
 
   shader += "uniform float dofscale;\n";
 
+  shader += "uniform vec3 vsize;\n";
+  shader += "uniform vec3 vmin;\n";
+
+  shader += "out vec4 gl_FragColor;\n";
+
   shader += ShaderFactory::genTextureCoordinate();
+
+  //---------------------
+  // get voxel value from array texture
+  shader += ShaderFactory::getVal();
+  //---------------------
 
   if (tearPresent) shader += TearShaderFactory::generateTear(crops);
   if (cropPresent) shader += CropShaderFactory::generateCropping(crops);
@@ -280,7 +299,7 @@ ShaderFactoryRGB::genDefaultSliceShaderString(bool lighting,
 
   shader += "  vec3 lightcol = vec3(1.0,1.0,1.0);\n";
 
-  shader += "  vec3 texCoord = gl_TexCoord[0].xyz;\n";
+  shader += "  vec3 texCoord = glTexCoord0.xyz;\n";
 
   shader += "if (any(lessThan(texCoord,brickMin)) || ";
   shader += "any(greaterThan(texCoord, brickMax)))\n";
@@ -319,9 +338,16 @@ ShaderFactoryRGB::genDefaultSliceShaderString(bool lighting,
   if (pathCropPresent) shader += "feather *= pathcrop(texCoord, true);\n";
 
 
-  shader += "texCoord.x = 1.0 + float(tsizex-2)*(texCoord.x-dataMin.x)/dataSize.x;\n";
-  shader += "texCoord.y = 1.0 + float(tsizey-2)*(texCoord.y-dataMin.y)/dataSize.y;\n";
-  shader += "texCoord.z = 1.0 + (texCoord.z-float(tminz))/float(lod);\n";
+  //------
+  shader += "vec3 vtexCoord = (texCoord-vmin)/lod;\n";
+  //------
+
+  shader += "texCoord.xy = vec2(tsizex,tsizey)*(vtexCoord.xy/vsize.xy);\n";
+  shader += "texCoord.z = vtexCoord.z;\n";
+
+//  shader += "texCoord.x = 1.0 + float(tsizex-2)*(texCoord.x-dataMin.x)/dataSize.x;\n";
+//  shader += "texCoord.y = 1.0 + float(tsizey-2)*(texCoord.y-dataMin.y)/dataSize.y;\n";
+//  shader += "texCoord.z = 1.0 + (texCoord.z-float(tminz))/float(lod);\n";
 
   shader += "  vec4 vg, vg1;\n";
   shader += "  int row, col, slice;\n";
@@ -348,9 +374,10 @@ ShaderFactoryRGB::genDefaultSliceShaderString(bool lighting,
   shader += "  {\n";
   shader += "    if (lightlod > 0)\n";
   shader += "     {\n"; // calculate light color
-  shader += "       vec2 pvg = texCoord.xy/(prunelod*float(lightlod));\n";	       
-  shader += "       int lbZslc = int(float(zoffset+slice)/(prunelod*float(lightlod)));\n";
-  shader += "       float lbZslcf = fract(float(zoffset+slice)/(prunelod*float(lightlod)));\n";
+  shader += "       float llod = prunelod*float(lightlod);\n";
+  shader += "       vec2 pvg = texCoord.xy/llod;\n";
+  shader += "       int lbZslc = int(texCoord.z/llod);\n";
+  shader += "       float lbZslcf = fract(texCoord.z/llod);\n";
   shader += "       vec2 pvg0 = getTextureCoordinate(lbZslc, ";
   shader += "                     lightncols, lightgridx, lightgridy, pvg);\n";
   shader += "       vec2 pvg1 = getTextureCoordinate(lbZslc+1, ";
@@ -372,28 +399,6 @@ ShaderFactoryRGB::genDefaultSliceShaderString(bool lighting,
   shader += "  }\n";
   //----------------------------------
 
-//  //----------------------------------
-//  shader += " if (lightlod > 0)\n";
-//  shader += "   {\n"; // calculate light color
-//  shader += "     vec2 pvg = texCoord.xy/(prunelod*float(lightlod));\n";
-//
-//  shader += "     int lbZslc = int(float(zoffset+slice)/(prunelod*float(lightlod)));\n";
-//  shader += "     float lbZslcf = fract(float(zoffset+slice)/(prunelod*float(lightlod)));\n";
-//
-//  shader += "     vec2 pvg0 = getTextureCoordinate(lbZslc, ";
-//  shader += "                   lightncols, lightgridx, lightgridy, pvg);\n";
-//  shader += "     vec2 pvg1 = getTextureCoordinate(lbZslc+1, ";
-//  shader += "                   lightncols, lightgridx, lightgridy, pvg);\n";
-//
-//  shader += "     vec3 lc0 = texture2DRect(lightTex, pvg0).xyz;\n";
-//  shader += "     vec3 lc1 = texture2DRect(lightTex, pvg1).xyz;\n";
-//  shader += "     lightcol = mix(lc0, lc1, lbZslcf);\n";
-//
-//  shader += "     lightcol = 1.0-pow((vec3(1,1,1)-lightcol),vec3(lod,lod,lod));\n";
-//  shader += "   }\n";
-//  shader += " else\n";
-//  shader += "   lightcol = vec3(1.0,1.0,1.0);\n";
-//  //----------------------------------
 
   if (peel || lighting)
     shader += getNormal();
@@ -432,7 +437,8 @@ ShaderFactoryRGB::genDefaultSliceShaderString(bool lighting,
 
   if (emissive)
     {
-      shader += "  vec4 eColor = emissiveColor(texCoord)\n;";
+      //shader += "  vec4 eColor = emissiveColor(texCoord)\n;";
+      shader += "  vec4 eColor = emissiveColor(vtexCoord)\n;";
       shader += "  gl_FragColor.rgb += eColor.rgb;\n";
     }
 
@@ -454,29 +460,41 @@ ShaderFactoryRGB::getNormal()
 {
   QString shader;
 
-  shader = "  vec3 normal, sample1, sample2;\n";
+  //shader = "  vec3 normal, sample1, sample2;\n";
 
-  shader += "  vec4 rgba;\n";
+  //shader += "  vec4 rgba;\n";
   
-  for (int i=0; i<6; i++)
-    {
-      if (i == 0) shader += "  sample1.x = getAlpha(t0+vec2(1,0));\n";
-      if (i == 1) shader += "  sample2.x = getAlpha(t0-vec2(1,0));\n";
-      if (i == 2) shader += "  sample1.y = getAlpha(t0+vec2(0,1));\n";
-      if (i == 3) shader += "  sample2.y = getAlpha(t0-vec2(0,1));\n";
-      if (i == 4) shader += "  sample1.z = getAlpha(t0);\n";
-      if (i == 5)
-	{
-	  shader += "  t1 = getTextureCoordinate(slice-1, gridx, tsizex, tsizey, texCoord.xy);";
-	  shader += "  sample2.z = getAlpha(t1);\n";
-	}
-    }
-
-  shader += "  float normlen = distance(sample1,sample2);\n"; 
+  shader += "  vec2 k = vec2(1.0, -1.0);\n";
+  shader += "  vec3 grad = (k.xyy * getAlpha(vtexCoord+k.xyy) +\n";
+  shader += "               k.yyx * getAlpha(vtexCoord+k.yyx) +\n";
+  shader += "               k.yxy * getAlpha(vtexCoord+k.yxy) +\n";
+  shader += "               k.xxx * getAlpha(vtexCoord+k.xxx));\n";
+  shader += "  vec3 normal = grad/2.0;\n";  // should be actually divided by 4
+  shader += "  float normlen = length(normal);\n"; 
   shader += "  if (normlen > 0.0)\n"; 
-  shader += "     normal = normalize(sample1 - sample2);\n";
+  shader += "     normal = normalize(normal);\n";
   shader += "  else\n";
   shader += "     normal = vec3(0.0,0.0,0.0);\n";
+
+//  for (int i=0; i<6; i++)
+//    {
+//      if (i == 0) shader += "  sample1.x = getAlpha(t0+vec2(1,0));\n";
+//      if (i == 1) shader += "  sample2.x = getAlpha(t0-vec2(1,0));\n";
+//      if (i == 2) shader += "  sample1.y = getAlpha(t0+vec2(0,1));\n";
+//      if (i == 3) shader += "  sample2.y = getAlpha(t0-vec2(0,1));\n";
+//      if (i == 4) shader += "  sample1.z = getAlpha(t0);\n";
+//      if (i == 5)
+//	{
+//	  shader += "  t1 = getTextureCoordinate(slice-1, gridx, tsizex, tsizey, texCoord.xy);";
+//	  shader += "  sample2.z = getAlpha(t1);\n";
+//	}
+//    }
+//
+//  shader += "  float normlen = distance(sample1,sample2);\n"; 
+//  shader += "  if (normlen > 0.0)\n"; 
+//  shader += "     normal = normalize(sample1 - sample2);\n";
+//  shader += "  else\n";
+//  shader += "     normal = vec3(0.0,0.0,0.0);\n";
 
   return shader;
 }

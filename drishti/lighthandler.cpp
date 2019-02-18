@@ -532,7 +532,7 @@ LightHandler::createOpacityShader(bool bit16)
 
   //---------------------------
   if (Global::volumeType() == Global::RGBVolume ||
-	   Global::volumeType() == Global::RGBAVolume)
+      Global::volumeType() == Global::RGBAVolume)
     shaderString = LightShaderFactory::genOpacityShaderRGB();
   else
     {

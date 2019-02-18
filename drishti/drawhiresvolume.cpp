@@ -954,59 +954,6 @@ DrawHiresVolume::loadTextureMemory()
       glDisable(GL_TEXTURE_2D_ARRAY);
     }
 
-  
-  
-//  for(int i=0; i<m_dataTexSize; i++)
-//    {      
-//      if (m_dataTexSize > 1 && i == 0) i++; // do not load drag texture right now
-//
-//
-//      int minz, maxz, texX, texY; 
-//      minz = m_textureSlab[i].y;
-//      maxz = m_textureSlab[i].z;
-//      texX = textureX;
-//      texY = textureY;
-//     
-//      MainWindowUI::mainWindowUI()->statusBar->showMessage(	      \
-//			    QString("loading slab %1 [%2 %3]"). \
-//			    arg(i).arg(minz).arg(maxz));
-//
-//      glActiveTexture(GL_TEXTURE1);
-//      glEnable(GL_TEXTURE_RECTANGLE_ARB);
-//
-//      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_dataTex[i]);
-//	  
-//      glTexParameterf(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
-//      glTexParameterf(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
-//      if (Global::interpolationType(Global::TextureInterpolation)) // linear
-//	{
-//	  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-//	  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-//	}
-//      else
-//	{
-//	  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-//	  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-//	}
-//      
-//      uchar *textureSlab = NULL;
-//
-//      if (!Global::loadDragOnly())
-//	textureSlab = m_Volume->getSliceTextureSlab(minz, maxz);
-//      
-//      glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,
-//		   0, // single resolution
-//		   internalFormat,
-//		   texX, texY,
-//		   0, // no border
-//		   format,
-//		   vtype,
-//		   textureSlab);
-//
-//      glFlush();
-//      glFinish();
-//    }
-
   Global::hideProgressBar();
   MainWindowUI::mainWindowUI()->statusBar->showMessage("Ready");
 

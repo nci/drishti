@@ -1407,9 +1407,9 @@ VolumeSingle::getSubvolume()
   int leny = m_subvolumeSize.y;
   int lenz = m_subvolumeSize.z;
 
-  int lenx2 = m_subvolumeTextureSize.x;
-  int leny2 = m_subvolumeTextureSize.y;
-  int lenz2 = m_subvolumeTextureSize.z;
+  qint64 lenx2 = m_subvolumeTextureSize.x;
+  qint64 leny2 = m_subvolumeTextureSize.y;
+  qint64 lenz2 = m_subvolumeTextureSize.z;
 
   //-------- for dragTexure ---------------
   int dtlod = m_dragTextureInfo.z;
@@ -1434,7 +1434,7 @@ VolumeSingle::getSubvolume()
   g1 = new uchar [bpv*m_maxWidth*m_maxHeight];
   g2 = new uchar [bpv*m_maxWidth*m_maxHeight];
   g3 = new uchar [bpv*m_maxWidth*m_maxHeight];
-
+    
   //---------------------------------------------------------
   if (m_subvolumeSubsamplingLevel > 1)
     {
@@ -1470,11 +1470,8 @@ VolumeSingle::getSubvolume()
 
       uchar *sliceTemp1 = new uchar [bpv*maxWsl*maxHsl];
 
-      //// additional slice at the top and bottom
-      //for(int k0=kmin-1; k0<=kmax+1; k0++)
       for(int k0=kmin; k0<=kmax; k0++)
 	{
-	  //progress.setValue((int)(100.0*(float)(kslc)/(float)(lenz2)));
 	  Global::progressBar()->setValue((int)(100.0*(float)(kslc)/(float)(lenz2)));
 	  if (kslc%100==0) qApp->processEvents();
 
@@ -1640,8 +1637,6 @@ VolumeSingle::getSubvolume()
 
   uchar *sliceTemp1 = new uchar [bpv*m_maxWidth*m_maxHeight];
 
-  //// additional slice at the top and bottom
-  ////for(int k0=minz-1; k0<=maxz+1; k0++)
   //-------------------------------------------------------
   for(int k0=minz; k0<=maxz; k0++)
     {
@@ -1672,11 +1667,6 @@ VolumeSingle::getSubvolume()
 	memcpy(m_sliceTemp + bpv*j*lenx2,
 	       sliceTemp1 + bpv*((j+miny)*m_maxHeight + minx),
 	       bpv*lenx2);
-
-//      // testing for array texture
-//      for(int j=0; j<leny2; j++)
-//	for(int i=0; i<lenx2; i++)
-//	  m_sliceTemp[j*lenx2+i] = j%256;
 	
       // copy into array texture
       memcpy(m_subvolumeTexture + kslc*bpv*lenx2*leny2,

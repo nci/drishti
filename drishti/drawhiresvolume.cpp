@@ -1053,6 +1053,10 @@ DrawHiresVolume::createDefaultShader()
   m_defaultParm[52] = glGetUniformLocationARB(m_defaultShader, "vsize");
   m_defaultParm[53] = glGetUniformLocationARB(m_defaultShader, "vmin");
   m_defaultParm[54] = glGetUniformLocationARB(m_defaultShader, "dataTexAT");
+
+  m_defaultParm[55] = glGetUniformLocationARB(m_defaultShader, "nclip");
+  m_defaultParm[56] = glGetUniformLocationARB(m_defaultShader, "clipPos");
+  m_defaultParm[57] = glGetUniformLocationARB(m_defaultShader, "clipNormal");
 }
 
 void
@@ -1878,58 +1882,58 @@ DrawHiresVolume::drawpoly(Vec po, Vec pn,
   for(i=0; i<edges; i++)
     tex[i] = ttex[i];
 
-  Vec voxelScaling = Global::voxelScaling();
-  //---- apply clipping
-  for(int ci=0; ci<clips.count(); ci++)
-    {
-      if (clips[ci])
-	{
-	  Vec cpo = m_clipPos[ci];
-	  Vec cpn =  VECPRODUCT(m_clipNormal[ci], voxelScaling);
-
-	  tedges = 0;
-	  for(i=0; i<edges; i++)
-	    {
-	      Vec v0, v1, t0, t1;
-	      
-	      v0 = poly[i];
-	      t0 = tex[i];
-	      if (i<edges-1)
-		{
-		  v1 = poly[i+1];
-		  t1 = tex[i+1];
-		}
-	      else
-		{
-		  v1 = poly[0];
-		  t1 = tex[0];
-		}
-	      
-	      // clip on texture coordinates
-	      int ret = StaticFunctions::intersectType2WithTexture(cpo, cpn,
-								   t0, t1,
-								   v0, v1);
-	      if (ret)
-		{
-		  tpoly[tedges] = v0;
-		  ttex[tedges] = t0;
-		  tedges ++;
-		  if (ret == 2)
-		    {
-		      tpoly[tedges] = v1;
-		      ttex[tedges] = t1;
-		      tedges ++;
-		    }
-		}
-	    }
-	  edges = tedges;
-	  for(i=0; i<tedges; i++)
-	    poly[i] = tpoly[i];
-	  for(i=0; i<tedges; i++)
-	    tex[i] = ttex[i];
-	}
-    }
-  //---- clipping applied
+//  Vec voxelScaling = Global::voxelScaling();
+//  //---- apply clipping
+//  for(int ci=0; ci<clips.count(); ci++)
+//    {
+//      if (clips[ci])
+//	{
+//	  Vec cpo = m_clipPos[ci];
+//	  Vec cpn =  VECPRODUCT(m_clipNormal[ci], voxelScaling);
+//
+//	  tedges = 0;
+//	  for(i=0; i<edges; i++)
+//	    {
+//	      Vec v0, v1, t0, t1;
+//	      
+//	      v0 = poly[i];
+//	      t0 = tex[i];
+//	      if (i<edges-1)
+//		{
+//		  v1 = poly[i+1];
+//		  t1 = tex[i+1];
+//		}
+//	      else
+//		{
+//		  v1 = poly[0];
+//		  t1 = tex[0];
+//		}
+//	      
+//	      // clip on texture coordinates
+//	      int ret = StaticFunctions::intersectType2WithTexture(cpo, cpn,
+//								   t0, t1,
+//								   v0, v1);
+//	      if (ret)
+//		{
+//		  tpoly[tedges] = v0;
+//		  ttex[tedges] = t0;
+//		  tedges ++;
+//		  if (ret == 2)
+//		    {
+//		      tpoly[tedges] = v1;
+//		      ttex[tedges] = t1;
+//		      tedges ++;
+//		    }
+//		}
+//	    }
+//	  edges = tedges;
+//	  for(i=0; i<tedges; i++)
+//	    poly[i] = tpoly[i];
+//	  for(i=0; i<tedges; i++)
+//	    tex[i] = ttex[i];
+//	}
+//    }
+//  //---- clipping applied
 
 
   // copy data into ViewAlignedPolygon
@@ -2286,6 +2290,31 @@ DrawHiresVolume::setRenderDefault()
   glUniform1iARB(m_defaultParm[1], 1); // dataTex
   glUniform1iARB(m_defaultParm[54], 1); // dataTexAT
 
+  {
+    QList<Vec> cPos;
+    QList<Vec> cNorm;
+    cPos += GeometryObjects::clipplanes()->positions();
+    cNorm += GeometryObjects::clipplanes()->normals();
+    int nclip = qMin(10,cPos.count()); // max 10 clip planes allowed
+    float cpos[100];
+    float cnormal[100];
+    for(int c=0; c<nclip; c++)
+      {
+	cpos[3*c+0] = cPos[c].x*voxelScaling.x;
+	cpos[3*c+1] = cPos[c].y*voxelScaling.y;
+	cpos[3*c+2] = cPos[c].z*voxelScaling.z;
+      }
+    for(int c=0; c<nclip; c++)
+      {
+	cnormal[3*c+0] = -cNorm[c].x;
+	cnormal[3*c+1] = -cNorm[c].y;
+	cnormal[3*c+2] = -cNorm[c].z;
+      }
+    glUniform1i(m_defaultParm[55], nclip); // clipplanes
+    glUniform3fv(m_defaultParm[56], nclip, cpos); // clipplanes
+    glUniform3fv(m_defaultParm[57], nclip, cnormal); // clipplanes
+  }
+  
   if (Global::volumeType() != Global::DummyVolume)
     {
       glDisable(GL_CLIP_DISTANCE0);
@@ -2547,6 +2576,8 @@ void
 DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 				   int layers, float stepsize)
 {
+  Vec voxelScaling = Global::voxelScaling();
+
   //----------------------------------------------------------------
   if (m_useScreenShadows)
     {	  
@@ -2617,7 +2648,6 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
   uchar *slice = 0;
   if (m_saveImage2Volume)
     {
-      Vec voxelScaling = Global::voxelScaling();
       Vec dmin = VECPRODUCT(m_dataMin, voxelScaling);
       Vec p0 = m_Viewer->camera()->projectedCoordinatesOf(dmin);
       Vec p1 = p0 + Vec(10,0,0);
@@ -2702,6 +2732,10 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
   else
     deplen = 2*m_Viewer->camera()->sceneRadius();
   //-------------------------------
+
+  //------------
+  glUniform1i(m_defaultParm[55], 0); // no clip for viewport
+  //------------
 
 
   //-------------------------------
@@ -2794,6 +2828,13 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
     }
   //------------------------------------
 
+  //------------------------------------
+  // restore clip
+  int nclip = qMin(10,GeometryObjects::clipplanes()->positions().count()); // max 10 clip planes allowed
+  glUniform1i(m_defaultParm[55], nclip); // restore clip
+  //------------------------------------
+
+  
   for(int s=0; s<layers; s++)
     {
 
@@ -2905,6 +2946,41 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 					 clips,
 					 brickPivot, brickScale);
 	  
+	      {
+		QList<Vec> cPos1;
+		QList<Vec> cNorm1;
+		cPos1 += GeometryObjects::clipplanes()->positions();
+		cNorm1 += GeometryObjects::clipplanes()->normals();
+		QList<Vec> cPos;
+		QList<Vec> cNorm;
+		for(int c=0; c<clips.count(); c++)
+		  {
+		    if (clips[c])
+		      {
+			cPos << cPos1[c];
+			cNorm << cNorm1[c];
+		      }
+		  }
+		int nclip = qMin(10,cPos.count()); // max 10 clip planes allowed
+		float cpos[100];
+		float cnormal[100];
+		for(int c=0; c<nclip; c++)
+		  {
+		    cpos[3*c+0] = cPos[c].x*voxelScaling.x;
+		    cpos[3*c+1] = cPos[c].y*voxelScaling.y;
+		    cpos[3*c+2] = cPos[c].z*voxelScaling.z;
+		  }
+		for(int c=0; c<nclip; c++)
+		  {
+		    cnormal[3*c+0] = -cNorm[c].x;
+		    cnormal[3*c+1] = -cNorm[c].y;
+		    cnormal[3*c+2] = -cNorm[c].z;
+		  }
+		glUniform1i(m_defaultParm[55], nclip); // clipplanes
+		glUniform3fv(m_defaultParm[56], nclip, cpos); // clipplanes
+		glUniform3fv(m_defaultParm[57], nclip, cnormal); // clipplanes
+	      }
+
 	      ViewAlignedPolygon *vap = m_polygon[pno];
 	      pno++;
 	  
@@ -2963,14 +3039,6 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 		      
 		      releaseDataTextures(b);
 		      //-------------------------
-
-//		      if (m_drawImageType != Enums::DragImage ||
-//			  m_dataTexSize == 1)
-//			renderSlicedSlice(0,
-//					  vap, false,
-//					  lenx2, leny2, b, lod);
-//		      else
-//			renderDragSlice(vap, false, dragTexsize);
 		      
 		    } // loop over b
 		}
@@ -3070,7 +3138,6 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
   //------------------------------------------------------
   glUseProgramObjectARB(0);
   disableTextureUnits();	  
-  Vec voxelScaling = Global::voxelScaling();
   Vec bpos = VECPRODUCT(m_bricks->getTranslation(0), voxelScaling);
   Vec bpivot = VECPRODUCT(m_bricks->getPivot(0),voxelScaling);
   Vec baxis = m_bricks->getAxis(0);
@@ -4327,6 +4394,7 @@ DrawHiresVolume::drawClipPlaneDefault(int s, int layers,
 
   glUniform3fARB(m_defaultParm[53], m_dataMin.x, m_dataMin.y, m_dataMin.z);
 
+  glUniform1i(m_defaultParm[55], 0); // do not clip
   
   glUniform3fARB(m_defaultParm[6], lpos.x, lpos.y, lpos.z);
 
@@ -4416,6 +4484,9 @@ DrawHiresVolume::drawClipPlaneDefault(int s, int layers,
   glUniform1fARB(m_defaultParm[8], m_lightInfo.highlights.diffuse);
   glUniform1fARB(m_defaultParm[9], m_lightInfo.highlights.specular);
 
+  int nclip = qMin(10,GeometryObjects::clipplanes()->positions().count()); // max 10 clip planes allowed
+  glUniform1i(m_defaultParm[55], nclip); // restore clip
+  
   postDrawGeometry();
 }
 

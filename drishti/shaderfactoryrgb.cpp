@@ -276,6 +276,11 @@ ShaderFactoryRGB::genDefaultSliceShaderString(bool lighting,
   shader += "uniform vec3 vsize;\n";
   shader += "uniform vec3 vmin;\n";
 
+  shader += "uniform int nclip;\n";
+  shader += "uniform vec3 clipPos[10];\n";
+  shader += "uniform vec3 clipNormal[10];\n";
+
+
   shader += "out vec4 gl_FragColor;\n";
 
   shader += ShaderFactory::genTextureCoordinate();
@@ -304,6 +309,19 @@ ShaderFactoryRGB::genDefaultSliceShaderString(bool lighting,
   shader += "if (any(lessThan(texCoord,brickMin)) || ";
   shader += "any(greaterThan(texCoord, brickMax)))\n";
   shader += "  discard;\n";
+
+  //-----------------
+  // apply clipping
+  shader += " if (nclip > 0)\n";
+  shader += "  {\n";
+  shader += "    for(int c=0; c<nclip; c++)\n";
+  shader += "      {\n";
+  shader += "        vec3 cpos = clipPos[c];\n";
+  shader += "        vec3 cnorm = clipNormal[c];\n";
+  shader += "        if (dot(cnorm,(pointpos-cpos)) <= 0.0) discard;\n";
+  shader += "      }\n";
+  shader += "  }\n";
+  //-----------------
 
   if (crops.count() > 0)
     shader += "  vec3 otexCoord = texCoord;\n";

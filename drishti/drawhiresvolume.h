@@ -286,7 +286,6 @@ class DrawHiresVolume : public QObject
 
   int drawpoly(Vec, Vec,
 	       Vec*, Vec*,
-	       QList<bool>,
 	       ViewAlignedPolygon*);
 
   void getDragRenderInfo(Vec&, int&, int&, int&);

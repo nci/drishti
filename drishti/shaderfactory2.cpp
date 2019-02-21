@@ -519,8 +519,8 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
   shader += " {\n"; // calculate light color
   shader += "   float llod = prunelod*float(lightlod);\n";
   shader += "   vec2 pvg = texCoord.xy/llod;\n";
-  shader += "   int lbZslc = int(texCoord.z/llod);\n";
-  shader += "   float lbZslcf = fract(texCoord.z/llod);\n";
+  shader += "   int lbZslc = int((zoffset+texCoord.z)/llod);\n";
+  shader += "   float lbZslcf = fract((zoffset+texCoord.z)/llod);\n";
   shader += "   vec2 pvg0 = getTextureCoordinate(lbZslc, ";
   shader += "                 lightncols, lightgridx, lightgridy, pvg);\n";
   shader += "   vec2 pvg1 = getTextureCoordinate(lbZslc+1, ";

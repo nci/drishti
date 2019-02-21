@@ -799,37 +799,69 @@ DrawHiresVolume::loadTextureMemory()
     setWindowTitle(QString("Uploading slices"));
   Global::progressBar()->show();
 
-//  for(int i=0; i<m_dataTexSize; i++)
-    {      
-//      if (m_dataTexSize > 1 && i == 0) i++; // do not load drag texture right now
-      
-      uchar *voxelVol = NULL;
-      if (!Global::loadDragOnly())
-	voxelVol = m_Volume->getSubvolumeTexture();
-      
-      Vec vsz = m_Volume->getSubvolumeTextureSize();
-      int hsz = vsz.x;
-      int wsz = vsz.y;
-      int dsz = vsz.z;
-      
-      glActiveTexture(GL_TEXTURE1);
-      glEnable(GL_TEXTURE_2D_ARRAY);
-      glBindTexture(GL_TEXTURE_2D_ARRAY, m_dataTex[1]);
-      glTexImage3D(GL_TEXTURE_2D_ARRAY,
-		   0, // single resolution
-		   internalFormat,
-		   hsz, wsz, dsz,
-		   0, // no border
-		   format,
-		   vtype,
-		   voxelVol);
-      glTexParameterf(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
-      glTexParameterf(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
-      glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-      glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-      glDisable(GL_TEXTURE_2D_ARRAY);
-    }
-
+//  {      
+//    uchar *voxelVol = NULL;
+//    if (!Global::loadDragOnly())
+//      voxelVol = m_Volume->getSubvolumeTexture();
+//    
+//    Vec vsz = m_Volume->getSubvolumeTextureSize();
+//    int hsz = vsz.x;
+//    int wsz = vsz.y;
+//    int dsz = vsz.z;
+//    
+//    glActiveTexture(GL_TEXTURE1);
+//    glEnable(GL_TEXTURE_2D_ARRAY);
+//    glBindTexture(GL_TEXTURE_2D_ARRAY, m_dataTex[1]);
+//    glTexImage3D(GL_TEXTURE_2D_ARRAY,
+//		 0, // single resolution
+//		 internalFormat,
+//		 hsz, wsz, dsz,
+//		 0, // no border
+//		 format,
+//		 vtype,
+//		 voxelVol);
+//    glTexParameterf(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+//    glTexParameterf(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
+//    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+//    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+//    glDisable(GL_TEXTURE_2D_ARRAY);
+//  }
+  
+  {
+    uchar *voxelVol = m_Volume->getSubvolumeTexture();
+    
+    Vec vsz = m_Volume->getSubvolumeTextureSize();
+    int hsz = vsz.x;
+    int wsz = vsz.y;
+    int dsz = vsz.z;
+    
+    for(int i=1; i<m_dataTexSize; i++)
+      {
+	int zslc = (i-1)*Global::textureSizeLimit();
+	qint64 zoffset = zslc*hsz*wsz;
+	int zslices = qMin(dsz-zslc, Global::textureSizeLimit());
+	
+	glActiveTexture(GL_TEXTURE1);
+	glEnable(GL_TEXTURE_2D_ARRAY);
+	glBindTexture(GL_TEXTURE_2D_ARRAY, m_dataTex[i]);
+	glTexImage3D(GL_TEXTURE_2D_ARRAY,
+		     0, // single resolution
+		     internalFormat,
+		     hsz, wsz, zslices,
+		     0, // no border
+		     format,
+		     vtype,
+		     (voxelVol+zoffset));
+	glTexParameterf(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+	glTexParameterf(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
+	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glDisable(GL_TEXTURE_2D_ARRAY);
+      }
+  }
+  
+  
+  //---------------------------------------
   // now load drag texture
   if (m_dataTexSize > 1)
     {
@@ -1794,7 +1826,6 @@ DrawHiresVolume::drawAxisText()
 int
 DrawHiresVolume::drawpoly(Vec po, Vec pn,
 			  Vec *subvol, Vec *texture,
-			  QList<bool> clips,
 			  ViewAlignedPolygon *vap)
 {
   int sidx[] = { 0, 1,
@@ -1881,60 +1912,6 @@ DrawHiresVolume::drawpoly(Vec po, Vec pn,
     ttex[i] = tex[order[i]];
   for(i=0; i<edges; i++)
     tex[i] = ttex[i];
-
-//  Vec voxelScaling = Global::voxelScaling();
-//  //---- apply clipping
-//  for(int ci=0; ci<clips.count(); ci++)
-//    {
-//      if (clips[ci])
-//	{
-//	  Vec cpo = m_clipPos[ci];
-//	  Vec cpn =  VECPRODUCT(m_clipNormal[ci], voxelScaling);
-//
-//	  tedges = 0;
-//	  for(i=0; i<edges; i++)
-//	    {
-//	      Vec v0, v1, t0, t1;
-//	      
-//	      v0 = poly[i];
-//	      t0 = tex[i];
-//	      if (i<edges-1)
-//		{
-//		  v1 = poly[i+1];
-//		  t1 = tex[i+1];
-//		}
-//	      else
-//		{
-//		  v1 = poly[0];
-//		  t1 = tex[0];
-//		}
-//	      
-//	      // clip on texture coordinates
-//	      int ret = StaticFunctions::intersectType2WithTexture(cpo, cpn,
-//								   t0, t1,
-//								   v0, v1);
-//	      if (ret)
-//		{
-//		  tpoly[tedges] = v0;
-//		  ttex[tedges] = t0;
-//		  tedges ++;
-//		  if (ret == 2)
-//		    {
-//		      tpoly[tedges] = v1;
-//		      ttex[tedges] = t1;
-//		      tedges ++;
-//		    }
-//		}
-//	    }
-//	  edges = tedges;
-//	  for(i=0; i<tedges; i++)
-//	    poly[i] = tpoly[i];
-//	  for(i=0; i<tedges; i++)
-//	    tex[i] = ttex[i];
-//	}
-//    }
-//  //---- clipping applied
-
 
   // copy data into ViewAlignedPolygon
   vap->edges = edges;
@@ -3017,13 +2994,15 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 		  {
 		      float tminz = m_dataMin.z;
 		      float tmaxz = m_dataMax.z;
-//		      if (slabend > 1)
-//			{
-//			  tminz = m_textureSlab[b].y;
-//			  tmaxz = m_textureSlab[b].z;
-//			}
+		      if (slabend > 1)
+			{
+			  tminz = m_textureSlab[b].y;
+			  tmaxz = m_textureSlab[b].z;
+			}
 		      glUniform3fARB(m_defaultParm[42], m_dataMin.x, m_dataMin.y, tminz);
 		      glUniform3fARB(m_defaultParm[43], m_dataMax.x, m_dataMax.y, tmaxz);
+
+		      glUniform3fARB(m_defaultParm[53], m_dataMin.x, m_dataMin.y, tminz);
 
 		      bindDataTextures(b);
 		      
@@ -3583,7 +3562,6 @@ DrawHiresVolume::getSlices(Vec poStart,
 	  ViewAlignedPolygon *vap = new ViewAlignedPolygon;
 	  drawpoly(po, pn,
 		   bsubvol, btexture,
-		   clips[bno],
 		   vap);
 	  m_polygon.append(vap);
 	}
@@ -3612,7 +3590,6 @@ DrawHiresVolume::getSlices(Vec poStart,
       ViewAlignedPolygon *vap = new ViewAlignedPolygon;
       drawpoly(cpos, cnorm,
 	       bsubvol, btexture,
-	       dummyclips,
 	       vap);
       m_polygon.append(vap);
     }
@@ -3741,7 +3718,7 @@ DrawHiresVolume::renderSlicedSlice(int type,
   Vec vp1 = Vec(0, 0, tmaxz+lod);
 			  
   // using array texture
-  //clipSlab(vp0, vp1, edges, poly, tex, sha);
+  clipSlab(vp0, vp1, edges, poly, tex, sha);
 			  
   if (edges == 0)
     return;
@@ -4238,7 +4215,6 @@ DrawHiresVolume::drawClipPlaneInViewport(int clipOffset, Vec lpos, float depthcu
 	      drawpoly(cpos+sls*m_clipNormal[ic],
 		       m_clipNormal[ic],
 		       subvol, texture,
-		       dummyclips,
 		       vap);
 
 	      if (clipInfo.thickness[ic] == 0)

@@ -882,7 +882,8 @@ Volume::setSubvolume(Vec boxMin, Vec boxMax,
 
       int tms = Global::textureMemorySize(); // in Mb
       int sslevel = StaticFunctions::getSubsamplingLevel(tms,
-							 Global::textureSizeLimit(),
+							 4096,
+							 //Global::textureSizeLimit(),
 							 bpv,
 							 boxMin, boxMax);
       sslevel = qMax(sslevel, Global::lod());

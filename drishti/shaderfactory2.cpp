@@ -502,7 +502,8 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
   //------
   shader += "vec3 vtexCoord = (texCoord-vmin)/lod;\n";
   // for nearest neighbour interpolation
-  shader += "if (!linearInterpolation || mixTag)\n";
+  //shader += "if (!linearInterpolation || mixTag)\n";
+  shader += "if (!linearInterpolation)\n";
   shader += "{\n";
   shader += "  vtexCoord = vec3(floor(vtexCoord)+vec3(0.5));\n";
   shader += "}\n";

@@ -492,8 +492,12 @@ RcShaderFactory::genRaycastShader(QList<CropObject> crops,
   shader += getExactVoxelCoord();
   //---------------------
 
+  float lastSet = (Global::lutSize()-1.0)/Global::lutSize();
+
   shader += "void main(void)\n";
   shader += "{\n";
+
+  shader += QString("float lastSet = float(%1);\n").arg(lastSet);
 
   shader += "vec4 exP = texture(exitTex, gl_FragCoord.st);\n";
   shader += "vec4 enP = texture(entryTex, gl_FragCoord.st);\n";
@@ -570,6 +574,7 @@ RcShaderFactory::genRaycastShader(QList<CropObject> crops,
   if (!bit16)
     {
       shader += "  colorSample = texture(lutTex, vec2(val,0.0));\n";
+      shader += "  colorSample.rgb += texture(lutTex, vec2(val,lastSet)).rgb;\n";
     }
   else
     {
@@ -578,8 +583,9 @@ RcShaderFactory::genRaycastShader(QList<CropObject> crops,
       shader += "  h0 = int(mod(float(h0),256.0));\n";
       shader += "  float fh0 = float(h0)/256.0;\n";
       shader += "  float fh1 = float(h1)/256.0;\n";
-      shader += QString("  colorSample = texture(lutTex, vec2(fh0,fh1/float(%1)));\n").\
-	        arg(Global::lutSize());
+      shader += QString("  fh1 /= float(%1)));\n").arg(Global::lutSize());
+      shader += "  colorSample = texture(lutTex, vec2(fh0,fh1));\n";
+      shader += "  colorSample.rgb += texture(lutTex, vec2(fh0, fh1+lastSet).rgb;\n";
     }
 
   // find gradient magnitude
@@ -673,9 +679,11 @@ RcShaderFactory::genRaycastShader(QList<CropObject> crops,
   shader += "  float val = getVal(voxelCoord, maxLayers);\n";
   shader += "  vec4 colorSample = vec4(0.0);\n";
 
+  shader += "vec2 emisCoord;\n";
   if (!bit16)
     {
       shader += "  colorSample = texture(lutTex, vec2(val,0.0));\n";
+      shader += "  emisCoord = vec2(val, lastSet);\n";
     }
   else
     {
@@ -684,9 +692,48 @@ RcShaderFactory::genRaycastShader(QList<CropObject> crops,
       shader += "  h0 = int(mod(float(h0),256.0));\n";
       shader += "  float fh0 = float(h0)/256.0;\n";
       shader += "  float fh1 = float(h1)/256.0;\n";
-      shader += QString("  colorSample = texture(lutTex, vec2(fh0,fh1/float(%1)));\n").\
-	        arg(Global::lutSize());
+      shader += QString("  fh1 /= float(%1)));\n").arg(Global::lutSize());
+      shader += "  colorSample = texture(lutTex, vec2(fh0,fh1));\n";
+//shader += QString("  colorSample = texture(lutTex, vec2(fh0,fh1/float(%1)));\n").	\
+//	        arg(Global::lutSize());
+      shader += "  emisCoord = vec2(fh0, fh1+lastset);\n";
     }
+
+  //------------------------------------
+  //------------------------------------
+  // light
+  shader += "vec3 lightcol = vec3(1.0,1.0,1.0);\n";
+  shader += "if (lightlod > 0)\n";
+  shader += "  {\n"; // calculate light color
+  shader += "    float zoffset = 0.0;\n";
+  shader += "    vec3 vC = voxelCoord*vsize;\n";
+  shader += "    vec3 texCoord = vC*vec3(sslevel)+vcorner;\n";
+  shader += "    texCoord.xy = vec2(lightgridx,lightgridy)*voxelCoord.xy;\n";
+  shader += "    texCoord.z = vC.z;\n";
+  shader += "    int lbZslc = int((zoffset+texCoord.z)/lightlod);\n";
+  shader += "    float lbZslcf = fract((zoffset+texCoord.z)/lightlod);\n";
+  shader += "    vec2 pvg0 = getTextureCoordinate(lbZslc, ";
+  shader += "                  lightncols, lightgridx, lightgridy, texCoord.xy);\n";
+  shader += "    vec2 pvg1 = getTextureCoordinate(lbZslc+1, ";
+  shader += "                  lightncols, lightgridx, lightgridy, texCoord.xy);\n";	       
+  shader += "    vec3 lc0 = texture2DRect(lightTex, pvg0).xyz;\n";
+  shader += "    vec3 lc1 = texture2DRect(lightTex, pvg1).xyz;\n";
+  shader += "    lightcol = mix(lc0, lc1, lbZslcf);\n";
+  shader += "    lightcol = 1.0-pow((vec3(1,1,1)-lightcol),vec3(sslevel));\n";
+  shader += "  }\n";
+
+  shader += "  colorSample.rgb *= lightcol;\n";
+  //------------------------------------
+  //------------------------------------
+
+  
+  //------------------------------------
+  // emissive
+  shader += "  vec4 emisColor = texture(lutTex, emisCoord);\n";
+  shader += "  emisColor.rgb *= emisColor.a;\n";
+  shader += "  colorSample.rgb += emisColor.rgb;\n";
+  //------------------------------------
+
 
   // find gradient magnitude
   shader += "  if (checkGrad > 0 && colorSample.a > 0.001)\n";  
@@ -737,28 +784,6 @@ RcShaderFactory::genRaycastShader(QList<CropObject> crops,
 
 
   //------------------------------------
-  shader += "vec3 lightcol = vec3(1.0,1.0,1.0);\n";
-  shader += "if (lightlod > 0)\n";
-  shader += "  {\n"; // calculate light color
-  shader += "    float zoffset = 0.0;\n";
-  shader += "    vec3 vC = voxelCoord*vsize;\n";
-  shader += "    vec3 texCoord = vC*vec3(sslevel)+vcorner;\n";
-  shader += "    texCoord.xy = vec2(lightgridx,lightgridy)*voxelCoord.xy;\n";
-  shader += "    texCoord.z = vC.z;\n";
-  shader += "    int lbZslc = int((zoffset+texCoord.z)/lightlod);\n";
-  shader += "    float lbZslcf = fract((zoffset+texCoord.z)/lightlod);\n";
-  shader += "    vec2 pvg0 = getTextureCoordinate(lbZslc, ";
-  shader += "                  lightncols, lightgridx, lightgridy, texCoord.xy);\n";
-  shader += "    vec2 pvg1 = getTextureCoordinate(lbZslc+1, ";
-  shader += "                  lightncols, lightgridx, lightgridy, texCoord.xy);\n";	       
-  shader += "    vec3 lc0 = texture2DRect(lightTex, pvg0).xyz;\n";
-  shader += "    vec3 lc1 = texture2DRect(lightTex, pvg1).xyz;\n";
-  shader += "    lightcol = mix(lc0, lc1, lbZslcf);\n";
-  shader += "    lightcol = 1.0-pow((vec3(1,1,1)-lightcol),vec3(sslevel));\n";
-  shader += "  }\n";
-
-  shader += "colorSample.rgb *= lightcol;\n";
-  //------------------------------------
 
 
 
@@ -808,6 +833,7 @@ RcShaderFactory::genRaycastShader(QList<CropObject> crops,
   shader += "}\n";
 
   //shader += "if (colorAcum.a > 0.001) outColor = colorAcum/colorAcum.a;\n";
+  shader += "  colorAcum = clamp(colorAcum, vec4(0.0,0.0,0.0,0.0), vec4(1.0,1.0,1.0,1.0));\n";
   shader += " outColor = colorAcum;\n";
 
   shader += "}\n";

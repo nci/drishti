@@ -13,6 +13,8 @@ using namespace qglviewer;
 #include "volumefilemanager.h"
 #include "boundingbox.h"
 #include "cropobject.h"
+#include "volume.h"
+
 
 class RcViewer : public QObject
 {
@@ -26,9 +28,12 @@ class RcViewer : public QObject
 
   void init();
 
+  void setVolume(Volume *vol) { m_Volume = vol; }
+  
   void setTagTex(GLuint tt) { m_tagTex = tt; }
   void setMixTag(bool mt) { m_mixTag = mt; }
 
+  void dummyDraw();
   void draw();
   void fastDraw();
 
@@ -61,7 +66,7 @@ class RcViewer : public QObject
 
   public slots :
     void boundingBoxChanged();
-    void updateVoxelsForRaycast();
+    void updateVoxelsForRaycast(GLuint*);
     void setSkipLayers(int l) { m_skipLayers = l; m_viewer->update(); }
     void setSkipVoxels(int l) { m_skipVoxels = l; m_viewer->update(); }
     void setEdge(int e) { m_edge = e; m_viewer->update(); }
@@ -73,6 +78,8 @@ class RcViewer : public QObject
  private :
 
   QGLViewer *m_viewer;
+
+  Volume *m_Volume;
 
   VolumeFileManager *m_vfm;
   uchar *m_volPtr;

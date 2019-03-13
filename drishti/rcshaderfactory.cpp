@@ -1,6 +1,7 @@
 #include "rcshaderfactory.h"
 #include "cropshaderfactory.h"
 #include "blendshaderfactory.h"
+#include "shaderfactory.h"
 #include "global.h"
 
 #include <QTextEdit>
@@ -398,8 +399,8 @@ RcShaderFactory::getVal()
 }
 
 QString
-RcShaderFactory::genRaycastShader_1(QList<CropObject> crops,
-				    bool bit16)
+RcShaderFactory::genRaycastShader(QList<CropObject> crops,
+				  bool bit16)
 {
   //------------------------------------
   bool cropPresent = false;
@@ -449,12 +450,22 @@ RcShaderFactory::genRaycastShader_1(QList<CropObject> crops,
   shader += "uniform float sslevel;\n";
   shader += "uniform mat4 MVP;\n";
 
+  shader += "uniform sampler2DRect lightTex;\n";
+  shader += "uniform int lightgridx;\n";
+  shader += "uniform int lightgridy;\n";
+  shader += "uniform int lightgridz;\n";
+  shader += "uniform int lightnrows;\n";
+  shader += "uniform int lightncols;\n";
+  shader += "uniform int lightlod;\n";
+
+
   shader += "layout(location = 0) out vec4 outColor;\n";
   shader += "layout(location = 1) out vec4 outDepth;\n";
   
   if (cropPresent) shader += CropShaderFactory::generateCropping(crops);
   if (viewPresent) shader += BlendShaderFactory::generateBlend(crops);
 
+  shader += ShaderFactory::genTextureCoordinate();
   
   //---------------------
   // get voxel value from array texture
@@ -722,7 +733,35 @@ RcShaderFactory::genRaycastShader_1(QList<CropObject> crops,
   shader += "  if (colorSample.a > 0.001 || deep > 0.0)\n";
   shader += "    {\n";  
   shader += "      colorSample.rgb *= colorSample.a;\n";
-  shader += "      colorSample.rgb *= (1.0-colorAcum.a);\n";
+  //shader += "      colorSample.rgb *= (1.0-colorAcum.a);\n";
+
+
+  //------------------------------------
+  shader += "vec3 lightcol = vec3(1.0,1.0,1.0);\n";
+  shader += "if (lightlod > 0)\n";
+  shader += "  {\n"; // calculate light color
+  shader += "    float zoffset = 0.0;\n";
+  shader += "    vec3 vC = voxelCoord*vsize;\n";
+  shader += "    vec3 texCoord = vC*vec3(sslevel)+vcorner;\n";
+  shader += "    texCoord.xy = vec2(lightgridx,lightgridy)*voxelCoord.xy;\n";
+  shader += "    texCoord.z = vC.z;\n";
+  shader += "    int lbZslc = int((zoffset+texCoord.z)/lightlod);\n";
+  shader += "    float lbZslcf = fract((zoffset+texCoord.z)/lightlod);\n";
+  shader += "    vec2 pvg0 = getTextureCoordinate(lbZslc, ";
+  shader += "                  lightncols, lightgridx, lightgridy, texCoord.xy);\n";
+  shader += "    vec2 pvg1 = getTextureCoordinate(lbZslc+1, ";
+  shader += "                  lightncols, lightgridx, lightgridy, texCoord.xy);\n";	       
+  shader += "    vec3 lc0 = texture2DRect(lightTex, pvg0).xyz;\n";
+  shader += "    vec3 lc1 = texture2DRect(lightTex, pvg1).xyz;\n";
+  shader += "    lightcol = mix(lc0, lc1, lbZslcf);\n";
+  shader += "    lightcol = 1.0-pow((vec3(1,1,1)-lightcol),vec3(sslevel));\n";
+  shader += "  }\n";
+
+  shader += "colorSample.rgb *= lightcol;\n";
+  //------------------------------------
+
+
+
   shader += "      colorAcum += (1.0 - colorAcum.a) * colorSample;\n";
   shader += "      deep = deep + 1.0;\n";
   shader += "      if (deep < 1.1)\n"; // first hit
@@ -737,8 +776,8 @@ RcShaderFactory::genRaycastShader_1(QList<CropObject> crops,
   shader += "       }\n";
   shader += "      if (colorAcum.a > 0.95 || deep >= maxDepth)\n";
   shader += "       {\n";
-  shader += "         outColor = colorAcum/colorAcum.a;\n";
-  //shader += "         outColor = colorAcum;\n";
+  //shader += "         outColor = colorAcum/colorAcum.a;\n";
+  shader += "         outColor = colorAcum;\n";
   shader += "         return;\n";
   shader += "       }\n";
   shader += "    }\n"; // colorsample || deep
@@ -768,8 +807,8 @@ RcShaderFactory::genRaycastShader_1(QList<CropObject> crops,
 
   shader += "}\n";
 
-  shader += "if (colorAcum.a > 0.001) outColor = colorAcum/colorAcum.a;\n";
-  //shader += " outColor = colorAcum;\n";
+  //shader += "if (colorAcum.a > 0.001) outColor = colorAcum/colorAcum.a;\n";
+  shader += " outColor = colorAcum;\n";
 
   shader += "}\n";
 
@@ -777,7 +816,7 @@ RcShaderFactory::genRaycastShader_1(QList<CropObject> crops,
 }
 
 QString
-RcShaderFactory::genEdgeEnhanceShader_1()
+RcShaderFactory::genEdgeEnhanceShader()
 {
   QString shader;
 
@@ -806,6 +845,7 @@ RcShaderFactory::genEdgeEnhanceShader_1()
   //---------------------
   shader += "  if (color.a < 0.001)\n";
   shader += "    discard;\n";
+  shader += "  color /= color.a;\n";
   //---------------------
 
   shader += "    float cx[8] = float[](-1.0, 0.0, 1.0, 0.0, -1.0,-1.0, 1.0, 1.0);\n";

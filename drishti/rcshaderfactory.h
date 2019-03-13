@@ -12,10 +12,10 @@ class RcShaderFactory
 
   static QString genRectBlurShaderString(int);
 
-  static QString genRaycastShader_1(QList<CropObject>,
+  static QString genRaycastShader(QList<CropObject>,
 				    bool);
 
-  static QString genEdgeEnhanceShader_1();
+  static QString genEdgeEnhanceShader();
 
   static GLuint boxShader();
   static GLint* boxShaderParm();

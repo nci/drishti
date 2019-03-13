@@ -102,7 +102,7 @@ unsigned char* Viewer::lookupTable() { return m_lut; }
 void Viewer::setTag(int t) { PruneHandler::setTag(t); updateGL(); }
 void Viewer::setCarveRadius(int r) { PruneHandler::setCarveRad(r); updateGL(); }
 
-void Viewer::setVolume(Volume *vol) { m_Volume = vol; }
+void Viewer::setVolume(Volume *vol) { m_Volume = vol; m_rcViewer.setVolume(vol); }
 void Viewer::setHiresVolume(DrawHiresVolume *vol) { m_hiresVolume = vol; }
 void Viewer::setLowresVolume(DrawLowresVolume *vol) { m_lowresVolume = vol; }
 void Viewer::setKeyFrame(KeyFrame *keyframe) { m_keyFrame = keyframe; }
@@ -203,7 +203,7 @@ Viewer::reloadData()
   if (m_rcMode)
     {
       m_rcViewer.updateSubvolume(bmin, bmax);
-      m_rcViewer.updateVoxelsForRaycast();
+      m_rcViewer.updateVoxelsForRaycast(m_hiresVolume->dataTextureID());
     }
   else
     emit histogramUpdated(m_hiresVolume->histogramImage1D(),
@@ -262,8 +262,8 @@ Viewer::switchToHires()
     {
       m_rcViewer.resizeGL(camera()->screenWidth(),
 			  camera()->screenHeight());
-      m_rcViewer.updateSubvolume(bmin, bmax);
-      m_rcViewer.updateVoxelsForRaycast();
+      m_rcViewer.updateSubvolume(bmin, bmax);  
+      m_rcViewer.updateVoxelsForRaycast(m_hiresVolume->dataTextureID());
     }
 
   if (!m_rcMode)
@@ -638,8 +638,9 @@ Viewer::setupRaycastUI()
 
   m_raycastUI.setupUi(m_raycastParameters);
 
-  connect(m_raycastUI.update, SIGNAL(clicked()),
-	  &m_rcViewer, SLOT(updateVoxelsForRaycast()));
+  m_raycastUI.update->hide();
+//  connect(m_raycastUI.update, SIGNAL(clicked()),
+//	  &m_rcViewer, SLOT(updateVoxelsForRaycast()));
 
   connect(m_raycastUI.skipLayers, SIGNAL(valueChanged(int)),
 	  &m_rcViewer, SLOT(setSkipLayers(int)));
@@ -1058,7 +1059,7 @@ Viewer::updateLookupTable()
   if (m_rcMode)
     {
       m_rcViewer.loadLookupTable();
-      return;
+//      return;
     }
 
   //--------------
@@ -1138,19 +1139,12 @@ Viewer::updateLookupTable()
       prune)
     {
       m_updatePruneBuffer = true;
-
-//      if (Global::updatePruneTexture())
-//	m_hiresVolume->updateAndLoadPruneTexture();
-//      
-//      bool fboBound = bindFBOs(Enums::StillImage);
-//      releaseFBOs(Enums::StillImage);
     }
   
   loadLookupTable(lut);
   
   if (m_hiresVolume->raised() &&
       (gilite || LightHandler::willUpdateLightBuffers()))
-      //(gilite || !LightHandler::willUpdateLightBuffers()))
     {
       LightHandler::setLut(m_lut);
       m_hiresVolume->initShadowBuffers(true);
@@ -2664,8 +2658,8 @@ void Viewer::updatePruneBuffer(bool b)
 void
 Viewer::updateLightBuffers()
 {
-  if (m_rcMode)
-    return;
+//  if (m_rcMode)
+//    return;
 
   if (Global::volumeType() == Global::DummyVolume)
     return;
@@ -2696,7 +2690,10 @@ void
 Viewer::dummydraw()
 {
   if (m_rcMode)
-    return;
+    {
+      m_rcViewer.dummyDraw();
+      return;
+    }
 
   bool fboBound = bindFBOs(Enums::StillImage);
   m_hiresVolume->drawDragImage(100*Global::stepsizeStill());
@@ -2728,8 +2725,7 @@ Viewer::draw()
 
   //-----------------
   // update lightbuffer
-  if (Global::volumeType() != Global::DummyVolume &&
-      !m_rcMode)
+  if (Global::volumeType() != Global::DummyVolume)
     {
       // update prune buffer
       if (m_updatePruneBuffer)
@@ -2737,7 +2733,7 @@ Viewer::draw()
 	  m_updatePruneBuffer = false;
 	  m_hiresVolume->updateAndLoadPruneTexture();
 	}
-
+      
       QList<Vec> cpos, cnorm;
       m_hiresVolume->getClipForMask(cpos, cnorm);
       //bool redolighting = LightHandler::checkClips(cpos, cnorm);

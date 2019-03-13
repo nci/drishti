@@ -1635,6 +1635,13 @@ VolumeSingle::getSubvolume()
   if (relDataPos.z > 0.5) offD = m_maxDepth - m_depth;
 
 
+  bool quick;
+  quick = (offH == 0) && (offW==0) && (offD==0);
+  quick &= (m_maxHeight==m_height);
+  quick &= (m_maxWidth==m_width);
+  quick &= (m_maxDepth==m_depth);
+
+  
   uchar *sliceTemp1 = new uchar [bpv*m_maxWidth*m_maxHeight];
 
   //-------------------------------------------------------
@@ -1656,23 +1663,33 @@ VolumeSingle::getSubvolume()
 	  memset(m_sliceTemp, 0, nbytes);
 	}
 
-      //---
-      memset(sliceTemp1, 0, bpv*m_maxWidth*m_maxHeight);
-      for(int j=0; j<m_width; j++)
-	memcpy(sliceTemp1 + bpv*((j+offW)*m_maxHeight + offH),
-	       m_sliceTemp + bpv*j*m_height,
-	       bpv*m_height);
-
-      for(int j=0; j<leny2; j++)
-	memcpy(m_sliceTemp + bpv*j*lenx2,
-	       sliceTemp1 + bpv*((j+miny)*m_maxHeight + minx),
-	       bpv*lenx2);
-	
-      // copy into array texture
-      memcpy(m_subvolumeTexture + kslc*bpv*lenx2*leny2,
-	     m_sliceTemp,
-	     bpv*lenx2*leny2);
-      //---
+      if (quick)
+	{
+	  // copy into array texture
+	  memcpy(m_subvolumeTexture + kslc*bpv*lenx2*leny2,
+		 m_sliceTemp,
+		 bpv*lenx2*leny2);
+	}
+      else
+	{
+	  //---
+	  memset(sliceTemp1, 0, bpv*m_maxWidth*m_maxHeight);
+	  for(int j=0; j<m_width; j++)
+	    memcpy(sliceTemp1 + bpv*((j+offW)*m_maxHeight + offH),
+		   m_sliceTemp + bpv*j*m_height,
+		   bpv*m_height);
+	  
+	  for(int j=0; j<leny2; j++)
+	    memcpy(m_sliceTemp + bpv*j*lenx2,
+		   sliceTemp1 + bpv*((j+miny)*m_maxHeight + minx),
+		   bpv*lenx2);
+	  
+	  // copy into array texture
+	  memcpy(m_subvolumeTexture + kslc*bpv*lenx2*leny2,
+		 m_sliceTemp,
+		 bpv*lenx2*leny2);
+	  //---
+	}
       
       memcpy(g2, m_sliceTemp, bpv*lenx2*leny2);
 

@@ -5,6 +5,7 @@
 #include "rcshaderfactory.h"
 #include "matrix.h"
 #include "dcolordialog.h"
+#include "lighthandler.h"
 
 #include <QProgressDialog>
 #include <QInputDialog>
@@ -13,6 +14,8 @@
 RcViewer::RcViewer() :
   QObject()
 {
+  m_Volume = 0;
+  
   m_lut = 0;
 
   m_slcBuffer = 0;
@@ -367,6 +370,21 @@ RcViewer::generateBoxMinMax()
 }
 
 void
+RcViewer::dummyDraw()
+{
+  GeometryObjects::crops()->postdraw(m_viewer);
+  GeometryObjects::clipplanes()->postdraw(m_viewer);
+  GeometryObjects::hitpoints()->postdraw(m_viewer);
+  GeometryObjects::paths()->postdraw(m_viewer);
+
+  ClipInformation clipInfo; // dummy
+  GeometryObjects::scalebars()->draw(m_viewer, clipInfo);
+ 
+  if (Global::bottomText())  
+    drawInfo();
+}
+
+void
 RcViewer::fastDraw()
 {
   m_dragMode = true;
@@ -465,7 +483,7 @@ RcViewer::createIsoRaycastShader()
 {
   QString shaderString;
 
-  shaderString = RcShaderFactory::genRaycastShader_1(m_crops, m_bytesPerVoxel==2);
+  shaderString = RcShaderFactory::genRaycastShader(m_crops, m_bytesPerVoxel==2);
 
   m_ircShader = glCreateProgramObjectARB();
   if (! RcShaderFactory::loadShader(m_ircShader,
@@ -497,6 +515,15 @@ RcViewer::createIsoRaycastShader()
   m_ircParm[19]= glGetUniformLocationARB(m_ircShader, "maxGrad");
   m_ircParm[20]= glGetUniformLocationARB(m_ircShader, "sslevel");
   m_ircParm[21]= glGetUniformLocationARB(m_ircShader, "MVP");
+
+
+  m_ircParm[34] = glGetUniformLocationARB(m_ircShader, "lightTex");
+  m_ircParm[35] = glGetUniformLocationARB(m_ircShader, "lightgridx");
+  m_ircParm[36] = glGetUniformLocationARB(m_ircShader, "lightgridy");
+  m_ircParm[37] = glGetUniformLocationARB(m_ircShader, "lightgridz");
+  m_ircParm[38] = glGetUniformLocationARB(m_ircShader, "lightnrows");
+  m_ircParm[39] = glGetUniformLocationARB(m_ircShader, "lightncols");
+  m_ircParm[40] = glGetUniformLocationARB(m_ircShader, "lightlod");
 }
 
 void
@@ -506,7 +533,7 @@ RcViewer::createShaders()
 
   createIsoRaycastShader();
 
-  shaderString = RcShaderFactory::genEdgeEnhanceShader_1();
+  shaderString = RcShaderFactory::genEdgeEnhanceShader();
 
   m_eeShader = glCreateProgramObjectARB();
   if (! RcShaderFactory::loadShader(m_eeShader,
@@ -545,7 +572,7 @@ RcViewer::createShaders()
 
 
 void
-RcViewer::updateVoxelsForRaycast()
+RcViewer::updateVoxelsForRaycast(GLuint *dataTex)
 {
 
   if (!m_vfm)
@@ -583,142 +610,24 @@ RcViewer::updateVoxelsForRaycast()
     m_maxWSlice = qCeil(bmax.y);
     m_maxHSlice = qCeil(bmax.x);
   }
-  
-  qint64 dsz = (m_maxDSlice-m_minDSlice);
-  qint64 wsz = (m_maxWSlice-m_minWSlice);
-  qint64 hsz = (m_maxHSlice-m_minHSlice);
-  qint64 tsz = dsz*wsz*hsz;
-
-  m_sslevel = 1;
-  while (tsz/1024.0/1024.0 > Global::textureMemorySize() ||
-	 dsz > m_max3DTexSize ||
-	 wsz > m_max2DTexSize ||
-	 hsz > m_max2DTexSize)
-    {
-      m_sslevel++;
-      dsz = (m_maxDSlice-m_minDSlice)/m_sslevel;
-      wsz = (m_maxWSlice-m_minWSlice)/m_sslevel;
-      hsz = (m_maxHSlice-m_minHSlice)/m_sslevel;
-
-      if (dsz*m_sslevel < m_maxDSlice-m_minDSlice) dsz++;
-      if (wsz*m_sslevel < m_maxWSlice-m_minWSlice) wsz++;
-      if (hsz*m_sslevel < m_maxHSlice-m_minHSlice) hsz++;
-
-      tsz = dsz*wsz*hsz*m_bytesPerVoxel;      
-    }
-
-  //-------------------------
-  m_sslevel = QInputDialog::getInt(m_viewer,
-				   "Subsampling Level",
-				   "Subsampling Level",
-				    m_sslevel, m_sslevel, 5, 1);
-
-  dsz = (m_maxDSlice-m_minDSlice)/m_sslevel;
-  wsz = (m_maxWSlice-m_minWSlice)/m_sslevel;
-  hsz = (m_maxHSlice-m_minHSlice)/m_sslevel;
-  if (dsz*m_sslevel < m_maxDSlice-m_minDSlice) dsz++;
-  if (wsz*m_sslevel < m_maxWSlice-m_minWSlice) wsz++;
-  if (hsz*m_sslevel < m_maxHSlice-m_minHSlice) hsz++;
-  tsz = dsz*wsz*hsz*m_bytesPerVoxel;      
-  //-------------------------
-
+      
+  m_sslevel = m_Volume->getSubvolumeSubsamplingLevel();
+  Vec vsz = m_Volume->getSubvolumeTextureSize();
+  qint64 hsz = vsz.x;
+  qint64 wsz = vsz.y;
+  qint64 dsz = vsz.z;
   m_corner = Vec(m_minHSlice, m_minWSlice, m_minDSlice);
   m_vsize = Vec(hsz, wsz, dsz);
 
-  uchar *voxelVol = new uchar[tsz];
-
-
-  QProgressDialog progress("Updating voxel structure",
-			   QString(),
-			   0, 100,
-			   0);
-  progress.setMinimumDuration(0);
-  //----------------------------
-  // load data volume
-  progress.setValue(20);
-  qApp->processEvents();
-
-  memset(m_flhist1D, 0, 256*4);
-  memset(m_flhist2D, 0, 256*256*4);
-
-  if (m_bytesPerVoxel == 1)
-    {
-      int i = 0;
-      for(int d=m_minDSlice; d<m_maxDSlice; d+=m_sslevel)
-	for(int w=m_minWSlice; w<m_maxWSlice; w+=m_sslevel)
-	  for(int h=m_minHSlice; h<m_maxHSlice; h+=m_sslevel)
-	    {
-	      uchar v = m_volPtr[d*m_width*m_height + w*m_height + h];
-	      voxelVol[i] = v;
-	      i++;
-	      m_flhist1D[v]++;
-	    }
-    }
-  else
-    {
-      ushort *voxPtr = (ushort*)voxelVol;
-      ushort *vPtr = (ushort*)m_volPtr;
-      int i = 0;
-      for(int d=m_minDSlice; d<m_maxDSlice; d+=m_sslevel)
-	for(int w=m_minWSlice; w<m_maxWSlice; w+=m_sslevel)
-	  for(int h=m_minHSlice; h<m_maxHSlice; h+=m_sslevel)
-	    {
-	      ushort v = vPtr[d*m_width*m_height + w*m_height + h];
-	      voxPtr[i] = v;
-	      i++;
-
-	      int g = v/256;
-	      int vg = v - g*256;
-	      m_flhist1D[v/256]++;
-	      m_flhist2D[g*256 + vg]++;
-	    }
-    }
-
-  progress.setValue(50);
-  qApp->processEvents();
-
-  int vtype = GL_UNSIGNED_BYTE;
-  if (m_bytesPerVoxel == 2)
-    vtype = GL_UNSIGNED_SHORT;
-
-  if (!m_dataTex) glGenTextures(1, &m_dataTex);
+  m_dataTex = dataTex[1];
   glActiveTexture(GL_TEXTURE1);
-
   glEnable(GL_TEXTURE_2D_ARRAY);
   glBindTexture(GL_TEXTURE_2D_ARRAY, m_dataTex);
-  glTexImage3D(GL_TEXTURE_2D_ARRAY,
-	       0, // single resolution
-	       1, // internalFormat
-	       hsz, wsz, dsz,
-	       0, // no border
-	       GL_LUMINANCE,
-	       vtype,
-	       voxelVol);
-
-  glTexParameterf(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
-  glTexParameterf(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
-  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glDisable(GL_TEXTURE_2D_ARRAY);
 
-  progress.setValue(70);
-  //----------------------------
-    
-  delete [] voxelVol;
-  
-  progress.setValue(100);
-  
-  if (m_bytesPerVoxel == 1)
-    StaticFunctions::generateHistograms(m_flhist1D, m_flhist2D,
-					m_subvolume1dHistogram,
-					m_subvolume2dHistogram);
-  else // just copy
-    {
-      for(int i=0; i<256; i++)
-	m_subvolume1dHistogram[i] = m_flhist1D[i];
-      for(int i=0; i<256*256; i++)
-	m_subvolume2dHistogram[i] = m_flhist2D[i];
-    }
+
+  memcpy(m_subvolume1dHistogram, m_Volume->getSubvolume1dHistogram(0), 256*4);
+  memcpy(m_subvolume2dHistogram, m_Volume->getSubvolume2dHistogram(0), 256*256*4);
 }
 
 void
@@ -988,6 +897,40 @@ RcViewer::raycast(Vec eyepos, float minZ, float maxZ, bool firstPartOnly)
   //---------
   //---------
 
+  //==============================
+  // for lighting
+  //==============================
+  glUniform1iARB(m_ircParm[34], 4); // lightTex
+  glActiveTexture(GL_TEXTURE4);
+  glEnable(GL_TEXTURE_RECTANGLE_ARB);
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, LightHandler::texture());
+  glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  if (!LightHandler::basicLight())
+    {
+      int lightgridx, lightgridy, lightgridz, lightncols, lightnrows, lightlod;
+      LightHandler::lightBufferInfo(lightgridx, lightgridy, lightgridz,
+				    lightnrows, lightncols, lightlod);
+      Vec draginfo = m_Volume->getDragTextureInfo();
+      int lod = m_Volume->getSubvolumeSubsamplingLevel();
+      float plod = draginfo.z/float(lod);
+      lightlod *= plod;
+      
+      glUniform1iARB(m_ircParm[35], lightgridx); // lightgridx
+      glUniform1iARB(m_ircParm[36], lightgridy); // lightgridy
+      glUniform1iARB(m_ircParm[37], lightgridz); // lightgridz
+      glUniform1iARB(m_ircParm[38], lightnrows); // lightnrows
+      glUniform1iARB(m_ircParm[39], lightncols); // lightncols
+      glUniform1iARB(m_ircParm[40], lightlod); // lightlod
+    }
+  else
+    {
+      // lightlod 0 means use basic lighting model
+      int lightlod = 0;
+      glUniform1iARB(m_ircParm[40], lightlod); // lightlod
+    }
+  //==============================
+  //==============================
 
   if (m_mixTag)
     {
@@ -1043,6 +986,11 @@ RcViewer::raycast(Vec eyepos, float minZ, float maxZ, bool firstPartOnly)
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
   //----------------------------
 
+  // light texture
+  glActiveTexture(GL_TEXTURE4);
+  glDisable(GL_TEXTURE_RECTANGLE_ARB);
+
+  
   glActiveTexture(GL_TEXTURE6);
   glDisable(GL_TEXTURE_RECTANGLE_ARB);
 
@@ -1134,6 +1082,9 @@ RcViewer::drawGeometry()
   GeometryObjects::crops()->draw(m_viewer, false);
   GeometryObjects::clipplanes()->draw(m_viewer, false);
   GeometryObjects::hitpoints()->draw(m_viewer, false);
+
+  LightHandler::giLights()->draw(m_viewer, false);
+  LightHandler::giLights()->postdraw(m_viewer);
 
   Vec pn = Vec(0,0,0);
   float pnear = 10000;
@@ -1567,21 +1518,24 @@ RcViewer::updateFilledBoxes()
 
   //-------------------------------------------
   //-- identify filled boxes
-  QProgressDialog progress("Marking valid boxes - (1/2)",
-			   QString(),
-			   0, 100,
-			   0);
-  progress.setMinimumDuration(0);
+  Global::progressBar()->show();
+//  QProgressDialog progress("Marking valid boxes - (1/2)",
+//			   QString(),
+//			   0, 100,
+//			   0);
+//  progress.setMinimumDuration(0);
 
 
-  progress.setValue(10);
+  Global::progressBar()->setValue(10);
+  //progress.setValue(10);
   qApp->processEvents();
 
   int boxVoxPerc = qPow((m_boxSize/m_sslevel),3)*0.5; //10 percent
   
   for(int d=0; d<m_dbox; d++)
     {
-      progress.setValue(100*d/m_dbox);
+      Global::progressBar()->setValue(100*d/m_dbox);
+      //progress.setValue(100*d/m_dbox);
       qApp->processEvents();
 
       for(int w=0; w<m_wbox; w++)
@@ -1620,7 +1574,8 @@ RcViewer::updateFilledBoxes()
 	    m_filledBoxes.setBit(idx, ok);
 	  }
     }
-  progress.setValue(100);
+  Global::progressBar()->setValue(100);
+  //progress.setValue(100);
   qApp->processEvents();
 
 
@@ -1630,15 +1585,15 @@ RcViewer::updateFilledBoxes()
 void
 RcViewer::generateDrawBoxes()
 { 
-  QProgressDialog progress("Marking valid boxes - (2/2)",
-			   QString(),
-			   0, 100,
-			   0);
-  progress.setMinimumDuration(0);
-
-
-  progress.setValue(10);
-  qApp->processEvents();
+//  QProgressDialog progress("Marking valid boxes - (2/2)",
+//			   QString(),
+//			   0, 100,
+//			   0);
+//  progress.setMinimumDuration(0);
+//
+//
+//  progress.setValue(10);
+//  qApp->processEvents();
 
 
   m_mdEle = 0;
@@ -1671,7 +1626,8 @@ RcViewer::generateDrawBoxes()
   int bid = 0;
   for(int k=kmin; k<kmax; k++)
     {
-      progress.setValue(100*k/kmax);
+      Global::progressBar()->setValue(100*k/kmax);
+      //progress.setValue(100*k/kmax);
       qApp->processEvents();
   
       for(int j=jmin; j<jmax; j++)
@@ -1709,7 +1665,8 @@ RcViewer::generateDrawBoxes()
       m_mdEle++;
     }
 
-  progress.setValue(100);
+  Global::progressBar()->setValue(100);
+  //progress.setValue(100);
   qApp->processEvents();
 }
 

@@ -96,6 +96,8 @@ class DrawHiresVolume : public QObject
     mt=m_mixTag;
   }
 
+  GLuint* dataTextureID() { return m_dataTex; }
+
  public slots :
   QString getResliceFileName(bool border=false);
   void saveImage2Volume(QString);

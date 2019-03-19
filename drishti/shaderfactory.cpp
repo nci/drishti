@@ -1252,9 +1252,9 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
   if (tearPresent || cropPresent || pathCropPresent)
     shader += "  glFragColor.rgba = mix(glFragColor.rgba, vec4(0.0,0.0,0.0,0.0), feather);\n";
 
-  if (viewPresent) shader += "  blend(false, otexCoord, vg, glFragColor);\n";
+  if (viewPresent) shader += "  blend(false, otexCoord, vg.xy, glFragColor);\n";
   
-  if (pathViewPresent) shader += "pathblend(otexCoord, vg, glFragColor);\n";
+  if (pathViewPresent) shader += "pathblend(otexCoord, vg.xy, glFragColor);\n";
   
 
 //---------------------------------

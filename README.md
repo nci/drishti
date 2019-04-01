@@ -36,7 +36,8 @@ http://www.scribd.com/doc/191007517/The-Basics-of-Drishti-A-Free-To-Download-Vol
 ## You tube channel
 https://www.youtube.com/user/900acl/videos?sort=dd&flow=list&page=1&view=1
 
-## Help videos from Robert Asher
+## Help videos from users
+https://www.youtube.com/watch?v=pd9azHTGaB4
 https://www.youtube.com/playlist?list=PLvCBlNTgzwb9OrBO20JGFl4aEaBA8TZZI
 
 ## Some more help videos

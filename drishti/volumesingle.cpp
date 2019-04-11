@@ -1467,7 +1467,7 @@ VolumeSingle::getSubvolume()
       if (relDataPos.x > 0.5) offH = (m_maxHeight-m_height)/m_subvolumeSubsamplingLevel;;
       if (relDataPos.y > 0.5) offW = (m_maxWidth-m_width)/m_subvolumeSubsamplingLevel;;
       if (relDataPos.z > 0.5) offD = (m_maxDepth-m_depth)/m_subvolumeSubsamplingLevel;;
-
+      
       uchar *sliceTemp1 = new uchar [bpv*maxWsl*maxHsl];
 
       for(int k0=kmin; k0<=kmax; k0++)
@@ -1637,9 +1637,12 @@ VolumeSingle::getSubvolume()
 
   bool quick;
   quick = (offH == 0) && (offW==0) && (offD==0);
-  quick &= (m_maxHeight==m_height);
-  quick &= (m_maxWidth==m_width);
-  quick &= (m_maxDepth==m_depth);
+  quick = quick && (lenx2==m_height);
+  quick = quick && (leny2==m_width);
+  quick = quick && (lenz2==m_depth);
+  quick = quick && (m_maxHeight==m_height);
+  quick = quick && (m_maxWidth==m_width);
+  quick = quick && (m_maxDepth==m_depth);
 
   
   uchar *sliceTemp1 = new uchar [bpv*m_maxWidth*m_maxHeight];

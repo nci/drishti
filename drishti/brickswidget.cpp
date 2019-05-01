@@ -456,6 +456,10 @@ BricksWidget::updateBrickInformation()
   binfo.scalepivot = StaticFunctions::getVec(ui.m_scalepivot->text());
   binfo.scale = StaticFunctions::getVec(ui.m_scale->text());
 
+  Vec voxelScaling = Global::voxelScaling();
+  binfo.brickMin = VECPRODUCT(binfo.brickMin, voxelScaling);
+  binfo.brickMax = VECPRODUCT(binfo.brickMax, voxelScaling);
+
   m_bricks->setBrick(m_selected, binfo);
 
   emit updateGL();

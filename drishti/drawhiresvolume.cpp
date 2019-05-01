@@ -837,7 +837,7 @@ DrawHiresVolume::loadTextureMemory()
     
     for(int i=1; i<m_dataTexSize; i++)
       {
-	int zslc = (i-1)*Global::textureSizeLimit();
+	int zslc = (i-1)*(Global::textureSizeLimit()-1);
 	qint64 zoffset = zslc*hsz*wsz;
 	int zslices = qMin(dsz-zslc, Global::textureSizeLimit());
 	

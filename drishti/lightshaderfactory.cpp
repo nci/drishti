@@ -120,7 +120,7 @@ LightShaderFactory::genOpacityShader(int nvol, bool bit16)
 	  shader += "h0 = int(65535.0*val."+c+");\n";
 	  shader += "h1 = h0 / 256;\n";
 	  shader += "h0 = int(mod(float(h0),256.0));\n";
-	  shader += "val."+c+"+ = float(h0)/256.0;\n";
+	  shader += "val."+c+" += float(h0)/256.0;\n";
 	  shader += "g = float(h1)/256.0;\n";
 	}
       //shader += QString("  g = (float(%1) + g)/float(%2);\n").arg(i-1).arg(nvol);

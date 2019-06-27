@@ -26,6 +26,9 @@ http://nci.org.au/systems-services/scientific-visualisation/visualisation-servic
 <br>Updated version and help available on [AARNET CloudStor](https://cloudstor.aarnet.edu.au/plus/s/bxu1ZH4ywZEzl38)
 <br>Drishti Prayog [guide](https://www.ccpi.ac.uk/sites/www.ccpi.ac.uk/files/uploaded_documents/Drishti%20Prayog%20User%20Guide.pdf) on [CCPi](https://www.ccpi.ac.uk/) website 
 
+## Drishti VR
+[AARNET CloudStor](https://cloudstor.aarnet.edu.au/plus/s/ykqMmmikfXxHxKC?path=%2FDrishtiVR)
+                   
 ## Drishti Tutorials
 [AARNET CloudStor](https://cloudstor.aarnet.edu.au/plus/s/ykqMmmikfXxHxKC?path=%2FTutorials)
 

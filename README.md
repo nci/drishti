@@ -23,11 +23,11 @@ Download the current version of Drishti (v2.6.5) for<br>
 
 ## Drishti Prayog
 http://nci.org.au/systems-services/scientific-visualisation/visualisation-services/drishti-prayog/
-<br>Updated version and help available at http://sf.anu.edu.au/~acl900/DrishtiPrayog/
+<br>Updated version and help available on [AARNET CloudStor](https://cloudstor.aarnet.edu.au/plus/s/bxu1ZH4ywZEzl38)
 <br>Drishti Prayog [guide](https://www.ccpi.ac.uk/sites/www.ccpi.ac.uk/files/uploaded_documents/Drishti%20Prayog%20User%20Guide.pdf) on [CCPi](https://www.ccpi.ac.uk/) website 
 
 ## Drishti Tutorials
-http://sf.anu.edu.au/~acl900/drishti_perpetualbeta/Tutorials/
+[AARNET CloudStor](https://cloudstor.aarnet.edu.au/plus/s/ykqMmmikfXxHxKC?path=%2FTutorials)
 
 ## Basics of Drishti
 by Bailey Lovett<br>

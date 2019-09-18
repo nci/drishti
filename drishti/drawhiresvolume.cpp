@@ -5499,16 +5499,16 @@ DrawHiresVolume::resliceVolume(Vec pos,
 	  if (getVolumeSurfaceArea == 0 &&
 	      Global::interpolationType(Global::TextureInterpolation)) // linear
 	    {
-	      glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,
+	      glTexParameteri(GL_TEXTURE_2D_ARRAY,
 			      GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	      glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,
+	      glTexParameteri(GL_TEXTURE_2D_ARRAY,
 			      GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	    }
 	  else
 	    {
-	      glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,
+	      glTexParameteri(GL_TEXTURE_2D_ARRAY,
 			      GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	      glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,
+	      glTexParameteri(GL_TEXTURE_2D_ARRAY,
 			      GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	    }
 	  
@@ -6699,7 +6699,7 @@ DrawHiresVolume::saveForDrishtiPrayog(QString sfile)
 
   char keyword[100];
 
-  sprintf(keyword, "drishtiPrayog v1.0");
+  sprintf(keyword, "drishtiPrayog v2.0");
   fout.write((char*)keyword, strlen(keyword)+1);
 
   VolumeInformation pvlInfo = VolumeInformation::volumeInformation();
@@ -6758,28 +6758,6 @@ DrawHiresVolume::saveForDrishtiPrayog(QString sfile)
       fout.write((char*)&f, 3*sizeof(float));
     }
 
-  glActiveTexture(GL_TEXTURE1);
-  glEnable(GL_TEXTURE_RECTANGLE_ARB);	    
-  int nbytes = qMax(stexX*stexY, dtexX*dtexY);
-  uchar *imgData = new uchar[nbytes];
-  sprintf(keyword, "slicetextureslabs");
-  fout.write((char*)keyword, strlen(keyword)+1);
-  for(int i=0; i<m_dataTexSize; i++)
-    {
-      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_dataTex[i]);
-      glGetTexImage(GL_TEXTURE_RECTANGLE_ARB,
-		    0,
-		    GL_RED,
-		    GL_UNSIGNED_BYTE,
-		    imgData);
-      if (i > 0 || m_dataTexSize <= 1)  //slice texture
-	fout.write((char *)imgData, stexX*stexY);
-      else // drag texture
-	fout.write((char *)imgData, dtexX*dtexY);
-    }
-  delete [] imgData;
-  glDisable(GL_TEXTURE_RECTANGLE_ARB);	    
-
   sprintf(keyword, "fullvolumesize");
   fout.write((char*)keyword, strlen(keyword)+1);
   Vec fullVolSize = m_Volume->getFullVolumeSize();
@@ -6796,18 +6774,43 @@ DrawHiresVolume::saveForDrishtiPrayog(QString sfile)
   f[2] = subVolSize.z;
   fout.write((char*)&f, 3*sizeof(float));
 
-  sprintf(keyword, "subvolumetexturesize");
-  fout.write((char*)keyword, strlen(keyword)+1);
-  Vec textureSize = m_Volume->getSubvolumeTextureSize();
-  f[0] = textureSize.x;
-  f[1] = textureSize.y;
-  f[2] = textureSize.z;
-  fout.write((char*)&f, 3*sizeof(float));
-
   sprintf(keyword, "subvolumesubsamplinglevel");
   int subsamplingLevel = m_Volume->getSubvolumeSubsamplingLevel();
   fout.write((char*)keyword, strlen(keyword)+1);
   fout.write((char*)&subsamplingLevel, sizeof(int));
+
+  sprintf(keyword, "subvolumetexturesize");
+  fout.write((char*)keyword, strlen(keyword)+1);
+  Vec vsz = m_Volume->getSubvolumeTextureSize();
+  f[0] = vsz.x;
+  f[1] = vsz.y;
+  f[2] = vsz.z;
+  fout.write((char*)&f, 3*sizeof(float));
+
+  //---------------------------
+  glActiveTexture(GL_TEXTURE1);
+  glEnable(GL_TEXTURE_2D_ARRAY);
+  int hsz = vsz.x;
+  int wsz = vsz.y;
+  int dsz = vsz.z;
+  qint64 nbytes = hsz*wsz;
+  nbytes *= dsz;
+  uchar *imgData = new uchar[nbytes];
+  sprintf(keyword, "texturearray");
+  fout.write((char*)keyword, strlen(keyword)+1);
+  fout.write((char*)&hsz, sizeof(int));
+  fout.write((char*)&wsz, sizeof(int));
+  fout.write((char*)&dsz, sizeof(int));
+  glBindTexture(GL_TEXTURE_2D_ARRAY, m_dataTex[1]);
+  glGetTexImage(GL_TEXTURE_2D_ARRAY,
+		0,
+		GL_RED,
+		GL_UNSIGNED_BYTE,
+		imgData);
+  fout.write((char *)imgData, nbytes);
+  delete [] imgData;
+  glDisable(GL_TEXTURE_2D_ARRAY);	    
+  //---------------------------
 
   sprintf(keyword, "enddrishtiprayog");
   fout.write((char*)keyword, strlen(keyword)+1);

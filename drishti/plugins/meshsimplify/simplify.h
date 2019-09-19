@@ -347,8 +347,9 @@ namespace Simplify
 	double calculate_error(int id_v1, int id_v2, vec3f &p_result);
 	bool flipped(vec3f p,int i0,int i1,Vertex &v0,Vertex &v1,std::vector<int> &deleted);
 	void update_uvs(int i0,const Vertex &v,const vec3f &p, std::vector<int> &deleted);
-	void update_color(int i0,const Vertex &v, const vec3f &p, vec3f &c, std::vector<int> &deleted);
-	void update_normal(int i0,const Vertex &v, const vec3f &p, vec3f &n, std::vector<int> &deleted);
+	void update_color_normal(int i0, const Vertex &v, const vec3f &p,
+				 vec3f &c, vec3f &n,
+				 std::vector<int> &deleted);
 	void update_triangles(int i0,Vertex &v,std::vector<int> &deleted,int &deleted_triangles);
 	void update_mesh(int iteration);
 	void compact_mesh();
@@ -400,15 +401,14 @@ namespace Simplify
 			double threshold = 0.000000001*pow(double(iteration+3),agressiveness);
 
 			// target number of triangles reached ? Then break
-			if ((verbose) && (iteration%5==0)) {
-			  //printf("iteration %d - triangles %d threshold %g\n",iteration,triangle_count-deleted_triangles, threshold);
-			  meshLog->moveCursor(QTextCursor::End);
-			  meshLog->insertPlainText(QString("iteration %1 - triangles %2   threshold %3\n").\
-						   arg(iteration).\
-						   arg(triangle_count-deleted_triangles).\
-						   arg(threshold));
-			  qApp->processEvents();
-			}
+			if ((verbose) && (iteration%5==0))
+			  {
+			    meshLog->moveCursor(QTextCursor::End);
+			    meshLog->insertPlainText(QString("iteration %1 - triangles %2\n"). \
+						     arg(iteration).	\
+						     arg(triangle_count-deleted_triangles));
+			    qApp->processEvents();
+			  }
 
 			// remove vertices & mark deleted triangles
 			loopi(0,triangles.size())
@@ -439,26 +439,18 @@ namespace Simplify
 					//----
 					{
 					  vec3f c;
-					  update_color(i0,v0,p,c,deleted0);
-					  update_color(i0,v1,p,c,deleted1);
-					  v0.c = c;
-					}
-					//----
-
-					//----
-					{
 					  vec3f n;
-					  update_normal(i0,v0,p,n,deleted0);
-					  update_normal(i0,v1,p,n,deleted1);
+					  update_color_normal(i0,v0,p,c,n,deleted0);
+					  v0.c = c;
 					  v0.n = n;
 					}
 					//----
 
-					//if ( (t.attr & TEXCOORD) == TEXCOORD  )
-					// {
-					//   update_uvs(i0,v0,p,deleted0);
-					//   update_uvs(i0,v1,p,deleted1);
-					// }
+					if ( (t.attr & TEXCOORD) == TEXCOORD  )
+					 {
+					   update_uvs(i0,v0,p,deleted0);
+					   update_uvs(i0,v1,p,deleted1);
+					 }
 
 					// not flipped, so remove edge
 					v0.p=p;
@@ -548,26 +540,19 @@ namespace Simplify
 					//----
 					{
 					  vec3f c;
-					  update_color(i0,v0,p,c,deleted0);
-					  update_color(i0,v1,p,c,deleted1);
-					  v0.c = c;
-					}
-					//----
-
-					//----
-					{
 					  vec3f n;
-					  update_normal(i0,v0,p,n,deleted0);
-					  update_normal(i0,v1,p,n,deleted1);
+					  update_color_normal(i0,v0,p,c,n,deleted0);
+					  v0.c = c;
 					  v0.n = n;
 					}
 					//----
 
-					// if ( (t.attr & TEXCOORD) == TEXCOORD )
-					// {
-					//   update_uvs(i0,v0,p,deleted0);
-					//   update_uvs(i0,v1,p,deleted1);
-					// }
+					
+					 if ( (t.attr & TEXCOORD) == TEXCOORD )
+					 {
+					   update_uvs(i0,v0,p,deleted0);
+					   update_uvs(i0,v1,p,deleted1);
+					 }
 
 					// not flipped, so remove edge
 					v0.p=p;
@@ -633,8 +618,10 @@ namespace Simplify
 	}
 
 	//----------------
-	// update_color
-	void update_color(int i0,const Vertex &v, const vec3f &p, vec3f &c, std::vector<int> &deleted)
+	// update color and normal
+	void update_color_normal(int i0,const Vertex &v, const vec3f &p,
+				 vec3f &c, vec3f &n,
+				 std::vector<int> &deleted)
 	{
 	  loopk(0,v.tcount)
 	    {
@@ -643,54 +630,41 @@ namespace Simplify
 	      if(t.deleted)continue;
 	      if(deleted[k])continue;
 
-	      vec3f p1=vertices[t.v[0]].c;
-	      vec3f p2=vertices[t.v[1]].c;
-	      vec3f p3=vertices[t.v[2]].c;
+	      vec3f p1=vertices[t.v[0]].p;
+	      vec3f p2=vertices[t.v[1]].p;
+	      vec3f p3=vertices[t.v[2]].p;
+
+	      vec3f bary = barycentric(p,p1,p2,p3);
+
+	      if (bary.x < 0.0 || bary.x > 1.0 ||
+		  bary.y < 0.0 || bary.y > 1.0 ||
+		  bary.z < 0.0 || bary.z > 1.0)
+		{
+		  bary = vec3f(1,1,1)/3.0f;
+		}
 
 	      vec3f c1=vertices[t.v[0]].c;
 	      vec3f c2=vertices[t.v[1]].c;
 	      vec3f c3=vertices[t.v[2]].c;
+	      vec3f cout = vec3f(0,0,0);
+	      cout = cout + c1 * bary.x;
+	      cout = cout + c2 * bary.y;
+	      cout = cout + c3 * bary.z;
+	      c = cout;
 
-	      vec3f bary = barycentric(p,p1,p2,p3);
-	      vec3f out = vec3f(0,0,0);
-	      out = out + c1 * bary.x;
-	      out = out + c2 * bary.y;
-	      out = out + c3 * bary.z;
-	      //c = out;
-	      c = c1;
-	    }
-	}
-	//----------------
-	
-	//----------------
-	// update_normal
-	void update_normal(int i0, const Vertex &v, const vec3f &p, vec3f &n, std::vector<int> &deleted)
-	{
-	  loopk(0,v.tcount)
-	    {
-	      Ref &r=refs[v.tstart+k];
-	      Triangle &t=triangles[r.tid];
-	      if(t.deleted)continue;
-	      if(deleted[k])continue;
-
-	      vec3f p1=vertices[t.v[0]].c;
-	      vec3f p2=vertices[t.v[1]].c;
-	      vec3f p3=vertices[t.v[2]].c;
 
 	      vec3f n1=vertices[t.v[0]].n;
 	      vec3f n2=vertices[t.v[1]].n;
 	      vec3f n3=vertices[t.v[2]].n;
-
-	      vec3f bary = barycentric(p,p1,p2,p3);
-	      vec3f out = vec3f(0,0,0);
-	      out = out + n1 * bary.x;
-	      out = out + n2 * bary.y;
-	      out = out + n3 * bary.z;
-	      //n = out.normalize();
-	      n = n1;
+	      vec3f nout = vec3f(0,0,0);
+	      nout = nout + n1 * bary.x;
+	      nout = nout + n2 * bary.y;
+	      nout = nout + n3 * bary.z;
+	      n = nout;
 	    }
 	}
 	//----------------
+	
 
 	// update_uvs
 	void update_uvs(int i0,const Vertex &v,const vec3f &p,std::vector<int> &deleted)
@@ -1002,8 +976,8 @@ namespace Simplify
 		if((char)filename[0]==0)	return ;
 		if ((fn = fopen(filename, "rb")) == NULL)
 		{
-			printf ( "File %s not found!\n" ,filename );
-			return;
+		  QMessageBox::information(0, "Error", "Cannot load "+QString(filename));
+		  return;
 		}
 		char line[1000];
 		memset ( line,0,1000 );
@@ -1145,8 +1119,8 @@ namespace Simplify
 
 		if (!file)
 		{
-			printf("write_obj: can't write data file \"%s\".\n", filename);
-			exit(0);
+		  QMessageBox::information(0, "Error", "Cannot write file "+QString(filename));
+			return;
 		}
 		if (!mtllib.empty())
 		{

@@ -44,17 +44,17 @@ MeshSimplify::getValues(float &decimate, int &aggressive)
   vlist.clear();
   vlist << QVariant("float");
   vlist << QVariant(decimate);
-  vlist << QVariant(0.1);
+  vlist << QVariant(0.01);
   vlist << QVariant(0.9);
-  vlist << QVariant(0.1); // singlestep
-  vlist << QVariant(1); // decimals
+  vlist << QVariant(0.05); // singlestep
+  vlist << QVariant(2); // decimals
   plist["decimate"] = vlist;
 
   vlist.clear();
   vlist << QVariant("int");
   vlist << QVariant(aggressive);
   vlist << QVariant(1);
-  vlist << QVariant(10);
+  vlist << QVariant(20);
   plist["aggressive"] = vlist;
 
   vlist.clear();
@@ -97,7 +97,7 @@ MeshSimplify::getValues(float &decimate, int &aggressive)
   keys << "commandhelp";
   keys << "message";
 
-  propertyEditor.set("Mesh Simplify Parameters", plist, keys);
+  propertyEditor.set("Mesh Simplification Parameters", plist, keys);
   QMap<QString, QPair<QVariant, bool> > vmap;
   
   if (propertyEditor.exec() == QDialog::Accepted)
@@ -125,37 +125,40 @@ MeshSimplify::getValues(float &decimate, int &aggressive)
 QString
 MeshSimplify::start(QString prevDir)
 {
+  QString inflnm, outflnm;
+  bool plyType = true;
+  
   //---- import the mesh ---
-  QString inflnm = QFileDialog::getOpenFileName(0,
-						"Load mesh to simplify",
-						prevDir,
-						"*.ply");
-  if (inflnm.size() == 0)
+  inflnm = QFileDialog::getOpenFileName(0,
+					"Load mesh to simplify",
+					prevDir,
+					"*.ply | *.obj");
+  if (inflnm.size() == 0) return "";
+  
+  QFileInfo f(inflnm);
+  
+  
+  if (StaticFunctions::checkExtension(inflnm, ".ply"))
     {
-      //meshWindow->close();
-      return "";
+      plyType = true;
+      outflnm = QFileDialog::getSaveFileName(0,
+					     "Save simplified PLY mesh",
+					     f.absolutePath(),
+					     "*.ply");
+      if (!StaticFunctions::checkExtension(outflnm, ".ply"))
+	outflnm += ".ply";
     }
-
-  if (!loadPLY(inflnm))
+  if (StaticFunctions::checkExtension(inflnm, ".obj"))
     {
-      //meshWindow->close();
-      return "";
+      plyType = false;
+      outflnm = QFileDialog::getSaveFileName(0,
+					     "Save simplified OBJ mesh",
+					     f.absolutePath(),
+					     "*.obj");
+      if (!StaticFunctions::checkExtension(outflnm, ".obj"))
+	outflnm += ".obj";
     }
-  //----------------------------
-
-  //---- export the mesh ---
-  QString outflnm = QFileDialog::getSaveFileName(0,
-						 "Export mesh",
-						 prevDir,
-						 "*.ply");
-  if (outflnm.size() == 0)
-    {
-      //meshWindow->close();
-      return "";
-    }
-  if (!StaticFunctions::checkExtension(outflnm, ".ply"))
-    outflnm += ".ply";
-  //----------------------------
+  if (outflnm.size() == 0) return "";
 
 
   float decimate;
@@ -163,7 +166,6 @@ MeshSimplify::start(QString prevDir)
 
   if (! getValues(decimate, aggressive))
     return "";
-
 
   m_meshLog = new QTextEdit;
   m_meshProgress = new QProgressBar;
@@ -181,10 +183,13 @@ MeshSimplify::start(QString prevDir)
   m_meshLog->insertPlainText("\n\n");
   m_meshLog->insertPlainText(QString("Decimation : %1\n").arg(decimate));
   m_meshLog->insertPlainText(QString("Aggressive : %1\n").arg(aggressive));
+  qApp->processEvents();
   
-  simplifyMesh(inflnm, outflnm, decimate, aggressive);
 
-
+  simplifyMesh(plyType,
+	       inflnm, outflnm,
+	       decimate, aggressive);
+      
   meshWindow->close();
 
   return outflnm;
@@ -192,18 +197,30 @@ MeshSimplify::start(QString prevDir)
 
 
 void
-MeshSimplify::simplifyMesh(QString inflnm,
-			   QString outflnm,
+MeshSimplify::simplifyMesh(bool plyType,
+			   QString inflnm, QString outflnm,
 			   float decimate, int aggressive)
 {
   QString mesg;
 
   m_meshLog->moveCursor(QTextCursor::End);
-  m_meshLog->insertPlainText(" Simplifying ...\n");
+  m_meshLog->insertPlainText(" Loading mesh ...\n");
+  qApp->processEvents();
 
-  Simplify::load_ply(m_nverts, m_nfaces, m_vlist, m_flist);
+  if (plyType)
+    {
+      if (!loadPLY(inflnm))
+	{
+	  QMessageBox::information(0, "Error", "Cannot load "+inflnm);
+	  return;
+	}
+      
+      Simplify::load_ply(m_nverts, m_nfaces, m_vlist, m_flist);
+    }
+  else
+    Simplify::load_obj(inflnm.toLatin1().data());
 
-  //Simplify::load_obj(inflnm.toLatin1().data());
+  
   int target_count =  Simplify::triangles.size() * decimate;
   int startSize = Simplify::triangles.size();
   
@@ -222,8 +239,6 @@ MeshSimplify::simplifyMesh(QString inflnm,
 			  aggressive,
 			  true);
 
-  //Simplify::write_obj(outflnm.toLatin1().data());
-  
   mesg = QString("Output : %1 vertices,  %2 triangles (reduction %3)\n").\
     arg(Simplify::vertices.size()).\
     arg(Simplify::triangles.size()).\
@@ -232,39 +247,36 @@ MeshSimplify::simplifyMesh(QString inflnm,
   m_meshLog->insertPlainText(mesg);
   qApp->processEvents();
 
-//  for(int ni=0; ni<m_nverts; ni++)
-//    {
-//      m_meshProgress->setValue((int)(100.0*(float)ni/(float)m_nverts));
-//      qApp->processEvents();
-//    }
-//  m_meshProgress->setValue(100);
 
   //-----
-  m_nverts = Simplify::vertices.size();
-  m_nfaces = Simplify::triangles.size();
-  for(int i=0; i<m_nverts; i++)
-    {
-      m_vlist[i]->x = Simplify::vertices[i].p.x;
-      m_vlist[i]->y = Simplify::vertices[i].p.y;
-      m_vlist[i]->z = Simplify::vertices[i].p.z;
-      m_vlist[i]->nx = Simplify::vertices[i].n.x;
-      m_vlist[i]->ny = Simplify::vertices[i].n.y;
-      m_vlist[i]->nz = Simplify::vertices[i].n.z;
-      m_vlist[i]->r = Simplify::vertices[i].c.x;
-      m_vlist[i]->g = Simplify::vertices[i].c.y;
-      m_vlist[i]->b = Simplify::vertices[i].c.z;
+  if (plyType)
+    {  
+      m_nverts = Simplify::vertices.size();
+      m_nfaces = Simplify::triangles.size();
+      for(int i=0; i<m_nverts; i++)
+	{
+	  m_vlist[i]->x = Simplify::vertices[i].p.x;
+	  m_vlist[i]->y = Simplify::vertices[i].p.y;
+	  m_vlist[i]->z = Simplify::vertices[i].p.z;
+	  m_vlist[i]->nx = Simplify::vertices[i].n.x;
+	  m_vlist[i]->ny = Simplify::vertices[i].n.y;
+	  m_vlist[i]->nz = Simplify::vertices[i].n.z;
+	  m_vlist[i]->r = Simplify::vertices[i].c.x;
+	  m_vlist[i]->g = Simplify::vertices[i].c.y;
+	  m_vlist[i]->b = Simplify::vertices[i].c.z;
+	}
+      for(int i=0; i<m_nfaces; i++)
+	{
+	  m_flist[i]->nverts = 3;
+	  m_flist[i]->verts[0] = Simplify::triangles[i].v[0];
+	  m_flist[i]->verts[1] = Simplify::triangles[i].v[1];
+	  m_flist[i]->verts[2] = Simplify::triangles[i].v[2];
+	}
+      savePLY(outflnm);
     }
-  for(int i=0; i<m_nfaces; i++)
-    {
-      m_flist[i]->nverts = 3;
-      m_flist[i]->verts[0] = Simplify::triangles[i].v[0];
-      m_flist[i]->verts[1] = Simplify::triangles[i].v[1];
-      m_flist[i]->verts[2] = Simplify::triangles[i].v[2];
-    }
+  else
+    Simplify::write_obj(outflnm.toLatin1().data());
   //-----
-
-  
-  savePLY(outflnm);
 
   m_meshLog->moveCursor(QTextCursor::End);
   m_meshLog->insertPlainText("Mesh saved in "+outflnm);

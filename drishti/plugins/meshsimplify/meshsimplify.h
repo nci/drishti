@@ -51,7 +51,8 @@ class MeshSimplify
 
   QList<char*> plyStrings;
 
-  void simplifyMesh(QString, QString,
+  void simplifyMesh(bool,
+		    QString, QString,
 		    float, int);
 
   void savePLY(QString);

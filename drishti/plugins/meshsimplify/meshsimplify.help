@@ -13,7 +13,7 @@ https://github.com/sp4cerat/Fast-Quadric-Mesh-Simplification
 decimation
 decimation
 This parameter controls amount of decimation for triangles.
-Values are between 0.1 to 0.9.  Lower values means higher decimation.
+Values are between 0.01 to 0.9.  Lower values means higher decimation.
 Value of 0.2 means decimate 80% of triangles.
 #end
 
@@ -21,7 +21,7 @@ Value of 0.2 means decimate 80% of triangles.
 aggressive
 aggressive
 This parameter controls better or faster decimation.
-Values are between 1 and 10.  Lower values mean better decimation.  Heigher values mean faster decimation.
+Values are between 1 and 20.  Lower values mean better decimation.  Heigher values mean faster decimation.
 #end
 
 

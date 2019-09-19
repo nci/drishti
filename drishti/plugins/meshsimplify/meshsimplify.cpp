@@ -31,10 +31,11 @@ MeshSimplify::MeshSimplify()
 MeshSimplify::~MeshSimplify() {if (vcolor) delete [] vcolor;}
 
 bool
-MeshSimplify::getValues(float &decimate, int &aggressive)
+MeshSimplify::getValues(float &decimate, int &aggressive, int &smooth)
 {
   decimate = 0.2;
-  aggressive = 2;
+  aggressive = 5;
+  smooth = 10;
   
   PropertyEditor propertyEditor;
   QMap<QString, QVariantList> plist;
@@ -44,9 +45,9 @@ MeshSimplify::getValues(float &decimate, int &aggressive)
   vlist.clear();
   vlist << QVariant("float");
   vlist << QVariant(decimate);
-  vlist << QVariant(0.01);
+  vlist << QVariant(0.1);
   vlist << QVariant(0.9);
-  vlist << QVariant(0.05); // singlestep
+  vlist << QVariant(0.1); // singlestep
   vlist << QVariant(2); // decimals
   plist["decimate"] = vlist;
 
@@ -54,8 +55,15 @@ MeshSimplify::getValues(float &decimate, int &aggressive)
   vlist << QVariant("int");
   vlist << QVariant(aggressive);
   vlist << QVariant(1);
-  vlist << QVariant(20);
+  vlist << QVariant(10);
   plist["aggressive"] = vlist;
+
+  vlist.clear();
+  vlist << QVariant("int");
+  vlist << QVariant(smooth);
+  vlist << QVariant(1);
+  vlist << QVariant(100);
+  plist["color smoothing"] = vlist;
 
   vlist.clear();
   QFile helpFile(":/meshsimplify.help");
@@ -94,6 +102,7 @@ MeshSimplify::getValues(float &decimate, int &aggressive)
   QStringList keys;
   keys << "decimate";
   keys << "aggressive";
+  keys << "color smoothing";
   keys << "commandhelp";
   keys << "message";
 
@@ -115,6 +124,8 @@ MeshSimplify::getValues(float &decimate, int &aggressive)
 	    decimate = pair.first.toFloat();
 	  else if (keys[ik] == "aggressive")
 	    aggressive = pair.first.toInt();
+	  else if (keys[ik] == "color smoothing")
+	    smooth = pair.first.toInt();
 	}
     }
 
@@ -163,8 +174,9 @@ MeshSimplify::start(QString prevDir)
 
   float decimate;
   int aggressive;
+  int smooth;
 
-  if (! getValues(decimate, aggressive))
+  if (! getValues(decimate, aggressive, smooth))
     return "";
 
   m_meshLog = new QTextEdit;
@@ -188,7 +200,8 @@ MeshSimplify::start(QString prevDir)
 
   simplifyMesh(plyType,
 	       inflnm, outflnm,
-	       decimate, aggressive);
+	       decimate, aggressive,
+	       smooth);
       
   meshWindow->close();
 
@@ -199,7 +212,8 @@ MeshSimplify::start(QString prevDir)
 void
 MeshSimplify::simplifyMesh(bool plyType,
 			   QString inflnm, QString outflnm,
-			   float decimate, int aggressive)
+			   float decimate, int aggressive,
+			   int smooth)
 {
   QString mesg;
 
@@ -247,10 +261,12 @@ MeshSimplify::simplifyMesh(bool plyType,
   m_meshLog->insertPlainText(mesg);
   qApp->processEvents();
 
-
   //-----
   if (plyType)
     {  
+      applyColorSmoothing(smooth);
+      generateNormals();
+
       m_nverts = Simplify::vertices.size();
       m_nfaces = Simplify::triangles.size();
       for(int i=0; i<m_nverts; i++)
@@ -479,10 +495,97 @@ MeshSimplify::loadPLY(QString flnm)
       vcolor[3*i+2] = m_vlist[i]->b/255.0f;
     }
 
-  QMessageBox::information(0, "", QString("Loaded input mesh : vertices %1  faces %2").\
-			   arg(m_nverts).\
-			   arg(m_nfaces));
+//  QMessageBox::information(0, "", QString("Loaded input mesh : vertices %1  faces %2").\
+//			   arg(m_nverts).\
+//			   arg(m_nfaces));
 
   return true;
 }
 
+void
+MeshSimplify::generateNormals()
+{
+  m_nverts = Simplify::vertices.size();
+  m_nfaces = Simplify::triangles.size();
+
+  for(int i=0; i<m_nverts; i++)
+    {
+      Simplify::vertices[i].n = vec3f(0,0,0);
+    }
+  
+  for(int i=0; i<m_nfaces; i++)
+    {
+      int i0 = Simplify::triangles[i].v[0];
+      int i1 = Simplify::triangles[i].v[1];
+      int i2 = Simplify::triangles[i].v[2];
+
+      vec3f n = Simplify::triangles[i].n;
+      if (n.length() < 10)
+	{
+	  // add proportional to the area of triangle
+	  vec3f p0 = Simplify::vertices[i0].p;
+	  vec3f p1 = Simplify::vertices[i1].p;
+	  vec3f p2 = Simplify::vertices[i2].p;
+	  vec3f cp;
+	  cp.cross(p1-p0,p2-p0);
+	  double cpl = cp.length();
+	  n = n*cpl;
+	  
+	  Simplify::vertices[i0].n = Simplify::vertices[i0].n + n;
+	  Simplify::vertices[i1].n = Simplify::vertices[i1].n + n;
+	  Simplify::vertices[i2].n = Simplify::vertices[i2].n + n;
+	}
+    }
+
+  for(int i=0; i<m_nverts; i++)
+    {
+      Simplify::vertices[i].n.normalize();
+    }
+}
+
+void
+MeshSimplify::applyColorSmoothing(int smooth)
+{
+  m_nverts = Simplify::vertices.size();
+  m_nfaces = Simplify::triangles.size();
+
+  for(int iter = 0; iter < smooth; iter++)
+    {
+      // copy color to normal
+      // normals will be calculated in generateNormals
+      // so overwriting them should not cause problems
+      for(int i=0; i<m_nverts; i++)
+	{
+	  Simplify::vertices[i].n = Simplify::vertices[i].c;
+	  Simplify::vertices[i].tcount = 0;
+	  Simplify::vertices[i].c = vec3f(0,0,0);
+	}
+      
+      for(int i=0; i<m_nfaces; i++)
+	{
+	  int i0 = Simplify::triangles[i].v[0];
+	  int i1 = Simplify::triangles[i].v[1];
+	  int i2 = Simplify::triangles[i].v[2];
+	  
+	  // we have color in n
+	  vec3f c0 = Simplify::vertices[i0].n;
+	  vec3f c1 = Simplify::vertices[i1].n;
+	  vec3f c2 = Simplify::vertices[i2].n;
+	  vec3f c = (c0 + c1 + c2)/3;
+	  
+	  Simplify::vertices[i0].c = Simplify::vertices[i0].c + c;
+	  Simplify::vertices[i1].c = Simplify::vertices[i1].c + c;
+	  Simplify::vertices[i2].c = Simplify::vertices[i2].c + c;
+	  
+	  Simplify::vertices[i0].tcount += 1;
+	  Simplify::vertices[i1].tcount += 1;
+	  Simplify::vertices[i2].tcount += 1;
+	}
+      
+      for(int i=0; i<m_nverts; i++)
+	{
+	  Simplify::vertices[i].c = Simplify::vertices[i].c / Simplify::vertices[i].tcount;
+	}
+    }
+  
+}

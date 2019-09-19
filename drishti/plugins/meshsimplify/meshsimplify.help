@@ -1,3 +1,4 @@
+
 #begin
 General Help
 Mesh Simplify.
@@ -24,4 +25,10 @@ This parameter controls better or faster decimation.
 Values are between 1 and 20.  Lower values mean better decimation.  Heigher values mean faster decimation.
 #end
 
+#begin
+color smoothing
+color smoothing
+This parameter controls color smoothing for simplified mesh.
+Higher values result in smoother colors.
+#end
 

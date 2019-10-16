@@ -1440,12 +1440,12 @@ ImageWidget::keyPressEvent(QKeyEvent *event)
 {
   bool processed = false;
 
-  if (event->key() == Qt::Key_S &&
-      (event->modifiers() & Qt::ControlModifier) )
-    {
-      emit saveWork();
-      return;
-    }
+//  if (event->key() == Qt::Key_S &&
+//      (event->modifiers() & Qt::ControlModifier) )
+//    {
+//      emit saveWork();
+//      return;
+//    }
 
   graphcutModeKeyPressEvent(event);
 }

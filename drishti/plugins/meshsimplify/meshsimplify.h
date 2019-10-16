@@ -54,15 +54,16 @@ class MeshSimplify
   void simplifyMesh(bool,
 		    QString, QString,
 		    float, int,
-		    int);
+		    int, int);
 
   void savePLY(QString);
   bool loadPLY(QString);
 
-  bool getValues(float&, int&, int&);
+  bool getValues(float&, int&, int&, int&);
 
   void generateNormals();
   void applyColorSmoothing(int);
+  void smoothMesh(int);
 };
 
 #endif MESHSIMPLIFY_H

@@ -1058,7 +1058,7 @@ LightShaderFactory::genExpandLightShader()
   shader += "  float yO = y*float(llod);\n";
   shader += "  float zO = z*float(llod);\n";
 
-  shader += "int alod = llod-1;\n";
+  shader += "int alod = int(llod)-1;\n";
   shader += "vec4 fcolor = vec4(0.0,0.0,0.0,0.0);\n";
   shader += "for(int za=-alod; za<=alod; za++)\n";
   shader += "{\n";

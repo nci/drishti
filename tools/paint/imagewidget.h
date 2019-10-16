@@ -99,12 +99,19 @@ class ImageWidget : public QWidget
 
   void applyFilters();
 
+  void multiSliceOperation();
+  void restartRecursive();
+  
  signals :
   void xPos(int);
   void yPos(int);
   void sliceChanged(int);
+  void setSliceNumber(int);
   //void updateBB(Vec, Vec);
-    
+
+  void disconnectSlider();
+  void reconnectSlider();
+  
   void saveWork();
   void viewerUpdate();
   void getRawValue(int, int, int);
@@ -227,13 +234,14 @@ class ImageWidget : public QWidget
   bool m_applyRecursive;
   bool m_extraPressed;
   int m_cslc, m_maxslc;
+  int m_slcBlock;
   int m_key;
   bool m_forward;
 
   int m_pointSize;
 
   QList<int> m_showTags;
-
+  
   void resizeImage();
   void recolorImage();
   

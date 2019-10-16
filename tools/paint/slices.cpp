@@ -82,17 +82,24 @@ Slices::createMenu(QHBoxLayout *hl,
   connect(m_zoomDown, SIGNAL(clicked()), m_imageWidget, SLOT(zoomDownClicked()));
   
   connect(m_slider, SIGNAL(valueChanged(int)), m_imageWidget, SLOT(setSlice(int)));
-
-  connect(m_slider, SIGNAL(valueChanged(int)), this, SLOT(setSlice(int)));
-
+  connect(m_slider, SIGNAL(valueChanged(int)), this, SLOT(setSliceNumber(int)));
   connect(m_slider, SIGNAL(valueChanged(int)), this, SIGNAL(sliceChanged(int)));
 
   connect(m_imageWidget, SIGNAL(xPos(int)), this, SIGNAL(xPos(int)));
   connect(m_imageWidget, SIGNAL(yPos(int)), this, SIGNAL(yPos(int)));
   connect(m_imageWidget, SIGNAL(sliceChanged(int)), this, SIGNAL(sliceChanged(int)));
 
+//  connect(m_imageWidget, SIGNAL(sliceChanged(int)),
+//	  m_slider, SLOT(setValue(int)));
   connect(m_imageWidget, SIGNAL(sliceChanged(int)),
-	  m_slider, SLOT(setValue(int)));
+	  this, SLOT(setSlice(int)));
+  connect(m_imageWidget, SIGNAL(setSliceNumber(int)),
+	  this, SLOT(setSliceNumber(int)));
+
+  connect(m_imageWidget, SIGNAL(disconnectSlider()),
+	  this, SLOT(disconnectSlider()));
+  connect(m_imageWidget, SIGNAL(reconnectSlider()),
+	  this, SLOT(reconnectSlider()));
 
   connect(m_imageWidget, SIGNAL(updateBB(Vec, Vec)),
 	  this, SIGNAL(updateBB(Vec, Vec)));
@@ -188,12 +195,36 @@ Slices::sliceNumChanged()
   m_imageWidget->setSlice(s);
 }
 
+
+void
+Slices::disconnectSlider()
+{
+  disconnect(m_imageWidget, SIGNAL(sliceChanged(int)), this, SIGNAL(sliceChanged(int)));
+  disconnect(m_slider, SIGNAL(valueChanged(int)), m_imageWidget, SLOT(setSlice(int)));
+  disconnect(m_slider, SIGNAL(valueChanged(int)), this, SLOT(setSliceNumber(int)));
+  disconnect(m_slider, SIGNAL(valueChanged(int)), this, SIGNAL(sliceChanged(int)));
+  
+}
+
+void
+Slices::reconnectSlider()
+{
+  connect(m_imageWidget, SIGNAL(sliceChanged(int)), this, SIGNAL(sliceChanged(int)));
+  connect(m_slider, SIGNAL(valueChanged(int)), m_imageWidget, SLOT(setSlice(int)));
+  connect(m_slider, SIGNAL(valueChanged(int)), this, SLOT(setSliceNumber(int)));
+  connect(m_slider, SIGNAL(valueChanged(int)), this, SIGNAL(sliceChanged(int)));
+}
+
+void
+Slices::setSliceNumber(int s)
+{
+  m_mesg->setText(QString("%1").arg(s));
+}
+
 void
 Slices::setSlice(int s)
 {
   m_slider->setValue(s);
-  //m_mesg->setText(QString("<font color=green><h2>%1</h2></font>").arg(s));
-  m_mesg->setText(QString("%1").arg(s));
 }
 
 //void Slices::bbupdated(Vec bmin, Vec bmax) { m_imageWidget->bbupdated(bmin, bmax); }

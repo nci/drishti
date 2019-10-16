@@ -31,11 +31,12 @@ MeshSimplify::MeshSimplify()
 MeshSimplify::~MeshSimplify() {if (vcolor) delete [] vcolor;}
 
 bool
-MeshSimplify::getValues(float &decimate, int &aggressive, int &smooth)
+MeshSimplify::getValues(float &decimate, int &aggressive, int &meshsmooth, int &colorsmooth)
 {
   decimate = 0.2;
   aggressive = 5;
-  smooth = 10;
+  meshsmooth = 0;
+  colorsmooth = 10;
   
   PropertyEditor propertyEditor;
   QMap<QString, QVariantList> plist;
@@ -45,10 +46,10 @@ MeshSimplify::getValues(float &decimate, int &aggressive, int &smooth)
   vlist.clear();
   vlist << QVariant("float");
   vlist << QVariant(decimate);
-  vlist << QVariant(0.1);
+  vlist << QVariant(0.0001);
   vlist << QVariant(0.9);
-  vlist << QVariant(0.1); // singlestep
-  vlist << QVariant(2); // decimals
+  vlist << QVariant(0.05); // singlestep
+  vlist << QVariant(4); // decimals
   plist["decimate"] = vlist;
 
   vlist.clear();
@@ -60,7 +61,14 @@ MeshSimplify::getValues(float &decimate, int &aggressive, int &smooth)
 
   vlist.clear();
   vlist << QVariant("int");
-  vlist << QVariant(smooth);
+  vlist << QVariant(meshsmooth);
+  vlist << QVariant(0);
+  vlist << QVariant(10);
+  plist["mesh smoothing"] = vlist;
+
+  vlist.clear();
+  vlist << QVariant("int");
+  vlist << QVariant(colorsmooth);
   vlist << QVariant(1);
   vlist << QVariant(100);
   plist["color smoothing"] = vlist;
@@ -100,6 +108,7 @@ MeshSimplify::getValues(float &decimate, int &aggressive, int &smooth)
 
 
   QStringList keys;
+  keys << "mesh smoothing";
   keys << "decimate";
   keys << "aggressive";
   keys << "color smoothing";
@@ -124,8 +133,10 @@ MeshSimplify::getValues(float &decimate, int &aggressive, int &smooth)
 	    decimate = pair.first.toFloat();
 	  else if (keys[ik] == "aggressive")
 	    aggressive = pair.first.toInt();
+	  else if (keys[ik] == "mesh smoothing")
+	    meshsmooth = pair.first.toInt();
 	  else if (keys[ik] == "color smoothing")
-	    smooth = pair.first.toInt();
+	    colorsmooth = pair.first.toInt();
 	}
     }
 
@@ -174,9 +185,10 @@ MeshSimplify::start(QString prevDir)
 
   float decimate;
   int aggressive;
-  int smooth;
+  int meshsmooth;
+  int colorsmooth;
 
-  if (! getValues(decimate, aggressive, smooth))
+  if (! getValues(decimate, aggressive, meshsmooth, colorsmooth))
     return "";
 
   m_meshLog = new QTextEdit;
@@ -201,7 +213,7 @@ MeshSimplify::start(QString prevDir)
   simplifyMesh(plyType,
 	       inflnm, outflnm,
 	       decimate, aggressive,
-	       smooth);
+	       meshsmooth, colorsmooth);
       
   meshWindow->close();
 
@@ -213,7 +225,7 @@ void
 MeshSimplify::simplifyMesh(bool plyType,
 			   QString inflnm, QString outflnm,
 			   float decimate, int aggressive,
-			   int smooth)
+			   int meshsmooth, int colorsmooth)
 {
   QString mesg;
 
@@ -228,8 +240,24 @@ MeshSimplify::simplifyMesh(bool plyType,
 	  QMessageBox::information(0, "Error", "Cannot load "+inflnm);
 	  return;
 	}
-      
+
+      if (meshsmooth > 0)
+	smoothMesh(meshsmooth);
+      else
+	m_meshLog->insertPlainText(" No smoothing applied before simplification.\n");
+
+
       Simplify::load_ply(m_nverts, m_nfaces, m_vlist, m_flist);
+      for (int j = 0; j < m_nverts; j++) delete [] m_vlist[j];
+      for (int j = 0; j < m_nfaces; j++)
+	{
+	  free(m_flist[j]->verts);
+	  delete [] m_flist[j];
+	}
+      delete [] m_vlist;
+      delete [] m_flist;
+      m_vlist = 0;
+      m_flist = 0;
     }
   else
     Simplify::load_obj(inflnm.toLatin1().data());
@@ -263,14 +291,18 @@ MeshSimplify::simplifyMesh(bool plyType,
 
   //-----
   if (plyType)
-    {  
-      applyColorSmoothing(smooth);
+    {
+      applyColorSmoothing(colorsmooth);
       generateNormals();
 
       m_nverts = Simplify::vertices.size();
       m_nfaces = Simplify::triangles.size();
+      m_vlist = (PlyVertex **) new uchar[sizeof (PlyVertex *) * m_nverts];
+      m_flist = (PlyFace **) new uchar[sizeof (PlyFace *) * m_nfaces];
+  
       for(int i=0; i<m_nverts; i++)
 	{
+	  m_vlist[i] = (PlyVertex *) new uchar[sizeof (PlyVertex)];
 	  m_vlist[i]->x = Simplify::vertices[i].p.x;
 	  m_vlist[i]->y = Simplify::vertices[i].p.y;
 	  m_vlist[i]->z = Simplify::vertices[i].p.z;
@@ -283,6 +315,8 @@ MeshSimplify::simplifyMesh(bool plyType,
 	}
       for(int i=0; i<m_nfaces; i++)
 	{
+	  m_flist[i] = (PlyFace *) new uchar[sizeof (PlyFace)];
+	  m_flist[i]->verts = new int[3];
 	  m_flist[i]->nverts = 3;
 	  m_flist[i]->verts[0] = Simplify::triangles[i].v[0];
 	  m_flist[i]->verts[1] = Simplify::triangles[i].v[1];
@@ -416,7 +450,7 @@ MeshSimplify::loadPLY(QString flnm)
     if (QString("vertex") == QString(elem_name)) {
 
       /* create a vertex list to hold all the vertices */
-      m_vlist = (PlyVertex **) malloc (sizeof (PlyVertex *) * elem_count);
+      m_vlist = (PlyVertex **) new uchar[sizeof (PlyVertex *) * elem_count];
       m_nverts = elem_count;
 
       /* set up for getting vertex elements */
@@ -459,14 +493,14 @@ MeshSimplify::loadPLY(QString flnm)
 
       /* grab all the vertex elements */
       for (j = 0; j < elem_count; j++) {
-        m_vlist[j] = (PlyVertex *) malloc (sizeof (PlyVertex));
+        m_vlist[j] = (PlyVertex *) new uchar[sizeof (PlyVertex)];
         get_element_ply (in_ply, (void *) m_vlist[j]);
       }
     }
     else if (QString("face") == QString(elem_name)) {
 
       /* create a list to hold all the face elements */
-      m_flist = (PlyFace **) malloc (sizeof (PlyFace *) * elem_count);
+      m_flist = (PlyFace **) new uchar[sizeof (PlyFace *) * elem_count];
       m_nfaces = elem_count;
 
       /* set up for getting face elements */
@@ -475,7 +509,7 @@ MeshSimplify::loadPLY(QString flnm)
 
       /* grab all the face elements */
       for (j = 0; j < elem_count; j++) {
-        m_flist[j] = (PlyFace *) malloc (sizeof (PlyFace));
+        m_flist[j] = (PlyFace *) new uchar[sizeof (PlyFace)];
         get_element_ply (in_ply, (void *) m_flist[j]);
       }
     }
@@ -588,4 +622,104 @@ MeshSimplify::applyColorSmoothing(int smooth)
 	}
     }
   
+}
+
+void
+MeshSimplify::smoothMesh(int ntimes)
+{
+  m_meshLog->moveCursor(QTextCursor::End);
+  m_meshLog->insertPlainText(" Applying smoothing before simplification ...\n");
+
+  QMultiMap<int, int> imat;
+  for(int i=0; i<m_nfaces; i++)
+    {
+      int a = m_flist[i]->verts[0];
+      int b = m_flist[i]->verts[1];
+      int c = m_flist[i]->verts[2];
+
+      imat.insert(a, b);
+      imat.insert(b, a);
+      imat.insert(a, c);
+      imat.insert(c, a);
+      imat.insert(b, c);
+      imat.insert(c, b);
+    }
+
+  QVector<Vec> V, newV;
+  V.resize(m_nverts);
+  newV.resize(m_nverts);
+
+  for(int i=0; i<m_nverts; i++)
+    {
+      V[i] = Vec(m_vlist[i]->x, m_vlist[i]->y, m_vlist[i]->z);
+    }
+
+  for(int nt=0; nt<ntimes; nt++)
+    {
+      for(int i=0; i<m_nverts; i++)
+	{	  
+	  if (i%100 == 0)
+	    {
+	      m_meshProgress->setValue((int)(100.0*(float)i/(float)(m_nverts)));
+	      qApp->processEvents();
+	    }
+	  
+	  QList<int> idx = imat.values(i);
+	  Vec v0 = V[i];
+	  Vec v = Vec(0,0,0);
+	  float sum = 0;
+	  for(int j=0; j<idx.count(); j++)
+	    {
+	      Vec vj = V[idx[j]];
+	      float ln = (v0-vj).norm();
+	      if (ln > 0)
+		{
+		  sum += 1.0/ln;
+		  v = v + vj/ln;
+		}
+	    }
+	  if (sum > 0)
+	    v0 = v0 + 0.5*(v/sum - v0);
+	  newV[i] = v0;
+	}
+      
+//      for(int i=0; i<m_nverts; i++)
+//	{
+//	  if (i%100 == 0)
+//	    {
+//	      m_meshProgress->setValue((int)(100.0*(float)i/(float)(m_nverts)));
+//	      qApp->processEvents();
+//	    }
+//	  
+//	  QList<int> idx = imat.values(i);
+//	  Vec v0 = newV[i];
+//	  Vec v = Vec(0,0,0);
+//	  float sum = 0;
+//	  for(int j=0; j<idx.count(); j++)
+//	    {
+//	      Vec vj = newV[idx[j]];
+//	      float ln = (v0-vj).norm();
+//	      if (ln > 0)
+//		{
+//		  sum += 1.0/ln;
+//		  v = v + vj/ln;
+//		}
+//	    }
+//	  if (sum > 0)
+//	    v0 = v0 - 0.5*(v/sum - v0);
+//	  V[i] = v0;
+//	}
+
+      V = newV;
+    }
+
+    for(int i=0; i<m_nverts; i++)
+    {
+      m_vlist[i]->x = V[i].x;
+      m_vlist[i]->y = V[i].y;
+      m_vlist[i]->z = V[i].z;
+    }
+
+    m_meshProgress->setValue(0);
+    qApp->processEvents();
 }

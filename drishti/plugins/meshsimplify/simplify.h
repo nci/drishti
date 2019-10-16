@@ -50,7 +50,7 @@ struct vec3f
     inline vec3f operator + ( const vec3f& a ) const
     { return vec3f( x + a.x, y + a.y, z + a.z ); }
 
-	inline vec3f operator += ( const vec3f& a ) const
+    inline vec3f operator += ( const vec3f& a ) const
     { return vec3f( x + a.x, y + a.y, z + a.z ); }
 
     inline vec3f operator * ( const double a ) const
@@ -386,7 +386,7 @@ namespace Simplify
 			// update mesh once in a while
 			if(iteration%5==0)
 			{
-				update_mesh(iteration);
+			  update_mesh(iteration);
 			}
 
 			// clear dirty flag
@@ -398,15 +398,17 @@ namespace Simplify
 			// The following numbers works well for most models.
 			// If it does not, try to adjust the 3 parameters
 			//
-			double threshold = 0.000000001*pow(double(iteration+3),agressiveness);
+			//double threshold = 0.000000001*pow(double(iteration+3),agressiveness);
+			double threshold = pow(1.0,-9.0)*pow(double(iteration+3),agressiveness);
 
 			// target number of triangles reached ? Then break
 			if ((verbose) && (iteration%5==0))
 			  {
 			    meshLog->moveCursor(QTextCursor::End);
-			    meshLog->insertPlainText(QString("iteration %1 - triangles %2\n"). \
+			    meshLog->insertPlainText(QString("iteration %1 - triangles %2 (threshold %3)\n"). \
 						     arg(iteration).	\
-						     arg(triangle_count-deleted_triangles));
+						     arg(triangle_count-deleted_triangles).\
+						     arg(threshold));
 			    qApp->processEvents();
 			  }
 
@@ -431,9 +433,9 @@ namespace Simplify
 					calculate_error(i0,i1,p);
 					deleted0.resize(v0.tcount); // normals temporarily
 					deleted1.resize(v1.tcount); // normals temporarily
+
 					// don't remove if flipped
 					if( flipped(p,i0,i1,v0,v1,deleted0) ) continue;
-
 					if( flipped(p,i1,i0,v1,v0,deleted1) ) continue;
 
 					//----
@@ -960,6 +962,7 @@ namespace Simplify
 	      t.v[2] = flist[i]->verts[2];
 	      t.attr = 0;
 	      t.material = -1;
+	      t.err[0] = t.err[1] = t.err[2] = t.err[3] = 0;
 	      triangles.push_back(t);
 	    }
 	}

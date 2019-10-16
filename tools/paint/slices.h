@@ -81,6 +81,11 @@ class Slices : public QWidget
    void setVLine(int);
    void setSlice(int);
 
+   void disconnectSlider();
+   void reconnectSlider();
+
+   void setSliceNumber(int);
+   
    void sliceNumChanged();
    
    //void bbupdated(Vec, Vec);

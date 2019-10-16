@@ -401,17 +401,16 @@ ImageWidget::getSlice()
   recolorImage();
 
   resizeImage();
-  
-  update();
 
   if (m_applyRecursive)
     {
       qApp->processEvents();
-      QKeyEvent dummy(QEvent::KeyPress,
-		      m_key,
-		      Qt::NoModifier);
-      keyPressEvent(&dummy);
+      emit setSliceNumber(m_currSlice);
+      multiSliceOperation();
+      qApp->processEvents();
     }
+  else
+    update();
 }
 
 void
@@ -1094,7 +1093,8 @@ ImageWidget::applyRecursive(int key)
   m_key = key;
   m_cslc = 0;
   m_maxslc = 10;
-
+  m_slcBlock = 0;
+  
   if (m_sliceType == DSlice)
     {
       int maxD = m_maxDSlice;
@@ -1122,6 +1122,14 @@ ImageWidget::applyRecursive(int key)
       else
 	m_maxslc = m_currSlice - minH + 1;
     }
+
+  emit disconnectSlider();
+}
+
+void
+ImageWidget::restartRecursive()
+{
+  checkRecursive();
 }
 
 void
@@ -1129,12 +1137,27 @@ ImageWidget::checkRecursive()
 {
   if (m_applyRecursive)
     {
-      m_cslc++;
+      m_slcBlock ++;
+      if (m_slcBlock == 10)
+	{
+	  m_slcBlock = 0;
+	  emit saveWork();
+	  QTimer::singleShot(100, this, SLOT(restartRecursive()));
+	  qApp->processEvents();
+	  return;
+	}
+      
+      m_cslc++;	
+	
       if (m_cslc >= m_maxslc)
 	{
 	  m_applyRecursive = false;
 	  emit saveWork();
 	  QMessageBox::information(0, "", "Reached the end");
+	  emit reconnectSlider();
+	  emit sliceChanged(m_currSlice);
+	  emit setSliceNumber(m_currSlice);
+	  qApp->processEvents();
 	}
       else
 	{
@@ -1150,6 +1173,17 @@ void ImageWidget::zoom0Clicked() { setZoom(1); }
 void ImageWidget::zoom9Clicked() { setZoom(-1); }
 void ImageWidget::zoomUpClicked() { setZoom(m_zoom+0.1); }
 void ImageWidget::zoomDownClicked() { setZoom(m_zoom-0.1); }
+
+void
+ImageWidget::multiSliceOperation()
+{
+  QKeyEvent dummy(QEvent::KeyPress,
+  		      m_key,
+  		      Qt::NoModifier);
+
+  keyPressEvent(&dummy);
+}
+
 
 void
 ImageWidget::graphcutModeKeyPressEvent(QKeyEvent *event)
@@ -1380,6 +1414,10 @@ ImageWidget::graphcutModeKeyPressEvent(QKeyEvent *event)
 	  m_forward = true;
 	  QMessageBox::information(0, "", "Repeat process stopped");
 	  //emit saveMask();
+	  emit reconnectSlider();
+	  emit sliceChanged(m_currSlice);
+	  emit setSliceNumber(m_currSlice);
+	  qApp->processEvents();
 	}
       else
 	{
@@ -1389,9 +1427,11 @@ ImageWidget::graphcutModeKeyPressEvent(QKeyEvent *event)
 	  update();
 	}
     }
-  else if (event->key() == Qt::Key_Right)
+  else if (event->key() == Qt::Key_Right ||
+	   event->key() == Qt::Key_Up)
     doAnother(1);
-  else if (event->key() == Qt::Key_Left)
+  else if (event->key() == Qt::Key_Left ||
+	   event->key() == Qt::Key_Down)
     doAnother(-1);
 }
 

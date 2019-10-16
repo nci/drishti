@@ -269,6 +269,13 @@ FileHandler::saveDataBlock(int dmin, int dmax,
 void
 FileHandler::saveDepthSlices(QList<int> slices)
 {
+  //-----------  
+  saveMemFile();
+  return;
+  //-----------  
+
+
+
   int dmin = slices[0];
   int dmax = slices[0];
   for(int i=1; i<slices.count(); i++)
@@ -294,6 +301,12 @@ FileHandler::saveDepthSlices(QList<int> slices)
 void
 FileHandler::saveWidthSlices(QList<int> slices)
 {
+  //-----------  
+  saveMemFile();
+  return;
+  //-----------  
+
+
   int wmin = slices[0];
   int wmax = slices[0];
   for(int i=1; i<slices.count(); i++)
@@ -319,6 +332,13 @@ FileHandler::saveWidthSlices(QList<int> slices)
 void
 FileHandler::saveHeightSlices(QList<int> slices)
 {
+  //-----------  
+  saveMemFile();
+  return;
+  //-----------  
+
+
+
   int hmin = slices[0];
   int hmax = slices[0];
   for(int i=1; i<slices.count(); i++)

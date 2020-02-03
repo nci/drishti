@@ -529,8 +529,8 @@ MainWindow::loadPlugin()
   QAction *action = qobject_cast<QAction *>(sender());
   int idx = action->data().toInt();
 
-  if (m_pluginList[idx].length() == 1 &&
-      m_pluginList[idx][1] == "NoVolume")
+  if (m_pluginList[idx].length() == 1 ||
+      m_pluginList[idx][1] != "NoVolume")
     {
       if (!m_Volume->valid() ||
 	  Global::volumeType() == Global::DummyVolume)

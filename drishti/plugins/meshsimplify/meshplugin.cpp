@@ -11,6 +11,7 @@ MeshSimplifyPlugin::registerPlugin()
   QStringList regString;
 
   regString << "Mesh Simplify";
+  regString << "NoVolume";
 
   return regString;
 }

@@ -497,7 +497,7 @@ MainWindow::registerPlugins()
 			  QStringList rs = rpi->registerPlugin();
 			  
 			  m_pluginList << rs;
-			  m_pluginDll << pluginflnm;			    
+			  m_pluginDll << pluginflnm; 
 			  
 			  QAction *action = new QAction(this);
 			  action->setText(m_pluginList[m_pluginList.count()-1][0]);
@@ -526,15 +526,19 @@ MainWindow::registerPlugins()
 void
 MainWindow::loadPlugin()
 {
-  if (!m_Volume->valid() ||
-      Global::volumeType() == Global::DummyVolume)
-    {
-      QMessageBox::information(0, "Error", "No volume to work on !");
-      return;
-    }
-
   QAction *action = qobject_cast<QAction *>(sender());
   int idx = action->data().toInt();
+
+  if (m_pluginList[idx].length() == 1 &&
+      m_pluginList[idx][1] == "NoVolume")
+    {
+      if (!m_Volume->valid() ||
+	  Global::volumeType() == Global::DummyVolume)
+	{
+	  QMessageBox::information(0, "Error", "No volume to work on !");
+	  return;
+	}
+    }
 
   runPlugin(idx, false);
 }

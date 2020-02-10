@@ -55,6 +55,8 @@ class PruneHandler
 
     static void clean();
 
+    static void forceRegen();
+    
     static void updateAndLoadPruneTexture(GLuint,
 					  int, int,
 					  Vec, Vec,
@@ -149,6 +151,8 @@ class PruneHandler
   private :
     static bool m_mopActive;
 
+    static bool m_forceRegen;
+    
     static GLuint m_dataTex;
     static uchar *m_lut;
 

@@ -20,6 +20,7 @@ uchar* PruneHandler::m_lut=0;
 
 bool PruneHandler::m_useSavedBuffer = false;
 bool PruneHandler::m_mopActive = false;
+bool PruneHandler::m_forceRegen = false;
 
 bool PruneHandler::m_blendActive = false;
 bool PruneHandler::m_paintActive = false;
@@ -1645,6 +1646,8 @@ PruneHandler::genBuffer(int dtextureX, int dtextureY)
 
 //bool firstTimePruneTextureGeneration = true;
 
+void PruneHandler::forceRegen() { m_forceRegen = true; }
+
 void
 PruneHandler::updateAndLoadPruneTexture(GLuint dataTex,
 					int dtextureX, int dtextureY,
@@ -1672,7 +1675,8 @@ PruneHandler::updateAndLoadPruneTexture(GLuint dataTex,
   
   //--------------------
   bool prune = true;
-  if (m_lut && vlut)
+
+  if (!m_forceRegen && m_lut && vlut)
     {
       prune = false;
       if (Global::maskTF() == -1)
@@ -1711,7 +1715,7 @@ PruneHandler::updateAndLoadPruneTexture(GLuint dataTex,
 		}
 	    }
 	}
-    }
+    } // check look up
 
   if (!prevModified && !prune && !forceregen)
     {
@@ -1747,9 +1751,9 @@ PruneHandler::updateAndLoadPruneTexture(GLuint dataTex,
 //  if (prevModified)
 //    copyToFromSavedChannel(false, 2, 2, false); 
 //  else
-    m_mopActive = false;
+//    m_mopActive = false;
 
-
+    m_forceRegen = false;
     //QMessageBox::information(0, "", QString("%1 %2").arg(prevModified).arg(m_mopActive));
 
   MainWindowUI::mainWindowUI()->menubar->parentWidget()->\

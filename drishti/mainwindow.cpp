@@ -3612,6 +3612,10 @@ MainWindow::peelInfo(int etype, float emin, float emax, float emix)
 void
 MainWindow::updateVolInfo(int vnum)
 {
+
+  if (vnum != Global::volumeNumber())
+    PruneHandler::forceRegen();
+	      
   Global::setVolumeNumber(vnum);
   emit refreshVolInfo(vnum, m_Volume->volInfo(vnum));
 
@@ -3623,6 +3627,9 @@ MainWindow::updateVolInfo(int vnum)
 void
 MainWindow::updateVolInfo(int vol, int vnum)
 {
+  if (vnum != Global::volumeNumber(vol))
+    PruneHandler::forceRegen();
+	      
   Global::setVolumeNumber(vnum, vol);
   emit refreshVolInfo(vol, vnum, m_Volume->volInfo(vnum, vol));
 
@@ -3645,6 +3652,9 @@ MainWindow::setRepeatType(int volnum, bool rtype)
 void
 MainWindow::setVolumeNumber(int vnum)
 {
+  if (vnum != Global::volumeNumber())
+    PruneHandler::forceRegen();
+	      
   Global::setVolumeNumber(vnum);
   if (m_Hires->raised())
     m_Hires->updateSubvolume();
@@ -3655,6 +3665,9 @@ MainWindow::setVolumeNumber(int vnum)
 void
 MainWindow::setVolumeNumber(int vol, int vnum)
 {
+  if (vnum != Global::volumeNumber(vol))
+    PruneHandler::forceRegen();
+	      
   Global::setVolumeNumber(vnum, vol);
   if (m_Hires->raised())
     m_Hires->updateSubvolume();

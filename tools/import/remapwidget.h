@@ -64,6 +64,8 @@ class RemapWidget : public QWidget
 
   void handleTimeSeries(QString, QString);
 
+  void handleMergeVolumes(QString, QString);
+
  private :
   Ui::RemapWidget ui;
 
@@ -84,6 +86,8 @@ class RemapWidget : public QWidget
 
   int m_currSlice;
 
+  bool m_mergeVolumes;
+  
   void showWidgets();
   void hideWidgets();
 

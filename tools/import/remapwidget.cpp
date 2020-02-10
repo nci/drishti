@@ -45,6 +45,7 @@ RemapWidget::RemapWidget(QWidget *parent) :
 
   m_fileNames.clear();
   m_timeseriesFiles.clear();
+  m_mergeVolumes = false;
 }
 
 void
@@ -525,9 +526,14 @@ RemapWidget::saveTrimmed(int dmin, int dmax,
     }
   //-----------------------------------------------------
 
-  Raw2Pvl::savePvl(&m_volData,
-		   dmin, dmax, wmin, wmax, hmin, hmax,
-		   m_timeseriesFiles);
+  if (!m_mergeVolumes)
+    Raw2Pvl::savePvl(&m_volData,
+		     dmin, dmax, wmin, wmax, hmin, hmax,
+		     m_timeseriesFiles);
+  else
+    Raw2Pvl::mergeVolumes(&m_volData,
+			  dmin, dmax, wmin, wmax, hmin, hmax,
+			  m_timeseriesFiles);
 }
 
 void
@@ -588,4 +594,48 @@ RemapWidget::handleTimeSeries(QString voltype,
     setFile(flnms, plugin, false);
 
   m_timeseriesFiles = flnms;
+
+  m_mergeVolumes = false;
+}
+
+void
+RemapWidget::handleMergeVolumes(QString voltype,
+			      QString plugin)
+{
+  QStringList flnms;
+  flnms = QFileDialog::getOpenFileNames(0,
+					QString("Load %1").arg(voltype),
+					Global::previousDirectory(),
+					"*",
+					0,
+					QFileDialog::DontUseNativeDialog);
+  
+  if (flnms.size() == 0)
+    return;
+  
+  if (flnms.count() > 1)
+    {
+      FilesListDialog fld(flnms);
+      fld.exec();
+      if (fld.result() == QDialog::Rejected)
+	return;
+    }
+//  QString mesg;
+//  mesg = "All operations on the first volume will be used\n";
+//  mesg += "as a template for others in the timeseries.\n";
+//  mesg += "Subsampling, smoothing, remaping applied to\n";
+//  mesg += "the first volume will be applied to others.";
+//  QMessageBox::information(0, "Time series", mesg);
+
+  QFileInfo f(flnms[0]);
+  Global::setPreviousDirectory(f.absolutePath());
+
+  if (plugin.contains("nc",Qt::CaseInsensitive))
+    setFile(flnms, plugin, true);
+  else
+    setFile(flnms, plugin, false);
+
+  m_timeseriesFiles = flnms;
+
+  m_mergeVolumes = true;
 }

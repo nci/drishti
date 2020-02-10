@@ -36,6 +36,7 @@
     </widget>
     <addaction name="menuLoad"/>
     <addaction name="actionTimeSeries"/>
+    <addaction name="actionMergeVolumes"/>
     <addaction name="separator"/>
     <addaction name="saveImage"/>
     <addaction name="actionSave_As"/>
@@ -203,6 +204,11 @@
    </property>
    <property name="text">
     <string>16-bit</string>
+   </property>
+  </action>
+  <action name="actionMergeVolumes">
+   <property name="text">
+    <string>Merge Volumes</string>
    </property>
   </action>
  </widget>

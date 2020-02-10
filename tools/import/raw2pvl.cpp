@@ -2157,3 +2157,189 @@ Raw2Pvl::saveMHD(QString mhdFilename,
   
   QMessageBox::information(0, "Save MetaImage Volume", "-----Done-----");
 }
+//================================
+//================================
+void
+Raw2Pvl::mergeVolumes(VolumeData* volData,
+		      int dmin, int dmax,
+		      int wmin, int wmax,
+		      int hmin, int hmax,
+		      QStringList timeseriesFiles)
+{
+  //------------------------------------------------------
+  int rvdepth, rvwidth, rvheight;    
+  volData->gridSize(rvdepth, rvwidth, rvheight);
+
+  int dsz=dmax-dmin+1;
+  int wsz=wmax-wmin+1;
+  int hsz=hmax-hmin+1;
+
+  uchar voxelType = volData->voxelType();  
+  int headerBytes = volData->headerBytes();
+
+  int bpv = 1;
+  if (voxelType == _UChar) bpv = 1;
+  else if (voxelType == _Char) bpv = 1;
+  else if (voxelType == _UShort) bpv = 2;
+  else if (voxelType == _Short) bpv = 2;
+  else if (voxelType == _Int) bpv = 4;
+  else if (voxelType == _Float) bpv = 4;
+
+  int slabSize = (1024*1024*1024)/(bpv*wsz*hsz);
+  slabSize = dsz+1;
+  //------------------------------------------------------
+
+  QString pvlFilename = getPvlNcFilename();
+  if (pvlFilename.endsWith(".mhd"))
+    {
+      saveMHD(pvlFilename,
+	      volData,
+	      dmin, dmax,
+	      wmin, wmax,
+	      hmin, hmax);
+      return;
+    }
+
+  if (pvlFilename.count() < 4)
+    {
+      QMessageBox::information(0, "pvl.nc", "No .pvl.nc filename chosen.");
+      return;
+    }
+
+  //------------------------------------------------------
+  // -- get saving parameters for processed file
+  SavePvlDialog savePvlDialog;
+  float vx, vy, vz;
+  volData->voxelSize(vx, vy, vz);
+  QString desc = volData->description();
+  int vu = volData->voxelUnit();
+  savePvlDialog.setVoxelUnit(vu);
+  savePvlDialog.setVoxelSize(vx, vy, vz);
+  savePvlDialog.setDescription(desc);
+  savePvlDialog.exec();
+
+  int spread = savePvlDialog.volumeFilter();
+  bool dilateFilter = savePvlDialog.dilateFilter();
+  bool invertData = savePvlDialog.invertData();
+  int voxelUnit = savePvlDialog.voxelUnit();
+  QString description = savePvlDialog.description();
+  savePvlDialog.voxelSize(vx, vy, vz);
+
+
+  QList<float> rawMap = volData->rawMap();
+  QList<int> pvlMap = volData->pvlMap();
+
+  int pvlbpv = 1;
+  if (pvlMap[pvlMap.count()-1] > 255)
+    pvlbpv = 2;
+
+  int pvlVoxelType = 0;
+  if (pvlbpv == 2) pvlVoxelType = 2;
+
+  
+  int nbytes = rvwidth*rvheight*bpv;
+  uchar *pvlslice = new uchar[pvlbpv*wsz*hsz];
+  uchar *Mpvlslice = new uchar[pvlbpv*wsz*hsz];
+  uchar *raw = new uchar[nbytes];
+  int rawSize = rawMap.size()-1;
+  int width = wsz;
+  int height = hsz;
+
+  VolumeFileManager rawFileManager;
+  VolumeFileManager pvlFileManager;
+
+
+  QProgressDialog progress("Saving processed volume",
+			   "Cancel",
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+
+  pvlFileManager.setBaseFilename(pvlFilename);
+  pvlFileManager.setDepth(dsz);
+  pvlFileManager.setWidth(wsz);
+  pvlFileManager.setHeight(hsz);
+  pvlFileManager.setVoxelType(pvlVoxelType);
+  pvlFileManager.setHeaderSize(13);
+  pvlFileManager.setSlabSize(slabSize);
+  pvlFileManager.setSliceZeroAtTop(false);
+  pvlFileManager.createFile(true); 
+
+
+  savePvlHeader(pvlFilename,
+		false, "",
+		voxelType, pvlVoxelType, voxelUnit,
+		dsz, wsz, hsz,
+		vx, vy, vz,
+		rawMap, pvlMap,
+		description,
+		slabSize);
+
+
+  //------------------------------------------------------
+  int tsfcount = qMax(1, timeseriesFiles.count());
+
+  int tagF = 255/(tsfcount+1);
+  if (pvlbpv == 2)
+    tagF = 65535/(tsfcount+1);
+
+  for(int dd=0; dd<dsz; dd++)
+    {
+      progress.setValue((int)(100*(float)dd/(float)dsz));
+      qApp->processEvents();
+      
+      memset(Mpvlslice, 0, pvlbpv*wsz*hsz);
+      
+      for (int tsf=0; tsf<tsfcount; tsf++)
+	{
+	  volData->replaceFile(timeseriesFiles[tsf]);
+	  
+	  memset(raw, 0, nbytes);
+	  volData->getDepthSlice(dd, raw);
+	  
+	  applyMapping(raw, voxelType, rawMap,
+		       pvlslice, pvlbpv, pvlMap,
+		       width, height);
+
+	  
+	  //-----------------
+	  //merge data
+	  if (pvlbpv == 1)
+	    {
+	      for(int fi=0; fi<wsz*hsz; fi++)
+		{
+		  if (pvlslice[fi] > 10)
+		    {
+		      //Mpvlslice[fi] = pvlslice[fi];
+		      Mpvlslice[fi] = (tsf+1)*tagF;
+		    }
+		}
+	    }
+	  else
+	    {
+	      ushort *Mptr = (ushort*)Mpvlslice;
+	      ushort *ptr = (ushort*)pvlslice;
+	      for(int fi=0; fi<wsz*hsz; fi++)
+		{
+		  if (ptr[fi] > 10)
+		    {
+		      //Mptr[fi] = ptr[fi];
+		      Mptr[fi] = (tsf+1)*tagF;
+		    }
+		}
+	    }
+	  //-----------------
+	}
+      pvlFileManager.setSlice(dd, Mpvlslice);
+    }
+
+
+  delete [] pvlslice;
+  delete [] raw;
+  
+  progress.setValue(100);
+  
+  QMessageBox::information(0, "Save", "-----Done-----");
+}
+

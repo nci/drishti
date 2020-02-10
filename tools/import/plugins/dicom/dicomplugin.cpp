@@ -195,39 +195,39 @@ DicomPlugin::setFile(QStringList files)
       m_reader->SetFileNames( dcmFiles );
       m_reader->Update();
 
-      //-----------------
-      {
-	QTextEdit *tedit = new QTextEdit();
-	typedef itk::MetaDataDictionary   DictionaryType;
-	const  DictionaryType & dictionary = dicomIO->GetMetaDataDictionary();
-	typedef itk::MetaDataObject< std::string > MetaDataStringType;
-	DictionaryType::ConstIterator itr = dictionary.Begin();
-	DictionaryType::ConstIterator end = dictionary.End();	
-	while( itr != end )
-	  {
-	    itk::MetaDataObjectBase::Pointer  entry = itr->second;
-	    MetaDataStringType::Pointer entryvalue =
-	      dynamic_cast<MetaDataStringType *>( entry.GetPointer() );
-	    if( entryvalue )
-	      {
-		std::string tagkey   = itr->first;
-		std::string tagvalue = entryvalue->GetMetaDataObjectValue();
-		tedit->insertPlainText(QString(tagkey.c_str()) + " = " + QString(tagvalue.c_str()) + "\n");
-	      }
-	    ++itr;
-	  }
-
-	QVBoxLayout *layout = new QVBoxLayout();
-	layout->addWidget(tedit);
-	
-	QDialog *showMD = new QDialog();
-	showMD->setWindowTitle("Series MetaData");
-	showMD->setSizeGripEnabled(true);
-	showMD->setModal(true);
-	showMD->setLayout(layout);
-	showMD->exec();
-      }
-      //-----------------
+//      //-----------------
+//      {
+//	QTextEdit *tedit = new QTextEdit();
+//	typedef itk::MetaDataDictionary   DictionaryType;
+//	const  DictionaryType & dictionary = dicomIO->GetMetaDataDictionary();
+//	typedef itk::MetaDataObject< std::string > MetaDataStringType;
+//	DictionaryType::ConstIterator itr = dictionary.Begin();
+//	DictionaryType::ConstIterator end = dictionary.End();	
+//	while( itr != end )
+//	  {
+//	    itk::MetaDataObjectBase::Pointer  entry = itr->second;
+//	    MetaDataStringType::Pointer entryvalue =
+//	      dynamic_cast<MetaDataStringType *>( entry.GetPointer() );
+//	    if( entryvalue )
+//	      {
+//		std::string tagkey   = itr->first;
+//		std::string tagvalue = entryvalue->GetMetaDataObjectValue();
+//		tedit->insertPlainText(QString(tagkey.c_str()) + " = " + QString(tagvalue.c_str()) + "\n");
+//	      }
+//	    ++itr;
+//	  }
+//
+//	QVBoxLayout *layout = new QVBoxLayout();
+//	layout->addWidget(tedit);
+//	
+//	QDialog *showMD = new QDialog();
+//	showMD->setWindowTitle("Series MetaData");
+//	showMD->setSizeGripEnabled(true);
+//	showMD->setModal(true);
+//	showMD->setLayout(layout);
+//	showMD->exec();
+//      }
+//      //-----------------
 
       m_dimg = m_reader->GetOutput();
       

@@ -412,6 +412,53 @@ DrishtiImport::on_action16_bit_triggered()
 }
 
 void
+DrishtiImport::on_actionMergeVolumes_triggered()
+{
+  QStringList ftypes;
+//  for(int i=0; i<m_pluginDirTypes.size(); i++)
+//    {
+//      ftypes << QString("%1 : %2").		\
+//	arg(i+1).arg(m_pluginDirTypes[i]);
+//    }
+  for(int i=0; i<m_pluginFileTypes.size(); i++)
+    {
+      ftypes << QString("%1 : %2").		\
+	arg(i+1).arg(m_pluginFileTypes[i]);
+    }
+
+  QString option = QInputDialog::getItem(0,
+					 "Select File Type",
+					 "File Type",
+					 ftypes,
+					 0,
+					 false);
+  
+  int idx = ftypes.indexOf(option);
+  
+  if (idx == -1)
+    {
+      QMessageBox::information(0, "Error", "No file type selected");
+      return;
+    }
+
+  m_remapWidget->handleMergeVolumes(m_pluginFileTypes[idx],
+				    m_pluginFileDLib[idx]);
+
+//  if (idx >= m_pluginDirTypes.size())
+//    {
+//      idx -= m_pluginDirTypes.size();
+//      m_remapWidget->handleTimeSeries(m_pluginFileTypes[idx],
+//				      m_pluginFileDLib[idx]);
+//    }
+//  else
+//    {
+//      m_remapWidget->handleTimeSeries(m_pluginDirTypes[idx],
+//				      m_pluginDirDLib[idx]);
+//    }
+//  
+}
+
+void
 DrishtiImport::on_actionTimeSeries_triggered()
 {
   QStringList ftypes;
@@ -429,7 +476,7 @@ DrishtiImport::on_actionTimeSeries_triggered()
 					 false);
   
   int idx = ftypes.indexOf(option);
-
+  
   if (idx == -1)
     {
       QMessageBox::information(0, "Error", "No file type selected");

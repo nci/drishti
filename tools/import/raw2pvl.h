@@ -46,6 +46,12 @@ class Raw2Pvl
 		      int, int,
 		      QStringList);
 
+  static void mergeVolumes(VolumeData*,
+			   int, int,
+			   int, int,
+			   int, int,
+			   QStringList);
+
   static void saveIsosurface(VolumeData*,
 			     int, int,
 			     int, int,

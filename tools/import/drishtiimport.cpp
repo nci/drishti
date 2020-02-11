@@ -8,6 +8,7 @@
 #include <QFile>
 #include <QTextStream>
 #include <QDomDocument>
+#include <QTreeView>
 
 
 DrishtiImport::DrishtiImport(QWidget *parent) :
@@ -657,3 +658,93 @@ DrishtiImport::convertDirectories(QStringList flnms, int pluginidx)
     }
 }
 
+void
+DrishtiImport::on_actionMimics_triggered()
+{
+  QStringList flnms;
+
+  QFileDialog w;
+  w.setDirectory(Global::previousDirectory());
+  w.setFileMode(QFileDialog::DirectoryOnly);
+  w.setOption(QFileDialog::DontUseNativeDialog, true);
+  QListView *l = w.findChild<QListView*>("listView");
+  l->setSelectionMode(QAbstractItemView::ExtendedSelection);
+  QTreeView *t = w.findChild<QTreeView*>("treeView");
+  t->setSelectionMode(QAbstractItemView::ExtendedSelection);
+  
+  if (w.exec() != QDialog::Accepted)
+    return;
+
+  flnms = w.selectedFiles();
+    
+  if (flnms.size() == 0)
+    return;
+
+  
+  QProgressDialog progress("Processing ",
+			       "Cancel",
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+  qApp->processEvents();
+
+  int idx = m_pluginDirTypes.indexOf("DICOM Image Directory");
+
+  QStringList rawFiles;
+
+  //-------------------
+  // convert Dicom to raw
+  for (int i=0; i<flnms.count(); i++)
+    {
+      QStringList dnames;
+      dnames << flnms[i];
+      
+      QFileInfo fraw(flnms[i]);
+      rawFiles << QFileInfo(fraw.absolutePath(),
+			    fraw.baseName() + ".raw").absoluteFilePath();
+  
+
+      progress.setLabelText(flnms[i]);
+      qApp->processEvents();
+      
+      m_remapWidget->setFile(dnames, m_pluginDirDLib[idx]);
+      
+      progress.setValue(30);
+      qApp->processEvents();
+      
+      if (ui.action8_bit->isChecked())
+	m_remapWidget->setPvlMapMax(255);
+      else
+	m_remapWidget->setPvlMapMax(65535);
+      
+      progress.setValue(50);
+      qApp->processEvents();
+      
+      m_remapWidget->saveTrimmed(0,0,0, 0,0,0);
+    }
+  
+  progress.setValue(100);
+  qApp->processEvents();
+  //-------------------
+
+
+  //-------------------
+  // process the saved raw files  
+  idx = m_pluginFileTypes.indexOf("RAW Files");
+
+  m_remapWidget->mergeVolumes(m_pluginFileTypes[idx],
+			      m_pluginFileDLib[idx],
+			      rawFiles);
+
+  m_remapWidget->saveAs();
+  //---------------------
+
+  
+  //---------------------
+  // remove temporary raw files
+  foreach(QString flnm, rawFiles)
+    {
+      QFile::remove(flnm);
+    }
+  //---------------------
+}

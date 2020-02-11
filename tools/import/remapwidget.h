@@ -66,6 +66,8 @@ class RemapWidget : public QWidget
 
   void handleMergeVolumes(QString, QString);
 
+  void mergeVolumes(QString, QString, QStringList);
+
  private :
   Ui::RemapWidget ui;
 

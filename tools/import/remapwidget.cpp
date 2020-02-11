@@ -648,3 +648,21 @@ RemapWidget::handleMergeVolumes(QString voltype,
 
   m_mergeVolumes = true;
 }
+
+void
+RemapWidget::mergeVolumes(QString voltype,
+			  QString plugin,
+			  QStringList flnms)
+{
+  QFileInfo f(flnms[0]);
+  Global::setPreviousDirectory(f.absolutePath());
+
+  if (plugin.contains("nc",Qt::CaseInsensitive))
+    setFile(flnms, plugin, true);
+  else
+    setFile(flnms, plugin, false);
+
+  m_timeseriesFiles = flnms;
+
+  m_mergeVolumes = true;
+}

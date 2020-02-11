@@ -55,8 +55,15 @@
     <addaction name="action8_bit"/>
     <addaction name="action16_bit"/>
    </widget>
+   <widget class="QMenu" name="menuProcess">
+    <property name="title">
+     <string>Process</string>
+    </property>
+    <addaction name="actionMimics"/>
+   </widget>
    <addaction name="menuFiles"/>
    <addaction name="menuOutput_Type"/>
+   <addaction name="menuProcess"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <action name="actionRAW">
@@ -209,6 +216,11 @@
   <action name="actionMergeVolumes">
    <property name="text">
     <string>Merge Volumes</string>
+   </property>
+  </action>
+  <action name="actionMimics">
+   <property name="text">
+    <string>Mimics - Import Multiple Dicom</string>
    </property>
   </action>
  </widget>

@@ -36,12 +36,22 @@ VolumeData::clear()
 }
 
 void
+VolumeData::setVoxelInfo(int vu,
+			 float vx, float vy, float vz)
+{
+  m_voxelUnit = vu;  
+  m_voxelSizeX = vx;
+  m_voxelSizeY = vy;
+  m_voxelSizeZ = vz;
+}
+
+void
 VolumeData::voxelSize(float& vx, float& vy, float& vz)
   {
-    m_volInterface->voxelSize(vx, vy, vz);
-//    vx = m_voxelSizeX;
-//    vy = m_voxelSizeY;
-//    vz = m_voxelSizeZ;
+    //m_volInterface->voxelSize(vx, vy, vz);
+    vx = m_voxelSizeX;
+    vy = m_voxelSizeY;
+    vz = m_voxelSizeZ;
   }
 QString VolumeData::description() { return m_volInterface->description(); }
 int VolumeData::voxelType() { return m_volInterface->voxelType(); }
@@ -142,7 +152,12 @@ VolumeData::setFile(QStringList files,
   else if (m_voxelType == _Int) m_bytesPerVoxel = 4;
   else if (m_voxelType == _Float) m_bytesPerVoxel = 4;
 
-
+  float vx, vy, vz;
+  m_volInterface->voxelSize(vx, vy, vz);
+  m_voxelSizeX = vx;
+  m_voxelSizeY = vy;
+  m_voxelSizeZ = vz;
+  
   m_rawMin = m_volInterface->rawMin();
   m_rawMax = m_volInterface->rawMax();
   m_histogram = m_volInterface->histogram();
@@ -184,6 +199,12 @@ VolumeData::setFile(QStringList files,
   else if (m_voxelType == _Int) m_bytesPerVoxel = 4;
   else if (m_voxelType == _Float) m_bytesPerVoxel = 4;
 
+  float vx, vy, vz;
+  m_volInterface->voxelSize(vx, vy, vz);
+  m_voxelSizeX = vx;
+  m_voxelSizeY = vy;
+  m_voxelSizeZ = vz;
+  
 
   m_rawMin = m_volInterface->rawMin();
   m_rawMax = m_volInterface->rawMax();

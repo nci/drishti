@@ -85,6 +85,15 @@ RemapWidget::showWidgets()
   ui.butZ->setChecked(true);
 }
 
+void
+RemapWidget::saveVoxelInfo()
+{
+  m_vu = m_volData.voxelUnit();
+  m_volData.voxelSize(m_vx, m_vy, m_vz);
+//  QMessageBox::information(0, "", QString("%1 : %2 %3 %4").
+//			   arg(m_vu).arg(m_vx).arg(m_vy).arg(m_vz));
+}
+
 bool
 RemapWidget::setFile(QList<QString> flnm,
 		     QString plugin,
@@ -540,9 +549,12 @@ RemapWidget::saveTrimmed(int dmin, int dmax,
 		     dmin, dmax, wmin, wmax, hmin, hmax,
 		     m_timeseriesFiles);
   else
-    Raw2Pvl::mergeVolumes(&m_volData,
-			  dmin, dmax, wmin, wmax, hmin, hmax,
-			  m_timeseriesFiles);
+    {
+      m_volData.setVoxelInfo(m_vu, m_vx, m_vy, m_vz);
+      Raw2Pvl::mergeVolumes(&m_volData,
+			    dmin, dmax, wmin, wmax, hmin, hmax,
+			    m_timeseriesFiles);
+    }
 }
 
 void

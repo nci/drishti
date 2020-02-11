@@ -36,7 +36,6 @@
     </widget>
     <addaction name="menuLoad"/>
     <addaction name="actionTimeSeries"/>
-    <addaction name="actionMergeVolumes"/>
     <addaction name="separator"/>
     <addaction name="saveImage"/>
     <addaction name="actionSave_As"/>

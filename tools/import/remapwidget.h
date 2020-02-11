@@ -17,7 +17,9 @@ class RemapWidget : public QWidget
   RemapWidget(QWidget *parent=NULL);
 
   bool setFile(QList<QString>, QString, bool vol4d=false);
-  
+
+  void saveVoxelInfo();
+		 
   enum VolumeType
   {
     NoVolume,
@@ -89,6 +91,9 @@ class RemapWidget : public QWidget
   int m_currSlice;
 
   bool m_mergeVolumes;
+
+  int m_vu;
+  float m_vx, m_vy, m_vz;
   
   void showWidgets();
   void hideWidgets();

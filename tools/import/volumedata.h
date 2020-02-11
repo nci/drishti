@@ -15,6 +15,8 @@ class VolumeData : public QObject
   bool setFile(QStringList, QString, bool);
   void replaceFile(QString);
 
+  void setVoxelInfo(int, float, float, float);
+
   void gridSize(int&, int&, int&);
   void voxelSize(float&, float&, float&);
   QString description();
@@ -68,7 +70,7 @@ class VolumeData : public QObject
 
   int m_skipBytes;
   int m_bytesPerVoxel;
-
+    
   void clear();
   bool loadPlugin(QString);
 };

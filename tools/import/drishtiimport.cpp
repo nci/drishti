@@ -692,6 +692,8 @@ DrishtiImport::on_actionMimics_triggered()
 
   QStringList rawFiles;
 
+  float vx, vy, vz;
+  
   //-------------------
   // convert Dicom to raw
   for (int i=0; i<flnms.count(); i++)
@@ -708,6 +710,11 @@ DrishtiImport::on_actionMimics_triggered()
       qApp->processEvents();
       
       m_remapWidget->setFile(dnames, m_pluginDirDLib[idx]);
+
+      if (i == 0)
+	{ // use saved voxel information while merging volumes
+	  m_remapWidget->saveVoxelInfo();
+	}
       
       progress.setValue(30);
       qApp->processEvents();

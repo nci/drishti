@@ -2335,11 +2335,110 @@ Raw2Pvl::mergeVolumes(VolumeData* volData,
     }
 
 
+  delete [] Mpvlslice;
   delete [] pvlslice;
   delete [] raw;
   
   progress.setValue(100);
   
   QMessageBox::information(0, "Save", "-----Done-----");
+}
+
+//================================
+//================================
+void
+Raw2Pvl::quickRaw(VolumeData* volData,
+		  QStringList fileNames)
+{
+  //------------------------------------------------------  
+  int rvdepth, rvwidth, rvheight;    
+  volData->gridSize(rvdepth, rvwidth, rvheight);
+
+  int dsz=rvdepth;
+  int wsz=rvwidth;
+  int hsz=rvheight;
+
+  uchar voxelType = volData->voxelType();  
+  int headerBytes = volData->headerBytes();
+
+  int bpv = 1;
+  if (voxelType == _UChar) bpv = 1;
+  else if (voxelType == _Char) bpv = 1;
+  else if (voxelType == _UShort) bpv = 2;
+  else if (voxelType == _Short) bpv = 2;
+  else if (voxelType == _Int) bpv = 4;
+  else if (voxelType == _Float) bpv = 4;
+
+  int slabSize = (1024*1024*1024)/(bpv*wsz*hsz);
+  slabSize = dsz+1;
+  //------------------------------------------------------
+
+  QList<float> rawMap = volData->rawMap();
+  QList<int> pvlMap = volData->pvlMap();
+
+  int pvlbpv = 1;
+  if (pvlMap[pvlMap.count()-1] > 255)
+    pvlbpv = 2;
+
+  int pvlVoxelType = 0;
+  if (pvlbpv == 2) pvlVoxelType = 2;
+
+  
+  int nbytes = rvwidth*rvheight*bpv;
+  uchar *pvlslice = new uchar[pvlbpv*wsz*hsz];
+  uchar *raw = new uchar[nbytes];
+  int rawSize = rawMap.size()-1;
+  int width = wsz;
+  int height = hsz;
+
+  VolumeFileManager rawFileManager;
+  QFileInfo fraw(fileNames[0]);
+  QString rawflnm = QFileInfo(fraw.absolutePath(),
+			      fraw.baseName() + ".raw").absoluteFilePath();
+  
+  QFile m_qfile;
+  m_qfile.setFileName(rawflnm);
+  m_qfile.open(QFile::WriteOnly);
+  m_qfile.write((char*)&pvlVoxelType, 1);
+  m_qfile.write((char*)&dsz, 4);
+  m_qfile.write((char*)&wsz, 4);
+  m_qfile.write((char*)&hsz, 4);
+
+  QProgressDialog progress("Saving "+rawflnm,
+			   "Cancel",
+			   0, 100,
+			   0);
+  progress.setMinimumDuration(0);
+
+
+  //------------------------------------------------------
+
+  for(int dd=0; dd<dsz; dd++)
+    {
+      progress.setValue((int)(100*(float)dd/(float)dsz));
+      qApp->processEvents();
+      
+      memset(raw, 0, nbytes);
+      volData->getDepthSlice(dd, raw);
+	  
+      applyMapping(raw, voxelType, rawMap,
+		   pvlslice, pvlbpv, pvlMap,
+		   width, height);
+
+	  
+      //rawFileManager.setSlice(dd, pvlslice);
+      m_qfile.seek(13 + (dsz-1-dd)*pvlbpv*wsz*hsz);
+      m_qfile.write((char*)pvlslice);
+    }
+
+
+  m_qfile.close();
+		    
+  delete [] pvlslice;
+  delete [] raw;
+  
+  progress.setValue(100);
+  
+  //QMessageBox::information(0, "Save", "-----Done-----");
 }
 

@@ -57,6 +57,8 @@ class DrishtiImport : public QMainWindow
 
   void loadDirectory(QString, int);
   void loadFiles(QStringList, int);
+
+  void convertDirectories(QStringList, int);
 };
 
 #endif

@@ -545,8 +545,24 @@ DrishtiImport::dropEvent(QDropEvent *event)
 	{
 	  QUrl url = data->urls()[0];
 	  QFileInfo info(url.toLocalFile());
+
+	  // handle directories
 	  if (info.isDir())
-	    loadDirectory(url.toLocalFile(), -1);
+	    {
+	      if (data->urls().count() == 1)
+		{
+		  loadDirectory(url.toLocalFile(), -1);
+		}
+	      else
+		{
+		  QStringList flnms;
+		  for(uint i=0; i<data->urls().count(); i++)
+		    flnms << (data->urls())[i].toLocalFile();
+		  convertDirectories(flnms, -1);
+		}
+	    }
+
+	  // handle files
 	  if (info.exists() && info.isFile())
 	    {
 	      QStringList flnms;
@@ -559,4 +575,85 @@ DrishtiImport::dropEvent(QDropEvent *event)
     }
 }
 
+
+void
+DrishtiImport::convertDirectories(QStringList flnms, int pluginidx)
+{
+  if (flnms.count() > 1)
+    {
+      FilesListDialog fld(flnms);
+      fld.exec();
+      if (fld.result() == QDialog::Rejected)
+	return;
+    }
+
+  QFileInfo f(flnms[0]);
+  Global::setPreviousDirectory(f.absolutePath());
+
+  int idx = pluginidx;
+
+  if (idx == -1)
+    {
+      QStringList dtypes;
+      for(int i=0; i<m_pluginDirTypes.size(); i++)
+	{
+	  dtypes << QString("%1 : %2").		\
+	    arg(i+1).arg(m_pluginDirTypes[i]);
+	}
+
+      QString option = QInputDialog::getItem(0,
+					     "Select Directory Type",
+					     "Directory Type",
+					     dtypes,
+					     0,
+					     false);  
+      idx = dtypes.indexOf(option);
+      
+      if (idx == -1)
+	{
+	  QMessageBox::information(0, "Error",
+				   QString("No plugin found for %1").arg(option));
+	  return;
+	}
+    }
+
+  if (idx >= 0)
+    {
+      QProgressDialog progress("Processing ",
+			       "Cancel",
+			       0, 100,
+			       0);
+      progress.setMinimumDuration(0);
+
+
+      for (int i=0; i<flnms.count(); i++)
+	{
+	  QStringList dnames;
+	  dnames << flnms[i];
+
+	  progress.setLabelText(flnms[i]);
+	  qApp->processEvents();
+
+	  m_remapWidget->setFile(dnames, m_pluginDirDLib[idx]);
+
+	  progress.setValue(30);
+	  qApp->processEvents();
+
+	  if (ui.action8_bit->isChecked())
+	    m_remapWidget->setPvlMapMax(255);
+	  else
+	    m_remapWidget->setPvlMapMax(65535);
+
+	  progress.setValue(50);
+	  qApp->processEvents();
+
+	  m_remapWidget->saveTrimmed(0,0,0, 0,0,0);
+	}
+
+      progress.setValue(100);
+      qApp->processEvents();
+
+      QMessageBox::information(0, "", "Converted all to raw");
+    }
+}
 

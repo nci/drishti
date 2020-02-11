@@ -52,6 +52,9 @@ class Raw2Pvl
 			   int, int,
 			   QStringList);
 
+  static void quickRaw(VolumeData*,
+		       QStringList);
+
   static void saveIsosurface(VolumeData*,
 			     int, int,
 			     int, int,

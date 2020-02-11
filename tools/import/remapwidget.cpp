@@ -495,6 +495,15 @@ RemapWidget::saveTrimmed(int dmin, int dmax,
 			 int wmin, int wmax,
 			 int hmin, int hmax)
 {
+  if (dmax == 0 && wmax == 0 && hmax == 0)
+    {
+      Raw2Pvl::quickRaw(&m_volData,
+			m_volumeFile);
+
+      return;
+    }
+  
+  
   //-----------------------------------------------------
   // -- take care of RGB/A volumes
   if (m_volData.voxelType() == _Rgb ||

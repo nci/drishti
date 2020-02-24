@@ -99,6 +99,8 @@ RemapWidget::setFile(QList<QString> flnm,
 		     QString plugin,
 		     bool vol4d)
 {  
+  m_mergeVolumes = false;
+
   m_fileNames = flnm;
 
   m_timeseriesFiles.clear();
@@ -621,7 +623,7 @@ RemapWidget::handleTimeSeries(QString voltype,
 
 void
 RemapWidget::handleMergeVolumes(QString voltype,
-			      QString plugin)
+				QString plugin)
 {
   QStringList flnms;
   flnms = QFileDialog::getOpenFileNames(0,

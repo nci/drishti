@@ -9,7 +9,7 @@
 #include <QTextStream>
 #include <QDomDocument>
 #include <QTreeView>
-
+#include <QTableWidget>
 
 DrishtiImport::DrishtiImport(QWidget *parent) :
   QMainWindow(parent)
@@ -734,7 +734,7 @@ DrishtiImport::on_actionMimics_triggered()
   qApp->processEvents();
   //-------------------
 
-
+  
   //-------------------
   // process the saved raw files  
   idx = m_pluginFileTypes.indexOf("RAW Files");

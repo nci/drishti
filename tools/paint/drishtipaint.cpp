@@ -3484,7 +3484,8 @@ DrishtiPaint::on_actionExtractTag_triggered()
 
   uchar *lut = Global::lut();
   int nbytes = width*height*Global::bytesPerVoxel();
-  uchar *raw = new uchar[nbytes];
+  int nbytesRAW = width*height;
+  uchar *raw = new uchar[nbytesRAW];
   
   QList<Vec> cPos =  m_viewer->clipPos();
   QList<Vec> cNorm = m_viewer->clipNorm();
@@ -3631,12 +3632,14 @@ DrishtiPaint::on_actionExtractTag_triggered()
 		  }
 	    }
 	}
+      
 	  
       if (tag[0] == -2)
-	memcpy(raw, m_volume->getMaskDepthSliceImage(d), nbytes);
+	memcpy(raw, m_volume->getMaskDepthSliceImage(d), nbytesRAW);
       else if (extractType < 7)
 	{
-	  memcpy(raw, m_volume->getMaskDepthSliceImage(d), nbytes);
+	  memcpy(raw, m_volume->getMaskDepthSliceImage(d), nbytesRAW);
+
 	  if (tag[0] == -1)
 	    {
 	      for(int w=minWSlice; w<=maxWSlice; w++)
@@ -3689,9 +3692,9 @@ DrishtiPaint::on_actionExtractTag_triggered()
       else
 	{
 	  if (extractType == 7 || extractType == 9)
-	    memcpy(raw, m_volume->getMaskDepthSliceImage(d), nbytes);
+	    memcpy(raw, m_volume->getMaskDepthSliceImage(d), nbytesRAW);
 	  else
-	    memset(raw, 0, nbytes);
+	    memset(raw, 0, nbytesRAW);
 
 	  // copy curve/fiber mask
 	  if (tag[0] == -1)

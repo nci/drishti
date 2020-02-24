@@ -12,6 +12,9 @@
 #include <QtXml>
 #include <QFile>
 
+#include <QTableWidget>
+#include <QPushButton>
+
 #include "savepvldialog.h"
 #include "volumefilemanager.h"
 
@@ -2284,6 +2287,53 @@ Raw2Pvl::mergeVolumes(VolumeData* volData,
   if (pvlbpv == 2)
     tagF = 65535/(tsfcount+1);
 
+  QList<int> tagValues;
+  for(int i=0; i<timeseriesFiles.count(); i++)
+    {
+      tagValues << (i+1)*tagF;
+    }
+  
+  //-----------------------
+  // decide tag values
+  QTableWidget *tw = new QTableWidget();
+  tw->setRowCount(timeseriesFiles.count());
+  tw->setColumnCount(2);
+  QStringList item;
+  item.clear();
+  item << "Mask";
+  item << "Value";
+  tw->setHorizontalHeaderLabels(item);
+
+  for (int i=0; i<timeseriesFiles.count(); i++)
+    {
+      QFileInfo fi(timeseriesFiles[i]);
+      QTableWidgetItem *n0 = new QTableWidgetItem(fi.baseName());
+      n0->setFlags(n0->flags() ^ Qt::ItemIsEditable);
+      tw->setItem(i, 0, n0);
+
+      QTableWidgetItem *n1 = new QTableWidgetItem(QString("%1").arg(tagValues[i]));
+      tw->setItem(i, 1, n1);
+    }
+
+  QPushButton *ok = new QPushButton("OK");
+  QDialog *dg = new QDialog();
+  dg->setModal(true);
+  QVBoxLayout *layout = new QVBoxLayout();
+  layout->addWidget(ok);
+  layout->addWidget(tw);
+  dg->setLayout(layout);
+  QObject::connect(ok, SIGNAL(clicked()),
+		   dg, SLOT(accept()));
+  dg->exec();
+  
+  for (int i=0; i<timeseriesFiles.count(); i++)
+    {
+      tagValues[i] = tw->item(i, 1)->text().toInt();
+
+    }
+  delete tw;
+  //-----------------------
+  
   for(int dd=0; dd<dsz; dd++)
     {
       progress.setValue((int)(100*(float)dd/(float)dsz));
@@ -2312,7 +2362,8 @@ Raw2Pvl::mergeVolumes(VolumeData* volData,
 		  if (pvlslice[fi] > 10)
 		    {
 		      //Mpvlslice[fi] = pvlslice[fi];
-		      Mpvlslice[fi] = (tsf+1)*tagF;
+		      //Mpvlslice[fi] = (tsf+1)*tagF;
+		      Mpvlslice[fi] = tagValues[tsf];
 		    }
 		}
 	    }
@@ -2325,7 +2376,8 @@ Raw2Pvl::mergeVolumes(VolumeData* volData,
 		  if (ptr[fi] > 10)
 		    {
 		      //Mptr[fi] = ptr[fi];
-		      Mptr[fi] = (tsf+1)*tagF;
+		      //Mptr[fi] = (tsf+1)*tagF;
+		      Mptr[fi] = tagValues[tsf];
 		    }
 		}
 	    }

@@ -26,11 +26,11 @@ contains(Windows_Setup, Win64) {
       INCLUDEPATH += c:\cygwin64\home\acl900\drishtilib\netcdf\include
       QMAKE_LIBDIR += c:\cygwin64\home\acl900\drishtilib\netcdf\lib \
     }
-  
+ 
     contains(DRISHTI_DEFINES, NETCDF) {
        INCLUDEPATH += c:\cygwin64\home\acl900\drishtilib\netcdf\include
        QMAKE_LIBDIR += c:\cygwin64\home\acl900\drishtilib\netcdf\lib \
-    }
+    }  
   
     contains(DRISHTI_DEFINES, ITK) {
       ITKVer = 4.3

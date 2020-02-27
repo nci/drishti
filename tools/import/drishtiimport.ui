@@ -219,7 +219,7 @@
   </action>
   <action name="actionMimics">
    <property name="text">
-    <string>Mimics - Import Multiple Dicom</string>
+    <string>Import Multiple Dicom</string>
    </property>
   </action>
  </widget>

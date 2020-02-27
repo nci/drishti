@@ -95,7 +95,7 @@ GradientEditor::setGradientStops(QGradientStops gradStops)
     QColor col;
 
     pt = QPointF(stop.first,
-		 1 - stop.second.alphaF());
+		 1.0 - stop.second.alphaF());
 
     col = QColor(stop.second.red(),
 		 stop.second.green(),
@@ -563,7 +563,8 @@ GradientEditor::askGradientChoice()
     }
 
   QStringList glist;
-
+  glist << "random";
+  
   QDomElement main = document.documentElement();
   QDomNodeList dlist = main.childNodes();
   for(int i=0; i<dlist.count(); i++)
@@ -589,6 +590,49 @@ GradientEditor::askGradientChoice()
   if (!ok)
     return;
 
+  if (gstr == "random")
+    {
+      QGradientStops origstops = gradientStops();
+      QGradientStops stops;
+      
+      int npts = origstops.count();
+      for(int i=0; i<npts; i++)
+	{
+	  float pos = origstops.at(i).first;
+	  float a = origstops.at(i).second.alphaF();
+	  float r = (float)qrand()/(float)RAND_MAX;
+	  float g = (float)qrand()/(float)RAND_MAX;
+	  float b = (float)qrand()/(float)RAND_MAX;
+	  float mm = qMax(r,qMax(g,b));
+	  if (mm < 0.8) // don't want too dark
+	    {
+	      if (mm < 0.1)
+		{
+		  r = g = b = 1.0;
+		}
+	      else if (mm < 0.3)
+		{
+		  r = 1 - r;
+		  g = 1 - g;
+		  b = 1 - b;
+		}
+	      else
+		{
+		  r *= 0.8/mm;
+		  g *= 0.8/mm;
+		  b *= 0.8/mm;
+		}
+	    }
+	  QColor col = QColor(r*255,g*255,b*255,a*255);
+	  stops << QGradientStop(pos, col);
+	}
+      
+      setGradientStops(stops);
+      emit gradientChanged();
+      
+      return;
+    }
+  
   int cno = -1;
   for(int i=0; i<dlist.count(); i++)
     {

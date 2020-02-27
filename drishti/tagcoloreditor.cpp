@@ -155,6 +155,20 @@ TagColorEditor::newColorSet(int h)
 	  r = (float)qrand()/(float)RAND_MAX;
 	  g = (float)qrand()/(float)RAND_MAX;
 	  b = (float)qrand()/(float)RAND_MAX;
+	  float mm = qMax(r,qMax(g,b));
+	  if (mm < 0.7) // don't want too dark
+	    {
+	      if (mm < 0.1)
+		{
+		  r = g = b = 1.0;
+		}
+	      else
+		{
+		  r = 0.7*r/mm;
+		  g = 0.7*g/mm;
+		  b = 0.7*b/mm;
+		}
+	    }
 	}
       else
 	{

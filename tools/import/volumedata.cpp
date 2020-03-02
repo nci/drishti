@@ -173,7 +173,8 @@ VolumeData::setFile(QStringList files,
 bool
 VolumeData::setFile(QStringList files,
 		    QString voltype,
-		    bool vol4d)
+		    bool vol4d,
+		    bool skipRawDialog)
 {
   clear();
 
@@ -184,6 +185,9 @@ VolumeData::setFile(QStringList files,
 
   m_volInterface->init();
   m_volInterface->set4DVolume(vol4d);
+
+  if (skipRawDialog)
+    m_volInterface->setValue("skiprawdialog", skipRawDialog);
 
   if (! m_volInterface->setFile(m_fileName))
     return false;

@@ -12,7 +12,7 @@ class VolumeData : public QObject
   ~VolumeData();
 
   bool setFile(QStringList, QString);
-  bool setFile(QStringList, QString, bool);
+  bool setFile(QStringList, QString, bool, bool);
   void replaceFile(QString);
 
   void setVoxelInfo(int, float, float, float);

@@ -16,7 +16,9 @@ class RemapWidget : public QWidget
  public :
   RemapWidget(QWidget *parent=NULL);
 
-  bool setFile(QList<QString>, QString, bool vol4d=false);
+  bool setFile(QList<QString>, QString,
+	       bool vol4d=false,
+	       bool skipRawDialog=false);
 
   void saveVoxelInfo();
 		 

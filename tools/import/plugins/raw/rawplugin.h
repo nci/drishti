@@ -16,6 +16,8 @@ class RawPlugin : public QObject, VolInterface
   void init();
   void clear();
 
+  void setValue(QString, float);
+    
   void set4DVolume(bool);
 
   bool setFile(QStringList);
@@ -60,6 +62,8 @@ class RawPlugin : public QObject, VolInterface
 
   int m_skipBytes;
   int m_bytesPerVoxel;
+
+  bool m_skipRawDialog;
 
   void findMinMax();
   void findMinMaxandGenerateHistogram();

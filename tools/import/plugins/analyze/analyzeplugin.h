@@ -84,6 +84,9 @@ class AnalyzePlugin : public QObject, VolInterface
   void init();
   void clear();
 
+  void setValue(QString, float) {};
+
+  void setValue(QString, QList<float>);
   bool setFile(QStringList);
   void replaceFile(QString);
 

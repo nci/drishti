@@ -97,7 +97,8 @@ RemapWidget::saveVoxelInfo()
 bool
 RemapWidget::setFile(QList<QString> flnm,
 		     QString plugin,
-		     bool vol4d)
+		     bool vol4d,
+		     bool skipRawDialog)
 {  
   m_mergeVolumes = false;
 
@@ -127,8 +128,7 @@ RemapWidget::setFile(QList<QString> flnm,
 
   m_volumeFile = flnm;
 
-
-  if (! m_volData.setFile(m_volumeFile, plugin, vol4d))
+  if (! m_volData.setFile(m_volumeFile, plugin, vol4d, skipRawDialog))
     return false;
 
   m_histogramWidget = new RemapHistogramWidget();
@@ -672,9 +672,9 @@ RemapWidget::mergeVolumes(QString voltype,
   Global::setPreviousDirectory(f.absolutePath());
 
   if (plugin.contains("nc",Qt::CaseInsensitive))
-    setFile(flnms, plugin, true);
+    setFile(flnms, plugin, true, true);
   else
-    setFile(flnms, plugin, false);
+    setFile(flnms, plugin, false, true);
 
   m_timeseriesFiles = flnms;
 

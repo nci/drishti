@@ -17,6 +17,8 @@ class TomPlugin : public QObject, VolInterface
   void init();
   void clear();
 
+  void setValue(QString, float) {};
+
   bool setFile(QStringList);
   void replaceFile(QString);
 

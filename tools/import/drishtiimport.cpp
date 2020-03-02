@@ -728,7 +728,7 @@ DrishtiImport::on_actionMimics_triggered()
       qApp->processEvents();
       
       m_remapWidget->saveTrimmed(0,0,0, 0,0,0);
-    }
+  }
   
   progress.setValue(100);
   qApp->processEvents();

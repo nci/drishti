@@ -2283,9 +2283,9 @@ Raw2Pvl::mergeVolumes(VolumeData* volData,
   //------------------------------------------------------
   int tsfcount = qMax(1, timeseriesFiles.count());
 
-  int tagF = 255/(tsfcount+1);
+  int tagF = 255/tsfcount;
   if (pvlbpv == 2)
-    tagF = 65535/(tsfcount+1);
+    tagF = 65535/tsfcount;
 
   QList<int> tagValues;
   for(int i=0; i<timeseriesFiles.count(); i++)

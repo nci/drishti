@@ -22,6 +22,9 @@ class VolInterface
   // initialize various objects
   virtual void init() = 0;
 
+  // set variables specific to plugin
+  virtual void setValue(QString, float) = 0;
+    
   // set 4D volume flag
   virtual void set4DVolume(bool) = 0;
 

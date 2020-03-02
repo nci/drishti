@@ -19,6 +19,18 @@ RawPlugin::registerPlugin()
 }
 
 void
+RawPlugin::setValue(QString key, float val)
+{
+  if (key == "skiprawdialog")
+    {
+      if (val > 0)
+	m_skipRawDialog = true;
+      else
+	m_skipRawDialog = false;
+    }
+}
+    
+void
 RawPlugin::init()
 {
   m_fileName.clear();
@@ -32,6 +44,7 @@ RawPlugin::init()
   m_rawMin = m_rawMax = 0;
   m_histogram.clear();
   m_4dvol = false;
+  m_skipRawDialog = false;
 }
 
 void
@@ -48,6 +61,7 @@ RawPlugin::clear()
   m_rawMin = m_rawMax = 0;
   m_histogram.clear();
   m_4dvol = false;
+  m_skipRawDialog = false;
 }
 
 void
@@ -107,23 +121,42 @@ RawPlugin::setFile(QStringList files)
 
   int nX, nY, nZ;
   {
-    // --- load various parameters from the raw file ---
-    LoadRawDialog loadRawDialog(0,
-				(char *)m_fileName[0].toLatin1().data());
-
-    if (!m_4dvol)
+    if (m_skipRawDialog)
       {
-	loadRawDialog.exec();    
-	if (loadRawDialog.result() == QDialog::Rejected)
-	  return false;
+	uchar vt=0;
+	QFile fd(m_fileName[0]);
+	fd.open(QFile::ReadOnly);
+	fd.read((char*)&vt, sizeof(unsigned char));
+	fd.read((char*)&nX, sizeof(int));
+	fd.read((char*)&nY, sizeof(int));
+	fd.read((char*)&nZ, sizeof(int));
+	fd.close();
+	m_voxelType = vt;
+	m_skipBytes = 13;
+	m_depth = nX;
+	m_width = nY;
+	m_height = nZ;
       }
+    else
+      {
+	// --- load various parameters from the raw file ---
+	LoadRawDialog loadRawDialog(0,
+				    (char *)m_fileName[0].toLatin1().data());
+	
+	if (!m_4dvol)
+	  {
+	    loadRawDialog.exec();    
+	    if (loadRawDialog.result() == QDialog::Rejected)
+	      return false;
+	  }
 
-    m_voxelType = loadRawDialog.voxelType();
-    m_skipBytes = loadRawDialog.skipHeaderBytes();
-    loadRawDialog.gridSize(nX, nY, nZ);
-    m_depth = nX;
-    m_width = nY;
-    m_height = nZ;
+	m_voxelType = loadRawDialog.voxelType();
+	m_skipBytes = loadRawDialog.skipHeaderBytes();
+	loadRawDialog.gridSize(nX, nY, nZ);
+	m_depth = nX;
+	m_width = nY;
+	m_height = nZ;
+      }
   }
 
   //-----------------------------------
@@ -226,13 +259,18 @@ RawPlugin::findMinMaxandGenerateHistogram()
 
   //==================
   // do not calculate histogram
-  QStringList items;
-  items << "yes" << "no";
-  QString yn = QInputDialog::getItem(0, "Histogram",
-				     "Want to generate histogram ?",
-				     items,
-				     0,
-				     false);
+  QString yn = "no";
+  if (!m_skipRawDialog)
+    {
+      QStringList items;
+      items << "yes" << "no";
+      yn = QInputDialog::getItem(0, "Histogram",
+				 "Want to generate histogram ?",
+				 items,
+				 0,
+				 false);
+    }
+
   if (yn != "yes")
     {
       if (m_voxelType == _UChar)

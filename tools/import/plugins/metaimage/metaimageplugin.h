@@ -16,6 +16,8 @@ class MetaImagePlugin : public QObject, VolInterface
   void init();
   void clear();
 
+  void setValue(QString, float) {};
+
   void set4DVolume(bool);
 
   bool setFile(QStringList);

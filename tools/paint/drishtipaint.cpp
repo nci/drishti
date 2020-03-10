@@ -247,12 +247,17 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 
   m_tagColorEditor = new TagColorEditor();
 
+  connect(m_tagColorEditor, SIGNAL(tagNamesChanged()),
+	  this, SLOT(saveTagNames()));
+
   m_viewer3D = new Viewer3D(this);
   m_viewer = m_viewer3D->viewer();
 
   connect(m_viewer3D, SIGNAL(changeLayout()),
 	  this, SLOT(on_action3dView_triggered()));
 
+  connect(m_viewer, SIGNAL(tagsUsed(QList<int>)),
+	  this, SLOT(tagsUsed(QList<int>)));
   //------------------------------
   // viewer menu
   QFrame *viewerMenu = new QFrame();
@@ -755,6 +760,26 @@ void DrishtiPaint::on_saveImageSequence_triggered()
 	m_coronalImage->saveImageSequence();
     }
 }
+
+void
+DrishtiPaint::saveTagNames()
+{
+  if (m_volume->isValid())
+    {
+      QStringList tagNames = m_tagColorEditor->tagNames();
+      m_volume->saveTagNames(tagNames);
+    }
+}
+
+
+void
+DrishtiPaint::loadTagNames()
+{
+  QStringList tagNames = m_volume->loadTagNames();  
+  m_tagColorEditor->setTagNames(tagNames);  
+}
+
+
 
 void
 DrishtiPaint::on_saveWork_triggered()
@@ -1607,6 +1632,8 @@ DrishtiPaint::setFile(QString filename)
   Global::addRecentFile(filename);
   updateRecentFileAction();
 
+
+  loadTagNames();
 
       
   QString curvesfile = m_pvlFile;
@@ -6929,4 +6956,18 @@ DrishtiPaint::undoPaint3D()
   m_viewer->uploadMask(0,0,0, m_depth-1,m_width-1,m_height-1);
 
   QMessageBox::information(0, "", "done");    
+}
+
+void
+DrishtiPaint::tagsUsed(QList<int> ut)
+{
+  QStringList tagNames = m_tagColorEditor->tagNames();
+
+  QString tmesg;  
+  for(int ti=0; ti<ut.count(); ti++)
+    {
+      if (ut[ti] > 0)
+	tmesg += QString("%1\n").arg(tagNames[ut[ti]]);
+    }
+  QMessageBox::information(0, "Tags Used", tmesg);
 }

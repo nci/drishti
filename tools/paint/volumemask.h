@@ -11,6 +11,9 @@ class VolumeMask : public QObject
   VolumeMask();
   ~VolumeMask();
 
+  void saveTagNames(QStringList);
+  QStringList loadTagNames();
+  
   void undo() { m_maskFileManager.undo(); }
 
   void reset();

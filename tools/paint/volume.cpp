@@ -16,6 +16,17 @@ bool Volume::loadCheckPoint(QString flnm) { return m_mask.loadCheckPoint(flnm); 
 bool Volume::deleteCheckPoint() { return m_mask.deleteCheckPoint(); }
 
 void
+Volume::saveTagNames(QStringList tagNames)
+{
+  m_mask.saveTagNames(tagNames);
+}
+QStringList
+Volume::loadTagNames()
+{
+  return m_mask.loadTagNames();
+}
+
+void
 Volume::saveMaskBlock(int d, int w, int h, int rad)
 {
   m_mask.saveMaskBlock(d, w, h, rad);

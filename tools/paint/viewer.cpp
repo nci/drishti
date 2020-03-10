@@ -1056,15 +1056,19 @@ Viewer::processCommand(QString cmd)
   if (list[0].contains("tagsused"))
     {
       QList<int> ut = usedTags();
-      QString tmesg;  
-      tmesg += "Tags Used\n";
-      for(int ti=0; ti<ut.count(); ti++)
-	{
-	  tmesg += QString("%1 ").arg(ut[ti]);
-	  if (ti%10 == 9)
-	    tmesg += "\n";
-	}
-      QMessageBox::information(0, "Tags Used", tmesg);
+//      QString tmesg;  
+//      tmesg += "Tags Used\n";
+//      for(int ti=0; ti<ut.count(); ti++)
+//	{
+//	  if (ut[ti] > 0)
+//	    tmesg += QString("%1 ").arg(ut[ti]);
+//
+//	  if (ti%10 == 9)
+//	    tmesg += "\n";
+//	}
+//      QMessageBox::information(0, "Tags Used", tmesg);
+
+      emit tagsUsed(ut);
       return;
     }
 

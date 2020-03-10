@@ -17,6 +17,39 @@ TagColorEditor::TagColorEditor()
   createGUI();
 }
 
+QStringList
+TagColorEditor::tagNames()
+{
+  QStringList tn;
+  for (int i=0; i < 256; i++)
+    {
+      tn << table->item(i, 0)->text();
+    }
+
+  return tn;
+}
+
+void
+TagColorEditor::setTagNames(QStringList tn)
+{
+  if (tn.count() != 256)
+    {
+      for (int i=0; i < 256; i++)
+	{
+	  QString nm = "DEFAULT";
+	  if (i > 0 && i < 255) nm = QString("Tag %1").arg(i);
+	  if (i == 255) nm = "BOUNDARY";
+	  table->item(i, 0)->setText(nm);
+	}
+      return;
+    }
+  
+  for (int i=0; i < 256; i++)
+    {
+      table->item(i, 0)->setText(tn[i]);
+    }
+}
+
 void
 TagColorEditor::setColors()
 {
@@ -25,8 +58,10 @@ TagColorEditor::setColors()
   uchar *colors = Global::tagColors();
   for (int i=0; i < 256; i++)
     {      
-      int row = i/2;
-      int col = i%2; 
+      //int row = i/2;
+      //int col = i%2; 
+      int row = i;
+      int col = 1; 
 
       int r,g,b;
       float a;
@@ -35,19 +70,36 @@ TagColorEditor::setColors()
       g = colors[4*i+1];
       b = colors[4*i+2];
 
-      QTableWidgetItem *colorItem = table->item(row, col);
+      //--------------------------
+      // Tag Name
+      QTableWidgetItem *tagName = table->item(row, 0);
+      if (!tagName)
+	{
+	  QString tn = "DEFAULT";
+	  if (i > 0 && i < 255) tn = QString("Tag %1").arg(i);
+	  if (i == 255) tn = "BOUNDARY";
+	  tagName = new QTableWidgetItem(tn);
+	  table->setItem(row, 0, tagName);
+	}
+      if (colors[4*i+3] > 250)
+	tagName->setCheckState(Qt::Checked);
+      else
+	tagName->setCheckState(Qt::Unchecked);
+      //--------------------------
+
+      
+      //--------------------------
+      // Tag Color
+      QTableWidgetItem *colorItem = table->item(row, 1);
       if (!colorItem)
 	{
 	  colorItem = new QTableWidgetItem;
-	  table->setItem(row, col, colorItem);
+	  colorItem->setFlags(colorItem->flags() ^ Qt::ItemIsEditable);
+	  table->setItem(row, 1, colorItem);
 	}
 
       colorItem->setFont(fnt);
       colorItem->setData(Qt::DisplayRole, QString("%1").arg(i));
-      if (colors[4*i+3] > 250)
-	colorItem->setCheckState(Qt::Checked);
-      else
-	colorItem->setCheckState(Qt::Unchecked);
       colorItem->setBackground(QColor(r,g,b));
     }
 }
@@ -75,7 +127,7 @@ TagColorEditor::hideTagsClicked()
 void
 TagColorEditor::createGUI()
 {
-  table = new QTableWidget(128, 2);
+  table = new QTableWidget(256, 2);
   table->resize(300, 300);
   table->setEditTriggers(QAbstractItemView::NoEditTriggers); // disable number editing
   table->verticalHeader()->hide();
@@ -121,6 +173,9 @@ TagColorEditor::createGUI()
 
   connect(table, SIGNAL(cellDoubleClicked(int, int)),
 	  this, SLOT(cellDoubleClicked(int, int)));
+
+  connect(table, SIGNAL(cellChanged(int, int)),
+	  this, SLOT(cellChanged(int, int)));
 }
 
 void
@@ -129,20 +184,6 @@ TagColorEditor::newTagsClicked()
   QStringList items;
   items << "Random";
   items << "Library";
-
-//  bool ok;
-//  QString str;
-//  str = QInputDialog::getItem(0,
-//			      "Colors",
-//			      "Colors",
-//			      items,
-//			      0,
-//			      false, // text is not editable
-//			      &ok);
-//  
-//  if (!ok)
-//    return;
-
 
   QString text(items.value(0));  
   QInputDialog dialog(this, 0);
@@ -171,11 +212,11 @@ TagColorEditor::newTagsClicked()
 void
 TagColorEditor::cellClicked(int row, int col)
 {
-  int index = row*2 + col;
+  int index = row;
 
   uchar *colors = Global::tagColors();
 
-  QTableWidgetItem *item = table->item(row, col);
+  QTableWidgetItem *item = table->item(row, 0);
   if (item->checkState() == Qt::Checked)
     colors[4*index+3] = 255;
   else
@@ -185,12 +226,32 @@ TagColorEditor::cellClicked(int row, int col)
 }
 
 void
+TagColorEditor::cellChanged(int row, int col)
+{
+  if (col == 0)
+    {
+      emit tagNamesChanged();
+    }
+}
+
+void
 TagColorEditor::cellDoubleClicked(int row, int col)
 {
-  QTableWidgetItem *item = table->item(row, col);
+  if (col == 0)
+    {
+      if (row == 0 || row == 255)
+	return;
+      
+      QTableWidgetItem *item = table->item(row, 0);
+      table->editItem(item);
+
+      return;
+    }
+  
+  QTableWidgetItem *item = table->item(row, 1);
   uchar *colors = Global::tagColors();
 
-  int index = row*2 + col;
+  int index = row;
 
   QColor clr = QColor(colors[4*index+0],
 		      colors[4*index+1],

@@ -12,14 +12,19 @@ class TagColorEditor : public QWidget
  public:
     TagColorEditor();
 
+    QStringList tagNames();
+    void setTagNames(QStringList);
+    
  signals :
     void tagColorChanged();
     void tagSelected(int);
-
+    void tagNamesChanged();
+    
  public slots :
     void setColors();
     void newColorSet(int);
     void cellClicked(int, int);
+    void cellChanged(int, int);
     void cellDoubleClicked(int, int);
     void newTagsClicked();
     void showTagsClicked();

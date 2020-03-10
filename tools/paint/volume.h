@@ -22,6 +22,9 @@ class Volume : public QObject
   bool setFile(QString);
   QString fileName() { return m_fileName; }
 
+  void saveTagNames(QStringList);
+  QStringList loadTagNames();
+
   void exportMask();
   void checkPoint();
   bool loadCheckPoint();

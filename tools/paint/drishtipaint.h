@@ -37,6 +37,9 @@ class DrishtiPaint : public QMainWindow
   //void keyPressEvent(QKeyEvent*);
 
  private slots :
+  void saveTagNames();
+  void loadTagNames();
+  void tagsUsed(QList<int>);
   void showVolumeInformation();
   void openRecentFile();   
   void on_actionAbout_triggered();

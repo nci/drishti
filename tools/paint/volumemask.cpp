@@ -185,6 +185,97 @@ VolumeMask::setGridSize(int d, int w, int h, int slabsize)
     checkMaskFile();
 }
 
+
+QStringList
+VolumeMask::loadTagNames()
+{
+  QStringList tagNames;
+  
+  QString pvlfile = m_maskfile;
+  pvlfile += ".pvl.nc";
+
+  //QMessageBox::information(0, "", pvlfile);
+
+  QDomDocument doc;
+  QFile f(pvlfile);
+  if (f.open(QIODevice::ReadOnly))
+    {
+      doc.setContent(&f);
+      f.close();
+    }
+
+  int replace = -1;
+  QDomElement topElement = doc.documentElement();
+  QDomNodeList dlist = topElement.childNodes();
+  for(int i=0; i<dlist.count(); i++)
+    {
+      if (dlist.at(i).nodeName() == "tagNames")
+	{
+	  QDomNodeList clist = dlist.at(i).childNodes();
+	  for(int j=0; j<clist.count(); j++)
+	    tagNames << (clist.at(j).toElement().text());
+
+	  return tagNames;
+	}
+    }
+
+  return tagNames;
+}
+
+void
+VolumeMask::saveTagNames(QStringList tagNames)
+{
+  QString pvlfile = m_maskfile;
+  pvlfile += ".pvl.nc";
+
+  //QMessageBox::information(0, "", pvlfile);
+
+  QDomDocument doc;
+  QFile f(pvlfile);
+  if (f.open(QIODevice::ReadOnly))
+    {
+      doc.setContent(&f);
+      f.close();
+    }
+
+  int replace = -1;
+  QDomElement topElement = doc.documentElement();
+  QDomNodeList dlist = topElement.childNodes();
+  for(int i=0; i<dlist.count(); i++)
+    {
+      if (dlist.at(i).nodeName() == "tagNames")
+	{
+	  replace = i;
+	  break;
+	}
+    }
+
+  QDomElement de = doc.createElement("tagNames");
+  for(int n=0; n<tagNames.count(); n++)
+    {
+      QDomElement di = doc.createElement("item");
+      QDomText tn = doc.createTextNode(tagNames[n]);
+      di.appendChild(tn);
+      de.appendChild(di);
+    }
+  
+  
+  if (replace > -1)
+    topElement.replaceChild(de, dlist.at(replace));
+  else
+    topElement.appendChild(de);
+
+
+  // save file
+  QFile pf(pvlfile.toLatin1().data());
+  if (pf.open(QIODevice::WriteOnly))
+    {
+      QTextStream out(&pf);
+      doc.save(out, 2);
+      pf.close();
+    }      
+}
+
 void
 VolumeMask::createPvlNc(QString maskfile)
 {

@@ -1090,6 +1090,7 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
   shader += "uniform vec3 clipPos[10];\n";
   shader += "uniform vec3 clipNormal[10];\n";
 
+  shader += "uniform float gamma;\n";
 
   shader += "out vec4 glFragColor;\n";
 
@@ -1302,6 +1303,8 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
   if (glowPresent) shader += "  glFragColor.rgb += glow(otexCoord);\n";
 
   shader += "  glFragColor = clamp(glFragColor, vec4(0.0,0.0,0.0,0.0), vec4(1.0,1.0,1.0,1.0));\n";
+
+  shader += "  glFragColor.rgb = pow(glFragColor.rgb, vec3(gamma));\n";
 
   shader += "}\n";
 

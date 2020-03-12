@@ -10,6 +10,10 @@ bool Global::m_playFrames = false;
 bool Global::playFrames() { return m_playFrames; }
 void Global::setPlayFrames(bool pf) { m_playFrames = pf; }
 
+float Global::m_gamma = 1.0;
+void Global::setGamma(float g) { m_gamma = g; }
+float Global::gamma() { return m_gamma; }
+
 void Global::checkGLError(QString src, bool clearErrors)
 {
   GLenum err = glGetError(); 

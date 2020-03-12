@@ -280,7 +280,8 @@ ShaderFactoryRGB::genDefaultSliceShaderString(bool lighting,
   shader += "uniform vec3 clipPos[10];\n";
   shader += "uniform vec3 clipNormal[10];\n";
 
-
+  shader += "uniform float gamma;\n";
+  
   shader += "out vec4 gl_FragColor;\n";
 
   shader += ShaderFactory::genTextureCoordinate();
@@ -467,6 +468,8 @@ ShaderFactoryRGB::genDefaultSliceShaderString(bool lighting,
 
   shader += "  gl_FragColor *= opmod;\n";
   
+  shader += "  glFragColor.rgb = pow(glFragColor.rgb, vec3(gamma));\n";
+
   shader += "\n";
   shader += "}\n";
 

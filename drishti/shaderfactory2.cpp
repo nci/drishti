@@ -176,10 +176,11 @@ ShaderFactory2::addLighting(int nvol)
     }
 
   //shader += "  vec3 lightcol = vec3(1.0,1.0,1.0);\n";
-  shader += "  vec3 voxpos = pointpos;\n";
-  shader += "  vec3 I = voxpos - eyepos;\n";
+  //shader += "  vec3 voxpos = pointpos;\n";
+  //shader += "  vec3 I = voxpos - eyepos;\n";
+  //shader += "  I = normalize(I);\n";
+
   shader += "  vec3 lightvec = voxpos - lightpos;\n";
-  shader += "  I = normalize(I);\n";
   shader += "  lightvec = normalize(lightvec);\n";
 
   shader += " vec3 reflecvec, Diff, Amb;\n";
@@ -436,6 +437,7 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
   shader += "uniform vec3 clipPos[10];\n";
   shader += "uniform vec3 clipNormal[10];\n";
 
+  shader += "uniform float gamma;\n";
   
   shader += "out vec4 glFragColor;\n";
 
@@ -596,7 +598,12 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
 	shader += tagVolume();
     }
 
-
+  // incidence vector moved here from addLighting
+  shader += "  vec3 voxpos = pointpos;\n";
+  shader += "  vec3 I = voxpos - eyepos;\n";
+  shader += "  I = normalize(I);\n";
+  //------------------
+  
   //------------------
   if (peel)
     {
@@ -608,14 +615,15 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
 	  shader += QString("     normal1 = vec3(0.0,0.0,0.0);\n");
 
 	  shader += "  normal1 = mix(vec3(0.0,0.0,0.0), normal1, step(0.0, grad1));"; 
-	  shader += "  vec3 voxpos = pointpos;\n";
-	  shader += "  vec3 I = voxpos - eyepos;\n";
-	  shader += "  I = normalize(I);\n";
+	  //shader += "  vec3 voxpos = pointpos;\n";
+	  //shader += "  vec3 I = voxpos - eyepos;\n";
+	  //shader += "  I = normalize(I);\n";
 	}
       shader += "  float IdotN = dot(I, normal1);\n";
 
 	  if(nvol == 2) 
 	  {
+	  	  shader += QString("  vec2 valpeel = vec2(0.0, 0.0);\n");
 	  	  shader += QString("  vec2 one = vec2(1.0, 1.0);\n");
 	  	  shader += QString("  vec2 vIdotN = vec2(IdotN, IdotN);\n");	  	  
 		  shader += QString("  vec2 peelMix = vec2(float(%1), float(%1));\n").arg(peelMix);
@@ -626,6 +634,7 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
 	  }
 	  else if(nvol == 3)
 	  {
+	  	  shader += QString("  vec3 valpeel = vec3(0.0, 0.0, 0.0);\n");
 	  	  shader += QString("  vec3 one = vec3(1.0, 1.0, 1.0);\n");
 	  	  shader += QString("  vec3 vIdotN = vec3(IdotN, IdotN, IdotN);\n");	  	  
 		  shader += QString("  vec3 peelMix = vec3(float(%1), float(%1), float(%1));\n").arg(peelMix);
@@ -636,6 +645,7 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
 	  }
 	  else if(nvol == 4)
 	  {
+	  	  shader += QString("  vec4 valpeel = vec4(0.0, 0.0, 0.0, 0.0);\n");
 	  	  shader += QString("  vec4 one = vec4(1.0, 1.0, 1.0, 1.0);\n");
 	  	  shader += QString("  vec4 vIdotN = vec4(IdotN, IdotN, IdotN, IdotN);\n");
 		  shader += QString("  vec4 peelMix = vec4(float(%1), float(%1), float(%1), float(%1));\n").arg(peelMix);
@@ -648,17 +658,17 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
       if (peelType == 0)
 	{
 	  if (peelMin < peelMax)
-	    shader += QString("  val1 = smoothstep(peelMin, peelMax, vIdotN);\n");
+	    shader += QString("  valpeel = smoothstep(peelMin, peelMax, vIdotN);\n");
 	  else
-	    shader += QString("  val1 = smoothstep(peelMax, peelMin, -vIdotN);\n");
+	    shader += QString("  valpeel = smoothstep(peelMax, peelMin, -vIdotN);\n");
 	}
       else if (peelType == 1)
 	{ //---- keep inside
-	  shader += QString("  val1 = one-smoothstep(peelMinSub, peelMin, vIdotN);\n");
-	  shader += QString("  val1 *= smoothstep(peelMax, peelMaxPlus, vIdotN);\n");
+	  shader += QString("  valpeel = one-smoothstep(peelMinSub, peelMin, vIdotN);\n");
+	  shader += QString("  valpeel *= smoothstep(peelMax, peelMaxPlus, vIdotN);\n");
 	}
 
-      shader += QString("  vIdotN = mix(val1, one, peelMix);\n").arg(peelMix);
+      shader += QString("  vIdotN = mix(valpeel, one, peelMix);\n").arg(peelMix);
 
 	  for(int i=1; i<=nvol; i++)
 		{
@@ -780,6 +790,11 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
   shader += "  glFragColor.rgb *= depthcue;\n";
 
   shader += "  glFragColor *= opmod;\n";
+
+
+  shader += "  glFragColor = clamp(glFragColor, vec4(0.0,0.0,0.0,0.0), vec4(1.0,1.0,1.0,1.0));\n";
+
+  shader += "  glFragColor.rgb = pow(glFragColor.rgb, vec3(gamma));\n";
 
   shader += "}\n";
 

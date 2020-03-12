@@ -2466,6 +2466,8 @@ MainWindow::loadVolumeList(QList<QString> files, bool flag)
 void
 MainWindow::preLoadVolume()
 {
+  Global::setGamma(1.0);
+  
   RawVolume::reset();
   LightHandler::reset();
 

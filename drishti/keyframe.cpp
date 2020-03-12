@@ -195,6 +195,7 @@ KeyFrame::saveProject(Vec pos, Quaternion rot,
   m_savedKeyFrame.setPruneBlend(PruneHandler::blend());
   m_savedKeyFrame.setOpMod(fop, bop);
   m_savedKeyFrame.setDOF(dofBlur, dofNF);
+  m_savedKeyFrame.setGamma(Global::gamma());
 
   // not saving splineInfo for savedKeyFrame
   //m_savedKeyFrame.setSplineInfo(splineInfo);
@@ -342,6 +343,7 @@ KeyFrame::setKeyFrame(Vec pos, Quaternion rot,
   kfi->setOpMod(fop, bop);
 
   kfi->setDOF(dofBlur, dofNF);
+  kfi->setGamma(Global::gamma());
 
   emit setImage(kfn, image);  
   
@@ -479,6 +481,13 @@ KeyFrame::interpolateAt(int kf, float frc,
   blur = blur0 + frc*(blur1-blur0);
   nf = nf0 + frc*(nf1-nf0);
   kfi.setDOF(blur, nf);
+  //-------------------------------  
+
+  //-------------------------------  
+  float bt0 = m_keyFrameInfo[kf]->gamma();
+  float bt1 = m_keyFrameInfo[kf+1]->gamma();
+  float bt = bt0 + frc*(bt1-bt0);
+  kfi.setGamma(bt);
   //-------------------------------  
 
   //-------------------------------  
@@ -866,6 +875,8 @@ KeyFrame::playSavedKeyFrame()
 
   emit updateVolumeBounds(bmin, bmax);
 
+  Global::setGamma(m_savedKeyFrame.gamma());
+
   if (Global::volumeType() == Global::SingleVolume)
     {
       int volnum = m_savedKeyFrame.volumeNumber();
@@ -953,7 +964,7 @@ KeyFrame::playSavedKeyFrame()
   int blur;
   float nf;
   m_savedKeyFrame.getDOF(blur, nf);
-
+  
   emit updateParameters(drawBox, drawAxis,
 			backgroundColor,
 			backgroundImage,
@@ -1020,6 +1031,8 @@ KeyFrame::playFrameNumber(int fno)
 	  m_keyFrameInfo[kf]->volumeBounds(bmin, bmax);
 
 	  emit updateVolumeBounds(bmin, bmax);
+
+	  Global::setGamma(m_keyFrameInfo[kf]->gamma());
 
 	  if (Global::volumeType() == Global::SingleVolume)
 	    {
@@ -1190,6 +1203,8 @@ KeyFrame::playFrameNumber(int fno)
   keyFrameInfo.volumeBounds(bmin, bmax);
 
   emit updateVolumeBounds(bmin, bmax);
+
+  Global::setGamma(keyFrameInfo.gamma());
 
   if (Global::volumeType() == Global::SingleVolume)
     {
@@ -1800,6 +1815,10 @@ KeyFrame::pasteFrameOnTop(int keyFrameNumber)
 	      m_copyKeyFrame.getDOF(blur, nf);
 	      kfi->setDOF(blur, nf);
 	    }
+	  else if (keys[ik] == "brightness")
+	    {
+	      kfi->setGamma(m_copyKeyFrame.gamma());
+	    }
 	}
     }
 
@@ -1932,6 +1951,10 @@ KeyFrame::pasteFrameOnTop(int startKF, int endKF)
 		  float nf;
 		  m_copyKeyFrame.getDOF(blur, nf);
 		  kfi->setDOF(blur, nf);
+		}
+	      else if (keys[ik] == "brightness")
+		{
+		  kfi->setGamma(m_copyKeyFrame.gamma());
 		}
 	    }
 	}
@@ -2098,6 +2121,10 @@ KeyFrame::copyProperties(QString title)
   vlist << QVariant(false);
   plist["depth of field"] = vlist;
 
+  vlist.clear();
+  vlist << QVariant("checkbox");
+  vlist << QVariant(false);
+  plist["brightness"] = vlist;
 
 
   QStringList keys;
@@ -2105,6 +2132,7 @@ KeyFrame::copyProperties(QString title)
   keys << "axis";
   keys << "background color";
   keys << "bounding box";
+  keys << "brightness";
   keys << "captions";
   keys << "image captions";
   keys << "colorbars";
@@ -2426,6 +2454,10 @@ KeyFrame::import(QString flnm)
 		  float nf;
 		  ckf->getDOF(blur, nf);
 		  kfi->setDOF(blur, nf);
+		}
+	      else if (keys[ik] == "brightness")
+		{
+		  kfi->setGamma(m_copyKeyFrame.gamma());
 		}
 	    }
 	}

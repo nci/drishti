@@ -83,6 +83,7 @@ class KeyFrameInformation
   void setLandmarkInfo(LandmarkInformation);
   void setOpMod(float, float);
   void setDOF(int, float);
+  void setGamma(float);
   
   QString title();
   bool hasCaption(QStringList);
@@ -130,7 +131,8 @@ class KeyFrameInformation
   LandmarkInformation landmarkInfo();
   void getOpMod(float&, float&);
   void getDOF(int&, float&);
-
+  float gamma();
+  
 
   // -- keyframe interpolation parameters
   void setInterpBGColor(int);
@@ -213,7 +215,8 @@ class KeyFrameInformation
   float m_frontOpMod, m_backOpMod;
   int m_dofBlur;
   float m_dofNearFar;
-
+  float m_gamma;
+  
   //-- keyframe interpolation parameters
   int m_interpBGColor;
   int m_interpCaptions;

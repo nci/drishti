@@ -6967,7 +6967,7 @@ DrishtiPaint::tagsUsed(QList<int> ut)
   for(int ti=0; ti<ut.count(); ti++)
     {
       if (ut[ti] > 0)
-	tmesg += QString("%1\n").arg(tagNames[ut[ti]]);
+	tmesg += QString("(%1) %2\n").arg(ut[ti]).arg(tagNames[ut[ti]]);
     }
   QMessageBox::information(0, "Tags Used", tmesg);
 }

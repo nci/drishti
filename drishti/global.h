@@ -295,8 +295,12 @@ class Global
 
   static void setRelDataPos(Vec);
   static Vec relDataPos();
+
+  static void setGamma(float);
+  static float gamma();
   
  private :
+  static float m_gamma;
   static QString m_documentationPath;
   static bool m_useFBO;
   static bool m_drawBox;

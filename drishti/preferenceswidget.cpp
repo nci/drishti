@@ -53,6 +53,12 @@ PreferencesWidget::updateTagColors()
   m_tagColorEditor->setColors();
 }
 
+void
+PreferencesWidget::on_m_gamma_valueChanged(int g)
+{
+  Global::setGamma(0.5 + fabs(1.0-ui.m_gamma->value()*0.01));
+  emit updateGL();
+}
 
 void
 PreferencesWidget::on_m_newColorSet_clicked()
@@ -169,6 +175,8 @@ PreferencesWidget::setDOF(int blur, float nf)
 {
   ui.m_dofBlur->setValue(blur);
   ui.m_dofNearFar->setValue(qBound(0, (int)(nf*100), 120));
+  // update gamma as well
+  ui.m_gamma->setValue(qBound(0,(int)((1.5-Global::gamma())*100), 100));
   update();
 }
 
@@ -179,6 +187,8 @@ PreferencesWidget::setRenderQualityValues(float still, float drag)
   int dv = renderQualityValue(drag);
   ui.m_still->setValue(sv);
   ui.m_drag->setValue(dv);
+  // update gamma as well
+  ui.m_gamma->setValue(qBound(0,(int)((1.5-Global::gamma())*100), 100));
   update();
 }
 
@@ -428,6 +438,13 @@ PreferencesWidget::save(const char* flnm)
   }
 
   { 
+    QDomElement de0 = doc.createElement("brightness");
+    QDomText tn0 = doc.createTextNode(QString("%1").arg(ui.m_gamma->value()));
+    de0.appendChild(tn0);
+    de.appendChild(de0);
+  }
+
+  { 
     QDomElement de0 = doc.createElement("eyeseparation");
     QDomText tn0 = doc.createTextNode(QString("%1").arg(m_eyeSeparation));
     de0.appendChild(tn0);
@@ -535,6 +552,11 @@ PreferencesWidget::load(const char* flnm)
 		      Global::setStepsizeStill(imageQualityValue(istill));
 		      Global::setStepsizeDrag(imageQualityValue(idrag));
 		    }
+		}
+	      else if (dlist.at(i).nodeName() == "brightness")
+		{
+		  ui.m_gamma->setValue(dlist.at(i).toElement().text().toInt());
+		  Global::setGamma(0.5 + fabs(1.0-ui.m_gamma->value()*0.01));
 		}
 	      else if (dlist.at(i).nodeName() == "eyeseparation")
 		ui.m_eyeSeparation->setText(dlist.at(i).toElement().text());

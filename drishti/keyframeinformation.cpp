@@ -75,6 +75,10 @@ void KeyFrameInformation::setDOF(int b, float nf)
   m_dofBlur = b;
   m_dofNearFar = nf;
 }
+void KeyFrameInformation::setGamma(float g)
+{
+  m_gamma = g;
+}
 
 
 QString KeyFrameInformation::title() { return m_title; }
@@ -144,6 +148,7 @@ void KeyFrameInformation::getDOF(int& b, float& nf)
   b = m_dofBlur;
   nf = m_dofNearFar;
 }
+float KeyFrameInformation::gamma() { return m_gamma; }
 
 
 // -- keyframe interpolation parameters
@@ -247,7 +252,8 @@ KeyFrameInformation::KeyFrameInformation()
   m_backOpMod = 1;
   m_dofBlur = 0;
   m_dofNearFar = 0;
-
+  m_gamma = 1.0;
+  
   m_interpBGColor = Enums::KFIT_Linear;
   m_interpCaptions = Enums::KFIT_Linear;
   m_interpFocus = Enums::KFIT_Linear;
@@ -325,6 +331,7 @@ KeyFrameInformation::clear()
   m_backOpMod = 1;
   m_dofBlur = 0;
   m_dofNearFar = 0;
+  m_gamma = 1.0;
 
   m_interpBGColor = Enums::KFIT_Linear;
   m_interpCaptions = Enums::KFIT_Linear;
@@ -423,6 +430,9 @@ KeyFrameInformation::KeyFrameInformation(const KeyFrameInformation& kfi)
   m_dofBlur = kfi.m_dofBlur;
   m_dofNearFar = kfi.m_dofNearFar;
 
+  m_gamma = kfi.m_gamma;
+
+  
   m_interpBGColor = kfi.m_interpBGColor;
   m_interpCaptions = kfi.m_interpCaptions;
   m_interpFocus = kfi.m_interpFocus;
@@ -550,7 +560,9 @@ KeyFrameInformation::operator=(const KeyFrameInformation& kfi)
   m_dofBlur = kfi.m_dofBlur;
   m_dofNearFar = kfi.m_dofNearFar;
 
+  m_gamma = kfi.m_gamma;
 
+  
   m_interpBGColor = kfi.m_interpBGColor;
   m_interpCaptions = kfi.m_interpCaptions;
   m_interpFocus = kfi.m_interpFocus;
@@ -590,7 +602,8 @@ KeyFrameInformation::load(fstream &fin)
 
   m_frontOpMod = m_backOpMod = 1;
   m_dofBlur = m_dofNearFar = 0;
-
+  m_gamma = 1.0;
+  
   m_interpBGColor = Enums::KFIT_Linear;
   m_interpCaptions = Enums::KFIT_Linear;
   m_interpFocus = Enums::KFIT_Linear;
@@ -632,6 +645,8 @@ KeyFrameInformation::load(fstream &fin)
 	  fin.read((char*)&m_dofBlur, sizeof(int));
 	  fin.read((char*)&m_dofNearFar, sizeof(float));
 	}
+      else if (strcmp(keyword, "brightness") == 0)
+	fin.read((char*)&m_gamma, sizeof(float));
       else if (strcmp(keyword, "drawbox") == 0)
 	fin.read((char*)&m_drawBox, sizeof(bool));
       else if (strcmp(keyword, "drawaxis") == 0)
@@ -976,6 +991,12 @@ KeyFrameInformation::save(fstream &fout)
   fout.write((char*)&m_dofNearFar, sizeof(float));
 
 
+  memset(keyword, 0, 100);
+  sprintf(keyword, "brightness");
+  fout.write((char*)keyword, strlen(keyword)+1);
+  fout.write((char*)&m_gamma, sizeof(float));
+
+  
   memset(keyword, 0, 100);
   sprintf(keyword, "drawbox");
   fout.write((char*)keyword, strlen(keyword)+1);

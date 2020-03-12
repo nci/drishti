@@ -53,6 +53,7 @@ class PreferencesWidget : public QWidget
   void on_m_setOpacity_clicked();
   void on_m_dofBlur_sliderReleased();
   void on_m_dofNearFar_sliderReleased();
+  void on_m_gamma_valueChanged(int);
   void keyPressEvent(QKeyEvent*);
 
  private :

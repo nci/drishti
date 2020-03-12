@@ -1089,6 +1089,8 @@ DrawHiresVolume::createDefaultShader()
   m_defaultParm[55] = glGetUniformLocationARB(m_defaultShader, "nclip");
   m_defaultParm[56] = glGetUniformLocationARB(m_defaultShader, "clipPos");
   m_defaultParm[57] = glGetUniformLocationARB(m_defaultShader, "clipNormal");
+
+  m_defaultParm[58] = glGetUniformLocationARB(m_defaultShader, "gamma");
 }
 
 void
@@ -2416,6 +2418,7 @@ DrawHiresVolume::setRenderDefault()
 
   glUniform3fARB(m_defaultParm[53], m_dataMin.x, m_dataMin.y, m_dataMin.z);
 
+  glUniform1fARB(m_defaultParm[58], Global::gamma()); // gamma
 }
 
 void

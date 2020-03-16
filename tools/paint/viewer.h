@@ -48,6 +48,11 @@ class Viewer : public QGLViewer
   float stillStep();
   float dragStep();
 
+  float minGrad();
+  float maxGrad();
+  void setMinGrad(float);
+  void setMaxGrad(float);
+  
   bool exactCoord();
 
   uchar* sketchPad() { return m_sketchPad; }
@@ -193,6 +198,8 @@ class Viewer : public QGLViewer
 
   float m_stillStep, m_dragStep;
 
+  float m_minGrad, m_maxGrad;
+  
   qint64 m_depth, m_width, m_height;
   int m_minDSlice, m_maxDSlice;
   int m_minWSlice, m_maxWSlice;

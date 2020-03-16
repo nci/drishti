@@ -391,7 +391,7 @@ ShaderFactory::genRectBlurShaderString(int filter)
 }
 
 QString
-ShaderFactory::getGrad()
+ShaderFactory::getGrad(bool nearest)
 {
   QString shader;
 
@@ -399,11 +399,22 @@ ShaderFactory::getGrad()
   shader += " gx = vec3(1.0/vsize.x,0,0);\n";
   shader += " gy = vec3(0,1.0/vsize.y,0);\n";
   shader += " gz = vec3(0,0,1.0/vsize.z);\n";
-  shader += " float vx = texture3D(dataTex, voxelCoord+gx).x - texture3D(dataTex, voxelCoord-gx).x;\n";
-  shader += " float vy = texture3D(dataTex, voxelCoord+gy).x - texture3D(dataTex, voxelCoord-gy).x;\n";
-  shader += " float vz = texture3D(dataTex, voxelCoord+gz).x - texture3D(dataTex, voxelCoord-gz).x;\n";
+  if (nearest)
+    {
+      shader += " float vx = texture3D(dataTex, vC+gx).x - texture3D(dataTex, vC-gx).x;\n";
+      shader += " float vy = texture3D(dataTex, vC+gy).x - texture3D(dataTex, vC-gy).x;\n";
+      shader += " float vz = texture3D(dataTex, vC+gz).x - texture3D(dataTex, vC-gz).x;\n";
+    }
+  else
+    {
+      shader += " float vx = texture3D(dataTex, voxelCoord+gx).x - texture3D(dataTex, voxelCoord-gx).x;\n";
+      shader += " float vy = texture3D(dataTex, voxelCoord+gy).x - texture3D(dataTex, voxelCoord-gy).x;\n";
+      shader += " float vz = texture3D(dataTex, voxelCoord+gz).x - texture3D(dataTex, voxelCoord-gz).x;\n";
+    }
   shader += " vec3 grad = vec3(vx, vy, vz);\n";
 
+  shader += " float gradMag = length(grad);\n";
+  
   return shader;
 }
 
@@ -453,6 +464,8 @@ ShaderFactory::genIsoRaycastShader(bool nearest,
   shader += "uniform int nclip;\n";
   shader += "uniform vec3 clipPos[15];\n";
   shader += "uniform vec3 clipNormal[15];\n";
+  shader += "uniform float minGrad;\n";
+  shader += "uniform float maxGrad;\n";
 
 
   //---------------------
@@ -548,6 +561,9 @@ ShaderFactory::genIsoRaycastShader(bool nearest,
 
   shader += "  vec4 colorSample = vec4(0.0);\n";
 
+  shader += getGrad(nearest);
+  
+  
   if (!bit16)
     shader += "  colorSample = texture2D(lutTex, vec2(val,0.0));\n";
   else
@@ -560,6 +576,7 @@ ShaderFactory::genIsoRaycastShader(bool nearest,
       shader += "  colorSample = texture2D(lutTex, vec2(fh0,fh1));\n";
     }
 
+  shader += "  colorSample = mix(vec4(0.0), colorSample, step(gradMag, maxGrad)*step(minGrad, gradMag));\n";
 
   if (useMask)
     {

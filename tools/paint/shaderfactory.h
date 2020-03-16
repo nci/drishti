@@ -31,7 +31,7 @@ class ShaderFactory
 
  private :
   static QString addLighting();
-  static QString getGrad();
+  static QString getGrad(bool);
 
   static GLuint m_boxShader;
   static GLint m_boxShaderParm[20];

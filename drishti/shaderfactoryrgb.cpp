@@ -468,7 +468,7 @@ ShaderFactoryRGB::genDefaultSliceShaderString(bool lighting,
 
   shader += "  gl_FragColor *= opmod;\n";
   
-  shader += "  glFragColor.rgb = pow(glFragColor.rgb, vec3(gamma));\n";
+  shader += "  gl_FragColor.rgb = pow(gl_FragColor.rgb, vec3(gamma));\n";
 
   shader += "\n";
   shader += "}\n";

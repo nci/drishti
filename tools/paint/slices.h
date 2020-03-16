@@ -48,6 +48,9 @@ class Slices : public QWidget
 
   void setShowSlices(bool);
 
+  void setMinGrad(float g) { m_imageWidget->setMinGrad(g); }
+  void setMaxGrad(float g) { m_imageWidget->setMaxGrad(g); }
+
  signals :
   void changeLayout();
   void sliceChanged(int);
@@ -75,7 +78,7 @@ class Slices : public QWidget
   void connectedRegion(int, int, int,
 		       Vec, Vec,
 		       int, int);
-
+    
  public slots :
    void setHLine(int);
    void setVLine(int);

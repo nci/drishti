@@ -64,6 +64,9 @@ Viewer::Viewer(QWidget *parent) :
   m_stillStep = 0.7;
   m_dragStep = 1.5;
 
+  m_minGrad = 0.0;
+  m_maxGrad = 1.0;
+  
   m_skipLayers = 0;
 
   m_glewInitdone = false;
@@ -126,7 +129,12 @@ bool Viewer::exactCoord() { return m_exactCoord; }
 void Viewer::setDSlice(int d) { m_dslice = d; }
 void Viewer::setWSlice(int w) { m_wslice = w; }
 void Viewer::setHSlice(int h) { m_hslice = h; }
-	  
+
+float Viewer::minGrad() { return m_minGrad; }
+float Viewer::maxGrad() { return m_maxGrad; }
+void Viewer::setMinGrad(float mG) { m_minGrad = mG; }
+void Viewer::setMaxGrad(float mG) { m_maxGrad = mG; }
+
 void
 Viewer::setExactCoord(bool b)
 {
@@ -567,6 +575,8 @@ Viewer::createRaycastShader()
   m_rcParm[18] = glGetUniformLocationARB(m_rcShader, "clipPos");
   m_rcParm[19] = glGetUniformLocationARB(m_rcShader, "clipNormal");
   m_rcParm[20] = glGetUniformLocationARB(m_rcShader, "voxelScale");
+  m_rcParm[21] = glGetUniformLocationARB(m_rcShader, "minGrad");
+  m_rcParm[22] = glGetUniformLocationARB(m_rcShader, "maxGrad");
 }
 
 void
@@ -2831,6 +2841,8 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
 		               m_bgColor.z/255);
   glUniform1iARB(m_rcParm[16],m_skipVoxels); // skip first voxels
 
+  glUniform1fARB(m_rcParm[21],m_minGrad-0.0001); // reduce for step function
+  glUniform1fARB(m_rcParm[22],m_maxGrad+0.0001); // increase for step function
 
   { // apply clip planes to modify entry and exit points
     QList<Vec> cPos =  m_clipPlanes->positions();

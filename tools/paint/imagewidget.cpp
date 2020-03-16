@@ -51,6 +51,9 @@ ImageWidget::ImageWidget(QWidget *parent) :
   m_volPtr = 0;
   m_maskPtr = 0;
 
+  m_minGrad = 0;
+  m_maxGrad = 1;
+  
   //m_modeType = 0; // graphcut
   m_modeType = 1; // superpixels
 
@@ -342,6 +345,76 @@ ImageWidget::setSlice(int s)
 }
 
 void
+ImageWidget::applyGradLimits()
+{
+  ushort *volPtrUS = 0;
+  if (m_bytesPerVoxel == 2)
+    volPtrUS = (ushort*)m_volPtr;
+
+  int dstart = 0;
+  int dend = m_Depth-1;
+  int wstart = 0;
+  int wend = m_Width-1;
+  int hstart = 0;
+  int hend = m_Height-1;
+
+  if (m_sliceType == DSlice) { dstart = dend = m_currSlice; }
+  if (m_sliceType == WSlice) { wstart = wend = m_currSlice; }
+  if (m_sliceType == HSlice) { hstart = hend = m_currSlice; }
+
+  int idx = 0;
+
+  for(int d0=dstart; d0<=dend; d0++)
+  for(int w0=wstart; w0<=wend; w0++)
+  for(int h0=hstart; h0<=hend; h0++)
+    {
+      float gx,gy,gz;
+      qint64 d3 = qBound(0, d0+1, m_Depth-1);
+      qint64 d4 = qBound(0, d0-1, m_Depth-1);
+      qint64 w3 = qBound(0, w0+1, m_Width-1);
+      qint64 w4 = qBound(0, w0-1, m_Width-1);
+      qint64 h3 = qBound(0, h0+1, m_Height-1);
+      qint64 h4 = qBound(0, h0-1, m_Height-1);
+      if (m_bytesPerVoxel == 1)
+	{
+	  gz = (m_volPtr[d3*m_Width*m_Height + w0*m_Height + h0] -
+		m_volPtr[d4*m_Width*m_Height + w0*m_Height + h0]);
+	  gy = (m_volPtr[d0*m_Width*m_Height + w3*m_Height + h0] -
+		m_volPtr[d0*m_Width*m_Height + w4*m_Height + h0]);
+	  gx = (m_volPtr[d0*m_Width*m_Height + w0*m_Height + h3] -
+		m_volPtr[d0*m_Width*m_Height + w0*m_Height + h4]);
+	  gx/=255.0;
+	  gy/=255.0;
+	  gz/=255.0;
+	}
+      else
+	{
+	  gz = (volPtrUS[d3*m_Width*m_Height + w0*m_Height + h0] -
+		volPtrUS[d4*m_Width*m_Height + w0*m_Height + h0]);
+	  gy = (volPtrUS[d0*m_Width*m_Height + w3*m_Height + h0] -
+		volPtrUS[d0*m_Width*m_Height + w4*m_Height + h0]);
+	  gx = (volPtrUS[d0*m_Width*m_Height + w0*m_Height + h3] -
+		volPtrUS[d0*m_Width*m_Height + w0*m_Height + h4]);
+	  gx/=65535.0;
+	  gy/=65535.0;
+	  gz/=65535.0;
+	}
+  
+      Vec dv = Vec(gx, gy, gz); // surface gradient
+      float gradMag = dv.norm();
+      
+      if (gradMag < m_minGrad || gradMag > m_maxGrad)
+	{
+	  m_sliceImage[4*idx+0] = 0;
+	  m_sliceImage[4*idx+1] = 0;
+	  m_sliceImage[4*idx+2] = 0;
+	  m_sliceImage[4*idx+3] = 0;
+	}
+      idx ++;
+    }
+}
+
+void
 ImageWidget::getSlice()
 {
   qint64 bps = m_Width*m_Height;
@@ -385,7 +458,7 @@ ImageWidget::getSlice()
 		   1);
 	}
     }
-
+  
   applyFilters();
 
   memcpy(m_prevslicetags, m_prevtags, m_imgWidth*m_imgHeight);
@@ -768,6 +841,8 @@ ImageWidget::recolorImage()
       m_sliceImage[4*i+3] = m_lut[4*idx+3];
     }
 
+  applyGradLimits();
+  
   m_image = QImage(m_sliceImage,
 		   m_imgWidth,
 		   m_imgHeight,

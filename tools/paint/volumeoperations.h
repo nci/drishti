@@ -32,7 +32,8 @@ class VolumeOperations
 			      int, int,
 			      int&, int&,
 			      int&, int&,
-			      int&, int&);
+			      int&, int&,
+			      float, float);
 
   static void resetTag(Vec, Vec, int,
 		       int&, int&,
@@ -45,7 +46,8 @@ class VolumeOperations
 			 int, int, int, int,
 			 int&, int&,
 			 int&, int&,
-			 int&, int&);
+			 int&, int&,
+			 float, float);
 
   static void setVisible(Vec, Vec,
 			 int, bool,
@@ -93,13 +95,15 @@ class VolumeOperations
 				 int, int, int,
 				 int, int, int,
 				 int, bool,
-				 MyBitArray&);
+				 MyBitArray&,
+				 float, float);
 
   static void shrinkwrapSlice(uchar*, int, int);
 
   static void getTransparentRegion(int, int, int,
 				   int, int, int,
-				   MyBitArray&);
+				   MyBitArray&,
+				   float, float);
 
   static void dilateBitmask(int, bool,
 			    qint64, qint64, qint64,

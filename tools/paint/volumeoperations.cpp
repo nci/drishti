@@ -227,7 +227,8 @@ VolumeOperations::hatchConnectedRegion(int dr, int wr, int hr,
 		     ds, ws, hs,
 		     de, we, he,
 		     ctag, true,
-		     bitmask);
+		     bitmask,
+		     0.0, 1.0);
 
   QProgressDialog progress("Updating voxel structure",
 			   QString(),
@@ -285,7 +286,8 @@ VolumeOperations::connectedRegion(int dr, int wr, int hr,
 				  int tag, int ctag,
 				  int& minD, int& maxD,
 				  int& minW, int& maxW,
-				  int& minH, int& maxH)
+				  int& minH, int& maxH,
+				  float minGrad, float maxGrad)
 {
   minD = maxD = minW = maxW = minH = maxH = -1;
 
@@ -318,7 +320,8 @@ VolumeOperations::connectedRegion(int dr, int wr, int hr,
 		     ds, ws, hs,
 		     de, we, he,
 		     ctag, true,
-		     bitmask);
+		     bitmask,
+		     minGrad, maxGrad);
 
   QProgressDialog progress("Updating voxel structure",
 			   QString(),
@@ -366,8 +369,9 @@ VolumeOperations::getConnectedRegion(int dr, int wr, int hr,
 				     int ds, int ws, int hs,
 				     int de, int we, int he,
 				     int tag, bool zero,
-				     MyBitArray& cbitmask)
-{
+				     MyBitArray& cbitmask,
+				     float minGrad, float maxGrad)
+{  
   QProgressDialog progress("Identifying connected region",
 			   QString(),
 			   0, 100,
@@ -417,6 +421,49 @@ VolumeOperations::getConnectedRegion(int dr, int wr, int hr,
       if (m_volDataUS) val = m_volDataUS[idx];
       uchar mtag = m_maskData[idx];
       bool opaque =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);      
+
+      //-------
+      {
+	float gx,gy,gz;
+	qint64 d3 = qBound(0, (int)d2+1, m_depth-1);
+	qint64 d4 = qBound(0, (int)d2-1, m_depth-1);
+	qint64 w3 = qBound(0, (int)w2+1, m_width-1);
+	qint64 w4 = qBound(0, (int)w2-1, m_width-1);
+	qint64 h3 = qBound(0, (int)h2+1, m_height-1);
+	qint64 h4 = qBound(0, (int)h2-1, m_height-1);
+	if (!m_volDataUS)
+	  {
+	    gz = (m_volData[d3*m_width*m_height + w2*m_height + h2] -
+		  m_volData[d4*m_width*m_height + w2*m_height + h2]);
+	    gy = (m_volData[d2*m_width*m_height + w3*m_height + h2] -
+		  m_volData[d2*m_width*m_height + w4*m_height + h2]);
+	    gx = (m_volData[d2*m_width*m_height + w2*m_height + h3] -
+		  m_volData[d2*m_width*m_height + w2*m_height + h4]);
+	    gx/=255.0;
+	    gy/=255.0;
+	    gz/=255.0;
+	  }
+	else
+	  {
+	    gz = (m_volDataUS[d3*m_width*m_height + w2*m_height + h2] -
+		  m_volDataUS[d4*m_width*m_height + w2*m_height + h2]);
+	    gy = (m_volDataUS[d2*m_width*m_height + w3*m_height + h2] -
+		  m_volDataUS[d2*m_width*m_height + w4*m_height + h2]);
+	    gx = (m_volDataUS[d2*m_width*m_height + w2*m_height + h3] -
+		  m_volDataUS[d2*m_width*m_height + w2*m_height + h4]);
+	    gx/=65535.0;
+	    gy/=65535.0;
+	    gz/=65535.0;
+	  }
+	
+	Vec dv = Vec(gx, gy, gz); // surface gradient
+	float gradMag = dv.norm();
+	if (gradMag < minGrad || gradMag > maxGrad)
+	  opaque = false;
+      }
+      //-------
+      
+      
       if (tag > -1)
 	{
 	  if (zero)
@@ -533,7 +580,8 @@ VolumeOperations::shrinkwrapSlice(uchar *swvr, int mx, int my)
 void
 VolumeOperations::getTransparentRegion(int ds, int ws, int hs,
 				       int de, int we, int he,
-				       MyBitArray& cbitmask)
+				       MyBitArray& cbitmask,
+				       float minGrad, float maxGrad)
 {
   QProgressDialog progress("Identifying transparent region",
 			   QString(),
@@ -571,6 +619,47 @@ VolumeOperations::getTransparentRegion(int ds, int ws, int hs,
       if (m_volDataUS) val = m_volDataUS[idx];
       uchar mtag = m_maskData[idx];
       bool transparent =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] == 0);
+      //-------
+      {
+	float gx,gy,gz;
+	qint64 d3 = qBound(0, (int)d2+1, m_depth-1);
+	qint64 d4 = qBound(0, (int)d2-1, m_depth-1);
+	qint64 w3 = qBound(0, (int)w2+1, m_width-1);
+	qint64 w4 = qBound(0, (int)w2-1, m_width-1);
+	qint64 h3 = qBound(0, (int)h2+1, m_height-1);
+	qint64 h4 = qBound(0, (int)h2-1, m_height-1);
+	if (!m_volDataUS)
+	  {
+	    gz = (m_volData[d3*m_width*m_height + w2*m_height + h2] -
+		  m_volData[d4*m_width*m_height + w2*m_height + h2]);
+	    gy = (m_volData[d2*m_width*m_height + w3*m_height + h2] -
+		  m_volData[d2*m_width*m_height + w4*m_height + h2]);
+	    gx = (m_volData[d2*m_width*m_height + w2*m_height + h3] -
+		  m_volData[d2*m_width*m_height + w2*m_height + h4]);
+	    gx/=255.0;
+	    gy/=255.0;
+	    gz/=255.0;
+	  }
+	else
+	  {
+	    gz = (m_volDataUS[d3*m_width*m_height + w2*m_height + h2] -
+		  m_volDataUS[d4*m_width*m_height + w2*m_height + h2]);
+	    gy = (m_volDataUS[d2*m_width*m_height + w3*m_height + h2] -
+		  m_volDataUS[d2*m_width*m_height + w4*m_height + h2]);
+	    gx = (m_volDataUS[d2*m_width*m_height + w2*m_height + h3] -
+		  m_volDataUS[d2*m_width*m_height + w2*m_height + h4]);
+	    gx/=65535.0;
+	    gy/=65535.0;
+	    gz/=65535.0;
+	  }
+	
+	Vec dv = Vec(gx, gy, gz); // surface gradient
+	float gradMag = dv.norm();
+	if (gradMag < minGrad || gradMag > maxGrad)
+	  transparent = true;
+      }
+      //-------
+
       if (clipped || transparent)
 	{
 	  qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
@@ -588,7 +677,8 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
 			     int dr, int wr, int hr, int ctag,
 			     int& minD, int& maxD,
 			     int& minW, int& maxW,
-			     int& minH, int& maxH)
+			     int& minH, int& maxH,
+			     float minGrad, float maxGrad)
 {
   //-------------------------
   int holeSize = 0;
@@ -625,17 +715,21 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
 		    0, 1, 0,
 		    0, 0,-1,
 		    0, 0, 1};
-
+  
   //----------------------------  
   if (all) // identify transparent region  
-    getTransparentRegion(ds, ws, hs, de, we, he, cbitmask);
+    getTransparentRegion(ds, ws, hs,
+			 de, we, he,
+			 cbitmask,
+			 minGrad, maxGrad);
   else // identify connected region
     {
       getConnectedRegion(dr, wr, hr,
 			 ds, ws, hs,
 			 de, we, he,
 			 ctag, false,
-			 cbitmask);
+			 cbitmask,
+			 minGrad, maxGrad);
       // invert all values in cbitmask
       cbitmask.invert();
     }

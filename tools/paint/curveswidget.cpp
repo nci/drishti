@@ -96,6 +96,11 @@ CurvesWidget::CurvesWidget(QWidget *parent, QStatusBar *sb) :
   m_lut = new uchar[4*256*256];
   memset(m_lut, 0, 4*256*256);
 
+  m_minGrad = 0;
+  m_maxGrad = 1;
+
+  m_volPtr = 0;
+  
   m_image = QImage(100, 100, QImage::Format_RGB32);
   m_imageScaled = QImage(100, 100, QImage::Format_RGB32);
   m_maskimage = QImage(100, 100, QImage::Format_Indexed8);
@@ -652,6 +657,108 @@ CurvesWidget::processPrevSliceTags()
 
 
 void
+CurvesWidget::applyGradLimits()
+{
+  if (m_minGrad < 0.0001 && m_maxGrad > 0.999)
+    return;
+
+  ushort *volPtrUS = 0;
+  if (Global::bytesPerVoxel() == 2)
+    volPtrUS = (ushort*)m_volPtr;
+
+  int D = m_Depth+1;
+  int W = m_Width+1;
+  int H = m_Height+1;
+    
+  int dstart = 0;
+  int dend = m_Depth;
+  int wstart = 0;
+  int wend = m_Width;
+  int hstart = 0;
+  int hend = m_Height;
+
+  if (m_sliceType == DSlice) { dstart = dend = m_currSlice; }
+  if (m_sliceType == WSlice) { wstart = wend = m_currSlice; }
+  if (m_sliceType == HSlice) { hstart = hend = m_currSlice; }
+
+  int idx = 0;
+
+  for(int d0=dstart; d0<=dend; d0++)
+  for(int w0=wstart; w0<=wend; w0++)
+  for(int h0=hstart; h0<=hend; h0++)
+    {
+      float gx,gy,gz;
+      qint64 d3 = qBound(0, d0+1, m_Depth);
+      qint64 d4 = qBound(0, d0-1, m_Depth);
+      qint64 w3 = qBound(0, w0+1, m_Width);
+      qint64 w4 = qBound(0, w0-1, m_Width);
+      qint64 h3 = qBound(0, h0+1, m_Height);
+      qint64 h4 = qBound(0, h0-1, m_Height);
+      if (Global::bytesPerVoxel() == 1)
+	{
+	  gz = (m_volPtr[d3*W*H + w0*H + h0] -
+		m_volPtr[d4*W*H + w0*H + h0]);
+	  gy = (m_volPtr[d0*W*H + w3*H + h0] -
+		m_volPtr[d0*W*H + w4*H + h0]);
+	  gx = (m_volPtr[d0*W*H + w0*H + h3] -
+		m_volPtr[d0*W*H + w0*H + h4]);
+	  gx/=255.0;
+	  gy/=255.0;
+	  gz/=255.0;
+	}
+      else
+	{
+	  gz = (volPtrUS[d3*W*H + w0*H + h0] -
+		volPtrUS[d4*W*H + w0*H + h0]);
+	  gy = (volPtrUS[d0*W*H + w3*H + h0] -
+		volPtrUS[d0*W*H + w4*H + h0]);
+	  gx = (volPtrUS[d0*W*H + w0*H + h3] -
+		volPtrUS[d0*W*H + w0*H + h4]);
+	  gx/=65535.0;
+	  gy/=65535.0;
+	  gz/=65535.0;
+	}
+  
+      Vec dv = Vec(gx, gy, gz); // surface gradient
+      float gradMag = dv.norm();
+      
+      if (gradMag < m_minGrad || gradMag > m_maxGrad)
+	{
+	  m_sliceImage[4*idx+0] = 0;
+	  m_sliceImage[4*idx+1] = 0;
+	  m_sliceImage[4*idx+2] = 0;
+	  m_sliceImage[4*idx+3] = 0;
+	}
+      idx ++;
+    }
+}
+
+void CurvesWidget::setMinGrad(float g)
+{
+  m_minGrad = g;
+  recolorImage();
+  onlyImageScaled();
+  update();
+}
+void
+CurvesWidget::setMaxGrad(float g)
+{
+  m_maxGrad = g;
+  recolorImage();
+  onlyImageScaled();
+  update();
+}
+
+void
+CurvesWidget::onlyImageScaled()
+{
+  m_imageScaled = m_image.scaled(m_simgWidth,
+				 m_simgHeight,
+				 Qt::IgnoreAspectRatio,
+				 Qt::SmoothTransformation);
+}
+
+void
 CurvesWidget::recolorImage()
 {
   for(int i=0; i<m_imgHeight*m_imgWidth; i++)
@@ -666,6 +773,8 @@ CurvesWidget::recolorImage()
       m_sliceImage[4*i+3] = m_lut[4*idx+3];
     }
 
+  applyGradLimits();
+  
   //-----
   // transfer data for livewire calculation
   uchar *sliceData = new uchar[m_imgHeight*m_imgWidth];

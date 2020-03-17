@@ -361,7 +361,7 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
     splitter->addWidget(gframe);
     splitter->addWidget(m_tfEditor);
     QList<int> ssz;
-    ssz << 150 << 75 << 10 << 150;
+    ssz << 150 << 75 << 1 << 150;
     splitter->setSizes(ssz);
     QFrame *dframe = new QFrame();
     dframe->setFrameShape(QFrame::Box);
@@ -1104,6 +1104,7 @@ DrishtiPaint::on_minGrad_valueChanged(int t)
   m_axialImage->setMinGrad(t*0.01);
   m_sagitalImage->setMinGrad(t*0.01);
   m_coronalImage->setMinGrad(t*0.01);
+  m_curvesWidget->setMinGrad(t*0.01);
   m_viewer->update();
 }
 void
@@ -1113,6 +1114,7 @@ DrishtiPaint::on_maxGrad_valueChanged(int t)
   m_axialImage->setMaxGrad(t*0.01);
   m_sagitalImage->setMaxGrad(t*0.01);
   m_coronalImage->setMaxGrad(t*0.01);
+  m_curvesWidget->setMaxGrad(t*0.01);
   m_viewer->update();
 }
 
@@ -1624,6 +1626,8 @@ DrishtiPaint::setFile(QString filename)
 
   m_coronalImage->setVolPtr(m_volume->memVolDataPtr());
   m_coronalImage->setMaskPtr(m_volume->memMaskDataPtr());
+
+  m_curvesWidget->setVolPtr(m_volume->memVolDataPtr());
 
   int d, w, h;
   m_volume->gridSize(d, w, h);
@@ -5835,42 +5839,44 @@ DrishtiPaint::paint3D(Vec bmin, Vec bmax,
 		      uchar mtag = maskData[dd*m_width*m_height + ww*m_height + hh];
 		      bool opaque =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);
 
-
 		      //-----------
-		      float gx,gy,gz;
-		      qint64 d3 = qBound(0, (int)dd+1, m_depth-1);
-		      qint64 d4 = qBound(0, (int)dd-1, m_depth-1);
-		      qint64 w3 = qBound(0, (int)ww+1, m_width-1);
-		      qint64 w4 = qBound(0, (int)ww-1, m_width-1);
-		      qint64 h3 = qBound(0, (int)hh+1, m_height-1);
-		      qint64 h4 = qBound(0, (int)hh-1, m_height-1);
-		      if (!volDataUS)
+		      if (opaque)
 			{
-			  gz = (volData[d3*m_width*m_height + ww*m_height + hh] -
-				volData[d4*m_width*m_height + ww*m_height + hh]);
-			  gy = (volData[dd*m_width*m_height + w3*m_height + hh] -
-				volData[dd*m_width*m_height + w4*m_height + hh]);
-			  gx = (volData[dd*m_width*m_height + ww*m_height + h3] -
-				volData[dd*m_width*m_height + ww*m_height + h4]);
-			  gx/=255.0;
-			  gy/=255.0;
-			  gz/=255.0;
+			  float gx,gy,gz;
+			  qint64 d3 = qBound(0, (int)dd+1, m_depth-1);
+			  qint64 d4 = qBound(0, (int)dd-1, m_depth-1);
+			  qint64 w3 = qBound(0, (int)ww+1, m_width-1);
+			  qint64 w4 = qBound(0, (int)ww-1, m_width-1);
+			  qint64 h3 = qBound(0, (int)hh+1, m_height-1);
+			  qint64 h4 = qBound(0, (int)hh-1, m_height-1);
+			  if (!volDataUS)
+			    {
+			      gz = (volData[d3*m_width*m_height + ww*m_height + hh] -
+				    volData[d4*m_width*m_height + ww*m_height + hh]);
+			      gy = (volData[dd*m_width*m_height + w3*m_height + hh] -
+				    volData[dd*m_width*m_height + w4*m_height + hh]);
+			      gx = (volData[dd*m_width*m_height + ww*m_height + h3] -
+				    volData[dd*m_width*m_height + ww*m_height + h4]);
+			      gx/=255.0;
+			      gy/=255.0;
+			      gz/=255.0;
+			    }
+			  else
+			    {
+			      gz = (volDataUS[d3*m_width*m_height + ww*m_height + hh] -
+				    volDataUS[d4*m_width*m_height + ww*m_height + hh]);
+			      gy = (volDataUS[dd*m_width*m_height + w3*m_height + hh] -
+				    volDataUS[dd*m_width*m_height + w4*m_height + hh]);
+			      gx = (volDataUS[dd*m_width*m_height + ww*m_height + h3] -
+				    volDataUS[dd*m_width*m_height + ww*m_height + h4]);
+			      gx/=65535.0;
+			      gy/=65535.0;
+			      gz/=65535.0;
+			    }
+			  float gn = Vec(gx, gy, gz).norm();
+			  if (gn < minGrad || gn > maxGrad)
+			    opaque = false;
 			}
-		      else
-			{
-			  gz = (volDataUS[d3*m_width*m_height + ww*m_height + hh] -
-				volDataUS[d4*m_width*m_height + ww*m_height + hh]);
-			  gy = (volDataUS[dd*m_width*m_height + w3*m_height + hh] -
-				volDataUS[dd*m_width*m_height + w4*m_height + hh]);
-			  gx = (volDataUS[dd*m_width*m_height + ww*m_height + h3] -
-				volDataUS[dd*m_width*m_height + ww*m_height + h4]);
-			  gx/=65535.0;
-			  gy/=65535.0;
-			  gz/=65535.0;
-			}
-		      float gn = Vec(gx, gy, gz).norm();
-		      if (gn < minGrad || gn > maxGrad)
-			opaque = false;
 		      //-----------
 
 		      
@@ -6125,6 +6131,9 @@ DrishtiPaint::tagUsingSketchPad(Vec bmin, Vec bmax, int tag)
     return false;
   
   
+  float minGrad = m_viewer->minGrad();
+  float maxGrad = m_viewer->maxGrad();
+
   progress.setLabelText("Region growing");
   qApp->processEvents();
 
@@ -6189,6 +6198,46 @@ DrishtiPaint::tagUsingSketchPad(Vec bmin, Vec bmax, int tag)
 		      int val = volData[idx];
 		      if (volDataUS) val = volDataUS[idx];
 		      bool visible = lut[4*val+3] > 0;
+
+		      //-----------
+		      if (visible)
+			{float gx,gy,gz;
+			  qint64 d3 = qBound(0, (int)d2+1, m_depth-1);
+			  qint64 d4 = qBound(0, (int)d2-1, m_depth-1);
+			  qint64 w3 = qBound(0, (int)w2+1, m_width-1);
+			  qint64 w4 = qBound(0, (int)w2-1, m_width-1);
+			  qint64 h3 = qBound(0, (int)h2+1, m_height-1);
+			  qint64 h4 = qBound(0, (int)h2-1, m_height-1);
+			  if (!volDataUS)
+			    {
+			      gz = (volData[d3*m_width*m_height + w2*m_height + h2] -
+				    volData[d4*m_width*m_height + w2*m_height + h2]);
+			      gy = (volData[d2*m_width*m_height + w3*m_height + h2] -
+				    volData[d2*m_width*m_height + w4*m_height + h2]);
+			      gx = (volData[d2*m_width*m_height + w2*m_height + h3] -
+				    volData[d2*m_width*m_height + w2*m_height + h4]);
+			      gx/=255.0;
+			      gy/=255.0;
+			      gz/=255.0;
+			    }
+			  else
+			    {
+			      gz = (volDataUS[d3*m_width*m_height + w2*m_height + h2] -
+				    volDataUS[d4*m_width*m_height + w2*m_height + h2]);
+			      gy = (volDataUS[d2*m_width*m_height + w3*m_height + h2] -
+				    volDataUS[d2*m_width*m_height + w4*m_height + h2]);
+			      gx = (volDataUS[d2*m_width*m_height + w2*m_height + h3] -
+				    volDataUS[d2*m_width*m_height + w2*m_height + h4]);
+			      gx/=65535.0;
+			      gy/=65535.0;
+			      gz/=65535.0;
+			    }
+			  float gn = Vec(gx, gy, gz).norm();
+			  if (gn < minGrad || gn > maxGrad)
+			    visible = false;
+			}
+		      //-----------
+
 		      if (visible) // tag only visible region
 			{
 			  maskData[idx] = tag;	      
@@ -6428,12 +6477,16 @@ DrishtiPaint::setVisible(Vec bmin, Vec bmax, int tag, bool visible)
   QList<Vec> cPos =  m_viewer->clipPos();
   QList<Vec> cNorm = m_viewer->clipNorm();
 
+  float minGrad = m_viewer->minGrad();
+  float maxGrad = m_viewer->maxGrad();
+
   VolumeOperations::setClip(cPos, cNorm);
   VolumeOperations::setVisible(bmin, bmax,
 			       tag, visible,
 			       minD, maxD,
 			       minW, maxW,
-			       minH, maxH);
+			       minH, maxH,
+			       minGrad, maxGrad);
 
   if (minD < 0)
     return;
@@ -6471,12 +6524,16 @@ DrishtiPaint::erodeConnected(int dr, int wr, int hr,
 {
   int minD,maxD, minW,maxW, minH,maxH;
 
+  float minGrad = m_viewer->minGrad();
+  float maxGrad = m_viewer->maxGrad();
+
   VolumeOperations::erodeConnected(dr, wr, hr,
 				   bmin, bmax, tag,
 				   viewerUi.dilateRad->value(),
 				   minD, maxD,
 				   minW, maxW,
-				   minH, maxH);
+				   minH, maxH,
+				   minGrad, maxGrad);
 
   if (minD < 0)
     return;
@@ -6496,6 +6553,9 @@ DrishtiPaint::dilateConnected(int dr, int wr, int hr,
   QList<Vec> cPos =  m_viewer->clipPos();
   QList<Vec> cNorm = m_viewer->clipNorm();
 
+  float minGrad = m_viewer->minGrad();
+  float maxGrad = m_viewer->maxGrad();
+
   VolumeOperations::setClip(cPos, cNorm);
   VolumeOperations::dilateConnected(dr, wr, hr,
 				    bmin, bmax, tag,
@@ -6503,7 +6563,8 @@ DrishtiPaint::dilateConnected(int dr, int wr, int hr,
 				    minD, maxD,
 				    minW, maxW,
 				    minH, maxH,
-				    allVisible);
+				    allVisible,
+				    minGrad, maxGrad);
   
   if (minD < 0)
     return;

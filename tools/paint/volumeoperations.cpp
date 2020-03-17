@@ -423,6 +423,7 @@ VolumeOperations::getConnectedRegion(int dr, int wr, int hr,
       bool opaque =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);      
 
       //-------
+      if (opaque)
       {
 	float gx,gy,gz;
 	qint64 d3 = qBound(0, (int)d2+1, m_depth-1);
@@ -619,7 +620,9 @@ VolumeOperations::getTransparentRegion(int ds, int ws, int hs,
       if (m_volDataUS) val = m_volDataUS[idx];
       uchar mtag = m_maskData[idx];
       bool transparent =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] == 0);
+
       //-------
+      if (!transparent)
       {
 	float gx,gy,gz;
 	qint64 d3 = qBound(0, (int)d2+1, m_depth-1);
@@ -1280,7 +1283,8 @@ VolumeOperations::setVisible(Vec bmin, Vec bmax,
 			     int tag, bool visible,
 			     int& minD, int& maxD,
 			     int& minW, int& maxW,
-			     int& minH, int& maxH)
+			     int& minH, int& maxH,
+			     float minGrad, float maxGrad)
 {
   int ds = bmin.z;
   int ws = bmin.y;
@@ -1329,6 +1333,48 @@ VolumeOperations::setVisible(Vec bmin, Vec bmax,
 		if (m_volDataUS) val = m_volDataUS[idx];
 		uchar mtag = m_maskData[idx];
 		bool alpha =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);
+
+		//-------
+		if (alpha)
+		{
+		  float gx,gy,gz;
+		  qint64 d3 = qBound(0, (int)d+1, m_depth-1);
+		  qint64 d4 = qBound(0, (int)d-1, m_depth-1);
+		  qint64 w3 = qBound(0, (int)w+1, m_width-1);
+		  qint64 w4 = qBound(0, (int)w-1, m_width-1);
+		  qint64 h3 = qBound(0, (int)h+1, m_height-1);
+		  qint64 h4 = qBound(0, (int)h-1, m_height-1);
+		  if (!m_volDataUS)
+		    {
+		      gz = (m_volData[d3*m_width*m_height + w*m_height + h] -
+			    m_volData[d4*m_width*m_height + w*m_height + h]);
+		      gy = (m_volData[d*m_width*m_height + w3*m_height + h] -
+			    m_volData[d*m_width*m_height + w4*m_height + h]);
+		      gx = (m_volData[d*m_width*m_height + w*m_height + h3] -
+			    m_volData[d*m_width*m_height + w*m_height + h4]);
+		      gx/=255.0;
+		      gy/=255.0;
+		      gz/=255.0;
+		    }
+		  else
+		    {
+		      gz = (m_volDataUS[d3*m_width*m_height + w*m_height + h] -
+			    m_volDataUS[d4*m_width*m_height + w*m_height + h]);
+		      gy = (m_volDataUS[d*m_width*m_height + w3*m_height + h] -
+			    m_volDataUS[d*m_width*m_height + w4*m_height + h]);
+		      gx = (m_volDataUS[d*m_width*m_height + w*m_height + h3] -
+			    m_volDataUS[d*m_width*m_height + w*m_height + h4]);
+		      gx/=65535.0;
+		      gy/=65535.0;
+		      gz/=65535.0;
+		    }
+		  
+		  Vec dv = Vec(gx, gy, gz); // surface gradient
+		  float gradMag = dv.norm();
+		  if (gradMag < minGrad || gradMag > maxGrad)
+		    alpha = false;
+		}
+		//-------
 
 		if (alpha == visible && m_maskData[idx] != tag)
 		  {
@@ -1488,7 +1534,8 @@ VolumeOperations::erodeConnected(int dr, int wr, int hr,
 				 int nErode,
 				 int& minD, int& maxD,
 				 int& minW, int& maxW,
-				 int& minH, int& maxH)
+				 int& minH, int& maxH,
+				 float minGrad, float maxGrad)
 {
   if (dr < 0 || wr < 0 || hr < 0 ||
       dr > m_depth-1 ||
@@ -1600,7 +1647,50 @@ VolumeOperations::erodeConnected(int dr, int wr, int hr,
 	      qint64 idx = d2*m_width*m_height + w2*m_height + h2;
 	      int val = m_volData[idx];
 	      if (m_volDataUS) val = m_volDataUS[idx];
-	      if (lut[4*val+3] > 0 && m_maskData[idx] == tag)
+
+	      //-------
+	      bool opaque = true;
+	      {
+		float gx,gy,gz;
+		qint64 d3 = qBound(0, (int)d2+1, m_depth-1);
+		qint64 d4 = qBound(0, (int)d2-1, m_depth-1);
+		qint64 w3 = qBound(0, (int)w2+1, m_width-1);
+		qint64 w4 = qBound(0, (int)w2-1, m_width-1);
+		qint64 h3 = qBound(0, (int)h2+1, m_height-1);
+		qint64 h4 = qBound(0, (int)h2-1, m_height-1);
+		if (!m_volDataUS)
+		  {
+		    gz = (m_volData[d3*m_width*m_height + w2*m_height + h2] -
+			  m_volData[d4*m_width*m_height + w2*m_height + h2]);
+		    gy = (m_volData[d2*m_width*m_height + w3*m_height + h2] -
+			  m_volData[d2*m_width*m_height + w4*m_height + h2]);
+		    gx = (m_volData[d2*m_width*m_height + w2*m_height + h3] -
+			  m_volData[d2*m_width*m_height + w2*m_height + h4]);
+		    gx/=255.0;
+		    gy/=255.0;
+		    gz/=255.0;
+		  }
+		else
+		  {
+		    gz = (m_volDataUS[d3*m_width*m_height + w2*m_height + h2] -
+			  m_volDataUS[d4*m_width*m_height + w2*m_height + h2]);
+		    gy = (m_volDataUS[d2*m_width*m_height + w3*m_height + h2] -
+			  m_volDataUS[d2*m_width*m_height + w4*m_height + h2]);
+		    gx = (m_volDataUS[d2*m_width*m_height + w2*m_height + h3] -
+			  m_volDataUS[d2*m_width*m_height + w2*m_height + h4]);
+		    gx/=65535.0;
+		    gy/=65535.0;
+		    gz/=65535.0;
+		  }
+		
+		Vec dv = Vec(gx, gy, gz); // surface gradient
+		float gradMag = dv.norm();
+		if (gradMag < minGrad || gradMag > maxGrad)
+		  opaque = false;
+	      }
+	      //-------
+	      
+	      if (opaque && lut[4*val+3] > 0 && m_maskData[idx] == tag)
 		{
 		  bitmask.setBit(bidx, true);
 		  que.enqueue(Vec(d2,w2,h2)); 
@@ -1716,7 +1806,8 @@ VolumeOperations::dilateConnected(int dr, int wr, int hr,
 				  int& minD, int& maxD,
 				  int& minW, int& maxW,
 				  int& minH, int& maxH,
-				  bool allVisible)
+				  bool allVisible,
+				  float minGrad, float maxGrad)
 {
   if (dr < 0 || wr < 0 || hr < 0 ||
       dr > m_depth-1 ||
@@ -1843,7 +1934,50 @@ VolumeOperations::dilateConnected(int dr, int wr, int hr,
 		  uchar mtag = m_maskData[idx];
 		  bool opaque =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);
 		  opaque &= mtag == tag;
+
+		  //-------
 		  if (opaque)
+		  {
+		    float gx,gy,gz;
+		    qint64 d3 = qBound(0, (int)d2+1, m_depth-1);
+		    qint64 d4 = qBound(0, (int)d2-1, m_depth-1);
+		    qint64 w3 = qBound(0, (int)w2+1, m_width-1);
+		    qint64 w4 = qBound(0, (int)w2-1, m_width-1);
+		    qint64 h3 = qBound(0, (int)h2+1, m_height-1);
+		    qint64 h4 = qBound(0, (int)h2-1, m_height-1);
+		    if (!m_volDataUS)
+		      {
+			gz = (m_volData[d3*m_width*m_height + w2*m_height + h2] -
+			      m_volData[d4*m_width*m_height + w2*m_height + h2]);
+			gy = (m_volData[d2*m_width*m_height + w3*m_height + h2] -
+			      m_volData[d2*m_width*m_height + w4*m_height + h2]);
+			gx = (m_volData[d2*m_width*m_height + w2*m_height + h3] -
+			      m_volData[d2*m_width*m_height + w2*m_height + h4]);
+			gx/=255.0;
+			gy/=255.0;
+			gz/=255.0;
+		      }
+		    else
+		      {
+			gz = (m_volDataUS[d3*m_width*m_height + w2*m_height + h2] -
+			      m_volDataUS[d4*m_width*m_height + w2*m_height + h2]);
+			gy = (m_volDataUS[d2*m_width*m_height + w3*m_height + h2] -
+			      m_volDataUS[d2*m_width*m_height + w4*m_height + h2]);
+			gx = (m_volDataUS[d2*m_width*m_height + w2*m_height + h3] -
+			      m_volDataUS[d2*m_width*m_height + w2*m_height + h4]);
+			gx/=65535.0;
+			gy/=65535.0;
+			gz/=65535.0;
+		      }
+		    
+		    Vec dv = Vec(gx, gy, gz); // surface gradient
+		    float gradMag = dv.norm();
+		    if (gradMag < minGrad || gradMag > maxGrad)
+		      opaque = false;
+		  }
+		  //-------
+
+	      if (opaque)
 		    {
 		      bitmask.setBit(bidx, true);
 		      que.enqueue(Vec(d2,w2,h2)); 
@@ -1967,6 +2101,48 @@ VolumeOperations::dilateConnected(int dr, int wr, int hr,
 			  bool opaque =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);
 			  opaque &= (mtag == 0 || allVisible);
 			  
+			  //-------
+			  if (opaque)
+			  {
+			    float gx,gy,gz;
+			    qint64 d3 = qBound(0, (int)d2+1, m_depth-1);
+			    qint64 d4 = qBound(0, (int)d2-1, m_depth-1);
+			    qint64 w3 = qBound(0, (int)w2+1, m_width-1);
+			    qint64 w4 = qBound(0, (int)w2-1, m_width-1);
+			    qint64 h3 = qBound(0, (int)h2+1, m_height-1);
+			    qint64 h4 = qBound(0, (int)h2-1, m_height-1);
+			    if (!m_volDataUS)
+			      {
+				gz = (m_volData[d3*m_width*m_height + w2*m_height + h2] -
+				      m_volData[d4*m_width*m_height + w2*m_height + h2]);
+				gy = (m_volData[d2*m_width*m_height + w3*m_height + h2] -
+				      m_volData[d2*m_width*m_height + w4*m_height + h2]);
+				gx = (m_volData[d2*m_width*m_height + w2*m_height + h3] -
+				      m_volData[d2*m_width*m_height + w2*m_height + h4]);
+				gx/=255.0;
+				gy/=255.0;
+				gz/=255.0;
+			      }
+			    else
+			      {
+				gz = (m_volDataUS[d3*m_width*m_height + w2*m_height + h2] -
+				      m_volDataUS[d4*m_width*m_height + w2*m_height + h2]);
+				gy = (m_volDataUS[d2*m_width*m_height + w3*m_height + h2] -
+				      m_volDataUS[d2*m_width*m_height + w4*m_height + h2]);
+				gx = (m_volDataUS[d2*m_width*m_height + w2*m_height + h3] -
+				      m_volDataUS[d2*m_width*m_height + w2*m_height + h4]);
+				gx/=65535.0;
+				gy/=65535.0;
+				gz/=65535.0;
+			      }
+			    
+			    Vec dv = Vec(gx, gy, gz); // surface gradient
+			    float gradMag = dv.norm();
+			    if (gradMag < minGrad || gradMag > maxGrad)
+			      opaque = false;
+			  }
+			  //-------
+
 			  //if (lut[4*val+3] > 0 && // dilate only in connected region
 			  //m_maskData[idx] == 0 && // dilate only in zero mask or allVisible region
 			  if (opaque && // dilate only in connected opaque region

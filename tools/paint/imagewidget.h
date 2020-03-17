@@ -46,8 +46,8 @@ class ImageWidget : public QWidget
 
   void setRawValue(QList<int>);
 
-  void setMinGrad(float g) { m_minGrad = g; recolorImage(); update(); }
-  void setMaxGrad(float g) { m_maxGrad = g; recolorImage(); update(); }
+  void setMinGrad(float);
+  void setMaxGrad(float);
   
   void paintEvent(QPaintEvent*);
   void resizeEvent(QResizeEvent*);
@@ -295,6 +295,8 @@ class ImageWidget : public QWidget
   void getSlice();
 
   void applyGradLimits();
+
+  void onlyImageScaled();
 };
 
 

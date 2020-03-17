@@ -87,6 +87,11 @@ class CurvesWidget : public QWidget
 
   void resetCurves();
 
+  void setMinGrad(float);
+  void setMaxGrad(float);
+  
+  void setVolPtr(uchar *vp) {m_volPtr = vp;}
+  
  public slots :
   void updateTagColors();
   void sliceChanged(int);
@@ -232,6 +237,9 @@ class CurvesWidget : public QWidget
 
   int m_pointSize;
 
+  uchar *m_volPtr;
+  float m_minGrad, m_maxGrad;
+  
   QList<int> m_showTags;
 
   void resizeImage();
@@ -318,6 +326,10 @@ class CurvesWidget : public QWidget
   void doAnother(int);
 
   void applyPaint(bool);
+
+  void applyGradLimits();
+
+  void onlyImageScaled();
 };
 
 

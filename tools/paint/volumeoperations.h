@@ -53,7 +53,8 @@ class VolumeOperations
 			 int, bool,
 			 int&, int&,
 			 int&, int&,
-			 int&, int&);
+			 int&, int&,
+			 float, float);
 
   static void mergeTags(Vec bmin, Vec bmax,
 			int tag1, int tag2, bool useTF,
@@ -66,7 +67,8 @@ class VolumeOperations
 			     int,
 			     int&, int&,
 			     int&, int&,
-			     int&, int&);
+			     int&, int&,
+			     float, float);
 
   static void dilateConnected(int, int, int,
 			      Vec, Vec, int,
@@ -74,7 +76,8 @@ class VolumeOperations
 			      int&, int&,
 			      int&, int&,
 			      int&, int&,
-			      bool);
+			      bool,
+			      float, float);
 
   static void modifyOriginalVolume(Vec, Vec, int,
 				   int&, int&,

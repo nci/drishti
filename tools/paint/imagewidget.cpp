@@ -347,6 +347,9 @@ ImageWidget::setSlice(int s)
 void
 ImageWidget::applyGradLimits()
 {
+  if (m_minGrad < 0.0001 && m_maxGrad > 0.999)
+    return;
+      
   ushort *volPtrUS = 0;
   if (m_bytesPerVoxel == 2)
     volPtrUS = (ushort*)m_volPtr;
@@ -459,7 +462,7 @@ ImageWidget::getSlice()
 	}
     }
   
-  applyFilters();
+  //applyFilters();
 
   memcpy(m_prevslicetags, m_prevtags, m_imgWidth*m_imgHeight);
   processPrevSliceTags();
@@ -831,9 +834,12 @@ ImageWidget::recolorImage()
 {
   for(int i=0; i<m_imgHeight*m_imgWidth; i++)
     {
-      int idx = m_sliceFiltered[i];
+      int idx = m_slice[i];
       if (m_bytesPerVoxel == 2)
-	idx = ((ushort*)m_sliceFiltered)[i];
+	idx = ((ushort*)m_slice)[i];
+//      int idx = m_sliceFiltered[i];
+//      if (m_bytesPerVoxel == 2)
+//	idx = ((ushort*)m_sliceFiltered)[i];
 
       m_sliceImage[4*i+0] = m_lut[4*idx+0];
       m_sliceImage[4*i+1] = m_lut[4*idx+1];
@@ -856,6 +862,32 @@ ImageWidget::setRawValue(QList<int> vgt)
 {
   m_vgt = vgt;
   update();
+}
+
+void
+ImageWidget::setMinGrad(float g)
+{
+  m_minGrad = g;
+  recolorImage();
+  onlyImageScaled();
+  update();
+}
+void
+ImageWidget::setMaxGrad(float g)
+{
+  m_maxGrad = g;
+  recolorImage();
+  onlyImageScaled();
+  update();
+}
+
+void
+ImageWidget::onlyImageScaled()
+{
+  m_imageScaled = m_image.scaled(m_simgWidth,
+				 m_simgHeight,
+				 Qt::IgnoreAspectRatio,
+				 Qt::FastTransformation);
 }
 
 void

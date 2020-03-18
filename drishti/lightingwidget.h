@@ -37,6 +37,8 @@ class LightingWidget : public QWidget
   void peel(bool);
   void peelInfo(int, float, float, float);
 
+  void updateGL();
+  
  public slots :
   void setLightInfo(LightingInformation);
   void keyPressEvent(QKeyEvent*);
@@ -75,6 +77,8 @@ class LightingWidget : public QWidget
   void on_backplaneshadowscale_sliderReleased();
   void on_backplanecontrast_sliderReleased();
 
+  void on_gamma_valueChanged(int);
+    
   void setFlat();
   void highlightsChanged();
   void shadowColor();

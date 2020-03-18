@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>411</width>
-    <height>801</height>
+    <width>236</width>
+    <height>877</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -223,10 +223,36 @@
          <bool>false</bool>
         </property>
         <layout class="QGridLayout">
-         <item row="3" column="0" rowspan="2" alignment="Qt::AlignRight">
-          <widget class="QLabel" name="label_3">
+         <item row="0" column="0" alignment="Qt::AlignRight">
+          <widget class="QLabel" name="label_4">
            <property name="text">
-            <string>hilite size</string>
+            <string>ambient</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="QSlider" name="ambient">
+           <property name="maximum">
+            <number>10</number>
+           </property>
+           <property name="pageStep">
+            <number>1</number>
+           </property>
+           <property name="value">
+            <number>10</number>
+           </property>
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="tickPosition">
+            <enum>QSlider::TicksAbove</enum>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="0" alignment="Qt::AlignRight">
+          <widget class="QLabel" name="label_2">
+           <property name="text">
+            <string>specular</string>
            </property>
           </widget>
          </item>
@@ -234,6 +260,13 @@
           <widget class="QLabel" name="label">
            <property name="text">
             <string>diffuse</string>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="0" rowspan="2" alignment="Qt::AlignRight">
+          <widget class="QLabel" name="label_3">
+           <property name="text">
+            <string>hilite size</string>
            </property>
           </widget>
          </item>
@@ -275,39 +308,6 @@
            </property>
           </widget>
          </item>
-         <item row="0" column="0" alignment="Qt::AlignRight">
-          <widget class="QLabel" name="label_4">
-           <property name="text">
-            <string>ambient</string>
-           </property>
-          </widget>
-         </item>
-         <item row="0" column="1">
-          <widget class="QSlider" name="ambient">
-           <property name="maximum">
-            <number>10</number>
-           </property>
-           <property name="pageStep">
-            <number>1</number>
-           </property>
-           <property name="value">
-            <number>10</number>
-           </property>
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-           <property name="tickPosition">
-            <enum>QSlider::TicksAbove</enum>
-           </property>
-          </widget>
-         </item>
-         <item row="2" column="0" alignment="Qt::AlignRight">
-          <widget class="QLabel" name="label_2">
-           <property name="text">
-            <string>specular</string>
-           </property>
-          </widget>
-         </item>
          <item row="2" column="1" rowspan="2">
           <widget class="QSlider" name="specular">
            <property name="maximum">
@@ -327,12 +327,21 @@
            </property>
           </widget>
          </item>
-         <item row="6" column="0">
-          <widget class="QLabel" name="label_7">
-           <property name="text">
-            <string>shadow contrast</string>
+         <item row="5" column="1">
+          <spacer name="verticalSpacer_2">
+           <property name="orientation">
+            <enum>Qt::Vertical</enum>
            </property>
-          </widget>
+           <property name="sizeType">
+            <enum>QSizePolicy::Fixed</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>20</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
          </item>
          <item row="6" column="1">
           <widget class="QSlider" name="shadowcontrast">
@@ -360,6 +369,13 @@
            </property>
           </widget>
          </item>
+         <item row="6" column="0">
+          <widget class="QLabel" name="label_7">
+           <property name="text">
+            <string>shadow contrast</string>
+           </property>
+          </widget>
+         </item>
          <item row="7" column="1">
           <widget class="QSlider" name="shadowblur">
            <property name="minimum">
@@ -382,21 +398,31 @@
            </property>
           </widget>
          </item>
-         <item row="5" column="1">
-          <spacer name="verticalSpacer_2">
+         <item row="9" column="1">
+          <widget class="QSlider" name="gamma">
+           <property name="maximum">
+            <number>100</number>
+           </property>
+           <property name="value">
+            <number>50</number>
+           </property>
            <property name="orientation">
-            <enum>Qt::Vertical</enum>
+            <enum>Qt::Horizontal</enum>
            </property>
-           <property name="sizeType">
-            <enum>QSizePolicy::Fixed</enum>
+           <property name="tickPosition">
+            <enum>QSlider::TicksAbove</enum>
            </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>20</width>
-             <height>20</height>
-            </size>
+          </widget>
+         </item>
+         <item row="9" column="0">
+          <widget class="QLabel" name="label_18">
+           <property name="text">
+            <string>brightness</string>
            </property>
-          </spacer>
+           <property name="alignment">
+            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+           </property>
+          </widget>
          </item>
         </layout>
        </widget>

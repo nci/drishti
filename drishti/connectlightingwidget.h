@@ -1,6 +1,9 @@
 #ifndef CONNECTLIGHTINGWIDGET_H
 #define CONNECTLIGHTINGWIDGET_H
 
+  connect(m_lightingWidget, SIGNAL(updateGL()),
+	  m_Viewer, SLOT(update()));
+
   connect(m_lightingWidget,
 	  SIGNAL(directionChanged(Vec)),
 	  this, SLOT(lightDirectionChanged(Vec)));

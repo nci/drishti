@@ -1,5 +1,6 @@
 #include "lightingwidget.h"
 #include "propertyeditor.h"
+#include "global.h"
 
 LightingWidget::LightingWidget(QWidget *parent) :
   QWidget(parent)
@@ -137,6 +138,8 @@ LightingWidget::setLightInfo(LightingInformation lightInfo)
   m_lightPosition->setVector(lightInfo.userLightVector);
   m_lightPosition->setDistance(lightInfo.lightDistanceOffset);
 
+  ui.gamma->setValue(qBound(0,(int)((1.5-Global::gamma())*100), 100));
+
   setFlat();
 }
 
@@ -187,6 +190,13 @@ void LightingWidget::highlightsChanged()
                                ui.specularcoeff->value();
 
   emit highlights(hl);
+}
+
+void
+LightingWidget::on_gamma_valueChanged(int g)
+{
+  Global::setGamma(0.5 + fabs(1.0-ui.gamma->value()*0.01));
+  emit updateGL();
 }
 
 
@@ -285,7 +295,6 @@ void LightingWidget::on_applyemissive_clicked(bool flag)
 {
   emit applyEmissive(flag);
 }
-
 
 void
 LightingWidget::keyPressEvent(QKeyEvent *event)

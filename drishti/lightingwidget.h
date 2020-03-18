@@ -24,13 +24,6 @@ class LightingWidget : public QWidget
   void shadowFOV(float);
   void shadowIntensity(float);
 
-  void applyColoredShadow(bool);
-  void shadowColorAttenuation(float, float, float);
-
-  void applyBackplane(bool);
-  void backplaneShadowScale(float);
-  void backplaneIntensity(float);
-
   void directionChanged(Vec);
   void lightDistanceOffset(float);
 
@@ -49,10 +42,6 @@ class LightingWidget : public QWidget
   void on_lightposition_clicked(bool);
   void on_applyemissive_clicked(bool);
   void on_applylighting_clicked(bool);
-  void on_applyshadow_clicked(bool);
-  void on_applycoloredshadow_clicked(bool);
-  void on_applybackplane_clicked(bool);
-  void on_linkcolors_clicked(bool);
 
   void on_peel_clicked(bool);
   void on_peelmin_sliderReleased();
@@ -60,33 +49,23 @@ class LightingWidget : public QWidget
   void on_peelmix_sliderReleased();
   void on_peeltype_currentIndexChanged(int);
 
-  void on_ambient_sliderReleased();
-  void on_diffuse_sliderReleased();
-  void on_specular_sliderReleased();
-  void on_specularcoeff_sliderReleased();
+  void on_ambient_valueChanged(int);
+  void on_diffuse_valueChanged(int);
+  void on_specular_valueChanged(int);
+  void on_specularcoeff_valueChanged(int);
 
-  void on_shadowblur_sliderReleased();
-  void on_shadowscale_sliderReleased();
-  void on_shadowcontrast_sliderReleased();
-  void on_shadowfov_sliderReleased();
-
-  void on_red_sliderReleased();
-  void on_green_sliderReleased();
-  void on_blue_sliderReleased();
-
-  void on_backplaneshadowscale_sliderReleased();
-  void on_backplanecontrast_sliderReleased();
+  void on_shadowblur_valueChanged(int);
+  void on_shadowcontrast_valueChanged(int);
 
   void on_gamma_valueChanged(int);
     
   void setFlat();
   void highlightsChanged();
-  void shadowColor();
 
  private :
   Ui::LightingWidget ui;
 
-  DirectionVectorWidget *m_lightPosition;
+  //DirectionVectorWidget *m_lightPosition;
 
   void peelSliderReleased();
   void showHelp();

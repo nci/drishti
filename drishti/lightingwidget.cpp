@@ -7,11 +7,11 @@ LightingWidget::LightingWidget(QWidget *parent) :
 {
   ui.setupUi(this);
 
-  m_lightPosition = new DirectionVectorWidget(ui.lightposition);  
-  m_lightPosition->setRange(-1.0, 3.0, 0.0);
-
-  connect(m_lightPosition, SIGNAL(directionChanged(float, Vec)),
-	  this, SLOT(lightDirectionChanged(float, Vec)));
+//  m_lightPosition = new DirectionVectorWidget(ui.lightposition);  
+//  m_lightPosition->setRange(-1.0, 3.0, 0.0);
+//
+//  connect(m_lightPosition, SIGNAL(directionChanged(float, Vec)),
+//	  this, SLOT(lightDirectionChanged(float, Vec)));
 
   setFlat();
 }
@@ -20,18 +20,6 @@ void
 LightingWidget::setFlat()
 {
   ui.lightposition->hide();
-//  if (ui.lightposition->isChecked())
-//    {
-//      m_lightPosition->show();
-//      ui.lightposition->setFlat(false);
-//      ui.lightposition->setMinimumSize(QSize(180,180));
-//    }
-//  else
-//    {
-//      m_lightPosition->hide();
-//      ui.lightposition->setFlat(true);
-//      ui.lightposition->setMinimumSize(QSize(180,20));
-//    }
 
   if (ui.applylighting->isChecked())
     {
@@ -45,41 +33,11 @@ LightingWidget::setFlat()
     }
 
   ui.applycoloredshadow->hide();
-//  if (ui.applycoloredshadow->isChecked())
-//    {
-//      ui.coloredshadowbox->show();
-//      ui.applycoloredshadow->setFlat(false);
-//    }
-//  else
-//    {
-//      ui.coloredshadowbox->hide();
-//      ui.applycoloredshadow->setFlat(true);
-//    }
 
   ui.applybackplane->hide();
-//  if (ui.applybackplane->isChecked())
-//    {
-//      ui.backplanebox->show();
-//      ui.applybackplane->setFlat(false);
-//    }
-//  else
-//    {
-//      ui.backplanebox->hide();
-//      ui.applybackplane->setFlat(true);
-//    }
 
 
   ui.applyshadow->hide();
-//  if (ui.applyshadow->isChecked())
-//    {
-//      ui.shadowbox->show();
-//      ui.applyshadow->setFlat(false);
-//    }
-//  else
-//    {
-//      ui.shadowbox->hide();
-//      ui.applyshadow->setFlat(true);
-//    }
 
   if (ui.peel->isChecked())
     {
@@ -135,8 +93,8 @@ LightingWidget::setLightInfo(LightingInformation lightInfo)
   ui.backplaneshadowscale->setValue(lightInfo.backplaneShadowScale*5);
   ui.backplanecontrast->setValue(lightInfo.backplaneIntensity*10);
 
-  m_lightPosition->setVector(lightInfo.userLightVector);
-  m_lightPosition->setDistance(lightInfo.lightDistanceOffset);
+//  m_lightPosition->setVector(lightInfo.userLightVector);
+//  m_lightPosition->setDistance(lightInfo.lightDistanceOffset);
 
   ui.gamma->setValue(qBound(0,(int)((1.5-Global::gamma())*100), 100));
 
@@ -175,10 +133,10 @@ void LightingWidget::on_applylighting_clicked(bool flag)
   emit applyLighting(flag);
   setFlat();
 }
-void LightingWidget::on_ambient_sliderReleased() { highlightsChanged(); }
-void LightingWidget::on_diffuse_sliderReleased() { highlightsChanged(); }
-void LightingWidget::on_specular_sliderReleased() { highlightsChanged(); }
-void LightingWidget::on_specularcoeff_sliderReleased() { highlightsChanged(); }
+void LightingWidget::on_ambient_valueChanged(int v) { highlightsChanged(); }
+void LightingWidget::on_diffuse_valueChanged(int v) { highlightsChanged(); }
+void LightingWidget::on_specular_valueChanged(int v) { highlightsChanged(); }
+void LightingWidget::on_specularcoeff_valueChanged(int v) { highlightsChanged(); }
 void LightingWidget::highlightsChanged()
 {
   Highlights hl;
@@ -200,96 +158,17 @@ LightingWidget::on_gamma_valueChanged(int g)
 }
 
 
-void LightingWidget::on_applyshadow_clicked(bool flag)
-{
-  emit applyShadow(flag);
-  setFlat();
-}
-void LightingWidget::on_shadowblur_sliderReleased()
+void LightingWidget::on_shadowblur_valueChanged(int g)
 {
   float v = (float)ui.shadowblur->value();
   emit shadowBlur(v);
 }
-void LightingWidget::on_shadowscale_sliderReleased()
-{
-  float v = (float)ui.shadowscale->value()*0.1 + 0.2;
-  emit shadowScale(v);
-}
-void LightingWidget::on_shadowcontrast_sliderReleased()
+void LightingWidget::on_shadowcontrast_valueChanged(int g)
 {
   float v = (float)ui.shadowcontrast->value()*0.1;
   emit shadowIntensity(v);
 }
-void LightingWidget::on_shadowfov_sliderReleased()
-{
-  float v = (float)(ui.shadowfov->value()-5)*0.04;
-  emit shadowFOV(v);
-}
 
-
-void LightingWidget::on_applycoloredshadow_clicked(bool flag)
-{
-  emit applyColoredShadow(flag);
-  setFlat();
-}
-void LightingWidget::on_linkcolors_clicked(bool flag)
-{
-  on_red_sliderReleased();
-}
-void LightingWidget::on_red_sliderReleased()
-{
-  if (ui.linkcolors->isChecked())
-    {
-      ui.green->setValue(ui.red->value());
-      ui.blue->setValue(ui.red->value());
-    }
-
-  shadowColor();
-}
-void LightingWidget::on_green_sliderReleased()
-{
-  if (ui.linkcolors->isChecked())
-    {
-      ui.red->setValue(ui.green->value());
-      ui.blue->setValue(ui.green->value());
-    }
-
-  shadowColor();
-}
-void LightingWidget::on_blue_sliderReleased()
-{
-  if (ui.linkcolors->isChecked())
-    {
-      ui.green->setValue(ui.blue->value());
-      ui.red->setValue(ui.blue->value());
-    }
-
-  shadowColor();
-}
-void LightingWidget::shadowColor()
-{
-  float r = 0.02*ui.red->value();
-  float g = 0.02*ui.green->value();
-  float b = 0.02*ui.blue->value(); 
-  emit shadowColorAttenuation(r,g,b);
-}
-
-
-void LightingWidget::on_applybackplane_clicked(bool flag)
-{
-  emit applyBackplane(flag);
-  setFlat();
-}
-void LightingWidget::on_backplaneshadowscale_sliderReleased()
-{
-  float v = (float)ui.backplaneshadowscale->value()*0.2;
-  emit backplaneShadowScale(v);
-}
-void LightingWidget::on_backplanecontrast_sliderReleased()
-{
-  float v = (float)ui.backplanecontrast->value()*0.1;
-  emit backplaneIntensity(v);
-}
 
 void LightingWidget::on_applyemissive_clicked(bool flag)
 {

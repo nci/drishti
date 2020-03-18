@@ -6,10 +6,10 @@
 
 #include "ui_drishtipaint.h"
 #include "ui_viewermenu.h"
-#include "ui_superpixelmenu.h"
 #include "ui_graphcutmenu.h"
 #include "ui_curvesmenu.h"
-#include "ui_fibersmenu.h"
+//#include "ui_superpixelmenu.h"
+//#include "ui_fibersmenu.h"
 
 #include "tagcoloreditor.h"
 #include "transferfunctionmanager.h"
@@ -58,15 +58,15 @@ class DrishtiPaint : public QMainWindow
   void on_actionLoad_triggered();
   void on_actionLoad_Curves_triggered();
   void on_actionSave_Curves_triggered();
-  void on_actionLoad_Fibers_triggered();
-  void on_actionSave_Fibers_triggered();
+//  void on_actionLoad_Fibers_triggered();
+//  void on_actionSave_Fibers_triggered();
   void on_actionBakeCurves_triggered();
   void on_actionExit_triggered();
   void on_actionExtractTag_triggered();
   void on_actionMeshTag_triggered();
   void on_actionCurves_triggered();
   void on_actionGraphCut_triggered();
-  void on_actionSuperpixels_triggered();
+//  void on_actionSuperpixels_triggered();
   void on_sliceLod_currentIndexChanged(int);
   void on_butZ_clicked();
   void on_butY_clicked();
@@ -84,7 +84,7 @@ class DrishtiPaint : public QMainWindow
 
   void on_tagcurves_editingFinished();
   void curvetag_editingFinished();
-  void fibertag_editingFinished();
+//  void fibertag_editingFinished();
   void on_saveFreq_valueChanged(int);
   void on_tag_valueChanged(int);
   void on_boxSize_valueChanged(int);
@@ -103,8 +103,8 @@ class DrishtiPaint : public QMainWindow
   void on_lwgrad_currentIndexChanged(int);
   void on_newcurve_clicked();
   void on_endcurve_clicked();
-  void on_newfiber_clicked();
-  void on_endfiber_clicked();
+//  void on_newfiber_clicked();
+//  void on_endfiber_clicked();
   void on_morphcurves_clicked();
   void on_propagate_clicked(bool);
   void on_deselect_clicked();
@@ -126,9 +126,9 @@ class DrishtiPaint : public QMainWindow
   void tagHSlice(int, uchar*);
   void changeImageSlice(int, int, int);
 
-  void on_autoGenSupPix_clicked(bool);
-  void on_hideSupPix_clicked(bool);
-  void on_supPixSize();
+//  void on_autoGenSupPix_clicked(bool);
+//  void on_hideSupPix_clicked(bool);
+//  void on_supPixSize();
 
   void setShowSlices(bool);
 
@@ -180,13 +180,13 @@ class DrishtiPaint : public QMainWindow
   Ui::DrishtiPaint ui;
   Ui::ViewerMenu viewerUi;
   Ui::GraphCutMenu graphcutUi;
-  Ui::SuperPixelMenu superpixelUi;
   Ui::CurvesMenu curvesUi;
-  Ui::FibersMenu fibersUi;
+//  Ui::SuperPixelMenu superpixelUi;
+//  Ui::FibersMenu fibersUi;
   QFrame *m_curvesMenu;
   QFrame *m_graphcutMenu;
-  QFrame *m_superpixelMenu;
-  QFrame *m_fibersMenu;
+//  QFrame *m_superpixelMenu;
+//  QFrame *m_fibersMenu;
 
   TagColorEditor *m_tagColorEditor;
 
@@ -288,9 +288,9 @@ class DrishtiPaint : public QMainWindow
 
   void connectViewerMenu();
   void connectGraphCutMenu();
-  void connectSuperPixelMenu();
   void connectCurvesMenu();
-  void connectFibersMenu();
+//  void connectSuperPixelMenu();
+//  void connectFibersMenu();
   void connectImageWidget();
   void connectCurvesWidget();
   void miscConnections();
@@ -301,12 +301,12 @@ class DrishtiPaint : public QMainWindow
 		       int, int, int,
 		       int, int, int);
 
-  void updateFiberMask(uchar*, QList<int>,
-		       int, int, int,
-		       int, int, int,
-		       int, int, int);
-
-  void meshFibers(QString);
+//  void updateFiberMask(uchar*, QList<int>,
+//		       int, int, int,
+//		       int, int, int,
+//		       int, int, int);
+//
+//  void meshFibers(QString);
 
   void dilateAndSmooth(uchar*, int, int, int, int);
   void smoothData(uchar*, int, int, int, int);

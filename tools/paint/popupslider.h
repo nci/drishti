@@ -19,7 +19,7 @@ class PopUpSlider : public QToolButton
   int value() const;
 
 public slots:
-  void setRange(int, int);
+  void setRange(int, int, int sz=100);
   void increaseValue();
   void decreaseValue();
   void setValue(int value);

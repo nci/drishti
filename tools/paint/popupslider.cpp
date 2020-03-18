@@ -39,10 +39,14 @@ PopUpSlider::PopUpSlider(QWidget *parent, Qt::Orientation sliderType) :
   setMenu(menu);
 }
 
-void PopUpSlider::setRange(int min, int max)
+void PopUpSlider::setRange(int min, int max, int sz)
 {
   slider->setRange(min, max);
   slider->setValue(min);
+  if (slider->orientation() == Qt::Horizontal)
+    slider->setMinimumWidth(sz);
+  else
+    slider->setMinimumHeight(sz);
   label->setNum(min);
 }
 

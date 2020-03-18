@@ -225,24 +225,24 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   m_curvesMenu = new QFrame();
   curvesUi.setupUi(m_curvesMenu);
 
-  m_superpixelMenu = new QFrame();
-  superpixelUi.setupUi(m_superpixelMenu);
+//  m_superpixelMenu = new QFrame();
+//  superpixelUi.setupUi(m_superpixelMenu);
 
   ui.help->setMaximumSize(50, 50);
   ui.help->setMinimumSize(50, 50);
 
-  //----------------
-  //ui.actionFibers->hide();
-  m_fibersMenu = new QFrame();
-  fibersUi.setupUi(m_fibersMenu);
-
-  ui.sideframelayout->addWidget(m_fibersMenu);
-  //----------------
+//  //----------------
+//  //ui.actionFibers->hide();
+//  m_fibersMenu = new QFrame();
+//  fibersUi.setupUi(m_fibersMenu);
+//
+//  ui.sideframelayout->addWidget(m_fibersMenu);
+//  //----------------
   
   //m_curvesMenu->hide();
   ui.sideframelayout->addWidget(m_graphcutMenu);
-  ui.sideframelayout->addWidget(m_superpixelMenu);
   ui.sideframelayout->addWidget(m_curvesMenu);
+//  ui.sideframelayout->addWidget(m_superpixelMenu);
 
 
   m_tagColorEditor = new TagColorEditor();
@@ -337,8 +337,8 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
     m_maxGrad = new PopUpSlider(m_viewer, Qt::Horizontal);
     m_minGrad->setText("Min Grad");
     m_maxGrad->setText("Max Grad");
-    m_minGrad->setRange(0, 100);
-    m_maxGrad->setRange(0, 100);
+    m_minGrad->setRange(0, 100, 200);
+    m_maxGrad->setRange(0, 100, 200);
     m_minGrad->setValue(0);
     m_maxGrad->setValue(100);
     QHBoxLayout *glayout = new QHBoxLayout();
@@ -461,7 +461,7 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   Global::setSmooth(1);
   Global::setPrevErode(5);
 
-  fibersUi.endfiber->hide();
+  //fibersUi.endfiber->hide();
   curvesUi.endcurve->hide();
   curvesUi.pointsize->setValue(7);
   curvesUi.mincurvelen->setValue(20);
@@ -482,8 +482,8 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   connectCurvesWidget();
   connectCurvesMenu();
   connectGraphCutMenu();
-  connectSuperPixelMenu();
-  connectFibersMenu();
+  //connectSuperPixelMenu();
+  //connectFibersMenu();
   //------------------------
 
   loadSettings();
@@ -519,11 +519,11 @@ DrishtiPaint::on_help_clicked()
 //      ShowHelp::showSuperPixelHelp();
 //      return;
 //    }
-  if (m_fibersMenu->isVisible())
-    {
-      ShowHelp::showFibersHelp();
-      return;
-    }
+//  if (m_fibersMenu->isVisible())
+//    {
+//      ShowHelp::showFibersHelp();
+//      return;
+//    }
 }
 
 void
@@ -880,16 +880,16 @@ DrishtiPaint::on_actionCurves_triggered()
 
   m_curvesMenu->show();
   m_graphcutMenu->hide();
-  m_superpixelMenu->hide();
-  m_fibersMenu->hide();
+  //m_superpixelMenu->hide();
+  //m_fibersMenu->hide();
   ui.wdptszframe->show();
   ui.spreadframe->hide();
 
   ui.actionCurves->setChecked(true);
   ui.actionGraphCut->setChecked(false);
-  ui.actionSuperpixels->setChecked(false);  
+  //ui.actionSuperpixels->setChecked(false);  
 
-  m_curvesWidget->setFiberMode(false);
+  //m_curvesWidget->setFiberMode(false);
   m_curvesWidget->setCurve(true);
  
   if (m_volume->isValid())
@@ -898,7 +898,7 @@ DrishtiPaint::on_actionCurves_triggered()
       m_curvesWidget->setLivewire(true);
     }
 
-  m_curvesWidget->endFiber();
+  //m_curvesWidget->endFiber();
 }
 
 void
@@ -919,20 +919,20 @@ DrishtiPaint::on_actionGraphCut_triggered()
 
   m_curvesMenu->hide();
   m_graphcutMenu->show();
-  m_superpixelMenu->hide();
-  m_fibersMenu->hide();
+  //m_superpixelMenu->hide();
+  //m_fibersMenu->hide();
   ui.wdptszframe->hide();
   ui.spreadframe->show();
 
   ui.actionGraphCut->setChecked(true);  
   ui.actionCurves->setChecked(false);
-  ui.actionSuperpixels->setChecked(false);  
+  //ui.actionSuperpixels->setChecked(false);  
 
   m_axialImage->setModeType(0);
   m_sagitalImage->setModeType(0);
   m_coronalImage->setModeType(0);
 
-  m_curvesWidget->setFiberMode(false);
+  //m_curvesWidget->setFiberMode(false);
   m_curvesWidget->setCurve(false);
   curvesUi.livewire->setChecked(false);
 
@@ -940,50 +940,50 @@ DrishtiPaint::on_actionGraphCut_triggered()
   curvesUi.propagate->setChecked(false);
   m_curvesWidget->freezeModifyUsingLivewire();
 
-  m_curvesWidget->endFiber();
+  //m_curvesWidget->endFiber();
 }
 
-void
-DrishtiPaint::on_actionSuperpixels_triggered()
-{
-  QString hss;
-  hss += "QToolButton { border-width:5; border-style:solid; border-radius:25px;";
-  hss += "color:#00aa55; }";
-  ui.help->setStyleSheet(hss);
-
-  m_graphCutArea->show();
-  m_scrollAreaC->hide();
-
-  ui.sliderFrame->hide();
-  ui.buttonBox->hide();
-  ui.curveSelTex->hide();
-  ui.sizeSel->hide();
-
-  m_curvesMenu->hide();
-  m_graphcutMenu->hide();
-  m_superpixelMenu->show();
-  m_fibersMenu->hide();
-  ui.wdptszframe->hide();
-  ui.spreadframe->show();
-
-  ui.actionGraphCut->setChecked(false);  
-  ui.actionCurves->setChecked(false);
-  ui.actionSuperpixels->setChecked(true);  
-
-  m_axialImage->setModeType(1);
-  m_sagitalImage->setModeType(1);
-  m_coronalImage->setModeType(1);
-
-  m_curvesWidget->setFiberMode(false);
-  m_curvesWidget->setCurve(false);
-  curvesUi.livewire->setChecked(false);
-
-  curvesUi.modify->setChecked(false);
-  curvesUi.propagate->setChecked(false);
-  m_curvesWidget->freezeModifyUsingLivewire();
-
-  m_curvesWidget->endFiber();
-}
+//void
+//DrishtiPaint::on_actionSuperpixels_triggered()
+//{
+//  QString hss;
+//  hss += "QToolButton { border-width:5; border-style:solid; border-radius:25px;";
+//  hss += "color:#00aa55; }";
+//  ui.help->setStyleSheet(hss);
+//
+//  m_graphCutArea->show();
+//  m_scrollAreaC->hide();
+//
+//  ui.sliderFrame->hide();
+//  ui.buttonBox->hide();
+//  ui.curveSelTex->hide();
+//  ui.sizeSel->hide();
+//
+//  m_curvesMenu->hide();
+//  m_graphcutMenu->hide();
+//  m_superpixelMenu->show();
+//  m_fibersMenu->hide();
+//  ui.wdptszframe->hide();
+//  ui.spreadframe->show();
+//
+//  ui.actionGraphCut->setChecked(false);  
+//  ui.actionCurves->setChecked(false);
+//  ui.actionSuperpixels->setChecked(true);  
+//
+//  m_axialImage->setModeType(1);
+//  m_sagitalImage->setModeType(1);
+//  m_coronalImage->setModeType(1);
+//
+//  m_curvesWidget->setFiberMode(false);
+//  m_curvesWidget->setCurve(false);
+//  curvesUi.livewire->setChecked(false);
+//
+//  curvesUi.modify->setChecked(false);
+//  curvesUi.propagate->setChecked(false);
+//  m_curvesWidget->freezeModifyUsingLivewire();
+//
+//  m_curvesWidget->endFiber();
+//}
 
 void
 DrishtiPaint::tagDSlice(int currslice, uchar* tags)
@@ -1100,6 +1100,10 @@ DrishtiPaint::tagSelected(int t)
 void
 DrishtiPaint::on_minGrad_valueChanged(int t)
 {
+  if (t > m_maxGrad->value())
+    {
+      m_maxGrad->setValue(t);
+    }
   m_viewer->setMinGrad(t*0.01);
   m_axialImage->setMinGrad(t*0.01);
   m_sagitalImage->setMinGrad(t*0.01);
@@ -1110,6 +1114,10 @@ DrishtiPaint::on_minGrad_valueChanged(int t)
 void
 DrishtiPaint::on_maxGrad_valueChanged(int t)
 {
+  if (t < m_minGrad->value())
+    {
+      m_minGrad->setValue(t);
+    }
   m_viewer->setMaxGrad(t*0.01);
   m_axialImage->setMaxGrad(t*0.01);
   m_sagitalImage->setMaxGrad(t*0.01);
@@ -1158,8 +1166,8 @@ void DrishtiPaint::on_newcurve_clicked()
   m_curvesWidget->newCurve(true);
 }
 void DrishtiPaint::on_endcurve_clicked() { m_curvesWidget->endCurve(); }
-void DrishtiPaint::on_newfiber_clicked() { m_curvesWidget->newFiber(); }
-void DrishtiPaint::on_endfiber_clicked() { m_curvesWidget->endFiber(); }
+//void DrishtiPaint::on_newfiber_clicked() { m_curvesWidget->newFiber(); }
+//void DrishtiPaint::on_endfiber_clicked() { m_curvesWidget->endFiber(); }
 void DrishtiPaint::on_morphcurves_clicked() { m_curvesWidget->morphCurves(); }
 void DrishtiPaint::on_deselect_clicked() { m_curvesWidget->deselectAll(); }
 void DrishtiPaint::on_deleteallcurves_clicked() { m_curvesWidget->deleteAllCurves(); }
@@ -1241,18 +1249,18 @@ DrishtiPaint::curvetag_editingFinished()
   m_viewer->setCurveTags(tags.second);
 }
 
-void
-DrishtiPaint::fibertag_editingFinished()
-{
-  QString text = viewerUi.fibertags->text();
-
-  QPair<QString, QList<int> > tags;
-  tags = getTags(text);
-
-  viewerUi.fibertags->setText(tags.first);
-  
-  m_viewer->setFiberTags(tags.second);
-}
+//void
+//DrishtiPaint::fibertag_editingFinished()
+//{
+//  QString text = viewerUi.fibertags->text();
+//
+//  QPair<QString, QList<int> > tags;
+//  tags = getTags(text);
+//
+//  viewerUi.fibertags->setText(tags.first);
+//  
+//  m_viewer->setFiberTags(tags.second);
+//}
 
 void
 DrishtiPaint::on_livewire_clicked(bool c)
@@ -1308,33 +1316,33 @@ DrishtiPaint::on_preverode_valueChanged(int t)
   m_coronalImage->processPrevSliceTags();
 }
 
-void
-DrishtiPaint::on_autoGenSupPix_clicked(bool b)
-{
-  m_axialImage->setAutoGenSuperPixels(b);
-  m_sagitalImage->setAutoGenSuperPixels(b);
-  m_coronalImage->setAutoGenSuperPixels(b);
-}
-
-void
-DrishtiPaint::on_hideSupPix_clicked(bool b)
-{
-  m_axialImage->setHideSuperPixels(b);
-  m_sagitalImage->setHideSuperPixels(b);
-  m_coronalImage->setHideSuperPixels(b);
-}
-
-void
-DrishtiPaint::on_supPixSize()
-{
-  int spsz = superpixelUi.supPixSize->value();
-  spsz *= 25;
-  superpixelUi.supPixSizeLabel->setText(QString("%1").arg(spsz));
-
-  m_axialImage->setSuperPixelSize(spsz);
-  m_sagitalImage->setSuperPixelSize(spsz);
-  m_coronalImage->setSuperPixelSize(spsz);
-}
+//void
+//DrishtiPaint::on_autoGenSupPix_clicked(bool b)
+//{
+//  m_axialImage->setAutoGenSuperPixels(b);
+//  m_sagitalImage->setAutoGenSuperPixels(b);
+//  m_coronalImage->setAutoGenSuperPixels(b);
+//}
+//
+//void
+//DrishtiPaint::on_hideSupPix_clicked(bool b)
+//{
+//  m_axialImage->setHideSuperPixels(b);
+//  m_sagitalImage->setHideSuperPixels(b);
+//  m_coronalImage->setHideSuperPixels(b);
+//}
+//
+//void
+//DrishtiPaint::on_supPixSize()
+//{
+//  int spsz = superpixelUi.supPixSize->value();
+//  spsz *= 25;
+//  superpixelUi.supPixSizeLabel->setText(QString("%1").arg(spsz));
+//
+//  m_axialImage->setSuperPixelSize(spsz);
+//  m_sagitalImage->setSuperPixelSize(spsz);
+//  m_coronalImage->setSuperPixelSize(spsz);
+//}
 
 void
 DrishtiPaint::on_butZ_clicked()
@@ -1395,8 +1403,8 @@ DrishtiPaint::getRawValue(int d, int w, int h)
 void DrishtiPaint::on_actionLoad_Curves_triggered() {m_curvesWidget->loadCurves();}
 void DrishtiPaint::on_actionSave_Curves_triggered() {m_curvesWidget->saveCurves();}
 
-void DrishtiPaint::on_actionLoad_Fibers_triggered() {m_curvesWidget->loadFibers();}
-void DrishtiPaint::on_actionSave_Fibers_triggered() {m_curvesWidget->saveFibers();}
+//void DrishtiPaint::on_actionLoad_Fibers_triggered() {m_curvesWidget->loadFibers();}
+//void DrishtiPaint::on_actionSave_Fibers_triggered() {m_curvesWidget->saveFibers();}
 
 void
 DrishtiPaint::on_actionLoad_triggered()
@@ -1489,7 +1497,7 @@ DrishtiPaint::dragEnterEvent(QDragEnterEvent *event)
 	  if (StaticFunctions::checkURLs(urls, ".pvl.nc") ||
 	      StaticFunctions::checkURLs(urls, ".xml") ||
 	      StaticFunctions::checkURLs(urls, ".curves") ||
-	      StaticFunctions::checkURLs(urls, ".fibers") ||
+	      //StaticFunctions::checkURLs(urls, ".fibers") ||
 	      StaticFunctions::checkURLs(urls, ".checkpoint"))
 	    event->acceptProposedAction();
 	}
@@ -1513,11 +1521,11 @@ DrishtiPaint::dropEvent(QDropEvent *event)
 		  QString flnm = (data->urls())[0].toLocalFile();
 		  m_curvesWidget->loadCurves(flnm);
 		}
-	      else if (StaticFunctions::checkExtension(url.toLocalFile(), ".fibers"))
-		{
-		  QString flnm = (data->urls())[0].toLocalFile();
-		  m_curvesWidget->loadFibers(flnm);
-		}
+//	      else if (StaticFunctions::checkExtension(url.toLocalFile(), ".fibers"))
+//		{
+//		  QString flnm = (data->urls())[0].toLocalFile();
+//		  m_curvesWidget->loadFibers(flnm);
+//		}
 	      else if (StaticFunctions::checkExtension(url.toLocalFile(), ".pvl.nc") ||
 		  StaticFunctions::checkExtension(url.toLocalFile(), ".xml"))
 		{
@@ -1651,7 +1659,7 @@ DrishtiPaint::setFile(QString filename)
   m_viewer->setShrinkwrapCurves(1, m_curvesWidget->shrinkwrapCurvesW());
   m_viewer->setShrinkwrapCurves(2, m_curvesWidget->shrinkwrapCurvesH());
 
-  m_viewer->setFibers(m_curvesWidget->fibers());
+  //m_viewer->setFibers(m_curvesWidget->fibers());
 
   ui.butZ->setChecked(true);
   m_slider->set(0, d-1, 0, d-1, 0);
@@ -1687,7 +1695,7 @@ DrishtiPaint::setFile(QString filename)
   on_actionGraphCut_triggered();
 
   ui.tagcurves->setText("-1");
-  viewerUi.fibertags->setText("-1");
+  //viewerUi.fibertags->setText("-1");
   viewerUi.curvetags->setText("-1");
 
   //viewerUi.dragStep->setValue(m_viewer->dragStep());
@@ -2754,10 +2762,10 @@ DrishtiPaint::connectCurvesWidget()
   connect(m_curvesWidget, SIGNAL(hideEndCurve()),
 	  curvesUi.endcurve, SLOT(hide()));
 
-  connect(m_curvesWidget, SIGNAL(showEndFiber()),
-	  fibersUi.endfiber, SLOT(show()));
-  connect(m_curvesWidget, SIGNAL(hideEndFiber()),
-	  fibersUi.endfiber, SLOT(hide()));
+//  connect(m_curvesWidget, SIGNAL(showEndFiber()),
+//	  fibersUi.endfiber, SLOT(show()));
+//  connect(m_curvesWidget, SIGNAL(hideEndFiber()),
+//	  fibersUi.endfiber, SLOT(hide()));
 
   connect(m_curvesWidget, SIGNAL(viewerUpdate()),
 	  m_viewer, SLOT(update()));
@@ -3071,36 +3079,36 @@ DrishtiPaint::connectGraphCutMenu()
 	  this, SLOT(on_boxSize_valueChanged(int)));
 }
 
-void
-DrishtiPaint::connectSuperPixelMenu()
-{
-  connect(superpixelUi.autoGenSupPix, SIGNAL(clicked(bool)),
-	  this, SLOT(on_autoGenSupPix_clicked(bool)));
-
-  connect(superpixelUi.hideSupPix, SIGNAL(clicked(bool)),
-	  this, SLOT(on_hideSupPix_clicked(bool)));
-
-  connect(superpixelUi.supPixSize, SIGNAL(sliderReleased()),
-	  this, SLOT(on_supPixSize()));
-
-  superpixelUi.hideSupPix->setChecked(false);
-  on_hideSupPix_clicked(false);
-
-  superpixelUi.autoGenSupPix->setChecked(true);
-  on_autoGenSupPix_clicked(true);
-
-  superpixelUi.supPixSize->setValue(10);
-  on_supPixSize();
-}
-
-void
-DrishtiPaint::connectFibersMenu()
-{
-  connect(fibersUi.newfiber, SIGNAL(clicked()),
-	  this, SLOT(on_newfiber_clicked()));
-  connect(fibersUi.endfiber, SIGNAL(clicked()),
-	  this, SLOT(on_endfiber_clicked()));
-}
+//void
+//DrishtiPaint::connectSuperPixelMenu()
+//{
+//  connect(superpixelUi.autoGenSupPix, SIGNAL(clicked(bool)),
+//	  this, SLOT(on_autoGenSupPix_clicked(bool)));
+//
+//  connect(superpixelUi.hideSupPix, SIGNAL(clicked(bool)),
+//	  this, SLOT(on_hideSupPix_clicked(bool)));
+//
+//  connect(superpixelUi.supPixSize, SIGNAL(sliderReleased()),
+//	  this, SLOT(on_supPixSize()));
+//
+//  superpixelUi.hideSupPix->setChecked(false);
+//  on_hideSupPix_clicked(false);
+//
+//  superpixelUi.autoGenSupPix->setChecked(true);
+//  on_autoGenSupPix_clicked(true);
+//
+//  superpixelUi.supPixSize->setValue(10);
+//  on_supPixSize();
+//}
+//
+//void
+//DrishtiPaint::connectFibersMenu()
+//{
+//  connect(fibersUi.newfiber, SIGNAL(clicked()),
+//	  this, SLOT(on_newfiber_clicked()));
+//  connect(fibersUi.endfiber, SIGNAL(clicked()),
+//	  this, SLOT(on_endfiber_clicked()));
+//}
 
 void
 DrishtiPaint::on_actionSave_TF_triggered()
@@ -3398,15 +3406,15 @@ DrishtiPaint::on_actionExtractTag_triggered()
       dtypes.clear();
       dtypes << "Tag Only"
 	     << "Tag + Transfer Function";
-      if (m_curvesWidget->fibersPresent())
-	{
-	  dtypes << "Fibers Only";
-	  dtypes << "Fibers + Transfer Function";
-	  dtypes << "Tags + Fibers";
-	  dtypes << "Tags + Fibers + Transfer Function";
-	}
-      dtypes << "Tags + Fibers values";
-      dtypes << "Curves + Fibers values";
+//      if (m_curvesWidget->fibersPresent())
+//	{
+//	  dtypes << "Fibers Only";
+//	  dtypes << "Fibers + Transfer Function";
+//	  dtypes << "Tags + Fibers";
+//	  dtypes << "Tags + Fibers + Transfer Function";
+//	}
+//      dtypes << "Tags + Fibers values";
+//      dtypes << "Curves + Fibers values";
       dtypes << "Tomogram + Tags";
       dtypes << "Tags From Another Volume";
 
@@ -3422,20 +3430,20 @@ DrishtiPaint::on_actionExtractTag_triggered()
       
       if (option == "Tag Only") extractType = 1;
       else if (option == "Tag + Transfer Function") extractType = 2;
-      else if (option == "Fibers Only") extractType = 3;
-      else if (option == "Fibers + Transfer Function") extractType = 4;
-      else if (option == "Tags + Fibers") extractType = 5;
-      else if (option == "Tags + Fibers + Transfer Function") extractType = 6;
-      else if (option == "Tags + Fibers values")
-	{
-	  extractType = 7;
-	  saveImageData = false;
-	}
-      else if (option == "Curves + Fibers values")
-	{
-	  extractType = 8;
-	  saveImageData = false;
-	}
+//      else if (option == "Fibers Only") extractType = 3;
+//      else if (option == "Fibers + Transfer Function") extractType = 4;
+//      else if (option == "Tags + Fibers") extractType = 5;
+//      else if (option == "Tags + Fibers + Transfer Function") extractType = 6;
+//      else if (option == "Tags + Fibers values")
+//	{
+//	  extractType = 7;
+//	  saveImageData = false;
+//	}
+//      else if (option == "Curves + Fibers values")
+//	{
+//	  extractType = 8;
+//	  saveImageData = false;
+//	}
       else if (option == "Tomogram + Tags")
 	{
 	  extractType = 9;
@@ -3646,11 +3654,11 @@ DrishtiPaint::on_actionExtractTag_triggered()
 			tdepth, twidth, theight,
 			minDSlice, minWSlice, minHSlice,
 			maxDSlice, maxWSlice, maxHSlice);
-      else if (extractType < 5)
-	updateFiberMask(curveMask, tag,
-			tdepth, twidth, theight,
-			minDSlice, minWSlice, minHSlice,
-			maxDSlice, maxWSlice, maxHSlice);
+//      else if (extractType < 5)
+//	updateFiberMask(curveMask, tag,
+//			tdepth, twidth, theight,
+//			minDSlice, minWSlice, minHSlice,
+//			maxDSlice, maxWSlice, maxHSlice);
       else
 	{
 	  updateCurveMask(curveMask, tag,
@@ -3658,10 +3666,10 @@ DrishtiPaint::on_actionExtractTag_triggered()
 			  tdepth, twidth, theight,
 			  minDSlice, minWSlice, minHSlice,
 			  maxDSlice, maxWSlice, maxHSlice);
-	  updateFiberMask(curveMask, tag,
-			  tdepth, twidth, theight,
-			  minDSlice, minWSlice, minHSlice,
-			  maxDSlice, maxWSlice, maxHSlice);
+//	  updateFiberMask(curveMask, tag,
+//			  tdepth, twidth, theight,
+//			  minDSlice, minWSlice, minHSlice,
+//			  maxDSlice, maxWSlice, maxHSlice);
 	}
     }
   //----------------------------------
@@ -3995,156 +4003,156 @@ DrishtiPaint::on_actionExtractTag_triggered()
   QMessageBox::information(0, "Save", "-----Done-----");
 }
 
-void
-DrishtiPaint::meshFibers(QString flnm)
-{
-  Vec voxelScaling = Global::voxelScaling();
-
-  QList<Fiber*> *fibers = m_curvesWidget->fibers();
-  int nvertices = 0;
-  for(int i=0; i<fibers->count(); i++)
-    {
-      Fiber *fb = fibers->at(i);
-      nvertices += fb->generateTriangles().count()/2;
-    }
-  int ntriangles = nvertices/3;  
-
-
-  QStringList ps;
-  ps << "x";
-  ps << "y";
-  ps << "z";
-  ps << "nx";
-  ps << "ny";
-  ps << "nz";
-  ps << "red";
-  ps << "green";
-  ps << "blue";
-  ps << "vertex_indices";
-  ps << "vertex";
-  ps << "face";
-
-  QList<char *> plyStrings;
-  for(int i=0; i<ps.count(); i++)
-    {
-      char *s;
-      s = new char[ps[i].size()+1];
-      strcpy(s, ps[i].toLatin1().data());
-      plyStrings << s;
-    }
-
-  typedef struct PlyFace
-  {
-    unsigned char nverts;    /* number of Vertex indices in list */
-    int *verts;              /* Vertex index list */
-  } PlyFace;
-
-  typedef struct
-  {
-    real  x,  y,  z ;  /**< Vertex coordinates */
-    real nx, ny, nz ;  /**< Vertex normal */
-    uchar r, g, b;
-  } myVertex ;
-
-  PlyProperty vert_props[] = { /* list of property information for a vertex */
-    {plyStrings[0], Float32, Float32, offsetof(myVertex,x), 0, 0, 0, 0},
-    {plyStrings[1], Float32, Float32, offsetof(myVertex,y), 0, 0, 0, 0},
-    {plyStrings[2], Float32, Float32, offsetof(myVertex,z), 0, 0, 0, 0},
-    {plyStrings[3], Float32, Float32, offsetof(myVertex,nx), 0, 0, 0, 0},
-    {plyStrings[4], Float32, Float32, offsetof(myVertex,ny), 0, 0, 0, 0},
-    {plyStrings[5], Float32, Float32, offsetof(myVertex,nz), 0, 0, 0, 0},
-    {plyStrings[6], Uint8, Uint8, offsetof(myVertex,r), 0, 0, 0, 0},
-    {plyStrings[7], Uint8, Uint8, offsetof(myVertex,g), 0, 0, 0, 0},
-    {plyStrings[8], Uint8, Uint8, offsetof(myVertex,b), 0, 0, 0, 0},
-  };
-
-  PlyProperty face_props[] = { /* list of property information for a face */
-    {plyStrings[9], Int32, Int32, offsetof(PlyFace,verts),
-     1, Uint8, Uint8, offsetof(PlyFace,nverts)},
-  };
-
-  PlyFile    *ply;
-  FILE       *fp = fopen(flnm.toLatin1().data(),
-			 bin ? "wb" : "w");
-
-  PlyFace     face ;
-  int         verts[3] ;
-  char       *elem_names[]  = {plyStrings[10], plyStrings[11]};
-  ply = write_ply (fp,
-		   2,
-		   elem_names,
-		   bin? PLY_BINARY_LE : PLY_ASCII );
-
-  /* describe what properties go into the PlyVertex elements */
-  describe_element_ply ( ply, plyStrings[10], nvertices );
-  describe_property_ply ( ply, &vert_props[0] );
-  describe_property_ply ( ply, &vert_props[1] );
-  describe_property_ply ( ply, &vert_props[2] );
-  describe_property_ply ( ply, &vert_props[3] );
-  describe_property_ply ( ply, &vert_props[4] );
-  describe_property_ply ( ply, &vert_props[5] );
-  describe_property_ply ( ply, &vert_props[6] );
-  describe_property_ply ( ply, &vert_props[7] );
-  describe_property_ply ( ply, &vert_props[8] );
-
-  /* describe PlyFace properties (just list of PlyVertex indices) */
-  describe_element_ply ( ply, plyStrings[11], ntriangles );
-  describe_property_ply ( ply, &face_props[0] );
-
-  header_complete_ply ( ply );
-
-
-  /* set up and write the PlyVertex elements */
-  put_element_setup_ply ( ply, plyStrings[10] );
-
-  for(int i=0; i<fibers->count(); i++)
-    {
-      Fiber *fb = fibers->at(i);
-      QList<Vec> triangles = fb->generateTriangles();
-      int tag = fb->tag;
-      int nv = triangles.count()/2;
-      uchar r = Global::tagColors()[4*tag+0];
-      uchar g = Global::tagColors()[4*tag+1];
-      uchar b = Global::tagColors()[4*tag+2];
-      for(int t=0; t<nv; t++)
-	{
-	  myVertex vertex;
-	  vertex.nx = triangles[2*t+0].x;
-	  vertex.ny = triangles[2*t+0].y;
-	  vertex.nz = triangles[2*t+0].z;
-	  vertex.x = triangles[2*t+1].x;
-	  vertex.y = triangles[2*t+1].y;
-	  vertex.z = triangles[2*t+1].z;
-	  vertex.r = r;
-	  vertex.g = g;
-	  vertex.b = b;
-	  vertex.x *= voxelScaling.x;
-	  vertex.y *= voxelScaling.y;
-	  vertex.z *= voxelScaling.z;
-	  put_element_ply ( ply, ( void * ) &vertex );
-	}
-    }
-
-  /* set up and write the PlyFace elements */
-  put_element_setup_ply ( ply, plyStrings[11] );
-  face.nverts = 3 ;
-  face.verts  = verts ;
-  for(int i=0; i<ntriangles; i++)
-    {
-      face.verts[0] = 3*i+0;
-      face.verts[1] = 3*i+1;
-      face.verts[2] = 3*i+2;
-      put_element_ply ( ply, ( void * ) &face );
-    }
-     
-  close_ply ( ply );
-  free_ply ( ply );
-  
-  for(int i=0; i<plyStrings.count(); i++)
-    delete [] plyStrings[i];
-  
-  QMessageBox::information(0, "", "Fibers save to "+flnm);
-}
+//void
+//DrishtiPaint::meshFibers(QString flnm)
+//{
+//  Vec voxelScaling = Global::voxelScaling();
+//
+//  QList<Fiber*> *fibers = m_curvesWidget->fibers();
+//  int nvertices = 0;
+//  for(int i=0; i<fibers->count(); i++)
+//    {
+//      Fiber *fb = fibers->at(i);
+//      nvertices += fb->generateTriangles().count()/2;
+//    }
+//  int ntriangles = nvertices/3;  
+//
+//
+//  QStringList ps;
+//  ps << "x";
+//  ps << "y";
+//  ps << "z";
+//  ps << "nx";
+//  ps << "ny";
+//  ps << "nz";
+//  ps << "red";
+//  ps << "green";
+//  ps << "blue";
+//  ps << "vertex_indices";
+//  ps << "vertex";
+//  ps << "face";
+//
+//  QList<char *> plyStrings;
+//  for(int i=0; i<ps.count(); i++)
+//    {
+//      char *s;
+//      s = new char[ps[i].size()+1];
+//      strcpy(s, ps[i].toLatin1().data());
+//      plyStrings << s;
+//    }
+//
+//  typedef struct PlyFace
+//  {
+//    unsigned char nverts;    /* number of Vertex indices in list */
+//    int *verts;              /* Vertex index list */
+//  } PlyFace;
+//
+//  typedef struct
+//  {
+//    real  x,  y,  z ;  /**< Vertex coordinates */
+//    real nx, ny, nz ;  /**< Vertex normal */
+//    uchar r, g, b;
+//  } myVertex ;
+//
+//  PlyProperty vert_props[] = { /* list of property information for a vertex */
+//    {plyStrings[0], Float32, Float32, offsetof(myVertex,x), 0, 0, 0, 0},
+//    {plyStrings[1], Float32, Float32, offsetof(myVertex,y), 0, 0, 0, 0},
+//    {plyStrings[2], Float32, Float32, offsetof(myVertex,z), 0, 0, 0, 0},
+//    {plyStrings[3], Float32, Float32, offsetof(myVertex,nx), 0, 0, 0, 0},
+//    {plyStrings[4], Float32, Float32, offsetof(myVertex,ny), 0, 0, 0, 0},
+//    {plyStrings[5], Float32, Float32, offsetof(myVertex,nz), 0, 0, 0, 0},
+//    {plyStrings[6], Uint8, Uint8, offsetof(myVertex,r), 0, 0, 0, 0},
+//    {plyStrings[7], Uint8, Uint8, offsetof(myVertex,g), 0, 0, 0, 0},
+//    {plyStrings[8], Uint8, Uint8, offsetof(myVertex,b), 0, 0, 0, 0},
+//  };
+//
+//  PlyProperty face_props[] = { /* list of property information for a face */
+//    {plyStrings[9], Int32, Int32, offsetof(PlyFace,verts),
+//     1, Uint8, Uint8, offsetof(PlyFace,nverts)},
+//  };
+//
+//  PlyFile    *ply;
+//  FILE       *fp = fopen(flnm.toLatin1().data(),
+//			 bin ? "wb" : "w");
+//
+//  PlyFace     face ;
+//  int         verts[3] ;
+//  char       *elem_names[]  = {plyStrings[10], plyStrings[11]};
+//  ply = write_ply (fp,
+//		   2,
+//		   elem_names,
+//		   bin? PLY_BINARY_LE : PLY_ASCII );
+//
+//  /* describe what properties go into the PlyVertex elements */
+//  describe_element_ply ( ply, plyStrings[10], nvertices );
+//  describe_property_ply ( ply, &vert_props[0] );
+//  describe_property_ply ( ply, &vert_props[1] );
+//  describe_property_ply ( ply, &vert_props[2] );
+//  describe_property_ply ( ply, &vert_props[3] );
+//  describe_property_ply ( ply, &vert_props[4] );
+//  describe_property_ply ( ply, &vert_props[5] );
+//  describe_property_ply ( ply, &vert_props[6] );
+//  describe_property_ply ( ply, &vert_props[7] );
+//  describe_property_ply ( ply, &vert_props[8] );
+//
+//  /* describe PlyFace properties (just list of PlyVertex indices) */
+//  describe_element_ply ( ply, plyStrings[11], ntriangles );
+//  describe_property_ply ( ply, &face_props[0] );
+//
+//  header_complete_ply ( ply );
+//
+//
+//  /* set up and write the PlyVertex elements */
+//  put_element_setup_ply ( ply, plyStrings[10] );
+//
+//  for(int i=0; i<fibers->count(); i++)
+//    {
+//      Fiber *fb = fibers->at(i);
+//      QList<Vec> triangles = fb->generateTriangles();
+//      int tag = fb->tag;
+//      int nv = triangles.count()/2;
+//      uchar r = Global::tagColors()[4*tag+0];
+//      uchar g = Global::tagColors()[4*tag+1];
+//      uchar b = Global::tagColors()[4*tag+2];
+//      for(int t=0; t<nv; t++)
+//	{
+//	  myVertex vertex;
+//	  vertex.nx = triangles[2*t+0].x;
+//	  vertex.ny = triangles[2*t+0].y;
+//	  vertex.nz = triangles[2*t+0].z;
+//	  vertex.x = triangles[2*t+1].x;
+//	  vertex.y = triangles[2*t+1].y;
+//	  vertex.z = triangles[2*t+1].z;
+//	  vertex.r = r;
+//	  vertex.g = g;
+//	  vertex.b = b;
+//	  vertex.x *= voxelScaling.x;
+//	  vertex.y *= voxelScaling.y;
+//	  vertex.z *= voxelScaling.z;
+//	  put_element_ply ( ply, ( void * ) &vertex );
+//	}
+//    }
+//
+//  /* set up and write the PlyFace elements */
+//  put_element_setup_ply ( ply, plyStrings[11] );
+//  face.nverts = 3 ;
+//  face.verts  = verts ;
+//  for(int i=0; i<ntriangles; i++)
+//    {
+//      face.verts[0] = 3*i+0;
+//      face.verts[1] = 3*i+1;
+//      face.verts[2] = 3*i+2;
+//      put_element_ply ( ply, ( void * ) &face );
+//    }
+//     
+//  close_ply ( ply );
+//  free_ply ( ply );
+//  
+//  for(int i=0; i<plyStrings.count(); i++)
+//    delete [] plyStrings[i];
+//  
+//  QMessageBox::information(0, "", "Fibers save to "+flnm);
+//}
 
 void
 DrishtiPaint::updateCurveMask(uchar *curveMask, QList<int> tag,
@@ -4230,64 +4238,64 @@ DrishtiPaint::updateCurveMask(uchar *curveMask, QList<int> tag,
   progress.setValue(100);
 }
 
-void
-DrishtiPaint::updateFiberMask(uchar *curveMask, QList<int> tag,
-			      int tdepth, int twidth, int theight,
-			      int minDSlice, int minWSlice, int minHSlice,
-			      int maxDSlice, int maxWSlice, int maxHSlice)
-{
-  if (! m_curvesWidget->fibersPresent())
-    return;
-  
-  QProgressDialog progress("Generating Fiber Mask",
-			   QString(),
-			   0, 100,
-			   0,
-			   Qt::WindowStaysOnTopHint);
-  progress.setMinimumDuration(0);
-
-  QList<Fiber*> *fibers = m_curvesWidget->fibers();
-  for(int i=0; i<fibers->count(); i++)
-    {
-      progress.setValue(100*(float)i/(float)fibers->count());
-      Fiber *fb = fibers->at(i);
-      int tag = fb->tag;
-      int rad = fb->thickness/2;
-
-      QList<Vec> trace = fb->trace;
-      for(int t=0; t<trace.count(); t++)
-	{
-	  int d = trace[t].z;
-	  int w = trace[t].y;
-	  int h = trace[t].x;
-	  if (d > minDSlice && d < maxDSlice &&
-	      w > minWSlice && w < maxWSlice &&
-	      h > minHSlice && h < maxHSlice)
-	    {
-	      int ds, de, ws, we, hs, he;
-	      ds = qMax(minDSlice+1, d-rad);
-	      de = qMin(maxDSlice-1, d+rad);
-	      ws = qMax(minWSlice+1, w-rad);
-	      we = qMin(maxWSlice-1, w+rad);
-	      hs = qMax(minHSlice+1, h-rad);
-	      he = qMin(maxHSlice-1, h+rad);
-	      for(int dd=ds; dd<=de; dd++)
-		for(int ww=ws; ww<=we; ww++)
-		  for(int hh=hs; hh<=he; hh++)
-		    {
-		      float p = ((d-dd)*(d-dd)+
-				 (w-ww)*(w-ww)+
-				 (h-hh)*(h-hh));
-		      if (p < rad*rad)
-			curveMask[(dd-minDSlice)*twidth*theight +
-				  (ww-minWSlice)*theight +
-				  (hh-minHSlice)] = tag;
-		    }
-	    }
-	}
-    }
-  progress.setValue(100);
-}
+//void
+//DrishtiPaint::updateFiberMask(uchar *curveMask, QList<int> tag,
+//			      int tdepth, int twidth, int theight,
+//			      int minDSlice, int minWSlice, int minHSlice,
+//			      int maxDSlice, int maxWSlice, int maxHSlice)
+//{
+//  if (! m_curvesWidget->fibersPresent())
+//    return;
+//  
+//  QProgressDialog progress("Generating Fiber Mask",
+//			   QString(),
+//			   0, 100,
+//			   0,
+//			   Qt::WindowStaysOnTopHint);
+//  progress.setMinimumDuration(0);
+//
+//  QList<Fiber*> *fibers = m_curvesWidget->fibers();
+//  for(int i=0; i<fibers->count(); i++)
+//    {
+//      progress.setValue(100*(float)i/(float)fibers->count());
+//      Fiber *fb = fibers->at(i);
+//      int tag = fb->tag;
+//      int rad = fb->thickness/2;
+//
+//      QList<Vec> trace = fb->trace;
+//      for(int t=0; t<trace.count(); t++)
+//	{
+//	  int d = trace[t].z;
+//	  int w = trace[t].y;
+//	  int h = trace[t].x;
+//	  if (d > minDSlice && d < maxDSlice &&
+//	      w > minWSlice && w < maxWSlice &&
+//	      h > minHSlice && h < maxHSlice)
+//	    {
+//	      int ds, de, ws, we, hs, he;
+//	      ds = qMax(minDSlice+1, d-rad);
+//	      de = qMin(maxDSlice-1, d+rad);
+//	      ws = qMax(minWSlice+1, w-rad);
+//	      we = qMin(maxWSlice-1, w+rad);
+//	      hs = qMax(minHSlice+1, h-rad);
+//	      he = qMin(maxHSlice-1, h+rad);
+//	      for(int dd=ds; dd<=de; dd++)
+//		for(int ww=ws; ww<=we; ww++)
+//		  for(int hh=hs; hh<=he; hh++)
+//		    {
+//		      float p = ((d-dd)*(d-dd)+
+//				 (w-ww)*(w-ww)+
+//				 (h-hh)*(h-hh));
+//		      if (p < rad*rad)
+//			curveMask[(dd-minDSlice)*twidth*theight +
+//				  (ww-minWSlice)*theight +
+//				  (hh-minHSlice)] = tag;
+//		    }
+//	    }
+//	}
+//    }
+//  progress.setValue(100);
+//}
 
 void
 DrishtiPaint::processHoles(uchar* data,
@@ -4663,7 +4671,7 @@ DrishtiPaint::on_actionMeshTag_triggered()
   //----------------
 
   //----------------
-  bool saveFibers = false;
+  //bool saveFibers = false;
   bool noScaling = false;
   int colorType = 1; // apply tag colors 
   Vec userColor = Vec(255, 255, 255);
@@ -4699,8 +4707,8 @@ DrishtiPaint::on_actionMeshTag_triggered()
 	     << "Tag Color + Transfer Function"
 	     << "Tag Mask + Transfer Function"
 	     << "User Color";
-      if (m_curvesWidget->fibersPresent())
-	dtypes << "Fibers";
+//      if (m_curvesWidget->fibersPresent())
+//	dtypes << "Fibers";
 
       QString option = QInputDialog::getItem(0,
 					     "Mesh Color",
@@ -4712,8 +4720,8 @@ DrishtiPaint::on_actionMeshTag_triggered()
       if (!ok)
 	return;
       
-      if (option == "Fibers") saveFibers = true;
-      else if (option == "Tag Color") colorType = 1;
+      //if (option == "Fibers") saveFibers = true;
+      if (option == "Tag Color") colorType = 1;
       else if (option == "Transfer Function") colorType = 2;
       else if (option == "Tag Color + Transfer Function") colorType = 3;
       else if (option == "Tag Mask + Transfer Function") colorType = 4;
@@ -4731,7 +4739,7 @@ DrishtiPaint::on_actionMeshTag_triggered()
 
 
   //----------------
-  if (!saveFibers)
+  //if (!saveFibers)
     {
       dtypes.clear();
       dtypes << "Yes"
@@ -4815,11 +4823,11 @@ DrishtiPaint::on_actionMeshTag_triggered()
   if (!tflnm.endsWith(".ply"))
     tflnm += ".ply";
 
-  if (saveFibers)
-    {
-      meshFibers(tflnm);
-      return;
-    }
+//  if (saveFibers)
+//    {
+//      meshFibers(tflnm);
+//      return;
+//    }
 
   int holeSize = 0;
   holeSize = QInputDialog::getInt(0,

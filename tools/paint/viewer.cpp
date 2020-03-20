@@ -33,6 +33,8 @@ Viewer::Viewer(QWidget *parent) :
 
   m_renderMode = true; // 0-slicebased, 1-raycast
 
+  m_gradType = 0;
+  
   m_depth = 0;
   m_width = 0;
   m_height = 0;
@@ -134,6 +136,15 @@ float Viewer::minGrad() { return m_minGrad; }
 float Viewer::maxGrad() { return m_maxGrad; }
 void Viewer::setMinGrad(float mG) { m_minGrad = mG; }
 void Viewer::setMaxGrad(float mG) { m_maxGrad = mG; }
+
+int Viewer::gradType() { return m_gradType; }
+void
+Viewer::setGradType(int g)
+{
+  m_gradType = g;
+  createRaycastShader();
+  update();  
+}
 
 void
 Viewer::setExactCoord(bool b)
@@ -541,9 +552,9 @@ Viewer::createRaycastShader()
   maxSteps *= 1.0/m_stillStep;
 
   if (Global::bytesPerVoxel() == 1)
-    shaderString = ShaderFactory::genIsoRaycastShader(m_exactCoord, m_useMask, false);
+    shaderString = ShaderFactory::genIsoRaycastShader(m_exactCoord, m_useMask, false, m_gradType);
   else
-    shaderString = ShaderFactory::genIsoRaycastShader(m_exactCoord, m_useMask, true);
+    shaderString = ShaderFactory::genIsoRaycastShader(m_exactCoord, m_useMask, true, m_gradType);
   
   if (m_rcShader)
     glDeleteObjectARB(m_rcShader);
@@ -1082,6 +1093,7 @@ Viewer::processCommand(QString cmd)
       return;
     }
 
+  
   if (list[0].contains("shrinkwrap"))
     {
       int tag1 = Global::tag();

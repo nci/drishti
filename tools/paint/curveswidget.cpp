@@ -98,7 +98,8 @@ CurvesWidget::CurvesWidget(QWidget *parent, QStatusBar *sb) :
 
   m_minGrad = 0;
   m_maxGrad = 1;
-
+  m_gradType = 0;
+  
   m_volPtr = 0;
   
   m_image = QImage(100, 100, QImage::Format_RGB32);
@@ -682,46 +683,97 @@ CurvesWidget::applyGradLimits()
   if (m_sliceType == HSlice) { hstart = hend = m_currSlice; }
 
   int idx = 0;
-
+  float gradMag;
+  
   for(int d0=dstart; d0<=dend; d0++)
   for(int w0=wstart; w0<=wend; w0++)
   for(int h0=hstart; h0<=hend; h0++)
     {
-      float gx,gy,gz;
-      qint64 d3 = qBound(0, d0+1, m_Depth);
-      qint64 d4 = qBound(0, d0-1, m_Depth);
-      qint64 w3 = qBound(0, w0+1, m_Width);
-      qint64 w4 = qBound(0, w0-1, m_Width);
-      qint64 h3 = qBound(0, h0+1, m_Height);
-      qint64 h4 = qBound(0, h0-1, m_Height);
-      if (Global::bytesPerVoxel() == 1)
+      if (m_gradType == 0)
 	{
-	  gz = (m_volPtr[d3*W*H + w0*H + h0] -
-		m_volPtr[d4*W*H + w0*H + h0]);
-	  gy = (m_volPtr[d0*W*H + w3*H + h0] -
-		m_volPtr[d0*W*H + w4*H + h0]);
-	  gx = (m_volPtr[d0*W*H + w0*H + h3] -
-		m_volPtr[d0*W*H + w0*H + h4]);
-	  gx/=255.0;
-	  gy/=255.0;
-	  gz/=255.0;
-	}
-      else
+	  float gx,gy,gz;
+	  qint64 d3 = qBound(0, d0+1, m_Depth);
+	  qint64 d4 = qBound(0, d0-1, m_Depth);
+	  qint64 w3 = qBound(0, w0+1, m_Width);
+	  qint64 w4 = qBound(0, w0-1, m_Width);
+	  qint64 h3 = qBound(0, h0+1, m_Height);
+	  qint64 h4 = qBound(0, h0-1, m_Height);
+	  if (Global::bytesPerVoxel() == 1)
+	    {
+	      gz = (m_volPtr[d3*W*H + w0*H + h0] -
+		    m_volPtr[d4*W*H + w0*H + h0]);
+	      gy = (m_volPtr[d0*W*H + w3*H + h0] -
+		    m_volPtr[d0*W*H + w4*H + h0]);
+	      gx = (m_volPtr[d0*W*H + w0*H + h3] -
+		    m_volPtr[d0*W*H + w0*H + h4]);
+	      gx/=255.0;
+	      gy/=255.0;
+	      gz/=255.0;
+	    }
+	  else
+	    {
+	      gz = (volPtrUS[d3*W*H + w0*H + h0] -
+		    volPtrUS[d4*W*H + w0*H + h0]);
+	      gy = (volPtrUS[d0*W*H + w3*H + h0] -
+		    volPtrUS[d0*W*H + w4*H + h0]);
+	      gx = (volPtrUS[d0*W*H + w0*H + h3] -
+		    volPtrUS[d0*W*H + w0*H + h4]);
+	      gx/=65535.0;
+	      gy/=65535.0;
+	      gz/=65535.0;
+	    }
+	  
+	  Vec dv = Vec(gx, gy, gz); // surface gradient
+	  gradMag = dv.norm();
+	} // gradType == 0
+
+      if (m_gradType > 0)
 	{
-	  gz = (volPtrUS[d3*W*H + w0*H + h0] -
-		volPtrUS[d4*W*H + w0*H + h0]);
-	  gy = (volPtrUS[d0*W*H + w3*H + h0] -
-		volPtrUS[d0*W*H + w4*H + h0]);
-	  gx = (volPtrUS[d0*W*H + w0*H + h3] -
-		volPtrUS[d0*W*H + w0*H + h4]);
-	  gx/=65535.0;
-	  gy/=65535.0;
-	  gz/=65535.0;
-	}
-  
-      Vec dv = Vec(gx, gy, gz); // surface gradient
-      float gradMag = dv.norm();
+	  int sz = 1;
+	  float divisor = 10.0;
+	  if (m_gradType == 2)
+	    {
+	      sz = 2;
+	      divisor = 70.0;
+	    }
+	  if (Global::bytesPerVoxel() == 1)
+	    {
+	      float vval = m_volPtr[d0*W*H + w0*H + h0];
+	      float sum = 0;
+	      for(int a=d0-sz; a<=d0+sz; a++)
+	      for(int b=w0-sz; b<=w0+sz; b++)
+	      for(int c=h0-sz; c<=h0+sz; c++)
+		{
+		  qint64 a0 = qBound(0, a, m_Depth);
+		  qint64 b0 = qBound(0, b, m_Width);
+		  qint64 c0 = qBound(0, c, m_Height);
+		  sum += m_volPtr[a0*W*H + b0*H + c0];
+		}
+
+	      sum = (sum-vval)/divisor;
+	      gradMag = fabs(sum-vval)/255.0;
+	    }
+	  else
+	    {
+	      float vval = volPtrUS[d0*W*H + w0*H + h0];
+	      float sum = 0;
+	      for(int a=d0-sz; a<=d0+sz; a++)
+	      for(int b=w0-sz; b<=w0+sz; b++)
+	      for(int c=h0-sz; c<=h0+sz; c++)
+		{
+		  qint64 a0 = qBound(0, a, m_Depth);
+		  qint64 b0 = qBound(0, b, m_Width);
+		  qint64 c0 = qBound(0, c, m_Height);
+		  sum += volPtrUS[a0*W*H + b0*H + c0];
+		}
+
+	      sum = (sum-vval)/divisor;
+	      gradMag = fabs(sum-vval)/65535.0;
+	    }
+	} // gradType == 1
       
+      
+      gradMag = qBound(0.0f, gradMag, 1.0f);
       if (gradMag < m_minGrad || gradMag > m_maxGrad)
 	{
 	  m_sliceImage[4*idx+0] = 0;
@@ -731,6 +783,14 @@ CurvesWidget::applyGradLimits()
 	}
       idx ++;
     }
+}
+
+void CurvesWidget::setGradThresholdType(int t)
+{
+  m_gradType = t;
+  recolorImage();
+  onlyImageScaled();
+  update();
 }
 
 void CurvesWidget::setMinGrad(float g)

@@ -75,6 +75,7 @@ class DrishtiPaint : public QMainWindow
 
   void on_minGrad_valueChanged(int);
   void on_maxGrad_valueChanged(int);
+  void on_gradType_Changed(int);
     
   void on_actionDefaultView_triggered();
   void on_actionZ_triggered();
@@ -236,6 +237,7 @@ class DrishtiPaint : public QMainWindow
   QPushButton *m_bgButton;
 
   PopUpSlider *m_minGrad, *m_maxGrad;
+  QComboBox *m_gradType;
   
   void setFile(QString);
   void initTagColors();

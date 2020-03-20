@@ -33,7 +33,7 @@ class VolumeOperations
 			      int&, int&,
 			      int&, int&,
 			      int&, int&,
-			      float, float);
+			      int, float, float);
 
   static void resetTag(Vec, Vec, int,
 		       int&, int&,
@@ -47,14 +47,14 @@ class VolumeOperations
 			 int&, int&,
 			 int&, int&,
 			 int&, int&,
-			 float, float);
+			 int, float, float);
 
   static void setVisible(Vec, Vec,
 			 int, bool,
 			 int&, int&,
 			 int&, int&,
 			 int&, int&,
-			 float, float);
+			 int, float, float);
 
   static void mergeTags(Vec bmin, Vec bmax,
 			int tag1, int tag2, bool useTF,
@@ -68,7 +68,7 @@ class VolumeOperations
 			     int&, int&,
 			     int&, int&,
 			     int&, int&,
-			     float, float);
+			     int, float, float);
 
   static void dilateConnected(int, int, int,
 			      Vec, Vec, int,
@@ -77,7 +77,7 @@ class VolumeOperations
 			      int&, int&,
 			      int&, int&,
 			      bool,
-			      float, float);
+			      int, float, float);
 
   static void modifyOriginalVolume(Vec, Vec, int,
 				   int&, int&,
@@ -99,14 +99,14 @@ class VolumeOperations
 				 int, int, int,
 				 int, bool,
 				 MyBitArray&,
-				 float, float);
+				 int, float, float);
 
   static void shrinkwrapSlice(uchar*, int, int);
 
   static void getTransparentRegion(int, int, int,
 				   int, int, int,
 				   MyBitArray&,
-				   float, float);
+				   int, float, float);
 
   static void dilateBitmask(int, bool,
 			    qint64, qint64, qint64,

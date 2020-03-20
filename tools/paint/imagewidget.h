@@ -48,6 +48,7 @@ class ImageWidget : public QWidget
 
   void setMinGrad(float);
   void setMaxGrad(float);
+  void setGradType(int);
   
   void paintEvent(QPaintEvent*);
   void resizeEvent(QResizeEvent*);
@@ -173,6 +174,7 @@ class ImageWidget : public QWidget
   int m_currSlice;
 
   float m_minGrad, m_maxGrad;
+  int m_gradType;
   
   QVector<QRgb> m_tagColors;
   QVector<QRgb> m_prevslicetagColors;

@@ -414,6 +414,63 @@ ShaderFactory::getGrad(bool nearest)
   shader += " vec3 grad = vec3(vx, vy, vz);\n";
 
   shader += " float gradMag = length(grad);\n";
+  shader += " gradMag = clamp(gradMag, 0.0, 1.0);\n";
+  
+  return shader;
+}
+
+QString
+ShaderFactory::getGrad2(bool nearest)
+{
+  QString shader;
+
+  shader += " float a[3] = float[](-1.0/vsize.x,0.0,1.0/vsize.x);\n";
+  shader += " float b[3] = float[](-1.0/vsize.y,0.0,1.0/vsize.y);\n";
+  shader += " float c[3] = float[](-1.0/vsize.z,0.0,1.0/vsize.z);\n";
+  shader += " float sum = 0.0;\n";
+  shader += " for(int i=0; i<=2; i++)\n";
+  shader += " for(int j=0; j<=2; j++)\n";
+  shader += " for(int k=0; k<=2; k++)\n";
+  shader += " {\n";
+  shader += "   vec3 g = vec3(a[i],b[j],c[k]);\n";
+
+  if (nearest)
+    shader += "   sum += texture3D(dataTex, vC+g).x;\n";
+  else
+    shader += "   sum += texture3D(dataTex, voxelCoord+g).x;\n";
+
+  shader += " }\n";
+  shader += " sum = (sum-val)/10.0;\n";
+  shader += " float gradMag = abs(sum-val);\n";
+  shader += " gradMag = clamp(gradMag, 0.0, 1.0);\n";
+  
+  return shader;
+}
+
+QString
+ShaderFactory::getGrad3(bool nearest)
+{
+  QString shader;
+
+  shader += " float a[5] = float[](-2.0/vsize.x,-1.0/vsize.x,0.0,1.0/vsize.x,2.0/vsize.x);\n";
+  shader += " float b[5] = float[](-2.0/vsize.y,-1.0/vsize.y,0.0,1.0/vsize.y,2.0/vsize.y);\n";
+  shader += " float c[5] = float[](-2.0/vsize.z,-1.0/vsize.z,0.0,1.0/vsize.z,2.0/vsize.z);\n";
+  shader += " float sum = 0.0;\n";
+  shader += " for(int i=0; i<=4; i++)\n";
+  shader += " for(int j=0; j<=4; j++)\n";
+  shader += " for(int k=0; k<=4; k++)\n";
+  shader += " {\n";
+  shader += "   vec3 g = vec3(a[i],b[j],c[k]);\n";
+
+  if (nearest)
+    shader += "   sum += texture3D(dataTex, vC+g).x;\n";
+  else
+    shader += "   sum += texture3D(dataTex, voxelCoord+g).x;\n";
+
+  shader += " }\n";
+  shader += " sum = (sum-val)/70.0;\n";
+  shader += " float gradMag = abs(sum-val);\n";
+  shader += " gradMag = clamp(gradMag, 0.0, 1.0);\n";
   
   return shader;
 }
@@ -441,7 +498,8 @@ ShaderFactory::addLighting()
 QString
 ShaderFactory::genIsoRaycastShader(bool nearest,
 				   bool useMask,
-				   bool bit16)
+				   bool bit16,
+				   int gradType)
 {
   QString shader;
   shader +=  "#extension GL_ARB_texture_rectangle : enable\n";
@@ -561,7 +619,12 @@ ShaderFactory::genIsoRaycastShader(bool nearest,
 
   shader += "  vec4 colorSample = vec4(0.0);\n";
 
-  shader += getGrad(nearest);
+  if (gradType == 0)
+    shader += getGrad(nearest);
+  else if (gradType == 1)
+    shader += getGrad2(nearest);
+  else
+    shader += getGrad3(nearest);
   
   
   if (!bit16)

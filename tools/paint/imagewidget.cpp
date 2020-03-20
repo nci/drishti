@@ -1,3 +1,4 @@
+
 #include "imagewidget.h"
 #include "global.h"
 #include "staticfunctions.h"
@@ -53,6 +54,7 @@ ImageWidget::ImageWidget(QWidget *parent) :
 
   m_minGrad = 0;
   m_maxGrad = 1;
+  m_gradType = 0;
   
   //m_modeType = 0; // graphcut
   m_modeType = 1; // superpixels
@@ -367,45 +369,96 @@ ImageWidget::applyGradLimits()
 
   int idx = 0;
 
+  float gradMag;
+
   for(int d0=dstart; d0<=dend; d0++)
   for(int w0=wstart; w0<=wend; w0++)
   for(int h0=hstart; h0<=hend; h0++)
     {
-      float gx,gy,gz;
-      qint64 d3 = qBound(0, d0+1, m_Depth-1);
-      qint64 d4 = qBound(0, d0-1, m_Depth-1);
-      qint64 w3 = qBound(0, w0+1, m_Width-1);
-      qint64 w4 = qBound(0, w0-1, m_Width-1);
-      qint64 h3 = qBound(0, h0+1, m_Height-1);
-      qint64 h4 = qBound(0, h0-1, m_Height-1);
-      if (m_bytesPerVoxel == 1)
+      if (m_gradType == 0)
 	{
-	  gz = (m_volPtr[d3*m_Width*m_Height + w0*m_Height + h0] -
-		m_volPtr[d4*m_Width*m_Height + w0*m_Height + h0]);
-	  gy = (m_volPtr[d0*m_Width*m_Height + w3*m_Height + h0] -
-		m_volPtr[d0*m_Width*m_Height + w4*m_Height + h0]);
-	  gx = (m_volPtr[d0*m_Width*m_Height + w0*m_Height + h3] -
-		m_volPtr[d0*m_Width*m_Height + w0*m_Height + h4]);
-	  gx/=255.0;
-	  gy/=255.0;
-	  gz/=255.0;
-	}
-      else
+	  float gx,gy,gz;
+	  qint64 d3 = qBound(0, d0+1, m_Depth-1);
+	  qint64 d4 = qBound(0, d0-1, m_Depth-1);
+	  qint64 w3 = qBound(0, w0+1, m_Width-1);
+	  qint64 w4 = qBound(0, w0-1, m_Width-1);
+	  qint64 h3 = qBound(0, h0+1, m_Height-1);
+	  qint64 h4 = qBound(0, h0-1, m_Height-1);
+	  if (m_bytesPerVoxel == 1)
+	    {
+	      gz = (m_volPtr[d3*m_Width*m_Height + w0*m_Height + h0] -
+		    m_volPtr[d4*m_Width*m_Height + w0*m_Height + h0]);
+	      gy = (m_volPtr[d0*m_Width*m_Height + w3*m_Height + h0] -
+		    m_volPtr[d0*m_Width*m_Height + w4*m_Height + h0]);
+	      gx = (m_volPtr[d0*m_Width*m_Height + w0*m_Height + h3] -
+		    m_volPtr[d0*m_Width*m_Height + w0*m_Height + h4]);
+	      gx/=255.0;
+	      gy/=255.0;
+	      gz/=255.0;
+	    }
+	  else
+	    {
+	      gz = (volPtrUS[d3*m_Width*m_Height + w0*m_Height + h0] -
+		    volPtrUS[d4*m_Width*m_Height + w0*m_Height + h0]);
+	      gy = (volPtrUS[d0*m_Width*m_Height + w3*m_Height + h0] -
+		    volPtrUS[d0*m_Width*m_Height + w4*m_Height + h0]);
+	      gx = (volPtrUS[d0*m_Width*m_Height + w0*m_Height + h3] -
+		    volPtrUS[d0*m_Width*m_Height + w0*m_Height + h4]);
+	      gx/=65535.0;
+	      gy/=65535.0;
+	      gz/=65535.0;
+	    }
+	  
+	  Vec dv = Vec(gx, gy, gz); // surface gradient
+	  gradMag = dv.norm();
+	} // gradType == 0
+                  
+      if (m_gradType > 0)
 	{
-	  gz = (volPtrUS[d3*m_Width*m_Height + w0*m_Height + h0] -
-		volPtrUS[d4*m_Width*m_Height + w0*m_Height + h0]);
-	  gy = (volPtrUS[d0*m_Width*m_Height + w3*m_Height + h0] -
-		volPtrUS[d0*m_Width*m_Height + w4*m_Height + h0]);
-	  gx = (volPtrUS[d0*m_Width*m_Height + w0*m_Height + h3] -
-		volPtrUS[d0*m_Width*m_Height + w0*m_Height + h4]);
-	  gx/=65535.0;
-	  gy/=65535.0;
-	  gz/=65535.0;
-	}
-  
-      Vec dv = Vec(gx, gy, gz); // surface gradient
-      float gradMag = dv.norm();
-      
+	  int sz = 1;
+	  float divisor = 10.0;
+	  if (m_gradType == 2)
+	    {
+	      sz = 2;
+	      divisor = 70.0;
+	    }
+	  if (m_bytesPerVoxel == 1)
+	    {	      
+	      float sum = 0;
+	      float vval = m_volPtr[d0*m_Width*m_Height + w0*m_Height + h0];
+	      for(int a=d0-sz; a<=d0+sz; a++)
+	      for(int b=w0-sz; b<=w0+sz; b++)
+	      for(int c=h0-sz; c<=h0+sz; c++)
+		{
+		  qint64 a0 = qBound(0, a, m_Depth-1);
+		  qint64 b0 = qBound(0, b, m_Width-1);
+		  qint64 c0 = qBound(0, c, m_Height-1);
+		  sum += m_volPtr[a0*m_Width*m_Height + b0*m_Height + c0];
+		}
+
+	      sum = (sum-vval)/divisor;
+	      gradMag = fabs(sum-vval)/255.0;
+	    }
+	  else
+	    {
+	      float sum = 0;
+	      float vval = volPtrUS[d0*m_Width*m_Height + w0*m_Height + h0];
+	      for(int a=d0-sz; a<=d0+sz; a++)
+	      for(int b=w0-sz; b<=w0+sz; b++)
+	      for(int c=h0-sz; c<=h0+sz; c++)
+		{
+		  qint64 a0 = qBound(0, a, m_Depth-1);
+		  qint64 b0 = qBound(0, b, m_Width-1);
+		  qint64 c0 = qBound(0, c, m_Height-1);
+		  sum += volPtrUS[a0*m_Width*m_Height + b0*m_Height + c0];
+		}
+
+	      sum = (sum-vval)/divisor;
+	      gradMag = fabs(sum-vval)/65535.0;
+	    }
+	} // gradType > 0
+
+      gradMag = qBound(0.0f, gradMag, 1.0f);
       if (gradMag < m_minGrad || gradMag > m_maxGrad)
 	{
 	  m_sliceImage[4*idx+0] = 0;
@@ -861,6 +914,15 @@ void
 ImageWidget::setRawValue(QList<int> vgt)
 {
   m_vgt = vgt;
+  update();
+}
+
+void
+ImageWidget::setGradType(int t)
+{
+  m_gradType = t;
+  recolorImage();
+  onlyImageScaled();
   update();
 }
 

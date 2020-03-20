@@ -22,7 +22,7 @@ class ShaderFactory
 
   static QString genShadowBlurShader();
 
-  static QString genIsoRaycastShader(bool, bool, bool);
+  static QString genIsoRaycastShader(bool, bool, bool, int);
 
   static QString genEdgeEnhanceShader(bool);
 
@@ -32,6 +32,8 @@ class ShaderFactory
  private :
   static QString addLighting();
   static QString getGrad(bool);
+  static QString getGrad2(bool);
+  static QString getGrad3(bool);
 
   static GLuint m_boxShader;
   static GLint m_boxShaderParm[20];

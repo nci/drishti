@@ -50,6 +50,7 @@ class Slices : public QWidget
 
   void setMinGrad(float g) { m_imageWidget->setMinGrad(g); }
   void setMaxGrad(float g) { m_imageWidget->setMaxGrad(g); }
+  void setGradType(int g) { m_imageWidget->setGradType(g); }
 
  signals :
   void changeLayout();

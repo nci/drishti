@@ -228,7 +228,7 @@ VolumeOperations::hatchConnectedRegion(int dr, int wr, int hr,
 		     de, we, he,
 		     ctag, true,
 		     bitmask,
-		     0.0, 1.0);
+		     0, 0.0, 1.0);
 
   QProgressDialog progress("Updating voxel structure",
 			   QString(),
@@ -287,7 +287,7 @@ VolumeOperations::connectedRegion(int dr, int wr, int hr,
 				  int& minD, int& maxD,
 				  int& minW, int& maxW,
 				  int& minH, int& maxH,
-				  float minGrad, float maxGrad)
+				  int gradType, float minGrad, float maxGrad)
 {
   minD = maxD = minW = maxW = minH = maxH = -1;
 
@@ -321,7 +321,7 @@ VolumeOperations::connectedRegion(int dr, int wr, int hr,
 		     de, we, he,
 		     ctag, true,
 		     bitmask,
-		     minGrad, maxGrad);
+		     gradType, minGrad, maxGrad);
 
   QProgressDialog progress("Updating voxel structure",
 			   QString(),
@@ -370,7 +370,7 @@ VolumeOperations::getConnectedRegion(int dr, int wr, int hr,
 				     int de, int we, int he,
 				     int tag, bool zero,
 				     MyBitArray& cbitmask,
-				     float minGrad, float maxGrad)
+				     int gradType, float minGrad, float maxGrad)
 {  
   QProgressDialog progress("Identifying connected region",
 			   QString(),
@@ -425,40 +425,92 @@ VolumeOperations::getConnectedRegion(int dr, int wr, int hr,
       //-------
       if (opaque)
       {
-	float gx,gy,gz;
-	qint64 d3 = qBound(0, (int)d2+1, m_depth-1);
-	qint64 d4 = qBound(0, (int)d2-1, m_depth-1);
-	qint64 w3 = qBound(0, (int)w2+1, m_width-1);
-	qint64 w4 = qBound(0, (int)w2-1, m_width-1);
-	qint64 h3 = qBound(0, (int)h2+1, m_height-1);
-	qint64 h4 = qBound(0, (int)h2-1, m_height-1);
-	if (!m_volDataUS)
+	float gradMag;
+	if (gradType == 0)
 	  {
-	    gz = (m_volData[d3*m_width*m_height + w2*m_height + h2] -
-		  m_volData[d4*m_width*m_height + w2*m_height + h2]);
-	    gy = (m_volData[d2*m_width*m_height + w3*m_height + h2] -
-		  m_volData[d2*m_width*m_height + w4*m_height + h2]);
-	    gx = (m_volData[d2*m_width*m_height + w2*m_height + h3] -
-		  m_volData[d2*m_width*m_height + w2*m_height + h4]);
-	    gx/=255.0;
-	    gy/=255.0;
-	    gz/=255.0;
-	  }
-	else
-	  {
-	    gz = (m_volDataUS[d3*m_width*m_height + w2*m_height + h2] -
-		  m_volDataUS[d4*m_width*m_height + w2*m_height + h2]);
-	    gy = (m_volDataUS[d2*m_width*m_height + w3*m_height + h2] -
-		  m_volDataUS[d2*m_width*m_height + w4*m_height + h2]);
-	    gx = (m_volDataUS[d2*m_width*m_height + w2*m_height + h3] -
-		  m_volDataUS[d2*m_width*m_height + w2*m_height + h4]);
-	    gx/=65535.0;
-	    gy/=65535.0;
-	    gz/=65535.0;
-	  }
+	    float gx,gy,gz;
+	    qint64 d3 = qBound(0, (int)d2+1, m_depth-1);
+	    qint64 d4 = qBound(0, (int)d2-1, m_depth-1);
+	    qint64 w3 = qBound(0, (int)w2+1, m_width-1);
+	    qint64 w4 = qBound(0, (int)w2-1, m_width-1);
+	    qint64 h3 = qBound(0, (int)h2+1, m_height-1);
+	    qint64 h4 = qBound(0, (int)h2-1, m_height-1);
+	    if (!m_volDataUS)
+	      {
+		gz = (m_volData[d3*m_width*m_height + w2*m_height + h2] -
+		      m_volData[d4*m_width*m_height + w2*m_height + h2]);
+		gy = (m_volData[d2*m_width*m_height + w3*m_height + h2] -
+		      m_volData[d2*m_width*m_height + w4*m_height + h2]);
+		gx = (m_volData[d2*m_width*m_height + w2*m_height + h3] -
+		      m_volData[d2*m_width*m_height + w2*m_height + h4]);
+		gx/=255.0;
+		gy/=255.0;
+		gz/=255.0;
+	      }
+	    else
+	      {
+		gz = (m_volDataUS[d3*m_width*m_height + w2*m_height + h2] -
+		      m_volDataUS[d4*m_width*m_height + w2*m_height + h2]);
+		gy = (m_volDataUS[d2*m_width*m_height + w3*m_height + h2] -
+		      m_volDataUS[d2*m_width*m_height + w4*m_height + h2]);
+		gx = (m_volDataUS[d2*m_width*m_height + w2*m_height + h3] -
+		      m_volDataUS[d2*m_width*m_height + w2*m_height + h4]);
+		gx/=65535.0;
+		gy/=65535.0;
+		gz/=65535.0;
+	      }
+
+	    Vec dv = Vec(gx, gy, gz); // surface gradient
+	    gradMag = dv.norm();
+	  } // gradType == 0
 	
-	Vec dv = Vec(gx, gy, gz); // surface gradient
-	float gradMag = dv.norm();
+	if (gradType > 0)
+	  {
+	    int sz = 1;
+	    float divisor = 10.0;
+	    if (gradType == 2)
+	      {
+		sz = 2;
+		divisor = 70.0;
+	      }
+	    if (!m_volDataUS)
+	      {	      
+		float sum = 0;
+		float vval = m_volData[d2*m_width*m_height + w2*m_height + h2];
+		for(int a=d2-sz; a<=d2+sz; a++)
+		for(int b=w2-sz; b<=w2+sz; b++)
+		for(int c=h2-sz; c<=h2+sz; c++)
+		  {
+		    qint64 a0 = qBound(0, a, m_depth-1);
+		    qint64 b0 = qBound(0, b, m_width-1);
+		    qint64 c0 = qBound(0, c, m_height-1);
+		    sum += m_volData[a0*m_width*m_height + b0*m_height + c0];
+		  }
+		
+		sum = (sum-vval)/divisor;
+		gradMag = fabs(sum-vval)/255.0;
+	      }
+	    else
+	      {
+		float sum = 0;
+		float vval = m_volDataUS[d2*m_width*m_height + w2*m_height + h2];
+		for(int a=d2-sz; a<=d2+sz; a++)
+		for(int b=w2-sz; b<=w2+sz; b++)
+		for(int c=h2-sz; c<=h2+sz; c++)
+		  {
+		    qint64 a0 = qBound(0, a, m_depth-1);
+		    qint64 b0 = qBound(0, b, m_width-1);
+		    qint64 c0 = qBound(0, c, m_height-1);
+		    sum += m_volDataUS[a0*m_width*m_height + b0*m_height + c0];
+		  }
+		
+		sum = (sum-vval)/divisor;
+		gradMag = fabs(sum-vval)/65535.0;
+	      }
+	  } // gradType > 0
+	
+	gradMag = qBound(0.0f, gradMag, 1.0f);	
+
 	if (gradMag < minGrad || gradMag > maxGrad)
 	  opaque = false;
       }
@@ -582,7 +634,7 @@ void
 VolumeOperations::getTransparentRegion(int ds, int ws, int hs,
 				       int de, int we, int he,
 				       MyBitArray& cbitmask,
-				       float minGrad, float maxGrad)
+				       int gradType, float minGrad, float maxGrad)
 {
   QProgressDialog progress("Identifying transparent region",
 			   QString(),
@@ -624,40 +676,93 @@ VolumeOperations::getTransparentRegion(int ds, int ws, int hs,
       //-------
       if (!transparent)
       {
-	float gx,gy,gz;
-	qint64 d3 = qBound(0, (int)d2+1, m_depth-1);
-	qint64 d4 = qBound(0, (int)d2-1, m_depth-1);
-	qint64 w3 = qBound(0, (int)w2+1, m_width-1);
-	qint64 w4 = qBound(0, (int)w2-1, m_width-1);
-	qint64 h3 = qBound(0, (int)h2+1, m_height-1);
-	qint64 h4 = qBound(0, (int)h2-1, m_height-1);
-	if (!m_volDataUS)
+	float gradMag;
+	if (gradType == 0)
 	  {
-	    gz = (m_volData[d3*m_width*m_height + w2*m_height + h2] -
-		  m_volData[d4*m_width*m_height + w2*m_height + h2]);
-	    gy = (m_volData[d2*m_width*m_height + w3*m_height + h2] -
-		  m_volData[d2*m_width*m_height + w4*m_height + h2]);
-	    gx = (m_volData[d2*m_width*m_height + w2*m_height + h3] -
-		  m_volData[d2*m_width*m_height + w2*m_height + h4]);
-	    gx/=255.0;
-	    gy/=255.0;
-	    gz/=255.0;
-	  }
-	else
+	    float gx,gy,gz;
+	    qint64 d3 = qBound(0, (int)d2+1, m_depth-1);
+	    qint64 d4 = qBound(0, (int)d2-1, m_depth-1);
+	    qint64 w3 = qBound(0, (int)w2+1, m_width-1);
+	    qint64 w4 = qBound(0, (int)w2-1, m_width-1);
+	    qint64 h3 = qBound(0, (int)h2+1, m_height-1);
+	    qint64 h4 = qBound(0, (int)h2-1, m_height-1);
+	    if (!m_volDataUS)
+	      {
+		gz = (m_volData[d3*m_width*m_height + w2*m_height + h2] -
+		      m_volData[d4*m_width*m_height + w2*m_height + h2]);
+		gy = (m_volData[d2*m_width*m_height + w3*m_height + h2] -
+		      m_volData[d2*m_width*m_height + w4*m_height + h2]);
+		gx = (m_volData[d2*m_width*m_height + w2*m_height + h3] -
+		      m_volData[d2*m_width*m_height + w2*m_height + h4]);
+		gx/=255.0;
+		gy/=255.0;
+		gz/=255.0;
+	      }
+	    else
+	      {
+		gz = (m_volDataUS[d3*m_width*m_height + w2*m_height + h2] -
+		      m_volDataUS[d4*m_width*m_height + w2*m_height + h2]);
+		gy = (m_volDataUS[d2*m_width*m_height + w3*m_height + h2] -
+		      m_volDataUS[d2*m_width*m_height + w4*m_height + h2]);
+		gx = (m_volDataUS[d2*m_width*m_height + w2*m_height + h3] -
+		      m_volDataUS[d2*m_width*m_height + w2*m_height + h4]);
+		gx/=65535.0;
+		gy/=65535.0;
+		gz/=65535.0;
+	      }
+	    
+	    Vec dv = Vec(gx, gy, gz); // surface gradient
+	    gradMag = dv.norm();
+	  } // gradType == 0
+
+	if (gradType > 0)
 	  {
-	    gz = (m_volDataUS[d3*m_width*m_height + w2*m_height + h2] -
-		  m_volDataUS[d4*m_width*m_height + w2*m_height + h2]);
-	    gy = (m_volDataUS[d2*m_width*m_height + w3*m_height + h2] -
-		  m_volDataUS[d2*m_width*m_height + w4*m_height + h2]);
-	    gx = (m_volDataUS[d2*m_width*m_height + w2*m_height + h3] -
-		  m_volDataUS[d2*m_width*m_height + w2*m_height + h4]);
-	    gx/=65535.0;
-	    gy/=65535.0;
-	    gz/=65535.0;
-	  }
+	    int sz = 1;
+	    float divisor = 10.0;
+	    if (gradType == 2)
+	      {
+		sz = 2;
+		divisor = 70.0;
+	      }
+	    if (!m_volDataUS)
+	      {	      
+		float sum = 0;
+		float vval = m_volData[d2*m_width*m_height + w2*m_height + h2];
+		for(int a=d2-sz; a<=d2+sz; a++)
+		for(int b=w2-sz; b<=w2+sz; b++)
+		for(int c=h2-sz; c<=h2+sz; c++)
+		  {
+		    qint64 a0 = qBound(0, a, m_depth-1);
+		    qint64 b0 = qBound(0, b, m_width-1);
+		    qint64 c0 = qBound(0, c, m_height-1);
+		    sum += m_volData[a0*m_width*m_height + b0*m_height + c0];
+		  }
+		
+		sum = (sum-vval)/divisor;
+		gradMag = fabs(sum-vval)/255.0;
+	      }
+	    else
+	      {
+		float sum = 0;
+		float vval = m_volDataUS[d2*m_width*m_height + w2*m_height + h2];
+		for(int a=d2-sz; a<=d2+sz; a++)
+		for(int b=w2-sz; b<=w2+sz; b++)
+		for(int c=h2-sz; c<=h2+sz; c++)
+		  {
+		    qint64 a0 = qBound(0, a, m_depth-1);
+		    qint64 b0 = qBound(0, b, m_width-1);
+		    qint64 c0 = qBound(0, c, m_height-1);
+		    sum += m_volDataUS[a0*m_width*m_height + b0*m_height + c0];
+		  }
+		
+		sum = (sum-vval)/divisor;
+		gradMag = fabs(sum-vval)/65535.0;
+	      }
+	  } // gradType > 0
 	
-	Vec dv = Vec(gx, gy, gz); // surface gradient
-	float gradMag = dv.norm();
+	  
+	gradMag = qBound(0.0f, gradMag, 1.0f);	
+
 	if (gradMag < minGrad || gradMag > maxGrad)
 	  transparent = true;
       }
@@ -681,7 +786,7 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
 			     int& minD, int& maxD,
 			     int& minW, int& maxW,
 			     int& minH, int& maxH,
-			     float minGrad, float maxGrad)
+			     int gradType, float minGrad, float maxGrad)
 {
   //-------------------------
   int holeSize = 0;
@@ -724,7 +829,7 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
     getTransparentRegion(ds, ws, hs,
 			 de, we, he,
 			 cbitmask,
-			 minGrad, maxGrad);
+			 gradType, minGrad, maxGrad);
   else // identify connected region
     {
       getConnectedRegion(dr, wr, hr,
@@ -732,7 +837,7 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
 			 de, we, he,
 			 ctag, false,
 			 cbitmask,
-			 minGrad, maxGrad);
+			 gradType, minGrad, maxGrad);
       // invert all values in cbitmask
       cbitmask.invert();
     }
@@ -1284,7 +1389,7 @@ VolumeOperations::setVisible(Vec bmin, Vec bmax,
 			     int& minD, int& maxD,
 			     int& minW, int& maxW,
 			     int& minH, int& maxH,
-			     float minGrad, float maxGrad)
+			     int gradType, float minGrad, float maxGrad)
 {
   int ds = bmin.z;
   int ws = bmin.y;
@@ -1337,40 +1442,93 @@ VolumeOperations::setVisible(Vec bmin, Vec bmax,
 		//-------
 		if (alpha)
 		{
-		  float gx,gy,gz;
-		  qint64 d3 = qBound(0, (int)d+1, m_depth-1);
-		  qint64 d4 = qBound(0, (int)d-1, m_depth-1);
-		  qint64 w3 = qBound(0, (int)w+1, m_width-1);
-		  qint64 w4 = qBound(0, (int)w-1, m_width-1);
-		  qint64 h3 = qBound(0, (int)h+1, m_height-1);
-		  qint64 h4 = qBound(0, (int)h-1, m_height-1);
-		  if (!m_volDataUS)
+		  float gradMag;
+		  if (gradType == 0)
 		    {
-		      gz = (m_volData[d3*m_width*m_height + w*m_height + h] -
-			    m_volData[d4*m_width*m_height + w*m_height + h]);
-		      gy = (m_volData[d*m_width*m_height + w3*m_height + h] -
-			    m_volData[d*m_width*m_height + w4*m_height + h]);
-		      gx = (m_volData[d*m_width*m_height + w*m_height + h3] -
-			    m_volData[d*m_width*m_height + w*m_height + h4]);
-		      gx/=255.0;
-		      gy/=255.0;
-		      gz/=255.0;
-		    }
-		  else
-		    {
-		      gz = (m_volDataUS[d3*m_width*m_height + w*m_height + h] -
-			    m_volDataUS[d4*m_width*m_height + w*m_height + h]);
-		      gy = (m_volDataUS[d*m_width*m_height + w3*m_height + h] -
-			    m_volDataUS[d*m_width*m_height + w4*m_height + h]);
-		      gx = (m_volDataUS[d*m_width*m_height + w*m_height + h3] -
-			    m_volDataUS[d*m_width*m_height + w*m_height + h4]);
-		      gx/=65535.0;
-		      gy/=65535.0;
-		      gz/=65535.0;
-		    }
+		      float gx,gy,gz;
+		      qint64 d3 = qBound(0, (int)d+1, m_depth-1);
+		      qint64 d4 = qBound(0, (int)d-1, m_depth-1);
+		      qint64 w3 = qBound(0, (int)w+1, m_width-1);
+		      qint64 w4 = qBound(0, (int)w-1, m_width-1);
+		      qint64 h3 = qBound(0, (int)h+1, m_height-1);
+		      qint64 h4 = qBound(0, (int)h-1, m_height-1);
+		      if (!m_volDataUS)
+			{
+			  gz = (m_volData[d3*m_width*m_height + w*m_height + h] -
+				m_volData[d4*m_width*m_height + w*m_height + h]);
+			  gy = (m_volData[d*m_width*m_height + w3*m_height + h] -
+				m_volData[d*m_width*m_height + w4*m_height + h]);
+			  gx = (m_volData[d*m_width*m_height + w*m_height + h3] -
+				m_volData[d*m_width*m_height + w*m_height + h4]);
+			  gx/=255.0;
+			  gy/=255.0;
+			  gz/=255.0;
+			}
+		      else
+			{
+			  gz = (m_volDataUS[d3*m_width*m_height + w*m_height + h] -
+				m_volDataUS[d4*m_width*m_height + w*m_height + h]);
+			  gy = (m_volDataUS[d*m_width*m_height + w3*m_height + h] -
+				m_volDataUS[d*m_width*m_height + w4*m_height + h]);
+			  gx = (m_volDataUS[d*m_width*m_height + w*m_height + h3] -
+				m_volDataUS[d*m_width*m_height + w*m_height + h4]);
+			  gx/=65535.0;
+			  gy/=65535.0;
+			  gz/=65535.0;
+			}
 		  
-		  Vec dv = Vec(gx, gy, gz); // surface gradient
-		  float gradMag = dv.norm();
+		      Vec dv = Vec(gx, gy, gz); // surface gradient
+		      gradMag = dv.norm();
+		    } // gradType == 0
+
+		  if (gradType > 0)
+		    {
+		      int sz = 1;
+		      float divisor = 10.0;
+		      if (gradType == 2)
+			{
+			  sz = 2;
+			  divisor = 70.0;
+			}
+		      if (!m_volDataUS)
+			{	      
+			  float sum = 0;
+			  float vval = m_volData[d*m_width*m_height + w*m_height + h];
+			  for(int a=d-sz; a<=d+sz; a++)
+			  for(int b=w-sz; b<=w+sz; b++)
+			  for(int c=h-sz; c<=h+sz; c++)
+			    {
+			      qint64 a0 = qBound(0, a, m_depth-1);
+			      qint64 b0 = qBound(0, b, m_width-1);
+			      qint64 c0 = qBound(0, c, m_height-1);
+			      sum += m_volData[a0*m_width*m_height + b0*m_height + c0];
+			    }
+			  
+			  sum = (sum-vval)/divisor;
+			  gradMag = fabs(sum-vval)/255.0;
+			}
+		      else
+			{
+			  float sum = 0;
+			  float vval = m_volDataUS[d*m_width*m_height + w*m_height + h];
+			  for(int a=d-sz; a<=d+sz; a++)
+			  for(int b=w-sz; b<=w+sz; b++)
+			  for(int c=h-sz; c<=h+sz; c++)
+			    {
+			      qint64 a0 = qBound(0, a, m_depth-1);
+			      qint64 b0 = qBound(0, b, m_width-1);
+			      qint64 c0 = qBound(0, c, m_height-1);
+			      sum += m_volDataUS[a0*m_width*m_height + b0*m_height + c0];
+			    }
+			  
+			  sum = (sum-vval)/divisor;
+			  gradMag = fabs(sum-vval)/65535.0;
+			}
+		    } // gradType > 0
+		  
+		  
+		  gradMag = qBound(0.0f, gradMag, 1.0f);	
+		  
 		  if (gradMag < minGrad || gradMag > maxGrad)
 		    alpha = false;
 		}
@@ -1535,7 +1693,7 @@ VolumeOperations::erodeConnected(int dr, int wr, int hr,
 				 int& minD, int& maxD,
 				 int& minW, int& maxW,
 				 int& minH, int& maxH,
-				 float minGrad, float maxGrad)
+				 int gradType, float minGrad, float maxGrad)
 {
   if (dr < 0 || wr < 0 || hr < 0 ||
       dr > m_depth-1 ||
@@ -1651,40 +1809,92 @@ VolumeOperations::erodeConnected(int dr, int wr, int hr,
 	      //-------
 	      bool opaque = true;
 	      {
-		float gx,gy,gz;
-		qint64 d3 = qBound(0, (int)d2+1, m_depth-1);
-		qint64 d4 = qBound(0, (int)d2-1, m_depth-1);
-		qint64 w3 = qBound(0, (int)w2+1, m_width-1);
-		qint64 w4 = qBound(0, (int)w2-1, m_width-1);
-		qint64 h3 = qBound(0, (int)h2+1, m_height-1);
-		qint64 h4 = qBound(0, (int)h2-1, m_height-1);
-		if (!m_volDataUS)
+		float gradMag;
+		if (gradType == 0)
 		  {
-		    gz = (m_volData[d3*m_width*m_height + w2*m_height + h2] -
-			  m_volData[d4*m_width*m_height + w2*m_height + h2]);
-		    gy = (m_volData[d2*m_width*m_height + w3*m_height + h2] -
-			  m_volData[d2*m_width*m_height + w4*m_height + h2]);
-		    gx = (m_volData[d2*m_width*m_height + w2*m_height + h3] -
-			  m_volData[d2*m_width*m_height + w2*m_height + h4]);
-		    gx/=255.0;
-		    gy/=255.0;
-		    gz/=255.0;
-		  }
-		else
-		  {
-		    gz = (m_volDataUS[d3*m_width*m_height + w2*m_height + h2] -
-			  m_volDataUS[d4*m_width*m_height + w2*m_height + h2]);
-		    gy = (m_volDataUS[d2*m_width*m_height + w3*m_height + h2] -
-			  m_volDataUS[d2*m_width*m_height + w4*m_height + h2]);
-		    gx = (m_volDataUS[d2*m_width*m_height + w2*m_height + h3] -
-			  m_volDataUS[d2*m_width*m_height + w2*m_height + h4]);
-		    gx/=65535.0;
-		    gy/=65535.0;
-		    gz/=65535.0;
-		  }
+		    float gx,gy,gz;
+		    qint64 d3 = qBound(0, (int)d2+1, m_depth-1);
+		    qint64 d4 = qBound(0, (int)d2-1, m_depth-1);
+		    qint64 w3 = qBound(0, (int)w2+1, m_width-1);
+		    qint64 w4 = qBound(0, (int)w2-1, m_width-1);
+		    qint64 h3 = qBound(0, (int)h2+1, m_height-1);
+		    qint64 h4 = qBound(0, (int)h2-1, m_height-1);
+		    if (!m_volDataUS)
+		      {
+			gz = (m_volData[d3*m_width*m_height + w2*m_height + h2] -
+			      m_volData[d4*m_width*m_height + w2*m_height + h2]);
+			gy = (m_volData[d2*m_width*m_height + w3*m_height + h2] -
+			      m_volData[d2*m_width*m_height + w4*m_height + h2]);
+			gx = (m_volData[d2*m_width*m_height + w2*m_height + h3] -
+			      m_volData[d2*m_width*m_height + w2*m_height + h4]);
+			gx/=255.0;
+			gy/=255.0;
+			gz/=255.0;
+		      }
+		    else
+		      {
+			gz = (m_volDataUS[d3*m_width*m_height + w2*m_height + h2] -
+			      m_volDataUS[d4*m_width*m_height + w2*m_height + h2]);
+			gy = (m_volDataUS[d2*m_width*m_height + w3*m_height + h2] -
+			      m_volDataUS[d2*m_width*m_height + w4*m_height + h2]);
+			gx = (m_volDataUS[d2*m_width*m_height + w2*m_height + h3] -
+			      m_volDataUS[d2*m_width*m_height + w2*m_height + h4]);
+			gx/=65535.0;
+			gy/=65535.0;
+			gz/=65535.0;
+		      }
 		
-		Vec dv = Vec(gx, gy, gz); // surface gradient
-		float gradMag = dv.norm();
+		    Vec dv = Vec(gx, gy, gz); // surface gradient
+		    gradMag = dv.norm();
+		  } // gradType = 0
+		
+		if (gradType > 0)
+		  {
+		    int sz = 1;
+		    float divisor = 10.0;
+		    if (gradType == 2)
+		      {
+			sz = 2;
+			divisor = 70.0;
+		      }
+		    if (!m_volDataUS)
+		      {	      
+			float sum = 0;
+			float vval = m_volData[d2*m_width*m_height + w2*m_height + h2];
+			for(int a=d2-sz; a<=d2+sz; a++)
+			for(int b=w2-sz; b<=w2+sz; b++)
+			for(int c=h2-sz; c<=h2+sz; c++)
+			  {
+			    qint64 a0 = qBound(0, a, m_depth-1);
+			    qint64 b0 = qBound(0, b, m_width-1);
+			    qint64 c0 = qBound(0, c, m_height-1);
+			    sum += m_volData[a0*m_width*m_height + b0*m_height + c0];
+			  }
+			
+			sum = (sum-vval)/divisor;
+			gradMag = fabs(sum-vval)/255.0;
+		      }
+		    else
+		      {
+			float sum = 0;
+			float vval = m_volDataUS[d2*m_width*m_height + w2*m_height + h2];
+			for(int a=d2-sz; a<=d2+sz; a++)
+			for(int b=w2-sz; b<=w2+sz; b++)
+			  for(int c=h2-sz; c<=h2+sz; c++)
+			    {
+			      qint64 a0 = qBound(0, a, m_depth-1);
+			      qint64 b0 = qBound(0, b, m_width-1);
+			      qint64 c0 = qBound(0, c, m_height-1);
+			      sum += m_volDataUS[a0*m_width*m_height + b0*m_height + c0];
+			    }
+			
+			sum = (sum-vval)/divisor;
+			gradMag = fabs(sum-vval)/65535.0;
+		      }
+		  } // gradType > 0
+		
+		gradMag = qBound(0.0f, gradMag, 1.0f);	
+		
 		if (gradMag < minGrad || gradMag > maxGrad)
 		  opaque = false;
 	      }
@@ -1807,7 +2017,7 @@ VolumeOperations::dilateConnected(int dr, int wr, int hr,
 				  int& minW, int& maxW,
 				  int& minH, int& maxH,
 				  bool allVisible,
-				  float minGrad, float maxGrad)
+				  int gradType, float minGrad, float maxGrad)
 {
   if (dr < 0 || wr < 0 || hr < 0 ||
       dr > m_depth-1 ||
@@ -1938,40 +2148,92 @@ VolumeOperations::dilateConnected(int dr, int wr, int hr,
 		  //-------
 		  if (opaque)
 		  {
-		    float gx,gy,gz;
-		    qint64 d3 = qBound(0, (int)d2+1, m_depth-1);
-		    qint64 d4 = qBound(0, (int)d2-1, m_depth-1);
-		    qint64 w3 = qBound(0, (int)w2+1, m_width-1);
-		    qint64 w4 = qBound(0, (int)w2-1, m_width-1);
-		    qint64 h3 = qBound(0, (int)h2+1, m_height-1);
-		    qint64 h4 = qBound(0, (int)h2-1, m_height-1);
-		    if (!m_volDataUS)
+		    float gradMag;
+		    if (gradType == 0)
 		      {
-			gz = (m_volData[d3*m_width*m_height + w2*m_height + h2] -
-			      m_volData[d4*m_width*m_height + w2*m_height + h2]);
-			gy = (m_volData[d2*m_width*m_height + w3*m_height + h2] -
-			      m_volData[d2*m_width*m_height + w4*m_height + h2]);
-			gx = (m_volData[d2*m_width*m_height + w2*m_height + h3] -
-			      m_volData[d2*m_width*m_height + w2*m_height + h4]);
-			gx/=255.0;
-			gy/=255.0;
-			gz/=255.0;
+			float gx,gy,gz;
+			qint64 d3 = qBound(0, (int)d2+1, m_depth-1);
+			qint64 d4 = qBound(0, (int)d2-1, m_depth-1);
+			qint64 w3 = qBound(0, (int)w2+1, m_width-1);
+			qint64 w4 = qBound(0, (int)w2-1, m_width-1);
+			qint64 h3 = qBound(0, (int)h2+1, m_height-1);
+			qint64 h4 = qBound(0, (int)h2-1, m_height-1);
+			if (!m_volDataUS)
+			  {
+			    gz = (m_volData[d3*m_width*m_height + w2*m_height + h2] -
+				  m_volData[d4*m_width*m_height + w2*m_height + h2]);
+			    gy = (m_volData[d2*m_width*m_height + w3*m_height + h2] -
+				  m_volData[d2*m_width*m_height + w4*m_height + h2]);
+			    gx = (m_volData[d2*m_width*m_height + w2*m_height + h3] -
+				  m_volData[d2*m_width*m_height + w2*m_height + h4]);
+			    gx/=255.0;
+			    gy/=255.0;
+			    gz/=255.0;
+			  }
+			else
+			  {
+			    gz = (m_volDataUS[d3*m_width*m_height + w2*m_height + h2] -
+				  m_volDataUS[d4*m_width*m_height + w2*m_height + h2]);
+			    gy = (m_volDataUS[d2*m_width*m_height + w3*m_height + h2] -
+				  m_volDataUS[d2*m_width*m_height + w4*m_height + h2]);
+			    gx = (m_volDataUS[d2*m_width*m_height + w2*m_height + h3] -
+				  m_volDataUS[d2*m_width*m_height + w2*m_height + h4]);
+			    gx/=65535.0;
+			    gy/=65535.0;
+			    gz/=65535.0;
+			  }
+			
+			Vec dv = Vec(gx, gy, gz); // surface gradient
+			gradMag = dv.norm();
 		      }
-		    else
+
+		    if (gradType > 0)
 		      {
-			gz = (m_volDataUS[d3*m_width*m_height + w2*m_height + h2] -
-			      m_volDataUS[d4*m_width*m_height + w2*m_height + h2]);
-			gy = (m_volDataUS[d2*m_width*m_height + w3*m_height + h2] -
-			      m_volDataUS[d2*m_width*m_height + w4*m_height + h2]);
-			gx = (m_volDataUS[d2*m_width*m_height + w2*m_height + h3] -
-			      m_volDataUS[d2*m_width*m_height + w2*m_height + h4]);
-			gx/=65535.0;
-			gy/=65535.0;
-			gz/=65535.0;
-		      }
+			int sz = 1;
+			float divisor = 10.0;
+			if (gradType == 2)
+			  {
+			    sz = 2;
+			    divisor = 70.0;
+			  }
+			if (!m_volDataUS)
+			  {	      
+			    float sum = 0;
+			    float vval = m_volData[d2*m_width*m_height + w2*m_height + h2];
+			    for(int a=d2-sz; a<=d2+sz; a++)
+			    for(int b=w2-sz; b<=w2+sz; b++)
+			    for(int c=h2-sz; c<=h2+sz; c++)
+			      {
+				qint64 a0 = qBound(0, a, m_depth-1);
+				qint64 b0 = qBound(0, b, m_width-1);
+				qint64 c0 = qBound(0, c, m_height-1);
+				sum += m_volData[a0*m_width*m_height + b0*m_height + c0];
+			      }
+			    
+			    sum = (sum-vval)/divisor;
+			    gradMag = fabs(sum-vval)/255.0;
+			  }
+			else
+			  {
+			    float sum = 0;
+			    float vval = m_volDataUS[d2*m_width*m_height + w2*m_height + h2];
+			    for(int a=d2-sz; a<=d2+sz; a++)
+			    for(int b=w2-sz; b<=w2+sz; b++)
+			    for(int c=h2-sz; c<=h2+sz; c++)
+			      {
+				qint64 a0 = qBound(0, a, m_depth-1);
+				qint64 b0 = qBound(0, b, m_width-1);
+				qint64 c0 = qBound(0, c, m_height-1);
+				sum += m_volDataUS[a0*m_width*m_height + b0*m_height + c0];
+			      }
+			    
+			    sum = (sum-vval)/divisor;
+			    gradMag = fabs(sum-vval)/65535.0;
+			  }
+		      } // gradType > 0
 		    
-		    Vec dv = Vec(gx, gy, gz); // surface gradient
-		    float gradMag = dv.norm();
+		    gradMag = qBound(0.0f, gradMag, 1.0f);	
+		    
 		    if (gradMag < minGrad || gradMag > maxGrad)
 		      opaque = false;
 		  }
@@ -2104,40 +2366,92 @@ VolumeOperations::dilateConnected(int dr, int wr, int hr,
 			  //-------
 			  if (opaque)
 			  {
-			    float gx,gy,gz;
-			    qint64 d3 = qBound(0, (int)d2+1, m_depth-1);
-			    qint64 d4 = qBound(0, (int)d2-1, m_depth-1);
-			    qint64 w3 = qBound(0, (int)w2+1, m_width-1);
-			    qint64 w4 = qBound(0, (int)w2-1, m_width-1);
-			    qint64 h3 = qBound(0, (int)h2+1, m_height-1);
-			    qint64 h4 = qBound(0, (int)h2-1, m_height-1);
-			    if (!m_volDataUS)
+			    float gradMag;
+			    if (gradType == 0)
 			      {
-				gz = (m_volData[d3*m_width*m_height + w2*m_height + h2] -
-				      m_volData[d4*m_width*m_height + w2*m_height + h2]);
-				gy = (m_volData[d2*m_width*m_height + w3*m_height + h2] -
-				      m_volData[d2*m_width*m_height + w4*m_height + h2]);
-				gx = (m_volData[d2*m_width*m_height + w2*m_height + h3] -
-				      m_volData[d2*m_width*m_height + w2*m_height + h4]);
-				gx/=255.0;
-				gy/=255.0;
-				gz/=255.0;
-			      }
-			    else
-			      {
-				gz = (m_volDataUS[d3*m_width*m_height + w2*m_height + h2] -
-				      m_volDataUS[d4*m_width*m_height + w2*m_height + h2]);
-				gy = (m_volDataUS[d2*m_width*m_height + w3*m_height + h2] -
-				      m_volDataUS[d2*m_width*m_height + w4*m_height + h2]);
-				gx = (m_volDataUS[d2*m_width*m_height + w2*m_height + h3] -
-				      m_volDataUS[d2*m_width*m_height + w2*m_height + h4]);
-				gx/=65535.0;
-				gy/=65535.0;
-				gz/=65535.0;
-			      }
+				float gx,gy,gz;
+				qint64 d3 = qBound(0, (int)d2+1, m_depth-1);
+				qint64 d4 = qBound(0, (int)d2-1, m_depth-1);
+				qint64 w3 = qBound(0, (int)w2+1, m_width-1);
+				qint64 w4 = qBound(0, (int)w2-1, m_width-1);
+				qint64 h3 = qBound(0, (int)h2+1, m_height-1);
+				qint64 h4 = qBound(0, (int)h2-1, m_height-1);
+				if (!m_volDataUS)
+				  {
+				    gz = (m_volData[d3*m_width*m_height + w2*m_height + h2] -
+					  m_volData[d4*m_width*m_height + w2*m_height + h2]);
+				    gy = (m_volData[d2*m_width*m_height + w3*m_height + h2] -
+					  m_volData[d2*m_width*m_height + w4*m_height + h2]);
+				    gx = (m_volData[d2*m_width*m_height + w2*m_height + h3] -
+					  m_volData[d2*m_width*m_height + w2*m_height + h4]);
+				    gx/=255.0;
+				    gy/=255.0;
+				    gz/=255.0;
+				  }
+				else
+				  {
+				    gz = (m_volDataUS[d3*m_width*m_height + w2*m_height + h2] -
+					  m_volDataUS[d4*m_width*m_height + w2*m_height + h2]);
+				    gy = (m_volDataUS[d2*m_width*m_height + w3*m_height + h2] -
+					  m_volDataUS[d2*m_width*m_height + w4*m_height + h2]);
+				    gx = (m_volDataUS[d2*m_width*m_height + w2*m_height + h3] -
+					  m_volDataUS[d2*m_width*m_height + w2*m_height + h4]);
+				    gx/=65535.0;
+				    gy/=65535.0;
+				    gz/=65535.0;
+				  }
 			    
-			    Vec dv = Vec(gx, gy, gz); // surface gradient
-			    float gradMag = dv.norm();
+				Vec dv = Vec(gx, gy, gz); // surface gradient
+				gradMag = dv.norm();
+			      } // gradType == 0
+			    
+			    if (gradType > 0)
+			      {
+				int sz = 1;
+				float divisor = 10.0;
+				if (gradType == 2)
+				  {
+				    sz = 2;
+				    divisor = 70.0;
+				  }
+				if (!m_volDataUS)
+				  {	      
+				    float sum = 0;
+				    float vval = m_volData[d2*m_width*m_height + w2*m_height + h2];
+				    for(int a=d2-sz; a<=d2+sz; a++)
+				    for(int b=w2-sz; b<=w2+sz; b++)
+				    for(int c=h2-sz; c<=h2+sz; c++)
+				      {
+					qint64 a0 = qBound(0, a, m_depth-1);
+					qint64 b0 = qBound(0, b, m_width-1);
+					qint64 c0 = qBound(0, c, m_height-1);
+					sum += m_volData[a0*m_width*m_height + b0*m_height + c0];
+				      }
+				    
+				    sum = (sum-vval)/divisor;
+				    gradMag = fabs(sum-vval)/255.0;
+				  }
+				else
+				  {
+				    float sum = 0;
+				    float vval = m_volDataUS[d2*m_width*m_height + w2*m_height + h2];
+				    for(int a=d2-sz; a<=d2+sz; a++)
+				    for(int b=w2-sz; b<=w2+sz; b++)
+				    for(int c=h2-sz; c<=h2+sz; c++)
+				      {
+					qint64 a0 = qBound(0, a, m_depth-1);
+					qint64 b0 = qBound(0, b, m_width-1);
+					qint64 c0 = qBound(0, c, m_height-1);
+					sum += m_volDataUS[a0*m_width*m_height + b0*m_height + c0];
+				      }
+				    
+				    sum = (sum-vval)/divisor;
+				    gradMag = fabs(sum-vval)/65535.0;
+				  }
+			      } // gradType > 0
+			    
+			    gradMag = qBound(0.0f, gradMag, 1.0f);	
+
 			    if (gradMag < minGrad || gradMag > maxGrad)
 			      opaque = false;
 			  }

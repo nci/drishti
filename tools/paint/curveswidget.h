@@ -89,6 +89,7 @@ class CurvesWidget : public QWidget
 
   void setMinGrad(float);
   void setMaxGrad(float);
+  void setGradThresholdType(int);
   
   void setVolPtr(uchar *vp) {m_volPtr = vp;}
   
@@ -239,6 +240,7 @@ class CurvesWidget : public QWidget
 
   uchar *m_volPtr;
   float m_minGrad, m_maxGrad;
+  int m_gradType;
   
   QList<int> m_showTags;
 

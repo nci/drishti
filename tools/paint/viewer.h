@@ -50,8 +50,11 @@ class Viewer : public QGLViewer
 
   float minGrad();
   float maxGrad();
+  int gradType();
   void setMinGrad(float);
   void setMaxGrad(float);
+  void setGradType(int);
+
   
   bool exactCoord();
 
@@ -134,6 +137,7 @@ class Viewer : public QGLViewer
     void stopDrawing();
     void startDrawing();
 
+    
  signals :
     void showBoxChanged(bool);
 
@@ -292,6 +296,8 @@ class Viewer : public QGLViewer
   bool m_exactCoord;
   bool m_dragMode;
 
+  int m_gradType;
+  
   int m_spH, m_spW;
   uchar* m_sketchPad;
   uchar* m_screenImageBuffer;

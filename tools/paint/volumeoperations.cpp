@@ -778,6 +778,7 @@ VolumeOperations::getTransparentRegion(int ds, int ws, int hs,
   progress.setValue(100);
 }
 
+
 void
 VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
 			     bool shellOnly, int shellThickness,
@@ -2593,3 +2594,131 @@ VolumeOperations::modifyOriginalVolume(Vec bmin, Vec bmax,
     }
 }
 
+
+void
+VolumeOperations::tagTubes(Vec bmin, Vec bmax, int tag,
+			   bool all,
+			   int dr, int wr, int hr, int ctag,
+			   int& minD, int& maxD,
+			   int& minW, int& maxW,
+			   int& minH, int& maxH,
+			   int gradType, float minGrad, float maxGrad)
+{
+  //-------------------------
+  int tubeSize = 0;
+  tubeSize = QInputDialog::getInt(0,
+				  "Tube/Sheet Size",
+				  "Size",
+				  0, 0, 100, 1);
+  if (tubeSize == 0)
+    {
+      QMessageBox::information(0, "", "0 size not valid");
+      return;
+    }
+  //-------------------------
+
+  int ds = bmin.z;
+  int ws = bmin.y;
+  int hs = bmin.x;
+
+  int de = bmax.z;
+  int we = bmax.y;
+  int he = bmax.x;
+
+  qint64 mx = he-hs+1;
+  qint64 my = we-ws+1;
+  qint64 mz = de-ds+1;
+
+  MyBitArray bitmask;
+  bitmask.resize(mx*my*mz);
+  bitmask.fill(false);
+
+  MyBitArray cbitmask;
+  cbitmask.resize(mx*my*mz);
+  cbitmask.fill(false);
+
+
+  int indices[] = {-1, 0, 0,
+		    1, 0, 0,
+		    0,-1, 0,
+		    0, 1, 0,
+		    0, 0,-1,
+		    0, 0, 1};
+  
+  //----------------------------  
+  if (all) // identify all opaque region  
+    {
+      getTransparentRegion(ds, ws, hs,
+			 de, we, he,
+			 cbitmask,
+			 gradType, minGrad, maxGrad);
+      // invert all values in cbitmask
+      cbitmask.invert();
+    }
+  else // identify connected opaque region
+    {
+      getConnectedRegion(dr, wr, hr,
+			 ds, ws, hs,
+			 de, we, he,
+			 ctag, false,
+			 cbitmask,
+			 gradType, minGrad, maxGrad);
+    }
+  //----------------------------  
+
+
+  //----------------------------
+    {
+      MyBitArray o_bitmask;
+      o_bitmask.resize(mx*my*mz);
+      // make a copy of bitmask into o_bitmask
+      o_bitmask = cbitmask;
+  
+//      // erosion
+//      dilateBitmask(tubeSize, false,
+//		    mx, my, mz,
+//		    cbitmask);
+//
+//      // followed by dilation
+//      dilateBitmask(tubeSize+1, true,
+//		    mx, my, mz,
+//		    cbitmask);
+
+      for(int i=0; i<tubeSize; i++)
+	{
+	  int tsz = tubeSize-i;
+	  dilateBitmask(tsz, false,
+			mx, my, mz,
+			cbitmask);
+	  
+	  // followed by dilation
+	  dilateBitmask(tsz+1, true,
+			mx, my, mz,
+			cbitmask);
+	}
+
+      // remove the dilation from original 
+      for(qint64 i=0; i<mx*my*mz; i++)
+	cbitmask.setBit(i, !cbitmask.testBit(i) & o_bitmask.testBit(i));
+    }
+  //----------------------------  
+
+  //----------------------------  
+  // now set the maskData
+  for(qint64 d2=ds; d2<=de; d2++)
+  for(qint64 w2=ws; w2<=we; w2++)
+  for(qint64 h2=hs; h2<=he; h2++)
+    {
+      qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
+      if (cbitmask.testBit(bidx))
+	{
+	  qint64 idx = d2*m_width*m_height + w2*m_height + h2;
+	  m_maskData[idx] = tag;
+	}
+    }
+  //----------------------------  
+
+  minD = ds;  maxD = de;
+  minW = ws;  maxW = we;
+  minH = hs;  maxH = he;
+}

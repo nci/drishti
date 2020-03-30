@@ -324,6 +324,14 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 	  this, SLOT(shrinkwrap(Vec, Vec, int, bool, int,
 				bool, int, int, int, int)));
 
+  connect(m_viewer, SIGNAL(tagTubes(Vec, Vec, int)),
+	  this, SLOT(tagTubes(Vec, Vec, int)));
+
+  connect(m_viewer, SIGNAL(tagTubes(Vec, Vec, int,
+				      bool, int, int, int, int)),
+	  this, SLOT(tagTubes(Vec, Vec, int,
+				bool, int, int, int, int)));
+
   connect(m_viewer, SIGNAL(modifyOriginalVolume(Vec, Vec, int)),
 	  this, SLOT(modifyOriginalVolume(Vec, Vec, int)));
 
@@ -2384,19 +2392,20 @@ DrishtiPaint::applyMaskOperation(int tag,
       progress.setValue((int)(100*(float)slc/(float)tdepth));
       qApp->processEvents();
 
-      uchar *slice = m_volume->getDepthSliceImage(d);
-      // we get value+grad from volume
-      // we need only value part
-      int i=0;
-      for(int w=minWSlice; w<=maxWSlice; w++)
-	for(int h=minHSlice; h<=maxHSlice; h++)
-	  {
-	    slice[i] = slice[2*(w*height+h)];
-	    i++;
-	  }
+//      uchar *slice = m_volume->getDepthSliceImage(d);
+//      // we get value+grad from volume
+//      // we need only value part
+//      int i=0;
+//      for(int w=minWSlice; w<=maxWSlice; w++)
+//	for(int h=minHSlice; h<=maxHSlice; h++)
+//	  {
+//	    slice[i] = slice[2*(w*height+h)];
+//	    i++;
+//	  }
 
       memcpy(tagData, m_volume->getMaskDepthSliceImage(d), nbytes);
 
+      
       if (slc == 0)
 	{
 	  memcpy(val[spread], m_volume->getMaskDepthSliceImage(d), nbytes);
@@ -2428,6 +2437,8 @@ DrishtiPaint::applyMaskOperation(int tag,
 			val[spread], raw,
 			width, height,
 			thresh);
+
+
 	  
 	  for(int i=-spread; i<0; i++)
 	    {
@@ -2465,6 +2476,7 @@ DrishtiPaint::applyMaskOperation(int tag,
 			    thresh);
 	    }
 	  
+
 	  for(int i=1; i<=spread; i++)
 	    {
 	      if (d+i < depth)
@@ -2500,7 +2512,7 @@ DrishtiPaint::applyMaskOperation(int tag,
 			    width, height,
 			    thresh);
 	    }
-	}
+	} // slc == 0
       else if (d < depth-spread)
 	{
 	  memcpy(val[2*spread], m_volume->getMaskDepthSliceImage(d+spread), nbytes);
@@ -2532,11 +2544,13 @@ DrishtiPaint::applyMaskOperation(int tag,
 			val[2*spread], raw,
 			width, height,
 			thresh);
-	}		  
+
+	} // d < depth-spread 
       else
 	{
 	  memcpy(val[2*spread], m_volume->getMaskDepthSliceImage(depth-1), nbytes);
 	  
+
 	  if (smoothType == 0 || smoothType == 3)
 	    {
 	      sliceSmooth(tag, spread,
@@ -2564,7 +2578,8 @@ DrishtiPaint::applyMaskOperation(int tag,
 			val[2*spread], raw,
 			width, height,
 			thresh);
-	}		  
+
+	} // d >= depth-spread 
       
       if (smoothType == 0 || smoothType == 3)
 	{
@@ -2609,6 +2624,7 @@ DrishtiPaint::applyMaskOperation(int tag,
 	    if (tagData[w*height+h] == 0 || tagData[w*height+h] == tag)
 	      tagData[w*height+h] = raw[w*height+h];
 	  }
+      
       m_volume->setMaskDepthSlice(d, tagData);
     }
   
@@ -6561,6 +6577,46 @@ DrishtiPaint::shrinkwrap(Vec bmin, Vec bmax, int tag,
 		       minH, maxH);
 
   QMessageBox::information(0, "", "Shrinkwrap done");
+}
+
+void
+DrishtiPaint::tagTubes(Vec bmin, Vec bmax, int tag)
+{
+  tagTubes(bmin, bmax, tag,
+	   true, 0, 0, 0, 0);  // shrinkwrap all
+}
+
+void
+DrishtiPaint::tagTubes(Vec bmin, Vec bmax, int tag,
+		       bool all,
+		       int dr, int wr, int hr, int ctag)
+{
+  int minD,maxD, minW,maxW, minH,maxH;
+
+  QList<Vec> cPos =  m_viewer->clipPos();
+  QList<Vec> cNorm = m_viewer->clipNorm();
+  
+  float minGrad = m_viewer->minGrad();
+  float maxGrad = m_viewer->maxGrad();
+  int gradType = m_viewer->gradType();
+  
+  VolumeOperations::setClip(cPos, cNorm);
+  VolumeOperations::tagTubes(bmin, bmax,
+			     tag,
+			     all, dr, wr, hr, ctag,
+			     minD, maxD,
+			     minW, maxW,
+			     minH, maxH,
+			     gradType, minGrad, maxGrad);
+
+  if (minD < 0)
+    return;
+
+  updateModifiedRegion(minD, maxD,
+		       minW, maxW,
+		       minH, maxH);
+
+  QMessageBox::information(0, "", "Tag Tubes done");
 }
 
 void

@@ -618,13 +618,6 @@ ShaderFactory::genIsoRaycastShader(bool nearest,
     shader += "  float val = texture3D(dataTex, voxelCoord).x;\n";
 
   shader += "  vec4 colorSample = vec4(0.0);\n";
-
-  if (gradType == 0)
-    shader += getGrad(nearest);
-  else if (gradType == 1)
-    shader += getGrad2(nearest);
-  else
-    shader += getGrad3(nearest);
   
   
   if (!bit16)
@@ -639,8 +632,19 @@ ShaderFactory::genIsoRaycastShader(bool nearest,
       shader += "  colorSample = texture2D(lutTex, vec2(fh0,fh1));\n";
     }
 
-  shader += "  colorSample = mix(vec4(0.0), colorSample, step(gradMag, maxGrad)*step(minGrad, gradMag));\n";
+  shader += "  if (colorSample.a > 0)\n";
+  shader += " {\n";
+  if (gradType == 0)
+    shader += getGrad(nearest);
+  else if (gradType == 1)
+    shader += getGrad2(nearest);
+  else
+    shader += getGrad3(nearest);
 
+  shader += "  colorSample = mix(vec4(0.0), colorSample, step(gradMag, maxGrad)*step(minGrad, gradMag));\n";
+  shader += " }\n";
+
+  
   if (useMask)
     {
       shader += "  float tag = texture3D(maskTex, vC).x;\n";

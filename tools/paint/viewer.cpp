@@ -1111,6 +1111,7 @@ Viewer::processCommand(QString cmd)
       return;
     }
 
+
   if (list[0].contains("shell"))
     {
       int tag1 = Global::tag();
@@ -1138,6 +1139,25 @@ Viewer::processCommand(QString cmd)
       emit shrinkwrap(bmin, bmax, tag1, true, width);
       return;
     }
+
+  
+  if (list[0].contains("tube"))
+    {
+      int tag1 = Global::tag();
+      if (list.size() >= 2)
+	{
+	  tag1 = list[1].toInt(&ok);
+	  if (tag1 < 0 || tag1 > 255)
+	    {
+	      QMessageBox::information(0, "", QString("Incorrect tags specified : %1").\
+				       arg(tag1));
+	      return;
+	    }
+	}
+      emit tagTubes(bmin, bmax, tag1);
+      return;
+    }
+
 
   if (list[0].contains("reset"))
     {
@@ -3237,10 +3257,11 @@ Viewer::regionGrowing(bool sw)
       QStringList dtypes;
       dtypes << "Shrinkwrap";
       dtypes << "Shell";
+      dtypes << "Tubes";
       bool ok;
       QString option = QInputDialog::getItem(0,
 					     "Shrinkwrap",
-					     "Shrinkwrap or Shell",
+					     "Shrinkwrap/Shell/Tubes",
 					     dtypes,
 					     0,
 					     false,
@@ -3248,15 +3269,30 @@ Viewer::regionGrowing(bool sw)
       if (!ok)
 	return;
 
-      bool shell = false;
-      if (option == "Shell")
-	shell = true;
+      
+      bool tubes = (option == "Tubes");
+      bool shell = (option == "Shell");
+
+      QString mesg = "Shrinkwrap ";
+      if (shell)
+	mesg = "Generate shell surrounding ";
+      if (tubes)
+	mesg = "Identify tubes in ";
 
       int ctag = -1;
       ctag = QInputDialog::getInt(0,
-				  "Shrinkwrap/Shell",
-				  QString("Connected region will be shrinkwrapped/shelled with current tag value (%1).\nSpecify tag value of connected region (-1 for connected visible region).").arg(Global::tag()),
+				  "Shrinkwrap/Shell/Tubes",
+				  QString("%1 connected region with current tag value (%2).\nSpecify tag value of connected region (-1 for connected visible region).").\
+				  arg(mesg).\
+				  arg(Global::tag()),
 				  -1, -1, 255, 1);
+
+      if (tubes)
+	{
+	  emit tagTubes(bmin, bmax, Global::tag(),
+			false, d, w, h, ctag);
+	  return;
+	}
 
       int thickness = 1;
       if (shell)
@@ -3264,10 +3300,11 @@ Viewer::regionGrowing(bool sw)
 					 "Shell thickness",
 					 "Shell thickness",
 					 1, 1, 50, 1);
-      
+
       emit shrinkwrap(bmin, bmax, Global::tag(), shell, thickness,
 		      false, d, w, h, ctag);
-    }
+
+    } // shrinkwrap/shell/tubes
 }
 
 void

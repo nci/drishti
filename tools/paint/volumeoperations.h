@@ -49,6 +49,14 @@ class VolumeOperations
 			 int&, int&,
 			 int, float, float);
 
+  static void tagTubes(Vec, Vec, int,
+		       bool,
+		       int, int, int, int,
+		       int&, int&,
+		       int&, int&,
+		       int&, int&,
+		       int, float, float);
+
   static void setVisible(Vec, Vec,
 			 int, bool,
 			 int&, int&,

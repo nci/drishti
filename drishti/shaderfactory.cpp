@@ -846,16 +846,26 @@ ShaderFactory::getNormal()
 {
   QString shader;
   // using tetrahedron technique - iquilezles.org (normalsSDF) - Paul Malin in ShaderToy
-  shader += "vec3 getNormal(vec3 voxelCoord)\n";
+  shader += "vec4 getNormal(vec3 voxelCoord)\n";
   shader += "{\n";
   shader += "  vec2 k = vec2(1.0, -1.0);\n";
-  shader += "  vec3 grad = (k.xyy * getVal(voxelCoord+k.xyy)[0].x +\n";
-  shader += "               k.yyx * getVal(voxelCoord+k.yyx)[0].x +\n";
-  shader += "               k.yxy * getVal(voxelCoord+k.yxy)[0].x +\n";
-  shader += "               k.xxx * getVal(voxelCoord+k.xxx)[0].x);\n";
-  shader += "  grad = grad/2.0;\n";  // should be actually divided by 4
+  shader += "  vec4 gval = vec4(getVal(voxelCoord+k.xyy)[0].x,\n";
+  shader += "                   getVal(voxelCoord+k.yyx)[0].x,\n";
+  shader += "                   getVal(voxelCoord+k.yxy)[0].x,\n";
+  shader += "                   getVal(voxelCoord+k.xxx)[0].x);\n";
+  shader += "  vec3 grad = (k.xyy * gval.x +\n";
+  shader += "               k.yyx * gval.y +\n";
+  shader += "               k.yxy * gval.z +\n";
+  shader += "               k.xxx * gval.w);\n";
+  shader += "  float gmax = max(gval.x,max(gval.y,max(gval.z,gval.w)));\n";
+  shader += "  float gmin = min(gval.x,min(gval.y,min(gval.z,gval.w)));\n";
+  shader += "  return vec4(grad, gmax-gmin);\n";
+//  shader += "  vec3 grad = (k.xyy * getVal(voxelCoord+k.xyy)[0].x +\n";
+//  shader += "               k.yyx * getVal(voxelCoord+k.yyx)[0].x +\n";
+//  shader += "               k.yxy * getVal(voxelCoord+k.yxy)[0].x +\n";
+//  shader += "               k.xxx * getVal(voxelCoord+k.xxx)[0].x);\n";
+  //shader += "  grad = grad/2.0;\n";  // should be actually divided by 4
   //shader += "  grad = grad/4.0;\n";  // should be actually divided by 4
-  shader += "  return grad;\n";
   shader += "}\n";
 
   return shader;
@@ -866,8 +876,6 @@ ShaderFactory::addLighting()
 {
   QString shader;
 
-  // grad, sample1, sample2 defined in getNormal()
-  //shader += "  normal = normalize(sample1 - sample2);\n";
   shader += "  normal = normalize(normal);\n";
   shader += "  normal = mix(vec3(0.0,0.0,0.0), normal, step(0.0, grad));"; 
 
@@ -1212,9 +1220,11 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
 
   if (peel || lighting || !Global::use1D())
     {
-      shader += "  vec3 normal;\n";
-      shader += "  normal = getNormal(vtexCoord);\n";
-      shader += "  float grad = clamp(length(normal), 0.0, 0.996);\n";
+      //shader += "  vec3 normal = getNormal(vtexCoord);\n";
+      //shader += "  float grad = clamp(length(normal), 0.0, 0.996);\n";
+      shader += "  vec4 normalG = getNormal(vtexCoord);\n";
+      shader += "  vec3 normal = normalG.xyz;\n";
+      shader += "  float grad = clamp(length(normalG.w), 0.0, 0.996);\n";
     }
 
   if (bit16)

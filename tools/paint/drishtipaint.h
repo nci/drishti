@@ -162,9 +162,15 @@ class DrishtiPaint : public QMainWindow
   void resetTag(Vec, Vec, int);
   void reloadMask();
   void modifyOriginalVolume(Vec, Vec, int);
+
   void shrinkwrap(Vec, Vec, int, bool, int);
   void shrinkwrap(Vec, Vec, int, bool, int,
 		  bool, int, int, int, int);
+
+  void tagTubes(Vec, Vec, int);
+  void tagTubes(Vec, Vec, int,
+		  bool, int, int, int, int);
+
   void connectedRegion(int, int, int,
 		       Vec, Vec,
 		       int, int);

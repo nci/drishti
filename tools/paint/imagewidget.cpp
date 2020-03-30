@@ -412,7 +412,7 @@ ImageWidget::applyGradLimits()
 	  Vec dv = Vec(gx, gy, gz); // surface gradient
 	  gradMag = dv.norm();
 	} // gradType == 0
-                  
+
       if (m_gradType > 0)
 	{
 	  int sz = 1;
@@ -426,17 +426,18 @@ ImageWidget::applyGradLimits()
 	    {	      
 	      float sum = 0;
 	      float vval = m_volPtr[d0*m_Width*m_Height + w0*m_Height + h0];
-	      for(int a=d0-sz; a<=d0+sz; a++)
-	      for(int b=w0-sz; b<=w0+sz; b++)
-	      for(int c=h0-sz; c<=h0+sz; c++)
+	      for(int a=-sz; a<=sz; a++)
+	      for(int b=-sz; b<=sz; b++)
+	      for(int c=-sz; c<=sz; c++)
 		{
-		  qint64 a0 = qBound(0, a, m_Depth-1);
-		  qint64 b0 = qBound(0, b, m_Width-1);
-		  qint64 c0 = qBound(0, c, m_Height-1);
-		  sum += m_volPtr[a0*m_Width*m_Height + b0*m_Height + c0];
+		  qint64 a0 = qBound(0, d0+a, m_Depth-1);
+		  qint64 b0 = qBound(0, w0+b, m_Width-1);
+		  qint64 c0 = qBound(0, h0+c, m_Height-1);
+		  float vu = m_volPtr[a0*m_Width*m_Height + b0*m_Height + c0];
+		  sum += vu;
 		}
 
-	      sum = (sum-vval)/divisor;
+	      sum = (sum-vval)/divisor;	      	      
 	      gradMag = fabs(sum-vval)/255.0;
 	    }
 	  else

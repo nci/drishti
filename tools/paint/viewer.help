@@ -34,7 +34,19 @@ Clipping planes are obeyed - clipped region is not taken into account.
 mergetf
 mergetf <tag1> <tag2>
 
-Similar to merge, except the operation is carried out only within the visible portion of the selected subvolume.  Visible portion is that region where opacity is greater than 0 as defined by transfer function .
+Similar to merge, except the operation is carried out only within the visible portion of the selected subvolume.  Visible portion is that region where opacity is greater than 0 as defined by transfer functions and visible tags.
+
+Clipping planes are obeyed - clipped region is not taken into account.
+#end
+
+
+#begin
+tubes
+tubes <tag>
+
+Tag tube-like and sheet-like structures in visible region.  Visible portion is that region where opacity is greater than 0 as defined by transfer functions and visible tags.
+
+If <tag> is not specified then current tag value is used.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end
@@ -44,7 +56,7 @@ Clipping planes are obeyed - clipped region is not taken into account.
 shrinkwrap
 shrinkwrap <tag>
 
-Shrinkwrap the visible region with tag.  Visible portion is that region where opacity is greater than 0 as defined by transfer function.
+Shrinkwrap the visible region with tag.  Visible portion is that region where opacity is greater than 0 as defined by transfer functions and visible tags.
 
 If <tag> is not specified then current tag value is used.
 
@@ -56,7 +68,7 @@ Clipping planes are obeyed - clipped region is not taken into account.
 shell
 shell <tag> <thickness>
 
-Tag the boundary of shrinkwrapped visible region.  The visible region is first identified by shrinkwrap and boundary of this region is tagged.  The width of boundary is decided by the thickness value. Visible portion is that region where opacity is greater than 0 as defined by transfer function.
+Tag the boundary of shrinkwrapped visible region.  The visible region is first identified by shrinkwrap and boundary of this region is tagged.  The width of boundary is decided by the thickness value. Visible portion is that region where opacity is greater than 0 as defined by transfer functions and visible tags.
 
 If <tag> is not specified then current tag value is used.
 If <width> is not specified then default value of 1 is used.
@@ -79,7 +91,7 @@ Clipping planes are obeyed - clipped region is not taken into account.
 setvisible
 setvisible <tag1>
 
-Set visible region to tag1.  Visible portion is that region where opacity is greater than 0 as defined by transfer function.
+Set visible region to tag1.  Visible portion is that region where opacity is greater than 0 as defined by transfer functions and visible tags.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end
@@ -88,7 +100,7 @@ Clipping planes are obeyed - clipped region is not taken into account.
 setinvisible
 setinvisible <tag1>
 
-Set invisible region to tag1.  Invisible portion is that region where opacity is equal to 0 as defined by transfer function.
+Set invisible region to tag1.  Invisible portion is that region where opacity is equal to 0 as defined by transfer functions and hidden tags.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end

@@ -2361,8 +2361,6 @@ Raw2Pvl::mergeVolumes(VolumeData* volData,
 		{
 		  if (pvlslice[fi] > 10)
 		    {
-		      //Mpvlslice[fi] = pvlslice[fi];
-		      //Mpvlslice[fi] = (tsf+1)*tagF;
 		      Mpvlslice[fi] = tagValues[tsf];
 		    }
 		}
@@ -2375,8 +2373,6 @@ Raw2Pvl::mergeVolumes(VolumeData* volData,
 		{
 		  if (ptr[fi] > 10)
 		    {
-		      //Mptr[fi] = ptr[fi];
-		      //Mptr[fi] = (tsf+1)*tagF;
 		      Mptr[fi] = tagValues[tsf];
 		    }
 		}
@@ -2465,7 +2461,8 @@ Raw2Pvl::quickRaw(VolumeData* volData,
 
   //------------------------------------------------------
 
-  for(int dd=0; dd<dsz; dd++)
+  qint64 sliceSize = pvlbpv*wsz*hsz;
+  for(qint64 dd=0; dd<dsz; dd++)
     {
       progress.setValue((int)(100*(float)dd/(float)dsz));
       qApp->processEvents();
@@ -2478,8 +2475,7 @@ Raw2Pvl::quickRaw(VolumeData* volData,
 		   width, height);
 
 	  
-      //rawFileManager.setSlice(dd, pvlslice);
-      m_qfile.seek(13 + (dsz-1-dd)*pvlbpv*wsz*hsz);
+      m_qfile.seek(13 + (dsz-1-dd)*sliceSize);
       m_qfile.write((char*)pvlslice);
     }
 

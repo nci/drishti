@@ -5,6 +5,7 @@
 
 #include <QPushButton>
 #include <QFileDialog>
+#include <QHeaderView>
 
 TransferFunctionManager::TransferFunctionManager(QWidget *parent) :
   QFrame(parent)

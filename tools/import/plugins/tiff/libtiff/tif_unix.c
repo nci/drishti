@@ -22,13 +22,26 @@
  * WHETHER OR NOT ADVISED OF THE POSSIBILITY OF DAMAGE, AND ON ANY THEORY OF 
  * LIABILITY, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE 
  * OF THIS SOFTWARE.
+ *
+ * BigTIFF modifications by Ole Eichhorn / Aperio Technologies (ole@aperio.com)
+ *
+ * 081016 vunger	Prototyped lseek() and lseek64()
+ *
  */
 
 /*
  * TIFF Library UNIX-specific Routines. These are should also work with the
  * Windows Common RunTime Library.
  */
+
 #include "tif_config.h"
+
+/*
+ * Tell compiler to use 64-bit glibc functions.  off_t will be unsigned long long.
+ */
+#define _FILE_OFFSET_BITS 64
+#define _LARGEFILE_SOURCE 1
+#define _LARGEFILE64_SOURCE 1
 
 #ifdef HAVE_SYS_TYPES_H
 # include <sys/types.h>
@@ -36,11 +49,8 @@
 
 #include <stdarg.h>
 #include <stdlib.h>
+#include <errno.h>
 #include <sys/stat.h>
-
-#ifdef HAVE_UNISTD_H
-# include <unistd.h>
-#endif
 
 #ifdef HAVE_FCNTL_H
 # include <fcntl.h>
@@ -51,6 +61,22 @@
 #endif
 
 #include "tiffiop.h"
+
+#ifdef HAS_LSEEK64
+
+// Ensure the proper prototype for lseek64()
+// Without this, when it returns an offset of 0x80000000 or greater,
+//   the MSBit will be extended (cast to a 64 bit signed int)
+toff_t lseek64(int, toff_t, int);
+
+#else
+
+// Ensure proper prototype for lseek() (needed for apple/Darwin)
+off_t lseek(int, off_t, int);
+
+#endif
+
+
 
 static tsize_t
 _tiffReadProc(thandle_t fd, tdata_t buf, tsize_t size)
@@ -64,10 +90,17 @@ _tiffWriteProc(thandle_t fd, tdata_t buf, tsize_t size)
 	return ((tsize_t) write((int) fd, buf, (size_t) size));
 }
 
+#include <errno.h>
+
 static toff_t
 _tiffSeekProc(thandle_t fd, toff_t off, int whence)
 {
-	return ((toff_t) lseek((int) fd, (off_t) off, whence));
+#ifdef HAS_LSEEK64
+	return ((toff_t) lseek64((int) fd, (toff_t) off, whence));
+#else
+	// On Apple/Darwin off_t is 64 bits
+	return ((off_t) lseek((int) fd, (off_t) off, whence));
+#endif
 }
 
 static int
@@ -80,13 +113,19 @@ _tiffCloseProc(thandle_t fd)
 static toff_t
 _tiffSizeProc(thandle_t fd)
 {
-#ifdef _AM29K
-	long fsize;
-	return ((fsize = lseek((int) fd, 0, SEEK_END)) < 0 ? 0 : fsize);
+#ifdef HAS_FSTAT64
+	struct stat64 sb;
+	return (toff_t) (fstat64((int) fd, &sb) < 0 ? 0 : sb.st_size);
 #else
-	struct stat sb;
-	return (toff_t) (fstat((int) fd, &sb) < 0 ? 0 : sb.st_size);
+	toff_t fsize;
+	return ((fsize = lseek((int) fd, 0, SEEK_END)) < 0 ? 0 : fsize);
 #endif
+}
+
+static int
+_tiffErrnoProc(void)
+{
+	return errno;
 }
 
 #ifdef HAVE_MMAP
@@ -111,7 +150,7 @@ static void
 _tiffUnmapProc(thandle_t fd, tdata_t base, toff_t size)
 {
 	(void) fd;
-	(void) munmap(base, (off_t) size);
+	(void) munmap(base, (toff_t) size);
 }
 #else /* !HAVE_MMAP */
 static int
@@ -141,8 +180,10 @@ TIFFFdOpen(int fd, const char* name, const char* mode)
 	    _tiffReadProc, _tiffWriteProc,
 	    _tiffSeekProc, _tiffCloseProc, _tiffSizeProc,
 	    _tiffMapProc, _tiffUnmapProc);
-	if (tif)
+	if (tif) {
 		tif->tif_fd = fd;
+		tif->tif_errnoproc = _tiffErrnoProc;
+	}
 	return (tif);
 }
 
@@ -165,10 +206,10 @@ TIFFOpen(const char* name, const char* mode)
         m |= O_BINARY;
 #endif        
         
-#ifdef _AM29K
-	fd = open(name, m);
+#ifdef HAS_OPEN64
+	fd = open64(name, m, 0666);
 #else
-	fd = open(name, m, 0666);
+	fd = open(name, m);
 #endif
 	if (fd < 0) {
 		TIFFErrorExt(0, module, "%s: Cannot open", name);
@@ -181,7 +222,7 @@ TIFFOpen(const char* name, const char* mode)
 	return tif;
 }
 
-#if defined (__WIN32__) && !defined(__SYMBIAN32__)
+#ifdef __WIN32__
 #include <windows.h>
 /*
  * Open a TIFF file with a Unicode filename, for read/writing.

@@ -515,6 +515,7 @@ RcViewer::createIsoRaycastShader()
   m_ircParm[19]= glGetUniformLocationARB(m_ircShader, "maxGrad");
   m_ircParm[20]= glGetUniformLocationARB(m_ircShader, "sslevel");
   m_ircParm[21]= glGetUniformLocationARB(m_ircShader, "MVP");
+  m_ircParm[22]= glGetUniformLocationARB(m_ircShader, "gamma");
 
 
   m_ircParm[34] = glGetUniformLocationARB(m_ircShader, "lightTex");
@@ -808,6 +809,8 @@ RcViewer::raycast(Vec eyepos, float minZ, float maxZ, bool firstPartOnly)
   
   if (!firstPartOnly)
     {
+      glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_slcBuffer);
+
       glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
 			     GL_COLOR_ATTACHMENT0_EXT,
 			     GL_TEXTURE_RECTANGLE_ARB,
@@ -879,7 +882,8 @@ RcViewer::raycast(Vec eyepos, float minZ, float maxZ, bool firstPartOnly)
     glUniform3fv(m_ircParm[16], nclip, cnormal); // clipplanes
   }
 
-  glUniform1f(m_ircParm[17], qPow(2.0f,0.1f*m_maxRayLen)); // go m_deep voxels deep
+  //glUniform1f(m_ircParm[17], qPow(2.0f,0.1f*m_maxRayLen)); // go m_deep voxels deep
+  glUniform1f(m_ircParm[17], 0.01f*m_maxRayLen); // go m_deep voxels deep
 
   glUniform1f(m_ircParm[18], m_minGrad*0.05); // min gradient magnitute
   glUniform1f(m_ircParm[19], m_maxGrad*0.05); // max gradient magnitute
@@ -929,6 +933,7 @@ RcViewer::raycast(Vec eyepos, float minZ, float maxZ, bool firstPartOnly)
       int lightlod = 0;
       glUniform1iARB(m_ircParm[40], lightlod); // lightlod
     }
+  glUniform1fARB(m_ircParm[22], Global::gamma()); // gamma
   //==============================
   //==============================
 
@@ -952,23 +957,17 @@ RcViewer::raycast(Vec eyepos, float minZ, float maxZ, bool firstPartOnly)
   glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[0]);
 
   glActiveTexture(GL_TEXTURE1);
-  //glEnable(GL_TEXTURE_3D);
-  //glBindTexture(GL_TEXTURE_3D, m_dataTex);
   glEnable(GL_TEXTURE_2D_ARRAY);
   glBindTexture(GL_TEXTURE_2D_ARRAY, m_dataTex);
 
   if (firstPartOnly ||
       !Global::interpolationType(Global::TextureInterpolation)) // linear
     {
-      //glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-      //glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
       glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
       glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     }
   else
     {
-      //glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-      //glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
       glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
       glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     }
@@ -1065,7 +1064,6 @@ RcViewer::raycast(Vec eyepos, float minZ, float maxZ, bool firstPartOnly)
   glDisable(GL_TEXTURE_2D);
 
   glActiveTexture(GL_TEXTURE1);
-  //glDisable(GL_TEXTURE_3D);
   glDisable(GL_TEXTURE_2D_ARRAY);
 
   glActiveTexture(GL_TEXTURE2);

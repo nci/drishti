@@ -1715,9 +1715,9 @@ OJPEGSetupDecode(register TIFF *tif)
             0th Strip offset.
          */
             i = td->td_nstrips - 1;
-            sp->src.next_input_byte = tif->tif_base + td->td_stripoffset[0];
-            sp->src.bytes_in_buffer = td->td_stripoffset[i] -
-              td->td_stripoffset[0] + td->td_stripbytecount[i];
+            sp->src.next_input_byte = tif->tif_base + _TIFFGetOffset(tif, 0);
+            sp->src.bytes_in_buffer = _TIFFGetOffset(tif, i) -
+              _TIFFGetOffset(tif, 0) + _TIFFGetByteCount(tif, i);
             i = CALLJPEG(sp,-1,jpeg_read_header(&sp->cinfo.d,TRUE));
           };
         if (i != JPEG_HEADER_OK) return 0;
@@ -2583,7 +2583,7 @@ TIFFInitOJPEG(register TIFF *tif,int scheme)
           (sp->src.next_input_byte = tif->tif_base+tif->tif_header.tiff_diroff),
           sizeof dircount);
         if (tif->tif_flags & TIFF_SWAB) TIFFSwabShort(&dircount);
-        sp->src.next_input_byte += dircount*sizeof(TIFFDirEntry)
+        sp->src.next_input_byte += dircount*TIFFDirEntryLenS
                                 + sizeof maxoffset + sizeof dircount;
         sp->src.bytes_in_buffer = tif->tif_base - sp->src.next_input_byte
                                 + maxoffset;

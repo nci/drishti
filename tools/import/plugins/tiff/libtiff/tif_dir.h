@@ -22,6 +22,8 @@
  * WHETHER OR NOT ADVISED OF THE POSSIBILITY OF DAMAGE, AND ON ANY THEORY OF 
  * LIABILITY, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE 
  * OF THIS SOFTWARE.
+ *
+ * BigTIFF modifications by Ole Eichhorn / Aperio Technologies (ole@aperio.com)
  */
 
 #ifndef _TIFFDIR_
@@ -29,6 +31,7 @@
 /*
  * ``Library-private'' Directory-related Definitions.
  */
+#define	TIFF_STRIPBUFMAX (8*1024/sizeof(toff_t))  /* max offsets/byte counts in strip buffer */
 
 /*
  * Internal format of a TIFF directory entry.
@@ -63,11 +66,24 @@ typedef	struct {
 	uint16*	td_sampleinfo;
 	tstrip_t td_stripsperimage;
 	tstrip_t td_nstrips;		/* size of offset & bytecount arrays */
-	uint32*	td_stripoffset;
-	uint32*	td_stripbytecount;
+	
+	uint32	td_stripbufmax;		/* max size of strip offset and byte count blocks */
+	uint16	td_stripoffstype;	/* data type of offsets */
+	uint32	td_stripoffscnt;	/* count of offsets in file */
+	toff_t	td_stripoffsoff;	/* offset to offsets in file (0 = not placed) */
+	int32	td_stripoffsblk;	/* currently loaded offsets block */
+	toff_t* td_stripoffsbuf;	/* loaded strip offsets block pointer */
+	int	td_stripoffsdirty;	/* whether current offsets block has been modified */
+	uint16	td_stripbcstype;	/* data type of byte counts */
+	uint32	td_stripbcscnt;		/* count of bytes counts in file */
+	toff_t	td_stripbcsoff;		/* offset to bytes counts in file (0 = not placed */
+	int32	td_stripbcsblk;		/* currently loaded byte counts block */
+	uint32*	td_stripbcsbuf;		/* loaded strip byte counts block pointer */
+	int	td_stripbcsdirty;	/* whether current byte counts block has been modified */
 	int	td_stripbytecountsorted; /* is the bytecount array sorted ascending? */
+
 	uint16	td_nsubifd;
-	uint32*	td_subifd;
+	toff_t*	td_subifd;		/* subIFD array; values may not be set yet */
 	/* YCbCr parameters */
 	uint16	td_ycbcrsubsampling[2];
 	uint16	td_ycbcrpositioning;
@@ -151,16 +167,6 @@ typedef	struct {
 #define	FIELD_PSEUDO			0
 
 #define	FIELD_LAST			(32*FIELD_SETLONGS-1)
-
-#define	TIFFExtractData(tif, type, v) \
-    ((uint32) ((tif)->tif_header.tiff_magic == TIFF_BIGENDIAN ? \
-        ((v) >> (tif)->tif_typeshift[type]) & (tif)->tif_typemask[type] : \
-	(v) & (tif)->tif_typemask[type]))
-#define	TIFFInsertData(tif, type, v) \
-    ((uint32) ((tif)->tif_header.tiff_magic == TIFF_BIGENDIAN ? \
-        ((v) & (tif)->tif_typemask[type]) << (tif)->tif_typeshift[type] : \
-	(v) & (tif)->tif_typemask[type]))
-
 
 #define BITn(n)				(((unsigned long)1L)<<((n)&0x1f)) 
 #define BITFIELDn(tif, n)		((tif)->tif_dir.td_fieldsset[(n)/32]) 

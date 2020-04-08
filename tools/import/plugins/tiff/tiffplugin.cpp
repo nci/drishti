@@ -2,7 +2,7 @@
 #include "common.h"
 #include "tiffplugin.h"
 
-#include <tiffio.h>
+#include "libtiff/tiffio.h"
 using namespace std;
 
 QStringList

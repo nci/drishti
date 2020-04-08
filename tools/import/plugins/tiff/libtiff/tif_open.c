@@ -22,58 +22,17 @@
  * WHETHER OR NOT ADVISED OF THE POSSIBILITY OF DAMAGE, AND ON ANY THEORY OF 
  * LIABILITY, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE 
  * OF THIS SOFTWARE.
+ *
+ * BigTIFF modifications by Ole Eichhorn / Aperio Technologies (ole@aperio.com)
+ *
+ * 081016 vunger	Added code to determine byte-swapping at runtime
+ *
  */
 
 /*
  * TIFF Library.
  */
 #include "tiffiop.h"
-
-static const long typemask[13] = {
-	(long)0L,		/* TIFF_NOTYPE */
-	(long)0x000000ffL,	/* TIFF_BYTE */
-	(long)0xffffffffL,	/* TIFF_ASCII */
-	(long)0x0000ffffL,	/* TIFF_SHORT */
-	(long)0xffffffffL,	/* TIFF_LONG */
-	(long)0xffffffffL,	/* TIFF_RATIONAL */
-	(long)0x000000ffL,	/* TIFF_SBYTE */
-	(long)0x000000ffL,	/* TIFF_UNDEFINED */
-	(long)0x0000ffffL,	/* TIFF_SSHORT */
-	(long)0xffffffffL,	/* TIFF_SLONG */
-	(long)0xffffffffL,	/* TIFF_SRATIONAL */
-	(long)0xffffffffL,	/* TIFF_FLOAT */
-	(long)0xffffffffL,	/* TIFF_DOUBLE */
-};
-static const int bigTypeshift[13] = {
-	0,		/* TIFF_NOTYPE */
-	24,		/* TIFF_BYTE */
-	0,		/* TIFF_ASCII */
-	16,		/* TIFF_SHORT */
-	0,		/* TIFF_LONG */
-	0,		/* TIFF_RATIONAL */
-	24,		/* TIFF_SBYTE */
-	24,		/* TIFF_UNDEFINED */
-	16,		/* TIFF_SSHORT */
-	0,		/* TIFF_SLONG */
-	0,		/* TIFF_SRATIONAL */
-	0,		/* TIFF_FLOAT */
-	0,		/* TIFF_DOUBLE */
-};
-static const int litTypeshift[13] = {
-	0,		/* TIFF_NOTYPE */
-	0,		/* TIFF_BYTE */
-	0,		/* TIFF_ASCII */
-	0,		/* TIFF_SHORT */
-	0,		/* TIFF_LONG */
-	0,		/* TIFF_RATIONAL */
-	0,		/* TIFF_SBYTE */
-	0,		/* TIFF_UNDEFINED */
-	0,		/* TIFF_SSHORT */
-	0,		/* TIFF_SLONG */
-	0,		/* TIFF_SRATIONAL */
-	0,		/* TIFF_FLOAT */
-	0,		/* TIFF_DOUBLE */
-};
 
 /*
  * Dummy functions to fill the omitted client procedures.
@@ -92,26 +51,37 @@ _tiffDummyUnmapProc(thandle_t fd, tdata_t base, toff_t size)
 }
 
 /*
- * Initialize the shift & mask tables, and the
- * byte swapping state according to the file
+ * Set byte swapping state according to the file
  * contents and the machine architecture.
  */
+#define APERIO_CODE
+#ifdef APERIO_CODE
 static void
 TIFFInitOrder(TIFF* tif, int magic)
 {
-	tif->tif_typemask = typemask;
+	// Note: the magic number is usually two bytes of the same 8 bits, so use version
+	uint16 version = tif->tif_header.s.tiff_version;
+	if ((version != TIFF_VERSION) && (version != TIFF_BIGTIFF_VERSION))
+	{
+		// Assume byte swapping is needed
+		tif->tif_flags |= TIFF_SWAB;
+	}
+}
+#else // APERIO_CODE
+static void
+TIFFInitOrder(TIFF* tif, int magic)
+{
 	if (magic == TIFF_BIGENDIAN) {
-		tif->tif_typeshift = bigTypeshift;
 #ifndef WORDS_BIGENDIAN
 		tif->tif_flags |= TIFF_SWAB;
 #endif
 	} else {
-		tif->tif_typeshift = litTypeshift;
 #ifdef WORDS_BIGENDIAN
 		tif->tif_flags |= TIFF_SWAB;
 #endif
 	}
 }
+#endif // APERIO_CODE
 
 int
 _TIFFgetMode(const char* mode, const char* module)
@@ -137,6 +107,9 @@ _TIFFgetMode(const char* mode, const char* module)
 	return (m);
 }
 
+/*
+ *   Open TIFF declaring I/O routines
+ */
 TIFF*
 TIFFClientOpen(
 	const char* name, const char* mode,
@@ -150,10 +123,10 @@ TIFFClientOpen(
 	TIFFUnmapFileProc unmapproc
 )
 {
-	static const char module[] = "TIFFClientOpen";
 	TIFF *tif;
 	int m;
 	const char* cp;
+	const char* module = "TIFFClientOpen";
 
 	m = _TIFFgetMode(mode, module);
 	if (m == -1)
@@ -167,6 +140,7 @@ TIFFClientOpen(
 	tif->tif_name = (char *)tif + sizeof (TIFF);
 	strcpy(tif->tif_name, name);
 	tif->tif_mode = m &~ (O_CREAT|O_TRUNC);
+	tif->tif_flags = 0;			/* init value of flags */
 	tif->tif_curdir = (tdir_t) -1;		/* non-existent directory */
 	tif->tif_curoff = 0;
 	tif->tif_curstrip = (tstrip_t) -1;	/* invalid strip */
@@ -182,6 +156,7 @@ TIFFClientOpen(
 	tif->tif_seekproc = seekproc;
 	tif->tif_closeproc = closeproc;
 	tif->tif_sizeproc = sizeproc;
+	tif->tif_errnoproc = NULL;
         if (mapproc)
 		tif->tif_mapproc = mapproc;
 	else
@@ -196,7 +171,7 @@ TIFFClientOpen(
 	 * use of memory-mapped files and strip chopping when
 	 * a file is opened read-only.
 	 */
-	tif->tif_flags = FILLORDER_MSB2LSB;
+	tif->tif_flags |= FILLORDER_MSB2LSB;
 	if (m == O_RDONLY )
             tif->tif_flags |= TIFF_MAPPED;
 
@@ -223,6 +198,8 @@ TIFFClientOpen(
 	 * 'C'		enable strip chopping support when reading
 	 * 'c'		disable strip chopping support
 	 * 'h'		read TIFF header only, do not load the first IFD
+	 * '4'		read/write only standard TIFF (not BigTIFF)
+	 * '8'		read/write only BigTIFF
 	 *
 	 * The use of the 'l' and 'b' flags is strongly discouraged.
 	 * These flags are provided solely because numerous vendors,
@@ -254,6 +231,12 @@ TIFFClientOpen(
 	 * application-transparent and as such can cause problems.  The 'c'
 	 * option permits applications that only want to look at the tags,
 	 * for example, to get the unadulterated TIFF tag information.
+	 *
+	 * The '4' flag allows applications to prevent reading and writing
+	 * BigTIFF files.  Generally this will be done while writing to
+	 * ensure compatibility with applications that don't support BigTIFF.
+	 * The '8' flag forces BigTIFF.  Generally this will be done while
+	 * writing for test purposes.
 	 */
 	for (cp = mode; *cp; cp++)
 		switch (*cp) {
@@ -300,6 +283,12 @@ TIFFClientOpen(
 		case 'h':
 			tif->tif_flags |= TIFF_HEADERONLY;
 			break;
+		case '4':
+			tif->tif_flags |= TIFF_NOBIGTIFF;
+			break;
+		case '8':
+			tif->tif_flags |= TIFF_ISBIGTIFF;
+			break;
 		}
 	/*
 	 * Read in TIFF header.
@@ -307,24 +296,37 @@ TIFFClientOpen(
 	if (tif->tif_mode & O_TRUNC ||
 	    !ReadOK(tif, &tif->tif_header, sizeof (TIFFHeader))) {
 		if (tif->tif_mode == O_RDONLY) {
-			TIFFErrorExt(tif->tif_clientdata, name, "Cannot read TIFF header");
+			TIFFErrorExt(tif->tif_clientdata, name, 
+				"Cannot read TIFF header (%d)", TIFFGetErrno(tif));
 			goto bad;
 		}
 		/*
 		 * Setup header and write.
 		 */
 #ifdef WORDS_BIGENDIAN
-		tif->tif_header.tiff_magic = tif->tif_flags & TIFF_SWAB
+		tif->tif_header.s.tiff_magic = tif->tif_flags & TIFF_SWAB
 		    ? TIFF_LITTLEENDIAN : TIFF_BIGENDIAN;
 #else
-		tif->tif_header.tiff_magic = tif->tif_flags & TIFF_SWAB
+		tif->tif_header.s.tiff_magic = tif->tif_flags & TIFF_SWAB
 		    ? TIFF_BIGENDIAN : TIFF_LITTLEENDIAN;
 #endif
-		tif->tif_header.tiff_version = TIFF_VERSION;
-		if (tif->tif_flags & TIFF_SWAB)
-			TIFFSwabShort(&tif->tif_header.tiff_version);
-		tif->tif_header.tiff_diroff = 0;	/* filled in later */
-
+		if (isBigTIFF(tif)) {
+			tif->tif_header.b.tiff_version = TIFF_BIGTIFF_VERSION;
+			tif->tif_header.b.tiff_offsize = sizeof(toff_t);
+			tif->tif_header.b.tiff_fill = 0;
+			tif->tif_header.b.tiff_diroff = 0;
+			if (tif->tif_flags & TIFF_SWAB) {
+				TIFFSwabShort(&tif->tif_header.b.tiff_version);
+				TIFFSwabShort(&tif->tif_header.b.tiff_offsize);
+			}
+		} else {
+			tif->tif_header.s.tiff_version = TIFF_VERSION;
+			tif->tif_header.s.tiff_diroff = 0;
+			_TIFFmemset(tif->tif_header.s.tiff_fill, 0, 
+				sizeof(tif->tif_header.s.tiff_fill));
+			if (tif->tif_flags & TIFF_SWAB)
+				TIFFSwabShort(&tif->tif_header.s.tiff_version);
+		}
 
                 /*
                  * The doc for "fopen" for some STD_C_LIBs says that if you 
@@ -335,14 +337,18 @@ TIFFClientOpen(
                  */
                 TIFFSeekFile( tif, 0, SEEK_SET );
                
+	        /*
+		 * Always write BigTIFF-sized header, just in case
+		 */
 		if (!WriteOK(tif, &tif->tif_header, sizeof (TIFFHeader))) {
-			TIFFErrorExt(tif->tif_clientdata, name, "Error writing TIFF header");
+			TIFFErrorExt(tif->tif_clientdata, name, 
+				"Error writing TIFF header (%d)", TIFFGetErrno(tif));
 			goto bad;
 		}
 		/*
 		 * Setup the byte order handling.
 		 */
-		TIFFInitOrder(tif, tif->tif_header.tiff_magic);
+		TIFFInitOrder(tif, tif->tif_header.s.tiff_magic);
 		/*
 		 * Setup default directory.
 		 */
@@ -356,14 +362,14 @@ TIFFClientOpen(
 	/*
 	 * Setup the byte order handling.
 	 */
-	if (tif->tif_header.tiff_magic != TIFF_BIGENDIAN &&
-	    tif->tif_header.tiff_magic != TIFF_LITTLEENDIAN
+	if (tif->tif_header.s.tiff_magic != TIFF_BIGENDIAN &&
+	    tif->tif_header.s.tiff_magic != TIFF_LITTLEENDIAN
 #if MDI_SUPPORT
 	    &&
 #if HOST_BIGENDIAN
-	    tif->tif_header.tiff_magic != MDI_BIGENDIAN
+	    tif->tif_header.s.tiff_magic != MDI_BIGENDIAN
 #else
-	    tif->tif_header.tiff_magic != MDI_LITTLEENDIAN
+	    tif->tif_header.s.tiff_magic != MDI_LITTLEENDIAN
 #endif
 	    ) {
 		TIFFErrorExt(tif->tif_clientdata, name,  "Not a TIFF or MDI file, bad magic number %d (0x%x)",
@@ -371,36 +377,60 @@ TIFFClientOpen(
 	    ) {
 		TIFFErrorExt(tif->tif_clientdata, name,  "Not a TIFF file, bad magic number %d (0x%x)",
 #endif
-		    tif->tif_header.tiff_magic,
-		    tif->tif_header.tiff_magic);
+		    tif->tif_header.s.tiff_magic,
+		    tif->tif_header.s.tiff_magic);
 		goto bad;
 	}
-	TIFFInitOrder(tif, tif->tif_header.tiff_magic);
+	TIFFInitOrder(tif, tif->tif_header.s.tiff_magic);
 	/*
-	 * Swap header if required.
+	 * Swap header [back] if required.
 	 */
 	if (tif->tif_flags & TIFF_SWAB) {
-		TIFFSwabShort(&tif->tif_header.tiff_version);
-		TIFFSwabLong(&tif->tif_header.tiff_diroff);
+		if (isBigTIFF(tif)) {
+			TIFFSwabShort(&tif->tif_header.b.tiff_version);
+			TIFFSwabShort(&tif->tif_header.b.tiff_offsize);
+		} else
+			TIFFSwabShort(&tif->tif_header.s.tiff_version);
 	}
 	/*
 	 * Now check version (if needed, it's been byte-swapped).
 	 * Note that this isn't actually a version number, it's a
 	 * magic number that doesn't change (stupid).
 	 */
-	if (tif->tif_header.tiff_version == TIFF_BIGTIFF_VERSION) {
-		TIFFErrorExt(tif->tif_clientdata, name,
-                          "This is a BigTIFF file.  This format not supported\n"
-                          "by this version of libtiff." );
-		goto bad;
-	}
-	if (tif->tif_header.tiff_version != TIFF_VERSION) {
+	if (tif->tif_header.s.tiff_version == TIFF_VERSION) {
+		if (isBigTIFF(tif)) {
+			TIFFErrorExt(tif->tif_clientdata, name, 
+				"Cannot process non-BigTIFF file, '64' mode specified");
+			goto bad;
+		}
+		if (tif->tif_flags & TIFF_SWAB)
+			TIFFSwabLong(&tif->tif_header.s.tiff_diroff);
+		_TIFFmemset(tif->tif_header.s.tiff_fill, 0, sizeof(tif->tif_header.s.tiff_fill));
+	} else if (tif->tif_header.b.tiff_version == TIFF_BIGTIFF_VERSION) {
+		if (noBigTIFF(tif)) {
+			TIFFErrorExt(tif->tif_clientdata, name, 
+				"Cannot process BigTIFF file, '32' mode specified");
+			goto bad;
+		}
+		tif->tif_flags |= TIFF_ISBIGTIFF;
+		if (tif->tif_flags & TIFF_SWAB) {
+			TIFFSwabShort(&tif->tif_header.b.tiff_offsize);
+			TIFFSwabLong8(&tif->tif_header.b.tiff_diroff);
+		}
+		if (tif->tif_header.b.tiff_offsize != 8) {
+			TIFFErrorExt(tif->tif_clientdata, name,
+				"Offset size in BigTIFF is %d, expected 8", 
+				tif->tif_header.b.tiff_offsize);
+			goto bad;
+		}
+	} else {
 		TIFFErrorExt(tif->tif_clientdata, name,
 		    "Not a TIFF file, bad version number %d (0x%x)",
-		    tif->tif_header.tiff_version,
-		    tif->tif_header.tiff_version); 
+		    tif->tif_header.s.tiff_version,
+		    tif->tif_header.s.tiff_version); 
 		goto bad;
 	}
+
 	tif->tif_flags |= TIFF_MYBUFFER;
 	tif->tif_rawcp = tif->tif_rawdata = 0;
 	tif->tif_rawdatasize = 0;
@@ -419,14 +449,14 @@ TIFFClientOpen(
 	 */
 	switch (mode[0]) {
 	case 'r':
-		tif->tif_nextdiroff = tif->tif_header.tiff_diroff;
+		tif->tif_nextdiroff = TIFFGetHdrDirOff(tif,tif->tif_header);
 		/*
 		 * Try to use a memory-mapped file if the client
 		 * has not explicitly suppressed usage with the
 		 * 'm' flag in the open mode (see above).
 		 */
 		if ((tif->tif_flags & TIFF_MAPPED) &&
-	!TIFFMapFileContents(tif, (tdata_t*) &tif->tif_base, &tif->tif_size))
+			!TIFFMapFileContents(tif, (tdata_t*) &tif->tif_base, &tif->tif_size))
 			tif->tif_flags &= ~TIFF_MAPPED;
 		if (TIFFReadDirectory(tif)) {
 			tif->tif_rawcc = -1;
@@ -614,7 +644,16 @@ TIFFIsMSB2LSB(TIFF* tif)
 int
 TIFFIsBigEndian(TIFF* tif)
 {
-	return (tif->tif_header.tiff_magic == TIFF_BIGENDIAN);
+	return (tif->tif_header.s.tiff_magic == TIFF_BIGENDIAN);
+}
+
+/*
+ * Return nonzero if given file is BigTIFF
+ */
+int
+TIFFIsBigTIFF(TIFF* tif)
+{
+	return (isBigTIFF(tif));
 }
 
 /*

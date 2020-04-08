@@ -22,6 +22,8 @@
  * WHETHER OR NOT ADVISED OF THE POSSIBILITY OF DAMAGE, AND ON ANY THEORY OF 
  * LIABILITY, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE 
  * OF THIS SOFTWARE.
+ *
+ * BigTIFF modifications by Ole Eichhorn / Aperio Technologies (ole@aperio.com)
  */
 
 /*
@@ -51,6 +53,20 @@ TIFFSwabLong(uint32* lp)
 
 	t = cp[3]; cp[3] = cp[0]; cp[0] = t;
 	t = cp[2]; cp[2] = cp[1]; cp[1] = t;
+}
+#endif
+
+#ifndef TIFFSwabLong8
+void
+TIFFSwabLong8(uint64* llp)
+{
+	register unsigned char *cp = (unsigned char*) llp;
+	unsigned char t;
+
+	t = cp[7]; cp[7] = cp[0]; cp[0] = t;
+	t = cp[6]; cp[6] = cp[1]; cp[1] = t;
+	t = cp[5]; cp[5] = cp[2]; cp[2] = t;
+	t = cp[4]; cp[4] = cp[3]; cp[3] = t;
 }
 #endif
 
@@ -98,6 +114,26 @@ TIFFSwabArrayOfLong(register uint32* lp, register unsigned long n)
 		cp = (unsigned char *)lp;
 		t = cp[3]; cp[3] = cp[0]; cp[0] = t;
 		t = cp[2]; cp[2] = cp[1]; cp[1] = t;
+		lp++;
+	}
+}
+#endif
+
+#ifndef TIFFSwabArrayOfLong8
+void
+TIFFSwabArrayOfLong8(register uint64* lp, register unsigned long n)
+{
+	register unsigned char *cp;
+	register unsigned char t;
+
+	/* XXX unroll loop some */
+	while (n-- > 0) {
+		cp = (unsigned char *)lp;
+
+		t = cp[7]; cp[7] = cp[0]; cp[0] = t;
+		t = cp[6]; cp[6] = cp[1]; cp[1] = t;
+		t = cp[5]; cp[5] = cp[2]; cp[2] = t;
+		t = cp[4]; cp[4] = cp[3]; cp[3] = t;
 		lp++;
 	}
 }

@@ -458,6 +458,8 @@ RcShaderFactory::genRaycastShader(QList<CropObject> crops,
   shader += "uniform int lightncols;\n";
   shader += "uniform int lightlod;\n";
 
+  shader += "uniform float gamma;\n";
+
 
   shader += "layout(location = 0) out vec4 outColor;\n";
   shader += "layout(location = 1) out vec4 outDepth;\n";
@@ -668,7 +670,9 @@ RcShaderFactory::genRaycastShader(QList<CropObject> crops,
 //  shader += "float sigma = max(swidth*0.2, sheight*0.2);\n";
 //  shader += "float fcd = exp(-(fcx*fcx + fcy*fcy)/(2.0*sigma*sigma));\n";
 //  shader += "float maxDepth = maxDeep*fcd;\n";
-  shader += "float maxDepth = maxDeep;\n";
+
+//  shader += "float maxDepth = maxDeep;\n";
+  shader += "float maxDepth = iend*maxDeep;\n";
 
   shader += "int nskipped = 0;\n"; 
   shader += "float solid = 0;\n";
@@ -780,13 +784,19 @@ RcShaderFactory::genRaycastShader(QList<CropObject> crops,
   shader += "  if (colorSample.a > 0.001 || deep > 0.0)\n";
   shader += "    {\n";  
   shader += "      colorSample.rgb *= colorSample.a;\n";
-  //shader += "      colorSample.rgb *= (1.0-colorAcum.a);\n";
 
 
   //------------------------------------
 
+  //------------------------------------
+  // apply gamma correction
+  shader += "      colorSample.rgb = pow(colorSample.rgb, vec3(gamma));\n";
+  shader += "      colorSample = clamp(colorSample, vec4(0.0,0.0,0.0,0.0), vec4(1.0,1.0,1.0,1.0));\n";
+  //------------------------------------
 
+  //------------------------------------
 
+  
   shader += "      colorAcum += (1.0 - colorAcum.a) * colorSample;\n";
   shader += "      deep = deep + 1.0;\n";
   shader += "      if (deep < 1.1)\n"; // first hit
@@ -801,7 +811,6 @@ RcShaderFactory::genRaycastShader(QList<CropObject> crops,
   shader += "       }\n";
   shader += "      if (colorAcum.a > 0.95 || deep >= maxDepth)\n";
   shader += "       {\n";
-  //shader += "         outColor = colorAcum/colorAcum.a;\n";
   shader += "         outColor = colorAcum;\n";
   shader += "         return;\n";
   shader += "       }\n";
@@ -859,7 +868,7 @@ RcShaderFactory::genEdgeEnhanceShader()
 
   shader += "void main(void)\n";
   shader += "{\n";
-  shader += "  glFragColor = vec4(0.0);\n";
+  //shader += "  glFragColor = vec4(0.0);\n";
   
   shader += "  vec2 spos0 = gl_FragCoord.xy;\n";
 
@@ -867,13 +876,18 @@ RcShaderFactory::genEdgeEnhanceShader()
   shader += "  vec3 dvt = texture(normalTex, spos0).xyz;\n";
 
   shader += "  gl_FragDepth = dvt.x;\n";
+  shader += "  glFragColor = color;\n";
   
   //---------------------
   shader += "  if (color.a < 0.001)\n";
   shader += "    discard;\n";
-  shader += "  color /= color.a;\n";
+  //shader += "  color /= color.a;\n";
   //---------------------
 
+  shader += "  if (all(lessThan(vec2(dzScale,isoshadow), vec2(0.001))))\n"; // no post processing
+  shader += "    return;\n";
+
+  
   shader += "    float cx[8] = float[](-1.0, 0.0, 1.0, 0.0, -1.0,-1.0, 1.0, 1.0);\n";
   shader += "    float cy[8] = float[]( 0.0,-1.0, 0.0, 1.0, -1.0, 1.0,-1.0, 1.0);\n";
   

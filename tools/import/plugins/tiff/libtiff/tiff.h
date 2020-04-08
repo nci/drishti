@@ -22,6 +22,8 @@
  * WHETHER OR NOT ADVISED OF THE POSSIBILITY OF DAMAGE, AND ON ANY THEORY OF 
  * LIABILITY, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE 
  * OF THIS SOFTWARE.
+ *
+ * BigTIFF modifications by Ole Eichhorn / Aperio Technologies (ole@aperio.com)
  */
 
 #ifndef _TIFF_
@@ -58,6 +60,7 @@
  * 8-bit quantities	int8/uint8
  * 16-bit quantities	int16/uint16
  * 32-bit quantities	int32/uint32
+ * 64-bit quantities	int64/uint64
  * strings		unsigned char*
  */
 
@@ -80,6 +83,15 @@ typedef	long int32;
 #endif
 typedef	unsigned long uint32;	/* sizeof (uint32) must == 4 */
 #endif
+#ifdef HAVE_INT64
+typedef __int64 int64;
+typedef unsigned __int64 uint64;
+#define	I64FMT "I64"
+#else
+typedef long long int64;
+typedef unsigned long long uint64;
+#define	I64FMT "ll"
+#endif
 
 /* For TIFFReassignTagToIgnore */
 enum TIFFIgnoreSense /* IGNORE tag table */
@@ -92,15 +104,23 @@ enum TIFFIgnoreSense /* IGNORE tag table */
 /*
  * TIFF header.
  */
-typedef	struct {
+typedef	union	{
+struct	{		/* standard TIFF header */
 	uint16	tiff_magic;	/* magic number (defines byte order) */
-#define TIFF_MAGIC_SIZE		2
 	uint16	tiff_version;	/* TIFF version number */
-#define TIFF_VERSION_SIZE	2
 	uint32	tiff_diroff;	/* byte offset to first directory */
-#define TIFF_DIROFFSET_SIZE	4
+	char	tiff_fill[8];	/* filler to make same size as BigTIFF */
+	} s;
+#define	TIFF_HEADER_DIROFF_S	(2 * sizeof(uint16))
+struct	{		/* BigTIFF header */
+	uint16	tiff_magic;	/* magic number (defines byte order) */
+	uint16	tiff_version;	/* TIFF version number */
+	uint16	tiff_offsize;	/* file offset size in bytes = 8 */
+	uint16	tiff_fill;	/* filler = 0 */
+	uint64	tiff_diroff;	/* byte offset to first directory */
+	} b;
+#define	TIFF_HEADER_DIROFF_B	(4 * sizeof(uint16))
 } TIFFHeader;
-
 
 /*
  * TIFF Image File Directories are comprised of a table of field
@@ -109,16 +129,28 @@ typedef	struct {
  * disjoint and may appear anywhere in the file (so long as they are
  * placed on a word boundary).
  *
- * If the value is 4 bytes or less, then it is placed in the offset
- * field to save space.  If the value is less than 4 bytes, it is
- * left-justified in the offset field.
+ * If the value is 4 bytes or less for a standard TIFF file, or 8 bytes or
+ * less for a BigTIFF file, then it is placed in the offset field to save 
+ * space.  The value is left-justified in the offset field.
  */
-typedef	struct {
-	uint16		tdir_tag;	/* see below */
+#pragma pack(4)
+typedef	union	{		
+struct	{			/* standard TIFF directory entry */
+	uint16		tdir_tag;	/* information type; see below */
 	uint16		tdir_type;	/* data type; see below */
 	uint32		tdir_count;	/* number of items; length in spec */
-	uint32		tdir_offset;	/* byte offset to field data */
+	uint32		tdir_offset;	/* data itself or offset to field data */
+	} s;
+struct	{			/* BigTIFF directory entry */
+	uint16		tdir_tag;	/* information type; see below */
+	uint16		tdir_type;	/* data type; see below */
+	uint64		tdir_count;	/* number of items */
+	uint64		tdir_offset;	/* data itself or offset to field data */
+	} b;
 } TIFFDirEntry;
+#pragma pack()
+#define	TIFFDirEntryLenS (sizeof(uint16)+sizeof(uint16)+sizeof(uint32)+sizeof(uint32))
+#define	TIFFDirEntryLenB (sizeof(uint16)+sizeof(uint16)+sizeof(uint64)+sizeof(uint64))
 
 /*
  * NB: In the comments below,
@@ -148,7 +180,10 @@ typedef	enum {
 	TIFF_SRATIONAL	= 10,	/* !64-bit signed fraction */
 	TIFF_FLOAT	= 11,	/* !32-bit IEEE floating point */
 	TIFF_DOUBLE	= 12,	/* !64-bit IEEE floating point */
-	TIFF_IFD	= 13	/* %32-bit unsigned integer (offset) */
+	TIFF_IFD	= 13,	/* %32-bit unsigned integer (offset) */
+	TIFF_LONG8	= 16,	/* 64-bit unsigned integer */
+	TIFF_SLONG8	= 17,	/* 64-bit signed integer */
+	TIFF_IFD8	= 18	/* 64-bit IFD offset */
 } TIFFDataType;
 
 /*

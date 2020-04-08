@@ -430,96 +430,96 @@ void
 ITKSegmentation::watershed(int nx, int ny, int nz, uchar* inVol,
 			   QList<Vec> seeds)
 {
-  bool ok;
-  double threshold = 0.01;
-  double level = 0.25;
-  QString text = QInputDialog::getText(0, "Watershed Filter Bounds",
-				       "Using opacity values for segmentation\nThreshold and Level",
-				       QLineEdit::Normal,
-				       QString("%1 %2").arg(threshold).arg(level),
-				       &ok);
-  if (ok && !text.isEmpty())
-    {
-      QStringList list = text.split(" ", QString::SkipEmptyParts);
-      if (list.count() > 0)
-	threshold = list[0].toFloat();
-      if (list.count() > 1)
-	level = list[1].toFloat();
-    }
-
-  float *floatVol = new float[nx*ny*nz];
-  for(int i=0; i<nx*ny*nz; i++)
-    floatVol[i] = (float)inVol[i]/255.0f;
-
-  typedef itk::Image<uchar, 3 >  ImageType;
-  typedef itk::Image<uchar, 3 >  ucImageType;
-  typedef itk::Image<unsigned long, 3>  watershedImageType;
-
-  ImageType::IndexType start;
-  start.Fill(0);
-
-  ImageType::SizeType size;
-  size[0] = nx;
-  size[1] = ny;
-  size[2] = nz;
-
-  ImageType::RegionType region(start, size);
-
-  ImageType::Pointer image = ImageType::New();
-  image->SetRegions(region);
-  image->Allocate();
-  image->FillBuffer(0);
-  uchar *iptr = (uchar*)image->GetBufferPointer();
-  memcpy(iptr, inVol, nx*ny*nz);
-//  float *iptr = (float*)image->GetBufferPointer();
-//  memcpy(iptr, floatVol, 4*nx*ny*nz);
-//  delete [] floatVol;
-
-  // find gradient magnitude to be used as height field
-  typedef itk::GradientMagnitudeImageFilter<ImageType, ImageType> gmFilter;
-  gmFilter::Pointer gmfilter = gmFilter::New();
-  gmfilter->SetInput( image );
-  gmfilter->Update();
-  
-  // pass this as input to watershed
-  //typedef itk::MorphologicalWatershedImageFilter<ImageType, watershedImageType> Filter;
-  typedef itk::WatershedImageFilter<ImageType> Filter;
-  Filter::Pointer filter = Filter::New();
-  filter->SetLevel(level);
-  filter->SetInput(gmfilter->GetOutput());
-
-  // set up progress update
-  m_progress->setLabelText("Watershed\nData taken from channel 1.\nResults returned in channel 2");
-  m_prog = 0;
-  typedef itk::SimpleMemberCommand<ITKSegmentation> CommandProgress;
-  CommandProgress::Pointer progressbar = CommandProgress::New();
-  progressbar->SetCallbackFunction(this, &ITKSegmentation::next);
-  filter->AddObserver(itk::ProgressEvent(), progressbar);
-    
-  filter->Update();
-
-
-  // find min and max values of the labelled image
-  typedef itk::MinimumMaximumImageCalculator <watershedImageType>
-          ImageCalculatorFilterType; 
-  ImageCalculatorFilterType::Pointer imageCalculatorFilter
-          = ImageCalculatorFilterType::New ();
-  imageCalculatorFilter->SetImage(filter->GetOutput());
-  imageCalculatorFilter->Compute();
-  unsigned long vmin, vmax;
-  vmin = imageCalculatorFilter->GetMinimum();
-  vmax = imageCalculatorFilter->GetMaximum();
-  
-  watershedImageType *wimg = filter->GetOutput();
-  unsigned long *outVol = (unsigned long*)(wimg->GetBufferPointer());
-
-  for(int i=0; i<nx*ny*nz; i++)
-    {
-      if (outVol[1] > 0)
-	inVol[i] = 1 + 254*(float)(outVol[i])/vmax;
-      else
-	inVol[i] = 0;
-    }
+//  bool ok;
+//  double threshold = 0.01;
+//  double level = 0.25;
+//  QString text = QInputDialog::getText(0, "Watershed Filter Bounds",
+//				       "Using opacity values for segmentation\nThreshold and Level",
+//				       QLineEdit::Normal,
+//				       QString("%1 %2").arg(threshold).arg(level),
+//				       &ok);
+//  if (ok && !text.isEmpty())
+//    {
+//      QStringList list = text.split(" ", QString::SkipEmptyParts);
+//      if (list.count() > 0)
+//	threshold = list[0].toFloat();
+//      if (list.count() > 1)
+//	level = list[1].toFloat();
+//    }
+//
+//  float *floatVol = new float[nx*ny*nz];
+//  for(int i=0; i<nx*ny*nz; i++)
+//    floatVol[i] = (float)inVol[i]/255.0f;
+//
+//  typedef itk::Image<uchar, 3 >  ImageType;
+//  typedef itk::Image<uchar, 3 >  ucImageType;
+//  typedef itk::Image<unsigned long, 3>  watershedImageType;
+//
+//  ImageType::IndexType start;
+//  start.Fill(0);
+//
+//  ImageType::SizeType size;
+//  size[0] = nx;
+//  size[1] = ny;
+//  size[2] = nz;
+//
+//  ImageType::RegionType region(start, size);
+//
+//  ImageType::Pointer image = ImageType::New();
+//  image->SetRegions(region);
+//  image->Allocate();
+//  image->FillBuffer(0);
+//  uchar *iptr = (uchar*)image->GetBufferPointer();
+//  memcpy(iptr, inVol, nx*ny*nz);
+////  float *iptr = (float*)image->GetBufferPointer();
+////  memcpy(iptr, floatVol, 4*nx*ny*nz);
+////  delete [] floatVol;
+//
+//  // find gradient magnitude to be used as height field
+//  typedef itk::GradientMagnitudeImageFilter<ImageType, ImageType> gmFilter;
+//  gmFilter::Pointer gmfilter = gmFilter::New();
+//  gmfilter->SetInput( image );
+//  gmfilter->Update();
+//  
+//  // pass this as input to watershed
+//  //typedef itk::MorphologicalWatershedImageFilter<ImageType, watershedImageType> Filter;
+//  typedef itk::WatershedImageFilter<ImageType> Filter;
+//  Filter::Pointer filter = Filter::New();
+//  filter->SetLevel(level);
+//  filter->SetInput(gmfilter->GetOutput());
+//
+//  // set up progress update
+//  m_progress->setLabelText("Watershed\nData taken from channel 1.\nResults returned in channel 2");
+//  m_prog = 0;
+//  typedef itk::SimpleMemberCommand<ITKSegmentation> CommandProgress;
+//  CommandProgress::Pointer progressbar = CommandProgress::New();
+//  progressbar->SetCallbackFunction(this, &ITKSegmentation::next);
+//  filter->AddObserver(itk::ProgressEvent(), progressbar);
+//    
+//  filter->Update();
+//
+//
+//  // find min and max values of the labelled image
+//  typedef itk::MinimumMaximumImageCalculator <watershedImageType>
+//          ImageCalculatorFilterType; 
+//  ImageCalculatorFilterType::Pointer imageCalculatorFilter
+//          = ImageCalculatorFilterType::New ();
+//  imageCalculatorFilter->SetImage(filter->GetOutput());
+//  imageCalculatorFilter->Compute();
+//  unsigned long vmin, vmax;
+//  vmin = imageCalculatorFilter->GetMinimum();
+//  vmax = imageCalculatorFilter->GetMaximum();
+//  
+//  watershedImageType *wimg = filter->GetOutput();
+//  unsigned long *outVol = (unsigned long*)(wimg->GetBufferPointer());
+//
+//  for(int i=0; i<nx*ny*nz; i++)
+//    {
+//      if (outVol[1] > 0)
+//	inVol[i] = 1 + 254*(float)(outVol[i])/vmax;
+//      else
+//	inVol[i] = 0;
+//    }
 }
 
 void

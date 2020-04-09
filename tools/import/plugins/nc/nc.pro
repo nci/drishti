@@ -1,6 +1,6 @@
 TEMPLATE = lib
 
-DRISHTI_DEFINES = IMPORT
+DRISHTI_DEFINES = NETCDF
 include(../../../../drishti.pri )
 
 CONFIG += release plugin
@@ -12,12 +12,7 @@ include(../plugins.pri)
 win32 {
   INCLUDEPATH += ../../
 
- contains(Windows_Setup, Win32) {  
-    LIBS += netcdf.lib
- }
- contains(Windows_Setup, Win64) {  
-    LIBS += netcdfcpp.lib
- }
+  LIBS += netcdfcpp.lib
 }
 
 unix {

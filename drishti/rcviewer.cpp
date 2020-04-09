@@ -1583,17 +1583,6 @@ RcViewer::updateFilledBoxes()
 void
 RcViewer::generateDrawBoxes()
 { 
-//  QProgressDialog progress("Marking valid boxes - (2/2)",
-//			   QString(),
-//			   0, 100,
-//			   0);
-//  progress.setMinimumDuration(0);
-//
-//
-//  progress.setValue(10);
-//  qApp->processEvents();
-
-
   m_mdEle = 0;
   
   Vec voxelScaling = Global::voxelScaling();
@@ -1625,7 +1614,6 @@ RcViewer::generateDrawBoxes()
   for(int k=kmin; k<kmax; k++)
     {
       Global::progressBar()->setValue(100*k/kmax);
-      //progress.setValue(100*k/kmax);
       qApp->processEvents();
   
       for(int j=jmin; j<jmax; j++)
@@ -1664,7 +1652,6 @@ RcViewer::generateDrawBoxes()
     }
 
   Global::progressBar()->setValue(100);
-  //progress.setValue(100);
   qApp->processEvents();
 }
 

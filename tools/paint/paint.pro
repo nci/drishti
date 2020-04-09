@@ -33,15 +33,15 @@ FORMS += drishtipaint.ui viewermenu.ui \
   win32 {
 	 DEFINES += USE_GLMEDIA
 
-         INCLUDEPATH += c:\Qt\libQGLViewer-2.6.1 \
+         INCLUDEPATH += c:\Qt\libQGLViewer\libQGLViewer-2.6.4 \
                         ..\..\glmedia-64 \
-                        C:\cygwin64\home\acl900\c-blosc-1.14.3\blosc
+                        C:\cygwin64\home\acl900\drishtilib\c-blosc-1.14.3\blosc
                         
-         QMAKE_LIBDIR += c:\Qt\libQGLViewer-2.6.1\lib \
+         QMAKE_LIBDIR += c:\Qt\libQGLViewer\libQGLViewer-2.6.4\lib \
                          ..\..\glmedia-64 \
-                         C:\cygwin64\home\acl900\c-blosc-1.14.3\libs
+                         C:\cygwin64\home\acl900\drishtilib\c-blosc-1.14.3\libs
 
-         LIBS += QGLViewer2.lib glew32.lib glmedia.lib blosc.lib
+         LIBS += QGLViewer2.lib glew32.lib glmedia.lib blosc.lib opengl32.lib glu32.lib
         }
 #}
 

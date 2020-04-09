@@ -40,16 +40,6 @@ include( ../drishti.pri )
 win32 {
   DEFINES += USE_GLMEDIA
 
- contains(Windows_Setup, Win32) {
-    message(drishti.exe : Win32 setup)
-    INCLUDEPATH += ..\glmedia 16bit
-    QMAKE_LIBDIR += ..\glmedia
-    LIBS += QGLViewer2.lib \
-  	netcdf.lib \
-  	glew32.lib \
-  	glmedia.lib
-  }
-
   contains(Windows_Setup, Win64) {
     message(drishti.exe : Win64 setup)
     DEFINES += _CRT_SECURE_NO_WARNINGS
@@ -59,7 +49,9 @@ win32 {
   	netcdfcpp.lib \
   	glew32.lib \
   	freeglut.lib \
-  	glmedia.lib
+  	glmedia.lib \
+        opengl32.lib \
+        glu32.lib
   }
 }
 

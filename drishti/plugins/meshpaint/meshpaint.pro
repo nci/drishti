@@ -21,13 +21,9 @@ win32 {
   LIBS += common.lib \
 	  QGLViewer2.lib \
 	  glew32.lib \
-	  glmedia.lib
-
- contains(Windows_Setup, Win32) {
-  INCLUDEPATH += ../../ ..\..\..\glmedia
-  QMAKE_LIBDIR += ..\common ..\..\..\glmedia
-  LIBS += netcdf.lib
- }
+	  glmedia.lib \
+          opengl32.lib \
+          glu32.lib
 
  contains(Windows_Setup, Win64) {
   INCLUDEPATH += ../../

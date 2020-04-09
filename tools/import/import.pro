@@ -15,32 +15,6 @@ TARGET = drishtiimport
 
 DESTDIR = ../../bin
 
-win32 {
- contains(Windows_Setup, Win32) {  
-    LIBS += netcdf.lib
- }
- contains(Windows_Setup, Win64) {  
-    LIBS += netcdfcpp.lib
- }
-}
-
-unix {
-!macx {
-
-INCLUDEPATH += 16bit
-
-LIBS += -lnetcdf_c++ \
-        -lnetcdf \
-}
-}
-
-
-macx {
-
-LIBS += \
-	-lnetcdf \
-	-lnetcdf_c++
-}
 
 FORMS += remapwidget.ui \
 	 savepvldialog.ui \

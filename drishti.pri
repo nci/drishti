@@ -13,31 +13,26 @@ contains(Windows_Setup, Win64) {
     message(Win64 setup)
 
     contains(DRISHTI_DEFINES, RENDERER) {
-      INCLUDEPATH += c:\Qt\libQGLViewer-2.6.1 \
+      INCLUDEPATH += c:\Qt\libQGLViewer\libQGLViewer-2.6.4 \
   	c:\cygwin64\home\acl900\drishtilib\freeglut\include \
- 	c:\cygwin64\home\acl900\drishtilib\glew-1.11.0\include
+ 	c:\cygwin64\home\acl900\drishtilib\glew-2.1.0\include
   
-      QMAKE_LIBDIR += c:\Qt\libQGLViewer-2.6.1\lib \
+      QMAKE_LIBDIR += c:\Qt\libQGLViewer\libQGLViewer-2.6.4\lib \
   	c:\cygwin64\home\acl900\drishtilib\freeglut\lib\x64 \
-	c:\cygwin64\home\acl900\drishtilib\glew-1.11.0\lib\Release\x64
+	c:\cygwin64\home\acl900\drishtilib\glew-2.1.0\build\lib\Release
     }
   
-    contains(DRISHTI_DEFINES, IMPORT) {
-      INCLUDEPATH += c:\cygwin64\home\acl900\drishtilib\netcdf\include
-      QMAKE_LIBDIR += c:\cygwin64\home\acl900\drishtilib\netcdf\lib \
-    }
- 
     contains(DRISHTI_DEFINES, NETCDF) {
        INCLUDEPATH += c:\cygwin64\home\acl900\drishtilib\netcdf\include
        QMAKE_LIBDIR += c:\cygwin64\home\acl900\drishtilib\netcdf\lib \
     }  
   
     contains(DRISHTI_DEFINES, ITK) {
-      ITKVer = 4.3
-      InsightToolkit = D:\InsightToolkit-$${ITKVer}.1
-      ITK = D:\ITK
+      ITKVer = 5.0
+      InsightToolkit = C:\InsightToolkit-$${ITKVer}.1
+      ITK = C:\ITK
   
-      QMAKE_LIBDIR += d:\ITK\lib\Release
+      QMAKE_LIBDIR += C:\ITK\lib\Release
     }
   }
 }

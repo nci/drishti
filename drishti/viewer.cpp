@@ -1021,6 +1021,10 @@ Viewer::loadLookupTable(QList<QImage> image)
 	}
     }
   updateLookupTable();
+
+  if (m_rcMode)
+    updateGL();
+
   update();
 }
 

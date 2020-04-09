@@ -14,15 +14,6 @@ FORMS += ../../propertyeditor.ui
 win32 {
   DESTDIR = ../common
 
- contains(Windows_Setup, Win32) {
-  INCLUDEPATH += ../../  ..\..\..\glmedia
-  QMAKE_LIBDIR += ..\..\..\glmedia
-  LIBS += QGLViewer2.lib \
-	  netcdf.lib \
-	  glew32.lib \
-	  glmedia.lib
- }
-
  contains(Windows_Setup, Win64) {
   message(drishti.exe : Win64 setup)
   DEFINES += _CRT_SECURE_NO_WARNINGS

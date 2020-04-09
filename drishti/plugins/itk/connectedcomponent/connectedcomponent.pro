@@ -15,55 +15,123 @@ win32 {
 DESTDIR = ../../../../bin/renderplugins/ITK
 
 INCLUDEPATH += ../../../ \
-	$$InsightToolkit\Modules\Video\Filtering\include \
+	$$InsightToolkit\Modules\Segmentation\Watersheds\include \
 	$$InsightToolkit\Modules\Video\IO\include \
+	$$InsightToolkit\Modules\Video\Filtering\include \
 	$$InsightToolkit\Modules\Video\Core\include \
-	$$InsightToolkit\Modules\Nonunit\Review\include \
+	$$InsightToolkit\Modules\Bridge\VTK\include \
+	$$InsightToolkit\Modules\Core\TestKernel\include \
+	$$InsightToolkit\Modules\Segmentation\SuperPixel\include \
+	$$InsightToolkit\Modules\Filtering\SpatialFunction\include \
 	$$InsightToolkit\Modules\Registration\RegistrationMethodsv4\include \
+	$$InsightToolkit\Modules\Segmentation\RegionGrowing\include \
+	$$InsightToolkit\Modules\Filtering\QuadEdgeMeshFiltering\include \
 	$$InsightToolkit\Modules\Registration\Metricsv4\include \
 	$$InsightToolkit\Modules\Numerics\Optimizersv4\include \
+	$$InsightToolkit\Modules\Segmentation\MarkovRandomFieldsClassifiers\include \
 	$$InsightToolkit\Modules\Segmentation\LevelSetsv4\include \
+	$$InsightToolkit\Modules\Segmentation\LabelVoting\include \
+	$$InsightToolkit\Modules\ThirdParty\libLBFGS\include \
+	$$InsightToolkit\Modules\Segmentation\KLMRegionGrowing\include \
+	$$InsightToolkit\Modules\Filtering\ImageNoise\include \
 	$$InsightToolkit\Modules\Filtering\ImageFusion\include \
+	$$InsightToolkit\Modules\Filtering\ImageFrequency\include \
+	$$InsightToolkit\Modules\IO\VTK\include \
 	$$InsightToolkit\Modules\IO\TransformMatlab\include \
 	$$InsightToolkit\Modules\IO\TransformInsightLegacy\include \
 	$$InsightToolkit\Modules\IO\TransformHDF5\include \
 	$$InsightToolkit\Modules\IO\TransformBase\include \
-	$$InsightToolkit\Modules\IO\HDF5\include \
-	$$InsightToolkit\Modules\IO\CSV\include \
-	$$InsightToolkit\Modules\ThirdParty\HDF5\src \
-	$$InsightToolkit\Modules\IO\Mesh\include \
-	$$InsightToolkit\Modules\ThirdParty\GIFTI\src\gifticlib \
-	$$InsightToolkit\Modules\Segmentation\Watersheds\include \
-	$$InsightToolkit\Modules\Segmentation\Voronoi\include \
-	$$InsightToolkit\Modules\Bridge\VTK\include \
-	$$InsightToolkit\Modules\Filtering\SpatialFunction\include \
-	$$InsightToolkit\Modules\Segmentation\RegionGrowing\include \
-	$$InsightToolkit\Modules\Filtering\QuadEdgeMeshFiltering\include \
-	$$InsightToolkit\Modules\Numerics\NeuralNetworks\include \
-	$$InsightToolkit\Modules\Segmentation\MarkovRandomFieldsClassifiers\include \
-	$$InsightToolkit\Modules\Segmentation\LabelVoting\include \
-	$$InsightToolkit\Modules\Segmentation\KLMRegionGrowing\include \
-o	$$InsightToolkit\Modules\IO\Siemens\include \
-	$$InsightToolkit\Modules\IO\RAW\include \
-	$$InsightToolkit\Modules\IO\GE\include \
-	$$InsightToolkit\Modules\IO\IPL\include \
-	$$InsightToolkit\Modules\Registration\FEM\include \
-	$$InsightToolkit\Modules\Registration\PDEDeformable\include \
-	$$InsightToolkit\Modules\Numerics\FEM\include \
-	$$InsightToolkit\Modules\Registration\Common\include \
+	$$InsightToolkit\Modules\IO\TransformFactory\include \
+	$$InsightToolkit\Modules\IO\Stimulate\include \
 	$$InsightToolkit\Modules\IO\SpatialObjects\include \
 	$$InsightToolkit\Modules\IO\XML\include \
+	$$InsightToolkit\Modules\IO\Siemens\include \
+	$$InsightToolkit\Modules\IO\RAW\include \
+	$$InsightToolkit\Modules\IO\PNG\include \
+	$$InsightToolkit\Modules\ThirdParty\PNG\src \
+	$$ITK\Modules\ThirdParty\PNG\src \
+	$$InsightToolkit\Modules\IO\NRRD\include \
+	$$InsightToolkit\Modules\ThirdParty\NrrdIO\src\NrrdIO \
+	$$ITK\Modules\ThirdParty\NrrdIO\src\NrrdIO \
+	$$InsightToolkit\Modules\IO\NIFTI\include \
+	$$InsightToolkit\Modules\IO\Meta\include \
+	$$InsightToolkit\Modules\IO\Mesh\include \
+	$$InsightToolkit\Modules\IO\MeshVTK\include \
+	$$InsightToolkit\Modules\IO\MeshOFF\include \
+	$$InsightToolkit\Modules\IO\MeshOBJ\include \
+	$$InsightToolkit\Modules\IO\MeshGifti\include \
+	$$InsightToolkit\Modules\IO\MeshFreeSurfer\include \
+	$$InsightToolkit\Modules\IO\MeshBYU\include \
+	$$InsightToolkit\Modules\IO\MeshBase\include \
+	$$InsightToolkit\Modules\Segmentation\Voronoi\include \
+	$$InsightToolkit\Modules\IO\MRC\include \
+	$$InsightToolkit\Modules\IO\MINC\include \
+	$$InsightToolkit\Modules\ThirdParty\HDF5\src\itkhdf5\src \
+	$$ITK\Modules\ThirdParty\HDF5\src\itkhdf5 \
+	$$InsightToolkit\Modules\ThirdParty\HDF5\src\itkhdf5 \
+	$$InsightToolkit\Modules\ThirdParty\MINC\src\libminc\volume_io\Include \
+	$$InsightToolkit\Modules\ThirdParty\MINC\src\libminc\libsrc2 \
+	$$InsightToolkit\Modules\ThirdParty\MINC\src\libminc\libcommon \
+	$$InsightToolkit\Modules\ThirdParty\MINC\src\libminc \
+	$$InsightToolkit\Modules\ThirdParty\MINC \
+	$$ITK\Modules\ThirdParty\MINC \
+	$$InsightToolkit\Modules\IO\LSM\include \
+	$$InsightToolkit\Modules\IO\TIFF\include \
+	$$InsightToolkit\Modules\ThirdParty\TIFF\src \
+	$$ITK\Modules\ThirdParty\TIFF\src\itktiff \
+	$$ITK\Modules\ThirdParty\TIFF\src \
+	$$InsightToolkit\Modules\IO\JPEG2000\include \
+	$$InsightToolkit\Modules\ThirdParty\OpenJPEG\src\openjpeg \
+	$$ITK\Modules\ThirdParty\OpenJPEG\src\openjpeg \
+	$$InsightToolkit\Modules\IO\JPEG\include \
+	$$InsightToolkit\Modules\ThirdParty\JPEG\src \
+	$$ITK\Modules\ThirdParty\JPEG\src \
+	$$InsightToolkit\Modules\IO\HDF5\include \
+	$$InsightToolkit\Modules\IO\GIPL\include \
+	$$InsightToolkit\Modules\IO\GE\include \
+	$$InsightToolkit\Modules\IO\IPL\include \
+	$$InsightToolkit\Modules\IO\GDCM\include \
+	$$InsightToolkit\Modules\IO\CSV\include \
+	$$InsightToolkit\Modules\IO\Bruker\include \
+	$$InsightToolkit\Modules\IO\BioRad\include \
+	$$InsightToolkit\Modules\IO\BMP\include \
+	$$ITK\Modules\ThirdParty\HDF5\src \
+	$$InsightToolkit\Modules\ThirdParty\HDF5\src \
+	$$InsightToolkit\Modules\Filtering\GPUThresholding\include \
+	$$InsightToolkit\Modules\Filtering\GPUSmoothing\include \
+	$$InsightToolkit\Modules\Registration\GPUPDEDeformable\include \
+	$$InsightToolkit\Modules\Registration\PDEDeformable\include \
+	$$InsightToolkit\Modules\Registration\Common\include \
+	$$InsightToolkit\Modules\Registration\GPUCommon\include \
+	$$InsightToolkit\Modules\Filtering\GPUImageFilterBase\include \
+	$$InsightToolkit\Modules\Filtering\GPUAnisotropicSmoothing\include \
+	$$InsightToolkit\Modules\Core\GPUFiniteDifference\include \
+	$$InsightToolkit\Modules\Core\GPUCommon\include \
+	$$InsightToolkit\Modules\ThirdParty\GIFTI\src\gifticlib \
+	$$InsightToolkit\Modules\ThirdParty\NIFTI\src\nifti\znzlib \
+	$$InsightToolkit\Modules\ThirdParty\NIFTI\src\nifti\niftilib \
+	$$InsightToolkit\Modules\ThirdParty\GDCM\src\gdcm\Source\DataStructureAndEncodingDefinition \
+	$$InsightToolkit\Modules\ThirdParty\GDCM\src\gdcm\Source\MessageExchangeDefinition \
+	$$InsightToolkit\Modules\ThirdParty\GDCM\src\gdcm\Source\InformationObjectDefinition \
+	$$InsightToolkit\Modules\ThirdParty\GDCM\src\gdcm\Source\Common \
+	$$InsightToolkit\Modules\ThirdParty\GDCM\src\gdcm\Source\DataDictionary \
+	$$InsightToolkit\Modules\ThirdParty\GDCM\src\gdcm\Source\MediaStorageAndFileFormat \
+	$$ITK\Modules\ThirdParty\GDCM\src\gdcm\Source\Common \
+	$$ITK\Modules\ThirdParty\GDCM \
+	$$InsightToolkit\Modules\ThirdParty\Expat\src\expat \
+	$$ITK\Modules\ThirdParty\Expat\src\expat \
 	$$InsightToolkit\Modules\Numerics\Eigen\include \
 	$$InsightToolkit\Modules\Filtering\DisplacementField\include \
 	$$InsightToolkit\Modules\Filtering\DiffusionTensorImage\include \
+	$$InsightToolkit\Modules\Filtering\Denoising\include \
 	$$InsightToolkit\Modules\Segmentation\DeformableMesh\include \
 	$$InsightToolkit\Modules\Filtering\Deconvolution\include \
 	$$InsightToolkit\Modules\ThirdParty\DICOMParser\src\DICOMParser \
+	$$ITK\Modules\ThirdParty\DICOMParser\src\DICOMParser \
 	$$InsightToolkit\Modules\Filtering\Convolution\include \
 	$$InsightToolkit\Modules\Filtering\FFT\include \
 	$$InsightToolkit\Modules\Filtering\Colormap\include \
 	$$InsightToolkit\Modules\Segmentation\Classifiers\include \
-	$$InsightToolkit\Modules\Segmentation\BioCell\include \
 	$$InsightToolkit\Modules\Filtering\BiasCorrection\include \
 	$$InsightToolkit\Modules\Numerics\Polynomials\include \
 	$$InsightToolkit\Modules\Filtering\AntiAlias\include \
@@ -75,175 +143,176 @@ o	$$InsightToolkit\Modules\IO\Siemens\include \
 	$$InsightToolkit\Modules\Filtering\ImageGradient\include \
 	$$InsightToolkit\Modules\Filtering\Smoothing\include \
 	$$InsightToolkit\Modules\Filtering\ImageCompare\include \
+	$$InsightToolkit\Modules\IO\ImageBase\include \
+	$$ITK\Modules\IO\ImageBase \
 	$$InsightToolkit\Modules\Filtering\FastMarching\include \
 	$$InsightToolkit\Modules\Core\QuadEdgeMesh\include \
 	$$InsightToolkit\Modules\Filtering\DistanceMap\include \
 	$$InsightToolkit\Modules\Numerics\NarrowBand\include \
 	$$InsightToolkit\Modules\Filtering\BinaryMathematicalMorphology\include \
-	$$InsightToolkit\Modules\Filtering\LabelMap\include \
 	$$InsightToolkit\Modules\Filtering\MathematicalMorphology\include \
 	$$InsightToolkit\Modules\Segmentation\ConnectedComponents\include \
 	$$InsightToolkit\Modules\Filtering\Thresholding\include \
+	$$InsightToolkit\Modules\Filtering\LabelMap\include \
 	$$InsightToolkit\Modules\Filtering\ImageLabel\include \
 	$$InsightToolkit\Modules\Filtering\ImageIntensity\include \
 	$$InsightToolkit\Modules\Filtering\Path\include \
 	$$InsightToolkit\Modules\Filtering\ImageStatistics\include \
 	$$InsightToolkit\Modules\Core\SpatialObjects\include \
+	$$InsightToolkit\Modules\ThirdParty\MetaIO\src\MetaIO\src \
+	$$ITK\Modules\ThirdParty\MetaIO\src\MetaIO\src \
+	$$InsightToolkit\Modules\ThirdParty\ZLIB\src \
+	$$ITK\Modules\ThirdParty\ZLIB\src \
 	$$InsightToolkit\Modules\Core\Mesh\include \
 	$$InsightToolkit\Modules\Filtering\ImageCompose\include \
-	$$InsightToolkit\Modules\Core\TestKernel\include \
-	$$InsightToolkit\Modules\IO\VTK\include \
-	$$InsightToolkit\Modules\IO\Stimulate\include \
-	$$InsightToolkit\Modules\IO\PNG\include \
-	$$InsightToolkit\Modules\ThirdParty\PNG\src \
-	$$InsightToolkit\Modules\IO\NRRD\include \
-	$$InsightToolkit\Modules\ThirdParty\NrrdIO\src\NrrdIO \
-	$$InsightToolkit\Modules\IO\NIFTI\include \
-	$$InsightToolkit\Modules\ThirdParty\NIFTI\src\nifti\znzlib \
-	$$InsightToolkit\Modules\ThirdParty\NIFTI\src\nifti\niftilib \
-	$$InsightToolkit\Modules\IO\Meta\include \
-	$$InsightToolkit\Modules\ThirdParty\MetaIO\src\MetaIO \
-	$$InsightToolkit\Modules\IO\LSM\include \
-	$$InsightToolkit\Modules\IO\TIFF\include \
-	$$InsightToolkit\Modules\ThirdParty\TIFF\src \
-	$$InsightToolkit\Modules\IO\GIPL\include \
-	$$InsightToolkit\Modules\IO\GDCM\include \
-	$$InsightToolkit\Modules\ThirdParty\GDCM\src\gdcm\Utilities\C99 \
-	$$InsightToolkit\Modules\ThirdParty\GDCM\src\gdcm\Source\DataStructureAndEncodingDefinition \
-	$$InsightToolkit\Modules\ThirdParty\GDCM\src\gdcm\Source\MessageExchangeDefinition \
-	$$InsightToolkit\Modules\ThirdParty\GDCM\src\gdcm\Source\InformationObjectDefinition \
-	$$InsightToolkit\Modules\ThirdParty\GDCM\src\gdcm\Source\Common \
-	$$InsightToolkit\Modules\ThirdParty\GDCM\src\gdcm\Source\DataDictionary \
-	$$InsightToolkit\Modules\ThirdParty\GDCM\src\gdcm\Source\MediaStorageAndFileFormat \
-	$$InsightToolkit\Modules\IO\JPEG\include \
-	$$InsightToolkit\Modules\ThirdParty\JPEG\src \
-	$$InsightToolkit\Modules\ThirdParty\ZLIB\src \
-	$$InsightToolkit\Modules\ThirdParty\OpenJPEG\src\openjpeg \
-	$$InsightToolkit\Modules\ThirdParty\Expat\src\expat \
-	$$InsightToolkit\Modules\IO\BioRad\include \
-	$$InsightToolkit\Modules\IO\BMP\include \
-	$$InsightToolkit\Modules\IO\ImageBase\include \
 	$$InsightToolkit\Modules\Filtering\AnisotropicSmoothing\include \
 	$$InsightToolkit\Modules\Filtering\ImageGrid\include \
 	$$InsightToolkit\Modules\Core\ImageFunction\include \
 	$$InsightToolkit\Modules\Core\Transform\include \
 	$$InsightToolkit\Modules\Numerics\Statistics\include \
+	$$ITK\Modules\ThirdParty\Netlib \
 	$$InsightToolkit\Modules\Core\ImageAdaptors\include \
 	$$InsightToolkit\Modules\Filtering\CurvatureFlow\include \
 	$$InsightToolkit\Modules\Filtering\ImageFilterBase\include \
 	$$InsightToolkit\Modules\Core\FiniteDifference\include \
 	$$InsightToolkit\Modules\Core\Common\include \
-	$$InsightToolkit\Modules\ThirdParty\VNLInstantiation\include \
+	$$ITK\Modules\Core\Common \
+	$$ITK\Modules\ThirdParty\VNL\src\vxl\core \
+	$$ITK\Modules\ThirdParty\VNL\src\vxl\vcl \
+	$$ITK\Modules\ThirdParty\VNL\src\vxl\v3p\netlib \
 	$$InsightToolkit\Modules\ThirdParty\VNL\src\vxl\core \
 	$$InsightToolkit\Modules\ThirdParty\VNL\src\vxl\vcl \
 	$$InsightToolkit\Modules\ThirdParty\VNL\src\vxl\v3p\netlib \
-	$$ITK\Examples\ITKIOFactoryRegistration \
-	$$ITK\Modules\ThirdParty\TIFF\src\itktiff \
-	$$ITK\Modules\ThirdParty\TIFF\src \
-	$$ITK\Modules\ThirdParty\HDF5\src \
-	$$ITK\Modules\ThirdParty\DICOMParser\src\DICOMParser \
-	$$ITK\Modules\ThirdParty\PNG\src \
-	$$ITK\Modules\ThirdParty\NrrdIO\src\NrrdIO \
-	$$ITK\Modules\ThirdParty\MetaIO\src\MetaIO \
-	$$ITK\Modules\ThirdParty\JPEG\src \
-	$$ITK\Modules\ThirdParty\GDCM\src\gdcm\Source\Common \
-	$$ITK\Modules\ThirdParty\GDCM \
-	$$ITK\Modules\ThirdParty\ZLIB\src \
-	$$ITK\Modules\ThirdParty\OpenJPEG\src\openjpeg \
-	$$ITK\Modules\ThirdParty\Expat\src\expat \
-	$$ITK\Modules\IO\ImageBase \
-	$$ITK\Modules\ThirdParty\Netlib \
 	$$ITK\Modules\ThirdParty\KWSys\src \
-	$$ITK\Modules\ThirdParty\VNL\src\vxl\core \
-	$$ITK\Modules\Core\Common \
-	$$ITK\Modules\ThirdParty\VNL\src\vxl\vcl \
-	$$ITK\Modules\ThirdParty\VNL\src\vxl\v3p\netlib
+	$$InsightToolkit\Modules\ThirdParty\KWIML\src \
+	$$ITK\Modules\ThirdParty\KWIML\src \
+	$$InsightToolkit\Modules\ThirdParty\Eigen3\src \
+	$$ITK\Modules\ThirdParty\Eigen3\src \
+	$$ITK\Modules\ThirdParty\DoubleConversion\src\double-conversion \
+	$$InsightToolkit\Modules\ThirdParty\DoubleConversion\src \
+	$$InsightToolkit\Modules\ThirdParty\VNL\src\vxl\core\vnl\algo \
+	$$InsightToolkit\Modules\ThirdParty\VNL\src\vxl\core\vnl \
+	$$ITK\Modules\ThirdParty\NIFTI\src\nifti\znzlib \
+	$$ITK\Modules\ThirdParty\NIFTI\src\nifti\niftilib \
+	$$ITK\Modules\ThirdParty\HDF5\src\itkhdf5\c++\src \
+	$$InsightToolkit\Modules\ThirdParty\HDF5\src\itkhdf5\c++\src \
+	$$ITK\Modules\ThirdParty\HDF5\src\itkhdf5\src \
+	$$InsightToolkit\Modules\ThirdParty\Eigen3\src\itkeigen\.. \
+	$$ITK\Modules\ThirdParty\Eigen3\src\itkeigen\..
 
 QMAKE_LIBDIR += ..\..\common
 
 LIBS += common.lib \
-	QGLViewer2.lib \
-	glew32.lib \
- 	Advapi32.lib \
-	User32.lib \
-	Gdi32.lib \
-	Ws2_32.lib \
-	Rpcrt4.lib \
-	itksys-$${ITKVer}.lib \
-	itkvnl_algo-$${ITKVer}.lib \
-	itkvnl-$${ITKVer}.lib \
-	itkv3p_netlib-$${ITKVer}.lib \
-	ITKCommon-$${ITKVer}.lib \
-	itkNetlibSlatec-$${ITKVer}.lib \
-	ITKStatistics-$${ITKVer}.lib \
-	ITKIOImageBase-$${ITKVer}.lib \
-	ITKIOBMP-$${ITKVer}.lib \
-	ITKIOBioRad-$${ITKVer}.lib \
-	ITKEXPAT-$${ITKVer}.lib \
-	itkopenjpeg-$${ITKVer}.lib \
-	itkzlib-$${ITKVer}.lib \
-	itkgdcmDICT-$${ITKVer}.lib \
-	itkgdcmMSFF-$${ITKVer}.lib \
-	ITKIOGDCM-$${ITKVer}.lib \
-	ITKIOGIPL-$${ITKVer}.lib \
-	itkjpeg-$${ITKVer}.lib \
-	ITKIOJPEG-$${ITKVer}.lib \
-	itktiff-$${ITKVer}.lib \
-	ITKIOTIFF-$${ITKVer}.lib \
-	ITKIOLSM-$${ITKVer}.lib \
-	ITKMetaIO-$${ITKVer}.lib \
-	ITKIOMeta-$${ITKVer}.lib \
-	ITKznz-$${ITKVer}.lib \
-	ITKniftiio-$${ITKVer}.lib \
-	ITKIONIFTI-$${ITKVer}.lib \
-	ITKNrrdIO-$${ITKVer}.lib \
-	ITKIONRRD-$${ITKVer}.lib \
-	itkpng-$${ITKVer}.lib \
-	ITKIOPNG-$${ITKVer}.lib \
-	ITKIOStimulate-$${ITKVer}.lib \
-	ITKIOVTK-$${ITKVer}.lib \
-	ITKMesh-$${ITKVer}.lib \
-	ITKSpatialObjects-$${ITKVer}.lib \
-	ITKPath-$${ITKVer}.lib \
-	ITKLabelMap-$${ITKVer}.lib \
-	ITKQuadEdgeMesh-$${ITKVer}.lib \
-	ITKOptimizers-$${ITKVer}.lib \
-	ITKPolynomials-$${ITKVer}.lib \
-	ITKBiasCorrection-$${ITKVer}.lib \
-	ITKBioCell-$${ITKVer}.lib \
-	ITKDICOMParser-$${ITKVer}.lib \
-	ITKIOXML-$${ITKVer}.lib \
-	ITKIOSpatialObjects-$${ITKVer}.lib \
-	ITKFEM-$${ITKVer}.lib \
-	ITKIOIPL-$${ITKVer}.lib \
-	ITKIOGE-$${ITKVer}.lib \
-	ITKIOSiemens-$${ITKVer}.lib \
-	ITKKLMRegionGrowing-$${ITKVer}.lib \
-	ITKVTK-$${ITKVer}.lib \
-	ITKWatersheds-$${ITKVer}.lib \
-	ITKgiftiio-$${ITKVer}.lib \
-	ITKIOMesh-$${ITKVer}.lib \
-	itkhdf5_cpp-$${ITKVer}.lib \
-	itkhdf5-$${ITKVer}.lib \
-	ITKIOCSV-$${ITKVer}.lib \
-	ITKIOHDF5-$${ITKVer}.lib \
-	ITKIOTransformBase-$${ITKVer}.lib \
-	ITKIOTransformHDF5-$${ITKVer}.lib \
-	ITKIOTransformInsightLegacy-$${ITKVer}.lib \
-	ITKIOTransformMatlab-$${ITKVer}.lib \
-	ITKOptimizersv4-$${ITKVer}.lib \
-	ITKReview-$${ITKVer}.lib \
-	ITKVideoCore-$${ITKVer}.lib \
-	ITKVideoIO-$${ITKVer}.lib \
-	itkgdcmIOD-$${ITKVer}.lib \
-	itkgdcmDSED-$${ITKVer}.lib \
-	itkgdcmCommon-$${ITKVer}.lib \
-	itkgdcmjpeg8-$${ITKVer}.lib \
-	itkgdcmjpeg12-$${ITKVer}.lib \
-	itkgdcmjpeg16-$${ITKVer}.lib \
-	ITKVNLInstantiation-$${ITKVer}.lib \
-	itkv3p_lsqr-$${ITKVer}.lib \
-	itkvcl-$${ITKVer}.lib
+        QGLViewer2.lib \
+        opengl32.lib \
+        glew32.lib \
+        glu32.lib \
+        crypt32.lib \
+	rpcrt4.lib \
+	comctl32.lib \
+	wsock32.lib \
+	ws2_32.lib \
+	Psapi.lib \
+	kernel32.lib \
+	user32.lib \
+	gdi32.lib \
+	winspool.lib \
+	shell32.lib \
+	ole32.lib \
+	oleaut32.lib \
+	uuid.lib \
+	comdlg32.lib \
+	advapi32.lib \
+	$$ITK\lib\Release\itkdouble-conversion-5.0.lib \
+	$$ITK\lib\Release\itksys-5.0.lib \
+	$$ITK\lib\Release\itkvnl_algo-5.0.lib \
+	$$ITK\lib\Release\itkvnl-5.0.lib \
+	$$ITK\lib\Release\itkv3p_netlib-5.0.lib \
+	$$ITK\lib\Release\itknetlib-5.0.lib \
+	$$ITK\lib\Release\itkvcl-5.0.lib \
+	$$ITK\lib\Release\ITKCommon-5.0.lib \
+	$$ITK\lib\Release\itkNetlibSlatec-5.0.lib \
+	$$ITK\lib\Release\ITKStatistics-5.0.lib \
+	$$ITK\lib\Release\ITKTransform-5.0.lib \
+	$$ITK\lib\Release\ITKMesh-5.0.lib \
+	$$ITK\lib\Release\itkzlib-5.0.lib \
+	$$ITK\lib\Release\ITKMetaIO-5.0.lib \
+	$$ITK\lib\Release\ITKSpatialObjects-5.0.lib \
+	$$ITK\lib\Release\ITKPath-5.0.lib \
+	$$ITK\lib\Release\ITKLabelMap-5.0.lib \
+	$$ITK\lib\Release\ITKQuadEdgeMesh-5.0.lib \
+	$$ITK\lib\Release\ITKIOImageBase-5.0.lib \
+	$$ITK\lib\Release\ITKOptimizers-5.0.lib \
+	$$ITK\lib\Release\ITKPolynomials-5.0.lib \
+	$$ITK\lib\Release\ITKBiasCorrection-5.0.lib \
+	$$ITK\lib\Release\ITKDICOMParser-5.0.lib \
+	$$ITK\lib\Release\ITKEXPAT-5.0.lib \
+	$$ITK\lib\Release\itkgdcmDICT-5.0.lib \
+	$$ITK\lib\Release\itkgdcmMSFF-5.0.lib \
+	$$ITK\lib\Release\ITKznz-5.0.lib \
+	$$ITK\lib\Release\ITKniftiio-5.0.lib \
+	$$ITK\lib\Release\ITKgiftiio-5.0.lib \
+	$$ITK\lib\Release\libitkhdf5_cpp.lib \
+	$$ITK\lib\Release\libitkhdf5.lib \
+	$$ITK\lib\Release\ITKIOBMP-5.0.lib \
+	$$ITK\lib\Release\ITKIOBioRad-5.0.lib \
+	$$ITK\lib\Release\ITKIOBruker-5.0.lib \
+	$$ITK\lib\Release\ITKIOCSV-5.0.lib \
+	$$ITK\lib\Release\ITKIOGDCM-5.0.lib \
+	$$ITK\lib\Release\ITKIOIPL-5.0.lib \
+	$$ITK\lib\Release\ITKIOGE-5.0.lib \
+	$$ITK\lib\Release\ITKIOGIPL-5.0.lib \
+	$$ITK\lib\Release\ITKIOHDF5-5.0.lib \
+	$$ITK\lib\Release\itkjpeg-5.0.lib \
+	$$ITK\lib\Release\ITKIOJPEG-5.0.lib \
+	$$ITK\lib\Release\itkopenjpeg-5.0.lib \
+	$$ITK\lib\Release\ITKIOJPEG2000-5.0.lib \
+	$$ITK\lib\Release\itktiff-5.0.lib \
+	$$ITK\lib\Release\ITKIOTIFF-5.0.lib \
+	$$ITK\lib\Release\ITKIOLSM-5.0.lib \
+	$$ITK\lib\Release\itkminc2-5.0.lib \
+	$$ITK\lib\Release\ITKIOMINC-5.0.lib \
+	$$ITK\lib\Release\ITKIOMRC-5.0.lib \
+	$$ITK\lib\Release\ITKIOMeshBase-5.0.lib \
+	$$ITK\lib\Release\ITKIOMeshBYU-5.0.lib \
+	$$ITK\lib\Release\ITKIOMeshFreeSurfer-5.0.lib \
+	$$ITK\lib\Release\ITKIOMeshGifti-5.0.lib \
+	$$ITK\lib\Release\ITKIOMeshOBJ-5.0.lib \
+	$$ITK\lib\Release\ITKIOMeshOFF-5.0.lib \
+	$$ITK\lib\Release\ITKIOMeshVTK-5.0.lib \
+	$$ITK\lib\Release\ITKIOMeta-5.0.lib \
+	$$ITK\lib\Release\ITKIONIFTI-5.0.lib \
+	$$ITK\lib\Release\ITKNrrdIO-5.0.lib \
+	$$ITK\lib\Release\ITKIONRRD-5.0.lib \
+	$$ITK\lib\Release\itkpng-5.0.lib \
+	$$ITK\lib\Release\ITKIOPNG-5.0.lib \
+	$$ITK\lib\Release\ITKIOSiemens-5.0.lib \
+	$$ITK\lib\Release\ITKIOXML-5.0.lib \
+	$$ITK\lib\Release\ITKIOSpatialObjects-5.0.lib \
+	$$ITK\lib\Release\ITKIOStimulate-5.0.lib \
+	$$ITK\lib\Release\ITKTransformFactory-5.0.lib \
+	$$ITK\lib\Release\ITKIOTransformBase-5.0.lib \
+	$$ITK\lib\Release\ITKIOTransformHDF5-5.0.lib \
+	$$ITK\lib\Release\ITKIOTransformInsightLegacy-5.0.lib \
+	$$ITK\lib\Release\ITKIOTransformMatlab-5.0.lib \
+	$$ITK\lib\Release\ITKIOVTK-5.0.lib \
+	$$ITK\lib\Release\ITKKLMRegionGrowing-5.0.lib \
+	$$ITK\lib\Release\itklbfgs-5.0.lib \
+	$$ITK\lib\Release\ITKOptimizersv4-5.0.lib \
+	$$ITK\lib\Release\ITKTestKernel-5.0.lib \
+	$$ITK\lib\Release\ITKVTK-5.0.lib \
+	$$ITK\lib\Release\ITKVideoCore-5.0.lib \
+	$$ITK\lib\Release\ITKVideoIO-5.0.lib \
+	$$ITK\lib\Release\ITKWatersheds-5.0.lib \
+	$$ITK\lib\Release\itkgdcmIOD-5.0.lib \
+	$$ITK\lib\Release\itkgdcmDSED-5.0.lib \
+	$$ITK\lib\Release\itkgdcmCommon-5.0.lib \
+	$$ITK\lib\Release\itkgdcmjpeg8-5.0.lib \
+	$$ITK\lib\Release\itkgdcmjpeg12-5.0.lib \
+	$$ITK\lib\Release\itkgdcmjpeg16-5.0.lib \
+	$$ITK\lib\Release\itkgdcmopenjp2-5.0.lib \
+	$$ITK\lib\Release\itkgdcmcharls-5.0.lib \
+	$$ITK\lib\Release\ITKVNLInstantiation-5.0.lib
 
 }
 

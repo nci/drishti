@@ -27,7 +27,9 @@ class TrisetInformation
 
   void save(fstream&);
   void load(fstream&);
-  
+
+  bool show;
+  bool clip;
   QString filename;
   Vec position;
   Vec scale;

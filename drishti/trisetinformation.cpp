@@ -5,6 +5,8 @@ TrisetInformation::TrisetInformation() { clear(); }
 void
 TrisetInformation::clear()
 {
+  show = true;
+  clip = true;
   filename.clear();
   position = Vec(0,0,0);
   scale = Vec(1,1,1);
@@ -26,6 +28,8 @@ TrisetInformation::clear()
 TrisetInformation&
 TrisetInformation::operator=(const TrisetInformation& ti)
 {
+  show = ti.show;
+  clip = ti.clip;
   filename = ti.filename;
   position = ti.position;
   scale = ti.scale;
@@ -52,6 +56,8 @@ TrisetInformation::interpolate(const TrisetInformation tinfo1,
 			       float frc)
 {
   TrisetInformation tinfo;
+  tinfo.show = tinfo1.show;
+  tinfo.clip = tinfo1.clip;
   tinfo.filename = tinfo1.filename;
   tinfo.opacity = (1-frc)*tinfo1.opacity + frc*tinfo2.opacity;
   tinfo.position = (1-frc)*tinfo1.position + frc*tinfo2.position;
@@ -214,6 +220,16 @@ TrisetInformation::save(fstream &fout)
   fout.write((char*)&flipNormals, sizeof(bool));
 
   memset(keyword, 0, 100);
+  sprintf(keyword, "show");
+  fout.write((char*)keyword, strlen(keyword)+1);
+  fout.write((char*)&show, sizeof(bool));
+
+  memset(keyword, 0, 100);
+  sprintf(keyword, "clip");
+  fout.write((char*)keyword, strlen(keyword)+1);
+  fout.write((char*)&clip, sizeof(bool));
+
+  memset(keyword, 0, 100);
   sprintf(keyword, "end");
   fout.write((char*)keyword, strlen(keyword)+1);
 }
@@ -286,5 +302,9 @@ TrisetInformation::load(fstream &fin)
 	fin.read((char*)&screenDoor, sizeof(bool));
       else if (strcmp(keyword, "flipnormals") == 0)
 	fin.read((char*)&flipNormals, sizeof(bool));
+      else if (strcmp(keyword, "show") == 0)
+	fin.read((char*)&show, sizeof(bool));
+      else if (strcmp(keyword, "clip") == 0)
+	fin.read((char*)&clip, sizeof(bool));
     }
 }

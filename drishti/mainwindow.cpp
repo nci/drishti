@@ -3517,6 +3517,13 @@ void
 MainWindow::highlights(Highlights hl)
 {
   m_Hires->updateHighlights(hl);
+
+  Vec ads = Vec(hl.ambient,
+		hl.diffuse,
+		hl.specular);
+		
+  GeometryObjects::trisets()->setLighting(ads);
+
   m_Viewer->update();
 }
 
@@ -5202,6 +5209,21 @@ MainWindow::on_actionVisibility_triggered()
   if (LightHandler::giLights()->count())
     keys << "gap";
 
+  for(int i=0; i<GeometryObjects::trisets()->count(); i++)
+    {
+      bool flag = GeometryObjects::trisets()->show(i);
+      QString name = QString("triset %1").arg(i);
+      name += QString(" (%1)").arg(QFileInfo(GeometryObjects::trisets()->filename(i)).fileName());
+      vlist.clear();
+      vlist << QVariant("checkbox");
+      vlist << QVariant(flag);
+      plist[name] = vlist;
+
+      keys << name;
+    }
+  if (GeometryObjects::trisets()->count())
+    keys << "gap";
+
   for(int i=0; i<GeometryObjects::networks()->count(); i++)
     {
       bool flag = GeometryObjects::networks()->show(i);
@@ -5278,6 +5300,8 @@ MainWindow::on_actionVisibility_triggered()
 	{	  
 	  if (name == "light")
 	    LightHandler::giLights()->setShow(idx, pair.first.toBool());
+	  else if (name == "triset")
+	    GeometryObjects::trisets()->setShow(idx, pair.first.toBool());
 	  else if (name == "network")
 	    GeometryObjects::networks()->setShow(idx, pair.first.toBool());
 	  else if (name == "clipplane")
@@ -5288,6 +5312,59 @@ MainWindow::on_actionVisibility_triggered()
 		   name == "blend" ||
 		   name == "glow")
 	    GeometryObjects::crops()->setShow(idx, pair.first.toBool());
+	}
+    }
+}
+
+void
+MainWindow::on_actionClipping_triggered()
+{
+  PropertyEditor propertyEditor;
+  QMap<QString, QVariantList> plist;
+
+  QVariantList vlist;
+
+  QStringList keys;
+
+  for(int i=0; i<GeometryObjects::trisets()->count(); i++)
+    {
+      bool flag = GeometryObjects::trisets()->clip(i);
+      QString name = QString("triset %1").arg(i);
+      name += QString(" (%1)").arg(QFileInfo(GeometryObjects::trisets()->filename(i)).fileName());
+      vlist.clear();
+      vlist << QVariant("checkbox");
+      vlist << QVariant(flag);
+      plist[name] = vlist;
+
+      keys << name;
+    }
+  if (GeometryObjects::trisets()->count())
+    keys << "gap";
+
+
+  propertyEditor.set("Clip Settings", plist, keys, false);
+  propertyEditor.resize(200, 200);
+
+  QMap<QString, QPair<QVariant, bool> > vmap;
+
+  if (propertyEditor.exec() == QDialog::Accepted)
+    vmap = propertyEditor.get();
+  else
+    return;
+
+  keys = vmap.keys();
+
+  for(int ik=0; ik<keys.count(); ik++)
+    {
+      QPair<QVariant, bool> pair = vmap.value(keys[ik]);
+      
+      QStringList slist = keys[ik].split(" ");
+      QString name = slist[0];
+      int idx = slist[1].toInt();
+      if (pair.second)
+	{	  
+	  if (name == "triset")
+	    GeometryObjects::trisets()->setClip(idx, pair.first.toBool());
 	}
     }
 }
@@ -5320,6 +5397,7 @@ MainWindow::on_actionMouse_Grab_triggered()
     {
       bool flag = GeometryObjects::trisets()->isInMouseGrabberPool(i);
       QString name = QString("triset %1").arg(i);
+      name += QString(" (%1)").arg(QFileInfo(GeometryObjects::trisets()->filename(i)).fileName());
       vlist.clear();
       vlist << QVariant("checkbox");
       vlist << QVariant(flag);

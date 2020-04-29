@@ -31,7 +31,10 @@ TrisetGrabber::checkIfGrabsMouse(int x, int y,
   m_lastX = x;
   m_lastY = y;
 
-  Vec pos = camera->projectedCoordinatesOf(centroid());
+//  // don't want to grab mouse
+//  setGrabsMouse(false);
+
+  Vec pos = camera->projectedCoordinatesOf(centroid()+position());
   QPoint hp0(pos.x, pos.y);
   QPoint hp1(x, y);
   if ((hp0-hp1).manhattanLength() < 100)

@@ -1708,6 +1708,38 @@ DrawHiresVolume::draw(float stepsize,
   m_Viewer->camera()->setViewDirection(defaultViewDirection);
   loadCameraMatrices();
 
+
+  
+  m_drawGeometryPresent = false;
+  m_drawGeometryPresent |= (GeometryObjects::clipplanes()->count() > 0);
+  m_drawGeometryPresent |= Global::drawBox();
+  m_drawGeometryPresent |= Global::drawAxis();
+  m_drawGeometryPresent |= (GeometryObjects::trisets()->count() > 0);
+  m_drawGeometryPresent |= (GeometryObjects::networks()->count() > 0);
+  m_drawGeometryPresent |= (GeometryObjects::paths()->count() > 0);
+  m_drawGeometryPresent |= (GeometryObjects::grids()->count() > 0);
+  m_drawGeometryPresent |= (GeometryObjects::crops()->count() > 0);
+  m_drawGeometryPresent |= (GeometryObjects::pathgroups()->count() > 0);
+  m_drawGeometryPresent |= (GeometryObjects::hitpoints()->count() > 0);
+  m_drawGeometryPresent |= (GeometryObjects::landmarks()->count() > 0);
+  m_drawGeometryPresent |= (GeometryObjects::imageCaptions()->count() > 0);
+  m_drawGeometryPresent |= (LightHandler::giLights()->count() > 0);
+
+
+  
+// -----------------------------------
+// -----------------------------------
+// check if we only have surfaces
+  if (Global::volumeType() == Global::DummyVolume &&
+      m_drawGeometryPresent)
+    {
+      drawGeometryOnly();
+      return;
+    }
+// -----------------------------------
+// -----------------------------------
+
+  
 //------------------------------------
 //  change stepsize based on lod
 //------------------------------------
@@ -1730,20 +1762,6 @@ DrawHiresVolume::draw(float stepsize,
 
   glLineWidth(1);
 
-  m_drawGeometryPresent = false;
-  m_drawGeometryPresent |= (GeometryObjects::clipplanes()->count() > 0);
-  m_drawGeometryPresent |= Global::drawBox();
-  m_drawGeometryPresent |= Global::drawAxis();
-  m_drawGeometryPresent |= (GeometryObjects::trisets()->count() > 0);
-  m_drawGeometryPresent |= (GeometryObjects::networks()->count() > 0);
-  m_drawGeometryPresent |= (GeometryObjects::paths()->count() > 0);
-  m_drawGeometryPresent |= (GeometryObjects::grids()->count() > 0);
-  m_drawGeometryPresent |= (GeometryObjects::crops()->count() > 0);
-  m_drawGeometryPresent |= (GeometryObjects::pathgroups()->count() > 0);
-  m_drawGeometryPresent |= (GeometryObjects::hitpoints()->count() > 0);
-  m_drawGeometryPresent |= (GeometryObjects::landmarks()->count() > 0);
-  m_drawGeometryPresent |= (GeometryObjects::imageCaptions()->count() > 0);
-  m_drawGeometryPresent |= (LightHandler::giLights()->count() > 0);
 
   m_useScreenShadows = false;
   if (!stillimage || m_renderQuality == Enums::RenderDefault)
@@ -2422,6 +2440,47 @@ DrawHiresVolume::setRenderDefault()
 }
 
 void
+DrawHiresVolume::drawGeometryOnly()
+{
+
+  glEnable(GL_DEPTH_TEST);
+  glDepthFunc(GL_LESS);
+
+  glClearDepth(1);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+  
+  Vec eyepos = m_Viewer->camera()->position();
+  Vec pn = m_Viewer->camera()->viewDirection(); // slicing direction
+  m_clipPos = GeometryObjects::clipplanes()->positions();
+  m_clipNormal = GeometryObjects::clipplanes()->normals();
+
+  drawGeometry(pn, 1, -1, 10000*pn,
+	       false, false, eyepos);
+  
+
+  drawBackground();
+  
+  disableTextureUnits();
+  glUseProgramObjectARB(0);
+
+  if (Global::drawBox())
+    {
+      double Xform[16];
+      memcpy(Xform, m_bricks->getMatrix(0), 16*sizeof(double));
+      Tick::draw(m_Viewer->camera(), Xform);
+    }
+
+  if (Global::drawAxis())
+    drawAxisText();
+
+
+  GeometryObjects::clipplanes()->postdraw((QGLViewer*)m_Viewer);
+
+  glEnable(GL_DEPTH_TEST);
+}
+
+void
 DrawHiresVolume::drawDefault(Vec pn,
 			     Vec minvert, Vec maxvert,
 			     int layers, float stepsize)
@@ -2763,28 +2822,30 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
   //-------------------------------
 
 
-  bool validTF = false;
-  for (int bno=0; bno<m_numBricks; bno++)
-    validTF |= (tfSet[bno] < Global::lutSize());
-  if (!validTF)
-    {
-      renderGeometry(0, layers,
-		     poStart, pn, layers*step,
-		     false, false, Vec(0,0,0),
-		     false);
-
-      enableTextureUnits();
-      glUseProgramObjectARB(m_defaultShader);
-      drawClipPlaneDefault(0, layers,
-			   poStart, pn, layers*step,
-			   m_numBricks*layers,
-			   lpos[0],
-			   1.0,
-			   slabstart, slabend,
-			   lenx2, leny2, lod,
-			   dragTexsize);
-      layers = 0;
-    }
+//  bool validTF = false;
+//  for (int bno=0; bno<m_numBricks; bno++)
+//    validTF |= (tfSet[bno] < Global::lutSize());
+//
+//
+//  if (!validTF)
+//    {
+//      renderGeometry(0, layers,
+//		     poStart, pn, layers*step,
+//		     false, false, Vec(0,0,0),
+//		     false);
+//
+//      enableTextureUnits();
+//      glUseProgramObjectARB(m_defaultShader);
+//      drawClipPlaneDefault(0, layers,
+//			   poStart, pn, layers*step,
+//			   m_numBricks*layers,
+//			   lpos[0],
+//			   1.0,
+//			   slabstart, slabend,
+//			   lenx2, leny2, lod,
+//			   dragTexsize);
+//      layers = 0;
+//    }
 
 
   int ScreenXMin, ScreenXMax, ScreenYMin, ScreenYMax;
@@ -6829,7 +6890,7 @@ DrawHiresVolume::pointUnderPixel(QPoint scr, bool& found)
   int cx = scr.x();
   int cy = scr.y();
   GLfloat depth = 0;
-  
+
   m_forceBackToFront = true;
   glEnable(GL_SCISSOR_TEST);
   glScissor(cx, sh-1-cy, 1, 1);

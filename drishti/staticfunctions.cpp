@@ -978,34 +978,75 @@ StaticFunctions::generateHistograms(float *flhist1D,
 {
   int i;
 
-  // generate 1d histogram
-  float maxf, minf, mlen;
-  maxf = 1;
-  for (i=1; i<255; i++) // leave out two extremes
-    maxf = qMax(maxf,flhist1D[i]);
+  float totvox = 0;
+
+  //------------------
+  for (i=0; i<256; i++)
+    totvox += flhist1D[i];
 
   for (i=0; i<256; i++)
-    hist1D[i] = (int)(255*flhist1D[i]/maxf);
-  hist1D[0] = qMin(hist1D[0],255);
-  hist1D[255] = qMin(hist1D[255],255);
+    flhist1D[i] /= totvox;
+  
+  for (i=0; i<256; i++)
+    {
+      if (flhist1D[i] > 0)
+	{
+	  float t = qBound(0.0,(8+qMax(-8.0f, log10(100*flhist1D[i])))/10.0, 1.0);
+	  hist1D[i] = qBound(0, (int)(t*t*t*300), 255);
+	  //hist1D[i] = (8+qMax(-8.0f, log10(flhist1D[i])))*25;
+	}
+      else
+	hist1D[i] = 0;
+    }
+  //------------------
 
-
-  // generate 2d histogram
+  //------------------
+  totvox = 0;
   for (i=0; i<256*256; i++)
-    if (flhist2D[i] > 1)
-      flhist2D[i] = log(flhist2D[i]);
-    
-  maxf = -1.0f;
-  minf = 1000000.0f;
+    totvox += flhist2D[i];
+
+  for (i=0; i<256*256; i++)
+    flhist2D[i] /= totvox;
+
   for (i=0; i<256*256; i++)
     {
-      maxf = qMax(maxf,flhist2D[i]);
-      minf = qMin(minf,flhist2D[i]);
+      if (flhist2D[i] > 0)
+	hist2D[i] = qMin(255.0f, (7+qMax(-7.0f, log10(flhist2D[i])))*50);
+      else
+	hist2D[i] = 0;
     }
-
-  mlen = maxf-minf;
-  for (i=0; i<256*256; i++)
-    hist2D[i] = (int)(255*(flhist2D[i]-minf)/mlen);
+      
+//------------------
+  
+//  // generate 1d histogram
+//  float maxf, minf, mlen;
+//  maxf = 1;
+//  for (i=1; i<255; i++) // leave out two extremes
+//    maxf = qMax(maxf,flhist1D[i]);
+//
+//  for (i=0; i<256; i++)
+//    hist1D[i] = (int)(255*flhist1D[i]/maxf);
+//  hist1D[0] = qMin(hist1D[0],255);
+//  hist1D[255] = qMin(hist1D[255],255);
+//
+//
+//  // generate 2d histogram
+//  for (i=0; i<256*256; i++)
+//    if (flhist2D[i] > 1)
+//      flhist2D[i] = log(flhist2D[i]);
+//    
+//  float maxf, minf, mlen;
+//  maxf = -1.0f;
+//  minf = 1000000.0f;
+//  for (i=0; i<256*256; i++)
+//    {
+//      maxf = qMax(maxf,flhist2D[i]);
+//      minf = qMin(minf,flhist2D[i]);
+//    }
+//
+//  mlen = maxf-minf;
+//  for (i=0; i<256*256; i++)
+//    hist2D[i] = (int)(255*(flhist2D[i]-minf)/mlen);
 }
 
 

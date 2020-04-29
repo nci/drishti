@@ -1,4 +1,4 @@
-#ifndef TRISETS_H
+#ifndef TRISETiS_H
 #define TRISETS_H
 
 
@@ -16,6 +16,18 @@ class Trisets : public QObject
 
   int count() { return m_trisets.count(); }
 
+  bool show(int);
+  void setShow(int, bool);
+  void show();
+  void hide();
+
+  bool clip(int);
+  void setClip(int, bool);
+
+  QString filename(int);
+  
+  void setLighting(Vec);
+  
   void allEnclosingBox(Vec&, Vec&);
   void allGridSize(int&, int&, int&);
 

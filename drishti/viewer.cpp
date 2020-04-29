@@ -375,10 +375,25 @@ Viewer::switchDrawVolume()
 void
 Viewer::showFullScene()
 {
-  Vec smin = VECPRODUCT(m_hiresVolume->volumeMin(),
+  Vec smin, smax;
+  
+  if (Global::volumeType() != Global::DummyVolume)
+    {  
+      smin = VECPRODUCT(m_hiresVolume->volumeMin(),
 			Global::voxelScaling());
-  Vec smax = VECPRODUCT(m_hiresVolume->volumeMax(),
+      smax = VECPRODUCT(m_hiresVolume->volumeMax(),
 			Global::voxelScaling());
+    }
+  else
+    {
+      GeometryObjects::trisets()->allEnclosingBox(smin, smax);
+      Vec bmin, bmax;
+      GeometryObjects::networks()->allEnclosingBox(smin, smax);      
+      smin = StaticFunctions::minVec(smin, bmin);
+      smax = StaticFunctions::maxVec(smax, bmax);
+      m_hiresVolume->overwriteDataMinMax(smin, smax);
+    }
+  
 
   setSceneBoundingBox(smin, smax);
 
@@ -466,7 +481,8 @@ Viewer::createImageBuffers()
   if (m_lowresBuffer) delete m_lowresBuffer;
   m_lowresBuffer = new QGLFramebufferObject(m_origWidth/4,
 					    m_origHeight/4,
-					    GL_TEXTURE_RECTANGLE_EXT);
+					    fbFormat);
+					    //GL_TEXTURE_RECTANGLE_EXT);
   if (! m_lowresBuffer->isValid())
     QMessageBox::information(0, "", "invalid lowresBuffer");
 
@@ -2662,9 +2678,6 @@ void Viewer::updatePruneBuffer(bool b)
 void
 Viewer::updateLightBuffers()
 {
-//  if (m_rcMode)
-//    return;
-
   if (Global::volumeType() == Global::DummyVolume)
     return;
 
@@ -2758,8 +2771,8 @@ Viewer::draw()
     }
   //-----------------
   
-  if (m_saveSnapshots || m_saveMovie || Global::playFrames())
-    dummydraw();
+//  if (m_saveSnapshots || m_saveMovie || Global::playFrames())
+//    dummydraw();
 
   setBackgroundColor(QColor(0, 0, 0, 0));
 
@@ -3428,6 +3441,8 @@ Viewer::showBackBufferImage()
   StaticFunctions::renderText(10, size().height()/2,
 			      toggleUpdates, tfont,
 			      Qt::transparent, Qt::lightGray);
+
+  glEnable(GL_DEPTH_TEST);
 }
 
 void
@@ -4046,7 +4061,7 @@ Viewer::grabScreenShot()
 
   setImageSize(imgSize.width(), imgSize.height());
 
-  dummydraw();
+  //dummydraw();
   draw();
   endPlay();
   emit showMessage("Snapshot saved", false);

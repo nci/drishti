@@ -13,7 +13,14 @@ class TrisetObject
 
   void gridSize(int&, int&, int&);
 
-  Vec centroid() { return m_tcentroid; }
+  bool show() { return m_show; }
+  void setShow(bool s) { m_show = s; }
+
+  bool clip() { return m_clip; }
+  void setClip(bool s) { m_clip = s; }
+
+  Vec tcentroid() { return m_tcentroid; }
+  Vec centroid() { return m_centroid; }
   void enclosingBox(Vec&, Vec&);
 
   QString filename() { return m_fileName; }
@@ -93,6 +100,8 @@ class TrisetObject
   void paint(QGLViewer*, QBitArray, float*, Vec, float);
 
  private :
+  bool m_show, m_clip;
+
   QString m_fileName;
 
   bool m_updateFlag;
@@ -135,9 +144,6 @@ class TrisetObject
   GLuint m_glVertBuffer;
   GLuint m_glIndexBuffer;
   GLuint m_glVertArray;
-
-  void drawTriset(float, float, Vec);
-  void drawTriset();
 
   void loadVertexBufferData();
   void drawTrisetBuffer(QGLViewer*, float, float);

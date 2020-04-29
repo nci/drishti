@@ -66,6 +66,9 @@ TrisetObject::enclosingBox(Vec &boxMin,
 void
 TrisetObject::clear()
 {
+  m_show = true;
+  m_clip = true;
+
   m_fileName.clear();
   m_centroid = Vec(0,0,0);
   m_position = Vec(0,0,0);
@@ -78,7 +81,7 @@ TrisetObject::clear()
   m_diffuse = 1.0f;
   m_ambient = 0.0f;
   m_pointMode = true;
-  m_blendMode = true;
+  m_blendMode = false;
   m_shadows = false;
   m_flipNormals = false;
   m_screenDoor = false;
@@ -144,9 +147,9 @@ TrisetObject::loadVertexBufferData()
   vertData = new float[nv];
   for(int i=0; i<nvert; i++)
     {
-      vertData[9*i + 0] = m_vertices[i].x + m_position.x;
-      vertData[9*i + 1] = m_vertices[i].y + m_position.y;
-      vertData[9*i + 2] = m_vertices[i].z + m_position.z;
+      vertData[9*i + 0] = m_vertices[i].x;
+      vertData[9*i + 1] = m_vertices[i].y;
+      vertData[9*i + 2] = m_vertices[i].z;
       vertData[9*i + 3] = m_normals[i].x;
       vertData[9*i + 4] = m_normals[i].y;
       vertData[9*i + 5] = m_normals[i].z;
@@ -154,6 +157,19 @@ TrisetObject::loadVertexBufferData()
       vertData[9*i + 7] = m_vcolor[i].y;
       vertData[9*i + 8] = m_vcolor[i].z;
     }
+
+//  for(int i=0; i<nvert; i++)
+//    {
+//      vertData[9*i + 0] = m_vertices[i].x + m_position.x;
+//      vertData[9*i + 1] = m_vertices[i].y + m_position.y;
+//      vertData[9*i + 2] = m_vertices[i].z + m_position.z;
+//      vertData[9*i + 3] = m_normals[i].x;
+//      vertData[9*i + 4] = m_normals[i].y;
+//      vertData[9*i + 5] = m_normals[i].z;
+//      vertData[9*i + 6] = m_vcolor[i].x;
+//      vertData[9*i + 7] = m_vcolor[i].y;
+//      vertData[9*i + 8] = m_vcolor[i].z;
+//    }
 
 //  for(int i=0; i<nvert; i++)
 //    {
@@ -260,7 +276,7 @@ TrisetObject::drawTrisetBuffer(QGLViewer *viewer,
 
   Vec vd = viewer->camera()->viewDirection();
 
-  glUseProgram(ShaderFactory::meshShader());
+  //glUseProgram(ShaderFactory::meshShader());
   
   GLint *meshShaderParm = ShaderFactory::meshShaderParm();  
 
@@ -273,6 +289,8 @@ TrisetObject::drawTrisetBuffer(QGLViewer *viewer,
   glUniform1f(meshShaderParm[6], m_ambient);
   glUniform1f(meshShaderParm[7], m_diffuse);
   glUniform1f(meshShaderParm[8], m_specular);
+
+  glUniform3f(meshShaderParm[12], m_position.x, m_position.y, m_position.z);
 
   glDrawElements(GL_TRIANGLES, ni, GL_UNSIGNED_INT, 0);  
 
@@ -458,8 +476,9 @@ TrisetObject::loadPLY(QString flnm)
       m_nX = d;
       m_nY = w;
       m_nZ = h;
-      m_position = Vec(-minX, -minY, -minZ);
+      //m_position = Vec(-minX, -minY, -minZ);
 
+      
 //      bool ok;
 //      QString text = QInputDialog::getText(0,
 //					   "Please enter grid size",
@@ -699,7 +718,7 @@ TrisetObject::postdraw(QGLViewer *viewer,
 		       int x, int y,
 		       bool active, int idx)
 {
-  if (!active)
+  if (!m_show || !active)
     return;
 
   viewer->startScreenCoordinatesSystem();
@@ -708,6 +727,7 @@ TrisetObject::postdraw(QGLViewer *viewer,
   glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); // blend on top
 
   QString str = QString("triset %1").arg(idx);
+  str += QString(" (%1)").arg(QFileInfo(m_fileName).fileName());
   QFont font = QFont();
   QFontMetrics metric(font);
   int ht = metric.height();
@@ -726,6 +746,12 @@ TrisetObject::draw(QGLViewer *viewer,
 		   Vec lightPosition,
 		   float pnear, float pfar, Vec step)
 {
+
+  StaticFunctions::drawEnclosingCube(m_tenclosingBox, Vec(1,1,0.5));
+
+  if (!m_show)
+    return;
+  
   if (active)
     {
       Vec lineColor = Vec(0.7f, 0.3f, 0);
@@ -793,11 +819,6 @@ TrisetObject::draw(QGLViewer *viewer,
 	    m_color.z*m_opacity,
 	    m_opacity);
 
-//  if (m_blendMode)
-//    drawTriset(pnear, pfar, step);
-//  else
-//    drawTriset();
-
   if (m_blendMode)
     drawTrisetBuffer(viewer, pnear, pfar);
   else
@@ -807,6 +828,7 @@ TrisetObject::draw(QGLViewer *viewer,
     float emiss[] = { 0, 0, 0, 1 };
     glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, emiss);
   }
+
 
   glDisable(GL_LIGHTING);
 }
@@ -987,180 +1009,6 @@ TrisetObject::paint(QGLViewer *viewer,
     }
 }
 
-void
-TrisetObject::drawTriset(float pnear, float pfar, Vec step)
-{
-  glEnable(GL_DEPTH_TEST);
-
-  bool black = (m_color.x<0.1 && m_color.y<0.1 && m_color.z<0.1);
-  bool has_normals = (m_normals.count() > 0);
-  bool per_vertex_color = (m_vcolor.count() > 0 && black);
-  if (m_pointMode)
-    {
-      glEnable(GL_POINT_SPRITE);
-      glActiveTexture(GL_TEXTURE0);
-      glEnable(GL_TEXTURE_2D);
-      glBindTexture(GL_TEXTURE_2D, Global::spriteTexture());
-      glTexEnvf( GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE );
-      glHint(GL_POINT_SMOOTH_HINT, GL_NICEST);
-      glEnable(GL_POINT_SMOOTH);
-      glPointSize(m_pointSize);
-      glBegin(GL_POINTS);
-      for(int i=0; i<m_triangles.count()/3; i+=m_pointStep)
-	{
-	  int v0 = m_triangles[3*i];
-	  if ( m_texValues[v0].x >= pnear &&
-	       m_texValues[v0].x <= pfar )
-	    {
-	      if (has_normals) glNormal3dv(m_tnormals[v0]);
-	      if (per_vertex_color)
-		glColor4f(m_drawcolor[v0].x, 
-			  m_drawcolor[v0].y, 
-			  m_drawcolor[v0].z,
-			  m_opacity);
-
-	      glVertex3dv(m_tvertices[v0]);
-	    }
-	}
-      glEnd();
-      glPointSize(1);
-      glDisable(GL_POINT_SPRITE);
-      glActiveTexture(GL_TEXTURE0);
-      glDisable(GL_TEXTURE_2D);
-    }
-  else
-    {
-      glBegin(GL_TRIANGLES);
-      for(int i=0; i<m_triangles.count()/3; i++)
-	{
-	  int v0 = m_triangles[3*i];
-	  int v1 = m_triangles[3*i+1];
-	  int v2 = m_triangles[3*i+2];
-	  
-	  if ( ! ((m_texValues[v0].x < pnear &&
-		   m_texValues[v1].x < pnear &&
-		   m_texValues[v2].x < pnear) ||
-		  (m_texValues[v0].x > pfar  &&
-		   m_texValues[v1].x > pfar  &&
-		   m_texValues[v2].x > pfar)) )
-	    {
-	      glMultiTexCoord2d(GL_TEXTURE0,
-				m_texValues[v0].y,
-				m_texValues[v0].z);
-	      if (has_normals) glNormal3dv(m_tnormals[v0]);
-	      if (per_vertex_color)
-		glColor4f(m_drawcolor[v0].x, 
-			  m_drawcolor[v0].y, 
-			  m_drawcolor[v0].z,
-			  m_opacity);
-	      glMultiTexCoord3dv(GL_TEXTURE2, m_tvertices[v0]);
-	      glVertex3dv(m_tvertices[v0]+step);
-	      
-	      glMultiTexCoord2d(GL_TEXTURE0,
-				m_texValues[v1].y,
-				m_texValues[v1].z);
-	      if (has_normals) glNormal3dv(m_tnormals[v1]);
-	      if (per_vertex_color)
-		glColor4f(m_drawcolor[v1].x, 
-			  m_drawcolor[v1].y, 
-			  m_drawcolor[v1].z,
-			  m_opacity);
-	      glMultiTexCoord3dv(GL_TEXTURE2, m_tvertices[v1]);
-	      glVertex3dv(m_tvertices[v1]+step);
-	      
-	      glMultiTexCoord2d(GL_TEXTURE0,
-				m_texValues[v2].y,
-				m_texValues[v2].z);
-	      if (has_normals) glNormal3dv(m_tnormals[v2]);
-	      if (per_vertex_color)
-		glColor4f(m_drawcolor[v2].x, 
-			  m_drawcolor[v2].y, 
-			  m_drawcolor[v2].z,
-			  m_opacity);
-	      glMultiTexCoord3dv(GL_TEXTURE2, m_tvertices[v2]);
-	      glVertex3dv(m_tvertices[v2]+step);
-	    }
-	  
-	}
-      glEnd();
-    }
-
-  glDisable(GL_DEPTH_TEST);
-}
-
-void
-TrisetObject::drawTriset()
-{
-  bool black = (m_color.x<0.1 && m_color.y<0.1 && m_color.z<0.1);
-  bool has_normals = (m_normals.count() > 0);
-  bool per_vertex_color = (m_vcolor.count() > 0 && black);
-  if (m_pointMode)
-    {
-      glEnable(GL_DEPTH_TEST);
-      glEnable(GL_POINT_SPRITE);
-      glActiveTexture(GL_TEXTURE0);
-      glEnable(GL_TEXTURE_2D);
-      glBindTexture(GL_TEXTURE_2D, Global::spriteTexture());
-      glTexEnvf( GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE );
-      glHint(GL_POINT_SMOOTH_HINT, GL_NICEST);
-      glEnable(GL_POINT_SMOOTH);
-      glPointSize(m_pointSize);
-      glBegin(GL_POINTS);
-      for(int i=0; i<m_triangles.count()/3; i+=m_pointStep)
-	{
-	  int v0 = m_triangles[3*i];
-	  if (has_normals) glNormal3dv(m_tnormals[v0]);
-	  if (per_vertex_color)
-	    glColor4f(m_drawcolor[v0].x, 
-		      m_drawcolor[v0].y, 
-		      m_drawcolor[v0].z,
-		      m_opacity);
-	  glVertex3dv(m_tvertices[v0]);
-	}
-      glEnd();
-      glPointSize(1);
-      glDisable(GL_POINT_SPRITE);
-      glActiveTexture(GL_TEXTURE0);
-      glDisable(GL_TEXTURE_2D);
-    }
-  else
-    {
-      glBegin(GL_TRIANGLES);
-      for(int i=0; i<m_triangles.count()/3; i++)
-	{
-	  int v0 = m_triangles[3*i];
-	  int v1 = m_triangles[3*i+1];
-	  int v2 = m_triangles[3*i+2];
-	  
-	  if (has_normals) glNormal3fv(m_tnormals[v0]);
-	  if (per_vertex_color)
-	    glColor4f(m_drawcolor[v0].x, 
-		      m_drawcolor[v0].y, 
-		      m_drawcolor[v0].z,
-		      m_opacity);
-	  glVertex3fv(m_tvertices[v0]);
-	      
-	  if (has_normals) glNormal3fv(m_tnormals[v1]);
-	  if (per_vertex_color)
-	    glColor4f(m_drawcolor[v1].x, 
-		      m_drawcolor[v1].y, 
-		      m_drawcolor[v1].z,
-		      m_opacity);
-	  glVertex3fv(m_tvertices[v1]);
-	      
-	  if (has_normals) glNormal3fv(m_tnormals[v2]);
-	  if (per_vertex_color)
-	    glColor4f(m_drawcolor[v2].x, 
-		      m_drawcolor[v2].y, 
-		      m_drawcolor[v2].z,
-		      m_opacity);
-	  glVertex3fv(m_tvertices[v2]);	  
-	}
-      glEnd();
-    }
-}
-
-
 QDomElement
 TrisetObject::domElement(QDomDocument &doc)
 {
@@ -1274,6 +1122,20 @@ TrisetObject::domElement(QDomDocument &doc)
     de0.appendChild(tn0);
     de.appendChild(de0);
   }
+  
+  {
+    QDomElement de0 = doc.createElement("show");
+    QDomText tn0 = doc.createTextNode(QString("%1").arg(m_show));
+    de0.appendChild(tn0);
+    de.appendChild(de0);
+  }
+
+  {
+    QDomElement de0 = doc.createElement("clip");
+    QDomText tn0 = doc.createTextNode(QString("%1").arg(m_clip));
+    de0.appendChild(tn0);
+    de.appendChild(de0);
+  }
 
   return de;
 }
@@ -1369,6 +1231,16 @@ TrisetObject::fromDomElement(QDomElement de)
 	  if (str == "yes" || str == "1") m_flipNormals = true;
 	  else m_flipNormals = false;
 	}
+      else if (dnode.tagName() == "show")
+	{
+	  if (str == "yes" || str == "1") m_show = true;
+	  else m_show = false;
+	}
+      else if (dnode.tagName() == "clip")
+	{
+	  if (str == "yes" || str == "1") m_clip = true;
+	  else m_clip = false;
+	}
     }
 
   return ok;
@@ -1378,6 +1250,8 @@ TrisetInformation
 TrisetObject::get()
 {
   TrisetInformation ti;
+  ti.show = m_show;
+  ti.clip = m_clip;
   ti.filename = m_fileName;
   ti.position = m_position;
   ti.scale = m_scale;
@@ -1408,6 +1282,8 @@ TrisetObject::set(TrisetInformation ti)
   else
     ok = true;
 
+  m_show = ti.show;
+  m_clip = ti.clip;
   m_position = ti.position;
   m_scale = ti.scale;
   m_opacity = ti.opacity;

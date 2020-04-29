@@ -133,6 +133,7 @@
     <addaction name="actionDepthcue"/>
     <addaction name="actionMouse_Grab"/>
     <addaction name="actionVisibility"/>
+    <addaction name="actionClipping"/>
     <addaction name="separator"/>
     <addaction name="actionSwitch_To1D"/>
     <addaction name="actionEnable_Mask"/>
@@ -623,6 +624,11 @@
    </property>
    <property name="text">
     <string>Raycast Mode (F3)</string>
+   </property>
+  </action>
+  <action name="actionClipping">
+   <property name="text">
+    <string>Clipping</string>
    </property>
   </action>
  </widget>

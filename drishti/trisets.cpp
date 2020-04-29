@@ -26,6 +26,84 @@ Trisets::~Trisets()
   delete [] m_cnormal;
 }
 
+
+QString
+Trisets::filename(int i)
+{
+  return m_trisets[i]->filename();
+}
+
+void
+Trisets::show()
+{
+  for (int i=0; i<m_trisets.count(); i++)
+    {
+      m_trisets[i]->setShow(true);
+      //m_trisets[i]->addInMouseGrabberPool();
+    }
+}
+
+void
+Trisets::hide()
+{
+  for (int i=0; i<m_trisets.count(); i++)
+    {
+      m_trisets[i]->setShow(false);
+      //m_trisets[i]->removeFromMouseGrabberPool();
+    }
+}
+
+bool
+Trisets::show(int i)
+{
+  if (i >= 0 && i < m_trisets.count())
+    return m_trisets[i]->show();
+  else
+    return false;
+}
+
+void
+Trisets::setShow(int i, bool flag)
+{
+  if (i >= 0 && i < m_trisets.count())
+    {
+      m_trisets[i]->setShow(flag);
+//      if (flag)
+//	m_trisets[i]->addInMouseGrabberPool();
+//      else
+//	m_trisets[i]->removeFromMouseGrabberPool();
+    }
+}
+
+bool
+Trisets::clip(int i)
+{
+  if (i >= 0 && i < m_trisets.count())
+    return m_trisets[i]->clip();
+  else
+    return false;
+}
+
+void
+Trisets::setClip(int i, bool flag)
+{
+  if (i >= 0 && i < m_trisets.count())
+    {
+      m_trisets[i]->setClip(flag);
+    }
+}
+
+void
+Trisets::setLighting(Vec ads)
+{
+  for (int i=0; i<m_trisets.count(); i++)
+    {
+      m_trisets[i]->setAmbient(ads.x);
+      m_trisets[i]->setDiffuse(ads.y);
+      m_trisets[i]->setSpecular(ads.z);
+    }
+}
+
 void
 Trisets::clear()
 {
@@ -116,12 +194,12 @@ Trisets::removeFromMouseGrabberPool()
 bool
 Trisets::grabsMouse()
 {
-  for(int i=0; i<m_trisets.count(); i++)
-    {
-      if (m_trisets[i]->grabsMouse())
+ for(int i=0; i<m_trisets.count(); i++)
+   {
+     if (m_trisets[i]->grabsMouse())
 	return true;
-    }
-  return false;
+   }
+ //return false;
 }
 
 void
@@ -164,11 +242,11 @@ Trisets::predraw(QGLViewer *viewer,
 		 Vec pn,
 		 bool shadows, int shadowWidth, int shadowHeight)
 {
-  for(int i=0; i<m_trisets.count();i++)
-    m_trisets[i]->predraw(viewer,
-			  Xform,
-			  pn,
-			  shadows, shadowWidth, shadowHeight);
+//  for(int i=0; i<m_trisets.count();i++)
+//    m_trisets[i]->predraw(viewer,
+//			  Xform,
+//			  pn,
+//			  shadows, shadowWidth, shadowHeight);
 }
 
 void
@@ -200,14 +278,25 @@ Trisets::draw(QGLViewer *viewer,
     {
       glUseProgram(ShaderFactory::meshShader());
       GLint *meshShaderParm = ShaderFactory::meshShaderParm();  
-      glUniform1iARB(meshShaderParm[9],  nclip);
-      glUniform3fvARB(meshShaderParm[10], nclip, m_cpos);
-      glUniform3fvARB(meshShaderParm[11], nclip, m_cnormal);
+
+      if (m_trisets[i]->clip())
+	{
+	  glUniform1iARB(meshShaderParm[9],  nclip);
+	  glUniform3fvARB(meshShaderParm[10], nclip, m_cpos);
+	  glUniform3fvARB(meshShaderParm[11], nclip, m_cnormal);
+	}
+      else
+	{
+	  glUniform1iARB(meshShaderParm[9],  0);
+	}
+      
       
       m_trisets[i]->draw(viewer,
 			 m_trisets[i]->grabsMouse(),
 			 lightVec,
 			 pnear, pfar, step/2);
+
+      glUseProgramObjectARB(0);
 
 //      if ((m_trisets[i]->blendMode() && geoblend) ||
 //	  (!m_trisets[i]->blendMode() && !geoblend))
@@ -322,12 +411,12 @@ Trisets::keyPressEvent(QKeyEvent *event)
 
 	      QVariantList vlist;
 
-//	      Vec pos = m_trisets[i]->position();
-//	      vlist.clear();
-//	      vlist << QVariant("string");
-//	      vlist << QVariant(QString("%1 %2 %3").arg(pos.x).arg(pos.y).arg(pos.z));
-//	      plist["position"] = vlist;
-//
+	      Vec pos = m_trisets[i]->position();
+	      vlist.clear();
+	      vlist << QVariant("string");
+	      vlist << QVariant(QString("%1 %2 %3").arg(pos.x).arg(pos.y).arg(pos.z));
+	      plist["position"] = vlist;
+
 //	      pos = m_trisets[i]->scale();
 //	      vlist.clear();
 //	      vlist << QVariant("string");
@@ -343,43 +432,43 @@ Trisets::keyPressEvent(QKeyEvent *event)
 //	      vlist << QVariant("checkbox");
 //	      vlist << QVariant(m_trisets[i]->screenDoor());
 //	      plist["screendoor transparency"] = vlist;
-
-	      vlist.clear();
-	      vlist << QVariant("double");
-	      vlist << QVariant(m_trisets[i]->opacity());
-	      vlist << QVariant(0.0);
-	      vlist << QVariant(1.0);
-	      vlist << QVariant(0.1); // singlestep
-	      vlist << QVariant(1); // decimals
-	      plist["opacity"] = vlist;
-
-	      vlist.clear();
-	      vlist << QVariant("double");
-	      vlist << QVariant(m_trisets[i]->ambient());
-	      vlist << QVariant(0.0);
-	      vlist << QVariant(1.0);
-	      vlist << QVariant(0.1); // singlestep
-	      vlist << QVariant(1); // decimals
-	      plist["ambient"] = vlist;
-
-	      vlist.clear();
-	      vlist << QVariant("double");
-	      vlist << QVariant(m_trisets[i]->diffuse());
-	      vlist << QVariant(0.0);
-	      vlist << QVariant(1.0);
-	      vlist << QVariant(0.1); // singlestep
-	      vlist << QVariant(1); // decimals
-	      plist["diffuse"] = vlist;
-
-	      vlist.clear();
-	      vlist << QVariant("double");
-	      vlist << QVariant(m_trisets[i]->specular());
-	      vlist << QVariant(0.0);
-	      vlist << QVariant(1.0);
-	      vlist << QVariant(0.1); // singlestep
-	      vlist << QVariant(1); // decimals
-	      plist["specular"] = vlist;
-
+//
+//	      vlist.clear();
+//	      vlist << QVariant("double");
+//	      vlist << QVariant(m_trisets[i]->opacity());
+//	      vlist << QVariant(0.0);
+//	      vlist << QVariant(1.0);
+//	      vlist << QVariant(0.1); // singlestep
+//	      vlist << QVariant(1); // decimals
+//	      plist["opacity"] = vlist;
+//
+//	      vlist.clear();
+//	      vlist << QVariant("double");
+//	      vlist << QVariant(m_trisets[i]->ambient());
+//	      vlist << QVariant(0.0);
+//	      vlist << QVariant(1.0);
+//	      vlist << QVariant(0.1); // singlestep
+//	      vlist << QVariant(1); // decimals
+//	      plist["ambient"] = vlist;
+//
+//	      vlist.clear();
+//	      vlist << QVariant("double");
+//	      vlist << QVariant(m_trisets[i]->diffuse());
+//	      vlist << QVariant(0.0);
+//	      vlist << QVariant(1.0);
+//	      vlist << QVariant(0.1); // singlestep
+//	      vlist << QVariant(1); // decimals
+//	      plist["diffuse"] = vlist;
+//
+//	      vlist.clear();
+//	      vlist << QVariant("double");
+//	      vlist << QVariant(m_trisets[i]->specular());
+//	      vlist << QVariant(0.0);
+//	      vlist << QVariant(1.0);
+//	      vlist << QVariant(0.1); // singlestep
+//	      vlist << QVariant(1); // decimals
+//	      plist["specular"] = vlist;
+//
 //	      vlist.clear();
 //	      vlist << QVariant("color");
 //	      Vec pcolor = m_trisets[i]->color();
@@ -413,12 +502,12 @@ Trisets::keyPressEvent(QKeyEvent *event)
 //	      vlist << QVariant("checkbox");
 //	      vlist << QVariant(m_trisets[i]->shadows());
 //	      plist["shadows"] = vlist;
-
-	      vlist.clear();
-	      vlist << QVariant("checkbox");
-	      vlist << QVariant(m_trisets[i]->blendMode());
-	      plist["blend with volume"] = vlist;
-
+//
+//	      vlist.clear();
+//	      vlist << QVariant("checkbox");
+//	      vlist << QVariant(m_trisets[i]->blendMode());
+//	      plist["blend with volume"] = vlist;
+//
 //	      vlist.clear();
 //	      vlist << QVariant("color");
 //	      pcolor = m_trisets[i]->cropBorderColor();
@@ -429,32 +518,32 @@ Trisets::keyPressEvent(QKeyEvent *event)
 //	      plist["crop border color"] = vlist;
 
 
-	      vlist.clear();
-	      QFile helpFile(":/trisets.help");
-	      if (helpFile.open(QFile::ReadOnly))
-		{
-		  QTextStream in(&helpFile);
-		  QString line = in.readLine();
-		  while (!line.isNull())
-		    {
-		      if (line == "#begin")
-			{
-			  QString keyword = in.readLine();
-			  QString helptext;
-			  line = in.readLine();
-			  while (!line.isNull())
-			    {
-			      helptext += line;
-			      helptext += "\n";
-			      line = in.readLine();
-			      if (line == "#end") break;
-			    }
-			  vlist << keyword << helptext;
-			}
-		      line = in.readLine();
-		    }
-		}
-	      plist["commandhelp"] = vlist;
+//	      vlist.clear();
+//	      QFile helpFile(":/trisets.help");
+//	      if (helpFile.open(QFile::ReadOnly))
+//		{
+//		  QTextStream in(&helpFile);
+//		  QString line = in.readLine();
+//		  while (!line.isNull())
+//		    {
+//		      if (line == "#begin")
+//			{
+//			  QString keyword = in.readLine();
+//			  QString helptext;
+//			  line = in.readLine();
+//			  while (!line.isNull())
+//			    {
+//			      helptext += line;
+//			      helptext += "\n";
+//			      line = in.readLine();
+//			      if (line == "#end") break;
+//			    }
+//			  vlist << keyword << helptext;
+//			}
+//		      line = in.readLine();
+//		    }
+//		}
+//	      plist["commandhelp"] = vlist;
 
 	      vlist.clear();
 	      QString mesg;
@@ -467,28 +556,28 @@ Trisets::keyPressEvent(QKeyEvent *event)
 
 
 	      QStringList keys;
-	      //keys << "position";
+	      keys << "position";
 	      //keys << "scale";
 	      //keys << "gap";
 	      //keys << "flip normals";
 	      //keys << "screendoor transparency";
 	      //keys << "gap";
 	      //keys << "color";
-	      keys << "opacity";
-	      keys << "gap";
-	      keys << "ambient";
-	      keys << "diffuse";
-	      keys << "specular";
-	      keys << "gap";
+	      //keys << "opacity";
+	      //keys << "gap";
+	      //keys << "ambient";
+	      //keys << "diffuse";
+	      //keys << "specular";
+	      //keys << "gap";
 	      //keys << "pointmode";
 	      //keys << "pointstep";
 	      //keys << "pointsize";
 	      //keys << "gap";
 	      //keys << "shadows";
-	      keys << "blend with volume";
+	      //keys << "blend with volume";
 	      //keys << "gap";
 	      //keys << "crop border color";
-	      keys << "commandhelp";
+	      //keys << "commandhelp";
 	      keys << "message";
 	      
 

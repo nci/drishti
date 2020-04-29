@@ -1358,6 +1358,7 @@ GLuint ShaderFactory::meshShader()
 	m_meshShaderParm[9] = glGetUniformLocation(m_meshShader, "nclip");
 	m_meshShaderParm[10] = glGetUniformLocation(m_meshShader,"clipPos");
 	m_meshShaderParm[11] = glGetUniformLocation(m_meshShader,"clipNormal");
+	m_meshShaderParm[12] = glGetUniformLocation(m_meshShader,"origin");
 
     }
 
@@ -1372,6 +1373,7 @@ ShaderFactory::meshShaderV()
 
   shader += "#version 410\n";
   shader += "uniform mat4 MVP;\n";
+  shader += "uniform vec3 origin;\n";
   shader += "layout(location = 0) in vec3 position;\n";
   shader += "layout(location = 1) in vec3 normalIn;\n";
   shader += "layout(location = 2) in vec3 colorIn;\n";
@@ -1383,7 +1385,7 @@ ShaderFactory::meshShaderV()
   shader += "   pointPos = position;\n";
   shader += "   v3Color = colorIn;\n";
   shader += "   v3Normal = normalIn;\n";
-  shader += "   gl_Position = MVP * vec4(position, 1);\n";
+  shader += "   gl_Position = MVP * vec4(origin+position, 1);\n";
   shader += "}\n";
 
   return shader;
@@ -1417,6 +1419,8 @@ ShaderFactory::meshShaderF()
   shader += "   if (pnear < pfar && (d < pnear || d > pfar))\n";
   shader += "     discard;\n";
 
+  shader += "  outputColor = vec4(v3Color, 1)*opacity;\n";
+
   shader += "float cfeather = 1.0;\n";
   shader += "if (nclip > 0)\n";
   shader += "  {\n";
@@ -1432,8 +1436,6 @@ ShaderFactory::meshShaderF()
   shader += "      }\n";
   shader += "    cfeather = 1.0 - cfeather;\n";
   shader += "  }\n";
-
-  shader += "  outputColor = vec4(v3Color, 1)*opacity;\n";
 
   shader += "  if (nclip > 0)\n";
   shader += "    outputColor.rgb = mix(outputColor.rgb, vec3(1,1,1), cfeather);\n";

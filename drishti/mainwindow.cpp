@@ -1759,22 +1759,25 @@ MainWindow::on_actionNetwork_triggered()
 void
 MainWindow::on_actionTriset_triggered()
 {
-  QString flnm;
-  flnm = QFileDialog::getOpenFileName(0,
+  QStringList flnms;
+  flnms = QFileDialog::getOpenFileNames(0,
 				      "Load Triset/PLY File",
 				      Global::previousDirectory(),
 				      "Triset/PLY Files (*.triset | *.ply)",
 				      0,
 				      QFileDialog::DontUseNativeDialog);
   
-  if (flnm.isEmpty())
+  if (flnms.isEmpty())
     return;
 
-  if (StaticFunctions::checkExtension(flnm, ".triset"))
-    GeometryObjects::trisets()->addTriset(flnm);
-  else
-    GeometryObjects::trisets()->addPLY(flnm);
-
+  foreach (QString flnm, flnms)
+    {
+      if (StaticFunctions::checkExtension(flnm, ".triset"))
+	GeometryObjects::trisets()->addTriset(flnm);
+      else
+	GeometryObjects::trisets()->addPLY(flnm);
+    }
+  
   if (Global::volumeType() == Global::DummyVolume)
     {
       int nx, ny, nz;
@@ -1782,7 +1785,7 @@ MainWindow::on_actionTriset_triggered()
       loadDummyVolume(nx, ny, nz);
     }
 
-  QFileInfo f(flnm);
+  QFileInfo f(flnms[0]);
   Global::setPreviousDirectory(f.absolutePath());
 }
 
@@ -2159,7 +2162,13 @@ MainWindow::dropEvent(QDropEvent *event)
 		  if (StaticFunctions::checkExtension(url.toLocalFile(), ".triset"))
 		    GeometryObjects::trisets()->addTriset(url.toLocalFile());
 		  else
-		    GeometryObjects::trisets()->addPLY(url.toLocalFile());
+		    {
+		      QStringList flist;
+		      QList<QUrl> urls = data->urls();
+		      for(int i=0; i<urls.count(); i++)
+			GeometryObjects::trisets()->addPLY(urls[i].toLocalFile());
+		      //GeometryObjects::trisets()->addPLY(url.toLocalFile());
+		    }
 		  if (Global::volumeType() == Global::DummyVolume)
 		    {
 		      int nx, ny, nz;

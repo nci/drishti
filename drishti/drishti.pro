@@ -43,15 +43,24 @@ win32 {
   contains(Windows_Setup, Win64) {
     message(drishti.exe : Win64 setup)
     DEFINES += _CRT_SECURE_NO_WARNINGS
-    INCLUDEPATH += ..\glmedia-64 16bit
-    QMAKE_LIBDIR += ..\glmedia-64
+
+    INCLUDEPATH += ..\glmedia-64 \
+                   16bit \
+                   c:/cygwin64/home/acl900/drishtilib/assimp-5.0.1/include \
+                   c:/cygwin64/home/acl900/drishtilib/assimp-5.0.1/build/include
+                   
+    QMAKE_LIBDIR += ..\glmedia-64 \
+                   c:/cygwin64/home/acl900/drishtilib/assimp-5.0.1/libs \
+
+                   
     LIBS += QGLViewer2.lib \
   	netcdfcpp.lib \
   	glew32.lib \
   	freeglut.lib \
   	glmedia.lib \
         opengl32.lib \
-        glu32.lib
+        glu32.lib \
+        assimp-vc142-mt.lib
   }
 }
 

@@ -1761,9 +1761,9 @@ MainWindow::on_actionTriset_triggered()
 {
   QStringList flnms;
   flnms = QFileDialog::getOpenFileNames(0,
-				      "Load Triset/PLY File",
+				      "Load Surface File",
 				      Global::previousDirectory(),
-				      "Triset/PLY Files (*.triset | *.ply)",
+				      "Surface Files (*.triset | *.ply | *.stl | *.obj | *.fbx | *.blend | *.gltf)",
 				      0,
 				      QFileDialog::DontUseNativeDialog);
   
@@ -1850,7 +1850,7 @@ MainWindow::on_actionLoad_1_Volume_triggered()
   flnm = QFileDialog::getOpenFileNames(0,
 				      "Load volume files",
 				       Global::previousDirectory(),
-				       "NetCDF Files (*.pvl.nc)",
+				       "Files (*.pvl.nc)",
 				       0,
 				       QFileDialog::DontUseNativeDialog);
 
@@ -2050,7 +2050,12 @@ MainWindow::dragEnterEvent(QDragEnterEvent *event)
 	    {
 	      event->acceptProposedAction();
 	    }
-	  else if (StaticFunctions::checkURLs(urls, ".ply"))
+	  else if (StaticFunctions::checkURLs(urls, ".ply") ||
+		   StaticFunctions::checkURLs(urls, ".stl") ||
+		   StaticFunctions::checkURLs(urls, ".obj") ||
+		   StaticFunctions::checkURLs(urls, ".blend") ||
+		   StaticFunctions::checkURLs(urls, ".gltf") ||
+		   StaticFunctions::checkURLs(urls, ".fbx"))
 	    {
 	      event->acceptProposedAction();
 	    }
@@ -2157,7 +2162,12 @@ MainWindow::dropEvent(QDropEvent *event)
 		  m_keyFrame->import(url.toLocalFile());
 		}
 	      else if (StaticFunctions::checkExtension(url.toLocalFile(), ".triset") ||
-		       StaticFunctions::checkExtension(url.toLocalFile(), ".ply"))
+		       StaticFunctions::checkExtension(url.toLocalFile(), ".ply") ||
+		       StaticFunctions::checkExtension(url.toLocalFile(), ".stl") ||
+		       StaticFunctions::checkExtension(url.toLocalFile(), ".obj") ||
+		       StaticFunctions::checkExtension(url.toLocalFile(), ".blend") ||
+		       StaticFunctions::checkExtension(url.toLocalFile(), ".gltf") ||
+		       StaticFunctions::checkExtension(url.toLocalFile(), ".fbx"))
 		{
 		  if (StaticFunctions::checkExtension(url.toLocalFile(), ".triset"))
 		    GeometryObjects::trisets()->addTriset(url.toLocalFile());

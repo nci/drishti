@@ -127,6 +127,8 @@ class TrisetObject
   QVector<Vec> m_normals;
   QVector<uint> m_triangles;
   QVector<Vec> m_vcolor;
+  QVector<Vec> m_uv;
+
   QVector<Vec> m_drawcolor;
 
   Vec m_tcentroid;
@@ -145,11 +147,15 @@ class TrisetObject
   GLuint m_glIndexBuffer;
   GLuint m_glVertArray;
 
+  QString m_diffuseTexFile;
+  GLuint m_diffuseTex;
+  
   void loadVertexBufferData();
   void drawTrisetBuffer(QGLViewer*, float, float);
 
   bool loadTriset(QString);
   bool loadPLY(QString);
+  bool loadAssimpModel(QString);
 };
 
 #endif

@@ -7,6 +7,10 @@
 #include "matrix.h"
 #include "volumeinformation.h"
 
+#include "assimp/Importer.hpp"
+#include "assimp/scene.h"
+#include "assimp/postprocess.h"
+
 #include <QFileDialog>
 
 void
@@ -49,6 +53,7 @@ TrisetObject::TrisetObject()
   m_glVertBuffer = 0;
   m_glIndexBuffer = 0;
   m_glVertArray = 0;
+  m_diffuseTex = 0;
 
   clear();
 }
@@ -89,6 +94,8 @@ TrisetObject::clear()
   m_pointStep = 1;
   m_vertices.clear();
   m_vcolor.clear();
+  m_uv.clear();
+  m_diffuseTexFile.clear();
   m_drawcolor.clear();
   m_normals.clear();
   m_triangles.clear();
@@ -110,6 +117,11 @@ TrisetObject::clear()
       m_glVertArray = 0;
       m_glVertBuffer = 0;
     }
+  if (m_diffuseTex)
+    {
+      glDeleteTextures(1, &m_diffuseTex);
+      m_diffuseTex = 0;
+    }
 
 }
 
@@ -120,7 +132,8 @@ TrisetObject::load(QString flnm)
   if (StaticFunctions::checkExtension(flnm, ".triset"))
     loaded = loadTriset(flnm);
   else
-    loaded = loadPLY(flnm);
+    //loaded = loadPLY(flnm);
+    loaded = loadAssimpModel(flnm);
 
   if (loaded)
     {
@@ -133,36 +146,24 @@ TrisetObject::load(QString flnm)
 void
 TrisetObject::loadVertexBufferData()
 {
-  int stride = 1;
-  if (m_normals.count()) stride++; // per vertex normal
-  if (m_vcolor.count()) stride++; // per vertex color
-  
-  int nvert = m_vertices.count();
-  int nv = 3*stride*nvert;
-  int ni = m_triangles.count();
-  //---------------------
-
-  //---------------------
-  float *vertData;
-  vertData = new float[nv];
-  for(int i=0; i<nvert; i++)
-    {
-      vertData[9*i + 0] = m_vertices[i].x;
-      vertData[9*i + 1] = m_vertices[i].y;
-      vertData[9*i + 2] = m_vertices[i].z;
-      vertData[9*i + 3] = m_normals[i].x;
-      vertData[9*i + 4] = m_normals[i].y;
-      vertData[9*i + 5] = m_normals[i].z;
-      vertData[9*i + 6] = m_vcolor[i].x;
-      vertData[9*i + 7] = m_vcolor[i].y;
-      vertData[9*i + 8] = m_vcolor[i].z;
-    }
-
+//  int stride = 1;
+//  if (m_normals.count()) stride++; // per vertex normal
+//  if (m_vcolor.count()) stride++; // per vertex color
+//  
+//  int nvert = m_vertices.count();
+//  int nv = 3*stride*nvert;
+//  int ni = m_triangles.count();
+//  //---------------------
+//
+//  
+//  //---------------------
+//  float *vertData;
+//  vertData = new float[nv];
 //  for(int i=0; i<nvert; i++)
 //    {
-//      vertData[9*i + 0] = m_vertices[i].x + m_position.x;
-//      vertData[9*i + 1] = m_vertices[i].y + m_position.y;
-//      vertData[9*i + 2] = m_vertices[i].z + m_position.z;
+//      vertData[9*i + 0] = m_vertices[i].x;
+//      vertData[9*i + 1] = m_vertices[i].y;
+//      vertData[9*i + 2] = m_vertices[i].z;
 //      vertData[9*i + 3] = m_normals[i].x;
 //      vertData[9*i + 4] = m_normals[i].y;
 //      vertData[9*i + 5] = m_normals[i].z;
@@ -171,31 +172,46 @@ TrisetObject::loadVertexBufferData()
 //      vertData[9*i + 8] = m_vcolor[i].z;
 //    }
 
-//  for(int i=0; i<nvert; i++)
-//    {
-//      vertData[stride*3*i + 0] = m_vertices[i].x + m_position.x;
-//      vertData[stride*3*i + 1] = m_vertices[i].y + m_position.y;
-//      vertData[stride*3*i + 2] = m_vertices[i].z + m_position.z;
-//
-//      if (m_normals.count() > 0)
-//	{
-//	  vertData[stride*3*i + 3] = m_normals[i].x;
-//	  vertData[stride*3*i + 4] = m_normals[i].y;
-//	  vertData[stride*3*i + 5] = m_normals[i].z;
-//	  if (m_vcolor.count() > 0)
-//	    {
-//	      vertData[stride*3*i + 6] = m_vcolor[i].x;
-//	      vertData[stride*3*i + 7] = m_vcolor[i].y;
-//	      vertData[stride*3*i + 8] = m_vcolor[i].z;
-//	    }
-//	}
-//      else if (m_vcolor.count() > 0)
-//	{
-//	  vertData[stride*3*i + 3] = m_vcolor[i].x;
-//	  vertData[stride*3*i + 4] = m_vcolor[i].y;
-//	  vertData[stride*3*i + 5] = m_vcolor[i].z;
-//	}
-//    }
+  int stride = 3;
+  if (m_normals.count()) stride += 3; // vertex normal
+  if (m_uv.count() || m_vcolor.count()) stride += 3; // vertex color or texture uv
+  
+  int nvert = m_vertices.count();
+  int nv = stride*nvert;
+  int ni = m_triangles.count();
+
+  //---------------------
+  float *vertData;
+  vertData = new float[nv];  
+  for(int i=0; i<nvert; i++)
+    {
+      vertData[stride*i + 0] = m_vertices[i].x;
+      vertData[stride*i + 1] = m_vertices[i].y;
+      vertData[stride*i + 2] = m_vertices[i].z;
+      vertData[stride*i + 3] = m_normals[i].x;
+      vertData[stride*i + 4] = m_normals[i].y;
+      vertData[stride*i + 5] = m_normals[i].z;
+    }
+
+  if (m_uv.count())
+    {
+      for(int i=0; i<nvert; i++)
+	{
+	  vertData[stride*i + 6] = m_uv[i].x;
+	  vertData[stride*i + 7] = m_uv[i].y;
+	  vertData[stride*i + 8] = m_uv[i].z;
+	}
+    }
+  else
+    {
+      for(int i=0; i<nvert; i++)
+	{
+	  vertData[stride*i + 6] = m_vcolor[i].x;
+	  vertData[stride*i + 7] = m_vcolor[i].y;
+	  vertData[stride*i + 8] = m_vcolor[i].z;
+	}
+    }
+
 
   unsigned int *indexData;
   indexData = new unsigned int[ni];
@@ -204,6 +220,27 @@ TrisetObject::loadVertexBufferData()
   //---------------------
 
 
+  //--------------------
+  glGenTextures(1, &m_diffuseTex);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, m_diffuseTex);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  QImage img(m_diffuseTexFile);
+  glTexImage2D(GL_TEXTURE_2D,
+	       0,
+	       4,
+	       img.width(),
+	       img.height(),
+	       0,
+	       GL_BGRA,
+	       GL_UNSIGNED_BYTE,
+	       img.bits());
+  //---------------------
+  
+  
   glGenVertexArrays(1, &m_glVertArray);
   glBindVertexArray(m_glVertArray);
       
@@ -218,22 +255,22 @@ TrisetObject::loadVertexBufferData()
   // Identify the components in the vertex buffer
   glEnableVertexAttribArray(0);
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE,
-			sizeof(float)*3*stride, // stride
+			sizeof(float)*stride, // stride
 			(void *)0); // starting offset
 
-  if (stride > 1)
+  if (stride > 3)
     {
       glEnableVertexAttribArray(1);
       glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE,
-			    sizeof(float)*3*stride,
+			    sizeof(float)*stride,
 			    (char *)NULL + sizeof(float)*3);
     }
   
-  if (stride > 2)
+  if (stride > 6)
     {
       glEnableVertexAttribArray(2);
       glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 
-			    sizeof(float)*3*stride,
+			    sizeof(float)*stride,
 			    (char *)NULL + sizeof(float)*6);
     }
 
@@ -280,6 +317,13 @@ TrisetObject::drawTrisetBuffer(QGLViewer *viewer,
   
   GLint *meshShaderParm = ShaderFactory::meshShaderParm();  
 
+  if (m_uv.count())
+    {
+      glActiveTexture(GL_TEXTURE0);
+      glEnable(GL_TEXTURE_2D);
+      glBindTexture(GL_TEXTURE_2D, m_diffuseTex);
+    }
+
   glUniformMatrix4fv(meshShaderParm[0], 1, GL_FALSE, mvp);
   glUniform3f(meshShaderParm[1], vd.x, vd.y, vd.z); // view direction
   glUniform3f(meshShaderParm[2], m_pn.x, m_pn.y, m_pn.z);
@@ -292,14 +336,25 @@ TrisetObject::drawTrisetBuffer(QGLViewer *viewer,
 
   glUniform3f(meshShaderParm[12], m_position.x, m_position.y, m_position.z);
 
+  if (m_uv.count())
+    {
+      glUniform1i(meshShaderParm[13], 1); // hasVY
+      glUniform1i(meshShaderParm[14], 0); // diffuseTex
+    }
+  else 
+    glUniform1i(meshShaderParm[13], 0); // hasVY
+
+  
   glDrawElements(GL_TRIANGLES, ni, GL_UNSIGNED_INT, 0);  
 
+
+  if (m_uv.count()) glDisable(GL_TEXTURE_2D);
 
   glDisableVertexAttribArray(0);
   glDisableVertexAttribArray(1);
   glDisableVertexAttribArray(2);
   glBindVertexArray(0);
-
+  
   glUseProgram(0);
 }
 
@@ -1424,4 +1479,152 @@ TrisetObject::save()
   fclose( fp ) ;
 
   QMessageBox::information(0, "Save Mesh", "done");
+}
+
+bool
+TrisetObject::loadAssimpModel(QString flnm)
+{
+  m_position = Vec(0,0,0);
+  m_scale = Vec(1,1,1);
+
+  Assimp::Importer importer;
+  const aiScene* scene = importer.ReadFile( flnm.toLatin1().data(), 
+					    aiProcess_Triangulate            |
+					    aiProcess_GenSmoothNormals       |
+					    aiProcess_JoinIdenticalVertices  |
+					    aiProcess_SortByPType);
+
+  if(!scene)
+    {
+      QMessageBox::information(0, "Error Importing Asset",
+			       QString("Couldn't load model %1").arg(flnm));
+      return false;
+    }
+  
+  m_vertices.clear();
+  m_vcolor.clear();
+  m_normals.clear();
+  m_triangles.clear();
+  m_uv.clear();
+  
+  int nvert = 0;
+  for(int i=0; i<scene->mNumMeshes; i++)
+    {
+      aiMesh* mesh = scene->mMeshes[i];
+      bool hasVertexColors = mesh->HasVertexColors(0);
+      bool hasUV = mesh->HasTextureCoords(0);
+
+      for(int j=0; j<mesh->mNumVertices; j++)
+	{	  
+	  aiVector3D pos = mesh->mVertices[j];
+	  m_vertices << Vec(pos.x, pos.y, pos.z);
+
+	  aiVector3D normal = mesh->mNormals[j];
+	  m_normals << Vec(normal.x, normal.y, normal.z);
+	  
+	  if (hasVertexColors)
+	    m_vcolor << Vec(mesh->mColors[0][j].r,
+			    mesh->mColors[0][j].g,
+			    mesh->mColors[0][j].b);
+	  else
+	    m_vcolor << Vec(0.7,0.7,0.7);
+
+	  if (hasUV)
+	    {
+	      m_uv << Vec(mesh->mTextureCoords[0][j].x,
+			  mesh->mTextureCoords[0][j].y,
+			  mesh->mTextureCoords[0][j].z);
+	    }
+	} // verticeas
+
+      for(int j=0; j<mesh->mNumFaces; j++)
+	{
+	  const aiFace& face = mesh->mFaces[j];
+	  for(int k=0; k<face.mNumIndices; k++)
+	    m_triangles << nvert+face.mIndices[k];
+	} // faces
+
+      nvert += mesh->mNumVertices;
+    }
+
+  //--------------
+  if (scene->mNumMaterials > 0)
+    {
+      QMessageBox::information(0, "", QString("%1").arg(scene->mNumMaterials));
+      for(int m=0; m<scene->mNumMaterials; m++)
+	{
+	  aiMaterial *mat = scene->mMaterials[m];
+	  aiString path;
+	  if (mat->GetTexture(aiTextureType_DIFFUSE, 0, &path) == AI_SUCCESS)
+	    {
+	      m_diffuseTexFile = QFileInfo(QFileInfo(flnm).dir(),
+					   QString(path.data)).absoluteFilePath();
+	      break;
+	    }
+	}
+      if (!QFile::exists(m_diffuseTexFile))
+	{
+	  QMessageBox::information(0, "Texture Error", QString("Cannot locate %1").arg(m_diffuseTexFile));
+	  QString imgFile = QFileDialog::getOpenFileName(0,
+							 QString("Load diffuse texture"),
+							 QFileInfo(flnm).dir().path(),
+							 "Image Files (*.png *.tif *.bmp *.jpg *.gif)");
+	  
+	  QFileInfo f(imgFile);
+	  if (f.exists() == true)
+	    m_diffuseTexFile = imgFile;
+	  else
+	    m_uv.clear();
+	}
+    }
+  //--------------
+
+  
+  float minX, maxX;
+  float minY, maxY;
+  float minZ, maxZ;
+  minX = maxX = m_vertices[0].x;
+  minY = maxY = m_vertices[0].y;
+  minZ = maxZ = m_vertices[0].z;
+  for(int i=0; i<m_vertices.count(); i++)
+    {
+      minX = qMin(minX, (float)m_vertices[i].x);
+      maxX = qMax(maxX, (float)m_vertices[i].x);
+      minY = qMin(minY, (float)m_vertices[i].y);
+      maxY = qMax(maxY, (float)m_vertices[i].y);
+      minZ = qMin(minZ, (float)m_vertices[i].z);
+      maxZ = qMax(maxZ, (float)m_vertices[i].z);
+    }
+
+  Vec bmin = Vec(minX, minY, minZ);
+  Vec bmax = Vec(maxX, maxY, maxZ);
+
+//  QMessageBox::information(0, "", QString("%1 : %2\n %3 %4 %5\n %6 %7 %8").\
+//			   arg(m_vertices.count()).\
+//			   arg(m_triangles.count()).\
+//			   arg(bmin.x).arg(bmin.y).arg(bmin.z).\
+//			   arg(bmax.x).arg(bmax.y).arg(bmax.z));
+  
+  minX = floor(minX);
+  minY = floor(minY);
+  minZ = floor(minZ);
+  maxX = ceil(maxX);
+  maxY = ceil(maxY);
+  maxZ = ceil(maxZ);
+  m_nZ = maxX-minX+1;
+  m_nY = maxY-minY+1;
+  m_nX = maxZ-minZ+1;
+  
+  m_enclosingBox[0] = Vec(bmin.x, bmin.y, bmin.z);
+  m_enclosingBox[1] = Vec(bmax.x, bmin.y, bmin.z);
+  m_enclosingBox[2] = Vec(bmax.x, bmax.y, bmin.z);
+  m_enclosingBox[3] = Vec(bmin.x, bmax.y, bmin.z);
+  m_enclosingBox[4] = Vec(bmin.x, bmin.y, bmax.z);
+  m_enclosingBox[5] = Vec(bmax.x, bmin.y, bmax.z);
+  m_enclosingBox[6] = Vec(bmax.x, bmax.y, bmax.z);
+  m_enclosingBox[7] = Vec(bmin.x, bmax.y, bmax.z);
+
+  m_fileName = flnm;
+
+  return true;
 }

@@ -1,6 +1,8 @@
 #include "volumefilemanager.h"
 #include <QtGui>
 #include <QMessageBox>
+#include <QInputDialog>
+#include <QFileDialog>
 
 VolumeFileManager::VolumeFileManager()
 {
@@ -1201,15 +1203,74 @@ VolumeFileManager::saveBlock(int dmin, int dmax,
     }
 }
 
-void
+bool
 VolumeFileManager::changeSliceOrdering()
 {
   if (m_depth/m_slabSize > 1)
     {
       QMessageBox::information(0, "", "Cannot change ordering : slices spread across multiple files.");
-      return;
+      return false;
     }
 
+  QStringList items;
+  items << "Yes" << "No";
+  bool ok;
+  QString item = QInputDialog::getItem(0,
+				       "Change Slice Ordering",
+				       "Save in another file ?",
+				       items,
+				       0,
+				       false,
+				       &ok);
+  
+  if (!ok || item == "Yes")
+    {
+      QString dirname = QFileInfo(m_baseFilename).absolutePath();
+	
+      QString newflnm = QFileDialog::getSaveFileName(0,
+						     "Save File",
+						     dirname,
+						     "pvl.nc Files (*.pvl.nc)");
+      if (newflnm.isEmpty())
+	  return false;
+      
+      QFile::copy(m_baseFilename, newflnm);
+
+      m_qfile.setFileName(m_baseFilename+".001");
+      m_qfile.open(QFile::ReadOnly);
+      QFile newfile;
+      newfile.setFileName(newflnm+".001");
+      newfile.open(QFile::WriteOnly);
+
+      int bps = m_width*m_height*m_bytesPerVoxel;
+      if (!m_slice)
+	{
+	  int a = qMax(m_width, qMax(m_height, m_depth));
+	  m_slice = new uchar[a*a*m_bytesPerVoxel];
+	}
+
+      m_qfile.read((char*)m_slice, m_header);
+      newfile.write((char*)m_slice, m_header);
+
+      for(int d=0; d<m_depth; d++)
+	{
+	  m_qfile.seek((qint64)(m_header + d*bps));
+	  m_qfile.read((char*)m_slice, bps);
+	  
+	  newfile.seek((qint64)(m_header + (m_depth-1-d)*bps));
+	  newfile.write((char*)m_slice, bps);
+	}
+
+      newfile.close();
+      m_qfile.close();
+
+      QMessageBox::information(0, "Change Slice Ordering",
+			       QString("Volume saved to "+newflnm));
+
+      return false; // just so that we don't reload the volume
+    }
+  
+  
   QString flnm;
   if (m_filenames.count() > 0)
     flnm = m_filenames[0];
@@ -1227,7 +1288,7 @@ VolumeFileManager::changeSliceOrdering()
       if (! m_qfile.open(QFile::ReadWrite))
 	{
 	  QMessageBox::information(0, "", "Cannot change ordering : cannot open file for writing.");
-	  return;
+	  return false;
 	}
     }
 
@@ -1258,4 +1319,6 @@ VolumeFileManager::changeSliceOrdering()
   delete [] tslice;
 
   m_qfile.close();
+
+  return true;
 }

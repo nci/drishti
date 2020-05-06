@@ -1359,6 +1359,8 @@ GLuint ShaderFactory::meshShader()
 	m_meshShaderParm[10] = glGetUniformLocation(m_meshShader,"clipPos");
 	m_meshShaderParm[11] = glGetUniformLocation(m_meshShader,"clipNormal");
 	m_meshShaderParm[12] = glGetUniformLocation(m_meshShader,"origin");
+	m_meshShaderParm[13] = glGetUniformLocation(m_meshShader,"hasUV");
+	m_meshShaderParm[14] = glGetUniformLocation(m_meshShader,"diffuseTex");
 
     }
 
@@ -1397,6 +1399,7 @@ ShaderFactory::meshShaderF()
   QString shader;
 
   shader += "#version 410 core\n";
+  shader += "uniform sampler2D diffuseTex;\n";
   shader += "uniform vec3 viewDir;\n";
   shader += "uniform vec3 pn;\n";
   shader += "uniform float pnear;\n";
@@ -1408,6 +1411,8 @@ ShaderFactory::meshShaderF()
   shader += "uniform int nclip;\n";
   shader += "uniform vec3 clipPos[10];\n";
   shader += "uniform vec3 clipNormal[10];\n";
+  shader += "uniform bool hasUV;\n";
+  
   shader += "\n";
   shader += "in vec3 v3Color;\n";
   shader += "in vec3 v3Normal;\n";
@@ -1419,7 +1424,13 @@ ShaderFactory::meshShaderF()
   shader += "   if (pnear < pfar && (d < pnear || d > pfar))\n";
   shader += "     discard;\n";
 
-  shader += "  outputColor = vec4(v3Color, 1)*opacity;\n";
+  //  shader += "  outputColor = vec4(v3Color, 1)*opacity;\n";
+
+  shader += "  if (hasUV)\n";
+  shader += "     outputColor = texture(diffuseTex, vec2(v3Color.x, 1-v3Color.y));\n";
+  //shader += "     outputColor = texture(diffuseTex, vec2(v3Color.x, v3Color.y));\n";
+  shader += "  else\n";
+  shader += "     outputColor = vec4(v3Color, 1)*opacity;\n";
 
   shader += "float cfeather = 1.0;\n";
   shader += "if (nclip > 0)\n";

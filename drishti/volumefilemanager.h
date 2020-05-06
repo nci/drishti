@@ -92,7 +92,7 @@ class VolumeFileManager
 
   void saveBlock(int, int, int, int, int, int);
 
-  void changeSliceOrdering();
+  bool changeSliceOrdering();
 
  private :
   bool m_memmapped;

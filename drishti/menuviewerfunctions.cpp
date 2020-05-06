@@ -120,21 +120,23 @@ Viewer::changeSliceOrdering()
 
   showMenuFunctionHelp("changesliceorder");
 
-  m_Volume->pvlFileManager(0)->changeSliceOrdering();
-  reloadData();
-
-  uchar *tmplut = new unsigned char[Global::lutSize()*256*256*4];
-  memcpy(tmplut, m_lut, Global::lutSize()*256*256*4);
-  memset(m_lut, 0, Global::lutSize()*256*256*4);
-  updateLookupTable();
-  updateGL();
-
-  memcpy(m_lut, tmplut, Global::lutSize()*256*256*4);
-  updateLookupTable();
-  updateGL();
-
-  delete [] tmplut;
-
+  if (m_Volume->pvlFileManager(0)->changeSliceOrdering())
+    {
+      reloadData();
+      
+      uchar *tmplut = new unsigned char[Global::lutSize()*256*256*4];
+      memcpy(tmplut, m_lut, Global::lutSize()*256*256*4);
+      memset(m_lut, 0, Global::lutSize()*256*256*4);
+      updateLookupTable();
+      updateGL();
+      
+      memcpy(m_lut, tmplut, Global::lutSize()*256*256*4);
+      updateLookupTable();
+      updateGL();
+      
+      delete [] tmplut;
+    }
+  
   QMessageBox::information(0, "", "Done.");
 }
 

@@ -79,7 +79,7 @@ TrisetObject::clear()
   m_position = Vec(0,0,0);
   m_scale = Vec(1,1,1);
   m_nX = m_nY = m_nZ = 0;
-  m_color = Vec(0.3f,0.6f,0.8f);
+  m_color = Vec(0.7f,0.7f,0.7f);
   m_cropcolor = Vec(0.0f,0.0f,0.0f);
   m_opacity = 1.0f;
   m_specular = 1.0f;
@@ -124,6 +124,23 @@ TrisetObject::clear()
     }
 
   m_featherSize = 1;
+}
+
+void
+TrisetObject::setColor(Vec color)
+{
+  if (m_uv.count() > 0)
+    {
+      QMessageBox::information(0, "", "Cannot change color for textured objects");
+      return;
+    }
+  
+  m_color = color;
+
+  for(int i=0; i<m_vcolor.count(); i++)
+    m_vcolor[i] = m_color;
+  
+  loadVertexBufferData();
 }
 
 bool
@@ -226,7 +243,8 @@ TrisetObject::loadVertexBufferData()
 
 
   //--------------------
-  glGenTextures(1, &m_diffuseTex);
+  if (!m_diffuseTex)
+    glGenTextures(1, &m_diffuseTex);
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, m_diffuseTex);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
@@ -246,11 +264,13 @@ TrisetObject::loadVertexBufferData()
   //---------------------
   
   
-  glGenVertexArrays(1, &m_glVertArray);
+  if (!m_glVertArray)
+    glGenVertexArrays(1, &m_glVertArray);
   glBindVertexArray(m_glVertArray);
       
   // Populate a vertex buffer
-  glGenBuffers(1, &m_glVertBuffer);
+  if (!m_glVertBuffer)
+    glGenBuffers(1, &m_glVertBuffer);
   glBindBuffer(GL_ARRAY_BUFFER, m_glVertBuffer);
   glBufferData(GL_ARRAY_BUFFER,
 	       sizeof(float)*nv,
@@ -280,7 +300,8 @@ TrisetObject::loadVertexBufferData()
     }
 
   // Create and populate the index buffer
-  glGenBuffers(1, &m_glIndexBuffer);
+  if (!m_glIndexBuffer)
+    glGenBuffers(1, &m_glIndexBuffer);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_glIndexBuffer);
   glBufferData(GL_ELEMENT_ARRAY_BUFFER,
 	       sizeof(unsigned int)*ni,
@@ -292,7 +313,7 @@ TrisetObject::loadVertexBufferData()
   delete [] vertData;
   delete [] indexData;
 
-  // create shader
+  // create shader  
   ShaderFactory::meshShader();
 }
 
@@ -1635,6 +1656,11 @@ TrisetObject::loadAssimpModel(QString flnm)
   m_enclosingBox[5] = Vec(bmax.x, bmin.y, bmax.z);
   m_enclosingBox[6] = Vec(bmax.x, bmax.y, bmax.z);
   m_enclosingBox[7] = Vec(bmin.x, bmax.y, bmax.z);
+
+  m_centroid = (bmin + bmax)/2;
+
+  m_position = Vec(0,0,0);
+  m_scale = Vec(1,1,1);
 
   m_fileName = flnm;
 

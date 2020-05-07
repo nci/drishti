@@ -59,7 +59,8 @@ class TrisetObject
   void setAmbient(float ambient) { m_ambient = qBound(0.0f, ambient, 1.0f); }
 
   Vec color() { return m_color; }
-  void setColor(Vec color) { m_color = color; }
+  void setColor(Vec);
+  //void setColor(Vec color) { m_color = color; }
 
   Vec cropBorderColor() { return m_cropcolor; }
   void setCropBorderColor(Vec color) { m_cropcolor = color; }

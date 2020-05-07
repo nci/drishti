@@ -42,7 +42,7 @@ class Trisets : public QObject
   void clear();
 
   void addTriset(QString);
-  void addPLY(QString);
+  void addMesh(QString);
 
   void setClipDistance0(float, float, float, float);
   void setClipDistance1(float, float, float, float);

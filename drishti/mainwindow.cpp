@@ -1763,7 +1763,7 @@ MainWindow::on_actionTriset_triggered()
   flnms = QFileDialog::getOpenFileNames(0,
 				      "Load Surface File",
 				      Global::previousDirectory(),
-				      "Surface Files (*.triset | *.ply | *.stl | *.obj | *.fbx | *.blend | *.gltf)",
+				      "Surface Files (*.ply | *.stl | *.obj | *.fbx | *.blend | *.gltf)",
 				      0,
 				      QFileDialog::DontUseNativeDialog);
   
@@ -1772,10 +1772,10 @@ MainWindow::on_actionTriset_triggered()
 
   foreach (QString flnm, flnms)
     {
-      if (StaticFunctions::checkExtension(flnm, ".triset"))
-	GeometryObjects::trisets()->addTriset(flnm);
-      else
-	GeometryObjects::trisets()->addPLY(flnm);
+//      if (StaticFunctions::checkExtension(flnm, ".triset"))
+//	GeometryObjects::trisets()->addTriset(flnm);
+//      else
+      GeometryObjects::trisets()->addMesh(flnm);
     }
   
   if (Global::volumeType() == Global::DummyVolume)
@@ -2046,10 +2046,10 @@ MainWindow::dragEnterEvent(QDragEnterEvent *event)
 	    {
 	      event->acceptProposedAction();
 	    }
-	  else if (StaticFunctions::checkURLs(urls, ".triset"))
-	    {
-	      event->acceptProposedAction();
-	    }
+//	  else if (StaticFunctions::checkURLs(urls, ".triset"))
+//	    {
+//	      event->acceptProposedAction();
+//	    }
 	  else if (StaticFunctions::checkURLs(urls, ".ply") ||
 		   StaticFunctions::checkURLs(urls, ".stl") ||
 		   StaticFunctions::checkURLs(urls, ".obj") ||
@@ -2161,23 +2161,21 @@ MainWindow::dropEvent(QDropEvent *event)
 		{
 		  m_keyFrame->import(url.toLocalFile());
 		}
-	      else if (StaticFunctions::checkExtension(url.toLocalFile(), ".triset") ||
-		       StaticFunctions::checkExtension(url.toLocalFile(), ".ply") ||
+	      else if (StaticFunctions::checkExtension(url.toLocalFile(), ".ply") ||
 		       StaticFunctions::checkExtension(url.toLocalFile(), ".stl") ||
 		       StaticFunctions::checkExtension(url.toLocalFile(), ".obj") ||
 		       StaticFunctions::checkExtension(url.toLocalFile(), ".blend") ||
 		       StaticFunctions::checkExtension(url.toLocalFile(), ".gltf") ||
 		       StaticFunctions::checkExtension(url.toLocalFile(), ".fbx"))
 		{
-		  if (StaticFunctions::checkExtension(url.toLocalFile(), ".triset"))
-		    GeometryObjects::trisets()->addTriset(url.toLocalFile());
-		  else
+//		  if (StaticFunctions::checkExtension(url.toLocalFile(), ".triset"))
+//		    GeometryObjects::trisets()->addTriset(url.toLocalFile());
+//		  else
 		    {
 		      QStringList flist;
 		      QList<QUrl> urls = data->urls();
 		      for(int i=0; i<urls.count(); i++)
-			GeometryObjects::trisets()->addPLY(urls[i].toLocalFile());
-		      //GeometryObjects::trisets()->addPLY(url.toLocalFile());
+			GeometryObjects::trisets()->addMesh(urls[i].toLocalFile());
 		    }
 		  if (Global::volumeType() == Global::DummyVolume)
 		    {

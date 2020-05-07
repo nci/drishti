@@ -701,21 +701,6 @@ Rotate camera by a degrees about axis perpendicular to screen from its current o
 #end
 
 #begin
-loadtriset
-Load .triset file.
-#end
-
-#begin
-loadply
-Load .ply Stanford formatted polygon file.
-#end
-
-#begin
-loadnetwork
-Load network file.
-#end
-
-#begin
 autospin
 autospin [off]
 When left mouse button is quickly dragged and released, model goes into auto-spin mode.

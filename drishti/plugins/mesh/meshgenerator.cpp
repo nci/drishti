@@ -466,7 +466,7 @@ MeshGenerator::start(VolumeFileManager *vfm,
   meshWindow->resize(700, 300);
 
 
-  float memGb = 0.5;
+  float memGb = 5.0;
   if (!m_batchMode)
     memGb = QInputDialog::getDouble(0,
 				    "Use memory",

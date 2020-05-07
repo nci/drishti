@@ -142,8 +142,8 @@ Trisets::allEnclosingBox(Vec& boxMin,
   if (m_trisets.count() == 0)
     return;
 
-  boxMin = Vec(0,0,0);
-  boxMax = Vec(0,0,0);
+//  boxMin = Vec(0,0,0);
+//  boxMax = Vec(0,0,0);
 
   m_trisets[0]->enclosingBox(boxMin, boxMax);
 
@@ -213,7 +213,7 @@ Trisets::addTriset(QString flnm)
 }
 
 void
-Trisets::addPLY(QString flnm)
+Trisets::addMesh(QString flnm)
 {
   TrisetGrabber *tg = new TrisetGrabber();
   if (tg->load(flnm))
@@ -468,17 +468,17 @@ Trisets::keyPressEvent(QKeyEvent *event)
 //	      vlist << QVariant(0.1); // singlestep
 //	      vlist << QVariant(1); // decimals
 //	      plist["specular"] = vlist;
-//
-//	      vlist.clear();
-//	      vlist << QVariant("color");
-//	      Vec pcolor = m_trisets[i]->color();
-//	      QColor dcolor = QColor::fromRgbF(pcolor.x,
-//					       pcolor.y,
-//					       pcolor.z);
-//	      vlist << dcolor;
-//	      plist["color"] = vlist;
-//
-//
+
+	      vlist.clear();
+	      vlist << QVariant("color");
+	      Vec pcolor = m_trisets[i]->color();
+	      QColor dcolor = QColor::fromRgbF(pcolor.x,
+					       pcolor.y,
+					       pcolor.z);
+	      vlist << dcolor;
+	      plist["color"] = vlist;
+
+
 //	      vlist.clear();
 //	      vlist << QVariant("checkbox");
 //	      vlist << QVariant(m_trisets[i]->pointMode());
@@ -562,7 +562,7 @@ Trisets::keyPressEvent(QKeyEvent *event)
 	      //keys << "flip normals";
 	      //keys << "screendoor transparency";
 	      //keys << "gap";
-	      //keys << "color";
+	      keys << "color";
 	      //keys << "opacity";
 	      //keys << "gap";
 	      //keys << "ambient";

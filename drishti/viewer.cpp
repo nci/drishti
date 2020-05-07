@@ -387,10 +387,13 @@ Viewer::showFullScene()
   else
     {
       GeometryObjects::trisets()->allEnclosingBox(smin, smax);
-      Vec bmin, bmax;
-      GeometryObjects::networks()->allEnclosingBox(smin, smax);      
-      smin = StaticFunctions::minVec(smin, bmin);
-      smax = StaticFunctions::maxVec(smax, bmax);
+      if (GeometryObjects::networks()->count() > 0)
+	{
+	  Vec bmin, bmax;
+	  GeometryObjects::networks()->allEnclosingBox(bmin, bmax);      
+	  smin = StaticFunctions::minVec(smin, bmin);
+	  smax = StaticFunctions::maxVec(smax, bmax);
+	}
       m_hiresVolume->overwriteDataMinMax(smin, smax);
     }
   
@@ -4546,48 +4549,48 @@ Viewer::processCommand(QString cmd)
       else if (list[1] == "selected")
 	GeometryObjects::hitpoints()->removeActive();
     }
-  else if (list[0]== "loadtriset")
-    {
-      QString flnm;
-      flnm = QFileDialog::getOpenFileName(0,
-					  "Load triset file",
-					  Global::previousDirectory(),
-					  "Triset Files (*.triset)");
-      
-      if (flnm.isEmpty())
-	return;
-
-      GeometryObjects::trisets()->addTriset(flnm);
-
-    }
-  else if (list[0]== "loadply")
-    {
-      QString flnm;
-      flnm = QFileDialog::getOpenFileName(0,
-					  "Load ply file",
-					  Global::previousDirectory(),
-					  "PLY Files (*.ply)");
-      
-      if (flnm.isEmpty())
-	return;
-
-      GeometryObjects::trisets()->addPLY(flnm);
-
-    }
-  else if (list[0]== "loadnetwork")
-    {
-      QString flnm;
-      flnm = QFileDialog::getOpenFileName(0,
-					  "Load network file",
-					  Global::previousDirectory(),
-					  "NetCDF Files (*.nc)");
-      
-      if (flnm.isEmpty())
-	return;
-
-      GeometryObjects::networks()->addNetwork(flnm);
-
-    }
+//  else if (list[0]== "loadtriset")
+//    {
+//      QString flnm;
+//      flnm = QFileDialog::getOpenFileName(0,
+//					  "Load triset file",
+//					  Global::previousDirectory(),
+//					  "Triset Files (*.triset)");
+//      
+//      if (flnm.isEmpty())
+//	return;
+//
+//      GeometryObjects::trisets()->addTriset(flnm);
+//
+//    }
+//  else if (list[0]== "loadply")
+//    {
+//      QString flnm;
+//      flnm = QFileDialog::getOpenFileName(0,
+//					  "Load ply file",
+//					  Global::previousDirectory(),
+//					  "PLY Files (*.ply)");
+//      
+//      if (flnm.isEmpty())
+//	return;
+//
+//      GeometryObjects::trisets()->addMesh(flnm);
+//
+//    }
+//  else if (list[0]== "loadnetwork")
+//    {
+//      QString flnm;
+//      flnm = QFileDialog::getOpenFileName(0,
+//					  "Load network file",
+//					  Global::previousDirectory(),
+//					  "NetCDF Files (*.nc)");
+//      
+//      if (flnm.isEmpty())
+//	return;
+//
+//      GeometryObjects::networks()->addNetwork(flnm);
+//
+//    }
   else if (list[0]== "loadpoints" ||
 	   list[0]== "loadpoint")
     {

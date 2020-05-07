@@ -101,8 +101,8 @@ Networks::allEnclosingBox(Vec& boxMin,
   if (m_networks.count() == 0)
     return;
 
-  boxMin = Vec(0,0,0);
-  boxMax = Vec(0,0,0);
+//  boxMin = Vec(0,0,0);
+//  boxMax = Vec(0,0,0);
 
   m_networks[0]->enclosingBox(boxMin, boxMax);
 

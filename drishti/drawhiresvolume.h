@@ -37,7 +37,7 @@ class DrawHiresVolume : public QObject
 
   double* brick0Xform();
 
-  void overwriteDataMinMax(Vec smin, Vec smax) { m_dataMin = smin; m_dataMax = smax; }
+  void overwriteDataMinMax(Vec, Vec);
   
   int numOfTextureSlabs() { return m_textureSlab.count(); }
   int getSubvolumeSubsamplingLevel();

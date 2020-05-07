@@ -1361,6 +1361,7 @@ GLuint ShaderFactory::meshShader()
 	m_meshShaderParm[12] = glGetUniformLocation(m_meshShader,"origin");
 	m_meshShaderParm[13] = glGetUniformLocation(m_meshShader,"hasUV");
 	m_meshShaderParm[14] = glGetUniformLocation(m_meshShader,"diffuseTex");
+	m_meshShaderParm[15] = glGetUniformLocation(m_meshShader,"featherSize");
 
     }
 
@@ -1412,6 +1413,7 @@ ShaderFactory::meshShaderF()
   shader += "uniform vec3 clipPos[10];\n";
   shader += "uniform vec3 clipNormal[10];\n";
   shader += "uniform bool hasUV;\n";
+  shader += "uniform float featherSize;\n";
   
   shader += "\n";
   shader += "in vec3 v3Color;\n";
@@ -1443,7 +1445,7 @@ ShaderFactory::meshShaderF()
   shader += "        if (cp > 0.0)\n";
   shader += "          discard;\n";
   shader += "        else\n";
-  shader += "          cfeather *= smoothstep(0.0, 3.0, -cp);\n";
+  shader += "          cfeather *= smoothstep(0.0, featherSize, -cp);\n";
   shader += "      }\n";
   shader += "    cfeather = 1.0 - cfeather;\n";
   shader += "  }\n";

@@ -155,6 +155,15 @@ DrawHiresVolume::loadVolume()
   GeometryObjects::clipplanes()->reset();
 }
 
+// only called when we have not volume data
+void
+DrawHiresVolume::overwriteDataMinMax(Vec smin, Vec smax)
+{
+  m_dataMin = smin;
+  m_dataMax = smax;
+  GeometryObjects::clipplanes()->setBounds(m_dataMin, m_dataMax);
+}
+
 DrawHiresVolume::DrawHiresVolume(Viewer *viewer,
 				 Volume *volume) :
   QObject()

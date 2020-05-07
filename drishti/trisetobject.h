@@ -150,6 +150,8 @@ class TrisetObject
   QString m_diffuseTexFile;
   GLuint m_diffuseTex;
   
+  float m_featherSize;
+  
   void loadVertexBufferData();
   void drawTrisetBuffer(QGLViewer*, float, float);
 

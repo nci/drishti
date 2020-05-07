@@ -123,6 +123,7 @@ TrisetObject::clear()
       m_diffuseTex = 0;
     }
 
+  m_featherSize = 1;
 }
 
 bool
@@ -135,6 +136,9 @@ TrisetObject::load(QString flnm)
     //loaded = loadPLY(flnm);
     loaded = loadAssimpModel(flnm);
 
+  m_featherSize = 0.005*(m_enclosingBox[6]-m_enclosingBox[0]).norm();
+
+  
   if (loaded)
     {
       loadVertexBufferData();
@@ -174,7 +178,8 @@ TrisetObject::loadVertexBufferData()
 
   int stride = 3;
   if (m_normals.count()) stride += 3; // vertex normal
-  if (m_uv.count() || m_vcolor.count()) stride += 3; // vertex color or texture uv
+  if (m_uv.count() > 0 ||
+      m_vcolor.count()) stride += 3; // vertex color or texture uv
   
   int nvert = m_vertices.count();
   int nv = stride*nvert;
@@ -193,7 +198,7 @@ TrisetObject::loadVertexBufferData()
       vertData[stride*i + 5] = m_normals[i].z;
     }
 
-  if (m_uv.count())
+  if (m_uv.count() > 0)
     {
       for(int i=0; i<nvert; i++)
 	{
@@ -317,7 +322,7 @@ TrisetObject::drawTrisetBuffer(QGLViewer *viewer,
   
   GLint *meshShaderParm = ShaderFactory::meshShaderParm();  
 
-  if (m_uv.count())
+  if (m_uv.count() > 0)
     {
       glActiveTexture(GL_TEXTURE0);
       glEnable(GL_TEXTURE_2D);
@@ -336,7 +341,7 @@ TrisetObject::drawTrisetBuffer(QGLViewer *viewer,
 
   glUniform3f(meshShaderParm[12], m_position.x, m_position.y, m_position.z);
 
-  if (m_uv.count())
+  if (m_uv.count() > 0)
     {
       glUniform1i(meshShaderParm[13], 1); // hasVY
       glUniform1i(meshShaderParm[14], 0); // diffuseTex
@@ -344,11 +349,13 @@ TrisetObject::drawTrisetBuffer(QGLViewer *viewer,
   else 
     glUniform1i(meshShaderParm[13], 0); // hasVY
 
+  glUniform1f(meshShaderParm[15], m_featherSize);
+
   
   glDrawElements(GL_TRIANGLES, ni, GL_UNSIGNED_INT, 0);  
 
 
-  if (m_uv.count()) glDisable(GL_TEXTURE_2D);
+  if (m_uv.count() > 0) glDisable(GL_TEXTURE_2D);
 
   glDisableVertexAttribArray(0);
   glDisableVertexAttribArray(1);
@@ -1550,7 +1557,6 @@ TrisetObject::loadAssimpModel(QString flnm)
   //--------------
   if (scene->mNumMaterials > 0)
     {
-      QMessageBox::information(0, "", QString("%1").arg(scene->mNumMaterials));
       for(int m=0; m<scene->mNumMaterials; m++)
 	{
 	  aiMaterial *mat = scene->mMaterials[m];
@@ -1562,9 +1568,15 @@ TrisetObject::loadAssimpModel(QString flnm)
 	      break;
 	    }
 	}
-      if (!QFile::exists(m_diffuseTexFile))
+      if (m_uv.count() > 0 &&
+	  !QFile::exists(m_diffuseTexFile))
 	{
-	  QMessageBox::information(0, "Texture Error", QString("Cannot locate %1").arg(m_diffuseTexFile));
+	  QString mesg;
+	  if (m_diffuseTexFile.isEmpty())
+	    mesg = "Diffuse texture not found.";
+	  else
+	    mesg = "Cannot locate " + m_diffuseTexFile;
+	  QMessageBox::information(0, "Texture Error", mesg);
 	  QString imgFile = QFileDialog::getOpenFileName(0,
 							 QString("Load diffuse texture"),
 							 QFileInfo(flnm).dir().path(),

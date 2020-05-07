@@ -431,7 +431,8 @@ void ClipPlanes::updateScaling() { }
 void
 ClipPlanes::draw(QGLViewer *viewer, bool backToFront)
 {
-  Vec dataSize = m_dataMax-m_dataMin+Vec(1,1,1);
+  //Vec dataSize = m_dataMax-m_dataMin+Vec(1,1,1);
+  Vec dataSize = m_dataMax-m_dataMin;
 
   float widgetSize = 0.2*qMax(dataSize.x,
 			      qMax(dataSize.y, dataSize.z));

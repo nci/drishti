@@ -199,7 +199,7 @@ Trisets::grabsMouse()
      if (m_trisets[i]->grabsMouse())
 	return true;
    }
- //return false;
+ return false;
 }
 
 void

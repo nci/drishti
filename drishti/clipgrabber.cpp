@@ -268,14 +268,14 @@ ClipGrabber::mouseMoveEvent(QMouseEvent* const event,
 	  else if (moveAxis() == MoveZ)
 	    {
 	      float vz = trans*tang;
-	      if (qAbs(vz) < 0.1)
-		{
-		  vz = trans.norm();
-		  if (qAbs(delta.x()) > qAbs(delta.y()))
-		    vz = (delta.x() >= 0 ? 1 : -1);
-		  else
-		    vz = (delta.y() >= 0 ? 1 : -1);
-		}
+//	      if (qAbs(vz) < 0.1)
+//		{
+//		  vz = trans.norm();
+//		  if (qAbs(delta.x()) > qAbs(delta.y()))
+//		    vz = (delta.x() >= 0 ? 1 : -1);
+//		  else
+//		    vz = (delta.y() >= 0 ? 1 : -1);
+//		}
 	      
 	      trans = vz*tang;
 	    }

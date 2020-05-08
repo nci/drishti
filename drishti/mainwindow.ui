@@ -334,7 +334,7 @@
   </action>
   <action name="actionTriset">
    <property name="text">
-    <string>Triset</string>
+    <string>Surface Mesh</string>
    </property>
   </action>
   <action name="actionPoints">

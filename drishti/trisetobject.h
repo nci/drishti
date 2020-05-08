@@ -137,7 +137,10 @@ class TrisetObject
   QVector<Vec> m_tvertices;
   QVector<Vec> m_tnormals;
   QVector<Vec> m_texValues;
-
+  QList<QPolygon> m_meshInfo;
+  QList<QString> m_material;
+  GLuint m_diffuseTex[100];
+  
   QList<char*> plyStrings;
 
   uint *m_scrV;
@@ -147,9 +150,6 @@ class TrisetObject
   GLuint m_glVertBuffer;
   GLuint m_glIndexBuffer;
   GLuint m_glVertArray;
-
-  QString m_diffuseTexFile;
-  GLuint m_diffuseTex;
   
   float m_featherSize;
   

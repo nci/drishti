@@ -77,6 +77,9 @@ class StaticFunctions
   static bool checkExtension(QString, const char*);
   static bool checkURLs(QList<QUrl>, const char*);
 
+  static bool checkExtension(QString, QStringList);
+  static bool checkURLs(QList<QUrl>, QStringList);
+
   static float calculateAngle(Vec, Vec, Vec);
 
   static QList<Vec> voxelizeLine(Vec, Vec);

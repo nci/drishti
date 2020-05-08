@@ -1759,24 +1759,35 @@ MainWindow::on_actionNetwork_triggered()
 void
 MainWindow::on_actionTriset_triggered()
 {
+  QStringList meshformats;
+  meshformats << "fbx";
+  meshformats << "dae";
+  meshformats << "gltf";
+  meshformats << "glb";
+  meshformats << "blend";
+  meshformats << "3ds";
+  meshformats << "obj";
+  meshformats << "ply";
+  meshformats << "stl";
+
+  QString formats = "Surface Mesh ( ";
+  foreach(QString fmt, meshformats)
+    formats += QString("*.%1 ").arg(fmt);
+  formats += ")";
+  
   QStringList flnms;
   flnms = QFileDialog::getOpenFileNames(0,
-				      "Load Surface File",
-				      Global::previousDirectory(),
-				      "Surface Files (*.ply | *.stl | *.obj | *.fbx | *.blend | *.gltf)",
-				      0,
-				      QFileDialog::DontUseNativeDialog);
+					"Load Surface File",
+					Global::previousDirectory(),
+					formats,
+					0,
+					QFileDialog::DontUseNativeDialog);
   
   if (flnms.isEmpty())
     return;
 
   foreach (QString flnm, flnms)
-    {
-//      if (StaticFunctions::checkExtension(flnm, ".triset"))
-//	GeometryObjects::trisets()->addTriset(flnm);
-//      else
-      GeometryObjects::trisets()->addMesh(flnm);
-    }
+    GeometryObjects::trisets()->addMesh(flnm);
   
   if (Global::volumeType() == Global::DummyVolume)
     {
@@ -2028,6 +2039,17 @@ MainWindow::on_actionLoad_4_Volumes_triggered()
 void
 MainWindow::dragEnterEvent(QDragEnterEvent *event)
 {
+  QStringList meshformats;
+  meshformats << ".fbx";
+  meshformats << ".dae";
+  meshformats << ".gltf";
+  meshformats << ".glb";
+  meshformats << ".blend";
+  meshformats << ".3ds";
+  meshformats << ".obj";
+  meshformats << ".ply";
+  meshformats << ".stl";
+
   if (event && event->mimeData())
     {
       const QMimeData *md = event->mimeData();
@@ -2046,16 +2068,7 @@ MainWindow::dragEnterEvent(QDragEnterEvent *event)
 	    {
 	      event->acceptProposedAction();
 	    }
-//	  else if (StaticFunctions::checkURLs(urls, ".triset"))
-//	    {
-//	      event->acceptProposedAction();
-//	    }
-	  else if (StaticFunctions::checkURLs(urls, ".ply") ||
-		   StaticFunctions::checkURLs(urls, ".stl") ||
-		   StaticFunctions::checkURLs(urls, ".obj") ||
-		   StaticFunctions::checkURLs(urls, ".blend") ||
-		   StaticFunctions::checkURLs(urls, ".gltf") ||
-		   StaticFunctions::checkURLs(urls, ".fbx"))
+	  else if (StaticFunctions::checkURLs(urls, meshformats))
 	    {
 	      event->acceptProposedAction();
 	    }
@@ -2132,6 +2145,17 @@ MainWindow::dropEvent(QDropEvent *event)
       return;
     }
 
+  QStringList meshformats;
+  meshformats << ".fbx";
+  meshformats << ".dae";
+  meshformats << ".gltf";
+  meshformats << ".glb";
+  meshformats << ".blend";
+  meshformats << ".3ds";
+  meshformats << ".obj";
+  meshformats << ".ply";
+  meshformats << ".stl";
+
   if (event && event->mimeData())
     {
       const QMimeData *data = event->mimeData();
@@ -2161,22 +2185,13 @@ MainWindow::dropEvent(QDropEvent *event)
 		{
 		  m_keyFrame->import(url.toLocalFile());
 		}
-	      else if (StaticFunctions::checkExtension(url.toLocalFile(), ".ply") ||
-		       StaticFunctions::checkExtension(url.toLocalFile(), ".stl") ||
-		       StaticFunctions::checkExtension(url.toLocalFile(), ".obj") ||
-		       StaticFunctions::checkExtension(url.toLocalFile(), ".blend") ||
-		       StaticFunctions::checkExtension(url.toLocalFile(), ".gltf") ||
-		       StaticFunctions::checkExtension(url.toLocalFile(), ".fbx"))
+	      else if (StaticFunctions::checkExtension(url.toLocalFile(), meshformats))
 		{
-//		  if (StaticFunctions::checkExtension(url.toLocalFile(), ".triset"))
-//		    GeometryObjects::trisets()->addTriset(url.toLocalFile());
-//		  else
-		    {
-		      QStringList flist;
-		      QList<QUrl> urls = data->urls();
-		      for(int i=0; i<urls.count(); i++)
-			GeometryObjects::trisets()->addMesh(urls[i].toLocalFile());
-		    }
+		  QStringList flist;
+		  QList<QUrl> urls = data->urls();
+		  for(int i=0; i<urls.count(); i++)
+		    GeometryObjects::trisets()->addMesh(urls[i].toLocalFile());
+
 		  if (Global::volumeType() == Global::DummyVolume)
 		    {
 		      int nx, ny, nz;

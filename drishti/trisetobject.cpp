@@ -53,7 +53,8 @@ TrisetObject::TrisetObject()
   m_glVertBuffer = 0;
   m_glIndexBuffer = 0;
   m_glVertArray = 0;
-  m_diffuseTex = 0;
+
+  m_material.clear();
 
   clear();
 }
@@ -95,7 +96,6 @@ TrisetObject::clear()
   m_vertices.clear();
   m_vcolor.clear();
   m_uv.clear();
-  m_diffuseTexFile.clear();
   m_drawcolor.clear();
   m_normals.clear();
   m_triangles.clear();
@@ -117,12 +117,15 @@ TrisetObject::clear()
       m_glVertArray = 0;
       m_glVertBuffer = 0;
     }
-  if (m_diffuseTex)
+  if (m_material.count() > 0)
     {
-      glDeleteTextures(1, &m_diffuseTex);
-      m_diffuseTex = 0;
+      glDeleteTextures(m_material.count(), m_diffuseTex);
+      for(int d=0; d<m_material.count(); d++)
+	m_diffuseTex[d] = 0;
     }
-
+  m_material.clear();
+  m_meshInfo.clear();
+  
   m_featherSize = 1;
 }
 
@@ -147,11 +150,13 @@ bool
 TrisetObject::load(QString flnm)
 {
   bool loaded;
-  if (StaticFunctions::checkExtension(flnm, ".triset"))
-    loaded = loadTriset(flnm);
-  else
-    //loaded = loadPLY(flnm);
-    loaded = loadAssimpModel(flnm);
+  loaded = loadAssimpModel(flnm);
+
+//  if (StaticFunctions::checkExtension(flnm, ".triset"))
+//    loaded = loadTriset(flnm);
+//  else
+//    //loaded = loadPLY(flnm);
+//    loaded = loadAssimpModel(flnm);
 
   m_featherSize = 0.005*(m_enclosingBox[6]-m_enclosingBox[0]).norm();
 
@@ -243,24 +248,71 @@ TrisetObject::loadVertexBufferData()
 
 
   //--------------------
-  if (!m_diffuseTex)
-    glGenTextures(1, &m_diffuseTex);
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, m_diffuseTex);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  QImage img(m_diffuseTexFile);
-  glTexImage2D(GL_TEXTURE_2D,
-	       0,
-	       4,
-	       img.width(),
-	       img.height(),
-	       0,
-	       GL_BGRA,
-	       GL_UNSIGNED_BYTE,
-	       img.bits());
+//  if (!m_diffuseTex)
+//    glGenTextures(1, &m_diffuseTex);
+//  glActiveTexture(GL_TEXTURE0);
+//  glBindTexture(GL_TEXTURE_2D, m_diffuseTex);
+//  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+//  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
+//  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+//  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+//  QImage img(m_diffuseTexFile);
+//  glTexImage2D(GL_TEXTURE_2D,
+//	       0,
+//	       4,
+//	       img.width(),
+//	       img.height(),
+//	       0,
+//	       GL_BGRA,
+//	       GL_UNSIGNED_BYTE,
+//	       img.bits());
+
+  if (m_material.count() > 0)
+    {
+      glGenTextures(m_material.count(), m_diffuseTex);
+      for(int d=0; d<m_material.count(); d++)
+	{
+	  if (!m_material[d].isEmpty())
+	    {
+	      glActiveTexture(GL_TEXTURE0);
+	      glBindTexture(GL_TEXTURE_2D, m_diffuseTex[d]);
+	      glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+	      glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
+	      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	      QImage img(m_material[d]);
+	      glTexImage2D(GL_TEXTURE_2D,
+			   0,
+			   4,
+			   img.width(),
+			   img.height(),
+			   0,
+			   GL_BGRA,
+			   GL_UNSIGNED_BYTE,
+			   img.bits());
+	    }
+	  else if (m_uv.count() > 0)
+	    {
+	      glActiveTexture(GL_TEXTURE0);
+	      glBindTexture(GL_TEXTURE_2D, m_diffuseTex[d]);
+	      glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+	      glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
+	      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	      QImage img(1,1,QImage::Format_ARGB32);
+	      img.fill(Qt::lightGray);
+	      glTexImage2D(GL_TEXTURE_2D,
+			   0,
+			   4,
+			   img.width(),
+			   img.height(),
+			   0,
+			   GL_BGRA,
+			   GL_UNSIGNED_BYTE,
+			   img.bits());
+	    }
+	}
+    }
   //---------------------
   
   
@@ -343,12 +395,12 @@ TrisetObject::drawTrisetBuffer(QGLViewer *viewer,
   
   GLint *meshShaderParm = ShaderFactory::meshShaderParm();  
 
-  if (m_uv.count() > 0)
-    {
-      glActiveTexture(GL_TEXTURE0);
-      glEnable(GL_TEXTURE_2D);
-      glBindTexture(GL_TEXTURE_2D, m_diffuseTex);
-    }
+//  if (m_uv.count() > 0)
+//    {
+//      glActiveTexture(GL_TEXTURE0);
+//      glEnable(GL_TEXTURE_2D);
+//      glBindTexture(GL_TEXTURE_2D, m_diffuseTex);
+//    }
 
   glUniformMatrix4fv(meshShaderParm[0], 1, GL_FALSE, mvp);
   glUniform3f(meshShaderParm[1], vd.x, vd.y, vd.z); // view direction
@@ -362,21 +414,47 @@ TrisetObject::drawTrisetBuffer(QGLViewer *viewer,
 
   glUniform3f(meshShaderParm[12], m_position.x, m_position.y, m_position.z);
 
-  if (m_uv.count() > 0)
-    {
-      glUniform1i(meshShaderParm[13], 1); // hasVY
-      glUniform1i(meshShaderParm[14], 0); // diffuseTex
-    }
-  else 
-    glUniform1i(meshShaderParm[13], 0); // hasVY
+//  if (m_uv.count() > 0)
+//    {
+//      glUniform1i(meshShaderParm[13], 1); // hasVY
+//      glUniform1i(meshShaderParm[14], 0); // diffuseTex
+//    }
+//  else 
+//    glUniform1i(meshShaderParm[13], 0); // no diffuse Tex
 
   glUniform1f(meshShaderParm[15], m_featherSize);
 
   
-  glDrawElements(GL_TRIANGLES, ni, GL_UNSIGNED_INT, 0);  
+  //glDrawElements(GL_TRIANGLES, ni, GL_UNSIGNED_INT, 0);  
 
-
-  if (m_uv.count() > 0) glDisable(GL_TEXTURE_2D);
+  for(int i=0; i<m_meshInfo.count(); i++)
+    {
+      QPolygon poly = m_meshInfo[i];
+      int vStart = poly.point(0).x();
+      int vEnd = poly.point(0).y();
+      int idxStart = poly.point(1).x();
+      int idxEnd = poly.point(1).y();
+      int matIdx = poly.point(2).x();
+      int nTri = idxEnd-idxStart+1;
+      
+      //if (! m_material[matIdx].isEmpty())
+      if (m_uv.count() > 0)
+	{
+	  glActiveTexture(GL_TEXTURE0);
+	  glEnable(GL_TEXTURE_2D);
+	  glBindTexture(GL_TEXTURE_2D, m_diffuseTex[matIdx]);
+	  glUniform1i(meshShaderParm[13], 1); // hasVY
+	  glUniform1i(meshShaderParm[14], 0); // diffuseTex
+	}
+      else
+	glUniform1i(meshShaderParm[13], 0); // no diffuse texture
+      
+      glDrawElements(GL_TRIANGLES, nTri, GL_UNSIGNED_INT, (char *)NULL + idxStart*sizeof(unsigned int));
+    }
+  
+  
+  glDisable(GL_TEXTURE_2D);
+  //if (m_uv.count() > 0) glDisable(GL_TEXTURE_2D);
 
   glDisableVertexAttribArray(0);
   glDisableVertexAttribArray(1);
@@ -1365,6 +1443,12 @@ TrisetObject::set(TrisetInformation ti)
   else
     ok = true;
 
+  bool reloadColor = false;
+  if (m_color != ti.color)
+    {
+      reloadColor = true;
+    }
+  
   m_show = ti.show;
   m_clip = ti.clip;
   m_position = ti.position;
@@ -1383,6 +1467,10 @@ TrisetObject::set(TrisetInformation ti)
   m_flipNormals = ti.flipNormals;
   m_screenDoor = ti.screenDoor;
 
+
+  if (reloadColor)
+    setColor(m_color);
+    
   return ok;
 }
 
@@ -1534,10 +1622,17 @@ TrisetObject::loadAssimpModel(QString flnm)
   m_normals.clear();
   m_triangles.clear();
   m_uv.clear();
+  m_meshInfo.clear();
+  m_material.clear();
+  
+  //QMessageBox::information(0, "", QString("%1").arg(scene->mNumMeshes));
   
   int nvert = 0;
   for(int i=0; i<scene->mNumMeshes; i++)
     {
+      int vStart = m_vertices.count();
+      int iStart = m_triangles.count();
+      
       aiMesh* mesh = scene->mMeshes[i];
       bool hasVertexColors = mesh->HasVertexColors(0);
       bool hasUV = mesh->HasTextureCoords(0);
@@ -1546,7 +1641,7 @@ TrisetObject::loadAssimpModel(QString flnm)
 	{	  
 	  aiVector3D pos = mesh->mVertices[j];
 	  m_vertices << Vec(pos.x, pos.y, pos.z);
-
+      
 	  aiVector3D normal = mesh->mNormals[j];
 	  m_normals << Vec(normal.x, normal.y, normal.z);
 	  
@@ -1572,47 +1667,128 @@ TrisetObject::loadAssimpModel(QString flnm)
 	    m_triangles << nvert+face.mIndices[k];
 	} // faces
 
+      QPolygon poly;
+      poly << QPoint(vStart, m_vertices.count());
+      poly << QPoint(iStart, m_triangles.count());
+      poly << QPoint(mesh->mMaterialIndex, 0);
+      m_meshInfo << poly;
+      
       nvert += mesh->mNumVertices;
     }
-
+  
   //--------------
   if (scene->mNumMaterials > 0)
     {
+      bool texFound = false;
       for(int m=0; m<scene->mNumMaterials; m++)
 	{
 	  aiMaterial *mat = scene->mMaterials[m];
 	  aiString path;
+	  QString diffuseTexFile;
 	  if (mat->GetTexture(aiTextureType_DIFFUSE, 0, &path) == AI_SUCCESS)
 	    {
-	      m_diffuseTexFile = QFileInfo(QFileInfo(flnm).dir(),
-					   QString(path.data)).absoluteFilePath();
-	      break;
+	      diffuseTexFile = QFileInfo(QFileInfo(flnm).dir(),
+					 QString(path.data)).absoluteFilePath();
+	      //QMessageBox::information(0, "", diffuseTexFile);
+	      //break;
+	      if (!QFile::exists(diffuseTexFile))
+		{
+		  QString mesg;
+		  if (diffuseTexFile.isEmpty())
+		    mesg = QString("Diffuse texture not found for %1").arg(flnm);
+		  else
+		    mesg = "Cannot locate " + diffuseTexFile;
+		  
+		  QMessageBox::information(0, "Texture Error", mesg);
+
+		  QString imgFile = QFileDialog::getOpenFileName(0,
+								 QString("Load diffuse texture"),
+								 QFileInfo(flnm).dir().path(),
+								 "Image Files (*.png *.tif *.bmp *.jpg *.gif)");
+		  
+		  QFileInfo f(imgFile);
+
+		  if (f.exists() == true)
+		    diffuseTexFile = imgFile;
+		  else
+		    diffuseTexFile = QString();
+		}	    
+	      m_material << diffuseTexFile;
+	      texFound = texFound || (!diffuseTexFile.isEmpty());
 	    }
+	  else
+	    m_material << QString();
 	}
-      if (m_uv.count() > 0 &&
-	  !QFile::exists(m_diffuseTexFile))
+      
+      if (!texFound)
 	{
-	  QString mesg;
-	  if (m_diffuseTexFile.isEmpty())
-	    mesg = "Diffuse texture not found.";
-	  else
-	    mesg = "Cannot locate " + m_diffuseTexFile;
-	  QMessageBox::information(0, "Texture Error", mesg);
-	  QString imgFile = QFileDialog::getOpenFileName(0,
-							 QString("Load diffuse texture"),
-							 QFileInfo(flnm).dir().path(),
-							 "Image Files (*.png *.tif *.bmp *.jpg *.gif)");
-	  
-	  QFileInfo f(imgFile);
-	  if (f.exists() == true)
-	    m_diffuseTexFile = imgFile;
-	  else
-	    m_uv.clear();
+	  if (m_uv.count() > 0)
+	    {
+	      QString mesg;
+	      mesg = QString("Diffuse texture not found for %1").arg(flnm);
+	      QMessageBox::information(0, "Texture Error", mesg);
+
+	      QString imgFile = QFileDialog::getOpenFileName(0,
+							     QString("Load diffuse texture"),
+							     QFileInfo(flnm).dir().path(),
+							     "Image Files (*.png *.tif *.bmp *.jpg *.gif)");
+	      
+	      QFileInfo f(imgFile);
+	      
+	      if (f.exists() == true)
+		{
+		  for (int m=0; m<m_material.count(); m++)
+		    m_material[m] = imgFile;
+		}
+	      else
+		m_uv.clear();
+	    }	  
 	}
+	  
+//      if (m_uv.count() > 0 &&
+//	  !QFile::exists(m_diffuseTexFile))
+//	{
+//	  QString mesg;
+//	  if (m_diffuseTexFile.isEmpty())
+//	    mesg = "Diffuse texture not found.";
+//	  else
+//	    mesg = "Cannot locate " + m_diffuseTexFile;
+//	  QMessageBox::information(0, "Texture Error", mesg);
+//	  QString imgFile = QFileDialog::getOpenFileName(0,
+//							 QString("Load diffuse texture"),
+//							 QFileInfo(flnm).dir().path(),
+//							 "Image Files (*.png *.tif *.bmp *.jpg *.gif)");
+//	  
+//	  QFileInfo f(imgFile);
+//	  if (f.exists() == true)
+//	    m_diffuseTexFile = imgFile;
+//	  else
+//	    m_uv.clear();
+//	}
     }
   //--------------
 
+
+//  //--------------
+//  {
+//    QString mesg;
+//    for(int i=0; i<m_meshInfo.count(); i++)
+//      {
+//	QPolygon poly = m_meshInfo[i];
+//	mesg += QString("V : %1 %2       I : %3 %4     M : %5\n").\
+//	  arg(poly.point(0).x()).arg(poly.point(0).y()).
+//	  arg(poly.point(1).x()).arg(poly.point(1).y()).
+//	  arg(poly.point(2).x());
+//      }
+//    for(int i=0; i<m_material.count(); i++)
+//      mesg += QString("\nM : %1").arg(m_material[i]);
+//    
+//    QMessageBox::information(0, "", mesg);
+//  }
+//  //--------------
+
   
+
   float minX, maxX;
   float minY, maxY;
   float minZ, maxZ;

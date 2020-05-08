@@ -749,6 +749,41 @@ StaticFunctions::checkURLs(QList<QUrl> urls, const char *ext)
   return ok;
 }
 
+
+bool
+StaticFunctions::checkExtension(QString flnm, QStringList extensions)
+{
+  foreach(QString ext, extensions)
+    {
+      int extlen = ext.count();
+      QString exten = flnm.right(extlen).toLower();
+      if (exten == ext)
+	return true;
+    }
+
+  return false;
+}
+bool
+StaticFunctions::checkURLs(QList<QUrl> urls, QStringList extensions)
+{
+  for(int i=0; i<urls.count(); i++)
+    {
+      QUrl url = urls[i];
+      QFileInfo info(url.toLocalFile());
+      if (info.exists() && info.isFile())
+	{
+	  foreach(QString ext, extensions)
+	    {
+	      int extlen = ext.count();
+	      QString exten = url.toLocalFile().right(extlen).toLower();
+	      if (exten == ext)
+		return true;
+	    }
+	}
+    }
+  return false;
+}
+
 float
 StaticFunctions::calculateAngle(Vec p0, Vec p1, Vec p2)
 {

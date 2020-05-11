@@ -1348,9 +1348,9 @@ GLuint ShaderFactory::meshShader()
 	
 	m_meshShaderParm[0] = glGetUniformLocation(m_meshShader, "MVP");
 	m_meshShaderParm[1] = glGetUniformLocation(m_meshShader, "viewDir");
-	m_meshShaderParm[2] = glGetUniformLocation(m_meshShader, "pn");
-	m_meshShaderParm[3] = glGetUniformLocation(m_meshShader, "pnear");
-	m_meshShaderParm[4] = glGetUniformLocation(m_meshShader, "pfar");
+	//m_meshShaderParm[2] = glGetUniformLocation(m_meshShader, "pn");
+	//m_meshShaderParm[3] = glGetUniformLocation(m_meshShader, "pnear");
+	//m_meshShaderParm[4] = glGetUniformLocation(m_meshShader, "pfar");
 	m_meshShaderParm[5] = glGetUniformLocation(m_meshShader, "opacity");
 	m_meshShaderParm[6] = glGetUniformLocation(m_meshShader, "ambient");
 	m_meshShaderParm[7] = glGetUniformLocation(m_meshShader, "diffuse");
@@ -1358,12 +1358,9 @@ GLuint ShaderFactory::meshShader()
 	m_meshShaderParm[9] = glGetUniformLocation(m_meshShader, "nclip");
 	m_meshShaderParm[10] = glGetUniformLocation(m_meshShader,"clipPos");
 	m_meshShaderParm[11] = glGetUniformLocation(m_meshShader,"clipNormal");
-	m_meshShaderParm[12] = glGetUniformLocation(m_meshShader,"translate");
 	m_meshShaderParm[13] = glGetUniformLocation(m_meshShader,"hasUV");
 	m_meshShaderParm[14] = glGetUniformLocation(m_meshShader,"diffuseTex");
 	m_meshShaderParm[15] = glGetUniformLocation(m_meshShader,"featherSize");
-	m_meshShaderParm[16] = glGetUniformLocation(m_meshShader,"scale");
-	m_meshShaderParm[17] = glGetUniformLocation(m_meshShader,"origin");
 	
     }
 
@@ -1378,9 +1375,6 @@ ShaderFactory::meshShaderV()
 
   shader += "#version 410\n";
   shader += "uniform mat4 MVP;\n";
-  shader += "uniform vec3 translate;\n";
-  shader += "uniform vec3 origin;\n";
-  shader += "uniform vec3 scale;\n";
   shader += "layout(location = 0) in vec3 position;\n";
   shader += "layout(location = 1) in vec3 normalIn;\n";
   shader += "layout(location = 2) in vec3 colorIn;\n";
@@ -1393,8 +1387,6 @@ ShaderFactory::meshShaderV()
   shader += "   v3Color = colorIn;\n";
   shader += "   v3Normal = normalIn;\n";
   shader += "   gl_Position = MVP * vec4(position, 1);\n";
-  //shader += "   pointPos = translate + origin + (position-origin)*scale;\n";
-  //shader += "   gl_Position = MVP * vec4(origin+position, 1);\n";
   shader += "}\n";
 
   return shader;
@@ -1408,9 +1400,9 @@ ShaderFactory::meshShaderF()
   shader += "#version 410 core\n";
   shader += "uniform sampler2D diffuseTex;\n";
   shader += "uniform vec3 viewDir;\n";
-  shader += "uniform vec3 pn;\n";
-  shader += "uniform float pnear;\n";
-  shader += "uniform float pfar;\n";
+//  shader += "uniform vec3 pn;\n";
+//  shader += "uniform float pnear;\n";
+//  shader += "uniform float pfar;\n";
   shader += "uniform float opacity;\n";
   shader += "uniform float ambient;\n";
   shader += "uniform float diffuse;\n";
@@ -1428,9 +1420,9 @@ ShaderFactory::meshShaderF()
   shader += "out vec4 outputColor;\n";
   shader += "void main()\n";
   shader += "{\n";
-  shader += "   float d = dot(pn, pointPos);\n";
-  shader += "   if (pnear < pfar && (d < pnear || d > pfar))\n";
-  shader += "     discard;\n";
+//  shader += "   float d = dot(pn, pointPos);\n";
+//  shader += "   if (pnear < pfar && (d < pnear || d > pfar))\n";
+//  shader += "     discard;\n";
 
   //  shader += "  outputColor = vec4(v3Color, 1)*opacity;\n";
 

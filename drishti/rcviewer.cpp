@@ -401,10 +401,6 @@ RcViewer::fastDraw()
   GeometryObjects::clipplanes()->postdraw(m_viewer);
   GeometryObjects::hitpoints()->postdraw(m_viewer);
   GeometryObjects::paths()->postdraw(m_viewer);
-  GeometryObjects::trisets()->postdraw(m_viewer);
-  GeometryObjects::captions()->draw(m_viewer);
-  GeometryObjects::scalebars()->draw(m_viewer,
-				     GeometryObjects::clipplanes()->clipInfo());
 
   ClipInformation clipInfo; // dummy
   GeometryObjects::scalebars()->draw(m_viewer, clipInfo);
@@ -705,12 +701,13 @@ RcViewer::raycasting()
   Vec axis = m_brickInfo[0].axis;
   float angle = m_brickInfo[0].angle;
   pivot = VECPRODUCT((Vec(1,1,1)-pivot),bminO) + VECPRODUCT(pivot,bmaxO);
+  m_b0xform.setToIdentity();
+  m_b0xform.translate(pivot.x, pivot.y, pivot.z);
+  m_b0xform.rotate(angle, axis.x, axis.y, axis.z);
+  m_b0xform.translate(-pivot.x, -pivot.y, -pivot.z);
+
   QMatrix4x4 b0xform;
-  b0xform.setToIdentity();
-  b0xform.translate(pivot.x, pivot.y, pivot.z);
-  b0xform.rotate(angle, axis.x, axis.y, axis.z);
-  b0xform.translate(-pivot.x, -pivot.y, -pivot.z);
-  b0xform = b0xform.inverted();
+  b0xform = m_b0xform.inverted();
   
   QVector3D box[8];
   box[0] = QVector3D(bminO.x, bminO.y, bminO.z);
@@ -1093,10 +1090,20 @@ RcViewer::drawGeometry()
   float pfar = -10000;
   GeometryObjects::paths()->draw(m_viewer, pn, pnear, pfar, false, eyepos);
 
+  
   QList<Vec> clipPos;
   QList<Vec> clipNormal;
   clipPos = GeometryObjects::clipplanes()->positions();
   clipNormal = GeometryObjects::clipplanes()->normals();
+
+  float *bdata = (m_b0xform.transposed()).data();
+  double xform[16];
+  for(int i=0; i<16; i++) xform[i] = bdata[i];
+
+  GeometryObjects::trisets()->predraw(m_viewer,
+				      xform,
+				      Vec(1,1,1), false, 0,0); // dummy
+
   GeometryObjects::trisets()->draw(m_viewer,
 				   eyepos,
 				   pnear, pfar,
@@ -1105,6 +1112,8 @@ RcViewer::drawGeometry()
 				   eyepos,
 				   clipPos, clipNormal,
 				   false);
+  GeometryObjects::trisets()->postdraw(m_viewer);
+  GeometryObjects::captions()->draw(m_viewer);
 
   if (Global::drawBox())
     {

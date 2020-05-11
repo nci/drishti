@@ -182,6 +182,7 @@ class RcViewer : public QObject
 
   QList<BrickInformation> m_brickInfo;
   
+  QMatrix4x4 m_b0xform;
   float *m_flhist1D, *m_flhist2D;
   int *m_subvolume1dHistogram, *m_subvolume2dHistogram;
 

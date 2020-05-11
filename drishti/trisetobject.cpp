@@ -400,20 +400,20 @@ TrisetObject::drawTrisetBuffer(QGLViewer *viewer,
 
   glUniformMatrix4fv(meshShaderParm[0], 1, GL_FALSE, mvp);
   glUniform3f(meshShaderParm[1], vd.x, vd.y, vd.z); // view direction
-  glUniform3f(meshShaderParm[2], m_pn.x, m_pn.y, m_pn.z);
-  glUniform1f(meshShaderParm[3], pnear);
-  glUniform1f(meshShaderParm[4], pfar);
+  //glUniform3f(meshShaderParm[2], m_pn.x, m_pn.y, m_pn.z);
+  //glUniform1f(meshShaderParm[3], pnear);
+  //glUniform1f(meshShaderParm[4], pfar);
   glUniform1f(meshShaderParm[5], m_opacity);
   glUniform1f(meshShaderParm[6], m_ambient);
   glUniform1f(meshShaderParm[7], m_diffuse);
   glUniform1f(meshShaderParm[8], m_specular);
 
-  glUniform3f(meshShaderParm[12], m_position.x, m_position.y, m_position.z);
+  //glUniform3f(meshShaderParm[12], m_position.x, m_position.y, m_position.z);
 
   glUniform1f(meshShaderParm[15], m_featherSize);
 
-  glUniform3f(meshShaderParm[16], m_scale.x, m_scale.y, m_scale.z);
-  glUniform3f(meshShaderParm[17], m_centroid.x, m_centroid.y, m_centroid.z);
+  //glUniform3f(meshShaderParm[16], m_scale.x, m_scale.y, m_scale.z);
+  //glUniform3f(meshShaderParm[17], m_centroid.x, m_centroid.y, m_centroid.z);
 
 
   

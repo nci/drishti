@@ -374,6 +374,7 @@ TrisetObject::drawTrisetBuffer(QGLViewer *viewer,
 			       float pnear, float pfar)
 {
   //glDisable(GL_BLEND);
+  glUseProgram(ShaderFactory::meshShader());
 
   int ni = m_triangles.count();
   glBindVertexArray(m_glVertArray);
@@ -386,21 +387,16 @@ TrisetObject::drawTrisetBuffer(QGLViewer *viewer,
   // model-view-projection matrix
   GLdouble m[16];
   GLfloat mvp[16];
+  double dmvp[16];
   viewer->camera()->getModelViewProjectionMatrix(m);
-  for(int i=0; i<16; i++) mvp[i] = m[i];
+
+  Matrix::matmult(m_localXform, m, dmvp);
+  for(int i=0; i<16; i++) mvp[i] = dmvp[i];
+
 
   Vec vd = viewer->camera()->viewDirection();
-
-  //glUseProgram(ShaderFactory::meshShader());
   
   GLint *meshShaderParm = ShaderFactory::meshShaderParm();  
-
-//  if (m_uv.count() > 0)
-//    {
-//      glActiveTexture(GL_TEXTURE0);
-//      glEnable(GL_TEXTURE_2D);
-//      glBindTexture(GL_TEXTURE_2D, m_diffuseTex);
-//    }
 
   glUniformMatrix4fv(meshShaderParm[0], 1, GL_FALSE, mvp);
   glUniform3f(meshShaderParm[1], vd.x, vd.y, vd.z); // view direction
@@ -414,15 +410,11 @@ TrisetObject::drawTrisetBuffer(QGLViewer *viewer,
 
   glUniform3f(meshShaderParm[12], m_position.x, m_position.y, m_position.z);
 
-//  if (m_uv.count() > 0)
-//    {
-//      glUniform1i(meshShaderParm[13], 1); // hasVY
-//      glUniform1i(meshShaderParm[14], 0); // diffuseTex
-//    }
-//  else 
-//    glUniform1i(meshShaderParm[13], 0); // no diffuse Tex
-
   glUniform1f(meshShaderParm[15], m_featherSize);
+
+  glUniform3f(meshShaderParm[16], m_scale.x, m_scale.y, m_scale.z);
+  glUniform3f(meshShaderParm[17], m_centroid.x, m_centroid.y, m_centroid.z);
+
 
   
   //glDrawElements(GL_TRIANGLES, ni, GL_UNSIGNED_INT, 0);  
@@ -437,7 +429,6 @@ TrisetObject::drawTrisetBuffer(QGLViewer *viewer,
       int matIdx = poly.point(2).x();
       int nTri = idxEnd-idxStart+1;
       
-      //if (! m_material[matIdx].isEmpty())
       if (m_uv.count() > 0)
 	{
 	  glActiveTexture(GL_TEXTURE0);
@@ -454,7 +445,6 @@ TrisetObject::drawTrisetBuffer(QGLViewer *viewer,
   
   
   glDisable(GL_TEXTURE_2D);
-  //if (m_uv.count() > 0) glDisable(GL_TEXTURE_2D);
 
   glDisableVertexAttribArray(0);
   glDisableVertexAttribArray(1);
@@ -462,6 +452,200 @@ TrisetObject::drawTrisetBuffer(QGLViewer *viewer,
   glBindVertexArray(0);
   
   glUseProgram(0);
+}
+
+
+void
+TrisetObject::postdraw(QGLViewer *viewer,
+		       int x, int y,
+		       bool active, int idx)
+{
+  if (!m_show || !active)
+    return;
+
+  glDisable(GL_DEPTH_TEST);
+
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); // blend on top
+
+  viewer->startScreenCoordinatesSystem();
+
+  QString str = QString("triset %1").arg(idx);
+  str += QString(" (%1)").arg(QFileInfo(m_fileName).fileName());
+  QFont font = QFont();
+  QFontMetrics metric(font);
+  int ht = metric.height();
+  int wd = metric.width(str);
+  //x -= wd/2;
+  x += 10;
+
+  StaticFunctions::renderText(x+2, y, str, font, Qt::black, Qt::white);
+
+  glEnable(GL_DEPTH_TEST);
+
+  viewer->stopScreenCoordinatesSystem();
+}
+
+void
+TrisetObject::draw(QGLViewer *viewer,
+		   bool active,
+		   Vec lightPosition,
+		   float pnear, float pfar, Vec step)
+{
+  glDisable(GL_LIGHTING);
+
+  if (!m_show)
+    return;
+  
+  if (active)
+  {
+    Vec lineColor = Vec(1, 0.5, 0.3);
+    glUseProgram(0);
+    StaticFunctions::drawEnclosingCube(m_tenclosingBox, lineColor);
+  }
+  
+  if (m_opacity < 0.05)
+    return;
+
+  drawTrisetBuffer(viewer, 0, -1);
+}
+
+void
+TrisetObject::predraw(QGLViewer *viewer,
+		      double *Xform,
+		      Vec pn,
+		      bool shadows, int shadowWidth, int shadowHeight)
+{
+  m_pn = pn;
+
+  if (m_opacity < 0.05)
+    return;
+
+  double *s0 = new double[16];
+  double *s1 = new double[16];
+  double *s2 = new double[16];
+
+  Matrix::identity(s1);
+  s1[3] = m_position.x;
+  s1[7] = m_position.y;
+  s1[11]= m_position.z;
+
+  Matrix::identity(s0);
+  s0[3] = m_centroid.x;
+  s0[7] = m_centroid.y;
+  s0[11]= m_centroid.z;
+  Matrix::matmult(s1, s0, s2);
+
+  Matrix::identity(s0);
+  s0[0] = m_scale.x;
+  s0[5] = m_scale.y;
+  s0[10] = m_scale.z;
+  Matrix::matmult(s2, s0, s1);
+
+  Matrix::identity(s0);
+  s0[3] = -m_centroid.x;
+  s0[7] = -m_centroid.y;
+  s0[11]= -m_centroid.z;  
+  Matrix::matmult(s1, s0, s2);
+
+  Matrix::matmult(Xform, s2, m_localXform);
+
+  for(int i=0; i<8; i++)    
+    m_tenclosingBox[i] = Matrix::xformVec(m_localXform, m_enclosingBox[i]);
+
+
+  for(int i=0; i<4; i++)
+    for(int j=0; j<4; j++)
+      {
+	s0[j*4+i] = m_localXform[4*i+j];
+      }
+
+  memcpy(m_localXform, s0, 16*sizeof(double));
+  
+  
+  delete [] s0;
+  delete [] s1;
+  delete [] s2;
+  
+}
+
+void
+TrisetObject::makeReadyForPainting(QGLViewer *viewer)
+{
+  if (m_scrV) delete [] m_scrV;
+  if (m_scrD) delete [] m_scrD;
+
+  int swd = viewer->camera()->screenWidth();
+  int sht = viewer->camera()->screenHeight();
+  m_scrV = new uint[swd*sht];
+  m_scrD = new float[swd*sht];
+
+  for(int i=0; i<swd*sht; i++)
+    m_scrD[i] = -1;
+  for(int i=0; i<swd*sht; i++)
+    m_scrV[i] = 1000000000; // a very large number - we will not have billion vertices
+
+  for(int i=0; i<m_tvertices.count(); i++)
+    {
+      Vec scr = viewer->camera()->projectedCoordinatesOf(m_tvertices[i]);
+      int tx = scr.x;
+      int ty = sht-scr.y;
+      if (tx>0 && tx<swd && ty>0 && ty<sht)
+	{
+	  if (scr.z > 0.0 && scr.z > m_scrD[tx*sht+ty])
+	    {
+	      m_scrV[tx*sht + ty] = i;
+	      m_scrD[tx*sht + ty] = scr.z;
+	    }
+	}
+    }
+
+  if (m_vcolor.count() == 0)
+    { // create per vertex color and fill with white
+      m_vcolor.resize(m_vertices.count());
+      m_vcolor.fill(Vec(1,1,1));
+    }
+
+  bool black = (m_color.x<0.1 && m_color.y<0.1 && m_color.z<0.1);
+  if (!black) // make it black so that actual vertex colors are displayed
+    m_color = Vec(0,0,0);
+}
+
+void
+TrisetObject::releaseFromPainting()
+{
+  if (m_scrV) delete [] m_scrV;
+  if (m_scrD) delete [] m_scrD;
+  m_scrV = 0;
+  m_scrD = 0;
+}
+
+void
+TrisetObject::paint(QGLViewer *viewer,
+		    QBitArray doodleMask,
+		    float *depthMap,
+		    Vec tcolor, float tmix)
+{
+  int swd = viewer->camera()->screenWidth();
+  int sht = viewer->camera()->screenHeight();
+
+  for(int i=0; i<m_tvertices.count(); i++)
+    {
+      Vec scr = viewer->camera()->projectedCoordinatesOf(m_tvertices[i]);
+      int tx = scr.x;
+      int ty = sht-scr.y;
+      float td = scr.z;
+      if (tx>0 && tx<swd && ty>0 && ty<sht)
+	{
+	  int idx = ty*swd + tx;
+	  if (doodleMask.testBit(idx))
+	    {
+	      float zd = depthMap[idx];
+	      if (fabs(zd-td) < 0.0002)
+		m_vcolor[i] = tmix*tcolor + (1.0-tmix)*m_vcolor[i];
+	    }
+	}
+    }
 }
 
 bool
@@ -871,303 +1055,6 @@ TrisetObject::loadTriset(QString flnm)
   m_fileName = flnm;
 
   return true;
-}
-
-
-void
-TrisetObject::postdraw(QGLViewer *viewer,
-		       int x, int y,
-		       bool active, int idx)
-{
-  if (!m_show || !active)
-    return;
-
-  viewer->startScreenCoordinatesSystem();
-
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); // blend on top
-
-  QString str = QString("triset %1").arg(idx);
-  str += QString(" (%1)").arg(QFileInfo(m_fileName).fileName());
-  QFont font = QFont();
-  QFontMetrics metric(font);
-  int ht = metric.height();
-  int wd = metric.width(str);
-  //x -= wd/2;
-  x += 10;
-
-  StaticFunctions::renderText(x+2, y, str, font, Qt::black, Qt::white);
-
-  viewer->stopScreenCoordinatesSystem();
-}
-
-void
-TrisetObject::draw(QGLViewer *viewer,
-		   bool active,
-		   Vec lightPosition,
-		   float pnear, float pfar, Vec step)
-{
-
-  StaticFunctions::drawEnclosingCube(m_tenclosingBox, Vec(1,1,0.5));
-
-  if (!m_show)
-    return;
-  
-  if (active)
-    {
-      Vec lineColor = Vec(0.7f, 0.3f, 0);
-      StaticFunctions::drawEnclosingCube(m_tenclosingBox, lineColor);
-    }
-  
-  if (m_opacity < 0.05)
-    return;
-
-  float pos[4];
-  float amb[4];
-  float diff[4];
-  float spec[4];
-  float shine = 128*m_specular;
-
-  glEnable(GL_LIGHTING);
-  glShadeModel(GL_SMOOTH);
-  glEnable(GL_LIGHT0);
-
-  //glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, GL_TRUE); // assume infinite view point
-  //glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
-
-  for (int i=0; i<4; i++)
-    spec[i] = m_specular;
-
-  for (int i=0; i<4; i++)
-    diff[i] = m_diffuse;
-
-  for (int i=0; i<4; i++)
-    amb[i] = m_ambient;
-
-
-  glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, spec);
-  glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, &shine);
-
-  // emissive when active
-  if (active)
-    {
-      float emiss[] = { 0.5f, 0, 0, 1 };
-      glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, emiss);
-    }
-  else
-    {
-      float emiss[] = { 0, 0, 0, 1 };
-      glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, emiss);
-    }
-
-
-  glLightfv(GL_LIGHT0, GL_DIFFUSE, diff);
-  glLightfv(GL_LIGHT0, GL_AMBIENT, amb);
-  if (spec > 0)
-    glLightfv(GL_LIGHT0, GL_SPECULAR, spec);
-
-  glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
-  glEnable(GL_COLOR_MATERIAL);
-
-  pos[0] = lightPosition.x;
-  pos[1] = lightPosition.y;
-  pos[2] = lightPosition.z;
-  pos[3] = 0;
-  glLightfv(GL_LIGHT0, GL_POSITION, pos);
-
-  glColor4f(m_color.x*m_opacity,
-	    m_color.y*m_opacity,
-	    m_color.z*m_opacity,
-	    m_opacity);
-
-  if (m_blendMode)
-    drawTrisetBuffer(viewer, pnear, pfar);
-  else
-    drawTrisetBuffer(viewer, 0, -1);
-
-  { // reset emissivity
-    float emiss[] = { 0, 0, 0, 1 };
-    glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, emiss);
-  }
-
-
-  glDisable(GL_LIGHTING);
-}
-
-void
-TrisetObject::predraw(QGLViewer *viewer,
-		      double *Xform,
-		      Vec pn,
-		      bool shadows, int shadowWidth, int shadowHeight)
-{
-  m_pn = pn;
-
-  if (m_opacity < 0.05)
-    return;
-
-  double *sp0 = new double[16];
-  double *sp1 = new double[16];
-  double *scl = new double[16];
-  Matrix::identity(sp0);
-  sp0[3] = m_centroid.x;
-  sp0[7] = m_centroid.y;
-  sp0[11]= m_centroid.z;
-
-  Matrix::identity(scl);
-  scl[0] = m_scale.x;
-  scl[5] = m_scale.y;
-  scl[10] = m_scale.z;
-  Matrix::matmult(sp0,scl,sp1);  // sp1 = sp0 * scl
-
-  Matrix::identity(sp0);
-  sp0[3] = -m_centroid.x;
-  sp0[7] = -m_centroid.y;
-  sp0[11]= -m_centroid.z;  
-  Matrix::matmult(sp1, sp0, scl); // scl = sp1 * sp0
-
-  double *localXform = new double[16];
-  Matrix::matmult(scl, Xform, sp1);
-
-  Matrix::identity(sp0);
-  sp0[3] = m_position.x;
-  sp0[7] = m_position.y;
-  sp0[11]= m_position.z;
-  Matrix::matmult(sp1, sp0, localXform);
-
-  delete [] sp0;
-  delete [] sp1;
-  delete [] scl;
-
-
-  m_tcentroid = Matrix::xformVec(localXform, m_centroid);
-
-  for(int i=0; i<8; i++)
-    m_tenclosingBox[i] = Matrix::xformVec(localXform, m_enclosingBox[i]);
-
-  for(int i=0; i<m_vertices.count(); i++)
-    m_tvertices[i] = Matrix::xformVec(localXform, m_vertices[i]);
-
-
-  if (m_normals.count() > 0)
-    {  int fn = 1;
-      if (m_flipNormals)
-	fn = -1;
-      for(int i=0; i<m_normals.count(); i++)
-	m_tnormals[i] = Matrix::rotateVec(localXform, (fn*m_normals[i]));
-    }
-
-  if (m_blendMode)
-    {
-      if (!shadows || !m_shadows)
-	{
-	  for(int i=0; i<m_vertices.count(); i++)
-	    m_texValues[i] = Vec(pn*m_tvertices[i], 0, 0);
-	}
-      else
-	{
-	  for(int i=0; i<m_vertices.count(); i++)
-	    {
-	      Vec scr = viewer->camera()->projectedCoordinatesOf(m_tvertices[i]);
-	      float tx = scr.x;
-	      float ty = shadowHeight-scr.y;
-	      
-	      float d = pn * m_tvertices[i];
-	      
-	      m_texValues[i] = Vec(d, tx, ty);
-	    }
-	}
-    }
-
-  bool black = (m_color.x<0.1 && m_color.y<0.1 && m_color.z<0.1);
-  if (black)
-    {
-      m_drawcolor.clear();
-      m_drawcolor = m_vcolor;
-      for(int i=0; i<m_drawcolor.count(); i++)
-	m_drawcolor[i] *= m_opacity;
-    }
-
-
-  delete [] localXform;
-}
-
-void
-TrisetObject::makeReadyForPainting(QGLViewer *viewer)
-{
-  if (m_scrV) delete [] m_scrV;
-  if (m_scrD) delete [] m_scrD;
-
-  int swd = viewer->camera()->screenWidth();
-  int sht = viewer->camera()->screenHeight();
-  m_scrV = new uint[swd*sht];
-  m_scrD = new float[swd*sht];
-
-  for(int i=0; i<swd*sht; i++)
-    m_scrD[i] = -1;
-  for(int i=0; i<swd*sht; i++)
-    m_scrV[i] = 1000000000; // a very large number - we will not have billion vertices
-
-  for(int i=0; i<m_tvertices.count(); i++)
-    {
-      Vec scr = viewer->camera()->projectedCoordinatesOf(m_tvertices[i]);
-      int tx = scr.x;
-      int ty = sht-scr.y;
-      if (tx>0 && tx<swd && ty>0 && ty<sht)
-	{
-	  if (scr.z > 0.0 && scr.z > m_scrD[tx*sht+ty])
-	    {
-	      m_scrV[tx*sht + ty] = i;
-	      m_scrD[tx*sht + ty] = scr.z;
-	    }
-	}
-    }
-
-  if (m_vcolor.count() == 0)
-    { // create per vertex color and fill with white
-      m_vcolor.resize(m_vertices.count());
-      m_vcolor.fill(Vec(1,1,1));
-    }
-
-  bool black = (m_color.x<0.1 && m_color.y<0.1 && m_color.z<0.1);
-  if (!black) // make it black so that actual vertex colors are displayed
-    m_color = Vec(0,0,0);
-}
-
-void
-TrisetObject::releaseFromPainting()
-{
-  if (m_scrV) delete [] m_scrV;
-  if (m_scrD) delete [] m_scrD;
-  m_scrV = 0;
-  m_scrD = 0;
-}
-
-void
-TrisetObject::paint(QGLViewer *viewer,
-		    QBitArray doodleMask,
-		    float *depthMap,
-		    Vec tcolor, float tmix)
-{
-  int swd = viewer->camera()->screenWidth();
-  int sht = viewer->camera()->screenHeight();
-
-  for(int i=0; i<m_tvertices.count(); i++)
-    {
-      Vec scr = viewer->camera()->projectedCoordinatesOf(m_tvertices[i]);
-      int tx = scr.x;
-      int ty = sht-scr.y;
-      float td = scr.z;
-      if (tx>0 && tx<swd && ty>0 && ty<sht)
-	{
-	  int idx = ty*swd + tx;
-	  if (doodleMask.testBit(idx))
-	    {
-	      float zd = depthMap[idx];
-	      if (fabs(zd-td) < 0.0002)
-		m_vcolor[i] = tmix*tcolor + (1.0-tmix)*m_vcolor[i];
-	    }
-	}
-    }
 }
 
 QDomElement

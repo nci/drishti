@@ -1358,11 +1358,13 @@ GLuint ShaderFactory::meshShader()
 	m_meshShaderParm[9] = glGetUniformLocation(m_meshShader, "nclip");
 	m_meshShaderParm[10] = glGetUniformLocation(m_meshShader,"clipPos");
 	m_meshShaderParm[11] = glGetUniformLocation(m_meshShader,"clipNormal");
-	m_meshShaderParm[12] = glGetUniformLocation(m_meshShader,"origin");
+	m_meshShaderParm[12] = glGetUniformLocation(m_meshShader,"translate");
 	m_meshShaderParm[13] = glGetUniformLocation(m_meshShader,"hasUV");
 	m_meshShaderParm[14] = glGetUniformLocation(m_meshShader,"diffuseTex");
 	m_meshShaderParm[15] = glGetUniformLocation(m_meshShader,"featherSize");
-
+	m_meshShaderParm[16] = glGetUniformLocation(m_meshShader,"scale");
+	m_meshShaderParm[17] = glGetUniformLocation(m_meshShader,"origin");
+	
     }
 
   return m_meshShader;
@@ -1376,7 +1378,9 @@ ShaderFactory::meshShaderV()
 
   shader += "#version 410\n";
   shader += "uniform mat4 MVP;\n";
+  shader += "uniform vec3 translate;\n";
   shader += "uniform vec3 origin;\n";
+  shader += "uniform vec3 scale;\n";
   shader += "layout(location = 0) in vec3 position;\n";
   shader += "layout(location = 1) in vec3 normalIn;\n";
   shader += "layout(location = 2) in vec3 colorIn;\n";
@@ -1388,7 +1392,9 @@ ShaderFactory::meshShaderV()
   shader += "   pointPos = position;\n";
   shader += "   v3Color = colorIn;\n";
   shader += "   v3Normal = normalIn;\n";
-  shader += "   gl_Position = MVP * vec4(origin+position, 1);\n";
+  shader += "   gl_Position = MVP * vec4(position, 1);\n";
+  //shader += "   pointPos = translate + origin + (position-origin)*scale;\n";
+  //shader += "   gl_Position = MVP * vec4(origin+position, 1);\n";
   shader += "}\n";
 
   return shader;

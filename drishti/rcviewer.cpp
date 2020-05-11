@@ -401,6 +401,10 @@ RcViewer::fastDraw()
   GeometryObjects::clipplanes()->postdraw(m_viewer);
   GeometryObjects::hitpoints()->postdraw(m_viewer);
   GeometryObjects::paths()->postdraw(m_viewer);
+  GeometryObjects::trisets()->postdraw(m_viewer);
+  GeometryObjects::captions()->draw(m_viewer);
+  GeometryObjects::scalebars()->draw(m_viewer,
+				     GeometryObjects::clipplanes()->clipInfo());
 
   ClipInformation clipInfo; // dummy
   GeometryObjects::scalebars()->draw(m_viewer, clipInfo);

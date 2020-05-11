@@ -2464,6 +2464,17 @@ DrawHiresVolume::drawGeometryOnly()
   m_clipPos = GeometryObjects::clipplanes()->positions();
   m_clipNormal = GeometryObjects::clipplanes()->normals();
 
+  Vec ads = Vec(m_lightInfo.highlights.ambient,
+		m_lightInfo.highlights.diffuse,
+		m_lightInfo.highlights.specular);
+  GeometryObjects::trisets()->setLighting(ads);
+  GeometryObjects::trisets()->predraw(m_Viewer,
+				      m_bricks->getMatrix(0),
+				      pn,
+				      false,
+				      m_shadowWidth,
+				      m_shadowHeight);
+
   drawGeometry(pn, 1, -1, 10000*pn,
 	       false, false, eyepos);
   

@@ -51,7 +51,8 @@ class Trisets : public QObject
 	       double*,
 	       Vec,
 	       bool, int, int);
-  void draw(QGLViewer*, Vec,
+  void draw(QGLViewer*,
+	    Vec,
 	    float, float, Vec,
 	    bool, bool, Vec,
 	    QList<Vec>, QList<Vec>,

@@ -242,11 +242,11 @@ Trisets::predraw(QGLViewer *viewer,
 		 Vec pn,
 		 bool shadows, int shadowWidth, int shadowHeight)
 {
-//  for(int i=0; i<m_trisets.count();i++)
-//    m_trisets[i]->predraw(viewer,
-//			  Xform,
-//			  pn,
-//			  shadows, shadowWidth, shadowHeight);
+  for(int i=0; i<m_trisets.count();i++)
+    m_trisets[i]->predraw(viewer,
+			  Xform,
+			  pn,
+			  shadows, shadowWidth, shadowHeight);
 }
 
 void
@@ -417,12 +417,12 @@ Trisets::keyPressEvent(QKeyEvent *event)
 	      vlist << QVariant(QString("%1 %2 %3").arg(pos.x).arg(pos.y).arg(pos.z));
 	      plist["position"] = vlist;
 
-//	      pos = m_trisets[i]->scale();
-//	      vlist.clear();
-//	      vlist << QVariant("string");
-//	      vlist << QVariant(QString("%1 %2 %3").arg(pos.x).arg(pos.y).arg(pos.z));
-//	      plist["scale"] = vlist;
-//
+	      pos = m_trisets[i]->scale();
+	      vlist.clear();
+	      vlist << QVariant("string");
+	      vlist << QVariant(QString("%1 %2 %3").arg(pos.x).arg(pos.y).arg(pos.z));
+	      plist["scale"] = vlist;
+
 //	      vlist.clear();
 //	      vlist << QVariant("checkbox");
 //	      vlist << QVariant(m_trisets[i]->flipNormals());
@@ -557,7 +557,7 @@ Trisets::keyPressEvent(QKeyEvent *event)
 
 	      QStringList keys;
 	      keys << "position";
-	      //keys << "scale";
+	      keys << "scale";
 	      //keys << "gap";
 	      //keys << "flip normals";
 	      //keys << "screendoor transparency";

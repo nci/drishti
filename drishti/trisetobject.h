@@ -152,6 +152,8 @@ class TrisetObject
   GLuint m_glVertArray;
   
   float m_featherSize;
+
+  double m_localXform[16];
   
   void loadVertexBufferData();
   void drawTrisetBuffer(QGLViewer*, float, float);

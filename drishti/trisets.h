@@ -54,9 +54,8 @@ class Trisets : public QObject
   void draw(QGLViewer*,
 	    Vec,
 	    float, float, Vec,
-	    bool, bool, Vec,
-	    QList<Vec>, QList<Vec>,
-	    bool);
+	    bool, Vec,
+	    QList<Vec>, QList<Vec>);
   void postdraw(QGLViewer*);
 
   bool keyPressEvent(QKeyEvent*);
@@ -75,6 +74,10 @@ class Trisets : public QObject
   void releaseFromPainting();
   void paint(QGLViewer*, QBitArray, float*, Vec, float);
 
+  void resize(int, int);
+
+  void setShapeEnhancements(float, float);
+  
  signals :
   void updateGL();
 
@@ -93,6 +96,17 @@ class Trisets : public QObject
 
   float *m_cpos;
   float *m_cnormal;
+
+  GLuint m_vertexScreenBuffer;
+  float m_scrGeo[8];
+
+  GLuint m_depthBuffer;
+  GLuint m_rbo;
+  GLuint m_depthTex[4];
+
+  float m_blur, m_edges;
+    
+  void createFBO(int, int);
 };
 
 

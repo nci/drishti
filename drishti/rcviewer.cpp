@@ -1108,10 +1108,9 @@ RcViewer::drawGeometry()
 				   eyepos,
 				   pnear, pfar,
 				   Vec(1,1,1), // dummy
-				   false, false,
+				   false,
 				   eyepos,
-				   clipPos, clipNormal,
-				   false);
+				   clipPos, clipNormal);
   GeometryObjects::trisets()->postdraw(m_viewer);
   GeometryObjects::captions()->draw(m_viewer);
 

@@ -450,6 +450,9 @@ Viewer::resizeGL(int width, int height)
   createImageBuffers();
 
   m_rcViewer.resizeGL(width, height);
+
+  if (GeometryObjects::trisets()->count() > 0)
+    GeometryObjects::trisets()->resize(width, height);
 }
 
 void

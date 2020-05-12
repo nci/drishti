@@ -1348,9 +1348,9 @@ GLuint ShaderFactory::meshShader()
 	
 	m_meshShaderParm[0] = glGetUniformLocation(m_meshShader, "MVP");
 	m_meshShaderParm[1] = glGetUniformLocation(m_meshShader, "viewDir");
-	//m_meshShaderParm[2] = glGetUniformLocation(m_meshShader, "pn");
-	//m_meshShaderParm[3] = glGetUniformLocation(m_meshShader, "pnear");
-	//m_meshShaderParm[4] = glGetUniformLocation(m_meshShader, "pfar");
+	m_meshShaderParm[2] = glGetUniformLocation(m_meshShader, "eyepos");
+	m_meshShaderParm[3] = glGetUniformLocation(m_meshShader, "localXform");
+	m_meshShaderParm[4] = glGetUniformLocation(m_meshShader, "MV");
 	m_meshShaderParm[5] = glGetUniformLocation(m_meshShader, "opacity");
 	m_meshShaderParm[6] = glGetUniformLocation(m_meshShader, "ambient");
 	m_meshShaderParm[7] = glGetUniformLocation(m_meshShader, "diffuse");
@@ -1358,6 +1358,7 @@ GLuint ShaderFactory::meshShader()
 	m_meshShaderParm[9] = glGetUniformLocation(m_meshShader, "nclip");
 	m_meshShaderParm[10] = glGetUniformLocation(m_meshShader,"clipPos");
 	m_meshShaderParm[11] = glGetUniformLocation(m_meshShader,"clipNormal");
+	m_meshShaderParm[12] = glGetUniformLocation(m_meshShader,"sceneRadius");
 	m_meshShaderParm[13] = glGetUniformLocation(m_meshShader,"hasUV");
 	m_meshShaderParm[14] = glGetUniformLocation(m_meshShader,"diffuseTex");
 	m_meshShaderParm[15] = glGetUniformLocation(m_meshShader,"featherSize");
@@ -1373,20 +1374,29 @@ ShaderFactory::meshShaderV()
 {
   QString shader;
 
-  shader += "#version 410\n";
+  shader += "#version 420 core\n";
+  shader += "uniform mat4 MV;\n";
   shader += "uniform mat4 MVP;\n";
+  shader += "uniform mat4 localXform;\n";
   shader += "layout(location = 0) in vec3 position;\n";
   shader += "layout(location = 1) in vec3 normalIn;\n";
   shader += "layout(location = 2) in vec3 colorIn;\n";
   shader += "out vec3 v3Normal;\n";
   shader += "out vec3 v3Color;\n";
   shader += "out vec3 pointPos;\n";
+  shader += "out float zdepth;\n";
+  shader += "out float zdepthV;\n";
+  shader += "out vec3 ;\n";
   shader += "void main()\n";
   shader += "{\n";
-  shader += "   pointPos = position;\n";
+  shader += "   pointPos = (localXform * vec4(position, 1)).xyz;\n";
+  //shader += "   pointPos = position;\n";
   shader += "   v3Color = colorIn;\n";
   shader += "   v3Normal = normalIn;\n";
   shader += "   gl_Position = MVP * vec4(position, 1);\n";
+  shader += "   zdepth = ((gl_DepthRange.diff * gl_Position.z/gl_Position.w) +\n";
+  shader += "              gl_DepthRange.near + gl_DepthRange.far) / 2.0;\n";
+  shader += "   zdepthV = -(MV * vec4(pointPos, 1)).z;\n";
   shader += "}\n";
 
   return shader;
@@ -1397,12 +1407,11 @@ ShaderFactory::meshShaderF()
 {
   QString shader;
 
-  shader += "#version 410 core\n";
+  shader += "#version 420 core\n";
   shader += "uniform sampler2D diffuseTex;\n";
   shader += "uniform vec3 viewDir;\n";
-//  shader += "uniform vec3 pn;\n";
-//  shader += "uniform float pnear;\n";
-//  shader += "uniform float pfar;\n";
+  shader += "uniform vec3 eyepos;\n";
+  shader += "uniform float sceneRadius;\n";
   shader += "uniform float opacity;\n";
   shader += "uniform float ambient;\n";
   shader += "uniform float diffuse;\n";
@@ -1417,10 +1426,23 @@ ShaderFactory::meshShaderF()
   shader += "in vec3 v3Color;\n";
   shader += "in vec3 v3Normal;\n";
   shader += "in vec3 pointPos;\n";
-  shader += "out vec4 outputColor;\n";
+  shader += "in float zdepth;\n";
+  shader += "in float zdepthV;\n";
+
+  //shader += "out vec4 outputColor;\n";
+  // Ouput data
+  shader += "layout (location=0) out vec4 outputColor;\n";
+  shader += "layout (location=1) out vec3 depth;\n";
+  shader += "layout (depth_greater) out float gl_FragDepth;\n";
+
   shader += "void main()\n";
   shader += "{\n";
-//  shader += "   float d = dot(pn, pointPos);\n";
+
+  shader += "gl_FragDepth = zdepth;\n";
+  //shader += "float d = dot((pointPos-eyepos), viewDir);\n";
+  shader += "depth = vec3(zdepthV/sceneRadius, 0, gl_FragDepth);\n";
+
+  //  shader += "   float d = dot(pn, pointPos);\n";
 //  shader += "   if (pnear < pfar && (d < pnear || d > pfar))\n";
 //  shader += "     discard;\n";
 
@@ -1468,6 +1490,222 @@ ShaderFactory::meshShaderF()
     
   return shader;
 }
+
+
+
+
+GLint ShaderFactory::m_meshShadowShaderParm[20];
+GLint* ShaderFactory::meshShadowShaderParm() { return &m_meshShadowShaderParm[0]; }
+
+GLuint ShaderFactory::m_meshShadowShader = 0;
+GLuint ShaderFactory::meshShadowShader()
+{
+  if (!m_meshShadowShader)
+    {
+      m_meshShadowShader = glCreateProgram();
+      QString vertShaderString = meshShadowShaderV();
+      QString fragShaderString = meshShadowShaderF();
+  
+      bool ok = loadShader(m_meshShadowShader,
+			   vertShaderString,
+			   fragShaderString);  
+
+      if (!ok)
+	{
+	  QMessageBox::information(0, "", "Cannot load mesh shadow shaders");
+	  return 0;
+	}
+	
+	m_meshShadowShaderParm[0] = glGetUniformLocation(m_meshShadowShader, "MVP");
+	m_meshShadowShaderParm[1] = glGetUniformLocation(m_meshShadowShader, "colorTex");
+	m_meshShadowShaderParm[2] = glGetUniformLocation(m_meshShadowShader, "depthTex");
+	m_meshShadowShaderParm[3] = glGetUniformLocation(m_meshShadowShader, "softshadow");
+	m_meshShadowShaderParm[4] = glGetUniformLocation(m_meshShadowShader, "edges");
+	m_meshShadowShaderParm[5] = glGetUniformLocation(m_meshShadowShader, "gamma");
+	
+    }
+
+  return m_meshShadowShader;
+}
+
+QString
+ShaderFactory::meshShadowShaderV()
+{
+  QString shader;
+  shader += "#version 420 core\n";
+  shader += "\n";
+  shader += "layout(location = 0) in vec3 vertex;\n";
+  shader += "uniform mat4 MVP;\n";
+  shader += "\n";
+  shader += "void main()\n";
+  shader += "{\n";
+  shader += "  gl_Position =  MVP * vec4(vertex,1);\n";
+  shader += "}\n";
+  return shader;
+}
+
+QString
+ShaderFactory::meshShadowShaderF()
+{
+  QString shader;
+
+  shader += "#version 420 core\n";
+ 
+  // Ouput data
+  shader += "layout(location=0) out vec4 color;\n";
+  shader += "layout(depth_greater) out float gl_FragDepth;\n";
+		      
+  shader += "uniform sampler2DRect colorTex;\n";
+  shader += "uniform sampler2DRect depthTex;\n";
+  shader += "uniform float softshadow;\n";
+  shader += "uniform float edges;\n";
+  shader += "uniform float gamma;\n";
+  
+  shader += "void main()\n";
+  shader += "{\n";
+
+  shader += "  vec2 spos = gl_FragCoord.xy;\n";
+
+  shader += "  color = texture2DRect(colorTex, spos.xy);\n";
+  shader += "  if (color.a < 0.001)\n";
+  shader += "    discard;\n";
+
+  shader += "  vec4 dtex = texture2DRect(depthTex, spos.xy);\n";
+  shader += "  float depth = dtex.x;\n";
+
+  shader += "  if (depth < 0.001) \n";
+  shader += "  {\n";
+  shader += "     gl_FragDepth = 1.0;\n";
+  shader += "     return;\n";
+  shader += "  }\n";
+
+
+  shader += "  gl_FragDepth = dtex.z;\n";
+
+  shader += "  float cx[8] = float[](-1.0, 0.0, 1.0, 0.0, -1.0,-1.0, 1.0, 1.0);\n";
+  shader += "  float cy[8] = float[]( 0.0,-1.0, 0.0, 1.0, -1.0, 1.0,-1.0, 1.0);\n";
+
+  shader += "  if (softshadow > 0.0)\n";
+  shader += "  {\n";
+  shader += "    float sum = 0.0;\n";
+  shader += "    float tele = 0.0;\n";
+  shader += "    float r = 1.0;\n";
+  shader += "    float ege = 0.0;\n";
+  shader += "    int j = 0;\n";
+  shader += "    int nsteps = int(5.0*softshadow);\n";
+  shader += "    for(int i=0; i<nsteps; i++)\n";
+  shader += "      {\n";
+  shader += "    	 r = 1.0 + float(i)/4.0;\n";
+  shader += "    	 vec2 pos = spos + vec2(r*cx[int(mod(i,8))],r*cy[int(mod(i,8))]);\n";
+  shader += "    	 float od = depth - texture2DRect(depthTex, pos).x;\n";
+  shader += "    	 float ege = depth*0.01;\n";
+  shader += "    	 sum += step(ege, od);\n";
+  shader += "    	 tele ++;\n";
+  shader += "      } \n";
+  shader += "    sum /= tele;\n";
+  shader += "    sum = 1.0-sum;\n";
+  shader += "    sum = pow(sum, gamma);\n";
+  shader += "    color.rgb *= sum;\n";
+  shader += "  }\n";
+
+
+  shader += "  if (edges > 0.0)\n";
+  shader += "  {\n";
+  shader += "    float response = 0.0;\n";
+  shader += "    float tle = 0.0;\n";
+  shader += "    for(int i=0; i<8; i++)\n";
+  shader += "      {\n";
+  shader += "        vec2 pos = spos + vec2(cx[i],cy[i]);\n";
+  shader += "        float od = depth - (texture2DRect(depthTex, pos).x);\n";
+  shader += "        response += max(0.0, -od);\n";
+  shader += "        tle ++;\n";
+  shader += "      } \n";
+  shader += "    response /= tle;\n";
+  shader += "    color.rgb *= exp(-response*edges*200);\n";
+  shader += "  }\n";
+
+
+  shader += "}\n";
+
+  return shader;
+}
+
+//QString
+//ShaderFactory::meshShaderShadow()
+//{
+//  QString shader;
+//
+//  shader += "#version 410 core\n";
+//  shader += "uniform sampler2D diffuseTex;\n";
+//  shader += "uniform vec3 viewDir;\n";
+////  shader += "uniform vec3 pn;\n";
+////  shader += "uniform float pnear;\n";
+////  shader += "uniform float pfar;\n";
+//  shader += "uniform float opacity;\n";
+//  shader += "uniform float ambient;\n";
+//  shader += "uniform float diffuse;\n";
+//  shader += "uniform float specular;\n";
+//  shader += "uniform int nclip;\n";
+//  shader += "uniform vec3 clipPos[10];\n";
+//  shader += "uniform vec3 clipNormal[10];\n";
+//  shader += "uniform bool hasUV;\n";
+//  shader += "uniform float featherSize;\n";
+//  
+//  shader += "\n";
+//  shader += "in vec3 v3Color;\n";
+//  shader += "in vec3 v3Normal;\n";
+//  shader += "in vec3 pointPos;\n";
+//  shader += "out vec4 outputColor;\n";
+//  shader += "void main()\n";
+//  shader += "{\n";
+////  shader += "   float d = dot(pn, pointPos);\n";
+////  shader += "   if (pnear < pfar && (d < pnear || d > pfar))\n";
+////  shader += "     discard;\n";
+//
+//  //  shader += "  outputColor = vec4(v3Color, 1)*opacity;\n";
+//
+//  shader += "  if (hasUV)\n";
+//  shader += "     outputColor = texture(diffuseTex, vec2(v3Color.x, 1-v3Color.y));\n";
+//  //shader += "     outputColor = texture(diffuseTex, vec2(v3Color.x, v3Color.y));\n";
+//  shader += "  else\n";
+//  shader += "     outputColor = vec4(v3Color, 1)*opacity;\n";
+//
+//  shader += "float cfeather = 1.0;\n";
+//  shader += "if (nclip > 0)\n";
+//  shader += "  {\n";
+//  shader += "    for(int c=0; c<nclip; c++)\n";
+//  shader += "      {\n";
+//  shader += "        vec3 cpos = clipPos[c];\n";
+//  shader += "        vec3 cnorm = clipNormal[c];\n";
+//  shader += "        float cp = dot(pointPos-cpos, cnorm);\n";
+//  shader += "        if (cp > 0.0)\n";
+//  shader += "          discard;\n";
+//  shader += "        else\n";
+//  shader += "          cfeather *= smoothstep(0.0, featherSize, -cp);\n";
+//  shader += "      }\n";
+//  shader += "    cfeather = 1.0 - cfeather;\n";
+//  shader += "  }\n";
+//
+//  shader += "  if (nclip > 0)\n";
+//  shader += "    outputColor.rgb = mix(outputColor.rgb, vec3(1,1,1), cfeather);\n";
+//
+//  shader += "\n";
+//  shader += "  if (length(viewDir) > 0.0)\n";
+//  shader += "    {\n";
+//  shader += "      vec3 reflecvec = reflect(viewDir, v3Normal);\n";
+//  shader += "      float diffMag = abs(dot(v3Normal, viewDir));\n";
+//  shader += "      vec3 Diff = diffuse*diffMag*outputColor.rgb;\n";
+//  shader += "      float Spec = pow(abs(dot(v3Normal, reflecvec)), 512);\n";
+//  shader += "      Spec *= specular*outputColor.a;\n";
+//  shader += "      vec3 Amb = ambient*outputColor.rgb;\n";
+//  shader += "\n";
+//  shader += "      outputColor.rgb = Amb + Diff + vec3(Spec,Spec,Spec);\n";
+//  shader += "    }\n";
+//  shader += "}\n";
+//
+//    
+//  return shader;
+//}
 
 //----------------------------
 //----------------------------

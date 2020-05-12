@@ -96,7 +96,7 @@ PropertyEditor::set(QString title,
   vbox->addWidget(scrollArea);
   ui.propertyBox->setLayout(vbox);
 
-  resize(700, qBound(1, keys.count(), 25)*30);
+  resize(700, 200+qBound(1, keys.count(), 15)*30);
 
 
   QStringList pkeys = plist.keys();

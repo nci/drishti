@@ -17,6 +17,18 @@ Trisets::Trisets()
   m_geoShadowShader = 0;
   m_cpos = new float[100];
   m_cnormal = new float[100];
+
+  m_depthBuffer = 0;
+  m_depthTex[0] = 0;
+  m_depthTex[1] = 0;
+  m_depthTex[2] = 0;
+  m_depthTex[3] = 0;
+  m_rbo = 0;
+
+  m_vertexScreenBuffer = 0;
+
+  m_blur = 0;
+  m_edges = 0;
 }
 
 Trisets::~Trisets()
@@ -24,8 +36,25 @@ Trisets::~Trisets()
   clear();
   delete [] m_cpos;
   delete [] m_cnormal;
+
+  if (m_depthBuffer) glDeleteFramebuffers(1, &m_depthBuffer);
+  if (m_depthTex[0]) glDeleteTextures(4, m_depthTex);
+  if (m_rbo) glDeleteRenderbuffers(1, &m_rbo);
+
+  m_depthBuffer = 0;
+  m_depthTex[0] = 0;
+  m_depthTex[1] = 0;
+  m_depthTex[2] = 0;
+  m_depthTex[3] = 0;
+  m_rbo = 0;
 }
 
+void
+Trisets::setShapeEnhancements(float blur, float edges)
+{
+  m_blur = qMax(0, (int)(2*(blur-1)));
+  m_edges = edges;
+}
 
 QString
 Trisets::filename(int i)
@@ -253,10 +282,21 @@ void
 Trisets::draw(QGLViewer *viewer,
 	      Vec lightVec,
 	      float pnear, float pfar, Vec step,
-	      bool applyShadows, bool applyShadowShader, Vec eyepos,
-	      QList<Vec> cpos, QList<Vec> cnormal,
-	      bool geoblend)
+	      bool applyShadows, Vec ep,
+	      QList<Vec> cpos, QList<Vec> cnormal)
 {
+  if (m_trisets.count() == 0)
+    return;
+  
+
+  int wd = viewer->camera()->screenWidth();
+  int ht = viewer->camera()->screenHeight();
+
+  if (!m_depthBuffer)
+    createFBO(wd, ht);
+
+
+  
   int nclip = cpos.count();
   if (nclip > 0)
     {
@@ -274,11 +314,55 @@ Trisets::draw(QGLViewer *viewer,
 	}
     }
 
+  GLint drawFboId = 0, readFboId = 0;
+  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &drawFboId);
+  glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &readFboId);
+
+  if (applyShadows)
+    {
+      glBindFramebuffer(GL_FRAMEBUFFER, m_depthBuffer);
+      glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			     GL_COLOR_ATTACHMENT0,
+			     GL_TEXTURE_RECTANGLE,
+			     m_depthTex[0],
+			     0);
+      glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			     GL_COLOR_ATTACHMENT1,
+			     GL_TEXTURE_RECTANGLE,
+			     m_depthTex[1],
+			     0);
+      GLenum buffers[2] = { GL_COLOR_ATTACHMENT0_EXT,
+			    GL_COLOR_ATTACHMENT1_EXT };
+      glDrawBuffersARB(2, buffers);
+      
+      glClearDepth(1);
+      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+      glDisable(GL_BLEND);
+    }
+  
+  glUseProgram(ShaderFactory::meshShader());
+
+  GLint *meshShaderParm = ShaderFactory::meshShaderParm();        
+
+  GLfloat mv[16];
+  viewer->camera()->getModelViewMatrix(mv);
+  glUniformMatrix4fv(meshShaderParm[4], 1, GL_FALSE, mv);
+
+  float sceneRadius = viewer->sceneRadius();
+  glUniform1f(meshShaderParm[12], sceneRadius);
+
+  Vec vd = viewer->camera()->viewDirection();
+  glUniform3f(meshShaderParm[1], vd.x, vd.y, vd.z); // view direction
+
+  Vec eyepos = viewer->camera()->position();
+  glUniform3f(meshShaderParm[2], eyepos.x, eyepos.y, eyepos.z);
+
+  
   for(int i=0; i<m_trisets.count();i++)
     {
       glUseProgram(ShaderFactory::meshShader());
-      GLint *meshShaderParm = ShaderFactory::meshShaderParm();  
-
+      
       if (m_trisets[i]->clip())
 	{
 	  glUniform1iARB(meshShaderParm[9],  nclip);
@@ -297,65 +381,96 @@ Trisets::draw(QGLViewer *viewer,
 			 pnear, pfar, step/2);
 
       glUseProgramObjectARB(0);
-
-//      if ((m_trisets[i]->blendMode() && geoblend) ||
-//	  (!m_trisets[i]->blendMode() && !geoblend))
-//	{
-//	  if (! m_trisets[i]->pointMode())
-//	    {
-//	      if (applyShadows &&
-//		  m_trisets[i]->shadows())
-//		{
-//		  if (applyShadowShader)
-//		    {
-//		      glUseProgramObjectARB(m_geoShadowShader);
-//		      glUniform1iARB(m_shadowParm[0], nclip);
-//		      glUniform3fvARB(m_shadowParm[1], nclip, m_cpos);
-//		      glUniform3fvARB(m_shadowParm[2], nclip, m_cnormal);
-//		    }
-//		  else
-//		    {
-//		      Vec cb = m_trisets[i]->cropBorderColor();
-//
-//		      glActiveTexture(GL_TEXTURE2);
-//		      glEnable(GL_TEXTURE_RECTANGLE_ARB);
-//
-//		      glUseProgramObjectARB(m_geoHighQualityShader);
-//		      glUniform3fARB(m_highqualityParm[0], eyepos.x, eyepos.y, eyepos.z);
-//		      glUniform1iARB(m_highqualityParm[1], 2); // blurred shadowBuffer
-//		      glUniform1iARB(m_highqualityParm[2], m_trisets[i]->screenDoor());
-//		      glUniform3fARB(m_highqualityParm[3], cb.x, cb.y, cb.z);
-//		      glUniform1iARB(m_highqualityParm[4], nclip);
-//		      glUniform3fvARB(m_highqualityParm[5], nclip, m_cpos);
-//		      glUniform3fvARB(m_highqualityParm[6], nclip, m_cnormal);
-//
-//		      glActiveTexture(GL_TEXTURE2);
-//		      glDisable(GL_TEXTURE_RECTANGLE_ARB);
-//		    }
-//		}
-//	      else
-//		{
-//		  Vec cb = m_trisets[i]->cropBorderColor();
-//		  glUseProgramObjectARB(m_geoDefaultShader);
-//		  glUniform3fARB(m_defaultParm[0], eyepos.x, eyepos.y, eyepos.z);
-//		  glUniform1iARB(m_defaultParm[1], m_trisets[i]->screenDoor());
-//		  glUniform3fARB(m_defaultParm[2], cb.x, cb.y, cb.z);
-//		  glUniform1iARB(m_defaultParm[3], nclip);
-//		  glUniform3fvARB(m_defaultParm[4], nclip, m_cpos);
-//		  glUniform3fvARB(m_defaultParm[5], nclip, m_cnormal);
-//		}
-//	    }
-//	  else
-//	    glUseProgramObjectARB(0);
-//
-//	  m_trisets[i]->draw(viewer,
-//			     m_trisets[i]->grabsMouse(),
-//			     lightVec,
-//			     pnear, pfar, step/2);
-//	  
-//	  glUseProgramObjectARB(0);
-//	}
     }
+
+  // --- draw shadows
+  if (applyShadows)
+  {
+    glBindFramebuffer(GL_FRAMEBUFFER, drawFboId);
+    glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
+    glDepthMask(GL_TRUE);
+
+    glDisable(GL_DEPTH_TEST);
+    
+    glUseProgram(ShaderFactory::meshShadowShader());
+    GLint *shadowParm = ShaderFactory::meshShadowShaderParm();        
+
+    glActiveTexture(GL_TEXTURE0);
+    glEnable(GL_TEXTURE_RECTANGLE);
+    glBindTexture(GL_TEXTURE_RECTANGLE, m_depthTex[0]); // colors
+    
+    glActiveTexture(GL_TEXTURE1);
+    glEnable(GL_TEXTURE_RECTANGLE);
+    glBindTexture(GL_TEXTURE_RECTANGLE, m_depthTex[1]); // depth
+    
+    
+    QMatrix4x4 mvp;
+    mvp.setToIdentity();
+    mvp.ortho(0.0, wd, 0.0, ht, 0.0, 1.0);
+    
+    glUniformMatrix4fv(shadowParm[0], 1, GL_FALSE, mvp.data());
+    
+    glUniform1i(shadowParm[1], 0); // colors
+    glUniform1i(shadowParm[2], 1); // depthTex1
+    glUniform1f(shadowParm[3], m_blur); // soft shadows
+    glUniform1f(shadowParm[4], m_edges); // edge enhancement
+    glUniform1f(shadowParm[5], Global::gamma()); // edge enhancement
+    
+    glEnableVertexAttribArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, m_vertexScreenBuffer);
+    glVertexAttribPointer(0,  // attribute 0
+			  2,  // size
+			  GL_FLOAT, // type
+			  GL_FALSE, // normalized
+			  0, // stride
+			  (void*)0 ); // array buffer offset
+    glDrawArrays(GL_QUADS, 0, 8);
+    
+    glDisableVertexAttribArray(0);
+    
+    glActiveTexture(GL_TEXTURE1);
+    glDisable(GL_TEXTURE_RECTANGLE);
+    
+    glActiveTexture(GL_TEXTURE0);
+    glDisable(GL_TEXTURE_RECTANGLE);
+
+    glUseProgram(0);
+
+    glEnable(GL_DEPTH_TEST);    
+  }
+  //--------------------------------------------
+  //--------------------------------------------
+
+
+
+//  //--------------------------------------------  
+//  //--------------------------------------------  
+//  for(int i=0; i<m_trisets.count();i++)
+//    {
+//      glUseProgram(ShaderFactory::meshShader());
+//      GLint *meshShaderParm = ShaderFactory::meshShaderParm();  
+//
+//      if (m_trisets[i]->clip())
+//	{
+//	  glUniform1iARB(meshShaderParm[9],  nclip);
+//	  glUniform3fvARB(meshShaderParm[10], nclip, m_cpos);
+//	  glUniform3fvARB(meshShaderParm[11], nclip, m_cnormal);
+//	}
+//      else
+//	{
+//	  glUniform1iARB(meshShaderParm[9],  0);
+//	}
+//      
+// 
+//      m_trisets[i]->draw(viewer,
+//			 m_trisets[i]->grabsMouse(),
+//			 lightVec,
+//			 pnear, pfar, step/2);
+//
+//      glUseProgramObjectARB(0);
+//    }
+//  //--------------------------------------------  
+//  //--------------------------------------------  
 
 }
 
@@ -1026,3 +1141,70 @@ Trisets::paint(QGLViewer *viewer,
   if (m_trisets.count() > 0)
     m_trisets[0]->paint(viewer, doodleMask, doodleDepth, tcolor, tmix);
 }
+
+void
+Trisets::resize(int wd, int ht)
+{
+  createFBO(wd, ht);
+}
+
+void
+Trisets::createFBO(int wd, int ht)
+{
+  //------------------
+  m_scrGeo[0] = 0;
+  m_scrGeo[1] = 0;
+  m_scrGeo[2] = wd;
+  m_scrGeo[3] = 0;
+  m_scrGeo[4] = wd;
+  m_scrGeo[5] = ht;
+  m_scrGeo[6] = 0;
+  m_scrGeo[7] = ht;
+  if (m_vertexScreenBuffer) glDeleteBuffers(1, &m_vertexScreenBuffer);
+  glGenBuffers(1, &m_vertexScreenBuffer);
+  glBindBuffer(GL_ARRAY_BUFFER, m_vertexScreenBuffer);
+  glBufferData(GL_ARRAY_BUFFER,
+	       8*sizeof(float),
+	       &m_scrGeo,
+	       GL_STATIC_DRAW);
+  //------------------
+
+
+  if (m_depthBuffer) glDeleteFramebuffers(1, &m_depthBuffer);
+  if (m_depthTex) glDeleteTextures(4, m_depthTex);
+  if (m_rbo) glDeleteRenderbuffers(1, &m_rbo);
+
+  glGenFramebuffers(1, &m_depthBuffer);
+  glGenTextures(4, m_depthTex);
+  glBindFramebuffer(GL_FRAMEBUFFER, m_depthBuffer);
+
+  glGenRenderbuffers(1, &m_rbo);
+  glBindRenderbuffer(GL_RENDERBUFFER, m_rbo);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, wd, ht);
+  // attach the renderbuffer to depth attachment point
+  glFramebufferRenderbuffer(GL_FRAMEBUFFER,      // 1. fbo target: GL_FRAMEBUFFER
+			    GL_DEPTH_ATTACHMENT, // 2. attachment point
+			    GL_RENDERBUFFER,     // 3. rbo target: GL_RENDERBUFFER
+			    m_rbo);              // 4. rbo ID
+  glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
+  for(int dt=0; dt<4; dt++)
+    {
+      glBindTexture(GL_TEXTURE_RECTANGLE, m_depthTex[dt]);
+      glTexImage2D(GL_TEXTURE_RECTANGLE,
+		   0,
+		   GL_RGBA32F,
+		   wd, ht,
+		   0,
+		   GL_RGBA,
+		   GL_FLOAT,
+		   0);
+    }
+  glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MIN_FILTER, GL_LINEAR); 
+  glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+

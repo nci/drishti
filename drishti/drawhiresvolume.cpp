@@ -1735,6 +1735,8 @@ DrawHiresVolume::draw(float stepsize,
   m_drawGeometryPresent |= (LightHandler::giLights()->count() > 0);
 
 
+  m_useScreenShadows = (m_renderQuality == Enums::RenderHighQuality);
+  
   
 // -----------------------------------
 // -----------------------------------
@@ -2168,10 +2170,9 @@ DrawHiresVolume::drawGeometry(Vec pn, float pnear, float pfar, Vec step,
 				   m_lightPosition,
 				   pnear, pfar,
 				   step,
-				   applyShadows, applyshadowShader,
+				   m_useScreenShadows,
 				   eyepos,
-				   m_clipPos, m_clipNormal,
-				   true);
+				   m_clipPos, m_clipNormal);
 
   GeometryObjects::networks()->draw(m_Viewer,
 				    pnear, pfar,
@@ -2468,6 +2469,8 @@ DrawHiresVolume::drawGeometryOnly()
 		m_lightInfo.highlights.diffuse,
 		m_lightInfo.highlights.specular);
   GeometryObjects::trisets()->setLighting(ads);
+  GeometryObjects::trisets()->setShapeEnhancements(m_lightInfo.shadowBlur,
+						   m_lightInfo.shadowIntensity);      
   GeometryObjects::trisets()->predraw(m_Viewer,
 				      m_bricks->getMatrix(0),
 				      pn,
@@ -3215,10 +3218,9 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
   GeometryObjects::trisets()->draw(m_Viewer,
 				   m_lightPosition,
 				   0, 0, Vec(0,0,0),
-				   false, false,
+				   m_useScreenShadows,
 				   eyepos,
-				   m_clipPos, m_clipNormal,
-				   false);
+				   m_clipPos, m_clipNormal);
 
   GeometryObjects::pathgroups()->draw(m_Viewer,
 				      m_backlit,
@@ -4774,6 +4776,7 @@ void DrawHiresVolume::updateShadowIntensity(float val)
 {
   m_lightInfo.shadowIntensity = val;
 }
+
 
 void
 DrawHiresVolume::updateBackplaneIntensity(float val)

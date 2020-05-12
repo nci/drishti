@@ -393,16 +393,17 @@ TrisetObject::drawTrisetBuffer(QGLViewer *viewer,
   Matrix::matmult(m_localXform, m, dmvp);
   for(int i=0; i<16; i++) mvp[i] = dmvp[i];
 
+  GLfloat lxfrm[16];
+  for(int i=0; i<16; i++) lxfrm[i] = m_localXform[i];
 
   Vec vd = viewer->camera()->viewDirection();
   
   GLint *meshShaderParm = ShaderFactory::meshShaderParm();  
 
   glUniformMatrix4fv(meshShaderParm[0], 1, GL_FALSE, mvp);
+  glUniformMatrix4fv(meshShaderParm[3], 1, GL_FALSE, lxfrm);
+
   glUniform3f(meshShaderParm[1], vd.x, vd.y, vd.z); // view direction
-  //glUniform3f(meshShaderParm[2], m_pn.x, m_pn.y, m_pn.z);
-  //glUniform1f(meshShaderParm[3], pnear);
-  //glUniform1f(meshShaderParm[4], pfar);
   glUniform1f(meshShaderParm[5], m_opacity);
   glUniform1f(meshShaderParm[6], m_ambient);
   glUniform1f(meshShaderParm[7], m_diffuse);

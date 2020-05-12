@@ -1579,9 +1579,8 @@ ShaderFactory::meshShadowShaderF()
   shader += "     return;\n";
   shader += "  }\n";
 
-
   shader += "  gl_FragDepth = dtex.z;\n";
-
+  
   shader += "  float cx[8] = float[](-1.0, 0.0, 1.0, 0.0, -1.0,-1.0, 1.0, 1.0);\n";
   shader += "  float cy[8] = float[]( 0.0,-1.0, 0.0, 1.0, -1.0, 1.0,-1.0, 1.0);\n";
 
@@ -1617,7 +1616,7 @@ ShaderFactory::meshShadowShaderF()
   shader += "      {\n";
   shader += "        vec2 pos = spos + vec2(cx[i],cy[i]);\n";
   shader += "        float od = depth - (texture2DRect(depthTex, pos).x);\n";
-  shader += "        response += max(0.0, -od);\n";
+  shader += "        response += max(0.0, od);\n";
   shader += "        tle ++;\n";
   shader += "      } \n";
   shader += "    response /= tle;\n";

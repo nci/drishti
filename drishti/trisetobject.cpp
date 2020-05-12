@@ -464,6 +464,14 @@ TrisetObject::postdraw(QGLViewer *viewer,
   if (!m_show || !active)
     return;
 
+
+  if (active)
+  {
+    Vec lineColor = Vec(1, 0.5, 0.3);
+    glUseProgram(0);
+    StaticFunctions::drawEnclosingCube(m_tenclosingBox, lineColor);
+  } 
+
   glDisable(GL_DEPTH_TEST);
 
   glEnable(GL_BLEND);
@@ -497,13 +505,6 @@ TrisetObject::draw(QGLViewer *viewer,
 
   if (!m_show)
     return;
-  
-  if (active)
-  {
-    Vec lineColor = Vec(1, 0.5, 0.3);
-    glUseProgram(0);
-    StaticFunctions::drawEnclosingCube(m_tenclosingBox, lineColor);
-  }
   
   if (m_opacity < 0.05)
     return;

@@ -129,7 +129,7 @@ class MainWindow : public QMainWindow
    void openRecentFile();   
    void loadProject(const char*);
    void loadTransferFunctionsOnly(const char*);
-   void saveProject(QString, QString);
+   void saveProject(QString);
    void GlewInit();
    void loadLookupTable();
    void lightDirectionChanged(Vec);

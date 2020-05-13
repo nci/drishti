@@ -1245,7 +1245,7 @@ KeyFrameInformation::save(fstream &fout)
 
   for(int i=0; i<m_trisets.size(); i++)
     m_trisets[i].save(fout);
-
+  
   for(int i=0; i<m_networks.size(); i++)
     m_networks[i].save(fout);
 

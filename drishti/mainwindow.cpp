@@ -3339,7 +3339,7 @@ MainWindow::loadProject(const char* flnm)
 }
 
 void
-MainWindow::saveProject(QString xmlflnm, QString dtvfile)
+MainWindow::saveProject(QString xmlflnm)
 {
   int flnmlen = xmlflnm.length()+1;
   char *flnm = new char[flnmlen];
@@ -3384,13 +3384,12 @@ MainWindow::saveProject(QString xmlflnm, QString dtvfile)
 			  dofblur, dofnf);
 
 
-  saveVolumeIntoProject(flnm, dtvfile);
+  saveVolumeIntoProject(flnm, QString());
   m_Lowres->save(flnm);
   m_preferencesWidget->save(flnm);
   m_tfManager->save(flnm);
   saveViewsAndKeyFrames(flnm);
 
-  m_Hires->saveForDrishtiPrayog(dtvfile);
 
   QFileInfo f(flnm);
   Global::setPreviousDirectory(f.absolutePath());
@@ -3484,7 +3483,7 @@ MainWindow::on_actionSave_Project_triggered()
   if (!StaticFunctions::checkExtension(flnm, ".xml"))
     flnm += ".xml";
   
-  saveProject(flnm, QString());
+  saveProject(flnm);
 }
 void
 MainWindow::on_actionSave_InformationForDrishtiPrayog_triggered()
@@ -3523,7 +3522,7 @@ MainWindow::on_actionSave_ProjectAs_triggered()
   if (!StaticFunctions::checkExtension(flnm, ".xml"))
     flnm += ".xml";
       
-  saveProject(flnm.toLatin1().data(), QString());
+  saveProject(flnm.toLatin1().data());
 }
 
 void

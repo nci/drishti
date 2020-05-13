@@ -417,6 +417,20 @@ Viewer::updateScaling()
     {
       Vec smin = VECPRODUCT(m_hiresVolume->volumeMin(), Global::voxelScaling());
       Vec smax = VECPRODUCT(m_hiresVolume->volumeMax(), Global::voxelScaling());
+
+      if (Global::volumeType() == Global::DummyVolume)
+	{
+	  GeometryObjects::trisets()->allEnclosingBox(smin, smax);
+	  if (GeometryObjects::networks()->count() > 0)
+	    {
+	      Vec bmin, bmax;
+	      GeometryObjects::networks()->allEnclosingBox(bmin, bmax);      
+	      smin = StaticFunctions::minVec(smin, bmin);
+	      smax = StaticFunctions::maxVec(smax, bmax);
+	    }
+	  m_hiresVolume->overwriteDataMinMax(smin, smax);
+	}
+
       setSceneBoundingBox(smin, smax);
     }
   else

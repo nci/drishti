@@ -1,4 +1,5 @@
 #include "trisetinformation.h"
+#include <QMessageBox>
 
 TrisetInformation::TrisetInformation() { clear(); }
 
@@ -270,7 +271,7 @@ TrisetInformation::load(fstream &fin)
 	  fin.read((char*)&f, 3*sizeof(float));
 	  scale = Vec(f[0], f[1], f[2]);
 	}
-      else if (strcmp(keyword, "roughjness") == 0)
+      else if (strcmp(keyword, "roughness") == 0)
 	fin.read((char*)&roughness, sizeof(float));
       else if (strcmp(keyword, "color") == 0)
 	{

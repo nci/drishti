@@ -21,7 +21,14 @@ TrisetObject::gridSize(int &nx, int &ny, int &nz)
   nz = m_nZ;
 }
 
-void TrisetObject::setOpacity(float op) { m_opacity = op; }
+void
+TrisetObject::setLighting(QVector4D l)
+{
+  m_ambient = l.x();
+  m_diffuse = l.y();
+  m_specular = l.z();
+  m_roughness = l.w();
+}
 
 TrisetObject::TrisetObject()
 {
@@ -80,9 +87,9 @@ TrisetObject::clear()
   m_position = Vec(0,0,0);
   m_scale = Vec(1,1,1);
   m_nX = m_nY = m_nZ = 0;
-  m_color = Vec(0.7f,0.7f,0.7f);
+  m_color = Vec(1,1,1);
   m_cropcolor = Vec(0.0f,0.0f,0.0f);
-  m_opacity = 1.0f;
+  m_roughness = 7;
   m_specular = 1.0f;
   m_diffuse = 1.0f;
   m_ambient = 0.0f;
@@ -404,7 +411,7 @@ TrisetObject::drawTrisetBuffer(QGLViewer *viewer,
   glUniformMatrix4fv(meshShaderParm[3], 1, GL_FALSE, lxfrm);
 
   glUniform3f(meshShaderParm[1], vd.x, vd.y, vd.z); // view direction
-  glUniform1f(meshShaderParm[5], m_opacity);
+  glUniform1f(meshShaderParm[5], 0.9-m_roughness*0.1);
   glUniform1f(meshShaderParm[6], m_ambient);
   glUniform1f(meshShaderParm[7], m_diffuse);
   glUniform1f(meshShaderParm[8], m_specular);
@@ -506,9 +513,6 @@ TrisetObject::draw(QGLViewer *viewer,
   if (!m_show)
     return;
   
-  if (m_opacity < 0.05)
-    return;
-
   drawTrisetBuffer(viewer, 0, -1);
 }
 
@@ -519,9 +523,6 @@ TrisetObject::predraw(QGLViewer *viewer,
 		      bool shadows, int shadowWidth, int shadowHeight)
 {
   m_pn = pn;
-
-  if (m_opacity < 0.05)
-    return;
 
   double *s0 = new double[16];
   double *s1 = new double[16];
@@ -1088,8 +1089,8 @@ TrisetObject::domElement(QDomDocument &doc)
   }
   
   {
-    QDomElement de0 = doc.createElement("opacity");
-    QDomText tn0 = doc.createTextNode(QString("%1").arg(m_opacity));
+    QDomElement de0 = doc.createElement("roughness");
+    QDomText tn0 = doc.createTextNode(QString("%1").arg(m_roughness));
     de0.appendChild(tn0);
     de.appendChild(de0);
   }
@@ -1227,8 +1228,8 @@ TrisetObject::fromDomElement(QDomElement de)
 	  if (xyz.size() > 2) z  = xyz[2].toFloat();
 	  m_scale = Vec(x,y,z);
 	}
-      else if (dnode.tagName() == "opacity")
-	m_opacity = str.toFloat();
+      else if (dnode.tagName() == "roughness")
+	m_roughness = str.toFloat();
       else if (dnode.tagName() == "color")
 	{
 	  QStringList xyz = str.split(" ");
@@ -1312,7 +1313,7 @@ TrisetObject::get()
   ti.pointSize = m_pointSize;
   ti.color = m_color;
   ti.cropcolor = m_cropcolor;
-  ti.opacity = m_opacity;
+  ti.roughness = m_roughness;
   ti.ambient = m_ambient;
   ti.diffuse = m_diffuse;
   ti.specular = m_specular;
@@ -1342,7 +1343,7 @@ TrisetObject::set(TrisetInformation ti)
   m_clip = ti.clip;
   m_position = ti.position;
   m_scale = ti.scale;
-  m_opacity = ti.opacity;
+  m_roughness = ti.roughness;
   m_color = ti.color;
   m_cropcolor = ti.cropcolor;
   m_ambient = ti.ambient;
@@ -1539,7 +1540,7 @@ TrisetObject::loadAssimpModel(QString flnm)
 			    mesh->mColors[0][j].g,
 			    mesh->mColors[0][j].b);
 	  else
-	    m_vcolor << Vec(0.7,0.7,0.7);
+	    m_vcolor << m_color;
 
 	  if (hasUV)
 	    {

@@ -3550,11 +3550,12 @@ MainWindow::highlights(Highlights hl)
 {
   m_Hires->updateHighlights(hl);
 
-  Vec ads = Vec(hl.ambient,
-		hl.diffuse,
-		hl.specular);
+  QVector4D lighting = QVector4D(hl.ambient,
+			       hl.diffuse,
+			       hl.specular,
+			       hl.specularCoefficient);
 		
-  GeometryObjects::trisets()->setLighting(ads);
+  GeometryObjects::trisets()->setLighting(lighting);
 
   m_Viewer->update();
 }

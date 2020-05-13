@@ -2066,6 +2066,18 @@ Viewer::drawImageOnScreen()
     {
       //m_rcViewer.setXformMatrix(m_hiresVolume->brick0Xform());
       m_rcViewer.setBrickInfo(m_hiresVolume->bricks());
+
+      {
+	LightingInformation lightInfo = m_hiresVolume->lightInfo();
+	QVector4D lighting = QVector4D(lightInfo.highlights.ambient,
+				       lightInfo.highlights.diffuse,
+				       lightInfo.highlights.specular,
+				       lightInfo.highlights.specularCoefficient);
+	GeometryObjects::trisets()->setLighting(lighting);
+	GeometryObjects::trisets()->setShapeEnhancements(lightInfo.shadowBlur,
+							 lightInfo.shadowIntensity);
+      }
+      
       m_rcViewer.draw();      
       
       return;
@@ -2664,7 +2676,8 @@ Viewer::fastDraw()
       
       if (m_lowresVolume && m_hiresVolume)
 	{
-	  if (Global::useStillVolume())
+	  if (Global::useStillVolume() ||
+	      Global::volumeType() == Global::DummyVolume)
 	    renderVolume(Enums::StillImage);
 	  else
 	    renderVolume(Enums::DragImage);

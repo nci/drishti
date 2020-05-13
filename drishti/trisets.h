@@ -26,7 +26,7 @@ class Trisets : public QObject
 
   QString filename(int);
   
-  void setLighting(Vec);
+  void setLighting(QVector4D);
   
   void allEnclosingBox(Vec&, Vec&);
   void allGridSize(int&, int&, int&);

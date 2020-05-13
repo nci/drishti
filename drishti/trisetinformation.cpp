@@ -12,7 +12,7 @@ TrisetInformation::clear()
   scale = Vec(1,1,1);
   color = Vec(1,1,1);
   cropcolor = Vec(0,0,0);
-  opacity = 1;
+  roughness = 0.3;
   ambient = 0;
   diffuse = 1;
   specular = 1;
@@ -35,7 +35,7 @@ TrisetInformation::operator=(const TrisetInformation& ti)
   scale = ti.scale;
   color = ti.color;
   cropcolor = ti.cropcolor;
-  opacity = ti.opacity;
+  roughness = ti.roughness;
   ambient = ti.ambient;
   diffuse = ti.diffuse;
   specular = ti.specular;
@@ -59,7 +59,7 @@ TrisetInformation::interpolate(const TrisetInformation tinfo1,
   tinfo.show = tinfo1.show;
   tinfo.clip = tinfo1.clip;
   tinfo.filename = tinfo1.filename;
-  tinfo.opacity = (1-frc)*tinfo1.opacity + frc*tinfo2.opacity;
+  tinfo.roughness = (1-frc)*tinfo1.roughness + frc*tinfo2.roughness;
   tinfo.position = (1-frc)*tinfo1.position + frc*tinfo2.position;
   tinfo.scale = (1-frc)*tinfo1.scale + frc*tinfo2.scale;
   tinfo.color = (1-frc)*tinfo1.color + frc*tinfo2.color;
@@ -149,9 +149,9 @@ TrisetInformation::save(fstream &fout)
   fout.write((char*)&f, 3*sizeof(float));
 
   memset(keyword, 0, 100);
-  sprintf(keyword, "opacity");
+  sprintf(keyword, "roughness");
   fout.write((char*)keyword, strlen(keyword)+1);
-  fout.write((char*)&opacity, sizeof(float));
+  fout.write((char*)&roughness, sizeof(float));
   
   memset(keyword, 0, 100);
   sprintf(keyword, "color");
@@ -270,8 +270,8 @@ TrisetInformation::load(fstream &fin)
 	  fin.read((char*)&f, 3*sizeof(float));
 	  scale = Vec(f[0], f[1], f[2]);
 	}
-      else if (strcmp(keyword, "opacity") == 0)
-	fin.read((char*)&opacity, sizeof(float));
+      else if (strcmp(keyword, "roughjness") == 0)
+	fin.read((char*)&roughness, sizeof(float));
       else if (strcmp(keyword, "color") == 0)
 	{
 	  fin.read((char*)&f, 3*sizeof(float));

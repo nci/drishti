@@ -6,7 +6,7 @@ Highlights::Highlights()
   ambient = 1;
   diffuse = 0;
   specular = 1;
-  specularCoefficient = 9;
+  specularCoefficient = 7;
 }
 Highlights::Highlights(const Highlights& hl)
 {
@@ -49,7 +49,7 @@ LightingInformation::LightingInformation()
   applyBackplane = false;
   colorAttenuation = Vec(1,1,1);
   userLightVector = Vec(0,0,1);
-  shadowBlur = 1.9f;
+  shadowBlur = 1.0f;
   shadowScale = 0.7f;
   shadowIntensity = 0.5f;
   shadowFovOffset = 0.0f;

@@ -4,6 +4,7 @@
 #include <QFile>
 
 #include "trisetinformation.h"
+#include <QVector4D>
 
 class TrisetObject
 {
@@ -46,17 +47,11 @@ class TrisetObject
   int pointstep() { return m_pointStep; }
   void setPointStep(int ps) { m_pointStep = qMax(1, ps); }
 
-  float opacity() { return m_opacity; }
-  void setOpacity(float);
-
+  void setLighting(QVector4D);
+  float roughness() { return m_roughness; }
   float specular() { return m_specular; }
-  void setSpecular(float shine) { m_specular = qBound(0.0f, shine, 1.0f); }
-
   float diffuse() { return m_diffuse; }
-  void setDiffuse(float diffuse) { m_diffuse = qBound(0.0f, diffuse, 1.0f); }
-
   float ambient() { return m_ambient; }
-  void setAmbient(float ambient) { m_ambient = qBound(0.0f, ambient, 1.0f); }
 
   Vec color() { return m_color; }
   void setColor(Vec);
@@ -119,7 +114,7 @@ class TrisetObject
   Vec m_cropcolor;
   Vec m_position;
   Vec m_scale;
-  float m_opacity;
+  float m_roughness;
   float m_specular;
   float m_diffuse;
   float m_ambient;

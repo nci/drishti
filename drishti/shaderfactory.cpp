@@ -1351,7 +1351,7 @@ GLuint ShaderFactory::meshShader()
 	m_meshShaderParm[2] = glGetUniformLocation(m_meshShader, "eyepos");
 	m_meshShaderParm[3] = glGetUniformLocation(m_meshShader, "localXform");
 	m_meshShaderParm[4] = glGetUniformLocation(m_meshShader, "MV");
-	m_meshShaderParm[5] = glGetUniformLocation(m_meshShader, "opacity");
+	m_meshShaderParm[5] = glGetUniformLocation(m_meshShader, "roughness");
 	m_meshShaderParm[6] = glGetUniformLocation(m_meshShader, "ambient");
 	m_meshShaderParm[7] = glGetUniformLocation(m_meshShader, "diffuse");
 	m_meshShaderParm[8] = glGetUniformLocation(m_meshShader, "specular");
@@ -1390,7 +1390,6 @@ ShaderFactory::meshShaderV()
   shader += "void main()\n";
   shader += "{\n";
   shader += "   pointPos = (localXform * vec4(position, 1)).xyz;\n";
-  //shader += "   pointPos = position;\n";
   shader += "   v3Color = colorIn;\n";
   shader += "   v3Normal = normalIn;\n";
   shader += "   gl_Position = MVP * vec4(position, 1);\n";
@@ -1412,7 +1411,7 @@ ShaderFactory::meshShaderF()
   shader += "uniform vec3 viewDir;\n";
   shader += "uniform vec3 eyepos;\n";
   shader += "uniform float sceneRadius;\n";
-  shader += "uniform float opacity;\n";
+  shader += "uniform float roughness;\n";
   shader += "uniform float ambient;\n";
   shader += "uniform float diffuse;\n";
   shader += "uniform float specular;\n";
@@ -1429,30 +1428,52 @@ ShaderFactory::meshShaderF()
   shader += "in float zdepth;\n";
   shader += "in float zdepthV;\n";
 
-  //shader += "out vec4 outputColor;\n";
   // Ouput data
   shader += "layout (location=0) out vec4 outputColor;\n";
   shader += "layout (location=1) out vec3 depth;\n";
   shader += "layout (depth_greater) out float gl_FragDepth;\n";
 
+  shader += "vec3 shadingSpecularGGX(vec3 N, vec3 V, vec3 L, float roughness, vec3 F0)\n";
+  shader += "{\n";
+  shader += "    // see http://www.filmicworlds.com/2014/04/21/optimizing-ggx-shaders-with-dotlh/\n";
+  shader += "    vec3 H = normalize(V + L);\n";
+  shader += "\n";
+  shader += "    float dotLH = max(dot(L, H), 0.0);\n";
+  shader += "    float dotNH = max(dot(N, H), 0.0);\n";
+  shader += "    float dotNL = max(dot(N, L), 0.0);\n";
+  shader += "    float dotNV = max(dot(N, V), 0.0);\n";
+  shader += "\n";
+  shader += "    float alpha = roughness * roughness;\n";
+  shader += "\n";
+  shader += "    // D (GGX normal distribution)\n";
+  shader += "    float alphaSqr = alpha * alpha;\n";
+  shader += "    float denom = dotNH * dotNH * (alphaSqr - 1.0) + 1.0;\n";
+  shader += "    float D = alphaSqr / (denom * denom);\n";
+  shader += "    // no pi because BRDF -> lighting\n";
+  shader += "\n";
+  shader += "    // F (Fresnel term)\n";
+  shader += "    float F_a = 1.0;\n";
+  shader += "    float F_b = pow(1.0 - dotLH, 5); // manually?\n";
+  shader += "    vec3 F = mix(vec3(F_b), vec3(F_a), F0);\n";
+  shader += "\n";
+  shader += "    // G (remapped hotness, see Unreal Shading)\n";
+  shader += "    float k = (alpha + 2 * roughness + 1) / 8.0;\n";
+  shader += "    float G = dotNL / (mix(dotNL, 1, k) * mix(dotNV, 1, k));\n";
+  shader += "\n";
+  shader += "    return D * F * G / 4.0;\n";
+  shader += "}\n";
+
+  
   shader += "void main()\n";
   shader += "{\n";
 
   shader += "gl_FragDepth = zdepth;\n";
-  //shader += "float d = dot((pointPos-eyepos), viewDir);\n";
   shader += "depth = vec3(zdepthV/sceneRadius, 0, gl_FragDepth);\n";
-
-  //  shader += "   float d = dot(pn, pointPos);\n";
-//  shader += "   if (pnear < pfar && (d < pnear || d > pfar))\n";
-//  shader += "     discard;\n";
-
-  //  shader += "  outputColor = vec4(v3Color, 1)*opacity;\n";
 
   shader += "  if (hasUV)\n";
   shader += "     outputColor = texture(diffuseTex, vec2(v3Color.x, 1-v3Color.y));\n";
-  //shader += "     outputColor = texture(diffuseTex, vec2(v3Color.x, v3Color.y));\n";
   shader += "  else\n";
-  shader += "     outputColor = vec4(v3Color, 1)*opacity;\n";
+  shader += "     outputColor = vec4(v3Color, 1);\n";
 
   shader += "float cfeather = 1.0;\n";
   shader += "if (nclip > 0)\n";
@@ -1474,25 +1495,20 @@ ShaderFactory::meshShaderF()
   shader += "    outputColor.rgb = mix(outputColor.rgb, vec3(1,1,1), cfeather);\n";
 
   shader += "\n";
-  shader += "  if (length(viewDir) > 0.0)\n";
-  shader += "    {\n";
+  shader += "      vec3 Amb = ambient*outputColor.rgb;\n";
   shader += "      vec3 reflecvec = reflect(viewDir, v3Normal);\n";
   shader += "      float diffMag = abs(dot(v3Normal, viewDir));\n";
   shader += "      vec3 Diff = diffuse*diffMag*outputColor.rgb;\n";
-  shader += "      float Spec = pow(abs(dot(v3Normal, reflecvec)), 512);\n";
-  shader += "      Spec *= specular*outputColor.a;\n";
-  shader += "      vec3 Amb = ambient*outputColor.rgb;\n";
-  shader += "\n";
-  shader += "      outputColor.rgb = Amb + Diff + vec3(Spec,Spec,Spec);\n";
-  shader += "    }\n";
+
+  shader += "      float metallic = 1.0;\n";
+  shader += "      vec3 specularColor = mix(vec3(0.04), outputColor.rgb, metallic);\n";
+  shader += "      vec3 spec = shadingSpecularGGX(v3Normal, -viewDir,  -viewDir, roughness, specularColor);\n";
+  shader += "      outputColor.rgb = Amb + Diff + specular*spec;\n";
   shader += "}\n";
 
     
   return shader;
 }
-
-
-
 
 GLint ShaderFactory::m_meshShadowShaderParm[20];
 GLint* ShaderFactory::meshShadowShaderParm() { return &m_meshShadowShaderParm[0]; }
@@ -1589,40 +1605,45 @@ ShaderFactory::meshShadowShaderF()
   shader += "    float sum = 0.0;\n";
   shader += "    float tele = 0.0;\n";
   shader += "    float r = 1.0;\n";
-  shader += "    float ege = 0.0;\n";
-  shader += "    int j = 0;\n";
   shader += "    int nsteps = int(5.0*softshadow);\n";
   shader += "    for(int i=0; i<nsteps; i++)\n";
   shader += "      {\n";
   shader += "    	 r = 1.0 + float(i)/4.0;\n";
   shader += "    	 vec2 pos = spos + vec2(r*cx[int(mod(i,8))],r*cy[int(mod(i,8))]);\n";
-  shader += "    	 float od = depth - texture2DRect(depthTex, pos).x;\n";
-  shader += "    	 float ege = depth*0.01;\n";
-  shader += "    	 sum += step(ege, od);\n";
-  shader += "    	 tele ++;\n";
+  shader += "    	 float pdepth = texture2DRect(depthTex, pos).x;\n";
+  shader += "    	 float od = depth-pdepth;\n";
+  shader += "    	 sum += step(r*0.005, abs(od)*step(0.001, pdepth));\n";
   shader += "      } \n";
-  shader += "    sum /= tele;\n";
-  shader += "    sum = 1.0-sum;\n";
-  shader += "    sum = pow(sum, gamma);\n";
-  shader += "    color.rgb *= sum;\n";
+  shader += "    sum /= float(nsteps);\n";
+  shader += "    float shadow = 1.0-sum;\n";
+  shader += "    shadow = pow(shadow, gamma);\n";
+  shader += "    color.rgb *= shadow;\n";
   shader += "  }\n";
 
 
   shader += "  if (edges > 0.0)\n";
   shader += "  {\n";
   shader += "    float response = 0.0;\n";
-  shader += "    float tle = 0.0;\n";
-  shader += "    for(int i=0; i<8; i++)\n";
+  shader += "    int nsteps  = int(3+(edges*10));\n";  
+  shader += "    for(int i=0; i<nsteps; i++)\n";
   shader += "      {\n";
-  shader += "        vec2 pos = spos + vec2(cx[i],cy[i]);\n";
-  shader += "        float od = depth - (texture2DRect(depthTex, pos).x);\n";
+  shader += "        float r = 1.0 + float(i)/8.0;\n";
+  shader += "        vec2 pos = spos + vec2(r*cx[int(mod(i,8))],r*cy[int(mod(i,8))]);\n";
+  shader += "        float od = depth - texture2DRect(depthTex, pos).x;\n";
   shader += "        response += max(0.0, od);\n";
-  shader += "        tle ++;\n";
   shader += "      } \n";
-  shader += "    response /= tle;\n";
-  shader += "    color.rgb *= exp(-response*edges*200);\n";
+  shader += "    response /= nsteps;\n";
+  shader += "    color.rgb *= exp(-response*nsteps*20);\n";
   shader += "  }\n";
 
+  shader += "  color.rgb = pow(color.rgb, vec3(gamma/1.2));\n";
+
+//  specular
+//  shader += "  float dx = texture2DRect(depthTex, spos.xy+vec2(1,0)).x-texture2DRect(depthTex, spos.xy-vec2(1,0)).x;\n";
+//  shader += "  float dy = texture2DRect(depthTex, spos.xy+vec2(0,1)).x-texture2DRect(depthTex, spos.xy-vec2(0,1)).x;\n";
+//  shader += "  vec3 N = normalize(vec3(dx*100, dy*100, 1.0));\n";
+//  shader += "  vec3 spec = shadingSpecularGGX(N, vec3(0,0,1),  vec3(0,0,1), 0.2, vec3(1));\n";
+//  shader += "  color.rgb += 0.2*spec;\n";
 
   shader += "}\n";
 

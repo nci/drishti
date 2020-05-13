@@ -35,7 +35,7 @@ class TrisetInformation
   Vec scale;
   Vec color;
   Vec cropcolor;
-  float opacity;
+  float roughness;
   float ambient;
   float diffuse;
   float specular;

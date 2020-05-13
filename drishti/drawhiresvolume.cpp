@@ -2465,12 +2465,13 @@ DrawHiresVolume::drawGeometryOnly()
   m_clipPos = GeometryObjects::clipplanes()->positions();
   m_clipNormal = GeometryObjects::clipplanes()->normals();
 
-  Vec ads = Vec(m_lightInfo.highlights.ambient,
-		m_lightInfo.highlights.diffuse,
-		m_lightInfo.highlights.specular);
-  GeometryObjects::trisets()->setLighting(ads);
+  QVector4D lighting = QVector4D(m_lightInfo.highlights.ambient,
+				 m_lightInfo.highlights.diffuse,
+				 m_lightInfo.highlights.specular,
+				 m_lightInfo.highlights.specularCoefficient);
+  GeometryObjects::trisets()->setLighting(lighting);
   GeometryObjects::trisets()->setShapeEnhancements(m_lightInfo.shadowBlur,
-						   m_lightInfo.shadowIntensity);      
+						   m_lightInfo.shadowIntensity); 
   GeometryObjects::trisets()->predraw(m_Viewer,
 				      m_bricks->getMatrix(0),
 				      pn,
@@ -3399,7 +3400,7 @@ DrawHiresVolume::screenShadow(int ScreenXMin, int ScreenXMax,
   glUseProgramObjectARB(m_blurShader);
   glUniform1iARB(m_blurParm[0], 3); // copy from shadowBuffer[0] to shadowbuffer[1]
   
-  int nblur = m_lightInfo.shadowBlur;
+  int nblur = m_lightInfo.shadowBlur+1;
   int nit = 2;
   if (nblur > 4) nit = 3;
   nit *= m_imgSizeRatio;

@@ -123,14 +123,10 @@ Trisets::setClip(int i, bool flag)
 }
 
 void
-Trisets::setLighting(Vec ads)
+Trisets::setLighting(QVector4D l)
 {
   for (int i=0; i<m_trisets.count(); i++)
-    {
-      m_trisets[i]->setAmbient(ads.x);
-      m_trisets[i]->setDiffuse(ads.y);
-      m_trisets[i]->setSpecular(ads.z);
-    }
+    m_trisets[i]->setLighting(l);
 }
 
 void
@@ -435,8 +431,10 @@ Trisets::draw(QGLViewer *viewer,
     glDisable(GL_TEXTURE_RECTANGLE);
 
     glUseProgram(0);
+    glUseProgramObjectARB(0);
 
-    glEnable(GL_DEPTH_TEST);    
+    glEnable(GL_BLEND);
+    glEnable(GL_DEPTH_TEST); 
   }
   //--------------------------------------------
   //--------------------------------------------
@@ -754,14 +752,6 @@ Trisets::keyPressEvent(QKeyEvent *event)
 			m_trisets[i]->setFlipNormals(pair.first.toBool());
 		      else if (keys[ik] == "screendoor transparency")
 			m_trisets[i]->setScreenDoor(pair.first.toBool());
-		      else if (keys[ik] == "opacity")
-			m_trisets[i]->setOpacity(pair.first.toDouble());
-		      else if (keys[ik] == "ambient")
-			m_trisets[i]->setAmbient(pair.first.toDouble());
-		      else if (keys[ik] == "diffuse")
-			m_trisets[i]->setDiffuse(pair.first.toDouble());
-		      else if (keys[ik] == "specular")
-			m_trisets[i]->setSpecular(pair.first.toDouble());
 		      else if (keys[ik] == "pointmode")
 			m_trisets[i]->setPointMode(pair.first.toBool());
 		      else if (keys[ik] == "pointsize")
@@ -790,19 +780,7 @@ Trisets::processCommand(int idx, QString cmd)
   cmd = cmd.toLower();
   QStringList list = cmd.split(" ", QString::SkipEmptyParts);
   
-  if (list[0] == "setopacity" || list[0] == "opacity")
-    {
-      if (list.size() == 2)
-	{
-	  float op = list[1].toFloat(&ok);
-	  op = qBound(0.0f, op, 1.0f);
-	  m_trisets[idx]->setOpacity(op);
-	}
-      else
-	QMessageBox::critical(0, "Triset Command Error",
-				 "value not specified");
-    }
-  else if (list[0] == "setcolor" || list[0] == "color")
+  if (list[0] == "setcolor" || list[0] == "color")
     {
       Vec pcolor = m_trisets[idx]->color();
       QColor dcolor = QColor::fromRgbF(pcolor.x,
@@ -818,68 +796,6 @@ Trisets::processCommand(int idx, QString cmd)
 	  m_trisets[idx]->setColor(pcolor);
 	}
     }
-  else if (list[0] == "setambient" || list[0] == "ambient")
-    {
-      if (list.size() == 2)
-	{
-	  float amb = list[1].toFloat(&ok);
-	  amb = qBound(0.0f, amb, 1.0f);
-	  m_trisets[idx]->setAmbient(amb);
-	}
-      else
-	QMessageBox::critical(0, "Triset Command Error",
-				 "value not specified");
-    }
-  else if (list[0] == "setdiffuse" || list[0] == "diffuse")
-    {
-      if (list.size() == 2)
-	{
-	  float diff = list[1].toFloat(&ok);
-	  diff = qBound(0.0f, diff, 1.0f);
-	  m_trisets[idx]->setDiffuse(diff);
-	}
-      else
-	QMessageBox::critical(0, "Triset Command Error",
-				 "value not specified");
-    }
-  else if (list[0] == "setspecular" || list[0] == "specular")
-    {
-      if (list.size() == 2)
-	{
-	  float shine = list[1].toFloat(&ok);
-	  shine = qBound(0.0f, shine, 1.0f);
-	  m_trisets[idx]->setSpecular(shine);
-	}
-      else
-	QMessageBox::critical(0, "Triset Command Error",
-				 "value not specified");
-    }
-  else if (list[0] == "setpointsize" || list[0] == "pointsize")
-    {
-      if (list.size() == 2)
-	{
-	  int ps = list[1].toInt(&ok);
-	  ps = qBound(0, ps, 128);
-	  m_trisets[idx]->setPointSize(ps);
-	}
-      else
-	QMessageBox::critical(0, "Triset Command Error",
-				 "value not specified");
-    }
-  else if (list[0] == "setpointstep" || list[0] == "pointstep")
-    {
-      if (list.size() == 2)
-	{
-	  int ps = list[1].toInt(&ok);
-	  ps = qBound(0, ps, 1000);
-	  m_trisets[idx]->setPointStep(ps);
-	}
-      else
-	QMessageBox::critical(0, "Triset Command Error",
-				 "value not specified");
-    }
-
-
 }
 
 void

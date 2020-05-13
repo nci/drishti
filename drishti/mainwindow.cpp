@@ -395,12 +395,12 @@ MainWindow::registerMenuViewerFunctions()
 void
 MainWindow::menuViewerFunction()
 {
-  if (!m_Volume->valid() ||
-      Global::volumeType() == Global::DummyVolume)
-    {
-      QMessageBox::information(0, "Error", "No volume to work on !");
-      return;
-    }
+//  if (!m_Volume->valid() ||
+//      Global::volumeType() == Global::DummyVolume)
+//    {
+//      QMessageBox::information(0, "Error", "No volume to work on !");
+//      return;
+//    }
 
   if (!m_Hires->raised())
     {

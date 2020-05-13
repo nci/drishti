@@ -162,6 +162,7 @@ DrawHiresVolume::overwriteDataMinMax(Vec smin, Vec smax)
   m_dataMin = smin;
   m_dataMax = smax;
   GeometryObjects::clipplanes()->setBounds(m_dataMin, m_dataMax);
+  Global::setBounds(m_dataMin, m_dataMax);
 }
 
 DrawHiresVolume::DrawHiresVolume(Viewer *viewer,
@@ -2376,6 +2377,7 @@ DrawHiresVolume::setRenderDefault()
       glUniform1fARB(m_defaultParm[8], m_lightInfo.highlights.diffuse);
       glUniform1fARB(m_defaultParm[9], m_lightInfo.highlights.specular);
       glUniform1fARB(m_defaultParm[10], (int)pow((float)2, (float)(m_lightInfo.highlights.specularCoefficient)));
+      //glUniform1fARB(m_defaultParm[10], 1.0-0.1*m_lightInfo.highlights.specularCoefficient);
 
       bool useAllTex = (m_drawImageType != Enums::DragImage ||
 			m_dataTexSize == 1);

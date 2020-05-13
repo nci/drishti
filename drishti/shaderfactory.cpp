@@ -63,6 +63,43 @@ ShaderFactory::blendVolume()
   return shader;
 }
 
+QString
+ShaderFactory::ggxShader()
+{
+  QString shader;
+  shader += "vec3 shadingSpecularGGX(vec3 N, vec3 V, vec3 L, float roughness, vec3 F0)\n";
+  shader += "{\n";
+  shader += "    // see http://www.filmicworlds.com/2014/04/21/optimizing-ggx-shaders-with-dotlh/\n";
+  shader += "    vec3 H = normalize(V + L);\n";
+  shader += "\n";
+  shader += "    float dotLH = max(dot(L, H), 0.0);\n";
+  shader += "    float dotNH = max(dot(N, H), 0.0);\n";
+  shader += "    float dotNL = max(dot(N, L), 0.0);\n";
+  shader += "    float dotNV = max(dot(N, V), 0.0);\n";
+  shader += "\n";
+  shader += "    float alpha = roughness * roughness;\n";
+  shader += "\n";
+  shader += "    // D (GGX normal distribution)\n";
+  shader += "    float alphaSqr = alpha * alpha;\n";
+  shader += "    float denom = dotNH * dotNH * (alphaSqr - 1.0) + 1.0;\n";
+  shader += "    float D = alphaSqr / (denom * denom);\n";
+  shader += "    // no pi because BRDF -> lighting\n";
+  shader += "\n";
+  shader += "    // F (Fresnel term)\n";
+  shader += "    float F_a = 1.0;\n";
+  shader += "    float F_b = pow(1.0 - dotLH, 5); // manually?\n";
+  shader += "    vec3 F = mix(vec3(F_b), vec3(F_a), F0);\n";
+  shader += "\n";
+  shader += "    // G (remapped hotness, see Unreal Shading)\n";
+  shader += "    float k = (alpha + 2 * roughness + 1) / 8.0;\n";
+  shader += "    float G = dotNL / (mix(dotNL, 1, k) * mix(dotNV, 1, k));\n";
+  shader += "\n";
+  shader += "    return D * F * G / 4.0;\n";
+  shader += "}\n";
+
+  return shader;
+}
+
 int
 ShaderFactory::loadShaderFromFile(GLhandleARB obj, const char *filename)
 {
@@ -890,7 +927,9 @@ ShaderFactory::addLighting()
   shader += "  vec3 Diff = (diffuse*DiffMag)*glFragColor.rgb;\n";
   shader += "  float Spec = pow(abs(dot(normal, reflecvec)), speccoeff);\n";
   shader += "  Spec *= specular*glFragColor.a;\n";
+
   shader += "  vec3 Amb = ambient*glFragColor.rgb;\n";
+
   shader += "  float litfrac;\n";
   shader += "  litfrac = smoothstep(0.05, 0.1, grad);\n";
   shader += "  glFragColor.rgb = mix(glFragColor.rgb, Amb, litfrac);\n";
@@ -903,6 +942,7 @@ ShaderFactory::addLighting()
   shader += "        frgb = glFragColor.aaa;\n";
   shader += "     glFragColor.rgb = frgb;\n";
   shader += "   }\n";
+
   shader += "  glFragColor.rgb *= lightcol;\n";
 
   return shader;
@@ -1117,6 +1157,7 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
   if (viewPresent) shader += BlendShaderFactory::generateBlend(crops);
   if (pathCropPresent) shader += PathShaderFactory::applyPathCrop();
   if (pathViewPresent) shader += PathShaderFactory::applyPathBlend();
+
 
   shader += "void main(void)\n";
   shader += "{\n";
@@ -1432,37 +1473,8 @@ ShaderFactory::meshShaderF()
   shader += "layout (location=0) out vec4 outputColor;\n";
   shader += "layout (location=1) out vec3 depth;\n";
   shader += "layout (depth_greater) out float gl_FragDepth;\n";
-
-  shader += "vec3 shadingSpecularGGX(vec3 N, vec3 V, vec3 L, float roughness, vec3 F0)\n";
-  shader += "{\n";
-  shader += "    // see http://www.filmicworlds.com/2014/04/21/optimizing-ggx-shaders-with-dotlh/\n";
-  shader += "    vec3 H = normalize(V + L);\n";
-  shader += "\n";
-  shader += "    float dotLH = max(dot(L, H), 0.0);\n";
-  shader += "    float dotNH = max(dot(N, H), 0.0);\n";
-  shader += "    float dotNL = max(dot(N, L), 0.0);\n";
-  shader += "    float dotNV = max(dot(N, V), 0.0);\n";
-  shader += "\n";
-  shader += "    float alpha = roughness * roughness;\n";
-  shader += "\n";
-  shader += "    // D (GGX normal distribution)\n";
-  shader += "    float alphaSqr = alpha * alpha;\n";
-  shader += "    float denom = dotNH * dotNH * (alphaSqr - 1.0) + 1.0;\n";
-  shader += "    float D = alphaSqr / (denom * denom);\n";
-  shader += "    // no pi because BRDF -> lighting\n";
-  shader += "\n";
-  shader += "    // F (Fresnel term)\n";
-  shader += "    float F_a = 1.0;\n";
-  shader += "    float F_b = pow(1.0 - dotLH, 5); // manually?\n";
-  shader += "    vec3 F = mix(vec3(F_b), vec3(F_a), F0);\n";
-  shader += "\n";
-  shader += "    // G (remapped hotness, see Unreal Shading)\n";
-  shader += "    float k = (alpha + 2 * roughness + 1) / 8.0;\n";
-  shader += "    float G = dotNL / (mix(dotNL, 1, k) * mix(dotNV, 1, k));\n";
-  shader += "\n";
-  shader += "    return D * F * G / 4.0;\n";
-  shader += "}\n";
-
+  
+  shader += ggxShader();
   
   shader += "void main()\n";
   shader += "{\n";
@@ -1650,82 +1662,6 @@ ShaderFactory::meshShadowShaderF()
   return shader;
 }
 
-//QString
-//ShaderFactory::meshShaderShadow()
-//{
-//  QString shader;
-//
-//  shader += "#version 410 core\n";
-//  shader += "uniform sampler2D diffuseTex;\n";
-//  shader += "uniform vec3 viewDir;\n";
-////  shader += "uniform vec3 pn;\n";
-////  shader += "uniform float pnear;\n";
-////  shader += "uniform float pfar;\n";
-//  shader += "uniform float opacity;\n";
-//  shader += "uniform float ambient;\n";
-//  shader += "uniform float diffuse;\n";
-//  shader += "uniform float specular;\n";
-//  shader += "uniform int nclip;\n";
-//  shader += "uniform vec3 clipPos[10];\n";
-//  shader += "uniform vec3 clipNormal[10];\n";
-//  shader += "uniform bool hasUV;\n";
-//  shader += "uniform float featherSize;\n";
-//  
-//  shader += "\n";
-//  shader += "in vec3 v3Color;\n";
-//  shader += "in vec3 v3Normal;\n";
-//  shader += "in vec3 pointPos;\n";
-//  shader += "out vec4 outputColor;\n";
-//  shader += "void main()\n";
-//  shader += "{\n";
-////  shader += "   float d = dot(pn, pointPos);\n";
-////  shader += "   if (pnear < pfar && (d < pnear || d > pfar))\n";
-////  shader += "     discard;\n";
-//
-//  //  shader += "  outputColor = vec4(v3Color, 1)*opacity;\n";
-//
-//  shader += "  if (hasUV)\n";
-//  shader += "     outputColor = texture(diffuseTex, vec2(v3Color.x, 1-v3Color.y));\n";
-//  //shader += "     outputColor = texture(diffuseTex, vec2(v3Color.x, v3Color.y));\n";
-//  shader += "  else\n";
-//  shader += "     outputColor = vec4(v3Color, 1)*opacity;\n";
-//
-//  shader += "float cfeather = 1.0;\n";
-//  shader += "if (nclip > 0)\n";
-//  shader += "  {\n";
-//  shader += "    for(int c=0; c<nclip; c++)\n";
-//  shader += "      {\n";
-//  shader += "        vec3 cpos = clipPos[c];\n";
-//  shader += "        vec3 cnorm = clipNormal[c];\n";
-//  shader += "        float cp = dot(pointPos-cpos, cnorm);\n";
-//  shader += "        if (cp > 0.0)\n";
-//  shader += "          discard;\n";
-//  shader += "        else\n";
-//  shader += "          cfeather *= smoothstep(0.0, featherSize, -cp);\n";
-//  shader += "      }\n";
-//  shader += "    cfeather = 1.0 - cfeather;\n";
-//  shader += "  }\n";
-//
-//  shader += "  if (nclip > 0)\n";
-//  shader += "    outputColor.rgb = mix(outputColor.rgb, vec3(1,1,1), cfeather);\n";
-//
-//  shader += "\n";
-//  shader += "  if (length(viewDir) > 0.0)\n";
-//  shader += "    {\n";
-//  shader += "      vec3 reflecvec = reflect(viewDir, v3Normal);\n";
-//  shader += "      float diffMag = abs(dot(v3Normal, viewDir));\n";
-//  shader += "      vec3 Diff = diffuse*diffMag*outputColor.rgb;\n";
-//  shader += "      float Spec = pow(abs(dot(v3Normal, reflecvec)), 512);\n";
-//  shader += "      Spec *= specular*outputColor.a;\n";
-//  shader += "      vec3 Amb = ambient*outputColor.rgb;\n";
-//  shader += "\n";
-//  shader += "      outputColor.rgb = Amb + Diff + vec3(Spec,Spec,Spec);\n";
-//  shader += "    }\n";
-//  shader += "}\n";
-//
-//    
-//  return shader;
-//}
 
 //----------------------------
 //----------------------------

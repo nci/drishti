@@ -21,8 +21,6 @@ Trisets::Trisets()
   m_depthBuffer = 0;
   m_depthTex[0] = 0;
   m_depthTex[1] = 0;
-  m_depthTex[2] = 0;
-  m_depthTex[3] = 0;
   m_rbo = 0;
 
   m_vertexScreenBuffer = 0;
@@ -38,14 +36,12 @@ Trisets::~Trisets()
   delete [] m_cnormal;
 
   if (m_depthBuffer) glDeleteFramebuffers(1, &m_depthBuffer);
-  if (m_depthTex[0]) glDeleteTextures(4, m_depthTex);
+  if (m_depthTex[0]) glDeleteTextures(2, m_depthTex);
   if (m_rbo) glDeleteRenderbuffers(1, &m_rbo);
 
   m_depthBuffer = 0;
   m_depthTex[0] = 0;
   m_depthTex[1] = 0;
-  m_depthTex[2] = 0;
-  m_depthTex[3] = 0;
   m_rbo = 0;
 }
 
@@ -383,10 +379,6 @@ Trisets::draw(QGLViewer *viewer,
   if (applyShadows)
   {
     glBindFramebuffer(GL_FRAMEBUFFER, drawFboId);
-    glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
-    glDepthMask(GL_TRUE);
-
-    glDisable(GL_DEPTH_TEST);
     
     glUseProgram(ShaderFactory::meshShadowShader());
     GLint *shadowParm = ShaderFactory::meshShadowShaderParm();        
@@ -434,41 +426,9 @@ Trisets::draw(QGLViewer *viewer,
     glUseProgramObjectARB(0);
 
     glEnable(GL_BLEND);
-    glEnable(GL_DEPTH_TEST); 
   }
   //--------------------------------------------
   //--------------------------------------------
-
-
-
-//  //--------------------------------------------  
-//  //--------------------------------------------  
-//  for(int i=0; i<m_trisets.count();i++)
-//    {
-//      glUseProgram(ShaderFactory::meshShader());
-//      GLint *meshShaderParm = ShaderFactory::meshShaderParm();  
-//
-//      if (m_trisets[i]->clip())
-//	{
-//	  glUniform1iARB(meshShaderParm[9],  nclip);
-//	  glUniform3fvARB(meshShaderParm[10], nclip, m_cpos);
-//	  glUniform3fvARB(meshShaderParm[11], nclip, m_cnormal);
-//	}
-//      else
-//	{
-//	  glUniform1iARB(meshShaderParm[9],  0);
-//	}
-//      
-// 
-//      m_trisets[i]->draw(viewer,
-//			 m_trisets[i]->grabsMouse(),
-//			 lightVec,
-//			 pnear, pfar, step/2);
-//
-//      glUseProgramObjectARB(0);
-//    }
-//  //--------------------------------------------  
-//  //--------------------------------------------  
 
 }
 
@@ -1091,7 +1051,7 @@ Trisets::createFBO(int wd, int ht)
   if (m_rbo) glDeleteRenderbuffers(1, &m_rbo);
 
   glGenFramebuffers(1, &m_depthBuffer);
-  glGenTextures(4, m_depthTex);
+  glGenTextures(2, m_depthTex);
   glBindFramebuffer(GL_FRAMEBUFFER, m_depthBuffer);
 
   glGenRenderbuffers(1, &m_rbo);
@@ -1104,7 +1064,7 @@ Trisets::createFBO(int wd, int ht)
 			    m_rbo);              // 4. rbo ID
   glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
-  for(int dt=0; dt<4; dt++)
+  for(int dt=0; dt<2; dt++)
     {
       glBindTexture(GL_TEXTURE_RECTANGLE, m_depthTex[dt]);
       glTexImage2D(GL_TEXTURE_RECTANGLE,

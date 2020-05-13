@@ -2166,13 +2166,14 @@ DrawHiresVolume::drawGeometry(Vec pn, float pnear, float pfar, Vec step,
 			      bool applyShadows, bool applyshadowShader,
 			      Vec eyepos)
 {
-  GeometryObjects::trisets()->draw(m_Viewer,
-				   m_lightPosition,
-				   pnear, pfar,
-				   step,
-				   m_useScreenShadows,
-				   eyepos,
-				   m_clipPos, m_clipNormal);
+  if (Global::volumeType() == Global::DummyVolume)
+    GeometryObjects::trisets()->draw(m_Viewer,
+				     m_lightPosition,
+				     pnear, pfar,
+				     step,
+				     m_useScreenShadows,
+				     eyepos,
+				     m_clipPos, m_clipNormal);
 
   GeometryObjects::networks()->draw(m_Viewer,
 				    pnear, pfar,
@@ -3216,12 +3217,13 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
   eyepos = q.rotate(eyepos);
   eyepos += bpivot; 
   glEnable(GL_DEPTH_TEST);
-  GeometryObjects::trisets()->draw(m_Viewer,
-				   m_lightPosition,
-				   0, 0, Vec(0,0,0),
-				   m_useScreenShadows,
-				   eyepos,
-				   m_clipPos, m_clipNormal);
+  if (Global::volumeType() == Global::DummyVolume)
+    GeometryObjects::trisets()->draw(m_Viewer,
+				     m_lightPosition,
+				     0, 0, Vec(0,0,0),
+				     m_useScreenShadows,
+				     eyepos,
+				     m_clipPos, m_clipNormal);
 
   GeometryObjects::pathgroups()->draw(m_Viewer,
 				      m_backlit,

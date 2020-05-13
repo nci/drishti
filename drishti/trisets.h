@@ -102,7 +102,7 @@ class Trisets : public QObject
 
   GLuint m_depthBuffer;
   GLuint m_rbo;
-  GLuint m_depthTex[4];
+  GLuint m_depthTex[2];
 
   float m_blur, m_edges;
     

@@ -861,8 +861,21 @@ RcViewer::raycast(Vec eyepos, float minZ, float maxZ, bool firstPartOnly)
     //cPos << m_viewer->camera()->position();
     cPos << m_viewer->camera()->position()+100*m_viewer->camera()->viewDirection();
     cNorm << -m_viewer->camera()->viewDirection();
-    cPos += GeometryObjects::clipplanes()->positions();
-    cNorm += GeometryObjects::clipplanes()->normals();
+    //cPos += GeometryObjects::clipplanes()->positions();
+    //cNorm += GeometryObjects::clipplanes()->normals();
+
+    QList<Vec> bcPos = GeometryObjects::clipplanes()->positions();
+    QList<Vec> bcNorm = GeometryObjects::clipplanes()->normals();
+    QList<bool> clippers;
+    clippers = m_brickInfo[0].clippers;
+    for(int ci=0; ci<clippers.count(); ci++)
+      {
+	if (clippers[ci])
+	  {
+	    cPos << bcPos[ci];
+	    cNorm << bcNorm[ci];
+	  }
+      }
     int nclip = cPos.count();
     float cpos[100];
     float cnormal[100];

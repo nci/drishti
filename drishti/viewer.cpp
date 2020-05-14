@@ -3208,6 +3208,10 @@ Viewer::mouseMoveEvent(QMouseEvent *event)
 	}
     }
 
+  if (event->buttons() == Qt::NoButton)
+    GeometryObjects::trisets()->checkMouseHover(this);
+  
+
   if (GeometryObjects::grabsMouse())
     {
       QGLViewer::mouseMoveEvent(event);

@@ -81,6 +81,7 @@ class TrisetObject
   void clear();
 
   void predraw(QGLViewer*,
+	       bool,
 	       double*,
 	       Vec,
 	       bool, int, int);

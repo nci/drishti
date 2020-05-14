@@ -24,10 +24,10 @@ class TrisetGrabber : public QObject, public MouseGrabber, public TrisetObject
     MoveAll
   };
 
-  int pointPressed();
+  bool mousePressed();
 
-  void mousePosition(int&, int&);
-
+  void setMouseGrab(bool);
+  float checkForMouseHover(int, int, const Camera* const);  
   void checkIfGrabsMouse(int, int, const Camera* const);
 
   int moveAxis();
@@ -38,8 +38,6 @@ class TrisetGrabber : public QObject, public MouseGrabber, public TrisetObject
   void mouseReleaseEvent(QMouseEvent* const, Camera* const);
 
  private :
-  int m_lastX, m_lastY;
-  int m_pointPressed;
   int m_moveAxis;
   bool m_pressed;
   QPoint m_prevPos;

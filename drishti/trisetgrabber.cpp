@@ -4,46 +4,59 @@
 
 TrisetGrabber::TrisetGrabber()
 {
-  m_lastX = m_lastY = -1;
   m_pressed = false;
-  m_pointPressed = -1;
   m_moveAxis = MoveAll;
 }
 
 TrisetGrabber::~TrisetGrabber() { removeFromMouseGrabberPool(); }
 
-int TrisetGrabber::pointPressed() { return m_pointPressed; }
-
-void
-TrisetGrabber::mousePosition(int& x, int& y)
-{
-  x = m_lastX;
-  y = m_lastY;
-}
+bool TrisetGrabber::mousePressed() { return m_pressed; }
 
 int TrisetGrabber::moveAxis() { return m_moveAxis; }
 void TrisetGrabber::setMoveAxis(int type) { m_moveAxis = type; }
 
 void
-TrisetGrabber::checkIfGrabsMouse(int x, int y,
-				 const Camera* const camera)
+TrisetGrabber::setMouseGrab(bool f)
 {
-  m_lastX = x;
-  m_lastY = y;
+  setGrabsMouse(f);
+  if (!f) m_pressed = false;
+}
 
-//  // don't want to grab mouse
-//  setGrabsMouse(false);
-
+float
+TrisetGrabber::checkForMouseHover(int x, int y,
+				  const Camera* const camera)
+{
   Vec pos = camera->projectedCoordinatesOf(centroid()+position());
   QPoint hp0(pos.x, pos.y);
   QPoint hp1(x, y);
   if ((hp0-hp1).manhattanLength() < 100)
-    setGrabsMouse(true);
-  else
     {
-      setGrabsMouse(false);
-      m_pressed = false;
+      Vec cpos = camera->position();
+      Vec V = camera->viewDirection();
+      float d = (pos-cpos)*V;
+      return d;
     }
+
+  return -1;
+}
+
+void
+TrisetGrabber::checkIfGrabsMouse(int x, int y,
+				 const Camera* const camera)
+{
+////  // don't want to grab mouse
+////  setGrabsMouse(false);
+//
+//  Vec pos = camera->projectedCoordinatesOf(centroid()+position());
+//  QPoint hp0(pos.x, pos.y);
+//  QPoint hp1(x, y);
+//  if ((hp0-hp1).manhattanLength() < 100)
+//    setGrabsMouse(true);
+//  else
+//    {
+//      setGrabsMouse(false);
+//      m_pressed = false;
+//    }
 }
 
 void
@@ -61,6 +74,11 @@ TrisetGrabber::mouseMoveEvent(QMouseEvent* const event,
   if (!m_pressed)
     return;
   
+//  if (event->buttons() == Qt::NoButton)
+//    return;
+//  if (!grabsMouse())
+//    return;
+      
   QPoint delta = event->pos() - m_prevPos;
   Vec trans(delta.x(), -delta.y(), 0.0f);
 

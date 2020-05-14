@@ -244,16 +244,78 @@ Trisets::addMesh(QString flnm)
 }
 
 void
-Trisets::postdraw(QGLViewer *viewer)
+Trisets::checkMouseHover(QGLViewer *viewer)
 {
-  for(int i=0; i<m_trisets.count();i++)
+  //if (m_trisets.count() > 1 && grabsMouse())
+  if (m_trisets.count() == 0)
+    return;
+  
     {
-      int x,y;
-      m_trisets[i]->mousePosition(x,y);
-      m_trisets[i]->postdraw(viewer,
-			     x, y,
-			     m_trisets[i]->grabsMouse(),
-			     i);
+      QPoint scr = viewer->mapFromGlobal(QCursor::pos());
+      int x = scr.x();
+      int y = scr.y();
+      int gt = -1;
+      float dmin = 10000;
+      for(int i=0; i<m_trisets.count(); i++)
+	{
+	  if (m_trisets[i]->grabsMouse())
+	    {
+	      if (!m_trisets[i]->mousePressed())
+		{
+		  dmin = m_trisets[i]->checkForMouseHover(x,y, viewer->camera());
+		  if (dmin > 0)
+		    {
+		      gt = i;
+		      break;
+		    }
+		}
+	      else
+		{
+		  return;
+		}
+	    }
+	}
+      if (gt == -1)
+	{
+	  for(int i=0; i<m_trisets.count(); i++)
+	    {
+	      if (m_trisets[i]->isInMouseGrabberPool())
+		{
+		  float d = m_trisets[i]->checkForMouseHover(x,y, viewer->camera());
+		  if (d > 0)
+		    {
+		      dmin = d;
+		      gt = i;
+		      break;
+		    }
+		}
+	    }
+	  //QMessageBox::information(0, "", QString("%1").arg(gt));
+	}
+      
+      for(int i=0; i<m_trisets.count();i++)
+	m_trisets[i]->setMouseGrab(false);
+
+      if (gt > -1)
+	{
+	  int pgt = gt;
+		
+	  for(int i=0; i<m_trisets.count();i++)
+	    {
+	      if (m_trisets[i]->isInMouseGrabberPool())
+		{
+		  float d = m_trisets[i]->checkForMouseHover(x,y, viewer->camera());
+		  if (d > 0 && d < dmin)
+		    {
+		      dmin = d;
+		      gt = i;
+		    }
+		}
+	    }
+
+	  m_trisets[gt]->setMouseGrab(true);
+	  //m_trisets[gt]->checkIfGrabsMouse(x,y, viewer->camera());
+	}
     }
 }
 
@@ -262,12 +324,33 @@ Trisets::predraw(QGLViewer *viewer,
 		 double *Xform,
 		 Vec pn,
 		 bool shadows, int shadowWidth, int shadowHeight)
-{
+{  
+  Vec smin, smax;
+  allEnclosingBox(smin, smax);
+  viewer->setSceneBoundingBox(smin, smax);
+
   for(int i=0; i<m_trisets.count();i++)
     m_trisets[i]->predraw(viewer,
+			  m_trisets[i]->grabsMouse(),
 			  Xform,
 			  pn,
 			  shadows, shadowWidth, shadowHeight);
+}
+
+void
+Trisets::postdraw(QGLViewer *viewer)
+{
+  for(int i=0; i<m_trisets.count();i++)
+    {
+      int x,y;
+      QPoint scr = viewer->mapFromGlobal(QCursor::pos());
+      x = scr.x();
+      y = scr.y();
+      m_trisets[i]->postdraw(viewer,
+			     x, y,
+			     m_trisets[i]->grabsMouse(),
+			     i);
+    }
 }
 
 void
@@ -347,14 +430,16 @@ Trisets::draw(QGLViewer *viewer,
   Vec vd = viewer->camera()->viewDirection();
   glUniform3f(meshShaderParm[1], vd.x, vd.y, vd.z); // view direction
 
-  Vec eyepos = viewer->camera()->position();
-  glUniform3f(meshShaderParm[2], eyepos.x, eyepos.y, eyepos.z);
-
-  
   for(int i=0; i<m_trisets.count();i++)
     {
       glUseProgram(ShaderFactory::meshShader());
       
+      Vec extras = Vec(0,0,0);
+      if (m_trisets[i]->grabsMouse())
+	extras.x = 1;
+      glUniform3f(meshShaderParm[2], extras.x, extras.y, extras.z);
+
+  
       if (m_trisets[i]->clip())
 	{
 	  glUniform1iARB(meshShaderParm[9],  nclip);
@@ -651,6 +736,7 @@ Trisets::keyPressEvent(QKeyEvent *event)
 	      //keys << "gap";
 	      //keys << "crop border color";
 	      //keys << "commandhelp";
+	      keys << "command";
 	      keys << "message";
 	      
 
@@ -725,6 +811,10 @@ Trisets::keyPressEvent(QKeyEvent *event)
 		    }
 		}
 	      
+	      QString cmd = propertyEditor.getCommandString();
+	      if (!cmd.isEmpty())
+		processCommand(i, cmd);	
+  
 	      return true;
 	    }
 	}
@@ -739,7 +829,65 @@ Trisets::processCommand(int idx, QString cmd)
   bool ok;
   cmd = cmd.toLower();
   QStringList list = cmd.split(" ", QString::SkipEmptyParts);
+
+  if (list[0] == "resetposition")
+    {
+      for (int i=0; i<m_trisets.count(); i++)
+	{
+	  m_trisets[i]->setPosition(Vec(0,0,0));
+	}
+      return;
+    }
   
+  if (list[0] == "scale")
+    {
+      float x,y,z;
+      x=y=z=1;
+      
+      if (list.count() == 2)
+	x = y = z = list[1].toFloat(&ok);
+      else if (list.count() == 4)
+	{
+	  x = list[1].toFloat(&ok);
+	  y = list[2].toFloat(&ok);
+	  z = list[3].toFloat(&ok);
+	}
+      Vec scale(x,y,z);
+      for (int i=0; i<m_trisets.count(); i++)
+	m_trisets[i]->setScale(scale);
+      return;
+    }
+  
+  if (list[0].contains("explode"))
+    {
+      Vec damp = Vec(1,1,1);
+      if (list[0] == "explodex") damp = Vec(1, 0.1, 0.1);
+      if (list[0] == "explodey") damp = Vec(0.1, 1, 0.1);
+      if (list[0] == "explodez") damp = Vec(0.1, 0.1, 1);
+      if (list[0] == "explodexy") damp = Vec(1, 1, 0.5);
+      if (list[0] == "explodexz") damp = Vec(0.5, 1, 1);
+      if (list[0] == "explodeyz") damp = Vec(0.5, 1, 1);
+	
+      float rad = 1;
+      if (list.count() > 1)
+	rad = list[1].toFloat(&ok);
+
+      Vec centroid = Vec(0,0,0);
+      for (int i=0; i<m_trisets.count(); i++)
+	centroid += m_trisets[i]->centroid();
+
+      centroid /= m_trisets.count();
+      
+      for (int i=0; i<m_trisets.count(); i++)
+	{
+	  Vec dr = m_trisets[i]->centroid() - centroid;
+	  dr = VECPRODUCT(dr, damp);
+	  dr *= rad;
+	  m_trisets[i]->setPosition(dr);
+	}
+      return;
+    }
+
   if (list[0] == "setcolor" || list[0] == "color")
     {
       Vec pcolor = m_trisets[idx]->color();

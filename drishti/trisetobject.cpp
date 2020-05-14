@@ -72,8 +72,8 @@ void
 TrisetObject::enclosingBox(Vec &boxMin,
 			   Vec &boxMax)
 {
-  boxMin = m_enclosingBox[0];
-  boxMax = m_enclosingBox[6];
+  boxMin = m_position + m_centroid + VECPRODUCT((m_enclosingBox[0]-m_centroid),m_scale);
+  boxMax = m_position + m_centroid + VECPRODUCT((m_enclosingBox[6]-m_centroid),m_scale);
 }
 
 void
@@ -518,6 +518,7 @@ TrisetObject::draw(QGLViewer *viewer,
 
 void
 TrisetObject::predraw(QGLViewer *viewer,
+		      bool active,
 		      double *Xform,
 		      Vec pn,
 		      bool shadows, int shadowWidth, int shadowHeight)
@@ -539,10 +540,13 @@ TrisetObject::predraw(QGLViewer *viewer,
   s0[11]= m_centroid.z;
   Matrix::matmult(s1, s0, s2);
 
+  Vec scale;
+  scale = (active ? m_scale*1.2 : m_scale);
+  
   Matrix::identity(s0);
-  s0[0] = m_scale.x;
-  s0[5] = m_scale.y;
-  s0[10] = m_scale.z;
+  s0[0] = scale.x;
+  s0[5] = scale.y;
+  s0[10] = scale.z;
   Matrix::matmult(s2, s0, s1);
 
   Matrix::identity(s0);
@@ -1685,8 +1689,11 @@ TrisetObject::loadAssimpModel(QString flnm)
   minX = maxX = m_vertices[0].x;
   minY = maxY = m_vertices[0].y;
   minZ = maxZ = m_vertices[0].z;
+  m_centroid = Vec(0,0,0);
   for(int i=0; i<m_vertices.count(); i++)
     {
+      m_centroid += m_vertices[i];
+
       minX = qMin(minX, (float)m_vertices[i].x);
       maxX = qMax(maxX, (float)m_vertices[i].x);
       minY = qMin(minY, (float)m_vertices[i].y);
@@ -1694,6 +1701,8 @@ TrisetObject::loadAssimpModel(QString flnm)
       minZ = qMin(minZ, (float)m_vertices[i].z);
       maxZ = qMax(maxZ, (float)m_vertices[i].z);
     }
+
+  m_centroid /= m_vertices.count();
 
   Vec bmin = Vec(minX, minY, minZ);
   Vec bmax = Vec(maxX, maxY, maxZ);
@@ -1723,7 +1732,7 @@ TrisetObject::loadAssimpModel(QString flnm)
   m_enclosingBox[6] = Vec(bmax.x, bmax.y, bmax.z);
   m_enclosingBox[7] = Vec(bmin.x, bmax.y, bmax.z);
 
-  m_centroid = (bmin + bmax)/2;
+  //m_centroid = (bmin + bmax)/2;
 
   m_position = Vec(0,0,0);
   m_scale = Vec(1,1,1);

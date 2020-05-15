@@ -84,6 +84,8 @@ class ShaderFactory
   static QString pnShaderF();
 
   static QString ggxShader();
+  static QString rgb2hsv();
+  static QString hsv2rgb();
 };
 
 #endif

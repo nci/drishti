@@ -1562,7 +1562,7 @@ GLuint ShaderFactory::meshShadowShader()
 	m_meshShadowShaderParm[3] = glGetUniformLocation(m_meshShadowShader, "softshadow");
 	m_meshShadowShaderParm[4] = glGetUniformLocation(m_meshShadowShader, "edges");
 	m_meshShadowShaderParm[5] = glGetUniformLocation(m_meshShadowShader, "gamma");
-	
+	m_meshShadowShaderParm[6] = glGetUniformLocation(m_meshShadowShader, "roughness");	
     }
 
   return m_meshShadowShader;
@@ -1585,6 +1585,37 @@ ShaderFactory::meshShadowShaderV()
 }
 
 QString
+ShaderFactory::rgb2hsv()
+{
+  QString shader;
+  shader += "vec3 rgb2hsv(vec3 c)\n";
+  shader += "{\n";
+  shader += "    vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);\n";
+  shader += "    vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));\n";
+  shader += "    vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));\n";
+  shader += "\n";
+  shader += "    float d = q.x - min(q.w, q.y);\n";
+  shader += "    float e = 1.0e-10;\n";
+  shader += "    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);\n";
+  shader += "}\n";
+  return shader;
+}
+
+QString
+ShaderFactory::hsv2rgb()
+{
+  QString shader;
+  shader += "vec3 hsv2rgb(vec3 c)\n";
+  shader += "{\n";
+  shader += "    vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);\n";
+  shader += "    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);\n";
+  shader += "    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);\n";
+  shader += "}\n";
+  return shader;
+}
+
+
+QString
 ShaderFactory::meshShadowShaderF()
 {
   QString shader;
@@ -1600,6 +1631,12 @@ ShaderFactory::meshShadowShaderF()
   shader += "uniform float softshadow;\n";
   shader += "uniform float edges;\n";
   shader += "uniform float gamma;\n";
+  shader += "uniform float roughness;\n";
+
+
+  shader += rgb2hsv();
+  shader += hsv2rgb();
+  shader += ggxShader();
   
   shader += "void main()\n";
   shader += "{\n";
@@ -1629,12 +1666,11 @@ ShaderFactory::meshShadowShaderF()
   shader += "  {\n";
   shader += "    float sumI = 0.0;\n";
   shader += "    float sumS = 0.0;\n";
-  shader += "    float tele = 0.0;\n";
-  shader += "    float r = 1.0;\n";
   shader += "    int nsteps = int(20.0*softshadow);\n";
-  shader += "    for(int i=0; i<nsteps; i++)\n";
+  shader += "    int nstepsS = int(nsteps*0.7);\n";
+  shader += "    for(int i=0; i<nstepsS; i++)\n";
   shader += "      {\n";
-  shader += "    	 r = 1.0+i*0.2;\n";
+  shader += "    	 float r = 1.0+i*0.15;\n";
   shader += "            float x = r*sin(radians(i*23));\n";
   shader += "            float y = r*cos(radians(i*23));\n";
   shader += "    	 vec2 pos = spos + vec2(x,y);\n";
@@ -1643,12 +1679,30 @@ ShaderFactory::meshShadowShaderF()
   shader += "    	 sumI += step(r*0.002, abs(od));\n";
   shader += "    	 sumS += step(0.0, depth-pdepth.y);\n";
   shader += "      } \n";
+  shader += "    for(int i=nstepsS; i<nsteps; i++)\n";
+  shader += "      {\n";
+  shader += "    	 float r = i*0.3;\n";
+  shader += "            float x = r*sin(radians(i*37));\n";
+  shader += "            float y = r*cos(radians(i*37));\n";
+  shader += "    	 vec2 pos = spos + vec2(x,y);\n";
+  shader += "    	 vec2 pdepth = texture2DRect(depthTex, pos).xy;\n";
+  shader += "    	 float od = depth-(pdepth.x+pdepth.y)*0.5;\n";
+  shader += "    	 sumI += step(r*0.002, abs(od));\n";
+  shader += "      } \n";
+
   shader += "    sumI /= float(nsteps);\n";
   shader += "    float shadowI = clamp(sumI, 0.0, 1.0);\n";
-  shader += "    shadowI = pow(shadowI, gamma);\n";
-  shader += "    color.rgb = mix(vec3(1,1,1), color.rgb, shadowI);\n";
+  shader += "    shadowI = pow(shadowI, 1.0/gamma);\n";
+  shader += "    vec3 colorI = rgb2hsv(color.rgb);\n";
+  shader += "    colorI *= vec3(1, 1.5, 2);\n";
+  shader += "    colorI.x += 0.02;\n";
+  shader += "    colorI.x = mix(colorI.x, 1.0-colorI.x, step(1.0, colorI.x));\n";
+  shader += "    colorI = clamp(colorI, vec3(0.0), vec3(1.0));\n";
+  shader += "    colorI = hsv2rgb(colorI);\n";
+  shader += "    colorI = pow(colorI, vec3(1.0/gamma));\n";
+  shader += "    color.rgb = mix(colorI, color.rgb, shadowI);\n";
 
-  shader += "    sumS /= float(nsteps);\n";
+  shader += "    sumS /= float(nstepsS);\n";
   shader += "    float shadow = 1.0-sumS;\n";
   shader += "    shadow = pow(shadow, gamma);\n";
   shader += "    color.rgb *= shadow;\n";
@@ -1673,12 +1727,22 @@ ShaderFactory::meshShadowShaderF()
   shader += "    color.rgb *= exp(-response*nsteps*20);\n";
   shader += "  }\n";
 
-//  specular
-//  shader += "  float dx = texture2DRect(depthTex, spos.xy+vec2(1,0)).x-texture2DRect(depthTex, spos.xy-vec2(1,0)).x;\n";
-//  shader += "  float dy = texture2DRect(depthTex, spos.xy+vec2(0,1)).x-texture2DRect(depthTex, spos.xy-vec2(0,1)).x;\n";
-//  shader += "  vec3 N = normalize(vec3(dx*100, dy*100, 1.0));\n";
-//  shader += "  vec3 spec = shadingSpecularGGX(N, vec3(0,0,1),  vec3(0,0,1), 0.2, vec3(1));\n";
-//  shader += "  color.rgb += 0.2*spec;\n";
+
+  shader += "  if (roughness > 0.0)\n";
+  shader += "  {\n";
+  shader += "    float dx = 0.0;\n";
+  shader += "    float dy = 0.0;\n";
+  shader += "    for(int i=0; i<5; i++)\n";
+  shader += "      {\n";
+  shader += "        dx += texture2DRect(depthTex, spos.xy+vec2(1+i,0)).x-texture2DRect(depthTex, spos.xy-vec2(1+i,0)).x;\n";
+  shader += "        dy += texture2DRect(depthTex, spos.xy+vec2(0,1+i)).x-texture2DRect(depthTex, spos.xy-vec2(0,1+i)).x;\n";
+  shader += "      }\n";
+  shader += "    vec3 N = normalize(vec3(dx*50, dy*50, 1.0+roughness));\n";
+  shader += "    vec3 spec = shadingSpecularGGX(N, vec3(0,0,1),  vec3(0,0,1), roughness, color.rgb);\n";
+  shader += "    color.rgb += spec;\n";
+  shader += "  }\n";
+
+  shader += " color.rgb = clamp(color.rgb, vec3(0.0), vec3(1.0));\n";
 
   shader += "}\n";
 

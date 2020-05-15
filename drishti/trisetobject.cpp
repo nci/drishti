@@ -415,14 +415,7 @@ TrisetObject::drawTrisetBuffer(QGLViewer *viewer,
   glUniform1f(meshShaderParm[6], m_ambient);
   glUniform1f(meshShaderParm[7], m_diffuse);
   glUniform1f(meshShaderParm[8], m_specular);
-
-  //glUniform3f(meshShaderParm[12], m_position.x, m_position.y, m_position.z);
-
   glUniform1f(meshShaderParm[15], m_featherSize);
-
-  //glUniform3f(meshShaderParm[16], m_scale.x, m_scale.y, m_scale.z);
-  //glUniform3f(meshShaderParm[17], m_centroid.x, m_centroid.y, m_centroid.z);
-
 
   
   //glDrawElements(GL_TRIANGLES, ni, GL_UNSIGNED_INT, 0);  

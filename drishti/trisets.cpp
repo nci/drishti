@@ -499,7 +499,9 @@ Trisets::draw(QGLViewer *viewer,
     glUniform1f(shadowParm[3], m_blur); // soft shadows
     glUniform1f(shadowParm[4], m_edges); // edge enhancement
     glUniform1f(shadowParm[5], Global::gamma()); // edge enhancement
-    
+    float roughness = 0.9-m_trisets[0]->roughness()*0.1;
+    glUniform1f(shadowParm[6], roughness); // specularity
+        
     glEnableVertexAttribArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, m_vertexScreenBuffer);
     glVertexAttribPointer(0,  // attribute 0

@@ -246,7 +246,8 @@ Trisets::addMesh(QString flnm)
 void
 Trisets::checkMouseHover(QGLViewer *viewer)
 {
-  //if (m_trisets.count() > 1 && grabsMouse())
+  // using checkMouseHover instead of checkIfGrabsMouse
+  
   if (m_trisets.count() == 0)
     return;
   
@@ -290,7 +291,6 @@ Trisets::checkMouseHover(QGLViewer *viewer)
 		    }
 		}
 	    }
-	  //QMessageBox::information(0, "", QString("%1").arg(gt));
 	}
       
       for(int i=0; i<m_trisets.count();i++)
@@ -314,7 +314,6 @@ Trisets::checkMouseHover(QGLViewer *viewer)
 	    }
 
 	  m_trisets[gt]->setMouseGrab(true);
-	  //m_trisets[gt]->checkIfGrabsMouse(x,y, viewer->camera());
 	}
     }
 }
@@ -415,6 +414,7 @@ Trisets::draw(QGLViewer *viewer,
 
       glDisable(GL_BLEND);
     }
+
   
   glUseProgram(ShaderFactory::meshShader());
 
@@ -430,6 +430,17 @@ Trisets::draw(QGLViewer *viewer,
   Vec vd = viewer->camera()->viewDirection();
   glUniform3f(meshShaderParm[1], vd.x, vd.y, vd.z); // view direction
 
+  Camera shadowCamera;
+  shadowCamera = *(viewer->camera());  
+  Vec vR = shadowCamera.rightVector();
+  Vec vU = shadowCamera.upVector();
+  shadowCamera.setPosition(shadowCamera.position() + vd*sceneRadius*0.1);
+  shadowCamera.lookAt(viewer->camera()->sceneCenter());
+  shadowCamera.getModelViewMatrix(mv);
+  glUniformMatrix4fv(meshShaderParm[16], 1, GL_FALSE, mv);
+
+
+  
   for(int i=0; i<m_trisets.count();i++)
     {
       glUseProgram(ShaderFactory::meshShader());

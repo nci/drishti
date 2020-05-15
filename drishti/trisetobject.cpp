@@ -411,7 +411,7 @@ TrisetObject::drawTrisetBuffer(QGLViewer *viewer,
   glUniformMatrix4fv(meshShaderParm[3], 1, GL_FALSE, lxfrm);
 
   glUniform3f(meshShaderParm[1], vd.x, vd.y, vd.z); // view direction
-  glUniform1f(meshShaderParm[5], 0.9-m_roughness*0.1);
+  glUniform1f(meshShaderParm[5], 1.0-m_roughness*0.1);
   glUniform1f(meshShaderParm[6], m_ambient);
   glUniform1f(meshShaderParm[7], m_diffuse);
   glUniform1f(meshShaderParm[8], m_specular);

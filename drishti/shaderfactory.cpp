@@ -1403,6 +1403,7 @@ GLuint ShaderFactory::meshShader()
 	m_meshShaderParm[13] = glGetUniformLocation(m_meshShader,"hasUV");
 	m_meshShaderParm[14] = glGetUniformLocation(m_meshShader,"diffuseTex");
 	m_meshShaderParm[15] = glGetUniformLocation(m_meshShader,"featherSize");
+	m_meshShaderParm[16] = glGetUniformLocation(m_meshShader, "MVShadow");
 	
     }
 
@@ -1417,6 +1418,7 @@ ShaderFactory::meshShaderV()
 
   shader += "#version 420 core\n";
   shader += "uniform mat4 MV;\n";
+  shader += "uniform mat4 MVShadow;\n";
   shader += "uniform mat4 MVP;\n";
   shader += "uniform mat4 localXform;\n";
   shader += "layout(location = 0) in vec3 position;\n";
@@ -1427,6 +1429,7 @@ ShaderFactory::meshShaderV()
   shader += "out vec3 pointPos;\n";
   shader += "out float zdepth;\n";
   shader += "out float zdepthV;\n";
+  shader += "out float zdepthS;\n";
   shader += "out vec3 ;\n";
   shader += "void main()\n";
   shader += "{\n";
@@ -1437,6 +1440,7 @@ ShaderFactory::meshShaderV()
   shader += "   zdepth = ((gl_DepthRange.diff * gl_Position.z/gl_Position.w) +\n";
   shader += "              gl_DepthRange.near + gl_DepthRange.far) / 2.0;\n";
   shader += "   zdepthV = -(MV * vec4(pointPos, 1)).z;\n";
+  shader += "   zdepthS = -(MVShadow * vec4(pointPos, 1)).z;\n";
   shader += "}\n";
 
   return shader;
@@ -1468,6 +1472,7 @@ ShaderFactory::meshShaderF()
   shader += "in vec3 pointPos;\n";
   shader += "in float zdepth;\n";
   shader += "in float zdepthV;\n";
+  shader += "in float zdepthS;\n";
 
   // Ouput data
   shader += "layout (location=0) out vec4 outputColor;\n";
@@ -1480,8 +1485,11 @@ ShaderFactory::meshShaderF()
   shader += "{\n";
 
   shader += "gl_FragDepth = zdepth;\n";
-  shader += "depth = vec3(zdepthV/sceneRadius, extras.x, gl_FragDepth);\n";
 
+  //-------------------  store depth values
+  shader += "depth = vec3(zdepthS/sceneRadius, zdepthV/sceneRadius, gl_FragDepth);\n";
+  //-------------------  shadowCamera depth,  originalCamera depth, fragment depth
+  
   shader += "  if (hasUV)\n";
   shader += "     outputColor = texture(diffuseTex, vec2(v3Color.x, 1-v3Color.y));\n";
   shader += "  else\n";
@@ -1605,6 +1613,10 @@ ShaderFactory::meshShadowShaderF()
   shader += "  vec4 dtex = texture2DRect(depthTex, spos.xy);\n";
   shader += "  float depth = dtex.x;\n";
 
+  // dtex.x - shadow depth
+  // dtex.y - original depth
+  // dtex.z - fragDepth
+  
   shader += "  if (depth < 0.001) \n";
   shader += "  {\n";
   shader += "     gl_FragDepth = 1.0;\n";
@@ -1613,40 +1625,48 @@ ShaderFactory::meshShadowShaderF()
 
   shader += "  gl_FragDepth = dtex.z;\n";
   
-  shader += "  float cx[8] = float[](-1.0, 0.0, 1.0, 0.0, -1.0,-1.0, 1.0, 1.0);\n";
-  shader += "  float cy[8] = float[]( 0.0,-1.0, 0.0, 1.0, -1.0, 1.0,-1.0, 1.0);\n";
-
   shader += "  if (softshadow > 0.0)\n";
   shader += "  {\n";
-  shader += "    float sum = 0.0;\n";
+  shader += "    float sumI = 0.0;\n";
+  shader += "    float sumS = 0.0;\n";
   shader += "    float tele = 0.0;\n";
   shader += "    float r = 1.0;\n";
-  shader += "    int nsteps = int(5.0*softshadow);\n";
+  shader += "    int nsteps = int(20.0*softshadow);\n";
   shader += "    for(int i=0; i<nsteps; i++)\n";
   shader += "      {\n";
-  shader += "    	 r = 1.0 + float(i)/4.0;\n";
-  shader += "    	 vec2 pos = spos + vec2(r*cx[int(mod(i,8))],r*cy[int(mod(i,8))]);\n";
-  shader += "    	 float pdepth = texture2DRect(depthTex, pos).x;\n";
-  shader += "    	 float od = depth-pdepth;\n";
-  shader += "    	 sum += step(r*0.005, abs(od)*step(0.001, pdepth));\n";
+  shader += "    	 r = 1.0+i*0.2;\n";
+  shader += "            float x = r*sin(radians(i*23));\n";
+  shader += "            float y = r*cos(radians(i*23));\n";
+  shader += "    	 vec2 pos = spos + vec2(x,y);\n";
+  shader += "    	 vec2 pdepth = texture2DRect(depthTex, pos).xy;\n";
+  shader += "    	 float od = depth-(pdepth.x+pdepth.y)*0.5;\n";
+  shader += "    	 sumI += step(r*0.002, abs(od));\n";
+  shader += "    	 sumS += step(0.0, depth-pdepth.y);\n";
   shader += "      } \n";
-  shader += "    sum /= float(nsteps);\n";
-  shader += "    float shadow = 1.0-sum;\n";
+  shader += "    sumI /= float(nsteps);\n";
+  shader += "    float shadowI = clamp(sumI, 0.0, 1.0);\n";
+  shader += "    shadowI = pow(shadowI, gamma);\n";
+  shader += "    color.rgb = mix(vec3(1,1,1), color.rgb, shadowI);\n";
+
+  shader += "    sumS /= float(nsteps);\n";
+  shader += "    float shadow = 1.0-sumS;\n";
   shader += "    shadow = pow(shadow, gamma);\n";
   shader += "    color.rgb *= shadow;\n";
-  //shader += "    color.rgb = pow(color.rgb, vec3(gamma/1.2));\n";
   shader += "  }\n";
 
 
   shader += "  if (edges > 0.0)\n";
   shader += "  {\n";
+  shader += "  float cx[8] = float[](-1.0, 0.0, 1.0, 0.0, -1.0,-1.0, 1.0, 1.0);\n";
+  shader += "  float cy[8] = float[]( 0.0,-1.0, 0.0, 1.0, -1.0, 1.0,-1.0, 1.0);\n";
+  shader += "     depth = dtex.y;\n";
   shader += "    float response = 0.0;\n";
   shader += "    int nsteps  = int(3+(edges*10));\n";  
   shader += "    for(int i=0; i<nsteps; i++)\n";
   shader += "      {\n";
   shader += "        float r = 1.0 + float(i)/8.0;\n";
   shader += "        vec2 pos = spos + vec2(r*cx[int(mod(i,8))],r*cy[int(mod(i,8))]);\n";
-  shader += "        float od = depth - texture2DRect(depthTex, pos).x;\n";
+  shader += "        float od = depth - texture2DRect(depthTex, pos).y;\n";
   shader += "        response += max(0.0, od);\n";
   shader += "      } \n";
   shader += "    response /= nsteps;\n";

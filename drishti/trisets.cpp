@@ -323,7 +323,10 @@ Trisets::predraw(QGLViewer *viewer,
 		 double *Xform,
 		 Vec pn,
 		 bool shadows, int shadowWidth, int shadowHeight)
-{  
+{
+  if (m_trisets.count() == 0)
+    return;
+  
   Vec smin, smax;
   allEnclosingBox(smin, smax);
   viewer->setSceneBoundingBox(smin, smax);
@@ -339,6 +342,9 @@ Trisets::predraw(QGLViewer *viewer,
 void
 Trisets::postdraw(QGLViewer *viewer)
 {
+  if (m_trisets.count() == 0)
+    return;
+  
   for(int i=0; i<m_trisets.count();i++)
     {
       int x,y;

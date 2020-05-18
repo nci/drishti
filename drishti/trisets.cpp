@@ -501,6 +501,7 @@ Trisets::draw(QGLViewer *viewer,
     glUniform1f(shadowParm[5], Global::gamma()); // edge enhancement
     float roughness = 0.9-m_trisets[0]->roughness()*0.1;
     glUniform1f(shadowParm[6], roughness); // specularity
+    glUniform1f(shadowParm[7], m_trisets[0]->specular()); // specularity
         
     glEnableVertexAttribArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, m_vertexScreenBuffer);

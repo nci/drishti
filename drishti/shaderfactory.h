@@ -86,6 +86,8 @@ class ShaderFactory
   static QString ggxShader();
   static QString rgb2hsv();
   static QString hsv2rgb();
+  static QString noise2d();
+  static QString noise3d();
 };
 
 #endif

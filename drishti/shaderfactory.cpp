@@ -1799,21 +1799,6 @@ ShaderFactory::meshShadowShaderF()
 
   shader += "  gl_FragDepth = dtex.z;\n";
 
-  shader += "  vec3 clrS = color.rgb;\n";
-
-  shader += "  if (roughness > 0.0)\n";
-  shader += "  {\n";
-  shader += "    float dx = 0.0;\n";
-  shader += "    float dy = 0.0;\n";
-  shader += "    for(int i=0; i<5; i++)\n";
-  shader += "      {\n";
-  shader += "        dx += texture2DRect(depthTex, spos.xy+vec2(1+i,0)).x-texture2DRect(depthTex, spos.xy-vec2(1+i,0)).x;\n";
-  shader += "        dy += texture2DRect(depthTex, spos.xy+vec2(0,1+i)).x-texture2DRect(depthTex, spos.xy-vec2(0,1+i)).x;\n";
-  shader += "      }\n";
-  shader += "    vec3 N = normalize(vec3(dx*50, dy*50, 1.0+roughness));\n";
-  shader += "    vec3 spec = shadingSpecularGGX(N, vec3(0,0,1),  vec3(0,0,1), roughness, color.rgb);\n";
-  shader += "    color.rgb += specular*spec;\n";
-  shader += "  }\n";
   
   shader += "  vec3 ecolor = color.rgb;\n";
   shader += "  if (edges > 0.0)\n";
@@ -1838,11 +1823,10 @@ ShaderFactory::meshShadowShaderF()
 
   shader += "  if (softshadow > 0.0)\n";
   shader += "  {\n";
-  shader += "    clrS = vec3(0.0);\n";
   shader += "    float sumI = 0.0;\n";
   shader += "    float sumS = 0.0;\n";
   shader += "    float sumG = 0.0;\n";
-  shader += "    float nt = 0.0;\n";
+  shader += "    float nRidge = 0.0;\n";
   shader += "    int nsteps = int(30.0*softshadow);\n";
   shader += "    int nstepsS = int(nsteps*0.7);\n";
   shader += "    for(int i=0; i<nstepsS; i++)\n";
@@ -1858,20 +1842,18 @@ ShaderFactory::meshShadowShaderF()
   shader += "    	 sumS += step(0.0, (depth-pdepth.y)*dg0);\n";
   shader += "    	 sumG += 0.2-max(0.0, (pdepth.y-depth)*dg0);\n";
   shader += "    	 vec3 clr = texture2DRect(colorTex, pos).rgb;\n";
-  shader += "    	 clrS += clr*dg0;\n";
-  shader += "    	 nt += dg0;\n";
+  shader += "    	 nRidge += step(dtex.x, pdepth.x);\n";
   shader += "      } \n";
 
   shader += "    sumS /= float(nstepsS);\n";
   shader += "    float shadow = 1.0-clamp(sumS,0.0,1.0);\n";
-  //shader += "    shadow = pow(shadow, gamma);\n";
   shader += "    color.rgb *= shadow;\n";
 
-  shader += "    clrS /= (0.8*nt);\n";
-  shader += "    color.rgb = mix(color.rgb, clrS, 0.5);\n";
+  // mix ridge color
+  shader += "    color.rgb = mix(color.rgb, vec3(1.0), nRidge/float(nstepsS));\n";
 
   // mix edge color
-  shader += " color.rgb = mix(color.rgb, ecolor, 0.3);\n";
+  shader += "    color.rgb = mix(color.rgb, ecolor, 0.5);\n";
 
   shader += "    for(int i=nstepsS; i<nsteps; i++)\n";
   shader += "      {\n";
@@ -1905,6 +1887,20 @@ ShaderFactory::meshShadowShaderF()
 
   shader += "  }\n";
 
+  shader += "  if (roughness > 0.0)\n";
+  shader += "  {\n";
+  shader += "    float dx = 0.0;\n";
+  shader += "    float dy = 0.0;\n";
+  shader += "    for(int i=0; i<5; i++)\n";
+  shader += "      {\n";
+  shader += "        dx += texture2DRect(depthTex, spos.xy+vec2(1+i,0)).x-texture2DRect(depthTex, spos.xy-vec2(1+i,0)).x;\n";
+  shader += "        dy += texture2DRect(depthTex, spos.xy+vec2(0,1+i)).x-texture2DRect(depthTex, spos.xy-vec2(0,1+i)).x;\n";
+  shader += "      }\n";
+  shader += "    vec3 N = normalize(vec3(dx*50, dy*50, 1.0+roughness));\n";
+  shader += "    vec3 spec = shadingSpecularGGX(N, vec3(0,0,1),  vec3(0,0,1), roughness, color.rgb);\n";
+  shader += "    color.rgb += specular*spec;\n";
+  shader += "  }\n";
+  
   
   shader += " color.rgb = clamp(color.rgb, vec3(0.0), vec3(1.0));\n";
 

@@ -68,6 +68,18 @@ TrisetGrabber::mousePressEvent(QMouseEvent* const event,
   m_prevPos = event->pos();
 }
 
+float
+TrisetGrabber::projectOnBall(float x, float y)
+{
+  // If you change the size value, change angle computation in deformedBallQuaternion().
+  const qreal size       = 1.0;
+  const qreal size2      = size*size;
+  const qreal size_limit = size2*0.5;
+  
+  const qreal d = x*x + y*y;
+  return d < size_limit ? sqrt(size2 - d) : size_limit/sqrt(d);
+}
+
 void
 TrisetGrabber::mouseMoveEvent(QMouseEvent* const event,
 			       Camera* const camera)
@@ -78,8 +90,8 @@ TrisetGrabber::mouseMoveEvent(QMouseEvent* const event,
 
   QPoint delta = event->pos() - m_prevPos;
 
-  //if (event->modifiers() == Qt::NoModifier)
-  if (event->buttons() == Qt::LeftButton)
+  if (event->buttons() == Qt::LeftButton &&
+      event->modifiers() == Qt::NoModifier)
     {
       Vec trans(delta.x(), -delta.y(), 0.0f);
       
@@ -100,14 +112,37 @@ TrisetGrabber::mouseMoveEvent(QMouseEvent* const event,
       Vec pos = position() + trans;
       setPosition(pos);
     }
-  else
+  else if (event->buttons() == Qt::LeftButton &&
+	   event->modifiers() & Qt::ControlModifier)
     {
       if (moveAxis() == MoveAll)
 	{
-	  Vec axis;
-	  axis = (delta.y()*camera->rightVector() +
-		  delta.x()*camera->upVector());
-	  rotate(axis, -qMax(qAbs(delta.x()), qAbs(delta.y())));
+	  Vec trans = camera->projectedCoordinatesOf(centroid()+position());
+
+	  int x = event->x();
+	  int y = event->y();
+	  qreal px = (m_prevPos.x()  - trans.x)/ camera->screenWidth();
+	  qreal py = (trans.y - m_prevPos.y()) / camera->screenHeight();
+	  qreal dx = (x - trans.x)	       / camera->screenWidth();
+	  qreal dy = (trans.y - y)	       / camera->screenHeight();
+	  
+	  const Vec p1(px, py, projectOnBall(px, py));
+	  const Vec p2(dx, dy, projectOnBall(dx, dy));
+	  Vec axis = cross(p2,p1);
+	  qreal angle = 5.0 * asin(sqrt(axis.squaredNorm() / p1.squaredNorm() / p2.squaredNorm()));
+
+	  if (event->modifiers() &= Qt::ShiftModifier)
+	    {
+	      if (axis*camera->viewDirection() < 0.0)
+		angle = -angle;
+	      axis = camera->viewDirection();
+	    }
+
+	  axis = Matrix::rotateVec(m_localXform, axis);
+
+	  Quaternion rot = Quaternion(axis, angle);
+
+	  rotate(rot);
 	}
       else
 	{

@@ -50,6 +50,8 @@ class TrisetObject
 
   Quaternion rotation() { return m_q; }
   void rotate(Vec, float);
+  void rotate(Quaternion);
+  void setRotation(Quaternion);
   void resetRotation() { m_q = Quaternion(); }
   
   int vertexCount() { return m_vertices.count(); }

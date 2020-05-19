@@ -18,6 +18,22 @@ While translating or rotating the mesh, operation can be restricted to specific 
 Mesh can be saved in Stanford Polygon Format to a .ply file.
 
 Press DEL to delete mesh.
+
+--------------------
+Mouse
+--------------------
+Left Mouse drag to translate
+Left Mouse drag + Control Key to rotate
+Left Mouse drag + Control Key + Shift Key to rotate about viewing axis
+
+--------------------
+KeyPress
+--------------------
+Space - opens surface mesh dialog
+DEL - delete surface mesh
+S - save mesh as .ply
+x/y/z - restrict movements to x/y/z
+w - free restrictions on movements
 #end
 
 
@@ -76,6 +92,39 @@ explodeyz <rad>
 
 Move the individual meshes away from centroid of all meshes.
 #end
+
+#begin
+rotate
+rotate x y z a
+
+Rotate by "a" degrees about the axis defined by vector x,y,z. The vector x,y,z is internally normalized.
+
+Example : rotate 0.1 1.0 0.5 40
+#end
+
+#begin
+rotatex
+rotatex a
+
+Rotate by a degrees about X-axis from current rotation.
+
+Example : rotatex 30
+#end
+
+#begin
+rotatey
+rotatey a
+
+Rotate by a degrees about Y-axis from current rotation.
+#end
+
+#begin
+rotatez
+rotatez a
+
+Rotate by a degrees about Z-axis from current rotation.
+#end
+
 
 
 #begin

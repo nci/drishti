@@ -846,6 +846,38 @@ Trisets::processCommand(int idx, QString cmd)
       return;
     }
 
+  if (list[0] == "rotate" ||
+      list[0] == "rotatex" ||
+      list[0] == "rotatey" ||
+      list[0] == "rotatez")
+    {
+      Quaternion rot;
+      float x=0,y=0,z=0,a=0;
+      if (list[0] == "rotate")
+	{
+	  if (list.size() > 1) x = list[1].toFloat(&ok);
+	  if (list.size() > 2) y = list[2].toFloat(&ok);
+	  if (list.size() > 3) z = list[3].toFloat(&ok);
+	  if (list.size() > 4) a = list[4].toFloat(&ok);
+	  rot = Quaternion(Vec(x,y,z), DEG2RAD(a));
+	}
+      else
+	{
+	  float a=0;
+	  if (list.size() > 1) a = list[1].toFloat(&ok);
+	  if (list[0] == "rotatex")
+	    rot = Quaternion(Vec(1,0,0), DEG2RAD(a));
+	  else if (list[0] == "rotatey")
+	    rot = Quaternion(Vec(0,1,0), DEG2RAD(a));
+	  else if (list[0] == "rotatez")
+	    rot = Quaternion(Vec(0,0,1), DEG2RAD(a));
+	}
+      
+      m_trisets[idx]->rotate(rot);
+
+      return;
+    }
+  
   if (list[0] == "activescale")
     {
       float scl = 1.0;

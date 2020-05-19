@@ -74,6 +74,16 @@ TrisetObject::rotate(Vec axis, float angle)
   Quaternion q(axis, DEG2RAD(angle));
   m_q = q*m_q;
 }
+void
+TrisetObject::rotate(Quaternion q)
+{
+  m_q = q*m_q;
+}
+void
+TrisetObject::setRotation(Quaternion q)
+{
+  m_q = q;
+}
 
 void
 TrisetObject::enclosingBox(Vec &boxMin,

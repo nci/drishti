@@ -41,6 +41,8 @@ class TrisetGrabber : public QObject, public MouseGrabber, public TrisetObject
   int m_moveAxis;
   bool m_pressed;
   QPoint m_prevPos;
+
+  float projectOnBall(float, float);
 };
 
 #endif

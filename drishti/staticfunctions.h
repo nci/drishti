@@ -125,6 +125,12 @@ class StaticFunctions
 				QColor, QColor,
 				float, bool,
 				bool useTextPath = false);
+
+  static float projectOnBall(float, float);
+  static Quaternion deformedBallQuaternion(int, int,
+					   qreal, qreal,
+					   qreal, qreal,
+					   const Camera* const);
 };
 
 #endif

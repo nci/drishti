@@ -1595,3 +1595,42 @@ StaticFunctions::renderRotatedText(int x, int y,
 	       GL_RGBA, GL_UNSIGNED_BYTE,
 	       pimg.bits());
 }
+
+/*! Returns "pseudo-distance" from (x,y) to ball of radius size.
+\arg for a point inside the ball, it is proportional to the euclidean distance to the ball
+\arg for a point outside the ball, it is proportional to the inverse of this distance (tends to
+zero) on the ball, the function is continuous. */
+float
+StaticFunctions::projectOnBall(float x, float y)
+{
+  // If you change the size value, change angle computation in deformedBallQuaternion().
+  const qreal size       = 1.0;
+  const qreal size2      = size*size;
+  const qreal size_limit = size2*0.5;
+  
+  const qreal d = x*x + y*y;
+  return d < size_limit ? sqrt(size2 - d) : size_limit/sqrt(d);
+}
+
+/*! Returns a quaternion computed according to the mouse motion. Mouse positions are projected on a
+deformed ball, centered on (\p cx,\p cy). */
+Quaternion
+StaticFunctions::deformedBallQuaternion(int x, int y,
+					qreal cx, qreal cy,
+					qreal prevx, qreal prevy,
+					const Camera* const camera)
+{
+  // Points on the deformed ball
+  qreal px = (prevx - cx)/ camera->screenWidth();
+  qreal py = (cy - prevy)/ camera->screenHeight();
+  qreal dx = ( x - cx)/ camera->screenWidth();
+  qreal dy = (cy - y) / camera->screenHeight();
+  
+  const Vec p1(px, py, projectOnBall(px, py));
+  const Vec p2(dx, dy, projectOnBall(dx, dy));
+  // Approximation of rotation angle
+  // Should be divided by the projectOnBall size, but it is 1.0
+  const Vec axis = cross(p2,p1);
+  const qreal angle = 5.0 * asin(sqrt(axis.squaredNorm() / p1.squaredNorm() / p2.squaredNorm()));
+  return Quaternion(axis, angle);
+}

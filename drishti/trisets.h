@@ -49,10 +49,7 @@ class Trisets : public QObject
 
   void checkMouseHover(QGLViewer*);
   
-  void predraw(QGLViewer*,
-	       double*,
-	       Vec,
-	       bool, int, int);
+  void predraw(QGLViewer*, double*);
   void draw(QGLViewer*,
 	    Vec,
 	    float, float, Vec,

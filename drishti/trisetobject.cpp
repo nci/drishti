@@ -69,11 +69,42 @@ TrisetObject::TrisetObject()
 TrisetObject::~TrisetObject() { clear(); }
 
 void
+TrisetObject::rotate(Vec axis, float angle)
+{
+  Quaternion q(axis, DEG2RAD(angle));
+  m_q = q*m_q;
+}
+
+void
 TrisetObject::enclosingBox(Vec &boxMin,
 			   Vec &boxMax)
 {
-  boxMin = m_position + m_centroid + VECPRODUCT((m_enclosingBox[0]-m_centroid),m_scale);
-  boxMax = m_position + m_centroid + VECPRODUCT((m_enclosingBox[6]-m_centroid),m_scale);
+  Vec tb[8];  
+  for(int i=0; i<8; i++)    
+    tb[i] = Matrix::xformVec(m_localXform, m_enclosingBox[i]);
+
+  boxMin = boxMax = tb[0];
+  for(int i=1; i<8; i++)    
+    {
+      boxMin = Vec(qMin(boxMin.x,tb[i].x),
+		   qMin(boxMin.y,tb[i].y),
+		   qMin(boxMin.z,tb[i].z));
+		   
+      boxMax = Vec(qMax(boxMax.x,tb[i].x),
+		   qMax(boxMax.y,tb[i].y),
+		   qMax(boxMax.z,tb[i].z));
+    }
+
+//  Vec v = (m_enclosingBox[0]-m_centroid);
+//  v = m_q.rotate(v);
+//  boxMin = m_position + m_centroid + VECPRODUCT(v,m_scale);
+//
+//  v = (m_enclosingBox[6]-m_centroid);
+//  v = m_q.rotate(v);
+//  boxMax = m_position + m_centroid + VECPRODUCT(v,m_scale);
+
+  //boxMin = m_position + m_centroid + VECPRODUCT((m_enclosingBox[0]-m_centroid),m_scale);
+  //boxMax = m_position + m_centroid + VECPRODUCT((m_enclosingBox[6]-m_centroid),m_scale);
 }
 
 void
@@ -86,6 +117,7 @@ TrisetObject::clear()
   m_centroid = Vec(0,0,0);
   m_position = Vec(0,0,0);
   m_scale = Vec(1,1,1);
+  m_q = Quaternion();
   m_nX = m_nY = m_nZ = 0;
   m_color = Vec(1,1,1);
   m_cropcolor = Vec(0.0f,0.0f,0.0f);
@@ -93,22 +125,12 @@ TrisetObject::clear()
   m_specular = 1.0f;
   m_diffuse = 1.0f;
   m_ambient = 0.0f;
-  m_pointMode = true;
-  m_blendMode = false;
-  m_shadows = false;
-  m_flipNormals = false;
-  m_screenDoor = false;
-  m_pointSize = 5;
-  m_pointStep = 1;
   m_vertices.clear();
   m_vcolor.clear();
   m_uv.clear();
   m_drawcolor.clear();
   m_normals.clear();
   m_triangles.clear();
-  m_texValues.clear();
-  m_tvertices.clear();
-  m_tnormals.clear();
 
   if (m_scrV) delete [] m_scrV;
   if (m_scrD) delete [] m_scrD;
@@ -134,6 +156,9 @@ TrisetObject::clear()
   m_meshInfo.clear();
   
   m_featherSize = 1;
+
+  Matrix::identity(m_localXform);
+  Matrix::identity(m_localScale);
 }
 
 void
@@ -378,7 +403,8 @@ TrisetObject::loadVertexBufferData()
 
 void
 TrisetObject::drawTrisetBuffer(QGLViewer *viewer,
-			       float pnear, float pfar)
+			       float pnear, float pfar,
+			       bool active)
 {
   //glDisable(GL_BLEND);
   glUseProgram(ShaderFactory::meshShader());
@@ -392,17 +418,32 @@ TrisetObject::drawTrisetBuffer(QGLViewer *viewer,
   glEnableVertexAttribArray(2);
 
   // model-view-projection matrix
-  GLdouble m[16];
+  GLfloat lxfrm[16];
   GLfloat mvp[16];
-  double dmvp[16];
+  GLdouble m[16];
+
   viewer->camera()->getModelViewProjectionMatrix(m);
 
-  Matrix::matmult(m_localXform, m, dmvp);
-  for(int i=0; i<16; i++) mvp[i] = dmvp[i];
+  if (active)
+    {
+      double dmvp[16];
+      double lsx0[16];
+      Matrix::matmult(m_localScale, m_localXform, lsx0);
+      Matrix::matmult(lsx0, m, dmvp);
+      for(int i=0; i<16; i++) mvp[i] = dmvp[i];
 
-  GLfloat lxfrm[16];
-  for(int i=0; i<16; i++) lxfrm[i] = m_localXform[i];
+      for(int i=0; i<16; i++) lxfrm[i] = lsx0[i];
+    }
+  else
+    {
+      double dmvp[16];
+      Matrix::matmult(m_localXform, m, dmvp);
+      for(int i=0; i<16; i++) mvp[i] = dmvp[i];
+  
+      for(int i=0; i<16; i++) lxfrm[i] = m_localXform[i];
+    }
 
+ 
   Vec vd = viewer->camera()->viewDirection();
   
   GLint *meshShaderParm = ShaderFactory::meshShaderParm();  
@@ -506,18 +547,14 @@ TrisetObject::draw(QGLViewer *viewer,
   if (!m_show)
     return;
   
-  drawTrisetBuffer(viewer, 0, -1);
+  drawTrisetBuffer(viewer, 0, -1, active);
 }
 
 void
 TrisetObject::predraw(QGLViewer *viewer,
 		      bool active,
-		      double *Xform,
-		      Vec pn,
-		      bool shadows, int shadowWidth, int shadowHeight)
+		      double *Xform)
 {
-  m_pn = pn;
-
   double *s0 = new double[16];
   double *s1 = new double[16];
   double *s2 = new double[16];
@@ -533,22 +570,25 @@ TrisetObject::predraw(QGLViewer *viewer,
   s0[11]= m_centroid.z;
   Matrix::matmult(s1, s0, s2);
 
-  Vec scale;
-  scale = (active ? m_scale*1.2 : m_scale);
+//  Vec scale;
+//  scale = (active ? m_scale*1.2 : m_scale);
   
   Matrix::identity(s0);
-  s0[0] = scale.x;
-  s0[5] = scale.y;
-  s0[10] = scale.z;
+  s0[0] = m_scale.x;
+  s0[5] = m_scale.y;
+  s0[10]= m_scale.z;
   Matrix::matmult(s2, s0, s1);
 
+  Matrix::identity(s0);
+  Matrix::matmult(s1, (double*)m_q.matrix(), s2);
+  
   Matrix::identity(s0);
   s0[3] = -m_centroid.x;
   s0[7] = -m_centroid.y;
   s0[11]= -m_centroid.z;  
-  Matrix::matmult(s1, s0, s2);
+  Matrix::matmult(s2, s0, s1);
 
-  Matrix::matmult(Xform, s2, m_localXform);
+  Matrix::matmult(Xform, s1, m_localXform);
 
   for(int i=0; i<8; i++)    
     m_tenclosingBox[i] = Matrix::xformVec(m_localXform, m_enclosingBox[i]);
@@ -572,52 +612,52 @@ TrisetObject::predraw(QGLViewer *viewer,
 void
 TrisetObject::makeReadyForPainting(QGLViewer *viewer)
 {
-  if (m_scrV) delete [] m_scrV;
-  if (m_scrD) delete [] m_scrD;
-
-  int swd = viewer->camera()->screenWidth();
-  int sht = viewer->camera()->screenHeight();
-  m_scrV = new uint[swd*sht];
-  m_scrD = new float[swd*sht];
-
-  for(int i=0; i<swd*sht; i++)
-    m_scrD[i] = -1;
-  for(int i=0; i<swd*sht; i++)
-    m_scrV[i] = 1000000000; // a very large number - we will not have billion vertices
-
-  for(int i=0; i<m_tvertices.count(); i++)
-    {
-      Vec scr = viewer->camera()->projectedCoordinatesOf(m_tvertices[i]);
-      int tx = scr.x;
-      int ty = sht-scr.y;
-      if (tx>0 && tx<swd && ty>0 && ty<sht)
-	{
-	  if (scr.z > 0.0 && scr.z > m_scrD[tx*sht+ty])
-	    {
-	      m_scrV[tx*sht + ty] = i;
-	      m_scrD[tx*sht + ty] = scr.z;
-	    }
-	}
-    }
-
-  if (m_vcolor.count() == 0)
-    { // create per vertex color and fill with white
-      m_vcolor.resize(m_vertices.count());
-      m_vcolor.fill(Vec(1,1,1));
-    }
-
-  bool black = (m_color.x<0.1 && m_color.y<0.1 && m_color.z<0.1);
-  if (!black) // make it black so that actual vertex colors are displayed
-    m_color = Vec(0,0,0);
+//  if (m_scrV) delete [] m_scrV;
+//  if (m_scrD) delete [] m_scrD;
+//
+//  int swd = viewer->camera()->screenWidth();
+//  int sht = viewer->camera()->screenHeight();
+//  m_scrV = new uint[swd*sht];
+//  m_scrD = new float[swd*sht];
+//
+//  for(int i=0; i<swd*sht; i++)
+//    m_scrD[i] = -1;
+//  for(int i=0; i<swd*sht; i++)
+//    m_scrV[i] = 1000000000; // a very large number - we will not have billion vertices
+//
+//  for(int i=0; i<m_tvertices.count(); i++)
+//    {
+//      Vec scr = viewer->camera()->projectedCoordinatesOf(m_tvertices[i]);
+//      int tx = scr.x;
+//      int ty = sht-scr.y;
+//      if (tx>0 && tx<swd && ty>0 && ty<sht)
+//	{
+//	  if (scr.z > 0.0 && scr.z > m_scrD[tx*sht+ty])
+//	    {
+//	      m_scrV[tx*sht + ty] = i;
+//	      m_scrD[tx*sht + ty] = scr.z;
+//	    }
+//	}
+//    }
+//
+//  if (m_vcolor.count() == 0)
+//    { // create per vertex color and fill with white
+//      m_vcolor.resize(m_vertices.count());
+//      m_vcolor.fill(Vec(1,1,1));
+//    }
+//
+//  bool black = (m_color.x<0.1 && m_color.y<0.1 && m_color.z<0.1);
+//  if (!black) // make it black so that actual vertex colors are displayed
+//    m_color = Vec(0,0,0);
 }
 
 void
 TrisetObject::releaseFromPainting()
 {
-  if (m_scrV) delete [] m_scrV;
-  if (m_scrD) delete [] m_scrD;
-  m_scrV = 0;
-  m_scrD = 0;
+//  if (m_scrV) delete [] m_scrV;
+//  if (m_scrD) delete [] m_scrD;
+//  m_scrV = 0;
+//  m_scrD = 0;
 }
 
 void
@@ -626,26 +666,26 @@ TrisetObject::paint(QGLViewer *viewer,
 		    float *depthMap,
 		    Vec tcolor, float tmix)
 {
-  int swd = viewer->camera()->screenWidth();
-  int sht = viewer->camera()->screenHeight();
-
-  for(int i=0; i<m_tvertices.count(); i++)
-    {
-      Vec scr = viewer->camera()->projectedCoordinatesOf(m_tvertices[i]);
-      int tx = scr.x;
-      int ty = sht-scr.y;
-      float td = scr.z;
-      if (tx>0 && tx<swd && ty>0 && ty<sht)
-	{
-	  int idx = ty*swd + tx;
-	  if (doodleMask.testBit(idx))
-	    {
-	      float zd = depthMap[idx];
-	      if (fabs(zd-td) < 0.0002)
-		m_vcolor[i] = tmix*tcolor + (1.0-tmix)*m_vcolor[i];
-	    }
-	}
-    }
+//  int swd = viewer->camera()->screenWidth();
+//  int sht = viewer->camera()->screenHeight();
+//
+//  for(int i=0; i<m_tvertices.count(); i++)
+//    {
+//      Vec scr = viewer->camera()->projectedCoordinatesOf(m_tvertices[i]);
+//      int tx = scr.x;
+//      int ty = sht-scr.y;
+//      float td = scr.z;
+//      if (tx>0 && tx<swd && ty>0 && ty<sht)
+//	{
+//	  int idx = ty*swd + tx;
+//	  if (doodleMask.testBit(idx))
+//	    {
+//	      float zd = depthMap[idx];
+//	      if (fabs(zd-td) < 0.0002)
+//		m_vcolor[i] = tmix*tcolor + (1.0-tmix)*m_vcolor[i];
+//	    }
+//	}
+//    }
 }
 
 bool
@@ -653,6 +693,7 @@ TrisetObject::loadPLY(QString flnm)
 {
   m_position = Vec(0,0,0);
   m_scale = Vec(1,1,1);
+  m_q = Quaternion();
 
   typedef struct Vertex {
     float x,y,z;
@@ -917,12 +958,6 @@ TrisetObject::loadPLY(QString flnm)
     }
 
 
-
-  m_tvertices.resize(nverts);
-  m_tnormals.resize(nverts);
-  m_texValues.resize(nverts);
-
-
   Vec bmin = m_vertices[0];
   Vec bmax = m_vertices[0];
   for(int i=0; i<nverts; i++)
@@ -941,8 +976,6 @@ TrisetObject::loadPLY(QString flnm)
   m_enclosingBox[6] = Vec(bmax.x, bmax.y, bmax.z);
   m_enclosingBox[7] = Vec(bmin.x, bmax.y, bmax.z);
 
-
-  m_pointStep = qMax(1, nverts/50000);
 
 //  QMessageBox::information(0, "", QString("%1 %2 %3\n%4 %5").	\
 //			   arg(m_nX).arg(m_nY).arg(m_nZ).	\
@@ -1017,11 +1050,7 @@ TrisetObject::loadTriset(QString flnm)
     m_triangles[i] = tri[i];
   delete [] tri;
 
-
-  m_tvertices.resize(nvert);
-  m_tnormals.resize(nvert);
-  m_texValues.resize(nvert);
-
+  
 
   Vec bmin = m_vertices[0];
   Vec bmax = m_vertices[0];
@@ -1034,6 +1063,7 @@ TrisetObject::loadTriset(QString flnm)
 
   m_position = Vec(0,0,0);
   m_scale = Vec(1,1,1);
+  m_q = Quaternion();
 
   m_enclosingBox[0] = Vec(bmin.x, bmin.y, bmin.z);
   m_enclosingBox[1] = Vec(bmax.x, bmin.y, bmin.z);
@@ -1044,8 +1074,6 @@ TrisetObject::loadTriset(QString flnm)
   m_enclosingBox[6] = Vec(bmax.x, bmax.y, bmax.z);
   m_enclosingBox[7] = Vec(bmin.x, bmax.y, bmax.z);
 
-
-  m_pointStep = qMax(1, nvert/50000);
 
 //  QMessageBox::information(0, "", QString("%1 %2 %3\n%4 %5").	\
 //			   arg(m_nX).arg(m_nY).arg(m_nZ).\
@@ -1081,6 +1109,17 @@ TrisetObject::domElement(QDomDocument &doc)
     QDomElement de0 = doc.createElement("scale");
     QDomText tn0 = doc.createTextNode(QString("%1 %2 %3").\
 				      arg(m_scale.x).arg(m_scale.y).arg(m_scale.z));
+    de0.appendChild(tn0);
+    de.appendChild(de0);
+  }
+  
+  {
+    QDomElement de0 = doc.createElement("rotation");
+    Vec axis;
+    qreal angle;
+    m_q.getAxisAngle(axis, angle);
+    QDomText tn0 = doc.createTextNode(QString("%1 %2 %3 %4").\
+				      arg(axis.x).arg(axis.y).arg(axis.z).arg(angle));
     de0.appendChild(tn0);
     de.appendChild(de0);
   }
@@ -1125,48 +1164,6 @@ TrisetObject::domElement(QDomDocument &doc)
   {
     QDomElement de0 = doc.createElement("specular");
     QDomText tn0 = doc.createTextNode(QString("%1").arg(m_specular));
-    de0.appendChild(tn0);
-    de.appendChild(de0);
-  }
-
-  {
-    QDomElement de0 = doc.createElement("pointmode");
-    QDomText tn0 = doc.createTextNode(QString("%1").arg(m_pointMode));
-    de0.appendChild(tn0);
-    de.appendChild(de0);
-  }
-
-  {
-    QDomElement de0 = doc.createElement("pointsize");
-    QDomText tn0 = doc.createTextNode(QString("%1").arg(m_pointSize));
-    de0.appendChild(tn0);
-    de.appendChild(de0);
-  }
-  
-  {
-    QDomElement de0 = doc.createElement("pointstep");
-    QDomText tn0 = doc.createTextNode(QString("%1").arg(m_pointStep));
-    de0.appendChild(tn0);
-    de.appendChild(de0);
-  }
-  
-  {
-    QDomElement de0 = doc.createElement("blendmode");
-    QDomText tn0 = doc.createTextNode(QString("%1").arg(m_blendMode));
-    de0.appendChild(tn0);
-    de.appendChild(de0);
-  }
-
-  {
-    QDomElement de0 = doc.createElement("flipnormals");
-    QDomText tn0 = doc.createTextNode(QString("%1").arg(m_flipNormals));
-    de0.appendChild(tn0);
-    de.appendChild(de0);
-  }
-  
-  {
-    QDomElement de0 = doc.createElement("screendoor");
-    QDomText tn0 = doc.createTextNode(QString("%1").arg(m_screenDoor));
     de0.appendChild(tn0);
     de.appendChild(de0);
   }
@@ -1225,6 +1222,20 @@ TrisetObject::fromDomElement(QDomElement de)
 	  if (xyz.size() > 2) z  = xyz[2].toFloat();
 	  m_scale = Vec(x,y,z);
 	}
+      else if (dnode.tagName() == "rotation")
+	{
+	  m_q = Quaternion();
+	  QStringList xyz = str.split(" ");
+	  float x = 0;
+	  float y = 0;
+	  float z = 0;
+	  float w = 0;
+	  if (xyz.size() > 0) x = xyz[0].toFloat();
+	  if (xyz.size() > 1) y  = xyz[1].toFloat();
+	  if (xyz.size() > 2) z  = xyz[2].toFloat();
+	  if (xyz.size() > 3) z  = xyz[3].toFloat();
+	  m_q = Quaternion(Vec(x,y,z), w);
+	}
       else if (dnode.tagName() == "roughness")
 	m_roughness = str.toFloat();
       else if (dnode.tagName() == "color")
@@ -1255,30 +1266,6 @@ TrisetObject::fromDomElement(QDomElement de)
 	m_diffuse = str.toFloat();
       else if (dnode.tagName() == "specular")
 	m_specular = str.toFloat();
-      else if (dnode.tagName() == "pointmode")
-	{
-	  if (str == "yes" || str == "1") m_pointMode = true;
-	  else m_pointMode = false;
-	}
-      else if (dnode.tagName() == "pointsize")
-	m_pointSize = str.toFloat();
-      else if (dnode.tagName() == "pointstep")
-	m_pointStep = str.toFloat();
-      else if (dnode.tagName() == "blendmode")
-	{
-	  if (str == "yes" || str == "1") m_pointMode = true;
-	  else m_blendMode = false;
-	}
-      else if (dnode.tagName() == "screendoor")
-	{
-	  if (str == "yes" || str == "1") m_screenDoor = true;
-	  else m_screenDoor = false;
-	}
-      else if (dnode.tagName() == "flipnormals")
-	{
-	  if (str == "yes" || str == "1") m_flipNormals = true;
-	  else m_flipNormals = false;
-	}
       else if (dnode.tagName() == "show")
 	{
 	  if (str == "yes" || str == "1") m_show = true;
@@ -1303,19 +1290,13 @@ TrisetObject::get()
   ti.filename = m_fileName;
   ti.position = m_position;
   ti.scale = m_scale;
-  ti.pointMode = m_pointMode;
-  ti.blendMode = m_blendMode;
-  ti.shadows = m_shadows;
-  ti.pointStep = m_pointStep;
-  ti.pointSize = m_pointSize;
+  ti.q = m_q;
   ti.color = m_color;
   ti.cropcolor = m_cropcolor;
   ti.roughness = m_roughness;
   ti.ambient = m_ambient;
   ti.diffuse = m_diffuse;
   ti.specular = m_specular;
-  ti.flipNormals = m_flipNormals;
-  ti.screenDoor = m_screenDoor;
 
   return ti;
 }
@@ -1340,19 +1321,13 @@ TrisetObject::set(TrisetInformation ti)
   m_clip = ti.clip;
   m_position = ti.position;
   m_scale = ti.scale;
+  m_q = ti.q;
   m_roughness = ti.roughness;
   m_color = ti.color;
   m_cropcolor = ti.cropcolor;
   m_ambient = ti.ambient;
   m_diffuse = ti.diffuse;
   m_specular = ti.specular;
-  m_pointMode = ti.pointMode;
-  m_pointSize = ti.pointSize;
-  m_pointStep = ti.pointStep;
-  m_blendMode = ti.blendMode;
-  m_shadows = ti.shadows;
-  m_flipNormals = ti.flipNormals;
-  m_screenDoor = ti.screenDoor;
 
 
   if (reloadColor)
@@ -1443,14 +1418,16 @@ TrisetObject::save()
   for(int i=0; i<m_vertices.count(); i++)
     {
       myVertex vertex;
-      vertex.x = m_vertices[i].x*m_scale.x;
-      vertex.y = m_vertices[i].y*m_scale.y;
-      vertex.z = m_vertices[i].z*m_scale.z;
+      Vec v = Matrix::xformVec(m_localXform,m_vertices[i]);
+      vertex.x = v.x;
+      vertex.y = v.y;
+      vertex.z = v.z;
       if (has_normals)
 	{
-	  vertex.nx = m_normals[i].x;
-	  vertex.ny = m_normals[i].y;
-	  vertex.nz = m_normals[i].z;
+	  Vec vn = Matrix::rotateVec(m_localXform,m_normals[i]);
+	  vertex.nx = vn.x;
+	  vertex.ny = vn.y;
+	  vertex.nz = vn.z;
 	}
       if (per_vertex_color)
 	{
@@ -1731,6 +1708,36 @@ TrisetObject::loadAssimpModel(QString flnm)
   m_scale = Vec(1,1,1);
 
   m_fileName = flnm;
+
+
+  double *s0 = new double[16];
+  double *s1 = new double[16];
+  double *s2 = new double[16];
+
+  Matrix::identity(s0);
+  s0[3] = m_centroid.x;
+  s0[7] = m_centroid.y;
+  s0[11]= m_centroid.z;
+  Matrix::identity(s1);
+  s1[0] = 1.2;
+  s1[5] = 1.2;
+  s1[10]= 1.2;
+  Matrix::matmult(s0, s1, s2);
+  Matrix::identity(s0);
+  s0[3] = -m_centroid.x;
+  s0[7] = -m_centroid.y;
+  s0[11]= -m_centroid.z;  
+  Matrix::matmult(s2, s0, s1);
+
+  for(int i=0; i<4; i++)
+    for(int j=0; j<4; j++)
+      {
+	m_localScale[4*i+j] = s1[j*4+i];
+      }
+
+  delete [] s0;
+  delete [] s1;
+  delete [] s2;
 
   return true;
 }

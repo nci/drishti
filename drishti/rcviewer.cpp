@@ -1113,9 +1113,7 @@ RcViewer::drawGeometry()
   double xform[16];
   for(int i=0; i<16; i++) xform[i] = bdata[i];
 
-  GeometryObjects::trisets()->predraw(m_viewer,
-				      xform,
-				      Vec(1,1,1), false, 0,0); // dummy
+  GeometryObjects::trisets()->predraw(m_viewer, xform);
 
   GeometryObjects::trisets()->draw(m_viewer,
 				   eyepos,

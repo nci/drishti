@@ -1500,7 +1500,6 @@ Viewer::drawInfoString(int imagequality,
   maxY = dataMax.y;
   maxZ = dataMax.z;
 
-
   int gimgq = Global::imageQuality();
   int dragvolume = (Global::loadDragOnly() ||
 		    Global::useDragVolume() ||
@@ -1835,6 +1834,7 @@ Viewer::drawInHires(int imagequality)
 void
 Viewer::renderVolume(int imagequality)
 {
+
   bool fboBound = bindFBOs(imagequality);
 
   if ((m_mouseDrag || mouseGrabber()) &&

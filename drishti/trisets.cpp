@@ -251,92 +251,85 @@ Trisets::checkMouseHover(QGLViewer *viewer)
   if (m_trisets.count() == 0)
     return;
   
+  QPoint scr = viewer->mapFromGlobal(QCursor::pos());
+  int x = scr.x();
+  int y = scr.y();
+  int gt = -1;
+  float dmin = 10000;
+  for(int i=0; i<m_trisets.count(); i++)
     {
-      QPoint scr = viewer->mapFromGlobal(QCursor::pos());
-      int x = scr.x();
-      int y = scr.y();
-      int gt = -1;
-      float dmin = 10000;
+      if (m_trisets[i]->grabsMouse())
+	{
+	  if (!m_trisets[i]->mousePressed())
+	    {
+	      dmin = m_trisets[i]->checkForMouseHover(x,y, viewer->camera());
+	      if (dmin > 0)
+		{
+		  gt = i;
+		  break;
+		}
+	    }
+	  else
+	    {
+	      return;
+	    }
+	}
+    }
+  if (gt == -1)
+    {
       for(int i=0; i<m_trisets.count(); i++)
 	{
-	  if (m_trisets[i]->grabsMouse())
+	  if (m_trisets[i]->isInMouseGrabberPool())
 	    {
-	      if (!m_trisets[i]->mousePressed())
+	      float d = m_trisets[i]->checkForMouseHover(x,y, viewer->camera());
+	      if (d > 0)
 		{
-		  dmin = m_trisets[i]->checkForMouseHover(x,y, viewer->camera());
-		  if (dmin > 0)
-		    {
-		      gt = i;
-		      break;
-		    }
-		}
-	      else
-		{
-		  return;
+		  dmin = d;
+		  gt = i;
+		  break;
 		}
 	    }
 	}
-      if (gt == -1)
+    }
+  
+  for(int i=0; i<m_trisets.count();i++)
+    m_trisets[i]->setMouseGrab(false);
+  
+  if (gt > -1)
+    {
+      int pgt = gt;
+      
+      for(int i=0; i<m_trisets.count();i++)
 	{
-	  for(int i=0; i<m_trisets.count(); i++)
+	  if (m_trisets[i]->isInMouseGrabberPool())
 	    {
-	      if (m_trisets[i]->isInMouseGrabberPool())
+	      float d = m_trisets[i]->checkForMouseHover(x,y, viewer->camera());
+	      if (d > 0 && d < dmin)
 		{
-		  float d = m_trisets[i]->checkForMouseHover(x,y, viewer->camera());
-		  if (d > 0)
-		    {
-		      dmin = d;
-		      gt = i;
-		      break;
-		    }
+		  dmin = d;
+		  gt = i;
 		}
 	    }
 	}
       
-      for(int i=0; i<m_trisets.count();i++)
-	m_trisets[i]->setMouseGrab(false);
-
-      if (gt > -1)
-	{
-	  int pgt = gt;
-		
-	  for(int i=0; i<m_trisets.count();i++)
-	    {
-	      if (m_trisets[i]->isInMouseGrabberPool())
-		{
-		  float d = m_trisets[i]->checkForMouseHover(x,y, viewer->camera());
-		  if (d > 0 && d < dmin)
-		    {
-		      dmin = d;
-		      gt = i;
-		    }
-		}
-	    }
-
-	  m_trisets[gt]->setMouseGrab(true);
-	}
+      m_trisets[gt]->setMouseGrab(true);
     }
 }
 
 void
-Trisets::predraw(QGLViewer *viewer,
-		 double *Xform,
-		 Vec pn,
-		 bool shadows, int shadowWidth, int shadowHeight)
+Trisets::predraw(QGLViewer *viewer, double *Xform)
 {
   if (m_trisets.count() == 0)
     return;
   
-  Vec smin, smax;
-  allEnclosingBox(smin, smax);
-  viewer->setSceneBoundingBox(smin, smax);
+//  Vec smin, smax;
+//  allEnclosingBox(smin, smax);
+//  viewer->setSceneBoundingBox(smin, smax);
 
   for(int i=0; i<m_trisets.count();i++)
     m_trisets[i]->predraw(viewer,
 			  m_trisets[i]->grabsMouse(),
-			  Xform,
-			  pn,
-			  shadows, shadowWidth, shadowHeight);
+			  Xform);
 }
 
 void
@@ -578,6 +571,7 @@ Trisets::keyPressEvent(QKeyEvent *event)
 	      event->key() == Qt::Key_Backspace ||
 	      event->key() == Qt::Key_Backtab)
 	    {
+	      m_trisets[i]->setMouseGrab(false);
 	      m_trisets[i]->removeFromMouseGrabberPool();
 	      m_trisets.removeAt(i);
 	      return true;
@@ -657,34 +651,6 @@ Trisets::keyPressEvent(QKeyEvent *event)
 	      plist["color"] = vlist;
 
 
-//	      vlist.clear();
-//	      vlist << QVariant("checkbox");
-//	      vlist << QVariant(m_trisets[i]->pointMode());
-//	      plist["pointmode"] = vlist;
-//
-//	      vlist.clear();
-//	      vlist << QVariant("int");
-//	      vlist << QVariant(m_trisets[i]->pointsize());
-//	      vlist << QVariant(1);
-//	      vlist << QVariant(50);
-//	      plist["pointsize"] = vlist;
-//
-//	      vlist.clear();
-//	      vlist << QVariant("int");
-//	      vlist << QVariant(m_trisets[i]->pointstep());
-//	      vlist << QVariant(1);
-//	      vlist << QVariant(100);
-//	      plist["pointstep"] = vlist;
-//
-//	      vlist.clear();
-//	      vlist << QVariant("checkbox");
-//	      vlist << QVariant(m_trisets[i]->shadows());
-//	      plist["shadows"] = vlist;
-//
-//	      vlist.clear();
-//	      vlist << QVariant("checkbox");
-//	      vlist << QVariant(m_trisets[i]->blendMode());
-//	      plist["blend with volume"] = vlist;
 //
 //	      vlist.clear();
 //	      vlist << QVariant("color");
@@ -733,29 +699,46 @@ Trisets::keyPressEvent(QKeyEvent *event)
 	      plist["message"] = vlist;
 
 
+	      
+	      vlist.clear();
+	      QFile helpFile(":/trisets.help");
+	      if (helpFile.open(QFile::ReadOnly))
+		{
+		  QTextStream in(&helpFile);
+		  QString line = in.readLine();
+		  while (!line.isNull())
+		    {
+		      if (line == "#begin")
+			{
+			  QString keyword = in.readLine();
+			  QString helptext;
+			  line = in.readLine();
+			  while (!line.isNull())
+			    {
+			      helptext += line;
+			      helptext += "\n";
+			      line = in.readLine();
+			      if (line == "#end") break;
+			    }
+			  vlist << keyword << helptext;
+			}
+		      line = in.readLine();
+		    }
+		}
+	      
+	      plist["commandhelp"] = vlist;
+
+
+  
 	      QStringList keys;
 	      keys << "position";
 	      keys << "scale";
 	      //keys << "gap";
-	      //keys << "flip normals";
-	      //keys << "screendoor transparency";
-	      //keys << "gap";
 	      keys << "color";
 	      //keys << "opacity";
 	      //keys << "gap";
-	      //keys << "ambient";
-	      //keys << "diffuse";
-	      //keys << "specular";
-	      //keys << "gap";
-	      //keys << "pointmode";
-	      //keys << "pointstep";
-	      //keys << "pointsize";
-	      //keys << "gap";
-	      //keys << "shadows";
-	      //keys << "blend with volume";
-	      //keys << "gap";
 	      //keys << "crop border color";
-	      //keys << "commandhelp";
+	      keys << "commandhelp";
 	      keys << "command";
 	      keys << "message";
 	      
@@ -814,20 +797,6 @@ Trisets::keyPressEvent(QKeyEvent *event)
 			  Vec pcolor = Vec(r,g,b);
 			  m_trisets[i]->setCropBorderColor(pcolor);
 			}
-		      else if (keys[ik] == "flip normals")
-			m_trisets[i]->setFlipNormals(pair.first.toBool());
-		      else if (keys[ik] == "screendoor transparency")
-			m_trisets[i]->setScreenDoor(pair.first.toBool());
-		      else if (keys[ik] == "pointmode")
-			m_trisets[i]->setPointMode(pair.first.toBool());
-		      else if (keys[ik] == "pointsize")
-			m_trisets[i]->setPointSize(pair.first.toInt());
-		      else if (keys[ik] == "pointstep")
-			m_trisets[i]->setPointStep(pair.first.toInt());
-		      else if (keys[ik] == "shadows")
-			m_trisets[i]->setShadows(pair.first.toBool());
-		      else if (keys[ik] == "blend with volume")
-			m_trisets[i]->setBlendMode(pair.first.toBool());
 		    }
 		}
 	      
@@ -850,7 +819,25 @@ Trisets::processCommand(int idx, QString cmd)
   cmd = cmd.toLower();
   QStringList list = cmd.split(" ", QString::SkipEmptyParts);
 
+  if (list[0] == "save")
+    {
+      m_trisets[idx]->save();
+      return;
+    }
+
   if (list[0] == "resetposition")
+    {
+      m_trisets[idx]->setPosition(Vec(0,0,0));
+      return;
+    }
+  
+  if (list[0] == "resetrotation")
+    {
+      m_trisets[idx]->resetRotation();
+      return;
+    }
+
+  if (list[0] == "resetpositions")
     {
       for (int i=0; i<m_trisets.count(); i++)
 	{
@@ -908,22 +895,22 @@ Trisets::processCommand(int idx, QString cmd)
       return;
     }
 
-  if (list[0] == "setcolor" || list[0] == "color")
-    {
-      Vec pcolor = m_trisets[idx]->color();
-      QColor dcolor = QColor::fromRgbF(pcolor.x,
-				       pcolor.y,
-				       pcolor.z);
-      QColor color = DColorDialog::getColor(dcolor);
-      if (color.isValid())
-	{
-	  float r = color.redF();
-	  float g = color.greenF();
-	  float b = color.blueF();
-	  pcolor = Vec(r,g,b);
-	  m_trisets[idx]->setColor(pcolor);
-	}
-    }
+//  if (list[0] == "setcolor" || list[0] == "color")
+//    {
+//      Vec pcolor = m_trisets[idx]->color();
+//      QColor dcolor = QColor::fromRgbF(pcolor.x,
+//				       pcolor.y,
+//				       pcolor.z);
+//      QColor color = DColorDialog::getColor(dcolor);
+//      if (color.isValid())
+//	{
+//	  float r = color.redF();
+//	  float g = color.greenF();
+//	  float b = color.blueF();
+//	  pcolor = Vec(r,g,b);
+//	  m_trisets[idx]->setColor(pcolor);
+//	}
+//    }
 }
 
 void

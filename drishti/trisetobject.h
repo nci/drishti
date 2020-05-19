@@ -26,27 +26,6 @@ class TrisetObject
 
   QString filename() { return m_fileName; }
 
-  bool screenDoor() { return m_screenDoor; }
-  void setScreenDoor(bool sd) {m_screenDoor = sd; }
-
-  bool flipNormals() { return m_flipNormals; }
-  void setFlipNormals(bool fn) { m_flipNormals = fn; }
-
-  bool pointMode() { return m_pointMode; }
-  void setPointMode(bool pm) {m_pointMode = pm; }
-
-  bool blendMode() { return m_blendMode; }
-  void setBlendMode(bool pm) {m_blendMode = pm; }
-
-  bool shadows() { return m_shadows; }
-  void setShadows(bool cs) {m_shadows = cs; }
-
-  int pointsize() { return m_pointSize; }
-  void setPointSize(int ps) { m_pointSize = qMax(1, ps); }
-
-  int pointstep() { return m_pointStep; }
-  void setPointStep(int ps) { m_pointStep = qMax(1, ps); }
-
   void setLighting(QVector4D);
   float roughness() { return m_roughness; }
   float specular() { return m_specular; }
@@ -66,6 +45,10 @@ class TrisetObject
   Vec scale() { return m_scale; }
   void setScale(Vec scl) { m_scale = scl; }
 
+  Quaternion rotation() { return m_q; }
+  void rotate(Vec, float);
+  void resetRotation() { m_q = Quaternion(); }
+  
   int vertexCount() { return m_vertices.count(); }
   int triangleCount() { return m_triangles.count()/3; }
 
@@ -80,11 +63,7 @@ class TrisetObject
 
   void clear();
 
-  void predraw(QGLViewer*,
-	       bool,
-	       double*,
-	       Vec,
-	       bool, int, int);
+  void predraw(QGLViewer*, bool, double*);
   void draw(QGLViewer*,
 	    bool,
 	    Vec,
@@ -96,7 +75,10 @@ class TrisetObject
   void releaseFromPainting();
   void paint(QGLViewer*, QBitArray, float*, Vec, float);
 
- private :
+  double m_localXform[16];
+  double m_localScale[16];
+
+private :
   bool m_show, m_clip;
 
   QString m_fileName;
@@ -105,21 +87,15 @@ class TrisetObject
   int m_nX, m_nY, m_nZ;
   Vec m_centroid;
   Vec m_enclosingBox[8];
-  bool m_shadows;
-  bool m_pointMode;
-  bool m_blendMode;
-  bool m_screenDoor;
-  bool m_flipNormals;
-  int m_pointStep;
   Vec m_color;
   Vec m_cropcolor;
   Vec m_position;
   Vec m_scale;
+  Quaternion m_q;
   float m_roughness;
   float m_specular;
   float m_diffuse;
   float m_ambient;
-  int m_pointSize;
   QVector<Vec> m_vertices;
   QVector<Vec> m_normals;
   QVector<uint> m_triangles;
@@ -130,9 +106,6 @@ class TrisetObject
 
   Vec m_tcentroid;
   Vec m_tenclosingBox[8];
-  QVector<Vec> m_tvertices;
-  QVector<Vec> m_tnormals;
-  QVector<Vec> m_texValues;
   QList<QPolygon> m_meshInfo;
   QList<QString> m_material;
   GLuint m_diffuseTex[100];
@@ -142,17 +115,14 @@ class TrisetObject
   uint *m_scrV;
   float *m_scrD;
 
-  Vec m_pn;
   GLuint m_glVertBuffer;
   GLuint m_glIndexBuffer;
   GLuint m_glVertArray;
   
   float m_featherSize;
-
-  double m_localXform[16];
   
   void loadVertexBufferData();
-  void drawTrisetBuffer(QGLViewer*, float, float);
+  void drawTrisetBuffer(QGLViewer*, float, float, bool);
 
   bool loadTriset(QString);
   bool loadPLY(QString);

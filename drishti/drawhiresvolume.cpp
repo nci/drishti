@@ -2476,11 +2476,7 @@ DrawHiresVolume::drawGeometryOnly()
   GeometryObjects::trisets()->setShapeEnhancements(m_lightInfo.shadowBlur,
 						   m_lightInfo.shadowIntensity); 
   GeometryObjects::trisets()->predraw(m_Viewer,
-				      m_bricks->getMatrix(0),
-				      pn,
-				      false,
-				      m_shadowWidth,
-				      m_shadowHeight);
+				      m_bricks->getMatrix(0));
 
   drawGeometry(pn, 1, -1, 10000*pn,
 	       false, false, eyepos);
@@ -2678,11 +2674,7 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
     poStart = maxvert+layers*step;
 
   GeometryObjects::trisets()->predraw(m_Viewer,
-				      m_bricks->getMatrix(0),
-				      pn,
-				      false,
-				      m_shadowWidth,
-				      m_shadowHeight);
+				      m_bricks->getMatrix(0));
 
   //----------------------------------------------------------------
   QList<Vec> clipGeoPos;

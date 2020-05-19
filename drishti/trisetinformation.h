@@ -33,19 +33,13 @@ class TrisetInformation
   QString filename;
   Vec position;
   Vec scale;
+  Quaternion q;
   Vec color;
   Vec cropcolor;
   float roughness;
   float ambient;
   float diffuse;
   float specular;
-  bool pointMode;
-  int pointStep;
-  int pointSize;
-  bool blendMode;
-  bool shadows;
-  bool screenDoor;
-  bool flipNormals;
 };
 
 #endif

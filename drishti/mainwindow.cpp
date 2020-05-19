@@ -5244,7 +5244,7 @@ MainWindow::on_actionVisibility_triggered()
   for(int i=0; i<GeometryObjects::trisets()->count(); i++)
     {
       bool flag = GeometryObjects::trisets()->show(i);
-      QString name = QString("triset %1").arg(i);
+      QString name = QString("mesh %1").arg(i);
       name += QString(" (%1)").arg(QFileInfo(GeometryObjects::trisets()->filename(i)).fileName());
       vlist.clear();
       vlist << QVariant("checkbox");
@@ -5332,7 +5332,7 @@ MainWindow::on_actionVisibility_triggered()
 	{	  
 	  if (name == "light")
 	    LightHandler::giLights()->setShow(idx, pair.first.toBool());
-	  else if (name == "triset")
+	  else if (name == "mesh")
 	    GeometryObjects::trisets()->setShow(idx, pair.first.toBool());
 	  else if (name == "network")
 	    GeometryObjects::networks()->setShow(idx, pair.first.toBool());
@@ -5361,7 +5361,7 @@ MainWindow::on_actionClipping_triggered()
   for(int i=0; i<GeometryObjects::trisets()->count(); i++)
     {
       bool flag = GeometryObjects::trisets()->clip(i);
-      QString name = QString("triset %1").arg(i);
+      QString name = QString("mesh %1").arg(i);
       name += QString(" (%1)").arg(QFileInfo(GeometryObjects::trisets()->filename(i)).fileName());
       vlist.clear();
       vlist << QVariant("checkbox");
@@ -5395,7 +5395,7 @@ MainWindow::on_actionClipping_triggered()
       int idx = slist[1].toInt();
       if (pair.second)
 	{	  
-	  if (name == "triset")
+	  if (name == "mesh")
 	    GeometryObjects::trisets()->setClip(idx, pair.first.toBool());
 	}
     }
@@ -5428,7 +5428,7 @@ MainWindow::on_actionMouse_Grab_triggered()
   for(int i=0; i<GeometryObjects::trisets()->count(); i++)
     {
       bool flag = GeometryObjects::trisets()->isInMouseGrabberPool(i);
-      QString name = QString("triset %1").arg(i);
+      QString name = QString("mesh %1").arg(i);
       name += QString(" (%1)").arg(QFileInfo(GeometryObjects::trisets()->filename(i)).fileName());
       vlist.clear();
       vlist << QVariant("checkbox");
@@ -5569,7 +5569,7 @@ MainWindow::on_actionMouse_Grab_triggered()
 	      else
 		LightHandler::giLights()->removeFromMouseGrabberPool(idx);
 	    }
-	  else if (name == "triset")
+	  else if (name == "mesh")
 	    {
 	      if (pair.first.toBool())
 		GeometryObjects::trisets()->addInMouseGrabberPool(idx);

@@ -112,7 +112,8 @@ TrisetObject::clear()
 {
   m_show = true;
   m_clip = true;
-
+  m_activeScale = 1.2;
+  
   m_fileName.clear();
   m_centroid = Vec(0,0,0);
   m_position = Vec(0,0,0);
@@ -158,7 +159,6 @@ TrisetObject::clear()
   m_featherSize = 1;
 
   Matrix::identity(m_localXform);
-  Matrix::identity(m_localScale);
 }
 
 void
@@ -424,24 +424,11 @@ TrisetObject::drawTrisetBuffer(QGLViewer *viewer,
 
   viewer->camera()->getModelViewProjectionMatrix(m);
 
-  if (active)
-    {
-      double dmvp[16];
-      double lsx0[16];
-      Matrix::matmult(m_localScale, m_localXform, lsx0);
-      Matrix::matmult(lsx0, m, dmvp);
-      for(int i=0; i<16; i++) mvp[i] = dmvp[i];
-
-      for(int i=0; i<16; i++) lxfrm[i] = lsx0[i];
-    }
-  else
-    {
-      double dmvp[16];
-      Matrix::matmult(m_localXform, m, dmvp);
-      for(int i=0; i<16; i++) mvp[i] = dmvp[i];
+  double dmvp[16];
+  Matrix::matmult(m_localXform, m, dmvp);
+  for(int i=0; i<16; i++) mvp[i] = dmvp[i];
   
-      for(int i=0; i<16; i++) lxfrm[i] = m_localXform[i];
-    }
+  for(int i=0; i<16; i++) lxfrm[i] = m_localXform[i];
 
  
   Vec vd = viewer->camera()->viewDirection();
@@ -511,7 +498,17 @@ TrisetObject::postdraw(QGLViewer *viewer,
     Vec lineColor = Vec(1, 0.5, 0.3);
     glUseProgram(0);
     StaticFunctions::drawEnclosingCube(m_tenclosingBox, lineColor);
-  } 
+
+
+    Vec axisX =  m_tenclosingBox[1] - m_tenclosingBox[0];
+    Vec axisY =  m_tenclosingBox[3] - m_tenclosingBox[0];
+    Vec axisZ =  m_tenclosingBox[4] - m_tenclosingBox[0];    
+    axisX *= 0.75;
+    axisY *= 0.75;
+    axisZ *= 0.75;
+    StaticFunctions::drawAxis(m_tenclosingBox[0],
+			      axisX, axisY, axisZ);
+  }
 
   glDisable(GL_DEPTH_TEST);
 
@@ -520,7 +517,7 @@ TrisetObject::postdraw(QGLViewer *viewer,
 
   viewer->startScreenCoordinatesSystem();
 
-  QString str = QString("triset %1").arg(idx);
+  QString str = QString("mesh %1").arg(idx);
   str += QString(" (%1)").arg(QFileInfo(m_fileName).fileName());
   QFont font = QFont();
   QFontMetrics metric(font);
@@ -570,13 +567,13 @@ TrisetObject::predraw(QGLViewer *viewer,
   s0[11]= m_centroid.z;
   Matrix::matmult(s1, s0, s2);
 
-//  Vec scale;
-//  scale = (active ? m_scale*1.2 : m_scale);
+  Vec scale;
+  scale = (active ? m_scale*m_activeScale : m_scale);
   
   Matrix::identity(s0);
-  s0[0] = m_scale.x;
-  s0[5] = m_scale.y;
-  s0[10]= m_scale.z;
+  s0[0] = scale.x;
+  s0[5] = scale.y;
+  s0[10]= scale.z;
   Matrix::matmult(s2, s0, s1);
 
   Matrix::identity(s0);
@@ -1708,36 +1705,6 @@ TrisetObject::loadAssimpModel(QString flnm)
   m_scale = Vec(1,1,1);
 
   m_fileName = flnm;
-
-
-  double *s0 = new double[16];
-  double *s1 = new double[16];
-  double *s2 = new double[16];
-
-  Matrix::identity(s0);
-  s0[3] = m_centroid.x;
-  s0[7] = m_centroid.y;
-  s0[11]= m_centroid.z;
-  Matrix::identity(s1);
-  s1[0] = 1.2;
-  s1[5] = 1.2;
-  s1[10]= 1.2;
-  Matrix::matmult(s0, s1, s2);
-  Matrix::identity(s0);
-  s0[3] = -m_centroid.x;
-  s0[7] = -m_centroid.y;
-  s0[11]= -m_centroid.z;  
-  Matrix::matmult(s2, s0, s1);
-
-  for(int i=0; i<4; i++)
-    for(int j=0; j<4; j++)
-      {
-	m_localScale[4*i+j] = s1[j*4+i];
-      }
-
-  delete [] s0;
-  delete [] s1;
-  delete [] s2;
 
   return true;
 }

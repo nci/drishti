@@ -58,6 +58,13 @@ Scale the mesh by factor of <scale> if only one parameter specified, or using 3 
 #end
 
 #begin
+activescale
+activescale <scale>
+
+Scale mesh by factor of <scale> during mouse hover event .  Useful for visual detection of selected mesh.
+#end
+
+#begin
 explode
 explode <rad>
 explodex <rad>

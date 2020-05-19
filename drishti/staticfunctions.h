@@ -36,7 +36,7 @@ class StaticFunctions
   static void initQColorDialog();
 
   static void drawEnclosingCube(Vec*, Vec);
-  static void drawEnclosingCube(Vec, Vec);
+  static void drawEnclosingCube(Vec, Vec, bool allFaces = false);
   static void drawEnclosingCubeWithTransformation(Vec, Vec,
 						  double*,
 						  Vec);

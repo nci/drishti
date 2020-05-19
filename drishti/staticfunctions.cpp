@@ -234,7 +234,7 @@ StaticFunctions::initQColorDialog()
 
 void
 StaticFunctions::drawEnclosingCube(Vec subvolmin,
-				   Vec subvolmax)
+				   Vec subvolmax, bool allFaces)
 {
 //  glEnable(GL_LINE_SMOOTH);  // antialias lines	
 //  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
@@ -269,6 +269,23 @@ StaticFunctions::drawEnclosingCube(Vec subvolmin,
   glVertex3f(subvolmax.x, subvolmin.y, subvolmax.z);
   glVertex3f(subvolmin.x, subvolmin.y, subvolmax.z);  
   glEnd();  
+
+  if (allFaces)
+    {
+      glBegin(GL_QUADS);  
+      glVertex3f(subvolmin.x, subvolmin.y, subvolmin.z);
+      glVertex3f(subvolmin.x, subvolmin.y, subvolmax.z);
+      glVertex3f(subvolmin.x, subvolmax.y, subvolmax.z);
+      glVertex3f(subvolmin.x, subvolmax.y, subvolmin.z);
+      glEnd();
+  
+      glBegin(GL_QUADS);  
+      glVertex3f(subvolmax.x, subvolmin.y, subvolmin.z);
+      glVertex3f(subvolmax.x, subvolmin.y, subvolmax.z);
+      glVertex3f(subvolmax.x, subvolmax.y, subvolmax.z);
+      glVertex3f(subvolmax.x, subvolmax.y, subvolmin.z);
+      glEnd();
+    }
 }
 
 void

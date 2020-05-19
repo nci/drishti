@@ -45,6 +45,9 @@ class TrisetObject
   Vec scale() { return m_scale; }
   void setScale(Vec scl) { m_scale = scl; }
 
+  float activeScale() { return m_activeScale; }
+  void setActiveScale(float s) { m_activeScale = s; }
+
   Quaternion rotation() { return m_q; }
   void rotate(Vec, float);
   void resetRotation() { m_q = Quaternion(); }
@@ -75,8 +78,8 @@ class TrisetObject
   void releaseFromPainting();
   void paint(QGLViewer*, QBitArray, float*, Vec, float);
 
+  float m_activeScale;
   double m_localXform[16];
-  double m_localScale[16];
 
 private :
   bool m_show, m_clip;

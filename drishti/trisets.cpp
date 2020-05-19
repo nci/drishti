@@ -845,6 +845,19 @@ Trisets::processCommand(int idx, QString cmd)
 	}
       return;
     }
+
+  if (list[0] == "activescale")
+    {
+      float scl = 1.0;
+      if (list.count() > 1)
+	scl = list[1].toFloat(&ok);
+      
+      for (int i=0; i<m_trisets.count(); i++)
+	{
+	  m_trisets[i]->setActiveScale(scl);
+	}
+      return;
+    }
   
   if (list[0] == "scale")
     {

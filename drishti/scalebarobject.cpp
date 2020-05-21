@@ -179,10 +179,10 @@ ScaleBarObject::draw(float pixelGLRatio,
 		   pvlInfo.voxelSize[2])/3.0f;
       
       str = QString("%1 %2").			     \
-	arg(slen, 0, 'f', Global::floatPrecision()).	\
+	arg(slen*avg, 0, 'f', Global::floatPrecision()).	\
 	arg(pvlInfo.voxelUnitStringShort());     
-      
-      slen /= avg;
+
+      //slen /= avg;
     }
   else
     str = QString("%1 voxels").arg(slen);

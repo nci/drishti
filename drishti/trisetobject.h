@@ -69,10 +69,7 @@ class TrisetObject
   void clear();
 
   void predraw(QGLViewer*, bool, double*);
-  void draw(QGLViewer*,
-	    bool,
-	    Vec,
-	    float, float, Vec);
+  void draw(Camera*, bool);
   void postdraw(QGLViewer*,
 		int, int, bool, int);
 
@@ -127,7 +124,7 @@ private :
   float m_featherSize;
   
   void loadVertexBufferData();
-  void drawTrisetBuffer(QGLViewer*, float, float, bool);
+  void drawTrisetBuffer(Camera*, float, float, bool);
 
   bool loadTriset(QString);
   bool loadPLY(QString);

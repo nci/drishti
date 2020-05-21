@@ -1409,140 +1409,6 @@ GLuint ShaderFactory::meshShader()
 
   return m_meshShader;
 }
-
-QString
-ShaderFactory::noise2d()
-{
-  QString shader;
-
-  shader += "float random (in vec2 st) {\n";
-  shader += "    return fract(sin(dot(st.xy,\n";
-  shader += "                         vec2(12.9898,78.233)))*\n";
-  shader += "        43758.5453123);\n";
-  shader += "}\n";
-  shader += "\n";
-  shader += "// Based on Morgan McGuire @morgan3d\n";
-  shader += "// https://www.shadertoy.com/view/4dS3Wd\n";
-  shader += "float noise (in vec2 st) {\n";
-  shader += "    vec2 i = floor(st);\n";
-  shader += "    vec2 f = fract(st);\n";
-  shader += "\n";
-  shader += "    // Four corners in 2D of a tile\n";
-  shader += "    float a = random(i);\n";
-  shader += "    float b = random(i + vec2(1.0, 0.0));\n";
-  shader += "    float c = random(i + vec2(0.0, 1.0));\n";
-  shader += "    float d = random(i + vec2(1.0, 1.0));\n";
-  shader += "\n";
-  shader += "    vec2 u = f * f * (3.0 - 2.0 * f);\n";
-  shader += "\n";
-  shader += "    return mix(a, b, u.x) +\n";
-  shader += "            (c - a)* u.y * (1.0 - u.x) +\n";
-  shader += "            (d - b) * u.x * u.y;\n";
-  shader += "}\n";
-  shader += "\n";
-  shader += "#define OCTAVES 6\n";
-  shader += "float fbm (in vec2 st) {\n";
-  shader += "    // Initial values\n";
-  shader += "    float value = 0.0;\n";
-  shader += "    float amplitude = .5;\n";
-  shader += "    float frequency = 0.;\n";
-  shader += "    //\n";
-  shader += "    // Loop of octaves\n";
-  shader += "    for (int i = 0; i < OCTAVES; i++) {\n";
-  shader += "        value += amplitude * noise(st);\n";
-  shader += "        st *= 2.;\n";
-  shader += "        amplitude *= .5;\n";
-  shader += "    }\n";
-  shader += "    return value;\n";
-  shader += "}\n";
-
-  return shader;
-}
-
-QString
-ShaderFactory::noise3d()
-{
-  QString shader;
-
-  shader += "/* discontinuous pseudorandom uniformly distributed in [-0.5, +0.5]^3 */\n";
-  shader += "vec3 random3(vec3 c) {\n";
-  shader += "	float j = 4096.0*sin(dot(c,vec3(17.0, 59.4, 15.0)));\n";
-  shader += "	vec3 r;\n";
-  shader += "	r.z = fract(512.0*j);\n";
-  shader += "	j *= .125;\n";
-  shader += "	r.x = fract(512.0*j);\n";
-  shader += "	j *= .125;\n";
-  shader += "	r.y = fract(512.0*j);\n";
-  shader += "	return r-0.5;\n";
-  shader += "}\n";
-  shader += "\n";
-  shader += "/* skew constants for 3d simplex functions */\n";
-  shader += "const float F3 =  0.3333333;\n";
-  shader += "const float G3 =  0.1666667;\n";
-  shader += "\n";
-  shader += "/* 3d simplex noise */\n";
-  shader += "float simplex3d(vec3 p) {\n";
-  shader += "	 /* 1. find current tetrahedron T and it's four vertices */\n";
-  shader += "	 /* s, s+i1, s+i2, s+1.0 - absolute skewed (integer) coordinates of T vertices */\n";
-  shader += "	 /* x, x1, x2, x3 - unskewed coordinates of p relative to each of T vertices*/\n";
-  shader += "	 \n";
-  shader += "	 /* calculate s and x */\n";
-  shader += "	 vec3 s = floor(p + dot(p, vec3(F3)));\n";
-  shader += "	 vec3 x = p - s + dot(s, vec3(G3));\n";
-  shader += "	 \n";
-  shader += "	 /* calculate i1 and i2 */\n";
-  shader += "	 vec3 e = step(vec3(0.0), x - x.yzx);\n";
-  shader += "	 vec3 i1 = e*(1.0 - e.zxy);\n";
-  shader += "	 vec3 i2 = 1.0 - e.zxy*(1.0 - e);\n";
-  shader += "	 	\n";
-  shader += "	 /* x1, x2, x3 */\n";
-  shader += "	 vec3 x1 = x - i1 + G3;\n";
-  shader += "	 vec3 x2 = x - i2 + 2.0*G3;\n";
-  shader += "	 vec3 x3 = x - 1.0 + 3.0*G3;\n";
-  shader += "	 \n";
-  shader += "	 /* 2. find four surflets and store them in d */\n";
-  shader += "	 vec4 w, d;\n";
-  shader += "	 \n";
-  shader += "	 /* calculate surflet weights */\n";
-  shader += "	 w.x = dot(x, x);\n";
-  shader += "	 w.y = dot(x1, x1);\n";
-  shader += "	 w.z = dot(x2, x2);\n";
-  shader += "	 w.w = dot(x3, x3);\n";
-  shader += "	 \n";
-  shader += "	 /* w fades from 0.6 at the center of the surflet to 0.0 at the margin */\n";
-  shader += "	 w = max(0.6 - w, 0.0);\n";
-  shader += "	 \n";
-  shader += "	 /* calculate surflet components */\n";
-  shader += "	 d.x = dot(random3(s), x);\n";
-  shader += "	 d.y = dot(random3(s + i1), x1);\n";
-  shader += "	 d.z = dot(random3(s + i2), x2);\n";
-  shader += "	 d.w = dot(random3(s + 1.0), x3);\n";
-  shader += "	 \n";
-  shader += "	 /* multiply d by w^4 */\n";
-  shader += "	 w *= w;\n";
-  shader += "	 w *= w;\n";
-  shader += "	 d *= w;\n";
-  shader += "	 \n";
-  shader += "	 /* 3. return the sum of the four surflets */\n";
-  shader += "	 return dot(d, vec4(52.0));\n";
-  shader += "}\n";
-  shader += "\n";
-  shader += "/* const matrices for 3d rotation */\n";
-  shader += "const mat3 rot1 = mat3(-0.37, 0.36, 0.85,-0.14,-0.93, 0.34,0.92, 0.01,0.4);\n";
-  shader += "const mat3 rot2 = mat3(-0.55,-0.39, 0.74, 0.33,-0.91,-0.24,0.77, 0.12,0.63);\n";
-  shader += "const mat3 rot3 = mat3(-0.71, 0.52,-0.47,-0.08,-0.72,-0.68,-0.7,-0.45,0.56);\n";
-  shader += "\n";
-  shader += "/* directional artifacts can be reduced by rotating each octave */\n";
-  shader += "float simplex3d_fractal(vec3 m) {\n";
-  shader += "    return   0.5333333*simplex3d(m*rot1)\n";
-  shader += "			+0.2666667*simplex3d(2.0*m*rot2)\n";
-  shader += "			+0.1333333*simplex3d(4.0*m*rot3)\n";
-  shader += "			+0.0666667*simplex3d(8.0*m);\n";
-  shader += "}\n";
-
-  return shader;
-}
-
   
 QString
 ShaderFactory::meshShaderV()
@@ -1696,6 +1562,8 @@ GLuint ShaderFactory::meshShadowShader()
 	m_meshShadowShaderParm[5] = glGetUniformLocation(m_meshShadowShader, "gamma");
 	m_meshShadowShaderParm[6] = glGetUniformLocation(m_meshShadowShader, "roughness");	
 	m_meshShadowShaderParm[7] = glGetUniformLocation(m_meshShadowShader, "specular");	
+	m_meshShadowShaderParm[8] = glGetUniformLocation(m_meshShadowShader, "colorTexS");
+	m_meshShadowShaderParm[9] = glGetUniformLocation(m_meshShadowShader, "depthTexS");
     }
 
   return m_meshShadowShader;
@@ -1718,37 +1586,6 @@ ShaderFactory::meshShadowShaderV()
 }
 
 QString
-ShaderFactory::rgb2hsv()
-{
-  QString shader;
-  shader += "vec3 rgb2hsv(vec3 c)\n";
-  shader += "{\n";
-  shader += "    vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);\n";
-  shader += "    vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));\n";
-  shader += "    vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));\n";
-  shader += "\n";
-  shader += "    float d = q.x - min(q.w, q.y);\n";
-  shader += "    float e = 1.0e-10;\n";
-  shader += "    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);\n";
-  shader += "}\n";
-  return shader;
-}
-
-QString
-ShaderFactory::hsv2rgb()
-{
-  QString shader;
-  shader += "vec3 hsv2rgb(vec3 c)\n";
-  shader += "{\n";
-  shader += "    vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);\n";
-  shader += "    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);\n";
-  shader += "    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);\n";
-  shader += "}\n";
-  return shader;
-}
-
-
-QString
 ShaderFactory::meshShadowShaderF()
 {
   QString shader;
@@ -1766,6 +1603,8 @@ ShaderFactory::meshShadowShaderF()
   shader += "uniform float gamma;\n";
   shader += "uniform float roughness;\n";
   shader += "uniform float specular;\n";
+  shader += "uniform sampler2DRect colorTexS;\n";
+  shader += "uniform sampler2DRect depthTexS;\n";
 
 
   shader += rgb2hsv();
@@ -1786,9 +1625,9 @@ ShaderFactory::meshShadowShaderF()
   shader += "  float depth = dtex.x;\n";
 
   //------------------------
-  // dtex.x - shadow depth
-  // dtex.y - original depth
+  // dtex.x - shadow depth for original camera
   // dtex.z - fragDepth
+  // depthTexS.x - shadow depth with shadow camera
   //------------------------
   
   shader += "  if (depth < 0.001) \n";
@@ -1823,67 +1662,69 @@ ShaderFactory::meshShadowShaderF()
 
   shader += "  if (softshadow > 0.0)\n";
   shader += "  {\n";
-  shader += "    float sumI = 0.0;\n";
   shader += "    float sumS = 0.0;\n";
   shader += "    float sumG = 0.0;\n";
   shader += "    float nRidge = 0.0;\n";
+  shader += "    float nValley = 0.0;\n";
   shader += "    int nsteps = int(30.0*softshadow);\n";
-  shader += "    int nstepsS = int(nsteps*0.7);\n";
+  shader += "    int nstepsS = int(nsteps*0.5);\n";
   shader += "    for(int i=0; i<nstepsS; i++)\n";
   shader += "      {\n";
   shader += "    	 float r = 1.0+i*0.15;\n";
   shader += "            float x = r*sin(radians(i*23));\n";
   shader += "            float y = r*cos(radians(i*23));\n";
   shader += "    	 vec2 pos = spos + vec2(x,y);\n";
-  shader += "    	 vec2 pdepth = texture2DRect(depthTex, pos).xy;\n";
-  shader += "    	 float od = depth-(pdepth.x+pdepth.y)*0.5;\n";
-  shader += "            float dg0 = step(0.001,pdepth.y);\n";
-  shader += "    	 sumI += step(r*0.002, abs(od)*dg0);\n";
-  shader += "    	 sumS += step(0.0, (depth-pdepth.y)*dg0);\n";
-  shader += "    	 sumG += 0.2-max(0.0, (pdepth.y-depth)*dg0);\n";
-  shader += "    	 vec3 clr = texture2DRect(colorTex, pos).rgb;\n";
-  shader += "    	 nRidge += step(dtex.x, pdepth.x);\n";
+  shader += "    	 float sdepth = texture2DRect(depthTexS, pos).x;\n";
+  shader += "    	 float adepth = texture2DRect(depthTex, pos).x;\n";
+
+  shader += "    	 sumS += step(r*0.001, (depth-sdepth));\n";
+  shader += "    	 nRidge += step(depth, adepth);\n";
+  shader += "    	 nValley += step(adepth, depth-0.01);\n";
+
+  shader += "    	 sumG += step(r*0.005, abs(depth-adepth));\n";
   shader += "      } \n";
 
+  // add shadow
   shader += "    sumS /= float(nstepsS);\n";
   shader += "    float shadow = 1.0-clamp(sumS,0.0,1.0);\n";
   shader += "    color.rgb *= shadow;\n";
 
-  // mix ridge color
-  shader += "    color.rgb = mix(color.rgb, vec3(1.0), nRidge/float(nstepsS));\n";
+  // add valley
+  shader += "    vec3 colorV = rgb2hsv(color.rgb);\n";
+  shader += "    colorV *= vec3(1, 2, 0.3);\n";
+  shader += "    colorV.x += 0.02;\n";
+  shader += "    colorV.x = mix(colorV.x, 1.0-colorV.x, step(1.0, colorV.x));\n";
+  shader += "    colorV = clamp(colorV, vec3(0.0), vec3(1.0));\n";
+  shader += "    colorV = hsv2rgb(colorV);\n";
+  shader += "    colorV = pow(colorV, vec3(1.0/gamma));\n";
+  shader += "    float valley = pow(nValley/float(nstepsS), 1.0/(gamma*gamma));\n";
+  shader += "    color.rgb = mix(color.rgb, colorV, valley);\n";
 
-  // mix edge color
-  shader += "    color.rgb = mix(color.rgb, ecolor, 0.5);\n";
-
+  // add edge
+  shader += "    color.rgb = mix(color.rgb, ecolor, 0.3);\n";
+  
+  // add ridge
+  shader += "    float ridge = nRidge/float(nstepsS);\n";
+  shader += "    ridge = smoothstep(0.0, 1.0, pow(ridge,2.0));\n";
+  shader += "    color.rgb = mix(color.rgb, vec3(1.0), ridge*0.5);\n";
+  
   shader += "    for(int i=nstepsS; i<nsteps; i++)\n";
   shader += "      {\n";
-  shader += "    	 float r = i*0.3;\n";
+  shader += "    	 float r = i*0.2;\n";
   shader += "            float x = r*sin(radians(i*37));\n";
   shader += "            float y = r*cos(radians(i*37));\n";
   shader += "    	 vec2 pos = spos + vec2(x,y);\n";
-  shader += "    	 vec2 pdepth = texture2DRect(depthTex, pos).xy;\n";
-  shader += "    	 float od = depth-(pdepth.x+pdepth.y)*0.5;\n";
-  shader += "            float dg0 = step(0.001,pdepth.y);\n";
-  shader += "    	 sumI += step(r*0.002, abs(od)*dg0);\n";
-  shader += "    	 sumG += 0.2-max(0.0, (pdepth.y-depth)*dg0);\n";
+  
+  shader += "    	 float sdepth = texture2DRect(depthTexS, pos).x;\n";
+  shader += "    	 float adepth = texture2DRect(depthTex, pos).x;\n";
+
+  shader += "    	 sumG += step(r*0.01, abs(depth-adepth));\n";
   shader += "      } \n";
 
-  shader += "    sumG /= float(0.7*nsteps);\n";
-  shader += "    float glow = 1.0-sumG;\n";
-  shader += "    color.rgb *= glow;\n";
-
-  shader += "    sumI /= float(1.2*nsteps);\n";
-  shader += "    float shadowI = clamp(sumI, 0.0, 1.0);\n";
-  shader += "    shadowI = pow(shadowI, 1.0/gamma);\n";
-  shader += "    vec3 colorI = rgb2hsv(color.rgb);\n";
-
-  shader += "    colorI *= vec3(1, 1.5, 2);\n";
-  shader += "    colorI.x += 0.02;\n";
-  shader += "    colorI.x = mix(colorI.x, 1.0-colorI.x, step(1.0, colorI.x));\n";
-  shader += "    colorI = clamp(colorI, vec3(0.0), vec3(1.0));\n";
-  shader += "    colorI = hsv2rgb(colorI);\n";
-  shader += "    colorI = pow(colorI, vec3(1.0/gamma));\n";
-  shader += "    color.rgb = mix(colorI, color.rgb, shadowI);\n";
+  // add glow
+  shader += "    float glow = pow(sumG/float(nsteps), gamma);\n";
+  shader += "    glow = smoothstep(glow,0.0,1.0);\n";
+  shader += "    color.rgb = mix(color.rgb, color.rgb*2.0, glow);\n";
 
   shader += "  }\n";
 
@@ -1891,7 +1732,7 @@ ShaderFactory::meshShadowShaderF()
   shader += "  {\n";
   shader += "    float dx = 0.0;\n";
   shader += "    float dy = 0.0;\n";
-  shader += "    for(int i=0; i<5; i++)\n";
+  shader += "    for(int i=0; i<7; i++)\n";
   shader += "      {\n";
   shader += "        dx += texture2DRect(depthTex, spos.xy+vec2(1+i,0)).x-texture2DRect(depthTex, spos.xy-vec2(1+i,0)).x;\n";
   shader += "        dy += texture2DRect(depthTex, spos.xy+vec2(0,1+i)).x-texture2DRect(depthTex, spos.xy-vec2(0,1+i)).x;\n";
@@ -2237,3 +2078,168 @@ ShaderFactory::loadShader(GLhandleARB &progObj,
 
   return true;
 }
+
+QString
+ShaderFactory::rgb2hsv()
+{
+  QString shader;
+  shader += "vec3 rgb2hsv(vec3 c)\n";
+  shader += "{\n";
+  shader += "    vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);\n";
+  shader += "    vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));\n";
+  shader += "    vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));\n";
+  shader += "\n";
+  shader += "    float d = q.x - min(q.w, q.y);\n";
+  shader += "    float e = 1.0e-10;\n";
+  shader += "    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);\n";
+  shader += "}\n";
+  return shader;
+}
+
+QString
+ShaderFactory::hsv2rgb()
+{
+  QString shader;
+  shader += "vec3 hsv2rgb(vec3 c)\n";
+  shader += "{\n";
+  shader += "    vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);\n";
+  shader += "    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);\n";
+  shader += "    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);\n";
+  shader += "}\n";
+  return shader;
+}
+
+QString
+ShaderFactory::noise2d()
+{
+  QString shader;
+
+  shader += "float random (in vec2 st) {\n";
+  shader += "    return fract(sin(dot(st.xy,\n";
+  shader += "                         vec2(12.9898,78.233)))*\n";
+  shader += "        43758.5453123);\n";
+  shader += "}\n";
+  shader += "\n";
+  shader += "// Based on Morgan McGuire @morgan3d\n";
+  shader += "// https://www.shadertoy.com/view/4dS3Wd\n";
+  shader += "float noise (in vec2 st) {\n";
+  shader += "    vec2 i = floor(st);\n";
+  shader += "    vec2 f = fract(st);\n";
+  shader += "\n";
+  shader += "    // Four corners in 2D of a tile\n";
+  shader += "    float a = random(i);\n";
+  shader += "    float b = random(i + vec2(1.0, 0.0));\n";
+  shader += "    float c = random(i + vec2(0.0, 1.0));\n";
+  shader += "    float d = random(i + vec2(1.0, 1.0));\n";
+  shader += "\n";
+  shader += "    vec2 u = f * f * (3.0 - 2.0 * f);\n";
+  shader += "\n";
+  shader += "    return mix(a, b, u.x) +\n";
+  shader += "            (c - a)* u.y * (1.0 - u.x) +\n";
+  shader += "            (d - b) * u.x * u.y;\n";
+  shader += "}\n";
+  shader += "\n";
+  shader += "#define OCTAVES 6\n";
+  shader += "float fbm (in vec2 st) {\n";
+  shader += "    // Initial values\n";
+  shader += "    float value = 0.0;\n";
+  shader += "    float amplitude = .5;\n";
+  shader += "    float frequency = 0.;\n";
+  shader += "    //\n";
+  shader += "    // Loop of octaves\n";
+  shader += "    for (int i = 0; i < OCTAVES; i++) {\n";
+  shader += "        value += amplitude * noise(st);\n";
+  shader += "        st *= 2.;\n";
+  shader += "        amplitude *= .5;\n";
+  shader += "    }\n";
+  shader += "    return value;\n";
+  shader += "}\n";
+
+  return shader;
+}
+
+QString
+ShaderFactory::noise3d()
+{
+  QString shader;
+
+  shader += "/* discontinuous pseudorandom uniformly distributed in [-0.5, +0.5]^3 */\n";
+  shader += "vec3 random3(vec3 c) {\n";
+  shader += "	float j = 4096.0*sin(dot(c,vec3(17.0, 59.4, 15.0)));\n";
+  shader += "	vec3 r;\n";
+  shader += "	r.z = fract(512.0*j);\n";
+  shader += "	j *= .125;\n";
+  shader += "	r.x = fract(512.0*j);\n";
+  shader += "	j *= .125;\n";
+  shader += "	r.y = fract(512.0*j);\n";
+  shader += "	return r-0.5;\n";
+  shader += "}\n";
+  shader += "\n";
+  shader += "/* skew constants for 3d simplex functions */\n";
+  shader += "const float F3 =  0.3333333;\n";
+  shader += "const float G3 =  0.1666667;\n";
+  shader += "\n";
+  shader += "/* 3d simplex noise */\n";
+  shader += "float simplex3d(vec3 p) {\n";
+  shader += "	 /* 1. find current tetrahedron T and it's four vertices */\n";
+  shader += "	 /* s, s+i1, s+i2, s+1.0 - absolute skewed (integer) coordinates of T vertices */\n";
+  shader += "	 /* x, x1, x2, x3 - unskewed coordinates of p relative to each of T vertices*/\n";
+  shader += "	 \n";
+  shader += "	 /* calculate s and x */\n";
+  shader += "	 vec3 s = floor(p + dot(p, vec3(F3)));\n";
+  shader += "	 vec3 x = p - s + dot(s, vec3(G3));\n";
+  shader += "	 \n";
+  shader += "	 /* calculate i1 and i2 */\n";
+  shader += "	 vec3 e = step(vec3(0.0), x - x.yzx);\n";
+  shader += "	 vec3 i1 = e*(1.0 - e.zxy);\n";
+  shader += "	 vec3 i2 = 1.0 - e.zxy*(1.0 - e);\n";
+  shader += "	 	\n";
+  shader += "	 /* x1, x2, x3 */\n";
+  shader += "	 vec3 x1 = x - i1 + G3;\n";
+  shader += "	 vec3 x2 = x - i2 + 2.0*G3;\n";
+  shader += "	 vec3 x3 = x - 1.0 + 3.0*G3;\n";
+  shader += "	 \n";
+  shader += "	 /* 2. find four surflets and store them in d */\n";
+  shader += "	 vec4 w, d;\n";
+  shader += "	 \n";
+  shader += "	 /* calculate surflet weights */\n";
+  shader += "	 w.x = dot(x, x);\n";
+  shader += "	 w.y = dot(x1, x1);\n";
+  shader += "	 w.z = dot(x2, x2);\n";
+  shader += "	 w.w = dot(x3, x3);\n";
+  shader += "	 \n";
+  shader += "	 /* w fades from 0.6 at the center of the surflet to 0.0 at the margin */\n";
+  shader += "	 w = max(0.6 - w, 0.0);\n";
+  shader += "	 \n";
+  shader += "	 /* calculate surflet components */\n";
+  shader += "	 d.x = dot(random3(s), x);\n";
+  shader += "	 d.y = dot(random3(s + i1), x1);\n";
+  shader += "	 d.z = dot(random3(s + i2), x2);\n";
+  shader += "	 d.w = dot(random3(s + 1.0), x3);\n";
+  shader += "	 \n";
+  shader += "	 /* multiply d by w^4 */\n";
+  shader += "	 w *= w;\n";
+  shader += "	 w *= w;\n";
+  shader += "	 d *= w;\n";
+  shader += "	 \n";
+  shader += "	 /* 3. return the sum of the four surflets */\n";
+  shader += "	 return dot(d, vec4(52.0));\n";
+  shader += "}\n";
+  shader += "\n";
+  shader += "/* const matrices for 3d rotation */\n";
+  shader += "const mat3 rot1 = mat3(-0.37, 0.36, 0.85,-0.14,-0.93, 0.34,0.92, 0.01,0.4);\n";
+  shader += "const mat3 rot2 = mat3(-0.55,-0.39, 0.74, 0.33,-0.91,-0.24,0.77, 0.12,0.63);\n";
+  shader += "const mat3 rot3 = mat3(-0.71, 0.52,-0.47,-0.08,-0.72,-0.68,-0.7,-0.45,0.56);\n";
+  shader += "\n";
+  shader += "/* directional artifacts can be reduced by rotating each octave */\n";
+  shader += "float simplex3d_fractal(vec3 m) {\n";
+  shader += "    return   0.5333333*simplex3d(m*rot1)\n";
+  shader += "			+0.2666667*simplex3d(2.0*m*rot2)\n";
+  shader += "			+0.1333333*simplex3d(4.0*m*rot3)\n";
+  shader += "			+0.0666667*simplex3d(8.0*m);\n";
+  shader += "}\n";
+
+  return shader;
+}
+
+

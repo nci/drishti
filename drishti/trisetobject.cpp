@@ -412,7 +412,7 @@ TrisetObject::loadVertexBufferData()
 }
 
 void
-TrisetObject::drawTrisetBuffer(QGLViewer *viewer,
+TrisetObject::drawTrisetBuffer(Camera *camera,
 			       float pnear, float pfar,
 			       bool active)
 {
@@ -432,7 +432,7 @@ TrisetObject::drawTrisetBuffer(QGLViewer *viewer,
   GLfloat mvp[16];
   GLdouble m[16];
 
-  viewer->camera()->getModelViewProjectionMatrix(m);
+  camera->getModelViewProjectionMatrix(m);
 
   double dmvp[16];
   Matrix::matmult(m_localXform, m, dmvp);
@@ -441,7 +441,7 @@ TrisetObject::drawTrisetBuffer(QGLViewer *viewer,
   for(int i=0; i<16; i++) lxfrm[i] = m_localXform[i];
 
  
-  Vec vd = viewer->camera()->viewDirection();
+  Vec vd = camera->viewDirection();
   
   GLint *meshShaderParm = ShaderFactory::meshShaderParm();  
 
@@ -544,17 +544,15 @@ TrisetObject::postdraw(QGLViewer *viewer,
 }
 
 void
-TrisetObject::draw(QGLViewer *viewer,
-		   bool active,
-		   Vec lightPosition,
-		   float pnear, float pfar, Vec step)
+TrisetObject::draw(Camera *camera,
+		   bool active)
 {
   glDisable(GL_LIGHTING);
 
   if (!m_show)
     return;
   
-  drawTrisetBuffer(viewer, 0, -1, active);
+  drawTrisetBuffer(camera, 0, -1, active);
 }
 
 void

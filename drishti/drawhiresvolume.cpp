@@ -163,6 +163,7 @@ DrawHiresVolume::overwriteDataMinMax(Vec smin, Vec smax)
   m_dataMax = smax;
   GeometryObjects::clipplanes()->setBounds(m_dataMin, m_dataMax);
   Global::setBounds(m_dataMin, m_dataMax);
+  m_bricks->setBounds(m_dataMin, m_dataMax);
 }
 
 DrawHiresVolume::DrawHiresVolume(Viewer *viewer,
@@ -2191,6 +2192,11 @@ DrawHiresVolume::drawGeometry(Vec pn, float pnear, float pfar, Vec step,
   if (bgintensity > 0.5)
     lineColor = Vec(0, 0, 0);
 
+  
+  if (Global::volumeType() == Global::DummyVolume)
+    m_bricks->draw();
+  
+
   if (Global::drawBox())
     StaticFunctions::drawEnclosingCube(m_enclosingBox,
 				       lineColor);
@@ -2496,7 +2502,6 @@ DrawHiresVolume::drawGeometryOnly()
 
   if (Global::drawAxis())
     drawAxisText();
-
 
   GeometryObjects::clipplanes()->postdraw((QGLViewer*)m_Viewer);
 

@@ -535,7 +535,6 @@ Trisets::draw(QGLViewer *viewer,
     render(viewer->camera(), nclip);
   }
 
-  
   // draw shadows
   {
     glBindFramebuffer(GL_FRAMEBUFFER, drawFboId);
@@ -594,14 +593,19 @@ Trisets::draw(QGLViewer *viewer,
     glActiveTexture(GL_TEXTURE0);
     glDisable(GL_TEXTURE_RECTANGLE);
 
+    glActiveTexture(GL_TEXTURE2);
+    glDisable(GL_TEXTURE_RECTANGLE);
+    
+    glActiveTexture(GL_TEXTURE3);
+    glDisable(GL_TEXTURE_RECTANGLE);
+
     glUseProgram(0);
-    glUseProgramObjectARB(0);
 
     glEnable(GL_BLEND);
   }
   //--------------------------------------------
   //--------------------------------------------
-
+    
 }
 
 bool
@@ -902,6 +906,18 @@ Trisets::processCommand(int idx, QString cmd)
   if (list[0] == "resetposition")
     {
       m_trisets[idx]->setPosition(Vec(0,0,0));
+      return;
+    }
+  
+  if (list[0] == "tagcolors")
+    {
+      uchar *tc = Global::tagColors();
+      for (int t=0; t<m_trisets.count(); t++)
+	{
+	  int i = t+1; // don't want to use tag color 0
+	  Vec color(tc[4*i+0]/255.0, tc[4*i+1]/255.0, tc[4*i+2]/255.0);
+	  m_trisets[t]->setColor(color);
+	}
       return;
     }
   

@@ -45,6 +45,16 @@ Save mesh in Stanford Polygon Format (.ply).
 #end
 
 #begin
+tagcolors
+tagcolors
+
+Set colors for all meshes to colors obtained from Tag Colors from Preferences Panel.
+Tag color 0 is not used.
+First mesh get tag color 1, and so on.
+
+#end
+
+#begin
 resetposition
 resetposition
 

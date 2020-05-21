@@ -48,6 +48,9 @@ class TrisetObject
   float activeScale() { return m_activeScale; }
   void setActiveScale(float s) { m_activeScale = s; }
 
+  float reveal() { return m_reveal; }
+  void setReveal(float r) { m_reveal = r; }
+  
   Quaternion rotation() { return m_q; }
   void rotate(Vec, float);
   void rotate(Quaternion);
@@ -93,6 +96,7 @@ private :
   Vec m_cropcolor;
   Vec m_position;
   Vec m_scale;
+  float m_reveal;
   Quaternion m_q;
   float m_roughness;
   float m_specular;

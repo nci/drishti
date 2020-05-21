@@ -359,15 +359,18 @@ void
 Trisets::render(Camera *camera, int nclip)
 {
 
-  glUseProgram(ShaderFactory::meshShader());
-  GLint *meshShaderParm = ShaderFactory::meshShaderParm();        
-
   for(int i=0; i<m_trisets.count();i++)
     {
       
       Vec extras = Vec(0,0,0);
       if (m_trisets[i]->grabsMouse())
 	extras.x = 1;
+
+      extras.y = 1.0-m_trisets[i]->reveal();
+      
+      glUseProgram(ShaderFactory::meshShader());
+      GLint *meshShaderParm = ShaderFactory::meshShaderParm();        
+
       glUniform3f(meshShaderParm[2], extras.x, extras.y, extras.z);
 
   
@@ -385,10 +388,9 @@ Trisets::render(Camera *camera, int nclip)
       
       m_trisets[i]->draw(camera,
 			 m_trisets[i]->grabsMouse());
-      
+        
+      glUseProgramObjectARB(0);
     }
-  
-  glUseProgramObjectARB(0);
 }
 
 void
@@ -667,57 +669,20 @@ Trisets::keyPressEvent(QKeyEvent *event)
 	      vlist << QVariant(QString("%1 %2 %3").arg(pos.x).arg(pos.y).arg(pos.z));
 	      plist["position"] = vlist;
 
-	      pos = m_trisets[i]->scale();
+	      Vec scl = m_trisets[i]->scale();
 	      vlist.clear();
 	      vlist << QVariant("string");
-	      vlist << QVariant(QString("%1 %2 %3").arg(pos.x).arg(pos.y).arg(pos.z));
+	      vlist << QVariant(QString("%1 %2 %3").arg(scl.x).arg(scl.y).arg(scl.z));
 	      plist["scale"] = vlist;
 
-//	      vlist.clear();
-//	      vlist << QVariant("checkbox");
-//	      vlist << QVariant(m_trisets[i]->flipNormals());
-//	      plist["flip normals"] = vlist;
-//
-//	      vlist.clear();
-//	      vlist << QVariant("checkbox");
-//	      vlist << QVariant(m_trisets[i]->screenDoor());
-//	      plist["screendoor transparency"] = vlist;
-//
-//	      vlist.clear();
-//	      vlist << QVariant("double");
-//	      vlist << QVariant(m_trisets[i]->opacity());
-//	      vlist << QVariant(0.0);
-//	      vlist << QVariant(1.0);
-//	      vlist << QVariant(0.1); // singlestep
-//	      vlist << QVariant(1); // decimals
-//	      plist["opacity"] = vlist;
-//
-//	      vlist.clear();
-//	      vlist << QVariant("double");
-//	      vlist << QVariant(m_trisets[i]->ambient());
-//	      vlist << QVariant(0.0);
-//	      vlist << QVariant(1.0);
-//	      vlist << QVariant(0.1); // singlestep
-//	      vlist << QVariant(1); // decimals
-//	      plist["ambient"] = vlist;
-//
-//	      vlist.clear();
-//	      vlist << QVariant("double");
-//	      vlist << QVariant(m_trisets[i]->diffuse());
-//	      vlist << QVariant(0.0);
-//	      vlist << QVariant(1.0);
-//	      vlist << QVariant(0.1); // singlestep
-//	      vlist << QVariant(1); // decimals
-//	      plist["diffuse"] = vlist;
-//
-//	      vlist.clear();
-//	      vlist << QVariant("double");
-//	      vlist << QVariant(m_trisets[i]->specular());
-//	      vlist << QVariant(0.0);
-//	      vlist << QVariant(1.0);
-//	      vlist << QVariant(0.1); // singlestep
-//	      vlist << QVariant(1); // decimals
-//	      plist["specular"] = vlist;
+	      vlist.clear();
+	      vlist << QVariant("double");
+	      vlist << QVariant(m_trisets[i]->reveal());
+	      vlist << QVariant(0.0);
+	      vlist << QVariant(1.1);
+	      vlist << QVariant(0.1); // singlestep
+	      vlist << QVariant(1); // decimals
+	      plist["reveal"] = vlist;
 
 	      vlist.clear();
 	      vlist << QVariant("color");
@@ -728,16 +693,6 @@ Trisets::keyPressEvent(QKeyEvent *event)
 	      vlist << dcolor;
 	      plist["color"] = vlist;
 
-
-//
-//	      vlist.clear();
-//	      vlist << QVariant("color");
-//	      pcolor = m_trisets[i]->cropBorderColor();
-//	      dcolor = QColor::fromRgbF(pcolor.x,
-//					pcolor.y,
-//					pcolor.z);
-//	      vlist << dcolor;
-//	      plist["crop border color"] = vlist;
 
 
 //	      vlist.clear();
@@ -813,7 +768,7 @@ Trisets::keyPressEvent(QKeyEvent *event)
 	      keys << "scale";
 	      //keys << "gap";
 	      keys << "color";
-	      //keys << "opacity";
+	      keys << "reveal";
 	      //keys << "gap";
 	      //keys << "crop border color";
 	      keys << "commandhelp";
@@ -852,7 +807,7 @@ Trisets::keyPressEvent(QKeyEvent *event)
 			  QString vstr = pair.first.toString();
 			  QStringList scl = vstr.split(" ");
 			  Vec scale = Vec(1,1,1);
-			  if (scl.count() > 0) scale.x = scl[0].toDouble();
+			  if (scl.count() > 0) scale.x = scale.y = scale.z = scl[0].toDouble();
 			  if (scl.count() > 1) scale.y = scl[1].toDouble();
 			  if (scl.count() > 2) scale.z = scl[2].toDouble();
 			  m_trisets[i]->setScale(scale);
@@ -866,14 +821,11 @@ Trisets::keyPressEvent(QKeyEvent *event)
 			  Vec pcolor = Vec(r,g,b);
 			  m_trisets[i]->setColor(pcolor);
 			}
-		      else if (keys[ik] == "crop border color")
+		      else if (keys[ik] == "reveal")
 			{
-			  QColor color = pair.first.value<QColor>();
-			  float r = color.redF();
-			  float g = color.greenF();
-			  float b = color.blueF();
-			  Vec pcolor = Vec(r,g,b);
-			  m_trisets[i]->setCropBorderColor(pcolor);
+			  float r = 0.0;
+			  r = pair.first.toString().toDouble();
+			  m_trisets[i]->setReveal(r);
 			}
 		    }
 		}

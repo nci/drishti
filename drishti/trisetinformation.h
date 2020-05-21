@@ -40,6 +40,7 @@ class TrisetInformation
   float ambient;
   float diffuse;
   float specular;
+  float reveal;
 };
 
 #endif

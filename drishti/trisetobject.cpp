@@ -104,17 +104,6 @@ TrisetObject::enclosingBox(Vec &boxMin,
 		   qMax(boxMax.y,tb[i].y),
 		   qMax(boxMax.z,tb[i].z));
     }
-
-//  Vec v = (m_enclosingBox[0]-m_centroid);
-//  v = m_q.rotate(v);
-//  boxMin = m_position + m_centroid + VECPRODUCT(v,m_scale);
-//
-//  v = (m_enclosingBox[6]-m_centroid);
-//  v = m_q.rotate(v);
-//  boxMax = m_position + m_centroid + VECPRODUCT(v,m_scale);
-
-  //boxMin = m_position + m_centroid + VECPRODUCT((m_enclosingBox[0]-m_centroid),m_scale);
-  //boxMax = m_position + m_centroid + VECPRODUCT((m_enclosingBox[6]-m_centroid),m_scale);
 }
 
 void
@@ -128,6 +117,7 @@ TrisetObject::clear()
   m_centroid = Vec(0,0,0);
   m_position = Vec(0,0,0);
   m_scale = Vec(1,1,1);
+  m_reveal = 0.0;
   m_q = Quaternion();
   m_nX = m_nY = m_nZ = 0;
   m_color = Vec(1,1,1);
@@ -698,6 +688,7 @@ TrisetObject::loadPLY(QString flnm)
 {
   m_position = Vec(0,0,0);
   m_scale = Vec(1,1,1);
+  m_reveal = 0.0;
   m_q = Quaternion();
 
   typedef struct Vertex {
@@ -1068,6 +1059,7 @@ TrisetObject::loadTriset(QString flnm)
 
   m_position = Vec(0,0,0);
   m_scale = Vec(1,1,1);
+  m_reveal = 0.0;
   m_q = Quaternion();
 
   m_enclosingBox[0] = Vec(bmin.x, bmin.y, bmin.z);
@@ -1132,6 +1124,13 @@ TrisetObject::domElement(QDomDocument &doc)
   {
     QDomElement de0 = doc.createElement("roughness");
     QDomText tn0 = doc.createTextNode(QString("%1").arg(m_roughness));
+    de0.appendChild(tn0);
+    de.appendChild(de0);
+  }
+  
+  {
+    QDomElement de0 = doc.createElement("reveal");
+    QDomText tn0 = doc.createTextNode(QString("%1").arg(m_reveal));
     de0.appendChild(tn0);
     de.appendChild(de0);
   }
@@ -1243,6 +1242,8 @@ TrisetObject::fromDomElement(QDomElement de)
 	}
       else if (dnode.tagName() == "roughness")
 	m_roughness = str.toFloat();
+      else if (dnode.tagName() == "reveal")
+	m_reveal = str.toFloat();
       else if (dnode.tagName() == "color")
 	{
 	  QStringList xyz = str.split(" ");
@@ -1302,7 +1303,8 @@ TrisetObject::get()
   ti.ambient = m_ambient;
   ti.diffuse = m_diffuse;
   ti.specular = m_specular;
-
+  ti.reveal = m_reveal;
+  
   return ti;
 }
 
@@ -1333,6 +1335,7 @@ TrisetObject::set(TrisetInformation ti)
   m_ambient = ti.ambient;
   m_diffuse = ti.diffuse;
   m_specular = ti.specular;
+  m_reveal = ti.reveal;
 
 
   if (reloadColor)

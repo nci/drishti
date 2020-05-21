@@ -1482,6 +1482,8 @@ ShaderFactory::meshShaderF()
   shader += "void main()\n";
   shader += "{\n";
 
+  shader += "  if (dot(v3Normal,-viewDir) > extras.y) discard;\n";
+
   shader += "gl_FragDepth = zdepth;\n";
 
   //-------------------  store depth values
@@ -1514,7 +1516,6 @@ ShaderFactory::meshShaderF()
 
   // modulate color when active
   shader += "  outputColor.rgb = mix(outputColor.rgb, outputColor.rgb*0.8, extras.x);\n";
-
 
   shader += "\n";
   shader += "  vec3 Amb = ambient*outputColor.rgb;\n";

@@ -517,8 +517,11 @@ TrisetObject::postdraw(QGLViewer *viewer,
 
   viewer->startScreenCoordinatesSystem();
 
+  Vec ppos = viewer->camera()->projectedCoordinatesOf(m_centroid+m_position);
+
   QString str = QString("mesh %1").arg(idx);
   str += QString(" (%1)").arg(QFileInfo(m_fileName).fileName());
+  str += QString(" %1").arg(ppos.z);
   QFont font = QFont();
   QFontMetrics metric(font);
   int ht = metric.height();
@@ -1682,6 +1685,23 @@ TrisetObject::loadAssimpModel(QString flnm)
 
   m_centroid /= m_vertices.count();
 
+  //-----------------------------------
+  // choose vertex closest to center as centroid
+  int cp = 0;
+  float cdst = (m_vertices[0]-m_centroid).squaredNorm();
+  for(int i=1; i<m_vertices.count(); i++)
+    {
+      float dst = (m_vertices[i]-m_centroid).squaredNorm();
+      if (dst < cdst)
+	{
+	  cp = i;
+	  cdst = dst;
+	}
+    }
+  m_centroid = m_vertices[cp];
+  //-----------------------------------
+  
+  
   Vec bmin = Vec(minX, minY, minZ);
   Vec bmax = Vec(maxX, maxY, maxZ);
 

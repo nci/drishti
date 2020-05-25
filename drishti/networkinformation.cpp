@@ -1,4 +1,6 @@
+#include "global.h"
 #include "networkinformation.h"
+#include <QDir>
 
 NetworkInformation::NetworkInformation() { clear(); }
 
@@ -167,13 +169,23 @@ NetworkInformation::save(fstream &fout)
   sprintf(keyword, "networkinformation");
   fout.write((char*)keyword, strlen(keyword)+1);
 
+  QDir direc(Global::previousDirectory());
+  QString relFile = direc.relativeFilePath(filename);
   memset(keyword, 0, 100);
   sprintf(keyword, "filename");
   fout.write((char*)keyword, strlen(keyword)+1);
-  int len = filename.size()+1;
+  int len = relFile.size()+1;
   fout.write((char*)&len, sizeof(int));
   if (len > 0)
-    fout.write((char*)filename.toLatin1().data(), len*sizeof(char));
+    fout.write((char*)relFile.toLatin1().data(), len*sizeof(char));
+
+//  memset(keyword, 0, 100);
+//  sprintf(keyword, "filename");
+//  fout.write((char*)keyword, strlen(keyword)+1);
+//  int len = filename.size()+1;
+//  fout.write((char*)&len, sizeof(int));
+//  if (len > 0)
+//    fout.write((char*)filename.toLatin1().data(), len*sizeof(char));
 
   memset(keyword, 0, 100);
   sprintf(keyword, "vopacity");
@@ -294,7 +306,9 @@ NetworkInformation::load(fstream &fin)
 	    {
 	      char *str = new char[len];
 	      fin.read((char*)str, len*sizeof(char));
-	      filename = QString(str);
+	      QDir direc(Global::previousDirectory());
+	      filename = direc.absoluteFilePath(QString(str));
+	      //filename = QString(str);
 	      delete [] str;
 	    }
 	}

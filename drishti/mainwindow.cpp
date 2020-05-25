@@ -3341,10 +3341,18 @@ MainWindow::loadProject(const char* flnm)
 void
 MainWindow::saveProject(QString xmlflnm)
 {
+
+  QFileInfo f(xmlflnm);
+  Global::setPreviousDirectory(f.absolutePath());
+  Global::setCurrentProjectFile(QString(xmlflnm));
+
+  
+
   int flnmlen = xmlflnm.length()+1;
   char *flnm = new char[flnmlen];
   memset(flnm, 0, flnmlen);
   memcpy(flnm, xmlflnm.toLatin1().data(), flnmlen);
+
 
   Vec bmin, bmax;
   m_Lowres->subvolumeBounds(bmin, bmax);
@@ -3390,10 +3398,6 @@ MainWindow::saveProject(QString xmlflnm)
   m_tfManager->save(flnm);
   saveViewsAndKeyFrames(flnm);
 
-
-  QFileInfo f(flnm);
-  Global::setPreviousDirectory(f.absolutePath());
-  Global::setCurrentProjectFile(QString(flnm));
 
   emit showMessage("Project saved", false);
 }

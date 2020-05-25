@@ -47,7 +47,6 @@ class Trisets : public QObject
   void setClipDistance0(float, float, float, float);
   void setClipDistance1(float, float, float, float);
 
-  void checkMouseHover(QGLViewer*);
   
   void predraw(QGLViewer*, double*);
   void draw(QGLViewer*,
@@ -76,7 +75,9 @@ class Trisets : public QObject
   void resize(int, int);
 
   void setShapeEnhancements(float, float);
-  
+
+  void checkMouseHover(QGLViewer*);
+
  signals :
   void updateGL();
 

@@ -23,22 +23,33 @@ TrisetGrabber::setMouseGrab(bool f)
   if (!f) m_pressed = false;
 }
 
-float
+Vec
 TrisetGrabber::checkForMouseHover(int x, int y,
 				  const Camera* const camera)
 {
   Vec pos = camera->projectedCoordinatesOf(centroid()+position());
+
+  Vec bmin, bmax;
+  enclosingBox(bmin, bmax);
+
+  Vec pmin = camera->projectedCoordinatesOf(bmin);
+  Vec pmax = camera->projectedCoordinatesOf(bmax);
+  float chkd = qMin(qAbs(pmin.x-pmax.x), qAbs(pmin.y-pmax.y));
+  chkd = qMin(chkd, 100.0f);
+    
   QPoint hp0(pos.x, pos.y);
   QPoint hp1(x, y);
-  if ((hp0-hp1).manhattanLength() < 100)
+  int dst = (hp0-hp1).manhattanLength();
+  if (dst < chkd)
     {
       Vec cpos = camera->position();
+      float d = (centroid()+position()-cpos)*camera->viewDirection();
+      d /= camera->sceneRadius();
       Vec V = camera->viewDirection();
-      float d = (pos-cpos)*V;
-      return d;
+      return Vec(dst, d, chkd);
     }
 
-  return -1;
+  return Vec(-1, -1, chkd);
 }
 
 void

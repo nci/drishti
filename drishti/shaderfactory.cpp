@@ -1645,18 +1645,17 @@ ShaderFactory::meshShadowShaderF()
   shader += "  {\n";
   shader += "    float cx[8] = float[](-1.0, 0.0, 1.0, 0.0, -1.0,-1.0, 1.0, 1.0);\n";
   shader += "    float cy[8] = float[]( 0.0,-1.0, 0.0, 1.0, -1.0, 1.0,-1.0, 1.0);\n";
-  shader += "    float ldepth = dtex.y;\n";
   shader += "    float response = 0.0;\n";
   shader += "    int nsteps  = int(3+(edges*10));\n";  
   shader += "    for(int i=0; i<nsteps; i++)\n";
   shader += "      {\n";
   shader += "        float r = 1.0 + float(i)/8.0;\n";
   shader += "        vec2 pos = spos + vec2(r*cx[int(mod(i,8))],r*cy[int(mod(i,8))]);\n";
-  shader += "        float od = ldepth - texture2DRect(depthTex, pos).y;\n";
+  shader += "        float od = depth - texture2DRect(depthTex, pos).x;\n";
   shader += "        response += max(0.0, od);\n";
   shader += "      } \n";
   shader += "    response /= nsteps;\n";
-  shader += "    ecolor.rgb *= exp(-response*nsteps*50);\n";
+  shader += "    ecolor.rgb *= exp(-response*nsteps*100);\n";
   shader += "  }\n";
 
   shader += "  color.rgb = mix(color.rgb, ecolor, step(softshadow, 0.01));\n";

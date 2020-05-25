@@ -259,17 +259,20 @@ Trisets::checkMouseHover(QGLViewer *viewer)
   int x = scr.x();
   int y = scr.y();
   int gt = -1;
-  float dmin = 10000;
+  float dmin = 1000000;
+  float cmin = 1000000;
   for(int i=0; i<m_trisets.count(); i++)
     {
       if (m_trisets[i]->grabsMouse())
 	{
 	  if (!m_trisets[i]->mousePressed())
 	    {
-	      dmin = m_trisets[i]->checkForMouseHover(x,y, viewer->camera());
-	      if (dmin > 0)
+	      Vec d = m_trisets[i]->checkForMouseHover(x,y, viewer->camera());
+	      if (d.x > -1 && d.y > 0)
 		{
 		  gt = i;
+		  cmin = d.x;
+		  dmin = d.y;
 		  break;
 		}
 	    }
@@ -285,11 +288,12 @@ Trisets::checkMouseHover(QGLViewer *viewer)
 	{
 	  if (m_trisets[i]->isInMouseGrabberPool())
 	    {
-	      float d = m_trisets[i]->checkForMouseHover(x,y, viewer->camera());
-	      if (d > 0)
+	      Vec d = m_trisets[i]->checkForMouseHover(x,y, viewer->camera());
+	      if (d.x > -1 && d.y > 0)
 		{
-		  dmin = d;
 		  gt = i;
+		  cmin = d.x;
+		  dmin = d.y;
 		  break;
 		}
 	    }
@@ -307,11 +311,15 @@ Trisets::checkMouseHover(QGLViewer *viewer)
 	{
 	  if (m_trisets[i]->isInMouseGrabberPool())
 	    {
-	      float d = m_trisets[i]->checkForMouseHover(x,y, viewer->camera());
-	      if (d > 0 && d < dmin)
+	      Vec d = m_trisets[i]->checkForMouseHover(x,y, viewer->camera());
+	      if (d.x > -1 && d.y > 0)
 		{
-		  dmin = d;
-		  gt = i;
+		  if (d.y < dmin)
+		    {
+		      gt = i;
+		      cmin = d.x;
+		      dmin = d.y;
+		    }
 		}
 	    }
 	}
@@ -426,6 +434,9 @@ Trisets::draw(QGLViewer *viewer,
   if (!m_depthBuffer)
     createFBO(wd, ht);
 
+
+  float sceneRadius = viewer->sceneRadius()/(2.0*Global::gamma());
+
   if (!applyShadows)
     {
       glUseProgram(ShaderFactory::meshShader());
@@ -437,7 +448,6 @@ Trisets::draw(QGLViewer *viewer,
       glUniformMatrix4fv(meshShaderParm[4], 1, GL_FALSE, mv);
       glUniformMatrix4fv(meshShaderParm[16], 1, GL_FALSE, mv);
       
-      float sceneRadius = viewer->sceneRadius();
       glUniform1f(meshShaderParm[12], sceneRadius);
       
       Vec vd = viewer->camera()->viewDirection();
@@ -462,8 +472,7 @@ Trisets::draw(QGLViewer *viewer,
 
   GLfloat mv[16];
 
-  float sceneRadius = viewer->sceneRadius();
-  glUniform1f(meshShaderParm[12], 2*sceneRadius);
+  glUniform1f(meshShaderParm[12], sceneRadius);
 
   Vec vd = viewer->camera()->viewDirection();
   glUniform3f(meshShaderParm[1], vd.x, vd.y, vd.z); // view direction
@@ -473,7 +482,7 @@ Trisets::draw(QGLViewer *viewer,
   shadowCamera = *(viewer->camera());  
   Vec vR = shadowCamera.rightVector();
   Vec vU = shadowCamera.upVector();
-  shadowCamera.setPosition(shadowCamera.position() + vd*sceneRadius*0.05);
+  shadowCamera.setPosition(shadowCamera.position() + vd*viewer->camera()->sceneRadius()*0.05);
   shadowCamera.getModelViewMatrix(mv);
   glUniformMatrix4fv(meshShaderParm[16], 1, GL_FALSE, mv);
 

@@ -27,7 +27,7 @@ class TrisetGrabber : public QObject, public MouseGrabber, public TrisetObject
   bool mousePressed();
 
   void setMouseGrab(bool);
-  float checkForMouseHover(int, int, const Camera* const);  
+  Vec checkForMouseHover(int, int, const Camera* const);  
   void checkIfGrabsMouse(int, int, const Camera* const);
 
   int moveAxis();

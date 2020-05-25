@@ -395,6 +395,7 @@ Viewer::showFullScene()
 	  smax = StaticFunctions::maxVec(smax, bmax);
 	}
       m_hiresVolume->overwriteDataMinMax(smin, smax);
+      m_hiresVolume->setBrickBounds(smin, smax);
     }
   
 

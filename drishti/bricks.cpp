@@ -253,6 +253,8 @@ Bricks::setBounds(Vec datamin, Vec datamax)
   m_dataMax = datamax;
   m_dataSize = m_dataMax - m_dataMin;
 
+  //QMessageBox::information(0, "", QString("%1 %2 %3").arg(datamin.x).arg(datamin.y).arg(datamin.z));
+  
   Vec voxelScaling = Global::voxelScaling();
 
   for(int i=0; i<m_brickBox.size(); i++)

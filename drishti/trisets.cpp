@@ -364,24 +364,24 @@ Trisets::postdraw(QGLViewer *viewer)
 }
 
 void
-Trisets::render(Camera *camera, int nclip)
+Trisets::render(Camera *camera, int nclip, bool transparent)
 {
-
+  
   for(int i=0; i<m_trisets.count();i++)
-    {
-      
+    {      
       Vec extras = Vec(0,0,0);
       if (m_trisets[i]->grabsMouse())
 	extras.x = 1;
-
+      
       extras.y = 1.0-m_trisets[i]->reveal();
+      
       
       glUseProgram(ShaderFactory::meshShader());
       GLint *meshShaderParm = ShaderFactory::meshShaderParm();        
-
+      
       glUniform3f(meshShaderParm[2], extras.x, extras.y, extras.z);
-
-  
+      
+      
       if (m_trisets[i]->clip())
 	{
 	  glUniform1iARB(meshShaderParm[9],  nclip);
@@ -396,7 +396,7 @@ Trisets::render(Camera *camera, int nclip)
       
       m_trisets[i]->draw(camera,
 			 m_trisets[i]->grabsMouse());
-        
+      
       glUseProgramObjectARB(0);
     }
 }
@@ -410,6 +410,37 @@ Trisets::draw(QGLViewer *viewer,
 {
   if (m_trisets.count() == 0)
     return;
+
+  //--------------------------
+  // find min and max limits
+  float maxDist = 0;
+  float minDist = 0;
+  Vec epos = viewer->camera()->position();
+  Vec vd = viewer->camera()->viewDirection();
+  for(int i=0; i<m_trisets.count();i++)
+    {
+      Vec bmin, bmax;
+      m_trisets[i]->enclosingBox(bmin, bmax);
+      float rad = (bmax-bmin).norm();
+      Vec minpos = m_trisets[i]->centroid() + m_trisets[i]->position() - vd*rad;
+      Vec maxpos = m_trisets[i]->centroid() + m_trisets[i]->position() + vd*rad;
+      float mindst = (minpos-epos)*vd;
+      float maxdst = (maxpos-epos)*vd;
+      if (i > 0)
+	{
+	  minDist = qMin(mindst, minDist);
+	  maxDist = qMax(maxdst, maxDist);
+	}
+      else
+	{
+	  minDist = mindst;
+	  maxDist = maxdst;
+	}
+    }
+  float trisetExtent = maxDist-minDist;
+  //--------------------------
+
+
   
   int nclip = cpos.count();
   if (nclip > 0)
@@ -435,8 +466,9 @@ Trisets::draw(QGLViewer *viewer,
     createFBO(wd, ht);
 
 
-  float sceneRadius = viewer->sceneRadius()/(2.0*Global::gamma());
+  float sceneRadius = trisetExtent;
 
+  
   if (!applyShadows)
     {
       glUseProgram(ShaderFactory::meshShader());
@@ -450,11 +482,10 @@ Trisets::draw(QGLViewer *viewer,
       
       glUniform1f(meshShaderParm[12], sceneRadius);
       
-      Vec vd = viewer->camera()->viewDirection();
       glUniform3f(meshShaderParm[1], vd.x, vd.y, vd.z); // view direction
 
 
-      render(viewer->camera(), nclip);
+      render(viewer->camera(), nclip, true);
       
       return;
     }
@@ -474,7 +505,6 @@ Trisets::draw(QGLViewer *viewer,
 
   glUniform1f(meshShaderParm[12], sceneRadius);
 
-  Vec vd = viewer->camera()->viewDirection();
   glUniform3f(meshShaderParm[1], vd.x, vd.y, vd.z); // view direction
 
 
@@ -513,7 +543,7 @@ Trisets::draw(QGLViewer *viewer,
     viewer->camera()->getModelViewMatrix(mv);
     glUniformMatrix4fv(meshShaderParm[4], 1, GL_FALSE, mv);
 
-    render(&shadowCamera, nclip);
+    render(&shadowCamera, nclip, false);
   }
   
 
@@ -543,7 +573,7 @@ Trisets::draw(QGLViewer *viewer,
     shadowCamera.getModelViewMatrix(mv);
     glUniformMatrix4fv(meshShaderParm[4], 1, GL_FALSE, mv);
 
-    render(viewer->camera(), nclip);
+    render(viewer->camera(), nclip, false);
   }
 
   // draw shadows

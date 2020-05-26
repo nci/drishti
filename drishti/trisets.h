@@ -108,7 +108,7 @@ class Trisets : public QObject
     
   void createFBO(int, int);
 
-  void render(Camera*, int);
+  void render(Camera*, int, bool);
 };
 
 

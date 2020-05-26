@@ -195,6 +195,8 @@ DicomPlugin::setFile(QStringList files)
       m_reader->SetFileNames( dcmFiles );
       m_reader->Update();
 
+
+
 //      //-----------------
 //      {
 //	QTextEdit *tedit = new QTextEdit();
@@ -217,6 +219,54 @@ DicomPlugin::setFile(QStringList files)
 //	    ++itr;
 //	  }
 //
+//	
+//	std::string tagkey;
+//	std::string labelId;
+//	std::string tagvalue;
+//	{
+//	  tagkey = "0028|0030"; // pixel spacing
+//	  if (itk::GDCMImageIO::GetLabelFromTag(tagkey, labelId))
+//	    {
+//	      if (dicomIO->GetValueFromTag(tagkey, tagvalue))
+//		{
+//		  tedit->insertPlainText(QString(labelId.c_str()) + " = " + QString(tagvalue.c_str()) + "\n");
+//		}
+//	      else
+//		{
+//		  tedit->insertPlainText("\n\Pixel Spacing not available\n\n");
+//		}
+//	    }
+//	  //}
+//	  //{
+//	  tagkey = "0018|0050"; // slice thickness
+//	  if (itk::GDCMImageIO::GetLabelFromTag(tagkey, labelId))
+//	    {
+//	      if (dicomIO->GetValueFromTag(tagkey, tagvalue))
+//		{
+//		  tedit->insertPlainText(QString(labelId.c_str()) + " = " + QString(tagvalue.c_str()) + "\n");
+//		}
+//	      else
+//		{
+//		  tedit->insertPlainText("\n\nSlice Thickness not available\n\n");
+//		}
+//	    }
+//	  //}	
+//	  //{
+//	  tagkey = "0020|0032"; // upper left corner
+//	  if (itk::GDCMImageIO::GetLabelFromTag(tagkey, labelId))
+//	    {
+//	      if (dicomIO->GetValueFromTag(tagkey, tagvalue))
+//		{
+//		  tedit->insertPlainText(QString(labelId.c_str()) + " = " + QString(tagvalue.c_str()) + "\n");
+//		}
+//	      else
+//		{
+//		  tedit->insertPlainText("\n\Upper Left Corner not available\n\n");
+//		}
+//	    }	
+//	}
+//	
+//	  
 //	QVBoxLayout *layout = new QVBoxLayout();
 //	layout->addWidget(tedit);
 //	
@@ -229,6 +279,9 @@ DicomPlugin::setFile(QStringList files)
 //      }
 //      //-----------------
 
+
+
+      
       m_dimg = m_reader->GetOutput();
       
       m_voxelType = _Short;

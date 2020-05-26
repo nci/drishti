@@ -1242,7 +1242,7 @@ VolumeFileManager::changeSliceOrdering()
       newfile.setFileName(newflnm+".001");
       newfile.open(QFile::WriteOnly);
 
-      int bps = m_width*m_height*m_bytesPerVoxel;
+      qint64 bps = m_width*m_height*m_bytesPerVoxel;
       if (!m_slice)
 	{
 	  int a = qMax(m_width, qMax(m_height, m_depth));
@@ -1292,7 +1292,7 @@ VolumeFileManager::changeSliceOrdering()
 	}
     }
 
-  int bps = m_width*m_height*m_bytesPerVoxel;
+  qint64 bps = m_width*m_height*m_bytesPerVoxel;
   if (!m_slice)
     {
       int a = qMax(m_width, qMax(m_height, m_depth));

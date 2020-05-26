@@ -897,10 +897,31 @@ ShaderFactory::getNormal()
   shader += "  float gmax = max(gval.x,max(gval.y,max(gval.z,gval.w)));\n";
   shader += "  float gmin = min(gval.x,min(gval.y,min(gval.z,gval.w)));\n";
   shader += "  return vec4(grad, gmax-gmin);\n";
-//  shader += "  vec3 grad = (k.xyy * getVal(voxelCoord+k.xyy)[0].x +\n";
-//  shader += "               k.yyx * getVal(voxelCoord+k.yyx)[0].x +\n";
-//  shader += "               k.yxy * getVal(voxelCoord+k.yxy)[0].x +\n";
-//  shader += "               k.xxx * getVal(voxelCoord+k.xxx)[0].x);\n";
+  
+  //shader += "  vec3 grad = vec3(0.0);\n";
+  //shader += "  vec4 gnval = vec4(0.0);\n";
+  //shader += "  vec2 k = vec2(1.0, -1.0);\n";
+  //shader += "  for(int gn=1; gn<5; gn++)\n";
+  //shader += "  {\n";
+  //shader += "    vec2 kgn = k*vec2(gn);\n";
+  //shader += "    vec4 gval = vec4(getVal(voxelCoord+kgn.xyy)[0].x,\n";
+  //shader += "                     getVal(voxelCoord+kgn.yyx)[0].x,\n";
+  //shader += "                     getVal(voxelCoord+kgn.yxy)[0].x,\n";
+  //shader += "                     getVal(voxelCoord+kgn.xxx)[0].x);\n";
+  //shader += "    grad += (k.xyy * gval.x +\n";
+  //shader += "             k.yyx * gval.y +\n";
+  //shader += "             k.yxy * gval.z +\n";
+  //shader += "             k.xxx * gval.w);\n";
+  //shader += "    gnval += gval;\n";
+  //shader += "  }\n";
+  //shader += "  vec4 gval = gnval/vec4(4.0);\n";
+  //shader += "  float gmax = max(gval.x,max(gval.y,max(gval.z,gval.w)));\n";
+  //shader += "  float gmin = min(gval.x,min(gval.y,min(gval.z,gval.w)));\n";
+  //shader += "  return vec4(normalize(grad), gmax-gmin);\n";
+  //shader += "  vec3 grad = (k.xyy * getVal(voxelCoord+k.xyy)[0].x +\n";
+  //shader += "               k.yyx * getVal(voxelCoord+k.yyx)[0].x +\n";
+  //shader += "               k.yxy * getVal(voxelCoord+k.yxy)[0].x +\n";
+  //shader += "               k.xxx * getVal(voxelCoord+k.xxx)[0].x);\n";
   //shader += "  grad = grad/2.0;\n";  // should be actually divided by 4
   //shader += "  grad = grad/4.0;\n";  // should be actually divided by 4
   shader += "}\n";
@@ -1493,7 +1514,7 @@ ShaderFactory::meshShaderF()
   shader += "  if (hasUV)\n";
   shader += "     outputColor = texture(diffuseTex, vec2(v3Color.x, 1-v3Color.y));\n";
   shader += "  else\n";
-  shader += "     outputColor = vec4(v3Color, 1);\n";
+  shader += "     outputColor = vec4(v3Color, 1.0);\n";
 
   shader += "float cfeather = 1.0;\n";
   shader += "if (nclip > 0)\n";
@@ -1646,7 +1667,7 @@ ShaderFactory::meshShadowShaderF()
   shader += "    float cx[8] = float[](-1.0, 0.0, 1.0, 0.0, -1.0,-1.0, 1.0, 1.0);\n";
   shader += "    float cy[8] = float[]( 0.0,-1.0, 0.0, 1.0, -1.0, 1.0,-1.0, 1.0);\n";
   shader += "    float response = 0.0;\n";
-  shader += "    int nsteps  = int(3+(edges*10));\n";  
+  shader += "    int nsteps  = int(3+(edges*10*gamma));\n";  
   shader += "    for(int i=0; i<nsteps; i++)\n";
   shader += "      {\n";
   shader += "        float r = 1.0 + float(i)/8.0;\n";
@@ -1655,19 +1676,23 @@ ShaderFactory::meshShadowShaderF()
   shader += "        response += max(0.0, od);\n";
   shader += "      } \n";
   shader += "    response /= nsteps;\n";
-  shader += "    ecolor.rgb *= exp(-response*nsteps*100);\n";
+  shader += "    ecolor.rgb *= exp(-response*nsteps*100*gamma);\n";
   shader += "  }\n";
 
   shader += "  color.rgb = mix(color.rgb, ecolor, step(softshadow, 0.01));\n";
 
   shader += "  if (softshadow > 0.0)\n";
   shader += "  {\n";
+  shader += "    vec3 clrRU = vec3(0.0);\n";
+  shader += "    vec3 clrRL = vec3(0.0);\n";
+  shader += "    float sumRU = 0.0;\n";
+  shader += "    float sumRL = 0.0;\n";
   shader += "    float sumS = 0.0;\n";
   shader += "    float sumG = 0.0;\n";
   shader += "    float nRidge = 0.0;\n";
   shader += "    float nValley = 0.0;\n";
-  shader += "    int nsteps = int(30.0*softshadow);\n";
-  shader += "    int nstepsS = int(nsteps*0.5);\n";
+  shader += "    int nsteps = int(30.0*softshadow*gamma);\n";
+  shader += "    int nstepsS = int(nsteps*0.75);\n";
   shader += "    for(int i=0; i<nstepsS; i++)\n";
   shader += "      {\n";
   shader += "    	 float r = 1.0+i*0.15;\n";
@@ -1682,31 +1707,14 @@ ShaderFactory::meshShadowShaderF()
   shader += "    	 nValley += step(adepth, depth-0.01);\n";
 
   shader += "    	 sumG += step(r*0.005, abs(depth-adepth));\n";
+
+  shader += "    	 float sr = step(r*0.001, (adepth-depth));\n";
+  shader += "    	 vec3 clrR = texture2DRect(colorTex, pos).rgb;\n";
+  shader += "    	 sumRU += sr;\n";
+  shader += "    	 clrRU += sr*clrR;\n";
+  shader += "    	 sumRL += (1-sr);\n";
+  shader += "    	 clrRL += (1-sr)*clrR;\n";
   shader += "      } \n";
-
-  // add shadow
-  shader += "    sumS /= float(nstepsS);\n";
-  shader += "    float shadow = 1.0-clamp(sumS,0.0,1.0);\n";
-  shader += "    color.rgb *= shadow;\n";
-
-  // add valley
-  shader += "    vec3 colorV = rgb2hsv(color.rgb);\n";
-  shader += "    colorV *= vec3(1, 2, 0.3);\n";
-  shader += "    colorV.x += 0.02;\n";
-  shader += "    colorV.x = mix(colorV.x, 1.0-colorV.x, step(1.0, colorV.x));\n";
-  shader += "    colorV = clamp(colorV, vec3(0.0), vec3(1.0));\n";
-  shader += "    colorV = hsv2rgb(colorV);\n";
-  shader += "    colorV = pow(colorV, vec3(1.0/gamma));\n";
-  shader += "    float valley = pow(nValley/float(nstepsS), 1.0/(gamma*gamma));\n";
-  shader += "    color.rgb = mix(color.rgb, colorV, valley);\n";
-
-  // add edge
-  shader += "    color.rgb = mix(color.rgb, ecolor, 0.3);\n";
-  
-  // add ridge
-  shader += "    float ridge = nRidge/float(nstepsS);\n";
-  shader += "    ridge = smoothstep(0.0, 1.0, pow(ridge,2.0));\n";
-  shader += "    color.rgb = mix(color.rgb, vec3(1.0), ridge*0.5);\n";
   
   shader += "    for(int i=nstepsS; i<nsteps; i++)\n";
   shader += "      {\n";
@@ -1719,12 +1727,51 @@ ShaderFactory::meshShadowShaderF()
   shader += "    	 float adepth = texture2DRect(depthTex, pos).x;\n";
 
   shader += "    	 sumG += step(r*0.01, abs(depth-adepth));\n";
+
+  shader += "    	 float sr = step(r*0.001, (adepth-depth));\n";
+  shader += "    	 vec3 clrR = texture2DRect(colorTex, pos).rgb;\n";
+  shader += "    	 sumRU += sr;\n";
+  shader += "    	 clrRU += sr*clrR;\n";
+  shader += "    	 sumRL += (1-sr);\n";
+  shader += "    	 clrRL += (1-sr)*clrR;\n";
   shader += "      } \n";
+
+  // add shadow
+  shader += "    sumS /= float(nstepsS);\n";
+  shader += "    float shadow = 1.0-clamp(sumS,0.0,1.0);\n";
+  shader += "    color.rgb *= shadow/sqrt(gamma);\n";
+
+  // add lower gross reflection
+  shader += "    clrRL /= vec3(max(1.0,sumRL));\n";
+  shader += "    color.rgb = mix(color.rgb, clrRL, pow(sumRL/float(nsteps), gamma));\n";
 
   // add glow
   shader += "    float glow = pow(sumG/float(nsteps), gamma);\n";
   shader += "    glow = smoothstep(glow,0.0,1.0);\n";
   shader += "    color.rgb = mix(color.rgb, color.rgb*2.0, glow);\n";
+
+  // add ridge
+  shader += "    float ridge = nRidge/float(nstepsS);\n";
+  shader += "    ridge = smoothstep(0.0, 1.0, pow(ridge,2.0));\n";
+  shader += "    color.rgb = mix(color.rgb, vec3(1.0), ridge*0.5);\n";
+  
+  // add valley
+  shader += "    vec3 colorV = rgb2hsv(color.rgb);\n";
+  shader += "    colorV *= vec3(1, 2, 0.3);\n";
+  shader += "    colorV.x += 0.1;\n";
+  shader += "    colorV.x = mix(colorV.x, 1.0-colorV.x, step(1.0, colorV.x));\n";
+  shader += "    colorV = clamp(colorV, vec3(0.0), vec3(1.0));\n";
+  shader += "    colorV = hsv2rgb(colorV);\n";
+  shader += "    colorV = pow(colorV, vec3(1.0/gamma));\n";
+  shader += "    float valley = pow(nValley/float(nstepsS), gamma);\n";
+  shader += "    color.rgb = mix(color.rgb, colorV, valley);\n";
+
+  // add edge
+  shader += "    color.rgb = mix(color.rgb, ecolor, 0.3);\n";
+
+  // add upper gross reflection
+  shader += "    clrRU /= vec3(max(1.0,sumRU));\n";
+  shader += "    color.rgb = mix(color.rgb, clrRU, pow(sumRU/float(nsteps), gamma));\n";
 
   shader += "  }\n";
 
@@ -1732,14 +1779,17 @@ ShaderFactory::meshShadowShaderF()
   shader += "  {\n";
   shader += "    float dx = 0.0;\n";
   shader += "    float dy = 0.0;\n";
-  shader += "    for(int i=0; i<7; i++)\n";
+  shader += "    for(int i=0; i<10*gamma; i++)\n";
   shader += "      {\n";
-  shader += "        dx += texture2DRect(depthTex, spos.xy+vec2(1+i,0)).x-texture2DRect(depthTex, spos.xy-vec2(1+i,0)).x;\n";
-  shader += "        dy += texture2DRect(depthTex, spos.xy+vec2(0,1+i)).x-texture2DRect(depthTex, spos.xy-vec2(0,1+i)).x;\n";
+  shader += "        float offset = 1-(1+i)%3;\n";
+  shader += "        dx += texture2DRect(depthTex, spos.xy+vec2(1+i,offset)).x -\n";
+  shader += "              texture2DRect(depthTex, spos.xy-vec2(1+i,offset)).x;\n";
+  shader += "        dy += texture2DRect(depthTex, spos.xy+vec2(offset,1+i)).x -\n";
+  shader += "              texture2DRect(depthTex, spos.xy-vec2(offset,1+i)).x;\n";
   shader += "      }\n";
   shader += "    vec3 N = normalize(vec3(dx*50, dy*50, 1.0+roughness));\n";
-  shader += "    vec3 spec = shadingSpecularGGX(N, vec3(0,0,1),  vec3(0,0,1), roughness, color.rgb);\n";
-  shader += "    color.rgb += specular*spec;\n";
+  shader += "    vec3 spec = shadingSpecularGGX(N, vec3(0,0,1),  vec3(0,0,1), roughness*0.2, color.rgb);\n";
+  shader += "    color.rgb += 0.5*specular*spec;\n";
   shader += "  }\n";
   
   

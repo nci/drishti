@@ -654,7 +654,7 @@ DrishtiImport::convertDirectories(QStringList flnms, int pluginidx)
       progress.setValue(100);
       qApp->processEvents();
 
-      QMessageBox::information(0, "", "Converted all to raw");
+      //QMessageBox::information(0, "", "Converted all to raw");
     }
 }
 

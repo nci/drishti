@@ -1667,16 +1667,14 @@ ShaderFactory::meshShadowShaderF()
   shader += "    float cx[8] = float[](-1.0, 0.0, 1.0, 0.0, -1.0,-1.0, 1.0, 1.0);\n";
   shader += "    float cy[8] = float[]( 0.0,-1.0, 0.0, 1.0, -1.0, 1.0,-1.0, 1.0);\n";
   shader += "    float response = 0.0;\n";
-  shader += "    int nsteps  = int(3+(edges*10*gamma));\n";  
-  shader += "    for(int i=0; i<nsteps; i++)\n";
+  shader += "    for(int i=0; i<8; i++)\n";
   shader += "      {\n";
-  shader += "        float r = 1.0 + float(i)/8.0;\n";
-  shader += "        vec2 pos = spos + vec2(r*cx[int(mod(i,8))],r*cy[int(mod(i,8))]);\n";
-  shader += "        float od = depth - texture2DRect(depthTex, pos).x;\n";
+  shader += "        vec2 pos = spos + vec2(cx[i],cy[i]);\n";  
+  shader += "        float adepth = texture2DRect(depthTex, pos).x;\n";
+  shader += "        float od = depth - adepth;\n";
   shader += "        response += max(0.0, od);\n";
   shader += "      } \n";
-  shader += "    response /= nsteps;\n";
-  shader += "    ecolor.rgb *= exp(-response*nsteps*100*gamma);\n";
+  shader += "    ecolor.rgb *= exp(-response*pow(10*(edges+0.05), 2*gamma));\n";
   shader += "  }\n";
 
   shader += "  color.rgb = mix(color.rgb, ecolor, step(softshadow, 0.01));\n";
@@ -1691,7 +1689,7 @@ ShaderFactory::meshShadowShaderF()
   shader += "    float sumG = 0.0;\n";
   shader += "    float nRidge = 0.0;\n";
   shader += "    float nValley = 0.0;\n";
-  shader += "    int nsteps = int(30.0*softshadow*gamma);\n";
+  shader += "    int nsteps = int(30.0*softshadow);\n";
   shader += "    int nstepsS = int(nsteps*0.75);\n";
   shader += "    for(int i=0; i<nstepsS; i++)\n";
   shader += "      {\n";
@@ -1703,8 +1701,8 @@ ShaderFactory::meshShadowShaderF()
   shader += "    	 float adepth = texture2DRect(depthTex, pos).x;\n";
 
   shader += "    	 sumS += step(r*0.001, (depth-sdepth));\n";
-  shader += "    	 nRidge += step(depth, adepth);\n";
-  shader += "    	 nValley += step(adepth, depth-0.01);\n";
+  shader += "    	 nRidge += step(depth, adepth-0.01);\n";
+  shader += "    	 nValley += max(0.0,adepth-depth);\n";
 
   shader += "    	 sumG += step(r*0.005, abs(depth-adepth));\n";
 
@@ -1718,9 +1716,9 @@ ShaderFactory::meshShadowShaderF()
   
   shader += "    for(int i=nstepsS; i<nsteps; i++)\n";
   shader += "      {\n";
-  shader += "    	 float r = i*0.2;\n";
-  shader += "            float x = r*sin(radians(i*37));\n";
-  shader += "            float y = r*cos(radians(i*37));\n";
+  shader += "    	 float r = i*0.17;\n";
+  shader += "            float x = r*sin(radians(i*27));\n";
+  shader += "            float y = r*cos(radians(i*27));\n";
   shader += "    	 vec2 pos = spos + vec2(x,y);\n";
   
   shader += "    	 float sdepth = texture2DRect(depthTexS, pos).x;\n";
@@ -1735,15 +1733,18 @@ ShaderFactory::meshShadowShaderF()
   shader += "    	 sumRL += (1-sr);\n";
   shader += "    	 clrRL += (1-sr)*clrR;\n";
   shader += "      } \n";
-
-  // add shadow
-  shader += "    sumS /= float(nstepsS);\n";
-  shader += "    float shadow = 1.0-clamp(sumS,0.0,1.0);\n";
-  shader += "    color.rgb *= shadow/sqrt(gamma);\n";
-
-  // add lower gross reflection
-  shader += "    clrRL /= vec3(max(1.0,sumRL));\n";
-  shader += "    color.rgb = mix(color.rgb, clrRL, pow(sumRL/float(nsteps), gamma));\n";
+  
+  // add valley
+  shader += "    vec3 colorV = rgb2hsv(color.rgb);\n";
+  shader += "    colorV *= vec3(1, 2, 0.5);\n";
+  shader += "    colorV.x += 0.05;\n";
+  shader += "    colorV.x = mix(colorV.x, 1.0-colorV.x, step(1.0, colorV.x));\n";
+  shader += "    colorV = clamp(colorV, vec3(0.0), vec3(1.0));\n";
+  shader += "    colorV = hsv2rgb(colorV);\n";
+  shader += "    colorV = pow(colorV, vec3(1.0/gamma));\n";
+  shader += "    float valley = exp(-5*nValley/gamma);\n";
+  shader += "    valley = 1.0-smoothstep(valley, 0.0, 1.0);\n";
+  shader += "    color.rgb = mix(color.rgb, colorV, valley);\n";
 
   // add glow
   shader += "    float glow = pow(sumG/float(nsteps), gamma);\n";
@@ -1752,26 +1753,29 @@ ShaderFactory::meshShadowShaderF()
 
   // add ridge
   shader += "    float ridge = nRidge/float(nstepsS);\n";
-  shader += "    ridge = smoothstep(0.0, 1.0, pow(ridge,2.0));\n";
-  shader += "    color.rgb = mix(color.rgb, vec3(1.0), ridge*0.5);\n";
-  
-  // add valley
-  shader += "    vec3 colorV = rgb2hsv(color.rgb);\n";
-  shader += "    colorV *= vec3(1, 2, 0.3);\n";
-  shader += "    colorV.x += 0.1;\n";
-  shader += "    colorV.x = mix(colorV.x, 1.0-colorV.x, step(1.0, colorV.x));\n";
-  shader += "    colorV = clamp(colorV, vec3(0.0), vec3(1.0));\n";
-  shader += "    colorV = hsv2rgb(colorV);\n";
-  shader += "    colorV = pow(colorV, vec3(1.0/gamma));\n";
-  shader += "    float valley = pow(nValley/float(nstepsS), gamma);\n";
-  shader += "    color.rgb = mix(color.rgb, colorV, valley);\n";
+  shader += "    ridge = smoothstep(0.0, 1.0, pow(ridge,gamma));\n";
+  shader += "    color.rgb = mix(color.rgb, vec3(1.0), ridge);\n";
 
-  // add edge
-  shader += "    color.rgb = mix(color.rgb, ecolor, 0.3);\n";
+  // add lower gross reflection
+  shader += "    clrRL /= vec3(max(1.0,sumRL));\n";
+  shader += "    float lgr = pow(sumRL/float(2*nsteps), 2*gamma);\n";
+  shader += "    lgr = smoothstep(lgr, 0.0, 1.0);\n";
+  shader += "    color.rgb = mix(color.rgb, clrRL, lgr);\n";
 
   // add upper gross reflection
   shader += "    clrRU /= vec3(max(1.0,sumRU));\n";
-  shader += "    color.rgb = mix(color.rgb, clrRU, pow(sumRU/float(nsteps), gamma));\n";
+  shader += "    float ugr = pow(sumRU/float(nsteps), 2*gamma);\n";
+  shader += "    ugr = smoothstep(ugr, 0.0, 1.0);\n";
+  shader += "    color.rgb = mix(color.rgb, clrRU, ugr);\n";
+
+  // add edge
+  shader += "    color.rgb = mix(color.rgb, ecolor, 0.5);\n";
+  
+  // add shadow
+  shader += "    sumS /= float(nstepsS);\n";
+  shader += "    float shadow = clamp(sumS,0.0,1.0);\n";
+  shader += "    color.rgb *= max(0.3, exp(-shadow/gamma));\n";
+
 
   shader += "  }\n";
 

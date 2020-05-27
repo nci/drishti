@@ -41,6 +41,7 @@ class TrisetInformation
   float diffuse;
   float specular;
   float reveal;
+  float glow;
 };
 
 #endif

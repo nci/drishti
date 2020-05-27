@@ -51,6 +51,9 @@ class TrisetObject
   float reveal() { return m_reveal; }
   void setReveal(float r) { m_reveal = r; }
   
+  float glow() { return m_glow; }
+  void setGlow(float r) { m_glow = r; }
+  
   Quaternion rotation() { return m_q; }
   void rotate(Vec, float);
   void rotate(Quaternion);
@@ -97,6 +100,7 @@ private :
   Vec m_position;
   Vec m_scale;
   float m_reveal;
+  float m_glow;
   Quaternion m_q;
   float m_roughness;
   float m_specular;

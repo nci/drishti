@@ -364,7 +364,7 @@ Trisets::postdraw(QGLViewer *viewer)
 }
 
 void
-Trisets::render(Camera *camera, int nclip, bool transparent)
+Trisets::render(Camera *camera, int nclip)
 {
   
   for(int i=0; i<m_trisets.count();i++)
@@ -375,6 +375,7 @@ Trisets::render(Camera *camera, int nclip, bool transparent)
       
       extras.y = 1.0-m_trisets[i]->reveal();
       
+      extras.z = m_trisets[i]->glow();
       
       glUseProgram(ShaderFactory::meshShader());
       GLint *meshShaderParm = ShaderFactory::meshShaderParm();        
@@ -485,7 +486,7 @@ Trisets::draw(QGLViewer *viewer,
       glUniform3f(meshShaderParm[1], vd.x, vd.y, vd.z); // view direction
 
 
-      render(viewer->camera(), nclip, true);
+      render(viewer->camera(), nclip);
       
       return;
     }
@@ -512,7 +513,7 @@ Trisets::draw(QGLViewer *viewer,
   shadowCamera = *(viewer->camera());  
   Vec vR = shadowCamera.rightVector();
   Vec vU = shadowCamera.upVector();
-  shadowCamera.setPosition(shadowCamera.position() + vd*viewer->camera()->sceneRadius()*0.05);
+  shadowCamera.setPosition(shadowCamera.position() + vd*viewer->camera()->sceneRadius()*0.1);
   shadowCamera.getModelViewMatrix(mv);
   glUniformMatrix4fv(meshShaderParm[16], 1, GL_FALSE, mv);
 
@@ -543,7 +544,7 @@ Trisets::draw(QGLViewer *viewer,
     viewer->camera()->getModelViewMatrix(mv);
     glUniformMatrix4fv(meshShaderParm[4], 1, GL_FALSE, mv);
 
-    render(&shadowCamera, nclip, false);
+    render(&shadowCamera, nclip);
   }
   
 
@@ -573,7 +574,7 @@ Trisets::draw(QGLViewer *viewer,
     shadowCamera.getModelViewMatrix(mv);
     glUniformMatrix4fv(meshShaderParm[4], 1, GL_FALSE, mv);
 
-    render(viewer->camera(), nclip, false);
+    render(viewer->camera(), nclip);
   }
 
   // draw shadows
@@ -724,6 +725,15 @@ Trisets::keyPressEvent(QKeyEvent *event)
 	      plist["reveal"] = vlist;
 
 	      vlist.clear();
+	      vlist << QVariant("double");
+	      vlist << QVariant(m_trisets[i]->glow());
+	      vlist << QVariant(0.0);
+	      vlist << QVariant(2.0);
+	      vlist << QVariant(0.1); // singlestep
+	      vlist << QVariant(1); // decimals
+	      plist["glow"] = vlist;
+
+	      vlist.clear();
 	      vlist << QVariant("color");
 	      Vec pcolor = m_trisets[i]->color();
 	      QColor dcolor = QColor::fromRgbF(pcolor.x,
@@ -808,6 +818,7 @@ Trisets::keyPressEvent(QKeyEvent *event)
 	      //keys << "gap";
 	      keys << "color";
 	      keys << "reveal";
+	      keys << "glow";
 	      //keys << "gap";
 	      //keys << "crop border color";
 	      keys << "commandhelp";
@@ -865,6 +876,12 @@ Trisets::keyPressEvent(QKeyEvent *event)
 			  float r = 0.0;
 			  r = pair.first.toString().toDouble();
 			  m_trisets[i]->setReveal(r);
+			}
+		      else if (keys[ik] == "glow")
+			{
+			  float r = 0.0;
+			  r = pair.first.toString().toDouble();
+			  m_trisets[i]->setGlow(r);
 			}
 		    }
 		}

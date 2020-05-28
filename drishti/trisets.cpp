@@ -366,6 +366,15 @@ Trisets::postdraw(QGLViewer *viewer)
 void
 Trisets::render(Camera *camera, int nclip)
 {
+  bool glowOn = false;
+  for(int i=0; i<m_trisets.count();i++)
+    {      
+      if (m_trisets[i]->glow() > 0.01)
+	{
+	  glowOn = true;
+	  break;
+	}
+    }
   
   for(int i=0; i<m_trisets.count();i++)
     {      
@@ -376,11 +385,15 @@ Trisets::render(Camera *camera, int nclip)
       extras.y = 1.0-m_trisets[i]->reveal();
       
       extras.z = m_trisets[i]->glow();
+
+      float darken = 1;
+      if (glowOn && m_trisets[i]->glow() < 0.01)
+	darken = 1.0-0.7*m_trisets[i]->dark();
       
       glUseProgram(ShaderFactory::meshShader());
       GLint *meshShaderParm = ShaderFactory::meshShaderParm();        
       
-      glUniform3f(meshShaderParm[2], extras.x, extras.y, extras.z);
+      glUniform4f(meshShaderParm[2], extras.x, extras.y, extras.z, darken);
       
       
       if (m_trisets[i]->clip())
@@ -728,10 +741,19 @@ Trisets::keyPressEvent(QKeyEvent *event)
 	      vlist << QVariant("double");
 	      vlist << QVariant(m_trisets[i]->glow());
 	      vlist << QVariant(0.0);
-	      vlist << QVariant(2.0);
+	      vlist << QVariant(5.0);
 	      vlist << QVariant(0.1); // singlestep
 	      vlist << QVariant(1); // decimals
 	      plist["glow"] = vlist;
+
+	      vlist.clear();
+	      vlist << QVariant("double");
+	      vlist << QVariant(m_trisets[i]->dark());
+	      vlist << QVariant(0.0);
+	      vlist << QVariant(1.0);
+	      vlist << QVariant(0.1); // singlestep
+	      vlist << QVariant(1); // decimals
+	      plist["darken on glow"] = vlist;
 
 	      vlist.clear();
 	      vlist << QVariant("color");
@@ -819,7 +841,7 @@ Trisets::keyPressEvent(QKeyEvent *event)
 	      keys << "color";
 	      keys << "reveal";
 	      keys << "glow";
-	      //keys << "gap";
+	      keys << "darken on glow";
 	      //keys << "crop border color";
 	      keys << "commandhelp";
 	      keys << "command";
@@ -847,7 +869,9 @@ Trisets::keyPressEvent(QKeyEvent *event)
 			{
 			  QString vstr = pair.first.toString();
 			  QStringList pos = vstr.split(" ");
-			  if (pos.count() == 3)
+			  if (pos.count() == 1)
+			    m_trisets[i]->setPosition(Vec(0, 0, 0));
+			  else if (pos.count() == 3)
 			    m_trisets[i]->setPosition(Vec(pos[0].toDouble(),
 							  pos[1].toDouble(),
 							  pos[2].toDouble()));
@@ -882,6 +906,12 @@ Trisets::keyPressEvent(QKeyEvent *event)
 			  float r = 0.0;
 			  r = pair.first.toString().toDouble();
 			  m_trisets[i]->setGlow(r);
+			}
+		      else if (keys[ik] == "darken on glow")
+			{
+			  float r = 0.0;
+			  r = pair.first.toString().toDouble();
+			  m_trisets[i]->setDark(r);
 			}
 		    }
 		}
@@ -973,6 +1003,32 @@ Trisets::processCommand(int idx, QString cmd)
       
       m_trisets[idx]->rotate(rot);
 
+      return;
+    }
+  
+  if (list[0] == "darkenall")
+    {
+      float dark = 0.5;
+      if (list.count() > 1)
+	dark = qBound(0.0f, list[1].toFloat(&ok), 1.0f);
+      
+      for (int i=0; i<m_trisets.count(); i++)
+	{
+	  m_trisets[i]->setDark(dark);
+	}
+      return;
+    }
+  
+  if (list[0] == "glowall")
+    {
+      float glow = 0.0;
+      if (list.count() > 1)
+	glow = qBound(0.0f, list[1].toFloat(&ok), 5.0f);
+      
+      for (int i=0; i<m_trisets.count(); i++)
+	{
+	  m_trisets[i]->setGlow(glow);
+	}
       return;
     }
   

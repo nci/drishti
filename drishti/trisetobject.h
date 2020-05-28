@@ -54,6 +54,9 @@ class TrisetObject
   float glow() { return m_glow; }
   void setGlow(float r) { m_glow = r; }
   
+  float dark() { return m_dark; }
+  void setDark(float r) { m_dark = r; }
+  
   Quaternion rotation() { return m_q; }
   void rotate(Vec, float);
   void rotate(Quaternion);
@@ -101,6 +104,7 @@ private :
   Vec m_scale;
   float m_reveal;
   float m_glow;
+  float m_dark;
   Quaternion m_q;
   float m_roughness;
   float m_specular;

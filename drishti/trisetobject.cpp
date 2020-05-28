@@ -119,6 +119,7 @@ TrisetObject::clear()
   m_scale = Vec(1,1,1);
   m_reveal = 0.0;
   m_glow = 0.0;
+  m_dark = 0.5;
   m_q = Quaternion();
   m_nX = m_nY = m_nZ = 0;
   m_color = Vec(1,1,1);
@@ -694,6 +695,7 @@ TrisetObject::loadPLY(QString flnm)
   m_scale = Vec(1,1,1);
   m_reveal = 0.0;
   m_glow = 0.0;
+  m_dark = 0.5;
   m_q = Quaternion();
 
   typedef struct Vertex {
@@ -1066,6 +1068,7 @@ TrisetObject::loadTriset(QString flnm)
   m_scale = Vec(1,1,1);
   m_reveal = 0.0;
   m_glow = 0.0;
+  m_dark = 0.5;
   m_q = Quaternion();
 
   m_enclosingBox[0] = Vec(bmin.x, bmin.y, bmin.z);
@@ -1144,6 +1147,13 @@ TrisetObject::domElement(QDomDocument &doc)
   {
     QDomElement de0 = doc.createElement("glow");
     QDomText tn0 = doc.createTextNode(QString("%1").arg(m_glow));
+    de0.appendChild(tn0);
+    de.appendChild(de0);
+  }
+  
+  {
+    QDomElement de0 = doc.createElement("dark");
+    QDomText tn0 = doc.createTextNode(QString("%1").arg(m_dark));
     de0.appendChild(tn0);
     de.appendChild(de0);
   }
@@ -1259,6 +1269,8 @@ TrisetObject::fromDomElement(QDomElement de)
 	m_reveal = str.toFloat();
       else if (dnode.tagName() == "glow")
 	m_glow = str.toFloat();
+      else if (dnode.tagName() == "dark")
+	m_dark = str.toFloat();
       else if (dnode.tagName() == "color")
 	{
 	  QStringList xyz = str.split(" ");
@@ -1320,6 +1332,7 @@ TrisetObject::get()
   ti.specular = m_specular;
   ti.reveal = m_reveal;
   ti.glow = m_glow;
+  ti.dark = m_dark;
   
   return ti;
 }
@@ -1353,7 +1366,7 @@ TrisetObject::set(TrisetInformation ti)
   m_specular = ti.specular;
   m_reveal = ti.reveal;
   m_glow = ti.glow;
-
+  m_dark = ti.dark;
 
   if (reloadColor)
     setColor(m_color);

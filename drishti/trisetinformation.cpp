@@ -22,6 +22,7 @@ TrisetInformation::clear()
   specular = 1;
   reveal = 0.0;
   glow = 0.0;
+  dark = 0.5;
 }
 
 TrisetInformation&
@@ -41,6 +42,7 @@ TrisetInformation::operator=(const TrisetInformation& ti)
   specular = ti.specular;
   reveal = ti.reveal;
   glow = ti.glow;
+  dark = ti.dark;
   
   return *this;
 }
@@ -65,6 +67,7 @@ TrisetInformation::interpolate(const TrisetInformation tinfo1,
   tinfo.specular = (1-frc)*tinfo1.specular + frc*tinfo2.specular;
   tinfo.reveal = (1-frc)*tinfo1.reveal + frc*tinfo2.reveal;
   tinfo.glow = (1-frc)*tinfo1.glow + frc*tinfo2.glow;
+  tinfo.dark = (1-frc)*tinfo1.dark + frc*tinfo2.dark;
 
   return tinfo;
 }
@@ -222,6 +225,11 @@ TrisetInformation::save(fstream &fout)
   fout.write((char*)&glow, sizeof(float));
 
   memset(keyword, 0, 100);
+  sprintf(keyword, "dark");
+  fout.write((char*)keyword, strlen(keyword)+1);
+  fout.write((char*)&dark, sizeof(float));
+
+  memset(keyword, 0, 100);
   sprintf(keyword, "end");
   fout.write((char*)keyword, strlen(keyword)+1);
 }
@@ -286,6 +294,8 @@ TrisetInformation::load(fstream &fin)
 	fin.read((char*)&reveal, sizeof(float));
       else if (strcmp(keyword, "glow") == 0)
 	fin.read((char*)&glow, sizeof(float));
+      else if (strcmp(keyword, "dark") == 0)
+	fin.read((char*)&dark, sizeof(float));
       else if (strcmp(keyword, "show") == 0)
 	fin.read((char*)&show, sizeof(bool));
       else if (strcmp(keyword, "clip") == 0)

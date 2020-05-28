@@ -5,6 +5,7 @@
 
 #include "trisetinformation.h"
 #include <QVector4D>
+#include "captionobject.h"
 
 class TrisetObject
 {
@@ -34,7 +35,6 @@ class TrisetObject
 
   Vec color() { return m_color; }
   void setColor(Vec);
-  //void setColor(Vec color) { m_color = color; }
 
   Vec cropBorderColor() { return m_cropcolor; }
   void setCropBorderColor(Vec color) { m_cropcolor = color; }
@@ -56,6 +56,15 @@ class TrisetObject
   
   float dark() { return m_dark; }
   void setDark(float r) { m_dark = r; }
+
+  void setCaptionPosition(Vec);
+  void setCaptionOffset(int dx, int dy) { m_cpDx = dx; m_cpDy = dy; }
+  QFont captionFont() { return m_captionFont; }
+  void setCaptionFont(QFont);
+  QColor captionColor() { return m_captionColor; }
+  void setCaptionColor(QColor);
+  QString captionText() { return m_captionText; }
+  void setCaptionText(QString);
   
   Quaternion rotation() { return m_q; }
   void rotate(Vec, float);
@@ -129,6 +138,13 @@ private :
   uint *m_scrV;
   float *m_scrD;
 
+  QString m_captionText;
+  Vec m_captionPosition;
+  int m_cpDx, m_cpDy;
+  QFont m_captionFont;
+  QColor m_captionColor;
+  CaptionObject *m_co;
+  
   GLuint m_glVertBuffer;
   GLuint m_glIndexBuffer;
   GLuint m_glVertArray;
@@ -141,6 +157,8 @@ private :
   bool loadTriset(QString);
   bool loadPLY(QString);
   bool loadAssimpModel(QString);
+
+  void drawCaption(QGLViewer*);
 };
 
 #endif

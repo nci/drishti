@@ -55,6 +55,33 @@ First mesh get tag color 1, and so on.
 #end
 
 #begin
+glowall
+glowall <val>
+
+Set glow values for all meshes.  Values are in range 0 (no glow) to 5 (waaaaaay overblown for lighter colors).
+
+#end
+
+#begin
+darkenall
+darkenall <val>
+
+Set darken on glow values for all meshes.  0 means no darkening, 1 is very dark.
+#end
+
+#begin
+caption
+caption
+caption <dx> <dy>
+
+Attach caption to the surface mesh.
+Caption dialog will pop up where text, color and font for caption can be specified.
+If a hitpoint is available, line is drawn from that point to the caption text.
+<dx> and <dy> if specified are used to offset the caption text.  <dx. and <dy> are in pixel coordinates, default values are 0 and -100 (i.e. show text 100 pixels above).
+
+#end
+
+#begin
 resetposition
 resetposition
 

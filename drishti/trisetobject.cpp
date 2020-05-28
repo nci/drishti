@@ -6,6 +6,7 @@
 #include "ply.h"
 #include "matrix.h"
 #include "volumeinformation.h"
+#include "captiondialog.h"
 
 #include "assimp/Importer.hpp"
 #include "assimp/scene.h"
@@ -63,6 +64,8 @@ TrisetObject::TrisetObject()
 
   m_material.clear();
 
+  m_co = 0;
+  
   clear();
 }
 
@@ -160,6 +163,9 @@ TrisetObject::clear()
   
   m_featherSize = 1;
 
+  if (m_co) delete m_co;
+  m_co = 0;
+  
   Matrix::identity(m_localXform);
 }
 
@@ -485,19 +491,122 @@ TrisetObject::drawTrisetBuffer(Camera *camera,
   glUseProgram(0);
 }
 
+void TrisetObject::setCaptionText(QString t)
+{
+  m_captionText = t;
+  m_co->setText(t);
+}
+
+void
+TrisetObject::setCaptionPosition(Vec v)
+{
+  m_captionPosition = v - m_centroid - m_position;
+}
+void
+TrisetObject::setCaptionColor(QColor c)
+{
+  m_captionColor = c;
+  m_co->setColor(c);
+  m_co->setHaloColor(c);
+}
+void
+TrisetObject::setCaptionFont(QFont f)
+{
+  m_captionFont = f;
+  m_co->setFont(f);
+}
+
+void
+TrisetObject::drawCaption(QGLViewer *viewer)
+{
+  if (m_captionText.isEmpty())
+    return;
+
+  Vec cppos = viewer->camera()->projectedCoordinatesOf(m_centroid+m_position+m_captionPosition);
+  int cx = cppos.x;
+  int cy = cppos.y;
+  
+  QImage cimage = m_co->image();
+  QFontMetrics metric(m_co->font());
+
+  int wd = m_co->width();
+  int ht = m_co->height();
+
+  int x = cx;
+  int y = cy - metric.descent();
+
+  int screenWidth = viewer->size().width();
+  int screenHeight = viewer->size().height();
+
+  cimage = cimage.scaled(cimage.width()*viewer->camera()->screenWidth()/
+			 screenWidth,
+			 cimage.height()*viewer->camera()->screenHeight()/
+			 screenHeight);
+
+  QMatrix mat;
+  mat.rotate(-m_co->angle());
+  QImage pimg = cimage.transformed(mat, Qt::SmoothTransformation);
+
+  int px = x+(wd-pimg.width())/2;
+  int py = y+(pimg.height()-ht)/2;
+  if (px < 0 || py > screenHeight)
+    {
+      int wd = pimg.width();
+      int ht = pimg.height();
+      int sx = 0;
+      int sy = 0;
+      if (px < 0)
+	{
+	  wd = pimg.width()+px;
+	  sx = -px;
+	}
+      if (py > screenHeight)
+	{
+	  ht = pimg.height()-(py-screenHeight);
+	  sy = (py-screenHeight);
+	}
+      
+      pimg = pimg.copy(sx, sy, wd, ht);
+    }
+
+  int rpx = qMax(0, m_cpDx+x+(wd-pimg.width())/2);
+  int rpy = qMin(screenHeight, m_cpDy+y+(pimg.height()-ht)/2);
+
+  float ho = -pimg.height();
+  float wo = pimg.width()/2;
+  if (m_cpDy < 0) ho = 0;
+  //if (m_cpDx > 0) ho = -pimg.height()/2;
+      
+  glColor3f(m_captionColor.redF(),
+	    m_captionColor.greenF(),
+	    m_captionColor.blueF());
+  glBegin(GL_LINE_STRIP);
+  glVertex2f(cx, cy);
+  glVertex2f(rpx+wo, rpy+ho);
+  glEnd();
+
+
+  glRasterPos2i(rpx, rpy);
+
+  glDrawPixels(pimg.width(), pimg.height(),
+	       GL_RGBA, GL_UNSIGNED_BYTE,
+	       pimg.bits());
+}
 
 void
 TrisetObject::postdraw(QGLViewer *viewer,
 		       int x, int y,
 		       bool active, int idx)
 {
-  if (!m_show || !active)
+  //if (!m_show || !active)
+  if (!m_show)
     return;
 
-
+  
   if (active)
   {
-    Vec lineColor = Vec(1, 0.5, 0.3);
+    Vec lineColor = Vec(1, 0.7, 0.4);
+    
     glUseProgram(0);
     StaticFunctions::drawEnclosingCube(m_tenclosingBox, lineColor);
 
@@ -519,20 +628,25 @@ TrisetObject::postdraw(QGLViewer *viewer,
 
   viewer->startScreenCoordinatesSystem();
 
-  Vec ppos = viewer->camera()->projectedCoordinatesOf(m_centroid+m_position);
+  
+  //------------------
+  drawCaption(viewer);
+  //------------------
 
-  QString str = QString("mesh %1").arg(idx);
-  str += QString(" (%1)").arg(QFileInfo(m_fileName).fileName());
-  str += QString(" %1").arg(ppos.z);
-  QFont font = QFont();
-  QFontMetrics metric(font);
-  int ht = metric.height();
-  int wd = metric.width(str);
-  //x -= wd/2;
-  x += 10;
+  if (active)
+    {
+      QString str = QString("mesh %1").arg(idx);
+      str += QString(" (%1)").arg(QFileInfo(m_fileName).fileName());
+      QFont font = QFont();
+      QFontMetrics metric(font);
+      int ht = metric.height();
+      int wd = metric.width(str);
+      //x -= wd/2;
+      x += 10;
 
-  StaticFunctions::renderText(x+2, y, str, font, Qt::black, Qt::white);
-
+      StaticFunctions::renderText(x+2, y, str, font, Qt::black, Qt::white);
+    }
+  
   glEnable(GL_DEPTH_TEST);
 
   viewer->stopScreenCoordinatesSystem();
@@ -1333,6 +1447,12 @@ TrisetObject::get()
   ti.reveal = m_reveal;
   ti.glow = m_glow;
   ti.dark = m_dark;
+  ti.captionText = m_captionText;
+  ti.captionFont = m_captionFont;
+  ti.captionColor = m_captionColor;
+  ti.captionPosition = m_captionPosition;
+  ti.cpDx = m_cpDx;
+  ti.cpDy = m_cpDy;
   
   return ti;
 }
@@ -1370,7 +1490,22 @@ TrisetObject::set(TrisetInformation ti)
 
   if (reloadColor)
     setColor(m_color);
+
+  m_captionText = ti.captionText;
+  m_captionFont = ti.captionFont;
+  m_captionColor = ti.captionColor;
+  m_captionPosition = ti.captionPosition;
+  m_cpDx = ti.cpDx;
+  m_cpDy = ti.cpDy;
+
     
+  if (m_co) delete m_co;
+  m_co = new CaptionObject();
+  m_co->setText(m_captionText);
+  m_co->setFont(m_captionFont);
+  m_co->setColor(m_captionColor);
+  m_co->setHaloColor(m_captionColor);
+
   return ok;
 }
 
@@ -1764,5 +1899,23 @@ TrisetObject::loadAssimpModel(QString flnm)
 
   m_fileName = flnm;
 
+  //---------------
+  // set caption
+  m_captionPosition = Vec(0,0,0);
+  m_captionColor = Qt::white;
+  m_captionFont = QFont("Helvetica");
+  m_captionFont.setPointSize(16);
+  //m_captionText = QFileInfo(m_fileName).fileName();
+  m_captionText = "";
+  m_cpDx = 0;
+  m_cpDy = -100;
+  if (m_co) delete m_co;
+  m_co = new CaptionObject();
+  m_co->setText(m_captionText);
+  m_co->setFont(m_captionFont);
+  m_co->setColor(m_captionColor);
+  m_co->setHaloColor(m_captionColor);
+  //---------------
+  
   return true;
 }

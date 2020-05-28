@@ -3,8 +3,10 @@
 
 
 #include <GL/glew.h>
+
 #include "trisetgrabber.h"
 #include "cropobject.h"
+#include "hitpoints.h"
 
 class Trisets : public QObject
 {
@@ -16,6 +18,8 @@ class Trisets : public QObject
 
   int count() { return m_trisets.count(); }
 
+  void setHitPoints(HitPoints* h) { m_hitpoints = h; }
+  
   bool show(int);
   void setShow(int, bool);
   void show();
@@ -82,6 +86,8 @@ class Trisets : public QObject
   void updateGL();
 
  private :
+  HitPoints *m_hitpoints;
+  
   QList<TrisetGrabber*> m_trisets;
 
   void processCommand(int, QString);

@@ -316,7 +316,8 @@ MainWindow::MainWindow(QWidget *parent) :
   initializeRecentFiles();
 
   loadSettings();
-  
+
+  GeometryObjects::trisets()->setHitPoints(GeometryObjects::hitpoints());
 }
 
 void

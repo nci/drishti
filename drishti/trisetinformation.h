@@ -43,6 +43,11 @@ class TrisetInformation
   float reveal;
   float glow;
   float dark;
+  QString captionText;
+  QColor captionColor;
+  QFont captionFont;
+  Vec captionPosition;
+  int cpDx, cpDy;
 };
 
 #endif

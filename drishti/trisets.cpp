@@ -5,6 +5,7 @@
 #include "trisets.h"
 #include "geoshaderfactory.h"
 #include "propertyeditor.h"
+#include "captiondialog.h"
 
 #include <QDomDocument>
 
@@ -935,6 +936,57 @@ Trisets::processCommand(int idx, QString cmd)
   cmd = cmd.toLower();
   QStringList list = cmd.split(" ", QString::SkipEmptyParts);
 
+  //------------------
+  if (list[0] == "caption")
+    {
+      CaptionDialog cd(0,
+		       m_trisets[idx]->captionText(),
+		       m_trisets[idx]->captionFont(),
+		       m_trisets[idx]->captionColor(),
+		       Qt::black,
+		       0);
+      cd.hideAngle(true);
+      cd.move(QCursor::pos());
+      if (cd.exec() == QDialog::Accepted)
+	{
+	  m_trisets[idx]->setCaptionText(cd.text());
+	  m_trisets[idx]->setCaptionFont(cd.font());
+	  m_trisets[idx]->setCaptionColor(cd.color());
+	}
+
+      // set caption position
+      QList<Vec> pts;
+      if (m_hitpoints->activeCount())
+	pts = m_hitpoints->activePoints();
+      else
+	pts = m_hitpoints->points();
+      
+      if (pts.count() > 0)
+	{
+	  // take the lastest hitpoint
+	  Vec p = pts[pts.count()-1];
+	  
+	  m_trisets[idx]->setCaptionPosition(p);
+	  
+	  pts.removeLast();	    
+	  m_hitpoints->setPoints(pts);
+	}
+
+      // set caption offsets
+      if (list.size() == 3)
+	{
+	  int x = 100;
+	  int y = -100;
+	  x = list[1].toInt(&ok);
+	  y = list[2].toInt(&ok);
+	  m_trisets[idx]->setCaptionOffset(x,y);
+	}
+
+      return;
+    }
+  //------------------
+
+  
   if (list[0] == "save")
     {
       m_trisets[idx]->save();

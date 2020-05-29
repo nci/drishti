@@ -396,6 +396,7 @@ Trisets::render(Camera *camera, int nclip)
       
       glUniform4f(meshShaderParm[2], extras.x, extras.y, extras.z, darken);
       
+      glUniform1f(meshShaderParm[17], i+1);
       
       if (m_trisets[i]->clip())
 	{

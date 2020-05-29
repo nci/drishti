@@ -70,6 +70,15 @@ Set darken on glow values for all meshes.  0 means no darkening, 1 is very dark.
 #end
 
 #begin
+mirror
+mirrorx
+mirrory
+mirrorz
+
+Changes the mesh to its mirror image in the relevent axis.
+#end
+
+#begin
 caption
 caption
 caption <dx> <dy>

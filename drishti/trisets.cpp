@@ -987,6 +987,14 @@ Trisets::processCommand(int idx, QString cmd)
     }
   //------------------
 
+  if (list[0].contains("mirror"))
+    {
+      if (list[0] == "mirrorx") m_trisets[idx]->mirror(0);
+      if (list[0] == "mirrory") m_trisets[idx]->mirror(1);
+      if (list[0] == "mirrorz") m_trisets[idx]->mirror(2);
+      return;
+    }
+
   
   if (list[0] == "save")
     {

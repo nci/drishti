@@ -186,6 +186,23 @@ TrisetObject::setColor(Vec color)
   loadVertexBufferData();
 }
 
+void
+TrisetObject::mirror(int type)
+{
+  for(int i=0; i<m_vertices.count(); i++)
+    {
+      Vec v = m_vertices[i];
+      v[type] = -v[type]+2*m_centroid[type];
+      m_vertices[i] = v;
+
+      v = m_normals[i];
+      v[type] = -v[type];
+      m_normals[i] = v;
+    }
+  
+  loadVertexBufferData();
+}
+
 bool
 TrisetObject::load(QString flnm)
 {
@@ -212,32 +229,6 @@ TrisetObject::load(QString flnm)
 void
 TrisetObject::loadVertexBufferData()
 {
-//  int stride = 1;
-//  if (m_normals.count()) stride++; // per vertex normal
-//  if (m_vcolor.count()) stride++; // per vertex color
-//  
-//  int nvert = m_vertices.count();
-//  int nv = 3*stride*nvert;
-//  int ni = m_triangles.count();
-//  //---------------------
-//
-//  
-//  //---------------------
-//  float *vertData;
-//  vertData = new float[nv];
-//  for(int i=0; i<nvert; i++)
-//    {
-//      vertData[9*i + 0] = m_vertices[i].x;
-//      vertData[9*i + 1] = m_vertices[i].y;
-//      vertData[9*i + 2] = m_vertices[i].z;
-//      vertData[9*i + 3] = m_normals[i].x;
-//      vertData[9*i + 4] = m_normals[i].y;
-//      vertData[9*i + 5] = m_normals[i].z;
-//      vertData[9*i + 6] = m_vcolor[i].x;
-//      vertData[9*i + 7] = m_vcolor[i].y;
-//      vertData[9*i + 8] = m_vcolor[i].z;
-//    }
-
   int stride = 3;
   if (m_normals.count()) stride += 3; // vertex normal
   if (m_uv.count() > 0 ||
@@ -662,6 +653,55 @@ TrisetObject::draw(Camera *camera,
     return;
   
   drawTrisetBuffer(camera, 0, -1, active);
+}
+
+void
+TrisetObject::genLocalXform()
+{
+  double *s0 = new double[16];
+  double *s1 = new double[16];
+  double *s2 = new double[16];
+
+  Matrix::identity(s1);
+  s1[3] = m_position.x;
+  s1[7] = m_position.y;
+  s1[11]= m_position.z;
+
+  Matrix::identity(s0);
+  s0[3] = m_centroid.x;
+  s0[7] = m_centroid.y;
+  s0[11]= m_centroid.z;
+  Matrix::matmult(s1, s0, s2);
+
+  Vec scale;
+  scale = m_scale;
+  
+  Matrix::identity(s0);
+  s0[0] = scale.x;
+  s0[5] = scale.y;
+  s0[10]= scale.z;
+  Matrix::matmult(s2, s0, s1);
+
+  Matrix::identity(s0);
+  Matrix::matmult(s1, (double*)m_q.matrix(), s2);
+  
+  Matrix::identity(s0);
+  s0[3] = -m_centroid.x;
+  s0[7] = -m_centroid.y;
+  s0[11]= -m_centroid.z;  
+  Matrix::matmult(s2, s0, s1);
+
+  for(int i=0; i<4; i++)
+    for(int j=0; j<4; j++)
+      {
+	s0[j*4+i] = s1[4*i+j];
+      }
+
+  memcpy(m_localXform, s0, 16*sizeof(double));
+
+  delete [] s0;
+  delete [] s1;
+  delete [] s2;
 }
 
 void
@@ -1588,6 +1628,9 @@ TrisetObject::save()
   /* set up and write the PlyVertex elements */
   put_element_setup_ply ( ply, plyStrings[10] );
 
+  // regenerate local transfromation so we don't have scaling due to surface being selected(active)
+  genLocalXform();
+  
   for(int i=0; i<m_vertices.count(); i++)
     {
       myVertex vertex;

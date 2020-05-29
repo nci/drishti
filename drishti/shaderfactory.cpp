@@ -1693,7 +1693,7 @@ ShaderFactory::meshShadowShaderF()
   shader += "        float od = depth - adepth;\n";
   shader += "        response += max(0.0, od);\n";
   shader += "      } \n";
-  shader += "    ecolor.rgb *= exp(-response*pow(10*(edges+0.05), 2*gamma));\n";
+  shader += "    ecolor.rgb *= exp(-response*pow(20*(edges+0.05), 2*gamma));\n";
 
   // find border between different surfaces
   shader += "    response = 0.0;\n";
@@ -1710,10 +1710,10 @@ ShaderFactory::meshShadowShaderF()
 
   shader += "  if (softshadow > 0.0)\n";
   shader += "  {\n";  
-  shader += "    vec3 clrRU = vec3(0.0);\n";
+  shader += "    vec3 clrO = vec3(0.0);\n";
   shader += "    vec3 clrRL = vec3(0.0);\n";
   shader += "    vec3 clrG = vec3(0.0);\n";
-  shader += "    float sumRU = 0.0;\n";
+  shader += "    float sumO = 0.0;\n";
   shader += "    float sumRL = 0.0;\n";
   shader += "    float sumS = 0.0;\n";
   shader += "    float sumG = 0.0;\n";
@@ -1736,8 +1736,8 @@ ShaderFactory::meshShadowShaderF()
 
   // get contributions from other surfaces
   shader += "    	 float sr = step(0.5, abs(surfId-adepth.z))*step(0.0, adepth.z);\n";
-  shader += "    	 sumRU += sr;\n";
-  shader += "    	 clrRU += sr*texture2DRect(colorTexS, pos).rgb;\n";
+  shader += "    	 sumO += sr;\n";
+  shader += "    	 clrO += sr*texture2DRect(colorTexS, pos).rgb;\n";
 
   shader += "    	 vec3 clrR = texture2DRect(colorTex, pos).rgb;\n";
   // get contributions from same surface
@@ -1753,7 +1753,7 @@ ShaderFactory::meshShadowShaderF()
   
   shader += "    for(int i=nstepsS; i<nsteps; i++)\n";
   shader += "      {\n";
-  shader += "    	 float r = i*0.2;\n";
+  shader += "    	 float r = i*0.17;\n";
   shader += "            float x = r*sin(radians(i*27));\n";
   shader += "            float y = r*cos(radians(i*27));\n";
   shader += "    	 vec2 pos = spos + vec2(x,y);\n";
@@ -1762,8 +1762,8 @@ ShaderFactory::meshShadowShaderF()
 
   // get contributions from other surfaces
   shader += "    	 float sr = step(0.5, abs(surfId-adepth.z))*step(0.0, adepth.z);\n";
-  shader += "    	 sumRU += sr;\n";
-  shader += "    	 clrRU += sr*texture2DRect(colorTexS, pos).rgb;\n";
+  shader += "    	 sumO += sr;\n";
+  shader += "    	 clrO += sr*texture2DRect(colorTexS, pos).rgb;\n";
 
   shader += "    	 vec3 clrR = texture2DRect(colorTex, pos).rgb;\n";
   // get contributions from same surface
@@ -1807,19 +1807,24 @@ ShaderFactory::meshShadowShaderF()
   shader += "    color.rgb = mix(color.rgb, vec3(1.0), ridge);\n";
 
   // add reflections from other surfaces
-  shader += "    clrRU /= vec3(max(1.0,sumRU));\n";
-  shader += "    float ugr = pow(sumRU/float(nsteps), gamma);\n";
-  shader += "    ugr = smoothstep(0.0, 1.0, ugr);\n";
-  shader += "    color.rgb = mix(color.rgb, clrRU, ugr);\n";
+  shader += "    clrO /= vec3(max(1.0,sumO));\n";
+  shader += "    float ugr = pow(sumO/float(nsteps), gamma);\n";
+  shader += "    ugr = smoothstep(0.0, 1.0, sqrt(ugr));\n";
+  shader += "    color.rgb = mix(color.rgb, clrO, ugr);\n";
 
   // add edges
   shader += "    color.rgb = mix(color.rgb, ecolor, 0.5);\n";
-  
+
   // add shadow
   shader += "    sumS /= float(nstepsS);\n";
   shader += "    float shadow = clamp(sumS,0.0,1.0);\n";
-  shader += "    color.rgb *= max(0.3, exp(-shadow/gamma));\n";
+  shader += "    float shadows = max(0.3, exp(-shadow/gamma));\n";
+  shader += "    color.rgb *= shadows;\n";
   
+  // lighten shadows a bit
+  shader += "    color.rgb = mix(color.rgb, clrO, pow(1.0-shadows, 3.0));\n";
+
+
   shader += "  }\n";
 
   shader += "  if (roughness > 0.0)\n";

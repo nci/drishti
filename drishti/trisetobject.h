@@ -95,6 +95,8 @@ class TrisetObject
   void releaseFromPainting();
   void paint(QGLViewer*, QBitArray, float*, Vec, float);
 
+  void mirror(int);
+  
   float m_activeScale;
   double m_localXform[16];
 
@@ -159,6 +161,8 @@ private :
   bool loadAssimpModel(QString);
 
   void drawCaption(QGLViewer*);
+
+  void genLocalXform();
 };
 
 #endif

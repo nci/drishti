@@ -556,6 +556,10 @@ Viewer::setImageSize(int wd, int ht)
   float ratio = qMax(1.0f, qMax((float)m_imageWidth/(float)m_origWidth,
 			       (float)m_imageHeight/(float)m_origHeight));
   m_hiresVolume->setImageSizeRatio(ratio);
+
+
+  if (GeometryObjects::trisets()->count() > 0)
+    GeometryObjects::trisets()->resize(wd, ht);
 }
 
 Viewer::Viewer(QWidget *parent) :

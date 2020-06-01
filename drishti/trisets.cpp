@@ -30,6 +30,8 @@ Trisets::Trisets()
 
   m_blur = 0;
   m_edges = 0;
+
+  memset(&m_scrGeo[0], 0, 8*sizeof(float));
 }
 
 Trisets::~Trisets()
@@ -427,6 +429,8 @@ Trisets::draw(QGLViewer *viewer,
   if (m_trisets.count() == 0)
     return;
 
+  
+  
   //--------------------------
   // find min and max limits
   float maxDist = 0;
@@ -1451,8 +1455,8 @@ Trisets::createFBO(int wd, int ht)
   m_scrGeo[5] = ht;
   m_scrGeo[6] = 0;
   m_scrGeo[7] = ht;
-  if (m_vertexScreenBuffer) glDeleteBuffers(1, &m_vertexScreenBuffer);
-  glGenBuffers(1, &m_vertexScreenBuffer);
+  //if (m_vertexScreenBuffer) glDeleteBuffers(1, &m_vertexScreenBuffer);
+  if (!m_vertexScreenBuffer) glGenBuffers(1, &m_vertexScreenBuffer);
   glBindBuffer(GL_ARRAY_BUFFER, m_vertexScreenBuffer);
   glBufferData(GL_ARRAY_BUFFER,
 	       8*sizeof(float),

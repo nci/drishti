@@ -513,10 +513,16 @@ TrisetObject::drawCaption(QGLViewer *viewer)
   if (m_captionText.isEmpty())
     return;
 
+  int screenWidth = viewer->size().width();
+  int screenHeight = viewer->size().height();
+
   Vec cppos = viewer->camera()->projectedCoordinatesOf(m_centroid+m_position+m_captionPosition);
   int cx = cppos.x;
   int cy = cppos.y;
   
+  cx *= (float)screenWidth/(float)viewer->camera()->screenWidth();
+  cy *= (float)screenHeight/(float)viewer->camera()->screenHeight();
+
   QImage cimage = m_co->image();
   QFontMetrics metric(m_co->font());
 
@@ -526,13 +532,11 @@ TrisetObject::drawCaption(QGLViewer *viewer)
   int x = cx;
   int y = cy - metric.descent();
 
-  int screenWidth = viewer->size().width();
-  int screenHeight = viewer->size().height();
-
   cimage = cimage.scaled(cimage.width()*viewer->camera()->screenWidth()/
 			 screenWidth,
 			 cimage.height()*viewer->camera()->screenHeight()/
 			 screenHeight);
+
 
   QMatrix mat;
   mat.rotate(-m_co->angle());
@@ -542,31 +546,33 @@ TrisetObject::drawCaption(QGLViewer *viewer)
   int py = y+(pimg.height()-ht)/2;
   if (px < 0 || py > screenHeight)
     {
-      int wd = pimg.width();
-      int ht = pimg.height();
+      int pwd = pimg.width();
+      int pht = pimg.height();
       int sx = 0;
       int sy = 0;
       if (px < 0)
 	{
-	  wd = pimg.width()+px;
+	  pwd = pimg.width()+px;
 	  sx = -px;
 	}
       if (py > screenHeight)
 	{
-	  ht = pimg.height()-(py-screenHeight);
+	  pht = pimg.height()-(py-screenHeight);
 	  sy = (py-screenHeight);
 	}
       
-      pimg = pimg.copy(sx, sy, wd, ht);
+      pimg = pimg.copy(sx, sy, pwd, pht);
     }
 
   int rpx = qMax(0, m_cpDx+x+(wd-pimg.width())/2);
   int rpy = qMin(screenHeight, m_cpDy+y+(pimg.height()-ht)/2);
 
-  float ho = -pimg.height();
+
   float wo = pimg.width()/2;
+  float ho = -pimg.height();
   if (m_cpDy < 0) ho = 0;
-  //if (m_cpDx > 0) ho = -pimg.height()/2;
+  wo *= (float)screenWidth/(float)viewer->camera()->screenWidth();
+  ho *= (float)screenHeight/(float)viewer->camera()->screenHeight();
 
   float alpha = m_co->color().alpha()/255.0;
   glColor4f(alpha*m_captionColor.redF(),
@@ -585,6 +591,8 @@ TrisetObject::drawCaption(QGLViewer *viewer)
 
   wd = pimg.width();
   ht = pimg.height();
+  wd *= (float)screenWidth/(float)viewer->camera()->screenWidth();
+  ht *= (float)screenHeight/(float)viewer->camera()->screenHeight();
   glColor4f(0.2,0.2,0.2,0.5);
   glBegin(GL_TRIANGLE_STRIP);
   glVertex2f(rpx-5,    rpy+2);

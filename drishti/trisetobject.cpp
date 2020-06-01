@@ -567,13 +567,30 @@ TrisetObject::drawCaption(QGLViewer *viewer)
   float wo = pimg.width()/2;
   if (m_cpDy < 0) ho = 0;
   //if (m_cpDx > 0) ho = -pimg.height()/2;
-      
-  glColor3f(m_captionColor.redF(),
-	    m_captionColor.greenF(),
-	    m_captionColor.blueF());
+
+  float alpha = m_co->color().alpha()/255.0;
+  glColor4f(alpha*m_captionColor.redF(),
+	    alpha*m_captionColor.greenF(),
+	    alpha*m_captionColor.blueF(),
+  	    alpha);
+  glLineWidth(2.0);
+  glEnable(GL_LINE_SMOOTH);
   glBegin(GL_LINE_STRIP);
   glVertex2f(cx, cy);
   glVertex2f(rpx+wo, rpy+ho);
+  glEnd();
+  glLineWidth(1.0);
+  glDisable(GL_LINE_SMOOTH);
+
+
+  wd = pimg.width();
+  ht = pimg.height();
+  glColor4f(0.2,0.2,0.2,0.5);
+  glBegin(GL_TRIANGLE_STRIP);
+  glVertex2f(rpx-5,    rpy+2);
+  glVertex2f(rpx+wd+5, rpy+2);
+  glVertex2f(rpx-5,    rpy-ht-2);
+  glVertex2f(rpx+wd+5, rpy-ht-2);
   glEnd();
 
 
@@ -596,7 +613,7 @@ TrisetObject::postdraw(QGLViewer *viewer,
   
   if (active)
   {
-    Vec lineColor = Vec(1, 0.7, 0.4);
+    Vec lineColor = Vec(1,1,1);
     
     glUseProgram(0);
     StaticFunctions::drawEnclosingCube(m_tenclosingBox, lineColor);

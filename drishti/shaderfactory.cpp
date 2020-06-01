@@ -1753,7 +1753,7 @@ ShaderFactory::meshShadowShaderF()
   shader += "    	 clrRL += sr*clrR;\n";
 
   // get contributions for glowing surfaces
-  shader += "    	 sr = step(0.05, adepth.y);\n";
+  shader += "    	 sr = step(0.05, sdepth.y);\n";
   shader += "    	 sumG += sr;\n";
   shader += "    	 clrG += sr*clrR;\n";
   shader += "      } \n";
@@ -1794,7 +1794,7 @@ ShaderFactory::meshShadowShaderF()
   shader += "    colorV = pow(colorV, vec3(1.0/gamma));\n";
   shader += "    float valley = exp(-5*nValley/gamma);\n";
   //shader += "    valley = 1.0-smoothstep(0.0, 1.0, valley);\n";
-  shader += "    valley = 1.0-smoothstep(0.0, 0.5, valley);\n";
+  shader += "    valley = 1.0-smoothstep(0.0, pow(0.25, 1.0/gamma), valley);\n";
   shader += "    color.rgb = mix(color.rgb, colorV, valley);\n";
 
   // add surface smoothing
@@ -1812,7 +1812,7 @@ ShaderFactory::meshShadowShaderF()
    // add ridge
   shader += "    float ridge = nRidge/float(nstepsS);\n";
   //shader += "    ridge = smoothstep(0.0, 1.0, pow(ridge,gamma));\n";
-  shader += "    ridge = smoothstep(0.5, 1.0, pow(ridge,gamma));\n";
+  shader += "    ridge = smoothstep(pow(0.25, 1.0/gamma), 1.0, pow(ridge,gamma));\n";
   shader += "    color.rgb = mix(color.rgb, vec3(1.0), ridge);\n";
 
   // add reflections from other surfaces
@@ -1828,10 +1828,11 @@ ShaderFactory::meshShadowShaderF()
   shader += "    sumS /= float(nstepsS);\n";
   shader += "    float shadow = clamp(sumS,0.0,1.0);\n";
   shader += "    float shadows = max(0.3, exp(-shadow/gamma));\n";
+  shader += "    clrO = color.rgb;\n";
   shader += "    color.rgb *= shadows;\n";
   
-//  // lighten shadows a bit
-//  shader += "    color.rgb = mix(color.rgb, clrO, pow(1.0-shadows, 3.0));\n";
+  // lighten shadows a bit
+  //shader += "    color.rgb = mix(color.rgb, clrO, pow(1.0-shadows, 3.0));\n";
 
 
   shader += "  }\n";

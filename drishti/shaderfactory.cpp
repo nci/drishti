@@ -1424,8 +1424,9 @@ GLuint ShaderFactory::meshShader()
 	m_meshShaderParm[13] = glGetUniformLocation(m_meshShader,"hasUV");
 	m_meshShaderParm[14] = glGetUniformLocation(m_meshShader,"diffuseTex");
 	m_meshShaderParm[15] = glGetUniformLocation(m_meshShader,"featherSize");
-	m_meshShaderParm[16] = glGetUniformLocation(m_meshShader, "MVShadow");
-	m_meshShaderParm[17] = glGetUniformLocation(m_meshShader, "idx");
+	m_meshShaderParm[16] = glGetUniformLocation(m_meshShader,"MVShadow");
+	m_meshShaderParm[17] = glGetUniformLocation(m_meshShader,"idx");
+	m_meshShaderParm[18] = glGetUniformLocation(m_meshShader,"hatchPattern");
 	
     }
 
@@ -1487,6 +1488,7 @@ ShaderFactory::meshShaderF()
   shader += "uniform vec3 clipNormal[10];\n";
   shader += "uniform bool hasUV;\n";
   shader += "uniform float featherSize;\n";
+  shader += "uniform vec3 hatchPattern;\n";
   
   shader += "\n";
   shader += "in vec3 v3Color;\n";
@@ -1557,7 +1559,44 @@ ShaderFactory::meshShaderF()
   // darken if required
   shader += "    outputColor.rgb *= extras.w;\n";
 
-  //  shader += "  float metallic = 1.0;\n";
+
+
+  //---------------------------------------------------------
+  //---------------------------------------------------------
+  // hatching patterns
+  shader += "   float pattern = 0.0;\n";
+
+  shader += "   float patType = abs(hatchPattern.x);\n";
+  
+  // polka dots
+  shader += "   vec3 dotpat = fract(100.0*hatchPattern.y*(pointPos/vec3(sceneRadius)))-vec3(0.5);\n";
+  shader += "   float polka = 0.5*smoothstep(0.0, hatchPattern.z, length(dotpat));\n";
+  shader += "   pattern += polka*step(0.9, patType)*step(patType, 1.1);\n";
+
+  // stripes
+  shader += "   vec3 pat = abs(min(vec3(2*hatchPattern.z), fract(vec3(100.0*hatchPattern.y)*(pointPos/sceneRadius)))-vec3(hatchPattern.z));\n";
+  shader += "   pat = 0.5*smoothstep(vec3(0.0), vec3(hatchPattern.z), vec3(pat));\n";
+  shader += "   pattern += pat.x*step(1.9, patType)*step(patType, 2.1);\n";
+  shader += "   pattern += pat.y*step(2.9, patType)*step(patType, 3.1);\n";
+  shader += "   pattern += pat.z*step(3.9, patType)*step(patType, 4.1);\n";
+  shader += "   pattern += pat.x*pat.y*step(4.9, patType)*step(patType, 5.1);\n";
+  shader += "   pattern += pat.x*pat.z*step(5.9, patType)*step(patType, 6.1);\n";
+  shader += "   pattern += pat.y*pat.z*step(6.9, patType)*step(patType, 7.1);\n";
+  shader += "   pattern += pat.x*pat.y*pat.z*step(7.9, patType)*step(patType, 8.1);\n";
+
+  // stripes
+  shader += "   pat.xy = abs(min(vec2(2*hatchPattern.z), fract(vec2(100.0*hatchPattern.y)*abs(vec2(pointPos.x+pointPos.y,pointPos.x-pointPos.y)/sceneRadius)))-vec2(hatchPattern.z));\n";
+  shader += "   pattern += (pat.x+pat.y)*step(8.9, patType)*step(patType, 9.1);\n";
+
+  shader += "   pattern = mix(1.0-sqrt(pattern), pattern, step(0.0, hatchPattern.x));";
+
+  shader += "   outputColor.rgb = mix(outputColor.rgb, vec3(0.0), pattern);\n";
+  //---------------------------------------------------------
+  //---------------------------------------------------------
+
+
+  
+//  shader += "  float metallic = 1.0;\n";
 //  shader += "  vec3 specularColor = mix(vec3(0.04), outputColor.rgb, metallic);\n";
 //  shader += "  vec3 spec = shadingSpecularGGX(v3Normal, -viewDir,  -viewDir, roughness, specularColor);\n";
 //  shader += "  outputColor.rgb = Amb + Diff + specular*spec;\n";
@@ -1681,14 +1720,11 @@ ShaderFactory::meshShadowShaderF()
   shader += "  vec3 ecolor = color.rgb;\n";
   shader += "  if (edges > 0.0)\n";
   shader += "  {\n";
-  shader += "    float cx[8] = float[](-1.0, 0.0, 1.0, 0.0, -1.0,-1.0, 1.0, 1.0);\n";
-  shader += "    float cy[8] = float[]( 0.0,-1.0, 0.0, 1.0, -1.0, 1.0,-1.0, 1.0);\n";
   shader += "    float response = 0.0;\n";
 
   // find edges on surfaces
   shader += "    for(int i=0; i<8; i++)\n";
   shader += "      {\n";
-  //shader += "        vec2 pos = spos + vec2(cx[i],cy[i]);\n";  
   shader += "        float r = 1.0;\n";
   shader += "        float x = r*sin(radians(i*45));\n";
   shader += "        float y = r*cos(radians(i*45));\n";
@@ -1697,7 +1733,7 @@ ShaderFactory::meshShadowShaderF()
   shader += "        float od = depth - adepth;\n";
   shader += "        response += max(0.0, od);\n";
   shader += "      } \n";
-  shader += "    ecolor.rgb *= exp(-response*pow(20*(edges+0.05), 2*gamma));\n";
+  shader += "    ecolor.rgb *= exp(-response*pow(40*(edges+0.05), 1.2*gamma));\n";
 
   // find border between different surfaces
   shader += "    response = 0.0;\n";
@@ -1833,9 +1869,9 @@ ShaderFactory::meshShadowShaderF()
   
   // lighten shadows a bit
   //shader += "    color.rgb = mix(color.rgb, clrO, pow(1.0-shadows, 3.0));\n";
-
-
   shader += "  }\n";
+
+  
 
   shader += "  if (roughness > 0.0)\n";
   shader += "  {\n";

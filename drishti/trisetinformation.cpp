@@ -30,6 +30,7 @@ TrisetInformation::clear()
   captionPosition = Vec(0,0,0);
   cpDx = 0;
   cpDy = -100;
+  pattern = Vec(0,1,0.1);
 }
 
 TrisetInformation&
@@ -56,6 +57,7 @@ TrisetInformation::operator=(const TrisetInformation& ti)
   captionPosition = ti.captionPosition;
   cpDx = ti.cpDx;
   cpDy = ti.cpDy;
+  pattern = ti.pattern;
   
   return *this;
 }
@@ -87,7 +89,8 @@ TrisetInformation::interpolate(const TrisetInformation tinfo1,
   tinfo.captionPosition = (1-frc)*tinfo1.captionPosition + frc*tinfo2.captionPosition;
   tinfo.cpDx = (1-frc)*tinfo1.cpDx + frc*tinfo2.cpDx;
   tinfo.cpDy = (1-frc)*tinfo1.cpDy + frc*tinfo2.cpDy;
-
+  tinfo.pattern = (1-frc)*tinfo1.pattern + frc*tinfo2.pattern;
+  
   return tinfo;
 }
 
@@ -288,6 +291,14 @@ TrisetInformation::save(fstream &fout)
   fout.write((char*)&cpDy, sizeof(int));
   
   memset(keyword, 0, 100);
+  sprintf(keyword, "pattern");
+  fout.write((char*)keyword, strlen(keyword)+1);
+  f[0] = pattern.x;
+  f[1] = pattern.y;
+  f[2] = pattern.z;
+  fout.write((char*)&f, 3*sizeof(float));
+
+  memset(keyword, 0, 100);
   sprintf(keyword, "end");
   fout.write((char*)keyword, strlen(keyword)+1);
 }
@@ -402,6 +413,11 @@ TrisetInformation::load(fstream &fin)
 	{
 	  fin.read((char*)&cpDx, sizeof(float));
 	  fin.read((char*)&cpDy, sizeof(float));
+	}
+      else if (strcmp(keyword, "pattern") == 0)
+	{
+	  fin.read((char*)&f, 3*sizeof(float));
+	  pattern = Vec(f[0], f[1], f[2]);
 	}
     }
 }

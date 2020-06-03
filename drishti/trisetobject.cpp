@@ -121,8 +121,9 @@ TrisetObject::clear()
   m_position = Vec(0,0,0);
   m_scale = Vec(1,1,1);
   m_reveal = 0.0;
-  m_glow = 0.0;
+  m_glow = 0.0;  
   m_dark = 0.5;
+  m_pattern = Vec(0,1,0.1);
   m_q = Quaternion();
   m_nX = m_nY = m_nZ = 0;
   m_color = Vec(1,1,1);
@@ -875,6 +876,7 @@ TrisetObject::loadPLY(QString flnm)
   m_reveal = 0.0;
   m_glow = 0.0;
   m_dark = 0.5;
+  m_pattern = Vec(0,1,0.1);
   m_q = Quaternion();
 
   typedef struct Vertex {
@@ -1249,6 +1251,7 @@ TrisetObject::loadTriset(QString flnm)
   m_glow = 0.0;
   m_dark = 0.5;
   m_q = Quaternion();
+  m_pattern = Vec(0,1,0.1);
 
   m_enclosingBox[0] = Vec(bmin.x, bmin.y, bmin.z);
   m_enclosingBox[1] = Vec(bmax.x, bmin.y, bmin.z);
@@ -1270,228 +1273,6 @@ TrisetObject::loadTriset(QString flnm)
   return true;
 }
 
-QDomElement
-TrisetObject::domElement(QDomDocument &doc)
-{
-  QDomElement de = doc.createElement("triset");
-  
-  {
-    QDomElement de0 = doc.createElement("name");
-    QDomText tn0 = doc.createTextNode(m_fileName);
-    de0.appendChild(tn0);
-    de.appendChild(de0);
-  }
-  
-  {
-    QDomElement de0 = doc.createElement("position");
-    QDomText tn0 = doc.createTextNode(QString("%1 %2 %3").\
-				      arg(m_position.x).arg(m_position.y).arg(m_position.z));
-    de0.appendChild(tn0);
-    de.appendChild(de0);
-  }
-  
-  {
-    QDomElement de0 = doc.createElement("scale");
-    QDomText tn0 = doc.createTextNode(QString("%1 %2 %3").\
-				      arg(m_scale.x).arg(m_scale.y).arg(m_scale.z));
-    de0.appendChild(tn0);
-    de.appendChild(de0);
-  }
-  
-  {
-    QDomElement de0 = doc.createElement("rotation");
-    Vec axis;
-    qreal angle;
-    m_q.getAxisAngle(axis, angle);
-    QDomText tn0 = doc.createTextNode(QString("%1 %2 %3 %4").\
-				      arg(axis.x).arg(axis.y).arg(axis.z).arg(angle));
-    de0.appendChild(tn0);
-    de.appendChild(de0);
-  }
-  
-  {
-    QDomElement de0 = doc.createElement("roughness");
-    QDomText tn0 = doc.createTextNode(QString("%1").arg(m_roughness));
-    de0.appendChild(tn0);
-    de.appendChild(de0);
-  }
-  
-  {
-    QDomElement de0 = doc.createElement("reveal");
-    QDomText tn0 = doc.createTextNode(QString("%1").arg(m_reveal));
-    de0.appendChild(tn0);
-    de.appendChild(de0);
-  }
-  
-  {
-    QDomElement de0 = doc.createElement("glow");
-    QDomText tn0 = doc.createTextNode(QString("%1").arg(m_glow));
-    de0.appendChild(tn0);
-    de.appendChild(de0);
-  }
-  
-  {
-    QDomElement de0 = doc.createElement("dark");
-    QDomText tn0 = doc.createTextNode(QString("%1").arg(m_dark));
-    de0.appendChild(tn0);
-    de.appendChild(de0);
-  }
-  
-  {
-    QDomElement de0 = doc.createElement("color");
-    QDomText tn0 = doc.createTextNode(QString("%1 %2 %3").\
-				      arg(m_color.x).arg(m_color.y).arg(m_color.z));
-    de0.appendChild(tn0);
-    de.appendChild(de0);
-  }
-  
-  {
-    QDomElement de0 = doc.createElement("cropcolor");
-    QDomText tn0 = doc.createTextNode(QString("%1 %2 %3").\
-				      arg(m_cropcolor.x).arg(m_cropcolor.y).arg(m_cropcolor.z));
-    de0.appendChild(tn0);
-    de.appendChild(de0);
-  }
-  
-  {
-    QDomElement de0 = doc.createElement("ambient");
-    QDomText tn0 = doc.createTextNode(QString("%1").arg(m_ambient));
-    de0.appendChild(tn0);
-    de.appendChild(de0);
-  }
-  
-  {
-    QDomElement de0 = doc.createElement("diffuse");
-    QDomText tn0 = doc.createTextNode(QString("%1").arg(m_diffuse));
-    de0.appendChild(tn0);
-    de.appendChild(de0);
-  }
-  
-  {
-    QDomElement de0 = doc.createElement("specular");
-    QDomText tn0 = doc.createTextNode(QString("%1").arg(m_specular));
-    de0.appendChild(tn0);
-    de.appendChild(de0);
-  }
-  
-  {
-    QDomElement de0 = doc.createElement("show");
-    QDomText tn0 = doc.createTextNode(QString("%1").arg(m_show));
-    de0.appendChild(tn0);
-    de.appendChild(de0);
-  }
-
-  {
-    QDomElement de0 = doc.createElement("clip");
-    QDomText tn0 = doc.createTextNode(QString("%1").arg(m_clip));
-    de0.appendChild(tn0);
-    de.appendChild(de0);
-  }
-
-  return de;
-}
-
-bool
-TrisetObject::fromDomElement(QDomElement de)
-{
-  clear();
-
-  bool ok = false;
-
-  QString name;
-  QDomNodeList dlist = de.childNodes();
-  for(int i=0; i<dlist.count(); i++)
-    {
-      QDomElement dnode = dlist.at(i).toElement();
-      QString str = dnode.toElement().text();
-      if (dnode.tagName() == "name")
-	ok = load(str);
-      else if (dnode.tagName() == "position")
-	{
-	  QStringList xyz = str.split(" ");
-	  float x = 0;
-	  float y = 0;
-	  float z = 0;
-	  if (xyz.size() > 0) x = xyz[0].toFloat();
-	  if (xyz.size() > 1) y  = xyz[1].toFloat();
-	  if (xyz.size() > 2) z  = xyz[2].toFloat();
-	  m_position = Vec(x,y,z);
-	}
-      else if (dnode.tagName() == "scale")
-	{
-	  QStringList xyz = str.split(" ");
-	  float x = 0;
-	  float y = 0;
-	  float z = 0;
-	  if (xyz.size() > 0) x = xyz[0].toFloat();
-	  if (xyz.size() > 1) y  = xyz[1].toFloat();
-	  if (xyz.size() > 2) z  = xyz[2].toFloat();
-	  m_scale = Vec(x,y,z);
-	}
-      else if (dnode.tagName() == "rotation")
-	{
-	  m_q = Quaternion();
-	  QStringList xyz = str.split(" ");
-	  float x = 0;
-	  float y = 0;
-	  float z = 0;
-	  float w = 0;
-	  if (xyz.size() > 0) x = xyz[0].toFloat();
-	  if (xyz.size() > 1) y  = xyz[1].toFloat();
-	  if (xyz.size() > 2) z  = xyz[2].toFloat();
-	  if (xyz.size() > 3) z  = xyz[3].toFloat();
-	  m_q = Quaternion(Vec(x,y,z), w);
-	}
-      else if (dnode.tagName() == "roughness")
-	m_roughness = str.toFloat();
-      else if (dnode.tagName() == "reveal")
-	m_reveal = str.toFloat();
-      else if (dnode.tagName() == "glow")
-	m_glow = str.toFloat();
-      else if (dnode.tagName() == "dark")
-	m_dark = str.toFloat();
-      else if (dnode.tagName() == "color")
-	{
-	  QStringList xyz = str.split(" ");
-	  float x = 0;
-	  float y = 0;
-	  float z = 0;
-	  if (xyz.size() > 0) x = xyz[0].toFloat();
-	  if (xyz.size() > 1) y  = xyz[1].toFloat();
-	  if (xyz.size() > 2) z  = xyz[2].toFloat();
-	  m_color = Vec(x,y,z);
-	}
-      else if (dnode.tagName() == "cropcolor")
-	{
-	  QStringList xyz = str.split(" ");
-	  float x = 0;
-	  float y = 0;
-	  float z = 0;
-	  if (xyz.size() > 0) x = xyz[0].toFloat();
-	  if (xyz.size() > 1) y  = xyz[1].toFloat();
-	  if (xyz.size() > 2) z  = xyz[2].toFloat();
-	  m_cropcolor = Vec(x,y,z);
-	}
-      else if (dnode.tagName() == "ambient")
-	m_ambient = str.toFloat();
-      else if (dnode.tagName() == "diffuse")
-	m_diffuse = str.toFloat();
-      else if (dnode.tagName() == "specular")
-	m_specular = str.toFloat();
-      else if (dnode.tagName() == "show")
-	{
-	  if (str == "yes" || str == "1") m_show = true;
-	  else m_show = false;
-	}
-      else if (dnode.tagName() == "clip")
-	{
-	  if (str == "yes" || str == "1") m_clip = true;
-	  else m_clip = false;
-	}
-    }
-
-  return ok;
-}
 
 TrisetInformation
 TrisetObject::get()
@@ -1518,6 +1299,7 @@ TrisetObject::get()
   ti.captionPosition = m_captionPosition;
   ti.cpDx = m_cpDx;
   ti.cpDy = m_cpDy;
+  ti.pattern = m_pattern;
   
   return ti;
 }
@@ -1552,7 +1334,8 @@ TrisetObject::set(TrisetInformation ti)
   m_reveal = ti.reveal;
   m_glow = ti.glow;
   m_dark = ti.dark;
-
+  m_pattern = ti.pattern;
+  
   if (reloadColor)
     setColor(m_color);
 

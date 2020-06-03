@@ -399,6 +399,9 @@ Trisets::render(Camera *camera, int nclip)
       glUniform4f(meshShaderParm[2], extras.x, extras.y, extras.z, darken);
       
       glUniform1f(meshShaderParm[17], i+1);
+
+      Vec pat = m_trisets[i]->pattern();
+      glUniform3f(meshShaderParm[18], pat.x, pat.y, pat.z);
       
       if (m_trisets[i]->clip())
 	{
@@ -999,6 +1002,22 @@ Trisets::processCommand(int idx, QString cmd)
       return;
     }
 
+  if (list[0] == "pattern")
+    {
+      Vec pattern = m_trisets[idx]->pattern();
+      int pat = pattern.x;
+      float freq = pattern.y;
+      float thick = pattern.z;
+
+      if (list.size() > 1) pat = list[1].toInt(&ok);
+      if (list.size() > 2) freq = list[2].toFloat(&ok);
+      if (list.size() > 3) thick = list[3].toFloat(&ok);
+
+      pattern = Vec(pat, freq, thick);
+      m_trisets[idx]->setPattern(pattern);
+
+      return;
+    }
   
   if (list[0] == "save")
     {
@@ -1278,58 +1297,62 @@ Trisets::createShadowShader(Vec attenuation, QList<CropObject> crops)
 void
 Trisets::save(const char *flnm)
 {
-  QDomDocument doc;
-  QFile f(flnm);
-  if (f.open(QIODevice::ReadOnly))
-    {
-      doc.setContent(&f);
-      f.close();
-    }
-
-  QDomElement topElement = doc.documentElement();
-
-  for(int i=0; i<m_trisets.count(); i++)
-    {
-      QDomElement de = m_trisets[i]->domElement(doc);
-      topElement.appendChild(de);
-    }
-
-  QFile fout(flnm);
-  if (fout.open(QIODevice::WriteOnly))
-    {
-      QTextStream out(&fout);
-      doc.save(out, 2);
-      fout.close();
-    }
+  QMessageBox::information(0, "Save Mesh", "Why am I here ??");
+  
+  //  QDomDocument doc;
+//  QFile f(flnm);
+//  if (f.open(QIODevice::ReadOnly))
+//    {
+//      doc.setContent(&f);
+//      f.close();
+//    }
+//
+//  QDomElement topElement = doc.documentElement();
+//
+//  for(int i=0; i<m_trisets.count(); i++)
+//    {
+//      QDomElement de = m_trisets[i]->domElement(doc);
+//      topElement.appendChild(de);
+//    }
+//
+//  QFile fout(flnm);
+//  if (fout.open(QIODevice::WriteOnly))
+//    {
+//      QTextStream out(&fout);
+//      doc.save(out, 2);
+//      fout.close();
+//    }
 }
 
 void
 Trisets::load(const char *flnm)
 {
-  QDomDocument document;
-  QFile f(flnm);
-  if (f.open(QIODevice::ReadOnly))
-    {
-      document.setContent(&f);
-      f.close();
-    }
-
-  QDomElement main = document.documentElement();
-  QDomNodeList dlist = main.childNodes();
-  for(int i=0; i<dlist.count(); i++)
-    {
-      if (dlist.at(i).nodeName() == "triset")
-	{
-	  QDomElement de = dlist.at(i).toElement();
-
-	  TrisetGrabber *tg = new TrisetGrabber();
-	  if (tg->fromDomElement(de))	    
-	    m_trisets.append(tg);
-	  else
-	    delete tg;
-	}
-    }
-
+  QMessageBox::information(0, "Load Mesh", "Why am I here ??");
+  
+//  QDomDocument document;
+//  QFile f(flnm);
+//  if (f.open(QIODevice::ReadOnly))
+//    {
+//      document.setContent(&f);
+//      f.close();
+//    }
+//
+//  QDomElement main = document.documentElement();
+//  QDomNodeList dlist = main.childNodes();
+//  for(int i=0; i<dlist.count(); i++)
+//    {
+//      if (dlist.at(i).nodeName() == "triset")
+//	{
+//	  QDomElement de = dlist.at(i).toElement();
+//
+//	  TrisetGrabber *tg = new TrisetGrabber();
+//	  if (tg->fromDomElement(de))	    
+//	    m_trisets.append(tg);
+//	  else
+//	    delete tg;
+//	}
+//    }
+//
 }
 
 QList<TrisetInformation>

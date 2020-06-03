@@ -90,6 +90,19 @@ If a hitpoint is available, line is drawn from that point to the caption text.
 
 #end
 
+
+#begin
+pattern
+pattern <type> <frequency> <thickness>
+
+Draws hatching pattern on surface.
+<type> is between -9 to 9.  0 is the default value, being no pattern.
+<frequency> is greater than 0.5.  Default value is 1.
+<thickness> is the thickness of light part of the pattern.
+#end
+
+
+
 #begin
 resetposition
 resetposition

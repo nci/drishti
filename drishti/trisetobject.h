@@ -57,6 +57,9 @@ class TrisetObject
   float dark() { return m_dark; }
   void setDark(float r) { m_dark = r; }
 
+  Vec pattern() { return m_pattern; }
+  void setPattern(Vec p) { m_pattern = p; }
+  
   void setCaptionPosition(Vec);
   void setCaptionOffset(int dx, int dy) { m_cpDx = dx; m_cpDy = dy; }
   QFont captionFont() { return m_captionFont; }
@@ -81,8 +84,6 @@ class TrisetObject
   bool set(TrisetInformation);
   TrisetInformation get();
 
-  bool fromDomElement(QDomElement);
-  QDomElement domElement(QDomDocument&);
 
   void clear();
 
@@ -116,6 +117,7 @@ private :
   float m_reveal;
   float m_glow;
   float m_dark;
+  Vec m_pattern;
   Quaternion m_q;
   float m_roughness;
   float m_specular;

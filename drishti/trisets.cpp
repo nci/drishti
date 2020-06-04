@@ -7,8 +7,7 @@
 #include "propertyeditor.h"
 #include "captiondialog.h"
 
-#include <QDomDocument>
-
+#include <QFileDialog>
 
 Trisets::Trisets()
 {
@@ -673,268 +672,275 @@ Trisets::draw(QGLViewer *viewer,
 }
 
 bool
+Trisets::handleDialog(int i)
+{
+  PropertyEditor propertyEditor;
+  QMap<QString, QVariantList> plist;
+  
+  QVariantList vlist;
+  
+  Vec pos = m_trisets[i]->position();
+  vlist.clear();
+  vlist << QVariant("string");
+  vlist << QVariant(QString("%1 %2 %3").arg(pos.x).arg(pos.y).arg(pos.z));
+  plist["position"] = vlist;
+  
+  Vec scl = m_trisets[i]->scale();
+  vlist.clear();
+  vlist << QVariant("string");
+  vlist << QVariant(QString("%1 %2 %3").arg(scl.x).arg(scl.y).arg(scl.z));
+  plist["scale"] = vlist;
+  
+  vlist.clear();
+  vlist << QVariant("double");
+  vlist << QVariant(m_trisets[i]->reveal());
+  vlist << QVariant(0.0);
+  vlist << QVariant(1.1);
+  vlist << QVariant(0.1); // singlestep
+  vlist << QVariant(1); // decimals
+  plist["reveal"] = vlist;
+  
+  vlist.clear();
+  vlist << QVariant("double");
+  vlist << QVariant(m_trisets[i]->glow());
+  vlist << QVariant(0.0);
+  vlist << QVariant(5.0);
+  vlist << QVariant(0.1); // singlestep
+  vlist << QVariant(1); // decimals
+  plist["glow"] = vlist;
+  
+  vlist.clear();
+  vlist << QVariant("double");
+  vlist << QVariant(m_trisets[i]->dark());
+  vlist << QVariant(0.0);
+  vlist << QVariant(1.0);
+  vlist << QVariant(0.1); // singlestep
+  vlist << QVariant(1); // decimals
+  plist["darken on glow"] = vlist;
+  
+  vlist.clear();
+  vlist << QVariant("color");
+  Vec pcolor = m_trisets[i]->color();
+  QColor dcolor = QColor::fromRgbF(pcolor.x,
+				   pcolor.y,
+				   pcolor.z);
+  vlist << dcolor;
+  plist["color"] = vlist;
+    
+
+  
+  vlist.clear();
+  QString mesg;
+  mesg = m_trisets[i]->filename();
+  mesg += "\n";
+  mesg += QString("Vertices : (%1)    Triangles : (%2)\n").		\
+    arg(m_trisets[i]->vertexCount()).arg(m_trisets[i]->triangleCount());
+  vlist << mesg;
+  plist["message"] = vlist;
+
+
+	      
+  vlist.clear();
+  QFile helpFile(":/trisets.help");
+  if (helpFile.open(QFile::ReadOnly))
+    {
+      QTextStream in(&helpFile);
+      QString line = in.readLine();
+      while (!line.isNull())
+	{
+	  if (line == "#begin")
+	    {
+	      QString keyword = in.readLine();
+	      QString helptext;
+	      line = in.readLine();
+	      while (!line.isNull())
+		{
+		  helptext += line;
+		  helptext += "\n";
+		  line = in.readLine();
+		  if (line == "#end") break;
+		}
+	      vlist << keyword << helptext;
+	    }
+	  line = in.readLine();
+	}
+    }
+  
+  plist["commandhelp"] = vlist;
+
+
+  
+  QStringList keys;
+  keys << "position";
+  keys << "scale";
+  keys << "color";
+  keys << "reveal";
+  keys << "glow";
+  keys << "darken on glow";
+  //keys << "crop border color";
+  keys << "commandhelp";
+  keys << "command";
+  keys << "message";
+	      
+  
+  propertyEditor.set("Triset Parameters", plist, keys);
+  QMap<QString, QPair<QVariant, bool> > vmap;
+  
+  if (propertyEditor.exec() == QDialog::Accepted)
+    vmap = propertyEditor.get();
+  else
+    return true;
+
+
+  keys = vmap.keys();
+  
+  for(int ik=0; ik<keys.count(); ik++)
+    {
+      QPair<QVariant, bool> pair = vmap.value(keys[ik]);
+      
+      if (pair.second)
+	{
+	  if (keys[ik] == "position")
+	    {
+	      QString vstr = pair.first.toString();
+	      QStringList pos = vstr.split(" ");
+	      if (pos.count() == 1)
+		m_trisets[i]->setPosition(Vec(0, 0, 0));
+	      else if (pos.count() == 3)
+		m_trisets[i]->setPosition(Vec(pos[0].toDouble(),
+					      pos[1].toDouble(),
+					      pos[2].toDouble()));
+	    }
+	  else if (keys[ik] == "scale")
+	    {
+	      QString vstr = pair.first.toString();
+	      QStringList scl = vstr.split(" ");
+	      Vec scale = Vec(1,1,1);
+	      if (scl.count() > 0) scale.x = scale.y = scale.z = scl[0].toDouble();
+	      if (scl.count() > 1) scale.y = scl[1].toDouble();
+	      if (scl.count() > 2) scale.z = scl[2].toDouble();
+	      m_trisets[i]->setScale(scale);
+	    }
+	  else if (keys[ik] == "color")
+	    {
+	      QColor color = pair.first.value<QColor>();
+	      float r = color.redF();
+	      float g = color.greenF();
+	      float b = color.blueF();
+	      Vec pcolor = Vec(r,g,b);
+	      m_trisets[i]->setColor(pcolor);
+	    }
+	  else if (keys[ik] == "reveal")
+	    {
+	      float r = 0.0;
+	      r = pair.first.toString().toDouble();
+	      m_trisets[i]->setReveal(r);
+	    }
+	  else if (keys[ik] == "glow")
+	    {
+	      float r = 0.0;
+	      r = pair.first.toString().toDouble();
+	      m_trisets[i]->setGlow(r);
+	    }
+	  else if (keys[ik] == "darken on glow")
+	    {
+	      float r = 0.0;
+	      r = pair.first.toString().toDouble();
+	      m_trisets[i]->setDark(r);
+	    }
+	}
+    }
+  
+  QString cmd = propertyEditor.getCommandString();
+  if (!cmd.isEmpty())
+    processCommand(i, cmd);	
+  
+  return true;
+}
+
+bool
+Trisets::duplicate(int i)
+{
+  TrisetInformation ti = m_trisets[i]->get();
+  
+  QString flnm = ti.filename;
+  QDir direc(Global::previousDirectory());
+  QString oldflnm = direc.absoluteFilePath(QString(flnm));
+  
+  QString ext = QFileInfo(flnm).completeSuffix();
+  flnm = QFileDialog::getSaveFileName(0,
+				      "Save duplicate mesh to file",
+				      Global::previousDirectory(),
+				      "*."+ext);
+  if (flnm.size() == 0)
+    {
+      QMessageBox::information(0, "", "Mesh not duplicated.");
+      return false;
+    }
+  
+  QString newflnm = direc.absoluteFilePath(QString(flnm));
+  
+  QFile::copy(oldflnm, newflnm);
+  ti.filename = flnm;
+  
+  TrisetGrabber *tg = new TrisetGrabber();
+  tg->set(ti);
+  
+  Vec bmin, bmax;
+  tg->enclosingBox(bmin, bmax);
+  float rad = (bmax-bmin).norm();
+  Vec pos = tg->position();
+  pos.x = pos.x + bmax.x-bmin.x;
+  tg->setPosition(pos);
+  m_trisets.append(tg);
+  
+  return true;
+}
+
+bool
 Trisets::keyPressEvent(QKeyEvent *event)
 {
+  int idx = -1;
   for(int i=0; i<m_trisets.count(); i++)
     {
       if (m_trisets[i]->grabsMouse())
 	{
-	  if (event->key() == Qt::Key_G)
-	    {
-	      m_trisets[i]->removeFromMouseGrabberPool();
-	      return true;
-	    }
-	  else if (event->key() == Qt::Key_S)
-	    {
-	      m_trisets[i]->save();
-	      return true;
-	    }
-	  else if (event->key() == Qt::Key_X)
-	    {
-	      m_trisets[i]->setMoveAxis(TrisetGrabber::MoveX);
-	      return true;
-	    }
-	  else if (event->key() == Qt::Key_Y)
-	    {
-	      m_trisets[i]->setMoveAxis(TrisetGrabber::MoveY);
-	      return true;
-	    }
-	  else if (event->key() == Qt::Key_Z)
-	    {
-	      m_trisets[i]->setMoveAxis(TrisetGrabber::MoveZ);
-	      return true;
-	    }
-	  else if (event->key() == Qt::Key_W)
-	    {
-	      m_trisets[i]->setMoveAxis(TrisetGrabber::MoveAll);
-	      return true;
-	    }
-	  else if (event->key() == Qt::Key_Delete ||
-	      event->key() == Qt::Key_Backspace ||
-	      event->key() == Qt::Key_Backtab)
-	    {
-	      m_trisets[i]->setMouseGrab(false);
-	      m_trisets[i]->removeFromMouseGrabberPool();
-	      m_trisets.removeAt(i);
-	      return true;
-	    }
-	  if (event->key() == Qt::Key_Space)
-	    {
-	      PropertyEditor propertyEditor;
-	      QMap<QString, QVariantList> plist;
-
-	      QVariantList vlist;
-
-	      Vec pos = m_trisets[i]->position();
-	      vlist.clear();
-	      vlist << QVariant("string");
-	      vlist << QVariant(QString("%1 %2 %3").arg(pos.x).arg(pos.y).arg(pos.z));
-	      plist["position"] = vlist;
-
-	      Vec scl = m_trisets[i]->scale();
-	      vlist.clear();
-	      vlist << QVariant("string");
-	      vlist << QVariant(QString("%1 %2 %3").arg(scl.x).arg(scl.y).arg(scl.z));
-	      plist["scale"] = vlist;
-
-	      vlist.clear();
-	      vlist << QVariant("double");
-	      vlist << QVariant(m_trisets[i]->reveal());
-	      vlist << QVariant(0.0);
-	      vlist << QVariant(1.1);
-	      vlist << QVariant(0.1); // singlestep
-	      vlist << QVariant(1); // decimals
-	      plist["reveal"] = vlist;
-
-	      vlist.clear();
-	      vlist << QVariant("double");
-	      vlist << QVariant(m_trisets[i]->glow());
-	      vlist << QVariant(0.0);
-	      vlist << QVariant(5.0);
-	      vlist << QVariant(0.1); // singlestep
-	      vlist << QVariant(1); // decimals
-	      plist["glow"] = vlist;
-
-	      vlist.clear();
-	      vlist << QVariant("double");
-	      vlist << QVariant(m_trisets[i]->dark());
-	      vlist << QVariant(0.0);
-	      vlist << QVariant(1.0);
-	      vlist << QVariant(0.1); // singlestep
-	      vlist << QVariant(1); // decimals
-	      plist["darken on glow"] = vlist;
-
-	      vlist.clear();
-	      vlist << QVariant("color");
-	      Vec pcolor = m_trisets[i]->color();
-	      QColor dcolor = QColor::fromRgbF(pcolor.x,
-					       pcolor.y,
-					       pcolor.z);
-	      vlist << dcolor;
-	      plist["color"] = vlist;
-
-
-
-//	      vlist.clear();
-//	      QFile helpFile(":/trisets.help");
-//	      if (helpFile.open(QFile::ReadOnly))
-//		{
-//		  QTextStream in(&helpFile);
-//		  QString line = in.readLine();
-//		  while (!line.isNull())
-//		    {
-//		      if (line == "#begin")
-//			{
-//			  QString keyword = in.readLine();
-//			  QString helptext;
-//			  line = in.readLine();
-//			  while (!line.isNull())
-//			    {
-//			      helptext += line;
-//			      helptext += "\n";
-//			      line = in.readLine();
-//			      if (line == "#end") break;
-//			    }
-//			  vlist << keyword << helptext;
-//			}
-//		      line = in.readLine();
-//		    }
-//		}
-//	      plist["commandhelp"] = vlist;
-
-	      vlist.clear();
-	      QString mesg;
-	      mesg = m_trisets[i]->filename();
-	      mesg += "\n";
-	      mesg += QString("Vertices : (%1)    Triangles : (%2)\n").	\
-		arg(m_trisets[i]->vertexCount()).arg(m_trisets[i]->triangleCount());
-	      vlist << mesg;
-	      plist["message"] = vlist;
-
-
-	      
-	      vlist.clear();
-	      QFile helpFile(":/trisets.help");
-	      if (helpFile.open(QFile::ReadOnly))
-		{
-		  QTextStream in(&helpFile);
-		  QString line = in.readLine();
-		  while (!line.isNull())
-		    {
-		      if (line == "#begin")
-			{
-			  QString keyword = in.readLine();
-			  QString helptext;
-			  line = in.readLine();
-			  while (!line.isNull())
-			    {
-			      helptext += line;
-			      helptext += "\n";
-			      line = in.readLine();
-			      if (line == "#end") break;
-			    }
-			  vlist << keyword << helptext;
-			}
-		      line = in.readLine();
-		    }
-		}
-	      
-	      plist["commandhelp"] = vlist;
-
-
-  
-	      QStringList keys;
-	      keys << "position";
-	      keys << "scale";
-	      //keys << "gap";
-	      keys << "color";
-	      keys << "reveal";
-	      keys << "glow";
-	      keys << "darken on glow";
-	      //keys << "crop border color";
-	      keys << "commandhelp";
-	      keys << "command";
-	      keys << "message";
-	      
-
-	      propertyEditor.set("Triset Parameters", plist, keys);
-	      QMap<QString, QPair<QVariant, bool> > vmap;
-
-	      if (propertyEditor.exec() == QDialog::Accepted)
-		vmap = propertyEditor.get();
-	      else
-		return true;
-
-
-	      keys = vmap.keys();
-
-	      for(int ik=0; ik<keys.count(); ik++)
-		{
-		  QPair<QVariant, bool> pair = vmap.value(keys[ik]);
-
-		  if (pair.second)
-		    {
-		      if (keys[ik] == "position")
-			{
-			  QString vstr = pair.first.toString();
-			  QStringList pos = vstr.split(" ");
-			  if (pos.count() == 1)
-			    m_trisets[i]->setPosition(Vec(0, 0, 0));
-			  else if (pos.count() == 3)
-			    m_trisets[i]->setPosition(Vec(pos[0].toDouble(),
-							  pos[1].toDouble(),
-							  pos[2].toDouble()));
-			}
-		      else if (keys[ik] == "scale")
-			{
-			  QString vstr = pair.first.toString();
-			  QStringList scl = vstr.split(" ");
-			  Vec scale = Vec(1,1,1);
-			  if (scl.count() > 0) scale.x = scale.y = scale.z = scl[0].toDouble();
-			  if (scl.count() > 1) scale.y = scl[1].toDouble();
-			  if (scl.count() > 2) scale.z = scl[2].toDouble();
-			  m_trisets[i]->setScale(scale);
-			}
-		      else if (keys[ik] == "color")
-			{
-			  QColor color = pair.first.value<QColor>();
-			  float r = color.redF();
-			  float g = color.greenF();
-			  float b = color.blueF();
-			  Vec pcolor = Vec(r,g,b);
-			  m_trisets[i]->setColor(pcolor);
-			}
-		      else if (keys[ik] == "reveal")
-			{
-			  float r = 0.0;
-			  r = pair.first.toString().toDouble();
-			  m_trisets[i]->setReveal(r);
-			}
-		      else if (keys[ik] == "glow")
-			{
-			  float r = 0.0;
-			  r = pair.first.toString().toDouble();
-			  m_trisets[i]->setGlow(r);
-			}
-		      else if (keys[ik] == "darken on glow")
-			{
-			  float r = 0.0;
-			  r = pair.first.toString().toDouble();
-			  m_trisets[i]->setDark(r);
-			}
-		    }
-		}
-	      
-	      QString cmd = propertyEditor.getCommandString();
-	      if (!cmd.isEmpty())
-		processCommand(i, cmd);	
-  
-	      return true;
-	    }
+	  idx = i;
+	  break;
 	}
     }
 
-  return false;
+  if (idx == -1)
+    return false;
+
+  
+  if (event->modifiers() & Qt::ControlModifier &&
+      event->key() == Qt::Key_D)
+    duplicate(idx);
+  else if (event->key() == Qt::Key_G)
+    m_trisets[idx]->removeFromMouseGrabberPool();
+  else if (event->key() == Qt::Key_S)
+    m_trisets[idx]->save();
+  else if (event->key() == Qt::Key_X)
+    m_trisets[idx]->setMoveAxis(TrisetGrabber::MoveX);
+  else if (event->key() == Qt::Key_Y)
+    m_trisets[idx]->setMoveAxis(TrisetGrabber::MoveY);
+  else if (event->key() == Qt::Key_Z)
+    m_trisets[idx]->setMoveAxis(TrisetGrabber::MoveZ);
+  else if (event->key() == Qt::Key_W)
+    m_trisets[idx]->setMoveAxis(TrisetGrabber::MoveAll);
+  else if (event->key() == Qt::Key_Delete ||
+	   event->key() == Qt::Key_Backspace ||
+	   event->key() == Qt::Key_Backtab)
+    {
+      m_trisets[idx]->setMouseGrab(false);
+      m_trisets[idx]->removeFromMouseGrabberPool();
+      m_trisets.removeAt(idx);
+    }
+  else if (event->key() == Qt::Key_Space)
+    handleDialog(idx);
+  
+  return true;
 }
 
 void
@@ -1294,66 +1300,6 @@ Trisets::createShadowShader(Vec attenuation, QList<CropObject> crops)
   m_shadowParm[9] = glGetUniformLocationARB(m_geoShadowShader, "ClipPlane1");
 }
 
-void
-Trisets::save(const char *flnm)
-{
-  QMessageBox::information(0, "Save Mesh", "Why am I here ??");
-  
-  //  QDomDocument doc;
-//  QFile f(flnm);
-//  if (f.open(QIODevice::ReadOnly))
-//    {
-//      doc.setContent(&f);
-//      f.close();
-//    }
-//
-//  QDomElement topElement = doc.documentElement();
-//
-//  for(int i=0; i<m_trisets.count(); i++)
-//    {
-//      QDomElement de = m_trisets[i]->domElement(doc);
-//      topElement.appendChild(de);
-//    }
-//
-//  QFile fout(flnm);
-//  if (fout.open(QIODevice::WriteOnly))
-//    {
-//      QTextStream out(&fout);
-//      doc.save(out, 2);
-//      fout.close();
-//    }
-}
-
-void
-Trisets::load(const char *flnm)
-{
-  QMessageBox::information(0, "Load Mesh", "Why am I here ??");
-  
-//  QDomDocument document;
-//  QFile f(flnm);
-//  if (f.open(QIODevice::ReadOnly))
-//    {
-//      document.setContent(&f);
-//      f.close();
-//    }
-//
-//  QDomElement main = document.documentElement();
-//  QDomNodeList dlist = main.childNodes();
-//  for(int i=0; i<dlist.count(); i++)
-//    {
-//      if (dlist.at(i).nodeName() == "triset")
-//	{
-//	  QDomElement de = dlist.at(i).toElement();
-//
-//	  TrisetGrabber *tg = new TrisetGrabber();
-//	  if (tg->fromDomElement(de))	    
-//	    m_trisets.append(tg);
-//	  else
-//	    delete tg;
-//	}
-//    }
-//
-}
 
 QList<TrisetInformation>
 Trisets::get()

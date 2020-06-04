@@ -69,9 +69,6 @@ class Trisets : public QObject
   QList<TrisetInformation> get();
   void set(QList<TrisetInformation>);
 
-  void load(const char*);
-  void save(const char*);
-
   void makeReadyForPainting(QGLViewer*);
   void releaseFromPainting();
   void paint(QGLViewer*, QBitArray, float*, Vec, float);
@@ -115,6 +112,9 @@ class Trisets : public QObject
   void createFBO(int, int);
 
   void render(Camera*, int);
+
+  bool handleDialog(int);
+  bool duplicate(int);
 };
 
 

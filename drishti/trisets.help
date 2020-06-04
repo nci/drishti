@@ -31,6 +31,7 @@ KeyPress
 --------------------
 Space - opens surface mesh dialog
 DEL - delete surface mesh
+Ctrl+D - duplicate and save surface mesh
 S - save mesh as .ply
 x/y/z - restrict movements to x/y/z
 w - free restrictions on movements
@@ -195,6 +196,13 @@ Start Keyboard help
 DEL
 Delete the mesh.
 #end
+
+#begin
+Ctrl+D
+
+Duplicate the current mesh and save it under different filename.
+#end
+
 
 #begin
 s

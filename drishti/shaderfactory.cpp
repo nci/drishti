@@ -1570,7 +1570,7 @@ ShaderFactory::meshShaderF()
   
   // polka dots
   shader += "   vec3 dotpat = fract(100.0*hatchPattern.y*(pointPos/vec3(sceneRadius)))-vec3(0.5);\n";
-  shader += "   float polka = 0.5*smoothstep(0.0, hatchPattern.z, length(dotpat));\n";
+  shader += "   float polka = abs(abs(length(dotpat)-hatchPattern.z*0.5)-hatchPattern.z*0.25);\n";
   shader += "   pattern += polka*step(0.9, patType)*step(patType, 1.1);\n";
 
   // stripes
@@ -1582,11 +1582,12 @@ ShaderFactory::meshShaderF()
   shader += "   pattern += pat.x*pat.y*step(4.9, patType)*step(patType, 5.1);\n";
   shader += "   pattern += pat.x*pat.z*step(5.9, patType)*step(patType, 6.1);\n";
   shader += "   pattern += pat.y*pat.z*step(6.9, patType)*step(patType, 7.1);\n";
-  shader += "   pattern += pat.x*pat.y*pat.z*step(7.9, patType)*step(patType, 8.1);\n";
+  shader += "   pattern += max(pat.x,max(pat.y,pat.z))*step(7.9, patType)*step(patType, 8.1);\n";
+  shader += "   pattern += min(pat.x,max(pat.y,pat.z))*step(8.9, patType)*step(patType, 9.1);\n";
 
-  // stripes
-  shader += "   pat.xy = abs(min(vec2(2*hatchPattern.z), fract(vec2(100.0*hatchPattern.y)*abs(vec2(pointPos.x+pointPos.y,pointPos.x-pointPos.y)/sceneRadius)))-vec2(hatchPattern.z));\n";
-  shader += "   pattern += (pat.x+pat.y)*step(8.9, patType)*step(patType, 9.1);\n";
+//  // stripes
+//  shader += "   pat.xy = abs(min(vec2(2*hatchPattern.z), fract(vec2(100.0*hatchPattern.y)*abs(vec2(pointPos.x+pointPos.y,pointPos.x-pointPos.y)/sceneRadius)))-vec2(hatchPattern.z));\n";
+//  shader += "   pattern += (pat.x+pat.y)*step(8.9, patType)*step(patType, 9.1);\n";
 
   shader += "   pattern = mix(1.0-sqrt(pattern), pattern, step(0.0, hatchPattern.x));";
 

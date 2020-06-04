@@ -1453,9 +1453,11 @@ ShaderFactory::meshShaderV()
   shader += "out float zdepth;\n";
   shader += "out float zdepthS;\n";
   shader += "out float surfId;\n";
+  shader += "out vec3 oPosition;\n";
   shader += "out vec3 ;\n";
   shader += "void main()\n";
   shader += "{\n";
+  shader += "   oPosition = position;\n";
   shader += "   pointPos = (localXform * vec4(position, 1)).xyz;\n";
   shader += "   v3Color = colorIn;\n";
   shader += "   v3Normal = normalIn;\n";
@@ -1497,6 +1499,7 @@ ShaderFactory::meshShaderF()
   shader += "in float zdepth;\n";
   shader += "in float zdepthS;\n";
   shader += "in float surfId;\n";
+  shader += "in vec3 oPosition;\n";
 
   // Ouput data
   shader += "layout (location=0) out vec4 outputColor;\n";
@@ -1557,8 +1560,13 @@ ShaderFactory::meshShaderF()
   shader += "    outputColor.rgb += 0.5*max(extras.z,extras.x)*glowColor.rgb;\n";
 
   // darken if required
-  shader += "    outputColor.rgb *= extras.w;\n";
+  //shader += "    outputColor.rgb *= extras.w;\n";
 
+  // desaturate if required
+  shader += "    outputColor.xyz = rgb2hsv(outputColor.rgb);\n";
+  shader += "    outputColor.y *= extras.w;\n";
+  shader += "    outputColor.rgb = hsv2rgb(outputColor.xyz);\n";
+  shader += "    outputColor.rgb *= extras.w;\n";
 
 
   //---------------------------------------------------------
@@ -1569,12 +1577,12 @@ ShaderFactory::meshShaderF()
   shader += "   float patType = abs(hatchPattern.x);\n";
   
   // polka dots
-  shader += "   vec3 dotpat = fract(100.0*hatchPattern.y*(pointPos/vec3(sceneRadius)))-vec3(0.5);\n";
-  shader += "   float polka = abs(abs(length(dotpat)-hatchPattern.z*0.5)-hatchPattern.z*0.25);\n";
+  shader += "   vec3 dotpat = fract(100.0*hatchPattern.y*(oPosition/vec3(sceneRadius)))-vec3(0.5);\n";
+  shader += "   float polka = abs(abs(length(dotpat)-hatchPattern.z*0.5)-hatchPattern.z*0.125);\n";
   shader += "   pattern += polka*step(0.9, patType)*step(patType, 1.1);\n";
 
   // stripes
-  shader += "   vec3 pat = abs(min(vec3(2*hatchPattern.z), fract(vec3(100.0*hatchPattern.y)*(pointPos/sceneRadius)))-vec3(hatchPattern.z));\n";
+  shader += "   vec3 pat = abs(min(vec3(2*hatchPattern.z), fract(vec3(100.0*hatchPattern.y)*(oPosition/sceneRadius)))-vec3(hatchPattern.z));\n";
   shader += "   pat = 0.5*smoothstep(vec3(0.0), vec3(hatchPattern.z), vec3(pat));\n";
   shader += "   pattern += pat.x*step(1.9, patType)*step(patType, 2.1);\n";
   shader += "   pattern += pat.y*step(2.9, patType)*step(patType, 3.1);\n";
@@ -1589,7 +1597,7 @@ ShaderFactory::meshShaderF()
 //  shader += "   pat.xy = abs(min(vec2(2*hatchPattern.z), fract(vec2(100.0*hatchPattern.y)*abs(vec2(pointPos.x+pointPos.y,pointPos.x-pointPos.y)/sceneRadius)))-vec2(hatchPattern.z));\n";
 //  shader += "   pattern += (pat.x+pat.y)*step(8.9, patType)*step(patType, 9.1);\n";
 
-  shader += "   pattern = mix(1.0-sqrt(pattern), pattern, step(0.0, hatchPattern.x));";
+  shader += "   pattern = mix(1.0-pow(pattern,0.2), pattern, step(0.0, hatchPattern.x));";
 
   shader += "   outputColor.rgb = mix(outputColor.rgb, vec3(0.0), pattern);\n";
   //---------------------------------------------------------

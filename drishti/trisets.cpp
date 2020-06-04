@@ -728,6 +728,11 @@ Trisets::handleDialog(int i)
   plist["color"] = vlist;
     
 
+  vlist.clear();
+  vlist << QVariant("checkbox");
+  vlist << QVariant(m_trisets[i]->clip());
+  plist["clip"] = vlist;
+
   
   vlist.clear();
   QString mesg;
@@ -773,11 +778,12 @@ Trisets::handleDialog(int i)
   QStringList keys;
   keys << "position";
   keys << "scale";
+  keys << "clip";
   keys << "color";
   keys << "reveal";
+  keys << "gap";
   keys << "glow";
   keys << "darken on glow";
-  //keys << "crop border color";
   keys << "commandhelp";
   keys << "command";
   keys << "message";
@@ -848,6 +854,8 @@ Trisets::handleDialog(int i)
 	      r = pair.first.toString().toDouble();
 	      m_trisets[i]->setDark(r);
 	    }
+	  else if (keys[ik] == "clip")
+	    m_trisets[i]->setClip(pair.first.toBool());
 	}
     }
   
@@ -1122,6 +1130,19 @@ Trisets::processCommand(int idx, QString cmd)
       return;
     }
   
+  if (list[0] == "clipall")
+    {
+      bool clip = true;
+      if (list.count() > 1)
+	clip = list[1].toFloat(&ok) > 0.1;
+      
+      for (int i=0; i<m_trisets.count(); i++)
+	{
+	  m_trisets[i]->setClip(clip);
+	}
+      return;
+    }
+
   if (list[0] == "activescale")
     {
       float scl = 1.0;

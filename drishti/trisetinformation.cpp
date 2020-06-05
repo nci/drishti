@@ -30,7 +30,7 @@ TrisetInformation::clear()
   captionPosition = Vec(0,0,0);
   cpDx = 0;
   cpDy = -100;
-  pattern = Vec(0,1,0.1);
+  pattern = Vec(0,10,0.5);
 }
 
 TrisetInformation&

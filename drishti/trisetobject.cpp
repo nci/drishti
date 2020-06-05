@@ -123,7 +123,7 @@ TrisetObject::clear()
   m_reveal = 0.0;
   m_glow = 0.0;  
   m_dark = 0.5;
-  m_pattern = Vec(0,1,0.1);
+  m_pattern = Vec(0,10,0.5);
   m_q = Quaternion();
   m_nX = m_nY = m_nZ = 0;
   m_color = Vec(1,1,1);
@@ -876,7 +876,7 @@ TrisetObject::loadPLY(QString flnm)
   m_reveal = 0.0;
   m_glow = 0.0;
   m_dark = 0.5;
-  m_pattern = Vec(0,1,0.1);
+  m_pattern = Vec(0,10,0.5);
   m_q = Quaternion();
 
   typedef struct Vertex {
@@ -1251,7 +1251,7 @@ TrisetObject::loadTriset(QString flnm)
   m_glow = 0.0;
   m_dark = 0.5;
   m_q = Quaternion();
-  m_pattern = Vec(0,1,0.1);
+  m_pattern = Vec(0,10,0.5);
 
   m_enclosingBox[0] = Vec(bmin.x, bmin.y, bmin.z);
   m_enclosingBox[1] = Vec(bmax.x, bmin.y, bmin.z);

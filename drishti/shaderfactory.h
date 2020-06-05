@@ -52,7 +52,7 @@ class ShaderFactory
 
  private :
   static GLuint m_meshShader;
-  static GLint m_meshShaderParm[20];
+  static GLint m_meshShaderParm[30];
 
   static GLuint m_meshShadowShader;
   static GLint m_meshShadowShaderParm[20];

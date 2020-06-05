@@ -31,6 +31,10 @@ Trisets::Trisets()
   m_edges = 0;
 
   memset(&m_scrGeo[0], 0, 8*sizeof(float));
+
+  m_solidTexName.clear();
+  m_solidTexData.clear();
+  m_solidTex = 0;
 }
 
 Trisets::~Trisets()
@@ -49,6 +53,19 @@ Trisets::~Trisets()
   m_depthTex[2] = 0;
   m_depthTex[3] = 0;
   m_rbo = 0;
+
+  if (m_solidTexName.count() > 0)
+    {
+      glDeleteTextures(m_solidTexName.size(), m_solidTex);
+      delete [] m_solidTex;
+      m_solidTex = 0;
+      m_solidTexName.clear();
+      foreach(uchar* td, m_solidTexData)
+	{
+	  delete [] td;
+	}
+      m_solidTexData.clear();
+    }
 }
 
 void
@@ -247,6 +264,8 @@ Trisets::addMesh(QString flnm)
     m_trisets.append(tg);
   else
     delete tg;
+
+  loadSolidTextures();
 }
 
 void
@@ -400,8 +419,18 @@ Trisets::render(Camera *camera, int nclip)
       glUniform1f(meshShaderParm[17], i+1);
 
       Vec pat = m_trisets[i]->pattern();
-      glUniform3f(meshShaderParm[18], pat.x, pat.y, pat.z);
-      
+      if (pat.x > 0.5)
+	{
+	  glUniform3f(meshShaderParm[18], pat.x, pat.y, pat.z);
+	  int patId = qCeil(pat.x) - 1;
+	  glActiveTexture(GL_TEXTURE1);
+	  glEnable(GL_TEXTURE_3D);
+	  glBindTexture(GL_TEXTURE_3D, m_solidTex[patId]);
+	  glUniform1i(meshShaderParm[19], 1); // solidTex
+	}
+      else
+	glUniform3f(meshShaderParm[18], 0,0,0);
+
       if (m_trisets[i]->clip())
 	{
 	  glUniform1iARB(meshShaderParm[9],  nclip);
@@ -417,6 +446,11 @@ Trisets::render(Camera *camera, int nclip)
       m_trisets[i]->draw(camera,
 			 m_trisets[i]->grabsMouse());
       
+
+      if (pat.x > 0.5)
+	glDisable(GL_TEXTURE_3D);
+
+
       glUseProgramObjectARB(0);
     }
 }
@@ -734,6 +768,13 @@ Trisets::handleDialog(int i)
   plist["clip"] = vlist;
 
   
+  Vec pat = m_trisets[i]->pattern();
+  vlist.clear();
+  vlist << QVariant("string");
+  vlist << QVariant(QString("%1 %2 %3").arg(pat.x).arg(pat.y).arg(pat.z));
+  plist["pattern"] = vlist;
+  
+
   vlist.clear();
   QString mesg;
   mesg = m_trisets[i]->filename();
@@ -784,6 +825,7 @@ Trisets::handleDialog(int i)
   keys << "gap";
   keys << "glow";
   keys << "darken on glow";
+  keys << "pattern";
   keys << "commandhelp";
   keys << "command";
   keys << "message";
@@ -849,13 +891,35 @@ Trisets::handleDialog(int i)
 	      m_trisets[i]->setGlow(r);
 	    }
 	  else if (keys[ik] == "darken on glow")
-	    {
+            {
 	      float r = 0.0;
 	      r = pair.first.toString().toDouble();
 	      m_trisets[i]->setDark(r);
 	    }
 	  else if (keys[ik] == "clip")
 	    m_trisets[i]->setClip(pair.first.toBool());
+	  else if (keys[ik] == "pattern")
+            {
+	      QString vstr = pair.first.toString();
+	      QStringList pat = vstr.split(" ");
+	      if (pat.count() > 0)
+                {
+                  int texId = pat[0].toDouble();
+                  if (texId < 0 || texId > m_solidTexData.count()-1)
+		    {
+		      QMessageBox::information(0, "", QString("Pattern id %1 is outside range 0-%1").\
+					       arg(texId).\
+					       arg(m_solidTexData.count()));
+		      return true;
+		    }
+		  if (pat.count() == 1)
+		    m_trisets[i]->setPattern(Vec(pat[0].toDouble(), 10, 0.5));
+		  else if (pat.count() == 3)
+		    m_trisets[i]->setPattern(Vec(pat[0].toDouble(),
+						 pat[1].toDouble(),
+						 pat[2].toDouble()));
+                }
+	    }
 	}
     }
   
@@ -1013,23 +1077,6 @@ Trisets::processCommand(int idx, QString cmd)
       if (list[0] == "mirrorx") m_trisets[idx]->mirror(0);
       if (list[0] == "mirrory") m_trisets[idx]->mirror(1);
       if (list[0] == "mirrorz") m_trisets[idx]->mirror(2);
-      return;
-    }
-
-  if (list[0] == "pattern")
-    {
-      Vec pattern = m_trisets[idx]->pattern();
-      int pat = pattern.x;
-      float freq = pattern.y;
-      float thick = pattern.z;
-
-      if (list.size() > 1) pat = list[1].toInt(&ok);
-      if (list.size() > 2) freq = list[2].toFloat(&ok);
-      if (list.size() > 3) thick = list[3].toFloat(&ok);
-
-      pattern = Vec(pat, freq, thick);
-      m_trisets[idx]->setPattern(pattern);
-
       return;
     }
   
@@ -1341,6 +1388,8 @@ Trisets::set(QList<TrisetInformation> tinfo)
       clear();
       return;
     }
+
+  loadSolidTextures();
     
   if (m_trisets.count() == 0)
     {
@@ -1493,3 +1542,73 @@ Trisets::createFBO(int wd, int ht)
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+void
+Trisets::loadSolidTextures()
+{  
+  if (m_solidTexName.count() > 0)
+    return;
+
+  
+  QString texdir = qApp->applicationDirPath() + QDir::separator() + "textures";
+  QDir dir(texdir);
+  QStringList filters;
+  filters << "*.tex";
+  dir.setNameFilters(filters);
+  dir.setFilter(QDir::Files |
+		QDir::NoSymLinks |
+		QDir::NoDotAndDotDot);
+
+
+  QFileInfoList list = dir.entryInfoList();
+  if (list.size() == 0)
+    return;
+
+  int texSize;
+  QString flnms;
+  for (int i=0; i<list.size(); i++)
+    {
+      QString flnm = list.at(i).absoluteFilePath();
+      m_solidTexName << flnm;
+
+      QFile fd(flnm);
+      fd.open(QFile::ReadOnly);
+
+      int vs;
+      fd.read((char*)&vs, 4);
+
+      texSize = vs; // assuming all textures are of same size
+      
+      uchar *td = new uchar[vs*vs*vs*3];
+      fd.read((char*)td, vs*vs*vs*3);
+      fd.close();
+
+      m_solidTexData << td;
+      
+      flnms += flnm;
+      flnms += "\n";
+    }
+  
+  m_solidTex = new GLuint[m_solidTexData.count()];
+  glGenTextures(m_solidTexData.count(), m_solidTex);
+  
+  for (int i=0; i<m_solidTexData.count(); i++)
+    {
+      glActiveTexture(GL_TEXTURE1);
+      glEnable(GL_TEXTURE_3D);
+      glBindTexture(GL_TEXTURE_3D, m_solidTex[i]);
+      glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER); 
+      glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER); 
+      glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
+      glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glTexImage3D(GL_TEXTURE_3D,
+		   0, // single resolution
+		   GL_RGB,
+		   texSize, texSize, texSize,
+		   0, // no border
+		   GL_RGB,
+		   GL_UNSIGNED_BYTE,
+		   m_solidTexData[i]);
+      glDisable(GL_TEXTURE_3D);
+    }
+}

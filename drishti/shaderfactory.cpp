@@ -1386,7 +1386,7 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
 //----------------------------
 //----------------------------
 
-GLint ShaderFactory::m_meshShaderParm[20];
+GLint ShaderFactory::m_meshShaderParm[30];
 GLint* ShaderFactory::meshShaderParm() { return &m_meshShaderParm[0]; }
 
 GLuint ShaderFactory::m_meshShader = 0;
@@ -1427,6 +1427,7 @@ GLuint ShaderFactory::meshShader()
 	m_meshShaderParm[16] = glGetUniformLocation(m_meshShader,"MVShadow");
 	m_meshShaderParm[17] = glGetUniformLocation(m_meshShader,"idx");
 	m_meshShaderParm[18] = glGetUniformLocation(m_meshShader,"hatchPattern");
+	m_meshShaderParm[19] = glGetUniformLocation(m_meshShader,"solidTex");
 	
     }
 
@@ -1491,6 +1492,7 @@ ShaderFactory::meshShaderF()
   shader += "uniform bool hasUV;\n";
   shader += "uniform float featherSize;\n";
   shader += "uniform vec3 hatchPattern;\n";
+  shader += "uniform sampler3D solidTex;\n";
   
   shader += "\n";
   shader += "in vec3 v3Color;\n";
@@ -1552,6 +1554,23 @@ ShaderFactory::meshShaderF()
   shader += "  vec3 Diff = diffuse*diffMag*outputColor.rgb;\n";
   shader += "  outputColor.rgb = Amb + Diff;\n";
 
+  //---------------------------------------------------------
+  //---------------------------------------------------------
+  // apply solid texture
+  shader += "   float a = 1.0/128.0;\n";
+  shader += "   vec3 solidTexCoord = a/2 + (1.0-a)*fract(hatchPattern.y*(oPosition/vec3(sceneRadius)));\n";
+
+  shader += "   vec3 solidColor = texture(solidTex, solidTexCoord).rgb;\n";
+  shader += "   outputColor.rgb = mix(outputColor.rgb, solidColor, hatchPattern.z);\n";
+
+  shader += "   float patType = abs(hatchPattern.z);\n";
+  shader += "   vec3 solidLum = vec3(0.2*solidColor.r+0.7*solidColor.g+0.1*solidColor.b);\n";
+  shader += "   outputColor.rgb = mix(outputColor.rgb, solidLum, patType*step(0.05, -hatchPattern.z));\n";
+  
+  //---------------------------------------------------------
+  //---------------------------------------------------------
+  
+
   // glow when active or has glow switched on
   shader += "    glowColor = pow(glowColor, vec3(1.1, 0.5, 1.0));\n";
   shader += "    glowColor.z = min(glowColor.z+extras.z, 1.0);\n";
@@ -1569,39 +1588,40 @@ ShaderFactory::meshShaderF()
   shader += "    outputColor.rgb *= extras.w;\n";
 
 
-  //---------------------------------------------------------
-  //---------------------------------------------------------
-  // hatching patterns
-  shader += "   float pattern = 0.0;\n";
 
-  shader += "   float patType = abs(hatchPattern.x);\n";
-  
-  // polka dots
-  shader += "   vec3 dotpat = fract(100.0*hatchPattern.y*(oPosition/vec3(sceneRadius)))-vec3(0.5);\n";
-  shader += "   float polka = abs(abs(length(dotpat)-hatchPattern.z*0.5)-hatchPattern.z*0.125);\n";
-  shader += "   pattern += polka*step(0.9, patType)*step(patType, 1.1);\n";
-
-  // stripes
-  shader += "   vec3 pat = abs(min(vec3(2*hatchPattern.z), fract(vec3(100.0*hatchPattern.y)*(oPosition/sceneRadius)))-vec3(hatchPattern.z));\n";
-  shader += "   pat = 0.5*smoothstep(vec3(0.0), vec3(hatchPattern.z), vec3(pat));\n";
-  shader += "   pattern += pat.x*step(1.9, patType)*step(patType, 2.1);\n";
-  shader += "   pattern += pat.y*step(2.9, patType)*step(patType, 3.1);\n";
-  shader += "   pattern += pat.z*step(3.9, patType)*step(patType, 4.1);\n";
-  shader += "   pattern += pat.x*pat.y*step(4.9, patType)*step(patType, 5.1);\n";
-  shader += "   pattern += pat.x*pat.z*step(5.9, patType)*step(patType, 6.1);\n";
-  shader += "   pattern += pat.y*pat.z*step(6.9, patType)*step(patType, 7.1);\n";
-  shader += "   pattern += max(pat.x,max(pat.y,pat.z))*step(7.9, patType)*step(patType, 8.1);\n";
-  shader += "   pattern += min(pat.x,max(pat.y,pat.z))*step(8.9, patType)*step(patType, 9.1);\n";
-
+//  //---------------------------------------------------------
+//  //---------------------------------------------------------
+//  // hatching patterns
+//  shader += "   float pattern = 0.0;\n";
+//
+//  shader += "   float patType = abs(hatchPattern.x);\n";
+//  
+//  // polka dots
+//  shader += "   vec3 dotpat = fract(100.0*hatchPattern.y*(oPosition/vec3(sceneRadius)))-vec3(0.5);\n";
+//  shader += "   float polka = abs(abs(length(dotpat)-hatchPattern.z*0.5)-hatchPattern.z*0.125);\n";
+//  shader += "   pattern += polka*step(0.9, patType)*step(patType, 1.1);\n";
+//
 //  // stripes
-//  shader += "   pat.xy = abs(min(vec2(2*hatchPattern.z), fract(vec2(100.0*hatchPattern.y)*abs(vec2(pointPos.x+pointPos.y,pointPos.x-pointPos.y)/sceneRadius)))-vec2(hatchPattern.z));\n";
-//  shader += "   pattern += (pat.x+pat.y)*step(8.9, patType)*step(patType, 9.1);\n";
-
-  shader += "   pattern = mix(1.0-pow(pattern,0.2), pattern, step(0.0, hatchPattern.x));";
-
-  shader += "   outputColor.rgb = mix(outputColor.rgb, vec3(0.0), pattern);\n";
-  //---------------------------------------------------------
-  //---------------------------------------------------------
+//  shader += "   vec3 pat = abs(min(vec3(2*hatchPattern.z), fract(vec3(100.0*hatchPattern.y)*(oPosition/sceneRadius)))-vec3(hatchPattern.z));\n";
+//  shader += "   pat = 0.5*smoothstep(vec3(0.0), vec3(hatchPattern.z), vec3(pat));\n";
+//  shader += "   pattern += pat.x*step(1.9, patType)*step(patType, 2.1);\n";
+//  shader += "   pattern += pat.y*step(2.9, patType)*step(patType, 3.1);\n";
+//  shader += "   pattern += pat.z*step(3.9, patType)*step(patType, 4.1);\n";
+//  shader += "   pattern += pat.x*pat.y*step(4.9, patType)*step(patType, 5.1);\n";
+//  shader += "   pattern += pat.x*pat.z*step(5.9, patType)*step(patType, 6.1);\n";
+//  shader += "   pattern += pat.y*pat.z*step(6.9, patType)*step(patType, 7.1);\n";
+//  shader += "   pattern += max(pat.x,max(pat.y,pat.z))*step(7.9, patType)*step(patType, 8.1);\n";
+//  shader += "   pattern += min(pat.x,max(pat.y,pat.z))*step(8.9, patType)*step(patType, 9.1);\n";
+//
+////  // stripes
+////  shader += "   pat.xy = abs(min(vec2(2*hatchPattern.z), fract(vec2(100.0*hatchPattern.y)*abs(vec2(pointPos.x+pointPos.y,pointPos.x-pointPos.y)/sceneRadius)))-vec2(hatchPattern.z));\n";
+////  shader += "   pattern += (pat.x+pat.y)*step(8.9, patType)*step(patType, 9.1);\n";
+//
+//  shader += "   pattern = mix(1.0-pow(pattern,0.2), pattern, step(0.0, hatchPattern.x));";
+//
+//  shader += "   outputColor.rgb = mix(outputColor.rgb, vec3(0.0), pattern);\n";
+//  //---------------------------------------------------------
+//  //---------------------------------------------------------
 
 
   
@@ -1725,10 +1745,9 @@ ShaderFactory::meshShadowShaderF()
 
   shader += "  float surfId = dtex.z;\n";
   
-  
   shader += "  vec3 ecolor = color.rgb;\n";
   shader += "  if (edges > 0.0)\n";
-  shader += "  {\n";
+  shader += "  {\n"; 
   shader += "    float response = 0.0;\n";
 
   // find edges on surfaces

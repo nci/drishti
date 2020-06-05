@@ -115,6 +115,12 @@ class Trisets : public QObject
 
   bool handleDialog(int);
   bool duplicate(int);
+
+
+  QStringList m_solidTexName;
+  QList<uchar*> m_solidTexData;
+  GLuint* m_solidTex;
+  void loadSolidTextures();
 };
 
 

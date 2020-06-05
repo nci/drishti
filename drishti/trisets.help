@@ -64,6 +64,16 @@ Set glow values for all meshes.  Values are in range 0 (no glow) to 5 (waaaaaay 
 #end
 
 #begin
+clipall
+clipall <val>
+
+Set clipping for all meshes.
+0 means do not clip.
+1 means apply clipping.
+
+#end
+
+#begin
 darkenall
 darkenall <val>
 
@@ -94,12 +104,12 @@ If a hitpoint is available, line is drawn from that point to the caption text.
 
 #begin
 pattern
-pattern <type> <frequency> <thickness>
+pattern <type> <frequency> <blend>
 
 Draws hatching pattern on surface.
-<type> is between -9 to 9.  0 is the default value, being no pattern.
-<frequency> is greater than 0.5.  Default value is 1.
-<thickness> is the thickness of light part of the pattern.
+<type> is between 0 to 21.  0 is the default value, being no pattern.
+<frequency> is greater than 0.5.  Default value is 10.
+<blend> is the blending fraction (between 0.0 and 1.0) with the original colour of the mesh - 1.0 replace original colour.
 #end
 
 

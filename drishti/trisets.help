@@ -109,7 +109,7 @@ pattern <type> <frequency> <blend>
 Draws hatching pattern on surface.
 <type> is between 0 to 21.  0 is the default value, being no pattern.
 <frequency> is greater than 0.5.  Default value is 10.
-<blend> is the blending fraction (between 0.0 and 1.0) with the original colour of the mesh - 1.0 replace original colour.
+<blend> is the blending fraction (between -2.0 and 1.0) with the original colour of the mesh. <blend> values above 0.0 is replace original color with texture color with 1.0 being completely replace original colour.  <blend> values less than 0.0 modulates only the luminance.
 #end
 
 

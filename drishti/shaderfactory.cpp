@@ -1554,18 +1554,23 @@ ShaderFactory::meshShaderF()
   shader += "  vec3 Diff = diffuse*diffMag*outputColor.rgb;\n";
   shader += "  outputColor.rgb = Amb + Diff;\n";
 
+
+
+
+  
   //---------------------------------------------------------
   //---------------------------------------------------------
   // apply solid texture
   shader += "   float a = 1.0/128.0;\n";
-  shader += "   vec3 solidTexCoord = a/2 + (1.0-a)*fract(hatchPattern.y*(oPosition/vec3(sceneRadius)));\n";
+  shader += "   vec3 solidTexCoord = a/2 + (1.0-a)*fract(hatchPattern.y*(abs(oPosition)/vec3(sceneRadius)));\n";
 
   shader += "   vec3 solidColor = texture(solidTex, solidTexCoord).rgb;\n";
-  shader += "   outputColor.rgb = mix(outputColor.rgb, solidColor, hatchPattern.z);\n";
+  shader += "   outputColor.rgb = mix(outputColor.rgb, solidColor, hatchPattern.z*step(0.05, hatchPattern.z));\n";
 
   shader += "   float patType = abs(hatchPattern.z);\n";
-  shader += "   vec3 solidLum = vec3(0.2*solidColor.r+0.7*solidColor.g+0.1*solidColor.b);\n";
-  shader += "   outputColor.rgb = mix(outputColor.rgb, solidLum, patType*step(0.05, -hatchPattern.z));\n";
+  shader += "   float solidLum = (0.2*solidColor.r+0.7*solidColor.g+0.1*solidColor.b);\n";
+  shader += "   outputColor.rgb = mix(outputColor.rgb, outputColor.rgb*solidLum, patType*step(0.05, -hatchPattern.z)*step(-hatchPattern.z, 1.05));\n";
+  shader += "   outputColor.rgb = mix(outputColor.rgb, outputColor.rgb*(1.0-solidLum), (patType-1.0)*step(1.0, -hatchPattern.z)*step(-hatchPattern.z, 2.05));\n";
   
   //---------------------------------------------------------
   //---------------------------------------------------------
@@ -1777,7 +1782,7 @@ ShaderFactory::meshShadowShaderF()
   shader += "    ecolor.rgb *= pow((1.0-response/8.0), gamma);\n";
   shader += "  }\n";
 
-  shader += "  color.rgb = mix(color.rgb, ecolor, step(softshadow, 0.01));\n";
+  shader += "  color.rgb = mix(color.rgb, ecolor*color.rgb, step(softshadow, 0.01));\n";
 
   shader += "  if (softshadow > 0.0)\n";
   shader += "  {\n";  
@@ -1886,7 +1891,7 @@ ShaderFactory::meshShadowShaderF()
   shader += "    color.rgb = mix(color.rgb, clrO, ugr);\n";
 
   // add edges
-  shader += "    color.rgb = mix(color.rgb, ecolor, 0.5);\n";
+  shader += "    color.rgb = mix(color.rgb, ecolor*color.rgb, 0.5);\n";
 
   // add shadow
   shader += "    sumS /= float(nstepsS);\n";

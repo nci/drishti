@@ -469,34 +469,17 @@ Trisets::draw(QGLViewer *viewer,
   
   //--------------------------
   // find min and max limits
-  float maxDist = 0;
-  float minDist = 0;
-  Vec epos = viewer->camera()->position();
-  Vec vd = viewer->camera()->viewDirection();
-  for(int i=0; i<m_trisets.count();i++)
-    {
-      Vec bmin, bmax;
-      m_trisets[i]->enclosingBox(bmin, bmax);
-      float rad = (bmax-bmin).norm();
-      Vec minpos = m_trisets[i]->centroid() + m_trisets[i]->position() - vd*rad;
-      Vec maxpos = m_trisets[i]->centroid() + m_trisets[i]->position() + vd*rad;
-      float mindst = (minpos-epos)*vd;
-      float maxdst = (maxpos-epos)*vd;
-      if (i > 0)
-	{
-	  minDist = qMin(mindst, minDist);
-	  maxDist = qMax(maxdst, maxDist);
-	}
-      else
-	{
-	  minDist = mindst;
-	  maxDist = maxdst;
-	}
-    }
-  float trisetExtent = maxDist-minDist;
+  float trisetExtent = 0.0;
+  {
+    for(int i=1; i<m_trisets.count();i++)
+      {
+	Vec bmin, bmax;
+	m_trisets[i]->enclosingBox(bmin, bmax);      
+	trisetExtent = qMax(trisetExtent, (float)((bmax-bmin).norm()));
+      }
+  }
   //--------------------------
-
-
+  
   
   int nclip = cpos.count();
   if (nclip > 0)
@@ -524,6 +507,7 @@ Trisets::draw(QGLViewer *viewer,
 
   float sceneRadius = trisetExtent;
 
+  Vec vd = viewer->camera()->viewDirection();
   
   if (!applyShadows)
     {

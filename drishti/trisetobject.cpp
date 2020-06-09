@@ -1531,7 +1531,7 @@ TrisetObject::loadAssimpModel(QString flnm)
 	  m_vertices << Vec(pos.x, pos.y, pos.z);
       
 	  aiVector3D normal = mesh->mNormals[j];
-	  m_normals << Vec(normal.x, normal.y, normal.z);
+	  m_normals << Vec(normal.x, normal.y, normal.z).unit();
 	  
 	  if (hasVertexColors)
 	    m_vcolor << Vec(mesh->mColors[0][j].r,

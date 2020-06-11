@@ -788,11 +788,6 @@ RcShaderFactory::genRaycastShader(QList<CropObject> crops,
 
   //------------------------------------
 
-  //------------------------------------
-  // apply gamma correction
-  shader += "      colorSample.rgb = pow(colorSample.rgb, vec3(gamma));\n";
-  shader += "      colorSample = clamp(colorSample, vec4(0.0,0.0,0.0,0.0), vec4(1.0,1.0,1.0,1.0));\n";
-  //------------------------------------
 
   //------------------------------------
 
@@ -859,12 +854,18 @@ RcShaderFactory::genEdgeEnhanceShader()
   
   shader += "uniform sampler2DRect normalTex;\n";
   shader += "uniform sampler2DRect pvtTex;\n";
-  shader += "uniform float minZ;\n";
-  shader += "uniform float maxZ;\n";
+  shader += "uniform float sceneRadius;\n";
+  //shader += "uniform float minZ;\n";
+  //shader += "uniform float maxZ;\n";
   shader += "uniform float dzScale;\n";
   shader += "uniform float isoshadow;\n";
+  shader += "uniform float gamma;\n";
+  shader += "uniform float roughness;\n";
+  shader += "uniform float specular;\n";
 
   shader += "out vec4 glFragColor;\n";
+
+  shader += ShaderFactory::ggxShader();
 
   shader += "void main(void)\n";
   shader += "{\n";
@@ -884,47 +885,73 @@ RcShaderFactory::genEdgeEnhanceShader()
   //shader += "  color /= color.a;\n";
   //---------------------
 
-  shader += "  if (all(lessThan(vec2(dzScale,isoshadow), vec2(0.001))))\n"; // no post processing
-  shader += "    return;\n";
+//  shader += "  if (all(lessThan(vec2(dzScale,isoshadow), vec2(0.001))))\n"; // no post processing
+//  shader += "    return;\n";
 
-  
-  shader += "    float cx[8] = float[](-1.0, 0.0, 1.0, 0.0, -1.0,-1.0, 1.0, 1.0);\n";
-  shader += "    float cy[8] = float[]( 0.0,-1.0, 0.0, 1.0, -1.0, 1.0,-1.0, 1.0);\n";
+  //------------------------------------
+  // apply gamma correction
+  shader += "      color.rgb = pow(color.rgb, vec3(gamma*gamma));\n";
+  shader += "      color = clamp(color, vec4(0.0,0.0,0.0,0.0), vec4(1.0,1.0,1.0,1.0));\n";
+  //------------------------------------
+
   
   shader+= " if (isoshadow > 0.0)\n"; // soft shadows
   shader+= " {\n";
   shader += "  float depth = dvt.z;\n";
   shader+= "   float sum = 0.0;\n";
-  shader+= "   float tele = 0.0;\n";
-  shader+= "   int j = 0;\n";
-  shader+= "   int nsteps = int(10.0*isoshadow);\n";
+  shader+= "   float delta = max(0.1, isoshadow*0.75);\n";
+  shader+= "   int nsteps = int(30.0*isoshadow);\n";
   shader+= "   for(int i=0; i<nsteps; i++)\n";
   shader+= "    {\n";
-  shader+= "	  float r = 1.0 + float(i)/10.0;\n";
-  shader+= "	  vec2 pos = spos0 + vec2(r*cx[int(mod(i,8))],r*cy[int(mod(i,8))]);\n";
-  shader+= "	  float od = depth - texture2DRect(normalTex, pos).z;\n";
-  shader+= "	  sum += step(3.0, od);\n";
-  shader+= "	 tele ++;\n";
+  shader += "     float r = 1.0+i*delta;\n";
+  shader += "     float x = r*sin(radians(i*41));\n";
+  shader += "     float y = r*cos(radians(i*41));\n";
+  shader += "     vec2 pos = spos0 + vec2(x,y);\n";
+  shader+= "	  float od = (depth - texture2DRect(normalTex, pos).z)/sceneRadius;\n";
+  shader += "     sum += step(0.01, od);\n";
   shader+= "    } \n";
-  shader+= "   sum /= tele;\n";
-  shader+= "   sum = 1.0-sum;\n";
-  shader+= "   color.rgb *= sum;\n";
+  shader += "    sum /= float(nsteps);\n";
+  shader += "    float shadow = clamp(sum,0.0,1.0);\n";
+  shader += "    float shadows = max(0.1, exp(-shadow));\n";
+  shader += "    color.rgb *= pow(shadows, gamma);\n";
   shader+= " }\n";
 
   
+
   shader += "  if (dzScale > 0.0)\n"; // edges
   shader += "  {\n";
-  shader += "    vec2 sx1 = spos0+vec2(1.0,0.0);\n";
-  shader += "    vec2 sy1 = spos0+vec2(0.0,1.0);\n";
-  shader += "    vec2 sx0 = spos0-vec2(1.0,0.0);\n";
-  shader += "    vec2 sy0 = spos0-vec2(0.0,1.0);\n";
-  shader += "    float dx = texture2DRect(normalTex, sx1).z - texture2DRect(normalTex, sx0).z;\n";
-  shader += "    float dy = texture2DRect(normalTex, sy1).z - texture2DRect(normalTex, sy0).z;\n";
-  shader += "    float zedge = (maxZ-minZ)*0.5/dzScale;\n";
-  shader += "    vec3 norm = normalize(vec3(dx, dy, (zedge*zedge)/(maxZ-minZ)));\n";  
-
-  shader += "    color.rgb *= norm.z;\n";
+  shader += "    float response = 0.0;\n";
+  shader += "    for(int i=0; i<8; i++)\n";
+  shader += "      {\n";
+  shader += "        float r = 1.0;\n";
+  shader += "        float x = r*sin(radians(i*45));\n";
+  shader += "        float y = r*cos(radians(i*45));\n";
+  shader += "        vec2 pos = spos0 + vec2(x,y);\n";
+  shader += "        float adepth = texture2DRect(normalTex, pos).z;\n";
+  shader += "        float od = pow((dvt.z - adepth)/sceneRadius, 1.2);\n";
+  shader += "        response += max(0.0, abs(od));\n";
+  shader += "      } \n";
+  shader += "    color.rgb *= pow(exp(-20*response/gamma), dzScale);\n";
   shader += "  }\n";
+
+  
+  shader += "  if (roughness > 0.0)\n";
+  shader += "  {\n";
+  shader += "    float dx = 0.0;\n";
+  shader += "    float dy = 0.0;\n";
+  shader += "    for(int i=0; i<10*gamma; i++)\n";
+  shader += "      {\n";
+  shader += "        float offset = 1-(1+i)%3;\n";
+  shader += "        dx += texture2DRect(normalTex, spos0.xy+vec2(1+i,offset)).z -\n";
+  shader += "              texture2DRect(normalTex, spos0.xy-vec2(1+i,offset)).z;\n";
+  shader += "        dy += texture2DRect(normalTex, spos0.xy+vec2(offset,1+i)).z -\n";
+  shader += "              texture2DRect(normalTex, spos0.xy-vec2(offset,1+i)).z;\n";
+  shader += "      }\n";
+  shader += "    vec3 N = normalize(vec3(dx/sceneRadius, dy/sceneRadius, roughness));\n";
+  shader += "    vec3 spec = shadingSpecularGGX(N, vec3(0,0,1),  vec3(0,0,1), roughness*0.2, color.rgb);\n";
+  shader += "    color.rgb += 0.5*specular*spec;\n";
+  shader += "  }\n";
+  
     
   shader += " if (any(greaterThan(color.rgb,vec3(1.0)))) \n";
   shader += "   color.rgb = vec3(1.0);\n";

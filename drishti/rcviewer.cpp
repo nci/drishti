@@ -34,7 +34,7 @@ RcViewer::RcViewer() :
   m_mdIndices = 0;
   
 
-  m_blurShader = 0;
+  //m_blurShader = 0;
   m_ircShader = 0;
   m_eeShader = 0;
 
@@ -125,9 +125,9 @@ RcViewer::init()
     glDeleteObjectARB(m_eeShader);
   m_eeShader = 0;
 
-  if (m_blurShader)
-    glDeleteObjectARB(m_blurShader);
-  m_blurShader = 0;
+//  if (m_blurShader)
+//    glDeleteObjectARB(m_blurShader);
+//  m_blurShader = 0;
 
   if (m_slcBuffer) glDeleteFramebuffers(1, &m_slcBuffer);
   if (m_rboId) glDeleteRenderbuffers(1, &m_rboId);
@@ -546,29 +546,31 @@ RcViewer::createShaders()
 
   m_eeParm[0] = glGetUniformLocationARB(m_eeShader, "normalTex");
   m_eeParm[1] = glGetUniformLocationARB(m_eeShader, "pvtTex");
-  m_eeParm[2] = glGetUniformLocationARB(m_eeShader, "minZ");
-  m_eeParm[3] = glGetUniformLocationARB(m_eeShader, "maxZ");
+  m_eeParm[2] = glGetUniformLocationARB(m_eeShader, "sceneRadius");
   m_eeParm[4] = glGetUniformLocationARB(m_eeShader, "dzScale");
   m_eeParm[5] = glGetUniformLocationARB(m_eeShader, "isoshadow");
+  m_eeParm[6] = glGetUniformLocationARB(m_eeShader, "gamma");
+  m_eeParm[7] = glGetUniformLocationARB(m_eeShader, "roughness");
+  m_eeParm[8] = glGetUniformLocationARB(m_eeShader, "specular");
 //----------------------
 
 
 
-  //----------------------
-  shaderString = RcShaderFactory::genRectBlurShaderString(1); // bilateral filter
-
-  m_blurShader = glCreateProgramObjectARB();
-  if (! RcShaderFactory::loadShader(m_blurShader,
-				  shaderString))
-    {
-      m_blurShader = 0;
-      QMessageBox::information(0, "", "Cannot create blur shader.");
-    }
-
-  m_blurParm[0] = glGetUniformLocationARB(m_blurShader, "blurTex");
-  m_blurParm[1] = glGetUniformLocationARB(m_blurShader, "minZ");
-  m_blurParm[2] = glGetUniformLocationARB(m_blurShader, "maxZ");
-  //----------------------
+//  //----------------------
+//  shaderString = RcShaderFactory::genRectBlurShaderString(1); // bilateral filter
+//
+//  m_blurShader = glCreateProgramObjectARB();
+//  if (! RcShaderFactory::loadShader(m_blurShader,
+//				  shaderString))
+//    {
+//      m_blurShader = 0;
+//      QMessageBox::information(0, "", "Cannot create blur shader.");
+//    }
+//
+//  m_blurParm[0] = glGetUniformLocationARB(m_blurShader, "blurTex");
+//  m_blurParm[1] = glGetUniformLocationARB(m_blurShader, "minZ");
+//  m_blurParm[2] = glGetUniformLocationARB(m_blurShader, "maxZ");
+//  //----------------------
 }
 
 
@@ -738,13 +740,13 @@ RcViewer::raycasting()
 
   checkCrops();
 
-
-  raycast(Vec(e.x(), e.y(), e.z()), minZ, maxZ, false); // raycast surface process
+  float sceneRadius = maxZ-minZ;
+  raycast(Vec(e.x(), e.y(), e.z()), sceneRadius, false); // raycast surface process
 }
 
 
 void
-RcViewer::raycast(Vec eyepos, float minZ, float maxZ, bool firstPartOnly)
+RcViewer::raycast(Vec eyepos, float sceneRadius, bool firstPartOnly)
 {
   Vec voxelScaling = Global::voxelScaling();
 
@@ -1053,10 +1055,12 @@ RcViewer::raycast(Vec eyepos, float minZ, float maxZ, bool firstPartOnly)
    
   glUniform1iARB(m_eeParm[0], 6); // normals (slctex[3]) tex
   glUniform1iARB(m_eeParm[1], 2); // pos, val, tag tex (slctex[sdtex])
-  glUniform1fARB(m_eeParm[2], minZ); // minZ
-  glUniform1fARB(m_eeParm[3], maxZ); // maxZ
-  glUniform1fARB(m_eeParm[4], m_edge); // edges
+  glUniform1fARB(m_eeParm[2], sceneRadius); // sceneRadius
+  glUniform1fARB(m_eeParm[4], (m_edge-1)); // edges
   glUniform1fARB(m_eeParm[5], m_shadow); // shadows
+  glUniform1fARB(m_eeParm[6], Global::gamma()); // gamma
+  glUniform1fARB(m_eeParm[7], 0.9-m_roughness*0.1); // roughness
+  glUniform1fARB(m_eeParm[8], m_specular); // specular
 
   StaticFunctions::pushOrthoView(0, 0, wd, ht);
   StaticFunctions::drawQuad(0, 0, wd, ht, 1);

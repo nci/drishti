@@ -689,29 +689,19 @@ Viewer::setupRaycastUI()
 	  &m_rcViewer, SLOT(setSkipVoxels(int)));
 
 
-  m_viewEdge = new PopUpSlider(this, Qt::Horizontal);
-  m_viewShadow = new PopUpSlider(this, Qt::Horizontal);
   m_raylen = new PopUpSlider(this, Qt::Horizontal);
   m_minGrad = new PopUpSlider(this, Qt::Horizontal);
   m_maxGrad = new PopUpSlider(this, Qt::Horizontal);
 
-  m_viewEdge->setText("Edges");
-  m_viewShadow->setText("Shadow");
   m_raylen->setText("Ray Depth");
   m_minGrad->setText("Min Grad");
   m_maxGrad->setText("Max Grad");
 
-  m_viewEdge->setMinimumHeight(50);
-  m_viewShadow->setMinimumHeight(50);
   m_raylen->setMinimumHeight(50);
   m_minGrad->setMinimumHeight(50);
   m_maxGrad->setMinimumHeight(50);
 
   
-  m_viewEdge->setRange(0, 10);
-  m_viewEdge->setValue(5);
-  m_viewShadow->setRange(0, 10);
-  m_viewShadow->setValue(5);
   m_raylen->setRange(0, 100);
   m_raylen->setValue(50);
   m_minGrad->setRange(0, 20);
@@ -725,16 +715,10 @@ Viewer::setupRaycastUI()
   m_raycastUI.popupRay->setMargin(2);
   m_raycastUI.popupRay->addWidget(m_raylen);
   m_raycastUI.popupRay->addItem(spitem1);
-  m_raycastUI.popupRay->addWidget(m_viewEdge);
-  m_raycastUI.popupRay->addWidget(m_viewShadow);
   m_raycastUI.popupRay->addItem(spitem2);
   m_raycastUI.popupRay->addWidget(m_minGrad);
   m_raycastUI.popupRay->addWidget(m_maxGrad);
 
-  connect(m_viewEdge, SIGNAL(valueChanged(int)),
-	  &m_rcViewer, SLOT(setEdge(int)));
-  connect(m_viewShadow, SIGNAL(valueChanged(int)),
-	  &m_rcViewer, SLOT(setShadow(int)));
   connect(m_raylen, SIGNAL(valueChanged(int)),
 	  &m_rcViewer, SLOT(setMaxRayLen(int)));
   connect(m_minGrad, SIGNAL(valueChanged(int)),
@@ -2095,9 +2079,14 @@ Viewer::drawImageOnScreen()
 	GeometryObjects::trisets()->setLighting(lighting);
 	GeometryObjects::trisets()->setShapeEnhancements(lightInfo.shadowBlur,
 							 lightInfo.shadowIntensity);
-      }
+
       
-      m_rcViewer.draw();      
+	m_rcViewer.setLighting(lighting);
+	m_rcViewer.setShapeEnhancements(lightInfo.shadowBlur,
+				      lightInfo.shadowIntensity);
+      }
+
+      m_rcViewer.draw(); 
       
       return;
     }

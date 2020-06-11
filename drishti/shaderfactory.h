@@ -50,6 +50,12 @@ class ShaderFactory
   static QString genPreVgx();
   static QString getVal();
 
+  static QString ggxShader();
+  static QString rgb2hsv();
+  static QString hsv2rgb();
+  static QString noise2d();
+  static QString noise3d();
+
  private :
   static GLuint m_meshShader;
   static GLint m_meshShaderParm[30];
@@ -82,12 +88,6 @@ class ShaderFactory
 
   static QString pnShaderV();
   static QString pnShaderF();
-
-  static QString ggxShader();
-  static QString rgb2hsv();
-  static QString hsv2rgb();
-  static QString noise2d();
-  static QString noise3d();
 };
 
 #endif

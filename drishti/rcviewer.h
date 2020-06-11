@@ -74,7 +74,23 @@ class RcViewer : public QObject
     void setMaxRayLen(int r) { m_maxRayLen = r;  m_viewer->update();}
     void setMinGrad(int e) { m_minGrad = e; m_viewer->update(); }
     void setMaxGrad(int e) { m_maxGrad = e; m_viewer->update(); }
-    
+
+    void setLighting(QVector4D l)
+    {
+      m_ambient = l.x();
+      m_diffuse = l.y();
+      m_specular = l.z();
+      m_roughness = l.w();
+      //m_viewer->update();
+    }
+      
+    void setShapeEnhancements(float edges, float blur)
+    {
+      m_shadow = blur;
+      m_edge = edges;
+      //m_viewer->update();
+    }
+
  private :
 
   QGLViewer *m_viewer;
@@ -104,6 +120,11 @@ class RcViewer : public QObject
   float m_shadow;
   float m_edge;
   float m_minGrad, m_maxGrad;
+
+  float m_roughness;
+  float m_specular;
+  float m_diffuse;
+  float m_ambient;
   
   int m_max2DTexSize;
   int m_max3DTexSize;
@@ -124,8 +145,8 @@ class RcViewer : public QObject
   GLuint m_filledTex;
   uchar *m_ftBoxes;
 
-  GLhandleARB m_blurShader;
-  GLint m_blurParm[20];
+//  GLhandleARB m_blurShader;
+//  GLint m_blurParm[20];
 
   GLhandleARB m_ircShader;
   GLint m_ircParm[50];
@@ -156,7 +177,7 @@ class RcViewer : public QObject
   void createFBO();
 
   void raycasting();
-  void raycast(Vec, float, float, bool);
+  void raycast(Vec, float, bool);
 
   void drawInfo();
 

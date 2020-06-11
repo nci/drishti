@@ -516,6 +516,7 @@ RcViewer::createIsoRaycastShader()
   m_ircParm[20]= glGetUniformLocationARB(m_ircShader, "sslevel");
   m_ircParm[21]= glGetUniformLocationARB(m_ircShader, "MVP");
   m_ircParm[22]= glGetUniformLocationARB(m_ircShader, "gamma");
+  m_ircParm[23]= glGetUniformLocationARB(m_ircShader, "interp");
 
 
   m_ircParm[34] = glGetUniformLocationARB(m_ircShader, "lightTex");
@@ -952,6 +953,12 @@ RcViewer::raycast(Vec eyepos, float sceneRadius, bool firstPartOnly)
   glUniform1fARB(m_ircParm[22], Global::gamma()); // gamma
   //==============================
   //==============================
+
+  float interp = 1;
+  if (m_mixTag || !Global::interpolationType(Global::TextureInterpolation))
+    interp = 0;
+  
+  glUniform1fARB(m_ircParm[23], interp); // interpolate
 
   if (m_mixTag)
     {

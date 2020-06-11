@@ -271,10 +271,10 @@ RcShaderFactory::gradMagnitude()
 //  shader += "               k.yyx * texture(dataTex, voxelCoord+k.yyx*onev).x +\n";
 //  shader += "               k.yxy * texture(dataTex, voxelCoord+k.yxy*onev).x +\n";
 //  shader += "               k.xxx * texture(dataTex, voxelCoord+k.xxx*onev).x);\n";
-  shader += "  vec3 grad = (k.xyy * getVal(voxelCoord+k.xyy*onev, maxLayers) +\n";
-  shader += "               k.yyx * getVal(voxelCoord+k.yyx*onev, maxLayers) +\n";
-  shader += "               k.yxy * getVal(voxelCoord+k.yxy*onev, maxLayers) +\n";
-  shader += "               k.xxx * getVal(voxelCoord+k.xxx*onev, maxLayers));\n";
+  shader += "  vec3 grad = (k.xyy * getVal(voxelCoord+k.xyy*onev, maxLayers, 1.0) +\n";
+  shader += "               k.yyx * getVal(voxelCoord+k.yyx*onev, maxLayers, 1.0) +\n";
+  shader += "               k.yxy * getVal(voxelCoord+k.yxy*onev, maxLayers, 1.0) +\n";
+  shader += "               k.xxx * getVal(voxelCoord+k.xxx*onev, maxLayers, 1.0));\n";
   shader += "  grad = grad/2.0;\n";  // should be actually divided by 4
   shader += "  return length(grad);\n";
   shader += "}\n";
@@ -381,7 +381,7 @@ QString
 RcShaderFactory::getVal()
 {
   QString shader;
-  shader += "float getVal(vec3 voxelCoord, float maxLayers)\n";
+  shader += "float getVal(vec3 voxelCoord, float maxLayers, float interp)\n";
   shader += "{\n";
   shader += "  float layer = voxelCoord.z*maxLayers;\n";
   shader += "  float layer0 = min(vsize.z-1.0,floor(voxelCoord.z*maxLayers));\n";
@@ -391,7 +391,8 @@ RcShaderFactory::getVal()
   shader += "  vec3 vcrd1 = vec3(voxelCoord.xy, layer1);\n";
   shader += "  float val0 = texture(dataTex, vcrd0).x;\n";
   shader += "  float val1 = texture(dataTex, vcrd1).x;\n";
-  shader += "  float val = mix(val0, val1, frc);\n";
+  shader += "  float val = mix(val0, mix(val0, val1, frc), interp);\n"; // nearest or interpolated
+
   shader += "  return val;\n";
   shader += "}\n";  
 
@@ -449,6 +450,7 @@ RcShaderFactory::genRaycastShader(QList<CropObject> crops,
   shader += "uniform float maxGrad;\n";
   shader += "uniform float sslevel;\n";
   shader += "uniform mat4 MVP;\n";
+  shader += "uniform float interp;\n";
 
   shader += "uniform sampler2DRect lightTex;\n";
   shader += "uniform int lightgridx;\n";
@@ -562,6 +564,7 @@ RcShaderFactory::genRaycastShader(QList<CropObject> crops,
   
   shader += "float maxLayers = vsize.z/sslevel;\n";
 
+  
   //-------------------------
   // get the first hit
   //-------------------------
@@ -570,7 +573,7 @@ RcShaderFactory::genRaycastShader(QList<CropObject> crops,
   shader += "{\n";
   shader += "  istart = i;\n";
   //shader += "  float val = texture(dataTex, voxelCoord).x;\n";
-  shader += "  float val = getVal(voxelCoord, maxLayers);\n";
+  shader += "  float val = getVal(voxelCoord, maxLayers, interp);\n";
   shader += "  vec4 colorSample = vec4(0.0);\n";
 
   if (!bit16)
@@ -635,7 +638,7 @@ RcShaderFactory::genRaycastShader(QList<CropObject> crops,
   shader += "    {\n";
   shader += "      voxelCoord += dD;\n";
   //shader += "      val = texture(dataTex, voxelCoord).x;\n";
-  shader += "      val = getVal(voxelCoord, maxLayers);\n";
+  shader += "      val = getVal(voxelCoord, maxLayers, interp);\n";
   shader += "      vec4 cS = texture(lutTex, vec2(val,0.0));\n";
   shader += "      dD = dD*0.5;\n";
   shader += "      dD *= mix(-1.0, 1.0, step(0.001, cS.a));\n";
@@ -680,7 +683,7 @@ RcShaderFactory::genRaycastShader(QList<CropObject> crops,
   shader += "for(int i=istart; i<iend; i++)\n";
   shader += "{\n";
   //shader += "  float val = texture(dataTex, voxelCoord).x;\n";
-  shader += "  float val = getVal(voxelCoord, maxLayers);\n";
+  shader += "  float val = getVal(voxelCoord, maxLayers, interp);\n";
   shader += "  vec4 colorSample = vec4(0.0);\n";
 
   shader += "vec2 emisCoord;\n";

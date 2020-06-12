@@ -1795,7 +1795,7 @@ ShaderFactory::meshShadowShaderF()
   shader += "    float sumG = 0.0;\n";
   shader += "    float nRidge = 0.0;\n";
   shader += "    float nValley = 0.0;\n";
-  shader += "    int nsteps = int(30.0*softshadow);\n";
+  shader += "    int nsteps = int(20.0*softshadow);\n";
   shader += "    int nstepsS = int(nsteps*0.75);\n";
   shader += "    for(int i=0; i<nstepsS; i++)\n";
   shader += "      {\n";

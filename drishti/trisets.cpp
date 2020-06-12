@@ -552,7 +552,8 @@ Trisets::draw(QGLViewer *viewer,
   shadowCamera = *(viewer->camera());  
   Vec vR = shadowCamera.rightVector();
   Vec vU = shadowCamera.upVector();
-  shadowCamera.setPosition(shadowCamera.position() + vd*viewer->camera()->sceneRadius()*0.1);
+  shadowCamera.setPosition(shadowCamera.position() + vd*viewer->camera()->sceneRadius()*0.02);
+  //shadowCamera.setPosition(shadowCamera.position() + vd*sceneRadius*0.1);
   shadowCamera.getModelViewMatrix(mv);
   glUniformMatrix4fv(meshShaderParm[16], 1, GL_FALSE, mv);
 

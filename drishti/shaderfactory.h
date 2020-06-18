@@ -7,8 +7,8 @@
 class ShaderFactory
 {
  public :
-  static bool loadShader(GLhandleARB&, QString);
-  static bool loadShader(GLhandleARB&, QString, QString);
+  static bool loadShader(GLuint&, QString);
+  static bool loadShader(GLuint&, QString, QString);
 
 
   static QString genDefaultShaderString(bool, bool, int);
@@ -24,7 +24,8 @@ class ShaderFactory
 
   static QString genPassThruShaderString();
 
-  static int loadShaderFromFile(GLhandleARB, const char*);
+  static bool loadShaderFromFile(GLuint, QString);
+  static bool loadShadersFromFile(GLuint&, QString, QString);
 
 
   static QString genDefaultSliceShaderString(bool, bool, bool,
@@ -40,6 +41,12 @@ class ShaderFactory
 
   static GLuint meshShadowShader();
   static GLint* meshShadowShaderParm();
+
+  static GLuint oitShader();
+  static GLint* oitShaderParm();
+
+  static GLuint oitFinalShader();
+  static GLint* oitFinalShaderParm();
 
   static GLuint ptShader();
   static GLint* ptShaderParm();
@@ -57,11 +64,19 @@ class ShaderFactory
   static QString noise3d();
 
  private :
+  static QList<GLuint> m_shaderList;
+
   static GLuint m_meshShader;
   static GLint m_meshShaderParm[30];
 
   static GLuint m_meshShadowShader;
   static GLint m_meshShadowShaderParm[20];
+
+  static GLuint m_oitShader;
+  static GLint m_oitShaderParm[30];
+
+  static GLuint m_oitFinalShader;
+  static GLint m_oitFinalShaderParm[30];
 
   static GLuint m_ptShader;
   static GLint m_ptShaderParm[20];
@@ -88,6 +103,10 @@ class ShaderFactory
 
   static QString pnShaderV();
   static QString pnShaderF();
+
+  static bool addShader(GLuint, GLenum, QString);
+  static bool finalize(GLuint);
+
 };
 
 #endif

@@ -11,6 +11,8 @@
 #include <QTextEdit>
 #include <QVBoxLayout>
 
+QList<GLuint> ShaderFactory::m_shaderList;
+
 QString
 ShaderFactory::tagVolume()
 {
@@ -100,183 +102,220 @@ ShaderFactory::ggxShader()
   return shader;
 }
 
-int
-ShaderFactory::loadShaderFromFile(GLhandleARB obj, const char *filename)
-{
- FILE *fd = fopen(filename, "rb");
-  if (fd == NULL)
-    return 0;
-
-  char c;
-  int len = 0;
-  while(feof(fd) == 0)
-    {
-      fread(&c, sizeof(char), 1, fd);
-      len++;
-    }
-
-  rewind(fd);
-  char *str = new char[len];
-  fread(str, sizeof(char), len-1, fd);
-  str[len-1] = '\0';
-
-  const char* source = (const char*)str;
-  glShaderSourceARB(obj, 1, &source, NULL);
-
-  delete [] str;
-  fclose(fd);
-
- return 1;
-}
+//int
+//ShaderFactory::loadShaderFromFile(GLhandleARB obj, const char *filename)
+//{
+// FILE *fd = fopen(filename, "rb");
+//  if (fd == NULL)
+//    return 0;
+//
+//  char c;
+//  int len = 0;
+//  while(feof(fd) == 0)
+//    {
+//      fread(&c, sizeof(char), 1, fd);
+//      len++;
+//    }
+//
+//  rewind(fd);
+//  char *str = new char[len];
+//  fread(str, sizeof(char), len-1, fd);
+//  str[len-1] = '\0';
+//
+//  const char* source = (const char*)str;
+//  glShaderSourceARB(obj, 1, &source, NULL);
+//
+//  delete [] str;
+//  fclose(fd);
+//
+// return 1;
+//}
 
 
 bool
 ShaderFactory::loadShader(GLhandleARB &progObj,
-			  QString shaderString)
+			  QString fragShaderString)
 {
-  GLhandleARB fragObj = glCreateShaderObjectARB(GL_FRAGMENT_SHADER_ARB);  
-  glAttachObjectARB(progObj, fragObj);
-
-  GLhandleARB vertObj = glCreateShaderObjectARB(GL_VERTEX_SHADER_ARB);  
-  glAttachObjectARB(progObj, vertObj);
-
-  {  // vertObj
-    QString qstr;
+    QString vertShaderString;
 #ifndef Q_OS_MACX
-    qstr += "#version 130\n";
-    qstr += "out float gl_ClipDistance[2];\n";
-    qstr += "uniform vec4 ClipPlane0;\n";
-    qstr += "uniform vec4 ClipPlane1;\n";
+    vertShaderString += "#version 130\n";
+    vertShaderString += "out float gl_ClipDistance[2];\n";
+    vertShaderString += "uniform vec4 ClipPlane0;\n";
+    vertShaderString += "uniform vec4 ClipPlane1;\n";
 #endif
-    qstr += "out vec3 pointpos;\n";
-    qstr += "out vec3 glTexCoord0;\n";
-    qstr += "void main(void)\n";
-    qstr += "{\n";
-    qstr += "  // Transform vertex position into homogenous clip-space.\n";
-    qstr += "  gl_FrontColor = gl_Color;\n";
-    qstr += "  gl_BackColor = gl_Color;\n";
-    qstr += "  gl_Position = ftransform();\n";
-    qstr += "  gl_TexCoord[0] = gl_TextureMatrix[0] * gl_MultiTexCoord0;\n";
-    qstr += "  gl_TexCoord[1] = gl_TextureMatrix[1] * gl_MultiTexCoord1;\n";
-    qstr += "  gl_TexCoord[2] = gl_TextureMatrix[2] * gl_MultiTexCoord2;\n";
-    qstr += "  pointpos = gl_Vertex.xyz;\n";
-    qstr += "  glTexCoord0 = gl_TexCoord[0].xyz;\n";
+    vertShaderString += "out vec3 pointpos;\n";
+    vertShaderString += "out vec3 glTexCoord0;\n";
+    vertShaderString += "void main(void)\n";
+    vertShaderString += "{\n";
+    vertShaderString += "  // Transform vertex position into homogenous clip-space.\n";
+    vertShaderString += "  gl_FrontColor = gl_Color;\n";
+    vertShaderString += "  gl_BackColor = gl_Color;\n";
+    vertShaderString += "  gl_Position = ftransform();\n";
+    vertShaderString += "  gl_TexCoord[0] = gl_TextureMatrix[0] * gl_MultiTexCoord0;\n";
+    vertShaderString += "  gl_TexCoord[1] = gl_TextureMatrix[1] * gl_MultiTexCoord1;\n";
+    vertShaderString += "  gl_TexCoord[2] = gl_TextureMatrix[2] * gl_MultiTexCoord2;\n";
+    vertShaderString += "  pointpos = gl_Vertex.xyz;\n";
+    vertShaderString += "  glTexCoord0 = gl_TexCoord[0].xyz;\n";
 #ifndef Q_OS_MACX
-    qstr += "  gl_ClipDistance[0] = dot(gl_Vertex, ClipPlane0);\n";
-    qstr += "  gl_ClipDistance[1] = dot(gl_Vertex, ClipPlane1);\n";
+    vertShaderString += "  gl_ClipDistance[0] = dot(gl_Vertex, ClipPlane0);\n";
+    vertShaderString += "  gl_ClipDistance[1] = dot(gl_Vertex, ClipPlane1);\n";
 #else
-    qstr += "  gl_ClipVertex = gl_ModelViewMatrix * gl_Vertex;\n";
+    vertShaderString += "  gl_ClipVertex = gl_ModelViewMatrix * gl_Vertex;\n";
 #endif
-    qstr += "}\n";
-    
-    int len = qstr.length();
-    char *tbuffer = new char[len+1];
-    sprintf(tbuffer, qstr.toLatin1().data());
-    const char *sstr = tbuffer;
-    glShaderSourceARB(vertObj, 1, &sstr, NULL);
-    delete [] tbuffer;
+    vertShaderString += "}\n";
 
-    GLint compiled = -1;
-    glCompileShaderARB(vertObj);
-    glGetObjectParameterivARB(vertObj,
-			      GL_OBJECT_COMPILE_STATUS_ARB,
-			      &compiled);
-    if (!compiled)
-      {
-	GLcharARB str[1000];
-	GLsizei len;
-	glGetInfoLogARB(vertObj,
-			(GLsizei) 1000,
-			&len,
-			str);
-	
-	QMessageBox::information(0,
-				 "Error : Vertex Shader",
-				 str);
-	return false;
-    }
-  }
+    if (loadShader(progObj, vertShaderString, fragShaderString))
+      return true;
+
     
-    
-  { // fragObj
-    int len = shaderString.length();
-    char *tbuffer = new char[len+1];
-    sprintf(tbuffer, shaderString.toLatin1().data());
-    const char *sstr = tbuffer;
-    glShaderSourceARB(fragObj, 1, &sstr, NULL);
-    delete [] tbuffer;
+    QMessageBox::information(0, "", "Cannot load shaders");
+    return false;
   
-    GLint compiled = -1;
-    glCompileShaderARB(fragObj);
-    glGetObjectParameterivARB(fragObj,
-			    GL_OBJECT_COMPILE_STATUS_ARB,
-			      &compiled);
-    if (!compiled)
-      {
-	GLcharARB str[1000];
-	GLsizei len;
-	glGetInfoLogARB(fragObj,
-			(GLsizei) 1000,
-			&len,
-			str);
-	
-	//-----------------------------------
-	// display error
-	
-	//qApp->beep();
-	
-	QString estr;
-	QStringList slist = shaderString.split("\n");
-	for(int i=0; i<slist.count(); i++)
-	  estr += QString("%1 : %2\n").arg(i+1).arg(slist[i]);
-	
-	QTextEdit *tedit = new QTextEdit();
-	tedit->insertPlainText("-------------Error----------------\n\n");
-	tedit->insertPlainText(str);
-	tedit->insertPlainText("\n-----------Shader---------------\n\n");
-	tedit->insertPlainText(estr);
-	
-	QVBoxLayout *layout = new QVBoxLayout();
-	layout->addWidget(tedit);
-	
-	QDialog *showError = new QDialog();
-	showError->setWindowTitle("Error in Fragment Shader");
-	showError->setSizeGripEnabled(true);
-	showError->setModal(true);
-	showError->setLayout(layout);
-	showError->exec();
-	//-----------------------------------
-	
-	return false;
-      }
-  }
 
-  
-  //----------- link program shader ----------------------
-  GLint linked = -1;
-  glLinkProgramARB(progObj);
-  glGetObjectParameterivARB(progObj, GL_OBJECT_LINK_STATUS_ARB, &linked);
-  if (!linked)
-    {
-      GLcharARB str[1000];
-      GLsizei len;
-      QMessageBox::information(0,
-			       "ProgObj",
-			       "error linking texProgObj");
-      glGetInfoLogARB(progObj,
-		      (GLsizei) 1000,
-		      &len,
-		      str);
-      QMessageBox::information(0,
-			       "Error",
-			       QString("%1\n%2").arg(len).arg(str));
-      return false;
-    }
 
-  glDeleteObjectARB(fragObj);
-  glDeleteObjectARB(vertObj);
-
-  return true;
+//  GLhandleARB fragObj = glCreateShaderObjectARB(GL_FRAGMENT_SHADER_ARB);  
+//  glAttachObjectARB(progObj, fragObj);
+//
+//  GLhandleARB vertObj = glCreateShaderObjectARB(GL_VERTEX_SHADER_ARB);  
+//  glAttachObjectARB(progObj, vertObj);
+//
+//  {  // vertObj
+//    QString qstr;
+//#ifndef Q_OS_MACX
+//    qstr += "#version 130\n";
+//    qstr += "out float gl_ClipDistance[2];\n";
+//    qstr += "uniform vec4 ClipPlane0;\n";
+//    qstr += "uniform vec4 ClipPlane1;\n";
+//#endif
+//    qstr += "out vec3 pointpos;\n";
+//    qstr += "out vec3 glTexCoord0;\n";
+//    qstr += "void main(void)\n";
+//    qstr += "{\n";
+//    qstr += "  // Transform vertex position into homogenous clip-space.\n";
+//    qstr += "  gl_FrontColor = gl_Color;\n";
+//    qstr += "  gl_BackColor = gl_Color;\n";
+//    qstr += "  gl_Position = ftransform();\n";
+//    qstr += "  gl_TexCoord[0] = gl_TextureMatrix[0] * gl_MultiTexCoord0;\n";
+//    qstr += "  gl_TexCoord[1] = gl_TextureMatrix[1] * gl_MultiTexCoord1;\n";
+//    qstr += "  gl_TexCoord[2] = gl_TextureMatrix[2] * gl_MultiTexCoord2;\n";
+//    qstr += "  pointpos = gl_Vertex.xyz;\n";
+//    qstr += "  glTexCoord0 = gl_TexCoord[0].xyz;\n";
+//#ifndef Q_OS_MACX
+//    qstr += "  gl_ClipDistance[0] = dot(gl_Vertex, ClipPlane0);\n";
+//    qstr += "  gl_ClipDistance[1] = dot(gl_Vertex, ClipPlane1);\n";
+//#else
+//    qstr += "  gl_ClipVertex = gl_ModelViewMatrix * gl_Vertex;\n";
+//#endif
+//    qstr += "}\n";
+//    
+//    int len = qstr.length();
+//    char *tbuffer = new char[len+1];
+//    sprintf(tbuffer, qstr.toLatin1().data());
+//    const char *sstr = tbuffer;
+//    glShaderSourceARB(vertObj, 1, &sstr, NULL);
+//    delete [] tbuffer;
+//
+//    GLint compiled = -1;
+//    glCompileShaderARB(vertObj);
+//    glGetObjectParameterivARB(vertObj,
+//			      GL_OBJECT_COMPILE_STATUS_ARB,
+//			      &compiled);
+//    if (!compiled)
+//      {
+//	GLcharARB str[1000];
+//	GLsizei len;
+//	glGetInfoLogARB(vertObj,
+//			(GLsizei) 1000,
+//			&len,
+//			str);
+//	
+//	QMessageBox::information(0,
+//				 "Error : Vertex Shader",
+//				 str);
+//	return false;
+//    }
+//  }
+//    
+//    
+//  { // fragObj
+//    int len = shaderString.length();
+//    char *tbuffer = new char[len+1];
+//    sprintf(tbuffer, shaderString.toLatin1().data());
+//    const char *sstr = tbuffer;
+//    glShaderSourceARB(fragObj, 1, &sstr, NULL);
+//    delete [] tbuffer;
+//  
+//    GLint compiled = -1;
+//    glCompileShaderARB(fragObj);
+//    glGetObjectParameterivARB(fragObj,
+//			    GL_OBJECT_COMPILE_STATUS_ARB,
+//			      &compiled);
+//    if (!compiled)
+//      {
+//	GLcharARB str[1000];
+//	GLsizei len;
+//	glGetInfoLogARB(fragObj,
+//			(GLsizei) 1000,
+//			&len,
+//			str);
+//	
+//	//-----------------------------------
+//	// display error
+//	
+//	//qApp->beep();
+//	
+//	QString estr;
+//	QStringList slist = shaderString.split("\n");
+//	for(int i=0; i<slist.count(); i++)
+//	  estr += QString("%1 : %2\n").arg(i+1).arg(slist[i]);
+//	
+//	QTextEdit *tedit = new QTextEdit();
+//	tedit->insertPlainText("-------------Error----------------\n\n");
+//	tedit->insertPlainText(str);
+//	tedit->insertPlainText("\n-----------Shader---------------\n\n");
+//	tedit->insertPlainText(estr);
+//	
+//	QVBoxLayout *layout = new QVBoxLayout();
+//	layout->addWidget(tedit);
+//	
+//	QDialog *showError = new QDialog();
+//	showError->setWindowTitle("Error in Fragment Shader");
+//	showError->setSizeGripEnabled(true);
+//	showError->setModal(true);
+//	showError->setLayout(layout);
+//	showError->exec();
+//	//-----------------------------------
+//	
+//	return false;
+//      }
+//  }
+//
+//  
+//  //----------- link program shader ----------------------
+//  GLint linked = -1;
+//  glLinkProgramARB(progObj);
+//  glGetObjectParameterivARB(progObj, GL_OBJECT_LINK_STATUS_ARB, &linked);
+//  if (!linked)
+//    {
+//      GLcharARB str[1000];
+//      GLsizei len;
+//      QMessageBox::information(0,
+//			       "ProgObj",
+//			       "error linking texProgObj");
+//      glGetInfoLogARB(progObj,
+//		      (GLsizei) 1000,
+//		      &len,
+//		      str);
+//      QMessageBox::information(0,
+//			       "Error",
+//			       QString("%1\n%2").arg(len).arg(str));
+//      return false;
+//    }
+//
+//  glDeleteObjectARB(fragObj);
+//  glDeleteObjectARB(vertObj);
+//
+//  return true;
 }
 
 QString
@@ -1383,6 +1422,90 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
   return shader;
 }
 
+
+//----------------------------
+//----------------------------
+
+GLint ShaderFactory::m_oitShaderParm[30];
+GLint* ShaderFactory::oitShaderParm() { return &m_oitShaderParm[0]; }
+
+GLuint ShaderFactory::m_oitShader = 0;
+GLuint ShaderFactory::oitShader()
+{
+  if (m_oitShader)
+    return m_oitShader;
+
+  m_oitShader = glCreateProgram();
+  if (! loadShadersFromFile(m_oitShader,
+			    "assets/shaders/oit.vert",
+			    "assets/shaders/oit.frag"))
+    {
+      QMessageBox::information(0, "", "Cannot load oit shaders");
+      return 0;
+    }
+
+  m_oitShaderParm[0] = glGetUniformLocation(m_oitShader, "MVP");
+  m_oitShaderParm[1] = glGetUniformLocation(m_oitShader, "viewDir");
+  m_oitShaderParm[2] = glGetUniformLocation(m_oitShader, "extras");
+  m_oitShaderParm[3] = glGetUniformLocation(m_oitShader, "localXform");
+
+  m_oitShaderParm[4] = glGetUniformLocation(m_oitShader, "MV");
+  
+  m_oitShaderParm[5] = glGetUniformLocation(m_oitShader, "roughness");
+  m_oitShaderParm[6] = glGetUniformLocation(m_oitShader, "ambient");
+  m_oitShaderParm[7] = glGetUniformLocation(m_oitShader, "diffuse");
+  m_oitShaderParm[8] = glGetUniformLocation(m_oitShader, "specular");
+  m_oitShaderParm[9] = glGetUniformLocation(m_oitShader, "nclip");
+  m_oitShaderParm[10] = glGetUniformLocation(m_oitShader,"clipPos");
+  m_oitShaderParm[11] = glGetUniformLocation(m_oitShader,"clipNormal");
+  m_oitShaderParm[12] = glGetUniformLocation(m_oitShader,"sceneRadius");  
+  m_oitShaderParm[13] = glGetUniformLocation(m_oitShader,"hasUV");
+  m_oitShaderParm[14] = glGetUniformLocation(m_oitShader,"diffuseTex");
+  m_oitShaderParm[15] = glGetUniformLocation(m_oitShader,"featherSize");
+  m_oitShaderParm[16] = glGetUniformLocation(m_oitShader,"opacity");
+  m_oitShaderParm[17] = glGetUniformLocation(m_oitShader,"idx");
+  m_oitShaderParm[18] = glGetUniformLocation(m_oitShader,"hatchPattern");
+  m_oitShaderParm[19] = glGetUniformLocation(m_oitShader,"solidTex");	
+
+
+  
+  return m_oitShader;      
+}
+
+//----------------------------
+//----------------------------
+
+//----------------------------
+//----------------------------
+
+GLint ShaderFactory::m_oitFinalShaderParm[30];
+GLint* ShaderFactory::oitFinalShaderParm() { return &m_oitFinalShaderParm[0]; }
+
+GLuint ShaderFactory::m_oitFinalShader = 0;
+GLuint ShaderFactory::oitFinalShader()
+{
+  if (!m_oitFinalShader)
+    {      
+      m_oitFinalShader = glCreateProgram();
+      bool ok = loadShadersFromFile(m_oitFinalShader,
+				    "assets/shaders/oitFinal.vert",
+				    "assets/shaders/oitFinal.frag");
+
+      if (!ok)
+	{
+	  QMessageBox::information(0, "", "Cannot load oitFinal shaders");
+	  return 0;
+	}
+	
+      
+      m_oitFinalShaderParm[0] = glGetUniformLocation(m_oitFinalShader, "MVP");
+      m_oitFinalShaderParm[1] = glGetUniformLocation(m_oitFinalShader, "oitTex");
+      m_oitFinalShaderParm[2] = glGetUniformLocation(m_oitFinalShader, "alphaTex");
+    }
+  
+  return m_oitFinalShader;      
+}
+
 //----------------------------
 //----------------------------
 
@@ -1412,7 +1535,7 @@ GLuint ShaderFactory::meshShader()
 	m_meshShaderParm[1] = glGetUniformLocation(m_meshShader, "viewDir");
 	m_meshShaderParm[2] = glGetUniformLocation(m_meshShader, "extras");
 	m_meshShaderParm[3] = glGetUniformLocation(m_meshShader, "localXform");
-	m_meshShaderParm[4] = glGetUniformLocation(m_meshShader, "MV");
+
 	m_meshShaderParm[5] = glGetUniformLocation(m_meshShader, "roughness");
 	m_meshShaderParm[6] = glGetUniformLocation(m_meshShader, "ambient");
 	m_meshShaderParm[7] = glGetUniformLocation(m_meshShader, "diffuse");
@@ -1440,14 +1563,16 @@ ShaderFactory::meshShaderV()
   QString shader;
 
   shader += "#version 420 core\n";
-  shader += "uniform mat4 MV;\n";
+
   shader += "uniform mat4 MVShadow;\n";
   shader += "uniform mat4 MVP;\n";
   shader += "uniform mat4 localXform;\n";
   shader += "uniform float idx;\n";
+
   shader += "layout(location = 0) in vec3 position;\n";
   shader += "layout(location = 1) in vec3 normalIn;\n";
   shader += "layout(location = 2) in vec3 colorIn;\n";
+
   shader += "out vec3 v3Normal;\n";
   shader += "out vec3 v3Color;\n";
   shader += "out vec3 pointPos;\n";
@@ -1455,7 +1580,7 @@ ShaderFactory::meshShaderV()
   shader += "out float zdepthS;\n";
   shader += "out float surfId;\n";
   shader += "out vec3 oPosition;\n";
-  shader += "out vec3 ;\n";
+
   shader += "void main()\n";
   shader += "{\n";
   shader += "   oPosition = position;\n";
@@ -1683,12 +1808,13 @@ ShaderFactory::meshShadowShaderV()
   QString shader;
   shader += "#version 420 core\n";
   shader += "\n";
-  shader += "layout(location = 0) in vec3 vertex;\n";
+  //shader += "layout(location = 0) in vec3 vertex;\n";
+  shader += "layout(location = 0) in vec2 vertex;\n";
   shader += "uniform mat4 MVP;\n";
   shader += "\n";
   shader += "void main()\n";
   shader += "{\n";
-  shader += "  gl_Position =  MVP * vec4(vertex,1);\n";
+  shader += "  gl_Position =  MVP * vec4(vertex,0,1);\n";
   shader += "}\n";
   return shader;
 }
@@ -1721,7 +1847,7 @@ ShaderFactory::meshShadowShaderF()
   
   shader += "void main()\n";
   shader += "{\n";
-
+  
   shader += "  vec2 spos = gl_FragCoord.xy;\n";
 
   shader += "  color = texture2DRect(colorTex, spos.xy);\n";
@@ -1747,6 +1873,7 @@ ShaderFactory::meshShadowShaderF()
   shader += "  }\n";
 
   shader += "  gl_FragDepth = dtex.w;\n";
+
 
   shader += "  float surfId = dtex.z;\n";
   
@@ -1799,19 +1926,21 @@ ShaderFactory::meshShadowShaderF()
   shader += "    int nstepsS = int(nsteps*0.75);\n";
   shader += "    for(int i=0; i<nstepsS; i++)\n";
   shader += "      {\n";
-  shader += "    	 float r = 1.0+i*0.15;\n";
+  shader += "    	 float r = 1.0+i*0.11;\n";
   shader += "            float x = r*sin(radians(i*23));\n";
   shader += "            float y = r*cos(radians(i*23));\n";
   shader += "    	 vec2 pos = spos + vec2(x,y);\n";
   shader += "    	 vec3 sdepth = texture2DRect(depthTexS, pos).xyz;\n";
   shader += "    	 vec3 adepth = texture2DRect(depthTex, pos).xyz;\n";
+  
+  shader += "    	 float nearEnough = 1.0 - smoothstep(0.1, 0.3, depth-adepth.x);\n";
 
-  shader += "    	 sumS += step(r*0.001, depth-sdepth.x);\n";
+  shader += "    	 sumS += step(r*0.001, depth-sdepth.x)*nearEnough;\n";
   shader += "    	 nRidge += step(depth, adepth.x-0.01);\n";
-  shader += "    	 nValley += max(0.0,adepth.x-depth);\n";
+  shader += "    	 nValley += max(0.0,adepth.x-depth)*nearEnough;\n";
 
   // get contributions from other surfaces
-  shader += "    	 float sr = step(0.5, abs(surfId-adepth.z))*step(0.0, adepth.z);\n";
+  shader += "    	 float sr = step(0.5, abs(surfId-adepth.z))*step(0.5, adepth.z)*nearEnough;\n";
   shader += "    	 sumO += sr;\n";
   shader += "    	 clrO += sr*texture2DRect(colorTexS, pos).rgb;\n";
 
@@ -1829,15 +1958,17 @@ ShaderFactory::meshShadowShaderF()
   
   shader += "    for(int i=nstepsS; i<nsteps; i++)\n";
   shader += "      {\n";
-  shader += "    	 float r = i*0.17;\n";
+  shader += "    	 float r = i*0.13;\n";
   shader += "            float x = r*sin(radians(i*27));\n";
   shader += "            float y = r*cos(radians(i*27));\n";
   shader += "    	 vec2 pos = spos + vec2(x,y);\n";
   
   shader += "    	 vec3 adepth = texture2DRect(depthTex, pos).xyz;\n";
 
+  shader += "    	 float nearEnough = 1.0 - smoothstep(0.1, 0.3, depth-adepth.x);\n";
+
   // get contributions from other surfaces
-  shader += "    	 float sr = step(0.5, abs(surfId-adepth.z))*step(0.0, adepth.z);\n";
+  shader += "    	 float sr = step(0.5, abs(surfId-adepth.z))*step(0.0, adepth.z)*nearEnough;\n";
   shader += "    	 sumO += sr;\n";
   shader += "    	 clrO += sr*texture2DRect(colorTexS, pos).rgb;\n";
 
@@ -1862,7 +1993,6 @@ ShaderFactory::meshShadowShaderF()
   shader += "    colorV = hsv2rgb(colorV);\n";
   shader += "    colorV = pow(colorV, vec3(1.0/gamma));\n";
   shader += "    float valley = exp(-5*nValley/gamma);\n";
-  //shader += "    valley = 1.0-smoothstep(0.0, 1.0, valley);\n";
   shader += "    valley = 1.0-smoothstep(0.0, pow(0.25, 1.0/gamma), valley);\n";
   shader += "    color.rgb = mix(color.rgb, colorV, valley);\n";
 
@@ -1880,14 +2010,13 @@ ShaderFactory::meshShadowShaderF()
 
    // add ridge
   shader += "    float ridge = nRidge/float(nstepsS);\n";
-  //shader += "    ridge = smoothstep(0.0, 1.0, pow(ridge,gamma));\n";
   shader += "    ridge = smoothstep(pow(0.25, 1.0/gamma), 1.0, pow(ridge,gamma));\n";
   shader += "    color.rgb = mix(color.rgb, vec3(1.0), ridge);\n";
 
   // add reflections from other surfaces
   shader += "    clrO /= vec3(max(1.0,sumO));\n";
   shader += "    float ugr = pow(sumO/float(nsteps), gamma);\n";
-  shader += "    ugr = smoothstep(0.0, 1.0, sqrt(ugr));\n";
+  shader += "    ugr = smoothstep(0.0, 1.0, ugr);\n";
   shader += "    color.rgb = mix(color.rgb, clrO, ugr);\n";
 
   // add edges
@@ -1898,7 +2027,7 @@ ShaderFactory::meshShadowShaderF()
   shader += "    float shadow = clamp(sumS,0.0,1.0);\n";
   shader += "    float shadows = max(0.3, exp(-shadow/gamma));\n";
   shader += "    clrO = color.rgb;\n";
-  shader += "    color.rgb *= shadows;\n";
+  shader += "    color.rgb *= pow(shadows,1.0/(3.0-0.25*softshadow));\n";
   
   // lighten shadows a bit
   //shader += "    color.rgb = mix(color.rgb, clrO, pow(1.0-shadows, 3.0));\n";
@@ -2120,145 +2249,145 @@ ShaderFactory::pnShaderF()
 //----------------------------
 
 
-bool
-ShaderFactory::loadShader(GLhandleARB &progObj,
-			  QString vertShaderString,
-			  QString fragShaderString)
-{
-  GLhandleARB fragObj = glCreateShaderObjectARB(GL_FRAGMENT_SHADER_ARB);  
-  glAttachObjectARB(progObj, fragObj);
-
-  GLhandleARB vertObj = glCreateShaderObjectARB(GL_VERTEX_SHADER_ARB);  
-  glAttachObjectARB(progObj, vertObj);
-
-  {  // vertObj   
-    int len = vertShaderString.length();
-    char *tbuffer = new char[len+1];
-    sprintf(tbuffer, vertShaderString.toLatin1().data());
-    const char *sstr = tbuffer;
-    glShaderSourceARB(vertObj, 1, &sstr, NULL);
-    delete [] tbuffer;
-
-    GLint compiled = -1;
-    glCompileShaderARB(vertObj);
-    glGetObjectParameterivARB(vertObj,
-			      GL_OBJECT_COMPILE_STATUS_ARB,
-			      &compiled);
-    if (!compiled)
-      {
-	GLcharARB str[1000];
-	GLsizei len;
-	glGetInfoLogARB(vertObj,
-			(GLsizei) 1000,
-			&len,
-			str);
-	
-	QString estr;
-	QStringList slist = vertShaderString.split("\n");
-	for(int i=0; i<slist.count(); i++)
-	  estr += QString("%1 : %2\n").arg(i+1).arg(slist[i]);
-	
-	QTextEdit *tedit = new QTextEdit();
-	tedit->insertPlainText("-------------Error----------------\n\n");
-	tedit->insertPlainText(str);
-	tedit->insertPlainText("\n-----------Shader---------------\n\n");
-	tedit->insertPlainText(estr);
-	
-	QVBoxLayout *layout = new QVBoxLayout();
-	layout->addWidget(tedit);
-	
-	QDialog *showError = new QDialog();
-	showError->setWindowTitle("Error in Vertex Shader");
-	showError->setSizeGripEnabled(true);
-	showError->setModal(true);
-	showError->setLayout(layout);
-	showError->exec();
-	return false;
-    }
-  }
-    
-    
-  { // fragObj
-    int len = fragShaderString.length();
-    char *tbuffer = new char[len+1];
-    sprintf(tbuffer, fragShaderString.toLatin1().data());
-    const char *sstr = tbuffer;
-    glShaderSourceARB(fragObj, 1, &sstr, NULL);
-    delete [] tbuffer;
-  
-    GLint compiled = -1;
-    glCompileShaderARB(fragObj);
-    glGetObjectParameterivARB(fragObj,
-			      GL_OBJECT_COMPILE_STATUS_ARB,
-			      &compiled);
-	
-    if (!compiled)
-      {
-	GLcharARB str[1000];
-	GLsizei len;
-	glGetInfoLogARB(fragObj,
-			(GLsizei) 1000,
-			&len,
-			str);
-	
-	//-----------------------------------
-	// display error
-	
-	//qApp->beep();
-	
-	QString estr;
-	QStringList slist = fragShaderString.split("\n");
-	for(int i=0; i<slist.count(); i++)
-	  estr += QString("%1 : %2\n").arg(i+1).arg(slist[i]);
-	
-	QTextEdit *tedit = new QTextEdit();
-	tedit->insertPlainText("-------------Error----------------\n\n");
-	tedit->insertPlainText(str);
-	tedit->insertPlainText("\n-----------Shader---------------\n\n");
-	tedit->insertPlainText(estr);
-	
-	QVBoxLayout *layout = new QVBoxLayout();
-	layout->addWidget(tedit);
-	
-	QDialog *showError = new QDialog();
-	showError->setWindowTitle("Error in Fragment Shader");
-	showError->setSizeGripEnabled(true);
-	showError->setModal(true);
-	showError->setLayout(layout);
-	showError->exec();
-	//-----------------------------------
-	
-	return false;
-      }
-  }
-
-  
-  //----------- link program shader ----------------------
-  GLint linked = -1;
-  glLinkProgramARB(progObj);
-  glGetObjectParameterivARB(progObj, GL_OBJECT_LINK_STATUS_ARB, &linked);
-  if (!linked)
-    {
-      GLcharARB str[1000];
-      GLsizei len;
-      QMessageBox::information(0,
-			       "ProgObj",
-			       "error linking texProgObj");
-      glGetInfoLogARB(progObj,
-		      (GLsizei) 1000,
-		      &len,
-		      str);
-      QMessageBox::information(0,
-			       "Error",
-			       QString("%1\n%2").arg(len).arg(str));
-      return false;
-    }
-
-  glDeleteObjectARB(fragObj);
-  glDeleteObjectARB(vertObj);
-
-  return true;
-}
+//bool
+//ShaderFactory::loadShader(GLhandleARB &progObj,
+//			  QString vertShaderString,
+//			  QString fragShaderString)
+//{
+//  GLhandleARB fragObj = glCreateShaderObjectARB(GL_FRAGMENT_SHADER_ARB);  
+//  glAttachObjectARB(progObj, fragObj);
+//
+//  GLhandleARB vertObj = glCreateShaderObjectARB(GL_VERTEX_SHADER_ARB);  
+//  glAttachObjectARB(progObj, vertObj);
+//
+//  {  // vertObj   
+//    int len = vertShaderString.length();
+//    char *tbuffer = new char[len+1];
+//    sprintf(tbuffer, vertShaderString.toLatin1().data());
+//    const char *sstr = tbuffer;
+//    glShaderSourceARB(vertObj, 1, &sstr, NULL);
+//    delete [] tbuffer;
+//
+//    GLint compiled = -1;
+//    glCompileShaderARB(vertObj);
+//    glGetObjectParameterivARB(vertObj,
+//			      GL_OBJECT_COMPILE_STATUS_ARB,
+//			      &compiled);
+//    if (!compiled)
+//      {
+//	GLcharARB str[1000];
+//	GLsizei len;
+//	glGetInfoLogARB(vertObj,
+//			(GLsizei) 1000,
+//			&len,
+//			str);
+//	
+//	QString estr;
+//	QStringList slist = vertShaderString.split("\n");
+//	for(int i=0; i<slist.count(); i++)
+//	  estr += QString("%1 : %2\n").arg(i+1).arg(slist[i]);
+//	
+//	QTextEdit *tedit = new QTextEdit();
+//	tedit->insertPlainText("-------------Error----------------\n\n");
+//	tedit->insertPlainText(str);
+//	tedit->insertPlainText("\n-----------Shader---------------\n\n");
+//	tedit->insertPlainText(estr);
+//	
+//	QVBoxLayout *layout = new QVBoxLayout();
+//	layout->addWidget(tedit);
+//	
+//	QDialog *showError = new QDialog();
+//	showError->setWindowTitle("Error in Vertex Shader");
+//	showError->setSizeGripEnabled(true);
+//	showError->setModal(true);
+//	showError->setLayout(layout);
+//	showError->exec();
+//	return false;
+//    }
+//  }
+//    
+//    
+//  { // fragObj
+//    int len = fragShaderString.length();
+//    char *tbuffer = new char[len+1];
+//    sprintf(tbuffer, fragShaderString.toLatin1().data());
+//    const char *sstr = tbuffer;
+//    glShaderSourceARB(fragObj, 1, &sstr, NULL);
+//    delete [] tbuffer;
+//  
+//    GLint compiled = -1;
+//    glCompileShaderARB(fragObj);
+//    glGetObjectParameterivARB(fragObj,
+//			      GL_OBJECT_COMPILE_STATUS_ARB,
+//			      &compiled);
+//	
+//    if (!compiled)
+//      {
+//	GLcharARB str[1000];
+//	GLsizei len;
+//	glGetInfoLogARB(fragObj,
+//			(GLsizei) 1000,
+//			&len,
+//			str);
+//	
+//	//-----------------------------------
+//	// display error
+//	
+//	//qApp->beep();
+//	
+//	QString estr;
+//	QStringList slist = fragShaderString.split("\n");
+//	for(int i=0; i<slist.count(); i++)
+//	  estr += QString("%1 : %2\n").arg(i+1).arg(slist[i]);
+//	
+//	QTextEdit *tedit = new QTextEdit();
+//	tedit->insertPlainText("-------------Error----------------\n\n");
+//	tedit->insertPlainText(str);
+//	tedit->insertPlainText("\n-----------Shader---------------\n\n");
+//	tedit->insertPlainText(estr);
+//	
+//	QVBoxLayout *layout = new QVBoxLayout();
+//	layout->addWidget(tedit);
+//	
+//	QDialog *showError = new QDialog();
+//	showError->setWindowTitle("Error in Fragment Shader");
+//	showError->setSizeGripEnabled(true);
+//	showError->setModal(true);
+//	showError->setLayout(layout);
+//	showError->exec();
+//	//-----------------------------------
+//	
+//	return false;
+//      }
+//  }
+//
+//  
+//  //----------- link program shader ----------------------
+//  GLint linked = -1;
+//  glLinkProgramARB(progObj);
+//  glGetObjectParameterivARB(progObj, GL_OBJECT_LINK_STATUS_ARB, &linked);
+//  if (!linked)
+//    {
+//      GLcharARB str[1000];
+//      GLsizei len;
+//      QMessageBox::information(0,
+//			       "ProgObj",
+//			       "error linking texProgObj");
+//      glGetInfoLogARB(progObj,
+//		      (GLsizei) 1000,
+//		      &len,
+//		      str);
+//      QMessageBox::information(0,
+//			       "Error",
+//			       QString("%1\n%2").arg(len).arg(str));
+//      return false;
+//    }
+//
+//  glDeleteObjectARB(fragObj);
+//  glDeleteObjectARB(vertObj);
+//
+//  return true;
+//}
 
 QString
 ShaderFactory::rgb2hsv()
@@ -2422,5 +2551,168 @@ ShaderFactory::noise3d()
 
   return shader;
 }
+
+
+bool
+ShaderFactory::addShader(GLuint shaderProg,
+			 GLenum shaderType,
+			 QString shaderString)
+{
+  GLuint shaderObj = glCreateShader(shaderType);  
+
+  if (shaderObj == 0) {
+    QMessageBox::information(0, "Error", QString("Error creating shader type %1").\
+			     arg(shaderType));
+    return false;
+  }
+
+  int len = shaderString.length();
+  char *tbuffer = new char[len+1];
+  sprintf(tbuffer, shaderString.toLatin1().data());
+  const char *sstr = tbuffer;
+  glShaderSource(shaderObj, 1, &sstr, NULL);
+  delete [] tbuffer;
+
+  glCompileShader(shaderObj);
+
+  GLint success;
+  glGetShaderiv(shaderObj, GL_COMPILE_STATUS, &success);
+
+  if (!success)
+    {
+	GLcharARB str[1024];
+	GLsizei len;
+	glGetInfoLogARB(shaderObj,
+			(GLsizei) 1024,
+			&len,
+			str);
+	
+	QString estr;
+	QStringList slist = shaderString.split("\n");
+	for(int i=0; i<slist.count(); i++)
+	  estr += QString("%1 : %2\n").arg(i+1).arg(slist[i]);
+	
+	QTextEdit *tedit = new QTextEdit();
+	tedit->insertPlainText("-------------Error----------------\n\n");
+	tedit->insertPlainText(str);
+	tedit->insertPlainText("\n-----------Shader---------------\n\n");
+	tedit->insertPlainText(estr);
+	
+	QVBoxLayout *layout = new QVBoxLayout();
+	layout->addWidget(tedit);
+	
+	QDialog *showError = new QDialog();
+	showError->setWindowTitle("Error in Shader");
+	showError->setSizeGripEnabled(true);
+	showError->setModal(true);
+	showError->setLayout(layout);
+	showError->exec();
+	return false;
+    }
+
+  glAttachShader(shaderProg, shaderObj);
+
+  m_shaderList << shaderObj;
+  
+  return true;
+}
+
+bool
+ShaderFactory::finalize(GLuint shaderProg)
+{
+  GLint linked = -1;
+
+  glLinkProgram(shaderProg);
+
+  glGetProgramiv(shaderProg, GL_LINK_STATUS, &linked);
+
+  if (!linked)
+    {
+      GLcharARB str[1024];
+      GLsizei len;
+      QMessageBox::information(0,
+			       "ProgObj",
+			       "error linking texProgObj");
+      glGetInfoLogARB(shaderProg,
+		      (GLsizei) 1024,
+		      &len,
+		      str);
+      QMessageBox::information(0,
+			       "Error",
+			       QString("%1\n%2").arg(len).arg(str));
+      return false;
+    }
+
+
+  for(int i=0; i<m_shaderList.count(); i++)
+    glDeleteShader(m_shaderList[i]);
+
+  m_shaderList.clear();
+
+  return true;
+}
+
+
+bool
+ShaderFactory::loadShaderFromFile(GLuint obj, QString filename)
+{
+  QFile file(filename);
+  if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+    return false;
+
+  QByteArray lines = file.readAll();
+
+  int len = lines.count(); 
+  char *source = new char[len+1];
+  sprintf(source, lines.constData());
+ 
+  const char *sstr = source;
+  glShaderSourceARB(obj, 1, &sstr, NULL);
+
+  delete [] source;
+
+  return true;
+}
+
+
+bool
+ShaderFactory::loadShader(GLuint &shaderProg,
+			  QString vertShaderString,
+			  QString fragShaderString)
+{
+  if (!addShader(shaderProg,
+		 GL_VERTEX_SHADER,
+		 vertShaderString))
+    return false;
+
+  if (!addShader(shaderProg,
+		 GL_FRAGMENT_SHADER,
+		 fragShaderString))
+    return false;
+
+  return finalize(shaderProg);
+}
+
+bool
+ShaderFactory::loadShadersFromFile(GLuint &progObj,
+				   QString vertShader,
+				   QString fragShader)
+{
+  QFile vfile(vertShader);
+  if (!vfile.open(QIODevice::ReadOnly | QIODevice::Text))
+    return false;
+  QString vertShaderString = QString::fromLatin1(vfile.readAll());
+
+
+  QFile ffile(fragShader);
+  if (!ffile.open(QIODevice::ReadOnly | QIODevice::Text))
+    return false;
+  QString fragShaderString = QString::fromLatin1(ffile.readAll());
+  
+  return loadShader(progObj,
+		    vertShaderString,
+		    fragShaderString);  
+}
+//-----------------
 
 

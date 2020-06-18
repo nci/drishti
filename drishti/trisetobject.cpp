@@ -132,13 +132,14 @@ TrisetObject::clear()
   m_specular = 1.0f;
   m_diffuse = 1.0f;
   m_ambient = 0.0f;
+  m_opacity = 1.0;
   m_vertices.clear();
   m_vcolor.clear();
   m_uv.clear();
   m_drawcolor.clear();
   m_normals.clear();
   m_triangles.clear();
-
+  
   if (m_scrV) delete [] m_scrV;
   if (m_scrD) delete [] m_scrD;
   m_scrV = 0;
@@ -404,10 +405,13 @@ TrisetObject::loadVertexBufferData()
 void
 TrisetObject::drawTrisetBuffer(Camera *camera,
 			       float pnear, float pfar,
-			       bool active)
+			       bool active,
+			       GLuint meshShader,
+			       GLint *meshShaderParm)
 {
   //glDisable(GL_BLEND);
-  glUseProgram(ShaderFactory::meshShader());
+  //glUseProgram(ShaderFactory::meshShader());
+  glUseProgram(meshShader);
 
   int ni = m_triangles.count();
   glBindVertexArray(m_glVertArray);
@@ -433,7 +437,7 @@ TrisetObject::drawTrisetBuffer(Camera *camera,
  
   Vec vd = camera->viewDirection();
   
-  GLint *meshShaderParm = ShaderFactory::meshShaderParm();  
+  //GLint *meshShaderParm = ShaderFactory::meshShaderParm();  
 
   glUniformMatrix4fv(meshShaderParm[0], 1, GL_FALSE, mvp);
   glUniformMatrix4fv(meshShaderParm[3], 1, GL_FALSE, lxfrm);
@@ -678,7 +682,28 @@ TrisetObject::draw(Camera *camera,
   if (!m_show)
     return;
   
-  drawTrisetBuffer(camera, 0, -1, active);
+  GLuint meshShader = ShaderFactory::meshShader();
+  GLint* meshShaderParm = ShaderFactory::meshShaderParm();
+  
+  drawTrisetBuffer(camera, 0, -1, active,
+		   meshShader, meshShaderParm);
+}
+
+void
+TrisetObject::drawOIT(Camera *camera,
+		      bool active)
+{
+  glDisable(GL_LIGHTING);
+
+  if (!m_show)
+    return;
+
+
+  GLuint oitShader = ShaderFactory::oitShader();
+  GLint* oitShaderParm = ShaderFactory::oitShaderParm();
+  
+  drawTrisetBuffer(camera, 0, -1, active,
+		   oitShader, oitShaderParm);
 }
 
 void
@@ -1300,6 +1325,7 @@ TrisetObject::get()
   ti.cpDx = m_cpDx;
   ti.cpDy = m_cpDy;
   ti.pattern = m_pattern;
+  ti.opacity = m_opacity;
   
   return ti;
 }
@@ -1335,6 +1361,7 @@ TrisetObject::set(TrisetInformation ti)
   m_glow = ti.glow;
   m_dark = ti.dark;
   m_pattern = ti.pattern;
+  m_opacity = ti.opacity;
   
   if (reloadColor)
     setColor(m_color);

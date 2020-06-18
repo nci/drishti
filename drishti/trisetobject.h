@@ -33,6 +33,9 @@ class TrisetObject
   float diffuse() { return m_diffuse; }
   float ambient() { return m_ambient; }
 
+  float opacity() { return m_opacity; }
+  void setOpacity(float o) { m_opacity = o; }
+  
   Vec color() { return m_color; }
   void setColor(Vec);
 
@@ -89,6 +92,7 @@ class TrisetObject
 
   void predraw(QGLViewer*, bool, double*);
   void draw(Camera*, bool);
+  void drawOIT(Camera*, bool);
   void postdraw(QGLViewer*,
 		int, int, bool, int);
 
@@ -123,6 +127,7 @@ private :
   float m_specular;
   float m_diffuse;
   float m_ambient;
+  float m_opacity;
   QVector<Vec> m_vertices;
   QVector<Vec> m_normals;
   QVector<uint> m_triangles;
@@ -156,7 +161,8 @@ private :
   float m_featherSize;
   
   void loadVertexBufferData();
-  void drawTrisetBuffer(Camera*, float, float, bool);
+  void drawTrisetBuffer(Camera*, float, float, bool,
+			GLuint, GLint*);
 
   bool loadTriset(QString);
   bool loadPLY(QString);

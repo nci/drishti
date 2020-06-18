@@ -399,59 +399,64 @@ Trisets::render(Camera *camera, int nclip)
   
   for(int i=0; i<m_trisets.count();i++)
     {      
-      Vec extras = Vec(0,0,0);
-      if (m_trisets[i]->grabsMouse())
-	extras.x = 1;
-      
-      extras.y = 1.0-m_trisets[i]->reveal();
-      
-      extras.z = m_trisets[i]->glow();
-
-      float darken = 1;
-      if (glowOn && m_trisets[i]->glow() < 0.01)
-	darken = 1.0-0.7*m_trisets[i]->dark();
-      
-      glUseProgram(ShaderFactory::meshShader());
-      GLint *meshShaderParm = ShaderFactory::meshShaderParm();        
-      
-      glUniform4f(meshShaderParm[2], extras.x, extras.y, extras.z, darken);
-      
-      glUniform1f(meshShaderParm[17], i+1);
-
-      Vec pat = m_trisets[i]->pattern();
-      if (pat.x > 0.5)
+      if (m_trisets[i]->opacity() > 0.9 || // opacque
+	  m_trisets[i]->reveal() > 0.9) // or full reveal
 	{
-	  glUniform3f(meshShaderParm[18], pat.x, pat.y, pat.z);
-	  int patId = qCeil(pat.x) - 1;
-	  glActiveTexture(GL_TEXTURE1);
-	  glEnable(GL_TEXTURE_3D);
-	  glBindTexture(GL_TEXTURE_3D, m_solidTex[patId]);
-	  glUniform1i(meshShaderParm[19], 1); // solidTex
-	}
-      else
-	glUniform3f(meshShaderParm[18], 0,0,0);
 
-      if (m_trisets[i]->clip())
-	{
-	  glUniform1iARB(meshShaderParm[9],  nclip);
-	  glUniform3fvARB(meshShaderParm[10], nclip, m_cpos);
-	  glUniform3fvARB(meshShaderParm[11], nclip, m_cnormal);
-	}
-      else
-	{
-	  glUniform1iARB(meshShaderParm[9],  0);
-	}
+	  Vec extras = Vec(0,0,0);
+	  if (m_trisets[i]->grabsMouse())
+	    extras.x = 1;
       
-      
-      m_trisets[i]->draw(camera,
-			 m_trisets[i]->grabsMouse());
-      
-
-      if (pat.x > 0.5)
-	glDisable(GL_TEXTURE_3D);
-
-
-      glUseProgramObjectARB(0);
+	  extras.y = 1.0-m_trisets[i]->reveal();
+	  
+	  extras.z = m_trisets[i]->glow();
+	  
+	  float darken = 1;
+	  if (glowOn && m_trisets[i]->glow() < 0.01)
+	    darken = 1.0-0.7*m_trisets[i]->dark();
+	  
+	  glUseProgram(ShaderFactory::meshShader());
+	  GLint *meshShaderParm = ShaderFactory::meshShaderParm();        
+	  
+	  glUniform4f(meshShaderParm[2], extras.x, extras.y, extras.z, darken);
+	  
+	  glUniform1f(meshShaderParm[17], i+1);
+	  
+	  Vec pat = m_trisets[i]->pattern();
+	  if (pat.x > 0.5)
+	    {
+	      glUniform3f(meshShaderParm[18], pat.x, pat.y, pat.z);
+	      int patId = qCeil(pat.x) - 1;
+	      glActiveTexture(GL_TEXTURE1);
+	      glEnable(GL_TEXTURE_3D);
+	      glBindTexture(GL_TEXTURE_3D, m_solidTex[patId]);
+	      glUniform1i(meshShaderParm[19], 1); // solidTex
+	    }
+	  else
+	    glUniform3f(meshShaderParm[18], 0,0,0);
+	  
+	  if (m_trisets[i]->clip())
+	    {
+	      glUniform1iARB(meshShaderParm[9],  nclip);
+	      glUniform3fvARB(meshShaderParm[10], nclip, m_cpos);
+	      glUniform3fvARB(meshShaderParm[11], nclip, m_cnormal);
+	    }
+	  else
+	    {
+	      glUniform1iARB(meshShaderParm[9],  0);
+	    }
+	  
+	  
+	  m_trisets[i]->draw(camera,
+			     m_trisets[i]->grabsMouse());
+	  
+	  
+	  if (pat.x > 0.5)
+	    glDisable(GL_TEXTURE_3D);
+	  
+	  
+	  glUseProgramObjectARB(0);
+	}
     }
 }
 
@@ -517,7 +522,7 @@ Trisets::draw(QGLViewer *viewer,
       
       GLfloat mv[16];
       viewer->camera()->getModelViewMatrix(mv);
-      glUniformMatrix4fv(meshShaderParm[4], 1, GL_FALSE, mv);
+      //glUniformMatrix4fv(meshShaderParm[4], 1, GL_FALSE, mv);
       glUniformMatrix4fv(meshShaderParm[16], 1, GL_FALSE, mv);
       
       glUniform1f(meshShaderParm[12], sceneRadius);
@@ -548,6 +553,8 @@ Trisets::draw(QGLViewer *viewer,
   glUniform3f(meshShaderParm[1], vd.x, vd.y, vd.z); // view direction
 
 
+  //--------------------------------------------
+  // first render from shadowCamera
   Camera shadowCamera;
   shadowCamera = *(viewer->camera());  
   Vec vR = shadowCamera.rightVector();
@@ -557,138 +564,152 @@ Trisets::draw(QGLViewer *viewer,
   shadowCamera.getModelViewMatrix(mv);
   glUniformMatrix4fv(meshShaderParm[16], 1, GL_FALSE, mv);
 
-  
-  // first render from shadowCamera
-  {
-    glBindFramebuffer(GL_FRAMEBUFFER, m_depthBuffer);
-    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
-			   GL_COLOR_ATTACHMENT0,
-			   GL_TEXTURE_RECTANGLE,
-			   m_depthTex[2],
-			   0);
-    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
-			   GL_COLOR_ATTACHMENT1,
-			   GL_TEXTURE_RECTANGLE,
-			   m_depthTex[3],
-			   0);
-    GLenum buffers[2] = { GL_COLOR_ATTACHMENT0_EXT,
-			  GL_COLOR_ATTACHMENT1_EXT };
-    glDrawBuffersARB(2, buffers);
-    
-    glClearDepth(1);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    
-    glDisable(GL_BLEND);
-    
-  
-    viewer->camera()->getModelViewMatrix(mv);
-    glUniformMatrix4fv(meshShaderParm[4], 1, GL_FALSE, mv);
+  renderFromShadowCamera(&shadowCamera, nclip);
+  //--------------------------------------------
 
-    render(&shadowCamera, nclip);
-  }
   
-
+  //--------------------------------------------
   // now render from actual camera
-  {
-    glBindFramebuffer(GL_FRAMEBUFFER, m_depthBuffer);
-    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
-			   GL_COLOR_ATTACHMENT0,
-			   GL_TEXTURE_RECTANGLE,
-			   m_depthTex[0],
-			   0);
-    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
-			   GL_COLOR_ATTACHMENT1,
-			   GL_TEXTURE_RECTANGLE,
-			   m_depthTex[1],
-			   0);
-    GLenum buffers[2] = { GL_COLOR_ATTACHMENT0_EXT,
-			  GL_COLOR_ATTACHMENT1_EXT };
-    glDrawBuffersARB(2, buffers);
-    
-    glClearDepth(1);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    
-    glDisable(GL_BLEND);
-    
+  renderFromCamera(viewer->camera(), nclip);
+  //--------------------------------------------
   
-    shadowCamera.getModelViewMatrix(mv);
-    glUniformMatrix4fv(meshShaderParm[4], 1, GL_FALSE, mv);
 
-    render(viewer->camera(), nclip);
-  }
-
-  // draw shadows
-  {
-    glBindFramebuffer(GL_FRAMEBUFFER, drawFboId);
-    
-    glUseProgram(ShaderFactory::meshShadowShader());
-    GLint *shadowParm = ShaderFactory::meshShadowShaderParm();        
-
-    glActiveTexture(GL_TEXTURE0);
-    glEnable(GL_TEXTURE_RECTANGLE);
-    glBindTexture(GL_TEXTURE_RECTANGLE, m_depthTex[0]); // colors
-    
-    glActiveTexture(GL_TEXTURE1);
-    glEnable(GL_TEXTURE_RECTANGLE);
-    glBindTexture(GL_TEXTURE_RECTANGLE, m_depthTex[1]); // depth
-    
-    glActiveTexture(GL_TEXTURE2);
-    glEnable(GL_TEXTURE_RECTANGLE);
-    glBindTexture(GL_TEXTURE_RECTANGLE, m_depthTex[2]); // colors
-    
-    glActiveTexture(GL_TEXTURE3);
-    glEnable(GL_TEXTURE_RECTANGLE);
-    glBindTexture(GL_TEXTURE_RECTANGLE, m_depthTex[3]); // depth
-    
-    QMatrix4x4 mvp;
-    mvp.setToIdentity();
-    mvp.ortho(0.0, wd, 0.0, ht, 0.0, 1.0);
-    
-    glUniformMatrix4fv(shadowParm[0], 1, GL_FALSE, mvp.data());
-    
-    glUniform1i(shadowParm[1], 0); // colors
-    glUniform1i(shadowParm[2], 1); // actual-to-shadow depth
-    glUniform1f(shadowParm[3], m_blur); // soft shadows
-    glUniform1f(shadowParm[4], m_edges); // edge enhancement
-    glUniform1f(shadowParm[5], Global::gamma()); // edge enhancement
-    float roughness = 0.9-m_trisets[0]->roughness()*0.1;
-    glUniform1f(shadowParm[6], roughness); // specularity
-    glUniform1f(shadowParm[7], m_trisets[0]->specular()); // specularity
-    glUniform1i(shadowParm[8], 2); // shadow colors
-    glUniform1i(shadowParm[9], 3); // shadow depth
-        
-    glEnableVertexAttribArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, m_vertexScreenBuffer);
-    glVertexAttribPointer(0,  // attribute 0
-			  2,  // size
-			  GL_FLOAT, // type
-			  GL_FALSE, // normalized
-			  0, // stride
-			  (void*)0 ); // array buffer offset
-    glDrawArrays(GL_QUADS, 0, 8);
-    
-    glDisableVertexAttribArray(0);
-    
-    glActiveTexture(GL_TEXTURE1);
-    glDisable(GL_TEXTURE_RECTANGLE);
-    
-    glActiveTexture(GL_TEXTURE0);
-    glDisable(GL_TEXTURE_RECTANGLE);
-
-    glActiveTexture(GL_TEXTURE2);
-    glDisable(GL_TEXTURE_RECTANGLE);
-    
-    glActiveTexture(GL_TEXTURE3);
-    glDisable(GL_TEXTURE_RECTANGLE);
-
-    glUseProgram(0);
-
-    glEnable(GL_BLEND);
-  }
   //--------------------------------------------
+  // render shadows
+  renderShadows(drawFboId, wd, ht);
   //--------------------------------------------
-    
+
+  
+  //--------------------------------------------
+  // draw transparent surfaces if any
+  renderTransparent(drawFboId, viewer, nclip, sceneRadius);
+  //--------------------------------------------
 }
+
+void
+Trisets::renderFromCamera(Camera *camera, int nclip)
+{
+  glBindFramebuffer(GL_FRAMEBUFFER, m_depthBuffer);
+  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			 GL_COLOR_ATTACHMENT0,
+			 GL_TEXTURE_RECTANGLE,
+			 m_depthTex[0],
+			 0);
+  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			 GL_COLOR_ATTACHMENT1,
+			 GL_TEXTURE_RECTANGLE,
+			 m_depthTex[1],
+			 0);
+  GLenum buffers[2] = { GL_COLOR_ATTACHMENT0_EXT,
+			GL_COLOR_ATTACHMENT1_EXT };
+  glDrawBuffersARB(2, buffers);
+  
+  glClearDepth(1);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  
+  glDisable(GL_BLEND);
+  
+  render(camera, nclip);
+}
+
+void
+Trisets::renderFromShadowCamera(Camera *camera, int nclip)
+{
+  glBindFramebuffer(GL_FRAMEBUFFER, m_depthBuffer);
+  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			 GL_COLOR_ATTACHMENT0,
+			 GL_TEXTURE_RECTANGLE,
+			 m_depthTex[2],
+			 0);
+  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			 GL_COLOR_ATTACHMENT1,
+			 GL_TEXTURE_RECTANGLE,
+			 m_depthTex[3],
+			 0);
+  GLenum buffers[2] = { GL_COLOR_ATTACHMENT0_EXT,
+			GL_COLOR_ATTACHMENT1_EXT };
+  glDrawBuffersARB(2, buffers);
+  
+  glClearDepth(1);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  
+  glDisable(GL_BLEND);
+  
+  render(camera, nclip);
+}
+
+void
+Trisets::renderShadows(GLint drawFboId, int wd, int ht)
+{
+  glBindFramebuffer(GL_FRAMEBUFFER, drawFboId);
+  
+  glUseProgram(ShaderFactory::meshShadowShader());
+  GLint *shadowParm = ShaderFactory::meshShadowShaderParm();        
+
+  
+  glActiveTexture(GL_TEXTURE0);
+  glEnable(GL_TEXTURE_RECTANGLE);
+  glBindTexture(GL_TEXTURE_RECTANGLE, m_depthTex[0]); // colors
+  
+  glActiveTexture(GL_TEXTURE1);
+  glEnable(GL_TEXTURE_RECTANGLE);
+  glBindTexture(GL_TEXTURE_RECTANGLE, m_depthTex[1]); // depth
+  
+  glActiveTexture(GL_TEXTURE2);
+  glEnable(GL_TEXTURE_RECTANGLE);
+  glBindTexture(GL_TEXTURE_RECTANGLE, m_depthTex[2]); // colors
+  
+  glActiveTexture(GL_TEXTURE3);
+  glEnable(GL_TEXTURE_RECTANGLE);
+  glBindTexture(GL_TEXTURE_RECTANGLE, m_depthTex[3]); // depth
+  
+  QMatrix4x4 mvp;
+  mvp.setToIdentity();
+  mvp.ortho(0.0, wd, 0.0, ht, 0.0, 1.0);
+  
+  glUniformMatrix4fv(shadowParm[0], 1, GL_FALSE, mvp.data());
+  
+  glUniform1i(shadowParm[1], 0); // colors
+  glUniform1i(shadowParm[2], 1); // actual-to-shadow depth
+  glUniform1f(shadowParm[3], m_blur); // soft shadows
+  glUniform1f(shadowParm[4], m_edges); // edge enhancement
+  glUniform1f(shadowParm[5], Global::gamma()); // edge enhancement
+  float roughness = 0.9-m_trisets[0]->roughness()*0.1;
+  glUniform1f(shadowParm[6], roughness); // specularity
+  glUniform1f(shadowParm[7], m_trisets[0]->specular()); // specularity
+  glUniform1i(shadowParm[8], 2); // shadow colors
+  glUniform1i(shadowParm[9], 3); // shadow depth
+  
+  glEnableVertexAttribArray(0);
+  glBindBuffer(GL_ARRAY_BUFFER, m_vertexScreenBuffer);
+  glVertexAttribPointer(0,  // attribute 0
+			2,  // size
+			GL_FLOAT, // type
+			GL_FALSE, // normalized
+			0, // stride
+			(void*)0 ); // array buffer offset
+  glDrawArrays(GL_QUADS, 0, 8);
+  
+  glDisableVertexAttribArray(0);
+  
+  glActiveTexture(GL_TEXTURE1);
+  glDisable(GL_TEXTURE_RECTANGLE);
+  
+  glActiveTexture(GL_TEXTURE0);
+  glDisable(GL_TEXTURE_RECTANGLE);
+  
+  glActiveTexture(GL_TEXTURE2);
+  glDisable(GL_TEXTURE_RECTANGLE);
+  
+  glActiveTexture(GL_TEXTURE3);
+  glDisable(GL_TEXTURE_RECTANGLE);
+  
+  glUseProgram(0);
+  
+  glEnable(GL_BLEND);
+}
+
+
 
 bool
 Trisets::handleDialog(int i)
@@ -709,6 +730,15 @@ Trisets::handleDialog(int i)
   vlist << QVariant("string");
   vlist << QVariant(QString("%1 %2 %3").arg(scl.x).arg(scl.y).arg(scl.z));
   plist["scale"] = vlist;
+  
+  vlist.clear();
+  vlist << QVariant("double");
+  vlist << QVariant(m_trisets[i]->opacity());
+  vlist << QVariant(0.1);
+  vlist << QVariant(1.0);
+  vlist << QVariant(0.1); // singlestep
+  vlist << QVariant(1); // decimals
+  plist["opacity"] = vlist;
   
   vlist.clear();
   vlist << QVariant("double");
@@ -806,8 +836,8 @@ Trisets::handleDialog(int i)
   keys << "scale";
   keys << "clip";
   keys << "color";
+  keys << "opacity";
   keys << "reveal";
-  keys << "gap";
   keys << "glow";
   keys << "darken on glow";
   keys << "pattern";
@@ -862,6 +892,12 @@ Trisets::handleDialog(int i)
 	      float b = color.blueF();
 	      Vec pcolor = Vec(r,g,b);
 	      m_trisets[i]->setColor(pcolor);
+	    }
+	  else if (keys[ik] == "opacity")
+	    {
+	      float r = 0.0;
+	      r = pair.first.toString().toDouble();
+	      m_trisets[i]->setOpacity(r);
 	    }
 	  else if (keys[ik] == "reveal")
 	    {
@@ -1597,3 +1633,229 @@ Trisets::loadSolidTextures()
       glDisable(GL_TEXTURE_3D);
     }
 }
+
+
+void
+Trisets::bindOITTextures()
+{
+  // don't write to depth buffer
+  // we want all non occluded transparent fragments
+  glDepthMask(GL_FALSE);
+
+  glBindFramebuffer(GL_FRAMEBUFFER, m_depthBuffer);
+  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			 GL_COLOR_ATTACHMENT0,
+			 GL_TEXTURE_RECTANGLE,
+			 m_depthTex[0],
+			 0);
+  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			 GL_COLOR_ATTACHMENT1,
+			 GL_TEXTURE_RECTANGLE,
+			 m_depthTex[1],
+			 0);
+  GLenum buffers[2] = { GL_COLOR_ATTACHMENT0,
+			GL_COLOR_ATTACHMENT1 };
+  glDrawBuffers(2, buffers);
+
+  GLfloat c0[4] = {0,0,0,0};
+  GLfloat c1[4] = {1,1,1,1};
+  
+  glClear(GL_COLOR_BUFFER_BIT);
+  glClearBufferfv(GL_COLOR, 0, c0);
+  glClearBufferfv(GL_COLOR, 1, c1);  
+
+  glEnable(GL_BLEND);
+  glBlendEquation(GL_FUNC_ADD);
+  glBlendFunci(0, GL_ONE, GL_ONE);
+  glBlendFunci(1, GL_ZERO, GL_ONE_MINUS_SRC_COLOR);
+
+}
+
+void
+Trisets::renderTransparent(GLint drawFboId,
+			   QGLViewer *viewer,
+			   int nclip,
+			   float sceneRadius)
+{
+  bool opOn = false;
+  for(int i=0; i<m_trisets.count();i++)
+    {      
+      if (m_trisets[i]->opacity() < 1.0)
+	{
+	  opOn = true;
+	  break;
+	}
+    }
+
+  if (!opOn)
+    return;
+
+  
+  bool glowOn = false;
+  for(int i=0; i<m_trisets.count();i++)
+    {      
+      if (m_trisets[i]->glow() > 0.01)
+	{
+	  glowOn = true;
+	  break;
+	}
+    }
+  
+
+  
+  bindOITTextures();
+  
+  
+  glUseProgram(ShaderFactory::oitShader());
+  
+  GLint *oitShaderParm = ShaderFactory::oitShaderParm();        
+  
+  Vec vd = viewer->camera()->viewDirection();
+  
+  glUniform3f(oitShaderParm[1], vd.x, vd.y, vd.z); // view direction
+
+  GLfloat mv[16];
+  viewer->camera()->getModelViewMatrix(mv);
+
+  glUniformMatrix4fv(oitShaderParm[4], 1, GL_FALSE, mv);
+
+  glUniform1f(oitShaderParm[12], sceneRadius);
+  
+  for(int i=0; i<m_trisets.count();i++)
+    {
+      if (m_trisets[i]->opacity() < 1.0) // transparent
+	{
+	  glUniform1f(oitShaderParm[16], m_trisets[i]->opacity()); // opacity
+
+	  Vec extras = Vec(0,0,0);
+	  if (m_trisets[i]->grabsMouse())
+	    extras.x = 1;
+      
+	  extras.y = 1.0-m_trisets[i]->reveal();
+	  
+	  extras.z = m_trisets[i]->glow();
+
+	  float darken = 1;
+	  if (glowOn && m_trisets[i]->glow() < 0.01)
+	    darken = 1.0-0.7*m_trisets[i]->dark();
+	  
+	  glUseProgram(ShaderFactory::oitShader());
+	  GLint *oitShaderParm = ShaderFactory::oitShaderParm();        
+	  
+	  glUniform4f(oitShaderParm[2], extras.x, extras.y, extras.z, darken);
+	  
+	  glUniform1f(oitShaderParm[17], i+1);
+	  
+	  Vec pat = m_trisets[i]->pattern();
+	  if (pat.x > 0.5)
+	    {
+	      glUniform3f(oitShaderParm[18], pat.x, pat.y, pat.z);
+	      int patId = qCeil(pat.x) - 1;
+	      glActiveTexture(GL_TEXTURE1);
+	      glEnable(GL_TEXTURE_3D);
+	      glBindTexture(GL_TEXTURE_3D, m_solidTex[patId]);
+	      glUniform1i(oitShaderParm[19], 1); // solidTex
+	    }
+	  else
+	    glUniform3f(oitShaderParm[18], 0,0,0);
+	  
+	  if (m_trisets[i]->clip())
+	    {
+	      glUniform1iARB(oitShaderParm[9],  nclip);
+	      glUniform3fvARB(oitShaderParm[10], nclip, m_cpos);
+	      glUniform3fvARB(oitShaderParm[11], nclip, m_cnormal);
+	    }
+	  else
+	    {
+	      glUniform1iARB(oitShaderParm[9],  0);
+	    }
+	  
+
+	  m_trisets[i]->drawOIT(viewer->camera(),
+				m_trisets[i]->grabsMouse());
+	  
+	  
+	  if (pat.x > 0.5)
+	    glDisable(GL_TEXTURE_3D);
+	  
+	  
+	  glUseProgramObjectARB(0);
+	}
+    }
+
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+  glDisable(GL_BLEND);
+
+
+  // ------------------
+  // ------------------
+
+
+  int wd = viewer->camera()->screenWidth();
+  int ht = viewer->camera()->screenHeight();
+
+  glBindFramebuffer(GL_FRAMEBUFFER, drawFboId);
+
+  drawOITTextures(wd, ht);
+}
+
+
+void
+Trisets::drawOITTextures(int wd, int ht)
+{
+  glDisable(GL_DEPTH_TEST);
+  
+  glUseProgram(ShaderFactory::oitFinalShader());
+  GLint *oitFinalParm = ShaderFactory::oitFinalShaderParm();        
+
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+  glActiveTexture(GL_TEXTURE0);
+  glEnable(GL_TEXTURE_RECTANGLE);
+  glBindTexture(GL_TEXTURE_RECTANGLE, m_depthTex[0]);
+
+  glActiveTexture(GL_TEXTURE1);
+  glEnable(GL_TEXTURE_RECTANGLE);
+  glBindTexture(GL_TEXTURE_RECTANGLE, m_depthTex[1]);
+  
+  QMatrix4x4 mvp;
+  mvp.setToIdentity();
+  mvp.ortho(0.0, wd, 0.0, ht, 0.0, 1.0);
+
+  glUniformMatrix4fv(oitFinalParm[0], 1, GL_FALSE, mvp.data());
+
+  glUniform1i(oitFinalParm[1], 0); // accumulation tex
+  glUniform1i(oitFinalParm[2], 1); // revealage tex
+
+  
+  glEnableVertexAttribArray(0);
+  glBindBuffer(GL_ARRAY_BUFFER, m_vertexScreenBuffer);
+  glVertexAttribPointer(0,  // attribute 0
+			2,  // size
+			GL_FLOAT, // type
+			GL_FALSE, // normalized
+			0, // stride
+			(void*)0 ); // array buffer offset
+  glDrawArrays(GL_QUADS, 0, 8);
+  
+  glDisableVertexAttribArray(0);
+
+  glActiveTexture(GL_TEXTURE0);
+  glDisable(GL_TEXTURE_RECTANGLE);
+
+  glActiveTexture(GL_TEXTURE1);
+  glDisable(GL_TEXTURE_RECTANGLE);
+  
+
+  glUseProgram(0);
+
+  
+  glDisable(GL_BLEND);
+
+  glEnable(GL_DEPTH_TEST);  
+
+  glDepthMask(GL_TRUE);
+}
+

@@ -31,6 +31,7 @@ TrisetInformation::clear()
   cpDx = 0;
   cpDy = -100;
   pattern = Vec(0,10,0.5);
+  opacity = 1.0;
 }
 
 TrisetInformation&
@@ -58,6 +59,7 @@ TrisetInformation::operator=(const TrisetInformation& ti)
   cpDx = ti.cpDx;
   cpDy = ti.cpDy;
   pattern = ti.pattern;
+  opacity = ti.opacity;
   
   return *this;
 }
@@ -90,6 +92,7 @@ TrisetInformation::interpolate(const TrisetInformation tinfo1,
   tinfo.cpDx = (1-frc)*tinfo1.cpDx + frc*tinfo2.cpDx;
   tinfo.cpDy = (1-frc)*tinfo1.cpDy + frc*tinfo2.cpDy;
   tinfo.pattern = (1-frc)*tinfo1.pattern + frc*tinfo2.pattern;
+  tinfo.opacity = (1-frc)*tinfo1.opacity + frc*tinfo2.opacity;
   
   return tinfo;
 }
@@ -299,6 +302,11 @@ TrisetInformation::save(fstream &fout)
   fout.write((char*)&f, 3*sizeof(float));
 
   memset(keyword, 0, 100);
+  sprintf(keyword, "opacity");
+  fout.write((char*)keyword, strlen(keyword)+1);
+  fout.write((char*)&opacity, sizeof(float));
+
+  memset(keyword, 0, 100);
   sprintf(keyword, "end");
   fout.write((char*)keyword, strlen(keyword)+1);
 }
@@ -419,5 +427,7 @@ TrisetInformation::load(fstream &fin)
 	  fin.read((char*)&f, 3*sizeof(float));
 	  pattern = Vec(f[0], f[1], f[2]);
 	}
+      else if (strcmp(keyword, "opacity") == 0)
+	fin.read((char*)&opacity, sizeof(float));
     }
 }

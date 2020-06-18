@@ -121,6 +121,14 @@ class Trisets : public QObject
   QList<uchar*> m_solidTexData;
   GLuint* m_solidTex;
   void loadSolidTextures();
+
+
+  void renderFromCamera(Camera*, int);
+  void renderFromShadowCamera(Camera*, int);
+  void renderShadows(GLint, int, int);
+  void renderTransparent(GLint, QGLViewer*, int, float);
+  void bindOITTextures();
+  void drawOITTextures(int, int);
 };
 
 

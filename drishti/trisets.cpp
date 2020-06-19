@@ -400,7 +400,7 @@ Trisets::render(Camera *camera, int nclip)
   for(int i=0; i<m_trisets.count();i++)
     {      
       if (m_trisets[i]->opacity() > 0.9 || // opacque
-	  m_trisets[i]->reveal() > 0.9) // or full reveal
+	  m_trisets[i]->reveal() > 0.1) // or full reveal
 	{
 
 	  Vec extras = Vec(0,0,0);
@@ -472,11 +472,18 @@ Trisets::draw(QGLViewer *viewer,
 
   
   
+  
+  GLint drawFboId = 0, readFboId = 0;
+  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &drawFboId);
+  glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &readFboId);
+
+
+  
   //--------------------------
   // find min and max limits
   float trisetExtent = 0.0;
   {
-    for(int i=1; i<m_trisets.count();i++)
+    for(int i=0; i<m_trisets.count();i++)
       {
 	Vec bmin, bmax;
 	m_trisets[i]->enclosingBox(bmin, bmax);      
@@ -535,18 +542,12 @@ Trisets::draw(QGLViewer *viewer,
       return;
     }
   
-  
-  
-  GLint drawFboId = 0, readFboId = 0;
-  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &drawFboId);
-  glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &readFboId);
 
 
   glUseProgram(ShaderFactory::meshShader());
 
   GLint *meshShaderParm = ShaderFactory::meshShaderParm();        
 
-  GLfloat mv[16];
 
   glUniform1f(meshShaderParm[12], sceneRadius);
 
@@ -561,6 +562,8 @@ Trisets::draw(QGLViewer *viewer,
   Vec vU = shadowCamera.upVector();
   shadowCamera.setPosition(shadowCamera.position() + vd*viewer->camera()->sceneRadius()*0.02);
   //shadowCamera.setPosition(shadowCamera.position() + vd*sceneRadius*0.1);
+
+  GLfloat mv[16];
   shadowCamera.getModelViewMatrix(mv);
   glUniformMatrix4fv(meshShaderParm[16], 1, GL_FALSE, mv);
 
@@ -744,7 +747,7 @@ Trisets::handleDialog(int i)
   vlist << QVariant("double");
   vlist << QVariant(m_trisets[i]->reveal());
   vlist << QVariant(0.0);
-  vlist << QVariant(1.1);
+  vlist << QVariant(1.9);
   vlist << QVariant(0.1); // singlestep
   vlist << QVariant(1); // decimals
   plist["reveal"] = vlist;
@@ -1828,6 +1831,9 @@ Trisets::drawOITTextures(int wd, int ht)
 
   glUniform1i(oitFinalParm[1], 0); // accumulation tex
   glUniform1i(oitFinalParm[2], 1); // revealage tex
+  float roughness = 0.9-m_trisets[0]->roughness()*0.1;
+  glUniform1f(oitFinalParm[3], roughness); // specularity
+  glUniform1f(oitFinalParm[4], m_trisets[0]->specular()); // specularity
 
   
   glEnableVertexAttribArray(0);

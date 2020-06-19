@@ -1501,6 +1501,8 @@ GLuint ShaderFactory::oitFinalShader()
       m_oitFinalShaderParm[0] = glGetUniformLocation(m_oitFinalShader, "MVP");
       m_oitFinalShaderParm[1] = glGetUniformLocation(m_oitFinalShader, "oitTex");
       m_oitFinalShaderParm[2] = glGetUniformLocation(m_oitFinalShader, "alphaTex");
+      m_oitFinalShaderParm[3] = glGetUniformLocation(m_oitFinalShader, "roughness");
+      m_oitFinalShaderParm[4] = glGetUniformLocation(m_oitFinalShader, "specular");
     }
   
   return m_oitFinalShader;      
@@ -1639,8 +1641,12 @@ ShaderFactory::meshShaderF()
   shader += "void main()\n";
   shader += "{\n";
 
-  shader += "  if (dot(v3Normal,-viewDir) > extras.y) discard;\n";
+  //shader += "  if (dot(v3Normal,-viewDir) > extras.y) discard;\n";
 
+  shader += "  float NdotV = dot(v3Normal,-viewDir);\n";
+  shader += "  if (extras.y >= 0.0 && NdotV > extras.y) discard;\n";
+  shader += "  if (extras.y < 0.0 && abs(NdotV) > 1.0+extras.y) discard;\n";
+  
   shader += "gl_FragDepth = zdepth;\n";
 
   //-------------------  store depth values

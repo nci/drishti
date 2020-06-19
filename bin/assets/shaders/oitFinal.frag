@@ -5,6 +5,8 @@ layout(location=0) out vec4 color;
 
 uniform sampler2DRect oitTex;
 uniform sampler2DRect alphaTex;
+uniform float roughness;
+uniform float specular;
 
 //---------------------------
 vec3 shadingSpecularGGX(vec3 N, vec3 V, vec3 L, float roughness, vec3 F0)
@@ -52,8 +54,6 @@ void main()
 
   vec2 spos = gl_FragCoord.xy;
 
-  float roughness = 0.3;
-  float specular = 1.0;
   float dx = 0.0;
   float dy = 0.0;
   for(int i=0; i<10; i++)
@@ -64,9 +64,9 @@ void main()
       dy += texture2DRect(alphaTex, spos.xy+vec2(offset,1+i)).y -
             texture2DRect(alphaTex, spos.xy-vec2(offset,1+i)).y;
     }  
-  vec3 N = normalize(vec3(dx*50, dy*50, 1.0+roughness));
+  vec3 N = normalize(vec3(dx*50, dy*50, roughness));
   vec3 spec = shadingSpecularGGX(N, vec3(0,0,1),  vec3(0,0,1), roughness*0.2, color.rgb);
-  color.rgb += 0.1*specular*spec;
+  color.rgb += 0.5*specular*spec;
 
   color.rgb = clamp(color.rgb, vec3(0.0), vec3(1.0));
 }

@@ -14,7 +14,7 @@ uniform bool hasUV;
 uniform float featherSize;
 uniform vec3 hatchPattern;
 uniform sampler3D solidTex;
-uniform float opacity;
+uniform float revealTransparency;
 
 in vec3 v3Color;
 in vec3 v3Normal;
@@ -35,12 +35,12 @@ void main()
   gl_FragDepth = zdepth;
   
 
-  alpha = vec3(opacity, zdepthLinear/sceneRadius, 1);
+  alpha = vec3(1, 1, zdepthLinear/sceneRadius);
 
   // transparent reveal => opaque edges
   float NdotV = dot(v3Normal,-viewDir);
   float decay = 1.0 - (step(extras.y, 0.0)*smoothstep(0.0, 1.0+extras.y, abs(NdotV)));
-  alpha.x = opacity*max(0.2, sqrt(decay));
+  alpha.x = max(revealTransparency, sqrt(decay));
   
   
   if (hasUV)
@@ -119,12 +119,8 @@ void main()
   
 
   //=======================================  
-  //  float tmp = (1.0 - zdepth*0.5)*opacity*10.0;
-  //  float tmp = (1.0 - zdepthLinear/sceneRadius*0.9)*opacity*10.0;
-  //  float w = clamp(tmp*tmp*tmp, 0.01, 30.0);
-
   float w = zdepthLinear/sceneRadius;
-  outputColor = vec4(outputColor.rgb, 1.0)*opacity*pow(w, 2.0);
+  outputColor = vec4(outputColor.rgb, 1.0)*pow(w, 2.0);
   //=======================================  
 
 }

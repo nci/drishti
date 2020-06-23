@@ -1462,7 +1462,7 @@ GLuint ShaderFactory::oitShader()
   m_oitShaderParm[13] = glGetUniformLocation(m_oitShader,"hasUV");
   m_oitShaderParm[14] = glGetUniformLocation(m_oitShader,"diffuseTex");
   m_oitShaderParm[15] = glGetUniformLocation(m_oitShader,"featherSize");
-  m_oitShaderParm[16] = glGetUniformLocation(m_oitShader,"opacity");
+  m_oitShaderParm[16] = glGetUniformLocation(m_oitShader,"revealTransparency");
   m_oitShaderParm[17] = glGetUniformLocation(m_oitShader,"idx");
   m_oitShaderParm[18] = glGetUniformLocation(m_oitShader,"hatchPattern");
   m_oitShaderParm[19] = glGetUniformLocation(m_oitShader,"solidTex");	

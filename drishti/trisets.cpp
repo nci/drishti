@@ -399,8 +399,7 @@ Trisets::render(Camera *camera, int nclip)
   
   for(int i=0; i<m_trisets.count();i++)
     {      
-      if (m_trisets[i]->opacity() > 0.9 && // opaque
-	  m_trisets[i]->reveal() >= 0.0) // or reveal
+      if (m_trisets[i]->reveal() >= 0.0) // non transparent reveal
 	{
 
 	  Vec extras = Vec(0,0,0);
@@ -741,7 +740,7 @@ Trisets::handleDialog(int i)
   vlist << QVariant(1.0);
   vlist << QVariant(0.1); // singlestep
   vlist << QVariant(1); // decimals
-  plist["opacity"] = vlist;
+  plist["reveal transparency"] = vlist;
   
   vlist.clear();
   vlist << QVariant("double");
@@ -839,7 +838,7 @@ Trisets::handleDialog(int i)
   keys << "scale";
   keys << "clip";
   keys << "color";
-  keys << "opacity";
+  keys << "reveal transparency";
   keys << "reveal";
   keys << "glow";
   keys << "darken on glow";
@@ -896,7 +895,7 @@ Trisets::handleDialog(int i)
 	      Vec pcolor = Vec(r,g,b);
 	      m_trisets[i]->setColor(pcolor);
 	    }
-	  else if (keys[ik] == "opacity")
+	  else if (keys[ik] == "reveal transparency")
 	    {
 	      float r = 0.0;
 	      r = pair.first.toString().toDouble();
@@ -1683,8 +1682,7 @@ Trisets::renderTransparent(GLint drawFboId,
   bool opOn = false;
   for(int i=0; i<m_trisets.count();i++)
     {      
-      if (m_trisets[i]->opacity() < 1.0 || // transparent
-	  m_trisets[i]->reveal() < 0.0) // or transparent reveal
+      if (m_trisets[i]->reveal() < 0.0) // transparent reveal
 	{
 	  opOn = true;
 	  break;
@@ -1704,8 +1702,7 @@ Trisets::renderTransparent(GLint drawFboId,
 	  break;
 	}
     }
-  
-
+ 
   
   bindOITTextures();
   
@@ -1727,10 +1724,9 @@ Trisets::renderTransparent(GLint drawFboId,
   
   for(int i=0; i<m_trisets.count();i++)
     {
-      if (m_trisets[i]->opacity() < 1.0 || // transparent
-	  m_trisets[i]->reveal() < 0.0) // or transparent reveal
+      if (m_trisets[i]->reveal() < 0.0) // transparent reveal
 	{
-	  glUniform1f(oitShaderParm[16], m_trisets[i]->opacity()); // opacity
+	  glUniform1f(oitShaderParm[16], 1.0-m_trisets[i]->opacity()); // reveal transparency
 
 	  Vec extras = Vec(0,0,0);
 	  if (m_trisets[i]->grabsMouse())

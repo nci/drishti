@@ -132,7 +132,7 @@ TrisetObject::clear()
   m_specular = 1.0f;
   m_diffuse = 1.0f;
   m_ambient = 0.0f;
-  m_opacity = 1.0;
+  m_opacity = 0.7;
   m_vertices.clear();
   m_vcolor.clear();
   m_uv.clear();

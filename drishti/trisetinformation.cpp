@@ -31,7 +31,7 @@ TrisetInformation::clear()
   cpDx = 0;
   cpDy = -100;
   pattern = Vec(0,10,0.5);
-  opacity = 1.0;
+  opacity = 0.7;
 }
 
 TrisetInformation&

@@ -1645,7 +1645,7 @@ ShaderFactory::meshShaderF()
 
   shader += "  float NdotV = dot(v3Normal,-viewDir);\n";
   shader += "  if (extras.y >= 0.0 && NdotV > extras.y) discard;\n";
-  shader += "  if (extras.y < 0.0 && abs(NdotV) > 1.0+extras.y) discard;\n";
+  //shader += "  if (extras.y < 0.0 && abs(NdotV) > 1.0+extras.y) discard;\n";
   
   shader += "gl_FragDepth = zdepth;\n";
 

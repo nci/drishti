@@ -12,6 +12,21 @@ Stereolithography (.stl)
 
 Hover over the mesh and press spacebar to bring up the command dialog.
 
+Clip : Enable/Disable clipping via clip planes.
+
+Reveal [-1.0, 1.0] : Reveal internal structure.  Default value is 0.0.
+
+Glow [0.0, 5.0] : Glow the surface
+
+Darken on Glow [0.0, 1.0] : Darken surface when any other surface has glow.  0.0 is do not darken, 1.0 make it desaturated and dark.
+
+Pattern : has three parameters <type> <frequency> <blend>
+Draw pattern on surface.
+<type> is between 0 to 20.  0 is the default value, being no pattern.
+<frequency> is greater than 0.0.  Default value is 10.
+<blend> is the blending fraction (between -2.0 and 1.0) with the original colour of the mesh. <blend> values above 0.0 is replace original color with texture color with 1.0 being completely replace original colour.  <blend> values less than 0.0 modulates only the luminance.
+
+
 Users can reposition/reorient the meshes.
 While translating or rotating the mesh, operation can be restricted to specific axis by pressing x/w/z.  Pressing "w" will make it free to move in any direction.
 
@@ -99,17 +114,6 @@ Caption dialog will pop up where text, color and font for caption can be specifi
 If a hitpoint is available, line is drawn from that point to the caption text.
 <dx> and <dy> if specified are used to offset the caption text.  <dx. and <dy> are in pixel coordinates, default values are 0 and -100 (i.e. show text 100 pixels above).
 
-#end
-
-
-#begin
-pattern
-pattern <type> <frequency> <blend>
-
-Draws hatching pattern on surface.
-<type> is between 0 to 21.  0 is the default value, being no pattern.
-<frequency> is greater than 0.5.  Default value is 10.
-<blend> is the blending fraction (between -2.0 and 1.0) with the original colour of the mesh. <blend> values above 0.0 is replace original color with texture color with 1.0 being completely replace original colour.  <blend> values less than 0.0 modulates only the luminance.
 #end
 
 

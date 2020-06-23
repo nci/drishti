@@ -26,7 +26,7 @@ in float zdepthLinear;
 
 // Ouput data
 layout (location=0) out vec4 outputColor;
-layout(location=1) out vec4 alpha;
+layout (location=1) out vec3 alpha;
   
 layout (depth_greater) out float gl_FragDepth;
 
@@ -34,10 +34,15 @@ void main()
 {
   gl_FragDepth = zdepth;
   
-  //if (dot(v3Normal,-viewDir) > extras.y) discard;
 
-  alpha = vec4(opacity, zdepthLinear/sceneRadius, 1, 1);
+  alpha = vec3(opacity, zdepthLinear/sceneRadius, 1);
 
+  // transparent reveal => opaque edges
+  float NdotV = dot(v3Normal,-viewDir);
+  float decay = 1.0 - (step(extras.y, 0.0)*smoothstep(0.0, 1.0+extras.y, abs(NdotV)));
+  alpha.x = opacity*max(0.2, sqrt(decay));
+  
+  
   if (hasUV)
      outputColor = texture(diffuseTex, vec2(v3Color.x, 1-v3Color.y));
   else
@@ -119,7 +124,7 @@ void main()
   //  float w = clamp(tmp*tmp*tmp, 0.01, 30.0);
 
   float w = zdepthLinear/sceneRadius;
-  outputColor = vec4(outputColor.rgb*opacity, opacity)*pow(w, 2.0);
+  outputColor = vec4(outputColor.rgb, 1.0)*opacity*pow(w, 2.0);
   //=======================================  
 
 }

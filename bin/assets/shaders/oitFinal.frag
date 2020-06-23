@@ -48,7 +48,6 @@ void main()
      discard;
 
   float alpha = texture2DRect(alphaTex, gl_FragCoord.xy).x;
-
   color = vec4(oit.rgb/max(oit.a,0.0001), 1.0)*(1.0-alpha);
 
 

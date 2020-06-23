@@ -399,8 +399,8 @@ Trisets::render(Camera *camera, int nclip)
   
   for(int i=0; i<m_trisets.count();i++)
     {      
-      if (m_trisets[i]->opacity() > 0.9 || // opacque
-	  m_trisets[i]->reveal() > 0.1) // or full reveal
+      if (m_trisets[i]->opacity() > 0.9 && // opaque
+	  m_trisets[i]->reveal() >= 0.0) // or reveal
 	{
 
 	  Vec extras = Vec(0,0,0);
@@ -521,26 +521,26 @@ Trisets::draw(QGLViewer *viewer,
 
   Vec vd = viewer->camera()->viewDirection();
   
-  if (!applyShadows)
-    {
-      glUseProgram(ShaderFactory::meshShader());
-      
-      GLint *meshShaderParm = ShaderFactory::meshShaderParm();        
-      
-      GLfloat mv[16];
-      viewer->camera()->getModelViewMatrix(mv);
-      //glUniformMatrix4fv(meshShaderParm[4], 1, GL_FALSE, mv);
-      glUniformMatrix4fv(meshShaderParm[16], 1, GL_FALSE, mv);
-      
-      glUniform1f(meshShaderParm[12], sceneRadius);
-      
-      glUniform3f(meshShaderParm[1], vd.x, vd.y, vd.z); // view direction
-
-
-      render(viewer->camera(), nclip);
-      
-      return;
-    }
+//  if (!applyShadows)
+//    {
+//      glUseProgram(ShaderFactory::meshShader());
+//      
+//      GLint *meshShaderParm = ShaderFactory::meshShaderParm();        
+//      
+//      GLfloat mv[16];
+//      viewer->camera()->getModelViewMatrix(mv);
+//      //glUniformMatrix4fv(meshShaderParm[4], 1, GL_FALSE, mv);
+//      glUniformMatrix4fv(meshShaderParm[16], 1, GL_FALSE, mv);
+//      
+//      glUniform1f(meshShaderParm[12], sceneRadius);
+//      
+//      glUniform3f(meshShaderParm[1], vd.x, vd.y, vd.z); // view direction
+//
+//
+//      render(viewer->camera(), nclip);
+//      
+//      return;
+//    }
   
 
 
@@ -746,8 +746,8 @@ Trisets::handleDialog(int i)
   vlist.clear();
   vlist << QVariant("double");
   vlist << QVariant(m_trisets[i]->reveal());
-  vlist << QVariant(0.0);
-  vlist << QVariant(1.9);
+  vlist << QVariant(-1.0);
+  vlist << QVariant(1.0);
   vlist << QVariant(0.1); // singlestep
   vlist << QVariant(1); // decimals
   plist["reveal"] = vlist;
@@ -1573,7 +1573,8 @@ Trisets::loadSolidTextures()
     return;
 
   
-  QString texdir = qApp->applicationDirPath() + QDir::separator() + "textures";
+  //QString texdir = qApp->applicationDirPath() + QDir::separator() + "textures";
+  QString texdir = qApp->applicationDirPath() + QDir::separator()  + "assets" + QDir::separator() + "textures";
   QDir dir(texdir);
   QStringList filters;
   filters << "*.tex";
@@ -1671,7 +1672,6 @@ Trisets::bindOITTextures()
   glBlendEquation(GL_FUNC_ADD);
   glBlendFunci(0, GL_ONE, GL_ONE);
   glBlendFunci(1, GL_ZERO, GL_ONE_MINUS_SRC_COLOR);
-
 }
 
 void
@@ -1683,7 +1683,8 @@ Trisets::renderTransparent(GLint drawFboId,
   bool opOn = false;
   for(int i=0; i<m_trisets.count();i++)
     {      
-      if (m_trisets[i]->opacity() < 1.0)
+      if (m_trisets[i]->opacity() < 1.0 || // transparent
+	  m_trisets[i]->reveal() < 0.0) // or transparent reveal
 	{
 	  opOn = true;
 	  break;
@@ -1726,7 +1727,8 @@ Trisets::renderTransparent(GLint drawFboId,
   
   for(int i=0; i<m_trisets.count();i++)
     {
-      if (m_trisets[i]->opacity() < 1.0) // transparent
+      if (m_trisets[i]->opacity() < 1.0 || // transparent
+	  m_trisets[i]->reveal() < 0.0) // or transparent reveal
 	{
 	  glUniform1f(oitShaderParm[16], m_trisets[i]->opacity()); // opacity
 
@@ -1734,7 +1736,7 @@ Trisets::renderTransparent(GLint drawFboId,
 	  if (m_trisets[i]->grabsMouse())
 	    extras.x = 1;
       
-	  extras.y = 1.0-m_trisets[i]->reveal();
+	  extras.y = m_trisets[i]->reveal();
 	  
 	  extras.z = m_trisets[i]->glow();
 
@@ -1806,7 +1808,7 @@ Trisets::renderTransparent(GLint drawFboId,
 
 void
 Trisets::drawOITTextures(int wd, int ht)
-{
+{       
   glDisable(GL_DEPTH_TEST);
   
   glUseProgram(ShaderFactory::oitFinalShader());

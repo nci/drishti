@@ -162,7 +162,7 @@ private :
   
   void loadVertexBufferData();
   void drawTrisetBuffer(Camera*, float, float, bool,
-			GLuint, GLint*);
+			GLuint, GLint*, bool);
 
   bool loadTriset(QString);
   bool loadPLY(QString);

@@ -407,10 +407,9 @@ TrisetObject::drawTrisetBuffer(Camera *camera,
 			       float pnear, float pfar,
 			       bool active,
 			       GLuint meshShader,
-			       GLint *meshShaderParm)
+			       GLint *meshShaderParm,
+			       bool oit)
 {
-  //glDisable(GL_BLEND);
-  //glUseProgram(ShaderFactory::meshShader());
   glUseProgram(meshShader);
 
   int ni = m_triangles.count();
@@ -437,7 +436,6 @@ TrisetObject::drawTrisetBuffer(Camera *camera,
  
   Vec vd = camera->viewDirection();
   
-  //GLint *meshShaderParm = ShaderFactory::meshShaderParm();  
 
   glUniformMatrix4fv(meshShaderParm[0], 1, GL_FALSE, mvp);
   glUniformMatrix4fv(meshShaderParm[3], 1, GL_FALSE, lxfrm);
@@ -449,6 +447,8 @@ TrisetObject::drawTrisetBuffer(Camera *camera,
   glUniform1f(meshShaderParm[8], m_specular);
   glUniform1f(meshShaderParm[15], m_featherSize);
 
+  if (oit)
+    glUniform1f(meshShaderParm[16], 1.0-m_opacity);
   
   //glDrawElements(GL_TRIANGLES, ni, GL_UNSIGNED_INT, 0);  
 
@@ -686,7 +686,8 @@ TrisetObject::draw(Camera *camera,
   GLint* meshShaderParm = ShaderFactory::meshShaderParm();
   
   drawTrisetBuffer(camera, 0, -1, active,
-		   meshShader, meshShaderParm);
+		   meshShader, meshShaderParm,
+		   false);
 }
 
 void
@@ -703,7 +704,8 @@ TrisetObject::drawOIT(Camera *camera,
   GLint* oitShaderParm = ShaderFactory::oitShaderParm();
   
   drawTrisetBuffer(camera, 0, -1, active,
-		   oitShader, oitShaderParm);
+		   oitShader, oitShaderParm,
+		   true);
 }
 
 void

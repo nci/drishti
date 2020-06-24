@@ -1726,8 +1726,6 @@ Trisets::renderTransparent(GLint drawFboId,
     {
       if (m_trisets[i]->reveal() < 0.0) // transparent reveal
 	{
-	  glUniform1f(oitShaderParm[16], 1.0-m_trisets[i]->opacity()); // reveal transparency
-
 	  Vec extras = Vec(0,0,0);
 	  if (m_trisets[i]->grabsMouse())
 	    extras.x = 1;

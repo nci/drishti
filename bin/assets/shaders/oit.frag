@@ -106,9 +106,9 @@ void main()
 //  vec3 Diff = diffuse*diffMag*outputColor.rgb;
 //  outputColor.rgb = Amb + Diff;
 
-  vec3 Amb = 0.5 * outputColor.rgb;
+  vec3 Amb = ambient * outputColor.rgb;
   float diffMag = abs(dot(v3Normal, viewDir));
-  vec3 Diff = 0.7 * diffMag*outputColor.rgb;
+  vec3 Diff = diffuse * diffMag*outputColor.rgb;
   outputColor.rgb = Amb + Diff;
 
 //  vec3 reflecvec = reflect(viewDir, v3Normal);
@@ -119,8 +119,8 @@ void main()
   
 
   //=======================================  
-  float w = zdepthLinear/sceneRadius;
-  outputColor = vec4(outputColor.rgb, 1.0)*pow(w, 2.0);
+  float w = 3.0-zdepthLinear/sceneRadius;
+  outputColor = vec4(outputColor.rgb, 1.0)*alpha.x*pow(w, 3.0)*10.0;
   //=======================================  
 
 }

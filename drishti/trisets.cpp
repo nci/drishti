@@ -1730,7 +1730,7 @@ Trisets::renderTransparent(GLint drawFboId,
 	  if (m_trisets[i]->grabsMouse())
 	    extras.x = 1;
       
-	  extras.y = m_trisets[i]->reveal();
+	  extras.y = m_trisets[i]->reveal()*m_trisets[i]->reveal();
 	  
 	  extras.z = m_trisets[i]->glow();
 

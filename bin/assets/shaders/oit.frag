@@ -37,9 +37,11 @@ void main()
 
   alpha = vec3(1, 1, zdepthLinear/sceneRadius);
 
-  // transparent reveal => opaque edges
-  float NdotV = dot(v3Normal,-viewDir);
-  float decay = 1.0 - (step(extras.y, 0.0)*smoothstep(0.0, 1.0+extras.y, abs(NdotV)));
+  // transparent reveal => edges are more opaque
+  float NdotV = abs(dot(v3Normal,viewDir));
+  //float decay = 1.0 - smoothstep(0.0, 1.0-extras.y, abs(NdotV));
+  float decay = 1.0 - clamp(NdotV/(1.0-min(extras.y, 0.999)), 0.0, 1.0);
+  decay = mix(decay, 0.0, step(0.95, extras.y));
   alpha.x = max(revealTransparency, sqrt(decay));
   
   

@@ -118,7 +118,8 @@ void main()
 //  outputColor.rgb += 0.1*specular*vec3(Spec);
   //=======================================  
 
-  
+  // more glow for higher transparency
+  outputColor.rgb += 0.3*(1.0-alpha.x)*glowColor.rgb;
 
   //=======================================  
   float w = 3.0-zdepthLinear/sceneRadius;

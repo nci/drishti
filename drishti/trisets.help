@@ -14,7 +14,12 @@ Hover over the mesh and press spacebar to bring up the command dialog.
 
 Clip : Enable/Disable clipping via clip planes.
 
+Reveal Transparency [0.1, 1.0] : Transparency of the surface when Reveal is less than 0.0.
+0.1 is low transparency, 1.0 is very high transparency.
+
 Reveal [-1.0, 1.0] : Reveal internal structure.  Default value is 0.0.
+Reveal > 0.0, front facing surface is removed.
+Reveal < 0.0, front and back facing surfaces are made transparent.  Transparency is controlled by Reveal Transparency parameter.
 
 Glow [0.0, 5.0] : Glow the surface
 

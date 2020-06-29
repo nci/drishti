@@ -39,7 +39,7 @@ void main()
 
   // transparent reveal => edges are more opaque
   float NdotV = abs(dot(v3Normal,viewDir));
-  //float decay = 1.0 - smoothstep(0.0, 1.0-extras.y, abs(NdotV));
+  
   float decay = 1.0 - clamp(NdotV/(1.0-min(extras.y, 0.999)), 0.0, 1.0);
   decay = mix(decay, 0.0, step(0.95, extras.y));
   alpha.x = max(revealTransparency, sqrt(decay));
@@ -50,7 +50,10 @@ void main()
   else
      outputColor = vec4(v3Color, 1.0);
 
-
+  vec3 defCol = mix(vec3(0.0), outputColor.rgb, NdotV*NdotV);
+  outputColor.rgb = mix(outputColor.rgb, vec3(0.0), pow(decay, 0.5/revealTransparency));
+  outputColor.rgb = mix(outputColor.rgb, defCol, step(0.95, extras.y));
+    
   float cfeather = 1.0;
   if (nclip > 0)
     {
@@ -119,11 +122,12 @@ void main()
   //=======================================  
 
   // more glow for higher transparency
-  outputColor.rgb += 0.3*(1.0-alpha.x)*glowColor.rgb;
+  //outputColor.rgb += 0.3*(1.0-alpha.x)*outputColor.rgb;
+  outputColor.rgb += vec3(0.2+0.3*extras.y)*outputColor.rgb;
 
   //=======================================  
   float w = 3.0-zdepthLinear/sceneRadius;
-  outputColor = vec4(outputColor.rgb, 1.0)*alpha.x*pow(w, 3.0)*10.0;
+  outputColor = vec4(outputColor.rgb, 1.0)*alpha.x*pow(w, 2.0);
   //=======================================  
 
 }

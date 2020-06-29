@@ -126,6 +126,7 @@ class Trisets : public QObject
   void renderFromCamera(Camera*, int);
   void renderFromShadowCamera(Camera*, int);
   void renderShadows(GLint, int, int);
+  void renderOutline(GLint, QGLViewer*, int, float);
   void renderTransparent(GLint, QGLViewer*, int, float);
   void bindOITTextures();
   void drawOITTextures(int, int);

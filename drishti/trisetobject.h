@@ -54,6 +54,9 @@ class TrisetObject
   float reveal() { return m_reveal; }
   void setReveal(float r) { m_reveal = r; }
   
+  float outline() { return m_outline; }
+  void setOutline(float r) { m_outline = r; }
+  
   float glow() { return m_glow; }
   void setGlow(float r) { m_glow = r; }
   
@@ -119,6 +122,7 @@ private :
   Vec m_position;
   Vec m_scale;
   float m_reveal;
+  float m_outline;
   float m_glow;
   float m_dark;
   Vec m_pattern;

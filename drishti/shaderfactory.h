@@ -42,6 +42,9 @@ class ShaderFactory
   static GLuint meshShadowShader();
   static GLint* meshShadowShaderParm();
 
+  static GLuint outlineShader();
+  static GLint* outlineShaderParm();
+
   static GLuint oitShader();
   static GLint* oitShaderParm();
 
@@ -72,6 +75,9 @@ class ShaderFactory
   static GLuint m_meshShadowShader;
   static GLint m_meshShadowShaderParm[20];
 
+  static GLuint m_outlineShader;
+  static GLint m_outlineShaderParm[30];
+
   static GLuint m_oitShader;
   static GLint m_oitShaderParm[30];
 
@@ -97,6 +103,8 @@ class ShaderFactory
 
   static QString meshShadowShaderV();
   static QString meshShadowShaderF();
+
+  static QString outlineShaderF();
 
   static QString ptShaderV();
   static QString ptShaderF();

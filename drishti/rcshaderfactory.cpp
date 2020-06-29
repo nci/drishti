@@ -955,6 +955,15 @@ RcShaderFactory::genEdgeEnhanceShader()
   shader += "    color.rgb += 0.5*specular*spec;\n";
   shader += "  }\n";
   
+
+
+  //------------------------------------
+  // apply gamma correction
+  shader += "      color.rgb = pow(color.rgb, vec3(1.0/gamma));\n";
+  shader += "      color = clamp(color, vec4(0.0,0.0,0.0,0.0), vec4(1.0,1.0,1.0,1.0));\n";
+  //------------------------------------
+
+  
     
   shader += " if (any(greaterThan(color.rgb,vec3(1.0)))) \n";
   shader += "   color.rgb = vec3(1.0);\n";

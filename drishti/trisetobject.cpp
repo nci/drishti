@@ -121,6 +121,7 @@ TrisetObject::clear()
   m_position = Vec(0,0,0);
   m_scale = Vec(1,1,1);
   m_reveal = 0.0;
+  m_outline = 0.0;
   m_glow = 0.0;  
   m_dark = 0.5;
   m_pattern = Vec(0,10,0.5);
@@ -901,6 +902,7 @@ TrisetObject::loadPLY(QString flnm)
   m_position = Vec(0,0,0);
   m_scale = Vec(1,1,1);
   m_reveal = 0.0;
+  m_outline = 0.0;
   m_glow = 0.0;
   m_dark = 0.5;
   m_pattern = Vec(0,10,0.5);
@@ -1275,6 +1277,7 @@ TrisetObject::loadTriset(QString flnm)
   m_position = Vec(0,0,0);
   m_scale = Vec(1,1,1);
   m_reveal = 0.0;
+  m_outline = 0.0;
   m_glow = 0.0;
   m_dark = 0.5;
   m_q = Quaternion();
@@ -1318,6 +1321,7 @@ TrisetObject::get()
   ti.diffuse = m_diffuse;
   ti.specular = m_specular;
   ti.reveal = m_reveal;
+  ti.outline = m_outline;
   ti.glow = m_glow;
   ti.dark = m_dark;
   ti.captionText = m_captionText;
@@ -1360,6 +1364,7 @@ TrisetObject::set(TrisetInformation ti)
   m_diffuse = ti.diffuse;
   m_specular = ti.specular;
   m_reveal = ti.reveal;
+  m_outline = ti.outline;
   m_glow = ti.glow;
   m_dark = ti.dark;
   m_pattern = ti.pattern;

@@ -399,7 +399,8 @@ Trisets::render(Camera *camera, int nclip)
   
   for(int i=0; i<m_trisets.count();i++)
     {      
-      if (m_trisets[i]->reveal() >= 0.0) // non transparent reveal
+      if (m_trisets[i]->reveal() >= 0.0 // non transparent reveal
+	  && m_trisets[i]->outline() < 0.1) // not outline
 	{
 
 	  Vec extras = Vec(0,0,0);
@@ -584,8 +585,15 @@ Trisets::draw(QGLViewer *viewer,
   
   //--------------------------------------------
   // draw transparent surfaces if any
+  renderOutline(drawFboId, viewer, nclip, sceneRadius);
+  //--------------------------------------------
+
+  
+  //--------------------------------------------
+  // draw transparent surfaces if any
   renderTransparent(drawFboId, viewer, nclip, sceneRadius);
   //--------------------------------------------
+
 }
 
 void
@@ -753,6 +761,15 @@ Trisets::handleDialog(int i)
   
   vlist.clear();
   vlist << QVariant("double");
+  vlist << QVariant(m_trisets[i]->outline());
+  vlist << QVariant(0.0);
+  vlist << QVariant(1.0);
+  vlist << QVariant(0.1); // singlestep
+  vlist << QVariant(1); // decimals
+  plist["outline"] = vlist;
+  
+  vlist.clear();
+  vlist << QVariant("double");
   vlist << QVariant(m_trisets[i]->glow());
   vlist << QVariant(0.0);
   vlist << QVariant(5.0);
@@ -840,6 +857,7 @@ Trisets::handleDialog(int i)
   keys << "color";
   keys << "reveal transparency";
   keys << "reveal";
+  keys << "outline";
   keys << "glow";
   keys << "darken on glow";
   keys << "pattern";
@@ -906,6 +924,12 @@ Trisets::handleDialog(int i)
 	      float r = 0.0;
 	      r = pair.first.toString().toDouble();
 	      m_trisets[i]->setReveal(r);
+	    }
+	  else if (keys[ik] == "outline")
+	    {
+	      float r = 0.0;
+	      r = pair.first.toString().toDouble();
+	      m_trisets[i]->setOutline(r);
 	    }
 	  else if (keys[ik] == "glow")
 	    {
@@ -1859,5 +1883,195 @@ Trisets::drawOITTextures(int wd, int ht)
   glEnable(GL_DEPTH_TEST);  
 
   glDepthMask(GL_TRUE);
+}
+
+void
+Trisets::renderOutline(GLint drawFboId,
+		       QGLViewer *viewer,
+		       int nclip,
+		       float sceneRadius)
+{
+  float opacity = 1.0;
+  float outline = 0.0;
+  bool opOn = false;
+  for(int i=0; i<m_trisets.count();i++)
+    {      
+      if (m_trisets[i]->outline() > 0.0) // outline
+	{
+	  opacity = min(opacity, m_trisets[i]->opacity());
+	  outline = max(outline, m_trisets[i]->outline());
+	  opOn = true;
+	  //break;
+	}
+    }
+
+  if (!opOn)
+    return;
+
+  opacity = 1.0-opacity;
+  
+  
+  bool glowOn = false;
+  for(int i=0; i<m_trisets.count();i++)
+    {      
+      if (m_trisets[i]->glow() > 0.01)
+	{
+	  glowOn = true;
+	  break;
+	}
+    }
+ 
+  
+  glDisable(GL_BLEND);
+
+  
+  glBindFramebuffer(GL_FRAMEBUFFER, m_depthBuffer);
+  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			 GL_COLOR_ATTACHMENT0,
+			 GL_TEXTURE_RECTANGLE,
+			 m_depthTex[0],
+			 0);
+  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			 GL_COLOR_ATTACHMENT1,
+			 GL_TEXTURE_RECTANGLE,
+			 m_depthTex[1],
+			 0);
+  GLenum buffers[2] = { GL_COLOR_ATTACHMENT0_EXT,
+			GL_COLOR_ATTACHMENT1_EXT };
+  glDrawBuffersARB(2, buffers);
+  
+  glClearDepth(1);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  
+  glDisable(GL_BLEND);  
+  
+  for(int i=0; i<m_trisets.count();i++)
+    {      
+      if (m_trisets[i]->outline() > 0.0) // outline
+	{
+
+	  Vec extras = Vec(0,0,0);
+	  if (m_trisets[i]->grabsMouse())
+	    extras.x = 1;
+      
+	  //extras.y = 1.0-m_trisets[i]->reveal();
+	  extras.y = 1.0;
+	  
+	  extras.z = m_trisets[i]->glow();
+	  
+	  float darken = 1;
+	  if (glowOn && m_trisets[i]->glow() < 0.01)
+	    darken = 1.0-0.7*m_trisets[i]->dark();
+	  
+	  glUseProgram(ShaderFactory::meshShader());
+	  GLint *meshShaderParm = ShaderFactory::meshShaderParm();        
+	  
+	  glUniform4f(meshShaderParm[2], extras.x, extras.y, extras.z, darken);
+	  
+	  glUniform1f(meshShaderParm[17], i+1);
+	  
+	  Vec pat = m_trisets[i]->pattern();
+	  if (pat.x > 0.5)
+	    {
+	      glUniform3f(meshShaderParm[18], pat.x, pat.y, pat.z);
+	      int patId = qCeil(pat.x) - 1;
+	      glActiveTexture(GL_TEXTURE1);
+	      glEnable(GL_TEXTURE_3D);
+	      glBindTexture(GL_TEXTURE_3D, m_solidTex[patId]);
+	      glUniform1i(meshShaderParm[19], 1); // solidTex
+	    }
+	  else
+	    glUniform3f(meshShaderParm[18], 0,0,0);
+	  
+	  if (m_trisets[i]->clip())
+	    {
+	      glUniform1iARB(meshShaderParm[9],  nclip);
+	      glUniform3fvARB(meshShaderParm[10], nclip, m_cpos);
+	      glUniform3fvARB(meshShaderParm[11], nclip, m_cnormal);
+	    }
+	  else
+	    {
+	      glUniform1iARB(meshShaderParm[9],  0);
+	    }
+	  
+	  
+	  m_trisets[i]->draw(viewer->camera(),
+			     m_trisets[i]->grabsMouse());
+	  
+	  
+	  if (pat.x > 0.5)
+	    glDisable(GL_TEXTURE_3D);
+	  
+	  
+	  glUseProgramObjectARB(0);
+	}
+    }
+
+
+
+  glBindFramebuffer(GL_FRAMEBUFFER, drawFboId);
+
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+
+  glUseProgram(ShaderFactory::outlineShader());
+  GLint *outlineParm = ShaderFactory::outlineShaderParm();        
+
+  
+  glActiveTexture(GL_TEXTURE0);
+  glEnable(GL_TEXTURE_RECTANGLE);
+  glBindTexture(GL_TEXTURE_RECTANGLE, m_depthTex[0]); // colors
+  
+  glActiveTexture(GL_TEXTURE1);
+  glEnable(GL_TEXTURE_RECTANGLE);
+  glBindTexture(GL_TEXTURE_RECTANGLE, m_depthTex[1]); // depth
+  
+  
+  int wd = viewer->camera()->screenWidth();
+  int ht = viewer->camera()->screenHeight();
+  QMatrix4x4 mvp;
+  mvp.setToIdentity();
+  mvp.ortho(0.0, wd, 0.0, ht, 0.0, 1.0);
+  
+  glUniformMatrix4fv(outlineParm[0], 1, GL_FALSE, mvp.data());
+  
+  glUniform1i(outlineParm[1], 0); // colors
+  glUniform1i(outlineParm[2], 1); // actual-to-shadow depth
+  glUniform1f(outlineParm[3], m_blur); // soft shadows
+  glUniform1f(outlineParm[4], m_edges); // edge enhancement
+  glUniform1f(outlineParm[5], Global::gamma()); // edge enhancement
+  float roughness = 0.9-m_trisets[0]->roughness()*0.1;
+  glUniform1f(outlineParm[6], roughness); // specularity
+  glUniform1f(outlineParm[7], m_trisets[0]->specular()); // specularity
+  glUniform1f(outlineParm[8], opacity); // opacity
+  glUniform1f(outlineParm[9], outline); // outline
+  
+  glEnableVertexAttribArray(0);
+  glBindBuffer(GL_ARRAY_BUFFER, m_vertexScreenBuffer);
+  glVertexAttribPointer(0,  // attribute 0
+			2,  // size
+			GL_FLOAT, // type
+			GL_FALSE, // normalized
+			0, // stride
+			(void*)0 ); // array buffer offset
+  glDrawArrays(GL_QUADS, 0, 8);
+  
+  glDisableVertexAttribArray(0);
+  
+  glActiveTexture(GL_TEXTURE1);
+  glDisable(GL_TEXTURE_RECTANGLE);
+  
+  glActiveTexture(GL_TEXTURE0);
+  glDisable(GL_TEXTURE_RECTANGLE);
+    
+  glUseProgram(0);
+
+  glDisable(GL_BLEND);
+
+  glEnable(GL_DEPTH_TEST);  
+
+  glDepthMask(GL_TRUE);
+
 }
 

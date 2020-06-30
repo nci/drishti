@@ -441,6 +441,10 @@ TrisetObject::drawTrisetBuffer(Camera *camera,
   glUniformMatrix4fv(meshShaderParm[0], 1, GL_FALSE, mvp);
   glUniformMatrix4fv(meshShaderParm[3], 1, GL_FALSE, lxfrm);
 
+  // pack opacity and outline
+  if (!oit)
+    glUniform1f(meshShaderParm[4], m_opacity*110 + m_outline*10);
+
   glUniform3f(meshShaderParm[1], vd.x, vd.y, vd.z); // view direction
   glUniform1f(meshShaderParm[5], 1.0-m_roughness*0.1);
   glUniform1f(meshShaderParm[6], m_ambient);

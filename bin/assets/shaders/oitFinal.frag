@@ -50,22 +50,22 @@ void main()
   float alpha = texture2DRect(alphaTex, gl_FragCoord.xy).x;
   color = vec4(oit.rgb/max(oit.a,0.0001), 1.0)*(1.0-alpha);
 
-
-  vec2 spos = gl_FragCoord.xy;
-
-  float dx = 0.0;
-  float dy = 0.0;
-  for(int i=0; i<10; i++)
-    {
-      float offset = 1-(1+i)%3;
-      dx += texture2DRect(alphaTex, spos.xy+vec2(1+i,offset)).z -
-            texture2DRect(alphaTex, spos.xy-vec2(1+i,offset)).z;
-      dy += texture2DRect(alphaTex, spos.xy+vec2(offset,1+i)).z -
-            texture2DRect(alphaTex, spos.xy-vec2(offset,1+i)).z;
-    }  
-  vec3 N = normalize(vec3(dx*50, dy*50, roughness));
-  vec3 spec = shadingSpecularGGX(N, vec3(0,0,1),  vec3(0,0,1), roughness*0.2, color.rgb);
-  color.rgb += 0.5*specular*spec;
-
-  color.rgb = clamp(color.rgb, vec3(0.0), vec3(1.0));
+//
+//  vec2 spos = gl_FragCoord.xy;
+//
+//  float dx = 0.0;
+//  float dy = 0.0;
+//  for(int i=0; i<10; i++)
+//    {
+//      float offset = 1-(1+i)%3;
+//      dx += texture2DRect(alphaTex, spos.xy+vec2(1+i,offset)).z -
+//            texture2DRect(alphaTex, spos.xy-vec2(1+i,offset)).z;
+//      dy += texture2DRect(alphaTex, spos.xy+vec2(offset,1+i)).z -
+//            texture2DRect(alphaTex, spos.xy-vec2(offset,1+i)).z;
+//    }  
+//  vec3 N = normalize(vec3(dx*50, dy*50, roughness));
+//  vec3 spec = shadingSpecularGGX(N, vec3(0,0,1),  vec3(0,0,1), roughness*0.2, color.rgb);
+//  color.rgb += 0.5*specular*spec;
+//
+//  color.rgb = clamp(color.rgb, vec3(0.0), vec3(1.0));
 }

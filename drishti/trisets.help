@@ -80,6 +80,25 @@ glowall
 glowall <val>
 
 Set glow values for all meshes.  Values are in range 0 (no glow) to 5 (waaaaaay overblown for lighter colors).
+If <val> is not specified 0.0 is used.
+
+#end
+
+#begin
+outlineall
+outlineall <val>
+
+Set outline values for all meshes.  Values are in range 0 (no outline) to 1.0 (very thick outline).
+If <val> is not specified 0.0 is used.
+
+#end
+
+#begin
+transparencyall
+transparencyall <val>
+
+Set reveal transparency values for all meshes.  Values are in range 0.1 (very low transparency ) to 1.0 (fully transparent).
+If <val> is not specified 1.0 is used.
 
 #end
 
@@ -97,7 +116,9 @@ Set clipping for all meshes.
 darkenall
 darkenall <val>
 
-Set darken on glow values for all meshes.  0 means no darkening, 1 is very dark.
+Set darken on glow values for all meshes.  Values are in range 0.0 (no darkening) to 1.0 (very dark).
+If <val> is not specified 0.5 is used.
+
 #end
 
 #begin

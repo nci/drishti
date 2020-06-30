@@ -529,7 +529,6 @@ Trisets::draw(QGLViewer *viewer,
 //      
 //      GLfloat mv[16];
 //      viewer->camera()->getModelViewMatrix(mv);
-//      //glUniformMatrix4fv(meshShaderParm[4], 1, GL_FALSE, mv);
 //      glUniformMatrix4fv(meshShaderParm[16], 1, GL_FALSE, mv);
 //      
 //      glUniform1f(meshShaderParm[12], sceneRadius);
@@ -585,13 +584,13 @@ Trisets::draw(QGLViewer *viewer,
   
   //--------------------------------------------
   // draw transparent surfaces if any
-  renderOutline(drawFboId, viewer, nclip, sceneRadius);
+  renderTransparent(drawFboId, viewer, nclip, sceneRadius);
   //--------------------------------------------
 
   
   //--------------------------------------------
   // draw transparent surfaces if any
-  renderTransparent(drawFboId, viewer, nclip, sceneRadius);
+  renderOutline(drawFboId, viewer, nclip, sceneRadius);
   //--------------------------------------------
 
 }
@@ -651,6 +650,10 @@ Trisets::renderFromShadowCamera(Camera *camera, int nclip)
 void
 Trisets::renderShadows(GLint drawFboId, int wd, int ht)
 {
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+
   glBindFramebuffer(GL_FRAMEBUFFER, drawFboId);
   
   glUseProgram(ShaderFactory::meshShadowShader());
@@ -1220,6 +1223,32 @@ Trisets::processCommand(int idx, QString cmd)
       for (int i=0; i<m_trisets.count(); i++)
 	{
 	  m_trisets[i]->setGlow(glow);
+	}
+      return;
+    }
+  
+  if (list[0] == "outlineall")
+    {
+      float outline = 0.0;
+      if (list.count() > 1)
+	outline = qBound(0.0f, list[1].toFloat(&ok), 1.0f);
+      
+      for (int i=0; i<m_trisets.count(); i++)
+	{
+	  m_trisets[i]->setOutline(outline);
+	}
+      return;
+    }
+  
+  if (list[0] == "transparencyall")
+    {
+      float op = 1.0;
+      if (list.count() > 1)
+	op = qBound(0.1f, list[1].toFloat(&ok), 1.0f);
+      
+      for (int i=0; i<m_trisets.count(); i++)
+	{
+	  m_trisets[i]->setOpacity(op);
 	}
       return;
     }
@@ -1891,24 +1920,18 @@ Trisets::renderOutline(GLint drawFboId,
 		       int nclip,
 		       float sceneRadius)
 {
-  float opacity = 1.0;
-  float outline = 0.0;
   bool opOn = false;
   for(int i=0; i<m_trisets.count();i++)
     {      
-      if (m_trisets[i]->outline() > 0.0) // outline
+      if (m_trisets[i]->outline() > 0.09) // outline
 	{
-	  opacity = min(opacity, m_trisets[i]->opacity());
-	  outline = max(outline, m_trisets[i]->outline());
 	  opOn = true;
-	  //break;
+	  break;
 	}
     }
 
   if (!opOn)
     return;
-
-  opacity = 1.0-opacity;
   
   
   bool glowOn = false;
@@ -1947,7 +1970,7 @@ Trisets::renderOutline(GLint drawFboId,
   
   for(int i=0; i<m_trisets.count();i++)
     {      
-      if (m_trisets[i]->outline() > 0.0) // outline
+      if (m_trisets[i]->outline() > 0.09) // outline
 	{
 
 	  Vec extras = Vec(0,0,0);
@@ -2044,8 +2067,6 @@ Trisets::renderOutline(GLint drawFboId,
   float roughness = 0.9-m_trisets[0]->roughness()*0.1;
   glUniform1f(outlineParm[6], roughness); // specularity
   glUniform1f(outlineParm[7], m_trisets[0]->specular()); // specularity
-  glUniform1f(outlineParm[8], opacity); // opacity
-  glUniform1f(outlineParm[9], outline); // outline
   
   glEnableVertexAttribArray(0);
   glBindBuffer(GL_ARRAY_BUFFER, m_vertexScreenBuffer);

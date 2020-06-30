@@ -2061,12 +2061,10 @@ Trisets::renderOutline(GLint drawFboId,
   
   glUniform1i(outlineParm[1], 0); // colors
   glUniform1i(outlineParm[2], 1); // actual-to-shadow depth
-  glUniform1f(outlineParm[3], m_blur); // soft shadows
-  glUniform1f(outlineParm[4], m_edges); // edge enhancement
-  glUniform1f(outlineParm[5], Global::gamma()); // edge enhancement
+  glUniform1f(outlineParm[3], Global::gamma()); // edge enhancement
   float roughness = 0.9-m_trisets[0]->roughness()*0.1;
-  glUniform1f(outlineParm[6], roughness); // specularity
-  glUniform1f(outlineParm[7], m_trisets[0]->specular()); // specularity
+  glUniform1f(outlineParm[4], roughness); // specularity
+  glUniform1f(outlineParm[5], m_trisets[0]->specular()); // specularity
   
   glEnableVertexAttribArray(0);
   glBindBuffer(GL_ARRAY_BUFFER, m_vertexScreenBuffer);

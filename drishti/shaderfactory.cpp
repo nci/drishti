@@ -2065,11 +2065,9 @@ GLuint ShaderFactory::outlineShader()
 	m_outlineShaderParm[0] = glGetUniformLocation(m_outlineShader, "MVP");
 	m_outlineShaderParm[1] = glGetUniformLocation(m_outlineShader, "colorTex");
 	m_outlineShaderParm[2] = glGetUniformLocation(m_outlineShader, "depthTex");
-	m_outlineShaderParm[3] = glGetUniformLocation(m_outlineShader, "softshadow");
-	m_outlineShaderParm[4] = glGetUniformLocation(m_outlineShader, "edges");
-	m_outlineShaderParm[5] = glGetUniformLocation(m_outlineShader, "gamma");
-	m_outlineShaderParm[6] = glGetUniformLocation(m_outlineShader, "roughness");	
-	m_outlineShaderParm[7] = glGetUniformLocation(m_outlineShader, "specular");	
+	m_outlineShaderParm[3] = glGetUniformLocation(m_outlineShader, "gamma");
+	m_outlineShaderParm[4] = glGetUniformLocation(m_outlineShader, "roughness");	
+	m_outlineShaderParm[5] = glGetUniformLocation(m_outlineShader, "specular");	
     }
 
   return m_outlineShader;
@@ -2088,8 +2086,6 @@ ShaderFactory::outlineShaderF()
 		      
   shader += "uniform sampler2DRect colorTex;\n";
   shader += "uniform sampler2DRect depthTex;\n";
-  shader += "uniform float softshadow;\n";
-  shader += "uniform float edges;\n";
   shader += "uniform float gamma;\n";
   shader += "uniform float roughness;\n";
   shader += "uniform float specular;\n";

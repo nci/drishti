@@ -1373,7 +1373,7 @@ TrisetObject::set(TrisetInformation ti)
   m_dark = ti.dark;
   m_pattern = ti.pattern;
   m_opacity = ti.opacity;
-  
+      
   if (reloadColor)
     setColor(m_color);
 

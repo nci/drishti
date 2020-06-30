@@ -96,7 +96,7 @@ TrisetInformation::interpolate(const TrisetInformation tinfo1,
   tinfo.cpDy = (1-frc)*tinfo1.cpDy + frc*tinfo2.cpDy;
   tinfo.pattern = (1-frc)*tinfo1.pattern + frc*tinfo2.pattern;
   tinfo.opacity = (1-frc)*tinfo1.opacity + frc*tinfo2.opacity;
-  
+    
   return tinfo;
 }
 

@@ -2125,18 +2125,20 @@ ShaderFactory::outlineShaderF()
   shader += "     return;\n";
   shader += "  }\n";
 
+
   shader += "  gl_FragDepth = dtex.w;\n";
 
+  shader += "  vec3 ocolor = color.rgb;\n";
+  
   shader += "  float surfId = dtex.z;\n";
   
-  shader += "  vec3 ecolor = color.rgb;\n";
   shader += "  float response = 0.0;\n";
 
-  shader += "  float outline = int(mod(color.a,11.0))*0.1;\n";
+  shader += "  float outline = mod(color.a,11.0);\n";
   shader += "  float opacity = 1.0-float(int(color.a)/11)/10.0;\n";
  
   // find edges on surfaces
-  shader += "    int nsteps = int(8.0*outline*10.0);\n";
+  shader += "    int nsteps = int(8.0*outline);\n";
   shader += "    vec3 clrG = vec3(0.0);\n";
   shader += "    float sumG = 0.0;\n";
   shader += "    for(int i=0; i<nsteps; i++)\n";
@@ -2171,6 +2173,28 @@ ShaderFactory::outlineShaderF()
   shader += "    gl = smoothstep(0.0, 1.0, gl);\n";
   shader += "    color.rgb = mix(color.rgb, clrG, gl);\n";
 
+
+  shader += "  if (roughness > 0.0)\n";
+  shader += "  {\n";
+  shader += "    float dx = 0.0;\n";
+  shader += "    float dy = 0.0;\n";
+  shader += "    for(int i=0; i<10*gamma; i++)\n";
+  shader += "      {\n";
+  shader += "        float offset = 1-(1+i)%3;\n";
+  shader += "        dx += texture2DRect(depthTex, spos.xy+vec2(1+i,offset)).x -\n";
+  shader += "              texture2DRect(depthTex, spos.xy-vec2(1+i,offset)).x;\n";
+  shader += "        dy += texture2DRect(depthTex, spos.xy+vec2(offset,1+i)).x -\n";
+  shader += "              texture2DRect(depthTex, spos.xy-vec2(offset,1+i)).x;\n";
+  shader += "      }\n";
+  shader += "    vec3 N = normalize(vec3(dx*50, dy*50, 1.0+roughness));\n";
+  shader += "    vec3 spec = shadingSpecularGGX(N, vec3(0,0,1),  vec3(0,0,1), roughness, ocolor);\n";
+  shader += "    color.rgb += 0.5*specular*spec;\n";
+  shader += "  }\n";
+  
+
+  shader += " color.rgb = clamp(color.rgb, vec3(0.0), vec3(1.0));\n";
+  
+  
   shader += "}\n";
 
   return shader;

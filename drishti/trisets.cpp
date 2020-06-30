@@ -400,7 +400,7 @@ Trisets::render(Camera *camera, int nclip)
   for(int i=0; i<m_trisets.count();i++)
     {      
       if (m_trisets[i]->reveal() >= 0.0 // non transparent reveal
-	  && m_trisets[i]->outline() < 0.1) // not outline
+	  && m_trisets[i]->outline() < 0.01) // not outline
 	{
 
 	  Vec extras = Vec(0,0,0);
@@ -1923,7 +1923,7 @@ Trisets::renderOutline(GLint drawFboId,
   bool opOn = false;
   for(int i=0; i<m_trisets.count();i++)
     {      
-      if (m_trisets[i]->outline() > 0.09) // outline
+      if (m_trisets[i]->outline() > 0.01) // outline
 	{
 	  opOn = true;
 	  break;
@@ -1970,7 +1970,7 @@ Trisets::renderOutline(GLint drawFboId,
   
   for(int i=0; i<m_trisets.count();i++)
     {      
-      if (m_trisets[i]->outline() > 0.09) // outline
+      if (m_trisets[i]->outline() > 0.01) // outline
 	{
 
 	  Vec extras = Vec(0,0,0);

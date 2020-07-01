@@ -280,8 +280,7 @@ Trisets::checkMouseHover(QGLViewer *viewer)
   int x = scr.x();
   int y = scr.y();
   int gt = -1;
-  float dmin = 1000000;
-  float cmin = 1000000;
+  float gmin = 1000000;
   for(int i=0; i<m_trisets.count(); i++)
     {
       if (m_trisets[i]->grabsMouse())
@@ -292,8 +291,7 @@ Trisets::checkMouseHover(QGLViewer *viewer)
 	      if (d.x > -1 && d.y > 0)
 		{
 		  gt = i;
-		  cmin = d.x;
-		  dmin = d.y;
+		  gmin = dx*dy;
 		  break;
 		}
 	    }
@@ -313,8 +311,7 @@ Trisets::checkMouseHover(QGLViewer *viewer)
 	      if (d.x > -1 && d.y > 0)
 		{
 		  gt = i;
-		  cmin = d.x;
-		  dmin = d.y;
+		  gmin = dx*dy;
 		  break;
 		}
 	    }
@@ -335,11 +332,10 @@ Trisets::checkMouseHover(QGLViewer *viewer)
 	      Vec d = m_trisets[i]->checkForMouseHover(x,y, viewer->camera());
 	      if (d.x > -1 && d.y > 0)
 		{
-		  if (d.y < dmin)
+		  if (d.x*d.y < gmin)
 		    {
 		      gt = i;
-		      cmin = d.x;
-		      dmin = d.y;
+		      gmin = dx*dy;
 		    }
 		}
 	    }

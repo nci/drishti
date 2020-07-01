@@ -140,6 +140,7 @@ TrisetObject::clear()
   m_drawcolor.clear();
   m_normals.clear();
   m_triangles.clear();
+  m_samplePoints.clear();
   
   if (m_scrV) delete [] m_scrV;
   if (m_scrD) delete [] m_scrD;
@@ -670,7 +671,9 @@ TrisetObject::postdraw(QGLViewer *viewer,
       //x -= wd/2;
       x += 10;
 
-      StaticFunctions::renderText(x+2, y, str, font, Qt::black, Qt::white);
+      //StaticFunctions::renderText(x+2, y, str, font, Qt::black, Qt::white);
+      Vec cepos = viewer->camera()->projectedCoordinatesOf(position()+centroid());
+      StaticFunctions::renderText(cepos.x-wd/2, cepos.y+ht/2, str, font, Qt::black, Qt::white);
     }
   
   glEnable(GL_DEPTH_TEST);
@@ -1751,7 +1754,19 @@ TrisetObject::loadAssimpModel(QString flnm)
     }
   m_centroid = m_vertices[cp];
   //-----------------------------------
-  
+
+  //-----------------------------------
+  // take 10 sample points for grab checking
+  m_samplePoints.clear();
+  m_samplePoints << m_centroid;
+//  if (m_vertices.count() > 50)
+//    {
+//      int stp = 0.2*m_vertices.count();
+//      for(int i=0; i<m_vertices.count(); i+=stp)
+//	m_samplePoints << m_vertices[i];
+//    }  
+  //-----------------------------------
+
   
   Vec bmin = Vec(minX, minY, minZ);
   Vec bmax = Vec(maxX, maxY, maxZ);

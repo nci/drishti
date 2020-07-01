@@ -27,30 +27,60 @@ Vec
 TrisetGrabber::checkForMouseHover(int x, int y,
 				  const Camera* const camera)
 {
-  Vec pos = camera->projectedCoordinatesOf(centroid()+position());
-
-  Vec bmin, bmax;
-  enclosingBox(bmin, bmax);
-
-  Vec pmin = camera->projectedCoordinatesOf(bmin);
-  Vec pmax = camera->projectedCoordinatesOf(bmax);
-  float chkd = qMin(qAbs(pmin.x-pmax.x), qAbs(pmin.y-pmax.y));
-  chkd = qMin(chkd, 100.0f);
-    
-  QPoint hp0(pos.x, pos.y);
+  float chkd1 = 100;
+  float chkd2 = 100;
+  int oh = camera->screenHeight();
+  Vec cpos = camera->position();
+  Vec vd = camera->viewDirection()/camera->sceneRadius();
+  float mindst = 1000;
+  float dx = -1;
+  float dy = -1;
   QPoint hp1(x, y);
-  int dst = (hp0-hp1).manhattanLength();
-  if (dst < chkd)
+  for(int p=0; p<m_samplePoints.count(); p++)
     {
-      Vec cpos = camera->position();
-      float d = (centroid()+position()-cpos)*camera->viewDirection();
-      d /= camera->sceneRadius();
-      Vec V = camera->viewDirection();
-      return Vec(dst, d, chkd);
+      int chkd = (p == 0 ? chkd1 : chkd2);
+      Vec pos = camera->projectedCoordinatesOf(position()+m_samplePoints[p]);
+      QPoint hp0(pos.x, pos.y);
+      int dst = (hp0-hp1).manhattanLength();
+      if (dst < chkd && dst < mindst)
+	{
+	  mindst = dst;
+	  dx = dst;
+	  dy = (position()+m_samplePoints[p] - cpos)*vd;
+	}
     }
-
-  return Vec(-1, -1, chkd);
+  
+  return Vec(dx, dy, 100);
 }
+
+//Vec
+//TrisetGrabber::checkForMouseHover(int x, int y,
+//				  const Camera* const camera)
+//{
+//  Vec pos = camera->projectedCoordinatesOf(centroid()+position());
+//
+//  Vec bmin, bmax;
+//  enclosingBox(bmin, bmax);
+//
+//  Vec pmin = camera->projectedCoordinatesOf(bmin);
+//  Vec pmax = camera->projectedCoordinatesOf(bmax);
+//  float chkd = qMin(qAbs(pmin.x-pmax.x), qAbs(pmin.y-pmax.y));
+//  chkd = qMin(chkd, 100.0f);
+//    
+//  QPoint hp0(pos.x, pos.y);
+//  QPoint hp1(x, y);
+//  int dst = (hp0-hp1).manhattanLength();
+//  if (dst < chkd)
+//    {
+//      Vec cpos = camera->position();
+//      float d = (centroid()+position()-cpos)*camera->viewDirection();
+//      d /= camera->sceneRadius();
+//      Vec V = camera->viewDirection();
+//      return Vec(dst, d, chkd);
+//    }
+//
+//  return Vec(-1, -1, chkd);
+//}
 
 void
 TrisetGrabber::checkIfGrabsMouse(int x, int y,

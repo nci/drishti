@@ -108,6 +108,7 @@ class TrisetObject
   float m_activeScale;
   double m_localXform[16];
 
+  QList<Vec> m_samplePoints;
 private :
   bool m_show, m_clip;
 

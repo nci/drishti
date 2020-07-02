@@ -130,7 +130,7 @@ TrisetObject::clear()
   m_pattern = Vec(0,10,0.5);
   m_q = Quaternion();
   m_nX = m_nY = m_nZ = 0;
-  m_color = Vec(1,1,1);
+  m_color = Vec(0,0,0);
   m_cropcolor = Vec(0.0f,0.0f,0.0f);
   m_roughness = 7;
   m_specular = 1.0f;
@@ -216,12 +216,6 @@ TrisetObject::load(QString flnm)
   bool loaded;
   loaded = loadAssimpModel(flnm);
 
-//  if (StaticFunctions::checkExtension(flnm, ".triset"))
-//    loaded = loadTriset(flnm);
-//  else
-//    //loaded = loadPLY(flnm);
-//    loaded = loadAssimpModel(flnm);
-
   m_featherSize = 0.005*(m_enclosingBox[6]-m_enclosingBox[0]).norm();
 
   
@@ -286,25 +280,6 @@ TrisetObject::loadVertexBufferData()
 
 
   //--------------------
-//  if (!m_diffuseTex)
-//    glGenTextures(1, &m_diffuseTex);
-//  glActiveTexture(GL_TEXTURE0);
-//  glBindTexture(GL_TEXTURE_2D, m_diffuseTex);
-//  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
-//  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
-//  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-//  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-//  QImage img(m_diffuseTexFile);
-//  glTexImage2D(GL_TEXTURE_2D,
-//	       0,
-//	       4,
-//	       img.width(),
-//	       img.height(),
-//	       0,
-//	       GL_BGRA,
-//	       GL_UNSIGNED_BYTE,
-//	       img.bits());
-
   if (m_material.count() > 0)
     {
       glGenTextures(m_material.count(), m_diffuseTex);
@@ -459,8 +434,7 @@ TrisetObject::drawTrisetBuffer(Camera *camera,
   if (oit)
     glUniform1f(meshShaderParm[16], 1.0-m_opacity);
   
-  //glDrawElements(GL_TRIANGLES, ni, GL_UNSIGNED_INT, 0);  
-
+  
   for(int i=0; i<m_meshInfo.count(); i++)
     {
       QPolygon poly = m_meshInfo[i];
@@ -628,7 +602,6 @@ TrisetObject::postdraw(QGLViewer *viewer,
 		       int x, int y,
 		       bool active, int idx)
 {
-  //if (!m_show || !active)
   if (!m_show)
     return;
 
@@ -671,12 +644,11 @@ TrisetObject::postdraw(QGLViewer *viewer,
       QFontMetrics metric(font);
       int ht = metric.height();
       int wd = metric.width(str);
-      //x -= wd/2;
       x += 10;
 
-      //StaticFunctions::renderText(x+2, y, str, font, Qt::black, Qt::white);
-      Vec cepos = viewer->camera()->projectedCoordinatesOf(position()+centroid());
-      StaticFunctions::renderText(cepos.x-wd/2, cepos.y+ht/2, str, font, Qt::black, Qt::white);
+      StaticFunctions::renderText(x+2, y, str, font, Qt::black, Qt::white);
+      //Vec cepos = viewer->camera()->projectedCoordinatesOf(position()+centroid());
+      //StaticFunctions::renderText(cepos.x-wd/2, cepos.y+ht/2, str, font, Qt::black, Qt::white);
     }
   
   glEnable(GL_DEPTH_TEST);
@@ -1806,6 +1778,9 @@ TrisetObject::loadAssimpModel(QString flnm)
 
   m_fileName = flnm;
 
+  if (m_vcolor.count() == 0)
+    m_color = Vec(1,1,1);
+  
   //---------------
   // set caption
   m_captionPosition = Vec(0,0,0);

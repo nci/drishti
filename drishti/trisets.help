@@ -94,6 +94,15 @@ If <val> is not specified 0.0 is used.
 #end
 
 #begin
+outline
+outline <val>
+
+Set outline values for meshes that are in outline mode (i.e. whose outline value is greater than 0.0).  Values are in range 0 (no outline) to 1.0 (very thick outline).
+If <val> is not specified 0.0 is used.
+
+#end
+
+#begin
 transparencyall
 transparencyall <val>
 

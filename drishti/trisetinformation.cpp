@@ -14,7 +14,7 @@ TrisetInformation::clear()
   position = Vec(0,0,0);
   scale = Vec(1,1,1);
   q = Quaternion();
-  color = Vec(1,1,1);
+  color = Vec(0,0,0);
   cropcolor = Vec(0,0,0);
   roughness = 0.3;
   ambient = 0;

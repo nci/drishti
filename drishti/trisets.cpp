@@ -1236,6 +1236,20 @@ Trisets::processCommand(int idx, QString cmd)
       return;
     }
   
+  if (list[0] == "outline")
+    {
+      float outline = 0.0;
+      if (list.count() > 1)
+	outline = qBound(0.0f, list[1].toFloat(&ok), 1.0f);
+      
+      for (int i=0; i<m_trisets.count(); i++)
+	{
+	  if (m_trisets[i]->outline() > 0.0)
+	    m_trisets[i]->setOutline(outline);
+	}
+      return;
+    }
+  
   if (list[0] == "transparencyall")
     {
       float op = 1.0;
@@ -2061,6 +2075,8 @@ Trisets::renderOutline(GLint drawFboId,
   float roughness = 0.9-m_trisets[0]->roughness()*0.1;
   glUniform1f(outlineParm[4], roughness); // specularity
   glUniform1f(outlineParm[5], m_trisets[0]->specular()); // specularity
+  glUniform1f(outlineParm[6], m_blur); // soft shadows
+  glUniform1f(outlineParm[7], m_edges); // edge enhancement
   
   glEnableVertexAttribArray(0);
   glBindBuffer(GL_ARRAY_BUFFER, m_vertexScreenBuffer);

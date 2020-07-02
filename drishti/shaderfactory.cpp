@@ -2016,7 +2016,7 @@ ShaderFactory::meshShadowShaderF()
   shader += "    float dy = 0.0;\n";
   shader += "    for(int i=0; i<10*gamma; i++)\n";
   shader += "      {\n";
-  shader += "        float offset = 1-(1+i)%3;\n";
+  shader += "        float offset = 1-mod((1+i),3);\n";
   shader += "        dx += texture2DRect(depthTex, spos.xy+vec2(1+i,offset)).x -\n";
   shader += "              texture2DRect(depthTex, spos.xy-vec2(1+i,offset)).x;\n";
   shader += "        dy += texture2DRect(depthTex, spos.xy+vec2(offset,1+i)).x -\n";
@@ -2068,6 +2068,8 @@ GLuint ShaderFactory::outlineShader()
 	m_outlineShaderParm[3] = glGetUniformLocation(m_outlineShader, "gamma");
 	m_outlineShaderParm[4] = glGetUniformLocation(m_outlineShader, "roughness");	
 	m_outlineShaderParm[5] = glGetUniformLocation(m_outlineShader, "specular");	
+	m_outlineShaderParm[6] = glGetUniformLocation(m_outlineShader, "softshadow");	
+	m_outlineShaderParm[7] = glGetUniformLocation(m_outlineShader, "edges");	
     }
 
   return m_outlineShader;
@@ -2089,6 +2091,8 @@ ShaderFactory::outlineShaderF()
   shader += "uniform float gamma;\n";
   shader += "uniform float roughness;\n";
   shader += "uniform float specular;\n";
+  shader += "uniform float softshadow;\n";
+  shader += "uniform float edges;\n";
 
 
   shader += rgb2hsv();
@@ -2132,8 +2136,10 @@ ShaderFactory::outlineShaderF()
 
   shader += "  float outline = mod(color.a,11.0);\n";
   shader += "  float opacity = 1.0-float(int(color.a)/11)/10.0;\n";
- 
-  // find edges on surfaces
+
+  shader += "    vec3 ecolor = color.rgb;\n";
+
+  // surface edges
   shader += "    int nsteps = int(8.0*outline);\n";
   shader += "    vec3 clrG = vec3(0.0);\n";
   shader += "    float sumG = 0.0;\n";
@@ -2147,7 +2153,7 @@ ShaderFactory::outlineShaderF()
   // different depths
   shader += "        float od = depth - adepth.x;\n";
   // border between different surfaces
-  shader += "        od += step(0.001, abs(surfId - adepth.z));\n";
+  shader += "        od += step(0.001, abs(surfId - adepth.z));\n"; 
   shader += "        response += max(0.0, od);\n";
 
   // get contributions for glowing surfaces
@@ -2169,6 +2175,25 @@ ShaderFactory::outlineShaderF()
   shader += "    gl = smoothstep(0.0, 1.0, gl);\n";
   shader += "    color.rgb = mix(color.rgb, clrG, gl);\n";
 
+  // add edges on surfaces
+  shader += "  if (edges > 0.0)\n";
+  shader += "  {\n"; 
+  shader += "    response = 0.0;\n";
+  shader += "    for(int i=0; i<8; i++)\n";
+  shader += "      {\n";
+  shader += "        float r = 1.0;\n";
+  shader += "        float x = r*sin(radians(i*45));\n";
+  shader += "        float y = r*cos(radians(i*45));\n";
+  shader += "        vec2 pos = spos + vec2(x,y);\n";
+  shader += "        float adepth = texture2DRect(depthTex, pos).x;\n";
+  shader += "        float od = depth - adepth;\n";
+  shader += "        response += max(0.0, od);\n";
+  shader += "      } \n";
+  shader += "    ecolor.rgb *= exp(-response*pow(40*(edges+0.05), 1.2*gamma));\n";
+  shader += "    color.rgb = mix(color.rgb, ecolor*color.rgb, pow(border, 3.0));\n";
+  shader += "  }\n"; 
+
+
 
   shader += "  if (roughness > 0.0)\n";
   shader += "  {\n";
@@ -2176,7 +2201,7 @@ ShaderFactory::outlineShaderF()
   shader += "    float dy = 0.0;\n";
   shader += "    for(int i=0; i<10*gamma; i++)\n";
   shader += "      {\n";
-  shader += "        float offset = 1-(1+i)%3;\n";
+  shader += "        float offset = 1-mod(1+i,3);\n";
   shader += "        dx += texture2DRect(depthTex, spos.xy+vec2(1+i,offset)).x -\n";
   shader += "              texture2DRect(depthTex, spos.xy-vec2(1+i,offset)).x;\n";
   shader += "        dy += texture2DRect(depthTex, spos.xy+vec2(offset,1+i)).x -\n";

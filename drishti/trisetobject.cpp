@@ -92,21 +92,24 @@ void
 TrisetObject::enclosingBox(Vec &boxMin,
 			   Vec &boxMax)
 {
-  Vec tb[8];  
-  for(int i=0; i<8; i++)    
-    tb[i] = Matrix::xformVec(m_localXform, m_enclosingBox[i]);
+  boxMin = m_enclosingBox[0];
+  boxMax = m_enclosingBox[6];
 
-  boxMin = boxMax = tb[0];
-  for(int i=1; i<8; i++)    
-    {
-      boxMin = Vec(qMin(boxMin.x,tb[i].x),
-		   qMin(boxMin.y,tb[i].y),
-		   qMin(boxMin.z,tb[i].z));
-		   
-      boxMax = Vec(qMax(boxMax.x,tb[i].x),
-		   qMax(boxMax.y,tb[i].y),
-		   qMax(boxMax.z,tb[i].z));
-    }
+//  Vec tb[8];  
+//  for(int i=0; i<8; i++)    
+//    tb[i] = Matrix::xformVec(m_localXform, m_enclosingBox[i]);
+//
+//  boxMin = boxMax = tb[0];
+//  for(int i=1; i<8; i++)    
+//    {
+//      boxMin = Vec(qMin(boxMin.x,tb[i].x),
+//		   qMin(boxMin.y,tb[i].y),
+//		   qMin(boxMin.z,tb[i].z));
+//		   
+//      boxMax = Vec(qMax(boxMax.x,tb[i].x),
+//		   qMax(boxMax.y,tb[i].y),
+//		   qMax(boxMax.z,tb[i].z));
+//    }
 }
 
 void

@@ -291,7 +291,7 @@ Trisets::checkMouseHover(QGLViewer *viewer)
 	      if (d.x > -1 && d.y > 0)
 		{
 		  gt = i;
-		  gmin = dx*dy;
+		  gmin = d.x*d.y;
 		  break;
 		}
 	    }
@@ -311,7 +311,7 @@ Trisets::checkMouseHover(QGLViewer *viewer)
 	      if (d.x > -1 && d.y > 0)
 		{
 		  gt = i;
-		  gmin = dx*dy;
+		  gmin = d.x*d.y;
 		  break;
 		}
 	    }
@@ -335,7 +335,7 @@ Trisets::checkMouseHover(QGLViewer *viewer)
 		  if (d.x*d.y < gmin)
 		    {
 		      gt = i;
-		      gmin = dx*dy;
+		      gmin = d.x*d.y;
 		    }
 		}
 	    }

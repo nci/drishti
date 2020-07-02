@@ -539,12 +539,13 @@ BricksWidget::getHitpoint(Vec& hitpt)
   BrickInformation binfo = m_bricks->brickInformation(m_selected);
   Vec bmin = dataMin + VECPRODUCT(binfo.brickMin, dataSize);
   Vec bmax = dataMin + VECPRODUCT(binfo.brickMax, dataSize);
-
+  
   // take the last active hitpoint
   Vec p = pts[pts.count()-1];
   p -= bmin;
   Vec d = bmax-bmin;
   hitpt = VECDIVIDE(p, d);
+
   return true;
 }
 

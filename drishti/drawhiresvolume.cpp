@@ -163,6 +163,7 @@ DrawHiresVolume::overwriteDataMinMax(Vec smin, Vec smax)
   m_dataMax = smax;
   GeometryObjects::clipplanes()->setBounds(m_dataMin, m_dataMax);
   Global::setBounds(m_dataMin, m_dataMax);
+  m_bricks->setBounds(m_dataMin, m_dataMax);
 }
 void
 DrawHiresVolume::setBrickBounds(Vec smin, Vec smax)

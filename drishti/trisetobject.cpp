@@ -1553,8 +1553,8 @@ TrisetObject::loadAssimpModel(QString flnm)
 	    m_vcolor << Vec(mesh->mColors[0][j].r,
 			    mesh->mColors[0][j].g,
 			    mesh->mColors[0][j].b);
-	  else
-	    m_vcolor << m_color;
+//	  else
+//	    m_vcolor << m_color;
 
 	  if (hasUV)
 	    {
@@ -1779,7 +1779,10 @@ TrisetObject::loadAssimpModel(QString flnm)
   m_fileName = flnm;
 
   if (m_vcolor.count() == 0)
-    m_color = Vec(1,1,1);
+    {
+      m_color = Vec(1,1,1);
+      m_vcolor.fill(m_color, m_vertices.count());
+    }
   
   //---------------
   // set caption

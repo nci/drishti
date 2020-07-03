@@ -115,6 +115,11 @@ class ShaderFactory
   static bool addShader(GLuint, GLenum, QString);
   static bool finalize(GLuint);
 
+
+  static QString oitShaderV();
+  static QString oitShaderF();
+
+  static QString oitFinalShaderF();
 };
 
 #endif

@@ -102,36 +102,6 @@ ShaderFactory::ggxShader()
   return shader;
 }
 
-//int
-//ShaderFactory::loadShaderFromFile(GLhandleARB obj, const char *filename)
-//{
-// FILE *fd = fopen(filename, "rb");
-//  if (fd == NULL)
-//    return 0;
-//
-//  char c;
-//  int len = 0;
-//  while(feof(fd) == 0)
-//    {
-//      fread(&c, sizeof(char), 1, fd);
-//      len++;
-//    }
-//
-//  rewind(fd);
-//  char *str = new char[len];
-//  fread(str, sizeof(char), len-1, fd);
-//  str[len-1] = '\0';
-//
-//  const char* source = (const char*)str;
-//  glShaderSourceARB(obj, 1, &source, NULL);
-//
-//  delete [] str;
-//  fclose(fd);
-//
-// return 1;
-//}
-
-
 bool
 ShaderFactory::loadShader(GLhandleARB &progObj,
 			  QString fragShaderString)
@@ -1439,10 +1409,13 @@ GLuint ShaderFactory::oitShader()
   if (m_oitShader)
     return m_oitShader;
 
+  QString vertShaderString = oitShaderV();
+  QString fragShaderString = oitShaderF();
+  
   m_oitShader = glCreateProgram();
-  if (! loadShadersFromFile(m_oitShader,
-			    "assets/shaders/oit.vert",
-			    "assets/shaders/oit.frag"))
+  if (! loadShader(m_oitShader,
+		   vertShaderString,
+		   fragShaderString))
     {
       QMessageBox::information(0, "", "Cannot load oit shaders");
       return 0;
@@ -1476,6 +1449,178 @@ GLuint ShaderFactory::oitShader()
   return m_oitShader;      
 }
 
+QString
+ShaderFactory::oitShaderV()
+{
+  QString shader;
+
+  shader += "#version 420 core\n";
+
+  shader += "uniform mat4 MVP;\n";
+  shader += "uniform mat4 MV;\n";
+  shader += "uniform mat4 localXform;\n";
+  shader += "uniform float idx;\n";
+
+  shader += "layout(location = 0) in vec3 position;\n";
+  shader += "layout(location = 1) in vec3 normalIn;\n";
+  shader += "layout(location = 2) in vec3 colorIn;\n";
+
+  shader += "out vec3 v3Normal;\n";
+  shader += "out vec3 v3Color;\n";
+  shader += "out vec3 pointPos;\n";
+  shader += "out float zdepth;\n";
+  shader += "out float surfId;\n";
+  shader += "out vec3 oPosition;\n";
+  shader += "out float zdepthLinear;\n";
+
+  shader += "void main()\n";
+  shader += "{\n";
+  shader += "   oPosition = position;\n";
+  shader += "   pointPos = (localXform * vec4(position, 1)).xyz;\n";
+  shader += "   v3Color = colorIn;\n";
+  shader += "   v3Normal = normalIn;\n";
+  shader += "   gl_Position = MVP * vec4(position, 1);\n";
+  shader += "   zdepth = ((gl_DepthRange.diff * gl_Position.z/gl_Position.w) +\n";
+  shader += "              gl_DepthRange.near + gl_DepthRange.far) / 2.0;\n";
+  shader += "   surfId = idx;\n";
+  shader += "\n";
+  shader += "   zdepthLinear = -(MV * vec4(pointPos, 1.0)).z;\n";
+  shader += "}\n";
+
+  return shader;
+}
+
+QString
+ShaderFactory::oitShaderF()
+{
+  QString shader;
+
+  shader += "#version 420 core\n";
+  shader += "uniform sampler2D diffuseTex;\n";
+  shader += "uniform vec3 viewDir;\n";
+  shader += "uniform vec4 extras;\n";
+  shader += "uniform float sceneRadius;\n";
+  shader += "uniform float roughness;\n";
+  shader += "uniform float ambient;\n";
+  shader += "uniform float diffuse;\n";
+  shader += "uniform float specular;\n";
+  shader += "uniform int nclip;\n";
+  shader += "uniform vec3 clipPos[10];\n";
+  shader += "uniform vec3 clipNormal[10];\n";
+  shader += "uniform bool hasUV;\n";
+  shader += "uniform float featherSize;\n";
+  shader += "uniform vec3 hatchPattern;\n";
+  shader += "uniform sampler3D solidTex;\n";
+  shader += "uniform float revealTransparency;\n";
+
+  shader += "in vec3 v3Color;\n";
+  shader += "in vec3 v3Normal;\n";
+  shader += "in vec3 pointPos;\n";
+  shader += "in float zdepth;\n";
+  shader += "in float surfId;\n";
+  shader += "in vec3 oPosition;\n";
+  shader += "in float zdepthLinear;\n";
+
+// Ouput data
+  shader += "layout (location=0) out vec4 outputColor;\n";
+  shader += "layout (location=1) out vec3 alpha;\n";
+  
+  shader += "layout (depth_greater) out float gl_FragDepth;\n";
+
+  shader += "void main()\n";
+  shader += "{\n";
+  shader += "  gl_FragDepth = zdepth;\n";
+  
+
+  shader += "  alpha = vec3(1, 1, zdepthLinear/sceneRadius);\n";
+
+  // transparent reveal => edges are more opaque
+  shader += "  float NdotV = abs(dot(v3Normal,viewDir));\n";
+  
+  shader += "  float decay = 1.0 - clamp(NdotV/(1.0-min(extras.y, 0.999)), 0.0, 1.0);\n";
+  shader += "  decay = mix(decay, 0.0, step(0.95, extras.y));\n";
+  shader += "  alpha.x = max(revealTransparency, sqrt(decay));\n";
+  
+  
+  shader += "  if (hasUV)\n";
+  shader += "     outputColor = texture(diffuseTex, vec2(v3Color.x, 1-v3Color.y));\n";
+  shader += "  else\n";
+  shader += "     outputColor = vec4(v3Color, 1.0);\n";
+
+  shader += "  vec3 defCol = mix(vec3(0.0), outputColor.rgb, NdotV*NdotV);\n";
+  shader += "  outputColor.rgb = mix(outputColor.rgb, vec3(0.0), pow(decay, 0.5/revealTransparency));\n";
+  shader += "  outputColor.rgb = mix(outputColor.rgb, defCol, step(0.95, extras.y));\n";
+    
+  shader += "  float cfeather = 1.0;\n";
+  shader += "  if (nclip > 0)\n";
+  shader += "    {\n";
+  shader += "      for(int c=0; c<nclip; c++)\n";
+  shader += "        {\n";
+  shader += "          vec3 cpos = clipPos[c];\n";
+  shader += "          vec3 cnorm = clipNormal[c];\n";
+  shader += "          float cp = dot(pointPos-cpos, cnorm);\n";
+  shader += "          if (cp > 0.0)\n";
+  shader += "            discard;\n";
+  shader += "          else\n";
+  shader += "            cfeather *= smoothstep(0.0, featherSize, -cp);\n";
+  shader += "        }\n";
+  shader += "      cfeather = 1.0 - cfeather;\n";
+  shader += "    }\n";
+
+  shader += "    if (nclip > 0)\n";
+  shader += "      outputColor.rgb = mix(outputColor.rgb, vec3(1,1,1), cfeather);\n";
+
+
+  shader += "  vec3 glowColor = outputColor.rgb;\n";
+
+  //---------------------------------------------------------
+  //---------------------------------------------------------
+  // apply solid texture
+  shader += "  float a = 1.0/128.0;\n";
+  shader += "  vec3 solidTexCoord = a/2 + (1.0-a)*fract(hatchPattern.y*(abs(oPosition)/vec3(sceneRadius)));\n";
+
+  shader += "  vec3 solidColor = texture(solidTex, solidTexCoord).rgb;\n";
+  shader += "  outputColor.rgb = mix(outputColor.rgb, solidColor, hatchPattern.z*step(0.05, hatchPattern.z));\n";
+
+  shader += "  float patType = abs(hatchPattern.z);\n";
+  shader += "  float solidLum = (0.2*solidColor.r+0.7*solidColor.g+0.1*solidColor.b);\n";
+  shader += "  outputColor.rgb = mix(outputColor.rgb,\n";
+  shader += "  		        outputColor.rgb*solidLum,\n";
+  shader += "                        patType*step(0.05, -hatchPattern.z)*step(-hatchPattern.z, 1.05));\n";
+  shader += "  outputColor.rgb = mix(outputColor.rgb,\n";
+  shader += "  		        outputColor.rgb*(1.0-solidLum),\n";
+  shader += "			(patType-1.0)*step(1.0, -hatchPattern.z)*step(-hatchPattern.z, 2.05));\n";
+  
+  //---------------------------------------------------------
+  //---------------------------------------------------------
+  
+
+  // glow when active or has glow switched on
+  shader += "  outputColor.rgb += 0.5*max(extras.z,extras.x)*glowColor.rgb;\n";
+
+  // desaturate if required
+  shader += "  outputColor.rgb *= extras.w;\n";
+
+
+  //=======================================  
+  shader += "  vec3 Amb = ambient * outputColor.rgb;\n";
+  shader += "  float diffMag = abs(dot(v3Normal, viewDir));\n";
+  shader += "  vec3 Diff = diffuse * diffMag*outputColor.rgb;\n";
+  shader += "  outputColor.rgb = Amb + Diff;\n";
+  //=======================================  
+
+  // more glow for higher transparency
+  shader += "  outputColor.rgb += vec3(0.2+0.3*extras.y)*outputColor.rgb;\n";
+
+  //=======================================  
+  shader += "  float w = 3.0-zdepthLinear/sceneRadius;\n";
+  shader += "  outputColor = vec4(outputColor.rgb, 1.0)*alpha.x*pow(w, 2.0);\n";
+  //=======================================  
+  shader += "}\n";
+
+  return shader;
+}
+
 //----------------------------
 //----------------------------
 
@@ -1490,11 +1635,14 @@ GLuint ShaderFactory::oitFinalShader()
 {
   if (!m_oitFinalShader)
     {      
+      QString vertShaderString = meshShadowShaderV();
+      QString fragShaderString = oitFinalShaderF();
+  
       m_oitFinalShader = glCreateProgram();
-      bool ok = loadShadersFromFile(m_oitFinalShader,
-				    "assets/shaders/oitFinal.vert",
-				    "assets/shaders/oitFinal.frag");
-
+      bool ok = loadShader(m_oitFinalShader,
+			   vertShaderString,
+			   fragShaderString);
+				    
       if (!ok)
 	{
 	  QMessageBox::information(0, "", "Cannot load oitFinal shaders");
@@ -1510,6 +1658,34 @@ GLuint ShaderFactory::oitFinalShader()
     }
   
   return m_oitFinalShader;      
+}
+
+QString
+ShaderFactory::oitFinalShaderF()
+{
+  QString shader;
+
+  shader += "#version 420 core\n";
+
+  shader += "layout(location=0) out vec4 color;\n";
+
+  shader += "uniform sampler2DRect oitTex;\n";
+  shader += "uniform sampler2DRect alphaTex;\n";
+  shader += "uniform float roughness;\n";
+  shader += "uniform float specular;\n";
+
+  shader += "void main()\n";
+  shader += "{\n";
+  shader += "  vec4 oit = texture2DRect(oitTex, gl_FragCoord.xy);\n";
+
+  shader += "  if (oit.a < 0.01)\n";
+  shader += "     discard;\n";
+
+  shader += "  float alpha = texture2DRect(alphaTex, gl_FragCoord.xy).x;\n";
+  shader += "  color = vec4(oit.rgb/max(oit.a,0.0001), 1.0)*(1.0-alpha);\n";
+  shader += "}\n";
+
+  return shader;
 }
 
 //----------------------------

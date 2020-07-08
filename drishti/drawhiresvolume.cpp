@@ -1337,8 +1337,6 @@ DrawHiresVolume::collectBrickInformation(bool force)
       m_bricks->updateFlag() == false)
     return;
 
-  double Xform[16];
-
   m_bricks->resetUpdateFlag();
 
   m_drawBrickInformation.reset();
@@ -1352,17 +1350,17 @@ DrawHiresVolume::collectBrickInformation(bool force)
   m_numBricks = ghostBricks.size() + userBricks.size() - 1;
 
 
-  ClipInformation clipInfo = GeometryObjects::clipplanes()->clipInfo();
-
-  QList<Vec> cpos;
-  QList<Vec> cnormal;
-  for(int ci=0; ci<clipInfo.pos.size(); ci++)
-    {
-      Vec p = clipInfo.pos[ci];
-      Vec n = clipInfo.rot[ci].rotate(Vec(0,0,1));
-      cpos.append(p);
-      cnormal.append(n);
-    }
+//  ClipInformation clipInfo = GeometryObjects::clipplanes()->clipInfo();
+//
+//  QList<Vec> cpos;
+//  QList<Vec> cnormal;
+//  for(int ci=0; ci<clipInfo.pos.size(); ci++)
+//    {
+//      Vec p = clipInfo.pos[ci];
+//      Vec n = clipInfo.rot[ci].rotate(Vec(0,0,1));
+//      cpos.append(p);
+//      cnormal.append(n);
+//    }
 
   for (int bnum=0; bnum<m_numBricks; bnum++)
     {
@@ -1477,6 +1475,7 @@ DrawHiresVolume::collectBrickInformation(bool force)
 
       //---------------------------------------------------
       // apply transformation
+      double Xform[16];
       if (bnum >= numGhostBricks)
 	memcpy(Xform, m_bricks->getMatrix(bno), 16*sizeof(double));
       else
@@ -2474,11 +2473,23 @@ DrawHiresVolume::drawGeometryOnly()
   glClearDepth(1);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+  Vec voxelScaling = Global::voxelScaling();
   
   Vec eyepos = m_Viewer->camera()->position();
   Vec pn = m_Viewer->camera()->viewDirection(); // slicing direction
   m_clipPos = GeometryObjects::clipplanes()->positions();
   m_clipNormal = GeometryObjects::clipplanes()->normals();
+  for(int c=0; c<m_clipPos.count(); c++)
+    {
+      Vec pos = m_clipPos[c];
+      pos = VECPRODUCT(pos, voxelScaling);
+      pos = Matrix::xformVec(brick0Xform(), pos);
+      Vec nrm = m_clipNormal[c];
+      nrm = Matrix::rotateVec(brick0Xform(), nrm);
+
+      m_clipPos[c] = pos;
+      m_clipNormal[c]= nrm;
+    }
 
   QVector4D lighting = QVector4D(m_lightInfo.highlights.ambient,
 				 m_lightInfo.highlights.diffuse,
@@ -2905,6 +2916,23 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
   glUniform1i(m_defaultParm[55], nclip); // restore clip
   //------------------------------------
 
+
+
+  QList<Vec> allcPos;
+  QList<Vec> allcNorm;
+  allcPos = GeometryObjects::clipplanes()->positions();
+  allcNorm = GeometryObjects::clipplanes()->normals();
+  for(int c=0; c<allcPos.count(); c++)
+    {
+      Vec pos = allcPos[c];
+      pos = VECPRODUCT(pos, voxelScaling);
+      pos = Matrix::xformVec(brick0Xform(), pos);
+      Vec nrm = allcNorm[c];
+      nrm = Matrix::rotateVec(brick0Xform(), nrm);
+
+      allcPos[c] = pos;
+      allcNorm[c]= nrm;
+    }
   
   for(int s=0; s<layers; s++)
     {
@@ -3018,18 +3046,14 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 					 brickPivot, brickScale);
 	  
 	      {
-		QList<Vec> cPos1;
-		QList<Vec> cNorm1;
-		cPos1 += GeometryObjects::clipplanes()->positions();
-		cNorm1 += GeometryObjects::clipplanes()->normals();
 		QList<Vec> cPos;
 		QList<Vec> cNorm;
 		for(int c=0; c<clips.count(); c++)
 		  {
 		    if (clips[c])
 		      {
-			cPos << cPos1[c];
-			cNorm << cNorm1[c];
+			cPos << allcPos[c];
+			cNorm << allcNorm[c];
 		      }
 		  }
 		int nclip = qMin(10,cPos.count()); // max 10 clip planes allowed
@@ -3037,9 +3061,9 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 		float cnormal[100];
 		for(int c=0; c<nclip; c++)
 		  {
-		    cpos[3*c+0] = cPos[c].x*voxelScaling.x;
-		    cpos[3*c+1] = cPos[c].y*voxelScaling.y;
-		    cpos[3*c+2] = cPos[c].z*voxelScaling.z;
+		    cpos[3*c+0] = cPos[c].x;
+		    cpos[3*c+1] = cPos[c].y;
+		    cpos[3*c+2] = cPos[c].z;
 		  }
 		for(int c=0; c<nclip; c++)
 		  {

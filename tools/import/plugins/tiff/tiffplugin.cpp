@@ -20,6 +20,8 @@ TiffPlugin::registerPlugin()
 void
 TiffPlugin::init()
 {
+  TIFFSetWarningHandler(NULL);
+  
   m_fileName.clear();
   m_imageList.clear();
 

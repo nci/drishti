@@ -122,7 +122,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
   ui.statusBar->setEnabled(true);
   ui.statusBar->setSizeGripEnabled(true);
-  ui.statusBar->addWidget(Global::progressBar());
+  ui.statusBar->addPermanentWidget(Global::progressBar());
 
 
   MainWindowUI::setMainWindowUI(&ui);
@@ -766,7 +766,7 @@ MainWindow::GlewInit()
   //glGetIntegerv(GL_MAX_TEXTURE_SIZE, &m_max2DTexSize);
   //glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, &m_max3DTexSize);
   glGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &textureSize);
-
+  
   //GLint textureSize;
   //glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, &textureSize);
   Global::setTextureSizeLimit(textureSize);

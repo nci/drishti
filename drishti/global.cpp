@@ -897,10 +897,11 @@ Global::getSlabs(int samplingLevel,
   
   bool done = false;
   int slc = 0;
-  while(slc*(textureSizeLimit()-1) < (lenz2-1))
+  int tSL = textureSizeLimit();
+  while(slc*(tSL-1) < (lenz2-1))
     {
-      int zmin = slc*(textureSizeLimit()-1);
-      int zmax = qMin(lenz2, (slc+1)*(textureSizeLimit()-1));
+      int zmin = slc*(tSL-1);
+      int zmax = qMin(lenz2, (slc+1)*(tSL-1));
       int dmin = m_dataMin.z + samplingLevel*zmin;
       int dmax = m_dataMin.z + samplingLevel*zmax;
       dmax = qMin((int)m_dataMax.z , dmax);

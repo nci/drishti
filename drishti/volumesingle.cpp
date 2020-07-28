@@ -1390,6 +1390,7 @@ VolumeSingle::saveSubsampledVolume()
 uchar*
 VolumeSingle::getSubvolume()
 {
+  MainWindowUI::mainWindowUI()->statusBar->showMessage("Loading data for Hires mode");
   Global::progressBar()->show();
 
   int bpv = 1;
@@ -1429,6 +1430,7 @@ VolumeSingle::getSubvolume()
   m_subvolumeTexture = new uchar[bpv*lenx2*leny2*lenz2];
   m_dragSubvolumeTexture = new uchar[bpv*dtlenx2*dtleny2*dtlenz2];
 
+  
   uchar *g0, *g1, *g2, *g3;
   g0 = new uchar [bpv*m_maxWidth*m_maxHeight];
   g1 = new uchar [bpv*m_maxWidth*m_maxHeight];
@@ -1818,6 +1820,7 @@ VolumeSingle::endHistogramCalculation()
 void
 VolumeSingle::calculateGradientsForDragTexture()
 {
+  MainWindowUI::mainWindowUI()->statusBar->showMessage("Histogram calculation");
   Global::progressBar()->show();
   qApp->processEvents();
 
@@ -1919,6 +1922,7 @@ VolumeSingle::calculateGradientsForDragTexture()
 
   MainWindowUI::mainWindowUI()->menubar->parentWidget()->\
     setWindowTitle(QString("Drishti"));
+  MainWindowUI::mainWindowUI()->statusBar->showMessage("");
   Global::progressBar()->setValue(100);
   Global::hideProgressBar();
 }

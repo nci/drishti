@@ -785,6 +785,7 @@ DrawHiresVolume::loadTextureMemory()
     
   m_textureSlab = m_Volume->getSliceTextureSizeSlabs();
 
+
   int textureX, textureY;
   m_Volume->getSliceTextureSize(textureX, textureY);
 
@@ -812,6 +813,20 @@ DrawHiresVolume::loadTextureMemory()
   m_dataTex = new GLuint[m_dataTexSize];
   glGenTextures(m_dataTexSize, m_dataTex);
 
+//  {
+//    QString mesg;
+//    mesg += QString("%1\n").arg(m_dataTexSize);
+//    for (int m=0; m<m_dataTexSize; m++)
+//      {
+//	mesg += QString("%1 %2 %3\n").\
+//	  arg(m_textureSlab[m].x).\
+//	  arg(m_textureSlab[m].y).\
+//	  arg(m_textureSlab[m].z);
+//      }
+//    QMessageBox::information(0, "", mesg);
+//  }
+
+  
   MainWindowUI::mainWindowUI()->menubar->parentWidget()->\
     setWindowTitle(QString("Uploading slices"));
   Global::progressBar()->show();
@@ -851,11 +866,11 @@ DrawHiresVolume::loadTextureMemory()
     int hsz = vsz.x;
     int wsz = vsz.y;
     int dsz = vsz.z;
-    
+
     for(int i=1; i<m_dataTexSize; i++)
       {
 	int zslc = (i-1)*(Global::textureSizeLimit()-1);
-	qint64 zoffset = zslc*hsz*wsz;
+	qint64 zoffset = (qint64)zslc*(qint64)hsz*(qint64)wsz;
 	int zslices = qMin(dsz-zslc, Global::textureSizeLimit());
 	
 	glActiveTexture(GL_TEXTURE1);
@@ -3116,7 +3131,7 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 			{
 			  tminz = m_textureSlab[b].y;
 			  tmaxz = m_textureSlab[b].z;
-			}
+			}			
 		      glUniform3fARB(m_defaultParm[42], m_dataMin.x, m_dataMin.y, tminz);
 		      glUniform3fARB(m_defaultParm[43], m_dataMax.x, m_dataMax.y, tmaxz);
 

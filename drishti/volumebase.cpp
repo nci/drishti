@@ -208,7 +208,7 @@ VolumeBase::createLowresVolume(bool redo)
 
   MainWindowUI::mainWindowUI()->menubar->parentWidget()->\
     setWindowTitle(QString("Generating Lowres Version"));
-  MainWindowUI::mainWindowUI()->statusBar->showMessage("");
+  MainWindowUI::mainWindowUI()->statusBar->showMessage("Loading data for Lowres mode");
   Global::progressBar()->show();
 
   int nbytes = bpv*m_width*m_height;
@@ -338,6 +338,7 @@ VolumeBase::createLowresVolume(bool redo)
   delete [] flhist1D;
   delete [] flhist2D;
   
+  MainWindowUI::mainWindowUI()->statusBar->showMessage("");
   Global::progressBar()->setValue(100);
   Global::hideProgressBar();
   qApp->processEvents();

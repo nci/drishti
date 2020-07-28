@@ -1360,6 +1360,7 @@ ImageWidget::graphcutModeKeyPressEvent(QKeyEvent *event)
 {
   int shiftModifier = event->modifiers() & Qt::ShiftModifier;
   int ctrlModifier = event->modifiers() & Qt::ControlModifier;
+  bool altModifier = event->modifiers() & Qt::AltModifier;
 
   if (m_modeType == 1)
     {
@@ -1556,7 +1557,10 @@ ImageWidget::graphcutModeKeyPressEvent(QKeyEvent *event)
       if (ctrlModifier) // apply paint for non-selected areas
 	m_extraPressed = true;
 
-      applyPaint(false);
+      if (altModifier)
+	applyPaint(true);
+      else
+	applyPaint(false);
     }
   else if (event->key() == Qt::Key_R) // reset slice tags to 0
     {
@@ -2986,6 +2990,11 @@ ImageWidget::applyPaint(bool keepTags)
 
   setMaskImage(m_tags);
 
+  if (!keepTags)
+    {
+      memset(m_usertags, 0, m_imgWidth*m_imgHeight);
+    }
+  
   checkRecursive();
 }
 

@@ -1760,17 +1760,17 @@ DrawHiresVolume::draw(float stepsize,
   m_useScreenShadows = (m_renderQuality == Enums::RenderHighQuality);
   
   
-// -----------------------------------
-// -----------------------------------
-// check if we only have surfaces
-  if (Global::volumeType() == Global::DummyVolume &&
-      m_drawGeometryPresent)
-    {
-      drawGeometryOnly();
-      return;
-    }
-// -----------------------------------
-// -----------------------------------
+//// -----------------------------------
+//// -----------------------------------
+//// check if we only have surfaces
+//  if (Global::volumeType() == Global::DummyVolume &&
+//      m_drawGeometryPresent)
+//    {
+//      drawGeometryOnly();
+//      return;
+//    }
+//// -----------------------------------
+//// -----------------------------------
 
   
 //------------------------------------

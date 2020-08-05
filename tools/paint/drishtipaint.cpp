@@ -176,9 +176,9 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   Global::setMainWindow(this);
     
   ui.setupUi(this);
-//  ui.statusbar->setEnabled(true);
-//  ui.statusbar->setSizeGripEnabled(true);
-  ui.statusbar->hide();
+  ui.statusbar->setEnabled(true);
+  ui.statusbar->setSizeGripEnabled(true);
+  //ui.statusbar->hide();
 
   setWindowIcon(QPixmap(":/images/drishti_paint_32.png"));
   setWindowTitle(QString("DrishtiPaint v") + QString(DRISHTI_VERSION));
@@ -1645,11 +1645,15 @@ DrishtiPaint::setFile(QString filename)
   Global::setVoxelUnit(StaticFunctions::getVoxelUnitFromHeader(m_pvlFile));
   //----------------------------
 
+  ((QMainWindow *)Global::mainWindow())->statusBar()->showMessage(QString("loading %1").arg(flnm));
+
   if (m_volume->setFile(flnm) == false)
     {
       QMessageBox::critical(0, "Error", "Cannot load "+flnm);
       return;
     }
+
+  ((QMainWindow *)Global::mainWindow())->statusBar()->showMessage(QString("%1").arg(flnm));
 
   
   m_viewer->setVolDataPtr(m_volume->memVolDataPtr());

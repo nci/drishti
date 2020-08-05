@@ -1,7 +1,9 @@
 #include "filehandler.h"
 
 #include "blosc.h"
+#include "global.h"
 
+#include <QMainWindow>
 #include <QMessageBox>
 
 
@@ -114,7 +116,9 @@ FileHandler::saveMemFile()
   QMutexLocker locker(&m_mutex);
   
   m_savingFile = true;
-  
+
+  ((QMainWindow *)Global::mainWindow())->statusBar()->showMessage("saving ...");
+    
   int nthreads, pnthreads;
   nthreads = 4;
   blosc_init();
@@ -179,6 +183,8 @@ FileHandler::saveMemFile()
   delete [] vBuf;
 
   m_savingFile = false;
+
+  ((QMainWindow *)Global::mainWindow())->statusBar()->showMessage("");
 }
 
 void
@@ -218,7 +224,7 @@ FileHandler::saveDataBlock(int dmin, int dmax,
     }
    
   //-----------  
-  saveMemFile();
+  if (!m_savingFile) saveMemFile();
   return;
   //-----------
   
@@ -270,7 +276,7 @@ void
 FileHandler::saveDepthSlices(QList<int> slices)
 {
   //-----------  
-  saveMemFile();
+  if (!m_savingFile) saveMemFile();
   return;
   //-----------  
 
@@ -302,7 +308,7 @@ void
 FileHandler::saveWidthSlices(QList<int> slices)
 {
   //-----------  
-  saveMemFile();
+  if (!m_savingFile) saveMemFile();
   return;
   //-----------  
 
@@ -333,7 +339,7 @@ void
 FileHandler::saveHeightSlices(QList<int> slices)
 {
   //-----------  
-  saveMemFile();
+  if (!m_savingFile) saveMemFile();
   return;
   //-----------  
 

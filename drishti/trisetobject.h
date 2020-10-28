@@ -141,6 +141,8 @@ private :
 
   QVector<Vec> m_drawcolor;
 
+  double m_brick0Xform[16];
+    
   Vec m_tcentroid;
   Vec m_tenclosingBox[8];
   QList<QPolygon> m_meshInfo;

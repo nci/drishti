@@ -5035,7 +5035,7 @@ Viewer::processCommand(QString cmd)
       if (list[0].contains("addrotation"))
 	{
 	  Quaternion orot = camera()->orientation();
-	  rot = rot*orot;
+	  rot = orot*rot;
 	}
       // set camera orientation
       camera()->setOrientation(rot);
@@ -5062,7 +5062,7 @@ Viewer::processCommand(QString cmd)
 	rot = Quaternion(camera()->viewDirection(), DEG2RAD(a));
 
       Quaternion orot = camera()->orientation();
-      rot = rot*orot;
+      rot = orot*rot;
 
       // set camera orientation
       camera()->setOrientation(rot);

@@ -22,7 +22,8 @@
 	  m_keyFrame, SLOT(setKeyFrameNumbers(QList<int>)));
 
   connect(m_keyFrameEditor, SIGNAL(playFrameNumber(int)),
-	  m_keyFrame, SLOT(playFrameNumber(int)));
+	  m_keyFrame, SLOT(playFrameNumber(int)),
+	  Qt::QueuedConnection);
 
   connect(m_keyFrameEditor, SIGNAL(setKeyFrameNumber(int, int)),
 	  m_keyFrame, SLOT(setKeyFrameNumber(int, int)));

@@ -1634,3 +1634,34 @@ StaticFunctions::deformedBallQuaternion(int x, int y,
   const qreal angle = 5.0 * asin(sqrt(axis.squaredNorm() / p1.squaredNorm() / p2.squaredNorm()));
   return Quaternion(axis, angle);
 }
+
+void
+StaticFunctions::copyGradientFile(QString stopsflnm)
+{
+  QString sflnm = ":/images/gradientstops.xml";
+  QFileInfo fi(sflnm);
+  if (! fi.exists())
+    {
+      QMessageBox::information(0, "Gradient Stops",
+			       QString("Gradient Stops file does not exit at %1").arg(sflnm));
+      
+      return;
+    }
+
+  // copy information from gradientstops.xml to HOME/.drishtigradients.xml
+  QDomDocument document;
+  QFile f(sflnm);
+  if (f.open(QIODevice::ReadOnly))
+    {
+      document.setContent(&f);
+      f.close();
+    }
+  
+  QFile fout(stopsflnm);
+  if (fout.open(QIODevice::WriteOnly))
+    {
+      QTextStream out(&fout);
+      document.save(out, 2);
+      fout.close();
+    }
+}

@@ -117,16 +117,22 @@ VolumeFileManager::startFileHandlerThread()
       m_handler->moveToThread(m_thread);
       
       connect(this, SIGNAL(saveDataBlock(int,int,int,int,int,int)),
-	   m_handler, SLOT(saveDataBlock(int,int,int,int,int,int)));
+	      m_handler, SLOT(saveDataBlock(int,int,int,int,int,int)),
+	      Qt::QueuedConnection);
 
       connect(this, SIGNAL(saveDepthSlices(IntList)),
-	   m_handler, SLOT(saveDepthSlices(IntList)));
+	      m_handler, SLOT(saveDepthSlices(IntList)),
+	      Qt::QueuedConnection);
 
       connect(this, SIGNAL(saveWidthSlices(IntList)),
-	   m_handler, SLOT(saveWidthSlices(IntList)));
+	      m_handler, SLOT(saveWidthSlices(IntList)),
+	      Qt::QueuedConnection);
+      
 
       connect(this, SIGNAL(saveHeightSlices(IntList)),
-	   m_handler, SLOT(saveHeightSlices(IntList)));
+	      m_handler, SLOT(saveHeightSlices(IntList)),
+	      Qt::QueuedConnection);
+
       
       m_thread->start();
     }
@@ -1551,7 +1557,7 @@ VolumeFileManager::saveBlock(int dmin, int dmax,
 
   if (m_thread)
     {
-      m_handler->genUndo();
+      //m_handler->genUndo();
       
       emit saveDataBlock(dmin, dmax, wmin, wmax, hmin, hmax);
       return;

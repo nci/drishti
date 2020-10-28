@@ -831,15 +831,15 @@ Viewer::keyPressEvent(QKeyEvent *event)
       return;
     }
 
-  if (event->key() == Qt::Key_Z)
-    {  
-      if (event->modifiers() & Qt::ControlModifier)
-	{
-	  emit undoPaint3D();
-	  update();
-	}
-      return;
-    }
+//  if (event->key() == Qt::Key_Z)
+//    {  
+//      if (event->modifiers() & Qt::ControlModifier)
+//	{
+//	  emit undoPaint3D();
+//	  update();
+//	}
+//      return;
+//    }
 
   if (event->key() == Qt::Key_A)
     {  

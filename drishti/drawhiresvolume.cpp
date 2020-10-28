@@ -991,7 +991,7 @@ DrawHiresVolume::createDefaultShader()
 { 
   QString shaderString;
 
-  GeometryObjects::trisets()->createDefaultShader(m_crops);
+  //GeometryObjects::trisets()->createDefaultShader(m_crops);
 
   if (Global::volumeType() == Global::SingleVolume ||
       Global::volumeType() == Global::DummyVolume)
@@ -1760,17 +1760,17 @@ DrawHiresVolume::draw(float stepsize,
   m_useScreenShadows = (m_renderQuality == Enums::RenderHighQuality);
   
   
-//// -----------------------------------
-//// -----------------------------------
-//// check if we only have surfaces
-//  if (Global::volumeType() == Global::DummyVolume &&
-//      m_drawGeometryPresent)
-//    {
-//      drawGeometryOnly();
-//      return;
-//    }
-//// -----------------------------------
-//// -----------------------------------
+// -----------------------------------
+// -----------------------------------
+// check if we only have surfaces
+  if (Global::volumeType() == Global::DummyVolume &&
+      m_drawGeometryPresent)
+    {
+      drawGeometryOnly();
+      return;
+    }
+// -----------------------------------
+// -----------------------------------
 
   
 //------------------------------------
@@ -2020,8 +2020,8 @@ DrawHiresVolume::postDrawGeometry()
   glDisable(GL_CLIP_DISTANCE1);
   glUniform4fARB(m_vertParm[0], 0, 1, 0, 10000);
   glUniform4fARB(m_vertParm[1], 1, 0, 0, 10000);
-  GeometryObjects::trisets()->setClipDistance0(0, 1, 0, 10000);
-  GeometryObjects::trisets()->setClipDistance1(1, 0, 0, 10000);
+  //GeometryObjects::trisets()->setClipDistance0(0, 1, 0, 10000);
+  //GeometryObjects::trisets()->setClipDistance1(1, 0, 0, 10000);
 }
 
 void
@@ -2047,8 +2047,8 @@ DrawHiresVolume::preDrawGeometry(int s, int layers,
 	      glEnable(GL_CLIP_DISTANCE0);
 	      glUniform4fARB(m_vertParm[0], eqn[0], eqn[1], eqn[2], eqn[3]);
 	    }
-	  else
-	    GeometryObjects::trisets()->setClipDistance0(eqn[0], eqn[1], eqn[2], eqn[3]);
+	  //else
+	  //GeometryObjects::trisets()->setClipDistance0(eqn[0], eqn[1], eqn[2], eqn[3]);
 	}
       if (s < layers-1)
 	{
@@ -2063,8 +2063,8 @@ DrawHiresVolume::preDrawGeometry(int s, int layers,
 	      glEnable(GL_CLIP_DISTANCE1);
 	      glUniform4fARB(m_vertParm[1], eqn[0], eqn[1], eqn[2], eqn[3]);
 	    }
-	  else
-	    GeometryObjects::trisets()->setClipDistance1(eqn[0], eqn[1], eqn[2], eqn[3]);
+	  //else
+	  //GeometryObjects::trisets()->setClipDistance1(eqn[0], eqn[1], eqn[2], eqn[3]);
 	}
     }
   else
@@ -2082,8 +2082,8 @@ DrawHiresVolume::preDrawGeometry(int s, int layers,
 	      glEnable(GL_CLIP_DISTANCE0);
 	      glUniform4fARB(m_vertParm[0], eqn[0], eqn[1], eqn[2], eqn[3]);
 	    }
-	  else
-	    GeometryObjects::trisets()->setClipDistance0(eqn[0], eqn[1], eqn[2], eqn[3]);
+	  //else
+	  //GeometryObjects::trisets()->setClipDistance0(eqn[0], eqn[1], eqn[2], eqn[3]);
 	}
       if (s < layers-1)
 	{
@@ -2098,8 +2098,8 @@ DrawHiresVolume::preDrawGeometry(int s, int layers,
 	      glEnable(GL_CLIP_DISTANCE1);
 	      glUniform4fARB(m_vertParm[1], eqn[0], eqn[1], eqn[2], eqn[3]);
 	    }
-	  else
-	    GeometryObjects::trisets()->setClipDistance1(eqn[0], eqn[1], eqn[2], eqn[3]);
+	  //else
+	  //GeometryObjects::trisets()->setClipDistance1(eqn[0], eqn[1], eqn[2], eqn[3]);
 	}
     }
 }

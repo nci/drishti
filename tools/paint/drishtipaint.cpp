@@ -6778,6 +6778,10 @@ DrishtiPaint::erodeConnected(int dr, int wr, int hr,
   float maxGrad = m_viewer->maxGrad();
   int gradType = m_viewer->gradType();
 
+  QList<Vec> cPos =  m_viewer->clipPos();
+  QList<Vec> cNorm = m_viewer->clipNorm();
+
+  VolumeOperations::setClip(cPos, cNorm);
   VolumeOperations::erodeConnected(dr, wr, hr,
 				   bmin, bmax, tag,
 				   viewerUi.dilateRad->value(),

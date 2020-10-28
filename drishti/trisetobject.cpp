@@ -504,7 +504,9 @@ TrisetObject::drawCaption(QGLViewer *viewer)
   int screenWidth = viewer->size().width();
   int screenHeight = viewer->size().height();
 
-  Vec cppos = viewer->camera()->projectedCoordinatesOf(m_centroid+m_position+m_captionPosition);
+  Vec vc = m_captionPosition+m_centroid+m_position;
+  vc = Matrix::xformVec(m_brick0Xform, vc);
+  Vec cppos = viewer->camera()->projectedCoordinatesOf(vc);
   int cx = cppos.x;
   int cy = cppos.y;
   
@@ -745,6 +747,8 @@ TrisetObject::predraw(QGLViewer *viewer,
 		      bool active,
 		      double *Xform)
 {
+  memcpy(&m_brick0Xform[0], Xform, 16*sizeof(double));
+  
   double *s0 = new double[16];
   double *s1 = new double[16];
   double *s2 = new double[16];

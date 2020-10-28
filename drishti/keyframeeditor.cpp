@@ -783,7 +783,7 @@ KeyFrameEditor::moveCurrentFrame(QPoint pos)
   update();
 
   emit playFrameNumber(m_currFrame);
-  qApp->processEvents();
+  //qApp->processEvents();
 }
 
 void

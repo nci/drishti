@@ -5,7 +5,6 @@
 #include <GL/glew.h>
 
 #include "trisetgrabber.h"
-#include "cropobject.h"
 #include "hitpoints.h"
 
 class Trisets : public QObject
@@ -48,9 +47,6 @@ class Trisets : public QObject
   void addTriset(QString);
   void addMesh(QString);
 
-  void setClipDistance0(float, float, float, float);
-  void setClipDistance1(float, float, float, float);
-
   
   void predraw(QGLViewer*, double*);
   void draw(QGLViewer*,
@@ -61,10 +57,6 @@ class Trisets : public QObject
   void postdraw(QGLViewer*);
 
   bool keyPressEvent(QKeyEvent*);
-
-  void createDefaultShader(QList<CropObject>);
-  void createHighQualityShader(bool, float, QList<CropObject>);
-  void createShadowShader(Vec, QList<CropObject>);
 
   QList<TrisetInformation> get();
   void set(QList<TrisetInformation>);
@@ -79,9 +71,12 @@ class Trisets : public QObject
 
   void checkMouseHover(QGLViewer*);
 
+  void setLightDirection(Vec);
+ 
  signals :
   void updateGL();
-
+  void resetBoundingBox();
+  
  private :
   HitPoints *m_hitpoints;
   
@@ -89,14 +84,9 @@ class Trisets : public QObject
 
   void processCommand(int, QString);
 
-  GLhandleARB m_geoShadowShader;
-  GLhandleARB m_geoHighQualityShader;
-  GLhandleARB m_geoDefaultShader;
-
-  GLint m_highqualityParm[15];
-  GLint m_defaultParm[15];
-  GLint m_shadowParm[15];
-
+  GLfloat m_mvpShadow[16];
+  Vec m_lightDir;
+  
   float *m_cpos;
   float *m_cnormal;
 
@@ -130,6 +120,9 @@ class Trisets : public QObject
   void renderTransparent(GLint, QGLViewer*, int, float);
   void bindOITTextures();
   void drawOITTextures(int, int);
+
+  void askGradientChoice();
+  
 };
 
 

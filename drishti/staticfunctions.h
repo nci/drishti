@@ -131,6 +131,8 @@ class StaticFunctions
 					   qreal, qreal,
 					   qreal, qreal,
 					   const Camera* const);
+
+  static void copyGradientFile(QString);
 };
 
 #endif

@@ -3,18 +3,16 @@
 #include "staticfunctions.h"
 #include "dcolordialog.h"
 #include "trisets.h"
-#include "geoshaderfactory.h"
 #include "propertyeditor.h"
 #include "captiondialog.h"
 
 #include <QFileDialog>
+#include <QInputDialog>
+
 
 Trisets::Trisets()
 {
   m_trisets.clear();
-  m_geoDefaultShader = 0;
-  m_geoHighQualityShader = 0;
-  m_geoShadowShader = 0;
   m_cpos = new float[100];
   m_cnormal = new float[100];
 
@@ -35,6 +33,9 @@ Trisets::Trisets()
   m_solidTexName.clear();
   m_solidTexData.clear();
   m_solidTex = 0;
+  
+  m_lightDir = Vec(0.1,0.1,1);
+  m_lightDir.normalize();
 }
 
 Trisets::~Trisets()
@@ -66,6 +67,12 @@ Trisets::~Trisets()
 	}
       m_solidTexData.clear();
     }
+}
+
+void
+Trisets::setLightDirection(Vec ldir)
+{
+  m_lightDir = ldir;
 }
 
 void
@@ -393,6 +400,9 @@ Trisets::render(Camera *camera, int nclip)
 	}
     }
   
+  int scrW = camera->screenWidth();
+  int scrH = camera->screenHeight();
+  
   for(int i=0; i<m_trisets.count();i++)
     {      
       if (m_trisets[i]->reveal() >= 0.0 // non transparent reveal
@@ -443,12 +453,22 @@ Trisets::render(Camera *camera, int nclip)
 	    }
 	  
 	  
+	  {
+	    glUniform1i(meshShaderParm[21], 3); // depthTex
+	    glUniform2f(meshShaderParm[23], scrW, scrH); // screenSize
+	    glUniformMatrix4fv(meshShaderParm[24], 1, GL_FALSE, m_mvpShadow);
+	  }
+
+	  
 	  m_trisets[i]->draw(camera,
 			     m_trisets[i]->grabsMouse());
 	  
 	  
 	  if (pat.x > 0.5)
-	    glDisable(GL_TEXTURE_3D);
+	    {
+	      glActiveTexture(GL_TEXTURE1);
+	      glDisable(GL_TEXTURE_3D);
+	    }
 	  
 	  
 	  glUseProgramObjectARB(0);
@@ -517,27 +537,6 @@ Trisets::draw(QGLViewer *viewer,
 
   Vec vd = viewer->camera()->viewDirection();
   
-//  if (!applyShadows)
-//    {
-//      glUseProgram(ShaderFactory::meshShader());
-//      
-//      GLint *meshShaderParm = ShaderFactory::meshShaderParm();        
-//      
-//      GLfloat mv[16];
-//      viewer->camera()->getModelViewMatrix(mv);
-//      glUniformMatrix4fv(meshShaderParm[16], 1, GL_FALSE, mv);
-//      
-//      glUniform1f(meshShaderParm[12], sceneRadius);
-//      
-//      glUniform3f(meshShaderParm[1], vd.x, vd.y, vd.z); // view direction
-//
-//
-//      render(viewer->camera(), nclip);
-//      
-//      return;
-//    }
-  
-
 
   glUseProgram(ShaderFactory::meshShader());
 
@@ -551,27 +550,87 @@ Trisets::draw(QGLViewer *viewer,
 
   //--------------------------------------------
   // first render from shadowCamera
-  Camera shadowCamera;
-  shadowCamera = *(viewer->camera());  
-  Vec vR = shadowCamera.rightVector();
-  Vec vU = shadowCamera.upVector();
-  shadowCamera.setPosition(shadowCamera.position() + vd*viewer->camera()->sceneRadius()*0.02);
-  //shadowCamera.setPosition(shadowCamera.position() + vd*sceneRadius*0.1);
 
-  GLfloat mv[16];
-  shadowCamera.getModelViewMatrix(mv);
-  glUniformMatrix4fv(meshShaderParm[16], 1, GL_FALSE, mv);
+  //---------------------
+  // setting shadow camera
+  Quaternion orot = viewer->camera()->orientation();
+  Vec opos = viewer->camera()->position();
+  float ofov = viewer->camera()->fieldOfView();
+  {
+    float distFromCam;
+    Vec offset;
+    {
+      Vec center = viewer->camera()->sceneCenter();
+      Vec viewDir = viewer->camera()->viewDirection();
+      distFromCam = (center-opos)*viewDir;
+      Vec pos = (opos + distFromCam*viewDir);
+      offset = center - pos;
+    }
 
-  renderFromShadowCamera(&shadowCamera, nclip);
+    Quaternion rot = orot * Quaternion(Vec(1,0,0), DEG2RAD(m_lightDir.y*90))
+                          * Quaternion(Vec(0,1,0), -DEG2RAD(m_lightDir.x*90));
+    viewer->camera()->setOrientation(rot);
+    // now reposition the camera so that it faces the scene
+    Vec center = viewer->camera()->sceneCenter();
+    Vec viewDir = viewer->camera()->viewDirection();
+    viewer->camera()->setPosition(center - distFromCam*viewDir - offset);
+
+//    if (m_hitpoints->count() > 0)
+//      {
+//	Vec hp = m_hitpoints->points()[0];
+//	viewer->camera()->setPosition(hp);
+//	viewer->camera()->lookAt(center);
+//	viewer->camera()->setFOVToFitScene();
+//      }
+  }
+  //---------------------
+
+
+  {
+    Vec shadowCam = viewer->camera()->position();
+    glUniform3f(meshShaderParm[16], shadowCam.x, shadowCam.y, shadowCam.z);
+  }
+
+  
+  //--------------------------------------------
+  viewer->camera()->getModelViewProjectionMatrix(m_mvpShadow);
+
+  glUseProgram(ShaderFactory::meshShadowShader());
+  glUniform1i(meshShaderParm[22], true); // shadowRender  
+  renderFromShadowCamera(viewer->camera(), nclip);
   //--------------------------------------------
 
+
+  { // restore camera
+    viewer->camera()->setOrientation(orot);
+    viewer->camera()->setPosition(opos);
+    viewer->camera()->setFieldOfView(ofov);
+  }
   
   //--------------------------------------------
   // now render from actual camera
-  renderFromCamera(viewer->camera(), nclip);
+  {
+    glUseProgram(ShaderFactory::meshShadowShader());
+    glUniform1i(meshShaderParm[22], false); // shadowRender  
+
+    glActiveTexture(GL_TEXTURE3);
+    glEnable(GL_TEXTURE_RECTANGLE);
+    glBindTexture(GL_TEXTURE_RECTANGLE, m_depthTex[3]); // shadow depthTex
+
+    renderFromCamera(viewer->camera(), nclip);
+    //renderFromCamera(&shadowCamera, nclip);
+
+    glActiveTexture(GL_TEXTURE3);
+    glDisable(GL_TEXTURE_RECTANGLE);
+  }
   //--------------------------------------------
   
 
+//  { // restore camera
+//    viewer->camera()->setOrientation(orot);
+//    viewer->camera()->setPosition(opos);
+//  }
+  
   //--------------------------------------------
   // render shadows
   renderShadows(drawFboId, wd, ht);
@@ -668,9 +727,9 @@ Trisets::renderShadows(GLint drawFboId, int wd, int ht)
   glEnable(GL_TEXTURE_RECTANGLE);
   glBindTexture(GL_TEXTURE_RECTANGLE, m_depthTex[2]); // colors
   
-  glActiveTexture(GL_TEXTURE3);
-  glEnable(GL_TEXTURE_RECTANGLE);
-  glBindTexture(GL_TEXTURE_RECTANGLE, m_depthTex[3]); // depth
+//  glActiveTexture(GL_TEXTURE3);
+//  glEnable(GL_TEXTURE_RECTANGLE);
+//  glBindTexture(GL_TEXTURE_RECTANGLE, m_depthTex[3]); // depth
   
   QMatrix4x4 mvp;
   mvp.setToIdentity();
@@ -687,7 +746,7 @@ Trisets::renderShadows(GLint drawFboId, int wd, int ht)
   glUniform1f(shadowParm[6], roughness); // specularity
   glUniform1f(shadowParm[7], m_trisets[0]->specular()); // specularity
   glUniform1i(shadowParm[8], 2); // shadow colors
-  glUniform1i(shadowParm[9], 3); // shadow depth
+  //glUniform1i(shadowParm[9], 3); // shadow depth
   
   glEnableVertexAttribArray(0);
   glBindBuffer(GL_ARRAY_BUFFER, m_vertexScreenBuffer);
@@ -1054,6 +1113,7 @@ Trisets::keyPressEvent(QKeyEvent *event)
       m_trisets[idx]->setMouseGrab(false);
       m_trisets[idx]->removeFromMouseGrabberPool();
       m_trisets.removeAt(idx);
+      emit resetBoundingBox();
     }
   else if (event->key() == Qt::Key_Space)
     handleDialog(idx);
@@ -1138,18 +1198,12 @@ Trisets::processCommand(int idx, QString cmd)
       return;
     }
   
-  if (list[0] == "tagcolors")
+  if (list[0] == "colormap")
     {
-      uchar *tc = Global::tagColors();
-      for (int t=0; t<m_trisets.count(); t++)
-	{
-	  int i = t+1; // don't want to use tag color 0
-	  Vec color(tc[4*i+0]/255.0, tc[4*i+1]/255.0, tc[4*i+2]/255.0);
-	  m_trisets[t]->setColor(color);
-	}
+      askGradientChoice();
       return;
     }
-  
+        
   if (list[0] == "resetrotation")
     {
       m_trisets[idx]->resetRotation();
@@ -1356,105 +1410,6 @@ Trisets::processCommand(int idx, QString cmd)
 //    }
 }
 
-void
-Trisets::setClipDistance0(float e0, float e1, float e2, float e3)
-{
-  if (m_trisets.count()==0) return;
-  glUniform4fARB(m_defaultParm[8], e0, e1, e2, e3);
-  glUniform4fARB(m_highqualityParm[8], e0, e1, e2, e3);
-  glUniform4fARB(m_shadowParm[8], e0, e1, e2, e3);
-}
-
-void
-Trisets::setClipDistance1(float e0, float e1, float e2, float e3)
-{
-  if (m_trisets.count()==0) return;
-  glUniform4fARB(m_defaultParm[9], e0, e1, e2, e3);
-  glUniform4fARB(m_highqualityParm[9], e0, e1, e2, e3);
-  glUniform4fARB(m_shadowParm[9], e0, e1, e2, e3);
-}
-
-void
-Trisets::createDefaultShader(QList<CropObject> crops)
-{
-  if (m_geoDefaultShader)
-    glDeleteObjectARB(m_geoDefaultShader);
-
-  QString shaderString;
-  shaderString = GeoShaderFactory::genDefaultShaderString(crops);
-
-  m_geoDefaultShader = glCreateProgramObjectARB();
-  if (! GeoShaderFactory::loadShader(m_geoDefaultShader,
-				     shaderString))
-    exit(0);
-
-  m_defaultParm[0] = glGetUniformLocationARB(m_geoDefaultShader, "eyepos");
-  m_defaultParm[1] = glGetUniformLocationARB(m_geoDefaultShader, "screenDoor");
-  m_defaultParm[2] = glGetUniformLocationARB(m_geoDefaultShader, "cropBorder");
-  m_defaultParm[3] = glGetUniformLocationARB(m_geoDefaultShader, "nclip");
-  m_defaultParm[4] = glGetUniformLocationARB(m_geoDefaultShader, "clipPos");
-  m_defaultParm[5] = glGetUniformLocationARB(m_geoDefaultShader, "clipNormal");
-
-  m_defaultParm[8] = glGetUniformLocationARB(m_geoDefaultShader, "ClipPlane0");
-  m_defaultParm[9] = glGetUniformLocationARB(m_geoDefaultShader, "ClipPlane1");
-}
-
-void
-Trisets::createHighQualityShader(bool shadows,
-				 float shadowIntensity,
-				 QList<CropObject> crops)
-{
-  if (m_geoHighQualityShader)
-    glDeleteObjectARB(m_geoHighQualityShader);
-
-  QString shaderString;
-  shaderString = GeoShaderFactory::genHighQualityShaderString(shadows,
-							      shadowIntensity,
-							      crops);
-  m_geoHighQualityShader = glCreateProgramObjectARB();
-  if (! GeoShaderFactory::loadShader(m_geoHighQualityShader,
-				     shaderString))
-    exit(0);
-
-  m_highqualityParm[0] = glGetUniformLocationARB(m_geoHighQualityShader, "eyepos");
-  m_highqualityParm[1] = glGetUniformLocationARB(m_geoHighQualityShader, "shadowTex");
-  m_highqualityParm[2] = glGetUniformLocationARB(m_geoHighQualityShader, "screenDoor");
-  m_highqualityParm[3] = glGetUniformLocationARB(m_geoHighQualityShader, "cropBorder");
-  m_highqualityParm[4] = glGetUniformLocationARB(m_geoHighQualityShader, "nclip");
-  m_highqualityParm[5] = glGetUniformLocationARB(m_geoHighQualityShader, "clipPos");
-  m_highqualityParm[6] = glGetUniformLocationARB(m_geoHighQualityShader, "clipNormal");
-
-  m_highqualityParm[8] = glGetUniformLocationARB(m_geoHighQualityShader, "ClipPlane0");
-  m_highqualityParm[9] = glGetUniformLocationARB(m_geoHighQualityShader, "ClipPlane1");
-}
-
-void
-Trisets::createShadowShader(Vec attenuation, QList<CropObject> crops)
-{
-  if (m_geoShadowShader)
-    glDeleteObjectARB(m_geoShadowShader);
-
-  float r = attenuation.x;
-  float g = attenuation.y;
-  float b = attenuation.z;
-
-  QString shaderString;
-  shaderString = GeoShaderFactory::genShadowShaderString(r,g,b, crops);
-
-  m_geoShadowShader = glCreateProgramObjectARB();
-  if (! GeoShaderFactory::loadShader(m_geoShadowShader,
-				     shaderString))
-    exit(0);
-
-  m_shadowParm[0] = glGetUniformLocationARB(m_geoShadowShader, "nclip");
-  m_shadowParm[1] = glGetUniformLocationARB(m_geoShadowShader, "clipPos");
-  m_shadowParm[2] = glGetUniformLocationARB(m_geoShadowShader, "clipNormal");
-
-  m_shadowParm[8] = glGetUniformLocationARB(m_geoShadowShader, "ClipPlane0");
-  m_shadowParm[9] = glGetUniformLocationARB(m_geoShadowShader, "ClipPlane1");
-}
-
-
 QList<TrisetInformation>
 Trisets::get()
 {
@@ -1637,7 +1592,7 @@ Trisets::loadSolidTextures()
   
   //QString texdir = qApp->applicationDirPath() + QDir::separator() + "textures";
   QString texdir = qApp->applicationDirPath() + QDir::separator()  + "assets" + QDir::separator() + "textures";
-  QDir dir(texdir);
+  QDir dir(texdir);  
   QStringList filters;
   filters << "*.tex";
   dir.setNameFilters(filters);
@@ -1838,7 +1793,10 @@ Trisets::renderTransparent(GLint drawFboId,
 	  
 	  
 	  if (pat.x > 0.5)
-	    glDisable(GL_TEXTURE_3D);
+	    {
+	      glActiveTexture(GL_TEXTURE1);
+	      glDisable(GL_TEXTURE_3D);
+	    }
 	  
 	  
 	  glUseProgramObjectARB(0);
@@ -2033,7 +1991,10 @@ Trisets::renderOutline(GLint drawFboId,
 	  
 	  
 	  if (pat.x > 0.5)
-	    glDisable(GL_TEXTURE_3D);
+	    {
+	      glActiveTexture(GL_TEXTURE1);
+	      glDisable(GL_TEXTURE_3D);
+	    }
 	  
 	  
 	  glUseProgramObjectARB(0);
@@ -2106,3 +2067,140 @@ Trisets::renderOutline(GLint drawFboId,
 
 }
 
+void
+Trisets::askGradientChoice()
+{
+  QString homePath = QDir::homePath();
+  QFileInfo sfi(homePath, ".drishtigradients.xml");
+  QString stopsflnm = sfi.absoluteFilePath();
+  if (!sfi.exists())
+    StaticFunctions::copyGradientFile(stopsflnm);
+
+  QDomDocument document;
+  QFile f(stopsflnm);
+  if (f.open(QIODevice::ReadOnly))
+    {
+      document.setContent(&f);
+      f.close();
+    }
+
+  QStringList glist;
+  glist << "random";
+
+  QDomElement main = document.documentElement();
+  QDomNodeList dlist = main.childNodes();
+  for(int i=0; i<dlist.count(); i++)
+    {
+      if (dlist.at(i).nodeName() == "gradient")
+	{
+	  QDomNodeList cnode = dlist.at(i).childNodes();
+	  for(int j=0; j<cnode.count(); j++)
+	    {
+	      QDomElement dnode = cnode.at(j).toElement();
+	      if (dnode.nodeName() == "name")
+		glist << dnode.text();
+	    }
+	}
+    }
+
+  bool ok;
+  QString gstr = QInputDialog::getItem(0,
+				       "Color Gradient",
+				       "Color Gradient",
+				       glist, 0, false,
+				       &ok);
+  if (!ok)
+    return;
+
+  //--------------------
+  if (gstr == "random")
+    {
+      for(int i=0; i<m_trisets.count(); i++)
+	{
+	  float r = (float)qrand()/(float)RAND_MAX;
+	  float g = (float)qrand()/(float)RAND_MAX;
+	  float b = (float)qrand()/(float)RAND_MAX;
+	  float mm = qMax(r,qMax(g,b));
+	  if (mm < 0.8) // don't want too dark
+	    {
+	      if (mm < 0.1)
+		{
+		  r = g = b = 1.0;
+		}
+	      else if (mm < 0.3)
+		{
+		  r = 1 - r;
+		  g = 1 - g;
+		  b = 1 - b;
+		}
+	      else
+		{
+		  r *= 0.8/mm;
+		  g *= 0.8/mm;
+		  b *= 0.8/mm;
+		}
+	    }
+	  m_trisets[i]->setColor(Vec(r,g,b));
+	}
+    }
+  //--------------------
+
+  int cno = -1;
+  for(int i=0; i<dlist.count(); i++)
+    {
+      if (dlist.at(i).nodeName() == "gradient")
+	{
+	  QDomNodeList cnode = dlist.at(i).childNodes();
+	  for(int j=0; j<cnode.count(); j++)
+	    {
+	      QDomElement dnode = cnode.at(j).toElement();
+	      if (dnode.tagName() == "name" && dnode.text() == gstr)
+		{
+		  cno = i;
+		  break;
+		}
+	    }
+	}
+    }
+	
+  if (cno < 0)
+    return;
+
+  QGradientStops stops;
+  QDomNodeList cnode = dlist.at(cno).childNodes();
+  for(int j=0; j<cnode.count(); j++)
+    {
+      QDomElement de = cnode.at(j).toElement();
+      if (de.tagName() == "gradientstops")
+	{
+	  QString str = de.text();
+	  QStringList strlist = str.split(" ", QString::SkipEmptyParts);
+	  for(int j=0; j<strlist.count()/5; j++)
+	    {
+	      float pos, r,g,b,a;
+	      pos = strlist[5*j].toFloat();
+	      r = strlist[5*j+1].toInt();
+	      g = strlist[5*j+2].toInt();
+	      b = strlist[5*j+3].toInt();
+	      a = strlist[5*j+4].toInt();
+	      stops << QGradientStop(pos, QColor(r,g,b,a));
+	    }
+	}
+    }
+
+
+  
+  QGradientStops gstops;
+  gstops = StaticFunctions::resampleGradientStops(stops, m_trisets.count());
+
+  uchar *colors = Global::tagColors();  
+  for(int i=0; i<m_trisets.count(); i++)
+    {
+      float pos = gstops[i].first;
+      QColor color = gstops[i].second;
+      Vec clr = Vec(color.redF(),
+		    color.greenF(),
+		    color.blueF());
+      m_trisets[i]->setColor(clr);
+    }
+}

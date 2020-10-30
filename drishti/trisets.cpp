@@ -417,9 +417,9 @@ Trisets::render(Camera *camera, int nclip)
 	  
 	  extras.z = m_trisets[i]->glow();
 	  
-	  float darken = 1;
+	  float darken = 0;
 	  if (glowOn && m_trisets[i]->glow() < 0.01)
-	    darken = 1.0-0.7*m_trisets[i]->dark();
+	    darken = m_trisets[i]->dark();
 	  
 	  glUseProgram(ShaderFactory::meshShader());
 	  GLint *meshShaderParm = ShaderFactory::meshShaderParm();        
@@ -1754,7 +1754,7 @@ Trisets::renderTransparent(GLint drawFboId,
 
 	  float darken = 1;
 	  if (glowOn && m_trisets[i]->glow() < 0.01)
-	    darken = 1.0-0.7*m_trisets[i]->dark();
+	    darken = 1.0-0.8*m_trisets[i]->dark();
 	  
 	  glUseProgram(ShaderFactory::oitShader());
 	  GLint *oitShaderParm = ShaderFactory::oitShaderParm();        
@@ -1950,9 +1950,9 @@ Trisets::renderOutline(GLint drawFboId,
 	  
 	  extras.z = m_trisets[i]->glow();
 	  
-	  float darken = 1;
+	  float darken = 0;
 	  if (glowOn && m_trisets[i]->glow() < 0.01)
-	    darken = 1.0-0.7*m_trisets[i]->dark();
+	    darken = m_trisets[i]->dark();
 	  
 	  glUseProgram(ShaderFactory::meshShader());
 	  GLint *meshShaderParm = ShaderFactory::meshShaderParm();        

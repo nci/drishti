@@ -105,6 +105,8 @@ class KeyFrameEditor : public QWidget
   QList<QRect> m_fRect;
   QList<QImage> m_fImage;
 
+  QPoint m_prevClickPos;
+  int m_prevFnoPos;
 
   int m_modifiers;
   QList<float> m_ratioBefore;

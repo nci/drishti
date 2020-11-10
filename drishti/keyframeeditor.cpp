@@ -338,6 +338,10 @@ KeyFrameEditor::clear()
 
   m_minFrame = 1;
   m_frameStep = 10;
+  m_tickStep = 50;
+
+  m_minus->setEnabled(true);
+  m_plus->setEnabled(true);
 
   calcMaxFrame();
 
@@ -529,9 +533,17 @@ KeyFrameEditor::drawTicks(QPainter *p)
       else
 	tk = tick-15;
 
-      p->drawText(tk, m_lineHeight-m_tickHeight-2,
-		 QString("%1").arg(frameNumber));
 
+      if (m_frameStep > 1 || t == 0 || (t+1)%5 == 0)
+	p->drawText(tk, m_lineHeight-m_tickHeight-2,
+		    QString("%1").arg(frameNumber));
+
+      if (m_frameStep == 1 && (t+1)%5 == 0)
+	{
+	  // draw bigger stick in intervals of 5
+	  p->drawLine(tick, m_lineHeight+m_tickHeight,
+		      tick, m_lineHeight+m_tickHeight*2);
+	}
 
       // draw inbetween smaller ticks
       if (m_frameStep > 1 && t > 0 && sticks > 0)
@@ -563,7 +575,7 @@ KeyFrameEditor::drawkeyframe(QPainter *p,
   p->drawLine(tick, m_lineHeight,
 	      tick, m_lineHeight+m_tickHeight+m_imgSpacer);
 
-  p->drawText(tick+2, rect.y()-2,
+  p->drawText(tick+2, rect.y()-7,
 	      QString("%1").arg(fno));
   
   QRect prect = rect.adjusted(2, 2, -2, -2);
@@ -1137,8 +1149,12 @@ KeyFrameEditor::mouseMoveEvent(QMouseEvent *event)
 	    m_fno[m_selected] = m_maxFrame;
 	  else
 	    {
-	      float frc = (float)(clickPos.x()-m_p0.x())/(float)(m_p1.x()-m_p0.x());
-	      m_fno[m_selected] = m_minFrame + frc * (m_maxFrame-m_minFrame);
+	      float moved = clickPos.x()-m_prevClickPos.x();
+	      if (m_frameStep < 10) moved *= 0.05;
+	      else if (m_frameStep < 100) moved *= 0.2;
+	      else if (m_frameStep < 200) moved *= 1;
+	      else moved *= (float)m_frameStep/200.0f;
+	      m_fno[m_selected] = m_prevFnoPos +  moved;
 	    }
 	  
 	  if (m_selectRegion.valid &&
@@ -1211,6 +1227,7 @@ void
 KeyFrameEditor::mousePressEvent(QMouseEvent *event)
 {
   QPoint clickPos = event->pos();
+  m_prevClickPos = clickPos;
 
   m_pressed = event->button();
   m_pressedMinFrame = m_minFrame;
@@ -1227,6 +1244,8 @@ KeyFrameEditor::mousePressEvent(QMouseEvent *event)
 	{
 	  m_selected = i;
 	  m_currFrame = m_fno[m_selected];
+
+	  m_prevFnoPos = m_currFrame;
 
 	  if (m_selectRegion.valid)
 	    preShift();

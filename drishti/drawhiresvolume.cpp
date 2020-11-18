@@ -2402,8 +2402,7 @@ DrawHiresVolume::setRenderDefault()
       glUniform1fARB(m_defaultParm[7], m_lightInfo.highlights.ambient);
       glUniform1fARB(m_defaultParm[8], m_lightInfo.highlights.diffuse);
       glUniform1fARB(m_defaultParm[9], m_lightInfo.highlights.specular);
-      glUniform1fARB(m_defaultParm[10], (int)pow((float)2, (float)(m_lightInfo.highlights.specularCoefficient)));
-      //glUniform1fARB(m_defaultParm[10], 1.0-0.1*m_lightInfo.highlights.specularCoefficient);
+      glUniform1fARB(m_defaultParm[10], (int)pow((float)2, (float)(4+m_lightInfo.highlights.specularCoefficient)));
 
       bool useAllTex = (m_drawImageType != Enums::DragImage ||
 			m_dataTexSize == 1);
@@ -3446,9 +3445,12 @@ DrawHiresVolume::screenShadow(int ScreenXMin, int ScreenXMax,
   glUseProgramObjectARB(m_blurShader);
   glUniform1iARB(m_blurParm[0], 3); // copy from shadowBuffer[0] to shadowbuffer[1]
   
-  int nblur = m_lightInfo.shadowBlur+1;
-  int nit = 2;
-  if (nblur > 4) nit = 3;
+  //int nblur = m_lightInfo.shadowBlur+1;
+  //int nit = 2;
+  //if (nblur > 4) nit = 3;
+
+  int nblur = m_lightInfo.shadowBlur;
+  int nit = 1 + nblur/2;
   nit *= m_imgSizeRatio;
   for(int i=0; i<nit; i++)
     {

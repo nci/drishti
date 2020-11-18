@@ -379,10 +379,10 @@
          <item row="7" column="1">
           <widget class="QSlider" name="shadowblur">
            <property name="minimum">
-            <number>1</number>
+            <number>0</number>
            </property>
            <property name="maximum">
-            <number>5</number>
+            <number>10</number>
            </property>
            <property name="pageStep">
             <number>1</number>

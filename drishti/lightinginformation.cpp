@@ -49,7 +49,7 @@ LightingInformation::LightingInformation()
   applyBackplane = false;
   colorAttenuation = Vec(1,1,1);
   userLightVector = Vec(0,0,1);
-  shadowBlur = 1.0f;
+  shadowBlur = 5.0f;
   shadowScale = 0.7f;
   shadowIntensity = 0.5f;
   shadowFovOffset = 0.0f;
@@ -74,7 +74,7 @@ LightingInformation::clear()
   applyBackplane = false;
   colorAttenuation = Vec(1,1,1);
   userLightVector = Vec(0,0,1);
-  shadowBlur = 1.9f;
+  shadowBlur = 5.0f;
   shadowScale = 0.7f;
   shadowIntensity = 0.5f;
   shadowFovOffset = 0.0f;

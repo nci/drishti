@@ -956,7 +956,7 @@ ShaderFactory::addLighting()
   shader += "  float DiffMag = abs(dot(normal, lightvec));\n";
   shader += "  vec3 Diff = (diffuse*DiffMag)*glFragColor.rgb;\n";
   shader += "  float Spec = pow(abs(dot(normal, reflecvec)), speccoeff);\n";
-  shader += "  Spec *= specular*glFragColor.a;\n";
+  shader += "  Spec *= step(speccoeff, pow(2.0,12.5))*specular*glFragColor.a;\n";
 
   shader += "  vec3 Amb = ambient*glFragColor.rgb;\n";
 
@@ -966,11 +966,19 @@ ShaderFactory::addLighting()
   shader += "  if (litfrac > 0.0)\n";
   shader += "   {\n";
   shader += "     vec3 frgb = glFragColor.rgb + litfrac*(Diff + Spec);\n";
+
+//  shader += "     vec3 frgb = glFragColor.rgb + litfrac*Diff;\n";  
+//  shader += "     float roughness = speccoeff;\n";
+//  shader += "     vec3 spec = shadingSpecularGGX(normal, -I, -lightvec, speccoeff*0.05, glFragColor.rgb);\n";
+//  shader += "     frgb += litfrac*roughness*specular*spec;\n";
+
+
   shader += "     if (any(greaterThan(frgb,vec3(1.0,1.0,1.0)))) \n";
   shader += "        frgb = vec3(1.0,1.0,1.0);\n";
   shader += "     if (any(greaterThan(frgb,glFragColor.aaa))) \n";  
   shader += "        frgb = glFragColor.aaa;\n";
   shader += "     glFragColor.rgb = frgb;\n";
+
   shader += "   }\n";
 
   shader += "  glFragColor.rgb *= lightcol;\n";
@@ -1178,6 +1186,7 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
   // get voxel value from array texture
   shader += getVal();
   shader += getNormal();
+  shader += ggxShader();
   //---------------------
 
 

@@ -2174,14 +2174,14 @@ ShaderFactory::meshShadowShaderF()
 
   shader += "    vec3 colorRV = rgb2hsv(color.rgb);\n";
   shader += "    vec2 cRV;\n";
-  shader += "    cRV = mix(min(vec2(1.0),colorRV.yz+vec2(softshadow*0.1)),";
-  shader += "              max(vec2(0.0),colorRV.yz-vec2(softshadow*0.07)), step(0.6, colorRV.yz));\n";  
+  shader += "    cRV = mix(min(vec2(1.0),colorRV.yz+vec2(softshadow*0.08)),";
+  shader += "              max(vec2(0.0),colorRV.yz-vec2(softshadow*0.05)), step(0.6, colorRV.yz));\n";  
 
   //---------------
   // saturated original color for use on ridge
   shader += "    vec3 colorR = colorRV;\n";
   shader += "    colorR.yz = mix(colorR.yz, cRV, vec2(step(0.05,colorR.y),step(colorR.y,0.1)));\n";
-  shader += "    colorR.z = mix(colorR.z, min(1.0,colorR.z+softshadow*0.1),";
+  shader += "    colorR.z = mix(colorR.z, min(1.0,colorR.z+softshadow*0.08),";
   shader += "                            step(0.1,colorR.y)*step(0.1,colorR.z));\n";
   shader += "    colorR = hsv2rgb(colorR);\n";
   //---------------
@@ -2190,8 +2190,10 @@ ShaderFactory::meshShadowShaderF()
   // desaturated original color for use in valley
   shader += "    vec3 colorV = colorRV;\n";
   shader += "    colorV.yz = mix(cRV, colorV.yz, vec2(step(colorV.y, 0.05),step(colorV.y,0.1)));\n";
-  shader += "    colorV.z = mix(min(1.0,colorV.z+softshadow*0.1), colorV.z,";
+  shader += "    colorV.z = mix(min(1.0,colorV.z+softshadow*0.08), colorV.z,";
   shader += "                            step(0.1,colorV.y)*step(0.1,colorV.z));\n";
+  // for white/gray colors saturation is very low, so change value
+  shader += "    colorV.z = mix(colorV.z, max(0.0, colorV.z-softshadow*0.05), step(colorRV.y, 0.01));\n";
   shader += "    colorV = hsv2rgb(colorV);\n";
   //---------------
 
@@ -2232,7 +2234,7 @@ ShaderFactory::meshShadowShaderF()
   shader += "    sumS /= float(nsteps);\n";
   shader += "    float shadow = smoothstep(0.1, 1.0, sumS);\n";
   shader += "    float shadows = exp(-shadow*gamma*0.75);\n";
-  shader += "    color.rgb *= pow(shadows,0.75/(3.0-0.25*softshadow));\n";
+  shader += "    color.rgb *= pow(shadows,0.75/(3.0-0.2*softshadow));\n";
   //----------------------
 
   shader += "  }\n";

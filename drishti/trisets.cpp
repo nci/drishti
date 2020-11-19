@@ -78,7 +78,9 @@ Trisets::setLightDirection(Vec ldir)
 void
 Trisets::setShapeEnhancements(float blur, float edges)
 {
-  m_blur = qMax(0, (int)(2*(blur-1)));
+  //m_blur = qMax(0, (int)(2*(blur-1)));
+  //m_blur = qMax(0, (int)(blur-1));
+  m_blur = blur;
   m_edges = edges;
 }
 

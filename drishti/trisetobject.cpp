@@ -7,6 +7,7 @@
 #include "matrix.h"
 #include "volumeinformation.h"
 #include "captiondialog.h"
+#include "mainwindowui.h"
 
 #include "assimp/Importer.hpp"
 #include "assimp/scene.h"
@@ -1508,8 +1509,15 @@ TrisetObject::save()
 bool
 TrisetObject::loadAssimpModel(QString flnm)
 {
+  MainWindowUI::mainWindowUI()->statusBar->showMessage(flnm);
+  Global::progressBar()->show();
+  qApp->processEvents();
+
   m_position = Vec(0,0,0);
   m_scale = Vec(1,1,1);
+
+  Global::progressBar()->setValue(10);
+  qApp->processEvents();
 
   Assimp::Importer importer;
   const aiScene* scene = importer.ReadFile( flnm.toLatin1().data(), 
@@ -1538,6 +1546,9 @@ TrisetObject::loadAssimpModel(QString flnm)
   int nvert = 0;
   for(int i=0; i<scene->mNumMeshes; i++)
     {
+      Global::progressBar()->setValue((int)(100.0*(float)(i)/(float)(scene->mNumMeshes)));
+      qApp->processEvents();
+  
       int vStart = m_vertices.count();
       int iStart = m_triangles.count();
       
@@ -1590,6 +1601,9 @@ TrisetObject::loadAssimpModel(QString flnm)
       bool texFound = false;
       for(int m=0; m<scene->mNumMaterials; m++)
 	{
+	  Global::progressBar()->setValue((int)(100.0*(float)(m)/(float)(scene->mNumMaterials)));
+	  qApp->processEvents();
+  
 	  aiMaterial *mat = scene->mMaterials[m];
 	  aiString path;
 	  QString diffuseTexFile;
@@ -1695,6 +1709,8 @@ TrisetObject::loadAssimpModel(QString flnm)
 //  }
 //  //--------------
 
+  Global::progressBar()->setValue(90);
+  qApp->processEvents();
   
 
   float minX, maxX;
@@ -1745,6 +1761,9 @@ TrisetObject::loadAssimpModel(QString flnm)
 //	m_samplePoints << m_vertices[i];
 //    }  
   //-----------------------------------
+
+  Global::progressBar()->setValue(95);
+  qApp->processEvents();
 
   
   Vec bmin = Vec(minX, minY, minZ);
@@ -1806,5 +1825,11 @@ TrisetObject::loadAssimpModel(QString flnm)
   m_co->setHaloColor(m_captionColor);
   //---------------
   
+  Global::progressBar()->setValue(100);
+  Global::progressBar()->hide();
+  qApp->processEvents();
+
+
+  MainWindowUI::mainWindowUI()->statusBar->showMessage("");
   return true;
 }

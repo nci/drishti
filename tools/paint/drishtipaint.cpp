@@ -361,11 +361,11 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
     glayout->addWidget(m_maxGrad);
     glayout->addWidget(m_gradType);
     connect(m_minGrad, SIGNAL(valueChanged(int)),
-	    this, SLOT(on_minGrad_valueChanged(int)));
+	    this, SLOT(minGrad_valueChanged(int)));
     connect(m_maxGrad, SIGNAL(valueChanged(int)),
-	    this, SLOT(on_maxGrad_valueChanged(int)));
+	    this, SLOT(maxGrad_valueChanged(int)));
     connect(m_gradType, SIGNAL(currentIndexChanged(int)),
-	    this, SLOT(on_gradType_Changed(int)));
+	    this, SLOT(gradType_Changed(int)));
     QFrame *gframe = new QFrame();
     gframe->setFrameShape(QFrame::Box);
     gframe->setLayout(glayout);
@@ -1116,7 +1116,7 @@ DrishtiPaint::tagSelected(int t)
 }
 
 void
-DrishtiPaint::on_gradType_Changed(int t)
+DrishtiPaint::gradType_Changed(int t)
 {
   m_viewer->setGradType(t);
   m_axialImage->setGradType(t);
@@ -1127,7 +1127,7 @@ DrishtiPaint::on_gradType_Changed(int t)
 }
 
 void
-DrishtiPaint::on_minGrad_valueChanged(int t)
+DrishtiPaint::minGrad_valueChanged(int t)
 {
   if (t > m_maxGrad->value())
     {
@@ -1141,7 +1141,7 @@ DrishtiPaint::on_minGrad_valueChanged(int t)
   m_viewer->update();
 }
 void
-DrishtiPaint::on_maxGrad_valueChanged(int t)
+DrishtiPaint::maxGrad_valueChanged(int t)
 {
   if (t < m_minGrad->value())
     {
@@ -1171,10 +1171,10 @@ DrishtiPaint::on_tag_valueChanged(int t)
 
   m_curvesWidget->processPrevSliceTags();
 }
-void DrishtiPaint::on_sliceLod_currentIndexChanged(int l) { m_curvesWidget->setSliceLOD(l+1); }
-void DrishtiPaint::on_boxSize_valueChanged(int d) { Global::setBoxSize(d); }
-void DrishtiPaint::on_lambda_valueChanged(int d) { Global::setLambda(d); }
-void DrishtiPaint::on_smooth_valueChanged(int d) { Global::setSmooth(d); }
+void DrishtiPaint::sliceLod_currentIndexChanged(int l) { m_curvesWidget->setSliceLOD(l+1); }
+void DrishtiPaint::boxSize_valueChanged(int d) { Global::setBoxSize(d); }
+void DrishtiPaint::lambda_valueChanged(int d) { Global::setLambda(d); }
+void DrishtiPaint::smooth_valueChanged(int d) { Global::setSmooth(d); }
 void DrishtiPaint::on_thickness_valueChanged(int d) { Global::setThickness(d); }
 void DrishtiPaint::on_radius_valueChanged(int d)
 {
@@ -1183,23 +1183,23 @@ void DrishtiPaint::on_radius_valueChanged(int d)
   m_sagitalImage->update();
   m_coronalImage->update();
 }
-void DrishtiPaint::on_pointsize_valueChanged(int d) { m_curvesWidget->setPointSize(d); }
-void DrishtiPaint::on_mincurvelen_valueChanged(int d) { m_curvesWidget->setMinCurveLength(d); }
-void DrishtiPaint::on_closed_clicked(bool c) { Global::setClosed(c); }
-void DrishtiPaint::on_lwsmooth_currentIndexChanged(int i){ m_curvesWidget->setSmoothType(i); }
-void DrishtiPaint::on_lwgrad_currentIndexChanged(int i){ m_curvesWidget->setGradType(i); }
-void DrishtiPaint::on_newcurve_clicked()
+void DrishtiPaint::pointsize_valueChanged(int d) { m_curvesWidget->setPointSize(d); }
+void DrishtiPaint::mincurvelen_valueChanged(int d) { m_curvesWidget->setMinCurveLength(d); }
+void DrishtiPaint::closed_clicked(bool c) { Global::setClosed(c); }
+void DrishtiPaint::lwsmooth_currentIndexChanged(int i){ m_curvesWidget->setSmoothType(i); }
+void DrishtiPaint::lwgrad_currentIndexChanged(int i){ m_curvesWidget->setGradType(i); }
+void DrishtiPaint::newcurve_clicked()
 {
-  on_livewire_clicked(false);
+  livewire_clicked(false);
   curvesUi.livewire->setChecked(false);
   m_curvesWidget->newCurve(true);
 }
-void DrishtiPaint::on_endcurve_clicked() { m_curvesWidget->endCurve(); }
+void DrishtiPaint::endcurve_clicked() { m_curvesWidget->endCurve(); }
 //void DrishtiPaint::on_newfiber_clicked() { m_curvesWidget->newFiber(); }
 //void DrishtiPaint::on_endfiber_clicked() { m_curvesWidget->endFiber(); }
-void DrishtiPaint::on_morphcurves_clicked() { m_curvesWidget->morphCurves(); }
-void DrishtiPaint::on_deselect_clicked() { m_curvesWidget->deselectAll(); }
-void DrishtiPaint::on_deleteallcurves_clicked() { m_curvesWidget->deleteAllCurves(); }
+void DrishtiPaint::morphcurves_clicked() { m_curvesWidget->morphCurves(); }
+void DrishtiPaint::deselect_clicked() { m_curvesWidget->deselectAll(); }
+void DrishtiPaint::deleteallcurves_clicked() { m_curvesWidget->deleteAllCurves(); }
 
 void DrishtiPaint::on_zoom0_clicked() { m_curvesWidget->zoom0(); }
 void DrishtiPaint::on_zoom9_clicked() { m_curvesWidget->zoom9(); }
@@ -1292,7 +1292,7 @@ DrishtiPaint::curvetag_editingFinished()
 //}
 
 void
-DrishtiPaint::on_livewire_clicked(bool c)
+DrishtiPaint::livewire_clicked(bool c)
 {
   if (!c)
     {
@@ -1307,13 +1307,13 @@ DrishtiPaint::on_livewire_clicked(bool c)
 }
 
 void
-DrishtiPaint::on_propagate_clicked(bool c)
+DrishtiPaint::propagate_clicked(bool c)
 {
   m_curvesWidget->propagateCurves(c);
 }
 
 void
-DrishtiPaint::on_modify_clicked(bool c)
+DrishtiPaint::modify_clicked(bool c)
 {
   if (c)
     {
@@ -1327,7 +1327,7 @@ DrishtiPaint::on_modify_clicked(bool c)
   update();
 }
 void
-DrishtiPaint::on_copyprev_clicked(bool c)
+DrishtiPaint::copyprev_clicked(bool c)
 {
   Global::setCopyPrev(c);
 
@@ -1336,7 +1336,7 @@ DrishtiPaint::on_copyprev_clicked(bool c)
   m_coronalImage->processPrevSliceTags();
 }
 void
-DrishtiPaint::on_preverode_valueChanged(int t)
+DrishtiPaint::preverode_valueChanged(int t)
 {
   Global::setPrevErode(t);
 
@@ -2648,7 +2648,7 @@ DrishtiPaint::applyMaskOperation(int tag,
 
 
 void
-DrishtiPaint::on_pointRender_clicked(bool flag)
+DrishtiPaint::pointRender_clicked(bool flag)
 {  
   viewerUi.raycastParam->setVisible(!flag);
 
@@ -2657,7 +2657,7 @@ DrishtiPaint::on_pointRender_clicked(bool flag)
 }
 
 void
-DrishtiPaint::on_raycastRender_clicked(bool flag)
+DrishtiPaint::raycastRender_clicked(bool flag)
 {
   viewerUi.pointParam->setVisible(!flag);
 
@@ -2666,7 +2666,7 @@ DrishtiPaint::on_raycastRender_clicked(bool flag)
 }
 
 void
-DrishtiPaint::on_stillStep_changed(double step)
+DrishtiPaint::stillStep_changed(double step)
 {
 //  float ds = m_viewer->dragStep();
 //
@@ -2680,7 +2680,7 @@ DrishtiPaint::on_stillStep_changed(double step)
 }
 
 void
-DrishtiPaint::on_dragStep_changed(double step)
+DrishtiPaint::dragStep_changed(double step)
 {
   float ss = m_viewer->stillStep();
 
@@ -2741,12 +2741,6 @@ DrishtiPaint::connectImageWidget()
   connect(m_coronalImage, SIGNAL(viewerUpdate()),
 	  m_viewer, SLOT(update()));
 
-  connect(m_axialImage, SIGNAL(saveMask()),
-	  m_volume, SLOT(saveIntermediateResults()));
-  connect(m_sagitalImage, SIGNAL(saveMask()),
-	  m_volume, SLOT(saveIntermediateResults()));
-  connect(m_coronalImage, SIGNAL(saveMask()),
-	  m_volume, SLOT(saveIntermediateResults()));
 
   connect(m_axialImage, SIGNAL(shrinkwrap(Vec, Vec, int, bool, int,
 					   bool, int, int, int, int)),
@@ -2830,24 +2824,9 @@ DrishtiPaint::connectViewerMenu()
 
   connect(ui.radius, SIGNAL(valueChanged(int)),
 	  viewerUi.radiusSurface, SLOT(setValue(int)));
-
-//  connect(viewerUi.pointRender, SIGNAL(clicked(bool)),
-//	  this, SLOT(on_pointRender_clicked(bool)));
-//  connect(viewerUi.raycastRender, SIGNAL(clicked(bool)),
-//	  this, SLOT(on_raycastRender_clicked(bool)));
   
   connect(viewerUi.update, SIGNAL(clicked()),
 	  m_viewer, SLOT(updateVoxels()));
-//  connect(viewerUi.interval, SIGNAL(sliderReleased()),
-//	  m_viewer, SLOT(updateVoxels()));
-//  connect(viewerUi.interval, SIGNAL(valueChanged(int)),
-//	  m_viewer, SLOT(setVoxelInterval(int)));
-//  connect(viewerUi.ptsize, SIGNAL(valueChanged(int)),
-//	  m_viewer, SLOT(setPointSize(int)));
-//  connect(viewerUi.ptscaling, SIGNAL(valueChanged(int)),
-//	  m_viewer, SLOT(setPointScaling(int)));
-//  connect(viewerUi.voxchoice, SIGNAL(currentIndexChanged(int)),
-//	  m_viewer, SLOT(setVoxelChoice(int)));
 
   connect(viewerUi.box, SIGNAL(clicked(bool)),
 	  m_viewer, SLOT(setShowBox(bool)));
@@ -2861,15 +2840,6 @@ DrishtiPaint::connectViewerMenu()
 
   connect(viewerUi.snapshot, SIGNAL(clicked()),
 	  m_viewer, SLOT(saveImage()));
-//  connect(viewerUi.curvetags, SIGNAL(editingFinished()),
-//	  this, SLOT(curvetag_editingFinished()));
-//  connect(viewerUi.fibertags, SIGNAL(editingFinished()),
-//	  this, SLOT(fibertag_editingFinished()));
-//
-//  connect(viewerUi.slicesBox, SIGNAL(clicked(bool)),
-//	  m_viewer, SLOT(setShowSlices(bool)));
-//  connect(viewerUi.updateSlices, SIGNAL(clicked()),
-//	  m_viewer, SLOT(updateSlices()));
 
   connect(viewerUi.skipLayers, SIGNAL(valueChanged(int)),
 	  m_viewer, SLOT(setSkipLayers(int)));
@@ -2879,21 +2849,14 @@ DrishtiPaint::connectViewerMenu()
 	  m_viewer, SLOT(setExactCoord(bool)));
 
   connect(viewerUi.stillStep, SIGNAL(valueChanged(double)),
-	  this, SLOT(on_stillStep_changed(double)));
-//  connect(viewerUi.dragStep, SIGNAL(valueChanged(double)),
-//	  this, SLOT(on_dragStep_changed(double)));
+	  this, SLOT(stillStep_changed(double)));
 
 
   connect(viewerUi.sketchPad, SIGNAL(clicked(bool)),
 	  m_viewer, SLOT(showSketchPad(bool)));
 
   viewerUi.useMask->hide();
-//  connect(viewerUi.useMask, SIGNAL(clicked(bool)),
-//	  m_viewer, SLOT(setUseMask(bool)));
 
-//  m_viewer->setPointScaling(viewerUi.ptscaling->value());
-//  m_viewer->setPointSize(viewerUi.ptsize->value());
-//  m_viewer->setVoxelInterval(viewerUi.interval->value());
 
   setupSlicesParameters();
   setupLightParameters();
@@ -3047,6 +3010,7 @@ DrishtiPaint::miscConnections()
   connect(m_tagColorEditor, SIGNAL(tagColorChanged()),
 	  m_coronalImage, SLOT(updateTagColors()));
 
+  
   connect(m_tagColorEditor, SIGNAL(tagSelected(int)),
 	  this, SLOT(tagSelected(int)));
 
@@ -3068,56 +3032,56 @@ void
 DrishtiPaint::connectCurvesMenu()
 {
   connect(curvesUi.livewire, SIGNAL(clicked(bool)),
-	  this, SLOT(on_livewire_clicked(bool)));
+	  this, SLOT(livewire_clicked(bool)));
 
   connect(curvesUi.sliceLod, SIGNAL(currentIndexChanged(int)),
-	  this, SLOT(on_sliceLod_currentIndexChanged(int)));
+	  this, SLOT(sliceLod_currentIndexChanged(int)));
   connect(curvesUi.lwsmooth, SIGNAL(currentIndexChanged(int)),
-	  this, SLOT(on_lwsmooth_currentIndexChanged(int)));
+	  this, SLOT(lwsmooth_currentIndexChanged(int)));
   connect(curvesUi.lwgrad, SIGNAL(currentIndexChanged(int)),
-	  this, SLOT(on_lwgrad_currentIndexChanged(int)));
+	  this, SLOT(lwgrad_currentIndexChanged(int)));
 
   connect(curvesUi.modify, SIGNAL(clicked(bool)),
-	  this, SLOT(on_modify_clicked(bool)));
+	  this, SLOT(modify_clicked(bool)));
   connect(curvesUi.propagate, SIGNAL(clicked(bool)),
-	  this, SLOT(on_propagate_clicked(bool)));
+	  this, SLOT(propagate_clicked(bool)));
 
   connect(curvesUi.closed, SIGNAL(clicked(bool)),
-	  this, SLOT(on_closed_clicked(bool)));
+	  this, SLOT(closed_clicked(bool)));
   connect(curvesUi.morphcurves, SIGNAL(clicked()),
-	  this, SLOT(on_morphcurves_clicked()));
+	  this, SLOT(morphcurves_clicked()));
 //  connect(curvesUi.deselect, SIGNAL(clicked()),
 //	  this, SLOT(on_deselect_clicked()));
 
 
   connect(curvesUi.mincurvelen, SIGNAL(valueChanged(int)),
-	  this, SLOT(on_mincurvelen_valueChanged(int)));
+	  this, SLOT(mincurvelen_valueChanged(int)));
   connect(curvesUi.pointsize, SIGNAL(valueChanged(int)),
-	  this, SLOT(on_pointsize_valueChanged(int)));
+	  this, SLOT(pointsize_valueChanged(int)));
 
   connect(curvesUi.newcurve, SIGNAL(clicked()),
-	  this, SLOT(on_newcurve_clicked()));
+	  this, SLOT(newcurve_clicked()));
   connect(curvesUi.endcurve, SIGNAL(clicked()),
-	  this, SLOT(on_endcurve_clicked()));
+	  this, SLOT(endcurve_clicked()));
 
   connect(curvesUi.deleteallcurves, SIGNAL(clicked()),
-	  this, SLOT(on_deleteallcurves_clicked()));
+	  this, SLOT(deleteallcurves_clicked()));
 }
 
 void
 DrishtiPaint::connectGraphCutMenu()
 {
   connect(graphcutUi.copyprev, SIGNAL(clicked(bool)),
-	  this, SLOT(on_copyprev_clicked(bool)));
+	  this, SLOT(copyprev_clicked(bool)));
 
   connect(graphcutUi.preverode, SIGNAL(valueChanged(int)),
-	  this, SLOT(on_preverode_valueChanged(int)));
+	  this, SLOT(preverode_valueChanged(int)));
   connect(graphcutUi.smooth, SIGNAL(valueChanged(int)),
-	  this, SLOT(on_smooth_valueChanged(int)));
+	  this, SLOT(smooth_valueChanged(int)));
   connect(graphcutUi.lambda, SIGNAL(valueChanged(int)),
-	  this, SLOT(on_lambda_valueChanged(int)));
+	  this, SLOT(lambda_valueChanged(int)));
   connect(graphcutUi.boxSize, SIGNAL(valueChanged(int)),
-	  this, SLOT(on_boxSize_valueChanged(int)));
+	  this, SLOT(boxSize_valueChanged(int)));
 }
 
 //void
@@ -6854,7 +6818,7 @@ DrishtiPaint::modifyOriginalVolume(Vec bmin, Vec bmax, int val)
 				m_volume->histogramImage2D());
   
   m_viewer->generateBoxMinMax();
-  on_raycastRender_clicked(true);
+  raycastRender_clicked(true);
 
   m_volume->saveModifiedOriginalVolume();
   

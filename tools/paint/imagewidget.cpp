@@ -1587,7 +1587,6 @@ ImageWidget::graphcutModeKeyPressEvent(QKeyEvent *event)
 	  m_key = 0;
 	  m_forward = true;
 	  QMessageBox::information(0, "", "Repeat process stopped");
-	  //emit saveMask();
 	  emit reconnectSlider();
 	  emit sliceChanged(m_currSlice);
 	  emit setSliceNumber(m_currSlice);

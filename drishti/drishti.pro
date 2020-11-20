@@ -74,12 +74,14 @@ DEFINES += NO_GLMEDIA
 
 INCLUDEPATH += 16bit
 
-LIBS += -lQGLViewer \
-        -lnetcdf_c++ \
-        -lnetcdf \
-        -lGLEW \
- 	-lglut \
-	-lGLU
+LIBS += -lGLU
+
+###LIBS += -lQGLViewer \
+###        -lnetcdf_c++ \
+###        -lnetcdf \
+###        -lGLEW \
+### 	-lglut \
+###	-lGLU
 }
 }
 

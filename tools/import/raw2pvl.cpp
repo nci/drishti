@@ -1,7 +1,6 @@
 #include "global.h"
 #include "staticfunctions.h"
 #include "raw2pvl.h"
-#include <netcdfcpp.h>
 #include <algorithm>
 #include <stdlib.h>
 #include <string.h>

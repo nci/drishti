@@ -111,7 +111,6 @@ class ImageWidget : public QWidget
   void yPos(int);
   void sliceChanged(int);
   void setSliceNumber(int);
-  //void updateBB(Vec, Vec);
 
   void disconnectSlider();
   void reconnectSlider();
@@ -139,7 +138,6 @@ class ImageWidget : public QWidget
   void updateViewerBox(int, int, int, int, int, int);
 
   void setPropagation(bool);
-  void saveMask();
 
   void shrinkwrap(Vec, Vec,
 		  int, bool, int,

@@ -112,7 +112,6 @@ class MainWindow : public QMainWindow
    void on_actionUse_dragvolumeforshadows_triggered();
    void on_actionUse_stillvolume_triggered();
    void on_actionVisibility_triggered();
-   void on_actionClipping_triggered();
    void on_actionAxes_triggered();
    void on_actionBoundingBox_triggered();
 

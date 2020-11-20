@@ -67,15 +67,15 @@ class DrishtiPaint : public QMainWindow
   void on_actionCurves_triggered();
   void on_actionGraphCut_triggered();
 //  void on_actionSuperpixels_triggered();
-  void on_sliceLod_currentIndexChanged(int);
+  void sliceLod_currentIndexChanged(int);
   void on_butZ_clicked();
   void on_butY_clicked();
   void on_butX_clicked();
   void on_help_clicked();
 
-  void on_minGrad_valueChanged(int);
-  void on_maxGrad_valueChanged(int);
-  void on_gradType_Changed(int);
+  void minGrad_valueChanged(int);
+  void maxGrad_valueChanged(int);
+  void gradType_Changed(int);
     
   void on_actionDefaultView_triggered();
   void on_actionZ_triggered();
@@ -88,28 +88,28 @@ class DrishtiPaint : public QMainWindow
 //  void fibertag_editingFinished();
   void on_saveFreq_valueChanged(int);
   void on_tag_valueChanged(int);
-  void on_boxSize_valueChanged(int);
-  void on_lambda_valueChanged(int);
-  void on_preverode_valueChanged(int);
-  void on_smooth_valueChanged(int);
-  void on_copyprev_clicked(bool);
+  void boxSize_valueChanged(int);
+  void lambda_valueChanged(int);
+  void preverode_valueChanged(int);
+  void smooth_valueChanged(int);
+  void copyprev_clicked(bool);
   void on_thickness_valueChanged(int);
   void on_radius_valueChanged(int);
-  void on_pointsize_valueChanged(int);
-  void on_mincurvelen_valueChanged(int);
-  void on_livewire_clicked(bool);
-  void on_modify_clicked(bool);
-  void on_closed_clicked(bool);
-  void on_lwsmooth_currentIndexChanged(int);
-  void on_lwgrad_currentIndexChanged(int);
-  void on_newcurve_clicked();
-  void on_endcurve_clicked();
+  void pointsize_valueChanged(int);
+  void mincurvelen_valueChanged(int);
+  void livewire_clicked(bool);
+  void modify_clicked(bool);
+  void closed_clicked(bool);
+  void lwsmooth_currentIndexChanged(int);
+  void lwgrad_currentIndexChanged(int);
+  void newcurve_clicked();
+  void endcurve_clicked();
 //  void on_newfiber_clicked();
 //  void on_endfiber_clicked();
-  void on_morphcurves_clicked();
-  void on_propagate_clicked(bool);
-  void on_deselect_clicked();
-  void on_deleteallcurves_clicked();
+  void morphcurves_clicked();
+  void propagate_clicked(bool);
+  void deselect_clicked();
+  void deleteallcurves_clicked();
   void on_zoom0_clicked();
   void on_zoom9_clicked();
   void on_zoomup_clicked();
@@ -148,11 +148,11 @@ class DrishtiPaint : public QMainWindow
 
   void updateSliceBounds(Vec, Vec);
 
-  void on_pointRender_clicked(bool);
-  void on_raycastRender_clicked(bool);
+  void pointRender_clicked(bool);
+  void raycastRender_clicked(bool);
 
-  void on_stillStep_changed(double);
-  void on_dragStep_changed(double);
+  void stillStep_changed(double);
+  void dragStep_changed(double);
 
   void getShadowColor();
   void getEdgeColor();

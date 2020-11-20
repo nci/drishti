@@ -25,7 +25,6 @@ class Slices : public QWidget
   void setVolPtr(uchar *);
   void setMaskPtr(uchar *);
 
-  void updateTagColors();
   void resetSliceType();
   void setBox(int, int, int, int, int, int);
   void getBox(int&, int&, int&, int&, int&, int&);
@@ -57,7 +56,6 @@ class Slices : public QWidget
   void sliceChanged(int);
   void xPos(int);
   void yPos(int);
-  void updateBB(Vec, Vec);
   void saveWork();
 
   void getRawValue(int, int, int);
@@ -81,6 +79,7 @@ class Slices : public QWidget
 		       int, int);
     
  public slots :
+   void updateTagColors();
    void setHLine(int);
    void setVLine(int);
    void setSlice(int);

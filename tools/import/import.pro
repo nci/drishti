@@ -1,6 +1,6 @@
 TEMPLATE = app
 
-DRISHTI_DEFINES = IMPORT NETCDF
+DRISHTI_DEFINES = IMPORT
 include(../../drishti.pri )
 
 RESOURCES = import.qrc
@@ -14,7 +14,7 @@ CONFIG += release
 TARGET = drishtiimport
 
 DESTDIR = ../../bin
-
+     
 
 FORMS += remapwidget.ui \
 	 savepvldialog.ui \

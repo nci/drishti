@@ -21,10 +21,15 @@ win32 {
 
 unix {
  !macx {
-  INCLUDEPATH += ../../
+  INCLUDEPATH += ../../ \
+                 /home/acl900/drishtilib/tiff-4.1.0/build/include
 
+  QMAKE_LIBDIR += /home/acl900/drishtilib/tiff-4.1.0/build/lib
   LIBS += -ltiff
   
+  QMAKE_LFLAGS += "-Wl,-rpath=\'\$${ORIGIN}/../ITK\'"
+  QMAKE_LFLAGS += "-Wl,-rpath=\'\$${ORIGIN}/../sharedlibs\'"
+
   SOURCES = tiffplugin.cpp
  }
 }

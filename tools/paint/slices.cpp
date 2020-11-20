@@ -101,9 +101,6 @@ Slices::createMenu(QHBoxLayout *hl,
   connect(m_imageWidget, SIGNAL(reconnectSlider()),
 	  this, SLOT(reconnectSlider()));
 
-  connect(m_imageWidget, SIGNAL(updateBB(Vec, Vec)),
-	  this, SIGNAL(updateBB(Vec, Vec)));
-
   connect(m_imageWidget, SIGNAL(saveWork()), this, SIGNAL(saveWork()));
 
   connect(m_imageWidget, SIGNAL(getRawValue(int, int, int)),
@@ -125,8 +122,6 @@ Slices::createMenu(QHBoxLayout *hl,
 	  this, SIGNAL(updateViewerBox(int, int, int, int, int, int)));
 
   connect(m_imageWidget, SIGNAL(viewerUpdate()), this, SIGNAL(viewerUpdate()));
-
-  connect(m_imageWidget, SIGNAL(saveMask()), this, SIGNAL(saveMask()));
 
   connect(m_imageWidget, SIGNAL(shrinkwrap(Vec, Vec, int, bool, int,
 					   bool, int, int, int, int)),

@@ -26,6 +26,23 @@ win32 {
  }
 }
 
+unix {
+  !macx {
+
+  DESTDIR = ../common
+
+  INCLUDEPATH += ../../
+
+  QMAKE_LIBDIR += /home/ajay/drishtilib/libQGLViewer-2.6.4/QGLViewer \
+                  /home/ajay/drishtilib/glew-2.1.0/lib \
+
+  LIBS += -lQGLViewer-qt5 \
+          -lGLEW \
+	  -lGLU
+
+  }
+}
+  
 macx {
   DESTDIR = ../common
 
@@ -54,17 +71,17 @@ HEADERS = ..\..\mainwindowui.h \
 	..\..\global.h
 	
 
-SOURCES = ..\..\mainwindowui.cpp \
-	..\..\cropobject.cpp \	 
-	..\..\pathobject.cpp \	 
-	..\..\dcolordialog.cpp \
-	..\..\dcolorwheel.cpp \
-	..\..\propertyeditor.cpp \
-	..\..\staticfunctions.cpp \
-	..\..\volumefilemanager.cpp \
-	..\..\volumeinformation.cpp \
-	..\..\gradienteditorwidget.cpp \
-	..\..\gradienteditor.cpp \
-	..\..\classes.cpp \
-	..\..\matrix.cpp \
-	..\..\global.cpp
+SOURCES = ../../mainwindowui.cpp \
+	../../cropobject.cpp \	 
+	../../pathobject.cpp \	 
+	../../dcolordialog.cpp \
+	../../dcolorwheel.cpp \
+	../../propertyeditor.cpp \
+	../../staticfunctions.cpp \
+	../../volumefilemanager.cpp \
+	../../volumeinformation.cpp \
+	../../gradienteditorwidget.cpp \
+	../../gradienteditor.cpp \
+	../../classes.cpp \
+	../../matrix.cpp \
+	../../global.cpp

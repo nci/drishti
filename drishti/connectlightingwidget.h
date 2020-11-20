@@ -38,22 +38,6 @@
 	  SIGNAL(shadowIntensity(float)),
 	  this, SLOT(shadowIntensity(float)));
 
-  connect(m_lightingWidget,
-	  SIGNAL(applyColoredShadow(bool)),
-	  this, SLOT(applyColoredShadow(bool)));
-  connect(m_lightingWidget,
-	  SIGNAL(shadowColorAttenuation(float, float, float)),
-	  this, SLOT(shadowColorAttenuation(float, float, float)));
-
-  connect(m_lightingWidget,
-	  SIGNAL(applyBackplane(bool)),
-	  this, SLOT(applyBackplane(bool)));
-  connect(m_lightingWidget,
-	  SIGNAL(backplaneShadowScale(float)),
-	  this, SLOT(backplaneShadowScale(float)));
-  connect(m_lightingWidget,
-	  SIGNAL(backplaneIntensity(float)),
-	  this, SLOT(backplaneIntensity(float)));
 
   connect(m_lightingWidget,
 	  SIGNAL(peel(bool)),

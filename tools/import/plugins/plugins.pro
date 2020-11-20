@@ -5,7 +5,6 @@ SUBDIRS = analyze \
 	  imagestack \
 	  dicom \
 	  metaimage \
-	  nc \
 	  raw \
 	  rawslabs \
 	  rawslices \
@@ -16,5 +15,6 @@ SUBDIRS = analyze \
 
 win32 {
     SUBDIRS += nifti \
+               nc \
                nrrd
 }

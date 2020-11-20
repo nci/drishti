@@ -17,17 +17,11 @@ TransferFunctionEditorWidget::TransferFunctionEditorWidget(QWidget *parent) :
 
   setChildrenCollapsible(false);
 
-  QObject::connect(m_splineEditorWidget, SIGNAL(giveHistogram(int)),
-		   this, SLOT(changeHistogram(int)));
-
   QObject::connect(m_gradientEditorWidget, SIGNAL(gradientChanged(QGradientStops)),
 		   m_splineEditorWidget, SLOT(setGradientStops(QGradientStops)));
 
   QObject::connect(m_splineEditorWidget, SIGNAL(selectEvent(QGradientStops)),
 		   m_gradientEditorWidget, SLOT(setColorGradient(QGradientStops)));
-
-  QObject::connect(m_splineEditorWidget, SIGNAL(deselectEvent()),
-		   m_gradientEditorWidget, SLOT(resetColorGradient()));
 
   QObject::connect(m_splineEditorWidget, SIGNAL(transferFunctionChanged(QImage)),
 		   this, SLOT(transferFunctionChanged(QImage)));

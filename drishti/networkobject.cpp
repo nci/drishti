@@ -2,8 +2,9 @@
 #include "staticfunctions.h"
 #include "networkobject.h"
 #include "matrix.h"
+#if defined(Q_OS_WIN32)
 #include <netcdfcpp.h>
-
+#endif
 
 void NetworkObject::setScale(float s) { m_scaleV = m_scaleE = s; }
 float NetworkObject::scaleV() { return m_scaleV; }
@@ -473,6 +474,7 @@ NetworkObject::loadTextNetwork(QString flnm)
 bool
 NetworkObject::loadNetCDF(QString flnm)
 {
+#if defined(Q_OS_WIN32)
   m_fileName = flnm;
 
   NcError err(NcError::verbose_nonfatal);
@@ -719,7 +721,7 @@ NetworkObject::loadNetCDF(QString flnm)
       m_Eminmax.append(qMakePair(emin, emax));
       m_userEminmax.append(qMakePair((emin+emax)/2, emax));
     }
-
+#endif
   return true;
 }
 

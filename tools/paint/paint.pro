@@ -47,6 +47,13 @@ FORMS += drishtipaint.ui viewermenu.ui \
 
 unix {
     DEFINES += NO_GLMEDIA
+
+    INCLUDEPATH += /home/acl900/drishtilib/c-blosc/blosc
+                        
+    QMAKE_LIBDIR += /home/acl900/drishtilib/c-blosc/build/blosc
+
+    LIBS += -lblosc
+
 }
 
 #----------------------------------------------------------------

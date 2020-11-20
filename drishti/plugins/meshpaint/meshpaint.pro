@@ -40,12 +40,14 @@ DESTDIR = ../../../bin/renderplugins
 
 INCLUDEPATH += ../../
 
-QMAKE_LIBDIR += ../common
 
+QMAKE_LIBDIR += ../common \
+                /home/ajay/drishtilib/libQGLViewer-2.6.4/QGLViewer \
+                /home/ajay/drishtilib/glew-2.1.0/lib
+                
 LIBS += -lcommon \
-	-lQGLViewer \
+	-lQGLViewer-qt5 \
         -lGLEW \
- 	-lglut \
 	-lGLU
 
   }

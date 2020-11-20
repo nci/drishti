@@ -72,23 +72,39 @@ macx {
 #----------------------------------------------------------------
 #Linux setup
 
-Facility_Name = MassiveAtMonashUniversity
+Facility_Name = Ubuntu 
 
-contains(Facility_Name, VirtualBox) {
+contains(Facility_Name, Ubuntu) {
   unix {
    !macx {
-    message(VirtualBox setup)
+    message($$Facility_Name setup)
+
+    QMAKE_LFLAGS += "-Wl,-rpath=\'\$${ORIGIN}/ITK\'"
+    QMAKE_LFLAGS += "-Wl,-rpath=\'\$${ORIGIN}/sharedlibs\'"
+
     contains(DRISHTI_DEFINES, RENDERER) {
-      QMAKE_LFLAGS += -Xlinker -rpath -Xlinker \'\$\$ORIGIN/sharedlibs\' 
-      QMAKE_LFLAGS += -Xlinker -rpath -Xlinker \'\$\$ORIGIN/ITK\' 
-  
-      QMAKE_LIBDIR += /usr/lib /usr/lib/x86_64-linux-gnu
+
+      INCLUDEPATH += /home/acl900/drishtilib/libQGLViewer-2.6.4 \
+                     /home/acl900/drishtilib/glew-2.1.0/include \
+                     /home/acl900/drishtilib/assimp-5.0.1/include \
+                     /home/acl900/drishtilib/assimp-5.0.1/build/include
+
+      QMAKE_CXXFLAGS += -fno-stack-protector
+
+      QMAKE_LIBDIR += /usr/lib \
+      		      /usr/lib/x86_64-linux-gnu \
+		      /home/acl900/drishtilib/libQGLViewer-2.6.4/QGLViewer \
+                      /home/acl900/drishtilib/glew-2.1.0/lib \
+                      /home/acl900/drishtilib/assimp-5.0.1/build/code
+
+      LIBS += -lQGLViewer-qt5 \
+      	      -lGLEW \
+	      -lassimp
     }
   
     contains(DRISHTI_DEFINES, IMPORT) {
-      QMAKE_LFLAGS += -Xlinker -rpath -Xlinker \'\$\$ORIGIN/sharedlibs\' 
-      QMAKE_LFLAGS += -Xlinker -rpath -Xlinker \'\$\$ORIGIN/ITK\' 
-  
+      QMAKE_CXXFLAGS += -fno-stack-protector
+
       QMAKE_LIBDIR += /usr/lib /usr/lib/x86_64-linux-gnu
     }
   
@@ -101,55 +117,11 @@ contains(Facility_Name, VirtualBox) {
     }
   
     contains(DRISHTI_DEFINES, ITK) {
-      ITKVer = 4.3
-      InsightToolkit = /home/acl900/InsightToolkit-$${ITKVer}.1
-      ITK = /home/acl900/ITK
-  
-      QMAKE_LIBDIR += /home/acl900/ITK/lib
-      
-      options = $$find(DRISHTI_DEFINES, "RENDERER")
-      count(options, 0) {
-         QMAKE_LIBDIR += /usr/lib /usr/lib/x86_64-linux-gnu
-       }
-     }
-    }
-  }
-}
+      ITKVer = 5.1
+      InsightToolkit = /home/acl900/drishtilib/InsightToolkit-$${ITKVer}.1
+      ITK = /home/acl900/drishtilib/ITK
 
-contains(Facility_Name, MassiveAtMonashUniversity) {
-  unix {
-   !macx {
-    message(MASSIVE facility at Monash University setup)
-    contains(DRISHTI_DEFINES, RENDERER) {
-     INCLUDEPATH += /usr/local/libqglviewer/2.4.0/include \
-                    /usr/local/glut/3.7/include \
-                    /usr/local/glew/1.10.0/include
-  
-      QMAKE_LIBDIR += /usr/lib /usr/lib/x86_64-linux-gnu /usr/local/libqglviewer/2.4.0/lib /usr/local/glut/3.7/lib /usr/local/glew/1.10.0/lib64 
-    }
-  
-    contains(DRISHTI_DEFINES, IMPORT) {
-      QMAKE_LIBDIR += /usr/lib /usr/lib/x86_64-linux-gnu
-    }
-  
-    contains(DRISHTI_DEFINES, NETCDF) {
-      INCLUDEPATH += /usr/local/netcdf/4.1.1-gcc/include
-      QMAKE_LIBDIR += /usr/local/netcdf/4.1.1-gcc/lib
-    }
-  
-    contains(DRISHTI_DEFINES, TIFF) {
-      QMAKE_LIBDIR += /usr/lib/x86_64-linux-gnu
-    }
-  
-    contains(DRISHTI_DEFINES, ITK) {
-      INCLUDEPATH += /usr/local/include \
-                     /usr/local/itk/4.4.0/include/ITK-4.4
-  
-      ITKVer = 4.4
-      InsightToolkit = /home/acl900/InsightToolkit-$${ITKVer}.1
-      ITK = /home/acl900/ITK
-  
-      QMAKE_LIBDIR += /usr/local/itk/4.4.0/lib
+      QMAKE_LIBDIR += /home/acl900/drishtilib/ITK/lib
       
       options = $$find(DRISHTI_DEFINES, "RENDERER")
       count(options, 0) {

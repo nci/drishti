@@ -2211,6 +2211,7 @@ ShaderFactory::meshShadowShaderF()
   // add ridge
   shader += "    float ridge = nRidge/float(nstepsS);\n";
   shader += "    ridge = 1.0-exp(-0.5*ridge/gamma);\n";
+  shader += "    ridge = sin(ridge*3.14159265/2.0);\n"; // easeOutSine
   shader += "    color.rgb = mix(color.rgb, colorR, ridge);\n";
   //---------------
   
@@ -2219,6 +2220,7 @@ ShaderFactory::meshShadowShaderF()
   // add valley
   shader += "    nValley /= float(nstepsS);\n";
   shader += "    float valley = exp(-70*nValley/gamma);\n";
+  shader += "    valley = 1.0 - cos(valley*3.14159265/2.0);\n"; // easeInSine
   shader += "    color.rgb = mix(color.rgb, colorV, 1.0-valley);\n";
   //---------------
 

@@ -1493,30 +1493,23 @@ Trisets::set(QList<TrisetInformation> tinfo)
 }
 
 void
-Trisets::makeReadyForPainting(QGLViewer *viewer)
+Trisets::makeReadyForPainting()
 {
-  // handle only first one
-  if (m_trisets.count() > 0)
-    m_trisets[0]->makeReadyForPainting(viewer);
+  for (int i=0; i<m_trisets.count(); i++)
+    m_trisets[i]->makeReadyForPainting();
 }
 
 void
-Trisets::releaseFromPainting()
+Trisets::paint(Vec hitPt, float rad, Vec color, int style)
 {
-  // handle only first one
-  if (m_trisets.count() > 0)
-    m_trisets[0]->releaseFromPainting();
-}
+//  if (m_active > -1)
+//    m_trisets[m_active]->paint(hitPt, rad, color);
 
-void
-Trisets::paint(QGLViewer *viewer,
-	       QBitArray doodleMask,
-	       float *doodleDepth,
-	       Vec tcolor, float tmix)
-{
-  // handle only first one
-  if (m_trisets.count() > 0)
-    m_trisets[0]->paint(viewer, doodleMask, doodleDepth, tcolor, tmix);
+  for (int i=0; i<m_trisets.count(); i++)
+    m_trisets[i]->paint(hitPt, rad, color, style);
+
+//  if (m_trisets[i]->paint(hitPt, rad, color))
+//      return;  // paint surface that we find first
 }
 
 void

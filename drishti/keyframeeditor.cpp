@@ -867,7 +867,7 @@ KeyFrameEditor::applyShift()
   for(int fi=m_selected; fi>0; fi--)
     {
       if (m_fno[fi] <= m_fno[fi-1])
-	m_fno[fi-1] = m_fno[fi] - 1;
+	m_fno[fi-1] = qMax(1, m_fno[fi] - 1);
     }
   m_fno[0] = qMax(1, m_fno[0]);
 
@@ -878,7 +878,7 @@ KeyFrameEditor::applyShift()
   for(int fi=endKF; fi>m_selected; fi--)
     {
       if (m_fno[fi] <= m_fno[fi-1])
-	m_fno[fi-1] = m_fno[fi]-1;
+	m_fno[fi-1] = qMax(1, m_fno[fi]-1);
     }
   for(int fi=1; fi<m_fno.count(); fi++)
     {
@@ -931,7 +931,7 @@ KeyFrameEditor::applyMove(int pfrm, int nfrm)
     }
 
   for(int fi=startKF; fi<=endKF; fi++)
-    m_fno[fi] += diff;
+    m_fno[fi] = qMax(1, m_fno[fi]+diff);
   
   emit setKeyFrameNumbers(m_fno);
 }
@@ -1172,7 +1172,7 @@ KeyFrameEditor::mouseMoveEvent(QMouseEvent *event)
 		  if (pfrm < m_selectRegion.frame0 &&
 		      m_fno[m_selected] >= m_selectRegion.frame0)
 		    {
-		      m_fno[m_selected] = m_selectRegion.frame0 - 1;
+		      m_fno[m_selected] = qMax(1, m_selectRegion.frame0 - 1);
 		      emit showMessage("Cannot move keyframe into select region. Deselect region to move keyframe into that space. Right click to deselect region", true);
 		    }
 		  else if (pfrm > m_selectRegion.frame1 &&

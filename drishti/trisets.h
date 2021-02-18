@@ -61,9 +61,8 @@ class Trisets : public QObject
   QList<TrisetInformation> get();
   void set(QList<TrisetInformation>);
 
-  void makeReadyForPainting(QGLViewer*);
-  void releaseFromPainting();
-  void paint(QGLViewer*, QBitArray, float*, Vec, float);
+  void makeReadyForPainting();
+  void paint(Vec, float, Vec, int);
 
   void resize(int, int);
 

@@ -99,10 +99,9 @@ class TrisetObject
   void postdraw(QGLViewer*,
 		int, int, bool, int);
 
-  void makeReadyForPainting(QGLViewer*);
-  void releaseFromPainting();
-  void paint(QGLViewer*, QBitArray, float*, Vec, float);
-
+  void makeReadyForPainting();
+  bool paint(Vec, float, Vec, int);
+  
   void mirror(int);
   
   float m_activeScale;
@@ -137,6 +136,7 @@ private :
   QVector<Vec> m_normals;
   QVector<uint> m_triangles;
   QVector<Vec> m_vcolor;
+  QVector<float> m_OrigVcolor;
   QVector<Vec> m_uv;
 
   QVector<Vec> m_drawcolor;
@@ -151,9 +151,6 @@ private :
   
   QList<char*> plyStrings;
 
-  uint *m_scrV;
-  float *m_scrD;
-
   QString m_captionText;
   Vec m_captionPosition;
   int m_cpDx, m_cpDy;
@@ -164,6 +161,7 @@ private :
   GLuint m_glVertBuffer;
   GLuint m_glIndexBuffer;
   GLuint m_glVertArray;
+  GLuint m_origColorBuffer;
   
   float m_featherSize;
   
@@ -178,6 +176,8 @@ private :
   void drawCaption(QGLViewer*);
 
   void genLocalXform();
+
+  void copy2OrigVcolor();
 };
 
 #endif

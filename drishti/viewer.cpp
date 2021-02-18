@@ -100,7 +100,17 @@ Viewer::closeEvent(QCloseEvent *event)
 unsigned char* Viewer::lookupTable() { return m_lut; }
 
 void Viewer::setTag(int t) { PruneHandler::setTag(t); updateGL(); }
-void Viewer::setCarveRadius(int r) { PruneHandler::setCarveRad(r); updateGL(); }
+void Viewer::setCarveRadius(int r)
+{
+  if (m_paintMode)
+    {
+      setPaintRadius(r);
+      return;
+    }
+  
+  PruneHandler::setCarveRad(r);
+  updateGL();
+}
 
 void Viewer::setVolume(Volume *vol) { m_Volume = vol; m_rcViewer.setVolume(vol); }
 void Viewer::setHiresVolume(DrawHiresVolume *vol) { m_hiresVolume = vol; }
@@ -571,6 +581,8 @@ Viewer::Viewer(QWidget *parent) :
 
   setMouseTracking(true);
 
+  m_Volume = 0;
+  
   m_rcMode = false;
 
   m_currFrame = 1;
@@ -646,6 +658,11 @@ Viewer::Viewer(QWidget *parent) :
   setSnapshotQuality(100); // save uncompressed files
 
   initSocket();
+
+  m_paintMode = false;
+  m_paintRad = 2;
+  m_paintColor = Vec(1,0.8,0.5);
+  m_paintStyle = 0;
 
   m_tagSpinBox = new QSpinBox(this);
   m_tagSpinBox->setRange(0, 200);
@@ -810,6 +827,19 @@ Viewer::checkPointSelected(const QMouseEvent *event)
 
   if (found)
     {
+      if (m_paintMode)
+	{
+	    if (event->buttons() == Qt::LeftButton) // change rotation pivot
+	      GeometryObjects::trisets()->paint(target, m_paintRad*m_unitPaintRad,
+						m_paintColor, m_paintStyle);
+	    else
+	      GeometryObjects::trisets()->paint(target, m_paintRad*m_unitPaintRad,
+						Vec(100,100,100), m_paintStyle);
+	    
+	    return;
+	}
+
+
       if (!PruneHandler::carve() && !PruneHandler::paint())
 	{
 	  if (event->buttons() == Qt::RightButton) // change rotation pivot
@@ -829,7 +859,7 @@ Viewer::checkPointSelected(const QMouseEvent *event)
     }
   else
     {
-      if (event->buttons() == Qt::RightButton) // reset rotation pivot
+      if (!m_paintMode && event->buttons() == Qt::RightButton) // reset rotation pivot
 	{
 	  camera()->setRevolveAroundPoint(sceneCenter());
 	  QMessageBox::information(0, "", "Rotation pivot reset to scene center");
@@ -3368,6 +3398,18 @@ Viewer::mouseMoveEvent(QMouseEvent *event)
       return;
     }
   
+  if (m_paintMode)
+    {
+      if (event->modifiers() & Qt::ShiftModifier &&
+	  (event->buttons() == Qt::LeftButton ||
+	   event->buttons() == Qt::RightButton))
+	{
+	  checkPointSelected(event);
+	  update();
+	  return;
+	}
+    }
+
   if (m_mouseDrag && GeometryObjects::imageCaptions()->isActive())
     GeometryObjects::imageCaptions()->setActive(false);
 
@@ -3705,7 +3747,8 @@ Viewer::keyPressEvent(QKeyEvent *event)
       return;
     }
 
-  if (event->key() == Qt::Key_R)
+  if (Global::volumeType() != Global::DummyVolume &&
+      event->key() == Qt::Key_R)
     {
       if (PruneHandler::paint() || PruneHandler::carve())
 	{
@@ -3937,6 +3980,46 @@ Viewer::keyPressEvent(QKeyEvent *event)
 	  return;
 	}
 
+      if (event->key() == Qt::Key_P)
+	{
+	  if (GeometryObjects::trisets()->count() > 0)
+	    {
+	      setPaintMode(!m_paintMode);
+	    }
+	  return;
+	}
+      if (m_paintMode)
+	{
+	  if (event->key() == Qt::Key_R)
+	    {
+	      if (m_radSpinBox->isVisible())
+		m_radSpinBox->hide();
+	      else
+		{ 
+		  QPoint cur = QCursor::pos();
+		  m_radSpinBox->setValue(m_paintRad);
+		  m_radSpinBox->setGeometry(cur.x(), cur.y(),
+					    m_radSpinBox->width(),
+					    m_radSpinBox->height());
+		  m_radSpinBox->show();
+		}
+	      return;
+	    }
+	  if (event->key() == Qt::Key_K)
+	    {
+	      QColor qcol = QColor(m_paintColor.x*255, m_paintColor.y*255, m_paintColor.z*255);
+	      QColor color = DColorDialog::getColor(qcol);
+	      if (color.isValid())
+		{
+		  m_paintColor = Vec(color.redF(),
+				     color.greenF(),
+				     color.blueF());
+		}
+
+	      return;
+	    }
+	}
+      
       if (event->key() == Qt::Key_T)
 	{
 	  if (PruneHandler::paint())
@@ -6177,6 +6260,43 @@ Viewer::setVolDataPtr(VolumeFileManager *ptr)
     }  
 }
 
+//-----------------------------------
+void
+Viewer::setPaintMode(bool b)
+{  
+  m_paintMode = b;
+
+  if (m_paintMode)
+    QMessageBox::information(0, "", "Entering Surface Mesh Paint Mode ");
+  else
+    QMessageBox::information(0, "", "Paint Surface Mesh Mode Ended");
+  
+  if (m_paintMode)
+    {	  
+      Vec bmin, bmax;
+      //GeometryObjects::trisets()->makeReadyForPainting();
+      GeometryObjects::trisets()->allEnclosingBox(bmin, bmax);
+      Vec extend = bmax-bmin;
+      int me = 0;
+      if (extend[1] > extend[me]) me = 1;
+      if (extend[2] > extend[me]) me = 2;
+      m_unitPaintRad = extend[me];
+      m_unitPaintRad *= 0.01;
+    }
+}
+
+void
+Viewer::setPaintColor(Vec c)
+{
+  m_paintColor = c;
+}
+
+void
+Viewer::setPaintRadius(float rad)
+{
+  m_paintRad = rad;
+}
+//-----------------------------------
 
 //----------------------------------
 // these are the functions called via menubar

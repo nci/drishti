@@ -3126,3 +3126,44 @@ ShaderFactory::loadShadersFromFile(GLuint &progObj,
 //-----------------
 
 
+
+
+//---------------
+GLuint ShaderFactory::m_paintShader = 0;
+GLuint ShaderFactory::paintShader()
+{
+  if (!m_paintShader)
+    createPaintShader();
+  
+  return m_paintShader;
+}
+
+GLint ShaderFactory::m_paintShaderParm[10];
+GLint* ShaderFactory::paintShaderParm() { return &m_paintShaderParm[0]; }
+
+void
+ShaderFactory::createPaintShader()
+{
+  m_paintShader = glCreateProgram();
+
+
+  QFile pfile("assets/shaders/paintShader.glsl");
+  if (!pfile.open(QIODevice::ReadOnly | QIODevice::Text))
+    return;
+  QString computeShaderString = QString::fromLatin1(pfile.readAll());
+
+  if (!addShader(m_paintShader,
+		 GL_COMPUTE_SHADER,
+		 computeShaderString))
+    return;
+
+  
+  if (! finalize(m_paintShader) )
+    return;
+  
+  m_paintShaderParm[0] = glGetUniformLocation(m_paintShader, "hitPt");
+  m_paintShaderParm[1] = glGetUniformLocation(m_paintShader, "radius");
+  m_paintShaderParm[2] = glGetUniformLocation(m_paintShader, "hitColor");
+  m_paintShaderParm[3] = glGetUniformLocation(m_paintShader, "blendType");
+}
+//---------------

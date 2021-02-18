@@ -87,6 +87,15 @@ class Viewer : public QGLViewer
 
   QMap<QString, QMap<QString, MenuViewerFncPtr> > registerMenuFunctions();
 
+  void setPaintMode(bool);
+  bool paintMode() { return m_paintMode; }
+  void setPaintRadius(float);
+  float paintRadius() { return m_paintRad; }
+  void setPaintColor(Vec);
+  Vec paintColor() { return m_paintColor; }
+  void setPaintStyle(int p) { m_paintStyle = p; }
+  int paintStyle() { return m_paintStyle; }
+			 
  public slots :
    void dockAdded(QDockWidget*);
    void setTag(int);
@@ -292,6 +301,12 @@ class Viewer : public QGLViewer
 
   RcViewer m_rcViewer;  
   bool m_rcMode;
+
+  bool m_paintMode;
+  Vec m_paintColor;
+  float m_paintRad;
+  int m_paintStyle;
+  float m_unitPaintRad;
 
 
   void initSocket();

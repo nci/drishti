@@ -667,7 +667,12 @@ KeyFrameInformation::load(fstream &fin)
 	  delete [] str;
 	}
       else if (strcmp(keyword, "framenumber") == 0)
-	fin.read((char*)&m_frameNumber, sizeof(int));
+	{
+	  fin.read((char*)&m_frameNumber, sizeof(int));
+	  // frame numbers should be either -1 or greater than 0
+	  if (m_frameNumber == 0 || m_frameNumber < -1)
+	    m_frameNumber = 1;
+	}
       else if (strcmp(keyword, "morphtf") == 0)
 	fin.read((char*)&m_morphTF, sizeof(bool));
       else if (strcmp(keyword, "focusdistance") == 0)

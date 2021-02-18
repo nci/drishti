@@ -56,9 +56,6 @@ TrisetObject::TrisetObject()
       plyStrings << s;
     }
 
-  m_scrV = 0;
-  m_scrD = 0;
-
   m_glVertBuffer = 0;
   m_glIndexBuffer = 0;
   m_glVertArray = 0;
@@ -146,11 +143,6 @@ TrisetObject::clear()
   m_triangles.clear();
   m_samplePoints.clear();
   
-  if (m_scrV) delete [] m_scrV;
-  if (m_scrD) delete [] m_scrD;
-  m_scrV = 0;
-  m_scrD = 0;
-
   if(m_glVertArray)
     {
       glDeleteBuffers(1, &m_glIndexBuffer);
@@ -191,6 +183,9 @@ TrisetObject::setColor(Vec color)
   for(int i=0; i<m_vcolor.count(); i++)
     m_vcolor[i] = m_color;
   
+
+  copy2OrigVcolor();
+
   loadVertexBufferData();
 }
 
@@ -222,6 +217,7 @@ TrisetObject::load(QString flnm)
   
   if (loaded)
     {
+      copy2OrigVcolor();
       loadVertexBufferData();
       return true;
     }
@@ -804,84 +800,67 @@ TrisetObject::predraw(QGLViewer *viewer,
   
 }
 
+
 void
-TrisetObject::makeReadyForPainting(QGLViewer *viewer)
-{
-//  if (m_scrV) delete [] m_scrV;
-//  if (m_scrD) delete [] m_scrD;
-//
-//  int swd = viewer->camera()->screenWidth();
-//  int sht = viewer->camera()->screenHeight();
-//  m_scrV = new uint[swd*sht];
-//  m_scrD = new float[swd*sht];
-//
-//  for(int i=0; i<swd*sht; i++)
-//    m_scrD[i] = -1;
-//  for(int i=0; i<swd*sht; i++)
-//    m_scrV[i] = 1000000000; // a very large number - we will not have billion vertices
-//
-//  for(int i=0; i<m_tvertices.count(); i++)
-//    {
-//      Vec scr = viewer->camera()->projectedCoordinatesOf(m_tvertices[i]);
-//      int tx = scr.x;
-//      int ty = sht-scr.y;
-//      if (tx>0 && tx<swd && ty>0 && ty<sht)
-//	{
-//	  if (scr.z > 0.0 && scr.z > m_scrD[tx*sht+ty])
-//	    {
-//	      m_scrV[tx*sht + ty] = i;
-//	      m_scrD[tx*sht + ty] = scr.z;
-//	    }
-//	}
-//    }
-//
-//  if (m_vcolor.count() == 0)
-//    { // create per vertex color and fill with white
-//      m_vcolor.resize(m_vertices.count());
-//      m_vcolor.fill(Vec(1,1,1));
-//    }
-//
-//  bool black = (m_color.x<0.1 && m_color.y<0.1 && m_color.z<0.1);
-//  if (!black) // make it black so that actual vertex colors are displayed
-//    m_color = Vec(0,0,0);
+TrisetObject::copy2OrigVcolor()
+{  
+  m_OrigVcolor.clear();
+  m_OrigVcolor.resize(m_vcolor.count()*3);
+  for(int i=0; i<m_vcolor.count(); i++)
+    {
+      m_OrigVcolor[3*i+0] = m_vcolor[i].x;
+      m_OrigVcolor[3*i+1] = m_vcolor[i].y;
+      m_OrigVcolor[3*i+2] = m_vcolor[i].z;
+    }
 }
 
 void
-TrisetObject::releaseFromPainting()
+TrisetObject::makeReadyForPainting()
 {
-//  if (m_scrV) delete [] m_scrV;
-//  if (m_scrD) delete [] m_scrD;
-//  m_scrV = 0;
-//  m_scrD = 0;
+//  if (!m_origColorBuffer)
+//    glGenBuffers(1, &m_origColorBuffer);
+//
+//  glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_origColorBuffer);
+//  glBufferData(GL_SHADER_STORAGE_BUFFER,
+//	       m_OrigVcolor.count()*sizeof(float),
+//	       m_OrigVcolor.data(),
+//	       GL_STATIC_DRAW);
+//  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_origColorBuffer);
 }
 
-void
-TrisetObject::paint(QGLViewer *viewer,
-		    QBitArray doodleMask,
-		    float *depthMap,
-		    Vec tcolor, float tmix)
+bool
+TrisetObject::paint(Vec hitPt, float rad, Vec color, int blendType)
 {
-//  int swd = viewer->camera()->screenWidth();
-//  int sht = viewer->camera()->screenHeight();
-//
-//  for(int i=0; i<m_tvertices.count(); i++)
-//    {
-//      Vec scr = viewer->camera()->projectedCoordinatesOf(m_tvertices[i]);
-//      int tx = scr.x;
-//      int ty = sht-scr.y;
-//      float td = scr.z;
-//      if (tx>0 && tx<swd && ty>0 && ty<sht)
-//	{
-//	  int idx = ty*swd + tx;
-//	  if (doodleMask.testBit(idx))
-//	    {
-//	      float zd = depthMap[idx];
-//	      if (fabs(zd-td) < 0.0002)
-//		m_vcolor[i] = tmix*tcolor + (1.0-tmix)*m_vcolor[i];
-//	    }
-//	}
-//    }
+  if (!m_show)
+    return false;
+
+  Vec bmin = m_enclosingBox[0];
+  Vec bmax = m_enclosingBox[6];
+
+  if (hitPt.x <= bmin.x || hitPt.y <= bmin.y || hitPt.z <= bmin.z ||
+      hitPt.x >= bmax.x || hitPt.y >= bmax.y || hitPt.z >= bmax.z)
+    return false;
+
+
+  GLuint paintShader = ShaderFactory::paintShader();
+  GLint* paintShaderParm = ShaderFactory::paintShaderParm();
+
+  glUseProgram(paintShader);
+
+  glUniform3f(paintShaderParm[0], hitPt.x, hitPt.y, hitPt.z);
+  glUniform1f(paintShaderParm[1], rad);
+  glUniform3f(paintShaderParm[2], color.x, color.y, color.z);
+  glUniform1i(paintShaderParm[3], blendType);
+
+  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_glVertBuffer);
+  
+  glDispatchCompute(m_vcolor.count()/128, 1, 1);
+    
+  glUseProgram(0);
+  
+  return true;
 }
+
 
 bool
 TrisetObject::loadPLY(QString flnm)

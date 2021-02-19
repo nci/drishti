@@ -1500,16 +1500,23 @@ Trisets::makeReadyForPainting()
 }
 
 void
-Trisets::paint(Vec hitPt, float rad, Vec color, int style)
+Trisets::paint(Vec hitPt, float rad, Vec color, int blendType, float blendFraction)
 {
-//  if (m_active > -1)
-//    m_trisets[m_active]->paint(hitPt, rad, color);
+  GLuint paintShader = ShaderFactory::paintShader();
+  GLint* paintShaderParm = ShaderFactory::paintShaderParm();
+
+  glUseProgram(paintShader);
+
+  glUniform3f(paintShaderParm[0], hitPt.x, hitPt.y, hitPt.z);
+  glUniform1f(paintShaderParm[1], rad);
+  glUniform3f(paintShaderParm[2], color.x, color.y, color.z);
+  glUniform1i(paintShaderParm[3], blendType);
+  glUniform1f(paintShaderParm[4], blendFraction);
 
   for (int i=0; i<m_trisets.count(); i++)
-    m_trisets[i]->paint(hitPt, rad, color, style);
-
-//  if (m_trisets[i]->paint(hitPt, rad, color))
-//      return;  // paint surface that we find first
+    m_trisets[i]->paint(hitPt);
+    
+  glUseProgram(0);
 }
 
 void

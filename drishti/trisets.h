@@ -62,7 +62,7 @@ class Trisets : public QObject
   void set(QList<TrisetInformation>);
 
   void makeReadyForPainting();
-  void paint(Vec, float, Vec, int);
+  void paint(Vec, float, Vec, int, float);
 
   void resize(int, int);
 

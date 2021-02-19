@@ -817,19 +817,19 @@ TrisetObject::copy2OrigVcolor()
 void
 TrisetObject::makeReadyForPainting()
 {
-//  if (!m_origColorBuffer)
-//    glGenBuffers(1, &m_origColorBuffer);
-//
-//  glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_origColorBuffer);
-//  glBufferData(GL_SHADER_STORAGE_BUFFER,
-//	       m_OrigVcolor.count()*sizeof(float),
-//	       m_OrigVcolor.data(),
-//	       GL_STATIC_DRAW);
-//  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_origColorBuffer);
+  if (!m_origColorBuffer)
+    glGenBuffers(1, &m_origColorBuffer);
+
+  glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_origColorBuffer);
+  glBufferData(GL_SHADER_STORAGE_BUFFER,
+	       m_OrigVcolor.count()*sizeof(float),
+	       m_OrigVcolor.data(),
+	       GL_STATIC_DRAW);
+  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_origColorBuffer);
 }
 
 bool
-TrisetObject::paint(Vec hitPt, float rad, Vec color, int blendType)
+TrisetObject::paint(Vec hitPt)
 {
   if (!m_show)
     return false;
@@ -842,21 +842,12 @@ TrisetObject::paint(Vec hitPt, float rad, Vec color, int blendType)
     return false;
 
 
-  GLuint paintShader = ShaderFactory::paintShader();
-  GLint* paintShaderParm = ShaderFactory::paintShaderParm();
-
-  glUseProgram(paintShader);
-
-  glUniform3f(paintShaderParm[0], hitPt.x, hitPt.y, hitPt.z);
-  glUniform1f(paintShaderParm[1], rad);
-  glUniform3f(paintShaderParm[2], color.x, color.y, color.z);
-  glUniform1i(paintShaderParm[3], blendType);
 
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_glVertBuffer);
-  
+  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_origColorBuffer);
+
   glDispatchCompute(m_vcolor.count()/128, 1, 1);
     
-  glUseProgram(0);
   
   return true;
 }
@@ -1360,6 +1351,24 @@ TrisetObject::set(TrisetInformation ti)
 void
 TrisetObject::save()
 {
+  // if the mesh has been painted
+  // get colors back from gpu
+  if (m_origColorBuffer)
+    {
+      int nvert = m_vertices.count();
+      int nv = 9*nvert;
+      glBindBuffer(GL_ARRAY_BUFFER, m_glVertBuffer);
+      float *ptr = (float*)(glMapBuffer(GL_ARRAY_BUFFER, GL_READ_ONLY));
+
+      for(int i=0; i<nvert; i++)
+	{
+	  m_vcolor[i] = Vec(ptr[9*i+6],ptr[9*i+7],ptr[9*i+8]);
+	  
+	}
+      glUnmapBuffer(GL_ARRAY_BUFFER);
+    }
+  
+
   bool has_normals = (m_normals.count() > 0);
   bool per_vertex_color = (m_vcolor.count() > 0);
 

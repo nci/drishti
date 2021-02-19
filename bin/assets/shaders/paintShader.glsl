@@ -4,6 +4,7 @@ layout (location = 1) uniform vec3 hitPt;
 layout (location = 2) uniform float radius;
 layout (location = 3) uniform vec3 hitColor;
 layout (location = 4) uniform int blendType;
+layout (location = 5) uniform float blendFraction;
 
   
 layout (binding = 0) buffer vdata
@@ -33,18 +34,12 @@ void main()
       if (hitColor.x < 1.1)
 	{
 	  if (blendType == 0)
-	    {
+	    { // fade in new color
 	      float decay = 1.0 - smoothstep(0, 1, dst);
-	      decay *= 0.05;
+	      decay *= blendFraction;
 	      v[coloridx+0] = mix(v[coloridx+0], hitColor.x, decay);
 	      v[coloridx+1] = mix(v[coloridx+1], hitColor.y, decay);
 	      v[coloridx+2] = mix(v[coloridx+2], hitColor.z, decay);
-	    }
-	  else
-	    {
-	      v[coloridx+0] = hitColor.x;
-	      v[coloridx+1] = hitColor.y;
-	      v[coloridx+2] = hitColor.z;
 	    }
 	  // darken
 	  // float decay = smoothstep(0, 1, dst);
@@ -53,11 +48,16 @@ void main()
 	  // v[coloridx+1] *= decay;
 	  // v[coloridx+2] *= decay;
 	}
-      else
+      else // restore original color
 	{
-	  v[coloridx+0] = origColor[3*index+0];
-	  v[coloridx+1] = origColor[3*index+1];
-	  v[coloridx+2] = origColor[3*index+2];
+	  if (blendType == 0)
+	    { // fade in original color
+	      float decay = 1.0 - smoothstep(0, 1, dst);
+	      decay *= blendFraction;
+	      v[coloridx+0] = mix(v[coloridx+0], origColor[3*index+0], decay);
+	      v[coloridx+1] = mix(v[coloridx+1], origColor[3*index+1], decay);
+	      v[coloridx+2] = mix(v[coloridx+2], origColor[3*index+2], decay);
+	    }
 	}
     }
 }

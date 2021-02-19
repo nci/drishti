@@ -2175,27 +2175,27 @@ ShaderFactory::meshShadowShaderF()
   shader += "    vec3 colorRV = rgb2hsv(color.rgb);\n";
   shader += "    vec2 cRV;\n";
   shader += "    cRV = mix(min(vec2(1.0),colorRV.yz+vec2(softshadow*0.08)),";
-  shader += "              max(vec2(0.0),colorRV.yz-vec2(softshadow*0.05)), step(0.6, colorRV.yz));\n";  
-
+  shader += "              max(vec2(0.0),colorRV.yz-vec2(softshadow*0.05)), smoothstep(0.0,0.6, colorRV.yz));\n";  
+  
   //---------------
   // saturated original color for use on ridge
   shader += "    vec3 colorR = colorRV;\n";
-  shader += "    colorR.yz = mix(colorR.yz, cRV, vec2(step(0.05,colorR.y),step(colorR.y,0.1)));\n";
+  shader += "    colorR.yz = mix(colorR.yz, cRV, vec2(smoothstep(0.0,0.05, colorR.y),smoothstep(0.0,colorR.y, 0.1)));\n";
   shader += "    colorR.z = mix(colorR.z, min(1.0,colorR.z+softshadow*0.08),";
-  shader += "                            step(0.1,colorR.y)*step(0.1,colorR.z));\n";
+  shader += "                            smoothstep(0.0,0.1, colorR.y)*smoothstep(0.0,0.1, colorR.z));\n";
   shader += "    colorR = hsv2rgb(colorR);\n";
   //---------------
 
-  //---------------
-  // desaturated original color for use in valley
+//  //---------------
+//  // desaturated original color for use in valley
   shader += "    vec3 colorV = colorRV;\n";
-  shader += "    colorV.yz = mix(cRV, colorV.yz, vec2(step(colorV.y, 0.05),step(colorV.y,0.1)));\n";
+  shader += "    colorV.yz = mix(cRV, colorV.yz, vec2(smoothstep(0.0,colorV.y, 0.05),smoothstep(0.0,colorV.y, 0.1)));\n";
   shader += "    colorV.z = mix(min(1.0,colorV.z+softshadow*0.08), colorV.z,";
-  shader += "                            step(0.1,colorV.y)*step(0.1,colorV.z));\n";
+  shader += "                            smoothstep(0.0,0.1, colorV.y)*smoothstep(0.0,0.1, colorV.z));\n";
   // for white/gray colors saturation is very low, so change value
-  shader += "    colorV.z = mix(colorV.z, max(0.0, colorV.z-softshadow*0.05), step(colorRV.y, 0.01));\n";
+  shader += "    colorV.z = mix(colorV.z, max(0.0, colorV.z-softshadow*0.05), smoothstep(0.0,colorRV.y, 0.3));\n";
   shader += "    colorV = hsv2rgb(colorV);\n";
-  //---------------
+//  //---------------
 
   
   //---------------
@@ -3165,5 +3165,6 @@ ShaderFactory::createPaintShader()
   m_paintShaderParm[1] = glGetUniformLocation(m_paintShader, "radius");
   m_paintShaderParm[2] = glGetUniformLocation(m_paintShader, "hitColor");
   m_paintShaderParm[3] = glGetUniformLocation(m_paintShader, "blendType");
+  m_paintShaderParm[4] = glGetUniformLocation(m_paintShader, "blendFraction");
 }
 //---------------

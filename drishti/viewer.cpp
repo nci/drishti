@@ -659,10 +659,12 @@ Viewer::Viewer(QWidget *parent) :
 
   initSocket();
 
+  m_paintMenuWidget = 0;
   m_paintMode = false;
-  m_paintRad = 2;
-  m_paintColor = Vec(1,0.8,0.5);
+  m_paintRad = 5;
+  m_paintColor = Vec(1,1,1);
   m_paintStyle = 0;
+  m_paintAlpha = 0.05;
 
   m_tagSpinBox = new QSpinBox(this);
   m_tagSpinBox->setRange(0, 200);
@@ -831,10 +833,10 @@ Viewer::checkPointSelected(const QMouseEvent *event)
 	{
 	    if (event->buttons() == Qt::LeftButton) // change rotation pivot
 	      GeometryObjects::trisets()->paint(target, m_paintRad*m_unitPaintRad,
-						m_paintColor, m_paintStyle);
+						m_paintColor, m_paintStyle, m_paintAlpha);
 	    else
 	      GeometryObjects::trisets()->paint(target, m_paintRad*m_unitPaintRad,
-						Vec(100,100,100), m_paintStyle);
+						Vec(100,100,100), m_paintStyle, m_paintAlpha);
 	    
 	    return;
 	}
@@ -3988,37 +3990,6 @@ Viewer::keyPressEvent(QKeyEvent *event)
 	    }
 	  return;
 	}
-      if (m_paintMode)
-	{
-	  if (event->key() == Qt::Key_R)
-	    {
-	      if (m_radSpinBox->isVisible())
-		m_radSpinBox->hide();
-	      else
-		{ 
-		  QPoint cur = QCursor::pos();
-		  m_radSpinBox->setValue(m_paintRad);
-		  m_radSpinBox->setGeometry(cur.x(), cur.y(),
-					    m_radSpinBox->width(),
-					    m_radSpinBox->height());
-		  m_radSpinBox->show();
-		}
-	      return;
-	    }
-	  if (event->key() == Qt::Key_K)
-	    {
-	      QColor qcol = QColor(m_paintColor.x*255, m_paintColor.y*255, m_paintColor.z*255);
-	      QColor color = DColorDialog::getColor(qcol);
-	      if (color.isValid())
-		{
-		  m_paintColor = Vec(color.redF(),
-				     color.greenF(),
-				     color.blueF());
-		}
-
-	      return;
-	    }
-	}
       
       if (event->key() == Qt::Key_T)
 	{
@@ -6272,9 +6243,11 @@ Viewer::setPaintMode(bool b)
     QMessageBox::information(0, "", "Paint Surface Mesh Mode Ended");
   
   if (m_paintMode)
-    {	  
+    {
+      createPaintMenu();
+
       Vec bmin, bmax;
-      //GeometryObjects::trisets()->makeReadyForPainting();
+      GeometryObjects::trisets()->makeReadyForPainting();
       GeometryObjects::trisets()->allEnclosingBox(bmin, bmax);
       Vec extend = bmax-bmin;
       int me = 0;
@@ -6283,19 +6256,93 @@ Viewer::setPaintMode(bool b)
       m_unitPaintRad = extend[me];
       m_unitPaintRad *= 0.01;
     }
+
+  if (m_paintMode)
+    m_paintMenuWidget->show();
+  else
+    m_paintMenuWidget->hide();
+
+
 }
 
 void
-Viewer::setPaintColor(Vec c)
+Viewer::setPaintColor()
 {
-  m_paintColor = c;
+  Vec bg = m_paintColor;
+  QColor bgc = QColor(255*bg.x,
+		      255*bg.y,
+		      255*bg.z);
+
+  QColor color = DColorDialog::getColor(bgc);
+  if (color.isValid())
+    {      
+      m_paintColor = Vec(color.redF(),
+			 color.greenF(),
+			 color.blueF());
+
+      QString cname = color.name();
+      QPushButton *but = (QPushButton *)(m_paintMenuWidget->layout()->itemAt(0)->widget());
+      QString ss = "QPushButton {background-color:"+cname+"}";
+      but->setStyleSheet(ss);
+    }
 }
 
 void
-Viewer::setPaintRadius(float rad)
+Viewer::createPaintMenu()
 {
-  m_paintRad = rad;
+  if (m_paintMenuWidget)
+    return;
+      
+  QVBoxLayout *vbox = new QVBoxLayout();
+  vbox->setSpacing(5);
+
+  {
+    QPushButton *but = new QPushButton("Color");
+    but->setFont(QFont("MS Reference Sans Serif", 10));
+    connect(but, SIGNAL(pressed()),
+	    this, SLOT(setPaintColor()));
+    vbox->addWidget(but);
+  }
+  
+  {
+    QInputDialog *dlg = new QInputDialog(this);
+    dlg->setInputMode(QInputDialog::DoubleInput);
+    dlg->setLabelText("Radius");
+    dlg->setDoubleValue(m_paintRad);
+    dlg->setDoubleRange(0.1, 50.0);
+    dlg->setDoubleDecimals(1);
+    dlg->setFont(QFont("MS Reference Sans Serif", 10));
+    dlg->setOptions(QInputDialog::NoButtons);
+    dlg->setWindowFlags(Qt::Tool);
+    connect(dlg, SIGNAL(doubleValueChanged(double)),
+	    this, SLOT(setPaintRadius(double)));
+    vbox->addWidget(dlg);
+  }
+
+  {
+    QInputDialog *dlg = new QInputDialog(this);
+    dlg->setInputMode(QInputDialog::DoubleInput);
+    dlg->setLabelText("Alpha");
+    dlg->setDoubleValue(m_paintAlpha);
+    dlg->setDoubleRange(0.01, 1.0);
+    dlg->setDoubleDecimals(2);
+    dlg->setDoubleStep(0.01);
+    dlg->setFont(QFont("MS Reference Sans Serif", 10));
+    dlg->setOptions(QInputDialog::NoButtons);
+    dlg->setWindowFlags(Qt::Tool);
+    connect(dlg, SIGNAL(doubleValueChanged(double)),
+	    this, SLOT(setPaintAlpha(double)));
+    vbox->addWidget(dlg);
+  }
+
+
+  m_paintMenuWidget = new QWidget(this);
+  m_paintMenuWidget->setLayout(vbox);
+  m_paintMenuWidget->setWindowFlags(Qt::Tool | Qt::CustomizeWindowHint | Qt::WindowTitleHint);
+  m_paintMenuWidget->setWindowTitle("Paint Menu");
+  m_paintMenuWidget->hide();
 }
+
 //-----------------------------------
 
 //----------------------------------

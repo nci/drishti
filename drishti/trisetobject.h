@@ -100,7 +100,7 @@ class TrisetObject
 		int, int, bool, int);
 
   void makeReadyForPainting();
-  bool paint(Vec, float, Vec, int);
+  bool paint(Vec);
   
   void mirror(int);
   

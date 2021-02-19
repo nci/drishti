@@ -6,6 +6,7 @@
 #include <QGLViewer/qglviewer.h>
 using namespace qglviewer;
 
+#include <QInputDialog>
 #include <QSpinBox>
 #include <QDockWidget>
 
@@ -89,12 +90,11 @@ class Viewer : public QGLViewer
 
   void setPaintMode(bool);
   bool paintMode() { return m_paintMode; }
-  void setPaintRadius(float);
   float paintRadius() { return m_paintRad; }
-  void setPaintColor(Vec);
   Vec paintColor() { return m_paintColor; }
   void setPaintStyle(int p) { m_paintStyle = p; }
   int paintStyle() { return m_paintStyle; }
+  float paintAlpha() { return m_paintAlpha; }
 			 
  public slots :
    void dockAdded(QDockWidget*);
@@ -154,7 +154,11 @@ class Viewer : public QGLViewer
    
    void readSocket();
    
-   //------------
+   void setPaintColor();
+   void setPaintRadius(double r) { m_paintRad = r; }
+   void setPaintAlpha(double b) { m_paintAlpha = b; }
+
+  //------------
    //menu viewer functions
    void reslice();
    void rescale();
@@ -298,6 +302,8 @@ class Viewer : public QGLViewer
   QSpinBox *m_tagSpinBox;
   QSpinBox *m_radSpinBox;
 
+  QWidget *m_paintMenuWidget;
+
 
   RcViewer m_rcViewer;  
   bool m_rcMode;
@@ -306,6 +312,7 @@ class Viewer : public QGLViewer
   Vec m_paintColor;
   float m_paintRad;
   int m_paintStyle;
+  float m_paintAlpha;
   float m_unitPaintRad;
 
 
@@ -365,4 +372,6 @@ class Viewer : public QGLViewer
   void setupRaycastUI();
 
   void showMenuFunctionHelp(QString);
+
+  void createPaintMenu();
 };

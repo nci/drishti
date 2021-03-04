@@ -668,21 +668,21 @@ TiffPlugin::getWidthSlice(int slc,
       if (m_voxelType == _UChar)
 	{
 	  for(uint j=0; j<m_height; j++)
-	    slice[i*m_height+j] = imgSlice[slc*m_height+j];
+	    slice[i*m_height+j] = imgSlice[j*m_width + slc];
 	}
       else if (m_voxelType == _UShort)
 	{
 	  ushort *p0 = (ushort*)slice;
 	  ushort *p1 = (ushort*)imgSlice;
 	  for(uint j=0; j<m_height; j++)
-	    p0[i*m_height+j] = p1[slc*m_height+j];
+	    p0[i*m_height+j] = p1[j*m_width + slc];
 	}
       else if (m_voxelType == _Float)
 	{
 	  float *p0 = (float*)slice;
 	  float *p1 = (float*)imgSlice;
 	  for(uint j=0; j<m_height; j++)
-	    p0[i*m_height+j] = p1[slc*m_height+j];
+	    p0[i*m_height+j] = p1[j*m_width + slc];
 	}
     }
   delete [] imgSlice;
@@ -710,21 +710,21 @@ TiffPlugin::getHeightSlice(int slc,
       if (m_voxelType == _UChar)
 	{
 	  for(uint j=0; j<m_width; j++)
-	    slice[i*m_width+j] = imgSlice[j*m_height+slc];
+	    slice[i*m_width+j] = imgSlice[slc*m_width + j];
 	}
       else if (m_voxelType == _UShort)
 	{
 	  ushort *p0 = (ushort*)slice;
 	  ushort *p1 = (ushort*)imgSlice;
 	  for(uint j=0; j<m_width; j++)
-	    p0[i*m_width+j] = p1[j*m_height+slc];
+	    p0[i*m_width+j] = p1[slc*m_width + j];
 	}
       else if (m_voxelType == _Float)
 	{
 	  float *p0 = (float*)slice;
 	  float *p1 = (float*)imgSlice;
 	  for(uint j=0; j<m_width; j++)
-	    p0[i*m_width+j] = p1[j*m_height+slc];
+	    p0[i*m_width+j] = p1[slc*m_width + j];
 	}
     }
   delete [] imgSlice;

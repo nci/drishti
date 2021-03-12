@@ -336,7 +336,8 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
 					    bool peel, int peelType,
 					    float peelMin, float peelMax, float peelMix,
 					    int mixvol, bool mixColor, bool mixOpacity,
-					    int interpolateVolumes)
+					    int interpolateVolumes,
+					    bool amrData)
 {
   bool cropPresent = false;
   bool tearPresent = false;
@@ -373,7 +374,7 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
   shader += "in vec3 pointpos;\n";
   shader += "in vec3 glTexCoord0;\n";
   shader += "uniform sampler2D lutTex;\n";
-  shader += "uniform sampler2DRect dataTex;\n";
+  shader += "uniform sampler2DRect amrTex;\n";
   shader += "uniform sampler2DArray dataTexAT;\n";
 
   shader += "uniform sampler1D paintTex;\n";
@@ -459,7 +460,18 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
   
   shader += "  vec3 lightcol = vec3(1.0,1.0,1.0);\n";
 
-  shader += "  vec3 texCoord = glTexCoord0.xyz;\n";
+  if (amrData)
+    {
+      shader += "  float amrX = texture(amrTex, vec2(glTexCoord0.x,0));\n";
+      shader += "  float amrY = texture(amrTex, vec2(glTexCoord0.y,0));\n";
+      shader += "  float amrZ = texture(amrTex, vec2(glTexCoord0.z,0));\n";
+
+      shader += "  vec3 texCoord = vec3(amrX, amrY, amrZ);\n";
+    }
+  else
+    {
+      shader += "  vec3 texCoord = glTexCoord0.xyz;\n";
+    }
 
   shader += "if (any(lessThan(texCoord,brickMin)) || ";
   shader += "any(greaterThan(texCoord, brickMax)))\n";

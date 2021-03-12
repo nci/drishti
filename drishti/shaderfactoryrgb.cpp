@@ -226,7 +226,7 @@ ShaderFactoryRGB::genDefaultSliceShaderString(bool lighting,
   shader += "in vec3 glTexCoord0;\n";
 
   shader += "uniform sampler2D lutTex;\n";
-  shader += "uniform sampler2DRect dataTex;\n";
+  shader += "uniform sampler2DRect amrTex;\n";
   shader += "uniform sampler2DArray dataTexAT;\n";
 
   shader += "uniform float layerSpacing;\n";

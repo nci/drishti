@@ -74,6 +74,9 @@ class LightHandler
     static bool checkClips(QList<Vec>, QList<Vec>);
     static bool checkCrops();
 
+    static void setAMR(bool);
+    static void setAMRTex(GLuint t) { m_amrTex = t; }
+  
  private :
     static bool m_initialized;
     static GLuint m_dataTex;
@@ -82,6 +85,9 @@ class LightHandler
     static bool m_lutChanged;
     static uchar *m_lut;
 
+    static bool m_amrData;
+    static GLuint m_amrTex;
+  
     static bool m_showLights;
     static GiLights* m_giLights;
 

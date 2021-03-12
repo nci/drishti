@@ -729,6 +729,9 @@ RcShaderFactory::genRaycastShader(QList<CropObject> crops,
   shader += "    lightcol = 1.0-pow((vec3(1,1,1)-lightcol),vec3(sslevel));\n";
   shader += "  }\n";
 
+  // gamma affects light
+  shader += "  lightcol = pow(lightcol, vec3(1.0/gamma));\n";
+
   shader += "  colorSample.rgb *= lightcol;\n";
   //------------------------------------
   //------------------------------------
@@ -795,6 +798,7 @@ RcShaderFactory::genRaycastShader(QList<CropObject> crops,
   //------------------------------------
 
   
+  shader += "      colorSample.rgb = pow(colorSample.rgb, vec3(gamma));\n";
   shader += "      colorAcum += (1.0 - colorAcum.a) * colorSample;\n";
   shader += "      deep = deep + 1.0;\n";
   shader += "      if (deep < 1.1)\n"; // first hit

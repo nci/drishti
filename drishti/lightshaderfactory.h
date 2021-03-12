@@ -10,7 +10,7 @@ class LightShaderFactory
  public :
   static QString getVal();
 
-  static QString genOpacityShader(int, bool);
+  static QString genOpacityShader(int, bool, bool);
   static QString genOpacityShaderRGB();
 
   static QString genAOLightShader();

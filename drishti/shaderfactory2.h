@@ -10,7 +10,8 @@ class ShaderFactory2
 					     QList<CropObject>,
 					     int,
 					     bool, int, float, float, float,
-					     int, bool, bool, int);
+					     int, bool, bool, int,
+					     bool);
 
   static QString genPruneTexture(int);
 

@@ -16,7 +16,7 @@ LightShaderFactory::getVal()
 }
 
 QString
-LightShaderFactory::genOpacityShader(int nvol, bool bit16)
+LightShaderFactory::genOpacityShader(int nvol, bool bit16, bool amrData)
 {
   QString shader;
 
@@ -50,6 +50,12 @@ LightShaderFactory::genOpacityShader(int nvol, bool bit16)
   shader += "uniform float tfSet;\n";
   shader += "uniform vec3 dragsize;\n";
 
+  if (amrData)
+    {
+      shader += "uniform sampler2DRect amrTex;\n";
+      shader += "uniform float dragLod;\n";
+    }
+  
   shader += "out vec4 glFragColor;\n";
   
   //---------------------
@@ -91,6 +97,16 @@ LightShaderFactory::genOpacityShader(int nvol, bool bit16)
   shader += "  vec4 color;\n";
 
   shader += "  vec3 vcrd = vec3(x,y,z);\n";
+
+  if (amrData)
+    {      
+      shader += "  float amrX = texture2DRect(amrTex, vec2(dragLod*x,0)).x;\n";
+      shader += "  float amrY = texture2DRect(amrTex, vec2(dragLod*y,0)).y;\n";
+      shader += "  float amrZ = texture2DRect(amrTex, vec2(dragLod*z,0)).z;\n";
+      
+      shader += "  vcrd = vec3(amrX/dragLod, amrY/dragLod, amrZ/dragLod);\n";
+    }
+
   shader += "  val = getVal(vcrd)."+xyzw+";\n";
 
   shader += "  vec2 k = vec2(1.0, -1.0);\n";

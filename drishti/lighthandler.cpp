@@ -111,6 +111,10 @@ int LightHandler::m_origEmisTex;
 bool LightHandler::inPool = true;
 bool LightHandler::showLights = true;
 
+bool LightHandler::m_amrData = false;
+GLuint LightHandler::m_amrTex = 0;
+
+
 void LightHandler::setClips(QList<Vec> cpos, QList<Vec> cnorm)
 {
   m_clipPos = cpos;
@@ -541,7 +545,7 @@ LightHandler::createOpacityShader(bool bit16)
       if (Global::volumeType() == Global::TripleVolume) nvol = 3;
       if (Global::volumeType() == Global::QuadVolume) nvol = 4;
 
-      shaderString = LightShaderFactory::genOpacityShader(nvol, bit16);
+      shaderString = LightShaderFactory::genOpacityShader(nvol, bit16, m_amrData);
     }    
 
   if (m_opacityShader)
@@ -566,6 +570,12 @@ LightHandler::createOpacityShader(bool bit16)
   m_opacityParm[13] = glGetUniformLocationARB(m_opacityShader, "opshader");
   m_opacityParm[14] = glGetUniformLocationARB(m_opacityShader, "tfSet");
   m_opacityParm[15] = glGetUniformLocationARB(m_opacityShader, "dragsize");
+
+  if (m_amrData)
+    {
+      m_opacityParm[16] = glGetUniformLocationARB(m_opacityShader, "amrTex");
+      m_opacityParm[17] = glGetUniformLocationARB(m_opacityShader, "dragLod");
+    }
   //---------------------------
 }
 
@@ -1094,6 +1104,18 @@ LightHandler::generateOpacityTexture()
 		                    m_dragVolSize.y,
 		                    m_dragVolSize.z);
 
+  if (m_amrData)
+    {
+      glActiveTexture(GL_TEXTURE7);
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_amrTex);
+      glEnable(GL_TEXTURE_RECTANGLE_ARB);
+      glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glUniform1iARB(m_opacityParm[16], 7); // AMR texture
+
+      glUniform1fARB(m_opacityParm[17], m_dragInfo.z); // LOD to get back to original volume size
+    }
+
   StaticFunctions::pushOrthoView(0, 0, sX, sY);
   StaticFunctions::drawQuad(0, 0, sX, sY, 1.0);
   StaticFunctions::popOrthoView();
@@ -1107,6 +1129,13 @@ LightHandler::generateOpacityTexture()
 
   glActiveTexture(GL_TEXTURE2);
   glDisable(GL_TEXTURE_2D);
+
+  if (m_amrData)
+    {
+      glActiveTexture(GL_TEXTURE7);
+      glDisable(GL_TEXTURE_RECTANGLE_ARB);
+    }
+
 }
 
 void
@@ -2847,4 +2876,9 @@ LightHandler::invertLightBuffer(int lct, int lX, int lY)
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
 
   return ct;
+}
+
+void LightHandler::setAMR(bool b)  
+{
+  m_amrData = b;
 }

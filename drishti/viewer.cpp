@@ -4536,6 +4536,14 @@ Viewer::processCommand(QString cmd)
 	  m_rcViewer.setMixTag(mt);
 	}
     }
+  else if (list[0] == "amr")
+    {
+      bool amr = true;
+      if (list.size() > 1)
+	if (list[1] == "off") amr = false;
+      
+      m_hiresVolume->setAMR(amr);
+    }
   else if (list[0] == "interpolatevolumes")
     {
       int iv = 1;

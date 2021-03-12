@@ -162,7 +162,9 @@ class DrawHiresVolume : public QObject
   void getOpMod(float&, float&);
   void setOpMod(float, float);
 
- signals :
+  void setAMR(bool);
+  
+signals :
   void histogramUpdated(QImage, QImage);
 
  private :
@@ -224,9 +226,14 @@ class DrawHiresVolume : public QObject
   int m_dataTexSize;
   GLuint* m_dataTex;
   GLuint m_lutTex;
+  GLuint m_amrTex;
   QGLFramebufferObject *m_shadowBuffer;
   QGLFramebufferObject *m_blurredBuffer;
 
+  bool m_amrData;
+  int m_amrCount;
+  float *m_amrCrd;
+  
   int m_loadFromDisk;
   QList<Vec> m_textureSlab;
 

@@ -30,7 +30,8 @@ class ShaderFactory
 
   static QString genDefaultSliceShaderString(bool, bool, bool,
 					     QList<CropObject>,
-					     bool, int, float, float, float);
+					     bool, int, float, float, float,
+					     bool);
 
   static QString genTextureCoordinate();
 

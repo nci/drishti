@@ -189,6 +189,10 @@ DrawHiresVolume::DrawHiresVolume(Viewer *viewer,
   m_lutTex = 0;
   m_textureSlab.clear();
 
+  m_amrData = false;
+  m_amrCrd = 0;
+  m_amrTex = 0;
+  
   m_shadowWidth = 0;
   m_shadowHeight = 0;
   m_shadowBuffer = 0;
@@ -346,6 +350,12 @@ DrawHiresVolume::cleanup()
 
   m_crops.clear();
   m_paths.clear();
+
+  if (m_amrTex) glDeleteTextures(1, &m_amrTex);
+  if (m_amrCrd) delete m_amrCrd;
+  m_amrTex = 0;
+  m_amrData = false;
+  m_amrCrd = 0;
 }
 
 void
@@ -721,6 +731,7 @@ DrawHiresVolume::updateAndLoadLightTexture()
 
   QList<Vec> cpos, cnorm;
   getClipForMask(cpos, cnorm);
+
   LightHandler::setClips(cpos, cnorm);
  
   Vec dragvsz = m_Volume->getDragSubvolumeTextureSize();
@@ -1004,7 +1015,8 @@ DrawHiresVolume::createDefaultShader()
 								m_lightInfo.peelType,
 								m_lightInfo.peelMin,
 								m_lightInfo.peelMax,
-								m_lightInfo.peelMix);
+								m_lightInfo.peelMix,
+								m_amrData);
     }
   else if (Global::volumeType() == Global::RGBVolume ||
 	   Global::volumeType() == Global::RGBAVolume)
@@ -1033,7 +1045,8 @@ DrawHiresVolume::createDefaultShader()
 								 m_lightInfo.peelMax,
 								 m_lightInfo.peelMix,
 								 m_mixvol+1, m_mixColor, m_mixOpacity,
-								 m_interpolateVolumes);
+								 m_interpolateVolumes,
+								 m_amrData);
     }
 
   if (m_defaultShader)
@@ -1048,7 +1061,7 @@ DrawHiresVolume::createDefaultShader()
   m_vertParm[1] = glGetUniformLocationARB(m_defaultShader, "ClipPlane1");
 
   m_defaultParm[0] = glGetUniformLocationARB(m_defaultShader, "lutTex");
-  m_defaultParm[1] = glGetUniformLocationARB(m_defaultShader, "dataTex");
+  m_defaultParm[1] = glGetUniformLocationARB(m_defaultShader, "amrTex");
 
   if (Global::volumeType() != Global::RGBVolume &&
       Global::volumeType() != Global::RGBAVolume)
@@ -1260,6 +1273,15 @@ DrawHiresVolume::enableTextureUnits()
   glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
+  if (m_amrData)
+    {
+      glActiveTexture(GL_TEXTURE7);
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_amrTex);
+      glEnable(GL_TEXTURE_RECTANGLE_ARB);
+      glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+
   glActiveTexture(GL_TEXTURE6);
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
   glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -1282,6 +1304,13 @@ DrawHiresVolume::disableTextureUnits()
 
   glActiveTexture(GL_TEXTURE4);
   glDisable(GL_TEXTURE_RECTANGLE_ARB);
+
+
+  if (m_amrData)
+    {
+      glActiveTexture(GL_TEXTURE7);
+      glDisable(GL_TEXTURE_RECTANGLE_ARB);
+    }
 
   glActiveTexture(GL_TEXTURE6);
   glDisable(GL_TEXTURE_RECTANGLE_ARB);
@@ -2322,9 +2351,15 @@ DrawHiresVolume::setRenderDefault()
   glUseProgramObjectARB(m_defaultShader);
 
   glUniform1iARB(m_defaultParm[0], 0); // lutTex
-  glUniform1iARB(m_defaultParm[1], 1); // dataTex
+  //glUniform1iARB(m_defaultParm[1], 1); // dataTex
   glUniform1iARB(m_defaultParm[54], 1); // dataTexAT
 
+  if (m_amrData)
+    {
+      glUniform1iARB(m_defaultParm[1], 7); // amrTex
+    }
+
+  
   {
     QList<Vec> cPos;
     QList<Vec> cNorm;
@@ -6982,4 +7017,90 @@ DrawHiresVolume::pointUnderPixel(QPoint scr, bool& found)
     }
 
   return pos;
+}
+
+void
+DrawHiresVolume::setAMR(bool flag)
+{
+  m_amrData = flag;
+  createDefaultShader();  
+  
+  if (m_amrCrd) delete m_amrCrd;
+  m_amrTex = 0;
+
+  if (!flag)
+    {
+      if (m_amrTex) glDeleteTextures(1, &m_amrTex);
+      m_amrCrd = 0;
+      QMessageBox::information(0, "", "AMR switched off");
+      LightHandler::setAMR(false);
+      LightHandler::createOpacityShader((m_Volume->pvlVoxelType(0) > 0));
+      updateAndLoadLightTexture();
+      return;
+    }
+  
+  glGenTextures(1, &m_amrTex);
+
+  m_amrCount = 0;
+
+  QString flnm;
+  flnm = QFileDialog::getOpenFileName(0,
+				      "Load AMR mapping",
+				      Global::previousDirectory(),
+				      "txt Files (*.txt)");
+  
+  QFile fpoints(flnm);
+  fpoints.open(QFile::ReadOnly);
+  QTextStream fd(&fpoints);
+  while (! fd.atEnd())
+    {
+      QString line = fd.readLine();
+      QStringList list = line.split(" ", QString::SkipEmptyParts);
+      if (list.count() == 1)
+	{
+	  m_amrCount = list[0].toInt();
+	  m_amrCrd = new float[3*m_amrCount];
+	  for(int i=0; i<m_amrCount; i++)
+	    {
+	      if (fd.atEnd())
+		break;
+	      else
+		{
+		  QString line = fd.readLine();
+		  QStringList list = line.split(" ", QString::SkipEmptyParts); 
+		  if (list.count() == 3)
+		    {
+		      m_amrCrd[3*i+0] = list[0].toFloat();
+		      m_amrCrd[3*i+1] = list[1].toFloat();
+		      m_amrCrd[3*i+2] = list[2].toFloat();
+		    }
+		}
+	    } // end for
+	  break;
+	}
+    }
+
+  glActiveTexture(GL_TEXTURE7);
+  glEnable(GL_TEXTURE_RECTANGLE_ARB);
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_amrTex);
+  glTexParameterf(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+  glTexParameterf(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,
+	       0,  //single resolution
+	       GL_RGB32F,  // unnormalized data - If the internal format's size doesn't end in F, then it's not storing floating-point values.
+	       m_amrCount, 1,
+	       0,  // no border
+	       GL_RGB,
+	       GL_FLOAT,
+	       m_amrCrd);
+  glDisable(GL_TEXTURE_RECTANGLE_ARB);
+
+  QMessageBox::information(0, "", "AMR switched on");
+
+  LightHandler::setAMRTex(m_amrTex);
+  LightHandler::setAMR(true);
+  LightHandler::createOpacityShader((m_Volume->pvlVoxelType(0) > 0));
+  updateAndLoadLightTexture();
 }

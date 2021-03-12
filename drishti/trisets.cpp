@@ -1012,7 +1012,7 @@ Trisets::handleDialog(int i)
 	      if (pat.count() > 0)
                 {
                   int texId = pat[0].toDouble();
-                  if (texId < 0 || texId > m_solidTexData.count()-1)
+                  if (texId < 0 || texId > m_solidTexData.count())
 		    {
 		      QMessageBox::information(0, "", QString("Pattern id %1 is outside range 0-%1").\
 					       arg(texId).\

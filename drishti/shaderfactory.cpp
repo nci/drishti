@@ -1259,11 +1259,11 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
   if (pathCropPresent) shader += "feather *= pathcrop(texCoord, true);\n";
 
 
-  //  //--------------------------
+  //--------------------------
   // light texture coordinates
   shader += "vec3 ltexCoord = (texCoord-vmin)/lod;\n";
   shader += "ltexCoord.xy = vec2(tsizex,tsizey)*(ltexCoord.xy/vsize.xy);\n";
-//  //--------------------------
+  //--------------------------
 
   if (amrData)
     {

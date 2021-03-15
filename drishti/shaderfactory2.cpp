@@ -460,18 +460,7 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
   
   shader += "  vec3 lightcol = vec3(1.0,1.0,1.0);\n";
 
-  if (amrData)
-    {
-      shader += "  float amrX = texture(amrTex, vec2(glTexCoord0.x,0));\n";
-      shader += "  float amrY = texture(amrTex, vec2(glTexCoord0.y,0));\n";
-      shader += "  float amrZ = texture(amrTex, vec2(glTexCoord0.z,0));\n";
-
-      shader += "  vec3 texCoord = vec3(amrX, amrY, amrZ);\n";
-    }
-  else
-    {
-      shader += "  vec3 texCoord = glTexCoord0.xyz;\n";
-    }
+  shader += "  vec3 texCoord = glTexCoord0.xyz;\n";
 
   shader += "if (any(lessThan(texCoord,brickMin)) || ";
   shader += "any(greaterThan(texCoord, brickMax)))\n";
@@ -513,6 +502,21 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
   if (cropPresent) shader += "feather *= crop(texCoord, true);\n";
   if (pathCropPresent) shader += "feather *= pathcrop(texCoord, true);\n";
 
+  //--------------------------
+  // light texture coordinates
+  shader += "vec3 ltexCoord = (texCoord-vmin)/lod;\n";
+  shader += "ltexCoord.xy = vec2(tsizex,tsizey)*(ltexCoord.xy/vsize.xy);\n";
+  //--------------------------
+
+  if (amrData)
+    {
+      shader += "  float amrX = texture2DRect(amrTex, vec2(glTexCoord0.x,0)).x;\n";
+      shader += "  float amrY = texture2DRect(amrTex, vec2(glTexCoord0.y,0)).y;\n";
+      shader += "  float amrZ = texture2DRect(amrTex, vec2(glTexCoord0.z,0)).z;\n";
+      
+      shader += "  texCoord = vec3(amrX, amrY, amrZ);\n";
+    }
+
   //------
   shader += "vec3 vtexCoord = (texCoord-vmin)/lod;\n";
   // for nearest neighbour interpolation
@@ -533,9 +537,9 @@ ShaderFactory2::genDefaultSliceShaderString(bool lighting,
   shader += "if (lightlod > 0)\n";
   shader += " {\n"; // calculate light color
   shader += "   float llod = prunelod*float(lightlod);\n";
-  shader += "   vec2 pvg = texCoord.xy/llod;\n";
-  shader += "   int lbZslc = int((zoffset+texCoord.z)/llod);\n";
-  shader += "   float lbZslcf = fract((zoffset+texCoord.z)/llod);\n";
+  shader += "   vec2 pvg = ltexCoord.xy/llod;\n";
+  shader += "   int lbZslc = int((zoffset+ltexCoord.z)/llod);\n";
+  shader += "   float lbZslcf = fract((zoffset+ltexCoord.z)/llod);\n";
   shader += "   vec2 pvg0 = getTextureCoordinate(lbZslc, ";
   shader += "                 lightncols, lightgridx, lightgridy, pvg);\n";
   shader += "   vec2 pvg1 = getTextureCoordinate(lbZslc+1, ";

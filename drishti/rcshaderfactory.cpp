@@ -401,7 +401,7 @@ RcShaderFactory::getVal()
 
 QString
 RcShaderFactory::genRaycastShader(QList<CropObject> crops,
-				  bool bit16)
+				  bool bit16, bool amrData)
 {
   //------------------------------------
   bool cropPresent = false;
@@ -462,7 +462,10 @@ RcShaderFactory::genRaycastShader(QList<CropObject> crops,
 
   shader += "uniform float gamma;\n";
 
+  if (amrData)
+    shader += "uniform sampler2DRect amrTex;\n";
 
+  
   shader += "layout(location = 0) out vec4 outColor;\n";
   shader += "layout(location = 1) out vec4 outDepth;\n";
   
@@ -572,8 +575,22 @@ RcShaderFactory::genRaycastShader(QList<CropObject> crops,
   shader += "for(int i=0; i<iend; i++)\n";
   shader += "{\n";
   shader += "  istart = i;\n";
-  //shader += "  float val = texture(dataTex, voxelCoord).x;\n";
-  shader += "  float val = getVal(voxelCoord, maxLayers, interp);\n";
+
+  if (amrData)
+    {
+      shader += "  float amrX = texture2DRect(amrTex, vec2(voxelCoord.x*vsize.x,0)).x;\n";
+      shader += "  float amrY = texture2DRect(amrTex, vec2(voxelCoord.y*vsize.y,0)).y;\n";
+      shader += "  float amrZ = texture2DRect(amrTex, vec2(voxelCoord.z*vsize.z,0)).z;\n";
+      
+      shader += "  vec3 amrCoord = vec3(amrX, amrY, amrZ)/vsize;\n";
+
+      shader += "  float val = getVal(amrCoord, maxLayers, interp);\n";
+    }
+  else
+    shader += "  float val = getVal(voxelCoord, maxLayers, interp);\n";
+
+  
+  //shader += "  float val = getVal(voxelCoord, maxLayers, interp);\n";
   shader += "  vec4 colorSample = vec4(0.0);\n";
 
   if (!bit16)

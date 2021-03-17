@@ -3833,6 +3833,9 @@ Viewer::keyPressEvent(QKeyEvent *event)
 	  m_raycastUI.skipVoxels->setValue(m_rcViewer.skipVoxels());
 	  m_rcViewer.setLut(m_lut);
 
+	  m_rcViewer.setAMR(m_hiresVolume->amrData());
+	  m_rcViewer.setAMRTex(m_hiresVolume->amrTex());
+	  
 	  Global::setUse1D(true);
 	  MainWindowUI::mainWindowUI()->actionSwitch_To1D->setChecked(Global::use1D());
 	  emit show16BitEditor(true);
@@ -3858,6 +3861,9 @@ Viewer::keyPressEvent(QKeyEvent *event)
 	      m_raycastUI.skipVoxels->setValue(m_rcViewer.skipVoxels());
 	      m_rcViewer.setLut(m_lut);
 	      
+	      m_rcViewer.setAMR(m_hiresVolume->amrData());
+	      m_rcViewer.setAMRTex(m_hiresVolume->amrTex());
+
 	      Global::setUse1D(true);
 	      MainWindowUI::mainWindowUI()->actionSwitch_To1D->setChecked(Global::use1D());
 	      emit show16BitEditor(true);
@@ -4543,6 +4549,12 @@ Viewer::processCommand(QString cmd)
 	if (list[1] == "off") amr = false;
       
       m_hiresVolume->setAMR(amr);
+
+      if (m_rcMode)
+	{
+	  m_rcViewer.setAMR(m_hiresVolume->amrData());
+	  m_rcViewer.setAMRTex(m_hiresVolume->amrTex());
+	}
     }
   else if (list[0] == "interpolatevolumes")
     {
@@ -4555,6 +4567,7 @@ Viewer::processCommand(QString cmd)
 	}	
 
       m_hiresVolume->setInterpolateVolumes(iv);
+
     }
   else if (list[0] == "texsizereducefraction")
     {

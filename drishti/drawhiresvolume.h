@@ -163,6 +163,8 @@ class DrawHiresVolume : public QObject
   void setOpMod(float, float);
 
   void setAMR(bool);
+  bool amrData() { return m_amrData; }
+  GLuint amrTex() { return m_amrTex; }
   
 signals :
   void histogramUpdated(QImage, QImage);

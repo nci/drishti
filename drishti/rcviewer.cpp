@@ -60,6 +60,9 @@ RcViewer::RcViewer() :
 
   m_crops.clear();
 
+  m_amrData = false;
+  m_amrTex = 0;
+  
 
   m_flhist1D = new float[256];
   m_flhist2D = new float[256*256];
@@ -483,7 +486,8 @@ RcViewer::createIsoRaycastShader()
 {
   QString shaderString;
 
-  shaderString = RcShaderFactory::genRaycastShader(m_crops, m_bytesPerVoxel==2);
+  shaderString = RcShaderFactory::genRaycastShader(m_crops, m_bytesPerVoxel==2,
+						   m_amrData);
 
   m_ircShader = glCreateProgramObjectARB();
   if (! RcShaderFactory::loadShader(m_ircShader,
@@ -526,6 +530,9 @@ RcViewer::createIsoRaycastShader()
   m_ircParm[38] = glGetUniformLocationARB(m_ircShader, "lightnrows");
   m_ircParm[39] = glGetUniformLocationARB(m_ircShader, "lightncols");
   m_ircParm[40] = glGetUniformLocationARB(m_ircShader, "lightlod");
+
+  if (m_amrData)
+    m_ircParm[41] = glGetUniformLocationARB(m_ircShader, "amrTex");
 }
 
 void
@@ -983,6 +990,15 @@ RcViewer::raycast(Vec eyepos, float sceneRadius, bool firstPartOnly)
   glEnable(GL_TEXTURE_2D_ARRAY);
   glBindTexture(GL_TEXTURE_2D_ARRAY, m_dataTex);
 
+  if (m_amrData)
+    {
+      glUniform1iARB(m_ircParm[41], 7); // dataTex
+      glActiveTexture(GL_TEXTURE7);
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_amrTex);
+      glEnable(GL_TEXTURE_RECTANGLE_ARB);
+    }
+  
+
   if (firstPartOnly ||
       !Global::interpolationType(Global::TextureInterpolation)) // linear
     {
@@ -1019,6 +1035,13 @@ RcViewer::raycast(Vec eyepos, float sceneRadius, bool firstPartOnly)
 //  glActiveTexture(GL_TEXTURE3);
 //  glDisable(GL_TEXTURE_3D);
 
+  if (m_amrData)
+    {
+      glActiveTexture(GL_TEXTURE7);
+      glDisable(GL_TEXTURE_RECTANGLE_ARB);
+    }
+
+  
   if (firstPartOnly)
     {
       glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
@@ -1039,6 +1062,7 @@ RcViewer::raycast(Vec eyepos, float sceneRadius, bool firstPartOnly)
       
       glActiveTexture(GL_TEXTURE2);
       glDisable(GL_TEXTURE_RECTANGLE_ARB);
+
       return;
     }
   
@@ -1750,3 +1774,17 @@ RcViewer::drawVBOBox(GLenum glFaces)
   glDisable(GL_CULL_FACE);
 }
 
+
+void
+RcViewer::setAMRTex(GLuint atex)
+{
+  m_amrTex = atex;
+}
+
+void
+RcViewer::setAMR(bool m)
+{
+  m_amrData = m;
+
+  createIsoRaycastShader();
+}

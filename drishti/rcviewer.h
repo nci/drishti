@@ -64,6 +64,9 @@ class RcViewer : public QObject
 
   void loadLookupTable();
 
+  void setAMR(bool);
+  void setAMRTex(GLuint);
+			
   public slots :
     void boundingBoxChanged();
     void updateVoxelsForRaycast(GLuint*);
@@ -97,6 +100,9 @@ class RcViewer : public QObject
 
   Volume *m_Volume;
 
+  bool m_amrData;
+  GLuint m_amrTex;
+  
   VolumeFileManager *m_vfm;
   uchar *m_volPtr;
   uchar *m_lut;

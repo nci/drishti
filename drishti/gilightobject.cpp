@@ -1301,7 +1301,7 @@ GiLightObject::giLightObjectInfo()
   glo.color = m_color;
   glo.opacity = m_opacity;
   glo.lod = m_lod;
-  glo.smooth = m_lod;
+  glo.smooth = m_smooth;
   glo.segments = m_segments;
 
   return glo;

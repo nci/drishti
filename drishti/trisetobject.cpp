@@ -1447,17 +1447,36 @@ TrisetObject::save()
 
   // regenerate local transfromation so we don't have scaling due to surface being selected(active)
   genLocalXform();
+  // use the transpose for transformation
+  double s[16];
+  s[0] = m_localXform[0];
+  s[1] = m_localXform[4];
+  s[2] = m_localXform[8];
+  s[3] = m_localXform[12];
+  s[4] = m_localXform[1];
+  s[5] = m_localXform[5];
+  s[6] = m_localXform[9];
+  s[7] = m_localXform[13];
+  s[8] = m_localXform[2];
+  s[9] = m_localXform[6];
+  s[10] = m_localXform[10];
+  s[11] = m_localXform[14];
+  s[12] = m_localXform[3];
+  s[13] = m_localXform[7];
+  s[14] = m_localXform[11];
+  s[15] = m_localXform[15];
+     
   
   for(int i=0; i<m_vertices.count(); i++)
     {
       myVertex vertex;
-      Vec v = Matrix::xformVec(m_localXform,m_vertices[i]);
+      Vec v = Matrix::xformVec(s,m_vertices[i]);
       vertex.x = v.x;
       vertex.y = v.y;
       vertex.z = v.z;
       if (has_normals)
 	{
-	  Vec vn = Matrix::rotateVec(m_localXform,m_normals[i]);
+	  Vec vn = Matrix::rotateVec(s,m_normals[i]);
 	  vertex.nx = vn.x;
 	  vertex.ny = vn.y;
 	  vertex.nz = vn.z;

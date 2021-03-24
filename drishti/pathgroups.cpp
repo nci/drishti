@@ -3,6 +3,9 @@
 #include "dcolordialog.h"
 #include "staticfunctions.h"
 #include "propertyeditor.h"
+#include "mainwindowui.h"
+
+#include <QInputDialog>
 
 int PathGroups::count() { return m_paths.count(); }
 
@@ -272,6 +275,8 @@ PathGroups::addVector(QString flnm)
       if (list.count() == 1)
 	{
 	  int npts = list[0].toInt();
+	  if (npts == 0)
+	    npts = 1000000000;  // read file till the end
 	  for(int i=0; i<npts; i++)
 	    {
 	      if (fd.atEnd())
@@ -357,8 +362,7 @@ PathGroups::draw(QGLViewer *viewer,
 {
   for(int i=0; i<m_paths.count();i++)
     {
-      if ((m_paths[i]->blendMode() && geoblend) ||
-	  (!m_paths[i]->blendMode() && !geoblend))
+      if (m_paths[i]->blendMode() == geoblend)
 	m_paths[i]->draw(viewer,
 			 m_paths[i]->grabsMouse(),
 			 backToFront,

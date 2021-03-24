@@ -387,14 +387,12 @@ Viewer::showFullScene()
 {
   Vec smin, smax;
   
-  if (Global::volumeType() != Global::DummyVolume)
-    {  
-      smin = VECPRODUCT(m_hiresVolume->volumeMin(),
-			Global::voxelScaling());
-      smax = VECPRODUCT(m_hiresVolume->volumeMax(),
-			Global::voxelScaling());
-    }
-  else
+  smin = VECPRODUCT(m_hiresVolume->volumeMin(),
+		    Global::voxelScaling());
+  smax = VECPRODUCT(m_hiresVolume->volumeMax(),
+		    Global::voxelScaling());
+
+  if (Global::volumeType() == Global::DummyVolume && GeometryObjects::trisets()->count() > 0)
     {
       GeometryObjects::trisets()->allEnclosingBox(smin, smax);
       if (GeometryObjects::networks()->count() > 0)
@@ -429,7 +427,7 @@ Viewer::updateScaling()
       Vec smin = VECPRODUCT(m_hiresVolume->volumeMin(), Global::voxelScaling());
       Vec smax = VECPRODUCT(m_hiresVolume->volumeMax(), Global::voxelScaling());
 
-      if (Global::volumeType() == Global::DummyVolume)
+      if (Global::volumeType() == Global::DummyVolume && GeometryObjects::trisets()->count() > 0)
 	{
 	  GeometryObjects::trisets()->allEnclosingBox(smin, smax);
 	  if (GeometryObjects::networks()->count() > 0)

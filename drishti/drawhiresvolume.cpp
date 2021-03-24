@@ -2284,7 +2284,7 @@ DrawHiresVolume::drawGeometry(Vec pn, float pnear, float pfar, Vec step,
   GeometryObjects::crops()->draw(m_Viewer, m_backlit);
   GeometryObjects::paths()->draw(m_Viewer, pn, pnear, pfar, m_backlit, m_lightPosition);
   GeometryObjects::grids()->draw(m_Viewer, m_backlit, m_lightPosition);
-  GeometryObjects::pathgroups()->draw(m_Viewer, m_backlit, m_lightPosition, true);
+  GeometryObjects::pathgroups()->draw(m_Viewer, m_backlit, m_lightPosition, false);
   GeometryObjects::hitpoints()->draw(m_Viewer, m_backlit);
   GeometryObjects::landmarks()->draw(m_Viewer, m_backlit);
   
@@ -2549,6 +2549,29 @@ DrawHiresVolume::drawGeometryOnly()
 						   m_lightInfo.shadowIntensity); 
   GeometryObjects::trisets()->predraw(m_Viewer,
 				      m_bricks->getMatrix(0));
+
+
+
+  //----------------------------------------------------------------
+  {
+    QList<Vec> clipGeoPos;
+    QList<Vec> clipGeoNormal;  
+    getClipForMask(clipGeoPos, clipGeoNormal);
+
+    GeometryObjects::pathgroups()->predraw(m_Viewer, m_backlit,
+					   clipGeoPos,
+					   clipGeoNormal,
+					   m_crops);
+
+    GeometryObjects::networks()->predraw(m_Viewer,
+					 m_bricks->getMatrix(0),
+					 pn,
+					 clipGeoPos,
+					 clipGeoNormal,
+					 m_crops,
+					 m_lightInfo.userLightVector);
+  }
+  //----------------------------------------------------------------
 
   drawGeometry(pn, 1, -1, 10000*pn,
 	       false, false, eyepos);

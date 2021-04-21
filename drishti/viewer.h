@@ -88,7 +88,6 @@ class Viewer : public QGLViewer
 
   QMap<QString, QMap<QString, MenuViewerFncPtr> > registerMenuFunctions();
 
-  void setPaintMode(bool);
   bool paintMode() { return m_paintMode; }
   float paintRadius() { return m_paintRad; }
   Vec paintColor() { return m_paintColor; }
@@ -184,6 +183,7 @@ class Viewer : public QGLViewer
    void displace();
    void opmod();
    void showGiLightDialog();
+   void setPaintMode(bool);
   //------------
 
  signals:

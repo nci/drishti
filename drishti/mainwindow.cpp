@@ -295,6 +295,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
   createHiresLowresWindows();
 
+			   
   QTimer::singleShot(2000, this, SLOT(GlewInit()));
 
 
@@ -364,6 +365,19 @@ MainWindow::registerMenuViewerFunctions()
 
   QMenu *menu=0;
 
+  { // add Paint Mesh
+    QAction *action = new QAction(this);
+    action->setText("Paint Mesh");
+    action->setData("Paint Mesh");
+    action->setCheckable(true);
+    action->setChecked(false);
+    action->setVisible(false);
+    connect(action, SIGNAL(triggered(bool)),
+	    m_Viewer, SLOT(setPaintMode(bool)));
+    ui.menuFunctions->addAction(action);
+    m_paintMeshAction = action;
+  }
+
   for(int i=0; i<fnames.count(); i++)
     {
       if (!fnames[i].isEmpty())
@@ -384,7 +398,6 @@ MainWindow::registerMenuViewerFunctions()
 	  action->setVisible(true);      
 	  connect(action, SIGNAL(triggered()),
 		  this, SLOT(menuViewerFunction()));
-	  
 	  menu->addAction(action);
 	  
 	  m_menuViewerFunctions[fnm[j]] = m1[fnm[j]];
@@ -1799,6 +1812,7 @@ MainWindow::on_actionTriset_triggered()
 
   QFileInfo f(flnms[0]);
   Global::setPreviousDirectory(f.absolutePath());
+
 }
 
 void
@@ -2613,6 +2627,21 @@ MainWindow::postLoadVolume()
   else
     m_Viewer->setVolDataPtr(0);
   //---------------------
+
+  
+  //---------------------
+  //---------------------
+  // check whether we can allow mesh paint
+  if (Global::volumeType() == Global::DummyVolume &&
+      GeometryObjects::trisets()->count() > 0)
+    {
+      m_paintMeshAction->setVisible(true);
+    }
+  else
+    {
+      m_paintMeshAction->setVisible(false);
+      m_Viewer->setPaintMode(false);
+    }
 }
 
 void

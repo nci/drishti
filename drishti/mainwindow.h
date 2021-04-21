@@ -267,6 +267,8 @@ class MainWindow : public QMainWindow
 
    QMap<QString, MenuViewerFncPtr> m_menuViewerFunctions;
 
+   QAction *m_paintMeshAction;
+  
    void initializeRecentFiles();
 
    void createHiresLowresWindows();

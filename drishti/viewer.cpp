@@ -6256,14 +6256,15 @@ Viewer::setPaintMode(bool b)
 {  
   m_paintMode = b;
 
-  if (m_paintMode)
-    QMessageBox::information(0, "", "Entering Surface Mesh Paint Mode ");
-  else
-    QMessageBox::information(0, "", "Paint Surface Mesh Mode Ended");
+//  if (m_paintMode)
+//    QMessageBox::information(0, "", "Entering Surface Mesh Paint Mode ");
+//  else
+//    QMessageBox::information(0, "", "Paint Surface Mesh Mode Ended");
   
   if (m_paintMode)
     {
       createPaintMenu();
+      m_paintMenuWidget->move(QCursor::pos());
 
       Vec bmin, bmax;
       GeometryObjects::trisets()->makeReadyForPainting();
@@ -6311,7 +6312,7 @@ Viewer::createPaintMenu()
 {
   if (m_paintMenuWidget)
     return;
-      
+  
   QVBoxLayout *vbox = new QVBoxLayout();
   vbox->setSpacing(5);
 

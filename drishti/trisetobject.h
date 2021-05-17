@@ -67,7 +67,7 @@ class TrisetObject
   void setPattern(Vec p) { m_pattern = p; }
   
   void setCaptionPosition(Vec);
-  void setCaptionOffset(int dx, int dy) { m_cpDx = dx; m_cpDy = dy; }
+  void setCaptionOffset(float dx, float dy) { m_cpDx = dx; m_cpDy = dy; }
   QFont captionFont() { return m_captionFont; }
   void setCaptionFont(QFont);
   QColor captionColor() { return m_captionColor; }
@@ -153,7 +153,7 @@ private :
 
   QString m_captionText;
   Vec m_captionPosition;
-  int m_cpDx, m_cpDy;
+  float m_cpDx, m_cpDy;
   QFont m_captionFont;
   QColor m_captionColor;
   CaptionObject *m_co;

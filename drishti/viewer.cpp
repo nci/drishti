@@ -4019,7 +4019,9 @@ Viewer::keyPressEvent(QKeyEvent *event)
 			   QColor::fromRgbF(1,1,1,1),
 			   0);
 	  cd.hideAngle(false);
-	  cd.move(QCursor::pos());
+	  int cdW = cd.width();
+	  int cdH = cd.height();
+	  cd.move(QCursor::pos() - QPoint(cdW/2, cdH/2));
 	  if (cd.exec() == QDialog::Accepted)
 	    {
 	      QString text = cd.text();
@@ -6277,10 +6279,13 @@ Viewer::setPaintMode(bool b)
       m_unitPaintRad *= 0.01;
     }
 
-  if (m_paintMode)
-    m_paintMenuWidget->show();
-  else
-    m_paintMenuWidget->hide();
+  if (m_paintMenuWidget)
+    {
+      if (m_paintMode)
+	m_paintMenuWidget->show();
+      else
+	m_paintMenuWidget->hide();
+    }
 
 
 }

@@ -67,6 +67,9 @@ CaptionDialog::CaptionDialog(QWidget *parent,
   float a = color.alphaF();
   ui.opacity->setValue(a);
 
+  if (haloColor == Qt::transparent)
+    ui.haloColor->hide();
+
   ui.angle->setValue(angle);
   ui.angle->hide();
   ui.angleLabel->hide();

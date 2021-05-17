@@ -49,7 +49,7 @@ class TrisetInformation
   QColor captionColor;
   QFont captionFont;
   Vec captionPosition;
-  int cpDx, cpDy;
+  float cpDx, cpDy;
   float opacity;
 };
 

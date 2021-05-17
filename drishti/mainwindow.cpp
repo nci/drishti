@@ -3305,7 +3305,9 @@ MainWindow::loadProject(const char* flnm)
       m_Lowres->setSubvolumeBounds(sbmin, sbmax);
     }
 
+
   m_preferencesWidget->load(flnm);
+
   m_tfManager->load(flnm);
 
 //  m_dockGallery->setVisible(false);

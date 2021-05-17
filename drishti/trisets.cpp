@@ -1137,10 +1137,12 @@ Trisets::processCommand(int idx, QString cmd)
 		       m_trisets[idx]->captionText(),
 		       m_trisets[idx]->captionFont(),
 		       m_trisets[idx]->captionColor(),
-		       Qt::black,
+		       Qt::transparent,
 		       0);
       cd.hideAngle(true);
-      cd.move(QCursor::pos());
+      int cdW = cd.width();
+      int cdH = cd.height();
+      cd.move(QCursor::pos() - QPoint(cdW/2, cdH/2));
       if (cd.exec() == QDialog::Accepted)
 	{
 	  m_trisets[idx]->setCaptionText(cd.text());
@@ -1169,10 +1171,10 @@ Trisets::processCommand(int idx, QString cmd)
       // set caption offsets
       if (list.size() == 3)
 	{
-	  int x = 100;
-	  int y = -100;
-	  x = list[1].toInt(&ok);
-	  y = list[2].toInt(&ok);
+	  float x = 0.1;
+	  float y = 0.1;
+	  x = list[1].toFloat(&ok);
+	  y = list[2].toFloat(&ok);
 	  m_trisets[idx]->setCaptionOffset(x,y);
 	}
 

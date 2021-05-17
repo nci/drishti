@@ -142,6 +142,7 @@ TrisetObject::clear()
   m_normals.clear();
   m_triangles.clear();
   m_samplePoints.clear();
+  m_cpDx = m_cpDy = 0.1;
   
   if(m_glVertArray)
     {
@@ -483,7 +484,7 @@ TrisetObject::setCaptionColor(QColor c)
 {
   m_captionColor = c;
   m_co->setColor(c);
-  m_co->setHaloColor(c);
+  m_co->setHaloColor(Qt::transparent);
 }
 void
 TrisetObject::setCaptionFont(QFont f)
@@ -551,42 +552,61 @@ TrisetObject::drawCaption(QGLViewer *viewer)
       pimg = pimg.copy(sx, sy, pwd, pht);
     }
 
-  int rpx = qMax(0, m_cpDx+x+(wd-pimg.width())/2);
-  int rpy = qMin(screenHeight, m_cpDy+y+(pimg.height()-ht)/2);
+//  int rpx = qMax(0, m_cpDx+x+(wd-pimg.width())/2);
+//  int rpy = qMin(screenHeight, m_cpDy+y+(pimg.height()-ht)/2);
+//  float wo = pimg.width()/2;
+//  float ho = -pimg.height();
+//  if (m_cpDy < 0) ho = 0;
+//  wo *= (float)screenWidth/(float)viewer->camera()->screenWidth();
+//  ho *= (float)screenHeight/(float)viewer->camera()->screenHeight();
 
+  int rpx, rpy;
+  if (m_cpDx < 1.1 && m_cpDy < 1.1)
+    {      
+      rpx = qMax(0.0f, m_cpDx*screenWidth+(wd-pimg.width())/2);
+      rpy = qMin((float)screenHeight, m_cpDy*screenHeight+(pimg.height()-ht)/2);
+    }
+  else
+    {
+      rpx = qMax(0.0f, m_cpDx+x+(wd-pimg.width())/2);
+      rpy = qMin((float)screenHeight, m_cpDy+y+(pimg.height()-ht)/2);
+    }
+  
+  if (m_cpDx < 1.1 && m_cpDy < 1.1 || qAbs(m_cpDx) > 30 || qAbs(m_cpDy) > 30)
+    {
+      float wo = pimg.width()/2;
+      float ho = -pimg.height();
+      if (m_cpDy < 0) ho = 0;
+      wo *= (float)screenWidth/(float)viewer->camera()->screenWidth();
+      ho *= (float)screenHeight/(float)viewer->camera()->screenHeight();
+      
+      float alpha = m_co->color().alpha()/255.0;
+      glLineWidth(2.0);
+      glEnable(GL_LINE_SMOOTH);
+      glBegin(GL_LINE_STRIP);
+      glColor4f(alpha*m_captionColor.redF(),
+		alpha*m_captionColor.greenF(),
+		alpha*m_captionColor.blueF(),
+		alpha);
+      glVertex2f(cx, cy);
+      glColor4f(0,0,0,0);
+      glVertex2f(rpx+wo, rpy+ho);
+      glEnd();
+      glLineWidth(1.0);
+      glDisable(GL_LINE_SMOOTH);
+    }
 
-  float wo = pimg.width()/2;
-  float ho = -pimg.height();
-  if (m_cpDy < 0) ho = 0;
-  wo *= (float)screenWidth/(float)viewer->camera()->screenWidth();
-  ho *= (float)screenHeight/(float)viewer->camera()->screenHeight();
-
-  float alpha = m_co->color().alpha()/255.0;
-  glColor4f(alpha*m_captionColor.redF(),
-	    alpha*m_captionColor.greenF(),
-	    alpha*m_captionColor.blueF(),
-  	    alpha);
-  glLineWidth(2.0);
-  glEnable(GL_LINE_SMOOTH);
-  glBegin(GL_LINE_STRIP);
-  glVertex2f(cx, cy);
-  glVertex2f(rpx+wo, rpy+ho);
-  glEnd();
-  glLineWidth(1.0);
-  glDisable(GL_LINE_SMOOTH);
-
-
-  wd = pimg.width();
-  ht = pimg.height();
-  wd *= (float)screenWidth/(float)viewer->camera()->screenWidth();
-  ht *= (float)screenHeight/(float)viewer->camera()->screenHeight();
-  glColor4f(0.2,0.2,0.2,0.5);
-  glBegin(GL_TRIANGLE_STRIP);
-  glVertex2f(rpx-5,    rpy+2);
-  glVertex2f(rpx+wd+5, rpy+2);
-  glVertex2f(rpx-5,    rpy-ht-2);
-  glVertex2f(rpx+wd+5, rpy-ht-2);
-  glEnd();
+//  wd = pimg.width();
+//  ht = pimg.height();
+//  wd *= (float)screenWidth/(float)viewer->camera()->screenWidth();
+//  ht *= (float)screenHeight/(float)viewer->camera()->screenHeight();
+//  glColor4f(0.2,0.2,0.2,0.5);
+//  glBegin(GL_TRIANGLE_STRIP);
+//  glVertex2f(rpx-5,    rpy+2);
+//  glVertex2f(rpx+wd+5, rpy+2);
+//  glVertex2f(rpx-5,    rpy-ht-2);
+//  glVertex2f(rpx+wd+5, rpy-ht-2);
+//  glEnd();
 
 
   glRasterPos2i(rpx, rpy);
@@ -1822,14 +1842,14 @@ TrisetObject::loadAssimpModel(QString flnm)
   m_captionFont.setPointSize(16);
   //m_captionText = QFileInfo(m_fileName).fileName();
   m_captionText = "";
-  m_cpDx = 0;
-  m_cpDy = -100;
+  m_cpDx = 0.1;
+  m_cpDy = 0.1;
   if (m_co) delete m_co;
   m_co = new CaptionObject();
   m_co->setText(m_captionText);
   m_co->setFont(m_captionFont);
   m_co->setColor(m_captionColor);
-  m_co->setHaloColor(m_captionColor);
+  m_co->setHaloColor(Qt::transparent);
   //---------------
   
   Global::progressBar()->setValue(100);

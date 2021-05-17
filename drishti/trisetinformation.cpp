@@ -29,8 +29,8 @@ TrisetInformation::clear()
   captionFont = QFont("Helvetica");
   captionFont.setPointSize(16);
   captionPosition = Vec(0,0,0);
-  cpDx = 0;
-  cpDy = -100;
+  cpDx = 0.1;
+  cpDy = 0.1;
   pattern = Vec(0,10,0.5);
   opacity = 0.7;
 }
@@ -298,8 +298,8 @@ TrisetInformation::save(fstream &fout)
   memset(keyword, 0, 100);
   sprintf(keyword, "captionoffset");
   fout.write((char*)keyword, strlen(keyword)+1);
-  fout.write((char*)&cpDx, sizeof(int));
-  fout.write((char*)&cpDy, sizeof(int));
+  fout.write((char*)&cpDx, sizeof(float));
+  fout.write((char*)&cpDy, sizeof(float));
   
   memset(keyword, 0, 100);
   sprintf(keyword, "pattern");

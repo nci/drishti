@@ -1408,10 +1408,10 @@ ClipObject::commandEditor()
   vlist << dcolor;
   plist["color"] = vlist;
   
-  vlist.clear();
-  vlist << QVariant("checkbox");
-  vlist << QVariant(m_apply);
-  plist["apply clipping"] = vlist;
+//  vlist.clear();
+//  vlist << QVariant("checkbox");
+//  vlist << QVariant(m_apply);
+//  plist["apply clipping"] = vlist;
 
   vlist.clear();
   vlist << QVariant("int");
@@ -1557,7 +1557,7 @@ ClipObject::commandEditor()
 
 
   QStringList keys;
-  keys << "apply clipping";
+  //keys << "apply clipping";
   keys << "solid color";
   keys << "show slice";
   keys << "show thickness";

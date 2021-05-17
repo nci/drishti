@@ -106,14 +106,23 @@ CaptionObject::createImage()
   QFontMetrics metric(m_font);
   m_width = metric.width(finalText);
 
+  //if (m_haloColor == Qt::transparent)
+    {
+      m_width += 10;
+      m_height += 2;
+    }
+  
   int mde = metric.descent();
   int fwd = m_width;
-  int fht = m_height;
+  int fht = m_height;  
   if (drawPi > 0)
     fwd += fht;
 
   QImage bImage = QImage(fwd, fht, QImage::Format_ARGB32);
   bImage.fill(0);
+  if (m_haloColor.red() > 0 ||
+      m_haloColor.green() > 0 ||
+      m_haloColor.blue() > 0)
   {
     QPainter bpainter(&bImage);
     // we have image as ARGB, but we want RGBA
@@ -124,9 +133,9 @@ CaptionObject::createImage()
     bpainter.setPen(penColor);
     bpainter.setFont(m_font);
     if (drawPi)
-      bpainter.drawText(fht+1, fht-mde, finalText);
+      bpainter.drawText(fht+5, fht-mde-3, finalText);
     else
-      bpainter.drawText(1, fht-mde, finalText);
+      bpainter.drawText(5, fht-mde-3, finalText);
 
     if (drawPi)
       {
@@ -175,10 +184,17 @@ CaptionObject::createImage()
 		    m_color.red());
     cpainter.setPen(penColor);
     cpainter.setFont(m_font);
+
+    if (m_haloColor == Qt::transparent)
+      {
+	cpainter.setBrush(QColor(50, 50, 50, 50));
+	cpainter.drawRoundedRect(0,0, fwd-1, fht-1, 5, 5);
+      }
+    
     if (drawPi)
-      cpainter.drawText(fht+1, fht-mde, finalText);
+      cpainter.drawText(fht+5, fht-mde-3, finalText);
     else
-      cpainter.drawText(1, fht-mde, finalText);
+      cpainter.drawText(5, fht-mde-3, finalText);
 
     if (drawPi)
       {

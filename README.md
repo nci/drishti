@@ -41,7 +41,7 @@ by Bailey Lovett<br>
 http://www.scribd.com/doc/191007517/The-Basics-of-Drishti-A-Free-To-Download-Volume-Exploration-Presentation-Tool
 
 ## You tube channel
-https://www.youtube.com/user/900acl/videos?sort=dd&flow=list&page=1&view=1
+https://www.youtube.com/user/900acl/playlists
 
 ## User generated help videos
 https://www.youtube.com/watch?v=pd9azHTGaB4

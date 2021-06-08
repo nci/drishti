@@ -48,9 +48,7 @@ https://www.youtube.com/watch?v=pd9azHTGaB4
 <br>
 https://www.youtube.com/playlist?list=PLvCBlNTgzwb9OrBO20JGFl4aEaBA8TZZI
 
-## Some more help videos
-http://sf.anu.edu.au/~acl900/tmp/help-videos/
-http://sf.anu.edu.au/Vizlab/drishti/help.shtml
+
 ## Drishti around the world
 Usage of Drishti by [researchers around the world ](https://github.com/AjayLimaye/drishti/wiki/Usage-of-Drishti-around-the-world)
 

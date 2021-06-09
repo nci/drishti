@@ -1093,6 +1093,14 @@ Trisets::keyPressEvent(QKeyEvent *event)
     return false;
 
   
+  if (m_trisets[idx]->labelGrabbed() &&
+      (event->key() == Qt::Key_Delete ||
+       event->key() == Qt::Key_Backspace))
+    {
+      m_trisets[idx]->setCaptionText("");
+      return true;
+    }
+
   if (event->modifiers() & Qt::ControlModifier &&
       event->key() == Qt::Key_D)
     duplicate(idx);
@@ -1131,8 +1139,15 @@ Trisets::processCommand(int idx, QString cmd)
   QStringList list = cmd.split(" ", QString::SkipEmptyParts);
 
   //------------------
-  if (list[0] == "caption")
+  if (list[0] == "label")
     {
+      if (list.size() == 2 && list[1] == "delete")
+	{
+	  m_trisets[idx]->setCaptionText("");
+	  m_trisets[idx]->setCaptionOffset(0.1,0.1);
+	  return;
+	}
+      
       CaptionDialog cd(0,
 		       m_trisets[idx]->captionText(),
 		       m_trisets[idx]->captionFont(),
@@ -1168,15 +1183,23 @@ Trisets::processCommand(int idx, QString cmd)
 	  m_hitpoints->setPoints(pts);
 	}
 
-      // set caption offsets
-      if (list.size() == 3)
+      if (list.size() == 2)
 	{
-	  float x = 0.1;
-	  float y = 0.1;
-	  x = list[1].toFloat(&ok);
-	  y = list[2].toFloat(&ok);
-	  m_trisets[idx]->setCaptionOffset(x,y);
+	  if (list[1] == "moving")
+	    m_trisets[idx]->setCaptionOffset(50,50);
+	  else if (list[1] == "fixed")
+	    m_trisets[idx]->setCaptionOffset(0.1,0.1);
 	}
+      
+//      // set caption offsets
+//      if (list.size() == 3)
+//	{
+//	  float x = 0.1;
+//	  float y = 0.1;
+//	  x = list[1].toFloat(&ok);
+//	  y = list[2].toFloat(&ok);
+//	  m_trisets[idx]->setCaptionOffset(x,y);
+//	}
 
       return;
     }

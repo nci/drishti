@@ -7,6 +7,8 @@ TrisetGrabber::TrisetGrabber()
 {
   m_pressed = false;
   m_moveAxis = MoveAll;
+
+  m_labelSelected = false;
 }
 
 TrisetGrabber::~TrisetGrabber() { removeFromMouseGrabberPool(); }
@@ -23,10 +25,46 @@ TrisetGrabber::setMouseGrab(bool f)
   if (!f) m_pressed = false;
 }
 
+
+bool
+TrisetGrabber::checkLabel(int x, int y,
+			  const Camera* const camera)
+{
+  m_screenWidth = camera->screenWidth();
+  m_screenHeight = camera->screenHeight();
+  Vec cpD = captionOffset();
+  Vec cpS = captionSize()/2;
+  int rpx, rpy;
+  if (qAbs(cpD.x) < 1.1 && qAbs(cpD.y) < 1.1)
+    {      
+      rpx = qMax(0.0f, (float)cpD.x*m_screenWidth+(float)cpS.x );
+      rpy = qMin((float)m_screenHeight, (float)cpD.y*m_screenHeight-(float)cpS.y);
+    }
+  else
+    {
+      Vec pos = camera->projectedCoordinatesOf(captionPosition()+centroid()+position());
+      int cx = pos.x;
+      int cy = pos.y;
+      
+      rpx = cx + cpD.x + cpS.x;
+      rpy = cy + cpD.y - cpS.y;
+    }
+
+  return (qAbs(x-rpx)<cpS.x && qAbs(y-rpy)<cpS.y);
+}
+
 Vec
 TrisetGrabber::checkForMouseHover(int x, int y,
 				  const Camera* const camera)
 {
+  m_labelSelected = false;
+  if (checkLabel(x,y, camera))
+    {
+      m_labelSelected = true;
+      return Vec(1,1,100);
+    }
+		     
+
   float chkd1 = 100;
   float chkd2 = 100;
   int oh = camera->screenHeight();
@@ -110,6 +148,29 @@ TrisetGrabber::mousePressEvent(QMouseEvent* const event,
 }
 
 void
+TrisetGrabber::moveLabel(QPoint delta)
+{
+  Vec cpD = captionOffset();
+  Vec cpS = captionSize();
+  float rpx = cpD.x;
+  float rpy = cpD.y;
+  if (qAbs(rpx) < 1.1 && qAbs(rpy) < 1.1)
+    {      
+      rpx += (float)delta.x()/m_screenWidth;
+      rpy += (float)delta.y()/m_screenHeight;
+      rpx = qBound(0.0f, rpx, 1.0f-(float)cpS.x/m_screenWidth);
+      rpy = qBound((float)cpS.y/m_screenHeight, rpy, 1.0f);
+    }
+  else
+    {
+      rpx += delta.x();
+      rpy += delta.y();      
+    }
+
+  setCaptionOffset(rpx, rpy);
+}
+
+void
 TrisetGrabber::mouseMoveEvent(QMouseEvent* const event,
 			       Camera* const camera)
 {
@@ -119,6 +180,13 @@ TrisetGrabber::mouseMoveEvent(QMouseEvent* const event,
 
   QPoint delta = event->pos() - m_prevPos;
 
+  if (m_labelSelected)
+    {
+      moveLabel(delta);
+      m_prevPos = event->pos();
+      return;
+    }
+  
   if (event->buttons() == Qt::LeftButton &&
       event->modifiers() == Qt::NoModifier)
     {

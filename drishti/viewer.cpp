@@ -1286,7 +1286,7 @@ Viewer::splashScreen()
 	       GL_UNSIGNED_BYTE,
 	       mimg.bits());
   
-  StaticFunctions::renderText(px-9, height()-mimg.height()-py+2,
+  StaticFunctions::renderText(px-60, height()-mimg.height()-py+2,
 			      QString("Drishti v"+Global::DrishtiVersion()),
 			      tfont,
 			      Qt::black, Qt::lightGray,

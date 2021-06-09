@@ -572,15 +572,51 @@ TrisetObject::drawCaption(QGLViewer *viewer)
       rpy = qMin((float)screenHeight, m_cpDy+y+(pimg.height()-ht)/2);
     }
   
-  if (m_cpDx < 1.1 && m_cpDy < 1.1 || qAbs(m_cpDx) > 30 || qAbs(m_cpDy) > 30)
+  if (m_cpDx < 1.1 && m_cpDy < 1.1 ||
+      qAbs(m_cpDx) > 30 ||
+      qAbs(m_cpDy) > 30)
     {
       float wo = pimg.width()/2;
       float ho = -pimg.height();
-      if (m_cpDy < 0) ho = 0;
+      
+      if (cy > rpy)
+	ho = 0;
+      else if (cy < rpy-pimg.height())
+	ho = -pimg.height();
+      else
+	ho = pimg.height()*(float)(cy-rpy)/(float)(pimg.height());
+      
+      if (cx < rpx-50)
+	wo = 0;
+      else if (cx > rpx+pimg.width()+50)
+	wo = pimg.width();
+      else
+	{
+	  float frc = (float)(cx - rpx+50)/(float)(pimg.width()+100);
+	  wo = frc*pimg.width();
+	  if (cy > rpy)
+	    ho = 0;
+	  else
+	    ho = -pimg.height();
+	}
+
       wo *= (float)screenWidth/(float)viewer->camera()->screenWidth();
       ho *= (float)screenHeight/(float)viewer->camera()->screenHeight();
       
-      float alpha = m_co->color().alpha()/255.0;
+      float alpha;
+      alpha = 0.5*m_co->color().alpha()/255.0;
+      glLineWidth(4.0);
+      glEnable(GL_LINE_SMOOTH);
+      glBegin(GL_LINE_STRIP);
+      glColor4f(alpha*m_captionColor.redF(),
+		alpha*m_captionColor.greenF(),
+		alpha*m_captionColor.blueF(),
+		alpha);
+      glVertex2f(cx, cy);
+      glVertex2f(rpx+wo, rpy+ho);
+      glEnd();
+
+      alpha = m_co->color().alpha()/255.0;
       glLineWidth(2.0);
       glEnable(GL_LINE_SMOOTH);
       glBegin(GL_LINE_STRIP);
@@ -589,25 +625,12 @@ TrisetObject::drawCaption(QGLViewer *viewer)
 		alpha*m_captionColor.blueF(),
 		alpha);
       glVertex2f(cx, cy);
-      glColor4f(0,0,0,0);
       glVertex2f(rpx+wo, rpy+ho);
       glEnd();
+
       glLineWidth(1.0);
       glDisable(GL_LINE_SMOOTH);
     }
-
-//  wd = pimg.width();
-//  ht = pimg.height();
-//  wd *= (float)screenWidth/(float)viewer->camera()->screenWidth();
-//  ht *= (float)screenHeight/(float)viewer->camera()->screenHeight();
-//  glColor4f(0.2,0.2,0.2,0.5);
-//  glBegin(GL_TRIANGLE_STRIP);
-//  glVertex2f(rpx-5,    rpy+2);
-//  glVertex2f(rpx+wd+5, rpy+2);
-//  glVertex2f(rpx-5,    rpy-ht-2);
-//  glVertex2f(rpx+wd+5, rpy-ht-2);
-//  glEnd();
-
 
   glRasterPos2i(rpx, rpy);
 

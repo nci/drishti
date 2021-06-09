@@ -67,13 +67,16 @@ class TrisetObject
   void setPattern(Vec p) { m_pattern = p; }
   
   void setCaptionPosition(Vec);
+  Vec captionPosition() { return m_captionPosition; }
   void setCaptionOffset(float dx, float dy) { m_cpDx = dx; m_cpDy = dy; }
+  Vec captionOffset() { return Vec(m_cpDx,m_cpDy,0); }
   QFont captionFont() { return m_captionFont; }
   void setCaptionFont(QFont);
   QColor captionColor() { return m_captionColor; }
   void setCaptionColor(QColor);
   QString captionText() { return m_captionText; }
   void setCaptionText(QString);
+  Vec captionSize() { return Vec(m_co->width(), m_co->height(), 0);}
   
   Quaternion rotation() { return m_q; }
   void rotate(Vec, float);

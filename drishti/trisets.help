@@ -138,14 +138,30 @@ Changes the mesh to its mirror image in the relevent axis.
 #end
 
 #begin
-caption
-caption
-caption <dx> <dy>
+label
+label
+label <fixed/moving/delete>
 
-Attach caption to the surface mesh.
-Caption dialog will pop up where text, color and font for caption can be specified.
-If a hitpoint is available, line is drawn from that point to the caption text.
-<dx> and <dy> if specified are used to offset the caption text.  <dx. and <dy> are in pixel coordinates, default values are 0 and -100 (i.e. show text 100 pixels above).
+Attach label to the surface mesh.
+Label dialog will pop up where text, color and font for label can be specified.
+If a hitpoint is available, line is drawn from that point to the label text.
+
+When "fixed" is specified, the label does not change its position on screen.
+When "moving" is specified, the label changes its position on screen along with the mesh it is attached to.
+When "delete" is specified, the attached label is removed.
+
+If no parameter is specified and the mesh does not have a label attached to it, a fixed label is created.
+
+
+Both types of labels - fixed and moving - can be moved around by draging them using left mouse button.
+Select the mesh (via the MeshInformation panel) whose label need to be moved, the drag the label to the desired position.
+
+Label type can be changed.  In the Process Command panel spcify the label command with desired parameter (fixed/moving).
+
+Example :
+label - create a label fixed to screen position if no label present, otherwise maintain the label type.
+label fixed - create a label fixed to screen position
+label moving - create a label that moves with the mesh
 
 #end
 

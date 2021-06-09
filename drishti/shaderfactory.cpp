@@ -2068,9 +2068,30 @@ ShaderFactory::meshShadowShaderF()
   shader += "  vec2 spos = gl_FragCoord.xy;\n";
 
   shader += "  color = texture2DRect(colorTex, spos.xy);\n";
-  shader += "  if (color.a < 0.001)\n";
-  shader += "    discard;\n";
+//  shader += "  if (color.a < 0.001)\n";
+//  shader += "    discard;\n";
 
+  // dropShadow
+  shader += "  if (color.a < 0.001)\n";
+  shader += "    {\n";
+  shader += "      int nsteps = int(30.0*softshadow);\n";
+  shader += "      float dropS = 0;\n";
+  shader += "      for(int i=0; i<nsteps; i++)\n";
+  shader += "        {\n";
+  shader += "    	 float r = 1.0+i*0.11;\n";
+  shader += "            float x = r*sin(radians(i*17));\n";
+  shader += "            float y = r*cos(radians(i*17));\n";
+  shader += "    	 vec2 pos = spos + vec2(x,y);\n";
+  shader += "    	 float adepth = texture2DRect(depthTex, pos).x;\n";
+  shader += "            dropS += step(0.001, adepth);\n";
+  shader += "        }\n";
+  shader += "      dropS /= float(nsteps);\n";
+  shader += "      color.a = dropS;\n";
+  shader += "      color.rgb *= vec3(dropS);\n";
+  shader += "      return;\n";
+  shader += "    }\n";
+
+  
   shader += "  float darken = 0.1*(int(color.a)/10000.0);\n";
   shader += "  darken = 1.0-0.8*darken;\n";
   
@@ -2116,7 +2137,7 @@ ShaderFactory::meshShadowShaderF()
   shader += "        float od = depth - adepth;\n";
   shader += "        response += max(0.0, od);\n";
   shader += "      } \n";
-  shader += "    ecolor.rgb *= exp(-response*pow(40*(edges+0.05), 1.2*gamma));\n";
+  shader += "    ecolor.rgb *= exp(-response * pow(40*(edges+0.05),1.0/gamma));\n";
 
   // find border between different surfaces
   shader += "    response = 0.0;\n";
@@ -2157,8 +2178,8 @@ ShaderFactory::meshShadowShaderF()
   shader += "    	 nearEnough = 1.0 - (nearEnough-0.05)/(0.1-0.05);\n";
 
   shader += "    	 vec4 tmp = texture2DRect(colorTex, pos);\n";
-  shader += "            float inShadow = float(int(mod(tmp.a,10000.0))/1000.0);\n";
-  shader += "    	 sumS += (2.0-float(i)/float(nstepsS))*inShadow;\n";
+  shader += "            float inShadow = float(int(mod(tmp.a,10000.0))/1000);\n";
+  shader += "    	 sumS += pow(1.0-float(i)/float(nsteps), 0.25)*step(0.001,inShadow);\n";
   
   shader += "    	 nRidge += step(0.0, -zdif-0.01)*nearEnough;\n";
   shader += "    	 nValley += max(0.0,zdif)*nearEnough;\n";
@@ -2181,8 +2202,8 @@ ShaderFactory::meshShadowShaderF()
   shader += "    	 vec3 adepth = texture2DRect(depthTex, pos).xyz;\n";
   shader += "    	 vec4 tmp = texture2DRect(colorTex, pos);\n";
 
-  shader += "            float inShadow = float(int(mod(tmp.a,10000.0))/1000.0);\n";
-  shader += "    	 sumS += (1.0-0.75*float(i)/float(nsteps))*inShadow;\n";
+  shader += "            float inShadow = float(int(mod(tmp.a,10000.0))/1000);\n";
+  shader += "    	 sumS += (1.0-float(i)/float(nsteps))*step(0.001,inShadow);\n";
 
   // get contributions for glowing surfaces
   shader += "    	 float sr = step(0.001, adepth.y);\n";
@@ -2253,8 +2274,8 @@ ShaderFactory::meshShadowShaderF()
   //----------------------
   // add shadow
   shader += "    sumS /= float(nsteps);\n";
-  shader += "    float shadow = smoothstep(0.1, 1.0, sumS);\n";
-  shader += "    float shadows = exp(-shadow*gamma*0.75);\n";
+  shader += "    float shadow = sumS;\n";
+  shader += "    float shadows = exp(-shadow*gamma);\n";
   shader += "    color.rgb *= pow(shadows,0.75/(3.0-0.2*softshadow));\n";
   //----------------------
 

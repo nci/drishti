@@ -2088,6 +2088,7 @@ ShaderFactory::meshShadowShaderF()
   shader += "      dropS /= float(nsteps);\n";
   shader += "      color.a = dropS;\n";
   shader += "      color.rgb *= vec3(dropS);\n";
+  shader += "      gl_FragDepth = 0.999;\n";
   shader += "      return;\n";
   shader += "    }\n";
 

@@ -2086,6 +2086,7 @@ ShaderFactory::meshShadowShaderF()
   shader += "            dropS += step(0.001, adepth);\n";
   shader += "        }\n";
   shader += "      dropS /= float(nsteps);\n";
+  shader += "      if (dropS < 0.01) discard;\n";
   shader += "      color.a = dropS;\n";
   shader += "      color.rgb *= vec3(dropS);\n";
   shader += "      gl_FragDepth = 0.999;\n";

@@ -37,10 +37,10 @@ class TrisetGrabber : public QObject, public MouseGrabber, public TrisetObject
   void mouseMoveEvent(QMouseEvent* const, Camera* const);
   void mouseReleaseEvent(QMouseEvent* const, Camera* const);
 
-  bool labelGrabbed() { return (m_labelSelected); }
+  int labelGrabbed() { return (m_labelSelected); }
 
  private :
-  bool m_labelSelected;
+  int m_labelSelected;
   float m_screenWidth, m_screenHeight;
 
   int m_moveAxis;

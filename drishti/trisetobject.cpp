@@ -62,7 +62,7 @@ TrisetObject::TrisetObject()
 
   m_material.clear();
 
-  m_co = 0;
+  m_co.clear();
   
   clear();
 }
@@ -142,7 +142,6 @@ TrisetObject::clear()
   m_normals.clear();
   m_triangles.clear();
   m_samplePoints.clear();
-  m_cpDx = m_cpDy = 0.1;
   
   if(m_glVertArray)
     {
@@ -164,8 +163,13 @@ TrisetObject::clear()
   
   m_featherSize = 1;
 
-  if (m_co) delete m_co;
-  m_co = 0;
+  m_captionPosition.clear();
+  if (m_co.count() > 0)
+    {
+      for(int i=0; i<m_co.count(); i++)
+	delete m_co[i];
+    }
+  m_co.clear();
   
   Matrix::identity(m_localXform);
 }
@@ -181,9 +185,12 @@ TrisetObject::setColor(Vec color)
   
   m_color = color;
 
-  for(int i=0; i<m_vcolor.count(); i++)
-    m_vcolor[i] = m_color;
-  
+  for(int i=0; i<m_vcolor.count()/3; i++)
+    {
+      m_vcolor[3*i+0] = m_color.x;
+      m_vcolor[3*i+1] = m_color.y;
+      m_vcolor[3*i+2] = m_color.z;
+    }  
 
   copy2OrigVcolor();
 
@@ -193,17 +200,21 @@ TrisetObject::setColor(Vec color)
 void
 TrisetObject::mirror(int type)
 {
-  for(int i=0; i<m_vertices.count(); i++)
+  int nvert = m_vertices.count()/3;
+  for(int i=0; i<nvert; i++)
     {
-      Vec v = m_vertices[i];
+      Vec v = Vec(m_vertices[3*i+0],m_vertices[3*i+1],m_vertices[3*i+2]);
       v[type] = -v[type]+2*m_centroid[type];
-      m_vertices[i] = v;
+      m_vertices[3*i+0] = v.x;
+      m_vertices[3*i+1] = v.y;
+      m_vertices[3*i+2] = v.z;
 
-      v = m_normals[i];
+      v = Vec(m_normals[3*i+0],m_normals[3*i+1],m_normals[3*i+2]);
       v[type] = -v[type];
-      m_normals[i] = v;
+      m_normals[3*i+0] = v.x;
+      m_normals[3*i+1] = v.y;
+      m_normals[3*i+2] = v.z;
     }
-  
   loadVertexBufferData();
 }
 
@@ -233,7 +244,7 @@ TrisetObject::loadVertexBufferData()
   if (m_uv.count() > 0 ||
       m_vcolor.count()) stride += 3; // vertex color or texture uv
   
-  int nvert = m_vertices.count();
+  int nvert = m_vertices.count()/3;
   int nv = stride*nvert;
   int ni = m_triangles.count();
 
@@ -242,30 +253,30 @@ TrisetObject::loadVertexBufferData()
   vertData = new float[nv];  
   for(int i=0; i<nvert; i++)
     {
-      vertData[stride*i + 0] = m_vertices[i].x;
-      vertData[stride*i + 1] = m_vertices[i].y;
-      vertData[stride*i + 2] = m_vertices[i].z;
-      vertData[stride*i + 3] = m_normals[i].x;
-      vertData[stride*i + 4] = m_normals[i].y;
-      vertData[stride*i + 5] = m_normals[i].z;
+      vertData[stride*i + 0] = m_vertices[3*i+0];
+      vertData[stride*i + 1] = m_vertices[3*i+1];
+      vertData[stride*i + 2] = m_vertices[3*i+2];
+      vertData[stride*i + 3] =  m_normals[3*i+0];
+      vertData[stride*i + 4] =  m_normals[3*i+1];
+      vertData[stride*i + 5] =  m_normals[3*i+2];
     }
 
   if (m_uv.count() > 0)
     {
       for(int i=0; i<nvert; i++)
 	{
-	  vertData[stride*i + 6] = m_uv[i].x;
-	  vertData[stride*i + 7] = m_uv[i].y;
-	  vertData[stride*i + 8] = m_uv[i].z;
+	  vertData[stride*i + 6] = m_uv[3*i+0];
+	  vertData[stride*i + 7] = m_uv[3*i+1];
+	  vertData[stride*i + 8] = m_uv[3*i+2];
 	}
     }
   else
     {
       for(int i=0; i<nvert; i++)
 	{
-	  vertData[stride*i + 6] = m_vcolor[i].x;
-	  vertData[stride*i + 7] = m_vcolor[i].y;
-	  vertData[stride*i + 8] = m_vcolor[i].z;
+	  vertData[stride*i + 6] = m_vcolor[3*i+0];
+	  vertData[stride*i + 7] = m_vcolor[3*i+1];
+	  vertData[stride*i + 8] = m_vcolor[3*i+2];
 	}
     }
 
@@ -468,41 +479,24 @@ TrisetObject::drawTrisetBuffer(Camera *camera,
   glUseProgram(0);
 }
 
-void TrisetObject::setCaptionText(QString t)
-{
-  m_captionText = t;
-  m_co->setText(t);
-}
 
 void
-TrisetObject::setCaptionPosition(Vec v)
+TrisetObject::drawCaption(int cpid, QGLViewer *viewer)
 {
-  m_captionPosition = v - m_centroid - m_position;
-}
-void
-TrisetObject::setCaptionColor(QColor c)
-{
-  m_captionColor = c;
-  m_co->setColor(c);
-  m_co->setHaloColor(Qt::transparent);
-}
-void
-TrisetObject::setCaptionFont(QFont f)
-{
-  m_captionFont = f;
-  m_co->setFont(f);
-}
-
-void
-TrisetObject::drawCaption(QGLViewer *viewer)
-{
-  if (m_captionText.isEmpty())
+  if (m_co[cpid]->text().isEmpty())
     return;
 
+
+  float cpDx, cpDy;
+  QPointF cpd = m_co[cpid]->position();
+  cpDx = cpd.x();
+  cpDy = cpd.y();
+  
+  
   int screenWidth = viewer->size().width();
   int screenHeight = viewer->size().height();
 
-  Vec vc = m_captionPosition+m_centroid+m_position;
+  Vec vc = m_captionPosition[cpid]+m_centroid+m_position;
   vc = Matrix::xformVec(m_brick0Xform, vc);
   Vec cppos = viewer->camera()->projectedCoordinatesOf(vc);
   int cx = cppos.x;
@@ -511,11 +505,11 @@ TrisetObject::drawCaption(QGLViewer *viewer)
   cx *= (float)screenWidth/(float)viewer->camera()->screenWidth();
   cy *= (float)screenHeight/(float)viewer->camera()->screenHeight();
 
-  QImage cimage = m_co->image();
-  QFontMetrics metric(m_co->font());
+  QImage cimage = m_co[cpid]->image();
+  QFontMetrics metric(m_co[cpid]->font());
 
-  int wd = m_co->width();
-  int ht = m_co->height();
+  int wd = m_co[cpid]->width();
+  int ht = m_co[cpid]->height();
 
   int x = cx;
   int y = cy - metric.descent();
@@ -527,7 +521,7 @@ TrisetObject::drawCaption(QGLViewer *viewer)
 
 
   QMatrix mat;
-  mat.rotate(-m_co->angle());
+  mat.rotate(-m_co[cpid]->angle());
   QImage pimg = cimage.transformed(mat, Qt::SmoothTransformation);
 
   int px = x+(wd-pimg.width())/2;
@@ -552,33 +546,25 @@ TrisetObject::drawCaption(QGLViewer *viewer)
       pimg = pimg.copy(sx, sy, pwd, pht);
     }
 
-//  int rpx = qMax(0, m_cpDx+x+(wd-pimg.width())/2);
-//  int rpy = qMin(screenHeight, m_cpDy+y+(pimg.height()-ht)/2);
-//  float wo = pimg.width()/2;
-//  float ho = -pimg.height();
-//  if (m_cpDy < 0) ho = 0;
-//  wo *= (float)screenWidth/(float)viewer->camera()->screenWidth();
-//  ho *= (float)screenHeight/(float)viewer->camera()->screenHeight();
-
   int rpx, rpy;
-  if (m_cpDx < 1.1 && m_cpDy < 1.1)
+  if (qAbs(cpDx) < 1.1 && qAbs(cpDy) < 1.1)
     {      
-      rpx = qMax(0.0f, m_cpDx*screenWidth+(wd-pimg.width())/2);
-      rpy = qMin((float)screenHeight, m_cpDy*screenHeight+(pimg.height()-ht)/2);
+      rpx = cpDx*screenWidth+(wd-pimg.width())/2;
+      rpy = cpDy*screenHeight+(pimg.height()-ht)/2;
     }
   else
     {
-      rpx = qMax(0.0f, m_cpDx+x+(wd-pimg.width())/2);
-      rpy = qMin((float)screenHeight, m_cpDy+y+(pimg.height()-ht)/2);
+      rpx = cpDx+x+(wd-pimg.width())/2;
+      rpy = cpDy+y+(pimg.height()-ht)/2;
     }
   
-  if (m_cpDx < 1.1 && m_cpDy < 1.1 ||
-      qAbs(m_cpDx) > 30 ||
-      qAbs(m_cpDy) > 30)
+  if (qAbs(cpDx) < 1.1 && qAbs(cpDy) < 1.1 ||
+      qAbs(cpDx) > 30 ||
+      qAbs(cpDy) > 30)
     {
       float wo = pimg.width()/2;
-      float ho = -pimg.height();
-      
+      float ho = -pimg.height()/2;
+
       if (cy > rpy)
 	ho = 0;
       else if (cy < rpy-pimg.height())
@@ -600,29 +586,32 @@ TrisetObject::drawCaption(QGLViewer *viewer)
 	    ho = -pimg.height();
 	}
 
+      
       wo *= (float)screenWidth/(float)viewer->camera()->screenWidth();
       ho *= (float)screenHeight/(float)viewer->camera()->screenHeight();
-      
+
+      QColor cclr = m_co[cpid]->color();
+	
       float alpha;
-      alpha = 0.5*m_co->color().alpha()/255.0;
+      alpha = 0.5*cclr.alpha()/255.0;
       glLineWidth(4.0);
       glEnable(GL_LINE_SMOOTH);
       glBegin(GL_LINE_STRIP);
-      glColor4f(alpha*m_captionColor.redF(),
-		alpha*m_captionColor.greenF(),
-		alpha*m_captionColor.blueF(),
+      glColor4f(alpha*cclr.redF(),
+		alpha*cclr.greenF(),
+		alpha*cclr.blueF(),
 		alpha);
       glVertex2f(cx, cy);
       glVertex2f(rpx+wo, rpy+ho);
       glEnd();
 
-      alpha = m_co->color().alpha()/255.0;
+      alpha = cclr.alpha()/255.0;
       glLineWidth(2.0);
       glEnable(GL_LINE_SMOOTH);
       glBegin(GL_LINE_STRIP);
-      glColor4f(alpha*m_captionColor.redF(),
-		alpha*m_captionColor.greenF(),
-		alpha*m_captionColor.blueF(),
+      glColor4f(alpha*cclr.redF(),
+		alpha*cclr.greenF(),
+		alpha*cclr.blueF(),
 		alpha);
       glVertex2f(cx, cy);
       glVertex2f(rpx+wo, rpy+ho);
@@ -631,6 +620,20 @@ TrisetObject::drawCaption(QGLViewer *viewer)
       glLineWidth(1.0);
       glDisable(GL_LINE_SMOOTH);
     }
+  
+
+//  wd = pimg.width();
+//  ht = pimg.height();
+//  wd *= (float)screenWidth/(float)viewer->camera()->screenWidth();
+//  ht *= (float)screenHeight/(float)viewer->camera()->screenHeight();
+//  glColor4f(0.2,0.2,0.2,0.2);
+//  glBegin(GL_TRIANGLE_STRIP);
+//  glVertex2f(rpx-5,    rpy+2);
+//  glVertex2f(rpx+wd+5, rpy+2);
+//  glVertex2f(rpx-5,    rpy-ht-2);
+//  glVertex2f(rpx+wd+5, rpy-ht-2);
+//  glEnd();
+
 
   glRasterPos2i(rpx, rpy);
 
@@ -675,9 +678,11 @@ TrisetObject::postdraw(QGLViewer *viewer,
 
   
   //------------------
-  drawCaption(viewer);
+  for (int i=0; i<m_co.count(); i++)
+    drawCaption(i, viewer);
   //------------------
 
+  
   if (active)
     {
       QString str = QString("mesh %1").arg(idx);
@@ -849,11 +854,11 @@ TrisetObject::copy2OrigVcolor()
 {  
   m_OrigVcolor.clear();
   m_OrigVcolor.resize(m_vcolor.count()*3);
-  for(int i=0; i<m_vcolor.count(); i++)
+  for(int i=0; i<m_vcolor.count()/3; i++)
     {
-      m_OrigVcolor[3*i+0] = m_vcolor[i].x;
-      m_OrigVcolor[3*i+1] = m_vcolor[i].y;
-      m_OrigVcolor[3*i+2] = m_vcolor[i].z;
+      m_OrigVcolor[3*i+0] = m_vcolor[3*i+0];
+      m_OrigVcolor[3*i+1] = m_vcolor[3*i+1];
+      m_OrigVcolor[3*i+2] = m_vcolor[3*i+2];
     }
 }
 
@@ -896,414 +901,6 @@ TrisetObject::paint(Vec hitPt)
 }
 
 
-bool
-TrisetObject::loadPLY(QString flnm)
-{
-  m_position = Vec(0,0,0);
-  m_scale = Vec(1,1,1);
-  m_reveal = 0.0;
-  m_outline = 0.0;
-  m_glow = 0.0;
-  m_dark = 0.5;
-  m_pattern = Vec(0,10,0.5);
-  m_q = Quaternion();
-
-  typedef struct Vertex {
-    float x,y,z;
-    float r,g,b;
-    float nx,ny,nz;
-    void *other_props;       /* other properties */
-  } Vertex;
-
-  typedef struct Face {
-    unsigned char nverts;    /* number of vertex indices in list */
-    int *verts;              /* vertex index list */
-    void *other_props;       /* other properties */
-  } Face;
-
-  PlyProperty vert_props[] = { /* list of property information for a vertex */
-    {plyStrings[0], Float32, Float32, offsetof(Vertex,x), 0, 0, 0, 0},
-    {plyStrings[1], Float32, Float32, offsetof(Vertex,y), 0, 0, 0, 0},
-    {plyStrings[2], Float32, Float32, offsetof(Vertex,z), 0, 0, 0, 0},
-    {plyStrings[6], Float32, Float32, offsetof(Vertex,r), 0, 0, 0, 0},
-    {plyStrings[7], Float32, Float32, offsetof(Vertex,g), 0, 0, 0, 0},
-    {plyStrings[8], Float32, Float32, offsetof(Vertex,b), 0, 0, 0, 0},
-    {plyStrings[3], Float32, Float32, offsetof(Vertex,nx), 0, 0, 0, 0},
-    {plyStrings[4], Float32, Float32, offsetof(Vertex,ny), 0, 0, 0, 0},
-    {plyStrings[5], Float32, Float32, offsetof(Vertex,nz), 0, 0, 0, 0},
-  };
-
-  PlyProperty face_props[] = { /* list of property information for a face */
-    {plyStrings[9], Int32, Int32, offsetof(Face,verts),
-     1, Uint8, Uint8, offsetof(Face,nverts)},
-  };
-
-
-  /*** the PLY object ***/
-
-  int nverts,nfaces;
-  Vertex **vlist;
-  Face **flist;
-
-  PlyOtherProp *vert_other,*face_other;
-
-  bool per_vertex_color = false;
-  bool has_normals = false;
-
-  int i,j;
-  int elem_count;
-  char *elem_name;
-  PlyFile *in_ply;
-
-
-  /*** Read in the original PLY object ***/
-  FILE *fp = fopen(flnm.toLatin1().data(), "rb");
-
-  in_ply  = read_ply (fp);
-
-  for (i = 0; i < in_ply->num_elem_types; i++) {
-
-    /* prepare to read the i'th list of elements */
-    elem_name = setup_element_read_ply (in_ply, i, &elem_count);
-
-
-    if (QString("vertex") == QString(elem_name)) {
-
-      /* create a vertex list to hold all the vertices */
-      vlist = (Vertex **) malloc (sizeof (Vertex *) * elem_count);
-      nverts = elem_count;
-
-      /* set up for getting vertex elements */
-
-      setup_property_ply (in_ply, &vert_props[0]);
-      setup_property_ply (in_ply, &vert_props[1]);
-      setup_property_ply (in_ply, &vert_props[2]);
-
-      for (j = 0; j < in_ply->elems[i]->nprops; j++) {
-	PlyProperty *prop;
-	prop = in_ply->elems[i]->props[j];
-	if (QString("r") == QString(prop->name) ||
-	    QString("red") == QString(prop->name)) {
-	  setup_property_ply (in_ply, &vert_props[3]);
-	  per_vertex_color = true;
-	}
-	if (QString("g") == QString(prop->name) ||
-	    QString("green") == QString(prop->name)) {
-	  setup_property_ply (in_ply, &vert_props[4]);
-	  per_vertex_color = true;
-	}
-	if (QString("b") == QString(prop->name) ||
-	    QString("blue") == QString(prop->name)) {
-	  setup_property_ply (in_ply, &vert_props[5]);
-	  per_vertex_color = true;
-	}
-	if (QString("nx") == QString(prop->name)) {
-	  setup_property_ply (in_ply, &vert_props[6]);
-	  has_normals = true;
-	}
-	if (QString("ny") == QString(prop->name)) {
-	  setup_property_ply (in_ply, &vert_props[7]);
-	  has_normals = true;
-	}
-	if (QString("nz") == QString(prop->name)) {
-	  setup_property_ply (in_ply, &vert_props[8]);
-	  has_normals = true;
-	}
-      }
-
-      vert_other = get_other_properties_ply (in_ply, 
-					     offsetof(Vertex,other_props));
-
-      /* grab all the vertex elements */
-      for (j = 0; j < elem_count; j++) {
-        vlist[j] = (Vertex *) malloc (sizeof (Vertex));
-        get_element_ply (in_ply, (void *) vlist[j]);
-      }
-    }
-    else if (QString("face") == QString(elem_name)) {
-
-      /* create a list to hold all the face elements */
-      flist = (Face **) malloc (sizeof (Face *) * elem_count);
-      nfaces = elem_count;
-
-      /* set up for getting face elements */
-
-      setup_property_ply (in_ply, &face_props[0]);
-      face_other = get_other_properties_ply (in_ply, 
-					     offsetof(Face,other_props));
-
-      /* grab all the face elements */
-      for (j = 0; j < elem_count; j++) {
-        flist[j] = (Face *) malloc (sizeof (Face));
-        get_element_ply (in_ply, (void *) flist[j]);
-      }
-    }
-    else
-      get_other_element_ply (in_ply);
-  }
-
-  close_ply (in_ply);
-  free_ply (in_ply);
-  
-  if (Global::volumeType() == Global::DummyVolume)
-    {
-      float minX, maxX;
-      float minY, maxY;
-      float minZ, maxZ;
-      minX = maxX = vlist[0]->x;
-      minY = maxY = vlist[0]->y;
-      minZ = maxZ = vlist[0]->z;
-      for(int i=0; i<nverts; i++)
-	{
-	  minX = qMin(minX, vlist[i]->x);
-	  maxX = qMax(maxX, vlist[i]->x);
-	  minY = qMin(minY, vlist[i]->y);
-	  maxY = qMax(maxY, vlist[i]->y);
-	  minZ = qMin(minZ, vlist[i]->z);
-	  maxZ = qMax(maxZ, vlist[i]->z);
-	}
-      minX = floor(minX);
-      minY = floor(minY);
-      minZ = floor(minZ);
-      maxX = ceil(maxX);
-      maxY = ceil(maxY);
-      maxZ = ceil(maxZ);
-      int h = maxX-minX+1;
-      int w = maxY-minY+1;
-      int d = maxZ-minZ+1;
-
-      m_nX = d;
-      m_nY = w;
-      m_nZ = h;
-      //m_position = Vec(-minX, -minY, -minZ);
-
-      
-//      bool ok;
-//      QString text = QInputDialog::getText(0,
-//					   "Please enter grid size",
-//					   "Grid Size",
-//					   QLineEdit::Normal,
-//					   QString("%1 %2 %3").\
-//					   arg(d).arg(w).arg(h),
-//					   &ok);
-//      if (!ok || text.isEmpty())
-//	{
-//	  QMessageBox::critical(0, "Cannot load PLY", "No grid");
-//	  return false;
-//	}
-//      
-//      int nx=0;
-//      int ny=0;
-//      int nz=0;
-//      QStringList gs = text.split(" ", QString::SkipEmptyParts);
-//      if (gs.count() > 0) nx = gs[0].toInt();
-//      if (gs.count() > 1) ny = gs[1].toInt();
-//      if (gs.count() > 2) nz = gs[2].toInt();
-//      if (nx > 0 && ny > 0 && nz > 0)
-//	{
-//	  m_nX = nx;
-//	  m_nY = ny;
-//	  m_nZ = nz;
-//	}
-//      else
-//	{
-//	  QMessageBox::critical(0, "Cannot load triset", "No grid");
-//	  return false;
-//	}
-//
-//      if (d == m_nX && w == m_nY && h == m_nZ)
-//	m_position = Vec(-minX, -minY, -minZ);
-    }
-  else
-    {
-      Vec dim = VolumeInformation::volumeInformation(0).dimensions;
-      m_nZ = dim.x;
-      m_nY = dim.y;
-      m_nX = dim.z;
-    }
-
-  m_vertices.resize(nverts);
-  for(int i=0; i<nverts; i++)
-    m_vertices[i] = Vec(vlist[i]->x,
-			vlist[i]->y,
-			vlist[i]->z);
-
-
-  m_normals.clear();
-  if (has_normals)
-    {
-      m_normals.resize(nverts);
-      for(int i=0; i<nverts; i++)
-	m_normals[i] = Vec(vlist[i]->nx,
-			   vlist[i]->ny,
-			   vlist[i]->nz);
-    }
-
-  m_vcolor.clear();
-  if (per_vertex_color)
-    {
-      m_vcolor.resize(nverts);
-      for(int i=0; i<nverts; i++)
-	m_vcolor[i] = Vec(vlist[i]->r/255.0f,
-			  vlist[i]->g/255.0f,
-			  vlist[i]->b/255.0f);
-    }
-
-  // only triangles considered
-  int ntri=0;
-  for (int i=0; i<nfaces; i++)
-    {
-      if (flist[i]->nverts >= 3)
-	ntri++;
-    }
-  m_triangles.resize(3*ntri);
-
-  int tri=0;
-  for(int i=0; i<nfaces; i++)
-    {
-      if (flist[i]->nverts >= 3)
-	{
-	  m_triangles[3*tri+0] = flist[i]->verts[0];
-	  m_triangles[3*tri+1] = flist[i]->verts[1];
-	  m_triangles[3*tri+2] = flist[i]->verts[2];
-	  tri++;
-	}
-    }
-
-
-  Vec bmin = m_vertices[0];
-  Vec bmax = m_vertices[0];
-  for(int i=0; i<nverts; i++)
-    {
-      bmin = StaticFunctions::minVec(bmin, m_vertices[i]);
-      bmax = StaticFunctions::maxVec(bmax, m_vertices[i]);
-    }
-  m_centroid = (bmin + bmax)/2;
-
-  m_enclosingBox[0] = Vec(bmin.x, bmin.y, bmin.z);
-  m_enclosingBox[1] = Vec(bmax.x, bmin.y, bmin.z);
-  m_enclosingBox[2] = Vec(bmax.x, bmax.y, bmin.z);
-  m_enclosingBox[3] = Vec(bmin.x, bmax.y, bmin.z);
-  m_enclosingBox[4] = Vec(bmin.x, bmin.y, bmax.z);
-  m_enclosingBox[5] = Vec(bmax.x, bmin.y, bmax.z);
-  m_enclosingBox[6] = Vec(bmax.x, bmax.y, bmax.z);
-  m_enclosingBox[7] = Vec(bmin.x, bmax.y, bmax.z);
-
-
-//  QMessageBox::information(0, "", QString("%1 %2 %3\n%4 %5").	\
-//			   arg(m_nX).arg(m_nY).arg(m_nZ).	\
-//			   arg(m_vertices.count()).		\
-//			   arg(m_triangles.count()/3));
-
-
-  m_fileName = flnm;
-
-  return true;
-}
-
-bool
-TrisetObject::loadTriset(QString flnm)
-{
-  QFile fd(flnm);
-  fd.open(QFile::ReadOnly);
-
-  uchar stype = 0;
-  fd.read((char*)&stype, sizeof(uchar));
-  if (stype != 0)
-    {
-      QMessageBox::critical(0, "Cannot load triset",
-			    "Wrong input format : First byte not equal to 0");
-      return false;
-    }
-
-  fd.read((char*)&m_nX, sizeof(int));
-  fd.read((char*)&m_nY, sizeof(int));
-  fd.read((char*)&m_nZ, sizeof(int));
-
-
-  int nvert, ntri;
-  fd.read((char*)&nvert, sizeof(int));
-  fd.read((char*)&ntri, sizeof(int));
-   
-
-//  QMessageBox::information(0, "", QString("%1 %2 %3\n%4 %5").	\
-//			   arg(m_nX).arg(m_nY).arg(m_nZ).\
-//			   arg(nvert).\
-//			   arg(ntri));
-
-
-  float *vert = new float[nvert*3];
-  fd.read((char*)vert, sizeof(float)*3*nvert);
-
-  float *vnorm = new float[nvert*3];
-  fd.read((char*)vnorm, sizeof(float)*3*nvert);
-
-  int *tri = new int[ntri*3];
-  fd.read((char*)tri, sizeof(int)*3*ntri);
-
-  fd.close();
-
-
-  m_vertices.resize(nvert);
-  for(int i=0; i<nvert; i++)
-    m_vertices[i] = Vec(vert[3*i],
-			vert[3*i+1],
-			vert[3*i+2]);
-  delete [] vert;
-
-  m_normals.resize(nvert);
-  for(int i=0; i<nvert; i++)
-    m_normals[i] = Vec(vnorm[3*i],
-		       vnorm[3*i+1],
-		       vnorm[3*i+2]);
-  delete [] vnorm;
-
-  m_triangles.resize(3*ntri);
-  for(int i=0; i<3*ntri; i++)
-    m_triangles[i] = tri[i];
-  delete [] tri;
-
-  
-
-  Vec bmin = m_vertices[0];
-  Vec bmax = m_vertices[0];
-  for(int i=0; i<nvert; i++)
-    {
-      bmin = StaticFunctions::minVec(bmin, m_vertices[i]);
-      bmax = StaticFunctions::maxVec(bmax, m_vertices[i]);
-    }
-  m_centroid = (bmin + bmax)/2;
-
-  m_position = Vec(0,0,0);
-  m_scale = Vec(1,1,1);
-  m_reveal = 0.0;
-  m_outline = 0.0;
-  m_glow = 0.0;
-  m_dark = 0.5;
-  m_q = Quaternion();
-  m_pattern = Vec(0,10,0.5);
-
-  m_enclosingBox[0] = Vec(bmin.x, bmin.y, bmin.z);
-  m_enclosingBox[1] = Vec(bmax.x, bmin.y, bmin.z);
-  m_enclosingBox[2] = Vec(bmax.x, bmax.y, bmin.z);
-  m_enclosingBox[3] = Vec(bmin.x, bmax.y, bmin.z);
-  m_enclosingBox[4] = Vec(bmin.x, bmin.y, bmax.z);
-  m_enclosingBox[5] = Vec(bmax.x, bmin.y, bmax.z);
-  m_enclosingBox[6] = Vec(bmax.x, bmax.y, bmax.z);
-  m_enclosingBox[7] = Vec(bmin.x, bmax.y, bmax.z);
-
-
-//  QMessageBox::information(0, "", QString("%1 %2 %3\n%4 %5").	\
-//			   arg(m_nX).arg(m_nY).arg(m_nZ).\
-//			   arg(m_vertices.count()).\
-//			   arg(m_triangles.count()));
-
-  m_fileName = flnm;
-
-  return true;
-}
-
-
 TrisetInformation
 TrisetObject::get()
 {
@@ -1324,15 +921,20 @@ TrisetObject::get()
   ti.outline = m_outline;
   ti.glow = m_glow;
   ti.dark = m_dark;
-  ti.captionText = m_captionText;
-  ti.captionFont = m_captionFont;
-  ti.captionColor = m_captionColor;
-  ti.captionPosition = m_captionPosition;
-  ti.cpDx = m_cpDx;
-  ti.cpDy = m_cpDy;
   ti.pattern = m_pattern;
   ti.opacity = m_opacity;
-  
+
+  for(int i=0; i<m_captionPosition.count(); i++)
+    {
+      ti.captionText << m_co[i]->text();
+      ti.captionFont << m_co[i]->font();
+      ti.captionColor << m_co[i]->color();
+      ti.captionPosition << m_captionPosition[i];
+      QPointF cpd = m_co[i]->position();
+      ti.cpDx << cpd.x();
+      ti.cpDy << cpd.y();
+    }
+
   return ti;
 }
 
@@ -1372,24 +974,218 @@ TrisetObject::set(TrisetInformation ti)
       
   if (reloadColor)
     setColor(m_color);
+  
 
-  m_captionText = ti.captionText;
-  m_captionFont = ti.captionFont;
-  m_captionColor = ti.captionColor;
-  m_captionPosition = ti.captionPosition;
-  m_cpDx = ti.cpDx;
-  m_cpDy = ti.cpDy;
+  if (m_co.count() > 0)
+    {      
+      for(int i=0; i<m_co.count(); i++)
+	delete m_co[i];
+    }
+  m_co.clear();
 
-    
-  if (m_co) delete m_co;
-  m_co = new CaptionObject();
-  m_co->setText(m_captionText);
-  m_co->setFont(m_captionFont);
-  m_co->setColor(m_captionColor);
-  m_co->setHaloColor(Qt::transparent);
-
+  m_captionPosition.clear();
+  
+  for(int i=0; i<ti.captionPosition.count(); i++)
+    {
+      m_captionPosition << ti.captionPosition[i];
+      CaptionObject *co = new CaptionObject();
+      co->setPosition(QPointF(ti.cpDx[i], ti.cpDy[i]));
+      co->setText(ti.captionText[i]);
+      co->setFont(ti.captionFont[i]);
+      co->setColor(ti.captionColor[i]);
+      co->setHaloColor(Qt::transparent);
+      m_co << co;
+    }
+  
   return ok;
 }
+
+//---------------------------------
+//---------------------------------
+QFont
+TrisetObject::captionFont()
+{
+  if (m_co.count() == 0)
+    return QFont("MS Reference Sans Serif", 16);
+  
+  return m_co[m_co.count()-1]->font();
+}
+QFont
+TrisetObject::captionFont(int cpid)
+{
+  return m_co[cpid]->font();
+}
+void
+TrisetObject::setCaptionFont(QFont f)
+{
+  m_co[m_co.count()-1]->setFont(f);
+}
+void
+TrisetObject::setCaptionFont(int cpid, QFont f)
+{
+  m_co[cpid]->setFont(f);
+}
+//---------------------------------
+//---------------------------------
+QColor
+TrisetObject::captionColor()
+{
+  if (m_co.count() == 0)
+    return Qt::gray;
+
+  return m_co[m_co.count()-1]->color();
+}
+QColor
+TrisetObject::captionColor(int cpid)
+{
+  return m_co[cpid]->color();
+}
+void
+TrisetObject::setCaptionColor(QColor c)
+{
+  m_co[m_co.count()-1]->setColor(c);
+  m_co[m_co.count()-1]->setHaloColor(Qt::transparent);
+}
+void
+TrisetObject::setCaptionColor(int cpid, QColor c)
+{
+  m_co[cpid]->setColor(c);
+  m_co[cpid]->setHaloColor(Qt::transparent);
+}
+//---------------------------------
+//---------------------------------
+QString
+TrisetObject::captionText()
+{
+  if (m_co.count() == 0)
+    return "";
+
+  return m_co[m_co.count()-1]->text();
+}
+QString
+TrisetObject::captionText(int cpid)
+{
+  return m_co[cpid]->text();
+}
+void TrisetObject::setCaptionText(QString t)
+{ // used only to add a label
+  if (t.isEmpty())
+    return;
+
+  //---
+  // create a random offset for the label
+  // between 0 and 0.1
+  float m = QTime::currentTime().msec();
+  float s = QTime::currentTime().second();
+  m /= 10000.0;
+  s /= 600.0;
+  //---
+    
+  m_co << new CaptionObject();
+  m_co[m_co.count()-1]->setPosition(QPointF(0.1+m, 0.1+s));
+  m_captionPosition << Vec(0,0,0);
+  
+  m_co[m_co.count()-1]->setText(t);
+}
+void TrisetObject::setCaptionText(int cpid, QString t)
+{ // used for changing or deleting the label
+  if (t.isEmpty())
+    {
+      delete m_co[cpid];
+      m_co.removeAt(cpid);
+      m_captionPosition.removeAt(cpid);
+
+      return;
+    }
+
+  m_co[cpid]->setText(t);
+}
+//---------------------------------
+//---------------------------------
+QList<Vec>
+TrisetObject::captionPositions()
+{
+  return m_captionPosition;
+}
+Vec
+TrisetObject::captionPosition()
+{
+  return m_captionPosition[0];
+}
+Vec
+TrisetObject::captionPosition(int cpid)
+{
+  return m_captionPosition[cpid];
+}
+void
+TrisetObject::setCaptionPosition(Vec v)
+{  
+  m_captionPosition[m_co.count()-1] = v - m_centroid - m_position;
+}
+void
+TrisetObject::setCaptionPosition(int cpid, Vec v)
+{
+  m_captionPosition[cpid] = v - m_centroid - m_position;
+}
+//---------------------------------
+//---------------------------------
+QList<Vec>
+TrisetObject::captionSizes()
+{
+  QList<Vec> sizes;
+  for(int i=0; i<m_co.count(); i++)
+    sizes << Vec(m_co[i]->width(), m_co[i]->height(), 0);
+  return sizes;
+}
+Vec
+TrisetObject::captionSize()
+{
+  if (m_co.count() == 0)
+    return Vec(0,0,0);
+    
+  return Vec(m_co[m_co.count()-1]->width(), m_co[m_co.count()-1]->height(), 0);
+}
+//---------------------------------
+//---------------------------------
+QList<Vec>
+TrisetObject::captionOffsets()
+{
+  QList<Vec> off;
+  for(int i=0; i<m_co.count(); i++)
+    {
+      QPointF v = m_co[i]->position();
+      off << Vec(v.x(), v.y(),0);
+    }
+  return off;
+}
+void
+TrisetObject::setCaptionOffset(float dx, float dy)
+{
+  m_co[m_co.count()-1]->setPosition(QPointF(dx, dy));
+}
+void
+TrisetObject::setCaptionOffset(int cpid, float dx, float dy)
+{
+  m_co[cpid]->setPosition(QPointF(dx, dy));
+}
+Vec
+TrisetObject::captionOffset()
+{
+  if (m_co.count() == 0)
+    return Vec(0.1,0.1,0);
+
+  QPointF v = m_co[m_co.count()-1]->position();
+  return Vec(v.x(), v.y(),0);
+}
+Vec
+TrisetObject::captionOffset(int cpid)
+{
+  QPointF v = m_co[cpid]->position();
+  return Vec(v.x(), v.y(),0);
+}
+//---------------------------------
+//---------------------------------
+
 
 void
 TrisetObject::save()
@@ -1398,98 +1194,24 @@ TrisetObject::save()
   // get colors back from gpu
   if (m_origColorBuffer)
     {
-      int nvert = m_vertices.count();
+      int nvert = m_vertices.count()/3;
       int nv = 9*nvert;
       glBindBuffer(GL_ARRAY_BUFFER, m_glVertBuffer);
       float *ptr = (float*)(glMapBuffer(GL_ARRAY_BUFFER, GL_READ_ONLY));
 
       for(int i=0; i<nvert; i++)
 	{
-	  m_vcolor[i] = Vec(ptr[9*i+6],ptr[9*i+7],ptr[9*i+8]);
+	  m_vcolor[3*i+0] = ptr[9*i+6];
+	  m_vcolor[3*i+1] = ptr[9*i+7];
+	  m_vcolor[3*i+2] = ptr[9*i+8];	  
 	  
 	}
       glUnmapBuffer(GL_ARRAY_BUFFER);
     }
   
 
-  bool has_normals = (m_normals.count() > 0);
-  bool per_vertex_color = (m_vcolor.count() > 0);
-
-  QString flnm = QFileDialog::getSaveFileName(0,
-					      "Export mesh to file",
-					      Global::previousDirectory(),
-					      "*.ply");
-  if (flnm.size() == 0)
-    return;
-
-  typedef struct PlyFace
-  {
-    unsigned char nverts;    /* number of Vertex indices in list */
-    int *verts;              /* Vertex index list */
-  } PlyFace;
-
-  typedef struct
-  {
-    float  x,  y,  z;  /**< Vertex coordinates */
-    float nx, ny, nz;  /**< Vertex normal */
-    uchar r, g, b;
-  } myVertex ;
-
-
-  PlyProperty vert_props[] = { /* list of property information for a vertex */
-    {plyStrings[0], Float32, Float32, offsetof(myVertex,x), 0, 0, 0, 0},
-    {plyStrings[1], Float32, Float32, offsetof(myVertex,y), 0, 0, 0, 0},
-    {plyStrings[2], Float32, Float32, offsetof(myVertex,z), 0, 0, 0, 0},
-    {plyStrings[3], Float32, Float32, offsetof(myVertex,nx), 0, 0, 0, 0},
-    {plyStrings[4], Float32, Float32, offsetof(myVertex,ny), 0, 0, 0, 0},
-    {plyStrings[5], Float32, Float32, offsetof(myVertex,nz), 0, 0, 0, 0},
-    {plyStrings[6], Uint8, Uint8, offsetof(myVertex,r), 0, 0, 0, 0},
-    {plyStrings[7], Uint8, Uint8, offsetof(myVertex,g), 0, 0, 0, 0},
-    {plyStrings[8], Uint8, Uint8, offsetof(myVertex,b), 0, 0, 0, 0},
-  };
-
-  PlyProperty face_props[] = { /* list of property information for a face */
-    {plyStrings[9], Int32, Int32, offsetof(PlyFace,verts),
-     1, Uint8, Uint8, offsetof(PlyFace,nverts)},
-  };
-
-  PlyFile    *ply;
-  FILE       *fp = fopen(flnm.toLatin1().data(), bin ? "wb" : "w");
-
-  PlyFace     face ;
-  int         verts[3] ;
-  char       *elem_names[]  = {plyStrings[10], plyStrings[11]};
-  ply = write_ply (fp,
-		   2,
-		   elem_names,
-		   bin ? PLY_BINARY_LE : PLY_ASCII );
-
-  int nvertices = m_vertices.count();
-  /* describe what properties go into the PlyVertex elements */
-  describe_element_ply ( ply, plyStrings[10], nvertices );
-  describe_property_ply ( ply, &vert_props[0] );
-  describe_property_ply ( ply, &vert_props[1] );
-  describe_property_ply ( ply, &vert_props[2] );
-  describe_property_ply ( ply, &vert_props[3] );
-  describe_property_ply ( ply, &vert_props[4] );
-  describe_property_ply ( ply, &vert_props[5] );
-  describe_property_ply ( ply, &vert_props[6] );
-  describe_property_ply ( ply, &vert_props[7] );
-  describe_property_ply ( ply, &vert_props[8] );
-
-  /* describe PlyFace properties (just list of PlyVertex indices) */
-  int ntriangles = m_triangles.count()/3;
-  describe_element_ply ( ply, plyStrings[11], ntriangles );
-  describe_property_ply ( ply, &face_props[0] );
-
-  header_complete_ply ( ply );
-
-
-  /* set up and write the PlyVertex elements */
-  put_element_setup_ply ( ply, plyStrings[10] );
-
   // regenerate local transfromation so we don't have scaling due to surface being selected(active)
-  genLocalXform();
+  genLocalXform();    
   // use the transpose for transformation
   double s[16];
   s[0] = m_localXform[0];
@@ -1508,52 +1230,15 @@ TrisetObject::save()
   s[13] = m_localXform[7];
   s[14] = m_localXform[11];
   s[15] = m_localXform[15];
-     
-  
-  for(int i=0; i<m_vertices.count(); i++)
-    {
-      myVertex vertex;
-      Vec v = Matrix::xformVec(s,m_vertices[i]);
-      vertex.x = v.x;
-      vertex.y = v.y;
-      vertex.z = v.z;
-      if (has_normals)
-	{
-	  Vec vn = Matrix::rotateVec(s,m_normals[i]);
-	  vertex.nx = vn.x;
-	  vertex.ny = vn.y;
-	  vertex.nz = vn.z;
-	}
-      if (per_vertex_color)
-	{
-	  vertex.r = 255*m_vcolor[i].x;
-	  vertex.g = 255*m_vcolor[i].y;
-	  vertex.b = 255*m_vcolor[i].z;
-	}
-      put_element_ply ( ply, ( void * ) &vertex );
-    }
 
-  put_element_setup_ply ( ply, plyStrings[11] );
-  face.nverts = 3 ;
-  face.verts  = verts ;
-  for(int i=0; i<m_triangles.count()/3; i++)
-    {
-      int v0 = m_triangles[3*i];
-      int v1 = m_triangles[3*i+1];
-      int v2 = m_triangles[3*i+2];
+  QString prevDir = Global::previousDirectory();
 
-      face.verts[0] = v0;
-      face.verts[1] = v1;
-      face.verts[2] = v2;
-
-      put_element_ply ( ply, ( void * ) &face );
-    }
-
-  close_ply ( ply );
-  free_ply ( ply );
-  fclose( fp ) ;
-
-  QMessageBox::information(0, "Save Mesh", "done");
+  return StaticFunctions::savePLY(m_vertices,
+				  m_normals,
+				  m_vcolor,
+				  m_triangles,
+				  &s[0],
+				  prevDir);
 }
 
 bool
@@ -1599,7 +1284,7 @@ TrisetObject::loadAssimpModel(QString flnm)
       Global::progressBar()->setValue((int)(100.0*(float)(i)/(float)(scene->mNumMeshes)));
       qApp->processEvents();
   
-      int vStart = m_vertices.count();
+      int vStart = m_vertices.count()/3;
       int iStart = m_triangles.count();
       
       aiMesh* mesh = scene->mMeshes[i];
@@ -1609,23 +1294,22 @@ TrisetObject::loadAssimpModel(QString flnm)
       for(int j=0; j<mesh->mNumVertices; j++)
 	{	  
 	  aiVector3D pos = mesh->mVertices[j];
-	  m_vertices << Vec(pos.x, pos.y, pos.z);
+	  m_vertices << pos.x << pos.y << pos.z;
       
 	  aiVector3D normal = mesh->mNormals[j];
-	  m_normals << Vec(normal.x, normal.y, normal.z).unit();
+	  Vec vn = Vec(normal.x, normal.y, normal.z).unit();
+	  m_normals << vn.x << vn.y << vn.z;
 	  
 	  if (hasVertexColors)
-	    m_vcolor << Vec(mesh->mColors[0][j].r,
-			    mesh->mColors[0][j].g,
-			    mesh->mColors[0][j].b);
-//	  else
-//	    m_vcolor << m_color;
+	    m_vcolor << mesh->mColors[0][j].r
+		     << mesh->mColors[0][j].g
+		     << mesh->mColors[0][j].b;
 
 	  if (hasUV)
 	    {
-	      m_uv << Vec(mesh->mTextureCoords[0][j].x,
-			  mesh->mTextureCoords[0][j].y,
-			  mesh->mTextureCoords[0][j].z);
+	      m_uv << mesh->mTextureCoords[0][j].x
+		   << mesh->mTextureCoords[0][j].y
+		   << mesh->mTextureCoords[0][j].z;
 	    }
 	} // verticeas
 
@@ -1637,7 +1321,7 @@ TrisetObject::loadAssimpModel(QString flnm)
 	} // faces
 
       QPolygon poly;
-      poly << QPoint(vStart, m_vertices.count());
+      poly << QPoint(vStart, m_vertices.count()/3);
       poly << QPoint(iStart, m_triangles.count());
       poly << QPoint(mesh->mMaterialIndex, 0);
       m_meshInfo << poly;
@@ -1766,39 +1450,39 @@ TrisetObject::loadAssimpModel(QString flnm)
   float minX, maxX;
   float minY, maxY;
   float minZ, maxZ;
-  minX = maxX = m_vertices[0].x;
-  minY = maxY = m_vertices[0].y;
-  minZ = maxZ = m_vertices[0].z;
+  minX = maxX = m_vertices[0];
+  minY = maxY = m_vertices[1];
+  minZ = maxZ = m_vertices[2];
   m_centroid = Vec(0,0,0);
-  for(int i=0; i<m_vertices.count(); i++)
+  for(int i=0; i<m_vertices.count()/3; i++)
     {
-      m_centroid += m_vertices[i];
+      m_centroid += Vec(m_vertices[3*i+0],m_vertices[3*i+1],m_vertices[3*i+2]);
 
-      minX = qMin(minX, (float)m_vertices[i].x);
-      maxX = qMax(maxX, (float)m_vertices[i].x);
-      minY = qMin(minY, (float)m_vertices[i].y);
-      maxY = qMax(maxY, (float)m_vertices[i].y);
-      minZ = qMin(minZ, (float)m_vertices[i].z);
-      maxZ = qMax(maxZ, (float)m_vertices[i].z);
+      minX = qMin(minX, m_vertices[3*i+0]);
+      maxX = qMax(maxX, m_vertices[3*i+0]);
+      minY = qMin(minY, m_vertices[3*i+1]);
+      maxY = qMax(maxY, m_vertices[3*i+1]);
+      minZ = qMin(minZ, m_vertices[3*i+2]);
+      maxZ = qMax(maxZ, m_vertices[3*i+2]);
     }
 
-  m_centroid /= m_vertices.count();
+  m_centroid /= (m_vertices.count()/3);
 
-  //-----------------------------------
-  // choose vertex closest to center as centroid
-  int cp = 0;
-  float cdst = (m_vertices[0]-m_centroid).squaredNorm();
-  for(int i=1; i<m_vertices.count(); i++)
-    {
-      float dst = (m_vertices[i]-m_centroid).squaredNorm();
-      if (dst < cdst)
-	{
-	  cp = i;
-	  cdst = dst;
-	}
-    }
-  m_centroid = m_vertices[cp];
-  //-----------------------------------
+//  //-----------------------------------
+//  // choose vertex closest to center as centroid
+//  int cp = 0;
+//  float cdst = (m_vertices[0]-m_centroid).squaredNorm();
+//  for(int i=1; i<m_vertices.count(); i++)
+//    {
+//      float dst = (m_vertices[i]-m_centroid).squaredNorm();
+//      if (dst < cdst)
+//	{
+//	  cp = i;
+//	  cdst = dst;
+//	}
+//    }
+//  m_centroid = m_vertices[cp];
+//  //-----------------------------------
 
   //-----------------------------------
   // take 10 sample points for grab checking
@@ -1853,27 +1537,11 @@ TrisetObject::loadAssimpModel(QString flnm)
 
   if (m_vcolor.count() == 0)
     {
-      m_color = Vec(1,1,1);
-      m_vcolor.fill(m_color, m_vertices.count());
+      m_color = Vec(0.9,0.9,0.9);
+      //m_vcolor.fill(m_color, m_vertices.count());
+      m_vcolor.fill(0.9f, m_vertices.count()); // since all components are the same
     }
   
-  //---------------
-  // set caption
-  m_captionPosition = Vec(0,0,0);
-  m_captionColor = Qt::white;
-  m_captionFont = QFont("Helvetica");
-  m_captionFont.setPointSize(16);
-  //m_captionText = QFileInfo(m_fileName).fileName();
-  m_captionText = "";
-  m_cpDx = 0.1;
-  m_cpDy = 0.1;
-  if (m_co) delete m_co;
-  m_co = new CaptionObject();
-  m_co->setText(m_captionText);
-  m_co->setFont(m_captionFont);
-  m_co->setColor(m_captionColor);
-  m_co->setHaloColor(Qt::transparent);
-  //---------------
   
   Global::progressBar()->setValue(100);
   Global::progressBar()->hide();

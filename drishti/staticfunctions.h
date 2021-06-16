@@ -133,6 +133,13 @@ class StaticFunctions
 					   const Camera* const);
 
   static void copyGradientFile(QString);
+
+  static void savePLY(QVector<float>,
+		      QVector<float>,
+		      QVector<float>,
+		      QVector<uint>,
+		      double*,
+		      QString);
 };
 
 #endif

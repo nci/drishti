@@ -2,12 +2,18 @@
 #include "matrix.h"
 #include "enums.h"
 #include "volumefilemanager.h"
+#include "ply.h"
 
 #include <fstream>
 using namespace std;
 
 #include <QColorDialog>
 #include <QInputDialog>
+#include <QUrl>
+#include <QFileInfo>
+#include <QDir>
+#include <QTextStream>
+#include <QFileDialog>
 
 Vec
 StaticFunctions::getVec(QString str)
@@ -1660,4 +1666,161 @@ StaticFunctions::copyGradientFile(QString stopsflnm)
       document.save(out, 2);
       fout.close();
     }
+}
+
+void
+StaticFunctions::savePLY(QVector<float> m_vertices,
+			 QVector<float> m_normals,
+			 QVector<float> m_vcolor,
+			 QVector<uint> m_triangles,
+			 double *s,
+			 QString prevDir)
+{
+  
+
+  bool has_normals = (m_normals.count() > 0);
+  bool per_vertex_color = (m_vcolor.count() > 0);
+
+  QString flnm = QFileDialog::getSaveFileName(0,
+					      "Export mesh to file",
+					      prevDir,
+					      "*.ply");
+  if (flnm.size() == 0)
+    return;
+
+  QStringList ps;
+  ps << "x";
+  ps << "y";
+  ps << "z";
+  ps << "nx";
+  ps << "ny";
+  ps << "nz";
+  ps << "red";
+  ps << "green";
+  ps << "blue";
+  ps << "vertex_indices";
+  ps << "vertex";
+  ps << "face";
+
+  QList<char*> plyStrings;
+  for(int i=0; i<ps.count(); i++)
+    {
+      char *s;
+      s = new char[ps[i].size()+1];
+      strcpy(s, ps[i].toLatin1().data());
+      plyStrings << s;
+    }
+
+
+  typedef struct PlyFace
+  {
+    unsigned char nverts;    /* number of Vertex indices in list */
+    int *verts;              /* Vertex index list */
+  } PlyFace;
+
+  typedef struct
+  {
+    float  x,  y,  z;  /**< Vertex coordinates */
+    float nx, ny, nz;  /**< Vertex normal */
+    uchar r, g, b;
+  } myVertex ;
+
+
+  PlyProperty vert_props[] = { /* list of property information for a vertex */
+    {plyStrings[0], Float32, Float32, offsetof(myVertex,x), 0, 0, 0, 0},
+    {plyStrings[1], Float32, Float32, offsetof(myVertex,y), 0, 0, 0, 0},
+    {plyStrings[2], Float32, Float32, offsetof(myVertex,z), 0, 0, 0, 0},
+    {plyStrings[3], Float32, Float32, offsetof(myVertex,nx), 0, 0, 0, 0},
+    {plyStrings[4], Float32, Float32, offsetof(myVertex,ny), 0, 0, 0, 0},
+    {plyStrings[5], Float32, Float32, offsetof(myVertex,nz), 0, 0, 0, 0},
+    {plyStrings[6], Uint8, Uint8, offsetof(myVertex,r), 0, 0, 0, 0},
+    {plyStrings[7], Uint8, Uint8, offsetof(myVertex,g), 0, 0, 0, 0},
+    {plyStrings[8], Uint8, Uint8, offsetof(myVertex,b), 0, 0, 0, 0},
+  };
+
+
+  PlyProperty face_props[] = { /* list of property information for a face */
+    {plyStrings[9], Int32, Int32, offsetof(PlyFace,verts),
+     1, Uint8, Uint8, offsetof(PlyFace,nverts)},
+  };
+
+  PlyFile    *ply;
+  FILE       *fp = fopen(flnm.toLatin1().data(), bin ? "wb" : "w");
+
+  PlyFace     face ;
+  int         verts[3] ;
+  char       *elem_names[]  = {plyStrings[10],plyStrings[11]};
+  ply = write_ply (fp,
+		   2,
+		   elem_names,
+		   bin ? PLY_BINARY_LE : PLY_ASCII );
+
+  int nvertices = m_vertices.count()/3;
+  /* describe what properties go into the PlyVertex elements */
+  describe_element_ply ( ply, plyStrings[10], nvertices );
+  describe_property_ply ( ply, &vert_props[0] );
+  describe_property_ply ( ply, &vert_props[1] );
+  describe_property_ply ( ply, &vert_props[2] );
+  describe_property_ply ( ply, &vert_props[3] );
+  describe_property_ply ( ply, &vert_props[4] );
+  describe_property_ply ( ply, &vert_props[5] );
+  describe_property_ply ( ply, &vert_props[6] );
+  describe_property_ply ( ply, &vert_props[7] );
+  describe_property_ply ( ply, &vert_props[8] );
+
+  /* describe PlyFace properties (just list of PlyVertex indices) */
+  int ntriangles = m_triangles.count()/3;
+  describe_element_ply ( ply, plyStrings[11], ntriangles );
+  describe_property_ply ( ply, &face_props[0] );
+
+  header_complete_ply ( ply );
+
+
+  /* set up and write the PlyVertex elements */
+  put_element_setup_ply ( ply, plyStrings[10] );
+
+  for(int i=0; i<m_vertices.count()/3; i++)
+    {
+      myVertex vertex;
+      Vec v = Matrix::xformVec(s,Vec(m_vertices[3*i+0],m_vertices[3*i+1],m_vertices[3*i+2]));
+      vertex.x = v.x;
+      vertex.y = v.y;
+      vertex.z = v.z;
+      if (has_normals)
+	{
+	  Vec vn = Matrix::rotateVec(s,Vec(m_normals[3*i+0],m_normals[3*i+1],m_normals[3*i+2]));
+	  vertex.nx = vn.x;
+	  vertex.ny = vn.y;
+	  vertex.nz = vn.z;
+	}
+      if (per_vertex_color)
+	{
+	  vertex.r = 255*m_vcolor[3*i+0];
+	  vertex.g = 255*m_vcolor[3*i+1];
+	  vertex.b = 255*m_vcolor[3*i+2];
+	}
+      put_element_ply ( ply, ( void * ) &vertex );
+    }
+
+  put_element_setup_ply ( ply, plyStrings[11] );
+  face.nverts = 3 ;
+  face.verts  = verts ;
+  for(int i=0; i<m_triangles.count()/3; i++)
+    {
+      int v0 = m_triangles[3*i];
+      int v1 = m_triangles[3*i+1];
+      int v2 = m_triangles[3*i+2];
+
+      face.verts[0] = v0;
+      face.verts[1] = v1;
+      face.verts[2] = v2;
+
+      put_element_ply ( ply, ( void * ) &face );
+    }
+
+  close_ply ( ply );
+  free_ply ( ply );
+  fclose( fp ) ;
+
+  QMessageBox::information(0, "Save Mesh", "done");
 }

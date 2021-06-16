@@ -8,7 +8,7 @@ TrisetGrabber::TrisetGrabber()
   m_pressed = false;
   m_moveAxis = MoveAll;
 
-  m_labelSelected = false;
+  m_labelSelected = -1;
 }
 
 TrisetGrabber::~TrisetGrabber() { removeFromMouseGrabberPool(); }
@@ -30,37 +30,49 @@ bool
 TrisetGrabber::checkLabel(int x, int y,
 			  const Camera* const camera)
 {
+  QList<Vec> cpD = captionOffsets();
+  QList<Vec> cpS = captionSizes();
+  for(int i=0; i<cpS.count(); i++)
+    cpS[i] /= 2;
+
   m_screenWidth = camera->screenWidth();
   m_screenHeight = camera->screenHeight();
-  Vec cpD = captionOffset();
-  Vec cpS = captionSize()/2;
-  int rpx, rpy;
-  if (qAbs(cpD.x) < 1.1 && qAbs(cpD.y) < 1.1)
-    {      
-      rpx = qMax(0.0f, (float)cpD.x*m_screenWidth+(float)cpS.x );
-      rpy = qMin((float)m_screenHeight, (float)cpD.y*m_screenHeight-(float)cpS.y);
-    }
-  else
+  for(int i=0; i<cpD.count(); i++)
     {
-      Vec pos = camera->projectedCoordinatesOf(captionPosition()+centroid()+position());
-      int cx = pos.x;
-      int cy = pos.y;
-      
-      rpx = cx + cpD.x + cpS.x;
-      rpy = cy + cpD.y - cpS.y;
-    }
+      int rpx, rpy;
+      if (qAbs(cpD[i].x) < 1.1 && qAbs(cpD[i].y) < 1.1)
+	{      
+	  rpx = qMax(0.0f, (float)cpD[i].x*m_screenWidth+(float)cpS[i].x );
+	  rpy = qMin((float)m_screenHeight, (float)cpD[i].y*m_screenHeight-(float)cpS[i].y);
+	}
+      else
+	{
+	  Vec pos = camera->projectedCoordinatesOf(captionPosition(i)+centroid()+position());
+	  int cx = pos.x;
+	  int cy = pos.y;
+	  
+	  rpx = cx + cpD[i].x + cpS[i].x;
+	  rpy = cy + cpD[i].y - cpS[i].y;
+	}
 
-  return (qAbs(x-rpx)<cpS.x && qAbs(y-rpy)<cpS.y);
+      // choose the first label that meets this criterion
+      if (qAbs(x-rpx)<cpS[i].x && qAbs(y-rpy)<cpS[i].y)
+	{
+	  m_labelSelected = i;
+	  return true;
+	}
+    }  
+
+  return false;
 }
 
 Vec
 TrisetGrabber::checkForMouseHover(int x, int y,
 				  const Camera* const camera)
 {
-  m_labelSelected = false;
+  m_labelSelected = -1;
   if (checkLabel(x,y, camera))
     {
-      m_labelSelected = true;
       return Vec(1,1,100);
     }
 		     
@@ -150,16 +162,16 @@ TrisetGrabber::mousePressEvent(QMouseEvent* const event,
 void
 TrisetGrabber::moveLabel(QPoint delta)
 {
-  Vec cpD = captionOffset();
-  Vec cpS = captionSize();
-  float rpx = cpD.x;
-  float rpy = cpD.y;
+  QList<Vec> cpD = captionOffsets();
+  QList<Vec> cpS = captionSizes();
+  float rpx = cpD[m_labelSelected].x;
+  float rpy = cpD[m_labelSelected].y;
   if (qAbs(rpx) < 1.1 && qAbs(rpy) < 1.1)
     {      
       rpx += (float)delta.x()/m_screenWidth;
       rpy += (float)delta.y()/m_screenHeight;
-      rpx = qBound(0.0f, rpx, 1.0f-(float)cpS.x/m_screenWidth);
-      rpy = qBound((float)cpS.y/m_screenHeight, rpy, 1.0f);
+      rpx = qBound(0.0f, rpx, 1.0f-(float)cpS[m_labelSelected].x/m_screenWidth);
+      rpy = qBound((float)cpS[m_labelSelected].y/m_screenHeight, rpy, 1.0f);
     }
   else
     {
@@ -167,7 +179,7 @@ TrisetGrabber::moveLabel(QPoint delta)
       rpy += delta.y();      
     }
 
-  setCaptionOffset(rpx, rpy);
+  setCaptionOffset(m_labelSelected, rpx, rpy);
 }
 
 void
@@ -180,7 +192,7 @@ TrisetGrabber::mouseMoveEvent(QMouseEvent* const event,
 
   QPoint delta = event->pos() - m_prevPos;
 
-  if (m_labelSelected)
+  if (m_labelSelected > -1)
     {
       moveLabel(delta);
       m_prevPos = event->pos();

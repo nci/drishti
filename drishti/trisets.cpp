@@ -1093,13 +1093,80 @@ Trisets::keyPressEvent(QKeyEvent *event)
     return false;
 
   
-  if (m_trisets[idx]->labelGrabbed() &&
-      (event->key() == Qt::Key_Delete ||
-       event->key() == Qt::Key_Backspace))
+  if (m_trisets[idx]->labelGrabbed() > -1)
     {
-      m_trisets[idx]->setCaptionText("");
-      return true;
-    }
+      int cpid = m_trisets[idx]->labelGrabbed();
+      
+      if ((event->key() == Qt::Key_Delete ||
+	   event->key() == Qt::Key_Backspace))
+	{
+	  m_trisets[idx]->setCaptionText(m_trisets[idx]->labelGrabbed(), "");
+	  return true;
+	}
+
+      if (event->key() == Qt::Key_M)
+	{ // label moving
+	  m_trisets[idx]->setCaptionOffset(cpid, 50,50);
+	  return true;
+	}
+
+      if (event->key() == Qt::Key_F)
+	{ // label fixed
+	  m_trisets[idx]->setCaptionOffset(cpid, 0.1, 0.1);
+	  return true;
+	}
+
+      if (event->key() == Qt::Key_R)
+	{ // set label position
+	  QList<Vec> pts;
+	  if (m_hitpoints->activeCount())
+	    pts = m_hitpoints->activePoints();
+	  else
+	    pts = m_hitpoints->points();
+	  
+	  if (pts.count() > 0)
+	    {
+	      // take the lastest hitpoint
+	      Vec p = pts[pts.count()-1];
+	      
+	      m_trisets[idx]->setCaptionPosition(cpid, p);
+	      
+	      pts.removeLast();	    
+	      m_hitpoints->setPoints(pts);
+	    }
+	  return true;
+	}
+
+      if (event->key() == Qt::Key_Space)
+	{
+	  // Used for modifying existing label
+	  CaptionDialog cd(0,
+			   m_trisets[idx]->captionText(cpid),
+			   m_trisets[idx]->captionFont(cpid),
+			   m_trisets[idx]->captionColor(cpid),
+			   Qt::transparent,
+			   0);
+	  cd.hideAngle(true);
+	  int cdW = cd.width();
+	  int cdH = cd.height();
+	  cd.move(QCursor::pos() - QPoint(cdW/2, cdH/2));
+	  if (cd.exec() == QDialog::Accepted && !cd.text().isEmpty())
+	    {
+	      m_trisets[idx]->setCaptionText(cpid, cd.text());
+	      m_trisets[idx]->setCaptionFont(cpid, cd.font());
+	      m_trisets[idx]->setCaptionColor(cpid, cd.color());
+	    }
+
+	  return true;
+	}
+    } // Label Grabbed
+//  if (m_trisets[idx]->labelGrabbed() &&
+//      (event->key() == Qt::Key_Delete ||
+//       event->key() == Qt::Key_Backspace))
+//    {
+//      m_trisets[idx]->setCaptionText("");
+//      return true;
+//    }
 
   if (event->modifiers() & Qt::ControlModifier &&
       event->key() == Qt::Key_D)
@@ -1141,24 +1208,18 @@ Trisets::processCommand(int idx, QString cmd)
   //------------------
   if (list[0] == "label")
     {
-      if (list.size() == 2 && list[1] == "delete")
-	{
-	  m_trisets[idx]->setCaptionText("");
-	  m_trisets[idx]->setCaptionOffset(0.1,0.1);
-	  return;
-	}
-      
+      // Used for adding a new label
       CaptionDialog cd(0,
-		       m_trisets[idx]->captionText(),
-		       m_trisets[idx]->captionFont(),
-		       m_trisets[idx]->captionColor(),
+		       "",
+		       QFont(QFont("MS Reference Sans Serif", 16)),
+		       Qt::white,
 		       Qt::transparent,
 		       0);
       cd.hideAngle(true);
       int cdW = cd.width();
       int cdH = cd.height();
       cd.move(QCursor::pos() - QPoint(cdW/2, cdH/2));
-      if (cd.exec() == QDialog::Accepted)
+      if (cd.exec() == QDialog::Accepted && !cd.text().isEmpty())
 	{
 	  m_trisets[idx]->setCaptionText(cd.text());
 	  m_trisets[idx]->setCaptionFont(cd.font());
@@ -1190,20 +1251,77 @@ Trisets::processCommand(int idx, QString cmd)
 	  else if (list[1] == "fixed")
 	    m_trisets[idx]->setCaptionOffset(0.1,0.1);
 	}
-      
-//      // set caption offsets
-//      if (list.size() == 3)
-//	{
-//	  float x = 0.1;
-//	  float y = 0.1;
-//	  x = list[1].toFloat(&ok);
-//	  y = list[2].toFloat(&ok);
-//	  m_trisets[idx]->setCaptionOffset(x,y);
-//	}
-
+	
+      emit updateGL();
       return;
     }
   //------------------
+//  //------------------
+//  if (list[0] == "label")
+//    {
+//      if (list.size() == 2 && list[1] == "delete")
+//	{
+//	  m_trisets[idx]->setCaptionText("");
+//	  m_trisets[idx]->setCaptionOffset(0.1,0.1);
+//	  return;
+//	}
+//      
+//      CaptionDialog cd(0,
+//		       m_trisets[idx]->captionText(),
+//		       m_trisets[idx]->captionFont(),
+//		       m_trisets[idx]->captionColor(),
+//		       Qt::transparent,
+//		       0);
+//      cd.hideAngle(true);
+//      int cdW = cd.width();
+//      int cdH = cd.height();
+//      cd.move(QCursor::pos() - QPoint(cdW/2, cdH/2));
+//      if (cd.exec() == QDialog::Accepted)
+//	{
+//	  m_trisets[idx]->setCaptionText(cd.text());
+//	  m_trisets[idx]->setCaptionFont(cd.font());
+//	  m_trisets[idx]->setCaptionColor(cd.color());
+//	}
+//
+//      // set caption position
+//      QList<Vec> pts;
+//      if (m_hitpoints->activeCount())
+//	pts = m_hitpoints->activePoints();
+//      else
+//	pts = m_hitpoints->points();
+//      
+//      if (pts.count() > 0)
+//	{
+//	  // take the lastest hitpoint
+//	  Vec p = pts[pts.count()-1];
+//	  
+//	  m_trisets[idx]->setCaptionPosition(p);
+//	  
+//	  pts.removeLast();	    
+//	  m_hitpoints->setPoints(pts);
+//	}
+//
+//      if (list.size() == 2)
+//	{
+//	  if (list[1] == "moving")
+//	    m_trisets[idx]->setCaptionOffset(50,50);
+//	  else if (list[1] == "fixed")
+//	    m_trisets[idx]->setCaptionOffset(0.1,0.1);
+//	}
+//      
+////      // set caption offsets
+////      if (list.size() == 3)
+////	{
+////	  float x = 0.1;
+////	  float y = 0.1;
+////	  x = list[1].toFloat(&ok);
+////	  y = list[2].toFloat(&ok);
+////	  m_trisets[idx]->setCaptionOffset(x,y);
+////	}
+//
+//      return;
+//    }
+//  //------------------
 
   if (list[0].contains("mirror"))
     {

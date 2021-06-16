@@ -45,12 +45,14 @@ class TrisetInformation
   float glow;
   float dark;
   Vec pattern;
-  QString captionText;
-  QColor captionColor;
-  QFont captionFont;
-  Vec captionPosition;
-  float cpDx, cpDy;
   float opacity;
+
+  QList<QString> captionText;
+  QList<QColor> captionColor;
+  QList<QFont> captionFont;
+  QList<Vec> captionPosition;
+  QList<float> cpDx;
+  QList<float> cpDy;
 };
 
 #endif

@@ -24,15 +24,16 @@ TrisetInformation::clear()
   outline = 0.0;
   glow = 0.0;
   dark = 0.5;
-  captionText = "";
-  captionColor = Qt::white;
-  captionFont = QFont("Helvetica");
-  captionFont.setPointSize(16);
-  captionPosition = Vec(0,0,0);
-  cpDx = 0.1;
-  cpDy = 0.1;
   pattern = Vec(0,10,0.5);
   opacity = 0.7;
+
+  captionText.clear();
+  captionColor.clear();
+  captionFont.clear();
+  captionPosition.clear();
+  cpDx.clear();
+  cpDy.clear();
+    
 }
 
 TrisetInformation&
@@ -54,14 +55,15 @@ TrisetInformation::operator=(const TrisetInformation& ti)
   outline = ti.outline;
   glow = ti.glow;
   dark = ti.dark;
+  pattern = ti.pattern;
+  opacity = ti.opacity;
+
   captionText = ti.captionText;
   captionColor = ti.captionColor;
   captionFont = ti.captionFont;
   captionPosition = ti.captionPosition;
   cpDx = ti.cpDx;
   cpDy = ti.cpDy;
-  pattern = ti.pattern;
-  opacity = ti.opacity;
   
   return *this;
 }
@@ -88,15 +90,28 @@ TrisetInformation::interpolate(const TrisetInformation tinfo1,
   tinfo.outline = (1-frc)*tinfo1.outline + frc*tinfo2.outline;
   tinfo.glow = (1-frc)*tinfo1.glow + frc*tinfo2.glow;
   tinfo.dark = (1-frc)*tinfo1.dark + frc*tinfo2.dark;
+  tinfo.pattern = (1-frc)*tinfo1.pattern + frc*tinfo2.pattern;
+  tinfo.opacity = (1-frc)*tinfo1.opacity + frc*tinfo2.opacity;
+
   tinfo.captionText = tinfo1.captionText;
   tinfo.captionColor = tinfo1.captionColor;
   tinfo.captionFont = tinfo1.captionFont;
-  tinfo.captionPosition = (1-frc)*tinfo1.captionPosition + frc*tinfo2.captionPosition;
-  tinfo.cpDx = (1-frc)*tinfo1.cpDx + frc*tinfo2.cpDx;
-  tinfo.cpDy = (1-frc)*tinfo1.cpDy + frc*tinfo2.cpDy;
-  tinfo.pattern = (1-frc)*tinfo1.pattern + frc*tinfo2.pattern;
-  tinfo.opacity = (1-frc)*tinfo1.opacity + frc*tinfo2.opacity;
-    
+
+  tinfo.captionPosition = tinfo1.captionPosition;
+  tinfo.cpDx = tinfo1.cpDx;
+  tinfo.cpDy = tinfo1.cpDy;
+
+  int nt = qMin(tinfo1.captionPosition.count(), tinfo2.captionPosition.count());			   
+
+  for(int i=0; i<nt; i++)
+    tinfo.captionPosition[i] = (1-frc)*tinfo1.captionPosition[i] + frc*tinfo2.captionPosition[i];
+
+  for(int i=0; i<nt; i++)
+    tinfo.cpDx[i] = (1-frc)*tinfo1.cpDx[i] + frc*tinfo2.cpDx[i];
+
+  for(int i=0; i<nt; i++)
+    tinfo.cpDy[i] = (1-frc)*tinfo1.cpDy[i] + frc*tinfo2.cpDy[i];
+  
   return tinfo;
 }
 
@@ -155,16 +170,7 @@ TrisetInformation::save(fstream &fout)
   int len = relFile.size()+1;
   fout.write((char*)&len, sizeof(int));
   if (len > 0)
-    fout.write((char*)relFile.toLatin1().data(), len*sizeof(char));
-    
-//  memset(keyword, 0, 100);
-//  sprintf(keyword, "filename");
-//  fout.write((char*)keyword, strlen(keyword)+1);
-//  int len = filename.size()+1;
-//  fout.write((char*)&len, sizeof(int));
-//  if (len > 0)
-//    fout.write((char*)filename.toLatin1().data(), len*sizeof(char));
-
+    fout.write((char*)relFile.toLatin1().data(), len*sizeof(char));    
 
   
   memset(keyword, 0, 100);
@@ -262,44 +268,51 @@ TrisetInformation::save(fstream &fout)
   fout.write((char*)keyword, strlen(keyword)+1);
   fout.write((char*)&dark, sizeof(float));
 
-  memset(keyword, 0, 100);
-  sprintf(keyword, "text");
-  fout.write((char*)keyword, strlen(keyword)+1);
-  len = captionText.size()+1;
-  fout.write((char*)&len, sizeof(int));
-  fout.write((char*)captionText.toLatin1().data(), len*sizeof(char));
+  // save all captions
+  for(int i=0; i<captionText.count(); i++)
+    {
+      if (!captionText[i].isEmpty())
+	{
+	  memset(keyword, 0, 100);
+	  sprintf(keyword, "text");
+	  fout.write((char*)keyword, strlen(keyword)+1);
+	  len = captionText[i].size()+1;
+	  fout.write((char*)&len, sizeof(int));
+	  fout.write((char*)captionText[i].toLatin1().data(), len*sizeof(char));
 
-  QString fontStr = captionFont.toString();
-  memset(keyword, 0, 100);
-  sprintf(keyword, "font");
-  fout.write((char*)keyword, strlen(keyword)+1);
-  len = fontStr.size()+1;
-  fout.write((char*)&len, sizeof(int));
-  fout.write((char*)fontStr.toLatin1().data(), len*sizeof(char));
-
-  unsigned char r = captionColor.red();
-  unsigned char g = captionColor.green();
-  unsigned char b = captionColor.blue();
-  memset(keyword, 0, 100);
-  sprintf(keyword, "captioncolor");
-  fout.write((char*)keyword, strlen(keyword)+1);
-  fout.write((char*)&r, sizeof(unsigned char));
-  fout.write((char*)&g, sizeof(unsigned char));
-  fout.write((char*)&b, sizeof(unsigned char));
-
-  memset(keyword, 0, 100);
-  sprintf(keyword, "captionpos");
-  fout.write((char*)keyword, strlen(keyword)+1);
-  f[0] = captionPosition.x;
-  f[1] = captionPosition.y;
-  f[2] = captionPosition.z;
-  fout.write((char*)&f, 3*sizeof(float));
-
-  memset(keyword, 0, 100);
-  sprintf(keyword, "captionoffset");
-  fout.write((char*)keyword, strlen(keyword)+1);
-  fout.write((char*)&cpDx, sizeof(float));
-  fout.write((char*)&cpDy, sizeof(float));
+	  QString fontStr = captionFont[i].toString();
+	  memset(keyword, 0, 100);
+	  sprintf(keyword, "font");
+	  fout.write((char*)keyword, strlen(keyword)+1);
+	  len = fontStr.size()+1;
+	  fout.write((char*)&len, sizeof(int));
+	  fout.write((char*)fontStr.toLatin1().data(), len*sizeof(char));
+	  
+	  unsigned char r = captionColor[i].red();
+	  unsigned char g = captionColor[i].green();
+	  unsigned char b = captionColor[i].blue();
+	  memset(keyword, 0, 100);
+	  sprintf(keyword, "captioncolor");
+	  fout.write((char*)keyword, strlen(keyword)+1);
+	  fout.write((char*)&r, sizeof(unsigned char));
+	  fout.write((char*)&g, sizeof(unsigned char));
+	  fout.write((char*)&b, sizeof(unsigned char));
+	  
+	  memset(keyword, 0, 100);
+	  sprintf(keyword, "captionpos");
+	  fout.write((char*)keyword, strlen(keyword)+1);
+	  f[0] = captionPosition[i].x;
+	  f[1] = captionPosition[i].y;
+	  f[2] = captionPosition[i].z;
+	  fout.write((char*)&f, 3*sizeof(float));
+	  
+	  memset(keyword, 0, 100);
+	  sprintf(keyword, "captionoffset");
+	  fout.write((char*)keyword, strlen(keyword)+1);
+	  fout.write((char*)&cpDx[i], sizeof(float));
+	  fout.write((char*)&cpDy[i], sizeof(float));
+	} // if not empty
+    } // saved all captions
   
   memset(keyword, 0, 100);
   sprintf(keyword, "pattern");
@@ -402,7 +415,7 @@ TrisetInformation::load(fstream &fin)
 	  fin.read((char*)&len, sizeof(int));
 	  char *str = new char[len];
 	  fin.read((char*)str, len*sizeof(char));
-	  captionText = QString(str);
+	  captionText << QString(str);
 	  delete [] str;
 	}
       else if (strcmp(keyword, "font") == 0)
@@ -411,7 +424,10 @@ TrisetInformation::load(fstream &fin)
 	  char *str = new char[len];
 	  fin.read((char*)str, len*sizeof(char));
 	  QString fontStr = QString(str);
-	  captionFont.fromString(fontStr); 
+	  //captionFont.fromString(fontStr); 
+	  QFont fnt;
+	  fnt.fromString(fontStr);
+	  captionFont << fnt;
 	  delete [] str;
 	}
       else if (strcmp(keyword, "captioncolor") == 0)
@@ -420,17 +436,20 @@ TrisetInformation::load(fstream &fin)
 	  fin.read((char*)&r, sizeof(unsigned char));
 	  fin.read((char*)&g, sizeof(unsigned char));
 	  fin.read((char*)&b, sizeof(unsigned char));
-	  captionColor = QColor(r,g,b);
+	  captionColor << QColor(r,g,b);
 	}
       else if (strcmp(keyword, "captionpos") == 0)
 	{
 	  fin.read((char*)&f, 3*sizeof(float));
-	  captionPosition = Vec(f[0], f[1], f[2]);
+	  captionPosition << Vec(f[0], f[1], f[2]);
 	}
       else if (strcmp(keyword, "captionoffset") == 0)
 	{
-	  fin.read((char*)&cpDx, sizeof(float));
-	  fin.read((char*)&cpDy, sizeof(float));
+	  float dx, dy;
+	  fin.read((char*)&dx, sizeof(float));
+	  fin.read((char*)&dy, sizeof(float));
+	  cpDx << dx;
+	  cpDy << dy;
 	}
       else if (strcmp(keyword, "pattern") == 0)
 	{

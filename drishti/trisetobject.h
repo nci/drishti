@@ -66,17 +66,39 @@ class TrisetObject
   Vec pattern() { return m_pattern; }
   void setPattern(Vec p) { m_pattern = p; }
   
+
+  int numOfLabels() { return m_co.count(); }
+
+  QList<Vec> captionPositions();
+  Vec captionPosition();
+  Vec captionPosition(int);
   void setCaptionPosition(Vec);
-  Vec captionPosition() { return m_captionPosition; }
-  void setCaptionOffset(float dx, float dy) { m_cpDx = dx; m_cpDy = dy; }
-  Vec captionOffset() { return Vec(m_cpDx,m_cpDy,0); }
-  QFont captionFont() { return m_captionFont; }
+  void setCaptionPosition(int, Vec);
+
+  QList<Vec> captionOffsets();
+  Vec captionOffset();
+  Vec captionOffset(int);
+  void setCaptionOffset(float, float);
+  void setCaptionOffset(int, float, float);
+
+  QFont captionFont();
+  QFont captionFont(int);
   void setCaptionFont(QFont);
-  QColor captionColor() { return m_captionColor; }
+  void setCaptionFont(int, QFont);
+
+  QColor captionColor();
+  QColor captionColor(int);
   void setCaptionColor(QColor);
-  QString captionText() { return m_captionText; }
+  void setCaptionColor(int, QColor);
+
+  QString captionText();
+  QString captionText(int);
   void setCaptionText(QString);
-  Vec captionSize() { return Vec(m_co->width(), m_co->height(), 0);}
+  void setCaptionText(int, QString);
+
+  QList<Vec> captionSizes();
+  Vec captionSize();
+
   
   Quaternion rotation() { return m_q; }
   void rotate(Vec, float);
@@ -84,7 +106,7 @@ class TrisetObject
   void setRotation(Quaternion);
   void resetRotation() { m_q = Quaternion(); }
   
-  int vertexCount() { return m_vertices.count(); }
+  int vertexCount() { return m_vertices.count()/3; }
   int triangleCount() { return m_triangles.count()/3; }
 
   bool load(QString);
@@ -135,12 +157,12 @@ private :
   float m_diffuse;
   float m_ambient;
   float m_opacity;
-  QVector<Vec> m_vertices;
-  QVector<Vec> m_normals;
+  QVector<float> m_vertices;
+  QVector<float> m_normals;
   QVector<uint> m_triangles;
-  QVector<Vec> m_vcolor;
+  QVector<float> m_vcolor;
   QVector<float> m_OrigVcolor;
-  QVector<Vec> m_uv;
+  QVector<float> m_uv;
 
   QVector<Vec> m_drawcolor;
 
@@ -154,12 +176,8 @@ private :
   
   QList<char*> plyStrings;
 
-  QString m_captionText;
-  Vec m_captionPosition;
-  float m_cpDx, m_cpDy;
-  QFont m_captionFont;
-  QColor m_captionColor;
-  CaptionObject *m_co;
+  QList<Vec> m_captionPosition;
+  QList<CaptionObject*> m_co;
   
   GLuint m_glVertBuffer;
   GLuint m_glIndexBuffer;
@@ -172,11 +190,9 @@ private :
   void drawTrisetBuffer(Camera*, float, float, bool,
 			GLuint, GLint*, bool);
 
-  bool loadTriset(QString);
-  bool loadPLY(QString);
   bool loadAssimpModel(QString);
 
-  void drawCaption(QGLViewer*);
+  void drawCaption(int, QGLViewer*);
 
   void genLocalXform();
 

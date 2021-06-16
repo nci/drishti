@@ -1430,10 +1430,10 @@ MainWindow::on_actionSave_Movie_triggered()
   m_Viewer->setImageSize(imgSize.width(), imgSize.height());
 
 #if defined(Q_OS_WIN32)
-  if (imgSize.width()%16 > 0 ||
-      imgSize.height()%16 > 0)
+  if (imgSize.width()%16 > 0)
+    //imgSize.height()%16 > 0)
     {
-      emit showMessage(QString("For wmv movies, the image size must be multiple of 16. Current size is %1 x %2"). \
+      emit showMessage(QString("For wmv movies, the image width must be multiple of 16. Current size is %1 x %2"). \
 		       arg(imgSize.width()).
 		       arg(imgSize.height()), true);
       return;
@@ -1482,17 +1482,17 @@ MainWindow::on_actionSave_Movie_triggered()
 void
 MainWindow::on_actionImage_Size_triggered()
 {
+  int woff = size().width() - m_Viewer->size().width();
+  int hoff = size().height() - m_Viewer->size().height();
+  
   QSize imgSize = StaticFunctions::getImageSize(m_Viewer->size().width(),
 						m_Viewer->size().height());
-  int x = imgSize.width();
-  int y = imgSize.height();
-  if (statusBar()->isVisible())
-    resize(x,
-	   y + (menuBar()->size().height() +
-		statusBar()->size().height()));
-  else
-    resize(x,
-	   y + menuBar()->size().height());
+  int w = imgSize.width() + woff;
+  int h = imgSize.height() + hoff;
+
+  showNormal();
+
+  resize(w, h);
 }
 
 void

@@ -1132,20 +1132,16 @@ StaticFunctions::getImageSize(int width, int height)
 
   QStringList items;
   items << QString("%1 %2 (Current)").arg(width).arg(height);
-  items << "320 200 (CGA)";
-  items << "320 240 (QVGA)";
   items << "640 480 (VGA)";
   items << "720 480 (NTSC)";
   items << "720 576 (PAL)";
   items << "800 480 (WVGA)";
   items << "800 600 (SVGA)";
-  items << "854 480 (WVGA 16:9)";
   items << "1024 600 (WSVGA)";
   items << "1024 768 (XGA)";
   items << "1280 720 (720p 16:9)";
   items << "1280 768 (WXGA)";
   items << "1280 1024 (SXGA)";
-  items << "1366 768 (16:9)";
   items << "1400 1050 (SXGA+)";
   items << "1600 1200 (UXGA)";
   items << "1920 1080 (1080p 16:9)";

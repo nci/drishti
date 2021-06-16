@@ -1386,7 +1386,7 @@ TrisetObject::set(TrisetInformation ti)
   m_co->setText(m_captionText);
   m_co->setFont(m_captionFont);
   m_co->setColor(m_captionColor);
-  m_co->setHaloColor(m_captionColor);
+  m_co->setHaloColor(Qt::transparent);
 
   return ok;
 }

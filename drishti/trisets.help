@@ -74,6 +74,16 @@ Set colors for all meshes to colors obtained from preset color map.
 #end
 
 #begin
+lightdir
+lightdir <x><y>
+
+Set light direction for shadowing.  <x> and <y> values are between -1.0 and 1.0.
+
+Default value is 0.1 for both - light direction is slightly from bottom left.
+
+#end
+
+#begin
 glowall
 glowall <val>
 

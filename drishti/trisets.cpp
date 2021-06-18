@@ -1293,73 +1293,6 @@ Trisets::processCommand(int idx, QString cmd)
       emit updateGL();
       return;
     }
-  //------------------
-//  //------------------
-//  if (list[0] == "label")
-//    {
-//      if (list.size() == 2 && list[1] == "delete")
-//	{
-//	  m_trisets[idx]->setCaptionText("");
-//	  m_trisets[idx]->setCaptionOffset(0.1,0.1);
-//	  return;
-//	}
-//      
-//      CaptionDialog cd(0,
-//		       m_trisets[idx]->captionText(),
-//		       m_trisets[idx]->captionFont(),
-//		       m_trisets[idx]->captionColor(),
-//		       Qt::transparent,
-//		       0);
-//      cd.hideAngle(true);
-//      int cdW = cd.width();
-//      int cdH = cd.height();
-//      cd.move(QCursor::pos() - QPoint(cdW/2, cdH/2));
-//      if (cd.exec() == QDialog::Accepted)
-//	{
-//	  m_trisets[idx]->setCaptionText(cd.text());
-//	  m_trisets[idx]->setCaptionFont(cd.font());
-//	  m_trisets[idx]->setCaptionColor(cd.color());
-//	}
-//
-//      // set caption position
-//      QList<Vec> pts;
-//      if (m_hitpoints->activeCount())
-//	pts = m_hitpoints->activePoints();
-//      else
-//	pts = m_hitpoints->points();
-//      
-//      if (pts.count() > 0)
-//	{
-//	  // take the lastest hitpoint
-//	  Vec p = pts[pts.count()-1];
-//	  
-//	  m_trisets[idx]->setCaptionPosition(p);
-//	  
-//	  pts.removeLast();	    
-//	  m_hitpoints->setPoints(pts);
-//	}
-//
-//      if (list.size() == 2)
-//	{
-//	  if (list[1] == "moving")
-//	    m_trisets[idx]->setCaptionOffset(50,50);
-//	  else if (list[1] == "fixed")
-//	    m_trisets[idx]->setCaptionOffset(0.1,0.1);
-//	}
-//      
-////      // set caption offsets
-////      if (list.size() == 3)
-////	{
-////	  float x = 0.1;
-////	  float y = 0.1;
-////	  x = list[1].toFloat(&ok);
-////	  y = list[2].toFloat(&ok);
-////	  m_trisets[idx]->setCaptionOffset(x,y);
-////	}
-//
-//      return;
-//    }
-//  //------------------
 
   if (list[0].contains("mirror"))
     {
@@ -1384,6 +1317,17 @@ Trisets::processCommand(int idx, QString cmd)
   if (list[0] == "colormap")
     {
       askGradientChoice();
+      return;
+    }
+        
+  if (list[0] == "lightdir")
+    {
+      if (list.size() == 3)
+	{
+	  float x = qBound(-1.0f, list[1].toFloat(), 1.0f);
+	  float y = qBound(-1.0f, list[2].toFloat(), 1.0f);
+	  m_lightDir = Vec(x,y,0);
+	}
       return;
     }
         

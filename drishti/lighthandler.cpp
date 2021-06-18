@@ -9,6 +9,7 @@
 #include "pruneshaderfactory.h"
 #include "cropshaderfactory.h"
 #include "blendshaderfactory.h"
+#include "geometryobjects.h"
 
 #define VECDIVIDE(a, b) Vec(a.x/b.x, a.y/b.y, a.z/b.z)
 

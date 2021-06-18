@@ -10,7 +10,7 @@ using namespace qglviewer;
 
 #include "gilights.h"
 #include "gilightinfo.h"
-#include "geometryobjects.h"
+#include "crops.h"
 
 class LightHandler
 {

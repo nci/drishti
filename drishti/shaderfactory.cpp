@@ -1305,8 +1305,8 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
   shader += "    lightcol = mix(lc0, lc1, lbZslcf);\n";
   shader += "    lightcol = 1.0-pow((vec3(1,1,1)-lightcol),vec3(lod,lod,lod));\n";
   shader += "  }\n";
-  shader += "else\n";
-  shader += "  lightcol = vec3(1.0,1.0,1.0);\n";
+  shader += "  else\n";
+  shader += "    vec3 lightcol = vec3(1.0,1.0,1.0);\n";
 
   shader += "if (shdlod > 0)\n";
   shader += "  {\n";
@@ -1727,7 +1727,7 @@ ShaderFactory::oitFinalShaderF()
 //----------------------------
 //----------------------------
 
-GLint ShaderFactory::m_meshShaderParm[30];
+GLint ShaderFactory::m_meshShaderParm[50];
 GLint* ShaderFactory::meshShaderParm() { return &m_meshShaderParm[0]; }
 
 GLuint ShaderFactory::m_meshShader = 0;
@@ -1776,6 +1776,15 @@ GLuint ShaderFactory::meshShader()
     	m_meshShaderParm[22] = glGetUniformLocation(m_meshShader,"shadowRender");
     	m_meshShaderParm[23] = glGetUniformLocation(m_meshShader,"screenSize");
     	m_meshShaderParm[24] = glGetUniformLocation(m_meshShader,"MVPShadow");
+
+//	m_meshShaderParm[25] = glGetUniformLocationARB(m_meshShader, "lightTex");
+//	m_meshShaderParm[26] = glGetUniformLocationARB(m_meshShader, "lightgridx");
+//	m_meshShaderParm[27] = glGetUniformLocationARB(m_meshShader, "lightgridy");
+//	m_meshShaderParm[28] = glGetUniformLocationARB(m_meshShader, "lightgridz");
+//	m_meshShaderParm[29] = glGetUniformLocationARB(m_meshShader, "lightnrows");
+//	m_meshShaderParm[30] = glGetUniformLocationARB(m_meshShader, "lightncols");
+//	m_meshShaderParm[31] = glGetUniformLocationARB(m_meshShader, "lightlod");
+
     }
 
   return m_meshShader;
@@ -1858,6 +1867,19 @@ ShaderFactory::meshShaderF()
   shader += "uniform sampler2DRect depthTex;\n";
   shader += "uniform bool shadowRender;\n";
   
+//  //----------------------------------
+//  //----------------------------------
+//  shader += "uniform sampler2DRect lightTex;\n";
+//  shader += "uniform int lightgridx;\n";
+//  shader += "uniform int lightgridy;\n";
+//  shader += "uniform int lightgridz;\n";
+//  shader += "uniform int lightnrows;\n";
+//  shader += "uniform int lightncols;\n";
+//  shader += "uniform int lightlod;\n";
+//  //----------------------------------
+//  //----------------------------------
+  
+
   shader += "\n";
   shader += "in vec3 v3Color;\n";
   shader += "in vec3 v3Normal;\n";
@@ -1875,6 +1897,8 @@ ShaderFactory::meshShaderF()
   
   shader += rgb2hsv();
   shader += hsv2rgb();
+
+  shader += genTextureCoordinate();
 
   shader += "void main()\n";
   shader += "{\n";
@@ -1945,6 +1969,27 @@ ShaderFactory::meshShaderF()
   shader += "  outputColor.rgb = Amb + Diff;\n";
 
 
+//  //------------------------------------
+//  //----------------------------------
+//  shader += "vec3 lightcol = vec3(1.0,1.0,1.0);\n";
+//  shader += "if (lightlod > 0)\n";
+//  shader += "  {\n"; // calculate light color
+//  shader += "    float llod = float(lightlod);\n";
+//  shader += "    vec2 pvg = pointPos.xy/llod;\n";
+//  shader += "    int lbZslc = int((pointPos.z)/llod);\n";
+//  shader += "    float lbZslcf = fract((pointPos.z)/llod);\n";
+//  shader += "    vec2 pvg0 = getTextureCoordinate(lbZslc, ";
+//  shader += "                  lightncols, lightgridx, lightgridy, pvg);\n";
+//  shader += "    vec2 pvg1 = getTextureCoordinate(lbZslc+1, ";
+//  shader += "                  lightncols, lightgridx, lightgridy, pvg);\n";	       
+//  shader += "    vec3 lc0 = texture2DRect(lightTex, pvg0).xyz;\n";
+//  shader += "    vec3 lc1 = texture2DRect(lightTex, pvg1).xyz;\n";
+//  shader += "    lightcol = mix(lc0, lc1, lbZslcf);\n";
+//  shader += "  }\n";
+//
+//  shader += "outputColor.rgb *= lightcol;\n";
+//  //----------------------------------
+//  //------------------------------------
 
 
   

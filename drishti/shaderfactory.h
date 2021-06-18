@@ -77,7 +77,7 @@ class ShaderFactory
   static GLint m_paintShaderParm[10];
   
   static GLuint m_meshShader;
-  static GLint m_meshShaderParm[30];
+  static GLint m_meshShaderParm[50];
 
   static GLuint m_meshShadowShader;
   static GLint m_meshShadowShaderParm[20];

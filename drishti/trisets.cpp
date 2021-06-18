@@ -5,6 +5,7 @@
 #include "trisets.h"
 #include "propertyeditor.h"
 #include "captiondialog.h"
+//#include "lighthandler.h"
 
 #include <QFileDialog>
 #include <QInputDialog>
@@ -425,6 +426,43 @@ Trisets::render(Camera *camera, int nclip)
 	  
 	  glUseProgram(ShaderFactory::meshShader());
 	  GLint *meshShaderParm = ShaderFactory::meshShaderParm();        
+
+//	  //==============================
+//	  // for lighting
+//	  //==============================
+//	  glUniform1iARB(meshShaderParm[25], 4); // lightTex
+//	  glActiveTexture(GL_TEXTURE4);
+//	  glEnable(GL_TEXTURE_RECTANGLE_ARB);
+//	  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, LightHandler::texture());
+//	  glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+//	  glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+//	  if (!LightHandler::basicLight())
+//	    {
+//	      int lightgridx, lightgridy, lightgridz, lightncols, lightnrows, lightlod;
+//	      LightHandler::lightBufferInfo(lightgridx, lightgridy, lightgridz,
+//					    lightnrows, lightncols, lightlod);
+//	      //Vec draginfo = m_Volume->getDragTextureInfo();
+//	      //int lod = m_Volume->getSubvolumeSubsamplingLevel();
+//	      //float plod = draginfo.z/float(lod);
+//	      //lightlod *= plod;
+//	      
+//	      glUniform1iARB(meshShaderParm[26], lightgridx); // lightgridx
+//	      glUniform1iARB(meshShaderParm[27], lightgridy); // lightgridy
+//	      glUniform1iARB(meshShaderParm[28], lightgridz); // lightgridz
+//	      glUniform1iARB(meshShaderParm[29], lightnrows); // lightnrows
+//	      glUniform1iARB(meshShaderParm[30], lightncols); // lightncols
+//	      glUniform1iARB(meshShaderParm[31], lightlod); // lightlod
+//	    }
+//	  else
+//	    {
+//	      // lightlod 0 means use basic lighting model
+//	      int lightlod = 0;
+//	      glUniform1iARB(meshShaderParm[31], lightlod); // lightlod
+//	    }
+//	  //==============================
+
+	  
+	  
 	  
 	  glUniform4f(meshShaderParm[2], extras.x, extras.y, extras.z, darken);
 	  

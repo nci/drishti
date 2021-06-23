@@ -953,7 +953,8 @@ ShaderFactory::addLighting()
   shader += "  lightvec = normalize(lightvec);\n";
 
   shader += "  vec3 reflecvec = reflect(lightvec, normal);\n";
-  shader += "  float DiffMag = abs(dot(normal, lightvec));\n";
+  //shader += "  float DiffMag = abs(dot(normal, lightvec));\n";
+  shader += "  float DiffMag = pow(abs(dot(normal, lightvec)), 0.5);\n";
   shader += "  vec3 Diff = (diffuse*DiffMag)*glFragColor.rgb;\n";
   shader += "  float Spec = pow(abs(dot(normal, reflecvec)), speccoeff);\n";
   shader += "  Spec *= step(speccoeff, pow(2.0,12.5))*specular*glFragColor.a;\n";
@@ -1640,7 +1641,7 @@ ShaderFactory::oitShaderF()
 
   //=======================================  
   shader += "  vec3 Amb = ambient * outputColor.rgb;\n";
-  shader += "  float diffMag = abs(dot(v3Normal, viewDir));\n";
+  shader += "  float diffMag = pow(abs(dot(v3Normal, viewDir)),0.5);\n";
   shader += "  vec3 Diff = diffuse * diffMag*outputColor.rgb;\n";
   shader += "  outputColor.rgb = Amb + Diff;\n";
   //=======================================  
@@ -1964,8 +1965,12 @@ ShaderFactory::meshShaderF()
 
   shader += "\n";
   shader += "  vec3 Amb = ambient*outputColor.rgb;\n";
-  shader += "  float diffMag = abs(dot(v3Normal, viewDir));\n";
-  shader += "  vec3 Diff = diffuse*diffMag*outputColor.rgb;\n";
+  shader += "  vec3 Diff = vec3(0.0);\n";
+  shader += "  if (length(v3Normal) > 0.0)\n";
+  shader += "  {\n";
+  shader += "    float diffMag = pow(abs(dot(v3Normal, viewDir)),0.5);\n";
+  shader += "    Diff = diffuse*diffMag*outputColor.rgb;\n";
+  shader += "  }\n";
   shader += "  outputColor.rgb = Amb + Diff;\n";
 
 
@@ -2080,7 +2085,6 @@ ShaderFactory::meshShadowShaderV()
   return shader;
 }
 
-
 QString
 ShaderFactory::meshShadowShaderF()
 {
@@ -2113,9 +2117,11 @@ ShaderFactory::meshShadowShaderF()
   shader += "  vec2 spos = gl_FragCoord.xy;\n";
 
   shader += "  color = texture2DRect(colorTex, spos.xy);\n";
-//  shader += "  if (color.a < 0.001)\n";
-//  shader += "    discard;\n";
+  //shader += "  if (color.a < 0.001)\n";
+  //shader += "    discard;\n";
 
+  shader += "  vec4 ocolor = color;\n";
+  
   // dropShadow
   shader += "  if (color.a < 0.001)\n";
   shader += "    {\n";
@@ -2148,6 +2154,7 @@ ShaderFactory::meshShadowShaderF()
   shader += "  vec4 dtex = texture2DRect(depthTex, spos.xy);\n";
   shader += "  float depth = dtex.x;\n";
 
+  
   //------------------------
   // dtex.x - shadow depth for original camera
   // dtex.y - glow
@@ -2165,8 +2172,8 @@ ShaderFactory::meshShadowShaderF()
   shader += "  gl_FragDepth = dtex.w;\n";
   
   
-  
   shader += "  float surfId = dtex.z;\n";
+
   
   shader += "  vec3 ecolor = color.rgb;\n";
   shader += "  if (edges > 0.0)\n";
@@ -2212,8 +2219,9 @@ ShaderFactory::meshShadowShaderF()
   shader += "    int nsteps = int(20.0*softshadow + 1.0);\n";
   shader += "    int nstepsS = int(nsteps*0.75 + 1.0);\n";
 
+  
   shader += "    for(int i=0; i<nstepsS; i++)\n";
-  shader += "      {\n";
+  shader += "      {\n";  
   shader += "    	 float r = 1.0+i*0.11;\n";
   shader += "            float x = r*sin(radians(i*23));\n";
   shader += "            float y = r*cos(radians(i*23));\n";
@@ -2241,7 +2249,7 @@ ShaderFactory::meshShadowShaderF()
   
   shader += "    for(int i=nstepsS; i<nsteps; i++)\n";
   shader += "      {\n";
-  shader += "    	 float r = 1.0+i*0.13;\n";
+  shader += "    	 float r = 1.0+i*0.15;\n";
   shader += "            float x = r*sin(radians(i*27));\n";
   shader += "            float y = r*cos(radians(i*27));\n";
   shader += "    	 vec2 pos = spos + vec2(x,y);\n";
@@ -2282,7 +2290,16 @@ ShaderFactory::meshShadowShaderF()
   // for white/gray colors saturation is very low, so change value
   shader += "    colorV.z = mix(colorV.z, max(0.0, colorV.z-softshadow*0.05), smoothstep(0.0,colorRV.y, 0.3));\n";
   shader += "    colorV = hsv2rgb(colorV);\n";
-//  //---------------
+  //---------------
+  
+
+  //----------------------
+  // add shadow
+  shader += "    sumS /= float(nsteps);\n";
+  shader += "    float shadow = sumS;\n";
+  shader += "    float shadows = exp(-shadow*gamma);\n";
+  shader += "    color.rgb *= pow(shadows,0.7/(3.0-0.25*softshadow));\n";
+  //----------------------
 
   
   //---------------
@@ -2292,44 +2309,35 @@ ShaderFactory::meshShadowShaderF()
   shader += "    gl = smoothstep(0.0, 1.0, gl);\n";
   shader += "    color.rgb = mix(color.rgb, clrG, gl);\n";
   //---------------
-  
 
-  //---------------
-  // add ridge
-  shader += "    float ridge = nRidge/float(nstepsS);\n";
-  shader += "    ridge = 1.0-exp(-0.5*ridge/gamma);\n";
-  shader += "    ridge = sin(ridge*3.14159265/2.0);\n"; // easeOutSine
-  shader += "    color.rgb = mix(color.rgb, colorR, ridge);\n";
-  //---------------
-  
 
   //---------------
   // add valley
   shader += "    nValley /= float(nstepsS);\n";
-  shader += "    float valley = exp(-70*nValley/gamma);\n";
-  shader += "    valley = 1.0 - cos(valley*3.14159265/2.0);\n"; // easeInSine
-  shader += "    color.rgb = mix(color.rgb, colorV, 1.0-valley);\n";
+  shader += "    float valley = exp(-30*nValley/gamma);\n";
+  shader += "    valley = pow(cos(valley*3.14159265/2.0), 0.75);\n";
+  shader += "    color.rgb = mix(color.rgb, colorV, valley);\n";
+  //---------------
+
+  
+  //---------------
+  // add ridge
+  shader += "    float ridge = nRidge/float(nstepsS);\n";
+  shader += "    ridge = 1.0-exp(-0.5*ridge/gamma);\n";
+  shader += "    ridge = pow(abs(sin(ridge*3.14159265/2.0)), 0.75);\n";
+  shader += "    color.rgb = mix(color.rgb, colorR, ridge);\n";
   //---------------
 
 
   //----------------------
   // add edges
-  shader += "    color.rgb = mix(color.rgb, ecolor*color.rgb, 0.5);\n";
+  shader += "    color.rgb = mix(color.rgb, ecolor*color.rgb, 0.4*(vec3(1.0)-ecolor));\n";
   //----------------------
-
   
-  //----------------------
-  // add shadow
-  shader += "    sumS /= float(nsteps);\n";
-  shader += "    float shadow = sumS;\n";
-  shader += "    float shadows = exp(-shadow*gamma);\n";
-  shader += "    color.rgb *= pow(shadows,0.75/(3.0-0.2*softshadow));\n";
-  //----------------------
 
   shader += "  }\n";
 
   
-
   //----------------------
   // specular highlights
   shader += "  if (roughness > 0.0)\n";
@@ -2345,8 +2353,9 @@ ShaderFactory::meshShadowShaderF()
   shader += "              texture2DRect(depthTex, spos.xy-vec2(offset,1+i)).x;\n";
   shader += "      }\n";
   shader += "    vec3 N = normalize(vec3(dx*50, dy*50, 1.0+roughness));\n";
-  shader += "    vec3 spec = shadingSpecularGGX(N, vec3(0,0,1),  vec3(0,0,1), roughness*0.2, color.rgb);\n";
+  shader += "    vec3 spec = shadingSpecularGGX(N, vec3(0,0,1),  vec3(0,0,1), roughness*0.2, pow(color.rgb,vec3(1.0/2.2)));\n";
   shader += "    color.rgb += 0.5*specular*spec;\n";
+  
   shader += "  }\n";
   //----------------------
   
@@ -2366,6 +2375,7 @@ ShaderFactory::meshShadowShaderF()
 
   return shader;
 }
+
 
 
 //----------------------------
@@ -2728,7 +2738,7 @@ ShaderFactory::pnShaderF()
   shader += "  outputColor *= opacity;\n";
 
   shader += "  vec3 reflecvec = reflect(lightvec, normal);\n";
-  shader += "  float DiffMag = abs(dot(normal, lightvec));\n";
+  shader += "  float DiffMag = pow(abs(dot(normal, lightvec)),0.5);\n";
   shader += "  vec3 Diff = (0.8*DiffMag)*outputColor.rgb;\n";
   shader += "  float Spec = pow(abs(dot(normal, reflecvec)), 32.0);\n";
   shader += "  Spec *= 1.0*outputColor.a;\n";

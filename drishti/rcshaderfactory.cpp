@@ -308,7 +308,7 @@ RcShaderFactory::addLighting()
   shader += "  {\n";
   shader += "    grad = normalize(grad);\n";
   shader += "    vec3 lightVec = viewDir;\n";
-  shader += "    float diff = abs(dot(lightVec, grad));\n";
+  shader += "    float diff = pow(abs(dot(lightVec, grad)),0.5);\n";
   shader += "    vec3 reflecvec = reflect(lightVec, grad);\n";
   shader += "    float spec = pow(abs(dot(grad, reflecvec)), 512.0);\n";
   shader += "   colorSample.rgb *= dot(lightparm, vec3(1.0,diff,spec));\n";

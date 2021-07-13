@@ -13,11 +13,11 @@ contains(Windows_Setup, Win64) {
     message(Win64 setup)
 
     contains(DRISHTI_DEFINES, RENDERER) {
-      INCLUDEPATH += c:\Qt\libQGLViewer\libQGLViewer-2.6.4 \
+      INCLUDEPATH += c:\Qt\Qt-5.15.2\libQGLViewer\libQGLViewer-2.6.4 \
   	c:\cygwin64\home\acl900\drishtilib\freeglut\include \
  	c:\cygwin64\home\acl900\drishtilib\glew-2.1.0\include
   
-      QMAKE_LIBDIR += c:\Qt\libQGLViewer\libQGLViewer-2.6.4\lib \
+      QMAKE_LIBDIR += c:\Qt\Qt-5.15.2\libQGLViewer\libQGLViewer-2.6.4\lib \
   	c:\cygwin64\home\acl900\drishtilib\freeglut\lib\x64 \
 	c:\cygwin64\home\acl900\drishtilib\glew-2.1.0\build\lib\Release
     }

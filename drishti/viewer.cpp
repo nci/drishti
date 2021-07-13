@@ -13,6 +13,7 @@
 #include "prunehandler.h"
 #include "itksegmentation.h"
 #include "mainwindowui.h"
+#include "dcolordialog.h"
 
 #include "cube2sphere.h"
 
@@ -663,7 +664,8 @@ Viewer::Viewer(QWidget *parent) :
   m_paintColor = Vec(1,1,1);
   m_paintStyle = 0;
   m_paintAlpha = 0.05;
-
+  m_paintOctave = 1;
+  
   m_tagSpinBox = new QSpinBox(this);
   m_tagSpinBox->setRange(0, 200);
   m_tagSpinBox->setValue(0);
@@ -831,10 +833,10 @@ Viewer::checkPointSelected(const QMouseEvent *event)
 	{
 	    if (event->buttons() == Qt::LeftButton) // change rotation pivot
 	      GeometryObjects::trisets()->paint(target, m_paintRad*m_unitPaintRad,
-						m_paintColor, m_paintStyle, m_paintAlpha);
+						m_paintColor, m_paintStyle, m_paintAlpha, m_paintOctave);
 	    else
 	      GeometryObjects::trisets()->paint(target, m_paintRad*m_unitPaintRad,
-						Vec(100,100,100), m_paintStyle, m_paintAlpha);
+						Vec(100,100,100), m_paintStyle, m_paintAlpha, m_paintOctave);
 	    
 	    return;
 	}
@@ -6357,6 +6359,21 @@ Viewer::createPaintMenu()
     dlg->setWindowFlags(Qt::Tool);
     connect(dlg, SIGNAL(doubleValueChanged(double)),
 	    this, SLOT(setPaintAlpha(double)));
+    vbox->addWidget(dlg);
+  }
+
+  {
+    QInputDialog *dlg = new QInputDialog(this);
+    dlg->setInputMode(QInputDialog::IntInput);
+    dlg->setLabelText("Roughness");
+    dlg->setIntValue(m_paintOctave);
+    dlg->setIntRange(1, 10);
+    dlg->setIntStep(1);
+    dlg->setFont(QFont("MS Reference Sans Serif", 10));
+    dlg->setOptions(QInputDialog::NoButtons);
+    dlg->setWindowFlags(Qt::Tool);
+    connect(dlg, SIGNAL(intValueChanged(int)),
+	    this, SLOT(setPaintOctave(int)));
     vbox->addWidget(dlg);
   }
 

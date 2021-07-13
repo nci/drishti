@@ -156,6 +156,7 @@ class Viewer : public QGLViewer
    void setPaintColor();
    void setPaintRadius(double r) { m_paintRad = r; }
    void setPaintAlpha(double b) { m_paintAlpha = b; }
+   void setPaintOctave(int b) { m_paintOctave = b; }
 
   //------------
    //menu viewer functions
@@ -313,6 +314,7 @@ class Viewer : public QGLViewer
   float m_paintRad;
   int m_paintStyle;
   float m_paintAlpha;
+  int m_paintOctave;
   float m_unitPaintRad;
 
 

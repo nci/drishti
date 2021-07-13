@@ -68,7 +68,8 @@ HEADERS = ..\..\mainwindowui.h \
 	..\..\gradienteditor.h \
 	..\..\classes.h \
 	..\..\matrix.h \
-	..\..\global.h
+	..\..\global.h \
+	..\..\ply.h
 	
 
 SOURCES = ../../mainwindowui.cpp \
@@ -84,4 +85,5 @@ SOURCES = ../../mainwindowui.cpp \
 	../../gradienteditor.cpp \
 	../../classes.cpp \
 	../../matrix.cpp \
-	../../global.cpp
+	../../global.cpp \
+	../../ply.c

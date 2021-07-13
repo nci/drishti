@@ -3263,5 +3263,8 @@ ShaderFactory::createPaintShader()
   m_paintShaderParm[2] = glGetUniformLocation(m_paintShader, "hitColor");
   m_paintShaderParm[3] = glGetUniformLocation(m_paintShader, "blendType");
   m_paintShaderParm[4] = glGetUniformLocation(m_paintShader, "blendFraction");
+  m_paintShaderParm[5] = glGetUniformLocation(m_paintShader, "blendOctave");
+  m_paintShaderParm[6] = glGetUniformLocation(m_paintShader, "bmin");
+  m_paintShaderParm[7] = glGetUniformLocation(m_paintShader, "blen");
 }
 //---------------

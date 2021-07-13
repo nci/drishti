@@ -1,9 +1,9 @@
 TEMPLATE = subdirs
 
 SUBDIRS = analyze \
-	  grd \
+          dicom \
+          grd \
 	  imagestack \
-	  dicom \
 	  metaimage \
 	  raw \
 	  rawslabs \
@@ -12,9 +12,9 @@ SUBDIRS = analyze \
 	  tom \
 	  txm \
           vgi
-
+          
 win32 {
-    SUBDIRS += nifti \
-               nc \
-               nrrd
+SUBDIRS += nifti \
+           nc \
+           nrrd
 }

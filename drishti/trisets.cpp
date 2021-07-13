@@ -1625,7 +1625,7 @@ Trisets::makeReadyForPainting()
 }
 
 void
-Trisets::paint(Vec hitPt, float rad, Vec color, int blendType, float blendFraction)
+Trisets::paint(Vec hitPt, float rad, Vec color, int blendType, float blendFraction, int blendOctave)
 {
   GLuint paintShader = ShaderFactory::paintShader();
   GLint* paintShaderParm = ShaderFactory::paintShaderParm();
@@ -1637,6 +1637,13 @@ Trisets::paint(Vec hitPt, float rad, Vec color, int blendType, float blendFracti
   glUniform3f(paintShaderParm[2], color.x, color.y, color.z);
   glUniform1i(paintShaderParm[3], blendType);
   glUniform1f(paintShaderParm[4], blendFraction);
+  glUniform1i(paintShaderParm[5], blendOctave);
+
+  Vec bmin, bmax;
+  allEnclosingBox(bmin, bmax);
+  float blen = qMax(bmax.x-bmin.x, qMax(bmax.y-bmin.y, bmax.z-bmin.z));
+  glUniform3f(paintShaderParm[6], bmin.x, bmin.y, bmin.z);
+  glUniform1f(paintShaderParm[7], blen);
 
   for (int i=0; i<m_trisets.count(); i++)
     m_trisets[i]->paint(hitPt);

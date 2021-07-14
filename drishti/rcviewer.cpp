@@ -533,6 +533,11 @@ RcViewer::createIsoRaycastShader()
 
   if (m_amrData)
     m_ircParm[41] = glGetUniformLocationARB(m_ircShader, "amrTex");
+
+  m_ircParm[42] = glGetUniformLocationARB(m_ircShader, "ambient");
+  m_ircParm[43] = glGetUniformLocationARB(m_ircShader, "diffuse");
+  m_ircParm[44] = glGetUniformLocationARB(m_ircShader, "roughness");
+  m_ircParm[45] = glGetUniformLocationARB(m_ircShader, "specular");
 }
 
 void
@@ -998,6 +1003,10 @@ RcViewer::raycast(Vec eyepos, float sceneRadius, bool firstPartOnly)
       glEnable(GL_TEXTURE_RECTANGLE_ARB);
     }
   
+  glUniform1fARB(m_ircParm[42], m_ambient); // ambient
+  glUniform1fARB(m_ircParm[43], m_diffuse); // diffuse
+  glUniform1fARB(m_ircParm[44], 0.9-m_roughness*0.1); // roughness
+  glUniform1fARB(m_ircParm[45], m_specular); // specular
 
   if (firstPartOnly ||
       !Global::interpolationType(Global::TextureInterpolation)) // linear

@@ -590,6 +590,7 @@ Trisets::draw(QGLViewer *viewer,
 
   //--------------------------------------------
   // first render from shadowCamera
+  Camera::Type ctype = viewer->camera()->type();
 
   //---------------------
   // setting shadow camera
@@ -607,12 +608,15 @@ Trisets::draw(QGLViewer *viewer,
       offset = center - pos;
     }
 
-    Quaternion rot = orot * Quaternion(Vec(1,0,0), DEG2RAD(m_lightDir.y*90))
-                          * Quaternion(Vec(0,1,0), -DEG2RAD(m_lightDir.x*90));
+    Quaternion rot = orot * Quaternion(Vec(1,0,0), -DEG2RAD(m_lightDir.y*90))
+                          * Quaternion(Vec(0,1,0), DEG2RAD(m_lightDir.x*90));
     viewer->camera()->setOrientation(rot);
     // now reposition the camera so that it faces the scene
     Vec center = viewer->camera()->sceneCenter();
     Vec viewDir = viewer->camera()->viewDirection();
+    // set shadow camera to be orthographic
+    // meaning the light is directional
+    viewer->camera()->setType(Camera::ORTHOGRAPHIC);
     viewer->camera()->setPosition(center - distFromCam*viewDir - offset);
 
 //    if (m_hitpoints->count() > 0)
@@ -644,6 +648,7 @@ Trisets::draw(QGLViewer *viewer,
   { // restore camera
     viewer->camera()->setOrientation(orot);
     viewer->camera()->setPosition(opos);
+    viewer->camera()->setType(ctype);
     viewer->camera()->setFieldOfView(ofov);
   }
   

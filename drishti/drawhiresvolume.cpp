@@ -2437,7 +2437,8 @@ DrawHiresVolume::setRenderDefault()
       glUniform1fARB(m_defaultParm[7], m_lightInfo.highlights.ambient);
       glUniform1fARB(m_defaultParm[8], m_lightInfo.highlights.diffuse);
       glUniform1fARB(m_defaultParm[9], m_lightInfo.highlights.specular);
-      glUniform1fARB(m_defaultParm[10], (int)pow((float)2, (float)(4+m_lightInfo.highlights.specularCoefficient)));
+      //glUniform1fARB(m_defaultParm[10], (int)pow((float)2, (float)(4+m_lightInfo.highlights.specularCoefficient)));
+      glUniform1fARB(m_defaultParm[10], 0.9-m_lightInfo.highlights.specularCoefficient*0.1);
 
       bool useAllTex = (m_drawImageType != Enums::DragImage ||
 			m_dataTexSize == 1);

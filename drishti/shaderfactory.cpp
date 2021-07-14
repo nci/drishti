@@ -953,11 +953,8 @@ ShaderFactory::addLighting()
   shader += "  lightvec = normalize(lightvec);\n";
 
   shader += "  vec3 reflecvec = reflect(lightvec, normal);\n";
-  //shader += "  float DiffMag = abs(dot(normal, lightvec));\n";
   shader += "  float DiffMag = pow(abs(dot(normal, lightvec)), 0.5);\n";
   shader += "  vec3 Diff = (diffuse*DiffMag)*glFragColor.rgb;\n";
-  shader += "  float Spec = pow(abs(dot(normal, reflecvec)), speccoeff);\n";
-  shader += "  Spec *= step(speccoeff, pow(2.0,12.5))*specular*glFragColor.a;\n";
 
   shader += "  vec3 Amb = ambient*glFragColor.rgb;\n";
 
@@ -966,19 +963,16 @@ ShaderFactory::addLighting()
   shader += "  glFragColor.rgb = mix(glFragColor.rgb, Amb, litfrac);\n";
   shader += "  if (litfrac > 0.0)\n";
   shader += "   {\n";
-  shader += "     vec3 frgb = glFragColor.rgb + litfrac*(Diff + Spec);\n";
-
-//  shader += "     vec3 frgb = glFragColor.rgb + litfrac*Diff;\n";  
-//  shader += "     float roughness = speccoeff;\n";
-//  shader += "     vec3 spec = shadingSpecularGGX(normal, -I, -lightvec, speccoeff*0.05, glFragColor.rgb);\n";
-//  shader += "     frgb += litfrac*roughness*specular*spec;\n";
-
-
+  shader += "     vec3 frgb = glFragColor.rgb + litfrac*(Diff);\n";
   shader += "     if (any(greaterThan(frgb,vec3(1.0,1.0,1.0)))) \n";
   shader += "        frgb = vec3(1.0,1.0,1.0);\n";
   shader += "     if (any(greaterThan(frgb,glFragColor.aaa))) \n";  
   shader += "        frgb = glFragColor.aaa;\n";
   shader += "     glFragColor.rgb = frgb;\n";
+
+  shader += "    vec3 spec = shadingSpecularGGX(normal, I, lightvec, speccoeff*0.2, glFragColor.rgb);\n";
+  shader += "    glFragColor.rgb += speccoeff*specular*spec;\n";
+  shader += "    glFragColor = clamp(glFragColor, vec4(0.0,0.0,0.0,0.0), vec4(1.0,1.0,1.0,1.0));\n";
 
   shader += "   }\n";
 
@@ -2293,15 +2287,6 @@ ShaderFactory::meshShadowShaderF()
   //---------------
   
 
-  //----------------------
-  // add shadow
-  shader += "    sumS /= float(nsteps);\n";
-  shader += "    float shadow = sumS;\n";
-  shader += "    float shadows = exp(-shadow*gamma);\n";
-  shader += "    color.rgb *= pow(shadows,0.7/(3.0-0.25*softshadow));\n";
-  //----------------------
-
-  
   //---------------
   // add glow
   shader += "    clrG /= vec3(max(1.0,sumG));\n";
@@ -2311,6 +2296,15 @@ ShaderFactory::meshShadowShaderF()
   //---------------
 
 
+  //----------------------
+  // add shadow
+  shader += "    sumS /= float(nsteps);\n";
+  shader += "    float shadow = sumS;\n";
+  shader += "    float shadows = exp(-shadow*gamma);\n";
+  shader += "    color.rgb *= pow(shadows,0.7/(3.0-0.25*softshadow));\n";
+  //----------------------
+
+  
   //---------------
   // add valley
   shader += "    nValley /= float(nstepsS);\n";

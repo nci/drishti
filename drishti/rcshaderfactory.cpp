@@ -264,7 +264,8 @@ RcShaderFactory::gradMagnitude()
 //  shader += "}\n";
 
   // using tetrahedron technique - iquilezles.org (normalsSDF) - Paul Malin in ShaderToy
-  shader += "float gradMagnitude(vec3 voxelCoord, vec3 onev, float maxLayers)\n";
+  //shader += "float gradMagnitude(vec3 voxelCoord, vec3 onev, float maxLayers)\n";
+  shader += "vec3 gradMagnitude(vec3 voxelCoord, vec3 onev, float maxLayers)\n";
   shader += "{\n";
   shader += "  vec2 k = vec2(1.0, -1.0);\n";
 //  shader += "  vec3 grad = (k.xyy * texture(dataTex, voxelCoord+k.xyy*onev).x +\n";
@@ -276,7 +277,8 @@ RcShaderFactory::gradMagnitude()
   shader += "               k.yxy * getVal(voxelCoord+k.yxy*onev, maxLayers, 1.0) +\n";
   shader += "               k.xxx * getVal(voxelCoord+k.xxx*onev, maxLayers, 1.0));\n";
   shader += "  grad = grad/2.0;\n";  // should be actually divided by 4
-  shader += "  return length(grad);\n";
+  shader += "  return grad;\n";
+  //shader += "  return length(grad);\n";
   shader += "}\n";
 
   return shader;
@@ -465,10 +467,17 @@ RcShaderFactory::genRaycastShader(QList<CropObject> crops,
   if (amrData)
     shader += "uniform sampler2DRect amrTex;\n";
 
+  shader += "uniform float ambient;\n";
+  shader += "uniform float diffuse;\n";
+  shader += "uniform float roughness;\n";
+  shader += "uniform float specular;\n";
+
   
   shader += "layout(location = 0) out vec4 outColor;\n";
   shader += "layout(location = 1) out vec4 outDepth;\n";
   
+  shader += ShaderFactory::ggxShader();
+
   if (cropPresent) shader += CropShaderFactory::generateCropping(crops);
   if (viewPresent) shader += BlendShaderFactory::generateBlend(crops);
 
@@ -540,7 +549,8 @@ RcShaderFactory::genRaycastShader(QList<CropObject> crops,
   shader += "float totlen = length(dir);\n";
   shader += "if (totlen < 0.001) return;\n";
 
-  shader += "float checkGrad = (minGrad > 0.0 || maxGrad < 1.0) ? 1.0 : 0.0;\n";
+  //shader += "float checkGrad = (minGrad > 0.0 || maxGrad < 1.0) ? 1.0 : 0.0;\n";
+  shader += "float checkGrad = 1.0;\n";
 
   shader += "vec3 deltaDir = normalize(dir)*stepSize;\n";
   shader += "float deltaDirLen = length(deltaDir);\n";
@@ -613,7 +623,8 @@ RcShaderFactory::genRaycastShader(QList<CropObject> crops,
   // find gradient magnitude
   shader += "  if (checkGrad > 0 && colorSample.a > 0.001)\n";  
   shader += "    {\n";
-  shader += "      float gradMag = gradMagnitude(voxelCoord, onev, maxLayers);\n";
+  //shader += "      float gradMag = gradMagnitude(voxelCoord, onev, maxLayers);\n";
+  shader += "      float gradMag = length(gradMagnitude(voxelCoord, onev, maxLayers));\n";
   shader += "      colorSample = mix(vec4(0.0), colorSample,\n";
   shader += "                        step(minGrad, gradMag)*step(gradMag, maxGrad));\n";
   shader += "    }\n";
@@ -763,9 +774,12 @@ RcShaderFactory::genRaycastShader(QList<CropObject> crops,
 
 
   // find gradient magnitude
-  shader += "  if (checkGrad > 0 && colorSample.a > 0.001)\n";  
+  //shader += "  if (checkGrad > 0 && colorSample.a > 0.001)\n";  
+  shader += "  vec3 normal = gradMagnitude(voxelCoord, onev, maxLayers);\n";
+  shader += "  float gradMag = length(normal);\n";
+  shader += "  if (colorSample.a > 0.001)\n";  
   shader += "    {\n";
-  shader += "      float gradMag = gradMagnitude(voxelCoord, onev, maxLayers);\n";
+  //shader += "      float gradMag = gradMagnitude(voxelCoord, onev, maxLayers);\n";
   shader += "      colorSample = mix(vec4(0.0), colorSample,\n";
   shader += "                        step(minGrad, gradMag)*step(gradMag, maxGrad));\n";
   shader += "    }\n";
@@ -811,10 +825,36 @@ RcShaderFactory::genRaycastShader(QList<CropObject> crops,
 
   //------------------------------------
 
+  //------------------------------------
+  shader += " {\n";
+  shader += "  normal = normalize(normal);\n";
+  shader += "  vec3 lightvec = voxelCoord - eyepos;\n";
+  shader += "  lightvec = normalize(lightvec);\n";
+  shader += "  vec3 reflecvec = reflect(lightvec, normal);\n";
+  shader += "  float DiffMag = pow(abs(dot(normal, lightvec)), 0.5);\n";
+  shader += "  vec3 Diff = (diffuse*DiffMag)*colorSample.rgb;\n";
+  shader += "  vec3 Amb = ambient*colorSample.rgb;\n";
+  shader += "  float litfrac = smoothstep(0.05, 0.1, gradMag);\n";
+  shader += "  colorSample.rgb = mix(colorSample.rgb, Amb, litfrac);\n";
+  shader += "  if (litfrac > 0.0)\n";
+  shader += "   {\n";
+  shader += "     vec3 frgb = colorSample.rgb + litfrac*Diff;\n";
+  shader += "     if (any(greaterThan(frgb,vec3(1.0,1.0,1.0)))) \n";
+  shader += "        frgb = vec3(1.0,1.0,1.0);\n";
+  shader += "     if (any(greaterThan(frgb,colorSample.aaa))) \n";  
+  shader += "        frgb = colorSample.aaa;\n";
+  shader += "     colorSample.rgb = frgb;\n";
+
+//  shader += "     vec3 spec = shadingSpecularGGX(normal, lightvec, lightvec, roughness*0.2, colorSample.rgb);\n";
+//  shader += "     colorSample.rgb += 0.5*specular*spec;\n";
+//  shader += "     colorSample = clamp(colorSample, vec4(0.0,0.0,0.0,0.0), vec4(1.0,1.0,1.0,1.0));\n";
+  shader += "   }\n";
+  shader += " }\n";
+  //------------------------------------
+  
 
   //------------------------------------
 
-  
   shader += "      colorSample.rgb = pow(colorSample.rgb, vec3(gamma));\n";
   shader += "      colorAcum += (1.0 - colorAcum.a) * colorSample;\n";
   shader += "      deep = deep + 1.0;\n";
@@ -972,7 +1012,7 @@ RcShaderFactory::genEdgeEnhanceShader()
   shader += "              texture2DRect(normalTex, spos0.xy-vec2(offset,1+i)).z;\n";
   shader += "      }\n";
   shader += "    vec3 N = normalize(vec3(dx/sceneRadius, dy/sceneRadius, roughness));\n";
-  shader += "    vec3 spec = shadingSpecularGGX(N, vec3(0,0,1),  vec3(0,0,1), roughness*0.2, color.rgb);\n";
+  shader += "    vec3 spec = shadingSpecularGGX(N, vec3(0,0,1),  vec3(0,0,1), roughness*0.1, color.rgb);\n";
   shader += "    color.rgb += 0.5*specular*spec;\n";
   shader += "  }\n";
   

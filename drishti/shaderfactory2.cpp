@@ -175,11 +175,6 @@ ShaderFactory2::addLighting(int nvol)
       shader += QString("     normal%1 = vec3(0.0,0.0,0.0);\n").arg(i);
     }
 
-  //shader += "  vec3 lightcol = vec3(1.0,1.0,1.0);\n";
-  //shader += "  vec3 voxpos = pointpos;\n";
-  //shader += "  vec3 I = voxpos - eyepos;\n";
-  //shader += "  I = normalize(I);\n";
-
   shader += "  vec3 lightvec = voxpos - lightpos;\n";
   shader += "  lightvec = normalize(lightvec);\n";
 
@@ -187,29 +182,6 @@ ShaderFactory2::addLighting(int nvol)
   shader += " float DiffMag, Spec;\n";
   shader += "  float litfrac;\n";
   shader += "  float normlen;\n";
-//  for(int i=1; i<=nvol; i++)
-//    {
-//      shader += QString("  reflecvec = reflect(lightvec, normal%1);\n").arg(i);
-//      shader += QString("  DiffMag = abs(dot(normal%1, lightvec));\n").arg(i);
-//      shader += QString("  Diff = diffuse*DiffMag*color%1.rgb;\n").arg(i);
-//      shader += QString("  Spec = pow(abs(dot(normal%1, reflecvec)), speccoeff);\n").arg(i);
-//      shader += QString("  Spec *= specular*color%1.a;\n").arg(i);
-//      shader += QString("  Amb = ambient*color%1.rgb;\n").arg(i);
-//      shader += QString("  litfrac = smoothstep(0.05, 0.1, grad%1);\n").arg(i);
-//      shader += QString("  color%1.rgb = mix(color%1.rgb, Amb, litfrac);\n").arg(i);
-//      shader += "  if (litfrac > 0.005)\n";
-//      //shader += QString("     color%1.rgb += litfrac*(Diff + Spec);\n").arg(i);
-//      shader += "  if (litfrac > 0.0)\n";
-//      shader += "   {\n";
-//      shader += QString("     vec3 frgb = color%1.rgb + litfrac*(Diff + Spec);\n").arg(i);
-//      shader += "     if (any(greaterThan(frgb,vec3(1.0,1.0,1.0)))) \n";
-//      shader += "        frgb = vec3(1.0,1.0,1.0);\n";
-//      shader += QString("     if (any(greaterThan(frgb,color%1.aaa))) \n").arg(i);  
-//      shader += QString("        frgb = color%1.aaa;\n").arg(i);
-//      shader += QString("     color%1.rgb = frgb;\n").arg(i);
-//      shader += "   }\n";
-//      shader += QString("  color%1.rgb *= lightcol;\n").arg(i);
-//    }
 
   for(int i=1; i<=nvol; i++)
     {
@@ -228,7 +200,7 @@ ShaderFactory2::addLighting(int nvol)
       shader += QString("        frgb = color%1.aaa;\n").arg(i);
       shader += QString("     color%1.rgb = frgb;\n").arg(i);
       shader += QString("     vec3 spec = shadingSpecularGGX(normal%1, I, lightvec, speccoeff*0.2, color%1.rgb);\n").arg(i);
-      shader += QString("     color%1.rgb += speccoeff*specular*spec;\n").arg(i);
+      shader += QString("     color%1.rgb += specular*spec;\n").arg(i);
       shader += QString("     color%1 = clamp(color%1, vec4(0.0,0.0,0.0,0.0), vec4(1.0,1.0,1.0,1.0));\n").arg(i);
       shader += "   }\n";
       shader += QString("  color%1.rgb *= lightcol;\n").arg(i);

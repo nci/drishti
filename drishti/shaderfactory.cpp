@@ -970,8 +970,8 @@ ShaderFactory::addLighting()
   shader += "        frgb = glFragColor.aaa;\n";
   shader += "     glFragColor.rgb = frgb;\n";
 
-  shader += "    vec3 spec = shadingSpecularGGX(normal, I, lightvec, speccoeff*specular*0.2, glFragColor.rgb);\n";
-  shader += "    glFragColor.rgb += speccoeff*specular*spec;\n";
+  shader += "    vec3 spec = shadingSpecularGGX(normal, I, lightvec, speccoeff*0.2, glFragColor.rgb);\n";
+  shader += "    glFragColor.rgb += specular*spec;\n";
   shader += "    glFragColor = clamp(glFragColor, vec4(0.0,0.0,0.0,0.0), vec4(1.0,1.0,1.0,1.0));\n";
 
   shader += "   }\n";

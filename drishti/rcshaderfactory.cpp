@@ -472,6 +472,8 @@ RcShaderFactory::genRaycastShader(QList<CropObject> crops,
   shader += "uniform float roughness;\n";
   shader += "uniform float specular;\n";
 
+  shader += "uniform vec3 viewDir;\n";
+
   
   shader += "layout(location = 0) out vec4 outColor;\n";
   shader += "layout(location = 1) out vec4 outDepth;\n";
@@ -757,6 +759,35 @@ RcShaderFactory::genRaycastShader(QList<CropObject> crops,
   shader += "    lightcol = 1.0-pow((vec3(1,1,1)-lightcol),vec3(sslevel));\n";
   shader += "  }\n";
 
+
+
+
+
+//  //------------------------------------
+//  //------------------------------------
+//  // racycast shadows
+//  shader += "float shadow = 0.0;\n";
+//  shader += "vec3 shadowVox = voxelCoord;\n";
+//  //shader += "vec3 lightVec = normalize(eyepos - shadowVox)*stepSize;\n";
+//  shader += "vec3 lightVec = 5*viewDir*stepSize;\n";
+//  shader += "for (int shd=0; shd<10; shd++)\n";
+//  shader += "{\n";
+//  shader += "  shadowVox += lightVec;\n";
+//  shader += "  if (any(lessThan(shadowVox, vec3(0.0))) || any(greaterThan(shadowVox, vec3(1.0))))\n";
+//  shader += "    break;\n";
+//  shader += "  float val = getVal(shadowVox, maxLayers, interp);\n";   
+//  shader += "  vec4 c = texture(lutTex, vec2(val,0.0));\n";
+//  shader += "  shadow += (1.0-shadow)*c.a;\n";
+//  shader += "}\n";
+//  shader += "lightcol *= max(0.2, (1.0-shadow));\n";
+//  //------------------------------------
+//  //------------------------------------
+
+  
+
+
+
+
   // gamma affects light
   shader += "  lightcol = pow(lightcol, vec3(1.0/gamma));\n";
 
@@ -851,7 +882,8 @@ RcShaderFactory::genRaycastShader(QList<CropObject> crops,
   shader += "   }\n";
   shader += " }\n";
   //------------------------------------
-  
+
+
 
   //------------------------------------
 
@@ -1012,8 +1044,11 @@ RcShaderFactory::genEdgeEnhanceShader()
   shader += "              texture2DRect(normalTex, spos0.xy-vec2(offset,1+i)).z;\n";
   shader += "      }\n";
   shader += "    vec3 N = normalize(vec3(dx/sceneRadius, dy/sceneRadius, roughness));\n";
-  shader += "    vec3 spec = shadingSpecularGGX(N, vec3(0,0,1),  vec3(0,0,1), roughness*0.1, color.rgb);\n";
-  shader += "    color.rgb += 0.5*specular*spec;\n";
+  //shader += "    vec3 spec = shadingSpecularGGX(N, vec3(0,0,1),  vec3(0,0,1), roughness*0.1, color.rgb);\n";
+  //shader += "    color.rgb += 0.5*specular*spec;\n";
+  shader += "    float specCoeff = 512.0/mix(0.1, 64.0, roughness*roughness);\n";
+  shader += "    float shine = specular * pow(N.z, specCoeff);\n";
+  shader += "    color.rgb = mix(color.rgb, pow(color.rgb, vec3(1.0-shine)), vec3(shine));\n";
   shader += "  }\n";
   
 

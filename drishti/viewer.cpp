@@ -722,7 +722,7 @@ Viewer::setupRaycastUI()
 
   
   m_raylen->setRange(0, 100);
-  m_raylen->setValue(50);
+  m_raylen->setValue(100);
   m_minGrad->setRange(0, 20);
   m_minGrad->setValue(0);
   m_maxGrad->setRange(0, 20);

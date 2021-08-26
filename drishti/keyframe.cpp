@@ -88,7 +88,7 @@ void
 KeyFrame::setKeyFrameNumbers(QList<int> fno)
 {
   for(int i=0; i<fno.size(); i++)
-    m_keyFrameInfo[i]->setFrameNumber(fno[i]);
+    m_keyFrameInfo[i]->setFrameNumber(qMax(1, fno[i]));
 }
 
 void

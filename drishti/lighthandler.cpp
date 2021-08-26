@@ -710,6 +710,7 @@ LightHandler::createClipShader()
   m_clipParm[5] = glGetUniformLocationARB(m_clipShader, "ncols");
   m_clipParm[6] = glGetUniformLocationARB(m_clipShader, "pos");
   m_clipParm[7] = glGetUniformLocationARB(m_clipShader, "normal");
+  m_clipParm[8] = glGetUniformLocationARB(m_clipShader, "lod");
 }
 
 int
@@ -1579,6 +1580,9 @@ LightHandler::applyClipping(int ct)
 
   int lod = m_dragInfo.z;
   lod *= m_lightLod;
+
+  glUniform1iARB(m_clipParm[8], lod); // ncols
+
   for(int i=0; i<m_clipPos.count(); i++)
     {
       //Vec p = VECDIVIDE(m_clipPos[i], voxelScaling);
@@ -1587,7 +1591,6 @@ LightHandler::applyClipping(int ct)
       p /= lod;
 
       Vec n = VECPRODUCT(m_clipNorm[i], voxelScaling);
-      p -= lod*n;
 
       glUniform3fARB(m_clipParm[6], p.x,p.y,p.z);
       glUniform3fARB(m_clipParm[7], n.x,n.y,n.z);
@@ -1789,6 +1792,9 @@ LightHandler::updateLightBuffers()
     {
 //    updateAmbientOcclusionLightBuffer(m_aoRad, m_aoFrac,
 //				      m_aoDensity1, m_aoDensity2, m_aoTimes,
+//				      m_aoLightColor, m_aoOpMod);
+//    updateAmbientOcclusionLightBuffer(1.0, m_aoFrac,
+//				      0.3, 0.75, m_aoTimes,
 //				      m_aoLightColor, m_aoOpMod);
       QList<Vec> dpos;
       dpos << Vec(0,0,0);

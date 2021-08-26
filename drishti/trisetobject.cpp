@@ -1360,7 +1360,7 @@ TrisetObject::loadAssimpModel(QString flnm)
 		  QString imgFile = QFileDialog::getOpenFileName(0,
 								 QString("Load diffuse texture"),
 								 QFileInfo(flnm).dir().path(),
-								 "Image Files (*.png *.tif *.bmp *.jpg *.gif)");
+								 "Image Files (*.png *.tif *.tga *.bmp *.jpg *.gif)");
 		  
 		  QFileInfo f(imgFile);
 
@@ -1387,7 +1387,7 @@ TrisetObject::loadAssimpModel(QString flnm)
 	      QString imgFile = QFileDialog::getOpenFileName(0,
 							     QString("Load diffuse texture"),
 							     QFileInfo(flnm).dir().path(),
-							     "Image Files (*.png *.tif *.bmp *.jpg *.gif)");
+							     "Image Files (*.png *.tif *.tga *.bmp *.jpg *.gif)");
 	      
 	      QFileInfo f(imgFile);
 	      

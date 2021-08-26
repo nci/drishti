@@ -50,7 +50,7 @@ RcViewer::RcViewer() :
   m_filledTex = 0;
   m_ftBoxes = 0;
 
-  m_maxRayLen = 50;
+  m_maxRayLen = 100;
   m_shadow = 5.0;
   m_edge = 5.0;
   m_minGrad = 0;
@@ -538,6 +538,8 @@ RcViewer::createIsoRaycastShader()
   m_ircParm[43] = glGetUniformLocationARB(m_ircShader, "diffuse");
   m_ircParm[44] = glGetUniformLocationARB(m_ircShader, "roughness");
   m_ircParm[45] = glGetUniformLocationARB(m_ircShader, "specular");
+
+  m_ircParm[46] = glGetUniformLocationARB(m_ircShader, "viewDir");
 }
 
 void
@@ -1008,6 +1010,13 @@ RcViewer::raycast(Vec eyepos, float sceneRadius, bool firstPartOnly)
   glUniform1fARB(m_ircParm[44], 0.9-m_roughness*0.1); // roughness
   glUniform1fARB(m_ircParm[45], m_specular); // specular
 
+
+  Vec shdDir = (eyepos - m_viewer->sceneCenter()).unit();
+  shdDir -= m_viewer->camera()->rightVector();
+  shdDir += m_viewer->camera()->upVector();
+  shdDir.normalize();
+  glUniform3fARB(m_ircParm[46], shdDir.x, shdDir.y, shdDir.z);
+    
   if (firstPartOnly ||
       !Global::interpolationType(Global::TextureInterpolation)) // linear
     {

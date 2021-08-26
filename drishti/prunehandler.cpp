@@ -980,6 +980,7 @@ PruneHandler::createMopShaders()
   m_clipParm[5] = glGetUniformLocationARB(m_clipShader, "ncols");
   m_clipParm[6] = glGetUniformLocationARB(m_clipShader, "pos");
   m_clipParm[7] = glGetUniformLocationARB(m_clipShader, "normal");
+  m_clipParm[8] = glGetUniformLocationARB(m_clipShader, "lod");
   //---------------------------
 
   //---------------------------
@@ -1504,6 +1505,7 @@ PruneHandler::modifyPruneTexture(int shaderType,
 
 	  glUniform3fARB(parm[6], cen[0],cen[1],cen[2]);
 	  glUniform3fARB(parm[7], nrm[0],nrm[1],nrm[2]);
+	  glUniform1iARB(parm[8], vlist[6].toInt());
 	}
       else if (shaderType == TriangleShader)
 	{	  
@@ -2639,6 +2641,7 @@ PruneHandler::clip(Vec pos, Vec normal, Vec dmin)
   vlist << QVariant((float)(normal.x));
   vlist << QVariant((float)(normal.y));
   vlist << QVariant((float)(normal.z));
+  vlist << QVariant((int)lod);
 
   QGLFramebufferObject *pruneBuffer1 = newFBO();
   modifyPruneTexture(ClipShader,

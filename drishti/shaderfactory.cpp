@@ -970,8 +970,11 @@ ShaderFactory::addLighting()
   shader += "        frgb = glFragColor.aaa;\n";
   shader += "     glFragColor.rgb = frgb;\n";
 
-  shader += "    vec3 spec = shadingSpecularGGX(normal, I, lightvec, speccoeff*0.2, glFragColor.rgb);\n";
-  shader += "    glFragColor.rgb += specular*spec;\n";
+  //shader += "    vec3 spec = shadingSpecularGGX(normal, I, lightvec, speccoeff*0.2, glFragColor.rgb);\n";
+  //shader += "    glFragColor.rgb += specular*spec;\n";
+  shader += "    float specCoeff = 512.0/mix(0.1, 64.0, speccoeff*speccoeff);\n";
+  shader += "    float shine = specular * pow(abs(dot(normal, I)), specCoeff);\n";
+  shader += "    glFragColor.rgb = mix(glFragColor.rgb, pow(glFragColor.rgb, vec3(1.0-shine)), vec3(shine));\n";
   shader += "    glFragColor = clamp(glFragColor, vec4(0.0,0.0,0.0,0.0), vec4(1.0,1.0,1.0,1.0));\n";
 
   shader += "   }\n";
@@ -1962,7 +1965,7 @@ ShaderFactory::meshShaderF()
   shader += "  vec3 Diff = vec3(0.0);\n";
   shader += "  if (length(v3Normal) > 0.0)\n";
   shader += "  {\n";
-  shader += "    float diffMag = pow(abs(dot(v3Normal, viewDir)),0.5);\n";
+  shader += "    float diffMag = pow(abs(dot(v3Normal, viewDir)),0.75);\n";
   shader += "    Diff = diffuse*diffMag*outputColor.rgb;\n";
   shader += "  }\n";
   shader += "  outputColor.rgb = Amb + Diff;\n";
@@ -2013,7 +2016,6 @@ ShaderFactory::meshShaderF()
   // glow when active or has glow switched on
   shader += "    glowColor = pow(glowColor, vec3(1.1, 0.5, 1.0));\n";
   shader += "    glowColor.z = min(glowColor.z+extras.z, 1.0);\n";
-  //shader += "    float addGlow = glowColor.z;\n";
   shader += "    glowColor = hsv2rgb(glowColor);\n";
   shader += "    outputColor.rgb += 0.5*max(extras.z,extras.x)*glowColor.rgb;\n";
 
@@ -2113,8 +2115,6 @@ ShaderFactory::meshShadowShaderF()
   shader += "  color = texture2DRect(colorTex, spos.xy);\n";
   //shader += "  if (color.a < 0.001)\n";
   //shader += "    discard;\n";
-
-  shader += "  vec4 ocolor = color;\n";
   
   // dropShadow
   shader += "  if (color.a < 0.001)\n";
@@ -2175,30 +2175,31 @@ ShaderFactory::meshShadowShaderF()
   shader += "    float response = 0.0;\n";
 
   // find edges on surfaces
+  //shader += "    float r = mix(2.5, 1.1, edges);\n";
+  shader += "    float r = 1.0;\n";
   shader += "    for(int i=0; i<8; i++)\n";
   shader += "      {\n";
-  shader += "        float r = 1.0;\n";
   shader += "        float x = r*sin(radians(i*45));\n";
   shader += "        float y = r*cos(radians(i*45));\n";
   shader += "        vec2 pos = spos + vec2(x,y);\n";
   shader += "        float adepth = texture2DRect(depthTex, pos).x;\n";
   shader += "        float od = depth - adepth;\n";
-  shader += "        response += max(0.0, od);\n";
+  shader += "        response += smoothstep(0.0, 0.001, od)*od;\n";
   shader += "      } \n";
-  shader += "    ecolor.rgb *= exp(-response * pow(40*(edges+0.05),1.0/gamma));\n";
+  shader += "    ecolor.rgb *= exp(-response * pow(100*(edges+0.05),1.0/(gamma+(0.2*depth))));\n";
 
   // find border between different surfaces
   shader += "    response = 0.0;\n";
+  shader += "    r = 1.0;\n";
   shader += "    for(int i=0; i<8; i++)\n";
   shader += "      {\n";
-  shader += "        float r = 1.0;\n";
   shader += "        float x = r*sin(radians(i*45));\n";
   shader += "        float y = r*cos(radians(i*45));\n";
   shader += "        vec2 pos = spos + vec2(x,y);\n";
   shader += "        float od = step(0.001, abs(surfId - texture2DRect(depthTex, pos).z));\n";
   shader += "        response += max(0.0, od);\n";
   shader += "      } \n";
-  shader += "    ecolor.rgb *= pow((1.0-response/8.0), gamma);\n";
+  shader += "    ecolor.rgb *= pow((1.0-response/8.0), 1.0/gamma);\n";
   shader += "  }\n";
 
   
@@ -2207,12 +2208,10 @@ ShaderFactory::meshShadowShaderF()
   shader += "    vec3 clrG = vec3(0.0);\n";
 
   shader += "    float sumS = 0.0;\n";
-  shader += "    float nRidge = 0.0;\n";
   shader += "    float nValley = 0.0;\n";
 
   shader += "    int nsteps = int(20.0*softshadow + 1.0);\n";
   shader += "    int nstepsS = int(nsteps*0.75 + 1.0);\n";
-
   
   shader += "    for(int i=0; i<nstepsS; i++)\n";
   shader += "      {\n";  
@@ -2221,29 +2220,25 @@ ShaderFactory::meshShadowShaderF()
   shader += "            float y = r*cos(radians(i*23));\n";
   shader += "    	 vec2 pos = spos + vec2(x,y);\n";
   shader += "    	 vec3 adepth = texture2DRect(depthTex, pos).xyz;\n";
-
-  shader += "    	 float zdif = depth-adepth.x;\n";
-  shader += "    	 float nearEnough = clamp(zdif, 0.05, 0.1);\n";
-  shader += "    	 nearEnough = 1.0 - (nearEnough-0.05)/(0.1-0.05);\n";
-
+  
   shader += "    	 vec4 tmp = texture2DRect(colorTex, pos);\n";
   shader += "            float inShadow = float(int(mod(tmp.a,10000.0))/1000);\n";
   shader += "    	 sumS += pow(1.0-float(i)/float(nsteps), 0.25)*step(0.001,inShadow);\n";
   
-  shader += "    	 nRidge += step(0.0, -zdif-0.01)*nearEnough;\n";
-  shader += "    	 nValley += max(0.0,zdif)*nearEnough;\n";
-
-  shader += "    	 vec3 clrR = tmp.rgb;\n";
+  shader += "    	 float zdif = depth-adepth.x;\n";
+  shader += "    	 float vnearEnough = clamp(zdif, 0.05, 0.1);\n";
+  shader += "    	 vnearEnough = 1.0 - (vnearEnough-0.05)/(0.1-0.05);\n";
+  shader += "    	 nValley += max(0.0,zdif)*vnearEnough*(1.0-0.9*float(i)/float(nsteps));\n";
   
   // get contributions for glowing surfaces
   shader += "    	 float sr = step(0.001, adepth.y);\n";
   shader += "    	 sumG += sr;\n";
-  shader += "    	 clrG += sr*clrR;\n";
+  shader += "    	 clrG += sr*tmp.rgb;\n";
   shader += "      } \n";
   
   shader += "    for(int i=nstepsS; i<nsteps; i++)\n";
   shader += "      {\n";
-  shader += "    	 float r = 1.0+i*0.15;\n";
+  shader += "    	 float r = 1.0+i*0.12;\n";
   shader += "            float x = r*sin(radians(i*27));\n";
   shader += "            float y = r*cos(radians(i*27));\n";
   shader += "    	 vec2 pos = spos + vec2(x,y);\n";
@@ -2252,7 +2247,13 @@ ShaderFactory::meshShadowShaderF()
   shader += "    	 vec4 tmp = texture2DRect(colorTex, pos);\n";
 
   shader += "            float inShadow = float(int(mod(tmp.a,10000.0))/1000);\n";
-  shader += "    	 sumS += (1.0-float(i)/float(nsteps))*step(0.001,inShadow);\n";
+  shader += "    	 sumS += pow(1.0-float(i)/float(nsteps), 0.25)*step(0.001,inShadow);\n";
+  //shader += "    	 sumS += (1.0-float(i)/float(nsteps))*step(0.001,inShadow);\n";
+
+  shader += "    	 float zdif = depth-adepth.x;\n";
+  shader += "    	 float vnearEnough = clamp(zdif, 0.05, 0.1);\n";
+  shader += "    	 vnearEnough = 1.0 - (vnearEnough-0.05)/(0.1-0.05);\n";
+  shader += "    	 nValley += max(0.0,zdif)*vnearEnough*(1.0-0.9*float(i)/float(nsteps));\n";
 
   // get contributions for glowing surfaces
   shader += "    	 float sr = step(0.001, adepth.y);\n";
@@ -2267,16 +2268,7 @@ ShaderFactory::meshShadowShaderF()
   shader += "              max(vec2(0.0),colorRV.yz-vec2(softshadow*0.05)), smoothstep(0.0,0.6, colorRV.yz));\n";  
   
   //---------------
-  // saturated original color for use on ridge
-  shader += "    vec3 colorR = colorRV;\n";
-  shader += "    colorR.yz = mix(colorR.yz, cRV, vec2(smoothstep(0.0,0.05, colorR.y),smoothstep(0.0,colorR.y, 0.1)));\n";
-  shader += "    colorR.z = mix(colorR.z, min(1.0,colorR.z+softshadow*0.08),";
-  shader += "                            smoothstep(0.0,0.1, colorR.y)*smoothstep(0.0,0.1, colorR.z));\n";
-  shader += "    colorR = hsv2rgb(colorR);\n";
-  //---------------
-
-//  //---------------
-//  // desaturated original color for use in valley
+  // desaturated original color for use in valley
   shader += "    vec3 colorV = colorRV;\n";
   shader += "    colorV.yz = mix(cRV, colorV.yz, vec2(smoothstep(0.0,colorV.y, 0.05),smoothstep(0.0,colorV.y, 0.1)));\n";
   shader += "    colorV.z = mix(min(1.0,colorV.z+softshadow*0.08), colorV.z,";
@@ -2300,33 +2292,25 @@ ShaderFactory::meshShadowShaderF()
   // add shadow
   shader += "    sumS /= float(nsteps);\n";
   shader += "    float shadow = sumS;\n";
-  shader += "    float shadows = exp(-shadow*gamma);\n";
-  shader += "    color.rgb *= pow(shadows,0.7/(3.0-0.25*softshadow));\n";
+  shader += "    float shadows = exp(-shadow/gamma);\n";
+  //shader += "    color.rgb *= max(0.5,pow(shadows,0.7/(3.0-0.2*softshadow)));\n";
+  shader += "    color.rgb *= max(0.5,shadows);\n";
   //----------------------
 
   
-  //---------------
-  // add valley
-  shader += "    nValley /= float(nstepsS);\n";
-  shader += "    float valley = exp(-30*nValley/gamma);\n";
-  shader += "    valley = pow(cos(valley*3.14159265/2.0), 0.75);\n";
-  shader += "    color.rgb = mix(color.rgb, colorV, valley);\n";
-  //---------------
-
-  
-  //---------------
-  // add ridge
-  shader += "    float ridge = nRidge/float(nstepsS);\n";
-  shader += "    ridge = 1.0-exp(-0.5*ridge/gamma);\n";
-  shader += "    ridge = pow(abs(sin(ridge*3.14159265/2.0)), 0.75);\n";
-  shader += "    color.rgb = mix(color.rgb, colorR, ridge);\n";
-  //---------------
-
-
   //----------------------
   // add edges
-  shader += "    color.rgb = mix(color.rgb, ecolor*color.rgb, 0.4*(vec3(1.0)-ecolor));\n";
+  //shader += "    color.rgb = mix(color.rgb, ecolor*color.rgb, 0.4*(vec3(1.0)-ecolor));\n";
+  shader += "    color.rgb = mix(color.rgb, ecolor*color.rgb, pow(edges,0.25));\n";
+  //shader += "    color.rgb = ecolor*color.rgb;\n";
   //----------------------
+
+
+  //---------------
+  // add valley
+  shader += "    float valley = pow(exp(-0.5*nValley), 1.0/gamma);\n";
+  shader += "    color.rgb = mix(color.rgb, colorV, min(0.7, 1.0-valley));\n";
+  //---------------
   
 
   shader += "  }\n";
@@ -2347,8 +2331,11 @@ ShaderFactory::meshShadowShaderF()
   shader += "              texture2DRect(depthTex, spos.xy-vec2(offset,1+i)).x;\n";
   shader += "      }\n";
   shader += "    vec3 N = normalize(vec3(dx*50, dy*50, 1.0+roughness));\n";
-  shader += "    vec3 spec = shadingSpecularGGX(N, vec3(0,0,1),  vec3(0,0,1), roughness*0.2, pow(color.rgb,vec3(1.0/2.2)));\n";
-  shader += "    color.rgb += 0.5*specular*spec;\n";
+  //shader += "    vec3 spec = shadingSpecularGGX(N, vec3(0,0,1),  vec3(0,0,1), roughness*0.2, pow(color.rgb,vec3(1.0/2.2)));\n";
+  //shader += "    color.rgb += 0.5*specular*spec;\n";
+  shader += "    float specCoeff = 512.0/mix(0.1, 64.0, roughness*roughness);\n";
+  shader += "    float shine = specular * pow(N.z, specCoeff);\n";
+  shader += "    color.rgb = mix(color.rgb, pow(color.rgb, vec3(1.0-shine)), vec3(shine));\n";
   
   shader += "  }\n";
   //----------------------
@@ -2545,8 +2532,11 @@ ShaderFactory::outlineShaderF()
   shader += "              texture2DRect(depthTex, spos.xy-vec2(offset,1+i)).x;\n";
   shader += "      }\n";
   shader += "    vec3 N = normalize(vec3(dx*50, dy*50, 1.0+roughness));\n";
-  shader += "    vec3 spec = shadingSpecularGGX(N, vec3(0,0,1),  vec3(0,0,1), roughness, ocolor);\n";
-  shader += "    color.rgb += 0.5*specular*spec;\n";
+  //shader += "    vec3 spec = shadingSpecularGGX(N, vec3(0,0,1),  vec3(0,0,1), roughness, ocolor);\n";
+  //shader += "    color.rgb += 0.5*specular*spec;\n";
+  shader += "    float specCoeff = 512.0/mix(0.1, 64.0, roughness*roughness);\n";
+  shader += "    float shine = specular * pow(N.z, specCoeff);\n";
+  shader += "    color.rgb = mix(color.rgb, pow(color.rgb, vec3(1.0-shine)), vec3(shine));\n";
   shader += "  }\n";
   
 

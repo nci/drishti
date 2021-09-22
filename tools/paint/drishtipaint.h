@@ -3,6 +3,7 @@
 
 #include <QScrollArea>
 #include <QSplitter>
+#include <QTextEdit>
 
 #include "ui_drishtipaint.h"
 #include "ui_viewermenu.h"
@@ -22,6 +23,7 @@
 #include "marchingcubes.h"
 #include "ply.h"
 #include "popupslider.h"
+#include "pywidget.h"
 
 class DrishtiPaint : public QMainWindow
 {
@@ -42,6 +44,7 @@ class DrishtiPaint : public QMainWindow
   void tagsUsed(QList<int>);
   void showVolumeInformation();
   void openRecentFile();   
+  void on_actionPython_triggered();
   void on_actionAbout_triggered();
   void on_actionHelp_triggered();
   void on_saveWork_triggered();
@@ -244,6 +247,8 @@ class DrishtiPaint : public QMainWindow
 
   PopUpSlider *m_minGrad, *m_maxGrad;
   QComboBox *m_gradType;
+
+  PyWidget *m_pyWidget;
   
   void setFile(QString);
   void initTagColors();

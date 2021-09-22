@@ -769,10 +769,17 @@
     <addaction name="changeSliceOrdering"/>
     <addaction name="actionBakeCurves"/>
    </widget>
+   <widget class="QMenu" name="menuPython">
+    <property name="title">
+     <string>Python</string>
+    </property>
+    <addaction name="actionPython"/>
+   </widget>
    <addaction name="menuFile"/>
    <addaction name="menuView"/>
    <addaction name="menuMode"/>
    <addaction name="menuCommands"/>
+   <addaction name="menuPython"/>
    <addaction name="menuHelp"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
@@ -994,6 +1001,11 @@
   <action name="saveImageSequence">
    <property name="text">
     <string>Save All Image Slices</string>
+   </property>
+  </action>
+  <action name="actionPython">
+   <property name="text">
+    <string>Python</string>
    </property>
   </action>
  </widget>

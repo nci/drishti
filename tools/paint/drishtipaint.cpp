@@ -18,6 +18,11 @@
 
 #include "blosc.h"
 
+//#pragma push_macro("slots")
+//#undef slots
+//#include "Python.h"
+//#pragma pop_macro("slots")
+
 void
 DrishtiPaint::initTagColors()
 {
@@ -515,6 +520,7 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   setGeometry(100, 100, 700, 700);
 
   m_blockList.clear();
+
 }
 
 void DrishtiPaint::on_actionHelp_triggered() { ShowHelp::showMainHelp(); }
@@ -7359,4 +7365,21 @@ DrishtiPaint::tagsUsed(QList<int> ut)
 	tmesg += QString("(%1) %2\n").arg(ut[ti]).arg(tagNames[ut[ti]]);
     }
   QMessageBox::information(0, "Tags Used", tmesg);
+}
+
+
+void
+DrishtiPaint::on_actionPython_triggered()
+{
+//  QString flnm;
+//  flnm = QFileDialog::getOpenFileName(0,
+//				      "Select Python Script To Execute ",
+//				      Global::previousDirectory(),
+//				      "Python Scripts (*.py)",
+//				      0,
+//				      QFileDialog::DontUseNativeDialog); 
+//  if (flnm.isEmpty())
+//    return;
+
+  m_pyWidget = new PyWidget();
 }

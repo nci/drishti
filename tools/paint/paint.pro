@@ -33,13 +33,15 @@ FORMS += drishtipaint.ui viewermenu.ui \
   win32 {
 	 DEFINES += USE_GLMEDIA
 
-         INCLUDEPATH += c:\Qt\Qt-5.15.2\libQGLViewer\libQGLViewer-2.6.4 \
+         INCLUDEPATH += C:\Qt\Qt-5.15.2\libQGLViewer\libQGLViewer-2.6.4 \
                         ..\..\glmedia-64 \
                         C:\cygwin64\home\acl900\drishtilib\c-blosc-1.14.3\blosc
-                        
-         QMAKE_LIBDIR += c:\Qt\Qt-5.15.2\libQGLViewer\libQGLViewer-2.6.4\lib \
+                        #C:\Users\acl900\AppData\Local\Programs\Python\Python38\include
+
+         QMAKE_LIBDIR += C:\Qt\Qt-5.15.2\libQGLViewer\libQGLViewer-2.6.4\lib \
                          ..\..\glmedia-64 \
                          C:\cygwin64\home\acl900\drishtilib\c-blosc-1.14.3\libs
+                         #C:\Users\acl900\AppData\Local\Programs\Python\Python38\libs
 
          LIBS += QGLViewer2.lib glew32.lib glmedia.lib blosc.lib opengl32.lib glu32.lib
         }
@@ -122,7 +124,8 @@ HEADERS += commonqtclasses.h \
 	slicer3d.h \
         slic/slic.h \
         filehandler.h \
-        checkpointhandler.h
+        checkpointhandler.h \
+        pywidget.h
 
 
 SOURCES += drishtipaint.cpp \
@@ -181,4 +184,5 @@ SOURCES += drishtipaint.cpp \
 	slicer3d.cpp \
 	slic/slic.cpp \
         filehandler.cpp \
-        checkpointhandler.cpp
+        checkpointhandler.cpp \
+        pywidget.cpp

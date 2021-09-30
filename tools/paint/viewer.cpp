@@ -1181,7 +1181,19 @@ Viewer::processCommand(QString cmd)
       emit reloadMask();
       return;
     }
-
+  if (list[0].contains("loadmask"))
+    {
+      QString flnm;
+      flnm = QFileDialog::getOpenFileName(0,
+					  "RawMask File",
+					  Global::previousDirectory(),
+					  "RawMask Files (*.raw)");
+      
+      if (flnm.isEmpty())
+	return;
+      emit loadRawMask(flnm);
+    }
+  
   if (list[0].contains("getvolume"))
     {
       int tag1 = -1;
@@ -1258,6 +1270,31 @@ Viewer::processCommand(QString cmd)
       return;
     }
 
+  if (list[0].contains("tagstep"))
+    {
+      if (list.size() > 1)
+	{
+	  int tagStep = list[1].toInt(&ok);
+	  int tagVal = Global::tag();
+	  if (list.size() > 2)
+	    tagVal = list[2].toInt(&ok);
+	  if (tagStep < 1 || tagStep > 254)
+	    {
+	      QMessageBox::information(0, "", QString("Incorrect tagStep [1-254] specified : %1").\
+				       arg(tagStep));
+	      return;
+	    }
+	  if (tagVal < 1 || tagStep > 254)
+	    {
+	      QMessageBox::information(0, "", QString("Incorrect tagVal [0-254] specified : %1").\
+				       arg(tagVal));
+	      return;
+	    }
+	  emit stepTag(bmin, bmax, tagStep, tagVal);	  
+	}
+      return;
+    }
+  
   if (list[0].contains("merge"))
     {
       if (list.size() == 3)

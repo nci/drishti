@@ -203,7 +203,7 @@ ShaderFactory2::addLighting(int nvol)
       //shader += QString("     color%1.rgb += specular*spec;\n").arg(i);
       shader += "    float specCoeff = 512.0/mix(0.1, 64.0, speccoeff*speccoeff);\n";
       shader += QString("     float shine = specular * pow(abs(dot(normal%1, I)), specCoeff);\n").arg(i);
-      shader += QString("     color%1 = mix(color%1, pow(color%1, vec3(1.0-shine)), vec3(shine));\n").arg(i);
+      shader += QString("     color%1 = mix(color%1, pow(color%1, vec4(1.0-shine)), vec4(shine));\n").arg(i);
       shader += QString("     color%1 = clamp(color%1, vec4(0.0,0.0,0.0,0.0), vec4(1.0,1.0,1.0,1.0));\n").arg(i);
       shader += "   }\n";
       shader += QString("  color%1.rgb *= lightcol;\n").arg(i);

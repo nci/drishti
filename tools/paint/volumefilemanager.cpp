@@ -1249,6 +1249,29 @@ VolumeFileManager::undo()
 }
 
 void
+VolumeFileManager::loadRawFile(QString flnm)
+{
+  QProgressDialog progress(QString("Loading %1").\
+			   arg(flnm),
+			   "Cancel",
+			   0, 100,
+			   0,
+			   Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);
+  progress.setCancelButton(0);
+
+  qint64 bps = m_width*m_height*m_bytesPerVoxel;
+  int d = -1;
+  m_qfile.setFileName(flnm);
+  m_qfile.open(QFile::ReadOnly);
+  m_qfile.seek((qint64)13);
+  m_qfile.read((char*)m_volData, (qint64)m_depth*(qint64)m_width*(qint64)m_height);
+  m_qfile.close();
+
+  progress.setValue(100);
+}
+
+void
 VolumeFileManager::loadMemFile()
 {
   if (!m_memmapped)

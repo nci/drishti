@@ -18,6 +18,7 @@ class Volume : public QObject
   void undo() { m_mask.undo(); }
 
   void reloadMask() { m_mask.loadMemFile(); }
+  void loadRawMask(QString flnm) { m_mask.loadRawFile(flnm); }
 
   bool setFile(QString);
   QString fileName() { return m_fileName; }

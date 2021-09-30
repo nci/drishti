@@ -63,6 +63,12 @@ VolumeMask::offLoadMemFile()
 }
 
 void
+VolumeMask::loadRawFile(QString flnm)
+{
+  m_maskFileManager.loadRawFile(flnm);
+}
+
+void
 VolumeMask::loadMemFile()
 {
   m_maskFileManager.loadMemFile();

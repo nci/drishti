@@ -1560,6 +1560,67 @@ VolumeOperations::setVisible(Vec bmin, Vec bmax,
 }
 
 void
+VolumeOperations::stepTags(Vec bmin, Vec bmax,
+			   int tagStep, int tagVal,
+			   int& minD, int& maxD,
+			   int& minW, int& maxW,
+			   int& minH, int& maxH)
+  
+{    
+  int ds = bmin.z;
+  int ws = bmin.y;
+  int hs = bmin.x;
+
+  int de = bmax.z;
+  int we = bmax.y;
+  int he = bmax.x;
+
+  minD = ds;
+  maxD = de;
+  minW = ws;
+  maxW = we;
+  minH = hs;
+  maxH = he;
+  
+  QProgressDialog progress("Updating voxel structure",
+			   QString(),
+			   0, 100,
+			   0,
+			   Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);
+
+  for(qint64 d=ds; d<=de; d++)
+    {
+      progress.setValue(90*(d-ds)/((de-ds+1)));
+      if (d%10 == 0)
+	qApp->processEvents();
+      for(qint64 w=ws; w<=we; w++)
+	for(qint64 h=hs; h<=he; h++)
+	  {
+	    bool clipped = false;
+//	    for(int i=0; i<m_cPos.count(); i++)
+//	      {
+//		Vec p = Vec(h, w, d) - m_cPos[i];
+//		if (m_cNorm[i]*p > 0)
+//		  {
+//		    clipped = true;
+//		    break;
+//		  }
+//	      }
+	    
+	    if (!clipped)
+	      {
+		qint64 idx = d*m_width*m_height + w*m_height + h;
+		if (m_maskData[idx] < tagStep)
+		  m_maskData[idx] = 0;
+		else
+		  m_maskData[idx] = tagVal;
+	      }
+	  }
+    }
+}
+
+void
 VolumeOperations::mergeTags(Vec bmin, Vec bmax,
 			    int tag1, int tag2, bool useTF,
 			    int& minD, int& maxD,
@@ -1645,6 +1706,8 @@ VolumeOperations::mergeTags(Vec bmin, Vec bmax,
       for(qint64 d=ds; d<=de; d++)
 	{
 	  progress.setValue(90*(d-ds)/((de-ds+1)));
+	  if (d%10 == 0)
+	    qApp->processEvents();
 	  for(qint64 w=ws; w<=we; w++)
 	    for(qint64 h=hs; h<=he; h++)
 	      {

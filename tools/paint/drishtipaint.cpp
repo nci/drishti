@@ -185,6 +185,10 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   ui.statusbar->setSizeGripEnabled(true);
   //ui.statusbar->hide();
 
+  QFont font;
+  font.setPointSize(10);
+  setFont(font);
+
   setWindowIcon(QPixmap(":/images/drishti_paint_32.png"));
   setWindowTitle(QString("DrishtiPaint v") + QString(DRISHTI_VERSION));
 
@@ -300,6 +304,9 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   connect(m_viewer, SIGNAL(mergeTags(Vec, Vec, int, int, bool)),
 	  this, SLOT(mergeTags(Vec, Vec, int, int, bool)));
 
+  connect(m_viewer, SIGNAL(stepTag(Vec, Vec, int, int)),
+	  this, SLOT(stepTags(Vec, Vec, int, int)));
+
   connect(m_viewer, SIGNAL(dilateConnected(int,int,int,Vec,Vec,int,bool)),
 	  this, SLOT(dilateConnected(int,int,int,Vec,Vec,int,bool)));
 
@@ -317,6 +324,9 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 
   connect(m_viewer, SIGNAL(reloadMask()),
 	  this, SLOT(reloadMask()));
+
+  connect(m_viewer, SIGNAL(loadRawMask(QString)),
+	  this, SLOT(loadRawMask(QString)));
 
 //  connect(m_viewer, SIGNAL(updateSliceBounds(Vec, Vec)),
 //	  this, SLOT(updateSliceBounds(Vec, Vec)));
@@ -521,6 +531,7 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 
   m_blockList.clear();
 
+  m_pyWidget = 0;
 }
 
 void DrishtiPaint::on_actionHelp_triggered() { ShowHelp::showMainHelp(); }
@@ -1480,6 +1491,8 @@ DrishtiPaint::on_actionExit_triggered()
 void
 DrishtiPaint::closeEvent(QCloseEvent *)
 {
+  if (m_pyWidget)
+    m_pyWidget->close();
   on_actionExit_triggered();
 }
 
@@ -3332,7 +3345,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
   bool ok;
   //----------------
   QString tagstr = QInputDialog::getText(0, "Extract volume data for Tag",
-	    "Tag Numbers (tags should be separated by space.\n-2 extract whatever is visible.\n-1 for all tags;\nFor e.g. 1 2 5 will extract tags 1, 2 and 5\n2-5 is same as specifying  2 3 4 5)",
+	    "Tag Numbers (tags should be separated by space.\n-3 extract whatever is visible with voxel values derived from transfer function.\n-2 extract whatever is visible.\n-1 for all tags;\nFor e.g. 1 2 5 will extract tags 1, 2 and 5\n2-5 is same as specifying  2 3 4 5)",
 					 QLineEdit::Normal,
 					 "-1",
 					 &ok);
@@ -3356,7 +3369,13 @@ DrishtiPaint::on_actionExtractTag_triggered()
 	  else
 	    {
 	      int t = tglist[i].toInt();
-	      if (t == -2)
+	      if (t == -3)
+		{
+		  tag.clear();
+		  tag << -3;
+		  break;
+		}
+	      else if (t == -2)
 		{
 		  tag.clear();
 		  tag << -2;
@@ -3412,7 +3431,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
 	    }
 	}
     }
-  else
+  else if (tag[0] > -2)
     {
       dtypes.clear();
       dtypes << "Tag Only"
@@ -3724,7 +3743,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
 	}
       
 	  
-      if (tag[0] == -2)
+      if (tag[0] <= -2)
 	memcpy(raw, m_volume->getMaskDepthSliceImage(d), nbytesRAW);
       else if (extractType < 7)
 	{
@@ -3875,7 +3894,49 @@ DrishtiPaint::on_actionExtractTag_triggered()
       // now mask data with tag
       if (saveImageData)
 	{
-	  if (tag[0] == -2)
+	  if (tag[0] == -3)
+	    {
+	      int i=0;
+	      for(int w=minWSlice; w<=maxWSlice; w++)
+	      for(int h=minHSlice; h<=maxHSlice; h++)
+		{
+		  bool clipped = false;
+		  for(int ci=0; ci<cPos.count(); ci++)
+		    {
+		      Vec p = Vec(h, w, d) - cPos[ci];
+		      if (cNorm[ci]*p > 0)
+			{
+			  clipped = true;
+			  break;
+			}
+		    }
+		  
+		  if (Global::bytesPerVoxel() == 1)
+		    {
+		      if (clipped ||
+			  lut[4*slice[i]+3]*Global::tagColors()[4*raw[i]+3] == 0)
+			slice[i] = outsideVal;
+		      else
+			{
+			  int li = 4*slice[i];
+			  slice[i] = 0.299*lut[li + 0] + 0.587*lut[li+1] + 0.114*lut[li+2];
+			}
+		    }
+		  else
+		    {
+		      if (clipped ||
+			  lut[4*slice[i]+3]*Global::tagColors()[4*raw[i]+3] == 0)
+			sliceUS[i] = outsideVal;
+		      else
+			{
+			  int li = 4*sliceUS[i];
+			  sliceUS[i] = 0.299*lut[li + 0] + 0.587*lut[li+1] + 0.114*lut[li+2];
+			}
+		    }		  
+		  i++;
+		}
+	    }
+	  else if (tag[0] == -2)
 	    {
 	      int i=0;
 	      for(int w=minWSlice; w<=maxWSlice; w++)
@@ -6594,6 +6655,19 @@ DrishtiPaint::tagTubes(Vec bmin, Vec bmax, int tag,
 }
 
 void
+DrishtiPaint::loadRawMask(QString flnm)
+{
+  m_volume->loadRawMask(flnm);
+
+  m_viewer->setMaskDataPtr(m_volume->memMaskDataPtr());
+
+  int m_depth, m_width, m_height;
+  m_volume->gridSize(m_depth, m_width, m_height);
+  m_viewer->uploadMask(0,0,0, m_depth-1,m_width-1,m_height-1);
+  QMessageBox::information(0, "", "done");
+}
+
+void
 DrishtiPaint::reloadMask()
 {
   m_volume->reloadMask();
@@ -6707,6 +6781,29 @@ DrishtiPaint::setVisible(Vec bmin, Vec bmax, int tag, bool visible)
 			       minW, maxW,
 			       minH, maxH,
 			       gradType, minGrad, maxGrad);
+
+  if (minD < 0)
+    return;
+
+  updateModifiedRegion(minD, maxD,
+		       minW, maxW,
+		       minH, maxH);
+}
+void
+DrishtiPaint::stepTags(Vec bmin, Vec bmax, int tagStep, int tagVal)
+{
+  int minD,maxD, minW,maxW, minH,maxH;
+
+  QList<Vec> cPos =  m_viewer->clipPos();
+  QList<Vec> cNorm = m_viewer->clipNorm();
+
+  VolumeOperations::setClip(cPos, cNorm);
+  VolumeOperations::stepTags(bmin, bmax,
+			     tagStep, tagVal,
+			     minD, maxD,
+			     minW, maxW,
+			     minH, maxH);
+
 
   if (minD < 0)
     return;
@@ -7369,17 +7466,22 @@ DrishtiPaint::tagsUsed(QList<int> ut)
 
 
 void
-DrishtiPaint::on_actionPython_triggered()
+DrishtiPaint::on_actionCommand_triggered()
 {
-//  QString flnm;
-//  flnm = QFileDialog::getOpenFileName(0,
-//				      "Select Python Script To Execute ",
-//				      Global::previousDirectory(),
-//				      "Python Scripts (*.py)",
-//				      0,
-//				      QFileDialog::DontUseNativeDialog); 
-//  if (flnm.isEmpty())
-//    return;
+  if (m_pyWidget)
+    {
+      m_pyWidget->close();
+    }
 
   m_pyWidget = new PyWidget();
+
+  connect(m_pyWidget, &PyWidget::pyWidgetClosed,
+	  [=]() {m_pyWidget = 0;});
+  
+  int d, w, h;
+  m_volume->gridSize(d, w, h);
+  m_pyWidget->setSize(d, w, h);
+  m_pyWidget->setFilename(m_volume->fileName());
+  m_pyWidget->setVolPtr(m_volume->memVolDataPtr());
+  m_pyWidget->setMaskPtr(m_volume->memMaskDataPtr());
 }

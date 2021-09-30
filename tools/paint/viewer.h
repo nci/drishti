@@ -158,13 +158,15 @@ class Viewer : public QGLViewer
     void tagUsingSketchPad(Vec, Vec);
 
     void mergeTags(Vec, Vec, int, int, bool);
-
+    void stepTag(Vec, Vec, int, int);
+  
     void updateSliceBounds(Vec, Vec);
     void renderNextFrame();
 
     void setVisible(Vec, Vec, int, bool);
     void resetTag(Vec, Vec, int);
     void reloadMask();
+    void loadRawMask(QString);
 
     void shrinkwrap(Vec, Vec, int, bool, int);
     void shrinkwrap(Vec, Vec, int, bool, int,

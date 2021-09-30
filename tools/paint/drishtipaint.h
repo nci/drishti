@@ -44,7 +44,7 @@ class DrishtiPaint : public QMainWindow
   void tagsUsed(QList<int>);
   void showVolumeInformation();
   void openRecentFile();   
-  void on_actionPython_triggered();
+  void on_actionCommand_triggered();
   void on_actionAbout_triggered();
   void on_actionHelp_triggered();
   void on_saveWork_triggered();
@@ -148,6 +148,7 @@ class DrishtiPaint : public QMainWindow
   void erodeConnected(int, int, int, Vec, Vec, int);
   void tagUsingSketchPad(Vec, Vec);
   void mergeTags(Vec, Vec, int, int, bool);
+  void stepTags(Vec, Vec, int, int);
 
   void updateSliceBounds(Vec, Vec);
 
@@ -164,6 +165,7 @@ class DrishtiPaint : public QMainWindow
   void setVisible(Vec, Vec, int, bool);
   void resetTag(Vec, Vec, int);
   void reloadMask();
+  void loadRawMask(QString);
   void modifyOriginalVolume(Vec, Vec, int);
 
   void shrinkwrap(Vec, Vec, int, bool, int);

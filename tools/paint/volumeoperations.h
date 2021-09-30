@@ -64,6 +64,12 @@ class VolumeOperations
 			 int&, int&,
 			 int, float, float);
 
+  static void stepTags(Vec, Vec,
+		       int, int,
+		       int&, int&,
+		       int&, int&,
+		       int&, int&);
+  
   static void mergeTags(Vec bmin, Vec bmax,
 			int tag1, int tag2, bool useTF,
 			int&, int&,

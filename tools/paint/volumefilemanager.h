@@ -84,6 +84,7 @@ class VolumeFileManager : public QObject
 
   void loadMemFile();
   void saveMemFile();
+  void loadRawFile(QString);
 
   uchar* getSlice(int);
   void setSlice(int, uchar*);

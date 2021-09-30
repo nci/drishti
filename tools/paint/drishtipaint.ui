@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>624</width>
-    <height>534</height>
+    <width>1110</width>
+    <height>636</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -63,7 +63,7 @@
         </property>
         <property name="minimumSize">
          <size>
-          <width>0</width>
+          <width>100</width>
           <height>0</height>
          </size>
         </property>
@@ -708,7 +708,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>624</width>
+     <width>1110</width>
      <height>21</height>
     </rect>
    </property>
@@ -769,17 +769,17 @@
     <addaction name="changeSliceOrdering"/>
     <addaction name="actionBakeCurves"/>
    </widget>
-   <widget class="QMenu" name="menuPython">
+   <widget class="QMenu" name="menuProcess">
     <property name="title">
-     <string>Python</string>
+     <string>Process</string>
     </property>
-    <addaction name="actionPython"/>
+    <addaction name="actionCommand"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuView"/>
    <addaction name="menuMode"/>
    <addaction name="menuCommands"/>
-   <addaction name="menuPython"/>
+   <addaction name="menuProcess"/>
    <addaction name="menuHelp"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
@@ -1003,9 +1003,9 @@
     <string>Save All Image Slices</string>
    </property>
   </action>
-  <action name="actionPython">
+  <action name="actionCommand">
    <property name="text">
-    <string>Python</string>
+    <string>Command</string>
    </property>
   </action>
  </widget>

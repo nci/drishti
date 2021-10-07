@@ -773,6 +773,7 @@
     <property name="title">
      <string>Process</string>
     </property>
+    <addaction name="action3DMLBoxSize"/>
     <addaction name="actionCommand"/>
    </widget>
    <addaction name="menuFile"/>
@@ -1006,6 +1007,16 @@
   <action name="actionCommand">
    <property name="text">
     <string>Command</string>
+   </property>
+  </action>
+  <action name="action3DMLBoxSize">
+   <property name="text">
+    <string>3D ML Box Size</string>
+   </property>
+  </action>
+  <action name="actionShow3DBox">
+   <property name="text">
+    <string>Show 3D Box</string>
    </property>
   </action>
  </widget>

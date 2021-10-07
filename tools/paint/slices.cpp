@@ -1,4 +1,5 @@
 #include "slices.h"
+#include "global.h"
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QScrollArea>
@@ -12,7 +13,7 @@ Slices::Slices(QWidget *parent) :
   QScrollArea *scrollArea = new QScrollArea;
   scrollArea->setBackgroundRole(QPalette::Dark);
   scrollArea->setWidget(m_imageWidget);
-
+  
   QHBoxLayout *hl = new QHBoxLayout();
   QVBoxLayout *vl = new QVBoxLayout();
   
@@ -41,27 +42,28 @@ Slices::createMenu(QHBoxLayout *hl,
 
   m_changeLayout = new QPushButton(QIcon(":/images/enlarge.png"),"");
 
-  //m_mesg = new QLabel("");
-  m_mesg = new QLineEdit("");
+  m_sliceNum = new QLineEdit("");
 
   QFont font("Helvetica", 15);
-  m_mesg->setFont(font);
+  m_sliceNum->setFont(font);
   QFontMetrics metric(font);
   int mwd = metric.width("000000");
-  m_mesg->setMaximumWidth(mwd);
+  m_sliceNum->setMaximumWidth(mwd);
   
   thl->addWidget(m_zoom9);
   thl->addWidget(m_zoom0);
   thl->addWidget(m_zoomUp);
   thl->addWidget(m_zoomDown);
   thl->addStretch();
-  thl->addWidget(m_mesg);
+  thl->addWidget(m_sliceNum);
   thl->addStretch();
   thl->addWidget(m_changeLayout);
 
   vl->addLayout(thl);
 
   m_slider = new QSlider(Qt::Vertical, this);
+  m_slider->setTickInterval(0);
+  m_slider->setTickPosition(QSlider::TicksBothSides);
   //m_slider->setInvertedAppearance(true);
   hl->addWidget(m_slider);
 
@@ -132,7 +134,12 @@ Slices::createMenu(QHBoxLayout *hl,
 	  this, SIGNAL(connectedRegion(int,int,int,Vec,Vec,int,int)));
 
 
-  connect(m_mesg, SIGNAL(editingFinished()),
+  connect(m_imageWidget, SIGNAL(updateSliderLimits()),
+	  this, SLOT(updateSliderLimits()));
+  connect(m_imageWidget, SIGNAL(resetSliderLimits()),
+	  this, SLOT(resetSliderLimits()));
+
+  connect(m_sliceNum, SIGNAL(editingFinished()),
 	  this, SLOT(sliceNumChanged()));
 }
 
@@ -143,6 +150,11 @@ void Slices::setMaskPtr(uchar *v) { m_imageWidget->setMaskPtr(v); }
 void
 Slices::setGridSize(int d, int w, int h)
 {
+  m_Depth = d;
+  m_Width = w;
+  m_Height = h;
+  m_s0 = 0;
+
   m_imageWidget->setGridSize(d,w,h);
   m_imageWidget->resetSliceType();
 
@@ -151,22 +163,27 @@ Slices::setGridSize(int d, int w, int h)
       m_slider->setMaximum(d-1);
       m_slider->setValue(d/2);
       QValidator *valid = new QIntValidator(0, d-1);
-      m_mesg->setValidator(valid);
+      m_sliceNum->setValidator(valid);
+      m_s1 = d-1;
     }
   if (m_imageWidget->sliceType() == ImageWidget::WSlice)
     {
       m_slider->setMaximum(w-1);
       m_slider->setValue(w/2);
       QValidator *valid = new QIntValidator(0, w-1);
-      m_mesg->setValidator(valid);
+      m_sliceNum->setValidator(valid);
+      m_s1 = w-1;
     }
   if (m_imageWidget->sliceType() == ImageWidget::HSlice)
     {
       m_slider->setMaximum(h-1);
       m_slider->setValue(h/2);
       QValidator *valid = new QIntValidator(0, h-1);
-      m_mesg->setValidator(valid);
+      m_sliceNum->setValidator(valid);
+      m_s1 = h-1;
     }  
+ 
+  m_slider->setTickInterval(100);
 }
 
 void Slices::setHLine(int h) { m_imageWidget->setHLine(h); }
@@ -185,7 +202,7 @@ Slices::reloadSlice()
 void
 Slices::sliceNumChanged()
 {
-  int s = m_mesg->text().toInt();
+  int s = m_sliceNum->text().toInt();
   m_slider->setValue(s);  
   m_imageWidget->setSlice(s);
 }
@@ -213,7 +230,7 @@ Slices::reconnectSlider()
 void
 Slices::setSliceNumber(int s)
 {
-  m_mesg->setText(QString("%1").arg(s));
+  m_sliceNum->setText(QString("%1").arg(s));
 }
 
 void
@@ -259,10 +276,10 @@ Slices::setModeType(int mt)
 //    st = "X";
 //
 //  if (mt == 0)
-//    m_mesg->setText(QString("<font color=green><h2>Graph Cut (%1)</h2>").arg(st));
+//    m_sliceNum->setText(QString("<font color=green><h2>Graph Cut (%1)</h2>").arg(st));
 //
 //  if (mt == 1)
-//    m_mesg->setText(QString("<font color=red><h2>Superpixels (%1)</h2>").arg(st));
+//    m_sliceNum->setText(QString("<font color=red><h2>Superpixels (%1)</h2>").arg(st));
 
   m_imageWidget->setModeType(mt);
 }
@@ -282,4 +299,45 @@ void
 Slices::setShowSlices(bool s)
 {
   m_imageWidget->setShowSlices(s);
+}
+
+void
+Slices::resetSliderLimits()
+{
+  m_s0 = 0;
+  if (m_imageWidget->sliceType() == ImageWidget::DSlice)
+    m_s1 = m_Depth-1;
+  if (m_imageWidget->sliceType() == ImageWidget::WSlice)
+    m_s1 = m_Width-1;
+  if (m_imageWidget->sliceType() == ImageWidget::HSlice)
+    m_s1 = m_Height-1;
+  
+  m_slider->setRange(m_s0, m_s1);
+  m_slider->setTickInterval(100);
+}
+
+void
+Slices::updateSliderLimits()
+{
+  Vec bsz = Global::boxSize3D();
+  int cs = m_imageWidget->currentSliceNumber();
+  
+  if (m_imageWidget->sliceType() == ImageWidget::DSlice)
+    {
+      m_s0 = (int)bsz.x*(int)(cs/(int)bsz.x);
+      m_s1 =  qMin(m_Depth, m_s0+(int)bsz.x-1);
+    }
+  if (m_imageWidget->sliceType() == ImageWidget::WSlice)
+    {
+      m_s0 = (int)bsz.y*(int)(cs/(int)bsz.y);
+      m_s1 =  qMin(m_Width, m_s0+(int)bsz.y-1);
+    }
+  if (m_imageWidget->sliceType() == ImageWidget::HSlice)
+    {
+      m_s0 = (int)bsz.z*(int)(cs/(int)bsz.z);
+      m_s1 = qMin(m_Height, m_s0+(int)bsz.z-1);
+    }
+
+  m_slider->setRange(m_s0, m_s1);
+  m_slider->setTickInterval(1);
 }

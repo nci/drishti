@@ -98,6 +98,10 @@ class Slices : public QWidget
    void setHideSuperPixels(bool);
    void setSuperPixelSize(int);
 
+   void updateSliderLimits();
+   void resetSliderLimits();
+  
+  
  private:
     ImageWidget *m_imageWidget;
     
@@ -107,13 +111,15 @@ class Slices : public QWidget
     QPushButton *m_zoomDown;
     QPushButton *m_changeLayout;
 
-    //QLabel *m_mesg;
-    QLineEdit *m_mesg;
+    QLineEdit *m_sliceNum;
 
     QSlider *m_slider;
 
     bool m_maximized;
 
+    int m_Depth, m_Width, m_Height;
+    int m_s0, m_s1;
+  
     void createMenu(QHBoxLayout*, QVBoxLayout*);
 };
 

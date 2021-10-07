@@ -93,7 +93,9 @@ class Global
 
   static QWidget* mainWindow();
   static void setMainWindow(QWidget*);
-  
+
+  static Vec boxSize3D();
+  static void setBoxSize3D(Vec);
 
  private :
   static QWidget* m_mainWindow;
@@ -124,6 +126,8 @@ class Global
 
   static GLuint m_spriteTexture;
   static GLuint m_hollowSpriteTexture;
+
+  static Vec m_boxSize3D;
 };
 
 #endif

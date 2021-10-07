@@ -7485,3 +7485,33 @@ DrishtiPaint::on_actionCommand_triggered()
   m_pyWidget->setVolPtr(m_volume->memVolDataPtr());
   m_pyWidget->setMaskPtr(m_volume->memMaskDataPtr());
 }
+
+void
+DrishtiPaint::on_action3DMLBoxSize_triggered()
+{
+  bool ok = false;
+  Vec bsz = Global::boxSize3D();
+  QString bsztxt = QString("%1 %2 %3").arg(bsz.x).arg(bsz.y).arg(bsz.z); 
+  QString boxstr = QInputDialog::getText(0, "3D Box Size",
+					 "3D Box Size for creating training set",
+					 QLineEdit::Normal,
+					 bsztxt,
+					 &ok);
+  if (ok && !boxstr.isEmpty())
+    {
+      QStringList szlist = boxstr.split(" ", QString::SkipEmptyParts);
+      int x,y,z;
+      if (szlist.count() == 1)
+	{
+	  x = y = z = szlist[0].toInt();
+	  Global::setBoxSize3D(Vec(x,y,z));
+	}
+      if (szlist.count() == 3)
+	{
+	  x = szlist[0].toInt();
+	  y = szlist[1].toInt();
+	  z = szlist[2].toInt();
+	  Global::setBoxSize3D(Vec(x,y,z));
+	}
+    }
+}

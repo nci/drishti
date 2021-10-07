@@ -344,3 +344,7 @@ GLuint Global::hollowSpriteTexture()
 
   return m_hollowSpriteTexture;
 }
+
+Vec Global::m_boxSize3D = Vec(64,64,64);
+void Global::setBoxSize3D(Vec b) { m_boxSize3D = b; }
+Vec Global::boxSize3D() { return m_boxSize3D; }

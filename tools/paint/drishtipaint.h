@@ -45,6 +45,7 @@ class DrishtiPaint : public QMainWindow
   void showVolumeInformation();
   void openRecentFile();   
   void on_actionCommand_triggered();
+  void on_action3DMLBoxSize_triggered();
   void on_actionAbout_triggered();
   void on_actionHelp_triggered();
   void on_saveWork_triggered();

@@ -1,4 +1,3 @@
-
 #include "imagewidget.h"
 #include "global.h"
 #include "staticfunctions.h"
@@ -63,7 +62,7 @@ ImageWidget::ImageWidget(QWidget *parent) :
   m_hline = m_vline = 0;
 
   m_zoom = 1;
-
+  
   m_lut = new uchar[4*256*256];
   memset(m_lut, 0, 4*256*256);
 
@@ -304,22 +303,33 @@ ImageWidget::setZoom(float z)
 
   bool z9 = false;
   int z9x, z9y, z9mx, z9my;
-  if (z < 0) // zoom to selection
+  if (qAbs(z-1) < 0.01)
+    {
+      m_zoom = qMax(0.01f, z);
+    }
+  else
     {
       int size1, size2;
       int imin, imax, jmin, jmax;
       getSliceLimits(size1, size2, imin, imax, jmin, jmax);
 
-      m_zoom = 1;
+      if (z < 0)
+	m_zoom = 1;
+      else
+	m_zoom = qMax(0.01f, z);
+
       if (size1 > 0 && size2 > 0)
 	{
 	  QWidget *prt = (QWidget*)parent();
 	  int frmHeight = prt->rect().height()-50;
 	  int frmWidth = prt->rect().width()-50;
 
-	  m_zoom = qMin((float)frmWidth/size2,
-			(float)frmHeight/size1);
-	  m_zoom = qMax(0.01f, m_zoom);
+	  if (z < 0)
+	    {
+	      m_zoom = qMin((float)frmWidth/size2,
+			    (float)frmHeight/size1);
+	      m_zoom = qMax(0.01f, m_zoom);
+	    }
       
 	  z9 = true;
 	  z9x = m_zoom*(jmax+jmin)/2;
@@ -328,8 +338,6 @@ ImageWidget::setZoom(float z)
 	  z9my = (frmHeight+65)/2;
 	}
     }
-  else
-    m_zoom = qMax(0.01f, z);
 
   resizeImage();
   update();
@@ -1362,15 +1370,29 @@ ImageWidget::graphcutModeKeyPressEvent(QKeyEvent *event)
   int ctrlModifier = event->modifiers() & Qt::ControlModifier;
   bool altModifier = event->modifiers() & Qt::AltModifier;
 
-  if (m_modeType == 1)
+  if (event->key() == Qt::Key_B)
     {
-      if (event->key() == Qt::Key_Space)
+      if (shiftModifier)
 	{
-	  genSuperPixels();
-	  update();
-	  return;
+	  emit resetSliderLimits();
+	  update3DBox(true);
+	}
+      else
+	{
+	  emit updateSliderLimits();
+	  update3DBox(false);
 	}
     }
+  
+//  if (m_modeType == 1)
+//    {
+//      if (event->key() == Qt::Key_Space)
+//	{
+//	  genSuperPixels();
+//	  update();
+//	  return;
+//	}
+//    }
 
   if (event->key() == Qt::Key_S &&
       (event->modifiers() & Qt::AltModifier) )
@@ -2087,6 +2109,8 @@ ImageWidget::doAnother(int step)
 void
 ImageWidget::wheelEvent(QWheelEvent *event)
 {
+  event->setAccepted(true);
+  
   int numSteps = event->delta()/8.0f/15.0f;
   doAnother(numSteps);
 }
@@ -3216,4 +3240,95 @@ ImageWidget::applyFilters()
 	    slcf[j*m_imgWidth+i] = slc[j*m_imgWidth+i];
 	  }
     }
+}
+
+void
+ImageWidget::update3DBox(bool reset)
+{
+  float xpos = m_cursorPos.x();
+  float ypos = m_cursorPos.y();
+  if (!validPickPoint(xpos, ypos))
+    return;
+
+  int minD, maxD, minW, maxW, minH, maxH;
+  if (reset)
+    {
+      minD = minW = minH = 0;
+      maxD = m_Depth;
+      maxW = m_Width;
+      maxH = m_Height;
+    }
+  else
+    {
+      int cs = m_currSlice;
+      Vec bsz = Global::boxSize3D();
+      if (m_sliceType == DSlice)
+	{
+	  minD = (int)bsz.x*(int)(cs/(int)bsz.x);      
+	  minH = (int)bsz.z*(int)(m_pickHeight/(int)bsz.z);
+	  minW = (int)bsz.y*(int)(m_pickWidth/(int)bsz.y);
+	  
+	  maxD = qMin(m_Depth, minD+(int)bsz.x-1);
+	  maxH = qMin(m_Height,minH+(int)bsz.z-1);
+ 	  maxW = qMin(m_Width, minW+(int)bsz.y-1);
+	}
+      else if (m_sliceType == WSlice)
+	{
+	  minW = (int)bsz.y*(int)(cs/(int)bsz.y);
+ 	  minH = (int)bsz.z*(int)(m_pickHeight/(int)bsz.z);
+ 	  minD = (int)bsz.x*(int)(m_pickDepth/(int)bsz.x);
+
+	  maxW = qMin(m_Width, minW+(int)bsz.y-1);
+	  maxH = qMin(m_Height,minH+(int)bsz.z-1);
+	  maxD = qMin(m_Depth, minD+(int)bsz.x-1);
+	}
+      else
+	{
+	  minH = (int)bsz.z*(int)(cs/(int)bsz.z);	  
+	  minW = (int)bsz.y*(int)(m_pickWidth/(int)bsz.y);
+ 	  minD = (int)bsz.x*(int)(m_pickDepth/(int)bsz.x);
+
+	  maxH = qMin(m_Height,minH+(int)bsz.z-1);
+ 	  maxW = qMin(m_Width, minW+(int)bsz.y-1);
+	  maxD = qMin(m_Depth, minD+(int)bsz.x-1);
+	}
+    }
+
+  setBox(minD, maxD, minW, maxW, minH, maxH);
+
+  // update the rubberband
+  float left, right, top, bottom;
+  if (m_sliceType == DSlice)
+    {
+      left = (float)minH/(float)m_Height;
+      right = (float)maxH/(float)m_Height;
+      top = (float)minW/(float)m_Width;
+      bottom = (float)maxW/(float)m_Width;
+    }
+  else if (m_sliceType == WSlice)
+    {
+      left = (float)minH/(float)m_Height;
+      right = (float)maxH/(float)m_Height;
+      top = (float)minD/(float)m_Depth;
+      bottom = (float)maxD/(float)m_Depth;	  
+    }
+  else
+    {
+      left = (float)minW/(float)m_Width;
+      right = (float)maxW/(float)m_Width;
+      top = (float)minD/(float)m_Depth;
+      bottom = (float)maxD/(float)m_Depth;
+    }
+  
+  left = qBound(0.0f, left, 1.0f);
+  top = qBound(0.0f, top, 1.0f);
+  right = qBound(0.0f, right, 1.0f);
+  bottom = qBound(0.0f, bottom, 1.0f);
+      
+  m_rubberBand.setLeft(left);
+  m_rubberBand.setTop(top);
+  m_rubberBand.setRight(right);
+  m_rubberBand.setBottom(bottom);
+  
+  update();
 }

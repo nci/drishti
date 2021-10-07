@@ -69,13 +69,14 @@ class ImageWidget : public QWidget
 
   void getBox(int&, int&, int&, int&, int&, int&);
   void setBox(int, int, int, int, int, int);
-
+  
   void processPrevSliceTags();
 
   QVector3D pickedPoint() { return QVector3D(m_lastPickDepth, m_lastPickWidth, m_lastPickHeight); };
-
+  
   void setShowSlices(bool);
-
+  int currentSliceNumber() { return m_currSlice; }
+			  
  public slots :
   void setHLine(int);
   void setVLine(int);
@@ -105,6 +106,8 @@ class ImageWidget : public QWidget
 
   void multiSliceOperation();
   void restartRecursive();
+
+  void update3DBox(bool);
   
  signals :
   void xPos(int);
@@ -112,6 +115,9 @@ class ImageWidget : public QWidget
   void sliceChanged(int);
   void setSliceNumber(int);
 
+  void updateSliderLimits();
+  void resetSliderLimits();
+  
   void disconnectSlider();
   void reconnectSlider();
   
@@ -246,6 +252,7 @@ class ImageWidget : public QWidget
   int m_pointSize;
 
   QList<int> m_showTags;
+  
   
   void resizeImage();
   void recolorImage();

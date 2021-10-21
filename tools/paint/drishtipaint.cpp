@@ -11,7 +11,7 @@
 #include <QFileDialog>
 #include <QInputDialog>
 #include <QScrollArea>
-
+ 
 #include <exception>
 #include "volumeinformation.h"
 #include "volumeoperations.h"
@@ -1460,8 +1460,8 @@ DrishtiPaint::on_actionLoad_triggered()
 				      "Load Processed Volume File",
 				      Global::previousDirectory(),
 				      "PVL Files (*.pvl.nc)",
-				      0,
-				      QFileDialog::DontUseNativeDialog);
+				      0);
+				      //QFileDialog::DontUseNativeDialog);
 
   
   if (flnm.isEmpty())
@@ -3141,8 +3141,8 @@ DrishtiPaint::on_actionSave_TF_triggered()
 					       "Save Transfer Functions",
 					       Global::previousDirectory(),
 					       "Files (*.xml)",
-					       0,
-					       QFileDialog::DontUseNativeDialog);
+					       0);
+					       //QFileDialog::DontUseNativeDialog);
 
 
   QDomDocument doc("Drishti_v1.0");
@@ -3169,8 +3169,8 @@ DrishtiPaint::on_actionLoad_TF_triggered()
 					       "Load Transfer Functions",
 					       Global::previousDirectory(),
 					       "Files (*.xml)",
-					       0,
-					       QFileDialog::DontUseNativeDialog);
+					       0);
+                                               //QFileDialog::DontUseNativeDialog);
 
   
   m_tfManager->load(tflnm.toLatin1().data());
@@ -3212,8 +3212,8 @@ DrishtiPaint::on_loadMask_triggered()
 				      "Load Mask File",
 				      Global::previousDirectory(),
 				      "MASK Files (*.mask.sc | *.mask)",
-				      0,
-				      QFileDialog::DontUseNativeDialog);
+				      0);
+				      //QFileDialog::DontUseNativeDialog);
 
   
   if (flnm.isEmpty())
@@ -3554,8 +3554,8 @@ DrishtiPaint::on_actionExtractTag_triggered()
 					       "Save volume",
 					       QFileInfo(pvlFilename).absolutePath(),
 					       "Volume Data Files (*.pvl.nc)",
-					       0,
-					       QFileDialog::DontUseNativeDialog);
+					       0);
+					       //QFileDialog::DontUseNativeDialog);
   
   if (tflnm.isEmpty())
     return;
@@ -4886,8 +4886,8 @@ DrishtiPaint::on_actionMeshTag_triggered()
 					       arg(mtdepth).arg(mtwidth).arg(mtheight),
 					       QFileInfo(pvlFilename).absolutePath(),
 					       "Polygon Files (*.ply)",
-					       0,
-					       QFileDialog::DontUseNativeDialog);
+					       0);
+					       //QFileDialog::DontUseNativeDialog);
   
   if (tflnm.isEmpty())
     return;
@@ -7155,8 +7155,8 @@ DrishtiPaint::extractFromAnotherVolume(QList<int> tags)
 				      "Another Volume file to extract from",
 				      Global::previousDirectory(),
 				      "PVL Files (*.pvl.nc)",
-				      0,
-				      QFileDialog::DontUseNativeDialog);
+				      0);
+				      //QFileDialog::DontUseNativeDialog);
   
   
   if (flnm.isEmpty())
@@ -7228,11 +7228,11 @@ DrishtiPaint::extractFromAnotherVolume(QList<int> tags)
   //----------------
   QString pvlFilename = m_volume->fileName();
   QString tagflnm = QFileDialog::getSaveFileName(0,
-					       "Save extracted volume into",
-					       QFileInfo(pvlFilename).absolutePath(),
-					       "Volume Data Files (*.pvl.nc)",
-					       0,
-					       QFileDialog::DontUseNativeDialog);
+						 "Save extracted volume into",
+						 QFileInfo(pvlFilename).absolutePath(),
+						 "Volume Data Files (*.pvl.nc)",
+						 0);
+						 //QFileDialog::DontUseNativeDialog);
   
   if (tagflnm.isEmpty())
     return;
@@ -7463,8 +7463,11 @@ DrishtiPaint::tagsUsed(QList<int> ut)
     }
   QMessageBox::information(0, "Tags Used", tmesg);
 }
+//---------------------
 
 
+//---------------------
+// execute python scripts or start command prompt
 void
 DrishtiPaint::on_actionCommand_triggered()
 {
@@ -7485,14 +7488,17 @@ DrishtiPaint::on_actionCommand_triggered()
   m_pyWidget->setVolPtr(m_volume->memVolDataPtr());
   m_pyWidget->setMaskPtr(m_volume->memMaskDataPtr());
 }
+//---------------------
 
+//---------------------
 void
-DrishtiPaint::on_action3DMLBoxSize_triggered()
+DrishtiPaint::on_action3DBoxSize_triggered()
 {
   bool ok = false;
   Vec bsz = Global::boxSize3D();
   QString bsztxt = QString("%1 %2 %3").arg(bsz.x).arg(bsz.y).arg(bsz.z); 
-  QString boxstr = QInputDialog::getText(0, "3D Box Size",
+  QString boxstr = QInputDialog::getText(0,
+					 "3D Box Size",
 					 "3D Box Size for creating training set",
 					 QLineEdit::Normal,
 					 bsztxt,
@@ -7514,4 +7520,156 @@ DrishtiPaint::on_action3DMLBoxSize_triggered()
 	  Global::setBoxSize3D(Vec(x,y,z));
 	}
     }
+}
+
+void
+DrishtiPaint::on_actionClear3DList_triggered()
+{
+  Global::clearBoxList3D();
+  QMessageBox::information(0, "", "3D Box List Cleared");
+}
+void
+DrishtiPaint::on_action3DBoxList_triggered()
+{
+  QList<Vec> bl = Global::boxList3D();
+  QString str;
+  for (int i=0; i<bl.count(); i++)
+    {
+      str += QString("%1 %2 %3\n").arg(bl[i].x).arg(bl[i].y).arg(bl[i].z);
+    }  
+  
+  QTextEdit *tedit = new QTextEdit();
+  tedit->insertPlainText("------------ Box List ---------------\n\n");
+  tedit->insertPlainText(str);
+  
+  QVBoxLayout *layout = new QVBoxLayout();
+  layout->addWidget(tedit);
+  
+  QDialog *blist = new QDialog();
+  blist->setWindowTitle("Training Data 3D Box List");
+  blist->setSizeGripEnabled(true);
+  blist->setModal(true);
+  blist->setLayout(layout);
+  blist->exec();
+}
+void
+DrishtiPaint::on_actionSave3DList_triggered()
+{
+  QString boxflnm;
+  boxflnm = QFileDialog::getSaveFileName(0,
+					 "Save 3D Box List To Text File",
+					 QFileInfo(m_pvlFile).absolutePath(),
+					 "Text Files (*.txt)",
+					 0);
+  QFile box(boxflnm);
+  if (box.open(QIODevice::WriteOnly | QIODevice::Text))
+    {
+      QList<Vec> bl = Global::boxList3D();
+      // take only unique ones
+      QList<Vec> boxList;
+      for(int i=0; i<bl.count(); i++)
+	{
+	  if (!boxList.contains(bl[i]))
+	    boxList<<bl[i];
+	}
+      
+      QTextStream out(&box);
+      for (int i=0; i<boxList.count(); i++)
+	out << QString("%1 %2 %3\n").arg(boxList[i].x).arg(boxList[i].y).arg(boxList[i].z);
+    }
+  QMessageBox::information(0, "", "Saved box list");
+}
+//---------------------
+
+//---------------------
+void
+DrishtiPaint::on_action2DBoxSize_triggered()
+{
+  bool ok = false;
+  int bsz = Global::boxSize2D();
+  QString bsztxt = QString("%1").arg(bsz);
+  QString boxstr = QInputDialog::getText(0,
+					 "2D Box Size",
+					 "2D Box Size for creating training set",
+					 QLineEdit::Normal,
+					 bsztxt,
+					 &ok);
+  if (ok && !boxstr.isEmpty())
+    {
+      QStringList szlist = boxstr.split(" ", QString::SkipEmptyParts);
+      int x,y;
+      if (szlist.count() >= 1)
+	{
+	  x = szlist[0].toInt();
+	  Global::setBoxSize2D(x);
+	}
+    }
+}
+
+void
+DrishtiPaint::on_action2DBoxList_triggered()
+{
+  QList<Vec> bl = Global::boxList2D();
+  QString str;
+  for (int i=0; i<bl.count()/2; i++)
+    {
+      str += QString("%1 %2 %3 - %4 %5 %6\n").\
+	arg(bl[2*i].x).arg(bl[2*i].y).arg(bl[2*i].z).\
+	arg(bl[2*i+1].x).arg(bl[2*i+1].y).arg(bl[2*i+1].z);
+    }  
+  
+  QTextEdit *tedit = new QTextEdit();
+  tedit->insertPlainText("------------ Box List ---------------\n\n");
+  tedit->insertPlainText(str);
+  
+  QVBoxLayout *layout = new QVBoxLayout();
+  layout->addWidget(tedit);
+  
+  QDialog *blist = new QDialog();
+  blist->setWindowTitle("Training Data 2D Box List");
+  blist->setSizeGripEnabled(true);
+  blist->setModal(true);
+  blist->setLayout(layout);
+  blist->exec();
+}
+
+void
+DrishtiPaint::on_actionSave2DList_triggered()
+{
+  QString boxflnm;
+  boxflnm = QFileDialog::getSaveFileName(0,
+					 "Save 2D Box List To Text File",
+					 QFileInfo(m_pvlFile).absolutePath(),
+					 "Text Files (*.txt)",
+					 0);
+  QFile box(boxflnm);
+  if (box.open(QIODevice::WriteOnly | QIODevice::Text))
+    {
+      QList<Vec> bl = Global::boxList2D();
+      QString str;
+      for (int i=0; i<bl.count()/2; i++)
+	{
+	  str += QString("%1 %2 %3  %4 %5 %6\n").		\
+	    arg(bl[2*i].x).arg(bl[2*i].y).arg(bl[2*i].z).	\
+	    arg(bl[2*i+1].x).arg(bl[2*i+1].y).arg(bl[2*i+1].z);
+	}  
+      QTextStream out(&box);
+      out << str;
+      
+//      QList<Vec> boxList = Global::boxList2D();
+//      
+//      QTextStream out(&box);
+//      for (int i=0; i<boxList.count()/2; i++)
+//	out << QString("%1 %2 %3 %4 %5 %6\n").\
+//	  arg(boxList[2*i].x).arg(boxList[2*i].y).arg(boxList[2*i].z).	\
+//	  arg(boxList[2*i+1].x).arg(boxList[2*i+1].y).arg(boxList[2*i+1].z);
+    }
+  QMessageBox::information(0, "", "Saved 2D box list to ");
+}
+
+void
+DrishtiPaint::on_actionClear2DList_triggered()
+{
+  Global::clearBoxList2D();
+  QMessageBox::information(0, "", "2D Box List Cleared");
 }

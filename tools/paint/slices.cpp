@@ -324,18 +324,24 @@ Slices::updateSliderLimits()
   
   if (m_imageWidget->sliceType() == ImageWidget::DSlice)
     {
-      m_s0 = (int)bsz.x*(int)(cs/(int)bsz.x);
+      //m_s0 = (int)bsz.x*(int)(cs/(int)bsz.x);
+      m_s0 = qMax(0, cs-(int)bsz.x/2);
       m_s1 =  qMin(m_Depth, m_s0+(int)bsz.x-1);
+      m_s0 = qMax(0, m_s1 - (int)bsz.x+1);
     }
   if (m_imageWidget->sliceType() == ImageWidget::WSlice)
     {
-      m_s0 = (int)bsz.y*(int)(cs/(int)bsz.y);
+      //m_s0 = (int)bsz.y*(int)(cs/(int)bsz.y);
+      m_s0 = qMax(0, cs-(int)bsz.y/2);
       m_s1 =  qMin(m_Width, m_s0+(int)bsz.y-1);
+      m_s0 = qMax(0, m_s1 - (int)bsz.y+1);
     }
   if (m_imageWidget->sliceType() == ImageWidget::HSlice)
     {
-      m_s0 = (int)bsz.z*(int)(cs/(int)bsz.z);
+      //m_s0 = (int)bsz.z*(int)(cs/(int)bsz.z);
+      m_s0 = qMax(0, cs-(int)bsz.z/2);
       m_s1 = qMin(m_Height, m_s0+(int)bsz.z-1);
+      m_s0 = qMax(0, m_s1 - (int)bsz.z+1);
     }
 
   m_slider->setRange(m_s0, m_s1);

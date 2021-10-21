@@ -345,6 +345,20 @@ GLuint Global::hollowSpriteTexture()
   return m_hollowSpriteTexture;
 }
 
+
+int Global::m_boxSize2D = 256;
+void Global::setBoxSize2D(int b) { m_boxSize2D = b; }
+int Global::boxSize2D() { return m_boxSize2D; }
+QList<Vec> Global::m_boxList2D;
+QList<Vec> Global::boxList2D() { return m_boxList2D; }
+void Global::addToBoxList2D(Vec b0, Vec b1) { m_boxList2D << b0; m_boxList2D << b1; }
+void Global::clearBoxList2D() { m_boxList2D.clear(); }
+
+
 Vec Global::m_boxSize3D = Vec(64,64,64);
 void Global::setBoxSize3D(Vec b) { m_boxSize3D = b; }
 Vec Global::boxSize3D() { return m_boxSize3D; }
+QList<Vec> Global::m_boxList3D;
+QList<Vec> Global::boxList3D() { return m_boxList3D; }
+void Global::addToBoxList3D(Vec b) { m_boxList3D << b; }
+void Global::clearBoxList3D() { m_boxList3D.clear(); }

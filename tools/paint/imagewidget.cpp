@@ -1370,17 +1370,31 @@ ImageWidget::graphcutModeKeyPressEvent(QKeyEvent *event)
   int ctrlModifier = event->modifiers() & Qt::ControlModifier;
   bool altModifier = event->modifiers() & Qt::AltModifier;
 
-  if (event->key() == Qt::Key_B)
+
     {
-      if (shiftModifier)
-	{
-	  emit resetSliderLimits();
-	  update3DBox(true);
-	}
-      else
+      if (event->key() == Qt::Key_3)
 	{
 	  emit updateSliderLimits();
 	  update3DBox(false);
+	  return;
+	}
+      if (event->key() == Qt::Key_NumberSign)
+	{
+	  emit resetSliderLimits();
+	  update3DBox(true);
+	  return;
+	}
+    }
+    {
+      if (event->key() == Qt::Key_2)
+	{
+	  update2DBox(false);
+	  return;
+	}
+      if (event->key() == Qt::Key_At)
+	{
+	  update2DBox(true);
+	  return;
 	}
     }
   
@@ -3264,38 +3278,46 @@ ImageWidget::update3DBox(bool reset)
       Vec bsz = Global::boxSize3D();
       if (m_sliceType == DSlice)
 	{
-	  minD = (int)bsz.x*(int)(cs/(int)bsz.x);      
-	  minH = (int)bsz.z*(int)(m_pickHeight/(int)bsz.z);
-	  minW = (int)bsz.y*(int)(m_pickWidth/(int)bsz.y);
+	  minD = qMax(0, cs-(int)bsz.x/2);
+	  minH = qMax(0, m_pickHeight-(int)bsz.z/2);
+	  minW = qMax(0,  m_pickWidth-(int)bsz.y/2);
 	  
-	  maxD = qMin(m_Depth, minD+(int)bsz.x-1);
-	  maxH = qMin(m_Height,minH+(int)bsz.z-1);
- 	  maxW = qMin(m_Width, minW+(int)bsz.y-1);
+	  maxD = qMin(m_Depth, minD+(int)bsz.x);
+	  maxH = qMin(m_Height,minH+(int)bsz.z);
+ 	  maxW = qMin(m_Width, minW+(int)bsz.y);
 	}
       else if (m_sliceType == WSlice)
 	{
-	  minW = (int)bsz.y*(int)(cs/(int)bsz.y);
- 	  minH = (int)bsz.z*(int)(m_pickHeight/(int)bsz.z);
- 	  minD = (int)bsz.x*(int)(m_pickDepth/(int)bsz.x);
+	  minW = qMax(0, cs-(int)bsz.y/2);
+	  minH = qMax(0, m_pickHeight-(int)bsz.z/2);
+	  minD = qMax(0,  m_pickDepth-(int)bsz.x/2);
 
-	  maxW = qMin(m_Width, minW+(int)bsz.y-1);
-	  maxH = qMin(m_Height,minH+(int)bsz.z-1);
-	  maxD = qMin(m_Depth, minD+(int)bsz.x-1);
+	  maxW = qMin(m_Width, minW+(int)bsz.y);
+	  maxH = qMin(m_Height,minH+(int)bsz.z);
+	  maxD = qMin(m_Depth, minD+(int)bsz.x);
 	}
       else
 	{
-	  minH = (int)bsz.z*(int)(cs/(int)bsz.z);	  
-	  minW = (int)bsz.y*(int)(m_pickWidth/(int)bsz.y);
- 	  minD = (int)bsz.x*(int)(m_pickDepth/(int)bsz.x);
+	  minH = qMax(0, cs-(int)bsz.z/2);
+	  minW = qMax(0, m_pickWidth-(int)bsz.y/2);
+	  minD = qMax(0, m_pickDepth-(int)bsz.x/2);
 
-	  maxH = qMin(m_Height,minH+(int)bsz.z-1);
- 	  maxW = qMin(m_Width, minW+(int)bsz.y-1);
-	  maxD = qMin(m_Depth, minD+(int)bsz.x-1);
+	  maxH = qMin(m_Height,minH+(int)bsz.z);
+ 	  maxW = qMin(m_Width, minW+(int)bsz.y);
+	  maxD = qMin(m_Depth, minD+(int)bsz.x);
 	}
+
+      minD = qMax(0, maxD-(int)bsz.x);
+      minW = qMax(0, maxW-(int)bsz.y);
+      minH = qMax(0, maxH-(int)bsz.z);
     }
 
   setBox(minD, maxD, minW, maxW, minH, maxH);
 
+  if (!reset)
+    Global::addToBoxList3D(Vec(minD, minW, minH));
+  
+  
   // update the rubberband
   float left, right, top, bottom;
   if (m_sliceType == DSlice)
@@ -3332,3 +3354,206 @@ ImageWidget::update3DBox(bool reset)
   
   update();
 }
+
+void
+ImageWidget::update2DBox(bool reset)
+{
+  float xpos = m_cursorPos.x();
+  float ypos = m_cursorPos.y();
+  if (!validPickPoint(xpos, ypos))
+    return;
+
+  int minD, maxD, minW, maxW, minH, maxH;
+  if (reset)
+    {
+      minD = minW = minH = 0;
+      maxD = m_Depth;
+      maxW = m_Width;
+      maxH = m_Height;
+    }
+  else
+    {
+      int cs = m_currSlice;
+      int bsz = Global::boxSize2D();
+      if (m_sliceType == DSlice)
+	{
+	  minD = cs;
+	  maxD = cs+1;
+	  
+	  minH = qMax(0, m_pickHeight-(int)bsz/2);
+	  minW = qMax(0,  m_pickWidth-(int)bsz/2);
+	  
+	  maxH = qMin(m_Height,minH+(int)bsz);
+ 	  maxW = qMin(m_Width, minW+(int)bsz);
+
+	  minH = qMax(0, maxH-(int)bsz);
+	  minW = qMax(0, maxW-(int)bsz);
+	}
+      else if (m_sliceType == WSlice)
+	{
+	  minW = cs;
+	  maxW = cs+1;
+	  
+	  minH = qMax(0, m_pickHeight-(int)bsz/2);
+	  minD = qMax(0,  m_pickDepth-(int)bsz/2);
+
+	  maxH = qMin(m_Height,minH+(int)bsz);
+	  maxD = qMin(m_Depth, minD+(int)bsz);
+
+	  minH = qMax(0, maxH-(int)bsz);
+	  minD = qMax(0, maxD-(int)bsz);
+	}
+      else
+	{
+	  minH = cs;
+	  maxH = cs+1;
+	  
+	  minW = qMax(0, m_pickWidth-(int)bsz/2);
+	  minD = qMax(0, m_pickDepth-(int)bsz/2);
+
+ 	  maxW = qMin(m_Width, minW+(int)bsz);
+	  maxD = qMin(m_Depth, minD+(int)bsz);
+
+	  minW = qMax(0, maxW-(int)bsz);
+	  minD = qMax(0, maxD-(int)bsz);
+	}
+    }
+
+  if (!reset)
+    Global::addToBoxList2D(Vec(minD, minW, minH), Vec(maxD, maxW, maxH));
+  
+  if (m_sliceType == DSlice)
+    setBox(m_minDSlice, m_maxDSlice, minW, maxW, minH, maxH);
+  else if (m_sliceType == WSlice)
+    setBox(minD, maxD, m_minWSlice, m_maxWSlice, minH, maxH);
+  else
+    setBox(minD, maxD, minW, maxW, m_minHSlice, m_maxHSlice);
+    
+  // update the rubberband
+  float left, right, top, bottom;
+  if (m_sliceType == DSlice)
+    {
+      left = (float)minH/(float)m_Height;
+      right = (float)maxH/(float)m_Height;
+      top = (float)minW/(float)m_Width;
+      bottom = (float)maxW/(float)m_Width;
+    }
+  else if (m_sliceType == WSlice)
+    {
+      left = (float)minH/(float)m_Height;
+      right = (float)maxH/(float)m_Height;
+      top = (float)minD/(float)m_Depth;
+      bottom = (float)maxD/(float)m_Depth;	  
+    }
+  else
+    {
+      left = (float)minW/(float)m_Width;
+      right = (float)maxW/(float)m_Width;
+      top = (float)minD/(float)m_Depth;
+      bottom = (float)maxD/(float)m_Depth;
+    }
+  
+  left = qBound(0.0f, left, 1.0f);
+  top = qBound(0.0f, top, 1.0f);
+  right = qBound(0.0f, right, 1.0f);
+  bottom = qBound(0.0f, bottom, 1.0f);
+      
+  m_rubberBand.setLeft(left);
+  m_rubberBand.setTop(top);
+  m_rubberBand.setRight(right);
+  m_rubberBand.setBottom(bottom);
+  
+  update();
+}
+
+//void
+//ImageWidget::update3DBox(bool reset)
+//{
+//  float xpos = m_cursorPos.x();
+//  float ypos = m_cursorPos.y();
+//  if (!validPickPoint(xpos, ypos))
+//    return;
+//
+//  int minD, maxD, minW, maxW, minH, maxH;
+//  if (reset)
+//    {
+//      minD = minW = minH = 0;
+//      maxD = m_Depth;
+//      maxW = m_Width;
+//      maxH = m_Height;
+//    }
+//  else
+//    {
+//      int cs = m_currSlice;
+//      Vec bsz = Global::boxSize3D();
+//      if (m_sliceType == DSlice)
+//	{
+//	  minD = (int)bsz.x*(int)(cs/(int)bsz.x);
+//	  minH = (int)bsz.z*(int)(m_pickHeight/(int)bsz.z);
+//	  minW = (int)bsz.y*(int)(m_pickWidth/(int)bsz.y);
+//	  
+//	  maxD = qMin(m_Depth, minD+(int)bsz.x-1);
+//	  maxH = qMin(m_Height,minH+(int)bsz.z-1);
+// 	  maxW = qMin(m_Width, minW+(int)bsz.y-1);
+//	}
+//      else if (m_sliceType == WSlice)
+//	{
+//	  minW = (int)bsz.y*(int)(cs/(int)bsz.y);
+// 	  minH = (int)bsz.z*(int)(m_pickHeight/(int)bsz.z);
+// 	  minD = (int)bsz.x*(int)(m_pickDepth/(int)bsz.x);
+//
+//	  maxW = qMin(m_Width, minW+(int)bsz.y-1);
+//	  maxH = qMin(m_Height,minH+(int)bsz.z-1);
+//	  maxD = qMin(m_Depth, minD+(int)bsz.x-1);
+//	}
+//      else
+//	{
+//	  minH = (int)bsz.z*(int)(cs/(int)bsz.z);	  
+//	  minW = (int)bsz.y*(int)(m_pickWidth/(int)bsz.y);
+// 	  minD = (int)bsz.x*(int)(m_pickDepth/(int)bsz.x);
+//
+//	  maxH = qMin(m_Height,minH+(int)bsz.z-1);
+// 	  maxW = qMin(m_Width, minW+(int)bsz.y-1);
+//	  maxD = qMin(m_Depth, minD+(int)bsz.x-1);
+//	}
+//    }
+//
+//  setBox(minD, maxD, minW, maxW, minH, maxH);
+//
+//  // update the rubberband
+//  float left, right, top, bottom;
+//  if (m_sliceType == DSlice)
+//    {
+//      left = (float)minH/(float)m_Height;
+//      right = (float)maxH/(float)m_Height;
+//      top = (float)minW/(float)m_Width;
+//      bottom = (float)maxW/(float)m_Width;
+//    }
+//  else if (m_sliceType == WSlice)
+//    {
+//      left = (float)minH/(float)m_Height;
+//      right = (float)maxH/(float)m_Height;
+//      top = (float)minD/(float)m_Depth;
+//      bottom = (float)maxD/(float)m_Depth;	  
+//    }
+//  else
+//    {
+//      left = (float)minW/(float)m_Width;
+//      right = (float)maxW/(float)m_Width;
+//      top = (float)minD/(float)m_Depth;
+//      bottom = (float)maxD/(float)m_Depth;
+//    }
+//  
+//  left = qBound(0.0f, left, 1.0f);
+//  top = qBound(0.0f, top, 1.0f);
+//  right = qBound(0.0f, right, 1.0f);
+//  bottom = qBound(0.0f, bottom, 1.0f);
+//      
+//  m_rubberBand.setLeft(left);
+//  m_rubberBand.setTop(top);
+//  m_rubberBand.setRight(right);
+//  m_rubberBand.setBottom(bottom);
+//  
+//  update();
+//}
+//

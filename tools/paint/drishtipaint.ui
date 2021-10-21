@@ -773,7 +773,27 @@
     <property name="title">
      <string>Process</string>
     </property>
-    <addaction name="action3DMLBoxSize"/>
+    <widget class="QMenu" name="menuTrain_3D">
+     <property name="title">
+      <string>Train 3D</string>
+     </property>
+     <addaction name="action3DBoxSize"/>
+     <addaction name="action3DBoxList"/>
+     <addaction name="actionSave3DList"/>
+     <addaction name="actionClear3DList"/>
+    </widget>
+    <widget class="QMenu" name="menuTrain_2D">
+     <property name="title">
+      <string>Train 2D</string>
+     </property>
+     <addaction name="action2DBoxSize"/>
+     <addaction name="action2DBoxList"/>
+     <addaction name="actionSave2DList"/>
+     <addaction name="actionClear2DList"/>
+    </widget>
+    <addaction name="menuTrain_3D"/>
+    <addaction name="menuTrain_2D"/>
+    <addaction name="separator"/>
     <addaction name="actionCommand"/>
    </widget>
    <addaction name="menuFile"/>
@@ -1009,14 +1029,49 @@
     <string>Command</string>
    </property>
   </action>
-  <action name="action3DMLBoxSize">
+  <action name="action3DBoxSize">
    <property name="text">
-    <string>3D ML Box Size</string>
+    <string>3D Box Size</string>
    </property>
   </action>
   <action name="actionShow3DBox">
    <property name="text">
     <string>Show 3D Box</string>
+   </property>
+  </action>
+  <action name="actionClear3DList">
+   <property name="text">
+    <string>Clear List</string>
+   </property>
+  </action>
+  <action name="action3DBoxList">
+   <property name="text">
+    <string>3D Box List</string>
+   </property>
+  </action>
+  <action name="actionSave3DList">
+   <property name="text">
+    <string>Save List To File</string>
+   </property>
+  </action>
+  <action name="action2DBoxSize">
+   <property name="text">
+    <string>2D Box Size</string>
+   </property>
+  </action>
+  <action name="action2DBoxList">
+   <property name="text">
+    <string>2D Box List</string>
+   </property>
+  </action>
+  <action name="actionSave2DList">
+   <property name="text">
+    <string>Save List To File</string>
+   </property>
+  </action>
+  <action name="actionClear2DList">
+   <property name="text">
+    <string>Clear List</string>
    </property>
   </action>
  </widget>

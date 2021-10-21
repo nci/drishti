@@ -106,8 +106,6 @@ class ImageWidget : public QWidget
 
   void multiSliceOperation();
   void restartRecursive();
-
-  void update3DBox(bool);
   
  signals :
   void xPos(int);
@@ -304,6 +302,9 @@ class ImageWidget : public QWidget
   void applyGradLimits();
 
   void onlyImageScaled();
+
+  void update3DBox(bool);
+  void update2DBox(bool);
 };
 
 

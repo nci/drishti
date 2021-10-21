@@ -235,14 +235,24 @@ PyWidget::processLine()
       if (result.count() >= 1)
 	tagflnm = QFileInfo(m_fileName).absolutePath() + QDir::separator() + result[0].split("=")[1];
       
+      QString  boxflnm;
+      result = sl.filter("boxlist=");
+      if (result.count() >= 1)
+	boxflnm = QFileInfo(m_fileName).absolutePath() + QDir::separator() + result[0].split("=")[1];
+      
       
       QString cmd = "python "+script+" volume="+volflnm+" mask="+m_maskName+" output="+tagflnm;
+
+      if (!boxflnm.isEmpty())
+	cmd += " boxlist="+boxflnm;
+	
       if (sl.count() > 1)
 	{
 	  for (int s=1; s<sl.count(); s++)
 	    {
 	      if (!sl[s].contains("volume=", Qt::CaseInsensitive) &&
-		  !sl[s].contains("output=", Qt::CaseInsensitive))
+		  !sl[s].contains("output=", Qt::CaseInsensitive) &&
+		  !sl[s].contains("boxlist=", Qt::CaseInsensitive))
 		cmd += " "+sl[s];
 	    }
 	}

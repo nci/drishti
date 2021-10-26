@@ -411,6 +411,9 @@ class Viewer : public QGLViewer
   void saveMovie();
 
   void drawVolume();
+
+  void drawBoxes2D();
+  void drawBoxes3D();
 };
 
 #endif

@@ -7521,7 +7521,11 @@ DrishtiPaint::on_action3DBoxSize_triggered()
 	}
     }
 }
-
+void
+DrishtiPaint::on_actionDrawBoxes3D_clicked()
+{
+  Global::setShowBox3D(ui.actionDrawBoxes3D->isChecked());
+}
 void
 DrishtiPaint::on_actionClear3DList_triggered()
 {
@@ -7551,6 +7555,31 @@ DrishtiPaint::on_action3DBoxList_triggered()
   blist->setModal(true);
   blist->setLayout(layout);
   blist->exec();
+}
+void
+DrishtiPaint::on_actionLoad3DList_triggered()
+{
+  QString boxflnm;
+  boxflnm = QFileDialog::getOpenFileName(0,
+					 "Load 3D Box List To Text File",
+					 QFileInfo(m_pvlFile).absolutePath(),
+					 "Text Files (*.txt)",
+					 0);
+  QFile box(boxflnm);
+  if (box.open(QIODevice::ReadOnly | QIODevice::Text))
+    {
+      Global::clearBoxList3D();
+      QTextStream in(&box);
+      while(!in.atEnd())
+	{
+	  QString line = in.readLine();
+	  QStringList w = line.split(" ", Qt::SkipEmptyParts);
+	  if (w.count() == 3)
+	    {
+	      Global::addToBoxList3D(Vec(w[0].toInt(), w[1].toInt(), w[2].toInt()));
+	    }
+	}
+    }
 }
 void
 DrishtiPaint::on_actionSave3DList_triggered()
@@ -7605,7 +7634,11 @@ DrishtiPaint::on_action2DBoxSize_triggered()
 	}
     }
 }
-
+void
+DrishtiPaint::on_actionDrawBoxes2D_clicked()
+{
+  Global::setShowBox2D(ui.actionDrawBoxes2D->isChecked());
+}
 void
 DrishtiPaint::on_action2DBoxList_triggered()
 {
@@ -7631,6 +7664,33 @@ DrishtiPaint::on_action2DBoxList_triggered()
   blist->setModal(true);
   blist->setLayout(layout);
   blist->exec();
+}
+
+void
+DrishtiPaint::on_actionLoad2DList_triggered()
+{
+  QString boxflnm;
+  boxflnm = QFileDialog::getOpenFileName(0,
+					 "Load 2D Box List To Text File",
+					 QFileInfo(m_pvlFile).absolutePath(),
+					 "Text Files (*.txt)",
+					 0);
+  QFile box(boxflnm);
+  if (box.open(QIODevice::ReadOnly | QIODevice::Text))
+    {
+      Global::clearBoxList2D();
+      QTextStream in(&box);
+      while(!in.atEnd())
+	{
+	  QString line = in.readLine();
+	  QStringList w = line.split(" ", Qt::SkipEmptyParts);
+	  if (w.count() == 6)
+	    {
+	      Global::addToBoxList2D(Vec(w[0].toInt(), w[1].toInt(), w[2].toInt()),
+				     Vec(w[3].toInt(), w[4].toInt(), w[5].toInt()));
+	    }
+	}
+    }
 }
 
 void
@@ -7673,3 +7733,4 @@ DrishtiPaint::on_actionClear2DList_triggered()
   Global::clearBoxList2D();
   QMessageBox::information(0, "", "2D Box List Cleared");
 }
+

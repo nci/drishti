@@ -94,12 +94,16 @@ class Global
   static QWidget* mainWindow();
   static void setMainWindow(QWidget*);
 
+  static void setShowBox3D(bool);
+  static bool showBox3D();
   static Vec boxSize3D();
   static void setBoxSize3D(Vec);
   static QList<Vec> boxList3D();
   static void addToBoxList3D(Vec);
   static void clearBoxList3D();
 
+  static void setShowBox2D(bool);
+  static bool showBox2D();
   static int boxSize2D();
   static void setBoxSize2D(int);
   static QList<Vec> boxList2D();
@@ -136,9 +140,11 @@ class Global
   static GLuint m_spriteTexture;
   static GLuint m_hollowSpriteTexture;
 
+  static bool m_showBox2D;
   static int m_boxSize2D;
   static QList<Vec> m_boxList2D;
 
+  static bool m_showBox3D;
   static Vec m_boxSize3D;
   static QList<Vec> m_boxList3D;
 };

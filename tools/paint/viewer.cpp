@@ -1503,6 +1503,50 @@ Viewer::drawWireframeBox()
 }
 
 void
+Viewer::drawBoxes2D()
+{
+  if (!Global::showBox2D)
+    return;
+
+  glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+  QList<Vec> bl = Global::boxList2D();
+  glLineWidth(1);
+  glColor4d(0.3,0.2,0.1, 0.3);
+  for (int i=0; i<bl.count()/2; i++)
+    {
+      Vec bmin = Vec(bl[2*i].z, bl[2*i].y, bl[2*i].x);
+      Vec bmax = Vec(bl[2*i+1].z-1, bl[2*i+1].y-1, bl[2*i+1].x-1);
+      drawEnclosingCube(bmin, bmax);
+    }  
+
+  glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+}
+
+void
+Viewer::drawBoxes3D()
+{
+  if (!Global::showBox3D)
+    return;
+
+  glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+  Vec bsize = Global::boxSize3D();
+  QList<Vec> bl = Global::boxList3D();
+  glLineWidth(1);
+  glColor4d(0.1,0.2,0.3,0.3);
+  for (int i=0; i<bl.count(); i++)
+    {
+      Vec bmin = Vec(bl[i].z, bl[i].y, bl[i].x);
+      Vec bmax = bmin + bsize;
+      drawEnclosingCube(bmin, bmax);
+    }  
+
+  glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+}
+
+
+void
 Viewer::setMultiMapCurves(int type, QMultiMap<int, Curve*> *cg)
 {
   if (type == 0) m_Dcg = cg;
@@ -1594,6 +1638,9 @@ Viewer::draw()
     {
       m_boundingBox.draw();
       drawWireframeBox();
+
+      drawBoxes2D();
+      drawBoxes3D();
     }
 
   if (!m_volPtr || !m_maskPtr)
@@ -1659,7 +1706,10 @@ Viewer::raycasting()
       m_boundingBox.draw();
       drawWireframeBox();
     }
-  
+
+  drawBoxes2D();
+  drawBoxes3D();
+      
   glEnable(GL_DEPTH_TEST);
 }
 

@@ -58,7 +58,7 @@ ImageWidget::ImageWidget(QWidget *parent) :
   //m_modeType = 0; // graphcut
   m_modeType = 1; // superpixels
 
-  m_showSlices = true;
+  m_showSlices = false;
   m_hline = m_vline = 0;
 
   m_zoom = 1;
@@ -1086,6 +1086,7 @@ ImageWidget::paintEvent(QPaintEvent *event)
   //----------------------------------------------------
 
   drawRubberBand(&p);
+  drawBoxes2D(&p);
   
   if (m_pickPoint)
     drawRawValue(&p);
@@ -1131,6 +1132,73 @@ ImageWidget::paintEvent(QPaintEvent *event)
     }
 
 }
+
+void
+ImageWidget::drawBoxes2D(QPainter *p)
+{
+  if (!Global::showBox2D())
+    return;
+  
+  p->setBrush(Qt::transparent);
+  p->setPen(QPen(Qt::yellow, 1));
+  QList<Vec> bl = Global::boxList2D();
+  for (int i=0; i<bl.count()/2; i++)
+    {
+      float a,b,width,height;
+      width = height = 0;
+      if (m_sliceType == DSlice)
+	{
+	  if (m_currSlice==bl[2*i].x && bl[2*i+1].x-bl[2*i].x < 1.5)
+	    {	      
+	      a = bl[2*i].z;
+	      b = bl[2*i].y;
+	      width = bl[2*i+1].z - a;
+	      height = bl[2*i+1].y - b;
+	      a /= m_Height;
+	      b /= m_Width;
+	      width /= m_Height;
+	      height /= m_Width;
+	    }
+	}
+      else if (m_sliceType == WSlice)
+	{
+	  if (m_currSlice==bl[2*i].y && bl[2*i+1].y-bl[2*i].y < 1.5)
+	    {
+	      a = bl[2*i].z;
+	      b = bl[2*i].x;
+	      width = bl[2*i+1].z - a;
+	      height = bl[2*i+1].x - b;
+	      a /= m_Height;
+	      b /= m_Depth;
+	      width /= m_Height;
+	      height /= m_Depth;
+	    }
+	}
+      else
+	{
+	  if (m_currSlice==bl[2*i].z && bl[2*i+1].z-bl[2*i].z < 1.5)
+	    {
+	      a = bl[2*i].y;
+	      b = bl[2*i].x;
+	      width = bl[2*i+1].y - a;
+	      height = bl[2*i+1].x - b;
+	      a /= m_Width;
+	      b /= m_Depth;
+	      width /= m_Width;
+	      height /= m_Depth;
+	    }
+	}
+      if (width > 0 && height > 0)
+	{
+	  a = m_simgWidth*a;
+	  b = m_simgHeight*b;
+	  width = m_simgWidth*width;
+	  height = m_simgHeight*height;
+	  p->drawRect(a, b, width, height);
+	}
+    }
+}
+
 
 void
 ImageWidget::drawRubberBand(QPainter *p)

@@ -7522,7 +7522,7 @@ DrishtiPaint::on_action3DBoxSize_triggered()
     }
 }
 void
-DrishtiPaint::on_actionDrawBoxes3D_clicked()
+DrishtiPaint::on_actionDrawBoxes3D_triggered()
 {
   Global::setShowBox3D(ui.actionDrawBoxes3D->isChecked());
 }
@@ -7635,7 +7635,7 @@ DrishtiPaint::on_action2DBoxSize_triggered()
     }
 }
 void
-DrishtiPaint::on_actionDrawBoxes2D_clicked()
+DrishtiPaint::on_actionDrawBoxes2D_triggered()
 {
   Global::setShowBox2D(ui.actionDrawBoxes2D->isChecked());
 }
@@ -7715,14 +7715,6 @@ DrishtiPaint::on_actionSave2DList_triggered()
 	}  
       QTextStream out(&box);
       out << str;
-      
-//      QList<Vec> boxList = Global::boxList2D();
-//      
-//      QTextStream out(&box);
-//      for (int i=0; i<boxList.count()/2; i++)
-//	out << QString("%1 %2 %3 %4 %5 %6\n").\
-//	  arg(boxList[2*i].x).arg(boxList[2*i].y).arg(boxList[2*i].z).	\
-//	  arg(boxList[2*i+1].x).arg(boxList[2*i+1].y).arg(boxList[2*i+1].z);
     }
   QMessageBox::information(0, "", "Saved 2D box list to ");
 }

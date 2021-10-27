@@ -259,6 +259,8 @@ class ImageWidget : public QWidget
   void drawRawValue(QPainter*);
   void processCommands(QString);
 
+  void drawBoxes2D(QPainter*);
+
   void drawRubberBand(QPainter*);
   bool checkRubberBand(int, int);
 

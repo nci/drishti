@@ -346,7 +346,7 @@ Viewer::init()
   m_voxels.clear();
   m_clipVoxels.clear();
 
-  m_showSlices = true;
+  m_showSlices = false;
   m_dslice = 0;
   m_wslice = 0;
   m_hslice = 0;
@@ -1505,7 +1505,7 @@ Viewer::drawWireframeBox()
 void
 Viewer::drawBoxes2D()
 {
-  if (!Global::showBox2D)
+  if (!Global::showBox2D())
     return;
 
   glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);

@@ -368,3 +368,7 @@ QList<Vec> Global::m_boxList3D;
 QList<Vec> Global::boxList3D() { return m_boxList3D; }
 void Global::addToBoxList3D(Vec b) { m_boxList3D << b; }
 void Global::clearBoxList3D() { m_boxList3D.clear(); }
+
+QString Global::m_scriptFolder = "";
+void Global::setScriptFolder(QString f) { m_scriptFolder = f; }
+QString Global::scriptFolder() { return m_scriptFolder; }

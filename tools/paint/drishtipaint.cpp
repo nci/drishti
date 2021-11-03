@@ -519,6 +519,11 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   //connectFibersMenu();
   //------------------------
 
+  QDir app = QCoreApplication::applicationDirPath();
+  app.cd("assets");
+  app.cd("scripts");
+  Global::setScriptFolder(app.absolutePath());
+			  
   loadSettings();
 
   m_axialImage->updateTagColors();
@@ -1795,6 +1800,11 @@ DrishtiPaint::loadSettings()
 	  QString str = dlist.at(i).toElement().text();
 	  Global::setPreviousDirectory(str);
 	}
+      else if (dlist.at(i).nodeName() == "scriptfolder")
+	{
+	  QString str = dlist.at(i).toElement().text();
+	  Global::setScriptFolder(str);
+	}
       else if (dlist.at(i).nodeName() == "recentfile")
 	{
 	  QString str = dlist.at(i).toElement().text();
@@ -1838,6 +1848,14 @@ DrishtiPaint::saveSettings()
     QDomElement de0 = doc.createElement("previousdirectory");
     QDomText tn0;
     tn0 = doc.createTextNode(Global::previousDirectory());
+    de0.appendChild(tn0);
+    topElement.appendChild(de0);
+  }
+
+  {
+    QDomElement de0 = doc.createElement("scriptfolder");
+    QDomText tn0;
+    tn0 = doc.createTextNode(Global::scriptFolder());
     de0.appendChild(tn0);
     topElement.appendChild(de0);
   }
@@ -3205,7 +3223,7 @@ DrishtiPaint::sliceZeroAtTop()
 }
 
 void
-DrishtiPaint::on_loadMask_triggered()
+DrishtiPaint::on_actionLoadMask_triggered()
 {
   QString flnm;
   flnm = QFileDialog::getOpenFileName(0,
@@ -7396,6 +7414,28 @@ DrishtiPaint::on_actionExportMask_triggered()
 }
 
 void
+DrishtiPaint::on_actionImportMask_triggered()
+{
+  QString flnm;
+  flnm = QFileDialog::getOpenFileName(0,
+				      "Raw Mask File",
+				      Global::previousDirectory(),
+				      "Raw Mask Files (*.raw)");
+  
+  if (flnm.isEmpty())
+    return;
+
+  m_volume->loadRawMask(flnm);
+
+  m_viewer->setMaskDataPtr(m_volume->memMaskDataPtr());
+
+  int m_depth, m_width, m_height;
+  m_volume->gridSize(m_depth, m_width, m_height);
+  m_viewer->uploadMask(0,0,0, m_depth-1,m_width-1,m_height-1);
+  QMessageBox::information(0, "", "done");
+}
+
+void
 DrishtiPaint::on_actionCheckpoint_triggered()
 {
   m_volume->checkPoint();
@@ -7468,6 +7508,19 @@ DrishtiPaint::tagsUsed(QList<int> ut)
 
 //---------------------
 // execute python scripts or start command prompt
+void
+DrishtiPaint::on_actionScriptFolder_triggered()
+{
+  bool ok = false;
+  QString folder = QFileDialog::getExistingDirectory(0,
+						     "Scripts Folder",
+						     Global::scriptFolder());
+  if (!folder.isEmpty())
+    {
+      Global::setScriptFolder(folder);
+    }
+  
+}
 void
 DrishtiPaint::on_actionCommand_triggered()
 {
@@ -7726,3 +7779,67 @@ DrishtiPaint::on_actionClear2DList_triggered()
   QMessageBox::information(0, "", "2D Box List Cleared");
 }
 
+void
+DrishtiPaint::on_actionHelp2D_triggered()
+{
+  QString help;
+  help += "Help for 2D Boxes\n";
+  help += "-----------------\n";
+  help += "2D Box Size : specify 2D image size for training and prediction.\n";
+  help += "              The box size can be smaller than the actual grid size.\n";
+  help += "Draw Boxes : display currently selected training boxes in 2D and 3D views.\n";
+  help += "Box List : list currently defined boxes.\n";
+  help += "To File : save current box list to file.\n";
+  help += "          access this file in your script and extract relevant sections\n";
+  help += "          from the volume and mask for training.\n"; 
+  help += "From File : remove existing box list and load new one from file.\n";
+  help += "Clear : remove existing box list.\n";
+  help += "\n";
+  help += "\n";
+  help += "Script Folder : Location to store scripts to be call from Command.\n";
+  help += "Command : A command promt is provided to run scripts from Script Folder.\n";
+  help += "          Two arguments are provided by default to the script -\n";
+  help += "          volume=<volume file name> and\n";
+  help += "          mask=<mask file name>\n";
+  help += "          The argument output=<output file name> is also expected.\n";
+  help += "          no need to specify directory for output.\n";
+  help += "          output file will be stored in the same folder as volume and mask.\n";
+  help += "   For example : <script name> output=<file name> is enough\n";
+  help += "               (volume and mask arguments are added by default).\n";
+  help += "\n";
+  help += "   drishtiML.py output=test.raw\n";
+  
+  QMessageBox::information(0, "Help for 2D boxes", help);
+}
+
+void
+DrishtiPaint::on_actionHelp3D_triggered()
+{
+  QString help;
+  help += "Help for 3D Boxes\n";
+  help += "-----------------\n";
+  help += "3D Box Size : specify 3D image size for training and prediction.  The box size can be smaller than the actual grid size.\n";
+  help += "Draw Boxes : display currently selected training boxes in 3D view only.\n";
+  help += "Box List : list currently defined boxes.\n";
+  help += "To File : save current box list to file.\n";
+  help += "          access this file in your script and extract relevant sections\n";
+  help += "          from the volume and mask for training.\n"; 
+  help += "From File : remove existing box list and load new one from file.\n";
+  help += "Clear : remove existing box list.\n";
+  help += "\n";
+  help += "\n";
+  help += "Script Folder : Location to store scripts to be call from Command.\n";
+  help += "Command : A command promt is provided to run scripts from Script Folder.\n";
+  help += "          Two arguments are provided by default to the script -\n";
+  help += "          volume=<volume file name> and\n";
+  help += "          mask=<mask file name>\n";
+  help += "          The argument output=<output file name> is also expected.\n";
+  help += "          no need to specify directory for output.\n";
+  help += "          output file will be stored in the same folder as volume and mask.\n";
+  help += "   For example : <script name> output=<file name> is enough\n";
+  help += "               (volume and mask arguments are added by default).\n";
+  help += "\n";
+  help += "   drishtiML.py output=test.raw\n";
+  
+  QMessageBox::information(0, "Help for 3D boxes", help);
+}

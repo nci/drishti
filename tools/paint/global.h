@@ -109,6 +109,9 @@ class Global
   static QList<Vec> boxList2D();
   static void addToBoxList2D(Vec, Vec);
   static void clearBoxList2D();
+
+  static void setScriptFolder(QString);
+  static QString scriptFolder();
   
  private :
   static QWidget* m_mainWindow;
@@ -147,6 +150,8 @@ class Global
   static bool m_showBox3D;
   static Vec m_boxSize3D;
   static QList<Vec> m_boxList3D;
+
+  static QString m_scriptFolder;
 };
 
 #endif

@@ -717,11 +717,12 @@
      <string>File</string>
     </property>
     <addaction name="actionLoad"/>
-    <addaction name="loadMask"/>
+    <addaction name="actionLoadMask"/>
     <addaction name="actionLoad_Curves"/>
     <addaction name="actionLoad_Fibers"/>
     <addaction name="separator"/>
     <addaction name="actionExportMask"/>
+    <addaction name="actionImportMask"/>
     <addaction name="separator"/>
     <addaction name="actionExtractTag"/>
     <addaction name="actionMeshTag"/>
@@ -777,6 +778,7 @@
      <property name="title">
       <string>Train 3D</string>
      </property>
+     <addaction name="actionHelp3D"/>
      <addaction name="action3DBoxSize"/>
      <addaction name="actionDrawBoxes3D"/>
      <addaction name="action3DBoxList"/>
@@ -788,6 +790,7 @@
      <property name="title">
       <string>Train 2D</string>
      </property>
+     <addaction name="actionHelp2D"/>
      <addaction name="action2DBoxSize"/>
      <addaction name="actionDrawBoxes2D"/>
      <addaction name="action2DBoxList"/>
@@ -798,7 +801,9 @@
     <addaction name="menuTrain_3D"/>
     <addaction name="menuTrain_2D"/>
     <addaction name="separator"/>
+    <addaction name="actionScriptFolder"/>
     <addaction name="actionCommand"/>
+    <addaction name="separator"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuView"/>
@@ -883,9 +888,9 @@
     <string>Load TF</string>
    </property>
   </action>
-  <action name="loadMask">
+  <action name="actionLoadMask">
    <property name="text">
-    <string>Import Mask</string>
+    <string>Load Mask</string>
    </property>
   </action>
   <action name="actionBakeCurves">
@@ -1015,7 +1020,7 @@
   </action>
   <action name="actionExportMask">
    <property name="text">
-    <string>Export .rawmask</string>
+    <string>Export Mask To Raw</string>
    </property>
   </action>
   <action name="actionDeleteCheckpoint">
@@ -1108,6 +1113,26 @@
   <action name="actionLoad3DList">
    <property name="text">
     <string>From File</string>
+   </property>
+  </action>
+  <action name="actionImportMask">
+   <property name="text">
+    <string>Import Mask From Raw</string>
+   </property>
+  </action>
+  <action name="actionHelp2D">
+   <property name="text">
+    <string>Help</string>
+   </property>
+  </action>
+  <action name="actionHelp3D">
+   <property name="text">
+    <string>Help</string>
+   </property>
+  </action>
+  <action name="actionScriptFolder">
+   <property name="text">
+    <string>Script Folder</string>
    </property>
   </action>
  </widget>

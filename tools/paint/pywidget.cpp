@@ -213,16 +213,16 @@ PyWidget::processLine()
       return;
     }
   
-  if (sl.count() == 2 && sl[0] == QString("run"))
+//  if (sl[0] == QString("run") && sl.count() == 3)
+//    {
+//      QString scriptdir = Global::scriptFolder();
+//      QString script = scriptdir + QDir::separator() + sl[1];
+//      runPythonCode(script, sl[2]);
+//      return;
+//    }
+  if (sl.count() >= 2 && StaticFunctions::checkExtension(sl[0], ".py"))
     {
-      runPythonCode(sl[1], sl[2]);
-      return;
-    }
-  else if (sl.count() >= 2 && StaticFunctions::checkExtension(sl[0], ".py"))
-    {
-      QString scriptdir = qApp->applicationDirPath() +
-	                  QDir::separator() + "assets" +
-	                  QDir::separator() + "scripts";
+      QString scriptdir = Global::scriptFolder();
       QString script = scriptdir + QDir::separator() + sl[0];
 
       QString volflnm = m_fileName;
@@ -241,7 +241,10 @@ PyWidget::processLine()
 	boxflnm = QFileInfo(m_fileName).absolutePath() + QDir::separator() + result[0].split("=")[1];
       
       
-      QString cmd = "python "+script+" volume="+volflnm+" mask="+m_maskName+" output="+tagflnm;
+      QString cmd = "python "+script+" volume="+volflnm+" mask="+m_maskName;
+
+      if (!tagflnm.isEmpty())
+	cmd +=" output="+tagflnm;
 
       if (!boxflnm.isEmpty())
 	cmd += " boxlist="+boxflnm;
@@ -252,7 +255,7 @@ PyWidget::processLine()
 	    {
 	      if (!sl[s].contains("volume=", Qt::CaseInsensitive) &&
 		  !sl[s].contains("output=", Qt::CaseInsensitive) &&
-		  !sl[s].contains("boxlist=", Qt::CaseInsensitive))
+		  !sl[s].contains("boxlist=",Qt::CaseInsensitive))
 		cmd += " "+sl[s];
 	    }
 	}

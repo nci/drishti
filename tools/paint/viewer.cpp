@@ -1185,9 +1185,9 @@ Viewer::processCommand(QString cmd)
     {
       QString flnm;
       flnm = QFileDialog::getOpenFileName(0,
-					  "RawMask File",
+					  "Raw Mask File",
 					  Global::previousDirectory(),
-					  "RawMask Files (*.raw)");
+					  "Raw Mask Files (*.raw)");
       
       if (flnm.isEmpty())
 	return;

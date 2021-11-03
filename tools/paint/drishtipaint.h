@@ -44,8 +44,11 @@ class DrishtiPaint : public QMainWindow
   void tagsUsed(QList<int>);
   void showVolumeInformation();
   void openRecentFile();   
+
+  void on_actionScriptFolder_triggered();
   void on_actionCommand_triggered();
 
+  void on_actionHelp3D_triggered();
   void on_action3DBoxSize_triggered();
   void on_action3DBoxList_triggered();
   void on_actionDrawBoxes3D_triggered();
@@ -53,6 +56,7 @@ class DrishtiPaint : public QMainWindow
   void on_actionLoad3DList_triggered();
   void on_actionClear3DList_triggered();
 
+  void on_actionHelp2D_triggered();
   void on_action2DBoxSize_triggered();
   void on_action2DBoxList_triggered();
   void on_actionDrawBoxes2D_triggered();
@@ -63,9 +67,10 @@ class DrishtiPaint : public QMainWindow
   void on_actionAbout_triggered();
   void on_actionHelp_triggered();
   void on_saveWork_triggered();
-  void on_loadMask_triggered();
+  void on_actionLoadMask_triggered();
   void saveWork();
   void on_actionExportMask_triggered();
+  void on_actionImportMask_triggered();
   void on_actionCheckpoint_triggered();
   void on_actionLoadCheckpoint_triggered();
   void on_actionDeleteCheckpoint_triggered();

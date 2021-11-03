@@ -1188,9 +1188,9 @@ VolumeFileManager::exportMask()
 {
   QString flnm;
   flnm = QFileDialog::getSaveFileName(0,
-				      "Export to .rawmask file",
+				      "Export to .raw file",
 				      Global::previousDirectory(),
-				      "Mask Files (*.rawmask)",
+				      "Mask Files (*.raw)",
 				      0,
 				      QFileDialog::DontUseNativeDialog);
 
@@ -1198,8 +1198,8 @@ VolumeFileManager::exportMask()
   if (flnm.isEmpty())
     return QString();
 
-  if (!StaticFunctions::checkExtension(flnm, ".rawmask"))
-    flnm += ".rawmask";
+  if (!StaticFunctions::checkExtension(flnm, ".raw"))
+    flnm += ".raw";
 
   uchar vt;
   if (m_voxelType == _UChar) vt = 0; // unsigned byte

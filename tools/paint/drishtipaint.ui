@@ -798,8 +798,8 @@
      <addaction name="actionLoad2DList"/>
      <addaction name="actionClear2DList"/>
     </widget>
-    <addaction name="menuTrain_3D"/>
     <addaction name="menuTrain_2D"/>
+    <addaction name="menuTrain_3D"/>
     <addaction name="separator"/>
     <addaction name="actionScriptFolder"/>
     <addaction name="actionCommand"/>

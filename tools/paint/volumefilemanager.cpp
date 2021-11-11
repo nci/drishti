@@ -1430,6 +1430,7 @@ VolumeFileManager::setHeightSliceMem(int h, uchar *tmp)
     }    
 
   qint64 bps = m_width*m_height*m_bytesPerVoxel;
+  
   int it = 0;
   for(int d=0; d<m_depth; d++)
     {

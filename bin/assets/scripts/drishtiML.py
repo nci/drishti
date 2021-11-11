@@ -9,6 +9,13 @@ sys.path.append('unet_collection')
 #from unet_collection import unet_plus_2d, unet_2d, losses
 from unet_collection import unet_plus_2d, unet_2d, unet3_plus_2d, losses
 
+#for smooth interpolation of predicted patches
+from smooth_tiled_predictions import predict_img_with_smooth_windowing
+
+
+UINT8 = 1
+MAXVALUE = 255
+DTYPE = np.uint8
 
 #-------
 def updateMaskFile(maskfile, Seg) :
@@ -52,8 +59,18 @@ def loadMaskData(maskfilename) :
 def loadPVLData(pvl) :    
     imgfile = open(pvl, 'rb')
     vtype = imgfile.read(1)
+    if vtype == b'\0' :
+        DTYPE = np.uint8
+        UINT8 = 1
+        MAXVALUE = 255        
+    if vtype == b'\2' :
+        DTYPE = np.uint16
+        UINT8 = 0
+        MAXVALUE = 65555
     dim = np.fromfile(imgfile, dtype=np.int32, count=3)
-    imgdata = np.fromfile(imgfile, dtype=np.uint8, count=dim[0]*dim[1]*dim[2])
+
+    imgdata = np.fromfile(imgfile, dtype=DTYPE, count=dim[0]*dim[1]*dim[2])
+
     imgfile.close()
     imgdata = imgdata.reshape(dim)    
     return (dim, imgdata)
@@ -84,7 +101,7 @@ def loadTrainingData(MaskValue, BoxList, dim, maskdata, imgdata):
                 Y_train.append(ma)
                 ma = imgdata[xs:xe, ys:ye, zs:ze]
                 ma = np.squeeze(ma)
-                X_train.append(ma/255)
+                X_train.append(ma/MAXVALUE)
         else :
             if MaskValue in ma :
                 ma[ma != MaskValue] = 0
@@ -92,7 +109,7 @@ def loadTrainingData(MaskValue, BoxList, dim, maskdata, imgdata):
                 Y_train.append(ma)
                 ma = imgdata[xs:xe, ys:ye, zs:ze]
                 ma = np.squeeze(ma)
-                X_train.append(ma/255)
+                X_train.append(ma/MAXVALUE)
     
     print('Blocks for training and validation ',len(X_train))
     ImgSize = X_train[0].shape[0]
@@ -152,7 +169,7 @@ def mainModule(args) :
     print('BoxList.shape ',BoxList.shape)
     print('---------------------------------------')
     print('---------------------------------------')
-        
+ 
     BatchSize = 8
     # batchsize of images per training step
     if kwargs.get('batchsize') :
@@ -223,7 +240,7 @@ def mainModule(args) :
 #                                      deep_supervision=True)
 
     model = unet3_plus_2d.unet3_plus_2d(input_size = (ImgSize, ImgSize, 1),
-                                        filter_num = [16, 32, 64, 128, 256],
+                                        filter_num = [16, 32, 64, 128, 256, 512],
                                         up_filters = 16,
                                         n_labels = 1,
                                         activation = 'ReLU',
@@ -272,7 +289,27 @@ def mainModule(args) :
     for i in range(dim[0]) :
         img = imgdata[i,:,:].astype(np.float32)
         img = img.reshape((dim[1], dim[2],1))
-        x = img/255.0
+        x = img/MAXVALUE
+
+        ##------------------------------------
+        ###- create overlapping patches, apply prediction
+        ###- followed by smooth interpolation between patches
+        ###- to generate the final prediction
+        #predictions_smooth = predict_img_with_smooth_windowing(
+        #    x,
+        #    nb_channels=1,
+        #    window_size=ImgSize,
+        #    subdivisions=2,  # Minimal amount of overlap for windowing. Must be an even number.
+        #    nb_classes=1,
+        #    pred_func=(lambda img_batch_subdiv: model.predict(img_batch_subdiv)))
+        #
+        #x = predictions_smooth * 255;
+        #x = x.astype(np.uint8)
+        #Seg[i,:,:] = np.squeeze(x)
+        ##------------------------------------
+
+        ##------------------------------------
+        ##-just tile the patches
         d_crops = get_patches(img_arr = x,
                               size = ImgSize,
                               stride = ImgSize)
@@ -287,6 +324,8 @@ def mainModule(args) :
         x = x * 255
         x = x.astype(np.uint8)
         Seg[i,:,:] = x
+        ##------------------------------------
+
         
     print('prediction done')
 

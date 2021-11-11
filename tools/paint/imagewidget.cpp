@@ -3336,9 +3336,9 @@ ImageWidget::update3DBox(bool reset)
   if (reset)
     {
       minD = minW = minH = 0;
-      maxD = m_Depth;
-      maxW = m_Width;
-      maxH = m_Height;
+      maxD = m_Depth-1;
+      maxW = m_Width-1;
+      maxH = m_Height-1;
     }
   else
     {
@@ -3350,9 +3350,9 @@ ImageWidget::update3DBox(bool reset)
 	  minH = qMax(0, m_pickHeight-(int)bsz.z/2);
 	  minW = qMax(0,  m_pickWidth-(int)bsz.y/2);
 	  
-	  maxD = qMin(m_Depth, minD+(int)bsz.x);
-	  maxH = qMin(m_Height,minH+(int)bsz.z);
- 	  maxW = qMin(m_Width, minW+(int)bsz.y);
+	  maxD = qMin(m_Depth-1, minD+(int)bsz.x);
+	  maxH = qMin(m_Height-1,minH+(int)bsz.z);
+ 	  maxW = qMin(m_Width-1, minW+(int)bsz.y);
 	}
       else if (m_sliceType == WSlice)
 	{
@@ -3360,9 +3360,9 @@ ImageWidget::update3DBox(bool reset)
 	  minH = qMax(0, m_pickHeight-(int)bsz.z/2);
 	  minD = qMax(0,  m_pickDepth-(int)bsz.x/2);
 
-	  maxW = qMin(m_Width, minW+(int)bsz.y);
-	  maxH = qMin(m_Height,minH+(int)bsz.z);
-	  maxD = qMin(m_Depth, minD+(int)bsz.x);
+	  maxW = qMin(m_Width-1, minW+(int)bsz.y);
+	  maxH = qMin(m_Height-1,minH+(int)bsz.z);
+	  maxD = qMin(m_Depth-1, minD+(int)bsz.x);
 	}
       else
 	{
@@ -3370,9 +3370,9 @@ ImageWidget::update3DBox(bool reset)
 	  minW = qMax(0, m_pickWidth-(int)bsz.y/2);
 	  minD = qMax(0, m_pickDepth-(int)bsz.x/2);
 
-	  maxH = qMin(m_Height,minH+(int)bsz.z);
- 	  maxW = qMin(m_Width, minW+(int)bsz.y);
-	  maxD = qMin(m_Depth, minD+(int)bsz.x);
+	  maxH = qMin(m_Height-1,minH+(int)bsz.z);
+ 	  maxW = qMin(m_Width-1, minW+(int)bsz.y);
+	  maxD = qMin(m_Depth-1, minD+(int)bsz.x);
 	}
 
       minD = qMax(0, maxD-(int)bsz.x);
@@ -3390,24 +3390,24 @@ ImageWidget::update3DBox(bool reset)
   float left, right, top, bottom;
   if (m_sliceType == DSlice)
     {
-      left = (float)minH/(float)m_Height;
-      right = (float)maxH/(float)m_Height;
-      top = (float)minW/(float)m_Width;
-      bottom = (float)maxW/(float)m_Width;
+      left = (float)minH/(float)(m_Height-1);
+      right = (float)maxH/(float)(m_Height-1);
+      top = (float)minW/(float)(m_Width-1);
+      bottom = (float)maxW/(float)(m_Width-1);
     }
   else if (m_sliceType == WSlice)
     {
-      left = (float)minH/(float)m_Height;
-      right = (float)maxH/(float)m_Height;
-      top = (float)minD/(float)m_Depth;
-      bottom = (float)maxD/(float)m_Depth;	  
+      left = (float)minH/(float)(m_Height-1);
+      right = (float)maxH/(float)(m_Height-1);
+      top = (float)minD/(float)(m_Depth-1);
+      bottom = (float)maxD/(float)(m_Depth-1);
     }
   else
     {
-      left = (float)minW/(float)m_Width;
-      right = (float)maxW/(float)m_Width;
-      top = (float)minD/(float)m_Depth;
-      bottom = (float)maxD/(float)m_Depth;
+      left = (float)minW/(float)(m_Width-1);
+      right = (float)maxW/(float)(m_Width-1);
+      top = (float)minD/(float)(m_Depth-1);
+      bottom = (float)maxD/(float)(m_Depth-1);
     }
   
   left = qBound(0.0f, left, 1.0f);
@@ -3435,9 +3435,9 @@ ImageWidget::update2DBox(bool reset)
   if (reset)
     {
       minD = minW = minH = 0;
-      maxD = m_Depth;
-      maxW = m_Width;
-      maxH = m_Height;
+      maxD = m_Depth-1;
+      maxW = m_Width-1;
+      maxH = m_Height-1;
     }
   else
     {
@@ -3451,8 +3451,8 @@ ImageWidget::update2DBox(bool reset)
 	  minH = qMax(0, m_pickHeight-(int)bsz/2);
 	  minW = qMax(0,  m_pickWidth-(int)bsz/2);
 	  
-	  maxH = qMin(m_Height,minH+(int)bsz);
- 	  maxW = qMin(m_Width, minW+(int)bsz);
+	  maxH = qMin(m_Height-1,minH+(int)bsz);
+ 	  maxW = qMin(m_Width-1, minW+(int)bsz);
 
 	  minH = qMax(0, maxH-(int)bsz);
 	  minW = qMax(0, maxW-(int)bsz);
@@ -3465,8 +3465,8 @@ ImageWidget::update2DBox(bool reset)
 	  minH = qMax(0, m_pickHeight-(int)bsz/2);
 	  minD = qMax(0,  m_pickDepth-(int)bsz/2);
 
-	  maxH = qMin(m_Height,minH+(int)bsz);
-	  maxD = qMin(m_Depth, minD+(int)bsz);
+	  maxH = qMin(m_Height-1,minH+(int)bsz);
+	  maxD = qMin(m_Depth-1, minD+(int)bsz);
 
 	  minH = qMax(0, maxH-(int)bsz);
 	  minD = qMax(0, maxD-(int)bsz);
@@ -3479,8 +3479,8 @@ ImageWidget::update2DBox(bool reset)
 	  minW = qMax(0, m_pickWidth-(int)bsz/2);
 	  minD = qMax(0, m_pickDepth-(int)bsz/2);
 
- 	  maxW = qMin(m_Width, minW+(int)bsz);
-	  maxD = qMin(m_Depth, minD+(int)bsz);
+ 	  maxW = qMin(m_Width-1, minW+(int)bsz);
+	  maxD = qMin(m_Depth-1, minD+(int)bsz);
 
 	  minW = qMax(0, maxW-(int)bsz);
 	  minD = qMax(0, maxD-(int)bsz);
@@ -3501,24 +3501,24 @@ ImageWidget::update2DBox(bool reset)
   float left, right, top, bottom;
   if (m_sliceType == DSlice)
     {
-      left = (float)minH/(float)m_Height;
-      right = (float)maxH/(float)m_Height;
-      top = (float)minW/(float)m_Width;
-      bottom = (float)maxW/(float)m_Width;
+      left = (float)minH/(float)(m_Height-1);
+      right = (float)maxH/(float)(m_Height-1);
+      top = (float)minW/(float)(m_Width-1);
+      bottom = (float)maxW/(float)(m_Width-1);
     }
   else if (m_sliceType == WSlice)
     {
-      left = (float)minH/(float)m_Height;
-      right = (float)maxH/(float)m_Height;
-      top = (float)minD/(float)m_Depth;
-      bottom = (float)maxD/(float)m_Depth;	  
+      left = (float)minH/(float)(m_Height-1);
+      right = (float)maxH/(float)(m_Height-1);
+      top = (float)minD/(float)(m_Depth-1);
+      bottom = (float)maxD/(float)(m_Depth-1);
     }
   else
     {
-      left = (float)minW/(float)m_Width;
-      right = (float)maxW/(float)m_Width;
-      top = (float)minD/(float)m_Depth;
-      bottom = (float)maxD/(float)m_Depth;
+      left = (float)minW/(float)(m_Width-1);
+      right = (float)maxW/(float)(m_Width-1);
+      top = (float)minD/(float)(m_Depth-1);
+      bottom = (float)maxD/(float)(m_Depth-1);
     }
   
   left = qBound(0.0f, left, 1.0f);

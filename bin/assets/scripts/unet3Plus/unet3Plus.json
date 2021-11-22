@@ -1,0 +1,13 @@
+{
+    "executable" :"",    
+    "interpreter" : "python",
+    "script" : "drishtiML.py",
+    "arguments" : {
+	"output" : "%DIR%/text.raw",
+	"boxlist" : "",
+	"majoraxis" : 0,
+	"epochs" : 50,
+	"batchsize" : 8,
+	"maskvalue" : -1
+    }
+}

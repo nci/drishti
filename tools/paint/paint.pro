@@ -25,7 +25,7 @@ include( ../../drishti.pri )
 FORMS += drishtipaint.ui viewermenu.ui \
 	graphcutmenu.ui curvesmenu.ui \
 	fibersmenu.ui propertyeditor.ui \
-	superpixelmenu.ui
+	superpixelmenu.ui pywidgetmenu.ui
 
 #----------------------------------------------------------------
 # Windows setup for 64-bit system
@@ -127,7 +127,8 @@ HEADERS += commonqtclasses.h \
         slic/slic.h \
         filehandler.h \
         checkpointhandler.h \
-        pywidget.h
+        pywidget.h \
+        pywidgetmenu.h
 
 
 SOURCES += drishtipaint.cpp \
@@ -187,4 +188,5 @@ SOURCES += drishtipaint.cpp \
 	slic/slic.cpp \
         filehandler.cpp \
         checkpointhandler.cpp \
-        pywidget.cpp
+        pywidget.cpp \
+        pywidgetmenu.cpp

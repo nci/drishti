@@ -2,6 +2,8 @@
 #include "global.h"
 #include "staticfunctions.h"
 
+#include <QSplitter>
+#include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QMessageBox>
 #include <QFileDialog>
@@ -31,6 +33,11 @@ PyWidget::setFilename(QString volfile)
   m_fileName += ".001";
   m_plainTextEdit->appendPlainText(m_fileName);
   m_plainTextEdit->appendPlainText(m_maskName+"\n");
+
+
+  m_menu->addRow("%DIR%", QFileInfo(m_fileName).absolutePath());
+  m_menu->addRow("volume", "%DIR%/"+QFileInfo(m_fileName).fileName());
+  m_menu->addRow("mask", "%DIR%/"+QFileInfo(m_maskName).fileName());
 }
 
 void
@@ -57,6 +64,13 @@ PyWidget::setMaskPtr(uchar* m)
 PyWidget::PyWidget(QWidget *parent)
 : QWidget(parent)
 {
+  m_menu = new PyWidgetMenu(parent);
+  m_menu->show();
+
+  connect(m_menu, SIGNAL(runCommand(QString)),
+	  this, SLOT(runCommand(QString)));
+  
+  
   m_d = m_w = m_h = 0;
   m_volPtr = m_maskPtr = 0;
   
@@ -69,7 +83,22 @@ PyWidget::PyWidget(QWidget *parent)
   QVBoxLayout *layout = new QVBoxLayout;
   layout->addWidget(m_plainTextEdit);
   layout->addWidget(m_lineEdit);
-  setLayout(layout);
+
+  QWidget *wid = new QWidget();
+  wid->setLayout(layout);
+  
+  QSplitter *splitter = new QSplitter(Qt::Horizontal, this);
+  splitter->addWidget(m_menu);
+  splitter->addWidget(wid);
+  splitter->setStretchFactor(0, 1);
+  splitter->setStretchFactor(1, 3);
+  splitter->setStyleSheet("QSplitter::handle {image: url(:/images/sizegrip.png);}");
+
+  
+  QHBoxLayout *hlayout = new QHBoxLayout;
+  hlayout->addWidget(splitter);
+  
+  setLayout(hlayout);
   show();
 
   QFont font;
@@ -92,15 +121,38 @@ PyWidget::PyWidget(QWidget *parent)
 
   m_process->start("cmd.exe");
 
-  initPy();
+  resize(600, 500);
+  
+  //initPy();
+
+  loadScripts(); 
 }
 
-PyWidget::~PyWidget()
-{  
-  emit pyWidgetClosed();
+void
+PyWidget::loadScripts()
+{
+  QString scriptdir = Global::scriptFolder();
+  m_menu->loadScripts(scriptdir);
+}
+
+void
+PyWidget::closeEvent(QCloseEvent *event)
+{
+  m_menu->close();
+  delete m_menu;
+ 
+  m_process->close();
+
   Py_Finalize();
 
-  m_process->close();
+  emit pyWidgetClosed();  
+
+  event->accept();
+}
+
+
+PyWidget::~PyWidget()
+{ 
 }
 
 int
@@ -213,6 +265,7 @@ PyWidget::processLine()
       return;
     }
   
+  
 //  if (sl[0] == QString("run") && sl.count() == 3)
 //    {
 //      QString scriptdir = Global::scriptFolder();
@@ -268,4 +321,10 @@ PyWidget::processLine()
 
   m_process->write(command.toLatin1() + "\n");
   //m_lineEdit->clear();
+}
+
+void
+PyWidget::runCommand(QString cmd)
+{
+  m_process->write(cmd.toLatin1() + "\n");
 }

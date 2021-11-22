@@ -6,6 +6,8 @@
 #include <QPlainTextEdit>
 #include <QLineEdit>
 
+#include "pywidgetmenu.h"
+
 class PyWidget : public QWidget
 {
   Q_OBJECT
@@ -28,7 +30,9 @@ class PyWidget : public QWidget
    void readOutput();
    void readError();
    void processLine();
-   
+   void closeEvent(QCloseEvent*);
+  void runCommand(QString);
+  
  private :
    QString m_fileName;
    QString m_maskName;
@@ -41,7 +45,13 @@ class PyWidget : public QWidget
    QPlainTextEdit *m_plainTextEdit;
    QLineEdit *m_lineEdit;
 
-   int initPy();
+   PyWidgetMenu *m_menu;
+  
+   QStringList m_scripts;
+  
+  int initPy();
+
+  void loadScripts();
 };
 
 #endif

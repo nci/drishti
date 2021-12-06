@@ -199,8 +199,15 @@ def grabCut() :
     output = np.zeros(img.shape,np.uint8)           # output image to be shown
 
     # input and output windows
-    cv2.namedWindow('output')
-    cv2.namedWindow('input')
+    cv2.namedWindow('output', cv2.WINDOW_KEEPRATIO)
+    cv2.namedWindow('input', cv2.WINDOW_KEEPRATIO)
+
+    h, w = img.shape[0:2]
+    neww = 800
+    newh = int(neww*(h/w))
+    cv2.resizeWindow('input', neww, newh)
+    cv2.resizeWindow('output', neww, newh)
+
     cv2.setMouseCallback('input',onmouse)
     cv2.moveWindow('input',img.shape[1]+10,90)
 

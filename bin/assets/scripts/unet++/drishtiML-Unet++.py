@@ -6,7 +6,7 @@ import tensorflow as tf
 import blosc2
 
 sys.path.append('unet_collection')
-from unet_collection import unet3_plus_2d, losses
+from unet_collection import unet_plus_2d, unet_2d, losses
 
 
 UINT8 = 1
@@ -52,8 +52,9 @@ def loadMaskData(maskfilename) :
 #-------
 
 #-------
-def loadPVLData(pvl) :    
-    global UINT8, MAXVALUE, DTYPE
+def loadPVLData(pvl) :
+    global DTYPE, UINT8, MAXVALUE
+
     imgfile = open(pvl, 'rb')
     vtype = imgfile.read(1)
     if vtype == b'\0' :
@@ -76,7 +77,8 @@ def loadPVLData(pvl) :
 
 
 def loadTrainingData(MaskValue, BoxList, dim, maskdata, imgdata):    
-    global UINT8, MAXVALUE, DTYPE
+    global DTYPE, UINT8, MAXVALUE
+
     OImgSizeD = dim[0]
     OImgSizeW = dim[1]
     OImgSizeH = dim[2]
@@ -124,7 +126,8 @@ def loadTrainingData(MaskValue, BoxList, dim, maskdata, imgdata):
 
 
 def mainModule(args) :
-    global UINT8, MAXVALUE, DTYPE
+    global DTYPE, UINT8, MAXVALUE
+
     print('------------')
     print('Arguments :')
     for kw in kwargs:
@@ -147,26 +150,18 @@ def mainModule(args) :
     if kwargs.get('epochs') :
         Epochs = int(kwargs['epochs'])
     print('epochs = ',Epochs)
+    
 
-
-    down_filter = [16, 32, 64, 128]
-    # down filters
-    if kwargs.get('down_filters') :
-        line = kwargs['down_filters']
+    filter = [32, 64, 128, 256]
+    # filters
+    if kwargs.get('filters') :
+        line = kwargs['filters']
         b = line.split(',')
         while '' in b :   # remove white spaces
             b.remove('')
-        down_filters = [int(x) for x in b]
-    print('down_filters = ',down_filters)
-        
-    up_filters = 16
-    # number of up filters
-    if kwargs.get('up_filter') :
-        up_filters = int(kwargs['up_filters'])
-    print('up_filters = ',up_filters)
+        filters = [int(x) for x in b]
+    print('filters = ',filters)
 
-    
-    
     
     print('---------------------------------------')
     print('---------------------------------------')
@@ -200,7 +195,6 @@ def mainModule(args) :
     if kwargs.get('maskvalue') :
         MaskValue = int(kwargs['maskvalue'])
     print('MaskValue = ',MaskValue)
-
     
     
     print('------------')
@@ -228,24 +222,26 @@ def mainModule(args) :
     
     OImgSizeW = dim[1]
     OImgSizeH = dim[2]
-    stride = int(ImgSize/3)
-    if ImgSize == OImgSizeW or ImgSize == OImgSizeH :
-        stride = ImgSize
     
     #exit()
 
     #-----------------------------------------------------------------
-    model = unet3_plus_2d.unet3_plus_2d(input_size = (ImgSize, ImgSize, 1),
-                                        filter_num = down_filters,
-                                        up_filters = up_filters,
-                                        n_labels = 1,
-                                        activation = 'ReLU',
-                                        output_activation='sigmoid')
+    model = unet_plus_2d.unet_plus_2d(input_size = (ImgSize, ImgSize, 1),
+                                      filter_num = filters,
+                                      n_labels = 1,
+                                      stack_num_down = 2,  # number of iterations per downsampling level
+                                      stack_num_up = 2,  # number of iterations per upsampling level
+                                      activation = 'ReLU',
+                                      output_activation='Sigmoid',                          
+                                      batch_norm=True,
+                                      pool = True,
+                                      unpool = True,
+                                      deep_supervision=False)
 
     model.summary()
 
-    optimizer = tf.keras.optimizers.SGD(nesterov=True, momentum=0.99)
-
+    optimizer = tf.keras.optimizers.SGD(nesterov=True, momentum=0.95)
+    
     model.compile(optimizer = optimizer,
                   loss = 'binary_crossentropy',
                   metrics = [losses.dice_coef])
@@ -257,8 +253,8 @@ def mainModule(args) :
                         epochs = Epochs,
                         verbose=2)
     #-----------------------------------------------------------------
-    
-    #exit()
+
+    exit()
     
     #-----------------------------------------------------------------
     # test the model

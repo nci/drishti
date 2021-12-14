@@ -156,7 +156,7 @@ def mainModule(args) :
     # filters
     if kwargs.get('filters') :
         line = kwargs['filters']
-        b = line.split(',')
+        b = line.split(' ')
         while '' in b :   # remove white spaces
             b.remove('')
         filters = [int(x) for x in b]

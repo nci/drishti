@@ -9,6 +9,6 @@
 	"epochs" : 50,
 	"batchsize" : 8,
 	"maskvalue" : -1,
-	"filters" : "16,32,64,128"
+	"filters" : "16 32 64 128"
     }
 }

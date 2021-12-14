@@ -153,7 +153,7 @@ def mainModule(args) :
     # down filters
     if kwargs.get('down_filters') :
         line = kwargs['down_filters']
-        b = line.split(',')
+        b = line.split(' ')
         while '' in b :   # remove white spaces
             b.remove('')
         down_filters = [int(x) for x in b]

@@ -20,12 +20,10 @@ class Trisets : public QObject
   void setHitPoints(HitPoints* h) { m_hitpoints = h; }
   
   bool show(int);
-  void setShow(int, bool);
+  bool clip(int);
+
   void show();
   void hide();
-
-  bool clip(int);
-  void setClip(int, bool);
 
   QString filename(int);
   
@@ -71,17 +69,60 @@ class Trisets : public QObject
   void checkMouseHover(QGLViewer*);
 
   void setLightDirection(Vec);
+
+  QStringList getMeshList();
+
+  void setExplode(float, Vec);
+  void setExplode(QList<int>, float, Vec);
+
+ public slots :
+  void setShow(int, bool);
+  void setShow(QList<bool>);
+  void setClip(int, bool);
+  void setClip(QList<bool>);
+  void setActive(int, bool);
+  void removeMesh(int);
+  void removeMesh(QList<int>);
+  void saveMesh(int);
+  void bakeColors(QList<int>);
+  void positionChanged(QVector3D);
+  void scaleChanged(QVector3D);
+  void colorChanged(QColor);
+  void colorChanged(QList<int>, QColor);
+  void transparencyChanged(int);
+  void revealChanged(int);
+  void outlineChanged(int);
+  void glowChanged(int);
+  void darkenChanged(int);
+  void sendParametersToMenu();
+  void processCommand(QString);
+  void processCommand(int, QString);
+  void processCommand(QList<int>, QString);
+  void setRotationMode(bool);
+  void setGrab(bool);
+  void meshGrabbed();
+  void multiSelection(QList<int>);
+  void posChanged();
+
  
  signals :
   void updateGL();
   void resetBoundingBox();
+  void updateMeshList(QStringList);
+  void setParameters(QMap<QString, QVariantList>);
+  void meshGrabbed(int);
+
   
  private :
   HitPoints *m_hitpoints;
   
   QList<TrisetGrabber*> m_trisets;
 
-  void processCommand(int, QString);
+  int m_active;
+  QList<int> m_multiActive;
+  Vec m_prevActivePos;
+  bool m_rotationMode;
+  bool m_grab;
 
   GLfloat m_mvpShadow[16];
   Vec m_lightDir;
@@ -120,8 +161,10 @@ class Trisets : public QObject
   void bindOITTextures();
   void drawOITTextures(int, int);
 
-  void askGradientChoice();
+  void askGradientChoice(QList<int>);
   
+  void mergeSurfaces(QList<int>);
+
 };
 
 

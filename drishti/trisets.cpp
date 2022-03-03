@@ -17,6 +17,9 @@ Trisets::Trisets()
   m_cpos = new float[100];
   m_cnormal = new float[100];
 
+  m_active = -1;
+  m_multiActive.clear();
+
   m_depthBuffer = 0;
   m_depthTex[0] = 0;
   m_depthTex[1] = 0;
@@ -37,6 +40,9 @@ Trisets::Trisets()
   
   m_lightDir = Vec(0.1,0.1,1);
   m_lightDir.normalize();
+
+  m_rotationMode = false;
+  m_grab = false;
 }
 
 Trisets::~Trisets()
@@ -126,12 +132,20 @@ Trisets::setShow(int i, bool flag)
   if (i >= 0 && i < m_trisets.count())
     {
       m_trisets[i]->setShow(flag);
-//      if (flag)
-//	m_trisets[i]->addInMouseGrabberPool();
-//      else
-//	m_trisets[i]->removeFromMouseGrabberPool();
+      emit updateGL();
     }
 }
+
+void
+Trisets::setShow(QList<bool> flag)
+{
+  for (int i=0; i<flag.count(); i++)
+    {
+      m_trisets[i]->setShow(flag[i]);
+    }
+  emit updateGL();
+}
+
 
 bool
 Trisets::clip(int i)
@@ -148,8 +162,116 @@ Trisets::setClip(int i, bool flag)
   if (i >= 0 && i < m_trisets.count())
     {
       m_trisets[i]->setClip(flag);
+      emit updateGL();
     }
 }
+
+void
+Trisets::setClip(QList<bool> flag)
+{
+  for (int i=0; i<flag.count(); i++)
+    {
+      m_trisets[i]->setClip(flag[i]);
+    }
+  emit updateGL();
+}
+
+void
+Trisets::posChanged()
+{
+  if (m_active < 0)
+    return;
+
+  Vec deltaPos = m_trisets[m_active]->position() - m_prevActivePos;
+  for (int i=0; i<m_multiActive.count(); i++)
+    {
+      if (m_multiActive[i] != m_active)
+	{
+	  Vec tpos = m_trisets[m_multiActive[i]]->position() + deltaPos;
+	  m_trisets[m_multiActive[i]]->setPosition(tpos);
+	}
+    }
+  m_prevActivePos = m_trisets[m_active]->position();
+}
+
+void
+Trisets::meshGrabbed()
+{
+  for (int i=0; i<m_trisets.count(); i++)
+    {
+      if (m_trisets[i]->mousePressed())
+	{
+	  emit meshGrabbed(i);
+	  return;
+	}
+    }
+}
+
+
+void
+Trisets::setGrab(bool flag)
+{
+  m_grab = flag;
+  if (m_grab)
+    {
+      addInMouseGrabberPool();
+      for (int i=0; i<m_trisets.count(); i++)
+	{
+	  m_trisets[i]->setGrabMode(m_grab);
+	}
+    }
+  else
+    {
+      removeFromMouseGrabberPool();
+      for (int i=0; i<m_trisets.count(); i++)
+	{
+	  m_trisets[i]->setGrabMode(m_grab);
+	}
+
+      if (m_active > -1)
+	addInMouseGrabberPool(m_active);	
+    }
+
+  emit updateGL();
+}
+
+void
+Trisets::multiSelection(QList<int> indices)
+{
+  m_multiActive = indices;
+
+  if (!m_grab)
+    {
+      removeFromMouseGrabberPool();
+      if (m_active > -1)
+	addInMouseGrabberPool(m_active);
+//for (int i=0; i<m_multiActive.count(); i++)
+//	addInMouseGrabberPool(m_multiActive[i]);
+    }
+
+  emit updateGL();
+}
+
+void
+Trisets::setActive(int idx, bool flag)
+{
+  if (flag)
+    {
+      m_active = idx;
+      addInMouseGrabberPool(idx);
+      sendParametersToMenu();
+      m_prevActivePos = m_trisets[m_active]->position();
+    }
+  else
+    {
+      m_active = -1;
+      if (!m_grab)
+	removeFromMouseGrabberPool(idx);
+    }
+
+  emit updateGL();
+}
+
 
 void
 Trisets::setLighting(QVector4D l)
@@ -1242,13 +1364,109 @@ Trisets::keyPressEvent(QKeyEvent *event)
 }
 
 void
+Trisets::removeMesh(int idx)
+{
+  if (m_active == idx)
+    m_active = -1;
+
+  disconnect(m_trisets[idx]);
+  m_trisets[idx]->setMouseGrab(false);
+  m_trisets[idx]->removeFromMouseGrabberPool();
+  m_trisets[idx]->clear();
+  delete m_trisets[idx];
+  m_trisets.removeAt(idx);
+  emit resetBoundingBox();
+
+  emit updateMeshList(getMeshList());
+  emit updateGL();
+}
+
+void
+Trisets::removeMesh(QList<int> indices)
+{
+  int idx;
+  foreach(idx, indices)
+    {
+      if (m_active == idx)
+	m_active = -1;
+      
+      disconnect(m_trisets[idx]);
+      m_trisets[idx]->setMouseGrab(false);
+      m_trisets[idx]->removeFromMouseGrabberPool();
+      m_trisets[idx]->clear();
+    }
+			   
+  int i = m_trisets.count()-1;
+  while(i>=0)
+    {
+      if (m_trisets[i]->vertexCount() == 0)
+	{
+	  delete m_trisets[i];
+	  m_trisets.removeAt(i);
+	}
+      i--;
+    }
+			   
+  emit resetBoundingBox();  
+  emit updateMeshList(getMeshList());
+  emit updateGL();
+}
+
+void
+Trisets::saveMesh(int idx)
+{
+  m_trisets[idx]->save();
+}
+
+// Single Mesh Command
+void
 Trisets::processCommand(int idx, QString cmd)
 {
   bool ok;
   cmd = cmd.toLower();
   QStringList list = cmd.split(" ", QString::SkipEmptyParts);
 
+
   //------------------
+  // reorder groups
+  if (list[0] == "movebottom")
+    {
+      QList<TrisetGrabber*> oldT = m_trisets;
+      int pl = -1;
+      for (int i=0; i<m_trisets.count(); i++)
+	{
+	  if (idx != i)
+	    m_trisets[++pl] = m_trisets[i];
+	}
+      m_trisets[++pl] = oldT[idx];
+      
+	emit updateMeshList(getMeshList());
+    }
+  if (list[0] == "movetop")
+    {
+      QList<TrisetGrabber*> oldT = m_trisets;
+      int pl = -1;
+      m_trisets[++pl] = m_trisets[idx];
+      for (int i=0; i<m_trisets.count(); i++)
+	{
+	  if (i != idx)
+	    m_trisets[++pl] = oldT[i];
+	}
+      
+	emit updateMeshList(getMeshList());
+    }  
+  //------------------
+
+  
+  //------------------
+  if (list[0] == "bakecolors")
+    {
+      m_trisets[idx]->bakeColors();
+	
+      emit updateGL();
+      return;
+    }
+
   if (list[0] == "label")
     {
       // Used for adding a new label
@@ -1298,56 +1516,33 @@ Trisets::processCommand(int idx, QString cmd)
       emit updateGL();
       return;
     }
+  //------------------
 
   if (list[0].contains("mirror"))
     {
       if (list[0] == "mirrorx") m_trisets[idx]->mirror(0);
       if (list[0] == "mirrory") m_trisets[idx]->mirror(1);
       if (list[0] == "mirrorz") m_trisets[idx]->mirror(2);
+
+      emit updateGL();
       return;
     }
   
-  if (list[0] == "save")
-    {
-      m_trisets[idx]->save();
-      return;
-    }
 
   if (list[0] == "resetposition")
     {
       m_trisets[idx]->setPosition(Vec(0,0,0));
+
+      sendParametersToMenu();
+      emit updateGL();
       return;
     }
   
-  if (list[0] == "colormap")
-    {
-      askGradientChoice();
-      return;
-    }
-        
-  if (list[0] == "lightdir")
-    {
-      if (list.size() == 3)
-	{
-	  float x = qBound(-1.0f, list[1].toFloat(), 1.0f);
-	  float y = qBound(-1.0f, list[2].toFloat(), 1.0f);
-	  m_lightDir = Vec(x,y,0);
-	}
-      return;
-    }
-        
   if (list[0] == "resetrotation")
     {
       m_trisets[idx]->resetRotation();
-      return;
-    }
 
-  if (list[0] == "resetpositions")
-    {
-      for (int i=0; i<m_trisets.count(); i++)
-	{
-	  m_trisets[i]->setPosition(Vec(0,0,0));
-	}
+      emit updateGL();
       return;
     }
 
@@ -1380,6 +1575,287 @@ Trisets::processCommand(int idx, QString cmd)
       
       m_trisets[idx]->rotate(rot);
 
+
+      emit updateGL();
+      return;
+    }
+
+  if (list[0].contains("explode"))
+    {
+      Vec damp = Vec(1,1,1);
+      if (list[0] == "explodex") damp = Vec(1, 0, 0);
+      if (list[0] == "explodey") damp = Vec(0, 1, 0);
+      if (list[0] == "explodez") damp = Vec(0, 0, 1);
+      if (list[0] == "explodexy") damp = Vec(1, 1, 0);
+      if (list[0] == "explodexz") damp = Vec(0, 1, 1);
+      if (list[0] == "explodeyz") damp = Vec(0, 1, 1);
+	
+      float rad = 1;
+      if (list.count() > 1)
+	rad = list[1].toFloat(&ok);
+
+      QList<int> indices;
+      indices << idx;
+      setExplode(indices, rad, damp);
+      return;
+    }
+
+}
+
+// Multiple Mesh Command
+void
+Trisets::processCommand(QList<int> indices, QString cmd)
+{
+  int idx;
+  
+  bool ok;
+  cmd = cmd.toLower();
+  QStringList list = cmd.split(" ", QString::SkipEmptyParts);
+
+  //------------------
+  // reorder groups
+  if (list[0] == "movebottom")
+    {
+      QList<TrisetGrabber*> oldT = m_trisets;
+      int pl = -1;
+      for (int i=0; i<m_trisets.count(); i++)
+	{
+	  if (!indices.contains(i))
+	    m_trisets[++pl] = m_trisets[i];
+	}
+      foreach(idx, indices)
+	{
+	  m_trisets[++pl] = oldT[idx];
+	}
+      
+	emit updateMeshList(getMeshList());
+    }
+  if (list[0] == "movetop")
+    {
+      QList<TrisetGrabber*> oldT = m_trisets;
+      int pl = -1;
+      foreach(idx, indices)
+	{
+	  m_trisets[++pl] = m_trisets[idx];
+	}
+      for (int i=0; i<m_trisets.count(); i++)
+	{
+	  if (!indices.contains(i))
+	    m_trisets[++pl] = oldT[i];
+	}
+      
+	emit updateMeshList(getMeshList());
+    }  
+  //------------------
+
+  
+  //------------------
+  if (list[0] == "colormap")
+    {
+      askGradientChoice(indices);
+      return;
+    }
+
+  
+  if (list[0] == "merge")
+    {
+      mergeSurfaces(indices);
+      return;
+    }
+  
+
+  if (list[0] == "bakecolors")
+    {
+      bakeColors(indices);
+      return;
+    }
+  
+
+  if (list[0] == "resetposition")
+    {
+      foreach(idx, indices)
+	{
+	  if (idx >=0 && idx < m_trisets.count())
+	    m_trisets[idx]->setPosition(Vec(0,0,0));
+	}
+      sendParametersToMenu();
+      emit updateGL();
+      return;
+    }
+  
+      
+  if (list[0] == "resetrotation")
+    {
+      foreach(idx, indices)
+	{
+	  if (idx >=0 && idx < m_trisets.count())
+	    m_trisets[idx]->resetRotation();
+	}
+      emit updateGL();
+      return;
+    }
+
+  
+  if (list[0] == "rotate" ||
+      list[0] == "rotatex" ||
+      list[0] == "rotatey" ||
+      list[0] == "rotatez")
+    {
+      Quaternion rot;
+      float x=0,y=0,z=0,a=0;
+      if (list[0] == "rotate")
+	{
+	  if (list.size() > 1) x = list[1].toFloat(&ok);
+	  if (list.size() > 2) y = list[2].toFloat(&ok);
+	  if (list.size() > 3) z = list[3].toFloat(&ok);
+	  if (list.size() > 4) a = list[4].toFloat(&ok);
+	  rot = Quaternion(Vec(x,y,z), DEG2RAD(a));
+	}
+      else
+	{
+	  float a=0;
+	  if (list.size() > 1) a = list[1].toFloat(&ok);
+	  if (list[0] == "rotatex")
+	    rot = Quaternion(Vec(1,0,0), DEG2RAD(a));
+	  else if (list[0] == "rotatey")
+	    rot = Quaternion(Vec(0,1,0), DEG2RAD(a));
+	  else if (list[0] == "rotatez")
+	    rot = Quaternion(Vec(0,0,1), DEG2RAD(a));
+	}
+      
+      foreach(idx, indices)
+	{
+	  if (idx >=0 && idx < m_trisets.count())
+	    m_trisets[idx]->rotate(rot);
+	}
+      
+      emit updateGL();
+      return;
+    } 
+
+  if (list[0] == "darkenall")
+    {
+      float dark = 0.5;
+      if (list.count() > 1)
+	dark = qBound(0.0f, list[1].toFloat(&ok), 1.0f);
+      
+      foreach(idx, indices)
+	{
+	  if (idx >=0 && idx < m_trisets.count())
+	    m_trisets[idx]->setDark(dark);
+	}
+      return;
+    }
+  
+  if (list[0] == "glowall")
+    {
+      float glow = 0.0;
+      if (list.count() > 1)
+	glow = qBound(0.0f, list[1].toFloat(&ok), 5.0f);
+      
+      foreach(idx, indices)
+	{
+	  m_trisets[idx]->setGlow(glow);
+	}
+      return;
+    }
+  
+  if (list[0] == "outlineall")
+    {
+      float outline = 0.0;
+      if (list.count() > 1)
+	outline = qBound(0.0f, list[1].toFloat(&ok), 1.0f);
+      
+      foreach(idx, indices)
+	{
+	  if (idx >=0 && idx < m_trisets.count())
+	    m_trisets[idx]->setOutline(outline);
+	}
+      return;
+    }
+  
+  if (list[0] == "revealall")
+    {
+      float reveal = 0.0;
+      if (list.count() > 1)
+	reveal = qBound(-1.0f, list[1].toFloat(&ok), 1.0f);
+      
+      foreach(idx, indices)
+	{
+	  if (idx >=0 && idx < m_trisets.count())
+	    m_trisets[idx]->setReveal(reveal);
+	}
+      return;
+    }
+  
+  if (list[0] == "transparencyall")
+    {
+      float op = 1.0;
+      if (list.count() > 1)
+	op = qBound(0.1f, list[1].toFloat(&ok), 1.0f);
+      
+      foreach(idx, indices)
+	{
+	  if (idx >=0 && idx < m_trisets.count())
+	    m_trisets[idx]->setOpacity(op);
+	}
+      return;
+    }
+  
+  if (list[0].contains("explode"))
+    {
+      Vec damp = Vec(1,1,1);
+      if (list[0] == "explodex") damp = Vec(1, 0, 0);
+      if (list[0] == "explodey") damp = Vec(0, 1, 0);
+      if (list[0] == "explodez") damp = Vec(0, 0, 1);
+      if (list[0] == "explodexy") damp = Vec(1, 1, 0);
+      if (list[0] == "explodexz") damp = Vec(0, 1, 1);
+      if (list[0] == "explodeyz") damp = Vec(0, 1, 1);
+	
+      float rad = 1;
+      if (list.count() > 1)
+	rad = list[1].toFloat(&ok);
+
+      setExplode(indices, rad, damp);
+      return;
+    }
+
+}
+
+// All Meshes Command
+void
+Trisets::processCommand(QString cmd)
+{
+  bool ok;
+  cmd = cmd.toLower();
+  QStringList list = cmd.split(" ", QString::SkipEmptyParts);
+
+  
+  if (list[0] == "colormap")
+    {
+      QList<int> indices;
+      for (int i=0; i<m_trisets.count(); i++)
+	indices << i;
+      askGradientChoice(indices);
+      return;
+    }
+        
+  if (list[0] == "bakecolors")
+    {
+      QList<int> indices;
+      for (int i=0; i<m_trisets.count(); i++)
+	indices << i;
+      bakeColors(indices);
+      return;
+    }
+  
+
+  if (list[0] == "resetpositions")
+    {
+      for (int i=0; i<m_trisets.count(); i++)
+	{
+	  m_trisets[i]->setPosition(Vec(0,0,0));
+	}
       return;
     }
   
@@ -1422,6 +1898,19 @@ Trisets::processCommand(int idx, QString cmd)
       return;
     }
   
+  if (list[0] == "revealall")
+    {
+      float reveal = 0.0;
+      if (list.count() > 1)
+	reveal = qBound(-1.0f, list[1].toFloat(&ok), 1.0f);
+      
+      for (int i=0; i<m_trisets.count(); i++)
+	{
+	  m_trisets[i]->setReveal(reveal);
+	}
+      return;
+    }
+  
   if (list[0] == "outline")
     {
       float outline = 0.0;
@@ -1430,7 +1919,7 @@ Trisets::processCommand(int idx, QString cmd)
       
       for (int i=0; i<m_trisets.count(); i++)
 	{
-	  if (m_trisets[i]->outline() > 0.0)
+	  if (m_trisets[i]->outline() >= 0.1)
 	    m_trisets[i]->setOutline(outline);
 	}
       return;
@@ -1449,19 +1938,6 @@ Trisets::processCommand(int idx, QString cmd)
       return;
     }
   
-  if (list[0] == "clipall")
-    {
-      bool clip = true;
-      if (list.count() > 1)
-	clip = list[1].toFloat(&ok) > 0.1;
-      
-      for (int i=0; i<m_trisets.count(); i++)
-	{
-	  m_trisets[i]->setClip(clip);
-	}
-      return;
-    }
-
   if (list[0] == "activescale")
     {
       float scl = 1.0;
@@ -1497,50 +1973,357 @@ Trisets::processCommand(int idx, QString cmd)
   if (list[0].contains("explode"))
     {
       Vec damp = Vec(1,1,1);
-      if (list[0] == "explodex") damp = Vec(1, 0.1, 0.1);
-      if (list[0] == "explodey") damp = Vec(0.1, 1, 0.1);
-      if (list[0] == "explodez") damp = Vec(0.1, 0.1, 1);
-      if (list[0] == "explodexy") damp = Vec(1, 1, 0.5);
-      if (list[0] == "explodexz") damp = Vec(0.5, 1, 1);
-      if (list[0] == "explodeyz") damp = Vec(0.5, 1, 1);
+      if (list[0] == "explodex") damp = Vec(1, 0, 0);
+      if (list[0] == "explodey") damp = Vec(0, 1, 0);
+      if (list[0] == "explodez") damp = Vec(0, 0, 1);
+      if (list[0] == "explodexy") damp = Vec(1, 1, 0);
+      if (list[0] == "explodexz") damp = Vec(0, 1, 1);
+      if (list[0] == "explodeyz") damp = Vec(0, 1, 1);
 	
       float rad = 1;
       if (list.count() > 1)
 	rad = list[1].toFloat(&ok);
 
-      Vec centroid = Vec(0,0,0);
-      for (int i=0; i<m_trisets.count(); i++)
-	centroid += m_trisets[i]->centroid();
-
-      centroid /= m_trisets.count();
-      
-      for (int i=0; i<m_trisets.count(); i++)
-	{
-	  Vec dr = m_trisets[i]->centroid() - centroid;
-	  dr = VECPRODUCT(dr, damp);
-	  dr *= rad;
-	  m_trisets[i]->setPosition(dr);
-	}
+      setExplode(rad, damp);
       return;
     }
 
-//  if (list[0] == "setcolor" || list[0] == "color")
+  if (list[0] == "clearscene")
+    {
+      removeFromMouseGrabberPool();
+
+      for (int i=0; i<m_trisets.count(); i++)
+	{
+	  disconnect(m_trisets[i]);
+	  m_trisets[i]->clear();
+	}
+      
+      while(m_trisets.count() > 0)
+	{
+	  delete m_trisets[0];
+	  m_trisets.removeAt(0);
+	}
+
+      //emit removeAllKeyFrames();
+      emit resetBoundingBox();      
+      emit updateMeshList(getMeshList());
+      //emit clearScene();
+      emit updateGL();
+      
+      return;
+    }
+  
+//  if (list[0] == "merge")
 //    {
-//      Vec pcolor = m_trisets[idx]->color();
-//      QColor dcolor = QColor::fromRgbF(pcolor.x,
-//				       pcolor.y,
-//				       pcolor.z);
-//      QColor color = DColorDialog::getColor(dcolor);
-//      if (color.isValid())
-//	{
-//	  float r = color.redF();
-//	  float g = color.greenF();
-//	  float b = color.blueF();
-//	  pcolor = Vec(r,g,b);
-//	  m_trisets[idx]->setColor(pcolor);
-//	}
+//      QList<int> indices;
+//      for (int i=0; i<m_trisets.count(); i++)
+//	indices << i;
+//      mergeSurfaces(indices);
+//      return;
 //    }
+  
 }
+
+//void
+//Trisets::processCommand(int idx, QString cmd)
+//{
+//  bool ok;
+//  cmd = cmd.toLower();
+//  QStringList list = cmd.split(" ", QString::SkipEmptyParts);
+//
+//  //------------------
+//  if (list[0] == "label")
+//    {
+//      // Used for adding a new label
+//      CaptionDialog cd(0,
+//		       "",
+//		       QFont(QFont("MS Reference Sans Serif", 16)),
+//		       Qt::white,
+//		       Qt::transparent,
+//		       0);
+//      cd.hideAngle(true);
+//      int cdW = cd.width();
+//      int cdH = cd.height();
+//      cd.move(QCursor::pos() - QPoint(cdW/2, cdH/2));
+//      if (cd.exec() == QDialog::Accepted && !cd.text().isEmpty())
+//	{
+//	  m_trisets[idx]->setCaptionText(cd.text());
+//	  m_trisets[idx]->setCaptionFont(cd.font());
+//	  m_trisets[idx]->setCaptionColor(cd.color());
+//	}
+//
+//      // set caption position
+//      QList<Vec> pts;
+//      if (m_hitpoints->activeCount())
+//	pts = m_hitpoints->activePoints();
+//      else
+//	pts = m_hitpoints->points();
+//      
+//      if (pts.count() > 0)
+//	{
+//	  // take the lastest hitpoint
+//	  Vec p = pts[pts.count()-1];
+//	  
+//	  m_trisets[idx]->setCaptionPosition(p);
+//	  
+//	  pts.removeLast();	    
+//	  m_hitpoints->setPoints(pts);
+//	}
+//
+//      if (list.size() == 2)
+//	{
+//	  if (list[1] == "moving")
+//	    m_trisets[idx]->setCaptionOffset(50,50);
+//	  else if (list[1] == "fixed")
+//	    m_trisets[idx]->setCaptionOffset(0.1,0.1);
+//	}
+//	
+//      emit updateGL();
+//      return;
+//    }
+//
+//  if (list[0].contains("mirror"))
+//    {
+//      if (list[0] == "mirrorx") m_trisets[idx]->mirror(0);
+//      if (list[0] == "mirrory") m_trisets[idx]->mirror(1);
+//      if (list[0] == "mirrorz") m_trisets[idx]->mirror(2);
+//      return;
+//    }
+//  
+//  if (list[0] == "save")
+//    {
+//      m_trisets[idx]->save();
+//      return;
+//    }
+//
+//  if (list[0] == "resetposition")
+//    {
+//      m_trisets[idx]->setPosition(Vec(0,0,0));
+//      return;
+//    }
+//  
+//  if (list[0] == "colormap")
+//    {
+//      askGradientChoice();
+//      return;
+//    }
+//        
+//  if (list[0] == "lightdir")
+//    {
+//      if (list.size() == 3)
+//	{
+//	  float x = qBound(-1.0f, list[1].toFloat(), 1.0f);
+//	  float y = qBound(-1.0f, list[2].toFloat(), 1.0f);
+//	  m_lightDir = Vec(x,y,0);
+//	}
+//      return;
+//    }
+//        
+//  if (list[0] == "resetrotation")
+//    {
+//      m_trisets[idx]->resetRotation();
+//      return;
+//    }
+//
+//  if (list[0] == "resetpositions")
+//    {
+//      for (int i=0; i<m_trisets.count(); i++)
+//	{
+//	  m_trisets[i]->setPosition(Vec(0,0,0));
+//	}
+//      return;
+//    }
+//
+//  if (list[0] == "rotate" ||
+//      list[0] == "rotatex" ||
+//      list[0] == "rotatey" ||
+//      list[0] == "rotatez")
+//    {
+//      Quaternion rot;
+//      float x=0,y=0,z=0,a=0;
+//      if (list[0] == "rotate")
+//	{
+//	  if (list.size() > 1) x = list[1].toFloat(&ok);
+//	  if (list.size() > 2) y = list[2].toFloat(&ok);
+//	  if (list.size() > 3) z = list[3].toFloat(&ok);
+//	  if (list.size() > 4) a = list[4].toFloat(&ok);
+//	  rot = Quaternion(Vec(x,y,z), DEG2RAD(a));
+//	}
+//      else
+//	{
+//	  float a=0;
+//	  if (list.size() > 1) a = list[1].toFloat(&ok);
+//	  if (list[0] == "rotatex")
+//	    rot = Quaternion(Vec(1,0,0), DEG2RAD(a));
+//	  else if (list[0] == "rotatey")
+//	    rot = Quaternion(Vec(0,1,0), DEG2RAD(a));
+//	  else if (list[0] == "rotatez")
+//	    rot = Quaternion(Vec(0,0,1), DEG2RAD(a));
+//	}
+//      
+//      m_trisets[idx]->rotate(rot);
+//
+//      return;
+//    }
+//  
+//  if (list[0] == "darkenall")
+//    {
+//      float dark = 0.5;
+//      if (list.count() > 1)
+//	dark = qBound(0.0f, list[1].toFloat(&ok), 1.0f);
+//      
+//      for (int i=0; i<m_trisets.count(); i++)
+//	{
+//	  m_trisets[i]->setDark(dark);
+//	}
+//      return;
+//    }
+//  
+//  if (list[0] == "glowall")
+//    {
+//      float glow = 0.0;
+//      if (list.count() > 1)
+//	glow = qBound(0.0f, list[1].toFloat(&ok), 5.0f);
+//      
+//      for (int i=0; i<m_trisets.count(); i++)
+//	{
+//	  m_trisets[i]->setGlow(glow);
+//	}
+//      return;
+//    }
+//  
+//  if (list[0] == "outlineall")
+//    {
+//      float outline = 0.0;
+//      if (list.count() > 1)
+//	outline = qBound(0.0f, list[1].toFloat(&ok), 1.0f);
+//      
+//      for (int i=0; i<m_trisets.count(); i++)
+//	{
+//	  m_trisets[i]->setOutline(outline);
+//	}
+//      return;
+//    }
+//  
+//  if (list[0] == "outline")
+//    {
+//      float outline = 0.0;
+//      if (list.count() > 1)
+//	outline = qBound(0.0f, list[1].toFloat(&ok), 1.0f);
+//      
+//      for (int i=0; i<m_trisets.count(); i++)
+//	{
+//	  if (m_trisets[i]->outline() > 0.0)
+//	    m_trisets[i]->setOutline(outline);
+//	}
+//      return;
+//    }
+//  
+//  if (list[0] == "transparencyall")
+//    {
+//      float op = 1.0;
+//      if (list.count() > 1)
+//	op = qBound(0.1f, list[1].toFloat(&ok), 1.0f);
+//      
+//      for (int i=0; i<m_trisets.count(); i++)
+//	{
+//	  m_trisets[i]->setOpacity(op);
+//	}
+//      return;
+//    }
+//  
+//  if (list[0] == "clipall")
+//    {
+//      bool clip = true;
+//      if (list.count() > 1)
+//	clip = list[1].toFloat(&ok) > 0.1;
+//      
+//      for (int i=0; i<m_trisets.count(); i++)
+//	{
+//	  m_trisets[i]->setClip(clip);
+//	}
+//      return;
+//    }
+//
+//  if (list[0] == "activescale")
+//    {
+//      float scl = 1.0;
+//      if (list.count() > 1)
+//	scl = list[1].toFloat(&ok);
+//      
+//      for (int i=0; i<m_trisets.count(); i++)
+//	{
+//	  m_trisets[i]->setActiveScale(scl);
+//	}
+//      return;
+//    }
+//  
+//  if (list[0] == "scale")
+//    {
+//      float x,y,z;
+//      x=y=z=1;
+//      
+//      if (list.count() == 2)
+//	x = y = z = list[1].toFloat(&ok);
+//      else if (list.count() == 4)
+//	{
+//	  x = list[1].toFloat(&ok);
+//	  y = list[2].toFloat(&ok);
+//	  z = list[3].toFloat(&ok);
+//	}
+//      Vec scale(x,y,z);
+//      for (int i=0; i<m_trisets.count(); i++)
+//	m_trisets[i]->setScale(scale);
+//      return;
+//    }
+//  
+//  if (list[0].contains("explode"))
+//    {
+//      Vec damp = Vec(1,1,1);
+//      if (list[0] == "explodex") damp = Vec(1, 0.1, 0.1);
+//      if (list[0] == "explodey") damp = Vec(0.1, 1, 0.1);
+//      if (list[0] == "explodez") damp = Vec(0.1, 0.1, 1);
+//      if (list[0] == "explodexy") damp = Vec(1, 1, 0.5);
+//      if (list[0] == "explodexz") damp = Vec(0.5, 1, 1);
+//      if (list[0] == "explodeyz") damp = Vec(0.5, 1, 1);
+//	
+//      float rad = 1;
+//      if (list.count() > 1)
+//	rad = list[1].toFloat(&ok);
+//
+//      Vec centroid = Vec(0,0,0);
+//      for (int i=0; i<m_trisets.count(); i++)
+//	centroid += m_trisets[i]->centroid();
+//
+//      centroid /= m_trisets.count();
+//      
+//      for (int i=0; i<m_trisets.count(); i++)
+//	{
+//	  Vec dr = m_trisets[i]->centroid() - centroid;
+//	  dr = VECPRODUCT(dr, damp);
+//	  dr *= rad;
+//	  m_trisets[i]->setPosition(dr);
+//	}
+//      return;
+//    }
+//
+////  if (list[0] == "setcolor" || list[0] == "color")
+////    {
+////      Vec pcolor = m_trisets[idx]->color();
+////      QColor dcolor = QColor::fromRgbF(pcolor.x,
+////				       pcolor.y,
+////				       pcolor.z);
+////      QColor color = DColorDialog::getColor(dcolor);
+////      if (color.isValid())
+////	{
+////	  float r = color.redF();
+////	  float g = color.greenF();
+////	  float b = color.blueF();
+////	  pcolor = Vec(r,g,b);
+////	  m_trisets[idx]->setColor(pcolor);
+////	}
+////    }
+//}
 
 QList<TrisetInformation>
 Trisets::get()
@@ -1551,6 +2334,39 @@ Trisets::get()
     tinfo.append(m_trisets[i]->get());
 
   return tinfo;
+}
+
+
+QStringList
+Trisets::getMeshList()
+{
+  QStringList names;
+  for(int i=0; i<m_trisets.count(); i++)
+    {
+      //names << QString("%1").arg(QFileInfo(m_trisets[i]->filename()).fileName());      
+      QString nm;
+      nm = QString("%1").arg(QFileInfo(m_trisets[i]->filename()).fileName());
+
+      int show = (m_trisets[i]->show() ? 1 : 0);
+      int clip = (m_trisets[i]->clip() ? 1 : 0);
+
+      Vec pcolor = m_trisets[i]->color();
+      QString color = QColor::fromRgbF(pcolor.x,
+				       pcolor.y,
+				       pcolor.z).name();
+      
+      names << QString("%1 %2 %3 %4 %5 %6 %7").\
+	arg((int)nm.length(), 5, 10, QChar(' ')).\
+	arg(nm).\
+	arg(show).\
+	arg(clip).\
+	arg(color).\
+	arg(m_trisets[i]->vertexCount()).\
+	arg(m_trisets[i]->triangleCount());
+
+    }
+
+  return names;
 }
 
 void
@@ -2207,7 +3023,7 @@ Trisets::renderOutline(GLint drawFboId,
 }
 
 void
-Trisets::askGradientChoice()
+Trisets::askGradientChoice(QList<int> indices)
 {
   QString homePath = QDir::homePath();
   QFileInfo sfi(homePath, ".drishtigradients.xml");
@@ -2225,6 +3041,10 @@ Trisets::askGradientChoice()
 
   QStringList glist;
   glist << "random";
+  glist << "random-hue-pastel";
+  glist << "random-hue-vibrant";
+  glist << "random-pastel";
+  glist << "random-vibrant";
 
   QDomElement main = document.documentElement();
   QDomNodeList dlist = main.childNodes();
@@ -2254,33 +3074,160 @@ Trisets::askGradientChoice()
   //--------------------
   if (gstr == "random")
     {
-      for(int i=0; i<m_trisets.count(); i++)
+      for(int i=0; i<indices.count(); i++)
 	{
-	  float r = (float)qrand()/(float)RAND_MAX;
-	  float g = (float)qrand()/(float)RAND_MAX;
-	  float b = (float)qrand()/(float)RAND_MAX;
-	  float mm = qMax(r,qMax(g,b));
-	  if (mm < 0.8) // don't want too dark
-	    {
-	      if (mm < 0.1)
-		{
-		  r = g = b = 1.0;
-		}
-	      else if (mm < 0.3)
-		{
-		  r = 1 - r;
-		  g = 1 - g;
-		  b = 1 - b;
-		}
-	      else
-		{
-		  r *= 0.8/mm;
-		  g *= 0.8/mm;
-		  b *= 0.8/mm;
-		}
-	    }
-	  m_trisets[i]->setColor(Vec(r,g,b));
+	  float h = (float)qrand()/(float)RAND_MAX;
+	  float s = (float)qrand()/(float)RAND_MAX;
+	  float v = (float)qrand()/(float)RAND_MAX;
+
+	  // don't want too low saturation or dark values
+	  s = qMax(0.1f, s);
+	  v = qMax(0.5f, v);
+	  
+	  QColor c;
+	  c.setHsvF(h, s, v);
+	  float r = c.redF();
+	  float g = c.greenF();
+	  float b = c.blueF();
+	  
+	  m_trisets[indices[i]]->setColor(Vec(r,g,b));
 	}
+
+      emit updateMeshList(getMeshList());
+    }
+  if (gstr == "random-pastel")
+    {
+      for(int i=0; i<indices.count(); i++)
+	{
+	  float h = (float)qrand()/(float)RAND_MAX;
+	  float s = (float)qrand()/(float)RAND_MAX;
+	  float v = (float)qrand()/(float)RAND_MAX;
+
+	  // we want low saturation and higher value
+	  s = 0.1 + 0.2*s;
+	  v = 0.7 + 0.3*v;
+	  
+	  QColor c;
+	  c.setHsvF(h, s, v);
+	  float r = c.redF();
+	  float g = c.greenF();
+	  float b = c.blueF();
+	  
+	  m_trisets[indices[i]]->setColor(Vec(r,g,b));
+	}
+
+      emit updateMeshList(getMeshList());
+    }
+  if (gstr == "random-vibrant")
+    {
+      for(int i=0; i<indices.count(); i++)
+	{
+	  float h = (float)qrand()/(float)RAND_MAX;
+	  float s = (float)qrand()/(float)RAND_MAX;
+	  float v = (float)qrand()/(float)RAND_MAX;
+
+	  // want higher saturation and value
+	  s = 0.5 + 0.5*s;
+	  v = 0.5 + 0.5*v;
+	  
+	  QColor c;
+	  c.setHsvF(h, s, v);
+	  float r = c.redF();
+	  float g = c.greenF();
+	  float b = c.blueF();
+	  
+	  m_trisets[indices[i]]->setColor(Vec(r,g,b));
+	}
+
+      emit updateMeshList(getMeshList());
+    }
+  if (gstr.contains("random-hue"))
+    {
+      QStringList clist;
+      clist << "white";
+      clist << "red";
+      clist << "orange";
+      clist << "yellow";
+      clist << "olive";
+      clist << "green";
+      clist << "teal";
+      clist << "cyan";
+      clist << "azure";
+      clist << "blue";
+      clist << "purple";
+      clist << "magenta";
+      clist << "scarlet";
+      
+      bool ok;
+      QString cstr = QInputDialog::getItem(0,
+					   "Select Hue",
+					   "Hue",
+					   clist, 0, false,
+					   &ok);
+      if (!ok)
+	return;
+      
+      if (cstr == "white")
+	{
+	  for(int i=0; i<indices.count(); i++)
+	    {
+	      float w = max(0.3f, (float)qrand()/(float)RAND_MAX);
+	      m_trisets[indices[i]]->setColor(Vec(w,w,w));
+	    }
+	  
+	  emit updateMeshList(getMeshList());
+	  return;
+	}
+      
+      float hmid = 0;
+      if (cstr == "orange") hmid = 30;
+      if (cstr == "yellow") hmid = 60;
+      if (cstr == "olive") hmid = 90;
+      if (cstr == "green") hmid = 120;
+      if (cstr == "teal") hmid = 150;
+      if (cstr == "cyan") hmid = 180;
+      if (cstr == "azure") hmid = 210;
+      if (cstr == "blue") hmid = 240;
+      if (cstr == "purple") hmid = 270;
+      if (cstr == "magenta") hmid = 300;
+      if (cstr == "scarlet") hmid = 330;
+
+      hmid /= 360.0;
+
+      float smin = 0.3;
+      float sint = 0.2;
+      float vmin = 0.6;
+      float vint = 0.3;
+      if (gstr.contains("vibrant"))
+	{
+	  smin = 0.7;
+	  sint = 0.3;
+	  vmin = 0.5;
+	  vint = 0.4;
+	}
+      
+      for(int i=0; i<indices.count(); i++)
+	{
+	  float h = (float)qrand()/(float)RAND_MAX;
+	  float s = (float)qrand()/(float)RAND_MAX;
+	  float v = (float)qrand()/(float)RAND_MAX;
+
+	  s = smin + sint*s;
+	  v = vmin + vint*v;
+
+	  h = hmid+(h-0.5)*0.04;
+	  if (h < 0) h = 1+h;
+	  
+	  QColor c;
+	  c.setHsvF(h, s, v);
+	  float r = c.redF();
+	  float g = c.greenF();
+	  float b = c.blueF();
+	  
+	  m_trisets[indices[i]]->setColor(Vec(r,g,b));
+	}
+
+      emit updateMeshList(getMeshList());
     }
   //--------------------
 
@@ -2314,15 +3261,15 @@ Trisets::askGradientChoice()
 	{
 	  QString str = de.text();
 	  QStringList strlist = str.split(" ", QString::SkipEmptyParts);
-	  for(int j=0; j<strlist.count()/5; j++)
+	  for(int j=0; j<strlist.count()/4; j++)
 	    {
 	      float pos, r,g,b,a;
-	      pos = strlist[5*j].toFloat();
-	      r = strlist[5*j+1].toInt();
-	      g = strlist[5*j+2].toInt();
-	      b = strlist[5*j+3].toInt();
-	      a = strlist[5*j+4].toInt();
-	      stops << QGradientStop(pos, QColor(r,g,b,a));
+	      pos = strlist[4*j].toFloat();
+	        r = strlist[4*j+1].toInt();
+	        g = strlist[4*j+2].toInt();
+	        b = strlist[4*j+3].toInt();
+	      //a = strlist[5*j+4].toInt();
+	      stops << QGradientStop(pos, QColor(r,g,b,255));
 	    }
 	}
     }
@@ -2333,13 +3280,382 @@ Trisets::askGradientChoice()
   gstops = StaticFunctions::resampleGradientStops(stops, m_trisets.count());
 
   uchar *colors = Global::tagColors();  
-  for(int i=0; i<m_trisets.count(); i++)
+  for(int i=0; i<indices.count(); i++)
     {
       float pos = gstops[i].first;
       QColor color = gstops[i].second;
       Vec clr = Vec(color.redF(),
 		    color.greenF(),
 		    color.blueF());
-      m_trisets[i]->setColor(clr);
+      m_trisets[indices[i]]->setColor(clr);
+    }
+
+  emit updateMeshList(getMeshList());
+}
+
+//void
+//Trisets::askGradientChoice()
+//{
+//  QString homePath = QDir::homePath();
+//  QFileInfo sfi(homePath, ".drishtigradients.xml");
+//  QString stopsflnm = sfi.absoluteFilePath();
+//  if (!sfi.exists())
+//    StaticFunctions::copyGradientFile(stopsflnm);
+//
+//  QDomDocument document;
+//  QFile f(stopsflnm);
+//  if (f.open(QIODevice::ReadOnly))
+//    {
+//      document.setContent(&f);
+//      f.close();
+//    }
+//
+//  QStringList glist;
+//  glist << "random";
+//
+//  QDomElement main = document.documentElement();
+//  QDomNodeList dlist = main.childNodes();
+//  for(int i=0; i<dlist.count(); i++)
+//    {
+//      if (dlist.at(i).nodeName() == "gradient")
+//	{
+//	  QDomNodeList cnode = dlist.at(i).childNodes();
+//	  for(int j=0; j<cnode.count(); j++)
+//	    {
+//	      QDomElement dnode = cnode.at(j).toElement();
+//	      if (dnode.nodeName() == "name")
+//		glist << dnode.text();
+//	    }
+//	}
+//    }
+//
+//  bool ok;
+//  QString gstr = QInputDialog::getItem(0,
+//				       "Color Gradient",
+//				       "Color Gradient",
+//				       glist, 0, false,
+//				       &ok);
+//  if (!ok)
+//    return;
+//
+//  //--------------------
+//  if (gstr == "random")
+//    {
+//      for(int i=0; i<m_trisets.count(); i++)
+//	{
+//	  float r = (float)qrand()/(float)RAND_MAX;
+//	  float g = (float)qrand()/(float)RAND_MAX;
+//	  float b = (float)qrand()/(float)RAND_MAX;
+//	  float mm = qMax(r,qMax(g,b));
+//	  if (mm < 0.8) // don't want too dark
+//	    {
+//	      if (mm < 0.1)
+//		{
+//		  r = g = b = 1.0;
+//		}
+//	      else if (mm < 0.3)
+//		{
+//		  r = 1 - r;
+//		  g = 1 - g;
+//		  b = 1 - b;
+//		}
+//	      else
+//		{
+//		  r *= 0.8/mm;
+//		  g *= 0.8/mm;
+//		  b *= 0.8/mm;
+//		}
+//	    }
+//	  m_trisets[i]->setColor(Vec(r,g,b));
+//	}
+//    }
+//  //--------------------
+//
+//  int cno = -1;
+//  for(int i=0; i<dlist.count(); i++)
+//    {
+//      if (dlist.at(i).nodeName() == "gradient")
+//	{
+//	  QDomNodeList cnode = dlist.at(i).childNodes();
+//	  for(int j=0; j<cnode.count(); j++)
+//	    {
+//	      QDomElement dnode = cnode.at(j).toElement();
+//	      if (dnode.tagName() == "name" && dnode.text() == gstr)
+//		{
+//		  cno = i;
+//		  break;
+//		}
+//	    }
+//	}
+//    }
+//	
+//  if (cno < 0)
+//    return;
+//
+//  QGradientStops stops;
+//  QDomNodeList cnode = dlist.at(cno).childNodes();
+//  for(int j=0; j<cnode.count(); j++)
+//    {
+//      QDomElement de = cnode.at(j).toElement();
+//      if (de.tagName() == "gradientstops")
+//	{
+//	  QString str = de.text();
+//	  QStringList strlist = str.split(" ", QString::SkipEmptyParts);
+//	  for(int j=0; j<strlist.count()/5; j++)
+//	    {
+//	      float pos, r,g,b,a;
+//	      pos = strlist[5*j].toFloat();
+//	      r = strlist[5*j+1].toInt();
+//	      g = strlist[5*j+2].toInt();
+//	      b = strlist[5*j+3].toInt();
+//	      a = strlist[5*j+4].toInt();
+//	      stops << QGradientStop(pos, QColor(r,g,b,a));
+//	    }
+//	}
+//    }
+//
+//
+//  
+//  QGradientStops gstops;
+//  gstops = StaticFunctions::resampleGradientStops(stops, m_trisets.count());
+//
+//  uchar *colors = Global::tagColors();  
+//  for(int i=0; i<m_trisets.count(); i++)
+//    {
+//      float pos = gstops[i].first;
+//      QColor color = gstops[i].second;
+//      Vec clr = Vec(color.redF(),
+//		    color.greenF(),
+//		    color.blueF());
+//      m_trisets[i]->setColor(clr);
+//    }
+//}
+
+void
+Trisets::sendParametersToMenu()
+{
+  QMap<QString, QVariantList> plist;
+  
+  QVariantList vlist;
+
+  vlist.clear();
+  vlist << QVariant(m_active);
+  plist["idx"] = vlist;
+  
+  Vec pos = m_trisets[m_active]->position();
+  vlist.clear();
+  vlist << QVariant(QString("%1 %2 %3").arg(pos.x).arg(pos.y).arg(pos.z));
+  plist["position"] = vlist;
+  
+  Vec scl = m_trisets[m_active]->scale();
+  vlist.clear();
+  vlist << QVariant(QString("%1 %2 %3").arg(scl.x).arg(scl.y).arg(scl.z));
+  plist["scale"] = vlist;
+  
+  vlist.clear();
+  vlist << QVariant(10*m_trisets[m_active]->opacity());
+  plist["transparency"] = vlist;
+  
+  vlist.clear();
+  vlist << QVariant(10*m_trisets[m_active]->reveal());
+  plist["reveal"] = vlist;
+  
+  vlist.clear();
+  vlist << QVariant(qFloor(10*m_trisets[m_active]->outline()));
+  plist["outline"] = vlist;
+  
+  vlist.clear();
+  vlist << QVariant(10*m_trisets[m_active]->glow());
+  plist["glow"] = vlist;
+  
+  vlist.clear();
+  vlist << QVariant(10*m_trisets[m_active]->dark());
+  plist["darken"] = vlist;
+  
+  emit setParameters(plist);
+}
+
+void
+Trisets::setExplode(float rad, Vec damp)
+{
+  Vec centroid = Vec(0,0,0);
+  for (int i=0; i<m_trisets.count(); i++)
+    centroid += m_trisets[i]->centroid();
+
+  centroid /= m_trisets.count();
+      
+  for (int i=0; i<m_trisets.count(); i++)
+    {
+      Vec dr = m_trisets[i]->centroid() - centroid;
+      dr = VECPRODUCT(dr, damp);
+      dr *= rad;
+      m_trisets[i]->setPosition(dr);
     }
 }
+
+void
+Trisets::setExplode(QList<int> indices, float rad, Vec damp)
+{
+  Vec centroid = Vec(0,0,0);
+  for (int i=0; i<indices.count(); i++)
+    {
+      int idx = indices[i];
+      centroid += m_trisets[idx]->centroid();
+    }
+  centroid /= indices.count();
+      
+  for (int i=0; i<m_trisets.count(); i++)
+    {
+      if (!indices.contains(i))
+	{
+	  Vec dr = m_trisets[i]->centroid() - centroid;
+	  dr = VECPRODUCT(dr, damp);
+	  dr *= rad;
+	  m_trisets[i]->setPosition(dr);
+	}
+    }
+}
+
+void
+Trisets::mergeSurfaces(QList<int> indices)
+{
+  QMessageBox::information(0, "Drishti", "Not Yet Implemented");			   
+}
+
+void
+Trisets::bakeColors(QList<int> indices)
+{
+  for (int i=0; i<indices.count(); i++)
+    {
+      int idx = indices[i];
+      m_trisets[idx]->bakeColors();
+    }
+  emit updateGL();
+}
+
+void
+Trisets::scaleChanged(QVector3D scl)
+{
+  for (int i=0; i<m_multiActive.count(); i++)
+    m_trisets[m_multiActive[i]]->setScale(Vec(scl.x(),
+					      scl.y(),
+					      scl.z()));
+  emit updateGL();
+}
+
+void
+Trisets::positionChanged(QVector3D pos)
+{
+  for (int i=0; i<m_multiActive.count(); i++)
+    m_trisets[m_multiActive[i]]->setPosition(Vec(pos.x(),
+						 pos.y(),
+						 pos.z()));
+  
+//  m_trisets[m_active]->setPosition(Vec(pos.x(),
+//				       pos.y(),
+//				       pos.z()));
+  emit updateGL();
+}
+
+void
+Trisets::transparencyChanged(int v)
+{
+  for (int i=0; i<m_multiActive.count(); i++)
+    m_trisets[m_multiActive[i]]->setOpacity(v*0.1);
+  
+  //m_trisets[m_active]->setOpacity(v*0.1);
+  emit updateGL();
+}
+
+void
+Trisets::revealChanged(int v)
+{
+  for (int i=0; i<m_multiActive.count(); i++)
+    m_trisets[m_multiActive[i]]->setReveal(v*0.1);
+  //m_trisets[m_active]->setReveal(v*0.1);
+  emit updateGL();
+}
+
+void
+Trisets::outlineChanged(int v)
+{
+  for (int i=0; i<m_multiActive.count(); i++)
+    m_trisets[m_multiActive[i]]->setOutline(v*0.1);
+  //m_trisets[m_active]->setOutline(v*0.1);
+  emit updateGL();
+}
+
+void
+Trisets::glowChanged(int v)
+{
+  for (int i=0; i<m_multiActive.count(); i++)
+    m_trisets[m_multiActive[i]]->setGlow(v*0.1);
+  //  m_trisets[m_active]->setGlow(v*0.1);
+  emit updateGL();
+}
+
+void
+Trisets::darkenChanged(int v)
+{
+  for (int i=0; i<m_multiActive.count(); i++)
+    m_trisets[m_multiActive[i]]->setDark(v*0.1);
+  //m_trisets[m_active]->setDark(v*0.1);
+  emit updateGL();
+}
+
+void
+Trisets::colorChanged(QList<int> indices, QColor color)
+{
+  float r = color.redF();
+  float g = color.greenF();
+  float b = color.blueF();
+  Vec pcolor = Vec(r,g,b);
+  for (int i=0; i<indices.count(); i++)
+    {
+      int idx = indices[i];
+      m_trisets[idx]->setColor(pcolor);
+    }
+  emit updateGL();
+}
+
+void
+Trisets::colorChanged(QColor color)
+{
+  float r = color.redF();
+  float g = color.greenF();
+  float b = color.blueF();
+  Vec pcolor = Vec(r,g,b);
+  bool ignoreBlack = false;
+//  if (m_trisets[m_active]->haveBlack())
+//    {
+//      bool ok;
+//      QStringList vlist;
+//      vlist << "No";
+//      vlist << "Yes";
+//      QString vstr = QInputDialog::getItem(0,
+//					   QWidget::tr("Deleted Vertices"),
+//					   QWidget::tr("Restore Deleted Vertices"),
+//					   vlist, 0, false,
+//					   &ok);
+//      if (ok && !vstr.isEmpty())
+//	{
+//	  if (vstr == "Yes")
+//	    ignoreBlack = true;
+//	}
+//    }
+//  m_trisets[m_active]->setColor(pcolor, ignoreBlack);
+  m_trisets[m_active]->setColor(pcolor);
+  emit updateGL();
+}
+
+void
+Trisets::setRotationMode(bool flag)
+{
+  m_rotationMode = flag;
+  for (int i=0; i<m_trisets.count(); i++)
+    {
+      m_trisets[i]->setRotationMode(m_rotationMode);
+    }
+}
+
+

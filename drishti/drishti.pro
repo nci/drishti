@@ -25,7 +25,8 @@ FORMS += mainwindow.ui \
 	 profileviewer.ui \
 	 viewseditor.ui \
 	 volumeinformation.ui \
-	 raycastmenu.ui
+         raycastmenu.ui \
+         meshinfowidget.ui
 
 
 TEMPLATE = app
@@ -249,7 +250,10 @@ HEADERS += boundingbox.h \
 	   mybitarray.h \
 	   rcviewer.h \
 	   rcshaderfactory.h \
-	   popupslider.h
+           popupslider.h \
+           meshinfowidget.h \
+           connectmeshinfowidget.h
+
 
 SOURCES += boundingbox.cpp \
            blendshaderfactory.cpp \
@@ -386,4 +390,5 @@ SOURCES += boundingbox.cpp \
 	   mybitarray.cpp \
 	   rcviewer.cpp \
 	   rcshaderfactory.cpp \
-	   popupslider.cpp
+	   popupslider.cpp \
+           meshinfowidget.cpp

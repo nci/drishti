@@ -258,18 +258,39 @@ MainWindow::MainWindow(QWidget *parent) :
 //  //----------------------------------------------------------
 
 
-  m_dockTF->setFloating(true);
+// m_dockTF->setFloating(true);
 //  dock2->setFloating(true);
 //  dock3->setFloating(true);
 //  dock4->setFloating(true);
 //  dock5->setFloating(true);
 //  m_dockKeyframe->setFloating(true);
 
+    
+  //----------------------------------------------------------
+  //----------------------------------------------------------
+  //----------------------------------------------------------
+  m_dockMesh = new QDockWidget(QWidget::tr("Mesh Information"), this);
+  m_dockMesh->setAllowedAreas(Qt::LeftDockWidgetArea | 
+			    Qt::RightDockWidgetArea);
+  QVBoxLayout *vbox3 = new QVBoxLayout();
+  m_meshInfoWidget = new MeshInfoWidget();
+  vbox3->addWidget(m_meshInfoWidget);
+  QWidget *widget3 = new QWidget();
+  widget3->setLayout(vbox3);
+  m_dockMesh->setWidget(widget3);
+  m_dockMesh->hide();
+  //----------------------------------------------------------
+  //----------------------------------------------------------
+  //----------------------------------------------------------
+
+
+  
   addDockWidget(Qt::RightDockWidgetArea, m_dockTF);
   addDockWidget(Qt::RightDockWidgetArea, dock2);
   addDockWidget(Qt::RightDockWidgetArea, dock3);
   addDockWidget(Qt::LeftDockWidgetArea, dock4);
   addDockWidget(Qt::LeftDockWidgetArea, dock5);
+  addDockWidget(Qt::LeftDockWidgetArea, m_dockMesh);
   addDockWidget(Qt::BottomDockWidgetArea,m_dockKeyframe);
 //  addDockWidget(Qt::BottomDockWidgetArea,m_dockGallery);
 
@@ -313,6 +334,11 @@ MainWindow::MainWindow(QWidget *parent) :
   #include "connectvolinfowidget.h"
   #include "connectgeometryobjects.h"
 
+  #include "connectmeshinfowidget.h"
+
+
+  connect(GeometryObjects::trisets(), SIGNAL(updateMeshList(QStringList)),
+	  this, SLOT(updateMeshList(QStringList)));
 
   initializeRecentFiles();
 
@@ -1813,6 +1839,13 @@ MainWindow::on_actionTriset_triggered()
   QFileInfo f(flnms[0]);
   Global::setPreviousDirectory(f.absolutePath());
 
+
+  updateMeshList(GeometryObjects::trisets()->getMeshList());
+  GeometryObjects::trisets()->removeFromMouseGrabberPool();
+
+  m_Viewer->switchDrawVolume();
+  m_dockMesh->show();
+  m_dockTF->hide();
 }
 
 void
@@ -2216,6 +2249,14 @@ MainWindow::dropEvent(QDropEvent *event)
 
 		  QFileInfo f(url.toLocalFile());
 		  Global::setPreviousDirectory(f.absolutePath());
+		  	      
+		  updateMeshList(GeometryObjects::trisets()->getMeshList());
+		  GeometryObjects::trisets()->removeFromMouseGrabberPool();		  
+
+		  m_Viewer->switchDrawVolume();
+
+		  m_dockMesh->show();
+		  m_dockTF->hide();
 		}
 	      else if (StaticFunctions::checkExtension(url.toLocalFile(), "porethroat.nc") ||
 		       StaticFunctions::checkExtension(url.toLocalFile(), "graphml") ||
@@ -5409,20 +5450,20 @@ MainWindow::on_actionMouse_Grab_triggered()
   if (LightHandler::giLights()->count())
     keys << "gap";
 
-  for(int i=0; i<GeometryObjects::trisets()->count(); i++)
-    {
-      bool flag = GeometryObjects::trisets()->isInMouseGrabberPool(i);
-      QString name = QString("mesh %1").arg(i);
-      name += QString(" (%1)").arg(QFileInfo(GeometryObjects::trisets()->filename(i)).fileName());
-      vlist.clear();
-      vlist << QVariant("checkbox");
-      vlist << QVariant(flag);
-      plist[name] = vlist;
-
-      keys << name;
-    }
-  if (GeometryObjects::trisets()->count())
-    keys << "gap";
+//  for(int i=0; i<GeometryObjects::trisets()->count(); i++)
+//    {
+//      bool flag = GeometryObjects::trisets()->isInMouseGrabberPool(i);
+//      QString name = QString("mesh %1").arg(i);
+//      name += QString(" (%1)").arg(QFileInfo(GeometryObjects::trisets()->filename(i)).fileName());
+//      vlist.clear();
+//      vlist << QVariant("checkbox");
+//      vlist << QVariant(flag);
+//      plist[name] = vlist;
+//
+//      keys << name;
+//    }
+//  if (GeometryObjects::trisets()->count())
+//    keys << "gap";
 
   for(int i=0; i<GeometryObjects::networks()->count(); i++)
     {
@@ -5609,3 +5650,46 @@ MainWindow::on_actionMouse_Grab_triggered()
 	}
     }
 }
+
+
+void
+MainWindow::setMeshVisible(int idx, bool flag)
+{
+  GeometryObjects::trisets()->setShow(idx, flag);  
+  m_Viewer->updateGL();
+}
+
+void
+MainWindow::setMeshActive(int idx, bool flag)
+{
+  GeometryObjects::trisets()->setActive(idx, flag);
+
+  if (!flag)
+    GeometryObjects::trisets()->removeFromMouseGrabberPool(idx);
+  else
+    GeometryObjects::trisets()->addInMouseGrabberPool(idx);
+
+  m_Viewer->updateGL();
+}
+
+void
+MainWindow::updateMeshList(QStringList names)
+{
+  m_meshInfoWidget->setMeshes(names);
+
+//  if (GeometryObjects::trisets()->count() == 0)
+//    {
+//      if (ui.actionPaintMode->isChecked())
+//	{
+//	  ui.actionPaintMode->setChecked(false);
+//	  m_paintMenuWidget->hide();
+//	}
+//    }
+}
+
+void
+MainWindow::updateMeshList()
+{
+  m_meshInfoWidget->setMeshes(GeometryObjects::trisets()->getMeshList());
+}
+

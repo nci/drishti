@@ -16,6 +16,7 @@
 #include "volumeinformationwidget.h"
 #include "preferenceswidget.h"
 #include "classes.h"
+#include "meshinfowidget.h"
 
 class MainWindow : public QMainWindow
 {
@@ -212,6 +213,12 @@ class MainWindow : public QMainWindow
    void show16BitEditor(bool);
 
    void addDockFrame(QString, QFrame*);
+
+   void setMeshVisible(int, bool);
+   void setMeshActive(int, bool);
+   void updateMeshList(QStringList);
+   void updateMeshList();
+
      
  private :
    Ui::MainWindow ui;
@@ -230,10 +237,13 @@ class MainWindow : public QMainWindow
    KeyFrameEditor *m_keyFrameEditor;
    QDockWidget *m_dockKeyframe;
    QDockWidget *m_dockTF;
+   QDockWidget *m_dockMesh;
 
    ViewsEditor *m_gallery;
    QDockWidget *m_dockGallery;
 
+   MeshInfoWidget *m_meshInfoWidget;
+  
    TransferFunctionContainer *m_tfContainer;
    TransferFunctionManager *m_tfManager;
    TransferFunctionEditorWidget *m_tfEditor;

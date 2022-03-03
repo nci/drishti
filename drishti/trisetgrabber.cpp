@@ -7,6 +7,10 @@ TrisetGrabber::TrisetGrabber()
 {
   m_pressed = false;
   m_moveAxis = MoveAll;
+  //m_allowMove = false;
+
+  m_rotationMode = false;
+  m_grabMode = false;
 
   m_labelSelected = -1;
 }
@@ -25,6 +29,16 @@ TrisetGrabber::setMouseGrab(bool f)
   if (!f) m_pressed = false;
 }
 
+void
+TrisetGrabber::setRotationMode(bool f)
+{
+  m_rotationMode = f;
+}
+void
+TrisetGrabber::setGrabMode(bool f)
+{
+  m_grabMode = f;
+}
 
 bool
 TrisetGrabber::checkLabel(int x, int y,
@@ -76,31 +90,72 @@ TrisetGrabber::checkForMouseHover(int x, int y,
       return Vec(1,1,100);
     }
 		     
-
-  float chkd1 = 100;
-  float chkd2 = 100;
-  int oh = camera->screenHeight();
-  Vec cpos = camera->position();
-  Vec vd = camera->viewDirection()/camera->sceneRadius();
-  float mindst = 1000;
-  float dx = -1;
-  float dy = -1;
-  QPoint hp1(x, y);
-  for(int p=0; p<m_samplePoints.count(); p++)
+  if (!m_grabMode)
     {
-      int chkd = (p == 0 ? chkd1 : chkd2);
-      Vec pos = camera->projectedCoordinatesOf(position()+m_samplePoints[p]);
-      QPoint hp0(pos.x, pos.y);
-      int dst = (hp0-hp1).manhattanLength();
-      if (dst < chkd && dst < mindst)
+      Vec bmin, bmax, bcen;
+      Vec axisX, axisY, axisZ;
+      tenclosingBox(bmin, bmax);			    
+      getAxes(axisX, axisY, axisZ);
+      bcen = (bmax+bmin)*0.5;
+      
+      Vec va[6];
+      va[0] = camera->projectedCoordinatesOf(bcen + axisX);
+      va[1] = camera->projectedCoordinatesOf(bcen - axisX);
+      va[2] = camera->projectedCoordinatesOf(bcen + axisY);
+      va[3] = camera->projectedCoordinatesOf(bcen - axisY);
+      va[4] = camera->projectedCoordinatesOf(bcen + axisZ);
+      va[5] = camera->projectedCoordinatesOf(bcen - axisZ);
+      
+      float dmin = 10000000;
+      int daxis = -1;
+      for(int i=0; i<3; i++)
 	{
-	  mindst = dst;
-	  dx = dst;
-	  dy = (position()+m_samplePoints[p] - cpos)*vd;
+	  QVector2D h0 = QVector2D(va[2*i].x, va[2*i].y);
+	  QVector2D h1 = QVector2D(va[2*i+1].x, va[2*i+1].y);
+	  QVector2D hu = (h1-h0).normalized();
+	  float hlen = h1.distanceToPoint(h0);
+	  
+	  float d = QVector2D(x,y).distanceToLine(h0, hu);
+	  float d0 = QVector2D(x,y).distanceToPoint(h0);
+	  float d1 = QVector2D(x,y).distanceToPoint(h1);
+	  if (d < 10 &&
+	      d < dmin &&
+	      d0< hlen &&
+	      d1< hlen)
+	    {
+	      dmin = d;
+	      daxis = i;
+	    }
 	}
+      
+      m_moveAxis = MoveAll;
+      if (daxis == 0) m_moveAxis = MoveX;
+      if (daxis == 1) m_moveAxis = MoveY;
+      if (daxis == 2) m_moveAxis = MoveZ;
+      
+      if (daxis == -1)
+	{
+	  Vec c = camera->projectedCoordinatesOf(bcen);
+	  if (QVector2D(x,y).distanceToPoint(QVector2D(c.x, c.y)) < 50)
+	    return Vec(1,1,100);
+	  else
+	    return Vec(0,0,100);
+	}
+      
+      return Vec(1,1,100);
     }
-  
-  return Vec(dx, dy, 100);
+  else
+    {  
+      Vec bmin, bmax, bcen;
+      Vec axisX, axisY, axisZ;
+      tenclosingBox(bmin, bmax);			    
+      bcen = (bmax+bmin)*0.5;
+      Vec c = camera->projectedCoordinatesOf(bcen);
+      if (QVector2D(x,y).distanceToPoint(QVector2D(c.x, c.y)) < 15)
+	return Vec(1,1,100);
+      else
+	return Vec(0,0,100);
+    }
 }
 
 //Vec
@@ -157,6 +212,9 @@ TrisetGrabber::mousePressEvent(QMouseEvent* const event,
 {
   m_pressed = true;
   m_prevPos = event->pos();
+
+  if (m_grabMode)
+    emit meshGrabbed();
 }
 
 void
@@ -186,11 +244,11 @@ void
 TrisetGrabber::mouseMoveEvent(QMouseEvent* const event,
 			       Camera* const camera)
 {
-  if (!m_pressed)
-    return;
-  
+  if (!m_pressed || m_grabMode)
+    return;  
 
   QPoint delta = event->pos() - m_prevPos;
+
 
   if (m_labelSelected > -1)
     {
@@ -199,79 +257,91 @@ TrisetGrabber::mouseMoveEvent(QMouseEvent* const event,
       return;
     }
   
-  if (event->buttons() == Qt::LeftButton &&
-      event->modifiers() == Qt::NoModifier)
+  if (event->buttons() == Qt::LeftButton)
     {
-      Vec trans(delta.x(), -delta.y(), 0.0f);
-      
-      // Scale to fit the screen mouse displacement
-      trans *= 2.0 * tan(camera->fieldOfView()/2.0) *
-	fabs((camera->frame()->coordinatesOf(Vec(0,0,0))).z) /
-	camera->screenHeight();
-      // Transform to world coordinate system.
-      trans = camera->frame()->orientation().rotate(trans);
-      
-      if (m_moveAxis == MoveX)
-	trans = Vec(trans.x,0,0);
-      else if (m_moveAxis == MoveY)
-	trans = Vec(0,trans.y,0);
-      else if (m_moveAxis == MoveZ)
-	trans = Vec(0,0,trans.z);
-
-      Vec pos = position() + trans;
-      setPosition(pos);
-    }
-  else if (event->buttons() == Qt::LeftButton &&
-	   event->modifiers() & Qt::ControlModifier)
-    {
-      if (moveAxis() == MoveAll)
+      if (!m_rotationMode)
 	{
-	  Vec trans = camera->projectedCoordinatesOf(centroid()+position());
-
-	  Quaternion q = StaticFunctions::deformedBallQuaternion(event->x(), event->y(),
-								 trans.x, trans.y,
-								 m_prevPos.x(), m_prevPos.y(),
-								 camera);
-	  Vec axis;
-	  qreal angle;
-	  q.getAxisAngle(axis, angle);
+	  Vec trans(delta.x(), -delta.y(), 0.0f);
 	  
-	  if (event->modifiers() &= Qt::ShiftModifier)
+	  // Scale to fit the screen mouse displacement
+	  trans *= 2.0 * tan(camera->fieldOfView()/2.0) *
+	    fabs((camera->frame()->coordinatesOf(Vec(0,0,0))).z) /
+	    camera->screenHeight();
+	  // Transform to world coordinate system.
+	  trans = camera->frame()->orientation().rotate(trans);
+	  
+	  Vec axisX, axisY, axisZ;
+	  if (m_moveAxis != MoveAll)
 	    {
-	      if (axis*camera->viewDirection() < 0.0)
-		angle = -angle;
-	      axis = camera->viewDirection();
+	      getAxes(axisX, axisY, axisZ);
+	      axisX.normalize();
+	      axisY.normalize();
+	      axisZ.normalize();
+	      
+	      if (m_moveAxis == MoveX)
+		trans = trans.x * axisX;
+	      else if (m_moveAxis == MoveY)
+		trans = trans.y * axisY;
+	      else if (m_moveAxis == MoveZ)
+		trans = trans.z * axisZ;
 	    }
-
-	  axis = Matrix::rotateVec(m_localXform, axis);
-
-	  Quaternion rot = Quaternion(axis, angle);
-
-	  rotate(rot);
+	  
+	  Vec pos = position() + trans;
+	  setPosition(pos);
+	  emit posChanged();
 	}
-      else
+      else 
 	{
-	  Vec axis;
-	  if (moveAxis() < MoveY) axis = Vec(1,0,0);
-	  else if (moveAxis() < MoveZ) axis = Vec(0,1,0);
-	  else axis = Vec(0,0,1);
-	  
-	  Vec voxelScaling = Global::voxelScaling();
-	  Vec pos = VECPRODUCT(position(), voxelScaling);
-	  pos = Matrix::xformVec(m_localXform, pos);
-	  
-	  float r = 1.0;
-	  Vec trans(delta.x(), delta.y(), 0.0f);
-	  
-	  Vec p0 = camera->projectedCoordinatesOf(pos); p0 = Vec(p0.x, p0.y, 0);
-	  Vec c0 = pos + r*axis;
-	  c0 = camera->projectedCoordinatesOf(c0); c0 = Vec(c0.x, c0.y, 0);
-	  Vec perp = c0-p0;
-	  perp = Vec(-perp.y, perp.x, 0);
-	  perp.normalize();
-	  
-	  float angle = perp * trans;
-	  rotate(axis, angle);
+	  if (moveAxis() == MoveAll)
+	    {
+	      //Vec trans = camera->projectedCoordinatesOf(centroid()+position());
+	      Vec trans = camera->projectedCoordinatesOf(tcentroid());
+	      
+	      Quaternion q = StaticFunctions::deformedBallQuaternion(event->x(), event->y(),
+								     trans.x, trans.y,
+								     m_prevPos.x(), m_prevPos.y(),
+								     camera);
+	      Vec axis;
+	      qreal angle;
+	      q.getAxisAngle(axis, angle);
+	      
+	      if (event->modifiers() &= Qt::ShiftModifier)
+		{
+		  if (axis*camera->viewDirection() < 0.0)
+		    angle = -angle;
+		  axis = camera->viewDirection();
+		}
+	      
+	      axis = Matrix::rotateVec(m_localXform, axis);
+	      
+	      Quaternion rot = Quaternion(axis, angle);
+	      
+	      rotate(rot);
+	    }
+	  else
+	    {
+	      Vec axis;
+	      if (moveAxis() < MoveY) axis = Vec(1,0,0);
+	      else if (moveAxis() < MoveZ) axis = Vec(0,1,0);
+	      else axis = Vec(0,0,1);
+	      
+	      Vec voxelScaling = Global::voxelScaling();
+	      Vec pos = VECPRODUCT(position(), voxelScaling);
+	      pos = Matrix::xformVec(m_localXform, pos);
+	      
+	      float r = 1.0;
+	      Vec trans(delta.x(), delta.y(), 0.0f);
+	      
+	      Vec p0 = camera->projectedCoordinatesOf(pos); p0 = Vec(p0.x, p0.y, 0);
+	      Vec c0 = pos + r*axis;
+	      c0 = camera->projectedCoordinatesOf(c0); c0 = Vec(c0.x, c0.y, 0);
+	      Vec perp = c0-p0;
+	      perp = Vec(-perp.y, perp.x, 0);
+	      perp.normalize();
+	      
+	      float angle = perp * trans;
+	      rotate(axis, angle);
+	    }
 	}
     }
   
@@ -283,4 +353,7 @@ TrisetGrabber::mouseReleaseEvent(QMouseEvent* const event,
 				 Camera* const camera)
 {
   m_pressed = false;
+
+  if (!m_grabMode)
+    emit updateParam();
 }

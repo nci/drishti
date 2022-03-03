@@ -25,7 +25,9 @@ class TrisetGrabber : public QObject, public MouseGrabber, public TrisetObject
   };
 
   bool mousePressed();
-
+  void setRotationMode(bool);
+  void setGrabMode(bool);
+  
   void setMouseGrab(bool);
   Vec checkForMouseHover(int, int, const Camera* const);  
   void checkIfGrabsMouse(int, int, const Camera* const);
@@ -38,15 +40,25 @@ class TrisetGrabber : public QObject, public MouseGrabber, public TrisetObject
   void mouseReleaseEvent(QMouseEvent* const, Camera* const);
 
   int labelGrabbed() { return (m_labelSelected); }
-
+  
+ signals :
+  void updateParam();
+  void meshGrabbed();
+  void posChanged();
+  
  private :
   int m_labelSelected;
   float m_screenWidth, m_screenHeight;
-
+  
   int m_moveAxis;
   bool m_pressed;
   QPoint m_prevPos;
 
+  bool m_allowMove;
+
+  bool m_rotationMode;
+  bool m_grabMode;
+  
   float projectOnBall(float, float);
 
   bool checkLabel(int, int, const Camera* const);

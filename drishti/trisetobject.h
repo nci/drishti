@@ -21,9 +21,11 @@ class TrisetObject
   bool clip() { return m_clip; }
   void setClip(bool s) { m_clip = s; }
 
-  Vec tcentroid() { return m_tcentroid; }
+  Vec tcentroid();
   Vec centroid() { return m_centroid; }
   void enclosingBox(Vec&, Vec&);
+  void tenclosingBox(Vec&, Vec&);
+  void getAxes(Vec&, Vec&, Vec&);
 
   QString filename() { return m_fileName; }
 
@@ -38,6 +40,7 @@ class TrisetObject
   
   Vec color() { return m_color; }
   void setColor(Vec);
+  void bakeColors();
 
   Vec cropBorderColor() { return m_cropcolor; }
   void setCropBorderColor(Vec color) { m_cropcolor = color; }

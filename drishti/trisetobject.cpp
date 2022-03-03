@@ -86,28 +86,27 @@ TrisetObject::setRotation(Quaternion q)
   m_q = q;
 }
 
+Vec
+TrisetObject::tcentroid()
+{
+  m_tcentroid = (m_tenclosingBox[0] + m_tenclosingBox[6])*0.5;
+  return m_tcentroid;
+}
+
+void
+TrisetObject::tenclosingBox(Vec &boxMin,
+			    Vec &boxMax)
+{
+  boxMin = m_tenclosingBox[0];
+  boxMax = m_tenclosingBox[6];
+}
+
 void
 TrisetObject::enclosingBox(Vec &boxMin,
 			   Vec &boxMax)
 {
   boxMin = m_enclosingBox[0];
   boxMax = m_enclosingBox[6];
-
-//  Vec tb[8];  
-//  for(int i=0; i<8; i++)    
-//    tb[i] = Matrix::xformVec(m_localXform, m_enclosingBox[i]);
-//
-//  boxMin = boxMax = tb[0];
-//  for(int i=1; i<8; i++)    
-//    {
-//      boxMin = Vec(qMin(boxMin.x,tb[i].x),
-//		   qMin(boxMin.y,tb[i].y),
-//		   qMin(boxMin.z,tb[i].z));
-//		   
-//      boxMax = Vec(qMax(boxMax.x,tb[i].x),
-//		   qMax(boxMax.y,tb[i].y),
-//		   qMax(boxMax.z,tb[i].z));
-//    }
 }
 
 void
@@ -196,6 +195,29 @@ TrisetObject::setColor(Vec color)
 
   loadVertexBufferData();
 }
+
+void
+TrisetObject::bakeColors()
+{
+  // if the mesh has been painted
+  // get colors back from gpu
+  if (m_origColorBuffer)
+    {
+      int nvert = m_vertices.count()/3;
+      int nv = 9*nvert;
+      glBindBuffer(GL_ARRAY_BUFFER, m_glVertBuffer);
+      float *ptr = (float*)(glMapBuffer(GL_ARRAY_BUFFER, GL_READ_ONLY));
+
+      for(int i=0; i<nvert; i++)
+	{
+	  m_vcolor[3*i+0] = ptr[9*i+6];
+	  m_vcolor[3*i+1] = ptr[9*i+7];
+	  m_vcolor[3*i+2] = ptr[9*i+8];	  
+	}
+      glUnmapBuffer(GL_ARRAY_BUFFER);
+    }
+}
+
 
 void
 TrisetObject::mirror(int type)
@@ -641,6 +663,14 @@ TrisetObject::drawCaption(int cpid, QGLViewer *viewer)
 	       GL_RGBA, GL_UNSIGNED_BYTE,
 	       pimg.bits());
 }
+
+void
+TrisetObject::getAxes(Vec& axisX, Vec& axisY, Vec& axisZ)
+{
+  axisX =  (m_tenclosingBox[1] - m_tenclosingBox[0])*0.5;
+  axisY =  (m_tenclosingBox[3] - m_tenclosingBox[0])*0.5;
+  axisZ =  (m_tenclosingBox[4] - m_tenclosingBox[0])*0.5;    
+ }
 
 void
 TrisetObject::postdraw(QGLViewer *viewer,

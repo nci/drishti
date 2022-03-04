@@ -964,7 +964,7 @@ Trisets::renderShadows(GLint drawFboId, int wd, int ht)
   glUniform1i(shadowParm[2], 1); // actual-to-shadow depth
   glUniform1f(shadowParm[3], m_blur); // soft shadows
   glUniform1f(shadowParm[4], m_edges); // edge enhancement
-  glUniform1f(shadowParm[5], Global::gamma()); // edge enhancement
+  glUniform1f(shadowParm[5], Global::gamma()); // gamma
   float roughness = 0.9-m_trisets[0]->roughness()*0.1;
   glUniform1f(shadowParm[6], roughness); // specularity
   glUniform1f(shadowParm[7], m_trisets[0]->specular()); // specularity
@@ -1306,10 +1306,7 @@ Trisets::duplicate(int i)
 
 bool
 Trisets::keyPressEvent(QKeyEvent *event)
-{
-  return false;
-  //---------------------
-  
+{  
   int idx = -1;
   for(int i=0; i<m_trisets.count(); i++)
     {

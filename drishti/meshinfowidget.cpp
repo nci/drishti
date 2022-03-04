@@ -185,7 +185,8 @@ MeshInfoWidget::addMesh(QString meshName, bool show, bool clip, QString color)
     if (show)
       {
 	wi->setBackground(QBrush(Qt::darkGray));	
-	wi->setText(u8"\u2705");
+	wi->setText("X");
+	//wi->setText(u8"\u2705");
       }
     else
       {
@@ -207,7 +208,8 @@ MeshInfoWidget::addMesh(QString meshName, bool show, bool clip, QString color)
     if (clip)
       {
 	wi->setBackground(QBrush(Qt::darkGray));	
-	wi->setText(u8"\u2705");
+	//wi->setText(u8"\u2705");
+	wi->setText("X");
       }
     else
       {
@@ -318,7 +320,8 @@ MeshInfoWidget::sectionClicked(int col)
       else
 	{
 	  wi->setBackground(QBrush(Qt::darkGray));
-	  wi->setText(u8"\u2705");
+	  //wi->setText(u8"\u2705");
+	  wi->setText("X");
 	  cs = true;
 	}
 
@@ -364,7 +367,8 @@ MeshInfoWidget::sectionDoubleClicked(int col)
       if (cs0)
 	{
 	  wi->setBackground(QBrush(Qt::darkGray));
-	  wi->setText(u8"\u2705");
+	  //wi->setText(u8"\u2705");
+	  wi->setText("X");
 	}
       else
 	{
@@ -431,7 +435,8 @@ MeshInfoWidget::cellClicked(int row, int col)
 	}
       else
 	{
-	  wi->setText(u8"\u2705");
+	  //wi->setText(u8"\u2705");
+	  wi->setText("X");
 	  wi->setBackground(QBrush(Qt::darkGray));
 	  CS = true;
 	}
@@ -446,7 +451,8 @@ MeshInfoWidget::cellClicked(int row, int col)
 	  if (CS)
 	    {
 	      wi->setBackground(QBrush(Qt::darkGray));
-	      wi->setText(u8"\u2705");
+	      //wi->setText(u8"\u2705");
+	      wi->setText("X");
 	    }
 	  else
 	    {
@@ -560,7 +566,8 @@ MeshInfoWidget::cellClicked(int row, int col)
 	}
       else
 	{
-	  wi->setText(u8"\u2705");
+	  //wi->setText(u8"\u2705");
+	  wi->setText("X");
 	  wi->setBackground(QBrush(Qt::darkGray));
 	  flag = true;
 	}

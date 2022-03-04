@@ -309,6 +309,7 @@ MainWindow::MainWindow(QWidget *parent) :
   ui.menuView->addAction(dock3->toggleViewAction());
   ui.menuView->addAction(dock4->toggleViewAction());
   ui.menuView->addAction(m_dockKeyframe->toggleViewAction());
+  ui.menuView->addAction(m_dockMesh->toggleViewAction());
 //  ui.menuView->addAction(m_dockGallery->toggleViewAction());
   ui.menuView->addSeparator();
   ui.menuView->addAction(dock5->toggleViewAction());

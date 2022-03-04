@@ -25,8 +25,8 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>570</width>
-     <height>21</height>
+     <width>1000</width>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -46,8 +46,8 @@
      <property name="title">
       <string>Load Geometry</string>
      </property>
-     <addaction name="actionNetwork"/>
      <addaction name="actionTriset"/>
+     <addaction name="actionNetwork"/>
      <addaction name="actionPoints"/>
      <addaction name="actionPaths"/>
      <addaction name="actionGrids"/>

@@ -1,8 +1,8 @@
 #ifndef CONNECTGEOMETRYOBJECTS_H
 #define CONNECTGEOMETRYOBJECTS_H
 
-    connect(GeometryObjects::trisets(), SIGNAL(updateGL(int)),
-	    m_Viewer, SLOT(updateGL(int)));
+    connect(GeometryObjects::trisets(), SIGNAL(updateGL()),
+	    m_Viewer, SLOT(updateGL()));
 
     connect(GeometryObjects::paths(), SIGNAL(showMessage(QString, bool)),
 	    m_Viewer, SLOT(displayMessage(QString, bool)));

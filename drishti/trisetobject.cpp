@@ -675,7 +675,8 @@ TrisetObject::getAxes(Vec& axisX, Vec& axisY, Vec& axisZ)
 void
 TrisetObject::postdraw(QGLViewer *viewer,
 		       int x, int y,
-		       bool active, int idx)
+		       bool active, bool displayName,
+		       int idx, int moveAxis)
 {
   if (!m_show)
     return;
@@ -692,11 +693,39 @@ TrisetObject::postdraw(QGLViewer *viewer,
     Vec axisX =  m_tenclosingBox[1] - m_tenclosingBox[0];
     Vec axisY =  m_tenclosingBox[3] - m_tenclosingBox[0];
     Vec axisZ =  m_tenclosingBox[4] - m_tenclosingBox[0];    
-    axisX *= 0.75;
-    axisY *= 0.75;
-    axisZ *= 0.75;
-    StaticFunctions::drawAxis(m_tenclosingBox[0],
-			      axisX, axisY, axisZ);
+    axisX *= 0.5;
+    axisY *= 0.5;
+    axisZ *= 0.5;
+    if (moveAxis == 0)
+      {
+	axisX *= 1.1;
+	axisY *= 0.01;
+	axisZ *= 0.01;
+      }
+    if (moveAxis == 1)
+      {
+	axisY *= 1.1;
+	axisX *= 0.01;
+	axisZ *= 0.01;
+      }
+    if (moveAxis == 2)
+      {
+	axisZ *= 1.1;
+	axisX *= 0.01;
+	axisY *= 0.01;
+      }
+    StaticFunctions::drawAxis((m_tenclosingBox[6]+m_tenclosingBox[0])*0.5,
+			      axisX, axisY, axisZ,
+			      true, 3*active); // draw axis to all faces
+
+    glBlendFunc(GL_ONE, GL_ONE);
+    glDisable(GL_DEPTH_TEST);
+
+    StaticFunctions::drawAxis((m_tenclosingBox[6]+m_tenclosingBox[0])*0.5,
+			      axisX, axisY, axisZ,
+			      true, 3*active); // draw axis to all faces
+//    StaticFunctions::drawAxis(m_tenclosingBox[0],
+//			      axisX, axisY, axisZ);
   }
 
   glDisable(GL_DEPTH_TEST);
@@ -713,7 +742,7 @@ TrisetObject::postdraw(QGLViewer *viewer,
   //------------------
 
   
-  if (active)
+  if (displayName)
     {
       QString str = QString("mesh %1").arg(idx);
       str += QString(" (%1)").arg(QFileInfo(m_fileName).fileName());
@@ -723,9 +752,8 @@ TrisetObject::postdraw(QGLViewer *viewer,
       int wd = metric.width(str);
       x += 10;
 
-      StaticFunctions::renderText(x+2, y, str, font, Qt::black, Qt::white);
-      //Vec cepos = viewer->camera()->projectedCoordinatesOf(position()+centroid());
-      //StaticFunctions::renderText(cepos.x-wd/2, cepos.y+ht/2, str, font, Qt::black, Qt::white);
+      StaticFunctions::renderText(x-wd/2, y+40, str, font, QColor("darkslategray"), Qt::white);
+      //StaticFunctions::renderText(x+2, y, str, font, Qt::black, Qt::white);
     }
   
   glEnable(GL_DEPTH_TEST);
@@ -840,7 +868,8 @@ TrisetObject::predraw(QGLViewer *viewer,
   Matrix::matmult(s1, s0, s2);
 
   Vec scale;
-  scale = (active ? m_scale*m_activeScale : m_scale);
+  //scale = (active ? m_scale*m_activeScale : m_scale);
+  scale = m_scale;
   
   Matrix::identity(s0);
   s0[0] = scale.x;

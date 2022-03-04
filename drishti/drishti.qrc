@@ -29,5 +29,8 @@
   <file>volinfo.help</file>
   <file>trisets.help</file>
   <file>mops.help</file>
+  <file>globalmeshcommand.help</file>
+  <file>multiplemeshcommand.help</file>
+  <file>singlemeshcommand.help</file>
 </qresource>
 </RCC>

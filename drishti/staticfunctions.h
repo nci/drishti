@@ -41,6 +41,7 @@ class StaticFunctions
 						  double*,
 						  Vec);
 
+  static void drawAxis(Vec, Vec, Vec, Vec, bool, int);
   static void drawAxis(Vec, Vec, Vec, Vec);
 
   static int intersectType1(Vec, Vec, Vec, Vec, Vec&);

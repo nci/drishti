@@ -198,6 +198,7 @@ MainWindow::MainWindow(QWidget *parent) :
   splitter->addWidget(m_tfManager);
   splitter->addWidget(m_tfEditor);
   m_dockTF->setWidget(splitter);
+  m_dockTF->hide();
   //----------------------------------------------------------
 
   //----------------------------------------------------------
@@ -269,7 +270,7 @@ MainWindow::MainWindow(QWidget *parent) :
   //----------------------------------------------------------
   //----------------------------------------------------------
   //----------------------------------------------------------
-  m_dockMesh = new QDockWidget(QWidget::tr("Mesh Information"), this);
+  m_dockMesh = new QDockWidget(QWidget::tr("Surfaces"), this);
   m_dockMesh->setAllowedAreas(Qt::LeftDockWidgetArea | 
 			    Qt::RightDockWidgetArea);
   QVBoxLayout *vbox3 = new QVBoxLayout();
@@ -2581,6 +2582,10 @@ MainWindow::preLoadVolume()
 void
 MainWindow::postLoadVolume()
 {
+  if (Global::volumeType() != Global::DummyVolume)
+    m_dockTF->show();
+
+  
   if (Global::volumeType() != Global::SingleVolume)
     MainWindowUI::mainWindowUI()->actionRaycastMode->setEnabled(false);
   else

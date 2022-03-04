@@ -125,7 +125,9 @@ class TrisetObject
   void draw(Camera*, bool);
   void drawOIT(Camera*, bool);
   void postdraw(QGLViewer*,
-		int, int, bool, int);
+		int, int,
+		bool, bool,
+		int, int);
 
   void makeReadyForPainting();
   bool paint(Vec);

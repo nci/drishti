@@ -31,8 +31,8 @@ MeshInfoWidget::MeshInfoWidget(QWidget *parent) :
 
   
   QStringList hlabels;
-  hlabels << tr("Name");
-  hlabels << tr("V");
+  hlabels << tr("Mesh Name");
+  hlabels << tr("V  ");
   hlabels << tr("X");
   hlabels << tr("C");
   m_meshList->setHorizontalHeaderLabels(hlabels);  
@@ -168,7 +168,7 @@ MeshInfoWidget::addMesh(QString meshName, bool show, bool clip, QString color)
   {
     QTableWidgetItem *wi = m_meshList->item(m_prevRow, 0);
     if (!wi) wi = new QTableWidgetItem("");
-    wi->setFont(QFont("MS Reference Sans Serif", 12));
+    //wi->setFont(QFont("MS Reference Sans Serif", 12));
     wi->setText(meshName);
     wi->setFlags(wi->flags() & ~Qt::ItemIsUserCheckable & ~Qt::ItemIsEditable);
     m_meshList->setItem(m_prevRow, 0, wi);
@@ -181,7 +181,7 @@ MeshInfoWidget::addMesh(QString meshName, bool show, bool clip, QString color)
     wi->setFlags(wi->flags() & ~Qt::ItemIsUserCheckable & ~Qt::ItemIsEditable & ~Qt::ItemIsSelectable);
     wi->setTextAlignment(Qt::AlignCenter);
     wi->setForeground(QBrush(Qt::white));
-    wi->setFont(QFont("Arial Rounded MT Bold", 14));
+    //wi->setFont(QFont("Arial Rounded MT Bold", 14));
     if (show)
       {
 	wi->setBackground(QBrush(Qt::darkGray));	
@@ -203,7 +203,7 @@ MeshInfoWidget::addMesh(QString meshName, bool show, bool clip, QString color)
     wi->setFlags(wi->flags() & ~Qt::ItemIsUserCheckable & ~Qt::ItemIsEditable & ~Qt::ItemIsSelectable);
     wi->setTextAlignment(Qt::AlignCenter);
     wi->setForeground(QBrush(Qt::white));
-    wi->setFont(QFont("Arial Rounded MT Bold", 14));
+    //wi->setFont(QFont("Arial Rounded MT Bold", 14));
     if (clip)
       {
 	wi->setBackground(QBrush(Qt::darkGray));	
@@ -630,17 +630,17 @@ MeshInfoWidget::meshListContextMenu(const QPoint& pos)
 
   QAction *delAction = new QAction("Delete", this);
   QAction *saveAction = new QAction("Save", this);
-  QAction *dupAction = new QAction("Duplicate", this);
+  //QAction *dupAction = new QAction("Duplicate", this);
 
   connect(delAction, SIGNAL(triggered()), this, SLOT(removeMesh()));
   connect(saveAction, SIGNAL(triggered()), this, SLOT(saveMesh()));
-  connect(dupAction, SIGNAL(triggered()), this, SLOT(duplicateMesh()));
+  //connect(dupAction, SIGNAL(triggered()), this, SLOT(duplicateMesh()));
 
   mContextMenu->addAction(delAction);
   mContextMenu->addSeparator();
   mContextMenu->addAction(saveAction);
-  mContextMenu->addSeparator();
-  mContextMenu->addAction(dupAction);
+  //mContextMenu->addSeparator();
+  //mContextMenu->addAction(dupAction);
 
   mContextMenu->exec(m_meshList->mapToGlobal(pos));
 }

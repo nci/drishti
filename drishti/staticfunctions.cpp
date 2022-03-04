@@ -151,7 +151,7 @@ StaticFunctions::resampleGradientStops(QGradientStops stops, int mapSize)
   int startj, endj;
   for(int i=0; i<stops.size(); i++)
     {
-      float pos = stops[i].first;
+      float pos = stops[i].first;  
       QColor color = stops[i].second;
       endj = pos*mapSize;
       colorMap[endj] = color;
@@ -292,6 +292,49 @@ StaticFunctions::drawEnclosingCube(Vec subvolmin,
       glVertex3f(subvolmax.x, subvolmax.y, subvolmin.z);
       glEnd();
     }
+}
+
+void
+StaticFunctions::drawAxis(Vec origin,
+			  Vec xAxis, Vec yAxis, Vec zAxis,
+			  bool bothSides,
+			  int lw)
+{
+  Vec x0, y0, z0;
+  Vec x,y,z;
+
+  if (!bothSides)
+    {
+      x0 = origin;
+      y0 = origin;
+      z0 = origin;
+    }
+  else
+    {
+      x0 = origin-xAxis;
+      y0 = origin-yAxis;
+      z0 = origin-zAxis;
+    }
+  x = origin+xAxis;
+  y = origin+yAxis;
+  z = origin+zAxis;
+  glLineWidth(lw);
+  glColor4f(0.9f, 0.1f, 0.1f, 0.9f);
+  Vec x9 = 0.9*x + 0.1*x0;
+  glBegin(GL_LINES);
+  glVertex3fv(x0);
+  glVertex3fv(x);
+  glEnd();
+  glColor4f(0.1f, 0.9f, 0.1f, 0.9f);
+  glBegin(GL_LINES);
+  glVertex3fv(y0);
+  glVertex3fv(y);
+  glEnd();
+  glColor4f(0.1f, 0.2f, 0.9f, 0.9f);
+  glBegin(GL_LINES);
+  glVertex3fv(z0);
+  glVertex3fv(z);
+  glEnd();
 }
 
 void

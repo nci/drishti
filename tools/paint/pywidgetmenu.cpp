@@ -12,8 +12,8 @@ PyWidgetMenu::PyWidgetMenu(QWidget *parent) :
   ui.setupUi(this);
   setStyleSheet("QWidget{background:gainsboro;}"); 
   ui.tableWidget->setSelectionBehavior(QAbstractItemView::SelectRows);
-  ui.tableWidget->setFont(QFont("MS Reference Sans Serif", 10));
-  ui.scriptList->setFont(QFont("MS Reference Sans Serif", 10));
+  ui.tableWidget->setFont(QFont("MS Reference Sans Serif", 12));
+  ui.scriptList->setFont(QFont("MS Reference Sans Serif", 12));
 
   connect(ui.scriptList, SIGNAL(currentIndexChanged(int)),
 	  this, SLOT(on_scriptChanged(int)));
@@ -193,7 +193,7 @@ PyWidgetMenu::addRow(QString key, QString value)
     }
   
   ui.tableWidget->resizeColumnsToContents();
-  ui.tableWidget->resizeRowsToContents();
+  //ui.tableWidget->resizeRowsToContents();
 }
 
 void
@@ -229,7 +229,7 @@ PyWidgetMenu::getData()
   for (int i=0; i<ui.tableWidget->rowCount(); i++)
     {
       kv << ui.tableWidget->item(i,0)->text();
-      kv << ui.tableWidget->item(i,1)->text();      
+      kv << ui.tableWidget->item(i,1)->text(); 
     }
   return kv;
 }

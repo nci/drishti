@@ -34,7 +34,6 @@ PyWidget::setFilename(QString volfile)
   m_plainTextEdit->appendPlainText(m_fileName);
   m_plainTextEdit->appendPlainText(m_maskName+"\n");
 
-
   m_menu->addRow("%DIR%", QFileInfo(m_fileName).absolutePath());
   m_menu->addRow("volume", "%DIR%/"+QFileInfo(m_fileName).fileName());
   m_menu->addRow("mask", "%DIR%/"+QFileInfo(m_maskName).fileName());
@@ -76,9 +75,11 @@ PyWidget::PyWidget(QWidget *parent)
   
   m_plainTextEdit = new QPlainTextEdit(this);
   m_plainTextEdit->setReadOnly(true);
+  m_plainTextEdit->setFont(QFont("MS Reference Sans Serif", 12));
 
   m_lineEdit = new QLineEdit(this);
   m_lineEdit->setClearButtonEnabled(true);
+  m_lineEdit->setFont(QFont("MS Reference Sans Serif", 12));
 
   QVBoxLayout *layout = new QVBoxLayout;
   layout->addWidget(m_plainTextEdit);

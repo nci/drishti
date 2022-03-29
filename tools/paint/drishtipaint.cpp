@@ -7798,18 +7798,18 @@ DrishtiPaint::on_actionHelp2D_triggered()
   help += "\n";
   help += "Script Folder : Location to store scripts to be call from Command.\n";
   help += "Command : A command promt is provided to run scripts from Script Folder.\n";
+  help += "          Script arguments are provided from the dialog adjoining the\n";
+  help += "          command prompt panel.  Each script is stored in its own directory.\n";
+  help += "          Each script directory contains a .json file which exposes the\n";
+  help += "          argument list to the user to modify.\n";
+  help += "          \n";  
+  help += "          %DIR% parameter specifies the directory where volume and mask files\n";
+  help += "          reside.\n";  
   help += "          Two arguments are provided by default to the script -\n";
-  help += "          volume=<volume file name> and\n";
-  help += "          mask=<mask file name>\n";
-  help += "          The argument output=<output file name> is also expected.\n";
-  help += "          no need to specify directory for output.\n";
-  help += "          output file will be stored in the same folder as volume and mask.\n";
-  help += "   For example : <script name> output=<file name> is enough\n";
-  help += "               (volume and mask arguments are added by default).\n";
+  help += "          volume=<volume file name> and mask=<mask file name>\n";
   help += "\n";
-  help += "   drishtiML.py output=test.raw\n";
   
-  QMessageBox::information(0, "Help for 2D boxes", help);
+  QMessageBox::about(0, "Help for 2D boxes", help);
 }
 
 void
@@ -7830,16 +7830,16 @@ DrishtiPaint::on_actionHelp3D_triggered()
   help += "\n";
   help += "Script Folder : Location to store scripts to be call from Command.\n";
   help += "Command : A command promt is provided to run scripts from Script Folder.\n";
+  help += "          Script arguments are provided from the dialog adjoining the\n";
+  help += "          command prompt panel.  Each script is stored in its own directory.\n";
+  help += "          Each script directory contains a .json file which exposes the\n";
+  help += "          argument list to the user to modify.\n";
+  help += "          \n";  
+  help += "          %DIR% parameter specifies the directory where volume and mask files\n";
+  help += "          reside.\n";  
   help += "          Two arguments are provided by default to the script -\n";
-  help += "          volume=<volume file name> and\n";
-  help += "          mask=<mask file name>\n";
-  help += "          The argument output=<output file name> is also expected.\n";
-  help += "          no need to specify directory for output.\n";
-  help += "          output file will be stored in the same folder as volume and mask.\n";
-  help += "   For example : <script name> output=<file name> is enough\n";
-  help += "               (volume and mask arguments are added by default).\n";
+  help += "          volume=<volume file name> and mask=<mask file name>\n";
   help += "\n";
-  help += "   drishtiML.py output=test.raw\n";
   
-  QMessageBox::information(0, "Help for 3D boxes", help);
+  QMessageBox::about(0, "Help for 3D boxes", help);
 }

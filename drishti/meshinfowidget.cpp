@@ -299,7 +299,34 @@ MeshInfoWidget::sectionClicked(int col)
 
   if (col == 3) // colormap
     {
-      emit processCommand("colormap");
+      QList<int> selIdx;
+      for(int i=0; i<m_meshList->rowCount(); i++)
+	{
+	  QTableWidgetItem *wi = m_meshList->item(i, 0);
+	  if (wi->isSelected())
+	    {
+	      selIdx << i;
+	    }
+	}
+
+      if (selIdx.count() == 1)
+	{
+	  int row = selIdx[0];
+	  QTableWidgetItem *wi;
+	  wi = m_meshList->item(row, col);
+	  QColor pcolor = wi->background().color();
+	  QColor color = DColorDialog::getColor(pcolor);
+	  if (color.isValid())
+	    {
+	      wi->setBackground(QBrush(color));
+	      wi->setForeground(QBrush(color));
+	      emit colorChanged(color);
+	    }
+	}
+      else if (selIdx.count() > 1)
+	emit processCommand(selIdx, "colormap");
+      else
+	emit processCommand("colormap");
       return;
     }
 
@@ -659,7 +686,6 @@ MeshInfoWidget::removeMesh()
   for(int i=0; i<m_meshList->rowCount(); i++)
     {
       QTableWidgetItem *wi = m_meshList->item(i, 0);
-      QColor bgcol = wi->background().color();
       if (wi->isSelected())
       selIdx << i;
     }
@@ -792,11 +818,10 @@ MeshInfoWidget::on_Command_pressed()
   for(int i=0; i<m_meshList->rowCount(); i++)
     {
       QTableWidgetItem *wi = m_meshList->item(i, 0);
-      QColor bgcol = wi->background().color();
       if (wi->isSelected())
       selIdx << i;
     }
-
+  
   int row = -1;
 
   if (selIdx.count() == 1)

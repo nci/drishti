@@ -1643,26 +1643,6 @@ Trisets::processCommand(int idx, QString cmd)
       return;
     }
 
-  if (list[0].contains("explode"))
-    {
-      Vec damp = Vec(1,1,1);
-      if (list[0] == "explodex") damp = Vec(1, 0, 0);
-      if (list[0] == "explodey") damp = Vec(0, 1, 0);
-      if (list[0] == "explodez") damp = Vec(0, 0, 1);
-      if (list[0] == "explodexy") damp = Vec(1, 1, 0);
-      if (list[0] == "explodexz") damp = Vec(0, 1, 1);
-      if (list[0] == "explodeyz") damp = Vec(0, 1, 1);
-	
-      float rad = 1;
-      if (list.count() > 1)
-	rad = list[1].toFloat(&ok);
-
-      QList<int> indices;
-      indices << idx;
-      setExplode(indices, rad, damp);
-      return;
-    }
-
 }
 
 // Multiple Mesh Command
@@ -1674,7 +1654,7 @@ Trisets::processCommand(QList<int> indices, QString cmd)
   bool ok;
   cmd = cmd.toLower();
   QStringList list = cmd.split(" ", QString::SkipEmptyParts);
-
+  
   //------------------
   // reorder groups
   if (list[0] == "movebottom")
@@ -1879,7 +1859,16 @@ Trisets::processCommand(QList<int> indices, QString cmd)
       if (list.count() > 1)
 	rad = list[1].toFloat(&ok);
 
-      setExplode(indices, rad, damp);
+      float ex,ey,ez;
+      ex = ey = ez = 0;
+      if (list.count() == 5)
+	{
+	  ex = list[2].toFloat(&ok);
+	  ey = list[3].toFloat(&ok);
+	  ez = list[4].toFloat(&ok);
+	}      
+
+      setExplode(indices, rad, damp, Vec(ex,ey,ez));
       return;
     }
 
@@ -2047,7 +2036,16 @@ Trisets::processCommand(QString cmd)
       if (list.count() > 1)
 	rad = list[1].toFloat(&ok);
 
-      setExplode(rad, damp);
+      float ex,ey,ez;
+      ex = ey = ez = 0;
+      if (list.count() == 5)
+	{
+	  ex = list[2].toFloat(&ok);
+	  ey = list[3].toFloat(&ok);
+	  ez = list[4].toFloat(&ok);
+	}      
+
+      setExplode(rad, damp, Vec(ex,ey,ez));
       return;
     }
 
@@ -3117,7 +3115,7 @@ Trisets::sendParametersToMenu()
 }
 
 void
-Trisets::setExplode(float rad, Vec damp)
+Trisets::setExplode(float rad, Vec damp, Vec eCen)
 {
   Vec centroid = Vec(0,0,0);
   for (int i=0; i<m_trisets.count(); i++)
@@ -3130,12 +3128,13 @@ Trisets::setExplode(float rad, Vec damp)
       Vec dr = m_trisets[i]->centroid() - centroid;
       dr = VECPRODUCT(dr, damp);
       dr *= rad;
+      dr += eCen;
       m_trisets[i]->setPosition(dr);
     }
 }
 
 void
-Trisets::setExplode(QList<int> indices, float rad, Vec damp)
+Trisets::setExplode(QList<int> indices, float rad, Vec damp, Vec eCen)
 {
   Vec centroid = Vec(0,0,0);
   for (int i=0; i<indices.count(); i++)
@@ -3147,11 +3146,12 @@ Trisets::setExplode(QList<int> indices, float rad, Vec damp)
       
   for (int i=0; i<m_trisets.count(); i++)
     {
-      if (!indices.contains(i))
+      if (indices.contains(i))
 	{
 	  Vec dr = m_trisets[i]->centroid() - centroid;
 	  dr = VECPRODUCT(dr, damp);
 	  dr *= rad;
+	  dr += eCen;
 	  m_trisets[i]->setPosition(dr);
 	}
     }

@@ -72,8 +72,8 @@ class Trisets : public QObject
 
   QStringList getMeshList();
 
-  void setExplode(float, Vec);
-  void setExplode(QList<int>, float, Vec);
+  void setExplode(float, Vec, Vec);
+  void setExplode(QList<int>, float, Vec, Vec);
 
  public slots :
   void setShow(int, bool);

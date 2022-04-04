@@ -22,8 +22,6 @@
  * WHETHER OR NOT ADVISED OF THE POSSIBILITY OF DAMAGE, AND ON ANY THEORY OF 
  * LIABILITY, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE 
  * OF THIS SOFTWARE.
- *
- * BigTIFF modifications by Ole Eichhorn / Aperio Technologies (ole@aperio.com)
  */
 
 /*
@@ -38,8 +36,6 @@
  * NB: NB: THIS ARRAY IS ASSUMED TO BE SORTED BY TAG.
  *       If a tag can have both LONG and SHORT types then the LONG must be
  *       placed before the SHORT for writing to work properly.
- *	 ... and if a tag can have LONG8 type then it should come before
- *	 LONG and SHORT...
  *
  * NOTE: The second field (field_readcount) and third field (field_writecount)
  *       sometimes use the values TIFF_VARIABLE (-1), TIFF_VARIABLE2 (-3)
@@ -95,9 +91,6 @@ tiffFieldInfo[] = {
       1,	0,	"Make" },
     { TIFFTAG_MODEL,		-1,-1,	TIFF_ASCII,	FIELD_CUSTOM,
       1,	0,	"Model" },
-    /* Strip offsets can be 64-bit or 32-bit, and also 16-bit in old files */
-    { TIFFTAG_STRIPOFFSETS,	-1,-1,	TIFF_LONG8,	FIELD_STRIPOFFSETS,
-      0,	0,	"StripOffsets" },
     { TIFFTAG_STRIPOFFSETS,	-1,-1,	TIFF_LONG,	FIELD_STRIPOFFSETS,
       0,	0,	"StripOffsets" },
     { TIFFTAG_STRIPOFFSETS,	-1,-1,	TIFF_SHORT,	FIELD_STRIPOFFSETS,
@@ -106,14 +99,10 @@ tiffFieldInfo[] = {
       0,	0,	"Orientation" },
     { TIFFTAG_SAMPLESPERPIXEL,	 1, 1,	TIFF_SHORT,	FIELD_SAMPLESPERPIXEL,
       0,	0,	"SamplesPerPixel" },
-    /* Can be 32-bit or 16-bit */
     { TIFFTAG_ROWSPERSTRIP,	 1, 1,	TIFF_LONG,	FIELD_ROWSPERSTRIP,
       0,	0,	"RowsPerStrip" },
     { TIFFTAG_ROWSPERSTRIP,	 1, 1,	TIFF_SHORT,	FIELD_ROWSPERSTRIP,
       0,	0,	"RowsPerStrip" },
-    /* Strip byte counts can be 64-bit or 32-bit or 16-bit in old files */
-    { TIFFTAG_STRIPBYTECOUNTS,	-1,-1,	TIFF_LONG8,	FIELD_STRIPBYTECOUNTS,
-      0,	0,	"StripByteCounts" },
     { TIFFTAG_STRIPBYTECOUNTS,	-1,-1,	TIFF_LONG,	FIELD_STRIPBYTECOUNTS,
       0,	0,	"StripByteCounts" },
     { TIFFTAG_STRIPBYTECOUNTS,	-1,-1,	TIFF_SHORT,	FIELD_STRIPBYTECOUNTS,
@@ -174,23 +163,12 @@ tiffFieldInfo[] = {
       0,	0,	"TileLength" },
     { TIFFTAG_TILELENGTH,	 1, 1,	TIFF_SHORT,	FIELD_TILEDIMENSIONS,
       0,	0,	"TileLength" },
-    /* Tile offsets can be 64-bit or 32-bit */
-    { TIFFTAG_TILEOFFSETS,	-1,-1,	TIFF_LONG8,	FIELD_STRIPOFFSETS,
-      0,	0,	"TileOffsets" },
     { TIFFTAG_TILEOFFSETS,	-1, 1,	TIFF_LONG,	FIELD_STRIPOFFSETS,
       0,	0,	"TileOffsets" },
-    /* Tile offsets can be 64-bit or 32-bit, or 16-bit in old files */
-    { TIFFTAG_TILEBYTECOUNTS,	-1, 1,	TIFF_LONG8,	FIELD_STRIPBYTECOUNTS,
-      0,	0,	"TileByteCounts" },
     { TIFFTAG_TILEBYTECOUNTS,	-1, 1,	TIFF_LONG,	FIELD_STRIPBYTECOUNTS,
       0,	0,	"TileByteCounts" },
     { TIFFTAG_TILEBYTECOUNTS,	-1, 1,	TIFF_SHORT,	FIELD_STRIPBYTECOUNTS,
       0,	0,	"TileByteCounts" },
-    /* Subdirectory offsets can be 64-bit or 32-bit */
-    { TIFFTAG_SUBIFD,		-1,-1,	TIFF_IFD8,	FIELD_SUBIFD,
-      1,	1,	"SubIFD" },
-    { TIFFTAG_SUBIFD,		-1,-1,	TIFF_LONG8,	FIELD_SUBIFD,
-      1,	1,	"SubIFD" },
     { TIFFTAG_SUBIFD,		-1,-1,	TIFF_IFD,	FIELD_SUBIFD,
       1,	1,	"SubIFD" },
     { TIFFTAG_SUBIFD,		-1,-1,	TIFF_LONG,	FIELD_SUBIFD,
@@ -660,12 +638,9 @@ TIFFDataWidth(TIFFDataType type)
 	case 5:  /* TIFF_RATIONAL */
 	case 10: /* TIFF_SRATIONAL */
 	case 12: /* TIFF_DOUBLE */
-	case 16: /* TIFF_LONG8 */
-	case 17: /* TIFF_SLONG8 */
-	case 18: /* TIFF_IFD8 */
 		return 8;
-	default: /* will return 0 for unknown types */
-		return 0; 
+	default:
+		return 0; /* will return 0 for unknown types */
 	}
 }
 
@@ -696,9 +671,6 @@ _TIFFDataSize(TIFFDataType type)
 		case TIFF_SRATIONAL:
 		    return 4;
 		case TIFF_DOUBLE:
-		case TIFF_LONG8:
-		case TIFF_SLONG8:
-		case TIFF_IFD8:
 		    return 8;
 		default:
 		    return 0;
@@ -781,7 +753,7 @@ _TIFFFindFieldInfoByName(TIFF* tif, const char *field_name, TIFFDataType dt)
 
             ret = (const TIFFFieldInfo **) lfind(&pkey,
 						 tif->tif_fieldinfo, 
-						 (void *) &tif->tif_nfields,
+						 &tif->tif_nfields,
 						 sizeof(TIFFFieldInfo *),
 						 tagNameCompare);
 	    return (ret) ? (*ret) : NULL;

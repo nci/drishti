@@ -22,8 +22,6 @@
  * WHETHER OR NOT ADVISED OF THE POSSIBILITY OF DAMAGE, AND ON ANY THEORY OF 
  * LIABILITY, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE 
  * OF THIS SOFTWARE.
- *
- * BigTIFF modifications by Ole Eichhorn / Aperio Technologies (ole@aperio.com)
  */
 
 #ifndef _TIFFIOP_
@@ -39,7 +37,12 @@
 #endif
 
 #ifdef HAVE_SYS_TYPES_H
+#if !defined(Q_OS_WINCE)
 # include <sys/types.h>
+#else
+# include <windows.h>
+# include <types.h>
+#endif
 #endif
 
 #ifdef HAVE_STRING_H
@@ -114,17 +117,17 @@ struct tiff {
 #define	TIFF_INSUBIFD		0x2000	/* currently writing a subifd */
 #define	TIFF_UPSAMPLED		0x4000	/* library is doing data up-sampling */ 
 #define	TIFF_STRIPCHOP		0x8000	/* enable strip chopping support */
-#define	TIFF_HEADERONLY	       0x10000	/* read header only, do not process */
-#define	TIFF_ISBIGTIFF	      0x100000  /* this is a BigTIFF file */
-#define	TIFF_NOBIGTIFF	      0x200000	/* do not process BigTIFF files (error instead) */
+#define	TIFF_HEADERONLY		0x10000	/* read header only, do not process */
 					/* the first directory */
 	toff_t		tif_diroff;	/* file offset of current directory */
 	toff_t		tif_nextdiroff;	/* file offset of following directory */
-	toff_t*	tif_dirlist;		/* list of offsets to already seen */
+	toff_t*		tif_dirlist;	/* list of offsets to already seen */
 					/* directories to prevent IFD looping */
 	uint16		tif_dirnumber;  /* number of already seen directories */
 	TIFFDirectory	tif_dir;	/* internal rep of current directory */
 	TIFFHeader	tif_header;	/* file's header block */
+	const int*	tif_typeshift;	/* data type shift counts */
+	const long*	tif_typemask;	/* data type masks */
 	uint32		tif_row;	/* current scanline */
 	tdir_t		tif_curdir;	/* current directory (index) */
 	tstrip_t	tif_curstrip;	/* current strip for read/write */
@@ -132,7 +135,7 @@ struct tiff {
 	toff_t		tif_dataoff;	/* current offset for writing dir */
 /* SubIFD support */
 	uint16		tif_nsubifd;	/* remaining subifds to write */
-	toff_t		tif_subifdoff;	/* offset to SubIFD offset array */
+	toff_t		tif_subifdoff;	/* offset for patching SubIFD link */
 /* tiling support */
 	uint32 		tif_col;	/* current column (offset by row too) */
 	ttile_t		tif_curtile;	/* current tile for read/write */
@@ -167,16 +170,15 @@ struct tiff {
 /* memory-mapped file support */
 	tidata_t	tif_base;	/* base of mapped file */
 	toff_t		tif_size;	/* size of mapped file region (bytes) */
-	TIFFMapFileProc tif_mapproc;	/* map file method */
-	TIFFUnmapFileProc tif_unmapproc;  /* unmap file method */
+	TIFFMapFileProc	tif_mapproc;	/* map file method */
+	TIFFUnmapFileProc tif_unmapproc;/* unmap file method */
 /* input/output callback methods */
 	thandle_t	tif_clientdata;	/* callback parameter */
 	TIFFReadWriteProc tif_readproc;	/* read method */
 	TIFFReadWriteProc tif_writeproc;/* write method */
-	TIFFSeekProc	tif_seekproc;	/* lseek methods */
+	TIFFSeekProc	tif_seekproc;	/* lseek method */
 	TIFFCloseProc	tif_closeproc;	/* close method */
 	TIFFSizeProc	tif_sizeproc;	/* filesize method */
-	TIFFErrnoProc	tif_errnoproc;	/* I/O error code method */
 /* post-decoding support */
 	TIFFPostMethod	tif_postdecode;	/* post decoding routine */
 /* tag support */
@@ -193,13 +195,6 @@ struct tiff {
 #define	isMapped(tif)	(((tif)->tif_flags & TIFF_MAPPED) != 0)
 #define	isFillOrder(tif, o)	(((tif)->tif_flags & (o)) != 0)
 #define	isUpSampled(tif)	(((tif)->tif_flags & TIFF_UPSAMPLED) != 0)
-#define	isBigTIFF(tif)	(((tif)->tif_flags & TIFF_ISBIGTIFF) != 0)
-#define	noBigTIFF(tif)	(((tif)->tif_flags & TIFF_NOBIGTIFF) != 0)
-#define	isBigOff(off)	((toff_t)(off) > (toff_t) 0xFFFFFFFF)
-
-/*
- * Macros to call functions through vectors
- */
 #define	TIFFReadFile(tif, buf, size) \
 	((*(tif)->tif_readproc)((tif)->tif_clientdata,buf,size))
 #define	TIFFWriteFile(tif, buf, size) \
@@ -210,93 +205,26 @@ struct tiff {
 	((*(tif)->tif_closeproc)((tif)->tif_clientdata))
 #define	TIFFGetFileSize(tif) \
 	((*(tif)->tif_sizeproc)((tif)->tif_clientdata))
-#define	TIFFGetErrno(tif) \
-	((tif)->tif_errnoproc ? (*(tif)->tif_errnoproc)() : 0)
 #define	TIFFMapFileContents(tif, paddr, psize) \
-	((*(tif)->tif_mapproc)((tif)->tif_clientdata,paddr,(toff_t*)(psize)))
+	((*(tif)->tif_mapproc)((tif)->tif_clientdata,paddr,psize))
 #define	TIFFUnmapFileContents(tif, addr, size) \
-	((*(tif)->tif_unmapproc)((tif)->tif_clientdata,addr,(toff_t)(size)))
+	((*(tif)->tif_unmapproc)((tif)->tif_clientdata,addr,size))
 
 /*
- * Default Seek/Read/Write definitions.
+ * Default Read/Seek/Write definitions.
  */
-#ifndef SeekOK
-#define	SeekOK(tif, off) \
-	(TIFFSeekFile(tif, (toff_t) (off), SEEK_SET) == (toff_t) (off))
-#endif
 #ifndef ReadOK
 #define	ReadOK(tif, buf, size) \
-	(TIFFReadFile(tif, (tdata_t) buf, (tsize_t) (size)) == (tsize_t) (size))
+	(TIFFReadFile(tif, (tdata_t) buf, (tsize_t)(size)) == (tsize_t)(size))
+#endif
+#ifndef SeekOK
+#define	SeekOK(tif, off) \
+	(TIFFSeekFile(tif, (toff_t) off, SEEK_SET) == (toff_t) off)
 #endif
 #ifndef WriteOK
 #define	WriteOK(tif, buf, size) \
-	(TIFFWriteFile(tif, (tdata_t) buf, (tsize_t) (size)) == (tsize_t) (size))
+	(TIFFWriteFile(tif, (tdata_t) buf, (tsize_t) size) == (tsize_t) size)
 #endif
-
-/*
- * Macros to access offset to first directory in file header
- */
-#define TIFFGetHdrDirOff(tif,hdr) (isBigTIFF(tif) ? \
-		(hdr).b.tiff_diroff : \
-		(hdr).s.tiff_diroff)
-#define TIFFSetHdrDirOff(tif,hdr,val) (isBigTIFF(tif) ? \
-		((hdr).b.tiff_diroff = (val)) : \
-		((hdr).s.tiff_diroff = (uint32)(val)))
-/*
- * Macros to access directory count (first datum of IFD)
- */
-#define	TIFFGetDirCnt(tif,cnt) (size_t)(isBigTIFF(tif) ? \
-		*(uint64*) &(cnt) : \
-		*(uint16*) &(cnt))
-#define	TIFFSetDirCnt(tif,cnt,val) (isBigTIFF(tif) ? \
-		(*(uint64*) &(cnt) = (val)) : \
-		(*(uint16*) &(cnt) = (uint16)(val)))
-#define TIFFSwabDirCnt(tif,cnt) (isBigTIFF(tif) ? \
-		TIFFSwabLong8((uint64*) cnt) : \
-		TIFFSwabShort((uint16*) cnt))
-#define	TIFFDirCntLen(tif) (isBigTIFF(tif) ? sizeof(uint64) : sizeof(uint16))
-/*
- * Macros to access directory offset
- */
-#define	TIFFGetDirOff(tif,off) (isBigTIFF(tif) ? \
-		*(toff_t*) &(off) : \
-		*(uint32*) &(off))
-#define	TIFFSetDirOff(tif,off,val) (isBigTIFF(tif) ? \
-		(*(toff_t*) &(off) = (val)) : \
-		(*(uint32*) &(off) = (uint32)(val)))
-#define TIFFSwabDirOff(tif,off) (isBigTIFF(tif) ? \
-		TIFFSwabLong8((toff_t*) off) : \
-		TIFFSwabLong((uint32*) off))
-#define	TIFFDirOffLen(tif) (isBigTIFF(tif) ? sizeof(toff_t) : sizeof(uint32))
-
-/*
- * Macros to encapsulate access to directory entry fields
- */
-#define TDIREntryLen(tif) (isBigTIFF(tif) ? TIFFDirEntryLenB : TIFFDirEntryLenS)
-#define TDIREntryNext(tif,dir) ((dir) = (void*) ((char*) (dir) + TDIREntryLen(tif)))
-
-#define TDIRGetEntryCount(tif,dir) (size_t)(isBigTIFF(tif) ? \
-		(dir)->b.tdir_count : \
-		(dir)->s.tdir_count)
-#define TDIRSetEntryCount(tif,dir,val) (isBigTIFF(tif) ? \
-		((dir)->b.tdir_count = (val)) : \
-		((dir)->s.tdir_count = (uint32)(val)))
-#define	TDIRSwabEntryCount(tif,dir) (isBigTIFF(tif) ? \
-		TIFFSwabLong8(&(dir)->b.tdir_count) : \
-		TIFFSwabLong(&(dir)->s.tdir_count))
-#define TDIRAddrEntryOff(tif,dir) (isBigTIFF(tif) ? \
-		(void*) &(dir)->b.tdir_offset : \
-		(void*) &(dir)->s.tdir_offset)
-#define TDIRGetEntryOff(tif,dir) (isBigTIFF(tif) ? \
-		(dir)->b.tdir_offset : \
-		(dir)->s.tdir_offset)
-#define TDIRSetEntryOff(tif,dir,val) (isBigTIFF(tif) ? \
-		((dir)->b.tdir_offset = (val)) : \
-		((dir)->s.tdir_offset = (uint32)(val)))
-#define	TDIRSwabEntryOff(tif,dir) (isBigTIFF(tif) ? \
-		TIFFSwabLong8(&(dir)->b.tdir_offset) : \
-		TIFFSwabLong(&(dir)->s.tdir_offset))
-#define TDIREntryOffLen(tif) (isBigTIFF(tif) ? sizeof(uint64) : sizeof(uint32))
 
 /* NB: the uint32 casts are to silence certain ANSI-C compilers */
 #define TIFFhowmany(x, y) ((((uint32)(x))+(((uint32)(y))-1))/((uint32)(y)))
@@ -334,18 +262,10 @@ extern	uint32 _TIFFDefaultStripSize(TIFF*, uint32);
 extern	void _TIFFDefaultTileSize(TIFF*, uint32*, uint32*);
 extern	int _TIFFDataSize(TIFFDataType);
 
-extern	toff_t _TIFFGetOffset(TIFF*, tstrip_t);
-extern	uint32 _TIFFGetByteCount(TIFF*, tstrip_t);
-extern	void _TIFFSetOffset(TIFF*, tstrip_t, toff_t);
-extern	int  _TIFFFlushOffsets(TIFF*);
-extern	void _TIFFSetByteCount(TIFF*, tstrip_t, uint32);
-extern	int  _TIFFFlushByteCounts(TIFF*);
-
 extern	void _TIFFsetByteArray(void**, void*, uint32);
 extern	void _TIFFsetString(char**, char*);
 extern	void _TIFFsetShortArray(uint16**, uint16*, uint32);
 extern	void _TIFFsetLongArray(uint32**, uint32*, uint32);
-extern	void _TIFFsetLong8Array(uint64**, uint64*, uint32);
 extern	void _TIFFsetFloatArray(float**, float*, uint32);
 extern	void _TIFFsetDoubleArray(double**, double*, uint32);
 

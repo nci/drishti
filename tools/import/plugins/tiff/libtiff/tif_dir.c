@@ -22,8 +22,6 @@
  * WHETHER OR NOT ADVISED OF THE POSSIBILITY OF DAMAGE, AND ON ANY THEORY OF 
  * LIABILITY, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE 
  * OF THIS SOFTWARE.
- *
- * BigTIFF modifications by Ole Eichhorn / Aperio Technologies (ole@aperio.com)
  */
 
 /*
@@ -65,8 +63,6 @@ void _TIFFsetShortArray(uint16** wpp, uint16* wp, uint32 n)
     { setByteArray((void**) wpp, (void*) wp, n, sizeof (uint16)); }
 void _TIFFsetLongArray(uint32** lpp, uint32* lp, uint32 n)
     { setByteArray((void**) lpp, (void*) lp, n, sizeof (uint32)); }
-void _TIFFsetLong8Array(uint64** lpp, uint64* lp, uint32 n)
-    { setByteArray((void**) lpp, (void*) lp, n, sizeof (uint64)); }
 void _TIFFsetFloatArray(float** fpp, float* fp, uint32 n)
     { setByteArray((void**) fpp, (void*) fp, n, sizeof (float)); }
 void _TIFFsetDoubleArray(double** dpp, double* dp, uint32 n)
@@ -343,10 +339,10 @@ _TIFFVSetField(TIFF* tif, ttag_t tag, va_list ap)
 	case TIFFTAG_IMAGEDEPTH:
 		td->td_imagedepth = va_arg(ap, uint32);
 		break;
-	case TIFFTAG_SUBIFD:		/* SubIFD array with 64-bit offsets */
+	case TIFFTAG_SUBIFD:
 		if ((tif->tif_flags & TIFF_INSUBIFD) == 0) {
 			td->td_nsubifd = (uint16) va_arg(ap, int);
-			_TIFFsetLong8Array((toff_t**) &td->td_subifd, va_arg(ap, toff_t*),
+			_TIFFsetLongArray(&td->td_subifd, va_arg(ap, uint32*),
 			    (long) td->td_nsubifd);
 		} else {
 			TIFFErrorExt(tif->tif_clientdata, module, "%s: Sorry, cannot nest SubIFDs",
@@ -539,19 +535,6 @@ _TIFFVSetField(TIFF* tif, ttag_t tag, va_list ap)
 				case TIFF_SLONG:
 				    {
 					int32 v = va_arg(ap, int32);
-					_TIFFmemcpy(val, &v, tv_size);
-				    }
-				    break;
-				case TIFF_LONG8:
-				case TIFF_IFD8:
-				    {
-					uint64 v = va_arg(ap, uint64);
-					_TIFFmemcpy(val, &v, tv_size);
-				    }
-				    break;
-				case TIFF_SLONG8:
-				    {
-					int64 v = va_arg(ap, int64);
 					_TIFFmemcpy(val, &v, tv_size);
 				    }
 				    break;
@@ -750,11 +733,11 @@ _TIFFVGetField(TIFF* tif, ttag_t tag, va_list ap)
             break;
 	case TIFFTAG_STRIPOFFSETS:
 	case TIFFTAG_TILEOFFSETS:
-            *va_arg(ap, uint64**) = td->td_stripoffsbuf;
+            *va_arg(ap, uint32**) = td->td_stripoffset;
             break;
 	case TIFFTAG_STRIPBYTECOUNTS:
 	case TIFFTAG_TILEBYTECOUNTS:
-            *va_arg(ap, uint32**) = td->td_stripbcsbuf;
+            *va_arg(ap, uint32**) = td->td_stripbytecount;
             break;
 	case TIFFTAG_MATTEING:
             *va_arg(ap, uint16*) =
@@ -796,9 +779,9 @@ _TIFFVGetField(TIFF* tif, ttag_t tag, va_list ap)
 	case TIFFTAG_IMAGEDEPTH:
             *va_arg(ap, uint32*) = td->td_imagedepth;
             break;
-	case TIFFTAG_SUBIFD:		/* SubIFD array with 64-bit offsets */
+	case TIFFTAG_SUBIFD:
             *va_arg(ap, uint16*) = td->td_nsubifd;
-            *va_arg(ap, toff_t**) = (toff_t*) td->td_subifd;
+            *va_arg(ap, uint32**) = td->td_subifd;
             break;
 	case TIFFTAG_YCBCRPOSITIONING:
             *va_arg(ap, uint16*) = td->td_ycbcrpositioning;
@@ -908,17 +891,6 @@ _TIFFVGetField(TIFF* tif, ttag_t tag, va_list ap)
 							*(int32 *)val;
 						ret_val = 1;
 						break;
-					case TIFF_LONG8:
-					case TIFF_IFD8:
-						*va_arg(ap, uint64*) =
-							*(uint64 *)val;
-						ret_val = 1;
-						break;
-					case TIFF_SLONG8:
-						*va_arg(ap, int64*) =
-							*(int64 *)val;
-						ret_val = 1;
-						break;
 					case TIFF_RATIONAL:
 					case TIFF_SRATIONAL:
 					case TIFF_FLOAT:
@@ -1001,8 +973,8 @@ TIFFFreeDirectory(TIFF* tif)
 	CleanupField(td_transferfunction[0]);
 	CleanupField(td_transferfunction[1]);
 	CleanupField(td_transferfunction[2]);
-	CleanupField(td_stripoffsbuf);
-	CleanupField(td_stripbcsbuf);
+	CleanupField(td_stripoffset);
+	CleanupField(td_stripbytecount);
 	TIFFClrFieldBit(tif, FIELD_YCBCRSUBSAMPLING);
 	TIFFClrFieldBit(tif, FIELD_YCBCRPOSITIONING);
 
@@ -1073,9 +1045,6 @@ TIFFDefaultDirectory(TIFF* tif)
 	td->td_tilewidth = 0;
 	td->td_tilelength = 0;
 	td->td_tiledepth = 1;
-	td->td_stripbufmax = TIFF_STRIPBUFMAX;
-	td->td_stripoffsblk = -1;
-	td->td_stripbcsblk = -1;
 	td->td_stripbytecountsorted = 1; /* Our own arrays always sorted. */
 	td->td_resolutionunit = RESUNIT_INCH;
 	td->td_sampleformat = SAMPLEFORMAT_UINT;
@@ -1108,7 +1077,7 @@ TIFFDefaultDirectory(TIFF* tif)
         /*
          * As per http://bugzilla.remotesensing.org/show_bug.cgi?id=19
          * we clear the ISTILED flag when setting up a new directory.
-         * Should we also be clearing stuff like INSUBIFD? -- No...
+         * Should we also be clearing stuff like INSUBIFD?
          */
         tif->tif_flags &= ~TIFF_ISTILED;
 
@@ -1116,61 +1085,61 @@ TIFFDefaultDirectory(TIFF* tif)
 }
 
 static int
-TIFFAdvanceDirectory(TIFF* tif, toff_t* nextdir, toff_t* off)
+TIFFAdvanceDirectory(TIFF* tif, uint32* nextdir, toff_t* off)
 {
     static const char module[] = "TIFFAdvanceDirectory";
-    uint64 dircount;		/* 16-bit of 64-bit directory entry count */
-    toff_t nextdiroff;		/* 32-bit or 64-bit directory offset */
-
-    nextdiroff = 0;
+    uint16 dircount;
     if (isMapped(tif))
     {
-        toff_t poff = *nextdir;
-        if (poff + TIFFDirCntLen(tif) > tif->tif_size)
+        toff_t poff=*nextdir;
+        if (poff+sizeof(uint16) > tif->tif_size)
         {
-	    TIFFErrorExt(tif->tif_clientdata, module, "%s: Error fetching directory count",
+			TIFFErrorExt(tif->tif_clientdata, module, "%s: Error fetching directory count",
                       tif->tif_name);
             return (0);
         }
-        _TIFFmemcpy(&dircount, tif->tif_base + poff, TIFFDirCntLen(tif));
+        _TIFFmemcpy(&dircount, tif->tif_base+poff, sizeof (uint16));
         if (tif->tif_flags & TIFF_SWAB)
-            TIFFSwabDirCnt(tif,&dircount);
-        poff += TIFFDirCntLen(tif) + TIFFGetDirCnt(tif,dircount) * TDIREntryLen(tif);
+            TIFFSwabShort(&dircount);
+        poff+=sizeof (uint16)+dircount*sizeof (TIFFDirEntry);
         if (off != NULL)
             *off = poff;
-        if (poff + TIFFDirOffLen(tif) > tif->tif_size) {
-	    TIFFErrorExt(tif->tif_clientdata, module, "%s: Error fetching directory link",
+        if (((toff_t) (poff+sizeof (uint32))) > tif->tif_size)
+        {
+			TIFFErrorExt(tif->tif_clientdata, module, "%s: Error fetching directory link",
                       tif->tif_name);
             return (0);
         }
-	_TIFFmemcpy(&nextdiroff, tif->tif_base + poff, TIFFDirOffLen(tif));
+        _TIFFmemcpy(nextdir, tif->tif_base+poff, sizeof (uint32));
+        if (tif->tif_flags & TIFF_SWAB)
+            TIFFSwabLong(nextdir);
+        return (1);
     }
     else
     {
         if (!SeekOK(tif, *nextdir) ||
-            !ReadOK(tif, &dircount, TIFFDirCntLen(tif))) {
-		TIFFErrorExt(tif->tif_clientdata, module, 
-			"%s: Error fetching directory count (%d)",
-			tif->tif_name, TIFFGetErrno(tif));
+            !ReadOK(tif, &dircount, sizeof (uint16))) {
+			TIFFErrorExt(tif->tif_clientdata, module, "%s: Error fetching directory count",
+                      tif->tif_name);
             return (0);
         }
         if (tif->tif_flags & TIFF_SWAB)
-            TIFFSwabDirCnt(tif,&dircount);
+            TIFFSwabShort(&dircount);
         if (off != NULL)
-            *off = TIFFSeekFile(tif, TIFFGetDirCnt(tif,dircount) * TDIREntryLen(tif), SEEK_CUR);
+            *off = TIFFSeekFile(tif,
+                                dircount*sizeof (TIFFDirEntry), SEEK_CUR);
         else
-            (void) TIFFSeekFile(tif, TIFFGetDirCnt(tif,dircount) * TDIREntryLen(tif), SEEK_CUR);
-	if (!ReadOK(tif, &nextdiroff, TIFFDirOffLen(tif)) ) {
-		TIFFErrorExt(tif->tif_clientdata, module, 
-			"%s: Error fetching directory link (%d)",
-			tif->tif_name, TIFFGetErrno(tif));
+            (void) TIFFSeekFile(tif,
+                                dircount*sizeof (TIFFDirEntry), SEEK_CUR);
+        if (!ReadOK(tif, nextdir, sizeof (uint32))) {
+			TIFFErrorExt(tif->tif_clientdata, module, "%s: Error fetching directory link",
+                      tif->tif_name);
             return (0);
         }
+        if (tif->tif_flags & TIFF_SWAB)
+            TIFFSwabLong(nextdir);
+        return (1);
     }
-    if (tif->tif_flags & TIFF_SWAB)
-	TIFFSwabDirOff(tif, &nextdiroff);
-    *nextdir = TIFFGetDirOff(tif,nextdiroff);
-    return (1);
 }
 
 /*
@@ -1179,7 +1148,7 @@ TIFFAdvanceDirectory(TIFF* tif, toff_t* nextdir, toff_t* off)
 tdir_t
 TIFFNumberOfDirectories(TIFF* tif)
 {
-    toff_t nextdir = TIFFGetHdrDirOff(tif,tif->tif_header);
+    toff_t nextdir = tif->tif_header.tiff_diroff;
     tdir_t n = 0;
     
     while (nextdir != 0 && TIFFAdvanceDirectory(tif, &nextdir, NULL))
@@ -1197,7 +1166,7 @@ TIFFSetDirectory(TIFF* tif, tdir_t dirn)
 	toff_t nextdir;
 	tdir_t n;
 
-	nextdir = TIFFGetHdrDirOff(tif,tif->tif_header);
+	nextdir = tif->tif_header.tiff_diroff;
 	for (n = dirn; n > 0 && nextdir != 0; n--)
 		if (!TIFFAdvanceDirectory(tif, &nextdir, NULL))
 			return (0);
@@ -1223,7 +1192,7 @@ TIFFSetDirectory(TIFF* tif, tdir_t dirn)
  * the SubIFD tag (e.g. thumbnail images).
  */
 int
-TIFFSetSubDirectory(TIFF* tif, toff_t diroff)
+TIFFSetSubDirectory(TIFF* tif, uint32 diroff)
 {
 	tif->tif_nextdiroff = diroff;
 	/*
@@ -1237,10 +1206,10 @@ TIFFSetSubDirectory(TIFF* tif, toff_t diroff)
 /*
  * Return file offset of the current directory.
  */
-toff_t
+uint32
 TIFFCurrentDirOffset(TIFF* tif)
 {
-	return (toff_t)(tif->tif_diroff);
+	return (tif->tif_diroff);
 }
 
 /*
@@ -1262,7 +1231,6 @@ TIFFUnlinkDirectory(TIFF* tif, tdir_t dirn)
 	static const char module[] = "TIFFUnlinkDirectory";
 	toff_t nextdir;
 	toff_t off;
-	toff_t nextdiroff;		/* 32-bit or 64-bit directory offset */
 	tdir_t n;
 
 	if (tif->tif_mode == O_RDONLY) {
@@ -1275,7 +1243,7 @@ TIFFUnlinkDirectory(TIFF* tif, tdir_t dirn)
 	 * to unlink and nab the offset of the link
 	 * field we'll need to patch.
 	 */
-	nextdir = TIFFGetHdrDirOff(tif,tif->tif_header);
+	nextdir = tif->tif_header.tiff_diroff;
 	off = sizeof (uint16) + sizeof (uint16);
 	for (n = dirn-1; n > 0; n--) {
 		if (nextdir == 0) {
@@ -1297,12 +1265,10 @@ TIFFUnlinkDirectory(TIFF* tif, tdir_t dirn)
 	 * that follows.
 	 */
 	(void) TIFFSeekFile(tif, off, SEEK_SET);
-	TIFFSetDirOff(tif,nextdiroff, nextdir);
 	if (tif->tif_flags & TIFF_SWAB)
-		TIFFSwabDirOff(tif, &nextdiroff);
-	if (!WriteOK(tif, &nextdiroff, TIFFDirOffLen(tif))) {
-		TIFFErrorExt(tif->tif_clientdata, module, 
-			"Error writing directory link (%d)", TIFFGetErrno(tif));
+		TIFFSwabLong(&nextdir);
+	if (!WriteOK(tif, &nextdir, sizeof (uint32))) {
+		TIFFErrorExt(tif->tif_clientdata, module, "Error writing directory link");
 		return (0);
 	}
 	/*

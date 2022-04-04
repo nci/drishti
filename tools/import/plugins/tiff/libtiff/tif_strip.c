@@ -158,7 +158,7 @@ tsize_t
 TIFFRawStripSize(TIFF* tif, tstrip_t strip)
 {
 	TIFFDirectory* td = &tif->tif_dir;
-	tsize_t bytecount = _TIFFGetByteCount(tif, strip);
+	tsize_t bytecount = td->td_stripbytecount[strip];
 
 	if (bytecount <= 0) {
 		TIFFErrorExt(tif->tif_clientdata, tif->tif_name,

@@ -22,16 +22,14 @@
  * WHETHER OR NOT ADVISED OF THE POSSIBILITY OF DAMAGE, AND ON ANY THEORY OF 
  * LIABILITY, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE 
  * OF THIS SOFTWARE.
- *
- * BigTIFF modifications by Ole Eichhorn / Aperio Technologies (ole@aperio.com)
  */
 
 /*
  * TIFF Library Win32-specific Routines.  Adapted from tif_unix.c 4/5/95 by
  * Scott Wagner (wagner@itek.com), Itek Graphix, Rochester, NY USA
  */
-#include <windows.h>
 #include "tiffiop.h"
+#include <windows.h>
 
 static tsize_t
 _tiffReadProc(thandle_t fd, tdata_t buf, tsize_t size)
@@ -54,8 +52,12 @@ _tiffWriteProc(thandle_t fd, tdata_t buf, tsize_t size)
 static toff_t
 _tiffSeekProc(thandle_t fd, toff_t off, int whence)
 {
-	DWORD dwMoveMethod, dwMoveHigh, dwMoveLow;
+	DWORD dwMoveMethod, dwMoveHigh;
 
+        /* we use this as a special code, so avoid accepting it */
+        if( off == 0xFFFFFFFF )
+            return 0xFFFFFFFF;
+        
 	switch(whence)
 	{
 	case SEEK_SET:
@@ -71,15 +73,9 @@ _tiffSeekProc(thandle_t fd, toff_t off, int whence)
 		dwMoveMethod = FILE_BEGIN;
 		break;
 	}
-        dwMoveHigh = (DWORD) (off >> 32);
-	dwMoveLow = (DWORD) (off & 0xFFFFFFFF);
-	/* SetFilePoint returns low 32-bits, and updated "high" value */
-	dwMoveLow = SetFilePointer(fd, dwMoveLow, &dwMoveHigh, dwMoveMethod);
-	/*
-	if (dwMoveLow == INVALID_SET_FILE_POINTER)
-		return (toff_t) -1;
-	*/
-	return (((toff_t) dwMoveHigh << 32) + dwMoveLow);
+        dwMoveHigh = 0;
+	return ((toff_t)SetFilePointer(fd, (LONG) off, (PLONG)&dwMoveHigh,
+                                       dwMoveMethod));
 }
 
 static int
@@ -88,24 +84,10 @@ _tiffCloseProc(thandle_t fd)
 	return (CloseHandle(fd) ? 0 : -1);
 }
 
-
 static toff_t
 _tiffSizeProc(thandle_t fd)
 {
-	DWORD	sizeHigh, sizeLow;
-
-	sizeLow = GetFileSize(fd, &sizeHigh);
-	/*
-	if (sizeLow == INVALID_FILE_SIZE)
-		return (toff_t) -1;
-	*/
-	return (((toff_t) sizeHigh << 32) + sizeLow);
-}
-
-static int
-_tiffErrnoProc(void)
-{
-	return GetLastError();
+	return ((toff_t)GetFileSize(fd, NULL));
 }
 
 #ifdef __BORLANDC__
@@ -132,17 +114,11 @@ static int
 _tiffMapProc(thandle_t fd, tdata_t* pbase, toff_t* psize)
 {
 	toff_t size;
-	DWORD sizeHigh, sizeLow;
 	HANDLE hMapFile;
 
-	/*
-	if ((size = _tiffSizeProc(fd)) == (toff_t) -1)
+	if ((size = _tiffSizeProc(fd)) == 0xFFFFFFFF)
 		return (0);
-	*/
-	size = _tiffSizeProc(fd);
-	sizeHigh = (DWORD) (size >> 32);
-	sizeLow = (DWORD) (size & 0xFFFFFFFF);
-	hMapFile = CreateFileMapping(fd, NULL, PAGE_READONLY, sizeHigh, sizeLow, NULL);
+	hMapFile = CreateFileMapping(fd, NULL, PAGE_READONLY, 0, size, NULL);
 	if (hMapFile == NULL)
 		return (0);
 	*pbase = MapViewOfFile(hMapFile, FILE_MAP_READ, 0, 0, 0);
@@ -183,10 +159,8 @@ TIFFFdOpen(int ifd, const char* name, const char* mode)
 			_tiffSeekProc, _tiffCloseProc, _tiffSizeProc,
 			fSuppressMap ? _tiffDummyMapProc : _tiffMapProc,
 			fSuppressMap ? _tiffDummyUnmapProc : _tiffUnmapProc);
-	if (tif) {
+	if (tif)
 		tif->tif_fd = ifd;
-		tif->tif_errnoproc = _tiffErrnoProc;
-	}
 	return (tif);
 }
 
@@ -230,7 +204,7 @@ TIFFOpen(const char* name, const char* mode)
 		(m == O_RDONLY)?FILE_ATTRIBUTE_READONLY:FILE_ATTRIBUTE_NORMAL,
 		NULL);
 	if (fd == INVALID_HANDLE_VALUE) {
-		TIFFErrorExt(0, module, "%s: Cannot open (%d)", name, GetLastError());
+		TIFFErrorExt(0, module, "%s: Cannot open", name);
 		return ((TIFF *)0);
 	}
 
@@ -271,7 +245,7 @@ TIFFOpenW(const wchar_t* name, const char* mode)
 		(m == O_RDONLY)?FILE_ATTRIBUTE_READONLY:FILE_ATTRIBUTE_NORMAL,
 		NULL);
 	if (fd == INVALID_HANDLE_VALUE) {
-		TIFFErrorExt(0, module, "%S: Cannot open (%d)", name, GetLastError());
+		TIFFErrorExt(0, module, "%S: Cannot open", name);
 		return ((TIFF *)0);
 	}
 

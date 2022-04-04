@@ -22,8 +22,6 @@
  * WHETHER OR NOT ADVISED OF THE POSSIBILITY OF DAMAGE, AND ON ANY THEORY OF 
  * LIABILITY, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE 
  * OF THIS SOFTWARE.
- *
- * BigTIFF modifications by Ole Eichhorn / Aperio Technologies (ole@aperio.com)
  */
 
 /*
@@ -71,54 +69,37 @@ _TIFFPrintField(FILE* fd, const TIFFFieldInfo *fip,
 	fprintf(fd, "  %s: ", fip->field_name);
 
 	for(j = 0; j < value_count; j++) {
-		switch (fip->field_type) {
-		case TIFF_BYTE:
+		if(fip->field_type == TIFF_BYTE)
 			fprintf(fd, "%u", ((uint8 *) raw_data)[j]);
-			break;
-		case TIFF_UNDEFINED:
+		else if(fip->field_type == TIFF_UNDEFINED)
 			fprintf(fd, "0x%x",
 				(unsigned int) ((unsigned char *) raw_data)[j]);
-			break;
-		case TIFF_SBYTE:
+		else if(fip->field_type == TIFF_SBYTE)
 			fprintf(fd, "%d", ((int8 *) raw_data)[j]);
-			break;
-		case TIFF_SHORT:
+		else if(fip->field_type == TIFF_SHORT)
 			fprintf(fd, "%u", ((uint16 *) raw_data)[j]);
-			break;
-		case TIFF_SSHORT:
+		else if(fip->field_type == TIFF_SSHORT)
 			fprintf(fd, "%d", ((int16 *) raw_data)[j]);
-			break;
-		case TIFF_LONG:
+		else if(fip->field_type == TIFF_LONG)
 			fprintf(fd, "%lu",
 				(unsigned long)((uint32 *) raw_data)[j]);
-			break;
-		case TIFF_SLONG:
+		else if(fip->field_type == TIFF_SLONG)
 			fprintf(fd, "%ld", (long)((int32 *) raw_data)[j]);
-			break;
-		case TIFF_LONG8:
-			fprintf(fd, "%"I64FMT"u", ((uint64 *) raw_data)[j]);
-			break;
-		case TIFF_SLONG8:
-			fprintf(fd, "%"I64FMT"d", ((int64 *) raw_data)[j]);
-			break;
-		case TIFF_RATIONAL:
-		case TIFF_SRATIONAL:
-		case TIFF_FLOAT:
+		else if(fip->field_type == TIFF_RATIONAL
+			|| fip->field_type == TIFF_SRATIONAL
+			|| fip->field_type == TIFF_FLOAT)
 			fprintf(fd, "%f", ((float *) raw_data)[j]);
-			break;
-		case TIFF_IFD:
-			fprintf(fd, "0x%lx", ((uint32 *) raw_data)[j]);
-			break;
-		case TIFF_IFD8:
-			fprintf(fd, "0x%"I64FMT"x", ((uint64 *) raw_data)[j]);
-			break;
-		case TIFF_ASCII:
+		else if(fip->field_type == TIFF_IFD)
+			fprintf(fd, "0x%ulx", ((uint32 *) raw_data)[j]);
+		else if(fip->field_type == TIFF_ASCII) {
 			fprintf(fd, "%s", (char *) raw_data);
 			break;
-		case TIFF_DOUBLE:
+		}
+		else if(fip->field_type == TIFF_DOUBLE)
 			fprintf(fd, "%f", ((double *) raw_data)[j]);
-			break;
-		default:
+		else if(fip->field_type == TIFF_FLOAT)
+			fprintf(fd, "%f", ((float *)raw_data)[j]);
+		else {
 			fprintf(fd, "<unsupported data type in TIFFPrint>");
 			break;
 		}
@@ -218,8 +199,8 @@ TIFFPrintDirectory(TIFF* tif, FILE* fd, long flags)
 	uint16 i;
 	long l, n;
 
-	fprintf(fd, "TIFF Directory at offset 0x%"I64FMT"x (%"I64FMT"u)\n",
-		tif->tif_diroff, tif->tif_diroff);
+	fprintf(fd, "TIFF Directory at offset 0x%lx (%lu)\n",
+		(unsigned long)tif->tif_diroff, (unsigned long)tif->tif_diroff);
 	if (TIFFFieldSet(tif,FIELD_SUBFILETYPE)) {
 		fprintf(fd, "  Subfile Type:");
 		sep = " ";
@@ -513,7 +494,7 @@ TIFFPrintDirectory(TIFF* tif, FILE* fd, long flags)
 	if (TIFFFieldSet(tif, FIELD_SUBIFD)) {
 		fprintf(fd, "  SubIFD Offsets:");
 		for (i = 0; i < td->td_nsubifd; i++)
-			fprintf(fd, " %5"I64FMT"u", (toff_t) td->td_subifd[i]);
+			fprintf(fd, " %5lu", (long) td->td_subifd[i]);
 		fputc('\n', fd);
 	}
 
@@ -620,10 +601,10 @@ TIFFPrintDirectory(TIFF* tif, FILE* fd, long flags)
 		    (long) td->td_nstrips,
 		    isTiled(tif) ? "Tiles" : "Strips");
 		for (s = 0; s < td->td_nstrips; s++)
-			fprintf(fd, "    %6lu: [%12"I64FMT"u, %8lu]\n",
-			    (uint32) s,
-			    (toff_t) _TIFFGetOffset(tif, s),
-			    (uint32) _TIFFGetByteCount(tif, s));
+			fprintf(fd, "    %3lu: [%8lu, %8lu]\n",
+			    (unsigned long) s,
+			    (unsigned long) td->td_stripoffset[s],
+			    (unsigned long) td->td_stripbytecount[s]);
 	}
 }
 

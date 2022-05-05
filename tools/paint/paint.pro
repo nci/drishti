@@ -35,17 +35,18 @@ FORMS += drishtipaint.ui viewermenu.ui \
 
          INCLUDEPATH += C:\Qt\Qt-5.15.2\libQGLViewer\libQGLViewer-2.6.4 \
                         ..\..\glmedia-64 \
-                        C:\cygwin64\home\acl900\drishtilib\c-blosc-1.14.3\blosc \
-                        C:\Users\acl900\AppData\Local\Programs\Python\Python38\include \
-                        C:\Users\acl900\AppData\Local\Programs\Python\Python38\Lib\site-packages\numpy\core\include
+                        C:\cygwin64\home\acl900\drishtilib\c-blosc-1.14.3\blosc
+##                        C:\Users\acl900\AppData\Local\Programs\Python\Python38\include \
+##                        C:\Users\acl900\AppData\Local\Programs\Python\Python38\Lib\site-packages\numpy\core\include
                         
          QMAKE_LIBDIR += C:\Qt\Qt-5.15.2\libQGLViewer\libQGLViewer-2.6.4\lib \
                          ..\..\glmedia-64 \
-                         C:\cygwin64\home\acl900\drishtilib\c-blosc-1.14.3\libs \
-                         C:\Users\acl900\AppData\Local\Programs\Python\Python38\libs \
-                         C:\Users\acl900\AppData\Local\Programs\Python\Python38\Lib\site-packages\numpy\core\lib
+                         C:\cygwin64\home\acl900\drishtilib\c-blosc-1.14.3\libs
+##                         C:\Users\acl900\AppData\Local\Programs\Python\Python38\libs \
+##                         C:\Users\acl900\AppData\Local\Programs\Python\Python38\Lib\site-packages\numpy\core\lib
 
-         LIBS += QGLViewer2.lib glew32.lib glmedia.lib blosc.lib opengl32.lib glu32.lib python38.lib npymath.lib
+##         LIBS += QGLViewer2.lib glew32.lib glmedia.lib blosc.lib opengl32.lib glu32.lib python38.lib npymath.lib
+         LIBS += QGLViewer2.lib glew32.lib glmedia.lib blosc.lib opengl32.lib glu32.lib
         }
 #}
 

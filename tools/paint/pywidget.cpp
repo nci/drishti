@@ -8,13 +8,13 @@
 #include <QMessageBox>
 #include <QFileDialog>
 
-#pragma push_macro("slots")
-#undef slots
-#include "Python.h"
-#pragma pop_macro("slots")
-
-#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
-#include "numpy/arrayobject.h"
+//#pragma push_macro("slots")
+//#undef slots
+//#include "Python.h"
+//#pragma pop_macro("slots")
+//
+//#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+//#include "numpy/arrayobject.h"
 
 void
 PyWidget::setFilename(QString volfile)
@@ -144,7 +144,7 @@ PyWidget::closeEvent(QCloseEvent *event)
  
   m_process->close();
 
-  Py_Finalize();
+  //Py_Finalize();
 
   emit pyWidgetClosed();  
 
@@ -156,90 +156,90 @@ PyWidget::~PyWidget()
 { 
 }
 
-int
-PyWidget::initPy()
-{
-  Py_Initialize();
-
-  import_array(); // used by numpy
-}
-
-
-int
-PyWidget::runPythonCode(QString moduleName, QString funcName)
-{
-  const int ND = 3;
-  npy_intp dims[3] {m_d, m_w, m_h};
-      
-  // Convert it to a NumPy array.
-  PyObject *volArray = PyArray_SimpleNewFromData(ND,
-						 dims,
-						 NPY_INT8,
-						 reinterpret_cast<void*>(m_volPtr));
-
-  PyObject *maskArray = PyArray_SimpleNewFromData(ND,
-						  dims,
-						  NPY_INT8,
-						  reinterpret_cast<void*>(m_maskPtr));
-  if (!volArray || !maskArray)
-    {
-      QMessageBox::information(0,"", "Some problem with PyArray point creation");
-      return -1;
-    }
-  
-
-  //PyArrayObject *vol_arr = reinterpret_cast<PyArrayObject*>(volArray);
-  //PyArrayObject *mask_arr = reinterpret_cast<PyArrayObject*>(maskArray);
-
-  // import moduleName.funcName
-  const char *module_name = moduleName.toLatin1().data();
-  PyObject *pName = PyUnicode_FromString(module_name);
-  if (!pName)
-    {
-      QMessageBox::information(0, "", moduleName+" not found");
-      Py_DECREF(volArray);
-      Py_DECREF(maskArray);
-      return -1;
-    }
-
-  PyObject *pModule = PyImport_Import(pName);
-  Py_DECREF(pName);
-  if (!pModule)
-    {
-      QMessageBox::information(0, "", "failed to import "+moduleName);
-      Py_DECREF(volArray);
-      Py_DECREF(maskArray);
-      return -1;
-    }
-
-  const char *func_name = funcName.toLatin1().data();
-  PyObject *pFunc = PyObject_GetAttrString(pModule, func_name);
-  if (!pFunc)
-    {
-      QMessageBox::information(0, "", funcName+" not found");
-      Py_DECREF(pModule);
-      return -1;
-    }
-
-  if (!PyCallable_Check(pFunc))
-    {
-      QMessageBox::information(0, "", moduleName + "." + funcName + " is not callable.");
-      Py_DECREF(pFunc);
-      return -1;
-  }
-
-  PyObject *pReturn = PyObject_CallFunctionObjArgs(pFunc, volArray, maskArray, NULL);
-  if (!pReturn)
-    {
-      QMessageBox::information(0, "", "Call to " + funcName +" failed");
-      Py_DECREF(pFunc);
-      return -1;
-    }
-
-  QMessageBox::information(0, "", "done");
-
-  return 0;
-}
+//int
+//PyWidget::initPy()
+//{
+//  Py_Initialize();
+//
+//  import_array(); // used by numpy
+//}
+//
+//
+//int
+//PyWidget::runPythonCode(QString moduleName, QString funcName)
+//{
+//  const int ND = 3;
+//  npy_intp dims[3] {m_d, m_w, m_h};
+//      
+//  // Convert it to a NumPy array.
+//  PyObject *volArray = PyArray_SimpleNewFromData(ND,
+//						 dims,
+//						 NPY_INT8,
+//						 reinterpret_cast<void*>(m_volPtr));
+//
+//  PyObject *maskArray = PyArray_SimpleNewFromData(ND,
+//						  dims,
+//						  NPY_INT8,
+//						  reinterpret_cast<void*>(m_maskPtr));
+//  if (!volArray || !maskArray)
+//    {
+//      QMessageBox::information(0,"", "Some problem with PyArray point creation");
+//      return -1;
+//    }
+//  
+//
+//  //PyArrayObject *vol_arr = reinterpret_cast<PyArrayObject*>(volArray);
+//  //PyArrayObject *mask_arr = reinterpret_cast<PyArrayObject*>(maskArray);
+//
+//  // import moduleName.funcName
+//  const char *module_name = moduleName.toLatin1().data();
+//  PyObject *pName = PyUnicode_FromString(module_name);
+//  if (!pName)
+//    {
+//      QMessageBox::information(0, "", moduleName+" not found");
+//      Py_DECREF(volArray);
+//      Py_DECREF(maskArray);
+//      return -1;
+//    }
+//
+//  PyObject *pModule = PyImport_Import(pName);
+//  Py_DECREF(pName);
+//  if (!pModule)
+//    {
+//      QMessageBox::information(0, "", "failed to import "+moduleName);
+//      Py_DECREF(volArray);
+//      Py_DECREF(maskArray);
+//      return -1;
+//    }
+//
+//  const char *func_name = funcName.toLatin1().data();
+//  PyObject *pFunc = PyObject_GetAttrString(pModule, func_name);
+//  if (!pFunc)
+//    {
+//      QMessageBox::information(0, "", funcName+" not found");
+//      Py_DECREF(pModule);
+//      return -1;
+//    }
+//
+//  if (!PyCallable_Check(pFunc))
+//    {
+//      QMessageBox::information(0, "", moduleName + "." + funcName + " is not callable.");
+//      Py_DECREF(pFunc);
+//      return -1;
+//  }
+//
+//  PyObject *pReturn = PyObject_CallFunctionObjArgs(pFunc, volArray, maskArray, NULL);
+//  if (!pReturn)
+//    {
+//      QMessageBox::information(0, "", "Call to " + funcName +" failed");
+//      Py_DECREF(pFunc);
+//      return -1;
+//    }
+//
+//  QMessageBox::information(0, "", "done");
+//
+//  return 0;
+//}
 
 void
 PyWidget::readOutput()

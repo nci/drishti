@@ -21,7 +21,7 @@ class PyWidget : public QWidget
   void setVolPtr(uchar*);
   void setMaskPtr(uchar*);
   
-  int runPythonCode(QString, QString);
+  //int runPythonCode(QString, QString);
 
  signals :
   void pyWidgetClosed();
@@ -49,7 +49,7 @@ class PyWidget : public QWidget
   
    QStringList m_scripts;
   
-  int initPy();
+  //int initPy();
 
   void loadScripts();
 };

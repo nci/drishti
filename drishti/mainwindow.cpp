@@ -1848,6 +1848,8 @@ MainWindow::on_actionTriset_triggered()
   m_Viewer->switchDrawVolume();
   m_dockMesh->show();
   m_dockTF->hide();
+
+  //m_dockKeyframe->toggleViewAction()->setEnabled(false);
 }
 
 void
@@ -2259,6 +2261,7 @@ MainWindow::dropEvent(QDropEvent *event)
 
 		  m_dockMesh->show();
 		  m_dockTF->hide();
+		  //m_dockKeyframe->toggleViewAction()->setEnabled(false);
 		}
 	      else if (StaticFunctions::checkExtension(url.toLocalFile(), "porethroat.nc") ||
 		       StaticFunctions::checkExtension(url.toLocalFile(), "graphml") ||
@@ -2584,7 +2587,10 @@ void
 MainWindow::postLoadVolume()
 {
   if (Global::volumeType() != Global::DummyVolume)
-    m_dockTF->show();
+    {
+      m_dockTF->show();
+      //m_dockKeyframe->toggleViewAction()->setEnabled(true);
+    }
 
   
   if (Global::volumeType() != Global::SingleVolume)
@@ -3835,7 +3841,7 @@ MainWindow::setKeyFrame(Vec pos, Quaternion rot,
 			int fno, float focus, float es,
 			unsigned char *lut,
 			QImage image)
-{
+{    
   QList<SplineInformation> splineInfo;
   for(int i=0; i<m_tfContainer->count(); i++)
     {

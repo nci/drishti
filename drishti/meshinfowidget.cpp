@@ -14,6 +14,8 @@ MeshInfoWidget::MeshInfoWidget(QWidget *parent) :
   ui.setupUi(this);
   resize(100, 100);
 
+  //ui.Command->hide();
+
 
   //--- set background color ---
   QPalette pal = QPalette();
@@ -101,7 +103,6 @@ MeshInfoWidget::MeshInfoWidget(QWidget *parent) :
 //	  
 //  ui.rotationMode->setIcon(QIcon(QString::fromUtf8(":/images/rot.png")));
 //  ui.grabMode->setIcon(QIcon(QString::fromUtf8(":/images/grab.png")));
-
 }
 
 void

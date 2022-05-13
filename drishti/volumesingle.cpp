@@ -2708,7 +2708,9 @@ VolumeSingle::countIsolatedRegions(uchar *lut,
 {
   MainWindowUI::mainWindowUI()->menubar->parentWidget()->\
     setWindowTitle(QString("Counting Isolated Regions"));
-  Global::progressBar()->show();
+
+  MainWindowUI::mainWindowUI()->statusBar->show();
+  MainWindowUI::mainWindowUI()->statusBar->showMessage("Counting Isolated Regions");
   
   int minx = m_dataMin.x;
   int maxx = m_dataMax.x;
@@ -2728,9 +2730,15 @@ VolumeSingle::countIsolatedRegions(uchar *lut,
 		crops,
 		paths);
 
-  
-  Global::progressBar()->show();
+  MainWindowUI::mainWindowUI()->menubar->parentWidget()->\
+    setWindowTitle(QString("Counting Isolated Regions"));
 
+  MainWindowUI::mainWindowUI()->statusBar->show();
+  MainWindowUI::mainWindowUI()->statusBar->showMessage("Counting Isolated Regions");
+    
+  Global::progressBar()->show();
+  
+  
   QBitArray bitcopy = m_bitmask;
   int ncells = 0;
   bool done = false;
@@ -2764,14 +2772,16 @@ VolumeSingle::countIsolatedRegions(uchar *lut,
 	}
 
       ncells ++;
-
+      MainWindowUI::mainWindowUI()->statusBar->showMessage(QString("Isolated Regions : %1").arg(ncells));
+      
       QStack<Vec> posStack;
       posStack.push(pos);
       int pb = 0;
       while(!posStack.isEmpty())
 	{
-	  Global::progressBar()->setValue(pb*0.1);
+	  Global::progressBar()->setValue(ncells%99);
 	  if (pb%10==0) qApp->processEvents();
+	  //qApp->processEvents();
 
 	  pb = pb%1000;
 
@@ -2801,9 +2811,12 @@ VolumeSingle::countIsolatedRegions(uchar *lut,
 		}
 	} // while (!posStack.isEmpty())
     } // while (!done)
-
+  
   Global::progressBar()->setValue(100);
   Global::hideProgressBar();
 
   QMessageBox::information(0, "", QString("Number of cells : %1").arg(ncells));
+
+  MainWindowUI::mainWindowUI()->menubar->parentWidget()->	\
+    setWindowTitle(QString("Drishti"));
 }

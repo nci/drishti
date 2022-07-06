@@ -142,6 +142,7 @@ MainWindow::MainWindow(QWidget *parent) :
   m_Viewer = new Viewer();
   setCentralWidget(m_Viewer);
 
+  
   Global::setBatchMode(false);
   Global::setEmptySpaceSkip(true);
   Global::setImageQuality(Global::_NormalQuality);

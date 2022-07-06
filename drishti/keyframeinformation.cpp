@@ -255,7 +255,7 @@ KeyFrameInformation::KeyFrameInformation()
   m_gamma = 1.0;
   
   m_interpBGColor = Enums::KFIT_Linear;
-  m_interpCaptions = Enums::KFIT_Linear;
+  m_interpCaptions = Enums::KFIT_None;
   m_interpFocus = Enums::KFIT_Linear;
   m_interpTagColors = Enums::KFIT_Linear;
   m_interpTickInfo = Enums::KFIT_Linear;
@@ -266,7 +266,7 @@ KeyFrameInformation::KeyFrameInformation()
   m_interpClipInfo = Enums::KFIT_Linear;
   m_interpLightInfo = Enums::KFIT_Linear;
   m_interpGiLightInfo = Enums::KFIT_None;
-  m_interpTF = Enums::KFIT_Linear;
+  m_interpTF = Enums::KFIT_None;
   m_interpCrop = Enums::KFIT_Linear;
   m_interpMop = Enums::KFIT_None;
 }
@@ -334,7 +334,7 @@ KeyFrameInformation::clear()
   m_gamma = 1.0;
 
   m_interpBGColor = Enums::KFIT_Linear;
-  m_interpCaptions = Enums::KFIT_Linear;
+  m_interpCaptions = Enums::KFIT_None;
   m_interpFocus = Enums::KFIT_Linear;
   m_interpTagColors = Enums::KFIT_Linear;
   m_interpTickInfo = Enums::KFIT_Linear;
@@ -345,7 +345,7 @@ KeyFrameInformation::clear()
   m_interpClipInfo = Enums::KFIT_Linear;
   m_interpLightInfo = Enums::KFIT_Linear;
   m_interpGiLightInfo = Enums::KFIT_None;
-  m_interpTF = Enums::KFIT_Linear;
+  m_interpTF = Enums::KFIT_None;
   m_interpCrop = Enums::KFIT_Linear;
   m_interpMop = Enums::KFIT_None;
 }
@@ -605,7 +605,7 @@ KeyFrameInformation::load(fstream &fin)
   m_gamma = 1.0;
   
   m_interpBGColor = Enums::KFIT_Linear;
-  m_interpCaptions = Enums::KFIT_Linear;
+  m_interpCaptions = Enums::KFIT_None;
   m_interpFocus = Enums::KFIT_Linear;
   m_interpTagColors = Enums::KFIT_Linear;
   m_interpTickInfo = Enums::KFIT_Linear;
@@ -616,7 +616,7 @@ KeyFrameInformation::load(fstream &fin)
   m_interpClipInfo = Enums::KFIT_Linear;
   m_interpLightInfo = Enums::KFIT_Linear;
   m_interpGiLightInfo = Enums::KFIT_None;
-  m_interpTF = Enums::KFIT_Linear;
+  m_interpTF = Enums::KFIT_None;
   m_interpCrop = Enums::KFIT_Linear;
   m_interpMop = Enums::KFIT_None;
 

@@ -466,6 +466,7 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   m_scrollAreaC = new QScrollArea;
   m_scrollAreaC->setBackgroundRole(QPalette::Dark);
   m_scrollAreaC->setWidget(m_curvesWidget);
+  m_curvesWidget->setScrollArea(m_scrollAreaC);
 
 
   m_graphCutArea = createImageWindows();
@@ -934,8 +935,8 @@ DrishtiPaint::on_actionCurves_triggered()
  
   if (m_volume->isValid())
     {
-      curvesUi.livewire->setChecked(true);
-      m_curvesWidget->setLivewire(true);
+      curvesUi.livewire->setChecked(false);
+      m_curvesWidget->setLivewire(false);
     }
 
   //m_curvesWidget->endFiber();
@@ -1214,7 +1215,8 @@ void DrishtiPaint::newcurve_clicked()
 {
   livewire_clicked(false);
   curvesUi.livewire->setChecked(false);
-  m_curvesWidget->newCurve(true);
+  //m_curvesWidget->newCurve(true);
+  m_curvesWidget->newCurve(false);
 }
 void DrishtiPaint::endcurve_clicked() { m_curvesWidget->endCurve(); }
 //void DrishtiPaint::on_newfiber_clicked() { m_curvesWidget->newFiber(); }
@@ -6961,9 +6963,9 @@ DrishtiPaint::on_actionBakeCurves_triggered()
   bool ok;
   //----------------
   QString tagstr = QInputDialog::getText(0, "Bake curves for Tag",
-	    "Tag Numbers (tags should be separated by space.\n-2 extract whatever is visible.\n-1 for all tags;\nFor e.g. 1 2 5 will extract tags 1, 2 and 5)",
+	    "Tag Numbers (tags should be separated by space.\n-2 extract whatever is visible within the envelop.\n-1 for all tags;\nFor e.g. 1 2 5 will extract tags 1, 2 and 5)",
 					 QLineEdit::Normal,
-					 "-1",
+					 "-2",
 					 &ok);
   if (!ok)
     return;

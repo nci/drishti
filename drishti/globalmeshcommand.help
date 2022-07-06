@@ -1,0 +1,54 @@
+#begin
+colorMap
+colorMap
+
+Set colors for all meshes to colors obtained from preset color map.
+
+#end
+
+#begin
+bakecolors
+bakecolors
+
+Bakein painted colors for all meshes.
+
+#end
+
+
+
+#begin
+resetPositions
+resetPositions
+
+Reset positions of all loaded meshes to (0,0,0).
+#end
+
+
+#begin
+clearScene
+clearScene
+
+Delete all meshes from the scene.
+#end
+
+
+
+#begin
+explode
+explode
+explode <rad> <tx> <ty> <tz>
+explodeX <rad> <tx> <ty> <tz>
+explodeY <rad> <tx> <ty> <tz>
+explodeZ <rad> <tx> <ty> <tz>
+explodeXY <rad> <tx> <ty> <tz>
+explodeXZ <rad> <tx> <ty> <tz>
+explodeYZ <rad> <tx> <ty> <tz>
+
+Move the individual meshes away from centroid of the selected meshes.  <rad> is in normalized scene box units.  
+If <tx> <ty> <tz> are specified they are used to additionally move the exploded meshes.
+
+Example : explode (same as explode 1.0)
+          explode 0.5
+          explode 2.0
+	  explode 1.0 0 0 -20.0 (same as explode 1.0, but the meshes are now additionally moved by 0,0,-20)
+#end

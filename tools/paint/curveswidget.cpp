@@ -243,25 +243,75 @@ CurvesWidget::saveImage()
   QMessageBox::information(0, "Save Image", "Done");
 }
 
+//void
+//CurvesWidget::setZoom(float z)
+//{
+//  setMinimumSize(QSize(m_imgWidth, m_imgHeight));
+//  if (z < 0)
+//    {
+//      QWidget *prt = (QWidget*)parent();
+//      int frmHeight = prt->rect().height()-50;
+//      int frmWidth = prt->rect().width()-50;
+//      float zn = qMin((float)frmWidth/m_imgWidth,
+//		      (float)frmHeight/m_imgHeight);
+//      m_zoom = qMax(0.01f, zn);
+//    }
+//  else
+//    m_zoom = qMax(0.01f, z);
+//
+//  resizeImage();
+//  update();
+//}
 void
 CurvesWidget::setZoom(float z)
-{
+{  
   setMinimumSize(QSize(m_imgWidth, m_imgHeight));
-  if (z < 0)
+
+  bool z9 = false;
+  int z9x, z9y, z9mx, z9my;
+  if (qAbs(z-1) < 0.01)
     {
-      QWidget *prt = (QWidget*)parent();
-      int frmHeight = prt->rect().height()-50;
-      int frmWidth = prt->rect().width()-50;
-      float zn = qMin((float)frmWidth/m_imgWidth,
-		      (float)frmHeight/m_imgHeight);
-      m_zoom = qMax(0.01f, zn);
+      m_zoom = qMax(0.01f, z);
     }
   else
-    m_zoom = qMax(0.01f, z);
+    {
+      int size1, size2;
+      int imin, imax, jmin, jmax;
+      getSliceLimits(size1, size2, imin, imax, jmin, jmax);
+
+      if (z < 0)
+	m_zoom = 1;
+      else
+	m_zoom = qMax(0.01f, z);
+
+      if (size1 > 0 && size2 > 0)
+	{
+	  QWidget *prt = (QWidget*)parent();
+	  int frmHeight = prt->rect().height()-50;
+	  int frmWidth = prt->rect().width()-50;
+
+	  if (z < 0)
+	    {
+	      m_zoom = qMin((float)frmWidth/size2,
+			    (float)frmHeight/size1);
+	      m_zoom = qMax(0.01f, m_zoom);
+	    }
+      
+	  z9 = true;
+	  z9x = m_zoom*(jmax+jmin)/2;
+	  z9y = m_zoom*(imax+imin)/2;
+	  z9mx = (frmWidth+65)/2;
+	  z9my = (frmHeight+65)/2;
+	}
+    }
 
   resizeImage();
   update();
+
+  if (z9)
+    m_scrollArea->ensureVisible(z9x, z9y, z9mx, z9my);
 }
+
 
 
 void
@@ -1858,7 +1908,7 @@ CurvesWidget::newCurve(bool showoptions)
 	    }      
 	  
 	  QMessageBox::information(this, "Add Curve",
-				   "Draw curve by dragging with left mouse button pressed.\nYou can also start new curve by pressing key a.");
+				   "Draw curve by dragging with left mouse button pressed.\nYou can also start new curve by pressing key c.");
 	}
     }
 
@@ -2289,31 +2339,33 @@ CurvesWidget::curveModeKeyPressEvent(QKeyEvent *event)
 	}
     }
 
-  if (event->key() == Qt::Key_A)
+  if (event->key() == Qt::Key_C)
     {
-      if (m_addingCurvePoints)
-	update();
-      newCurve(false);
-      emit saveWork();
-      return;
-    }
-
-  if (ctrlModifier && event->key() == Qt::Key_C)
-    {
-      int cc = -1;
-      if (m_sliceType == DSlice)
-	cc = m_dCurves.copyCurve(m_currSlice, m_pickHeight, m_pickWidth);
-      else if (m_sliceType == WSlice)
-	cc = m_wCurves.copyCurve(m_currSlice, m_pickHeight, m_pickDepth);
-      else
-	cc = m_hCurves.copyCurve(m_currSlice, m_pickWidth,  m_pickDepth);
-
-      if (cc >= 0)
-	QMessageBox::information(0, "", QString("Curve copied to buffer"));
-      else
-	QMessageBox::information(0, "", QString("No curve found to copy"));
-
-      return;
+      if (!ctrlModifier)
+	{
+	  if (m_addingCurvePoints)
+	    update();
+	  newCurve(false);
+	  emit saveWork();
+	  return;
+	}    
+      else if (ctrlModifier)	
+	{
+	  int cc = -1;
+	  if (m_sliceType == DSlice)
+	    cc = m_dCurves.copyCurve(m_currSlice, m_pickHeight, m_pickWidth);
+	  else if (m_sliceType == WSlice)
+	    cc = m_wCurves.copyCurve(m_currSlice, m_pickHeight, m_pickDepth);
+	  else
+	    cc = m_hCurves.copyCurve(m_currSlice, m_pickWidth,  m_pickDepth);
+	  
+	  if (cc >= 0)
+	    QMessageBox::information(0, "", QString("Curve copied to buffer"));
+	  else
+	    QMessageBox::information(0, "", QString("No curve found to copy"));
+	  
+	  return;
+	}
     }
 
   if (ctrlModifier && event->key() == Qt::Key_V)
@@ -3187,6 +3239,8 @@ CurvesWidget::doAnother(int step)
 void
 CurvesWidget::wheelEvent(QWheelEvent *event)
 {
+  event->setAccepted(true);
+  
   int numSteps = event->delta()/8.0f/15.0f;
   doAnother(-numSteps);
 }

@@ -63,7 +63,7 @@ Viewer::Viewer(QWidget *parent) :
   m_vsize = Vec(1,1,1);
   m_sslevel = 1;
 
-  m_stillStep = 0.7;
+  m_stillStep = 0.5;
   m_dragStep = 1.5;
 
   m_minGrad = 0.0;

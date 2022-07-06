@@ -73,24 +73,24 @@ KeyFrameEditor::KeyFrameEditor(QWidget *parent):
   m_plus->setAutoRepeat(true);
   m_minus->setAutoRepeat(true);
 
-  m_set->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-  m_remove->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+//  m_set->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+//  m_remove->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     m_plus->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
    m_minus->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 
-  m_set->setMaximumSize(100, 30);
-  m_remove->setMaximumSize(150, 30);
-  m_plus->setMaximumSize(30, 30);
-  m_minus->setMaximumSize(30, 30);
+//  m_set->setMaximumSize(100, 30);
+//  m_remove->setMaximumSize(150, 30);
+//  m_set->setMinimumSize(120, 30);
+//  m_remove->setMinimumSize(150, 30);
 
+   
+   m_plus->setMaximumSize(30, 30);
+  m_minus->setMaximumSize(30, 30);
   m_play->setMaximumSize(30, 30);
   m_reset->setMaximumSize(30, 30);
 
-  m_set->setMinimumSize(120, 30);
-  m_remove->setMinimumSize(150, 30);
   m_plus->setMinimumSize(30, 30);
   m_minus->setMinimumSize(30, 30);
-
   m_play->setMinimumSize(30, 30);
   m_reset->setMinimumSize(30, 30);
 
@@ -117,6 +117,7 @@ KeyFrameEditor::KeyFrameEditor(QWidget *parent):
   m_playFrames = false;
   m_currFrame = 1;
 
+  
   m_lineHeight = 70;
   m_tickStep = 50;
   m_tickHeight = 10;
@@ -726,6 +727,10 @@ KeyFrameEditor::increaseFrameStep()
       m_minus->setEnabled(false);
     }
 
+  // keep current frame visible
+  float frc = (float)(m_p1.x()-m_p0.x())/(float)m_tickStep;
+  m_minFrame = m_currFrame - m_frameStep*frc*0.5;
+  m_minFrame = qMax(1, m_minFrame);
   calcMaxFrame();
   update();
 }
@@ -756,6 +761,10 @@ KeyFrameEditor::decreaseFrameStep()
       m_plus->setEnabled(false);
     }
 
+  // keep current frame visible
+  float frc = (float)(m_p1.x()-m_p0.x())/(float)m_tickStep;
+  m_minFrame = m_currFrame - m_frameStep*frc*0.5;
+  m_minFrame = qMax(1, m_minFrame);
   calcMaxFrame();
   update();
 }
@@ -781,7 +790,7 @@ KeyFrameEditor::frameUnderPoint(QPoint pos)
   else
     {
       float frc = (float)(pos.x()-m_p0.x())/(float)(m_p1.x()-m_p0.x());
-      frame = m_minFrame + frc * (m_maxFrame-m_minFrame);
+      frame = qRound(m_minFrame*(1-frc) + frc*m_maxFrame);
     }
 
   return frame;
@@ -854,11 +863,22 @@ KeyFrameEditor::applyShift()
       m_selected > endKF)
     return; 
 
+  QList<int> tfno = m_fno;
   
   int firstFrame = m_fno[startKF];
   int len = qMax(0, m_fno[m_selected] - m_fno[startKF]); 
   for(int fi=startKF; fi<m_selected; fi++)
     m_fno[fi] = firstFrame + m_ratioBefore[fi-startKF]*len;
+
+  for(int fi=startKF; fi<m_selected-1; fi++)
+    {
+      if (tfno[fi]+1 == tfno[fi+1])
+	{
+	  m_fno[fi] = m_fno[fi+1]-1;
+	}
+    }
+  // keep keyframes that are 1 frame apart that way
+  // even after stretching or compressing
   for(int fi=startKF; fi<m_selected; fi++)
     {
       if (m_fno[fi] >= m_fno[fi+1])
@@ -874,7 +894,7 @@ KeyFrameEditor::applyShift()
   int lastFrame = m_fno[endKF];
   len = qMin(0, m_fno[m_selected] - lastFrame);
   for(int fi=m_selected+1; fi<=endKF; fi++)
-    m_fno[fi] = lastFrame + m_ratioAfter[fi-m_selected-1]*len; 
+    m_fno[fi] = lastFrame + m_ratioAfter[fi-m_selected-1]*len;
   for(int fi=endKF; fi>m_selected; fi--)
     {
       if (m_fno[fi] <= m_fno[fi-1])
@@ -885,9 +905,6 @@ KeyFrameEditor::applyShift()
       if (m_fno[fi] <= m_fno[fi-1])
 	m_fno[fi] = m_fno[fi-1] + 1;
     }
-
-  for(int fi=0; fi<m_fno.count(); fi++)
-    m_fno[fi] = qMax(1, m_fno[fi]);
 
   emit setKeyFrameNumbers(m_fno);
 }
@@ -1151,7 +1168,7 @@ KeyFrameEditor::mouseMoveEvent(QMouseEvent *event)
       else
 	{
 	  if (clickPos.x() <= m_p0.x())
-	    m_fno[m_selected] = m_minFrame;
+	    m_fno[m_selected] = qMax(1,m_minFrame);
 	  else if (clickPos.x() >= m_p1.x())
 	    m_fno[m_selected] = m_maxFrame;
 	  else
@@ -1370,7 +1387,7 @@ KeyFrameEditor::setKeyFrame()
       QImage img(100,100, QImage::Format_RGB32);
       m_fImage.append(img);
       
-      m_minFrame = qMax(1, m_fno[m_fno.count()-1]-3*m_frameStep);
+      //m_minFrame = qMax(1, m_fno[m_fno.count()-1]-3*m_frameStep);
       calcMaxFrame();
       
       calcRect();
@@ -1511,7 +1528,7 @@ KeyFrameEditor::moveTo(int fno)
   m_currFrame = fno;
   if (m_currFrame < m_minFrame)
     {
-      m_minFrame = m_currFrame;
+      m_minFrame = qMax(1,m_currFrame);
       calcMaxFrame();
     }
   if (m_currFrame > m_maxFrame)

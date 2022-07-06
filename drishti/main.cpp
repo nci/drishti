@@ -5,11 +5,14 @@
 
 #include <QTranslator>
 
-int main(int argc, char** argv)
-{
-  char *flnm;
 
-  QApplication application(argc,argv);
+int main(int argc, char** argv)
+{  
+  //QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+  
+   int MYargc = 3;
+   char *MYargv[] = {(char*)"Appname", (char*)"--platform", (char*)"windows:dpiawareness=0"};
+   QApplication application(MYargc, MYargv);
   
   QGLFormat glFormat;
   glFormat.setSampleBuffers(true);

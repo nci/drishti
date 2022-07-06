@@ -25,6 +25,7 @@
 #include <QInputDialog>
 #include <QFileDialog>
 
+
 using namespace std;
 
 bool carveHitPointOK = false;
@@ -459,7 +460,7 @@ Viewer::resizeGL(int width, int height)
 {
   if (savingImages())
     return;
-
+  
   if (!m_imageSizeFlag)
     {
       m_origWidth = width;

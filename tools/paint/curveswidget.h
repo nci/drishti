@@ -14,6 +14,7 @@
 #include "livewire.h"
 #include "curvegroup.h"
 #include "fibergroup.h"
+#include <QScrollArea>
 
 class CurvesWidget : public QWidget
 {
@@ -29,6 +30,8 @@ class CurvesWidget : public QWidget
   };
 
   void saveImage();
+
+  void setScrollArea(QScrollArea *sa) { m_scrollArea = sa; }
   
   void setGridSize(int, int, int);
   void setSliceType(int);
@@ -156,6 +159,8 @@ class CurvesWidget : public QWidget
   void saveMask();
   
  private :
+  QScrollArea *m_scrollArea;
+
   QStatusBar *m_statusBar;
   QScrollBar *m_hbar, *m_vbar;
 

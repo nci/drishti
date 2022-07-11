@@ -39,6 +39,8 @@ DEPENDPATH += .
 include( ../drishti.pri )
 
 win32 {
+  RC_ICONS += images/drishti-256.ico
+
   DEFINES += USE_GLMEDIA
 
   contains(Windows_Setup, Win64) {

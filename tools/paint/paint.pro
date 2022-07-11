@@ -31,7 +31,9 @@ FORMS += drishtipaint.ui viewermenu.ui \
 # Windows setup for 64-bit system
 #contains(Windows_Setup, Win64) {
   win32 {
-	 DEFINES += USE_GLMEDIA
+         RC_ICONS += images/drishtipaint.ico
+
+         DEFINES += USE_GLMEDIA
 
          INCLUDEPATH += C:\Qt\Qt-5.15.2\libQGLViewer\libQGLViewer-2.6.4 \
                         ..\..\glmedia-64 \

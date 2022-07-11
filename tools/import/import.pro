@@ -14,6 +14,11 @@ CONFIG += release
 TARGET = drishtiimport
 
 DESTDIR = ../../bin
+
+win32
+{
+  RC_ICONS += images/drishtiimport.ico
+}
      
 
 FORMS += remapwidget.ui \

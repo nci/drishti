@@ -70,6 +70,7 @@ macx {
 #----------------------------------------------------------------
 
 #----------------------------------------------------------------
+
 #Linux setup
 
 Facility_Name = Ubuntu 
@@ -85,17 +86,17 @@ contains(Facility_Name, Ubuntu) {
     contains(DRISHTI_DEFINES, RENDERER) {
 
       INCLUDEPATH += /home/acl900/drishtilib/libQGLViewer-2.6.4 \
-                     /home/acl900/drishtilib/glew-2.1.0/include \
-                     /home/acl900/drishtilib/assimp-5.0.1/include \
-                     /home/acl900/drishtilib/assimp-5.0.1/build/include
+                     /home/acl900/drishtilib/glew-2.2.0/include \
+                     /home/acl900/drishtilib/assimp/include \
+                     /home/acl900/drishtilib/assimp/build/include
 
       QMAKE_CXXFLAGS += -fno-stack-protector
 
       QMAKE_LIBDIR += /usr/lib \
       		      /usr/lib/x86_64-linux-gnu \
 		      /home/acl900/drishtilib/libQGLViewer-2.6.4/QGLViewer \
-                      /home/acl900/drishtilib/glew-2.1.0/lib \
-                      /home/acl900/drishtilib/assimp-5.0.1/build/code
+                      /home/acl900/drishtilib/glew-2.2.0/lib \
+                      /home/acl900/drishtilib/assimp/build/bin
 
       LIBS += -lQGLViewer-qt5 \
       	      -lGLEW \
@@ -109,7 +110,8 @@ contains(Facility_Name, Ubuntu) {
     }
   
     contains(DRISHTI_DEFINES, NETCDF) {
-      INCLUDEPATH += /usr/include/netcdf-3
+      INCLUDEPATH += /home/acl900/drishtilib/netcdf3/build/include
+      QMAKE_LIBDIR += /home/acl900/drishtilib/netcdf3/build/lib
     }
   
     contains(DRISHTI_DEFINES, TIFF) {
@@ -117,7 +119,7 @@ contains(Facility_Name, Ubuntu) {
     }
   
     contains(DRISHTI_DEFINES, ITK) {
-      ITKVer = 5.1
+      ITKVer = 5.2
       InsightToolkit = /home/acl900/drishtilib/InsightToolkit-$${ITKVer}.1
       ITK = /home/acl900/drishtilib/ITK
 
@@ -132,4 +134,5 @@ contains(Facility_Name, Ubuntu) {
   }
 }
 
+#----------------------------------------------------------------
 #----------------------------------------------------------------

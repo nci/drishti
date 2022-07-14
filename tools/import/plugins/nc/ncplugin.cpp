@@ -175,7 +175,7 @@ NcPlugin::replaceFile(QString flnm)
 
 bool
 NcPlugin::setFile(QStringList files)
-{
+{  
   if (files.size() == 0)
     return false;
 
@@ -209,6 +209,7 @@ NcPlugin::setFile(QStringList files)
   QList<QString> varNames;
   QList<QString> allVars = listAllVariables();
 
+  
   if (allVars.size() == 0)
     return false;
 

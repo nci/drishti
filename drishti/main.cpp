@@ -5,6 +5,8 @@
 
 #include <QTranslator>
 
+#include "launcher.h"
+
 
 int main(int argc, char** argv)
 {  
@@ -17,55 +19,18 @@ int main(int argc, char** argv)
   QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
   QApplication application(argc, argv);   
 #endif
+
+
+  //------------------------------
+  //------------------------------
+  // choose application to run
+  Launcher launcher;
+  if (launcher.exec() != QDialog::Accepted)
+    exit(0);
+  //------------------------------
+  //------------------------------
+
   
-  //------------------------------------------------------------
-  //------------------------------------------------------------
-  // choose the application
-  {
-    QStringList choices;
-    choices << "Drishti";
-    choices << "Drishti Import";
-    choices << "Drishti Paint";
-
-    QInputDialog appChooser;
-    QFont font;
-    font.setPointSize(16);
-    appChooser.setFont(font);
-    appChooser.setOption(QInputDialog::UseListViewForComboBoxItems);
-    appChooser.setWindowTitle(QWidget::tr("Choose Application to Run"));
-    appChooser.setLabelText(QWidget::tr("Applications"));
-    appChooser.setComboBoxItems(choices);
-    int ok = appChooser.exec();
-
-    if (ok == QDialog::Accepted)
-      {
-	QString choice = appChooser.textValue();
-	
-	if (choice == "Drishti Import")
-	  {
-#if defined(Q_OS_WIN32)
-	    QProcess::startDetached(qApp->applicationDirPath() + QDir::separator() + "drishtiimport.exe");
-#else
-	    QProcess::startDetached(qApp->applicationDirPath() + QDir::separator() + "drishtiimport");
-#endif
-	    exit(0);
-	  }
-
-	if (choice == "Drishti Paint")
-	  {
-#if defined(Q_OS_WIN32)
-	    QProcess::startDetached(qApp->applicationDirPath() + QDir::separator() + "drishtipaint.exe");
-#else
-	    QProcess::startDetached(qApp->applicationDirPath() + QDir::separator() + "drishtipaint");
-#endif
-	    exit(0);
-	  }
-
-      }
-  }
-  //------------------------------------------------------------
-  //------------------------------------------------------------
-
      
   QGLFormat glFormat;
   glFormat.setSampleBuffers(true);

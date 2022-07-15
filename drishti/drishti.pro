@@ -9,7 +9,8 @@ CONFIG += release
 
 TRANSLATIONS = drishtitr_ch.ts
 
-FORMS += mainwindow.ui \
+FORMS += launcher.ui \
+         mainwindow.ui \
 	 saveimgseq.ui \
 	 savemovie.ui \
 	 brickswidget.ui \
@@ -101,7 +102,8 @@ LIBS += -lGLEW -lnetcdf -lnetcdf_c++ -framework QGLViewer -framework GLUT
 
 
 # Input
-HEADERS += boundingbox.h \
+HEADERS += launcher.h \
+           boundingbox.h \
            blendshaderfactory.h \
 	   brickinformation.h \
 	   bricks.h \
@@ -257,7 +259,8 @@ HEADERS += boundingbox.h \
            connectmeshinfowidget.h
 
 
-SOURCES += boundingbox.cpp \
+ SOURCES +=launcher.cpp \
+           boundingbox.cpp \
            blendshaderfactory.cpp \
 	   brickinformation.cpp \
 	   bricks.cpp \

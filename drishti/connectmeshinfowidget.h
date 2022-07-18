@@ -17,10 +17,10 @@
 	  GeometryObjects::trisets(), SLOT(removeMesh(QList<int>)));
   connect(m_meshInfoWidget, SIGNAL(saveMesh(int)),
 	  GeometryObjects::trisets(), SLOT(saveMesh(int)));
-  connect(m_meshInfoWidget, SIGNAL(duplicateMesh(int)),
-	  GeometryObjects::trisets(), SLOT(duplicateMesh(int)));
-  connect(m_meshInfoWidget, SIGNAL(reorder(QList<int>)),
-	  GeometryObjects::trisets(), SLOT(reorder(QList<int>)));
+//  connect(m_meshInfoWidget, SIGNAL(duplicateMesh(int)),
+//	  GeometryObjects::trisets(), SLOT(duplicateMesh(int)));
+//  connect(m_meshInfoWidget, SIGNAL(reorder(QList<int>)),
+//	  GeometryObjects::trisets(), SLOT(reorder(QList<int>)));
 
   connect(GeometryObjects::trisets(), SIGNAL(setParameters(QMap<QString, QVariantList>)),
 	  m_meshInfoWidget, SLOT(setParameters(QMap<QString, QVariantList>)));

@@ -28,7 +28,7 @@ DrishtiPaint::initTagColors()
 {
   uchar *colors;
   colors = new uchar[1024];
-  memset(colors, 0, 1024);
+  memset(colors, 255, 1024);
 
   qsrand(1);
 

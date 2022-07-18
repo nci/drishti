@@ -12,9 +12,21 @@ Launcher::Launcher(QWidget *parent) :
   ui.drishtiImport->setStyleSheet("QWidget{background:azure;}");
   ui.drishtiPaint->setStyleSheet("QWidget{background:floralwhite;}");
 
-  QIcon icon;
-  icon.addFile(QString::fromUtf8(":/images/drishti_32.png"), QSize(), QIcon::Normal, QIcon::Off);
-  ui.drishti->setIcon(icon);
+  {
+    QIcon icon;
+    icon.addFile(QString::fromUtf8(":/images/drishti-run.png"), QSize(), QIcon::Normal, QIcon::Off);
+    ui.drishti->setIcon(icon);
+  }
+  {
+    QIcon icon;
+    icon.addFile(QString::fromUtf8(":/images/drishtiimport.png"), QSize(), QIcon::Normal, QIcon::Off);
+    ui.drishtiImport->setIcon(icon);
+  }
+  {
+    QIcon icon;
+    icon.addFile(QString::fromUtf8(":/images/drishtipaint.png"), QSize(), QIcon::Normal, QIcon::Off);
+    ui.drishtiPaint->setIcon(icon);
+  }
   
   connect(ui.drishti, SIGNAL(clicked(bool)),
 	  this, SLOT(drishti(bool)));

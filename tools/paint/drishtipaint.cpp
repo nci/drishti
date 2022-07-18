@@ -40,7 +40,7 @@ DrishtiPaint::initTagColors()
 	  r = (float)qrand()/(float)RAND_MAX;
 	  g = (float)qrand()/(float)RAND_MAX;
 	  b = (float)qrand()/(float)RAND_MAX;
-	  a = 0.5f;
+	  a = 1.0f;
 	}
       else
 	{

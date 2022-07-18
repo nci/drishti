@@ -7628,7 +7628,7 @@ DrishtiPaint::on_actionLoad3DList_triggered()
       while(!in.atEnd())
 	{
 	  QString line = in.readLine();
-	  QStringList w = line.split(" ", Qt::SkipEmptyParts);
+	  QStringList w = line.split(" ", QString::SkipEmptyParts);
 	  if (w.count() == 3)
 	    {
 	      Global::addToBoxList3D(Vec(w[0].toInt(), w[1].toInt(), w[2].toInt()));
@@ -7738,7 +7738,7 @@ DrishtiPaint::on_actionLoad2DList_triggered()
       while(!in.atEnd())
 	{
 	  QString line = in.readLine();
-	  QStringList w = line.split(" ", Qt::SkipEmptyParts);
+	  QStringList w = line.split(" ", QString::SkipEmptyParts);
 	  if (w.count() == 6)
 	    {
 	      Global::addToBoxList2D(Vec(w[0].toInt(), w[1].toInt(), w[2].toInt()),

@@ -1,8 +1,7 @@
 #include "drishtiimport.h"
 
-int main(int argv, char **args)
+int main(int argc, char **argv)
 {
-  //QApplication app(argv, args);
 #if defined(Q_OS_WIN32)
   //QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
   int MYargc = 3;

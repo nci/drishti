@@ -16,6 +16,9 @@ DrishtiImport::DrishtiImport(QWidget *parent) :
 {
   ui.setupUi(this);
 
+  qApp->setFont(QFont("MS Reference Sans Serif", 12));
+  
+
   setWindowIcon(QPixmap(":/images/drishti_import_32.png"));
   setWindowTitle(QString("DrishtiImport v") + QString(DRISHTI_VERSION));
 

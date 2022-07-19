@@ -118,6 +118,9 @@ MainWindow::MainWindow(QWidget *parent) :
 {
   ui.setupUi(this);
 
+  qApp->setFont(QFont("MS Reference Sans Serif", 12));
+  
+  
   Global::setStatusBar(ui.statusBar, ui.actionStatusBar);
 
   ui.statusBar->setEnabled(true);
@@ -768,6 +771,8 @@ MainWindow::setTextureMemory()
   texlist << "10.0 Gb";
   texlist << "12.0 Gb";
   texlist << "16.0 Gb";
+  texlist << "24.0 Gb";
+  texlist << "32.0 Gb";
   QString texstr = QInputDialog::getItem(0,
 					 QWidget::tr("Texture Memory"),
 					 QWidget::tr("Texture Memory Size"),

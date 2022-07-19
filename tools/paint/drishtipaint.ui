@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1110</width>
+    <width>393</width>
     <height>636</height>
    </rect>
   </property>
@@ -108,6 +108,12 @@
                <verstretch>0</verstretch>
               </sizepolicy>
              </property>
+             <property name="maximumSize">
+              <size>
+               <width>200</width>
+               <height>16777215</height>
+              </size>
+             </property>
              <property name="text">
               <string>Save Frequency</string>
              </property>
@@ -157,6 +163,12 @@
            </property>
            <item>
             <widget class="QFrame" name="buttonBox">
+             <property name="maximumSize">
+              <size>
+               <width>200</width>
+               <height>16777215</height>
+              </size>
+             </property>
              <layout class="QHBoxLayout" name="horizontalLayout_6">
               <property name="topMargin">
                <number>10</number>
@@ -260,6 +272,12 @@
          </item>
          <item>
           <widget class="QFrame" name="curveSelTex">
+           <property name="maximumSize">
+            <size>
+             <width>200</width>
+             <height>16777215</height>
+            </size>
+           </property>
            <layout class="QHBoxLayout" name="horizontalLayout_9">
             <property name="spacing">
              <number>5</number>
@@ -293,7 +311,7 @@
           <widget class="Line" name="line_2">
            <property name="maximumSize">
             <size>
-             <width>16777215</width>
+             <width>200</width>
              <height>16777215</height>
             </size>
            </property>
@@ -708,8 +726,8 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1110</width>
-     <height>21</height>
+     <width>393</width>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">

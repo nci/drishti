@@ -16,6 +16,12 @@
     <verstretch>0</verstretch>
    </sizepolicy>
   </property>
+  <property name="maximumSize">
+   <size>
+    <width>200</width>
+    <height>16777215</height>
+   </size>
+  </property>
   <property name="windowTitle">
    <string>Form</string>
   </property>
@@ -419,8 +425,8 @@
           </property>
           <property name="maximumSize">
            <size>
-            <width>70</width>
-            <height>25</height>
+            <width>120</width>
+            <height>30</height>
            </size>
           </property>
           <property name="text">
@@ -435,8 +441,8 @@
          <widget class="QPushButton" name="modify">
           <property name="maximumSize">
            <size>
-            <width>70</width>
-            <height>25</height>
+            <width>120</width>
+            <height>30</height>
            </size>
           </property>
           <property name="text">
@@ -451,8 +457,8 @@
          <widget class="QPushButton" name="propagate">
           <property name="maximumSize">
            <size>
-            <width>70</width>
-            <height>25</height>
+            <width>120</width>
+            <height>30</height>
            </size>
           </property>
           <property name="text">
@@ -467,8 +473,8 @@
          <widget class="QPushButton" name="morphcurves">
           <property name="maximumSize">
            <size>
-            <width>70</width>
-            <height>16777215</height>
+            <width>120</width>
+            <height>30</height>
            </size>
           </property>
           <property name="text">
@@ -508,8 +514,8 @@
        <widget class="QPushButton" name="newcurve">
         <property name="maximumSize">
          <size>
-          <width>70</width>
-          <height>25</height>
+          <width>120</width>
+          <height>30</height>
          </size>
         </property>
         <property name="text">
@@ -524,8 +530,8 @@
        <widget class="QPushButton" name="endcurve">
         <property name="maximumSize">
          <size>
-          <width>70</width>
-          <height>25</height>
+          <width>120</width>
+          <height>30</height>
          </size>
         </property>
         <property name="text">
@@ -553,8 +559,8 @@
        <widget class="QPushButton" name="deleteallcurves">
         <property name="maximumSize">
          <size>
-          <width>70</width>
-          <height>25</height>
+          <width>120</width>
+          <height>30</height>
          </size>
         </property>
         <property name="text">

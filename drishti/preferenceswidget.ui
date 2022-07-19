@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>349</width>
-    <height>474</height>
+    <width>215</width>
+    <height>404</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -32,10 +32,13 @@
       <attribute name="title">
        <string>Tab 1</string>
       </attribute>
-      <layout class="QVBoxLayout">
-       <item>
-        <layout class="QHBoxLayout">
-         <item>
+      <layout class="QGridLayout" name="gridLayout_3">
+       <item row="0" column="0">
+        <layout class="QGridLayout" name="gridLayout_2">
+         <property name="verticalSpacing">
+          <number>0</number>
+         </property>
+         <item row="0" column="1">
           <widget class="QLabel" name="label_10">
            <property name="toolTip">
             <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
@@ -50,12 +53,57 @@ p, li { white-space: pre-wrap; }
             <string/>
            </property>
            <property name="text">
-            <string>Texture Memory Size</string>
+            <string>Texture Memory Size
+(size in MB)</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignBottom|Qt::AlignHCenter</set>
            </property>
           </widget>
          </item>
-         <item>
-          <widget class="QSlider" name="m_textureMemorySize">
+         <item row="0" column="3">
+          <spacer name="horizontalSpacer">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item row="1" column="1">
+          <widget class="QLabel" name="label_12">
+           <property name="text">
+            <string>TextLabel (MB)</string>
+           </property>
+           <property name="textFormat">
+            <enum>Qt::AutoText</enum>
+           </property>
+           <property name="scaledContents">
+            <bool>true</bool>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignHCenter|Qt::AlignTop</set>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="2" rowspan="2">
+          <widget class="QDial" name="m_textureMemorySize">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>100</width>
+             <height>100</height>
+            </size>
+           </property>
            <property name="minimum">
             <number>128</number>
            </property>
@@ -63,7 +111,7 @@ p, li { white-space: pre-wrap; }
             <number>65535</number>
            </property>
            <property name="singleStep">
-            <number>32</number>
+            <number>128</number>
            </property>
            <property name="pageStep">
             <number>128</number>
@@ -71,24 +119,36 @@ p, li { white-space: pre-wrap; }
            <property name="orientation">
             <enum>Qt::Horizontal</enum>
            </property>
-           <property name="tickPosition">
-            <enum>QSlider::TicksAbove</enum>
+           <property name="invertedAppearance">
+            <bool>false</bool>
            </property>
-           <property name="tickInterval">
-            <number>0</number>
+           <property name="wrapping">
+            <bool>false</bool>
+           </property>
+           <property name="notchTarget">
+            <double>0.785000000000000</double>
+           </property>
+           <property name="notchesVisible">
+            <bool>true</bool>
            </property>
           </widget>
          </item>
-         <item>
-          <widget class="QLabel" name="label_12">
-           <property name="text">
-            <string>TextLabel</string>
+         <item row="0" column="0">
+          <spacer name="horizontalSpacer_2">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
            </property>
-          </widget>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
          </item>
         </layout>
        </item>
-       <item>
+       <item row="1" column="0">
         <spacer>
          <property name="orientation">
           <enum>Qt::Vertical</enum>
@@ -104,7 +164,7 @@ p, li { white-space: pre-wrap; }
          </property>
         </spacer>
        </item>
-       <item>
+       <item row="2" column="0">
         <widget class="QGroupBox" name="groupBox_2">
          <property name="title">
           <string>Image Quality</string>
@@ -113,24 +173,6 @@ p, li { white-space: pre-wrap; }
           <bool>false</bool>
          </property>
          <layout class="QGridLayout">
-          <item row="0" column="1">
-           <widget class="QSlider" name="m_still">
-            <property name="toolTip">
-             <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'MS Shell Dlg 2'; font-size:8.25pt; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-size:8pt;&quot;&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt;This control determines image quality when in still mode of rendering.  Still mode of rendering is active when mouse is not dragged.&lt;/span&gt;&lt;/p&gt;
-&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-size:12pt;&quot;&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-size:12pt;&quot;&gt;The slider position is used to calculate number of interpolated samples per voxel.  Higher the number of samples better is the image quality.&lt;/p&gt;
-&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-size:12pt;&quot;&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-size:12pt;&quot;&gt;Image rendering might become slower for higher values.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
-            </property>
-           </widget>
-          </item>
           <item row="1" column="1">
            <widget class="QSlider" name="m_drag">
             <property name="toolTip">
@@ -146,6 +188,9 @@ p, li { white-space: pre-wrap; }
             </property>
             <property name="orientation">
              <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="tickPosition">
+             <enum>QSlider::TicksBelow</enum>
             </property>
            </widget>
           </item>
@@ -163,10 +208,31 @@ p, li { white-space: pre-wrap; }
             </property>
            </widget>
           </item>
+          <item row="0" column="1">
+           <widget class="QSlider" name="m_still">
+            <property name="toolTip">
+             <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'MS Shell Dlg 2'; font-size:8.25pt; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-size:8pt;&quot;&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt;This control determines image quality when in still mode of rendering.  Still mode of rendering is active when mouse is not dragged.&lt;/span&gt;&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-size:12pt;&quot;&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-size:12pt;&quot;&gt;The slider position is used to calculate number of interpolated samples per voxel.  Higher the number of samples better is the image quality.&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-size:12pt;&quot;&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-size:12pt;&quot;&gt;Image rendering might become slower for higher values.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="tickPosition">
+             <enum>QSlider::TicksAbove</enum>
+            </property>
+           </widget>
+          </item>
          </layout>
         </widget>
        </item>
-       <item>
+       <item row="3" column="0">
         <widget class="QGroupBox" name="groupBox_3">
          <property name="title">
           <string>Depth Of Field</string>
@@ -224,7 +290,7 @@ p, li { white-space: pre-wrap; }
          </layout>
         </widget>
        </item>
-       <item>
+       <item row="4" column="0">
         <spacer>
          <property name="orientation">
           <enum>Qt::Vertical</enum>
@@ -240,7 +306,7 @@ p, li { white-space: pre-wrap; }
          </property>
         </spacer>
        </item>
-       <item>
+       <item row="5" column="0">
         <widget class="QPushButton" name="m_bgcolor">
          <property name="toolTip">
           <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
@@ -254,7 +320,7 @@ p, li { white-space: pre-wrap; }
          </property>
         </widget>
        </item>
-       <item>
+       <item row="6" column="0">
         <spacer>
          <property name="orientation">
           <enum>Qt::Vertical</enum>
@@ -636,12 +702,12 @@ p, li { white-space: pre-wrap; }
    <slot>setNum(int)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>208</x>
-     <y>58</y>
+     <x>185</x>
+     <y>93</y>
     </hint>
     <hint type="destinationlabel">
-     <x>285</x>
-     <y>53</y>
+     <x>256</x>
+     <y>93</y>
     </hint>
    </hints>
   </connection>

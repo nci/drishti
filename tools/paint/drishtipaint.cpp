@@ -181,13 +181,16 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   Global::setMainWindow(this);
     
   ui.setupUi(this);
+
+  qApp->setFont(QFont("MS Reference Sans Serif", 12));
+  
   ui.statusbar->setEnabled(true);
   ui.statusbar->setSizeGripEnabled(true);
   //ui.statusbar->hide();
 
-  QFont font;
-  font.setPointSize(10);
-  setFont(font);
+//  QFont font;
+//  font.setPointSize(10);
+//  setFont(font);
 
   setWindowIcon(QPixmap(":/images/drishti_paint_32.png"));
   setWindowTitle(QString("DrishtiPaint v") + QString(DRISHTI_VERSION));
@@ -422,6 +425,7 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
     scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
     dock2->setWidget(scrollArea);
+    dock2->setMaximumWidth(210);
   }
   //----------------------------------------------------------
 
@@ -442,6 +446,7 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
     scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
     dock3->setWidget(scrollArea);
+    dock3->setMaximumWidth(210);
   }
   //----------------------------------------------------------
   //----------------------------------------------------------

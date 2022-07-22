@@ -745,11 +745,16 @@ Viewer::setupRaycastUI()
 	  &m_rcViewer, SLOT(setMinGrad(int)));
   connect(m_maxGrad, SIGNAL(valueChanged(int)),
 	  &m_rcViewer, SLOT(setMaxGrad(int)));
-
+  
   emit addDockFrame("Raycast", m_raycastParameters);
 }
 
-void Viewer::dockAdded(QDockWidget *dw) { m_raycastMenu = dw; }
+void Viewer::dockAdded(QDockWidget *dw)
+{
+  dw->show();
+  m_raycastMenu = dw;
+  dw->hide();
+}
 
 void
 Viewer::initSocket()

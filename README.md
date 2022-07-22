@@ -20,9 +20,9 @@ Hu Yuzhi, Limaye Ajay and Lu Jing. 2020 A spark of 3D revisualization: new metho
 ## Releases
 Download the current version of Drishti (v3.0) for<br>
   * [**Windows**](https://github.com/nci/drishti/releases/tag/v3.0win)<br>
+  * [**Linux**](https://github.com/nci/drishti/releases/tag/v3.0linux)<br>
 
 Download the version of Drishti (v2.7) for<br>
-  * [**Linux**](https://github.com/nci/drishti/releases/tag/v-2.7linux)<br>
   * [**Chinese v2.6.6 Update**](https://github.com/nci/drishti/wiki/Drishti-2.6.6---Chinese-Update)
 
 [**All other releases**](https://github.com/AjayLimaye/drishti/releases/)

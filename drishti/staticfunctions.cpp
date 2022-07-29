@@ -105,8 +105,8 @@ StaticFunctions::getSubsamplingLevel(int tms, int textureSize,
   volsize /= mb; // vosize in Mb
   
   int lod = 1;
-  while (nz/lod > textureSize ||  // check for array texture
-	 volsize >= (tms-32))
+  //while (nz/lod > textureSize ||  // check for array texture
+  while (volsize >= (tms-32)) // we are just going to worry about the available texture memory
     {
       lod ++;
       qint64 x = nx/lod;

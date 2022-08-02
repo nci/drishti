@@ -121,13 +121,13 @@ VolumeBase::createLowresVolume(bool redo)
 
   int lod = 1;
 
-  int gtsz = StaticFunctions::getPowerOf2(Global::textureSizeLimit());
+  int gtsz = StaticFunctions::getPowerOf2(Global::maxArrayTextureLayers());
   gtsz --; // be on the lower side
   if (px2 > gtsz || py2 > gtsz || pz2 > gtsz)
     {
       int maxp2, df;
       maxp2 = qMax(px2, qMax(py2, pz2));
-      df = maxp2 - gtsz;  // 2^gtsz = Global::textureSizeLimit()
+      df = maxp2 - gtsz;  // 2^gtsz = Global::maxArrayTextureLayers()
       lod += df;
     }
   

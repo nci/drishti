@@ -197,8 +197,8 @@ class Global
   static void setTagColors(uchar*);
   static uchar* tagColors();
 
-  static void setTextureSizeLimit(int);
-  static int textureSizeLimit();
+  static void setMaxArrayTextureLayers(int);
+  static int maxArrayTextureLayers();
 
   static void setInterpolationType(int);
   static int interpolationType();
@@ -308,7 +308,7 @@ class Global
   static float m_texSizeReduceFraction;
   static int m_textureSize;
   static int m_textureMemorySize;
-  static int m_textureSizeLimit;
+  static int m_maxArrayTextureLayers;
   static int m_lutSize;
   static int m_filteredData;
   static Vec m_relativeVoxelScaling;

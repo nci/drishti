@@ -309,7 +309,7 @@ VolumeSingle::setSubvolume(Vec boxMin, Vec boxMax,
       int bpv = 1;
       if (m_pvlVoxelType > 0) bpv = 2;
       m_subvolumeSubsamplingLevel = StaticFunctions::getSubsamplingLevel(Global::textureMemorySize(),
-									 Global::textureSizeLimit(),
+									 Global::maxArrayTextureLayers(),
 									 bpv,
 									 boxMin, boxMax);
     }

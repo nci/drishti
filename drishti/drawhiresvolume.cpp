@@ -880,9 +880,9 @@ DrawHiresVolume::loadTextureMemory()
 
     for(int i=1; i<m_dataTexSize; i++)
       {
-	int zslc = (i-1)*(Global::textureSizeLimit()-1);
+	int zslc = (i-1)*(Global::maxArrayTextureLayers()-1);
 	qint64 zoffset = (qint64)zslc*(qint64)hsz*(qint64)wsz;
-	int zslices = qMin(dsz-zslc, Global::textureSizeLimit());
+	int zslices = qMin(dsz-zslc, Global::maxArrayTextureLayers());
 	
 	glActiveTexture(GL_TEXTURE1);
 	glEnable(GL_TEXTURE_2D_ARRAY);
@@ -915,7 +915,7 @@ DrawHiresVolume::loadTextureMemory()
       int hsz = vsz.x;
       int wsz = vsz.y;
       int dsz = vsz.z;
-      
+
       glActiveTexture(GL_TEXTURE1);
       glEnable(GL_TEXTURE_2D_ARRAY);
       glBindTexture(GL_TEXTURE_2D_ARRAY, m_dataTex[0]);

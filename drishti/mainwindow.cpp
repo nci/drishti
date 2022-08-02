@@ -648,7 +648,7 @@ void MainWindow::runPlugin(int idx, bool batchMode)
       if (m_Volume->pvlVoxelType(0) > 0) bpv = 2;
       int tms = Global::textureMemorySize(); // in Mb
       subsamplinglevel = StaticFunctions::getSubsamplingLevel(tms,
-							      Global::textureSizeLimit(),
+							      Global::maxArrayTextureLayers(),
 							      bpv,
 							      dataMin, dataMax);
       QList<Vec> slabinfo = Global::getSlabs(subsamplinglevel,
@@ -816,7 +816,7 @@ MainWindow::GlewInit()
   
   //GLint textureSize;
   //glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, &textureSize);
-  Global::setTextureSizeLimit(textureSize);
+  Global::setMaxArrayTextureLayers(textureSize);
   m_preferencesWidget->updateTextureMemory();
 
   loadProjectRunKeyframesAndExit();
@@ -3144,7 +3144,7 @@ MainWindow::saveSettings()
   {
     QDomElement de0 = doc.createElement("texturesizelimit");
     QDomText tn0;
-    tn0 = doc.createTextNode(QString("%1").arg(Global::textureSizeLimit()));
+    tn0 = doc.createTextNode(QString("%1").arg(Global::maxArrayTextureLayers()));
     de0.appendChild(tn0);
     topElement.appendChild(de0);
   }
@@ -3249,7 +3249,7 @@ MainWindow::loadSettings()
       else if (dlist.at(i).nodeName() == "texturesizelimit")
 	{
 	  QString str = dlist.at(i).toElement().text();
-	  Global::setTextureSizeLimit(str.toInt());
+	  Global::setMaxArrayTextureLayers(str.toInt());
 	}
       else if (dlist.at(i).nodeName() == "tempdirectory")
 	{

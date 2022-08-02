@@ -147,9 +147,9 @@ Global::max2dTextureSize()
 {
   GLint texSize;
   glGetIntegerv(GL_MAX_RECTANGLE_TEXTURE_SIZE_ARB, &texSize);
-
+  
  // restrict max 2D texturesize to 8K
-  texSize = qMin(8192, texSize);
+// texSize = qMin(8192, texSize);
 
   // but if the user wants to modify it, so be it
   return texSize*m_texSizeReduceFraction;
@@ -159,6 +159,7 @@ Global::max2dTextureSize()
 int Global::m_textureSize = 25; // 512x256x256 (9+8+8)
 int Global::textureSize() {return m_textureSize;}
 void Global::setTextureSize(int sz) {m_textureSize = sz;}
+
 
 int Global::m_textureMemorySize = 128;
 int Global::textureMemorySize() {return m_textureMemorySize;}
@@ -387,9 +388,10 @@ void Global::setTagColors(uchar *colors)
   memcpy(m_tagColors, colors, 1024);
 }
 
-int Global::m_textureSizeLimit = 512;
-void Global::setTextureSizeLimit(int sz) { m_textureSizeLimit = sz; }
-int Global::textureSizeLimit() { return m_textureSizeLimit; }
+//this is actually GL_MAX_ARRAY_TEXTURE_LAYERS
+int Global::m_maxArrayTextureLayers = 512;
+void Global::setMaxArrayTextureLayers(int sz) { m_maxArrayTextureLayers = sz; }
+int Global::maxArrayTextureLayers() { return m_maxArrayTextureLayers; }
 
 bool Global::m_interpolationType[10] = {true, true, true, true, true,
 					true, true, true, true, true};
@@ -842,12 +844,21 @@ Global::getDragInfo(Vec dataMin, Vec dataMax, int lod0)
   tms /= 1024;  // 2D texture size in KB
   volsize /= 1024; // vosize in Kb  
 
+  int mATL = maxArrayTextureLayers();
   int lod = lod0;
+  int lenz2 = lenz/lod;
+  while(lenz2 > mATL)
+    {
+      lod++;
+      lenz2 = lenz/lod;
+    }
+  
   int lenx2 = lenx/lod;
   int leny2 = leny/lod;
-  int lenz2 = lenz/lod;
+  lenz2 = lenz/lod;
   int dgridx = texSize/lenx2;
   int dgridy = texSize/leny2;
+
 
   // although the subsampled volume may fit in
   // the available texture memory, it may not
@@ -897,7 +908,7 @@ Global::getSlabs(int samplingLevel,
   
   bool done = false;
   int slc = 0;
-  int tSL = textureSizeLimit();
+  int tSL = maxArrayTextureLayers();
   while(slc*(tSL-1) < (lenz2-1))
     {
       int zmin = slc*(tSL-1);

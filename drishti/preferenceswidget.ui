@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>215</width>
-    <height>404</height>
+    <width>211</width>
+    <height>395</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -75,7 +75,7 @@ p, li { white-space: pre-wrap; }
           </spacer>
          </item>
          <item row="1" column="1">
-          <widget class="QLabel" name="label_12">
+          <widget class="QLabel" name="texMemLabel">
            <property name="text">
             <string>TextLabel (MB)</string>
            </property>
@@ -105,16 +105,16 @@ p, li { white-space: pre-wrap; }
             </size>
            </property>
            <property name="minimum">
-            <number>128</number>
+            <number>1</number>
            </property>
            <property name="maximum">
-            <number>65535</number>
+            <number>108</number>
            </property>
            <property name="singleStep">
-            <number>128</number>
+            <number>1</number>
            </property>
            <property name="pageStep">
-            <number>128</number>
+            <number>1</number>
            </property>
            <property name="orientation">
             <enum>Qt::Horizontal</enum>
@@ -694,22 +694,5 @@ p, li { white-space: pre-wrap; }
   </layout>
  </widget>
  <resources/>
- <connections>
-  <connection>
-   <sender>m_textureMemorySize</sender>
-   <signal>valueChanged(int)</signal>
-   <receiver>label_12</receiver>
-   <slot>setNum(int)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>185</x>
-     <y>93</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>256</x>
-     <y>93</y>
-    </hint>
-   </hints>
-  </connection>
- </connections>
+ <connections/>
 </ui>

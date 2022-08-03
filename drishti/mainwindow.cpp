@@ -773,6 +773,9 @@ MainWindow::setTextureMemory()
   texlist << "16.0 Gb";
   texlist << "24.0 Gb";
   texlist << "32.0 Gb";
+  texlist << "40.0 Gb";
+  texlist << "64.0 Gb";
+  texlist << "80.0 Gb";
   QString texstr = QInputDialog::getItem(0,
 					 QWidget::tr("Texture Memory"),
 					 QWidget::tr("Texture Memory Size"),
@@ -795,6 +798,10 @@ MainWindow::setTextureMemory()
       if (lst[0] == "10.0") texmem = 10*1024;
       if (lst[0] == "12.0") texmem = 12*1024;
       if (lst[0] == "16.0") texmem = 16*1024;
+      if (lst[0] == "32.0") texmem = 16*1024;
+      if (lst[0] == "40.0") texmem = 16*1024;
+      if (lst[0] == "64.0") texmem = 16*1024;
+      if (lst[0] == "80.0") texmem = 16*1024;
     }
   Global::setTextureMemorySize(texmem);
   Global::calculate3dTextureSize();

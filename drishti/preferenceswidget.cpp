@@ -69,13 +69,40 @@ void
 PreferencesWidget::updateTextureMemory()
 {
   int tms = Global::textureMemorySize();
-  ui.m_textureMemorySize->setValue(tms);
+  //ui.m_textureMemorySize->setValue(tms);
+
+  int val = 1;
+  if (tms <= 1024)
+    val = tms/128; // 1-8
+  else if (tms <= 4086)
+    val = 8 + (tms-1024)/256; // 9-20
+  else
+    val = 20 + (tms-4096)/1024; // above 20
+
+  ui.m_textureMemorySize->setValue(val);
 }
 
 void
 PreferencesWidget::on_m_textureMemorySize_valueChanged(int tms)
 {
-  Global::setTextureMemorySize(tms);
+  int val = 128;
+  if (tms <= 8)
+    val = tms * 128;
+  else if (tms <= 20)
+    val = 1024 + (tms-8) * 256;
+  else
+    val = 4096 + (tms-20)*1024;
+  
+  Global::setTextureMemorySize(val);
+  
+  if (val < 1024)
+    ui.texMemLabel->setText(QString("%1 MB").arg(val));
+  else if (val < 4096)
+    ui.texMemLabel->setText(QString("%1.%2 GB").arg(val/1024).arg(val%1024));
+  else
+    ui.texMemLabel->setText(QString("%1 GB").arg(val/1024));
+  
+  //Global::setTextureMemorySize(tms);
   Global::calculate3dTextureSize();
 }
 

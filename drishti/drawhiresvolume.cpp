@@ -778,7 +778,7 @@ DrawHiresVolume::loadTextureMemory()
 
   int internalFormat = nvol;
   int vtype = GL_UNSIGNED_BYTE;
-
+  int nbytes = 1;
   if (m_Volume->pvlVoxelType(0) > 0)
     {
       if (nvol == 1) internalFormat = GL_LUMINANCE16;
@@ -792,6 +792,7 @@ DrawHiresVolume::loadTextureMemory()
       if (nvol == 4) format = GL_RGBA;
       
       vtype = GL_UNSIGNED_SHORT;
+      nbytes = 2;
     }
     
   m_textureSlab = m_Volume->getSliceTextureSizeSlabs();
@@ -881,7 +882,7 @@ DrawHiresVolume::loadTextureMemory()
     for(int i=1; i<m_dataTexSize; i++)
       {
 	int zslc = (i-1)*(Global::maxArrayTextureLayers()-1);
-	qint64 zoffset = (qint64)zslc*(qint64)hsz*(qint64)wsz;
+	qint64 zoffset = (qint64)zslc*(qint64)hsz*(qint64)wsz*(qint64)nbytes;
 	int zslices = qMin(dsz-zslc, Global::maxArrayTextureLayers());
 	
 	glActiveTexture(GL_TEXTURE1);

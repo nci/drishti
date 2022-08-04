@@ -860,26 +860,27 @@ Global::getDragInfo(Vec dataMin, Vec dataMax, int lod0)
   int dgridy = texSize/leny2;
 
 
-  // although the subsampled volume may fit in
-  // the available texture memory, it may not
-  // do so once the data is packed in 2d texture
-  while (dgridx*dgridy < lenz2)
-    {
-      lod++;
-      lenx2 = lenx/lod;
-      leny2 = leny/lod;
-      lenz2 = lenz/lod;
-      dgridx = texSize/lenx2;
-      dgridy = texSize/leny2;
-    }
-  
-  // reduce the number of rows if the
-  // subsampled volume is much smaller 
-  while (dgridx*dgridy > lenz2)
-    dgridy--;
-  
-  if (dgridx*dgridy < lenz2)
-    dgridy++;
+//  // although the subsampled volume may fit in
+//  // the available texture memory, it may not
+//  // do so once the data is packed in 2d texture
+//  //while (dgridx*dgridy < lenz2)
+//  while (dgridx*dgridy < lenz2)
+//    {
+//      lod++;
+//      lenx2 = lenx/lod;
+//      leny2 = leny/lod;
+//      lenz2 = lenz/lod;
+//      dgridx = texSize/lenx2;
+//      dgridy = texSize/leny2;
+//    }
+//  
+//  // reduce the number of rows if the
+//  // subsampled volume is much smaller 
+//  while (dgridx*dgridy > lenz2)
+//    dgridy--;
+//  
+//  if (dgridx*dgridy < lenz2)
+//    dgridy++;
   
   return Vec(dgridx, dgridy, lod);
 }

@@ -96,11 +96,11 @@ PreferencesWidget::on_m_textureMemorySize_valueChanged(int tms)
   Global::setTextureMemorySize(val);
   
   if (val < 1024)
-    ui.texMemLabel->setText(QString("%1 MB").arg(val));
+    ui.texMemLabel->setText(QString("<b>%1 MB</b>").arg(val));
   else if (val < 4096)
-    ui.texMemLabel->setText(QString("%1.%2 GB").arg(val/1024).arg(val%1024));
+    ui.texMemLabel->setText(QString("<b>%1.%2 GB</b>").arg(val/1024).arg(val%1024));
   else
-    ui.texMemLabel->setText(QString("%1 GB").arg(val/1024));
+    ui.texMemLabel->setText(QString("<b>%1 GB</b>").arg(val/1024));
   
   //Global::setTextureMemorySize(tms);
   Global::calculate3dTextureSize();

@@ -646,7 +646,7 @@ void MainWindow::runPlugin(int idx, bool batchMode)
       int nrows, ncols;
       int bpv = 1;
       if (m_Volume->pvlVoxelType(0) > 0) bpv = 2;
-      int tms = Global::textureMemorySize(); // in Mb
+      int tms = Global::textureMemorySize()-8*Global::actualDragVolSize(); // in Mb
       subsamplinglevel = StaticFunctions::getSubsamplingLevel(tms,
 							      Global::maxArrayTextureLayers(),
 							      bpv,
@@ -3141,6 +3141,14 @@ MainWindow::saveSettings()
   }
 
   {
+    QDomElement de0 = doc.createElement("maxdragvolsize");
+    QDomText tn0;
+    tn0 = doc.createTextNode(QString("%1").arg(Global::maxDragVolSize()));
+    de0.appendChild(tn0);
+    topElement.appendChild(de0);
+  }
+
+  {
     QDomElement de0 = doc.createElement("texsizereducefraction");
     QDomText tn0;
     tn0 = doc.createTextNode(QString("%1").arg(Global::texSizeReduceFraction()));
@@ -3247,6 +3255,12 @@ MainWindow::loadSettings()
 	  QString str = dlist.at(i).toElement().text();
 	  Global::setTextureMemorySize(str.toInt());
 	  Global::calculate3dTextureSize();
+	}
+      else if (dlist.at(i).nodeName() == "maxdragvolsize")
+	{
+	  QString str = dlist.at(i).toElement().text();
+	  Global::setMaxDragVolSize(str.toInt());
+	  m_preferencesWidget->setMaxDragVolSize(Global::maxDragVolSize());
 	}
       else if (dlist.at(i).nodeName() == "texsizereducefraction")
 	{
@@ -4132,6 +4146,14 @@ MainWindow::saveVolumeIntoProject(const char *flnm, QString dtvfile)
   doc.appendChild(topElement);
 
   {
+    QDomElement de0 = doc.createElement("maxdragvolsize");
+    QDomText tn0;
+    tn0 = doc.createTextNode(QString("%1").arg(Global::maxDragVolSize()));
+    de0.appendChild(tn0);
+    topElement.appendChild(de0);
+  }
+
+  {
     QDomElement de0 = doc.createElement("texsizereducefraction");
     QDomText tn0;
     tn0 = doc.createTextNode(QString("%1").arg(Global::texSizeReduceFraction()));
@@ -4334,7 +4356,14 @@ MainWindow::loadVolumeFromProject(const char *flnm)
   QDomNodeList dlist = main.childNodes();
   for(int i=0; i<dlist.count(); i++)
     {
-      if (dlist.at(i).nodeName() == "texsizereducefraction")
+      if (dlist.at(i).nodeName() == "maxdragvolsize")
+	{
+	  QString str = dlist.at(i).toElement().text();
+	  float rlod = str.toInt();
+	  Global::setMaxDragVolSize(rlod);
+	  m_preferencesWidget->setMaxDragVolSize(Global::maxDragVolSize());
+	}
+      else if (dlist.at(i).nodeName() == "texsizereducefraction")
 	{
 	  QString str = dlist.at(i).toElement().text();
 	  float rlod = str.toFloat();

@@ -35,9 +35,11 @@ class PreferencesWidget : public QWidget
   void updateFocusSetting(float);
   void updateTextureMemory();
   void updateTagColors();
-
+  void setMaxDragVolSize(int);
+			
  private slots :
-  void on_m_textureMemorySize_valueChanged(int);
+  void on_maxDragVolSize_valueChanged(int);
+  void on_textureMemorySize_valueChanged(int);
   void on_m_still_sliderReleased();
   void on_m_drag_sliderReleased();
   void on_m_tickSize_valueChanged(int);

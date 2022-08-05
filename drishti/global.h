@@ -200,6 +200,10 @@ class Global
   static void setMaxArrayTextureLayers(int);
   static int maxArrayTextureLayers();
 
+  static void setMaxDragVolSize(qint64);
+  static qint64 maxDragVolSize();
+  static qint64 actualDragVolSize();
+
   static void setInterpolationType(int);
   static int interpolationType();
 
@@ -308,6 +312,8 @@ class Global
   static float m_texSizeReduceFraction;
   static int m_textureSize;
   static int m_textureMemorySize;
+  static qint64 m_maxDragVolSize;
+  static qint64 m_actualDragVolSize;
   static int m_maxArrayTextureLayers;
   static int m_lutSize;
   static int m_filteredData;

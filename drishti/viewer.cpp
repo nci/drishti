@@ -4577,12 +4577,12 @@ Viewer::processCommand(QString cmd)
       m_hiresVolume->setInterpolateVolumes(iv);
 
     }
-  else if (list[0] == "texsizereducefraction")
-    {
-      float rlod = list[1].toFloat(&ok);
-      Global::setTexSizeReduceFraction(rlod);
-      reloadData();
-    }
+//  else if (list[0] == "texsizereducefraction")
+//    {
+//      float rlod = list[1].toFloat(&ok);
+//      Global::setTexSizeReduceFraction(rlod);
+//      reloadData();
+//    }
   else if (list[0] == "imagesize")
     {
       m_imageWidth = list[1].toInt(&ok);
@@ -5507,8 +5507,11 @@ Viewer::commandEditor()
     if (Global::loadDragOnly()) mesg += "yes\n";
     else mesg += "no\n";
   
-    mesg += QString("texsizereducefraction : %1\n").	\
-      arg(Global::texSizeReduceFraction());
+    mesg += QString("dragvolsize : (max)%1MB  (actual)%2MB\n").	\
+      arg(Global::maxDragVolSize()).arg(Global::actualDragVolSize());
+
+//    mesg += QString("texsizereducefraction : %1\n").	\
+//      arg(Global::texSizeReduceFraction());
 
     if (m_hiresVolume->subvolumeUpdates())
       mesg += "subvolume updates : true\n";
@@ -5651,6 +5654,10 @@ Viewer::processMorphologicalOperations()
   vlist.clear();
   QString mesg;
   Vec cpos = camera()->position();
+
+  mesg += QString("dragvolsize : (max)%1MB  (actual)%2MB\n").		\
+    arg(Global::maxDragVolSize()).arg(Global::actualDragVolSize());
+
   if (Global::updatePruneTexture())
     mesg += QString("EmptySpaceSkip : update : on\n");
   else
@@ -5671,8 +5678,8 @@ Viewer::processMorphologicalOperations()
   else
     mesg += QString("blend : off\n");
   
-  mesg += QString("texsizereducefraction : %1\n").	\
-    arg(Global::texSizeReduceFraction());
+//  mesg += QString("texsizereducefraction : %1\n").	\
+//    arg(Global::texSizeReduceFraction());
 
   vlist << mesg;
 

@@ -1,4 +1,3 @@
-
 #include "global.h"
 #include <QFileDialog>
 #include <QCoreApplication>
@@ -387,6 +386,19 @@ void Global::setTagColors(uchar *colors)
     m_tagColors = new uchar[1024];
   memcpy(m_tagColors, colors, 1024);
 }
+
+
+qint64 Global::m_maxDragVolSize = 128;
+void Global::setMaxDragVolSize(qint64 sz)
+{
+  m_maxDragVolSize = sz;
+  m_updatePruneTexture = true;  // force to update prune texture when loading volume
+}
+qint64 Global::maxDragVolSize() { return m_maxDragVolSize; }
+
+qint64 Global::m_actualDragVolSize = 0;
+qint64 Global::actualDragVolSize() { return m_actualDragVolSize; }
+
 
 //this is actually GL_MAX_ARRAY_TEXTURE_LAYERS
 int Global::m_maxArrayTextureLayers = 512;
@@ -832,30 +844,29 @@ GLuint Global::cylinderTexture()
 Vec
 Global::getDragInfo(Vec dataMin, Vec dataMax, int lod0)
 {
-  //int texSize = max2dTextureSize()*m_texSizeReduceFraction;
   int texSize = max2dTextureSize();
-  int lenx = dataMax.x - dataMin.x + 1;
-  int leny = dataMax.y - dataMin.y + 1;
-  int lenz = dataMax.z - dataMin.z + 1;
-  int tms = texSize*texSize;
-  qint64 volsize = lenx;
-  volsize *= leny*lenz;
+  qint64 lenx = dataMax.x - dataMin.x + 1;
+  qint64 leny = dataMax.y - dataMin.y + 1;
+  qint64 lenz = dataMax.z - dataMin.z + 1;
 
-  tms /= 1024;  // 2D texture size in KB
-  volsize /= 1024; // vosize in Kb  
-
+  qint64 mDVS = maxDragVolSize()*1024*1024;
   int mATL = maxArrayTextureLayers();
   int lod = lod0;
-  int lenz2 = lenz/lod;
-  while(lenz2 > mATL)
+  qint64 lenx2 = lenx/lod;
+  qint64 leny2 = leny/lod;
+  qint64 lenz2 = lenz/lod;
+  while(lenz2 > mATL ||
+	lenx2*leny2*lenz2 > mDVS)
     {
       lod++;
       lenz2 = lenz/lod;
+      lenx2 = lenx/lod;
+      leny2 = leny/lod;
     }
+
+  // actual drag volume size in MB
+  m_actualDragVolSize = qRound(lenx2*leny2*lenz2/1024.0/1024.0);
   
-  int lenx2 = lenx/lod;
-  int leny2 = leny/lod;
-  lenz2 = lenz/lod;
   int dgridx = texSize/lenx2;
   int dgridy = texSize/leny2;
 

@@ -326,7 +326,8 @@ VolumeRGB::setSubvolume(Vec boxMin, Vec boxMax,
 
   m_subvolumeSize = m_dataMax - m_dataMin + Vec(1,1,1); 
 
-  m_subvolumeSubsamplingLevel = StaticFunctions::getSubsamplingLevel(Global::textureMemorySize(),
+  int availMem = Global::textureMemorySize()-8*Global::actualDragVolSize();
+  m_subvolumeSubsamplingLevel = StaticFunctions::getSubsamplingLevel(availMem,
 								     Global::maxArrayTextureLayers(),
 								     nRGB, boxMin, boxMax);
 

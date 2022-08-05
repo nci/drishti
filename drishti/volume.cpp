@@ -396,7 +396,7 @@ Volume::getSliceTextureSizeSlabs()
 	}
 
       int bpv = nvol;
-      int tms = Global::textureMemorySize(); // in Mb
+      int tms = Global::textureMemorySize()-8*Global::actualDragVolSize(); // in Mb
       int svsl = StaticFunctions::getSubsamplingLevel(tms,
 						      Global::maxArrayTextureLayers(),
 						      bpv,
@@ -880,10 +880,9 @@ Volume::setSubvolume(Vec boxMin, Vec boxMax,
     {
       int bpv = 1;
 
-      int tms = Global::textureMemorySize(); // in Mb
+      int tms = Global::textureMemorySize()-8*Global::actualDragVolSize(); // in Mb
       int sslevel = StaticFunctions::getSubsamplingLevel(tms,
-							 4096,
-							 //Global::maxArrayTextureLayers(),
+							 Global::maxArrayTextureLayers(),
 							 bpv,
 							 boxMin, boxMax);
       sslevel = qMax(sslevel, Global::lod());
@@ -901,7 +900,7 @@ Volume::setSubvolume(Vec boxMin, Vec boxMax,
 		     bool force)
 {  
   int bpv = 2;
-  int tms = Global::textureMemorySize(); // in Mb
+  int tms = Global::textureMemorySize()-8*Global::actualDragVolSize(); // in Mb
   int sslevel = StaticFunctions::getSubsamplingLevel(tms,
 						     Global::maxArrayTextureLayers(),
 						     bpv,
@@ -929,7 +928,7 @@ Volume::setSubvolume(Vec boxMin, Vec boxMax,
 		     bool force)
 {  
   int bpv = 3;
-  int tms = Global::textureMemorySize(); // in Mb
+  int tms = Global::textureMemorySize()-8*Global::actualDragVolSize(); // in Mb
   int sslevel = StaticFunctions::getSubsamplingLevel(tms,
 						     Global::maxArrayTextureLayers(),
 						     bpv,
@@ -964,7 +963,7 @@ Volume::setSubvolume(Vec boxMin, Vec boxMax,
 {  
   int bpv = 4;
 
-  int tms = Global::textureMemorySize(); // in Mb
+  int tms = Global::textureMemorySize()-8*Global::actualDragVolSize(); // in Mb
   int sslevel = StaticFunctions::getSubsamplingLevel(tms,
 						     Global::maxArrayTextureLayers(),
 						     bpv,

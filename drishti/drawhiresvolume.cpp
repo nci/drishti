@@ -659,8 +659,9 @@ DrawHiresVolume::postUpdateSubvolume(Vec boxMin, Vec boxMax)
       Global::volumeType() != Global::RGBVolume &&
       Global::volumeType() != Global::RGBAVolume)
     {
-      if (Global::updatePruneTexture())
-	updateAndLoadPruneTexture();
+      //if (Global::updatePruneTexture())
+      PruneHandler::forceRegen();
+      updateAndLoadPruneTexture();
 
       m_Viewer->updateTagColors();
     }
@@ -794,7 +795,8 @@ DrawHiresVolume::loadTextureMemory()
       vtype = GL_UNSIGNED_SHORT;
       nbytes = 2;
     }
-    
+  nbytes *= nvol;
+  
   m_textureSlab = m_Volume->getSliceTextureSizeSlabs();
 
 

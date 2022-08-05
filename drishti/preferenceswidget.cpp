@@ -69,7 +69,6 @@ void
 PreferencesWidget::updateTextureMemory()
 {
   int tms = Global::textureMemorySize();
-  //ui.m_textureMemorySize->setValue(tms);
 
   int val = 1;
   if (tms <= 1024)
@@ -79,11 +78,22 @@ PreferencesWidget::updateTextureMemory()
   else
     val = 20 + (tms-4096)/1024; // above 20
 
-  ui.m_textureMemorySize->setValue(val);
+  ui.textureMemorySize->setValue(val);
 }
 
 void
-PreferencesWidget::on_m_textureMemorySize_valueChanged(int tms)
+PreferencesWidget::on_maxDragVolSize_valueChanged(int dvs)
+{
+  Global::setMaxDragVolSize(dvs);
+}
+void
+PreferencesWidget::setMaxDragVolSize(int val)
+{
+  ui.maxDragVolSize->setValue(val);
+}
+
+void
+PreferencesWidget::on_textureMemorySize_valueChanged(int tms)
 {
   int val = 128;
   if (tms <= 8)

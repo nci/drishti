@@ -396,14 +396,6 @@ mix tag no - turn of tagging.
 
 #end
 
-#begin
-texsizereducefraction
-texsizereducefraction frc
-The volume data is loaded in 2D textures on graphics card. Sometime (seen on cards allowing 8Kx8K textures) the volume data does not get loaded properly onto the texture memory. Use this option to restrict the size of 2D textures that Drishti can use. Default value is 1.0.
-
-Example :
-To reduce texturesize by half : texsizereducefraction 0.5
-#end
 
 #begin
 loadbarepoints

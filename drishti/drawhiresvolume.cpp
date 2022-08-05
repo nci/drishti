@@ -6405,14 +6405,14 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
 	  float tminz = m_dataMin.z;
 	  float tmaxz = m_dataMax.z;
 
-//	  if (slabend > 1)
-//	    {
-//	      tminz = m_textureSlab[b].y;
-//	      tmaxz = m_textureSlab[b].z;
-//	      
+	  if (slabend > 1)
+	    {
+	      tminz = m_textureSlab[b].y;
+	      tmaxz = m_textureSlab[b].z;
+	      
 //	      glUniform1iARB(parm[24], (tminz-m_dataMin.z)/lod); // zoffset
 //	      glUniform1iARB(parm[27], tminz);
-//	    }		  
+	    }		  
 	  
 	  glUniform3fARB(parm[42], m_dataMin.x, m_dataMin.y, tminz);
 	  glUniform3fARB(parm[43], m_dataMax.x, m_dataMax.y, tmaxz);

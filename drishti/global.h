@@ -247,8 +247,8 @@ class Global
   static int lod();
   static void setLod(int);
 
-  static Vec getDragInfo(Vec, Vec, int);
-  static QList<Vec> getSlabs(int, Vec, Vec, int&, int&);
+  static Vec getDragInfo(int, Vec, Vec, int);
+  static QList<Vec> getSlabs(int, int, Vec, Vec, int&, int&);
 
   static void setStatusBar(QStatusBar*, QAction*);
   static QStatusBar* statusBar();

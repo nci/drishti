@@ -403,7 +403,7 @@ Volume::getSliceTextureSizeSlabs()
 						      dataMin, dataMax);
 
       int nrows, ncols;
-      QList<Vec> slabinfo = Global::getSlabs(svsl,
+      QList<Vec> slabinfo = Global::getSlabs(svsl, bpv,
 					     dataMin, dataMax,
 					     nrows, ncols);
 
@@ -415,7 +415,7 @@ Volume::getSliceTextureSizeSlabs()
       int texWidth = ncols*lenx2;
       int texHeight = nrows*leny2;
 
-      Vec draginfo = Global::getDragInfo(dataMin, dataMax, 1);
+      Vec draginfo = Global::getDragInfo(bpv, dataMin, dataMax, 1);
 
       int dlenx2 = lenx/int(draginfo.z);
       int dleny2 = leny/int(draginfo.z);

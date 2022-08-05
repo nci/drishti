@@ -4135,17 +4135,19 @@ DrawHiresVolume::drawPathInViewport(int pathOffset, Vec lpos, float depthcue,
 		{
 		  float tminz = m_dataMin.z;
 		  float tmaxz = m_dataMax.z;
-//		  if (slabend > 1)
-//		    {
-//		      tminz = m_textureSlab[b].y;
-//		      tmaxz = m_textureSlab[b].z;
+		  if (slabend > 1)
+		    {
+		      tminz = m_textureSlab[b].y;
+		      tmaxz = m_textureSlab[b].z;
 //
 //		      glUniform1iARB(parm[24], (tminz-m_dataMin.z)/lod); // zoffset
 //		      glUniform1iARB(parm[27], tminz);
-//		    }		  
+		    }		  
 		  
 		  glUniform3fARB(parm[42], m_dataMin.x, m_dataMin.y, tminz);
 		  glUniform3fARB(parm[43], m_dataMax.x, m_dataMax.y, tmaxz);
+
+		  glUniform3fARB(parm[53], m_dataMin.x, m_dataMin.y, tminz);
 
 		  bindDataTextures(b);
 		  
@@ -4424,13 +4426,15 @@ DrawHiresVolume::drawClipPlaneInViewport(int clipOffset, Vec lpos, float depthcu
 		{
 		  float tminz = m_dataMin.z;
 		  float tmaxz = m_dataMax.z;
-//		  if (slabend > 1)
-//		    {
-//		      tminz = m_textureSlab[b].y;
-//		      tmaxz = m_textureSlab[b].z;
-//		    }
+		  if (slabend > 1)
+		    {
+		      tminz = m_textureSlab[b].y;
+		      tmaxz = m_textureSlab[b].z;
+		    }
 		  glUniform3fARB(parm[42], m_dataMin.x, m_dataMin.y, tminz);
 		  glUniform3fARB(parm[43], m_dataMax.x, m_dataMax.y, tmaxz);
+
+		  glUniform3fARB(parm[53], m_dataMin.x, m_dataMin.y, tminz);
 
 		  bindDataTextures(b);
 		  
@@ -4609,13 +4613,15 @@ DrawHiresVolume::drawClipPlaneDefault(int s, int layers,
 	    {
 	      float tminz = m_dataMin.z;
 	      float tmaxz = m_dataMax.z;
-//	      if (slabend > 1)
-//		{
-//		  tminz = m_textureSlab[b].y;
-//		  tmaxz = m_textureSlab[b].z;
-//		}
+	      if (slabend > 1)
+		{
+		  tminz = m_textureSlab[b].y;
+		  tmaxz = m_textureSlab[b].z;
+		}
 	      glUniform3fARB(m_defaultParm[42], m_dataMin.x, m_dataMin.y, tminz);
 	      glUniform3fARB(m_defaultParm[43], m_dataMax.x, m_dataMax.y, tmaxz);
+
+	      glUniform3fARB(m_defaultParm[53], m_dataMin.x, m_dataMin.y, tminz);
 
 	      bindDataTextures(b);
 	      
@@ -5680,18 +5686,20 @@ DrawHiresVolume::resliceVolume(Vec pos,
 	  float tminz = m_dataMin.z;
 	  float tmaxz = m_dataMax.z;
 
-//	  if (slabend > 1)
-//	    {
-//	      tminz = m_textureSlab[b].y;
-//	      tmaxz = m_textureSlab[b].z;
+	  if (slabend > 1)
+	    {
+	      tminz = m_textureSlab[b].y;
+	      tmaxz = m_textureSlab[b].z;
 //	      
 //	      glUniform1iARB(parm[24], (tminz-m_dataMin.z)/lod); // zoffset
 //	      glUniform1iARB(parm[27], tminz);
-//	    }		  
-//	  
+	    }		  
+	  
 	  glUniform3fARB(parm[42], m_dataMin.x, m_dataMin.y, tminz);
 	  glUniform3fARB(parm[43], m_dataMax.x, m_dataMax.y, tmaxz);
 	  
+	  glUniform3fARB(parm[53], m_dataMin.x, m_dataMin.y, tminz);
+
 	  bindDataTextures(b);
 	  
 	  if (getVolumeSurfaceArea == 0 &&
@@ -6106,18 +6114,20 @@ DrawHiresVolume::resliceUsingPath(int pathIdx, bool fullThickness,
 	  float tminz = m_dataMin.z;
 	  float tmaxz = m_dataMax.z;
 
-//	  if (slabend > 1)
-//	    {
-//	      tminz = m_textureSlab[b].y;
-//	      tmaxz = m_textureSlab[b].z;
+	  if (slabend > 1)
+	    {
+	      tminz = m_textureSlab[b].y;
+	      tmaxz = m_textureSlab[b].z;
 //	      
 //	      glUniform1iARB(parm[24], (tminz-m_dataMin.z)/lod); // zoffset
 //	      glUniform1iARB(parm[27], tminz);
-//	    }		  
+	    }		  
 	  
 	  glUniform3fARB(parm[42], m_dataMin.x, m_dataMin.y, tminz);
 	  glUniform3fARB(parm[43], m_dataMax.x, m_dataMax.y, tmaxz);
 	  
+	  glUniform3fARB(parm[53], m_dataMin.x, m_dataMin.y, tminz);
+
 	  bindDataTextures(b);
 	  
 	  if (Global::interpolationType(Global::TextureInterpolation)) // linear
@@ -6407,6 +6417,8 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
 	  glUniform3fARB(parm[42], m_dataMin.x, m_dataMin.y, tminz);
 	  glUniform3fARB(parm[43], m_dataMax.x, m_dataMax.y, tmaxz);
 	  
+	  glUniform3fARB(parm[53], m_dataMin.x, m_dataMin.y, tminz);
+
 	  bindDataTextures(b);
 	  
 	  if (nslices > 1 &&

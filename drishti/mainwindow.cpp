@@ -652,6 +652,7 @@ void MainWindow::runPlugin(int idx, bool batchMode)
 							      bpv,
 							      dataMin, dataMax);
       QList<Vec> slabinfo = Global::getSlabs(subsamplinglevel,
+					     bpv,
 					     dataMin, dataMax,
 					     nrows, ncols);
       

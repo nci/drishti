@@ -421,6 +421,7 @@ VolumeRGB::getSliceTextureSizeSlabs()
 
   int nrows, ncols;
   QList<Vec> slabinfo = Global::getSlabs(m_subvolumeSubsamplingLevel,
+					 nRGB,
 					 m_dataMin, m_dataMax,
 					 nrows, ncols);
 

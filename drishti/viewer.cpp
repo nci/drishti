@@ -5506,9 +5506,21 @@ Viewer::commandEditor()
     mesg += "dragonly : ";
     if (Global::loadDragOnly()) mesg += "yes\n";
     else mesg += "no\n";
-  
-    mesg += QString("dragvolsize : (max)%1MB  (actual)%2MB\n").	\
-      arg(Global::maxDragVolSize()).arg(Global::actualDragVolSize());
+
+    {
+      int nbytes = 1;
+      if (m_Volume->pvlVoxelType(0) > 0)
+	nbytes = 2;
+
+      if (Global::volumeType() == Global::DoubleVolume) nbytes *= 2;
+      if (Global::volumeType() == Global::TripleVolume) nbytes *= 3;
+      if (Global::volumeType() == Global::QuadVolume) nbytes *= 4;
+      if (Global::volumeType() == Global::RGBVolume) nbytes *= 3;
+      if (Global::volumeType() == Global::RGBAVolume) nbytes *= 4;
+      mesg += QString("dragvolsize : (max)%1MB  (actual)%2MB\n").	\
+	arg(Global::maxDragVolSize()).arg(nbytes*Global::actualDragVolSize());
+    }
+
 
 //    mesg += QString("texsizereducefraction : %1\n").	\
 //      arg(Global::texSizeReduceFraction());
@@ -5655,8 +5667,19 @@ Viewer::processMorphologicalOperations()
   QString mesg;
   Vec cpos = camera()->position();
 
-  mesg += QString("dragvolsize : (max)%1MB  (actual)%2MB\n").		\
-    arg(Global::maxDragVolSize()).arg(Global::actualDragVolSize());
+  {
+    int nbytes = 1;
+    if (m_Volume->pvlVoxelType(0) > 0)
+      nbytes = 2;
+    
+    if (Global::volumeType() == Global::DoubleVolume) nbytes *= 2;
+    if (Global::volumeType() == Global::TripleVolume) nbytes *= 3;
+    if (Global::volumeType() == Global::QuadVolume) nbytes *= 4;
+    if (Global::volumeType() == Global::RGBVolume) nbytes *= 3;
+    if (Global::volumeType() == Global::RGBAVolume) nbytes *= 4;
+    mesg += QString("dragvolsize : (max)%1MB  (actual)%2MB\n").		\
+      arg(Global::maxDragVolSize()).arg(nbytes*Global::actualDragVolSize());
+  }
 
   if (Global::updatePruneTexture())
     mesg += QString("EmptySpaceSkip : update : on\n");

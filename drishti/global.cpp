@@ -842,14 +842,14 @@ GLuint Global::cylinderTexture()
 }
 
 Vec
-Global::getDragInfo(Vec dataMin, Vec dataMax, int lod0)
+Global::getDragInfo(int bytesPerVoxel, Vec dataMin, Vec dataMax, int lod0)
 {
   int texSize = max2dTextureSize();
   qint64 lenx = dataMax.x - dataMin.x + 1;
   qint64 leny = dataMax.y - dataMin.y + 1;
   qint64 lenz = dataMax.z - dataMin.z + 1;
 
-  qint64 mDVS = maxDragVolSize()*1024*1024;
+  qint64 mDVS = maxDragVolSize()*1024*1024/bytesPerVoxel; // reduce maxDragVolSize by nuber of bytes per voxel
   int mATL = maxArrayTextureLayers();
   int lod = lod0;
   qint64 lenx2 = lenx/lod;
@@ -898,6 +898,7 @@ Global::getDragInfo(Vec dataMin, Vec dataMax, int lod0)
 
 QList<Vec>
 Global::getSlabs(int samplingLevel,
+		 int bytesPerVoxel,
 		 Vec dataMin, Vec dataMax,
 		 int &nrows, int &ncols)
 {
@@ -908,7 +909,7 @@ Global::getSlabs(int samplingLevel,
   int leny = dataMax.y - dataMin.y + 1;
   int lenz = dataMax.z - dataMin.z + 1;
 
-  Vec draginfo = getDragInfo(dataMin, dataMax, 1);
+  Vec draginfo = getDragInfo(bytesPerVoxel, dataMin, dataMax, 1);
   slabinfo.append(draginfo);
 
   int lenx2 = lenx/samplingLevel;

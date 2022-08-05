@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>201</width>
+    <width>249</width>
     <height>453</height>
    </rect>
   </property>
@@ -51,13 +51,13 @@
           <item row="0" column="0">
            <widget class="QLabel" name="label_10">
             <property name="toolTip">
-             <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'MS Shell Dlg 2'; font-size:8.25pt; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-size:8pt;&quot;&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt;Specifies the texture memory that the graphics card has.  Drishti will try to fit in selected subvolume within the texture memory.  If it cannot be done then the volume is subsampled till it can be fit into the texture memory.&lt;/span&gt;&lt;/p&gt;
-&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-size:12pt;&quot;&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-size:12pt;&quot;&gt;Texture memory is used to store, apart from the volume data, other buffers that are needed for proper working of Drishti.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             <string>Specify the dedicated texture memory that the graphics card has.
+Drishti will try to fit in selected subvolume within the texture
+memory.  If it cannot be done then the volume is subsampled
+till it can be fit into the texture memory.
+
+Texture memory is used to store, apart from the volume data,
+other buffers that are needed for proper working of Drishti.</string>
             </property>
             <property name="whatsThis">
              <string/>
@@ -207,6 +207,10 @@ p, li { white-space: pre-wrap; }
           </item>
           <item row="0" column="0">
            <widget class="QLabel" name="label_6">
+            <property name="toolTip">
+             <string>Slicing quality used when there is no mouse interaction.
+Still quality is never lower than Drag quality.</string>
+            </property>
             <property name="text">
              <string>Still</string>
             </property>
@@ -214,6 +218,10 @@ p, li { white-space: pre-wrap; }
           </item>
           <item row="1" column="0">
            <widget class="QLabel" name="label_7">
+            <property name="toolTip">
+             <string>Slicing quality used when there is mouse interaction.
+Drag quality is never higher than Still quality.</string>
+            </property>
             <property name="text">
              <string>Drag</string>
             </property>
@@ -297,6 +305,19 @@ p, li { white-space: pre-wrap; }
          <layout class="QHBoxLayout" name="horizontalLayout">
           <item>
            <widget class="QLabel" name="label_12">
+            <property name="toolTip">
+             <string>This is the maximum allowable size for the drag volume.  Drag volume is the volume data that is shown during mouse drags in order to maintain interactivity.  This data is also used to create lighting as well as empty space skipping information.  Typically the available texture memory for the selected subvolume data is Total Memory Size minus 8 times the Actual Drag Volume Size.  Actual Drag Volume Size is always less than Max Drag Volume Size - this is the size of the subsampled version of the selected subvolume to be used as drag volume.
+
+For gpu with smaller texture memory keep this value smaller.
+For guidance -
+GPU with 1 GB texture memory set Max Drag Volume Size to 16 (lowest)
+2GB - 32
+4GB - 64 
+8GB - 128
+16GB - 256
+40GB - 512
+80GB - 1024</string>
+            </property>
             <property name="text">
              <string>Max Drag Volume Size (MB)</string>
             </property>
@@ -305,7 +326,7 @@ p, li { white-space: pre-wrap; }
           <item>
            <widget class="QSpinBox" name="maxDragVolSize">
             <property name="minimum">
-             <number>32</number>
+             <number>16</number>
             </property>
             <property name="maximum">
              <number>1024</number>

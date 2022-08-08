@@ -67,6 +67,7 @@ class PruneHandler
     static void createMopShaders();
 
     static GLuint texture();
+    static QGLFramebufferObject* pruneBuffer();
 
     static void setUseSavedBuffer(bool);
     static bool useSavedBuffer();

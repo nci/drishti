@@ -148,7 +148,7 @@ Global::max2dTextureSize()
   glGetIntegerv(GL_MAX_RECTANGLE_TEXTURE_SIZE_ARB, &texSize);
   
  // restrict max 2D texturesize to 8K
-// texSize = qMin(8192, texSize);
+  //texSize = qMin(16384, texSize);
 
   // but if the user wants to modify it, so be it
   return texSize*m_texSizeReduceFraction;
@@ -871,27 +871,26 @@ Global::getDragInfo(int bytesPerVoxel, Vec dataMin, Vec dataMax, int lod0)
   int dgridy = texSize/leny2;
 
 
-//  // although the subsampled volume may fit in
-//  // the available texture memory, it may not
-//  // do so once the data is packed in 2d texture
-//  //while (dgridx*dgridy < lenz2)
-//  while (dgridx*dgridy < lenz2)
-//    {
-//      lod++;
-//      lenx2 = lenx/lod;
-//      leny2 = leny/lod;
-//      lenz2 = lenz/lod;
-//      dgridx = texSize/lenx2;
-//      dgridy = texSize/leny2;
-//    }
-//  
-//  // reduce the number of rows if the
-//  // subsampled volume is much smaller 
-//  while (dgridx*dgridy > lenz2)
-//    dgridy--;
-//  
-//  if (dgridx*dgridy < lenz2)
-//    dgridy++;
+  // although the subsampled volume may fit in
+  // the available texture memory, it may not
+  // do so once the data is packed in 2d texture
+  while (dgridx*dgridy < lenz2)
+    {
+      lod++;
+      lenx2 = lenx/lod;
+      leny2 = leny/lod;
+      lenz2 = lenz/lod;
+      dgridx = texSize/lenx2;
+      dgridy = texSize/leny2;
+    }
+  
+  // reduce the number of rows if the
+  // subsampled volume is much smaller 
+  while (dgridx*dgridy > lenz2)
+    dgridy--;
+  
+  if (dgridx*dgridy < lenz2)
+    dgridy++;
   
   return Vec(dgridx, dgridy, lod);
 }

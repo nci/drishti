@@ -800,11 +800,11 @@ DrawHiresVolume::loadTextureMemory()
   m_textureSlab = m_Volume->getSliceTextureSizeSlabs();
 
 
-  int textureX, textureY;
-  m_Volume->getSliceTextureSize(textureX, textureY);
-
-  int dtextureX, dtextureY;
-  m_Volume->getDragTextureSize(dtextureX, dtextureY);
+//  int textureX, textureY;
+//  m_Volume->getSliceTextureSize(textureX, textureY);
+//
+//  int dtextureX, dtextureY;
+//  m_Volume->getDragTextureSize(dtextureX, dtextureY);
 
   if (m_dataTexSize > 0)
     {

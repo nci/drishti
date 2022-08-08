@@ -5519,8 +5519,18 @@ Viewer::commandEditor()
       if (Global::volumeType() == Global::RGBAVolume) nbytes *= 4;
       mesg += QString("dragvolsize : (max)%1MB  (actual)%2MB\n").	\
 	arg(Global::maxDragVolSize()).arg(nbytes*Global::actualDragVolSize());
+
+      mesg += QString("texture slabs : %1\n").
+	arg(m_hiresVolume->dataTexSize());
     }
 
+    if (PruneHandler::pruneBuffer())
+      {
+	mesg += QString("EmptySpaceSkip Buffer Size : %1 x %2\n").	\
+	  arg(PruneHandler::pruneBuffer()->width()).			\
+	  arg(PruneHandler::pruneBuffer()->height());
+      }
+    
 
 //    mesg += QString("texsizereducefraction : %1\n").	\
 //      arg(Global::texSizeReduceFraction());
@@ -5679,10 +5689,19 @@ Viewer::processMorphologicalOperations()
     if (Global::volumeType() == Global::RGBAVolume) nbytes *= 4;
     mesg += QString("dragvolsize : (max)%1MB  (actual)%2MB\n").		\
       arg(Global::maxDragVolSize()).arg(nbytes*Global::actualDragVolSize());
+
+    mesg += QString("texture slabs : %1\n").
+      arg(m_hiresVolume->dataTexSize());
   }
 
   if (Global::updatePruneTexture())
-    mesg += QString("EmptySpaceSkip : update : on\n");
+    {
+      mesg += QString("EmptySpaceSkip Buffer Size : %1 x %2\n").	\
+	arg(PruneHandler::pruneBuffer()->width()).\
+	arg(PruneHandler::pruneBuffer()->height());
+
+      mesg += QString("EmptySpaceSkip : update : on\n");
+    }
   else
     mesg += QString("EmptySpaceSkip : update : off\n");
 

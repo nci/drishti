@@ -98,6 +98,8 @@ int PruneHandler::channel() { return m_channel; }
 GLuint PruneHandler::m_pruneTex=0;
 GLuint PruneHandler::texture() { return m_pruneBuffer->texture(); }
 
+QGLFramebufferObject* PruneHandler::pruneBuffer() { return m_pruneBuffer; }
+
 void PruneHandler::setUseSavedBuffer(bool b) { m_useSavedBuffer = b; }
 bool PruneHandler::useSavedBuffer() { return m_useSavedBuffer; }
 

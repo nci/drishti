@@ -316,7 +316,7 @@ GPU with 1 GB texture memory set Max Drag Volume Size to 16 (lowest)
 8GB - 128
 16GB - 256
 40GB - 512
-80GB - 1024</string>
+80GB - 512</string>
             </property>
             <property name="text">
              <string>Max Drag Volume Size (MB)</string>

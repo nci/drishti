@@ -5482,7 +5482,7 @@ Viewer::commandEditor()
       if (Global::volumeType() == Global::RGBAVolume) nbytes *= 4;
 
       Vec volSize = m_hiresVolume->volumeSize();
-      int vmb = volSize.x*volSize.y*volSize.z;
+      qint64 vmb = volSize.x*volSize.y*volSize.z;
       vmb = vmb*nbytes/1024/1024;
       mesg += QString("selected Volume Size : %1MB\n").arg(vmb);
 
@@ -5697,7 +5697,7 @@ Viewer::processMorphologicalOperations()
     if (Global::volumeType() == Global::RGBAVolume) nbytes *= 4;
 
     Vec volSize = m_hiresVolume->volumeSize();
-    int vmb = volSize.x*volSize.y*volSize.z;
+    qint64 vmb = volSize.x*volSize.y*volSize.z;
     vmb = vmb*nbytes/1024/1024;
     mesg += QString("selected Volume Size : %1MB\n").arg(vmb);
 

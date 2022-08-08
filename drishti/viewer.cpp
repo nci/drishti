@@ -5470,6 +5470,39 @@ Viewer::commandEditor()
   QString mesg;
 
   {
+    {
+      int nbytes = 1;
+      if (m_Volume->pvlVoxelType(0) > 0)
+	nbytes = 2;
+
+      if (Global::volumeType() == Global::DoubleVolume) nbytes *= 2;
+      if (Global::volumeType() == Global::TripleVolume) nbytes *= 3;
+      if (Global::volumeType() == Global::QuadVolume) nbytes *= 4;
+      if (Global::volumeType() == Global::RGBVolume) nbytes *= 3;
+      if (Global::volumeType() == Global::RGBAVolume) nbytes *= 4;
+
+      Vec volSize = m_hiresVolume->volumeSize();
+      int vmb = volSize.x*volSize.y*volSize.z;
+      vmb = vmb*nbytes/1024/1024;
+      mesg += QString("selected Volume Size : %1MB\n").arg(vmb);
+
+      mesg += QString("drag Volume Size : (max)%1MB  (actual)%2MB\n").	\
+	arg(Global::maxDragVolSize()).arg(nbytes*Global::actualDragVolSize());
+
+      mesg += QString("array texture slabs : %1\n").
+	arg(m_hiresVolume->dataTexSize());
+    }
+
+    if (PruneHandler::pruneBuffer())
+      {
+	mesg += QString("max 2d Texture Size : %1\n").arg(Global::max2dTextureSize());
+	mesg += QString("EmptySpaceSkip Buffer Size : %1 x %2\n\n").	\
+	  arg(PruneHandler::pruneBuffer()->width()).			\
+	  arg(PruneHandler::pruneBuffer()->height());
+      }
+    
+
+
     Vec cpos = camera()->position();
     if (Global::updatePruneTexture())
       mesg += QString("EmptySpaceSkip : update : on\n");
@@ -5506,31 +5539,6 @@ Viewer::commandEditor()
     mesg += "dragonly : ";
     if (Global::loadDragOnly()) mesg += "yes\n";
     else mesg += "no\n";
-
-    {
-      int nbytes = 1;
-      if (m_Volume->pvlVoxelType(0) > 0)
-	nbytes = 2;
-
-      if (Global::volumeType() == Global::DoubleVolume) nbytes *= 2;
-      if (Global::volumeType() == Global::TripleVolume) nbytes *= 3;
-      if (Global::volumeType() == Global::QuadVolume) nbytes *= 4;
-      if (Global::volumeType() == Global::RGBVolume) nbytes *= 3;
-      if (Global::volumeType() == Global::RGBAVolume) nbytes *= 4;
-      mesg += QString("dragvolsize : (max)%1MB  (actual)%2MB\n").	\
-	arg(Global::maxDragVolSize()).arg(nbytes*Global::actualDragVolSize());
-
-      mesg += QString("texture slabs : %1\n").
-	arg(m_hiresVolume->dataTexSize());
-    }
-
-    if (PruneHandler::pruneBuffer())
-      {
-	mesg += QString("EmptySpaceSkip Buffer Size : %1 x %2\n").	\
-	  arg(PruneHandler::pruneBuffer()->width()).			\
-	  arg(PruneHandler::pruneBuffer()->height());
-      }
-    
 
 //    mesg += QString("texsizereducefraction : %1\n").	\
 //      arg(Global::texSizeReduceFraction());
@@ -5687,16 +5695,23 @@ Viewer::processMorphologicalOperations()
     if (Global::volumeType() == Global::QuadVolume) nbytes *= 4;
     if (Global::volumeType() == Global::RGBVolume) nbytes *= 3;
     if (Global::volumeType() == Global::RGBAVolume) nbytes *= 4;
-    mesg += QString("dragvolsize : (max)%1MB  (actual)%2MB\n").		\
+
+    Vec volSize = m_hiresVolume->volumeSize();
+    int vmb = volSize.x*volSize.y*volSize.z;
+    vmb = vmb*nbytes/1024/1024;
+    mesg += QString("selected Volume Size : %1MB\n").arg(vmb);
+
+    mesg += QString("drag Volume Size : (max)%1MB  (actual)%2MB\n").		\
       arg(Global::maxDragVolSize()).arg(nbytes*Global::actualDragVolSize());
 
-    mesg += QString("texture slabs : %1\n").
+    mesg += QString("array texture slabs : %1\n").
       arg(m_hiresVolume->dataTexSize());
   }
 
   if (Global::updatePruneTexture())
     {
-      mesg += QString("EmptySpaceSkip Buffer Size : %1 x %2\n").	\
+      mesg += QString("max 2d Texture Size : %1\n").arg(Global::max2dTextureSize());
+      mesg += QString("EmptySpaceSkip Buffer Size : %1 x %2\n\n").	\
 	arg(PruneHandler::pruneBuffer()->width()).\
 	arg(PruneHandler::pruneBuffer()->height());
 

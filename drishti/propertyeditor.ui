@@ -34,7 +34,7 @@
       </property>
       <widget class="QPlainTextEdit" name="messageLabel">
        <property name="sizePolicy">
-        <sizepolicy hsizetype="Expanding" vsizetype="Minimum">
+        <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
@@ -42,7 +42,7 @@
        <property name="maximumSize">
         <size>
          <width>16777215</width>
-         <height>100</height>
+         <height>300</height>
         </size>
        </property>
        <property name="focusPolicy">

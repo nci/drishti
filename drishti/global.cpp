@@ -891,8 +891,8 @@ Global::getDragInfo(int bytesPerVoxel, Vec dataMin, Vec dataMax, int lod0)
 
 
   // actual drag volume size in MB
-  //m_actualDragVolSize = qRound(lenx2*leny2*lenz2/1024.0/1024.0);
-  m_actualDragVolSize = qRound(dgridx*lenx2*dgridy*leny2/1024.0/1024.0);
+  m_actualDragVolSize = qRound(lenx2*leny2*lenz2/1024.0/1024.0);
+  //m_actualDragVolSize = qRound(dgridx*lenx2*dgridy*leny2/1024.0/1024.0);
   
   
   return Vec(dgridx, dgridy, lod);

@@ -306,7 +306,7 @@ p, li { white-space: pre-wrap; }
           <item>
            <widget class="QLabel" name="label_12">
             <property name="toolTip">
-             <string>This is the maximum allowable size for the drag volume.  Drag volume is the volume data that is shown during mouse drags in order to maintain interactivity.  This data is also used to create lighting as well as empty space skipping information.  Typically the available texture memory for the selected subvolume data is Total Memory Size minus 8 times the Actual Drag Volume Size.  Actual Drag Volume Size is always less than Max Drag Volume Size - this is the size of the subsampled version of the selected subvolume to be used as drag volume.
+             <string>This is the maximum allowable size for the drag volume.  Drag volume is the volume data that is shown during mouse drags in order to maintain interactivity.  This data is also used to create lighting, mop, painting as well as empty space skipping information.  Typically the available texture memory for the selected subvolume data is Total Memory Size minus 25 times the Actual Drag Volume Size.  Actual Drag Volume Size is always less than Max Drag Volume Size - this is the size of the subsampled version of the selected subvolume to be used as drag volume.
 
 For gpu with smaller texture memory keep this value smaller.
 For guidance -
@@ -316,7 +316,7 @@ GPU with 1 GB texture memory set Max Drag Volume Size to 16 (lowest)
 8GB - 128
 16GB - 256
 40GB - 512
-80GB - 512</string>
+80GB - 700</string>
             </property>
             <property name="text">
              <string>Max Drag Volume Size (MB)</string>

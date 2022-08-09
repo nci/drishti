@@ -646,7 +646,7 @@ void MainWindow::runPlugin(int idx, bool batchMode)
       int nrows, ncols;
       int bpv = 1;
       if (m_Volume->pvlVoxelType(0) > 0) bpv = 2;
-      int tms = Global::textureMemorySize()-8*Global::actualDragVolSize(); // in Mb
+      int tms = Global::textureMemorySize()-25*Global::actualDragVolSize(); // in Mb
       subsamplinglevel = StaticFunctions::getSubsamplingLevel(tms,
 							      Global::maxArrayTextureLayers(),
 							      bpv,

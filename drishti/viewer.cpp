@@ -2752,6 +2752,8 @@ Viewer::updateLightBuffers()
       m_updatePruneBuffer = false;
       m_hiresVolume->updateAndLoadPruneTexture();
     }
+
+  LightHandler::generateOpacityTexture();
   
   QList<Vec> cpos, cnorm;
   m_hiresVolume->getClipForMask(cpos, cnorm);
@@ -2759,6 +2761,7 @@ Viewer::updateLightBuffers()
   bool redolighting = LightHandler::checkClips(cpos, cnorm);
   redolighting = redolighting || LightHandler::checkCrops();
   redolighting = redolighting || LightHandler::updateOnlyLightBuffers();
+  redolighting = redolighting || !m_updatePruneBuffer;
   if (redolighting)
     {
       LightHandler::updateLightBuffers();
@@ -3441,8 +3444,12 @@ Viewer::mouseReleaseEvent(QMouseEvent *event)
 
   m_undo.append(camera()->position(), camera()->orientation());
 
-  if (LightHandler::lightsChanged())
+  if (LightHandler::lightsChanged() ||
+      PruneHandler::carve())
     {
+      if (PruneHandler::carve())
+	LightHandler::generateOpacityTexture();
+      
       LightHandler::updateLightBuffers();
       m_hiresVolume->initShadowBuffers(true);
       updateGL();
@@ -6194,7 +6201,7 @@ Viewer::handleMorphologicalOperations(QStringList list)
       if (list.size() > 1)
 	{
 	  PruneHandler::setCarve(false);
-	  SETMOUSEBINDINGFORCARVEPAINT(NO_CLICK_ACTION);
+	  //SETMOUSEBINDINGFORCARVEPAINT(NO_CLICK_ACTION);
 	}
       else
 	{
@@ -6202,7 +6209,7 @@ Viewer::handleMorphologicalOperations(QStringList list)
 //	    QMessageBox::information(0, "", "Carving operation will be more responsive if dragVolume is selected for rendering by pressing \"l\". \"l\" toggles the use of dragVolume for rendering.");
 	  PruneHandler::setPaint(false);	  
 	  PruneHandler::setCarve(true);
-	  SETMOUSEBINDINGFORCARVEPAINT(SELECT);
+	  //SETMOUSEBINDINGFORCARVEPAINT(SELECT);
 	}
     }
   else if (list[0] == "paint")
@@ -6210,7 +6217,7 @@ Viewer::handleMorphologicalOperations(QStringList list)
       if (list.size() > 1)
 	{
 	  PruneHandler::setPaint(false);	  
-	  SETMOUSEBINDINGFORCARVEPAINT(NO_CLICK_ACTION);
+	  //SETMOUSEBINDINGFORCARVEPAINT(NO_CLICK_ACTION);
 	}
       else
 	{
@@ -6218,7 +6225,7 @@ Viewer::handleMorphologicalOperations(QStringList list)
 //	    QMessageBox::information(0, "", "Painting operation will be more responsive if dragVolume is selected for rendering by pressing \"l\". \"l\" toggles the use of dragVolume for rendering.");
 	  PruneHandler::setCarve(false);	  
 	  PruneHandler::setPaint(true);
-	  SETMOUSEBINDINGFORCARVEPAINT(SELECT);
+	  //SETMOUSEBINDINGFORCARVEPAINT(SELECT);
 	}
     }
   else if (list[0] == "carverad")

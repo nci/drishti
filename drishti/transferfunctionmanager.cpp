@@ -73,7 +73,9 @@ TransferFunctionManager::TransferFunctionManager(QWidget *parent) :
 
   m_replaceTF = new QCheckBox("Replace existing transfer functions at keyframes");  
   m_morphTF = new QCheckBox("Morph transfer functions during keyframe animation");  
-
+  m_replaceTF->setFont(QFont("MS Reference Sans Serif", 10));
+  m_morphTF->setFont(QFont("MS Reference Sans Serif", 10));
+  
   QVBoxLayout *vbox = new QVBoxLayout();
   vbox->addWidget(m_buttonGroup);
   vbox->addWidget(m_replaceTF);
@@ -96,6 +98,7 @@ TransferFunctionManager::TransferFunctionManager(QWidget *parent) :
 
   connect(m_tableWidget, SIGNAL(cellChanged(int, int)),
 	  this, SLOT(cellChanged(int, int)));
+
 }
 
 void

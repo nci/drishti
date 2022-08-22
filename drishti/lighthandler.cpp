@@ -10,6 +10,7 @@
 #include "cropshaderfactory.h"
 #include "blendshaderfactory.h"
 #include "geometryobjects.h"
+#include "prunehandler.h"
 
 #define VECDIVIDE(a, b) Vec(a.x/b.x, a.y/b.y, a.z/b.z)
 
@@ -577,6 +578,7 @@ LightHandler::createOpacityShader(bool bit16)
       m_opacityParm[16] = glGetUniformLocationARB(m_opacityShader, "amrTex");
       m_opacityParm[17] = glGetUniformLocationARB(m_opacityShader, "dragLod");
     }
+  m_opacityParm[18] = glGetUniformLocationARB(m_opacityShader, "pruneTex");
   //---------------------------
 }
 
@@ -1069,6 +1071,7 @@ LightHandler::generateOpacityTexture()
   glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
 
 
+
   // generate opacity texture on gpu
   m_opacityBuffer->bind();
   glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
@@ -1118,6 +1121,16 @@ LightHandler::generateOpacityTexture()
       glUniform1fARB(m_opacityParm[17], m_dragInfo.z); // LOD to get back to original volume size
     }
 
+    // enable PruneHandler::prune texture
+  glActiveTexture(GL_TEXTURE6);
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, PruneHandler::texture());  
+  glEnable(GL_TEXTURE_RECTANGLE_ARB);
+  glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glUniform1iARB(m_opacityParm[18], 6); // PruneHandler::pruneTex
+
+  
+
   StaticFunctions::pushOrthoView(0, 0, sX, sY);
   StaticFunctions::drawQuad(0, 0, sX, sY, 1.0);
   StaticFunctions::popOrthoView();
@@ -1138,6 +1151,8 @@ LightHandler::generateOpacityTexture()
       glDisable(GL_TEXTURE_RECTANGLE_ARB);
     }
 
+  glActiveTexture(GL_TEXTURE6);
+  glDisable(GL_TEXTURE_RECTANGLE_ARB);
 }
 
 void
@@ -1800,7 +1815,7 @@ LightHandler::updateLightBuffers()
       dpos << Vec(0,0,0);
       updatePointLightBuffer(dpos,
 			     0,
-			     qMin(m_aoDensity2,0.99f),
+			     qMin(m_aoDensity2,0.95f),
 			     0,
 			     m_aoLightColor,
 			     1,
@@ -2300,7 +2315,10 @@ LightHandler::updatePointLightBuffer(QList<Vec> olpos, float lradius,
   glActiveTexture(GL_TEXTURE2);
   glDisable(GL_TEXTURE_RECTANGLE_ARB);
 
-  updateFinalLightBuffer(ct, lcol);
+  if (opmod < 1.0 || (lradius < 0.1 && cangle < 0.1))
+    updateFinalLightBuffer(ct, lcol);
+  else
+    updateFinalLightBuffer(ct, opmod*lcol);
 }
 
 void
@@ -2498,21 +2516,6 @@ LightHandler::openPropertyEditor()
   vlist << QVariant(Global::lutSize());
   plist["emis tfset"] = vlist;
 
-//  vlist.clear();
-//  vlist << QVariant("double");
-//  vlist << QVariant(m_emisDecay);
-//  vlist << QVariant(0.1);
-//  vlist << QVariant(1.0);
-//  vlist << QVariant(0.1); // singlestep
-//  vlist << QVariant(1); // decimals
-//  plist["emis opmod"] = vlist;
-  
-//  vlist.clear();
-//  vlist << QVariant("int");
-//  vlist << QVariant(m_emisTimes);
-//  vlist << QVariant(1);
-//  vlist << QVariant(100);
-//  plist["emis smoothing"] = vlist;
   vlist.clear();
   vlist << QVariant("slider");
   vlist << QVariant(m_emisTimes);
@@ -2537,31 +2540,6 @@ LightHandler::openPropertyEditor()
   vlist << dcolor;
   plist["ao color"] = vlist;
   
-//  vlist.clear();
-//  vlist << QVariant("int");
-//  vlist << QVariant(m_aoRad);
-//  vlist << QVariant(1);
-//  vlist << QVariant(7);
-//  plist["ao size"] = vlist;
-//
-//  vlist.clear();
-//  vlist << QVariant("double");
-//  vlist << QVariant(m_aoFrac);
-//  vlist << QVariant(0.0);
-//  vlist << QVariant(0.9);
-//  vlist << QVariant(0.1); // singlestep
-//  vlist << QVariant(1); // decimals
-//  plist["ao fraction"] = vlist;
-  
-//  vlist.clear();
-//  vlist << QVariant("double");
-//  //vlist << QVariant(m_aoDensity1);
-//  vlist << QVariant(m_aoDensity2);
-//  vlist << QVariant(0.0);
-//  vlist << QVariant(1.0);
-//  vlist << QVariant(0.01); // singlestep
-//  vlist << QVariant(2); // decimals
-//  plist["ao dark level"] = vlist;
   vlist.clear();
   vlist << QVariant("slider");
   vlist << QVariant(qMax(0, (int)(m_aoDensity2*100-50)));
@@ -2570,41 +2548,16 @@ LightHandler::openPropertyEditor()
   vlist << QVariant(5);
   plist["ao dark level"] = vlist;
   
-//  vlist.clear();
-//  vlist << QVariant("double");
-//  vlist << QVariant(m_aoOpMod);
-//  vlist << QVariant(0.0);
-//  vlist << QVariant(5.0);
-//  vlist << QVariant(0.1); // singlestep
-//  vlist << QVariant(1); // decimals
-//  plist["ao opmod"] = vlist;
   vlist.clear();
   vlist << QVariant("slider");
   if (m_aoOpMod <= 1.0)
     vlist << QVariant(qMax(0, (int)(m_aoOpMod*10-2)));
   else
-    vlist << QVariant(7+(int)m_aoOpMod);
+    vlist << QVariant(8+(int)m_aoOpMod);
   vlist << QVariant(0);
   vlist << QVariant(12);
   vlist << QVariant(1);
   plist["ao opmod"] = vlist;
-
-//  vlist.clear();
-//  vlist << QVariant("double");
-//  vlist << QVariant(m_aoDensity2);
-//  vlist << QVariant(0.0);
-//  vlist << QVariant(1.0);
-//  vlist << QVariant(0.01); // singlestep
-//  vlist << QVariant(2); // decimals
-//  plist["ao bright level"] = vlist;
-  
-//  vlist.clear();
-//  vlist << QVariant("slider");
-//  vlist << QVariant(m_aoTimes);
-//  vlist << QVariant(1);
-//  vlist << QVariant(5);
-//  vlist << QVariant(1);
-//  plist["ao smoothing"] = vlist;
 
   vlist.clear();
   vlist << QVariant("checkbox");

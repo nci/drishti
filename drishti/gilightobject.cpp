@@ -136,7 +136,7 @@ GiLightObject::GiLightObject()
   m_lightType = 0; // point light
   m_rad = 5;
   m_decay = 1.0;
-  m_angle = 60.0;
+  m_angle = 90.0;
   m_show = true;
 
   m_segments = 1;

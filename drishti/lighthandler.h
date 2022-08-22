@@ -25,6 +25,8 @@ class LightHandler
 
     static bool openPropertyEditor();
 
+    static void generateOpacityTexture();
+
     static void updateOpacityTexture(GLuint,
 				     int, int,
 				     Vec, Vec,
@@ -179,8 +181,6 @@ class LightHandler
 
     static GLhandleARB m_blendShader;
     static GLint m_blendParm[20];
-
-    static void generateOpacityTexture();
 
     static void generateEmissiveTexture();
     static void dilateEmissiveTexture();

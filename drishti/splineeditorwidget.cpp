@@ -153,7 +153,7 @@ SplineEditorWidget::SplineEditorWidget(QWidget *parent) :
   connect(m_16bitEditor, SIGNAL(newMapping(float, float)),
 	  this, SLOT(updateTransferFunction(float, float)));
 
-  setMinimumSize(200, 200);
+  setMinimumSize(150, 200);
 
   m_16bitEditor->hide();
   m_show16BitEditor = false;

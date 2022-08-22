@@ -375,23 +375,23 @@ ImageWidget::applyGradLimits()
   if (m_sliceType == WSlice) { wstart = wend = m_currSlice; }
   if (m_sliceType == HSlice) { hstart = hend = m_currSlice; }
 
-  int idx = 0;
+  qint64 idx = 0;
 
   float gradMag;
 
-  for(int d0=dstart; d0<=dend; d0++)
-  for(int w0=wstart; w0<=wend; w0++)
-  for(int h0=hstart; h0<=hend; h0++)
+  for(qint64 d0=dstart; d0<=dend; d0++)
+  for(qint64 w0=wstart; w0<=wend; w0++)
+  for(qint64 h0=hstart; h0<=hend; h0++)
     {
       if (m_gradType == 0)
 	{
 	  float gx,gy,gz;
-	  qint64 d3 = qBound(0, d0+1, m_Depth-1);
-	  qint64 d4 = qBound(0, d0-1, m_Depth-1);
-	  qint64 w3 = qBound(0, w0+1, m_Width-1);
-	  qint64 w4 = qBound(0, w0-1, m_Width-1);
-	  qint64 h3 = qBound(0, h0+1, m_Height-1);
-	  qint64 h4 = qBound(0, h0-1, m_Height-1);
+	  qint64 d3 = qBound((qint64)0, d0+1, (qint64)m_Depth-1);
+	  qint64 d4 = qBound((qint64)0, d0-1, (qint64)m_Depth-1);
+	  qint64 w3 = qBound((qint64)0, w0+1, (qint64)m_Width-1);
+	  qint64 w4 = qBound((qint64)0, w0-1, (qint64)m_Width-1);
+	  qint64 h3 = qBound((qint64)0, h0+1, (qint64)m_Height-1);
+	  qint64 h4 = qBound((qint64)0, h0-1, (qint64)m_Height-1);
 	  if (m_bytesPerVoxel == 1)
 	    {
 	      gz = (m_volPtr[d3*m_Width*m_Height + w0*m_Height + h0] -
@@ -434,13 +434,13 @@ ImageWidget::applyGradLimits()
 	    {	      
 	      float sum = 0;
 	      float vval = m_volPtr[d0*m_Width*m_Height + w0*m_Height + h0];
-	      for(int a=-sz; a<=sz; a++)
-	      for(int b=-sz; b<=sz; b++)
-	      for(int c=-sz; c<=sz; c++)
+	      for(qint64 a=-sz; a<=sz; a++)
+	      for(qint64 b=-sz; b<=sz; b++)
+	      for(qint64 c=-sz; c<=sz; c++)
 		{
-		  qint64 a0 = qBound(0, d0+a, m_Depth-1);
-		  qint64 b0 = qBound(0, w0+b, m_Width-1);
-		  qint64 c0 = qBound(0, h0+c, m_Height-1);
+		  qint64 a0 = qBound((qint64)0, d0+a, (qint64)m_Depth-1);
+		  qint64 b0 = qBound((qint64)0, w0+b, (qint64)m_Width-1);
+		  qint64 c0 = qBound((qint64)0, h0+c, (qint64)m_Height-1);
 		  float vu = m_volPtr[a0*m_Width*m_Height + b0*m_Height + c0];
 		  sum += vu;
 		}
@@ -452,13 +452,13 @@ ImageWidget::applyGradLimits()
 	    {
 	      float sum = 0;
 	      float vval = volPtrUS[d0*m_Width*m_Height + w0*m_Height + h0];
-	      for(int a=d0-sz; a<=d0+sz; a++)
-	      for(int b=w0-sz; b<=w0+sz; b++)
-	      for(int c=h0-sz; c<=h0+sz; c++)
+	      for(qint64 a=d0-sz; a<=d0+sz; a++)
+	      for(qint64 b=w0-sz; b<=w0+sz; b++)
+	      for(qint64 c=h0-sz; c<=h0+sz; c++)
 		{
-		  qint64 a0 = qBound(0, a, m_Depth-1);
-		  qint64 b0 = qBound(0, b, m_Width-1);
-		  qint64 c0 = qBound(0, c, m_Height-1);
+		  qint64 a0 = qBound((qint64)0, a, (qint64)m_Depth-1);
+		  qint64 b0 = qBound((qint64)0, b, (qint64)m_Width-1);
+		  qint64 c0 = qBound((qint64)0, c, (qint64)m_Height-1);
 		  sum += volPtrUS[a0*m_Width*m_Height + b0*m_Height + c0];
 		}
 
@@ -477,6 +477,7 @@ ImageWidget::applyGradLimits()
 	}
       idx ++;
     }
+
 }
 
 void
@@ -894,7 +895,7 @@ ImageWidget::processPrevSliceTags()
 void
 ImageWidget::recolorImage()
 {
-  for(int i=0; i<m_imgHeight*m_imgWidth; i++)
+  for(qint64 i=0; i<m_imgHeight*m_imgWidth; i++)
     {
       int idx = m_slice[i];
       if (m_bytesPerVoxel == 2)

@@ -313,17 +313,17 @@ GiLights::openPropertyEditor(int i)
   vlist << QVariant("double");
   vlist << QVariant(m_giLights[i]->opacity());
   vlist << QVariant(0.0);
-  vlist << QVariant(5.0);
+  vlist << QVariant(10.0);
   vlist << QVariant(0.1); // singlestep
   vlist << QVariant(1); // decimals
   plist["opmod"] = vlist;
   
-  vlist.clear();
-  vlist << QVariant("int");
-  vlist << QVariant(m_giLights[i]->lod());
-  vlist << QVariant(1);
-  vlist << QVariant(10);
-  plist["light buffer size"] = vlist;
+//  vlist.clear();
+//  vlist << QVariant("int");
+//  vlist << QVariant(m_giLights[i]->lod());
+//  vlist << QVariant(1);
+//  vlist << QVariant(5);
+//  plist["light buffer size"] = vlist;
   
   vlist.clear();
   vlist << QVariant("int");
@@ -332,17 +332,17 @@ GiLights::openPropertyEditor(int i)
   vlist << QVariant(10);
   plist["light buffer smoothing"] = vlist;
   
-  if (m_giLights[i]->rad() > 1)
-    {
-      vlist.clear();
-      vlist << QVariant("double");
-      vlist << QVariant(m_giLights[i]->angle());
-      vlist << QVariant(10.0);
-      vlist << QVariant(80.0);
-      vlist << QVariant(10.0);// singlestep
-      vlist << QVariant(1); // decimals
-      plist["collection angle"] = vlist;
-    }
+//  if (m_giLights[i]->rad() > 1)
+//    {
+//      vlist.clear();
+//      vlist << QVariant("double");
+//      vlist << QVariant(m_giLights[i]->angle());
+//      vlist << QVariant(40.0);
+//      vlist << QVariant(90.0);
+//      vlist << QVariant(10.0);// singlestep
+//      vlist << QVariant(1); // decimals
+//      plist["collection angle"] = vlist;
+//    }
 
   vlist.clear();
   vlist << QVariant("checkbox");
@@ -351,12 +351,12 @@ GiLights::openPropertyEditor(int i)
   
   if (m_giLights[i]->lightType() == 0) // point light
     {
-      vlist.clear();
-      vlist << QVariant("int");
-      vlist << QVariant(m_giLights[i]->rad());
-      vlist << QVariant(1);
-      vlist << QVariant(50);
-      plist["size"] = vlist;
+//      vlist.clear();
+//      vlist << QVariant("int");
+//      vlist << QVariant(m_giLights[i]->rad());
+//      vlist << QVariant(1);
+//      vlist << QVariant(50);
+//      plist["size"] = vlist;
 
       vlist.clear();
       vlist << QVariant("double");
@@ -413,16 +413,16 @@ GiLights::openPropertyEditor(int i)
   
   QStringList keys;
   keys << "light type";
-  keys << "light buffer size";
+  //keys << "light buffer size";
   keys << "light buffer smoothing";
   keys << "gap";
   keys << "color";
   keys << "opmod";
-  if (m_giLights[i]->rad() > 1)
-    keys << "collection angle";
+//  if (m_giLights[i]->rad() > 1)
+//    keys << "collection angle";
   if (m_giLights[i]->lightType() == 0) // point light
     {
-      keys << "size";
+      //keys << "size";
       keys << "falloff";
       if (m_giLights[i]->rad() > 1)
 	{

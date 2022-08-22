@@ -129,7 +129,8 @@ PruneShaderFactory::genPruneTexture(int nvol, bool bit16)
       shader += "  op = max(op, texture(lutTex, vec2(val."+c+",g)).x);\n";
     }
   shader += "  float s = step(0.9/255.0, op);\n";
-  shader += "  glFragColor = vec4(s,op,0.0,1.0);\n";
+  //shader += "  glFragColor = vec4(s,op,0.0,1.0);\n";
+  shader += "  glFragColor = vec4(s,s,0.0,1.0);\n";
   //----------------  
   
   shader += "}\n";

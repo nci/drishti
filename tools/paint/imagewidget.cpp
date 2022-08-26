@@ -493,12 +493,12 @@ ImageWidget::getSlice()
 
   if (m_sliceType == WSlice)
     {
-      for(int d=0; d<m_Depth; d++)
+      for(qint64 d=0; d<m_Depth; d++)
 	memcpy(m_slice + d*m_Height*m_bytesPerVoxel,
 	       m_volPtr + (d*bps + m_currSlice*m_Height)*m_bytesPerVoxel,
 	       m_Height*m_bytesPerVoxel);
 
-      for(int d=0; d<m_Depth; d++)
+      for(qint64 d=0; d<m_Depth; d++)
 	memcpy(m_maskslice + d*m_Height,
 	       m_maskPtr + d*bps + m_currSlice*m_Height,
 	       m_Height);
@@ -507,18 +507,18 @@ ImageWidget::getSlice()
   if (m_sliceType == HSlice)
     {
       int it = 0;
-      for(int d=0; d<m_Depth; d++)
+      for(qint64 d=0; d<m_Depth; d++)
 	{
-	  for(int j=0; j<m_Width; j++, it++)
+	  for(qint64 j=0; j<m_Width; j++, it++)
 	    memcpy(m_slice + it*m_bytesPerVoxel,
 		   m_volPtr + (d*bps + (j*m_Height + m_currSlice))*m_bytesPerVoxel,
 		   m_bytesPerVoxel);
 	}
 
       it = 0;
-      for(int d=0; d<m_Depth; d++)
+      for(qint64 d=0; d<m_Depth; d++)
 	{
-	  for(int j=0; j<m_Width; j++, it++)
+	  for(qint64 j=0; j<m_Width; j++, it++)
 	    memcpy(m_maskslice + it,
 		   m_maskPtr + d*bps + (j*m_Height + m_currSlice),
 		   1);

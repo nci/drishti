@@ -19,6 +19,9 @@ class FileHandler : public QObject
 
   bool savingFile() { return m_savingFile; }
 
+  signals :
+    void doneFileSave();
+		       
   public slots :
     void setFilenameList(QStringList);
     void setBaseFilename(QString);
@@ -37,13 +40,7 @@ class FileHandler : public QObject
     void genUndo();
     void undo();
     
-    void saveDataBlock(int,int,
-		       int,int,
-		       int,int);
-
-    void saveDepthSlices(IntList);
-    void saveWidthSlices(IntList);
-    void saveHeightSlices(IntList);
+    void saveDataBlock();
     
  private:
     bool m_savingFile;

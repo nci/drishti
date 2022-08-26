@@ -2562,6 +2562,12 @@ Viewer::pointUnderPixel_RC(QPoint scr, bool& found)
 }
 
 void
+Viewer::leaveEvent(QEvent*)
+{
+  emit checkFileSave();
+}
+
+void
 Viewer::mousePressEvent(QMouseEvent *event)
 {
   m_paintHit = false;

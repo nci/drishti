@@ -23,7 +23,7 @@ VolumeFileManager::VolumeFileManager()
   m_memmapped = false;
   m_mcTimes = 0;
   m_saveFreq = 50;
-  reset();
+  reset();  
 }
 
 VolumeFileManager::~VolumeFileManager()
@@ -117,22 +117,25 @@ VolumeFileManager::startFileHandlerThread()
       m_handler->moveToThread(m_thread);
       
       connect(this, SIGNAL(saveDataBlock(int,int,int,int,int,int)),
-	      m_handler, SLOT(saveDataBlock(int,int,int,int,int,int)),
-	      Qt::QueuedConnection);
+	      m_handler, SLOT(saveDataBlock(int,int,int,int,int,int)));
 
       connect(this, SIGNAL(saveDepthSlices(IntList)),
-	      m_handler, SLOT(saveDepthSlices(IntList)),
-	      Qt::QueuedConnection);
+	      m_handler, SLOT(saveDepthSlices(IntList)));
 
       connect(this, SIGNAL(saveWidthSlices(IntList)),
-	      m_handler, SLOT(saveWidthSlices(IntList)),
-	      Qt::QueuedConnection);
+	      m_handler, SLOT(saveWidthSlices(IntList)));
       
 
       connect(this, SIGNAL(saveHeightSlices(IntList)),
-	      m_handler, SLOT(saveHeightSlices(IntList)),
-	      Qt::QueuedConnection);
+	      m_handler, SLOT(saveHeightSlices(IntList)));
 
+
+      connect(m_handler, SIGNAL(doneFileSave()),
+	      this, SLOT(doneFileSave()));
+      
+      connect(this, SIGNAL(saveFile()),
+	      m_handler, SLOT(saveMemFile()));
+      
       
       m_thread->start();
     }
@@ -218,6 +221,9 @@ VolumeFileManager::reset()
   m_saveDSlices.clear();
   m_saveWSlices.clear();
   m_saveHSlices.clear();
+
+  m_fileHandlerBusy = false;
+  m_waitingOnFileHandler = false;
 }
 
 int VolumeFileManager::depth() { return m_depth; }
@@ -1059,15 +1065,45 @@ VolumeFileManager::blockInterpolatedRawValue(float dv, float wv, float hv)
 }
 
 void
+VolumeFileManager::checkFileSave()
+{
+  if (m_waitingOnFileHandler)
+      emit saveFile();
+
+  m_waitingOnFileHandler = false;
+}
+
+void
+VolumeFileManager::doneFileSave()
+{
+  m_fileHandlerBusy = false;
+
+//  if (m_waitingOnFileHandler)
+//    emit saveFile();
+//  else    
+//    m_waitingOnFileHandler = false;
+}
+
+void
 VolumeFileManager::saveSlicesToFile()
 {
   if (m_thread)
     {
-      emit saveDepthSlices(m_saveDSlices);
-      m_mcTimes = 0;
-      m_saveDSlices.clear();
+      if (!m_fileHandlerBusy) // fileHandler is not busy, so push the write
+	{
+	  emit saveFile();
+	  m_mcTimes = 0;
+	  m_saveDSlices.clear();
+
+	  m_fileHandlerBusy = true;
+	  m_waitingOnFileHandler = false;
+	}
+      else // file Handler is busy, so wait for it to finish
+	m_waitingOnFileHandler = true;
+
       return;
     }
+
   
 
 
@@ -1138,34 +1174,16 @@ VolumeFileManager::saveMemFile()
   // for volume saved in separate thread
   if (m_thread)
     {
-      if (m_saveDSlices.count() > 0)
+      if (!m_fileHandlerBusy) // fileHandler is not busy, so push the write
 	{
-	  emit saveDepthSlices(m_saveDSlices);
-	  m_mcTimes = 0;
-	  m_saveDSlices.clear();
-	  return;
+	  m_waitingOnFileHandler = false;
+	  emit saveFile();
+	  m_mcTimes = 0;	  
 	}
-      if (m_saveWSlices.count() > 0)
-	{
-	  emit saveWidthSlices(m_saveWSlices);
-	  m_mcTimes = 0;
-	  m_saveWSlices.clear();
-	  return;
-	}
-      if (m_saveHSlices.count() > 0)
-	{
-	  emit saveHeightSlices(m_saveHSlices);
-	  m_mcTimes = 0;
-	  m_saveHSlices.clear();
-	  return;
-	}
-      // otherwise save the entire volume
-      {
-	emit saveDataBlock(0, m_depth, 0, m_width, 0, m_height);
-	m_mcTimes = 0;
-	m_saveDSlices.clear();
-	return;
-      }
+      else // file Handler is busy, so wait for it to finish
+	m_waitingOnFileHandler = true;
+
+      return;
     }
   //--------------------
   
@@ -1572,84 +1590,23 @@ VolumeFileManager::setValueMem(int d, int w, int h, int val)
 }
 
 void
-VolumeFileManager::saveBlock(int dmin, int dmax,
-			     int wmin, int wmax,
-			     int hmin, int hmax)
+VolumeFileManager::saveBlock()
 {
   if (!m_memmapped)
     return;
 
   if (m_thread)
     {
-      //m_handler->genUndo();
-      
-      emit saveDataBlock(dmin, dmax, wmin, wmax, hmin, hmax);
+      if (!m_fileHandlerBusy) // fileHandler is not busy, so push the write
+	{
+	  m_handler->genUndo();	  
+	  emit saveFile();
+	  m_fileHandlerBusy = true;
+	  m_waitingOnFileHandler = false;
+	}
+      else // file Handler is busy, so wait for it to finish
+	m_waitingOnFileHandler = true;
+
       return;
     }
-  
-
-  if (dmin == -1 || wmin == -1 || hmin == -1 ||
-      dmax == -1 || wmax == -1 || hmax == -1)
-    {
-      if (m_qfile.isOpen()) m_qfile.close();
-      return;
-    }
-
-  dmin = qMax(0, dmin);
-  wmin = qMax(0, wmin);
-  hmin = qMax(0, hmin);
-
-  dmax = qMin(m_depth-1, dmax);
-  wmax = qMin(m_width-1, wmax);
-  hmax = qMin(m_height-1, hmax);
-
-  int hbts = (hmax-hmin+1)*m_bytesPerVoxel;
-
-  qint64 bps = m_width*m_height*m_bytesPerVoxel;
-  QString pflnm = m_filename;
-
-  QProgressDialog progress(QString("Saving %1").\
-			   arg(m_baseFilename),
-			   "Cancel",
-			   0, 100,
-			   0,
-			   Qt::WindowStaysOnTopHint);
-  progress.setMinimumDuration(0);
-  progress.setCancelButton(0);
-
-  for(int d=dmin; d<=dmax; d++)
-    {
-      if (dmax-dmin > 50) // show only for substantial amount of writing to disk
-	{
-	  progress.setValue((int)(100*(float)(d-dmin)/(float)(dmax-dmin+1)));
-	  qApp->processEvents();
-	}
-
-      m_slabno = d/m_slabSize;
-      if (m_slabno < m_filenames.count())
-	m_filename = m_filenames[m_slabno];
-      else
-	m_filename = m_baseFilename +
-	  QString(".%1").arg(m_slabno+1, 3, 10, QChar('0'));
-      
-      if (pflnm != m_filename ||
-	  !m_qfile.isOpen() ||
-	  !m_qfile.isWritable())
-	{
-	  if (m_qfile.isOpen()) m_qfile.close();
-	  m_qfile.setFileName(m_filename);
-	  m_qfile.open(QFile::ReadWrite);
-	}
-      for(int w=wmin; w<=wmax; w++)
-	{
-	  m_qfile.seek((qint64)(m_header +
-				(d-m_slabno*m_slabSize)*bps +
-				(w*m_height + hmin)*m_bytesPerVoxel));
-	  m_qfile.write((char*)(m_volData + d*bps +
-				(w*m_height + hmin)*m_bytesPerVoxel),
-			hbts);
-	}      
-    }
-
-  progress.setValue(100);
 }

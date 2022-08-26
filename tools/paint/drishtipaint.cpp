@@ -286,6 +286,9 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   //------------------------------
 
   //------------------------------
+  connect(m_viewer, SIGNAL(checkFileSave()),
+	  this, SLOT(checkFileSave()));
+	  
   connect(m_viewer, SIGNAL(undoPaint3D()),
 	  this, SLOT(undoPaint3D()));
   connect(m_viewer, SIGNAL(paint3DStart()),
@@ -847,6 +850,11 @@ DrishtiPaint::loadTagNames()
 }
 
 
+void
+DrishtiPaint::checkFileSave()
+{
+  m_volume->checkFileSave();
+}
 
 void
 DrishtiPaint::on_saveWork_triggered()
@@ -1490,6 +1498,8 @@ DrishtiPaint::on_actionExit_triggered()
       QString curvesfile = m_pvlFile;
       curvesfile.replace(".pvl.nc", ".curves");
       m_curvesWidget->saveCurves(curvesfile);
+
+      m_volume->saveIntermediateResults(true);
     }
 
 //  m_viewer->init();
@@ -5756,6 +5766,10 @@ DrishtiPaint::paint3D(Vec bmin, Vec bmax,
 		      int d, int w, int h,
 		      int button, int otag, bool onlyConnected)
 {
+  // block the signals coming from viewer till we complete this process
+  QSignalBlocker blockSignals(m_viewer);
+  
+  
   int m_depth, m_width, m_height;
   m_volume->gridSize(m_depth, m_width, m_height);
 

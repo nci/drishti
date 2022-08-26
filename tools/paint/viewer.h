@@ -44,7 +44,8 @@ class Viewer : public QGLViewer
   void mousePressEvent(QMouseEvent*);
   void mouseReleaseEvent(QMouseEvent*);
   void mouseMoveEvent(QMouseEvent*);
-
+  void leaveEvent(QEvent*);
+  
   float stillStep();
   float dragStep();
 
@@ -139,6 +140,7 @@ class Viewer : public QGLViewer
 
     
  signals :
+    void checkFileSave();
     void showBoxChanged(bool);
 
     void tagsUsed(QList<int>);

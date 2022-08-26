@@ -102,21 +102,29 @@ class VolumeFileManager : public QObject
 
   uchar* memVolDataPtr() { return m_volData; }
 
-  void saveBlock(int, int, int, int, int, int);
+  void saveBlock();
 
   void saveSlicesToFile();
-
+  void checkFileSave();
+  
   void startFileHandlerThread();
 
   void undo();
 
  signals :
-    void saveDepthSlices(IntList);
-    void saveWidthSlices(IntList);
-    void saveHeightSlices(IntList);
-    void saveDataBlock(int,int,int,int,int,int);
-    
+  void saveFile();
+  void saveDepthSlices(IntList);
+  void saveWidthSlices(IntList);
+  void saveHeightSlices(IntList);
+  void saveDataBlock(int,int,int,int,int,int);
+					     
+ public slots :
+  void doneFileSave();
+  
  private :
+  bool m_fileHandlerBusy;
+  bool m_waitingOnFileHandler;
+  
   bool m_memmapped;
   bool m_memChanged;
   int m_saveFreq, m_mcTimes;

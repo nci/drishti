@@ -4,7 +4,7 @@
     "script" : "drishtiML-Unet++.py",
     "arguments" : {
 	"output" : "%DIR%/seg.raw",
-	"boxlist" : "",
+	"boxlist" : "%DIR%/",
 	"majoraxis" : 0,
 	"epochs" : 50,
 	"batchsize" : 8,

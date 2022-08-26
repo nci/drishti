@@ -4,6 +4,12 @@
 #include "getmemorysize.h"
 
 void
+Volume::checkFileSave()
+{
+  m_mask.checkFileSave();
+}
+
+void
 Volume::saveIntermediateResults(bool forceSave)
 {
   m_mask.saveIntermediateResults(forceSave);

@@ -909,11 +909,11 @@ LightShaderFactory::genTubeLightShader() // point shader
   shader += "     float lit = 0.0;\n";
   shader += "     float maxlit = 0.0;\n";
 
-  // -- take contributions from all faces
-  shader += "     int row = z/ncols;\n";
-  shader += "     int col = z - row*ncols;\n";
-  shader += "     row *= gridy;\n";
-  shader += "     col *= gridx;\n";
+//  // -- take contributions from all faces
+//  shader += "     int row = z/ncols;\n";
+//  shader += "     int col = z - row*ncols;\n";
+//  shader += "     row *= gridy;\n";
+//  shader += "     col *= gridx;\n";
 
   shader += "     int i,j,k;\n";
 
@@ -948,23 +948,27 @@ LightShaderFactory::genTubeLightShader() // point shader
   shader += "        maxlit = max(illum[idx], maxlit);\n";
   shader += "     }\n";
 
-  //  take contributions for k
-  shader += "     for(i=0; i<3; i+=6)\n";
-  shader += "     for(j=0; j<3; j++)\n";
-  shader += "     {\n";  
-  shader += "        idx = 9*i + j;\n";  
-  shader += "        nlit += step(0.001, illum[idx]);\n";
-  shader += "        lit += illum[idx];\n";
-  shader += "        maxlit = max(illum[idx], maxlit);\n";
-  shader += "     }\n";
-  shader += "     for(i=0; i<3; i+=6)\n";
-  shader += "     for(j=0; j<3; j++)\n";
-  shader += "     {\n";  
-  shader += "        idx = 6 + 9*i + j;\n";  
-  shader += "        nlit += step(0.001, illum[idx]);\n";
-  shader += "        lit += illum[idx];\n";
-  shader += "        maxlit = max(illum[idx], maxlit);\n";
-  shader += "     }\n";
+//  //  take contributions for k
+//  shader += "     for(i=0; i<3; i+=6)\n";
+//  shader += "     {\n";  
+//  shader += "       for(j=0; j<3; j++)\n";
+//  shader += "       {\n";  
+//  shader += "          idx = 9*i + j;\n";  
+//  shader += "          nlit += step(0.001, illum[idx]);\n";
+//  shader += "          lit += illum[idx];\n";
+//  shader += "          maxlit = max(illum[idx], maxlit);\n";
+//  shader += "       }\n";
+//  shader += "     }\n";
+//  shader += "     for(i=0; i<3; i+=6)\n";
+//  shader += "     {\n";  
+//  shader += "       for(j=0; j<3; j++)\n";
+//  shader += "       {\n";  
+//  shader += "          idx = 6 + 9*i + j;\n";  
+//  shader += "          nlit += step(0.001, illum[idx]);\n";
+//  shader += "          lit += illum[idx];\n";
+//  shader += "          maxlit = max(illum[idx], maxlit);\n";
+//  shader += "       }\n";
+//  shader += "     }\n";
 
   // -- merge all contributions
   shader += "     nlit = max(1.0, nlit);\n";

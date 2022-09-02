@@ -141,7 +141,7 @@ class DrishtiPaint : public QMainWindow
   void changeTransferFunctionDisplay(int, QList<bool>);
   void checkStateChanged(int, int, bool);
   void updateComposite();
-  void tagSelected(int);
+  void tagSelected(int, bool);
   void getSlice(int);
   void getSliceC(int);
   void getMaskSlice(int);

@@ -217,12 +217,19 @@ TagColorEditor::cellClicked(int row, int col)
   uchar *colors = Global::tagColors();
 
   QTableWidgetItem *item = table->item(row, 0);
+  bool checkBoxClicked = false;
   if (item->checkState() == Qt::Checked)
-    colors[4*index+3] = 255;
+    {
+      checkBoxClicked = colors[4*index+3] < 200; // previously unchecked      
+      colors[4*index+3] = 255;
+    }
   else
-    colors[4*index+3] = 0;
+    {
+      checkBoxClicked = colors[4*index+3] > 200; // previously checked
+      colors[4*index+3] = 0;
+    }
 
-  emit tagSelected(index);
+  emit tagSelected(index, checkBoxClicked);
 }
 
 void

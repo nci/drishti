@@ -17,7 +17,7 @@ class TagColorEditor : public QWidget
     
  signals :
     void tagColorChanged();
-    void tagSelected(int);
+  void tagSelected(int, bool);
     void tagNamesChanged();
     
  public slots :

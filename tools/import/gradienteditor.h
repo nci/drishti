@@ -14,7 +14,8 @@ class GradientEditor : public QWidget
         LockToLeft   = 0x01,
         LockToRight  = 0x02,
         LockToTop    = 0x04,
-        LockToBottom = 0x08
+        LockToBottom = 0x08,
+        LockToHalfHeight = 0x10
     };
 
     GradientEditor(QWidget *parent=NULL);

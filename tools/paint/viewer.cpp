@@ -2562,6 +2562,11 @@ Viewer::pointUnderPixel_RC(QPoint scr, bool& found)
 }
 
 void
+Viewer::enterEvent(QEvent*)
+{
+  startDrawing();
+}
+void
 Viewer::leaveEvent(QEvent*)
 {
   emit checkFileSave();
@@ -4023,6 +4028,38 @@ Viewer::updateFilledBoxes()
 	      (h*m_boxSize < bminO.x && (h+1)*m_boxSize < bminO.x) ||
 	      (h*m_boxSize > bmaxO.x && (h+1)*m_boxSize > bmaxO.x))
 	    ok = false;
+
+
+	  //-------------------------------
+	  //-------------------------------
+	  //-------------------------------
+	  // handle tag visibility	  
+	  if (ok)
+	    {
+	      bool visibleTag = false;
+	      int dmin = d*m_boxSize;
+	      int wmin = w*m_boxSize;
+	      int hmin = h*m_boxSize;
+	      int dmax = qMin((d+1)*m_boxSize, (int)m_depth);
+	      int wmax = qMin((w+1)*m_boxSize, (int)m_width);
+	      int hmax = qMin((h+1)*m_boxSize, (int)m_height);
+	      for(int dm=dmin; dm<dmax; dm++)
+		for(int wm=wmin; wm<wmax; wm++)
+		  for(int hm=hmin; hm<hmax; hm++)
+		    {
+		      int tag = m_maskPtr[dm*m_width*m_height + wm*m_height + hm];
+		      if (Global::tagColors()[4*tag+3] > 200)
+			{
+			  visibleTag = true;
+			  break;
+			}
+		    }
+	      ok = visibleTag;
+	    }
+	  //-------------------------------
+	  //-------------------------------
+	  //-------------------------------
+
 	  
 	  int idx = d*m_wbox*m_hbox+w*m_hbox+h;
 	  if (ok)

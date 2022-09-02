@@ -40,8 +40,6 @@ class Slices : public QWidget
 
   void setModeType(int);
 
-  void zoomToSelection() { m_imageWidget->zoom9Clicked(); }
-
   void setLarge(bool);
   bool enlarged() { return m_maximized; }
 
@@ -100,6 +98,8 @@ class Slices : public QWidget
 
    void updateSliderLimits();
    void resetSliderLimits();
+
+   void zoomToSelection() { m_imageWidget->zoom9Clicked(); }
   
   
  private:

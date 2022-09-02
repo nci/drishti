@@ -31,9 +31,11 @@ QPointF
 GradientEditor::convertWidgetToLocal(QPointF p)
 {
   double x = (p.x()-m_bounds.x())/m_bounds.width();
-  double y = (p.y()-m_bounds.y())/m_bounds.height();
+  //double y = (p.y()-m_bounds.y())/m_bounds.height();
+
   x = qBound(0.0, x, 1.0);
-  y = qBound(0.0, y, 1.0);
+  //y = qBound(0.0, y, 1.0);
+  double y = 0.5;
   return QPointF(x,y);
 }
 
@@ -95,9 +97,9 @@ GradientEditor::setGradientStops(QGradientStops gradStops)
     QPointF pt;
     QColor col;
 
-    pt = QPointF(stop.first,
-		 1 - stop.second.alphaF());
-
+    pt = QPointF(stop.first, 0.5);
+		 //1 - stop.second.alphaF());
+    
     col = QColor(stop.second.red(),
 		 stop.second.green(),
 		 stop.second.blue());
@@ -182,7 +184,7 @@ GradientEditor::paintEvent(QPaintEvent *event)
 
       valRect = QRectF(hoverPoint.x()+7,
 		       hoverPoint.y()-15,
-		       45, 30);
+		       45, 15);
       if ((valRect.x() + valRect.width()) >= (brect.x()+brect.width()))
 	valRect.adjust(-60, 0, -60, 0);
 
@@ -204,13 +206,14 @@ GradientEditor::paintEvent(QPaintEvent *event)
 
       QPainterPath path;
       path.addText(valRect.x()+4,
-		   valRect.y()+valRect.height()/2-4,
+		   valRect.y()+valRect.height()-4,
+		   //valRect.y()+valRect.height()/2-4,
 		   QFont("Helvetica", 10),
 		   QString("p:%1").arg(pos, 0, 'f', 2));
-      path.addText(valRect.x()+4,
-		   valRect.y()+valRect.height()-4,
-		   QFont("Helvetica", 10),
-		   QString("a:%1").arg(alpha, 0, 'f', 2));
+//      path.addText(valRect.x()+4,
+//		   valRect.y()+valRect.height()-4,
+//		   QFont("Helvetica", 10),
+//		   QString("a:%1").arg(alpha, 0, 'f', 2));
       p.setBrush(Qt::black);
       p.setPen(Qt::transparent);
       p.drawPath(path);
@@ -230,6 +233,8 @@ GradientEditor::bound_point(QPointF point, int lock)
 
     if (p.y() < 0 || (lock & GradientEditor::LockToTop))
       p.setY(0);
+    else if (p.y() > 1 || (lock & GradientEditor::LockToHalfHeight))
+      p.setY(0.5);
     else if (p.y() > 1 || (lock & GradientEditor::LockToBottom))
       p.setY(1);
 

@@ -643,7 +643,7 @@ DrishtiPaint::on_actionZ_triggered()
   m_sagitalImage->zoomToSelection();
   m_coronalImage->zoomToSelection();
 
-  QTimer::singleShot(200, m_viewer, SLOT(startDrawing()));
+  //QTimer::singleShot(200, m_viewer, SLOT(startDrawing()));
 }
 void
 DrishtiPaint::on_actionY_triggered()
@@ -681,7 +681,7 @@ DrishtiPaint::on_actionY_triggered()
   m_sagitalImage->zoomToSelection();
   m_coronalImage->zoomToSelection();
 
-  QTimer::singleShot(200, m_viewer, SLOT(startDrawing()));
+  //QTimer::singleShot(200, m_viewer, SLOT(startDrawing()));
 }
 void
 DrishtiPaint::on_actionX_triggered()
@@ -719,7 +719,7 @@ DrishtiPaint::on_actionX_triggered()
   m_sagitalImage->zoomToSelection();
   m_coronalImage->zoomToSelection();
 
-  QTimer::singleShot(200, m_viewer, SLOT(startDrawing()));
+  //QTimer::singleShot(200, m_viewer, SLOT(startDrawing()));
 }
 void
 DrishtiPaint::on_action3dView_triggered()
@@ -738,7 +738,6 @@ DrishtiPaint::on_action3dView_triggered()
   m_viewer3D->setLarge(true);
 
   m_splitterOne->addWidget(m_viewer3D);
-
   m_splitterTwo->addWidget(m_axialFrame);
   m_splitterTwo->addWidget(m_sagitalFrame);
   m_splitterTwo->addWidget(m_coronalFrame);
@@ -753,9 +752,9 @@ DrishtiPaint::on_action3dView_triggered()
   gcas << 1000 << 200;
   m_graphCutArea->setSizes(gcas);
 
-  m_axialImage->zoomToSelection();
-  m_sagitalImage->zoomToSelection();
-  m_coronalImage->zoomToSelection();
+  QTimer::singleShot(200, m_axialImage, SLOT(zoomToSelection()));
+  QTimer::singleShot(200, m_sagitalImage, SLOT(zoomToSelection()));
+  QTimer::singleShot(200, m_coronalImage, SLOT(zoomToSelection()));
 
   QTimer::singleShot(200, m_viewer, SLOT(startDrawing()));
 }
@@ -1139,7 +1138,7 @@ DrishtiPaint::getMaskSlice(int slc)
 }
 
 void
-DrishtiPaint::tagSelected(int t)
+DrishtiPaint::tagSelected(int t, bool checkBoxClicked)
 {
   Global::setTag(t);
   ui.tag->setValue(t);
@@ -1147,8 +1146,13 @@ DrishtiPaint::tagSelected(int t)
   m_axialImage->updateTagColors();
   m_sagitalImage->updateTagColors();
   m_coronalImage->updateTagColors();
+      
+  if (checkBoxClicked)
+    {
+      m_curvesWidget->updateTagColors();
 
-  m_curvesWidget->updateTagColors();
+      m_viewer->updateFilledBoxes();
+    }
 }
 
 void
@@ -3065,8 +3069,8 @@ DrishtiPaint::miscConnections()
 	  m_coronalImage, SLOT(updateTagColors()));
 
   
-  connect(m_tagColorEditor, SIGNAL(tagSelected(int)),
-	  this, SLOT(tagSelected(int)));
+  connect(m_tagColorEditor, SIGNAL(tagSelected(int, bool)),
+	  this, SLOT(tagSelected(int, bool)));
 
 
 

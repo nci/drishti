@@ -96,6 +96,7 @@ ImageWidget::ImageWidget(QWidget *parent) :
   m_prevtags = 0;
   m_usertags = 0;
   m_prevslicetags = 0;
+  m_tmptags = 0;
   m_labels = 0;
   m_lmeans = 0;
   
@@ -131,8 +132,6 @@ ImageWidget::ImageWidget(QWidget *parent) :
 
   m_vgt.clear();
 
-  updateTagColors();
-
   m_pointSize = 5;
 
   m_showTags.clear();
@@ -147,6 +146,8 @@ ImageWidget::ImageWidget(QWidget *parent) :
   m_hideSuperPixels = false;
   m_autoGenSuperPixels = false;
   m_superPixelSize = 100;
+
+  updateTagColors();
 }
 
 void
@@ -682,6 +683,10 @@ ImageWidget::resetSliceType()
   m_prevslicetags = new uchar[wd*ht];
   memset(m_prevslicetags, 0, wd*ht);
 
+  if (m_tmptags) delete [] m_tmptags;
+  m_tmptags = new uchar[wd*ht];
+  memset(m_tmptags, 0, wd*ht);
+
   if (m_usertags) delete [] m_usertags;
   m_usertags = new uchar[wd*ht];
   memset(m_usertags, 0, wd*ht);
@@ -790,6 +795,8 @@ ImageWidget::updateTagColors()
 	m_tagColors[i] = qRgba(r, g, b, 127);
       else
 	m_tagColors[i] = qRgba(r, g, b, 50);
+
+      m_prevslicetagColors[i] = qRgba(g*0.5, r*0.5, (g+b)*0.3, 127);
     }
 
 
@@ -851,17 +858,15 @@ ImageWidget::processPrevSliceTags()
       return; // no need to continue
     }
 
-  uchar *maskData = new uchar[m_imgWidth*m_imgHeight];
-  memset(maskData, 0, m_imgWidth*m_imgHeight);
-
   for (int i=0; i<m_imgHeight*m_imgWidth; i++)
     m_prevslicetags[i] = (m_prevslicetags[i] == Global::tag() ? 255 : 0);
 
 
   int nb = Global::prevErode();
 
+
   uchar *t1 = m_prevslicetags;
-  uchar *t2 = maskData;
+  uchar *t2 = m_tmptags;
   for(int n=0; n<nb; n++)
     {
       memset(t2, 0, m_imgWidth*m_imgHeight);
@@ -883,12 +888,11 @@ ImageWidget::processPrevSliceTags()
       t2 = tmp;
     }
 
-  delete [] t2;
-
   for (int i=0; i<m_imgHeight*m_imgWidth; i++)
     t1[i] = (t1[i] > 192 ? Global::tag() : 0);
 
   m_prevslicetags = t1;
+  m_tmptags = t2;
 }
 
 
@@ -972,33 +976,13 @@ ImageWidget::resizeImage()
 		       m_zoom*m_imgHeight + 40));
 
 
-  int frmWidth = m_zoom*m_imgWidth;
-  int frmHeight = m_zoom*m_imgHeight;
+  m_simgHeight = m_zoom*m_imgHeight;
+  m_simgWidth = m_zoom*m_imgWidth;
 
-  float rH = (float)m_imgHeight/(float)frmHeight;
-  float rW = (float)m_imgWidth/(float)frmWidth;
-
-  m_simgHeight = m_imgHeight;
-  m_simgWidth = m_imgWidth;
-  //if (rH > 1 || rW > 1)
-    {
-      // scaledown the image
-      if (rH > rW)
-	{
-	  m_simgHeight = m_imgHeight/rH;
-	  m_simgWidth = m_imgWidth/rH;
-	}
-      else
-	{
-	  m_simgHeight = m_imgHeight/rW;
-	  m_simgWidth = m_imgWidth/rW;
-	}
-    }
 
   m_imageScaled = m_image.scaled(m_simgWidth,
 				 m_simgHeight,
 				 Qt::IgnoreAspectRatio,
-				 //Qt::SmoothTransformation);
 				 Qt::FastTransformation);
   
   m_maskimageScaled = m_maskimage.scaled(m_simgWidth,
@@ -3169,7 +3153,7 @@ ImageWidget::updateMaskImage()
 					 Qt::IgnoreAspectRatio,
 					 Qt::FastTransformation);
 
-
+  
   m_prevslicetagimage = QImage(m_prevslicetags,
 			       m_imgWidth,
 			       m_imgHeight,

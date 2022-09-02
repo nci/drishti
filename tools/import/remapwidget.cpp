@@ -138,8 +138,8 @@ RemapWidget::setFile(QList<QString> flnm,
 
   m_gradientWidget = new GradientEditorWidget();
   m_gradientWidget->setDrawBox(false);
-  m_gradientWidget->setMinimumSize(200, 20);
-  m_gradientWidget->setGeneralLock(GradientEditor::LockToTop);
+  m_gradientWidget->setMinimumSize(200, 40);
+  m_gradientWidget->setGeneralLock(GradientEditor::LockToHalfHeight);
   
   int d, w, h;
   m_volData.gridSize(d, w, h);

@@ -44,6 +44,7 @@ class Viewer : public QGLViewer
   void mousePressEvent(QMouseEvent*);
   void mouseReleaseEvent(QMouseEvent*);
   void mouseMoveEvent(QMouseEvent*);
+  void enterEvent(QEvent*);
   void leaveEvent(QEvent*);
   
   float stillStep();

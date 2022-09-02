@@ -239,6 +239,7 @@ class ImageWidget : public QWidget
   uchar *m_usertags;
   uchar *m_prevslicetags;
   uchar *m_tags;
+  uchar *m_tmptags;
 
   bool m_applyRecursive;
   bool m_extraPressed;

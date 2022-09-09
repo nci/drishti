@@ -626,12 +626,21 @@ DrishtiImport::convertDirectories(QStringList flnms, int pluginidx)
       QProgressDialog progress("Processing ",
 			       "Cancel",
 			       0, 100,
-			       0);
+			       this,
+			       Qt::Dialog|Qt::WindowStaysOnTopHint);
+
       progress.setMinimumDuration(0);
 
 
       for (int i=0; i<flnms.count(); i++)
 	{
+	  if (progress.wasCanceled())
+	    {
+	      progress.setValue(100);  
+	      QMessageBox::information(0, "Save", "-----Aborted-----");
+	      break;
+	    }
+      
 	  QStringList dnames;
 	  dnames << flnms[i];
 
@@ -687,7 +696,9 @@ DrishtiImport::on_actionMimics_triggered()
   QProgressDialog progress("Processing ",
 			       "Cancel",
 			   0, 100,
-			   0);
+			   this,
+			   Qt::Dialog|Qt::WindowStaysOnTopHint);
+
   progress.setMinimumDuration(0);
   qApp->processEvents();
 
@@ -701,6 +712,13 @@ DrishtiImport::on_actionMimics_triggered()
   // convert Dicom to raw
   for (int i=0; i<flnms.count(); i++)
     {
+      if (progress.wasCanceled())
+	{
+	  progress.setValue(100);  
+	  QMessageBox::information(0, "Save", "-----Aborted-----");
+	  break;
+	}
+	  
       QStringList dnames;
       dnames << flnms[i];
       

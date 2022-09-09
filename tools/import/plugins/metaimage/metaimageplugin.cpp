@@ -174,7 +174,7 @@ void
 MetaImagePlugin::findMinMaxandGenerateHistogram()
 {
   QProgressDialog progress("Generating Histogram",
-			   "Cancel",
+			   QString(),
 			   0, 100,
 			   0);
   progress.setMinimumDuration(0);
@@ -302,7 +302,7 @@ void
 MetaImagePlugin::findMinMax()
 {
   QProgressDialog progress("Finding Min and Max",
-			   "Cancel",
+			   QString(),
 			   0, 100,
 			   0);
   progress.setMinimumDuration(0);
@@ -388,7 +388,7 @@ void
 MetaImagePlugin::generateHistogram()
 {
   QProgressDialog progress("Generating Histogram",
-			   "Cancel",
+			   QString(),
 			   0, 100,
 			   0);
   progress.setMinimumDuration(0);
@@ -622,7 +622,7 @@ MetaImagePlugin::saveTrimmed(QString trimFile,
 			     int hmin, int hmax)
 {
   QProgressDialog progress("Saving trimmed volume",
-			   "Cancel",
+			   QString(),
 			   0, 100,
 			   0);
   progress.setMinimumDuration(0);

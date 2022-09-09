@@ -273,7 +273,7 @@ void
 AnalyzePlugin::findMinMaxandGenerateHistogram()
 {
   QProgressDialog progress("Generating Histogram",
-			   "Cancel",
+			   QString(),
 			   0, 100,
 			   0);
   progress.setMinimumDuration(0);
@@ -388,7 +388,7 @@ void
 AnalyzePlugin::findMinMax()
 {
   QProgressDialog progress("Finding Min and Max",
-			   "Cancel",
+			   QString(),
 			   0, 100,
 			   0);
   progress.setMinimumDuration(0);
@@ -472,7 +472,7 @@ void
 AnalyzePlugin::generateHistogram()
 {
   QProgressDialog progress("Generating Histogram",
-			   "Cancel",
+			   QString(),
 			   0, 100,
 			   0);
   progress.setMinimumDuration(0);
@@ -740,7 +740,7 @@ AnalyzePlugin::saveTrimmed(QString trimFile,
 			   int hmin, int hmax)
 {
   QProgressDialog progress("Saving trimmed volume",
-			   "Cancel",
+			   QString(),
 			   0, 100,
 			   0);
   progress.setMinimumDuration(0);

@@ -336,7 +336,7 @@ LightHandler::setLut(uchar *vlut)
 	      fabs((float)(vlut[4*i+2] - m_lut[4*i+2])) > 2 ||
 	      fabs((float)(vlut[4*i+3] - m_lut[4*i+3])) > 1)
 	    {
-	      gilite = true;
+	      gilite = true;	      
 	      break;
 	    }
 	}
@@ -1057,7 +1057,7 @@ LightHandler::generateOpacityTexture()
 {
   if (m_basicLight)
     return;
-
+  
   // enable lookup texture
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, m_lutTex);
@@ -1560,7 +1560,7 @@ LightHandler::updateOpacityTexture(GLuint dataTex,
 
   MainWindowUI::mainWindowUI()->menubar->parentWidget()->\
     setWindowTitle("**********Updating opacity buffer**********");
-
+  
   genBuffers();
 
   generateOpacityTexture();

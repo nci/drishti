@@ -328,7 +328,7 @@ ImageStackPlugin::saveTrimmed(QString trimFile,
     }
 
   QProgressDialog progress("Saving trimmed volume",
-			   "Cancel",
+			   QString(),
 			   0, 100,
 			   0);
   progress.setMinimumDuration(0);
@@ -484,7 +484,7 @@ ImageStackPlugin::saveTrimmedRGB(QString trimFile,
 
 
   QProgressDialog progress("Saving trimmed RGB volume",
-			   "Cancel",
+			   QString(),
 			   0, 100,
 			   0);
   progress.setMinimumDuration(0);

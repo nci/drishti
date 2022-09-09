@@ -337,7 +337,7 @@ void
 HDF4Plugin::findMinMaxandGenerateHistogram()
 {
   QProgressDialog progress("Generating Histogram",
-			   "Cancel",
+			   QString(),
 			   0, 100,
 			   0);
   progress.setMinimumDuration(0);
@@ -454,7 +454,7 @@ void
 HDF4Plugin::findMinMax()
 {
   QProgressDialog progress("Finding Min and Max",
-			   "Cancel",
+			   QString(),
 			   0, 100,
 			   0);
   progress.setMinimumDuration(0);
@@ -545,7 +545,7 @@ HDF4Plugin::generateHistogram()
   float rSize = m_rawMax-m_rawMin;
 
   QProgressDialog progress("Generating Histogram",
-			   "Cancel",
+			   QString(),
 			   0, 100,
 			   0);
   progress.setMinimumDuration(0);
@@ -800,7 +800,7 @@ HDF4Plugin::saveTrimmed(QString trimFile,
 		       int hmin, int hmax)
 {
   QProgressDialog progress("Saving trimmed volume",
-			   "Cancel",
+			   QString(),
 			   0, 100,
 			   0);
   progress.setMinimumDuration(0);

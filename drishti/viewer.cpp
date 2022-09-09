@@ -1109,7 +1109,7 @@ Viewer::loadLookupTable(unsigned char *lut)
 	       GL_UNSIGNED_BYTE,
 	       lut);
 
-  LightHandler::setLutTex(m_lutTex);
+  //LightHandler::setLutTex(m_lutTex);
 }
 
 void
@@ -1207,12 +1207,13 @@ Viewer::updateLookupTable()
     {
       m_updatePruneBuffer = true;
     }
-  
+
   loadLookupTable(lut);
   
   if (m_hiresVolume->raised() &&
       (gilite || LightHandler::willUpdateLightBuffers()))
     {
+      m_hiresVolume->updateAndLoadPruneTexture();
       LightHandler::setLut(m_lut);
       m_hiresVolume->initShadowBuffers(true);
       bool fboBound = bindFBOs(Enums::StillImage);

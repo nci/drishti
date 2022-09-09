@@ -359,7 +359,7 @@ void
 TxmPlugin::findMinMax()
 {
   QProgressDialog progress("Finding Min and Max",
-			   "Cancel",
+			   QString(),
 			   0, 100,
 			   0);
   progress.setMinimumDuration(0);
@@ -435,7 +435,7 @@ void
 TxmPlugin::generateHistogram()
 {
   QProgressDialog progress("Generating Histogram",
-			   "Cancel",
+			   QString(),
 			   0, 100,
 			   0);
   progress.setMinimumDuration(0);

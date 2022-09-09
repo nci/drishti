@@ -921,16 +921,38 @@ Raw2Pvl::savePvl(VolumeData* volData,
   VolumeFileManager pvlFileManager;
 
 
+  QWidgetList topLevelWidgets = QApplication::topLevelWidgets();
+  QWidget *mainWidget = 0;
+  for(QWidget *w : topLevelWidgets)
+    {
+      if (w->isWindow())
+	{
+	  mainWidget = w;
+	  break;
+	}
+    }
+  
+  
   QProgressDialog progress("Saving processed volume",
 			   "Cancel",
 			   0, 100,
-			   0);
+			   mainWidget,
+			   Qt::Dialog|Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
-
+  progress.resize(500, 100);
+  progress.move(QCursor::pos());
+  
   //------------------------------------------------------
   int tsfcount = qMax(1, timeseriesFiles.count());
   for (int tsf=0; tsf<tsfcount; tsf++)
     {
+      if (progress.wasCanceled())
+	{
+	  progress.setValue(100);  
+	  QMessageBox::information(0, "Save", "-----Aborted-----");
+	  break;
+	}
+	  
       QString pvlflnm = pvlFilename;
       QString rawflnm = rawfile;
 
@@ -1039,6 +1061,14 @@ Raw2Pvl::savePvl(VolumeData* volData,
       
       for(int dd=0; dd<dsz2; dd++)
 	{
+
+	  if (progress.wasCanceled())
+	    {
+	      progress.setValue(100);  
+	      QMessageBox::information(0, "Save", "-----Aborted-----");
+	      break;
+	    }
+
 	  int d0 = dmin + dd*svslz; 
 	  int d1 = d0 + svslz-1;
 
@@ -1437,11 +1467,26 @@ Raw2Pvl::batchProcess(VolumeData* volData,
   bool subsample = (svsl > 1 || svslz > 1);
   bool trim = false;
 
+
+  QWidgetList topLevelWidgets = QApplication::topLevelWidgets();
+  QWidget *mainWidget = 0;
+  for(QWidget *w : topLevelWidgets)
+    {
+      if (w->isWindow())
+	{
+	  mainWidget = w;
+	  break;
+	}
+    }
+  
   QProgressDialog progress("Saving processed volume",
 			   "Cancel",
 			   0, 100,
-			   0);
+			   mainWidget,
+			   Qt::Dialog|Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
+  progress.resize(500, 100);
+  progress.move(QCursor::pos());
 
   //------------------------------
   int rvdepth, rvwidth, rvheight;    
@@ -1507,6 +1552,14 @@ Raw2Pvl::batchProcess(VolumeData* volData,
   bool vol4d = tsfcount > 0;
   for (int tsf=0; tsf<tsfcount; tsf++)
     {
+
+      if (progress.wasCanceled())
+	{
+	  progress.setValue(100);  
+	  QMessageBox::information(0, "Save", "-----Aborted-----");
+	  break;
+	}
+
       QString pvlflnm = pvlFilename;
       QString rawflnm = rawfile;
 
@@ -1581,6 +1634,14 @@ Raw2Pvl::batchProcess(VolumeData* volData,
       
       for(int dd=0; dd<dsz2; dd++)
 	{
+
+	  if (progress.wasCanceled())
+	    {
+	      progress.setValue(100);  
+	      QMessageBox::information(0, "Save", "-----Aborted-----");
+	      break;
+	    }
+
 	  int d0 = dmin + dd*svslz; 
 	  int d1 = d0 + svslz-1;
 	  
@@ -1933,11 +1994,27 @@ Raw2Pvl::saveMHD(QString mhdFilename,
     QList<int> pvlMap = volData->pvlMap();
     int rawSize = rawMap.size()-1;
 
+    
+    QWidgetList topLevelWidgets = QApplication::topLevelWidgets();
+    QWidget *mainWidget = 0;
+    for(QWidget *w : topLevelWidgets)
+      {
+	if (w->isWindow())
+	  {
+	    mainWidget = w;
+	    break;
+	  }
+      }
+  
+
     QProgressDialog progress("Saving MetaImage volume",
 			     "Cancel",
 			     0, 100,
-			     0);
+			     mainWidget,
+			     Qt::Dialog|Qt::WindowStaysOnTopHint);
     progress.setMinimumDuration(0);
+    progress.resize(500, 100);
+    progress.move(QCursor::pos());
     
     // ------------------
     // calculate weights for Gaussian filter
@@ -1954,6 +2031,14 @@ Raw2Pvl::saveMHD(QString mhdFilename,
       
     for(int dd=0; dd<dsz2; dd++)
       {
+
+	if (progress.wasCanceled())
+	  {
+	    progress.setValue(100);  
+	    QMessageBox::information(0, "Save", "-----Aborted-----");
+	    break;
+	  }
+
 	int d0 = dmin + dd*svslz; 
 	int d1 = d0 + svslz-1;
 	  
@@ -2251,11 +2336,26 @@ Raw2Pvl::mergeVolumes(VolumeData* volData,
   VolumeFileManager pvlFileManager;
 
 
+
+  QWidgetList topLevelWidgets = QApplication::topLevelWidgets();
+  QWidget *mainWidget = 0;
+  for(QWidget *w : topLevelWidgets)
+    {
+      if (w->isWindow())
+	{
+	  mainWidget = w;
+	  break;
+	}
+    }
+  
   QProgressDialog progress("Saving processed volume",
 			   "Cancel",
 			   0, 100,
-			   0);
+			   mainWidget,
+			   Qt::Dialog|Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
+  progress.resize(500, 100);
+  progress.move(QCursor::pos());
 
 
   pvlFileManager.setBaseFilename(pvlFilename);
@@ -2335,6 +2435,14 @@ Raw2Pvl::mergeVolumes(VolumeData* volData,
   
   for(int dd=0; dd<dsz; dd++)
     {
+
+      if (progress.wasCanceled())
+	{
+	  progress.setValue(100);  
+	  QMessageBox::information(0, "Save", "-----Aborted-----");
+	  break;
+	}
+
       progress.setValue((int)(100*(float)dd/(float)dsz));
       qApp->processEvents();
       
@@ -2451,11 +2559,26 @@ Raw2Pvl::quickRaw(VolumeData* volData,
   m_qfile.write((char*)&wsz, 4);
   m_qfile.write((char*)&hsz, 4);
 
+
+  QWidgetList topLevelWidgets = QApplication::topLevelWidgets();
+  QWidget *mainWidget = 0;
+  for(QWidget *w : topLevelWidgets)
+    {
+      if (w->isWindow())
+	{
+	  mainWidget = w;
+	  break;
+	}
+    }
+  
   QProgressDialog progress("Saving "+rawflnm,
 			   "Cancel",
 			   0, 100,
-			   0);
+			   mainWidget,
+			   Qt::Dialog|Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
+  progress.resize(500, 100);
+  progress.move(QCursor::pos());
 
 
   //------------------------------------------------------
@@ -2463,6 +2586,13 @@ Raw2Pvl::quickRaw(VolumeData* volData,
   qint64 sliceSize = pvlbpv*wsz*hsz;
   for(qint64 dd=0; dd<dsz; dd++)
     {
+      if (progress.wasCanceled())
+	{
+	  progress.setValue(100);  
+	  QMessageBox::information(0, "Save", "-----Aborted-----");
+	  break;
+	}
+      
       progress.setValue((int)(100*(float)dd/(float)dsz));
       qApp->processEvents();
       

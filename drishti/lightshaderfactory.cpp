@@ -400,53 +400,45 @@ LightShaderFactory::genEmissiveShader() // tf emissive shader
   shader += "{\n";
 
   shader += "  vec2 tc = gl_TexCoord[0].xy;\n";
+
+  shader += "  gl_FragColor = texture2DRect(lightTex, tc.xy);\n";
+
+  shader += "  if (gl_FragColor.x > 0.95) return;\n";
+
+
   shader += "  int col = int(tc.x)/gridx;\n";
   shader += "  int row = int(tc.y)/gridy;\n";
   shader += "  int x = int(tc.x) - col*gridx;\n";
   shader += "  int y = int(tc.y) - row*gridy;\n";
   shader += "  int z = row*ncols + col;\n";
+  
+  shader += "  float nlit = 0.0;\n";
+  shader += "  float lit = 0.0;\n";
+//  shader += "  float nlit = 1.0;\n";
+//  shader += "  float lit = gl_FragColor.x;\n";
 
-  shader += "  gl_FragColor = texture2DRect(lightTex, tc.xy);\n";
-
-  //shader += "  float nlit = 0.0;\n";
-  //shader += "  float lit = 0.0;\n";
-  shader += "  float nlit = 1.0;\n";
-  shader += "  float lit = gl_FragColor.x;\n";
-
-  // -- take contributions from left, right, front and back
-  shader += "  row = z/ncols;\n";
-  shader += "  col = z - row*ncols;\n";
-  shader += "  row *= gridy;\n";
-  shader += "  col *= gridx;\n";
-  shader += "  for(int i=-1; i<=1; i+=2)\n";
-  shader += "  for(int j=-1; j<=1; j+=2)\n";
-  shader += "   {\n";
+  shader += "  int i,j,k;\n";
+  shader += "  int idx = 0;\n";
+  shader += "  for(i=-1; i<=1; i++)\n";
+  shader += "  for(j=-1; j<=1; j++)\n";
+  shader += "  for(k=-1; k<=1; k++)\n";
+  shader += "  {\n";
+  shader += "     int z1 = z+k;\n";
+  shader += "     int row = z1/ncols;\n";
+  shader += "     int col = z1 - row*ncols;\n";
+  shader += "     row *= gridy;\n";
+  shader += "     col *= gridx;\n";
   shader += "     float x1 = float(col+x+i)+0.5;\n";
   shader += "     float y1 = float(row+y+j)+0.5;\n";
   shader += "     vec2 ldop = texture2DRect(lightTex, vec2(x1,y1)).xy;\n";
-  shader += "     float alit = (1.0-ldop.y)*ldop.x;\n";
-  shader += "     nlit += step(0.001, alit);\n";
-  shader += "     lit += alit;\n";
-  shader += "   }\n";
-
-  // -- take contributions from top and bottom
-  shader += "  for(int k=-1; k<=1; k+=2)\n";
-  shader += "   {\n";
-  shader += "    int z1 = z+k;\n";
-  shader += "    row = z1/ncols;\n";
-  shader += "    col = z1 - row*ncols;\n";
-  shader += "    row *= gridy;\n";
-  shader += "    col *= gridx;\n";
-  shader += "    float x1 = float(col+x)+0.5;\n";
-  shader += "    float y1 = float(row+y)+0.5;\n";
-  shader += "    vec2 ldop = texture2DRect(lightTex, vec2(x1,y1)).xy;\n";
-  shader += "    float alit = (1.0-ldop.y)*ldop.x;\n";
-  shader += "    nlit += step(0.001, alit);\n";
-  shader += "    lit += alit;\n";
-  shader += "   }\n";
+  shader += "     float illum = (1.0-ldop.y)*ldop.x;\n";
+  shader += "     nlit += step(0.001, illum);\n";
+  shader += "     lit += illum;\n";
+  shader += "     idx = idx + 1;\n";
+  shader += "  }\n";
 
   shader += "  nlit = max(1.0, nlit);\n";
-  shader += "  gl_FragColor.x = clamp(lit/nlit, 0.0, 1.0);\n";
+  shader += "  gl_FragColor.x = clamp(lit/nlit, 0.0, 0.9);\n";
 
   shader += "}\n";
 

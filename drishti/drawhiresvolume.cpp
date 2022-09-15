@@ -4985,6 +4985,7 @@ DrawHiresVolume::keyPressEvent(QKeyEvent *event)
       else
 	GeometryObjects::removeFromMouseGrabberPool();
 
+
       // toggle mouse grabs for light objects
       LightHandler::inPool = ! LightHandler::inPool;
       if (LightHandler::inPool)

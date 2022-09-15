@@ -256,92 +256,90 @@ TrisetGrabber::mouseMoveEvent(QMouseEvent* const event,
       m_prevPos = event->pos();
       return;
     }
-  
+
+  if (event->buttons() == Qt::RightButton)
+    {
+      Vec trans(delta.x(), -delta.y(), 0.0f);
+      
+      // Scale to fit the screen mouse displacement
+      trans *= 2.0 * tan(camera->fieldOfView()/2.0) *
+	fabs((camera->frame()->coordinatesOf(Vec(0,0,0))).z) /
+	camera->screenHeight();
+      // Transform to world coordinate system.
+      trans = camera->frame()->orientation().rotate(trans);
+      
+      Vec axisX, axisY, axisZ;
+      if (m_moveAxis != MoveAll)
+	{
+	  getAxes(axisX, axisY, axisZ);
+	  axisX.normalize();
+	  axisY.normalize();
+	  axisZ.normalize();
+	  
+	  if (m_moveAxis == MoveX)
+	    trans = trans.x * axisX;
+	  else if (m_moveAxis == MoveY)
+	    trans = trans.y * axisY;
+	  else if (m_moveAxis == MoveZ)
+	    trans = trans.z * axisZ;
+	}
+      
+      Vec pos = position() + trans;
+      setPosition(pos);
+      emit posChanged();
+    }
+
   if (event->buttons() == Qt::LeftButton)
     {
-      if (!m_rotationMode)
+      if (moveAxis() == MoveAll)
 	{
-	  Vec trans(delta.x(), -delta.y(), 0.0f);
+	  //Vec trans = camera->projectedCoordinatesOf(centroid()+position());
+	  Vec trans = camera->projectedCoordinatesOf(tcentroid());
 	  
-	  // Scale to fit the screen mouse displacement
-	  trans *= 2.0 * tan(camera->fieldOfView()/2.0) *
-	    fabs((camera->frame()->coordinatesOf(Vec(0,0,0))).z) /
-	    camera->screenHeight();
-	  // Transform to world coordinate system.
-	  trans = camera->frame()->orientation().rotate(trans);
+	  Quaternion q = StaticFunctions::deformedBallQuaternion(event->x(), event->y(),
+								 trans.x, trans.y,
+								 m_prevPos.x(), m_prevPos.y(),
+								 camera);
+	  Vec axis;
+	  qreal angle;
+	  q.getAxisAngle(axis, angle);
 	  
-	  Vec axisX, axisY, axisZ;
-	  if (m_moveAxis != MoveAll)
+	  if (event->modifiers() &= Qt::ShiftModifier)
 	    {
-	      getAxes(axisX, axisY, axisZ);
-	      axisX.normalize();
-	      axisY.normalize();
-	      axisZ.normalize();
-	      
-	      if (m_moveAxis == MoveX)
-		trans = trans.x * axisX;
-	      else if (m_moveAxis == MoveY)
-		trans = trans.y * axisY;
-	      else if (m_moveAxis == MoveZ)
-		trans = trans.z * axisZ;
+	      if (axis*camera->viewDirection() < 0.0)
+		angle = -angle;
+	      axis = camera->viewDirection();
 	    }
 	  
-	  Vec pos = position() + trans;
-	  setPosition(pos);
-	  emit posChanged();
+	  axis = Matrix::rotateVec(m_localXform, axis);
+	  
+	  Quaternion rot = Quaternion(axis, angle);
+	  
+	  rotate(rot);
 	}
-      else 
+      else
 	{
-	  if (moveAxis() == MoveAll)
-	    {
-	      //Vec trans = camera->projectedCoordinatesOf(centroid()+position());
-	      Vec trans = camera->projectedCoordinatesOf(tcentroid());
-	      
-	      Quaternion q = StaticFunctions::deformedBallQuaternion(event->x(), event->y(),
-								     trans.x, trans.y,
-								     m_prevPos.x(), m_prevPos.y(),
-								     camera);
-	      Vec axis;
-	      qreal angle;
-	      q.getAxisAngle(axis, angle);
-	      
-	      if (event->modifiers() &= Qt::ShiftModifier)
-		{
-		  if (axis*camera->viewDirection() < 0.0)
-		    angle = -angle;
-		  axis = camera->viewDirection();
-		}
-	      
-	      axis = Matrix::rotateVec(m_localXform, axis);
-	      
-	      Quaternion rot = Quaternion(axis, angle);
-	      
-	      rotate(rot);
-	    }
-	  else
-	    {
-	      Vec axis;
-	      if (moveAxis() < MoveY) axis = Vec(1,0,0);
-	      else if (moveAxis() < MoveZ) axis = Vec(0,1,0);
-	      else axis = Vec(0,0,1);
-	      
-	      Vec voxelScaling = Global::voxelScaling();
-	      Vec pos = VECPRODUCT(position(), voxelScaling);
-	      pos = Matrix::xformVec(m_localXform, pos);
-	      
-	      float r = 1.0;
-	      Vec trans(delta.x(), delta.y(), 0.0f);
-	      
-	      Vec p0 = camera->projectedCoordinatesOf(pos); p0 = Vec(p0.x, p0.y, 0);
-	      Vec c0 = pos + r*axis;
-	      c0 = camera->projectedCoordinatesOf(c0); c0 = Vec(c0.x, c0.y, 0);
-	      Vec perp = c0-p0;
-	      perp = Vec(-perp.y, perp.x, 0);
-	      perp.normalize();
-	      
-	      float angle = perp * trans;
-	      rotate(axis, angle);
-	    }
+	  Vec axis;
+	  if (moveAxis() < MoveY) axis = Vec(1,0,0);
+	  else if (moveAxis() < MoveZ) axis = Vec(0,1,0);
+	  else axis = Vec(0,0,1);
+	  
+	  Vec voxelScaling = Global::voxelScaling();
+	  Vec pos = VECPRODUCT(position(), voxelScaling);
+	  pos = Matrix::xformVec(m_localXform, pos);
+	  
+	  float r = 1.0;
+	  Vec trans(delta.x(), delta.y(), 0.0f);
+	  
+	  Vec p0 = camera->projectedCoordinatesOf(pos); p0 = Vec(p0.x, p0.y, 0);
+	  Vec c0 = pos + r*axis;
+	  c0 = camera->projectedCoordinatesOf(c0); c0 = Vec(c0.x, c0.y, 0);
+	  Vec perp = c0-p0;
+	  perp = Vec(-perp.y, perp.x, 0);
+	  perp.normalize();
+	  
+	  float angle = perp * trans;
+	  rotate(axis, angle);
 	}
     }
   
@@ -354,6 +352,6 @@ TrisetGrabber::mouseReleaseEvent(QMouseEvent* const event,
 {
   m_pressed = false;
 
-  if (!m_grabMode)
+  //if (!m_grabMode)
     emit updateParam();
 }

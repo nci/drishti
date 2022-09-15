@@ -4007,6 +4007,7 @@ Viewer::keyPressEvent(QKeyEvent *event)
 	  if (GeometryObjects::trisets()->count() > 0)
 	    {
 	      setPaintMode(!m_paintMode);
+	      GeometryObjects::trisets()->setGrab(false);
 	    }
 	  return;
 	}

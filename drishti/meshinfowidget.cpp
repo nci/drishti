@@ -122,7 +122,7 @@ MeshInfoWidget::~MeshInfoWidget()
 
 void
 MeshInfoWidget::setActive(int idx)
-{
+{  
   if (idx > -1 && idx < m_meshList->rowCount())
     {
       if (QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
@@ -732,7 +732,7 @@ MeshInfoWidget::duplicateMesh()
 
 void
 MeshInfoWidget::setParameters(QMap<QString, QVariantList> plist)
-{
+{  
   int idx = plist.value("idx")[0].toInt();
   ui.MeshParamBox->setTitle(QString("(%1) %2").	\
 			    arg(idx+1).		\

@@ -3449,6 +3449,8 @@ MainWindow::loadProject(const char* flnm)
 
   // check overlapping keyframes
   m_keyFrame->checkKeyFrameNumbers();
+
+  updateMeshList();
 }
 
 void

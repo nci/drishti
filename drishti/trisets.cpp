@@ -3073,6 +3073,9 @@ Trisets::askGradientChoice(QList<int> indices)
 void
 Trisets::sendParametersToMenu()
 {
+  if (m_active == -1)
+    return;
+  
   QMap<QString, QVariantList> plist;
   
   QVariantList vlist;

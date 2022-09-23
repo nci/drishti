@@ -128,6 +128,7 @@ TrisetObject::clear()
   m_q = Quaternion();
   m_nX = m_nY = m_nZ = 0;
   m_color = Vec(0,0,0);
+  m_materialId = 0;
   m_cropcolor = Vec(0.0f,0.0f,0.0f);
   m_roughness = 7;
   m_specular = 1.0f;
@@ -971,6 +972,7 @@ TrisetObject::get()
   ti.scale = m_scale;
   ti.q = m_q;
   ti.color = m_color;
+  ti.materialId = m_materialId;
   ti.cropcolor = m_cropcolor;
   ti.roughness = m_roughness;
   ti.ambient = m_ambient;
@@ -1020,6 +1022,7 @@ TrisetObject::set(TrisetInformation ti)
   m_q = ti.q;
   m_roughness = ti.roughness;
   m_color = ti.color;
+  m_materialId = ti.materialId;
   m_cropcolor = ti.cropcolor;
   m_ambient = ti.ambient;
   m_diffuse = ti.diffuse;

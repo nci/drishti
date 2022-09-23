@@ -166,6 +166,7 @@ HEADERS += launcher.h \
 	   imagecaptions.h \
 	   imagecaptiongrabber.h \
 	   imagecaptionobject.h \
+           imglistdialog.h \
            keyframe.h \
            keyframeeditor.h \
            keyframeinformation.h \
@@ -252,8 +253,6 @@ HEADERS += launcher.h \
 	   gilightobjectinfo.h \
 	   videoplayer.h \
 	   mybitarray.h \
-	   rcviewer.h \
-	   rcshaderfactory.h \
            popupslider.h \
            meshinfowidget.h \
            connectmeshinfowidget.h
@@ -307,6 +306,7 @@ HEADERS += launcher.h \
 	   imagecaptions.cpp \
 	   imagecaptiongrabber.cpp \
 	   imagecaptionobject.cpp \
+           imglistdialog.cpp \
            keyframe.cpp \
            keyframeeditor.cpp \
            keyframeinformation.cpp \
@@ -393,7 +393,5 @@ HEADERS += launcher.h \
 	   gilightobjectinfo.cpp \
 	   videoplayer.cpp \
 	   mybitarray.cpp \
-	   rcviewer.cpp \
-	   rcshaderfactory.cpp \
 	   popupslider.cpp \
            meshinfowidget.cpp

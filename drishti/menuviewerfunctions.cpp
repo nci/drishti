@@ -576,7 +576,6 @@ Viewer::mix()
 	{
 	  updateTagColors();
 	  m_hiresVolume->setMixTag(mt);
-	  m_rcViewer.setMixTag(mt);
 	}
     }
 }

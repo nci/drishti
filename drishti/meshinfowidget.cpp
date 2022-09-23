@@ -5,6 +5,8 @@
 #include <QHeaderView>
 #include <QMenu>
 #include <QAction>
+#include <QInputDialog>
+
 #include "dcolordialog.h"
 #include "propertyeditor.h"
 
@@ -24,11 +26,14 @@ MeshInfoWidget::MeshInfoWidget(QWidget *parent) :
   setPalette(pal);
   //----------------------------
   
+  m_matcapDialog = new ImgListDialog();
+  m_matcapDialog->hide();
 
+  
   m_meshList = new QTableWidget();
   m_meshList->setSelectionBehavior(QAbstractItemView::SelectRows);
   m_meshList->setShowGrid(false);
-  m_meshList->setColumnCount(4);
+  m_meshList->setColumnCount(5);
   m_meshList->setFrameStyle(QFrame::NoFrame);
 
   
@@ -37,6 +42,7 @@ MeshInfoWidget::MeshInfoWidget(QWidget *parent) :
   hlabels << tr("V  ");
   hlabels << tr("X");
   hlabels << tr("C");
+  hlabels << tr("Mat");
   m_meshList->setHorizontalHeaderLabels(hlabels);  
   
   
@@ -65,13 +71,14 @@ MeshInfoWidget::MeshInfoWidget(QWidget *parent) :
 	  this, SLOT(sectionClicked(int)));
 
   connect(m_meshList->horizontalHeader(), SIGNAL(sectionDoubleClicked(int)),
-	  this, SLOT(sectionDoubleClicked(int)));
+	  this, SLOT(sectionDoubleClicked(int)));  
 
+  
   m_meshList->setContextMenuPolicy(Qt::CustomContextMenu);
   connect(m_meshList, SIGNAL(customContextMenuRequested(const QPoint&)),
 	  this, SLOT(meshListContextMenu(const QPoint&)));
-			     
 
+  
   connect(ui.transparency, SIGNAL(valueChanged(int)),
 	  this, SIGNAL(transparencyChanged(int)));
   connect(ui.reveal, SIGNAL(valueChanged(int)),
@@ -96,10 +103,10 @@ MeshInfoWidget::MeshInfoWidget(QWidget *parent) :
 //  connect(ui.rotationMode, SIGNAL(clicked(bool)),
 //	  this, SIGNAL(rotationMode(bool)));
 //
-//  connect(ui.grabMode, SIGNAL(clicked(bool)),
-//	  this, SIGNAL(grabMesh(bool)));
-//  connect(ui.grabMode, SIGNAL(clicked(bool)),
-//	  this, SLOT(changeSelectionMode(bool)));
+  connect(ui.grabMode, SIGNAL(clicked(bool)),
+	  this, SIGNAL(grabMesh(bool)));
+  connect(ui.grabMode, SIGNAL(clicked(bool)),
+	  this, SLOT(changeSelectionMode(bool)));
 //	  
 //  ui.rotationMode->setIcon(QIcon(QString::fromUtf8(":/images/rot.png")));
 //  ui.grabMode->setIcon(QIcon(QString::fromUtf8(":/images/grab.png")));
@@ -163,7 +170,7 @@ MeshInfoWidget::setActive(int idx)
 }
 
 void
-MeshInfoWidget::addMesh(QString meshName, bool show, bool clip, QString color)
+MeshInfoWidget::addMesh(QString meshName, bool show, bool clip, QString color, int matId)
 {
   
   {
@@ -230,6 +237,15 @@ MeshInfoWidget::addMesh(QString meshName, bool show, bool clip, QString color)
     wi->setBackground(QBrush(QColor(color)));
     wi->setForeground(QBrush(QColor(color)));
   }
+
+  {
+    QTableWidgetItem *wi = m_meshList->item(m_prevRow, 4);
+    if (!wi) wi = new QTableWidgetItem("");
+
+    wi->setFlags(wi->flags() & ~Qt::ItemIsUserCheckable & ~Qt::ItemIsEditable & ~Qt::ItemIsSelectable);
+    m_meshList->setItem(m_prevRow, 4, wi);
+    wi->setText(QString("%1").arg(matId));
+  }
 }
 
 void
@@ -244,6 +260,7 @@ MeshInfoWidget::setMeshes(QStringList meshNames)
   QList<bool> show;
   QList<bool> clip;
   QStringList color;
+  QList<int> material;
   foreach(QString mesh, meshNames)
     {
       QString lstr = mesh.left(5);
@@ -259,10 +276,11 @@ MeshInfoWidget::setMeshes(QStringList meshNames)
       show << (words[0].toInt() > 0);
       clip << (words[1].toInt() > 0);
       color << words[2];
-      m_vertCount << words[3].toInt();
-      m_triCount << words[4].toInt();
-      m_totVertices += words[3].toInt();
-      m_totTriangles += words[4].toInt();;
+      material << words[3].toInt();
+      m_vertCount << words[4].toInt();
+      m_triCount << words[5].toInt();
+      m_totVertices += words[4].toInt();
+      m_totTriangles += words[5].toInt();;
     }
 
   
@@ -272,14 +290,14 @@ MeshInfoWidget::setMeshes(QStringList meshNames)
   for(int i=0; i<m_meshNames.count(); i++)
     {
       m_prevRow++;
-      addMesh(m_meshNames[i], show[i], clip[i], color[i]);
+      addMesh(m_meshNames[i], show[i], clip[i], color[i], material[i]);
     }
 
   m_meshList->resizeColumnsToContents();
 //  m_meshList->resizeColumnToContents(1);
 //  m_meshList->resizeColumnToContents(2);
 
-  //ui.grabMode->setChecked(false);
+  ui.grabMode->setChecked(false);
   changeSelectionMode(false);
   emit grabMesh(false);
 
@@ -298,7 +316,7 @@ MeshInfoWidget::sectionClicked(int col)
   if (col == 0)
     return;
 
-  if (col == 3) // colormap
+  if (col >= 3) // colormap/material
     {
       QList<int> selIdx;
       for(int i=0; i<m_meshList->rowCount(); i++)
@@ -310,25 +328,58 @@ MeshInfoWidget::sectionClicked(int col)
 	    }
 	}
 
-      if (selIdx.count() == 1)
+
+      if (col == 3) // colormap
 	{
-	  int row = selIdx[0];
-	  QTableWidgetItem *wi;
-	  wi = m_meshList->item(row, col);
-	  QColor pcolor = wi->background().color();
-	  QColor color = DColorDialog::getColor(pcolor);
-	  if (color.isValid())
+	  if (selIdx.count() == 1)
 	    {
-	      wi->setBackground(QBrush(color));
-	      wi->setForeground(QBrush(color));
-	      emit colorChanged(color);
+	      int row = selIdx[0];
+	      QTableWidgetItem *wi;
+	      wi = m_meshList->item(row, col);
+	      QColor pcolor = wi->background().color();
+	      QColor color = DColorDialog::getColor(pcolor);
+	      if (color.isValid())
+		{
+		  wi->setBackground(QBrush(color));
+		  wi->setForeground(QBrush(color));
+		  emit colorChanged(color);
+		}
 	    }
+	  else if (selIdx.count() > 1)
+	    emit processCommand(selIdx, "colormap");
+	  else
+	    emit processCommand("colormap");
+
+	  return;
 	}
-      else if (selIdx.count() > 1)
-	emit processCommand(selIdx, "colormap");
-      else
-	emit processCommand("colormap");
-      return;
+
+      if (col == 4)
+	{
+	  if (selIdx.count() == 1)
+	    {
+	      int row = selIdx[0];
+	      QTableWidgetItem *wi;
+	      wi = m_meshList->item(row, col);
+	      int matId = wi->text().toInt();	      
+	      matId = m_matcapDialog->getImageId(matId);
+	      wi->setText(QString("%1").arg(matId));
+	      emit materialChanged(matId);
+	    }
+	  else
+	    {
+	      if (selIdx.count() == 0)
+		{
+		  for(int i=0; i<m_meshList->rowCount(); i++)
+		    selIdx << i;
+		}
+	      int matId = m_matcapDialog->getImageId(0);
+	      emit materialChanged(selIdx, matId);
+	      for(int i=0; i<m_meshList->rowCount(); i++)
+		m_meshList->item(i, 4)->setText(QString("%1").arg(matId));
+	    }
+
+	  return;
+	}
     }
 
   // 1/2 = visibility/clip
@@ -368,7 +419,7 @@ MeshInfoWidget::sectionClicked(int col)
 void
 MeshInfoWidget::sectionDoubleClicked(int col)
 {
-  if (col == 0 || col == 3)
+  if (col == 0 || col >= 3)
     return;
 
   if (m_meshList->rowCount() <= 0)
@@ -520,6 +571,27 @@ MeshInfoWidget::cellClicked(int row, int col)
 
       return;
     }
+    if (selIdx.count() > 1 &&
+      selIdx.contains(row) &&
+      col == 4)
+    {
+      QTableWidgetItem *wi;
+      wi = m_meshList->item(row, col);
+      int matId = wi->text().toInt();	      
+      matId = m_matcapDialog->getImageId(matId);
+      wi->setText(QString("%1").arg(matId));
+      emit materialChanged(matId);
+
+      for(int id=0; id<selIdx.count(); id++)
+	{
+	  int i = selIdx[id];
+	  wi = m_meshList->item(i, col);
+	  wi->setText(QString("%1").arg(matId));
+	}
+      emit materialChanged(selIdx, matId);
+
+      return;
+    }
 
     
     if (selIdx.count() > 1)
@@ -630,6 +702,28 @@ MeshInfoWidget::cellClicked(int row, int col)
 	  wi->setForeground(QBrush(color));
 	  emit colorChanged(color);
 	}
+
+      return;
+    }
+
+  if (col == 4) // material
+    {
+      m_meshList->setCurrentCell(row, col);
+      if (m_prevRow != -1)
+	emit setActive(m_prevRow, false);
+
+      m_prevRow = row;
+      emit setActive(row, true);
+      ui.MeshParamBox->show();
+
+      QTableWidgetItem *wi;
+      wi = m_meshList->item(row, col);
+      int matId = wi->text().toInt();	      
+      matId = m_matcapDialog->getImageId(matId);
+      wi->setText(QString("%1").arg(matId));
+      emit materialChanged(matId);
+
+      return;
     }
 }
 
@@ -932,4 +1026,10 @@ MeshInfoWidget::on_Command_pressed()
 	emit processCommand(cmd);
     }
   
+}
+
+void
+MeshInfoWidget::matcapFiles(QStringList list)
+{
+  m_matcapDialog->setIcons(list);
 }

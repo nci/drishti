@@ -8,6 +8,9 @@
 #include <QVBoxLayout>
 #include <QVector3D>
 
+#include "imglistdialog.h"
+
+
 class MeshInfoWidget : public QWidget
 {
   Q_OBJECT
@@ -16,14 +19,15 @@ class MeshInfoWidget : public QWidget
   MeshInfoWidget(QWidget *parent=NULL);
   ~MeshInfoWidget();
   
-  void addMesh(QString, bool, bool, QString);
+  void addMesh(QString, bool, bool, QString, int);
   void setMeshes(QStringList);
 
   public slots :
     void setParameters(QMap<QString, QVariantList>);
     void setActive(int);
     void changeSelectionMode(bool);
-						   
+    void matcapFiles(QStringList);
+				  
   private slots :
     void on_Command_pressed();
     void sectionClicked(int);
@@ -53,8 +57,10 @@ class MeshInfoWidget : public QWidget
     void darkenChanged(int);
     void positionChanged(QVector3D);
     void scaleChanged(QVector3D);
-    void colorChanged(QColor);
+    void colorChanged(QColor);  
     void colorChanged(QList<int>, QColor);
+    void materialChanged(int);  
+    void materialChanged(QList<int>, int);
     void processCommand(QList<int>, QString);
     void processCommand(int, QString);
     void processCommand(QString);
@@ -66,6 +72,7 @@ class MeshInfoWidget : public QWidget
     Ui::MeshInfoWidget ui;
   
     QTableWidget *m_meshList;
+    ImgListDialog *m_matcapDialog;
 
     QStringList m_meshNames;
     int m_prevRow;

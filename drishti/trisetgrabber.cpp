@@ -352,6 +352,6 @@ TrisetGrabber::mouseReleaseEvent(QMouseEvent* const event,
 {
   m_pressed = false;
 
-  //if (!m_grabMode)
+  if (!m_grabMode)
     emit updateParam();
 }

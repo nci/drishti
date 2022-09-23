@@ -24,6 +24,8 @@
 
   connect(GeometryObjects::trisets(), SIGNAL(setParameters(QMap<QString, QVariantList>)),
 	  m_meshInfoWidget, SLOT(setParameters(QMap<QString, QVariantList>)));
+  connect(GeometryObjects::trisets(), SIGNAL(matcapFiles(QStringList)),
+	  m_meshInfoWidget, SLOT(matcapFiles(QStringList)));
 
   connect(m_meshInfoWidget, SIGNAL(positionChanged(QVector3D)),
 	  GeometryObjects::trisets(), SLOT(positionChanged(QVector3D)));
@@ -33,6 +35,10 @@
 	  GeometryObjects::trisets(), SLOT(colorChanged(QColor)));
   connect(m_meshInfoWidget, SIGNAL(colorChanged(QList<int>, QColor)),
 	  GeometryObjects::trisets(), SLOT(colorChanged(QList<int>, QColor)));
+  connect(m_meshInfoWidget, SIGNAL(materialChanged(int)),
+	  GeometryObjects::trisets(), SLOT(materialChanged(int)));
+  connect(m_meshInfoWidget, SIGNAL(materialChanged(QList<int>, int)),
+	  GeometryObjects::trisets(), SLOT(materialChanged(QList<int>, int)));
   connect(m_meshInfoWidget, SIGNAL(transparencyChanged(int)),
 	  GeometryObjects::trisets(), SLOT(transparencyChanged(int)));
   connect(m_meshInfoWidget, SIGNAL(revealChanged(int)),

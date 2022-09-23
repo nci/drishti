@@ -15,6 +15,7 @@ TrisetInformation::clear()
   scale = Vec(1,1,1);
   q = Quaternion();
   color = Vec(0,0,0);
+  materialId = 0;
   cropcolor = Vec(0,0,0);
   roughness = 0.3;
   ambient = 0;
@@ -46,6 +47,7 @@ TrisetInformation::operator=(const TrisetInformation& ti)
   scale = ti.scale;
   q = ti.q;
   color = ti.color;
+  materialId = ti.materialId;
   cropcolor = ti.cropcolor;
   roughness = ti.roughness;
   ambient = ti.ambient;
@@ -93,14 +95,6 @@ TrisetInformation::interpolate(const TrisetInformation tinfo1,
   tinfo.pattern = (1-frc)*tinfo1.pattern + frc*tinfo2.pattern;
   tinfo.opacity = (1-frc)*tinfo1.opacity + frc*tinfo2.opacity;
 
-  tinfo.captionText = tinfo1.captionText;
-  tinfo.captionColor = tinfo1.captionColor;
-  tinfo.captionFont = tinfo1.captionFont;
-
-  tinfo.captionPosition = tinfo1.captionPosition;
-  tinfo.cpDx = tinfo1.cpDx;
-  tinfo.cpDy = tinfo1.cpDy;
-
   int nt = qMin(tinfo1.captionPosition.count(), tinfo2.captionPosition.count());			   
 
   for(int i=0; i<nt; i++)
@@ -112,6 +106,17 @@ TrisetInformation::interpolate(const TrisetInformation tinfo1,
   for(int i=0; i<nt; i++)
     tinfo.cpDy[i] = (1-frc)*tinfo1.cpDy[i] + frc*tinfo2.cpDy[i];
   
+
+  // non interpolated ones
+  tinfo.materialId = tinfo1.materialId;
+  tinfo.captionText = tinfo1.captionText;
+  tinfo.captionColor = tinfo1.captionColor;
+  tinfo.captionFont = tinfo1.captionFont;
+
+  tinfo.captionPosition = tinfo1.captionPosition;
+  tinfo.cpDx = tinfo1.cpDx;
+  tinfo.cpDy = tinfo1.cpDy;
+
   return tinfo;
 }
 
@@ -202,6 +207,11 @@ TrisetInformation::save(fstream &fout)
   f[2] = color.z;
   fout.write((char*)&f, 3*sizeof(float));
 
+  memset(keyword, 0, 100);
+  sprintf(keyword, "materialId");
+  fout.write((char*)keyword, strlen(keyword)+1);
+  fout.write((char*)&materialId, sizeof(int));
+  
   memset(keyword, 0, 100);
   sprintf(keyword, "cropcolor");
   fout.write((char*)keyword, strlen(keyword)+1);
@@ -383,6 +393,8 @@ TrisetInformation::load(fstream &fin)
 	  fin.read((char*)&f, 3*sizeof(float));
 	  cropcolor = Vec(f[0], f[1], f[2]);
 	}
+      else if (strcmp(keyword, "materialId") == 0)
+	fin.read((char*)&materialId, sizeof(int));
       else if (strcmp(keyword, "ambient") == 0)
 	fin.read((char*)&ambient, sizeof(float));
       else if (strcmp(keyword, "diffuse") == 0)

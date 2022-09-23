@@ -89,6 +89,8 @@ class Trisets : public QObject
   void scaleChanged(QVector3D);
   void colorChanged(QColor);
   void colorChanged(QList<int>, QColor);
+  void materialChanged(int);
+  void materialChanged(QList<int>, int);
   void transparencyChanged(int);
   void revealChanged(int);
   void outlineChanged(int);
@@ -99,6 +101,7 @@ class Trisets : public QObject
   void processCommand(int, QString);
   void processCommand(QList<int>, QString);
   void setRotationMode(bool);
+  void refreshGrab();
   void setGrab(bool);
   void meshGrabbed();
   void multiSelection(QList<int>);
@@ -111,7 +114,8 @@ class Trisets : public QObject
   void updateMeshList(QStringList);
   void setParameters(QMap<QString, QVariantList>);
   void meshGrabbed(int);
-
+  void matcapFiles(QStringList);
+  
   
  private :
   HitPoints *m_hitpoints;
@@ -150,13 +154,14 @@ class Trisets : public QObject
   QStringList m_solidTexName;
   QList<uchar*> m_solidTexData;
   GLuint* m_solidTex;
-  void loadSolidTextures();
+  void loadMatCapTextures();
 
 
   void renderFromCamera(Camera*, int);
   void renderFromShadowCamera(Camera*, int);
   void renderShadows(GLint, int, int);
   void renderOutline(GLint, QGLViewer*, int, float);
+  void renderGrabbedOutline(GLint, QGLViewer*);
   void renderTransparent(GLint, QGLViewer*, int, float);
   void bindOITTextures();
   void drawOITTextures(int, int);

@@ -42,6 +42,9 @@ class TrisetObject
   void setColor(Vec);
   void bakeColors();
 
+  int material() { return m_materialId; }
+  void setMaterial(int m) { m_materialId = m; }
+  
   Vec cropBorderColor() { return m_cropcolor; }
   void setCropBorderColor(Vec color) { m_cropcolor = color; }
 
@@ -148,6 +151,7 @@ private :
   Vec m_centroid;
   Vec m_enclosingBox[8];
   Vec m_color;
+  int m_materialId;
   Vec m_cropcolor;
   Vec m_position;
   Vec m_scale;

@@ -1230,17 +1230,7 @@ void
 MainWindow::on_actionHiresMode_triggered()
 {
   if (m_Volume->valid())
-    m_Viewer->switchSliceMode();
-    //m_Viewer->switchDrawVolume();
-}
-
-void
-MainWindow::on_actionRaycastMode_triggered()
-{
-  if (m_Volume->valid())
-    m_Viewer->switchRaycastMode();
-  else
-    MainWindowUI::mainWindowUI()->actionRaycastMode->setChecked(false);
+    m_Viewer->switchDrawVolume();
 }
 
 void
@@ -2599,18 +2589,12 @@ MainWindow::preLoadVolume()
 
 void
 MainWindow::postLoadVolume()
-{
+{  
   if (Global::volumeType() != Global::DummyVolume)
     {
       m_dockTF->show();
       //m_dockKeyframe->toggleViewAction()->setEnabled(true);
     }
-
-  
-  if (Global::volumeType() != Global::SingleVolume)
-    MainWindowUI::mainWindowUI()->actionRaycastMode->setEnabled(false);
-  else
-    MainWindowUI::mainWindowUI()->actionRaycastMode->setEnabled(true);
 
   
   if (Global::volumeType() == Global::RGBVolume ||
@@ -2688,13 +2672,6 @@ MainWindow::postLoadVolume()
       m_tfContainer->switch1D();
     }
 
-  //---------------------
-  if (Global::volumeType() == Global::SingleVolume)
-    m_Viewer->setVolDataPtr(m_Volume->pvlFileManager(0));
-  else
-    m_Viewer->setVolDataPtr(0);
-  //---------------------
-
   
   //---------------------
   //---------------------
@@ -2709,6 +2686,7 @@ MainWindow::postLoadVolume()
       m_paintMeshAction->setVisible(false);
       m_Viewer->setPaintMode(false);
     }
+
 }
 
 void

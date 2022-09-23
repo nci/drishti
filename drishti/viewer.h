@@ -20,9 +20,6 @@ using namespace qglviewer;
 #include "volume.h"
 #include "popupslider.h"
 
-#include "ui_raycastmenu.h"
-#include "rcviewer.h"
-
 typedef void (Viewer::*MenuViewerFncPtr)();
 
 class ViewerUndo
@@ -96,7 +93,6 @@ class Viewer : public QGLViewer
   float paintAlpha() { return m_paintAlpha; }
 			 
  public slots :
-   void dockAdded(QDockWidget*);
    void setTag(int);
    void setDOF(int, float);
    void setCarveRadius(int);
@@ -129,8 +125,6 @@ class Viewer : public QGLViewer
    void reloadData();
    void switchToHires();
    void switchDrawVolume();
-   void switchSliceMode();
-   void switchRaycastMode();
    void enableTextureUnits();
    void disableTextureUnits();
    void setKeyFrame(int);
@@ -229,14 +223,6 @@ class Viewer : public QGLViewer
  private :
   QWidget *m_parent;
 
-  QDockWidget* m_raycastMenu;
-  Ui::RaycastMenu m_raycastUI;
-  QFrame *m_raycastParameters;
-  PopUpSlider *m_viewEdge;
-  PopUpSlider *m_viewShadow;
-  PopUpSlider *m_raylen;
-  PopUpSlider *m_minGrad;
-  PopUpSlider *m_maxGrad;
 
   ViewerUndo m_undo;
 
@@ -305,10 +291,7 @@ class Viewer : public QGLViewer
 
   QWidget *m_paintMenuWidget;
 
-
-  RcViewer m_rcViewer;  
-  bool m_rcMode;
-
+  
   bool m_paintMode;
   Vec m_paintColor;
   float m_paintRad;
@@ -371,7 +354,6 @@ class Viewer : public QGLViewer
 
   bool mouseMoveEventInPathViewport(int, QMouseEvent*);  
 
-  void setupRaycastUI();
 
   void showMenuFunctionHelp(QString);
 

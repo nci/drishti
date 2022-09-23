@@ -1475,8 +1475,10 @@ GLuint ShaderFactory::oitShader()
   m_oitShaderParm[15] = glGetUniformLocation(m_oitShader,"featherSize");
   m_oitShaderParm[16] = glGetUniformLocation(m_oitShader,"revealTransparency");
   m_oitShaderParm[17] = glGetUniformLocation(m_oitShader,"idx");
-  m_oitShaderParm[18] = glGetUniformLocation(m_oitShader,"hatchPattern");
-  m_oitShaderParm[19] = glGetUniformLocation(m_oitShader,"solidTex");	
+  m_oitShaderParm[18] = glGetUniformLocation(m_oitShader,"applyMaterial");
+  m_oitShaderParm[19] = glGetUniformLocation(m_oitShader,"matcapTex");	
+  m_oitShaderParm[20] = glGetUniformLocation(m_oitShader, "rightDir");
+  m_oitShaderParm[21] = glGetUniformLocation(m_oitShader, "upDir");
 
 
   
@@ -1543,9 +1545,12 @@ ShaderFactory::oitShaderF()
   shader += "uniform vec3 clipNormal[10];\n";
   shader += "uniform bool hasUV;\n";
   shader += "uniform float featherSize;\n";
-  shader += "uniform vec3 hatchPattern;\n";
-  shader += "uniform sampler3D solidTex;\n";
+  shader += "uniform int applyMaterial;\n";
+  shader += "uniform sampler2D matcapTex;\n";
   shader += "uniform float revealTransparency;\n";
+
+  shader += "uniform vec3 rightDir;\n";
+  shader += "uniform vec3 upDir;\n";
 
   shader += "in vec3 v3Color;\n";
   shader += "in vec3 v3Normal;\n";
@@ -1609,24 +1614,33 @@ ShaderFactory::oitShaderF()
 
   //---------------------------------------------------------
   //---------------------------------------------------------
-  // apply solid texture
-  shader += "  float a = 1.0/128.0;\n";
-  shader += "  vec3 solidTexCoord = a/2 + (1.0-a)*fract(hatchPattern.y*(abs(oPosition)/vec3(sceneRadius)));\n";
+  // apply matcap texture
+  shader += "  float dx = dot(rightDir,v3Normal)*0.5+0.5;\n";
+  shader += "  float dy = dot(upDir,v3Normal)*0.5+0.5;\n";
+  shader += "  outputColor.rgb = mix(outputColor.rgb, texture(matcapTex, vec2(dx, 1.0-dy)).rgb, vec3(step(0, applyMaterial)));\n"; 
+  //---------------------------------------------------------
+  //---------------------------------------------------------
 
-  shader += "  vec3 solidColor = texture(solidTex, solidTexCoord).rgb;\n";
-  shader += "  outputColor.rgb = mix(outputColor.rgb, solidColor, hatchPattern.z*step(0.05, hatchPattern.z));\n";
-
-  shader += "  float patType = abs(hatchPattern.z);\n";
-  shader += "  float solidLum = (0.2*solidColor.r+0.7*solidColor.g+0.1*solidColor.b);\n";
-  shader += "  outputColor.rgb = mix(outputColor.rgb,\n";
-  shader += "  		        outputColor.rgb*solidLum,\n";
-  shader += "                        patType*step(0.05, -hatchPattern.z)*step(-hatchPattern.z, 1.05));\n";
-  shader += "  outputColor.rgb = mix(outputColor.rgb,\n";
-  shader += "  		        outputColor.rgb*(1.0-solidLum),\n";
-  shader += "			(patType-1.0)*step(1.0, -hatchPattern.z)*step(-hatchPattern.z, 2.05));\n";
   
-  //---------------------------------------------------------
-  //---------------------------------------------------------
+//  //---------------------------------------------------------
+//  //---------------------------------------------------------
+//  // apply solid texture
+//  shader += "  float a = 1.0/128.0;\n";
+//  shader += "  vec3 solidTexCoord = a/2 + (1.0-a)*fract(hatchPattern.y*(abs(oPosition)/vec3(sceneRadius)));\n";
+//
+//  shader += "  vec3 solidColor = texture(solidTex, solidTexCoord).rgb;\n";
+//  shader += "  outputColor.rgb = mix(outputColor.rgb, solidColor, hatchPattern.z*step(0.05, hatchPattern.z));\n";
+//
+//  shader += "  float patType = abs(hatchPattern.z);\n";
+//  shader += "  float solidLum = (0.2*solidColor.r+0.7*solidColor.g+0.1*solidColor.b);\n";
+//  shader += "  outputColor.rgb = mix(outputColor.rgb,\n";
+//  shader += "  		        outputColor.rgb*solidLum,\n";
+//  shader += "                        patType*step(0.05, -hatchPattern.z)*step(-hatchPattern.z, 1.05));\n";
+//  shader += "  outputColor.rgb = mix(outputColor.rgb,\n";
+//  shader += "  		        outputColor.rgb*(1.0-solidLum),\n";
+//  shader += "			(patType-1.0)*step(1.0, -hatchPattern.z)*step(-hatchPattern.z, 2.05));\n";
+//  //---------------------------------------------------------
+//  //---------------------------------------------------------
   
 
   // glow when active or has glow switched on
@@ -1767,13 +1781,16 @@ GLuint ShaderFactory::meshShader()
 	m_meshShaderParm[15] = glGetUniformLocation(m_meshShader,"featherSize");
 	m_meshShaderParm[16] = glGetUniformLocation(m_meshShader,"shadowCam");
 	m_meshShaderParm[17] = glGetUniformLocation(m_meshShader,"idx");
-	m_meshShaderParm[18] = glGetUniformLocation(m_meshShader,"hatchPattern");
-	m_meshShaderParm[19] = glGetUniformLocation(m_meshShader,"solidTex");	
+	m_meshShaderParm[18] = glGetUniformLocation(m_meshShader,"applyMaterial");
+	m_meshShaderParm[19] = glGetUniformLocation(m_meshShader,"matcapTex");	
 
     	m_meshShaderParm[21] = glGetUniformLocation(m_meshShader,"depthTex");
     	m_meshShaderParm[22] = glGetUniformLocation(m_meshShader,"shadowRender");
     	m_meshShaderParm[23] = glGetUniformLocation(m_meshShader,"screenSize");
     	m_meshShaderParm[24] = glGetUniformLocation(m_meshShader,"MVPShadow");
+
+	m_meshShaderParm[25] = glGetUniformLocation(m_meshShader, "rightDir");
+	m_meshShaderParm[26] = glGetUniformLocation(m_meshShader, "upDir");
 
 //	m_meshShaderParm[25] = glGetUniformLocationARB(m_meshShader, "lightTex");
 //	m_meshShaderParm[26] = glGetUniformLocationARB(m_meshShader, "lightgridx");
@@ -1819,6 +1836,7 @@ ShaderFactory::meshShaderV()
   shader += "{\n";
   shader += "   oPosition = position;\n";
   shader += "   pointPos = (localXform * vec4(position, 1)).xyz;\n";
+  
   shader += "   v3Color = colorIn;\n";
   shader += "   v3Normal = normalIn;\n";
   shader += "   gl_Position = MVP * vec4(position, 1);\n";
@@ -1827,12 +1845,12 @@ ShaderFactory::meshShaderV()
   shader += "   surfId = idx;\n";
 
   shader += "   zdepthS = length(pointPos-shadowCam);\n";
-  //shader += "   vec4 shadowPos = MVPShadow * vec4(position, 1);\n";
   shader += "   vec4 shadowPos = MVPShadow * vec4(pointPos, 1);\n";
   shader += "   vec2 xy = shadowPos.xy/vec2(shadowPos.w);\n";
   shader += "   xy = (xy + vec2(1.0)) * vec2(0.5);\n";
   shader += "   xy = xy * screenSize;\n";
   shader += "   shadowInfo = vec3(xy, zdepthS);\n";
+
   
   shader += "}\n";
 
@@ -1858,13 +1876,16 @@ ShaderFactory::meshShaderF()
   shader += "uniform vec3 clipNormal[10];\n";
   shader += "uniform bool hasUV;\n";
   shader += "uniform float featherSize;\n";
-  shader += "uniform vec3 hatchPattern;\n";
-  shader += "uniform sampler3D solidTex;\n";
+  shader += "uniform int applyMaterial;\n";
+  shader += "uniform sampler2D matcapTex;\n";
   shader += "uniform float opacity;\n";
 
   shader += "uniform sampler2DRect depthTex;\n";
   shader += "uniform bool shadowRender;\n";
-  
+
+  shader += "uniform vec3 rightDir;\n";
+  shader += "uniform vec3 upDir;\n";
+
 //  //----------------------------------
 //  //----------------------------------
 //  shader += "uniform sampler2DRect lightTex;\n";
@@ -1997,20 +2018,29 @@ ShaderFactory::meshShaderF()
   
   //---------------------------------------------------------
   //---------------------------------------------------------
-  // apply solid texture
-  shader += "   float a = 1.0/128.0;\n";
-  shader += "   vec3 solidTexCoord = a/2 + (1.0-a)*fract(hatchPattern.y*(abs(oPosition)/vec3(sceneRadius)));\n";
+  // apply matcap texture
+  shader += "  float dx = dot(rightDir,v3Normal)*0.5+0.5;\n";
+  shader += "  float dy = dot(upDir,v3Normal)*0.5+0.5;\n";
+  shader += "  outputColor.rgb = mix(outputColor.rgb, ambient*texture(matcapTex, vec2(dx, 1.0-dy)).rgb, vec3(step(1, applyMaterial)));\n";
 
-  shader += "   vec3 solidColor = texture(solidTex, solidTexCoord).rgb;\n";
-  shader += "   outputColor.rgb = mix(outputColor.rgb, solidColor, hatchPattern.z*step(0.05, hatchPattern.z));\n";
-
-  shader += "   float patType = abs(hatchPattern.z);\n";
-  shader += "   float solidLum = (0.2*solidColor.r+0.7*solidColor.g+0.1*solidColor.b);\n";
-  shader += "   outputColor.rgb = mix(outputColor.rgb, outputColor.rgb*solidLum, patType*step(0.05, -hatchPattern.z)*step(-hatchPattern.z, 1.05));\n";
-  shader += "   outputColor.rgb = mix(outputColor.rgb, outputColor.rgb*(1.0-solidLum), (patType-1.0)*step(1.0, -hatchPattern.z)*step(-hatchPattern.z, 2.05));\n";
-  
   //---------------------------------------------------------
   //---------------------------------------------------------
+
+//  //---------------------------------------------------------
+//  //---------------------------------------------------------
+//  // apply solid texture
+//  shader += "   float a = 1.0/128.0;\n";
+//  shader += "   vec3 solidTexCoord = a/2 + (1.0-a)*fract(hatchPattern.y*(abs(oPosition)/vec3(sceneRadius)));\n";
+//
+//  shader += "   vec3 solidColor = texture(solidTex, solidTexCoord).rgb;\n";
+//  shader += "   outputColor.rgb = mix(outputColor.rgb, solidColor, hatchPattern.z*step(0.05, hatchPattern.z));\n";
+//
+//  shader += "   float patType = abs(hatchPattern.z);\n";
+//  shader += "   float solidLum = (0.2*solidColor.r+0.7*solidColor.g+0.1*solidColor.b);\n";
+//  shader += "   outputColor.rgb = mix(outputColor.rgb, outputColor.rgb*solidLum, patType*step(0.05, -hatchPattern.z)*step(-hatchPattern.z, 1.05));\n";
+//  shader += "   outputColor.rgb = mix(outputColor.rgb, outputColor.rgb*(1.0-solidLum), (patType-1.0)*step(1.0, -hatchPattern.z)*step(-hatchPattern.z, 2.05));\n";
+//  //---------------------------------------------------------
+//  //---------------------------------------------------------
   
 
   // glow when active or has glow switched on
@@ -2102,7 +2132,6 @@ ShaderFactory::meshShadowShaderF()
   shader += "uniform sampler2DRect colorTexS;\n";
   //shader += "uniform sampler2DRect depthTexS;\n";
 
-
   shader += rgb2hsv();
   shader += hsv2rgb();
   shader += ggxShader();
@@ -2170,6 +2199,9 @@ ShaderFactory::meshShadowShaderF()
 
   
   shader += "  vec3 ecolor = color.rgb;\n";
+
+
+
   shader += "  if (edges > 0.0)\n";
   shader += "  {\n"; 
   shader += "    float response = 0.0;\n";
@@ -2187,6 +2219,7 @@ ShaderFactory::meshShadowShaderF()
   shader += "        response += smoothstep(0.0, 0.001, od)*od;\n";
   shader += "      } \n";
   shader += "    ecolor.rgb *= exp(-response * pow(100*(edges+0.05),1.0/(gamma+(0.2*depth))));\n";
+  
 
   // find border between different surfaces
   shader += "    response = 0.0;\n";
@@ -2330,13 +2363,12 @@ ShaderFactory::meshShadowShaderF()
   shader += "        dy += texture2DRect(depthTex, spos.xy+vec2(offset,1+i)).x -\n";
   shader += "              texture2DRect(depthTex, spos.xy-vec2(offset,1+i)).x;\n";
   shader += "      }\n";
-  shader += "    vec3 N = normalize(vec3(dx*50, dy*50, 1.0+roughness));\n";
+  shader += "    vec3 N = normalize(vec3(dx*50, -dy*50, 1.0+roughness));\n";
   //shader += "    vec3 spec = shadingSpecularGGX(N, vec3(0,0,1),  vec3(0,0,1), roughness*0.2, pow(color.rgb,vec3(1.0/2.2)));\n";
   //shader += "    color.rgb += 0.5*specular*spec;\n";
   shader += "    float specCoeff = 512.0/mix(0.1, 64.0, roughness*roughness);\n";
   shader += "    float shine = specular * pow(N.z, specCoeff);\n";
-  shader += "    color.rgb = mix(color.rgb, pow(color.rgb, vec3(1.0-shine)), vec3(shine));\n";
-  
+  shader += "    color.rgb = mix(color.rgb, pow(color.rgb, vec3(1.0-shine)), vec3(shine));\n";  
   shader += "  }\n";
   //----------------------
   
@@ -2362,7 +2394,6 @@ ShaderFactory::meshShadowShaderF()
 //----------------------------
 //----------------------------
 
-
 GLint ShaderFactory::m_outlineShaderParm[30];
 GLint* ShaderFactory::outlineShaderParm() { return &m_outlineShaderParm[0]; }
 
@@ -2385,14 +2416,27 @@ GLuint ShaderFactory::outlineShader()
 	  return 0;
 	}
 	
-	m_outlineShaderParm[0] = glGetUniformLocation(m_outlineShader, "MVP");
+//	m_outlineShaderParm[0] = glGetUniformLocation(m_outlineShader, "MVP");
+//	m_outlineShaderParm[1] = glGetUniformLocation(m_outlineShader, "colorTex");
+//	m_outlineShaderParm[2] = glGetUniformLocation(m_outlineShader, "depthTex");
+//	m_outlineShaderParm[3] = glGetUniformLocation(m_outlineShader, "gamma");
+//	m_outlineShaderParm[4] = glGetUniformLocation(m_outlineShader, "roughness");	
+//	m_outlineShaderParm[5] = glGetUniformLocation(m_outlineShader, "specular");	
+//	m_outlineShaderParm[6] = glGetUniformLocation(m_outlineShader, "softshadow");	
+//	m_outlineShaderParm[7] = glGetUniformLocation(m_outlineShader, "edges");	
+
+    	m_outlineShaderParm[0] = glGetUniformLocation(m_outlineShader, "MVP");
 	m_outlineShaderParm[1] = glGetUniformLocation(m_outlineShader, "colorTex");
 	m_outlineShaderParm[2] = glGetUniformLocation(m_outlineShader, "depthTex");
-	m_outlineShaderParm[3] = glGetUniformLocation(m_outlineShader, "gamma");
-	m_outlineShaderParm[4] = glGetUniformLocation(m_outlineShader, "roughness");	
-	m_outlineShaderParm[5] = glGetUniformLocation(m_outlineShader, "specular");	
-	m_outlineShaderParm[6] = glGetUniformLocation(m_outlineShader, "softshadow");	
-	m_outlineShaderParm[7] = glGetUniformLocation(m_outlineShader, "edges");	
+	m_outlineShaderParm[3] = glGetUniformLocation(m_outlineShader, "softshadow");
+	m_outlineShaderParm[4] = glGetUniformLocation(m_outlineShader, "edges");
+	m_outlineShaderParm[5] = glGetUniformLocation(m_outlineShader, "gamma");
+	m_outlineShaderParm[6] = glGetUniformLocation(m_outlineShader, "roughness");	
+	m_outlineShaderParm[7] = glGetUniformLocation(m_outlineShader, "specular");	
+	m_outlineShaderParm[10]= glGetUniformLocation(m_outlineShader, "shadowIntensity");
+	m_outlineShaderParm[11]= glGetUniformLocation(m_outlineShader, "valleyIntensity");
+	m_outlineShaderParm[12]= glGetUniformLocation(m_outlineShader, "peakIntensity");
+	m_outlineShaderParm[13]= glGetUniformLocation(m_outlineShader, "grabbedColor");
     }
 
   return m_outlineShader;
@@ -2411,12 +2455,16 @@ ShaderFactory::outlineShaderF()
 		      
   shader += "uniform sampler2DRect colorTex;\n";
   shader += "uniform sampler2DRect depthTex;\n";
+  shader += "uniform float softshadow;\n";
+  shader += "uniform float edges;\n";
   shader += "uniform float gamma;\n";
   shader += "uniform float roughness;\n";
   shader += "uniform float specular;\n";
-  shader += "uniform float softshadow;\n";
-  shader += "uniform float edges;\n";
 
+  shader += "uniform float shadowIntensity;\n";
+  shader += "uniform float valleyIntensity;\n";
+  shader += "uniform float peakIntensity;\n";
+  shader += "uniform vec3 grabbedColor;\n";
 
   shader += rgb2hsv();
   shader += hsv2rgb();
@@ -2430,11 +2478,18 @@ ShaderFactory::outlineShaderF()
   shader += "  color = texture2DRect(colorTex, spos.xy);\n";
   shader += "  if (color.a < 0.001)\n";
   shader += "    discard;\n";
-
+  
+  
+  shader += "  float darken = 0.1*(int(color.a)/10000.0);\n";
+  shader += "  darken = 1.0-0.8*darken;\n";
+  
+  //shader += "  color.a = 1.0;\n";
+  
   
   shader += "  vec4 dtex = texture2DRect(depthTex, spos.xy);\n";
   shader += "  float depth = dtex.x;\n";
 
+  
   //------------------------
   // dtex.x - shadow depth for original camera
   // dtex.y - glow
@@ -2448,26 +2503,48 @@ ShaderFactory::outlineShaderF()
   shader += "     return;\n";
   shader += "  }\n";
 
-
   shader += "  gl_FragDepth = dtex.w;\n";
-
-  shader += "  vec3 ocolor = color.rgb;\n";
+  
   
   shader += "  float surfId = dtex.z;\n";
   
-  shader += "  float response = 0.0;\n";
-
   shader += "  float opout = float(mod(mod(color.a,10000.0),1000.0));\n";
-  shader += "  float outline = mod(opout,11.0);\n";
+  shader += "  float outline = floor(mod(opout,11.0));\n"; 
   shader += "  float opacity = 1.0-float(int(opout)/11)/10.0;\n";
+  shader += "  vec3 ecolor = color.rgb;\n";
+  shader += "  vec3 bcolor = color.rgb;\n";
+  shader += "  if (any(greaterThan(grabbedColor, vec3(0,0,0))))\n";
+  shader += "     bcolor = grabbedColor;\n";
+  
 
-  shader += "    vec3 ecolor = color.rgb;\n";
+  //----------------------
+  shader += "  float dedge = 1.0;\n";
+  //reduce the edges if glowing
+  //shader += "  if (edges*step(dtex.y,0.001) > 0.0)\n";
+  shader += "  if (edges > 0.0)\n";
+  shader += "  {\n"; 
+  shader += "    float response = 0.0;\n";
 
-  // surface edges
-  shader += "    int nsteps = int(8.0*outline);\n";
-  shader += "    vec3 clrG = vec3(0.0);\n";
-  shader += "    float sumG = 0.0;\n";
-  shader += "    for(int i=0; i<nsteps; i++)\n";
+  // find edges on surfaces
+  shader += "    for(int i=0; i<8; i++)\n";
+  shader += "      {\n";
+  shader += "        float x = sin(radians(i*45));\n";
+  shader += "        float y = cos(radians(i*45));\n";
+  shader += "        vec2 pos = spos + vec2(x,y);\n";
+  shader += "        float adepth = texture2DRect(depthTex, pos).x;\n";
+  shader += "        float od = depth - adepth;\n";
+  shader += "        response += od;\n";
+  shader += "      } \n";
+  shader += "    response = max(0.0, response);\n";
+  shader += "    dedge *= max(1.0-1.0/(1.0+edges), exp(-response*pow(1000*edges,1.0/(1.0+0.05*depth))));\n";
+  shader += "  }\n";
+
+  
+  shader += "  {\n";
+  // find border between different surfaces
+  shader += "    float response = 0.0;\n";
+  shader += "    int bsteps = int(8.0*outline);\n";
+  shader += "    for(int i=0; i<bsteps; i++)\n";
   shader += "      {\n";
   shader += "        float r = 1.0 + i*0.13;\n";
   shader += "        float x = r*sin(radians(i*43));\n";
@@ -2479,74 +2556,188 @@ ShaderFactory::outlineShaderF()
   // border between different surfaces
   shader += "        od += step(0.001, abs(surfId - adepth.z));\n"; 
   shader += "        response += max(0.0, od);\n";
-
-  // get contributions for glowing surfaces
-  shader += "        vec3 clrR = texture2DRect(colorTex, pos).rgb;\n";
-  shader += "        float sr = step(0.05, adepth.y);\n";
-  shader += "        sumG += sr;\n";
-  shader += "        clrG += sr*clrR;\n";
-
   shader += "      } \n";
-  shader += "    response /= float(nsteps);\n";
- 
-  shader += " float border = clamp(response,0.0,1.0);\n";
-  shader += " border = exp(-border/gamma);\n";
-  shader += " color = mix(vec4(color.rgb*border,1.0), vec4(color.rgb, 1.0)*opacity, pow(border, 3.0));\n";
+  shader += "    response /= float(bsteps);\n"; 
+  shader += "   float border = clamp(response,0.0,1.0);\n";
+  shader += "   border = exp(-border/gamma);\n";
+  // outline for selections on dark background
+  shader += "   float fadein = mix(border, 1.0, step(19.0, softshadow));\n";
+  //shader += "   color = mix(vec4(bcolor.rgb*fadein,1.0), vec4(color.rgb, 1.0)*opacity, pow(border, 3.0));\n";
+  shader += "   color = mix(vec4(bcolor,1.0), vec4(color.rgb, 1.0)*opacity, border);\n";
+  shader += "  }\n";
 
-  // add glow
-  shader += "    clrG /= vec3(max(1.0,sumG));\n";
-  shader += "    float gl = pow(sumG/float(nsteps), gamma);\n";
-  shader += "    gl = smoothstep(0.0, 1.0, gl);\n";
-  shader += "    color.rgb = mix(color.rgb, clrG, gl);\n";
-
-  // add edges on surfaces
-  shader += "  if (edges > 0.0)\n";
+  
+  // find bright edges on surfaces
+  shader += "  float bedge = 0.0;\n";
+  shader += "  if (peakIntensity > 0.0)\n";
   shader += "  {\n"; 
-  shader += "    response = 0.0;\n";
+  shader += "    float response = 0.0;\n";
   shader += "    for(int i=0; i<8; i++)\n";
   shader += "      {\n";
-  shader += "        float r = 1.0;\n";
-  shader += "        float x = r*sin(radians(i*45));\n";
-  shader += "        float y = r*cos(radians(i*45));\n";
+  shader += "        float x = sin(radians(i*45));\n";
+  shader += "        float y = cos(radians(i*45));\n";
   shader += "        vec2 pos = spos + vec2(x,y);\n";
   shader += "        float adepth = texture2DRect(depthTex, pos).x;\n";
-  shader += "        float od = depth - adepth;\n";
-  shader += "        response += max(0.0, od);\n";
+  shader += "        float od = adepth - depth;\n";
+  shader += "        response += od;\n";
   shader += "      } \n";
-  shader += "    ecolor.rgb *= exp(-response*pow(40*(edges+0.05), 1.2*gamma));\n";
-  shader += "    color.rgb = mix(color.rgb, ecolor*color.rgb, pow(border, 3.0));\n";
-  shader += "  }\n"; 
+  shader += "    bedge = 1.0 - exp(-abs(response)*pow(300*peakIntensity,1.0/(1.0+0.05*depth)));\n";
+  shader += "  }\n";  
+
+  
+  shader += "  {\n";  
+
+  shader += "    int shadowSamples = 25;\n";
+  shader += "    float vstart = 0.01;\n";
+  shader += "    float vend = 0.07 + valleyIntensity*0.05;\n";
+  shader += "    float vint = vend-vstart;\n";
+
+  
+//  // shadows
+//  shader += "    float sumS = 0.0;\n";
+//  shader += "    for(int i=0; i<shadowSamples; i++)\n";
+//  shader += "      {\n";  
+//  shader += "    	 float r = 1.0+i*0.11;\n";
+//  shader += "            float x = r*sin(radians(i*23));\n";
+//  shader += "            float y = r*cos(radians(i*23));\n";
+//  shader += "    	 vec2 pos = spos + vec2(x,y);\n";
+//  shader += "    	 vec4 tmp = texture2DRect(colorTex, pos);\n";
+//  shader += "            float inShadow = float(int(mod(tmp.a,10000.0))/1000);\n";
+//  shader += "    	 sumS += pow(1.0-float(i)/float(shadowSamples), 0.25)*step(0.001,inShadow);\n";
+//  shader += "      }\n";  
+  
+
+  shader += "    float sumG = 0.0;\n";
+  shader += "    vec3 clrG = vec3(0.0);\n";
+  shader += "    float nValley = 0.0;\n";
+
+  shader += "    int nsteps = int(40.0*min(10.0,softshadow) + 10.0);\n";
+
+  //---------------
+  // fibonacci spiral sampling
+  shader += "    float shift = 1.0;\n";
+  shader += "    float ga = 180*(3.0-sqrt(5.0));\n";
+  shader += "    float boundary = round(2*sqrt(nsteps));\n";
+  shader += "    for(int i=0; i<nsteps; i++)\n";
+  shader += "      {\n";  
+  shader += "        float r = sqrt(i+0.5)/(nsteps-0.5*(boundary+1));\n";
+  shader += "        r *= 30*min(10.0,softshadow);\n";
+  shader += "        float phi = ga*(i+shift);\n";
+  shader += "        float x = r*sin(radians(phi));\n";
+  shader += "        float y = r*cos(radians(phi));\n";
+
+  shader += "        vec2 pos = spos + vec2(x,y);\n";
+  shader += "        vec3 adepth = texture2DRect(depthTex, pos).xyz;\n";
+  
+  shader += "        float zdif = depth-adepth.x;\n";
+
+  shader += "        float vnearEnough = clamp(zdif, vstart, vend);\n";
+  shader += "        vnearEnough = 1.0 - (vnearEnough-vstart)/vint;\n";
+  shader += "        nValley += max(0.0,zdif)*vnearEnough*(1.0-0.9*float(i)/float(nsteps));\n";
+  
+  // get contributions for glowing surfaces
+  shader += "        float sr = step(0.001, adepth.y);\n";
+  shader += "        sumG += sr;\n";
+  shader += "        vec4 tmp = texture2DRect(colorTex, pos);\n";
+  shader += "        clrG += sr*tmp.rgb;\n";
+  shader += "      }\n";  
+  //---------------
+
+  
+//  //---------------
+//  // add glow
+  shader += "    clrG /= vec3(max(1.0,sumG));\n";
+  shader += "    float gl = sumG/float(nsteps);\n";
+  shader += "    color.rgb = mix(color.rgb, pow(clrG, vec3(1.0/max(0.1,gl))), 0.1*gl);\n";
+//  //---------------
 
 
+  //---------------
+  // add valley-1
+  shader += "    float valley1 = pow(exp(-0.5*nValley), valleyIntensity*valleyIntensity);\n";
+  shader += "    color.rgb *= max(0.75, valley1);\n";
+  //---------------
+  
+ 
+  //----------------------
+  // add edges-1
+  //shader += "    color.rgb = mix(color.rgb, dedge*color.rgb, pow(edges,0.5));\n";
+  shader += "    color.rgb = pow(color.rgb,vec3(1.0-0.75*bedge));\n";
+  //----------------------
 
-  shader += "  if (roughness > 0.0)\n";
+
+//  //----------------------
+//  // add shadow
+//  shader += "    sumS /= float(shadowSamples);\n";
+//  shader += "    float shadow = sumS;\n";
+//  shader += "    float shadows = exp(-shadow*shadowIntensity*shadowIntensity);\n";
+//  shader += "    color.rgb *= max(0.5,shadows);\n";
+//  //----------------------
+
+
+  //---------------
+  // add valley-2
+  shader += "    float valley2 = pow(exp(-0.5*nValley), valleyIntensity*valleyIntensity);\n";
+  shader += "    color.rgb *= max(0.5, valley2);\n";
+  //---------------
+  
+
+  
+  //---------------
+  // add reflected glow to non glowing region
+  shader += "    color.rgb = mix(color.rgb, clrG, step(dtex.y, 0.001)*pow(gl,0.5));\n";
+  //---------------
+ 
+  
+  shader += "  }\n";
+
+  
+  //----------------------
+  // specular highlights on top
+  //----------------------
+  // specular highlights
+  shader += "  vec3 shine = vec3(0.0);\n";
   shader += "  {\n";
   shader += "    float dx = 0.0;\n";
   shader += "    float dy = 0.0;\n";
-  shader += "    for(int i=0; i<10*gamma; i++)\n";
+  shader += "    for(int i=0; i<2; i++)\n";
   shader += "      {\n";
-  shader += "        float offset = 1-mod(1+i,3);\n";
-  shader += "        dx += texture2DRect(depthTex, spos.xy+vec2(1+i,offset)).x -\n";
-  shader += "              texture2DRect(depthTex, spos.xy-vec2(1+i,offset)).x;\n";
-  shader += "        dy += texture2DRect(depthTex, spos.xy+vec2(offset,1+i)).x -\n";
-  shader += "              texture2DRect(depthTex, spos.xy-vec2(offset,1+i)).x;\n";
+  shader += "        dx += texture2DRect(depthTex, spos.xy+vec2(1+i,0.0)).x -\n";
+  shader += "              texture2DRect(depthTex, spos.xy-vec2(1+i,0.0)).x;\n";
+  shader += "        dy += texture2DRect(depthTex, spos.xy+vec2(0.0,1+i)).x -\n";
+  shader += "              texture2DRect(depthTex, spos.xy-vec2(0.0,1+i)).x;\n";
   shader += "      }\n";
-  shader += "    vec3 N = normalize(vec3(dx*50, dy*50, 1.0+roughness));\n";
-  //shader += "    vec3 spec = shadingSpecularGGX(N, vec3(0,0,1),  vec3(0,0,1), roughness, ocolor);\n";
-  //shader += "    color.rgb += 0.5*specular*spec;\n";
+  shader += "    vec3 N = normalize(vec3(dx*100*(1.0+0.05*depth), dy*100*(1.0+0.05*depth), 0.25*(1.0-0.5*roughness)));\n";
   shader += "    float specCoeff = 512.0/mix(0.1, 64.0, roughness*roughness);\n";
-  shader += "    float shine = specular * pow(N.z, specCoeff);\n";
-  shader += "    color.rgb = mix(color.rgb, pow(color.rgb, vec3(1.0-shine)), vec3(shine));\n";
+  shader += "    shine = 0.5 * specular * vec3(pow(N.z, specCoeff));\n";
+  //shader += "    color.rgb = pow(color.rgb,vec3(1.0)-0.25*shine);\n";
   shader += "  }\n";
+  //----------------------
+   
+  shader += "    color.rgb = mix(color.rgb, color.rgb+shine, color.rgb);\n";
+  //----------------------
   
 
+  //----------------------
+  // darken if required
+  shader += "  if (darken < 1.0)\n";
+  shader += "  {\n";
+  shader += "    vec3 outputColor = rgb2hsv(color.rgb);\n";
+  shader += "    outputColor.yz *= darken;\n";
+  shader += "    color.rgb = hsv2rgb(outputColor.xyz);\n";
+  shader += "  }\n";
+  //----------------------
+
   shader += " color.rgb = clamp(color.rgb, vec3(0.0), vec3(1.0));\n";
-  
-  
+
+  shader += " color.rgb = pow(color.rgb, vec3(1.0/gamma));\n";
+
+
   shader += "}\n";
 
   return shader;
 }
+
 
 
 //----------------------------

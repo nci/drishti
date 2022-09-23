@@ -117,7 +117,6 @@ class MainWindow : public QMainWindow
    void on_actionBoundingBox_triggered();
 
    void on_actionHiresMode_triggered();
-   void on_actionRaycastMode_triggered();
    void on_actionNormal_triggered();
    void on_actionLow_triggered();
    void on_actionVeryLow_triggered();

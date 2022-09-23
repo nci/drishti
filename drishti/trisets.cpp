@@ -35,7 +35,7 @@ Trisets::Trisets()
   memset(&m_scrGeo[0], 0, 8*sizeof(float));
 
   m_solidTexName.clear();
-  m_solidTexData.clear();
+  //m_solidTexData.clear();
   m_solidTex = 0;
   
   m_lightDir = Vec(0.1,0.1,1);
@@ -68,11 +68,11 @@ Trisets::~Trisets()
       delete [] m_solidTex;
       m_solidTex = 0;
       m_solidTexName.clear();
-      foreach(uchar* td, m_solidTexData)
-	{
-	  delete [] td;
-	}
-      m_solidTexData.clear();
+//      foreach(uchar* td, m_solidTexData)
+//	{
+//	  delete [] td;
+//	}
+//      m_solidTexData.clear();
     }
 }
 
@@ -207,6 +207,11 @@ Trisets::meshGrabbed()
     }
 }
 
+void
+Trisets::refreshGrab()
+{
+  setGrab(m_grab);
+}
 
 void
 Trisets::setGrab(bool flag)
@@ -417,7 +422,7 @@ Trisets::addMesh(QString flnm)
   else
     delete tg;
 
-  loadSolidTextures();
+  loadMatCapTextures();
 }
 
 void
@@ -646,18 +651,15 @@ Trisets::render(Camera *camera, int nclip)
 	  
 	  glUniform1f(meshShaderParm[17], i+1);
 	  
-	  Vec pat = m_trisets[i]->pattern();
-	  if (pat.x > 0.5)
+	  int matId = m_trisets[i]->material();
+	  glUniform1i(meshShaderParm[18], matId);
+	  if (matId > 0)
 	    {
-	      glUniform3f(meshShaderParm[18], pat.x, pat.y, pat.z);
-	      int patId = qCeil(pat.x) - 1;
 	      glActiveTexture(GL_TEXTURE1);
-	      glEnable(GL_TEXTURE_3D);
-	      glBindTexture(GL_TEXTURE_3D, m_solidTex[patId]);
-	      glUniform1i(meshShaderParm[19], 1); // solidTex
+	      glEnable(GL_TEXTURE_2D);
+	      glBindTexture(GL_TEXTURE_2D, m_solidTex[matId-1]);
+	      glUniform1i(meshShaderParm[19], 1); // matcapTex
 	    }
-	  else
-	    glUniform3f(meshShaderParm[18], 0,0,0);
 	  
 	  if (m_trisets[i]->clip())
 	    {
@@ -682,10 +684,10 @@ Trisets::render(Camera *camera, int nclip)
 			     m_trisets[i]->grabsMouse());
 	  
 	  
-	  if (pat.x > 0.5)
+	  if (matId > 0)
 	    {
 	      glActiveTexture(GL_TEXTURE1);
-	      glDisable(GL_TEXTURE_3D);
+	      glDisable(GL_TEXTURE_2D);
 	    }
 	  
 	  
@@ -754,6 +756,8 @@ Trisets::draw(QGLViewer *viewer,
   float sceneRadius = trisetExtent;
 
   Vec vd = viewer->camera()->viewDirection();
+  Vec rightVec = viewer->camera()->rightVector();
+  Vec upVec = viewer->camera()->upVector();
   
 
   glUseProgram(ShaderFactory::meshShader());
@@ -764,6 +768,8 @@ Trisets::draw(QGLViewer *viewer,
   glUniform1f(meshShaderParm[12], sceneRadius);
 
   glUniform3f(meshShaderParm[1], vd.x, vd.y, vd.z); // view direction
+  glUniform3f(meshShaderParm[25], rightVec.x, rightVec.y, rightVec.z);
+  glUniform3f(meshShaderParm[26], upVec.x, upVec.y, upVec.z);
 
 
   //--------------------------------------------
@@ -871,6 +877,12 @@ Trisets::draw(QGLViewer *viewer,
   renderOutline(drawFboId, viewer, nclip, sceneRadius);
   //--------------------------------------------
 
+  //--------------------------------------------
+  // draw outline for grabbed surface if any
+  if (m_grab || m_multiActive.count() > 0)
+    renderGrabbedOutline(drawFboId, viewer);
+  //--------------------------------------------
+
 }
 
 void
@@ -949,11 +961,7 @@ Trisets::renderShadows(GLint drawFboId, int wd, int ht)
   glActiveTexture(GL_TEXTURE2);
   glEnable(GL_TEXTURE_RECTANGLE);
   glBindTexture(GL_TEXTURE_RECTANGLE, m_depthTex[2]); // colors
-  
-//  glActiveTexture(GL_TEXTURE3);
-//  glEnable(GL_TEXTURE_RECTANGLE);
-//  glBindTexture(GL_TEXTURE_RECTANGLE, m_depthTex[3]); // depth
-  
+    
   QMatrix4x4 mvp;
   mvp.setToIdentity();
   mvp.ortho(0.0, wd, 0.0, ht, 0.0, 1.0);
@@ -969,7 +977,7 @@ Trisets::renderShadows(GLint drawFboId, int wd, int ht)
   glUniform1f(shadowParm[6], roughness); // specularity
   glUniform1f(shadowParm[7], m_trisets[0]->specular()); // specularity
   glUniform1i(shadowParm[8], 2); // shadow colors
-  //glUniform1i(shadowParm[9], 3); // shadow depth
+  
   
   glEnableVertexAttribArray(0);
   glBindBuffer(GL_ARRAY_BUFFER, m_vertexScreenBuffer);
@@ -990,9 +998,6 @@ Trisets::renderShadows(GLint drawFboId, int wd, int ht)
   glDisable(GL_TEXTURE_RECTANGLE);
   
   glActiveTexture(GL_TEXTURE2);
-  glDisable(GL_TEXTURE_RECTANGLE);
-  
-  glActiveTexture(GL_TEXTURE3);
   glDisable(GL_TEXTURE_RECTANGLE);
   
   glUseProgram(0);
@@ -1083,11 +1088,11 @@ Trisets::handleDialog(int i)
   plist["clip"] = vlist;
 
   
-  Vec pat = m_trisets[i]->pattern();
-  vlist.clear();
-  vlist << QVariant("string");
-  vlist << QVariant(QString("%1 %2 %3").arg(pat.x).arg(pat.y).arg(pat.z));
-  plist["pattern"] = vlist;
+//  Vec pat = m_trisets[i]->pattern();
+//  vlist.clear();
+//  vlist << QVariant("string");
+//  vlist << QVariant(QString("%1 %2 %3").arg(pat.x).arg(pat.y).arg(pat.z));
+//  plist["pattern"] = vlist;
   
 
   vlist.clear();
@@ -1141,7 +1146,7 @@ Trisets::handleDialog(int i)
   keys << "outline";
   keys << "glow";
   keys << "darken on glow";
-  keys << "pattern";
+  //keys << "pattern";
   keys << "commandhelp";
   keys << "command";
   keys << "message";
@@ -1226,28 +1231,28 @@ Trisets::handleDialog(int i)
 	    }
 	  else if (keys[ik] == "clip")
 	    m_trisets[i]->setClip(pair.first.toBool());
-	  else if (keys[ik] == "pattern")
-            {
-	      QString vstr = pair.first.toString();
-	      QStringList pat = vstr.split(" ");
-	      if (pat.count() > 0)
-                {
-                  int texId = pat[0].toDouble();
-                  if (texId < 0 || texId > m_solidTexData.count())
-		    {
-		      QMessageBox::information(0, "", QString("Pattern id %1 is outside range 0-%1").\
-					       arg(texId).\
-					       arg(m_solidTexData.count()));
-		      return true;
-		    }
-		  if (pat.count() == 1)
-		    m_trisets[i]->setPattern(Vec(pat[0].toDouble(), 10, 0.5));
-		  else if (pat.count() == 3)
-		    m_trisets[i]->setPattern(Vec(pat[0].toDouble(),
-						 pat[1].toDouble(),
-						 pat[2].toDouble()));
-                }
-	    }
+//	  else if (keys[ik] == "pattern")
+//            {
+//	      QString vstr = pair.first.toString();
+//	      QStringList pat = vstr.split(" ");
+//	      if (pat.count() > 0)
+//                {
+//                  int texId = pat[0].toDouble();
+//                  if (texId < 0 || texId > m_solidTexName.count())
+//		    {
+//		      QMessageBox::information(0, "", QString("Pattern id %1 is outside range 0-%1").\
+//					       arg(texId).\
+//					       arg(m_solidTexName.count()));
+//		      return true;
+//		    }
+//		  if (pat.count() == 1)
+//		    m_trisets[i]->setPattern(Vec(pat[0].toDouble(), 10, 0.5));
+//		  else if (pat.count() == 3)
+//		    m_trisets[i]->setPattern(Vec(pat[0].toDouble(),
+//						 pat[1].toDouble(),
+//						 pat[2].toDouble()));
+//                }
+//	    }
 	}
     }
   
@@ -1411,15 +1416,15 @@ Trisets::keyPressEvent(QKeyEvent *event)
     m_trisets[idx]->setMoveAxis(TrisetGrabber::MoveZ);
   else if (event->key() == Qt::Key_W)
     m_trisets[idx]->setMoveAxis(TrisetGrabber::MoveAll);
-  else if (event->key() == Qt::Key_Delete ||
-	   event->key() == Qt::Key_Backspace ||
-	   event->key() == Qt::Key_Backtab)
-    {
-      m_trisets[idx]->setMouseGrab(false);
-      m_trisets[idx]->removeFromMouseGrabberPool();
-      m_trisets.removeAt(idx);
-      emit resetBoundingBox();
-    }
+//  else if (event->key() == Qt::Key_Delete ||
+//	   event->key() == Qt::Key_Backspace ||
+//	   event->key() == Qt::Key_Backtab)
+//    {
+//      m_trisets[idx]->setMouseGrab(false);
+//      m_trisets[idx]->removeFromMouseGrabberPool();
+//      m_trisets.removeAt(idx);
+//      emit resetBoundingBox();
+//    }
   else if (event->key() == Qt::Key_Space)
     handleDialog(idx);
   
@@ -2114,14 +2119,17 @@ Trisets::getMeshList()
       QString color = QColor::fromRgbF(pcolor.x,
 				       pcolor.y,
 				       pcolor.z).name();
+
+      int matId = m_trisets[i]->material();
       
-      names << QString("%1 %2 %3 %4 %5 %6 %7").\
+      names << QString("%1 %2 %3 %4 %5 %6 %7 %8").\
 	arg((int)nm.length(), 5, 10, QChar(' ')).\
 	arg(nm).\
 	arg(show).\
 	arg(clip).\
 	arg(color).\
-	arg(m_trisets[i]->vertexCount()).\
+	arg(matId).\
+	arg(m_trisets[i]->vertexCount()).	\
 	arg(m_trisets[i]->triangleCount());
 
     }
@@ -2138,7 +2146,7 @@ Trisets::set(QList<TrisetInformation> tinfo)
       return;
     }
 
-  loadSolidTextures();
+  loadMatCapTextures();
     
   if (m_trisets.count() == 0)
     {
@@ -2215,6 +2223,8 @@ Trisets::set(QList<TrisetInformation> tinfo)
     }
 
   tg.clear();
+
+  emit updateMeshList(getMeshList());
 }
 
 void
@@ -2318,17 +2328,15 @@ Trisets::createFBO(int wd, int ht)
 }
 
 void
-Trisets::loadSolidTextures()
+Trisets::loadMatCapTextures()
 {  
   if (m_solidTexName.count() > 0)
     return;
-
-  
-  //QString texdir = qApp->applicationDirPath() + QDir::separator() + "textures";
-  QString texdir = qApp->applicationDirPath() + QDir::separator()  + "assets" + QDir::separator() + "textures";
+    
+  QString texdir = qApp->applicationDirPath() + QDir::separator()  + "assets" + QDir::separator() + "matcap";
   QDir dir(texdir);  
   QStringList filters;
-  filters << "*.tex";
+  filters << "*.png";
   dir.setNameFilters(filters);
   dir.setFilter(QDir::Files |
 		QDir::NoSymLinks |
@@ -2339,54 +2347,51 @@ Trisets::loadSolidTextures()
   if (list.size() == 0)
     return;
 
+  
+  m_solidTex = new GLuint[list.size()];
+  glGenTextures(list.size(), m_solidTex);
+  
+  QRandomGenerator::global()->bounded(0,list.size()-1);
+
   int texSize;
-  QString flnms;
   for (int i=0; i<list.size(); i++)
     {
       QString flnm = list.at(i).absoluteFilePath();
       m_solidTexName << flnm;
-
-      QFile fd(flnm);
-      fd.open(QFile::ReadOnly);
-
-      int vs;
-      fd.read((char*)&vs, 4);
-
-      texSize = vs; // assuming all textures are of same size
       
-      uchar *td = new uchar[vs*vs*vs*3];
-      fd.read((char*)td, vs*vs*vs*3);
-      fd.close();
+      QImage img(flnm);
+      img = img.rgbSwapped();
+      texSize = img.width();
+      int ht = img.height();
+      int wd = img.width();
+      int nbytes = img.byteCount();
+      int rgb = nbytes/(wd*ht);
 
-      m_solidTexData << td;
-      
-      flnms += flnm;
-      flnms += "\n";
-    }
-  
-  m_solidTex = new GLuint[m_solidTexData.count()];
-  glGenTextures(m_solidTexData.count(), m_solidTex);
-  
-  for (int i=0; i<m_solidTexData.count(); i++)
-    {
+      GLuint fmt;
+      if (rgb == 1) fmt = GL_LUMINANCE;
+      else if (rgb == 2) fmt = GL_LUMINANCE_ALPHA;
+      else if (rgb == 3) fmt = GL_RGB;
+      else if (rgb == 4) fmt = GL_RGBA;
+
       glActiveTexture(GL_TEXTURE1);
-      glEnable(GL_TEXTURE_3D);
-      glBindTexture(GL_TEXTURE_3D, m_solidTex[i]);
-      glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER); 
-      glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER); 
-      glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
-      glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-      glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-      glTexImage3D(GL_TEXTURE_3D,
+      glEnable(GL_TEXTURE_2D);
+      glBindTexture(GL_TEXTURE_2D, m_solidTex[i]);
+      glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER); 
+      glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER); 
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glTexImage2D(GL_TEXTURE_2D,
 		   0, // single resolution
-		   GL_RGB,
-		   texSize, texSize, texSize,
+		   rgb,
+		   texSize, texSize,
 		   0, // no border
-		   GL_RGB,
+		   fmt,
 		   GL_UNSIGNED_BYTE,
-		   m_solidTexData[i]);
-      glDisable(GL_TEXTURE_3D);
+		   img.bits());
+      glDisable(GL_TEXTURE_2D);
     }
+
+  emit matcapFiles(m_solidTexName);
 }
 
 
@@ -2424,6 +2429,191 @@ Trisets::bindOITTextures()
   glBlendFunci(0, GL_ONE, GL_ONE);
   glBlendFunci(1, GL_ZERO, GL_ONE_MINUS_SRC_COLOR);
 }
+
+void
+Trisets::renderGrabbedOutline(GLint drawFboId, QGLViewer *viewer)
+{
+  bool opOn = false;
+  for(int i=0; i<m_trisets.count();i++)
+    {      
+      //if (i == m_active || m_trisets[i]->grabsMouse())
+      if (m_multiActive.count() > 0 || m_trisets[i]->grabsMouse())
+	{
+	  opOn = true;
+	  break;
+	}
+    }
+
+  if (!opOn)
+    return;
+
+  
+  Vec bgcolor = Global::backgroundColor();
+  float bgintensity = (0.3*bgcolor.x +
+		       0.5*bgcolor.y +
+		       0.2*bgcolor.z);
+  
+  
+  glDisable(GL_BLEND);
+  
+  glBindFramebuffer(GL_FRAMEBUFFER, m_depthBuffer);
+  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			 GL_COLOR_ATTACHMENT0,
+			 GL_TEXTURE_RECTANGLE,
+			 m_depthTex[0],
+			 0);
+  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+			 GL_COLOR_ATTACHMENT1,
+			 GL_TEXTURE_RECTANGLE,
+			 m_depthTex[1],
+			 0);
+  GLenum buffers[2] = { GL_COLOR_ATTACHMENT0_EXT,
+			GL_COLOR_ATTACHMENT1_EXT };
+  glDrawBuffersARB(2, buffers);
+  
+  glClearDepth(1);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  
+  glDisable(GL_BLEND);  
+
+  float otln = 0.1;
+  if (bgintensity > 0.5)
+    otln = 0.2;
+  
+  for(int i=0; i<m_trisets.count();i++)
+    {      
+      int actv = i==m_active ? 1 : 0;
+      if (m_multiActive.count() > 1)
+	actv += m_multiActive.contains(i) ? 1 : 0;
+      
+      //if (i == m_active || m_trisets[i]->grabsMouse())
+      if (actv > 0  || m_trisets[i]->grabsMouse())
+	{
+	  glUseProgram(ShaderFactory::meshShader());
+	  GLint *meshShaderParm = ShaderFactory::meshShaderParm();        
+	  
+	  glUniform1f(meshShaderParm[17], i+1);
+
+	  // no patterns
+	  glUniform1i(meshShaderParm[18], 0);	  
+	  // force no clipping
+	  glUniform1iARB(meshShaderParm[9],  0);
+	  
+	  //---
+	  float ot = m_trisets[i]->outline();
+	  float op = m_trisets[i]->opacity();
+
+	  m_trisets[i]->setOutline(ot+otln);
+
+	  if (ot < 0.05)
+	    m_trisets[i]->setOpacity(0.0);
+	  else
+	    m_trisets[i]->setOpacity(0.7);
+	  
+//	  if (m_trisets[i]->grabsMouse())
+//	    m_trisets[i]->setOutline(ot+0.5);
+	    
+	  
+	  m_trisets[i]->draw(viewer->camera(),
+			     m_trisets[i]->grabsMouse());
+
+	  
+	  m_trisets[i]->setOutline(ot);
+	  m_trisets[i]->setOpacity(op);
+	  //---	  
+	  
+	  glUseProgramObjectARB(0);
+	}
+    }
+ 
+
+
+  glBindFramebuffer(GL_FRAMEBUFFER, drawFboId);
+
+  glDisable(GL_DEPTH_TEST);
+  glEnable(GL_BLEND);
+  //glBlendFunc(GL_ONE, GL_ZERO);
+  glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+
+  
+  Vec grabbedColor = Vec(1,0,0);
+
+  
+
+  glUseProgram(ShaderFactory::outlineShader());
+  GLint *outlineParm = ShaderFactory::outlineShaderParm();        
+
+  
+  glActiveTexture(GL_TEXTURE0);
+  glEnable(GL_TEXTURE_RECTANGLE);
+  glBindTexture(GL_TEXTURE_RECTANGLE, m_depthTex[0]); // colors
+  
+  glActiveTexture(GL_TEXTURE1);
+  glEnable(GL_TEXTURE_RECTANGLE);
+  glBindTexture(GL_TEXTURE_RECTANGLE, m_depthTex[1]); // depth
+  
+  
+  int wd = viewer->camera()->screenWidth();
+  int ht = viewer->camera()->screenHeight();
+  QMatrix4x4 mvp;
+  mvp.setToIdentity();
+  mvp.ortho(0.0, wd, 0.0, ht, 0.0, 1.0);
+  
+  
+  glUniformMatrix4fv(outlineParm[0], 1, GL_FALSE, mvp.data());
+  
+  glUniform1i(outlineParm[1], 0); // colors
+  glUniform1i(outlineParm[2], 1); // actual-to-shadow depth
+
+  //glUniform1f(outlineParm[5], Global::gamma()); // edge enhancement
+
+  if (bgintensity > 0.5)
+    {
+      glUniform1f(outlineParm[3], 0); // do not change outline color
+      glUniform1f(outlineParm[5], 0.25*bgintensity); // gamma
+    }
+  else
+    {
+      glUniform1f(outlineParm[3], 20); // change outline color
+      glUniform1f(outlineParm[5], 0.25+0.5*bgintensity); // gamma
+    }
+ 
+  glUniform1f(outlineParm[4], 1.0); // edge enhancement
+  glUniform1f(outlineParm[6], 0.0); // roughness
+  glUniform1f(outlineParm[7], m_trisets[0]->specular()); // specularity
+  glUniform1f(outlineParm[10], 0); // shadowIntensity
+  glUniform1f(outlineParm[11], 0); // valleyIntensity
+  glUniform1f(outlineParm[12], 0); // peakIntensity);
+  glUniform3f(outlineParm[13], grabbedColor.x, grabbedColor.y, grabbedColor.z); // grabbed color
+
+  glEnableVertexAttribArray(0);
+  glBindBuffer(GL_ARRAY_BUFFER, m_vertexScreenBuffer);
+  glVertexAttribPointer(0,  // attribute 0
+			2,  // size
+			GL_FLOAT, // type
+			GL_FALSE, // normalized
+			0, // stride
+			(void*)0 ); // array buffer offset
+  glDrawArrays(GL_QUADS, 0, 8);
+  
+  glDisableVertexAttribArray(0);
+  
+  glActiveTexture(GL_TEXTURE1);
+  glDisable(GL_TEXTURE_RECTANGLE);
+  
+  glActiveTexture(GL_TEXTURE0);
+  glDisable(GL_TEXTURE_RECTANGLE);
+    
+  glUseProgram(0);
+
+  glDisable(GL_BLEND);
+
+  glEnable(GL_DEPTH_TEST);  
+
+  glDepthMask(GL_TRUE);
+
+}
+
 
 void
 Trisets::renderTransparent(GLint drawFboId,
@@ -2464,8 +2654,12 @@ Trisets::renderTransparent(GLint drawFboId,
   GLint *oitShaderParm = ShaderFactory::oitShaderParm();        
   
   Vec vd = viewer->camera()->viewDirection();
+  Vec rightVec = viewer->camera()->rightVector();
+  Vec upVec = viewer->camera()->upVector();
   
   glUniform3f(oitShaderParm[1], vd.x, vd.y, vd.z); // view direction
+  glUniform3f(oitShaderParm[20], rightVec.x, rightVec.y, rightVec.z);
+  glUniform3f(oitShaderParm[21], upVec.x, upVec.y, upVec.z);
 
   GLfloat mv[16];
   viewer->camera()->getModelViewMatrix(mv);
@@ -2497,18 +2691,15 @@ Trisets::renderTransparent(GLint drawFboId,
 	  
 	  glUniform1f(oitShaderParm[17], i+1);
 	  
-	  Vec pat = m_trisets[i]->pattern();
-	  if (pat.x > 0.5)
+	  int matId = m_trisets[i]->material();
+	  glUniform1i(oitShaderParm[18], matId);
+	  if (matId > 0)
 	    {
-	      glUniform3f(oitShaderParm[18], pat.x, pat.y, pat.z);
-	      int patId = qCeil(pat.x) - 1;
 	      glActiveTexture(GL_TEXTURE1);
-	      glEnable(GL_TEXTURE_3D);
-	      glBindTexture(GL_TEXTURE_3D, m_solidTex[patId]);
-	      glUniform1i(oitShaderParm[19], 1); // solidTex
+	      glEnable(GL_TEXTURE_2D);
+	      glBindTexture(GL_TEXTURE_2D, m_solidTex[matId-1]);
+	      glUniform1i(oitShaderParm[19], 1); // matcapTex
 	    }
-	  else
-	    glUniform3f(oitShaderParm[18], 0,0,0);
 	  
 	  if (m_trisets[i]->clip())
 	    {
@@ -2526,10 +2717,10 @@ Trisets::renderTransparent(GLint drawFboId,
 				m_trisets[i]->grabsMouse());
 	  
 	  
-	  if (pat.x > 0.5)
+	  if (matId > 0)
 	    {
 	      glActiveTexture(GL_TEXTURE1);
-	      glDisable(GL_TEXTURE_3D);
+	      glDisable(GL_TEXTURE_2D);
 	    }
 	  
 	  
@@ -2695,18 +2886,16 @@ Trisets::renderOutline(GLint drawFboId,
 	  
 	  glUniform1f(meshShaderParm[17], i+1);
 	  
-	  Vec pat = m_trisets[i]->pattern();
-	  if (pat.x > 0.5)
+	  int matId = m_trisets[i]->material();
+	  glUniform1i(meshShaderParm[18], matId);
+	  if (matId > 0)
 	    {
-	      glUniform3f(meshShaderParm[18], pat.x, pat.y, pat.z);
-	      int patId = qCeil(pat.x) - 1;
 	      glActiveTexture(GL_TEXTURE1);
-	      glEnable(GL_TEXTURE_3D);
-	      glBindTexture(GL_TEXTURE_3D, m_solidTex[patId]);
-	      glUniform1i(meshShaderParm[19], 1); // solidTex
+	      glEnable(GL_TEXTURE_2D);
+	      glBindTexture(GL_TEXTURE_2D, m_solidTex[matId-1]);
+	      glUniform1i(meshShaderParm[19], 1); // matcapTex
 	    }
-	  else
-	    glUniform3f(meshShaderParm[18], 0,0,0);
+
 	  
 	  if (m_trisets[i]->clip())
 	    {
@@ -2724,10 +2913,10 @@ Trisets::renderOutline(GLint drawFboId,
 			     m_trisets[i]->grabsMouse());
 	  
 	  
-	  if (pat.x > 0.5)
+	  if (matId > 0)
 	    {
 	      glActiveTexture(GL_TEXTURE1);
-	      glDisable(GL_TEXTURE_3D);
+	      glDisable(GL_TEXTURE_2D);
 	    }
 	  
 	  
@@ -2766,12 +2955,16 @@ Trisets::renderOutline(GLint drawFboId,
   
   glUniform1i(outlineParm[1], 0); // colors
   glUniform1i(outlineParm[2], 1); // actual-to-shadow depth
-  glUniform1f(outlineParm[3], Global::gamma()); // edge enhancement
-  float roughness = 0.9-m_trisets[0]->roughness()*0.1;
-  glUniform1f(outlineParm[4], roughness); // specularity
-  glUniform1f(outlineParm[5], m_trisets[0]->specular()); // specularity
-  glUniform1f(outlineParm[6], m_blur); // soft shadows
-  glUniform1f(outlineParm[7], m_edges); // edge enhancement
+  glUniform1f(outlineParm[3], m_blur); // soft shadows
+  glUniform1f(outlineParm[4], m_edges); // edge enhancement
+  glUniform1f(outlineParm[5], Global::gamma()); // edge enhancement
+  float roughness = m_trisets[0]->roughness()*0.1;
+  glUniform1f(outlineParm[6], roughness); // specularity
+  glUniform1f(outlineParm[7], m_trisets[0]->specular()); // specularity
+  glUniform1f(outlineParm[10], 0); // shadowintensity
+  glUniform1f(outlineParm[11], 0); // valleyintensity
+  glUniform1f(outlineParm[12], 0); // peakintensity
+  glUniform3f(outlineParm[13], 0,0,0); // grabbed color
   
   glEnableVertexAttribArray(0);
   glBindBuffer(GL_ARRAY_BUFFER, m_vertexScreenBuffer);
@@ -3281,6 +3474,24 @@ Trisets::colorChanged(QColor color)
 //    }
 //  m_trisets[m_active]->setColor(pcolor, ignoreBlack);
   m_trisets[m_active]->setColor(pcolor);
+  emit updateGL();
+}
+
+void
+Trisets::materialChanged(QList<int> indices, int matId )
+{
+  for (int i=0; i<indices.count(); i++)
+    {
+      int idx = indices[i];
+      m_trisets[idx]->setMaterial(matId);
+    }
+  emit updateGL();
+}
+
+void
+Trisets::materialChanged(int matId)
+{
+  m_trisets[m_active]->setMaterial(matId);
   emit updateGL();
 }
 

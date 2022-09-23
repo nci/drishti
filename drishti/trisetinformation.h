@@ -35,6 +35,7 @@ class TrisetInformation
   Vec scale;
   Quaternion q;
   Vec color;
+  int materialId;
   Vec cropcolor;
   float roughness;
   float ambient;

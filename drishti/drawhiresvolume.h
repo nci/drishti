@@ -28,7 +28,6 @@ class DrawHiresVolume : public QObject
   ~DrawHiresVolume();
 
   bool loadingData() { return m_loadingData; }
-  void setRaycastMode(bool m) { m_rcMode = m; }
   
   void setDOF(int b, float fp) { m_dofBlur = b, m_focalPoint = fp; }
   void dof(int& b, float& fp) { b = m_dofBlur, fp = m_focalPoint; }
@@ -268,7 +267,6 @@ signals :
   float m_projectionMatrix[16];
   float m_adjustedProjectionMatrix[16];
 
-  bool m_rcMode;
   bool m_loadingData;
 
   bool m_updateSubvolume;

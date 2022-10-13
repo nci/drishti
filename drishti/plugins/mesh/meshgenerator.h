@@ -15,10 +15,10 @@ using namespace qglviewer;
 enum ColorType
   {
     _FixedColor = 0,
+    _LutColor,
     _NormalColor,
     _PositionColor,
     _OcclusionColor,
-    _LutColor,
     _VRLutColor
   };
 
@@ -155,7 +155,14 @@ class MeshGenerator
   bool checkPathBlend(Vec, ushort, uchar*);
   bool checkCrop(Vec);
   bool checkBlend(Vec, ushort, uchar*);
-  void applyOpacity(int, uchar*, uchar*, uchar*);
+  void applyOpacity(int, uchar*, uchar*, uchar*,
+		    uchar*, uchar*, uchar*);
+
+  void smoothMesh(QList<Vec>&,
+		  QList<Vec>&,
+		  QList<Vec>&,
+		  int);
+
 };
 
 #endif MESHGENERATOR_H

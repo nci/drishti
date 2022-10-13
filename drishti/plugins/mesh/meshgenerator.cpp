@@ -95,9 +95,9 @@ MeshGenerator::getValues(int &isoval, float &isovalf,
   chan = 0;
   isoval = 128;
   isovalf = 0.5;
-  spread = 0;
+  spread = 1;
   depth = 1;
-  useColor = 5;
+  useColor = 1;
   fillValue = -1;
   checkForMore = true;
   lookInside = false;
@@ -107,9 +107,8 @@ MeshGenerator::getValues(int &isoval, float &isovalf,
   m_useTagColors = false;
   m_scaleModel = 1.0;
   QGradientStops vstops;
-  vstops << QGradientStop(0.0, QColor(50 ,50 ,50 ,255))
-	 << QGradientStop(0.5, QColor(200,150,100,255))
-	 << QGradientStop(1.0, QColor(255,255,255,255));
+  vstops << QGradientStop(0.0, Qt::lightGray)
+	 << QGradientStop(1.0, Qt::lightGray);
 
   if (doBorder) fillValue = 0;
 
@@ -160,12 +159,12 @@ MeshGenerator::getValues(int &isoval, float &isovalf,
   vlist << QVariant(3); // decimals
   plist["isosurface value"] = vlist;
 
-//  vlist.clear();
-//  vlist << QVariant("int");
-//  vlist << QVariant(spread);
-//  vlist << QVariant(0);
-//  vlist << QVariant(50);
-//  plist["spread"] = vlist;
+  vlist.clear();
+  vlist << QVariant("int");
+  vlist << QVariant(spread);
+  vlist << QVariant(0);
+  vlist << QVariant(10);
+  plist["mesh smoothing"] = vlist;
 
   vlist.clear();
   vlist << QVariant("int");
@@ -200,41 +199,37 @@ MeshGenerator::getValues(int &isoval, float &isovalf,
   vlist << QVariant(3); // decimals
   plist["scale"] = vlist;
 
+//  vlist.clear();
+//  vlist << QVariant("colorgradient");
+//  for(int s=0; s<vstops.size(); s++)
+//    {
+//      float pos = vstops[s].first;
+//      QColor color = vstops[s].second;
+//      int r = color.red();
+//      int g = color.green();
+//      int b = color.blue();
+//      int a = color.alpha();
+//      vlist << QVariant(pos);
+//      vlist << QVariant(r);
+//      vlist << QVariant(g);
+//      vlist << QVariant(b);
+//      vlist << QVariant(a);
+//    }
+//  plist["color gradient"] = vlist;
   vlist.clear();
-  vlist << QVariant("colorgradient");
-  for(int s=0; s<vstops.size(); s++)
-    {
-      float pos = vstops[s].first;
-      QColor color = vstops[s].second;
-      int r = color.red();
-      int g = color.green();
-      int b = color.blue();
-      int a = color.alpha();
-      vlist << QVariant(pos);
-      vlist << QVariant(r);
-      vlist << QVariant(g);
-      vlist << QVariant(b);
-      vlist << QVariant(a);
-    }
-  plist["color gradient"] = vlist;
-
+  vlist << QVariant("color");
+  vlist << QColor(Qt::white);
+  plist["color"] = vlist;
+  
   vlist.clear();
   vlist << QVariant("combobox");
-  vlist << "5";
+  vlist << "1";
   vlist << "Fixed Color";
-  vlist << "Normal Color";
-  vlist << "Position Color";
-  vlist << "Occlusion Color";
   vlist << "Lut Color";
-  vlist << "VR Lut Color";
   plist["color type"] = vlist;
   QStringList colortypes;
   colortypes << "Fixed Color";
-  colortypes << "Normal Color";
-  colortypes << "Position Color";
-  colortypes << "Occlusion Color";
   colortypes << "Lut Color";
-  colortypes << "VR Lut Color";
 
 
   vlist.clear();
@@ -289,13 +284,14 @@ MeshGenerator::getValues(int &isoval, float &isovalf,
   keys << "apply tag colors";
   keys << "mop channel";
   keys << "isosurface value";
-  //keys << "spread"; // turn of spread for the time being
+  keys << "mesh smoothing";
   keys << "depth";
   keys << "fillvalue";
   keys << "scale";
   keys << "greater";
   keys << "look inside";
-  keys << "color gradient";
+  //keys << "color gradient";
+  keys << "color";
   keys << "color type";
   keys << "commandhelp";
   keys << "message";
@@ -324,13 +320,20 @@ MeshGenerator::getValues(int &isoval, float &isovalf,
 	    m_useTagColors = pair.first.toBool();
 	  else if (keys[ik] == "mop channel")
 	    chan = pair.first.toInt();
-	  else if (keys[ik] == "color gradient")
-	    vstops = propertyEditor.getGradientStops(keys[ik]);
+//	  else if (keys[ik] == "color gradient")
+//	    vstops = propertyEditor.getGradientStops(keys[ik]);
+	  else if (keys[ik] == "color")
+	    {
+	      QColor col = pair.first.value<QColor>();
+	      vstops.clear();
+	      vstops << QGradientStop(0.0, col);
+	      vstops << QGradientStop(1.0, col);
+	    }
 	  else if (keys[ik] == "isosurface value")
 	    isovalf = pair.first.toFloat();
 	  else if (keys[ik] == "scale")
 	    m_scaleModel = pair.first.toFloat();
-	  else if (keys[ik] == "spread")
+	  else if (keys[ik] == "mesh smoothing")
 	    spread = pair.first.toInt();
 	  else if (keys[ik] == "depth")
 	    depth = pair.first.toInt();
@@ -343,7 +346,7 @@ MeshGenerator::getValues(int &isoval, float &isovalf,
 	  else if (keys[ik] == "color type")
 	    {
 	      useColor = pair.first.toInt();
-	      useColor = qBound(0, useColor, 4);
+	      useColor = qBound(0, useColor, 1);
 	    }
 	}
     }
@@ -354,16 +357,6 @@ MeshGenerator::getValues(int &isoval, float &isovalf,
 
     
   stops = resampleGradientStops(vstops);
-  if (useColor < _OcclusionColor)
-    spread = depth = 0;
-  else if (useColor == _OcclusionColor)
-    {
-      if (spread == 0)
-	{
-	  QMessageBox::information(0, "", "For Occlusion Color spread should be greater than 0");
-	  return false;
-	}
-    }
 
   return true;
 }
@@ -448,7 +441,6 @@ MeshGenerator::start(VolumeFileManager *vfm,
 		  avgColor))
     return "";
 
-
   m_meshLog = new QTextEdit;
   m_meshProgress = new QProgressBar;
 
@@ -466,13 +458,13 @@ MeshGenerator::start(VolumeFileManager *vfm,
   meshWindow->resize(700, 300);
 
 
-  float memGb = 5.0;
+  float memGb = 8.0;
   if (!m_batchMode)
     memGb = QInputDialog::getDouble(0,
 				    "Use memory",
 				    "Max memory we can use (GB)", memGb, 0.1, 1000, 2);
   else
-    memGb = 5.0; // for batch mode assume 5GB
+    memGb = 8.0; // for batch mode assume 5GB
 
   qint64 gb = 1024*1024*1024;
   qint64 memsize = memGb*gb; // max memory we can use (in GB)
@@ -853,7 +845,13 @@ MeshGenerator::getLutColor(uchar *volData,
 	  if (m_voxelType == 0)
 	    {
 	      v = volData[k*m_nY*m_nZ + j*m_nZ + i];
-	      gr = 0;
+
+	      int a = volData[k*m_nY*m_nZ + j*m_nZ + qMin(m_nZ-1,i+1)] - volData[k*m_nY*m_nZ + j*m_nZ + qMax(0,i-1)];
+	      int b = volData[k*m_nY*m_nZ + qMin(m_nY-1,j+1)*m_nZ + i] - volData[k*m_nY*m_nZ + qMax(0,j-1)*m_nZ + i];
+	      int c = volData[qMin(dlen+2*nextra-1,k+1)*m_nY*m_nZ + j*m_nZ + i] - volData[qMax(0,k-1)*m_nY*m_nZ + j*m_nZ + i];
+
+	      gr = qMin(256, int(qSqrt(a*a+b*b+c*c)));
+	      //gr = 0;
 	    }
 	  else
 	    {
@@ -964,9 +962,13 @@ MeshGenerator::getLutColor(uchar *volData,
       gpos += normal;
     }
 
+  
+  if (tota < 0.01) // if total opacity is 0, set white color 
+    rgb = Vec(1,1,1);
+
   if (tota < 0.01) tota = 1.0;
   rgb /= tota;    
-
+    
   //-------------------
   // apply ambient occlusion
   if (spread > 0)
@@ -984,6 +986,7 @@ MeshGenerator::getLutColor(uchar *volData,
   //-------------------
 
   rgb *= 255;
+
   QColor col = QColor(rgb.x, rgb.y, rgb.z);
 
   return col;
@@ -1183,7 +1186,8 @@ void
 MeshGenerator::applyOpacity(int iv,
 			    uchar* cropped,
 			    uchar* lut,
-			    uchar* tmp)
+			    uchar* tmp,
+			    uchar* tmp0, uchar* tmp1, uchar* tmp2)
 {
   int jk = 0;
   for(int j=0; j<m_nY; j++)
@@ -1193,9 +1197,9 @@ MeshGenerator::applyOpacity(int iv,
 	  {
 	    int v;
 	    if (m_voxelType == 0)
-	      v = tmp[jk];
+	      v = tmp1[jk];
 	    else
-	      v = ((ushort*)tmp)[jk];
+	      v = ((ushort*)tmp1)[jk];
 
 	    int tfSet = 0;
 
@@ -1238,7 +1242,18 @@ MeshGenerator::applyOpacity(int iv,
 	    float mop = cropped[jk]/255.0;
 	    float opac = 0;
 	    if (m_voxelType == 0)
-	      opac = mop*lut[tfSet + 4*v + 3];
+	      {
+		// using the gradient to calculate the opacity
+		int a = tmp1[qMin(m_nY,j+1)*m_nZ]-tmp1[qMax(0, j-1)*m_nZ];
+		int b = tmp1[j*m_nZ + qMin(m_nZ,k+1)]-tmp1[j*m_nZ + qMax(0, k-1)];
+		int c = tmp2[j*m_nZ + k]-tmp0[j*m_nZ + k];
+		int gr = qMin(256,int(qSqrt(a*a + b*b + c*c)));
+		  
+		opac = mop*lut[tfSet + 4*(256*gr + v) + 3];
+
+		// ignoring gradient to calculate opacity
+		//opac = mop*lut[tfSet + 4*v + 3];
+	      }
 	    else
 	      {
 		int a = v%256;
@@ -1391,12 +1406,6 @@ MeshGenerator::generateMesh(int nSlabs,
 //	saveIntermediate = true;
 //    }
 
-  QGradientStops lutstops;
-  for(int i=0; i<255; i++)
-    {
-      QColor col(lut[4*i+0], lut[4*i+1], lut[4*i+2], lut[4*i+3]);
-      lutstops << QGradientStop((float)i/(float)255.0f, col);
-    }
   
   bool trim = (qRound(m_dataSize.x) < m_height ||
 	       qRound(m_dataSize.y) < m_width ||
@@ -1425,9 +1434,11 @@ MeshGenerator::generateMesh(int nSlabs,
       if (m_paths[i].crop()) m_pathCropPresent = true;
     }
 
-  int nextra = qMax(spread, depth);
+  //int nextra = qMax(spread, depth);
+  int nextra = 0;
   if (useOpacity && smoothOpacity)
-    nextra = qMax(5, nextra); // using 11x11x11 box kernel
+    nextra = 2; // using 5x5x5 box kernel
+    //nextra = qMax(5, nextra); // using 11x11x11 box kernel
   int blockStep = m_nX/nSlabs;
   int ntriangles = 0;
   int nvertices = 0;
@@ -1453,13 +1464,21 @@ MeshGenerator::generateMesh(int nSlabs,
 	gData = new uchar[(dlen+2*nextra)*m_nY*m_nZ];
 
       int *oData=0;
-      if (spread > 0 && useColor >= _OcclusionColor)
+      if (spread > 0 && useColor == _LutColor)
 	oData = new int[(dlen+2*nextra)*m_nY*m_nZ];
 
       uchar *cropped = new uchar[nbytes];
       uchar *tmp = new uchar[nbytes];
-
+      uchar *tmp0 = new uchar[nbytes];
+      uchar *tmp1 = new uchar[nbytes];
+      uchar *tmp2 = new uchar[nbytes];
+      memset(tmp,  0, nbytes);
+      memset(tmp0, 0, nbytes);
+      memset(tmp1, 0, nbytes);
+      memset(tmp2, 0, nbytes);
+      
       int i0 = 0;
+      int i0end = d1z-d0z+2*nextra;
       for(int i=d0z-nextra; i<=d1z+nextra; i++)
 	{
 	  m_meshProgress->setValue((int)(100.0*(float)(i0/(float)(dlen+2*nextra))));
@@ -1550,7 +1569,7 @@ MeshGenerator::generateMesh(int nSlabs,
 		  cropped[jk] = 0;
 		
 		jk ++;
-	      }
+	      } // j,k loop
 
 	  if (m_voxelType == 0)
 	    {
@@ -1574,13 +1593,37 @@ MeshGenerator::generateMesh(int nSlabs,
 
 	  if (useOpacity)
 	    {
-	      applyOpacity(iv, cropped, lut, tmp);
-	      memcpy(gData + i0*m_nY*m_nZ, tmp, m_nY*m_nZ);
+	      memcpy(tmp0, tmp1, nbytes);
+	      memcpy(tmp1, tmp2, nbytes);
+	      memcpy(tmp2, tmp, nbytes);
+
+	      if (i0 == 1)
+		{
+		  applyOpacity(iv, cropped, lut, tmp,
+			       tmp1, tmp2, tmp2); // i0 == 0
+		  memcpy(gData + i0*m_nY*m_nZ, tmp, m_nY*m_nZ);
+		}
+	      if (i0 > 1)
+		{
+		  applyOpacity(iv, cropped, lut, tmp,
+			       tmp0, tmp1, tmp2); // i0 == 1
+		  memcpy(gData + i0*m_nY*m_nZ, tmp, m_nY*m_nZ);
+		  if (i0 == i0end)
+		    {
+		      applyOpacity(iv, cropped, lut, tmp,
+				   tmp1, tmp2, tmp2); // i0 == 1
+		      memcpy(gData + i0*m_nY*m_nZ, tmp, m_nY*m_nZ);
+		    }
+		}
 	    }
 
 	  i0++;
-	}
+	} // i loop
+      
       delete [] tmp;
+      delete [] tmp0;
+      delete [] tmp1;
+      delete [] tmp2;
       delete [] cropped;
       m_meshProgress->setValue(100);
       qApp->processEvents();
@@ -1672,47 +1715,24 @@ MeshGenerator::generateMesh(int nSlabs,
 	  uchar *vData = extData;
 	  if (useOpacity) vData = gData;
 
-	  if (useColor == _OcclusionColor)
+	  for(int j=0; j<(dlen+2*nextra)*m_nY*m_nZ; j++)
 	    {
-	      for(int j=0; j<(dlen+2*nextra)*m_nY*m_nZ; j++)
+	      ushort v;
+	      if (useOpacity || m_voxelType == 0)
+		v = vData[j];
+	      else
+		v = ((ushort*)vData)[j];
+	      
+	      if (checkForMore)
 		{
-		  ushort v;
-		  if (useOpacity || m_voxelType == 0)
-		    v = vData[j];
-		  else
-		    v = ((ushort*)vData)[j];
-
-		  if (checkForMore)
-		    {
-		      if (isoval >= v) oData[j] = 1;
-		    }
-		  else
-		    {
-		      if (isoval < v) oData[j] = 1;
-		    }
+		  if (lut[4*v + 3] > 0) oData[j] = 1;
+		}
+	      else
+		{
+		  if (lut[4*v + 3] == 0) oData[j] = 1;
 		}
 	    }
-	  else
-	    {
-	      for(int j=0; j<(dlen+2*nextra)*m_nY*m_nZ; j++)
-		{
-		  ushort v;
-		  if (useOpacity || m_voxelType == 0)
-		    v = vData[j];
-		  else
-		    v = ((ushort*)vData)[j];
-
-		  if (checkForMore)
-		    {
-		      if (lut[4*v + 3] > 0) oData[j] = 1;
-		    }
-		  else
-		    {
-		      if (lut[4*v + 3] == 0) oData[j] = 1;
-		    }
-		}
-	    }
-	    
+	  
 	  genSAT(oData,
 		 dlen+2*nextra, m_nY, m_nZ,
 		 qMin(2, nextra));
@@ -1741,12 +1761,42 @@ MeshGenerator::generateMesh(int nSlabs,
 	}
       else
 	{
+	  // smoothing the mesh
+	  QList<Vec> V;
+	  QList<Vec> N;
+	  QList<Vec> E;
+	  
+	  int ntrigs = mc.ntrigs();
+	  Triangle *triangles = mc.triangles();
+	  
+	  int nverts = mc.nverts();
+	  Vertex *vertices = mc.vertices();
+	  
+	  for(int ni=0; ni<nverts; ni++)
+	    {
+	      Vec v, n, c;
+	      v = Vec(vertices[ni].x, vertices[ni].y, vertices[ni].z);
+	      n = Vec(vertices[ni].nx, vertices[ni].ny, vertices[ni].nz);
+	      
+	      V << v;
+	      N << n;
+	    }
+	  
+	  for(int ni=0; ni<ntrigs; ni++)
+	    E << Vec(triangles[ni].v1, triangles[ni].v2, triangles[ni].v3);
+
+	  // mesh smoothing
+	  if (spread > 0)
+	    smoothMesh(V, N, E, 5*spread);
+	  
+
+
 	  {
 	    m_meshLog->moveCursor(QTextCursor::End);
 	    m_meshLog->insertPlainText("Saving triangle coordinates ...\n");
 	    QString mflnm = flnm + QString(".%1.tri").arg(nb);
-	    int ntrigs = mc.ntrigs();
-	    Triangle *triangles = mc.triangles();
+	    //int ntrigs = mc.ntrigs();
+	    //Triangle *triangles = mc.triangles();
 	    QFile fout(mflnm);
 	    fout.open(QFile::WriteOnly);
 	    fout.write((char*)&ntrigs, 4);
@@ -1775,11 +1825,12 @@ MeshGenerator::generateMesh(int nSlabs,
 	    fout.close();
 	    ntriangles += ntrigs;
 	  }
+
 	  
 	  {
 	    QString mflnm = flnm + QString(".%1.vert").arg(nb);
-	    int nverts = mc.nverts();
-	    Vertex *vertices = mc.vertices();
+	    //int nverts = mc.nverts();
+	    //Vertex *vertices = mc.vertices();
 	    QFile fout(mflnm);
 	    fout.open(QFile::WriteOnly);
 	    fout.write((char*)&nverts, 4);
@@ -1789,12 +1840,19 @@ MeshGenerator::generateMesh(int nSlabs,
 		qApp->processEvents();
 
 		float v[6];
-		v[0] = vertices[ni].x;
-		v[1] = vertices[ni].y;
-		v[2] = vertices[ni].z + d0;
-		v[3] = vertices[ni].nx;
-		v[4] = vertices[ni].ny;
-		v[5] = vertices[ni].nz;
+//		v[0] = vertices[ni].x;
+//		v[1] = vertices[ni].y;
+//		v[2] = vertices[ni].z + d0;
+//		v[3] = vertices[ni].nx;
+//		v[4] = vertices[ni].ny;
+//		v[5] = vertices[ni].nz;
+
+		v[0] = V[ni].x;
+		v[1] = V[ni].y;
+		v[2] = V[ni].z + d0;
+		v[3] = N[ni].x;
+		v[4] = N[ni].y;
+		v[5] = N[ni].z;
 
 		// apply voxelscaling
 		v[0] *= voxelScaling.x;
@@ -1822,61 +1880,28 @@ MeshGenerator::generateMesh(int nSlabs,
 			g = col.green()/255.0;
 			b = col.blue()/255.0;
 		      }
-		    else if (useColor == _NormalColor)
-		      {
-			r = v[3];
-			g = v[4];
-			b = v[5];
-		      }
-		    else if (useColor == _PositionColor)
-		      {
-			r = v[0]/m_nZ;
-			g = v[1]/m_nY;
-			b = v[2]/m_nX;
-		      }
-		    else if (useColor >= _OcclusionColor)
+		    else
 		      {
 			uchar *volData = extData;
-			if (useOpacity && useColor < _LutColor)
-			  volData = gData;
-			QColor col;
+			QColor col = Qt::white;
 			QVector3D pos, normal;
-			pos = QVector3D(vertices[ni].x,
-					vertices[ni].y,
-					vertices[ni].z + nextra);
-			normal = QVector3D(vertices[ni].nx,
-					   vertices[ni].ny,
-					   vertices[ni].nz);
-			if (useColor == _OcclusionColor)
-			  col = getOcclusionColor(oData,
-						  dlen,
-						  spread, nextra,
-						  isoval,
-						  pos, normal,
-						  vstops,
-						  lookInside);
-			else if (useColor == _LutColor)
+			pos = QVector3D(V[ni].x,
+					V[ni].y,
+					V[ni].z + nextra);
+			normal = QVector3D(N[ni].x,
+					   N[ni].y,
+					   N[ni].z);
 			  col = getLutColor(volData,
 					    oData,
 					    dlen,
-					    depth, spread, nextra,
-					    isoval,
-					    pos, normal,
-					    vstops,
-					    lookInside,
-					    avgColor);
-			else if (useColor == _VRLutColor)
-			  col = getLutColor(volData,
-					    oData,
-					    dlen,
-					    depth, spread, nextra,
+					    depth, 0, nextra,
 					    isoval,
 					    pos, normal,
 					    lut,
 					    lookInside,
-					    QVector3D(vertices[ni].x,
-						      vertices[ni].y,
-						      vertices[ni].z+d0),
+					    QVector3D(V[ni].x,
+						      V[ni].y,
+						      V[ni].z+d0),
 					    avgColor);
 			
 			r = col.red()/255.0;
@@ -1922,7 +1947,11 @@ MeshGenerator::generateMesh(int nSlabs,
   m_meshLog->insertPlainText("Mesh saved in "+flnm);
 
   if (!m_batchMode)
-    QMessageBox::information(0, "", QString("Mesh saved in "+flnm));
+    {
+      QMessageBox dlg(QMessageBox::Information, "Surface Mesh Saved", QString("Mesh saved in "+flnm));
+      dlg.setWindowFlags(dlg.windowFlags() | Qt::WindowStaysOnTopHint);
+      dlg.exec();
+    }
 
 
 }
@@ -2174,6 +2203,145 @@ MeshGenerator::saveMeshToSTL(QString flnm,
     }
 
   fstl.close();
+  m_meshProgress->setValue(100);
+}
+
+void
+MeshGenerator::smoothMesh(QList<Vec>& V,
+			 QList<Vec>& N,
+			 QList<Vec>& E,
+			 int ntimes)
+{  
+  QList<Vec> newV;
+  newV = V;
+
+  int nv = V.count();
+
+  //----------------------------
+  // create incidence matrix
+  m_meshLog->insertPlainText("Smoothing mesh\n   Generate incidence matrix ...");
+  QMultiMap<int, int> imat;
+  int ntri = E.count();
+  for(int i=0; i<ntri; i++)
+    {
+      if (i%10000 == 0)
+	{
+	  m_meshProgress->setValue((int)(100.0*(float)i/(float)(ntri)));
+	  qApp->processEvents();
+	}
+
+      int a = E[i].x;
+      int b = E[i].y;
+      int c = E[i].z;
+
+      imat.insert(a, b);
+      imat.insert(b, a);
+      imat.insert(a, c);
+      imat.insert(c, a);
+      imat.insert(b, c);
+      imat.insert(c, b);
+    }
+  //----------------------------
+
+  //----------------------------
+  // smooth vertices
+  m_meshLog->insertPlainText("   Smoothing vertices ...");
+  for(int nt=0; nt<ntimes; nt++)
+    {
+      m_meshProgress->setValue((int)(100.0*(float)nt/(float)(ntimes)));
+      qApp->processEvents();
+
+      // deflation step
+      for(int i=0; i<nv; i++)
+	{
+	  QList<int> idx = imat.values(i);
+	  Vec v0 = V[i];
+	  Vec v = Vec(0,0,0);
+	  float sum = 0;
+	  for(int j=0; j<idx.count(); j++)
+	    {
+	      Vec vj = V[idx[j]];
+	      float ln = (v0-vj).norm();
+	      if (ln > 0)
+		{
+		  sum += 1.0/ln;
+		  v = v + vj/ln;
+		}
+	    }
+	  if (sum > 0)
+	    v0 = v0 + 0.9*(v/sum - v0);
+	  newV[i] = v0;
+	}
+
+      //inflation step
+      for(int i=0; i<nv; i++)
+	{
+	  QList<int> idx = imat.values(i);
+	  Vec v0 = newV[i];
+	  Vec v = Vec(0,0,0);
+	  float sum = 0;
+	  for(int j=0; j<idx.count(); j++)
+	    {
+	      Vec vj = newV[idx[j]];
+	      float ln = (v0-vj).norm();
+	      if (ln > 0)
+		{
+		  sum += 1.0/ln;
+		  v = v + vj/ln;
+		}
+	    }
+	  if (sum > 0)
+	    v0 = v0 - 0.5*(v/sum - v0);
+
+	  V[i] = v0;
+	}
+    }
+  //----------------------------
+
+
+  //----------------------------
+  m_meshLog->insertPlainText("   Calculate normals ...");
+  // now calculate normals
+  for(int i=0; i<nv; i++)
+    newV[i] = Vec(0,0,0);
+
+  QVector<int> nvs;
+  nvs.resize(nv);
+  nvs.fill(0);
+
+  for(int i=0; i<ntri; i++)
+    {
+      if (i%10000 == 0)
+	{
+	  m_meshProgress->setValue((int)(100.0*(float)i/(float)(ntri)));
+	  qApp->processEvents();
+	}
+
+      int a = E[i].x;
+      int b = E[i].y;
+      int c = E[i].z;
+
+      Vec va = V[a];
+      Vec vb = V[b];
+      Vec vc = V[c];
+      Vec v0 = (vb-va).unit();
+      Vec v1 = (vc-va).unit();      
+      Vec vn = v0^v1;
+      
+      newV[a] += vn;
+      newV[b] += vn;
+      newV[c] += vn;
+
+      nvs[a]++;
+      nvs[b]++;
+      nvs[c]++;
+    }
+
+  for(int i=0; i<nv; i++)
+      N[i] = newV[i]/nvs[i];
+  //----------------------------
+
+  m_meshLog->insertPlainText("\n");
   m_meshProgress->setValue(100);
 }
 

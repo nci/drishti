@@ -312,7 +312,7 @@ class MainWindow : public QMainWindow
    void saveVolumeIntoProject(const char*, QString);
    int loadVolumeFromProject(const char*);
 
-   void setTextureMemory();
+   void setTextureMemory(bool bruteforce=false);
    void loadSettings();
    void saveSettings();
 

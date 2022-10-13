@@ -322,9 +322,6 @@ MainWindow::MainWindow(QWidget *parent) :
 
   createHiresLowresWindows();
 
-			   
-  QTimer::singleShot(2000, this, SLOT(GlewInit()));
-
 
   #include "connectbricks.h"
   #include "connectbrickswidget.h"
@@ -351,6 +348,8 @@ MainWindow::MainWindow(QWidget *parent) :
   loadSettings();
 
   GeometryObjects::trisets()->setHitPoints(GeometryObjects::hitpoints());
+			   
+  QTimer::singleShot(1000, this, SLOT(GlewInit()));
 }
 
 void
@@ -749,12 +748,12 @@ MainWindow::initTagColors()
 }
 
 void
-MainWindow::setTextureMemory()
+MainWindow::setTextureMemory(bool bruteforce)
 {
   QString homePath = QDir::homePath();
   QFileInfo settingsFile(homePath, ".drishti.xml");
 
-  if (settingsFile.exists())
+  if (!bruteforce && settingsFile.exists())
     return;
 
   bool ok;
@@ -3283,6 +3282,10 @@ MainWindow::loadSettings()
   m_preferencesWidget->updateTextureMemory();
   m_preferencesWidget->load(flnm.toLatin1().data());
   updateRecentFileAction();
+
+  // texture memory is not set by the user, so ask the user to set it.
+  if (Global::textureMemorySize() < 256)
+    setTextureMemory(true);
 }
 
 void

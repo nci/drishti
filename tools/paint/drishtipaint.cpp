@@ -5664,7 +5664,8 @@ DrishtiPaint::smoothMesh(QList<Vec>& V,
     {
       progress.setValue((int)(100.0*(float)nt/(float)(ntimes)));
       qApp->processEvents();
-	  
+
+      // deflation step
       for(int i=0; i<nv; i++)
 	{
 	  QList<int> idx = imat.values(i);
@@ -5682,10 +5683,11 @@ DrishtiPaint::smoothMesh(QList<Vec>& V,
 		}
 	    }
 	  if (sum > 0)
-	    v0 = v0 + 0.5*(v/sum - v0);
+	    v0 = v0 + 0.9*(v/sum - v0);
 	  newV[i] = v0;
 	}
-      
+
+      // inflation step
       for(int i=0; i<nv; i++)
 	{
 	  QList<int> idx = imat.values(i);
@@ -5706,8 +5708,6 @@ DrishtiPaint::smoothMesh(QList<Vec>& V,
 	    v0 = v0 - 0.5*(v/sum - v0);
 	  V[i] = v0;
 	}
-
-      V = newV;
     }
   //----------------------------
 

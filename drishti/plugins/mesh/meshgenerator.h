@@ -81,7 +81,7 @@ class MeshGenerator
 		    int, int,
 		    QGradientStops,
 		    int, int,
-		    bool, bool,
+		    bool,
 		    Vec,
 		    QList<Vec>,
 		    QList<Vec>,
@@ -96,39 +96,9 @@ class MeshGenerator
 
   bool getValues(int&, float&,
 		 int&, int&, int&, int&,
-		 bool&, bool&, bool&, bool&,
+		 bool&, bool&, bool&,
 		 QGradientStops&,
 		 bool, int&, bool&);
-
-  float getOcclusionFraction(uchar*,
-			     int, int, int,
-			     uchar,
-			     QVector3D,
-			     QVector3D,
-			     bool);
-
-  float getOcclusionFractionSAT(int*,
-				int, int, int,
-				QVector3D,
-				QVector3D,
-				bool);
-
-  QColor getOcclusionColor(int*,
-			   int, int, int,
-			   uchar,
-			   QVector3D,
-			   QVector3D,
-			   QGradientStops,
-			   bool);
-
-  QColor getLutColor(uchar*,	  
-		     int*,
-		     int, int, int, int,
-		     uchar,
-		     QVector3D,
-		     QVector3D,
-		     QGradientStops,
-		     bool, bool);
 
   QColor getLutColor(uchar*,	  
 		     int*,
@@ -137,16 +107,12 @@ class MeshGenerator
 		     QVector3D,
 		     QVector3D,
 		     uchar*,
-		     bool,
 		     QVector3D,
 		     bool);
 
   QGradientStops resampleGradientStops(QGradientStops);
 
-  void smoothData(uchar*,
-		  int, int, int, int);
-  void genSAT(int*,
-	      int, int, int, int);
+  void smoothData(uchar*, int, int, int, int);
 
   void applyTear(int, int, int,
 		 uchar*, uchar*, bool);

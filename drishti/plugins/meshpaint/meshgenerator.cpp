@@ -179,7 +179,7 @@ MeshGenerator::getValues(int &depth,
 
 
   vlist.clear();
-  QFile helpFile(":/mesh.help");
+  QFile helpFile(":/meshpaint.help");
   if (helpFile.open(QFile::ReadOnly))
     {
       QTextStream in(&helpFile);

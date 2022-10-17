@@ -84,14 +84,13 @@ MeshGenerator::getValues(int &isoval, float &isovalf,
 			 int &useColor,
 			 int &fillValue,
 			 bool &checkForMore,
-			 bool &lookInside,
 			 bool &useOpacity,
 			 bool &smoothOpacity,
 			 QGradientStops &stops,
 			 bool doBorder,
 			 int &chan,
 			 bool &avgColor)
-{
+{  
   chan = 0;
   isoval = 128;
   isovalf = 0.5;
@@ -100,7 +99,6 @@ MeshGenerator::getValues(int &isoval, float &isovalf,
   useColor = 1;
   fillValue = -1;
   checkForMore = true;
-  lookInside = false;
   useOpacity = true;
   smoothOpacity = true;
   avgColor = true;
@@ -186,11 +184,6 @@ MeshGenerator::getValues(int &isoval, float &isovalf,
   plist["greater"] = vlist;
 
   vlist.clear();
-  vlist << QVariant("checkbox");
-  vlist << QVariant(lookInside);
-  plist["look inside"] = vlist;
-
-  vlist.clear();
   vlist << QVariant("float");
   vlist << QVariant(m_scaleModel);
   vlist << QVariant(0.001);
@@ -199,23 +192,6 @@ MeshGenerator::getValues(int &isoval, float &isovalf,
   vlist << QVariant(3); // decimals
   plist["scale"] = vlist;
 
-//  vlist.clear();
-//  vlist << QVariant("colorgradient");
-//  for(int s=0; s<vstops.size(); s++)
-//    {
-//      float pos = vstops[s].first;
-//      QColor color = vstops[s].second;
-//      int r = color.red();
-//      int g = color.green();
-//      int b = color.blue();
-//      int a = color.alpha();
-//      vlist << QVariant(pos);
-//      vlist << QVariant(r);
-//      vlist << QVariant(g);
-//      vlist << QVariant(b);
-//      vlist << QVariant(a);
-//    }
-//  plist["color gradient"] = vlist;
   vlist.clear();
   vlist << QVariant("color");
   vlist << QColor(Qt::white);
@@ -233,7 +209,7 @@ MeshGenerator::getValues(int &isoval, float &isovalf,
 
 
   vlist.clear();
-  QFile helpFile(":/mesh.help");
+  QFile helpFile(":/meshgenerator.help");
   if (helpFile.open(QFile::ReadOnly))
     {
       QTextStream in(&helpFile);
@@ -289,8 +265,6 @@ MeshGenerator::getValues(int &isoval, float &isovalf,
   keys << "fillvalue";
   keys << "scale";
   keys << "greater";
-  keys << "look inside";
-  //keys << "color gradient";
   keys << "color";
   keys << "color type";
   keys << "commandhelp";
@@ -320,8 +294,6 @@ MeshGenerator::getValues(int &isoval, float &isovalf,
 	    m_useTagColors = pair.first.toBool();
 	  else if (keys[ik] == "mop channel")
 	    chan = pair.first.toInt();
-//	  else if (keys[ik] == "color gradient")
-//	    vstops = propertyEditor.getGradientStops(keys[ik]);
 	  else if (keys[ik] == "color")
 	    {
 	      QColor col = pair.first.value<QColor>();
@@ -341,8 +313,6 @@ MeshGenerator::getValues(int &isoval, float &isovalf,
 	    fillValue = pair.first.toInt();
 	  else if (keys[ik] == "greater")
 	    checkForMore = pair.first.toBool();
-	  else if (keys[ik] == "look inside")
-	    lookInside = pair.first.toBool();
 	  else if (keys[ik] == "color type")
 	    {
 	      useColor = pair.first.toInt();
@@ -423,7 +393,6 @@ MeshGenerator::start(VolumeFileManager *vfm,
   float isovalf;
   int isoval, spread, depth, useColor, fillValue;
   bool checkForMore;
-  bool lookInside;
   bool useOpacity;
   bool smoothOpacity;
   QGradientStops stops;
@@ -432,7 +401,6 @@ MeshGenerator::start(VolumeFileManager *vfm,
   if (! getValues(isoval, isovalf,
 		  spread, depth, useColor, fillValue,
 		  checkForMore,
-		  lookInside,
 		  useOpacity,
 		  smoothOpacity,
 		  stops,
@@ -539,7 +507,6 @@ MeshGenerator::start(VolumeFileManager *vfm,
 	       useColor,
 	       fillValue,
 	       checkForMore,
-	       lookInside,
 	       voxelScaling,
 	       clipPos, clipNormal,
 	       crops, paths,
@@ -553,241 +520,6 @@ MeshGenerator::start(VolumeFileManager *vfm,
   return flnm;
 }
 
-float
-MeshGenerator::getOcclusionFractionSAT(int *oData,
-				       int dlen,
-				       int spread, int nextra,
-				       QVector3D pos,
-				       QVector3D normal,
-				       bool lookInside)
-{
-  if (lookInside)
-    normal = -normal;
-
-  float op = 0;
-  float tnf = 0;
-  for(int a=1; a<spread; a++)
-    {
-      //float a2 = qMax(1.0f, sqrtf(a));
-      //float a2 = a;
-      float a2 = qMax(1.0f, a/2.0f);
-      QVector3D r = pos + a*normal;
-      int xmin = r.x() - a2;
-      int xmax = r.x() + a2;
-      int ymin = r.y() - a2;
-      int ymax = r.y() + a2;
-      int zmin = r.z() - a2;
-      int zmax = r.z() + a2;
-      int nf = (xmax-xmin+1)*(ymax-ymin+1)*(zmax-zmin+1);
-      xmin = qMax(0, xmin);
-      ymin = qMax(0, ymin);
-      zmin = qMax(0, zmin);
-      xmax = qMin(m_nZ-1, xmax);
-      ymax = qMin(m_nY-1, ymax);
-      zmax = qMin(dlen+2*nextra-1, zmax);
-      
-      float frc = (spread-a);
-      op += (frc*(oData[zmax*m_nY*m_nZ + ymax*m_nZ + xmax] +
-		  oData[zmax*m_nY*m_nZ + ymin*m_nZ + xmin] +
-		  oData[zmin*m_nY*m_nZ + ymax*m_nZ + xmin] +
-		  oData[zmin*m_nY*m_nZ + ymin*m_nZ + xmax] -
-		  oData[zmin*m_nY*m_nZ + ymin*m_nZ + xmin] -
-		  oData[zmin*m_nY*m_nZ + ymax*m_nZ + xmax] -
-		  oData[zmax*m_nY*m_nZ + ymax*m_nZ + xmin] -
-		  oData[zmax*m_nY*m_nZ + ymin*m_nZ + xmax]))/nf;
-      tnf += frc;
-    }
-  op /= tnf;
-  op = qBound(0.0f, op, 1.0f);
-  return op;
-}
-
-float
-MeshGenerator::getOcclusionFraction(uchar *oData,
-				    int dlen,
-				    int spread, int nextra,
-				    uchar isoval,
-				    QVector3D pos,
-				    QVector3D normal,
-				    bool checkForMore)
-{
-  QVector3D pvec, qvec;
-  pvec = QVector3D(63.97, 13.47, 79.33);
-  pvec.normalize();
-  qvec = QVector3D::normal(pvec, normal);
-  pvec = QVector3D::normal(normal, qvec);
-  
-  float frc = 0;
-  float nf = 0;
-  for(int a=1; a<=spread; a++)
-    {
-      int ae = qRound(sqrtf(spread*spread-a*a));
-      int stp = 1+a/2;
-      for(int b=-ae; b<=ae; b+=stp)
-	for(int c=-ae; c<=ae; c+=stp)
-	  {
-	    nf ++;
-	    QVector3D r = pos + a*normal + b*pvec + c*qvec;
-	    int i = r.x();
-	    int j = r.y();
-	    int k = r.z();
-	    if (i > m_nZ-1 || j > m_nY-1 || k > m_nX-1 ||
-		i < 0 || j < 0 || k < 0) // outside so not occluded
-	      frc++;
-	    else
-	      {
-		i = qBound(0, i, m_nZ-1);
-		j = qBound(0, j, m_nY-1);
-		k = qBound(0, k, dlen+2*nextra-1);
-		uchar e = oData[k*m_nY*m_nZ + j*m_nZ + i];
-		if (checkForMore)
-		  {
-		    if (isoval >= e)
-		      frc++;
-		  }
-		else
-		  {
-		    if (isoval < e)
-		      frc++;
-		  }
-	      }
-	  }
-      QVector3D tv;
-      tv = pvec;
-      pvec += qvec;
-      qvec -= tv;
-      pvec.normalize();
-      qvec.normalize();
-    }
-
-  frc /= nf;
-  frc = qBound(0.0f, frc, 1.0f);
-
-  return frc;
-}
-
-QColor
-MeshGenerator::getOcclusionColor(int *oData,
-				 int dlen,
-				 int spread, int nextra,
-				 uchar isoval,
-				 QVector3D pos,
-				 QVector3D normal,
-				 QGradientStops vstops,
-				 bool lookInside)
-{
-  float frc = getOcclusionFractionSAT(oData,
-				      dlen,
-				      spread, nextra,
-				      pos, normal,
-				      lookInside);
-  if (frc > 0.0)
-    frc = sqrt(frc); // shift towards brightness
-      
-  int stopsCount = vstops.count()-1;
-  QColor col = vstops[frc*stopsCount].second;
-
-  return col;
-}
-
-QColor
-MeshGenerator::getLutColor(uchar *volData,	  
-			   int *oData,
-			   int dlen,
-			   int depth, int spread, int nextra,
-			   uchar isoval,
-			   QVector3D pos,
-			   QVector3D normal,
-			   QGradientStops vstops,
-			   bool lookInside,
-			   bool avgColor)
-{
-  // go a bit deeper and start
-  QVector3D vpos = pos + normal;
-
-  // -- find how far deep we can go
-  int nd = 0;
-  for(int n=0; n<=depth; n++)
-    {
-      int i = vpos.x();
-      int j = vpos.y();
-      int k = vpos.z();
-      if (i > m_nZ-1 || j > m_nY-1 || k > dlen+2*nextra-1 ||
-	  i < 0 || j < 0 || k < 0) // gone out
-	break;
-      nd ++;
-      vpos += normal;
-    }
-
-  // now start collecting the samples
-  vpos = pos + normal;
-
-  Vec rgb = Vec(0,0,0);  
-  float tota = 0;
-  for(int n=0; n<=nd; n++)
-    {
-      int i = vpos.x();
-      int j = vpos.y();
-      int k = vpos.z();
-      i = qBound(0, i, m_nZ-1);
-      j = qBound(0, j, m_nY-1);
-      k = qBound(0, k, dlen+2*nextra-1);
-      uchar v;
-      if (m_voxelType == 0)
-	v = volData[k*m_nY*m_nZ + j*m_nZ + i];
-      else
-	v = ((ushort*)volData)[k*m_nY*m_nZ + j*m_nZ + i] / 256;
-      QColor col0 = vstops[v].second;
-      float a = col0.alphaF()/255.0f;
-      float r = a*col0.red();
-      float g = a*col0.green();
-      float b = a*col0.blue();
-
-      Vec vcol;
-
-      if (avgColor)
-	{
-	  rgb += Vec(r,g,b)/255.0f;
-	  tota += a;
-	}
-      else
-	{
-	  r /= 255.0f;
-	  g /= 255.0f;
-	  b /= 255.0f;
-	  
-	  rgb += Vec(r,g,b)*(1-tota);
-	  tota += a*(1-tota);
-	}
-      
-      vpos += normal;
-    }
-
-  if (tota < 0.01) tota = 1.0;
-  rgb /= tota;
-
-  //-------------------
-  // apply ambient occlusion
-  if (spread > 0)
-    {
-      float frc = getOcclusionFractionSAT(oData,
-					  dlen,
-					  spread, nextra,
-					  pos, normal,
-					  lookInside);
-      if (frc > 0.0)
-	frc = sqrt(frc); // shift towards brightness
-      frc = qMax(0.1f, frc);
-      rgb *= frc;
-    }
-  //-------------------
-
-  rgb *= 255;
-  QColor col = QColor(rgb.x, rgb.y, rgb.z);
-
-  return col;
-}
-
 QColor
 MeshGenerator::getLutColor(uchar *volData,	  
 			   int *oData,
@@ -797,7 +529,6 @@ MeshGenerator::getLutColor(uchar *volData,
 			   QVector3D pos,
 			   QVector3D normal,
 			   uchar *lut,
-			   bool lookInside,
 			   QVector3D globalPos,
 			   bool avgColor)			   
 {
@@ -968,25 +699,7 @@ MeshGenerator::getLutColor(uchar *volData,
 
   if (tota < 0.01) tota = 1.0;
   rgb /= tota;    
-    
-  //-------------------
-  // apply ambient occlusion
-  if (spread > 0)
-    {
-      float frc = getOcclusionFractionSAT(oData,
-					  dlen,
-					  spread, nextra,
-					  pos, normal,
-					  lookInside);
-      if (frc > 0.0)
-	frc = sqrt(frc); // shift towards brightness
-      frc = qMax(0.1f, frc);
-      rgb *= frc;
-    }
-  //-------------------
-
   rgb *= 255;
-
   QColor col = QColor(rgb.x, rgb.y, rgb.z);
 
   return col;
@@ -1077,48 +790,6 @@ MeshGenerator::smoothData(uchar *gData,
     }
   
   delete [] tmp;
-
-  m_meshProgress->setValue(100);
-}
-
-void
-MeshGenerator::genSAT(int *oData,
-		      int dlen, int nY, int nZ,
-		      int spread)
-{
-  m_meshLog->moveCursor(QTextCursor::End);
-  m_meshLog->insertPlainText("Generating summed area table for ambient occlusion ...\n");
-
-  for(int k=0; k<dlen; k++)
-    {
-      m_meshProgress->setValue((int)(100.0*(float)k/(float)(dlen)));
-      qApp->processEvents();
-
-      for(int j=0; j<nY; j++)
-	for(int i=1; i<nZ; i++)
-	  oData[k*nY*nZ + j*nZ + i] += oData[k*nY*nZ + j*nZ + (i-1)];
-    }
-
-
-  for(int k=0; k<dlen; k++)
-    {
-      m_meshProgress->setValue((int)(100.0*(float)k/(float)(dlen)));
-      qApp->processEvents();
-
-      for(int i=0; i<nZ; i++)
-	for(int j=1; j<nY; j++)
-	  oData[k*nY*nZ + j*nZ + i] += oData[k*nY*nZ + (j-1)*nZ + i];
-    }
-  
-  for(int j=0; j<nY; j++)
-    {
-      m_meshProgress->setValue((int)(100.0*(float)j/(float)(nY)));
-      qApp->processEvents();
-
-      for(int i=0; i<nZ; i++)
-	for(int k=1; k<dlen; k++)
-	  oData[k*nY*nZ + j*nZ + i] += oData[(k-1)*nY*nZ + j*nZ + i];
-    }
 
   m_meshProgress->setValue(100);
 }
@@ -1374,7 +1045,6 @@ MeshGenerator::generateMesh(int nSlabs,
 			    int useColor,
 			    int fillValue,
 			    bool checkForMore,
-			    bool lookInside,
 			    Vec voxelScaling,
 			    QList<Vec> clipPos,
 			    QList<Vec> clipNormal,
@@ -1732,10 +1402,6 @@ MeshGenerator::generateMesh(int nSlabs,
 		  if (lut[4*v + 3] == 0) oData[j] = 1;
 		}
 	    }
-	  
-	  genSAT(oData,
-		 dlen+2*nextra, m_nY, m_nZ,
-		 qMin(2, nextra));
 	}
       //--------------------------------
 
@@ -1795,8 +1461,6 @@ MeshGenerator::generateMesh(int nSlabs,
 	    m_meshLog->moveCursor(QTextCursor::End);
 	    m_meshLog->insertPlainText("Saving triangle coordinates ...\n");
 	    QString mflnm = flnm + QString(".%1.tri").arg(nb);
-	    //int ntrigs = mc.ntrigs();
-	    //Triangle *triangles = mc.triangles();
 	    QFile fout(mflnm);
 	    fout.open(QFile::WriteOnly);
 	    fout.write((char*)&ntrigs, 4);
@@ -1829,8 +1493,6 @@ MeshGenerator::generateMesh(int nSlabs,
 	  
 	  {
 	    QString mflnm = flnm + QString(".%1.vert").arg(nb);
-	    //int nverts = mc.nverts();
-	    //Vertex *vertices = mc.vertices();
 	    QFile fout(mflnm);
 	    fout.open(QFile::WriteOnly);
 	    fout.write((char*)&nverts, 4);
@@ -1840,13 +1502,6 @@ MeshGenerator::generateMesh(int nSlabs,
 		qApp->processEvents();
 
 		float v[6];
-//		v[0] = vertices[ni].x;
-//		v[1] = vertices[ni].y;
-//		v[2] = vertices[ni].z + d0;
-//		v[3] = vertices[ni].nx;
-//		v[4] = vertices[ni].ny;
-//		v[5] = vertices[ni].nz;
-
 		v[0] = V[ni].x;
 		v[1] = V[ni].y;
 		v[2] = V[ni].z + d0;
@@ -1898,7 +1553,6 @@ MeshGenerator::generateMesh(int nSlabs,
 					    isoval,
 					    pos, normal,
 					    lut,
-					    lookInside,
 					    QVector3D(V[ni].x,
 						      V[ni].y,
 						      V[ni].z+d0),

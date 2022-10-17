@@ -49,25 +49,3 @@ color gradient
 Specify color gradient to color the mesh surface with.
 #end
 
-#begin
-color type
-color type
-Users can color the mesh surface in a variety of ways - 
-
-Normal Color
-  Surface normal values are used as red, green and blue components for the surface color.
-
-Position Color
-  Surface color is chosen based on surface position, where x,y,z coordinates are treated as red, green and blue components.
-
-Lut Color
-  Take surface color from color gradient based on voxel/voxel opacity value.
-
-If the value of spread is greater than 0, ambient occlusion will be used to darken the surface.
-
-VR Lut Color
-  Take surface color from original lookup table (i.e. the one used for volume rendering)  based on voxel/voxel opacity value.
-
-If the value of spread is greater than 0, ambient occlusion will be used to darken the surface.
-#end
-

@@ -19,7 +19,7 @@ class MeshInfoWidget : public QWidget
   MeshInfoWidget(QWidget *parent=NULL);
   ~MeshInfoWidget();
   
-  void addMesh(QString, bool, bool, QString, int);
+  void addMesh(QString, bool, bool, QString, int, float);
   void setMeshes(QStringList);
 
   public slots :
@@ -33,6 +33,7 @@ class MeshInfoWidget : public QWidget
     void sectionClicked(int);
     void sectionDoubleClicked(int);
     void cellClicked(int, int);
+  void itemChanged(QTableWidgetItem*);
     void meshListContextMenu(const QPoint&);
     void removeMesh();
     void saveMesh();
@@ -61,6 +62,8 @@ class MeshInfoWidget : public QWidget
     void colorChanged(QList<int>, QColor);
     void materialChanged(int);  
     void materialChanged(QList<int>, int);
+    void materialMixChanged(float);  
+    void materialMixChanged(QList<int>, float);
     void processCommand(QList<int>, QString);
     void processCommand(int, QString);
     void processCommand(QString);
@@ -82,6 +85,7 @@ class MeshInfoWidget : public QWidget
     QList<int> m_vertCount;
     QList<int> m_triCount;
 
+    bool m_updatingTable;
 };
 
 #endif

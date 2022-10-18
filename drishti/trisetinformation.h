@@ -36,6 +36,7 @@ class TrisetInformation
   Quaternion q;
   Vec color;
   int materialId;
+  float materialMix;
   Vec cropcolor;
   float roughness;
   float ambient;

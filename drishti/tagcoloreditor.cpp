@@ -34,7 +34,7 @@ TagColorEditor::setColors()
       colorItem->setData(Qt::DecorationRole, QColor(r,g,b));
       
       QTableWidgetItem *opacityItem = new QTableWidgetItem;
-      opacityItem->setData(Qt::DisplayRole, a);
+      opacityItem->setData(Qt::DisplayRole, (double)a);
 
       table->setItem(i, 0, colorItem);
       table->setItem(i, 1, opacityItem);

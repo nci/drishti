@@ -91,6 +91,8 @@ class Trisets : public QObject
   void colorChanged(QList<int>, QColor);
   void materialChanged(int);
   void materialChanged(QList<int>, int);
+  void materialMixChanged(float);
+  void materialMixChanged(QList<int>, float);
   void transparencyChanged(int);
   void revealChanged(int);
   void outlineChanged(int);

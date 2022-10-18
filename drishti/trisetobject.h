@@ -44,6 +44,9 @@ class TrisetObject
 
   int material() { return m_materialId; }
   void setMaterial(int m) { m_materialId = m; }
+
+  float materialMix() { return m_materialMix; }
+  void setMaterialMix(float m) { m_materialMix = m; }
   
   Vec cropBorderColor() { return m_cropcolor; }
   void setCropBorderColor(Vec color) { m_cropcolor = color; }
@@ -152,6 +155,7 @@ private :
   Vec m_enclosingBox[8];
   Vec m_color;
   int m_materialId;
+  float m_materialMix;
   Vec m_cropcolor;
   Vec m_position;
   Vec m_scale;

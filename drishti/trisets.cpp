@@ -610,48 +610,13 @@ Trisets::render(Camera *camera, int nclip)
 	  glUseProgram(ShaderFactory::meshShader());
 	  GLint *meshShaderParm = ShaderFactory::meshShaderParm();        
 
-//	  //==============================
-//	  // for lighting
-//	  //==============================
-//	  glUniform1iARB(meshShaderParm[25], 4); // lightTex
-//	  glActiveTexture(GL_TEXTURE4);
-//	  glEnable(GL_TEXTURE_RECTANGLE_ARB);
-//	  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, LightHandler::texture());
-//	  glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-//	  glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-//	  if (!LightHandler::basicLight())
-//	    {
-//	      int lightgridx, lightgridy, lightgridz, lightncols, lightnrows, lightlod;
-//	      LightHandler::lightBufferInfo(lightgridx, lightgridy, lightgridz,
-//					    lightnrows, lightncols, lightlod);
-//	      //Vec draginfo = m_Volume->getDragTextureInfo();
-//	      //int lod = m_Volume->getSubvolumeSubsamplingLevel();
-//	      //float plod = draginfo.z/float(lod);
-//	      //lightlod *= plod;
-//	      
-//	      glUniform1iARB(meshShaderParm[26], lightgridx); // lightgridx
-//	      glUniform1iARB(meshShaderParm[27], lightgridy); // lightgridy
-//	      glUniform1iARB(meshShaderParm[28], lightgridz); // lightgridz
-//	      glUniform1iARB(meshShaderParm[29], lightnrows); // lightnrows
-//	      glUniform1iARB(meshShaderParm[30], lightncols); // lightncols
-//	      glUniform1iARB(meshShaderParm[31], lightlod); // lightlod
-//	    }
-//	  else
-//	    {
-//	      // lightlod 0 means use basic lighting model
-//	      int lightlod = 0;
-//	      glUniform1iARB(meshShaderParm[31], lightlod); // lightlod
-//	    }
-//	  //==============================
-
-	  
-	  
 	  
 	  glUniform4f(meshShaderParm[2], extras.x, extras.y, extras.z, darken);
 	  
 	  glUniform1f(meshShaderParm[17], i+1);
 	  
 	  int matId = m_trisets[i]->material();
+	  float matMix = m_trisets[i]->materialMix();
 	  glUniform1i(meshShaderParm[18], matId);
 	  if (matId > 0)
 	    {
@@ -659,6 +624,7 @@ Trisets::render(Camera *camera, int nclip)
 	      glEnable(GL_TEXTURE_2D);
 	      glBindTexture(GL_TEXTURE_2D, m_solidTex[matId-1]);
 	      glUniform1i(meshShaderParm[19], 1); // matcapTex
+	      glUniform1f(meshShaderParm[20], matMix); // matMix
 	    }
 	  
 	  if (m_trisets[i]->clip())
@@ -2121,14 +2087,16 @@ Trisets::getMeshList()
 				       pcolor.z).name();
 
       int matId = m_trisets[i]->material();
+      float matMix = m_trisets[i]->materialMix();
       
-      names << QString("%1 %2 %3 %4 %5 %6 %7 %8").\
+      names << QString("%1 %2 %3 %4 %5 %6 %7 %8 %9").\
 	arg((int)nm.length(), 5, 10, QChar(' ')).\
 	arg(nm).\
 	arg(show).\
 	arg(clip).\
 	arg(color).\
 	arg(matId).\
+	arg(matMix).\
 	arg(m_trisets[i]->vertexCount()).	\
 	arg(m_trisets[i]->triangleCount());
 
@@ -2494,6 +2462,18 @@ Trisets::renderGrabbedOutline(GLint drawFboId, QGLViewer *viewer)
 	  
 	  glUniform1f(meshShaderParm[17], i+1);
 
+	  int matId = m_trisets[i]->material();
+	  float matMix = m_trisets[i]->materialMix();
+	  glUniform1i(meshShaderParm[18], matId);
+	  if (matId > 0)
+	    {
+	      glActiveTexture(GL_TEXTURE1);
+	      glEnable(GL_TEXTURE_2D);
+	      glBindTexture(GL_TEXTURE_2D, m_solidTex[matId-1]);
+	      glUniform1i(meshShaderParm[19], 1); // matcapTex
+	      glUniform1f(meshShaderParm[20], matMix); // matMix
+	    }
+
 	  // no patterns
 	  glUniform1i(meshShaderParm[18], 0);	  
 	  // force no clipping
@@ -2518,6 +2498,12 @@ Trisets::renderGrabbedOutline(GLint drawFboId, QGLViewer *viewer)
 			     m_trisets[i]->grabsMouse());
 
 	  
+	  if (matId > 0)
+	    {
+	      glActiveTexture(GL_TEXTURE1);
+	      glDisable(GL_TEXTURE_2D);
+	    }
+
 	  m_trisets[i]->setOutline(ot);
 	  m_trisets[i]->setOpacity(op);
 	  //---	  
@@ -2692,6 +2678,7 @@ Trisets::renderTransparent(GLint drawFboId,
 	  glUniform1f(oitShaderParm[17], i+1);
 	  
 	  int matId = m_trisets[i]->material();
+	  float matMix = m_trisets[i]->materialMix();
 	  glUniform1i(oitShaderParm[18], matId);
 	  if (matId > 0)
 	    {
@@ -2699,6 +2686,7 @@ Trisets::renderTransparent(GLint drawFboId,
 	      glEnable(GL_TEXTURE_2D);
 	      glBindTexture(GL_TEXTURE_2D, m_solidTex[matId-1]);
 	      glUniform1i(oitShaderParm[19], 1); // matcapTex
+	      glUniform1f(oitShaderParm[22], matMix); // matMix
 	    }
 	  
 	  if (m_trisets[i]->clip())
@@ -2887,6 +2875,7 @@ Trisets::renderOutline(GLint drawFboId,
 	  glUniform1f(meshShaderParm[17], i+1);
 	  
 	  int matId = m_trisets[i]->material();
+	  float matMix = m_trisets[i]->materialMix();
 	  glUniform1i(meshShaderParm[18], matId);
 	  if (matId > 0)
 	    {
@@ -2894,6 +2883,7 @@ Trisets::renderOutline(GLint drawFboId,
 	      glEnable(GL_TEXTURE_2D);
 	      glBindTexture(GL_TEXTURE_2D, m_solidTex[matId-1]);
 	      glUniform1i(meshShaderParm[19], 1); // matcapTex
+	      glUniform1f(meshShaderParm[20], matMix); // matMix
 	    }
 
 	  
@@ -3491,7 +3481,27 @@ Trisets::materialChanged(QList<int> indices, int matId )
 void
 Trisets::materialChanged(int matId)
 {
+  if (m_active < 0) return;
   m_trisets[m_active]->setMaterial(matId);
+  emit updateGL();
+}
+
+void
+Trisets::materialMixChanged(QList<int> indices, float matMix )
+{
+  for (int i=0; i<indices.count(); i++)
+    {
+      int idx = indices[i];
+      m_trisets[idx]->setMaterialMix(matMix);
+    }
+  emit updateGL();
+}
+
+void
+Trisets::materialMixChanged(float matMix)
+{
+  if (m_active < 0) return;
+  m_trisets[m_active]->setMaterialMix(matMix);
   emit updateGL();
 }
 

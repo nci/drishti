@@ -16,6 +16,7 @@ TrisetInformation::clear()
   q = Quaternion();
   color = Vec(0,0,0);
   materialId = 0;
+  materialMix = 0.5;
   cropcolor = Vec(0,0,0);
   roughness = 0.3;
   ambient = 0;
@@ -48,6 +49,7 @@ TrisetInformation::operator=(const TrisetInformation& ti)
   q = ti.q;
   color = ti.color;
   materialId = ti.materialId;
+  materialMix = ti.materialMix;
   cropcolor = ti.cropcolor;
   roughness = ti.roughness;
   ambient = ti.ambient;
@@ -94,6 +96,7 @@ TrisetInformation::interpolate(const TrisetInformation tinfo1,
   tinfo.dark = (1-frc)*tinfo1.dark + frc*tinfo2.dark;
   tinfo.pattern = (1-frc)*tinfo1.pattern + frc*tinfo2.pattern;
   tinfo.opacity = (1-frc)*tinfo1.opacity + frc*tinfo2.opacity;
+  tinfo.materialMix = (1-frc)*tinfo1.materialMix + frc*tinfo2.materialMix;
 
   int nt = qMin(tinfo1.captionPosition.count(), tinfo2.captionPosition.count());			   
 
@@ -211,6 +214,11 @@ TrisetInformation::save(fstream &fout)
   sprintf(keyword, "materialId");
   fout.write((char*)keyword, strlen(keyword)+1);
   fout.write((char*)&materialId, sizeof(int));
+  
+  memset(keyword, 0, 100);
+  sprintf(keyword, "materialMix");
+  fout.write((char*)keyword, strlen(keyword)+1);
+  fout.write((char*)&materialMix, sizeof(float));
   
   memset(keyword, 0, 100);
   sprintf(keyword, "cropcolor");
@@ -395,6 +403,8 @@ TrisetInformation::load(fstream &fin)
 	}
       else if (strcmp(keyword, "materialId") == 0)
 	fin.read((char*)&materialId, sizeof(int));
+      else if (strcmp(keyword, "materialMix") == 0)
+	fin.read((char*)&materialMix, sizeof(float));
       else if (strcmp(keyword, "ambient") == 0)
 	fin.read((char*)&ambient, sizeof(float));
       else if (strcmp(keyword, "diffuse") == 0)

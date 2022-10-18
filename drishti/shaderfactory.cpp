@@ -1477,8 +1477,9 @@ GLuint ShaderFactory::oitShader()
   m_oitShaderParm[17] = glGetUniformLocation(m_oitShader,"idx");
   m_oitShaderParm[18] = glGetUniformLocation(m_oitShader,"applyMaterial");
   m_oitShaderParm[19] = glGetUniformLocation(m_oitShader,"matcapTex");	
-  m_oitShaderParm[20] = glGetUniformLocation(m_oitShader, "rightDir");
-  m_oitShaderParm[21] = glGetUniformLocation(m_oitShader, "upDir");
+  m_oitShaderParm[20] = glGetUniformLocation(m_oitShader,"rightDir");
+  m_oitShaderParm[21] = glGetUniformLocation(m_oitShader,"upDir");
+  m_oitShaderParm[22] = glGetUniformLocation(m_oitShader,"matMix");
 
 
   
@@ -1551,7 +1552,9 @@ ShaderFactory::oitShaderF()
 
   shader += "uniform vec3 rightDir;\n";
   shader += "uniform vec3 upDir;\n";
-
+  shader += "uniform float matMix;\n";
+  
+  
   shader += "in vec3 v3Color;\n";
   shader += "in vec3 v3Normal;\n";
   shader += "in vec3 pointPos;\n";
@@ -1617,7 +1620,7 @@ ShaderFactory::oitShaderF()
   // apply matcap texture
   shader += "  float dx = dot(rightDir,v3Normal)*0.5+0.5;\n";
   shader += "  float dy = dot(upDir,v3Normal)*0.5+0.5;\n";
-  shader += "  outputColor.rgb = mix(outputColor.rgb, texture(matcapTex, vec2(dx, 1.0-dy)).rgb, vec3(step(0, applyMaterial)));\n"; 
+  shader += "  outputColor.rgb = mix(outputColor.rgb, texture(matcapTex, vec2(dx, 1.0-dy)).rgb, matMix*vec3(step(0, applyMaterial)));\n"; 
   //---------------------------------------------------------
   //---------------------------------------------------------
 
@@ -1783,6 +1786,7 @@ GLuint ShaderFactory::meshShader()
 	m_meshShaderParm[17] = glGetUniformLocation(m_meshShader,"idx");
 	m_meshShaderParm[18] = glGetUniformLocation(m_meshShader,"applyMaterial");
 	m_meshShaderParm[19] = glGetUniformLocation(m_meshShader,"matcapTex");	
+	m_meshShaderParm[20] = glGetUniformLocation(m_meshShader,"matMix");
 
     	m_meshShaderParm[21] = glGetUniformLocation(m_meshShader,"depthTex");
     	m_meshShaderParm[22] = glGetUniformLocation(m_meshShader,"shadowRender");
@@ -1791,15 +1795,6 @@ GLuint ShaderFactory::meshShader()
 
 	m_meshShaderParm[25] = glGetUniformLocation(m_meshShader, "rightDir");
 	m_meshShaderParm[26] = glGetUniformLocation(m_meshShader, "upDir");
-
-//	m_meshShaderParm[25] = glGetUniformLocationARB(m_meshShader, "lightTex");
-//	m_meshShaderParm[26] = glGetUniformLocationARB(m_meshShader, "lightgridx");
-//	m_meshShaderParm[27] = glGetUniformLocationARB(m_meshShader, "lightgridy");
-//	m_meshShaderParm[28] = glGetUniformLocationARB(m_meshShader, "lightgridz");
-//	m_meshShaderParm[29] = glGetUniformLocationARB(m_meshShader, "lightnrows");
-//	m_meshShaderParm[30] = glGetUniformLocationARB(m_meshShader, "lightncols");
-//	m_meshShaderParm[31] = glGetUniformLocationARB(m_meshShader, "lightlod");
-
     }
 
   return m_meshShader;
@@ -1885,6 +1880,7 @@ ShaderFactory::meshShaderF()
 
   shader += "uniform vec3 rightDir;\n";
   shader += "uniform vec3 upDir;\n";
+  shader += "uniform float matMix;\n";
 
 //  //----------------------------------
 //  //----------------------------------
@@ -2021,7 +2017,7 @@ ShaderFactory::meshShaderF()
   // apply matcap texture
   shader += "  float dx = dot(rightDir,v3Normal)*0.5+0.5;\n";
   shader += "  float dy = dot(upDir,v3Normal)*0.5+0.5;\n";
-  shader += "  outputColor.rgb = mix(outputColor.rgb, ambient*texture(matcapTex, vec2(dx, 1.0-dy)).rgb, vec3(step(1, applyMaterial)));\n";
+  shader += "  outputColor.rgb = mix(outputColor.rgb, ambient*texture(matcapTex, vec2(dx, 1.0-dy)).rgb, matMix*vec3(step(1, applyMaterial)));\n";
 
   //---------------------------------------------------------
   //---------------------------------------------------------

@@ -6,9 +6,13 @@
 #include <QMenu>
 #include <QAction>
 #include <QInputDialog>
+#include <QItemEditorFactory>
+#include <QItemEditorCreatorBase>
+#include <QItemDelegate>
 
 #include "dcolordialog.h"
 #include "propertyeditor.h"
+#include "opacityeditor.h"
 
 MeshInfoWidget::MeshInfoWidget(QWidget *parent) :
   QWidget(parent)
@@ -18,6 +22,7 @@ MeshInfoWidget::MeshInfoWidget(QWidget *parent) :
 
   //ui.Command->hide();
 
+  m_updatingTable = true;
 
   //--- set background color ---
   QPalette pal = QPalette();
@@ -33,8 +38,16 @@ MeshInfoWidget::MeshInfoWidget(QWidget *parent) :
   m_meshList = new QTableWidget();
   m_meshList->setSelectionBehavior(QAbstractItemView::SelectRows);
   m_meshList->setShowGrid(false);
-  m_meshList->setColumnCount(5);
+  m_meshList->setColumnCount(6);
   m_meshList->setFrameStyle(QFrame::NoFrame);
+
+  
+  QItemEditorCreatorBase *blendCreator = new QStandardItemEditorCreator<OpacityEditor>();
+  QItemEditorFactory *blendFactory = new QItemEditorFactory;
+  blendFactory->registerEditor(QVariant::Double, blendCreator);
+  QItemDelegate *blendDelegate = new QItemDelegate();
+  blendDelegate->setItemEditorFactory(blendFactory);
+  m_meshList->setItemDelegateForColumn(5, blendDelegate); // material blend
 
   
   QStringList hlabels;
@@ -43,7 +56,13 @@ MeshInfoWidget::MeshInfoWidget(QWidget *parent) :
   hlabels << tr("X");
   hlabels << tr("C");
   hlabels << tr("Mat");
+  hlabels << tr("Blend");
   m_meshList->setHorizontalHeaderLabels(hlabels);  
+  m_meshList->setColumnWidth(1, 20);
+  m_meshList->setColumnWidth(2, 20);
+  m_meshList->setColumnWidth(3, 20);
+  m_meshList->setColumnWidth(4, 50);
+  m_meshList->setColumnWidth(5, 50);
   
   
   QString ss;
@@ -55,7 +74,7 @@ MeshInfoWidget::MeshInfoWidget(QWidget *parent) :
   ss += "selection-color: black;";
   ss += "}";
   m_meshList->setStyleSheet(ss);
-
+  
   
   QVBoxLayout *vbox = new QVBoxLayout();
   vbox->setContentsMargins(0,0,0,0);
@@ -63,7 +82,10 @@ MeshInfoWidget::MeshInfoWidget(QWidget *parent) :
   ui.MeshList->setLayout(vbox);
   
   m_prevRow = -1;
-  
+
+  connect(m_meshList, SIGNAL(itemChanged(QTableWidgetItem*)),
+	  this, SLOT(itemChanged(QTableWidgetItem*)));
+
   connect(m_meshList, SIGNAL(cellClicked(int, int)),
 	  this, SLOT(cellClicked(int, int)));
 
@@ -170,9 +192,8 @@ MeshInfoWidget::setActive(int idx)
 }
 
 void
-MeshInfoWidget::addMesh(QString meshName, bool show, bool clip, QString color, int matId)
+MeshInfoWidget::addMesh(QString meshName, bool show, bool clip, QString color, int matId, float matMix)
 {
-  
   {
     QTableWidgetItem *wi = m_meshList->item(m_prevRow, 0);
     if (!wi) wi = new QTableWidgetItem("");
@@ -246,11 +267,20 @@ MeshInfoWidget::addMesh(QString meshName, bool show, bool clip, QString color, i
     m_meshList->setItem(m_prevRow, 4, wi);
     wi->setText(QString("%1").arg(matId));
   }
+
+  {
+    QTableWidgetItem *wi = m_meshList->item(m_prevRow, 5);
+    if (!wi) wi = new QTableWidgetItem("");
+    wi->setData(Qt::DisplayRole, (double)matMix);
+    m_meshList->setItem(m_prevRow, 5, wi);
+  }
 }
 
 void
 MeshInfoWidget::setMeshes(QStringList meshNames)
 {
+  m_updatingTable = true;
+  
   m_meshNames.clear();
   m_vertCount.clear();
   m_triCount.clear();
@@ -261,6 +291,7 @@ MeshInfoWidget::setMeshes(QStringList meshNames)
   QList<bool> clip;
   QStringList color;
   QList<int> material;
+  QList<float> blend;
   foreach(QString mesh, meshNames)
     {
       QString lstr = mesh.left(5);
@@ -277,10 +308,11 @@ MeshInfoWidget::setMeshes(QStringList meshNames)
       clip << (words[1].toInt() > 0);
       color << words[2];
       material << words[3].toInt();
-      m_vertCount << words[4].toInt();
-      m_triCount << words[5].toInt();
-      m_totVertices += words[4].toInt();
-      m_totTriangles += words[5].toInt();;
+      blend << words[4].toFloat();
+      m_vertCount << words[5].toInt();
+      m_triCount << words[6].toInt();
+      m_totVertices += words[5].toInt();
+      m_totTriangles += words[6].toInt();;
     }
 
   
@@ -290,10 +322,10 @@ MeshInfoWidget::setMeshes(QStringList meshNames)
   for(int i=0; i<m_meshNames.count(); i++)
     {
       m_prevRow++;
-      addMesh(m_meshNames[i], show[i], clip[i], color[i], material[i]);
+      addMesh(m_meshNames[i], show[i], clip[i], color[i], material[i], blend[i]);
     }
 
-  m_meshList->resizeColumnsToContents();
+  m_meshList->resizeColumnToContents(0);
 //  m_meshList->resizeColumnToContents(1);
 //  m_meshList->resizeColumnToContents(2);
 
@@ -308,14 +340,16 @@ MeshInfoWidget::setMeshes(QStringList meshNames)
 
   
   ui.MeshParamBox->hide();
+
+  m_updatingTable = false;  
 }
 
 void
 MeshInfoWidget::sectionClicked(int col)
 {
-  if (col == 0)
+  if (col == 0 || col > 4)
     return;
-
+  
   if (col >= 3) // colormap/material
     {
       QList<int> selIdx;
@@ -329,6 +363,7 @@ MeshInfoWidget::sectionClicked(int col)
 	}
 
 
+      //-------
       if (col == 3) // colormap
 	{
 	  if (selIdx.count() == 1)
@@ -352,8 +387,10 @@ MeshInfoWidget::sectionClicked(int col)
 
 	  return;
 	}
+      //-------
 
-      if (col == 4)
+      //-------
+      if (col == 4) // material
 	{
 	  if (selIdx.count() == 1)
 	    {
@@ -380,6 +417,7 @@ MeshInfoWidget::sectionClicked(int col)
 
 	  return;
 	}
+      //-------
     }
 
   // 1/2 = visibility/clip
@@ -498,6 +536,7 @@ MeshInfoWidget::cellClicked(int row, int col)
   emit multiSelection(selIdx);
 
   
+  //-----------
   if (selIdx.count() > 1 &&
       selIdx.contains(row) &&
       (col == 1 || col == 2))
@@ -547,7 +586,9 @@ MeshInfoWidget::cellClicked(int row, int col)
 
       return;
     }
+    //-----------
 
+    //-----------
     if (selIdx.count() > 1 &&
       selIdx.contains(row) &&
       col == 3)
@@ -571,6 +612,9 @@ MeshInfoWidget::cellClicked(int row, int col)
 
       return;
     }
+    //-----------
+    
+    //-----------
     if (selIdx.count() > 1 &&
       selIdx.contains(row) &&
       col == 4)
@@ -592,14 +636,37 @@ MeshInfoWidget::cellClicked(int row, int col)
 
       return;
     }
+    //-----------
 
+    //-----------
+    if (selIdx.count() > 1 &&
+      selIdx.contains(row) &&
+      col == 5)
+    {
+      QTableWidgetItem *wi;
+      wi = m_meshList->item(row, col);
+      float matMix = wi->data(Qt::DisplayRole).toDouble();	      
+      emit materialMixChanged(matMix);
+
+      for(int id=0; id<selIdx.count(); id++)
+	{
+	  int i = selIdx[id];
+	  wi = m_meshList->item(i, col);
+	  wi->setData(Qt::DisplayRole, (double)matMix);
+	}
+      emit materialMixChanged(selIdx, matMix);
+
+      return;
+    }
+    //-----------
+    
     
     if (selIdx.count() > 1)
       {
 	m_prevRow = row;
 	return;
       }
-
+    
     if (m_meshList->selectionMode() != QAbstractItemView::ExtendedSelection)
       {    
 	if (col == 0)
@@ -621,111 +688,179 @@ MeshInfoWidget::cellClicked(int row, int col)
       }
     
     
+    //-----------
     if (col == 0)
-    {      
-      if (m_prevRow != -1)
-	emit setActive(m_prevRow, false);
-
-      if (row == m_prevRow)
-	{
-	  row = -1;
-	  m_meshList->setCurrentCell(-1,-1);
-	  ui.MeshParamBox->hide();
-	}
-      else
-	{
-	  emit setActive(row, true);
-	  ui.MeshParamBox->show();
-	}
-      m_prevRow = row;
-
-      return;
-    }
-
-  // for single selection
-  if (col == 1 || col == 2)
-    {
-      m_meshList->setCurrentCell(row, col);
-      if (m_prevRow != -1)
-	emit setActive(m_prevRow, false);
-
-      m_prevRow = row;
-      emit setActive(row, true);
-      ui.MeshParamBox->show();
-
-      QTableWidgetItem *wi;
-      wi = m_meshList->item(row, col);
-
-      QColor bgcol = wi->background().color();
-      bool flag = true;
-      if (bgcol.red() < 150)
-	{
-	  wi->setText("");
-	  wi->setBackground(QBrush(Qt::lightGray));
-	  flag = false;
-	}
-      else
-	{
-	  //wi->setText(u8"\u2705");
-	  wi->setText("X");
-	  wi->setBackground(QBrush(Qt::darkGray));
-	  flag = true;
-	}
-
-      if (col == 1)
-	emit setVisible(row, flag);
-      else
-	emit setClip(row, flag);
+      {      
+	if (m_prevRow != -1)
+	  emit setActive(m_prevRow, false);
+	
+	if (row == m_prevRow)
+	  {
+	    row = -1;
+	    m_meshList->setCurrentCell(-1,-1);
+	    ui.MeshParamBox->hide();
+	  }
+	else
+	  {
+	    emit setActive(row, true);
+	    ui.MeshParamBox->show();
+	  }
+	m_prevRow = row;
       
       return;
-    }
+      }
+    //-----------
+    
+    //-----------
+    // for single selection
+    if (col == 1 || col == 2)
+      {
+	m_meshList->setCurrentCell(row, col);
+	if (m_prevRow != -1)
+	  emit setActive(m_prevRow, false);
+	
+	m_prevRow = row;
+	emit setActive(row, true);
+	ui.MeshParamBox->show();
+	
+	QTableWidgetItem *wi;
+	wi = m_meshList->item(row, col);
+	
+	QColor bgcol = wi->background().color();
+	bool flag = true;
+	if (bgcol.red() < 150)
+	  {
+	    wi->setText("");
+	    wi->setBackground(QBrush(Qt::lightGray));
+	    flag = false;
+	  }
+	else
+	  {
+	    //wi->setText(u8"\u2705");
+	    wi->setText("X");
+	    wi->setBackground(QBrush(Qt::darkGray));
+	    flag = true;
+	  }
+	
+	if (col == 1)
+	  emit setVisible(row, flag);
+	else
+	  emit setClip(row, flag);
+	
+	return;
+      }
+    //-----------
+    
+    
+    //-----------
+    if (col == 3) // color
+      {
+	m_meshList->setCurrentCell(row, col);
+	if (m_prevRow != -1)
+	  emit setActive(m_prevRow, false);
+	
+	m_prevRow = row;
+	emit setActive(row, true);
+	ui.MeshParamBox->show();
+	
+	QTableWidgetItem *wi;
+	wi = m_meshList->item(row, col);
+	QColor pcolor = wi->background().color();
+	
+	QColor color = DColorDialog::getColor(pcolor);
+	if (color.isValid())
+	  {
+	    wi->setBackground(QBrush(color));
+	    wi->setForeground(QBrush(color));
+	    emit colorChanged(color);
+	  }
+	
+	return;
+      }
+    //-----------
 
+    //-----------
+    if (col == 4) // material
+      {
+	m_meshList->setCurrentCell(row, col);
+	if (m_prevRow != -1)
+	  emit setActive(m_prevRow, false);
+	
+	m_prevRow = row;
+	emit setActive(row, true);
+	ui.MeshParamBox->show();
+	
+	QTableWidgetItem *wi;
+	wi = m_meshList->item(row, col);
+	int matId = wi->text().toInt();	      
+	matId = m_matcapDialog->getImageId(matId);
+	wi->setText(QString("%1").arg(matId));
+	emit materialChanged(matId);
+	
+	return;
+      }
+    //-----------
+    
+    //-----------    
+    if (col == 5) // material blend
+      {
+	m_meshList->setCurrentCell(row, col);
+	if (m_prevRow != -1)
+	  emit setActive(m_prevRow, false);
+	
+	m_prevRow = row;
+	emit setActive(row, true);
+	ui.MeshParamBox->show();
+	
+//	QTableWidgetItem *wi;
+//	wi = m_meshList->item(row, col);
+//	float matMix = wi->data(Qt::DisplayRole).toDouble();	      
+//	emit materialMixChanged(matMix);
+	
+	return;
+      }
+    //-----------
+}
 
-  if (col == 3) // color
+void
+MeshInfoWidget::itemChanged(QTableWidgetItem *item)
+{
+  if (m_updatingTable)
+    return;
+  
+  int row = item->row();
+  int colm = item->column();
+  if (colm == 5)
     {
-      m_meshList->setCurrentCell(row, col);
-      if (m_prevRow != -1)
-	emit setActive(m_prevRow, false);
-
-      m_prevRow = row;
-      emit setActive(row, true);
-      ui.MeshParamBox->show();
-
-      QTableWidgetItem *wi;
-      wi = m_meshList->item(row, col);
-      QColor pcolor = wi->background().color();
-
-      QColor color = DColorDialog::getColor(pcolor);
-      if (color.isValid())
+      QList<int> selIdx;
+      for(int i=0; i<m_meshList->rowCount(); i++)
 	{
-	  wi->setBackground(QBrush(color));
-	  wi->setForeground(QBrush(color));
-	  emit colorChanged(color);
+	  QTableWidgetItem *wi = m_meshList->item(i, 0);
+	  if (wi->isSelected())
+	    selIdx << i;
 	}
+      
+      float matMix = item->data(Qt::DisplayRole).toDouble();	      
 
-      return;
-    }
-
-  if (col == 4) // material
-    {
-      m_meshList->setCurrentCell(row, col);
-      if (m_prevRow != -1)
-	emit setActive(m_prevRow, false);
-
-      m_prevRow = row;
-      emit setActive(row, true);
-      ui.MeshParamBox->show();
-
-      QTableWidgetItem *wi;
-      wi = m_meshList->item(row, col);
-      int matId = wi->text().toInt();	      
-      matId = m_matcapDialog->getImageId(matId);
-      wi->setText(QString("%1").arg(matId));
-      emit materialChanged(matId);
-
-      return;
+      if (selIdx.count() > 1 &&
+	  selIdx.contains(row))
+	{
+	  for(int id=0; id<selIdx.count(); id++)
+	    {
+	      int i = selIdx[id];
+	      QTableWidgetItem *wi = m_meshList->item(i, 5);
+	      wi->setData(Qt::DisplayRole, (double)matMix);
+	    }
+	  emit materialMixChanged(selIdx, matMix);
+	}
+      else
+	{
+	  emit materialMixChanged(matMix);
+	}
     }
 }
+
+
 
 void
 MeshInfoWidget::meshListContextMenu(const QPoint& pos)

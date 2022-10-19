@@ -2485,13 +2485,12 @@ Trisets::renderGrabbedOutline(GLint drawFboId, QGLViewer *viewer)
 
 	  m_trisets[i]->setOutline(ot+otln);
 
-	  if (ot < 0.05)
-	    m_trisets[i]->setOpacity(0.0);
-	  else
-	    m_trisets[i]->setOpacity(0.7);
-	  
-//	  if (m_trisets[i]->grabsMouse())
-//	    m_trisets[i]->setOutline(ot+0.5);
+//	  if (ot < 0.05)
+//	    m_trisets[i]->setOpacity(0.0);
+//	  else
+//	    m_trisets[i]->setOpacity(0.7);
+
+	  m_trisets[i]->setOpacity(0.7);
 	    
 	  
 	  m_trisets[i]->draw(viewer->camera(),

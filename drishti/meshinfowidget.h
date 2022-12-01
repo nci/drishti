@@ -33,7 +33,7 @@ class MeshInfoWidget : public QWidget
     void sectionClicked(int);
     void sectionDoubleClicked(int);
     void cellClicked(int, int);
-  void itemChanged(QTableWidgetItem*);
+    void itemChanged(QTableWidgetItem*);
     void meshListContextMenu(const QPoint&);
     void removeMesh();
     void saveMesh();

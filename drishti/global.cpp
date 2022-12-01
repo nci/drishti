@@ -1124,3 +1124,95 @@ int Global::pvlVoxelType() { return m_pvlVoxelType; }
 Vec Global::m_relDataPos = Vec(0,0,0);
 void Global::setRelDataPos(Vec rp) { m_relDataPos = rp; }
 Vec Global::relDataPos() { return m_relDataPos; }
+
+
+//-----
+// Material Capture Textures
+//-----
+QStringList Global::m_matCapTexNames = QStringList();
+GLuint* Global::m_matCapTex = 0;
+void Global::loadMatCapTextures()
+{
+  if (m_matCapTexNames.count() > 0)
+    return;
+    
+  QString texdir = qApp->applicationDirPath() + QDir::separator()  + "assets" + QDir::separator() + "matcap";
+  QDir dir(texdir);  
+  QStringList filters;
+  filters << "*.png";
+  dir.setNameFilters(filters);
+  dir.setFilter(QDir::Files |
+		QDir::NoSymLinks |
+		QDir::NoDotAndDotDot);
+
+
+  QFileInfoList list = dir.entryInfoList();
+  if (list.size() == 0)
+    return;
+
+  
+  m_matCapTex = new GLuint[list.size()];
+  glGenTextures(list.size(), m_matCapTex);
+  
+  QRandomGenerator::global()->bounded(0,list.size()-1);
+
+  int texSize;
+  for (int i=0; i<list.size(); i++)
+    {
+      QString flnm = list.at(i).absoluteFilePath();
+      m_matCapTexNames << flnm;
+      
+      QImage img(flnm);
+      img = img.rgbSwapped();
+      texSize = img.width();
+      int ht = img.height();
+      int wd = img.width();
+      int nbytes = img.byteCount();
+      int rgb = nbytes/(wd*ht);
+
+      GLuint fmt;
+      if (rgb == 1) fmt = GL_LUMINANCE;
+      else if (rgb == 2) fmt = GL_LUMINANCE_ALPHA;
+      else if (rgb == 3) fmt = GL_RGB;
+      else if (rgb == 4) fmt = GL_RGBA;
+
+      glActiveTexture(GL_TEXTURE7);
+      glEnable(GL_TEXTURE_2D);
+      glBindTexture(GL_TEXTURE_2D, m_matCapTex[i]);
+      glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER); 
+      glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER); 
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glTexImage2D(GL_TEXTURE_2D,
+		   0, // single resolution
+		   rgb,
+		   texSize, texSize,
+		   0, // no border
+		   fmt,
+		   GL_UNSIGNED_BYTE,
+		   img.bits());
+      glDisable(GL_TEXTURE_2D);
+    }
+}
+
+QStringList Global::matCapTexNames() { return m_matCapTexNames; }
+
+GLuint Global::matCapTex(int i)
+{
+  if (i >= 0 &&
+      i < m_matCapTexNames.count())
+    return m_matCapTex[i];
+  else
+    return 0;
+}
+
+int Global::m_matId = 0;
+float Global::m_matMix = 0.5;
+void Global::setMatId(int m) { m_matId = m; }
+int Global::matId() { return m_matId; }
+void Global::setMatMix(float f) { m_matMix = f; }
+float Global::matMix() { return m_matMix; }
+
+bool Global::m_disableHist = false;
+void Global::setDisableHistogram(bool b) { m_disableHist = b; }
+bool Global::histogramDisabled() { return m_disableHist; }

@@ -7,6 +7,7 @@
 #include <QFileDialog>
 #include <QHeaderView>
 
+
 TransferFunctionManager::TransferFunctionManager(QWidget *parent) :
   QFrame(parent)
 {
@@ -21,13 +22,30 @@ TransferFunctionManager::TransferFunctionManager(QWidget *parent) :
   QPushButton *refreshTF = new QPushButton("Refresh");
   QPushButton *removeTF = new QPushButton("Remove");
 
+  m_material = new QPushButton("Material-000");
+  m_matMix = new QDoubleSpinBox();
+  m_matMix->setDecimals(2);
+  m_matMix->setRange(0, 1);
+  m_matMix->setSingleStep(0.1);
+  m_matMix->setValue(Global::matMix());
+  
+  
   QHBoxLayout *hbox = new QHBoxLayout();
   hbox->addWidget(newTF);
   hbox->addWidget(refreshTF);
   hbox->addWidget(removeTF);
   hbox->addStretch(4);
 
-  m_buttonGroup->setLayout(hbox);
+  QHBoxLayout *hboxM = new QHBoxLayout();
+  hboxM->addWidget(m_material);
+  hboxM->addWidget(m_matMix);
+
+  QVBoxLayout *vboxB = new QVBoxLayout();
+  vboxB->addLayout(hbox);
+  vboxB->addLayout(hboxM);
+  
+  
+  m_buttonGroup->setLayout(vboxB);
 
 
   connect(newTF, SIGNAL(clicked()),
@@ -38,6 +56,11 @@ TransferFunctionManager::TransferFunctionManager(QWidget *parent) :
 
   connect(removeTF, SIGNAL(clicked()),
 	  this, SLOT(removeTransferFunction()));
+
+  connect(m_material, SIGNAL(clicked()),
+	  this, SLOT(changeMaterial()));
+  connect(m_matMix, SIGNAL(valueChanged(double)),
+	  this, SLOT(matMixChanged(double)));
 
 
   m_tableWidget = new QTableWidget();
@@ -99,6 +122,8 @@ TransferFunctionManager::TransferFunctionManager(QWidget *parent) :
   connect(m_tableWidget, SIGNAL(cellChanged(int, int)),
 	  this, SLOT(cellChanged(int, int)));
 
+
+  m_matcapDialog = 0;
 }
 
 void
@@ -723,3 +748,26 @@ TransferFunctionManager::showHelp()
   propertyEditor.set("Transfer Function Manager Help", plist, keys);
   propertyEditor.exec();
 }
+
+void
+TransferFunctionManager::changeMaterial()
+{
+  if (m_matcapDialog == 0)
+    {
+      Global::loadMatCapTextures();
+      m_matcapDialog = new ImgListDialog();
+      m_matcapDialog->setIcons(Global::matCapTexNames());
+    }
+
+  Global::setMatId(m_matcapDialog->getImageId(Global::matId()));
+  m_material->setText(QString("Material-%1").arg(Global::matId(), 3, 10, QChar('0')));
+  emit updateGL();
+}
+
+void
+TransferFunctionManager::matMixChanged(double d)
+{
+  Global::setMatMix(d);
+  emit updateGL();
+}
+

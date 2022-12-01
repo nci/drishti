@@ -11,4 +11,9 @@
 	  this,
 	  SLOT(checkStateChanged(int, int, bool)));
 
+  connect(m_tfManager,
+	  SIGNAL(updateGL()),
+	  m_Viewer,
+	  SLOT(updateGL()));
+
 #endif

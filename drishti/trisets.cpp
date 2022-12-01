@@ -35,8 +35,7 @@ Trisets::Trisets()
   memset(&m_scrGeo[0], 0, 8*sizeof(float));
 
   m_solidTexName.clear();
-  //m_solidTexData.clear();
-  m_solidTex = 0;
+  //m_solidTex = 0;
   
   m_lightDir = Vec(0.1,0.1,1);
   m_lightDir.normalize();
@@ -64,15 +63,10 @@ Trisets::~Trisets()
 
   if (m_solidTexName.count() > 0)
     {
-      glDeleteTextures(m_solidTexName.size(), m_solidTex);
-      delete [] m_solidTex;
-      m_solidTex = 0;
+//      glDeleteTextures(m_solidTexName.size(), m_solidTex);
+//      delete [] m_solidTex;
+//      m_solidTex = 0;
       m_solidTexName.clear();
-//      foreach(uchar* td, m_solidTexData)
-//	{
-//	  delete [] td;
-//	}
-//      m_solidTexData.clear();
     }
 }
 
@@ -620,10 +614,11 @@ Trisets::render(Camera *camera, int nclip)
 	  glUniform1i(meshShaderParm[18], matId);
 	  if (matId > 0)
 	    {
-	      glActiveTexture(GL_TEXTURE1);
+	      glActiveTexture(GL_TEXTURE7);
 	      glEnable(GL_TEXTURE_2D);
-	      glBindTexture(GL_TEXTURE_2D, m_solidTex[matId-1]);
-	      glUniform1i(meshShaderParm[19], 1); // matcapTex
+	      glBindTexture(GL_TEXTURE_2D, Global::matCapTex(matId-1));
+	      //glBindTexture(GL_TEXTURE_2D, m_solidTex[matId-1]);
+	      glUniform1i(meshShaderParm[19], 7); // matcapTex
 	      glUniform1f(meshShaderParm[20], matMix); // matMix
 	    }
 	  
@@ -652,7 +647,7 @@ Trisets::render(Camera *camera, int nclip)
 	  
 	  if (matId > 0)
 	    {
-	      glActiveTexture(GL_TEXTURE1);
+	      glActiveTexture(GL_TEXTURE7);
 	      glDisable(GL_TEXTURE_2D);
 	    }
 	  
@@ -1197,28 +1192,6 @@ Trisets::handleDialog(int i)
 	    }
 	  else if (keys[ik] == "clip")
 	    m_trisets[i]->setClip(pair.first.toBool());
-//	  else if (keys[ik] == "pattern")
-//            {
-//	      QString vstr = pair.first.toString();
-//	      QStringList pat = vstr.split(" ");
-//	      if (pat.count() > 0)
-//                {
-//                  int texId = pat[0].toDouble();
-//                  if (texId < 0 || texId > m_solidTexName.count())
-//		    {
-//		      QMessageBox::information(0, "", QString("Pattern id %1 is outside range 0-%1").\
-//					       arg(texId).\
-//					       arg(m_solidTexName.count()));
-//		      return true;
-//		    }
-//		  if (pat.count() == 1)
-//		    m_trisets[i]->setPattern(Vec(pat[0].toDouble(), 10, 0.5));
-//		  else if (pat.count() == 3)
-//		    m_trisets[i]->setPattern(Vec(pat[0].toDouble(),
-//						 pat[1].toDouble(),
-//						 pat[2].toDouble()));
-//                }
-//	    }
 	}
     }
   
@@ -2300,66 +2273,72 @@ Trisets::loadMatCapTextures()
 {  
   if (m_solidTexName.count() > 0)
     return;
-    
-  QString texdir = qApp->applicationDirPath() + QDir::separator()  + "assets" + QDir::separator() + "matcap";
-  QDir dir(texdir);  
-  QStringList filters;
-  filters << "*.png";
-  dir.setNameFilters(filters);
-  dir.setFilter(QDir::Files |
-		QDir::NoSymLinks |
-		QDir::NoDotAndDotDot);
 
-
-  QFileInfoList list = dir.entryInfoList();
-  if (list.size() == 0)
-    return;
-
+  Global::loadMatCapTextures();
+  m_solidTexName = Global::matCapTexNames();
   
-  m_solidTex = new GLuint[list.size()];
-  glGenTextures(list.size(), m_solidTex);
-  
-  QRandomGenerator::global()->bounded(0,list.size()-1);
-
-  int texSize;
-  for (int i=0; i<list.size(); i++)
-    {
-      QString flnm = list.at(i).absoluteFilePath();
-      m_solidTexName << flnm;
-      
-      QImage img(flnm);
-      img = img.rgbSwapped();
-      texSize = img.width();
-      int ht = img.height();
-      int wd = img.width();
-      int nbytes = img.byteCount();
-      int rgb = nbytes/(wd*ht);
-
-      GLuint fmt;
-      if (rgb == 1) fmt = GL_LUMINANCE;
-      else if (rgb == 2) fmt = GL_LUMINANCE_ALPHA;
-      else if (rgb == 3) fmt = GL_RGB;
-      else if (rgb == 4) fmt = GL_RGBA;
-
-      glActiveTexture(GL_TEXTURE1);
-      glEnable(GL_TEXTURE_2D);
-      glBindTexture(GL_TEXTURE_2D, m_solidTex[i]);
-      glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER); 
-      glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER); 
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-      glTexImage2D(GL_TEXTURE_2D,
-		   0, // single resolution
-		   rgb,
-		   texSize, texSize,
-		   0, // no border
-		   fmt,
-		   GL_UNSIGNED_BYTE,
-		   img.bits());
-      glDisable(GL_TEXTURE_2D);
-    }
-
   emit matcapFiles(m_solidTexName);
+
+//  
+//  QString texdir = qApp->applicationDirPath() + QDir::separator()  + "assets" + QDir::separator() + "matcap";
+//  QDir dir(texdir);  
+//  QStringList filters;
+//  filters << "*.png";
+//  dir.setNameFilters(filters);
+//  dir.setFilter(QDir::Files |
+//		QDir::NoSymLinks |
+//		QDir::NoDotAndDotDot);
+//
+//
+//  QFileInfoList list = dir.entryInfoList();
+//  if (list.size() == 0)
+//    return;
+//
+//  
+//  m_solidTex = new GLuint[list.size()];
+//  glGenTextures(list.size(), m_solidTex);
+//  
+//  QRandomGenerator::global()->bounded(0,list.size()-1);
+//
+//  int texSize;
+//  for (int i=0; i<list.size(); i++)
+//    {
+//      QString flnm = list.at(i).absoluteFilePath();
+//      m_solidTexName << flnm;
+//      
+//      QImage img(flnm);
+//      img = img.rgbSwapped();
+//      texSize = img.width();
+//      int ht = img.height();
+//      int wd = img.width();
+//      int nbytes = img.byteCount();
+//      int rgb = nbytes/(wd*ht);
+//
+//      GLuint fmt;
+//      if (rgb == 1) fmt = GL_LUMINANCE;
+//      else if (rgb == 2) fmt = GL_LUMINANCE_ALPHA;
+//      else if (rgb == 3) fmt = GL_RGB;
+//      else if (rgb == 4) fmt = GL_RGBA;
+//
+//      glActiveTexture(GL_TEXTURE7);
+//      glEnable(GL_TEXTURE_2D);
+//      glBindTexture(GL_TEXTURE_2D, m_solidTex[i]);
+//      glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER); 
+//      glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER); 
+//      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+//      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+//      glTexImage2D(GL_TEXTURE_2D,
+//		   0, // single resolution
+//		   rgb,
+//		   texSize, texSize,
+//		   0, // no border
+//		   fmt,
+//		   GL_UNSIGNED_BYTE,
+//		   img.bits());
+//      glDisable(GL_TEXTURE_2D);
+//    }
+//
+//  emit matcapFiles(m_solidTexName);
 }
 
 
@@ -2467,15 +2446,14 @@ Trisets::renderGrabbedOutline(GLint drawFboId, QGLViewer *viewer)
 	  glUniform1i(meshShaderParm[18], matId);
 	  if (matId > 0)
 	    {
-	      glActiveTexture(GL_TEXTURE1);
+	      glActiveTexture(GL_TEXTURE7);
 	      glEnable(GL_TEXTURE_2D);
-	      glBindTexture(GL_TEXTURE_2D, m_solidTex[matId-1]);
-	      glUniform1i(meshShaderParm[19], 1); // matcapTex
+	      glBindTexture(GL_TEXTURE_2D, Global::matCapTex(matId-1));
+	      //glBindTexture(GL_TEXTURE_2D, m_solidTex[matId-1]);
+	      glUniform1i(meshShaderParm[19], 7); // matcapTex
 	      glUniform1f(meshShaderParm[20], matMix); // matMix
 	    }
 
-	  // no patterns
-	  glUniform1i(meshShaderParm[18], 0);	  
 	  // force no clipping
 	  glUniform1iARB(meshShaderParm[9],  0);
 	  
@@ -2499,7 +2477,7 @@ Trisets::renderGrabbedOutline(GLint drawFboId, QGLViewer *viewer)
 	  
 	  if (matId > 0)
 	    {
-	      glActiveTexture(GL_TEXTURE1);
+	      glActiveTexture(GL_TEXTURE7);
 	      glDisable(GL_TEXTURE_2D);
 	    }
 
@@ -2681,10 +2659,11 @@ Trisets::renderTransparent(GLint drawFboId,
 	  glUniform1i(oitShaderParm[18], matId);
 	  if (matId > 0)
 	    {
-	      glActiveTexture(GL_TEXTURE1);
+	      glActiveTexture(GL_TEXTURE7);
 	      glEnable(GL_TEXTURE_2D);
-	      glBindTexture(GL_TEXTURE_2D, m_solidTex[matId-1]);
-	      glUniform1i(oitShaderParm[19], 1); // matcapTex
+	      glBindTexture(GL_TEXTURE_2D, Global::matCapTex(matId-1));
+	      //glBindTexture(GL_TEXTURE_2D, m_solidTex[matId-1]);
+	      glUniform1i(oitShaderParm[19], 7); // matcapTex
 	      glUniform1f(oitShaderParm[22], matMix); // matMix
 	    }
 	  
@@ -2878,10 +2857,11 @@ Trisets::renderOutline(GLint drawFboId,
 	  glUniform1i(meshShaderParm[18], matId);
 	  if (matId > 0)
 	    {
-	      glActiveTexture(GL_TEXTURE1);
+	      glActiveTexture(GL_TEXTURE7);
 	      glEnable(GL_TEXTURE_2D);
-	      glBindTexture(GL_TEXTURE_2D, m_solidTex[matId-1]);
-	      glUniform1i(meshShaderParm[19], 1); // matcapTex
+	      glBindTexture(GL_TEXTURE_2D, Global::matCapTex(matId-1));
+	      //glBindTexture(GL_TEXTURE_2D, m_solidTex[matId-1]);
+	      glUniform1i(meshShaderParm[19], 7); // matcapTex
 	      glUniform1f(meshShaderParm[20], matMix); // matMix
 	    }
 

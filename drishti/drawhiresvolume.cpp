@@ -1136,6 +1136,10 @@ DrawHiresVolume::createDefaultShader()
   m_defaultParm[57] = glGetUniformLocationARB(m_defaultShader, "clipNormal");
 
   m_defaultParm[58] = glGetUniformLocationARB(m_defaultShader, "gamma");
+
+  m_defaultParm[59] = glGetUniformLocationARB(m_defaultShader, "applyMaterial");
+  m_defaultParm[60] = glGetUniformLocationARB(m_defaultShader, "matcapTex");
+  m_defaultParm[61] = glGetUniformLocationARB(m_defaultShader, "matMix");
 }
 
 void
@@ -1306,6 +1310,12 @@ DrawHiresVolume::disableTextureUnits()
   glDisable(GL_TEXTURE_RECTANGLE_ARB);
 
 
+  if (Global::matId() > 0)
+    {
+      glActiveTexture(GL_TEXTURE7);
+      glDisable(GL_TEXTURE_2D);
+    }
+  
   if (m_amrData)
     {
       glActiveTexture(GL_TEXTURE7);
@@ -1335,7 +1345,7 @@ DrawHiresVolume::drawStillImage(float stepsize)
   else
     m_drawImageType = Enums::StillImage;
 
-  if (Global::volumeType() != Global::DummyVolume)    
+  if (Global::volumeType() != Global::DummyVolume) 
     draw(stepsize, true);
   else // increase the stepsize
     draw(5*stepsize, true);
@@ -2511,6 +2521,21 @@ DrawHiresVolume::setRenderDefault()
   glUniform3fARB(m_defaultParm[53], m_dataMin.x, m_dataMin.y, m_dataMin.z);
 
   glUniform1fARB(m_defaultParm[58], Global::gamma()); // gamma
+
+
+  glUniform1i(m_defaultParm[59], Global::matId()); // matId
+  if (Global::matId() > 0)
+    {
+      glActiveTexture(GL_TEXTURE7);
+      glEnable(GL_TEXTURE_2D);
+      glBindTexture(GL_TEXTURE_2D, Global::matCapTex(Global::matId()-1));
+      glUniform1i(m_defaultParm[60], 7); // matcap Tex
+      glUniform1f(m_defaultParm[61], Global::matMix()); // matMix
+    }
+  else
+    {
+      glUniform1f(m_defaultParm[61], 0); // matMix
+    }
 }
 
 void

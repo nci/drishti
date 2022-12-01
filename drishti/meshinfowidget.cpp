@@ -347,7 +347,7 @@ MeshInfoWidget::setMeshes(QStringList meshNames)
 void
 MeshInfoWidget::sectionClicked(int col)
 {
-  if (col == 0 || col > 4)
+  if (col == 0)
     return;
   
   if (col >= 3) // colormap/material
@@ -418,7 +418,47 @@ MeshInfoWidget::sectionClicked(int col)
 	  return;
 	}
       //-------
+
+      //-------
+      if (col == 5) // blend
+	{
+	  if (selIdx.count() == 0)
+	    {
+	      for(int i=0; i<m_meshList->rowCount(); i++)
+		selIdx << i;
+	    }
+	  //bool ok;
+	  //float matMix = QInputDialog::getDouble(0, "Blend Maerial", "Blend", 0.5, 0.0, 1.0, 1, &ok, Qt::WindowFlags(), 0.1);
+	  QInputDialog* dialog = new QInputDialog(0, Qt::WindowFlags());
+	  dialog->setWindowTitle("Blend Material");
+	  dialog->setLabelText("Blend");
+	  dialog->setDoubleDecimals(1);
+	  dialog->setDoubleRange(0.0, 1.0);
+	  dialog->setDoubleValue(0.5);
+	  dialog->setDoubleStep(0.1);	  
+	  int cdW = dialog->width();
+	  int cdH = dialog->height();
+	  dialog->move(QCursor::pos());
+	  int ret = dialog->exec();
+	  if (ret)
+	    {
+	      float matMix = dialog->doubleValue();
+	      emit materialMixChanged(selIdx, matMix);
+	      for(int id=0; id<selIdx.count(); id++)
+		{
+		  int i = selIdx[id];
+		  QTableWidgetItem *wi;
+		  wi = m_meshList->item(i, col);
+		  wi->setData(Qt::DisplayRole, (double)matMix);
+		}
+	    }
+
+	  return;
+	}
+      //-------
     }
+  //--------------------------------------
+
 
   // 1/2 = visibility/clip
   QList<bool> CS;

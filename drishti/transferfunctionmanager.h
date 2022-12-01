@@ -6,7 +6,10 @@
 #include <QTableWidget>
 #include <QCheckBox>
 
+#include <QDoubleSpinBox>
+
 #include "transferfunctioncontainer.h"
+#include "imglistdialog.h"
 
 class TransferFunctionManager : public QFrame
 {
@@ -29,11 +32,14 @@ class TransferFunctionManager : public QFrame
   void applyUndo(bool);
   void transferFunctionUpdated();
   void keyPressEvent(QKeyEvent*);
-
+  void changeMaterial();
+  void matMixChanged(double);
+  
  signals :
   void changeTransferFunctionDisplay(int, QList<bool>);
   void checkStateChanged(int, int, bool);
-
+  void updateGL();
+					
  protected slots :
   void headerClicked(int);
   void cellClicked(int, int);
@@ -52,6 +58,10 @@ class TransferFunctionManager : public QFrame
   QCheckBox *m_replaceTF;
   QCheckBox *m_morphTF;
 
+  ImgListDialog *m_matcapDialog;
+  QPushButton *m_material;
+  QDoubleSpinBox *m_matMix;
+  
   void refreshManager(int tfno=0);
   void modifyTableWidget();
   void showHelp();

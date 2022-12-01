@@ -943,8 +943,8 @@ ShaderFactory::addLighting()
 {
   QString shader;
 
-  shader += "  normal = normalize(normal);\n";
-  shader += "  normal = mix(vec3(0.0,0.0,0.0), normal, step(0.0, grad));"; 
+//  shader += "  normal = normalize(normal);\n";
+//  shader += "  normal = mix(vec3(0.0,0.0,0.0), normal, step(0.0, grad));"; 
 
   shader += "  vec3 voxpos = pointpos;\n";
   shader += "  vec3 I = voxpos - eyepos;\n";
@@ -1178,6 +1178,11 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
 
   shader += "uniform float gamma;\n";
 
+  shader += "uniform int applyMaterial;\n";
+  shader += "uniform sampler2D matcapTex;\n";
+  shader += "uniform float matMix;\n";
+
+  
   shader += "out vec4 glFragColor;\n";
 
   shader += genTextureCoordinate();
@@ -1369,7 +1374,7 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
   if (pathViewPresent) shader += "pathblend(otexCoord, vg.xy, glFragColor);\n";
   
 
-//---------------------------------
+  //---------------------------------
   if (Global::emptySpaceSkip())
     {
       shader += "if (delta.x > 1.0)\n";
@@ -1382,20 +1387,38 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
       shader += "  { glFragColor = vec4(value*step(0.001,glFragColor.a),";
       shader += "glFragColor.a, 0.0, 1.0); return; }\n";
     }
-//---------------------------------
+  //---------------------------------
 
-//------------------------------------
+  
+  
+  //---------------------------------------------------------
+  //---------------------------------------------------------
+  // apply matcap texture
+  shader += "  normal = normalize(normal);\n";
+  shader += "  normal = mix(vec3(0.0,0.0,0.0), normal, step(0.0, grad));"; 
+  shader += "  float dx = dot(dirRight,normal)*0.5+0.5;\n";
+  shader += "  float dy = dot(dirUp,normal)*0.5+0.5;\n";
+  shader += "  glFragColor.rgb = mix(glFragColor.rgb, glFragColor.a*texture(matcapTex, vec2(1.0-dx, dy)).rgb, matMix*vec3(step(0, applyMaterial)));\n"; 
+  //---------------------------------------------------------
+  //---------------------------------------------------------
+  
+  
+  //------------------------------------
   shader += "glFragColor = 1.0-pow((vec4(1,1,1,1)-glFragColor),";
   shader += "vec4(lod,lod,lod,lod));\n";
-//------------------------------------
+  //------------------------------------
 
   shader += "\n";
   shader += "  if (glFragColor.a < 0.005)\n";
   shader += "	discard;\n";
 
+
+    
   if (lighting)
     shader += addLighting();
 
+
+  
   shader += genPeelShader(peel, peelType,
 			  peelMin, peelMax, peelMix,
 			  lighting);
@@ -1417,6 +1440,9 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
 
   shader += "  glFragColor.rgb = pow(glFragColor.rgb, vec3(gamma));\n";
 
+
+
+  
   shader += "}\n";
 
   return shader;

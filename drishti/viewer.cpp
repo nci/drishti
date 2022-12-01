@@ -4045,7 +4045,21 @@ Viewer::processCommand(QString cmd)
   QString ocmd = cmd;
   cmd = cmd.toLower();
   QStringList list = cmd.split(" ", QString::SkipEmptyParts);
- 
+
+  if (list[0] == "histogram")
+    {
+      bool flag = false;
+      if (list.size() > 1)
+	{
+	  if (list[1] == "off")
+	    flag = true;
+	  else if (list[1] == "on")
+	    flag = false;
+	}
+      Global::setDisableHistogram(flag);
+      return;
+    }
+  
   if (list[0].contains("switchresmode"))
     {
       switchDrawVolume();      

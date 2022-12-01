@@ -1553,50 +1553,53 @@ VolumeSingle::getSubvolume()
 	    }
 	  //---------------------------------------
 
-	  if (bpv == 1)
+	  if (!Global::histogramDisabled())
 	    {
-	      for(int j=0; j<lenx2*leny2; j++)
-		m_flhist1D[g2[j]]++;
-
-	      if (kslc >= 2)
+	      if (bpv == 1)
 		{
-		  for(int j=1; j<leny2-1; j++)
-		    for(int i=1; i<lenx2-1; i++)
-		      {
-			int gx = g1[j*lenx2+(i+1)] - g1[j*lenx2+(i-1)];
-			int gy = g1[(j+1)*lenx2+i] - g1[(j-1)*lenx2+i];
-			int gz = g2[j*lenx2+i] - g0[j*lenx2+i];
-			int gsum = sqrtf(gx*gx+gy*gy+gz*gz);
-			gsum = qBound(0, gsum, 255);
-			int v = g1[j*lenx2+i];
-			m_flhist2D[gsum*256 + v]++;
-		      }
+		  for(int j=0; j<lenx2*leny2; j++)
+		    m_flhist1D[g2[j]]++;
+		  
+		  if (kslc >= 2)
+		    {
+		      for(int j=1; j<leny2-1; j++)
+			for(int i=1; i<lenx2-1; i++)
+			  {
+			    int gx = g1[j*lenx2+(i+1)] - g1[j*lenx2+(i-1)];
+			    int gy = g1[(j+1)*lenx2+i] - g1[(j-1)*lenx2+i];
+			    int gz = g2[j*lenx2+i] - g0[j*lenx2+i];
+			    int gsum = sqrtf(gx*gx+gy*gy+gz*gz);
+			    gsum = qBound(0, gsum, 255);
+			    int v = g1[j*lenx2+i];
+			    m_flhist2D[gsum*256 + v]++;
+			  }
+		    }
+		}
+	      else
+		{
+		  for(int j=0; j<lenx2*leny2; j++)
+		    m_flhist1D[((ushort*)g2)[j]/256]++;
+		  
+		  if (kslc >= 2)
+		    {
+		      for(int j=1; j<leny2-1; j++)
+			for(int i=1; i<lenx2-1; i++)
+			  {
+			    int gx = ((ushort*)g1)[j*lenx2+(i+1)] -
+			      ((ushort*)g1)[j*lenx2+(i-1)];
+			    int gy = ((ushort*)g1)[(j+1)*lenx2+i] -
+			      ((ushort*)g1)[(j-1)*lenx2+i];
+			    int gz = ((ushort*)g2)[j*lenx2+i] -
+			      ((ushort*)g0)[j*lenx2+i];
+			    int gsum = sqrtf(gx*gx+gy*gy+gz*gz);
+			    gsum = qBound(0, gsum/256, 255);
+			    int v = ((ushort*)g1)[j*lenx2+i]/256;
+			    m_flhist2D[gsum*256 + v]++;
+			  }
+		    }
 		}
 	    }
-	  else
-	    {
-	      for(int j=0; j<lenx2*leny2; j++)
-		m_flhist1D[((ushort*)g2)[j]/256]++;
-
-	      if (kslc >= 2)
-		{
-		  for(int j=1; j<leny2-1; j++)
-		    for(int i=1; i<lenx2-1; i++)
-		      {
-			int gx = ((ushort*)g1)[j*lenx2+(i+1)] -
-			         ((ushort*)g1)[j*lenx2+(i-1)];
-			int gy = ((ushort*)g1)[(j+1)*lenx2+i] -
-			         ((ushort*)g1)[(j-1)*lenx2+i];
-			int gz = ((ushort*)g2)[j*lenx2+i] -
-			         ((ushort*)g0)[j*lenx2+i];
-			int gsum = sqrtf(gx*gx+gy*gy+gz*gz);
-			gsum = qBound(0, gsum/256, 255);
-			int v = ((ushort*)g1)[j*lenx2+i]/256;
-			m_flhist2D[gsum*256 + v]++;
-		      }
-		}
-	    }
-
+	    
 	  
 	  uchar *gt = g0;
 	  g0 = g1;
@@ -1739,35 +1742,38 @@ VolumeSingle::getSubvolume()
 	}
       //---------------------------------------
 
-      if (bpv == 1)
+      if (!Global::histogramDisabled())
 	{
-	  for(int j=0; j<lenx2*leny2; j++)
-	    m_flhist1D[g2[j]]++;
-	  
-	  if (kslc >= 2)
+	  if (bpv == 1)
 	    {
-	      for(int j=1; j<leny2-1; j++)
-		for(int i=1; i<lenx2-1; i++)
-		  {
-		    int gx = g1[j*lenx2+(i+1)] - g1[j*lenx2+(i-1)];
-		    int gy = g1[(j+1)*lenx2+i] - g1[(j-1)*lenx2+i];
-		    int gz = g2[j*lenx2+i] - g0[j*lenx2+i];
-		    int gsum = sqrtf(gx*gx+gy*gy+gz*gz);
-		    gsum = qBound(0, gsum, 255);
-		    int v = g1[j*lenx2+i];
-		    m_flhist2D[gsum*256 + v]++;
-		  }	  
+	      for(int j=0; j<lenx2*leny2; j++)
+		m_flhist1D[g2[j]]++;
+	      
+	      if (kslc >= 2)
+		{
+		  for(int j=1; j<leny2-1; j++)
+		    for(int i=1; i<lenx2-1; i++)
+		      {
+			int gx = g1[j*lenx2+(i+1)] - g1[j*lenx2+(i-1)];
+			int gy = g1[(j+1)*lenx2+i] - g1[(j-1)*lenx2+i];
+			int gz = g2[j*lenx2+i] - g0[j*lenx2+i];
+			int gsum = sqrtf(gx*gx+gy*gy+gz*gz);
+			gsum = qBound(0, gsum, 255);
+			int v = g1[j*lenx2+i];
+			m_flhist2D[gsum*256 + v]++;
+		      }	  
+		}
+	    }
+	  else
+	    {
+	      for(int j=0; j<lenx2*leny2; j++)
+		m_flhist1D[((ushort*)g2)[j]/256]++;
+	      
+	      for(int j=0; j<lenx2*leny2; j++)
+		m_flhist2D[((ushort*)g2)[j]]++;
 	    }
 	}
-      else
-	{
-	  for(int j=0; j<lenx2*leny2; j++)
-	    m_flhist1D[((ushort*)g2)[j]/256]++;
-	  
-	  for(int j=0; j<lenx2*leny2; j++)
-	    m_flhist2D[((ushort*)g2)[j]]++;
-	}
- 
+	
       uchar *gt = g0;
       g0 = g1;
       g1 = g2;
@@ -1801,6 +1807,10 @@ VolumeSingle::startHistogramCalculation()
 void
 VolumeSingle::endHistogramCalculation()
 {
+  if (Global::histogramDisabled())
+      return;
+
+      
   memset(m_subvolume1dHistogram, 0, 256*4);
   memset(m_subvolume2dHistogram, 0, 256*256*4);
   

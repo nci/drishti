@@ -249,7 +249,7 @@ signals :
   GLint m_vertParm[50];
 
   GLint m_lutParm[50];
-  GLint m_defaultParm[60];
+  GLint m_defaultParm[70];
   GLint m_blurParm[50];
   GLint m_backplaneParm1[50];
   GLint m_backplaneParm2[50];

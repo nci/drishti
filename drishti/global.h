@@ -302,6 +302,19 @@ class Global
 
   static void setGamma(float);
   static float gamma();
+
+  static void loadMatCapTextures();
+  static QStringList matCapTexNames();
+  static GLuint matCapTex(int); 
+  static void setMatId(int);
+  static int matId();
+  static void setMatMix(float);
+  static float matMix();
+  
+
+  static bool histogramDisabled();
+  static void setDisableHistogram(bool);
+
   
  private :
   static float m_gamma;
@@ -413,6 +426,13 @@ class Global
   static int m_pvlVoxelType;
 
   static Vec m_relDataPos;
+
+  static QStringList m_matCapTexNames;
+  static GLuint* m_matCapTex;
+  static int m_matId;  
+  static float m_matMix;
+
+  static bool m_disableHist;
 };
 
 #endif

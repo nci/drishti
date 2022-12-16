@@ -1398,7 +1398,7 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
   shader += "  normal = mix(vec3(0.0,0.0,0.0), normal, step(0.0, grad));"; 
   shader += "  float dx = dot(dirRight,normal)*0.5+0.5;\n";
   shader += "  float dy = dot(dirUp,normal)*0.5+0.5;\n";
-  shader += "  glFragColor.rgb = mix(glFragColor.rgb, glFragColor.a*texture(matcapTex, vec2(1.0-dx, dy)).rgb, matMix*vec3(step(0, applyMaterial)));\n"; 
+  shader += "  glFragColor.rgb = mix(glFragColor.rgb, glFragColor.a*texture(matcapTex, vec2(1.0-dx, dy)).rgb, matMix*vec3(step(0.5, float(applyMaterial))));\n"; 
   //---------------------------------------------------------
   //---------------------------------------------------------
   

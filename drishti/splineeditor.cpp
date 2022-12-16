@@ -255,7 +255,7 @@ SplineEditor::mouseMoveEvent(QMouseEvent *event)
 	m_splineTF->moveNormalAt(m_currentIndex,
 				 m_normalIndex,
 				 convertWidgetToLocal(clickPos),
-				 event->modifiers() & Qt::ShiftModifier);
+				 !(event->modifiers() & Qt::ShiftModifier));
 
       m_dragging = true;
       emit refreshDisplay();
@@ -265,11 +265,16 @@ SplineEditor::mouseMoveEvent(QMouseEvent *event)
       QPointF pt = convertWidgetToLocal(clickPos);
       QPointF opt = m_splineTF->pointAt(m_currentIndex);
       m_hoverIndex = m_currentIndex;
-            
-      if (event->modifiers() & Qt::ShiftModifier)
+
+      if (m_currentIndex > 0 &&
+	  !(event->modifiers() & Qt::ShiftModifier))
 	pt.setX(opt.x()); // move only vertically
-      else if (event->modifiers() & Qt::AltModifier)
-	pt.setY(opt.y()); // move only horizontally
+
+
+//      if (event->modifiers() & Qt::ShiftModifier)
+//	pt.setX(opt.x()); // move only vertically
+//      else if (event->modifiers() & Qt::AltModifier)
+//	pt.setY(opt.y()); // move only horizontally
 
       if (Global::use1D())
 	{
@@ -394,9 +399,19 @@ SplineEditor::mousePressEvent(QMouseEvent *event)
   
   if (index > -1)
     {
-      if (event->button() == Qt::MidButton ||
+      if (event->button() == Qt::LeftButton ||
 	  Global::use1D())
 	{
+	  if (index > 0 || event->modifiers() & Qt::ShiftModifier)
+	    {
+	      m_currentIndex = index;
+	      m_hoverIndex = m_currentIndex;
+	      m_prevCurrentIndex = m_currentIndex;
+	      emit refreshDisplay();
+	      return;
+	    }
+
+	  
 	  m_moveSpine = true;
 	  m_currentIndex = index;
 	  m_hoverIndex = m_currentIndex;
@@ -661,7 +676,10 @@ SplineEditor::paintPatchEndPoints(QPainter *p)
       v1 = convertLocalToWidget(m_splineTF->pointAt(i));
       x = v1.x() - w / 2;
       y = v1.y() - h / 2;
-      p->drawEllipse(QRectF(x, y, w, h));
+      if (i > 0)
+	p->drawEllipse(QRectF(x, y, w, h));
+      else
+	p->drawRect(QRectF(x, y, w, h));
     }
   
   // draw normal endpoints
@@ -693,7 +711,10 @@ SplineEditor::paintPatchEndPoints(QPainter *p)
       h = 13;
       x = v1.x() - w / 2;
       y = v1.y() - h / 2;
-      p->drawEllipse(QRectF(x, y, w, h));
+      if (m_prevCurrentIndex > 0)
+	p->drawEllipse(QRectF(x, y, w, h));
+      else
+	p->drawRect(QRectF(x, y, w, h));
 
       w = 8;
       h = 8;

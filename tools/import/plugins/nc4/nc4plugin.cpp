@@ -1,16 +1,24 @@
 #include <QtGui>
-#include <netcdfcpp.h>
+#include <ncFile.h>
+#include <ncDim.h>
+#include <ncException.h>
+#include <netcdf>
 #include "common.h"
-#include "ncplugin.h"
+#include <map>
+#include "nc4plugin.h"
+
+using namespace std;
+using namespace netCDF;
+using namespace netCDF::exceptions;
 
 QStringList
 NcPlugin::registerPlugin()
 {
   QStringList regString;
   regString << "directory";
-  regString << "NetCDF-3 Directory";
+  regString << "NetCDF Directory";
   regString << "files";
-  regString << "NetCDF-3 Files";
+  regString << "NetCDF Files";
   
   return regString;
 }
@@ -97,12 +105,13 @@ NcPlugin::listAllVariables()
 {
   QList<QString> varNames;
 
-  NcError err(NcError::verbose_nonfatal);
-
-  NcFile dataFile((char*)m_fileName[0].toLatin1().data(),
-		  NcFile::ReadOnly);
-
-  if (!dataFile.is_valid())
+  NcFile dataFile;
+  try
+    {
+      dataFile.open(m_fileName[0].toStdString(),
+		    NcFile::read);
+    }
+  catch(NcException &e)
     {
       QMessageBox::information(0, "Error",
 			       QString("%1 is not a valid NetCDF file").\
@@ -110,15 +119,12 @@ NcPlugin::listAllVariables()
       return varNames; // empty
     }
 
-  int nvars = dataFile.num_vars();
-  
-  int i;
-  for (i=0; i < nvars; i++)
-    {
-      NcVar *var;
-      var = dataFile.get_var(i);
 
-      varNames.append(var->name());
+  multimap<string, NcVar> groupMap;
+  groupMap = dataFile.getVars();
+  for (const auto &p : groupMap)
+    {
+      varNames.append(QString::fromStdString(p.first));
     }
 
   dataFile.close();
@@ -134,12 +140,13 @@ NcPlugin::listAllAttributes()
 {
   QList<QString> attNames;
 
-  NcError err(NcError::verbose_nonfatal);
-
-  NcFile dataFile((char*)m_fileName[0].toLatin1().data(),
-		  NcFile::ReadOnly);
-
-  if (!dataFile.is_valid())
+  NcFile dataFile;
+  try
+    {
+      dataFile.open(m_fileName[0].toStdString(),
+		    NcFile::read);
+    }
+  catch(NcException &e)
     {
       QMessageBox::information(0, "Error",
 			       QString("%1 is not a valid NetCDF file").\
@@ -147,16 +154,14 @@ NcPlugin::listAllAttributes()
       return attNames; // empty
     }
 
-  int natts = dataFile.num_atts();
   
-  int i;
-  for (i=0; i < natts; i++)
+  multimap<string, NcGroupAtt> groupMap;
+  groupMap = dataFile.getAtts();
+  for (const auto &p : groupMap)
     {
-      NcAtt *att;
-      att = dataFile.get_att(i);
-
-      attNames.append(att->name());
+      attNames.append(QString::fromStdString(p.first));
     }
+  
 
   dataFile.close();
 
@@ -206,6 +211,7 @@ NcPlugin::setFile(QStringList files)
     m_fileName = files;
 
 
+  
   QList<QString> varNames;
   QList<QString> allVars = listAllVariables();
 
@@ -215,15 +221,16 @@ NcPlugin::setFile(QStringList files)
 
   QList<QString> allAtts = listAllAttributes();
 
-  NcError err(NcError::verbose_nonfatal);
-
-  NcFile dataFile((char*)m_fileName[0].toLatin1().data(),
-		  NcFile::ReadOnly);
-
-  if (!dataFile.is_valid())
+  NcFile dataFile;
+  try
+    {
+      dataFile.open(m_fileName[0].toStdString(),
+		    NcFile::read);
+    }
+  catch(NcException &e)
     {
       QMessageBox::information(0, "Error",
-			       QString("%1 is not a valid NetCDF file").\
+			       QString("%1 is not a valid NetCDF file"). \
 			       arg(m_fileName[0]));
       return false;
     }
@@ -232,9 +239,9 @@ NcPlugin::setFile(QStringList files)
   // -- Choose a variable for extraction --------------------
   for(uint i=0; i<allVars.size(); i++)
     {
-      NcVar *ncvar;
-      ncvar = dataFile.get_var((char *)allVars[i].toLatin1().data());
-      if (ncvar->num_dims() == 3)
+      NcVar ncvar;
+      ncvar = dataFile.getVar(allVars[i].toStdString());
+      if (ncvar.getDimCount() == 3)
 	varNames.append(allVars[i]);
     }
   if (varNames.size() == 0)
@@ -269,86 +276,74 @@ NcPlugin::setFile(QStringList files)
     }
   //---------------------------------------------------------
 
-  NcVar *ncvar;
-  ncvar = dataFile.get_var((char *)m_varName.toLatin1().data());
+  NcVar ncvar;
+  ncvar = dataFile.getVar(m_varName.toStdString());
 
-  m_voxelType = _UChar;
-  switch (ncvar->type())
+  NcType vtype = ncvar.getType();
+  m_voxelType = _UChar; 
+  switch (vtype.getTypeClass()) 
     {	  
-    case ncByte :
+    case NC_BYTE :
       m_voxelType = _UChar; break;
-    case ncChar :
+    case NC_CHAR :
       m_voxelType = _Char; break;
-    case ncShort :
+    case NC_SHORT :
       m_voxelType = _UShort; break;
-    case ncInt :
+    case NC_INT :
       m_voxelType = _Int; break;
-    case ncFloat :
+    case NC_FLOAT :
       m_voxelType = _Float; break;
     }
 
-  long sizes[100];
-  memset(sizes, 0, 400);
-  for(uint i=0; i<ncvar->num_dims(); i++)
-    sizes[i] = ncvar->get_dim(i)->size();
-
+  
   // ---------------------
   // get voxel size and unit if available
   int ati = allAtts.indexOf("voxel_size_xyz");
   if (ati > -1)
     {
-      NcAtt* att = dataFile.get_att("voxel_size_xyz");
-      m_voxelSizeX = att->as_float(0);
-      m_voxelSizeY = att->as_float(1);
-      m_voxelSizeZ = att->as_float(2);
+      NcGroupAtt att = dataFile.getAtt("voxel_size_xyz");
+      double values[10];
+      att.getValues(&values[0]);
+      
+      m_voxelSizeX = values[0];
+      m_voxelSizeY = values[1];
+      m_voxelSizeZ = values[2];
     }
   else // check with variable, it it has this attribute
     {
-      int nats = ncvar->num_atts();  
-      for (int ni=0; ni<nats; ni++)
+      NcGroupAtt att = dataFile.getAtt("voxel_size");
+      if (!att.isNull())
 	{
-	  NcAtt *att = ncvar->get_att(ni);
-	  if (QString(att->name()) == "voxel_size")
-	    {
-	      m_voxelSizeX = att->as_float(0);
-	      m_voxelSizeY = att->as_float(1);
-	      m_voxelSizeZ = att->as_float(2);
-	      break;
-	    }
+	  double values[10];
+	  att.getValues(&values[0]);
+	  m_voxelSizeX = values[0];
+	  m_voxelSizeY = values[1];
+	  m_voxelSizeZ = values[2];
 	}
     }
+  
   ati = allAtts.indexOf("voxel_unit");
   if (ati > -1)
     {
-      NcAtt* att = dataFile.get_att("voxel_unit");
-      QString str(att->as_string(0));
-      if (str == "mm")
+      NcGroupAtt att = dataFile.getAtt("voxel_unit");
+      string values;
+      att.getValues(values);
+      
+      if (values == "mm")
 	m_voxelUnit = _Millimeter;
-    }
-  else // check with variable, it it has this attribute
-    {
-      int nats = ncvar->num_atts();  
-      for (int ni=0; ni<nats; ni++)
-	{
-	  NcAtt *att = ncvar->get_att(ni);
-	  if (QString(att->name()) == "voxel_unit")
-	    {
-	      QString str(att->as_string(0));
-	      if (str == "mm")
-		m_voxelUnit = _Millimeter;
-	      break;
-	    }
-	}
     }
   // ---------------------
 
+
+  vector<NcDim> sizes;
+  sizes = ncvar.getDims();
+  m_depth = sizes[0].getSize();
+  m_width = sizes[1].getSize();
+  m_height = sizes[2].getSize();
+
   dataFile.close();
 
-  //m_depth = sizes[0];
-  m_width = sizes[1];
-  m_height = sizes[2];
-
-
+  
   m_bytesPerVoxel = 1;
   if (m_voxelType == _UChar) m_bytesPerVoxel = 1;
   else if (m_voxelType == _Char) m_bytesPerVoxel = 1;
@@ -358,32 +353,34 @@ NcPlugin::setFile(QStringList files)
   else if (m_voxelType == _Float) m_bytesPerVoxel = 4;
 
   // ---------------------
-  if (m_4dvol)
-    m_depth = sizes[0];
-  else
+  if (!m_4dvol)
     {
       m_depth = 0;
       m_depthList.clear();
       for(uint i=0; i<m_fileName.size(); i++)
 	{
-	  NcFile ncfile((char*)m_fileName[i].toLatin1().data(),
-			NcFile::ReadOnly);
-	  
-	  if (!ncfile.is_valid())
+	  NcFile ncfile;
+	  try
+	    {
+	      ncfile.open(m_fileName[i].toStdString(),
+			    NcFile::read);
+	    }
+	  catch(NcException &e)
 	    {
 	      QMessageBox::information(0, "Error",
 				       QString("%1 is not a valid NetCDF file"). \
 				       arg(m_fileName[i]));
 	      return false;
 	    }
-	  NcVar *ncvar;
-	  ncvar = ncfile.get_var((char *)m_varName.toLatin1().data());
-	  m_depth += ncvar->get_dim(0)->size();
+	  NcVar ncvar;
+	  ncvar = ncfile.getVar(m_varName.toStdString());
+	  m_depth += ncvar.getDim(0).getSize();
 	  m_depthList.append(m_depth);
 	  ncfile.close();
 	}
     }
   // ---------------------
+
 
   if (m_voxelType == _UChar ||
       m_voxelType == _Char ||
@@ -414,6 +411,50 @@ NcPlugin::setFile(QStringList files)
 	m_histogram[idx]++;				\
       }							\
   }
+
+void
+NcPlugin::getSlice(int sliceType, int a, int b, NcVar ncvar, int slc, uchar *tmp)
+{
+  std::vector<size_t> start(3);
+  start[0] = 0;
+  start[1] = 0;
+  start[2] = 0;
+  start[sliceType] = slc;
+  
+  std::vector<size_t> count(3);
+  if (sliceType == 0)
+    {
+      count[0] = 1;
+      count[1] = a;
+      count[2] = b;
+    }
+  if (sliceType == 1)
+    {
+      count[0] = a;
+      count[1] = 1;
+      count[2] = b;
+    }
+  if (sliceType == 2)
+    {
+      count[0] = a;
+      count[1] = b;
+      count[2] = 1;
+    }
+  
+	  
+  if (ncvar.getType() == ncUbyte)
+    ncvar.getVar(start, count, (unsigned char*)tmp);
+  else if (ncvar.getType() == ncByte || ncvar.getType() == ncChar)
+    ncvar.getVar(start, count, (uchar*)tmp);
+  else if (ncvar.getType() == ncShort)
+    ncvar.getVar(start, count, (short*)tmp);
+  else if (ncvar.getType() == ncInt)
+    ncvar.getVar(start, count, (int*)tmp);
+  else if (ncvar.getType() == ncFloat)
+    ncvar.getVar(start, count, (float*)tmp);
+  else if (ncvar.getType() == ncDouble)
+    ncvar.getVar(start, count, (double*)tmp);  
+}
 
 
 void
@@ -463,38 +504,36 @@ NcPlugin::findMinMaxandGenerateHistogram()
   m_rawMin = 10000000;
   m_rawMax = -10000000;
 
-  NcError err(NcError::verbose_nonfatal);
   int nfls = m_fileName.size();
   if (m_4dvol) nfls = 1;
-  //for(uint nf=0; nf<m_fileName.size(); nf++)
   for(uint nf=0; nf<nfls; nf++)
     {
       progress.setLabelText(m_fileName[nf]);
 
-      NcFile dataFile((char *)m_fileName[nf].toLatin1().data(),
-		      NcFile::ReadOnly);
-
-      NcVar *ncvar;
-      ncvar = dataFile.get_var((char *)m_varName.toLatin1().data());
+      NcFile dataFile;
+      try
+	{
+	  dataFile.open(m_fileName[nf].toStdString(),
+			NcFile::read);
+	}
+      catch(NcException &e)
+	{
+	  QMessageBox::information(0, "Error",
+				   QString("%1 is not a valid NetCDF file"). \
+				   arg(m_fileName[nf]));
+	  return;
+	}
       
-      int iEnd = ncvar->get_dim(0)->size();
+      NcVar ncvar;
+      ncvar = dataFile.getVar(m_varName.toStdString());
+      
+      int iEnd = ncvar.getDim(0).getSize();
       for(uint i=0; i<iEnd; i++)
 	{
 	  progress.setValue((int)(100.0*(float)i/(float)iEnd));
 	  qApp->processEvents();
 
-	  ncvar->set_cur(i, 0, 0);
-	  if (ncvar->type() == ncByte || ncvar->type() == ncChar)
-	    ncvar->get((ncbyte*)tmp, 1, m_width, m_height);
-	  else if (ncvar->type() == ncShort)
-	    ncvar->get((short*)tmp, 1, m_width, m_height);
-	  else if (ncvar->type() == ncInt)
-	    ncvar->get((int*)tmp, 1, m_width, m_height);
-	  else if (ncvar->type() == ncFloat)
-	    ncvar->get((float*)tmp, 1, m_width, m_height);
-	  else if (ncvar->type() == ncDouble)
-	    ncvar->get((double*)tmp, 1, m_width, m_height);
-	  
+	  getSlice(0, m_width, m_height, ncvar, i, tmp);	  
 	  
 	  if (m_voxelType == _UChar)
 	    {
@@ -533,11 +572,6 @@ NcPlugin::findMinMaxandGenerateHistogram()
 
   delete [] tmp;
 
-//  while(m_histogram.last() == 0)
-//    m_histogram.removeLast();
-//  while(m_histogram.first() == 0)
-//    m_histogram.removeFirst();
-
   progress.setValue(100);
   qApp->processEvents();
 }
@@ -573,36 +607,36 @@ NcPlugin::findMinMax()
   m_rawMin = 10000000;
   m_rawMax = -10000000;
 
-  NcError err(NcError::verbose_nonfatal);
   int nfls = m_fileName.size();
   if (m_4dvol) nfls = 1;
   for(uint nf=0; nf<nfls; nf++)
-  //for(uint nf=0; nf<m_fileName.size(); nf++)
     {
-      NcFile dataFile((char *)m_fileName[nf].toLatin1().data(),
-		      NcFile::ReadOnly);
+      NcFile dataFile;
+      try
+	{
+	  dataFile.open(m_fileName[nf].toStdString(),
+			NcFile::read);
+	}
+      catch(NcException &e)
+	{
+	  QMessageBox::information(0, "Error",
+				   QString("%1 is not a valid NetCDF file"). \
+				   arg(m_fileName[nf]));
+	  return;
+	}
+      
+      NcVar ncvar;
+      ncvar = dataFile.getVar(m_varName.toStdString());
 
-      NcVar *ncvar;
-      ncvar = dataFile.get_var((char *)m_varName.toLatin1().data());
-
-      int iEnd = ncvar->get_dim(0)->size();
+      int iEnd = ncvar.getDim(0).getSize();
       for(uint i=0; i<iEnd; i++)
 	{
 	  progress.setValue((int)(100.0*(float)i/(float)iEnd));
 	  qApp->processEvents();
 	  
-	  ncvar->set_cur(i, 0, 0);
-	  if (ncvar->type() == ncByte || ncvar->type() == ncChar)
-	    ncvar->get((ncbyte*)tmp, 1, m_width, m_height);
-	  else if (ncvar->type() == ncShort)
-	    ncvar->get((short*)tmp, 1, m_width, m_height);
-	  else if (ncvar->type() == ncInt)
-	    ncvar->get((int*)tmp, 1, m_width, m_height);
-	  else if (ncvar->type() == ncFloat)
-	    ncvar->get((float*)tmp, 1, m_width, m_height);
-	  else if (ncvar->type() == ncDouble)
-	    ncvar->get((double*)tmp, 1, m_width, m_height);
-
+	  getSlice(0, m_width, m_height, ncvar, i, tmp);
+	  
+	  
 	  if (m_voxelType == _UChar)
 	    {
 	      uchar *ptr = tmp;
@@ -687,37 +721,37 @@ NcPlugin::generateHistogram()
   int nbytes = nY*nZ*m_bytesPerVoxel;
   uchar *tmp = new uchar[nbytes];
 
-  NcError err(NcError::verbose_nonfatal);
   int histogramSize = m_histogram.size()-1;
 
   int nfls = m_fileName.size();
   if (m_4dvol) nfls = 1;
   for(uint nf=0; nf<nfls; nf++)
-  //for(uint nf=0; nf<m_fileName.size(); nf++)
     {
-      NcFile dataFile((char *)m_fileName[nf].toLatin1().data(),
-		      NcFile::ReadOnly);
 
-      NcVar *ncvar;
-      ncvar = dataFile.get_var((char *)m_varName.toLatin1().data());
+      NcFile dataFile;
+      try
+	{
+	  dataFile.open(m_fileName[nf].toStdString(),
+			NcFile::read);
+	}
+      catch(NcException &e)
+	{
+	  QMessageBox::information(0, "Error",
+				   QString("%1 is not a valid NetCDF file"). \
+				   arg(m_fileName[nf]));
+	  return;
+	}
       
-      int iEnd = ncvar->get_dim(0)->size();
+      NcVar ncvar;
+      ncvar = dataFile.getVar(m_varName.toStdString());
+      
+      int iEnd = ncvar.getDim(0).getSize();
       for(uint i=0; i<iEnd; i++)
 	{
 	  progress.setValue((int)(100.0*(float)i/(float)iEnd));
 	  qApp->processEvents();
-
-	  ncvar->set_cur(i, 0, 0);
-	  if (ncvar->type() == ncByte || ncvar->type() == ncChar)
-	    ncvar->get((ncbyte*)tmp, 1, m_width, m_height);
-	  else if (ncvar->type() == ncShort)
-	    ncvar->get((short*)tmp, 1, m_width, m_height);
-	  else if (ncvar->type() == ncInt)
-	    ncvar->get((int*)tmp, 1, m_width, m_height);
-	  else if (ncvar->type() == ncFloat)
-	    ncvar->get((float*)tmp, 1, m_width, m_height);
-	  else if (ncvar->type() == ncDouble)
-	    ncvar->get((double*)tmp, 1, m_width, m_height);
+	  
+	  getSlice(0, m_width, m_height, ncvar, i, tmp);
 	  
 	  
 	  if (m_voxelType == _UChar)
@@ -756,14 +790,6 @@ NcPlugin::generateHistogram()
 
   delete [] tmp;
 
-//  while(m_histogram.last() == 0)
-//    m_histogram.removeLast();
-//  while(m_histogram.first() == 0)
-//    m_histogram.removeFirst();
-
-//  QMessageBox::information(0, "",  QString("%1 %2 : %3").\
-//			   arg(m_rawMin).arg(m_rawMax).arg(rSize));
-
   progress.setValue(100);
   qApp->processEvents();
 }
@@ -773,8 +799,6 @@ void
 NcPlugin::getDepthSlice(int slc,
 			     uchar* slice)
 {
-  NcError err(NcError::verbose_nonfatal);
-
   int nf = 0;
   int slcno = slc;
   for(uint fl=0; fl<m_fileName.size(); fl++)
@@ -791,20 +815,12 @@ NcPlugin::getDepthSlice(int slc,
     }
 
   NcFile dataFile((char *)m_fileName[nf].toLatin1().data(),
-		  NcFile::ReadOnly);
-  NcVar *ncvar;
-  ncvar = dataFile.get_var((char *)m_varName.toLatin1().data());
-  ncvar->set_cur(slcno, 0, 0);
-  if (ncvar->type() == ncByte || ncvar->type() == ncChar)
-    ncvar->get((ncbyte*)slice, 1, m_width, m_height);
-  else if (ncvar->type() == ncShort)
-    ncvar->get((short*)slice, 1, m_width, m_height);
-  else if (ncvar->type() == ncInt)
-    ncvar->get((int*)slice, 1, m_width, m_height);
-  else if (ncvar->type() == ncFloat)
-    ncvar->get((float*)slice, 1, m_width, m_height);
-  else if (ncvar->type() == ncDouble)
-    ncvar->get((double*)slice, 1, m_width, m_height);
+		  NcFile::read);
+  NcVar ncvar;
+  ncvar = dataFile.getVar(m_varName.toStdString());
+  
+  getSlice(0, m_width, m_height, ncvar, slcno, slice);
+
   dataFile.close();
 }
 
@@ -812,15 +828,10 @@ void
 NcPlugin::getWidthSlice(int slc,
 			uchar *slice)
 {
-  NcError err(NcError::verbose_nonfatal);
-
   for(uint nf=0; nf<m_fileName.size(); nf++)
     {
       NcFile dataFile((char *)m_fileName[nf].toLatin1().data(),
-		      NcFile::ReadOnly);
-      NcVar *ncvar;
-      ncvar = dataFile.get_var((char *)m_varName.toLatin1().data());
-      ncvar->set_cur(0, slc, 0);
+		      NcFile::read);
 
       int depth;
       uchar *ptmp;
@@ -835,16 +846,12 @@ NcPlugin::getWidthSlice(int slc,
 	  ptmp = slice;
 	}
 
-      if (ncvar->type() == ncByte || ncvar->type() == ncChar)
-	ncvar->get((ncbyte*)ptmp, depth, 1, m_height);
-      else if (ncvar->type() == ncShort)
-	ncvar->get((short*)ptmp, depth, 1, m_height);
-      else if (ncvar->type() == ncInt)
-	ncvar->get((int*)ptmp, depth, 1, m_height);
-      else if (ncvar->type() == ncFloat)
-	ncvar->get((float*)ptmp, depth, 1, m_height);
-      else if (ncvar->type() == ncDouble)
-	ncvar->get((double*)ptmp, depth, 1, m_height);
+      
+      NcVar ncvar;
+      ncvar = dataFile.getVar(m_varName.toStdString());
+      
+      getSlice(1, depth, m_height, ncvar, slc, ptmp);
+
       dataFile.close();
     }  
 }
@@ -853,15 +860,10 @@ void
 NcPlugin::getHeightSlice(int slc,
 			 uchar *slice)
 {
-  NcError err(NcError::verbose_nonfatal);
-
   for(uint nf=0; nf < m_fileName.size(); nf++)
     {
       NcFile dataFile((char *)m_fileName[nf].toLatin1().data(),
-		      NcFile::ReadOnly);
-      NcVar *ncvar;
-      ncvar = dataFile.get_var((char *)m_varName.toLatin1().data());
-      ncvar->set_cur(0, 0, slc);
+		      NcFile::read);
       
       int depth;
       uchar *ptmp;
@@ -876,16 +878,12 @@ NcPlugin::getHeightSlice(int slc,
 	  ptmp = slice;
 	}
 
-      if (ncvar->type() == ncByte || ncvar->type() == ncChar)
-	ncvar->get((ncbyte*)ptmp, depth, m_width, 1);
-      else if (ncvar->type() == ncShort)
-	ncvar->get((short*)ptmp, depth, m_width, 1);
-      else if (ncvar->type() == ncInt)
-	ncvar->get((int*)ptmp, depth, m_width, 1);
-      else if (ncvar->type() == ncFloat)
-	ncvar->get((float*)ptmp, depth, m_width, 1);
-      else if (ncvar->type() == ncDouble)
-	ncvar->get((double*)ptmp, depth, m_width, 1);
+      
+      NcVar ncvar;
+      ncvar = dataFile.getVar(m_varName.toStdString());
+      
+      getSlice(2, depth, m_width, ncvar, slc, ptmp);
+
       dataFile.close();
     }
 }
@@ -922,47 +920,50 @@ NcPlugin::rawValue(int d, int w, int h)
   //----------------------------------------
 
 
-  NcError err(NcError::verbose_nonfatal);
   NcFile dataFile((char *)m_fileName[nf].toLatin1().data(),
-		  NcFile::ReadOnly);
-  NcVar *ncvar;
-  ncvar = dataFile.get_var((char *)m_varName.toLatin1().data());
-  ncvar->set_cur(slcno, w, h);
+		  NcFile::read);
+  std::vector<size_t> index(3);
+  index[0] = slcno;
+  index[1] = w;
+  index[2] = h;
 
+  NcVar ncvar;
+  ncvar = dataFile.getVar(m_varName.toStdString());
+  
   if (m_voxelType == _UChar)
     {
       unsigned char a;
-      ncvar->get((ncbyte*)&a, 1, 1, 1);
+      ncvar.getVar(index, (unsigned char*)&a);
       v = QVariant((uint)a);
     }
   else if (m_voxelType == _Char)
     {
       char a;
-      ncvar->get((ncbyte*)&a, 1, 1, 1);
+      ncvar.getVar(index, (char*)&a);
       v = QVariant((int)a);
     }
   else if (m_voxelType == _UShort)
     {
       unsigned short a;
-      ncvar->get((short*)&a, 1, 1, 1);
+      ncvar.getVar(index, (unsigned short*)&a);
       v = QVariant((uint)a);
     }
   else if (m_voxelType == _Short)
     {
       short a;
-      ncvar->get((short*)&a, 1, 1, 1);
+      ncvar.getVar(index, (short*)&a);
       v = QVariant((int)a);
     }
   else if (m_voxelType == _Int)
     {
       int a;
-      ncvar->get((int*)&a, 1, 1, 1);
+      ncvar.getVar(index, (int*)&a);
       v = QVariant((int)a);
     }
   else if (m_voxelType == _Float)
     {
       float a;
-      ncvar->get((float*)&a, 1, 1, 1);
+      ncvar.getVar(index, (float*)&a);
       v = QVariant((double)a);
     }
   dataFile.close();
@@ -1012,7 +1013,6 @@ NcPlugin::saveTrimmed(QString trimFile,
   fout.write((char*)&mZ, 4);
 
 
-  NcError err(NcError::verbose_nonfatal);
 
   int nfStart, nfEnd;
   int slcStart, slcEnd;
@@ -1046,32 +1046,23 @@ NcPlugin::saveTrimmed(QString trimFile,
   uint nslc = 0;
   for(uint nf=nfStart; nf<=nfEnd; nf++)
     {
-      NcFile dataFile((char *)m_fileName[nf].toLatin1().data(),
-		      NcFile::ReadOnly);
-      NcVar *ncvar;
-      ncvar = dataFile.get_var((char *)m_varName.toLatin1().data());
+      NcFile dataFile;
+      dataFile.open(m_fileName[nf].toStdString(),
+		    NcFile::read);
+      NcVar ncvar;
+      ncvar = dataFile.getVar(m_varName.toStdString());
 
       uint dStart, dEnd;
       dStart = 0;
-      dEnd = ncvar->get_dim(0)->size()-1;
+      dEnd = ncvar.getDim(0).getSize()-1;
 
       if (nf == nfStart) dStart = slcStart;
       if (nf == nfEnd) dEnd = slcEnd;
 
       for(uint i=dStart; i<=dEnd; i++)
 	{
-	  ncvar->set_cur(i, 0, 0);
-	  if (ncvar->type() == ncByte || ncvar->type() == ncChar)
-	    ncvar->get((ncbyte*)tmp, 1, m_width, m_height);
-	  else if (ncvar->type() == ncShort)
-	    ncvar->get((short*)tmp, 1, m_width, m_height);
-	  else if (ncvar->type() == ncInt)
-	    ncvar->get((int*)tmp, 1, m_width, m_height);
-	  else if (ncvar->type() == ncFloat)
-	    ncvar->get((float*)tmp, 1, m_width, m_height);
-	  else if (ncvar->type() == ncDouble)
-	    ncvar->get((double*)tmp, 1, m_width, m_height);
-	  
+	  getSlice(0, m_width, m_height, ncvar, i, tmp);
+	  	  
 	  for(uint j=wmin; j<=wmax; j++)
 	    {
 	      memcpy(tmp+(j-wmin)*mZ*m_bytesPerVoxel,

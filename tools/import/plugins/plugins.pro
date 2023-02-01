@@ -15,6 +15,7 @@ SUBDIRS = analyze \
           vgi
           
 win32 {
-SUBDIRS += nifti \
+SUBDIRS += nc4 \
+           nifti \
            nrrd
 }

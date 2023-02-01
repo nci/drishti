@@ -38,6 +38,10 @@ http://nci.org.au/systems-services/scientific-visualisation/visualisation-servic
 ## Drishti Tutorials
 [AARNET CloudStor](https://cloudstor.aarnet.edu.au/plus/s/ykqMmmikfXxHxKC?path=%2FTutorials)
 
+## Help slides
+by Julia Behnsen, University of Liverpool 
+https://datanywhere.liv.ac.uk/?linkid=KZi4zr6VWWV/R+cA7OjSmYRTYv/iF7PSuIDODS6ncAGbVD1en/7ZcA
+
 ## Basics of Drishti
 by Bailey Lovett<br>
 http://www.scribd.com/doc/191007517/The-Basics-of-Drishti-A-Free-To-Download-Volume-Exploration-Presentation-Tool

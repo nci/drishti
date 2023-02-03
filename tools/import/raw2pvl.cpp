@@ -17,6 +17,26 @@
 #include "savepvldialog.h"
 #include "volumefilemanager.h"
 
+
+// To jointly use QT and OpenVDB use the following preprocessor instruction
+// before including openvdb.h.  The problem arises because Qt defines a Q_FOREACH
+// macro which conflicts with the foreach methods in 'openvdb/util/NodeMask.h'.
+// To remove this conflict, just un-define this macro wherever both openvdb and Qt
+// are being included together. 
+#ifdef foreach
+  #undef foreach
+#endif
+// tbb/profiling.h has a function called emit()
+// hence need to undef emit keyword in Qt
+#undef emit
+// a workaround to avoid imath_half_to_float_table linker error
+#define IMATH_HALF_NO_LOOKUP_TABLE
+#include <openvdb/openvdb.h>
+
+
+using namespace std;
+
+
 #ifdef Q_OS_WIN
 #include <float.h>
 #define ISNAN(v) _isnan(v)
@@ -162,13 +182,19 @@ getPvlNcFilename()
   QFileDialog fdialog(0,
 		      "Save processed volume",
 		      Global::previousDirectory(),
-		      "Drishti (*.pvl.nc) ;; MetaImage (*.mhd)");
+		      "Drishti (*.pvl.nc) ;; MetaImage (*.mhd) ;; VDB (*.vdb)");
   fdialog.setAcceptMode(QFileDialog::AcceptSave);
 
   if (!fdialog.exec() == QFileDialog::Accepted)
     return "";
 
   QString pvlFilename = fdialog.selectedFiles().value(0);
+  if (fdialog.selectedNameFilter() == "VDB (*.vdb)")
+    {
+      if (!pvlFilename.endsWith(".vdb"))
+	pvlFilename += ".vdb";
+      return pvlFilename;
+    }
   if (fdialog.selectedNameFilter() == "MetaImage (*.mhd)")
     {
       if (!pvlFilename.endsWith(".mhd"))
@@ -744,6 +770,13 @@ Raw2Pvl::savePvl(VolumeData* volData,
       return;
     }
 
+    if (pvlFilename.endsWith(".vdb"))
+    {
+      saveVDB(pvlFilename, volData);
+      return;
+    }
+
+    
   if (pvlFilename.count() < 4)
     {
       QMessageBox::information(0, "pvl.nc", "No .pvl.nc filename chosen.");
@@ -2618,4 +2651,85 @@ Raw2Pvl::quickRaw(VolumeData* volData,
   
   //QMessageBox::information(0, "Save", "-----Done-----");
 }
+
+
+
+void
+Raw2Pvl::saveVDB(QString vdbFileName,
+		 VolumeData* volData)
+{
+  QMessageBox::information(0, "Saving in VDB format", vdbFileName);
+
+  openvdb::initialize();
+
+  float background_value = 0;
+  openvdb::FloatGrid::Ptr grid = openvdb::FloatGrid::create(background_value);
+  grid->setName("density");
+  openvdb::FloatGrid::Accessor accessor = grid->getAccessor();
+  
+  int dsz, wsz, hsz;
+  volData->gridSize(dsz, wsz, hsz);
+
+  uchar voxelType = volData->voxelType();  
+  int bpv = 1;
+  if (voxelType == _UChar) bpv = 1;
+  else if (voxelType == _Char) bpv = 1;
+  else if (voxelType == _UShort) bpv = 2;
+  else if (voxelType == _Short) bpv = 2;
+  else if (voxelType == _Int) bpv = 4;
+  else if (voxelType == _Float) bpv = 4;
+
+  int nbytes = wsz*hsz*bpv;
+  uchar *raw = new uchar[nbytes];
+
+  openvdb::Coord ijk;
+  int &h = ijk[0];
+  int &w = ijk[1];
+  int &d = ijk[2];
+
+  unsigned short *rawUS = (unsigned short*)raw;
+  
+  for(d = 0; d<dsz; d++)
+    {
+      volData->getDepthSlice(d, raw);
+      for(w = 0; w<wsz; w++)
+	{
+	  for(h = 0; h<hsz; h++)
+	    {
+	      float value;
+	      
+	      if (voxelType == _UChar)
+		value = raw[h + w*hsz];
+	      else if (voxelType == _UShort)
+		value = rawUS[h + w*hsz];
+
+	      if (value > 50)
+		accessor.setValue(ijk, float(raw[h + w*hsz]));
+	    }
+	}
+    }
+  
+  
+  // create a vdb file
+  openvdb::io::File vdbFile(vdbFileName.toStdString());
+
+  // add the grid pointer to a container
+  openvdb::GridPtrVec grids;
+  grids.push_back(grid);
+
+  // write out the contents of the container
+  vdbFile.write(grids);
+  vdbFile.close();
+  
+  QMessageBox::information(0, "Save", "-----Done-----");
+}
+
+
+
+
+
+
+
+
+
 

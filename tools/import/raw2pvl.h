@@ -98,6 +98,10 @@ class Raw2Pvl
 		      int, int,
 		      int, int,
 		      int, int);
+
+  static void saveVDB(QString,
+		      VolumeData*);
+
 };
 
 #endif

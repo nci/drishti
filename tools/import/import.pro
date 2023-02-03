@@ -17,6 +17,14 @@ DESTDIR = ../../bin
 
 win32
 {
+  INCLUDEPATH += C:\cygwin64\home\acl900\vcpkg\vcpkg\installed\x64-windows\include
+  QMAKE_LIBDIR += C:\cygwin64\home\acl900\vcpkg\vcpkg\installed\x64-windows\lib
+
+  # /std:c++17 added because openvdb requires this
+  QMAKE_CXXFLAGS*=/std:c++17
+  
+  LIBS += Imath-3_1.lib openvdb.lib  
+  
   RC_ICONS += images/drishtiimport.ico
 }
      

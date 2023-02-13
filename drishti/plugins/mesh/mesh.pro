@@ -1,6 +1,6 @@
 TEMPLATE = lib
 
-DRISHTI_DEFINES = RENDERER NETCDF
+DRISHTI_DEFINES = RENDERER
 include( ../../../drishti.pri )
 
 RESOURCES = mesh.qrc
@@ -20,17 +20,25 @@ win32 {
   LIBS += common.lib \
 	  QGLViewer2.lib \
 	  glew32.lib \
-	  glmedia.lib \
           opengl32.lib \
-          glu32.lib
+          glu32.lib \
+          vdb.lib
 
  contains(Windows_Setup, Win64) {
-  message(drishti.exe : Win64 setup)
-  INCLUDEPATH += ../../
-  DEFINES += _CRT_SECURE_NO_WARNINGS
-  QMAKE_LIBDIR += ..\common ..\..\..\glmedia-64
-  LIBS += netcdfcpp.lib \
-	  freeglut.lib
+     message(drishti.exe : Win64 setup)
+     INCLUDEPATH += ../../ \
+                    ../../../common/src/vdb
+     DEFINES += _CRT_SECURE_NO_WARNINGS
+     QMAKE_LIBDIR += ..\common \
+                     ..\..\..\common\lib     
+
+     INCLUDEPATH += C:\cygwin64\home\acl900\vcpkg\vcpkg\installed\x64-windows\include
+     QMAKE_LIBDIR += C:\cygwin64\home\acl900\vcpkg\vcpkg\installed\x64-windows\lib
+
+     ### /std:c++17 added because openvdb requires this
+     QMAKE_CXXFLAGS*=/std:c++17
+  
+     LIBS += Imath-3_1.lib openvdb.lib  
  }
 }
 
@@ -63,20 +71,18 @@ macx {
 
   LIBS += -lcommon \
 	-lGLEW \
-	-lnetcdf \
-	-lnetcdf_c++ \
         -framework QGLViewer \
         -framework GLUT
 }
 
 HEADERS = meshplugin.h \
- 	meshgenerator.h \
-	marchingcubes.h \
-	ply.h \
-	lookuptable.h
+ 	  meshgenerator.h \
+	  marchingcubes.h \
+	  ply.h \
+          lookuptable.h
 	
 
 SOURCES = meshplugin.cpp \
-	meshgenerator.cpp \
-	marchingcubes.cpp \
-	ply.c
+	  meshgenerator.cpp \
+	  marchingcubes.cpp \
+	  ply.c

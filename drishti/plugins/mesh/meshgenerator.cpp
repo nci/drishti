@@ -1,5 +1,8 @@
+#include "vdbvolume.h"
+
 #include "staticfunctions.h"
 #include "meshgenerator.h"
+
 
 MeshGenerator::MeshGenerator()
 {
@@ -94,7 +97,7 @@ MeshGenerator::getValues(int &isoval, float &isovalf,
   chan = 0;
   isoval = 128;
   isovalf = 0.5;
-  spread = 1;
+  spread = 0;
   depth = 1;
   useColor = 1;
   fillValue = -1;
@@ -433,6 +436,7 @@ MeshGenerator::start(VolumeFileManager *vfm,
 				    "Max memory we can use (GB)", memGb, 0.1, 1000, 2);
   else
     memGb = 8.0; // for batch mode assume 5GB
+  
 
   qint64 gb = 1024*1024*1024;
   qint64 memsize = memGb*gb; // max memory we can use (in GB)
@@ -475,7 +479,7 @@ MeshGenerator::start(VolumeFileManager *vfm,
     flnm = QFileDialog::getSaveFileName(0,
 					"Export mesh to file",
 					prevDir,
-					"*.ply ;; *.stl");
+					"*.ply ;; *.obj ;; *.stl");
   else
     {
       flnm = QDir(prevDir).filePath("mesh.ply");
@@ -488,6 +492,7 @@ MeshGenerator::start(VolumeFileManager *vfm,
     }
 
   if (!StaticFunctions::checkExtension(flnm, ".ply") &&
+      !StaticFunctions::checkExtension(flnm, ".obj") &&
       !StaticFunctions::checkExtension(flnm, ".stl"))
     flnm += ".ply";
   //----------------------------
@@ -533,7 +538,7 @@ MeshGenerator::getLutColor(uchar *volData,
 			   bool avgColor)			   
 {
   // go a bit deeper and start
-  QVector3D vpos = pos + normal;
+  QVector3D vpos = pos - normal;
 
   // -- find how far deep we can go
   int nd = 0;
@@ -546,12 +551,12 @@ MeshGenerator::getLutColor(uchar *volData,
 	  i < 0 || j < 0 || k < 0) // gone out
 	break;
       nd ++;
-      vpos += normal;
+      vpos -= normal;
     }
 
   // now start collecting the samples
-  vpos = pos + normal;
-  QVector3D gpos = globalPos + normal;
+  vpos = pos - normal;
+  QVector3D gpos = globalPos - normal;
 
   Vec rgb = Vec(0,0,0);
   float tota = 0;
@@ -689,8 +694,8 @@ MeshGenerator::getLutColor(uchar *volData,
 
 	}
 
-      vpos += normal;
-      gpos += normal;
+      vpos -= normal;
+      gpos -= normal;
     }
 
   
@@ -1032,8 +1037,7 @@ MeshGenerator::checkPathCrop(Vec po)
 	  // take union
 	  cropped |= m_paths[ci].checkCropped(po);
 	}
-    }
-  return cropped;
+    }  return cropped;
 }
 
 void
@@ -1055,26 +1059,15 @@ MeshGenerator::generateMesh(int nSlabs,
 			    int chan,
 			    bool avgColor)
 {
-  bool savePLY = StaticFunctions::checkExtension(flnm, ".ply");
+  int saveType = 0; // default .ply
+  if (StaticFunctions::checkExtension(flnm, ".obj")) saveType = 1;
+  if (StaticFunctions::checkExtension(flnm, ".stl")) saveType = 2;
 
   bool saveIntermediate = false;
 
   int bpv = 1;
   if (m_voxelType > 0) bpv = 2;
   int nbytes = bpv*m_nY*m_nZ;
-
-//  if (nSlabs > 1)
-//    {
-//      QStringList sl;
-//      sl << "No";
-//      sl << "Yes";
-//      bool ok;
-//      QString okstr = QInputDialog::getItem(0, "Save slab files",
-//		      "Save slab files in .ply format.\nFiles will not be collated together to create a unified mesh for the whole sample.",
-//					    sl, 0, false, &ok);
-//      if (ok && okstr == "Yes")
-//	saveIntermediate = true;
-//    }
 
   
   bool trim = (qRound(m_dataSize.x) < m_height ||
@@ -1320,10 +1313,10 @@ MeshGenerator::generateMesh(int nSlabs,
 	}
       //------------
 
-      if (useOpacity && smoothOpacity)
-	smoothData(gData,
-		   dlen+2*nextra, m_nY, m_nZ,
-		   qMin(2, nextra));
+//      if (useOpacity && smoothOpacity)
+//	smoothData(gData,
+//		   dlen+2*nextra, m_nY, m_nZ,
+//		   qMin(2, nextra));
 
 
       //--------------------------------
@@ -1407,196 +1400,169 @@ MeshGenerator::generateMesh(int nSlabs,
 
 
 
-      MarchingCubes mc ;
-      mc.setLogger(m_meshLog, m_meshProgress);
-      mc.set_resolution(m_nZ, m_nY, dlen ) ;      
+      //--------------------------------
+      //--------------------------------
+      VdbVolume vdb;
       if (!useOpacity)
-	mc.set_ext_data((extData + nextra*nbytes));
+	vdb.generateVDB((extData + nextra*nbytes), dlen, m_nY, m_nZ);
       else
-	mc.set_ext_data((gData + nextra*m_nY*m_nZ)); 
-      mc.init_all() ;
-      mc.run(isoval) ;
-
-      // save part .ply file
-      if (saveIntermediate)
+      	vdb.generateVDB((gData + nextra*m_nY*m_nZ), dlen, m_nY, m_nZ);
+      
+      if (smoothOpacity)
 	{
-	  QString plyfl = flnm;
-	  plyfl.chop(4);
-	  plyfl += QString(".%1.ply").arg(nb);
-	  mc.writePLY(plyfl.toLatin1().data(), true);
+	  vdb.dilate(1);
+	  vdb.mean(1, 1); // width, iterations
 	}
-      else
-	{
-	  // smoothing the mesh
-	  QList<Vec> V;
-	  QList<Vec> N;
-	  QList<Vec> E;
-	  
-	  int ntrigs = mc.ntrigs();
-	  Triangle *triangles = mc.triangles();
-	  
-	  int nverts = mc.nverts();
-	  Vertex *vertices = mc.vertices();
-	  
-	  for(int ni=0; ni<nverts; ni++)
-	    {
-	      Vec v, n, c;
-	      v = Vec(vertices[ni].x, vertices[ni].y, vertices[ni].z);
-	      n = Vec(vertices[ni].nx, vertices[ni].ny, vertices[ni].nz);
-	      
-	      V << v;
-	      N << n;
-	    }
-	  
-	  for(int ni=0; ni<ntrigs; ni++)
-	    E << Vec(triangles[ni].v1, triangles[ni].v2, triangles[ni].v3);
 
-	  // mesh smoothing
-	  if (spread > 0)
-	    smoothMesh(V, N, E, 5*spread);
-	  
+      QVector<QVector3D> V;
+      QVector<QVector3D> VN;
+      QVector<int> T;
+      vdb.generateMesh(isoval, V, VN, T);
+      
+      QVector<Vec> E;
+      for(int i=0; i<T.count()/3; i++)
+	E << Vec(T[3*i+0], T[3*i+1], T[3*i+2]);
+
+      int nverts = V.count();
+      int ntrigs = E.count();
+	
+      //--------------------------------
+      //--------------------------------
 
 
+      // mesh smoothing
+      if (spread > 0)
+	smoothMesh(V, VN, E, 5*spread);
+ 
+      {
+	m_meshLog->moveCursor(QTextCursor::End);
+	m_meshLog->insertPlainText("Saving triangle coordinates ...\n");
+	QString mflnm = flnm + QString(".%1.tri").arg(nb);
+	QFile fout(mflnm);
+	fout.open(QFile::WriteOnly);
+	fout.write((char*)&ntrigs, 4);
+	if (saveType < 2) // save modified triangle vertex numbers only for PLY and OBJ files
 	  {
-	    m_meshLog->moveCursor(QTextCursor::End);
-	    m_meshLog->insertPlainText("Saving triangle coordinates ...\n");
-	    QString mflnm = flnm + QString(".%1.tri").arg(nb);
-	    QFile fout(mflnm);
-	    fout.open(QFile::WriteOnly);
-	    fout.write((char*)&ntrigs, 4);
-	    if (savePLY) // save modified triangle vertex numbers only for PLY files
+	    for(int ni=0; ni<ntrigs; ni++)
 	      {
-		for(int ni=0; ni<ntrigs; ni++)
-		  {
-		    int v[3];
-		    v[0] = triangles[ni].v1 + nvertices;
-		    v[1] = triangles[ni].v2 + nvertices;
-		    v[2] = triangles[ni].v3 + nvertices;
-		    fout.write((char*)v, 12);
-		  }
+		int v[3];
+		v[0] = E[ni].x + nvertices;
+		v[1] = E[ni].y + nvertices;
+		v[2] = E[ni].z + nvertices;
+		fout.write((char*)v, 12);
 	      }
-	    else // saving stl formatted output
-	      {
-		for(int ni=0; ni<ntrigs; ni++)
-		  {
-		    int v[3];
-		    v[0] = triangles[ni].v1;
-		    v[1] = triangles[ni].v2;
-		    v[2] = triangles[ni].v3;
-		    fout.write((char*)v, 12);
-		  }
-	      }
-	    fout.close();
-	    ntriangles += ntrigs;
 	  }
-
-	  
+	else // saving stl formatted output
 	  {
-	    QString mflnm = flnm + QString(".%1.vert").arg(nb);
-	    QFile fout(mflnm);
-	    fout.open(QFile::WriteOnly);
-	    fout.write((char*)&nverts, 4);
-	    for(int ni=0; ni<nverts; ni++)
+	    for(int ni=0; ni<ntrigs; ni++)
 	      {
-		m_meshProgress->setValue((int)(100.0*(float)ni/(float)nverts));
-		qApp->processEvents();
-
-		float v[6];
-		v[0] = V[ni].x;
-		v[1] = V[ni].y;
-		v[2] = V[ni].z + d0;
-		v[3] = N[ni].x;
-		v[4] = N[ni].y;
-		v[5] = N[ni].z;
-
-		// apply voxelscaling
-		v[0] *= voxelScaling.x;
-		v[1] *= voxelScaling.y;
-		v[2] *= voxelScaling.z;
-		v[0] *= m_scaleModel;
-		v[1] *= m_scaleModel;
-		v[2] *= m_scaleModel;
-		fout.write((char*)v, 24);
-
-		v[0] = vertices[ni].x;
-		v[1] = vertices[ni].y;
-		v[2] = vertices[ni].z + d0;
-
-		if (savePLY) // do colour calculations only for PLY files
+		int v[3];
+		v[0] = E[ni].x;
+		v[1] = E[ni].y;
+		v[2] = E[ni].z;
+		fout.write((char*)v, 12);
+	      }
+	  }
+	fout.close();
+	ntriangles += ntrigs;
+      }      
+  
+      {
+	QString mflnm = flnm + QString(".%1.vert").arg(nb);
+	QFile fout(mflnm);
+	fout.open(QFile::WriteOnly);
+	fout.write((char*)&nverts, 4);
+	for(int ni=0; ni<nverts; ni++)
+	  {
+	    m_meshProgress->setValue((int)(100.0*(float)ni/(float)nverts));
+	    qApp->processEvents();
+	    
+	    float v[6];
+	    v[0] = V[ni].x();
+	    v[1] = V[ni].y();
+	    v[2] = V[ni].z() + d0;
+	    v[3] = VN[ni].x();
+	    v[4] = VN[ni].y();
+	    v[5] = VN[ni].z();
+	    
+	    // apply voxelscaling
+	    v[0] *= voxelScaling.x;
+	    v[1] *= voxelScaling.y;
+	    v[2] *= voxelScaling.z;
+	    v[0] *= m_scaleModel;
+	    v[1] *= m_scaleModel;
+	    v[2] *= m_scaleModel;
+	    fout.write((char*)v, 24);
+	    
+	    if (saveType == 0) // do colour calculations only for PLY files
+	      {
+		//m_meshLog->moveCursor(QTextCursor::End);
+		//m_meshLog->insertPlainText("Generating Color ...\n");
+		uchar c[3];
+		float r,g,b;
+		if (useColor == _FixedColor)
 		  {
-		    //m_meshLog->moveCursor(QTextCursor::End);
-		    //m_meshLog->insertPlainText("Generating Color ...\n");
-		    uchar c[3];
-		    float r,g,b;
-		    if (useColor == _FixedColor)
-		      {
-			QColor col = vstops[isoval].second;
-			r = col.red()/255.0;
-			g = col.green()/255.0;
-			b = col.blue()/255.0;
-		      }
-		    else
-		      {
-			uchar *volData = extData;
-			QColor col = Qt::white;
-			QVector3D pos, normal;
-			pos = QVector3D(V[ni].x,
-					V[ni].y,
-					V[ni].z + nextra);
-			normal = QVector3D(N[ni].x,
-					   N[ni].y,
-					   N[ni].z);
-			  col = getLutColor(volData,
-					    oData,
-					    dlen,
-					    depth, 0, nextra,
-					    isoval,
-					    pos, normal,
-					    lut,
-					    QVector3D(V[ni].x,
-						      V[ni].y,
-						      V[ni].z+d0),
-					    avgColor);
-			
-			r = col.red()/255.0;
-			g = col.green()/255.0;
-			b = col.blue()/255.0;
-		      }
+		    QColor col = vstops[isoval].second;
+		    r = col.red()/255.0;
+		    g = col.green()/255.0;
+		    b = col.blue()/255.0;
+		  }
+		else
+		  {
+		    uchar *volData = extData;
+		    QColor col = Qt::white;
+		    QVector3D pos, normal;
+		    pos = V[ni] + QVector3D(0,0,nextra);
+		    normal = VN[ni];
+		    col = getLutColor(volData,
+				      oData,
+				      dlen,
+				      depth, 0, nextra,
+				      isoval,
+				      pos, normal, // position within slab
+				      lut,
+				      V[ni]+QVector3D(0,0,d0), // global position
+				      avgColor);
 		    
-		    c[0] = r*255;
-		    c[1] = g*255;
-		    c[2] = b*255;
-		    fout.write((char*)c, 3);
-		  } // if (savePLY)
-	      }
-	    fout.close();
-	    nvertices += nverts;
-	    m_meshProgress->setValue(100);
+		    r = col.red()/255.0;
+		    g = col.green()/255.0;
+		    b = col.blue()/255.0;
+		  }
+		
+		c[0] = r*255;
+		c[1] = g*255;
+		c[2] = b*255;
+		fout.write((char*)c, 3);
+	      } // if (saveType == 0)
 	  }
-	}
-
-      mc.clean_all();
+	fout.close();
+	nvertices += nverts;
+	m_meshProgress->setValue(100);
+      }
+      
       delete [] extData;
       if (gData) delete [] gData;
       if (oData) delete [] oData;
     } // loop over slabs
 
-  // Files are not collated together to create
-  // a unified mesh for the whole sample
-  if (!saveIntermediate)
-    {
-      if (savePLY)
-	saveMeshToPLY(flnm,
-		      nSlabs,
-		      nvertices, ntriangles,
-		      true);
-      else
-	saveMeshToSTL(flnm,
-		      nSlabs,
-		      nvertices, ntriangles,
-		      true);
-    }
 
+  
+  if (saveType == 0) // PLY
+    saveMeshToPLY(flnm,
+		  nSlabs,
+		  nvertices, ntriangles,
+		  true);
+  else if (saveType == 1) // OBJ	
+    saveMeshToOBJ(flnm,
+		  nSlabs,
+		  nvertices, ntriangles);
+  else // STL
+    saveMeshToSTL(flnm,
+		  nSlabs,
+		  nvertices, ntriangles);
+
+  
+  
   m_meshLog->moveCursor(QTextCursor::End);
   m_meshLog->insertPlainText("Mesh saved in "+flnm);
 
@@ -1700,9 +1666,9 @@ MeshGenerator::saveMeshToPLY(QString flnm,
 	  vertex.x = v[0];
 	  vertex.y = v[1];
 	  vertex.z = v[2];
-	  vertex.nx = -v[3];
-	  vertex.ny = -v[4];
-	  vertex.nz = -v[5];
+	  vertex.nx = v[3];
+	  vertex.ny = v[4];
+	  vertex.nz = v[5];
 	  uchar c[3];
  	  fin.read((char*)c, 3);
 	  vertex.r = c[0];
@@ -1735,9 +1701,9 @@ MeshGenerator::saveMeshToPLY(QString flnm,
 	  int v[3];
 	  fin.read((char*)v, 12);
 
-	  face.verts[0] = v[2];
+	  face.verts[0] = v[0];
 	  face.verts[1] = v[1];
-	  face.verts[2] = v[0];
+	  face.verts[2] = v[2];
 
 	  put_element_ply ( ply, ( void * ) &face );
 	}
@@ -1753,10 +1719,90 @@ MeshGenerator::saveMeshToPLY(QString flnm,
 }
 
 void
+MeshGenerator::saveMeshToOBJ(QString objflnm,
+			     int nSlabs,
+			     int nvertices, int ntriangles)
+{
+  m_meshLog->moveCursor(QTextCursor::End);
+  m_meshLog->insertPlainText("Saving Mesh " + objflnm);
+
+  // calculate number of triangles
+  int ntri = 0;
+  for (int nb=0; nb<nSlabs; nb++)
+    {
+      QString tflnm = objflnm + QString(".%1.tri").arg(nb);
+      QFile tfin(tflnm);
+      tfin.open(QFile::ReadOnly);
+      int ntrigs;
+      tfin.read((char*)&ntrigs, 4);
+      tfin.close();
+      ntri += ntrigs;
+    }
+
+  QFile fobj(objflnm);
+  fobj.open(QFile::WriteOnly);
+  QTextStream out(&fobj);
+  out << "#\n";
+  out << "#  Wavefront OBJ generated by Drishti\n";
+  out << "#\n";
+  out << "#  https://github.com/nci/drishti\n";
+  out << "#\n";
+  out << QString("# %1 vertices\n").arg(nvertices);
+  out << QString("# %1 normals\n").arg(nvertices);
+  out << QString("# %1 triangles\n").arg(ntriangles);
+  out << "g\n";
+  for (int nb=0; nb<nSlabs; nb++)
+    {
+      m_meshProgress->setValue((int)(100.0*(float)nb/(float)nSlabs));
+      qApp->processEvents();
+
+      int nverts;
+      QString mflnm = objflnm + QString(".%1.vert").arg(nb);
+
+      QFile fin(mflnm);
+      fin.open(QFile::ReadOnly);
+      fin.read((char*)&nverts, 4);
+      for(int ni=0; ni<nverts; ni++)
+	{
+	  float v[6];
+	  fin.read((char*)v, 24);
+
+	  out << "v " << QString("%1 %2 %3\n").arg(v[0]).arg(v[1]).arg(v[2]);
+	  out << "vn "<< QString("%1 %2 %3\n").arg(v[3]).arg(v[4]).arg(v[5]);
+	}
+      fin.close();
+      fin.remove();
+    }
+  out << "g\n";
+  for (int nb=0; nb<nSlabs; nb++)
+    {
+      m_meshProgress->setValue((int)(100.0*(float)nb/(float)nSlabs));
+      qApp->processEvents();
+
+      int ntrigs;
+      QString mflnm = objflnm + QString(".%1.tri").arg(nb);
+
+      QFile fin(mflnm);
+      fin.open(QFile::ReadOnly);
+      fin.read((char*)&ntrigs, 4);      
+      for(int ni=0; ni<ntrigs; ni++)
+	{
+	  int v[3];
+	  fin.read((char*)v, 12);
+	  out << "f " << QString("%1 %2 %3\n").arg(v[0]+1).arg(v[1]+1).arg(v[2]+1);
+	}
+      fin.close();
+      fin.remove();
+    }
+
+  m_meshProgress->setValue(100);
+}
+
+
+void
 MeshGenerator::saveMeshToSTL(QString flnm,
 			     int nSlabs,
-			     int nvertices, int ntriangles,
-			     bool bin)
+			     int nvertices, int ntriangles)
 {
   m_meshLog->moveCursor(QTextCursor::End);
   m_meshLog->insertPlainText("Saving Mesh " + flnm);
@@ -1808,9 +1854,9 @@ MeshGenerator::saveMeshToSTL(QString flnm,
       for(int ni=0; ni<ntrigs; ni++)
 	{
 	  float v[12];
-	  int i = tri[3*ni+2];
+	  int i = tri[3*ni+0];
 	  int j = tri[3*ni+1];
-	  int k = tri[3*ni+0];
+	  int k = tri[3*ni+2];
 
 	  v[0] = vert[6*i+3];
 	  v[1] = vert[6*i+4];
@@ -1861,12 +1907,12 @@ MeshGenerator::saveMeshToSTL(QString flnm,
 }
 
 void
-MeshGenerator::smoothMesh(QList<Vec>& V,
-			 QList<Vec>& N,
-			 QList<Vec>& E,
-			 int ntimes)
+MeshGenerator::smoothMesh(QVector<QVector3D>& V,
+			  QVector<QVector3D>& N,
+			  QVector<Vec>& E,
+			  int ntimes)
 {  
-  QList<Vec> newV;
+  QVector<QVector3D> newV;
   newV = V;
 
   int nv = V.count();
@@ -1909,13 +1955,13 @@ MeshGenerator::smoothMesh(QList<Vec>& V,
       for(int i=0; i<nv; i++)
 	{
 	  QList<int> idx = imat.values(i);
-	  Vec v0 = V[i];
-	  Vec v = Vec(0,0,0);
+	  QVector3D v0 = V[i];
+	  QVector3D v = QVector3D(0,0,0);
 	  float sum = 0;
 	  for(int j=0; j<idx.count(); j++)
 	    {
-	      Vec vj = V[idx[j]];
-	      float ln = (v0-vj).norm();
+	      QVector3D vj = V[idx[j]];
+	      float ln = (v0-vj).length();
 	      if (ln > 0)
 		{
 		  sum += 1.0/ln;
@@ -1931,13 +1977,13 @@ MeshGenerator::smoothMesh(QList<Vec>& V,
       for(int i=0; i<nv; i++)
 	{
 	  QList<int> idx = imat.values(i);
-	  Vec v0 = newV[i];
-	  Vec v = Vec(0,0,0);
+	  QVector3D v0 = newV[i];
+	  QVector3D v = QVector3D(0,0,0);
 	  float sum = 0;
 	  for(int j=0; j<idx.count(); j++)
 	    {
-	      Vec vj = newV[idx[j]];
-	      float ln = (v0-vj).norm();
+	      QVector3D vj = newV[idx[j]];
+	      float ln = (v0-vj).length();
 	      if (ln > 0)
 		{
 		  sum += 1.0/ln;
@@ -1957,7 +2003,7 @@ MeshGenerator::smoothMesh(QList<Vec>& V,
   m_meshLog->insertPlainText("   Calculate normals ...");
   // now calculate normals
   for(int i=0; i<nv; i++)
-    newV[i] = Vec(0,0,0);
+    newV[i] = QVector3D(0,0,0);
 
   QVector<int> nvs;
   nvs.resize(nv);
@@ -1975,12 +2021,12 @@ MeshGenerator::smoothMesh(QList<Vec>& V,
       int b = E[i].y;
       int c = E[i].z;
 
-      Vec va = V[a];
-      Vec vb = V[b];
-      Vec vc = V[c];
-      Vec v0 = (vb-va).unit();
-      Vec v1 = (vc-va).unit();      
-      Vec vn = v0^v1;
+      QVector3D va = V[a];
+      QVector3D vb = V[b];
+      QVector3D vc = V[c];
+      QVector3D v0 = (vb-va).normalized();
+      QVector3D v1 = (vc-va).normalized();      
+      QVector3D vn = QVector3D::crossProduct(v1,v0);
       
       newV[a] += vn;
       newV[b] += vn;

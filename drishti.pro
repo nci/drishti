@@ -1,5 +1,6 @@
 TEMPLATE = subdirs
-SUBDIRS = drishti \
+SUBDIRS = common\src\vdb \
+          drishti \
           drishti\plugins \
           drishti\mopplugin \
           tools\import \

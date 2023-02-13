@@ -508,7 +508,9 @@ NcPlugin::findMinMaxandGenerateHistogram()
   if (m_4dvol) nfls = 1;
   for(uint nf=0; nf<nfls; nf++)
     {
-      progress.setLabelText(m_fileName[nf]);
+      QFileInfo finfo(m_fileName[nf]);
+      progress.setLabelText(finfo.fileName());
+      //progress.setLabelText(m_fileName[nf]);
 
       NcFile dataFile;
       try

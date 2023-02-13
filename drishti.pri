@@ -22,10 +22,10 @@ contains(Windows_Setup, Win64) {
 	c:\cygwin64\home\acl900\drishtilib\glew-2.1.0\build\lib\Release
     }
   
-    contains(DRISHTI_DEFINES, NETCDF) {
-       INCLUDEPATH += c:\cygwin64\home\acl900\drishtilib\netcdf\include
-       QMAKE_LIBDIR += c:\cygwin64\home\acl900\drishtilib\netcdf\lib \
-    }  
+#    contains(DRISHTI_DEFINES, NETCDF) {
+#       INCLUDEPATH += c:\cygwin64\home\acl900\drishtilib\netcdf\include
+#       QMAKE_LIBDIR += c:\cygwin64\home\acl900\drishtilib\netcdf\lib \
+#    }  
   
     contains(DRISHTI_DEFINES, ITK) {
       ITKVer = 5.0
@@ -109,10 +109,10 @@ contains(Facility_Name, Ubuntu) {
       QMAKE_LIBDIR += /usr/lib /usr/lib/x86_64-linux-gnu
     }
   
-    contains(DRISHTI_DEFINES, NETCDF) {
-      INCLUDEPATH += /home/acl900/drishtilib/netcdf3/build/include
-      QMAKE_LIBDIR += /home/acl900/drishtilib/netcdf3/build/lib
-    }
+#    contains(DRISHTI_DEFINES, NETCDF) {
+#      INCLUDEPATH += /home/acl900/drishtilib/netcdf3/build/include
+#      QMAKE_LIBDIR += /home/acl900/drishtilib/netcdf3/build/lib
+#    }
   
     contains(DRISHTI_DEFINES, TIFF) {
       QMAKE_LIBDIR += /usr/lib/x86_64-linux-gnu

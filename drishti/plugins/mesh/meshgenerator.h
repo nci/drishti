@@ -12,6 +12,8 @@
 #include <QGLViewer/vec.h>
 using namespace qglviewer;
 
+
+
 enum ColorType
   {
     _FixedColor = 0,
@@ -76,6 +78,7 @@ class MeshGenerator
 
   bool m_batchMode;
   
+  
   void generateMesh(int, int,
 		    QString,
 		    int, int,
@@ -92,7 +95,8 @@ class MeshGenerator
 
 
   void saveMeshToPLY(QString, int, int, int, bool);
-  void saveMeshToSTL(QString, int, int, int, bool);
+  void saveMeshToSTL(QString, int, int, int);
+  void saveMeshToOBJ(QString, int, int, int);
 
   bool getValues(int&, float&,
 		 int&, int&, int&, int&,
@@ -124,11 +128,10 @@ class MeshGenerator
   void applyOpacity(int, uchar*, uchar*, uchar*,
 		    uchar*, uchar*, uchar*);
 
-  void smoothMesh(QList<Vec>&,
-		  QList<Vec>&,
-		  QList<Vec>&,
+  void smoothMesh(QVector<QVector3D>&,
+		  QVector<QVector3D>&,
+		  QVector<Vec>&,
 		  int);
-
 };
 
 #endif MESHGENERATOR_H

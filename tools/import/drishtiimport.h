@@ -28,8 +28,9 @@ class DrishtiImport : public QMainWindow
   void on_actionSave_Images_triggered();
   void on_actionSave_As_triggered();
   void on_actionBatch_Process_triggered();
-  void on_actionSave_Isosurface_As_triggered();
   void on_actionExit_triggered();
+
+  void on_actionExport_Mesh_triggered();
 
   void on_loadLimits_triggered();
   void on_saveLimits_triggered();

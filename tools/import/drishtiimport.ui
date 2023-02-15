@@ -22,7 +22,7 @@
      <x>0</x>
      <y>0</y>
      <width>554</width>
-     <height>21</height>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFiles">
@@ -42,10 +42,13 @@
     <addaction name="actionBatch_Process"/>
     <addaction name="actionSave_Images"/>
     <addaction name="separator"/>
+    <addaction name="actionExport_Mesh"/>
+    <addaction name="separator"/>
     <addaction name="loadLimits"/>
     <addaction name="saveLimits"/>
     <addaction name="separator"/>
     <addaction name="actionExit"/>
+    <addaction name="separator"/>
    </widget>
    <widget class="QMenu" name="menuOutput_Type">
     <property name="title">
@@ -220,6 +223,11 @@
   <action name="actionMimics">
    <property name="text">
     <string>Import Multiple Dicom</string>
+   </property>
+  </action>
+  <action name="actionExport_Mesh">
+   <property name="text">
+    <string>Export Mesh</string>
    </property>
   </action>
  </widget>

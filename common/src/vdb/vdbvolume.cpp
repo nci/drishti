@@ -27,6 +27,58 @@ VdbVolume::~VdbVolume()
 }
 
 void
+VdbVolume::addSliceToVDB(float *data,
+			 int x, int nY, int nZ,
+			 int bType, int bValue)
+{
+  openvdb::FloatGrid::Accessor accessor = m_vdbGrid->getAccessor();
+
+  openvdb::Coord ijk;
+  int &d = ijk[0];
+  int &w = ijk[1];
+  int &h = ijk[2];
+
+  d = x;
+  
+  if (bType == -1) // anything less than bValue is background
+    {
+      for (w=0; w<nY; w++)
+	{
+	  for (h=0; h<nZ; h++)
+	    {
+	      float value = data[w*nZ + h];
+	      if (value > bValue)
+		accessor.setValue(ijk, value);	  
+	    }
+	}
+    }
+  if (bType == 0) // bValue is background
+    {
+      for (w=0; w<nY; w++)
+	{
+	  for (h=0; h<nZ; h++)
+	    {
+	      float value = data[w*nZ + h];
+	      if (qAbs(value-bValue) > 0.0001)
+		accessor.setValue(ijk, value);	  
+	    }
+	}
+    }
+  if (bType == 1) // anything greater than bValue is background
+    {
+      for (w=0; w<nY; w++)
+	{
+	  for (h=0; h<nZ; h++)
+	    {
+	      float value = data[w*nZ + h];
+	      if (value < bValue)
+		accessor.setValue(ijk, value);	  
+	    }
+	}
+    }
+}
+
+void
 VdbVolume::addSliceToVDB(unsigned char *data,
 			 int x, int nY, int nZ,
 			 int bType, int bValue)

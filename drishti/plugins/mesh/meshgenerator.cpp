@@ -1785,7 +1785,7 @@ MeshGenerator::saveMeshToOBJ(QString objflnm,
 	{
 	  int v[3];
 	  fin.read((char*)v, 12);
-	  out << "f " << QString("%1 %2 %3\n").arg(v[0]+1).arg(v[1]+1).arg(v[2]+1);
+	  out << "f " << QString("%1//%1 %2//%2 %3//%3\n").arg(v[0]+1).arg(v[1]+1).arg(v[2]+1);
 	}
       fin.close();
       fin.remove();

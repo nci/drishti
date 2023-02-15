@@ -29,6 +29,9 @@ class VdbVolume
   VdbVolume();
   ~VdbVolume();
   
+  void addSliceToVDB(float*,
+		     int, int, int,
+		     int, int);
   void addSliceToVDB(unsigned char*,
 		     int, int, int,
 		     int, int);

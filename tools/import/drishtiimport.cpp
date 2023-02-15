@@ -503,11 +503,6 @@ DrishtiImport::on_actionBatch_Process_triggered()
   m_remapWidget->batchProcess();
 }
 
-void
-DrishtiImport::on_actionSave_Isosurface_As_triggered()
-{
-  m_remapWidget->saveIsosurfaceAs();
-}
 
 void
 DrishtiImport::on_actionSave_Images_triggered()
@@ -776,3 +771,10 @@ DrishtiImport::on_actionMimics_triggered()
     }
   //---------------------
 }
+
+void
+DrishtiImport::on_actionExport_Mesh_triggered()
+{
+  m_remapWidget->saveIsosurfaceAs();
+}
+

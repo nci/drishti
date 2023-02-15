@@ -1,3 +1,5 @@
+#include "vdbvolume.h"
+
 #include "global.h"
 #include "staticfunctions.h"
 #include "raw2pvl.h"
@@ -1448,15 +1450,6 @@ getSettings(int &memGb,
   spareMb = mem;
 }
 
-void
-Raw2Pvl::saveIsosurface(VolumeData* volData,
-			int dmin, int dmax,
-			int wmin, int wmax,
-			int hmin, int hmax,
-			QStringList timeseriesFiles)
-{
-  QMessageBox::information(0, "Error", "This option is no longer available");
-}
 
 void
 Raw2Pvl::batchProcess(VolumeData* volData,
@@ -2666,8 +2659,6 @@ Raw2Pvl::saveVDB(QString vdbFileName,
 {
   QMessageBox::information(0, "Saving in VDB format", vdbFileName);
 
-  openvdb::initialize();
-
   //int background_value = 0;
   //int bgv = QInputDialog::getInt(0, "Background Value", "background value", 0, -1000000, 1000000);
 
@@ -2722,7 +2713,8 @@ Raw2Pvl::saveVDB(QString vdbFileName,
 	}
     }
 
-  //openvdb::FloatGrid::Ptr grid1 = openvdb::FloatGrid::create(background_value);
+
+  openvdb::initialize();
   openvdb::FloatGrid::Ptr grid1 = openvdb::FloatGrid::create();
 
   grid1->setName("density");
@@ -2858,8 +2850,202 @@ Raw2Pvl::saveVDB(QString vdbFileName,
 
 
 
+void
+Raw2Pvl::saveIsosurface(VolumeData* volData,
+			int dmin, int dmax,
+			int wmin, int wmax,
+			int hmin, int hmax,
+			QStringList timeseriesFiles)
+{
+  bool ok;
+  QString objFilename = QFileDialog::getSaveFileName(0,
+						     "Export Mesh to file",
+						     Global::previousDirectory(),
+						     "*.obj");
+  if (objFilename.isEmpty())
+    {
+      QMessageBox::information(0, "Error", "No OBJ filename specified");
+      return;
+    }
+  
+  
+  if (!StaticFunctions::checkExtension(objFilename, ".obj"))
+    objFilename += ".obj";
+
+  
+  float isoValue = QInputDialog::getDouble(0, "Isosurface Value", "Isosurface Value", 0);
+  float adaptivity = QInputDialog::getDouble(0, "Adaptivity", "Adaptivity", 0, 0, 1, 2, &ok, Qt::WindowFlags(), 0.01);
+  QMessageBox::information(0, "", QString("%1 %2").arg(isoValue).arg(adaptivity));
+  
+  int rvdepth, rvwidth, rvheight;    
+  volData->gridSize(rvdepth, rvwidth, rvheight);
+
+  int dsz=dmax-dmin+1;
+  int wsz=wmax-wmin+1;
+  int hsz=hmax-hmin+1;
+
+  
+  uchar voxelType = volData->voxelType();  
+  int bpv = 1;
+  if (voxelType == _UChar) bpv = 1;
+  else if (voxelType == _Char) bpv = 1;
+  else if (voxelType == _UShort) bpv = 2;
+  else if (voxelType == _Short) bpv = 2;
+  else if (voxelType == _Int) bpv = 4;
+  else if (voxelType == _Float) bpv = 4;
+
+  uchar *raw = new uchar[rvwidth*rvheight*bpv];
+  float *val = new float[wsz*hsz];
+
+  bool trim = (dmin != 0 ||
+	       wmin != 0 ||
+	       hmin != 0 ||
+	       dsz != rvdepth ||
+	       wsz != rvwidth ||
+	       hsz != rvheight);
 
 
+  QWidgetList topLevelWidgets = QApplication::topLevelWidgets();
+  QWidget *mainWidget = 0;
+  for(QWidget *w : topLevelWidgets)
+    {
+      if (w->isWindow())
+	{
+	  mainWidget = w;
+	  break;
+	}
+    }
+
+  QProgressDialog progress("Exporting Mesh",
+			   "Cancel",
+			   0, 100,
+			   mainWidget,
+			   Qt::Dialog|Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);
+  progress.resize(500, 100);
+  progress.move(QCursor::pos());
+
+  int tsfcount = qMax(1, timeseriesFiles.count());
+  QChar fillChar = '0';
+  int fieldWidth = 2;
+  fieldWidth = tsfcount/10+2;
+  for (int tsf=0; tsf<tsfcount; tsf++)
+    {
+      VdbVolume vdb;
+
+      QString objflnm;
+      if (tsfcount == 1)
+	objflnm = objFilename;
+      else
+	objflnm = objFilename.chopped(4) + QString("_%1.obj").arg((int)tsf, fieldWidth, 10, fillChar);
+      
+      if (progress.wasCanceled())
+	{
+	  progress.setValue(100);  
+	  QMessageBox::information(0, "Save", "-----Aborted-----");
+	  break;
+	}
+      
+      if (tsfcount > 1)
+	{
+	  volData->replaceFile(timeseriesFiles[tsf]);
+	}
+
+      for(int d=dmin; d<=dmax; d++)
+	{
+	  
+	  if (progress.wasCanceled())
+	    {
+	      progress.setValue(100);  
+	      QMessageBox::information(0, "Save", "-----Aborted-----");
+	      break;
+	    }
+	  	  
+	  progress.setValue((int)(100*(float)d/(float)dsz));
+	  qApp->processEvents();
+	  
+	  volData->getDepthSlice(d, raw);
+	  int vi = 0;
+	  for(int w=wmin; w<=wmax; w++)
+	    {
+	      for(int h=hmin; h<=hmax; h++)
+		{
+		  if (voxelType == _UChar)
+		    {
+		      uchar *ptr = raw;
+		      val[vi] = ptr[w*rvheight+h];
+		    }
+		  else if (voxelType == _Char)
+		    {
+		      char *ptr = (char*)raw;
+		      val[vi] = ptr[w*rvheight+h];
+		    }
+		  else if (voxelType == _UShort)
+		    {
+		      ushort *ptr = (ushort*)raw;
+		      val[vi] = ptr[w*rvheight+h];
+		    }
+		  else if (voxelType == _Short)
+		    {
+		      short *ptr = (short*)raw;
+		      val[vi] = ptr[w*rvheight+h];
+		    }
+		  else if (voxelType == _Int)
+		    {
+		      int *ptr = (int*)raw;
+		      val[vi] = ptr[w*rvheight+h];
+		    }
+		  else if (voxelType == _Float)
+		    {
+		      float *ptr = (float*)raw;
+		      val[vi] = ptr[w*rvheight+h];
+}
+		  vi++;
+		} // loop i
+	    } // loop j
+	  
+	  vdb.addSliceToVDB(val,
+			    d, wsz, hsz,
+			    0, -1000000);
+	} // loop dd - slices
 
 
+      Global::statusBar()->showMessage("Generating Mesh");
+      qApp->processEvents();
 
+      QVector<QVector3D> V;
+      QVector<QVector3D> VN;
+      QVector<int> T;
+      vdb.generateMesh(isoValue, adaptivity, V, VN, T);
+
+      Global::statusBar()->showMessage("Saving Mesh to "+QFileInfo(objflnm).fileName());
+      qApp->processEvents();
+      
+      QFile fobj(objflnm);
+      fobj.open(QFile::WriteOnly);
+      QTextStream out(&fobj);
+      out << "#\n";
+      out << "#  Wavefront OBJ generated by Drishti\n";
+      out << "#\n";
+      out << "#  https://github.com/nci/drishti\n";
+      out << "#\n";
+      out << QString("# %1 vertices\n").arg(V.count());
+      out << QString("# %1 normals\n").arg(VN.count());
+      out << QString("# %1 triangles\n").arg(T.count()/3);
+      out << "g\n";
+      for(int i=0; i<V.count(); i++)
+	out << "v " << QString("%1 %2 %3\n").arg(V[i].x()).arg(V[i].y()).arg(V[i].z());
+      out << "g\n";
+      for(int i=0; i<VN.count(); i++)
+	  out << "vn "<< QString("%1 %2 %3\n").arg(VN[i].x()).arg(VN[i].y()).arg(VN[i].z());
+      out << "g\n";
+      for(int i=0; i<T.count()/3; i++)
+	out << "f " << QString("%1//%1 %2//%2 %3//%3\n").arg(T[3*i+0]+1).arg(T[3*i+1]+1).arg(T[3*i+2]+1);
+
+      Global::statusBar()->clearMessage();
+    } // loop timeseries
+
+  progress.setValue(100);  
+
+  QMessageBox::information(0, "Export Mesh", "Save Done");
+}

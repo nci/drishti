@@ -88,11 +88,12 @@ MeshGenerator::getValues(int &isoval, float &isovalf,
 			 int &fillValue,
 			 bool &checkForMore,
 			 bool &useOpacity,
-			 bool &smoothOpacity,
+			 int &smoothOpacity,
 			 QGradientStops &stops,
 			 bool doBorder,
 			 int &chan,
-			 bool &avgColor)
+			 bool &avgColor,
+			 float &adaptivity)
 {  
   chan = 0;
   isoval = 128;
@@ -103,8 +104,9 @@ MeshGenerator::getValues(int &isoval, float &isovalf,
   fillValue = -1;
   checkForMore = true;
   useOpacity = true;
-  smoothOpacity = true;
+  smoothOpacity = 1;
   avgColor = true;
+  adaptivity = 0;
   m_useTagColors = false;
   m_scaleModel = 1.0;
   QGradientStops vstops;
@@ -128,9 +130,15 @@ MeshGenerator::getValues(int &isoval, float &isovalf,
       vlist << QVariant(useOpacity);
       plist["use opacity"] = vlist;
 
+//      vlist.clear();
+//      vlist << QVariant("checkbox");
+//      vlist << QVariant(smoothOpacity);
+//      plist["smooth opacity"] = vlist;
       vlist.clear();
-      vlist << QVariant("checkbox");
+      vlist << QVariant("int");
       vlist << QVariant(smoothOpacity);
+      vlist << QVariant(0);
+      vlist << QVariant(10);
       plist["smooth opacity"] = vlist;
 
       vlist.clear();
@@ -159,6 +167,15 @@ MeshGenerator::getValues(int &isoval, float &isovalf,
   vlist << QVariant(0.004); // singlestep
   vlist << QVariant(3); // decimals
   plist["isosurface value"] = vlist;
+
+  vlist.clear();
+  vlist << QVariant("float");
+  vlist << QVariant(adaptivity);
+  vlist << QVariant(0.0);
+  vlist << QVariant(1.0);
+  vlist << QVariant(0.01); // singlestep
+  vlist << QVariant(3); // decimals
+  plist["adaptivity"] = vlist;
 
   vlist.clear();
   vlist << QVariant("int");
@@ -263,6 +280,7 @@ MeshGenerator::getValues(int &isoval, float &isovalf,
   keys << "apply tag colors";
   keys << "mop channel";
   keys << "isosurface value";
+  keys << "adaptivity";
   keys << "mesh smoothing";
   keys << "depth";
   keys << "fillvalue";
@@ -290,7 +308,8 @@ MeshGenerator::getValues(int &isoval, float &isovalf,
 	  if (keys[ik] == "use opacity")
 	    useOpacity = pair.first.toBool();
 	  else if (keys[ik] == "smooth opacity")
-	    smoothOpacity = pair.first.toBool();
+	    //smoothOpacity = pair.first.toBool();
+	    smoothOpacity = pair.first.toInt();
 	  else if (keys[ik] == "average color")
 	    avgColor = pair.first.toBool();
 	  else if (keys[ik] == "apply tag colors")
@@ -306,6 +325,8 @@ MeshGenerator::getValues(int &isoval, float &isovalf,
 	    }
 	  else if (keys[ik] == "isosurface value")
 	    isovalf = pair.first.toFloat();
+	  else if (keys[ik] == "adaptivity")
+	    adaptivity = pair.first.toFloat();
 	  else if (keys[ik] == "scale")
 	    m_scaleModel = pair.first.toFloat();
 	  else if (keys[ik] == "mesh smoothing")
@@ -397,10 +418,11 @@ MeshGenerator::start(VolumeFileManager *vfm,
   int isoval, spread, depth, useColor, fillValue;
   bool checkForMore;
   bool useOpacity;
-  bool smoothOpacity;
+  int smoothOpacity;
   QGradientStops stops;
   int chan;
   bool avgColor;
+  float adaptivity;
   if (! getValues(isoval, isovalf,
 		  spread, depth, useColor, fillValue,
 		  checkForMore,
@@ -409,7 +431,8 @@ MeshGenerator::start(VolumeFileManager *vfm,
 		  stops,
 		  doBorder,
 		  chan,
-		  avgColor))
+		  avgColor,
+		  adaptivity))
     return "";
 
   m_meshLog = new QTextEdit;
@@ -441,7 +464,7 @@ MeshGenerator::start(VolumeFileManager *vfm,
   qint64 gb = 1024*1024*1024;
   qint64 memsize = memGb*gb; // max memory we can use (in GB)
 
-  qint64 canhandle = memsize/15;
+  qint64 canhandle = memsize/11;
   qint64 gsize = qPow((double)canhandle, 0.333);
 
   m_meshLog->insertPlainText(QString("Can handle data with total grid size of %1 : typically %2^3\nOtherwise slabs method will be used.  Mesh is generated for each slab and then joined together.\n\n"). \
@@ -499,7 +522,7 @@ MeshGenerator::start(VolumeFileManager *vfm,
 
   int nSlabs = 1;
   qint64 reqmem = m_nX;
-  reqmem *= m_nY*m_nZ*20;
+  reqmem *= m_nY*m_nZ*6;
   nSlabs = qMax(qint64(1), reqmem/memsize + 1);
 //  QMessageBox::information(0, "", QString("Number of Slabs : %1 : %2 %3").\
 //			   arg(nSlabs).arg(reqmem).arg(memsize));
@@ -517,7 +540,8 @@ MeshGenerator::start(VolumeFileManager *vfm,
 	       crops, paths,
 	       useOpacity, smoothOpacity, lut,
 	       chan,
-	       avgColor);
+	       avgColor,
+	       adaptivity);
 
 
   meshWindow->close();
@@ -527,7 +551,6 @@ MeshGenerator::start(VolumeFileManager *vfm,
 
 QColor
 MeshGenerator::getLutColor(uchar *volData,	  
-			   int *oData,
 			   int dlen,
 			   int depth, int spread, int nextra,
 			   uchar isoval,
@@ -544,9 +567,9 @@ MeshGenerator::getLutColor(uchar *volData,
   int nd = 0;
   for(int n=0; n<=depth; n++)
     {
-      int i = vpos.x();
-      int j = vpos.y();
-      int k = vpos.z();
+      qint64 i = vpos.x();
+      qint64 j = vpos.y();
+      qint64 k = vpos.z();
       if (i > m_nZ-1 || j > m_nY-1 || k > dlen+2*nextra-1 ||
 	  i < 0 || j < 0 || k < 0) // gone out
 	break;
@@ -562,13 +585,13 @@ MeshGenerator::getLutColor(uchar *volData,
   float tota = 0;
   for(int ns=0; ns<=nd; ns++)
     {
-      int i = vpos.x();
-      int j = vpos.y();
-      int k = vpos.z();
+      qint64 i = vpos.x();
+      qint64 j = vpos.y();
+      qint64 k = vpos.z();
       
-      i = qBound(0, i, m_nZ-1);
-      j = qBound(0, j, m_nY-1);
-      k = qBound(0, k, dlen+2*nextra-1);
+      i = qBound((qint64)0, i, (qint64)(m_nZ-1));
+      j = qBound((qint64)0, j, (qint64)(m_nY-1));
+      k = qBound((qint64)0, k, (qint64)(dlen+2*nextra-1));
 
       Vec po0 = Vec(m_dataMin.x+gpos.x(), m_dataMin.y+gpos.y(), gpos.z());
       Vec po = po0*m_samplingLevel;
@@ -582,9 +605,12 @@ MeshGenerator::getLutColor(uchar *volData,
 	    {
 	      v = volData[k*m_nY*m_nZ + j*m_nZ + i];
 
-	      int a = volData[k*m_nY*m_nZ + j*m_nZ + qMin(m_nZ-1,i+1)] - volData[k*m_nY*m_nZ + j*m_nZ + qMax(0,i-1)];
-	      int b = volData[k*m_nY*m_nZ + qMin(m_nY-1,j+1)*m_nZ + i] - volData[k*m_nY*m_nZ + qMax(0,j-1)*m_nZ + i];
-	      int c = volData[qMin(dlen+2*nextra-1,k+1)*m_nY*m_nZ + j*m_nZ + i] - volData[qMax(0,k-1)*m_nY*m_nZ + j*m_nZ + i];
+	      int a = volData[k*m_nY*m_nZ + j*m_nZ + qMin((qint64)m_nZ-1,i+1)] -
+		      volData[k*m_nY*m_nZ + j*m_nZ + qMax((qint64)0,i-1)];
+	      int b = volData[k*m_nY*m_nZ + qMin((qint64)m_nY-1,j+1)*m_nZ + i] -
+		      volData[k*m_nY*m_nZ + qMax((qint64)0,j-1)*m_nZ + i];
+	      int c = volData[qMin((qint64)(dlen+2*nextra-1),k+1)*m_nY*m_nZ + j*m_nZ + i] -
+		      volData[qMax((qint64)0,k-1)*m_nY*m_nZ + j*m_nZ + i];
 
 	      gr = qMin(256, int(qSqrt(a*a+b*b+c*c)));
 	      //gr = 0;
@@ -710,94 +736,94 @@ MeshGenerator::getLutColor(uchar *volData,
   return col;
 }
 
-void
-MeshGenerator::smoothData(uchar *gData,
-			  int dlen, int nY, int nZ,
-			  int spread)
-{
-  m_meshLog->moveCursor(QTextCursor::End);
-  m_meshLog->insertPlainText("Smoothing data ...\n");
-
-  uchar *tmp = new uchar[qMax(dlen, qMax(nY, nZ))];
-
-  for(int k=0; k<dlen; k++)
-    {
-      m_meshProgress->setValue((int)(100.0*(float)k/(float)(dlen)));
-      qApp->processEvents();
-
-      for(int j=0; j<nY; j++)
-	{
-	  memset(tmp, 0, nZ);
-	  for(int i=0; i<nZ; i++)
-	    {
-	      float v = 0.0f;
-	      int nt = 0;
-	      for(int i0=qMax(0,i-spread); i0<=qMin(nZ-1,i+spread); i0++)
-		{
-		  nt++;
-		  v += gData[k*nY*nZ + j*nZ + i0];
-		}
-	      tmp[i] = v/nt;
-	    }
-	  
-	  for(int i=0; i<nZ; i++)
-	    gData[k*nY*nZ + j*nZ + i] = tmp[i];
-	}
-    }
-
-
-  for(int k=0; k<dlen; k++)
-    {
-      m_meshProgress->setValue((int)(100.0*(float)k/(float)(dlen)));
-      qApp->processEvents();
-
-      for(int i=0; i<nZ; i++)
-	{
-	  memset(tmp, 0, nY);
-	  for(int j=0; j<nY; j++)
-	    {
-	      float v = 0.0f;
-	      int nt = 0;
-	      for(int j0=qMax(0,j-spread); j0<=qMin(nY-1,j+spread); j0++)
-		{
-		  nt++;
-		  v += gData[k*nY*nZ + j0*nZ + i];
-		}
-	      tmp[j] = v/nt;
-	    }	  
-	  for(int j=0; j<nY; j++)
-	    gData[k*nY*nZ + j*nZ + i] = tmp[j];
-	}
-    }
-  
-  for(int j=0; j<nY; j++)
-    {
-      m_meshProgress->setValue((int)(100.0*(float)j/(float)(nY)));
-      qApp->processEvents();
-
-      for(int i=0; i<nZ; i++)
-	{
-	  memset(tmp, 0, dlen);
-	  for(int k=0; k<dlen; k++)
-	    {
-	      float v = 0.0f;
-	      int nt = 0;
-	      for(int k0=qMax(0,k-spread); k0<=qMin(dlen-1,k+spread); k0++)
-		{
-		  nt++;
-		  v += gData[k0*nY*nZ + j*nZ + i];
-		}
-	      tmp[k] = v/nt;
-	    }
-	  for(int k=0; k<dlen; k++)
-	    gData[k*nY*nZ + j*nZ + i] = tmp[k];
-	}
-    }
-  
-  delete [] tmp;
-
-  m_meshProgress->setValue(100);
-}
+//void
+//MeshGenerator::smoothData(uchar *gData,
+//			  int dlen, int nY, int nZ,
+//			  int spread)
+//{
+//  m_meshLog->moveCursor(QTextCursor::End);
+//  m_meshLog->insertPlainText("Smoothing data ...\n");
+//
+//  uchar *tmp = new uchar[qMax(dlen, qMax(nY, nZ))];
+//
+//  for(qint64 k=0; k<dlen; k++)
+//    {
+//      m_meshProgress->setValue((int)(100.0*(float)k/(float)(dlen)));
+//      qApp->processEvents();
+//
+//      for(qint64 j=0; j<nY; j++)
+//	{
+//	  memset(tmp, 0, nZ);
+//	  for(qint64 i=0; i<nZ; i++)
+//	    {
+//	      float v = 0.0f;
+//	      int nt = 0;
+//	      for(qint64 i0=qMax(0,i-spread); i0<=qMin((qint64)nZ-1,i+spread); i0++)
+//		{
+//		  nt++;
+//		  v += gData[k*nY*nZ + j*nZ + i0];
+//		}
+//	      tmp[i] = v/nt;
+//	    }
+//	  
+//	  for(qint64 i=0; i<nZ; i++)
+//	    gData[k*nY*nZ + j*nZ + i] = tmp[i];
+//	}
+//    }
+//
+//
+//  for(int k=0; k<dlen; k++)
+//    {
+//      m_meshProgress->setValue((int)(100.0*(float)k/(float)(dlen)));
+//      qApp->processEvents();
+//
+//      for(int i=0; i<nZ; i++)
+//	{
+//	  memset(tmp, 0, nY);
+//	  for(qint64 j=0; j<nY; j++)
+//	    {
+//	      float v = 0.0f;
+//	      int nt = 0;
+//	      for(qint64 j0=qMax(0,j-spread); j0<=qMin(nY-1,j+spread); j0++)
+//		{
+//		  nt++;
+//		  v += gData[k*nY*nZ + j0*nZ + i];
+//		}
+//	      tmp[j] = v/nt;
+//	    }	  
+//	  for(qint64 j=0; j<nY; j++)
+//	    gData[k*nY*nZ + j*nZ + i] = tmp[j];
+//	}
+//    }
+//  
+//  for(qint64 j=0; j<nY; j++)
+//    {
+//      m_meshProgress->setValue((int)(100.0*(float)j/(float)(nY)));
+//      qApp->processEvents();
+//
+//      for(qint64 i=0; i<nZ; i++)
+//	{
+//	  memset(tmp, 0, dlen);
+//	  for(qint64 k=0; k<dlen; k++)
+//	    {
+//	      float v = 0.0f;
+//	      int nt = 0;
+//	      for(int k0=qMax(0,k-spread); k0<=qMin(dlen-1,k+spread); k0++)
+//		{
+//		  nt++;
+//		  v += gData[k0*nY*nZ + j*nZ + i];
+//		}
+//	      tmp[k] = v/nt;
+//	    }
+//	  for(int k=0; k<dlen; k++)
+//	    gData[k*nY*nZ + j*nZ + i] = tmp[k];
+//	}
+//    }
+//  
+//  delete [] tmp;
+//
+//  m_meshProgress->setValue(100);
+//}
 
 void
 MeshGenerator::applyTear(int d0, int d1, int nextra,
@@ -1054,10 +1080,11 @@ MeshGenerator::generateMesh(int nSlabs,
 			    QList<Vec> clipNormal,
 			    QList<CropObject> crops,
 			    QList<PathObject> paths,
-			    bool useOpacity, bool smoothOpacity, 
+			    bool useOpacity, int smoothOpacity, 
 			    uchar *lut,
 			    int chan,
-			    bool avgColor)
+			    bool avgColor,
+			    float adaptivity)
 {
   int saveType = 0; // default .ply
   if (StaticFunctions::checkExtension(flnm, ".obj")) saveType = 1;
@@ -1099,7 +1126,7 @@ MeshGenerator::generateMesh(int nSlabs,
 
   //int nextra = qMax(spread, depth);
   int nextra = 0;
-  if (useOpacity && smoothOpacity)
+  if (useOpacity && smoothOpacity > 0)
     nextra = 2; // using 5x5x5 box kernel
     //nextra = qMax(5, nextra); // using 11x11x11 box kernel
   int blockStep = m_nX/nSlabs;
@@ -1116,19 +1143,21 @@ MeshGenerator::generateMesh(int nSlabs,
       int d0z = d0 + qRound(m_dataMin.z);
       int d1z = d1 + qRound(m_dataMin.z);
 
+      qint64 dataSize = m_nY*m_nZ;
+      dataSize *= (dlen+2*nextra);
       uchar *extData;
       if (m_voxelType == 0)
-	extData = new uchar[(dlen+2*nextra)*m_nY*m_nZ];
+	extData = new uchar[dataSize];
+	//extData = new uchar[(dlen+2*nextra)*m_nY*m_nZ];
       else
-	extData = new uchar[2*(dlen+2*nextra)*m_nY*m_nZ]; // ushort
+	extData = new uchar[2*dataSize]; // ushort
+        //extData = new uchar[2*(dlen+2*nextra)*m_nY*m_nZ]; // ushort
 
       uchar *gData=0;
       if (useOpacity)
-	gData = new uchar[(dlen+2*nextra)*m_nY*m_nZ];
+	gData = new uchar[dataSize];
+        //gData = new uchar[(dlen+2*nextra)*m_nY*m_nZ];
 
-      int *oData=0;
-      if (spread > 0 && useColor == _LutColor)
-	oData = new int[(dlen+2*nextra)*m_nY*m_nZ];
 
       uchar *cropped = new uchar[nbytes];
       uchar *tmp = new uchar[nbytes];
@@ -1252,7 +1281,7 @@ MeshGenerator::generateMesh(int nSlabs,
 	    }
 
 	  // tmp now clipped and contains raw data
-	  memcpy(extData + bpv*i0*m_nY*m_nZ, tmp, nbytes);
+	  memcpy(extData + bpv*i0*qint64(m_nY*m_nZ), tmp, nbytes);
 
 	  if (useOpacity)
 	    {
@@ -1264,18 +1293,18 @@ MeshGenerator::generateMesh(int nSlabs,
 		{
 		  applyOpacity(iv, cropped, lut, tmp,
 			       tmp1, tmp2, tmp2); // i0 == 0
-		  memcpy(gData + i0*m_nY*m_nZ, tmp, m_nY*m_nZ);
+		  memcpy(gData + i0*qint64(m_nY*m_nZ), tmp, m_nY*m_nZ);
 		}
 	      if (i0 > 1)
 		{
 		  applyOpacity(iv, cropped, lut, tmp,
 			       tmp0, tmp1, tmp2); // i0 == 1
-		  memcpy(gData + i0*m_nY*m_nZ, tmp, m_nY*m_nZ);
+		  memcpy(gData + i0*qint64(m_nY*m_nZ), tmp, m_nY*m_nZ);
 		  if (i0 == i0end)
 		    {
 		      applyOpacity(iv, cropped, lut, tmp,
 				   tmp1, tmp2, tmp2); // i0 == 1
-		      memcpy(gData + i0*m_nY*m_nZ, tmp, m_nY*m_nZ);
+		      memcpy(gData + i0*qint64(m_nY*m_nZ), tmp, m_nY*m_nZ);
 		    }
 		}
 	    }
@@ -1294,17 +1323,17 @@ MeshGenerator::generateMesh(int nSlabs,
       //------------
       if (m_tearPresent)
 	{
-	  uchar *data0 = new uchar[(dlen+2*nextra)*m_nY*m_nZ];
+	  uchar *data0 = new uchar[dataSize];
 
 	  uchar *data1 = extData;
-	  memcpy(data0, data1, (dlen+2*nextra)*m_nY*m_nZ);
+	  memcpy(data0, data1, dataSize);
 	  applyTear(d0, d1, nextra,
 		    data0, data1, true);
 
 	  if (useOpacity)
 	    {
 	      data1 = gData;
-	      memcpy(data0, data1, (dlen+2*nextra)*m_nY*m_nZ);
+	      memcpy(data0, data1, dataSize);
 	      applyTear(d0, d1, nextra,
 			data0, data1, false);
 	    }
@@ -1313,7 +1342,7 @@ MeshGenerator::generateMesh(int nSlabs,
 	}
       //------------
 
-//      if (useOpacity && smoothOpacity)
+//      if (useOpacity && smoothOpacity > 0)
 //	smoothData(gData,
 //		   dlen+2*nextra, m_nY, m_nZ,
 //		   qMin(2, nextra));
@@ -1330,7 +1359,7 @@ MeshGenerator::generateMesh(int nSlabs,
 	  for(int i=d0z-nextra; i<=d1z+nextra; i++)
 	    {
 	      int iv = qBound(0, i, m_depth-1);
-	      int i0dx = i0*m_nY*m_nZ;
+	      qint64 i0dx = i0*qint64(m_nY*m_nZ);
 	      if (iv <= qRound(m_dataMin.z) || iv >= qRound(m_dataMax.z))
 		{
 		  if (useOpacity || m_voxelType == 0)
@@ -1338,7 +1367,7 @@ MeshGenerator::generateMesh(int nSlabs,
 		  else
 		    {
 		      for(int fi=0; fi<m_nY*m_nZ; fi++)
-			((ushort*)v)[i0*m_nY*m_nZ + fi] = fillValue;
+			((ushort*)v)[i0dx + fi] = fillValue;
 		    }
 		}
 	      else
@@ -1371,53 +1400,33 @@ MeshGenerator::generateMesh(int nSlabs,
 	}
       //--------------------------------
 
-      //--------------------------------
-      if (oData)
-	{
-	  memset(oData, 0, 4*(dlen+2*nextra)*m_nY*m_nZ);
-	  uchar *vData = extData;
-	  if (useOpacity) vData = gData;
-
-	  for(int j=0; j<(dlen+2*nextra)*m_nY*m_nZ; j++)
-	    {
-	      ushort v;
-	      if (useOpacity || m_voxelType == 0)
-		v = vData[j];
-	      else
-		v = ((ushort*)vData)[j];
-	      
-	      if (checkForMore)
-		{
-		  if (lut[4*v + 3] > 0) oData[j] = 1;
-		}
-	      else
-		{
-		  if (lut[4*v + 3] == 0) oData[j] = 1;
-		}
-	    }
-	}
-      //--------------------------------
 
 
 
       //--------------------------------
       //--------------------------------
+      m_meshLog->moveCursor(QTextCursor::End);
+      m_meshLog->insertPlainText("Generating VDB ...\n");
       VdbVolume vdb;
       if (!useOpacity)
-	vdb.generateVDB((extData + nextra*nbytes), dlen, m_nY, m_nZ);
+	vdb.generateVDB((extData + nextra*nbytes), dlen, m_nY, m_nZ, m_meshProgress);
       else
-      	vdb.generateVDB((gData + nextra*m_nY*m_nZ), dlen, m_nY, m_nZ);
+      	vdb.generateVDB((gData + nextra*qint64(m_nY*m_nZ)), dlen, m_nY, m_nZ, m_meshProgress);
       
-      if (smoothOpacity)
+      if (smoothOpacity > 0)
 	{
+	  m_meshLog->moveCursor(QTextCursor::End);
+	  m_meshLog->insertPlainText("Smoothing volume ...\n");
 	  vdb.dilate(1);
-	  vdb.mean(1, 1); // width, iterations
+	  vdb.mean(1, smoothOpacity); // width, iterations
 	}
 
+      m_meshLog->moveCursor(QTextCursor::End);
+      m_meshLog->insertPlainText(QString("Generating mesh with adaptivity %1 ...\n").arg(adaptivity));
       QVector<QVector3D> V;
       QVector<QVector3D> VN;
       QVector<int> T;
-      vdb.generateMesh(isoval, V, VN, T);
+      vdb.generateMesh(isoval, adaptivity, V, VN, T);
       
       QVector<Vec> E;
       for(int i=0; i<T.count()/3; i++)
@@ -1515,7 +1524,6 @@ MeshGenerator::generateMesh(int nSlabs,
 		    pos = V[ni] + QVector3D(0,0,nextra);
 		    normal = VN[ni];
 		    col = getLutColor(volData,
-				      oData,
 				      dlen,
 				      depth, 0, nextra,
 				      isoval,
@@ -1542,7 +1550,6 @@ MeshGenerator::generateMesh(int nSlabs,
       
       delete [] extData;
       if (gData) delete [] gData;
-      if (oData) delete [] oData;
     } // loop over slabs
 
 
@@ -1726,18 +1733,18 @@ MeshGenerator::saveMeshToOBJ(QString objflnm,
   m_meshLog->moveCursor(QTextCursor::End);
   m_meshLog->insertPlainText("Saving Mesh " + objflnm);
 
-  // calculate number of triangles
-  int ntri = 0;
-  for (int nb=0; nb<nSlabs; nb++)
-    {
-      QString tflnm = objflnm + QString(".%1.tri").arg(nb);
-      QFile tfin(tflnm);
-      tfin.open(QFile::ReadOnly);
-      int ntrigs;
-      tfin.read((char*)&ntrigs, 4);
-      tfin.close();
-      ntri += ntrigs;
-    }
+//  // calculate number of triangles
+//  int ntri = 0;
+//  for (int nb=0; nb<nSlabs; nb++)
+//    {
+//      QString tflnm = objflnm + QString(".%1.tri").arg(nb);
+//      QFile tfin(tflnm);
+//      tfin.open(QFile::ReadOnly);
+//      int ntrigs;
+//      tfin.read((char*)&ntrigs, 4);
+//      tfin.close();
+//      ntri += ntrigs;
+//    }
 
   QFile fobj(objflnm);
   fobj.open(QFile::WriteOnly);

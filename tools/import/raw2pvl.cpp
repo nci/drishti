@@ -2668,9 +2668,59 @@ Raw2Pvl::saveVDB(QString vdbFileName,
 
   openvdb::initialize();
 
+  //int background_value = 0;
+  //int bgv = QInputDialog::getInt(0, "Background Value", "background value", 0, -1000000, 1000000);
+
+  bool ok;
+  QString text = QInputDialog::getText(0,
+				       "Background Value",
+				       "background value\n < value\n = value\n > value\n",
+				       QLineEdit::Normal,
+				       "= 0",
+				       &ok);  
+  int btype = 0;  
   int background_value = 0;
-  int bgv = QInputDialog::getInt(0, "Background Value", "background value", 0, -1000000, 1000000);
-  background_value = bgv;
+
+  if (ok && !text.isEmpty())
+    {
+      QStringList list = text.split(" ", QString::SkipEmptyParts);
+      if (list.count() == 2)
+	{
+	  if (list[0] == "<")
+	    {
+	      btype = -1;
+	      background_value = list[1].toInt();
+	    }
+	  if (list[0] == "=")
+	    {
+	      btype = 0;
+	      background_value = list[1].toInt();
+	    }
+	  if (list[0] == ">")
+	    {
+	      btype = 1;
+	      background_value = list[1].toInt();
+	    }
+	}
+      if (list.count() == 1)
+	{
+	  if (list[0].left(1) == "<")
+	    {
+	      btype = -1;
+	      background_value = list[0].mid(1).toInt();
+	    }
+	  if (list[0].left(1) == "=")
+	    {
+	      btype = 0;
+	      background_value = list[0].mid(1).toInt();
+	    }
+	  if (list[0].left(1) == ">")
+	    {
+	      btype = 1;
+	      background_value = list[0].mid(1).toInt();
+	    }
+	}
+    }
 
   //openvdb::FloatGrid::Ptr grid1 = openvdb::FloatGrid::create(background_value);
   openvdb::FloatGrid::Ptr grid1 = openvdb::FloatGrid::create();
@@ -2749,13 +2799,17 @@ Raw2Pvl::saveVDB(QString vdbFileName,
 	      else if (voxelType == _UShort)
 		value = rawUS[h + w*hsz];
 
-	      if (value != background_value)
+	      if (btype == -1 && value > background_value)
 		accessor.setValue(ijk, float(value));
+	      else if (btype == 0 && value != background_value)
+		accessor.setValue(ijk, float(value));
+	      else if (btype == 1 && value < background_value)
+		accessor.setValue(ijk, float(value));	      
 	    }
 	}
     }
 
-  QMessageBox::information(0, "Active Voxels", QString("Active voxels : %1").arg(grid1->activeVoxelCount()));
+  //QMessageBox::information(0, "Active Voxels", QString("Active voxels : %1").arg(grid1->activeVoxelCount()));
 
   openvdb::FloatGrid::Ptr grid2 = openvdb::FloatGrid::create();
   if (svslz > 1)
@@ -2795,82 +2849,9 @@ Raw2Pvl::saveVDB(QString vdbFileName,
   vdbFile.close();
 
   progress.setValue(100);
-
-
-  {
-    // construct surface mesh
-    vector<openvdb::Vec3s> points;
-    vector<openvdb::Vec3I> triangles;
-    vector<openvdb::Vec4I> quads;
-    int isovalue = 0;
-    float adaptivity = 0.0f;
-    bool relaxDisorientedTriangles = true;
-
-    isovalue = QInputDialog::getInt(0, "Surface Mesh Generation", "iso value", isovalue, 0, 1000000);
-    adaptivity = QInputDialog::getDouble(0, "Surface Mesh Adaptivity", "adaptivity", adaptivity, 0, 1.0, 1,
-					 NULL, Qt::WindowFlags(), 0.1);
-
-    openvdb::tools::volumeToMesh(*grid1,
-				 points,
-				 triangles,
-				 quads,
-				 (double)isovalue,
-				 (double)adaptivity,
-				 relaxDisorientedTriangles);
-
-    QString objflnm = QFileDialog::getSaveFileName(0,
-						   "Export mesh to file",
-						   QFileInfo(vdbFileName).absolutePath(),
-						   "*.obj");
-
-    QFile fobj(objflnm);
-    fobj.open(QFile::WriteOnly);
-    QTextStream out(&fobj);
-    out << "g\n";
-    for (int i=0; i<points.size(); i++)
-      {
-	openvdb::Vec3s p = points[i];
-	out << "v " << QString("%1 %2 %3\n").arg(p[0]).arg(p[1]).arg(p[2]);
-      }
-    out << "g\n";
-    for (int i=0; i<triangles.size(); i++)
-      {
-	openvdb::Vec3I t = triangles[i];
-	out << "f " << QString("%1 %2 %3\n").arg(t[0]+1).arg(t[2]+1).arg(t[1]+1);
-      }
-    for (int i=0; i<quads.size(); i++)
-      {
-	openvdb::Vec4I q = quads[i];
-	//out << "f " << QString("%1 %2 %3 %4\n").arg(q[0]+1).arg(q[3]+1).arg(q[2]+1).arg(q[1]+1);
-
-	// split into two triangles by the shortest diagonal across the quad.
-	openvdb::Vec3s p;
-	p = points[q[0]]; QVector3D v0(p.x(), p.y(), p.z());
-	p = points[q[1]]; QVector3D v1(p.x(), p.y(), p.z());
-	p = points[q[2]]; QVector3D v2(p.x(), p.y(), p.z());
-	p = points[q[3]]; QVector3D v3(p.x(), p.y(), p.z());
-
-	float d1 = v0.distanceToPoint(v2);
-	float d2 = v1.distanceToPoint(v3);
-	if (d1 > d2)
-	  {
-	    out << "f " << QString("%1 %2 %3\n").arg(q[0]+1).arg(q[3]+1).arg(q[1]+1);
-	    out << "f " << QString("%1 %2 %3\n").arg(q[1]+1).arg(q[3]+1).arg(q[2]+1);
-	  }
-	else
-	  {
-	    out << "f " << QString("%1 %2 %3\n").arg(q[0]+1).arg(q[2]+1).arg(q[1]+1);
-	    out << "f " << QString("%1 %2 %3\n").arg(q[0]+1).arg(q[3]+1).arg(q[2]+1);
-	  }
-      }
-  }
-  
-  
-  
+   
   grid1->clear();
   grid2->clear();
-  
-  QMessageBox::information(0, "Save", "-----Done-----");
 }
 
 

@@ -4,6 +4,7 @@
 #include <QVector>
 #include <QVector3D>
 #include <QVector4D>
+#include <QProgressBar>
 
 // To jointly use QT and OpenVDB use the following preprocessor instruction
 // before including openvdb.h.  The problem arises because Qt defines a Q_FOREACH
@@ -28,14 +29,15 @@ class VdbVolume
   VdbVolume();
   ~VdbVolume();
   
-  void generateVDB(unsigned char*, int, int, int);
+  void generateVDB(unsigned char*, int, int, int,
+		    QProgressBar *progress=NULL);
 
   void mean(int width=1, int iterations=1);
   void gaussian(int width=1, int iterations=1);
   void dilate(int iter=1);
   
-  void generateMesh(double isovalue, QVector<QVector3D>&, QVector<QVector3D>&, QVector<int>&);
-  
+  void generateMesh(float, float,
+		    QVector<QVector3D>&, QVector<QVector3D>&, QVector<int>&);
 
  private :
   openvdb::FloatGrid::Ptr m_vdbGrid; 

@@ -27,7 +27,8 @@ VdbVolume::~VdbVolume()
 }
 
 void
-VdbVolume::generateVDB(unsigned char *data, int nX, int nY, int nZ)
+VdbVolume::generateVDB(unsigned char *data, int nX, int nY, int nZ,
+		       QProgressBar *progress)
 {
   openvdb::FloatGrid::Accessor accessor = m_vdbGrid->getAccessor();
 
@@ -36,31 +37,37 @@ VdbVolume::generateVDB(unsigned char *data, int nX, int nY, int nZ)
   int &w = ijk[1];
   int &h = ijk[2];
   
-  QProgressDialog progress("Generating VDB",
-			   "Cancel",
-			   0, 100,
-			   0,
-			   Qt::Dialog|Qt::WindowStaysOnTopHint);
-  progress.setMinimumDuration(0);
-  progress.resize(500, 100);
-  progress.move(QCursor::pos());
+//  QProgressDialog progress("Generating VDB",
+//			   "Cancel",
+//			   0, 100,
+//			   0,
+//			   Qt::Dialog|Qt::WindowStaysOnTopHint);
+//  progress.setMinimumDuration(0);
+//  progress.resize(500, 100);
+//  progress.move(QCursor::pos());
 
   for (d=0; d<nX; d++)
     {
-      progress.setValue((int)(100.0*(float)d/(float)(nZ)));
-      qApp->processEvents();
+      if (progress)
+	{
+	  progress->setValue((int)(100.0*(float)d/(float)(nZ)));
+	  qApp->processEvents();
+	}
       for (w=0; w<nY; w++)
 	{
 	  for (h=0; h<nZ; h++)
 	    {
-	      int value = data[d*nY*nZ + w*nZ + h];
+	      int value = data[d*(long int)(nY*nZ) + (long int)(w*nZ) + h];
 	      if (value > 0)
 		accessor.setValue(ijk, float(value));
 	    }
 	}
     }
-  progress.setValue(100);
-  qApp->processEvents();
+  if (progress)
+    {
+      progress->setValue(100);
+      qApp->processEvents();
+    }
 
   
   //QMessageBox::information(0, "Active Voxels", QString("Active voxels : %1").arg(m_vdbGrid->activeVoxelCount()));
@@ -92,23 +99,21 @@ VdbVolume::dilate(int iter)
 }
 
 void
-VdbVolume::generateMesh(double isovalue, QVector<QVector3D> &V, QVector<QVector3D> &VN, QVector<int> &T)
+VdbVolume::generateMesh(float isovalue, float adaptivity,
+			QVector<QVector3D> &V, QVector<QVector3D> &VN, QVector<int> &T)
 {
   // construct surface mesh
   vector<openvdb::Vec3s> points;
   vector<openvdb::Vec3I> triangles;
   vector<openvdb::Vec4I> quads;
-  float adaptivity = 0.0f;
   bool relaxDisorientedTriangles = true;
   
-  adaptivity = QInputDialog::getDouble(0, "Surface Mesh Adaptivity", "adaptivity", adaptivity, 0, 1.0, 1,
-					 NULL, Qt::WindowFlags(), 0.1);
 
   openvdb::tools::volumeToMesh(*m_vdbGrid,
 			       points,
 			       triangles,
 			       quads,
-			       isovalue,
+			       (double)isovalue,
 			       (double)adaptivity,
 			       relaxDisorientedTriangles);
 

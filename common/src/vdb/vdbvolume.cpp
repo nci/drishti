@@ -27,7 +27,61 @@ VdbVolume::~VdbVolume()
 }
 
 void
-VdbVolume::generateVDB(unsigned char *data, int nX, int nY, int nZ,
+VdbVolume::addSliceToVDB(unsigned char *data,
+			 int x, int nY, int nZ,
+			 int bType, int bValue)
+{
+  openvdb::FloatGrid::Accessor accessor = m_vdbGrid->getAccessor();
+
+  openvdb::Coord ijk;
+  int &d = ijk[0];
+  int &w = ijk[1];
+  int &h = ijk[2];
+
+  d = x;
+  
+  if (bType == -1) // anything less than bValue is background
+    {
+      for (w=0; w<nY; w++)
+	{
+	  for (h=0; h<nZ; h++)
+	    {
+	      int value = data[w*nZ + h];
+	      if (value > bValue)
+		accessor.setValue(ijk, float(value));	  
+	    }
+	}
+    }
+  if (bType == 0) // bValue is background
+    {
+      for (w=0; w<nY; w++)
+	{
+	  for (h=0; h<nZ; h++)
+	    {
+	      int value = data[w*nZ + h];
+	      if (value != bValue)
+		accessor.setValue(ijk, float(value));	  
+	    }
+	}
+    }
+  if (bType == 1) // anything greater than bValue is background
+    {
+      for (w=0; w<nY; w++)
+	{
+	  for (h=0; h<nZ; h++)
+	    {
+	      int value = data[w*nZ + h];
+	      if (value < bValue)
+		accessor.setValue(ijk, float(value));	  
+	    }
+	}
+    }
+}
+
+void
+VdbVolume::generateVDB(unsigned char *data,
+		       int nX, int nY, int nZ,
+		       int bType, int bValue,
 		       QProgressBar *progress)
 {
   openvdb::FloatGrid::Accessor accessor = m_vdbGrid->getAccessor();
@@ -46,23 +100,68 @@ VdbVolume::generateVDB(unsigned char *data, int nX, int nY, int nZ,
 //  progress.resize(500, 100);
 //  progress.move(QCursor::pos());
 
-  for (d=0; d<nX; d++)
+  if (bType == -1) // anything less than bValue is background
     {
-      if (progress)
+      for (d=0; d<nX; d++)
 	{
-	  progress->setValue((int)(100.0*(float)d/(float)(nZ)));
-	  qApp->processEvents();
-	}
-      for (w=0; w<nY; w++)
-	{
-	  for (h=0; h<nZ; h++)
+	  if (progress)
 	    {
-	      int value = data[d*(long int)(nY*nZ) + (long int)(w*nZ) + h];
-	      if (value > 0)
-		accessor.setValue(ijk, float(value));
+	      progress->setValue((int)(100.0*(float)d/(float)(nZ)));
+	      qApp->processEvents();
+	    }
+	  for (w=0; w<nY; w++)
+	    {
+	      for (h=0; h<nZ; h++)
+		{
+		  int value = data[d*(long int)(nY*nZ) + (long int)(w*nZ) + h];
+		  if (value > bValue)
+		    accessor.setValue(ijk, float(value));
+		}
 	    }
 	}
     }
+  if (bType == 0) // bValue is background
+    {
+      for (d=0; d<nX; d++)
+	{
+	  if (progress)
+	    {
+	      progress->setValue((int)(100.0*(float)d/(float)(nZ)));
+	      qApp->processEvents();
+	    }
+	  for (w=0; w<nY; w++)
+	    {
+	      for (h=0; h<nZ; h++)
+		{
+		  int value = data[d*(long int)(nY*nZ) + (long int)(w*nZ) + h];
+		  if (value != bValue)
+		    accessor.setValue(ijk, float(value));
+		}
+	    }
+	}
+    }
+  if (bType == 1) // anything greater than bValue is background
+    {
+      for (d=0; d<nX; d++)
+	{
+	  if (progress)
+	    {
+	      progress->setValue((int)(100.0*(float)d/(float)(nZ)));
+	      qApp->processEvents();
+	    }
+	  for (w=0; w<nY; w++)
+	    {
+	      for (h=0; h<nZ; h++)
+		{
+		  int value = data[d*(long int)(nY*nZ) + (long int)(w*nZ) + h];
+		  if (value < bValue)
+		    accessor.setValue(ijk, float(value));
+		}
+	    }
+	}
+    }
+
+  
   if (progress)
     {
       progress->setValue(100);

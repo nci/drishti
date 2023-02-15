@@ -29,8 +29,13 @@ class VdbVolume
   VdbVolume();
   ~VdbVolume();
   
-  void generateVDB(unsigned char*, int, int, int,
-		    QProgressBar *progress=NULL);
+  void addSliceToVDB(unsigned char*,
+		     int, int, int,
+		     int, int);
+  void generateVDB(unsigned char*,
+		   int, int, int,
+		   int, int,
+		   QProgressBar *progress=NULL);
 
   void mean(int width=1, int iterations=1);
   void gaussian(int width=1, int iterations=1);

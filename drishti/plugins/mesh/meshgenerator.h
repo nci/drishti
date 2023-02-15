@@ -107,8 +107,7 @@ class MeshGenerator
 		 float&);
 
   QColor getLutColor(uchar*,	  
-		     //int*,
-		     int, int, int, int,
+		     int, int, int,
 		     uchar,
 		     QVector3D,
 		     QVector3D,
@@ -120,7 +119,7 @@ class MeshGenerator
 
   //void smoothData(uchar*, int, int, int, int);
 
-  void applyTear(int, int, int,
+  void applyTear(int, int,
 		 uchar*, uchar*, bool);
 
   bool checkPathCrop(Vec);

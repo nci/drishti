@@ -26,10 +26,64 @@ VdbVolume::~VdbVolume()
   m_vdbGrid->clear();
 }
 
+
+VdbVolume::VdbVolume(const VdbVolume& vv)
+{
+  m_vdbGrid = vv.m_vdbGrid;
+}
+
+
+VdbVolume&
+VdbVolume::operator=(const VdbVolume& vv)
+{
+  m_vdbGrid = vv.m_vdbGrid;
+
+  return *this;
+}
+
+
+void
+VdbVolume::resample(float factor)
+{
+  openvdb::FloatGrid::Ptr grid2 = openvdb::FloatGrid::create();
+  grid2->setTransform(openvdb::math::Transform::createLinearTransform(m_vdbGrid->voxelSize().x() * factor) );
+  openvdb::tools::resampleToMatch<openvdb::tools::BoxSampler>( *m_vdbGrid, *grid2 );
+  m_vdbGrid->clear();
+  m_vdbGrid = grid2;
+}
+
+
+#define ADDTYPE_1() {				\
+  for (w=0; w<nY; w++)				\
+  {						\
+    for (h=0; h<nZ; h++)			\
+      {						\
+	float value = data[w*nZ + h];		\
+	if (value >= bValue)			\
+	  accessor.setValue(ijk, value); } } } 
+
+#define ADDTYPE0() {				\
+ for (w=0; w<nY; w++)				\
+  {						\
+    for (h=0; h<nZ; h++)			\
+      {						\
+	float value = data[w*nZ + h];		\
+	if (qAbs(value-bValue) > 0.00001)        \
+	  accessor.setValue(ijk, value); } } } 
+
+#define ADDTYPE1() {				\
+ for (w=0; w<nY; w++)				\
+  {						\
+    for (h=0; h<nZ; h++)			\
+      {						\
+	float value = data[w*nZ + h];		\
+	if (value <= bValue)			\
+	  accessor.setValue(ijk, 2*bValue-value); } } } 
+
 void
 VdbVolume::addSliceToVDB(float *data,
 			 int x, int nY, int nZ,
-			 int bType, int bValue)
+			 int bType, float bValue)
 {
   openvdb::FloatGrid::Accessor accessor = m_vdbGrid->getAccessor();
 
@@ -39,49 +93,24 @@ VdbVolume::addSliceToVDB(float *data,
   int &h = ijk[2];
 
   d = x;
-  
   if (bType == -1) // anything less than bValue is background
     {
-      for (w=0; w<nY; w++)
-	{
-	  for (h=0; h<nZ; h++)
-	    {
-	      float value = data[w*nZ + h];
-	      if (value > bValue)
-		accessor.setValue(ijk, value);	  
-	    }
-	}
+      ADDTYPE_1();
     }
-  if (bType == 0) // bValue is background
+  else if (bType == 0) // anything less than bValue is background
     {
-      for (w=0; w<nY; w++)
-	{
-	  for (h=0; h<nZ; h++)
-	    {
-	      float value = data[w*nZ + h];
-	      if (qAbs(value-bValue) > 0.0001)
-		accessor.setValue(ijk, value);	  
-	    }
-	}
+      ADDTYPE0();
     }
-  if (bType == 1) // anything greater than bValue is background
+  else if (bType == 1) // anything less than bValue is background
     {
-      for (w=0; w<nY; w++)
-	{
-	  for (h=0; h<nZ; h++)
-	    {
-	      float value = data[w*nZ + h];
-	      if (value < bValue)
-		accessor.setValue(ijk, value);	  
-	    }
-	}
+      ADDTYPE1();
     }
 }
 
 void
 VdbVolume::addSliceToVDB(unsigned char *data,
 			 int x, int nY, int nZ,
-			 int bType, int bValue)
+			 int bType, float bValue)
 {
   openvdb::FloatGrid::Accessor accessor = m_vdbGrid->getAccessor();
 
@@ -91,49 +120,24 @@ VdbVolume::addSliceToVDB(unsigned char *data,
   int &h = ijk[2];
 
   d = x;
-  
   if (bType == -1) // anything less than bValue is background
     {
-      for (w=0; w<nY; w++)
-	{
-	  for (h=0; h<nZ; h++)
-	    {
-	      int value = data[w*nZ + h];
-	      if (value > bValue)
-		accessor.setValue(ijk, float(value));	  
-	    }
-	}
+      ADDTYPE_1();
     }
-  if (bType == 0) // bValue is background
+  else if (bType == 0) // anything less than bValue is background
     {
-      for (w=0; w<nY; w++)
-	{
-	  for (h=0; h<nZ; h++)
-	    {
-	      int value = data[w*nZ + h];
-	      if (value != bValue)
-		accessor.setValue(ijk, float(value));	  
-	    }
-	}
+      ADDTYPE0();
     }
-  if (bType == 1) // anything greater than bValue is background
+  else if (bType == 1) // anything less than bValue is background
     {
-      for (w=0; w<nY; w++)
-	{
-	  for (h=0; h<nZ; h++)
-	    {
-	      int value = data[w*nZ + h];
-	      if (value < bValue)
-		accessor.setValue(ijk, float(value));	  
-	    }
-	}
+      ADDTYPE1();
     }
 }
 
 void
 VdbVolume::generateVDB(unsigned char *data,
 		       int nX, int nY, int nZ,
-		       int bType, int bValue,
+		       int bType, float bValue1, float bValue2,
 		       QProgressBar *progress)
 {
   openvdb::FloatGrid::Accessor accessor = m_vdbGrid->getAccessor();
@@ -165,9 +169,9 @@ VdbVolume::generateVDB(unsigned char *data,
 	    {
 	      for (h=0; h<nZ; h++)
 		{
-		  int value = data[d*(long int)(nY*nZ) + (long int)(w*nZ) + h];
-		  if (value > bValue)
-		    accessor.setValue(ijk, float(value));
+		  float value = data[d*(long int)(nY*nZ) + (long int)(w*nZ) + h];
+		  if (value >= bValue1)
+		    accessor.setValue(ijk, value);
 		}
 	    }
 	}
@@ -185,9 +189,9 @@ VdbVolume::generateVDB(unsigned char *data,
 	    {
 	      for (h=0; h<nZ; h++)
 		{
-		  int value = data[d*(long int)(nY*nZ) + (long int)(w*nZ) + h];
-		  if (value != bValue)
-		    accessor.setValue(ijk, float(value));
+		  float value = data[d*(long int)(nY*nZ) + (long int)(w*nZ) + h];
+		  if (value != bValue1)
+		    accessor.setValue(ijk, value);
 		}
 	    }
 	}
@@ -205,9 +209,49 @@ VdbVolume::generateVDB(unsigned char *data,
 	    {
 	      for (h=0; h<nZ; h++)
 		{
-		  int value = data[d*(long int)(nY*nZ) + (long int)(w*nZ) + h];
-		  if (value < bValue)
-		    accessor.setValue(ijk, float(value));
+		  float value = data[d*(long int)(nY*nZ) + (long int)(w*nZ) + h];
+		  if (value <= bValue1)
+		    accessor.setValue(ijk, value);
+		}
+	    }
+	}
+    }
+  if (bType == 2) // anything greater than bValue and less than bValue2 is background
+    {
+      for (d=0; d<nX; d++)
+	{
+	  if (progress)
+	    {
+	      progress->setValue((int)(100.0*(float)d/(float)(nZ)));
+	      qApp->processEvents();
+	    }
+	  for (w=0; w<nY; w++)
+	    {
+	      for (h=0; h<nZ; h++)
+		{
+		  float value = data[d*(long int)(nY*nZ) + (long int)(w*nZ) + h];
+		  if (value <= bValue1 || value >= bValue2)
+		    accessor.setValue(ijk, value);
+		}
+	    }
+	}
+    }
+  if (bType == 3) // anything less than bValue1 or greater than bValue2 is background
+    {
+      for (d=0; d<nX; d++)
+	{
+	  if (progress)
+	    {
+	      progress->setValue((int)(100.0*(float)d/(float)(nZ)));
+	      qApp->processEvents();
+	    }
+	  for (w=0; w<nY; w++)
+	    {
+	      for (h=0; h<nZ; h++)
+		{
+		  float value = data[d*(long int)(nY*nZ) + (long int)(w*nZ) + h];
+		  if (value >= bValue1 && value <= bValue2)
+		    accessor.setValue(ijk, value);
 		}
 	    }
 	}
@@ -222,6 +266,12 @@ VdbVolume::generateVDB(unsigned char *data,
 
   
   //QMessageBox::information(0, "Active Voxels", QString("Active voxels : %1").arg(m_vdbGrid->activeVoxelCount()));
+}
+
+uint64_t
+VdbVolume::activeVoxels()
+{
+  return m_vdbGrid->activeVoxelCount();
 }
 
 void
@@ -252,7 +302,7 @@ VdbVolume::dilate(int iter)
 void
 VdbVolume::generateMesh(float isovalue, float adaptivity,
 			QVector<QVector3D> &V, QVector<QVector3D> &VN, QVector<int> &T)
-{
+{			   
   // construct surface mesh
   vector<openvdb::Vec3s> points;
   vector<openvdb::Vec3I> triangles;

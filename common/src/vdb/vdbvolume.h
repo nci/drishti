@@ -29,20 +29,28 @@ class VdbVolume
   VdbVolume();
   ~VdbVolume();
   
+  VdbVolume(const VdbVolume&);
+  VdbVolume&  operator=(const VdbVolume&);
+  
+  
+  uint64_t activeVoxels();
+  
   void addSliceToVDB(float*,
 		     int, int, int,
-		     int, int);
+		     int, float);
   void addSliceToVDB(unsigned char*,
 		     int, int, int,
-		     int, int);
+		     int, float);
   void generateVDB(unsigned char*,
 		   int, int, int,
-		   int, int,
+		   int, float, float,
 		   QProgressBar *progress=NULL);
 
   void mean(int width=1, int iterations=1);
   void gaussian(int width=1, int iterations=1);
   void dilate(int iter=1);
+
+  void resample(float);
   
   void generateMesh(float, float,
 		    QVector<QVector3D>&, QVector<QVector3D>&, QVector<int>&);

@@ -2650,67 +2650,82 @@ Raw2Pvl::quickRaw(VolumeData* volData,
 
 
 
-// cannot use uchar or ushort because Houdini/Omniverse cannot handle it without modifications
+// Not storing uchar or ushort because Houdini/Omniverse cannot handle it without modifications
 //using MyTree = openvdb::tree::Tree4<half, 5, 4, 3>::Type;
 //using MyGrid = Grid<MyTree>;
 	   void
 Raw2Pvl::saveVDB(QString vdbFileName,
 		 VolumeData* volData)
 {
-  QMessageBox::information(0, "Saving in VDB format", vdbFileName);
-
-  //int background_value = 0;
-  //int bgv = QInputDialog::getInt(0, "Background Value", "background value", 0, -1000000, 1000000);
-
   bool ok;
+  QString mtext;
+  mtext += "Background Value\n";
+  mtext += " <Val - all voxels below Val will be treated as background\n";
+  mtext += "        example : <100 - treat all voxels below 100 as background voxels\n";
+  mtext += "                  that means only consider voxels above 100\n\n";
+  mtext += " =Val - all voxels not equal to Val will be treated as background\n";
+  mtext += "        example : =100 - treat all voxels equal to 100 as background voxels\n";
+  mtext += "                  that means only consider voxels not equal to 100\n\n";
+  mtext += " >Val - all voxels above Val will be treated as background\n";
+  mtext += "        example : >100 - treat all voxels above 100 as background voxels\n";
+  mtext += "                  that means only consider voxels below 100\n\n";
+  mtext += " >Val1 <Val2 - all voxels between Val1 and Val2 will be treated as background\n";
+  mtext += "        example : >100 <200 - treat all voxels above 100 and below 200 as background voxels\n";
+  mtext += "                  that means only consider voxels outside of 100 and 200\n\n";
+  mtext += " <Val1 >Val2 - all voxels below Val1 or above Val2 will be treated as background\n";
+  mtext += "        example : <100 >200 - treat all voxels below 100 or above 200 as background voxels\n";
+  mtext += "                  that means only consider voxels between and including 100 and 200\n\n";
   QString text = QInputDialog::getText(0,
 				       "Background Value",
-				       "background value\n < value\n = value\n > value\n",
+				       mtext,
 				       QLineEdit::Normal,
-				       "= 0",
+				       "=0",
 				       &ok);  
-  int btype = 0;  
-  int background_value = 0;
+  int bType = -2;  
+  float bValue1 = 0;
+  float bValue2 = 0;
 
   if (ok && !text.isEmpty())
     {
       QStringList list = text.split(" ", QString::SkipEmptyParts);
       if (list.count() == 2)
 	{
-	  if (list[0] == "<")
+	  if (list[0].left(1) == ">" && list[1].left(1) == "<")
 	    {
-	      btype = -1;
-	      background_value = list[1].toInt();
+	      bType = 2;
+	      bValue1 = list[0].mid(1).toFloat();
+	      bValue2 = list[1].mid(1).toFloat();
 	    }
-	  if (list[0] == "=")
+	  else if (list[0].left(1) == "<" && list[1].left(1) == ">")
 	    {
-	      btype = 0;
-	      background_value = list[1].toInt();
-	    }
-	  if (list[0] == ">")
-	    {
-	      btype = 1;
-	      background_value = list[1].toInt();
+	      bType = 3;
+	      bValue1 = list[0].mid(1).toFloat();
+	      bValue2 = list[1].mid(1).toFloat();
 	    }
 	}
-      if (list.count() == 1)
+      else if (list.count() == 1)
 	{
 	  if (list[0].left(1) == "<")
 	    {
-	      btype = -1;
-	      background_value = list[0].mid(1).toInt();
+	      bType = -1;
+	      bValue1 = list[0].mid(1).toInt();
 	    }
 	  if (list[0].left(1) == "=")
 	    {
-	      btype = 0;
-	      background_value = list[0].mid(1).toInt();
+	      bType = 0;
+	      bValue1 = list[0].mid(1).toInt();
 	    }
 	  if (list[0].left(1) == ">")
 	    {
-	      btype = 1;
-	      background_value = list[0].mid(1).toInt();
+	      bType = 1;
+	      bValue1 = list[0].mid(1).toInt();
 	    }
 	}
+    }
+  if (bType == -2)
+    {
+      QMessageBox::information(0, "Background Value", QString("<Val,   =Val,   >Val,   >Val1 <Val2,   <Val1 >Val2  expected.\nGot %1").arg(text));
+      return;
     }
 
 
@@ -2722,8 +2737,10 @@ Raw2Pvl::saveVDB(QString vdbFileName,
   
   int dsz, wsz, hsz;
   volData->gridSize(dsz, wsz, hsz);
-
-  int svslz = getZSubsampling(dsz, wsz, hsz);
+  
+  float resample = QInputDialog::getDouble(0, "Resampling",
+					     "Resample\nValues greater than 1.0 means downsampling.\nValues less than 1.0 means upsampling.",
+					     1, 0.1, 10, 2, &ok, Qt::WindowFlags(), 0.1);
 
   uchar voxelType = volData->voxelType();  
   int bpv = 1;
@@ -2791,12 +2808,16 @@ Raw2Pvl::saveVDB(QString vdbFileName,
 	      else if (voxelType == _UShort)
 		value = rawUS[h + w*hsz];
 
-	      if (btype == -1 && value > background_value)
+	      if (bType == -1 && value >= bValue1)
 		accessor.setValue(ijk, float(value));
-	      else if (btype == 0 && value != background_value)
+	      else if (bType == 0 && value != bValue1)
 		accessor.setValue(ijk, float(value));
-	      else if (btype == 1 && value < background_value)
+	      else if (bType == 1 && value <= bValue1)
 		accessor.setValue(ijk, float(value));	      
+	      else if (bType == 2 && (value <= bValue1 || value >= bValue2))
+		accessor.setValue(ijk, float(value));
+	      else if (bType == 3 && (value >= bValue1 && value <= bValue2))
+		accessor.setValue(ijk, float(value));
 	    }
 	}
     }
@@ -2804,14 +2825,15 @@ Raw2Pvl::saveVDB(QString vdbFileName,
   //QMessageBox::information(0, "Active Voxels", QString("Active voxels : %1").arg(grid1->activeVoxelCount()));
 
   openvdb::FloatGrid::Ptr grid2 = openvdb::FloatGrid::create();
-  if (svslz > 1)
+  if (qAbs(resample-1.0)>0.001)
     {
       grid2->setSaveFloatAsHalf(true);
       grid2->setName("density");
       // scaling 1.0 is not neutral, because the grid can start
       // out with an arbitrary voxel scale, that can be queried
       // with voxelSize().
-      grid2->setTransform(openvdb::math::Transform::createLinearTransform( grid1->voxelSize().x() * svslz ) ); // scale down
+      // scaling 2.0 is downsample by factor of 2
+      grid2->setTransform(openvdb::math::Transform::createLinearTransform( grid1->voxelSize().x() * resample ) );
       openvdb::tools::resampleToMatch<openvdb::tools::BoxSampler>( *grid1, *grid2 );
     }
   
@@ -2828,7 +2850,7 @@ Raw2Pvl::saveVDB(QString vdbFileName,
   grid1->setSaveFloatAsHalf(true);
   grid2->setSaveFloatAsHalf(true);
   openvdb::GridPtrVec grids;
-  if (svslz > 1)
+  if (resample > 1)
     grids.push_back(grid2);
   else
     grids.push_back(grid1);
@@ -2844,6 +2866,8 @@ Raw2Pvl::saveVDB(QString vdbFileName,
    
   grid1->clear();
   grid2->clear();
+
+  QMessageBox::information(0, "Save VDB", "Volume save to "+vdbFileName);
 }
 
 
@@ -2872,10 +2896,66 @@ Raw2Pvl::saveIsosurface(VolumeData* volData,
   if (!StaticFunctions::checkExtension(objFilename, ".obj"))
     objFilename += ".obj";
 
+  QList<float> rawMap = volData->rawMap();
+
+  QString mtext;
+  mtext += "Isosurface Value\n";
+  mtext += " isoValue - all values below isoValue will be treated as background\n";
+  mtext += "              the surface will enclose all voxels having value higher than isovalue.\n"; 
+  mtext += "              example : 100 - generates surface enclosing all voxels above 100\n\n"; 
+  mtext += " >isoValue - all values above isoValue will be treated as background\n";
+  mtext += "              the surface will enclose all voxels having value lower than isovalue.\n";
+  mtext += "              example : >100 - generates surface enclosing all voxels below 100\n";  
+  QString text = QInputDialog::getText(0,
+				       "Isosurface Value",
+				       mtext,
+				       QLineEdit::Normal,
+				       QString("%1").arg((rawMap.last()-rawMap.first())/2),
+				       &ok);  
+
+  int bType = -2;  
+  float isoValue = 0;
+
+  if (ok && !text.isEmpty())
+    {
+      QStringList list = text.split(" ", QString::SkipEmptyParts);
+      if (list.count() == 1)
+	{
+	  if (list[0].left(1) == ">")
+	    {
+	      bType = 1;
+	      isoValue = list[0].mid(1).toFloat();
+	    }
+	  else
+	    {
+	      bType = -1;
+	      isoValue = list[0].toFloat();	      
+	    }
+	}
+      else if (list.count() == 2)
+	{
+	  if (list[0] == ">")
+	    {
+	      bType = 1;
+	      isoValue = list[1].toFloat();
+	    }
+	}
+    }
+
+  if (bType == -2)
+    {
+      QMessageBox::information(0, "Isosurface Value", QString("isoValue or > isoValue expected.\nGot %1").arg(text));
+      return;
+    }
   
-  float isoValue = QInputDialog::getDouble(0, "Isosurface Value", "Isosurface Value", 0);
-  float adaptivity = QInputDialog::getDouble(0, "Adaptivity", "Adaptivity", 0, 0, 1, 2, &ok, Qt::WindowFlags(), 0.01);
-  QMessageBox::information(0, "", QString("%1 %2").arg(isoValue).arg(adaptivity));
+  
+  float adaptivity = QInputDialog::getDouble(0, "Adaptivity",
+					     "Adaptivity\nValues between 0.0(high resolution) and 1.0(low resolution)",
+					     0, 0, 1, 2, &ok, Qt::WindowFlags(), 0.01);
+  
+  float resample = QInputDialog::getDouble(0, "Resampling",
+					     "Resample\nValues greater than 1.0 means downsampling.\nValues less than 1.0 means upsampling.",
+					     1, 0.1, 10, 2, &ok, Qt::WindowFlags(), 0.1);
   
   int rvdepth, rvwidth, rvheight;    
   volData->gridSize(rvdepth, rvwidth, rvheight);
@@ -3003,16 +3083,21 @@ Raw2Pvl::saveIsosurface(VolumeData* volData,
 		  vi++;
 		} // loop i
 	    } // loop j
-	  
+
 	  vdb.addSliceToVDB(val,
 			    d, wsz, hsz,
-			    0, -1000000);
+			    bType, isoValue);
 	} // loop dd - slices
 
 
+      // resample is required
+      if (qAbs(resample-1.0) > 0.001)
+	vdb.resample(resample);
+
+      
       Global::statusBar()->showMessage("Generating Mesh");
       qApp->processEvents();
-
+      
       QVector<QVector3D> V;
       QVector<QVector3D> VN;
       QVector<int> T;
@@ -3032,6 +3117,7 @@ Raw2Pvl::saveIsosurface(VolumeData* volData,
       out << QString("# %1 vertices\n").arg(V.count());
       out << QString("# %1 normals\n").arg(VN.count());
       out << QString("# %1 triangles\n").arg(T.count()/3);
+      out << QString("# occupied volume (no. of voxels) : %1\n").arg(vdb.activeVoxels());
       out << "g\n";
       for(int i=0; i<V.count(); i++)
 	out << "v " << QString("%1 %2 %3\n").arg(V[i].x()).arg(V[i].y()).arg(V[i].z());

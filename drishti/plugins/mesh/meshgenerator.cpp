@@ -1396,12 +1396,12 @@ MeshGenerator::generateMesh(int nSlabs,
       if (!useOpacity)
 	vdb.generateVDB(extData,
 			dlen, m_nY, m_nZ,
-			-1, 1,  // values less than 1 are background
+			-1, 1, 0, // values less than 1 are background
 			m_meshProgress);
       else
       	vdb.generateVDB(gData,
 			dlen, m_nY, m_nZ,
-			-1, 1,  // values less than 1 are background
+			-1, 1, 0, // values less than 1 are background
 			m_meshProgress);
       
       if (smoothOpacity > 0)

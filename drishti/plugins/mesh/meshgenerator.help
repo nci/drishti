@@ -2,13 +2,11 @@
  General Help
 Mesh Generator.
 
-Uses marching cubes algorithm written by
-Thomas Lewiner <thomas.lewiner@polytechnique.org>
-Math Dept, PUC-Rio
+Adaptivity mesh the scalar volume.
 
 Users can generate water-tight surface mesh using either voxel values or voxel opacities.  Surfaces can be coloured using variety of options.
 
-Volume can be clipped and cropped before surface mesh generation.   The clipped and cropped region are capped in order to maintain water-tightness.
+Clip/crop/blend/dissect can be applied to the volume before surface mesh generation.
 
 Surfaces are suitable for 3D printing.
 
@@ -17,64 +15,61 @@ User can specify how much memory is available for mesh generation.  If not enoug
 
 #begin
 use opacity
-use opacity
-When surface is generated using voxel opacity a binary volume is first generated.  This binary volume has 1 for those voxels that have non-zero opacity and 0 otherwise.  This binary volume is then smoothed using 5x5x5 kernel, resulting in gray volume having values [0,1].  User choose an appropriate isosurface value between 0 to 1.  Values closer to 0 therefore result in dilated surface, whereas those closer to 1 result in eroded surface.
+When surface is generated using voxel opacity, a binary volume is first generated.  This binary volume has 1 for those voxels that have non-zero opacity and 0 otherwise.  This binary volume is then smoothed, resulting in gray volume having values between 0.0 and 1.0.  User choose an appropriate isosurface value between 0 to 1.
+By default this switch is on.
+
+When this switch is off, the actual voxel values will be used for surface generation.
 #end
 
 #begin
 average color
-average color
-When generating surface color in the case of "Lut Color" and "VR Lut Color", a ray is shot inside the surface to collect color samples along that ray.  These color samples are then combined to generate the surface color.  The parameter maximum intensity specifies the colour composition method.  By default this switch is off - i.e. the colours will be composited in front-to-back manner.  When switched on, average colour along the ray will be the final colour.
-
+When generating surface color in the case of "Lut Color", a ray is shot inside the surface to collect color samples along that ray.  These color samples are then combined to generate the surface color.  By default the switch is on - average colour along the ray will be the final colour.  When this switch is off, the colours will be composited in front-to-back manner.  
 #end
 
 #begin
 isosurface value
-isosurface value
-When not using opacity for surface generation, isosurface value represents value of the voxel to be used for mesh generation.
+When not using opacity for surface generation, isosurface value represents value of the voxel to be used for mesh generation.  Voxel values are normalized.
 
-When using opacity for surface generation, isosurface value represents gray voxel value of the smoothed volume generated from binary opacity volume.
+When using opacity for surface generation, isosurface value represents gray voxel value of the smoothed volume generated from binary opacity volume.  First the opacity volume is created by applying transfer function.  This creates a binary volume from voxels that are visible and those that are not.  Smoothing is applied to this volume - smooth opacity parameter defines the degree of smoothing.  The isosurface is generated from this volume.  Lower isosurface values - closer to 0.0 - result in dilated surface.
+
+Default value is 0.5
 #end
 
 #begin
-mesh smoothing
+adaptivity
+The adaptivity threshold determines how closely the isosurface is matched by the resulting mesh.
+Higher thresholds will allow more variation in polygon size, using fewer polygons to express the surface.  Adaptivity values range between 0.0 and 1.0.
+
+Default value is 0.1
+#end
+
+
+#begin
 mesh smoothing
 
 Smooth mesh using Taubin smoothing.
 
+Default value is 0 - no smoothing is applied.
 #end
 
 #begin
-depth
 depth
 When generating surface color in the case of "Lut Color" and "VR Lut Color", a ray is shot inside the surface to collect color samples along that ray.  These color samples are then combined to generate the surface color.  The parameter depth specifies how deep the ray can go.
 
 The ray is always aligned with surface normal.
 
 This ability to shoot ray into the surface gives the user a possibility to texture the surface with the inside structure - it reveals what is beneath the skin.
-#end
 
-#begin
-fillvalue
-fillvalue
-When volume is clipped or cropped, the region removed by this process needs to be filled with certain value (default is -1).  The value is specified by fillvalue.
-#end
-
-#begin
-greater
-greater
-This parameter decides what constitutes as inside and outside regions.  By default higher (greater) values are supposed to lie inside the surface and lower values outside.
+Default is 1 - just go 1 voxel deep for colour determination.
 #end
 
 
 #begin
-color
 color
 Color for the mesh when using Fixed Color color type option.
 #end
 
 #begin
-color type
 color type
 Users can color the mesh surface in a variety of ways - 
 
@@ -83,7 +78,5 @@ Fixed Color
 
 Lut Color
   Take surface color from original lookup table (i.e. the one used for volume rendering)  based on voxel/voxel opacity value.
-
-If the value of spread is greater than 0, ambient occlusion will be used to darken the surface.
 #end
 

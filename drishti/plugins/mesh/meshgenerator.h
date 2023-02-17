@@ -83,16 +83,15 @@ class MeshGenerator
 		    QString,
 		    int, int,
 		    QGradientStops,
-		    int, int,
-		    bool,
+		    int,
 		    Vec,
 		    QList<Vec>,
 		    QList<Vec>,
 		    QList<CropObject>,
 		    QList<PathObject>,
-		    bool, int, uchar*,
-		    int, bool,
-		    float);
+		    bool, int,
+		    uchar*,
+		    int, bool, float);
 
 
   void saveMeshToPLY(QString, int, int, int, bool);
@@ -100,10 +99,10 @@ class MeshGenerator
   void saveMeshToOBJ(QString, int, int, int);
 
   bool getValues(int&, float&,
-		 int&, int&, int&, int&,
-		 bool&, bool&, int&,
+		 int&, int&, int&,
+		 bool&, int&,
 		 QGradientStops&,
-		 bool, int&, bool&,
+		 int&, bool&,
 		 float&);
 
   QColor getLutColor(uchar*,	  
@@ -117,7 +116,6 @@ class MeshGenerator
 
   QGradientStops resampleGradientStops(QGradientStops);
 
-  //void smoothData(uchar*, int, int, int, int);
 
   void applyTear(int, int,
 		 uchar*, uchar*, bool);

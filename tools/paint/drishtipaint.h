@@ -293,32 +293,28 @@ class DrishtiPaint : public QMainWindow
 
   void savePvlHeader(QString, QString, int, int, int, bool, int);
 
-  void processAndSaveMesh(int,
-			  QString,
-			  MarchingCubes*,
-			  uchar*,
-			  int, int, int,
-			  int, int, int,
-			  int, Vec, bool,
-			  int);
-
-  void colorMesh(QList<Vec>&,
-		 QList<Vec>,
-		 QList<Vec>,
+  void colorMesh(QVector<QVector3D>&,
+		 QVector<QVector3D>,
+		 QVector<QVector3D>,
 		 int, uchar*,
 		 int, int, int,
 		 int, int, int, int,
 		 int);
 
+  void smoothMesh(QVector<QVector3D>&,
+		  QVector<QVector3D>&,
+		  QVector<QVector3D>&,
+		  int);
   void smoothMesh(QList<Vec>&,
 		  QList<Vec>&,
 		  QList<Vec>&,
 		  int);
 
-  void saveMesh(QList<Vec>, QList<Vec>,
-		QList<Vec>, QList<Vec>,
-		QString, bool,
-		int);
+  void saveMesh(QVector<QVector3D>,
+		QVector<QVector3D>,
+		QVector<QVector3D>,
+		QVector<QVector3D>,
+		QString, bool);
 
   QPair<QString, QList<int> > getTags(QString);
 
@@ -364,6 +360,8 @@ class DrishtiPaint : public QMainWindow
   void extractFromAnotherVolume(QList<int>);
 
   void loadCheckPoint(QString);
+
+  void getValues(float&, float&, float&, int&, int&, int&, bool&);
 };
 
 #endif

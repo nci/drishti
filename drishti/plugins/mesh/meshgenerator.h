@@ -129,7 +129,7 @@ class MeshGenerator
 
   void smoothMesh(QVector<QVector3D>&,
 		  QVector<QVector3D>&,
-		  QVector<Vec>&,
+		  QVector<QVector3D>&,
 		  int);
 };
 

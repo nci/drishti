@@ -8,7 +8,7 @@
 using namespace qglviewer;
 
 #include <fstream>
-using namespace std;
+//using namespace std;
 
 class ClipInformation
 {
@@ -23,8 +23,8 @@ class ClipInformation
 				     const ClipInformation,
 				     float);
 
-  void load(fstream&);
-  void save(fstream&);
+  void load(std::fstream&);
+  void save(std::fstream&);
   
   void clear();
   int size();

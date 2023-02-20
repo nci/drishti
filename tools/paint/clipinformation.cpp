@@ -275,7 +275,7 @@ ClipInformation::interpolate(const ClipInformation clipInfo1,
 
 
 void
-ClipInformation::load(fstream &fin)
+ClipInformation::load(std::fstream &fin)
 {
   clear();
 
@@ -597,7 +597,7 @@ ClipInformation::load(fstream &fin)
 
 
 void
-ClipInformation::save(fstream &fout)
+ClipInformation::save(std::fstream &fout)
 {
   char keyword[100];
   float f[10];

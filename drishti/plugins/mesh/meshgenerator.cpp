@@ -1232,9 +1232,9 @@ MeshGenerator::generateMesh(int nSlabs, int isoval,
       QVector<int> T;
       vdb.generateMesh(isoval, adaptivity, V, VN, T);
       
-      QVector<Vec> E;
+      QVector<QVector3D> E;
       for(int i=0; i<T.count()/3; i++)
-	E << Vec(T[3*i+0], T[3*i+1], T[3*i+2]);
+	E << QVector3D(T[3*i+0], T[3*i+1], T[3*i+2]);
 
       int nverts = V.count();
       int ntrigs = E.count();
@@ -1259,9 +1259,9 @@ MeshGenerator::generateMesh(int nSlabs, int isoval,
 	    for(int ni=0; ni<ntrigs; ni++)
 	      {
 		int v[3];
-		v[0] = E[ni].x + nvertices;
-		v[1] = E[ni].y + nvertices;
-		v[2] = E[ni].z + nvertices;
+		v[0] = E[ni].x() + nvertices;
+		v[1] = E[ni].y() + nvertices;
+		v[2] = E[ni].z() + nvertices;
 		fout.write((char*)v, 12);
 	      }
 	  }
@@ -1270,9 +1270,9 @@ MeshGenerator::generateMesh(int nSlabs, int isoval,
 	    for(int ni=0; ni<ntrigs; ni++)
 	      {
 		int v[3];
-		v[0] = E[ni].x;
-		v[1] = E[ni].y;
-		v[2] = E[ni].z;
+		v[0] = E[ni].x();
+		v[1] = E[ni].y();
+		v[2] = E[ni].z();
 		fout.write((char*)v, 12);
 	      }
 	  }
@@ -1718,7 +1718,7 @@ MeshGenerator::saveMeshToSTL(QString flnm,
 void
 MeshGenerator::smoothMesh(QVector<QVector3D>& V,
 			  QVector<QVector3D>& N,
-			  QVector<Vec>& E,
+			  QVector<QVector3D>& E,
 			  int ntimes)
 {  
   QVector<QVector3D> newV;
@@ -1740,9 +1740,9 @@ MeshGenerator::smoothMesh(QVector<QVector3D>& V,
 	  qApp->processEvents();
 	}
 
-      int a = E[i].x;
-      int b = E[i].y;
-      int c = E[i].z;
+      int a = E[i].x();
+      int b = E[i].y();
+      int c = E[i].z();
 
       imat.insert(a, b);
       imat.insert(b, a);
@@ -1829,9 +1829,9 @@ MeshGenerator::smoothMesh(QVector<QVector3D>& V,
 	  qApp->processEvents();
 	}
 
-      int a = E[i].x;
-      int b = E[i].y;
-      int c = E[i].z;
+      int a = E[i].x();
+      int b = E[i].y();
+      int c = E[i].z();
 
       QVector3D va = V[a];
       QVector3D vb = V[b];

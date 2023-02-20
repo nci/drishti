@@ -40,7 +40,7 @@ SplineInformation::operator=(const SplineInformation& splineInfo)
 }
 
 void
-SplineInformation::load(fstream &fin)
+SplineInformation::load(std::fstream &fin)
 {
   m_name.clear();
   m_on.clear();
@@ -131,7 +131,7 @@ SplineInformation::load(fstream &fin)
 }
 
 void
-SplineInformation::save(fstream &fout)
+SplineInformation::save(std::fstream &fout)
 {
   char keyword[100];
   int len;

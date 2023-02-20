@@ -4,9 +4,6 @@
 #include <QGLViewer/qglviewer.h>
 using namespace qglviewer;
 
-#include <fstream>
-using namespace std;
-
 #include "commonqtclasses.h"
 
 class ClipObjectUndo

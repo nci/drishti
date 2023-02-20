@@ -29,14 +29,14 @@ VdbVolume::~VdbVolume()
 
 VdbVolume::VdbVolume(const VdbVolume& vv)
 {
-  m_vdbGrid = vv.m_vdbGrid;
+  m_vdbGrid = vv.m_vdbGrid->deepCopy();
 }
 
 
 VdbVolume&
 VdbVolume::operator=(const VdbVolume& vv)
 {
-  m_vdbGrid = vv.m_vdbGrid;
+  m_vdbGrid = vv.m_vdbGrid->deepCopy();
 
   return *this;
 }
@@ -45,11 +45,15 @@ VdbVolume::operator=(const VdbVolume& vv)
 void
 VdbVolume::resample(float factor)
 {
+  //QMessageBox::information(0, "Active Voxels", QString("Active voxels : %1").arg(m_vdbGrid->activeVoxelCount()));
+
   openvdb::FloatGrid::Ptr grid2 = openvdb::FloatGrid::create();
   grid2->setTransform(openvdb::math::Transform::createLinearTransform(m_vdbGrid->voxelSize().x() * factor) );
   openvdb::tools::resampleToMatch<openvdb::tools::BoxSampler>( *m_vdbGrid, *grid2 );
   m_vdbGrid->clear();
-  m_vdbGrid = grid2;
+  m_vdbGrid = grid2->deepCopy();
+
+  //QMessageBox::information(0, "Active Voxels", QString("Active voxels after resample : %1").arg(m_vdbGrid->activeVoxelCount()));
 }
 
 

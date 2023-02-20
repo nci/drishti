@@ -5,7 +5,7 @@
 #include <QDomDocument>
 
 #include <fstream>
-using namespace std;
+//using namespace std;
 
 class SplineInformation
 {
@@ -13,8 +13,8 @@ class SplineInformation
   SplineInformation();
   SplineInformation& operator=(const SplineInformation&);
 
-  void load(fstream&);
-  void save(fstream&);
+  void load(std::fstream&);
+  void save(std::fstream&);
 
   static SplineInformation interpolate(SplineInformation&,
 				       SplineInformation&,

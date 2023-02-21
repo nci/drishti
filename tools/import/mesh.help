@@ -1,0 +1,91 @@
+#begin
+ General Help
+
+Generate adaptivity mesh from the scalar volume.
+
+Users can generate water-tight surface mesh using voxel values.
+
+Surfaces are suitable for 3D printing.
+#end
+
+#begin
+background value
+<Val - all voxels below Val will be treated as background
+Example : <100 - treat all voxels below 100 as background voxels
+                 that means only consider voxels above 100
+		  
+=Val - all voxels not equal to Val will be treated as background
+Example : =100 - treat all voxels equal to 100 as background voxels
+                 that means only consider voxels not equal to 100
+		  
+>Val - all voxels above Val will be treated as background
+Example : >100 - treat all voxels above 100 as background voxels
+                 that means only consider voxels below 100
+		  
+>Val1 <Val2 - all voxels between Val1 and Val2 will be treated as background
+Example : >100 <200 - treat all voxels above 100 and below 200 as background voxels
+                      that means only consider voxels outside of 100 and 200
+		  
+<Val1 >Val2 - all voxels below Val1 or above Val2 will be treated as background
+Example : <100 >200 - treat all voxels below 100 or above 200 as background voxels
+                      that means only consider voxels between and including 100 and 200
+#end
+
+
+#begin
+isosurface value
+Isosurface value represents value of the voxel to be used for mesh generation.
+
+If only isoValue is specified then all values below isoValue will be treated as background and the surface will enclose all voxels having value higher than isovalue.
+Example :
+100 - generates surface enclosing all voxels above 100
+	      
+If  > is placed before isoValue then all values above isoValue will be treated as background and the surface will enclose all voxels having value lower than isovalue.
+Example :
+>100 - generates surface enclosing all voxels below 100  
+
+#end
+
+#begin
+adaptivity
+The adaptivity threshold determines how closely the isosurface is matched by the resulting mesh.
+Higher thresholds will allow more variation in polygon size, using fewer polygons to express the surface.  Adaptivity values range between 0.0 and 1.0.
+
+Default value is 0.1
+#end
+
+
+#begin
+downsample
+
+Downsample the voxel volume before isosurface mesh generation.
+
+Default value is 1 - no downsampling.
+
+#end
+
+
+#begin
+mesh smoothing
+
+Smooth mesh using Taubin smoothing after isosurface mesh has been generated.
+
+Default value is 0 - no smoothing is applied.
+#end
+
+
+#begin
+smooth data
+
+Smooth the voxel volume before isosurface mesh generation.
+
+Default value is 0 - no smoothing is applied.
+#end
+
+
+#begin
+apply voxel size
+
+Multiply mesh coordinates by voxel size.
+
+#end

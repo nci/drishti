@@ -72,7 +72,7 @@ VdbVolume::resample(float factor)
     for (h=0; h<nZ; h++)			\
       {						\
 	float value = data[w*nZ + h];		\
-	if (qAbs(value-bValue) > 0.00001)        \
+	if (qAbs(value-bValue) > 0.00001)       \
 	  accessor.setValue(ijk, value); } } } 
 
 #define ADDTYPE1() {				\
@@ -82,7 +82,34 @@ VdbVolume::resample(float factor)
       {						\
 	float value = data[w*nZ + h];		\
 	if (value <= bValue)			\
-	  accessor.setValue(ijk, 2*bValue-value); } } } 
+	  accessor.setValue(ijk, value); } } } 
+
+//////////#define ADDTYPE1() {				\
+////////// for (w=0; w<nY; w++)				\
+//////////  {						\
+//////////    for (h=0; h<nZ; h++)			\
+//////////      {						\
+//////////	float value = data[w*nZ + h];		\
+//////////	if (value <= bValue)			\
+//////////	  accessor.setValue(ijk, 2*bValue-value); } } } 
+
+#define ADDTYPE2() {				\
+ for (w=0; w<nY; w++)				\
+  {						\
+    for (h=0; h<nZ; h++)			\
+      {						\
+	float value = data[w*nZ + h];		\
+	if (value <= bValue || value >= bValue2)\
+	  accessor.setValue(ijk, value); } } } 
+
+#define ADDTYPE3() {				\
+ for (w=0; w<nY; w++)				\
+  {						\
+    for (h=0; h<nZ; h++)			\
+      {						\
+	float value = data[w*nZ + h];		\
+	if (value >= bValue && value <= bValue2)\
+	  accessor.setValue(ijk, value); } } } 
 
 void
 VdbVolume::addSliceToVDB(float *data,
@@ -135,6 +162,76 @@ VdbVolume::addSliceToVDB(unsigned char *data,
   else if (bType == 1) // anything less than bValue is background
     {
       ADDTYPE1();
+    }
+}
+
+void
+VdbVolume::addSliceToVDB(float *data,
+			 int x, int nY, int nZ,
+			 int bType, float bValue, float bValue2)
+{
+  openvdb::FloatGrid::Accessor accessor = m_vdbGrid->getAccessor();
+
+  openvdb::Coord ijk;
+  int &d = ijk[0];
+  int &w = ijk[1];
+  int &h = ijk[2];
+
+  d = x;
+  if (bType == -1) // anything less than bValue is background
+    {
+      ADDTYPE_1();
+    }
+  else if (bType == 0) // anything less than bValue is background
+    {
+      ADDTYPE0();
+    }
+  else if (bType == 1) // anything less than bValue is background
+    {
+      ADDTYPE1();
+    }
+  else if (bType == 2) // anything greater than bValue and less than bValue2 is background
+    {
+      ADDTYPE2();
+    }
+  else if (bType == 3) // anything less than bValue1 or greater than bValue2 is background
+    {
+      ADDTYPE3();
+    }
+}
+
+void
+VdbVolume::addSliceToVDB(unsigned char *data,
+			 int x, int nY, int nZ,
+			 int bType, float bValue, float bValue2)
+{
+  openvdb::FloatGrid::Accessor accessor = m_vdbGrid->getAccessor();
+
+  openvdb::Coord ijk;
+  int &d = ijk[0];
+  int &w = ijk[1];
+  int &h = ijk[2];
+
+  d = x;
+  if (bType == -1) // anything less than bValue is background
+    {
+      ADDTYPE_1();
+    }
+  else if (bType == 0) // anything less than bValue is background
+    {
+      ADDTYPE0();
+    }
+  else if (bType == 1) // anything less than bValue is background
+    {
+      ADDTYPE1();
+    }
+  else if (bType == 2) // anything greater than bValue and less than bValue2 is background
+    {
+      ADDTYPE2();
+    }
+  else if (bType == 3) // anything less than bValue1 or greater than bValue2 is background
+    {
+      ADDTYPE3();
     }
 }
 
@@ -304,7 +401,18 @@ VdbVolume::dilate(int iter)
 }
 
 void
-VdbVolume::generateMesh(float isovalue, float adaptivity,
+VdbVolume::erode(int iter)
+{
+  openvdb::tools::erodeActiveValues(m_vdbGrid->tree(),
+				    iter, // iterations
+				    openvdb::tools::NN_FACE, // NearestNeighbors
+				    openvdb::tools::IGNORE_TILES);
+}
+
+
+
+void
+VdbVolume::generateMesh(int ivType, float isovalue, float adaptivity,
 			QVector<QVector3D> &V, QVector<QVector3D> &VN, QVector<int> &T)
 {			   
   // construct surface mesh
@@ -314,13 +422,35 @@ VdbVolume::generateMesh(float isovalue, float adaptivity,
   bool relaxDisorientedTriangles = true;
   
 
-  openvdb::tools::volumeToMesh(*m_vdbGrid,
-			       points,
-			       triangles,
-			       quads,
-			       (double)isovalue,
-			       (double)adaptivity,
-			       relaxDisorientedTriangles);
+  if (ivType < 1)
+    openvdb::tools::volumeToMesh(*m_vdbGrid,
+				 points,
+				 triangles,
+				 quads,
+				 (double)isovalue,
+				 (double)adaptivity,
+				 relaxDisorientedTriangles);
+  else
+    {
+      openvdb::FloatGrid::Ptr grid2 = openvdb::FloatGrid::create();
+      grid2 = m_vdbGrid;
+
+      // Visit and update all of the grid's active values, which correspond to
+      // voxels on the narrow band.
+      for (openvdb::FloatGrid::ValueOnIter iter = grid2->beginValueOn(); iter; ++iter)
+	{
+	  iter.setValue(2*isovalue - iter.getValue());
+	}
+      
+      openvdb::tools::volumeToMesh(*grid2,
+				   points,
+				   triangles,
+				   quads,
+				   (double)isovalue,
+				   (double)adaptivity,
+				   relaxDisorientedTriangles);      
+    }
+  
 
   V.clear();
   VN.clear();

@@ -1230,7 +1230,7 @@ MeshGenerator::generateMesh(int nSlabs, int isoval,
       QVector<QVector3D> V;
       QVector<QVector3D> VN;
       QVector<int> T;
-      vdb.generateMesh(isoval, adaptivity, V, VN, T);
+      vdb.generateMesh(0, isoval, adaptivity, V, VN, T);
       
       QVector<QVector3D> E;
       for(int i=0; i<T.count()/3; i++)

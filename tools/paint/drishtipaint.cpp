@@ -5183,7 +5183,14 @@ DrishtiPaint::on_actionMeshTag_triggered()
 
 
 //==========================================================================
-  // smoothing
+  // close holes
+  if (holeSize > 0)
+    {
+      vdb.dilate(holeSize);
+      vdb.erode(holeSize);
+    }
+
+  // smoothing  
   if (dataSmooth > 0)
     {
       vdb.dilate(1);
@@ -5201,7 +5208,7 @@ DrishtiPaint::on_actionMeshTag_triggered()
   QVector<QVector3D> N;
   QVector<QVector3D> C;
   QVector<int> T;
-  vdb.generateMesh(isoValue, adaptivity, V, N, T);
+  vdb.generateMesh(0, isoValue, adaptivity, V, N, T);
 
   C.resize(V.count());
   C.fill(QVector3D(userColor.x, userColor.y, userColor.z));

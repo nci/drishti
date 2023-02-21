@@ -105,6 +105,7 @@ class Raw2Pvl
 
   
   static bool getValues(int&, float&,
+			int&, float&, float&,
 			float&, float&,
 			int&, int&, bool&);
 

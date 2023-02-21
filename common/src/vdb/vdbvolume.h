@@ -41,6 +41,12 @@ class VdbVolume
   void addSliceToVDB(unsigned char*,
 		     int, int, int,
 		     int, float);
+  void addSliceToVDB(float*,
+		     int, int, int,
+		     int, float, float);
+  void addSliceToVDB(unsigned char*,
+		     int, int, int,
+		     int, float, float);
   void generateVDB(unsigned char*,
 		   int, int, int,
 		   int, float, float,
@@ -49,10 +55,11 @@ class VdbVolume
   void mean(int width=1, int iterations=1);
   void gaussian(int width=1, int iterations=1);
   void dilate(int iter=1);
+  void erode(int iter=1);
 
   void resample(float);
   
-  void generateMesh(float, float,
+  void generateMesh(int, float, float,
 		    QVector<QVector3D>&, QVector<QVector3D>&, QVector<int>&);
 
  private :

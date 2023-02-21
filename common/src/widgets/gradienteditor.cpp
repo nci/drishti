@@ -99,10 +99,10 @@ GradientEditor::setGradientStops(QGradientStops gradStops)
     QColor col;
 
     if (m_generalLock & GradientEditor::LockToHalfHeight)
+      pt = QPointF(stop.first, 0.5);
+    else
       pt = QPointF(stop.first,
 		   1 - stop.second.alphaF());
-    else
-      pt = QPointF(stop.first, 0.5);
       
 
     col = QColor(stop.second.red(),

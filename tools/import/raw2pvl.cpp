@@ -2899,32 +2899,19 @@ Raw2Pvl::saveIsosurface(VolumeData* volData,
 
   QList<float> rawMap = volData->rawMap();
 
-//  QString mtext;
-//  mtext += "Isosurface Value\n";
-//  mtext += " isoValue - all values below isoValue will be treated as background\n";
-//  mtext += "              the surface will enclose all voxels having value higher than isovalue.\n"; 
-//  mtext += "              example : 100 - generates surface enclosing all voxels above 100\n\n"; 
-//  mtext += " >isoValue - all values above isoValue will be treated as background\n";
-//  mtext += "              the surface will enclose all voxels having value lower than isovalue.\n";
-//  mtext += "              example : >100 - generates surface enclosing all voxels below 100\n";  
-//  QString text = QInputDialog::getText(0,
-//				       "Isosurface Value",
-//				       mtext,
-//				       QLineEdit::Normal,
-//				       QString("%1").arg((rawMap.last()-rawMap.first())/2),
-//				       &ok);  
-//
   
+  int ivType = -2;
   int bType = -2;
-  float isoValue;
+  float isoValue, bValue1, bValue2;
   float adaptivity;
   float resample;
   int dataSmooth;
   int meshSmooth;
-  bool noScaling;
-  if (!getValues(bType, isoValue,
+  bool applyVoxelScaling;
+  if (!getValues(ivType, isoValue,
+		 bType, bValue1, bValue2,
 		 adaptivity, resample,
-		 dataSmooth, meshSmooth, noScaling))
+		 dataSmooth, meshSmooth, applyVoxelScaling))
     return;
   // return if the parameters are not correct
   
@@ -3059,34 +3046,51 @@ Raw2Pvl::saveIsosurface(VolumeData* volData,
 
 	  vdb.addSliceToVDB(val,
 			    d, wsz, hsz,
-			    bType, isoValue);
+			    bType, bValue1, bValue2);
+	  
+//	  if (ivType != 1)  // isosurface enclosing values larger than isoValue
+//	    vdb.addSliceToVDB(val,
+//			      d, wsz, hsz,
+//			      bType, bValue1, bValue2);
+//	  else  // isosurface enclosing values smaller than isoValue
+//	    vdb.addSliceToVDB(val,
+//			      d, wsz, hsz,
+//			      ivType, isoValue);
+	    
 	} // loop dd - slices
 
 
       // smoothing if required  
       if (dataSmooth > 0)
 	{
+	  progress.setLabelText("Smoothing Voxel Volume");
 	  vdb.dilate(1);
 	  vdb.mean(1, dataSmooth); // width, iterations
 	}
       
       // resample is required
       if (qAbs(resample-1.0) > 0.001)
+	{
+	  progress.setLabelText("Downsampling Voxel Volume");
 	  vdb.resample(resample);
+	}
+
 
       
       Global::statusBar()->showMessage("Generating Mesh");
       qApp->processEvents();
       
+      progress.setLabelText("Generating Isosurface Mesh");
       QVector<QVector3D> V;
       QVector<QVector3D> VN;
       QVector<int> T;
-      vdb.generateMesh(isoValue, adaptivity, V, VN, T);
+      vdb.generateMesh(ivType, isoValue, adaptivity, V, VN, T);
 
+      progress.setLabelText("Saving Mesh to "+QFileInfo(objflnm).fileName());
       Global::statusBar()->showMessage("Saving Mesh to "+QFileInfo(objflnm).fileName());
       qApp->processEvents();
       
-      if (!noScaling) // take voxel size into account
+      if (applyVoxelScaling) // take voxel size into account
 	{
 	  float vx, vy, vz;
 	  volData->voxelSize(vx, vy, vz);
@@ -3130,30 +3134,35 @@ Raw2Pvl::saveIsosurface(VolumeData* volData,
     } // loop timeseries
 
   progress.setValue(100);  
-
   QMessageBox::information(0, "Export Mesh", "Save Done");
 }
 
 bool
-Raw2Pvl::getValues(int& bType, float& isoValue,
+Raw2Pvl::getValues(int& ivType, float& isoValue,
+		   int& bType, float& bValue1, float& bValue2,
 		   float& adaptivity, float& resample,
-		   int& dataSmooth, int& meshSmooth, bool& noScaling)  
+		   int& dataSmooth, int& meshSmooth, bool& applyVoxelScaling)  
 {
-  bType = -2;
   isoValue = 0;
   adaptivity = 0.1;
   dataSmooth = 0;
   meshSmooth = 0;
   resample = 1.0;
-  noScaling = false;
+  applyVoxelScaling = true;
 
   QString text("0");
+  QString btext("<0");
   
   PropertyEditor propertyEditor;
   QMap<QString, QVariantList> plist;
   
   QVariantList vlist;
 
+  vlist.clear();
+  vlist << QVariant("string");
+  vlist << btext;
+  plist["background value"] = vlist;
+  
   vlist.clear();
   vlist << QVariant("string");
   vlist << text;
@@ -3192,34 +3201,55 @@ Raw2Pvl::getValues(int& bType, float& isoValue,
   plist["mesh smoothing"] = vlist;
 
 
-// Apply voxel scaling to mesh.
-// Check only for loading the generated mesh in Drishti Renderer
-// Otherwise leave it unchecked
   vlist.clear();
   vlist << QVariant("checkbox");
-  vlist << QVariant(noScaling);
-  plist["no scaling"] = vlist;
+  vlist << QVariant(applyVoxelScaling);
+  plist["apply voxel size"] = vlist;
 
-//  vlist.clear();
-//  QString mesg;
-//  mesg += "Extract surface mesh from the segmentation";
-//  vlist << mesg;
-//  plist["message"] = vlist;
+
+
+  vlist.clear();
+  QFile helpFile(":/mesh.help");
+  if (helpFile.open(QFile::ReadOnly))
+    {
+      QTextStream in(&helpFile);
+      QString line = in.readLine();
+      while (!line.isNull())
+	{
+	  if (line == "#begin")
+	    {
+	      QString keyword = in.readLine();
+	      QString helptext;
+	      line = in.readLine();
+	      while (!line.isNull())
+		{
+		  helptext += line;
+		  helptext += "\n";
+		  line = in.readLine();
+		  if (line == "#end") break;
+		}
+	      vlist << keyword << helptext;
+	    }
+	  line = in.readLine();
+	}
+    }	      
+  plist["commandhelp"] = vlist;
   
 
   QStringList keys;
+  keys << "background value";
   keys << "isosurface value";
   keys << "adaptivity";
   keys << "downsample";
   keys << "smooth data";
   keys << "mesh smoothing";
-  keys << "no scaling";
-  //keys << "commandhelp";
+  keys << "apply voxel size";
+  keys << "commandhelp";
   //keys << "message";
 
   
   propertyEditor.set("Mesh Generation Parameters", plist, keys);
-  propertyEditor.resize(300, 400);
+  propertyEditor.resize(700, 400);
 
   QMap<QString, QPair<QVariant, bool> > vmap;
   
@@ -3234,9 +3264,10 @@ Raw2Pvl::getValues(int& bType, float& isoValue,
 
       if (pair.second)
 	{
-	  if (keys[ik] == "isosurface value")
+	  if (keys[ik] == "background value")
+	    btext = pair.first.toString();
+	  else if (keys[ik] == "isosurface value")
 	    text = pair.first.toString();
-	    //isoValue = pair.first.toFloat();
 	  else if (keys[ik] == "adaptivity")
 	    adaptivity = pair.first.toFloat();
 	  else if (keys[ik] == "downsample")
@@ -3245,12 +3276,66 @@ Raw2Pvl::getValues(int& bType, float& isoValue,
 	    dataSmooth = pair.first.toInt();
 	  else if (keys[ik] == "mesh smoothing")
 	    meshSmooth = pair.first.toInt();
-	  else if (keys[ik] == "no scaline")
-	    noScaling = pair.first.toBool();
+	  else if (keys[ik] == "apply voxel size")
+	    applyVoxelScaling = pair.first.toBool();
 	}
     }
 
 
+  
+  //=========================
+  bType = -2;  
+  bValue1 = 0;
+  bValue2 = 0;
+
+  if (!btext.isEmpty())
+    {
+      QStringList list = btext.split(" ", QString::SkipEmptyParts);
+      if (list.count() == 2)
+	{
+	  if (list[0].left(1) == ">" && list[1].left(1) == "<")
+	    {
+	      bType = 2;
+	      bValue1 = list[0].mid(1).toFloat();
+	      bValue2 = list[1].mid(1).toFloat();
+	    }
+	  else if (list[0].left(1) == "<" && list[1].left(1) == ">")
+	    {
+	      bType = 3;
+	      bValue1 = list[0].mid(1).toFloat();
+	      bValue2 = list[1].mid(1).toFloat();
+	    }
+	}
+      else if (list.count() == 1)
+	{
+	  if (list[0].left(1) == "<")
+	    {
+	      bType = -1;
+	      bValue1 = list[0].mid(1).toInt();
+	    }
+	  if (list[0].left(1) == "=")
+	    {
+	      bType = 0;
+	      bValue1 = list[0].mid(1).toInt();
+	    }
+	  if (list[0].left(1) == ">")
+	    {
+	      bType = 1;
+	      bValue1 = list[0].mid(1).toInt();
+	    }
+	}
+    }
+
+  if (bType == -2)
+    {
+      QMessageBox::information(0, "Background Value", QString("<Val,   =Val,   >Val,   >Val1 <Val2,   <Val1 >Val2  expected.\nGot %1").arg(btext));
+      return false;
+    }
+  //=========================
+
+  
+  //=========================
+  ivType = -2;
   if (!text.isEmpty())
     {
       QStringList list = text.split(" ", QString::SkipEmptyParts);
@@ -3258,12 +3343,12 @@ Raw2Pvl::getValues(int& bType, float& isoValue,
 	{
 	  if (list[0].left(1) == ">")
 	    {
-	      bType = 1;
+	      ivType = 1;
 	      isoValue = list[0].mid(1).toFloat();
 	    }
 	  else
 	    {
-	      bType = -1;
+	      ivType = -1;
 	      isoValue = list[0].toFloat();	      
 	    }
 	}
@@ -3271,17 +3356,18 @@ Raw2Pvl::getValues(int& bType, float& isoValue,
 	{
 	  if (list[0] == ">")
 	    {
-	      bType = 1;
+	      ivType = 1;
 	      isoValue = list[1].toFloat();
 	    }
 	}
     }
 
-  if (bType == -2)
+  if (ivType == -2)
     {
-      QMessageBox::information(0, "Isosurface Value", QString("isoValue or > isoValue expected.\nGot %1").arg(text));
+      QMessageBox::information(0, "Isosurface Value", QString("isoValue or >isoValue expected.\nGot %1").arg(text));
       return false;
     }
+
 
   return true;
 }

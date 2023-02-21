@@ -2,5 +2,6 @@
 <qresource>
   <file>images/drishti_import_32.png</file>
   <file>images/gradientstops.xml</file>
+  <file>mesh.help</file>
 </qresource>
 </RCC>

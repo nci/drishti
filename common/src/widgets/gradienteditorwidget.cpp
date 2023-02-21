@@ -1,10 +1,17 @@
 #include "staticfunctions.h"
 #include "gradienteditorwidget.h"
 
+
 void
 GradientEditorWidget::setGeneralLock(GradientEditor::LockType lock)
 {
   m_gradientEditor->setGeneralLock(lock);
+}
+
+QGradientStops
+GradientEditorWidget::colorGradient()
+{
+  return m_gradientEditor->gradientStops();
 }
 
 void
@@ -62,7 +69,7 @@ GradientEditorWidget::GradientEditorWidget(QWidget *parent) :
   connect(m_gradientEditor, SIGNAL(refreshGradient()),
 	  this, SLOT(update()));
 
-  setMinimumSize(200, 100);
+  setMinimumSize(100, 100);
 }
 
 void

@@ -18,6 +18,7 @@
 
 #include "savepvldialog.h"
 #include "volumefilemanager.h"
+#include "propertyeditor.h"
 
 
 // To jointly use QT and OpenVDB use the following preprocessor instruction
@@ -2898,66 +2899,38 @@ Raw2Pvl::saveIsosurface(VolumeData* volData,
 
   QList<float> rawMap = volData->rawMap();
 
-  QString mtext;
-  mtext += "Isosurface Value\n";
-  mtext += " isoValue - all values below isoValue will be treated as background\n";
-  mtext += "              the surface will enclose all voxels having value higher than isovalue.\n"; 
-  mtext += "              example : 100 - generates surface enclosing all voxels above 100\n\n"; 
-  mtext += " >isoValue - all values above isoValue will be treated as background\n";
-  mtext += "              the surface will enclose all voxels having value lower than isovalue.\n";
-  mtext += "              example : >100 - generates surface enclosing all voxels below 100\n";  
-  QString text = QInputDialog::getText(0,
-				       "Isosurface Value",
-				       mtext,
-				       QLineEdit::Normal,
-				       QString("%1").arg((rawMap.last()-rawMap.first())/2),
-				       &ok);  
+//  QString mtext;
+//  mtext += "Isosurface Value\n";
+//  mtext += " isoValue - all values below isoValue will be treated as background\n";
+//  mtext += "              the surface will enclose all voxels having value higher than isovalue.\n"; 
+//  mtext += "              example : 100 - generates surface enclosing all voxels above 100\n\n"; 
+//  mtext += " >isoValue - all values above isoValue will be treated as background\n";
+//  mtext += "              the surface will enclose all voxels having value lower than isovalue.\n";
+//  mtext += "              example : >100 - generates surface enclosing all voxels below 100\n";  
+//  QString text = QInputDialog::getText(0,
+//				       "Isosurface Value",
+//				       mtext,
+//				       QLineEdit::Normal,
+//				       QString("%1").arg((rawMap.last()-rawMap.first())/2),
+//				       &ok);  
+//
+  
+  int bType = -2;
+  float isoValue;
+  float adaptivity;
+  float resample;
+  int dataSmooth;
+  int meshSmooth;
+  bool noScaling;
+  if (!getValues(bType, isoValue,
+		 adaptivity, resample,
+		 dataSmooth, meshSmooth, noScaling))
+    return;
+  // return if the parameters are not correct
+  
+      
 
-  int bType = -2;  
-  float isoValue = 0;
-
-  if (ok && !text.isEmpty())
-    {
-      QStringList list = text.split(" ", QString::SkipEmptyParts);
-      if (list.count() == 1)
-	{
-	  if (list[0].left(1) == ">")
-	    {
-	      bType = 1;
-	      isoValue = list[0].mid(1).toFloat();
-	    }
-	  else
-	    {
-	      bType = -1;
-	      isoValue = list[0].toFloat();	      
-	    }
-	}
-      else if (list.count() == 2)
-	{
-	  if (list[0] == ">")
-	    {
-	      bType = 1;
-	      isoValue = list[1].toFloat();
-	    }
-	}
-    }
-
-  if (bType == -2)
-    {
-      QMessageBox::information(0, "Isosurface Value", QString("isoValue or > isoValue expected.\nGot %1").arg(text));
-      return;
-    }
-  
-  
-  float adaptivity = QInputDialog::getDouble(0, "Adaptivity",
-					     "Adaptivity\nValues between 0.0(high resolution) and 1.0(low resolution)",
-					     0, 0, 1, 2, &ok, Qt::WindowFlags(), 0.01);
-  
-  float resample = QInputDialog::getDouble(0, "Resampling",
-					     "Resample\nValues greater than 1.0 means downsampling.\nValues less than 1.0 means upsampling.",
-					     1, 0.1, 10, 2, &ok, Qt::WindowFlags(), 0.1);
-  
-  int rvdepth, rvwidth, rvheight;    
+  int rvdepth, rvwidth, rvheight;
   volData->gridSize(rvdepth, rvwidth, rvheight);
 
   int dsz=dmax-dmin+1;
@@ -3090,9 +3063,16 @@ Raw2Pvl::saveIsosurface(VolumeData* volData,
 	} // loop dd - slices
 
 
+      // smoothing if required  
+      if (dataSmooth > 0)
+	{
+	  vdb.dilate(1);
+	  vdb.mean(1, dataSmooth); // width, iterations
+	}
+      
       // resample is required
       if (qAbs(resample-1.0) > 0.001)
-	vdb.resample(resample);
+	  vdb.resample(resample);
 
       
       Global::statusBar()->showMessage("Generating Mesh");
@@ -3105,6 +3085,24 @@ Raw2Pvl::saveIsosurface(VolumeData* volData,
 
       Global::statusBar()->showMessage("Saving Mesh to "+QFileInfo(objflnm).fileName());
       qApp->processEvents();
+      
+      if (!noScaling) // take voxel size into account
+	{
+	  float vx, vy, vz;
+	  volData->voxelSize(vx, vy, vz);
+	  for(int i=0; i<V.count(); i++)
+	    V[i] *= QVector3D(vx, vy, vz);
+	}
+
+      if (meshSmooth > 0)
+	{
+	  QVector<QVector3D> E;
+	  for(int i=0; i<T.count()/3; i++)
+	    E << QVector3D(T[3*i+0], T[3*i+1], T[3*i+2]);
+  
+	  smoothMesh(V, VN, E, 5*meshSmooth);
+	}
+
       
       QFile fobj(objflnm);
       fobj.open(QFile::WriteOnly);
@@ -3134,4 +3132,301 @@ Raw2Pvl::saveIsosurface(VolumeData* volData,
   progress.setValue(100);  
 
   QMessageBox::information(0, "Export Mesh", "Save Done");
+}
+
+bool
+Raw2Pvl::getValues(int& bType, float& isoValue,
+		   float& adaptivity, float& resample,
+		   int& dataSmooth, int& meshSmooth, bool& noScaling)  
+{
+  bType = -2;
+  isoValue = 0;
+  adaptivity = 0.1;
+  dataSmooth = 0;
+  meshSmooth = 0;
+  resample = 1.0;
+  noScaling = false;
+
+  QString text("0");
+  
+  PropertyEditor propertyEditor;
+  QMap<QString, QVariantList> plist;
+  
+  QVariantList vlist;
+
+  vlist.clear();
+  vlist << QVariant("string");
+  vlist << text;
+  plist["isosurface value"] = vlist;
+  
+  vlist.clear();
+  vlist << QVariant("float");
+  vlist << QVariant(adaptivity);
+  vlist << QVariant(0.0);
+  vlist << QVariant(1.0);
+  vlist << QVariant(0.01); // singlestep
+  vlist << QVariant(3); // decimals
+  plist["adaptivity"] = vlist;
+  
+  vlist.clear();
+  vlist << QVariant("float");
+  vlist << QVariant(resample);
+  vlist << QVariant(1.0);
+  vlist << QVariant(10.0);
+  vlist << QVariant(1); // singlestep
+  vlist << QVariant(1); // decimals
+  plist["downsample"] = vlist;
+  
+  vlist.clear();
+  vlist << QVariant("int");
+  vlist << QVariant(dataSmooth);
+  vlist << QVariant(0);
+  vlist << QVariant(10);
+  plist["smooth data"] = vlist;
+
+  vlist.clear();
+  vlist << QVariant("int");
+  vlist << QVariant(meshSmooth);
+  vlist << QVariant(0);
+  vlist << QVariant(10);
+  plist["mesh smoothing"] = vlist;
+
+
+// Apply voxel scaling to mesh.
+// Check only for loading the generated mesh in Drishti Renderer
+// Otherwise leave it unchecked
+  vlist.clear();
+  vlist << QVariant("checkbox");
+  vlist << QVariant(noScaling);
+  plist["no scaling"] = vlist;
+
+//  vlist.clear();
+//  QString mesg;
+//  mesg += "Extract surface mesh from the segmentation";
+//  vlist << mesg;
+//  plist["message"] = vlist;
+  
+
+  QStringList keys;
+  keys << "isosurface value";
+  keys << "adaptivity";
+  keys << "downsample";
+  keys << "smooth data";
+  keys << "mesh smoothing";
+  keys << "no scaling";
+  //keys << "commandhelp";
+  //keys << "message";
+
+  
+  propertyEditor.set("Mesh Generation Parameters", plist, keys);
+  propertyEditor.resize(300, 400);
+
+  QMap<QString, QPair<QVariant, bool> > vmap;
+  
+  if (propertyEditor.exec() == QDialog::Accepted)
+    vmap = propertyEditor.get();
+  else
+    return false;
+  
+  for(int ik=0; ik<keys.count(); ik++)
+    {
+      QPair<QVariant, bool> pair = vmap.value(keys[ik]);
+
+      if (pair.second)
+	{
+	  if (keys[ik] == "isosurface value")
+	    text = pair.first.toString();
+	    //isoValue = pair.first.toFloat();
+	  else if (keys[ik] == "adaptivity")
+	    adaptivity = pair.first.toFloat();
+	  else if (keys[ik] == "downsample")
+	    resample = pair.first.toFloat();
+	  else if (keys[ik] == "smooth data")
+	    dataSmooth = pair.first.toInt();
+	  else if (keys[ik] == "mesh smoothing")
+	    meshSmooth = pair.first.toInt();
+	  else if (keys[ik] == "no scaline")
+	    noScaling = pair.first.toBool();
+	}
+    }
+
+
+  if (!text.isEmpty())
+    {
+      QStringList list = text.split(" ", QString::SkipEmptyParts);
+      if (list.count() == 1)
+	{
+	  if (list[0].left(1) == ">")
+	    {
+	      bType = 1;
+	      isoValue = list[0].mid(1).toFloat();
+	    }
+	  else
+	    {
+	      bType = -1;
+	      isoValue = list[0].toFloat();	      
+	    }
+	}
+      else if (list.count() == 2)
+	{
+	  if (list[0] == ">")
+	    {
+	      bType = 1;
+	      isoValue = list[1].toFloat();
+	    }
+	}
+    }
+
+  if (bType == -2)
+    {
+      QMessageBox::information(0, "Isosurface Value", QString("isoValue or > isoValue expected.\nGot %1").arg(text));
+      return false;
+    }
+
+  return true;
+}
+
+
+void
+Raw2Pvl::smoothMesh(QVector<QVector3D>& V,
+		    QVector<QVector3D>& N,
+		    QVector<QVector3D>& E,
+		    int ntimes)
+{  
+  QProgressDialog progress("Mesh smoothing in progress ... ",
+			   QString(),
+			   0, 100,
+			   0,
+			   Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);
+
+  QVector<QVector3D> newV;
+  newV = V;
+
+  int nv = V.count();
+
+  //----------------------------
+  // create incidence matrix
+  QMultiMap<int, int> imat;
+  int ntri = E.count();
+  for(int i=0; i<ntri; i++)
+    {
+      if (i%10000 == 0)
+	{
+	  progress.setValue((int)(100.0*(float)i/(float)(ntri)));
+	  qApp->processEvents();
+	}
+
+      int a = E[i].x();
+      int b = E[i].y();
+      int c = E[i].z();
+
+      imat.insert(a, b);
+      imat.insert(b, a);
+      imat.insert(a, c);
+      imat.insert(c, a);
+      imat.insert(b, c);
+      imat.insert(c, b);
+    }
+  //----------------------------
+
+  //----------------------------
+  // smooth vertices
+  progress.setLabelText("   Smoothing vertices ...");
+  for(int nt=0; nt<ntimes; nt++)
+    {
+      progress.setValue((int)(100.0*(float)nt/(float)(ntimes)));
+      qApp->processEvents();
+
+      // deflation step
+      for(int i=0; i<nv; i++)
+	{
+	  QList<int> idx = imat.values(i);
+	  QVector3D v0 = V[i];
+	  QVector3D v = QVector3D(0,0,0);
+	  float sum = 0;
+	  for(int j=0; j<idx.count(); j++)
+	    {
+	      QVector3D vj = V[idx[j]];
+	      float ln = (v0-vj).length();
+	      if (ln > 0)
+		{
+		  sum += 1.0/ln;
+		  v = v + vj/ln;
+		}
+	    }
+	  if (sum > 0)
+	    v0 = v0 + 0.9*(v/sum - v0);
+	  newV[i] = v0;
+	}
+
+      //inflation step
+      for(int i=0; i<nv; i++)
+	{
+	  QList<int> idx = imat.values(i);
+	  QVector3D v0 = newV[i];
+	  QVector3D v = QVector3D(0,0,0);
+	  float sum = 0;
+	  for(int j=0; j<idx.count(); j++)
+	    {
+	      QVector3D vj = newV[idx[j]];
+	      float ln = (v0-vj).length();
+	      if (ln > 0)
+		{
+		  sum += 1.0/ln;
+		  v = v + vj/ln;
+		}
+	    }
+	  if (sum > 0)
+	    v0 = v0 - 0.5*(v/sum - v0);
+
+	  V[i] = v0;
+	}
+    }
+  //----------------------------
+
+
+  //----------------------------
+  progress.setLabelText("   Calculate normals ...");
+  // now calculate normals
+  for(int i=0; i<nv; i++)
+    newV[i] = QVector3D(0,0,0);
+
+  QVector<int> nvs;
+  nvs.resize(nv);
+  nvs.fill(0);
+
+  for(int i=0; i<ntri; i++)
+    {
+      if (i%10000 == 0)
+	{
+	  progress.setValue((int)(100.0*(float)i/(float)(ntri)));
+	  qApp->processEvents();
+	}
+
+      int a = E[i].x();
+      int b = E[i].y();
+      int c = E[i].z();
+
+      QVector3D va = V[a];
+      QVector3D vb = V[b];
+      QVector3D vc = V[c];
+      QVector3D v0 = (vb-va).normalized();
+      QVector3D v1 = (vc-va).normalized();      
+      QVector3D vn = QVector3D::crossProduct(v1,v0);
+      
+      newV[a] += vn;
+      newV[b] += vn;
+      newV[c] += vn;
+
+      nvs[a]++;
+      nvs[b]++;
+      nvs[c]++;
+    }
+
+  for(int i=0; i<nv; i++)
+      N[i] = newV[i]/nvs[i];
+  //----------------------------
+
+  progress.setValue(100);
 }

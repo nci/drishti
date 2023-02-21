@@ -1,4 +1,9 @@
 #include "dcolordialog.h"
+#include <QColorDialog>
+#include <QVBoxLayout>
+#include <QApplication>
+#include <QDesktopWidget>
+#include <QMessageBox>
 
 DColorDialog::DColorDialog(QColor color,
 			 QWidget *parent,
@@ -46,6 +51,24 @@ DColorDialog::DColorDialog(QColor color,
 
 
   resize(300, 330);
+
+
+  QDesktopWidget* m = QApplication::desktop();
+  QPoint cpos = QCursor::pos();
+  int scrno = m->screenNumber(cpos);
+  QRect rec = m->availableGeometry();
+  int height = rec.height();
+  int width = rec.width();
+
+  // move widget near the cursor
+  // take account of multiple monitors
+  int swd = width;
+  for(int s=0; s<scrno; s++)
+    swd += m->screenGeometry(s).width();
+  
+  cpos = QPoint(qBound(10, cpos.x(), swd-350),
+		qBound(10, cpos.y(), height-400));
+  move(cpos);
 }
 
 void

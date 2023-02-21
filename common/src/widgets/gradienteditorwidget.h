@@ -13,6 +13,8 @@ class GradientEditorWidget : public QWidget
   void paintEvent(QPaintEvent*);
   void resizeEvent(QResizeEvent*);
 
+  QGradientStops colorGradient();
+
  public slots:
   void setColorGradient(QGradientStops);
   void setGeneralLock(GradientEditor::LockType);

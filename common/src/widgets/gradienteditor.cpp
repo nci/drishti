@@ -1,11 +1,10 @@
 #include "gradienteditor.h"
 #include "dcolordialog.h"
-#include "global.h"
-
-#include <QFile>
-#include <QTextStream>
 #include <QDomDocument>
 
+#include <QMessageBox>
+#include <QInputDialog>
+#include <QLineEdit>
 
 int GradientEditor::border() const { return m_border; }
 void GradientEditor::setBorder(const int border) { m_border = border; }
@@ -31,11 +30,13 @@ QPointF
 GradientEditor::convertWidgetToLocal(QPointF p)
 {
   double x = (p.x()-m_bounds.x())/m_bounds.width();
-  //double y = (p.y()-m_bounds.y())/m_bounds.height();
-
+  double y = (p.y()-m_bounds.y())/m_bounds.height();
   x = qBound(0.0, x, 1.0);
-  //y = qBound(0.0, y, 1.0);
-  double y = 0.5;
+  y = qBound(0.0, y, 1.0);
+
+  if (m_generalLock & GradientEditor::LockToHalfHeight)
+    y = 0.5;
+    
   return QPointF(x,y);
 }
 
@@ -97,9 +98,13 @@ GradientEditor::setGradientStops(QGradientStops gradStops)
     QPointF pt;
     QColor col;
 
-    pt = QPointF(stop.first, 0.5);
-		 //1 - stop.second.alphaF());
-    
+    if (m_generalLock & GradientEditor::LockToHalfHeight)
+      pt = QPointF(stop.first,
+		   1 - stop.second.alphaF());
+    else
+      pt = QPointF(stop.first, 0.5);
+      
+
     col = QColor(stop.second.red(),
 		 stop.second.green(),
 		 stop.second.blue());
@@ -120,7 +125,7 @@ GradientEditor::setGradientStops(QGradientStops gradStops)
 GradientEditor::GradientEditor(QWidget *parent) :
   QWidget(parent)
 {
-  setMouseTracking(true);
+  //setMouseTracking(true);
 
   m_parent = parent;
 
@@ -184,7 +189,7 @@ GradientEditor::paintEvent(QPaintEvent *event)
 
       valRect = QRectF(hoverPoint.x()+7,
 		       hoverPoint.y()-15,
-		       45, 15);
+		       45, 30);
       if ((valRect.x() + valRect.width()) >= (brect.x()+brect.width()))
 	valRect.adjust(-60, 0, -60, 0);
 
@@ -196,27 +201,29 @@ GradientEditor::paintEvent(QPaintEvent *event)
       if (dely < 0)
 	valRect.adjust(0, -dely, 0, -dely);
 
-      // draw position & alpha values
-      p.setBrush(Qt::white);
-      p.setPen(Qt::darkGray);
-      p.drawRoundRect(valRect);
+      if (!(m_generalLock & GradientEditor::LockToHalfHeight))
+	{
+	  // draw position & alpha values
+	  p.setBrush(Qt::white);
+	  p.setPen(Qt::darkGray);
+	  p.drawRoundRect(valRect);
       
-      float pos = m_points[m_hoverIndex].x();
-      float alpha = 1 - m_points[m_hoverIndex].y();
-
-      QPainterPath path;
-      path.addText(valRect.x()+4,
-		   valRect.y()+valRect.height()-4,
-		   //valRect.y()+valRect.height()/2-4,
-		   QFont("Helvetica", 10),
-		   QString("p:%1").arg(pos, 0, 'f', 2));
-//      path.addText(valRect.x()+4,
-//		   valRect.y()+valRect.height()-4,
-//		   QFont("Helvetica", 10),
-//		   QString("a:%1").arg(alpha, 0, 'f', 2));
-      p.setBrush(Qt::black);
-      p.setPen(Qt::transparent);
-      p.drawPath(path);
+	  float pos = m_points[m_hoverIndex].x();
+	  float alpha = 1 - m_points[m_hoverIndex].y();
+	  
+	  QPainterPath path;
+	  path.addText(valRect.x()+4,
+		       valRect.y()+valRect.height()/2-4,
+		       QFont("Helvetica", 10),
+		       QString("p:%1").arg(pos, 0, 'f', 2));
+//	  path.addText(valRect.x()+4,
+//		       valRect.y()+valRect.height()-4,
+//		       QFont("Helvetica", 10),
+//		       QString("a:%1").arg(alpha, 0, 'f', 2));
+	  p.setBrush(Qt::black);
+	  p.setPen(Qt::transparent);
+	  p.drawPath(path);
+	}
     }
   
 }
@@ -504,6 +511,20 @@ GradientEditor::flipGradientStops()
 void
 GradientEditor::copyGradientFile(QString stopsflnm)
 {
+#ifdef __APPLE__
+  QDir app = QCoreApplication::applicationDirPath();
+  app.cdUp();
+  app.cdUp();
+  app.cdUp();
+  app.cd("Shared");
+  app.cd("data");
+#else
+  QDir app = QCoreApplication::applicationDirPath();
+  app.cdUp();
+  app.cd("data");
+#endif // __APPLE__
+      
+  //QString sflnm = QFileInfo(app, "gradientstops.xml").absoluteFilePath();
   QString sflnm = ":/images/gradientstops.xml";
   QFileInfo fi(sflnm);
   if (! fi.exists())
@@ -513,8 +534,7 @@ GradientEditor::copyGradientFile(QString stopsflnm)
       
       return;
     }
-
-  // copy information from gradientstops.xml to HOME/.drishtigradients.xml
+  // copy information from DRISHTI/data/gradientstops.xml to HOME/drishtigradients.xml
   QDomDocument document;
   QFile f(sflnm);
   if (f.open(QIODevice::ReadOnly))
@@ -649,6 +669,32 @@ GradientEditor::saveGradientStops()
   QString stopsflnm = sfi.absoluteFilePath();
   if (!sfi.exists())
     copyGradientFile(stopsflnm);
+
+//
+//#ifdef __APPLE__
+//  QDir app = QCoreApplication::applicationDirPath();
+//  app.cdUp();
+//  app.cdUp();
+//  app.cdUp();
+//  app.cd("Shared");
+//  app.cd("data");
+//#else
+//  QDir app = QCoreApplication::applicationDirPath();
+//  app.cdUp();
+//  app.cd("data");
+//#endif // __APPLE__
+//
+//
+//  QString stopsflnm = QFileInfo(app, "gradientstops.xml").absoluteFilePath();
+//  QFileInfo fi(stopsflnm);
+//  if (! fi.exists())
+//    {
+//      QMessageBox::information(0, "Gradient Stops",
+//			       QString("Gradient Stops File does not exit at %1").arg(stopsflnm));
+//
+//      return;
+//    }    
+
 
   QDomDocument doc;
   QFile f(stopsflnm);

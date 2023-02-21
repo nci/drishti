@@ -18,7 +18,8 @@ DESTDIR = ../../bin
 win32
 {
   INCLUDEPATH += C:\cygwin64\home\acl900\vcpkg\vcpkg\installed\x64-windows\include \
-                 ../../common/src/vdb
+                 ../../common/src/vdb \
+                 ../../common/src/widgets
   QMAKE_LIBDIR += C:\cygwin64\home\acl900\vcpkg\vcpkg\installed\x64-windows\lib \
                  ..\..\common\lib     
 
@@ -34,7 +35,8 @@ win32
 FORMS += remapwidget.ui \
 	 savepvldialog.ui \
 	 drishtiimport.ui \
-	 fileslistdialog.ui
+         fileslistdialog.ui \
+         ../../common/src/widgets/propertyeditor.ui
 
 # Input
 HEADERS += global.h \
@@ -45,10 +47,6 @@ HEADERS += global.h \
            remaphistogramline.h \
            remaphistogramwidget.h \
 	   remapimage.h \
-	   gradienteditor.h \
-	   gradienteditorwidget.h \
-	   dcolordialog.h \
-	   dcolorwheel.h \
 	   drishtiimport.h \
 	   myslider.h \
 	   raw2pvl.h \
@@ -56,7 +54,12 @@ HEADERS += global.h \
 	   volumefilemanager.h \
 	   volumedata.h \
 	   volinterface.h \
-	   lookuptable.h
+ 	   lookuptable.h \
+           ../../common/src/widgets/propertyeditor.h \
+           ../../common/src/widgets/dcolordialog.h \
+           ../../common/src/widgets/dcolorwheel.h \
+	   ../../common/src/widgets/gradienteditor.h \
+	   ../../common/src/widgets/gradienteditorwidget.h
 
 SOURCES += global.cpp \
 	   staticfunctions.cpp \
@@ -66,14 +69,15 @@ SOURCES += global.cpp \
            remaphistogramline.cpp \
            remaphistogramwidget.cpp \
 	   remapimage.cpp \
-	   gradienteditor.cpp \
-	   gradienteditorwidget.cpp \
-	   dcolordialog.cpp \
-	   dcolorwheel.cpp \
 	   drishtiimport.cpp \
 	   myslider.cpp \
 	   raw2pvl.cpp \
 	   savepvldialog.cpp \
 	   volumedata.cpp \
-	   volumefilemanager.cpp
+	   volumefilemanager.cpp \
+           ../../common/src/widgets/propertyeditor.cpp \
+           ../../common/src/widgets/dcolordialog.cpp \
+	   ../../common/src/widgets/dcolorwheel.cpp \
+	   ../../common/src/widgets/gradienteditor.cpp \
+	   ../../common/src/widgets/gradienteditorwidget.cpp
 

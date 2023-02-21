@@ -4,9 +4,6 @@
 #include "dcolorwheel.h"
 #include <QDialog>
 #include <QDialogButtonBox>
-#include <QColorDialog>
-#include <QVBoxLayout>
-
 
 class DColorDialog : public QDialog
 {

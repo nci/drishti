@@ -73,7 +73,6 @@ DColorWheel::getColor()
 	{
 	  sat=(float)colx/(colorGridSize-1);
 	  val=(float)coly/(colorGridSize-1);
-	  val = sqrt(val);
 	}
     }
 
@@ -165,7 +164,6 @@ DColorWheel::paintEvent(QPaintEvent *event)
 	{
 	  s = i/(float)(colorGridSize-1);
 	  v = j/(float)(colorGridSize-1);
-	  v = sqrt(v);
 	}
       QColor col;
       col = QColor::fromHsvF(m_hue, s, v);
@@ -329,8 +327,8 @@ DColorWheel::setButtonColors()
 		"QPushButton:pressed {"					\
 		"background-color: qradialgradient("			\
 		"cx: 0.5, cy: 0.5, radius: 0.5, fx: 0.5, fy:0.8 "	\
-		"stop: 0 #ffffff, stop: 0.5 %1 );"		\
-		"}" ).arg(color.name()).arg(color.darker().name());
+		"stop: 0 #ffffff, stop: 0.5 %2 );"		\
+		"}" ).arg(color.name()).arg(color.lighter().name());
   this->setStyleSheet(str);
 }
 

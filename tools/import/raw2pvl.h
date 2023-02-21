@@ -102,6 +102,16 @@ class Raw2Pvl
   static void saveVDB(QString,
 		      VolumeData*);
 
+
+  
+  static bool getValues(int&, float&,
+			float&, float&,
+			int&, int&, bool&);
+
+  static void smoothMesh(QVector<QVector3D>&,
+			 QVector<QVector3D>&,
+			 QVector<QVector3D>&,
+			 int);
 };
 
 #endif

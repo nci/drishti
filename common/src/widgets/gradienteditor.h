@@ -2,6 +2,7 @@
 #define GRADIENTEDITOR_H
 
 #include "commonqtclasses.h"
+
 #include <QWidget>
 
 class GradientEditor : public QWidget

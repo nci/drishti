@@ -24,8 +24,8 @@ include( ../../drishti.pri )
 # Input
 FORMS += drishtipaint.ui viewermenu.ui \
 	graphcutmenu.ui curvesmenu.ui \
-	fibersmenu.ui propertyeditor.ui \
-	superpixelmenu.ui pywidgetmenu.ui
+	fibersmenu.ui superpixelmenu.ui pywidgetmenu.ui \
+        ../../common/src/widgets/propertyeditor.ui
 
 #----------------------------------------------------------------
 # Windows setup for 64-bit system
@@ -39,7 +39,8 @@ FORMS += drishtipaint.ui viewermenu.ui \
                         ..\..\glmedia-64 \
                         C:\cygwin64\home\acl900\drishtilib\c-blosc-1.14.3\blosc \
                         C:\cygwin64\home\acl900\vcpkg\vcpkg\installed\x64-windows\include \
-                        ../../common/src/vdb
+                        ../../common/src/vdb \
+                        ../../common/src/widgets
 
 ## C:\Users\acl900\AppData\Local\Programs\Python\Python38\include \
 ## C:\Users\acl900\AppData\Local\Programs\Python\Python38\Lib\site-packages\numpy\core\include
@@ -94,23 +95,18 @@ HEADERS += commonqtclasses.h \
         clipplane.h \
 	clipobject.h \
 	clipgrabber.h \
-	dcolordialog.h \
-	dcolorwheel.h \
 	fiber.h \
 	fibergroup.h\
 	slices.h \
 	imagewidget.h \
 	curveswidget.h \
 	global.h \
-	gradienteditor.h \
-	gradienteditorwidget.h \
         livewire.h \
 	mybitarray.h \
 	myslider.h \
 	mymanipulatedframe.h \
  	morphcurve.h \
  	morphslice.h \
-	propertyeditor.h \
 	splineeditor.h \
 	splineeditorwidget.h \
 	splineinformation.h \
@@ -147,7 +143,12 @@ HEADERS += commonqtclasses.h \
         filehandler.h \
         checkpointhandler.h \
         pywidget.h \
-        pywidgetmenu.h
+        pywidgetmenu.h \
+        ../../common/src/widgets/propertyeditor.h \
+        ../../common/src/widgets/dcolordialog.h \
+        ../../common/src/widgets/dcolorwheel.h \
+	../../common/src/widgets/gradienteditor.h \
+	../../common/src/widgets/gradienteditorwidget.h
 
 
 SOURCES += drishtipaint.cpp \
@@ -158,23 +159,18 @@ SOURCES += drishtipaint.cpp \
         clipplane.cpp \
 	clipobject.cpp \
 	clipgrabber.cpp \
-	dcolordialog.cpp \
-	dcolorwheel.cpp \
 	fiber.cpp \
 	fibergroup.cpp\
 	slices.cpp \
 	imagewidget.cpp \
 	curveswidget.cpp \
 	global.cpp \
-	gradienteditor.cpp \
-	gradienteditorwidget.cpp \
         livewire.cpp \
 	mybitarray.cpp \
 	myslider.cpp \
 	mymanipulatedframe.cpp \
  	morphcurve.cpp \
  	morphslice.cpp \
-	propertyeditor.cpp \
 	splineeditor.cpp \
 	splineeditorwidget.cpp \
 	splineinformation.cpp \
@@ -208,4 +204,9 @@ SOURCES += drishtipaint.cpp \
         filehandler.cpp \
         checkpointhandler.cpp \
         pywidget.cpp \
-        pywidgetmenu.cpp
+        pywidgetmenu.cpp \
+        ../../common/src/widgets/propertyeditor.cpp \
+        ../../common/src/widgets/dcolordialog.cpp \
+	../../common/src/widgets/dcolorwheel.cpp \
+	../../common/src/widgets/gradienteditor.cpp \
+	../../common/src/widgets/gradienteditorwidget.cpp

@@ -5166,10 +5166,10 @@ DrishtiPaint::on_actionMeshTag_triggered()
 	}
       //-----------------------------
 
-      // flip 0 and 255
+      // flip 0 and 255 so that isosurface is generated properly
       for(int i=0; i<twidth*theight; i++)
 	raw[i] = ~raw[i];
-		  
+
       vdb.addSliceToVDB(raw,
 			slc, twidth, theight,
 			bType, isoValue);

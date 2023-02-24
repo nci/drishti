@@ -27,7 +27,9 @@ win32 {
  contains(Windows_Setup, Win64) {
      message(drishti.exe : Win64 setup)
      INCLUDEPATH += ../../ \
-                    ../../../common/src/vdb
+                    ../../../common/src/vdb \
+                    ../../../common/src/mesh
+
      DEFINES += _CRT_SECURE_NO_WARNINGS
      QMAKE_LIBDIR += ..\common \
                      ..\..\..\common\lib     
@@ -79,10 +81,12 @@ HEADERS = meshplugin.h \
  	  meshgenerator.h \
 	  marchingcubes.h \
 	  ply.h \
-          lookuptable.h
-	
+          lookuptable.h \
+          ../../../common/src/mesh/meshtools.h
+
 
 SOURCES = meshplugin.cpp \
 	  meshgenerator.cpp \
 	  marchingcubes.cpp \
-	  ply.c
+          ply.c \
+          ../../../common/src/mesh/meshtools.cpp

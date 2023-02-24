@@ -6,6 +6,8 @@ Generate adaptivity mesh from the scalar volume.
 Users can generate water-tight surface mesh using voxel values.
 
 Surfaces are suitable for 3D printing.
+
+Morphological operators - dilate/erode/close/open can be applied.
 #end
 
 #begin
@@ -36,13 +38,13 @@ Example : <100 >200 - treat all voxels below 100 or above 200 as background voxe
 isosurface value
 Isosurface value represents value of the voxel to be used for mesh generation.
 
-If only isoValue is specified then all values below isoValue will be treated as background and the surface will enclose all voxels having value higher than isovalue.
+If only isoValue is specified then all values below isoValue will be treated as background and the surface will enclose all voxels having value equal to or higher than isovalue.
 Example :
 100 - generates surface enclosing all voxels above 100
 	      
-If  > is placed before isoValue then all values above isoValue will be treated as background and the surface will enclose all voxels having value lower than isovalue.
+If  < is placed before isoValue then all values above isoValue will be treated as background and the surface will enclose all voxels having value equal to or lower than isovalue.
 Example :
->100 - generates surface enclosing all voxels below 100  
+<100 - generates surface enclosing all voxels equal to or below 100  
 
 #end
 
@@ -87,5 +89,24 @@ Default value is 0 - no smoothing is applied.
 apply voxel size
 
 Multiply mesh coordinates by voxel size.
+
+#end
+
+
+#begin
+morpho operator
+
+From the dropdown list select the morphological operator to apply.
+
+Close is typically used for closing holes.
+
+Open is typically used to remove smaller objects.
+#end
+
+
+#begin
+morpho radius
+
+Select the neighbourhood radius for applying morphological operator.  When the radius is 0, morphological operator is not applied.
 
 #end

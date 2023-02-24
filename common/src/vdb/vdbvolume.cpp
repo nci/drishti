@@ -1,6 +1,7 @@
 #include "vdbvolume.h"
 #include <openvdb/tools/GridTransformer.h>
 #include <openvdb/tools/Filter.h>
+#include <openvdb/tools/LevelSetFilter.h>
 #include <openvdb/tools/Morphology.h>
 #include <openvdb/tools/VolumeToMesh.h>
 
@@ -19,6 +20,8 @@ VdbVolume::VdbVolume()
   openvdb::initialize();
 
   m_vdbGrid = openvdb::FloatGrid::create();  
+  m_vdbGrid->setName("density");
+  m_vdbGrid->setTransform(openvdb::math::Transform::createLinearTransform(1));
 }
 
 VdbVolume::~VdbVolume()
@@ -29,14 +32,14 @@ VdbVolume::~VdbVolume()
 
 VdbVolume::VdbVolume(const VdbVolume& vv)
 {
-  m_vdbGrid = vv.m_vdbGrid->deepCopy();
+  m_vdbGrid = vv.m_vdbGrid;
 }
 
 
 VdbVolume&
 VdbVolume::operator=(const VdbVolume& vv)
 {
-  m_vdbGrid = vv.m_vdbGrid->deepCopy();
+  m_vdbGrid = vv.m_vdbGrid;
 
   return *this;
 }
@@ -45,329 +48,14 @@ VdbVolume::operator=(const VdbVolume& vv)
 void
 VdbVolume::resample(float factor)
 {
-  //QMessageBox::information(0, "Active Voxels", QString("Active voxels : %1").arg(m_vdbGrid->activeVoxelCount()));
-
   openvdb::FloatGrid::Ptr grid2 = openvdb::FloatGrid::create();
   grid2->setTransform(openvdb::math::Transform::createLinearTransform(m_vdbGrid->voxelSize().x() * factor) );
   openvdb::tools::resampleToMatch<openvdb::tools::BoxSampler>( *m_vdbGrid, *grid2 );
   m_vdbGrid->clear();
-  m_vdbGrid = grid2->deepCopy();
-
-  //QMessageBox::information(0, "Active Voxels", QString("Active voxels after resample : %1").arg(m_vdbGrid->activeVoxelCount()));
+  m_vdbGrid = grid2;
 }
 
 
-#define ADDTYPE_1() {				\
-  for (w=0; w<nY; w++)				\
-  {						\
-    for (h=0; h<nZ; h++)			\
-      {						\
-	float value = data[w*nZ + h];		\
-	if (value >= bValue)			\
-	  accessor.setValue(ijk, value); } } } 
-
-#define ADDTYPE0() {				\
- for (w=0; w<nY; w++)				\
-  {						\
-    for (h=0; h<nZ; h++)			\
-      {						\
-	float value = data[w*nZ + h];		\
-	if (qAbs(value-bValue) > 0.00001)       \
-	  accessor.setValue(ijk, value); } } } 
-
-#define ADDTYPE1() {				\
- for (w=0; w<nY; w++)				\
-  {						\
-    for (h=0; h<nZ; h++)			\
-      {						\
-	float value = data[w*nZ + h];		\
-	if (value <= bValue)			\
-	  accessor.setValue(ijk, value); } } } 
-
-//////////#define ADDTYPE1() {				\
-////////// for (w=0; w<nY; w++)				\
-//////////  {						\
-//////////    for (h=0; h<nZ; h++)			\
-//////////      {						\
-//////////	float value = data[w*nZ + h];		\
-//////////	if (value <= bValue)			\
-//////////	  accessor.setValue(ijk, 2*bValue-value); } } } 
-
-#define ADDTYPE2() {				\
- for (w=0; w<nY; w++)				\
-  {						\
-    for (h=0; h<nZ; h++)			\
-      {						\
-	float value = data[w*nZ + h];		\
-	if (value <= bValue || value >= bValue2)\
-	  accessor.setValue(ijk, value); } } } 
-
-#define ADDTYPE3() {				\
- for (w=0; w<nY; w++)				\
-  {						\
-    for (h=0; h<nZ; h++)			\
-      {						\
-	float value = data[w*nZ + h];		\
-	if (value >= bValue && value <= bValue2)\
-	  accessor.setValue(ijk, value); } } } 
-
-void
-VdbVolume::addSliceToVDB(float *data,
-			 int x, int nY, int nZ,
-			 int bType, float bValue)
-{
-  openvdb::FloatGrid::Accessor accessor = m_vdbGrid->getAccessor();
-
-  openvdb::Coord ijk;
-  int &d = ijk[0];
-  int &w = ijk[1];
-  int &h = ijk[2];
-
-  d = x;
-  if (bType == -1) // anything less than bValue is background
-    {
-      ADDTYPE_1();
-    }
-  else if (bType == 0) // anything less than bValue is background
-    {
-      ADDTYPE0();
-    }
-  else if (bType == 1) // anything less than bValue is background
-    {
-      ADDTYPE1();
-    }
-}
-
-void
-VdbVolume::addSliceToVDB(unsigned char *data,
-			 int x, int nY, int nZ,
-			 int bType, float bValue)
-{
-  openvdb::FloatGrid::Accessor accessor = m_vdbGrid->getAccessor();
-
-  openvdb::Coord ijk;
-  int &d = ijk[0];
-  int &w = ijk[1];
-  int &h = ijk[2];
-
-  d = x;
-  if (bType == -1) // anything less than bValue is background
-    {
-      ADDTYPE_1();
-    }
-  else if (bType == 0) // anything less than bValue is background
-    {
-      ADDTYPE0();
-    }
-  else if (bType == 1) // anything less than bValue is background
-    {
-      ADDTYPE1();
-    }
-}
-
-void
-VdbVolume::addSliceToVDB(float *data,
-			 int x, int nY, int nZ,
-			 int bType, float bValue, float bValue2)
-{
-  openvdb::FloatGrid::Accessor accessor = m_vdbGrid->getAccessor();
-
-  openvdb::Coord ijk;
-  int &d = ijk[0];
-  int &w = ijk[1];
-  int &h = ijk[2];
-
-  d = x;
-  if (bType == -1) // anything less than bValue is background
-    {
-      ADDTYPE_1();
-    }
-  else if (bType == 0) // anything less than bValue is background
-    {
-      ADDTYPE0();
-    }
-  else if (bType == 1) // anything less than bValue is background
-    {
-      ADDTYPE1();
-    }
-  else if (bType == 2) // anything greater than bValue and less than bValue2 is background
-    {
-      ADDTYPE2();
-    }
-  else if (bType == 3) // anything less than bValue1 or greater than bValue2 is background
-    {
-      ADDTYPE3();
-    }
-}
-
-void
-VdbVolume::addSliceToVDB(unsigned char *data,
-			 int x, int nY, int nZ,
-			 int bType, float bValue, float bValue2)
-{
-  openvdb::FloatGrid::Accessor accessor = m_vdbGrid->getAccessor();
-
-  openvdb::Coord ijk;
-  int &d = ijk[0];
-  int &w = ijk[1];
-  int &h = ijk[2];
-
-  d = x;
-  if (bType == -1) // anything less than bValue is background
-    {
-      ADDTYPE_1();
-    }
-  else if (bType == 0) // anything less than bValue is background
-    {
-      ADDTYPE0();
-    }
-  else if (bType == 1) // anything less than bValue is background
-    {
-      ADDTYPE1();
-    }
-  else if (bType == 2) // anything greater than bValue and less than bValue2 is background
-    {
-      ADDTYPE2();
-    }
-  else if (bType == 3) // anything less than bValue1 or greater than bValue2 is background
-    {
-      ADDTYPE3();
-    }
-}
-
-void
-VdbVolume::generateVDB(unsigned char *data,
-		       int nX, int nY, int nZ,
-		       int bType, float bValue1, float bValue2,
-		       QProgressBar *progress)
-{
-  openvdb::FloatGrid::Accessor accessor = m_vdbGrid->getAccessor();
-
-  openvdb::Coord ijk;
-  int &d = ijk[0];
-  int &w = ijk[1];
-  int &h = ijk[2];
-  
-//  QProgressDialog progress("Generating VDB",
-//			   "Cancel",
-//			   0, 100,
-//			   0,
-//			   Qt::Dialog|Qt::WindowStaysOnTopHint);
-//  progress.setMinimumDuration(0);
-//  progress.resize(500, 100);
-//  progress.move(QCursor::pos());
-
-  if (bType == -1) // anything less than bValue is background
-    {
-      for (d=0; d<nX; d++)
-	{
-	  if (progress)
-	    {
-	      progress->setValue((int)(100.0*(float)d/(float)(nZ)));
-	      qApp->processEvents();
-	    }
-	  for (w=0; w<nY; w++)
-	    {
-	      for (h=0; h<nZ; h++)
-		{
-		  float value = data[d*(long int)(nY*nZ) + (long int)(w*nZ) + h];
-		  if (value >= bValue1)
-		    accessor.setValue(ijk, value);
-		}
-	    }
-	}
-    }
-  if (bType == 0) // bValue is background
-    {
-      for (d=0; d<nX; d++)
-	{
-	  if (progress)
-	    {
-	      progress->setValue((int)(100.0*(float)d/(float)(nZ)));
-	      qApp->processEvents();
-	    }
-	  for (w=0; w<nY; w++)
-	    {
-	      for (h=0; h<nZ; h++)
-		{
-		  float value = data[d*(long int)(nY*nZ) + (long int)(w*nZ) + h];
-		  if (value != bValue1)
-		    accessor.setValue(ijk, value);
-		}
-	    }
-	}
-    }
-  if (bType == 1) // anything greater than bValue is background
-    {
-      for (d=0; d<nX; d++)
-	{
-	  if (progress)
-	    {
-	      progress->setValue((int)(100.0*(float)d/(float)(nZ)));
-	      qApp->processEvents();
-	    }
-	  for (w=0; w<nY; w++)
-	    {
-	      for (h=0; h<nZ; h++)
-		{
-		  float value = data[d*(long int)(nY*nZ) + (long int)(w*nZ) + h];
-		  if (value <= bValue1)
-		    accessor.setValue(ijk, value);
-		}
-	    }
-	}
-    }
-  if (bType == 2) // anything greater than bValue and less than bValue2 is background
-    {
-      for (d=0; d<nX; d++)
-	{
-	  if (progress)
-	    {
-	      progress->setValue((int)(100.0*(float)d/(float)(nZ)));
-	      qApp->processEvents();
-	    }
-	  for (w=0; w<nY; w++)
-	    {
-	      for (h=0; h<nZ; h++)
-		{
-		  float value = data[d*(long int)(nY*nZ) + (long int)(w*nZ) + h];
-		  if (value <= bValue1 || value >= bValue2)
-		    accessor.setValue(ijk, value);
-		}
-	    }
-	}
-    }
-  if (bType == 3) // anything less than bValue1 or greater than bValue2 is background
-    {
-      for (d=0; d<nX; d++)
-	{
-	  if (progress)
-	    {
-	      progress->setValue((int)(100.0*(float)d/(float)(nZ)));
-	      qApp->processEvents();
-	    }
-	  for (w=0; w<nY; w++)
-	    {
-	      for (h=0; h<nZ; h++)
-		{
-		  float value = data[d*(long int)(nY*nZ) + (long int)(w*nZ) + h];
-		  if (value >= bValue1 && value <= bValue2)
-		    accessor.setValue(ijk, value);
-		}
-	    }
-	}
-    }
-
-  
-  if (progress)
-    {
-      progress->setValue(100);
-      qApp->processEvents();
-    }
-
-  
-  //QMessageBox::information(0, "Active Voxels", QString("Active voxels : %1").arg(m_vdbGrid->activeVoxelCount()));
-}
 
 uint64_t
 VdbVolume::activeVoxels()
@@ -380,6 +68,10 @@ VdbVolume::mean(int width, int iterations)
 {
   openvdb::tools::Filter<openvdb::FloatGrid> filter(*m_vdbGrid);
   filter.mean(width, iterations);
+
+//  openvdb::tools::LevelSetFilter<openvdb::FloatGrid> lsf(*m_vdbGrid);
+//  for(int i=0; i<iterations; i++)
+//    lsf.mean(width);
 }
 
 
@@ -388,28 +80,38 @@ VdbVolume::gaussian(int width, int iterations)
 {
   openvdb::tools::Filter<openvdb::FloatGrid> filter(*m_vdbGrid);
   filter.gaussian(width, iterations);
+
+//  openvdb::tools::LevelSetFilter<openvdb::FloatGrid> lsf(*m_vdbGrid);
+//  for(int i=0; i<iterations; i++)
+//    lsf.gaussian(width);
 }
 
 
 void
-VdbVolume::dilate(int iter)
+VdbVolume::offset(float offset)
 {
-  openvdb::tools::dilateActiveValues(m_vdbGrid->tree(),
-				     iter, // iterations
-				     openvdb::tools::NN_FACE, // NearestNeighbors
-				     openvdb::tools::IGNORE_TILES);
+  openvdb::tools::LevelSetFilter<openvdb::FloatGrid> lsf(*m_vdbGrid);
+  lsf.offset(offset);
 }
+
 
 void
-VdbVolume::erode(int iter)
+VdbVolume::convertToLevelSet(float isovalue, int type)
 {
-  openvdb::tools::erodeActiveValues(m_vdbGrid->tree(),
-				    iter, // iterations
-				    openvdb::tools::NN_FACE, // NearestNeighbors
-				    openvdb::tools::IGNORE_TILES);
+  openvdb::FloatGrid::Ptr grid2 = openvdb::FloatGrid::create();
+  grid2 = m_vdbGrid;
+
+  if (type == 1)
+    {
+      
+      // Visit and update all of the grid's active values, which correspond to
+      // voxels on the narrow band.
+      for (openvdb::FloatGrid::ValueOnIter iter = grid2->beginValueOn(); iter; ++iter)
+	iter.setValue(2*isovalue - iter.getValue());
+    }
+  
+  m_vdbGrid = openvdb::tools::levelSetRebuild(*grid2, isovalue);
 }
-
-
 
 void
 VdbVolume::generateMesh(int ivType, float isovalue, float adaptivity,
@@ -544,4 +246,21 @@ VdbVolume::generateMesh(int ivType, float isovalue, float adaptivity,
 
   for (int i=0; i<VN.count(); i++)
     VN[i].normalize();
+}
+
+void
+VdbVolume::save(QString vdbFileName)
+{  
+  // create a vdb file
+  openvdb::io::File vdbFile(vdbFileName.toStdString());
+  
+  m_vdbGrid->setSaveFloatAsHalf(true);
+
+  // add the grid pointer to a container
+  openvdb::GridPtrVec grids;
+  grids.push_back(m_vdbGrid);
+  
+  // write out the contents of the container
+  vdbFile.write(grids);
+  vdbFile.close();
 }

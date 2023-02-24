@@ -11,5 +11,6 @@
   <file>fibers.help</file>
   <file>paint.help</file>
   <file>viewer.help</file>
+  <file>mesh.help</file>
 </qresource>
 </RCC>

@@ -4,21 +4,21 @@ Mesh Generator.
 
 Adaptivity mesh the scalar volume.
 
-Users can generate water-tight surface mesh using either voxel values or voxel opacities.  Surfaces can be coloured using variety of options.
+Users can generate water-tight surface mesh using voxel opacities.  Surfaces are coloured using the transfer functions.
+
+Save surface mesh to PLY/OBJ/STL formats.
+
+A colored mesh is saved when PLY option is chosen.
+
+A binary volume is first prepared using voxel opacities, which then is used to generate the surface mesh.  This binary volume has 1 for those voxels that have non-zero opacity and 0 otherwise.  Smoothing can be applied to this volume resulting is smoother surface mesh.  An isosurface value of 0.5 is default, lower values result in dilated surface, whereas, higher values result in eroded surface.
+
 
 Clip/crop/blend/dissect can be applied to the volume before surface mesh generation.
 
 Surfaces are suitable for 3D printing.
 
+
 User can specify how much memory is available for mesh generation.  If not enough memory is available to accommodate all the required data, then the mesh will be generated in several slabs.  These slabs are then joined together to form the complete mesh.
-#end
-
-#begin
-use opacity
-When surface is generated using voxel opacity, a binary volume is first generated.  This binary volume has 1 for those voxels that have non-zero opacity and 0 otherwise.  This binary volume is then smoothed, resulting in gray volume having values between 0.0 and 1.0.  User choose an appropriate isosurface value between 0 to 1.
-By default this switch is on.
-
-When this switch is off, the actual voxel values will be used for surface generation.
 #end
 
 #begin
@@ -28,9 +28,7 @@ When generating surface color in the case of "Lut Color", a ray is shot inside t
 
 #begin
 isosurface value
-When not using opacity for surface generation, isosurface value represents value of the voxel to be used for mesh generation.  Voxel values are normalized.
-
-When using opacity for surface generation, isosurface value represents gray voxel value of the smoothed volume generated from binary opacity volume.  First the opacity volume is created by applying transfer function.  This creates a binary volume from voxels that are visible and those that are not.  Smoothing is applied to this volume - smooth opacity parameter defines the degree of smoothing.  The isosurface is generated from this volume.  Lower isosurface values - closer to 0.0 - result in dilated surface.
+In order to generate the surface mesh, first an opacity volume is created by applying transfer function along with the operators crop/clip/blend etc.  This creates a binary volume from voxels that are visible (1) and those that are not (0).  Smoothing can be applied to this volume - smooth opacity parameter defines the degree of smoothing.  An isosurface is then generated from this volume.  Lower isosurface values - closer to 0.0 - result in dilated surface, whereas higher values in an eroded surface.
 
 Default value is 0.5
 #end
@@ -47,7 +45,9 @@ Default value is 0.1
 #begin
 mesh smoothing
 
-Smooth mesh using Taubin smoothing.
+Smooth mesh using Taubin smoothing after the mesh has been generated from opacity volume..
+This is different from smoothing the opacity volume - which is applied before surface generation.
+
 
 Default value is 0 - no smoothing is applied.
 #end
@@ -60,7 +60,7 @@ The ray is always aligned with surface normal.
 
 This ability to shoot ray into the surface gives the user a possibility to texture the surface with the inside structure - it reveals what is beneath the skin.
 
-Default is 1 - just go 1 voxel deep for colour determination.
+Default is 2 - just go 2 voxel deep for colour determination.
 #end
 
 
@@ -74,7 +74,7 @@ color type
 Users can color the mesh surface in a variety of ways - 
 
 Fixed Color
-  Mesh is colored with single color based on isosurface value - 0 is colored with left most color in color gradient, 0.5 with a middle color and 1 with the right most color.
+  Mesh is colored with color selected via the color parameter.
 
 Lut Color
   Take surface color from original lookup table (i.e. the one used for volume rendering)  based on voxel/voxel opacity value.

@@ -2,6 +2,7 @@
 
 #include "staticfunctions.h"
 #include "meshgenerator.h"
+#include "meshtools.h"
 
 
 MeshGenerator::MeshGenerator()
@@ -85,7 +86,6 @@ MeshGenerator::getValues(int &isoval, float &isovalf,
 			 int &spread,
 			 int &depth,
 			 int &useColor,
-			 bool &useOpacity,
 			 int &smoothOpacity,
 			 QGradientStops &stops,
 			 int &chan,
@@ -96,9 +96,8 @@ MeshGenerator::getValues(int &isoval, float &isovalf,
   isoval = 128;
   isovalf = 0.5;
   spread = 0;
-  depth = 1;
+  depth = 2;
   useColor = 1;
-  useOpacity = true;
   smoothOpacity = 1;
   avgColor = true;
   adaptivity = 0.1;
@@ -119,11 +118,6 @@ MeshGenerator::getValues(int &isoval, float &isovalf,
 
   if (m_voxelType == 0)
     {
-      vlist.clear();
-      vlist << QVariant("checkbox");
-      vlist << QVariant(useOpacity);
-      plist["use opacity"] = vlist;
-
       vlist.clear();
       vlist << QVariant("int");
       vlist << QVariant(smoothOpacity);
@@ -281,10 +275,7 @@ MeshGenerator::getValues(int &isoval, float &isovalf,
 
       if (pair.second)
 	{
-	  if (keys[ik] == "use opacity")
-	    useOpacity = pair.first.toBool();
-	  else if (keys[ik] == "smooth opacity")
-	    //smoothOpacity = pair.first.toBool();
+	  if (keys[ik] == "smooth opacity")
 	    smoothOpacity = pair.first.toInt();
 	  else if (keys[ik] == "average color")
 	    avgColor = pair.first.toBool();
@@ -318,9 +309,6 @@ MeshGenerator::getValues(int &isoval, float &isovalf,
     }
 
   isoval = qRound(isovalf*255);
-  if (m_voxelType > 0 && !useOpacity)
-    isoval = qRound(isovalf*65535);
-
     
   stops = resampleGradientStops(vstops);
 
@@ -381,7 +369,6 @@ MeshGenerator::start(VolumeFileManager *vfm,
 
   float isovalf;
   int isoval, spread, depth, useColor;
-  bool useOpacity;
   int smoothOpacity;
   QGradientStops stops;
   int chan;
@@ -389,7 +376,6 @@ MeshGenerator::start(VolumeFileManager *vfm,
   float adaptivity;
   if (! getValues(isoval, isovalf,
 		  spread, depth, useColor,
-		  useOpacity,
 		  smoothOpacity,
 		  stops,
 		  chan,
@@ -405,10 +391,7 @@ MeshGenerator::start(VolumeFileManager *vfm,
   meshLayout->addWidget(m_meshProgress);
 
   QWidget *meshWindow = new QWidget;
-  if (useOpacity)
-    meshWindow->setWindowTitle("Drishti - Mesh Generation Using Opacity Values");
-  else
-    meshWindow->setWindowTitle("Drishti - Mesh Generation Using Voxel Values");
+  meshWindow->setWindowTitle("Drishti - Mesh Generation Using Opacity Values");
   meshWindow->setLayout(meshLayout);
   meshWindow->show();
   meshWindow->resize(700, 300);
@@ -498,7 +481,7 @@ MeshGenerator::start(VolumeFileManager *vfm,
 	       voxelScaling,
 	       clipPos, clipNormal,
 	       crops, paths,
-	       useOpacity, smoothOpacity, lut,
+	       smoothOpacity, lut,
 	       chan,
 	       avgColor,
 	       adaptivity);
@@ -571,14 +554,14 @@ MeshGenerator::getLutColor(uchar *volData,
 	      int c = volData[qMin((qint64)(dlen-1),k+1)*m_nY*m_nZ + j*m_nZ + i] -
 		      volData[qMax((qint64)0,k-1)*m_nY*m_nZ + j*m_nZ + i];
 
-	      gr = qMin(256, int(qSqrt(a*a+b*b+c*c)));
+	      gr = qMin(255, int(qSqrt(a*a+b*b+c*c)));
 	      //gr = 0;
 	    }
 	  else
 	    {
 	      v = ((ushort*)volData)[k*m_nY*m_nZ + j*m_nZ + i];
-	      gr = v%256;
-	      v = v/256;
+	      gr = v%255;
+	      v = v/255;
 	    }
 
 	  float a = lut[4*(256*gr + v)+3]/255.0f;
@@ -816,10 +799,16 @@ MeshGenerator::applyOpacity(int iv,
 	    if (m_voxelType == 0)
 	      {
 		// using the gradient to calculate the opacity
-		int a = tmp1[qMin(m_nY,j+1)*m_nZ]-tmp1[qMax(0, j-1)*m_nZ];
-		int b = tmp1[j*m_nZ + qMin(m_nZ,k+1)]-tmp1[j*m_nZ + qMax(0, k-1)];
-		int c = tmp2[j*m_nZ + k]-tmp0[j*m_nZ + k];
-		int gr = qMin(256,int(qSqrt(a*a + b*b + c*c)));
+		int a = tmp1[qMin(m_nY-1,j+1)*m_nZ + k] -
+		        tmp1[qMax(0, j-1)*m_nZ + k];
+
+		int b = tmp1[j*m_nZ + qMin(m_nZ-1,k+1)] -
+		        tmp1[j*m_nZ + qMax(0, k-1)];
+
+		int c = tmp2[j*m_nZ + k] -
+		        tmp0[j*m_nZ + k];
+
+		uchar gr = qMin(255, int(qSqrt(a*a + b*b + c*c)));
 		  
 		opac = mop*lut[tfSet + 4*(256*gr + v) + 3];
 
@@ -828,8 +817,8 @@ MeshGenerator::applyOpacity(int iv,
 	      }
 	    else
 	      {
-		int a = v%256;
-		int b = v/256;
+		int a = v%255;
+		int b = v/255;
 		opac = mop*lut[tfSet + 4*(256*a + b) + 3];		
 	      }
 
@@ -865,8 +854,8 @@ MeshGenerator::checkBlend(Vec po, ushort v, uchar* lut)
 		}
 	      else
 		{
-		  a = v%256;
-		  b = v/256;
+		  a = v%255;
+		  b = v/255;
 		}
 	      if (lut[tfSet+4*(256*a + b)+3] < 5)
 		return false;
@@ -911,8 +900,8 @@ MeshGenerator::checkPathBlend(Vec po, ushort v, uchar* lut)
 		}
 	      else
 		{
-		  a = v%256;
-		  b = v/256;
+		  a = v%255;
+		  b = v/255;
 		}
 	      if (lut[tfSet+4*(256*a + b)+3] < 5)
 		return false;
@@ -947,10 +936,12 @@ MeshGenerator::generateMesh(int nSlabs, int isoval,
 			    QList<Vec> clipNormal,
 			    QList<CropObject> crops,
 			    QList<PathObject> paths,
-			    bool useOpacity, int smoothOpacity, 
+			    int smoothOpacity, 
 			    uchar *lut,
 			    int chan, bool avgColor, float adaptivity)
 {
+  VdbVolume vdb;
+
   int saveType = 0; // default .ply
   if (StaticFunctions::checkExtension(flnm, ".obj")) saveType = 1;
   if (StaticFunctions::checkExtension(flnm, ".stl")) saveType = 2;
@@ -1011,9 +1002,7 @@ MeshGenerator::generateMesh(int nSlabs, int isoval,
       else
 	extData = new uchar[2*dataSize]; // ushort
 
-      uchar *gData=0;
-      if (useOpacity)
-	gData = new uchar[dataSize];
+      uchar *gData = new uchar[dataSize];
 
 
       uchar *cropped = new uchar[nbytes];
@@ -1080,7 +1069,7 @@ MeshGenerator::generateMesh(int nSlabs, int isoval,
 		  mop = m_pruneData[3*mopidx + chan];
 		  ok = (mop > 0);
 		}
-		
+
 		po *= m_samplingLevel;
 
 		if (ok && clipPresent)
@@ -1116,7 +1105,7 @@ MeshGenerator::generateMesh(int nSlabs, int isoval,
 		  cropped[jk] = mop;
 		else
 		  cropped[jk] = 0;
-		
+
 		jk ++;
 	      } // j,k loop
 
@@ -1140,30 +1129,30 @@ MeshGenerator::generateMesh(int nSlabs, int isoval,
 	  // tmp now clipped and contains raw data
 	  memcpy(extData + bpv*i0*qint64(m_nY*m_nZ), tmp, nbytes);
 
-	  if (useOpacity)
-	    {
-	      memcpy(tmp0, tmp1, nbytes);
-	      memcpy(tmp1, tmp2, nbytes);
-	      memcpy(tmp2, tmp, nbytes);
+	  // apply opacity
+	  {
+	    memcpy(tmp0, tmp1, nbytes);
+	    memcpy(tmp1, tmp2, nbytes);
+	    memcpy(tmp2, tmp, nbytes);
 
-	      if (i0 == 1)
-		{
-		  applyOpacity(iv, cropped, lut, tmp,
-			       tmp1, tmp2, tmp2); // i0 == 0
-		  memcpy(gData + i0*qint64(m_nY*m_nZ), tmp, m_nY*m_nZ);
-		}
-	      if (i0 > 1)
-		{
-		  applyOpacity(iv, cropped, lut, tmp,
-			       tmp0, tmp1, tmp2); // i0 == 1
-		  memcpy(gData + i0*qint64(m_nY*m_nZ), tmp, m_nY*m_nZ);
-		  if (i0 == i0end)
-		    {
-		      applyOpacity(iv, cropped, lut, tmp,
-				   tmp1, tmp2, tmp2); // i0 == 1
-		      memcpy(gData + i0*qint64(m_nY*m_nZ), tmp, m_nY*m_nZ);
-		    }
-		}
+	    if (i0 == 1)
+	      {
+		applyOpacity(iv, cropped, lut, tmp,
+			     tmp1, tmp2, tmp2); // i0 == 0
+		memcpy(gData + i0*qint64(m_nY*m_nZ), tmp, m_nY*m_nZ);
+	      }
+	    if (i0 > 1)
+	      {
+		applyOpacity(iv, cropped, lut, tmp,
+			     tmp0, tmp1, tmp2); // i0 == 1
+		memcpy(gData + i0*qint64(m_nY*m_nZ), tmp, m_nY*m_nZ);
+		if (i0 == i0end)
+		  {
+		    applyOpacity(iv, cropped, lut, tmp,
+				 tmp1, tmp2, tmp2); // i0 == 1
+		    memcpy(gData + i0*qint64(m_nY*m_nZ), tmp, m_nY*m_nZ);
+		  }
+	      }
 	    }
 
 	  i0++;
@@ -1182,47 +1171,42 @@ MeshGenerator::generateMesh(int nSlabs, int isoval,
 	{
 	  uchar *data0 = new uchar[dataSize];
 
+	  // applyTear once for coloring volume
 	  uchar *data1 = extData;
 	  memcpy(data0, data1, dataSize);
 	  applyTear(d0, d1,
 		    data0, data1, true);
 
-	  if (useOpacity)
-	    {
-	      data1 = gData;
-	      memcpy(data0, data1, dataSize);
-	      applyTear(d0, d1,
-			data0, data1, false);
-	    }
+	  // applyTear once for opacity volume
+	  data1 = gData;
+	  memcpy(data0, data1, dataSize);
+	  applyTear(d0, d1,
+		    data0, data1, false);
 
 	  delete [] data0;
 	}
       //------------
 
 
-
       //--------------------------------
       //--------------------------------
       m_meshLog->moveCursor(QTextCursor::End);
       m_meshLog->insertPlainText("Generating VDB ...\n");
-      VdbVolume vdb;
-      if (!useOpacity)
-	vdb.generateVDB(extData,
-			dlen, m_nY, m_nZ,
-			-1, 1, 0, // values less than 1 are background
-			m_meshProgress);
-      else
-      	vdb.generateVDB(gData,
-			dlen, m_nY, m_nZ,
-			-1, 1, 0, // values less than 1 are background
-			m_meshProgress);
+      vdb.generateVDB(gData,
+		      dlen, m_nY, m_nZ,
+		      -1, 1, 0, // values less than 1 are background
+		      m_meshProgress);
+      
+
+      // convert to levelset
+      vdb.convertToLevelSet(128);
       
       if (smoothOpacity > 0)
 	{
 	  m_meshLog->moveCursor(QTextCursor::End);
 	  m_meshLog->insertPlainText("Smoothing volume ...\n");
-	  vdb.dilate(1);
-	  vdb.mean(1, smoothOpacity); // width, iterations
+	  vdb.offset(0.1);
+	  vdb.gaussian(0.1, smoothOpacity);
 	}
 
       m_meshLog->moveCursor(QTextCursor::End);
@@ -1230,7 +1214,7 @@ MeshGenerator::generateMesh(int nSlabs, int isoval,
       QVector<QVector3D> V;
       QVector<QVector3D> VN;
       QVector<int> T;
-      vdb.generateMesh(0, isoval, adaptivity, V, VN, T);
+      vdb.generateMesh(0, 3*(128.0-isoval)/255.0, adaptivity, V, VN, T);
       
       QVector<QVector3D> E;
       for(int i=0; i<T.count()/3; i++)
@@ -1245,8 +1229,10 @@ MeshGenerator::generateMesh(int nSlabs, int isoval,
 
       // mesh smoothing
       if (spread > 0)
-	smoothMesh(V, VN, E, 5*spread);
- 
+	MeshTools::smoothMesh(V, VN, T, 5*spread);
+
+
+      // save coordinates and connectivity
       {
 	m_meshLog->moveCursor(QTextCursor::End);
 	m_meshLog->insertPlainText("Saving triangle coordinates ...\n");
@@ -1715,146 +1701,4 @@ MeshGenerator::saveMeshToSTL(QString flnm,
   m_meshProgress->setValue(100);
 }
 
-void
-MeshGenerator::smoothMesh(QVector<QVector3D>& V,
-			  QVector<QVector3D>& N,
-			  QVector<QVector3D>& E,
-			  int ntimes)
-{  
-  QVector<QVector3D> newV;
-  newV = V;
-
-  int nv = V.count();
-
-  //----------------------------
-  // create incidence matrix
-  m_meshLog->moveCursor(QTextCursor::End);
-  m_meshLog->insertPlainText("Smoothing mesh\n   Generate incidence matrix ...");
-  QMultiMap<int, int> imat;
-  int ntri = E.count();
-  for(int i=0; i<ntri; i++)
-    {
-      if (i%10000 == 0)
-	{
-	  m_meshProgress->setValue((int)(100.0*(float)i/(float)(ntri)));
-	  qApp->processEvents();
-	}
-
-      int a = E[i].x();
-      int b = E[i].y();
-      int c = E[i].z();
-
-      imat.insert(a, b);
-      imat.insert(b, a);
-      imat.insert(a, c);
-      imat.insert(c, a);
-      imat.insert(b, c);
-      imat.insert(c, b);
-    }
-  //----------------------------
-
-  //----------------------------
-  // smooth vertices
-  m_meshLog->moveCursor(QTextCursor::End);
-  m_meshLog->insertPlainText("   Smoothing vertices ...");
-  for(int nt=0; nt<ntimes; nt++)
-    {
-      m_meshProgress->setValue((int)(100.0*(float)nt/(float)(ntimes)));
-      qApp->processEvents();
-
-      // deflation step
-      for(int i=0; i<nv; i++)
-	{
-	  QList<int> idx = imat.values(i);
-	  QVector3D v0 = V[i];
-	  QVector3D v = QVector3D(0,0,0);
-	  float sum = 0;
-	  for(int j=0; j<idx.count(); j++)
-	    {
-	      QVector3D vj = V[idx[j]];
-	      float ln = (v0-vj).length();
-	      if (ln > 0)
-		{
-		  sum += 1.0/ln;
-		  v = v + vj/ln;
-		}
-	    }
-	  if (sum > 0)
-	    v0 = v0 + 0.9*(v/sum - v0);
-	  newV[i] = v0;
-	}
-
-      //inflation step
-      for(int i=0; i<nv; i++)
-	{
-	  QList<int> idx = imat.values(i);
-	  QVector3D v0 = newV[i];
-	  QVector3D v = QVector3D(0,0,0);
-	  float sum = 0;
-	  for(int j=0; j<idx.count(); j++)
-	    {
-	      QVector3D vj = newV[idx[j]];
-	      float ln = (v0-vj).length();
-	      if (ln > 0)
-		{
-		  sum += 1.0/ln;
-		  v = v + vj/ln;
-		}
-	    }
-	  if (sum > 0)
-	    v0 = v0 - 0.5*(v/sum - v0);
-
-	  V[i] = v0;
-	}
-    }
-  //----------------------------
-
-
-  //----------------------------
-  m_meshLog->moveCursor(QTextCursor::End);
-  m_meshLog->insertPlainText("   Calculate normals ...");
-  // now calculate normals
-  for(int i=0; i<nv; i++)
-    newV[i] = QVector3D(0,0,0);
-
-  QVector<int> nvs;
-  nvs.resize(nv);
-  nvs.fill(0);
-
-  for(int i=0; i<ntri; i++)
-    {
-      if (i%10000 == 0)
-	{
-	  m_meshProgress->setValue((int)(100.0*(float)i/(float)(ntri)));
-	  qApp->processEvents();
-	}
-
-      int a = E[i].x();
-      int b = E[i].y();
-      int c = E[i].z();
-
-      QVector3D va = V[a];
-      QVector3D vb = V[b];
-      QVector3D vc = V[c];
-      QVector3D v0 = (vb-va).normalized();
-      QVector3D v1 = (vc-va).normalized();      
-      QVector3D vn = QVector3D::crossProduct(v1,v0);
-      
-      newV[a] += vn;
-      newV[b] += vn;
-      newV[c] += vn;
-
-      nvs[a]++;
-      nvs[b]++;
-      nvs[c]++;
-    }
-
-  for(int i=0; i<nv; i++)
-      N[i] = newV[i]/nvs[i];
-  //----------------------------
-
-  m_meshLog->moveCursor(QTextCursor::End);
-  m_meshLog->insertPlainText("\n");
-  m_meshProgress->setValue(100);
-}
 

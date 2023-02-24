@@ -107,12 +107,8 @@ class Raw2Pvl
   static bool getValues(int&, float&,
 			int&, float&, float&,
 			float&, float&,
+			int&, int&,
 			int&, int&, bool&);
-
-  static void smoothMesh(QVector<QVector3D>&,
-			 QVector<QVector3D>&,
-			 QVector<QVector3D>&,
-			 int);
 };
 
 #endif

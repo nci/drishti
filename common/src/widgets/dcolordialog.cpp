@@ -103,8 +103,18 @@ DColorDialog::color()
 QColor
 DColorDialog::getColor(const QColor& initial)
 {
+  // make sure the pop up is fully visible
+  QScreen *scr = qGuiApp->screenAt(QCursor::pos());
+  QRect geo = scr->geometry();
+  int x = QCursor::pos().x();
+  int y = QCursor::pos().y();
+  x = qMin(x, geo.right()-350);
+  y = qMin(y, geo.bottom()-400);
+  y = qMax(0, y-290);
+  x = qMax(0, x-20);
+  
   DColorDialog *dlg = new DColorDialog(initial);
-  //dlg->setWindowTitle(QColorDialog::tr("Select color"));
+  dlg->move(QPoint(x,y));
   int ret = dlg->exec();
 
   QColor color;

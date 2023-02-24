@@ -19,7 +19,9 @@ win32
 {
   INCLUDEPATH += C:\cygwin64\home\acl900\vcpkg\vcpkg\installed\x64-windows\include \
                  ../../common/src/vdb \
-                 ../../common/src/widgets
+                 ../../common/src/widgets \
+                 ../../common/src/mesh
+
   QMAKE_LIBDIR += C:\cygwin64\home\acl900\vcpkg\vcpkg\installed\x64-windows\lib \
                  ..\..\common\lib     
 
@@ -59,7 +61,9 @@ HEADERS += global.h \
            ../../common/src/widgets/dcolordialog.h \
            ../../common/src/widgets/dcolorwheel.h \
 	   ../../common/src/widgets/gradienteditor.h \
-	   ../../common/src/widgets/gradienteditorwidget.h
+	   ../../common/src/widgets/gradienteditorwidget.h \
+           ../../common/src/mesh/meshtools.h \
+           ../../common/src/mesh/ply.h
 
 SOURCES += global.cpp \
 	   staticfunctions.cpp \
@@ -79,5 +83,7 @@ SOURCES += global.cpp \
            ../../common/src/widgets/dcolordialog.cpp \
 	   ../../common/src/widgets/dcolorwheel.cpp \
 	   ../../common/src/widgets/gradienteditor.cpp \
-	   ../../common/src/widgets/gradienteditorwidget.cpp
+	   ../../common/src/widgets/gradienteditorwidget.cpp \
+           ../../common/src/mesh/meshtools.cpp \
+           ../../common/src/mesh/ply.c
 

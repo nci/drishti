@@ -89,7 +89,7 @@ class MeshGenerator
 		    QList<Vec>,
 		    QList<CropObject>,
 		    QList<PathObject>,
-		    bool, int,
+		    int,
 		    uchar*,
 		    int, bool, float);
 
@@ -100,7 +100,7 @@ class MeshGenerator
 
   bool getValues(int&, float&,
 		 int&, int&, int&,
-		 bool&, int&,
+		 int&,
 		 QGradientStops&,
 		 int&, bool&,
 		 float&);
@@ -126,11 +126,6 @@ class MeshGenerator
   bool checkBlend(Vec, ushort, uchar*);
   void applyOpacity(int, uchar*, uchar*, uchar*,
 		    uchar*, uchar*, uchar*);
-
-  void smoothMesh(QVector<QVector3D>&,
-		  QVector<QVector3D>&,
-		  QVector<QVector3D>&,
-		  int);
 };
 
 #endif MESHGENERATOR_H

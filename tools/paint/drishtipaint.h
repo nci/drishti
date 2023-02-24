@@ -301,20 +301,6 @@ class DrishtiPaint : public QMainWindow
 		 int, int, int, int,
 		 int);
 
-  void smoothMesh(QVector<QVector3D>&,
-		  QVector<QVector3D>&,
-		  QVector<QVector3D>&,
-		  int);
-  void smoothMesh(QList<Vec>&,
-		  QList<Vec>&,
-		  QList<Vec>&,
-		  int);
-
-  void saveMesh(QVector<QVector3D>,
-		QVector<QVector3D>,
-		QVector<QVector3D>,
-		QVector<QVector3D>,
-		QString, bool);
 
   QPair<QString, QList<int> > getTags(QString);
 
@@ -361,7 +347,7 @@ class DrishtiPaint : public QMainWindow
 
   void loadCheckPoint(QString);
 
-  void getValues(float&, float&, float&, int&, int&, int&, bool&);
+  bool getValues(float&, float&, float&, int&, int&, int&, int&, bool&);
 };
 
 #endif

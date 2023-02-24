@@ -9,6 +9,7 @@
 #include "dcolordialog.h"
 #include "morphslice.h"
 #include "propertyeditor.h"
+#include "meshtools.h"
 
 #include <QDockWidget>
 #include <QFileDialog>
@@ -4745,6 +4746,23 @@ DrishtiPaint::smoothData(uchar *gData,
 void
 DrishtiPaint::on_actionMeshTag_triggered()
 {
+  // get mesh file name  
+  QString pvlFilename = m_volume->fileName();
+  QString tflnm = QFileDialog::getSaveFileName(0,
+					       "Save mesh",
+					       QFileInfo(pvlFilename).absolutePath(),
+					       "*.ply ;; *.obj ;; *.stl");
+					       //QFileDialog::DontUseNativeDialog);
+  
+  if (tflnm.isEmpty())
+    return;
+
+  if (!StaticFunctions::checkExtension(tflnm, ".ply") &&
+      !StaticFunctions::checkExtension(tflnm, ".obj") &&
+      !StaticFunctions::checkExtension(tflnm, ".stl"))
+    tflnm += ".ply";
+
+
   QStringList dtypes;
   QList<int> tag;
 
@@ -4787,70 +4805,77 @@ DrishtiPaint::on_actionMeshTag_triggered()
     tag << -2;  
   //----------------
 
+
+  
   //----------------
   //bool saveFibers = false;
   //bool noScaling = false;
   int colorType = 1; // apply tag colors 
   Vec userColor = Vec(255, 255, 255);
 
-  dtypes.clear();
-  if (tag[0] == -2)
-    {
-      dtypes << "User Color"
-	     << "Tag Color"
-	     << "Transfer Function"
-	     << "Tag Color + Transfer Function";
-      
-      QString option = QInputDialog::getItem(0,
-					     "Mesh Color",
-					     "Color Mesh with",
-					     dtypes,
-					     0,
-					     false,
-					     &ok);
-      if (!ok)
-	return;
-      
-      colorType = 0;
-      if (option == "Tag Color") colorType = 1;
-      else if (option == "Tag Color + Transfer Function") colorType = 3;
-      else if (option == "Transfer Function") colorType = 5;
-    }
-//  else
-  if (tag[0] > -2)
-    {
-      dtypes << "Tag Color"
-	     << "Transfer Function"
-	     << "Tag Color + Transfer Function"
-	     << "Tag Mask + Transfer Function"
-	     << "User Color";
-//      if (m_curvesWidget->fibersPresent())
-//	dtypes << "Fibers";
 
-      QString option = QInputDialog::getItem(0,
-					     "Mesh Color",
-					     "Color Mesh with",
-					     dtypes,
-					     0,
-					     false,
-					     &ok);
-      if (!ok)
-	return;
-      
-      //if (option == "Fibers") saveFibers = true;
-      if (option == "Tag Color") colorType = 1;
-      else if (option == "Transfer Function") colorType = 2;
-      else if (option == "Tag Color + Transfer Function") colorType = 3;
-      else if (option == "Tag Mask + Transfer Function") colorType = 4;
-      else colorType = 0;
-    }
-
-  if (colorType == 0 || colorType == 4)
+  // ask for colour only while saving PLY files
+  if (tflnm.right(3).toLower() == "ply")
     {
-      QColor clr = QColor(255, 255, 255);
-      clr = DColorDialog::getColor(clr);
-      if (clr.isValid())
-	userColor = Vec(clr.red(), clr.green(), clr.blue());
+      dtypes.clear();
+      if (tag[0] == -2)
+	{
+	  dtypes << "User Color"
+		 << "Tag Color"
+		 << "Transfer Function"
+		 << "Tag Color + Transfer Function";
+	  
+	  QString option = QInputDialog::getItem(0,
+						 "Mesh Color",
+						 "Color Mesh with",
+						 dtypes,
+						 0,
+						 false,
+						 &ok);
+	  if (!ok)
+	    return;
+      
+	  colorType = 0;
+	  if (option == "Tag Color") colorType = 1;
+	  else if (option == "Tag Color + Transfer Function") colorType = 3;
+	  else if (option == "Transfer Function") colorType = 5;
+	}
+
+      if (tag[0] > -2)
+	{
+	  dtypes << "Tag Color"
+		 << "Transfer Function"
+		 << "Tag Color + Transfer Function"
+		 << "Tag Mask + Transfer Function"
+		 << "User Color";
+	  //      if (m_curvesWidget->fibersPresent())
+	  //	dtypes << "Fibers";
+
+	  QString option = QInputDialog::getItem(0,
+						 "Mesh Color",
+						 "Color Mesh with",
+						 dtypes,
+						 0,
+						 false,
+						 &ok);
+	  if (!ok)
+	    return;
+      
+	  //if (option == "Fibers") saveFibers = true;
+	  if (option == "Tag Color") colorType = 1;
+	  else if (option == "Transfer Function") colorType = 2;
+	  else if (option == "Tag Color + Transfer Function") colorType = 3;
+	  else if (option == "Tag Mask + Transfer Function") colorType = 4;
+	  else colorType = 0;
+	}
+      
+      if (colorType == 0 || colorType == 4)
+	{
+	  QColor clr = QColor(255, 255, 255);
+	  clr = DColorDialog::getColor(clr);
+	  if (clr.isValid())
+	    userColor = Vec(clr.red(), clr.green(), clr.blue());
+	}
     }
   //----------------
 
@@ -4890,48 +4915,28 @@ DrishtiPaint::on_actionMeshTag_triggered()
   qint64 tdepth = maxDSlice-minDSlice+1;
   qint64 twidth = maxWSlice-minWSlice+1;
   qint64 theight = maxHSlice-minHSlice+1;
-  
-  QString pvlFilename = m_volume->fileName();
-  QString tflnm = QFileDialog::getSaveFileName(0,
-					       "Save mesh",
-					       QFileInfo(pvlFilename).absolutePath(),
-					       "Polygon Files (*.ply)",
-					       0);
-					       //QFileDialog::DontUseNativeDialog);
-  
-  if (tflnm.isEmpty())
-    return;
-
-  if (!tflnm.endsWith(".ply"))
-    tflnm += ".ply";
 
 //  if (saveFibers)
 //    {
 //      meshFibers(tflnm);
 //      return;
 //    }
-//
-   
-//  int holeSize = 0;
-//  holeSize = QInputDialog::getInt(0,
-//				"Close holes",
-//				"Close Holes of Size (0 means no closing)",
-//				0, 0, 100, 1);
-//
 
-  int bType = -1;
+
   float isoValue, adaptivity, resample;
-  int holeSize, dataSmooth, meshSmooth;
-  bool noScaling = false;
+  int dataSmooth, meshSmooth;
+  bool applyVoxelScaling;
+  int morphoType;
+  int morphoRadius;
   
   getValues(isoValue,
 	    adaptivity,
 	    resample,
-	    holeSize,
+	    morphoType, morphoRadius,
 	    dataSmooth,
 	    meshSmooth,
-	    noScaling);
-  isoValue *= 255;  // since isoValue is returned between 0.0 and 1.0;
+	    applyVoxelScaling);
+  //isoValue *= 255;  // since isoValue is returned between 0.0 and 1.0;
 
 
   VdbVolume vdb;
@@ -5172,66 +5177,151 @@ DrishtiPaint::on_actionMeshTag_triggered()
 
       vdb.addSliceToVDB(raw,
 			slc, twidth, theight,
-			bType, isoValue);
+			-1, 1);  // values less than 1 are background
 
     }
 
   delete [] raw;
   delete [] mask;
 
-  progress.setValue(100);  
+  progress.setValue(90);  
 
 
 //==========================================================================
-  // close holes
-  if (holeSize > 0)
-    {
-      vdb.dilate(holeSize);
-      vdb.erode(holeSize);
-    }
 
+  // convert to levelset
+  vdb.convertToLevelSet(isoValue);
+
+  // Apply Morphological Operations
+  if (morphoType > 0 && morphoRadius > 0)
+    {
+      float offset = morphoRadius;
+      if (morphoType == 1)
+	{
+	  progress.setLabelText("Applying Morphological Dilation");
+	  vdb.offset(-offset); // dilate
+	}
+      if (morphoType == 2)
+	{
+	  progress.setLabelText("Applying Morphological Erosion");
+	  vdb.offset(offset); // erode
+	}
+      if (morphoType == 3)
+	{
+	  progress.setLabelText("Applying Morphological Closing");
+	  vdb.offset(-offset); // dilate
+	  vdb.offset(offset); // erode
+	}
+      if (morphoType == 4)
+	{
+	  progress.setLabelText("Applying Morphological Opening");
+	  vdb.offset(offset); // erode
+	  vdb.offset(-offset); // dilate
+	}
+      
+      progress.setValue(60);  
+      qApp->processEvents();      
+    }
+  
   // smoothing  
   if (dataSmooth > 0)
     {
-      vdb.dilate(1);
-      vdb.mean(1, dataSmooth); // width, iterations
+      progress.setLabelText("Smoothing volume before meshing");
+      progress.setValue(70);  
+      qApp->processEvents();      
+
+      float gwd;
+      gwd = 1.0/(float)qMax(depth, qMax(width,height));
+      vdb.mean(gwd, dataSmooth); // width, iterations
+    }
+  
+  // resample
+  if (qAbs(resample-1.0) > 0.001)
+    {
+      progress.setLabelText("Downsampling volume before meshing");
+      progress.setValue(80);  
+      qApp->processEvents();      
+
+      vdb.resample(resample);
     }
 
-  // resample
-  // apply smoothing first and then resample if asked for
-  if (qAbs(resample-1.0) > 0.001)
-    vdb.resample(resample);
-
   
+  progress.setLabelText("Generating Mesh");
+  progress.setValue(90);  
+  qApp->processEvents();      
+
   // extract surface mesh
   QVector<QVector3D> V;
   QVector<QVector3D> N;
   QVector<QVector3D> C;
   QVector<int> T;
-  vdb.generateMesh(0, isoValue, adaptivity, V, N, T);
 
-  C.resize(V.count());
-  C.fill(QVector3D(userColor.x, userColor.y, userColor.z));
+  // generating isosurface from level set therefore using 0 as isoValue
+  // isoValue < 0.5 result in dilated surface
+  // isoValue > 0.5 result in eroded surface
+  vdb.generateMesh(0, 3*(0.5-isoValue), adaptivity, V, N, T);
 
-  QVector<QVector3D> E;
-  for(int i=0; i<T.count()/3; i++)
-    E << QVector3D(T[3*i+0], T[3*i+1], T[3*i+2]);
-  
-  // for colorType 0 and 4 apply user defined color
-  if (colorType != 0 && colorType != 4)
-    colorMesh(C, V, N,
-	      colorType, curveMask,
-	      minHSlice, minWSlice, minDSlice,
-	      theight, twidth, tdepth, meshSmooth,
-	      resample);
-	      
+
+  // mesh smoothing
   if (meshSmooth > 0)
-    smoothMesh(V, N, E, 5*meshSmooth);
+    MeshTools::smoothMesh(V, N, T, 5*meshSmooth);
+
+  
+  // if saving ply apply color
+  // for colorType 0 and 4 apply user defined color
+  if (tflnm.right(3).toLower() == "ply")
+    {
+      C.resize(V.count());
+      C.fill(QVector3D(userColor.x, userColor.y, userColor.z));
+      if (colorType != 0 && colorType != 4)
+	colorMesh(C, V, N,
+		  colorType, curveMask,
+		  minHSlice, minWSlice, minDSlice,
+		  theight, twidth, tdepth, meshSmooth,
+		  resample);
+    }
+
+
+  // shift vertices
+  {
+    int minDSlice, maxDSlice;
+    int minWSlice, maxWSlice;
+    int minHSlice, maxHSlice;
+    m_viewer->getBox(minDSlice, maxDSlice,
+		     minWSlice, maxWSlice,
+		     minHSlice, maxHSlice);
     
-  saveMesh(V, N, C, E, tflnm, noScaling);
+    for(int i=0; i<V.count(); i++)
+      V[i] += QVector3D(minHSlice, minWSlice, minDSlice);
+  }
+  
+
+  //apply voxel size to vertices
+  if (applyVoxelScaling)
+    {
+      Vec vs = Global::voxelScaling();
+      QVector3D voxelScaling(vs.x, vs.y, vs.z);
+      for(int i=0; i<V.count(); i++)
+	V[i] *= voxelScaling;
+    }
 
 
-  QMessageBox::information(0, "Save", "-----Done-----");
+  // save mesh
+  if (tflnm.right(3).toLower() == "obj")
+    MeshTools::saveToOBJ(tflnm, V, N, T);
+  else if (tflnm.right(3).toLower() == "ply")
+    MeshTools::saveToPLY(tflnm, V, N, C, T);
+  else if (tflnm.right(3).toLower() == "stl")
+    MeshTools::saveToSTL(tflnm, V, N, T);
+
+
+  //QMessageBox::information(0, "Save", "-----Done-----");
+  QMessageBox mb;
+  mb.setWindowTitle("Save");
+  mb.setText("-----Done-----");
+  mb.setWindowFlags(Qt::Dialog|Qt::WindowStaysOnTopHint);
+  mb.exec();
+  
 
   delete [] curveMask;
   return;
@@ -5381,454 +5471,6 @@ DrishtiPaint::colorMesh(QVector<QVector3D>& C,
 
       C[ni] = QVector3D(r,g,b);
     }
-
-  progress.setValue(100);
-}
-
-void
-DrishtiPaint::saveMesh(QVector<QVector3D> V,
-		       QVector<QVector3D> N,
-		       QVector<QVector3D> C,
-		       QVector<QVector3D> E,
-		       QString flnm,
-		       bool noScaling)
-{
-  int minDSlice, maxDSlice;
-  int minWSlice, maxWSlice;
-  int minHSlice, maxHSlice;
-  m_viewer->getBox(minDSlice, maxDSlice,
-		   minWSlice, maxWSlice,
-		   minHSlice, maxHSlice);
-
-  Vec voxelScaling = Global::voxelScaling();
-  if (noScaling) voxelScaling = Vec(1,1,1);
-  
-  QProgressDialog progress("Saving mesh ...",
-			   QString(),
-			   0, 100,
-			   0,
-			   Qt::WindowStaysOnTopHint);
-  progress.setMinimumDuration(0);
-
-  QStringList ps;
-  ps << "x";
-  ps << "y";
-  ps << "z";
-  ps << "nx";
-  ps << "ny";
-  ps << "nz";
-  ps << "red";
-  ps << "green";
-  ps << "blue";
-  ps << "vertex_indices";
-  ps << "vertex";
-  ps << "face";
-
-  QList<char *> plyStrings;
-  for(int i=0; i<ps.count(); i++)
-    {
-      char *s;
-      s = new char[ps[i].size()+1];
-      strcpy(s, ps[i].toLatin1().data());
-      plyStrings << s;
-    }
-
-
-  int ntriangles = E.count();
-  int nvertices = V.count();
-
-  typedef struct PlyFace
-  {
-    unsigned char nverts;    /* number of Vertex indices in list */
-    int *verts;              /* Vertex index list */
-  } PlyFace;
-
-  typedef struct
-  {
-    real  x,  y,  z ;  /**< Vertex coordinates */
-    real nx, ny, nz ;  /**< Vertex normal */
-    uchar r, g, b;
-  } myVertex ;
-
-  PlyProperty vert_props[] = { /* list of property information for a vertex */
-    {plyStrings[0], Float32, Float32, offsetof(myVertex,x), 0, 0, 0, 0},
-    {plyStrings[1], Float32, Float32, offsetof(myVertex,y), 0, 0, 0, 0},
-    {plyStrings[2], Float32, Float32, offsetof(myVertex,z), 0, 0, 0, 0},
-    {plyStrings[3], Float32, Float32, offsetof(myVertex,nx), 0, 0, 0, 0},
-    {plyStrings[4], Float32, Float32, offsetof(myVertex,ny), 0, 0, 0, 0},
-    {plyStrings[5], Float32, Float32, offsetof(myVertex,nz), 0, 0, 0, 0},
-    {plyStrings[6], Uint8, Uint8, offsetof(myVertex,r), 0, 0, 0, 0},
-    {plyStrings[7], Uint8, Uint8, offsetof(myVertex,g), 0, 0, 0, 0},
-    {plyStrings[8], Uint8, Uint8, offsetof(myVertex,b), 0, 0, 0, 0},
-  };
-
-  PlyProperty face_props[] = { /* list of property information for a face */
-    {plyStrings[9], Int32, Int32, offsetof(PlyFace,verts),
-     1, Uint8, Uint8, offsetof(PlyFace,nverts)},
-  };
-
-  PlyFile    *ply;
-  FILE       *fp = fopen(flnm.toLatin1().data(),
-			 bin ? "wb" : "w");
-
-  PlyFace     face ;
-  int         verts[3] ;
-  char       *elem_names[]  = {plyStrings[10], plyStrings[11]};
-  ply = write_ply (fp,
-		   2,
-		   elem_names,
-		   bin? PLY_BINARY_LE : PLY_ASCII );
-
-  /* describe what properties go into the PlyVertex elements */
-  describe_element_ply ( ply, plyStrings[10], nvertices );
-  describe_property_ply ( ply, &vert_props[0] );
-  describe_property_ply ( ply, &vert_props[1] );
-  describe_property_ply ( ply, &vert_props[2] );
-  describe_property_ply ( ply, &vert_props[3] );
-  describe_property_ply ( ply, &vert_props[4] );
-  describe_property_ply ( ply, &vert_props[5] );
-  describe_property_ply ( ply, &vert_props[6] );
-  describe_property_ply ( ply, &vert_props[7] );
-  describe_property_ply ( ply, &vert_props[8] );
-
-  /* describe PlyFace properties (just list of PlyVertex indices) */
-  describe_element_ply ( ply, plyStrings[11], ntriangles );
-  describe_property_ply ( ply, &face_props[0] );
-
-  header_complete_ply ( ply );
-
-
-  /* set up and write the PlyVertex elements */
-  put_element_setup_ply ( ply, plyStrings[10] );
-
-  for(int ni=0; ni<nvertices; ni++)
-    {
-      if (ni%10000 == 0)
-	{
-	  progress.setValue((int)(100.0*(float)ni/(float)(nvertices)));
-	  qApp->processEvents();
-	}
-
-      myVertex vertex;
-      vertex.x = (minHSlice + V[ni].x())*voxelScaling.x;;
-      vertex.y = (minWSlice + V[ni].y())*voxelScaling.y;;
-      vertex.z = (minDSlice + V[ni].z())*voxelScaling.z;;
-      vertex.nx = N[ni].x();
-      vertex.ny = N[ni].y();
-      vertex.nz = N[ni].z();
-      vertex.r = C[ni].x();
-      vertex.g = C[ni].y();
-      vertex.b = C[ni].z();
-
-      put_element_ply ( ply, ( void * ) &vertex );
-    }
-
-  /* set up and write the PlyFace elements */
-  put_element_setup_ply ( ply, plyStrings[11] );
-  face.nverts = 3 ;
-  face.verts  = verts ;
-  for(int ni=0; ni<ntriangles; ni++)
-    {      
-      face.verts[0] = E[ni].x();
-      face.verts[1] = E[ni].y();
-      face.verts[2] = E[ni].z();
-      
-      put_element_ply ( ply, ( void * ) &face );
-    }
-
-  close_ply ( ply );
-  free_ply ( ply );
-
-  for(int i=0; i<plyStrings.count(); i++)
-    delete [] plyStrings[i];
-
-  progress.setValue(100);
-}
-
-void
-DrishtiPaint::smoothMesh(QVector<QVector3D>& V,
-			 QVector<QVector3D>& N,
-			 QVector<QVector3D>& E,
-			 int ntimes)
-{  
-  QProgressDialog progress("Mesh smoothing in progress ... ",
-			   QString(),
-			   0, 100,
-			   0,
-			   Qt::WindowStaysOnTopHint);
-  progress.setMinimumDuration(0);
-
-  QVector<QVector3D> newV;
-  newV = V;
-
-  int nv = V.count();
-
-  //----------------------------
-  // create incidence matrix
-  QMultiMap<int, int> imat;
-  int ntri = E.count();
-  for(int i=0; i<ntri; i++)
-    {
-      if (i%10000 == 0)
-	{
-	  progress.setValue((int)(100.0*(float)i/(float)(ntri)));
-	  qApp->processEvents();
-	}
-
-      int a = E[i].x();
-      int b = E[i].y();
-      int c = E[i].z();
-
-      imat.insert(a, b);
-      imat.insert(b, a);
-      imat.insert(a, c);
-      imat.insert(c, a);
-      imat.insert(b, c);
-      imat.insert(c, b);
-    }
-  //----------------------------
-
-  //----------------------------
-  // smooth vertices
-  progress.setLabelText("   Smoothing vertices ...");
-  for(int nt=0; nt<ntimes; nt++)
-    {
-      progress.setValue((int)(100.0*(float)nt/(float)(ntimes)));
-      qApp->processEvents();
-
-      // deflation step
-      for(int i=0; i<nv; i++)
-	{
-	  QList<int> idx = imat.values(i);
-	  QVector3D v0 = V[i];
-	  QVector3D v = QVector3D(0,0,0);
-	  float sum = 0;
-	  for(int j=0; j<idx.count(); j++)
-	    {
-	      QVector3D vj = V[idx[j]];
-	      float ln = (v0-vj).length();
-	      if (ln > 0)
-		{
-		  sum += 1.0/ln;
-		  v = v + vj/ln;
-		}
-	    }
-	  if (sum > 0)
-	    v0 = v0 + 0.9*(v/sum - v0);
-	  newV[i] = v0;
-	}
-
-      //inflation step
-      for(int i=0; i<nv; i++)
-	{
-	  QList<int> idx = imat.values(i);
-	  QVector3D v0 = newV[i];
-	  QVector3D v = QVector3D(0,0,0);
-	  float sum = 0;
-	  for(int j=0; j<idx.count(); j++)
-	    {
-	      QVector3D vj = newV[idx[j]];
-	      float ln = (v0-vj).length();
-	      if (ln > 0)
-		{
-		  sum += 1.0/ln;
-		  v = v + vj/ln;
-		}
-	    }
-	  if (sum > 0)
-	    v0 = v0 - 0.5*(v/sum - v0);
-
-	  V[i] = v0;
-	}
-    }
-  //----------------------------
-
-
-  //----------------------------
-  progress.setLabelText("   Calculate normals ...");
-  // now calculate normals
-  for(int i=0; i<nv; i++)
-    newV[i] = QVector3D(0,0,0);
-
-  QVector<int> nvs;
-  nvs.resize(nv);
-  nvs.fill(0);
-
-  for(int i=0; i<ntri; i++)
-    {
-      if (i%10000 == 0)
-	{
-	  progress.setValue((int)(100.0*(float)i/(float)(ntri)));
-	  qApp->processEvents();
-	}
-
-      int a = E[i].x();
-      int b = E[i].y();
-      int c = E[i].z();
-
-      QVector3D va = V[a];
-      QVector3D vb = V[b];
-      QVector3D vc = V[c];
-      QVector3D v0 = (vb-va).normalized();
-      QVector3D v1 = (vc-va).normalized();      
-      QVector3D vn = QVector3D::crossProduct(v1,v0);
-      
-      newV[a] += vn;
-      newV[b] += vn;
-      newV[c] += vn;
-
-      nvs[a]++;
-      nvs[b]++;
-      nvs[c]++;
-    }
-
-  for(int i=0; i<nv; i++)
-      N[i] = newV[i]/nvs[i];
-  //----------------------------
-
-  progress.setValue(100);
-}
-
-void
-DrishtiPaint::smoothMesh(QList<Vec>& V,
-			 QList<Vec>& N,
-			 QList<Vec>& E,
-			 int ntimes)
-{
-  QList<Vec> newV;
-  newV = V;
-
-  int nv = V.count();
-  QProgressDialog progress("Mesh smoothing in progress ... ",
-			   QString(),
-			   0, 100,
-			   0,
-			   Qt::WindowStaysOnTopHint);
-  progress.setMinimumDuration(0);
-
-  //----------------------------
-  // create incidence matrix
-  progress.setLabelText("Generate incidence matrix ...");
-  QMultiMap<int, int> imat;
-  int ntri = E.count();
-  for(int i=0; i<ntri; i++)
-    {
-      if (i%10000 == 0)
-	{
-	  progress.setValue((int)(100.0*(float)i/(float)(ntri)));
-	  qApp->processEvents();
-	}
-
-      int a = E[i].x;
-      int b = E[i].y;
-      int c = E[i].z;
-
-      imat.insert(a, b);
-      imat.insert(b, a);
-      imat.insert(a, c);
-      imat.insert(c, a);
-      imat.insert(b, c);
-      imat.insert(c, b);
-    }
-  //----------------------------
-
-  //----------------------------
-  // smooth vertices
-  progress.setLabelText("Process vertices ...");
-  for(int nt=0; nt<ntimes; nt++)
-    {
-      progress.setValue((int)(100.0*(float)nt/(float)(ntimes)));
-      qApp->processEvents();
-
-      // deflation step
-      for(int i=0; i<nv; i++)
-	{
-	  QList<int> idx = imat.values(i);
-	  Vec v0 = V[i];
-	  Vec v = Vec(0,0,0);
-	  float sum = 0;
-	  for(int j=0; j<idx.count(); j++)
-	    {
-	      Vec vj = V[idx[j]];
-	      float ln = (v0-vj).norm();
-	      if (ln > 0)
-		{
-		  sum += 1.0/ln;
-		  v = v + vj/ln;
-		}
-	    }
-	  if (sum > 0)
-	    v0 = v0 + 0.9*(v/sum - v0);
-	  newV[i] = v0;
-	}
-
-      // inflation step
-      for(int i=0; i<nv; i++)
-	{
-	  QList<int> idx = imat.values(i);
-	  Vec v0 = newV[i];
-	  Vec v = Vec(0,0,0);
-	  float sum = 0;
-	  for(int j=0; j<idx.count(); j++)
-	    {
-	      Vec vj = newV[idx[j]];
-	      float ln = (v0-vj).norm();
-	      if (ln > 0)
-		{
-		  sum += 1.0/ln;
-		  v = v + vj/ln;
-		}
-	    }
-	  if (sum > 0)
-	    v0 = v0 - 0.5*(v/sum - v0);
-	  V[i] = v0;
-	}
-    }
-  //----------------------------
-
-
-  //----------------------------
-  progress.setLabelText("Calculate normals ...");
-  // now calculate normals
-  for(int i=0; i<nv; i++)
-    newV[i] = Vec(0,0,0);
-
-  QVector<int> nvs;
-  nvs.resize(nv);
-  nvs.fill(0);
-
-  for(int i=0; i<ntri; i++)
-    {
-      if (i%10000 == 0)
-	{
-	  progress.setValue((int)(100.0*(float)i/(float)(ntri)));
-	  qApp->processEvents();
-	}
-
-      int a = E[i].x;
-      int b = E[i].y;
-      int c = E[i].z;
-
-      Vec va = V[a];
-      Vec vb = V[b];
-      Vec vc = V[c];
-      Vec v0 = (vb-va).unit();
-      Vec v1 = (vc-va).unit();      
-      Vec vn = v0^v1;
-      
-      newV[a] += vn;
-      newV[b] += vn;
-      newV[c] += vn;
-
-      nvs[a]++;
-      nvs[b]++;
-      nvs[c]++;
-    }
-
-  for(int i=0; i<nv; i++)
-      N[i] = newV[i]/nvs[i];
-  //----------------------------
-
 
   progress.setValue(100);
 }
@@ -7945,22 +7587,23 @@ DrishtiPaint::on_actionHelp3D_triggered()
 }
 
 
-void
+bool
 DrishtiPaint::getValues(float& isoValue,
 			float& adaptivity,
 			float& resample,
-			int& holeSize,
+			int& morphoType, int& morphoRadius,
 			int& dataSmooth,
 			int& meshSmooth,
-			bool& noScaling)  
+			bool& applyVoxelScaling)  
 {
   isoValue = 0.5;
   adaptivity = 0.1;
-  holeSize = 0;
   dataSmooth = 0;
   meshSmooth = 0;
   resample = 1.0;
-  noScaling = false;
+  morphoType = 0;
+  morphoRadius = 0;
+  applyVoxelScaling = true;
 
   PropertyEditor propertyEditor;
   QMap<QString, QVariantList> plist;
@@ -8010,11 +7653,22 @@ DrishtiPaint::getValues(float& isoValue,
 
   
   vlist.clear();
+  vlist << QVariant("combobox");
+  vlist << "0";
+  vlist << "";
+  vlist << "Dilate";
+  vlist << "Erode";
+  vlist << "Close";
+  vlist << "Open";
+  plist["morpho operator"] = vlist;
+
+  vlist.clear();
   vlist << QVariant("int");
-  vlist << QVariant(holeSize);
+  vlist << QVariant(morphoRadius);
   vlist << QVariant(0);
   vlist << QVariant(100);
-  plist["close holes"] = vlist;
+  plist["morpho radius"] = vlist;
+
 
 
 // Apply voxel scaling to mesh.
@@ -8022,14 +7676,37 @@ DrishtiPaint::getValues(float& isoValue,
 // Otherwise leave it unchecked
   vlist.clear();
   vlist << QVariant("checkbox");
-  vlist << QVariant(noScaling);
-  plist["no scaling"] = vlist;
+  vlist << QVariant(applyVoxelScaling);
+  plist["apply voxel size"] = vlist;
 
-//  vlist.clear();
-//  QString mesg;
-//  mesg += "Extract surface mesh from the segmentation";
-//  vlist << mesg;
-//  plist["message"] = vlist;
+  
+
+  vlist.clear();
+  QFile helpFile(":/mesh.help");
+  if (helpFile.open(QFile::ReadOnly))
+    {
+      QTextStream in(&helpFile);
+      QString line = in.readLine();
+      while (!line.isNull())
+	{
+	  if (line == "#begin")
+	    {
+	      QString keyword = in.readLine();
+	      QString helptext;
+	      line = in.readLine();
+	      while (!line.isNull())
+		{
+		  helptext += line;
+		  helptext += "\n";
+		  line = in.readLine();
+		  if (line == "#end") break;
+		}
+	      vlist << keyword << helptext;
+	    }
+	  line = in.readLine();
+	}
+    }	      
+  plist["commandhelp"] = vlist;
   
 
   QStringList keys;
@@ -8038,21 +7715,22 @@ DrishtiPaint::getValues(float& isoValue,
   keys << "downsample";
   keys << "smooth data";
   keys << "mesh smoothing";
-  keys << "close holes";
-  keys << "no scaling";
-  //keys << "commandhelp";
+  keys << "morpho operator";
+  keys << "morpho radius";
+  keys << "apply voxel size";
+  keys << "commandhelp";
   //keys << "message";
 
   
   propertyEditor.set("Mesh Generation Parameters", plist, keys);
-  propertyEditor.resize(300, 400);
+  propertyEditor.resize(700, 400);
 
   QMap<QString, QPair<QVariant, bool> > vmap;
   
   if (propertyEditor.exec() == QDialog::Accepted)
     vmap = propertyEditor.get();
   else
-    return;
+    return false;
   
   for(int ik=0; ik<keys.count(); ik++)
     {
@@ -8070,10 +7748,14 @@ DrishtiPaint::getValues(float& isoValue,
 	    dataSmooth = pair.first.toInt();
 	  else if (keys[ik] == "mesh smoothing")
 	    meshSmooth = pair.first.toInt();
-	  else if (keys[ik] == "holeSize")
-	    holeSize = pair.first.toInt();
-	  else if (keys[ik] == "no scaline")
-	    noScaling = pair.first.toBool();
+	  else if (keys[ik] == "morpho operator")
+	    morphoType = pair.first.toInt();
+	  else if (keys[ik] == "morpho radius")
+	    morphoRadius = pair.first.toInt();
+	  else if (keys[ik] == "apply voxel size")
+	    applyVoxelScaling = pair.first.toBool();
 	}
     }
+
+  return true;
 }

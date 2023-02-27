@@ -1,0 +1,89 @@
+#begin
+ General Help
+
+Generate adaptivity mesh from the segmentation data.
+
+Save surface mesh to PLY/OBJ/STL formats.
+
+A colored mesh is saved when PLY option is chosen.
+
+A binary visibility volume is first prepared using tag and voxel opacities, which then is used to generate the surface mesh.  This visibility volume has 1 for those voxels that have non-zero opacity and 0 otherwise.  Smoothing can be applied to this volume resulting is smoother surface mesh.  An isosurface value of 0.5 is default, lower values result in dilated surface, whereas, higher values result in eroded surface.
+
+Users can generate water-tight surface mesh using voxel values.
+
+Surfaces are suitable for 3D printing.
+
+Morphological operators - dilate/erode/close/open can be applied.
+#end
+
+
+#begin
+isosurface value
+In order to generate the surface mesh, first a binary visibility volume is created from given information about tag opacity/transfer function etc.  Smoothing can be applied to this volume - smooth data parameter defines the degree of smoothing.  An isosurface is then generated from this volume.  Lower isosurface values - closer to 0.0 - result in dilated surface, whereas higher values in an eroded surface.
+
+Default value is 0.5
+
+#end
+
+#begin
+adaptivity
+The adaptivity threshold determines how closely the isosurface is matched by the resulting mesh.
+Higher thresholds will allow more variation in polygon size, using fewer polygons to express the surface.  Adaptivity values range between 0.0 and 1.0.
+
+Default value is 0.1
+#end
+
+
+#begin
+downsample
+
+Downsample the volume before isosurface mesh generation.
+
+Default value is 1 - no downsampling.
+
+#end
+
+
+#begin
+mesh smoothing
+
+Smooth mesh using Taubin smoothing after isosurface mesh has been generated.
+
+Default value is 0 - no smoothing is applied.
+#end
+
+
+#begin
+smooth data
+
+Smooth the visibility volume before isosurface mesh generation.
+
+Default value is 0 - no smoothing is applied.
+#end
+
+
+#begin
+apply voxel size
+
+Multiply mesh coordinates by voxel size.
+
+#end
+
+
+#begin
+morpho operator
+
+From the dropdown list select the morphological operator to apply.
+
+Close is typically used for closing holes.
+
+Open is typically used to remove smaller objects.
+#end
+
+
+#begin
+morpho radius
+
+Select the neighbourhood radius for applying morphological operator.  When the radius is 0, morphological operator is not applied.
+
+#end

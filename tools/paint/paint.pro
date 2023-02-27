@@ -131,7 +131,6 @@ HEADERS += commonqtclasses.h \
 	graphcut/block.h \
 	graphcut/point.h \
 	lookuptable.h \
-	marchingcubes.h \
 	showhelp.h \
 	getmemorysize.h \
 	popupslider.h \
@@ -193,7 +192,6 @@ SOURCES += drishtipaint.cpp \
 	volumeoperations.cpp \
 	graphcut/graph.cpp \
 	graphcut/graphcut.cpp \
-	marchingcubes.cpp \
 	showhelp.cpp \
 	getmemorysize.cpp \
 	popupslider.cpp \

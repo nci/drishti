@@ -20,8 +20,6 @@
 #include "myslider.h"
 #include "volume.h"
 #include "viewer3d.h"
-#include "marchingcubes.h"
-#include "ply.h"
 #include "popupslider.h"
 #include "pywidget.h"
 

@@ -51,20 +51,23 @@ win32 {
     INCLUDEPATH += ..\glmedia-64 \
                    16bit \
                    c:/cygwin64/home/acl900/drishtilib/assimp-5.0.1/include \
-                   c:/cygwin64/home/acl900/drishtilib/assimp-5.0.1/build/include
+                   c:/cygwin64/home/acl900/drishtilib/assimp-5.0.1/build/include \
+                   C:\cygwin64\home\acl900\vcpkg\vcpkg\installed\x64-windows\include
                    
     QMAKE_LIBDIR += ..\glmedia-64 \
                    c:/cygwin64/home/acl900/drishtilib/assimp-5.0.1/libs \
+                   C:\cygwin64\home\acl900\vcpkg\vcpkg\installed\x64-windows\lib
 
                    
     LIBS += QGLViewer2.lib \
-  	netcdfcpp.lib \
-  	glew32.lib \
-  	freeglut.lib \
-  	glmedia.lib \
-        opengl32.lib \
-        glu32.lib \
-        assimp-vc142-mt.lib
+            netcdf-cxx4.lib \
+            netcdf.lib \
+  	    glew32.lib \
+  	    freeglut.lib \
+  	    glmedia.lib \
+            opengl32.lib \
+            glu32.lib \
+            assimp-vc142-mt.lib
   }
 }
 

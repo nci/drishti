@@ -3,7 +3,14 @@
 #include "networkobject.h"
 #include "matrix.h"
 #if defined(Q_OS_WIN32)
-#include <netcdfcpp.h>
+#include <ncVar.h>
+#include <ncFile.h>
+#include <ncDim.h>
+#include <ncException.h>
+#include <netcdf>
+#include <map>
+using namespace netCDF;
+using namespace netCDF::exceptions;
 #endif
 
 void NetworkObject::setScale(float s) { m_scaleV = m_scaleE = s; }
@@ -477,47 +484,61 @@ NetworkObject::loadNetCDF(QString flnm)
 #if defined(Q_OS_WIN32)
   m_fileName = flnm;
 
-  NcError err(NcError::verbose_nonfatal);
-
-  NcFile ncfFile(flnm.toLatin1().data(), NcFile::ReadOnly);
-  NcAtt *att;
-  NcVar *var;
-
-  // ---- get gridsize -----
-  att = ncfFile.get_att("gridsize");
-  m_nX = att->as_int(0);
-  m_nY = att->as_int(1);
-  m_nZ = att->as_int(2);
-  //------------------------
-
-  // ---- get vertex centers -----
-  var = ncfFile.get_var("vertex_centers");
-  if (!var)
-    var = ncfFile.get_var("vertex_center");
-  if (!var)
-    var = ncfFile.get_var("vertex_centres");
-  if (!var)
-    var = ncfFile.get_var("vertex_centre");
+  NcFile ncfFile;
+  try
+    {
+      ncfFile.open(flnm.toStdString(), NcFile::read);
+    }
+  catch(NcException &e)
+    {
+      QMessageBox::information(0, "Error",
+			       QString("%1 is not a valid NetCDF file").\
+			       arg(flnm));
+      return false;
+    }
   
-  int nv = var->get_dim(0)->size();
-  float *vc = new float [3*nv];
-  var->get(vc, nv, 3);
-  m_vertexCenters.resize(nv);
-  for(int i=0; i<nv; i++)
-    m_vertexCenters[i] = Vec(vc[3*i+0], vc[3*i+1], vc[3*i+2]);
-  delete [] vc;
+  // ---- get gridsize -----
+  NcGroupAtt att = ncfFile.getAtt("gridsize");
+  double values[10];
+  att.getValues(&values[0]);
+  m_nX = values[0];
+  m_nY = values[1];
+  m_nZ = values[2];
   //------------------------
 
+  int nv = 0; // number of vertices  
+  // ---- get vertex centers -----
+  {
+    NcVar var = ncfFile.getVar("vertex_centers");
+    if (var.isNull())
+      var = ncfFile.getVar("vertex_center");
+    if (var.isNull())
+      var = ncfFile.getVar("vertex_centres");
+    if (var.isNull())
+      var = ncfFile.getVar("vertex_centre");
+    
+    nv = var.getDim(0).getSize();
+    float *vc = new float [3*nv];
+    var.getVar(vc);
+    m_vertexCenters.resize(nv);
+    for(int i=0; i<nv; i++)
+      m_vertexCenters[i] = Vec(vc[3*i+0], vc[3*i+1], vc[3*i+2]);
+    delete [] vc;
+  }
+  //------------------------
 
+  int ne = 0;  // number of edges
   // ---- get edges -----
-  var = ncfFile.get_var("edge_neighbours");
-  int ne = var->get_dim(0)->size();
-  int *ed = new int [2*ne];
-  var->get(ed, ne, 2);
-  m_edgeNeighbours.resize(ne);
-  for(int i=0; i<ne; i++)
-    m_edgeNeighbours[i] = qMakePair(ed[2*i], ed[2*i+1]);
-  delete [] ed;
+  {
+    NcVar var = ncfFile.getVar("edge_neighbours");
+    ne = var.getDim(0).getSize();
+    int *ed = new int [2*ne];
+    var.getVar(ed);
+    m_edgeNeighbours.resize(ne);
+    for(int i=0; i<ne; i++)
+      m_edgeNeighbours[i] = qMakePair(ed[2*i], ed[2*i+1]);
+    delete [] ed;
+  }
   //------------------------
 
 
@@ -541,22 +562,16 @@ NetworkObject::loadNetCDF(QString flnm)
     
 
 
-//  QStringList vatt, eatt;
-  int nvars = ncfFile.num_vars();
-//  for (int i=0; i < nvars; i++)
-//    {
-//      var = ncfFile.get_var(i);      
-//      QString attname = var->name();
-//      attname.toLower();
-//      if (attname.contains("vertex_") &&
-//	  ( attname != "vertex_centers" ||
-//	    attname != "vertex_centres"))
-//	vatt.append(attname);
-//      else if (attname.contains("edge_") &&
-//	       attname != "edge_neighbours")
-//	eatt.append(attname);
-//    }
+  multimap<string, NcVar> groupMap;
+  groupMap = ncfFile.getVars();
+  QList<QString> varNames;
+  for (const auto &p : groupMap)
+    {
+      varNames.append(QString::fromStdString(p.first));
+    }
+  int nvars = varNames.count();
 
+  
   m_vertexAttribute.clear();
   m_edgeAttribute.clear();
 
@@ -567,8 +582,8 @@ NetworkObject::loadNetCDF(QString flnm)
   int eri = 0;
   for (int i=0; i < nvars; i++)
     {
-      var = ncfFile.get_var(i);      
-      QString attname = var->name();
+      NcVar var = ncfFile.getVar(varNames[i].toStdString());      
+      QString attname = varNames[i];
       attname.toLower();
 
       if (attname.contains("vertex_") &&
@@ -584,34 +599,34 @@ NetworkObject::loadNetCDF(QString flnm)
 	  QVector<float> val;
 	  val.clear();
 
-	  if (var->type() == ncByte || var->type() == ncChar)
+	  if (var.getType() == ncByte || var.getType() == ncChar)
 	    {
 	      uchar *v = new uchar[nv];
-	      var->get((ncbyte *)v, nv);
+	      var.getVar((unsigned char*)v);
 	      for(int j=0; j<nv; j++)
 		val.append(v[j]);
 	      delete [] v;
 	    }
-	  else if (var->type() == ncShort)
+	  else if (var.getType() == ncShort)
 	    {
 	      short *v = new short[nv];
-	      var->get((short *)v, nv);
+	      var.getVar((short *)v);
 	      for(int j=0; j<nv; j++)
 		val.append(v[j]);
 	      delete [] v;
 	    }
-	  else if (var->type() == ncInt)
+	  else if (var.getType() == ncInt)
 	    {
 	      int *v = new int[nv];
-	      var->get((int *)v, nv);
+	      var.getVar((int *)v);
 	      for(int j=0; j<nv; j++)
 		val.append(v[j]);
 	      delete [] v;
 	    }
-	  else if (var->type() == ncFloat)
+	  else if (var.getType() == ncFloat)
 	    {
 	      float *v = new float[nv];
-	      var->get((float *)v, nv);
+	      var.getVar((float *)v);
 	      for(int j=0; j<nv; j++)
 		val.append(v[j]);
 	      delete [] v;
@@ -630,34 +645,34 @@ NetworkObject::loadNetCDF(QString flnm)
 	  QVector<float> val;
 	  val.clear();
 
-	  if (var->type() == ncByte || var->type() == ncChar)
+	  if (var.getType() == ncByte || var.getType() == ncChar)
 	    {
 	      uchar *v = new uchar[ne];
-	      var->get((ncbyte *)v, ne);
+	      var.getVar((unsigned char*)v);
 	      for(int j=0; j<ne; j++)
 		val.append(v[j]);
 	      delete [] v;
 	    }
-	  else if (var->type() == ncShort)
+	  else if (var.getType() == ncShort)
 	    {
 	      short *v = new short[ne];
-	      var->get((short *)v, ne);
+	      var.getVar((short *)v);
 	      for(int j=0; j<ne; j++)
 		val.append(v[j]);
 	      delete [] v;
 	    }
-	  else if (var->type() == ncInt)
+	  else if (var.getType() == ncInt)
 	    {
 	      int *v = new int[ne];
-	      var->get((int *)v, ne);
+	      var.getVar((int *)v);
 	      for(int j=0; j<ne; j++)
 		val.append(v[j]);
 	      delete [] v;
 	    }
-	  else if (var->type() == ncFloat)
+	  else if (var.getType() == ncFloat)
 	    {
 	      float *v = new float[ne];
-	      var->get((float *)v, ne);
+	      var.getVar((float *)v);
 	      for(int j=0; j<ne; j++)
 		val.append(v[j]);
 	      delete [] v;

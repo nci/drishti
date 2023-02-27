@@ -2875,12 +2875,14 @@ Raw2Pvl::saveIsosurface(VolumeData* volData,
   int meshSmooth;
   int morphoType;
   int morphoRadius;
+  QColor meshColor;
   bool applyVoxelScaling;
   if (!getValues(ivType, isoValue,
 		 bType, bValue1, bValue2,
 		 adaptivity, resample,
 		 morphoType, morphoRadius,
-		 dataSmooth, meshSmooth, applyVoxelScaling))
+		 dataSmooth, meshSmooth,
+		 meshColor, applyVoxelScaling))
     return;
   // return if the parameters are not correct
   
@@ -3096,7 +3098,6 @@ Raw2Pvl::saveIsosurface(VolumeData* volData,
       QVector<QVector3D> V;
       QVector<QVector3D> VN;
       QVector<int> T;
-      //vdb.generateMesh(ivType, isoValue, adaptivity, V, VN, T);
       vdb.generateMesh(0, 0, adaptivity, V, VN, T);
 
       progress.setLabelText("Saving Mesh to "+QFileInfo(meshflnm).fileName());
@@ -3109,15 +3110,22 @@ Raw2Pvl::saveIsosurface(VolumeData* volData,
 	  volData->voxelSize(vx, vy, vz);
 	  for(int i=0; i<V.count(); i++)
 	    V[i] *= QVector3D(vx, vy, vz);
-	}
-
+	}      
+      
       if (meshSmooth > 0)  
 	MeshTools::smoothMesh(V, VN, T, 5*meshSmooth);
 
       if (meshflnm.right(3).toLower() == "obj")
 	MeshTools::saveToOBJ(meshflnm, V, VN, T);
       else if (meshflnm.right(3).toLower() == "ply")
-	MeshTools::saveToPLY(meshflnm, V, VN, T);
+	{
+	  QVector<QVector3D> C;
+	  C.resize(V.count());
+	  C.fill(QVector3D(meshColor.red(),
+			   meshColor.green(),
+			   meshColor.blue()));			   
+	  MeshTools::saveToPLY(meshflnm, V, VN, C, T);
+	}
       else if (meshflnm.right(3).toLower() == "stl")
 	MeshTools::saveToSTL(meshflnm, V, VN, T);
       
@@ -3133,7 +3141,8 @@ Raw2Pvl::getValues(int& ivType, float& isoValue,
 		   int& bType, float& bValue1, float& bValue2,
 		   float& adaptivity, float& resample,
 		   int& morphoType, int& morphoRadius,
-		   int& dataSmooth, int& meshSmooth, bool& applyVoxelScaling)
+		   int& dataSmooth, int& meshSmooth,
+		   QColor &color, bool& applyVoxelScaling)
 {
   isoValue = 0;
   adaptivity = 0.1;
@@ -3143,7 +3152,8 @@ Raw2Pvl::getValues(int& ivType, float& isoValue,
   morphoType = 0;
   morphoRadius = 0;
   applyVoxelScaling = true;
-
+  color = QColor(Qt::white);
+  
   QString text("0");
   QString btext("<0");
   
@@ -3213,6 +3223,11 @@ Raw2Pvl::getValues(int& ivType, float& isoValue,
   plist["morpho radius"] = vlist;
 
   vlist.clear();
+  vlist << QVariant("color");
+  vlist << color;
+  plist["color"] = vlist;
+
+  vlist.clear();
   vlist << QVariant("checkbox");
   vlist << QVariant(applyVoxelScaling);
   plist["apply voxel size"] = vlist;
@@ -3256,6 +3271,7 @@ Raw2Pvl::getValues(int& ivType, float& isoValue,
   keys << "mesh smoothing";
   keys << "morpho operator";
   keys << "morpho radius";
+  keys << "color";
   keys << "apply voxel size";
   keys << "commandhelp";
   //keys << "message";
@@ -3293,6 +3309,8 @@ Raw2Pvl::getValues(int& ivType, float& isoValue,
 	    morphoType = pair.first.toInt();
 	  else if (keys[ik] == "morpho radius")
 	    morphoRadius = pair.first.toInt();
+	  else if (keys[ik] == "color")
+	    color = pair.first.value<QColor>();
 	  else if (keys[ik] == "apply voxel size")
 	    applyVoxelScaling = pair.first.toBool();
 	}

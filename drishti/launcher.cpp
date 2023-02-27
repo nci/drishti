@@ -1,12 +1,18 @@
 #include "launcher.h"
 #include <QDir>
 
+#ifdef Q_OS_WIN
+    #include <windows.h>
+    #include <shellapi.h>
+#endif
+
 
 Launcher::Launcher(QWidget *parent) :
   QDialog(parent, Qt::WindowTitleHint|Qt::WindowCloseButtonHint)
 {
   ui.setupUi(this);
-
+  
+  
   setStyleSheet("QWidget{background:black;}");
   ui.drishti->setStyleSheet("QWidget{background:aliceblue;}");
   ui.drishtiImport->setStyleSheet("QWidget{background:azure;}");
@@ -44,11 +50,33 @@ Launcher::drishti(bool b)
   close();
 }
 
+
+//When running under Microsoft Windows with User Account Control (UAC) enabled,
+//the following code always fails if starting a program that requires elevated
+//privileges.
+//The inner reason for this failure is that QProcess::startDetached method
+//under Windows internally calls CreateProcess function. CreateProcess called
+//from a non-elevated process fails with ERROR_ELEVATION_REQUIRED if it tries
+//to start an executable that requires elevation.
+//Corresponding error report in Qt Bug Tracker was rejected because it "sounds
+//like a reasonable limitation of QProcess".
+//Hence QProcess::startDetached is replaced with ShellExecute function.
+
 void
 Launcher::drishtiImport(bool b)
 {
 #if defined(Q_OS_WIN32)
-  QProcess::startDetached(qApp->applicationDirPath() + QDir::separator() + "drishtiimport.exe");
+  QString exeFileName = qApp->applicationDirPath() + QDir::separator() + "drishtiimport.exe";
+  int result = (int)::ShellExecuteA(0, "open", exeFileName.toUtf8().constData(), 0, 0, SW_SHOWNORMAL);
+  if (SE_ERR_ACCESSDENIED == result)
+    {
+      // Requesting elevation
+      result = (int)::ShellExecuteA(0, "runas", exeFileName.toUtf8().constData(), 0, 0, SW_SHOWNORMAL);
+    }
+  if (result <= 32)
+    {
+      // error handling
+    }  
 #else
   QProcess::startDetached(qApp->applicationDirPath() + QDir::separator() + "drishtiimport");
 #endif
@@ -59,7 +87,17 @@ void
 Launcher::drishtiPaint(bool b)
 {
 #if defined(Q_OS_WIN32)
-  QProcess::startDetached(qApp->applicationDirPath() + QDir::separator() + "drishtipaint.exe");
+  QString exeFileName = qApp->applicationDirPath() + QDir::separator() + "drishtipaint.exe";
+  int result = (int)::ShellExecuteA(0, "open", exeFileName.toUtf8().constData(), 0, 0, SW_SHOWNORMAL);
+  if (SE_ERR_ACCESSDENIED == result)
+    {
+      // Requesting elevation
+      result = (int)::ShellExecuteA(0, "runas", exeFileName.toUtf8().constData(), 0, 0, SW_SHOWNORMAL);
+    }
+  if (result <= 32)
+    {
+      // error handling
+    }  
 #else
   QProcess::startDetached(qApp->applicationDirPath() + QDir::separator() + "drishtipaint");
 #endif

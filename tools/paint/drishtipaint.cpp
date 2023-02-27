@@ -188,7 +188,7 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   Global::setMainWindow(this);
     
   ui.setupUi(this);
-
+  
   qApp->setFont(QFont("MS Reference Sans Serif", 12));
   
   ui.statusbar->setEnabled(true);
@@ -553,6 +553,9 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   m_blockList.clear();
 
   m_pyWidget = 0;
+
+  resize(1600, 1024);
+
 }
 
 void DrishtiPaint::on_actionHelp_triggered() { ShowHelp::showMainHelp(); }

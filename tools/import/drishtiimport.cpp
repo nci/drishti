@@ -16,6 +16,7 @@ DrishtiImport::DrishtiImport(QWidget *parent) :
 {
   ui.setupUi(this);
 
+  resize(1280, 1024);
   qApp->setFont(QFont("MS Reference Sans Serif", 12));
   
 

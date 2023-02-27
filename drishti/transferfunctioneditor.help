@@ -46,26 +46,23 @@ Duplicate current transfer function.
 
 #begin
 (Plotting Interface) Mouse Left
-Add transfer function spline point.
-Move an existing spline point.
-Move spline-normal independently.
+When not clicked on any of the spline points, then add transfer function spline point.
+When basepoint is clicked then move the entire spline.
+When any point other than basepoint is clicked, then only move the spline point vertically.
+When spline-normal point is clicked then move both opposing spline-normal points horizontally and together.
 #end
 
-#begin
-(Plotting Interface) Mouse Middle
-Move entire transfer function spline.
-#end
 
 #begin
 (Plotting Interface) Mouse Right
-Remove transfer function spline point.
+When there are more then two spline points, then remove selected transfer function spline point.
 #end
 
 #begin
 (Plotting Interface) Shift + Mouse Left
-If clicked on spline point, move an existing spline point vertically.
+If clicked on spline point, move an existing spline point both vertically and horizontally.
 
-If clicked on spline normal point, move spline-normal points together.
+If clicked on spline normal point, move spline-normal points independently.
 #end
 
 #begin
@@ -73,10 +70,6 @@ If clicked on spline normal point, move spline-normal points together.
 Rotate spline-normal.
 #end
 
-#begin
-(Plotting Interface) Alt + Mouse Left
-Move an existing spline point horizontally.
-#end
 
 #begin
 (Plotting Interface) Spacebar
@@ -99,7 +92,7 @@ Toggle grid.
 #end
 
 #begin
-Left
+(Gradient Interface) Mouse Left
 (Gradient Interface) Add gradient point.
 Move an existing gradient point.
 The two end gradient points can only be moved vertically.

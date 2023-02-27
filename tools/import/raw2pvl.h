@@ -108,7 +108,8 @@ class Raw2Pvl
 			int&, float&, float&,
 			float&, float&,
 			int&, int&,
-			int&, int&, bool&);
+			int&, int&,
+			QColor&, bool&);
 };
 
 #endif

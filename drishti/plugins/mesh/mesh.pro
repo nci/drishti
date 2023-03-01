@@ -79,12 +79,10 @@ macx {
 
 HEADERS = meshplugin.h \
  	  meshgenerator.h \
-	  ply.h \
           lookuptable.h \
           ../../../common/src/mesh/meshtools.h
 
 
 SOURCES = meshplugin.cpp \
 	  meshgenerator.cpp \
-          ply.c \
           ../../../common/src/mesh/meshtools.cpp

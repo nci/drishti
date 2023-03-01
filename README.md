@@ -58,7 +58,7 @@ https://www.youtube.com/watch?v=pd9azHTGaB4
 https://www.youtube.com/playlist?list=PLvCBlNTgzwb9OrBO20JGFl4aEaBA8TZZI
 
 ## Acknowledgements
-Jing LU substantially contributed to the conception, design and creation of Drishti 3.0 including functionality, unit and performance testing of surface visualization module.
+Jing LU contributed to the unit and performance testing of surface visualization module.
 
 ## Drishti around the world
 Usage of Drishti by [researchers around the world ](https://github.com/AjayLimaye/drishti/wiki/Usage-of-Drishti-around-the-world)
@@ -72,4 +72,4 @@ All the contents of the wiki from google code will be transferred to this github
 
 Contact
 
-Ajay Limaye limaye.ajay@gmail.com 
+Ajay Limaye Ajay.Limaye@anu.edu.au 

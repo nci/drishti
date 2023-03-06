@@ -1156,9 +1156,21 @@ void Global::loadMatCapTextures()
   
   QRandomGenerator::global()->bounded(0,list.size()-1);
 
+  QProgressDialog progress("Loading matcap textures",
+			   QString(),
+			   0, 100,
+			   0);
+  progress.setCancelButton(0);
+  qApp->processEvents();
+
   int texSize;
   for (int i=0; i<list.size(); i++)
     {
+      progress.setLabelText(QString("%1").arg(i));
+      progress.setValue(100*(float)i/(float)list.size());
+      progressBar()->setValue(100*(float)i/(float)list.size());
+      qApp->processEvents();
+      
       QString flnm = list.at(i).absoluteFilePath();
       m_matCapTexNames << flnm;
       
@@ -1193,6 +1205,7 @@ void Global::loadMatCapTextures()
 		   img.bits());
       glDisable(GL_TEXTURE_2D);
     }
+  progress.setValue(100);
 }
 
 QStringList Global::matCapTexNames() { return m_matCapTexNames; }

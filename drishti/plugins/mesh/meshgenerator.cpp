@@ -4,6 +4,9 @@
 #include "meshgenerator.h"
 #include "meshtools.h"
 
+#include <QInputDialog>
+#include <QFileDialog>
+
 
 MeshGenerator::MeshGenerator()
 {
@@ -1387,8 +1390,8 @@ MeshGenerator::saveMeshToPLY(QString flnm,
 
   typedef struct
   {
-    real  x,  y,  z ;  /**< Vertex coordinates */
-    real nx, ny, nz ;  /**< Vertex normal */
+    float  x,  y,  z ;  /**< Vertex coordinates */
+    float nx, ny, nz ;  /**< Vertex normal */
     uchar r, g, b;
   } myVertex ;
 

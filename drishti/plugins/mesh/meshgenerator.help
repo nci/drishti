@@ -54,7 +54,7 @@ Default value is 0 - no smoothing is applied.
 
 #begin
 depth
-When generating surface color in the case of "Lut Color" and "VR Lut Color", a ray is shot inside the surface to collect color samples along that ray.  These color samples are then combined to generate the surface color.  The parameter depth specifies how deep the ray can go.
+When generating surface color in the case of "Lut Color", a ray is shot inside the surface to collect color samples along that ray.  These color samples are then combined to generate the surface color.  The parameter depth specifies how deep the ray can go.
 
 The ray is always aligned with surface normal.
 

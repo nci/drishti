@@ -49,17 +49,25 @@ unix {
 
 DESTDIR = ../../../bin/renderplugins
 
-INCLUDEPATH += ../../
+INCLUDEPATH += ../../ \
+                /home/acl900/drishtilib/openvdb/openvdb \
+                /home/acl900/drishtilib/openvdb/build/openvdb/openvdb \
+                /home/acl900/drishtilib/openvdb/build/openvdb/openvdb/openvdb \
+                /home/acl900/drishtilib/oneTBB/include \
+                ../../../common/src/vdb \
+                ../../../common/src/mesh
 
 QMAKE_LIBDIR += ../common \
+                ../../../common/lib \
                 /home/ajay/drishtilib/libQGLViewer-2.6.4/QGLViewer \
-                /home/ajay/drishtilib/glew-2.1.0/lib
+                /home/ajay/drishtilib/glew-2.1.0/lib \
+                /home/acl900/drishtilib/openvdb/build/openvdb/openvdb \
+                /home/acl900/drishtilib/oneTBB/build/gnu_11.3_cxx11_64_relwithdebinfo
                 
 LIBS += -lcommon \
 	-lQGLViewer-qt5 \
-        -lGLEW \
-	-lGLU
-
+        -lGLEW -lGLU \
+        -lvdb -lopenvdb -lImath -ltbb
   }
 }
 

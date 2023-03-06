@@ -15,8 +15,7 @@ TARGET = drishtiimport
 
 DESTDIR = ../../bin
 
-win32
-{
+win32 {
   INCLUDEPATH += C:\cygwin64\home\acl900\vcpkg\vcpkg\installed\x64-windows\include \
                  ../../common/src/vdb \
                  ../../common/src/widgets \
@@ -32,7 +31,26 @@ win32
   
   RC_ICONS += images/drishtiimport.ico
 }
-     
+
+unix {
+!macx {
+  INCLUDEPATH += ../../common/src/vdb \
+                 ../../common/src/widgets \
+                 ../../common/src/mesh \
+                 /home/acl900/drishtilib/openvdb/openvdb \
+                 /home/acl900/drishtilib/openvdb/build/openvdb/openvdb \
+                 /home/acl900/drishtilib/openvdb/build/openvdb/openvdb/openvdb \
+                 /home/acl900/drishtilib/oneTBB/include
+
+  QMAKE_LIBDIR += ../../common/lib \
+                   /home/acl900/drishtilib/openvdb/build/openvdb/openvdb \
+                   /home/acl900/drishtilib/oneTBB/build/gnu_11.3_cxx11_64_relwithdebinfo
+
+
+  LIBS += -lvdb -lopenvdb -ltbb -lImath
+  }
+}
+
 
 FORMS += remapwidget.ui \
 	 savepvldialog.ui \

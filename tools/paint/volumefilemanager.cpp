@@ -116,20 +116,6 @@ VolumeFileManager::startFileHandlerThread()
       m_handler = new FileHandler();
       m_handler->moveToThread(m_thread);
       
-      connect(this, SIGNAL(saveDataBlock(int,int,int,int,int,int)),
-	      m_handler, SLOT(saveDataBlock(int,int,int,int,int,int)));
-
-      connect(this, SIGNAL(saveDepthSlices(IntList)),
-	      m_handler, SLOT(saveDepthSlices(IntList)));
-
-      connect(this, SIGNAL(saveWidthSlices(IntList)),
-	      m_handler, SLOT(saveWidthSlices(IntList)));
-      
-
-      connect(this, SIGNAL(saveHeightSlices(IntList)),
-	      m_handler, SLOT(saveHeightSlices(IntList)));
-
-
       connect(m_handler, SIGNAL(doneFileSave()),
 	      this, SLOT(doneFileSave()));
       

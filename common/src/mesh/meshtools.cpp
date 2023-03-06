@@ -7,6 +7,7 @@
 #include <QApplication>
 #include <QFile>
 #include <QTextStream>
+#include <QtMath>
 
 
 void
@@ -404,7 +405,7 @@ MeshTools::saveToSTL(QString flnm,
       v[0] = N[i].x() + N[j].x() + N[k].x();
       v[1] = N[i].y() + N[j].y() + N[k].y();
       v[2] = N[i].z() + N[j].z() + N[k].z();
-      float mag = sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
+      float mag = qSqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
       v[0]/=mag;
       v[1]/=mag;
       v[2]/=mag;

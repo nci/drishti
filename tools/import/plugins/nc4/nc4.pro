@@ -23,17 +23,25 @@ win32 {
   LIBS += netcdf-cxx4.lib netcdf.lib
 }
 
+
 unix {
 !macx {
-  DRISHTI_DEFINES = IMPORT
-
   INCLUDEPATH += ../../
-
-  HEADERS += netcdf.hh ncvalues.h netcdfcpp.h
-  SOURCES += netcdf.cpp ncvalues.cpp
-  SOURCES += attr.c  dim.c  error.c  libvers.c  nc.c  ncx.c  posixio.c  putget.c  string.c  utf8proc.c  v1hpg.c  v2i.c  var.c
-  }
+  LIBS += -lnetcdf -lnetcdf_c++4
 }
+}
+
+###unix {
+###!macx {
+###  DRISHTI_DEFINES = IMPORT
+###
+###  INCLUDEPATH += ../../
+###
+###  HEADERS += netcdf.hh ncvalues.h netcdfcpp.h
+###  SOURCES += netcdf.cpp ncvalues.cpp
+###  SOURCES += attr.c  dim.c  error.c  libvers.c  nc.c  ncx.c  posixio.c  putget.c  string.c  utf8proc.c  v1hpg.c  v2i.c  var.c
+###  }
+###}
 
 macx {
   DRISHTI_DEFINES = IMPORT

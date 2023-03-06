@@ -367,7 +367,7 @@ MainWindow::addDockFrame(QString name, QFrame *menu)
   ui.menuView->addSeparator();
   ui.menuView->addAction(dockW->toggleViewAction());
 
-  emit dockAdded(dockW);
+  //emit dockAdded(dockW);
 }
 
 void

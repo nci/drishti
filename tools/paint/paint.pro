@@ -71,15 +71,29 @@ FORMS += drishtipaint.ui viewermenu.ui \
 #}
 
 unix {
+ !macx {
     DEFINES += NO_GLMEDIA
 
     INCLUDEPATH += /home/acl900/drishtilib/c-blosc/blosc
                         
     QMAKE_LIBDIR += /home/acl900/drishtilib/c-blosc/build/blosc
 
-    LIBS += -lblosc
+    INCLUDEPATH += ../../common/src/vdb \
+                   ../../common/src/widgets \
+                   ../../common/src/mesh \
+                   /home/acl900/drishtilib/openvdb/openvdb \
+                   /home/acl900/drishtilib/openvdb/build/openvdb/openvdb \
+                   /home/acl900/drishtilib/openvdb/build/openvdb/openvdb/openvdb \
+                   /home/acl900/drishtilib/oneTBB/include
 
-}
+    QMAKE_LIBDIR += ../../common/lib \
+                   /home/acl900/drishtilib/openvdb/build/openvdb/openvdb \
+                   /home/acl900/drishtilib/oneTBB/build/gnu_11.3_cxx11_64_relwithdebinfo
+
+    
+    LIBS += -lblosc -lvdb -lopenvdb -ltbb -lImath
+    }
+ }
 
 #----------------------------------------------------------------
 # MacOSX setup

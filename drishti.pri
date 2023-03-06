@@ -77,10 +77,12 @@ contains(Facility_Name, Ubuntu) {
 
     QMAKE_LFLAGS += "-Wl,-rpath=\'\$${ORIGIN}/ITK\'"
     QMAKE_LFLAGS += "-Wl,-rpath=\'\$${ORIGIN}/sharedlibs\'"
+    QMAKE_LFLAGS += "-Wl,-rpath=\'\$${ORIGIN}/../sharedlibs\'"
 
     contains(DRISHTI_DEFINES, RENDERER) {
 
-      INCLUDEPATH += /home/acl900/drishtilib/libQGLViewer-2.6.4 \
+      INCLUDEPATH += /usr/include \
+                     /home/acl900/drishtilib/libQGLViewer-2.6.4 \
                      /home/acl900/drishtilib/glew-2.2.0/include \
                      /home/acl900/drishtilib/assimp/include \
                      /home/acl900/drishtilib/assimp/build/include

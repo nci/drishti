@@ -5,7 +5,8 @@ SUBDIRS = analyze \
           grd \
 	  imagestack \
 	  metaimage \
-	  raw \
+          nc4 \
+          raw \
 	  rawslabs \
 	  rawslices \
 	  tiff \
@@ -14,12 +15,6 @@ SUBDIRS = analyze \
           vgi
           
 win32 {
-SUBDIRS += nc4 \
-           nifti \
+SUBDIRS += nifti \
            nrrd
-}
-
-# have not checked netCDF4 on linux systems so build netCDF3 plugin
-unix {
-SUBDIRS += nc
 }

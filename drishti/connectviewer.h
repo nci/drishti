@@ -4,8 +4,8 @@
   connect(m_Viewer, SIGNAL(addDockFrame(QString, QFrame*)),
 	  this, SLOT(addDockFrame(QString, QFrame*)));
 
-  connect(this, SIGNAL(dockAdded(QDockWidget*)),
-	  m_Viewer, SLOT(dockAdded(QDockWidget*)));
+//  connect(this, SIGNAL(dockAdded(QDockWidget*)),
+//	  m_Viewer, SLOT(dockAdded(QDockWidget*)));
 
   connect(m_Viewer, SIGNAL(show16BitEditor(bool)),
 	  this, SLOT(show16BitEditor(bool)));

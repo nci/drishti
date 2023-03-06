@@ -6,9 +6,12 @@ The central idea of Drishti is that scientists can use it to explore and present
 
 Drishti has been developed with its end use in mind: ie. visualising volumetric data, such as tomography data, electron-microscopy data, etc.
 
-Drishti works on GPUs with OpenGL 2.0 capability.
+Drishti works on GPUs with atleast OpenGL 3.3 capability.
 
 Drishti stands for vision or insight in Sanskrit, an Indian language.
+
+## Minimum graphics hardware configuration
+  The single most important determinant of Drishti performance for visualization is the graphics card.  A dedicated graphics card with atleast 2GB memory is recommended as a minimum (more the merrier).  Drishti would work on graphics cards with smaller memory, the volume sizes will be much more limited in these cases.
 
 ## Citation for Drishti
 Ajay Limaye; Drishti: a volume exploration and presentation tool. Proc. SPIE 8506, Developments in X-Ray Tomography VIII, 85060X (October 17, 2012)
@@ -58,7 +61,7 @@ https://www.youtube.com/watch?v=pd9azHTGaB4
 https://www.youtube.com/playlist?list=PLvCBlNTgzwb9OrBO20JGFl4aEaBA8TZZI
 
 ## Acknowledgements
-Jing LU substantially contributed to the conception, design and creation of Drishti 3.0 including functionality, unit and performance testing of surface visualization module.
+Jing LU contributed to the unit and performance testing of surface visualization module.
 
 ## Drishti around the world
 Usage of Drishti by [researchers around the world ](https://github.com/AjayLimaye/drishti/wiki/Usage-of-Drishti-around-the-world)
@@ -72,4 +75,4 @@ All the contents of the wiki from google code will be transferred to this github
 
 Contact
 
-Ajay Limaye limaye.ajay@gmail.com 
+Ajay Limaye Ajay.Limaye@anu.edu.au 

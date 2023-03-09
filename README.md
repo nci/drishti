@@ -31,6 +31,17 @@ Download the version of Drishti (v2.7) for<br>
 
 [**All other releases**](https://github.com/AjayLimaye/drishti/releases/)
 
+## Libraries needed to compiling Drishti on Linux
+  * [Qt 5.15](https://www.qt.io/download)<br>
+  * [libQGLViewer 2.6.4](https://github.com/GillesDebunne/libQGLViewer/releases/tag/v2.6.4)
+  * [Glew](https://github.com/nigels-com/glew)
+  * [netCDF4 C](https://github.com/Unidata/netcdf-c)
+  * [netCDF4 C++](https://github.com/Unidata/netcdf-cxx4)
+  * [Blosc](https://github.com/Blosc/c-blosc)
+  * [Assimp](https://github.com/assimp/assimp)
+  * [OpenVDB](https://github.com/AcademySoftwareFoundation/openvdb)
+  * [ITK](https://itk.org/download/)
+
 ## Drishti Prayog
 http://nci.org.au/systems-services/scientific-visualisation/visualisation-services/drishti-prayog/
 <br>Updated version and help available on [AARNET CloudStor](https://cloudstor.aarnet.edu.au/plus/s/bxu1ZH4ywZEzl38)

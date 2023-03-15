@@ -3116,7 +3116,14 @@ Raw2Pvl::saveIsosurface(VolumeData* volData,
 	MeshTools::smoothMesh(V, VN, T, 5*meshSmooth);
 
       if (meshflnm.right(3).toLower() == "obj")
-	MeshTools::saveToOBJ(meshflnm, V, VN, T);
+	{
+	  QVector<QVector3D> C;
+	  C.resize(V.count());
+	  C.fill(QVector3D(meshColor.red(),
+			   meshColor.green(),
+			   meshColor.blue()));			   
+	  MeshTools::saveToOBJ(meshflnm, V, VN, C, T);
+	}
       else if (meshflnm.right(3).toLower() == "ply")
 	{
 	  QVector<QVector3D> C;

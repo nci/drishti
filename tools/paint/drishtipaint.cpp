@@ -5270,9 +5270,10 @@ DrishtiPaint::on_actionMeshTag_triggered()
     MeshTools::smoothMesh(V, N, T, 5*meshSmooth);
 
   
-  // if saving ply apply color
+  // if saving ply/obj apply color
   // for colorType 0 and 4 apply user defined color
-  if (tflnm.right(3).toLower() == "ply")
+  if (tflnm.right(3).toLower() == "ply" ||
+      tflnm.right(3).toLower() == "obj")
     {
       C.resize(V.count());
       C.fill(QVector3D(userColor.x, userColor.y, userColor.z));
@@ -5311,7 +5312,7 @@ DrishtiPaint::on_actionMeshTag_triggered()
 
   // save mesh
   if (tflnm.right(3).toLower() == "obj")
-    MeshTools::saveToOBJ(tflnm, V, N, T);
+    MeshTools::saveToOBJ(tflnm, V, N, C, T);
   else if (tflnm.right(3).toLower() == "ply")
     MeshTools::saveToPLY(tflnm, V, N, C, T);
   else if (tflnm.right(3).toLower() == "stl")

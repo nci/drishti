@@ -161,6 +161,18 @@ MeshTools::saveToOBJ(QString objflnm,
 		     QVector<QVector3D> N,
 		     QVector<int> T)
 {		     
+  QVector<QVector3D> C;
+  C.clear();
+  saveToOBJ(objflnm, V, N, C, T);
+}
+
+void
+MeshTools::saveToOBJ(QString objflnm,
+		     QVector<QVector3D> V,
+		     QVector<QVector3D> N,
+		     QVector<QVector3D> C,
+		     QVector<int> T)
+{		     
   QFile fobj(objflnm);
   fobj.open(QFile::WriteOnly);
   QTextStream out(&fobj);
@@ -175,8 +187,17 @@ MeshTools::saveToOBJ(QString objflnm,
   out << QString("# %1 triangles\n").arg(T.count()/3);
 
   out << "g\n";
-  for(int i=0; i<V.count(); i++)
-    out << "v " << QString("%1 %2 %3\n").arg(V[i].x()).arg(V[i].y()).arg(V[i].z());
+  if (C.count() == 0)
+    {
+      for(int i=0; i<V.count(); i++)
+	out << "v " << QString("%1 %2 %3\n").arg(V[i].x()).arg(V[i].y()).arg(V[i].z());
+    }
+  else
+    {
+      for(int i=0; i<V.count(); i++)
+	out << "v " << QString("%1 %2 %3  %4 %5 %6\n").arg(V[i].x()).arg(V[i].y()).arg(V[i].z()).\
+	                                               arg(C[i].x()/255.0).arg(C[i].y()/255.0).arg(C[i].z()/255.0);
+    }
 
   if (N.count() > 0)
     {
@@ -206,6 +227,7 @@ MeshTools::saveToPLY(QString flnm,
 		     QVector<int> T)
 {
   QVector<QVector3D> C;
+  C.clear();
   saveToPLY(flnm, V, N, C, T); 
 }
 

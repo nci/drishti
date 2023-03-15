@@ -1296,7 +1296,7 @@ MeshGenerator::generateMesh(int nSlabs, int isoval,
 	    v[2] *= m_scaleModel;
 	    fout.write((char*)v, 24);
 	    
-	    if (saveType == 0) // do colour calculations only for PLY files
+	    if (saveType < 2) // do colour calculations for PLY/OBJ files
 	      {
 		//m_meshLog->moveCursor(QTextCursor::End);
 		//m_meshLog->insertPlainText("Generating Color ...\n");
@@ -1564,8 +1564,13 @@ MeshGenerator::saveMeshToOBJ(QString objflnm,
 	{
 	  float v[6];
 	  fin.read((char*)v, 24);
+	  uchar c[3];
+ 	  fin.read((char*)c, 3);
 
-	  out << "v " << QString("%1 %2 %3\n").arg(v[0]).arg(v[1]).arg(v[2]);
+	  out << "v " << QString("%1 %2 %3  %4 %5 %6\n").arg(v[0]).arg(v[1]).arg(v[2]).\
+	                                                arg((float)c[0]/255.0).\
+	                                                arg((float)c[1]/255.0).\
+	                                                arg((float)c[2]/255.0);
 	  out << "vn "<< QString("%1 %2 %3\n").arg(v[3]).arg(v[4]).arg(v[5]);
 	}
       fin.close();

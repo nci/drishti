@@ -64,6 +64,9 @@ class Raw2Pvl
   static void batchProcess(VolumeData*, QStringList);
 
  private :
+  static int m_vdb_bType;
+  static float m_vdb_bValue1, m_vdb_bValue2, m_vdb_resample;
+  
   static void createPvlNcFile(QString,
 			      bool, QString,
 			      int, int,
@@ -99,7 +102,8 @@ class Raw2Pvl
 		      int, int,
 		      int, int);
 
-  static void saveVDB(QString,
+  static bool saveVDB(int,
+		      QString,
 		      VolumeData*);
 
 
@@ -110,6 +114,8 @@ class Raw2Pvl
 			int&, int&,
 			int&, int&,
 			QColor&, bool&);
+
+  static void getBackgroundValues(int&, float&, float&);
 };
 
 #endif

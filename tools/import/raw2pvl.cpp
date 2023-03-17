@@ -730,6 +730,18 @@ Raw2Pvl::savePvl(VolumeData* volData,
 		 int hmin, int hmax,
 		 QStringList timeseriesFiles)
 {
+
+  QWidgetList topLevelWidgets = QApplication::topLevelWidgets();
+  QWidget *mainWidget = 0;
+  for(QWidget *w : topLevelWidgets)
+    {
+      if (w->isWindow())
+	{
+	  mainWidget = w;
+	  break;
+	}
+    }
+
   //------------------------------------------------------
   int rvdepth, rvwidth, rvheight;    
   volData->gridSize(rvdepth, rvwidth, rvheight);
@@ -779,7 +791,33 @@ Raw2Pvl::savePvl(VolumeData* volData,
 
     if (pvlFilename.endsWith(".vdb"))
     {
-      saveVDB(pvlFilename, volData);
+      int tsfcount = qMax(1, timeseriesFiles.count());
+      if (tsfcount == 1)
+	{
+	  saveVDB(-1, pvlFilename, volData);
+	  QMessageBox::information(0, "Save VDB", "Volume save to "+pvlFilename);
+	}
+      else
+	{
+	  for (int tsf=0; tsf<tsfcount; tsf++)
+	    {
+	      QString pvlflnm = pvlFilename;
+	      if (tsfcount > 1)
+		{
+		  QFileInfo ftpvl(pvlFilename);
+		  QFileInfo ftraw(timeseriesFiles[tsf]);
+		  pvlflnm = QFileInfo(ftpvl.absolutePath(),
+				      ftraw.completeBaseName() + ".vdb").absoluteFilePath();
+		  
+		  volData->replaceFile(timeseriesFiles[tsf]);
+		}
+	      
+	      if (!saveVDB(tsf, pvlflnm, volData))
+		return;
+		  
+	    }
+	  QMessageBox::information(0, "Save VDB", "Volumes saved to VDB files");
+	}
       return;
     }
 
@@ -960,17 +998,6 @@ Raw2Pvl::savePvl(VolumeData* volData,
   VolumeFileManager rawFileManager;
   VolumeFileManager pvlFileManager;
 
-
-  QWidgetList topLevelWidgets = QApplication::topLevelWidgets();
-  QWidget *mainWidget = 0;
-  for(QWidget *w : topLevelWidgets)
-    {
-      if (w->isWindow())
-	{
-	  mainWidget = w;
-	  break;
-	}
-    }
   
   
   QProgressDialog progress("Saving processed volume",
@@ -2660,13 +2687,13 @@ Raw2Pvl::quickRaw(VolumeData* volData,
 
 
 
-// Not storing uchar or ushort because Houdini/Omniverse cannot handle it without modifications
-//using MyTree = openvdb::tree::Tree4<half, 5, 4, 3>::Type;
-//using MyGrid = Grid<MyTree>;
-	   void
-Raw2Pvl::saveVDB(QString vdbFileName,
-		 VolumeData* volData)
+void
+Raw2Pvl::getBackgroundValues(int &bType, float &bValue1, float &bValue2)
 {
+  bType = -2;  
+  bValue1 = 0;
+  bValue2 = 0;
+
   bool ok;
   QString mtext;
   mtext += "Background Value\n";
@@ -2691,10 +2718,6 @@ Raw2Pvl::saveVDB(QString vdbFileName,
 				       QLineEdit::Normal,
 				       "=0",
 				       &ok);  
-  int bType = -2;  
-  float bValue1 = 0;
-  float bValue2 = 0;
-
   if (ok && !text.isEmpty())
     {
       QStringList list = text.split(" ", QString::SkipEmptyParts);
@@ -2737,23 +2760,57 @@ Raw2Pvl::saveVDB(QString vdbFileName,
       QMessageBox::information(0, "Background Value", QString("<Val,   =Val,   >Val,   >Val1 <Val2,   <Val1 >Val2  expected.\nGot %1").arg(text));
       return;
     }
+}
 
+// Not storing uchar or ushort because Houdini/Omniverse cannot handle it without modifications
+//using MyTree = openvdb::tree::Tree4<half, 5, 4, 3>::Type;
+//using MyGrid = Grid<MyTree>;
+int Raw2Pvl::m_vdb_bType;
+float Raw2Pvl::m_vdb_bValue1;
+float Raw2Pvl::m_vdb_bValue2;
+float Raw2Pvl::m_vdb_resample;
+bool
+Raw2Pvl::saveVDB(int volIdx,
+		 QString vdbFileName,
+		 VolumeData* volData)
+{
+  int bType = -2;  
+  float bValue1 = 0;
+  float bValue2 = 0;
   
-  VdbVolume vdb;
+  if (volIdx <= 0)
+    {
+      getBackgroundValues(bType, bValue1, bValue2);
+      
+      if (bType == -2)
+	return false;
 
+      Raw2Pvl::m_vdb_bType   = bType;
+      Raw2Pvl::m_vdb_bValue1 = bValue1;
+      Raw2Pvl::m_vdb_bValue2 = bValue2;
+    }
+  else
+    {
+      bType   = Raw2Pvl::m_vdb_bType;
+      bValue1 = Raw2Pvl::m_vdb_bValue1;
+      bValue2 = Raw2Pvl::m_vdb_bValue2;
+    }
   
-//  openvdb::initialize();
-//  openvdb::FloatGrid::Ptr grid1 = openvdb::FloatGrid::create();
-//
-//  grid1->setName("density");
-//  openvdb::FloatGrid::Accessor accessor = grid1->getAccessor();
   
   int dsz, wsz, hsz;
   volData->gridSize(dsz, wsz, hsz);
   
-  float resample = QInputDialog::getDouble(0, "Resampling",
-					     "Resample\nValues greater than 1.0 means downsampling.\nValues less than 1.0 means upsampling.",
-					     1, 0.1, 10, 2, &ok, Qt::WindowFlags(), 0.1);
+  float resample;
+  if (volIdx <= 0)
+    {
+      bool ok;
+      resample = QInputDialog::getDouble(0, "Resampling",
+					 "Resample\nValues greater than 1.0 means downsampling.\nValues less than 1.0 means upsampling.",
+					 1, 0.1, 10, 2, &ok, Qt::WindowFlags(), 0.1);
+      Raw2Pvl::m_vdb_resample = resample;
+    }
+  else
+    resample = Raw2Pvl::m_vdb_resample;
 
 
   uchar voxelType = volData->voxelType();  
@@ -2767,6 +2824,17 @@ Raw2Pvl::saveVDB(QString vdbFileName,
 
   int nbytes = wsz*hsz*bpv;
   uchar *raw = new uchar[nbytes];
+
+
+  
+  VdbVolume vdb;
+
+  
+//  openvdb::initialize();
+//  openvdb::FloatGrid::Ptr grid1 = openvdb::FloatGrid::create();
+//
+//  grid1->setName("density");
+//  openvdb::FloatGrid::Accessor accessor = grid1->getAccessor();
 
   openvdb::Coord ijk;
   int &h = ijk[0];
@@ -2802,7 +2870,7 @@ Raw2Pvl::saveVDB(QString vdbFileName,
 	{
 	  progress.setValue(100);  
 	  QMessageBox::information(0, "Save", "-----Aborted-----");
-	  break;
+	  return false;
 	}
       
       progress.setValue((int)(100*(float)d/(float)dsz));
@@ -2832,7 +2900,7 @@ Raw2Pvl::saveVDB(QString vdbFileName,
   
   progress.setValue(100);
 
-  QMessageBox::information(0, "Save VDB", "Volume save to "+vdbFileName);
+  return true;
 }
 
 

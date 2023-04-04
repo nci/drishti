@@ -125,6 +125,9 @@ class VolumeOperations
   static void dilateBitmask(int, bool,
 			    qint64, qint64, qint64,
 			    MyBitArray&);
+  static void dilateBitmaskUsingVDB(int, bool,
+				    qint64, qint64, qint64,
+				    MyBitArray&);
 };
 
 #endif

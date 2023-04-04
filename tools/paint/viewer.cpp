@@ -295,7 +295,7 @@ Viewer::init()
 
   m_skipLayers = 0;
   m_dragMode = true;
-  m_exactCoord = false;
+  m_exactCoord = true;
 
   m_dbox = m_wbox = m_hbox = 0;
   m_boxSize = 8;

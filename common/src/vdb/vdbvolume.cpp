@@ -2,6 +2,7 @@
 #include <openvdb/tools/GridTransformer.h>
 #include <openvdb/tools/Filter.h>
 #include <openvdb/tools/LevelSetFilter.h>
+#include <openvdb/tools/LevelSetUtil.h>
 #include <openvdb/tools/Morphology.h>
 #include <openvdb/tools/VolumeToMesh.h>
 
@@ -263,4 +264,18 @@ VdbVolume::save(QString vdbFileName)
   // write out the contents of the container
   vdbFile.write(grids);
   vdbFile.close();
+}
+
+
+QVector<openvdb::FloatGrid::Ptr>
+VdbVolume::segmentActiveVoxels()
+{
+  std::vector<openvdb::FloatGrid::Ptr> segList;
+  openvdb::tools::segmentActiveVoxels(*m_vdbGrid, segList);
+
+  QVector<openvdb::FloatGrid::Ptr> segments;
+  for(int i=0; i<segList.size(); i++)
+    segments << segList[i];
+
+  return segments;
 }

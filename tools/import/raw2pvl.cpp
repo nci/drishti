@@ -2829,18 +2829,6 @@ Raw2Pvl::saveVDB(int volIdx,
   
   VdbVolume vdb;
 
-  
-//  openvdb::initialize();
-//  openvdb::FloatGrid::Ptr grid1 = openvdb::FloatGrid::create();
-//
-//  grid1->setName("density");
-//  openvdb::FloatGrid::Accessor accessor = grid1->getAccessor();
-
-  openvdb::Coord ijk;
-  int &h = ijk[0];
-  int &w = ijk[1];
-  int &d = ijk[2];
-
   unsigned short *rawUS = (unsigned short*)raw;
   
   
@@ -2864,7 +2852,7 @@ Raw2Pvl::saveVDB(int volIdx,
   progress.resize(500, 100);
   progress.move(QCursor::pos());
 
-  for(d = 0; d<dsz; d++)
+  for(int d = 0; d<dsz; d++)
     {
       if (progress.wasCanceled())
 	{

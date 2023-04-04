@@ -4,6 +4,8 @@
 #include <QScrollArea>
 #include <QSplitter>
 #include <QTextEdit>
+#include <QProcess>
+#include <QUdpSocket>
 
 #include "ui_drishtipaint.h"
 #include "ui_viewermenu.h"
@@ -46,6 +48,7 @@ class DrishtiPaint : public QMainWindow
   void on_actionScriptFolder_triggered();
   void on_actionCommand_triggered();
 
+  void on_actionMesh_Viewer_triggered();
   void on_actionHelp3D_triggered();
   void on_action3DBoxSize_triggered();
   void on_action3DBoxList_triggered();
@@ -206,6 +209,8 @@ class DrishtiPaint : public QMainWindow
   void on_changeSliceOrdering_triggered();
 
   void undoPaint3D();
+
+  void createMeshViewerSocket();
   
  private :
   Ui::DrishtiPaint ui;
@@ -219,6 +224,12 @@ class DrishtiPaint : public QMainWindow
 //  QFrame *m_superpixelMenu;
 //  QFrame *m_fibersMenu;
 
+
+
+  QUdpSocket *m_meshViewerSocket;
+  QProcess m_meshViewer;
+  
+  
   TagColorEditor *m_tagColorEditor;
 
   TransferFunctionContainer *m_tfContainer;

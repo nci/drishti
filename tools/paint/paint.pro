@@ -7,7 +7,7 @@ RESOURCES = paint.qrc
 TARGET = 
 DEPENDPATH += .
 
-QT += opengl
+QT += opengl network
 QT += widgets core gui xml
 
 CONFIG += release

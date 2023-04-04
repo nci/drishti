@@ -63,6 +63,23 @@ DrishtiPaint::initTagColors()
   delete [] colors;
 }
 
+void
+DrishtiPaint::on_actionMesh_Viewer_triggered()
+{
+  if (m_meshViewer.state() != QProcess::Running)
+    {
+      QDir app = QCoreApplication::applicationDirPath();
+      m_meshViewer.start(app.absolutePath()+"/drishtimesh.exe");
+    }
+  QTimer::singleShot(1000, this, SLOT(createMeshViewerSocket()));
+}
+      
+void
+DrishtiPaint::createMeshViewerSocket()
+{
+  m_meshViewerSocket = new QUdpSocket(this);
+}
+
 QSplitter*
 DrishtiPaint::createImageWindows()
 {
@@ -195,6 +212,8 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   ui.statusbar->setSizeGripEnabled(true);
   //ui.statusbar->hide();
 
+  m_meshViewerSocket = 0;
+  
 //  QFont font;
 //  font.setPointSize(10);
 //  setFont(font);
@@ -5328,6 +5347,15 @@ DrishtiPaint::on_actionMeshTag_triggered()
   
 
   delete [] curveMask;
+
+  
+  if (m_meshViewer.state() == QProcess::Running)
+    {
+      QByteArray Data;
+      Data.append(QString("load %1").arg(tflnm));
+      m_meshViewerSocket->writeDatagram(Data, QHostAddress::LocalHost, 7755);
+    }
+
   return;
 //==========================================================================
 

@@ -762,6 +762,7 @@
      <string>View</string>
     </property>
     <addaction name="separator"/>
+    <addaction name="actionMesh_Viewer"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -1151,6 +1152,11 @@
   <action name="actionScriptFolder">
    <property name="text">
     <string>Script Folder</string>
+   </property>
+  </action>
+  <action name="actionMesh_Viewer">
+   <property name="text">
+    <string>Mesh Viewer</string>
    </property>
   </action>
  </widget>

@@ -4,6 +4,8 @@
 #include "global.h"
 #include "mybitarray.h"
 #include "morphslice.h"
+#include "vdbvolume.h"
+
 
 uchar* VolumeOperations::m_volData = 0;
 ushort* VolumeOperations::m_volDataUS = 0;
@@ -328,8 +330,8 @@ VolumeOperations::connectedRegion(int dr, int wr, int hr,
 			   0, 100,
 			   0,
 			   Qt::WindowStaysOnTopHint);
-  progress.setMinimumDuration(0);
-
+  progress.setMinimumDuration(0);  
+  
   //----------------------------  
   // set the maskData
   minD = maxD = dr;
@@ -535,6 +537,7 @@ VolumeOperations::getConnectedRegion(int dr, int wr, int hr,
   }
   //----------------------------  
 
+    
   MyBitArray bitmask;
   bitmask.resize(mx*my*mz);
   bitmask.fill(false);
@@ -845,38 +848,66 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
   //----------------------------  
 
 
-  //----------------------------
-  // fill the holes before shrinkwrapping the region
-  if (holeSize > 0)
-    {
-      MyBitArray o_bitmask;
-      o_bitmask.resize(mx*my*mz);
-      // make a copy of bitmask into o_bitmask
-      o_bitmask = cbitmask;
-  
-      // dilation
-      dilateBitmask(holeSize, false, // dilate opaque (false) region
-		    mx, my, mz,
-		    cbitmask);
-
-      // followed by erosion
-      dilateBitmask(holeSize, true, // dilate transparent (true) region
-		    mx, my, mz,
-		    cbitmask);
-
-      // merge the original back in after erosion
-      for(qint64 i=0; i<mx*my*mz; i++)
-	cbitmask.setBit(i, cbitmask.testBit(i) & o_bitmask.testBit(i));
-    }
-  //----------------------------  
-
-
   QProgressDialog progress("Shrinkwrap",
 			   QString(),
 			   0, 100,
 			   0,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
+
+  //----------------------------
+  //----------------------------
+  // fill the holes before shrinkwrapping the region
+  // use vdb levelsets to dilate and shrinkwrap the region
+  // before applying shrinkwrap operation 
+  if (holeSize > 0)
+    {
+      VdbVolume vdb;
+      openvdb::FloatGrid::Accessor accessor = vdb.getAccessor();
+      openvdb::Coord ijk;
+      int &d = ijk[0];
+      int &w = ijk[1];
+      int &h = ijk[2];
+      for(d=ds; d<=de; d++)
+      for(w=ws; w<=we; w++)
+      for(h=hs; h<=he; h++)
+	{
+	  qint64 bidx = (d-ds)*mx*my+(w-ws)*mx+(h-hs);
+	  if (!cbitmask.testBit(bidx))
+	    accessor.setValue(ijk, 255);
+	}
+      progress.setValue(10);
+      qApp->processEvents();
+      vdb.convertToLevelSet(1,0);
+      progress.setValue(25);
+      qApp->processEvents();
+      vdb.offset(-holeSize); // dilate
+      progress.setValue(50);
+      qApp->processEvents();
+      vdb.offset(holeSize); // erode
+      {
+	cbitmask.fill(true);
+	openvdb::FloatGrid::Accessor accessor = vdb.getAccessor();
+	openvdb::Coord ijk;
+	int &d = ijk[0];
+	int &w = ijk[1];
+	int &h = ijk[2];
+	for(d=ds; d<=de; d++)
+        for(w=ws; w<=we; w++)
+        for(h=hs; h<=he; h++)
+	  {
+	    if (accessor.getValue(ijk) <= 0)
+	      {
+		qint64 bidx = (d-ds)*mx*my+(w-ws)*mx+(h-hs);
+		cbitmask.setBit(bidx, false);
+	      }
+	  }
+      }
+      progress.setValue(75);
+      qApp->processEvents();
+    }
+  //----------------------------
+  //----------------------------
 
   int startd = de;
   int startw = we;
@@ -903,9 +934,6 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
 	}
     }
   }
-//  QMessageBox::information(0, "", QString("%1 %2 %3\n%4 %5 %6").\
-//			   arg(startd).arg(startw).arg(starth).\
-//			   arg(endd).arg(endw).arg(endh));
   //----------------------------  
 
   //----------------------------  
@@ -1206,6 +1234,70 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
 }
 
 void
+VolumeOperations::dilateBitmaskUsingVDB(int nDilate, bool htype,
+					qint64 mx, qint64 my, qint64 mz,
+					MyBitArray &bitmask)
+{
+  // convert to vdb levelset and dilate
+  QProgressDialog progress(htype?"Dilate LevelSet":"Erode LevelSet",
+			   QString(),
+			   0, 100,
+			   0,
+			   Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);
+  qApp->processEvents();
+
+  VdbVolume vdb;
+  openvdb::FloatGrid::Accessor accessor = vdb.getAccessor();
+  openvdb::Coord ijk;
+  int &d = ijk[0];
+  int &w = ijk[1];
+  int &h = ijk[2];
+  for(d=0; d<mz; d++)
+  for(w=0; w<my; w++)
+  for(h=0; h<mx; h++)
+    {
+      qint64 bidx = d*mx*my+w*mx+h;
+      if (bitmask.testBit(bidx))
+	accessor.setValue(ijk, 255);
+    }
+  progress.setValue(10);
+  qApp->processEvents();
+
+  vdb.convertToLevelSet(1,0);
+  progress.setValue(25);
+  qApp->processEvents();
+  
+  if (htype)
+    vdb.offset(-nDilate); // dilate
+  else
+    vdb.offset(nDilate); // erode
+  progress.setValue(50);
+  qApp->processEvents();
+
+  {
+    bitmask.fill(false);
+    openvdb::FloatGrid::Accessor accessor = vdb.getAccessor();
+    openvdb::Coord ijk;
+    int &d = ijk[0];
+    int &w = ijk[1];
+    int &h = ijk[2];
+    for(d=0; d<=mz; d++)
+    for(w=0; w<=my; w++)
+    for(h=0; h<=mx; h++)
+      {
+	if (accessor.getValue(ijk) <= 0)
+	  {
+	    qint64 bidx = d*mx*my+w*mx+h;
+	    bitmask.setBit(bidx, true);
+	  }
+      }
+  }
+  progress.setValue(100);
+  qApp->processEvents();
+}
+
+void
 VolumeOperations::dilateBitmask(int nDilate, bool htype,
 				qint64 mx, qint64 my, qint64 mz,
 				MyBitArray &bitmask)
@@ -1262,6 +1354,8 @@ VolumeOperations::dilateBitmask(int nDilate, bool htype,
 		    
 		    qint64 tidx = d2*mx*my+w2*mx+h2;
 		    inside &= (bitmask.testBit(tidx) == htype);
+		    if (!inside)
+		      break;
 		  }
 		if (!inside)
 		  {
@@ -1321,68 +1415,9 @@ VolumeOperations::dilateBitmask(int nDilate, bool htype,
     }
 //--------------------------
 
-//  for(int ne=0; ne<nDilate; ne++)
-//    {
-//      progress.setValue(90*(float)ne/(float)nDilate);
-//      qApp->processEvents();
-//
-//      QList<QList<Vec> > tedges;
-//      tedges.clear();
-//
-//      QList<Vec> ege;
-//      tedges << ege;
-//
-//      int ce = 0;
-//      // find outer boundary to fill
-//      for(int tce=0; tce<edges.count(); tce++)
-//	{
-//	  progress.setLabelText(QString("Dilating boundary %1").arg(edges[tce].count()));
-//	  for(int e=0; e<edges[tce].count(); e++)
-//	    {
-//	      int dx = edges[tce][e].x;
-//	      int wx = edges[tce][e].y;
-//	      int hx = edges[tce][e].z;
-//	      
-//	      for(int i=0; i<6; i++)
-//		{
-//		  int da = indices[3*i+0];
-//		  int wa = indices[3*i+1];
-//		  int ha = indices[3*i+2];
-//		  
-//		  qint64 d2 = qBound(0, dx+da, (int)mz-1);
-//		  qint64 w2 = qBound(0, wx+wa, (int)my-1);
-//		  qint64 h2 = qBound(0, hx+ha, (int)mx-1);
-//		  
-//		  qint64 bidx = d2*mx*my+w2*mx+h2;
-//		  if (bitmask.testBit(bidx) != htype)
-//		    {
-//		      bitmask.setBit(bidx, htype);
-//		      if (tedges[ce].count() >= MAXEDGES)
-//			{
-//			  QList<Vec> ege;
-//			  tedges << ege;
-//			  ce++;
-//			}
-//		      tedges[ce] << Vec(d2,w2,h2);
-//		    }
-//		}
-//	    }
-//	}
-//
-//      for(int tce=0; tce<edges.count(); tce++)
-//	edges[tce].clear();
-//      edges.clear();
-//
-//      for(int tce=0; tce<tedges.count(); tce++)
-//	edges << tedges[tce];
-//    }
-//
-//  for(int tce=0; tce<edges.count(); tce++)
-//    edges[tce].clear();
-//  edges.clear();
-
   progress.setValue(100);
 }
+
 
 void
 VolumeOperations::setVisible(Vec bmin, Vec bmax,
@@ -1760,6 +1795,9 @@ VolumeOperations::dilateConnected(int dr, int wr, int hr,
 				  bool allVisible,
 				  int gradType, float minGrad, float maxGrad)
 {
+  minD = minW = minH = maxD = maxW = maxH = -1;
+
+
   if (dr < 0 || wr < 0 || hr < 0 ||
       dr > m_depth-1 ||
       wr > m_width-1 ||
@@ -1996,9 +2034,9 @@ VolumeOperations::dilateConnected(int dr, int wr, int hr,
 
 
 
-  dilateBitmask(nDilate, true, // dilate opaque region
-		mx, my, mz,
-		bitmask);
+  dilateBitmaskUsingVDB(nDilate, true, // dilate opaque region
+			mx, my, mz,
+			bitmask);
 
 
   
@@ -2157,6 +2195,9 @@ VolumeOperations::erodeConnected(int dr, int wr, int hr,
 				 int& minH, int& maxH,
 				 int gradType, float minGrad, float maxGrad)
 {
+  minD = minW = minH = maxD = maxW = maxH = -1;
+
+
   if (dr < 0 || wr < 0 || hr < 0 ||
       dr > m_depth-1 ||
       wr > m_width-1 ||
@@ -2246,9 +2287,12 @@ VolumeOperations::erodeConnected(int dr, int wr, int hr,
       prevpgv = pgval;
       
       Vec dwh = que.dequeue();
-      int dx = qCeil(dwh.x);
-      int wx = qCeil(dwh.y);
-      int hx = qCeil(dwh.z);
+//      int dx = qCeil(dwh.x);
+//      int wx = qCeil(dwh.y);
+//      int hx = qCeil(dwh.z);
+      int dx = qBound(ds, qCeil(dwh.x), de);
+      int wx = qBound(ws, qCeil(dwh.y), we);
+      int hx = qBound(hs, qCeil(dwh.z), he);
 
       for(int i=0; i<6; i++)
 	{
@@ -2398,9 +2442,9 @@ VolumeOperations::erodeConnected(int dr, int wr, int hr,
   // copy bitmask into cbitmask
   cbitmask = bitmask;
 
-  dilateBitmask(nErode, false, // dilate transparent region
-		mx, my, mz,
-		bitmask);
+  dilateBitmaskUsingVDB(nErode, false, // dilate transparent region
+			mx, my, mz,
+			bitmask);
 
 
   
@@ -2597,10 +2641,12 @@ VolumeOperations::tagTubes(Vec bmin, Vec bmax, int tag,
 //      dilateBitmask(tubeSize+1, true,
 //		    mx, my, mz,
 //		    cbitmask);
+      
 
       for(int i=0; i<tubeSize; i++)
 	{
 	  int tsz = tubeSize-i;
+
 	  dilateBitmask(tsz, false,
 			mx, my, mz,
 			cbitmask);

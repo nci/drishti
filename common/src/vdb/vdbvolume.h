@@ -36,6 +36,9 @@ class VdbVolume
   
 
   void save(QString);
+
+  openvdb::FloatGrid::Accessor getAccessor() { return m_vdbGrid->getAccessor(); }
+
   
   uint64_t activeVoxels();
   
@@ -239,7 +242,9 @@ class VdbVolume
   
   void generateMesh(int, float, float,
 		    QVector<QVector3D>&, QVector<QVector3D>&, QVector<int>&);
-  
+
+  QVector<openvdb::FloatGrid::Ptr> VdbVolume::segmentActiveVoxels();
+
  private :
   openvdb::FloatGrid::Ptr m_vdbGrid; 
 };

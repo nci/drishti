@@ -308,6 +308,15 @@ VolumeInformation::volInfo(QString volfile,
 	  float vx = str[0].toFloat();
 	  float vy = str[1].toFloat();
 	  float vz = str[2].toFloat();
+	  
+	  if (vx <=0 || vy <= 0 || vz <= 0)
+	    {
+	      QMessageBox::critical(0, "Voxel Size Error",
+				    QString("Voxel size <= 0 not allowednDefaulting to 1 1 1"),
+				    QString("%1 %2 %3").arg(vx).arg(vy).arg(vz));
+	      vx = vy = vz = 1;
+	    }
+	  	  
 	  pvlInfo.voxelSize = Vec(vx, vy, vz);
 	}
       else if (dlist.at(i).nodeName() == "gridsize")

@@ -592,6 +592,15 @@ VolumeInformationWidget::newVoxelSize()
   if (m_currVol == 1) vsize = StaticFunctions::getVec(ui.m_voxelSize_2->text());
   if (m_currVol == 2) vsize = StaticFunctions::getVec(ui.m_voxelSize_3->text());
   if (m_currVol == 3) vsize = StaticFunctions::getVec(ui.m_voxelSize_4->text());
+
+  if (vsize.x <= 0 || vsize.x <= 0 || vsize.x <= 0)
+    {
+      QMessageBox::critical(0, "Voxel Size Error",
+			    QString("Voxel size <= 0 not allowed\nDefaulting to 1 1 1"),
+			    QString("%1 %2 %3").arg(vsize.x).arg(vsize.y).arg(vsize.z));
+      vsize.x = vsize.y = vsize.z = 1;
+    }
+
   m_volInfo[m_currVol].voxelSize = vsize;
 
   QString vstr = QString("%1 %2 %3").arg(vsize.x).arg(vsize.y).arg(vsize.z);

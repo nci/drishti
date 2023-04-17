@@ -648,6 +648,7 @@ PathObject::PathObject()
 
   m_tubeVert.clear();
   m_length = 0;
+  m_area = 0;
   m_tgP.clear();
   m_xaxis.clear();
   m_yaxis.clear();
@@ -940,6 +941,12 @@ float PathObject::length()
   if (m_updateFlag)
     computePathLength();
   return m_length;
+}
+float PathObject::area()
+{
+  if (m_updateFlag)
+    computePathLength();
+  return m_area;
 }
 
 void PathObject::setShowPointNumbers(bool flag) { m_showPointNumbers = flag; }
@@ -1371,6 +1378,38 @@ PathObject::computeLength(QList<Vec> points)
 }
 
 void
+PathObject::computeArea(QList<Vec> points)
+{
+  if (!m_closed)
+    return;
+
+  m_area = 0;
+  
+  int npts = points.count();
+  
+  Vec cen = Vec(0,0,0);
+  for (int i = 0; i < npts; i++)
+    cen += points[i];
+  cen /= npts;
+
+  Vec v1 = cen;
+  for (int i = 0; i < npts-1; i++)
+    {
+      int j = i + 1;
+
+      Vec v2 = points[i];
+      Vec v3 = points[j];
+      
+      double a = sqrt(pow(v1.x - v2.x, 2) + pow(v1.y - v2.y, 2) + pow(v1.z - v2.z, 2));
+      double b = sqrt(pow(v2.x - v3.x, 2) + pow(v2.y - v3.y, 2) + pow(v2.z - v3.z, 2));
+      double c = sqrt(pow(v3.x - v1.x, 2) + pow(v3.y - v1.y, 2) + pow(v3.z - v1.z, 2));
+      double s = 0.5 * (a + b + c);
+      double triangle_area = sqrt(s * (s - a) * (s - b) * (s - c));
+      m_area += triangle_area;
+    }
+}
+
+void
 PathObject::computeTangents()
 {
   int nkf = m_points.count();
@@ -1613,6 +1652,7 @@ PathObject::computePath(QList<Vec> points)
       computePathVectors();
   
       computeLength(lengthPath);
+      computeArea(lengthPath);
       return;
     }
 
@@ -1709,6 +1749,7 @@ PathObject::computePath(QList<Vec> points)
   computePathVectors();
 
   computeLength(lengthPath);
+  computeArea(lengthPath);
 }
 
 QList<Vec>
@@ -2906,15 +2947,16 @@ PathObject::postdrawGrab(QGLViewer *viewer,
 {
   VolumeInformation pvlInfo = VolumeInformation::volumeInformation();
   float len = length();
-  QString str = QString("%1 %2").\
-	                    arg(len, 0, 'f', Global::floatPrecision()).\
+  QString str = QString("L : %1 %2").\
+                            arg(length(), 0, 'f', Global::floatPrecision()).\
 	                    arg(pvlInfo.voxelUnitStringShort());      
   if (str.endsWith("um"))
     {
       str.chop(2);
       str += QChar(0xB5);
       str += "m";
-    }
+    }  
+  
   QFont font = QFont();
   QFontMetrics metric(font);
   int ht = metric.height();
@@ -2922,6 +2964,22 @@ PathObject::postdrawGrab(QGLViewer *viewer,
   x += 10;
   
   StaticFunctions::renderText(x+2, y, str, font, Qt::black, Qt::cyan);
+
+  
+  if (m_closed)
+    {
+      str = QString("A : %1 %2").arg(area(), 0, 'f', Global::floatPrecision()). \
+	                              arg(pvlInfo.voxelUnitStringShort());      
+      if (str.endsWith("um"))
+	{
+	  str.chop(2);
+	  str += QChar(0xB5);
+	  str += "m";
+	}
+      int wd = metric.width(str);
+      StaticFunctions::renderText(x+2, y+ht, str+"  ", font, Qt::black, Qt::cyan);
+      StaticFunctions::renderText(x+2+wd, y+ht*0.75, "2", font, Qt::transparent, Qt::cyan);
+    }
 }
 
 
@@ -4087,5 +4145,3 @@ PathObject::makeEquidistant(int npts0)
   m_updateFlag = true;
   m_undo.append(m_points, m_pointRadX, m_pointRadY, m_pointAngle);
 }
-
-

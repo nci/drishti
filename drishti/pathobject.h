@@ -135,7 +135,8 @@ class PathObject
   int segments();
   int sections();
   float length();
-
+  float area();
+  
   void translate(bool, bool);
   void translate(int, int, float);
 
@@ -283,6 +284,7 @@ class PathObject
   int m_segments;
   int m_sections;
   float m_length;
+  float m_area;
   QList<int> m_tubeVert;
   
   int m_pointPressed;
@@ -331,6 +333,7 @@ class PathObject
   void computePath(QList<Vec>);
   void computePathVectors();
   void computeLength(QList<Vec>);
+  void computeArea(QList<Vec>);
   void computeTangents();
   Vec interpolate(int, int, float);
   void generateTube(float);

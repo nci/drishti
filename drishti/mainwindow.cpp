@@ -3186,6 +3186,14 @@ MainWindow::saveSettings()
     topElement.appendChild(de0);
   }
 
+  {
+    QDomElement de0 = doc.createElement("autospin");
+    QDomText tn0;
+    tn0 = doc.createTextNode(QString("%1").arg(m_Viewer->camera()->frame()->spinningSensitivity()));
+    de0.appendChild(tn0);
+    topElement.appendChild(de0);
+  }
+
   QString homePath = QDir::homePath();
   QFileInfo settingsFile(homePath, ".drishti.xml");
   QString flnm = settingsFile.absoluteFilePath();  
@@ -3277,6 +3285,11 @@ MainWindow::loadSettings()
 	{
 	  QString str = dlist.at(i).toElement().text();
 	  Global::setFloatPrecision(str.toInt());
+	}
+      else if (dlist.at(i).nodeName() == "autospin")
+	{
+	  QString str = dlist.at(i).toElement().text();
+	  m_Viewer->camera()->frame()->setSpinningSensitivity(str.toFloat());
 	}
     }
   m_preferencesWidget->updateTextureMemory();

@@ -115,7 +115,8 @@ HEADERS += commonqtclasses.h \
 	slices.h \
 	imagewidget.h \
 	curveswidget.h \
-	global.h \
+        global.h \
+        handleexternal.h \
         livewire.h \
 	mybitarray.h \
 	myslider.h \
@@ -180,6 +181,7 @@ SOURCES += drishtipaint.cpp \
 	imagewidget.cpp \
 	curveswidget.cpp \
 	global.cpp \
+        handleexternal.cpp \
         livewire.cpp \
 	mybitarray.cpp \
 	myslider.cpp \

@@ -575,6 +575,13 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 
   resize(1600, 1024);
 
+
+
+  
+  m_handleExternalCMD = new HandleExternalCMD();
+
+  connect(m_handleExternalCMD, SIGNAL(loadRAW(QString)),
+	  this, SLOT(loadRawMask(QString)));
 }
 
 void DrishtiPaint::on_actionHelp_triggered() { ShowHelp::showMainHelp(); }
@@ -5353,7 +5360,7 @@ DrishtiPaint::on_actionMeshTag_triggered()
     {
       QByteArray Data;
       Data.append(QString("load %1").arg(tflnm));
-      m_meshViewerSocket->writeDatagram(Data, QHostAddress::LocalHost, 7755);
+      m_meshViewerSocket->writeDatagram(Data, QHostAddress::LocalHost, 7760);
     }
 
   return;

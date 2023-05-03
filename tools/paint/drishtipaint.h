@@ -25,6 +25,8 @@
 #include "popupslider.h"
 #include "pywidget.h"
 
+#include "handleexternal.h"
+
 class DrishtiPaint : public QMainWindow
 {
   Q_OBJECT
@@ -224,6 +226,8 @@ class DrishtiPaint : public QMainWindow
 //  QFrame *m_superpixelMenu;
 //  QFrame *m_fibersMenu;
 
+  
+  HandleExternalCMD *m_handleExternalCMD;
 
 
   QUdpSocket *m_meshViewerSocket;

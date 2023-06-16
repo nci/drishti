@@ -4,7 +4,8 @@ SUBDIRS = analyze \
           dicom \
           grd \
 	  imagestack \
-	  metaimage \
+          jp2 \
+          metaimage \
           nc4 \
           raw \
 	  rawslabs \

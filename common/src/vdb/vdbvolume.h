@@ -243,7 +243,7 @@ class VdbVolume
   void generateMesh(int, float, float,
 		    QVector<QVector3D>&, QVector<QVector3D>&, QVector<int>&);
 
-  QVector<openvdb::FloatGrid::Ptr> VdbVolume::segmentActiveVoxels();
+  QVector<openvdb::FloatGrid::Ptr> segmentActiveVoxels();
 
  private :
   openvdb::FloatGrid::Ptr m_vdbGrid; 

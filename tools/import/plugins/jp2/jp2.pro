@@ -25,9 +25,8 @@ win32 {
 unix {
  !macx {
   INCLUDEPATH += ../../ \
-                 /home/acl900/drishtilib/openjpeg/build/include
+                 /usr/include/openjpeg-2.4
 
-  QMAKE_LIBDIR += /home/acl900/drishtilib/openjpeg/build/lib
   LIBS += -lopenjp2
   
   QMAKE_LFLAGS += "-Wl,-rpath=\'\$${ORIGIN}/../ITK\'"

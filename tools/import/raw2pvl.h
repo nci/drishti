@@ -1,6 +1,7 @@
 #ifndef RAW2PVL_H
 #define RAW2PVL_H
 
+#include "vdbvolume.h"
 #include "volumedata.h"
 
 class Raw2Pvl
@@ -116,6 +117,64 @@ class Raw2Pvl
 			QColor&, bool&);
 
   static void getBackgroundValues(int&, float&, float&);
+
+
+  static void saveIsosurfaceRange(VolumeData*,
+				  int, int,
+				  int, int,
+				  int, int,
+				  QStringList,
+				  QString,
+				  bool,
+				  float, float,
+				  float, float,
+				  int, int,
+				  int, int,
+				  QColor,
+				  bool);
+
+  static void populateVDB(VdbVolume&,
+			  VolumeData*,
+			  uchar, int, int,
+			  int, int,
+			  int, int,
+			  int, int,
+			  uchar*, float*,
+			  bool,
+			  int,
+			  QProgressDialog&);
+  
+  static void applyMorpho(VdbVolume&,
+			  int, float,
+			  QProgressDialog&);
+  
+  
+  static void levelSetMeshAndSave(VdbVolume&,
+				  VolumeData*,
+				  QString,
+				  float,
+				  bool,
+				  bool,
+				  QColor,
+				  QProgressDialog&);
+
+
+  static void parIsoGen(VolumeData*,
+			uchar,
+			int, int, int,
+			int, int,
+			int, int,
+			int, int,
+			bool,
+			int,
+			QString,
+			float,
+			bool,
+			int, int,
+			int, float,
+			float);
+
+  static void mapIsoGen(QList<QVariant>);
 };
 
 #endif

@@ -16,9 +16,9 @@ background value
 Example : <100 - treat all voxels below 100 as background voxels
                  that means only consider voxels above 100
 		  
-=Val - all voxels not equal to Val will be treated as background
-Example : =100 - treat all voxels equal to 100 as background voxels
-                 that means only consider voxels not equal to 100
+!=Val - all voxels not equal to Val will be treated as background
+Example : !=100 - treat all voxels not equal to 100 as background voxels
+                  that means only consider voxels equal to 100
 		  
 >Val - all voxels above Val will be treated as background
 Example : >100 - treat all voxels above 100 as background voxels

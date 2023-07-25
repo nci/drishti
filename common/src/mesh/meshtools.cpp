@@ -239,12 +239,12 @@ MeshTools::saveToPLY(QString flnm,
 		     QVector<QVector3D> C,
 		     QVector<int> T)
 {
-  QProgressDialog progress("Saving mesh ...",
-			   QString(),
-			   0, 100,
-			   0,
-			   Qt::WindowStaysOnTopHint);
-  progress.setMinimumDuration(0);
+//  QProgressDialog progress("Saving mesh ...",
+//			   QString(),
+//			   0, 100,
+//			   0,
+//			   Qt::WindowStaysOnTopHint);
+//  progress.setMinimumDuration(0);
 
   QStringList ps;
   ps << "x";
@@ -339,11 +339,11 @@ MeshTools::saveToPLY(QString flnm,
 
   for(int ni=0; ni<nvertices; ni++)
     {
-      if (ni%10000 == 0)
-	{
-	  progress.setValue((int)(100.0*(float)ni/(float)(nvertices)));
-	  qApp->processEvents();
-	}
+//      if (ni%10000 == 0)
+//	{
+//	  progress.setValue((int)(100.0*(float)ni/(float)(nvertices)));
+//	  qApp->processEvents();
+//	}
 
       myVertex vertex;
       vertex.x = V[ni].x();
@@ -385,7 +385,7 @@ MeshTools::saveToPLY(QString flnm,
   for(int i=0; i<plyStrings.count(); i++)
     delete [] plyStrings[i];
 
-  progress.setValue(100);
+//  progress.setValue(100);
 }
 
 

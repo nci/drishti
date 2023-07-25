@@ -33,7 +33,6 @@ class VdbVolume
   
   VdbVolume(const VdbVolume&);
   VdbVolume&  operator=(const VdbVolume&);
-  
 
   void save(QString);
 
@@ -72,12 +71,12 @@ class VdbVolume
 		accessor.setValue(ijk, value);
 	    }
       }
-    else if (bType == 0) // anything less than bValue is background
+    else if (bType == 0) // anything equal to bValue is background
       {
 	for (w=0; w<nY; w++)
 	  for (h=0; h<nZ; h++)			
 	    {						
-	      float value = data[w*nZ + h];		
+	      float value = data[w*nZ + h]; 
 	      if (qAbs(value-bValue1) > 0.00001)
 		accessor.setValue(ijk, value);
 	    }	
@@ -112,6 +111,37 @@ class VdbVolume
 		accessor.setValue(ijk, value);
 	    } 
       }
+    else if (bType == 4) // anything not bValue1 is background (treating value and bValue1 as integers)
+      {
+	for (w=0; w<nY; w++)
+	  for (h=0; h<nZ; h++)			
+	    {
+	      float value = data[w*nZ + h];		
+	      if ((int)value == (int)bValue1)
+		accessor.setValue(ijk, value);
+	    } 
+      }
+  };
+
+
+
+  template <class T>
+  void addSliceToVDB(T* data, int x, int nY, int nZ)
+  {
+    openvdb::FloatGrid::Accessor accessor = m_vdbGrid->getAccessor();
+    
+    openvdb::Coord ijk;
+    int &d = ijk[0];
+    int &w = ijk[1];
+    int &h = ijk[2];
+    
+    d = x;
+    for (w=0; w<nY; w++) 
+      for (h=0; h<nZ; h++)			
+	{						
+	  float value = data[w*nZ + h];		
+	  accessor.setValue(ijk, value);
+	}
   };
 
 

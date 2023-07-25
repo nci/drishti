@@ -766,10 +766,12 @@ DrishtiImport::on_actionMimics_triggered()
   
   //---------------------
   // remove temporary raw files
-  foreach(QString flnm, rawFiles)
-    {
-      QFile::remove(flnm);
-    }
+  //foreach(QString flnm, rawFiles)
+  for(int i=0; i<rawFiles.count(); i++)
+  {
+    QString flnm = rawFiles[i];
+    QFile::remove(flnm);
+  }
   //---------------------
 }
 

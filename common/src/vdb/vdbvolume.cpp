@@ -1,4 +1,5 @@
 #include "vdbvolume.h"
+#include <openvdb/math/Coord.h>
 #include <openvdb/tools/GridTransformer.h>
 #include <openvdb/tools/Filter.h>
 #include <openvdb/tools/LevelSetFilter.h>

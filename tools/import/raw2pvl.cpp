@@ -223,6 +223,45 @@ getPvlNcFilename()
 }
 
 bool
+checkParIsoGen()
+{
+  bool pariso = false;
+  bool ok = false;
+  QStringList type;
+  type << "No (default) - Do one after another";
+  type << "Yes - Try to cram as many as possible";  
+  QString option = QInputDialog::getItem(0,
+		   "Parallel Isosurface generation",
+		   "Fire multiple isosurface generation threads ?\nFor large surfaces or NetCDF files you might be better off sequential",
+		    type,
+		    0,
+		    false,
+		    &ok);
+  if (ok)
+    {
+      QStringList op = option.split(' ');
+      if (op[0] == "No")
+	{
+	  pariso = false;
+	  QMessageBox::information(0, "Isosurface generation", "Generating one after another");
+	}
+      else
+	{
+	  pariso = true;
+	  QMessageBox::information(0, "Isosurface generation", "Will generate multiple surfaces in parallel");
+	}
+    }
+  else
+    {
+      pariso = false;
+      QMessageBox::information(0, "Isosurface generation", "Generating one after another");
+    }
+
+  return pariso;
+}
+
+
+bool
 saveSliceZeroAtTop()
 {
   bool save0attop = true;
@@ -1091,10 +1130,8 @@ Raw2Pvl::savePvl(VolumeData* volData,
 
 
       savePvlHeader(pvlflnm,
-		    saveRawFile, rawflnm,
+		    saveRawFile, rawflnm+".001",
 		    voxelType, pvlVoxelType, voxelUnit,
-		    //dsz/svslz, wsz/svsl, hsz/svsl,
-		    //dsz2, wsz2, hsz2,
 		    final_dsz2, final_wsz2, final_hsz2,
 		    vx, vy, vz,
 		    rawMap, pvlMap,
@@ -3242,8 +3279,21 @@ Raw2Pvl::parIsoGen(VolumeData* volData,
 		   bool applyVoxelScaling,
 		   int dataSmooth, int meshSmooth,
 		   int morphoType, float morphoRadius,
-		   float resample)
+		   float resample,
+		   bool showProgress)
 {
+  QProgressDialog progress("Isosurface generation",
+			   "Cancel",
+			   0, 100,
+			   0,
+			   Qt::Dialog|Qt::WindowStaysOnTopHint);
+  if (!showProgress)
+    progress.close();
+  else
+    progress.setMinimumDuration(0);
+
+
+
   VdbVolume vdb;
 
   int dsz=dmax-dmin+1;
@@ -3266,6 +3316,12 @@ Raw2Pvl::parIsoGen(VolumeData* volData,
   //------------------------------------
   for(int d=dmin; d<=dmax; d++)
     {      
+      if (showProgress)
+	{
+	  progress.setValue((int)(100*(float)(d-dmin)/(float)(dmax+1-dmin)));
+	  qApp->processEvents();
+	}
+	  
       volData->getDepthSlice(d, raw);
       int vi = 0;
       for(int w=wmin; w<=wmax; w++)
@@ -3328,6 +3384,14 @@ Raw2Pvl::parIsoGen(VolumeData* volData,
     meshflnm.right(4);
   //------------------------------------
   
+
+  if (showProgress)
+    {
+      progress.setLabelText("Downsampling Voxel Volume");
+      progress.setValue(50);
+      qApp->processEvents();
+    }
+  
   
   //------------------------------------
   // resample is required
@@ -3336,11 +3400,27 @@ Raw2Pvl::parIsoGen(VolumeData* volData,
   //------------------------------------
  
  
+  if (showProgress)
+    {
+      progress.setLabelText("Converting to levelset");
+      progress.setValue(60);
+      qApp->processEvents();
+    }
+  
+
   //------------------------------------
   // convert to level set
   vdb.convertToLevelSet(iso, 0);
   //------------------------------------
 	  
+
+  if (showProgress)
+    {
+      progress.setLabelText("Applying Morphological Operation");
+      progress.setValue(70);
+      qApp->processEvents();
+    }
+  
 
   //------------------------------------
   // Apply Morphological Operations
@@ -3362,6 +3442,14 @@ Raw2Pvl::parIsoGen(VolumeData* volData,
     }
   //------------------------------------
 
+
+  if (showProgress)
+    {
+      progress.setLabelText("Smoothing Voxel Volume");
+      progress.setValue(80);
+      qApp->processEvents();
+    }
+  
   
   //------------------------------------
   // smoothing if required  
@@ -3402,6 +3490,14 @@ Raw2Pvl::parIsoGen(VolumeData* volData,
  
   //------------------------------------
   // save mesh
+
+  if (showProgress)
+    {
+      progress.setLabelText("Saving Mesh to "+QFileInfo(iso_meshflnm).fileName());
+      progress.setValue(90);
+      qApp->processEvents();
+    }
+  
   if (iso_meshflnm.right(3).toLower() == "obj")
     {
       QVector<QVector3D> C;
@@ -3423,6 +3519,14 @@ Raw2Pvl::parIsoGen(VolumeData* volData,
   else if (iso_meshflnm.right(3).toLower() == "stl")
     MeshTools::saveToSTL(iso_meshflnm, V, VN, T, false);
   //------------------------------------
+
+
+  if (showProgress)
+    {
+      progress.setValue(100);
+      qApp->processEvents();
+    }
+  
 }
 
 void
@@ -3463,7 +3567,8 @@ Raw2Pvl::mapIsoGen(QList<QVariant> plist)
 		     applyVoxelScaling,
 		     dataSmooth, meshSmooth,
 		     morphoType, morphoRadius,
-		     resample);			     
+		     resample,
+		     false);			     
 }
 
 void
@@ -3481,6 +3586,20 @@ Raw2Pvl::saveIsosurfaceRange(VolumeData* volData,
 			     QColor meshColor,
 			     bool applyVoxelScaling)
 {
+  //--------------------
+  QWidgetList topLevelWidgets = QApplication::topLevelWidgets();
+  QWidget *mainWidget = 0;
+  for(QWidget *w : topLevelWidgets)
+    {
+      if (w->isWindow())
+	{
+	  mainWidget = w;
+	  break;
+	}
+    }
+  //--------------------
+
+  
   int rvdepth, rvwidth, rvheight;
   volData->gridSize(rvdepth, rvwidth, rvheight);
 
@@ -3529,59 +3648,111 @@ Raw2Pvl::saveIsosurfaceRange(VolumeData* volData,
 	}
 
 
-      // create parameter list to be sent to the parallel iso surface generation routine
-      QList<QList<QVariant>> param;
-      for(int iso=(int)bValue1; iso<=(int)bValue2; iso++)
+      if (checkParIsoGen())
 	{
-	  QList<QVariant> plist;
-	  plist << QVariant::fromValue(static_cast<void*>(volData));
-	  plist << QVariant((int)voxelType);
-	  plist << QVariant(rvheight);
-	  plist << QVariant(rvwidth);
-	  plist << QVariant(rvdepth);	  
-	  plist << QVariant(dmin);
-	  plist << QVariant(dmax);
-	  plist << QVariant(wmin);
-	  plist << QVariant(wmax);
-	  plist << QVariant(hmin);
-	  plist << QVariant(hmax);
-	  plist << QVariant(save0AtTop);
-	  plist << QVariant(iso);
-	  plist << QVariant(meshflnm);
-	  plist << QVariant(adaptivity);
-	  plist << QVariant(applyVoxelScaling);
-	  plist << QVariant(dataSmooth);
-	  plist << QVariant(meshSmooth);
-	  plist << QVariant(morphoType);
-	  plist << QVariant(morphoRadius);
-	  plist << QVariant(resample);			     
+	  //-----------------------------------------------
+	  // parallel isosurface generation
+	  //-----------------------------------------------
 
-	  param << plist;
+	  // create parameter list to be sent to the parallel iso surface generation routine
+	  QList<QList<QVariant>> param;
+	  for(int iso=(int)bValue1; iso<=(int)bValue2; iso++)
+	    {
+	      QList<QVariant> plist;
+	      plist << QVariant::fromValue(static_cast<void*>(volData));
+	      plist << QVariant((int)voxelType);
+	      plist << QVariant(rvheight);
+	      plist << QVariant(rvwidth);
+	      plist << QVariant(rvdepth);	  
+	      plist << QVariant(dmin);
+	      plist << QVariant(dmax);
+	      plist << QVariant(wmin);
+	      plist << QVariant(wmax);
+	      plist << QVariant(hmin);
+	      plist << QVariant(hmax);
+	      plist << QVariant(save0AtTop);
+	      plist << QVariant(iso);
+	      plist << QVariant(meshflnm);
+	      plist << QVariant(adaptivity);
+	      plist << QVariant(applyVoxelScaling);
+	      plist << QVariant(dataSmooth);
+	      plist << QVariant(meshSmooth);
+	      plist << QVariant(morphoType);
+	      plist << QVariant(morphoRadius);
+	      plist << QVariant(resample);			     
+	      
+	      param << plist;
+	    }
+	  
+	  
+	  // Create a progress dialog.
+	  QProgressDialog dialog;
+	  dialog.setLabelText(QString("Exporting mesh using %1 thread(s)...").arg(QThread::idealThreadCount()));
+	  
+	  // Create a QFutureWatcher and connect signals and slots.
+	  QFutureWatcher<void> futureWatcher;
+	  QObject::connect(&futureWatcher, &QFutureWatcher<void>::finished, &dialog, &QProgressDialog::reset);
+	  QObject::connect(&dialog, &QProgressDialog::canceled, &futureWatcher, &QFutureWatcher<void>::cancel);
+	  QObject::connect(&futureWatcher,  &QFutureWatcher<void>::progressRangeChanged, &dialog, &QProgressDialog::setRange);
+	  QObject::connect(&futureWatcher, &QFutureWatcher<void>::progressValueChanged,  &dialog, &QProgressDialog::setValue);
+	  
+	  // Start generation of isosurface for all values within the range
+	  futureWatcher.setFuture(QtConcurrent::map(param, Raw2Pvl::mapIsoGen));
+	  
+	  // Display the dialog and start the event loop.
+	  dialog.exec();
+	  
+	  futureWatcher.waitForFinished();
+	  //-----------------------------------------------
 	}
+      else
+	{
+	  //-----------------------------------------------
+	  // sequential isosurface generation	  
+	  //-----------------------------------------------
 
+	  QProgressDialog progress("Exporting Mesh",
+				   "Cancel",
+				   0, 100,
+				   mainWidget,
+				   Qt::Dialog|Qt::WindowStaysOnTopHint);
+	  progress.setMinimumDuration(0);
+	  progress.resize(500, 100);
+	  progress.move(QCursor::pos());
+	  for(int iso=(int)bValue1; iso<=(int)bValue2; iso++)
+	    {	     	  	  
+	      progress.setValue((int)(100*(float)(iso-bValue1)/(float)(bValue2+1-bValue1)));
+	      qApp->processEvents();
+
+	      Raw2Pvl::parIsoGen(volData,
+				 voxelType,
+				 rvheight, rvwidth, rvdepth,
+				 dmin, dmax,
+				 wmin, wmax,
+				 hmin, hmax,
+				 save0AtTop,
+				 iso,
+				 meshflnm,
+				 adaptivity,
+				 applyVoxelScaling,
+				 dataSmooth, meshSmooth,
+				 morphoType, morphoRadius,
+				 resample,
+				 true);
+	      if (progress.wasCanceled())
+		{
+		  progress.setValue(100);  
+		  QMessageBox::information(0, "Save", "-----Aborted-----");
+		  return;
+		} 
+	    }
+	}
       
-      // Create a progress dialog.
-      QProgressDialog dialog;
-      dialog.setLabelText(QString("Exporting mesh using %1 thread(s)...").arg(QThread::idealThreadCount()));
-      
-      // Create a QFutureWatcher and connect signals and slots.
-      QFutureWatcher<void> futureWatcher;
-      QObject::connect(&futureWatcher, &QFutureWatcher<void>::finished, &dialog, &QProgressDialog::reset);
-      QObject::connect(&dialog, &QProgressDialog::canceled, &futureWatcher, &QFutureWatcher<void>::cancel);
-      QObject::connect(&futureWatcher,  &QFutureWatcher<void>::progressRangeChanged, &dialog, &QProgressDialog::setRange);
-      QObject::connect(&futureWatcher, &QFutureWatcher<void>::progressValueChanged,  &dialog, &QProgressDialog::setValue);
-            
-      // Start generation of isosurface for all values within the range
-      futureWatcher.setFuture(QtConcurrent::map(param, Raw2Pvl::mapIsoGen));
-      
-      // Display the dialog and start the event loop.
-      dialog.exec();
-      
-      futureWatcher.waitForFinished();
     } // loop timeseries
-
-  QMessageBox::information(0, "Export Mesh", "Save Done");      
+      
+  QMessageBox::information(mainWidget, "Export Mesh", "Save Done");
 }
+
 
 
 bool

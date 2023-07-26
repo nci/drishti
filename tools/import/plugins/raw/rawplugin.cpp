@@ -578,65 +578,65 @@ RawPlugin::getDepthSlice(int slc,
   fin.close();
 }
 
-void
-RawPlugin::getWidthSlice(int slc,
-			 uchar *slice)
-{
-  int nbytes = m_depth*m_height*m_bytesPerVoxel;
-  if (slc < 0 || slc >= m_width)
-    {
-      memset(slice, 0, nbytes);
-      return;
-    }
-
-  QFile fin(m_fileName[0]);
-  fin.open(QFile::ReadOnly);
-
-  for(int k=0; k<m_depth; k++)
-    {
-      fin.seek((qint64)(m_skipBytes +
-			((qint64)slc*m_height +
-			 (qint64)k*m_width*m_height*m_bytesPerVoxel)));
-
-      fin.read((char*)(slice+(qint64)(k*m_height*m_bytesPerVoxel)),
-	       (qint64)(m_height*m_bytesPerVoxel));
-    }
-  fin.close();
-}
-
-void
-RawPlugin::getHeightSlice(int slc,
-			  uchar *slice)
-{
-  int nbytes = m_depth*m_width*m_bytesPerVoxel;
-  if (slc < 0 || slc >= m_height)
-    {
-      memset(slice, 0, nbytes);
-      return;
-    }
-
-  QFile fin(m_fileName[0]);
-  fin.open(QFile::ReadOnly);
-  fin.seek(m_skipBytes);
-
-  int ndum = m_width*m_height*m_bytesPerVoxel;
-  uchar *dum = new uchar[ndum];
-  
-  int it=0;
-  for(int k=0; k<m_depth; k++)
-    {
-      fin.read((char*)dum, ndum);
-      for(int j=0; j<m_width; j++)
-	{
-	  memcpy(slice+it*m_bytesPerVoxel,
-		 dum+(j*m_height+slc)*m_bytesPerVoxel,
-		 m_bytesPerVoxel);
-	  it++;
-	}
-    }
-  delete [] dum;
-  fin.close();
-}
+//void
+//RawPlugin::getWidthSlice(int slc,
+//			 uchar *slice)
+//{
+//  int nbytes = m_depth*m_height*m_bytesPerVoxel;
+//  if (slc < 0 || slc >= m_width)
+//    {
+//      memset(slice, 0, nbytes);
+//      return;
+//    }
+//
+//  QFile fin(m_fileName[0]);
+//  fin.open(QFile::ReadOnly);
+//
+//  for(int k=0; k<m_depth; k++)
+//    {
+//      fin.seek((qint64)(m_skipBytes +
+//			((qint64)slc*m_height +
+//			 (qint64)k*m_width*m_height*m_bytesPerVoxel)));
+//
+//      fin.read((char*)(slice+(qint64)(k*m_height*m_bytesPerVoxel)),
+//	       (qint64)(m_height*m_bytesPerVoxel));
+//    }
+//  fin.close();
+//}
+//
+//void
+//RawPlugin::getHeightSlice(int slc,
+//			  uchar *slice)
+//{
+//  int nbytes = m_depth*m_width*m_bytesPerVoxel;
+//  if (slc < 0 || slc >= m_height)
+//    {
+//      memset(slice, 0, nbytes);
+//      return;
+//    }
+//
+//  QFile fin(m_fileName[0]);
+//  fin.open(QFile::ReadOnly);
+//  fin.seek(m_skipBytes);
+//
+//  int ndum = m_width*m_height*m_bytesPerVoxel;
+//  uchar *dum = new uchar[ndum];
+//  
+//  int it=0;
+//  for(int k=0; k<m_depth; k++)
+//    {
+//      fin.read((char*)dum, ndum);
+//      for(int j=0; j<m_width; j++)
+//	{
+//	  memcpy(slice+it*m_bytesPerVoxel,
+//		 dum+(j*m_height+slc)*m_bytesPerVoxel,
+//		 m_bytesPerVoxel);
+//	  it++;
+//	}
+//    }
+//  delete [] dum;
+//  fin.close();
+//}
 
 QVariant
 RawPlugin::rawValue(int d, int w, int h)
@@ -699,72 +699,72 @@ RawPlugin::rawValue(int d, int w, int h)
   return v;
 }
 
-void
-RawPlugin::saveTrimmed(QString trimFile,
-		       int dmin, int dmax,
-		       int wmin, int wmax,
-		       int hmin, int hmax)
-{
-  QProgressDialog progress("Saving trimmed volume",
-			   QString(),
-			   0, 100,
-			   0);
-  progress.setMinimumDuration(0);
-
-  int nX, nY, nZ;
-  nX = m_depth;
-  nY = m_width;
-  nZ = m_height;
-
-  int mX, mY, mZ;
-  mX = dmax-dmin+1;
-  mY = wmax-wmin+1;
-  mZ = hmax-hmin+1;
-
-  int nbytes = nY*nZ*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
-
-  uchar vt;
-  if (m_voxelType == _UChar) vt = 0; // unsigned byte
-  if (m_voxelType == _Char) vt = 1; // signed byte
-  if (m_voxelType == _UShort) vt = 2; // unsigned short
-  if (m_voxelType == _Short) vt = 3; // signed short
-  if (m_voxelType == _Int) vt = 4; // int
-  if (m_voxelType == _Float) vt = 8; // float
-  
-  QFile fout(trimFile);
-  fout.open(QFile::WriteOnly);
-
-  fout.write((char*)&vt, 1);
-  fout.write((char*)&mX, 4);
-  fout.write((char*)&mY, 4);
-  fout.write((char*)&mZ, 4);
-
-  QFile fin(m_fileName[0]);
-  fin.open(QFile::ReadOnly);
-  fin.seek((qint64)(m_skipBytes + nbytes*dmin));
-
-  for(int i=dmin; i<=dmax; i++)
-    {
-      fin.read((char*)tmp, (qint64)(nbytes));
-
-      for(int j=wmin; j<=wmax; j++)
-	{
-	  memcpy(tmp+(j-wmin)*mZ*m_bytesPerVoxel,
-		 tmp+(j*nZ + hmin)*m_bytesPerVoxel,
-		 mZ*m_bytesPerVoxel);
-	}
-	  
-      fout.write((char*)tmp, (qint64)(mY*mZ*m_bytesPerVoxel));
-
-      progress.setValue((int)(100*(float)(i-dmin)/(float)mX));
-      qApp->processEvents();
-    }
-
-  fin.close();
-  fout.close();
-
-  delete [] tmp;
-
-  m_headerBytes = 13; // to be used for applyMapping function
-}
+//void
+//RawPlugin::saveTrimmed(QString trimFile,
+//		       int dmin, int dmax,
+//		       int wmin, int wmax,
+//		       int hmin, int hmax)
+//{
+//  QProgressDialog progress("Saving trimmed volume",
+//			   QString(),
+//			   0, 100,
+//			   0);
+//  progress.setMinimumDuration(0);
+//
+//  int nX, nY, nZ;
+//  nX = m_depth;
+//  nY = m_width;
+//  nZ = m_height;
+//
+//  int mX, mY, mZ;
+//  mX = dmax-dmin+1;
+//  mY = wmax-wmin+1;
+//  mZ = hmax-hmin+1;
+//
+//  int nbytes = nY*nZ*m_bytesPerVoxel;
+//  uchar *tmp = new uchar[nbytes];
+//
+//  uchar vt;
+//  if (m_voxelType == _UChar) vt = 0; // unsigned byte
+//  if (m_voxelType == _Char) vt = 1; // signed byte
+//  if (m_voxelType == _UShort) vt = 2; // unsigned short
+//  if (m_voxelType == _Short) vt = 3; // signed short
+//  if (m_voxelType == _Int) vt = 4; // int
+//  if (m_voxelType == _Float) vt = 8; // float
+//  
+//  QFile fout(trimFile);
+//  fout.open(QFile::WriteOnly);
+//
+//  fout.write((char*)&vt, 1);
+//  fout.write((char*)&mX, 4);
+//  fout.write((char*)&mY, 4);
+//  fout.write((char*)&mZ, 4);
+//
+//  QFile fin(m_fileName[0]);
+//  fin.open(QFile::ReadOnly);
+//  fin.seek((qint64)(m_skipBytes + nbytes*dmin));
+//
+//  for(int i=dmin; i<=dmax; i++)
+//    {
+//      fin.read((char*)tmp, (qint64)(nbytes));
+//
+//      for(int j=wmin; j<=wmax; j++)
+//	{
+//	  memcpy(tmp+(j-wmin)*mZ*m_bytesPerVoxel,
+//		 tmp+(j*nZ + hmin)*m_bytesPerVoxel,
+//		 mZ*m_bytesPerVoxel);
+//	}
+//	  
+//      fout.write((char*)tmp, (qint64)(mY*mZ*m_bytesPerVoxel));
+//
+//      progress.setValue((int)(100*(float)(i-dmin)/(float)mX));
+//      qApp->processEvents();
+//    }
+//
+//  fin.close();
+//  fout.close();
+//
+//  delete [] tmp;
+//
+//  m_headerBytes = 13; // to be used for applyMapping function
+//}

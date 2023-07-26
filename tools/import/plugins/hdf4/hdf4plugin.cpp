@@ -661,65 +661,65 @@ HDF4Plugin::getDepthSlice(int slc,
   status = SDend(sd_id);
 }
 
-void
-HDF4Plugin::getWidthSlice(int slc,
-			  uchar *slice)
-{
-  int nbytes = m_depth*m_height*m_bytesPerVoxel;
-
-  uchar *hdftmp = new uchar[m_height*m_bytesPerVoxel];
-
-  int32 start[2], edges[2];
-  start[0] = 0;
-  start[1] = slc;
-  edges[0] = 1;
-  edges[1] = m_height;
-
-  for(uint i=0; i<m_depth; i++)
-    {
-      int32 sd_id = SDstart(m_imageList[i].toLatin1().data(),
-			    DFACC_READ);
-      int32 sds_id = SDselect(sd_id, m_Index);
-      int status = SDreaddata(sds_id,
-			      start, NULL, edges,
-			      (VOIDP)hdftmp);
-      status = SDendaccess(sds_id);
-      status = SDend(sd_id);
-
-      for(uint j=0; j<m_height; j++)
-	slice[i*m_height+j] = hdftmp[j];
-    }
-}
-
-void
-HDF4Plugin::getHeightSlice(int slc,
-			   uchar *slice)
-{
-  int nbytes = m_depth*m_width*m_bytesPerVoxel;
-
-  uchar *hdftmp = new uchar[m_width*m_bytesPerVoxel];
-
-  int32 start[2], edges[2];
-  start[0] = slc;
-  start[1] = 0;
-  edges[0] = m_width;
-  edges[1] = 1;
-
-  for(uint i=0; i<m_depth; i++)
-    {
-      int32 sd_id = SDstart(m_imageList[i].toLatin1().data(),
-			    DFACC_READ);
-      int32 sds_id = SDselect(sd_id, m_Index);
-      int status = SDreaddata(sds_id,
-			      start, NULL, edges,
-			      (VOIDP)hdftmp);
-      status = SDendaccess(sds_id);
-      status = SDend(sd_id);
-
-      for(uint j=0; j<m_width; j++)
-	slice[i*m_width+j] = hdftmp[j];
-    }
-}
+//void
+//HDF4Plugin::getWidthSlice(int slc,
+//			  uchar *slice)
+//{
+//  int nbytes = m_depth*m_height*m_bytesPerVoxel;
+//
+//  uchar *hdftmp = new uchar[m_height*m_bytesPerVoxel];
+//
+//  int32 start[2], edges[2];
+//  start[0] = 0;
+//  start[1] = slc;
+//  edges[0] = 1;
+//  edges[1] = m_height;
+//
+//  for(uint i=0; i<m_depth; i++)
+//    {
+//      int32 sd_id = SDstart(m_imageList[i].toLatin1().data(),
+//			    DFACC_READ);
+//      int32 sds_id = SDselect(sd_id, m_Index);
+//      int status = SDreaddata(sds_id,
+//			      start, NULL, edges,
+//			      (VOIDP)hdftmp);
+//      status = SDendaccess(sds_id);
+//      status = SDend(sd_id);
+//
+//      for(uint j=0; j<m_height; j++)
+//	slice[i*m_height+j] = hdftmp[j];
+//    }
+//}
+//
+//void
+//HDF4Plugin::getHeightSlice(int slc,
+//			   uchar *slice)
+//{
+//  int nbytes = m_depth*m_width*m_bytesPerVoxel;
+//
+//  uchar *hdftmp = new uchar[m_width*m_bytesPerVoxel];
+//
+//  int32 start[2], edges[2];
+//  start[0] = slc;
+//  start[1] = 0;
+//  edges[0] = m_width;
+//  edges[1] = 1;
+//
+//  for(uint i=0; i<m_depth; i++)
+//    {
+//      int32 sd_id = SDstart(m_imageList[i].toLatin1().data(),
+//			    DFACC_READ);
+//      int32 sds_id = SDselect(sd_id, m_Index);
+//      int status = SDreaddata(sds_id,
+//			      start, NULL, edges,
+//			      (VOIDP)hdftmp);
+//      status = SDendaccess(sds_id);
+//      status = SDend(sd_id);
+//
+//      for(uint j=0; j<m_width; j++)
+//	slice[i*m_width+j] = hdftmp[j];
+//    }
+//}
 
 QVariant
 HDF4Plugin::rawValue(int d, int w, int h)
@@ -793,80 +793,80 @@ HDF4Plugin::rawValue(int d, int w, int h)
   return v;
 }
 
-void
-HDF4Plugin::saveTrimmed(QString trimFile,
-		       int dmin, int dmax,
-		       int wmin, int wmax,
-		       int hmin, int hmax)
-{
-  QProgressDialog progress("Saving trimmed volume",
-			   QString(),
-			   0, 100,
-			   0);
-  progress.setMinimumDuration(0);
-
-  int nX, nY, nZ;
-  nX = m_depth;
-  nY = m_width;
-  nZ = m_height;
-
-  int mX, mY, mZ;
-  mX = dmax-dmin+1;
-  mY = wmax-wmin+1;
-  mZ = hmax-hmin+1;
-
-  int nbytes = m_height*m_width*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
-
-  uchar vt;
-  if (m_voxelType == _UChar) vt = 0; // unsigned byte
-  if (m_voxelType == _Char) vt = 1; // signed byte
-  if (m_voxelType == _UShort) vt = 2; // unsigned short
-  if (m_voxelType == _Short) vt = 3; // signed short
-  if (m_voxelType == _Int) vt = 4; // int
-  if (m_voxelType == _Float) vt = 8; // float
-
-  QFile fout(trimFile);
-  fout.open(QFile::WriteOnly);
-
-  fout.write((char*)&vt, 1);
-  fout.write((char*)&mX, 4);
-  fout.write((char*)&mY, 4);
-  fout.write((char*)&mZ, 4);
-
-  int32 start[2], edges[2];
-  start[0] = 0;
-  start[1] = 0;
-  edges[0] = m_width;
-  edges[1] = m_height;
-
-  for(uint i=dmin; i<=dmax; i++)
-    {
-      int32 sd_id = SDstart(m_imageList[i].toLatin1().data(),
-			    DFACC_READ);
-      int32 sds_id = SDselect(sd_id, m_Index);
-      int status = SDreaddata(sds_id,
-			      start, NULL, edges,
-			      (VOIDP)tmp);
-      status = SDendaccess(sds_id);
-      status = SDend(sd_id);
-      
-      for(uint j=wmin; j<=wmax; j++)
-	{
-	  memcpy(tmp+(j-wmin)*mZ*m_bytesPerVoxel,
-		 tmp+(j*nZ + hmin)*m_bytesPerVoxel,
-		 mZ*m_bytesPerVoxel);
-	}
-
-      fout.write((char*)tmp, mY*mZ*m_bytesPerVoxel);
-      
-      progress.setValue((int)(100*(float)(i-dmin)/(float)mX));
-      qApp->processEvents();
-    }
-
-  fout.close();
-
-  delete [] tmp;
-
-  m_headerBytes = 13; // to be used for applyMapping function
-}
+//void
+//HDF4Plugin::saveTrimmed(QString trimFile,
+//		       int dmin, int dmax,
+//		       int wmin, int wmax,
+//		       int hmin, int hmax)
+//{
+//  QProgressDialog progress("Saving trimmed volume",
+//			   QString(),
+//			   0, 100,
+//			   0);
+//  progress.setMinimumDuration(0);
+//
+//  int nX, nY, nZ;
+//  nX = m_depth;
+//  nY = m_width;
+//  nZ = m_height;
+//
+//  int mX, mY, mZ;
+//  mX = dmax-dmin+1;
+//  mY = wmax-wmin+1;
+//  mZ = hmax-hmin+1;
+//
+//  int nbytes = m_height*m_width*m_bytesPerVoxel;
+//  uchar *tmp = new uchar[nbytes];
+//
+//  uchar vt;
+//  if (m_voxelType == _UChar) vt = 0; // unsigned byte
+//  if (m_voxelType == _Char) vt = 1; // signed byte
+//  if (m_voxelType == _UShort) vt = 2; // unsigned short
+//  if (m_voxelType == _Short) vt = 3; // signed short
+//  if (m_voxelType == _Int) vt = 4; // int
+//  if (m_voxelType == _Float) vt = 8; // float
+//
+//  QFile fout(trimFile);
+//  fout.open(QFile::WriteOnly);
+//
+//  fout.write((char*)&vt, 1);
+//  fout.write((char*)&mX, 4);
+//  fout.write((char*)&mY, 4);
+//  fout.write((char*)&mZ, 4);
+//
+//  int32 start[2], edges[2];
+//  start[0] = 0;
+//  start[1] = 0;
+//  edges[0] = m_width;
+//  edges[1] = m_height;
+//
+//  for(uint i=dmin; i<=dmax; i++)
+//    {
+//      int32 sd_id = SDstart(m_imageList[i].toLatin1().data(),
+//			    DFACC_READ);
+//      int32 sds_id = SDselect(sd_id, m_Index);
+//      int status = SDreaddata(sds_id,
+//			      start, NULL, edges,
+//			      (VOIDP)tmp);
+//      status = SDendaccess(sds_id);
+//      status = SDend(sd_id);
+//      
+//      for(uint j=wmin; j<=wmax; j++)
+//	{
+//	  memcpy(tmp+(j-wmin)*mZ*m_bytesPerVoxel,
+//		 tmp+(j*nZ + hmin)*m_bytesPerVoxel,
+//		 mZ*m_bytesPerVoxel);
+//	}
+//
+//      fout.write((char*)tmp, mY*mZ*m_bytesPerVoxel);
+//      
+//      progress.setValue((int)(100*(float)(i-dmin)/(float)mX));
+//      qApp->processEvents();
+//    }
+//
+//  fout.close();
+//
+//  delete [] tmp;
+//
+//  m_headerBytes = 13; // to be used for applyMapping function
+//}

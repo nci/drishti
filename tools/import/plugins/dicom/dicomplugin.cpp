@@ -454,53 +454,53 @@ DicomPlugin::getDepthSlice(int slc,
   memcpy(slice, tmp, nbytes);
 }
 
-void
-DicomPlugin::getWidthSlice(int slc,
-			   uchar *slice)
-{
-  itk::Size<3> size;
-  size[0] = m_height; size[1] = 1; size[2] = m_depth;
-  itk::Index<3> index;
-  index[0] = 0; index[1] = slc;
-  index[2] = 0; 
-  typedef itk::ImageRegion<3> RegionType;
-  RegionType region(index,size);
-
-  typedef itk::ExtractImageFilter< ImageType, ImageType > FilterType;
-  FilterType::Pointer filter = FilterType::New();
-  filter->SetExtractionRegion(region);
-  filter->SetInput(m_dimg);
-  filter->SetDirectionCollapseToIdentity();
-  filter->Update(); 
-  ImageType *output = filter->GetOutput();
-  char *tmp = (char*)(output->GetBufferPointer());
-
-  memcpy(slice, tmp, m_depth*m_height*m_bytesPerVoxel);
-}
-
-void
-DicomPlugin::getHeightSlice(int slc,
-			     uchar *slice)
-{
-  itk::Size<3> size;
-  size[0] = 1; size[1] = m_width; size[2] = m_depth;
-  itk::Index<3> index;
-  index[0] = slc; index[1] = 0;
-  index[2] = 0; 
-  typedef itk::ImageRegion<3> RegionType;
-  RegionType region(index,size);
-
-  typedef itk::ExtractImageFilter< ImageType, ImageType > FilterType;
-  FilterType::Pointer filter = FilterType::New();
-  filter->SetExtractionRegion(region);
-  filter->SetInput(m_dimg);
-  filter->SetDirectionCollapseToIdentity();
-  filter->Update(); 
-  ImageType *output = filter->GetOutput();
-  char *tmp = (char*)(output->GetBufferPointer());
-
-  memcpy(slice, tmp, m_width*m_depth*m_bytesPerVoxel);
-}
+//void
+//DicomPlugin::getWidthSlice(int slc,
+//			   uchar *slice)
+//{
+//  itk::Size<3> size;
+//  size[0] = m_height; size[1] = 1; size[2] = m_depth;
+//  itk::Index<3> index;
+//  index[0] = 0; index[1] = slc;
+//  index[2] = 0; 
+//  typedef itk::ImageRegion<3> RegionType;
+//  RegionType region(index,size);
+//
+//  typedef itk::ExtractImageFilter< ImageType, ImageType > FilterType;
+//  FilterType::Pointer filter = FilterType::New();
+//  filter->SetExtractionRegion(region);
+//  filter->SetInput(m_dimg);
+//  filter->SetDirectionCollapseToIdentity();
+//  filter->Update(); 
+//  ImageType *output = filter->GetOutput();
+//  char *tmp = (char*)(output->GetBufferPointer());
+//
+//  memcpy(slice, tmp, m_depth*m_height*m_bytesPerVoxel);
+//}
+//
+//void
+//DicomPlugin::getHeightSlice(int slc,
+//			     uchar *slice)
+//{
+//  itk::Size<3> size;
+//  size[0] = 1; size[1] = m_width; size[2] = m_depth;
+//  itk::Index<3> index;
+//  index[0] = slc; index[1] = 0;
+//  index[2] = 0; 
+//  typedef itk::ImageRegion<3> RegionType;
+//  RegionType region(index,size);
+//
+//  typedef itk::ExtractImageFilter< ImageType, ImageType > FilterType;
+//  FilterType::Pointer filter = FilterType::New();
+//  filter->SetExtractionRegion(region);
+//  filter->SetInput(m_dimg);
+//  filter->SetDirectionCollapseToIdentity();
+//  filter->Update(); 
+//  ImageType *output = filter->GetOutput();
+//  char *tmp = (char*)(output->GetBufferPointer());
+//
+//  memcpy(slice, tmp, m_width*m_depth*m_bytesPerVoxel);
+//}
 
 QVariant
 DicomPlugin::rawValue(int d, int w, int h)
@@ -562,87 +562,87 @@ DicomPlugin::rawValue(int d, int w, int h)
   return v;
 }
 
-void
-DicomPlugin::saveTrimmed(QString trimFile,
-			    int dmin, int dmax,
-			    int wmin, int wmax,
-			    int hmin, int hmax)
-{
-  QProgressDialog progress("Saving trimmed volume",
-			   0,
-			   0, 100,
-			   0);
-  progress.setMinimumDuration(0);
-
-  int nX, nY, nZ;
-  nX = m_depth;
-  nY = m_width;
-  nZ = m_height;
-
-  int mX, mY, mZ;
-  mX = dmax-dmin+1;
-  mY = wmax-wmin+1;
-  mZ = hmax-hmin+1;
-
-  int nbytes = nY*nZ*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
-
-  uchar vt;
-  if (m_voxelType == _UChar) vt = 0; // unsigned byte
-  if (m_voxelType == _Char) vt = 1; // signed byte
-  if (m_voxelType == _UShort) vt = 2; // unsigned short
-  if (m_voxelType == _Short) vt = 3; // signed short
-  if (m_voxelType == _Int) vt = 4; // int
-  if (m_voxelType == _Float) vt = 8; // float
-  
-  QFile fout(trimFile);
-  fout.open(QFile::WriteOnly);
-
-  fout.write((char*)&vt, 1);
-  fout.write((char*)&mX, 4);
-  fout.write((char*)&mY, 4);
-  fout.write((char*)&mZ, 4);
-
-  itk::Size<3> size;
-  size[0] = m_height; size[1] = m_width; size[2] = 1;
-  itk::Index<3> index;
-  index[0] = 0; index[1] = 0;
-
-  for(int i=dmax; i>=dmin; i--)
-    {
-      index[2] = i; 
-      typedef itk::ImageRegion<3> RegionType;
-      RegionType region(index,size);
-
-      typedef itk::ExtractImageFilter< ImageType, ImageType > FilterType;
-      FilterType::Pointer filter = FilterType::New();
-      filter->SetExtractionRegion(region);
-      filter->SetInput(m_dimg);
-      filter->SetDirectionCollapseToIdentity();
-      filter->Update(); 
-      ImageType *output = filter->GetOutput();
-      char *tmp1 = (char*)(output->GetBufferPointer());
-
-      memcpy(tmp, tmp1, nbytes);
-      
-      for(uint j=wmin; j<=wmax; j++)
-	{
-	  memcpy(tmp+(j-wmin)*mZ*m_bytesPerVoxel,
-		 tmp+(j*nZ + hmin)*m_bytesPerVoxel,
-		 mZ*m_bytesPerVoxel);
-	}
-	  
-      fout.write((char*)tmp, mY*mZ*m_bytesPerVoxel);
-
-      progress.setValue((int)(100*(float)(dmax-i)/(float)mX));
-      qApp->processEvents();
-    }
-
-  fout.close();
-
-  delete [] tmp;
-
-  progress.setValue(100);
-
-  m_headerBytes = 13; // to be used for applyMapping function
-}
+//void
+//DicomPlugin::saveTrimmed(QString trimFile,
+//			    int dmin, int dmax,
+//			    int wmin, int wmax,
+//			    int hmin, int hmax)
+//{
+//  QProgressDialog progress("Saving trimmed volume",
+//			   0,
+//			   0, 100,
+//			   0);
+//  progress.setMinimumDuration(0);
+//
+//  int nX, nY, nZ;
+//  nX = m_depth;
+//  nY = m_width;
+//  nZ = m_height;
+//
+//  int mX, mY, mZ;
+//  mX = dmax-dmin+1;
+//  mY = wmax-wmin+1;
+//  mZ = hmax-hmin+1;
+//
+//  int nbytes = nY*nZ*m_bytesPerVoxel;
+//  uchar *tmp = new uchar[nbytes];
+//
+//  uchar vt;
+//  if (m_voxelType == _UChar) vt = 0; // unsigned byte
+//  if (m_voxelType == _Char) vt = 1; // signed byte
+//  if (m_voxelType == _UShort) vt = 2; // unsigned short
+//  if (m_voxelType == _Short) vt = 3; // signed short
+//  if (m_voxelType == _Int) vt = 4; // int
+//  if (m_voxelType == _Float) vt = 8; // float
+//  
+//  QFile fout(trimFile);
+//  fout.open(QFile::WriteOnly);
+//
+//  fout.write((char*)&vt, 1);
+//  fout.write((char*)&mX, 4);
+//  fout.write((char*)&mY, 4);
+//  fout.write((char*)&mZ, 4);
+//
+//  itk::Size<3> size;
+//  size[0] = m_height; size[1] = m_width; size[2] = 1;
+//  itk::Index<3> index;
+//  index[0] = 0; index[1] = 0;
+//
+//  for(int i=dmax; i>=dmin; i--)
+//    {
+//      index[2] = i; 
+//      typedef itk::ImageRegion<3> RegionType;
+//      RegionType region(index,size);
+//
+//      typedef itk::ExtractImageFilter< ImageType, ImageType > FilterType;
+//      FilterType::Pointer filter = FilterType::New();
+//      filter->SetExtractionRegion(region);
+//      filter->SetInput(m_dimg);
+//      filter->SetDirectionCollapseToIdentity();
+//      filter->Update(); 
+//      ImageType *output = filter->GetOutput();
+//      char *tmp1 = (char*)(output->GetBufferPointer());
+//
+//      memcpy(tmp, tmp1, nbytes);
+//      
+//      for(uint j=wmin; j<=wmax; j++)
+//	{
+//	  memcpy(tmp+(j-wmin)*mZ*m_bytesPerVoxel,
+//		 tmp+(j*nZ + hmin)*m_bytesPerVoxel,
+//		 mZ*m_bytesPerVoxel);
+//	}
+//	  
+//      fout.write((char*)tmp, mY*mZ*m_bytesPerVoxel);
+//
+//      progress.setValue((int)(100*(float)(dmax-i)/(float)mX));
+//      qApp->processEvents();
+//    }
+//
+//  fout.close();
+//
+//  delete [] tmp;
+//
+//  progress.setValue(100);
+//
+//  m_headerBytes = 13; // to be used for applyMapping function
+//}

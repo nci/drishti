@@ -554,89 +554,89 @@ TxmPlugin::getDepthSlice(int slc,
   delete [] tmp1;
 }
 
-void
-TxmPlugin::getWidthSlice(int slc,
-			  uchar *slice)
-{
-  QProgressDialog progress("Extracting Slice",
-			   0,
-			   0, 100,
-			   0);
-  progress.setMinimumDuration(0);
-  uchar *imgSlice = new uchar[m_width*m_height*m_bytesPerVoxel];
-  for(uint i=0; i<m_depth; i++)
-    {
-      progress.setValue((int)(100.0*(float)i/(float)m_depth));
-      qApp->processEvents();
-
-      loadTxmImage(i, imgSlice);
-
-      if (m_voxelType == _UChar)
-	{
-	  for(uint j=0; j<m_height; j++)
-	    slice[i*m_height+j] = imgSlice[slc*m_height+j];
-	}
-      else if (m_voxelType == _UShort)
-	{
-	  ushort *p0 = (ushort*)slice;
-	  ushort *p1 = (ushort*)imgSlice;
-	  for(uint j=0; j<m_height; j++)
-	    p0[i*m_height+j] = p1[slc*m_height+j];
-	}
-      else if (m_voxelType == _Float)
-	{
-	  float *p0 = (float*)slice;
-	  float *p1 = (float*)imgSlice;
-	  for(uint j=0; j<m_height; j++)
-	    p0[i*m_height+j] = p1[slc*m_height+j];
-	}
-    }
-  delete [] imgSlice;
-  progress.setValue(100);
-  qApp->processEvents();
-}
-
-void
-TxmPlugin::getHeightSlice(int slc,
-			   uchar *slice)
-{
-  uchar *imgSlice = new uchar[m_width*m_height*m_bytesPerVoxel];
-  QProgressDialog progress("Extracting Slice",
-			   0,
-			   0, 100,
-			   0);
-  progress.setMinimumDuration(0);
-  for(uint i=0; i<m_depth; i++)
-    {
-      progress.setValue((int)(100.0*(float)i/(float)m_depth));
-      qApp->processEvents();
-
-      loadTxmImage(i, imgSlice);
-
-      if (m_voxelType == _UChar)
-	{
-	  for(uint j=0; j<m_width; j++)
-	    slice[i*m_width+j] = imgSlice[j*m_height+slc];
-	}
-      else if (m_voxelType == _UShort)
-	{
-	  ushort *p0 = (ushort*)slice;
-	  ushort *p1 = (ushort*)imgSlice;
-	  for(uint j=0; j<m_width; j++)
-	    p0[i*m_width+j] = p1[j*m_height+slc];
-	}
-      else if (m_voxelType == _Float)
-	{
-	  float *p0 = (float*)slice;
-	  float *p1 = (float*)imgSlice;
-	  for(uint j=0; j<m_width; j++)
-	    p0[i*m_width+j] = p1[j*m_height+slc];
-	}
-    }
-  delete [] imgSlice;
-  progress.setValue(100);
-  qApp->processEvents();
-}
+//void
+//TxmPlugin::getWidthSlice(int slc,
+//			  uchar *slice)
+//{
+//  QProgressDialog progress("Extracting Slice",
+//			   0,
+//			   0, 100,
+//			   0);
+//  progress.setMinimumDuration(0);
+//  uchar *imgSlice = new uchar[m_width*m_height*m_bytesPerVoxel];
+//  for(uint i=0; i<m_depth; i++)
+//    {
+//      progress.setValue((int)(100.0*(float)i/(float)m_depth));
+//      qApp->processEvents();
+//
+//      loadTxmImage(i, imgSlice);
+//
+//      if (m_voxelType == _UChar)
+//	{
+//	  for(uint j=0; j<m_height; j++)
+//	    slice[i*m_height+j] = imgSlice[slc*m_height+j];
+//	}
+//      else if (m_voxelType == _UShort)
+//	{
+//	  ushort *p0 = (ushort*)slice;
+//	  ushort *p1 = (ushort*)imgSlice;
+//	  for(uint j=0; j<m_height; j++)
+//	    p0[i*m_height+j] = p1[slc*m_height+j];
+//	}
+//      else if (m_voxelType == _Float)
+//	{
+//	  float *p0 = (float*)slice;
+//	  float *p1 = (float*)imgSlice;
+//	  for(uint j=0; j<m_height; j++)
+//	    p0[i*m_height+j] = p1[slc*m_height+j];
+//	}
+//    }
+//  delete [] imgSlice;
+//  progress.setValue(100);
+//  qApp->processEvents();
+//}
+//
+//void
+//TxmPlugin::getHeightSlice(int slc,
+//			   uchar *slice)
+//{
+//  uchar *imgSlice = new uchar[m_width*m_height*m_bytesPerVoxel];
+//  QProgressDialog progress("Extracting Slice",
+//			   0,
+//			   0, 100,
+//			   0);
+//  progress.setMinimumDuration(0);
+//  for(uint i=0; i<m_depth; i++)
+//    {
+//      progress.setValue((int)(100.0*(float)i/(float)m_depth));
+//      qApp->processEvents();
+//
+//      loadTxmImage(i, imgSlice);
+//
+//      if (m_voxelType == _UChar)
+//	{
+//	  for(uint j=0; j<m_width; j++)
+//	    slice[i*m_width+j] = imgSlice[j*m_height+slc];
+//	}
+//      else if (m_voxelType == _UShort)
+//	{
+//	  ushort *p0 = (ushort*)slice;
+//	  ushort *p1 = (ushort*)imgSlice;
+//	  for(uint j=0; j<m_width; j++)
+//	    p0[i*m_width+j] = p1[j*m_height+slc];
+//	}
+//      else if (m_voxelType == _Float)
+//	{
+//	  float *p0 = (float*)slice;
+//	  float *p1 = (float*)imgSlice;
+//	  for(uint j=0; j<m_width; j++)
+//	    p0[i*m_width+j] = p1[j*m_height+slc];
+//	}
+//    }
+//  delete [] imgSlice;
+//  progress.setValue(100);
+//  qApp->processEvents();
+//}
 
 QVariant
 TxmPlugin::rawValue(int d, int w, int h)
@@ -690,96 +690,96 @@ TxmPlugin::rawValue(int d, int w, int h)
   return v;
 }
 
-void
-TxmPlugin::saveTrimmed(QString trimFile,
-			    int dmin, int dmax,
-			    int wmin, int wmax,
-			    int hmin, int hmax)
-{
-  QProgressDialog progress("Saving trimmed volume",
-			   0,
-			   0, 100,
-			   0);
-  progress.setMinimumDuration(0);
-
-  int nX, nY, nZ;
-  nX = m_depth;
-  nY = m_width;
-  nZ = m_height;
-
-  int mX, mY, mZ;
-  mX = dmax-dmin+1;
-  mY = wmax-wmin+1;
-  mZ = hmax-hmin+1;
-
-  int nbytes = nY*nZ*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
-  uchar *tmp1 = new uchar[nbytes];
-
-  uchar vt;
-  if (m_voxelType == _UChar) vt = 0; // unsigned byte
-  if (m_voxelType == _Char) vt = 1; // signed byte
-  if (m_voxelType == _UShort) vt = 2; // unsigned short
-  if (m_voxelType == _Short) vt = 3; // signed short
-  if (m_voxelType == _Int) vt = 4; // int
-  if (m_voxelType == _Float) vt = 8; // float
-  
-  QFile fout(trimFile);
-  fout.open(QFile::WriteOnly);
-
-  fout.write((char*)&vt, 1);
-  fout.write((char*)&mX, 4);
-  fout.write((char*)&mY, 4);
-  fout.write((char*)&mZ, 4);
-
-  //for(uint i=dmin; i<=dmax; i++)
-  for(int i=dmax; i>=dmin; i--)
-    {
-      loadTxmImage(i, tmp1);
-
-      if (m_voxelType == _UChar)
-	{
-	  for(uint j=0; j<m_width; j++)
-	    for(uint k=0; k<m_height; k++)
-	      tmp[j*m_height+k] = tmp1[k*m_width+j];
-	}
-      else if (m_voxelType == _UShort)
-	{
-	  ushort *p0 = (ushort*)tmp;
-	  ushort *p1 = (ushort*)tmp1;
-	  for(uint j=0; j<m_width; j++)
-	    for(uint k=0; k<m_height; k++)
-	      p0[j*m_height+k] = p1[k*m_width+j];
-	}
-      else if (m_voxelType == _Float)
-	{
-	  float *p0 = (float*)tmp;
-	  float *p1 = (float*)tmp1;
-	  for(uint j=0; j<m_width; j++)
-	    for(uint k=0; k<m_height; k++)
-	      p0[j*m_height+k] = p1[k*m_width+j];
-	}
-      
-
-      for(uint j=wmin; j<=wmax; j++)
-	{
-	  memcpy(tmp+(j-wmin)*mZ*m_bytesPerVoxel,
-		 tmp+(j*nZ + hmin)*m_bytesPerVoxel,
-		 mZ*m_bytesPerVoxel);
-	}
-	  
-      fout.write((char*)tmp, mY*mZ*m_bytesPerVoxel);
-
-      progress.setValue((int)(100*(float)(dmax-i)/(float)mX));
-      qApp->processEvents();
-    }
-
-  fout.close();
-
-  delete [] tmp;
-  delete [] tmp1;
-
-  progress.setValue(100);
-
-  m_headerBytes = 13; // to be used for applyMapping function
-}
+//void
+//TxmPlugin::saveTrimmed(QString trimFile,
+//			    int dmin, int dmax,
+//			    int wmin, int wmax,
+//			    int hmin, int hmax)
+//{
+//  QProgressDialog progress("Saving trimmed volume",
+//			   0,
+//			   0, 100,
+//			   0);
+//  progress.setMinimumDuration(0);
+//
+//  int nX, nY, nZ;
+//  nX = m_depth;
+//  nY = m_width;
+//  nZ = m_height;
+//
+//  int mX, mY, mZ;
+//  mX = dmax-dmin+1;
+//  mY = wmax-wmin+1;
+//  mZ = hmax-hmin+1;
+//
+//  int nbytes = nY*nZ*m_bytesPerVoxel;
+//  uchar *tmp = new uchar[nbytes];
+//  uchar *tmp1 = new uchar[nbytes];
+//
+//  uchar vt;
+//  if (m_voxelType == _UChar) vt = 0; // unsigned byte
+//  if (m_voxelType == _Char) vt = 1; // signed byte
+//  if (m_voxelType == _UShort) vt = 2; // unsigned short
+//  if (m_voxelType == _Short) vt = 3; // signed short
+//  if (m_voxelType == _Int) vt = 4; // int
+//  if (m_voxelType == _Float) vt = 8; // float
+//  
+//  QFile fout(trimFile);
+//  fout.open(QFile::WriteOnly);
+//
+//  fout.write((char*)&vt, 1);
+//  fout.write((char*)&mX, 4);
+//  fout.write((char*)&mY, 4);
+//  fout.write((char*)&mZ, 4);
+//
+//  //for(uint i=dmin; i<=dmax; i++)
+//  for(int i=dmax; i>=dmin; i--)
+//    {
+//      loadTxmImage(i, tmp1);
+//
+//      if (m_voxelType == _UChar)
+//	{
+//	  for(uint j=0; j<m_width; j++)
+//	    for(uint k=0; k<m_height; k++)
+//	      tmp[j*m_height+k] = tmp1[k*m_width+j];
+//	}
+//      else if (m_voxelType == _UShort)
+//	{
+//	  ushort *p0 = (ushort*)tmp;
+//	  ushort *p1 = (ushort*)tmp1;
+//	  for(uint j=0; j<m_width; j++)
+//	    for(uint k=0; k<m_height; k++)
+//	      p0[j*m_height+k] = p1[k*m_width+j];
+//	}
+//      else if (m_voxelType == _Float)
+//	{
+//	  float *p0 = (float*)tmp;
+//	  float *p1 = (float*)tmp1;
+//	  for(uint j=0; j<m_width; j++)
+//	    for(uint k=0; k<m_height; k++)
+//	      p0[j*m_height+k] = p1[k*m_width+j];
+//	}
+//      
+//
+//      for(uint j=wmin; j<=wmax; j++)
+//	{
+//	  memcpy(tmp+(j-wmin)*mZ*m_bytesPerVoxel,
+//		 tmp+(j*nZ + hmin)*m_bytesPerVoxel,
+//		 mZ*m_bytesPerVoxel);
+//	}
+//	  
+//      fout.write((char*)tmp, mY*mZ*m_bytesPerVoxel);
+//
+//      progress.setValue((int)(100*(float)(dmax-i)/(float)mX));
+//      qApp->processEvents();
+//    }
+//
+//  fout.close();
+//
+//  delete [] tmp;
+//  delete [] tmp1;
+//
+//  progress.setValue(100);
+//
+//  m_headerBytes = 13; // to be used for applyMapping function
+//}

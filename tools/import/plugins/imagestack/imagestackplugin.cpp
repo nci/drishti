@@ -216,64 +216,64 @@ ImageStackPlugin::getDepthSlice(int slc,
 
 }
 
-void
-ImageStackPlugin::getWidthSlice(int slc,
-				uchar *slice)
-{
-  for(uint i=0; i<m_depth; i++)
-    {
-      QImage imgL = QImage(m_imageList[i]);
-      if (imgL.format() != QImage::Format_ARGB32)
-	imgL = imgL.convertToFormat(QImage::Format_ARGB32);
-
-      uchar *imgbits = imgL.bits();
-      
-      if (m_voxelType == _UChar)
-	{
-	  for(uint j=0; j<m_height; j++)
-	    slice[i*m_height+j] = imgbits[4*(slc*m_height+j)];
-	}      
-      else
-	{
-	  for(uint j=0; j<m_height; j++)
-	    {
-	      slice[4*(i*m_height+j)+0] = imgbits[4*(slc*m_height+j)+0];
-	      slice[4*(i*m_height+j)+1] = imgbits[4*(slc*m_height+j)+1];
-	      slice[4*(i*m_height+j)+2] = imgbits[4*(slc*m_height+j)+2];
-	      slice[4*(i*m_height+j)+3] = imgbits[4*(slc*m_height+j)+3];
-	    }
-	}
-    }
-}
-
-void
-ImageStackPlugin::getHeightSlice(int slc,
-				 uchar *slice)
-{
-  for(uint i=0; i<m_depth; i++)
-    {
-      QImage imgL = QImage(m_imageList[i]);
-      if (imgL.format() != QImage::Format_ARGB32)
-	imgL = imgL.convertToFormat(QImage::Format_ARGB32);
-
-      uchar *imgbits = imgL.bits();
-      if (m_voxelType == _UChar)
-	{
-	  for(uint j=0; j<m_width; j++)
-	    slice[i*m_width+j] = imgbits[4*(j*m_height+slc)];
-	}
-      else
-	{
-	  for(uint j=0; j<m_width; j++)
-	    {
-	      slice[4*(i*m_width+j)+0] = imgbits[4*(j*m_height+slc)+0];
-	      slice[4*(i*m_width+j)+1] = imgbits[4*(j*m_height+slc)+1];
-	      slice[4*(i*m_width+j)+2] = imgbits[4*(j*m_height+slc)+2];
-	      slice[4*(i*m_width+j)+3] = imgbits[4*(j*m_height+slc)+3];
-	    }
-	}
-    }
-}
+//void
+//ImageStackPlugin::getWidthSlice(int slc,
+//				uchar *slice)
+//{
+//  for(uint i=0; i<m_depth; i++)
+//    {
+//      QImage imgL = QImage(m_imageList[i]);
+//      if (imgL.format() != QImage::Format_ARGB32)
+//	imgL = imgL.convertToFormat(QImage::Format_ARGB32);
+//
+//      uchar *imgbits = imgL.bits();
+//      
+//      if (m_voxelType == _UChar)
+//	{
+//	  for(uint j=0; j<m_height; j++)
+//	    slice[i*m_height+j] = imgbits[4*(slc*m_height+j)];
+//	}      
+//      else
+//	{
+//	  for(uint j=0; j<m_height; j++)
+//	    {
+//	      slice[4*(i*m_height+j)+0] = imgbits[4*(slc*m_height+j)+0];
+//	      slice[4*(i*m_height+j)+1] = imgbits[4*(slc*m_height+j)+1];
+//	      slice[4*(i*m_height+j)+2] = imgbits[4*(slc*m_height+j)+2];
+//	      slice[4*(i*m_height+j)+3] = imgbits[4*(slc*m_height+j)+3];
+//	    }
+//	}
+//    }
+//}
+//
+//void
+//ImageStackPlugin::getHeightSlice(int slc,
+//				 uchar *slice)
+//{
+//  for(uint i=0; i<m_depth; i++)
+//    {
+//      QImage imgL = QImage(m_imageList[i]);
+//      if (imgL.format() != QImage::Format_ARGB32)
+//	imgL = imgL.convertToFormat(QImage::Format_ARGB32);
+//
+//      uchar *imgbits = imgL.bits();
+//      if (m_voxelType == _UChar)
+//	{
+//	  for(uint j=0; j<m_width; j++)
+//	    slice[i*m_width+j] = imgbits[4*(j*m_height+slc)];
+//	}
+//      else
+//	{
+//	  for(uint j=0; j<m_width; j++)
+//	    {
+//	      slice[4*(i*m_width+j)+0] = imgbits[4*(j*m_height+slc)+0];
+//	      slice[4*(i*m_width+j)+1] = imgbits[4*(j*m_height+slc)+1];
+//	      slice[4*(i*m_width+j)+2] = imgbits[4*(j*m_height+slc)+2];
+//	      slice[4*(i*m_width+j)+3] = imgbits[4*(j*m_height+slc)+3];
+//	    }
+//	}
+//    }
+//}
 
 QVariant
 ImageStackPlugin::rawValue(int d, int w, int h)

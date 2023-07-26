@@ -587,70 +587,70 @@ AnalyzePlugin::getDepthSlice(int slc,
     swapbytes(slice, m_bytesPerVoxel, nbytes);      
 }
 
-void
-AnalyzePlugin::getWidthSlice(int slc,
-			     uchar *slice)
-{
-  int nbytes = m_depth*m_height*m_bytesPerVoxel;
-  if (slc < 0 || slc >= m_width)
-    {
-      memset(slice, 0, nbytes);
-      return;
-    }
-
-  QFile fin(m_imgFile);
-  fin.open(QFile::ReadOnly);
-
-  for(int k=0; k<m_depth; k++)
-    {
-      fin.seek((qint64)(m_skipBytes +
-			((qint64)slc*m_height +
-			 (qint64)k*m_width*m_height)*m_bytesPerVoxel));
-
-      fin.read((char*)(slice+(qint64)(k*m_height*m_bytesPerVoxel)),
-	       (qint64)(m_height*m_bytesPerVoxel));
-    }
-  fin.close();
-
-  if (m_byteSwap && m_bytesPerVoxel > 1)
-    swapbytes(slice, m_bytesPerVoxel, nbytes);
-}
-
-void
-AnalyzePlugin::getHeightSlice(int slc,
-			      uchar *slice)
-{
-  int nbytes = m_depth*m_width*m_bytesPerVoxel;
-  if (slc < 0 || slc >= m_height)
-    {
-      memset(slice, 0, nbytes);
-      return;
-    }
-
-  QFile fin(m_imgFile);
-  fin.open(QFile::ReadOnly);
-
-  int ndum = m_width*m_height*m_bytesPerVoxel;
-  uchar *dum = new uchar[ndum];
-  
-  uint it=0;
-  for(uint k=0; k<m_depth; k++)
-    {
-      fin.read((char*)dum, ndum);
-      for(uint j=0; j<m_width; j++)
-	{
-	  memcpy(slice+it*m_bytesPerVoxel,
-		 dum+(j*m_height+slc)*m_bytesPerVoxel,
-		 m_bytesPerVoxel);
-	  it++;
-	}
-    }
-  delete [] dum;
-  fin.close();
-
-  if (m_byteSwap && m_bytesPerVoxel > 1)
-    swapbytes(slice, m_bytesPerVoxel, nbytes);
-}
+//void
+//AnalyzePlugin::getWidthSlice(int slc,
+//			     uchar *slice)
+//{
+//  int nbytes = m_depth*m_height*m_bytesPerVoxel;
+//  if (slc < 0 || slc >= m_width)
+//    {
+//      memset(slice, 0, nbytes);
+//      return;
+//    }
+//
+//  QFile fin(m_imgFile);
+//  fin.open(QFile::ReadOnly);
+//
+//  for(int k=0; k<m_depth; k++)
+//    {
+//      fin.seek((qint64)(m_skipBytes +
+//			((qint64)slc*m_height +
+//			 (qint64)k*m_width*m_height)*m_bytesPerVoxel));
+//
+//      fin.read((char*)(slice+(qint64)(k*m_height*m_bytesPerVoxel)),
+//	       (qint64)(m_height*m_bytesPerVoxel));
+//    }
+//  fin.close();
+//
+//  if (m_byteSwap && m_bytesPerVoxel > 1)
+//    swapbytes(slice, m_bytesPerVoxel, nbytes);
+//}
+//
+//void
+//AnalyzePlugin::getHeightSlice(int slc,
+//			      uchar *slice)
+//{
+//  int nbytes = m_depth*m_width*m_bytesPerVoxel;
+//  if (slc < 0 || slc >= m_height)
+//    {
+//      memset(slice, 0, nbytes);
+//      return;
+//    }
+//
+//  QFile fin(m_imgFile);
+//  fin.open(QFile::ReadOnly);
+//
+//  int ndum = m_width*m_height*m_bytesPerVoxel;
+//  uchar *dum = new uchar[ndum];
+//  
+//  uint it=0;
+//  for(uint k=0; k<m_depth; k++)
+//    {
+//      fin.read((char*)dum, ndum);
+//      for(uint j=0; j<m_width; j++)
+//	{
+//	  memcpy(slice+it*m_bytesPerVoxel,
+//		 dum+(j*m_height+slc)*m_bytesPerVoxel,
+//		 m_bytesPerVoxel);
+//	  it++;
+//	}
+//    }
+//  delete [] dum;
+//  fin.close();
+//
+//  if (m_byteSwap && m_bytesPerVoxel > 1)
+//    swapbytes(slice, m_bytesPerVoxel, nbytes);
+//}
 
 QVariant
 AnalyzePlugin::rawValue(int d, int w, int h)
@@ -733,80 +733,80 @@ AnalyzePlugin::rawValue(int d, int w, int h)
   return v;
 }
 
-void
-AnalyzePlugin::saveTrimmed(QString trimFile,
-			   int dmin, int dmax,
-			   int wmin, int wmax,
-			   int hmin, int hmax)
-{
-  QProgressDialog progress("Saving trimmed volume",
-			   QString(),
-			   0, 100,
-			   0);
-  progress.setMinimumDuration(0);
-
-  int nX, nY, nZ;
-  nX = m_depth;
-  nY = m_width;
-  nZ = m_height;
-
-  int mX, mY, mZ;
-  mX = dmax-dmin+1;
-  mY = wmax-wmin+1;
-  mZ = hmax-hmin+1;
-
-  qint64 nbytes = nY*nZ*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
-
-  uchar vt;
-  if (m_voxelType == _UChar) vt = 0; // unsigned byte
-  if (m_voxelType == _Char) vt = 1; // signed byte
-  if (m_voxelType == _UShort) vt = 2; // unsigned short
-  if (m_voxelType == _Short) vt = 3; // signed short
-  if (m_voxelType == _Int) vt = 4; // int
-  if (m_voxelType == _Float) vt = 8; // float
-  
-  QFile fout(trimFile);
-  fout.open(QFile::WriteOnly);
-
-  fout.write((char*)&vt, 1);
-  fout.write((char*)&mX, 4);
-  fout.write((char*)&mY, 4);
-  fout.write((char*)&mZ, 4);
-
-  QFile fin(m_imgFile);
-  fin.open(QFile::ReadOnly);
-  fin.seek((qint64)(m_skipBytes + nbytes*dmin));
-
-  for(uint i=dmin; i<=dmax; i++)
-    {
-      fin.read((char*)tmp, nbytes);
-
-      for(uint j=wmin; j<=wmax; j++)
-	{
-	  memcpy(tmp+(j-wmin)*mZ*m_bytesPerVoxel,
-		 tmp+(j*nZ + hmin)*m_bytesPerVoxel,
-		 mZ*m_bytesPerVoxel);
-	}
-	  
-      if (m_byteSwap && m_bytesPerVoxel > 1)
-	swapbytes(tmp,
-		  m_bytesPerVoxel,
-		  mY*mZ*m_bytesPerVoxel);      
-
-      fout.write((char*)tmp, (qint64)(mY*mZ*m_bytesPerVoxel));
-
-      progress.setValue((int)(100*(float)(i-dmin)/(float)mX));
-      qApp->processEvents();
-    }
-
-  fin.close();
-  fout.close();
-
-  delete [] tmp;
-
-  m_headerBytes = 13; // to be used for applyMapping function
-}
+//void
+//AnalyzePlugin::saveTrimmed(QString trimFile,
+//			   int dmin, int dmax,
+//			   int wmin, int wmax,
+//			   int hmin, int hmax)
+//{
+//  QProgressDialog progress("Saving trimmed volume",
+//			   QString(),
+//			   0, 100,
+//			   0);
+//  progress.setMinimumDuration(0);
+//
+//  int nX, nY, nZ;
+//  nX = m_depth;
+//  nY = m_width;
+//  nZ = m_height;
+//
+//  int mX, mY, mZ;
+//  mX = dmax-dmin+1;
+//  mY = wmax-wmin+1;
+//  mZ = hmax-hmin+1;
+//
+//  qint64 nbytes = nY*nZ*m_bytesPerVoxel;
+//  uchar *tmp = new uchar[nbytes];
+//
+//  uchar vt;
+//  if (m_voxelType == _UChar) vt = 0; // unsigned byte
+//  if (m_voxelType == _Char) vt = 1; // signed byte
+//  if (m_voxelType == _UShort) vt = 2; // unsigned short
+//  if (m_voxelType == _Short) vt = 3; // signed short
+//  if (m_voxelType == _Int) vt = 4; // int
+//  if (m_voxelType == _Float) vt = 8; // float
+//  
+//  QFile fout(trimFile);
+//  fout.open(QFile::WriteOnly);
+//
+//  fout.write((char*)&vt, 1);
+//  fout.write((char*)&mX, 4);
+//  fout.write((char*)&mY, 4);
+//  fout.write((char*)&mZ, 4);
+//
+//  QFile fin(m_imgFile);
+//  fin.open(QFile::ReadOnly);
+//  fin.seek((qint64)(m_skipBytes + nbytes*dmin));
+//
+//  for(uint i=dmin; i<=dmax; i++)
+//    {
+//      fin.read((char*)tmp, nbytes);
+//
+//      for(uint j=wmin; j<=wmax; j++)
+//	{
+//	  memcpy(tmp+(j-wmin)*mZ*m_bytesPerVoxel,
+//		 tmp+(j*nZ + hmin)*m_bytesPerVoxel,
+//		 mZ*m_bytesPerVoxel);
+//	}
+//	  
+//      if (m_byteSwap && m_bytesPerVoxel > 1)
+//	swapbytes(tmp,
+//		  m_bytesPerVoxel,
+//		  mY*mZ*m_bytesPerVoxel);      
+//
+//      fout.write((char*)tmp, (qint64)(mY*mZ*m_bytesPerVoxel));
+//
+//      progress.setValue((int)(100*(float)(i-dmin)/(float)mX));
+//      qApp->processEvents();
+//    }
+//
+//  fin.close();
+//  fout.close();
+//
+//  delete [] tmp;
+//
+//  m_headerBytes = 13; // to be used for applyMapping function
+//}
 
 bool
 AnalyzePlugin::checkExtension(QString flnm, const char *ext)

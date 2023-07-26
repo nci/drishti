@@ -625,7 +625,7 @@ RemapImage::drawRawValue(QPainter *p)
     }
 
   int xp = m_cursorPos.x();
-  int yp = m_cursorPos.y();
+  int yp = m_cursorPos.y()-20;
 
   str = QString("%1 %2 %3").\
           arg(m_pickHeight).\
@@ -637,13 +637,13 @@ RemapImage::drawRawValue(QPainter *p)
   else
     {
       if (vr.type() == QVariant::UInt)
-	str += QString(" ui(%1)").arg(vr.toUInt());
+	str += QString("-ui(%1)").arg(vr.toUInt());
       else if (vr.type() == QVariant::Int)
-	str += QString(" u(%1)").arg(vr.toInt());
+	str += QString("-u(%1)").arg(vr.toInt());
       else if (vr.type() == QVariant::Double)
-	str += QString(" f(%1)").arg(vr.toDouble());
+	str += QString("-f(%1)").arg(vr.toDouble());
 
-      str += QString("->(%1)").arg(vp.toUInt());
+      str += QString("--(%1)").arg(vp.toUInt());
     }
 
   QFont pfont = QFont("Helvetica", 10);
@@ -656,22 +656,16 @@ RemapImage::drawRawValue(QPainter *p)
   float bw = br.width();      
 
   int x = xp-bw-30;
-  int xe = xp-20;
-  if (x < 1)
-    {
-      x = xp+20;
-      xe = x;
-    }
+  if (x < 1) x = xp+20;
+  if (yp < 10) yp += 70;
 
-  p->setPen(Qt::darkRed);
+  p->setPen(Qt::yellow);
   p->setBrush(QColor(0,0,0,200));
-  p->drawRect(x, yp-by,
-	      bw+10, 2*by+5);
+  p->drawRect(x, yp-by-5,
+	      bw+70, 2*by+10);
   p->setPen(Qt::white);
   p->drawText(x+5, yp+by,
 	      str);
-  p->setPen(Qt::black);
-  p->drawLine(xe, yp, xp, yp);  
 }
 
 void
@@ -814,6 +808,23 @@ RemapImage::checkRubberBand(int xpos, int ypos,
     }
 
   return m_rubberBandActive;
+}
+
+void
+RemapImage::mouseDoubleClickEvent(QMouseEvent *event)
+{
+  m_rubberBand = QRect(0,0,1,1);
+  m_rubberXmin = false;
+  m_rubberYmin = false;
+  m_rubberXmax = false;
+  m_rubberYmax = false;
+  m_rubberNew = false;
+  m_rubberBandActive = false;
+
+  // now update the min and max limits
+  updateLimits();
+      
+  updateStatusText();  
 }
 
 void
@@ -1024,33 +1035,9 @@ RemapImage::mouseReleaseEvent(QMouseEvent *event)
 	  m_rubberBand.setBottom(top);
 	}
 
-      // --- now update the min and max limits
-      left = m_rubberBand.left();
-      right = m_rubberBand.right();
-      top = m_rubberBand.top();
-      bottom = m_rubberBand.bottom();
-      if (m_sliceType == DSlice)
-	{
-	  m_minHSlice = left*m_Height;
-	  m_maxHSlice = right*m_Height;
-	  m_minWSlice = top*m_Width;
-	  m_maxWSlice = bottom*m_Width;
-	}
-      else if (m_sliceType == WSlice)
-	{
-	  m_minHSlice = left*m_Height;
-	  m_maxHSlice = right*m_Height;
-	  m_minDSlice = top*m_Depth;
-	  m_maxDSlice = bottom*m_Depth;
-	}
-      else
-	{
-	  m_minWSlice = left*m_Width;
-	  m_maxWSlice = right*m_Width;
-	  m_minDSlice = top*m_Depth;
-	  m_maxDSlice = bottom*m_Depth;
-	}
-
+      // now update the min and max limits
+      updateLimits();
+      
       updateStatusText();
     }
 
@@ -1064,6 +1051,35 @@ RemapImage::mouseReleaseEvent(QMouseEvent *event)
   update();
 }
 
+void
+RemapImage::updateLimits()
+{
+  float left = m_rubberBand.left();
+  float right = m_rubberBand.right();
+  float top = m_rubberBand.top();
+  float bottom = m_rubberBand.bottom();
+  if (m_sliceType == DSlice)
+    {
+      m_minHSlice = left*m_Height;
+      m_maxHSlice = right*m_Height;
+      m_minWSlice = top*m_Width;
+      m_maxWSlice = bottom*m_Width;
+    }
+  else if (m_sliceType == WSlice)
+    {
+      m_minHSlice = left*m_Height;
+      m_maxHSlice = right*m_Height;
+      m_minDSlice = top*m_Depth;
+      m_maxDSlice = bottom*m_Depth;
+    }
+  else
+    {
+      m_minWSlice = left*m_Width;
+      m_maxWSlice = right*m_Width;
+      m_minDSlice = top*m_Depth;
+      m_maxDSlice = bottom*m_Depth;
+    }
+}
 
 void
 RemapImage::wheelEvent(QWheelEvent *event)

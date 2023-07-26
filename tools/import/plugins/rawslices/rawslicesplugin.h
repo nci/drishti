@@ -40,12 +40,12 @@ class RawSlicesPlugin : public QObject, VolInterface
   QList<uchar> pvlMap();
 
   void getDepthSlice(int, uchar*);
-  void getWidthSlice(int, uchar*);
-  void getHeightSlice(int, uchar*);
+  //void getWidthSlice(int, uchar*);
+  //void getHeightSlice(int, uchar*);
 
   QVariant rawValue(int, int, int);
 
-  void saveTrimmed(QString, int, int, int, int, int, int);
+  //void saveTrimmed(QString, int, int, int, int, int, int);
 
   void generateHistogram();
  private :

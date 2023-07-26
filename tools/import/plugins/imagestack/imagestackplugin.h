@@ -35,8 +35,8 @@ class ImageStackPlugin : public QObject, VolInterface
   float rawMax();
    
   void getDepthSlice(int, uchar*);
-  void getWidthSlice(int, uchar*);
-  void getHeightSlice(int, uchar*);
+  //void getWidthSlice(int, uchar*);
+  //void getHeightSlice(int, uchar*);
 
   QVariant rawValue(int, int, int);
 

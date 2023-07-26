@@ -648,100 +648,100 @@ RawSlabsPlugin::getDepthSlice(int slc,
   fin.close();
 }
 
-void
-RawSlabsPlugin::getWidthSlice(int slc,
-			      uchar *slice)
-{
-  int nbytes = m_depth*m_height*m_bytesPerVoxel;
-
-  if (slc < 0 || slc >= m_width)
-    {
-      memset(slice, 0, nbytes);
-      return;
-    }
-
-  QFile fin(m_fileName[0]);
-  fin.open(QFile::ReadOnly);
-  int prevfno = 0;
-  for(uint k=0; k<m_depth; k++)
-    {
-      int fno = 0;
-      for(int nf=0; nf<m_slices.count(); nf++)
-	if (k<m_slices[nf])
-	  {
-	    fno = nf;
-	    break;
-	  }
-      if (fno != prevfno)
-	{
-	  fin.close();
-	  fin.setFileName(m_fileName[fno]);
-	  fin.open(QFile::ReadOnly);
-	}
-      prevfno = fno;
-
-      int slcno = ((fno > 0) ? k-m_slices[fno-1] : k);
-
-      fin.seek((qint64)(m_skipBytes +
-	       ((qint64)slcno*m_width*m_height + 
-		(qint64)slc*m_height)*m_bytesPerVoxel));
-      fin.read((char*)(slice+(qint64)(k*m_height*m_bytesPerVoxel)),
-	       (qint64)(m_height*m_bytesPerVoxel));
-    }
-  fin.close();
-}
-
-void
-RawSlabsPlugin::getHeightSlice(int slc,
-			       uchar *slice)
-{
-  int nbytes = m_depth*m_width*m_bytesPerVoxel;
-  if (slc < 0 || slc >= m_height)
-    {
-      memset(slice, 0, nbytes);
-      return;
-    }
-
-  int ndum = m_width*m_height*m_bytesPerVoxel;
-  uchar *dum = new uchar[ndum];
-  
-  uint it=0;
-  QFile fin(m_fileName[0]);
-  fin.open(QFile::ReadOnly);
-  fin.seek(m_skipBytes);
-  int prevfno = 0;
-  for(uint k=0; k<m_depth; k++)
-    {
-      int fno = 0;
-      for(int nf=0; nf<m_slices.count(); nf++)
-	if (k<m_slices[nf])
-	  {
-	    fno = nf;
-	    break;
-	  }
-      if (fno != prevfno)
-	{
-	  fin.close();
-	  fin.setFileName(m_fileName[fno]);
-	  fin.open(QFile::ReadOnly);
-	  fin.seek(m_skipBytes);
-	}
-      prevfno = fno;
-
-      int slcno = ((fno > 0) ? k-m_slices[fno-1] : k);
-
-      fin.read((char*)dum, (qint64)ndum);
-      for(uint j=0; j<m_width; j++)
-	{
-	  memcpy(slice+it*m_bytesPerVoxel,
-		 dum+(j*m_height+slc)*m_bytesPerVoxel,
-		 m_bytesPerVoxel);
-	  it++;
-	}
-    }
-  delete [] dum;
-  fin.close();
-}
+//void
+//RawSlabsPlugin::getWidthSlice(int slc,
+//			      uchar *slice)
+//{
+//  int nbytes = m_depth*m_height*m_bytesPerVoxel;
+//
+//  if (slc < 0 || slc >= m_width)
+//    {
+//      memset(slice, 0, nbytes);
+//      return;
+//    }
+//
+//  QFile fin(m_fileName[0]);
+//  fin.open(QFile::ReadOnly);
+//  int prevfno = 0;
+//  for(uint k=0; k<m_depth; k++)
+//    {
+//      int fno = 0;
+//      for(int nf=0; nf<m_slices.count(); nf++)
+//	if (k<m_slices[nf])
+//	  {
+//	    fno = nf;
+//	    break;
+//	  }
+//      if (fno != prevfno)
+//	{
+//	  fin.close();
+//	  fin.setFileName(m_fileName[fno]);
+//	  fin.open(QFile::ReadOnly);
+//	}
+//      prevfno = fno;
+//
+//      int slcno = ((fno > 0) ? k-m_slices[fno-1] : k);
+//
+//      fin.seek((qint64)(m_skipBytes +
+//	       ((qint64)slcno*m_width*m_height + 
+//		(qint64)slc*m_height)*m_bytesPerVoxel));
+//      fin.read((char*)(slice+(qint64)(k*m_height*m_bytesPerVoxel)),
+//	       (qint64)(m_height*m_bytesPerVoxel));
+//    }
+//  fin.close();
+//}
+//
+//void
+//RawSlabsPlugin::getHeightSlice(int slc,
+//			       uchar *slice)
+//{
+//  int nbytes = m_depth*m_width*m_bytesPerVoxel;
+//  if (slc < 0 || slc >= m_height)
+//    {
+//      memset(slice, 0, nbytes);
+//      return;
+//    }
+//
+//  int ndum = m_width*m_height*m_bytesPerVoxel;
+//  uchar *dum = new uchar[ndum];
+//  
+//  uint it=0;
+//  QFile fin(m_fileName[0]);
+//  fin.open(QFile::ReadOnly);
+//  fin.seek(m_skipBytes);
+//  int prevfno = 0;
+//  for(uint k=0; k<m_depth; k++)
+//    {
+//      int fno = 0;
+//      for(int nf=0; nf<m_slices.count(); nf++)
+//	if (k<m_slices[nf])
+//	  {
+//	    fno = nf;
+//	    break;
+//	  }
+//      if (fno != prevfno)
+//	{
+//	  fin.close();
+//	  fin.setFileName(m_fileName[fno]);
+//	  fin.open(QFile::ReadOnly);
+//	  fin.seek(m_skipBytes);
+//	}
+//      prevfno = fno;
+//
+//      int slcno = ((fno > 0) ? k-m_slices[fno-1] : k);
+//
+//      fin.read((char*)dum, (qint64)ndum);
+//      for(uint j=0; j<m_width; j++)
+//	{
+//	  memcpy(slice+it*m_bytesPerVoxel,
+//		 dum+(j*m_height+slc)*m_bytesPerVoxel,
+//		 m_bytesPerVoxel);
+//	  it++;
+//	}
+//    }
+//  delete [] dum;
+//  fin.close();
+//}
 
 QVariant
 RawSlabsPlugin::rawValue(int d, int w, int h)
@@ -813,12 +813,12 @@ RawSlabsPlugin::rawValue(int d, int w, int h)
   return v;
 }
 
-void
-RawSlabsPlugin::saveTrimmed(QString trimFile,
-			   int dmin, int dmax,
-			   int wmin, int wmax,
-			   int hmin, int hmax)
-{
-  QMessageBox::information(0, "", "not implemented");
-  return;
-}
+//void
+//RawSlabsPlugin::saveTrimmed(QString trimFile,
+//			   int dmin, int dmax,
+//			   int wmin, int wmax,
+//			   int hmin, int hmax)
+//{
+//  QMessageBox::information(0, "", "not implemented");
+//  return;
+//}

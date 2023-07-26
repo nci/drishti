@@ -53,13 +53,13 @@ class VolInterface
   virtual void generateHistogram() = 0;
 
   virtual void getDepthSlice(int, uchar*) = 0;
-  virtual void getWidthSlice(int, uchar*) = 0;
-  virtual void getHeightSlice(int, uchar*) = 0;
+  virtual void getWidthSlice(int, uchar*) {}
+  virtual void getHeightSlice(int, uchar*) {}
 
   virtual QVariant rawValue(int, int, int) = 0;
 
   virtual void saveTrimmed(QString,
-			   int, int, int, int, int, int) = 0;
+			   int, int, int, int, int, int) {}
 
 };
 

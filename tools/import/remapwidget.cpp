@@ -79,10 +79,11 @@ RemapWidget::showWidgets()
       m_gradientWidget->show();
     }
 
-  ui.butX->show();
-  ui.butY->show();
-  ui.butZ->show();
-  ui.butZ->setChecked(true);
+////disabling slice selection
+//  ui.butX->show();
+//  ui.butY->show();
+//  ui.butZ->show();
+//  ui.butZ->setChecked(true);
 }
 
 void

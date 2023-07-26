@@ -43,6 +43,7 @@ class RemapImage : public QWidget
   void mouseMoveEvent(QMouseEvent*);
   void mouseReleaseEvent(QMouseEvent*);
   void wheelEvent(QWheelEvent*);
+  void mouseDoubleClickEvent(QMouseEvent*);
   
   void enterEvent(QEvent*);
   void leaveEvent(QEvent*);
@@ -125,6 +126,8 @@ class RemapImage : public QWidget
   void setZoom(float);
 
   void updateStatusText();
+
+  void updateLimits();
 };
 
 

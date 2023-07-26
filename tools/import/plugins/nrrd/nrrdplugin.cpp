@@ -594,73 +594,73 @@ NrrdPlugin::getDepthSlice(int slc,
     readSlice<float>(idx, sz, nbytes, slice);
 }
 
-void
-NrrdPlugin::getWidthSlice(int slc,
-			 uchar *slice)
-{
-  int nbytes = m_depth*m_height*m_bytesPerVoxel;
-  if (slc < 0 || slc >= m_width)
-    {
-      memset(slice, 0, nbytes);
-      return;
-    }
-
-  int idx[3];
-  int sz[3];
-  idx[0] = 0;
-  idx[1] = slc;
-  idx[2] = 0;
-  sz[0] = m_height;
-  sz[1] = 1;
-  sz[2] = m_depth;
-
-  if (m_voxelType == _UChar)
-    readSlice<unsigned char>(idx, sz, nbytes, slice);
-  else if (m_voxelType == _Char)
-    readSlice<char>(idx, sz, nbytes, slice);
-  else if (m_voxelType == _UShort)
-    readSlice<unsigned short>(idx, sz, nbytes, slice);
-  else if (m_voxelType == _Short)
-    readSlice<short>(idx, sz, nbytes, slice);
-  else if (m_voxelType == _Int)
-    readSlice<int>(idx, sz, nbytes, slice);
-  else if (m_voxelType == _Float)
-    readSlice<float>(idx, sz, nbytes, slice);
-}
-
-void
-NrrdPlugin::getHeightSlice(int slc,
-			  uchar *slice)
-{
-  int nbytes = m_depth*m_width*m_bytesPerVoxel;
-  if (slc < 0 || slc >= m_height)
-    {
-      memset(slice, 0, nbytes);
-      return;
-    }
-
-  int idx[3];
-  int sz[3];
-  idx[0] = slc;
-  idx[1] = 0;
-  idx[2] = 0;
-  sz[0] = 1;
-  sz[1] = m_width;
-  sz[2] = m_depth;
-
-  if (m_voxelType == _UChar)
-    readSlice<unsigned char>(idx, sz, nbytes, slice);
-  else if (m_voxelType == _Char)
-    readSlice<char>(idx, sz, nbytes, slice);
-  else if (m_voxelType == _UShort)
-    readSlice<unsigned short>(idx, sz, nbytes, slice);
-  else if (m_voxelType == _Short)
-    readSlice<short>(idx, sz, nbytes, slice);
-  else if (m_voxelType == _Int)
-    readSlice<int>(idx, sz, nbytes, slice);
-  else if (m_voxelType == _Float)
-    readSlice<float>(idx, sz, nbytes, slice);
-}
+//void
+//NrrdPlugin::getWidthSlice(int slc,
+//			 uchar *slice)
+//{
+//  int nbytes = m_depth*m_height*m_bytesPerVoxel;
+//  if (slc < 0 || slc >= m_width)
+//    {
+//      memset(slice, 0, nbytes);
+//      return;
+//    }
+//
+//  int idx[3];
+//  int sz[3];
+//  idx[0] = 0;
+//  idx[1] = slc;
+//  idx[2] = 0;
+//  sz[0] = m_height;
+//  sz[1] = 1;
+//  sz[2] = m_depth;
+//
+//  if (m_voxelType == _UChar)
+//    readSlice<unsigned char>(idx, sz, nbytes, slice);
+//  else if (m_voxelType == _Char)
+//    readSlice<char>(idx, sz, nbytes, slice);
+//  else if (m_voxelType == _UShort)
+//    readSlice<unsigned short>(idx, sz, nbytes, slice);
+//  else if (m_voxelType == _Short)
+//    readSlice<short>(idx, sz, nbytes, slice);
+//  else if (m_voxelType == _Int)
+//    readSlice<int>(idx, sz, nbytes, slice);
+//  else if (m_voxelType == _Float)
+//    readSlice<float>(idx, sz, nbytes, slice);
+//}
+//
+//void
+//NrrdPlugin::getHeightSlice(int slc,
+//			  uchar *slice)
+//{
+//  int nbytes = m_depth*m_width*m_bytesPerVoxel;
+//  if (slc < 0 || slc >= m_height)
+//    {
+//      memset(slice, 0, nbytes);
+//      return;
+//    }
+//
+//  int idx[3];
+//  int sz[3];
+//  idx[0] = slc;
+//  idx[1] = 0;
+//  idx[2] = 0;
+//  sz[0] = 1;
+//  sz[1] = m_width;
+//  sz[2] = m_depth;
+//
+//  if (m_voxelType == _UChar)
+//    readSlice<unsigned char>(idx, sz, nbytes, slice);
+//  else if (m_voxelType == _Char)
+//    readSlice<char>(idx, sz, nbytes, slice);
+//  else if (m_voxelType == _UShort)
+//    readSlice<unsigned short>(idx, sz, nbytes, slice);
+//  else if (m_voxelType == _Short)
+//    readSlice<short>(idx, sz, nbytes, slice);
+//  else if (m_voxelType == _Int)
+//    readSlice<int>(idx, sz, nbytes, slice);
+//  else if (m_voxelType == _Float)
+//    readSlice<float>(idx, sz, nbytes, slice);
+//}
 
 QVariant
 NrrdPlugin::rawValue(int d, int w, int h)
@@ -724,82 +724,82 @@ NrrdPlugin::rawValue(int d, int w, int h)
   return v;
 }
 
-void
-NrrdPlugin::saveTrimmed(QString trimFile,
-			     int dmin, int dmax,
-			     int wmin, int wmax,
-			     int hmin, int hmax)
-{
-  QProgressDialog progress("Saving trimmed volume",
-			   QString(),
-			   0, 100,
-			   0);
-  progress.setMinimumDuration(0);
-
-  int nX, nY, nZ;
-  nX = m_depth;
-  nY = m_width;
-  nZ = m_height;
-
-  int mX, mY, mZ;
-  mX = dmax-dmin+1;
-  mY = wmax-wmin+1;
-  mZ = hmax-hmin+1;
-
-  int nbytes = nY*nZ*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
-
-  uchar vt;
-  if (m_voxelType == _UChar) vt = 0; // unsigned byte
-  if (m_voxelType == _Char) vt = 1; // signed byte
-  if (m_voxelType == _UShort) vt = 2; // unsigned short
-  if (m_voxelType == _Short) vt = 3; // signed short
-  if (m_voxelType == _Int) vt = 4; // int
-  if (m_voxelType == _Float) vt = 8; // float
-  
-  QFile fout(trimFile);
-  fout.open(QFile::WriteOnly);
-
-  fout.write((char*)&vt, 1);
-  fout.write((char*)&mX, 4);
-  fout.write((char*)&mY, 4);
-  fout.write((char*)&mZ, 4);
-
-
-  int idx[3];
-  int sz[3];
-  idx[0] = hmin;
-  idx[1] = wmin;
-  idx[2] = dmin;
-  sz[0] = mZ;
-  sz[1] = mY;
-  sz[2] = 1;
-
-  for(int i=dmin; i<=dmax; i++)
-    {
-      idx[2] = i;
-
-      if (m_voxelType == _UChar)
-	readSlice<unsigned char>(idx, sz, nbytes, tmp);
-      else if (m_voxelType == _Char)
-	readSlice<char>(idx, sz, nbytes, tmp);
-      else if (m_voxelType == _UShort)
-	readSlice<unsigned short>(idx, sz, nbytes, tmp);
-      else if (m_voxelType == _Short)
-	readSlice<short>(idx, sz, nbytes, tmp);
-      else if (m_voxelType == _Int)
-	readSlice<int>(idx, sz, nbytes, tmp);
-      else if (m_voxelType == _Float)
-	readSlice<float>(idx, sz, nbytes, tmp);
-
-      fout.write((char*)tmp, mY*mZ*m_bytesPerVoxel);
-
-      progress.setValue((int)(100*(float)(i-dmin)/(float)mX));
-      qApp->processEvents();
-    }
-  fout.close();
-
-  delete [] tmp;
-
-  m_headerBytes = 13; // to be used for applyMapping function
-}
+//void
+//NrrdPlugin::saveTrimmed(QString trimFile,
+//			     int dmin, int dmax,
+//			     int wmin, int wmax,
+//			     int hmin, int hmax)
+//{
+//  QProgressDialog progress("Saving trimmed volume",
+//			   QString(),
+//			   0, 100,
+//			   0);
+//  progress.setMinimumDuration(0);
+//
+//  int nX, nY, nZ;
+//  nX = m_depth;
+//  nY = m_width;
+//  nZ = m_height;
+//
+//  int mX, mY, mZ;
+//  mX = dmax-dmin+1;
+//  mY = wmax-wmin+1;
+//  mZ = hmax-hmin+1;
+//
+//  int nbytes = nY*nZ*m_bytesPerVoxel;
+//  uchar *tmp = new uchar[nbytes];
+//
+//  uchar vt;
+//  if (m_voxelType == _UChar) vt = 0; // unsigned byte
+//  if (m_voxelType == _Char) vt = 1; // signed byte
+//  if (m_voxelType == _UShort) vt = 2; // unsigned short
+//  if (m_voxelType == _Short) vt = 3; // signed short
+//  if (m_voxelType == _Int) vt = 4; // int
+//  if (m_voxelType == _Float) vt = 8; // float
+//  
+//  QFile fout(trimFile);
+//  fout.open(QFile::WriteOnly);
+//
+//  fout.write((char*)&vt, 1);
+//  fout.write((char*)&mX, 4);
+//  fout.write((char*)&mY, 4);
+//  fout.write((char*)&mZ, 4);
+//
+//
+//  int idx[3];
+//  int sz[3];
+//  idx[0] = hmin;
+//  idx[1] = wmin;
+//  idx[2] = dmin;
+//  sz[0] = mZ;
+//  sz[1] = mY;
+//  sz[2] = 1;
+//
+//  for(int i=dmin; i<=dmax; i++)
+//    {
+//      idx[2] = i;
+//
+//      if (m_voxelType == _UChar)
+//	readSlice<unsigned char>(idx, sz, nbytes, tmp);
+//      else if (m_voxelType == _Char)
+//	readSlice<char>(idx, sz, nbytes, tmp);
+//      else if (m_voxelType == _UShort)
+//	readSlice<unsigned short>(idx, sz, nbytes, tmp);
+//      else if (m_voxelType == _Short)
+//	readSlice<short>(idx, sz, nbytes, tmp);
+//      else if (m_voxelType == _Int)
+//	readSlice<int>(idx, sz, nbytes, tmp);
+//      else if (m_voxelType == _Float)
+//	readSlice<float>(idx, sz, nbytes, tmp);
+//
+//      fout.write((char*)tmp, mY*mZ*m_bytesPerVoxel);
+//
+//      progress.setValue((int)(100*(float)(i-dmin)/(float)mX));
+//      qApp->processEvents();
+//    }
+//  fout.close();
+//
+//  delete [] tmp;
+//
+//  m_headerBytes = 13; // to be used for applyMapping function
+//}

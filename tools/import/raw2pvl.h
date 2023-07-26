@@ -172,7 +172,8 @@ class Raw2Pvl
 			bool,
 			int, int,
 			int, float,
-			float);
+			float,
+			bool);
 
   static void mapIsoGen(QList<QVariant>);
 };

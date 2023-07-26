@@ -826,69 +826,69 @@ NcPlugin::getDepthSlice(int slc,
   dataFile.close();
 }
 
-void
-NcPlugin::getWidthSlice(int slc,
-			uchar *slice)
-{
-  for(uint nf=0; nf<m_fileName.size(); nf++)
-    {
-      NcFile dataFile((char *)m_fileName[nf].toLatin1().data(),
-		      NcFile::read);
-
-      int depth;
-      uchar *ptmp;
-      if (nf > 0)
-	{
-	  depth = m_depthList[nf]-m_depthList[nf-1];
-	  ptmp = slice + m_depthList[nf-1]*m_height*m_bytesPerVoxel;
-	}
-      else
-	{
-	  depth = m_depthList[0];
-	  ptmp = slice;
-	}
-
-      
-      NcVar ncvar;
-      ncvar = dataFile.getVar(m_varName.toStdString());
-      
-      getSlice(1, depth, m_height, ncvar, slc, ptmp);
-
-      dataFile.close();
-    }  
-}
-
-void
-NcPlugin::getHeightSlice(int slc,
-			 uchar *slice)
-{
-  for(uint nf=0; nf < m_fileName.size(); nf++)
-    {
-      NcFile dataFile((char *)m_fileName[nf].toLatin1().data(),
-		      NcFile::read);
-      
-      int depth;
-      uchar *ptmp;
-      if (nf > 0)
-	{
-	  depth = m_depthList[nf]-m_depthList[nf-1];
-	  ptmp = slice + m_depthList[nf-1]*m_width*m_bytesPerVoxel;
-	}
-      else
-	{
-	  depth = m_depthList[0];
-	  ptmp = slice;
-	}
-
-      
-      NcVar ncvar;
-      ncvar = dataFile.getVar(m_varName.toStdString());
-      
-      getSlice(2, depth, m_width, ncvar, slc, ptmp);
-
-      dataFile.close();
-    }
-}
+//void
+//NcPlugin::getWidthSlice(int slc,
+//			uchar *slice)
+//{
+//  for(uint nf=0; nf<m_fileName.size(); nf++)
+//    {
+//      NcFile dataFile((char *)m_fileName[nf].toLatin1().data(),
+//		      NcFile::read);
+//
+//      int depth;
+//      uchar *ptmp;
+//      if (nf > 0)
+//	{
+//	  depth = m_depthList[nf]-m_depthList[nf-1];
+//	  ptmp = slice + m_depthList[nf-1]*m_height*m_bytesPerVoxel;
+//	}
+//      else
+//	{
+//	  depth = m_depthList[0];
+//	  ptmp = slice;
+//	}
+//
+//      
+//      NcVar ncvar;
+//      ncvar = dataFile.getVar(m_varName.toStdString());
+//      
+//      getSlice(1, depth, m_height, ncvar, slc, ptmp);
+//
+//      dataFile.close();
+//    }  
+//}
+//
+//void
+//NcPlugin::getHeightSlice(int slc,
+//			 uchar *slice)
+//{
+//  for(uint nf=0; nf < m_fileName.size(); nf++)
+//    {
+//      NcFile dataFile((char *)m_fileName[nf].toLatin1().data(),
+//		      NcFile::read);
+//      
+//      int depth;
+//      uchar *ptmp;
+//      if (nf > 0)
+//	{
+//	  depth = m_depthList[nf]-m_depthList[nf-1];
+//	  ptmp = slice + m_depthList[nf-1]*m_width*m_bytesPerVoxel;
+//	}
+//      else
+//	{
+//	  depth = m_depthList[0];
+//	  ptmp = slice;
+//	}
+//
+//      
+//      NcVar ncvar;
+//      ncvar = dataFile.getVar(m_varName.toStdString());
+//      
+//      getSlice(2, depth, m_width, ncvar, slc, ptmp);
+//
+//      dataFile.close();
+//    }
+//}
 
 QVariant
 NcPlugin::rawValue(int d, int w, int h)
@@ -973,115 +973,115 @@ NcPlugin::rawValue(int d, int w, int h)
   return v;
 }
 
-void
-NcPlugin::saveTrimmed(QString trimFile,
-		      int dmin, int dmax,
-		      int wmin, int wmax,
-		      int hmin, int hmax)
-{
-  QProgressDialog progress("Saving trimmed volume",
-			   QString(),
-			   0, 100,
-			   0);
-  progress.setMinimumDuration(0);
-
-  int nX, nY, nZ;
-  nX = m_depth;
-  nY = m_width;
-  nZ = m_height;
-
-  int mX, mY, mZ;
-  mX = dmax-dmin+1;
-  mY = wmax-wmin+1;
-  mZ = hmax-hmin+1;
-
-  int nbytes = nY*nZ*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
-
-  uchar vt;
-  if (m_voxelType == _UChar) vt = 0; // unsigned byte
-  if (m_voxelType == _Char) vt = 1; // signed byte
-  if (m_voxelType == _UShort) vt = 2; // unsigned short
-  if (m_voxelType == _Short) vt = 3; // signed short
-  if (m_voxelType == _Int) vt = 4; // int
-  if (m_voxelType == _Float) vt = 8; // float
-  
-  QFile fout(trimFile);
-  fout.open(QFile::WriteOnly);
-
-  fout.write((char*)&vt, 1);
-  fout.write((char*)&mX, 4);
-  fout.write((char*)&mY, 4);
-  fout.write((char*)&mZ, 4);
-
-
-
-  int nfStart, nfEnd;
-  int slcStart, slcEnd;
-  //------ cater for multiple netCDF files ------
-  for(uint fl=0; fl<m_fileName.size(); fl++)
-    {
-      if (m_depthList[fl] > dmin)
-	{
-	  nfStart = fl;
-	  if (fl == 0)
-	    slcStart = dmin;
-	  else
-	    slcStart = dmin-m_depthList[fl-1];
-	  break;
-	}
-    }
-  for(uint fl=0; fl<m_fileName.size(); fl++)
-    {
-      if (m_depthList[fl] > dmax)
-	{
-	  nfEnd = fl;
-	  if (fl == 0)
-	    slcEnd = dmax;
-	  else
-	    slcEnd = dmax-m_depthList[fl-1];
-	  break;
-	}
-    }
-  //----------------------------------------
-
-  uint nslc = 0;
-  for(uint nf=nfStart; nf<=nfEnd; nf++)
-    {
-      NcFile dataFile;
-      dataFile.open(m_fileName[nf].toStdString(),
-		    NcFile::read);
-      NcVar ncvar;
-      ncvar = dataFile.getVar(m_varName.toStdString());
-
-      uint dStart, dEnd;
-      dStart = 0;
-      dEnd = ncvar.getDim(0).getSize()-1;
-
-      if (nf == nfStart) dStart = slcStart;
-      if (nf == nfEnd) dEnd = slcEnd;
-
-      for(uint i=dStart; i<=dEnd; i++)
-	{
-	  getSlice(0, m_width, m_height, ncvar, i, tmp);
-	  	  
-	  for(uint j=wmin; j<=wmax; j++)
-	    {
-	      memcpy(tmp+(j-wmin)*mZ*m_bytesPerVoxel,
-		     tmp+(j*nZ + hmin)*m_bytesPerVoxel,
-		     mZ*m_bytesPerVoxel);
-	    }
-	  fout.write((char*)tmp, mY*mZ*m_bytesPerVoxel);
-	  progress.setValue((int)(100*(float)nslc/(float)mX));
-	  qApp->processEvents();
-	  nslc++;
-	}
-      dataFile.close();
-    }
-
-  fout.close();  
-
-  delete [] tmp;
-
-  m_headerBytes = 13; // to be used in applyMapping
-}
+//void
+//NcPlugin::saveTrimmed(QString trimFile,
+//		      int dmin, int dmax,
+//		      int wmin, int wmax,
+//		      int hmin, int hmax)
+//{
+//  QProgressDialog progress("Saving trimmed volume",
+//			   QString(),
+//			   0, 100,
+//			   0);
+//  progress.setMinimumDuration(0);
+//
+//  int nX, nY, nZ;
+//  nX = m_depth;
+//  nY = m_width;
+//  nZ = m_height;
+//
+//  int mX, mY, mZ;
+//  mX = dmax-dmin+1;
+//  mY = wmax-wmin+1;
+//  mZ = hmax-hmin+1;
+//
+//  int nbytes = nY*nZ*m_bytesPerVoxel;
+//  uchar *tmp = new uchar[nbytes];
+//
+//  uchar vt;
+//  if (m_voxelType == _UChar) vt = 0; // unsigned byte
+//  if (m_voxelType == _Char) vt = 1; // signed byte
+//  if (m_voxelType == _UShort) vt = 2; // unsigned short
+//  if (m_voxelType == _Short) vt = 3; // signed short
+//  if (m_voxelType == _Int) vt = 4; // int
+//  if (m_voxelType == _Float) vt = 8; // float
+//  
+//  QFile fout(trimFile);
+//  fout.open(QFile::WriteOnly);
+//
+//  fout.write((char*)&vt, 1);
+//  fout.write((char*)&mX, 4);
+//  fout.write((char*)&mY, 4);
+//  fout.write((char*)&mZ, 4);
+//
+//
+//
+//  int nfStart, nfEnd;
+//  int slcStart, slcEnd;
+//  //------ cater for multiple netCDF files ------
+//  for(uint fl=0; fl<m_fileName.size(); fl++)
+//    {
+//      if (m_depthList[fl] > dmin)
+//	{
+//	  nfStart = fl;
+//	  if (fl == 0)
+//	    slcStart = dmin;
+//	  else
+//	    slcStart = dmin-m_depthList[fl-1];
+//	  break;
+//	}
+//    }
+//  for(uint fl=0; fl<m_fileName.size(); fl++)
+//    {
+//      if (m_depthList[fl] > dmax)
+//	{
+//	  nfEnd = fl;
+//	  if (fl == 0)
+//	    slcEnd = dmax;
+//	  else
+//	    slcEnd = dmax-m_depthList[fl-1];
+//	  break;
+//	}
+//    }
+//  //----------------------------------------
+//
+//  uint nslc = 0;
+//  for(uint nf=nfStart; nf<=nfEnd; nf++)
+//    {
+//      NcFile dataFile;
+//      dataFile.open(m_fileName[nf].toStdString(),
+//		    NcFile::read);
+//      NcVar ncvar;
+//      ncvar = dataFile.getVar(m_varName.toStdString());
+//
+//      uint dStart, dEnd;
+//      dStart = 0;
+//      dEnd = ncvar.getDim(0).getSize()-1;
+//
+//      if (nf == nfStart) dStart = slcStart;
+//      if (nf == nfEnd) dEnd = slcEnd;
+//
+//      for(uint i=dStart; i<=dEnd; i++)
+//	{
+//	  getSlice(0, m_width, m_height, ncvar, i, tmp);
+//	  	  
+//	  for(uint j=wmin; j<=wmax; j++)
+//	    {
+//	      memcpy(tmp+(j-wmin)*mZ*m_bytesPerVoxel,
+//		     tmp+(j*nZ + hmin)*m_bytesPerVoxel,
+//		     mZ*m_bytesPerVoxel);
+//	    }
+//	  fout.write((char*)tmp, mY*mZ*m_bytesPerVoxel);
+//	  progress.setValue((int)(100*(float)nslc/(float)mX));
+//	  qApp->processEvents();
+//	  nslc++;
+//	}
+//      dataFile.close();
+//    }
+//
+//  fout.close();  
+//
+//  delete [] tmp;
+//
+//  m_headerBytes = 13; // to be used in applyMapping
+//}

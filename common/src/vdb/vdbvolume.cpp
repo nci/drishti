@@ -21,7 +21,7 @@ VdbVolume::VdbVolume()
 {
   openvdb::initialize();
 
-  m_vdbGrid = openvdb::FloatGrid::create();  
+  m_vdbGrid = openvdb::FloatGrid::create(-1.0);  
   m_vdbGrid->setName("density");
   m_vdbGrid->setTransform(openvdb::math::Transform::createLinearTransform(1));
 }

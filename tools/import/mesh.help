@@ -12,6 +12,12 @@ Morphological operators - dilate/erode/close/open can be applied.
 
 #begin
 background value
+
+**
+Background value is ignored for isosurface range when handling segmented data.
+**
+
+
 <Val - all voxels below Val will be treated as background
 Example : <100 - treat all voxels below 100 as background voxels
                  that means only consider voxels above 100
@@ -31,12 +37,21 @@ Example : >100 <200 - treat all voxels above 100 and below 200 as background vox
 <Val1 >Val2 - all voxels below Val1 or above Val2 will be treated as background
 Example : <100 >200 - treat all voxels below 100 or above 200 as background voxels
                       that means only consider voxels between and including 100 and 200
+
 #end
 
 
 #begin
 isosurface value
-Isosurface value represents value of the voxel to be used for mesh generation.
+Value of the voxel to be used for mesh generation.
+
+When handling segmented data, if a user wants isosurfaces range i.e. isosurfaces within a range of values, then specify as below :
+<minValue>-<maxValue>
+*Note that there is no space between the two values*
+Isosurfaces will be generated for all integer values between and including <minValue> and <maxValue>.  The files will be numbered by the isosurface value with zero padding.  If no voxel is found for a particular isovalue within the range, then surface mesh file is not generated for that value.
+Example :
+0-1000  - generates isosurfaces for all values between and including 1 and 100
+
 
 If only isoValue is specified then all values below isoValue will be treated as background and the surface will enclose all voxels having value equal to or higher than isovalue.
 Example :

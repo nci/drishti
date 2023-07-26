@@ -14,14 +14,19 @@ void
 MeshTools::smoothMesh(QVector<QVector3D>& V,
 		      QVector<QVector3D>& N,
 		      QVector<int>& T,
-		      int ntimes)
+		      int ntimes,
+		      bool showProgress)
 {  
   QProgressDialog progress("Mesh smoothing in progress ... ",
 			   QString(),
 			   0, 100,
 			   0,
 			   Qt::WindowStaysOnTopHint);
-  progress.setMinimumDuration(0);
+  if (showProgress)
+    progress.setMinimumDuration(0);
+  else
+    progress.close();
+  
   
   QVector<QVector3D> newV;
   newV = V;
@@ -34,10 +39,13 @@ MeshTools::smoothMesh(QVector<QVector3D>& V,
   int ntri = T.count()/3;
   for(int i=0; i<ntri; i++)
     {
-      if (i%10000 == 0)
+      if (showProgress)
 	{
-	  progress.setValue((int)(100.0*(float)i/(float)(ntri)));
-	  qApp->processEvents();
+	  if (i%10000 == 0)
+	    {
+	      progress.setValue((int)(100.0*(float)i/(float)(ntri)));
+	      qApp->processEvents();
+	    }
 	}
 
       int a = T[3*i+0];
@@ -55,11 +63,15 @@ MeshTools::smoothMesh(QVector<QVector3D>& V,
 
   //----------------------------
   // smooth vertices
-  progress.setLabelText("   Smoothing vertices ...");
+  if (showProgress)
+    progress.setLabelText("   Smoothing vertices ...");
   for(int nt=0; nt<ntimes; nt++)
     {
-      progress.setValue((int)(100.0*(float)nt/(float)(ntimes)));
-      qApp->processEvents();
+      if (showProgress)
+	{
+	  progress.setValue((int)(100.0*(float)nt/(float)(ntimes)));
+	  qApp->processEvents();
+	}
 
       // deflation step
       for(int i=0; i<nv; i++)
@@ -110,7 +122,8 @@ MeshTools::smoothMesh(QVector<QVector3D>& V,
 
 
   //----------------------------
-  progress.setLabelText("   Calculate normals ...");
+  if (showProgress)
+    progress.setLabelText("   Calculate normals ...");
   // now calculate normals
   for(int i=0; i<nv; i++)
     newV[i] = QVector3D(0,0,0);
@@ -121,10 +134,13 @@ MeshTools::smoothMesh(QVector<QVector3D>& V,
 
   for(int i=0; i<ntri; i++)
     {
-      if (i%10000 == 0)
+      if (showProgress)
 	{
-	  progress.setValue((int)(100.0*(float)i/(float)(ntri)));
-	  qApp->processEvents();
+	  if (i%10000 == 0)
+	    {
+	      progress.setValue((int)(100.0*(float)i/(float)(ntri)));
+	      qApp->processEvents();
+	    }
 	}
 
       int a = T[3*i+0];
@@ -151,7 +167,8 @@ MeshTools::smoothMesh(QVector<QVector3D>& V,
       N[i] = newV[i]/nvs[i];
   //----------------------------
 
-  progress.setValue(100);
+  if (showProgress)
+    progress.setValue(100);
 }
 
 
@@ -159,11 +176,12 @@ void
 MeshTools::saveToOBJ(QString objflnm,
 		     QVector<QVector3D> V,
 		     QVector<QVector3D> N,
-		     QVector<int> T)
+		     QVector<int> T,
+		     bool showProgress)
 {		     
   QVector<QVector3D> C;
   C.clear();
-  saveToOBJ(objflnm, V, N, C, T);
+  saveToOBJ(objflnm, V, N, C, T, showProgress);
 }
 
 void
@@ -171,7 +189,8 @@ MeshTools::saveToOBJ(QString objflnm,
 		     QVector<QVector3D> V,
 		     QVector<QVector3D> N,
 		     QVector<QVector3D> C,
-		     QVector<int> T)
+		     QVector<int> T,
+		     bool showProgress)
 {		     
   QFile fobj(objflnm);
   fobj.open(QFile::WriteOnly);
@@ -224,11 +243,12 @@ void
 MeshTools::saveToPLY(QString flnm,
 		     QVector<QVector3D> V,
 		     QVector<QVector3D> N,
-		     QVector<int> T)
+		     QVector<int> T,
+		     bool showProgress)
 {
   QVector<QVector3D> C;
   C.clear();
-  saveToPLY(flnm, V, N, C, T); 
+  saveToPLY(flnm, V, N, C, T, showProgress); 
 }
 
 
@@ -237,15 +257,20 @@ MeshTools::saveToPLY(QString flnm,
 		     QVector<QVector3D> V,
 		     QVector<QVector3D> N,
 		     QVector<QVector3D> C,
-		     QVector<int> T)
+		     QVector<int> T,
+		     bool showProgress)
 {
-//  QProgressDialog progress("Saving mesh ...",
-//			   QString(),
-//			   0, 100,
-//			   0,
-//			   Qt::WindowStaysOnTopHint);
-//  progress.setMinimumDuration(0);
+  QProgressDialog progress("Saving mesh ...",
+			   QString(),
+			   0, 100,
+			   0,
+			   Qt::WindowStaysOnTopHint);
+  if (showProgress)
+    progress.setMinimumDuration(0);
+  else
+    progress.close();
 
+  
   QStringList ps;
   ps << "x";
   ps << "y";
@@ -339,11 +364,14 @@ MeshTools::saveToPLY(QString flnm,
 
   for(int ni=0; ni<nvertices; ni++)
     {
-//      if (ni%10000 == 0)
-//	{
-//	  progress.setValue((int)(100.0*(float)ni/(float)(nvertices)));
-//	  qApp->processEvents();
-//	}
+      if (showProgress)
+	{
+	  if (ni%10000 == 0)
+	    {
+	      progress.setValue((int)(100.0*(float)ni/(float)(nvertices)));
+	      qApp->processEvents();
+	    }
+	}
 
       myVertex vertex;
       vertex.x = V[ni].x();
@@ -385,7 +413,8 @@ MeshTools::saveToPLY(QString flnm,
   for(int i=0; i<plyStrings.count(); i++)
     delete [] plyStrings[i];
 
-//  progress.setValue(100);
+  if (showProgress)
+    progress.setValue(100);
 }
 
 
@@ -393,15 +422,20 @@ void
 MeshTools::saveToSTL(QString flnm,
 		     QVector<QVector3D> V,
 		     QVector<QVector3D> N,
-		     QVector<int> T)
+		     QVector<int> T,
+		     bool showProgress)
 {
   QProgressDialog progress("Saving mesh ...",
 			   QString(),
 			   0, 100,
 			   0,
 			   Qt::WindowStaysOnTopHint);
-  progress.setMinimumDuration(0);
+  if (showProgress)
+    progress.setMinimumDuration(0);
+  else
+    progress.close();
 
+  
   int ntri = T.count()/3;
   
   char header[80];
@@ -413,10 +447,13 @@ MeshTools::saveToSTL(QString flnm,
 
   for(int ni=0; ni<ntri; ni++)
     {
-      if (ni%10000 == 0)
+      if (showProgress)
 	{
-	  progress.setValue((int)(100.0*(float)ni/(float)(ntri)));
-	  qApp->processEvents();
+	  if (ni%10000 == 0)
+	    {
+	      progress.setValue((int)(100.0*(float)ni/(float)(ntri)));
+	      qApp->processEvents();
+	    }
 	}
 
       float v[12];
@@ -455,5 +492,6 @@ MeshTools::saveToSTL(QString flnm,
 
   fstl.close();
 
-  progress.setValue(100);
+  if (showProgress)
+    progress.setValue(100);
 }

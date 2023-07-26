@@ -2959,9 +2959,7 @@ Raw2Pvl::saveIsosurface(VolumeData* volData,
 
   if (bType == 10)
     {
-      if (voxelType == _UChar ||
-	  voxelType == _UShort ||
-	  voxelType == _Int)	  
+      if (voxelType != _Float)
 	Raw2Pvl::saveIsosurfaceRange(volData,
 				     dmin, dmax,
 				     wmin, wmax,
@@ -2977,7 +2975,7 @@ Raw2Pvl::saveIsosurface(VolumeData* volData,
 				     applyVoxelScaling);
       else
 	QMessageBox::information(0, "Error",
-				 "Isosurfaces not generated.\nIsosurface over range of values only works for\nUNSIGNED CHAR, UNSIGNED SHORT and INT datatypes");
+				 "Isosurfaces not generated.\nIsosurface over range of values only works for non FLOAT datatypes");
       
       return;
     }
@@ -3110,7 +3108,7 @@ Raw2Pvl::saveIsosurface(VolumeData* volData,
 	  else
 	    vdb.addSliceToVDB(val,
 			      d, wsz, hsz,
-			      bType, bValue1, bValue2);	    
+			      bType, bValue1, bValue2);
 	} // loop dd - slices
 
       
@@ -3260,9 +3258,11 @@ Raw2Pvl::parIsoGen(VolumeData* volData,
   else if (voxelType == _Int) bpv = 4;
   else if (voxelType == _Float) bpv = 4;
 
+  
   uchar *raw = new uchar[rvwidth*rvheight*bpv];
   float *val = new float[wsz*hsz];
 
+  
   //------------------------------------
   for(int d=dmin; d<=dmax; d++)
     {      
@@ -3303,8 +3303,8 @@ Raw2Pvl::parIsoGen(VolumeData* volData,
 		  val[vi] = ptr[w*rvheight+h];
 		}
 	      vi++;
-	    } // loop i
-	} // loop j
+	    } // loop h
+	} // loop w
       
       if (save0AtTop)
 	vdb.addSliceToVDB(val,
@@ -3315,23 +3315,27 @@ Raw2Pvl::parIsoGen(VolumeData* volData,
 			  d, wsz, hsz,
 			  4, iso, 0);
       
-    } // loop dd - slices
+    } // loop d - slices
   //------------------------------------
 
+
+  //------------------------------------
+  // create mesh filename
   QString iso_meshflnm;
   QChar fillChar = '0';
   iso_meshflnm = meshflnm.chopped(4) +
     QString("_%1").arg((int)iso, 5, 10, fillChar) +
     meshflnm.right(4);
+  //------------------------------------
+  
   
   //------------------------------------
   // resample is required
   if (qAbs(resample-1.0) > 0.001)
-    {
-      vdb.resample(resample);
-    }
+    vdb.resample(resample);
   //------------------------------------
-	  	  
+ 
+ 
   //------------------------------------
   // convert to level set
   vdb.convertToLevelSet(iso, 0);
@@ -3343,20 +3347,14 @@ Raw2Pvl::parIsoGen(VolumeData* volData,
   if (morphoType > 0 && morphoRadius > 0)
     {
       float offset = morphoRadius;
-      if (morphoType == 1)
-	{
-	  vdb.offset(-offset); // dilate
-	}
-      if (morphoType == 2)
-	{
-	  vdb.offset(offset); // erode
-	}
-      if (morphoType == 3)
+      if (morphoType == 1) vdb.offset(-offset); // dilate
+      else if (morphoType == 2) vdb.offset(offset); // erode
+      else if (morphoType == 3)
 	{
 	  vdb.offset(-offset); // dilate
 	  vdb.offset(offset); // erode
 	}
-      if (morphoType == 4)
+      else if (morphoType == 4)
 	{
 	  vdb.offset(offset); // erode
 	  vdb.offset(-offset); // dilate
@@ -3368,9 +3366,7 @@ Raw2Pvl::parIsoGen(VolumeData* volData,
   //------------------------------------
   // smoothing if required  
   if (dataSmooth > 0)
-    {
-      vdb.mean(0.1, dataSmooth); // width, iterations
-    }
+    vdb.mean(0.1, dataSmooth); // width, iterations
   //------------------------------------
 
 
@@ -3382,28 +3378,30 @@ Raw2Pvl::parIsoGen(VolumeData* volData,
   QVector<int> T;
   vdb.generateMesh(0, 0, adaptivity, V, VN, T);
 
+  // don't generate file if no vertices found
   if (V.count() == 0)
-    {
-      //Global::statusBar()->showMessage("Not Saving : No vertices in "+QFileInfo(iso_meshflnm).fileName());
-      return;
-    }
+    return;
   
-  //Global::statusBar()->showMessage("Saving Mesh to "+QFileInfo(iso_meshflnm).fileName());
-  //qApp->processEvents();
-	  
-  if (applyVoxelScaling) // take voxel size into account
+
+  // take voxel size into account
+  if (applyVoxelScaling)
     {
       float vx, vy, vz;
       volData->voxelSize(vx, vy, vz);
       for(int i=0; i<V.count(); i++)
 	V[i] *= QVector3D(vx, vy, vz);
     }      
-	  
+
+  // smoothing
   if (meshSmooth > 0)  
     MeshTools::smoothMesh(V, VN, T, 5*meshSmooth);
 
+  // default color
   QColor meshColor = QColor(Qt::white);
-	  
+
+ 
+  //------------------------------------
+  // save mesh
   if (iso_meshflnm.right(3).toLower() == "obj")
     {
       QVector<QVector3D> C;
@@ -3411,7 +3409,7 @@ Raw2Pvl::parIsoGen(VolumeData* volData,
       C.fill(QVector3D(meshColor.red(),
 		       meshColor.green(),
 		       meshColor.blue()));			   
-      MeshTools::saveToOBJ(iso_meshflnm, V, VN, C, T);
+      MeshTools::saveToOBJ(iso_meshflnm, V, VN, C, T, false);
     }
   else if (iso_meshflnm.right(3).toLower() == "ply")
     {
@@ -3420,10 +3418,10 @@ Raw2Pvl::parIsoGen(VolumeData* volData,
       C.fill(QVector3D(meshColor.red(),
 		       meshColor.green(),
 		       meshColor.blue()));			   
-      MeshTools::saveToPLY(iso_meshflnm, V, VN, C, T);
+      MeshTools::saveToPLY(iso_meshflnm, V, VN, C, T, false);
     }
   else if (iso_meshflnm.right(3).toLower() == "stl")
-    MeshTools::saveToSTL(iso_meshflnm, V, VN, T);
+    MeshTools::saveToSTL(iso_meshflnm, V, VN, T, false);
   //------------------------------------
 }
 
@@ -3511,26 +3509,6 @@ Raw2Pvl::saveIsosurfaceRange(VolumeData* volData,
 	       hsz != rvheight);
 
 
-  QWidgetList topLevelWidgets = QApplication::topLevelWidgets();
-  QWidget *mainWidget = 0;
-  for(QWidget *w : topLevelWidgets)
-    {
-      if (w->isWindow())
-	{
-	  mainWidget = w;
-	  break;
-	}
-    }
-
-//  QProgressDialog progress("Exporting Mesh",
-//			   "Cancel",
-//			   0, 100,
-//			   mainWidget,
-//			   Qt::Dialog|Qt::WindowStaysOnTopHint);
-//  progress.setMinimumDuration(0);
-//  progress.resize(500, 100);
-//  progress.move(QCursor::pos());
-
   int tsfcount = qMax(1, timeseriesFiles.count());
   QChar fillChar = '0';
   int fieldWidth = 2;
@@ -3545,20 +3523,13 @@ Raw2Pvl::saveIsosurfaceRange(VolumeData* volData,
 	           QString("_%1").arg((int)tsf, fieldWidth, 10, fillChar) +
 	           meshFilename.right(4);
       
-//      if (progress.wasCanceled())
-//	{
-//	  progress.setValue(100);  
-//	  QMessageBox::information(0, "Save", "-----Aborted-----");
-//	  return;
-//	}
-      
       if (tsfcount > 1)
 	{
 	  volData->replaceFile(timeseriesFiles[tsf]);
 	}
 
 
-      // generate isosurface for all values within the range
+      // create parameter list to be sent to the parallel iso surface generation routine
       QList<QList<QVariant>> param;
       for(int iso=(int)bValue1; iso<=(int)bValue2; iso++)
 	{
@@ -3600,304 +3571,16 @@ Raw2Pvl::saveIsosurfaceRange(VolumeData* volData,
       QObject::connect(&futureWatcher,  &QFutureWatcher<void>::progressRangeChanged, &dialog, &QProgressDialog::setRange);
       QObject::connect(&futureWatcher, &QFutureWatcher<void>::progressValueChanged,  &dialog, &QProgressDialog::setValue);
             
-      // Start the computation.
+      // Start generation of isosurface for all values within the range
       futureWatcher.setFuture(QtConcurrent::map(param, Raw2Pvl::mapIsoGen));
       
       // Display the dialog and start the event loop.
       dialog.exec();
       
       futureWatcher.waitForFinished();
-
-      QMessageBox::information(0, "Export Mesh", "Save Done");
-      
-//      int im = 0;
-//      for(int iso=(int)bValue1; iso<=(int)bValue2; iso++)
-//	{
-//	  progress.setValue(100*(float)(iso-bValue1)/(float)(bValue2+1-bValue1));
-//	  qApp->processEvents();
-//
-//	  mapIsoGen(param[im]);
-//	  im = im + 1;
-//	//Raw2Pvl::parIsoGen(volData,
-//	//		     voxelType,
-//	//		     rvheight, rvwidth, rvdepth,
-//	//		     dmin, dmax,
-//	//		     wmin, wmax,
-//	//		     hmin, hmax,
-//	//		     save0AtTop,
-//	//		     iso,
-//	//		     meshflnm,
-//	//		     adaptivity,
-//	//		     applyVoxelScaling,
-//	//		     dataSmooth, meshSmooth,
-//	//		     meshColor,
-//	//		     morphoType, morphoRadius,
-//	//		     resample);			     
-//	}
-
     } // loop timeseries
-  return;
 
-
-//
-//
-//
-//
-//
-//	  
-//      // generate isosurface for all values within the range
-//      for(int iso=(int)bValue1; iso<=(int)bValue2; iso++)
-//	{
-//	  VdbVolume vdb;
-//	  Raw2Pvl::populateVDB(vdb, volData,
-//			       voxelType, rvheight, rvdepth,
-//			       dmin, dmax,
-//			       wmin, wmax,
-//			       hmin, hmax,
-//			       raw, val,
-//			       save0AtTop,
-//			       iso,
-//			       progress);
-//	  
-//	  if (progress.wasCanceled())
-//	    return;
-//	  
-//	  QString iso_meshflnm;
-//	  iso_meshflnm = meshflnm.chopped(4) +
-//	                 QString("_%1").arg((int)iso, 5, 10, fillChar) +
-//	                 meshflnm.right(4);
-//      
-//	  // resample is required
-//	  if (qAbs(resample-1.0) > 0.001)
-//	    {
-//	      progress.setLabelText("Downsampling Voxel Volume");
-//	      progress.setValue(80);  
-//	      qApp->processEvents();
-//	      vdb.resample(resample);
-//	    }
-//	  
-//	  
-//	  // convert to level set
-//	  progress.setLabelText("Converting to levelset");
-//	  progress.setValue(50);  
-//	  qApp->processEvents();
-//	  vdb.convertToLevelSet(iso, 0);
-//	  
-//
-//	  Raw2Pvl::applyMorpho(vdb, morphoType, morphoRadius, progress);	  
-//	  
-//	  // smoothing if required  
-//	  if (dataSmooth > 0)
-//	    {
-//	      progress.setLabelText("Smoothing Voxel Volume");
-//	      progress.setValue(70);  
-//	      qApp->processEvents();
-//	      vdb.mean(0.1, dataSmooth); // width, iterations
-//	    }
-//
-//	  Raw2Pvl::levelSetMeshAndSave(vdb, volData,
-//				       iso_meshflnm,
-//				       adaptivity,
-//				       applyVoxelScaling,
-//				       meshSmooth,
-//				       meshColor,
-//				       progress);
-//
-//	  if (progress.wasCanceled())
-//	    return;
-//      
-//	  
-//	  Global::statusBar()->clearMessage();
-//	} // loop iso
-//    } // loop timeseries
-//
-//  progress.setValue(100);  
-//  QMessageBox::information(0, "Export Mesh", "Save Done");
-}
-
-
-void
-Raw2Pvl::levelSetMeshAndSave(VdbVolume& vdb,
-			     VolumeData* volData,
-			     QString meshflnm,
-			     float adaptivity,
-			     bool applyVoxelScaling,
-			     bool meshSmooth,
-			     QColor meshColor,
-			     QProgressDialog &progress)
-{	    
-  Global::statusBar()->showMessage("Generating Mesh");
-  qApp->processEvents();
-	  
-  progress.setLabelText("Generating Isosurface Mesh");
-  progress.setValue(90);  
-  QVector<QVector3D> V;
-  QVector<QVector3D> VN;
-  QVector<int> T;
-  vdb.generateMesh(0, 0, adaptivity, V, VN, T);
-
-  if (V.count() == 0)
-    {
-      Global::statusBar()->showMessage("Not Saving : No vertices in "+QFileInfo(meshflnm).fileName());
-      return;
-    }
-  
-  progress.setLabelText("Saving Mesh to "+QFileInfo(meshflnm).fileName());
-  Global::statusBar()->showMessage("Saving Mesh to "+QFileInfo(meshflnm).fileName());
-  qApp->processEvents();
-	  
-  if (applyVoxelScaling) // take voxel size into account
-    {
-      float vx, vy, vz;
-      volData->voxelSize(vx, vy, vz);
-      for(int i=0; i<V.count(); i++)
-	V[i] *= QVector3D(vx, vy, vz);
-    }      
-	  
-  if (meshSmooth > 0)  
-    MeshTools::smoothMesh(V, VN, T, 5*meshSmooth);
-	  
-  if (meshflnm.right(3).toLower() == "obj")
-    {
-      QVector<QVector3D> C;
-      C.resize(V.count());
-      C.fill(QVector3D(meshColor.red(),
-		       meshColor.green(),
-		       meshColor.blue()));			   
-      MeshTools::saveToOBJ(meshflnm, V, VN, C, T);
-    }
-  else if (meshflnm.right(3).toLower() == "ply")
-    {
-      QVector<QVector3D> C;
-      C.resize(V.count());
-      C.fill(QVector3D(meshColor.red(),
-		       meshColor.green(),
-		       meshColor.blue()));			   
-      MeshTools::saveToPLY(meshflnm, V, VN, C, T);
-    }
-  else if (meshflnm.right(3).toLower() == "stl")
-    MeshTools::saveToSTL(meshflnm, V, VN, T);
-}
-
-
-void
-Raw2Pvl::applyMorpho(VdbVolume& vdb,
-		     int morphoType, float morphoRadius,
-		     QProgressDialog &progress)
-{
-  // Apply Morphological Operations
-  if (morphoType > 0 && morphoRadius > 0)
-    {
-      float offset = morphoRadius;
-      if (morphoType == 1)
-	{
-	  progress.setLabelText("Applying Morphological Dilation");
-	  vdb.offset(-offset); // dilate
-	}
-      if (morphoType == 2)
-	{
-	  progress.setLabelText("Applying Morphological Erosion");
-	  vdb.offset(offset); // erode
-	}
-      if (morphoType == 3)
-	{
-	  progress.setLabelText("Applying Morphological Closing");
-	  vdb.offset(-offset); // dilate
-	  vdb.offset(offset); // erode
-	}
-      if (morphoType == 4)
-	{
-	  progress.setLabelText("Applying Morphological Opening");
-	  vdb.offset(offset); // erode
-	  vdb.offset(-offset); // dilate
-	}
-      
-      progress.setValue(60);  
-      qApp->processEvents();	      
-    }
-}
-
-
-void
-Raw2Pvl::populateVDB(VdbVolume &vdb,
-		     VolumeData* volData,
-		     uchar voxelType, int rvheight, int rvdepth,
-		     int dmin, int dmax,
-		     int wmin, int wmax,
-		     int hmin, int hmax,
-		     uchar *raw, float*val,
-		     bool save0AtTop,
-		     int iso,
-		     QProgressDialog& progress)
-{
-  int dsz=dmax-dmin+1;
-  int wsz=wmax-wmin+1;
-  int hsz=hmax-hmin+1;
-
-  for(int d=dmin; d<=dmax; d++)
-    {
-      
-      if (progress.wasCanceled())
-	{
-	  progress.setValue(100);  
-	  QMessageBox::information(0, "Save", "-----Aborted-----");
-	  break;
-	}
-      
-      progress.setValue((int)(100*(float)d/(float)dsz));
-      qApp->processEvents();
-      
-      volData->getDepthSlice(d, raw);
-      int vi = 0;
-      for(int w=wmin; w<=wmax; w++)
-	{
-	  for(int h=hmin; h<=hmax; h++)
-	    {
-	      if (voxelType == _UChar)
-		{
-		  uchar *ptr = raw;
-		  val[vi] = ptr[w*rvheight+h];
-		}
-	      else if (voxelType == _Char)
-		{
-		  char *ptr = (char*)raw;
-		  val[vi] = ptr[w*rvheight+h];
-		}
-	      else if (voxelType == _UShort)
-		{
-		  ushort *ptr = (ushort*)raw;
-		  val[vi] = ptr[w*rvheight+h];
-		}
-	      else if (voxelType == _Short)
-		{
-		  short *ptr = (short*)raw;
-		  val[vi] = ptr[w*rvheight+h];
-		}
-	      else if (voxelType == _Int)
-		{
-		  int *ptr = (int*)raw;
-		  val[vi] = ptr[w*rvheight+h];
-		}
-	      else if (voxelType == _Float)
-		{
-		  float *ptr = (float*)raw;
-		  val[vi] = ptr[w*rvheight+h];
-		}
-	      vi++;
-	    } // loop i
-	} // loop j
-      
-      if (save0AtTop)
-	vdb.addSliceToVDB(val,
-			  rvdepth-1-d, wsz, hsz,
-			  4, iso, 0);
-      else
-	vdb.addSliceToVDB(val,
-			  d, wsz, hsz,
-			  4, iso, 0);
-      
-    } // loop dd - slices
-  
+  QMessageBox::information(0, "Export Mesh", "Save Done");      
 }
 
 
@@ -4147,7 +3830,7 @@ Raw2Pvl::getValues(int& ivType, float& isoValue,
 	  isoValue = list[0].toFloat();
 	  bValue1 = list[0].toFloat();
 	  bValue2 = list[1].toFloat();
-	  QMessageBox::information(0, "", QString("range : %1 %2").arg(bValue1).arg(bValue2));
+	  QMessageBox::information(0, "", QString("Isosurface Value Range : %1 to %2").arg(bValue1).arg(bValue2));
 	}
       else
 	{

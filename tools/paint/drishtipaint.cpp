@@ -213,6 +213,7 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   //ui.statusbar->hide();
 
   m_meshViewerSocket = 0;
+  m_CMDport = 7760;
   
 //  QFont font;
 //  font.setPointSize(10);
@@ -578,7 +579,7 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 
 
   
-  m_handleExternalCMD = new HandleExternalCMD();
+  m_handleExternalCMD = new HandleExternalCMD(m_CMDport);
 
   connect(m_handleExternalCMD, SIGNAL(loadRAW(QString)),
 	  this, SLOT(loadRawMask(QString)));
@@ -793,6 +794,19 @@ DrishtiPaint::on_action3dView_triggered()
   QTimer::singleShot(200, m_coronalImage, SLOT(zoomToSelection()));
 
   QTimer::singleShot(200, m_viewer, SLOT(startDrawing()));
+}
+
+void
+DrishtiPaint::on_actionPort_triggered()
+{
+  bool ok;
+  m_CMDport = QInputDialog::getInt(0,
+				   "Port",
+				   "Set port for socket communication with Drishti Paint",
+				   m_CMDport, 7000, 8000, 1, &ok);
+  if (ok)
+    QMessageBox::information(0, "Drishti Paint",
+			     QString("Port %1 will be used for receiving communication next time you start the program").arg(m_CMDport));
 }
 
 void
@@ -1852,7 +1866,11 @@ DrishtiPaint::loadSettings()
   QDomNodeList dlist = main.childNodes();
   for(int i=0; i<dlist.count(); i++)
     {
-      if (dlist.at(i).nodeName() == "previousdirectory")
+      if (dlist.at(i).nodeName() == "port")
+	{
+	  m_CMDport = dlist.at(i).toElement().text().toInt();
+	}
+      else if (dlist.at(i).nodeName() == "previousdirectory")
 	{
 	  QString str = dlist.at(i).toElement().text();
 	  Global::setPreviousDirectory(str);
@@ -1900,6 +1918,14 @@ DrishtiPaint::saveSettings()
 
   QDomElement topElement = doc.createElement("DrishtiPaintSettings");
   doc.appendChild(topElement);
+
+  {
+    QDomElement de0 = doc.createElement("port");
+    QDomText tn0;
+    tn0 = doc.createTextNode(QString("%1").arg(m_CMDport));
+    de0.appendChild(tn0);
+    topElement.appendChild(de0);
+  }
 
   {
     QDomElement de0 = doc.createElement("previousdirectory");

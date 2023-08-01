@@ -1,9 +1,10 @@
 #include "handleexternal.h"
 
 
-HandleExternalCMD::HandleExternalCMD() :
+HandleExternalCMD::HandleExternalCMD(int port) :
   QObject()
 {
+  m_port = port;
   initSocket();
 }
 
@@ -11,8 +12,7 @@ void
 HandleExternalCMD::initSocket()
 {
   m_listeningSocket = new QUdpSocket(this);
-  m_socketPort = 7770;
-  if (m_listeningSocket->bind(QHostAddress::LocalHost, m_socketPort))
+  if (m_listeningSocket->bind(QHostAddress::LocalHost, m_port))
     {
       connect(m_listeningSocket, SIGNAL(readyRead()),
 	      this, SLOT(readSocket()),

@@ -67,6 +67,8 @@ class DrishtiPaint : public QMainWindow
   void on_actionLoad2DList_triggered();
   void on_actionClear2DList_triggered();
 
+  void on_actionPort_triggered();
+
   void on_actionAbout_triggered();
   void on_actionHelp_triggered();
   void on_saveWork_triggered();
@@ -213,6 +215,7 @@ class DrishtiPaint : public QMainWindow
   void undoPaint3D();
 
   void createMeshViewerSocket();
+
   
  private :
   Ui::DrishtiPaint ui;
@@ -285,6 +288,8 @@ class DrishtiPaint : public QMainWindow
   QComboBox *m_gradType;
 
   PyWidget *m_pyWidget;
+
+  int m_CMDport;
   
   void setFile(QString);
   void initTagColors();

@@ -823,6 +823,7 @@
     <addaction name="actionScriptFolder"/>
     <addaction name="actionCommand"/>
     <addaction name="separator"/>
+    <addaction name="actionPort"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuView"/>
@@ -1157,6 +1158,11 @@
   <action name="actionMesh_Viewer">
    <property name="text">
     <string>Mesh Viewer</string>
+   </property>
+  </action>
+  <action name="actionPort">
+   <property name="text">
+    <string>Port</string>
    </property>
   </action>
  </widget>

@@ -11,11 +11,11 @@ class HandleExternalCMD : public QObject
   Q_OBJECT
 
  public :
-  HandleExternalCMD();
+  HandleExternalCMD(int port=7770);
 
   public slots :
     void readSocket();
-
+  
  signals :
     void loadRAW(QString);
     void loadSc(QString);
@@ -23,7 +23,7 @@ class HandleExternalCMD : public QObject
     
  private :
   QUdpSocket *m_listeningSocket;
-  int m_socketPort;
+  int m_port;
 
   void initSocket();
   void processCommand(QString);

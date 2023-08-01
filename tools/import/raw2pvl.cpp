@@ -249,6 +249,14 @@ checkParIsoGen()
 	{
 	  pariso = true;
 	  QMessageBox::information(0, "Isosurface generation", "Will generate multiple surfaces in parallel");
+
+//	  int maxThreads = QInputDialog::getInt(0, "Max Thread Count",
+//						QString("Maximum threads (%1)\nthat can be used").\
+//						arg(QThread::idealThreadCount()),
+//						QThread::idealThreadCount(),
+//						1,
+//						QThread::idealThreadCount());
+//	  QThreadPool::globalInstance()->setMaxThreadCount(maxThreads);
 	}
     }
   else
@@ -3282,15 +3290,16 @@ Raw2Pvl::parIsoGen(VolumeData* volData,
 		   float resample,
 		   bool showProgress)
 {
-  QProgressDialog progress("Isosurface generation",
-			   "Cancel",
-			   0, 100,
-			   0,
-			   Qt::Dialog|Qt::WindowStaysOnTopHint);
+  QProgressDialog progress;
   if (!showProgress)
     progress.close();
   else
-    progress.setMinimumDuration(0);
+    {
+      progress.setLabelText("Isosurface generation");
+      progress.setRange(0, 100);
+      progress.setWindowFlags(Qt::Dialog|Qt::WindowStaysOnTopHint);
+      progress.setMinimumDuration(0);
+    }
 
 
 
@@ -3679,7 +3688,7 @@ Raw2Pvl::saveIsosurfaceRange(VolumeData* volData,
 	      plist << QVariant(meshSmooth);
 	      plist << QVariant(morphoType);
 	      plist << QVariant(morphoRadius);
-	      plist << QVariant(resample);			     
+	      plist << QVariant(resample);
 	      
 	      param << plist;
 	    }

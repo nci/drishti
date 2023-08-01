@@ -37,7 +37,7 @@ TagColorEditor::setTagNames(QStringList tn)
       for (int i=0; i < 256; i++)
 	{
 	  QString nm = "DEFAULT";
-	  if (i > 0 && i < 255) nm = QString("Tag %1").arg(i);
+	  if (i > 0 && i < 255) nm = QString("Label %1").arg(i);
 	  if (i == 255) nm = "BOUNDARY";
 	  table->item(i, 0)->setText(nm);
 	}
@@ -71,12 +71,12 @@ TagColorEditor::setColors()
       b = colors[4*i+2];
 
       //--------------------------
-      // Tag Name
+      // Label Name
       QTableWidgetItem *tagName = table->item(row, 0);
       if (!tagName)
 	{
 	  QString tn = "DEFAULT";
-	  if (i > 0 && i < 255) tn = QString("Tag %1").arg(i);
+	  if (i > 0 && i < 255) tn = QString("Label %1").arg(i);
 	  if (i == 255) tn = "BOUNDARY";
 	  tagName = new QTableWidgetItem(tn);
 	  table->setItem(row, 0, tagName);
@@ -89,7 +89,7 @@ TagColorEditor::setColors()
 
       
       //--------------------------
-      // Tag Color
+      // Label Color
       QTableWidgetItem *colorItem = table->item(row, 1);
       if (!colorItem)
 	{
@@ -143,9 +143,9 @@ TagColorEditor::createGUI()
   for (int i=0; i < table->columnCount(); i++)
     table->setColumnWidth(i, 100);
 
-  QPushButton *newTags = new QPushButton("New Tag Colors");
-  QPushButton *showTags = new QPushButton("Show All Tags");
-  QPushButton *hideTags = new QPushButton("Hide All Tags");
+  QPushButton *newTags = new QPushButton("New Label Colors");
+  QPushButton *showTags = new QPushButton("Show All Labels");
+  QPushButton *hideTags = new QPushButton("Hide All Labels");
 
   QHBoxLayout *hlayout = new QHBoxLayout;
   hlayout->addWidget(newTags);
@@ -157,7 +157,7 @@ TagColorEditor::createGUI()
   
   setLayout(layout);
   
-  setWindowTitle(tr("Tag Color Editor"));
+  setWindowTitle(tr("Label Color Editor"));
 
   connect(newTags, SIGNAL(clicked()),
 	  this, SLOT(newTagsClicked()));

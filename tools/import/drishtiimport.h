@@ -48,11 +48,13 @@ class DrishtiImport : public QMainWindow
   QStringList m_pluginDirTypes;
   QStringList m_pluginFileDLib;
   QStringList m_pluginDirDLib;
-
+  QString m_scriptsPlugin;
+  
   RemapWidget *m_remapWidget;
 
   void registerPlugins();
-
+  void registerExternalScripts();
+  
   void loadSettings();
   void saveSettings();
 

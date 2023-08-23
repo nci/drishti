@@ -73,6 +73,8 @@ DrishtiImport::registerPlugins()
       close();
     }
 
+  m_scriptsPlugin = "";
+    
   for (int i=0; i<list.size(); i++)
     {
       QString pluginflnm = list.at(i).absoluteFilePath();
@@ -86,7 +88,12 @@ DrishtiImport::registerPlugins()
 	    {
 	      QStringList rs = vi->registerPlugin();
 
-	      int idx = rs.indexOf("file");
+	      int idx = rs.indexOf("script");
+	      if (idx >= 0)
+		m_scriptsPlugin = pluginflnm;
+	      
+	      
+	      idx = rs.indexOf("file");
 	      if (idx == -1) idx = rs.indexOf("files");
 	      if (idx >= 0)
 		{
@@ -126,6 +133,12 @@ DrishtiImport::registerPlugins()
 	}
     }
 
+  //---------------------
+  // load external scripts if any
+  registerExternalScripts();
+  //---------------------
+
+  
   QMenu *loadDirMenu;
   QMenu *loadFileMenu;
 
@@ -157,6 +170,91 @@ DrishtiImport::registerPlugins()
       loadFileMenu->addAction(action);
     }
 }
+
+void
+DrishtiImport::registerExternalScripts()
+{
+  QStringList scripts;
+
+  QDir app = QCoreApplication::applicationDirPath();
+  app.cd("assets");
+  app.cd("scripts");
+  app.cd("import");
+  QString scriptDir = app.absolutePath();
+  
+  QDir topDir(scriptDir);
+  topDir.setFilter(QDir::Dirs | QDir::Readable | QDir::NoDotAndDotDot);
+  topDir.setSorting(QDir::Name);
+
+  QFileInfoList scriptD = topDir.entryInfoList();
+  for (int i=0; i<scriptD.count(); i++)
+    {
+      QString jsonfile = scriptD[i].fileName();
+      jsonfile += ".json";
+      QDir pdir(scriptD[i].absoluteFilePath());
+      if (pdir.exists(jsonfile))
+	{
+	  jsonfile = scriptD[i].absoluteFilePath() + QDir::separator() + jsonfile;
+	  QFile fl(jsonfile);
+	  if (fl.open(QIODevice::ReadOnly))
+	    {
+	      QByteArray bytes = fl.readAll();
+	      fl.close();
+
+	      QJsonParseError jsonError;
+	      QJsonDocument document = QJsonDocument::fromJson( bytes, &jsonError );
+	      if (jsonError.error != QJsonParseError::NoError )
+		{
+		  QMessageBox::information(0, "Error",
+					   QString("fromJson failed: %1"). \
+					   arg(jsonError.errorString()));
+		}
+	      else if (document.isObject() )
+		{
+		  QJsonObject jsonObj = document.object(); 
+		  QStringList keys = jsonObj.keys();
+
+		  QString filesDesc, dirDesc;
+		  
+		  QString skrpt;
+		  for (auto key : keys)
+		    {
+		      QString value = jsonObj.take(key).toString();
+		      if (!value.isEmpty())
+			{
+			  if (key == "executable")
+			    skrpt = scriptD[i].fileName();
+			  if (key == "script")
+			    skrpt = scriptD[i].fileName();
+
+			  if (key == "filetype") filesDesc = value;
+			  if (key == "dirtype") dirDesc = value;			  
+			}
+		    }
+		  if (!skrpt.isEmpty())
+		    {
+		      if (!filesDesc.isEmpty())
+			{
+			  m_pluginFileTypes << filesDesc;
+			  m_pluginFileDLib << "script : "+m_scriptsPlugin+" : "+jsonfile;
+			}
+		      if (!dirDesc.isEmpty())
+			{
+			  m_pluginDirTypes << filesDesc;
+			  m_pluginDirDLib << "script : "+m_scriptsPlugin+" : "+jsonfile;
+			}
+			
+		      scripts << skrpt;
+		    }
+		}
+	    }
+	}
+    }
+
+  if (scripts.count() == 0)
+    QMessageBox::information(0, "Error", "No scripts found under "+scriptDir);
+}
+
 
 void
 DrishtiImport::loadFiles()
@@ -231,7 +329,10 @@ DrishtiImport::loadFiles(QStringList flnms,
     }
 
   if (idx >= 0)
-    m_remapWidget->setFile(flnms, m_pluginFileDLib[idx]);
+    {
+      if (!m_remapWidget->setFile(flnms, m_pluginFileDLib[idx]))
+	return;
+    }
 
   if (ui.action8_bit->isChecked())
     m_remapWidget->setPvlMapMax(255);
@@ -300,7 +401,10 @@ DrishtiImport::loadDirectory(QString dirname, int pluginidx)
     }
 
   if (idx >= 0)
-    m_remapWidget->setFile(flnms, m_pluginDirDLib[idx]);
+    {
+      if (!m_remapWidget->setFile(flnms, m_pluginDirDLib[idx]))
+	return;
+    }
 
   if (ui.action8_bit->isChecked())
     m_remapWidget->setPvlMapMax(255);

@@ -558,6 +558,7 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   QDir app = QCoreApplication::applicationDirPath();
   app.cd("assets");
   app.cd("scripts");
+  app.cd("paint");
   Global::setScriptFolder(app.absolutePath());
 			  
   loadSettings();
@@ -7592,28 +7593,37 @@ DrishtiPaint::on_actionHelp2D_triggered()
   QString help;
   help += "Help for 2D Boxes\n";
   help += "-----------------\n";
-  help += "2D Box Size : specify 2D image size for training and prediction.\n";
-  help += "              The box size can be smaller than the actual grid size.\n";
-  help += "Draw Boxes : display currently selected training boxes in 2D and 3D views.\n";
-  help += "Box List : list currently defined boxes.\n";
-  help += "To File : save current box list to file.\n";
-  help += "          access this file in your script and extract relevant sections\n";
-  help += "          from the volume and mask for training.\n"; 
-  help += "From File : remove existing box list and load new one from file.\n";
-  help += "Clear : remove existing box list.\n";
-  help += "\n";
-  help += "\n";
-  help += "Script Folder : Location to store scripts to be call from Command.\n";
-  help += "Command : A command promt is provided to run scripts from Script Folder.\n";
-  help += "          Script arguments are provided from the dialog adjoining the\n";
-  help += "          command prompt panel.  Each script is stored in its own directory.\n";
-  help += "          Each script directory contains a .json file which exposes the\n";
-  help += "          argument list to the user to modify.\n";
-  help += "          \n";  
-  help += "          %DIR% parameter specifies the directory where volume and mask files\n";
-  help += "          reside.\n";  
-  help += "          Two arguments are provided by default to the script -\n";
-  help += "          volume=<volume file name> and mask=<mask file name>\n";
+  help += "Press 2 to define a 2D box centered around the voxel under the current cursor position.\n\n";
+
+  help += "2D Box Size : specify 2D image size for training and prediction. ";
+  help += "The box size can be smaller than the actual grid size.\n\n";
+
+  help += "Draw Boxes : display currently selected training boxes in 2D and 3D views.\n\n";
+
+  help += "Box List : list currently defined boxes.\n\n";
+
+  help += "To File : save current box list to file. ";
+  help += "Access this file in your script and extract relevant sections ";
+  help += "from the volume and mask for training.\n\n"; 
+
+  help += "From File : remove existing box list and load new one from file.\n\n";
+
+  help += "Clear : remove existing box list.\n\n";
+  help += "\n\n";
+
+  help += "Script Folder : Location to store scripts to be call from Command.\n\n";
+
+  help += "Command : A command promt is provided to run scripts from Script Folder.";
+  help += " Script arguments are provided from the dialog adjoining the";
+  help += " command prompt panel.  Each script is stored in its own directory.";
+  help += " Each script directory contains a .json file which exposes the";
+  help += " argument list to the user to modify.\n\n";
+
+  help += "%DIR% parameter specifies the directory where volume and mask files";
+  help += " reside.\n\n";  
+
+  help += "Two arguments are provided by default to the script -";
+  help += " volume=<volume file name> and mask=<mask file name>\n";
   help += "\n";
   
   QMessageBox::about(0, "Help for 2D boxes", help);
@@ -7625,27 +7635,36 @@ DrishtiPaint::on_actionHelp3D_triggered()
   QString help;
   help += "Help for 3D Boxes\n";
   help += "-----------------\n";
-  help += "3D Box Size : specify 3D image size for training and prediction.  The box size can be smaller than the actual grid size.\n";
-  help += "Draw Boxes : display currently selected training boxes in 3D view only.\n";
-  help += "Box List : list currently defined boxes.\n";
-  help += "To File : save current box list to file.\n";
-  help += "          access this file in your script and extract relevant sections\n";
-  help += "          from the volume and mask for training.\n"; 
-  help += "From File : remove existing box list and load new one from file.\n";
+  help += "Press 3 to define a 3D box centered around the voxel under the current cursor position.\n\n";
+
+  help += "3D Box Size : specify 3D image size for training and prediction.  The box size can be smaller than the actual grid size.\n\n";
+
+  help += "Draw Boxes : display currently selected training boxes in 3D view only.\n\n";
+
+  help += "Box List : list currently defined boxes.\n\n";
+
+  help += "To File : save current box list to file.";
+  help += " access this file in your script and extract relevant sections";
+  help += " from the volume and mask for training.\n\n"; 
+
+  help += "From File : remove existing box list and load new one from file.\n\n";
+
   help += "Clear : remove existing box list.\n";
-  help += "\n";
-  help += "\n";
-  help += "Script Folder : Location to store scripts to be call from Command.\n";
-  help += "Command : A command promt is provided to run scripts from Script Folder.\n";
-  help += "          Script arguments are provided from the dialog adjoining the\n";
-  help += "          command prompt panel.  Each script is stored in its own directory.\n";
-  help += "          Each script directory contains a .json file which exposes the\n";
-  help += "          argument list to the user to modify.\n";
-  help += "          \n";  
-  help += "          %DIR% parameter specifies the directory where volume and mask files\n";
-  help += "          reside.\n";  
-  help += "          Two arguments are provided by default to the script -\n";
-  help += "          volume=<volume file name> and mask=<mask file name>\n";
+  help += "\n\n";
+
+  help += "Script Folder : Location to store scripts to be call from Command.\n\n";
+
+  help += "Command : A command promt is provided to run scripts from Script Folder.";
+  help += " Script arguments are provided from the dialog adjoining the";
+  help += " command prompt panel.  Each script is stored in its own directory.";
+  help += " Each script directory contains a .json file which exposes the";
+  help += " argument list to the user to modify.\n\n";
+
+  help += "%DIR% parameter specifies the directory where volume and mask files";
+  help += " reside.\n";  
+
+  help += "Two arguments are provided by default to the script -";
+  help += " volume=<volume file name> and mask=<mask file name>\n";
   help += "\n";
   
   QMessageBox::about(0, "Help for 3D boxes", help);

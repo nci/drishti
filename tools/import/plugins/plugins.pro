@@ -1,6 +1,7 @@
 TEMPLATE = subdirs
 
-SUBDIRS = analyze \
+SUBDIRS = scripts \
+          analyze \
           dicom \
           grd \
 	  imagestack \

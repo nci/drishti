@@ -4,6 +4,7 @@
 VolumeData::VolumeData()
 {
   m_image = 0;
+  m_volInterface = 0;
   clear();
 }
 
@@ -15,6 +16,9 @@ VolumeData::~VolumeData()
 void
 VolumeData::clear()
 {
+  if (m_volInterface)
+    delete m_volInterface;
+
   m_fileName.clear();
   m_description.clear();
   m_depth = m_width = m_height = 0;
@@ -48,7 +52,6 @@ VolumeData::setVoxelInfo(int vu,
 void
 VolumeData::voxelSize(float& vx, float& vy, float& vz)
   {
-    //m_volInterface->voxelSize(vx, vy, vz);
     vx = m_voxelSizeX;
     vy = m_voxelSizeY;
     vz = m_voxelSizeZ;
@@ -103,12 +106,31 @@ VolumeData::replaceFile(QString flnm)
 bool
 VolumeData::loadPlugin(QString pluginflnm)
 {
-//  QString plugindir = qApp->applicationDirPath() + QDir::separator() + "plugin";
-//  QString pluginflnm = QFileDialog::getOpenFileName(0,
-//						    "Load Plugin",
-//						    plugindir,
-//						    "dll files (*.dll)");
-//  QString pluginflnm = QFileInfo(plugindir, plugindll).absoluteFilePath();
+  QStringList s = pluginflnm.split(" : ");
+  if (s[0] == "script")
+    {
+      QString scriptPluginflnm = s[1];
+      QString jsonflnm = s[2];
+      
+      QPluginLoader pluginLoader(scriptPluginflnm);
+      QObject *plugin = pluginLoader.instance();
+      
+      if (plugin)
+	{
+	  m_volInterface = qobject_cast<VolInterface *>(plugin);
+	  if (m_volInterface)
+	    {
+	      m_volInterface->setValue("start", jsonflnm);
+	      return true;
+	    }
+	}
+
+      QMessageBox::information(0, "Error", "Cannot load script plugin");
+
+      return false;
+    }
+  
+
   QPluginLoader pluginLoader(pluginflnm);
   QObject *plugin = pluginLoader.instance();
 

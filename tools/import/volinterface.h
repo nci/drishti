@@ -23,7 +23,8 @@ class VolInterface
   virtual void init() = 0;
 
   // set variables specific to plugin
-  virtual void setValue(QString, float) = 0;
+  virtual void setValue(QString, float) {};
+  virtual void setValue(QString, QString) {};
     
   // set 4D volume flag
   virtual void set4DVolume(bool) = 0;
@@ -49,8 +50,6 @@ class VolInterface
   virtual void setMinMax(float, float) = 0;
   virtual float rawMin() = 0;
   virtual float rawMax() = 0;
-
-  virtual void generateHistogram() = 0;
 
   virtual void getDepthSlice(int, uchar*) = 0;
   virtual void getWidthSlice(int, uchar*) {}

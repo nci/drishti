@@ -1,0 +1,8 @@
+{
+    "executable" :"",    
+    "interpreter" : "python",
+    "script" : "grabcut.py",
+    "arguments" : {
+	"output" : "%DIR%/text.raw"
+    }
+}

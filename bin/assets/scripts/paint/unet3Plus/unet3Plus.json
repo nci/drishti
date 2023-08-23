@@ -1,0 +1,15 @@
+{
+    "executable" :"",    
+    "interpreter" : "python",
+    "script" : "drishtiML.py",
+    "arguments" : {
+	"output" : "%DIR%/seg.raw",
+	"boxlist" : "",
+	"majoraxis" : 0,
+	"epochs" : 50,
+	"batchsize" : 8,
+	"maskvalue" : -1,
+	"down_filters" : "32 64 128 256",
+	"up_filters" : 16
+    }
+}

@@ -1,0 +1,14 @@
+{
+    "executable" :"",    
+    "interpreter" : "python",
+    "script" : "drishtiML-Unet++.py",
+    "arguments" : {
+	"output" : "%DIR%/seg.raw",
+	"boxlist" : "%DIR%/",
+	"majoraxis" : 0,
+	"epochs" : 50,
+	"batchsize" : 8,
+	"maskvalue" : -1,
+	"filters" : "16 32 64 128"
+    }
+}

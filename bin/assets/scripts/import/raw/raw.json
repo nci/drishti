@@ -1,0 +1,9 @@
+{
+    "executable" :"",    
+    "interpreter" : "python",
+    "script" : "raw.py",
+    "filetype" : "RAW Files From Script",
+    "dirtype" : "RAW Directory",
+    "arguments" : {
+    }
+}

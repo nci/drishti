@@ -2584,6 +2584,15 @@ Viewer::updateLightBuffers()
   if (Global::volumeType() == Global::DummyVolume)
     return;
 
+  QList<Vec> cpos, cnorm;
+  m_hiresVolume->getClipForMask(cpos, cnorm);
+
+  bool redolighting = LightHandler::checkClips(cpos, cnorm);
+  redolighting = redolighting || LightHandler::checkCrops();
+  redolighting = redolighting || LightHandler::updateOnlyLightBuffers();
+  redolighting = redolighting || !m_updatePruneBuffer;
+
+  
   // update prune buffer
   if (m_updatePruneBuffer)
     {
@@ -2593,13 +2602,14 @@ Viewer::updateLightBuffers()
 
   LightHandler::generateOpacityTexture();
   
-  QList<Vec> cpos, cnorm;
-  m_hiresVolume->getClipForMask(cpos, cnorm);
+  //QList<Vec> cpos, cnorm;
+  //m_hiresVolume->getClipForMask(cpos, cnorm);
+  //
+  //bool redolighting = LightHandler::checkClips(cpos, cnorm);
+  //redolighting = redolighting || LightHandler::checkCrops();
+  //redolighting = redolighting || LightHandler::updateOnlyLightBuffers();
+  //redolighting = redolighting || !m_updatePruneBuffer;
 
-  bool redolighting = LightHandler::checkClips(cpos, cnorm);
-  redolighting = redolighting || LightHandler::checkCrops();
-  redolighting = redolighting || LightHandler::updateOnlyLightBuffers();
-  redolighting = redolighting || !m_updatePruneBuffer;
   if (redolighting)
     {
       LightHandler::updateLightBuffers();

@@ -6,7 +6,7 @@
 Curve::Curve()
 {
   type = 0;
-  tag = 0;
+  tag = 255;
   thickness = 1;
   closed = true;
   selected = false;
@@ -17,7 +17,7 @@ Curve::Curve()
 Curve::~Curve()
 {
   type = 0;
-  tag = 0;
+  tag = 255;
   thickness = 1;
   closed = true;
   selected = false;
@@ -112,10 +112,12 @@ CurveGroup::removePolygonAt(int key, int v0, int v1, bool all)
       m_pointsDirtyBit = true;
     }
 
-  // remove related morphed curve
-  int mc = getActiveMorphedCurve(key, v0, v1);
-  if (mc >= 0)
-    m_mcg.removeAt(mc);
+  // remove all morphes curves
+  clearMorphedCurves();
+//  // remove related morphed curve
+//  int mc = getActiveMorphedCurve(key, v0, v1);
+//  if (mc >= 0)
+//    m_mcg.removeAt(mc);
 
 
   // remove shrinkwrap curves if any
@@ -684,9 +686,11 @@ CurveGroup::newCurve(int key, bool closed)
 
   Curve *c = new Curve();
   c->type = 0; // normal curve
-  c->tag = Global::tag();
+  //c->tag = Global::tag();
+  c->tag = 255;
   c->thickness = Global::thickness();
-  c->closed = closed;
+  c->closed = true;
+  //c->closed = closed;
   m_cg.insert(key, c);
 
   m_pointsDirtyBit = true;
@@ -965,6 +969,8 @@ void CurveGroup::addShrinkwrapBlock(QMultiMap<int, Curve*> mb) { m_swcg << mb; }
 void
 CurveGroup::morphCurves(int minS, int maxS)
 {
+  clearMorphedCurves();
+
   QMap<int, Curve> cg;
   QList<int> cgkeys = m_cg.uniqueKeys();
   for(int i=0; i<cgkeys.count(); i++)
@@ -974,17 +980,20 @@ CurveGroup::morphCurves(int minS, int maxS)
 	{
 	  int sel = -1;
 	  QList<Curve*> curves = m_cg.values(cgkeys[i]);
-	  for(int j=0; j<curves.count(); j++)
-	    {
-	      if (curves[j]->selected)
-		{
-		  sel = j;
-		  break;
-		}
-	    }
+	  if (curves.count() > 0)
+	    cg.insert(cgkeys[i], *curves[0]);
 
-	  if (sel >= 0)
-	    cg.insert(cgkeys[i], *curves[sel]);
+	  //for(int j=0; j<curves.count(); j++)
+	  //  {
+	  //    if (curves[j]->selected)
+	  //	{
+	  //	  sel = j;
+	  //	  break;
+	  //	}
+	  //  }
+	  //
+	  //if (sel >= 0)
+	  //  cg.insert(cgkeys[i], *curves[sel]);
 	}
     }
   if (cg.count() <= 1)

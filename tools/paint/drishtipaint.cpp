@@ -502,7 +502,9 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   m_scrollAreaC->setBackgroundRole(QPalette::Dark);
   m_scrollAreaC->setWidget(m_curvesWidget);
   m_curvesWidget->setScrollArea(m_scrollAreaC);
+  //----------------------------------------------------------
 
+  
 
   m_graphCutArea = createImageWindows();
 
@@ -3762,49 +3764,52 @@ DrishtiPaint::on_actionExtractTag_triggered()
 
   
   bool reloadData = false;
-  uchar *curveMask = 0;
-  if (tag[0] > -2)
-    {
-      try
-	{
-	  curveMask = new uchar[tdepth*twidth*theight];
-	}
-      catch (std::exception &e)
-	{
-	  QMessageBox::information(0, "", "Not enough memory : Cannot create curve mask.\nOffloading volume data and mask.");
-	  m_volume->offLoadMemFile();
-	  reloadData = true;
-	  
-	  curveMask = new uchar[tdepth*twidth*theight];
-	};
-      
-      memset(curveMask, 0, tdepth*twidth*theight);
-      
-      if (extractType < 3)
-	updateCurveMask(curveMask, tag,
-			depth, width, height,
-			tdepth, twidth, theight,
-			minDSlice, minWSlice, minHSlice,
-			maxDSlice, maxWSlice, maxHSlice);
-//      else if (extractType < 5)
-//	updateFiberMask(curveMask, tag,
+
+////----------------------------------
+// curves if used should have already been baked in
+//  uchar *curveMask = 0;
+//  if (tag[0] > -2)
+//    {
+//      try
+//	{
+//	  curveMask = new uchar[tdepth*twidth*theight];
+//	}
+//      catch (std::exception &e)
+//	{
+//	  QMessageBox::information(0, "", "Not enough memory : Cannot create curve mask.\nOffloading volume data and mask.");
+//	  m_volume->offLoadMemFile();
+//	  reloadData = true;
+//	  
+//	  curveMask = new uchar[tdepth*twidth*theight];
+//	};
+//      
+//      memset(curveMask, 0, tdepth*twidth*theight);
+//      
+//      if (extractType < 3)
+//	updateCurveMask(curveMask, tag,
+//			depth, width, height,
 //			tdepth, twidth, theight,
 //			minDSlice, minWSlice, minHSlice,
 //			maxDSlice, maxWSlice, maxHSlice);
-      else
-	{
-	  updateCurveMask(curveMask, tag,
-			  depth, width, height,
-			  tdepth, twidth, theight,
-			  minDSlice, minWSlice, minHSlice,
-			  maxDSlice, maxWSlice, maxHSlice);
-//	  updateFiberMask(curveMask, tag,
+////      else if (extractType < 5)
+////	updateFiberMask(curveMask, tag,
+////			tdepth, twidth, theight,
+////			minDSlice, minWSlice, minHSlice,
+////			maxDSlice, maxWSlice, maxHSlice);
+//      else
+//	{
+//	  updateCurveMask(curveMask, tag,
+//			  depth, width, height,
 //			  tdepth, twidth, theight,
 //			  minDSlice, minWSlice, minHSlice,
 //			  maxDSlice, maxWSlice, maxHSlice);
-	}
-    }
-  //----------------------------------
+////	  updateFiberMask(curveMask, tag,
+////			  tdepth, twidth, theight,
+////			  minDSlice, minWSlice, minHSlice,
+////			  maxDSlice, maxWSlice, maxHSlice);
+//	}
+//    }
+////----------------------------------
 
 
   for(int d=minDSlice; d<=maxDSlice; d++)
@@ -3857,15 +3862,15 @@ DrishtiPaint::on_actionExtractTag_triggered()
 		for(int h=minHSlice; h<=maxHSlice; h++)
 		  raw[w*height+h] = (raw[w*height+h] > 0 ? 255 : 0);
 
-	      // apply curve mask
-	      for(int w=minWSlice; w<=maxWSlice; w++)
-		for(int h=minHSlice; h<=maxHSlice; h++)
-		  {
-		    if (curveMask[slc*twidth*theight +
-				  (w-minWSlice)*theight +
-				  (h-minHSlice)] > 0)
-		      raw[w*height+h] = 255;
-		  }
+//	      // apply curve mask
+//	      for(int w=minWSlice; w<=maxWSlice; w++)
+//		for(int h=minHSlice; h<=maxHSlice; h++)
+//		  {
+//		    if (curveMask[slc*twidth*theight +
+//				  (w-minWSlice)*theight +
+//				  (h-minHSlice)] > 0)
+//		      raw[w*height+h] = 255;
+//		  }
 	    }
 	  else if (tag[0] == 0)
 	    {
@@ -3873,15 +3878,15 @@ DrishtiPaint::on_actionExtractTag_triggered()
 		for(int h=minHSlice; h<=maxHSlice; h++)
 		  raw[w*height+h] = (raw[w*height+h] == 0 ? 255 : 0);
 	      
-	      // apply curve mask
-	      for(int w=minWSlice; w<=maxWSlice; w++)
-		for(int h=minHSlice; h<=maxHSlice; h++)
-		  {
-		    if (curveMask[slc*twidth*theight +
-				  (w-minWSlice)*theight +
-				  (h-minHSlice)] > 0)
-		      raw[w*height+h] = 0;
-		  }
+//	      // apply curve mask
+//	      for(int w=minWSlice; w<=maxWSlice; w++)
+//		for(int h=minHSlice; h<=maxHSlice; h++)
+//		  {
+//		    if (curveMask[slc*twidth*theight +
+//				  (w-minWSlice)*theight +
+//				  (h-minHSlice)] > 0)
+//		      raw[w*height+h] = 0;
+//		  }
 	    }
 	  else
 	    {
@@ -3889,15 +3894,15 @@ DrishtiPaint::on_actionExtractTag_triggered()
 		for(int h=minHSlice; h<=maxHSlice; h++)
 		  raw[w*height+h] = (tag.contains(raw[w*height+h]) ? 255 : 0);
 	      
-	      // apply curve mask
-	      for(int w=minWSlice; w<=maxWSlice; w++)
-		for(int h=minHSlice; h<=maxHSlice; h++)
-		  {
-		    if (tag.contains(curveMask[slc*twidth*theight +
-					       (w-minWSlice)*theight +
-					       (h-minHSlice)]))
-		      raw[w*height+h] = 255;
-		  }
+//	      // apply curve mask
+//	      for(int w=minWSlice; w<=maxWSlice; w++)
+//		for(int h=minHSlice; h<=maxHSlice; h++)
+//		  {
+//		    if (tag.contains(curveMask[slc*twidth*theight +
+//					       (w-minWSlice)*theight +
+//					       (h-minHSlice)]))
+//		      raw[w*height+h] = 255;
+//		  }
 	    }
 	}
       else
@@ -3907,33 +3912,33 @@ DrishtiPaint::on_actionExtractTag_triggered()
 	  else
 	    memset(raw, 0, nbytesRAW);
 
-	  // copy curve/fiber mask
-	  if (tag[0] == -1)
-	    {
-	      for(int w=minWSlice; w<=maxWSlice; w++)
-		for(int h=minHSlice; h<=maxHSlice; h++)
-		  {
-		    if (curveMask[slc*twidth*theight +
-				  (w-minWSlice)*theight +
-				  (h-minHSlice)] > 0)
-		      raw[w*height+h] = curveMask[slc*twidth*theight +
-						  (w-minWSlice)*theight +
-						  (h-minHSlice)];
-		  }
-	    }
-	  else
-	    {
-	      for(int w=minWSlice; w<=maxWSlice; w++)
-		for(int h=minHSlice; h<=maxHSlice; h++)
-		  {
-		    if (tag.contains(curveMask[slc*twidth*theight +
-					       (w-minWSlice)*theight +
-					       (h-minHSlice)]))
-		      raw[w*height+h] = curveMask[slc*twidth*theight +
-						  (w-minWSlice)*theight +
-						  (h-minHSlice)];		
-		  }
-	    }
+//	  // copy curve/fiber mask
+//	  if (tag[0] == -1)
+//	    {
+//	      for(int w=minWSlice; w<=maxWSlice; w++)
+//		for(int h=minHSlice; h<=maxHSlice; h++)
+//		  {
+//		    if (curveMask[slc*twidth*theight +
+//				  (w-minWSlice)*theight +
+//				  (h-minHSlice)] > 0)
+//		      raw[w*height+h] = curveMask[slc*twidth*theight +
+//						  (w-minWSlice)*theight +
+//						  (h-minHSlice)];
+//		  }
+//	    }
+//	  else
+//	    {
+//	      for(int w=minWSlice; w<=maxWSlice; w++)
+//		for(int h=minHSlice; h<=maxHSlice; h++)
+//		  {
+//		    if (tag.contains(curveMask[slc*twidth*theight +
+//					       (w-minWSlice)*theight +
+//					       (h-minHSlice)]))
+//		      raw[w*height+h] = curveMask[slc*twidth*theight +
+//						  (w-minWSlice)*theight +
+//						  (h-minHSlice)];		
+//		  }
+//	    }
 	}
 
 
@@ -4168,7 +4173,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
     }
 
   delete [] raw;
-  delete [] curveMask;
+//  delete [] curveMask;
 
   if (reloadData)
     m_volume->loadMemFile();
@@ -4992,7 +4997,6 @@ DrishtiPaint::on_actionMeshTag_triggered()
 	    dataSmooth,
 	    meshSmooth,
 	    applyVoxelScaling);
-  //isoValue *= 255;  // since isoValue is returned between 0.0 and 1.0;
 
 
   VdbVolume vdb;
@@ -5010,13 +5014,13 @@ DrishtiPaint::on_actionMeshTag_triggered()
   curveMask = new uchar[tdepth*twidth*theight];
   memset(curveMask, 0, tdepth*twidth*theight);
   
-  if (tag[0] != -2)
-    updateCurveMask(curveMask, tag,
-		    depth, width, height,
-		    tdepth, twidth, theight,
-		    minDSlice, minWSlice, minHSlice,
-		    maxDSlice, maxWSlice, maxHSlice);
-  //----------------------------------
+//  if (tag[0] != -2)
+//    updateCurveMask(curveMask, tag,
+//		    depth, width, height,
+//		    tdepth, twidth, theight,
+//		    minDSlice, minWSlice, minHSlice,
+//		    maxDSlice, maxWSlice, maxHSlice);
+//  //----------------------------------
 
   uchar *lut = Global::lut();
 
@@ -5076,15 +5080,15 @@ DrishtiPaint::on_actionMeshTag_triggered()
 		for(int h=minHSlice; h<=maxHSlice; h++)
 		  raw[w*height+h] = (mask[w*height+h] > 0 ? 0 : 255);
 	      
-	      // apply curve mask
-	      for(int w=minWSlice; w<=maxWSlice; w++)
-		for(int h=minHSlice; h<=maxHSlice; h++)
-		  {
-		    if (curveMask[slc*twidth*theight +
-				  (w-minWSlice)*theight +
-				  (h-minHSlice)] > 0)
-		      raw[w*height+h] = 0;
-		  }
+//	      // apply curve mask
+//	      for(int w=minWSlice; w<=maxWSlice; w++)
+//		for(int h=minHSlice; h<=maxHSlice; h++)
+//		  {
+//		    if (curveMask[slc*twidth*theight +
+//				  (w-minWSlice)*theight +
+//				  (h-minHSlice)] > 0)
+//		      raw[w*height+h] = 0;
+//		  }
 	    }
 	  else if (tag[0] == 0)
 	    {
@@ -5092,15 +5096,15 @@ DrishtiPaint::on_actionMeshTag_triggered()
 		for(int h=minHSlice; h<=maxHSlice; h++)
 		  raw[w*height+h] = (mask[w*height+h] > 0 ? 255 : 0);
 	      
-	      // apply curve mask
-	      for(int w=minWSlice; w<=maxWSlice; w++)
-		for(int h=minHSlice; h<=maxHSlice; h++)
-		  {
-		    if (curveMask[slc*twidth*theight +
-				  (w-minWSlice)*theight +
-				  (h-minHSlice)] > 0)
-		      raw[w*height+h] = 255;
-		  }
+//	      // apply curve mask
+//	      for(int w=minWSlice; w<=maxWSlice; w++)
+//		for(int h=minHSlice; h<=maxHSlice; h++)
+//		  {
+//		    if (curveMask[slc*twidth*theight +
+//				  (w-minWSlice)*theight +
+//				  (h-minHSlice)] > 0)
+//		      raw[w*height+h] = 255;
+//		  }
 	    }
 	  else
 	    {
@@ -5108,15 +5112,15 @@ DrishtiPaint::on_actionMeshTag_triggered()
 		for(int h=minHSlice; h<=maxHSlice; h++)
 		  raw[w*height+h] = (tag.contains(mask[w*height+h]) ? 0 : 255);
 	      
-	      // apply curve mask
-	      for(int w=minWSlice; w<=maxWSlice; w++)
-		for(int h=minHSlice; h<=maxHSlice; h++)
-		  {
-		    if (tag.contains(curveMask[slc*twidth*theight +
-					       (w-minWSlice)*theight +
-					       (h-minHSlice)]))
-		      raw[w*height+h] = 0;
-		  }
+//	      // apply curve mask
+//	      for(int w=minWSlice; w<=maxWSlice; w++)
+//		for(int h=minHSlice; h<=maxHSlice; h++)
+//		  {
+//		    if (tag.contains(curveMask[slc*twidth*theight +
+//					       (w-minWSlice)*theight +
+//					       (h-minHSlice)]))
+//		      raw[w*height+h] = 0;
+//		  }
 	    }
 
 	  //-----------------------------
@@ -5418,9 +5422,9 @@ DrishtiPaint::on_actionMeshTag_triggered()
 //  //----------------------------------
 
 
-  delete [] curveMask;
-
-  QMessageBox::information(0, "Save", "-----Done-----");
+//  delete [] curveMask;
+//
+//  QMessageBox::information(0, "Save", "-----Done-----");
 }
 
 
@@ -6762,46 +6766,50 @@ DrishtiPaint::on_actionBakeCurves_triggered()
       QMessageBox::information(0, "Error", "No volume data found !");
       return;
     }
+  
+//  QList<int> tag;
+//  bool ok;
+//  //----------------
+//  QString tagstr = QInputDialog::getText(0, "Bake curves for Tag",
+//	    "Tag Numbers (tags should be separated by space.\n-2 extract whatever is visible within the envelop.\n-1 for all tags;\nFor e.g. 1 2 5 will extract tags 1, 2 and 5)",
+//					 QLineEdit::Normal,
+//					 "-2",
+//					 &ok);
+//  if (!ok)
+//    return;
+//  
+//  tag.clear();
+//  if (ok && !tagstr.isEmpty())
+//    {
+//      QStringList tglist = tagstr.split(" ", QString::SkipEmptyParts);
+//      for(int i=0; i<tglist.count(); i++)
+//	{
+//	  int t = tglist[i].toInt();
+//	  if (t == -1)
+//	    {
+//	      tag.clear();
+//	      tag << -1;
+//	      break;
+//	    }
+//	  else if (t == 0)
+//	    {
+//	      tag.clear();
+//	      tag << 0;
+//	      break;
+//	    }
+//	  else
+//	    tag << t;
+//	}
+//    }
+//  else
+//    tag << -1;
+//  //----------------
 
-  QStringList dtypes;
-  QList<int> tag;
-
-  bool ok;
-  //----------------
-  QString tagstr = QInputDialog::getText(0, "Bake curves for Tag",
-	    "Tag Numbers (tags should be separated by space.\n-2 extract whatever is visible within the envelop.\n-1 for all tags;\nFor e.g. 1 2 5 will extract tags 1, 2 and 5)",
-					 QLineEdit::Normal,
-					 "-2",
-					 &ok);
-  if (!ok)
-    return;
-
-  tag.clear();
-  if (ok && !tagstr.isEmpty())
-    {
-      QStringList tglist = tagstr.split(" ", QString::SkipEmptyParts);
-      for(int i=0; i<tglist.count(); i++)
-	{
-	  int t = tglist[i].toInt();
-	  if (t == -1)
-	    {
-	      tag.clear();
-	      tag << -1;
-	      break;
-	    }
-	  else if (t == 0)
-	    {
-	      tag.clear();
-	      tag << 0;
-	      break;
-	    }
-	  else
-	    tag << t;
-	}
-    }
-  else
-    tag << -1;
-  //----------------
+  
+  int tag = QInputDialog::getInt(0,
+				 "Bake curves for Label",
+				 "Value (0-255)\n Everything visible inside the interpolated curves will be labelled with given label value.",
+				 0, 0, 255, 1);
 
   int depth, width, height;
   m_volume->gridSize(depth, width, height);
@@ -6816,7 +6824,7 @@ DrishtiPaint::on_actionBakeCurves_triggered()
   qint64 twidth = maxWSlice-minWSlice+1;
   qint64 theight = maxHSlice-minHSlice+1;
   
-  QProgressDialog progress("Baking curves into mask data",
+  QProgressDialog progress("Baking curves into label data",
 			   QString(),
 			   0, 100,
 			   0,
@@ -6840,35 +6848,56 @@ DrishtiPaint::on_actionBakeCurves_triggered()
   
   memset(curveMask, 0, tdepth*twidth*theight);
   
-  updateCurveMask(curveMask, tag,
+//  updateCurveMask(curveMask, tag,
+//		  depth, width, height,
+//		  tdepth, twidth, theight,
+//		  minDSlice, minWSlice, minHSlice,
+//		  maxDSlice, maxWSlice, maxHSlice);
+
+  //----------------------------------
+  // bake for all the curves
+  QList<int> tgv;
+  tgv << -1;
+  updateCurveMask(curveMask, tgv,
 		  depth, width, height,
 		  tdepth, twidth, theight,
 		  minDSlice, minWSlice, minHSlice,
 		  maxDSlice, maxWSlice, maxHSlice);
   //----------------------------------
 
-  uchar *maskData = m_volume->memMaskDataPtr();
+  float minGrad = m_viewer->minGrad();
+  float maxGrad = m_viewer->maxGrad();
+  int gradType = m_viewer->gradType();
 
-  for(int d=minDSlice; d<=maxDSlice; d++)
-    {
-      int slc = d-minDSlice;
-      progress.setValue((int)(100*(float)slc/(float)tdepth));
-      qApp->processEvents();
-
-      for(int w=minWSlice; w<=maxWSlice; w++)
-	for(int h=minHSlice; h<=maxHSlice; h++)
-	  {
-	    uchar cm = curveMask[slc*twidth*theight +
-				 (w-minWSlice)*theight +
-				 (h-minHSlice)];
-	    if (cm > 0)
-	      {
-		qint64 idx = d*width*height + w*height + h;
-		maskData[idx] = cm;
-	      }
-	  }
-      
-    }
+  VolumeOperations::bakeCurves(curveMask,
+			       minDSlice, maxDSlice,
+			       minWSlice, maxWSlice,
+			       minHSlice, maxHSlice,
+			       tag,
+			       gradType, minGrad, maxGrad);
+			       
+//  uchar *maskData = m_volume->memMaskDataPtr();
+//
+//  for(int d=minDSlice; d<=maxDSlice; d++)
+//    {
+//      int slc = d-minDSlice;
+//      progress.setValue((int)(100*(float)slc/(float)tdepth));
+//      qApp->processEvents();
+//
+//      for(int w=minWSlice; w<=maxWSlice; w++)
+//	for(int h=minHSlice; h<=maxHSlice; h++)
+//	  {
+//	    uchar cm = curveMask[slc*twidth*theight +
+//				 (w-minWSlice)*theight +
+//				 (h-minHSlice)];
+//	    if (cm > 0)
+//	      {
+//		qint64 idx = d*width*height + w*height + h;
+//		maskData[idx] = cm;
+//	      }
+//	  }
+//      
+//    }
 
   delete [] curveMask;
 

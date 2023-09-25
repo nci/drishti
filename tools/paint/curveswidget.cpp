@@ -1222,9 +1222,12 @@ CurvesWidget::drawCurves(QPainter *p)
 	  m_showTags[0] == -1 ||
 	  m_showTags.contains(tag))
 	{
-	  uchar r = Global::tagColors()[4*tag+0];
-	  uchar g = Global::tagColors()[4*tag+1];
-	  uchar b = Global::tagColors()[4*tag+2];
+	  //uchar r = Global::tagColors()[4*tag+0];
+	  //uchar g = Global::tagColors()[4*tag+1];
+	  //uchar b = Global::tagColors()[4*tag+2];
+	  uchar r = 255;
+	  uchar g = 200;
+	  uchar b = 50;
 	  
 
 	  QVector<QPointF> pts = curves[l]->pts;
@@ -1992,21 +1995,21 @@ CurvesWidget::morphSlices()
 void
 CurvesWidget::deleteAllCurves()
 {
-  QStringList items;
-  items << "No";
-  items << "Yes";
-  bool ok;
+//  QStringList items;
+//  items << "No";
+//  items << "Yes";
+//  bool ok;
   QString st;
   if (m_sliceType == DSlice) st = "Z";
   else if (m_sliceType == WSlice) st = "Y";
   else st = "X";  
-  QString item = QInputDialog::getItem(this,
-					"Delete All",
-					QString("You sure you want to remove all curves for %1?").\
-					arg(st),
-					items, 0, false, &ok);
-  if (!ok || item == "No")
-    return;
+//  QString item = QInputDialog::getItem(this,
+//					"Delete All",
+//					QString("You sure you want to remove all curves for %1?").\
+//					arg(st),
+//					items, 0, false, &ok);
+//  if (!ok || item == "No")
+//    return;
 					
   CurveGroup *cg = getCg();
   cg->reset();
@@ -2346,7 +2349,7 @@ CurvesWidget::curveModeKeyPressEvent(QKeyEvent *event)
 	  if (m_addingCurvePoints)
 	    update();
 	  newCurve(false);
-	  emit saveWork();
+	  //emit saveWork();
 	  return;
 	}    
       else if (ctrlModifier)	

@@ -99,6 +99,13 @@ class VolumeOperations
 				   int&, int&);
 
 
+  static void bakeCurves(uchar*,
+			 int, int,
+			 int, int,
+			 int, int,
+			 int,
+			 int, float, float);
+			 
  private :
   static int m_depth, m_width, m_height;
   static uchar *m_volData;

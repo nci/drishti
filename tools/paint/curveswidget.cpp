@@ -1225,9 +1225,9 @@ CurvesWidget::drawCurves(QPainter *p)
 	  //uchar r = Global::tagColors()[4*tag+0];
 	  //uchar g = Global::tagColors()[4*tag+1];
 	  //uchar b = Global::tagColors()[4*tag+2];
-	  uchar r = 255;
-	  uchar g = 200;
-	  uchar b = 50;
+	  uchar r = 20;
+	  uchar g = 255;
+	  uchar b = 150;
 	  
 
 	  QVector<QPointF> pts = curves[l]->pts;
@@ -1251,12 +1251,12 @@ CurvesWidget::drawCurves(QPainter *p)
 	    }
 
 	  bool onlyline = false;
-	  if (m_addingCurvePoints && l == 0)
-	    onlyline = true;
+//	  if (m_addingCurvePoints && l == 0)
+//	    onlyline = true;
 	  
 	  if (curves[l]->closed && !onlyline)
 	    {
-	      p->setPen(QPen(QColor(r,g,b), 1));
+	      p->setPen(QPen(QColor(r,g,b), 2));
 	      p->setBrush(QColor(r, g, b, 70));
 	      p->drawPolygon(pts);
 	    }
@@ -1291,53 +1291,79 @@ CurvesWidget::trimPointList(QList<QPointF> pl, bool switchcoord)
 {
   QList<QPointF> npl;
 
-  if (pl.count() > 2)
+  if (pl.count() > 1)
     {
-      QList<int> yc;
-      int x = pl[0].x();
-      yc << pl[0].y();
-      for(int i=1; i<pl.count(); i++)
+      QMultiMap<int, int> ptlines;
+
+      for(int i=0; i<pl.count(); i++)
 	{
-	  if (pl[i].x() != x)
-	    {
-	      if (yc.count()>1)
-		{
-		  std::sort(yc.begin(), yc.end());
-		  npl << QPointF(x, yc[0]);
-		  int pp = yc[0];
-		  for(int j=1; j<yc.count()-1; j++)
-		    {
-		      if (qAbs(pp-yc[j]) > 1)
-			npl << QPointF(x, yc[j]);
-		      pp = yc[j];
-		    }
-		  npl << QPointF(x, yc[yc.count()-1]);
-		}
-	      else
-		npl << QPointF(x, yc[0]);
-	      x = pl[i].x();
-	      yc.clear();
-	    }
-	  yc << pl[i].y();
+	  int x = pl[i].x();
+	  int y = pl[i].y();
+	  ptlines.insert(x, y);
 	}
-      if (yc.count()>1)
+      QList<int> xs = ptlines.uniqueKeys();
+      for(int k=0; k<xs.count(); k++)
 	{
-	  std::sort(yc.begin(), yc.end());
-	  npl << QPointF(x, yc[0]);
-	  int pp = yc[0];
-	  for(int j=1; j<yc.count()-1; j++)
+	  QList<int> ys = ptlines.values(xs[k]);
+	  if (ys.count() > 1)
 	    {
-	      if (qAbs(pp-yc[j]) > 1)
-		npl << QPointF(x, yc[j]);
-	      pp = yc[j];
+	      std::sort(ys.begin(), ys.end());
+	      npl << QPointF(xs[k], ys[0]);
+	      npl << QPointF(xs[k], ys[ys.count()-1]);
 	    }
-	  npl << QPointF(x, yc[yc.count()-1]);
 	}
-      else
-	npl << QPointF(x, yc[0]);
     }
-  else
-    npl = pl;
+//  else
+//    npl = pl;
+  
+  
+//  if (pl.count() > 2)
+//    {
+//      QList<int> yc;
+//      int x = pl[0].x();
+//      yc << pl[0].y();
+//      for(int i=1; i<pl.count(); i++)
+//	{
+//	  if (pl[i].x() != x)
+//	    {
+//	      if (yc.count()>1)
+//		{
+//		  std::sort(yc.begin(), yc.end());
+//		  npl << QPointF(x, yc[0]);
+//		  int pp = yc[0];
+//		  for(int j=1; j<yc.count()-1; j++)
+//		    {
+//		      if (qAbs(pp-yc[j]) > 1)
+//			npl << QPointF(x, yc[j]);
+//		      pp = yc[j];
+//		    }
+//		  npl << QPointF(x, yc[yc.count()-1]);
+//		}
+//	      else
+//		npl << QPointF(x, yc[0]);
+//	      x = pl[i].x();
+//	      yc.clear();
+//	    }
+//	  yc << pl[i].y();
+//	}
+//      if (yc.count()>1)
+//	{
+//	  std::sort(yc.begin(), yc.end());
+//	  npl << QPointF(x, yc[0]);
+//	  int pp = yc[0];
+//	  for(int j=1; j<yc.count()-1; j++)
+//	    {
+//	      if (qAbs(pp-yc[j]) > 1)
+//		npl << QPointF(x, yc[j]);
+//	      pp = yc[j];
+//	    }
+//	  npl << QPointF(x, yc[yc.count()-1]);
+//	}
+//      else
+//	npl << QPointF(x, yc[0]);
+//    }
+//  else
+//    npl = pl;
 
   if (switchcoord)
     { // switch coordinates
@@ -1390,7 +1416,12 @@ CurvesWidget::drawOtherCurvePoints(QPainter *p)
       for(int l=0; l<vptd.count(); l++)
 	vptd[l] = vptd[l]*sx + move;
 
-      drawSeedPoints(p, vptd, Qt::red);
+      //drawSeedPoints(p, vptd, Qt::red);
+
+      p->setPen(QPen(Qt::red, 1));
+      for(int l=0; l<vptd.count()/2; l++)	  
+	p->drawLine(vptd[2*l].x(),   vptd[2*l].y(),
+		    vptd[2*l+1].x(), vptd[2*l+1].y());
     }
 
   if (vptw.count() > 0)
@@ -1398,7 +1429,12 @@ CurvesWidget::drawOtherCurvePoints(QPainter *p)
       for(int l=0; l<vptw.count(); l++)
 	vptw[l] = vptw[l]*sx + move;
 
-      drawSeedPoints(p, vptw, Qt::yellow);
+      //drawSeedPoints(p, vptw, Qt::yellow);
+
+      p->setPen(QPen(Qt::yellow, 1));
+      for(int l=0; l<vptw.count()/2; l++)	  
+	p->drawLine(vptw[2*l].x(),   vptw[2*l].y(),
+		    vptw[2*l+1].x(), vptw[2*l+1].y());
     }
 
   if (vpth.count() > 0)
@@ -1406,7 +1442,12 @@ CurvesWidget::drawOtherCurvePoints(QPainter *p)
       for(int l=0; l<vpth.count(); l++)
 	vpth[l] = vpth[l]*sx + move;
 
-      drawSeedPoints(p, vpth, Qt::cyan);
+      //drawSeedPoints(p, vpth, Qt::cyan);
+
+      p->setPen(QPen(Qt::cyan, 1));
+      for(int l=0; l<vpth.count()/2; l++)	  
+	p->drawLine(vpth[2*l].x(),   vpth[2*l].y(),
+		    vpth[2*l+1].x(), vpth[2*l+1].y());
     }
 }
 
@@ -1430,9 +1471,12 @@ CurvesWidget::drawMorphedCurves(QPainter *p)
 	  m_showTags[0] == -1 ||
 	  m_showTags.contains(tag))
 	{
-	  uchar r = Global::tagColors()[4*tag+0];
-	  uchar g = Global::tagColors()[4*tag+1];
-	  uchar b = Global::tagColors()[4*tag+2];
+	  //uchar r = Global::tagColors()[4*tag+0];
+	  //uchar g = Global::tagColors()[4*tag+1];
+	  //uchar b = Global::tagColors()[4*tag+2];
+	  uchar r = 120;
+	  uchar g = 255;
+	  uchar b = 150;
 
 
 	  QVector<QPointF> pts = curves[l].pts;

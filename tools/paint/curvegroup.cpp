@@ -2,6 +2,7 @@
 #include "morphcurve.h"
 #include "global.h"
 #include "morphslice.h"
+#include "staticfunctions.h"
 
 Curve::Curve()
 {
@@ -1047,6 +1048,7 @@ CurveGroup::morphCurves(int minS, int maxS)
     }
   
   QMessageBox::information(0, "", "morphed intermediate curves");
+  m_pointsDirtyBit = true;
 }
 
 void
@@ -1912,7 +1914,8 @@ CurveGroup::generateXYpoints()
   m_xpoints.clear();
   m_ypoints.clear();
 
-  QList<int> keys = m_cg.keys();
+  //QList<int> keys = m_cg.keys();
+  QList<int> keys = m_cg.uniqueKeys();
   for(int k=0; k<keys.count(); k++)
     {
       int z = keys[k];
@@ -1920,19 +1923,62 @@ CurveGroup::generateXYpoints()
       for(int ic=0; ic<c.count(); ic++)
 	{
 	  int xcount = c[ic]->pts.count(); 
+	  //for (int i=0; i<xcount; i++)
+	  //  {
+	  //    int x = c[ic]->pts[i].x();
+	  //    int y = c[ic]->pts[i].y();
+	  //    // Z, X, Y
+	  //    // d, h, w
+	  //    // w, h, d
+	  //    // h, w, d
+	  //    m_xpoints.insert(x, QPointF(z, y));
+	  //    m_ypoints.insert(y, QPointF(z, x));
+	  //  }
 	  for (int i=0; i<xcount; i++)
 	    {
-	      int x = c[ic]->pts[i].x();
-	      int y = c[ic]->pts[i].y();
-	      // Z, X, Y
-	      // d, h, w
-	      // w, h, d
-	      // h, w, d
-	      m_xpoints.insert(x, QPointF(z, y));
-	      m_ypoints.insert(y, QPointF(z, x));
+	      int x1 = c[ic]->pts[i].x();
+	      int y1 = c[ic]->pts[i].y();
+	      int x2 = c[ic]->pts[(i+1)%xcount].x();
+	      int y2 = c[ic]->pts[(i+1)%xcount].y();
+	      QList<int> bpts = StaticFunctions::dda2D(x1, y1, x2, y2);
+	      for (int b=0; b<bpts.count()/2; b++)
+		{
+		  int x = bpts[2*b+0];
+		  int y = bpts[2*b+1];
+		  m_xpoints.insert(x, QPointF(z, y));
+		  m_ypoints.insert(y, QPointF(z, x));
+		}
 	    }
 	}
     }
+
+  {
+    for(int m=0; m<m_mcg.count(); m++)
+      {
+	QList<int> keys = m_mcg[m].keys();
+	for(int k=0; k<keys.count(); k++)
+	  {
+	    int z = keys[k];
+	    Curve c = m_mcg[m].value(z);
+	    int xcount = c.pts.count(); 
+	    for (int i=0; i<xcount; i++)
+	      {
+		int x1 = c.pts[i].x();
+		int y1 = c.pts[i].y();
+		int x2 = c.pts[(i+1)%xcount].x();
+		int y2 = c.pts[(i+1)%xcount].y();
+		QList<int> bpts = StaticFunctions::dda2D(x1, y1, x2, y2);
+		for (int b=0; b<bpts.count()/2; b++)
+		  {
+		    int x = bpts[2*b+0];
+		    int y = bpts[2*b+1];
+		    m_xpoints.insert(x, QPointF(z, y));
+		    m_ypoints.insert(y, QPointF(z, x));
+		  }
+	      }
+	  }
+      }
+  }
 
   m_pointsDirtyBit = false;
 }

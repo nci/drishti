@@ -1,6 +1,8 @@
 #include "staticfunctions.h"
 #include <math.h>
 
+#include <QMessageBox>
+
 Vec
 StaticFunctions::clampVec(Vec minv, Vec maxv, Vec v)
 {
@@ -1035,3 +1037,20 @@ StaticFunctions::line3d(Vec v0, Vec v1)
 }
 
 
+QList<int>
+StaticFunctions::dda2D(int xa, int ya, int xb, int yb)
+{
+  int dx = xb-xa;
+  int dy = yb-ya;
+  int steps = qAbs(dx)>qAbs(dy) ? qAbs(dx) : qAbs(dy);
+  float xinc = dx/(float)steps;
+  float yinc = dy/(float)steps;
+  QList<int> xy;
+  for(int i=0; i<=steps; i++)
+    {
+      float x = xa + i*xinc;
+      float y = ya + i*yinc;
+      xy << x << y;
+    }
+  return xy;
+}

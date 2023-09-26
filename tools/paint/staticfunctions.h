@@ -81,6 +81,7 @@ class StaticFunctions
 
   static QList<Vec> line3d(Vec, Vec);
 
+  static QList<int> dda2D(int, int, int, int);
 };
 
 #endif

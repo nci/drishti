@@ -534,9 +534,9 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 
   //fibersUi.endfiber->hide();
   curvesUi.endcurve->hide();
-  curvesUi.pointsize->setValue(7);
-  curvesUi.mincurvelen->setValue(20);
-  ui.tag->setValue(Global::tag());
+  //curvesUi.pointsize->setValue(7);
+  //curvesUi.mincurvelen->setValue(20);
+  //ui.tag->setValue(Global::tag());
   ui.radius->setValue(Global::spread());
   graphcutUi.boxSize->setValue(Global::boxSize());
   graphcutUi.lambda->setValue(Global::lambda());
@@ -981,14 +981,14 @@ DrishtiPaint::on_actionCurves_triggered()
 
   ui.sliderFrame->show();
   ui.buttonBox->show();
-  ui.curveSelTex->show();
+  //ui.curveSelTex->show();
   ui.sizeSel->show();
 
   m_curvesMenu->show();
   m_graphcutMenu->hide();
   //m_superpixelMenu->hide();
   //m_fibersMenu->hide();
-  ui.wdptszframe->show();
+  //ui.wdptszframe->show();
   ui.spreadframe->hide();
 
   ui.actionCurves->setChecked(true);
@@ -1020,14 +1020,14 @@ DrishtiPaint::on_actionGraphCut_triggered()
 
   ui.sliderFrame->hide();
   ui.buttonBox->hide();
-  ui.curveSelTex->hide();
+  //ui.curveSelTex->hide();
   ui.sizeSel->hide();
 
   m_curvesMenu->hide();
   m_graphcutMenu->show();
   //m_superpixelMenu->hide();
   //m_fibersMenu->hide();
-  ui.wdptszframe->hide();
+  //ui.wdptszframe->hide();
   ui.spreadframe->show();
 
   ui.actionGraphCut->setChecked(true);  
@@ -1194,7 +1194,7 @@ void
 DrishtiPaint::tagSelected(int t, bool checkBoxClicked)
 {
   Global::setTag(t);
-  ui.tag->setValue(t);
+  //ui.tag->setValue(t);
 
   m_axialImage->updateTagColors();
   m_sagitalImage->updateTagColors();
@@ -1349,14 +1349,14 @@ DrishtiPaint::getTags(QString text)
 void
 DrishtiPaint::on_tagcurves_editingFinished()
 {
-  QString text = ui.tagcurves->text();
-
-  QPair<QString, QList<int> > tags;
-  tags = getTags(text);
-
-  ui.tagcurves->setText(tags.first);
-  
-  m_curvesWidget->showTags(tags.second);
+//  QString text = ui.tagcurves->text();
+//
+//  QPair<QString, QList<int> > tags;
+//  tags = getTags(text);
+//
+//  ui.tagcurves->setText(tags.first);
+//  
+//  m_curvesWidget->showTags(tags.second);
 }
 
 void
@@ -1825,7 +1825,7 @@ DrishtiPaint::setFile(QString filename)
 
   on_actionGraphCut_triggered();
 
-  ui.tagcurves->setText("-1");
+  //ui.tagcurves->setText("-1");
   //viewerUi.fibertags->setText("-1");
   viewerUi.curvetags->setText("-1");
 
@@ -3154,6 +3154,27 @@ DrishtiPaint::miscConnections()
 void
 DrishtiPaint::connectCurvesMenu()
 {
+  //ui.tag->hide();
+  //ui.label->hide();
+  //ui.tagcurves->hide();
+  //ui.label_13->hide();
+  //ui.thickness->hide();
+  //ui.label_6->hide();
+  ui.zoomup->setIcon(QIcon(":/images/zoom-in.png"));
+  ui.zoomdown->setIcon(QIcon(":/images/zoom-out.png"));
+  
+  curvesUi.modify->hide();
+  curvesUi.propagate->hide();
+  curvesUi.closed->hide();
+  //curvesUi.mincurvelen->hide();
+  //curvesUi.pointsize->hide();
+  //curvesUi.label->hide();
+  //curvesUi.label_7->hide();
+  
+  
+  connect(curvesUi.bakeCurves, SIGNAL(clicked()),
+	  this, SLOT(bakeCurves_clicked()));
+
   connect(curvesUi.livewire, SIGNAL(clicked(bool)),
 	  this, SLOT(livewire_clicked(bool)));
 
@@ -3177,10 +3198,10 @@ DrishtiPaint::connectCurvesMenu()
 //	  this, SLOT(on_deselect_clicked()));
 
 
-  connect(curvesUi.mincurvelen, SIGNAL(valueChanged(int)),
-	  this, SLOT(mincurvelen_valueChanged(int)));
-  connect(curvesUi.pointsize, SIGNAL(valueChanged(int)),
-	  this, SLOT(pointsize_valueChanged(int)));
+//  connect(curvesUi.mincurvelen, SIGNAL(valueChanged(int)),
+//	  this, SLOT(mincurvelen_valueChanged(int)));
+//  connect(curvesUi.pointsize, SIGNAL(valueChanged(int)),
+//	  this, SLOT(pointsize_valueChanged(int)));
 
   connect(curvesUi.newcurve, SIGNAL(clicked()),
 	  this, SLOT(newcurve_clicked()));
@@ -6759,7 +6780,7 @@ DrishtiPaint::modifyOriginalVolume(Vec bmin, Vec bmax, int val)
 }
 
 void
-DrishtiPaint::on_actionBakeCurves_triggered()
+DrishtiPaint::bakeCurves_clicked()
 {
   if (!m_volume->isValid())
     {

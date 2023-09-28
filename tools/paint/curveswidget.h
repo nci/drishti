@@ -13,7 +13,6 @@
 
 #include "livewire.h"
 #include "curvegroup.h"
-#include "fibergroup.h"
 #include <QScrollArea>
 
 class CurvesWidget : public QWidget
@@ -77,7 +76,6 @@ class CurvesWidget : public QWidget
   QList< QMultiMap<int, Curve*> >* shrinkwrapCurvesW() { return m_wCurves.shrinkwrapCurves(); };
   QList< QMultiMap<int, Curve*> >* shrinkwrapCurvesH() { return m_hCurves.shrinkwrapCurves(); };
 
-  QList<Fiber*>* fibers() { return m_fibers.fibers(); };
 
   bool seedMoveMode() { return m_livewire.seedMoveMode(); };
   void deselectAll();
@@ -86,7 +84,6 @@ class CurvesWidget : public QWidget
   bool dCurvesPresent() { return m_dCurves.curvesPresent(); };
   bool wCurvesPresent() { return m_wCurves.curvesPresent(); };
   bool hCurvesPresent() { return m_hCurves.curvesPresent(); };
-  bool fibersPresent() { return m_fibers.fibersPresent(); };
 
   void resetCurves();
 
@@ -102,34 +99,28 @@ class CurvesWidget : public QWidget
   void userRangeChanged(int, int);
   void keyPressEvent(QKeyEvent*);
   void setLivewire(bool);
-  void setFiberMode(bool);
   void setCurve(bool);
   void saveCurves(QString);
   void saveCurves();
   void loadCurves();
   void loadCurves(QString);
-  void saveFibers();
-  void loadFibers();
-  void loadFibers(QString);
   void setSmoothType(int);
   void setGradType(int);
   void freezeLivewire(bool);
   void newCurve(bool);
   void endCurve();
-  void newFiber();
-  void endFiber();
   void morphCurves();
   void morphSlices();
   void deleteAllCurves();
-  void zoom0();
-  void zoom9();
-  void zoomUp();
-  void zoomDown();
+  void zoom0Clicked();
+  void zoom9Clicked();
+  void zoomUpClicked();
+  void zoomDownClicked();
   void setPointSize(int);
   void setMinCurveLength(int);
   void setSliceLOD(int);
 
-  void paintUsingCurves(int, int, int, int, uchar*, QList<int>);
+  void paintUsingCurves(int, int, int, int, uchar*);
 
   void modifyUsingLivewire();
   void freezeModifyUsingLivewire();
@@ -146,8 +137,6 @@ class CurvesWidget : public QWidget
   void tagHSlice(int, uchar*);
   void showEndCurve();
   void hideEndCurve();
-  void showEndFiber();
-  void hideEndFiber();
   void getSlice(int);
   void getRawValue(int, int, int);
   void newMinMax(float, float);
@@ -175,8 +164,6 @@ class CurvesWidget : public QWidget
   CurveGroup m_wCurves;
   CurveGroup m_hCurves;
 
-  bool m_fiberMode;
-  FiberGroup m_fibers;
 
   QVector<QRgb> m_tagColors;
   QVector<QRgb> m_prevslicetagColors;
@@ -260,7 +247,6 @@ class CurvesWidget : public QWidget
   int  drawMorphedCurves(QPainter*);
   void drawOtherCurvePoints(QPainter*);
   void drawLivewire(QPainter*);
-  void drawFibers(QPainter*);
 
   bool checkRubberBand(int, int);
 
@@ -268,8 +254,6 @@ class CurvesWidget : public QWidget
   bool validPickPoint(int, int);
   
   bool withinBounds(int, int);
-  void dotImage(int, int, bool);
-  void removeDotImage(int, int);
 
   void setZoom(float);
   void preselect();
@@ -283,11 +267,9 @@ class CurvesWidget : public QWidget
   void applyRecursive(int);
   void checkRecursive();
   
-  void paintUsingCurves(CurveGroup*, int, int, int, uchar*, QList<int>);
+  void paintUsingCurves(CurveGroup*, int, int, int, uchar*);
   void paintUsingCurves(uchar*);
 
-  void saveFibers(QFile*);
-  void loadFibers(QFile*);
 
   void saveCurves(QFile*, CurveGroup*);
   void loadCurves(QFile*, CurveGroup*);
@@ -302,20 +284,13 @@ class CurvesWidget : public QWidget
   QPair<int, Curve> loadCurveData(QFile*);
 
   void curveModeKeyPressEvent(QKeyEvent*);
-  bool fiberModeKeyPressEvent(QKeyEvent*);
-
-  void propagateLivewire();
+  void curveMousePressEvent(QMouseEvent*);
+  void curveMouseMoveEvent(QMouseEvent*);
 
   QList<QPointF> trimPointList(QList<QPointF>, bool);
 
-  void startLivewirePropagation();
-  void endLivewirePropagation();
-
   void modifyUsingLivewire(int, int);
 
-  void curveMousePressEvent(QMouseEvent*);
-  void fiberMousePressEvent(QMouseEvent*);
-  void curveMouseMoveEvent(QMouseEvent*);
 
   CurveGroup* getCg();
 

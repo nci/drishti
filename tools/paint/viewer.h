@@ -9,7 +9,6 @@ using namespace qglviewer;
 
 #include "ui_viewermenu.h"
 
-#include "curvegroup.h"
 #include "fiber.h"
 #include "clipplane.h"
 #include "boundingbox.h"
@@ -31,11 +30,6 @@ class Viewer : public QGLViewer
   void draw();
 
   void setGridSize(int, int, int);
-  void setMultiMapCurves(int, QMultiMap<int, Curve*>*);
-  void setListMapCurves(int, QList< QMap<int, Curve> >*);
-  void setShrinkwrapCurves(int, QList< QMultiMap<int, Curve*> >*);
-
-  void setFibers(QList<Fiber*>*);
 
   void setVolDataPtr(uchar*);
   void setMaskDataPtr(uchar*);
@@ -90,21 +84,15 @@ class Viewer : public QGLViewer
     void resizeGL(int, int);
     void setPointSize(int p) { m_pointSize = p; update(); }
     void setPointScaling(int p) { m_pointScaling = p; update(); }
-    void setVoxelInterval(int);
     void updateVoxels();
     void updateViewerBox(int, int, int, int, int, int);
     void updateCurrSlice(int, int);
-    void setVoxelChoice(int);
     void setShowBox(bool);
-    void setPaintedTags(QList<int>);
-    void setCurveTags(QList<int>);
-    void setFiberTags(QList<int>);
     void setDSlice(int);
     void setWSlice(int);
     void setHSlice(int);
-    void setShowSlices(bool);
+    void setShowPosition(bool);
     void uploadMask(int,int,int, int,int,int);
-    void setRenderMode(bool);
     void setSkipLayers(int);
     void setSkipVoxels(int);
     void setStillAndDragStep(float, float);
@@ -228,8 +216,6 @@ class Viewer : public QGLViewer
   int m_tag1, m_tag2;
   bool m_mergeTagTF;
 
-  bool m_renderMode;
-
   int m_voxChoice;
   bool m_showBox;
 
@@ -247,28 +233,7 @@ class Viewer : public QGLViewer
   bool m_paintHit, m_carveHit;
   Vec m_target;
 
-
-  QMultiMap<int, Curve*> *m_Dcg;
-  QMultiMap<int, Curve*> *m_Wcg;
-  QMultiMap<int, Curve*> *m_Hcg;
-  QList< QMap<int, Curve> > *m_Dmcg;  
-  QList< QMap<int, Curve> > *m_Wmcg;  
-  QList< QMap<int, Curve> > *m_Hmcg;  
-
-  QList< QMultiMap<int, Curve*> > *m_Dswcg;
-  QList< QMultiMap<int, Curve*> > *m_Wswcg;
-  QList< QMultiMap<int, Curve*> > *m_Hswcg;
-
-  QList<Fiber*> *m_fibers;
-
-  QList<ushort> m_voxels;
-  QList<ushort> m_clipVoxels;
-
-  QList<int> m_paintedTags;
-  QList<int> m_curveTags;
-  QList<int> m_fiberTags;
-
-  bool m_showSlices;
+  bool m_showPosition;
   int m_dslice, m_wslice, m_hslice;
 
   int m_dbox, m_wbox, m_hbox, m_boxSize;
@@ -350,34 +315,13 @@ class Viewer : public QGLViewer
 
   void drawWireframeBox();
 
-  void drawMMDCurve();
-  void drawMMWCurve();
-  void drawMMHCurve();
-
-  void drawLMDCurve();
-  void drawLMWCurve();
-  void drawLMHCurve();
-
-  void drawSWDCurve();
-  void drawSWWCurve();
-  void drawSWHCurve();
-
-  void drawCurve(int, Curve*, int);
-
-  void drawFibers();
-
-  void drawPointsWithoutShader();
-
-  void updateClipVoxels();
-
   void updateVoxelsForRaycast();
   void raycasting();
 
   void drawEnclosingCube(Vec, Vec);
-  void drawCurrentSlice();
+  void drawCurrentPosition();
 
   bool clip(int, int, int);
-  void drawClip();
 
   void createRaycastShader();
   void createShaders();

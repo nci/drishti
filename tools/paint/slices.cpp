@@ -296,9 +296,9 @@ Slices::setLarge(bool ms)
 }
 
 void
-Slices::setShowSlices(bool s)
+Slices::setShowPosition(bool s)
 {
-  m_imageWidget->setShowSlices(s);
+  m_imageWidget->setShowPosition(s);
 }
 
 void

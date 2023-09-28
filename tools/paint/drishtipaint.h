@@ -11,8 +11,6 @@
 #include "ui_viewermenu.h"
 #include "ui_graphcutmenu.h"
 #include "ui_curvesmenu.h"
-//#include "ui_superpixelmenu.h"
-//#include "ui_fibersmenu.h"
 
 #include "tagcoloreditor.h"
 #include "transferfunctionmanager.h"
@@ -38,7 +36,6 @@ class DrishtiPaint : public QMainWindow
   void dragEnterEvent(QDragEnterEvent*);
   void dropEvent(QDropEvent*);
   void closeEvent(QCloseEvent*);
-  //void keyPressEvent(QKeyEvent*);
 
  private slots :
   void saveTagNames();
@@ -87,15 +84,12 @@ class DrishtiPaint : public QMainWindow
   void on_actionLoad_triggered();
   void on_actionLoad_Curves_triggered();
   void on_actionSave_Curves_triggered();
-//  void on_actionLoad_Fibers_triggered();
-//  void on_actionSave_Fibers_triggered();
   void bakeCurves_clicked();
   void on_actionExit_triggered();
   void on_actionExtractTag_triggered();
   void on_actionMeshTag_triggered();
   void on_actionCurves_triggered();
   void on_actionGraphCut_triggered();
-//  void on_actionSuperpixels_triggered();
   void sliceLod_currentIndexChanged(int);
   void on_butZ_clicked();
   void on_butY_clicked();
@@ -112,9 +106,6 @@ class DrishtiPaint : public QMainWindow
   void on_actionX_triggered();
   void on_action3dView_triggered();
 
-  void on_tagcurves_editingFinished();
-  void curvetag_editingFinished();
-//  void fibertag_editingFinished();
   void on_saveFreq_valueChanged(int);
   void on_tag_valueChanged(int);
   void boxSize_valueChanged(int);
@@ -128,15 +119,11 @@ class DrishtiPaint : public QMainWindow
   void mincurvelen_valueChanged(int);
   void livewire_clicked(bool);
   void modify_clicked(bool);
-  void closed_clicked(bool);
   void lwsmooth_currentIndexChanged(int);
   void lwgrad_currentIndexChanged(int);
   void newcurve_clicked();
   void endcurve_clicked();
-//  void on_newfiber_clicked();
-//  void on_endfiber_clicked();
   void morphcurves_clicked();
-  void propagate_clicked(bool);
   void deselect_clicked();
   void deleteallcurves_clicked();
   void on_zoom0_clicked();
@@ -156,11 +143,8 @@ class DrishtiPaint : public QMainWindow
   void tagHSlice(int, uchar*);
   void changeImageSlice(int, int, int);
 
-//  void on_autoGenSupPix_clicked(bool);
-//  void on_hideSupPix_clicked(bool);
-//  void on_supPixSize();
 
-  void setShowSlices(bool);
+  void setShowPosition(bool);
 
   void applyMaskOperation(int, int, int);
 
@@ -178,11 +162,7 @@ class DrishtiPaint : public QMainWindow
 
   void updateSliceBounds(Vec, Vec);
 
-  void pointRender_clicked(bool);
-  void raycastRender_clicked(bool);
-
   void stillStep_changed(double);
-  void dragStep_changed(double);
 
   void getShadowColor();
   void getEdgeColor();
@@ -222,12 +202,8 @@ class DrishtiPaint : public QMainWindow
   Ui::ViewerMenu viewerUi;
   Ui::GraphCutMenu graphcutUi;
   Ui::CurvesMenu curvesUi;
-//  Ui::SuperPixelMenu superpixelUi;
-//  Ui::FibersMenu fibersUi;
   QFrame *m_curvesMenu;
   QFrame *m_graphcutMenu;
-//  QFrame *m_superpixelMenu;
-//  QFrame *m_fibersMenu;
 
   
   HandleExternalCMD *m_handleExternalCMD;
@@ -272,17 +248,8 @@ class DrishtiPaint : public QMainWindow
 
   Viewer3D *m_viewer3D;
   Viewer *m_viewer;
-  PopUpSlider *m_viewDslice;
-  PopUpSlider *m_viewWslice;
-  PopUpSlider *m_viewHslice;
-  PopUpSlider *m_viewSpec;
   PopUpSlider *m_viewEdge;
   PopUpSlider *m_viewShadow;
-  PopUpSlider *m_shadowX;
-  PopUpSlider *m_shadowY;
-  QPushButton *m_shadowButton;
-  QPushButton *m_edgeButton;
-  QPushButton *m_bgButton;
 
   PopUpSlider *m_minGrad, *m_maxGrad;
   QComboBox *m_gradType;
@@ -325,24 +292,16 @@ class DrishtiPaint : public QMainWindow
   void connectViewerMenu();
   void connectGraphCutMenu();
   void connectCurvesMenu();
-//  void connectSuperPixelMenu();
-//  void connectFibersMenu();
   void connectImageWidget();
   void connectCurvesWidget();
   void miscConnections();
 
-  void updateCurveMask(uchar*, QList<int>,
+  void updateCurveMask(uchar*,
 		       int, int, int,
 		       int, int, int,
 		       int, int, int,
 		       int, int, int);
 
-//  void updateFiberMask(uchar*, QList<int>,
-//		       int, int, int,
-//		       int, int, int,
-//		       int, int, int);
-//
-//  void meshFibers(QString);
 
   void dilateAndSmooth(uchar*, int, int, int, int);
   void smoothData(uchar*, int, int, int, int);
@@ -351,7 +310,6 @@ class DrishtiPaint : public QMainWindow
 
   bool tagUsingSketchPad(Vec, Vec, int);
 
-  void setupSlicesParameters();
   void setupLightParameters();
 
   void updateModifiedRegion(int, int, int,

@@ -72,7 +72,6 @@ CurvesWidget::CurvesWidget(QWidget *parent, QStatusBar *sb) :
 
   m_livewireMode = false;
   m_curveMode = false;
-  m_fiberMode = false;
   m_addingCurvePoints = false;
 
   m_Depth = m_Width = m_Height = 0;
@@ -88,8 +87,6 @@ CurvesWidget::CurvesWidget(QWidget *parent, QStatusBar *sb) :
   m_dCurves.reset();
   m_wCurves.reset();
   m_hCurves.reset();
-
-  m_fibers.reset();
 
   m_zoom = 1;
 
@@ -199,13 +196,6 @@ CurvesWidget::showTags(QList<int> t)
       uchar r = tagColors[4*i+0];
       uchar g = tagColors[4*i+1];
       uchar b = tagColors[4*i+2];
-//      if (!m_fiberMode ||
-//	  m_showTags.count() == 0 ||
-//	  m_showTags[0] == -1 ||
-//	  m_showTags.contains(i))
-//	m_tagColors[i] = qRgba(r, g, b, 127);
-//      else
-//	m_tagColors[i] = qRgba(r, g, b, 20);
 
       uchar a = tagColors[4*i+3];
       if (a > 2)
@@ -243,25 +233,6 @@ CurvesWidget::saveImage()
   QMessageBox::information(0, "Save Image", "Done");
 }
 
-//void
-//CurvesWidget::setZoom(float z)
-//{
-//  setMinimumSize(QSize(m_imgWidth, m_imgHeight));
-//  if (z < 0)
-//    {
-//      QWidget *prt = (QWidget*)parent();
-//      int frmHeight = prt->rect().height()-50;
-//      int frmWidth = prt->rect().width()-50;
-//      float zn = qMin((float)frmWidth/m_imgWidth,
-//		      (float)frmHeight/m_imgHeight);
-//      m_zoom = qMax(0.01f, zn);
-//    }
-//  else
-//    m_zoom = qMax(0.01f, z);
-//
-//  resizeImage();
-//  update();
-//}
 void
 CurvesWidget::setZoom(float z)
 {  
@@ -403,7 +374,6 @@ CurvesWidget::resetCurves()
   m_dCurves.reset();
   m_wCurves.reset();
   m_hCurves.reset();
-  m_fibers.reset();
 }
 
 void
@@ -548,13 +518,6 @@ CurvesWidget::updateTagColors()
       uchar r = tagColors[4*i+0];
       uchar g = tagColors[4*i+1];
       uchar b = tagColors[4*i+2];
-//      if (!m_fiberMode ||
-//	  m_showTags.count() == 0 ||
-//	  m_showTags[0] == -1 ||
-//	  m_showTags.contains(i))
-//	m_tagColors[i] = qRgba(r, g, b, 127);
-//      else
-//	m_tagColors[i] = qRgba(r, g, b, 20);
 
       uchar a = tagColors[4*i+3];
       if (a > 2)
@@ -1112,96 +1075,6 @@ CurvesWidget::drawPoints(QPainter *p,
     }
 }
 
-void
-CurvesWidget::drawFibers(QPainter *p)
-{
-  QVector<QVector4D> pts;
-  QPoint move = QPoint(m_simgX, m_simgY);
-  float sx = (float)m_simgWidth/(float)m_imgWidth;
-
-  //-------------------------------
-  // draw fiber strands
-  if (m_sliceType == DSlice)
-    pts = m_fibers.xyPoints(0, m_currSlice);
-  else if (m_sliceType == WSlice)
-    pts = m_fibers.xyPoints(1, m_currSlice);
-  else if (m_sliceType == HSlice)
-    pts = m_fibers.xyPoints(2, m_currSlice);
-
-  for(int i=0; i<pts.count(); i++)
-    {
-      QPointF pos = pts[i].toPointF();
-      pos = pos*sx + move;
-      pts[i] = QVector4D(pos.x(), pos.y(), pts[i].z(), pts[i].w());
-    }
-  drawPoints(p, pts, Qt::black, 0);
-
-  //-------------------------------
-
-  //-------------------------------
-  // draw fiber selected strands
-  if (m_sliceType == DSlice)
-    pts = m_fibers.xyPointsSelected(0, m_currSlice);
-  else if (m_sliceType == WSlice)
-    pts = m_fibers.xyPointsSelected(1, m_currSlice);
-  else if (m_sliceType == HSlice)
-    pts = m_fibers.xyPointsSelected(2, m_currSlice);
-
-  for(int i=0; i<pts.count(); i++)
-    {
-      QPointF pos = pts[i].toPointF();
-      pos = pos*sx + move;
-      pts[i] = QVector4D(pos.x(), pos.y(), pts[i].z(), pts[i].w());
-    }
-
-  drawPoints(p, pts, Qt::black, 2);
-  drawPoints(p, pts, QColor(0,0,0,100), 0);
-  //-------------------------------
-
-
-  //-------------------------------
-  // now draw seeds
-  if (m_sliceType == DSlice)
-    pts = m_fibers.xySeeds(0, m_currSlice);
-  else if (m_sliceType == WSlice)
-    pts = m_fibers.xySeeds(1, m_currSlice);
-  else if (m_sliceType == HSlice)
-    pts = m_fibers.xySeeds(2, m_currSlice);
-
-  for(int i=0; i<pts.count(); i++)
-    {
-      QPointF pos = pts[i].toPointF();
-      pos = pos*sx + move;
-      pts[i] = QVector4D(pos.x(), pos.y(), pts[i].z(), pts[i].w());
-    }
-
-  drawPoints(p, pts, Qt::black, 6);
-  drawPoints(p, pts, Qt::white, 0);
-  //-------------------------------
-
-
-  //-------------------------------
-  // now draw seeds selected fiber
-  if (m_sliceType == DSlice)
-    pts = m_fibers.xySeedsSelected(0, m_currSlice);
-  else if (m_sliceType == WSlice)
-    pts = m_fibers.xySeedsSelected(1, m_currSlice);
-  else if (m_sliceType == HSlice)
-    pts = m_fibers.xySeedsSelected(2, m_currSlice);
-
-  for(int i=0; i<pts.count(); i++)
-    {
-      QPointF pos = pts[i].toPointF();
-      pos = pos*sx + move;
-      pts[i] = QVector4D(pos.x(), pos.y(), pts[i].z(), pts[i].w());
-    }
-
-  drawPoints(p, pts, Qt::black, 8);
-  drawPoints(p, pts, QColor(250,0,0,250), 0);
-  //-------------------------------
-
-}
-
 int
 CurvesWidget::drawCurves(QPainter *p)
 {  
@@ -1522,20 +1395,14 @@ CurvesWidget::paintEvent(QPaintEvent *event)
   drawRubberBand(&p);
   
 
-  if (m_fiberMode)
-    drawFibers(&p);
-
-  if (!m_fiberMode)
-    {
-      int nc = drawCurves(&p);
-      int nmc = drawMorphedCurves(&p);
-      drawSizeText(&p, nc, nmc);
-
-      drawLivewire(&p);
+  int nc = drawCurves(&p);
+  int nmc = drawMorphedCurves(&p);
+  drawSizeText(&p, nc, nmc);
+  
+  drawLivewire(&p);
       
-      if (!m_livewire.seedMoveMode())
-	drawOtherCurvePoints(&p);
-    }
+  if (!m_livewire.seedMoveMode())
+    drawOtherCurvePoints(&p);
 
 
   if (m_pickPoint)
@@ -1543,8 +1410,7 @@ CurvesWidget::paintEvent(QPaintEvent *event)
 
   if (!m_rubberBandActive &&
       !m_livewireMode &&
-      !m_curveMode &&
-      !m_fiberMode)
+      !m_curveMode)
     {
       float xpos = m_cursorPos.x();
       float ypos = m_cursorPos.y();
@@ -1780,24 +1646,6 @@ void CurvesWidget::setCurve(bool b)
 
 void CurvesWidget::setLivewire(bool b) { m_livewireMode = b; }
 
-void CurvesWidget::setFiberMode(bool b)
-{
-  m_fiberMode = b;
-  updateTagColors();
-}
-
-void CurvesWidget::newFiber()
-{
-  m_fibers.newFiber();
-  emit showEndFiber();
-}
-void CurvesWidget::endFiber()
-{
-  m_fibers.endFiber();
-  emit hideEndFiber();
-  emit saveWork();
-}
-
 void
 CurvesWidget::freezeLivewire(bool select)
 {
@@ -1810,25 +1658,13 @@ CurvesWidget::freezeLivewire(bool select)
   if (Global::closed())
     m_livewire.freeze();
 
-  // if propagating then renew guess curve with the currently generated livewire
-  if (m_livewire.propagateLivewire())
-    m_livewire.renewGuessCurve();
 
   QVector<QPointF> pts = m_livewire.poly();
   QVector<int> seedpos = m_livewire.seedpos();
   QVector<QPointF> seeds = m_livewire.seeds();
 
   if (pts.count() < 5)
-    {
-      //QMessageBox::information(0, "Error", "No livewire found to be transferred to curve");
-      if (m_livewire.propagateLivewire())
-	{
-	  endLivewirePropagation();
-	  m_applyRecursive = false;
-	  emit saveWork();
-	}
-      return;
-    }
+    return;
 
   CurveGroup *cg = getCg();
   cg->deselectAll();
@@ -1844,11 +1680,11 @@ CurvesWidget::freezeLivewire(bool select)
 
   m_livewire.resetPoly();
 
-  if (m_showTags.count() != 0 &&
-      m_showTags[0] != -1 &&
-      !m_showTags.contains(Global::tag()) &&
-      !m_livewire.propagateLivewire())
-    QMessageBox::information(0, "", QString("Curve with tag value %1 will not be seen because you have chosen not to show it via the Show Tags parameter").arg(Global::tag()));
+//
+//
+//
+//
+// show it via the Show Tags parameter").arg(Global::tag()));
   
   update(); 
 }
@@ -2039,21 +1875,10 @@ CurvesWidget::morphSlices()
 void
 CurvesWidget::deleteAllCurves()
 {
-//  QStringList items;
-//  items << "No";
-//  items << "Yes";
-//  bool ok;
   QString st;
   if (m_sliceType == DSlice) st = "Z";
   else if (m_sliceType == WSlice) st = "Y";
   else st = "X";  
-//  QString item = QInputDialog::getItem(this,
-//					"Delete All",
-//					QString("You sure you want to remove all curves for %1?").\
-//					arg(st),
-//					items, 0, false, &ok);
-//  if (!ok || item == "No")
-//    return;
 					
   CurveGroup *cg = getCg();
   cg->reset();
@@ -2065,100 +1890,6 @@ CurvesWidget::deleteAllCurves()
   update();
 }
 
-void
-CurvesWidget::endLivewirePropagation()
-{
-  m_livewire.setPropagateLivewire(false);
-
-  CurveGroup *cg = getCg();
-  cg->endAddingCurves();
-  cg->deselectAll();
-}
-
-void
-CurvesWidget::startLivewirePropagation()
-{
-  m_livewire.setPropagateLivewire(true);
-
-  if (m_sliceType == DSlice) m_dCurves.startAddingCurves();
-  else if (m_sliceType == WSlice) m_wCurves.startAddingCurves();
-  else m_hCurves.startAddingCurves();
-
-//  // take curve from previous/next slice and propagate it to current slice
-//  int cs = qMax(0, m_currSlice-1);
-//  if (!m_forward) cs = m_currSlice+1;  
-
-  int cs = m_currSlice;
-
-  QList<Curve*> curves;
-  if (m_sliceType == DSlice)
-    curves = m_dCurves.getCurvesAt(cs);
-  else if (m_sliceType == WSlice)
-    curves = m_wCurves.getCurvesAt(cs);
-  else
-    curves = m_hCurves.getCurvesAt(cs);
-  
-  for(int l=0; l<curves.count(); l++)
-    {
-      if (curves[l]->selected)
-	{
-	  QVector<int> seedpos = curves[l]->seedpos;
-	  QVector<QPointF> seeds;
-	  if (seedpos.count() > 0)
-	    {
-	      for(int i=0; i<seedpos.count(); i++)
-		seeds << curves[l]->pts[seedpos[i]];
-	    }
-	  
-	  m_livewire.setGuessCurve(curves[l]->pts, seeds);
-	  
-  
-	  //  move current slice for propagation
-	  checkRecursive();	  
-	  if (!m_applyRecursive)
-	    emit setPropagation(false);
-
-	  return;
-	}
-    }
-
-}
-
-void
-CurvesWidget::propagateLivewire()
-{
-  QVector<QPointF> ospts;
-  // first get points from orthogonal sets
-  if (m_sliceType == DSlice)
-    {
-      QList<QPointF> ptw = m_wCurves.ypoints(m_currSlice);
-      ospts = QVector<QPointF>::fromList(trimPointList(ptw, true));
-
-      QList<QPointF> pth = m_hCurves.ypoints(m_currSlice);
-      ospts += QVector<QPointF>::fromList(trimPointList(pth, false));
-    }
-  else if (m_sliceType == WSlice)
-    {
-      QList<QPointF> pth = m_hCurves.xpoints(m_currSlice);
-      ospts = QVector<QPointF>::fromList(trimPointList(pth, false));
-
-      QList<QPointF> ptd = m_dCurves.ypoints(m_currSlice);
-      ospts += QVector<QPointF>::fromList(trimPointList(ptd, true));
-    }    
-  else
-    {
-      QList<QPointF> ptw = m_wCurves.xpoints(m_currSlice);
-      ospts = QVector<QPointF>::fromList(trimPointList(ptw, false));
-
-      QList<QPointF> ptd = m_dCurves.xpoints(m_currSlice);
-      ospts += QVector<QPointF>::fromList(trimPointList(ptd, true));
-    }
-
-  m_livewire.livewireFromSeeds(ospts);
-  freezeLivewire(true);
-  
-  checkRecursive();
-}
 
 void
 CurvesWidget::modifyUsingLivewire()
@@ -2232,86 +1963,16 @@ CurvesWidget::setSliceLOD(int lod)
   update();
 }
 
-void
-CurvesWidget::propagateCurves(bool flag)
-{
-  if (flag)
-    {
-      applyRecursive(Qt::Key_J);
-      startLivewirePropagation();
-    }
-  else
-    {
-      if (m_applyRecursive) // stop the recursive process
-	{
-	  endLivewirePropagation();
-	  emit saveWork();
 
-	  m_applyRecursive = false;
-	  m_extraPressed = false;
-	  m_cslc = 0;
-	  m_maxslc = 0;
-	  m_key = 0;
-	  m_forward = true;
-	  QMessageBox::information(0, "", "Propagation process stopped");
-	}
-    }
-}
-
-bool
-CurvesWidget::fiberModeKeyPressEvent(QKeyEvent *event)
-{
-  QPoint pp = mapFromGlobal(QCursor::pos());
-  float ypos = pp.y();
-  float xpos = pp.x();
-  validPickPoint(xpos, ypos);
-
-  int shiftModifier = event->modifiers() & Qt::ShiftModifier;
-  int ctrlModifier = event->modifiers() & Qt::ControlModifier;
-
-  if (event->key() == Qt::Key_Delete ||
-      event->key() == Qt::Key_Backspace)
-    {
-      m_fibers.removeFiber(m_pickDepth, m_pickWidth, m_pickHeight);
-      emit viewerUpdate();
-      emit saveWork();
-      update();
-    }
-  else if (event->key() == Qt::Key_Space)
-    {
-      m_fibers.selectFiber(m_pickDepth, m_pickWidth, m_pickHeight);
-      emit viewerUpdate();
-      update();
-    }
-  else if (event->key() == Qt::Key_T)
-    {
-      m_fibers.setTag(m_pickDepth, m_pickWidth, m_pickHeight);
-      emit viewerUpdate();
-      update();
-    }
-  else if (event->key() == Qt::Key_W)
-    {
-      m_fibers.setThickness(m_pickDepth, m_pickWidth, m_pickHeight);
-      emit viewerUpdate();
-      update();
-    }
-  else if (event->key() == Qt::Key_I)
-    {
-      m_fibers.showInformation(m_pickDepth, m_pickWidth, m_pickHeight);
-      update();
-    }
-
-  return true;
-}
 
 void
 CurvesWidget::curveModeKeyPressEvent(QKeyEvent *event)
 {
-  if (m_applyRecursive && event->key() == Qt::Key_Escape)
-    {
-      m_applyRecursive = false;
-      return;
-    }
+//  if (m_applyRecursive && event->key() == Qt::Key_Escape)
+//    {
+//      m_applyRecursive = false;
+//      return;
+//    }
 
   {
     QPoint pp = mapFromGlobal(QCursor::pos());
@@ -2323,26 +1984,6 @@ CurvesWidget::curveModeKeyPressEvent(QKeyEvent *event)
   int shiftModifier = event->modifiers() & Qt::ShiftModifier;
   int ctrlModifier = event->modifiers() & Qt::ControlModifier;
 
-  if (event->key() == Qt::Key_J)
-    {
-      bool ar = m_applyRecursive;
-
-      if (shiftModifier) // apply operation for multiple slices
-	{
-	  applyRecursive(event->key());
-	  ar = true;
-
-	  startLivewirePropagation();
-	  return;
-	}
-
-      propagateLivewire();
-
-      if (ar && m_applyRecursive == false)
-	endLivewirePropagation();
-
-      return;
-    }
 
   if (m_livewireMode)
     {
@@ -2529,150 +2170,150 @@ CurvesWidget::curveModeKeyPressEvent(QKeyEvent *event)
       return;
     }
 
-  if (event->key() == Qt::Key_Space)
-    {
-      bool selected;
-      if (m_sliceType == DSlice)
-	selected = m_dCurves.selectPolygon(m_currSlice,
-					   m_pickHeight, m_pickWidth,
-					   shiftModifier,
-					   m_minDSlice, m_maxDSlice);
-      else if (m_sliceType == WSlice)
-	selected = m_wCurves.selectPolygon(m_currSlice,
-					   m_pickHeight, m_pickDepth,
-					   shiftModifier,
-					   m_minWSlice, m_maxWSlice);
-      else
-	selected = m_hCurves.selectPolygon(m_currSlice,
-					   m_pickWidth,  m_pickDepth,
-					   shiftModifier,
-					   m_minHSlice, m_maxHSlice);
-      
-      if (selected)
-	update();
-      else
-	QMessageBox::information(0, "", "No curve found for selection.\nNote : morphed curves cannot be selected.");
-      return;
-    }      
-
-  if (event->key() == Qt::Key_O)
-    {
-      if (m_sliceType == DSlice)
-	m_dCurves.setClosed(m_currSlice, m_pickHeight, m_pickWidth, false);
-      if (m_sliceType == WSlice)
-	m_wCurves.setClosed(m_currSlice, m_pickHeight, m_pickDepth, false);
-      else
-	m_hCurves.setClosed(m_currSlice, m_pickWidth,  m_pickDepth, false);
-      
-      update();
-      return;
-    }
-
-  if (event->key() == Qt::Key_C)
-    {
-      if (m_sliceType == DSlice)
-	m_dCurves.setClosed(m_currSlice, m_pickHeight, m_pickWidth, true);
-      if (m_sliceType == WSlice)
-	m_wCurves.setClosed(m_currSlice, m_pickHeight, m_pickDepth, true);
-      else
-	m_hCurves.setClosed(m_currSlice, m_pickWidth,  m_pickDepth, true);
-      
-      update();
-      return;
-    }
- 
-  if (event->key() == Qt::Key_T)
-    {
-      QPair<int , int> swsel;
-      int ic = -1;
-      if (m_sliceType == DSlice)
-	{
-	  ic = m_dCurves.getActiveCurve(m_currSlice, m_pickHeight, m_pickWidth);
-	  if (ic == -1)
-	    ic = m_dCurves.getActiveMorphedCurve(m_currSlice, m_pickHeight, m_pickWidth);
-	  if (ic == -1)
-	    {
-	      swsel = m_dCurves.getActiveShrinkwrapCurve(m_currSlice, m_pickHeight, m_pickWidth);
-	      ic = swsel.first;
-	    }
-	}
-      else if (m_sliceType == WSlice)
-	{
-	  ic = m_wCurves.getActiveCurve(m_currSlice, m_pickHeight, m_pickDepth);
-	  if (ic == -1)
-	    ic = m_wCurves.getActiveMorphedCurve(m_currSlice, m_pickHeight, m_pickDepth);
-	  if (ic == -1)
-	    {
-	      swsel = m_wCurves.getActiveShrinkwrapCurve(m_currSlice, m_pickHeight, m_pickDepth);
-	      ic = swsel.first;
-	    }
-	}
-      else
-	{
-	  ic = m_hCurves.getActiveCurve(m_currSlice, m_pickWidth, m_pickDepth);
-	  if (ic == -1)
-	    ic = m_hCurves.getActiveMorphedCurve(m_currSlice, m_pickWidth, m_pickDepth);
-	  if (ic == -1)
-	    {
-	      swsel = m_hCurves.getActiveShrinkwrapCurve(m_currSlice, m_pickWidth, m_pickDepth);
-	      ic = swsel.first;
-	    }
-	}
-      
-      if (ic == -1)
-	{
-	  if (!m_applyRecursive) m_extraPressed = false;
-	  
-	  if (shiftModifier) // apply paint for multiple slices
-	    applyRecursive(event->key());
-	  
-	  if (ctrlModifier) // apply paint for non-selected areas
-	    m_extraPressed = true;
-	  
-	  applyPaint(true); // keep existing tags while painting the curves
-	  return;
-	}
-      else
-	{
-	  if (m_sliceType == DSlice)
-	    m_dCurves.setTag(m_currSlice, m_pickHeight, m_pickWidth, Global::tag());
-	  else if (m_sliceType == WSlice)
-	    m_wCurves.setTag(m_currSlice, m_pickHeight, m_pickDepth, Global::tag());
-	  else
-	    m_hCurves.setTag(m_currSlice, m_pickWidth,  m_pickDepth, Global::tag());
-	  
-	  update();
-	  return;
-	}
-    }
-
-  if (event->key() == Qt::Key_P)
-    {
-      if (!m_applyRecursive) m_extraPressed = false;
-      
-      if (shiftModifier) // apply paint for multiple slices
-	applyRecursive(event->key());
-      
-      if (ctrlModifier) // apply paint for non-selected areas
-	m_extraPressed = true;
-      
-      applyPaint(false); // overwrite existing tags while painting the curves
-      return;
-    }
-
-  if (event->key() == Qt::Key_W)
-    {
-      bool closed = shiftModifier;
-      if (m_sliceType == DSlice)
-	m_dCurves.setThickness(m_currSlice, m_pickHeight, m_pickWidth, Global::thickness());
-      else if (m_sliceType == WSlice)
-	m_wCurves.setThickness(m_currSlice, m_pickHeight, m_pickDepth, Global::thickness());
-      else
-	m_hCurves.setThickness(m_currSlice, m_pickWidth,  m_pickDepth, Global::thickness());
-      
-      update();
-      return;
-    }
+//  if (event->key() == Qt::Key_Space)
+//    {
+//      bool selected;
+//      if (m_sliceType == DSlice)
+//	selected = m_dCurves.selectPolygon(m_currSlice,
+//					   m_pickHeight, m_pickWidth,
+//					   shiftModifier,
+//					   m_minDSlice, m_maxDSlice);
+//      else if (m_sliceType == WSlice)
+//	selected = m_wCurves.selectPolygon(m_currSlice,
+//					   m_pickHeight, m_pickDepth,
+//					   shiftModifier,
+//					   m_minWSlice, m_maxWSlice);
+//      else
+//	selected = m_hCurves.selectPolygon(m_currSlice,
+//					   m_pickWidth,  m_pickDepth,
+//					   shiftModifier,
+//					   m_minHSlice, m_maxHSlice);
+//      
+//      if (selected)
+//	update();
+//      else
+//	QMessageBox::information(0, "", "No curve found for selection.\nNote : morphed curves cannot be selected.");
+//      return;
+//    }      
+//
+//  if (event->key() == Qt::Key_O)
+//    {
+//      if (m_sliceType == DSlice)
+//	m_dCurves.setClosed(m_currSlice, m_pickHeight, m_pickWidth, false);
+//      if (m_sliceType == WSlice)
+//	m_wCurves.setClosed(m_currSlice, m_pickHeight, m_pickDepth, false);
+//      else
+//	m_hCurves.setClosed(m_currSlice, m_pickWidth,  m_pickDepth, false);
+//      
+//      update();
+//      return;
+//    }
+//
+//  if (event->key() == Qt::Key_C)
+//    {
+//      if (m_sliceType == DSlice)
+//	m_dCurves.setClosed(m_currSlice, m_pickHeight, m_pickWidth, true);
+//      if (m_sliceType == WSlice)
+//	m_wCurves.setClosed(m_currSlice, m_pickHeight, m_pickDepth, true);
+//      else
+//	m_hCurves.setClosed(m_currSlice, m_pickWidth,  m_pickDepth, true);
+//      
+//      update();
+//      return;
+//    }
+// 
+//  if (event->key() == Qt::Key_T)
+//    {
+//      QPair<int , int> swsel;
+//      int ic = -1;
+//      if (m_sliceType == DSlice)
+//	{
+//	  ic = m_dCurves.getActiveCurve(m_currSlice, m_pickHeight, m_pickWidth);
+//	  if (ic == -1)
+//	    ic = m_dCurves.getActiveMorphedCurve(m_currSlice, m_pickHeight, m_pickWidth);
+//	  if (ic == -1)
+//	    {
+//	      swsel = m_dCurves.getActiveShrinkwrapCurve(m_currSlice, m_pickHeight, m_pickWidth);
+//	      ic = swsel.first;
+//	    }
+//	}
+//      else if (m_sliceType == WSlice)
+//	{
+//	  ic = m_wCurves.getActiveCurve(m_currSlice, m_pickHeight, m_pickDepth);
+//	  if (ic == -1)
+//	    ic = m_wCurves.getActiveMorphedCurve(m_currSlice, m_pickHeight, m_pickDepth);
+//	  if (ic == -1)
+//	    {
+//	      swsel = m_wCurves.getActiveShrinkwrapCurve(m_currSlice, m_pickHeight, m_pickDepth);
+//	      ic = swsel.first;
+//	    }
+//	}
+//      else
+//	{
+//	  ic = m_hCurves.getActiveCurve(m_currSlice, m_pickWidth, m_pickDepth);
+//	  if (ic == -1)
+//	    ic = m_hCurves.getActiveMorphedCurve(m_currSlice, m_pickWidth, m_pickDepth);
+//	  if (ic == -1)
+//	    {
+//	      swsel = m_hCurves.getActiveShrinkwrapCurve(m_currSlice, m_pickWidth, m_pickDepth);
+//	      ic = swsel.first;
+//	    }
+//	}
+//      
+//      if (ic == -1)
+//	{
+//	  if (!m_applyRecursive) m_extraPressed = false;
+//	  
+//	  if (shiftModifier) // apply paint for multiple slices
+//	    applyRecursive(event->key());
+//	  
+//	  if (ctrlModifier) // apply paint for non-selected areas
+//	    m_extraPressed = true;
+//	  
+//	  applyPaint(true); // keep existing tags while painting the curves
+//	  return;
+//	}
+//      else
+//	{
+//	  if (m_sliceType == DSlice)
+//	    m_dCurves.setTag(m_currSlice, m_pickHeight, m_pickWidth, Global::tag());
+//	  else if (m_sliceType == WSlice)
+//	    m_wCurves.setTag(m_currSlice, m_pickHeight, m_pickDepth, Global::tag());
+//	  else
+//	    m_hCurves.setTag(m_currSlice, m_pickWidth,  m_pickDepth, Global::tag());
+//	  
+//	  update();
+//	  return;
+//	}
+//    }
+//
+//  if (event->key() == Qt::Key_P)
+//    {
+//      if (!m_applyRecursive) m_extraPressed = false;
+//      
+//      if (shiftModifier) // apply paint for multiple slices
+//	applyRecursive(event->key());
+//      
+//      if (ctrlModifier) // apply paint for non-selected areas
+//	m_extraPressed = true;
+//      
+//      applyPaint(false); // overwrite existing tags while painting the curves
+//      return;
+//    }
+//
+//  if (event->key() == Qt::Key_W)
+//    {
+//      bool closed = shiftModifier;
+//      if (m_sliceType == DSlice)
+//	m_dCurves.setThickness(m_currSlice, m_pickHeight, m_pickWidth, Global::thickness());
+//      else if (m_sliceType == WSlice)
+//	m_wCurves.setThickness(m_currSlice, m_pickHeight, m_pickDepth, Global::thickness());
+//      else
+//	m_hCurves.setThickness(m_currSlice, m_pickWidth,  m_pickDepth, Global::thickness());
+//      
+//      update();
+//      return;
+//    }
 
   if (event->key() == Qt::Key_F)
     {
@@ -2713,30 +2354,17 @@ CurvesWidget::curveModeKeyPressEvent(QKeyEvent *event)
     }
 }
 
-void CurvesWidget::zoom0() { setZoom(1); }
-void CurvesWidget::zoom9() { setZoom(-1); }
-void CurvesWidget::zoomUp() { setZoom(m_zoom+0.1); }
-void CurvesWidget::zoomDown() { setZoom(m_zoom-0.1); }
+void CurvesWidget::zoom0Clicked() { setZoom(1); }
+void CurvesWidget::zoom9Clicked() { setZoom(-1); }
+void CurvesWidget::zoomUpClicked() { setZoom(m_zoom+0.1); }
+void CurvesWidget::zoomDownClicked() { setZoom(m_zoom-0.1); }
 
 void
 CurvesWidget::keyPressEvent(QKeyEvent *event)
 {
   bool processed = false;
 
-//  if (event->key() == Qt::Key_S &&
-//      (event->modifiers() & Qt::ControlModifier) )
-//    {
-//      emit saveWork();
-//      return;
-//    }
-
-  if (m_fiberMode)
-    processed = fiberModeKeyPressEvent(event);
-  if (processed)
-    return;
-
-  if (m_livewireMode || m_curveMode)
-    curveModeKeyPressEvent(event);
+  curveModeKeyPressEvent(event);
 }
 
 bool
@@ -2828,44 +2456,6 @@ CurvesWidget::mouseDoubleClickEvent(QMouseEvent *event)
 		       m_minHSlice, m_maxHSlice);
 
   update();
-}
-
-void
-CurvesWidget::fiberMousePressEvent(QMouseEvent *event)
-{
-  QPoint pp = event->pos();
-  float ypos = pp.y();
-  float xpos = pp.x();
-  
-  m_cursorPos = pp;
-  m_pickPoint = false;
-
-  if (!validPickPoint(xpos, ypos))
-    return;
-  
-
-  bool shiftModifier = event->modifiers() & Qt::ShiftModifier;
-  bool ctrlModifier = event->modifiers() & Qt::ControlModifier;
-  bool altModifier = event->modifiers() & Qt::AltModifier;
-
-  m_lastPickDepth = m_pickDepth;
-  m_lastPickWidth = m_pickWidth;
-  m_lastPickHeight= m_pickHeight;
-
-  if (m_button == Qt::LeftButton && altModifier)
-    {
-      checkRubberBand(xpos, ypos);
-      return;
-    }  
-  
-  if (m_button == Qt::LeftButton)
-    m_fibers.addPoint(m_pickDepth, m_pickWidth, m_pickHeight);
-  else if (m_button == Qt::RightButton)
-    m_fibers.removePoint(m_pickDepth, m_pickWidth, m_pickHeight);
-  
-  emit viewerUpdate();
-  update();
-  return;
 }
 
 void
@@ -2998,11 +2588,7 @@ void
 CurvesWidget::mousePressEvent(QMouseEvent *event)
 {
   m_button = event->button();
-
-  if (m_fiberMode)
-    fiberMousePressEvent(event);
-  else if (m_livewireMode || m_curveMode)
-    curveMousePressEvent(event);
+  curveMousePressEvent(event);
 
   update();
 }
@@ -3156,17 +2742,7 @@ CurvesWidget::mouseMoveEvent(QMouseEvent *event)
   bool ctrlModifier = event->modifiers() & Qt::ControlModifier;
   bool altModifier = event->modifiers() & Qt::AltModifier;
 
-  if (m_livewireMode || m_curveMode)
-    curveMouseMoveEvent(event);
-  else if (m_fiberMode)
-    {
-      if (m_rubberBandActive)
-	{
-	  updateRubberBand(xpos, ypos);
-	  update();
-	  return;
-	}
-    }
+  curveMouseMoveEvent(event);
 }
 
 void
@@ -3501,132 +3077,6 @@ CurvesWidget::withinBounds(int scrx, int scry)
   return false;
 }
 
-void
-CurvesWidget::dotImage(int x, int y, bool backgroundTag)
-{
-  if (! withinBounds(x, y))
-    return ;
-  
-  int ist, ied, jst, jed;
-  if (m_sliceType == DSlice)
-    {
-      ist = m_minHSlice;
-      ied = m_maxHSlice;
-
-      jst = m_minWSlice;
-      jed = m_maxWSlice;
-    }
-  else if (m_sliceType == WSlice)
-    {
-      ist = m_minHSlice;
-      ied = m_maxHSlice;
-
-      jst = m_minDSlice;
-      jed = m_maxDSlice;
-    }
-  else
-    {
-      ist = m_minWSlice;
-      ied = m_maxWSlice;
-
-      jst = m_minDSlice;
-      jed = m_maxDSlice;
-    }
-
-  //------------------------------
-
-  int xstart = qMax(ist, x-Global::spread());
-  int xend = qMin(ied, x+Global::spread());
-  int ystart = qMax(jst, y-Global::spread());
-  int yend = qMin(jed, y+Global::spread());
-
-  int tg = Global::tag();
-  if (backgroundTag)
-    tg = 255;
-  uchar r = Global::tagColors()[4*tg+0];
-  uchar g = Global::tagColors()[4*tg+1];
-  uchar b = Global::tagColors()[4*tg+2];
-
-  bool redo = false;
-  for(int i=xstart; i<xend; i++)
-    for(int j=ystart; j<yend; j++)
-      {
-	int xi = qAbs(i-x);
-	int yj = qAbs(j-y);
-	float frc = ((float)(xi*xi + yj*yj)/
-		     (float)(Global::spread()*Global::spread()));
-	if (frc < 1)
-	  {
-	    int sidx = j*m_imgWidth + i;
-	    if (m_sliceImage[4*sidx+3] > 0)
-	      {
-		redo = true;
-		m_usertags[sidx] = tg;
-	      }
-	  }
-      }
-
-  if (redo)
-    {
-      m_userimage = QImage(m_usertags,
-			   m_imgWidth,
-			   m_imgHeight,
-			   m_imgWidth,
-			   QImage::Format_Indexed8);
-      m_userimage.setColorTable(m_tagColors);
-      m_userimageScaled = m_userimage.scaled(m_simgWidth,
-					     m_simgHeight,
-					     Qt::IgnoreAspectRatio,
-					     Qt::FastTransformation);
-    }
-  //updateMaskImage();
-}
-
-void
-CurvesWidget::removeDotImage(int x, int y)
-{
-  if (! withinBounds(x, y))
-    return ;
-		    
-  int xstart = qMax(0, x-Global::spread());
-  int xend = qMin(m_imgWidth, x+Global::spread());
-  int ystart = qMax(0, y-Global::spread());
-  int yend = qMin(m_imgHeight, y+Global::spread());
-
-  bool redo = false;
-  for(int i=xstart; i<xend; i++)
-    for(int j=ystart; j<yend; j++)
-      {
-	int xi = qAbs(i-x);
-	int yj = qAbs(j-y);
-	float frc = ((float)(xi*xi + yj*yj)/
-		     (float)(Global::spread()*Global::spread()));
-	if (frc < 1)
-	  {
-	    int sidx = j*m_imgWidth + i;
-	    if (m_sliceImage[4*sidx+3] > 0)
-	      {
-		redo = true;
-		m_usertags[sidx] = 0;
-	      }
-	  }
-      }
-
-  if (redo)
-    {
-      m_userimage = QImage(m_usertags,
-			   m_imgWidth,
-			   m_imgHeight,
-			   m_imgWidth,
-			   QImage::Format_Indexed8);
-      m_userimage.setColorTable(m_tagColors);
-      m_userimageScaled = m_userimage.scaled(m_simgWidth,
-					     m_simgHeight,
-					     Qt::IgnoreAspectRatio,
-					     Qt::FastTransformation);
-    }
-//  updateMaskImage();
-}
 
 void
 CurvesWidget::getSliceLimits(int &size1, int &size2,
@@ -3665,9 +3115,8 @@ CurvesWidget::getSliceLimits(int &size1, int &size2,
 
 void
 CurvesWidget::paintUsingCurves(CurveGroup* cg,
-			      int slc, int wd, int ht,
-			      uchar *maskData,
-			      QList<int> ptag)
+			       int slc, int wd, int ht,
+			       uchar *maskData)
 {
   QImage pimg= QImage(wd, ht, QImage::Format_RGB32);
   pimg.fill(0);
@@ -3681,20 +3130,17 @@ CurvesWidget::paintUsingCurves(CurveGroup* cg,
 	for(int l=0; l<curves.count(); l++)
 	  {
 	    int tag = curves[l]->tag;
-	    if (ptag[0] <= 0 || ptag.contains(tag))
+	    p.setBrush(QColor(tag, 255, 255)); 
+	    if (curves[l]->closed)
 	      {
-		p.setBrush(QColor(tag, 255, 255)); 
-		if (curves[l]->closed)
-		  {
-		    p.setPen(QPen(QColor(tag, 255, 255), 1));
-		    p.drawPolygon(curves[l]->pts);
-		  }
-		else
-		  {
-		    p.setPen(QPen(QColor(tag, 255, 255), curves[l]->thickness,
-				  Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-		    p.drawPolyline(curves[l]->pts);
-		  }
+		p.setPen(QPen(QColor(tag, 255, 255), 1));
+		p.drawPolygon(curves[l]->pts);
+	      }
+	    else
+	      {
+		p.setPen(QPen(QColor(tag, 255, 255), curves[l]->thickness,
+			      Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+		p.drawPolyline(curves[l]->pts);
 	      }
 	  }
       }
@@ -3709,20 +3155,17 @@ CurvesWidget::paintUsingCurves(CurveGroup* cg,
 	for(int l=0; l<curves.count(); l++)
 	  {
 	    int tag = curves[l].tag;
-	    if (ptag[0] <= 0 || ptag.contains(tag))
+	    p.setBrush(QColor(tag, 255, 255)); 
+	    if (curves[l].closed)
 	      {
-		p.setBrush(QColor(tag, 255, 255)); 
-		if (curves[l].closed)
-		  {
-		    p.setPen(QPen(QColor(tag, 255, 255), 1));
-		    p.drawPolygon(curves[l].pts);
-		  }
-		else
-		  {
-		    p.setPen(QPen(QColor(tag, 255, 255), curves[l].thickness,
-				  Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-		    p.drawPolyline(curves[l].pts);
-		  }
+		p.setPen(QPen(QColor(tag, 255, 255), 1));
+		p.drawPolygon(curves[l].pts);
+	      }
+	    else
+	      {
+		p.setPen(QPen(QColor(tag, 255, 255), curves[l].thickness,
+			      Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+		p.drawPolyline(curves[l].pts);
 	      }
 	  }
       }
@@ -3739,9 +3182,8 @@ CurvesWidget::paintUsingCurves(CurveGroup* cg,
 
 void
 CurvesWidget::paintUsingCurves(int slctype,
-			      int slc, int wd, int ht,
-			      uchar *maskData,
-			      QList<int> tag)
+			       int slc, int wd, int ht,
+			       uchar *maskData)
 {
   CurveGroup *cg;
   if (slctype == 0) cg = &m_dCurves;
@@ -3750,8 +3192,7 @@ CurvesWidget::paintUsingCurves(int slctype,
 
   paintUsingCurves(cg,
 		   slc, wd, ht,
-		   maskData,
-		   tag);
+		   maskData);
 }
 
 void
@@ -3765,8 +3206,7 @@ CurvesWidget::paintUsingCurves(uchar *maskData)
   CurveGroup *cg = getCg();  
   paintUsingCurves(cg,
 		   m_currSlice, m_imgWidth, m_imgHeight,
-		   maskData,
-		   gtag);
+		   maskData);
 }
 
 void
@@ -4148,124 +3588,6 @@ CurvesWidget::saveCurves(QFile *cfile, CurveGroup *cg)
 }
 
 void
-CurvesWidget::saveFibers(QFile *cfile)
-{
-  char keyword[100];
-
-  memset(keyword, 0, 100);
-  sprintf(keyword, "fibergroupstart\n");
-  cfile->write((char*)keyword, strlen(keyword));
-
-
-  QList<Fiber*>* fibers = m_fibers.fibers();
-  int nfibers = fibers->count();
-  for(int i=0; i<nfibers; i++)
-    {
-      Fiber *fb = fibers->at(i);
-      int tag = fb->tag;
-      int thickness = fb->thickness;
-      QVector<Vec> seeds = fb->seeds;
-      
-      if (seeds.count() > 0) // save only if we have non-empty fiber
-	{
-	  memset(keyword, 0, 100);
-	  sprintf(keyword, "fiberstart\n");
-	  cfile->write((char*)keyword, strlen(keyword));
-
-	  memset(keyword, 0, 100);
-	  sprintf(keyword, "tag\n");
-	  cfile->write((char*)keyword, strlen(keyword));
-	  cfile->write((char*)&tag, sizeof(int));
-  
-	  memset(keyword, 0, 100);
-	  sprintf(keyword, "thickness\n");
-	  cfile->write((char*)keyword, strlen(keyword));
-	  cfile->write((char*)&thickness, sizeof(int));
-
-	  memset(keyword, 0, 100);
-	  sprintf(keyword, "seeds\n");
-	  cfile->write((char*)keyword, strlen(keyword));
-	  int npts = seeds.count();
-	  cfile->write((char*)&npts, sizeof(int));
-	  float *pt = new float [3*npts];
-	  for(int j=0; j<npts; j++)
-	    {
-	      pt[3*j+0] = seeds[j].x;
-	      pt[3*j+1] = seeds[j].y;
-	      pt[3*j+2] = seeds[j].z;		
-	    }
-	  cfile->write((char*)pt, 3*npts*sizeof(float));
-	  delete [] pt;
-      
-	  memset(keyword, 0, 100);
-	  sprintf(keyword, "fiberend\n");
-	  cfile->write((char*)keyword, strlen(keyword));
-	}
-    }
-  
-  memset(keyword, 0, 100);
-  sprintf(keyword, "fibergroupend\n");
-  cfile->write((char*)keyword, strlen(keyword));
-}
-
-void
-CurvesWidget::loadFibers(QFile *cfile)
-{
-  char keyword[100];
-  cfile->readLine((char*)&keyword, 100);
-
-  if (strcmp(keyword, "fibergroupstart\n") != 0)
-    return;
-
-  bool cgend = false;
-  while(!cgend)
-    {
-      cfile->readLine((char*)&keyword, 100);
-
-      if (strcmp(keyword, "fibergroupend\n") == 0)
-	cgend = true;      
-      else if (strcmp(keyword, "fiberstart\n") == 0)
-	{
-	  Fiber fb;
-	  bool done = false;
-	  while(!done)
-	    {
-	      cfile->readLine((char*)&keyword, 100);
-	      int t;
-	      if (strcmp(keyword, "fiberend\n") == 0)
-		done = true;
-	      else if (strcmp(keyword, "tag\n") == 0)
-		{
-		  cfile->read((char*)&t, sizeof(int));
-		  fb.tag = t;
-		}
-	      else if (strcmp(keyword, "thickness\n") == 0)
-		{
-		  cfile->read((char*)&t, sizeof(int));
-		  fb.thickness = t;
-		}
-	      else if (strcmp(keyword, "seeds\n") == 0)
-		{
-		  int npts;
-		  float *pt;
-		  cfile->read((char*)&npts, sizeof(int));
-		  pt = new float[3*npts];
-		  cfile->read((char*)pt, 3*npts*sizeof(float));
-		  for(int ni=0; ni<npts; ni++)
-		    fb.seeds << Vec(pt[3*ni+0],
-				    pt[3*ni+1],
-				    pt[3*ni+2]);
-		  delete [] pt;
-		}	      
-	    }
-	  if (fb.seeds.count() > 0)
-	    m_fibers.addFiber(fb);
-	}
-    }
-
-}
-
-void
 CurvesWidget::saveCurves()
 {
   QString curvesfile = QFileDialog::getSaveFileName(0,
@@ -4292,8 +3614,7 @@ CurvesWidget::saveCurves(QString curvesfile)
   // if no curves present return
   if (!dCurvesPresent() &&
       !wCurvesPresent() &&
-      !hCurvesPresent() &&
-      !fibersPresent())
+      !hCurvesPresent())
     { // remove existing file
       if (QFile(curvesfile).exists())
 	QFile(curvesfile).remove();
@@ -4308,8 +3629,6 @@ CurvesWidget::saveCurves(QString curvesfile)
   saveCurves(&cfile, &m_dCurves);
   saveCurves(&cfile, &m_wCurves);
   saveCurves(&cfile, &m_hCurves);
-
-  saveFibers(&cfile);
 
   cfile.close();
 }
@@ -4434,8 +3753,6 @@ CurvesWidget::loadCurves(QString curvesfile)
   loadCurves(&cfile, &m_wCurves);
   loadCurves(&cfile, &m_hCurves);
 
-  loadFibers(&cfile);
-
   cfile.close();
 
   CurveGroup *cg = getCg();
@@ -4458,133 +3775,6 @@ CurvesWidget::loadCurves()
     return;
 
   loadCurves(curvesfile);
-}
-
-void
-CurvesWidget::saveFibers()
-{
-  QString flnm = QFileDialog::getSaveFileName(0,
-					      "Save Fibers",
-					      Global::previousDirectory(),
-					      "Fibers Files (*.fibers)",
-					      0,
-					      QFileDialog::DontUseNativeDialog);
-
-  if (flnm.isEmpty())
-    return;
-
-  if (!StaticFunctions::checkExtension(flnm, ".fiber") &&
-      !StaticFunctions::checkExtension(flnm, ".fibers"))
-      flnm += ".fibers";
-  
-  QFile cfile;
-  cfile.setFileName(flnm);
-  if (!cfile.open(QFile::WriteOnly | QIODevice::Text))
-    {
-      QMessageBox::information(0, "Error", QString("Cannot write to %1").arg(flnm));
-      return;
-    }
-
-  QTextStream out(&cfile);
-  QList<Fiber*>* fibers = m_fibers.fibers();
-  int nfibers = fibers->count();
-  for(int i=0; i<nfibers; i++)
-    {
-      Fiber *fb = fibers->at(i);
-      int tag = fb->tag;
-      int thickness = fb->thickness;
-      QVector<Vec> seeds = fb->smoothSeeds;      
-      int npts = seeds.count();
-      if (npts > 0) // save only if we have non-empty fiber
-	{
-	  out << "fiberstart\n";
-	  out << "tag  " << tag << "\n";
-	  out << "thickness  " << thickness << "\n";
-	  out << "seeds " << npts << "\n";
-	  for(int j=0; j<npts; j++)
-	    out << seeds[j].x << "  " << seeds[j].y << "  " << seeds[j].z << "\n";
-	  out << "fiberend\n";	  
-	}
-    }
-  QMessageBox::information(0, "", "Fibers saved to file.");
-}
-
-void
-CurvesWidget::loadFibers()
-{
-  QString fibersfile = QFileDialog::getOpenFileName(0,
-						    "Load Fibers",
-						    Global::previousDirectory(),
-						    "Fibers Files (*.fibers)",
-						    0,
-						    QFileDialog::DontUseNativeDialog);
-  
-  if (fibersfile.isEmpty())
-    return;
-
-  loadFibers(fibersfile);
-}
-
-void
-CurvesWidget::loadFibers(QString flnm)
-{
-  QFile cfile;
-  cfile.setFileName(flnm);
-  if (!cfile.open(QFile::ReadOnly | QIODevice::Text))
-    {
-      QMessageBox::information(0, "Error", QString("Cannot read to %1").arg(flnm));
-      return;
-    }
-
-  QTextStream in(&cfile);
-  while (!in.atEnd())
-    {
-      QString line = in.readLine();
-      if (line.contains("fiberstart"))
-	{
-	  Fiber fb;
-	  bool done = false;
-	  while(!done && !in.atEnd())
-	    {
-	      line = in.readLine();
-	      QStringList words = line.split(" ", QString::SkipEmptyParts);
-	      if (words.count() > 0)
-		{
-		  if (words[0].contains("fiberend"))
-		    done = true;
-		  else if (words[0].contains("tag"))
-		    {		  
-		      if (words.count() > 1)
-			fb.tag = words[1].toInt();;
-		    }
-		  else if (words[0].contains("thickness"))
-		    {
-		      if (words.count() > 1)
-			fb.thickness = words[1].toInt();;
-		    }
-		  else if (words[0].contains("seeds"))
-		    {
-		      int npts;
-		      if (words.count() > 1)
-			npts = words[1].toInt();;
-		      for(int ni=0; ni<npts; ni++)
-			{
-			  line = in.readLine();
-			  QStringList words = line.split(" ", QString::SkipEmptyParts);
-			  if (words.count() == 3)
-			    fb.seeds << Vec(words[0].toFloat(),
-					    words[1].toFloat(),
-					    words[2].toFloat());
-			}
-		    }
-		}
-	    }
-	  if (fb.seeds.count() > 0)
-	    m_fibers.addFiber(fb);
-	}
-    }
-
-  QMessageBox::information(0, "", "Fibers read from file.");
 }
 
 void

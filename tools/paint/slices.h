@@ -43,7 +43,7 @@ class Slices : public QWidget
   void setLarge(bool);
   bool enlarged() { return m_maximized; }
 
-  void setShowSlices(bool);
+  void setShowPosition(bool);
 
   void setMinGrad(float g) { m_imageWidget->setMinGrad(g); }
   void setMaxGrad(float g) { m_imageWidget->setMaxGrad(g); }

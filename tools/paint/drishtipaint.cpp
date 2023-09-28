@@ -264,24 +264,13 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   m_curvesMenu = new QFrame();
   curvesUi.setupUi(m_curvesMenu);
 
-//  m_superpixelMenu = new QFrame();
-//  superpixelUi.setupUi(m_superpixelMenu);
 
   ui.help->setMaximumSize(50, 50);
   ui.help->setMinimumSize(50, 50);
 
-//  //----------------
-//  //ui.actionFibers->hide();
-//  m_fibersMenu = new QFrame();
-//  fibersUi.setupUi(m_fibersMenu);
-//
-//  ui.sideframelayout->addWidget(m_fibersMenu);
-//  //----------------
   
-  //m_curvesMenu->hide();
   ui.sideframelayout->addWidget(m_graphcutMenu);
   ui.sideframelayout->addWidget(m_curvesMenu);
-//  ui.sideframelayout->addWidget(m_superpixelMenu);
 
 
   m_tagColorEditor = new TagColorEditor();
@@ -304,85 +293,14 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   viewerUi.setupUi(viewerMenu);
   connectViewerMenu();
   //----------------
-  viewerUi.renderOption->hide();
 
-  viewerUi.pointParam->setVisible(false);
   viewerUi.raycastParam->setVisible(true);
   //----------------
 
   //------------------------------
 
   //------------------------------
-  connect(m_viewer, SIGNAL(checkFileSave()),
-	  this, SLOT(checkFileSave()));
-	  
-  connect(m_viewer, SIGNAL(undoPaint3D()),
-	  this, SLOT(undoPaint3D()));
-  connect(m_viewer, SIGNAL(paint3DStart()),
-	  this, SLOT(paint3DStart()));
-  connect(m_viewer, SIGNAL(paint3D(Vec,Vec,int,int,int,int,int, bool)),
-	  this, SLOT(paint3D(Vec,Vec,int,int,int,int,int, bool)));
-  connect(m_viewer, SIGNAL(paint3DEnd()),
-	  this, SLOT(paint3DEnd()));
-
-  connect(m_viewer, SIGNAL(changeImageSlice(int, int, int)),
-	  this, SLOT(changeImageSlice(int, int, int)));
-
-  connect(m_viewer, SIGNAL(hatchConnectedRegion(int,int,int,Vec,Vec,int,int,int,int)),
-	  this, SLOT(hatchConnectedRegion(int,int,int,Vec,Vec,int,int,int,int)));
-
-  connect(m_viewer, SIGNAL(connectedRegion(int,int,int,Vec,Vec,int,int)),
-	  this, SLOT(connectedRegion(int,int,int,Vec,Vec,int,int)));
-
-  connect(m_viewer, SIGNAL(mergeTags(Vec, Vec, int, int, bool)),
-	  this, SLOT(mergeTags(Vec, Vec, int, int, bool)));
-
-  connect(m_viewer, SIGNAL(stepTag(Vec, Vec, int, int)),
-	  this, SLOT(stepTags(Vec, Vec, int, int)));
-
-  connect(m_viewer, SIGNAL(dilateConnected(int,int,int,Vec,Vec,int,bool)),
-	  this, SLOT(dilateConnected(int,int,int,Vec,Vec,int,bool)));
-
-  connect(m_viewer, SIGNAL(erodeConnected(int,int,int,Vec,Vec,int)),
-	  this, SLOT(erodeConnected(int,int,int,Vec,Vec,int)));
-
-  connect(m_viewer, SIGNAL(tagUsingSketchPad(Vec,Vec)),
-	  this, SLOT(tagUsingSketchPad(Vec,Vec)));
-
-  connect(m_viewer, SIGNAL(setVisible(Vec, Vec, int, bool)),
-	  this, SLOT(setVisible(Vec, Vec, int, bool)));
-
-  connect(m_viewer, SIGNAL(resetTag(Vec, Vec, int)),
-	  this, SLOT(resetTag(Vec, Vec, int)));
-
-  connect(m_viewer, SIGNAL(reloadMask()),
-	  this, SLOT(reloadMask()));
-
-  connect(m_viewer, SIGNAL(loadRawMask(QString)),
-	  this, SLOT(loadRawMask(QString)));
-
-//  connect(m_viewer, SIGNAL(updateSliceBounds(Vec, Vec)),
-//	  this, SLOT(updateSliceBounds(Vec, Vec)));
-
-  connect(m_viewer, SIGNAL(shrinkwrap(Vec, Vec, int, bool, int)),
-	  this, SLOT(shrinkwrap(Vec, Vec, int, bool, int)));
-
-  connect(m_viewer, SIGNAL(shrinkwrap(Vec, Vec, int, bool, int,
-				      bool, int, int, int, int)),
-	  this, SLOT(shrinkwrap(Vec, Vec, int, bool, int,
-				bool, int, int, int, int)));
-
-  connect(m_viewer, SIGNAL(tagTubes(Vec, Vec, int)),
-	  this, SLOT(tagTubes(Vec, Vec, int)));
-
-  connect(m_viewer, SIGNAL(tagTubes(Vec, Vec, int,
-				      bool, int, int, int, int)),
-	  this, SLOT(tagTubes(Vec, Vec, int,
-				bool, int, int, int, int)));
-
-  connect(m_viewer, SIGNAL(modifyOriginalVolume(Vec, Vec, int)),
-	  this, SLOT(modifyOriginalVolume(Vec, Vec, int)));
-
+  #include "connectviewer.h"
   //------------------------------
 
 
@@ -524,7 +442,6 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   on_actionGraphCut_triggered();
 
   curvesUi.lwsettingpanel->setVisible(false);
-  curvesUi.closed->setChecked(true);
 
   Global::setBoxSize(5);
   Global::setSpread(10);
@@ -532,11 +449,7 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   Global::setSmooth(1);
   Global::setPrevErode(5);
 
-  //fibersUi.endfiber->hide();
   curvesUi.endcurve->hide();
-  //curvesUi.pointsize->setValue(7);
-  //curvesUi.mincurvelen->setValue(20);
-  //ui.tag->setValue(Global::tag());
   ui.radius->setValue(Global::spread());
   graphcutUi.boxSize->setValue(Global::boxSize());
   graphcutUi.lambda->setValue(Global::lambda());
@@ -553,8 +466,6 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   connectCurvesWidget();
   connectCurvesMenu();
   connectGraphCutMenu();
-  //connectSuperPixelMenu();
-  //connectFibersMenu();
   //------------------------
 
   QDir app = QCoreApplication::applicationDirPath();
@@ -603,16 +514,6 @@ DrishtiPaint::on_help_clicked()
       ShowHelp::showGraphCutHelp();
       return;
     }
-//  if (m_superpixelMenu->isVisible())
-//    {
-//      ShowHelp::showSuperPixelHelp();
-//      return;
-//    }
-//  if (m_fibersMenu->isVisible())
-//    {
-//      ShowHelp::showFibersHelp();
-//      return;
-//    }
 }
 
 void
@@ -935,38 +836,6 @@ DrishtiPaint::saveWork()
     }
 }
 
-//void
-//DrishtiPaint::on_actionFibers_clicked(bool b)
-//{
-//  QString hss;
-//  hss += "QToolButton { border-width:5; border-style:solid; border-radius:25px;";
-//  hss += "color:#ff7700; }";
-//  ui.help->setStyleSheet(hss);
-//
-//  if (m_fibersMenu->isVisible() && !b)
-//    {
-//      ui.actionFibers->setChecked(true);  
-//      return;
-//    }
-//    
-//  m_fibersMenu->show();
-//  m_curvesMenu->hide();
-//  m_graphcutMenu->hide();
-//  ui.wdptszframe->show();
-//  ui.spreadframe->hide();
-//
-//  ui.actionCurves->setChecked(false);
-//  ui.actionGraphCut->setChecked(false);
-//  ui.actionFibers->setChecked(true);  
-//
-//  m_imageWidget->setCurve(false);
-//  curvesUi.livewire->setChecked(false);
-//  curvesUi.modify->setChecked(false);
-//  curvesUi.propagate->setChecked(false);
-//  m_imageWidget->freezeModifyUsingLivewire();
-//
-//  m_imageWidget->setFiberMode(true);
-//}
 
 void
 DrishtiPaint::on_actionCurves_triggered()
@@ -981,21 +850,15 @@ DrishtiPaint::on_actionCurves_triggered()
 
   ui.sliderFrame->show();
   ui.buttonBox->show();
-  //ui.curveSelTex->show();
   ui.sizeSel->show();
 
   m_curvesMenu->show();
   m_graphcutMenu->hide();
-  //m_superpixelMenu->hide();
-  //m_fibersMenu->hide();
-  //ui.wdptszframe->show();
   ui.spreadframe->hide();
 
   ui.actionCurves->setChecked(true);
   ui.actionGraphCut->setChecked(false);
-  //ui.actionSuperpixels->setChecked(false);  
 
-  //m_curvesWidget->setFiberMode(false);
   m_curvesWidget->setCurve(true);
  
   if (m_volume->isValid())
@@ -1003,8 +866,6 @@ DrishtiPaint::on_actionCurves_triggered()
       curvesUi.livewire->setChecked(false);
       m_curvesWidget->setLivewire(false);
     }
-
-  //m_curvesWidget->endFiber();
 }
 
 void
@@ -1020,76 +881,27 @@ DrishtiPaint::on_actionGraphCut_triggered()
 
   ui.sliderFrame->hide();
   ui.buttonBox->hide();
-  //ui.curveSelTex->hide();
   ui.sizeSel->hide();
 
   m_curvesMenu->hide();
   m_graphcutMenu->show();
-  //m_superpixelMenu->hide();
-  //m_fibersMenu->hide();
-  //ui.wdptszframe->hide();
   ui.spreadframe->show();
 
   ui.actionGraphCut->setChecked(true);  
   ui.actionCurves->setChecked(false);
-  //ui.actionSuperpixels->setChecked(false);  
 
   m_axialImage->setModeType(0);
   m_sagitalImage->setModeType(0);
   m_coronalImage->setModeType(0);
 
-  //m_curvesWidget->setFiberMode(false);
   m_curvesWidget->setCurve(false);
   curvesUi.livewire->setChecked(false);
 
   curvesUi.modify->setChecked(false);
   curvesUi.propagate->setChecked(false);
   m_curvesWidget->freezeModifyUsingLivewire();
-
-  //m_curvesWidget->endFiber();
 }
 
-//void
-//DrishtiPaint::on_actionSuperpixels_triggered()
-//{
-//  QString hss;
-//  hss += "QToolButton { border-width:5; border-style:solid; border-radius:25px;";
-//  hss += "color:#00aa55; }";
-//  ui.help->setStyleSheet(hss);
-//
-//  m_graphCutArea->show();
-//  m_scrollAreaC->hide();
-//
-//  ui.sliderFrame->hide();
-//  ui.buttonBox->hide();
-//  ui.curveSelTex->hide();
-//  ui.sizeSel->hide();
-//
-//  m_curvesMenu->hide();
-//  m_graphcutMenu->hide();
-//  m_superpixelMenu->show();
-//  m_fibersMenu->hide();
-//  ui.wdptszframe->hide();
-//  ui.spreadframe->show();
-//
-//  ui.actionGraphCut->setChecked(false);  
-//  ui.actionCurves->setChecked(false);
-//  ui.actionSuperpixels->setChecked(true);  
-//
-//  m_axialImage->setModeType(1);
-//  m_sagitalImage->setModeType(1);
-//  m_coronalImage->setModeType(1);
-//
-//  m_curvesWidget->setFiberMode(false);
-//  m_curvesWidget->setCurve(false);
-//  curvesUi.livewire->setChecked(false);
-//
-//  curvesUi.modify->setChecked(false);
-//  curvesUi.propagate->setChecked(false);
-//  m_curvesWidget->freezeModifyUsingLivewire();
-//
-//  m_curvesWidget->endFiber();
-//}
 
 void
 DrishtiPaint::tagDSlice(int currslice, uchar* tags)
@@ -1278,27 +1090,23 @@ void DrishtiPaint::on_radius_valueChanged(int d)
 }
 void DrishtiPaint::pointsize_valueChanged(int d) { m_curvesWidget->setPointSize(d); }
 void DrishtiPaint::mincurvelen_valueChanged(int d) { m_curvesWidget->setMinCurveLength(d); }
-void DrishtiPaint::closed_clicked(bool c) { Global::setClosed(c); }
 void DrishtiPaint::lwsmooth_currentIndexChanged(int i){ m_curvesWidget->setSmoothType(i); }
 void DrishtiPaint::lwgrad_currentIndexChanged(int i){ m_curvesWidget->setGradType(i); }
 void DrishtiPaint::newcurve_clicked()
 {
   livewire_clicked(false);
   curvesUi.livewire->setChecked(false);
-  //m_curvesWidget->newCurve(true);
   m_curvesWidget->newCurve(false);
 }
 void DrishtiPaint::endcurve_clicked() { m_curvesWidget->endCurve(); }
-//void DrishtiPaint::on_newfiber_clicked() { m_curvesWidget->newFiber(); }
-//void DrishtiPaint::on_endfiber_clicked() { m_curvesWidget->endFiber(); }
 void DrishtiPaint::morphcurves_clicked() { m_curvesWidget->morphCurves(); }
 void DrishtiPaint::deselect_clicked() { m_curvesWidget->deselectAll(); }
 void DrishtiPaint::deleteallcurves_clicked() { m_curvesWidget->deleteAllCurves(); }
 
-void DrishtiPaint::on_zoom0_clicked() { m_curvesWidget->zoom0(); }
-void DrishtiPaint::on_zoom9_clicked() { m_curvesWidget->zoom9(); }
-void DrishtiPaint::on_zoomup_clicked() { m_curvesWidget->zoomUp(); }
-void DrishtiPaint::on_zoomdown_clicked() { m_curvesWidget->zoomDown(); }
+void DrishtiPaint::on_zoom0_clicked() { m_curvesWidget->zoom0Clicked(); }
+void DrishtiPaint::on_zoom9_clicked() { m_curvesWidget->zoom9Clicked(); }
+void DrishtiPaint::on_zoomup_clicked() { m_curvesWidget->zoomUpClicked(); }
+void DrishtiPaint::on_zoomdown_clicked() { m_curvesWidget->zoomDownClicked(); }
 
 QPair<QString, QList<int> >
 DrishtiPaint::getTags(QString text)
@@ -1346,44 +1154,6 @@ DrishtiPaint::getTags(QString text)
   return qMakePair(tgstr, tag);
 }
 
-void
-DrishtiPaint::on_tagcurves_editingFinished()
-{
-//  QString text = ui.tagcurves->text();
-//
-//  QPair<QString, QList<int> > tags;
-//  tags = getTags(text);
-//
-//  ui.tagcurves->setText(tags.first);
-//  
-//  m_curvesWidget->showTags(tags.second);
-}
-
-void
-DrishtiPaint::curvetag_editingFinished()
-{
-  QString text = viewerUi.curvetags->text();
-
-  QPair<QString, QList<int> > tags;
-  tags = getTags(text);
-
-  viewerUi.curvetags->setText(tags.first);
-  
-  m_viewer->setCurveTags(tags.second);
-}
-
-//void
-//DrishtiPaint::fibertag_editingFinished()
-//{
-//  QString text = viewerUi.fibertags->text();
-//
-//  QPair<QString, QList<int> > tags;
-//  tags = getTags(text);
-//
-//  viewerUi.fibertags->setText(tags.first);
-//  
-//  m_viewer->setFiberTags(tags.second);
-//}
 
 void
 DrishtiPaint::livewire_clicked(bool c)
@@ -1400,11 +1170,6 @@ DrishtiPaint::livewire_clicked(bool c)
   m_curvesWidget->setLivewire(c);
 }
 
-void
-DrishtiPaint::propagate_clicked(bool c)
-{
-  m_curvesWidget->propagateCurves(c);
-}
 
 void
 DrishtiPaint::modify_clicked(bool c)
@@ -1526,9 +1291,6 @@ DrishtiPaint::getRawValue(int d, int w, int h)
 void DrishtiPaint::on_actionLoad_Curves_triggered() {m_curvesWidget->loadCurves();}
 void DrishtiPaint::on_actionSave_Curves_triggered() {m_curvesWidget->saveCurves();}
 
-//void DrishtiPaint::on_actionLoad_Fibers_triggered() {m_curvesWidget->loadFibers();}
-//void DrishtiPaint::on_actionSave_Fibers_triggered() {m_curvesWidget->saveFibers();}
-
 void
 DrishtiPaint::on_actionLoad_triggered()
 {
@@ -1624,7 +1386,6 @@ DrishtiPaint::dragEnterEvent(QDragEnterEvent *event)
 	  if (StaticFunctions::checkURLs(urls, ".pvl.nc") ||
 	      StaticFunctions::checkURLs(urls, ".xml") ||
 	      StaticFunctions::checkURLs(urls, ".curves") ||
-	      //StaticFunctions::checkURLs(urls, ".fibers") ||
 	      StaticFunctions::checkURLs(urls, ".checkpoint"))
 	    event->acceptProposedAction();
 	}
@@ -1648,11 +1409,6 @@ DrishtiPaint::dropEvent(QDropEvent *event)
 		  QString flnm = (data->urls())[0].toLocalFile();
 		  m_curvesWidget->loadCurves(flnm);
 		}
-//	      else if (StaticFunctions::checkExtension(url.toLocalFile(), ".fibers"))
-//		{
-//		  QString flnm = (data->urls())[0].toLocalFile();
-//		  m_curvesWidget->loadFibers(flnm);
-//		}
 	      else if (StaticFunctions::checkExtension(url.toLocalFile(), ".pvl.nc") ||
 		  StaticFunctions::checkExtension(url.toLocalFile(), ".xml"))
 		{
@@ -1778,20 +1534,6 @@ DrishtiPaint::setFile(QString filename)
   m_curvesWidget->setGridSize(d, w, h);
   m_viewer->setGridSize(d, w, h);
 
-  m_viewer->setMultiMapCurves(0, m_curvesWidget->multiMapCurvesD());
-  m_viewer->setMultiMapCurves(1, m_curvesWidget->multiMapCurvesW());
-  m_viewer->setMultiMapCurves(2, m_curvesWidget->multiMapCurvesH());
-
-  m_viewer->setListMapCurves(0, m_curvesWidget->morphedCurvesD());
-  m_viewer->setListMapCurves(1, m_curvesWidget->morphedCurvesW());
-  m_viewer->setListMapCurves(2, m_curvesWidget->morphedCurvesH());
-
-  m_viewer->setShrinkwrapCurves(0, m_curvesWidget->shrinkwrapCurvesD());
-  m_viewer->setShrinkwrapCurves(1, m_curvesWidget->shrinkwrapCurvesW());
-  m_viewer->setShrinkwrapCurves(2, m_curvesWidget->shrinkwrapCurvesH());
-
-  //m_viewer->setFibers(m_curvesWidget->fibers());
-
   ui.butZ->setChecked(true);
   m_slider->set(0, d-1, 0, d-1, 0);
 
@@ -1802,6 +1544,7 @@ DrishtiPaint::setFile(QString filename)
   m_curvesWidget->setSliceType(ImageWidget::DSlice);
 
   m_tfManager->setDisabled(false);
+
 
   if (Global::bytesPerVoxel() == 1)
     m_tfEditor->setHistogram2D(m_volume->histogram1D());
@@ -1816,6 +1559,7 @@ DrishtiPaint::setFile(QString filename)
   updateRecentFileAction();
 
 
+  
   loadTagNames();
 
       
@@ -1825,25 +1569,19 @@ DrishtiPaint::setFile(QString filename)
 
   on_actionGraphCut_triggered();
 
-  //ui.tagcurves->setText("-1");
-  //viewerUi.fibertags->setText("-1");
-  viewerUi.curvetags->setText("-1");
 
-  //viewerUi.dragStep->setValue(m_viewer->dragStep());
   viewerUi.stillStep->setValue(m_viewer->stillStep());
 
   viewerUi.sketchPad->setChecked(false);
   m_viewer->showSketchPad(false);
 
-  m_viewDslice->setRange(0, d-1);
-  m_viewWslice->setRange(0, w-1);
-  m_viewHslice->setRange(0, h-1);
+
 
   VolumeOperations::setVolData(m_volume->memVolDataPtr());
   VolumeOperations::setMaskData(m_volume->memMaskDataPtr());
   VolumeOperations::setGridSize(d, w, h);
 
-  viewerUi.raycastRender->setChecked(true);
+  m_viewer->setShowBox(viewerUi.box->isChecked());
   m_viewer->updateVoxels();
 }
 
@@ -2769,51 +2507,10 @@ DrishtiPaint::applyMaskOperation(int tag,
   getSlice(m_slider->value());
 }
 
-
-void
-DrishtiPaint::pointRender_clicked(bool flag)
-{  
-  viewerUi.raycastParam->setVisible(!flag);
-
-  m_viewer->setRenderMode(flag);
-  viewerUi.pointParam->setVisible(flag);
-}
-
-void
-DrishtiPaint::raycastRender_clicked(bool flag)
-{
-  viewerUi.pointParam->setVisible(!flag);
-
-  m_viewer->setRenderMode(flag);
-  viewerUi.raycastParam->setVisible(flag);
-}
-
 void
 DrishtiPaint::stillStep_changed(double step)
 {
-//  float ds = m_viewer->dragStep();
-//
-//  if (step > ds)
-//    {
-//      viewerUi.dragStep->setValue(step);
-//      ds = step;
-//    }
-//
   m_viewer->setStillAndDragStep(step, step);
-}
-
-void
-DrishtiPaint::dragStep_changed(double step)
-{
-  float ss = m_viewer->stillStep();
-
-  if (ss > step)
-    {
-      viewerUi.stillStep->setValue(step);
-      ss = step;
-    }
-
-  m_viewer->setStillAndDragStep(ss, step);
 }
 
 void
@@ -2920,24 +2617,16 @@ DrishtiPaint::connectCurvesWidget()
   connect(m_curvesWidget, SIGNAL(hideEndCurve()),
 	  curvesUi.endcurve, SLOT(hide()));
 
-//  connect(m_curvesWidget, SIGNAL(showEndFiber()),
-//	  fibersUi.endfiber, SLOT(show()));
-//  connect(m_curvesWidget, SIGNAL(hideEndFiber()),
-//	  fibersUi.endfiber, SLOT(hide()));
-
   connect(m_curvesWidget, SIGNAL(viewerUpdate()),
 	  m_viewer, SLOT(update()));
-
-  connect(m_curvesWidget, SIGNAL(setPropagation(bool)),
-	  curvesUi.propagate, SLOT(setChecked(bool)));
 }
 
 void
-DrishtiPaint::setShowSlices(bool b)
+DrishtiPaint::setShowPosition(bool b)
 {
-  m_axialImage->setShowSlices(b);
-  m_sagitalImage->setShowSlices(b);
-  m_coronalImage->setShowSlices(b);
+  m_axialImage->setShowPosition(b);
+  m_sagitalImage->setShowPosition(b);
+  m_coronalImage->setShowPosition(b);
 }
 
 void
@@ -2955,11 +2644,11 @@ DrishtiPaint::connectViewerMenu()
 	  m_viewer, SLOT(setShowBox(bool)));
   connect(m_viewer, SIGNAL(showBoxChanged(bool)),
 	  viewerUi.box, SLOT(setChecked(bool)));
-  connect(viewerUi.showSlices, SIGNAL(clicked(bool)),
-	  m_viewer, SLOT(setShowSlices(bool)));
+  connect(viewerUi.showPosition, SIGNAL(clicked(bool)),
+	  m_viewer, SLOT(setShowPosition(bool)));
 
-  connect(viewerUi.showSlices, SIGNAL(clicked(bool)),
-	  this, SLOT(setShowSlices(bool)));
+  connect(viewerUi.showPosition, SIGNAL(clicked(bool)),
+	  this, SLOT(setShowPosition(bool)));
 
   connect(viewerUi.snapshot, SIGNAL(clicked()),
 	  m_viewer, SLOT(saveImage()));
@@ -2978,92 +2667,35 @@ DrishtiPaint::connectViewerMenu()
   connect(viewerUi.sketchPad, SIGNAL(clicked(bool)),
 	  m_viewer, SLOT(showSketchPad(bool)));
 
-  viewerUi.useMask->hide();
 
-
-  setupSlicesParameters();
   setupLightParameters();
-
-
-  viewerUi.pointParam->setVisible(true);
-  viewerUi.raycastParam->setVisible(false);
-}
-
-void
-DrishtiPaint::setupSlicesParameters()
-{
-  m_viewDslice = new PopUpSlider(m_viewer, Qt::Vertical);
-  m_viewWslice = new PopUpSlider(m_viewer, Qt::Vertical);
-  m_viewHslice = new PopUpSlider(m_viewer, Qt::Vertical);
-
-  m_viewHslice->setText("X");
-  m_viewWslice->setText("Y");
-  m_viewDslice->setText("Z");
-  
-  viewerUi.popupSlices->setMargin(0);
-  viewerUi.popupSlices->addWidget(m_viewHslice);
-  viewerUi.popupSlices->addWidget(m_viewWslice);
-  viewerUi.popupSlices->addWidget(m_viewDslice);
-
-  connect(m_viewDslice, SIGNAL(valueChanged(int)),
-	  m_viewer, SLOT(setDSlice(int)));
-  connect(m_viewWslice, SIGNAL(valueChanged(int)),
-	  m_viewer, SLOT(setWSlice(int)));
-  connect(m_viewHslice, SIGNAL(valueChanged(int)),
-	  m_viewer, SLOT(setHSlice(int)));
 }
 
 void
 DrishtiPaint::setupLightParameters()
 {
-  //m_viewSpec = new PopUpSlider(m_viewer, Qt::Horizontal);
   m_viewEdge = new PopUpSlider(m_viewer, Qt::Horizontal);
   m_viewShadow = new PopUpSlider(m_viewer, Qt::Horizontal);
-//  m_shadowButton = new QPushButton("Shadow Color");
-//  m_edgeButton = new QPushButton("Edge Color");
-//  m_bgButton = new QPushButton("Background Color");
 
-  //m_viewSpec->setText("Specular");
   m_viewEdge->setText("Edges");
   m_viewShadow->setText("Shadow");
 
-//  m_viewSpec->setRange(0, 10);
-//  m_viewSpec->setValue(0);
   m_viewEdge->setRange(0, 10);
   m_viewEdge->setValue(5);
   m_viewShadow->setRange(0, 20);
   m_viewShadow->setValue(5);
 
-//  QSpacerItem *spitem0 = new QSpacerItem(5,5,QSizePolicy::Minimum, QSizePolicy::Fixed);
   QSpacerItem *spitem1 = new QSpacerItem(5,5,QSizePolicy::Minimum, QSizePolicy::Fixed);
   QSpacerItem *spitem2 = new QSpacerItem(5,5,QSizePolicy::Minimum, QSizePolicy::Fixed);
   
   viewerUi.popupLight->setMargin(2);
-//  viewerUi.popupLight->addWidget(m_viewSpec);
-//  viewerUi.popupLight->addItem(spitem0);
   viewerUi.popupLight->addWidget(m_viewEdge);
-//  viewerUi.popupLight->addWidget(m_edgeButton);
-//  viewerUi.popupLight->addItem(spitem1);
   viewerUi.popupLight->addWidget(m_viewShadow);
-//  viewerUi.popupLight->addWidget(m_shadowButton);
-//  viewerUi.popupLight->addWidget(m_shadowX);
-//  viewerUi.popupLight->addWidget(m_shadowY);
-//  viewerUi.popupLight->addItem(spitem2);
-//  viewerUi.popupLight->addWidget(m_bgButton);
 
-//  connect(m_viewSpec, SIGNAL(valueChanged(int)),
-//	  m_viewer, SLOT(setSpec(int)));
   connect(m_viewEdge, SIGNAL(valueChanged(int)),
 	  m_viewer, SLOT(setEdge(int)));
   connect(m_viewShadow, SIGNAL(valueChanged(int)),
 	  m_viewer, SLOT(setShadow(int)));
-
-//  connect(m_shadowButton, SIGNAL(clicked()),
-//	  this, SLOT(getShadowColor()));
-//  connect(m_edgeButton, SIGNAL(clicked()),
-//	  this, SLOT(getEdgeColor()));
-//  connect(m_bgButton, SIGNAL(clicked()),
-//	  this, SLOT(getBGColor()));
 }
 
 void
@@ -3154,22 +2786,8 @@ DrishtiPaint::miscConnections()
 void
 DrishtiPaint::connectCurvesMenu()
 {
-  //ui.tag->hide();
-  //ui.label->hide();
-  //ui.tagcurves->hide();
-  //ui.label_13->hide();
-  //ui.thickness->hide();
-  //ui.label_6->hide();
   ui.zoomup->setIcon(QIcon(":/images/zoom-in.png"));
   ui.zoomdown->setIcon(QIcon(":/images/zoom-out.png"));
-  
-  curvesUi.modify->hide();
-  curvesUi.propagate->hide();
-  curvesUi.closed->hide();
-  //curvesUi.mincurvelen->hide();
-  //curvesUi.pointsize->hide();
-  //curvesUi.label->hide();
-  //curvesUi.label_7->hide();
   
   
   connect(curvesUi.bakeCurves, SIGNAL(clicked()),
@@ -3185,23 +2803,8 @@ DrishtiPaint::connectCurvesMenu()
   connect(curvesUi.lwgrad, SIGNAL(currentIndexChanged(int)),
 	  this, SLOT(lwgrad_currentIndexChanged(int)));
 
-  connect(curvesUi.modify, SIGNAL(clicked(bool)),
-	  this, SLOT(modify_clicked(bool)));
-  connect(curvesUi.propagate, SIGNAL(clicked(bool)),
-	  this, SLOT(propagate_clicked(bool)));
-
-  connect(curvesUi.closed, SIGNAL(clicked(bool)),
-	  this, SLOT(closed_clicked(bool)));
   connect(curvesUi.morphcurves, SIGNAL(clicked()),
 	  this, SLOT(morphcurves_clicked()));
-//  connect(curvesUi.deselect, SIGNAL(clicked()),
-//	  this, SLOT(on_deselect_clicked()));
-
-
-//  connect(curvesUi.mincurvelen, SIGNAL(valueChanged(int)),
-//	  this, SLOT(mincurvelen_valueChanged(int)));
-//  connect(curvesUi.pointsize, SIGNAL(valueChanged(int)),
-//	  this, SLOT(pointsize_valueChanged(int)));
 
   connect(curvesUi.newcurve, SIGNAL(clicked()),
 	  this, SLOT(newcurve_clicked()));
@@ -3228,36 +2831,6 @@ DrishtiPaint::connectGraphCutMenu()
 	  this, SLOT(boxSize_valueChanged(int)));
 }
 
-//void
-//DrishtiPaint::connectSuperPixelMenu()
-//{
-//  connect(superpixelUi.autoGenSupPix, SIGNAL(clicked(bool)),
-//	  this, SLOT(on_autoGenSupPix_clicked(bool)));
-//
-//  connect(superpixelUi.hideSupPix, SIGNAL(clicked(bool)),
-//	  this, SLOT(on_hideSupPix_clicked(bool)));
-//
-//  connect(superpixelUi.supPixSize, SIGNAL(sliderReleased()),
-//	  this, SLOT(on_supPixSize()));
-//
-//  superpixelUi.hideSupPix->setChecked(false);
-//  on_hideSupPix_clicked(false);
-//
-//  superpixelUi.autoGenSupPix->setChecked(true);
-//  on_autoGenSupPix_clicked(true);
-//
-//  superpixelUi.supPixSize->setValue(10);
-//  on_supPixSize();
-//}
-//
-//void
-//DrishtiPaint::connectFibersMenu()
-//{
-//  connect(fibersUi.newfiber, SIGNAL(clicked()),
-//	  this, SLOT(on_newfiber_clicked()));
-//  connect(fibersUi.endfiber, SIGNAL(clicked()),
-//	  this, SLOT(on_endfiber_clicked()));
-//}
 
 void
 DrishtiPaint::on_actionSave_TF_triggered()
@@ -3561,15 +3134,6 @@ DrishtiPaint::on_actionExtractTag_triggered()
       dtypes.clear();
       dtypes << "Tag Only"
 	     << "Tag + Transfer Function";
-//      if (m_curvesWidget->fibersPresent())
-//	{
-//	  dtypes << "Fibers Only";
-//	  dtypes << "Fibers + Transfer Function";
-//	  dtypes << "Tags + Fibers";
-//	  dtypes << "Tags + Fibers + Transfer Function";
-//	}
-//      dtypes << "Tags + Fibers values";
-//      dtypes << "Curves + Fibers values";
       dtypes << "Tomogram + Tags";
       dtypes << "Tags From Another Volume";
 
@@ -3585,20 +3149,6 @@ DrishtiPaint::on_actionExtractTag_triggered()
       
       if (option == "Tag Only") extractType = 1;
       else if (option == "Tag + Transfer Function") extractType = 2;
-//      else if (option == "Fibers Only") extractType = 3;
-//      else if (option == "Fibers + Transfer Function") extractType = 4;
-//      else if (option == "Tags + Fibers") extractType = 5;
-//      else if (option == "Tags + Fibers + Transfer Function") extractType = 6;
-//      else if (option == "Tags + Fibers values")
-//	{
-//	  extractType = 7;
-//	  saveImageData = false;
-//	}
-//      else if (option == "Curves + Fibers values")
-//	{
-//	  extractType = 8;
-//	  saveImageData = false;
-//	}
       else if (option == "Tomogram + Tags")
 	{
 	  extractType = 9;
@@ -3786,53 +3336,6 @@ DrishtiPaint::on_actionExtractTag_triggered()
   
   bool reloadData = false;
 
-////----------------------------------
-// curves if used should have already been baked in
-//  uchar *curveMask = 0;
-//  if (tag[0] > -2)
-//    {
-//      try
-//	{
-//	  curveMask = new uchar[tdepth*twidth*theight];
-//	}
-//      catch (std::exception &e)
-//	{
-//	  QMessageBox::information(0, "", "Not enough memory : Cannot create curve mask.\nOffloading volume data and mask.");
-//	  m_volume->offLoadMemFile();
-//	  reloadData = true;
-//	  
-//	  curveMask = new uchar[tdepth*twidth*theight];
-//	};
-//      
-//      memset(curveMask, 0, tdepth*twidth*theight);
-//      
-//      if (extractType < 3)
-//	updateCurveMask(curveMask, tag,
-//			depth, width, height,
-//			tdepth, twidth, theight,
-//			minDSlice, minWSlice, minHSlice,
-//			maxDSlice, maxWSlice, maxHSlice);
-////      else if (extractType < 5)
-////	updateFiberMask(curveMask, tag,
-////			tdepth, twidth, theight,
-////			minDSlice, minWSlice, minHSlice,
-////			maxDSlice, maxWSlice, maxHSlice);
-//      else
-//	{
-//	  updateCurveMask(curveMask, tag,
-//			  depth, width, height,
-//			  tdepth, twidth, theight,
-//			  minDSlice, minWSlice, minHSlice,
-//			  maxDSlice, maxWSlice, maxHSlice);
-////	  updateFiberMask(curveMask, tag,
-////			  tdepth, twidth, theight,
-////			  minDSlice, minWSlice, minHSlice,
-////			  maxDSlice, maxWSlice, maxHSlice);
-//	}
-//    }
-////----------------------------------
-
-
   for(int d=minDSlice; d<=maxDSlice; d++)
     {
       int slc = d-minDSlice;
@@ -3933,33 +3436,6 @@ DrishtiPaint::on_actionExtractTag_triggered()
 	  else
 	    memset(raw, 0, nbytesRAW);
 
-//	  // copy curve/fiber mask
-//	  if (tag[0] == -1)
-//	    {
-//	      for(int w=minWSlice; w<=maxWSlice; w++)
-//		for(int h=minHSlice; h<=maxHSlice; h++)
-//		  {
-//		    if (curveMask[slc*twidth*theight +
-//				  (w-minWSlice)*theight +
-//				  (h-minHSlice)] > 0)
-//		      raw[w*height+h] = curveMask[slc*twidth*theight +
-//						  (w-minWSlice)*theight +
-//						  (h-minHSlice)];
-//		  }
-//	    }
-//	  else
-//	    {
-//	      for(int w=minWSlice; w<=maxWSlice; w++)
-//		for(int h=minHSlice; h<=maxHSlice; h++)
-//		  {
-//		    if (tag.contains(curveMask[slc*twidth*theight +
-//					       (w-minWSlice)*theight +
-//					       (h-minHSlice)]))
-//		      raw[w*height+h] = curveMask[slc*twidth*theight +
-//						  (w-minWSlice)*theight +
-//						  (h-minHSlice)];		
-//		  }
-//	    }
 	}
 
 
@@ -3981,7 +3457,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
       
 
       //-----------------------------
-      // use tag/fiber mask + transfer function to extract volume data
+      // use tag mask + transfer function to extract volume data
       if (extractType == 2 || extractType == 4 || extractType == 6)
 	{
 	  int sval = 0;
@@ -4203,159 +3679,9 @@ DrishtiPaint::on_actionExtractTag_triggered()
   QMessageBox::information(0, "Save", "-----Done-----");
 }
 
-//void
-//DrishtiPaint::meshFibers(QString flnm)
-//{
-//  Vec voxelScaling = Global::voxelScaling();
-//
-//  QList<Fiber*> *fibers = m_curvesWidget->fibers();
-//  int nvertices = 0;
-//  for(int i=0; i<fibers->count(); i++)
-//    {
-//      Fiber *fb = fibers->at(i);
-//      nvertices += fb->generateTriangles().count()/2;
-//    }
-//  int ntriangles = nvertices/3;  
-//
-//
-//  QStringList ps;
-//  ps << "x";
-//  ps << "y";
-//  ps << "z";
-//  ps << "nx";
-//  ps << "ny";
-//  ps << "nz";
-//  ps << "red";
-//  ps << "green";
-//  ps << "blue";
-//  ps << "vertex_indices";
-//  ps << "vertex";
-//  ps << "face";
-//
-//  QList<char *> plyStrings;
-//  for(int i=0; i<ps.count(); i++)
-//    {
-//      char *s;
-//      s = new char[ps[i].size()+1];
-//      strcpy(s, ps[i].toLatin1().data());
-//      plyStrings << s;
-//    }
-//
-//  typedef struct PlyFace
-//  {
-//    unsigned char nverts;    /* number of Vertex indices in list */
-//    int *verts;              /* Vertex index list */
-//  } PlyFace;
-//
-//  typedef struct
-//  {
-//    real  x,  y,  z ;  /**< Vertex coordinates */
-//    real nx, ny, nz ;  /**< Vertex normal */
-//    uchar r, g, b;
-//  } myVertex ;
-//
-//  PlyProperty vert_props[] = { /* list of property information for a vertex */
-//    {plyStrings[0], Float32, Float32, offsetof(myVertex,x), 0, 0, 0, 0},
-//    {plyStrings[1], Float32, Float32, offsetof(myVertex,y), 0, 0, 0, 0},
-//    {plyStrings[2], Float32, Float32, offsetof(myVertex,z), 0, 0, 0, 0},
-//    {plyStrings[3], Float32, Float32, offsetof(myVertex,nx), 0, 0, 0, 0},
-//    {plyStrings[4], Float32, Float32, offsetof(myVertex,ny), 0, 0, 0, 0},
-//    {plyStrings[5], Float32, Float32, offsetof(myVertex,nz), 0, 0, 0, 0},
-//    {plyStrings[6], Uint8, Uint8, offsetof(myVertex,r), 0, 0, 0, 0},
-//    {plyStrings[7], Uint8, Uint8, offsetof(myVertex,g), 0, 0, 0, 0},
-//    {plyStrings[8], Uint8, Uint8, offsetof(myVertex,b), 0, 0, 0, 0},
-//  };
-//
-//  PlyProperty face_props[] = { /* list of property information for a face */
-//    {plyStrings[9], Int32, Int32, offsetof(PlyFace,verts),
-//     1, Uint8, Uint8, offsetof(PlyFace,nverts)},
-//  };
-//
-//  PlyFile    *ply;
-//  FILE       *fp = fopen(flnm.toLatin1().data(),
-//			 bin ? "wb" : "w");
-//
-//  PlyFace     face ;
-//  int         verts[3] ;
-//  char       *elem_names[]  = {plyStrings[10], plyStrings[11]};
-//  ply = write_ply (fp,
-//		   2,
-//		   elem_names,
-//		   bin? PLY_BINARY_LE : PLY_ASCII );
-//
-//  /* describe what properties go into the PlyVertex elements */
-//  describe_element_ply ( ply, plyStrings[10], nvertices );
-//  describe_property_ply ( ply, &vert_props[0] );
-//  describe_property_ply ( ply, &vert_props[1] );
-//  describe_property_ply ( ply, &vert_props[2] );
-//  describe_property_ply ( ply, &vert_props[3] );
-//  describe_property_ply ( ply, &vert_props[4] );
-//  describe_property_ply ( ply, &vert_props[5] );
-//  describe_property_ply ( ply, &vert_props[6] );
-//  describe_property_ply ( ply, &vert_props[7] );
-//  describe_property_ply ( ply, &vert_props[8] );
-//
-//  /* describe PlyFace properties (just list of PlyVertex indices) */
-//  describe_element_ply ( ply, plyStrings[11], ntriangles );
-//  describe_property_ply ( ply, &face_props[0] );
-//
-//  header_complete_ply ( ply );
-//
-//
-//  /* set up and write the PlyVertex elements */
-//  put_element_setup_ply ( ply, plyStrings[10] );
-//
-//  for(int i=0; i<fibers->count(); i++)
-//    {
-//      Fiber *fb = fibers->at(i);
-//      QList<Vec> triangles = fb->generateTriangles();
-//      int tag = fb->tag;
-//      int nv = triangles.count()/2;
-//      uchar r = Global::tagColors()[4*tag+0];
-//      uchar g = Global::tagColors()[4*tag+1];
-//      uchar b = Global::tagColors()[4*tag+2];
-//      for(int t=0; t<nv; t++)
-//	{
-//	  myVertex vertex;
-//	  vertex.nx = triangles[2*t+0].x;
-//	  vertex.ny = triangles[2*t+0].y;
-//	  vertex.nz = triangles[2*t+0].z;
-//	  vertex.x = triangles[2*t+1].x;
-//	  vertex.y = triangles[2*t+1].y;
-//	  vertex.z = triangles[2*t+1].z;
-//	  vertex.r = r;
-//	  vertex.g = g;
-//	  vertex.b = b;
-//	  vertex.x *= voxelScaling.x;
-//	  vertex.y *= voxelScaling.y;
-//	  vertex.z *= voxelScaling.z;
-//	  put_element_ply ( ply, ( void * ) &vertex );
-//	}
-//    }
-//
-//  /* set up and write the PlyFace elements */
-//  put_element_setup_ply ( ply, plyStrings[11] );
-//  face.nverts = 3 ;
-//  face.verts  = verts ;
-//  for(int i=0; i<ntriangles; i++)
-//    {
-//      face.verts[0] = 3*i+0;
-//      face.verts[1] = 3*i+1;
-//      face.verts[2] = 3*i+2;
-//      put_element_ply ( ply, ( void * ) &face );
-//    }
-//     
-//  close_ply ( ply );
-//  free_ply ( ply );
-//  
-//  for(int i=0; i<plyStrings.count(); i++)
-//    delete [] plyStrings[i];
-//  
-//  QMessageBox::information(0, "", "Fibers save to "+flnm);
-//}
 
 void
-DrishtiPaint::updateCurveMask(uchar *curveMask, QList<int> tag,
+DrishtiPaint::updateCurveMask(uchar *curveMask,
 			      int depth, int width, int height,
 			      int tdepth, int twidth, int theight,
 			      int minDSlice, int minWSlice, int minHSlice,
@@ -4368,7 +3694,7 @@ DrishtiPaint::updateCurveMask(uchar *curveMask, QList<int> tag,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
-  if (m_curvesWidget->dCurvesPresent())
+  if (ui.butZ->isChecked() && m_curvesWidget->dCurvesPresent())
     {
       uchar *mask = new uchar[width*height]; 
       for(int d=minDSlice; d<=maxDSlice; d++)
@@ -4378,7 +3704,7 @@ DrishtiPaint::updateCurveMask(uchar *curveMask, QList<int> tag,
 	  qApp->processEvents();
 	  
 	  memset(mask, 0, width*height);
-	  m_curvesWidget->paintUsingCurves(0, d, height, width, mask, tag);
+	  m_curvesWidget->paintUsingCurves(0, d, height, width, mask);
 	  for(int w=minWSlice; w<=maxWSlice; w++)
 	    for(int h=minHSlice; h<=maxHSlice; h++)
 	      {
@@ -4390,7 +3716,7 @@ DrishtiPaint::updateCurveMask(uchar *curveMask, QList<int> tag,
 	}
       delete [] mask;
     }
-  if (m_curvesWidget->wCurvesPresent())
+  if (ui.butY->isChecked() && m_curvesWidget->wCurvesPresent())
     {
       uchar *mask = new uchar[depth*height]; 
       for(int w=minWSlice; w<=maxWSlice; w++)
@@ -4400,7 +3726,7 @@ DrishtiPaint::updateCurveMask(uchar *curveMask, QList<int> tag,
 	  qApp->processEvents();
 	  
 	  memset(mask, 0, depth*height);
-	  m_curvesWidget->paintUsingCurves(1, w, height, depth, mask, tag);
+	  m_curvesWidget->paintUsingCurves(1, w, height, depth, mask);
 	  for(int d=minDSlice; d<=maxDSlice; d++)
 	    for(int h=minHSlice; h<=maxHSlice; h++)
 	      {
@@ -4412,7 +3738,7 @@ DrishtiPaint::updateCurveMask(uchar *curveMask, QList<int> tag,
 	}
       delete [] mask;
     }
-  if (m_curvesWidget->hCurvesPresent())
+  if (ui.butX->isChecked() && m_curvesWidget->hCurvesPresent())
     {
       uchar *mask = new uchar[depth*width]; 
       for(int h=minHSlice; h<=maxHSlice; h++)
@@ -4422,7 +3748,7 @@ DrishtiPaint::updateCurveMask(uchar *curveMask, QList<int> tag,
 	  qApp->processEvents();
 	  
 	  memset(mask, 0, depth*width);
-	  m_curvesWidget->paintUsingCurves(2, h, width, depth, mask, tag);
+	  m_curvesWidget->paintUsingCurves(2, h, width, depth, mask);
 	  for(int d=minDSlice; d<=maxDSlice; d++)
 	    for(int w=minWSlice; w<=maxWSlice; w++)
 	      {
@@ -4437,65 +3763,6 @@ DrishtiPaint::updateCurveMask(uchar *curveMask, QList<int> tag,
 
   progress.setValue(100);
 }
-
-//void
-//DrishtiPaint::updateFiberMask(uchar *curveMask, QList<int> tag,
-//			      int tdepth, int twidth, int theight,
-//			      int minDSlice, int minWSlice, int minHSlice,
-//			      int maxDSlice, int maxWSlice, int maxHSlice)
-//{
-//  if (! m_curvesWidget->fibersPresent())
-//    return;
-//  
-//  QProgressDialog progress("Generating Fiber Mask",
-//			   QString(),
-//			   0, 100,
-//			   0,
-//			   Qt::WindowStaysOnTopHint);
-//  progress.setMinimumDuration(0);
-//
-//  QList<Fiber*> *fibers = m_curvesWidget->fibers();
-//  for(int i=0; i<fibers->count(); i++)
-//    {
-//      progress.setValue(100*(float)i/(float)fibers->count());
-//      Fiber *fb = fibers->at(i);
-//      int tag = fb->tag;
-//      int rad = fb->thickness/2;
-//
-//      QList<Vec> trace = fb->trace;
-//      for(int t=0; t<trace.count(); t++)
-//	{
-//	  int d = trace[t].z;
-//	  int w = trace[t].y;
-//	  int h = trace[t].x;
-//	  if (d > minDSlice && d < maxDSlice &&
-//	      w > minWSlice && w < maxWSlice &&
-//	      h > minHSlice && h < maxHSlice)
-//	    {
-//	      int ds, de, ws, we, hs, he;
-//	      ds = qMax(minDSlice+1, d-rad);
-//	      de = qMin(maxDSlice-1, d+rad);
-//	      ws = qMax(minWSlice+1, w-rad);
-//	      we = qMin(maxWSlice-1, w+rad);
-//	      hs = qMax(minHSlice+1, h-rad);
-//	      he = qMin(maxHSlice-1, h+rad);
-//	      for(int dd=ds; dd<=de; dd++)
-//		for(int ww=ws; ww<=we; ww++)
-//		  for(int hh=hs; hh<=he; hh++)
-//		    {
-//		      float p = ((d-dd)*(d-dd)+
-//				 (w-ww)*(w-ww)+
-//				 (h-hh)*(h-hh));
-//		      if (p < rad*rad)
-//			curveMask[(dd-minDSlice)*twidth*theight +
-//				  (ww-minWSlice)*theight +
-//				  (hh-minHSlice)] = tag;
-//		    }
-//	    }
-//	}
-//    }
-//  progress.setValue(100);
-//}
 
 void
 DrishtiPaint::processHoles(uchar* data,
@@ -4890,8 +4157,6 @@ DrishtiPaint::on_actionMeshTag_triggered()
 
   
   //----------------
-  //bool saveFibers = false;
-  //bool noScaling = false;
   int colorType = 1; // apply tag colors 
   Vec userColor = Vec(255, 255, 255);
 
@@ -4930,8 +4195,6 @@ DrishtiPaint::on_actionMeshTag_triggered()
 		 << "Tag Color + Transfer Function"
 		 << "Tag Mask + Transfer Function"
 		 << "User Color";
-	  //      if (m_curvesWidget->fibersPresent())
-	  //	dtypes << "Fibers";
 
 	  QString option = QInputDialog::getItem(0,
 						 "Mesh Color",
@@ -4943,7 +4206,6 @@ DrishtiPaint::on_actionMeshTag_triggered()
 	  if (!ok)
 	    return;
       
-	  //if (option == "Fibers") saveFibers = true;
 	  if (option == "Tag Color") colorType = 1;
 	  else if (option == "Transfer Function") colorType = 2;
 	  else if (option == "Tag Color + Transfer Function") colorType = 3;
@@ -4962,27 +4224,6 @@ DrishtiPaint::on_actionMeshTag_triggered()
   //----------------
 
 
-//  //----------------
-//  //if (!saveFibers)
-//    {
-//      dtypes.clear();
-//      dtypes << "Yes"
-//	     << "No Scaling";
-//      
-//      QString option = QInputDialog::getItem(0,
-//					     "Voxel Scaling For Mesh/Fibers",
-//					     "Apply voxel scaling to mesh/fibers.\nChoose No Scaling only if\nyou want to load the generated\nmesh in Drishti Renderer.",
-//					     dtypes,
-//					     0,
-//					     false,
-//					     &ok);
-//      if (!ok)
-//	return;
-//      
-//      if (option == "No Scaling") noScaling = true;
-//    }
-//  //----------------
-
 
   //----------------
   int depth, width, height;
@@ -4998,11 +4239,6 @@ DrishtiPaint::on_actionMeshTag_triggered()
   qint64 twidth = maxWSlice-minWSlice+1;
   qint64 theight = maxHSlice-minHSlice+1;
 
-//  if (saveFibers)
-//    {
-//      meshFibers(tflnm);
-//      return;
-//    }
 
 
   float isoValue, adaptivity, resample;
@@ -5035,14 +4271,6 @@ DrishtiPaint::on_actionMeshTag_triggered()
   curveMask = new uchar[tdepth*twidth*theight];
   memset(curveMask, 0, tdepth*twidth*theight);
   
-//  if (tag[0] != -2)
-//    updateCurveMask(curveMask, tag,
-//		    depth, width, height,
-//		    tdepth, twidth, theight,
-//		    minDSlice, minWSlice, minHSlice,
-//		    maxDSlice, maxWSlice, maxHSlice);
-//  //----------------------------------
-
   uchar *lut = Global::lut();
 
   QList<Vec> cPos =  m_viewer->clipPos();
@@ -6224,7 +5452,6 @@ DrishtiPaint::tagUsingSketchPad(Vec bmin, Vec bmax, int tag)
 	      Vec vpt = Vec(h2,w2,d2);
 	      vpt = VECPRODUCT(vpt, RvoxelScaling);
 	      Vec scr = m_viewer->camera()->projectedCoordinatesOf(vpt);
-	      //Vec scr = m_viewer->camera()->projectedCoordinatesOf(Vec(h2,w2,d2));
 	      if (scr.x >= 0 && scr.x < spW &&
 		  scr.y >= 0 && scr.y < spH)
 		{
@@ -6235,7 +5462,8 @@ DrishtiPaint::tagUsingSketchPad(Vec bmin, Vec bmax, int tag)
 		      qint64 idx = d2*m_width*m_height + w2*m_height + h2;
 		      int val = volData[idx];
 		      if (volDataUS) val = volDataUS[idx];
-		      bool visible = lut[4*val+3] > 0;
+		      uchar mtag = maskData[idx];
+		      bool visible = (lut[4*val+3] > 0) && (Global::tagColors()[4*mtag+3] > 0);
 
 		      //-----------
 		      if (visible)
@@ -6772,7 +6000,6 @@ DrishtiPaint::modifyOriginalVolume(Vec bmin, Vec bmax, int val)
 				m_volume->histogramImage2D());
   
   m_viewer->generateBoxMinMax();
-  raycastRender_clicked(true);
 
   m_volume->saveModifiedOriginalVolume();
   
@@ -6788,50 +6015,18 @@ DrishtiPaint::bakeCurves_clicked()
       return;
     }
   
-//  QList<int> tag;
-//  bool ok;
-//  //----------------
-//  QString tagstr = QInputDialog::getText(0, "Bake curves for Tag",
-//	    "Tag Numbers (tags should be separated by space.\n-2 extract whatever is visible within the envelop.\n-1 for all tags;\nFor e.g. 1 2 5 will extract tags 1, 2 and 5)",
-//					 QLineEdit::Normal,
-//					 "-2",
-//					 &ok);
-//  if (!ok)
-//    return;
-//  
-//  tag.clear();
-//  if (ok && !tagstr.isEmpty())
-//    {
-//      QStringList tglist = tagstr.split(" ", QString::SkipEmptyParts);
-//      for(int i=0; i<tglist.count(); i++)
-//	{
-//	  int t = tglist[i].toInt();
-//	  if (t == -1)
-//	    {
-//	      tag.clear();
-//	      tag << -1;
-//	      break;
-//	    }
-//	  else if (t == 0)
-//	    {
-//	      tag.clear();
-//	      tag << 0;
-//	      break;
-//	    }
-//	  else
-//	    tag << t;
-//	}
-//    }
-//  else
-//    tag << -1;
-//  //----------------
 
-  
+  bool ok;
   int tag = QInputDialog::getInt(0,
 				 "Bake curves for Label",
 				 "Value (0-255)\n Everything visible inside the interpolated curves will be labelled with given label value.",
-				 0, 0, 255, 1);
+				 0, 0, 255, 1,
+				 &ok);
 
+  if (!ok)
+    return;
+  
+  
   int depth, width, height;
   m_volume->gridSize(depth, width, height);
   
@@ -6868,18 +6063,10 @@ DrishtiPaint::bakeCurves_clicked()
     };
   
   memset(curveMask, 0, tdepth*twidth*theight);
-  
-//  updateCurveMask(curveMask, tag,
-//		  depth, width, height,
-//		  tdepth, twidth, theight,
-//		  minDSlice, minWSlice, minHSlice,
-//		  maxDSlice, maxWSlice, maxHSlice);
 
   //----------------------------------
   // bake for all the curves
-  QList<int> tgv;
-  tgv << -1;
-  updateCurveMask(curveMask, tgv,
+  updateCurveMask(curveMask,
 		  depth, width, height,
 		  tdepth, twidth, theight,
 		  minDSlice, minWSlice, minHSlice,

@@ -102,7 +102,8 @@ macx {
 }
 #----------------------------------------------------------------
 
-HEADERS += commonqtclasses.h \
+HEADERS += connectviewer.h \
+        commonqtclasses.h \
 	boundingbox.h \
 	drishtipaint.h \
 	curvegroup.h \

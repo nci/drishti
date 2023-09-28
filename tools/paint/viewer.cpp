@@ -31,8 +31,6 @@ Viewer::Viewer(QWidget *parent) :
 
   m_clipPlanes = new ClipPlanes();
 
-  m_renderMode = true; // 0-slicebased, 1-raycast
-
   m_gradType = 0;
   
   m_depth = 0;
@@ -315,18 +313,6 @@ Viewer::init()
   m_paintHit = false;
   m_target = Vec(-1,-1,-1);
 
-  m_Dcg = 0;
-  m_Wcg = 0;
-  m_Hcg = 0;
-  m_Dmcg = 0;
-  m_Wmcg = 0;
-  m_Hmcg = 0;
-  m_Dswcg = 0;
-  m_Wswcg = 0;
-  m_Hswcg = 0;
-
-  m_fibers = 0;
-
   m_depth = 0;
   m_width = 0;
   m_height = 0;
@@ -338,15 +324,8 @@ Viewer::init()
   m_volPtr = 0;
   m_volPtrUS = 0;
 
-  m_pointSkip = 5;
-  m_pointSize = 5;
-  m_pointScaling = 5;
 
-  m_voxChoice = 0;
-  m_voxels.clear();
-  m_clipVoxels.clear();
-
-  m_showSlices = false;
+  m_showPosition = false;
   m_dslice = 0;
   m_wslice = 0;
   m_hslice = 0;
@@ -364,15 +343,6 @@ Viewer::init()
   m_cmaxD = m_maxDSlice;
   m_cmaxW = m_maxWSlice;
   m_cmaxH = m_maxHSlice;
-
-  m_paintedTags.clear();
-  m_paintedTags << -1;
-
-  m_curveTags.clear();
-  m_curveTags << -1;
-
-  m_fiberTags.clear();
-  m_fiberTags << -1;
 
   m_showBox = true;
 
@@ -652,40 +622,13 @@ Viewer::createShaders()
 }
 
 
-void Viewer::setShowSlices(bool b) { m_showSlices = b; update(); }
-
-void Viewer::setVoxelChoice(int p) { m_voxChoice = p; }
-void Viewer::setVoxelInterval(int p)
-{
-  m_pointSkip = p;
-}
+void Viewer::setShowPosition(bool b) { m_showPosition = b; update(); }
 
 void
 Viewer::updateCurrSlice(int cst, int cs)
 {
   m_currSliceType = cst;
   m_currSlice = cs;
-  update();
-}
-
-void
-Viewer::setPaintedTags(QList<int> t)
-{
-  m_paintedTags = t;
-  update();
-}
-
-void
-Viewer::setCurveTags(QList<int> t)
-{
-  m_curveTags = t;
-  update();
-}
-
-void
-Viewer::setFiberTags(QList<int> t)
-{
-  m_fiberTags = t;
   update();
 }
 
@@ -762,13 +705,6 @@ Viewer::setShowBox(bool b)
   update();  
 }
 
-void
-Viewer:: setRenderMode(bool flag)
-{
-  m_renderMode = flag;
-
-  update();
-}
 
 void
 Viewer::setSkipLayers(int l)
@@ -1446,7 +1382,7 @@ Viewer::drawEnclosingCube(Vec subvolmin,
 }
 
 void
-Viewer::drawCurrentSlice()
+Viewer::drawCurrentPosition()
 {
   glColor4d(1.0,0.5,0.2, 0.7);
 
@@ -1545,36 +1481,6 @@ Viewer::drawBoxes3D()
   glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 }
 
-
-void
-Viewer::setMultiMapCurves(int type, QMultiMap<int, Curve*> *cg)
-{
-  if (type == 0) m_Dcg = cg;
-  if (type == 1) m_Wcg = cg;
-  if (type == 2) m_Hcg = cg;
-}
-
-void
-Viewer::setListMapCurves(int type, QList< QMap<int, Curve> > *cg)
-{
-  if (type == 0) m_Dmcg = cg;
-  if (type == 1) m_Wmcg = cg;
-  if (type == 2) m_Hmcg = cg;
-}
-
-void
-Viewer::setShrinkwrapCurves(int type, QList< QMultiMap<int, Curve*> > *cg)
-{
-  if (type == 0) m_Dswcg = cg;
-  if (type == 1) m_Wswcg = cg;
-  if (type == 2) m_Hswcg = cg;
-}
-
-void
-Viewer::setFibers(QList<Fiber*> *fb)
-{
-  m_fibers = fb;
-}
 
 void
 Viewer::draw()
@@ -1698,8 +1604,8 @@ Viewer::raycasting()
       
   m_clipPlanes->draw(this, false);
 
-  if (m_showSlices)
-    drawCurrentSlice();
+  if (m_showPosition)
+    drawCurrentPosition();
 
   if (m_showBox)
     {
@@ -1807,64 +1713,6 @@ Viewer::drawInfo()
   glDisable(GL_BLEND);
 }
 
-void
-Viewer::drawFibers()
-{
-  if (!m_fibers) return;
-
-  glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
-  bool noneselected = true;
-  for(int i=0; i<m_fibers->count(); i++)
-    {
-      Fiber *fb = m_fibers->at(i);
-      if (fb->selected)
-	{
-	  noneselected = false;
-	  break;
-	}
-    }
- 
-  for(int i=0; i<m_fibers->count(); i++)
-    {
-      Fiber *fb = m_fibers->at(i);
-      int tag = fb->tag;
-      if (m_fiberTags.count() == 0 ||
-	  m_fiberTags[0] == -1 ||
-	  m_fiberTags.contains(tag))
-	{
-	  float r = Global::tagColors()[4*tag+0]*1.0/255.0;
-	  float g = Global::tagColors()[4*tag+1]*1.0/255.0;
-	  float b = Global::tagColors()[4*tag+2]*1.0/255.0;
-	  glColor3f(r,g,b);
-
-	  if (noneselected ||
-	      (!noneselected && fb->selected))
-	    {
-	      glEnable(GL_LIGHTING);
-	      QList<Vec> tube = fb->tube();
-	      glBegin(GL_TRIANGLE_STRIP);
-	      for(int t=0; t<tube.count()/2; t++)
-		{
-		  glNormal3fv(tube[2*t+0]);	      
-		  glVertex3fv(tube[2*t+1]);
-		}
-	      glEnd();
-	    }
-	  else
-	    {
-	      glDisable(GL_LIGHTING);
-	      glLineWidth(1);
-	      glBegin(GL_LINE_STRIP);
-	      for(int j=0; j<fb->smoothSeeds.count(); j++)
-		glVertex3fv(fb->smoothSeeds[j]);
-	      glEnd();
-	    }
-	}
-    }
-
-  glLineWidth(1);
-}
 
 bool
 Viewer::clip(int d, int w, int h)
@@ -1886,87 +1734,8 @@ Viewer::clip(int d, int w, int h)
 }
 
 void
-Viewer::updateClipVoxels()
-{
-  m_clipVoxels.clear();
-
-  if (!m_volPtr || !m_maskPtr)
-    return;
-  
-  QList<Vec> cPos =  clipPos();
-  QList<Vec> cNorm = clipNorm();
-
-  uchar *lut = Global::lut();
-
-  Vec box[8];
-  box[0] = Vec(m_minHSlice, m_minWSlice, m_minDSlice);
-  box[1] = Vec(m_minHSlice, m_minWSlice, m_maxDSlice);
-  box[2] = Vec(m_minHSlice, m_maxWSlice, m_maxDSlice);
-  box[3] = Vec(m_minHSlice, m_maxWSlice, m_minDSlice);
-  box[4] = Vec(m_maxHSlice, m_minWSlice, m_minDSlice);
-  box[5] = Vec(m_maxHSlice, m_minWSlice, m_maxDSlice);
-  box[6] = Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice);
-  box[7] = Vec(m_maxHSlice, m_maxWSlice, m_minDSlice);
-
-  Vec voxelScaling = Global::relativeVoxelScaling();
-
-  for(int i=0; i<cPos.count(); i++)
-    {
-      if (m_clipPlanes->show(i))
-	{
-	  Vec cpos = cPos[i];
-	  Vec cnorm = cNorm[i];
-
-	  Vec xaxis = cnorm.orthogonalVec().unit();
-	  Vec yaxis = cnorm ^ xaxis;
-
-	  //--- drop perpendiculars onto normal from all 8 vertices of the subvolume 
-	  float boxdist[8];
-	  
-	  // get width
-	  for (int i=0; i<8; i++) boxdist[i] = (box[i] - cpos)*xaxis;
-	  float wmin = boxdist[0];
-	  for (int i=1; i<8; i++) wmin = qMin(wmin, boxdist[i]);
-	  float wmax = boxdist[0];
-	  for (int i=1; i<8; i++) wmax = qMax(wmax, boxdist[i]);
-	  //------------------------
-	  
-	  // get height
-	  for (int i=0; i<8; i++) boxdist[i] = (box[i] - cpos)*yaxis;
-	  float hmin = boxdist[0];
-	  for (int i=1; i<8; i++) hmin = qMin(hmin, boxdist[i]);
-	  float hmax = boxdist[0];
-	  for (int i=1; i<8; i++) hmax = qMax(hmax, boxdist[i]);
-	  //------------------------
-	  
-	  
-	  for(int a=(int)wmin; a<(int)wmax; a++)
-	    for(int b=(int)hmin; b<(int)hmax; b++)
-	      {
-		Vec co = cpos+a*xaxis+b*yaxis;	
-		int d = co.z;
-		int w = co.y;
-		int h = co.x;
-		if (d > m_minDSlice && d < m_maxDSlice &&
-		    w > m_minWSlice && w < m_maxWSlice &&
-		    h > m_minHSlice && h < m_maxHSlice)
-		  {
-		    uchar vol = m_volPtr[d*m_width*m_height + w*m_height + h];
-		    if (lut[4*vol+3] > 10)
-		      m_clipVoxels << d << w << h << vol;
-		  }
-	      }
-	}
-    }
-  //-------------------------------------
-}
-
-
-void
 Viewer::updateVoxels()
-{
-  m_voxels.clear();
-  
+{  
   if (!m_volPtr || !m_maskPtr)
     {
       QMessageBox::information(0, "",
@@ -2000,10 +1769,8 @@ Viewer::updateVoxels()
 
 void
 Viewer::updateVoxelsForRaycast()
-{
-  m_voxels.clear();
-  
-  if (!m_volPtr || !m_maskPtr || m_pointSkip == 0)
+{  
+  if (!m_volPtr || !m_maskPtr)
     return;
 
   uchar *lut = Global::lut();
@@ -2179,213 +1946,6 @@ Viewer::updateVoxelsForRaycast()
   progress.setValue(100);
 
   update();
-}
-
-
-void
-Viewer::drawMMDCurve()
-{
-  if (!m_Dcg) return;
-
-  QList<int> cgkeys = m_Dcg->uniqueKeys();
-  for(int i=0; i<cgkeys.count(); i++)
-    {
-      QList<Curve*> curves = m_Dcg->values(cgkeys[i]);
-      for (int j=0; j<curves.count(); j++)
-	drawCurve(0, curves[j], cgkeys[i]);
-    }
-  glLineWidth(1);
-}
-
-void
-Viewer::drawMMWCurve()
-{
-  if (!m_Wcg) return;
-
-  QList<int> cgkeys = m_Wcg->uniqueKeys();
-  for(int i=0; i<cgkeys.count(); i++)
-    {
-      QList<Curve*> curves = m_Wcg->values(cgkeys[i]);
-      for (int j=0; j<curves.count(); j++)
-	drawCurve(1, curves[j], cgkeys[i]);
-    }
-  glLineWidth(1);
-}
-
-void
-Viewer::drawMMHCurve()
-{
-  if (!m_Hcg) return;
-
-  QList<int> cgkeys = m_Hcg->uniqueKeys();
-  for(int i=0; i<cgkeys.count(); i++)
-    {
-      QList<Curve*> curves = m_Hcg->values(cgkeys[i]);
-      for (int j=0; j<curves.count(); j++)
-	drawCurve(2, curves[j], cgkeys[i]);
-    }
-  glLineWidth(1);
-}
-
-void
-Viewer::drawLMDCurve()
-{
-  if (!m_Dmcg) return;
-
-  for(int i=0; i<m_Dmcg->count(); i++)
-    {
-      QMap<int, Curve> mcg = m_Dmcg->at(i);
-      QList<int> cgkeys = mcg.keys();
-      for(int j=0; j<cgkeys.count(); j++)
-	{
-	  Curve c = mcg.value(cgkeys[j]);
-	  drawCurve(0, &c, cgkeys[j]);
-	}
-    }
-  glLineWidth(1);
-}
-
-void
-Viewer::drawLMWCurve()
-{
-  if (!m_Wmcg) return;
-
-  for(int i=0; i<m_Wmcg->count(); i++)
-    {
-      QMap<int, Curve> mcg = m_Wmcg->at(i);
-      QList<int> cgkeys = mcg.keys();
-      for(int j=0; j<cgkeys.count(); j++)
-	{
-	  Curve c = mcg.value(cgkeys[j]);
-	  drawCurve(1, &c, cgkeys[j]);
-	}
-    }
-  glLineWidth(1);
-}
-
-void
-Viewer::drawLMHCurve()
-{
-  if (!m_Hmcg) return;
-
-  for(int i=0; i<m_Hmcg->count(); i++)
-    {
-      QMap<int, Curve> mcg = m_Hmcg->at(i);
-      QList<int> cgkeys = mcg.keys();
-      for(int j=0; j<cgkeys.count(); j++)
-	{
-	  Curve c = mcg.value(cgkeys[j]);
-	  drawCurve(2, &c, cgkeys[j]);
-	}
-    }
-  glLineWidth(1);
-}
-
-
-void
-Viewer::drawCurve(int type, Curve *c, int slc)
-{
-  int tag = c->tag;
-  if (m_curveTags.count() == 0 ||
-      m_curveTags[0] == -1 ||
-      m_curveTags.contains(tag))
-    {
-      float r = Global::tagColors()[4*tag+0]*1.0/255.0;
-      float g = Global::tagColors()[4*tag+1]*1.0/255.0;
-      float b = Global::tagColors()[4*tag+2]*1.0/255.0;
-      glColor3f(r,g,b);
-      glLineWidth(c->thickness);
-      if (type == 0)
-	{
-	  glBegin(GL_LINE_STRIP);
-	  for(int k=0; k<c->pts.count(); k++)
-	    glVertex3f(c->pts[k].x(), c->pts[k].y(), slc);
-	  if (c->closed)
-	    glVertex3f(c->pts[0].x(), c->pts[0].y(), slc);
-	  glEnd();
-	}
-      else if (type == 1)
-	{
-	  glBegin(GL_LINE_STRIP);
-	  for(int k=0; k<c->pts.count(); k++)
-	    glVertex3f(c->pts[k].x(), slc, c->pts[k].y());
-	  if (c->closed)
-	    glVertex3f(c->pts[0].x(), slc, c->pts[0].y());
-	  glEnd();
-	}
-      else if (type == 2)
-	{
-	  glBegin(GL_LINE_STRIP);
-	  for(int k=0; k<c->pts.count(); k++)
-	    glVertex3f(slc, c->pts[k].x(), c->pts[k].y());
-	  if (c->closed)
-	    glVertex3f(slc, c->pts[0].x(), c->pts[0].y());
-	  glEnd();
-	}
-    }
-}
-
-void
-Viewer::drawSWDCurve()
-{
-  if (!m_Dswcg) return;
-
-  for(int ix=0; ix<m_Dswcg->count(); ix++)
-    {
-      QMultiMap<int, Curve*> mcg = m_Dswcg->at(ix);
-
-      QList<int> cgkeys = mcg.uniqueKeys();
-      for(int i=0; i<cgkeys.count(); i++)
-	{
-	  QList<Curve*> curves = mcg.values(cgkeys[i]);
-	  for (int j=0; j<curves.count(); j++)
-	    drawCurve(0, curves[j], cgkeys[i]);
-	}
-    }
-
-  glLineWidth(1);
-}
-
-void
-Viewer::drawSWWCurve()
-{
-  if (!m_Wswcg) return;
-
-  for(int ix=0; ix<m_Wswcg->count(); ix++)
-    {
-      QMultiMap<int, Curve*> mcg = m_Wswcg->at(ix);
-
-      QList<int> cgkeys = mcg.uniqueKeys();
-      for(int i=0; i<cgkeys.count(); i++)
-	{
-	  QList<Curve*> curves = mcg.values(cgkeys[i]);
-	  for (int j=0; j<curves.count(); j++)
-	    drawCurve(1, curves[j], cgkeys[i]);
-	}
-    }
-
-  glLineWidth(1);
-}
-
-void
-Viewer::drawSWHCurve()
-{
-  if (!m_Hswcg) return;
-
-  for(int ix=0; ix<m_Hswcg->count(); ix++)
-    {
-      QMultiMap<int, Curve*> mcg = m_Hswcg->at(ix);
-
-      QList<int> cgkeys = mcg.uniqueKeys();
-      for(int i=0; i<cgkeys.count(); i++)
-	{
-	  QList<Curve*> curves = mcg.values(cgkeys[i]);
-	  for (int j=0; j<curves.count(); j++)
-	    drawCurve(2, curves[j], cgkeys[i]);
-	}
-    }
-
-  glLineWidth(1);
 }
 
 Vec
@@ -2660,63 +2220,6 @@ Viewer::mouseMoveEvent(QMouseEvent *event)
 
   QGLViewer::mouseMoveEvent(event);
 }
-
-void
-Viewer::drawClip()
-{
-  updateClipVoxels();
-
-  m_clipPlanes->draw(this, false);
-
-  uchar *lut = Global::lut();
-
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  glEnable(GL_POINT_SMOOTH);
-
-  Vec ptpos = camera()->sceneCenter();
-  float pglr = camera()->pixelGLRatio(ptpos);
-  int ptsz = m_pointSize/pglr;
-  glPointSize(ptsz);
-  int nv = m_clipVoxels.count()/4;
-  for(int i=0; i<nv; i++)
-    {
-      int d = m_clipVoxels[4*i+0];
-      int w = m_clipVoxels[4*i+1];
-      int h = m_clipVoxels[4*i+2];
-      int v = m_clipVoxels[4*i+3];
-
-      int t = m_maskPtr[d*m_width*m_height + w*m_height + h];
-
-      glBegin(GL_POINTS);
-      float r = lut[4*v+2]*1.0/255.0;
-      float g = lut[4*v+1]*1.0/255.0;
-      float b = lut[4*v+0]*1.0/255.0;
-
-      float rt = r;
-      float gt = g;
-      float bt = b;
-      if (t > 0)
-	{
-	  rt = Global::tagColors()[4*t+0]*1.0/255.0;
-	  gt = Global::tagColors()[4*t+1]*1.0/255.0;
-	  bt = Global::tagColors()[4*t+2]*1.0/255.0;
-	}
-
-      r = r*0.5 + rt*0.5;
-      g = g*0.5 + gt*0.5;
-      b = b*0.5 + bt*0.5;
-
-      glColor3f(r,g,b);
-      glVertex3f(h, w, d);
-      glEnd();
-    }
-
-  glDisable(GL_POINT_SMOOTH);
-  glBlendFunc(GL_NONE, GL_NONE);
-  glDisable(GL_BLEND);
-}
-
 
 void
 Viewer::boundingBoxChanged()

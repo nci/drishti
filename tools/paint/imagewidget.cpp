@@ -58,7 +58,7 @@ ImageWidget::ImageWidget(QWidget *parent) :
   //m_modeType = 0; // graphcut
   m_modeType = 1; // superpixels
 
-  m_showSlices = false;
+  m_showPosition = false;
   m_hline = m_vline = 0;
 
   m_zoom = 1;
@@ -151,9 +151,9 @@ ImageWidget::ImageWidget(QWidget *parent) :
 }
 
 void
-ImageWidget::setShowSlices(bool s)
+ImageWidget::setShowPosition(bool s)
 {
-  m_showSlices = s;
+  m_showPosition = s;
 
   if (!m_volPtr)
     return;
@@ -1062,7 +1062,7 @@ ImageWidget::paintEvent(QPaintEvent *event)
   
   //----------------------------------------------------
   // draw slice positions for other 2 slice directions
-  if (m_showSlices)
+  if (m_showPosition)
     {
       p.setPen(QPen(Qt::cyan, 0.7));
       p.drawLine(m_hline*m_zoom, 0, m_hline*m_zoom, m_simgHeight);

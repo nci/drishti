@@ -74,7 +74,7 @@ class ImageWidget : public QWidget
 
   QVector3D pickedPoint() { return QVector3D(m_lastPickDepth, m_lastPickWidth, m_lastPickHeight); };
   
-  void setShowSlices(bool);
+  void setShowPosition(bool);
   int currentSliceNumber() { return m_currSlice; }
 			  
  public slots :
@@ -193,7 +193,7 @@ class ImageWidget : public QWidget
   int m_imgHeight, m_imgWidth;
   int m_simgHeight, m_simgWidth;
 
-  bool m_showSlices;
+  bool m_showPosition;
   int m_hline;
   int m_vline;
 

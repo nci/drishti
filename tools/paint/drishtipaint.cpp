@@ -406,33 +406,17 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 
   m_volume = new Volume();
 
-  m_slider = new MySlider();
-  QVBoxLayout *slout = new QVBoxLayout();
-  slout->setContentsMargins(0,0,0,0);
-  ui.sliderFrame->setLayout(slout);
-  ui.sliderFrame->layout()->addWidget(m_slider);
-
-
-//----------------------------------------
-  m_curvesWidget = new CurvesWidget(this, ui.statusbar);
-
-  m_scrollAreaC = new QScrollArea;
-  m_scrollAreaC->setBackgroundRole(QPalette::Dark);
-  m_scrollAreaC->setWidget(m_curvesWidget);
-  m_curvesWidget->setScrollArea(m_scrollAreaC);
-  //----------------------------------------------------------
-
-  
+  m_curves = new Curves(this, ui.statusbar);
 
   m_graphCutArea = createImageWindows();
 
-
+  
   QVBoxLayout *layout1 = new QVBoxLayout();
   layout1->setContentsMargins(0,0,0,0);
   ui.imageFrame->setLayout(layout1);
   ui.imageFrame->layout()->addWidget(m_graphCutArea);
-  ui.imageFrame->layout()->addWidget(m_scrollAreaC);
 
+  ui.imageFrame->layout()->addWidget(m_curves);
 
 
   ui.menuView->addAction(dock1->toggleViewAction());
@@ -480,7 +464,7 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   m_sagitalImage->updateTagColors();
   m_coronalImage->updateTagColors();
 
-  m_curvesWidget->updateTagColors();
+  m_curves->updateTagColors();
 
   setGeometry(100, 100, 700, 700);
 
@@ -816,7 +800,7 @@ DrishtiPaint::on_saveWork_triggered()
     {
       QString curvesfile = m_pvlFile;
       curvesfile.replace(".pvl.nc", ".curves");
-      m_curvesWidget->saveCurves(curvesfile);
+      m_curves->saveCurves(curvesfile);
 
       m_volume->saveIntermediateResults(true);
 
@@ -830,7 +814,7 @@ DrishtiPaint::saveWork()
     {
       QString curvesfile = m_pvlFile;
       curvesfile.replace(".pvl.nc", ".curves");
-      m_curvesWidget->saveCurves(curvesfile);
+      m_curves->saveCurves(curvesfile);
       
       m_volume->saveIntermediateResults();
     }
@@ -846,9 +830,8 @@ DrishtiPaint::on_actionCurves_triggered()
   ui.help->setStyleSheet(hss);
 
   m_graphCutArea->hide();
-  m_scrollAreaC->show();
-
-  ui.sliderFrame->show();
+  m_curves->show();
+  
   ui.buttonBox->show();
   ui.sizeSel->show();
 
@@ -859,12 +842,12 @@ DrishtiPaint::on_actionCurves_triggered()
   ui.actionCurves->setChecked(true);
   ui.actionGraphCut->setChecked(false);
 
-  m_curvesWidget->setCurve(true);
+  m_curves->setCurve(true);
  
   if (m_volume->isValid())
     {
       curvesUi.livewire->setChecked(false);
-      m_curvesWidget->setLivewire(false);
+      m_curves->setLivewire(false);
     }
 }
 
@@ -877,9 +860,8 @@ DrishtiPaint::on_actionGraphCut_triggered()
   ui.help->setStyleSheet(hss);
 
   m_graphCutArea->show();
-  m_scrollAreaC->hide();
+  m_curves->hide();
 
-  ui.sliderFrame->hide();
   ui.buttonBox->hide();
   ui.sizeSel->hide();
 
@@ -894,12 +876,12 @@ DrishtiPaint::on_actionGraphCut_triggered()
   m_sagitalImage->setModeType(0);
   m_coronalImage->setModeType(0);
 
-  m_curvesWidget->setCurve(false);
+  m_curves->setCurve(false);
   curvesUi.livewire->setChecked(false);
-
   curvesUi.modify->setChecked(false);
   curvesUi.propagate->setChecked(false);
-  m_curvesWidget->freezeModifyUsingLivewire();
+
+  m_curves->freezeModifyUsingLivewire();
 }
 
 
@@ -934,7 +916,7 @@ DrishtiPaint::updateSliceBounds(Vec bmin, Vec bmax)
   m_sagitalImage->setBox(minD, maxD, minW, maxW, minH, maxH);
   m_coronalImage->setBox(minD, maxD, minW, maxW, minH, maxH);
 
-  m_curvesWidget->setBox(minD, maxD, minW, maxW, minH, maxH);
+  m_curves->setBox(minD, maxD, minW, maxW, minH, maxH);
 
   if (ui.butZ->isChecked()) on_butZ_clicked();
   else if (ui.butY->isChecked()) on_butY_clicked();
@@ -946,7 +928,8 @@ DrishtiPaint::getSliceC(int slc)
 {
   m_currSlice = slc;
 
-  m_slider->setValue(slc);
+  //m_slider->setValue(slc);
+  m_curves->setSliderValue(slc);
 
   uchar *slice;
   uchar *maskslice;
@@ -970,7 +953,7 @@ DrishtiPaint::getSliceC(int slc)
       m_viewer->updateCurrSlice(2, m_currSlice);  
     }
 
-  m_curvesWidget->setImage(slice, maskslice);
+  m_curves->setImage(slice, maskslice);
 }
 
 void
@@ -980,7 +963,7 @@ DrishtiPaint::getSlice(int slc)
   m_sagitalImage->reloadSlice();
   m_coronalImage->reloadSlice();
 
-  m_curvesWidget->sliceChanged(m_slider->value());
+  m_curves->sliceChanged();
 }
 
 void
@@ -988,7 +971,8 @@ DrishtiPaint::getMaskSlice(int slc)
 {
   m_currSlice = slc;
 
-  m_slider->setValue(slc);
+  //m_slider->setValue(slc);
+  m_curves->setSliderValue(slc);
 
   uchar *maskslice;
 
@@ -999,7 +983,7 @@ DrishtiPaint::getMaskSlice(int slc)
   else if (ui.butX->isChecked())
     maskslice = m_volume->getMaskHeightSliceImage(m_currSlice);
 
-  m_curvesWidget->setMaskImage(maskslice);
+  m_curves->setMaskImage(maskslice);
 }
 
 void
@@ -1014,7 +998,7 @@ DrishtiPaint::tagSelected(int t, bool checkBoxClicked)
       
   if (checkBoxClicked)
     {
-      m_curvesWidget->updateTagColors();
+      m_curves->updateTagColors();
 
       m_viewer->updateFilledBoxes();
     }
@@ -1027,7 +1011,7 @@ DrishtiPaint::gradType_Changed(int t)
   m_axialImage->setGradType(t);
   m_sagitalImage->setGradType(t);
   m_coronalImage->setGradType(t);
-  m_curvesWidget->setGradThresholdType(t);
+  m_curves->setGradThresholdType(t);
   m_viewer->update();  
 }
 
@@ -1042,7 +1026,7 @@ DrishtiPaint::minGrad_valueChanged(int t)
   m_axialImage->setMinGrad(t*0.01);
   m_sagitalImage->setMinGrad(t*0.01);
   m_coronalImage->setMinGrad(t*0.01);
-  m_curvesWidget->setMinGrad(t*0.01);
+  m_curves->setMinGrad(t*0.01);
   m_viewer->update();
 }
 void
@@ -1056,7 +1040,7 @@ DrishtiPaint::maxGrad_valueChanged(int t)
   m_axialImage->setMaxGrad(t*0.01);
   m_sagitalImage->setMaxGrad(t*0.01);
   m_coronalImage->setMaxGrad(t*0.01);
-  m_curvesWidget->setMaxGrad(t*0.01);
+  m_curves->setMaxGrad(t*0.01);
   m_viewer->update();
 }
 
@@ -1074,9 +1058,9 @@ DrishtiPaint::on_tag_valueChanged(int t)
   m_sagitalImage->processPrevSliceTags();
   m_coronalImage->processPrevSliceTags();
 
-  m_curvesWidget->processPrevSliceTags();
+  m_curves->processPrevSliceTags();
 }
-void DrishtiPaint::sliceLod_currentIndexChanged(int l) { m_curvesWidget->setSliceLOD(l+1); }
+void DrishtiPaint::sliceLod_currentIndexChanged(int l) { m_curves->setSliceLOD(l+1); }
 void DrishtiPaint::boxSize_valueChanged(int d) { Global::setBoxSize(d); }
 void DrishtiPaint::lambda_valueChanged(int d) { Global::setLambda(d); }
 void DrishtiPaint::smooth_valueChanged(int d) { Global::setSmooth(d); }
@@ -1088,25 +1072,19 @@ void DrishtiPaint::on_radius_valueChanged(int d)
   m_sagitalImage->update();
   m_coronalImage->update();
 }
-void DrishtiPaint::pointsize_valueChanged(int d) { m_curvesWidget->setPointSize(d); }
-void DrishtiPaint::mincurvelen_valueChanged(int d) { m_curvesWidget->setMinCurveLength(d); }
-void DrishtiPaint::lwsmooth_currentIndexChanged(int i){ m_curvesWidget->setSmoothType(i); }
-void DrishtiPaint::lwgrad_currentIndexChanged(int i){ m_curvesWidget->setGradType(i); }
+void DrishtiPaint::pointsize_valueChanged(int d) { m_curves->setPointSize(d); }
+void DrishtiPaint::lwsmooth_currentIndexChanged(int i){ m_curves->setSmoothType(i); }
+void DrishtiPaint::lwgrad_currentIndexChanged(int i){ m_curves->setGradType(i); }
 void DrishtiPaint::newcurve_clicked()
 {
   livewire_clicked(false);
   curvesUi.livewire->setChecked(false);
-  m_curvesWidget->newCurve(false);
+  m_curves->newCurve();
 }
-void DrishtiPaint::endcurve_clicked() { m_curvesWidget->endCurve(); }
-void DrishtiPaint::morphcurves_clicked() { m_curvesWidget->morphCurves(); }
-void DrishtiPaint::deselect_clicked() { m_curvesWidget->deselectAll(); }
-void DrishtiPaint::deleteallcurves_clicked() { m_curvesWidget->deleteAllCurves(); }
+void DrishtiPaint::endcurve_clicked() { m_curves->endCurve(); }
+void DrishtiPaint::morphcurves_clicked() { m_curves->morphCurves(); }
+void DrishtiPaint::deleteallcurves_clicked() { m_curves->deleteAllCurves(); }
 
-void DrishtiPaint::on_zoom0_clicked() { m_curvesWidget->zoom0Clicked(); }
-void DrishtiPaint::on_zoom9_clicked() { m_curvesWidget->zoom9Clicked(); }
-void DrishtiPaint::on_zoomup_clicked() { m_curvesWidget->zoomUpClicked(); }
-void DrishtiPaint::on_zoomdown_clicked() { m_curvesWidget->zoomDownClicked(); }
 
 QPair<QString, QList<int> >
 DrishtiPaint::getTags(QString text)
@@ -1160,31 +1138,17 @@ DrishtiPaint::livewire_clicked(bool c)
 {
   if (!c)
     {
-      if (!m_curvesWidget->seedMoveMode())
-	m_curvesWidget->freezeLivewire(false);
+      if (!m_curves->seedMoveMode())
+	m_curves->freezeLivewire(false);
       else
-	m_curvesWidget->freezeModifyUsingLivewire();
+	m_curves->freezeModifyUsingLivewire();
       curvesUi.modify->setChecked(false);
     }
 
-  m_curvesWidget->setLivewire(c);
+  m_curves->setLivewire(c);
 }
 
 
-void
-DrishtiPaint::modify_clicked(bool c)
-{
-  if (c)
-    {
-      curvesUi.livewire->setChecked(true);
-      m_curvesWidget->setLivewire(true);
-      m_curvesWidget->modifyUsingLivewire();
-    }
-  else
-    m_curvesWidget->freezeModifyUsingLivewire();
-
-  update();
-}
 void
 DrishtiPaint::copyprev_clicked(bool c)
 {
@@ -1237,42 +1201,42 @@ DrishtiPaint::on_butZ_clicked()
 {
   if (! m_volume->isValid()) return;
 
-  m_curvesWidget->setSliceType(ImageWidget::DSlice);
+  m_curves->setSliceType(ImageWidget::DSlice);
 
   int d, w, h, u0, u1;
   m_volume->gridSize(d, w, h);
 
-  m_curvesWidget->depthUserRange(u0, u1);
-
-  m_slider->set(0, d-1, u0, u1, 0);
+  m_curves->depthUserRange(u0, u1);
+  m_curves->setSliderRange(0, d-1, u0, u1, 0);
+  //m_slider->set(0, d-1, u0, u1, 0);
 }
 void
 DrishtiPaint::on_butY_clicked()
 {
   if (! m_volume->isValid()) return;
 
-  m_curvesWidget->setSliceType(ImageWidget::WSlice);
+  m_curves->setSliceType(ImageWidget::WSlice);
 
   int d, w, h, u0, u1;
   m_volume->gridSize(d, w, h);
 
-  m_curvesWidget->widthUserRange(u0, u1);
-
-  m_slider->set(0, w-1, u0, u1, 0);
+  m_curves->widthUserRange(u0, u1);
+  m_curves->setSliderRange(0, w-1, u0, u1, 0);
+  //m_slider->set(0, w-1, u0, u1, 0);
 }
 void
 DrishtiPaint::on_butX_clicked()
 {
   if (! m_volume->isValid()) return;
 
-  m_curvesWidget->setSliceType(ImageWidget::HSlice);
+  m_curves->setSliceType(ImageWidget::HSlice);
 
   int d, w, h, u0, u1;
   m_volume->gridSize(d, w, h);
 
-  m_curvesWidget->heightUserRange(u0, u1);
-
-  m_slider->set(0, h-1, u0, u1, 0);
+  m_curves->heightUserRange(u0, u1);
+  m_curves->setSliderRange(0, h-1, u0, u1, 0);
+  //m_slider->set(0, h-1, u0, u1, 0);
 }
 
 
@@ -1285,11 +1249,11 @@ DrishtiPaint::getRawValue(int d, int w, int h)
   m_sagitalImage->setRawValue(m_volume->rawValue(d, w, h));
   m_coronalImage->setRawValue(m_volume->rawValue(d, w, h));
 
-  m_curvesWidget->setRawValue(m_volume->rawValue(d, w, h));
+  m_curves->setRawValue(m_volume->rawValue(d, w, h));
 }
 
-void DrishtiPaint::on_actionLoad_Curves_triggered() {m_curvesWidget->loadCurves();}
-void DrishtiPaint::on_actionSave_Curves_triggered() {m_curvesWidget->saveCurves();}
+void DrishtiPaint::on_actionLoad_Curves_triggered() {m_curves->loadCurves();}
+void DrishtiPaint::on_actionSave_Curves_triggered() {m_curves->saveCurves();}
 
 void
 DrishtiPaint::on_actionLoad_triggered()
@@ -1316,7 +1280,7 @@ DrishtiPaint::on_actionExit_triggered()
     {
       QString curvesfile = m_pvlFile;
       curvesfile.replace(".pvl.nc", ".curves");
-      m_curvesWidget->saveCurves(curvesfile);
+      m_curves->saveCurves(curvesfile);
 
       m_volume->saveIntermediateResults(true);
     }
@@ -1347,7 +1311,7 @@ DrishtiPaint::updateComposite()
   m_sagitalImage->loadLookupTable(colorMap);
   m_coronalImage->loadLookupTable(colorMap);
 
-  m_curvesWidget->loadLookupTable(colorMap);
+  m_curves->loadLookupTable(colorMap);
 
   m_viewer->updateTF();
   m_viewer->update();
@@ -1407,7 +1371,7 @@ DrishtiPaint::dropEvent(QDropEvent *event)
 	      if (StaticFunctions::checkExtension(url.toLocalFile(), ".curves"))
 		{
 		  QString flnm = (data->urls())[0].toLocalFile();
-		  m_curvesWidget->loadCurves(flnm);
+		  m_curves->loadCurves(flnm);
 		}
 	      else if (StaticFunctions::checkExtension(url.toLocalFile(), ".pvl.nc") ||
 		  StaticFunctions::checkExtension(url.toLocalFile(), ".xml"))
@@ -1433,7 +1397,7 @@ DrishtiPaint::setFile(QString filename)
     {
       QString curvesfile = m_pvlFile;
       curvesfile.replace(".pvl.nc", ".curves");
-      m_curvesWidget->saveCurves(curvesfile);
+      m_curves->saveCurves(curvesfile);
     }
 
   m_blockList.clear();
@@ -1472,8 +1436,8 @@ DrishtiPaint::setFile(QString filename)
 //  m_sagitalImage->setGridSize(0,0,0);
 //  m_coronalImage->setGridSize(0,0,0);
 
-  m_curvesWidget->setGridSize(0,0,0);
-  m_curvesWidget->resetCurves();
+  m_curves->setGridSize(0,0,0);
+  m_curves->resetCurves();
 
 
   //----------------------------
@@ -1522,7 +1486,7 @@ DrishtiPaint::setFile(QString filename)
   m_coronalImage->setVolPtr(m_volume->memVolDataPtr());
   m_coronalImage->setMaskPtr(m_volume->memMaskDataPtr());
 
-  m_curvesWidget->setVolPtr(m_volume->memVolDataPtr());
+  m_curves->setVolPtr(m_volume->memVolDataPtr());
 
   int d, w, h;
   m_volume->gridSize(d, w, h);
@@ -1531,17 +1495,18 @@ DrishtiPaint::setFile(QString filename)
   m_sagitalImage->setGridSize(d, w, h);
   m_coronalImage->setGridSize(d, w, h);
 
-  m_curvesWidget->setGridSize(d, w, h);
+  m_curves->setGridSize(d, w, h);
   m_viewer->setGridSize(d, w, h);
 
   ui.butZ->setChecked(true);
-  m_slider->set(0, d-1, 0, d-1, 0);
-
+  //m_slider->set(0, d-1, 0, d-1, 0);
+  m_curves->setSliderRange(0, d-1, 0, d-1, 0);
+  
   m_axialImage->resetSliceType();
   m_sagitalImage->resetSliceType();
   m_coronalImage->resetSliceType();
 
-  m_curvesWidget->setSliceType(ImageWidget::DSlice);
+  m_curves->setSliceType(ImageWidget::DSlice);
 
   m_tfManager->setDisabled(false);
 
@@ -1565,7 +1530,7 @@ DrishtiPaint::setFile(QString filename)
       
   QString curvesfile = m_pvlFile;
   curvesfile.replace(".pvl.nc", ".curves");
-  m_curvesWidget->loadCurves(curvesfile);
+  m_curves->loadCurves(curvesfile);
 
   on_actionGraphCut_triggered();
 
@@ -1817,22 +1782,6 @@ DrishtiPaint::loadVolumeFromProject(const char *flnm)
   return "";
 }
 
-//void
-//DrishtiPaint::keyPressEvent(QKeyEvent *event)
-//{
-//  if (event->key() == Qt::Key_S &&
-//      (event->modifiers() & Qt::ControlModifier) )
-//    {
-//      on_saveWork_triggered();
-//      return;
-//    } 
-//
-//  // pass all keypressevents to appropriate widget
-//  if (ui.actionGraphCut->isChecked())
-//    m_imageWidget->keyPressEvent(event);
-//  else
-//    m_curvesWidget->keyPressEvent(event);
-//}
 
 // smooth dilate/erode based on threshold
 void
@@ -2504,7 +2453,8 @@ DrishtiPaint::applyMaskOperation(int tag,
   
   progress.setValue(100);  
 
-  getSlice(m_slider->value());
+  getSlice(m_curves->currSlice());
+  //getSlice(m_slider->value());
 }
 
 void
@@ -2586,38 +2536,38 @@ DrishtiPaint::connectImageWidget()
 void
 DrishtiPaint::connectCurvesWidget()
 {
-  connect(m_curvesWidget, SIGNAL(saveWork()),
+  connect(m_curves, SIGNAL(saveWork()),
 	  this, SLOT(saveWork()));  
 
-  connect(m_curvesWidget, SIGNAL(getSlice(int)),
+  connect(m_curves, SIGNAL(getSlice(int)),
 	  this, SLOT(getSliceC(int)));  
 
-  connect(m_curvesWidget, SIGNAL(getRawValue(int, int, int)),
+  connect(m_curves, SIGNAL(getRawValue(int, int, int)),
 	  this, SLOT(getRawValue(int, int, int)));
 
-  connect(m_curvesWidget, SIGNAL(polygonLevels(QList<int>)),
-	  m_slider, SLOT(polygonLevels(QList<int>)));
+//  connect(m_curves, SIGNAL(polygonLevels(QList<int>)),
+//	  m_slider, SLOT(polygonLevels(QList<int>)));
 
-  connect(m_curvesWidget, SIGNAL(tagDSlice(int, uchar*)),
+  connect(m_curves, SIGNAL(tagDSlice(int, uchar*)),
 	  this, SLOT(tagDSlice(int, uchar*)));
 
-  connect(m_curvesWidget, SIGNAL(tagWSlice(int, uchar*)),
+  connect(m_curves, SIGNAL(tagWSlice(int, uchar*)),
 	  this, SLOT(tagWSlice(int, uchar*)));
 
-  connect(m_curvesWidget, SIGNAL(tagHSlice(int, uchar*)),
+  connect(m_curves, SIGNAL(tagHSlice(int, uchar*)),
 	  this, SLOT(tagHSlice(int, uchar*)));  
 
   
 
-  connect(m_curvesWidget, SIGNAL(updateViewerBox(int, int, int, int, int, int)),
+  connect(m_curves, SIGNAL(updateViewerBox(int, int, int, int, int, int)),
 	  m_viewer, SLOT(updateViewerBox(int, int, int, int, int, int)));
 
-  connect(m_curvesWidget, SIGNAL(showEndCurve()),
+  connect(m_curves, SIGNAL(showEndCurve()),
 	  curvesUi.endcurve, SLOT(show()));
-  connect(m_curvesWidget, SIGNAL(hideEndCurve()),
+  connect(m_curves, SIGNAL(hideEndCurve()),
 	  curvesUi.endcurve, SLOT(hide()));
 
-  connect(m_curvesWidget, SIGNAL(viewerUpdate()),
+  connect(m_curves, SIGNAL(viewerUpdate()),
 	  m_viewer, SLOT(update()));
 }
 
@@ -2773,21 +2723,21 @@ DrishtiPaint::miscConnections()
 
 
   connect(m_tagColorEditor, SIGNAL(tagColorChanged()),
-	  m_curvesWidget, SLOT(updateTagColors()));
+	  m_curves, SLOT(updateTagColors()));
 
-  connect(m_slider, SIGNAL(valueChanged(int)),
-	  m_curvesWidget, SLOT(sliceChanged(int)));
-
-  connect(m_slider, SIGNAL(userRangeChanged(int, int)),
-	  m_curvesWidget, SLOT(userRangeChanged(int, int)));
+//  connect(m_slider, SIGNAL(valueChanged(int)),
+//	  m_curvesWidget, SLOT(sliceChanged(int)));
+//
+//  connect(m_slider, SIGNAL(userRangeChanged(int, int)),
+//	  m_curvesWidget, SLOT(userRangeChanged(int, int)));
 
 }
 
 void
 DrishtiPaint::connectCurvesMenu()
 {
-  ui.zoomup->setIcon(QIcon(":/images/zoom-in.png"));
-  ui.zoomdown->setIcon(QIcon(":/images/zoom-out.png"));
+  //ui.zoomup->setIcon(QIcon(":/images/zoom-in.png"));
+  //ui.zoomdown->setIcon(QIcon(":/images/zoom-out.png"));
   
   
   connect(curvesUi.bakeCurves, SIGNAL(clicked()),
@@ -3694,7 +3644,7 @@ DrishtiPaint::updateCurveMask(uchar *curveMask,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
-  if (ui.butZ->isChecked() && m_curvesWidget->dCurvesPresent())
+  if (ui.butZ->isChecked() && m_curves->dCurvesPresent())
     {
       uchar *mask = new uchar[width*height]; 
       for(int d=minDSlice; d<=maxDSlice; d++)
@@ -3704,7 +3654,7 @@ DrishtiPaint::updateCurveMask(uchar *curveMask,
 	  qApp->processEvents();
 	  
 	  memset(mask, 0, width*height);
-	  m_curvesWidget->paintUsingCurves(0, d, height, width, mask);
+	  m_curves->paintUsingCurves(0, d, height, width, mask);
 	  for(int w=minWSlice; w<=maxWSlice; w++)
 	    for(int h=minHSlice; h<=maxHSlice; h++)
 	      {
@@ -3716,7 +3666,7 @@ DrishtiPaint::updateCurveMask(uchar *curveMask,
 	}
       delete [] mask;
     }
-  if (ui.butY->isChecked() && m_curvesWidget->wCurvesPresent())
+  if (ui.butY->isChecked() && m_curves->wCurvesPresent())
     {
       uchar *mask = new uchar[depth*height]; 
       for(int w=minWSlice; w<=maxWSlice; w++)
@@ -3726,7 +3676,7 @@ DrishtiPaint::updateCurveMask(uchar *curveMask,
 	  qApp->processEvents();
 	  
 	  memset(mask, 0, depth*height);
-	  m_curvesWidget->paintUsingCurves(1, w, height, depth, mask);
+	  m_curves->paintUsingCurves(1, w, height, depth, mask);
 	  for(int d=minDSlice; d<=maxDSlice; d++)
 	    for(int h=minHSlice; h<=maxHSlice; h++)
 	      {
@@ -3738,7 +3688,7 @@ DrishtiPaint::updateCurveMask(uchar *curveMask,
 	}
       delete [] mask;
     }
-  if (ui.butX->isChecked() && m_curvesWidget->hCurvesPresent())
+  if (ui.butX->isChecked() && m_curves->hCurvesPresent())
     {
       uchar *mask = new uchar[depth*width]; 
       for(int h=minHSlice; h<=maxHSlice; h++)
@@ -3748,7 +3698,7 @@ DrishtiPaint::updateCurveMask(uchar *curveMask,
 	  qApp->processEvents();
 	  
 	  memset(mask, 0, depth*width);
-	  m_curvesWidget->paintUsingCurves(2, h, width, depth, mask);
+	  m_curves->paintUsingCurves(2, h, width, depth, mask);
 	  for(int d=minDSlice; d<=maxDSlice; d++)
 	    for(int w=minWSlice; w<=maxWSlice; w++)
 	      {
@@ -6185,7 +6135,7 @@ DrishtiPaint::on_changeSliceOrdering_triggered()
   m_sagitalImage->reloadSlice();
   m_coronalImage->reloadSlice();
 
-  m_curvesWidget->sliceChanged(m_slider->value());
+  m_curves->sliceChanged();
 
   m_volume->saveModifiedOriginalVolume();
   m_volume->saveIntermediateResults(true);

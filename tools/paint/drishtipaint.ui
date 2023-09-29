@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>182</width>
-    <height>193</height>
+    <width>491</width>
+    <height>381</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -469,31 +469,6 @@
        </widget>
       </item>
       <item>
-       <widget class="QFrame" name="sliderFrame">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="minimumSize">
-         <size>
-          <width>70</width>
-          <height>0</height>
-         </size>
-        </property>
-        <property name="maximumSize">
-         <size>
-          <width>120</width>
-          <height>16777215</height>
-         </size>
-        </property>
-        <property name="frameShape">
-         <enum>QFrame::Box</enum>
-        </property>
-       </widget>
-      </item>
-      <item>
        <widget class="QWidget" name="imageFrame" native="true">
         <property name="sizePolicy">
          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
@@ -512,7 +487,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>182</width>
+     <width>491</width>
      <height>22</height>
     </rect>
    </property>

@@ -34,6 +34,7 @@ class CurvesWidget : public QWidget
   
   void setGridSize(int, int, int);
   void setSliceType(int);
+  int sliceType() { return m_sliceType; }
   void setImage(uchar*, uchar*);
   void setMaskImage(uchar*);
 
@@ -139,7 +140,6 @@ class CurvesWidget : public QWidget
   void hideEndCurve();
   void getSlice(int);
   void getRawValue(int, int, int);
-  void newMinMax(float, float);
 
   void polygonLevels(QList<int>);
   void updateViewerBox(int, int, int, int, int, int);

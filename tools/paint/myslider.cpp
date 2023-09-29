@@ -1,4 +1,5 @@
 #include "myslider.h"
+#include <QMessageBox>
 
 MySlider::MySlider(QWidget *parent) :
   QWidget(parent)
@@ -292,7 +293,8 @@ MySlider::wheelEvent(QWheelEvent *event)
 {
   int numSteps = event->delta()/8.0f/15.0f;
 
-  QPoint pp = mapFromParent(event->pos());
+  //QPoint pp = mapFromParent(event->pos());
+  QPoint pp = event->pos();
   float ypos = pp.y();
   float xpos = pp.x();
   int yp = m_baseY + m_height*((float)m_userMin+(m_userMax-m_userMin)*0.5)/(float)m_range;
@@ -361,7 +363,8 @@ MySlider::checkSlider(int xpos, int ypos)
 void
 MySlider::mousePressEvent(QMouseEvent *event)
 {
-  QPoint pp = mapFromParent(event->pos());
+  //  QPoint pp = mapFromParent(event->pos());
+  QPoint pp = event->pos();
   float ypos = pp.y();
   float xpos = pp.x();
   
@@ -379,7 +382,8 @@ MySlider::mousePressEvent(QMouseEvent *event)
 void
 MySlider::mouseMoveEvent(QMouseEvent *event)
 {
-  QPoint pp = mapFromParent(event->pos());
+  //QPoint pp = mapFromParent(event->pos());
+  QPoint pp = event->pos();
   float ypos = pp.y();
   float xpos = pp.x();
 

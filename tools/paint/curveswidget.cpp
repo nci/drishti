@@ -117,6 +117,7 @@ CurvesWidget::CurvesWidget(QWidget *parent, QStatusBar *sb) :
   m_userimage.fill(0);
   m_userimageScaled.fill(0);
 
+  m_sliceType = DSlice;
   m_slice = 0;
   m_sliceImage = 0;
   m_maskslice = 0;

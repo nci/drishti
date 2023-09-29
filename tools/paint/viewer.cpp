@@ -2085,33 +2085,33 @@ Viewer::pointUnderPixel_RC(QPoint scr, bool& found)
       pos = Vec(d4[0], d4[1], d4[2]);
       Vec vsz = m_sslevel*m_vsize;
       pos = m_corner + VECPRODUCT(pos, vsz);
-      //-----------
-      {
-	int v;
-	if (Global::bytesPerVoxel() == 1)
-	  v = m_volPtr[(int)pos.z*m_width*m_height + (int)pos.y*m_height + (int)pos.x];
-	else
-	  v = m_volPtrUS[(int)pos.z*m_width*m_height + (int)pos.y*m_height + (int)pos.x];
-
-	int tg = m_maskPtr[(int)pos.z*m_width*m_height + (int)pos.y*m_height + (int)pos.x];
-
-	uchar *lut = Global::lut();
-
-	int a = Global::tagColors()[4*tg+3];
-
-	if (lut[4*v+3]*a == 0) // if we have hit transparent region go a voxel deep
-	  {
-	    pos += 2*camera()->viewDirection();
-	    int ax = pos.x;
-	    int ay = pos.y;
-	    int az = pos.z;
-	    ax = qBound(m_minHSlice, ax, m_maxHSlice);
-	    ay = qBound(m_minWSlice, ay, m_maxWSlice);
-	    az = qBound(m_minDSlice, az, m_maxDSlice);
-	    pos = Vec(ax, ay, az);
-	  }
-      }
-      //-----------
+      ////-----------
+      //{
+      //	int v;
+      //	if (Global::bytesPerVoxel() == 1)
+      //	  v = m_volPtr[(int)pos.z*m_width*m_height + (int)pos.y*m_height + (int)pos.x];
+      //	else
+      //	  v = m_volPtrUS[(int)pos.z*m_width*m_height + (int)pos.y*m_height + (int)pos.x];
+      //
+      //	int tg = m_maskPtr[(int)pos.z*m_width*m_height + (int)pos.y*m_height + (int)pos.x];
+      //
+      //	uchar *lut = Global::lut();
+      //
+      //	int a = Global::tagColors()[4*tg+3];
+      //
+      //	if (lut[4*v+3]*a == 0) // if we have hit transparent region go a voxel deep
+      //	  {
+      //	    pos += 2*camera()->viewDirection();
+      //	    int ax = pos.x;
+      //	    int ay = pos.y;
+      //	    int az = pos.z;
+      //	    ax = qBound(m_minHSlice, ax, m_maxHSlice);
+      //	    ay = qBound(m_minWSlice, ay, m_maxWSlice);
+      //	    az = qBound(m_minDSlice, az, m_maxDSlice);
+      //	    pos = Vec(ax, ay, az);
+      //	  }
+      //}
+      ////-----------
 
       found = true;
     }
@@ -3045,6 +3045,7 @@ Viewer::getCoordUnderPointer(int &d, int &w, int &h)
   bool found;
   
   QPoint scr = mapFromGlobal(QCursor::pos());
+  //QPoint scr = QCursor::pos();
   target = getHit(scr, found);
   if (!found)
     return false;

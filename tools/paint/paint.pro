@@ -115,7 +115,8 @@ HEADERS += connectviewer.h \
 	fibergroup.h\
 	slices.h \
 	imagewidget.h \
-	curveswidget.h \
+        curves.h \
+        curveswidget.h \
         global.h \
         handleexternal.h \
         livewire.h \
@@ -180,6 +181,7 @@ SOURCES += drishtipaint.cpp \
 	fibergroup.cpp\
 	slices.cpp \
 	imagewidget.cpp \
+        curves.cpp \
 	curveswidget.cpp \
 	global.cpp \
         handleexternal.cpp \

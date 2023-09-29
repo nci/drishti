@@ -16,8 +16,7 @@
 #include "transferfunctionmanager.h"
 #include "transferfunctioneditorwidget.h"
 #include "slices.h"
-#include "curveswidget.h"
-#include "myslider.h"
+#include "curves.h"
 #include "volume.h"
 #include "viewer3d.h"
 #include "popupslider.h"
@@ -116,20 +115,13 @@ class DrishtiPaint : public QMainWindow
   void on_thickness_valueChanged(int);
   void on_radius_valueChanged(int);
   void pointsize_valueChanged(int);
-  void mincurvelen_valueChanged(int);
   void livewire_clicked(bool);
-  void modify_clicked(bool);
   void lwsmooth_currentIndexChanged(int);
   void lwgrad_currentIndexChanged(int);
   void newcurve_clicked();
   void endcurve_clicked();
   void morphcurves_clicked();
-  void deselect_clicked();
   void deleteallcurves_clicked();
-  void on_zoom0_clicked();
-  void on_zoom9_clicked();
-  void on_zoomup_clicked();
-  void on_zoomdown_clicked();
   void changeTransferFunctionDisplay(int, QList<bool>);
   void checkStateChanged(int, int, bool);
   void updateComposite();
@@ -219,7 +211,6 @@ class DrishtiPaint : public QMainWindow
   TransferFunctionManager *m_tfManager;
   TransferFunctionEditorWidget *m_tfEditor;
 
-  QScrollArea *m_scrollAreaC;
   QSplitter *m_graphCutArea;
   QSplitter *m_splitterOne;
   QSplitter *m_splitterTwo;
@@ -231,8 +222,9 @@ class DrishtiPaint : public QMainWindow
   Slices *m_axialImage;
   Slices *m_sagitalImage;
   Slices *m_coronalImage;
-  CurvesWidget *m_curvesWidget;
-  MySlider *m_slider;
+
+  Curves *m_curves;
+  
   Volume *m_volume;
 
   int m_currSlice;

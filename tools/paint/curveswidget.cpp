@@ -10,30 +10,33 @@
 CurveGroup*
 CurvesWidget::getCg()
 {
-  CurveGroup *cg;
-  if (m_sliceType == DSlice)
-    cg = &m_dCurves;
-  else if (m_sliceType == WSlice)
-    cg = &m_wCurves;
-  else
-    cg = &m_hCurves;
-
-  return cg;
+  return &m_Curves;
+  
+  //  CurveGroup *cg;
+//  if (m_sliceType == DSlice)
+//    cg = &m_dCurves;
+//  else if (m_sliceType == WSlice)
+//    cg = &m_wCurves;
+//  else
+//    cg = &m_hCurves;
+//
+//  return cg;
 }
 
 void
 CurvesWidget::setLambda(float l)
 {
-  m_dCurves.setLambda(l);
-  m_wCurves.setLambda(l);
-  m_hCurves.setLambda(l);
+  m_Curves.setLambda(l);
+//  m_dCurves.setLambda(l);
+//  m_wCurves.setLambda(l);
+//  m_hCurves.setLambda(l);
 }
 void
 CurvesWidget::setSegmentLength(int l)
 {
-  m_dCurves.setSegmentLength(l);
-  m_wCurves.setSegmentLength(l);
-  m_hCurves.setSegmentLength(l);
+  m_Curves.setSegmentLength(l);
+//  m_wCurves.setSegmentLength(l);
+//  m_hCurves.setSegmentLength(l);
 }
 
 void
@@ -70,6 +73,11 @@ CurvesWidget::CurvesWidget(QWidget *parent, QStatusBar *sb) :
   
   setMouseTracking(true);
 
+  m_hasFocus = false;
+  
+  m_showPosition = false;
+  m_hline = m_vline = 0;
+
   m_livewireMode = false;
   m_curveMode = false;
   m_addingCurvePoints = false;
@@ -84,9 +92,9 @@ CurvesWidget::CurvesWidget(QWidget *parent, QStatusBar *sb) :
 
 
   m_livewire.reset();
-  m_dCurves.reset();
-  m_wCurves.reset();
-  m_hCurves.reset();
+  m_Curves.reset();
+//  m_wCurves.reset();
+//  m_hCurves.reset();
 
   m_zoom = 1;
 
@@ -169,11 +177,52 @@ CurvesWidget::CurvesWidget(QWidget *parent, QStatusBar *sb) :
   m_prevslicetagColors.resize(256);
   m_prevslicetagColors[0] = qRgba(0,0,0,0);
   for(int i=1; i<256; i++)
-    m_prevslicetagColors[i] = qRgba(0, 0, 127, 127);
+    m_prevslicetagColors[i] = qRgba(0, 0, 127, 127);  
 }
 
-void CurvesWidget::enterEvent(QEvent *e) { setFocus(); grabKeyboard(); }
-void CurvesWidget::leaveEvent(QEvent *e) { clearFocus(); releaseKeyboard(); }
+void
+CurvesWidget::setShowPosition(bool s)
+{
+  m_showPosition = s;
+
+  if (!m_volPtr)
+    return;
+
+  update();
+}
+
+void
+CurvesWidget::focusInEvent(QFocusEvent *e)
+{
+  setInFocus();
+}
+void
+CurvesWidget::setInFocus()
+{
+  m_hasFocus = true;
+  emit gotFocus();
+}
+
+void
+CurvesWidget::releaseFocus()
+{
+  m_hasFocus = false;
+  update();
+}
+
+void CurvesWidget::enterEvent(QEvent *e)
+{
+  if (m_hasFocus)
+    {
+      setFocus();
+      //grabKeyboard();
+    }
+}
+void CurvesWidget::leaveEvent(QEvent *e)
+{
+  //clearFocus();
+  //releaseKeyboard();
+}
 
 void CurvesWidget::setScrollBars(QScrollBar *hbar,
 				QScrollBar *vbar)
@@ -372,9 +421,9 @@ CurvesWidget::loadLookupTable(QImage colorMap)
 void
 CurvesWidget::resetCurves()
 {
-  m_dCurves.reset();
-  m_wCurves.reset();
-  m_hCurves.reset();
+  m_Curves.reset();
+//  m_wCurves.reset();
+//  m_hCurves.reset();
 }
 
 void
@@ -392,32 +441,43 @@ CurvesWidget::setGridSize(int d, int w, int h)
   m_maxHSlice = m_Height;
 }
 
+void CurvesWidget::setHLine(int h) { m_hline = h; update(); }
+void CurvesWidget::setVLine(int v) { m_vline = v; update(); }
+
 void
 CurvesWidget::setSliceType(int st)
 {
   m_sliceType = st;
+}
 
+void
+CurvesWidget::resetSliceType()
+{
   CurveGroup *cg = getCg();
-  m_currSlice = m_minDSlice;
+  //m_currSlice = m_minDSlice;
   emit polygonLevels(cg->polygonLevels());
+  m_currSlice = 0;
 
-
+  
   //---------------------------------
   int wd, ht;
   if (m_sliceType == DSlice)
     {
       wd = m_Height+1;
       ht = m_Width+1;
+      m_maxSlice = m_Depth-1;
     }
   else if (m_sliceType == WSlice)
     {
       wd = m_Height+1;
       ht = m_Depth+1;
+      m_maxSlice = m_Width-1;
     }
   else
     {
       wd = m_Width+1;
       ht = m_Depth+1;
+      m_maxSlice = m_Height-1;
     }
 
   if (m_tags) delete [] m_tags;
@@ -501,7 +561,10 @@ CurvesWidget::setSliceType(int st)
   float rH = (float)frmHeight/(float)height;
   float rW = (float)frmWidth/(float)width;
   m_zoom = qMin(rH, rW);
-  
+
+
+  m_currSlice = m_maxSlice/2-1;
+
   emit getSlice(m_currSlice);
 }
 
@@ -1080,12 +1143,13 @@ int
 CurvesWidget::drawCurves(QPainter *p)
 {  
   QList<Curve*> curves;
-  if (m_sliceType == DSlice)
-    curves = m_dCurves.getCurvesAt(m_currSlice, true);
-  else if (m_sliceType == WSlice)
-    curves = m_wCurves.getCurvesAt(m_currSlice, true);
-  else
-    curves = m_hCurves.getCurvesAt(m_currSlice, true);
+  curves = m_Curves.getCurvesAt(m_currSlice, true);
+//  if (m_sliceType == DSlice)
+//    curves = m_dCurves.getCurvesAt(m_currSlice, true);
+//  else if (m_sliceType == WSlice)
+//    curves = m_wCurves.getCurvesAt(m_currSlice, true);
+//  else
+//    curves = m_hCurves.getCurvesAt(m_currSlice, true);
   
   QPoint move = QPoint(m_simgX, m_simgY);
   float sx = (float)m_simgWidth/(float)m_imgWidth;
@@ -1260,30 +1324,30 @@ CurvesWidget::drawOtherCurvePoints(QPainter *p)
   float sx = (float)m_simgWidth/(float)m_imgWidth;
   QVector<QPointF> vptd, vptw, vpth;
 
-  if (m_sliceType == DSlice)
-    {
-      QList<QPointF> ptw = m_wCurves.ypoints(m_currSlice);
-      vptw = QVector<QPointF>::fromList(trimPointList(ptw, true));
-
-      QList<QPointF> pth = m_hCurves.ypoints(m_currSlice);
-      vpth = QVector<QPointF>::fromList(trimPointList(pth, false));
-    }
-  else if (m_sliceType == WSlice)
-    {
-      QList<QPointF> pth = m_hCurves.xpoints(m_currSlice);
-      vpth = QVector<QPointF>::fromList(trimPointList(pth, false));
-
-      QList<QPointF> ptd = m_dCurves.ypoints(m_currSlice);
-      vptd = QVector<QPointF>::fromList(trimPointList(ptd, true));
-    }    
-  else
-    {
-      QList<QPointF> ptw = m_wCurves.xpoints(m_currSlice);
-      vptw = QVector<QPointF>::fromList(trimPointList(ptw, false));
-
-      QList<QPointF> ptd = m_dCurves.xpoints(m_currSlice);
-      vptd = QVector<QPointF>::fromList(trimPointList(ptd, true));
-    }
+//  if (m_sliceType == DSlice)
+//    {
+//      QList<QPointF> ptw = m_wCurves.ypoints(m_currSlice);
+//      vptw = QVector<QPointF>::fromList(trimPointList(ptw, true));
+//
+//      QList<QPointF> pth = m_hCurves.ypoints(m_currSlice);
+//      vpth = QVector<QPointF>::fromList(trimPointList(pth, false));
+//    }
+//  else if (m_sliceType == WSlice)
+//    {
+//      QList<QPointF> pth = m_hCurves.xpoints(m_currSlice);
+//      vpth = QVector<QPointF>::fromList(trimPointList(pth, false));
+//
+//      QList<QPointF> ptd = m_dCurves.ypoints(m_currSlice);
+//      vptd = QVector<QPointF>::fromList(trimPointList(ptd, true));
+//    }    
+//  else
+//    {
+//      QList<QPointF> ptw = m_wCurves.xpoints(m_currSlice);
+//      vptw = QVector<QPointF>::fromList(trimPointList(ptw, false));
+//
+//      QList<QPointF> ptd = m_dCurves.xpoints(m_currSlice);
+//      vptd = QVector<QPointF>::fromList(trimPointList(ptd, true));
+//    }
 
   if (vptd.count() > 0)
     {
@@ -1329,12 +1393,13 @@ int
 CurvesWidget::drawMorphedCurves(QPainter *p)
 {  
   QList<Curve> curves;
-  if (m_sliceType == DSlice)
-    curves = m_dCurves.getMorphedCurvesAt(m_currSlice);
-  else if (m_sliceType == WSlice)
-    curves = m_wCurves.getMorphedCurvesAt(m_currSlice);
-  else
-    curves = m_hCurves.getMorphedCurvesAt(m_currSlice);
+  curves = m_Curves.getMorphedCurvesAt(m_currSlice);
+//  if (m_sliceType == DSlice)
+//    curves = m_dCurves.getMorphedCurvesAt(m_currSlice);
+//  else if (m_sliceType == WSlice)
+//    curves = m_wCurves.getMorphedCurvesAt(m_currSlice);
+//  else
+//    curves = m_hCurves.getMorphedCurvesAt(m_currSlice);
 
   QPoint move = QPoint(m_simgX, m_simgY);
   float sx = (float)m_simgWidth/(float)m_imgWidth;
@@ -1386,6 +1451,7 @@ CurvesWidget::paintEvent(QPaintEvent *event)
   p.setRenderHint(QPainter::Antialiasing);
   p.setCompositionMode(QPainter::CompositionMode_SourceOver);
 
+  
   p.drawImage(m_simgX, m_simgY, m_imageScaled);
   p.drawImage(m_simgX, m_simgY, m_maskimageScaled);
   p.drawImage(m_simgX, m_simgY, m_userimageScaled);
@@ -1393,12 +1459,26 @@ CurvesWidget::paintEvent(QPaintEvent *event)
   if (Global::copyPrev())
     p.drawImage(m_simgX, m_simgY, m_prevslicetagimageScaled);
 
+  
+  //----------------------------------------------------
+  // draw slice positions for other 2 slice directions
+  if (m_showPosition)
+    {
+      p.setPen(QPen(Qt::cyan, 0.7));
+      p.drawLine(m_simgX+m_hline*m_zoom, m_simgY+0,
+		 m_simgX+m_hline*m_zoom, m_simgY+m_simgHeight);
+      p.drawLine(m_simgX+0, m_simgY+m_vline*m_zoom,
+		 m_simgX+m_simgWidth, m_simgY+m_vline*m_zoom);
+    }
+  //----------------------------------------------------
+
   drawRubberBand(&p);
   
 
   int nc = drawCurves(&p);
   int nmc = drawMorphedCurves(&p);
-  drawSizeText(&p, nc, nmc);
+
+  //drawSizeText(&p, nc, nmc);
   
   drawLivewire(&p);
       
@@ -1437,9 +1517,10 @@ CurvesWidget::paintEvent(QPaintEvent *event)
 	}
     }
 
-  if (hasFocus())
+  //if (hasFocus())
+  if (m_hasFocus)
     {
-      p.setPen(QPen(QColor(250, 100, 0), 2));
+      p.setPen(QPen(QColor(50, 250, 100), 10));
       p.setBrush(Qt::transparent);
       p.drawRect(rect());
     }
@@ -1694,20 +1775,20 @@ void
 CurvesWidget::newPolygon(bool smooth, bool line)
 {
   if (m_sliceType == DSlice)
-    m_dCurves.newPolygon(m_currSlice,
-			 (m_minHSlice+m_maxHSlice)/2,
-			 (m_minWSlice+m_maxWSlice)/2,
-			 smooth, line);
+    m_Curves.newPolygon(m_currSlice,
+			(m_minHSlice+m_maxHSlice)/2,
+			(m_minWSlice+m_maxWSlice)/2,
+			smooth, line);
   else if (m_sliceType == WSlice)
-    m_wCurves.newPolygon(m_currSlice,
-			 (m_minHSlice+m_maxHSlice)/2,
-			 (m_minDSlice+m_maxDSlice)/2,
-			 smooth, line);
+    m_Curves.newPolygon(m_currSlice,
+			(m_minHSlice+m_maxHSlice)/2,
+			(m_minDSlice+m_maxDSlice)/2,
+			smooth, line);
   else
-    m_hCurves.newPolygon(m_currSlice,
-			 (m_minWSlice+m_maxWSlice)/2,
-			 (m_minDSlice+m_maxDSlice)/2,
-			 smooth, line);
+    m_Curves.newPolygon(m_currSlice,
+			(m_minWSlice+m_maxWSlice)/2,
+			(m_minDSlice+m_maxDSlice)/2,
+			smooth, line);
 
   CurveGroup *cg = getCg();
   emit polygonLevels(cg->polygonLevels());
@@ -1719,17 +1800,17 @@ void
 CurvesWidget::newEllipse()
 {
   if (m_sliceType == DSlice)
-    m_dCurves.newEllipse(m_currSlice,
-			 (m_minHSlice+m_maxHSlice)/2,
-			 (m_minWSlice+m_maxWSlice)/2);
+    m_Curves.newEllipse(m_currSlice,
+			(m_minHSlice+m_maxHSlice)/2,
+			(m_minWSlice+m_maxWSlice)/2);
   else if (m_sliceType == WSlice)
-    m_wCurves.newEllipse(m_currSlice,
-			 (m_minHSlice+m_maxHSlice)/2,
-			 (m_minDSlice+m_maxDSlice)/2);
+    m_Curves.newEllipse(m_currSlice,
+			(m_minHSlice+m_maxHSlice)/2,
+			(m_minDSlice+m_maxDSlice)/2);
   else
-    m_hCurves.newEllipse(m_currSlice,
-			 (m_minWSlice+m_maxWSlice)/2,
-			 (m_minDSlice+m_maxDSlice)/2);
+    m_Curves.newEllipse(m_currSlice,
+			(m_minWSlice+m_maxWSlice)/2,
+			(m_minDSlice+m_maxDSlice)/2);
 
   CurveGroup *cg = getCg();
   emit polygonLevels(cg->polygonLevels());
@@ -2042,11 +2123,11 @@ CurvesWidget::curveModeKeyPressEvent(QKeyEvent *event)
 	{
 	  int cc = -1;
 	  if (m_sliceType == DSlice)
-	    cc = m_dCurves.copyCurve(m_currSlice, m_pickHeight, m_pickWidth);
+	    cc = m_Curves.copyCurve(m_currSlice, m_pickHeight, m_pickWidth);
 	  else if (m_sliceType == WSlice)
-	    cc = m_wCurves.copyCurve(m_currSlice, m_pickHeight, m_pickDepth);
+	    cc = m_Curves.copyCurve(m_currSlice, m_pickHeight, m_pickDepth);
 	  else
-	    cc = m_hCurves.copyCurve(m_currSlice, m_pickWidth,  m_pickDepth);
+	    cc = m_Curves.copyCurve(m_currSlice, m_pickWidth,  m_pickDepth);
 	  
 	  if (cc >= 0)
 	    QMessageBox::information(0, "", QString("Curve copied to buffer"));
@@ -2076,11 +2157,11 @@ CurvesWidget::curveModeKeyPressEvent(QKeyEvent *event)
     {
       int ic = -1;
       if (m_sliceType == DSlice)
-	ic = m_dCurves.showPolygonInfo(0, m_currSlice, m_pickHeight, m_pickWidth);
+	ic = m_Curves.showPolygonInfo(0, m_currSlice, m_pickHeight, m_pickWidth);
       else if (m_sliceType == WSlice)
-	ic = m_wCurves.showPolygonInfo(1, m_currSlice, m_pickHeight, m_pickDepth);
+	ic = m_Curves.showPolygonInfo(1, m_currSlice, m_pickHeight, m_pickDepth);
       else
-	ic = m_hCurves.showPolygonInfo(2, m_currSlice, m_pickWidth,  m_pickDepth);
+	ic = m_Curves.showPolygonInfo(2, m_currSlice, m_pickWidth,  m_pickDepth);
       
       return;
     }
@@ -2088,17 +2169,17 @@ CurvesWidget::curveModeKeyPressEvent(QKeyEvent *event)
   if (event->key() == Qt::Key_S)
     { // curve smoothing
       if (m_sliceType == DSlice)
-	m_dCurves.smooth(m_currSlice, m_pickHeight, m_pickWidth,
-			 shiftModifier,
-			 m_minDSlice, m_maxDSlice);
+	m_Curves.smooth(m_currSlice, m_pickHeight, m_pickWidth,
+			shiftModifier,
+			m_minDSlice, m_maxDSlice);
       else if (m_sliceType == WSlice)
-	m_wCurves.smooth(m_currSlice, m_pickHeight, m_pickDepth,
-			 shiftModifier,
-			 m_minWSlice, m_maxWSlice);
+	m_Curves.smooth(m_currSlice, m_pickHeight, m_pickDepth,
+			shiftModifier,
+			m_minWSlice, m_maxWSlice);
       else
-	m_hCurves.smooth(m_currSlice, m_pickWidth,  m_pickDepth,
-			 shiftModifier,
-			 m_minHSlice, m_maxHSlice);
+	m_Curves.smooth(m_currSlice, m_pickWidth,  m_pickDepth,
+			shiftModifier,
+			m_minHSlice, m_maxHSlice);
       
       emit saveWork();
       update();
@@ -2134,17 +2215,17 @@ CurvesWidget::curveModeKeyPressEvent(QKeyEvent *event)
   if (event->key() == Qt::Key_D)
     { // curve dilation
       if (m_sliceType == DSlice)
-	m_dCurves.dilateErode(m_currSlice, m_pickHeight, m_pickWidth,
-			      shiftModifier,
-			      m_minDSlice, m_maxDSlice, 0.5);
+	m_Curves.dilateErode(m_currSlice, m_pickHeight, m_pickWidth,
+			     shiftModifier,
+			     m_minDSlice, m_maxDSlice, 0.5);
       else if (m_sliceType == WSlice)
-	m_wCurves.dilateErode(m_currSlice, m_pickHeight, m_pickDepth,
-			      shiftModifier,
-			      m_minWSlice, m_maxWSlice, 0.5);
+	m_Curves.dilateErode(m_currSlice, m_pickHeight, m_pickDepth,
+			     shiftModifier,
+			     m_minWSlice, m_maxWSlice, 0.5);
       else
-	m_hCurves.dilateErode(m_currSlice, m_pickWidth,  m_pickDepth,
-			      shiftModifier,
-			      m_minHSlice, m_maxHSlice, 0.5);
+	m_Curves.dilateErode(m_currSlice, m_pickWidth,  m_pickDepth,
+			     shiftModifier,
+			     m_minHSlice, m_maxHSlice, 0.5);
       
       emit saveWork();
       update();
@@ -2154,17 +2235,17 @@ CurvesWidget::curveModeKeyPressEvent(QKeyEvent *event)
   if (event->key() == Qt::Key_E)
     { // curve erosion
       if (m_sliceType == DSlice)
-	m_dCurves.dilateErode(m_currSlice, m_pickHeight, m_pickWidth,
-			      shiftModifier,
-			      m_minDSlice, m_maxDSlice, -0.5);
+	m_Curves.dilateErode(m_currSlice, m_pickHeight, m_pickWidth,
+			     shiftModifier,
+			     m_minDSlice, m_maxDSlice, -0.5);
       else if (m_sliceType == WSlice)
-	m_wCurves.dilateErode(m_currSlice, m_pickHeight, m_pickDepth,
-			      shiftModifier,
-			      m_minWSlice, m_maxWSlice, -0.5);
+	m_Curves.dilateErode(m_currSlice, m_pickHeight, m_pickDepth,
+			     shiftModifier,
+			     m_minWSlice, m_maxWSlice, -0.5);
       else
-	m_hCurves.dilateErode(m_currSlice, m_pickWidth,  m_pickDepth,
-			      shiftModifier,
-			      m_minHSlice, m_maxHSlice, -0.5);
+	m_Curves.dilateErode(m_currSlice, m_pickWidth,  m_pickDepth,
+			     shiftModifier,
+			     m_minHSlice, m_maxHSlice, -0.5);
       
       emit saveWork();
       update();
@@ -2319,11 +2400,11 @@ CurvesWidget::curveModeKeyPressEvent(QKeyEvent *event)
   if (event->key() == Qt::Key_F)
     {
       if (m_sliceType == DSlice)
-	m_dCurves.flipPolygon(m_currSlice, m_pickHeight, m_pickWidth);
+	m_Curves.flipPolygon(m_currSlice, m_pickHeight, m_pickWidth);
       else if (m_sliceType == WSlice)
-	m_wCurves.flipPolygon(m_currSlice, m_pickHeight, m_pickDepth);
+	m_Curves.flipPolygon(m_currSlice, m_pickHeight, m_pickDepth);
       else
-	m_hCurves.flipPolygon(m_currSlice, m_pickWidth,  m_pickDepth);
+	m_Curves.flipPolygon(m_currSlice, m_pickWidth,  m_pickDepth);
       update();
       return;
     }
@@ -2333,18 +2414,18 @@ CurvesWidget::curveModeKeyPressEvent(QKeyEvent *event)
     {
       if (m_sliceType == DSlice)
 	{
-	  m_dCurves.removePolygonAt(m_currSlice, m_pickHeight, m_pickWidth, shiftModifier);
-	  emit polygonLevels(m_dCurves.polygonLevels());
+	  m_Curves.removePolygonAt(m_currSlice, m_pickHeight, m_pickWidth, shiftModifier);
+	  emit polygonLevels(m_Curves.polygonLevels());
 	}
       else if (m_sliceType == WSlice)
 	{
-	  m_wCurves.removePolygonAt(m_currSlice, m_pickHeight, m_pickDepth, shiftModifier);
-	  emit polygonLevels(m_wCurves.polygonLevels());
+	  m_Curves.removePolygonAt(m_currSlice, m_pickHeight, m_pickDepth, shiftModifier);
+	  emit polygonLevels(m_Curves.polygonLevels());
 	}
       else
 	{
-	  m_hCurves.removePolygonAt(m_currSlice, m_pickWidth,  m_pickDepth, shiftModifier);
-	  emit polygonLevels(m_hCurves.polygonLevels());
+	  m_Curves.removePolygonAt(m_currSlice, m_pickWidth,  m_pickDepth, shiftModifier);
+	  emit polygonLevels(m_Curves.polygonLevels());
 	}
 
       if (m_addingCurvePoints)
@@ -2364,7 +2445,7 @@ void
 CurvesWidget::keyPressEvent(QKeyEvent *event)
 {
   bool processed = false;
-
+  
   curveModeKeyPressEvent(event);
 }
 
@@ -2525,11 +2606,11 @@ CurvesWidget::curveMousePressEvent(QMouseEvent *event)
 	  if (m_addingCurvePoints) // curveMode
 	    {
 	      if (m_sliceType == DSlice)
-		m_dCurves.addPoint(m_currSlice, m_pickHeight, m_pickWidth);
+		m_Curves.addPoint(m_currSlice, m_pickHeight, m_pickWidth);
 	      else if (m_sliceType == WSlice)
-		m_wCurves.addPoint(m_currSlice, m_pickHeight, m_pickDepth);
+		m_Curves.addPoint(m_currSlice, m_pickHeight, m_pickDepth);
 	      else
-		m_hCurves.addPoint(m_currSlice, m_pickWidth,  m_pickDepth);
+		m_Curves.addPoint(m_currSlice, m_pickWidth,  m_pickDepth);
 	    }
 //	  else if (shiftModifier)
 //	    {
@@ -2567,21 +2648,21 @@ CurvesWidget::curveMousePressEvent(QMouseEvent *event)
 	    !m_livewire.seedMoveMode()))
     {
       if (m_sliceType == DSlice)
-	m_dCurves.setMoveCurve(m_currSlice, m_pickHeight, m_pickWidth);
+	m_Curves.setMoveCurve(m_currSlice, m_pickHeight, m_pickWidth);
       else if (m_sliceType == WSlice)
-	m_wCurves.setMoveCurve(m_currSlice, m_pickHeight, m_pickDepth);
+	m_Curves.setMoveCurve(m_currSlice, m_pickHeight, m_pickDepth);
       else
-	m_hCurves.setMoveCurve(m_currSlice, m_pickWidth,  m_pickDepth);
+	m_Curves.setMoveCurve(m_currSlice, m_pickWidth,  m_pickDepth);
     }
   else if (m_button == Qt::RightButton &&
 	   !m_livewireMode)
     {
       if (m_sliceType == DSlice)
-	m_dCurves.removePoint(m_currSlice, m_pickHeight, m_pickWidth);
+	m_Curves.removePoint(m_currSlice, m_pickHeight, m_pickWidth);
       else if (m_sliceType == WSlice)
-	m_wCurves.removePoint(m_currSlice, m_pickHeight, m_pickDepth);
+	m_Curves.removePoint(m_currSlice, m_pickHeight, m_pickDepth);
       else
-	m_hCurves.removePoint(m_currSlice, m_pickWidth,  m_pickDepth);
+	m_Curves.removePoint(m_currSlice, m_pickWidth,  m_pickDepth);
     }
 }
 
@@ -2605,6 +2686,21 @@ CurvesWidget::curveMouseMoveEvent(QMouseEvent *event)
   bool ctrlModifier = event->modifiers() & Qt::ControlModifier;
   bool altModifier = event->modifiers() & Qt::AltModifier;
 
+  
+  if (ctrlModifier)
+    {
+      if (validPickPoint(xpos, ypos))
+	{
+	  m_vline = (ypos-m_simgY)/m_zoom;
+	  m_hline = (xpos-m_simgX)/m_zoom;
+	  emit xPos(m_hline);
+	  emit yPos(m_vline);
+	  update();
+	}
+      return;
+    }
+
+  
   if (m_livewireMode &&
       event->buttons() != Qt::MiddleButton &&
       !shiftModifier &&
@@ -2679,11 +2775,11 @@ CurvesWidget::curveMouseMoveEvent(QMouseEvent *event)
 		 m_addingCurvePoints)
 		{
 		  if (m_sliceType == DSlice)
-		    m_dCurves.addPoint(m_currSlice, m_pickHeight, m_pickWidth);
+		    m_Curves.addPoint(m_currSlice, m_pickHeight, m_pickWidth);
 		  else if (m_sliceType == WSlice)
-		    m_wCurves.addPoint(m_currSlice, m_pickHeight, m_pickDepth);
+		    m_Curves.addPoint(m_currSlice, m_pickHeight, m_pickDepth);
 		  else
-		    m_hCurves.addPoint(m_currSlice, m_pickWidth,  m_pickDepth);
+		    m_Curves.addPoint(m_currSlice, m_pickWidth,  m_pickDepth);
 		  update();
 		}
 	    }
@@ -2715,11 +2811,11 @@ CurvesWidget::curveMouseMoveEvent(QMouseEvent *event)
 	  else
 	    {
 	      if (m_sliceType == DSlice)
-		m_dCurves.moveCurve(m_currSlice, dh, dw);
+		m_Curves.moveCurve(m_currSlice, dh, dw);
 	      else if (m_sliceType == WSlice)
-		m_wCurves.moveCurve(m_currSlice, dh, dd);
+		m_Curves.moveCurve(m_currSlice, dh, dd);
 	      else
-		m_hCurves.moveCurve(m_currSlice, dw, dd);
+		m_Curves.moveCurve(m_currSlice, dw, dd);
 	    }
 	  update();
 	  return;
@@ -2730,8 +2826,8 @@ CurvesWidget::curveMouseMoveEvent(QMouseEvent *event)
 void
 CurvesWidget::mouseMoveEvent(QMouseEvent *event)
 {
-  if (!hasFocus())
-    setFocus();
+//  if (!hasFocus())
+//    setFocus();
 
   QPoint pp = event->pos();
   float ypos = pp.y();
@@ -2753,9 +2849,9 @@ CurvesWidget::mouseReleaseEvent(QMouseEvent *event)
   m_pickPoint = false;
 
   m_livewire.mouseReleaseEvent(event);
-  m_dCurves.resetMoveCurve();
-  m_wCurves.resetMoveCurve();
-  m_hCurves.resetMoveCurve();
+  m_Curves.resetMoveCurve();
+  //m_wCurves.resetMoveCurve();
+  //m_hCurves.resetMoveCurve();
 
   if (m_curveMode || m_livewireMode)
     {
@@ -3186,12 +3282,16 @@ CurvesWidget::paintUsingCurves(int slctype,
 			       int slc, int wd, int ht,
 			       uchar *maskData)
 {
-  CurveGroup *cg;
-  if (slctype == 0) cg = &m_dCurves;
-  else if (slctype == 1) cg = &m_wCurves;
-  else cg = &m_hCurves;
+//  CurveGroup *cg;
+//  if (slctype == 0) cg = &m_dCurves;
+//  else if (slctype == 1) cg = &m_wCurves;
+//  else cg = &m_hCurves;
+//
+//  paintUsingCurves(cg,
+//		     slc, wd, ht,
+//		     maskData);
 
-  paintUsingCurves(cg,
+  paintUsingCurves(&m_Curves,
 		   slc, wd, ht,
 		   maskData);
 }
@@ -3204,8 +3304,10 @@ CurvesWidget::paintUsingCurves(uchar *maskData)
 
   QList<int> gtag;
   gtag << Global::tag();
-  CurveGroup *cg = getCg();  
-  paintUsingCurves(cg,
+//  CurveGroup *cg = getCg();  
+//  paintUsingCurves(cg,
+
+  paintUsingCurves(&m_Curves,
 		   m_currSlice, m_imgWidth, m_imgHeight,
 		   maskData);
 }
@@ -3296,6 +3398,7 @@ CurvesWidget::saveCurveData(QFile *cfile, int key, Curve *c)
 
   memset(keyword, 0, 100);
   sprintf(keyword, "curvestart\n");
+    
   cfile->write((char*)keyword, strlen(keyword));
 
   uchar type = c->type;
@@ -3611,11 +3714,15 @@ CurvesWidget::saveCurves(QString curvesfile)
       !StaticFunctions::checkExtension(curvesfile, ".curves"))
       curvesfile += ".curves";
 
+  if (m_sliceType == DSlice)
+    curvesfile += "d";
+  else if (m_sliceType == WSlice)
+    curvesfile += "w";
+  else
+    curvesfile += "h";
 
   // if no curves present return
-  if (!dCurvesPresent() &&
-      !wCurvesPresent() &&
-      !hCurvesPresent())
+  if (!curvesPresent())
     { // remove existing file
       if (QFile(curvesfile).exists())
 	QFile(curvesfile).remove();
@@ -3627,9 +3734,7 @@ CurvesWidget::saveCurves(QString curvesfile)
   cfile.setFileName(curvesfile);
   cfile.open(QFile::WriteOnly);
 
-  saveCurves(&cfile, &m_dCurves);
-  saveCurves(&cfile, &m_wCurves);
-  saveCurves(&cfile, &m_hCurves);
+  saveCurves(&cfile, &m_Curves);
 
   cfile.close();
 }
@@ -3744,15 +3849,20 @@ CurvesWidget::loadCurves(QString curvesfile)
 {
   QFile cfile;
 
+  if (m_sliceType == DSlice)
+    curvesfile += "d";
+  else if (m_sliceType == WSlice)
+    curvesfile += "w";
+  else
+    curvesfile += "h";
+
   cfile.setFileName(curvesfile);
   if (cfile.exists() == false)
     return;
   
   cfile.open(QFile::ReadOnly);
 
-  loadCurves(&cfile, &m_dCurves);
-  loadCurves(&cfile, &m_wCurves);
-  loadCurves(&cfile, &m_hCurves);
+  loadCurves(&cfile, &m_Curves);
 
   cfile.close();
 
@@ -3781,15 +3891,19 @@ CurvesWidget::loadCurves()
 void
 CurvesWidget::startShrinkwrap()
 {
-  CurveGroup *cg = getCg();
-  cg->startShrinkwrap();
+//  CurveGroup *cg = getCg();
+//  cg->startShrinkwrap();
+
+  m_Curves.startShrinkwrap();
 }
 
 void
 CurvesWidget::endShrinkwrap()
 {
-  CurveGroup *cg = getCg();
-  cg->endShrinkwrap();
+//  CurveGroup *cg = getCg();
+//  cg->endShrinkwrap();
+
+  m_Curves.endShrinkwrap();
 }
 
 void
@@ -3824,9 +3938,9 @@ CurvesWidget::shrinkwrapCurve()
 void
 CurvesWidget::setMinCurveLength(int sz)
 {
-  m_dCurves.setShrinkwrapIgnoreSize(sz);
-  m_wCurves.setShrinkwrapIgnoreSize(sz);
-  m_hCurves.setShrinkwrapIgnoreSize(sz);
+  m_Curves.setShrinkwrapIgnoreSize(sz);
+//  m_wCurves.setShrinkwrapIgnoreSize(sz);
+//  m_hCurves.setShrinkwrapIgnoreSize(sz);
 }
 
 void

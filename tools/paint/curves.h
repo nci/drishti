@@ -18,9 +18,13 @@ class Curves : public QWidget
  public :
   Curves(QWidget*, QStatusBar*);
 
+  void setInFocus() { m_curvesWidget->setInFocus(); }
+  bool inFocus() { return m_curvesWidget->inFocus(); }
+  
   void setByteSize(int);
   void setGridSize(int, int, int);
   void setSliceType(int);
+  void resetSliceType();
   int currSlice() { return m_slider->value(); }
   
   void setVolPtr(uchar *);
@@ -62,6 +66,8 @@ class Curves : public QWidget
   void heightUserRange(int&, int&);
 
   void resetCurves();
+
+  void setShowPosition(bool);
   
   void setGradThresholdType(int);
   void setMinGrad(float);
@@ -76,14 +82,17 @@ class Curves : public QWidget
   void morphCurves();
   void deleteAllCurves();
 
-  bool dCurvesPresent();
-  bool wCurvesPresent();
-  bool hCurvesPresent();
+  bool curvesPresent();
+  //bool dCurvesPresent();
+  //bool wCurvesPresent();
+  //bool hCurvesPresent();
   
   void paintUsingCurves(int, int, int, int, uchar*);
 
  signals :
   void changeLayout();
+  void xPos(int);
+  void yPos(int);
 
   void saveWork();
   void viewerUpdate();
@@ -99,15 +108,18 @@ class Curves : public QWidget
 
   void setPropagation(bool);
   void saveMask();
-    
+
+  void gotFocus();
+		 
  public slots :
    void updateTagColors();
-  //void setHLine(int);
-  //void setVLine(int);
+   void setHLine(int);
+   void setVLine(int);
    void setSlice(int);
 
-
+   void releaseFocus();
    void setSliceNumber(int);
+   void updateSliderValue(int slc) { m_slider->updateValue(slc); }
    
    void sliceNumChanged();
    

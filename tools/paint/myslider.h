@@ -15,6 +15,7 @@ class MySlider : public QWidget
   void setRange(int, int);
   void setUserRange(int, int);
   void setValue(int);
+  void updateValue(int);
   
   void paintEvent(QPaintEvent*);
   void resizeEvent(QResizeEvent*);

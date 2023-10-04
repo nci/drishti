@@ -28,12 +28,16 @@ class CurvesWidget : public QWidget
     HSlice
   };
 
+  void setInFocus();
+  bool inFocus() { return m_hasFocus; }
+  
   void saveImage();
 
   void setScrollArea(QScrollArea *sa) { m_scrollArea = sa; }
   
   void setGridSize(int, int, int);
   void setSliceType(int);
+  void resetSliceType();
   int sliceType() { return m_sliceType; }
   void setImage(uchar*, uchar*);
   void setMaskImage(uchar*);
@@ -48,9 +52,10 @@ class CurvesWidget : public QWidget
   void mouseMoveEvent(QMouseEvent*);
   void mouseReleaseEvent(QMouseEvent*);
   void wheelEvent(QWheelEvent*);
+  void focusInEvent(QFocusEvent*);
   void enterEvent(QEvent*);
   void leaveEvent(QEvent*);
-
+  
   void loadLookupTable(QImage);
 
   void depthUserRange(int&, int&);
@@ -65,26 +70,32 @@ class CurvesWidget : public QWidget
 
   QVector3D pickedPoint() { return QVector3D(m_lastPickDepth, m_lastPickWidth, m_lastPickHeight); };
 
-  QMultiMap<int, Curve*>* multiMapCurvesD() { return m_dCurves.multiMapCurves(); };
-  QMultiMap<int, Curve*>* multiMapCurvesW() { return m_wCurves.multiMapCurves(); };
-  QMultiMap<int, Curve*>* multiMapCurvesH() { return m_hCurves.multiMapCurves(); };
+  QMultiMap<int, Curve*>* multiMapCurves() { return m_Curves.multiMapCurves(); };
+  QList< QMap<int, Curve> >* morphedCurves() { return m_Curves.morphedCurves(); };
+  QList< QMultiMap<int, Curve*> >* shrinkwrapCurves() { return m_Curves.shrinkwrapCurves(); };
 
-  QList< QMap<int, Curve> >* morphedCurvesD() { return m_dCurves.morphedCurves(); };
-  QList< QMap<int, Curve> >* morphedCurvesW() { return m_wCurves.morphedCurves(); };
-  QList< QMap<int, Curve> >* morphedCurvesH() { return m_hCurves.morphedCurves(); };
-
-  QList< QMultiMap<int, Curve*> >* shrinkwrapCurvesD() { return m_dCurves.shrinkwrapCurves(); };
-  QList< QMultiMap<int, Curve*> >* shrinkwrapCurvesW() { return m_wCurves.shrinkwrapCurves(); };
-  QList< QMultiMap<int, Curve*> >* shrinkwrapCurvesH() { return m_hCurves.shrinkwrapCurves(); };
+//  QMultiMap<int, Curve*>* multiMapCurvesD() { return m_dCurves.multiMapCurves(); };
+//  QMultiMap<int, Curve*>* multiMapCurvesW() { return m_wCurves.multiMapCurves(); };
+//  QMultiMap<int, Curve*>* multiMapCurvesH() { return m_hCurves.multiMapCurves(); };
+//
+//  QList< QMap<int, Curve> >* morphedCurvesD() { return m_dCurves.morphedCurves(); };
+//  QList< QMap<int, Curve> >* morphedCurvesW() { return m_wCurves.morphedCurves(); };
+//  QList< QMap<int, Curve> >* morphedCurvesH() { return m_hCurves.morphedCurves(); };
+//
+//  QList< QMultiMap<int, Curve*> >* shrinkwrapCurvesD() { return m_dCurves.shrinkwrapCurves(); };
+//  QList< QMultiMap<int, Curve*> >* shrinkwrapCurvesW() { return m_wCurves.shrinkwrapCurves(); };
+//  QList< QMultiMap<int, Curve*> >* shrinkwrapCurvesH() { return m_hCurves.shrinkwrapCurves(); };
 
 
   bool seedMoveMode() { return m_livewire.seedMoveMode(); };
   void deselectAll();
   void propagateCurves(bool);
 
-  bool dCurvesPresent() { return m_dCurves.curvesPresent(); };
-  bool wCurvesPresent() { return m_wCurves.curvesPresent(); };
-  bool hCurvesPresent() { return m_hCurves.curvesPresent(); };
+  bool curvesPresent() { return m_Curves.curvesPresent(); };
+
+  //bool dCurvesPresent() { return m_dCurves.curvesPresent(); };
+  //bool wCurvesPresent() { return m_wCurves.curvesPresent(); };
+  //bool hCurvesPresent() { return m_hCurves.curvesPresent(); };
 
   void resetCurves();
 
@@ -93,8 +104,13 @@ class CurvesWidget : public QWidget
   void setGradThresholdType(int);
   
   void setVolPtr(uchar *vp) {m_volPtr = vp;}
+
+  void setShowPosition(bool);
+  int currentSliceNumber() { return m_currSlice; }
   
  public slots :
+  void setHLine(int);
+  void setVLine(int);
   void updateTagColors();
   void sliceChanged(int);
   void userRangeChanged(int, int);
@@ -130,7 +146,12 @@ class CurvesWidget : public QWidget
   void setSegmentLength(int);
   void showTags(QList<int>);
 
+  void releaseFocus();
+
  signals :
+  void xPos(int);
+  void yPos(int);
+  void gotFocus();
   void saveWork();
   void viewerUpdate();
   void tagDSlice(int, uchar*);
@@ -148,11 +169,14 @@ class CurvesWidget : public QWidget
   void saveMask();
   
  private :
+  bool m_hasFocus;
+  
   QScrollArea *m_scrollArea;
 
   QStatusBar *m_statusBar;
   QScrollBar *m_hbar, *m_vbar;
 
+  int m_maxSlice;
   int m_currSlice;
 
   bool m_livewireMode;
@@ -160,9 +184,11 @@ class CurvesWidget : public QWidget
 
   bool m_addingCurvePoints;
   bool m_curveMode;
-  CurveGroup m_dCurves;
-  CurveGroup m_wCurves;
-  CurveGroup m_hCurves;
+
+  CurveGroup m_Curves;
+//  CurveGroup m_dCurves;
+//  CurveGroup m_wCurves;
+//  CurveGroup m_hCurves;
 
 
   QVector<QRgb> m_tagColors;
@@ -179,6 +205,10 @@ class CurvesWidget : public QWidget
   int m_imgHeight, m_imgWidth;
   int m_simgHeight, m_simgWidth;
   int m_simgX, m_simgY;
+
+  bool m_showPosition;
+  int m_hline;
+  int m_vline;
 
   QImage m_image;
   QImage m_imageScaled;

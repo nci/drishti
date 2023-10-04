@@ -80,116 +80,6 @@ DrishtiPaint::createMeshViewerSocket()
   m_meshViewerSocket = new QUdpSocket(this);
 }
 
-QSplitter*
-DrishtiPaint::createImageWindows()
-{
-  m_axialFrame = new QFrame();
-  m_sagitalFrame = new QFrame();
-  m_coronalFrame = new QFrame();
-
-  m_axialFrame->setFrameShape(QFrame::Box);
-  m_sagitalFrame->setFrameShape(QFrame::Box);
-  m_coronalFrame->setFrameShape(QFrame::Box);
-
-  QSplitter *splitter_0;
-
-  splitter_0 = new QSplitter();
-  splitter_0->setOrientation(Qt::Horizontal);
-
-  m_splitterOne = new QSplitter();
-  m_splitterTwo = new QSplitter();
-
-  m_splitterOne->setOrientation(Qt::Vertical);
-  m_splitterTwo->setOrientation(Qt::Vertical);
-
-  m_splitterOne->addWidget(m_axialFrame);
-  m_splitterOne->addWidget(m_viewer3D);
-
-  m_splitterTwo->addWidget(m_sagitalFrame);
-  m_splitterTwo->addWidget(m_coronalFrame);
-
-  splitter_0->addWidget(m_splitterOne);
-  splitter_0->addWidget(m_splitterTwo);
-
-  QList<int> ssz;
-  ssz << 150;
-  ssz << 150;
-  splitter_0->setSizes(ssz);
-  m_splitterOne->setSizes(ssz);
-  m_splitterTwo->setSizes(ssz);
-
-  m_axialImage = new Slices(this);
-  m_axialImage->setSliceType(ImageWidget::DSlice);
-
-  m_sagitalImage = new Slices(this);
-  m_sagitalImage->setSliceType(ImageWidget::WSlice);
-
-  m_coronalImage = new Slices(this);
-  m_coronalImage->setSliceType(ImageWidget::HSlice);
-
-  {
-    QVBoxLayout *layout = new QVBoxLayout();
-    m_axialFrame->setLayout(layout);
-    m_axialFrame->layout()->addWidget(m_axialImage);
-  }
-  {
-    QVBoxLayout *layout = new QVBoxLayout();
-    m_sagitalFrame->setLayout(layout);
-    m_sagitalFrame->layout()->addWidget(m_sagitalImage);
-  }
-  {
-    QVBoxLayout *layout = new QVBoxLayout();
-    m_coronalFrame->setLayout(layout);
-    m_coronalFrame->layout()->addWidget(m_coronalImage);
-  }
-
-  connect(m_axialImage, SIGNAL(changeLayout()),
-	  this, SLOT(on_actionZ_triggered()));
-  connect(m_sagitalImage, SIGNAL(changeLayout()),
-	  this, SLOT(on_actionY_triggered()));
-  connect(m_coronalImage, SIGNAL(changeLayout()),
-	  this, SLOT(on_actionX_triggered()));
-
-  connect(m_axialImage, SIGNAL(sliceChanged(int)),
-	  m_sagitalImage, SLOT(setVLine(int)));
-  connect(m_axialImage, SIGNAL(sliceChanged(int)),
-	  m_coronalImage, SLOT(setVLine(int)));
-
-  connect(m_sagitalImage, SIGNAL(sliceChanged(int)),
-	  m_axialImage, SLOT(setVLine(int)));
-  connect(m_sagitalImage, SIGNAL(sliceChanged(int)),
-	  m_coronalImage, SLOT(setHLine(int)));
-
-  connect(m_coronalImage, SIGNAL(sliceChanged(int)),
-	  m_axialImage, SLOT(setHLine(int)));
-  connect(m_coronalImage, SIGNAL(sliceChanged(int)),
-	  m_sagitalImage, SLOT(setHLine(int)));
-
-  connect(m_axialImage, SIGNAL(xPos(int)),
-	  m_coronalImage, SLOT(setSlice(int)));
-  connect(m_axialImage, SIGNAL(yPos(int)),
-	  m_sagitalImage, SLOT(setSlice(int)));
-
-  connect(m_sagitalImage, SIGNAL(xPos(int)),
-	  m_coronalImage, SLOT(setSlice(int)));
-  connect(m_sagitalImage, SIGNAL(yPos(int)),
-	  m_axialImage, SLOT(setSlice(int)));
-
-  connect(m_coronalImage, SIGNAL(xPos(int)),
-	  m_sagitalImage, SLOT(setSlice(int)));
-  connect(m_coronalImage, SIGNAL(yPos(int)),
-	  m_axialImage, SLOT(setSlice(int)));
-
-  
-  connect(m_axialImage, SIGNAL(sliceChanged(int)),
-	  m_viewer, SLOT(setDSlice(int)));
-  connect(m_sagitalImage, SIGNAL(sliceChanged(int)),
-	  m_viewer, SLOT(setWSlice(int)));
-  connect(m_coronalImage, SIGNAL(sliceChanged(int)),
-	  m_viewer, SLOT(setHSlice(int)));
-
-  return splitter_0;
-}
 
 void
 DrishtiPaint::changeImageSlice(int d, int w, int h)
@@ -406,9 +296,10 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 
   m_volume = new Volume();
 
-  m_curves = new Curves(this, ui.statusbar);
+  //m_curves = new Curves(this, ui.statusbar);
 
   m_graphCutArea = createImageWindows();
+  m_curvesArea = createCurveWindows();
 
   
   QVBoxLayout *layout1 = new QVBoxLayout();
@@ -416,7 +307,7 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   ui.imageFrame->setLayout(layout1);
   ui.imageFrame->layout()->addWidget(m_graphCutArea);
 
-  ui.imageFrame->layout()->addWidget(m_curves);
+  ui.imageFrame->layout()->addWidget(m_curvesArea);
 
 
   ui.menuView->addAction(dock1->toggleViewAction());
@@ -464,7 +355,9 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   m_sagitalImage->updateTagColors();
   m_coronalImage->updateTagColors();
 
-  m_curves->updateTagColors();
+  m_axialCurves->updateTagColors();
+  m_sagitalCurves->updateTagColors();
+  m_coronalCurves->updateTagColors();
 
   setGeometry(100, 100, 700, 700);
 
@@ -498,6 +391,430 @@ DrishtiPaint::on_help_clicked()
       ShowHelp::showGraphCutHelp();
       return;
     }
+}
+
+//------------------
+//------------------
+QSplitter*
+DrishtiPaint::createCurveWindows()
+{
+  m_axialFrameC = new QFrame();
+  m_sagitalFrameC = new QFrame();
+  m_coronalFrameC = new QFrame();
+
+  m_axialFrameC->setFrameShape(QFrame::Box);
+  m_sagitalFrameC->setFrameShape(QFrame::Box);
+  m_coronalFrameC->setFrameShape(QFrame::Box);
+
+  QSplitter *splitter_0;
+
+  splitter_0 = new QSplitter();
+  splitter_0->setOrientation(Qt::Horizontal);
+
+  m_splitterOneC = new QSplitter();
+  m_splitterTwoC = new QSplitter();
+
+  m_splitterOneC->setOrientation(Qt::Vertical);
+  m_splitterTwoC->setOrientation(Qt::Vertical);
+
+  m_splitterOneC->addWidget(m_axialFrameC);
+  //m_splitterOneC->addWidget(m_viewer3D);
+
+  m_splitterTwoC->addWidget(m_sagitalFrameC);
+  m_splitterTwoC->addWidget(m_coronalFrameC);
+
+  splitter_0->addWidget(m_splitterOneC);
+  splitter_0->addWidget(m_splitterTwoC);
+
+  QList<int> ssz;
+  ssz << 150;
+  ssz << 150;
+  splitter_0->setSizes(ssz);
+  m_splitterOneC->setSizes(ssz);
+  m_splitterTwoC->setSizes(ssz);
+
+  m_axialCurves = new Curves(this, ui.statusbar);
+  m_axialCurves->setSliceType(ImageWidget::DSlice);
+
+  m_sagitalCurves = new Curves(this, ui.statusbar);
+  m_sagitalCurves->setSliceType(ImageWidget::WSlice);
+
+  m_coronalCurves = new Curves(this, ui.statusbar);
+  m_coronalCurves->setSliceType(ImageWidget::HSlice);
+
+  {
+    QVBoxLayout *layout = new QVBoxLayout();
+    m_axialFrameC->setLayout(layout);
+    m_axialFrameC->layout()->addWidget(m_axialCurves);
+  }
+  {
+    QVBoxLayout *layout = new QVBoxLayout();
+    m_sagitalFrameC->setLayout(layout);
+    m_sagitalFrameC->layout()->addWidget(m_sagitalCurves);
+  }
+  {
+    QVBoxLayout *layout = new QVBoxLayout();
+    m_coronalFrameC->setLayout(layout);
+    m_coronalFrameC->layout()->addWidget(m_coronalCurves);
+  }
+
+  connect(m_axialCurves,  SIGNAL(changeLayout()), this, SLOT(axialCurvesLayout_triggered()));
+  connect(m_sagitalCurves,SIGNAL(changeLayout()), this, SLOT(sagitalCurvesLayout_triggered()));
+  connect(m_coronalCurves,SIGNAL(changeLayout()), this, SLOT(coronalCurvesLayout_triggered()));
+
+  connect(m_axialCurves, SIGNAL(getSlice(int)), m_sagitalCurves, SLOT(setVLine(int)));
+  connect(m_axialCurves, SIGNAL(getSlice(int)), m_coronalCurves, SLOT(setVLine(int)));
+  connect(m_axialCurves, SIGNAL(xPos(int)), m_coronalCurves, SLOT(updateSliderValue(int)));
+  connect(m_axialCurves, SIGNAL(yPos(int)), m_sagitalCurves, SLOT(updateSliderValue(int)));
+
+  connect(m_sagitalCurves, SIGNAL(getSlice(int)), m_axialCurves, SLOT(setVLine(int)));
+  connect(m_sagitalCurves, SIGNAL(getSlice(int)), m_coronalCurves, SLOT(setHLine(int)));
+  connect(m_sagitalCurves, SIGNAL(xPos(int)), m_coronalCurves, SLOT(updateSliderValue(int)));
+  connect(m_sagitalCurves, SIGNAL(yPos(int)), m_axialCurves, SLOT(updateSliderValue(int)));
+
+  connect(m_coronalCurves, SIGNAL(getSlice(int)), m_axialCurves, SLOT(setHLine(int)));
+  connect(m_coronalCurves, SIGNAL(getSlice(int)), m_sagitalCurves, SLOT(setHLine(int)));
+  connect(m_coronalCurves, SIGNAL(xPos(int)), m_sagitalCurves, SLOT(updateSliderValue(int)));
+  connect(m_coronalCurves, SIGNAL(yPos(int)), m_axialCurves, SLOT(updateSliderValue(int)));
+
+  
+  connect(m_axialCurves,  SIGNAL(getSlice(int)), m_viewer, SLOT(setDSlice(int)));
+  connect(m_sagitalCurves,SIGNAL(getSlice(int)), m_viewer, SLOT(setWSlice(int)));
+  connect(m_coronalCurves,SIGNAL(getSlice(int)), m_viewer, SLOT(setHSlice(int)));
+
+  return splitter_0;
+}
+
+void
+DrishtiPaint::on_actionCurves_triggered()
+{
+  QString hss;
+  hss += "QToolButton { border-width:5; border-style:solid; border-radius:25px;";
+  hss += "color:#0077dd; }";
+  ui.help->setStyleSheet(hss);
+
+  m_graphCutArea->hide();
+  m_curvesArea->show();
+  
+  m_curvesMenu->show();
+  m_graphcutMenu->hide();
+  ui.spreadframe->hide();
+
+  ui.actionCurves->setChecked(true);
+  ui.actionGraphCut->setChecked(false);
+
+  m_axialCurves->setCurve(true);
+  m_sagitalCurves->setCurve(true);
+  m_coronalCurves->setCurve(true);
+ 
+  if (m_volume->isValid())
+    {
+      curvesUi.livewire->setChecked(false);
+      m_axialCurves->setLivewire(false);
+      m_sagitalCurves->setLivewire(false);
+      m_coronalCurves->setLivewire(false);
+    }
+  
+  defaultCurvesLayout_triggered();
+}
+
+void
+DrishtiPaint::defaultCurvesLayout_triggered()
+{
+  m_viewer->stopDrawing();
+    
+  m_viewer3D->setLarge(false);
+  m_axialCurves->setLarge(false);
+  m_sagitalCurves->setLarge(false);
+  m_coronalCurves->setLarge(false);
+
+  m_splitterOneC->addWidget(m_axialFrameC); //Z
+  m_splitterOneC->addWidget(m_viewer3D);
+
+  m_splitterTwoC->addWidget(m_sagitalFrameC); // Y
+  m_splitterTwoC->addWidget(m_coronalFrameC); // X
+
+  QList<int> ssz;
+  ssz << 150;
+  ssz << 150;
+  m_splitterOneC->setSizes(ssz);
+  m_splitterTwoC->setSizes(ssz);
+
+  QList<int> gcas;
+  gcas << 1000 << 1000;
+  m_curvesArea->setSizes(gcas);
+
+  m_axialCurves->zoomToSelection();
+  m_sagitalCurves->zoomToSelection();
+  m_coronalCurves->zoomToSelection();
+  
+  QTimer::singleShot(200, m_viewer, SLOT(startDrawing()));
+}
+void
+DrishtiPaint::axialCurvesLayout_triggered()
+{
+  if (m_axialCurves->enlarged())
+    {
+      defaultCurvesLayout_triggered();
+      return;
+    }
+
+  m_viewer->stopDrawing();
+    
+  m_axialCurves->setLarge(true);  
+  m_sagitalCurves->setLarge(false);
+  m_coronalCurves->setLarge(false);
+  m_viewer3D->setLarge(false);
+
+  m_splitterOneC->addWidget(m_axialFrameC);
+
+  m_splitterTwoC->addWidget(m_sagitalFrameC);
+  m_splitterTwoC->addWidget(m_coronalFrameC);
+  m_splitterTwoC->addWidget(m_viewer3D);
+
+  QList<int> ssz;
+  ssz << 150;
+  ssz << 150;
+  ssz << 150;
+  m_splitterTwoC->setSizes(ssz);
+
+  QList<int> gcas;
+  gcas << 1000 << 200;
+  m_curvesArea->setSizes(gcas);
+
+  m_axialCurves->zoomToSelection();
+  m_sagitalCurves->zoomToSelection();
+  m_coronalCurves->zoomToSelection();
+
+  //QTimer::singleShot(200, m_viewer, SLOT(startDrawing()));
+}
+void
+DrishtiPaint::sagitalCurvesLayout_triggered()
+{
+  if (m_sagitalCurves->enlarged())
+    {
+      defaultCurvesLayout_triggered();
+      return;
+    }
+
+  m_viewer->stopDrawing();
+    
+  m_axialCurves->setLarge(false);
+  m_sagitalCurves->setLarge(true);
+  m_coronalCurves->setLarge(false);
+  m_viewer3D->setLarge(false);
+
+  m_splitterOneC->addWidget(m_sagitalFrameC);
+
+  m_splitterTwoC->addWidget(m_axialFrameC);
+  m_splitterTwoC->addWidget(m_coronalFrameC);
+  m_splitterTwoC->addWidget(m_viewer3D);
+
+  QList<int> ssz;
+  ssz << 150;
+  ssz << 150;
+  ssz << 150;
+  m_splitterTwoC->setSizes(ssz);
+
+  QList<int> gcas;
+  gcas << 1000 << 200;
+  m_curvesArea->setSizes(gcas);
+
+  m_axialCurves->zoomToSelection();
+  m_sagitalCurves->zoomToSelection();
+  m_coronalCurves->zoomToSelection();
+
+  //QTimer::singleShot(200, m_viewer, SLOT(startDrawing()));
+}
+void
+DrishtiPaint::coronalCurvesLayout_triggered()
+{
+  if (m_coronalCurves->enlarged())
+    {
+      defaultCurvesLayout_triggered();
+      return;
+    }
+
+  m_viewer->stopDrawing();
+    
+  m_axialCurves->setLarge(false);
+  m_sagitalCurves->setLarge(false);
+  m_coronalCurves->setLarge(true);
+  m_viewer3D->setLarge(false);
+
+  m_splitterOneC->addWidget(m_coronalFrameC);
+
+  m_splitterTwoC->addWidget(m_axialFrameC);
+  m_splitterTwoC->addWidget(m_sagitalFrameC);
+  m_splitterTwoC->addWidget(m_viewer3D);
+
+  QList<int> ssz;
+  ssz << 150;
+  ssz << 150;
+  ssz << 150;
+  m_splitterTwoC->setSizes(ssz);
+
+  QList<int> gcas;
+  gcas << 1000 << 200;
+  m_curvesArea->setSizes(gcas);
+
+  m_axialCurves->zoomToSelection();
+  m_sagitalCurves->zoomToSelection();
+  m_coronalCurves->zoomToSelection();
+
+  //QTimer::singleShot(200, m_viewer, SLOT(startDrawing()));
+}
+//------------------
+//------------------
+
+
+//------------------
+//------------------
+QSplitter*
+DrishtiPaint::createImageWindows()
+{
+  m_axialFrame = new QFrame();
+  m_sagitalFrame = new QFrame();
+  m_coronalFrame = new QFrame();
+
+  m_axialFrame->setFrameShape(QFrame::Box);
+  m_sagitalFrame->setFrameShape(QFrame::Box);
+  m_coronalFrame->setFrameShape(QFrame::Box);
+
+  QSplitter *splitter_0;
+
+  splitter_0 = new QSplitter();
+  splitter_0->setOrientation(Qt::Horizontal);
+
+  m_splitterOne = new QSplitter();
+  m_splitterTwo = new QSplitter();
+
+  m_splitterOne->setOrientation(Qt::Vertical);
+  m_splitterTwo->setOrientation(Qt::Vertical);
+
+  m_splitterOne->addWidget(m_axialFrame);
+  m_splitterOne->addWidget(m_viewer3D);
+
+  m_splitterTwo->addWidget(m_sagitalFrame);
+  m_splitterTwo->addWidget(m_coronalFrame);
+
+  splitter_0->addWidget(m_splitterOne);
+  splitter_0->addWidget(m_splitterTwo);
+
+  QList<int> ssz;
+  ssz << 150;
+  ssz << 150;
+  splitter_0->setSizes(ssz);
+  m_splitterOne->setSizes(ssz);
+  m_splitterTwo->setSizes(ssz);
+
+  m_axialImage = new Slices(this);
+  m_axialImage->setSliceType(ImageWidget::DSlice);
+
+  m_sagitalImage = new Slices(this);
+  m_sagitalImage->setSliceType(ImageWidget::WSlice);
+
+  m_coronalImage = new Slices(this);
+  m_coronalImage->setSliceType(ImageWidget::HSlice);
+
+  {
+    QVBoxLayout *layout = new QVBoxLayout();
+    m_axialFrame->setLayout(layout);
+    m_axialFrame->layout()->addWidget(m_axialImage);
+  }
+  {
+    QVBoxLayout *layout = new QVBoxLayout();
+    m_sagitalFrame->setLayout(layout);
+    m_sagitalFrame->layout()->addWidget(m_sagitalImage);
+  }
+  {
+    QVBoxLayout *layout = new QVBoxLayout();
+    m_coronalFrame->setLayout(layout);
+    m_coronalFrame->layout()->addWidget(m_coronalImage);
+  }
+
+  connect(m_axialImage, SIGNAL(changeLayout()),
+	  this, SLOT(on_actionZ_triggered()));
+  connect(m_sagitalImage, SIGNAL(changeLayout()),
+	  this, SLOT(on_actionY_triggered()));
+  connect(m_coronalImage, SIGNAL(changeLayout()),
+	  this, SLOT(on_actionX_triggered()));
+
+  connect(m_axialImage, SIGNAL(sliceChanged(int)),
+	  m_sagitalImage, SLOT(setVLine(int)));
+  connect(m_axialImage, SIGNAL(sliceChanged(int)),
+	  m_coronalImage, SLOT(setVLine(int)));
+
+  connect(m_sagitalImage, SIGNAL(sliceChanged(int)),
+	  m_axialImage, SLOT(setVLine(int)));
+  connect(m_sagitalImage, SIGNAL(sliceChanged(int)),
+	  m_coronalImage, SLOT(setHLine(int)));
+
+  connect(m_coronalImage, SIGNAL(sliceChanged(int)),
+	  m_axialImage, SLOT(setHLine(int)));
+  connect(m_coronalImage, SIGNAL(sliceChanged(int)),
+	  m_sagitalImage, SLOT(setHLine(int)));
+
+  connect(m_axialImage, SIGNAL(xPos(int)),
+	  m_coronalImage, SLOT(setSlice(int)));
+  connect(m_axialImage, SIGNAL(yPos(int)),
+	  m_sagitalImage, SLOT(setSlice(int)));
+
+  connect(m_sagitalImage, SIGNAL(xPos(int)),
+	  m_coronalImage, SLOT(setSlice(int)));
+  connect(m_sagitalImage, SIGNAL(yPos(int)),
+	  m_axialImage, SLOT(setSlice(int)));
+
+  connect(m_coronalImage, SIGNAL(xPos(int)),
+	  m_sagitalImage, SLOT(setSlice(int)));
+  connect(m_coronalImage, SIGNAL(yPos(int)),
+	  m_axialImage, SLOT(setSlice(int)));
+
+  
+  connect(m_axialImage, SIGNAL(sliceChanged(int)),
+	  m_viewer, SLOT(setDSlice(int)));
+  connect(m_sagitalImage, SIGNAL(sliceChanged(int)),
+	  m_viewer, SLOT(setWSlice(int)));
+  connect(m_coronalImage, SIGNAL(sliceChanged(int)),
+	  m_viewer, SLOT(setHSlice(int)));
+
+  return splitter_0;
+}
+
+void
+DrishtiPaint::on_actionGraphCut_triggered()
+{
+  QString hss;
+  hss += "QToolButton { border-width:5; border-style:solid; border-radius:25px;";
+  hss += "color:#00aa55; }";
+  ui.help->setStyleSheet(hss);
+
+  m_graphCutArea->show();
+  m_curvesArea->hide();
+
+  m_curvesMenu->hide();
+  m_graphcutMenu->show();
+  ui.spreadframe->show();
+
+  ui.actionGraphCut->setChecked(true);  
+  ui.actionCurves->setChecked(false);
+
+  m_axialImage->setModeType(0);
+  m_sagitalImage->setModeType(0);
+  m_coronalImage->setModeType(0);
+
+  m_axialCurves->setCurve(false);
+  m_sagitalCurves->setCurve(false);
+  m_coronalCurves->setCurve(false);
+  curvesUi.livewire->setChecked(false);
+  curvesUi.modify->setChecked(false);
+  curvesUi.propagate->setChecked(false);
+
+  m_axialCurves->freezeModifyUsingLivewire();
+  m_sagitalCurves->freezeModifyUsingLivewire();
+  m_coronalCurves->freezeModifyUsingLivewire();
+
+  on_actionDefaultView_triggered();
 }
 
 void
@@ -649,40 +966,74 @@ DrishtiPaint::on_actionX_triggered()
 void
 DrishtiPaint::on_action3dView_triggered()
 {
-  if (m_viewer3D->enlarged())
-    {
-      on_actionDefaultView_triggered();
-      return;
-    }
 
   m_viewer->stopDrawing();
     
-  m_axialImage->setLarge(false);
-  m_sagitalImage->setLarge(false);
-  m_coronalImage->setLarge(false);
-  m_viewer3D->setLarge(true);
-
-  m_splitterOne->addWidget(m_viewer3D);
-  m_splitterTwo->addWidget(m_axialFrame);
-  m_splitterTwo->addWidget(m_sagitalFrame);
-  m_splitterTwo->addWidget(m_coronalFrame);
-
   QList<int> ssz;
   ssz << 150;
   ssz << 150;
   ssz << 150;
-  m_splitterTwo->setSizes(ssz);
 
   QList<int> gcas;
   gcas << 1000 << 200;
-  m_graphCutArea->setSizes(gcas);
 
-  QTimer::singleShot(200, m_axialImage, SLOT(zoomToSelection()));
-  QTimer::singleShot(200, m_sagitalImage, SLOT(zoomToSelection()));
-  QTimer::singleShot(200, m_coronalImage, SLOT(zoomToSelection()));
+  if (m_curvesMenu->isVisible())
+    {
+      if (m_viewer3D->enlarged())
+	{
+	  defaultCurvesLayout_triggered();
+	  return;
+	}
+
+      m_axialCurves->setLarge(false);
+      m_sagitalCurves->setLarge(false);
+      m_coronalCurves->setLarge(false);
+      m_viewer3D->setLarge(true);
+
+      m_splitterOneC->addWidget(m_viewer3D);
+      m_splitterTwoC->addWidget(m_axialFrameC);
+      m_splitterTwoC->addWidget(m_sagitalFrameC);
+      m_splitterTwoC->addWidget(m_coronalFrameC);
+
+      m_splitterTwoC->setSizes(ssz);
+      m_curvesArea->setSizes(gcas);
+
+      QTimer::singleShot(200, m_axialCurves, SLOT(zoomToSelection()));
+      QTimer::singleShot(200, m_sagitalCurves, SLOT(zoomToSelection()));
+      QTimer::singleShot(200, m_coronalCurves, SLOT(zoomToSelection()));
+    }
+  
+  if (m_graphcutMenu->isVisible())
+    {
+      if (m_viewer3D->enlarged())
+	{
+	  on_actionDefaultView_triggered();
+	  return;
+	}
+
+      m_axialImage->setLarge(false);
+      m_sagitalImage->setLarge(false);
+      m_coronalImage->setLarge(false);
+      m_viewer3D->setLarge(true);
+
+      m_splitterOne->addWidget(m_viewer3D);
+      m_splitterTwo->addWidget(m_axialFrame);
+      m_splitterTwo->addWidget(m_sagitalFrame);
+      m_splitterTwo->addWidget(m_coronalFrame);
+
+      m_splitterTwo->setSizes(ssz);
+      m_graphCutArea->setSizes(gcas);
+
+      QTimer::singleShot(200, m_axialImage, SLOT(zoomToSelection()));
+      QTimer::singleShot(200, m_sagitalImage, SLOT(zoomToSelection()));
+      QTimer::singleShot(200, m_coronalImage, SLOT(zoomToSelection()));
+    }
+  
 
   QTimer::singleShot(200, m_viewer, SLOT(startDrawing()));
 }
+//------------------
+//------------------
 
 void
 DrishtiPaint::on_actionPort_triggered()
@@ -800,8 +1151,10 @@ DrishtiPaint::on_saveWork_triggered()
     {
       QString curvesfile = m_pvlFile;
       curvesfile.replace(".pvl.nc", ".curves");
-      m_curves->saveCurves(curvesfile);
-
+      m_axialCurves->saveCurves(curvesfile);
+      m_sagitalCurves->saveCurves(curvesfile);
+      m_coronalCurves->saveCurves(curvesfile);
+      
       m_volume->saveIntermediateResults(true);
 
       QMessageBox::information(0, "Save Work", "Saved");
@@ -814,74 +1167,12 @@ DrishtiPaint::saveWork()
     {
       QString curvesfile = m_pvlFile;
       curvesfile.replace(".pvl.nc", ".curves");
-      m_curves->saveCurves(curvesfile);
+      m_axialCurves->saveCurves(curvesfile);
+      m_sagitalCurves->saveCurves(curvesfile);
+      m_coronalCurves->saveCurves(curvesfile);
       
       m_volume->saveIntermediateResults();
     }
-}
-
-
-void
-DrishtiPaint::on_actionCurves_triggered()
-{
-  QString hss;
-  hss += "QToolButton { border-width:5; border-style:solid; border-radius:25px;";
-  hss += "color:#0077dd; }";
-  ui.help->setStyleSheet(hss);
-
-  m_graphCutArea->hide();
-  m_curves->show();
-  
-  ui.buttonBox->show();
-  ui.sizeSel->show();
-
-  m_curvesMenu->show();
-  m_graphcutMenu->hide();
-  ui.spreadframe->hide();
-
-  ui.actionCurves->setChecked(true);
-  ui.actionGraphCut->setChecked(false);
-
-  m_curves->setCurve(true);
- 
-  if (m_volume->isValid())
-    {
-      curvesUi.livewire->setChecked(false);
-      m_curves->setLivewire(false);
-    }
-}
-
-void
-DrishtiPaint::on_actionGraphCut_triggered()
-{
-  QString hss;
-  hss += "QToolButton { border-width:5; border-style:solid; border-radius:25px;";
-  hss += "color:#00aa55; }";
-  ui.help->setStyleSheet(hss);
-
-  m_graphCutArea->show();
-  m_curves->hide();
-
-  ui.buttonBox->hide();
-  ui.sizeSel->hide();
-
-  m_curvesMenu->hide();
-  m_graphcutMenu->show();
-  ui.spreadframe->show();
-
-  ui.actionGraphCut->setChecked(true);  
-  ui.actionCurves->setChecked(false);
-
-  m_axialImage->setModeType(0);
-  m_sagitalImage->setModeType(0);
-  m_coronalImage->setModeType(0);
-
-  m_curves->setCurve(false);
-  curvesUi.livewire->setChecked(false);
-  curvesUi.modify->setChecked(false);
-  curvesUi.propagate->setChecked(false);
-
-  m_curves->freezeModifyUsingLivewire();
 }
 
 
@@ -916,45 +1207,63 @@ DrishtiPaint::updateSliceBounds(Vec bmin, Vec bmax)
   m_sagitalImage->setBox(minD, maxD, minW, maxW, minH, maxH);
   m_coronalImage->setBox(minD, maxD, minW, maxW, minH, maxH);
 
-  m_curves->setBox(minD, maxD, minW, maxW, minH, maxH);
-
-  if (ui.butZ->isChecked()) on_butZ_clicked();
-  else if (ui.butY->isChecked()) on_butY_clicked();
-  else if (ui.butX->isChecked()) on_butX_clicked();
+  m_axialCurves->setBox(minD, maxD, minW, maxW, minH, maxH);
+  m_sagitalCurves->setBox(minD, maxD, minW, maxW, minH, maxH);
+  m_coronalCurves->setBox(minD, maxD, minW, maxW, minH, maxH);
 }
 
+//---------------------//---------------------
+//---------------------//---------------------
 void
-DrishtiPaint::getSliceC(int slc)
+DrishtiPaint::getAxialSlice(int slc)
 {
   m_currSlice = slc;
 
-  //m_slider->setValue(slc);
-  m_curves->setSliderValue(slc);
+  m_axialCurves->setSliderValue(slc);
 
   uchar *slice;
   uchar *maskslice;
 
-  if (ui.butZ->isChecked())
-    {
-      slice = m_volume->getDepthSliceImage(m_currSlice);
-      maskslice = m_volume->getMaskDepthSliceImage(m_currSlice);
-      m_viewer->updateCurrSlice(0, m_currSlice);  
-    }
-  else if (ui.butY->isChecked())
-    {
-      slice = m_volume->getWidthSliceImage(m_currSlice); 
-      maskslice = m_volume->getMaskWidthSliceImage(m_currSlice);
-      m_viewer->updateCurrSlice(1, m_currSlice);  
-    }
-  else if (ui.butX->isChecked())
-    {
-      slice = m_volume->getHeightSliceImage(m_currSlice); 
-      maskslice = m_volume->getMaskHeightSliceImage(m_currSlice);
-      m_viewer->updateCurrSlice(2, m_currSlice);  
-    }
+  slice = m_volume->getDepthSliceImage(m_currSlice);
+  maskslice = m_volume->getMaskDepthSliceImage(m_currSlice);
+  m_viewer->updateCurrSlice(0, m_currSlice);  
 
-  m_curves->setImage(slice, maskslice);
+  m_axialCurves->setImage(slice, maskslice);
 }
+void
+DrishtiPaint::getSagitalSlice(int slc)
+{
+  m_currSlice = slc;
+
+  m_sagitalCurves->setSliderValue(slc);
+
+  uchar *slice;
+  uchar *maskslice;
+
+  slice = m_volume->getWidthSliceImage(m_currSlice); 
+  maskslice = m_volume->getMaskWidthSliceImage(m_currSlice);
+  m_viewer->updateCurrSlice(1, m_currSlice);  
+
+  m_sagitalCurves->setImage(slice, maskslice);
+}
+void
+DrishtiPaint::getCoronalSlice(int slc)
+{
+  m_currSlice = slc;
+
+  m_coronalCurves->setSliderValue(slc);
+
+  uchar *slice;
+  uchar *maskslice;
+
+  slice = m_volume->getHeightSliceImage(m_currSlice); 
+  maskslice = m_volume->getMaskHeightSliceImage(m_currSlice);
+  m_viewer->updateCurrSlice(2, m_currSlice);  
+
+  m_coronalCurves->setImage(slice, maskslice);
+}
+//---------------------//---------------------
+//---------------------//---------------------
 
 void
 DrishtiPaint::getSlice(int slc)
@@ -963,27 +1272,29 @@ DrishtiPaint::getSlice(int slc)
   m_sagitalImage->reloadSlice();
   m_coronalImage->reloadSlice();
 
-  m_curves->sliceChanged();
+  m_axialCurves->sliceChanged();
+  m_sagitalCurves->sliceChanged();
+  m_coronalCurves->sliceChanged();
 }
 
 void
 DrishtiPaint::getMaskSlice(int slc)
 {
-  m_currSlice = slc;
-
-  //m_slider->setValue(slc);
-  m_curves->setSliderValue(slc);
-
-  uchar *maskslice;
-
-  if (ui.butZ->isChecked())
-    maskslice = m_volume->getMaskDepthSliceImage(m_currSlice);
-  else if (ui.butY->isChecked())
-    maskslice = m_volume->getMaskWidthSliceImage(m_currSlice);
-  else if (ui.butX->isChecked())
-    maskslice = m_volume->getMaskHeightSliceImage(m_currSlice);
-
-  m_curves->setMaskImage(maskslice);
+//  m_currSlice = slc;
+//
+//  //m_slider->setValue(slc);
+//  m_curves->setSliderValue(slc);
+//
+//  uchar *maskslice;
+//
+//  if (ui.butZ->isChecked())
+//    maskslice = m_volume->getMaskDepthSliceImage(m_currSlice);
+//  else if (ui.butY->isChecked())
+//    maskslice = m_volume->getMaskWidthSliceImage(m_currSlice);
+//  else if (ui.butX->isChecked())
+//    maskslice = m_volume->getMaskHeightSliceImage(m_currSlice);
+//
+//  m_curves->setMaskImage(maskslice);
 }
 
 void
@@ -998,7 +1309,9 @@ DrishtiPaint::tagSelected(int t, bool checkBoxClicked)
       
   if (checkBoxClicked)
     {
-      m_curves->updateTagColors();
+      m_axialCurves->updateTagColors();
+      m_sagitalCurves->updateTagColors();
+      m_coronalCurves->updateTagColors();
 
       m_viewer->updateFilledBoxes();
     }
@@ -1008,10 +1321,15 @@ void
 DrishtiPaint::gradType_Changed(int t)
 {
   m_viewer->setGradType(t);
+
   m_axialImage->setGradType(t);
   m_sagitalImage->setGradType(t);
   m_coronalImage->setGradType(t);
-  m_curves->setGradThresholdType(t);
+
+  m_axialCurves->setGradThresholdType(t);
+  m_sagitalCurves->setGradThresholdType(t);
+  m_coronalCurves->setGradThresholdType(t);
+
   m_viewer->update();  
 }
 
@@ -1023,10 +1341,15 @@ DrishtiPaint::minGrad_valueChanged(int t)
       m_maxGrad->setValue(t);
     }
   m_viewer->setMinGrad(t*0.01);
+
   m_axialImage->setMinGrad(t*0.01);
   m_sagitalImage->setMinGrad(t*0.01);
   m_coronalImage->setMinGrad(t*0.01);
-  m_curves->setMinGrad(t*0.01);
+
+  m_axialCurves->setMinGrad(t*0.01);
+  m_sagitalCurves->setMinGrad(t*0.01);
+  m_coronalCurves->setMinGrad(t*0.01);
+
   m_viewer->update();
 }
 void
@@ -1037,10 +1360,15 @@ DrishtiPaint::maxGrad_valueChanged(int t)
       m_minGrad->setValue(t);
     }
   m_viewer->setMaxGrad(t*0.01);
+
   m_axialImage->setMaxGrad(t*0.01);
   m_sagitalImage->setMaxGrad(t*0.01);
   m_coronalImage->setMaxGrad(t*0.01);
-  m_curves->setMaxGrad(t*0.01);
+
+  m_axialCurves->setMaxGrad(t*0.01);
+  m_sagitalCurves->setMaxGrad(t*0.01);
+  m_coronalCurves->setMaxGrad(t*0.01);
+
   m_viewer->update();
 }
 
@@ -1058,9 +1386,16 @@ DrishtiPaint::on_tag_valueChanged(int t)
   m_sagitalImage->processPrevSliceTags();
   m_coronalImage->processPrevSliceTags();
 
-  m_curves->processPrevSliceTags();
+  m_axialCurves->processPrevSliceTags();
+  m_sagitalCurves->processPrevSliceTags();
+  m_coronalCurves->processPrevSliceTags();
 }
-void DrishtiPaint::sliceLod_currentIndexChanged(int l) { m_curves->setSliceLOD(l+1); }
+void DrishtiPaint::sliceLod_currentIndexChanged(int l)
+{
+  m_axialCurves->setSliceLOD(l+1);
+  m_sagitalCurves->setSliceLOD(l+1);
+  m_coronalCurves->setSliceLOD(l+1);
+}
 void DrishtiPaint::boxSize_valueChanged(int d) { Global::setBoxSize(d); }
 void DrishtiPaint::lambda_valueChanged(int d) { Global::setLambda(d); }
 void DrishtiPaint::smooth_valueChanged(int d) { Global::setSmooth(d); }
@@ -1072,18 +1407,53 @@ void DrishtiPaint::on_radius_valueChanged(int d)
   m_sagitalImage->update();
   m_coronalImage->update();
 }
-void DrishtiPaint::pointsize_valueChanged(int d) { m_curves->setPointSize(d); }
-void DrishtiPaint::lwsmooth_currentIndexChanged(int i){ m_curves->setSmoothType(i); }
-void DrishtiPaint::lwgrad_currentIndexChanged(int i){ m_curves->setGradType(i); }
+void DrishtiPaint::livewireSetting_toggled(bool on)
+{
+  livewire_clicked(false);
+  curvesUi.livewire->setChecked(false);
+  m_axialCurves->setLivewire(false);
+  m_sagitalCurves->setLivewire(false);
+  m_coronalCurves->setLivewire(false);
+}
+void DrishtiPaint::lwsmooth_currentIndexChanged(int i)
+{
+  m_axialCurves->setSmoothType(i);
+  m_sagitalCurves->setSmoothType(i);
+  m_coronalCurves->setSmoothType(i);
+}
+void DrishtiPaint::lwgrad_currentIndexChanged(int i)
+{
+  m_axialCurves->setGradType(i);
+  m_sagitalCurves->setGradType(i);
+  m_coronalCurves->setGradType(i);
+}
 void DrishtiPaint::newcurve_clicked()
 {
   livewire_clicked(false);
   curvesUi.livewire->setChecked(false);
-  m_curves->newCurve();
+
+  if (m_axialCurves->inFocus()) m_axialCurves->newCurve();
+  if (m_sagitalCurves->inFocus()) m_sagitalCurves->newCurve();
+  if (m_coronalCurves->inFocus()) m_coronalCurves->newCurve();
 }
-void DrishtiPaint::endcurve_clicked() { m_curves->endCurve(); }
-void DrishtiPaint::morphcurves_clicked() { m_curves->morphCurves(); }
-void DrishtiPaint::deleteallcurves_clicked() { m_curves->deleteAllCurves(); }
+void DrishtiPaint::endcurve_clicked()
+{
+  m_axialCurves->endCurve();
+  m_sagitalCurves->endCurve();
+  m_coronalCurves->endCurve();
+}
+void DrishtiPaint::morphcurves_clicked()
+{
+  if (m_axialCurves->inFocus()) m_axialCurves->morphCurves();
+  if (m_sagitalCurves->inFocus()) m_sagitalCurves->morphCurves();
+  if (m_coronalCurves->inFocus()) m_coronalCurves->morphCurves();
+}
+void DrishtiPaint::deleteallcurves_clicked()
+{
+  if (m_axialCurves->inFocus()) m_axialCurves->deleteAllCurves();
+  if (m_sagitalCurves->inFocus()) m_sagitalCurves->deleteAllCurves();
+  if (m_coronalCurves->inFocus()) m_coronalCurves->deleteAllCurves();
+}
 
 
 QPair<QString, QList<int> >
@@ -1136,16 +1506,21 @@ DrishtiPaint::getTags(QString text)
 void
 DrishtiPaint::livewire_clicked(bool c)
 {
+  Curves *curves = 0;
+  if (m_axialCurves->inFocus()) curves = m_axialCurves;
+  if (m_sagitalCurves->inFocus()) curves = m_sagitalCurves;
+  if (m_coronalCurves->inFocus()) curves = m_coronalCurves;
+  
   if (!c)
     {
-      if (!m_curves->seedMoveMode())
-	m_curves->freezeLivewire(false);
+      if (!curves->seedMoveMode())
+	curves->freezeLivewire(false);
       else
-	m_curves->freezeModifyUsingLivewire();
+	curves->freezeModifyUsingLivewire();
       curvesUi.modify->setChecked(false);
     }
 
-  m_curves->setLivewire(c);
+  curves->setLivewire(c);
 }
 
 
@@ -1168,77 +1543,6 @@ DrishtiPaint::preverode_valueChanged(int t)
   m_coronalImage->processPrevSliceTags();
 }
 
-//void
-//DrishtiPaint::on_autoGenSupPix_clicked(bool b)
-//{
-//  m_axialImage->setAutoGenSuperPixels(b);
-//  m_sagitalImage->setAutoGenSuperPixels(b);
-//  m_coronalImage->setAutoGenSuperPixels(b);
-//}
-//
-//void
-//DrishtiPaint::on_hideSupPix_clicked(bool b)
-//{
-//  m_axialImage->setHideSuperPixels(b);
-//  m_sagitalImage->setHideSuperPixels(b);
-//  m_coronalImage->setHideSuperPixels(b);
-//}
-//
-//void
-//DrishtiPaint::on_supPixSize()
-//{
-//  int spsz = superpixelUi.supPixSize->value();
-//  spsz *= 25;
-//  superpixelUi.supPixSizeLabel->setText(QString("%1").arg(spsz));
-//
-//  m_axialImage->setSuperPixelSize(spsz);
-//  m_sagitalImage->setSuperPixelSize(spsz);
-//  m_coronalImage->setSuperPixelSize(spsz);
-//}
-
-void
-DrishtiPaint::on_butZ_clicked()
-{
-  if (! m_volume->isValid()) return;
-
-  m_curves->setSliceType(ImageWidget::DSlice);
-
-  int d, w, h, u0, u1;
-  m_volume->gridSize(d, w, h);
-
-  m_curves->depthUserRange(u0, u1);
-  m_curves->setSliderRange(0, d-1, u0, u1, 0);
-  //m_slider->set(0, d-1, u0, u1, 0);
-}
-void
-DrishtiPaint::on_butY_clicked()
-{
-  if (! m_volume->isValid()) return;
-
-  m_curves->setSliceType(ImageWidget::WSlice);
-
-  int d, w, h, u0, u1;
-  m_volume->gridSize(d, w, h);
-
-  m_curves->widthUserRange(u0, u1);
-  m_curves->setSliderRange(0, w-1, u0, u1, 0);
-  //m_slider->set(0, w-1, u0, u1, 0);
-}
-void
-DrishtiPaint::on_butX_clicked()
-{
-  if (! m_volume->isValid()) return;
-
-  m_curves->setSliceType(ImageWidget::HSlice);
-
-  int d, w, h, u0, u1;
-  m_volume->gridSize(d, w, h);
-
-  m_curves->heightUserRange(u0, u1);
-  m_curves->setSliderRange(0, h-1, u0, u1, 0);
-  //m_slider->set(0, h-1, u0, u1, 0);
-}
-
 
 void
 DrishtiPaint::getRawValue(int d, int w, int h)
@@ -1249,11 +1553,23 @@ DrishtiPaint::getRawValue(int d, int w, int h)
   m_sagitalImage->setRawValue(m_volume->rawValue(d, w, h));
   m_coronalImage->setRawValue(m_volume->rawValue(d, w, h));
 
-  m_curves->setRawValue(m_volume->rawValue(d, w, h));
+  m_axialCurves->setRawValue(m_volume->rawValue(d, w, h));
+  m_sagitalCurves->setRawValue(m_volume->rawValue(d, w, h));
+  m_coronalCurves->setRawValue(m_volume->rawValue(d, w, h));
 }
 
-void DrishtiPaint::on_actionLoad_Curves_triggered() {m_curves->loadCurves();}
-void DrishtiPaint::on_actionSave_Curves_triggered() {m_curves->saveCurves();}
+void DrishtiPaint::on_actionLoad_Curves_triggered()
+{
+  m_axialCurves->loadCurves();
+  m_sagitalCurves->loadCurves();
+  m_coronalCurves->loadCurves();
+}
+void DrishtiPaint::on_actionSave_Curves_triggered()
+{
+  m_axialCurves->saveCurves();
+  m_sagitalCurves->saveCurves();
+  m_coronalCurves->saveCurves();
+}
 
 void
 DrishtiPaint::on_actionLoad_triggered()
@@ -1280,7 +1596,9 @@ DrishtiPaint::on_actionExit_triggered()
     {
       QString curvesfile = m_pvlFile;
       curvesfile.replace(".pvl.nc", ".curves");
-      m_curves->saveCurves(curvesfile);
+      m_axialCurves->saveCurves(curvesfile);
+      m_sagitalCurves->saveCurves(curvesfile);
+      m_coronalCurves->saveCurves(curvesfile);
 
       m_volume->saveIntermediateResults(true);
     }
@@ -1311,7 +1629,10 @@ DrishtiPaint::updateComposite()
   m_sagitalImage->loadLookupTable(colorMap);
   m_coronalImage->loadLookupTable(colorMap);
 
-  m_curves->loadLookupTable(colorMap);
+  m_axialCurves->loadLookupTable(colorMap);
+  m_sagitalCurves->loadLookupTable(colorMap);
+  m_coronalCurves->loadLookupTable(colorMap);
+      
 
   m_viewer->updateTF();
   m_viewer->update();
@@ -1371,7 +1692,9 @@ DrishtiPaint::dropEvent(QDropEvent *event)
 	      if (StaticFunctions::checkExtension(url.toLocalFile(), ".curves"))
 		{
 		  QString flnm = (data->urls())[0].toLocalFile();
-		  m_curves->loadCurves(flnm);
+		  m_axialCurves->loadCurves(flnm);
+		  m_sagitalCurves->loadCurves(flnm);
+		  m_coronalCurves->loadCurves(flnm);
 		}
 	      else if (StaticFunctions::checkExtension(url.toLocalFile(), ".pvl.nc") ||
 		  StaticFunctions::checkExtension(url.toLocalFile(), ".xml"))
@@ -1397,7 +1720,9 @@ DrishtiPaint::setFile(QString filename)
     {
       QString curvesfile = m_pvlFile;
       curvesfile.replace(".pvl.nc", ".curves");
-      m_curves->saveCurves(curvesfile);
+      m_axialCurves->saveCurves(curvesfile);
+      m_sagitalCurves->saveCurves(curvesfile);
+      m_coronalCurves->saveCurves(curvesfile);
     }
 
   m_blockList.clear();
@@ -1436,8 +1761,12 @@ DrishtiPaint::setFile(QString filename)
 //  m_sagitalImage->setGridSize(0,0,0);
 //  m_coronalImage->setGridSize(0,0,0);
 
-  m_curves->setGridSize(0,0,0);
-  m_curves->resetCurves();
+  m_axialCurves->setGridSize(0,0,0);
+  m_sagitalCurves->setGridSize(0,0,0);
+  m_coronalCurves->setGridSize(0,0,0);
+  m_axialCurves->resetCurves();
+  m_sagitalCurves->resetCurves();
+  m_coronalCurves->resetCurves();
 
 
   //----------------------------
@@ -1486,7 +1815,9 @@ DrishtiPaint::setFile(QString filename)
   m_coronalImage->setVolPtr(m_volume->memVolDataPtr());
   m_coronalImage->setMaskPtr(m_volume->memMaskDataPtr());
 
-  m_curves->setVolPtr(m_volume->memVolDataPtr());
+  m_axialCurves->setVolPtr(m_volume->memVolDataPtr());
+  m_sagitalCurves->setVolPtr(m_volume->memVolDataPtr());
+  m_coronalCurves->setVolPtr(m_volume->memVolDataPtr());
 
   int d, w, h;
   m_volume->gridSize(d, w, h);
@@ -1495,18 +1826,23 @@ DrishtiPaint::setFile(QString filename)
   m_sagitalImage->setGridSize(d, w, h);
   m_coronalImage->setGridSize(d, w, h);
 
-  m_curves->setGridSize(d, w, h);
+  m_axialCurves->setGridSize(d, w, h);
+  m_sagitalCurves->setGridSize(d, w, h);
+  m_coronalCurves->setGridSize(d, w, h);
+      
   m_viewer->setGridSize(d, w, h);
 
-  ui.butZ->setChecked(true);
-  //m_slider->set(0, d-1, 0, d-1, 0);
-  m_curves->setSliderRange(0, d-1, 0, d-1, 0);
+  m_axialCurves->setSliderRange(0, d-1, 0, d-1, 0);
+  m_sagitalCurves->setSliderRange(0, w-1, 0, w-1, 0);
+  m_coronalCurves->setSliderRange(0, h-1, 0, h-1, 0);
   
   m_axialImage->resetSliceType();
   m_sagitalImage->resetSliceType();
   m_coronalImage->resetSliceType();
 
-  m_curves->setSliceType(ImageWidget::DSlice);
+  m_axialCurves->resetSliceType();
+  m_sagitalCurves->resetSliceType();
+  m_coronalCurves->resetSliceType();
 
   m_tfManager->setDisabled(false);
 
@@ -1530,7 +1866,9 @@ DrishtiPaint::setFile(QString filename)
       
   QString curvesfile = m_pvlFile;
   curvesfile.replace(".pvl.nc", ".curves");
-  m_curves->loadCurves(curvesfile);
+  m_axialCurves->loadCurves(curvesfile);
+  m_sagitalCurves->loadCurves(curvesfile);
+  m_coronalCurves->loadCurves(curvesfile);
 
   on_actionGraphCut_triggered();
 
@@ -2453,8 +2791,7 @@ DrishtiPaint::applyMaskOperation(int tag,
   
   progress.setValue(100);  
 
-  getSlice(m_curves->currSlice());
-  //getSlice(m_slider->value());
+  getSlice(m_axialCurves->currSlice());
 }
 
 void
@@ -2536,39 +2873,43 @@ DrishtiPaint::connectImageWidget()
 void
 DrishtiPaint::connectCurvesWidget()
 {
-  connect(m_curves, SIGNAL(saveWork()),
-	  this, SLOT(saveWork()));  
+  connect(m_axialCurves, SIGNAL(saveWork()), this, SLOT(saveWork()));
+  connect(m_sagitalCurves, SIGNAL(saveWork()), this, SLOT(saveWork()));
+  connect(m_coronalCurves, SIGNAL(saveWork()), this, SLOT(saveWork()));  
 
-  connect(m_curves, SIGNAL(getSlice(int)),
-	  this, SLOT(getSliceC(int)));  
+  connect(m_axialCurves, SIGNAL(getSlice(int)), this, SLOT(getAxialSlice(int)));  
+  connect(m_sagitalCurves, SIGNAL(getSlice(int)), this, SLOT(getSagitalSlice(int)));  
+  connect(m_coronalCurves, SIGNAL(getSlice(int)), this, SLOT(getCoronalSlice(int)));  
 
-  connect(m_curves, SIGNAL(getRawValue(int, int, int)),
-	  this, SLOT(getRawValue(int, int, int)));
+  connect(m_axialCurves,  SIGNAL(gotFocus()), m_sagitalCurves,SLOT(releaseFocus()));
+  connect(m_axialCurves,  SIGNAL(gotFocus()), m_coronalCurves,SLOT(releaseFocus()));
+  connect(m_sagitalCurves,SIGNAL(gotFocus()), m_axialCurves,  SLOT(releaseFocus()));
+  connect(m_sagitalCurves,SIGNAL(gotFocus()), m_coronalCurves,SLOT(releaseFocus()));
+  connect(m_coronalCurves,SIGNAL(gotFocus()), m_axialCurves,  SLOT(releaseFocus()));
+  connect(m_coronalCurves,SIGNAL(gotFocus()), m_sagitalCurves,SLOT(releaseFocus()));
 
-//  connect(m_curves, SIGNAL(polygonLevels(QList<int>)),
-//	  m_slider, SLOT(polygonLevels(QList<int>)));
+//  connect(m_axialCurves, SIGNAL(getRawValue(int, int, int)),
+//	  this, SLOT(getRawValue(int, int, int)));
+//  connect(m_sagitalCurves, SIGNAL(getRawValue(int, int, int)),
+//	  this, SLOT(getRawValue(int, int, int)));
+//  connect(m_coronalCurves, SIGNAL(getRawValue(int, int, int)),
+//	  this, SLOT(getRawValue(int, int, int)));
 
-  connect(m_curves, SIGNAL(tagDSlice(int, uchar*)),
-	  this, SLOT(tagDSlice(int, uchar*)));
-
-  connect(m_curves, SIGNAL(tagWSlice(int, uchar*)),
-	  this, SLOT(tagWSlice(int, uchar*)));
-
-  connect(m_curves, SIGNAL(tagHSlice(int, uchar*)),
-	  this, SLOT(tagHSlice(int, uchar*)));  
-
+//  connect(m_axialCurves, SIGNAL(tagDSlice(int, uchar*)), this, SLOT(tagDSlice(int, uchar*)));
+//  connect(m_sagitalCurves, SIGNAL(tagWSlice(int, uchar*)), this, SLOT(tagWSlice(int, uchar*)));
+//  connect(m_coronalCurves, SIGNAL(tagHSlice(int, uchar*)), this, SLOT(tagHSlice(int, uchar*)));  
   
 
-  connect(m_curves, SIGNAL(updateViewerBox(int, int, int, int, int, int)),
-	  m_viewer, SLOT(updateViewerBox(int, int, int, int, int, int)));
+//  connect(m_curves, SIGNAL(updateViewerBox(int, int, int, int, int, int)),
+//	  m_viewer, SLOT(updateViewerBox(int, int, int, int, int, int)));
 
-  connect(m_curves, SIGNAL(showEndCurve()),
-	  curvesUi.endcurve, SLOT(show()));
-  connect(m_curves, SIGNAL(hideEndCurve()),
-	  curvesUi.endcurve, SLOT(hide()));
-
-  connect(m_curves, SIGNAL(viewerUpdate()),
-	  m_viewer, SLOT(update()));
+//  connect(m_curves, SIGNAL(showEndCurve()),
+//	  curvesUi.endcurve, SLOT(show()));
+//  connect(m_curves, SIGNAL(hideEndCurve()),
+//	  curvesUi.endcurve, SLOT(hide()));
+//
+//  connect(m_curves, SIGNAL(viewerUpdate()),
+//	  m_viewer, SLOT(update()));
 }
 
 void
@@ -2577,6 +2918,10 @@ DrishtiPaint::setShowPosition(bool b)
   m_axialImage->setShowPosition(b);
   m_sagitalImage->setShowPosition(b);
   m_coronalImage->setShowPosition(b);
+
+  m_axialCurves->setShowPosition(b);
+  m_sagitalCurves->setShowPosition(b);
+  m_coronalCurves->setShowPosition(b);
 }
 
 void
@@ -2723,7 +3068,11 @@ DrishtiPaint::miscConnections()
 
 
   connect(m_tagColorEditor, SIGNAL(tagColorChanged()),
-	  m_curves, SLOT(updateTagColors()));
+	  m_axialCurves, SLOT(updateTagColors()));
+  connect(m_tagColorEditor, SIGNAL(tagColorChanged()),
+	  m_sagitalCurves, SLOT(updateTagColors()));
+  connect(m_tagColorEditor, SIGNAL(tagColorChanged()),
+	  m_coronalCurves, SLOT(updateTagColors()));
 
 //  connect(m_slider, SIGNAL(valueChanged(int)),
 //	  m_curvesWidget, SLOT(sliceChanged(int)));
@@ -3644,7 +3993,7 @@ DrishtiPaint::updateCurveMask(uchar *curveMask,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
-  if (ui.butZ->isChecked() && m_curves->dCurvesPresent())
+  if (m_axialCurves->inFocus() && m_axialCurves->curvesPresent())
     {
       uchar *mask = new uchar[width*height]; 
       for(int d=minDSlice; d<=maxDSlice; d++)
@@ -3654,7 +4003,7 @@ DrishtiPaint::updateCurveMask(uchar *curveMask,
 	  qApp->processEvents();
 	  
 	  memset(mask, 0, width*height);
-	  m_curves->paintUsingCurves(0, d, height, width, mask);
+	  m_axialCurves->paintUsingCurves(0, d, height, width, mask);
 	  for(int w=minWSlice; w<=maxWSlice; w++)
 	    for(int h=minHSlice; h<=maxHSlice; h++)
 	      {
@@ -3666,7 +4015,7 @@ DrishtiPaint::updateCurveMask(uchar *curveMask,
 	}
       delete [] mask;
     }
-  if (ui.butY->isChecked() && m_curves->wCurvesPresent())
+  if (m_sagitalCurves->inFocus() && m_sagitalCurves->curvesPresent())
     {
       uchar *mask = new uchar[depth*height]; 
       for(int w=minWSlice; w<=maxWSlice; w++)
@@ -3676,7 +4025,7 @@ DrishtiPaint::updateCurveMask(uchar *curveMask,
 	  qApp->processEvents();
 	  
 	  memset(mask, 0, depth*height);
-	  m_curves->paintUsingCurves(1, w, height, depth, mask);
+	  m_sagitalCurves->paintUsingCurves(1, w, height, depth, mask);
 	  for(int d=minDSlice; d<=maxDSlice; d++)
 	    for(int h=minHSlice; h<=maxHSlice; h++)
 	      {
@@ -3688,7 +4037,7 @@ DrishtiPaint::updateCurveMask(uchar *curveMask,
 	}
       delete [] mask;
     }
-  if (ui.butX->isChecked() && m_curves->hCurvesPresent())
+  if (m_coronalCurves->inFocus() && m_coronalCurves->curvesPresent())
     {
       uchar *mask = new uchar[depth*width]; 
       for(int h=minHSlice; h<=maxHSlice; h++)
@@ -3698,7 +4047,7 @@ DrishtiPaint::updateCurveMask(uchar *curveMask,
 	  qApp->processEvents();
 	  
 	  memset(mask, 0, depth*width);
-	  m_curves->paintUsingCurves(2, h, width, depth, mask);
+	  m_coronalCurves->paintUsingCurves(2, h, width, depth, mask);
 	  for(int d=minDSlice; d<=maxDSlice; d++)
 	    for(int w=minWSlice; w<=maxWSlice; w++)
 	      {
@@ -5969,7 +6318,7 @@ DrishtiPaint::bakeCurves_clicked()
   bool ok;
   int tag = QInputDialog::getInt(0,
 				 "Bake curves for Label",
-				 "Value (0-255)\n Everything visible inside the interpolated curves will be labelled with given label value.",
+				 "Value (0-255)\n Everything visible inside the interpolated\n curves will be labelled with given label value.",
 				 0, 0, 255, 1,
 				 &ok);
 
@@ -6135,7 +6484,9 @@ DrishtiPaint::on_changeSliceOrdering_triggered()
   m_sagitalImage->reloadSlice();
   m_coronalImage->reloadSlice();
 
-  m_curves->sliceChanged();
+  m_axialCurves->sliceChanged();
+  m_sagitalCurves->sliceChanged();
+  m_coronalCurves->sliceChanged();
 
   m_volume->saveModifiedOriginalVolume();
   m_volume->saveIntermediateResults(true);

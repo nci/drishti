@@ -90,9 +90,6 @@ class DrishtiPaint : public QMainWindow
   void on_actionCurves_triggered();
   void on_actionGraphCut_triggered();
   void sliceLod_currentIndexChanged(int);
-  void on_butZ_clicked();
-  void on_butY_clicked();
-  void on_butX_clicked();
   void on_help_clicked();
 
   void minGrad_valueChanged(int);
@@ -105,6 +102,11 @@ class DrishtiPaint : public QMainWindow
   void on_actionX_triggered();
   void on_action3dView_triggered();
 
+  void defaultCurvesLayout_triggered();
+  void axialCurvesLayout_triggered();
+  void sagitalCurvesLayout_triggered();
+  void coronalCurvesLayout_triggered();
+
   void on_saveFreq_valueChanged(int);
   void on_tag_valueChanged(int);
   void boxSize_valueChanged(int);
@@ -114,7 +116,7 @@ class DrishtiPaint : public QMainWindow
   void copyprev_clicked(bool);
   void on_thickness_valueChanged(int);
   void on_radius_valueChanged(int);
-  void pointsize_valueChanged(int);
+  void livewireSetting_toggled(bool);
   void livewire_clicked(bool);
   void lwsmooth_currentIndexChanged(int);
   void lwgrad_currentIndexChanged(int);
@@ -127,7 +129,11 @@ class DrishtiPaint : public QMainWindow
   void updateComposite();
   void tagSelected(int, bool);
   void getSlice(int);
-  void getSliceC(int);
+
+  void getAxialSlice(int);
+  void getSagitalSlice(int);
+  void getCoronalSlice(int);
+
   void getMaskSlice(int);
   void getRawValue(int, int, int);
   void tagDSlice(int, uchar*);
@@ -214,16 +220,23 @@ class DrishtiPaint : public QMainWindow
   QSplitter *m_graphCutArea;
   QSplitter *m_splitterOne;
   QSplitter *m_splitterTwo;
-
   QFrame* m_axialFrame;
   QFrame* m_sagitalFrame;
   QFrame* m_coronalFrame;
-
   Slices *m_axialImage;
   Slices *m_sagitalImage;
   Slices *m_coronalImage;
 
-  Curves *m_curves;
+  //Curves *m_curves;
+  QSplitter *m_curvesArea;
+  QSplitter *m_splitterOneC;
+  QSplitter *m_splitterTwoC;
+  QFrame* m_axialFrameC;
+  QFrame* m_sagitalFrameC;
+  QFrame* m_coronalFrameC;
+  Curves *m_axialCurves;
+  Curves *m_sagitalCurves;
+  Curves *m_coronalCurves;
   
   Volume *m_volume;
 
@@ -310,6 +323,7 @@ class DrishtiPaint : public QMainWindow
   bool sliceZeroAtTop();
 
   QSplitter* createImageWindows();
+  QSplitter* createCurveWindows();
 
   void extractFromAnotherVolume(QList<int>);
 

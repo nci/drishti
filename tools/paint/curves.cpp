@@ -75,6 +75,11 @@ Curves::createMenu(QHBoxLayout *hl,
 
   connect(m_changeLayout, SIGNAL(clicked()), this, SIGNAL(changeLayout()));
   
+  connect(m_curvesWidget, SIGNAL(xPos(int)), this, SIGNAL(xPos(int)));
+  connect(m_curvesWidget, SIGNAL(yPos(int)), this, SIGNAL(yPos(int)));
+
+  connect(m_curvesWidget, SIGNAL(gotFocus()), this, SIGNAL(gotFocus()));
+
   connect(m_sliceNum, SIGNAL(editingFinished()),
 	  this, SLOT(sliceNumChanged()));
 
@@ -128,7 +133,9 @@ Curves::createMenu(QHBoxLayout *hl,
 	  this, SIGNAL(setPropagation(bool)));
 }
 
+void Curves::releaseFocus() { m_curvesWidget->releaseFocus(); }
 void Curves::setSliceType(int s) { m_curvesWidget->setSliceType(s);}
+void Curves::resetSliceType() { m_curvesWidget->resetSliceType();}
 void Curves::setVolPtr(uchar *v) { m_curvesWidget->setVolPtr(v); }
 //void Curves::setMaskPtr(uchar *v) { m_curvesWidget->setMaskPtr(v); }
 
@@ -153,9 +160,10 @@ void Curves::heightUserRange(int& u0, int& u1) { m_curvesWidget->heightUserRange
 
 void Curves::resetCurves() { m_curvesWidget->resetCurves(); }
 
-bool Curves::dCurvesPresent() { return m_curvesWidget->dCurvesPresent(); }
-bool Curves::wCurvesPresent() { return m_curvesWidget->wCurvesPresent(); }
-bool Curves::hCurvesPresent() { return m_curvesWidget->hCurvesPresent(); }
+bool Curves::curvesPresent() { return m_curvesWidget->curvesPresent(); }
+//bool Curves::dCurvesPresent() { return m_curvesWidget->dCurvesPresent(); }
+//bool Curves::wCurvesPresent() { return m_curvesWidget->wCurvesPresent(); }
+//bool Curves::hCurvesPresent() { return m_curvesWidget->hCurvesPresent(); }
 
 void Curves::paintUsingCurves(int slctype,
 			      int slc, int wd, int ht,
@@ -202,8 +210,8 @@ Curves::setGridSize(int d, int w, int h)
     }  
 }
 
-//void Curves::setHLine(int h) { m_curvesWidget->setHLine(h); }
-//void Curves::setVLine(int v) { m_curvesWidget->setVLine(v); }
+void Curves::setHLine(int h) { m_curvesWidget->setHLine(h); }
+void Curves::setVLine(int v) { m_curvesWidget->setVLine(v); }
 
 
 void
@@ -270,9 +278,21 @@ Curves::setLarge(bool ms)
   m_maximized = ms;
 
   if (m_maximized)
-    m_changeLayout->setIcon(QIcon(":/images/shrink.png"));
+    {
+      m_changeLayout->setIcon(QIcon(":/images/shrink.png"));
+      m_curvesWidget->setInFocus();
+    }
   else
-    m_changeLayout->setIcon(QIcon(":/images/enlarge.png"));
+    {
+      m_changeLayout->setIcon(QIcon(":/images/enlarge.png"));
+      m_curvesWidget->releaseFocus();
+    }
+}
+
+void
+Curves::setShowPosition(bool s)
+{
+  m_curvesWidget->setShowPosition(s);
 }
 
 void

@@ -106,6 +106,13 @@ MySlider::setValue(int val)
   m_value = val;
   update();
 }
+void
+MySlider::updateValue(int val)
+{
+  m_value = qBound(m_rangeMin, val, m_rangeMax);
+  emit valueChanged(m_value);
+  update();
+}
 
 void
 MySlider::drawPolygonLevels(QPainter *p)

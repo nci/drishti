@@ -28,6 +28,10 @@ class CurvesWidget : public QWidget
     HSlice
   };
 
+  static CurveGroup *m_dCurves;
+  static CurveGroup *m_wCurves;
+  static CurveGroup *m_hCurves;
+  
   void setInFocus();
   bool inFocus() { return m_hasFocus; }
   
@@ -74,28 +78,12 @@ class CurvesWidget : public QWidget
   QList< QMap<int, Curve> >* morphedCurves() { return m_Curves.morphedCurves(); };
   QList< QMultiMap<int, Curve*> >* shrinkwrapCurves() { return m_Curves.shrinkwrapCurves(); };
 
-//  QMultiMap<int, Curve*>* multiMapCurvesD() { return m_dCurves.multiMapCurves(); };
-//  QMultiMap<int, Curve*>* multiMapCurvesW() { return m_wCurves.multiMapCurves(); };
-//  QMultiMap<int, Curve*>* multiMapCurvesH() { return m_hCurves.multiMapCurves(); };
-//
-//  QList< QMap<int, Curve> >* morphedCurvesD() { return m_dCurves.morphedCurves(); };
-//  QList< QMap<int, Curve> >* morphedCurvesW() { return m_wCurves.morphedCurves(); };
-//  QList< QMap<int, Curve> >* morphedCurvesH() { return m_hCurves.morphedCurves(); };
-//
-//  QList< QMultiMap<int, Curve*> >* shrinkwrapCurvesD() { return m_dCurves.shrinkwrapCurves(); };
-//  QList< QMultiMap<int, Curve*> >* shrinkwrapCurvesW() { return m_wCurves.shrinkwrapCurves(); };
-//  QList< QMultiMap<int, Curve*> >* shrinkwrapCurvesH() { return m_hCurves.shrinkwrapCurves(); };
-
 
   bool seedMoveMode() { return m_livewire.seedMoveMode(); };
   void deselectAll();
   void propagateCurves(bool);
 
   bool curvesPresent() { return m_Curves.curvesPresent(); };
-
-  //bool dCurvesPresent() { return m_dCurves.curvesPresent(); };
-  //bool wCurvesPresent() { return m_wCurves.curvesPresent(); };
-  //bool hCurvesPresent() { return m_hCurves.curvesPresent(); };
 
   void resetCurves();
 
@@ -186,9 +174,6 @@ class CurvesWidget : public QWidget
   bool m_curveMode;
 
   CurveGroup m_Curves;
-//  CurveGroup m_dCurves;
-//  CurveGroup m_wCurves;
-//  CurveGroup m_hCurves;
 
 
   QVector<QRgb> m_tagColors;
@@ -321,8 +306,6 @@ class CurvesWidget : public QWidget
 
   void modifyUsingLivewire(int, int);
 
-
-  CurveGroup* getCg();
 
   void drawSeedPoints(QPainter*, QVector<QPointF>, QColor);
   void drawPoints(QPainter*, QVector<QPointF>, QColor, int, int);

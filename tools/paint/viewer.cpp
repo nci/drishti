@@ -6,7 +6,6 @@
 #include "staticfunctions.h"
 #include "propertyeditor.h"
 #include "volumeoperations.h"
-#include "slicer3d.h"
 
 #include <QDockWidget>
 #include <QInputDialog>

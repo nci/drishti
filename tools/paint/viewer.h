@@ -9,7 +9,6 @@ using namespace qglviewer;
 
 #include "ui_viewermenu.h"
 
-#include "fiber.h"
 #include "clipplane.h"
 #include "boundingbox.h"
 #include "mybitarray.h"

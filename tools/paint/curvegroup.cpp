@@ -703,7 +703,8 @@ CurveGroup::addPoint(int key, int v0, int v1)
   if (!m_cg.contains(key))
     {
       Curve *c = new Curve();
-      c->tag = Global::tag();
+      //c->tag = Global::tag();
+      c->tag = 255;
       c->thickness = Global::thickness();
       c->closed = Global::closed();
       m_cg.insert(key, c);
@@ -1199,7 +1200,7 @@ CurveGroup::startShrinkwrap()
 
 void
 CurveGroup::endShrinkwrap()
-{
+{  
   if (m_sw.count() > 0)
     m_swcg << m_sw;
   m_sw.clear();
@@ -1228,12 +1229,14 @@ CurveGroup::shrinkwrap(int slc, uchar *imageData, int wd, int ht)
 	  a = smooth(a, true);
 	  
 	  Curve *c = new Curve();
-	  c->tag = Global::tag();
+	  //c->tag = Global::tag();
+	  c->tag = 255;
 	  c->pts = a;
 	  c->closed = true;
 	  c->thickness = Global::thickness();
 	  
-	  m_sw.insert(slc, c);
+	  //m_sw.insert(slc, c);
+	  m_cg.insert(slc, c);
 	}
     }
 }

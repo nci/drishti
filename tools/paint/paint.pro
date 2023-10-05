@@ -16,15 +16,14 @@ DESTDIR = ../../bin
 
 TARGET = drishtipaint
 
-INCLUDEPATH += graphcut \
-	       slic
+INCLUDEPATH += graphcut
 
 include( ../../drishti.pri )
 
 # Input
 FORMS += drishtipaint.ui viewermenu.ui \
 	graphcutmenu.ui curvesmenu.ui \
-	fibersmenu.ui superpixelmenu.ui pywidgetmenu.ui \
+	pywidgetmenu.ui \
         ../../common/src/widgets/propertyeditor.ui
 
 #----------------------------------------------------------------
@@ -111,8 +110,6 @@ HEADERS += connectviewer.h \
         clipplane.h \
 	clipobject.h \
 	clipgrabber.h \
-	fiber.h \
-	fibergroup.h\
 	slices.h \
 	imagewidget.h \
         curves.h \
@@ -154,8 +151,6 @@ HEADERS += connectviewer.h \
 	shaderfactory.h \
 	remaphistogramline.h \
 	remaphistogramwidget.h \
-	slicer3d.h \
-        slic/slic.h \
         filehandler.h \
         checkpointhandler.h \
         pywidget.h \
@@ -177,8 +172,6 @@ SOURCES += drishtipaint.cpp \
         clipplane.cpp \
 	clipobject.cpp \
 	clipgrabber.cpp \
-	fiber.cpp \
-	fibergroup.cpp\
 	slices.cpp \
 	imagewidget.cpp \
         curves.cpp \
@@ -217,8 +210,6 @@ SOURCES += drishtipaint.cpp \
 	shaderfactory.cpp \
 	remaphistogramline.cpp \
 	remaphistogramwidget.cpp \
-	slicer3d.cpp \
-	slic/slic.cpp \
         filehandler.cpp \
         checkpointhandler.cpp \
         pywidget.cpp \

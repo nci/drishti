@@ -161,9 +161,6 @@ void Curves::heightUserRange(int& u0, int& u1) { m_curvesWidget->heightUserRange
 void Curves::resetCurves() { m_curvesWidget->resetCurves(); }
 
 bool Curves::curvesPresent() { return m_curvesWidget->curvesPresent(); }
-//bool Curves::dCurvesPresent() { return m_curvesWidget->dCurvesPresent(); }
-//bool Curves::wCurvesPresent() { return m_curvesWidget->wCurvesPresent(); }
-//bool Curves::hCurvesPresent() { return m_curvesWidget->hCurvesPresent(); }
 
 void Curves::paintUsingCurves(int slctype,
 			      int slc, int wd, int ht,
@@ -182,28 +179,21 @@ Curves::setGridSize(int d, int w, int h)
   m_s0 = 0;
 
   m_curvesWidget->setGridSize(d,w,h);
-  //m_curvesWidget->resetSliceType();
 
   if (m_curvesWidget->sliceType() == CurvesWidget::DSlice)
     {
-      //m_slider->setMaximum(d-1);
-      //m_slider->setValue(d/2);
       QValidator *valid = new QIntValidator(0, d-1);
       m_sliceNum->setValidator(valid);
       m_s1 = d-1;
     }
   if (m_curvesWidget->sliceType() == CurvesWidget::WSlice)
     {
-      //m_slider->setMaximum(w-1);
-      //m_slider->setValue(w/2);
       QValidator *valid = new QIntValidator(0, w-1);
       m_sliceNum->setValidator(valid);
       m_s1 = w-1;
     }
   if (m_curvesWidget->sliceType() == CurvesWidget::HSlice)
     {
-      //m_slider->setMaximum(h-1);
-      //m_slider->setValue(h/2);
       QValidator *valid = new QIntValidator(0, h-1);
       m_sliceNum->setValidator(valid);
       m_s1 = h-1;
@@ -220,7 +210,6 @@ Curves::sliceNumChanged()
   int s = m_sliceNum->text().toInt();
   m_slider->setValue(s);  
   emit getSlice(s);
-  //m_curvesWidget->setSlice(s);
 }
 
 

@@ -12,8 +12,6 @@
 #include <QVector3D>
 #include <QScrollArea>
 
-#include "slic.h"
-
 #include <QGLViewer/vec.h>
 using namespace qglviewer;
 
@@ -88,10 +86,6 @@ class ImageWidget : public QWidget
   void keyPressEvent(QKeyEvent*);
   void setSlice(int);
 
-  void setAutoGenSuperPixels(bool b) { m_autoGenSuperPixels = b; }
-  void setHideSuperPixels(bool b) { m_hideSuperPixels = b; update(); }
-  void setSuperPixelSize(int);
-
   void zoom0Clicked();
   void zoom9Clicked();
   void zoomUpClicked();
@@ -162,15 +156,6 @@ class ImageWidget : public QWidget
   // 0 - graphcut
   // 1 - superpixel
   int m_modeType;
-
-  bool m_hideSuperPixels;
-  bool m_autoGenSuperPixels;
-  int m_superPixelSize;
-  SLIC m_slic;
-  int *m_labels;
-  float *m_lmeans;
-  QImage m_spcimage;
-  QImage m_spcimageScaled;
 
   int m_maxSlice;
   int m_currSlice;
@@ -272,10 +257,6 @@ class ImageWidget : public QWidget
   void dotImage(int, int, bool);
   void removeDotImage(int, int);
 
-  void genSuperPixels();
-  void applySuperPixels(int, int, bool);
-  void applySuperPixels();
-
   void applyGraphCut();
   void applyPaint(bool);
   void applyReset();
@@ -295,8 +276,6 @@ class ImageWidget : public QWidget
   void graphcutModeKeyPressEvent(QKeyEvent*);
   void graphcutMousePressEvent(QMouseEvent*);
   void graphcutMouseMoveEvent(QMouseEvent*);
-
-  void superpixelEvent();
 
   void doAnother(int);
 

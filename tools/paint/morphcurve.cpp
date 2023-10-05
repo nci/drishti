@@ -1327,8 +1327,8 @@ MorphCurve::getAllPerimeters(QList<Perimeter> perimeters,
 	}
       else
 	{
-	  QMessageBox::information(0, "", QString("No morphed perimeters between z1=%1 and z2=%2").\
-				   arg(perimeters[i-1].z).arg(perimeters[i].z));
+//	  QMessageBox::information(0, "", QString("No morphed perimeters between z1=%1 and z2=%2").\
+//				   arg(perimeters[i-1].z).arg(perimeters[i].z));
 	}
     }
   // append the last one

@@ -733,50 +733,32 @@ DrishtiPaint::createImageWindows()
     m_coronalFrame->layout()->addWidget(m_coronalImage);
   }
 
-  connect(m_axialImage, SIGNAL(changeLayout()),
-	  this, SLOT(on_actionZ_triggered()));
-  connect(m_sagitalImage, SIGNAL(changeLayout()),
-	  this, SLOT(on_actionY_triggered()));
-  connect(m_coronalImage, SIGNAL(changeLayout()),
-	  this, SLOT(on_actionX_triggered()));
+  connect(m_axialImage, SIGNAL(changeLayout()), this, SLOT(on_actionZ_triggered()));
+  connect(m_sagitalImage, SIGNAL(changeLayout()), this, SLOT(on_actionY_triggered()));
+  connect(m_coronalImage, SIGNAL(changeLayout()), this, SLOT(on_actionX_triggered()));
 
-  connect(m_axialImage, SIGNAL(sliceChanged(int)),
-	  m_sagitalImage, SLOT(setVLine(int)));
-  connect(m_axialImage, SIGNAL(sliceChanged(int)),
-	  m_coronalImage, SLOT(setVLine(int)));
+  connect(m_axialImage, SIGNAL(sliceChanged(int)), m_sagitalImage, SLOT(setVLine(int)));
+  connect(m_axialImage, SIGNAL(sliceChanged(int)), m_coronalImage, SLOT(setVLine(int)));
 
-  connect(m_sagitalImage, SIGNAL(sliceChanged(int)),
-	  m_axialImage, SLOT(setVLine(int)));
-  connect(m_sagitalImage, SIGNAL(sliceChanged(int)),
-	  m_coronalImage, SLOT(setHLine(int)));
+  connect(m_sagitalImage, SIGNAL(sliceChanged(int)), m_axialImage, SLOT(setVLine(int)));
+  connect(m_sagitalImage, SIGNAL(sliceChanged(int)), m_coronalImage, SLOT(setHLine(int)));
 
-  connect(m_coronalImage, SIGNAL(sliceChanged(int)),
-	  m_axialImage, SLOT(setHLine(int)));
-  connect(m_coronalImage, SIGNAL(sliceChanged(int)),
-	  m_sagitalImage, SLOT(setHLine(int)));
+  connect(m_coronalImage, SIGNAL(sliceChanged(int)), m_axialImage, SLOT(setHLine(int)));
+  connect(m_coronalImage, SIGNAL(sliceChanged(int)), m_sagitalImage, SLOT(setHLine(int)));
 
-  connect(m_axialImage, SIGNAL(xPos(int)),
-	  m_coronalImage, SLOT(setSlice(int)));
-  connect(m_axialImage, SIGNAL(yPos(int)),
-	  m_sagitalImage, SLOT(setSlice(int)));
+  connect(m_axialImage, SIGNAL(xPos(int)), m_coronalImage, SLOT(setSlice(int)));
+  connect(m_axialImage, SIGNAL(yPos(int)), m_sagitalImage, SLOT(setSlice(int)));
 
-  connect(m_sagitalImage, SIGNAL(xPos(int)),
-	  m_coronalImage, SLOT(setSlice(int)));
-  connect(m_sagitalImage, SIGNAL(yPos(int)),
-	  m_axialImage, SLOT(setSlice(int)));
+  connect(m_sagitalImage, SIGNAL(xPos(int)), m_coronalImage, SLOT(setSlice(int)));
+  connect(m_sagitalImage, SIGNAL(yPos(int)), m_axialImage, SLOT(setSlice(int)));
 
-  connect(m_coronalImage, SIGNAL(xPos(int)),
-	  m_sagitalImage, SLOT(setSlice(int)));
-  connect(m_coronalImage, SIGNAL(yPos(int)),
-	  m_axialImage, SLOT(setSlice(int)));
+  connect(m_coronalImage, SIGNAL(xPos(int)), m_sagitalImage, SLOT(setSlice(int)));
+  connect(m_coronalImage, SIGNAL(yPos(int)), m_axialImage, SLOT(setSlice(int)));
 
   
-  connect(m_axialImage, SIGNAL(sliceChanged(int)),
-	  m_viewer, SLOT(setDSlice(int)));
-  connect(m_sagitalImage, SIGNAL(sliceChanged(int)),
-	  m_viewer, SLOT(setWSlice(int)));
-  connect(m_coronalImage, SIGNAL(sliceChanged(int)),
-	  m_viewer, SLOT(setHSlice(int)));
+  connect(m_axialImage, SIGNAL(sliceChanged(int)), m_viewer, SLOT(setDSlice(int)));
+  connect(m_sagitalImage, SIGNAL(sliceChanged(int)), m_viewer, SLOT(setWSlice(int)));
+  connect(m_coronalImage, SIGNAL(sliceChanged(int)), m_viewer, SLOT(setHSlice(int)));
 
   return splitter_0;
 }
@@ -1556,19 +1538,6 @@ DrishtiPaint::getRawValue(int d, int w, int h)
   m_axialCurves->setRawValue(m_volume->rawValue(d, w, h));
   m_sagitalCurves->setRawValue(m_volume->rawValue(d, w, h));
   m_coronalCurves->setRawValue(m_volume->rawValue(d, w, h));
-}
-
-void DrishtiPaint::on_actionLoad_Curves_triggered()
-{
-  m_axialCurves->loadCurves();
-  m_sagitalCurves->loadCurves();
-  m_coronalCurves->loadCurves();
-}
-void DrishtiPaint::on_actionSave_Curves_triggered()
-{
-  m_axialCurves->saveCurves();
-  m_sagitalCurves->saveCurves();
-  m_coronalCurves->saveCurves();
 }
 
 void
@@ -3064,21 +3033,12 @@ DrishtiPaint::miscConnections()
   connect(m_tagColorEditor, SIGNAL(tagSelected(int, bool)),
 	  this, SLOT(tagSelected(int, bool)));
 
-
-
-
   connect(m_tagColorEditor, SIGNAL(tagColorChanged()),
 	  m_axialCurves, SLOT(updateTagColors()));
   connect(m_tagColorEditor, SIGNAL(tagColorChanged()),
 	  m_sagitalCurves, SLOT(updateTagColors()));
   connect(m_tagColorEditor, SIGNAL(tagColorChanged()),
 	  m_coronalCurves, SLOT(updateTagColors()));
-
-//  connect(m_slider, SIGNAL(valueChanged(int)),
-//	  m_curvesWidget, SLOT(sliceChanged(int)));
-//
-//  connect(m_slider, SIGNAL(userRangeChanged(int, int)),
-//	  m_curvesWidget, SLOT(userRangeChanged(int, int)));
 
 }
 

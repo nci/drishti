@@ -1,3 +1,4 @@
+
 #ifndef SLICES_H
 #define SLICES_H
 
@@ -9,6 +10,7 @@
 #include <QLineEdit>
 
 #include "imagewidget.h"
+#include "myslider.h"
 
 class Slices : public QWidget
 {
@@ -92,10 +94,6 @@ class Slices : public QWidget
    //void bbupdated(Vec, Vec);
    void fitImage() { m_imageWidget->zoom9Clicked(); }
 
-   void setAutoGenSuperPixels(bool);
-   void setHideSuperPixels(bool);
-   void setSuperPixelSize(int);
-
    void updateSliderLimits();
    void resetSliderLimits();
 
@@ -113,7 +111,8 @@ class Slices : public QWidget
 
     QLineEdit *m_sliceNum;
 
-    QSlider *m_slider;
+    //QSlider *m_slider;
+    MySlider *m_slider;
 
     bool m_maximized;
 

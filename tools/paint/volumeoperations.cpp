@@ -2735,7 +2735,7 @@ VolumeOperations::bakeCurves(uchar *curveMask,
 		    int val = m_volData[idx];
 		    if (m_volDataUS) val = m_volDataUS[idx];
 		    uchar mtag = m_maskData[idx];
-		    bool opaque =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);      
+		    bool opaque =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);
 
 		    //-------
 		    if (opaque)

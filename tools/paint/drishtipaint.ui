@@ -330,8 +330,6 @@
     </property>
     <addaction name="actionLoad"/>
     <addaction name="actionLoadMask"/>
-    <addaction name="actionLoad_Curves"/>
-    <addaction name="actionLoad_Fibers"/>
     <addaction name="separator"/>
     <addaction name="actionExportMask"/>
     <addaction name="actionImportMask"/>
@@ -343,8 +341,6 @@
     <addaction name="actionSave_TF"/>
     <addaction name="separator"/>
     <addaction name="saveWork"/>
-    <addaction name="actionSave_Curves"/>
-    <addaction name="actionSave_Fibers"/>
     <addaction name="saveImage"/>
     <addaction name="saveImageSequence"/>
     <addaction name="separator"/>

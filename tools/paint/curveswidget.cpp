@@ -343,13 +343,6 @@ CurvesWidget::sliceChanged(int slc)
 {
   // if we are in curve add points mode switch it off
   if (m_addingCurvePoints) endCurve();
-  
-  // if we are modifying livewire object freeze it before moving to another slice  
-  if (!m_applyRecursive && m_livewire.seedMoveMode())
-    {
-      freezeModifyUsingLivewire();
-      modifyUsingLivewire();
-    }
 
   if (m_sliceType == DSlice)
     m_currSlice = slc;
@@ -1941,67 +1934,6 @@ CurvesWidget::deleteAllCurves()
 
 
 void
-CurvesWidget::modifyUsingLivewire()
-{
-  m_livewire.setSeedMoveMode(true);
-  m_livewire.resetPoly();
-}
-      
-void
-CurvesWidget::modifyUsingLivewire(int x, int y)
-{
-  if (! m_livewire.seedMoveMode())
-    return;
-
-  int ic = m_Curves.getActiveCurve(m_currSlice, x, y);
-  if (ic == -1)
-    {
-      QMessageBox::information(0, "",
-			       "Cannot modify curve - not a livewire curve");
-      return;
-    }
-  Curve* c = m_Curves.getCurvesAt(m_currSlice)[ic];
-  if (c->seedpos.count() == 0)
-    {
-      QMessageBox::information(0, "",
-			       "Cannot modify this curve - not a livewire curve");
-      return;
-    }
-
-  m_livewire.setPolygonToUpdate(c->pts, c->seedpos, c->closed, c->type, c->seeds);
-  m_Curves.copyCurve(m_currSlice,  x, y);
-  m_Curves.removePolygonAt(m_currSlice, x, y);
-}
-
-void
-CurvesWidget::freezeModifyUsingLivewire()
-{
-  if (! m_livewire.seedMoveMode())
-    return;
-  
-  m_livewire.setSeedMoveMode(false);
-  QVector<QPointF> pts = m_livewire.poly();
-  QVector<int> seedpos = m_livewire.seedpos();
-
-  if (pts.count() > 0 &&
-      seedpos.count() > 0)
-    {
-      bool closed = m_livewire.closed();
-      uchar type = m_livewire.type();
-      QVector<QPointF> seeds = m_livewire.seeds();
-
-      Curve c = m_Curves.getCopyCurve();
-      m_Curves.setPolygonAt(m_currSlice,
-			    pts, seedpos,
-			    closed, c.tag, c.thickness,
-			    false, c.type, seeds); 
-      emit polygonLevels(m_Curves.polygonLevels());
-      emit saveWork();
-    }
-  m_livewire.resetPoly();
-}
-
-void
 CurvesWidget::setSliceLOD(int lod)
 {
   m_livewire.setLod(lod);
@@ -2045,13 +1977,6 @@ CurvesWidget::curveModeKeyPressEvent(QKeyEvent *event)
 	      
 	      m_Curves.resetCopyCurve();
 	    }
-	  else if (event->key() == Qt::Key_Space)
-	    {
-	      freezeModifyUsingLivewire();
-	      modifyUsingLivewire();
-	    }
-	  else if (event->key() != Qt::Key_Shift)
-	    QMessageBox::information(0, "", "Cannot perform this operation in modify mode.  Please quit modify mode to perform this operation.");
 	  
 	  return;
 	}
@@ -2529,21 +2454,7 @@ CurvesWidget::curveMousePressEvent(QMouseEvent *event)
   if(m_livewireMode &&
      !ctrlModifier &&
      !altModifier)
-    {
-      if (m_livewire.seedMoveMode())
-	{
-	  if (m_livewire.poly().count() == 0)
-	    {
-	      if (m_sliceType == DSlice)
-		modifyUsingLivewire(m_pickHeight, m_pickWidth);
-	      else if (m_sliceType == WSlice)
-		modifyUsingLivewire(m_pickHeight, m_pickDepth);
-	      else
-		modifyUsingLivewire(m_pickWidth, m_pickDepth);
-	    }
-	}
-
-      
+    {      
       if (m_sliceType == DSlice)
 	m_livewire.mousePressEvent(m_pickHeight, m_pickWidth, event);
       else if (m_sliceType == WSlice)
@@ -2888,13 +2799,6 @@ CurvesWidget::doAnother(int step)
   // if we are in curve add points mode switch it off
   if (m_addingCurvePoints) endCurve();
   
-  // if we are modifying livewire object freeze it before moving to another slice  
-  if (!m_applyRecursive && m_livewire.seedMoveMode())
-    {
-      freezeModifyUsingLivewire();
-      modifyUsingLivewire();
-    }
-
   int minS, maxS;
   if (m_sliceType == DSlice)
     { 

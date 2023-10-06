@@ -56,9 +56,7 @@ class Curves : public QWidget
   void setCurve(bool);
   void setLivewire(bool);
 
-  bool seedMoveMode();
   void freezeLivewire(bool);
-  void freezeModifyUsingLivewire();
   void sliceChanged();
 
   void depthUserRange(int&, int&);

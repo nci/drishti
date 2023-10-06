@@ -348,38 +348,6 @@
                </widget>
               </item>
               <item>
-               <widget class="QPushButton" name="modify">
-                <property name="maximumSize">
-                 <size>
-                  <width>120</width>
-                  <height>30</height>
-                 </size>
-                </property>
-                <property name="text">
-                 <string>Modify</string>
-                </property>
-                <property name="checkable">
-                 <bool>true</bool>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QPushButton" name="propagate">
-                <property name="maximumSize">
-                 <size>
-                  <width>120</width>
-                  <height>30</height>
-                 </size>
-                </property>
-                <property name="text">
-                 <string>Propagate</string>
-                </property>
-                <property name="checkable">
-                 <bool>true</bool>
-                </property>
-               </widget>
-              </item>
-              <item>
                <layout class="QHBoxLayout" name="horizontalLayout_7">
                 <property name="spacing">
                  <number>5</number>

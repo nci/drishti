@@ -789,12 +789,6 @@ DrishtiPaint::on_actionGraphCut_triggered()
   m_sagitalCurves->setCurve(false);
   m_coronalCurves->setCurve(false);
   curvesUi.livewire->setChecked(false);
-  curvesUi.modify->setChecked(false);
-  curvesUi.propagate->setChecked(false);
-
-  m_axialCurves->freezeModifyUsingLivewire();
-  m_sagitalCurves->freezeModifyUsingLivewire();
-  m_coronalCurves->freezeModifyUsingLivewire();
 
   on_actionDefaultView_triggered();
 }
@@ -1494,13 +1488,7 @@ DrishtiPaint::livewire_clicked(bool c)
   if (m_coronalCurves->inFocus()) curves = m_coronalCurves;
   
   if (!c)
-    {
-      if (!curves->seedMoveMode())
-	curves->freezeLivewire(false);
-      else
-	curves->freezeModifyUsingLivewire();
-      curvesUi.modify->setChecked(false);
-    }
+    curves->freezeLivewire(false);
 
   curves->setLivewire(c);
 }
@@ -7093,6 +7081,8 @@ DrishtiPaint::on_actionHelp2D_triggered()
   help += "-----------------\n";
   help += "Press 2 to define a 2D box centered around the voxel under the current cursor position.\n\n";
 
+  help += "Double click middle mouse to reset 2D box.\n\n";
+
   help += "2D Box Size : specify 2D image size for training and prediction. ";
   help += "The box size can be smaller than the actual grid size.\n\n";
 
@@ -7135,6 +7125,8 @@ DrishtiPaint::on_actionHelp3D_triggered()
   help += "-----------------\n";
   help += "Press 3 to define a 3D box centered around the voxel under the current cursor position.\n\n";
 
+  help += "Double click middle mouse to reset 2D box.\n\n";
+    
   help += "3D Box Size : specify 3D image size for training and prediction.  The box size can be smaller than the actual grid size.\n\n";
 
   help += "Draw Boxes : display currently selected training boxes in 3D view only.\n\n";

@@ -148,9 +148,7 @@ void Curves::loadCurves(QString curvesfile) { m_curvesWidget->loadCurves(curvesf
 void Curves::setCurve(bool b) { m_curvesWidget->setCurve(b); }
 void Curves::setLivewire(bool b) { m_curvesWidget->setLivewire(b); }
 
-bool Curves::seedMoveMode() { return m_curvesWidget->seedMoveMode(); }
 void Curves::freezeLivewire(bool b) { m_curvesWidget->freezeLivewire(b); }
-void Curves::freezeModifyUsingLivewire() { m_curvesWidget->freezeModifyUsingLivewire(); }
 
 void Curves::sliceChanged() { m_curvesWidget->sliceChanged(m_slider->value()); }
 

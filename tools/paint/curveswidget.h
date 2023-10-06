@@ -127,9 +127,6 @@ class CurvesWidget : public QWidget
 
   void paintUsingCurves(int, int, int, int, uchar*);
 
-  void modifyUsingLivewire();
-  void freezeModifyUsingLivewire();
-
   void setLambda(float);
   void setSegmentLength(int);
   void showTags(QList<int>);
@@ -303,8 +300,6 @@ class CurvesWidget : public QWidget
   void curveMouseMoveEvent(QMouseEvent*);
 
   QList<QPointF> trimPointList(QList<QPointF>, bool);
-
-  void modifyUsingLivewire(int, int);
 
 
   void drawSeedPoints(QPainter*, QVector<QPointF>, QColor);

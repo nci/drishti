@@ -11,6 +11,8 @@ class MySlider : public QWidget
  public :
   MySlider(QWidget *parent=NULL);
 
+  void setBackgroundColor(QColor c) { m_backgroundColor = c; }
+  
   void set(int, int, int, int, int);
   void setRange(int, int);
   void setUserRange(int, int);
@@ -38,6 +40,7 @@ class MySlider : public QWidget
   void userRangeChanged(int, int);
 
  private :
+  QColor m_backgroundColor;
   int m_rangeMin, m_rangeMax;
   int m_userMin, m_userMax;
   int m_value;

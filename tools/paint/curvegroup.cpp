@@ -1012,15 +1012,16 @@ CurveGroup::morphCurves(int minS, int maxS)
       gmcg.insert(keys[ncg+1], cg[keys[ncg+1]].pts);
 
       bool is_closed = cg[keys[ncg]].closed;
-      int thick0 = cg[keys[ncg]].thickness;
-      int thick1 = cg[keys[ncg+1]].thickness;
+      //int thick0 = cg[keys[ncg]].thickness;
+      //int thick1 = cg[keys[ncg+1]].thickness;
       int mtag = cg[keys[ncg]].tag;
 
+      alignClosedCurves(gmcg);
       if (is_closed)
-	alignClosedCurves(gmcg);
+      	alignClosedCurves(gmcg);
       else
 	alignOpenCurves(gmcg);
-      
+
       MorphCurve mc;
       mc.setPaths(gmcg);
       
@@ -1038,8 +1039,9 @@ CurveGroup::morphCurves(int minS, int maxS)
 	  Curve c;
 	  c.tag = mtag;
 	  c.pts = a;
+	  c.thickness = 1;
 	  c.closed = is_closed;
-	  c.thickness = thick0 + (thick1-thick0)*((float)i/(float)(nperi-1));
+	  //c.thickness = thick0 + (thick1-thick0)*((float)i/(float)(nperi-1));
 
 	  //morphedCurves.insert(qCeil(p.z), c);
 	  morphedCurves.insert(qRound(p.z), c);
@@ -1065,7 +1067,7 @@ CurveGroup::morphSlices(int minS, int maxS)
 	  QList<Curve*> curves = m_cg.values(cgkeys[i]);
 	  for(int j=0; j<curves.count(); j++)
 	    {
-	      if (curves[j]->selected)
+	      //if (curves[j]->selected)
 		cg.insert(cgkeys[i], *curves[j]);
 	    }
 	}

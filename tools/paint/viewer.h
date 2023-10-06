@@ -85,7 +85,6 @@ class Viewer : public QGLViewer
     void setPointScaling(int p) { m_pointScaling = p; update(); }
     void updateVoxels();
     void updateViewerBox(int, int, int, int, int, int);
-    void updateCurrSlice(int, int);
     void setShowBox(bool);
     void setDSlice(int);
     void setWSlice(int);
@@ -225,8 +224,6 @@ class Viewer : public QGLViewer
   int m_pointSkip;
   int m_pointSize;
   int m_pointScaling;
-
-  int m_currSlice, m_currSliceType;
 
   MyBitArray m_bitmask;
   bool m_paintHit, m_carveHit;

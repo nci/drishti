@@ -26,13 +26,13 @@ class Curves : public QWidget
   void setSliceType(int);
   void resetSliceType();
   int currSlice() { return m_slider->value(); }
+  int currentSliceNumber() { return m_curvesWidget->currentSliceNumber(); }
   
   void setVolPtr(uchar *);
   //void setMaskPtr(uchar *);
 
   void setBox(int, int, int, int, int, int);
   void getBox(int&, int&, int&, int&, int&, int&);
-  void processPrevSliceTags();
   void loadLookupTable(QImage);
   
   void setImage(uchar*, uchar*);

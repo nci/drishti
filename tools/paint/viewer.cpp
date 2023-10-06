@@ -316,9 +316,6 @@ Viewer::init()
   m_width = 0;
   m_height = 0;
 
-  m_currSlice = 0;
-  m_currSliceType = 0;
-
   m_maskPtr = 0;
   m_volPtr = 0;
   m_volPtrUS = 0;
@@ -622,14 +619,6 @@ Viewer::createShaders()
 
 
 void Viewer::setShowPosition(bool b) { m_showPosition = b; update(); }
-
-void
-Viewer::updateCurrSlice(int cst, int cs)
-{
-  m_currSliceType = cst;
-  m_currSlice = cs;
-  update();
-}
 
 
 void Viewer::setMaskDataPtr(uchar *ptr) { m_maskPtr = ptr; }

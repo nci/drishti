@@ -114,6 +114,7 @@ class DrishtiPaint : public QMainWindow
   void copyprev_clicked(bool);
   void on_thickness_valueChanged(int);
   void on_radius_valueChanged(int);
+  void resetLivewire();
   void livewireSetting_toggled(bool);
   void livewire_clicked(bool);
   void lwsmooth_currentIndexChanged(int);
@@ -126,13 +127,11 @@ class DrishtiPaint : public QMainWindow
   void checkStateChanged(int, int, bool);
   void updateComposite();
   void tagSelected(int, bool);
-  void getSlice(int);
 
   void getAxialSlice(int);
   void getSagitalSlice(int);
   void getCoronalSlice(int);
 
-  void getMaskSlice(int);
   void getRawValue(int, int, int);
   void tagDSlice(int, uchar*);
   void tagWSlice(int, uchar*);
@@ -238,8 +237,6 @@ class DrishtiPaint : public QMainWindow
   
   Volume *m_volume;
 
-  int m_currSlice;
-
   QString m_pvlFile;
   QString m_xmlFile;
 
@@ -269,6 +266,8 @@ class DrishtiPaint : public QMainWindow
 
   void updateRecentFileAction();
   QString loadVolumeFromProject(const char*);
+
+  void reloadSlices();
 
   void sliceDilate(int, int, uchar*, uchar*, int, int);
   void dilate(int, int, uchar**, uchar*, int, int);

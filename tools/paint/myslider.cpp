@@ -5,7 +5,9 @@ MySlider::MySlider(QWidget *parent) :
   QWidget(parent)
 {
   setFocusPolicy(Qt::StrongFocus);
-  
+
+  m_backgroundColor = QColor(220,220,220);
+			     
   m_rangeMin = 0;
   m_rangeMax = 0;
 
@@ -250,6 +252,9 @@ MySlider::paintEvent(QPaintEvent *event)
 {
   QPainter p(this);
 
+  p.setBrush(m_backgroundColor);
+  p.drawRect(rect());
+  
   drawSlider(&p);
 
   if (hasFocus())

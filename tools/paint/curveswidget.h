@@ -70,8 +70,6 @@ class CurvesWidget : public QWidget
   void getBox(int&, int&, int&, int&, int&, int&);
   void setBox(int, int, int, int, int, int);
 
-  void processPrevSliceTags();
-
   QVector3D pickedPoint() { return QVector3D(m_lastPickDepth, m_lastPickWidth, m_lastPickHeight); };
 
   QMultiMap<int, Curve*>* multiMapCurves() { return m_Curves.multiMapCurves(); };
@@ -129,7 +127,6 @@ class CurvesWidget : public QWidget
 
   void setLambda(float);
   void setSegmentLength(int);
-  void showTags(QList<int>);
 
   void releaseFocus();
 
@@ -174,7 +171,6 @@ class CurvesWidget : public QWidget
 
 
   QVector<QRgb> m_tagColors;
-  QVector<QRgb> m_prevslicetagColors;
 
   int m_sliceType;
   int m_minDSlice, m_maxDSlice;
@@ -197,12 +193,6 @@ class CurvesWidget : public QWidget
 
   QImage m_maskimage;
   QImage m_maskimageScaled;
-
-  QImage m_userimage;
-  QImage m_userimageScaled;
-
-  QImage m_prevslicetagimage;
-  QImage m_prevslicetagimageScaled;
 
   QImage m_gradImageScaled;
 
@@ -229,9 +219,6 @@ class CurvesWidget : public QWidget
   bool m_rubberYmax;
   bool m_rubberNew;
 
-  uchar *m_prevtags;
-  uchar *m_usertags;
-  uchar *m_prevslicetags;
   uchar *m_tags;
 
   bool m_applyRecursive;
@@ -246,7 +233,6 @@ class CurvesWidget : public QWidget
   float m_minGrad, m_maxGrad;
   int m_gradType;
   
-  QList<int> m_showTags;
 
   void resizeImage();
   void recolorImage();
@@ -314,8 +300,6 @@ class CurvesWidget : public QWidget
   void shrinkwrapCurve();
 
   void doAnother(int);
-
-  void applyPaint(bool);
 
   void applyGradLimits();
 

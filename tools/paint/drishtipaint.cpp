@@ -462,25 +462,34 @@ DrishtiPaint::createCurveWindows()
   connect(m_sagitalCurves,SIGNAL(changeLayout()), this, SLOT(sagitalCurvesLayout_triggered()));
   connect(m_coronalCurves,SIGNAL(changeLayout()), this, SLOT(coronalCurvesLayout_triggered()));
 
+  
+  connect(m_axialCurves,  SIGNAL(getSlice(int)), this, SLOT(getAxialSlice(int)));  
+  connect(m_axialCurves,  SIGNAL(getSlice(int)), m_viewer, SLOT(setDSlice(int)));
   connect(m_axialCurves, SIGNAL(getSlice(int)), m_sagitalCurves, SLOT(setVLine(int)));
   connect(m_axialCurves, SIGNAL(getSlice(int)), m_coronalCurves, SLOT(setVLine(int)));
+
+
+  connect(m_sagitalCurves,SIGNAL(getSlice(int)), this, SLOT(getSagitalSlice(int)));  
+  connect(m_sagitalCurves,SIGNAL(getSlice(int)), m_viewer, SLOT(setWSlice(int)));
+  connect(m_sagitalCurves, SIGNAL(getSlice(int)), m_axialCurves, SLOT(setVLine(int)));
+  connect(m_sagitalCurves, SIGNAL(getSlice(int)), m_coronalCurves, SLOT(setHLine(int)));
+
+  
+  connect(m_coronalCurves,SIGNAL(getSlice(int)), this, SLOT(getCoronalSlice(int)));  
+  connect(m_coronalCurves,SIGNAL(getSlice(int)), m_viewer, SLOT(setHSlice(int)));
+  connect(m_coronalCurves, SIGNAL(getSlice(int)), m_axialCurves, SLOT(setHLine(int)));
+  connect(m_coronalCurves, SIGNAL(getSlice(int)), m_sagitalCurves, SLOT(setHLine(int)));
+
+  
   connect(m_axialCurves, SIGNAL(xPos(int)), m_coronalCurves, SLOT(updateSliderValue(int)));
   connect(m_axialCurves, SIGNAL(yPos(int)), m_sagitalCurves, SLOT(updateSliderValue(int)));
 
-  connect(m_sagitalCurves, SIGNAL(getSlice(int)), m_axialCurves, SLOT(setVLine(int)));
-  connect(m_sagitalCurves, SIGNAL(getSlice(int)), m_coronalCurves, SLOT(setHLine(int)));
   connect(m_sagitalCurves, SIGNAL(xPos(int)), m_coronalCurves, SLOT(updateSliderValue(int)));
   connect(m_sagitalCurves, SIGNAL(yPos(int)), m_axialCurves, SLOT(updateSliderValue(int)));
 
-  connect(m_coronalCurves, SIGNAL(getSlice(int)), m_axialCurves, SLOT(setHLine(int)));
-  connect(m_coronalCurves, SIGNAL(getSlice(int)), m_sagitalCurves, SLOT(setHLine(int)));
   connect(m_coronalCurves, SIGNAL(xPos(int)), m_sagitalCurves, SLOT(updateSliderValue(int)));
   connect(m_coronalCurves, SIGNAL(yPos(int)), m_axialCurves, SLOT(updateSliderValue(int)));
 
-  
-  connect(m_axialCurves,  SIGNAL(getSlice(int)), m_viewer, SLOT(setDSlice(int)));
-  connect(m_sagitalCurves,SIGNAL(getSlice(int)), m_viewer, SLOT(setWSlice(int)));
-  connect(m_coronalCurves,SIGNAL(getSlice(int)), m_viewer, SLOT(setHSlice(int)));
 
   return splitter_0;
 }
@@ -1193,48 +1202,30 @@ DrishtiPaint::updateSliceBounds(Vec bmin, Vec bmax)
 void
 DrishtiPaint::getAxialSlice(int slc)
 {
-  m_currSlice = slc;
-
   m_axialCurves->setSliderValue(slc);
 
-  uchar *slice;
-  uchar *maskslice;
-
-  slice = m_volume->getDepthSliceImage(m_currSlice);
-  maskslice = m_volume->getMaskDepthSliceImage(m_currSlice);
-  m_viewer->updateCurrSlice(0, m_currSlice);  
+  uchar *slice = m_volume->getDepthSliceImage(slc);
+  uchar *maskslice = m_volume->getMaskDepthSliceImage(slc);
 
   m_axialCurves->setImage(slice, maskslice);
 }
 void
 DrishtiPaint::getSagitalSlice(int slc)
 {
-  m_currSlice = slc;
-
   m_sagitalCurves->setSliderValue(slc);
 
-  uchar *slice;
-  uchar *maskslice;
-
-  slice = m_volume->getWidthSliceImage(m_currSlice); 
-  maskslice = m_volume->getMaskWidthSliceImage(m_currSlice);
-  m_viewer->updateCurrSlice(1, m_currSlice);  
+  uchar *slice = m_volume->getWidthSliceImage(slc); 
+  uchar *maskslice = m_volume->getMaskWidthSliceImage(slc);
 
   m_sagitalCurves->setImage(slice, maskslice);
 }
 void
 DrishtiPaint::getCoronalSlice(int slc)
 {
-  m_currSlice = slc;
-
   m_coronalCurves->setSliderValue(slc);
 
-  uchar *slice;
-  uchar *maskslice;
-
-  slice = m_volume->getHeightSliceImage(m_currSlice); 
-  maskslice = m_volume->getMaskHeightSliceImage(m_currSlice);
-  m_viewer->updateCurrSlice(2, m_currSlice);  
+  uchar *slice = m_volume->getHeightSliceImage(slc); 
+  uchar *maskslice = m_volume->getMaskHeightSliceImage(slc);
 
   m_coronalCurves->setImage(slice, maskslice);
 }
@@ -1242,7 +1233,7 @@ DrishtiPaint::getCoronalSlice(int slc)
 //---------------------//---------------------
 
 void
-DrishtiPaint::getSlice(int slc)
+DrishtiPaint::reloadSlices()
 {
   m_axialImage->reloadSlice();
   m_sagitalImage->reloadSlice();
@@ -1251,26 +1242,6 @@ DrishtiPaint::getSlice(int slc)
   m_axialCurves->sliceChanged();
   m_sagitalCurves->sliceChanged();
   m_coronalCurves->sliceChanged();
-}
-
-void
-DrishtiPaint::getMaskSlice(int slc)
-{
-//  m_currSlice = slc;
-//
-//  //m_slider->setValue(slc);
-//  m_curves->setSliderValue(slc);
-//
-//  uchar *maskslice;
-//
-//  if (ui.butZ->isChecked())
-//    maskslice = m_volume->getMaskDepthSliceImage(m_currSlice);
-//  else if (ui.butY->isChecked())
-//    maskslice = m_volume->getMaskWidthSliceImage(m_currSlice);
-//  else if (ui.butX->isChecked())
-//    maskslice = m_volume->getMaskHeightSliceImage(m_currSlice);
-//
-//  m_curves->setMaskImage(maskslice);
 }
 
 void
@@ -1283,7 +1254,7 @@ DrishtiPaint::tagSelected(int t, bool checkBoxClicked)
   m_sagitalImage->updateTagColors();
   m_coronalImage->updateTagColors();
       
-  if (checkBoxClicked)
+  //if (checkBoxClicked)
     {
       m_axialCurves->updateTagColors();
       m_sagitalCurves->updateTagColors();
@@ -1361,10 +1332,6 @@ DrishtiPaint::on_tag_valueChanged(int t)
   m_axialImage->processPrevSliceTags();
   m_sagitalImage->processPrevSliceTags();
   m_coronalImage->processPrevSliceTags();
-
-  m_axialCurves->processPrevSliceTags();
-  m_sagitalCurves->processPrevSliceTags();
-  m_coronalCurves->processPrevSliceTags();
 }
 void DrishtiPaint::sliceLod_currentIndexChanged(int l)
 {
@@ -1383,6 +1350,28 @@ void DrishtiPaint::on_radius_valueChanged(int d)
   m_sagitalImage->update();
   m_coronalImage->update();
 }
+void DrishtiPaint::resetLivewire()
+{
+  if (m_axialCurves->inFocus())
+    {      
+      m_sagitalCurves->setLivewire(false);
+      m_coronalCurves->setLivewire(false);
+    }
+  if (m_sagitalCurves->inFocus())
+    {
+      m_axialCurves->setLivewire(false);
+      m_coronalCurves->setLivewire(false);
+    }
+  if (m_coronalCurves->inFocus())
+    {
+      m_sagitalCurves->setLivewire(false);
+      m_axialCurves->setLivewire(false);
+    }
+
+  if (curvesUi.livewire->isChecked())
+    livewire_clicked(true);
+}
+
 void DrishtiPaint::livewireSetting_toggled(bool on)
 {
   livewire_clicked(false);
@@ -1486,6 +1475,10 @@ DrishtiPaint::livewire_clicked(bool c)
   if (m_axialCurves->inFocus()) curves = m_axialCurves;
   if (m_sagitalCurves->inFocus()) curves = m_sagitalCurves;
   if (m_coronalCurves->inFocus()) curves = m_coronalCurves;
+
+  // no curvewidget is inFocus
+  if (!curves)
+    return;
   
   if (!c)
     curves->freezeLivewire(false);
@@ -2748,7 +2741,7 @@ DrishtiPaint::applyMaskOperation(int tag,
   
   progress.setValue(100);  
 
-  getSlice(m_axialCurves->currSlice());
+  reloadSlices();
 }
 
 void
@@ -2834,9 +2827,9 @@ DrishtiPaint::connectCurvesWidget()
   connect(m_sagitalCurves, SIGNAL(saveWork()), this, SLOT(saveWork()));
   connect(m_coronalCurves, SIGNAL(saveWork()), this, SLOT(saveWork()));  
 
-  connect(m_axialCurves, SIGNAL(getSlice(int)), this, SLOT(getAxialSlice(int)));  
-  connect(m_sagitalCurves, SIGNAL(getSlice(int)), this, SLOT(getSagitalSlice(int)));  
-  connect(m_coronalCurves, SIGNAL(getSlice(int)), this, SLOT(getCoronalSlice(int)));  
+  connect(m_axialCurves,  SIGNAL(gotFocus()), this, SLOT(resetLivewire()));
+  connect(m_sagitalCurves,  SIGNAL(gotFocus()), this, SLOT(resetLivewire()));
+  connect(m_coronalCurves,  SIGNAL(gotFocus()), this, SLOT(resetLivewire()));
 
   connect(m_axialCurves,  SIGNAL(gotFocus()), m_sagitalCurves,SLOT(releaseFocus()));
   connect(m_axialCurves,  SIGNAL(gotFocus()), m_coronalCurves,SLOT(releaseFocus()));
@@ -2850,15 +2843,7 @@ DrishtiPaint::connectCurvesWidget()
 //  connect(m_sagitalCurves, SIGNAL(getRawValue(int, int, int)),
 //	  this, SLOT(getRawValue(int, int, int)));
 //  connect(m_coronalCurves, SIGNAL(getRawValue(int, int, int)),
-//	  this, SLOT(getRawValue(int, int, int)));
-
-//  connect(m_axialCurves, SIGNAL(tagDSlice(int, uchar*)), this, SLOT(tagDSlice(int, uchar*)));
-//  connect(m_sagitalCurves, SIGNAL(tagWSlice(int, uchar*)), this, SLOT(tagWSlice(int, uchar*)));
-//  connect(m_coronalCurves, SIGNAL(tagHSlice(int, uchar*)), this, SLOT(tagHSlice(int, uchar*)));  
-  
-
-//  connect(m_curves, SIGNAL(updateViewerBox(int, int, int, int, int, int)),
-//	  m_viewer, SLOT(updateViewerBox(int, int, int, int, int, int)));
+//	  this, SLOT(getRawValue(int, int, int)));  
 
 //  connect(m_curves, SIGNAL(showEndCurve()),
 //	  curvesUi.endcurve, SLOT(show()));
@@ -5478,7 +5463,7 @@ DrishtiPaint::paint3D(Vec bmin, Vec bmax,
 	}
     } // onlyConnected
 
-  getSlice(m_currSlice);
+  reloadSlices();
 
   for(int i=0; i<seeds.count(); i++)
     {
@@ -5818,7 +5803,7 @@ DrishtiPaint::tagUsingSketchPad(Vec bmin, Vec bmax, int tag)
 	}
     }
 
-  getSlice(m_currSlice);
+  reloadSlices();
   
   minD = qMax(minD-1, 0);
   minW = qMax(minW-1, 0);
@@ -5865,7 +5850,7 @@ DrishtiPaint::updateModifiedRegion(int minD, int maxD,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
-  getSlice(m_currSlice);
+  reloadSlices();
   
   int m_depth, m_width, m_height;
   m_volume->gridSize(m_depth, m_width, m_height);

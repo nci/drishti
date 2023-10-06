@@ -9,11 +9,11 @@ Curves::Curves(QWidget *parent, QStatusBar *sb) :
   QWidget(parent)
 {
   m_curvesWidget = new CurvesWidget(this, sb);
-
+  
   QScrollArea *scrollArea = new QScrollArea;
   scrollArea->setBackgroundRole(QPalette::Dark);
   scrollArea->setWidget(m_curvesWidget);
-  
+
   QHBoxLayout *hl = new QHBoxLayout();
   QVBoxLayout *vl = new QVBoxLayout();
   
@@ -27,6 +27,8 @@ Curves::Curves(QWidget *parent, QStatusBar *sb) :
   m_maximized = false;
 
   m_curvesWidget->setScrollArea(scrollArea);
+  scrollArea->setStyleSheet("background-color:honeydew;");
+  m_slider->setBackgroundColor(QColor(240, 255, 240));
 }
 
 void
@@ -236,7 +238,6 @@ void Curves::setBox(int minD, int maxD,
 {
   m_curvesWidget->setBox(minD, maxD, minW, maxW, minH, maxH);
 }
-void Curves::processPrevSliceTags() { m_curvesWidget->processPrevSliceTags(); }
 
 void Curves::loadLookupTable(QImage img) { m_curvesWidget->loadLookupTable(img); }
 

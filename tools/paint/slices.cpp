@@ -27,6 +27,8 @@ Slices::Slices(QWidget *parent) :
   m_maximized = false;
 
   m_imageWidget->setScrollArea(scrollArea);
+  scrollArea->setStyleSheet("background-color:aliceblue;");
+  m_slider->setBackgroundColor(QColor(240, 248, 255));
 }
 
 void
@@ -162,6 +164,7 @@ Slices::setGridSize(int d, int w, int h)
       m_slider->set(0, d-1, 0, d-1, d/2);
       QValidator *valid = new QIntValidator(0, d-1);
       m_sliceNum->setValidator(valid);
+      setSliceNumber(d/2);
       m_s1 = d-1;
     }
   if (m_imageWidget->sliceType() == ImageWidget::WSlice)
@@ -169,6 +172,7 @@ Slices::setGridSize(int d, int w, int h)
       m_slider->set(0, w-1, 0, w-1, w/2);
       QValidator *valid = new QIntValidator(0, w-1);
       m_sliceNum->setValidator(valid);
+      setSliceNumber(w/2);
       m_s1 = w-1;
     }
   if (m_imageWidget->sliceType() == ImageWidget::HSlice)
@@ -176,6 +180,7 @@ Slices::setGridSize(int d, int w, int h)
       m_slider->set(0, h-1, 0, h-1, h/2);
       QValidator *valid = new QIntValidator(0, h-1);
       m_sliceNum->setValidator(valid);
+      setSliceNumber(h/2);
       m_s1 = h-1;
     }  
 }

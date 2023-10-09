@@ -523,7 +523,16 @@ DrishtiPaint::on_actionCurves_triggered()
       m_sagitalCurves->setLivewire(false);
       m_coronalCurves->setLivewire(false);
     }
-  
+  else
+    {
+      m_axialCurves->setGridSize(100,100,100);
+      m_sagitalCurves->setGridSize(100,100,100);
+      m_coronalCurves->setGridSize(100,100,100);
+      m_axialCurves->resetSliceType();
+      m_sagitalCurves->resetSliceType();
+      m_coronalCurves->resetSliceType();
+    }
+
   defaultCurvesLayout_triggered();
 }
 
@@ -543,16 +552,18 @@ DrishtiPaint::defaultCurvesLayout_triggered()
   m_splitterTwoC->addWidget(m_sagitalFrameC); // Y
   m_splitterTwoC->addWidget(m_coronalFrameC); // X
 
+
+  QList<int> gcas;
+  gcas << 1000 << 1000;
+  m_curvesArea->setSizes(gcas);
+  
   QList<int> ssz;
   ssz << 150;
   ssz << 150;
   m_splitterOneC->setSizes(ssz);
   m_splitterTwoC->setSizes(ssz);
 
-  QList<int> gcas;
-  gcas << 1000 << 1000;
-  m_curvesArea->setSizes(gcas);
-
+  
   m_axialCurves->zoomToSelection();
   m_sagitalCurves->zoomToSelection();
   m_coronalCurves->zoomToSelection();
@@ -818,16 +829,18 @@ DrishtiPaint::on_actionDefaultView_triggered()
   m_splitterTwo->addWidget(m_sagitalFrame); // Y
   m_splitterTwo->addWidget(m_coronalFrame); // X
 
+  
+  QList<int> gcas;
+  gcas << 1000 << 1000;
+  m_graphCutArea->setSizes(gcas);
+  
   QList<int> ssz;
   ssz << 150;
   ssz << 150;
   m_splitterOne->setSizes(ssz);
   m_splitterTwo->setSizes(ssz);
 
-  QList<int> gcas;
-  gcas << 1000 << 1000;
-  m_graphCutArea->setSizes(gcas);
-
+  
   m_axialImage->zoomToSelection();
   m_sagitalImage->zoomToSelection();
   m_coronalImage->zoomToSelection();

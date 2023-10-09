@@ -63,7 +63,7 @@ CurvesWidget::CurvesWidget(QWidget *parent, QStatusBar *sb) :
   m_hline = m_vline = 0;
 
   m_livewireMode = false;
-  m_curveMode = false;
+  m_curveMode = true;
   m_addingCurvePoints = false;
 
   m_Depth = m_Width = m_Height = 0;
@@ -261,7 +261,7 @@ CurvesWidget::setZoom(float z)
 
   resizeImage();
   update();
-
+    
   if (z9)
     m_scrollArea->ensureVisible(z9x, z9y, z9mx, z9my);
 }
@@ -478,7 +478,8 @@ CurvesWidget::resetSliceType()
 
   m_currSlice = m_maxSlice/2-1;
 
-  emit getSlice(m_currSlice);
+  if (m_volPtr)
+    emit getSlice(m_currSlice);
 }
 
 void
@@ -787,7 +788,7 @@ CurvesWidget::setRawValue(QList<int> vgt)
 
 void
 CurvesWidget::resizeImage()
-{
+{  
   setMinimumSize(QSize(m_zoom*m_imgWidth + 20,
 		       m_zoom*m_imgHeight + 40));
 
@@ -1197,7 +1198,7 @@ CurvesWidget::drawMorphedCurves(QPainter *p)
 
 void
 CurvesWidget::paintEvent(QPaintEvent *event)
-{
+{  
   QPainter p(this);
 
   int shiftModifier = QGuiApplication::keyboardModifiers() & Qt::ShiftModifier;
@@ -1471,6 +1472,9 @@ CurvesWidget::checkRecursive()
 
 void CurvesWidget::setCurve(bool b)
 {
+  if (!m_volPtr)
+    return;
+    
   m_curveMode = b;
   if (!m_curveMode) m_livewireMode = false;
   updateTagColors();
@@ -1479,6 +1483,9 @@ void CurvesWidget::setCurve(bool b)
 void
 CurvesWidget::setLivewire(bool b)
 {
+  if (!m_volPtr)
+    return;
+    
   m_livewireMode = b;
 
   recolorImage();

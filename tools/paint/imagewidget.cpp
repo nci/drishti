@@ -268,6 +268,11 @@ ImageWidget::saveImageSequence()
   QMessageBox::information(0, "Save All Image Slices", "Done");
 }
 
+
+void ImageWidget::zoom0Clicked() { setZoom(1); }
+void ImageWidget::zoom9Clicked() { setZoom(-1); }
+void ImageWidget::zoomUpClicked() { setZoom(m_zoom+0.1); }
+void ImageWidget::zoomDownClicked() { setZoom(m_zoom-0.1); }
 void
 ImageWidget::setZoom(float z)
 {  
@@ -732,7 +737,8 @@ ImageWidget::resetSliceType()
 
   m_currSlice = m_maxSlice/2-1;
   
-  getSlice();
+  if (m_volPtr)
+    getSlice();
 }
 
 void
@@ -1350,11 +1356,6 @@ ImageWidget::checkRecursive()
 	}
     }
 }
-
-void ImageWidget::zoom0Clicked() { setZoom(1); }
-void ImageWidget::zoom9Clicked() { setZoom(-1); }
-void ImageWidget::zoomUpClicked() { setZoom(m_zoom+0.1); }
-void ImageWidget::zoomDownClicked() { setZoom(m_zoom-0.1); }
 
 void
 ImageWidget::multiSliceOperation()

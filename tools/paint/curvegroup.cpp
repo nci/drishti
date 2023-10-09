@@ -45,6 +45,10 @@ CurveGroup::CurveGroup()
   m_lambda = 0.5;
   m_seglen = 2;
   m_shrinkwrapIgnoreSize = 20;
+
+  m_cg.clear();
+  m_swcg.clear();
+  
   reset();
 }
 

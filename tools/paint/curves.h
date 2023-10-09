@@ -45,7 +45,7 @@ class Curves : public QWidget
   void setLarge(bool);
   bool enlarged() { return m_maximized; }
 
-  void setSliderValue(int slc) { m_slider->setValue(slc); }
+  void setSliderValue(int slc) { m_slider->setValue(slc); setSliceNumber(slc); }
   void setSliderRange(int, int, int, int, int);
   
   void saveCurves();
@@ -142,7 +142,6 @@ class Curves : public QWidget
     bool m_maximized;
 
     int m_Depth, m_Width, m_Height;
-    int m_s0, m_s1;
   
     void createMenu(QHBoxLayout*, QVBoxLayout*);
 };

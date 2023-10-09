@@ -176,7 +176,6 @@ Curves::setGridSize(int d, int w, int h)
   m_Depth = d;
   m_Width = w;
   m_Height = h;
-  m_s0 = 0;
 
   m_curvesWidget->setGridSize(d,w,h);
 
@@ -184,19 +183,16 @@ Curves::setGridSize(int d, int w, int h)
     {
       QValidator *valid = new QIntValidator(0, d-1);
       m_sliceNum->setValidator(valid);
-      m_s1 = d-1;
     }
   if (m_curvesWidget->sliceType() == CurvesWidget::WSlice)
     {
       QValidator *valid = new QIntValidator(0, w-1);
       m_sliceNum->setValidator(valid);
-      m_s1 = w-1;
     }
   if (m_curvesWidget->sliceType() == CurvesWidget::HSlice)
     {
       QValidator *valid = new QIntValidator(0, h-1);
       m_sliceNum->setValidator(valid);
-      m_s1 = h-1;
     }  
 }
 

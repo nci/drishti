@@ -543,7 +543,7 @@ ShaderFactory::genIsoRaycastShader(bool nearest,
   shader += "        if (deno > 0.0)\n";
   shader += "          {\n";
   shader += "            float t = -dot((pt-cpos),cnorm)/deno;\n";
-  shader += "            if (t >= 0)\n";
+  shader += "            if (t >= 0.0)\n";
   shader += "             {\n";
   shader += "               pt = pt + t*dir;\n";
   shader += "             }\n";
@@ -579,7 +579,7 @@ ShaderFactory::genIsoRaycastShader(bool nearest,
   shader += "entryPoint = clip(entryPoint, dir);\n";
   shader += "exitPoint = clip(exitPoint, -dir);\n";
   shader += "vec3 dirN = (exitPoint-entryPoint);\n";
-  shader += "if (dot(dir, dirN) <= 0) discard;\n";
+  shader += "if (dot(dir, dirN) <= 0.0) discard;\n";
   shader += "dir = dirN;\n";
   
   shader += "float totlen = length(dir);\n";
@@ -621,7 +621,7 @@ ShaderFactory::genIsoRaycastShader(bool nearest,
   
   
   if (!bit16)
-    shader += "  colorSample = texture2D(lutTex, vec2(val,0.0));\n";
+    shader += "  colorSample = texture(lutTex, vec2(val,0.0));\n";
   else
     {
       shader += "  int h0 = int(65535.0*val);\n";
@@ -629,10 +629,10 @@ ShaderFactory::genIsoRaycastShader(bool nearest,
       shader += "  h0 = int(mod(float(h0),256.0));\n";
       shader += "  float fh0 = float(h0)/256.0;\n";
       shader += "  float fh1 = float(h1)/256.0;\n";
-      shader += "  colorSample = texture2D(lutTex, vec2(fh0,fh1));\n";
+      shader += "  colorSample = texture(lutTex, vec2(fh0,fh1));\n";
     }
 
-  shader += "  if (colorSample.a > 0)\n";
+  shader += "  if (colorSample.a > 0.0)\n";
   shader += " {\n";
   if (gradType == 0)
     shader += getGrad(nearest);

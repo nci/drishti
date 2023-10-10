@@ -1,6 +1,6 @@
 TEMPLATE = lib
 
-DRISHTI_DEFINES = IMPORT
+DRISHTI_DEFINES = IMPORT TIFF
 include(../../../../drishti.pri )
 
 CONFIG += release plugin
@@ -54,10 +54,7 @@ win32 {
 
 unix {
  !macx {
-  INCLUDEPATH += ../../ \
-                 /home/acl900/drishtilib/tiff-4.1.0/build/include
-
-  QMAKE_LIBDIR += /home/acl900/drishtilib/tiff-4.1.0/build/lib
+  INCLUDEPATH += ../../
   LIBS += -ltiff
   
   QMAKE_LFLAGS += "-Wl,-rpath=\'\$${ORIGIN}/../ITK\'"

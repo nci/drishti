@@ -1338,14 +1338,6 @@ DrishtiPaint::on_saveFreq_valueChanged(int t)
   m_volume->setSaveFrequency(t);
 }
 
-void
-DrishtiPaint::on_tag_valueChanged(int t)
-{
-  Global::setTag(t);
-  m_axialImage->processPrevSliceTags();
-  m_sagitalImage->processPrevSliceTags();
-  m_coronalImage->processPrevSliceTags();
-}
 void DrishtiPaint::sliceLod_currentIndexChanged(int l)
 {
   m_axialCurves->setSliceLOD(l+1);
@@ -1355,7 +1347,6 @@ void DrishtiPaint::sliceLod_currentIndexChanged(int l)
 void DrishtiPaint::boxSize_valueChanged(int d) { Global::setBoxSize(d); }
 void DrishtiPaint::lambda_valueChanged(int d) { Global::setLambda(d); }
 void DrishtiPaint::smooth_valueChanged(int d) { Global::setSmooth(d); }
-void DrishtiPaint::on_thickness_valueChanged(int d) { Global::setThickness(d); }
 void DrishtiPaint::on_radius_valueChanged(int d)
 {
   Global::setSpread(d);

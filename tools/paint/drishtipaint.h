@@ -106,13 +106,11 @@ class DrishtiPaint : public QMainWindow
   void coronalCurvesLayout_triggered();
 
   void on_saveFreq_valueChanged(int);
-  void on_tag_valueChanged(int);
   void boxSize_valueChanged(int);
   void lambda_valueChanged(int);
   void preverode_valueChanged(int);
   void smooth_valueChanged(int);
   void copyprev_clicked(bool);
-  void on_thickness_valueChanged(int);
   void on_radius_valueChanged(int);
   void resetLivewire();
   void livewireSetting_toggled(bool);

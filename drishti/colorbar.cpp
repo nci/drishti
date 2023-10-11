@@ -14,8 +14,8 @@ bool ColorBars::isValid() { return (m_colorbars.count() > 0); }
 void
 ColorBars::clear()
 {
-  for(int i=0; i<m_colorbars.count(); i++)
-    m_colorbars[i]->removeFromMouseGrabberPool();
+//  for(int i=0; i<m_colorbars.count(); i++)
+//    m_colorbars[i]->removeFromMouseGrabberPool();
 
   for(int i=0; i<m_colorbars.count(); i++)
     delete m_colorbars[i];

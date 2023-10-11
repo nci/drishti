@@ -15,8 +15,8 @@ bool ScaleBars::isValid() { return (m_scalebars.count() > 0); }
 void
 ScaleBars::clear()
 {
-  for(int i=0; i<m_scalebars.count(); i++)
-    m_scalebars[i]->removeFromMouseGrabberPool();
+//  for(int i=0; i<m_scalebars.count(); i++)
+//    m_scalebars[i]->removeFromMouseGrabberPool();
 
   for(int i=0; i<m_scalebars.count(); i++)
     delete m_scalebars[i];

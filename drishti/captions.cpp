@@ -24,8 +24,8 @@ Captions::~Captions()
 void
 Captions::clear()
 {
-  for(int i=0; i<m_captions.count(); i++)
-    m_captions[i]->removeFromMouseGrabberPool();
+//  for(int i=0; i<m_captions.count(); i++)
+//    m_captions[i]->removeFromMouseGrabberPool();
 
   for(int i=0; i<m_captions.count(); i++)
     delete m_captions[i];

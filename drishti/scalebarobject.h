@@ -14,6 +14,8 @@ class ScaleBarObject
  public :
   ScaleBarObject();
   ~ScaleBarObject();
+
+  ScaleBarObject(const ScaleBarObject&);
   
   void load(fstream&);
   void save(fstream&);

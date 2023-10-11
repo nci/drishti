@@ -14,6 +14,14 @@ ScaleBarObject::clear()
   m_textpos = true; // up/right
 }
 
+ScaleBarObject::ScaleBarObject(const ScaleBarObject &co)
+{
+  m_pos = co.m_pos;
+  m_voxels = co.m_voxels;
+  m_type = co.m_type;
+  m_textpos = co.m_textpos;
+}
+
 ScaleBarObject&
 ScaleBarObject::operator=(const ScaleBarObject &co)
 {

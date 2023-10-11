@@ -146,7 +146,8 @@ ShaderFactory::genSliceShader(bool bit16)
 {
   QString shader;
 
-  shader =  "#extension GL_ARB_texture_rectangle : enable\n";
+  shader =  "#version 420 core\n";
+  shader += "#extension GL_ARB_texture_rectangle : enable\n";
   shader += "uniform sampler3D dataTex;\n";
   shader += "uniform sampler2D lutTex;\n";
   shader += "uniform sampler3D maskTex;\n";
@@ -159,12 +160,12 @@ ShaderFactory::genSliceShader(bool bit16)
   shader += "  if (any(lessThan(gl_TexCoord[0].xyz,vec3(0.0,0.0,0.0)))) \n";
   shader += "    discard;\n";
 
-  shader += "  float val = texture3D(dataTex, gl_TexCoord[0].xyz).x;\n";
+  shader += "  float val = texture(dataTex, gl_TexCoord[0].xyz).x;\n";
 
   shader += "  vec4 color;\n";
 
   if (!bit16)
-    shader += "  color = texture2D(lutTex, vec2(val,0.0));\n";
+    shader += "  color = texture(lutTex, vec2(val,0.0));\n";
   else
     {
       shader += "  int h0 = int(65535.0*val);\n";
@@ -172,13 +173,13 @@ ShaderFactory::genSliceShader(bool bit16)
       shader += "  h0 = int(mod(float(h0),256.0));\n";
       shader += "  float fh0 = float(h0)/256.0;\n";
       shader += "  float fh1 = float(h1)/256.0;\n";
-      shader += "  color = texture2D(lutTex, vec2(fh0,fh1));\n";
+      shader += "  color = texture(lutTex, vec2(fh0,fh1));\n";
     }
 
   shader += "  if (color.a < 0.001) discard;\n";
 
-  shader += "  float tag = texture3D(maskTex, gl_TexCoord[0].xyz).x;\n";
-  shader += "  vec4 tagcolor = texture1D(tagTex, tag);\n";
+  shader += "  float tag = texture(maskTex, gl_TexCoord[0].xyz).x;\n";
+  shader += "  vec4 tagcolor = texture(tagTex, tag);\n";
   shader += "  if (tag < 0.001) tagcolor.rgb = color.rgb;\n";
   
   shader += "  color.rgb = mix(color.rgb, tagcolor.rgb, 0.8);\n";
@@ -202,7 +203,8 @@ ShaderFactory::genShadowSliceShader()
 {
   QString shader;
 
-  shader =  "#extension GL_ARB_texture_rectangle : enable\n";
+  shader =  "#version 420 core\n";
+  shader += "#extension GL_ARB_texture_rectangle : enable\n";
   shader += "uniform sampler2DRect sliceTex;\n";
   shader += "uniform sampler2DRect shadowTex;\n";
   shader += "uniform float darkness;\n";
@@ -225,7 +227,8 @@ ShaderFactory::genShadowBlurShader()
 {
   QString shader;
 
-  shader =  "#extension GL_ARB_texture_rectangle : enable\n";
+  shader =  "#version 420 core\n";
+  shader += "#extension GL_ARB_texture_rectangle : enable\n";
   shader += "uniform sampler2DRect sliceTex;\n";
   shader += "uniform sampler2DRect shadowTex;\n";
   shader += "uniform float rot;\n";
@@ -263,7 +266,7 @@ ShaderFactory::genDepthShader()
 {
   QString shader;
 
-  shader =  "#extension GL_ARB_texture_rectangle : enable\n";
+  shader += "#extension GL_ARB_texture_rectangle : enable\n";
   shader += "varying vec3 pointpos;\n";
   shader += "uniform float minZ;\n";
   shader += "uniform float maxZ;\n";
@@ -294,7 +297,8 @@ ShaderFactory::genRectBlurShaderString(int filter)
 {
   QString shader;
 
-  shader = "#extension GL_ARB_texture_rectangle : enable\n";
+  shader =  "#version 420 core\n";
+  shader += "#extension GL_ARB_texture_rectangle : enable\n";
   shader += "uniform sampler2DRect blurTex;\n";
   shader += "uniform float minZ;\n";
   shader += "uniform float maxZ;\n";
@@ -401,15 +405,15 @@ ShaderFactory::getGrad(bool nearest)
   shader += " gz = vec3(0,0,1.0/vsize.z);\n";
   if (nearest)
     {
-      shader += " float vx = texture3D(dataTex, vC+gx).x - texture3D(dataTex, vC-gx).x;\n";
-      shader += " float vy = texture3D(dataTex, vC+gy).x - texture3D(dataTex, vC-gy).x;\n";
-      shader += " float vz = texture3D(dataTex, vC+gz).x - texture3D(dataTex, vC-gz).x;\n";
+      shader += " float vx = texture(dataTex, vC+gx).x - texture(dataTex, vC-gx).x;\n";
+      shader += " float vy = texture(dataTex, vC+gy).x - texture(dataTex, vC-gy).x;\n";
+      shader += " float vz = texture(dataTex, vC+gz).x - texture(dataTex, vC-gz).x;\n";
     }
   else
     {
-      shader += " float vx = texture3D(dataTex, voxelCoord+gx).x - texture3D(dataTex, voxelCoord-gx).x;\n";
-      shader += " float vy = texture3D(dataTex, voxelCoord+gy).x - texture3D(dataTex, voxelCoord-gy).x;\n";
-      shader += " float vz = texture3D(dataTex, voxelCoord+gz).x - texture3D(dataTex, voxelCoord-gz).x;\n";
+      shader += " float vx = texture(dataTex, voxelCoord+gx).x - texture(dataTex, voxelCoord-gx).x;\n";
+      shader += " float vy = texture(dataTex, voxelCoord+gy).x - texture(dataTex, voxelCoord-gy).x;\n";
+      shader += " float vz = texture(dataTex, voxelCoord+gz).x - texture(dataTex, voxelCoord-gz).x;\n";
     }
   shader += " vec3 grad = vec3(vx, vy, vz);\n";
 
@@ -435,9 +439,9 @@ ShaderFactory::getGrad2(bool nearest)
   shader += "   vec3 g = vec3(a[i],b[j],c[k]);\n";
 
   if (nearest)
-    shader += "   sum += texture3D(dataTex, vC+g).x;\n";
+    shader += "   sum += texture(dataTex, vC+g).x;\n";
   else
-    shader += "   sum += texture3D(dataTex, voxelCoord+g).x;\n";
+    shader += "   sum += texture(dataTex, voxelCoord+g).x;\n";
 
   shader += " }\n";
   shader += " sum = (sum-val)/10.0;\n";
@@ -463,9 +467,9 @@ ShaderFactory::getGrad3(bool nearest)
   shader += "   vec3 g = vec3(a[i],b[j],c[k]);\n";
 
   if (nearest)
-    shader += "   sum += texture3D(dataTex, vC+g).x;\n";
+    shader += "   sum += texture(dataTex, vC+g).x;\n";
   else
-    shader += "   sum += texture3D(dataTex, voxelCoord+g).x;\n";
+    shader += "   sum += texture(dataTex, voxelCoord+g).x;\n";
 
   shader += " }\n";
   shader += " sum = (sum-val)/70.0;\n";
@@ -502,7 +506,8 @@ ShaderFactory::genIsoRaycastShader(bool nearest,
 				   int gradType)
 {
   QString shader;
-  shader +=  "#extension GL_ARB_texture_rectangle : enable\n";
+  shader  = "#version 420 core\n";
+  shader += "#extension GL_ARB_texture_rectangle : enable\n";
   shader += "uniform sampler3D maskTex;\n";
   shader += "uniform sampler1D tagTex;\n";
   shader += "uniform sampler3D dataTex;\n";
@@ -526,6 +531,8 @@ ShaderFactory::genIsoRaycastShader(bool nearest,
   shader += "uniform float maxGrad;\n";
 
 
+  shader += "layout (location=0) out vec4 glFragData;\n";
+  
   //---------------------
   // apply clip planes to modify entry and exit points
   shader += "vec3 clip(vec3 pt0, vec3 dir)\n";
@@ -560,7 +567,7 @@ ShaderFactory::genIsoRaycastShader(bool nearest,
   shader += "vec4 exP = texture2DRect(exitTex, gl_FragCoord.st);\n";
   shader += "vec4 enP = texture2DRect(entryTex, gl_FragCoord.st);\n";
 
-  shader += "gl_FragData[0] = vec4(0.0);\n";
+  shader += "glFragData = vec4(0.0);\n";
 
   shader += "if (exP.a < 0.001 || enP.a < 0.001) discard;\n";
 
@@ -613,9 +620,9 @@ ShaderFactory::genIsoRaycastShader(bool nearest,
   shader += "  vC /= vsize;\n";
 
   if (nearest)
-    shader += "  float val = texture3D(dataTex, vC).x;\n";
+    shader += "  float val = texture(dataTex, vC).x;\n";
   else
-    shader += "  float val = texture3D(dataTex, voxelCoord).x;\n";
+    shader += "  float val = texture(dataTex, voxelCoord).x;\n";
 
   shader += "  vec4 colorSample = vec4(0.0);\n";
   
@@ -647,8 +654,8 @@ ShaderFactory::genIsoRaycastShader(bool nearest,
   
   if (useMask)
     {
-      shader += "  float tag = texture3D(maskTex, vC).x;\n";
-      shader += "  vec4 tagcolor = texture1D(tagTex, tag);\n";
+      shader += "  float tag = texture(maskTex, vC).x;\n";
+      shader += "  vec4 tagcolor = texture(tagTex, tag);\n";
       shader += "  if (tag < 0.001) tagcolor.rgb = colorSample.rgb;\n";
 
       shader += "  colorSample.rgb = mix(colorSample.rgb, tagcolor.rgb, 0.5);\n";
@@ -680,7 +687,7 @@ ShaderFactory::genIsoRaycastShader(bool nearest,
 
   shader += "  if (saveCoord && colorSample.a > 0.001)";
   shader += "    {\n";
-  shader += "      gl_FragData[0] = vec4(vC,1.0);\n";
+  shader += "      glFragData = vec4(vC,1.0);\n";
   shader += "      return;\n";
   shader += "    }\n";
 
@@ -688,7 +695,7 @@ ShaderFactory::genIsoRaycastShader(bool nearest,
   shader += "    {\n";  
   shader += "      vec3 voxpos = vcorner + voxelCoord*vsize;";
   shader += "      float zLinear = length(vcorner+voxelCoord*vsize - eyepos);\n";
-  shader += "      gl_FragData[0] = vec4(zLinear,val,tag,1.0);\n";
+  shader += "      glFragData = vec4(zLinear,val,tag,1.0);\n";
   shader += "      return;\n";
   shader += "    }\n";
   shader += "  }\n"; // gotfirsthit && nskipped > skipLayers
@@ -768,7 +775,7 @@ ShaderFactory::genEdgeEnhanceShader(bool bit16)
 
   //---------------------
   shader += "  vec4 color = vec4(0.0);\n";
-  //shader += "  color = texture1D(tagTex, tag);\n";
+  //shader += "  color = texture(tagTex, tag);\n";
   shader += "  color = texture(tagTex, tag);\n";
   // so that we can use tag opacity to hide certain tagged regions
   // tagcolor.a should either 0 or 1
@@ -779,7 +786,7 @@ ShaderFactory::genEdgeEnhanceShader(bool bit16)
   shader += "   {\n";
   shader += "    val = texture2DRect(pvtTex, spos0).y;\n";
   if (!bit16)
-    shader += "   color = texture2D(lutTex, vec2(val,0.0));\n";
+    shader += "   color = texture(lutTex, vec2(val,0.0));\n";
   else
     {
       shader += "    int h0 = int(65535.0*val);\n";
@@ -787,7 +794,7 @@ ShaderFactory::genEdgeEnhanceShader(bool bit16)
       shader += "    h0 = int(mod(float(h0),256.0));\n";
       shader += "    float fh0 = float(h0)/256.0;\n";
       shader += "    float fh1 = float(h1)/256.0;\n";
-      shader += "    color = texture2D(lutTex, vec2(fh0,fh1));\n";
+      shader += "    color = texture(lutTex, vec2(fh0,fh1));\n";
     }
   shader += "   }\n";
 

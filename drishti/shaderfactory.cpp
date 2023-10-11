@@ -24,8 +24,6 @@ ShaderFactory::tagVolume()
   shader += "  else\n";
   shader += "    ptx = vg.x;\n"; // -- take voxel value
 
-  //shader += "  float ptx = prunefeather.z;\n";
-  //shader += "  vec4 paintColor = texture1D(paintTex, ptx);\n";
   shader += "  vec4 paintColor = texture(paintTex, ptx);\n";
 
   //  shader += "  glFragColor = vec4(paintColor.a,0.1,0.1,0.1);\n";
@@ -1353,7 +1351,7 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
 
   shader += "  vg1 = vg;\n";
   shader += "  vg.y += tfSet;\n";
-  shader += "  glFragColor = texture2D(lutTex, vg.xy);\n";
+  shader += "  glFragColor = texture(lutTex, vg.xy);\n";
   
 
   if (Global::emptySpaceSkip())

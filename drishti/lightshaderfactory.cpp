@@ -33,7 +33,7 @@ LightShaderFactory::genOpacityShader(int nvol, bool bit16, bool amrData)
   else if (nvol == 4) xyzw = "xyzw";
 
   shader = "#version 450 core\n";
-  shader +=  "#extension GL_ARB_texture_rectangle : enable\n";
+  shader += "#extension GL_ARB_texture_rectangle : enable\n";
   shader += "in vec3 glTexCoord0;\n";
   shader += "uniform sampler2D lutTex;\n";
   shader += "uniform sampler2DArray dragTex;\n";
@@ -1068,7 +1068,7 @@ LightShaderFactory::genExpandLightShader()
   shader += "vec4 fcolor = vec4(0.0,0.0,0.0,0.0);\n";
   shader += "for(int za=-alod; za<=alod; za++)\n";
   shader += "{\n";
-  shader += "  float z = zO + za;\n";
+  shader += "  float z = zO + float(za);\n";
   shader += "  int lrow = int(z)/lncols;\n";
   shader += "  int lcol = int(z) - lrow*lncols;\n";
   shader += "  lrow *= lgridy;\n";
@@ -1076,8 +1076,8 @@ LightShaderFactory::genExpandLightShader()
   shader += "  for(int xa=-alod; xa<=alod; xa++)\n";
   shader += "  for(int ya=-alod; ya<=alod; ya++)\n";
   shader += "  {\n";
-  shader += "    float x = xO + xa;\n";
-  shader += "    float y = yO + ya;\n";
+  shader += "    float x = xO + float(xa);\n";
+  shader += "    float y = yO + float(ya);\n";
   shader += "    vec2 ltc = vec2(float(lcol)+x, float(lrow)+y);\n";
   shader += "    fcolor += vec4(texture2DRect(lightTex, ltc).rgb, 1.0);\n";   
   shader += "  }\n";
@@ -1095,7 +1095,9 @@ QString
 LightShaderFactory::blend(QString blendShader)
 {
   QString shader;
-  shader =  "#extension GL_ARB_texture_rectangle : enable\n";
+  
+  shader = "#version 450 core\n";
+  shader += "#extension GL_ARB_texture_rectangle : enable\n";
   shader += "uniform sampler2DRect opTex;\n";
   shader += "uniform int gridx;\n";
   shader += "uniform int gridy;\n";
@@ -1113,16 +1115,19 @@ LightShaderFactory::blend(QString blendShader)
   shader += "uniform vec3 dirRight;\n";
 
   shader += blendShader;
+
+  shader += "in vec3 glTexCoord0;\n";
+  shader += "out vec4 glFragColor;\n";
   
   shader += "void main(void)\n";
   shader += "{\n";
-  shader += "  int ocol = int(gl_TexCoord[0].x)/gridx;\n";
-  shader += "  int orow = int(gl_TexCoord[0].y)/gridy;\n";
-  shader += "  int ox = int(gl_TexCoord[0].x) - ocol*gridx;\n";
-  shader += "  int oy = int(gl_TexCoord[0].y) - orow*gridy;\n";
+  shader += "  int ocol = int(glTexCoord0.x)/gridx;\n";
+  shader += "  int orow = int(glTexCoord0.y)/gridy;\n";
+  shader += "  int ox = int(glTexCoord0.x) - ocol*gridx;\n";
+  shader += "  int oy = int(glTexCoord0.y) - orow*gridy;\n";
   shader += "  int oz = orow*ncols + ocol;\n";
 
-  shader += "  vec4 op = texture2DRect(opTex, gl_TexCoord[0].xy);\n";
+  shader += "  vec4 op = texture2DRect(opTex, glTexCoord0.xy);\n";
   shader += "  vec2 vg = op.xy;\n";
 
   shader += "  vec3 v = vec3(ox,oy,oz);\n";
@@ -1133,8 +1138,8 @@ LightShaderFactory::blend(QString blendShader)
   shader += "  blend(false, v, vg, fcol);\n";
   shader += "  op.rgb = fcol.aaa;\n";
 
-  shader += "  op.rgb *= texture2DRect(lightTex, gl_TexCoord[0].xy).xxx;\n";
-  shader += "  gl_FragColor = op;\n";
+  shader += "  op.rgb *= texture2DRect(lightTex, glTexCoord0.xy).xxx;\n";
+  shader += "  glFragColor = op;\n";
 
   shader += "}\n";
 

@@ -1034,7 +1034,8 @@ PruneShaderFactory::clip()
  // modify only x value
   shader += "vec3 v = vec3(ox,oy,oz)-pos;\n";
   shader += "float l = dot(v, normal);\n";
-  shader += "l = smoothstep(-1.0/float(lod) - max(float(ox)/float(gridx), float(oy)/float(gridy))/lod, 1.0/float(lod), l);\n";
+  shader += "float sval = -1.0/float(lod) - max(float(ox)/float(gridx), float(oy)/float(gridy))/float(lod);\n";
+  shader += "l = smoothstep(sval, 1.0/float(lod), l);\n";
   shader += "gl_FragColor.x = mix(gl_FragColor.x, 0.0, l);\n";
 
   shader += "}\n";

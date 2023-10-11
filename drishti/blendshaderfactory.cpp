@@ -144,7 +144,7 @@ BlendShaderFactory::generateBlend(QList<CropObject> crops,
 		  
 		  shader += QString("  vgc = vec2(vg.x, vg.y+float(%1));\n"). \
 		    arg(float(crops[ci].tfset())/float(Global::lutSize()));
-		  shader += "  vcol = texture2D(lutTex, vgc);\n";
+		  shader += "  vcol = texture(lutTex, vgc);\n";
 		  if (crops[ci].unionBlend())
 		    {
 		      shader += "  rgbU += vcol*viewMix;\n";
@@ -160,7 +160,7 @@ BlendShaderFactory::generateBlend(QList<CropObject> crops,
 		      shader += QString("  vgc = vec2(vol%1.x, grad%1*float(%2) + float(%3));\n"). \
 			                           arg(ni).arg(1.0/Global::lutSize()). \
 			arg(float(crops[ci].tfset()+(ni-1))/float(Global::lutSize()));
-		      shader += "  vcol = texture2D(lutTex, vgc);\n";
+		      shader += "  vcol = texture(lutTex, vgc);\n";
 		      shader += QString("  color%1 = mix(color%1, vcol, viewMix);\n").arg(ni);
 		    }
 		}

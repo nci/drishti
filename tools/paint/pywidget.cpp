@@ -121,7 +121,11 @@ PyWidget::PyWidget(QWidget *parent)
   connect(m_process, static_cast<void(QProcess::*)(int, QProcess::ExitStatus)>(&QProcess::finished),
 	  this, &PyWidget::close);
 
+#if defined(Q_OS_WIN32)
   m_process->start("cmd.exe");
+#else
+  m_process->start("/bin/bash");
+#endif
 
   resize(600, 500);
   

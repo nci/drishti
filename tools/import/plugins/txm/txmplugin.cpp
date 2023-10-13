@@ -117,7 +117,7 @@ TxmPlugin::setFile(QStringList files)
   m_fileName = files;
 
 
-  m_storage = new POLE::Storage(m_fileName[0].toLatin1().data() );
+  m_storage = new POLE::Storage(m_fileName[0].toUtf8().data() );
   m_storage->open();
 
   if(m_storage->result() != POLE::Storage::Ok )
@@ -231,7 +231,7 @@ void
 TxmPlugin::loadTxmImage(int i, uchar* tmp)
 {
   int nbytes = m_width*m_height*m_bytesPerVoxel;
-  POLE::Stream(m_storage, m_imageData[i].toLatin1().data()).read(tmp, nbytes);
+  POLE::Stream(m_storage, m_imageData[i].toUtf8().data()).read(tmp, nbytes);
 }
 
 void

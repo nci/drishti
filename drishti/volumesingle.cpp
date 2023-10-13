@@ -157,7 +157,7 @@ VolumeSingle::loadVolume(QList<QString> vfiles, bool redo)
   VolumeInformation vInfo = volInfo(0);
   VolumeInformation::setVolumeInformation(vInfo);
   
-  bool ok = VolumeBase::loadVolume(m_volumeFiles[0].toLatin1().data(),
+  bool ok = VolumeBase::loadVolume(m_volumeFiles[0].toUtf8().data(),
 				   redo);
 
   setBasicInformation(m_volnum);
@@ -392,7 +392,7 @@ VolumeSingle::volInfo(int vnum1)
       return pvlInfo;
     }
 
-  if (VolumeInformation::volInfo(m_volumeFiles[vnum].toLatin1().data(),
+  if (VolumeInformation::volInfo(m_volumeFiles[vnum].toUtf8().data(),
 			       pvlInfo) == false)
     {
       QMessageBox::information(0, "Volume Information",

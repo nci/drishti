@@ -220,7 +220,7 @@ VolumeMask::saveTagNames(QStringList tagNames)
 
 
   // save file
-  QFile pf(pvlfile.toLatin1().data());
+  QFile pf(pvlfile.toUtf8().data());
   if (pf.open(QIODevice::WriteOnly))
     {
       QTextStream out(&pf);
@@ -313,7 +313,7 @@ VolumeMask::createPvlNc(QString maskfile)
       
       QString pvlfile = maskfile;
       pvlfile += ".pvl.nc";
-      QFile pf(pvlfile.toLatin1().data());
+      QFile pf(pvlfile.toUtf8().data());
       if (pf.open(QIODevice::WriteOnly))
 	{
 	  QTextStream out(&pf);

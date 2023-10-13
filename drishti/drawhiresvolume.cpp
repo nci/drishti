@@ -6930,7 +6930,7 @@ DrawHiresVolume::calculateSurfaceArea(int neighbours,
 void
 DrawHiresVolume::saveForDrishtiPrayog(QString sfile)
 {
-  fstream fout(sfile.toLatin1().data(), ios::binary|ios::out);
+  fstream fout(sfile.toUtf8().data(), ios::binary|ios::out);
 
   char keyword[100];
 

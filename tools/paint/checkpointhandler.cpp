@@ -116,7 +116,7 @@ CheckpointHandler::saveCheckpoint(QString flnm,
   // write FAT record
   qfile.write((char*)&fpos, 8);
   qfile.write((char*)&bufsize, 8);
-  qfile.write((char*)descriptor.toLatin1().data(), qMin(84, descriptor.size()));
+  qfile.write((char*)descriptor.toUtf8().data(), qMin(84, descriptor.size()));
 
 
   // update the number of FAT records
@@ -379,7 +379,7 @@ CheckpointHandler::deleteCheckpoint(QString flnm,
     {
       qfile.write((char*)&rfpos[r], 8);
       qfile.write((char*)&rbufsize[r], 8);
-      qfile.write((char*)records[r].toLatin1().data(), 84);
+      qfile.write((char*)records[r].toUtf8().data(), 84);
     }
   // set to 0 the last shifted FAT entry
   char fat[100];

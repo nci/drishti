@@ -170,7 +170,7 @@ VolumeInformation::checkRGB(QString volfile)
     }
 
   QDomDocument document;
-  QFile f(volfile.toLatin1().data());
+  QFile f(volfile.toUtf8().data());
   if (f.open(QIODevice::ReadOnly))
     {
       document.setContent(&f);
@@ -203,7 +203,7 @@ VolumeInformation::checkRGBA(QString volfile)
     }
 
   QDomDocument document;
-  QFile f(volfile.toLatin1().data());
+  QFile f(volfile.toUtf8().data());
   if (f.open(QIODevice::ReadOnly))
     {
       document.setContent(&f);
@@ -244,7 +244,7 @@ VolumeInformation::volInfo(QString volfile,
   std::vector<float> rawmap;
 
   QDomDocument document;
-  QFile f(volfile.toLatin1().data());
+  QFile f(volfile.toUtf8().data());
   if (f.open(QIODevice::ReadOnly))
     {
       document.setContent(&f);

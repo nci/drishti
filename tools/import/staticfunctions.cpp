@@ -51,7 +51,7 @@ StaticFunctions::checkExtension(QString flnm, const char *ext)
   bool ok = true;
   int extlen = strlen(ext);
 
-  QByteArray exten = flnm.toLatin1().right(extlen);
+  QByteArray exten = flnm.toUtf8().right(extlen);
   if (exten != ext)
     ok = false;
 
@@ -90,7 +90,7 @@ StaticFunctions::checkURLs(QList<QUrl> urls, const char *ext)
       QFileInfo info(url.toLocalFile());
       if (info.exists() && info.isFile())
 	{
-	  QByteArray exten = url.toLocalFile().toLatin1().right(extlen);
+	  QByteArray exten = url.toLocalFile().toUtf8().right(extlen);
 	  if (exten != ext)
 	    {
 	      ok = false;

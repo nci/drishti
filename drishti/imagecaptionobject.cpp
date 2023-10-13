@@ -294,7 +294,7 @@ ImageCaptionObject::save(fstream& fout)
   fout.write((char*)keyword, strlen(keyword)+1);
   len = m_imageFile.size()+1;
   fout.write((char*)&len, sizeof(int));
-  fout.write((char*)m_imageFile.toLatin1().data(), len*sizeof(char));
+  fout.write((char*)m_imageFile.toUtf8().data(), len*sizeof(char));
 
   sprintf(keyword, "size");
   fout.write((char*)keyword, strlen(keyword)+1);

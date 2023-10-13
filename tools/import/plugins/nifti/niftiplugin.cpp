@@ -112,7 +112,7 @@ NiftiPlugin::readSlice(int idx[3], int sz[3],
 
   typedef itk::ImageFileReader<ImageType> ReaderType;
   ReaderType::Pointer reader = ReaderType::New();
-  reader->SetFileName(m_fileName[0].toLatin1().data());
+  reader->SetFileName(m_fileName[0].toUtf8().data());
   typedef itk::NiftiImageIO NiftiIOType;
   NiftiIOType::Pointer niftiIO = NiftiIOType::New();
   reader->SetImageIO(niftiIO);
@@ -149,7 +149,7 @@ NiftiPlugin::setFile(QStringList files)
   typedef itk::Image<unsigned char, 3> ImageType;
   typedef itk::ImageFileReader<ImageType> ReaderType;
   ReaderType::Pointer reader = ReaderType::New();
-  reader->SetFileName(m_fileName[0].toLatin1().data());
+  reader->SetFileName(m_fileName[0].toUtf8().data());
 
   typedef itk::NiftiImageIO NiftiIOType;
   NiftiIOType::Pointer niftiIO = NiftiIOType::New();

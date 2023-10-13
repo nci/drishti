@@ -1,3 +1,4 @@
+
 #include "pywidget.h"
 #include "global.h"
 #include "staticfunctions.h"
@@ -313,19 +314,19 @@ PyWidget::processLine()
 		cmd += " "+sl[s];
 	    }
 	}
-      m_process->write(cmd.toLatin1() + "\n");
+      m_process->write(cmd.toUtf8() + "\n");
 
       //m_lineEdit->clear();
       return;
     }  
   
 
-  m_process->write(command.toLatin1() + "\n");
+  m_process->write(command.toUtf8() + "\n");
   //m_lineEdit->clear();
 }
 
 void
 PyWidget::runCommand(QString cmd)
 {
-  m_process->write(cmd.toLatin1() + "\n");
+  m_process->write(cmd.toUtf8() + "\n");
 }

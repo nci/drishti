@@ -777,7 +777,7 @@ StaticFunctions::checkExtension(QString flnm, const char *ext)
 //  QFileInfo info(flnm);
 //  if (info.exists() && info.isFile())
     {
-      QByteArray exten = flnm.toLatin1().right(extlen).toLower();
+      QByteArray exten = flnm.toUtf8().right(extlen).toLower();
       if (exten != ext)
 	ok = false;
     }
@@ -799,7 +799,7 @@ StaticFunctions::checkURLs(QList<QUrl> urls, const char *ext)
       QFileInfo info(url.toLocalFile());
       if (info.exists() && info.isFile())
 	{
-	  QByteArray exten = url.toLocalFile().toLatin1().right(extlen).toLower();
+	  QByteArray exten = url.toLocalFile().toUtf8().right(extlen).toLower();
 	  if (exten != ext)
 	    {
 	      ok = false;
@@ -1569,7 +1569,7 @@ StaticFunctions::savePvlHeader(QString pvlFilename,
     topElement.appendChild(de0);
   }
   
-  QFile f(xmlfile.toLatin1().data());
+  QFile f(xmlfile.toUtf8().data());
   if (f.open(QIODevice::WriteOnly))
     {
       QTextStream out(&f);
@@ -1750,7 +1750,7 @@ StaticFunctions::savePLY(QVector<float> m_vertices,
     {
       char *s;
       s = new char[ps[i].size()+1];
-      strcpy(s, ps[i].toLatin1().data());
+      strcpy(s, ps[i].toUtf8().data());
       plyStrings << s;
     }
 
@@ -1788,7 +1788,7 @@ StaticFunctions::savePLY(QVector<float> m_vertices,
   };
 
   PlyFile    *ply;
-  FILE       *fp = fopen(flnm.toLatin1().data(), bin ? "wb" : "w");
+  FILE       *fp = fopen(flnm.toUtf8().data(), bin ? "wb" : "w");
 
   PlyFace     face ;
   int         verts[3] ;

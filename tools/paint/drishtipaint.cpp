@@ -1699,7 +1699,7 @@ DrishtiPaint::setFile(QString filename)
     }
   else
     {
-      flnm = loadVolumeFromProject(filename.toLatin1().data());
+      flnm = loadVolumeFromProject(filename.toUtf8().data());
 
       if (flnm.isEmpty())
 	{
@@ -1726,13 +1726,13 @@ DrishtiPaint::setFile(QString filename)
   //----------------------------
   // save volume information from .pvl.nc file
   VolumeInformation pvlinfo;
-  VolumeInformation::volInfo(flnm.toLatin1().data(),
+  VolumeInformation::volInfo(flnm.toUtf8().data(),
 			     pvlinfo);
   VolumeInformation::setVolumeInformation(pvlinfo);
 
   if (StaticFunctions::checkExtension(filename, ".xml"))
     {
-      m_tfManager->load(filename.toLatin1().data());
+      m_tfManager->load(filename.toUtf8().data());
       m_pvlFile = flnm;
       m_xmlFile = filename;
     }
@@ -1853,7 +1853,7 @@ DrishtiPaint::loadSettings()
     return;
 
   QDomDocument document;
-  QFile f(flnm.toLatin1().data());
+  QFile f(flnm.toUtf8().data());
   if (f.open(QIODevice::ReadOnly))
     {
       document.setContent(&f);
@@ -1975,7 +1975,7 @@ DrishtiPaint::saveSettings()
   QFileInfo settingsFile(homePath, ".drishti.paint");
   QString flnm = settingsFile.absoluteFilePath();  
 
-  QFile f(flnm.toLatin1().data());
+  QFile f(flnm.toUtf8().data());
   if (f.open(QIODevice::WriteOnly))
     {
       QTextStream out(&f);
@@ -1983,7 +1983,7 @@ DrishtiPaint::saveSettings()
       f.close();
     }
   else
-    QMessageBox::information(0, "Cannot save ", flnm.toLatin1().data());
+    QMessageBox::information(0, "Cannot save ", flnm.toUtf8().data());
 }
 
 void
@@ -2320,7 +2320,7 @@ DrishtiPaint::savePvlHeader(QString volfile,
   QString rawmap;
 
   QDomDocument document;
-  QFile f(volfile.toLatin1().data());
+  QFile f(volfile.toUtf8().data());
   if (f.open(QIODevice::ReadOnly))
     {
       document.setContent(&f);
@@ -2436,7 +2436,7 @@ DrishtiPaint::savePvlHeader(QString volfile,
     topElement.appendChild(de0);
   }
       
-  QFile pf(pvlfile.toLatin1().data());
+  QFile pf(pvlfile.toUtf8().data());
   if (pf.open(QIODevice::WriteOnly))
     {
       QTextStream out(&pf);
@@ -3092,7 +3092,7 @@ DrishtiPaint::on_actionSave_TF_triggered()
       f.close();
     }
   
-  m_tfManager->save(tflnm.toLatin1().data());
+  m_tfManager->save(tflnm.toUtf8().data());
 
 }
 
@@ -3107,7 +3107,7 @@ DrishtiPaint::on_actionLoad_TF_triggered()
                                                //QFileDialog::DontUseNativeDialog);
 
   
-  m_tfManager->load(tflnm.toLatin1().data());
+  m_tfManager->load(tflnm.toUtf8().data());
 }
 
 bool

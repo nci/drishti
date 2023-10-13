@@ -848,7 +848,7 @@ MainWindow::GlewInit()
 	      Global::addRecentFile(arguments[i]);
 	      updateRecentFileAction();
 	      createHiresLowresWindows();
-	      loadProject(arguments[i].toLatin1().data());
+	      loadProject(arguments[i].toUtf8().data());
 	    }
 	}
     }
@@ -1058,7 +1058,7 @@ MainWindow::loadProjectRunKeyframesAndExit()
       Global::setStepsizeStill(bj.stepSize);
       Global::setDepthcue(bj.depthcue);
 
-      loadProject(bj.projectFilename.toLatin1().data());
+      loadProject(bj.projectFilename.toUtf8().data());
 
       if (!bj.backgroundrender)
 	m_Viewer->setUseFBO(false);
@@ -1892,7 +1892,7 @@ MainWindow::loadSingleVolume(QStringList flnm)
   createHiresLowresWindows();
 
   if (VolumeInformation::checkRGB(flnm[0]))
-    loadVolumeRGB(flnm[0].toLatin1().data());
+    loadVolumeRGB(flnm[0].toUtf8().data());
   else
     loadVolumeList(flnm, false);
 
@@ -2186,7 +2186,7 @@ MainWindow::openRecentFile()
 	  Global::addRecentFile(filename);
 	  updateRecentFileAction();
 	  createHiresLowresWindows();
-	  loadProject(filename.toLatin1().data());
+	  loadProject(filename.toUtf8().data());
 	}
     }
 }
@@ -2234,7 +2234,7 @@ MainWindow::dropEvent(QDropEvent *event)
 		  Global::addRecentFile(url.toLocalFile());
 		  updateRecentFileAction();
 		  createHiresLowresWindows();
-		  loadProject(url.toLocalFile().toLatin1().data());
+		  loadProject(url.toLocalFile().toUtf8().data());
 		}
 	      else if (StaticFunctions::checkExtension(url.toLocalFile(), ".keyframes"))
 		{
@@ -2551,7 +2551,7 @@ MainWindow::loadVolumeList(QList<QString> files, bool flag)
 
   QList<QString> volfiles;
   for(int i=0; i<files.count(); i++)
-    volfiles.append(files[i].toLatin1().data());
+    volfiles.append(files[i].toUtf8().data());
 
   QList<int> vsizes;
   vsizes << volfiles.size();
@@ -2699,7 +2699,7 @@ MainWindow::loadVolumeRGBFromUrls(QList<QUrl> urls)
       for(int i=0; i<urls.count(); i++)
 	files.append(urls[i].toLocalFile());
 
-      loadVolumeRGB(files[0].toLatin1().data());
+      loadVolumeRGB(files[0].toUtf8().data());
     }
 }
 
@@ -2803,11 +2803,11 @@ MainWindow::loadVolume2List(QList<QString> files1,
 
   QList<QString> volfiles1;
   for(int i=0; i<files1.count(); i++)
-    volfiles1.append(files1[i].toLatin1().data());
+    volfiles1.append(files1[i].toUtf8().data());
 
   QList<QString> volfiles2;
   for(int i=0; i<files2.count(); i++)
-    volfiles2.append(files2[i].toLatin1().data());
+    volfiles2.append(files2[i].toUtf8().data());
 
   QList<int> vsizes;
   vsizes << volfiles1.size();
@@ -2894,15 +2894,15 @@ MainWindow::loadVolume3List(QList<QString> files1,
 
   QList<QString> volfiles1;
   for(int i=0; i<files1.count(); i++)
-    volfiles1.append(files1[i].toLatin1().data());
+    volfiles1.append(files1[i].toUtf8().data());
 
   QList<QString> volfiles2;
   for(int i=0; i<files2.count(); i++)
-    volfiles2.append(files2[i].toLatin1().data());
+    volfiles2.append(files2[i].toUtf8().data());
 
   QList<QString> volfiles3;
   for(int i=0; i<files3.count(); i++)
-    volfiles3.append(files3[i].toLatin1().data());
+    volfiles3.append(files3[i].toUtf8().data());
 
   QList<int> vsizes;
   vsizes << volfiles1.size();
@@ -3013,19 +3013,19 @@ MainWindow::loadVolume4List(QList<QString> files1,
 
   QList<QString> volfiles1;
   for(int i=0; i<files1.count(); i++)
-    volfiles1.append(files1[i].toLatin1().data());
+    volfiles1.append(files1[i].toUtf8().data());
 
   QList<QString> volfiles2;
   for(int i=0; i<files2.count(); i++)
-    volfiles2.append(files2[i].toLatin1().data());
+    volfiles2.append(files2[i].toUtf8().data());
 
   QList<QString> volfiles3;
   for(int i=0; i<files3.count(); i++)
-    volfiles3.append(files3[i].toLatin1().data());
+    volfiles3.append(files3[i].toUtf8().data());
 
   QList<QString> volfiles4;
   for(int i=0; i<files4.count(); i++)
-    volfiles4.append(files4[i].toLatin1().data());
+    volfiles4.append(files4[i].toUtf8().data());
 
 
   QList<int> vsizes;
@@ -3198,7 +3198,7 @@ MainWindow::saveSettings()
   QFileInfo settingsFile(homePath, ".drishti.xml");
   QString flnm = settingsFile.absoluteFilePath();  
 
-  QFile f(flnm.toLatin1().data());
+  QFile f(flnm.toUtf8().data());
   if (f.open(QIODevice::WriteOnly))
     {
       QTextStream out(&f);
@@ -3206,10 +3206,10 @@ MainWindow::saveSettings()
       f.close();
     }
   else
-    QMessageBox::information(0, "Cannot save ", flnm.toLatin1().data());
+    QMessageBox::information(0, "Cannot save ", flnm.toUtf8().data());
 
 
-  m_preferencesWidget->save(flnm.toLatin1().data());
+  m_preferencesWidget->save(flnm.toUtf8().data());
 }
 
 void
@@ -3225,7 +3225,7 @@ MainWindow::loadSettings()
 
 
   QDomDocument document;
-  QFile f(flnm.toLatin1().data());
+  QFile f(flnm.toUtf8().data());
   if (f.open(QIODevice::ReadOnly))
     {
       document.setContent(&f);
@@ -3293,7 +3293,7 @@ MainWindow::loadSettings()
 	}
     }
   m_preferencesWidget->updateTextureMemory();
-  m_preferencesWidget->load(flnm.toLatin1().data());
+  m_preferencesWidget->load(flnm.toUtf8().data());
   updateRecentFileAction();
 
   // texture memory is not set by the user, so ask the user to set it.
@@ -3350,7 +3350,7 @@ MainWindow::loadProject(const char* flnm)
     loadVolume4List(m_volFiles1, m_volFiles2, m_volFiles3, m_volFiles4, false);
   else if (projectType == Global::RGBVolume ||
 	   projectType == Global::RGBAVolume)
-    loadVolumeRGB(m_volFiles1[0].toLatin1().data());
+    loadVolumeRGB(m_volFiles1[0].toUtf8().data());
 
   m_bricks->reset();
   GeometryObjects::clipplanes()->reset();
@@ -3460,7 +3460,7 @@ MainWindow::saveProject(QString xmlflnm)
   int flnmlen = xmlflnm.length()+1;
   char *flnm = new char[flnmlen];
   memset(flnm, 0, flnmlen);
-  memcpy(flnm, xmlflnm.toLatin1().data(), flnmlen);
+  memcpy(flnm, xmlflnm.toUtf8().data(), flnmlen);
 
 
   Vec bmin, bmax;
@@ -3528,7 +3528,7 @@ MainWindow::on_actionLoad_Project_triggered()
 
   Global::addRecentFile(flnm);
   updateRecentFileAction();
-  loadProject(flnm.toLatin1().data());
+  loadProject(flnm.toUtf8().data());
 }
 
 void
@@ -3546,7 +3546,7 @@ MainWindow::on_actionLoad_TFfromproject_triggered()
   if (flnm.isEmpty())
     return;
 
-  loadTransferFunctionsOnly(flnm.toLatin1().data());
+  loadTransferFunctionsOnly(flnm.toUtf8().data());
 }
 
 void
@@ -3635,7 +3635,7 @@ MainWindow::on_actionSave_ProjectAs_triggered()
   if (!StaticFunctions::checkExtension(flnm, ".xml"))
     flnm += ".xml";
       
-  saveProject(flnm.toLatin1().data());
+  saveProject(flnm.toUtf8().data());
 }
 
 void
@@ -4089,7 +4089,7 @@ MainWindow::loadViewsAndKeyFrames(const char* flnm)
       return;
     }
 
-  fstream fin(sflnm.toLatin1().data(), ios::binary|ios::in);
+  fstream fin(sflnm.toUtf8().data(), ios::binary|ios::in);
 
   char keyword[100];
   fin.getline(keyword, 100, 0);
@@ -4120,11 +4120,11 @@ MainWindow::saveViewsAndKeyFrames(const char* flnm)
   else
     sflnm.replace(QString(".xml"), QString(".keyframes"));
 
-  fstream fout(sflnm.toLatin1().data(), ios::binary|ios::out);
+  fstream fout(sflnm.toUtf8().data(), ios::binary|ios::out);
 
   QString keyword;
   keyword = "Drishti Keyframes";
-  fout.write((char*)(keyword.toLatin1().data()), keyword.length()+1);  
+  fout.write((char*)(keyword.toUtf8().data()), keyword.length()+1);  
 
   m_gallery->save(fout);
   m_keyFrame->save(fout);

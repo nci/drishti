@@ -126,7 +126,7 @@ ScriptsPlugin::setValue(QString key, QString val)
 	   !m_script.isEmpty())
     cmd = m_interpreter+" "+m_script;  
   
-  m_process.write(cmd.toLatin1() + "\n");
+  m_process.write(cmd.toUtf8() + "\n");
   qApp->processEvents();
   //----------
 

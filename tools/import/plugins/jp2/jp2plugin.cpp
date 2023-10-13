@@ -196,7 +196,7 @@ bool
 Jp2Plugin::loadJp2ImageProperties(QString filename)
 {
   // Open the input file
-  opj_stream_t *stream = opj_stream_create_default_file_stream(filename.toLatin1().data(), true);
+  opj_stream_t *stream = opj_stream_create_default_file_stream(filename.toUtf8().data(), true);
   if (!stream)
     {
       QMessageBox::information(0, "Error", "Failed to create input stream");
@@ -269,7 +269,7 @@ Jp2Plugin::loadJp2Image(int i, uchar* tmp)
   QString filename = m_imageList[i];
 
   // Open the input file
-  opj_stream_t *stream = opj_stream_create_default_file_stream(filename.toLatin1().data(), true);
+  opj_stream_t *stream = opj_stream_create_default_file_stream(filename.toUtf8().data(), true);
   if (!stream)
     {
       QMessageBox::information(0, "Error", "Failed to create input stream");

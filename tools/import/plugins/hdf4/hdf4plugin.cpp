@@ -102,7 +102,7 @@ HDF4Plugin::listAllVariables()
 
   NcError err(NcError::verbose_nonfatal);
 
-  NcFile dataFile((char*)m_fileName[0].toLatin1().data(),
+  NcFile dataFile((char*)m_fileName[0].toUtf8().data(),
 		  NcFile::ReadOnly);
 
   if (!dataFile.is_valid())
@@ -154,7 +154,7 @@ HDF4Plugin::setImageFiles(QStringList hdffiles)
 
 
   /* Open the file and initiate the SD interface. */
-  int32 sd_id = SDstart(strdup(m_imageList[0].toLatin1().data()),
+  int32 sd_id = SDstart(strdup(m_imageList[0].toUtf8().data()),
 			DFACC_READ);
   if (sd_id < 0) {
     QMessageBox::information(0, 
@@ -387,7 +387,7 @@ HDF4Plugin::findMinMaxandGenerateHistogram()
       progress.setValue((int)(100.0*(float)i/(float)m_depth));
       qApp->processEvents();
 
-      int32 sd_id = SDstart(m_imageList[i].toLatin1().data(),
+      int32 sd_id = SDstart(m_imageList[i].toUtf8().data(),
 			    DFACC_READ);
       int32 sds_id = SDselect(sd_id, m_Index);
       int status = SDreaddata(sds_id,
@@ -481,7 +481,7 @@ HDF4Plugin::findMinMax()
       progress.setValue((int)(100.0*(float)i/(float)nX));
       qApp->processEvents();
 
-      int32 sd_id = SDstart(m_imageList[i].toLatin1().data(),
+      int32 sd_id = SDstart(m_imageList[i].toUtf8().data(),
 			    DFACC_READ);
       int32 sds_id = SDselect(sd_id, m_Index);
       int status = SDreaddata(sds_id,
@@ -586,7 +586,7 @@ HDF4Plugin::generateHistogram()
       progress.setValue((int)(100.0*(float)i/(float)nX));
       qApp->processEvents();
 
-      int32 sd_id = SDstart(m_imageList[i].toLatin1().data(),
+      int32 sd_id = SDstart(m_imageList[i].toUtf8().data(),
 			    DFACC_READ);
       int32 sds_id = SDselect(sd_id, m_Index);
       int status = SDreaddata(sds_id,
@@ -651,7 +651,7 @@ HDF4Plugin::getDepthSlice(int slc,
   edges[0] = m_width;
   edges[1] = m_height;
 
-  int32 sd_id = SDstart(m_imageList[slc].toLatin1().data(),
+  int32 sd_id = SDstart(m_imageList[slc].toUtf8().data(),
 			DFACC_READ);
   int32 sds_id = SDselect(sd_id, m_Index);
   int status = SDreaddata(sds_id,
@@ -677,7 +677,7 @@ HDF4Plugin::getDepthSlice(int slc,
 //
 //  for(uint i=0; i<m_depth; i++)
 //    {
-//      int32 sd_id = SDstart(m_imageList[i].toLatin1().data(),
+//      int32 sd_id = SDstart(m_imageList[i].toUtf8().data(),
 //			    DFACC_READ);
 //      int32 sds_id = SDselect(sd_id, m_Index);
 //      int status = SDreaddata(sds_id,
@@ -707,7 +707,7 @@ HDF4Plugin::getDepthSlice(int slc,
 //
 //  for(uint i=0; i<m_depth; i++)
 //    {
-//      int32 sd_id = SDstart(m_imageList[i].toLatin1().data(),
+//      int32 sd_id = SDstart(m_imageList[i].toUtf8().data(),
 //			    DFACC_READ);
 //      int32 sds_id = SDselect(sd_id, m_Index);
 //      int status = SDreaddata(sds_id,
@@ -741,7 +741,7 @@ HDF4Plugin::rawValue(int d, int w, int h)
   edges[0] = 1;
   edges[1] = 1;
 
-  int32 sd_id = SDstart(m_imageList[d].toLatin1().data(),
+  int32 sd_id = SDstart(m_imageList[d].toUtf8().data(),
 			DFACC_READ);
   int32 sds_id = SDselect(sd_id, m_Index);
   int status = SDreaddata(sds_id,
@@ -842,7 +842,7 @@ HDF4Plugin::rawValue(int d, int w, int h)
 //
 //  for(uint i=dmin; i<=dmax; i++)
 //    {
-//      int32 sd_id = SDstart(m_imageList[i].toLatin1().data(),
+//      int32 sd_id = SDstart(m_imageList[i].toUtf8().data(),
 //			    DFACC_READ);
 //      int32 sds_id = SDselect(sd_id, m_Index);
 //      int status = SDreaddata(sds_id,

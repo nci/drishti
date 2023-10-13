@@ -366,7 +366,7 @@ VolumeRGB::volInfo(int vnum)
     }
 
 
-  if (VolumeInformation::volInfo(m_volumeFiles[vnum].toLatin1().data(),
+  if (VolumeInformation::volInfo(m_volumeFiles[vnum].toUtf8().data(),
 				 pvlInfo) == false)
     {
       QMessageBox::information(0, "Volume Information",

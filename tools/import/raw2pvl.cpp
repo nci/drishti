@@ -762,7 +762,7 @@ Raw2Pvl::savePvlHeader(QString pvlFilename,
     topElement.appendChild(de0);
   }
   
-  QFile f(xmlfile.toLatin1().data());
+  QFile f(xmlfile.toUtf8().data());
   if (f.open(QIODevice::WriteOnly))
     {
       QTextStream out(&f);

@@ -127,7 +127,7 @@ TiffPlugin::setImageFiles(QStringList files)
   m_depth = m_imageList.size();
 
   TIFF *image;
-  image = TIFFOpen((char*)m_imageList[0].toLatin1().data(), "r");
+  image = TIFFOpen((char*)m_imageList[0].toUtf8().data(), "r");
   
   // -- get number of images(directories) within the file
   m_dirCount = 0;
@@ -283,10 +283,10 @@ TiffPlugin::loadTiffImage(int i, uchar* tmp)
 {
   TIFF *image;
   if (m_dirCount == 1)
-    image = TIFFOpen((char*)m_imageList[i].toLatin1().data(), "r");
+    image = TIFFOpen((char*)m_imageList[i].toUtf8().data(), "r");
   else
     {
-      image = TIFFOpen((char*)m_imageList[0].toLatin1().data(), "r");
+      image = TIFFOpen((char*)m_imageList[0].toUtf8().data(), "r");
       TIFFSetDirectory(image, i);
     }
 

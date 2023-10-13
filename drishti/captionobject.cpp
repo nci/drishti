@@ -601,7 +601,7 @@ CaptionObject::save(fstream& fout)
   fout.write((char*)keyword, strlen(keyword)+1);
   len = m_text.size()+1;
   fout.write((char*)&len, sizeof(int));
-  fout.write((char*)m_text.toLatin1().data(), len*sizeof(char));
+  fout.write((char*)m_text.toUtf8().data(), len*sizeof(char));
 
   QString fontStr = m_font.toString();
   memset(keyword, 0, 100);
@@ -609,7 +609,7 @@ CaptionObject::save(fstream& fout)
   fout.write((char*)keyword, strlen(keyword)+1);
   len = fontStr.size()+1;
   fout.write((char*)&len, sizeof(int));
-  fout.write((char*)fontStr.toLatin1().data(), len*sizeof(char));
+  fout.write((char*)fontStr.toUtf8().data(), len*sizeof(char));
   
   unsigned char r = m_color.red();
   unsigned char g = m_color.green();

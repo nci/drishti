@@ -816,7 +816,7 @@ NcPlugin::getDepthSlice(int slc,
 	}
     }
 
-  NcFile dataFile((char *)m_fileName[nf].toLatin1().data(),
+  NcFile dataFile((char *)m_fileName[nf].toUtf8().data(),
 		  NcFile::read);
   NcVar ncvar;
   ncvar = dataFile.getVar(m_varName.toStdString());
@@ -832,7 +832,7 @@ NcPlugin::getDepthSlice(int slc,
 //{
 //  for(uint nf=0; nf<m_fileName.size(); nf++)
 //    {
-//      NcFile dataFile((char *)m_fileName[nf].toLatin1().data(),
+//      NcFile dataFile((char *)m_fileName[nf].toUtf8().data(),
 //		      NcFile::read);
 //
 //      int depth;
@@ -864,7 +864,7 @@ NcPlugin::getDepthSlice(int slc,
 //{
 //  for(uint nf=0; nf < m_fileName.size(); nf++)
 //    {
-//      NcFile dataFile((char *)m_fileName[nf].toLatin1().data(),
+//      NcFile dataFile((char *)m_fileName[nf].toUtf8().data(),
 //		      NcFile::read);
 //      
 //      int depth;
@@ -922,7 +922,7 @@ NcPlugin::rawValue(int d, int w, int h)
   //----------------------------------------
 
 
-  NcFile dataFile((char *)m_fileName[nf].toLatin1().data(),
+  NcFile dataFile((char *)m_fileName[nf].toUtf8().data(),
 		  NcFile::read);
   std::vector<size_t> index(3);
   index[0] = slcno;

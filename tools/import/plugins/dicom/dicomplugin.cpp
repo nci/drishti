@@ -140,7 +140,7 @@ DicomPlugin::setFile(QStringList files)
 
       nameGenerator->SetUseSeriesDetails( true );
 
-      nameGenerator->SetDirectory(m_fileName[0].toLatin1().data() );
+      nameGenerator->SetDirectory(m_fileName[0].toUtf8().data() );
 
       typedef std::vector< std::string >    SeriesIdContainer;      
       const SeriesIdContainer & seriesUID = nameGenerator->GetSeriesUIDs();

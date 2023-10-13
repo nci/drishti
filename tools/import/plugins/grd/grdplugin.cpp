@@ -133,7 +133,7 @@ GrdPlugin::setFile(QStringList files)
 
   // --- load various parameters from the raw file ---
   LoadRawDialog loadRawDialog(0,
-			      (char *)m_imageList[0].toLatin1().data());
+			      (char *)m_imageList[0].toUtf8().data());
 
   loadRawDialog.exec();
   if (loadRawDialog.result() == QDialog::Rejected)

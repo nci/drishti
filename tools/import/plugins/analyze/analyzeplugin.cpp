@@ -817,7 +817,7 @@ AnalyzePlugin::checkExtension(QString flnm, const char *ext)
   QFileInfo info(flnm);
   if (info.exists() && info.isFile())
     {
-      QByteArray exten = flnm.toLatin1().right(extlen);
+      QByteArray exten = flnm.toUtf8().right(extlen);
       if (exten != ext)
 	ok = false;
     }

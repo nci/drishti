@@ -1455,7 +1455,7 @@ Viewer::drawInfoString(int imagequality,
     {
       msg = "mop "+msg;
       tfont.setPointSize(12*fscl);
-      StaticFunctions::renderText(10, 30, msg, tfont, Qt::black, Qt::white);
+      StaticFunctions::renderText(5, 40, msg, tfont, Qt::black, Qt::white);
     }
 
   if (!Global::bottomText())
@@ -1464,6 +1464,32 @@ Viewer::drawInfoString(int imagequality,
       return;
     }
 
+  
+
+  // ---------------------------------
+  // show current files at the top
+  QString flnms;
+  int nvol = 0;
+  if (Global::volumeType() == Global::SingleVolume) nvol = 1;
+  if (Global::volumeType() == Global::DoubleVolume) nvol = 2;
+  if (Global::volumeType() == Global::TripleVolume) nvol = 3;
+  if (Global::volumeType() == Global::QuadVolume) nvol = 4;  
+  if (nvol > 0)
+    {
+      for (int nv=0; nv<nvol; nv++)
+	{
+	  VolumeInformation volinfo = m_Volume->volInfo(Global::volumeNumber(nv), nv);
+	  QString flnm = volinfo.pvlFile;
+	  flnms += QString("%1  ").arg(QFileInfo(flnm).fileName());
+	}
+      tfont.setPointSize(10*fscl);
+      StaticFunctions::renderText(5, 20, flnms, tfont, QColor(0,0,0,64), Qt::white);
+    }
+  // ---------------------------------
+  
+  
+  
+  
   if (gimgq == Global::_NormalQuality) msg = "normal";
   else if (gimgq == Global::_LowQuality) msg = "low";
   else msg = "very low";
@@ -1529,27 +1555,6 @@ Viewer::drawInfoString(int imagequality,
 	   arg((maxY-minY+1)/lod).					\
            arg((maxZ-minZ+1)/lod);
 
-//  if (lod == 1)
-//    lodMesg = QString("LoD(%1) : Size : %2x%3x%4 (%5:%6x%7)").			\
-//	   arg(lod).							\
-//	   arg(maxX-minX+1).						\
-//	   arg(maxY-minY+1).						\
-//	   arg(maxZ-minZ+1).						\
-//	   arg(ntex).							\
-//	   arg(textureX).						\
-//           arg(textureY);
-//  else
-//    lodMesg = QString("LoD(%1) : Size : %2x%3x%4 (%5x%6x%7 - %8:%9x%10)").	\
-//	   arg(lod).							\
-//	   arg(maxX-minX+1).						\
-//	   arg(maxY-minY+1).						\
-//	   arg(maxZ-minZ+1).						\
-//	   arg((maxX-minX+1)/lod).					\
-//	   arg((maxY-minY+1)/lod).					\
-//	   arg((maxZ-minZ+1)/lod).					\
-//	   arg(ntex).							\
-//	   arg(textureX).						\
-//           arg(textureY);
 
   StaticFunctions::renderText(posx, posy,
 			      lodMesg, tfont,
@@ -3972,7 +3977,7 @@ Viewer::init()
   glEnable(GL_POINT_SMOOTH);  // antialias lines 
   glDisable(GL_LIGHTING);
 
-  Global::setBackgroundColor(Vec(0, 0, 0));
+  //Global::setBackgroundColor(Vec(0, 0, 0));
   glClearColor(0.1,0.1,0.1,0.1);
   
   // Restore previous viewer state.

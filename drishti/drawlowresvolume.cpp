@@ -334,7 +334,10 @@ void
 DrawLowresVolume::draw(float stepsize,
 		       int posx, int posy)
 {
+  Vec bgc = Global::backgroundColor();
+  Global::setBackgroundColor(Vec(0,0,0));
   m_boundingBox.draw();
+  Global::setBackgroundColor(bgc);
 
   Vec pn;
   Vec minvert, maxvert;

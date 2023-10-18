@@ -266,7 +266,7 @@ bool Global::m_drawAxis = false;
 void Global::setDrawAxis(bool db) { m_drawAxis = db; }
 bool Global::drawAxis() { return m_drawAxis; }
 
-Vec Global::m_bgColor = Vec(100, 100, 100);
+Vec Global::m_bgColor = Vec(0, 0, 0);
 void Global::setBackgroundColor(Vec bgcolor) { m_bgColor = bgcolor; }
 Vec Global::backgroundColor() { return m_bgColor; }
 

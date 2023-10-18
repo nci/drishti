@@ -3194,6 +3194,15 @@ MainWindow::saveSettings()
     topElement.appendChild(de0);
   }
 
+  {
+    QDomElement de0 = doc.createElement("bgcolor");
+    QDomText tn0;
+    Vec bgcolor = Global::backgroundColor();
+    tn0 = doc.createTextNode(QString("%1 %2 %3").arg(bgcolor.x).arg(bgcolor.y).arg(bgcolor.z));
+    de0.appendChild(tn0);
+    topElement.appendChild(de0);
+  }
+
   QString homePath = QDir::homePath();
   QFileInfo settingsFile(homePath, ".drishti.xml");
   QString flnm = settingsFile.absoluteFilePath();  
@@ -3290,6 +3299,12 @@ MainWindow::loadSettings()
 	{
 	  QString str = dlist.at(i).toElement().text();
 	  m_Viewer->camera()->frame()->setSpinningSensitivity(str.toFloat());
+	}
+      else if (dlist.at(i).nodeName() == "bgcolor")
+	{
+	  QStringList str = dlist.at(i).toElement().text().split(" ", Qt::SkipEmptyParts);
+	  if (str.length() == 3)
+	    Global::setBackgroundColor(Vec(str[0].toFloat(),str[1].toFloat(),str[2].toFloat()));
 	}
     }
   m_preferencesWidget->updateTextureMemory();

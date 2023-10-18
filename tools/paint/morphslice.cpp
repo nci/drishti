@@ -17,6 +17,10 @@ MorphSlice::MorphSlice()
 MorphSlice::~MorphSlice()
 {
   clearSlices();
+
+  if (m_layout)
+    delete m_layout;
+  m_layout = 0;  
 }
 
 void
@@ -35,6 +39,20 @@ MorphSlice::clearSlices()
 void
 MorphSlice::showSliceImage(uchar *slice, int nX, int nY)
 {
+  if (!m_layout)
+    {
+      m_layout = new QVBoxLayout();
+      QWidget *m_showSlices = new QWidget();
+      m_showSlices->setLayout(m_layout);
+//
+//      QScrollArea *scroll = new QScrollArea();
+//      scroll->setWidget(m_showSlices);
+//      scroll->show();
+//      scroll->resize(2*m_nY, 2*m_nX);
+
+      m_showSlices->show();
+    }
+
   QImage pimg = QImage(nX, nY, QImage::Format_RGB32);
   pimg.fill(0);
   uchar *bits = pimg.bits();
@@ -46,11 +64,12 @@ MorphSlice::showSliceImage(uchar *slice, int nX, int nY)
       bits[4*i+3] = 255;
     }
   
-  QImage qimg = pimg.scaled(pimg.width(), pimg.height());
+  //QImage qimg = pimg.scaled(pimg.width(), pimg.height());
   QLabel *lbl = new QLabel();
-  lbl->setPixmap(QPixmap::fromImage(qimg));
+  lbl->setPixmap(QPixmap::fromImage(pimg));
 
   m_layout->addWidget(lbl);
+  m_layout->update();
 }
 
 void
@@ -85,38 +104,6 @@ MorphSlice::setPaths(QMap<int, QList<QPolygonF> > paths)
   int startkey = keys[0];
   int endkey = keys[1];
 
-  m_xlate = QPointF(0,0);
-
-  //---------------
-  QPointF cen0, cen1;
-  {
-    cen0 = QPointF(0,0);
-    QList<QPolygonF> pf = paths.value(startkey);	  
-    int npts = 0;
-    for(int ii=0; ii<pf.count(); ii++)
-      {
-	npts += pf[ii].count();
-	for(int p=0; p<pf[ii].count(); p++)
-	  cen0 += pf[ii][p];
-      }
-    cen0 /= npts;
-  }
-  {
-    cen1 = QPointF(0,0);
-    QList<QPolygonF> pf = paths.value(endkey);	  
-    int npts = 0;
-    for(int ii=0; ii<pf.count(); ii++)
-      {
-	npts += pf[ii].count();
-	for(int p=0; p<pf[ii].count(); p++)
-	  cen1 += pf[ii][p];
-      }
-    cen1 /= npts;
-  }
-
-  m_xlate = cen0-cen1;  
-  //---------------
-
   //---------------
   {
     QList<QPolygonF> pf = paths.value(startkey);	  
@@ -131,7 +118,6 @@ MorphSlice::setPaths(QMap<int, QList<QPolygonF> > paths)
     QList<QPolygonF> pf = paths.value(endkey);	  
     for(int ii=0; ii<pf.count(); ii++)
       {
-	pf[ii].translate(m_xlate);
 	for(int p=0; p<pf[ii].count(); p++)
 	  {
 	    m_nX = qMax(m_nX, (int)qRound(pf[ii][p].x()));
@@ -139,18 +125,6 @@ MorphSlice::setPaths(QMap<int, QList<QPolygonF> > paths)
 	  }
       }
   }
-//  for(int k=0; k<keys.count(); k++)
-//  {
-//    QList<QPolygonF> pf = paths.value(keys[k]);
-//    for(int ii=0; ii<pf.count(); ii++)
-//      {
-//	for(int i=0; i<pf[ii].count(); i++)
-//	  {
-//	    m_nX = qMax(m_nX, (int)qRound(pf[ii][i].x()));
-//	    m_nY = qMax(m_nY, (int)qRound(pf[ii][i].y()));
-//	  }
-//      }
-//  }
 
   // just add a bit of margin
   m_nX += 5;
@@ -170,8 +144,8 @@ MorphSlice::setPaths(QMap<int, QList<QPolygonF> > paths)
 	  
     for(int ii=0; ii<pf.count(); ii++)
       {
-	p.setPen(QPen(QColor(255, 0, 0), 1));
-	p.setBrush(QColor(255, 255, 255));
+	p.setPen(QPen(QColor(255, 255, 255), 1));
+        p.setBrush(QColor(255, 255, 255));
 	p.drawPolygon(pf[ii]);
       }
     
@@ -189,23 +163,20 @@ MorphSlice::setPaths(QMap<int, QList<QPolygonF> > paths)
     QList<QPolygonF> pf = paths.value(endkey);
     for(int ii=0; ii<pf.count(); ii++)
       {
-	pf[ii].translate(m_xlate);
-	p.setPen(QPen(QColor(255, 0, 0), 1));
-	p.setBrush(QColor(255, 255, 255));
+	p.setPen(QPen(QColor(255, 255, 255), 1));
+        p.setBrush(QColor(255, 255, 255));
 	p.drawPolygon(pf[ii]);
       }
 
     QRgb *rgb = (QRgb*)(pimg.bits());
     for(int i=0; i<m_nX*m_nY; i++)
-      m_endSlice[i] = qBlue(rgb[i]);
+      m_endSlice[i] = qRed(rgb[i]);
   }
-
+  
   QMap<int, QList<QPolygonF> > allcurves;
   allcurves = mergeSlices(nSlices);
 
   clearSlices();
-
-  //return allcurves;
 
   QMap<int, QList<QPolygonF> > finalCurves;
   {
@@ -214,11 +185,7 @@ MorphSlice::setPaths(QMap<int, QList<QPolygonF> > paths)
     for(int n=0; n<nperi; n++)
       {
 	int zv = keys[n];
-	QList<QPolygonF> poly = allcurves[zv];
-	QPointF move = m_xlate*(float)zv/(float)keys.count();
-	for(int p=0; p<poly.count(); p++)
-	  poly[p].translate(-move);
-	
+	QList<QPolygonF> poly = allcurves[zv];	
 	finalCurves.insert(zv, poly);
       }
   }
@@ -229,243 +196,45 @@ MorphSlice::setPaths(QMap<int, QList<QPolygonF> > paths)
 QMap<int, QList<QPolygonF> >
 MorphSlice::mergeSlices(int nSlices)
 {
-  uchar *startSlice = new uchar[m_nX*m_nY];
-  uchar *endSlice = new uchar[m_nX*m_nY];
-  
-  memcpy(startSlice, m_startSlice, m_nX*m_nY);
-  memcpy(endSlice, m_endSlice, m_nX*m_nY);
-
-  QList<uchar *> slices;
-  slices << startSlice;
-  slices << endSlice;
-  bool done = false;
-  while (!done)
-    {
-      QList<uchar *> newslices;
-      for(int i=0; i<slices.count()-1; i++)
-	{
-	  uchar *slice0, *slice1;
-	  slice0 = slices[i];
-	  slice1 = slices[i+1];
-
-	  // find overlap between start and end
-	  uchar *overlapSlice = new uchar[m_nX*m_nY];
-	  memset(overlapSlice, 0, m_nX*m_nY);
-	  for(int i=0; i<m_nX*m_nY; i++)
-	    if (slice1[i] == 255 && slice0[i] == 255)
-	      overlapSlice[i] = 255;
-
-	  // dilate overlap to start slice
-	  QList<uchar*> o2S = dilateOverlap(slice0, overlapSlice);
-
-	  // dilate overlap to end slice
-	  QList<uchar*> o2E = dilateOverlap(slice1, overlapSlice);
-
-	  // add start slice to slices list
-	  newslices << slice0;
-
-	  // get median slice to slices list
-	  if (o2S.count() > 0 || o2E.count() > 0) 
-	    newslices << getMedianSlice(o2S, o2E);
-	  else
-	    {
-	      uchar *dummy0 = new uchar[m_nX*m_nY];
-	      memcpy(dummy0, slice0, m_nX*m_nY);	  
-	      newslices << slice0; // repeat the slice
-	    }
-
-
-	  // free the dilation lists
-	  for(int i=0; i<o2S.count(); i++) delete [] o2S[i];
-	  for(int i=0; i<o2E.count(); i++) delete [] o2E[i];
-	  o2S.clear();
-	  o2E.clear();
-	}
-
-      newslices << slices[slices.count()-1]; // last slice
-      slices = newslices;
-
-      if (slices.count() >= nSlices)
-	done = true;      
-    }
-  
-  int totslices = slices.count();
-
-//   m_layout = new QVBoxLayout();
-
-//  QWidget *m_showSlices = new QWidget();
-//  m_showSlices->setLayout(m_layout);
-
-  // find boundary curves
-  QMap<int, QList<QPolygonF> > allcurves;
-  for(int n=1; n<=nSlices; n++)
-    {
-      int si = (totslices-1)*(float)n/(float)nSlices;
-      QList<QPolygonF> curves = boundaryCurves(slices[si], m_nX, m_nY);
-      allcurves.insert(n, curves);      
-    }
-
-//  QScrollArea *scroll = new QScrollArea();
-//  scroll->setWidget(m_showSlices);
-//  scroll->show();
-//  scroll->resize(2*m_nY, 2*m_nX);
-
-
-  // free slices list
-  for(int i=0; i<slices.count(); i++) delete [] slices[i];
-  slices.clear();
-
-  return allcurves;
-}
-
-QList<uchar*>
-MorphSlice::dilateOverlap(uchar *slice, uchar *overlapSlice)
-{
-  QList<uchar*> slist;
-
-  int cdo[] = { -1, 0, 0, 1, 1, 0, 0, -1 };
-
-  uchar *t0 = new uchar[m_nX*m_nY];
-
-  memcpy(t0, overlapSlice, m_nX*m_nY);
-
-  uchar *t1 = new uchar[m_nX*m_nY];
-  memcpy(t1, t0, m_nX*m_nY);
-  slist << t1;
-
-  // identify boundary pixels
-  QList<QPoint> bpixels;
-  for(int y=0; y<m_nY; y++)
-    for(int x=0; x<m_nX; x++)
-      {
-	int idx = y*m_nX+x;
-	if (slice[idx] == 255 && t0[idx] == 255)
-	  {
-	    bool bdry = false;
-	    for(int k=0; k<4; k++)
-	      {
-		int dx = qBound(0, x + cdo[2*k], m_nX-1);
-		int dy = qBound(0, y + cdo[2*k+1], m_nY-1);
-		int didx = dy*m_nX+dx;
-		if (slice[didx] == 255 && t0[didx] == 0)
-		  {
-		    bdry = true;
-		    break;
-		  }
-	      }
-	    if (bdry) bpixels << QPoint(x, y);
-	  }
-      }
-  
-
-  bool done = false;
-  int rad = 1;
-  while (!done)
-    {      
-      bool voxChanged = false;
-      for(int i=0; i<bpixels.count(); i++)
-	{
-	  int x0 = bpixels[i].x();
-	  int y0 = bpixels[i].y();
-	  for(int y=qMax(0, y0-rad); y<qMin(m_nY, y0+rad+1); y++)
-	    for(int x=qMax(0, x0-rad); x<qMin(m_nX, x0+rad+1); x++)
-	      {
-		float p = ((x-x0)*(x-x0)+
-			   (y-y0)*(y-y0));
-		if (p <= rad*rad)
-		  {
-		    int didx = y*m_nX+x;
-		    if (slice[didx] == 255 && t0[didx] == 0)
-		      {
-			t0[didx] = 255;
-			voxChanged = true;
-		      }
-		  }
-	      }
-	}
-      if (voxChanged)
-	{      
-	  rad ++;
-	  
-	  uchar *t1 = new uchar[m_nX*m_nY];
-	  memcpy(t1, t0, m_nX*m_nY);
-	  slist << t1;
-	}
-      else
-	done = true;
-    }
-
-  delete[] t0;
-
-  return slist;
-}
-
-uchar*
-MorphSlice::getMedianSlice(QList<uchar*> o2S, QList<uchar*> o2E)
-{
-  int tns = o2S.count()-1;
-  int tne = o2E.count()-1;
-
-  int maxslc = qMax(tns, tne);
-
-  QList<int> imed;
-  QList<uchar*> seq;
-  for(int s=0; s<=maxslc; s++)
-    {
-      uchar *slice = new uchar[m_nX*m_nY];
-      memset(slice, 0, m_nX*m_nY);
-
-      if (s <= qMin(tns, tne))
-	{
-	  memcpy(slice, o2S[tns-s], m_nX*m_nY);
-	  
-	  for(int i=0; i<m_nX*m_nY; i++)
-	    slice[i] = qMax(slice[i], o2E[s][i]);
-	}
-      else if (s > tns)
-	memcpy(slice, o2E[s], m_nX*m_nY);
-      else if (s > tne)
-	memcpy(slice, o2S[tns-s], m_nX*m_nY);
-
-      seq << slice;
-
-      int diffS = 0;
-      int diffE = 0;
-      if (tns >= 0)
-	{
-	  for(int p=0; p<m_nX*m_nY; p++)
-	    if (slice[p] != o2S[0][p]) diffS++;
-	}
-
-      if (tne >= 0)
-	{
-	  for(int p=0; p<m_nX*m_nY; p++)
-	    if (slice[p] != o2E[tne][p]) diffE++;
-	}
-      imed << qAbs(diffS - diffE);
-    }
-
-  // take smallest difference element - this would be median element
-  QString str;
-  int slc = 0;
-  int slcmin = imed[0];
-  for(int s=1; s<imed.count(); s++)
-    {
-      if (slcmin > imed[s])
-	{
-	  slcmin = imed[s];
-	  slc = s;
-	}
-    }
-  
   uchar *slice = new uchar[m_nX*m_nY];
-  memcpy(slice, seq[slc], m_nX*m_nY);
+  float *fslice = new float[m_nX*m_nY];
+  float *fstartSlice = new float[m_nX*m_nY];
+  float *fendSlice = new float[m_nX*m_nY];
 
-  for(int i=0; i<seq.count(); i++)
-    delete [] seq[i];
-  seq.clear();
+  // calculate signed distance transform using difference of two distance transforms
+  distanceTransform(fstartSlice, m_startSlice, m_nY, m_nX, false);
+  distanceTransform(fslice, m_startSlice, m_nY, m_nX, true);
+  for(int s=0; s<m_nX*m_nY; s++)
+    fstartSlice[s] -= fslice[s];
+  
+  // calculate signed distance transform using difference of two distance transforms
+  distanceTransform(fendSlice, m_endSlice, m_nY, m_nX, false);
+  distanceTransform(fslice, m_endSlice, m_nY, m_nX, true);
+  for(int s=0; s<m_nX*m_nY; s++)
+    fendSlice[s] -= fslice[s];
 
-  return slice;
+  
+  QMap<int, QList<QPolygonF> > allcurves;
+  for (int i=1; i<=nSlices; i++)
+    {
+      float frc = (float)i/(float)(nSlices+1);
+      memset(slice, 0, m_nX*m_nY);
+      for(int s=0; s<m_nX*m_nY; s++)
+	{
+	  float v = (fstartSlice[s]*(1.0-frc) + fendSlice[s]*frc);
+	  if (v > 0)
+	    slice[s] = 255;
+	}
+      QList<QPolygonF> curves = boundaryCurves(slice, m_nX, m_nY);
+      allcurves.insert(i, curves);
+    }
+
+  delete [] slice;
+  delete [] fslice;
+  delete [] fstartSlice;
+  delete [] fendSlice;
+  
+  return allcurves;
 }
 
 QList<QPolygonF>
@@ -491,8 +260,8 @@ MorphSlice::boundaryCurves(uchar *slice, int nX, int nY, bool shrinkwrap)
   int pos = 0;
 
   QList<QPolygonF> curves;
-  for(int y = 1; y < height; y ++)
-    for(int x = 1; x < width; x ++)
+  for(int y = 2; y < height-1; y ++)
+    for(int x = 2; x < width-1; x ++)
       {
 	pos = x + y*(width+2);
 	
@@ -647,4 +416,131 @@ MorphSlice::boundaryCurves(uchar *slice, int nX, int nY, bool shrinkwrap)
   delete [] borderImage;
 
   return curves;
+}
+
+
+//------------------------------------------------------------
+//------------------------------------------------------------
+// distance transform using squared distance
+//P. Felzenszwalb, D. Huttenlocher
+//Theory of Computing, Vol. 8, No. 19, September 2012
+//------------------------------------------------------------
+#define INF 1E20
+// 1D distance transform using squared distance
+void
+MorphSlice::distanceTransform(float *d, float *f, int n)
+{
+  int *v = new int[n];
+  float *z = new float[n+1];
+
+  int k = 0;
+  v[k] = 0;
+  z[k] = -INF;
+  z[k+1]=+INF;
+
+  for (int q=1; q<=n-1; q++)
+    {
+      float s;
+      if (q != v[k])
+	s = ((f[q]+(q*q))-(f[v[k]]+(v[k]*v[k])))/(2*q-2*v[k]);
+      else
+	s = 0;
+      while (s <= z[k])
+	{
+	  k--;
+	  if (q!=v[k])	    
+	    s = ((f[q]+(q*q))-(f[v[k]]+(v[k]*v[k])))/(2*q-2*v[k]);
+	  else
+	    s = 0;
+	}
+      k++;
+      v[k] = q;
+      z[k] = s;
+      z[k+1] = +INF;
+    }
+
+  k = 0;
+  for (int q=0; q<=n-1; q++)
+    {
+      while (z[k+1] < q)
+	{
+	  k++;
+	}
+      d[q] = (q-v[k])*(q-v[k]) + f[v[k]];
+    }
+
+  delete [] v;
+  delete [] z;
+}
+
+// 2D distance transform using squared distance
+void
+MorphSlice::distanceTransform(float *f0slice, uchar *slice, int width, int height, bool flip)
+{
+  float *fslice = new float[width*height];
+  float *f = new float[qMax(width,height)];
+  float *d = new float[qMax(width,height)];
+
+  
+  memset(fslice, 0, sizeof(float)*width*height);
+
+  if (flip)
+    {
+      for (int i=0; i<width*height; i++)
+	{
+	  if (slice[i] == 0)
+	    fslice[i] = INF;
+	}
+    }
+  else
+    {
+      for (int i=0; i<width*height; i++)
+	{
+	  if (slice[i] > 0)
+	    fslice[i] = INF;	  
+	}
+    }
+
+  // transform along columns
+  memset(f, 0, height*sizeof(float));
+  for (int x=0; x<width; x++)
+    {
+      memcpy(f, fslice+x*height, height*sizeof(float));
+      distanceTransform(d, f, height);
+      memcpy(fslice+x*height, d, height*sizeof(float));
+    }
+  
+  // transform along rows
+  memset(f, 0, width*sizeof(float));
+  for (int y=0; y<height; y++)
+    {
+      for (int x=0; x<width; x++)
+	{
+	  f[x] = fslice[x*height + y];
+	}
+      
+      distanceTransform(d, f, width);
+
+      for (int x=0; x<width; x++)
+	{
+	  fslice[x*height + y] = d[x];
+	}
+    }
+
+  delete [] d;
+  delete [] f;
+
+  memcpy(f0slice, fslice, width*height*sizeof(float));
+  
+//  uchar *imgslice = new uchar[m_nX*m_nY];
+//  for (int i=0; i<width*height; i++)
+//    {
+//      imgslice[i] = qMin(fslice[i],255.0f);
+//    }
+//
+//  showSliceImage(imgslice, height, width);
+//  QMessageBox::information(0, "", "dt end");
+//  delete [] imgslice;
+
+  delete [] fslice;
 }

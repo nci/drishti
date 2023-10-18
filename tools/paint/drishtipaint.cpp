@@ -533,7 +533,23 @@ DrishtiPaint::on_actionCurves_triggered()
       m_coronalCurves->resetSliceType();
     }
 
-  defaultCurvesLayout_triggered();
+  if (m_axialImage->enlarged())
+      axialCurvesLayout_triggered();
+  else if (m_sagitalImage->enlarged())
+    sagitalCurvesLayout_triggered();
+  else if (m_coronalImage->enlarged())
+    m_coronalCurves->setLarge(false);
+  else if (m_viewer3D->enlarged())
+    on_action3dView_triggered();
+  else      
+    defaultCurvesLayout_triggered();
+
+  {
+    m_axialImage->setLarge(false);
+    m_sagitalImage->setLarge(false);
+    m_coronalImage->setLarge(false);
+  }
+
 }
 
 void
@@ -564,11 +580,10 @@ DrishtiPaint::defaultCurvesLayout_triggered()
   m_splitterTwoC->setSizes(ssz);
 
   
-  m_axialCurves->zoomToSelection();
-  m_sagitalCurves->zoomToSelection();
-  m_coronalCurves->zoomToSelection();
-  
   QTimer::singleShot(200, m_viewer, SLOT(startDrawing()));
+  QTimer::singleShot(50, m_axialCurves, SLOT(fitImage()));
+  QTimer::singleShot(50, m_sagitalCurves, SLOT(fitImage()));
+  QTimer::singleShot(50, m_coronalCurves, SLOT(fitImage()));
 }
 void
 DrishtiPaint::axialCurvesLayout_triggered()
@@ -602,11 +617,10 @@ DrishtiPaint::axialCurvesLayout_triggered()
   gcas << 1000 << 200;
   m_curvesArea->setSizes(gcas);
 
-  m_axialCurves->zoomToSelection();
-  m_sagitalCurves->zoomToSelection();
-  m_coronalCurves->zoomToSelection();
-
   //QTimer::singleShot(200, m_viewer, SLOT(startDrawing()));
+  QTimer::singleShot(50, m_axialCurves, SLOT(fitImage()));
+  QTimer::singleShot(50, m_sagitalCurves, SLOT(fitImage()));
+  QTimer::singleShot(50, m_coronalCurves, SLOT(fitImage()));
 }
 void
 DrishtiPaint::sagitalCurvesLayout_triggered()
@@ -640,11 +654,10 @@ DrishtiPaint::sagitalCurvesLayout_triggered()
   gcas << 1000 << 200;
   m_curvesArea->setSizes(gcas);
 
-  m_axialCurves->zoomToSelection();
-  m_sagitalCurves->zoomToSelection();
-  m_coronalCurves->zoomToSelection();
-
   //QTimer::singleShot(200, m_viewer, SLOT(startDrawing()));
+  QTimer::singleShot(50, m_axialCurves, SLOT(fitImage()));
+  QTimer::singleShot(50, m_sagitalCurves, SLOT(fitImage()));
+  QTimer::singleShot(50, m_coronalCurves, SLOT(fitImage()));
 }
 void
 DrishtiPaint::coronalCurvesLayout_triggered()
@@ -678,11 +691,10 @@ DrishtiPaint::coronalCurvesLayout_triggered()
   gcas << 1000 << 200;
   m_curvesArea->setSizes(gcas);
 
-  m_axialCurves->zoomToSelection();
-  m_sagitalCurves->zoomToSelection();
-  m_coronalCurves->zoomToSelection();
-
   //QTimer::singleShot(200, m_viewer, SLOT(startDrawing()));
+  QTimer::singleShot(50, m_axialCurves, SLOT(fitImage()));
+  QTimer::singleShot(50, m_sagitalCurves, SLOT(fitImage()));
+  QTimer::singleShot(50, m_coronalCurves, SLOT(fitImage()));
 }
 //------------------
 //------------------
@@ -810,7 +822,24 @@ DrishtiPaint::on_actionGraphCut_triggered()
   m_coronalCurves->setCurve(false);
   curvesUi.livewire->setChecked(false);
 
-  on_actionDefaultView_triggered();
+
+  if (m_axialCurves->enlarged())
+    on_actionZ_triggered();
+  else if (m_sagitalCurves->enlarged())
+    on_actionY_triggered();
+  else if (m_coronalCurves->enlarged())
+    on_actionX_triggered();
+  else if (m_viewer3D->enlarged())
+    on_action3dView_triggered();
+  else
+    on_actionDefaultView_triggered();
+  
+  {
+    m_axialCurves->setLarge(false);
+    m_sagitalCurves->setLarge(false);
+    m_coronalCurves->setLarge(false);
+  }
+  
 }
 
 void
@@ -840,12 +869,11 @@ DrishtiPaint::on_actionDefaultView_triggered()
   m_splitterOne->setSizes(ssz);
   m_splitterTwo->setSizes(ssz);
 
-  
-  m_axialImage->zoomToSelection();
-  m_sagitalImage->zoomToSelection();
-  m_coronalImage->zoomToSelection();
 
   QTimer::singleShot(200, m_viewer, SLOT(startDrawing()));
+  QTimer::singleShot(50, m_axialImage, SLOT(fitImage()));
+  QTimer::singleShot(50, m_sagitalImage, SLOT(fitImage()));
+  QTimer::singleShot(50, m_coronalImage, SLOT(fitImage()));
 }
 void
 DrishtiPaint::on_actionZ_triggered()
@@ -879,11 +907,11 @@ DrishtiPaint::on_actionZ_triggered()
   gcas << 1000 << 200;
   m_graphCutArea->setSizes(gcas);
 
-  m_axialImage->zoomToSelection();
-  m_sagitalImage->zoomToSelection();
-  m_coronalImage->zoomToSelection();
 
   //QTimer::singleShot(200, m_viewer, SLOT(startDrawing()));
+  QTimer::singleShot(50, m_axialImage, SLOT(fitImage()));
+  QTimer::singleShot(50, m_sagitalImage, SLOT(fitImage()));
+  QTimer::singleShot(50, m_coronalImage, SLOT(fitImage()));
 }
 void
 DrishtiPaint::on_actionY_triggered()
@@ -922,6 +950,9 @@ DrishtiPaint::on_actionY_triggered()
   m_coronalImage->zoomToSelection();
 
   //QTimer::singleShot(200, m_viewer, SLOT(startDrawing()));
+  QTimer::singleShot(50, m_axialImage, SLOT(fitImage()));
+  QTimer::singleShot(50, m_sagitalImage, SLOT(fitImage()));
+  QTimer::singleShot(50, m_coronalImage, SLOT(fitImage()));
 }
 void
 DrishtiPaint::on_actionX_triggered()
@@ -960,11 +991,13 @@ DrishtiPaint::on_actionX_triggered()
   m_coronalImage->zoomToSelection();
 
   //QTimer::singleShot(200, m_viewer, SLOT(startDrawing()));
+  QTimer::singleShot(50, m_axialImage, SLOT(fitImage()));
+  QTimer::singleShot(50, m_sagitalImage, SLOT(fitImage()));
+  QTimer::singleShot(50, m_coronalImage, SLOT(fitImage()));
 }
 void
 DrishtiPaint::on_action3dView_triggered()
 {
-
   m_viewer->stopDrawing();
     
   QList<int> ssz;
@@ -1416,6 +1449,12 @@ void DrishtiPaint::morphcurves_clicked()
   if (m_axialCurves->inFocus()) m_axialCurves->morphCurves();
   if (m_sagitalCurves->inFocus()) m_sagitalCurves->morphCurves();
   if (m_coronalCurves->inFocus()) m_coronalCurves->morphCurves();
+}
+void DrishtiPaint::morphUsingDT_clicked()
+{
+  if (m_axialCurves->inFocus()) m_axialCurves->morphSlices();
+  if (m_sagitalCurves->inFocus()) m_sagitalCurves->morphSlices();
+  if (m_coronalCurves->inFocus()) m_coronalCurves->morphSlices();
 }
 void DrishtiPaint::deleteallcurves_clicked()
 {
@@ -3039,8 +3078,15 @@ DrishtiPaint::connectCurvesMenu()
   connect(curvesUi.lwgrad, SIGNAL(currentIndexChanged(int)),
 	  this, SLOT(lwgrad_currentIndexChanged(int)));
 
-  connect(curvesUi.morphcurves, SIGNAL(clicked()),
-	  this, SLOT(morphcurves_clicked()));
+  //----------------------
+  // disabling morph curves using weighted mean of strings algorithm
+  curvesUi.morphcurves->hide();
+  //connect(curvesUi.morphcurves, SIGNAL(clicked()),
+  //	  this, SLOT(morphcurves_clicked()));
+  //----------------------
+
+  connect(curvesUi.morphUsingDT, SIGNAL(clicked()),
+	  this, SLOT(morphUsingDT_clicked()));
 
   connect(curvesUi.newcurve, SIGNAL(clicked()),
 	  this, SLOT(newcurve_clicked()));

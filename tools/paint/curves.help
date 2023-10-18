@@ -34,9 +34,10 @@ There are two options - Central Difference and Sobel method.  Sobel give smoothe
 
 #begin
 Interpolate
-Generate intermediate curves from the user drawn set of curves.  All the user added curves will be interpolated. The program will generate intermediate curves between adjoining pair of curves.
+Curve morphing using signed distance field.  Works even when there are multiple curves in a slice.
+A signed distance field is generated for the successive pairs of start and end slices using the curves on those slices.  This field is then linearly interpolated and the curves at 0-boundary are returned as the interpolated curves for intermediate slices.
 
-If the interpolated curves are not to the user's satisfaction, these interpolated curves can be deleted by hovering over one of the curves and pressing Delete.  User can choose to draw a new curve for inbetween slices to generate a better set of interpolated curves.
+If the interpolated curves are not to the user's satisfaction, these interpolated curves can be deleted by hovering over one of the curves and pressing Delete.  User can choose to draw a new curves for inbetween slices to generate a better set of interpolated curves.
 #end
 
 #begin

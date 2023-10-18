@@ -120,6 +120,7 @@ class DrishtiPaint : public QMainWindow
   void newcurve_clicked();
   void endcurve_clicked();
   void morphcurves_clicked();
+  void morphUsingDT_clicked();
   void deleteallcurves_clicked();
   void changeTransferFunctionDisplay(int, QList<bool>);
   void checkStateChanged(int, int, bool);

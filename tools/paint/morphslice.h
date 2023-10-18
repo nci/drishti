@@ -19,10 +19,8 @@ class MorphSlice
 
  private :
   int m_nX, m_nY;
-  QPointF m_xlate;
   uchar *m_startSlice;
   uchar *m_endSlice;
-  uchar *m_overlapSlice;
   QVBoxLayout* m_layout;
 
   void clearSlices();
@@ -31,9 +29,10 @@ class MorphSlice
 
 
   QMap< int, QList<QPolygonF> > mergeSlices(int);
-  QList<uchar*> dilateOverlap(uchar*, uchar*);
-  uchar* getMedianSlice(QList<uchar*>, QList<uchar*>);
 
+  void distanceTransform(float*, float*, int);
+  void distanceTransform(float*, uchar*, int, int, bool);
+  
 };
 
 #endif // MORPHSLICE_H

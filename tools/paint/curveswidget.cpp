@@ -1816,12 +1816,12 @@ CurvesWidget::curveModeKeyPressEvent(QKeyEvent *event)
       return;
     }
 
-//  if (shiftModifier && event->key() == Qt::Key_Q)
-//    {
-//      morphSlices();
-//      return;
-//    }
-//
+  if (shiftModifier && event->key() == Qt::Key_Q)
+    {
+      morphSlices();
+      return;
+    }
+
 //  if (event->key() == Qt::Key_I)
 //    {
 //      int ic = -1;
@@ -3407,4 +3407,3 @@ CurvesWidget::setMinCurveLength(int sz)
 {
   m_Curves.setShrinkwrapIgnoreSize(sz);
 }
-

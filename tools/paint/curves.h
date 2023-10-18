@@ -78,6 +78,7 @@ class Curves : public QWidget
   void newCurve();
   void endCurve();
   void morphCurves();
+  void morphSlices();
   void deleteAllCurves();
 
   bool curvesPresent();
@@ -122,8 +123,6 @@ class Curves : public QWidget
    void sliceNumChanged();
    
    void fitImage() { m_curvesWidget->zoom9Clicked(); }
-
-   void zoomToSelection() { m_curvesWidget->zoom9Clicked(); }
   
   
  private:

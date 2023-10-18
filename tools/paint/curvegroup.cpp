@@ -2058,4 +2058,3 @@ CurveGroup::dilateErodeCurveWithSeedPoints(Curve *c, float lambda)
   if (!c->closed) // for open curve
     c->seedpos[scount-1] = c->pts.count()-1;
 }
-

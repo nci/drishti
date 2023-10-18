@@ -253,6 +253,7 @@ void Curves::setGradType(int b) { m_curvesWidget->setGradType(b); }
 void Curves::newCurve() { m_curvesWidget->newCurve(false); }
 void Curves::endCurve() { m_curvesWidget->endCurve(); }
 void Curves::morphCurves() { m_curvesWidget->morphCurves(); }
+void Curves::morphSlices() { m_curvesWidget->morphSlices(); }
 void Curves::deleteAllCurves() { m_curvesWidget->deleteAllCurves(); }
 
 

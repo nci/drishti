@@ -367,14 +367,13 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 
   resize(1600, 1024);
 
-
-
   
   m_handleExternalCMD = new HandleExternalCMD(m_CMDport);
 
   connect(m_handleExternalCMD, SIGNAL(loadRAW(QString)),
 	  this, SLOT(loadRawMask(QString)));
 }
+
 
 void DrishtiPaint::on_actionHelp_triggered() { ShowHelp::showMainHelp(); }
 
@@ -392,6 +391,8 @@ DrishtiPaint::on_help_clicked()
       return;
     }
 }
+
+
 
 //------------------
 //------------------
@@ -497,6 +498,13 @@ DrishtiPaint::createCurveWindows()
 void
 DrishtiPaint::on_actionCurves_triggered()
 {
+  if (!m_volume->isValid())
+    {
+      ui.actionGraphCut->setChecked(true);
+      ui.actionCurves->setChecked(false);
+      return;
+    }
+  
   QString hss;
   hss += "QToolButton { border-width:5; border-style:solid; border-radius:25px;";
   hss += "color:#0077dd; }";
@@ -515,7 +523,8 @@ DrishtiPaint::on_actionCurves_triggered()
   m_axialCurves->setCurve(true);
   m_sagitalCurves->setCurve(true);
   m_coronalCurves->setCurve(true);
- 
+
+
   if (m_volume->isValid())
     {
       curvesUi.livewire->setChecked(false);
@@ -532,7 +541,7 @@ DrishtiPaint::on_actionCurves_triggered()
       m_sagitalCurves->resetSliceType();
       m_coronalCurves->resetSliceType();
     }
-
+  
   if (m_axialImage->enlarged())
       axialCurvesLayout_triggered();
   else if (m_sagitalImage->enlarged())
@@ -3078,12 +3087,8 @@ DrishtiPaint::connectCurvesMenu()
   connect(curvesUi.lwgrad, SIGNAL(currentIndexChanged(int)),
 	  this, SLOT(lwgrad_currentIndexChanged(int)));
 
-  //----------------------
-  // disabling morph curves using weighted mean of strings algorithm
-  curvesUi.morphcurves->hide();
-  //connect(curvesUi.morphcurves, SIGNAL(clicked()),
-  //	  this, SLOT(morphcurves_clicked()));
-  //----------------------
+  connect(curvesUi.morphcurves, SIGNAL(clicked()),
+  	  this, SLOT(morphcurves_clicked()));
 
   connect(curvesUi.morphUsingDT, SIGNAL(clicked()),
 	  this, SLOT(morphUsingDT_clicked()));

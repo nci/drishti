@@ -33,12 +33,28 @@ There are two options - Central Difference and Sobel method.  Sobel give smoothe
 
 
 #begin
-Interpolate
-Curve morphing using signed distance field.  Works even when there are multiple curves in a slice.
+Interpolate (DT)
+Curve morphing using signed distance field.
+Works even when there are multiple curves in a slice.
+
 A signed distance field is generated for the successive pairs of start and end slices using the curves on those slices.  This field is then linearly interpolated and the curves at 0-boundary are returned as the interpolated curves for intermediate slices.
+
+This method does not work well when the curves are farther apart.  In this case try the weighted means method - Interpolate (WM) method.
 
 If the interpolated curves are not to the user's satisfaction, these interpolated curves can be deleted by hovering over one of the curves and pressing Delete.  User can choose to draw a new curves for inbetween slices to generate a better set of interpolated curves.
 #end
+
+
+#begin
+Interpolate (WM)
+Curve morphing using weighted mean of strings.
+Works will for single curve per a slice.
+
+Curves are represented as sequence of symbols, and curve morphing is computed as a weighted mean of two strings.  This method works well when start and end curves are farther apart (where the distance transform mehod fails).
+
+If the interpolated curves are not to the user's satisfaction, these interpolated curves can be deleted by hovering over one of the curves and pressing Delete.  User can choose to draw a new curves for inbetween slices to generate a better set of interpolated curves.
+#end
+
 
 #begin
 New Curve

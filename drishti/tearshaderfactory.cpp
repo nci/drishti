@@ -5,6 +5,7 @@
 QString
 TearShaderFactory::generateTear(QList<CropObject> crops)
 {
+  //Vec voxelScaling = Vec(1,1,1);
   Vec voxelScaling = Global::voxelScaling();
   QString shader;
 
@@ -16,9 +17,9 @@ TearShaderFactory::generateTear(QList<CropObject> crops)
   shader += "  vec3 op0, opvec, osaxis, otaxis;\n";
   shader += "  float plen, srad1, srad2, trad1, trad2;\n";
 
-  shader += QString("  texCoord *= vec3(%1,%2,%3);\n").\
-    arg(voxelScaling.x).arg(voxelScaling.y).arg(voxelScaling.z);
-
+  shader += QString("  texCoord *= vec3(%1,%2,%3);\n").			\
+     arg(voxelScaling.x).arg(voxelScaling.y).arg(voxelScaling.z);
+  
   if (crops.count() > 0)
     {
       for (int ci=0; ci<crops.count(); ci++)

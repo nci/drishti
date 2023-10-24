@@ -35,7 +35,8 @@ CropGrabber::checkIfGrabsMouse(int x, int y,
   int sz = 20;
   if (tube()) sz = 40;
 
-  Vec voxelScaling = Global::voxelScaling();
+  Vec voxelScaling = Vec(1,1,1);
+  //Vec voxelScaling = Global::voxelScaling();
   QList<Vec> pts = points();
 
   m_lastX = x;
@@ -128,7 +129,8 @@ CropGrabber::mousePressEvent(QMouseEvent* const event,
   m_prevPos = event->pos();
   m_moved = false;
 
-  Vec voxelScaling = Global::voxelScaling();
+  Vec voxelScaling = Vec(1,1,1);
+  //Vec voxelScaling = Global::voxelScaling();
   QList<Vec> pts = points();
   for(int i=0; i<pts.count(); i++)
     {
@@ -221,7 +223,8 @@ CropGrabber::mouseMoveEvent(QMouseEvent* const event,
       // Transform to world coordinate system.
       trans = camera->frame()->orientation().rotate(trans);
 
-      Vec voxelScaling = Global::voxelScaling();
+      Vec voxelScaling = Vec(1,1,1);
+      //Vec voxelScaling = Global::voxelScaling();
       trans = VECDIVIDE(trans, voxelScaling);
 
       if (event->modifiers() & Qt::ControlModifier ||
@@ -320,7 +323,8 @@ CropGrabber::mouseMoveEvent(QMouseEvent* const event,
       else if (moveAxis() == MoveZ) axis = m_tang;
       
       QList<Vec> pts = points();
-      Vec voxelScaling = Global::voxelScaling();
+      Vec voxelScaling = Vec(1,1,1);
+      //Vec voxelScaling = Global::voxelScaling();
       Vec p0 = VECPRODUCT(pts[0], voxelScaling);
       Vec p1 = VECPRODUCT(pts[1], voxelScaling);
       Vec ca = (p0+p1)*0.5f;

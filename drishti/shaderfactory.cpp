@@ -1242,7 +1242,7 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
   if (tearPresent)
     {
       shader += "vec4 tcf = dissect(texCoord);\n";
-      shader += "texCoord = tcf.xyz;\n";
+      //shader += "otexCoord = tcf.xyz;\n";
       shader += "feather *= tcf.w;\n";
     }
   if (cropPresent) shader += "feather *= crop(texCoord, true);\n";

@@ -238,6 +238,7 @@ VolumeInformation::volInfo(QString volfile,
   bool rgba = checkRGB(volfile) || checkRGBA(volfile);
 
   pvlInfo.pvlFile = volfile;
+  pvlInfo.relativeVoxelScaling = Vec(1,1,1);
 
 
   std::vector<float> pvlmap;
@@ -318,6 +319,9 @@ VolumeInformation::volInfo(QString volfile,
 	    }
 	  	  
 	  pvlInfo.voxelSize = Vec(vx, vy, vz);
+	  float minval = qMin(vx, qMin(vy, vz));
+	  if (minval > 0.00000001)
+	    pvlInfo.relativeVoxelScaling = pvlInfo.voxelSize/minval;
 	}
       else if (dlist.at(i).nodeName() == "gridsize")
 	{

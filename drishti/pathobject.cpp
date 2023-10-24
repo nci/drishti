@@ -1602,7 +1602,8 @@ PathObject::computePathVectors()
 void
 PathObject::computePath(QList<Vec> points)
 {
-  Vec voxelScaling = Global::voxelScaling();
+  //Vec voxelScaling = Global::voxelScaling();
+  Vec voxelScaling = Vec(1,1,1);
   Vec voxelSize = VolumeInformation::volumeInformation().voxelSize;
 
 
@@ -1822,7 +1823,8 @@ PathObject::postdrawInViewport(QGLViewer *viewer,
 			       bool grabsMouse,
 			       Vec cp, Vec cn, int ct, float textscale)
 {
-  Vec voxelScaling = Global::voxelScaling();
+  Vec voxelScaling = Vec(1,1,1);
+  //Vec voxelScaling = Global::voxelScaling();
   bool ok = true;
   for(int i=0; i<m_points.count();i++)
     {
@@ -2010,7 +2012,8 @@ PathObject::drawLines(QGLViewer *viewer,
       glHint(GL_POINT_SMOOTH_HINT, GL_NICEST);
       glEnable(GL_POINT_SMOOTH);
 
-      Vec voxelScaling = Global::voxelScaling();
+      //Vec voxelScaling = Global::voxelScaling();
+      Vec voxelScaling = Vec(1,1,1);
       glPointSize(20);
       glBegin(GL_POINTS);
       for(int i=0; i<m_points.count();i++)
@@ -2020,11 +2023,10 @@ PathObject::drawLines(QGLViewer *viewer,
 	}
       glEnd();
 
-
+      
       if (m_pointPressed > -1)
 	{
 	  glColor3f(1,0,0);
-	  Vec voxelScaling = Global::voxelScaling();
 	  glPointSize(25);
 	  glBegin(GL_POINTS);
 	  Vec pt = VECPRODUCT(m_points[m_pointPressed], voxelScaling);
@@ -2051,7 +2053,8 @@ PathObject::drawLines(QGLViewer *viewer,
   // draw arrows
   if (m_capType == ARROW)
     {
-      Vec voxelScaling = Global::voxelScaling();
+      Vec voxelScaling = Vec(1,1,1);
+      //Vec voxelScaling = Global::voxelScaling();
       glBegin(GL_TRIANGLES);
       for(int i=0; i<m_points.count();i++)
 	{
@@ -2175,7 +2178,8 @@ PathObject::drawLines(QGLViewer *viewer,
 void
 PathObject::generateRibbon(float scale)
 {  
-  Vec voxelScaling = Global::voxelScaling();
+  Vec voxelScaling = Vec(1,1,1);
+  //  Vec voxelScaling = Global::voxelScaling();
 
   float prevtex = 0;
   Vec prevp0, prevp1;
@@ -2581,7 +2585,8 @@ PathObject::getCrossSection(float scale,
 			    int sections,
 			    Vec tang, Vec xaxis, Vec yaxis)
 {
-  Vec voxelScaling = Global::voxelScaling();
+  Vec voxelScaling = Vec(1,1,1);
+  //Vec voxelScaling = Global::voxelScaling();
 
   int jend = sections;
   if (m_halfSection)
@@ -2663,7 +2668,8 @@ PathObject::postdrawAngle(QGLViewer *viewer)
 	    m_lengthColor.z*0.5,
 	    0.5);
       
-  Vec voxelScaling = Global::voxelScaling();
+  Vec voxelScaling = Vec(1,1,1);
+  //Vec voxelScaling = Global::voxelScaling();
   Vec pt = VECPRODUCT(m_points[0], voxelScaling);
   Vec scr = viewer->camera()->projectedCoordinatesOf(pt);
   int x0 = scr.x;
@@ -2743,7 +2749,8 @@ PathObject::postdrawAngle(QGLViewer *viewer)
 void
 PathObject::postdrawLength(QGLViewer *viewer)
 {
-  Vec voxelScaling = Global::voxelScaling();
+  Vec voxelScaling = Vec(1,1,1);
+  //Vec voxelScaling = Global::voxelScaling();
 
   glColor4f(m_lengthColor.x*0.9,
 	    m_lengthColor.y*0.9,
@@ -2854,7 +2861,8 @@ PathObject::postdrawLength(QGLViewer *viewer)
 void
 PathObject::postdrawPointNumbers(QGLViewer *viewer)
 {
-  Vec voxelScaling = Global::voxelScaling();
+  Vec voxelScaling = Vec(1,1,1);
+  //Vec voxelScaling = Global::voxelScaling();
   for(int i=0; i<m_points.count();i++)
     {
       Vec pt = VECPRODUCT(m_points[i], voxelScaling);
@@ -2891,7 +2899,8 @@ PathObject::postdrawCaption(QGLViewer *viewer)
   float frch = (float(viewer->camera()->screenHeight())/
 		float(screenHeight));
 
-  Vec voxelScaling = Global::voxelScaling();
+  Vec voxelScaling = Vec(1,1,1);
+  //Vec voxelScaling = Global::voxelScaling();
   Vec pt = VECPRODUCT(m_path[0], voxelScaling);
   Vec pp0 = viewer->camera()->projectedCoordinatesOf(pt);
   pt = VECPRODUCT(m_path[m_path.count()-1], voxelScaling);
@@ -3919,7 +3928,8 @@ void PathObject::drawViewportLine(float scale, int vh)
     return;
 
   //Vec voxelSize = VolumeInformation::volumeInformation().voxelSize;
-  Vec voxelSize = Global::voxelScaling();
+  //Vec voxelSize = Global::voxelScaling();
+  Vec voxelSize = Vec(1,1,1);
 
   float clen = 0;
   glColor4f(m_color.x*m_opacity,
@@ -3946,7 +3956,8 @@ void PathObject::drawViewportLineDots(QGLViewer *viewer, float scale, int vh)
     return;
 
   //Vec voxelSize = VolumeInformation::volumeInformation().voxelSize;
-  Vec voxelSize = Global::voxelScaling();
+  //Vec voxelSize = Global::voxelScaling();
+  Vec voxelSize = Vec(1,1,1);
 
   glEnable(GL_BLEND);
 

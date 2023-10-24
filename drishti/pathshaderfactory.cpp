@@ -2,6 +2,8 @@
 #include "pathshaderfactory.h"
 #include "geometryobjects.h"
 
+#define VECDIVIDE(a, b) Vec(a.x/b.x, a.y/b.y, a.z/b.z)
+
 bool
 PathShaderFactory::cropPresent()
 {
@@ -34,6 +36,8 @@ PathShaderFactory::applyPathCrop()
   int pc = GeometryObjects::paths()->count();
   if (pc == 0)
     return QString();
+
+  Vec voxelScaling = Global::voxelScaling();
 
   QList<PathObject> paths1 = GeometryObjects::paths()->paths();
   QList<PathObject> paths;
@@ -70,6 +74,9 @@ PathShaderFactory::applyPathCrop()
       QList<Vec> taxis = paths[i].taxis();
       QList<float> rad = paths[i].radX();
       int npt = qMin(20, points.count());
+
+      for (int p=0; p<npt; p++)
+	points[p] = VECDIVIDE(points[p], voxelScaling);
 
       shader += QString(" npts = %1;\n").arg(npt);
 
@@ -236,6 +243,8 @@ PathShaderFactory::applyPathBlend(int nvol)
   if (pc == 0)
     return QString();
 
+  Vec voxelScaling = Global::voxelScaling();
+  
   QList<PathObject> paths1 = GeometryObjects::paths()->paths();
   QList<PathObject> paths;
   for (int i=0; i<paths1.count(); i++)
@@ -276,6 +285,9 @@ PathShaderFactory::applyPathBlend(int nvol)
       QList<Vec> taxis = paths[i].taxis();
       QList<float> rad = paths[i].radX();
       int npt = qMin(20, points.count());
+
+      for (int p=0; p<npt; p++)
+	points[p] = VECDIVIDE(points[p], voxelScaling);
 
       shader += QString(" npts = %1;\n").arg(npt);
 

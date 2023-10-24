@@ -698,11 +698,12 @@ Viewer::checkPointSelected(const QMouseEvent *event)
       Vec target = checkPointSelectedInViewport(ic, scr, found);
       if (found)
 	{
+	  target = VECPRODUCT(target, Global::voxelScaling());
 	  if (!PruneHandler::carve() && !PruneHandler::paint())
 	    {
 	      if (GeometryObjects::paths()->continuousAdd())
 		GeometryObjects::paths()->addPoint(target);
-	      else
+	      else		
 		GeometryObjects::hitpoints()->add(target);  
 	    }
 	}
@@ -710,6 +711,7 @@ Viewer::checkPointSelected(const QMouseEvent *event)
     }
 
   Vec target = m_hiresVolume->pointUnderPixel(scr, found);
+  target = VECPRODUCT(target, Global::voxelScaling());
 
   if (found)
     {
@@ -4380,7 +4382,7 @@ Viewer::processCommand(QString cmd)
       if (list.size() > 1) x = list[1].toFloat(&ok);
       if (list.size() > 2) y = list[2].toFloat(&ok);
       if (list.size() > 3) z = list[3].toFloat(&ok);
-      pos = Vec(x,y,z);
+      pos = VECPRODUCT(Vec(x,y,z), Global::voxelScaling());
       GeometryObjects::hitpoints()->add(pos);
     }
   else if (list[0] == "deselectall")

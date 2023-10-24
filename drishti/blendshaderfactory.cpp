@@ -6,6 +6,7 @@ QString
 BlendShaderFactory::generateBlend(QList<CropObject> crops,
 				  int nvol)
 {
+  //Vec voxelScaling = Vec(1,1,1);
   Vec voxelScaling = Global::voxelScaling();
   QString shader;
 
@@ -21,8 +22,8 @@ BlendShaderFactory::generateBlend(QList<CropObject> crops,
   shader += "  vec3 op0, opvec, osaxis, otaxis;\n";
   shader += "  float plen, srad1, srad2, trad1, trad2;\n";
 
-//  shader += QString("  otexCoord *= vec3(%1,%2,%3);\n").\
-//    arg(voxelScaling.x).arg(voxelScaling.y).arg(voxelScaling.z);
+  shader += QString("  otexCoord *= vec3(%1,%2,%3);\n").\
+    arg(voxelScaling.x).arg(voxelScaling.y).arg(voxelScaling.z);
 
   if (crops.count() > 0)
     {
@@ -67,16 +68,16 @@ BlendShaderFactory::generateBlend(QList<CropObject> crops,
 	  lift = crops[ci].lift();
 
 	  pvec = pts[1]-pts[0];
-	  pvec = VECPRODUCT(pvec, voxelScaling);
+	  //pvec = VECPRODUCT(pvec, voxelScaling);
 	  plen = pvec.norm();
 
 	  pvec = crops[ci].m_tang;
 	  saxis = crops[ci].m_xaxis;
 	  taxis = crops[ci].m_yaxis;
 
-	  pvec = VECPRODUCT(pvec, voxelScaling);
-	  saxis = VECPRODUCT(saxis, voxelScaling);
-	  taxis = VECPRODUCT(taxis, voxelScaling);
+	  //pvec = VECPRODUCT(pvec, voxelScaling);
+	  //saxis = VECPRODUCT(saxis, voxelScaling);
+	  //taxis = VECPRODUCT(taxis, voxelScaling);
 	    
 	  if (crops[ci].cropType() >= CropObject::View_Tear)
 	    {

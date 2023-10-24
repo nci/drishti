@@ -1144,7 +1144,8 @@ Paths::processCommand(int idx, QString cmd)
 		ppoints.removeLast();
 
 	      QList<Vec> pathPoints;
-	      Vec voxelScaling = Global::voxelScaling();
+	      Vec voxelScaling = Vec(1,1,1);
+	      //Vec voxelScaling = Global::voxelScaling();
 	      for (int i=0; i<ppoints.count(); i++)
 		{
 		  Vec pt = VECPRODUCT(ppoints[i], voxelScaling);

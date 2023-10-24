@@ -976,9 +976,9 @@ ClipObject::postdraw(QGLViewer *viewer,
       VolumeInformation pvlInfo = VolumeInformation::volumeInformation();
       QString str;
       str = QString("clip : %1 %2 %3").\
-	arg(m_position.x).\
-	arg(m_position.y).\
-	arg(m_position.z);
+	arg(m_position.x * pvlInfo.relativeVoxelScaling.x).\
+	arg(m_position.y * pvlInfo.relativeVoxelScaling.y).\
+	arg(m_position.z * pvlInfo.relativeVoxelScaling.z);
 
       QFont font = QFont();
       QFontMetrics metric(font);

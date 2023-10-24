@@ -44,8 +44,9 @@ HitPointGrabber::checkIfGrabsMouse(int x, int y,
       setGrabsMouse(true);
       return;
     }
-  Vec voxelSize = Global::voxelScaling();
-  Vec pos = VECPRODUCT(m_point, voxelSize);
+//  Vec voxelSize = Global::voxelScaling();
+//  Vec pos = VECPRODUCT(m_point, voxelSize);
+  Vec pos = m_point;
   pos = camera->projectedCoordinatesOf(pos);
   QPoint hp(pos.x, pos.y);
   if ((hp-QPoint(x,y)).manhattanLength() < 10)
@@ -92,8 +93,8 @@ HitPointGrabber::mouseMoveEvent(QMouseEvent* const event,
   else if (m_moveAxis == MoveZ)
     trans = Vec(0,0,trans.z);
   
-  Vec voxelScaling = Global::voxelScaling();
-  trans = VECDIVIDE(trans, voxelScaling);
+//  Vec voxelScaling = Global::voxelScaling();
+//  trans = VECDIVIDE(trans, voxelScaling);
 
   m_point += trans;
 

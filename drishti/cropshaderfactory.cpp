@@ -12,6 +12,7 @@ CropShaderFactory::generateCropping(QList<CropObject> crops)
 	ncrops ++;
     }
 
+  //Vec voxelScaling = Vec(1,1,1);
   Vec voxelScaling = Global::voxelScaling();
   QString shader;
 
@@ -46,8 +47,8 @@ CropShaderFactory::generateCropping(QList<CropObject> crops)
 	  radY = crops[ci].radY();
 	  lift = crops[ci].lift();
 
-	  pts[0] = VECPRODUCT(pts[0], voxelScaling);
-	  pts[1] = VECPRODUCT(pts[1], voxelScaling);
+	  //pts[0] = VECPRODUCT(pts[0], voxelScaling);
+	  //pts[1] = VECPRODUCT(pts[1], voxelScaling);
 
 	  pvec = pts[1]-pts[0];
 	  plen = pvec.norm();

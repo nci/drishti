@@ -7,6 +7,7 @@ GlowShaderFactory::generateGlow(QList<CropObject> crops,
 				int nvol,
 				QString fragColor)
 {
+  //Vec voxelScaling = Vec(1,1,1);
   Vec voxelScaling = Global::voxelScaling();
   QString shader;
 

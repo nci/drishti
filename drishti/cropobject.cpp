@@ -832,7 +832,8 @@ CropObject::computeTangents()
   else
     tang = Vec(1,0,0); // should really scold the user
 
-  Vec voxelScaling = Global::voxelScaling();
+  //Vec voxelScaling = Global::voxelScaling();
+  Vec voxelScaling = Vec(1,1,1);
   tang = VECPRODUCT(tang, voxelScaling);
   tang.normalize();
 
@@ -880,7 +881,8 @@ CropObject::interpolate(int kf1, int kf2, float frc)
 void
 CropObject::computeCrop(QList<Vec> points)
 {
-  Vec voxelScaling = Global::voxelScaling();
+  Vec voxelScaling = Vec(1,1,1);
+  //Vec voxelScaling = Global::voxelScaling();
   Vec voxelSize = VolumeInformation::volumeInformation().voxelSize;
 
 
@@ -969,7 +971,8 @@ CropObject::drawLines(QGLViewer *viewer,
 		      bool active,
 		      bool backToFront)
 {
-  Vec voxelScaling = Global::voxelScaling();
+  Vec voxelScaling = Vec(1,1,1);
+  //Vec voxelScaling = Global::voxelScaling();
 
   glEnable(GL_BLEND);
 //  glEnable(GL_LINE_SMOOTH);
@@ -1003,7 +1006,6 @@ CropObject::drawLines(QGLViewer *viewer,
       glHint(GL_POINT_SMOOTH_HINT, GL_NICEST);
       glEnable(GL_POINT_SMOOTH);
 
-      Vec voxelScaling = Global::voxelScaling();
       glPointSize(20);
       glBegin(GL_POINTS);
       for(int i=0; i<m_points.count();i++)
@@ -1017,7 +1019,6 @@ CropObject::drawLines(QGLViewer *viewer,
       if (m_pointPressed > -1)
 	{
 	  glColor3f(1,0,0);
-	  Vec voxelScaling = Global::voxelScaling();
 	  glPointSize(25);
 	  glBegin(GL_POINTS);
 	  Vec pt = VECPRODUCT(m_points[m_pointPressed], voxelScaling);
@@ -1338,7 +1339,6 @@ CropObject::getCrossSection(float scale,
 			    Vec tang, Vec xaxis, Vec yaxis,
 			    int sections)
 {
-  //Vec voxelScaling = Global::voxelScaling();
   //int sections = 20;
   if (m_cropType == Crop_Box ||
       m_cropType >= Tear_Tear)
@@ -1380,7 +1380,6 @@ CropObject::getCrossSection(float scale,
       float x = r*cos(6.2831853*t)*scale;
       float y = r*sin(6.2831853*t)*scale;
       Vec v = x*xaxis + y*yaxis;
-      //v = VECPRODUCT(v, voxelScaling);
       csec.append(v);
     }
 
@@ -1430,7 +1429,8 @@ CropObject::postdraw(QGLViewer *viewer,
 
   viewer->startScreenCoordinatesSystem();
 
-  Vec voxelScaling = Global::voxelScaling();
+  Vec voxelScaling = Vec(1,1,1);
+  //Vec voxelScaling = Global::voxelScaling();
 
   if (grabsMouse)
     {

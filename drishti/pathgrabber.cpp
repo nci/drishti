@@ -106,7 +106,8 @@ PathGrabber::mousePressEvent(QMouseEvent* const event,
       return;
     }
 
-  Vec voxelScaling = Global::voxelScaling();
+  Vec voxelScaling = Vec(1,1,1);
+  //Vec voxelScaling = Global::voxelScaling();
   int nseg = segments();
   QList<Vec> pts = points();
   for(int i=0; i<pts.count(); i++)
@@ -193,8 +194,9 @@ PathGrabber::mouseMoveEvent(QMouseEvent* const event,
     trans = Vec(0,0,trans.z);
   
 
-  Vec voxelScaling = Global::voxelScaling();
-  trans = VECDIVIDE(trans, voxelScaling);
+  //Vec voxelScaling = Vec(1,1,1);
+  //Vec voxelScaling = Global::voxelScaling();
+  //trans = VECDIVIDE(trans, voxelScaling);
 
   m_pointPressed = getPointPressed();
   if (m_pointPressed > -1)

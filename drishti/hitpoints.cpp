@@ -463,7 +463,7 @@ HitPoints::draw(QGLViewer *viewer, bool backToFront)
   glEnable(GL_POINT_SMOOTH);
 
 
-  Vec voxelScaling = Global::voxelScaling();
+  //Vec voxelScaling = Global::voxelScaling();
 
   //--------------------
   // draw bare points
@@ -472,8 +472,9 @@ HitPoints::draw(QGLViewer *viewer, bool backToFront)
   glBegin(GL_POINTS);
   for(int i=0; i<m_barePoints.count();i++)
     {
-      Vec pt = VECPRODUCT(m_barePoints[i], voxelScaling);
-      glVertex3fv(pt);
+      //Vec pt = VECPRODUCT(m_barePoints[i], voxelScaling);
+      //glVertex3fv(pt);
+      glVertex3fv(m_barePoints[i]);
     }
   glEnd();
   //--------------------
@@ -489,7 +490,7 @@ HitPoints::draw(QGLViewer *viewer, bool backToFront)
       if (m_points[i]->grabsMouse())
 	{
 	  Vec pt = m_points[i]->point();
-	  pt = VECPRODUCT(pt, voxelScaling);
+	  //pt = VECPRODUCT(pt, voxelScaling);
 	  glVertex3fv(pt);
 	}
     }
@@ -506,7 +507,7 @@ HitPoints::draw(QGLViewer *viewer, bool backToFront)
       if (m_points[i]->active())
 	{
 	  Vec pt = m_points[i]->point();
-	  pt = VECPRODUCT(pt, voxelScaling);
+	  //pt = VECPRODUCT(pt, voxelScaling);
 	  
 	  glVertex3fv(pt);
 	}
@@ -525,7 +526,7 @@ HitPoints::draw(QGLViewer *viewer, bool backToFront)
 	  ! m_points[i]->active())
 	{
 	  Vec pt = m_points[i]->point();
-	  pt = VECPRODUCT(pt, voxelScaling);
+	  //pt = VECPRODUCT(pt, voxelScaling);
 
 	  glVertex3fv(pt);
 	}
@@ -566,7 +567,7 @@ HitPoints::postdraw(QGLViewer *viewer)
   if (m_points.count() == 0)
     return;
 
-  Vec voxelScaling = Global::voxelScaling();
+  //Vec voxelScaling = Global::voxelScaling();
 
   viewer->startScreenCoordinatesSystem();
 
@@ -582,8 +583,9 @@ HitPoints::postdraw(QGLViewer *viewer)
 	{
 	  Vec pt = m_points[i]->point();
 
-	  Vec spt = VECPRODUCT(pt, voxelScaling);
-	  Vec scr = viewer->camera()->projectedCoordinatesOf(spt);
+	  //Vec spt = VECPRODUCT(pt, voxelScaling);
+	  //Vec scr = viewer->camera()->projectedCoordinatesOf(spt);
+	  Vec scr = viewer->camera()->projectedCoordinatesOf(pt);
 	  int x = scr.x;
 	  int y = scr.y;
 	  

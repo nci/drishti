@@ -204,37 +204,6 @@ Use # at the start of the line to ignore that line. For e.g.
 
 #end
 
-#begin
-occlusion spectrum
-This newer way for volume classification and visualization is based on the work by Carlos D. Correa and Kwan-Liu Ma. Please refer to http://vis.cs.ucdavis.edu/~correac/docs/vis09.pdf for more details
-
-I find 2D transfer functions with occlusion spectrum especially useful for noisy data.
-
-
-* Details *
-
-The main idea behind this way of implementing 2D transfer functions is to separate structures based on distribution of intensities in the neighbourhood. The value-gradient magnitude based 2D transfer function is very good to identifying material boundaries.
-
-The implementation is simple :
-
-    * Apply low pass filter to the volume.
-    * Instead of gradient magnitude, use the filtered value as the second parameter for the 2D transfer function. 
-
-In Drishti, the filtered volume will be generated when 2D Occlusion Spectrum Transfer Functions (o) is switched on via the Toggle menu. The filtered volume is saved in the files with extension .smooth.. These files have the same format as the .pvl.nc. files - first byte is 0, followed by 3 integers, followed by 1-byte per voxel data.
-
-Mean filter of size 3x3x3 is applied as default. The size of the filter can be changed via command dialog. Press spacebar in the hires window to bring up command dialog. Enter spread value to change the (filter) spread size. The current spread value is displayed in the command dialog. The actual filter size is (2*spread+1).
-
-2D histogram generated using this technique looks very different from that generated using gradient magnitude. Firstly notice that the homogeneous region is not necessary at the bottom, but will be lifted up closer to diagonal (depending on filter size). Also there may be smearing (or arches) on both the sides of homogeneous region. If some voxels have more lower intensity voxels in their neighbourhood then their position would be dragged lower, where as in the case of more neighbouring higher intensity voxels these would be dragged higher.
-
-This filtered volume is loaded in texture memory separately from the voxel intensity data. The filtered data may have to be subsampled to fit in a single 2D texture - which is usually 4k x 4k or 8k x 8k (depending on graphics card).
-
-Users can also create their own version of .smooth. file - which would allow users to classify data in a different fashion.
-
-
-* Trial *
-
-I am trialling a slightly different way - taking the difference of actual voxel value and respective smoothed value. This difference will be positive as well as negative. In order to show both of these the horizontal axis is shifted upwards. This way the homogeneous region always lies at midway region in the 2D histogram. 
-#end
 
 #begin
 .pvl.nc file format

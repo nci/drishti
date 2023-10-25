@@ -6262,7 +6262,7 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
 {
   Vec voxelScaling = Global::voxelScaling();
 
-  Vec normal= Vec(0,0,1);
+  Vec normal= Vec(0,0,-1);
   Vec xaxis = Vec(1,0,0);
   Vec yaxis = Vec(0,1,0);
   normal= rot.rotate(normal);

@@ -1162,7 +1162,7 @@ uchar* Volume::getDragSubvolumeTexture()
   Vec vsize;
   vsize = m_volume[0]->getDragSubvolumeTextureSize();
 
-  int nx,ny,nz;
+  qint64 nx,ny,nz;
   nx = vsize.x;
   ny = vsize.y;
   nz = vsize.z;
@@ -1173,7 +1173,7 @@ uchar* Volume::getDragSubvolumeTexture()
   for (int v=0; v<nvol; v++)
     {
       uchar *tex = m_volume[v]->getDragSubvolumeTexture();
-      for (int i=0; i<nx*ny*nz; i++)
+      for (qint64 i=0; i<nx*ny*nz; i++)
 	m_dragSubvolumeTexture[i*nvol+v] = tex[i];
     }
   
@@ -1206,10 +1206,11 @@ uchar* Volume::getSubvolumeTexture()
   Vec vsize;
   vsize = m_volume[0]->getSubvolumeTextureSize();
 
-  int nx,ny,nz;
+  qint64 nx,ny,nz;
   nx = vsize.x;
   ny = vsize.y;
   nz = vsize.z;
+
   if (m_subvolumeTexture) delete [] m_subvolumeTexture;
   m_subvolumeTexture = new uchar[nvol*nx*ny*nz];
   memset(m_subvolumeTexture, 0, nvol*nx*ny*nz);
@@ -1217,7 +1218,7 @@ uchar* Volume::getSubvolumeTexture()
   for (int v=0; v<nvol; v++)
     {
       uchar *tex = m_volume[v]->getSubvolume();
-      for (int i=0; i<nx*ny*nz; i++)
+      for (qint64 i=0; i<nx*ny*nz; i++)
 	m_subvolumeTexture[i*nvol+v] = tex[i];
     }
   
@@ -1301,9 +1302,9 @@ uchar* Volume::getLowresTextureVolume()
   if (Global::volumeType() == Global::QuadVolume) nvol = 4;
 
   Vec texSize = getLowresTextureVolumeSize();
-  int nsubX = texSize.x;
-  int nsubY = texSize.y;
-  int nsubZ = texSize.z;
+  qint64 nsubX = texSize.x;
+  qint64 nsubY = texSize.y;
+  qint64 nsubZ = texSize.z;
 
   Vec glowvol = getLowresVolumeSize();
 
@@ -1328,12 +1329,12 @@ uchar* Volume::getLowresTextureVolume()
       int offY = (nsubY-tSize.y/lss)/2;
       int offZ = (glowvol.z-vlowvol.z/lss)/2;
       int i=0;
-      for(int z=0; z<(int)vlowvol.z/lss; z++)
-	for(int y=0; y<(int)tSize.y/lss; y++)
-	  for(int x=0; x<(int)tSize.x/lss; x++)
+      for(qint64 z=0; z<(int)vlowvol.z/lss; z++)
+	for(qint64 y=0; y<(int)tSize.y/lss; y++)
+	  for(qint64 x=0; x<(int)tSize.x/lss; x++)
 	    {
-	      int idx = (z+offZ)*nsubY*nsubX + (y+offY)*nsubX + (x+offX);
-	      int tdx = (z*tSize.y*tSize.x + y*tSize.x + x)*lss;
+	      qint64 idx = (z+offZ)*nsubY*nsubX + (y+offY)*nsubX + (x+offX);
+	      qint64 tdx = (z*tSize.y*tSize.x + y*tSize.x + x)*lss;
 
 	      m_lowresTexture[nvol*idx+v] = tex[tdx];
 	      

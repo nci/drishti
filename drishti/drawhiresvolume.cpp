@@ -903,7 +903,6 @@ DrawHiresVolume::loadTextureMemory()
       }
   }
   
-  
   //---------------------------------------
   // now load drag texture
   if (m_dataTexSize > 1)

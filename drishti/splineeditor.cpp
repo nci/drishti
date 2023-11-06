@@ -325,10 +325,20 @@ SplineEditor::checkNormalPressEvent(QMouseEvent *event)
     {
       QPainterPath path;
       path.addEllipse(pointBoundingRect(m_splineTF->rightNormalAt(i),
-					m_pointSize.width()));
+					m_pointSize.width()+50));
       
       if (path.contains(clickPos))
 	{
+	  if ((m_splineTF->leftNormalAt(i)-clickPos).manhattanLength() > 15)
+	    {
+	      QPainterPath spath;
+	      spath.addEllipse(pointBoundingRect(m_splineTF->pointAt(i),
+						 m_pointSize.width()));
+	      
+	      if (spath.contains(clickPos)) // ignore normal in this case
+		return 0;
+	    }
+	  
 	  index = i;
 	  break;
 	}
@@ -345,10 +355,20 @@ SplineEditor::checkNormalPressEvent(QMouseEvent *event)
     {
       QPainterPath path;
       path.addEllipse(pointBoundingRect(m_splineTF->leftNormalAt(i),
-					m_pointSize.width()));
+					m_pointSize.width()+50));
       
       if (path.contains(clickPos))
 	{
+	  if ((m_splineTF->leftNormalAt(i)-clickPos).manhattanLength() > 15)
+	    {
+	      QPainterPath spath;
+	      spath.addEllipse(pointBoundingRect(m_splineTF->pointAt(i),
+						 m_pointSize.width()));
+	      
+	      if (spath.contains(clickPos)) // ignore normal in this case
+		return 0;
+	    }
+
 	  index = i;
 	  break;
 	}
@@ -388,7 +408,7 @@ SplineEditor::mousePressEvent(QMouseEvent *event)
     {
       QPainterPath path;
       path.addEllipse(pointBoundingRect(m_splineTF->pointAt(i),
-					m_pointSize.width()));
+					m_pointSize.width()+30));
       
       if (path.contains(clickPos))
 	{

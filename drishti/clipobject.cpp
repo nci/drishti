@@ -1424,7 +1424,7 @@ ClipObject::commandEditor()
   vlist << QVariant("int");
   vlist << QVariant(m_thickness);
   vlist << QVariant(0);
-  vlist << QVariant(200);
+  vlist << QVariant(2000);
   plist["thickness"] = vlist;
 
   vlist.clear();

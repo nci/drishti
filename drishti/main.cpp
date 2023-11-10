@@ -4,32 +4,50 @@
 #include "mainwindow.h"
 
 #include <QTranslator>
+#include <QMessageBox>
 
 #include "launcher.h"
 
 
 int main(int argc, char** argv)
-{  
+{
+  
 #if defined(Q_OS_WIN32)
   //QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
-  int MYargc = 3;
-  char *MYargv[] = {(char*)"Appname", (char*)"--platform", (char*)"windows:dpiawareness=0"};
+  int MYargc = 3;  
+  char *MYargv[] = {(char*)"Appname", (char*)"--platform", (char*)"windows:dpiawareness=0"};  
   QApplication application(MYargc, MYargv);
 #else
   QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
   QApplication application(argc, argv);   
 #endif
 
+  bool activateLauncher = true;
 
+  //------------------------------
+  // check whether we go through launcher
+  if (argc > 0)
+    {
+      for (int i=0; i<argc; i++)
+	if (std::string(argv[i]) == "-drishti")
+	  {
+	    activateLauncher = false;
+	    break;
+	  }
+    }
+  //------------------------------
+  
   //------------------------------
   //------------------------------
   // choose application to run
-  Launcher launcher;
-  if (launcher.exec() != QDialog::Accepted)
-    exit(0);
+  if (activateLauncher)
+    {
+      Launcher launcher;
+      if (launcher.exec() != QDialog::Accepted)
+	exit(0);
+    }
   //------------------------------
   //------------------------------
-
   
      
   QGLFormat glFormat;

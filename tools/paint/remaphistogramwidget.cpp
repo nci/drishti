@@ -118,8 +118,8 @@ RemapHistogramWidget::setHistogram(QList<uint> hist)
   if (m_histogram.size() == 256)
     {
       m_rawMin = 0;
-      m_rawMax = 256;
-      m_Line->setTickMaxKey(256);
+      m_rawMax = 255;
+      m_Line->setTickMaxKey(255);
     }
   else
     {
@@ -363,7 +363,7 @@ RemapHistogramWidget::drawRawValues(QPainter *p)
 //		  QString("%1").arg(mv));
 //      QRectF mbr = mpp.boundingRect();
 //      float mby = mbr.height();      
-//      if (mv < 256)
+//      if (mv < 255)
 //	{
 //	  p->translate(xp-mby/2, myp-7);
 //	  p->rotate(90);
@@ -598,7 +598,9 @@ RemapHistogramWidget::defineMapping()
   QList<float> otk = m_Line->ticksOriginal();
 
   float tklen = tk[tk.size()-1]-tk[0];
-
+  if (tklen < 0.0001)
+    QMessageBox::information(0, "RemapHistogramWidget", "Error : tklen < 0.0001");
+  
   m_rawMap.clear();
   m_pvlMap.clear();
 
@@ -762,7 +764,7 @@ RemapHistogramWidget::mousePressEvent(QMouseEvent *event)
 
   if (fabs(ypos-m_lineHeight) <= 15)
     {
-      m_Line->mousePress(xpos, event->button());
+      m_Line->mousePress(xpos, event->button(), m_scale);
       update();
       return;
     }

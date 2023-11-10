@@ -15,7 +15,7 @@ class RemapHistogramLine : public QObject
   void setLine(int, int);
   QPoint line();
 
-  void mousePress(int, int);
+  void mousePress(int, int, float);
   void mouseMove(int);
   void mouseRelease();
 

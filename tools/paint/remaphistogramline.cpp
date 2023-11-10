@@ -62,6 +62,7 @@ QList<float>
 RemapHistogramLine::ticks()
 {
   QList<uint> tk = m_ticks.keys();
+  
   QList<float> ftk;
   float d = m_tickMaxKey-m_tickMinKey;
   for(uint i=0; i<tk.size(); i++)
@@ -146,7 +147,7 @@ RemapHistogramLine::addTick(float frc)
 }
 
 void
-RemapHistogramLine::mousePress(int xpos, int button)
+RemapHistogramLine::mousePress(int xpos, int button, float scale)
 {
   m_startDrag = -1;
   m_activeTick = -1;
@@ -172,7 +173,8 @@ RemapHistogramLine::mousePress(int xpos, int button)
 	    nearest = i;
 	  }
       }
-    int delta = (10.0f/(float)m_width)*(m_tickMaxKey-m_tickMinKey);
+    int delta = (10.0f*scale/(float)m_width)*(m_tickMaxKey-m_tickMinKey);
+
     if (nd<delta)
       m_activeTick = keys[nearest];
   }
@@ -350,8 +352,18 @@ RemapHistogramLine::mouseMove(int xpos)
     }
 
   float frc = (xpos-m_start)/(float)m_width;
-  uint tk = m_tickMinKey + frc*(m_tickMaxKey-m_tickMinKey);
+  //uint tk = m_tickMinKey + frc*(m_tickMaxKey-m_tickMinKey);
+  int tk = m_tickMinKey + frc*(m_tickMaxKey-m_tickMinKey);
+
+  // make sure ticks do not go outside the limits
+  if (tk < m_tickMinKey || tk > m_tickMaxKey)
+      return;
+      
   tk = qMax(m_activeB1, qMin((int)tk, m_activeB2));
+
+  // make sure ticks are not on top of eachother
+  if (m_ticks.contains(tk))
+    return;
 
   m_ticks.remove(m_activeTick);
   m_ticks[tk] = tk;

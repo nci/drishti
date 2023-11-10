@@ -403,8 +403,7 @@ SplineTransferFunction::updateColorMapImageFor16bit()
       val0 = val1;
       val1 = vtmp;
     }
-
-
+  
   QGradientStops gstops;
 
 //  // limit opacity to 252 to avoid overflow

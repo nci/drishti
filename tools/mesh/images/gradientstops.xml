@@ -1,0 +1,55 @@
+<!DOCTYPE Vayu-v1.0>
+<Vayu>
+  <gradient>
+    <name>rainbow-pastel</name>
+    <gradientstops>0 140 120 255   0.25 120 250 250   0.5 120 250 120   0.75 250 250 120   1 250 120 120  </gradientstops>
+  </gradient>
+  <gradient>
+    <name>rainbow-vibrant</name>
+    <gradientstops>0 40 0 255   0.25 0 250 250   0.5 120 250 120   0.75 250 250 0   1 250 0 0   </gradientstops>
+  </gradient>
+  <gradient>
+    <name>pastel-1</name>
+    <gradientstops> 0 251 180 174   0.5 179 205 227    1.0 204 235 197  </gradientstops>
+  </gradient>
+  <gradient>
+    <name>pastel-2</name>
+    <gradientstops> 0 251 180 174    0.25 179 205 227    0.5 204 235 197    0.75 222 203 228    1.0 254 217 166  </gradientstops>
+  </gradient>
+  <gradient>
+    <name>pastel-3</name>
+    <gradientstops> 0 255 255 204    0.5 229 216 189     1.0 253 218 236  </gradientstops>
+  </gradient>
+  <gradient>
+    <name>pastel-4</name>
+    <gradientstops> 0 204 235 197     0.5 254 217 166     1.0 253 218 236  </gradientstops>
+  </gradient>
+  <gradient>
+    <name>sepia</name>
+    <gradientstops>0 255 255 255   0.3 255 213 170   0.7 181 123 60   1 104 55 0 </gradientstops>
+  </gradient>
+  <gradient>
+    <name>cream-brown</name>
+    <gradientstops>0 255 244 194    0.25 255 253 221    0.5 204 153 102    0.75 179 122 76    1.0 156 97 55 </gradientstops>
+  </gradient>
+  <gradient>
+    <name>brown-cream-white</name>
+    <gradientstops>0 147 80 0   0.3 255 241 170   0.7 247 255 170   1 255 255 255   </gradientstops>
+  </gradient>
+  <gradient>
+    <name>orange-yellow-white</name>
+    <gradientstops>0 255 89 0   0.3 255 233 127   0.7 247 255 170   1 220 220 220   </gradientstops>
+  </gradient>
+  <gradient>
+    <name>orange-yellow-blue</name>
+    <gradientstops>0 255 89 0   0.3 255 233 127   0.7 247 255 170   1 150 200 250   </gradientstops>
+  </gradient>
+  <gradient>
+    <name>blue-red</name>
+    <gradientstops>0 18 0 104   0.25 170 197 255   0.75 255 201 170   1 104 9 0   </gradientstops>
+  </gradient>
+  <gradient>
+    <name>white</name>
+    <gradientstops>0 255 255 255   0.5 213 213 213   1 191 191 191   </gradientstops>
+  </gradient>
+</Vayu>

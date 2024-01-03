@@ -1,0 +1,468 @@
+#begin
+mop clip
+Apply clipping operations to the mask buffer.  This will set the clipped voxels in the mask to 0.  The clip plane can now be removed.
+
+** The clipped voxels are restored with next mask buffer update.
+#end
+
+#begin
+reorientcamera
+Reorient camera with respect to the clip plane. The camera will reorient such that the viewer is looking down the normal to clip plane and the green and orange axes of the clip plane align with the vertical and horizontal axes of the screen plane.
+#end
+
+#begin
+grid
+grid no
+grid [nx] [ny]
+Draw grid on the clip plane.  Default value of nx and ny is 10 - i.e. draw a 10x10 grid on the clip plane.
+
+"grid no" will remove display of grid from the clip plane.
+
+#end
+
+#begin
+savesliceimage
+savesliceimage
+savesliceimage step
+
+Save grayscale image for the cutface defined by the clip plane. The dimensions for the clipplane are given by the scale parameter. step parameter can be used to reduce the dimensions of the slice image, while still covering the same area.
+
+Example :
+savesliceimage 2 : save a quarter sized image.
+#end
+
+#begin
+reslice
+reslice
+reslice [subsample] [tag]
+
+** When thickness is 0, this option gives cross sectional area of visible region in viewport.  Users can also save the cross sectional image used for calculating the area.
+
+Save resliced volume as defined by the clip plane. The selected subvolume is resliced along the normal direction.  The extent and thickness parameter of the clip plane defines the extend of the volume saved.  The viewport needs to be active in order to save the volume using this option.  The transfer function set used for viewport governs the voxels saved.  Users can save value or opacity using this option.
+
+The amount of subsampling is governed by the parameter subsample.  Default value is 1 - i.e. take every voxel.
+
+The tag parameter controls the tagged voxels that are saved.  Default value is -1 - i.e. save all voxels whether they are tagged or not.
+
+***
+When thickness parameter is 0, cross sectional area will be calculated for the region visible in viewport.  For cross sectional area, only opacity is considered, not value - all non-zero opacity voxel lying in the clip plane will be added up to give cross sectional area.
+
+Users can save the cross sectional image that was used to calculate the cross sectional area.
+***
+
+Example :
+reslice 2 : save with factor of 2 reduction, save all voxels.
+reslice 2 0 : save with factor of 2 reduction, save only voxels that are tagged 0.
+reslice 2 1 : save with factor of 2 reduction, save only voxels that are tagged 1.
+#end
+
+
+#begin
+solidcolor
+solidcolor [no]
+
+Set solidcolor option - shows the clip plane as a solid plane, instead of outline.
+#end
+
+#begin
+image
+image [no]
+
+Load image to be pasted on the clip plane. A file dialog will pop-up for image file name. Animated-gifs can be loaded and animated via keyframe editor by changing imageframe number. Users can change images on the clip plane at keyframes.
+
+Users can show either images or captions on a clipplane, but not both at the same time.
+
+Toggling visibility has not effect on images. Images will always be displayed.
+
+"image no" will remove image (if any) pasted on the clip plane.
+#end
+
+#begin
+caption
+caption [no]
+
+Used for displaying text captions on the clip plane. Captions dialog will pop-up where users can enter text and select color for the caption. The text or colour can be changed for different keyframes.
+
+Opacity parameter of the clip plane will affect the opacity of the captions.
+
+Users can show either images or captions on a clipplane, but not both at the same time.
+Toggling visibility has no effect on captions. Captions will always be displayed.
+
+"caption no" will remove caption (if any) pasted on the clip plane.
+#end
+
+#begin
+imageframe
+imageframe n
+Specify imageframe number n for animated-gifs. First image frame number is 0. Specify different frame numbers at different keyframes using keyframe editor for animations.
+#end
+
+#begin
+scale
+scale s
+scale sx sy
+Apply scaling parameter s or individually sx and sy to the clip plane. This specifies absolute size for the clip plane.
+
+Example :
+scale 200 250
+
+This proves useful when saving slice image or pasting image on a clip plane for registration purposes.
+Only one of scale or vscale is active at a time.
+#end
+
+#begin
+vscale
+vscale s
+vscale sx sy
+
+Apply scaling parameter s or individually sx and sy to the clip plane.
+
+Normally clipplanes are shown such that they do not appear too large or too small. The clipplane size changes relative to the volumetric data size.
+
+Only one of scale or vscale is active at a time.
+#end
+
+#begin
+opacity
+opacity op
+
+Apply opacity "op" to the clip plane. The opacity parameter must be between 0 (transparent) and 1 (opaque).
+#end
+
+#begin
+translate
+translate x y z
+
+Translate to the x,y,z position.
+
+Example :
+translate 200 250 200
+#end
+
+#begin
+translatex
+translatex x
+
+Translate to the x,0,0 position.
+
+Example : translatex 200
+#end
+
+#begin
+translatey
+translatey y
+
+Translate to the 0,y,0 position.
+#end
+
+#begin
+translatez
+translatez z
+
+Translate to the 0,0,z position.
+#end
+
+#begin
+move
+move x y z
+
+Move from the current position by x,y,z units.
+
+Example : move 50 20 20
+#end
+
+#begin
+movex
+movex x
+
+Move from the current position by x,0,0 units.
+
+Example : movex 50
+#end
+
+#begin
+movey
+movey y
+
+Move from the current position by 0,y,0 units.
+#end
+
+#begin
+movez
+movez z
+
+Move from the current position by 0,0,z units.
+#end
+
+#begin
+rotate
+rotate x y z a
+
+Rotate by a degrees about the axis defined by vector x,y,z. The vector x,y,z is internally normalized.
+
+Example : rotate 0.1 1.0 0.5 40
+#end
+
+#begin
+rotatex
+rotatex a
+
+Rotate by a degrees about X-axis.
+
+Example : rotatex 30
+#end
+
+#begin
+rotatey
+rotatey a
+
+Rotate by a degrees about Y-axis.
+#end
+
+#begin
+rotatez
+rotatez a
+
+Rotate by a degrees about Z-axis.
+#end
+
+#begin
+addrotation
+addrotation x y z a
+
+Rotate by a degrees about the axis defined by vector x,y,z from its current orientation. The vector x,y,z is internally normalized.
+
+Example :
+addrotation 0.1 1.0 0.5 40
+#end
+
+#begin
+addrotationx
+addrotationx a
+
+Rotate by a degrees about X-axis from its current orientation.
+
+Example :
+addrotationx 30
+#end
+
+#begin
+addrotationy
+addrotationy a
+
+Rotate by a degrees about Y-axis from its current orientation.
+#end
+
+#begin
+addrotationz
+addrotationz a
+
+Rotate by a degrees about Z-axis from its current orientation.
+#end
+
+#begin
+rotatescreenx
+rotatescreenx a
+
+Rotate by a degrees about horizontal screen axis from its current orientation.
+
+Example :
+rotatescreenx 30
+#end
+
+#begin
+rotatescreeny
+rotatescreeny a
+
+Rotate by a degrees about vertical screen axis from its current orientation.
+#end
+
+#begin
+rotatescreenz
+rotatescreenz a
+
+Rotate by a degrees about axis perpendicular to screen from its current orientation.
+#end
+
+#begin
+movea
+movea val
+
+Move along orange axis.
+#end
+
+#begin
+moveb
+moveb val
+
+Move along green axis.
+#end
+
+#begin
+movec
+movec val
+
+Move along blue axis.
+#end
+
+#begin
+rotate[a|b|c]
+rotate[a|b|c] angle
+
+Rotate about orange/green/blue axis by "angle" degrees.
+
+Example :
+rotatea 90 - rotate about orange axis by 90 degrees
+#end
+
+#begin
+keyboard
+Start Keyboard help
+#end
+
+#begin
+ General Help
+Primary role of clip planes is for clipping volumes against a plane. Clipping by individual clip planes can be turned off via the bricks editor. Users can also use these for displaying captions in 3D or paste images and animated-gifs. Pasting image onto clip plane may help users when registering data from different modalities. Pasted images may also be used for conveying more information about the data. For example, users will be able to include photographs of real object into animations. Clip planes can be animated via keyframe editor.
+
+Mouse grab for crop/dissect/blend/displace/networks/paths/clipplanes is switched off when project is first loaded and when playing keyframes. Toggle mouse grab with g or toggle via Toggle menu.
+
+Add a clip plane by pressing "c". Clip plane is always added in the center of the volume.
+
+Clip plane can also be added when 3 points are specified. Press spacebar to bring up command dialog and enter "clip" to add a clip plane passing through those 3 points. The points will be removed when the clip plane is added.
+
+When the mouse is on either of the red/green/blue axis, left mouse drag can be used for rotation and right for translation When mouse is on one of red/green axis, then ctrl+right mouse drag can be used for scaling the clip plane in the respective direction.
+
+Users can issue single key commands while hovering over a clip plane.
+
+Clip planes can also be manipulates using keyboard shortcuts.
+
+Clip planes can be textured with transfer functions using "tfset" option.  This facility allows for viewing of slices along any orientation.
+
+Users can undo/redo changes made to the clip planes.
+
+Viewport functionality adds a camera at clipplane position.  Viewing direction is along the clip normal.  Near and far cutting planes is controlled by the thickness parameter.  Users can press spacebar while in viewport window to bring up the clip plane dialog.
+
+#end
+
+#begin
+DEL
+Delete currently active clipplane.
+#end
+
+#begin
+v
+Hide widget.
+#end
+
+#begin
+x/y/z
+Restrict translation/rotation for clip plane along/about red/green/blue-axis respectively.
+#end
+
+#begin
+f
+Toggle image flipping on the clip plane.
+Might be useful when using image on the clip plane for registration purposes.
+#end
+
+#begin
+o
+Toggle application of opacity parameter.
+Works only when pasting captions or images on the clipplane.
+#end
+
+#begin
+Up/Down
+Move widget in the currently selected axis direction.
+#end
+
+#begin
+Shift + Up/Down
+Move in larger steps.
+#end
+
+#begin
+Left/Right
+Rotate widget 1 degree about the currently selected axis.
+#end
+
+#begin
+Shift + Left/Right
+Rotate widget 10 degrees about the currently selected axis.
+#end
+
+#begin
+thickness
+Specify the slab thickness when displaying volume rendered image in the viewport
+#end
+
+#begin
+tfset
+Texture the clip plane with the transfer functions from the specified transfer function set.  Value of -1 will switch off the texturing on the clip plane.
+#end
+
+#begin
+color
+Change the color of the clip plane.  User will be shown color selection dialog.
+#end
+
+#begin
+viewport
+Viewport places a camera at clip plane position.  The view direction of the camera is along the clip normal.  When the transfer function is set for clip plane using "tfset" parameter, the viewport will be visible.  Viewport is specified by three parameters - x,y,wd and ht.  x,y specify the lower left corner of the viewport; wd and ht specify the width and height of viewport.  The x,y,wd and ht all are normalized values and should be between 0.0 and 1.0.  This is done so that viewport scales with the size of rendering window.
+
+When only 3 values are provided height is set to equal width.
+When only 2 values are provided width and height are set to 0.5.
+When less than 2 values are supplied the viewport is disabled.
+
+Viewport is active only when clip planes are textured (i.e. tfset parameter is between 0 and max TFsets).  Viewport renders view from the camera placed at the clip plane position - based on thickness parameter you either get a single slice or a volume rendered slab.
+
+Viewport is switched off by removing all the viewport parameters
+
+The viewport is aligned with the red-green axes of the clip plane.  Rotating these axes rotates the image in the viewport.
+
+
+Users can interact with a clipplane from its viewport.  Left mouse click and keypress commands can be issued to clipplane via its viewport.  Following is the mouse and keystrokes that are recognized from viewport :
+
+--------------------
+Mouse
+--------------------
+Left Mouse click - add point.
+Left Mouse drag - rotate about red/green axis.
+Ctrl/(Command for Mac) + Left Mouse drag - rotate about blue axis.
+
+Middle Mouse drag - scale image in viewport.
+Right Mouse drag - translate along red/green axis.
+Ctrl/Command + Right Mouse drag - translate along blue axis.
+
+Mouse wheel - move plane up/down along the plane normal.
+Ctrl/Command + Mouse wheel - move plane up/down in a large step along the plane normal.
+
+Shift + Mouse wheel - increase/decrease thickness of slab in viewport.
+--------------------
+
+--------------------
+KeyPress
+--------------------
+Space - Opens clipplane dialog.
+
+DEL - delete viewport - set viewport parameters to (-1,-1,-1)
+
+Up/Down key - move plane up/down along the plane normal.
+Shift + Up/Down key  - move plane up/down in a large step along the plane normal.
+
+Left/Right key - rotate plane 1 degree about the normal.
+Shift + Left/Right key - rotate plane 10 degrees about the normal.
+
+X/Ctrl+X key - rotate plane 1 degree about the Red(X) axis.
+Shift + X/Ctrl+X key - rotate plane 10 degrees about the Red(X) axis.
+
+Y/Ctrl+Y key - rotate plane 1 degree about the Green(X) axis.
+Shift + Y/Ctrl+Y key - rotate plane 10 degrees about the Green(X) axis.
+--------------------
+
+Example :
+viewport 0 0 0.5 : show the textured plane in the lower left corner at half the width and height of the rendering window.
+
+viewport 0 0.5 0.5 : viewport is set in the upper left corner at half width and height of the rendering window.
+#end
+

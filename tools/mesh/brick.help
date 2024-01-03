@@ -1,0 +1,29 @@
+#begin
+General Help
+
+Model Transform allows users to move/rotate the scene.
+
+#end
+
+#begin
+Parameters
+
+The entire scene (all surfaces) is fitted such that the longest axis is 1. The extents are always between 0.0 and 1.0.  Users should therefore use normalized coordinates for Translate and Rotation Pivot.  For example, translate by (1,0,0), will result in translation along X-axis by the length of the scene along X-axis.  Rotation Pivot of (0.5,0.5,0.5) will fix the pivot in the center of the scene bounding box.
+
+Show Axis switch the display of the rotation axis.
+
+Rotation Angle is specified in degrees.
+
+Users can make use of "H" button next to Rotation Pivot and Rotation Axis to specify those values using points on surface. 
+
+Rotation Pivot using H button -
+1. Select a point on the surface (use Shift+Left mouse click to add point on the surface)
+2. Press "H" button to update the Rotation Pivot coordinates.
+
+Rotation Axis using H button -
+1. Select a point on the surface (not the pivot point) which the rotation axis should pass through.
+2. Press "H" button to update the Rotation Axis.
+
+To remove a point, hover over the point and press DEL/Backspace key.  Points can also be moved around.
+
+#end

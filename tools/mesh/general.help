@@ -1,0 +1,149 @@
+#begin
+menu Load Project
+
+Projects in Drishti Mesh are stored in .dm files.  The .dm file saves the global settings for the project along with the individual keyframe information.  Use .dm file to load the project.
+
+Users can drag-and-drop .dm file to load that project.
+#end
+
+
+#begin
+menu Load Surface Mesh
+
+
+Users can view different geometry types in Drishti Mesh.  Users can drag-and-drop these files to load them.
+#end
+
+
+#begin
+menu Save Project
+
+Save project to .dm file.
+#end
+
+
+#begin
+menu Save Image Sequence
+
+Save image sequence.  User will be asked for the image size, the image sequence file name, start frame number, end frame number and step.
+
+Users can save images in mono, stereo (2 images - left and right) and cubic format (6 images - front, back, left, right, top and bottom).  Spherical 360 degrees images can also be saved.
+#end
+
+
+#begin
+menu Save Movie
+
+Save movie in .wmv format (for Windows only).
+
+Image width and height should be a multiple of 16.
+#end
+
+#begin
+menu Switches
+
+Camera Type - Perspective porjection (default) or Orthographic (i.e. parallel) projection.
+
+Bounding Box (b) - toggle display of bounding box.
+
+Status Bar - toggle progress bar at the bottom.
+
+Spline Position Interpolation - toggle between spline-based and linear interpolation for camera positions while animating camera positions.
+
+Paint Mode - to paint on the surface meshes.
+
+Hide Black - to hide the black painted regions (to punch holes or clear certain regions).
+
+#end
+
+#begin
+Clipping
+
+
+Add a clipping plane by clicking scissor icon from side toolbar.
+Press "v" to toggle visibility of all clipping planes.
+
+....
+Hover over the clipping plane to change its settings -
+Press "v" to hide.
+Press DEL or BACKSPACE to delete.
+Press "c" to change plane color.
+Hover over X/Y/Z (red/green/blue) axes and translate/rotate using left/right mouse button.
+....
+
+By default clipping plane is applied to all the surface meshes.
+To disable clipping of a surface mesh switch off the appropriate cell under the "X" column in Mesh Information panel.
+
+#end
+
+#begin
+Paths
+
+Add a path by adding atleast 2 (unattached) points and then pressing "p" key.
+
+Paths can be used to display length, angle or embed captions.
+
+Hover over a path and press SpaceBar to bring up its dialog and change its settings.
+
+#end
+
+#begin
+Adding Points
+
+Use Shift+Left Mouse Click to add points.
+
+If a surface mesh is selected before points are added, then these points stay attached to the mesh.  The points move along with the surface mesh.
+
+If no surface mesh is selected then the points added afterwards are not affected whenever any mesh is moved.  Paths can be created only from such unattached points.
+
+The points that are attached to a mesh and those that are unattached are colored differently.
+
+#end
+
+
+#begin
+General Help
+
+
+Users can load surface meshes.  Currently following file formats are recognized -
+Autodesk (.fbx)
+Collada (.dae)
+glTF (.gltf, .glb)
+Blender (.blend)
+3ds Max 3DS (.3ds)
+Wavefront Object (.obj)
+Stanford Polygon Library (.ply)
+Stereolithography (.stl)
+
+
+----
+All surface meshes are listed in the Mesh Information panel.
+
+Users can move/rotate the meshes when selected.
+
+Pressing "g" will toggle Grab Mode (as in Drishti).
+When in grab mode transform widget for selected meshes is displayed.  Users can translate/rotate using this widget.
+Whilst a surface mesh is selected if user chooses to add points (Shift+Left Mouse Click) to the surface, these points will stay attached to the surface - points move with the surface.
+
+
+Mesh can be saved in Stanford Polygon Format to a .ply file.
+----
+
+
+----
+Model Transform panel allows users to rotate and translate all surfaces together.
+
+Lighting panel allows users to change the look of surfaces.
+
+Keyframe Editor allows users to save keyframes for animations.
+
+
+Press Ctrl+H while mouse cursor is on the panel to get help for that panel.
+----
+
+
+----
+Background button allows users to change the background color.
+----
+
+#end

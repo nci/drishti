@@ -1,0 +1,245 @@
+#begin
+save
+Save path coordinates to file.
+#end
+
+#begin
+normalize
+Convert coordinates for all points into integers.
+#end
+
+#begin
+radius
+setradius/radius r
+
+Set radius for the cross-sectional circle to the given value r for all the points in the path - i.e. set radius S (red axis) and T (green axis)to be same.
+#end
+
+#begin
+circle
+Rearange points on the path so that they lie on a circle.  Centroid of the original path will be taken as the center of the circle.  Average distance of the points on the original path from the center will be the radius of the circle.
+#end
+
+#begin
+resample
+resample [npoints]
+Path points are resampled so that they lie euidistant from their neighbours.
+
+npoints specify the number of resampled points.  When not specified, the number of points of the path remain unchanged.
+#end
+
+#begin
+planar
+Rearange points on the path so that they lie on a plane.
+#end
+
+#begin
+height
+height h
+
+Set height for the caption text or image texture.
+#end
+
+#begin
+rads
+rads s
+rads pt s
+
+rads s : Set radius S (red axis) for the cross-sectional ellipse to the given value s for all the points in the path.
+rads pt s : Set radius s for the point pt in the path.
+#end
+
+#begin
+radt
+radt t
+radt pt t
+
+radt t : Set radius T (green axis) for the cross-sectional ellipse to the given value t for all the points in the path.
+radt pt t : Set radius t for the point pt in the path.
+
+#end
+
+#begin
+angle
+angle a
+angle pt a
+
+angle a : Set rotation angle for the cross-sectional ellipse to the given value a for all the points in the path. This also affects the angle for caption and image.
+angle pt a : Set angle a for the point pt in the path.
+#end
+
+
+#begin
+caption
+caption [no]
+nocaption
+
+Bring up caption dialog. Caption is enabled. When caption is enabled, pressing "t" will render caption text instead of tube.
+
+"caption no"/nocaption will turn off caption for this path.
+#end
+
+#begin
+image
+image [no]
+noimage
+
+Image texturing is enabled. User is asked for the image file name. When image is enabled, pressing "t" will render image texture instead of tube.
+
+"image no"/noimage will turn off image for this path.
+#end
+
+#begin
+moves
+moves [-]
+
+Move the path in the direction of S-axis (red).
+
+"moves -" will move the path in the opposite direction of S-axis (red).
+#end
+
+#begin
+movet
+movet [-]
+
+Move the path in the direction of T-axis (green).
+"movet -" will move the path in the opposite direction of T-axis (green).
+#end
+
+
+#begin
+keyboard
+Start Keyboard help
+#end
+
+#begin
+ General Help
+Paths are created using addpath command from the points. Paths can be created using all the points or the selected set of points. Path consists of atleast 2 points. Once a path is created points used for creating the path are removed. The path can be modified after it has been created - points can be added, moved and removed from the path.
+
+Left click on the path curve will add a point and right click on a point will remove the point. Left mouse drag will move the selected point. Middle mouse drag will move the entire path.
+
+Users can undo/redo changes made to the paths.
+
+----------------------------------------------------------
+Parameters :
+Color is applied to path.
+
+Opacity changes transparency of the path.
+
+Smoothness controls spline interpolation for intermediate points. Value of 1 implies linear interpolation.
+
+Sections controls the number of facets when rendered as tube.
+
+Cap Style : flat/round/arrow
+
+Arrow Direction : forward/backward - when cap style is arrow.
+
+Arrows For All : applicable only when cap style is arrow.
+
+Arrow Length : controls length of arrows - when cap style is arrow.
+
+Display Angle : show angle between first 3 points of the path.
+
+Display Path Length : show length of the path besides the path.
+
+Text Color : path length text color.
+
+Length Text Distance : display length of the path at a distance in screen pixels away from path.
+
+Same For All : set radii and angles to be the same for all points on the path.
+
+Interpolate : interpolate this path between keyframes.  Path points, radii and angle are interpolated only if the two paths at the keyframes have identical number of points.
+----------------------------------------------------------
+
+Mouse grab for paths/clipplanes is switched off when project is first loaded and when playing keyframes.
+Toggle mouse grab with "g" key.
+#end
+
+#begin
+DEL
+Delete path.
+If the DEL is pressed when cursor is within the viewport then the viewport will be switched off.
+#end
+
+#begin
+t
+When no point on path is selected, toggle display of path as caption/image/tube or line.
+If caption is enabled, then caption text is rendered.  If image is enabled, then image texture is rendered.  If neither is enabled then a tube is drawn.
+
+When a point of the path is pressed, change radius T of cross-sectional ellipse for tube.
+#end
+
+#begin
+Shift + t
+When no point on path is selected, bring up caption dialog. Caption is enabled.
+When caption is enabled, pressing t will render caption text instead of tube.
+
+When a point of the path is pressed, change radius T of cross-sectional ellipse for tube.
+#end
+
+#begin
+c
+Toggle connection of the two ends of path - making a closed or open path.
+#end
+
+#begin
+f
+Flip two ends of path.
+#end
+
+#begin
+p
+Toggle display of path points as big dots on the path.
+#end
+
+#begin
+n
+Toggle display of path points numbers.
+#end
+
+#begin
+l
+Toggle display of path length.
+#end
+
+#begin
+Shift+l
+Toggle display of caption beside the path or on the path.
+When displaying caption beside the path, the caption text is always displayed at one end of the path.  This end can be changed by changing the arrow direction (forward/backward).
+
+When displaying caption on the path, the caption text is displayed all along the path.  The text is displayed only while in tube mode.  The height of the text can be changed by "height" command.  The angle of the text can be changed by "angle" command.  The direction of the text can be changed by changing the arrow direction (forward/backward).
+#end
+
+#begin
+s
+s/Shift + s
+Only when a point of the path is pressed, change radius S of cross-sectional ellipse for tube.
+#end
+
+#begin
+a
+a/Shift + a
+If no point on the path is pressed, toggle display of angle between first 3 points.
+
+Only when a point of the path is pressed, change rotation angle (twist) of cross-sectional ellipse for tube.
+#end
+
+#begin
+x/y/z/w
+Constrain movement of point in red/green/tangent directions.
+When moving the entire path with middle mouse button, x/y/z contrain movement along global x/y/z directions.
+Make it free in all directions with w.
+#end
+
+#begin
+Ctrl+z
+Undo last position change.
+Users can perform unlimited undo.
+#end
+
+#begin
+Ctrl+y
+Redo the last undone position change.
+Users can perform unlimited redo.
+#end
+

@@ -1,7 +1,6 @@
 #include "global.h"
 #include "staticfunctions.h"
 #include "hitpoints.h"
-#include "rawvolume.h"
 
 #include <fstream>
 using namespace std;
@@ -43,29 +42,6 @@ void HitPoints::toggleMouseGrab()
 int HitPoints::activeCount()
 {
   return HitPointGrabber::activePool().count();
-}
-
-QList<Vec>
-HitPoints::renewValues()
-{
-  QList<Vec> pts;
-  pts.clear();
-
-  if ((m_showRawValues || m_showTagValues) &&
-      m_points.count() > m_rawValues.count())
-    pts = points();
-
-  return pts;
-}
-
-void
-HitPoints::setRawTagValues(QList<QVariant> raw, QList<QVariant> tag)
-{
-  m_rawValues.clear();
-  m_tagValues.clear();
-
-  m_rawValues = raw;
-  m_tagValues = tag;
 }
 
 bool
@@ -125,12 +101,8 @@ HitPoints::HitPoints()
   m_pointColor = Vec(0.0f, 0.5f, 1.0f);
   m_pointSize = 20;
   m_showPoints = false;
-  m_showRawValues = false;
-  m_showTagValues = false;
   m_showCoordinates = false;
   m_points.clear();
-  m_rawValues.clear();
-  m_tagValues.clear();
   m_barePoints.clear();
 }
 
@@ -180,6 +152,32 @@ HitPoints::removeActive()
 }
 
 void
+HitPoints::removeLastPoint()
+{
+  int i = m_points.count()-1;
+  m_points[i]->removeFromActivePool();
+  m_points[i]->removeFromMouseGrabberPool();	      
+  m_points.removeAt(i);
+}
+
+void
+HitPoints::removeLastActivePoint()
+{
+  int ia = -1;
+  for(int i=0; i<m_points.count(); i++)
+    {      
+      if (m_points[i]->isInActivePool())
+	ia = i;
+    }
+  if (ia == -1)
+    return;
+
+  m_points[ia]->removeFromActivePool();
+  m_points[ia]->removeFromMouseGrabberPool();	      
+  m_points.removeAt(ia);
+}
+
+void
 HitPoints::clear()
 {
   for(int i=0; i<m_points.count(); i++)
@@ -194,9 +192,6 @@ HitPoints::clear()
     delete m_points[i];
 
   m_points.clear();
-
-  m_rawValues.clear();
-  m_tagValues.clear();
 }
 
 void HitPoints::resetActive()
@@ -220,11 +215,19 @@ HitPoints::points()
 QList<Vec>
 HitPoints::activePoints()
 {
-  QList<HitPointGrabber*> activePool = HitPointGrabber::activePool();
   QList<Vec> pts;
-  for(int i=0; i<activePool.count(); i++)
-    pts.append(activePool[i]->point());
+  for(int i=0; i<m_points.count(); i++)
+    {      
+      if (m_points[i]->isInActivePool())
+	pts.append(m_points[i]->point());
+    }
   return pts;
+
+//  QList<HitPointGrabber*> activePool = HitPointGrabber::activePool();
+//  QList<Vec> pts;
+//  for(int i=0; i<activePool.count(); i++)
+//    pts.append(activePool[i]->point());
+//  return pts;
 }
 
 bool
@@ -340,11 +343,6 @@ HitPoints::addPoints(QString flnm)
 	  HitPointGrabber *hpg = new HitPointGrabber(pts[i]);
 	  m_points.append(hpg);
 	}
-
-      m_rawValues.clear();
-      m_tagValues.clear();
-      
-      updatePointDialog();
     }
 
   QMessageBox::information(0, "", QString("No. of points in the scene : %1").\
@@ -355,7 +353,6 @@ HitPoints::addPoints(QString flnm)
     addInMouseGrabberPool();
 }
 
-HitPointGrabber *dummyHpg = 0;
 void HitPoints::ignore(bool i) { m_ignore = i; }
 
 void
@@ -364,25 +361,10 @@ HitPoints::add(Vec opt)
   Vec voxelScaling = Global::voxelScaling();
   Vec pt = VECDIVIDE(opt, voxelScaling);
 
-//  if (m_ignore) // while carving we do not want to add these points
-//    {
-//      if (dummyHpg)
-//	dummyHpg->setPoint(pt);
-//      else
-//	{
-//	  HitPointGrabber *hpg = new HitPointGrabber(pt);
-//	  dummyHpg = hpg;
-//	}
-//      return;
-//    }
 
   HitPointGrabber *hpg = new HitPointGrabber(pt);
   m_points.append(hpg);
 
-  m_rawValues.clear();
-  m_tagValues.clear();
-
-  updatePointDialog();
 
   removeFromMouseGrabberPool();
   if (m_grab)
@@ -400,10 +382,6 @@ HitPoints::setPoints(QList<Vec> pts)
       m_points.append(hpg);
     }
 
-  m_rawValues.clear();
-  m_tagValues.clear();
-
-  updatePointDialog();
 
   removeFromMouseGrabberPool();
   if (m_grab)
@@ -452,8 +430,13 @@ HitPoints::drawArrows(Vec pt, int direc)
 }
 
 void
-HitPoints::draw(QGLViewer *viewer, bool backToFront)
+HitPoints::draw()
 {
+  if (m_barePoints.count() == 0 &&
+      m_points.count() == 0)
+    return;
+
+  // offset to draw coplanar points
   glDepthRange(0.0, 0.99);
 
   glEnable(GL_POINT_SPRITE);
@@ -465,18 +448,17 @@ HitPoints::draw(QGLViewer *viewer, bool backToFront)
   glEnable(GL_POINT_SMOOTH);
 
 
-  //Vec voxelScaling = Global::voxelScaling();
-
+  Vec voxelScaling = Global::voxelScaling();
+  
   //--------------------
   // draw bare points
   glColor3fv(m_pointColor);
-  glPointSize(qMax(1, m_pointSize-5));
+  glPointSize(qMax(1, m_pointSize-2));
   glBegin(GL_POINTS);
   for(int i=0; i<m_barePoints.count();i++)
     {
-      //Vec pt = VECPRODUCT(m_barePoints[i], voxelScaling);
-      //glVertex3fv(pt);
-      glVertex3fv(m_barePoints[i]);
+      Vec pt = VECPRODUCT(m_barePoints[i], voxelScaling);
+      glVertex3fv(pt);
     }
   glEnd();
   //--------------------
@@ -485,14 +467,14 @@ HitPoints::draw(QGLViewer *viewer, bool backToFront)
   //--------------------
   // draw grabbed point
   glColor3f(0, 1, 0.5f);
-  glPointSize(m_pointSize+10);
+  glPointSize(m_pointSize+5);
   glBegin(GL_POINTS);
   for(int i=0; i<m_points.count();i++)
     {
       if (m_points[i]->grabsMouse())
 	{
 	  Vec pt = m_points[i]->point();
-	  //pt = VECPRODUCT(pt, voxelScaling);
+	  pt = VECPRODUCT(pt, voxelScaling);
 	  glVertex3fv(pt);
 	}
     }
@@ -502,14 +484,14 @@ HitPoints::draw(QGLViewer *viewer, bool backToFront)
   //--------------------
   // draw active points
   glColor3f(1, 0, 0.5);
-  glPointSize(m_pointSize+5);
+  glPointSize(m_pointSize+2);
   glBegin(GL_POINTS);
   for(int i=0; i<m_points.count();i++)
     {
       if (m_points[i]->active())
 	{
 	  Vec pt = m_points[i]->point();
-	  //pt = VECPRODUCT(pt, voxelScaling);
+	  pt = VECPRODUCT(pt, voxelScaling);
 	  
 	  glVertex3fv(pt);
 	}
@@ -528,7 +510,7 @@ HitPoints::draw(QGLViewer *viewer, bool backToFront)
 	  ! m_points[i]->active())
 	{
 	  Vec pt = m_points[i]->point();
-	  //pt = VECPRODUCT(pt, voxelScaling);
+	  pt = VECPRODUCT(pt, voxelScaling);
 
 	  glVertex3fv(pt);
 	}
@@ -562,6 +544,7 @@ HitPoints::draw(QGLViewer *viewer, bool backToFront)
   
   glDisable(GL_POINT_SMOOTH);
 
+
   glDepthRange(0.0, 1.0);
 }
 
@@ -571,7 +554,7 @@ HitPoints::postdraw(QGLViewer *viewer)
   if (m_points.count() == 0)
     return;
 
-  //Vec voxelScaling = Global::voxelScaling();
+  Vec voxelScaling = Global::voxelScaling();
 
   viewer->startScreenCoordinatesSystem();
 
@@ -581,15 +564,12 @@ HitPoints::postdraw(QGLViewer *viewer)
   for(int i=0; i<m_points.count(); i++)
     {
       if (m_showPoints ||
-	  m_showRawValues ||
-	  m_showTagValues ||
 	  m_showCoordinates)
 	{
 	  Vec pt = m_points[i]->point();
 
-	  //Vec spt = VECPRODUCT(pt, voxelScaling);
-	  //Vec scr = viewer->camera()->projectedCoordinatesOf(spt);
-	  Vec scr = viewer->camera()->projectedCoordinatesOf(pt);
+	  Vec spt = VECPRODUCT(pt, voxelScaling);
+	  Vec scr = viewer->camera()->projectedCoordinatesOf(spt);
 	  int x = scr.x;
 	  int y = scr.y;
 	  
@@ -599,30 +579,6 @@ HitPoints::postdraw(QGLViewer *viewer)
 	      m_showPoints)
 	    str = QString("%1").arg(i);
 
-	  if (m_showRawValues)
-	    {
-	      QVariant qv = m_rawValues[i];
-
-	      if (qv.type() == QVariant::UInt)
-		str += QString(" r(%1)").arg(qv.toUInt());
-	      else if (qv.type() == QVariant::Int)
-		str += QString(" r(%1)").arg(qv.toInt());
-	      else if (qv.type() == QVariant::Double)
-		str += QString(" r(%1)").arg(qv.toDouble(), 0, 'f', Global::floatPrecision());
-	      else if (qv.type() == QVariant::String)
-		str += QString(" r(%1)").arg(qv.toString());
-	    }
-	  if (m_showTagValues)
-	    {
-	      QVariant qv = m_tagValues[i];
-
-	      if (qv.type() == QVariant::UInt)
-		str += QString(" t(%1)").arg(qv.toUInt());
-	      else if (qv.type() == QVariant::Int)
-		str += QString(" t(%1)").arg(qv.toInt());
-	      else if (qv.type() == QVariant::String)
-		str += QString(" t(%1)").arg(qv.toString());
-	    }
 	  if (m_showCoordinates)
 	    {
 	      str += QString(" c(%1 %2 %3)").\
@@ -654,14 +610,6 @@ HitPoints::postdraw(QGLViewer *viewer)
   viewer->stopScreenCoordinatesSystem();
 }
 
-void
-HitPoints::updatePointDialog()
-{
-  makePointConnections();
-  
-  m_rawValues.clear();
-  m_tagValues.clear();
-}
 
 bool
 HitPoints::keyPressEvent(QKeyEvent *event)
@@ -670,27 +618,9 @@ HitPoints::keyPressEvent(QKeyEvent *event)
     {
       if (m_points[i]->grabsMouse())
 	{
-	  if (event->key() == Qt::Key_I)
-	    {
-	      emit addImageCaption(m_points[i]->point());
-
-	      m_points[i]->removeFromActivePool();
-	      m_points[i]->removeFromMouseGrabberPool();	      
-	      m_points.removeAt(i);
-	      updatePointDialog();
-	      return true;
-	    }
-	  else if (event->key() == Qt::Key_N)
+	  if (event->key() == Qt::Key_N)
 	    {
 	      m_showPoints = !m_showPoints;
-	    }
-	  else if (event->key() == Qt::Key_R)
-	    {
-	      m_showRawValues = !m_showRawValues;
-	    }
-	  else if (event->key() == Qt::Key_T)
-	    {
-	      m_showTagValues = !m_showTagValues;
 	    }
 	  else if (event->key() == Qt::Key_C)
 	    {
@@ -724,7 +654,6 @@ HitPoints::keyPressEvent(QKeyEvent *event)
 	      m_points[i]->removeFromMouseGrabberPool();	      
 	      m_points.removeAt(i);
 
-	      updatePointDialog();
 	      return true;
 	    }
 	  else if (event->key() == Qt::Key_Space)
@@ -737,10 +666,7 @@ HitPoints::keyPressEvent(QKeyEvent *event)
 	      mesg += "mop paint <tag> <rad>\n\n\n";
 	      mesg += "Keyboard Options :\n";
 	      mesg += "c : toggle coordinate display\n";
-	      mesg += "i : create image caption\n";
 	      mesg += "n : toggle point numbers\n";
-	      mesg += "r : toggle raw value display\n";
-	      mesg += "t : toggle tag value display\n";
 	      mesg += "space bar : bring up this dialog\n";
 	      cmd = QInputDialog::getText(0,
 					  "Point Commands",
@@ -755,27 +681,6 @@ HitPoints::keyPressEvent(QKeyEvent *event)
     }
   
   return true;
-}
-
-void
-HitPoints::updatePoint()
-{
-  m_rawValues.clear();
-  m_tagValues.clear();
-}
-
-void
-HitPoints::makePointConnections()
-{
-  for(int i=0; i<m_points.count(); i++)
-    {
-      m_points[i]->disconnect();
-    }
-  for(int i=0; i<m_points.count(); i++)
-    {
-      connect(m_points[i], SIGNAL(updatePoint()),
-	      this, SLOT(updatePoint()));
-    }
 }
 
 void
@@ -801,7 +706,6 @@ HitPoints::processCommand(int idx, QString cmd)
 	      m_points[0]->removeFromMouseGrabberPool();	      
 	      m_points.removeAt(0);
 	    }
-	  updatePointDialog();
 	}
       else if (list[1] == "selected")
 	{
@@ -819,7 +723,6 @@ HitPoints::processCommand(int idx, QString cmd)
 	      else
 		ia++;
 	    }
-	  updatePointDialog();
 	}
     }
   else if (list[0] == "addpoint")
@@ -869,83 +772,10 @@ HitPoints::processCommand(int idx, QString cmd)
     m_showPoints = true;
   else if (list[0] == "hidepointnumbers" || list[0] == "pointnumbersoff")
     m_showPoints = false;
-  else if (list[0] == "showrawvalues" || list[0] == "rawvalueson")
-    m_showRawValues = true;
-  else if (list[0] == "hiderawvalues" || list[0] == "rawvaluesoff")
-    m_showRawValues = false;
-  else if (list[0] == "showtagvalues" || list[0] == "tagvalueson")
-    m_showTagValues = true;
-  else if (list[0] == "hidetagvalues" || list[0] == "tagvaluesoff")
-    m_showTagValues = false;
   else if (list[0] == "showcoordinates" || list[0] == "coordinateson")
     m_showCoordinates = true;
   else if (list[0] == "hidecoordinates" || list[0] == "coordinatesoff")
     m_showCoordinates = false;
-  else if (list[0] == "mop")
-    {
-      if (list.size() > 1)
-	{
-	  int docarve = 1;
-	  if (list[1] == "paint")
-	    docarve = 0;
-	  else if (list[1] == "carve")
-	    docarve = 1;
-	  else if (list[1] == "restore")
-	    docarve = 2;
-	  else if (list[1] == "set")
-	    docarve = 3;
-	  else
-	    {
-	      QMessageBox::information(0, "Error",
-				       "Second parameter has to be paint/carve/restore/set.");
-	      return;
-	    }
-	  float rad = 0;
-	  float decay = 0;
-	  int tag = -1;
-	  if (docarve == 0)
-	    {
-	      if (list.size() <= 3)
-		{
-		  QMessageBox::information(0, "Error",
-					   "paint needs tag and radius\n mop paint tag rad");
-		  return;
-		}
-	      tag = list[2].toInt(&ok);
-	      tag = qBound(0, tag, 255);
-	      rad = list[3].toFloat(&ok);
-	      rad = qBound(0.0f, rad, 200.0f);
-	    }
-	  else
-	    {
-	      if (list.size() > 2)
-		{
-		  rad = list[2].toFloat(&ok);
-		  rad = qBound(0.0f, rad, 200.0f);
-		}
-	      if (list.size() > 3)
-		{
-		  decay = list[3].toFloat(&ok);
-		  decay = qBound(0.0f, decay, rad);
-		}
-	    }
-	  
-	  QList<Vec> pts = points();
-	  emit sculpt(docarve, pts, rad, decay, tag);
-
-	  // clear all points
-	  for(int ip=0; ip<pts.count(); ip++)
-	    {
-	      m_points[0]->removeFromActivePool();
-	      m_points[0]->removeFromMouseGrabberPool();	      
-	      m_points.removeAt(0);
-	    }
-	  updatePointDialog();
-	}
-      else
-	QMessageBox::information(0, "Error",
-				 "No operation specified for mop.");
-    }
   else
     QMessageBox::information(0, "Point Command Error",
 			     QString("Cannot understand the command : ") +

@@ -1,0 +1,43 @@
+<!DOCTYPE RCC><RCC version="1.0">
+<qresource>
+  <file>images/lock.png</file>
+  <file>images/unlock.png</file>
+  <file>images/animation-pause.png</file>
+  <file>images/animation-reset.png</file>
+  <file>images/animation-start.png</file>
+  <file>images/resetproperty.png</file>
+  <file>images/zoomin.png</file>
+  <file>images/zoomout.png</file>
+  <file>images/splashscreen.png</file>
+  <file>images/gradientstops.xml</file>
+  <file>images/sizegrip.png</file>
+  <file>images/info-icon.png</file>
+  <file>images/light.png</file>
+  <file>images/rot.png</file>
+  <file>images/grab.png</file>
+  <file>images/grab_white.png</file>
+  <file>images/aplus.png</file>
+  <file>images/clip.png</file>
+  <file>images/clipTool.png</file>
+  <file>images/distTool.png</file>
+  <file>images/eye.png</file>
+  <file>images/clearview.png</file>
+  <file>images/translate.png</file>
+  <file>images/scale.png</file>
+  <file>images/grid-nci-left.jpg</file>
+  <file>images/grid-nci-right.jpg</file>
+  <file>images/grid-nci-top.jpg</file>
+  <file>images/grid-nci-bottom.jpg</file>
+  <file>images/grid-nci-front.jpg</file>
+  <file>images/grid-nci-back.jpg</file>
+  <file>general.help</file>
+  <file>clipobject.help</file>
+  <file>paths.help</file>
+  <file>keyframeeditor.help</file>
+  <file>shader.help</file>
+  <file>brick.help</file>
+  <file>globalmeshcommand.help</file>
+  <file>multiplemeshcommand.help</file>
+  <file>singlemeshcommand.help</file>
+</qresource>
+</RCC>

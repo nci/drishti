@@ -1,0 +1,16 @@
+#begin
+General Help
+
+Users can control the look of surfaces using different sliders in this panel.
+
+Target Box at the top controls light placement.  Drag mouse on the target to change light direction.  Press spacebar while the mouse cursor is on the target to place the light in the center.
+
+Ambient, Diffuse, Shininess and Highlights control the overall matte/metallic/plastic look.
+
+Edges control the strength of edges.
+
+Softness control the softness of features on the surface.
+
+Brightness modulate the edges, shadows, features and shininess.
+
+#end

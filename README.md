@@ -44,14 +44,14 @@ Download the version of Drishti (v2.7) for<br>
 
 ## Drishti Prayog
 http://nci.org.au/systems-services/scientific-visualisation/visualisation-services/drishti-prayog/
-<br>Updated version and help available on [AARNET CloudStor](https://cloudstor.aarnet.edu.au/plus/s/bxu1ZH4ywZEzl38)
+<br>Updated version and help available on [ANU OneDrive](https://anu365-my.sharepoint.com/:f:/g/personal/u9707062_anu_edu_au/Ep0RmQB54BZNvzLoXv6vQFcB9s2vQLIDLthIMWBg-63Xow?e=I9nkyn)
 <br>Drishti Prayog [guide](https://www.ccpi.ac.uk/sites/www.ccpi.ac.uk/files/uploaded_documents/Drishti%20Prayog%20User%20Guide.pdf) on [CCPi](https://www.ccpi.ac.uk/) website 
 
 ## Drishti VR
-[AARNET CloudStor](https://cloudstor.aarnet.edu.au/plus/s/ykqMmmikfXxHxKC?path=%2FDrishtiVR)
+[ANU OneDrive](https://anu365-my.sharepoint.com/:f:/g/personal/u9707062_anu_edu_au/Ehl3mTWGuS1ElhdVFCkkpSwBRwe8byvb07OajeA2582lVA?e=ybq79F)
                    
 ## Drishti Tutorials
-[AARNET CloudStor](https://cloudstor.aarnet.edu.au/plus/s/ykqMmmikfXxHxKC?path=%2FTutorials)
+[ANU OneDrive](https://anu365-my.sharepoint.com/:f:/g/personal/u9707062_anu_edu_au/EoX_P6zZy_ZCkpfNluTEZu8B7oHskm0YnAGErIVDTqjEgw?e=ZVUd25)
 
 ## Help slides
 by Julia Behnsen, University of Liverpool 

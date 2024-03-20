@@ -24,10 +24,8 @@ FORMS += launcher.ui \
 	 preferenceswidget.ui \
 	 propertyeditor.ui \
 	 profileviewer.ui \
-	 viewseditor.ui \
 	 volumeinformation.ui \
-         raycastmenu.ui \
-         meshinfowidget.ui
+         raycastmenu.ui
 
 
 TEMPLATE = app
@@ -138,7 +136,6 @@ HEADERS += launcher.h \
 	   connecttfeditor.h \
 	   connecttfmanager.h \
 	   connectviewer.h \
-	   connectviewseditor.h \
 	   connectvolinfowidget.h \
 	   crops.h \
 	   cropobject.h \
@@ -232,8 +229,6 @@ HEADERS += launcher.h \
 	   trisetgrabber.h \
 	   trisetobject.h \
            viewer.h \
-	   viewinformation.h \
-	   viewseditor.h \
 	   volume.h \
            volumebase.h \
 	   volumeinformation.h \
@@ -256,9 +251,7 @@ HEADERS += launcher.h \
 	   gilightobjectinfo.h \
 	   videoplayer.h \
 	   mybitarray.h \
-           popupslider.h \
-           meshinfowidget.h \
-           connectmeshinfowidget.h
+           popupslider.h
 
 
  SOURCES +=launcher.cpp \
@@ -373,8 +366,6 @@ HEADERS += launcher.h \
 	   trisetgrabber.cpp \
 	   trisetobject.cpp \
            viewer.cpp \
-	   viewinformation.cpp \
-	   viewseditor.cpp \
 	   volume.cpp \
            volumebase.cpp \
 	   volumeinformation.cpp \
@@ -396,5 +387,4 @@ HEADERS += launcher.h \
 	   gilightobjectinfo.cpp \
 	   videoplayer.cpp \
 	   mybitarray.cpp \
-	   popupslider.cpp \
-           meshinfowidget.cpp
+	   popupslider.cpp

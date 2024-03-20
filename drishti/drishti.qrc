@@ -11,6 +11,7 @@
   <file>images/drishti-run.png</file>
   <file>images/drishtiimport.png</file>
   <file>images/drishtipaint.png</file>
+  <file>images/drishtimesh.png</file>
   <file>images/splashscreen.png</file>
   <file>images/gradientstops.xml</file>
   <file>images/sizegrip.png</file>
@@ -31,8 +32,5 @@
   <file>volinfo.help</file>
   <file>trisets.help</file>
   <file>mops.help</file>
-  <file>globalmeshcommand.help</file>
-  <file>multiplemeshcommand.help</file>
-  <file>singlemeshcommand.help</file>
 </qresource>
 </RCC>

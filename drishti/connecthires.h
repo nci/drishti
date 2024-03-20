@@ -22,20 +22,4 @@
 	  m_Hires, SLOT(updateSubvolume(int, int, int, int, Vec, Vec)));
 
 
-
-  connect(m_gallery, SIGNAL(updateLightInfo(LightingInformation)),
-	  m_Hires, SLOT(setLightInfo(LightingInformation)));
-
-  connect(m_gallery, SIGNAL(updateVolumeBounds(int, Vec, Vec)),
-	  m_Hires, SLOT(updateSubvolume(int, Vec, Vec)));
-
-  connect(m_gallery, SIGNAL(updateVolumeBounds(int, int, Vec, Vec)),
-	  m_Hires, SLOT(updateSubvolume(int, int, Vec, Vec)));
-
-  connect(m_gallery, SIGNAL(updateVolumeBounds(int, int, int, Vec, Vec)),
-	  m_Hires, SLOT(updateSubvolume(int, int, int, Vec, Vec)));
-
-  connect(m_gallery, SIGNAL(updateVolumeBounds(int, int, int, int, Vec, Vec)),
-	  m_Hires, SLOT(updateSubvolume(int, int, int, int, Vec, Vec)));
-
 #endif

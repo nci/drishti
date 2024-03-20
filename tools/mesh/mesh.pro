@@ -30,7 +30,7 @@ DEPENDPATH += .
 include( ../../drishti.pri )
 
 win32 {
-  RC_ICONS += images/drishti.ico
+  RC_ICONS += images/drishtimesh.ico
 
   DEFINES += USE_GLMEDIA
   OPENVR_VERSION = 1.14.15

@@ -13,9 +13,6 @@
   connect(m_keyFrameEditor, SIGNAL(showMessage(QString, bool)),
 	  m_Viewer, SLOT(displayMessage(QString, bool)));
 
-  connect(m_gallery, SIGNAL(showMessage(QString, bool)),
-	  m_Viewer, SLOT(displayMessage(QString, bool)));
-
   connect(GeometryObjects::paths(),
 	  SIGNAL(showMessage(QString, bool)),
 	  m_Viewer, SLOT(displayMessage(QString, bool)));

@@ -5,4 +5,5 @@ SUBDIRS = common\src\vdb \
           drishti\mopplugin \
           tools\import \
           tools\import\plugins \
-          tools\paint
+          tools\paint \
+          tools\mesh

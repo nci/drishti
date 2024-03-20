@@ -17,6 +17,7 @@ class Launcher : public QDialog
     void drishti(bool);
     void drishtiImport(bool);
     void drishtiPaint(bool);
+    void drishtiMesh(bool);
 
  private :
     Ui::launcher ui;

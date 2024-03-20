@@ -14,9 +14,10 @@ Launcher::Launcher(QWidget *parent) :
   
   
   setStyleSheet("QWidget{background:black;}");
-  ui.drishti->setStyleSheet("QWidget{background:aliceblue;}");
-  ui.drishtiImport->setStyleSheet("QWidget{background:azure;}");
-  ui.drishtiPaint->setStyleSheet("QWidget{background:floralwhite;}");
+        ui.drishti->setStyleSheet("QWidget{background:#e7feff;}");
+  ui.drishtiImport->setStyleSheet("QWidget{background:#e4f5ff;}");
+   ui.drishtiPaint->setStyleSheet("QWidget{background:#e0eafe;}");
+    ui.drishtiMesh->setStyleSheet("QWidget{background:#ddddfe;}");
 
   {
     QIcon icon;
@@ -33,6 +34,11 @@ Launcher::Launcher(QWidget *parent) :
     icon.addFile(QString::fromUtf8(":/images/drishtipaint.png"), QSize(), QIcon::Normal, QIcon::Off);
     ui.drishtiPaint->setIcon(icon);
   }
+  {
+    QIcon icon;
+    icon.addFile(QString::fromUtf8(":/images/drishtimesh.png"), QSize(), QIcon::Normal, QIcon::Off);
+    ui.drishtiMesh->setIcon(icon);
+  }
   
   connect(ui.drishti, SIGNAL(clicked(bool)),
 	  this, SLOT(drishti(bool)));
@@ -40,6 +46,10 @@ Launcher::Launcher(QWidget *parent) :
 	  this, SLOT(drishtiImport(bool)));
   connect(ui.drishtiPaint, SIGNAL(clicked(bool)),
 	  this, SLOT(drishtiPaint(bool)));
+  connect(ui.drishtiMesh, SIGNAL(clicked(bool)),
+	  this, SLOT(drishtiMesh(bool)));
+
+  //ui.drishtiMesh->hide();
 }
 
 
@@ -100,6 +110,27 @@ Launcher::drishtiPaint(bool b)
     }  
 #else
   QProcess::startDetached(qApp->applicationDirPath() + QDir::separator() + "drishtipaint");
+#endif
+  exit(0);
+}
+
+void
+Launcher::drishtiMesh(bool b)
+{
+#if defined(Q_OS_WIN32)
+  QString exeFileName = qApp->applicationDirPath() + QDir::separator() + "drishtimesh.exe";
+  int result = (int)::ShellExecuteA(0, "open", exeFileName.toUtf8().constData(), 0, 0, SW_SHOWNORMAL);
+  if (SE_ERR_ACCESSDENIED == result)
+    {
+      // Requesting elevation
+      result = (int)::ShellExecuteA(0, "runas", exeFileName.toUtf8().constData(), 0, 0, SW_SHOWNORMAL);
+    }
+  if (result <= 32)
+    {
+      // error handling
+    }  
+#else
+  QProcess::startDetached(qApp->applicationDirPath() + QDir::separator() + "drishtimesh");
 #endif
   exit(0);
 }

@@ -146,6 +146,7 @@ MainWindow::MainWindow(QWidget *parent) :
   setCentralWidget(m_Viewer);
 
   
+  
   Global::setBatchMode(false);
   Global::setEmptySpaceSkip(true);
   Global::setImageQuality(Global::_NormalQuality);
@@ -254,50 +255,15 @@ MainWindow::MainWindow(QWidget *parent) :
   m_dockKeyframe->hide();
   //----------------------------------------------------------
 
-//  //----------------------------------------------------------
-//  m_dockGallery = new QDockWidget("Gallery", this);
-//  m_dockGallery->setAllowedAreas(Qt::AllDockWidgetAreas);
-  m_gallery = new ViewsEditor();
-//  m_dockGallery->setWidget(m_gallery);
-//  m_dockGallery->hide();
-//  //----------------------------------------------------------
-
-
-// m_dockTF->setFloating(true);
-//  dock2->setFloating(true);
-//  dock3->setFloating(true);
-//  dock4->setFloating(true);
-//  dock5->setFloating(true);
-//  m_dockKeyframe->setFloating(true);
-
-    
-  //----------------------------------------------------------
-  //----------------------------------------------------------
-  //----------------------------------------------------------
-  m_dockMesh = new QDockWidget(QWidget::tr("Surfaces"), this);
-  m_dockMesh->setAllowedAreas(Qt::LeftDockWidgetArea | 
-			    Qt::RightDockWidgetArea);
-  QVBoxLayout *vbox3 = new QVBoxLayout();
-  m_meshInfoWidget = new MeshInfoWidget();
-  vbox3->addWidget(m_meshInfoWidget);
-  QWidget *widget3 = new QWidget();
-  widget3->setLayout(vbox3);
-  m_dockMesh->setWidget(widget3);
-  m_dockMesh->hide();
-  //----------------------------------------------------------
-  //----------------------------------------------------------
-  //----------------------------------------------------------
-
-
   
+
   addDockWidget(Qt::RightDockWidgetArea, m_dockTF);
   addDockWidget(Qt::RightDockWidgetArea, dock2);
   addDockWidget(Qt::RightDockWidgetArea, dock3);
   addDockWidget(Qt::LeftDockWidgetArea, dock4);
   addDockWidget(Qt::LeftDockWidgetArea, dock5);
-  addDockWidget(Qt::LeftDockWidgetArea, m_dockMesh);
   addDockWidget(Qt::BottomDockWidgetArea,m_dockKeyframe);
-//  addDockWidget(Qt::BottomDockWidgetArea,m_dockGallery);
+
 
   QString tstr = QString("Drishti v") +
                  Global::DrishtiVersion() +
@@ -313,8 +279,6 @@ MainWindow::MainWindow(QWidget *parent) :
   ui.menuView->addAction(dock3->toggleViewAction());
   ui.menuView->addAction(dock4->toggleViewAction());
   ui.menuView->addAction(m_dockKeyframe->toggleViewAction());
-  ui.menuView->addAction(m_dockMesh->toggleViewAction());
-//  ui.menuView->addAction(m_dockGallery->toggleViewAction());
   ui.menuView->addSeparator();
   ui.menuView->addAction(dock5->toggleViewAction());
 
@@ -337,11 +301,6 @@ MainWindow::MainWindow(QWidget *parent) :
   #include "connectvolinfowidget.h"
   #include "connectgeometryobjects.h"
 
-  #include "connectmeshinfowidget.h"
-
-
-  connect(GeometryObjects::trisets(), SIGNAL(updateMeshList(QStringList)),
-	  this, SLOT(updateMeshList(QStringList)));
 
   initializeRecentFiles();
 
@@ -395,19 +354,6 @@ MainWindow::registerMenuViewerFunctions()
   QStringList fnames = menuFnc.keys();
 
   QMenu *menu=0;
-
-  { // add Paint Mesh
-    QAction *action = new QAction(this);
-    action->setText("Paint Mesh");
-    action->setData("Paint Mesh");
-    action->setCheckable(true);
-    action->setChecked(false);
-    action->setVisible(false);
-    connect(action, SIGNAL(triggered(bool)),
-	    m_Viewer, SLOT(setPaintMode(bool)));
-    ui.menuFunctions->addAction(action);
-    m_paintMeshAction = action;
-  }
 
   for(int i=0; i<fnames.count(); i++)
     {
@@ -1801,59 +1747,6 @@ MainWindow::on_actionNetwork_triggered()
   Global::setPreviousDirectory(f.absolutePath());
 }
 
-void
-MainWindow::on_actionTriset_triggered()
-{
-  QStringList meshformats;
-  meshformats << "fbx";
-  meshformats << "dae";
-  meshformats << "gltf";
-  meshformats << "glb";
-  meshformats << "blend";
-  meshformats << "3ds";
-  meshformats << "obj";
-  meshformats << "ply";
-  meshformats << "stl";
-
-  QString formats = "Surface Mesh ( ";
-  foreach(QString fmt, meshformats)
-    formats += QString("*.%1 ").arg(fmt);
-  formats += ")";
-  
-  QStringList flnms;
-  flnms = QFileDialog::getOpenFileNames(0,
-					"Load Surface File",
-					Global::previousDirectory(),
-					formats,
-					0,
-					QFileDialog::DontUseNativeDialog);
-  
-  if (flnms.isEmpty())
-    return;
-
-  foreach (QString flnm, flnms)
-    GeometryObjects::trisets()->addMesh(flnm);
-  
-  if (Global::volumeType() == Global::DummyVolume)
-    {
-      int nx, ny, nz;
-      GeometryObjects::trisets()->allGridSize(nx, ny, nz);
-      loadDummyVolume(nx, ny, nz);
-    }
-
-  QFileInfo f(flnms[0]);
-  Global::setPreviousDirectory(f.absolutePath());
-
-
-  updateMeshList(GeometryObjects::trisets()->getMeshList());
-  GeometryObjects::trisets()->removeFromMouseGrabberPool();
-
-  m_Viewer->switchDrawVolume();
-  m_dockMesh->show();
-  m_dockTF->hide();
-
-  //m_dockKeyframe->toggleViewAction()->setEnabled(false);
-}
 
 void
 MainWindow::on_actionLandmarks_triggered()
@@ -1905,7 +1798,6 @@ MainWindow::loadSingleVolume(QStringList flnm)
 
   m_keyFrame->clear();
   m_keyFrameEditor->clear();
-  m_gallery->clear();
   m_lightingWidget->setLightInfo(LightingInformation());
 }
 
@@ -1968,7 +1860,6 @@ MainWindow::on_actionLoad_2_Volumes_triggered()
 
   m_keyFrame->clear();
   m_keyFrameEditor->clear();
-  m_gallery->clear();
   m_lightingWidget->setLightInfo(LightingInformation());
 }
 
@@ -2023,7 +1914,6 @@ MainWindow::on_actionLoad_3_Volumes_triggered()
 
   m_keyFrame->clear();
   m_keyFrameEditor->clear();
-  m_gallery->clear();
   m_lightingWidget->setLightInfo(LightingInformation());
 }
 
@@ -2085,7 +1975,6 @@ MainWindow::on_actionLoad_4_Volumes_triggered()
 
   m_keyFrame->clear();
   m_keyFrameEditor->clear();
-  m_gallery->clear();
   m_lightingWidget->setLightInfo(LightingInformation());
 }
 
@@ -2094,17 +1983,6 @@ MainWindow::on_actionLoad_4_Volumes_triggered()
 void
 MainWindow::dragEnterEvent(QDragEnterEvent *event)
 {
-  QStringList meshformats;
-  meshformats << ".fbx";
-  meshformats << ".dae";
-  meshformats << ".gltf";
-  meshformats << ".glb";
-  meshformats << ".blend";
-  meshformats << ".3ds";
-  meshformats << ".obj";
-  meshformats << ".ply";
-  meshformats << ".stl";
-
   if (event && event->mimeData())
     {
       const QMimeData *md = event->mimeData();
@@ -2120,10 +1998,6 @@ MainWindow::dragEnterEvent(QDragEnterEvent *event)
 	      event->acceptProposedAction();
 	    }
 	  else if (StaticFunctions::checkURLs(urls, ".keyframes"))
-	    {
-	      event->acceptProposedAction();
-	    }
-	  else if (StaticFunctions::checkURLs(urls, meshformats))
 	    {
 	      event->acceptProposedAction();
 	    }
@@ -2200,16 +2074,6 @@ MainWindow::dropEvent(QDropEvent *event)
       return;
     }
 
-  QStringList meshformats;
-  meshformats << ".fbx";
-  meshformats << ".dae";
-  meshformats << ".gltf";
-  meshformats << ".glb";
-  meshformats << ".blend";
-  meshformats << ".3ds";
-  meshformats << ".obj";
-  meshformats << ".ply";
-  meshformats << ".stl";
 
   if (event && event->mimeData())
     {
@@ -2239,32 +2103,6 @@ MainWindow::dropEvent(QDropEvent *event)
 	      else if (StaticFunctions::checkExtension(url.toLocalFile(), ".keyframes"))
 		{
 		  m_keyFrame->import(url.toLocalFile());
-		}
-	      else if (StaticFunctions::checkExtension(url.toLocalFile(), meshformats))
-		{
-		  QStringList flist;
-		  QList<QUrl> urls = data->urls();
-		  for(int i=0; i<urls.count(); i++)
-		    GeometryObjects::trisets()->addMesh(urls[i].toLocalFile());
-
-		  if (Global::volumeType() == Global::DummyVolume)
-		    {
-		      int nx, ny, nz;
-		      GeometryObjects::trisets()->allGridSize(nx, ny, nz);
-		      loadDummyVolume(nx, ny, nz);
-		    }
-
-		  QFileInfo f(url.toLocalFile());
-		  Global::setPreviousDirectory(f.absolutePath());
-		  	      
-		  updateMeshList(GeometryObjects::trisets()->getMeshList());
-		  GeometryObjects::trisets()->removeFromMouseGrabberPool();		  
-
-		  m_Viewer->switchDrawVolume();
-
-		  m_dockMesh->show();
-		  m_dockTF->hide();
-		  //m_dockKeyframe->toggleViewAction()->setEnabled(false);
 		}
 	      else if (StaticFunctions::checkExtension(url.toLocalFile(), "porethroat.nc") ||
 		       StaticFunctions::checkExtension(url.toLocalFile(), "graphml") ||
@@ -2435,10 +2273,8 @@ MainWindow::loadDummyVolume(int nx, int ny, int nz)
 
   m_keyFrame->clear();
   m_keyFrameEditor->clear();
-  m_gallery->clear();
 
   m_keyFrameEditor->setHiresMode(false);
-  m_gallery->setHiresMode(false);
 
   m_Volume->loadDummyVolume(nx, ny, nz);
 
@@ -2580,10 +2416,8 @@ MainWindow::preLoadVolume()
 
   m_keyFrame->clear();
   m_keyFrameEditor->clear();
-  m_gallery->clear();
 
   m_keyFrameEditor->setHiresMode(false);
-  m_gallery->setHiresMode(false);
 }
 
 void
@@ -2670,22 +2504,6 @@ MainWindow::postLoadVolume()
       ui.actionSwitch_To1D->setChecked(Global::use1D());
       m_tfContainer->switch1D();
     }
-
-  
-  //---------------------
-  //---------------------
-  // check whether we can allow mesh paint
-  if (Global::volumeType() == Global::DummyVolume &&
-      GeometryObjects::trisets()->count() > 0)
-    {
-      m_paintMeshAction->setVisible(true);
-    }
-  else
-    {
-      m_paintMeshAction->setVisible(false);
-      m_Viewer->setPaintMode(false);
-    }
-
 }
 
 void
@@ -3340,7 +3158,6 @@ MainWindow::loadProject(const char* flnm)
   MainWindowUI::changeDrishtiIcon(false);
   m_Hires->disableSubvolumeUpdates();
 
-//  bool galleryVisible = m_dockGallery->isVisible();
   bool keyframesVisible = m_dockKeyframe->isVisible();
 
   Global::setCurrentProjectFile(QString(flnm));
@@ -3372,7 +3189,6 @@ MainWindow::loadProject(const char* flnm)
 
   m_keyFrame->clear();
   m_keyFrameEditor->clear();
-  m_gallery->clear();
 
   if (!Global::batchMode())
     emit showMessage("Volume loaded. Loading Project ....", false);
@@ -3400,17 +3216,15 @@ MainWindow::loadProject(const char* flnm)
 
   m_tfManager->load(flnm);
 
-//  m_dockGallery->setVisible(false);
   m_dockKeyframe->setVisible(false);
 
-  loadViewsAndKeyFrames(flnm);
+  loadKeyFrames(flnm);
 
   m_bricksWidget->refresh();
 
   m_Hires->enableSubvolumeUpdates();
   m_Viewer->switchToHires();
   m_keyFrameEditor->setHiresMode(true);
-  m_gallery->setHiresMode(true);
   if (Global::volumeType() != Global::DummyVolume)
     {
       if (m_Volume->pvlVoxelType(0) == 0)
@@ -3423,7 +3237,6 @@ MainWindow::loadProject(const char* flnm)
 	m_tfEditor->setHistogram2D(m_Hires->histogram2D());
     }
 
-//  m_dockGallery->setVisible(galleryVisible);
   m_dockKeyframe->setVisible(keyframesVisible);
 
   m_Viewer->createImageBuffers();
@@ -3458,8 +3271,6 @@ MainWindow::loadProject(const char* flnm)
 
   // check overlapping keyframes
   m_keyFrame->checkKeyFrameNumbers();
-
-  updateMeshList();
 }
 
 void
@@ -3520,7 +3331,7 @@ MainWindow::saveProject(QString xmlflnm)
   m_Lowres->save(flnm);
   m_preferencesWidget->save(flnm);
   m_tfManager->save(flnm);
-  saveViewsAndKeyFrames(flnm);
+  saveKeyFrames(flnm);
 
 
   emit showMessage("Project saved", false);
@@ -3997,47 +3808,6 @@ MainWindow::updateFocus(float focusDistance, float es)
 					    m_Viewer->camera()->physicalScreenWidth());
 }
 
-// called from viewseditor
-void
-MainWindow::updateParameters(float stepStill, float stepDrag,
-			     int renderQuality,
-			     bool drawBox, bool drawAxis,
-			     Vec bgColor,
-			     QString bgImage,
-			     int sz, int st,
-			     QString xl, QString yl, QString zl)
-{
-  Global::setStepsizeStill(stepStill);
-  Global::setStepsizeDrag(stepDrag);
-  m_preferencesWidget->setRenderQualityValues(stepStill, stepDrag);
-
-  m_preferencesWidget->setTick(sz, st, xl, yl, zl);
-
-  Global::setBackgroundColor(bgColor);
-
-  //----------------
-  // bgimage file is assumed to be relative to .pvl.nc file
-  // get the absolute path
-  VolumeInformation pvlInfo = VolumeInformation::volumeInformation();
-  QFileInfo fileInfo(pvlInfo.pvlFile);
-  Global::setBackgroundImageFile(bgImage, fileInfo.absolutePath());
-  //----------------
-
-  Global::setDrawBox(drawBox);
-  Global::setDrawAxis(drawAxis);
-  m_Hires->setRenderQuality(renderQuality);
-
-  ui.actionAxes->setChecked(Global::drawAxis());
-  ui.actionBoundingBox->setChecked(Global::drawBox());
-
-  // remove all geometry from mousegrab pool
-  GeometryObjects::removeFromMouseGrabberPool();
-  LightHandler::removeFromMouseGrabberPool();
-
-  // always keep image captions in mouse grabber pool
-  GeometryObjects::imageCaptions()->addInMouseGrabberPool();
-}
-
 // called from keyframeeditor
 void
 MainWindow::updateParameters(bool drawBox, bool drawAxis,
@@ -4091,7 +3861,7 @@ MainWindow::updateParameters(bool drawBox, bool drawAxis,
 }
 
 void
-MainWindow::loadViewsAndKeyFrames(const char* flnm)
+MainWindow::loadKeyFrames(const char* flnm)
 {
   QString sflnm(flnm);
   sflnm.replace(QString(".xml"), QString(".keyframes"));
@@ -4118,16 +3888,14 @@ MainWindow::loadViewsAndKeyFrames(const char* flnm)
   while (!fin.eof())
     {
       fin.getline(keyword, 100, 0);
-      if (strcmp(keyword, "views") == 0)
-	m_gallery->load(fin);
-      else if (strcmp(keyword, "keyframes") == 0)
+      if (strcmp(keyword, "keyframes") == 0)
 	m_keyFrame->load(fin);
     }
   fin.close();
 }
 
 void
-MainWindow::saveViewsAndKeyFrames(const char* flnm)
+MainWindow::saveKeyFrames(const char* flnm)
 {
   QString sflnm(flnm);
   if (sflnm.contains(".dpxml", Qt::CaseInsensitive))
@@ -4141,7 +3909,6 @@ MainWindow::saveViewsAndKeyFrames(const char* flnm)
   keyword = "Drishti Keyframes";
   fout.write((char*)(keyword.toUtf8().data()), keyword.length()+1);  
 
-  m_gallery->save(fout);
   m_keyFrame->save(fout);
 
   fout.close();
@@ -5384,20 +5151,6 @@ MainWindow::on_actionVisibility_triggered()
   if (LightHandler::giLights()->count())
     keys << "gap";
 
-  for(int i=0; i<GeometryObjects::trisets()->count(); i++)
-    {
-      bool flag = GeometryObjects::trisets()->show(i);
-      QString name = QString("mesh %1").arg(i);
-      name += QString(" (%1)").arg(QFileInfo(GeometryObjects::trisets()->filename(i)).fileName());
-      vlist.clear();
-      vlist << QVariant("checkbox");
-      vlist << QVariant(flag);
-      plist[name] = vlist;
-
-      keys << name;
-    }
-  if (GeometryObjects::trisets()->count())
-    keys << "gap";
 
   for(int i=0; i<GeometryObjects::networks()->count(); i++)
     {
@@ -5475,8 +5228,6 @@ MainWindow::on_actionVisibility_triggered()
 	{	  
 	  if (name == "light")
 	    LightHandler::giLights()->setShow(idx, pair.first.toBool());
-	  else if (name == "mesh")
-	    GeometryObjects::trisets()->setShow(idx, pair.first.toBool());
 	  else if (name == "network")
 	    GeometryObjects::networks()->setShow(idx, pair.first.toBool());
 	  else if (name == "clipplane")
@@ -5516,21 +5267,7 @@ MainWindow::on_actionMouse_Grab_triggered()
   if (LightHandler::giLights()->count())
     keys << "gap";
 
-//  for(int i=0; i<GeometryObjects::trisets()->count(); i++)
-//    {
-//      bool flag = GeometryObjects::trisets()->isInMouseGrabberPool(i);
-//      QString name = QString("mesh %1").arg(i);
-//      name += QString(" (%1)").arg(QFileInfo(GeometryObjects::trisets()->filename(i)).fileName());
-//      vlist.clear();
-//      vlist << QVariant("checkbox");
-//      vlist << QVariant(flag);
-//      plist[name] = vlist;
-//
-//      keys << name;
-//    }
-//  if (GeometryObjects::trisets()->count())
-//    keys << "gap";
-
+  
   for(int i=0; i<GeometryObjects::networks()->count(); i++)
     {
       bool flag = GeometryObjects::networks()->isInMouseGrabberPool(i);
@@ -5660,13 +5397,6 @@ MainWindow::on_actionMouse_Grab_triggered()
 	      else
 		LightHandler::giLights()->removeFromMouseGrabberPool(idx);
 	    }
-	  else if (name == "mesh")
-	    {
-	      if (pair.first.toBool())
-		GeometryObjects::trisets()->addInMouseGrabberPool(idx);
-	      else
-		GeometryObjects::trisets()->removeFromMouseGrabberPool(idx);
-	    }
 	  else if (name == "network")
 	    {
 	      if (pair.first.toBool())
@@ -5715,47 +5445,5 @@ MainWindow::on_actionMouse_Grab_triggered()
 	    }
 	}
     }
-}
-
-
-void
-MainWindow::setMeshVisible(int idx, bool flag)
-{
-  GeometryObjects::trisets()->setShow(idx, flag);  
-  m_Viewer->updateGL();
-}
-
-void
-MainWindow::setMeshActive(int idx, bool flag)
-{
-  GeometryObjects::trisets()->setActive(idx, flag);
-
-  if (!flag)
-    GeometryObjects::trisets()->removeFromMouseGrabberPool(idx);
-  else
-    GeometryObjects::trisets()->addInMouseGrabberPool(idx);
-
-  m_Viewer->updateGL();
-}
-
-void
-MainWindow::updateMeshList(QStringList names)
-{
-  m_meshInfoWidget->setMeshes(names);
-
-//  if (GeometryObjects::trisets()->count() == 0)
-//    {
-//      if (ui.actionPaintMode->isChecked())
-//	{
-//	  ui.actionPaintMode->setChecked(false);
-//	  m_paintMenuWidget->hide();
-//	}
-//    }
-}
-
-void
-MainWindow::updateMeshList()
-{
-  m_meshInfoWidget->setMeshes(GeometryObjects::trisets()->getMeshList());
 }
 

@@ -46,7 +46,6 @@
      <property name="title">
       <string>Load Geometry</string>
      </property>
-     <addaction name="actionTriset"/>
      <addaction name="actionNetwork"/>
      <addaction name="actionPoints"/>
      <addaction name="actionPaths"/>

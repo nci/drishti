@@ -6411,6 +6411,10 @@ DrishtiPaint::bakeCurves_clicked()
   qApp->processEvents();
   m_volume->saveMaskBlock(m_blockList);
 
+  m_axialCurves->sliceChanged();
+  m_sagitalCurves->sliceChanged();
+  m_coronalCurves->sliceChanged();
+
   progress.setValue(100);  
   QMessageBox::information(0, "Converted", "-----Done-----");
 }

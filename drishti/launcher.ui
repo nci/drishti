@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>191</width>
-    <height>244</height>
+    <height>290</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -45,7 +45,7 @@
      </property>
     </spacer>
    </item>
-   <item alignment="Qt::AlignVCenter">
+   <item>
     <widget class="QPushButton" name="drishti">
      <property name="sizePolicy">
       <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
@@ -87,7 +87,7 @@
      </property>
      <property name="icon">
       <iconset>
-       <normaloff>../tools/import/images/drishtiimport.png</normaloff>../tools/import/images/drishtiimport.png</iconset>
+       <normaloff>images/drishtiimport.png</normaloff>images/drishtiimport.png</iconset>
      </property>
      <property name="iconSize">
       <size>
@@ -113,7 +113,33 @@
      </property>
      <property name="icon">
       <iconset>
-       <normaloff>../tools/paint/images/drishtipaint.png</normaloff>../tools/paint/images/drishtipaint.png</iconset>
+       <normaloff>images/drishtipaint.png</normaloff>images/drishtipaint.png</iconset>
+     </property>
+     <property name="iconSize">
+      <size>
+       <width>48</width>
+       <height>48</height>
+      </size>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QPushButton" name="drishtiMesh">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="layoutDirection">
+      <enum>Qt::LeftToRight</enum>
+     </property>
+     <property name="text">
+      <string>Drishti Mesh</string>
+     </property>
+     <property name="icon">
+      <iconset>
+       <normaloff>images/drishtimesh.png</normaloff>images/drishtimesh.png</iconset>
      </property>
      <property name="iconSize">
       <size>

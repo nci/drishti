@@ -3984,7 +3984,7 @@ DrishtiPaint::updateCurveMask(uchar *curveMask,
   if (m_axialCurves->inFocus() && m_axialCurves->curvesPresent())
     {
       uchar *mask = new uchar[width*height]; 
-      for(int d=minDSlice; d<=maxDSlice; d++)
+      for(qint64 d=minDSlice; d<=maxDSlice; d++)
 	{
 	  int slc = d-minDSlice;
 	  progress.setValue((int)(100*(float)slc/(float)tdepth));
@@ -3992,8 +3992,8 @@ DrishtiPaint::updateCurveMask(uchar *curveMask,
 	  
 	  memset(mask, 0, width*height);
 	  m_axialCurves->paintUsingCurves(0, d, height, width, mask);
-	  for(int w=minWSlice; w<=maxWSlice; w++)
-	    for(int h=minHSlice; h<=maxHSlice; h++)
+	  for(qint64 w=minWSlice; w<=maxWSlice; w++)
+	    for(qint64 h=minHSlice; h<=maxHSlice; h++)
 	      {
 		if (mask[w*height+h] > 0)
 		  curveMask[(d-minDSlice)*twidth*theight +
@@ -4006,7 +4006,7 @@ DrishtiPaint::updateCurveMask(uchar *curveMask,
   if (m_sagitalCurves->inFocus() && m_sagitalCurves->curvesPresent())
     {
       uchar *mask = new uchar[depth*height]; 
-      for(int w=minWSlice; w<=maxWSlice; w++)
+      for(qint64 w=minWSlice; w<=maxWSlice; w++)
 	{
 	  int slc = w-minWSlice;
 	  progress.setValue((int)(100*(float)slc/(float)twidth));
@@ -4014,8 +4014,8 @@ DrishtiPaint::updateCurveMask(uchar *curveMask,
 	  
 	  memset(mask, 0, depth*height);
 	  m_sagitalCurves->paintUsingCurves(1, w, height, depth, mask);
-	  for(int d=minDSlice; d<=maxDSlice; d++)
-	    for(int h=minHSlice; h<=maxHSlice; h++)
+	  for(qint64 d=minDSlice; d<=maxDSlice; d++)
+	    for(qint64 h=minHSlice; h<=maxHSlice; h++)
 	      {
 		if (mask[d*height+h] > 0)
 		  curveMask[(d-minDSlice)*twidth*theight +
@@ -4028,7 +4028,7 @@ DrishtiPaint::updateCurveMask(uchar *curveMask,
   if (m_coronalCurves->inFocus() && m_coronalCurves->curvesPresent())
     {
       uchar *mask = new uchar[depth*width]; 
-      for(int h=minHSlice; h<=maxHSlice; h++)
+      for(qint64 h=minHSlice; h<=maxHSlice; h++)
 	{
 	  int slc = h-minHSlice;
 	  progress.setValue((int)(100*(float)slc/(float)theight));
@@ -4036,8 +4036,8 @@ DrishtiPaint::updateCurveMask(uchar *curveMask,
 	  
 	  memset(mask, 0, depth*width);
 	  m_coronalCurves->paintUsingCurves(2, h, width, depth, mask);
-	  for(int d=minDSlice; d<=maxDSlice; d++)
-	    for(int w=minWSlice; w<=maxWSlice; w++)
+	  for(qint64 d=minDSlice; d<=maxDSlice; d++)
+	    for(qint64 w=minWSlice; w<=maxWSlice; w++)
 	      {
 		if (mask[d*width+w] > 0)
 		  curveMask[(d-minDSlice)*twidth*theight +
@@ -5230,24 +5230,24 @@ DrishtiPaint::paint3D(Vec bmin, Vec bmax,
 	  qint64 h4 = qBound(0, h0-1, m_height-1);
 	  if (!volDataUS)
 	    {
-	      gz = (volData[d3*m_width*m_height + w0*m_height + h0] -
-		    volData[d4*m_width*m_height + w0*m_height + h0]);
-	      gy = (volData[d0*m_width*m_height + w3*m_height + h0] -
-		    volData[d0*m_width*m_height + w4*m_height + h0]);
-	      gx = (volData[d0*m_width*m_height + w0*m_height + h3] -
-		    volData[d0*m_width*m_height + w0*m_height + h4]);
+	      gz = (volData[qint64(d3)*m_width*m_height + w0*m_height + h0] -
+		    volData[qint64(d4)*m_width*m_height + w0*m_height + h0]);
+	      gy = (volData[qint64(d0)*m_width*m_height + w3*m_height + h0] -
+		    volData[qint64(d0)*m_width*m_height + w4*m_height + h0]);
+	      gx = (volData[qint64(d0)*m_width*m_height + w0*m_height + h3] -
+		    volData[qint64(d0)*m_width*m_height + w0*m_height + h4]);
 	      gx/=255.0;
 	      gy/=255.0;
 	      gz/=255.0;
 	    }
 	  else
 	    {
-	      gz = (volDataUS[d3*m_width*m_height + w0*m_height + h0] -
-		    volDataUS[d4*m_width*m_height + w0*m_height + h0]);
-	      gy = (volDataUS[d0*m_width*m_height + w3*m_height + h0] -
-		    volDataUS[d0*m_width*m_height + w4*m_height + h0]);
-	      gx = (volDataUS[d0*m_width*m_height + w0*m_height + h3] -
-		    volDataUS[d0*m_width*m_height + w0*m_height + h4]);
+	      gz = (volDataUS[qint64(d3)*m_width*m_height + w0*m_height + h0] -
+		    volDataUS[qint64(d4)*m_width*m_height + w0*m_height + h0]);
+	      gy = (volDataUS[qint64(d0)*m_width*m_height + w3*m_height + h0] -
+		    volDataUS[qint64(d0)*m_width*m_height + w4*m_height + h0]);
+	      gx = (volDataUS[qint64(d0)*m_width*m_height + w0*m_height + h3] -
+		    volDataUS[qint64(d0)*m_width*m_height + w0*m_height + h4]);
 	      gx/=65535.0;
 	      gy/=65535.0;
 	      gz/=65535.0;

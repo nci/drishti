@@ -1372,9 +1372,18 @@ PathObject::computePathLength()
 void
 PathObject::computeLength(QList<Vec> points)
 {
+  Vec vS = Global::voxelScaling();
+  float maxval = qMin(vS.x, qMin(vS.y, vS.z));
+  vS = vS/maxval;
+  
   m_length = 0;
   for(int i=1; i<points.count(); i++)
-    m_length += (points[i]-points[i-1]).norm();
+    { // remove the relative scaling during length calculation
+      Vec v0 = VECDIVIDE(points[i], vS);
+      Vec v1 = VECDIVIDE(points[i-1], vS);
+      m_length += (v0-v1).norm();
+      //m_length += (points[i]-points[i-1]).norm();
+    }
 }
 
 void

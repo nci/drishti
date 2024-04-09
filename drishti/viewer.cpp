@@ -732,6 +732,7 @@ Viewer::checkPointSelected(const QMouseEvent *event)
 	{
 	  if (event->buttons() == Qt::RightButton) // change rotation pivot
 	    {
+	      target = m_hiresVolume->pointUnderPixel(scr, found); // don't want any voxelscaling for this one
 	      camera()->setRevolveAroundPoint(target);
 	      QMessageBox::information(0, "", "Rotation pivot changed.\n\nTo reset back to scene center just Shift+Right click in empty region on screen - that is do not Shift+Right click on volume or any widget.\n\nRotation pivot change has no effect on keyframe animation.");
 	    }

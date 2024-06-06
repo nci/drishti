@@ -102,6 +102,7 @@ class Trisets : public QObject
   void saveMesh(int);
   void duplicateMesh(int);
   void positionChanged(QVector3D);
+  void rotationChanged(QVector4D);
   void scaleChanged(QVector3D);
   void colorChanged(QColor);
   void colorChanged(QList<int>, QColor);

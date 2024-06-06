@@ -36,6 +36,8 @@
 
   connect(m_meshInfoWidget, SIGNAL(positionChanged(QVector3D)),
 	  GeometryObjects::trisets(), SLOT(positionChanged(QVector3D)));
+  connect(m_meshInfoWidget, SIGNAL(rotationChanged(QVector4D)),
+	  GeometryObjects::trisets(), SLOT(rotationChanged(QVector4D)));
   connect(m_meshInfoWidget, SIGNAL(scaleChanged(QVector3D)),
 	  GeometryObjects::trisets(), SLOT(scaleChanged(QVector3D)));
   connect(m_meshInfoWidget, SIGNAL(colorChanged(QColor)),

@@ -110,6 +110,8 @@ MeshInfoWidget::MeshInfoWidget(QWidget *parent) :
 	  this, SIGNAL(darkenChanged(int)));
   connect(ui.position, SIGNAL(editingFinished()),
 	  this, SLOT(positionChanged()));
+  connect(ui.rotation, SIGNAL(editingFinished()),
+	  this, SLOT(rotationChanged()));
   connect(ui.scale, SIGNAL(editingFinished()),
 	  this, SLOT(scaleChanged()));
 
@@ -1071,7 +1073,7 @@ MeshInfoWidget::setParameters(QMap<QString, QVariantList> plist)
   ui.MeshParamBox->setTitle(QString("(%1) %2").	\
 			    arg(idx+1).		\
 			    arg(m_meshNames[idx]));
-      
+ 
   QStringList pkeys = plist.keys();
   for(int i=0; i<pkeys.count(); i++)
     {
@@ -1080,8 +1082,12 @@ MeshInfoWidget::setParameters(QMap<QString, QVariantList> plist)
       vlist = plist.value(pkeys[i]);
       
       if (pkeys[i] == "position")
-	{
-	  ui.position->setText(vlist[0].toString());	  
+	{	  
+	  ui.position->setText(vlist[0].toString());
+	}
+      else if (pkeys[i] == "rotation")
+	{	  
+	  ui.rotation->setText(vlist[0].toString());
 	}
       else if (pkeys[i] == "scale")
 	{
@@ -1115,10 +1121,10 @@ MeshInfoWidget::positionChanged()
 {
   QStringList v = ui.position->text().split(" ");
   QVector3D pos(1,1,1);
-  float x = v[0].toDouble();
+  float x = v[0].toFloat();
   if (v.count() > 0) pos = QVector3D(x,x,x);
-  if (v.count() > 1) pos.setY(v[1].toDouble());
-  if (v.count() > 2) pos.setZ(v[2].toDouble());
+  if (v.count() > 1) pos.setY(v[1].toFloat());
+  if (v.count() > 2) pos.setZ(v[2].toFloat());
 
   ui.position->setText(QString("%1 %2 %3").
 		   arg(pos.x()).
@@ -1126,6 +1132,31 @@ MeshInfoWidget::positionChanged()
 		   arg(pos.z()));
 
   emit positionChanged(pos);
+}
+
+void
+MeshInfoWidget::rotationChanged()
+{
+  QStringList v = ui.rotation->text().split(" ");
+  if (v.count() != 4)
+    {
+      QMessageBox::information(0, "Rotation", "Need to specify a total of 4 components for axis and angle");
+      return;
+    }
+  float x=0,y=0,z=0,a=0;
+  if (v.count() > 0) x = v[0].toFloat();
+  if (v.count() > 1) y = v[1].toFloat();
+  if (v.count() > 2) z = v[2].toFloat();
+  if (v.count() > 3) a = v[3].toFloat();
+
+  ui.rotation->setText(QString("%1 %2 %3 %4").
+		       arg(x).
+		       arg(y).
+		       arg(z).
+		       arg(a));
+
+  QVector4D rot(x,y,z,a);
+  emit rotationChanged(rot);
 }
 
 void

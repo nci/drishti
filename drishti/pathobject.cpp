@@ -1392,6 +1392,11 @@ PathObject::computeArea(QList<Vec> points)
   if (!m_closed)
     return;
 
+  Vec vS = Global::voxelScaling();
+  float maxval = qMin(vS.x, qMin(vS.y, vS.z));
+  vS = vS/maxval;
+  
+
   m_area = 0;
   
   int npts = points.count();
@@ -1402,12 +1407,15 @@ PathObject::computeArea(QList<Vec> points)
   cen /= npts;
 
   Vec v1 = cen;
+  v1 = VECDIVIDE(v1, vS);
   for (int i = 0; i < npts-1; i++)
     {
       int j = i + 1;
 
       Vec v2 = points[i];
       Vec v3 = points[j];
+      v2 = VECDIVIDE(v2, vS);
+      v3 = VECDIVIDE(v3, vS);
       
       double a = sqrt(pow(v1.x - v2.x, 2) + pow(v1.y - v2.y, 2) + pow(v1.z - v2.z, 2));
       double b = sqrt(pow(v2.x - v3.x, 2) + pow(v2.y - v3.y, 2) + pow(v2.z - v3.z, 2));

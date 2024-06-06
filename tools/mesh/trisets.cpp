@@ -168,6 +168,7 @@ Trisets::setActive(int idx, bool flag)
     {
       m_active = idx;
       removeFromMouseGrabberPool();
+      sendParametersToMenu();
       if (m_grab)
 	{
 	  if (m_active > -1)
@@ -3396,6 +3397,14 @@ Trisets::sendParametersToMenu()
   vlist << QVariant(QString("%1 %2 %3").arg(pos.x).arg(pos.y).arg(pos.z));
   plist["position"] = vlist;
   
+  Quaternion rot = m_trisets[m_active]->rotation();
+  vlist.clear();
+  float a = rot.angle();
+  pos = rot.axis();
+  a = RAD2DEG(a);
+  vlist << QVariant(QString("%1 %2 %3 %4").arg(pos.x).arg(pos.y).arg(pos.z).arg(a));
+  plist["rotation"] = vlist;
+  
   Vec scl = m_trisets[m_active]->scale();
   vlist.clear();
   vlist << QVariant(QString("%1 %2 %3").arg(scl.x).arg(scl.y).arg(scl.z));
@@ -3420,7 +3429,7 @@ Trisets::sendParametersToMenu()
   vlist.clear();
   vlist << QVariant(10*m_trisets[m_active]->dark());
   plist["darken"] = vlist;
-  
+
   emit setParameters(plist);
 }
 
@@ -3570,9 +3579,6 @@ Trisets::scaleChanged(QVector3D scl)
     m_trisets[m_multiActive[i]]->setScale(Vec(scl.x(),
 					      scl.y(),
 					      scl.z()));
-//  m_trisets[m_active]->setScale(Vec(scl.x(),
-//				    scl.y(),
-//				    scl.z()));
   emit updateGL();
 }
 
@@ -3584,9 +3590,18 @@ Trisets::positionChanged(QVector3D pos)
 						 pos.y(),
 						 pos.z()));
   
-//  m_trisets[m_active]->setPosition(Vec(pos.x(),
-//				       pos.y(),
-//				       pos.z()));
+  emit updateGL();
+}
+
+void
+Trisets::rotationChanged(QVector4D rot)
+{
+  Vec axis = Vec(rot.x(), rot.y(), rot.z());
+  double angle = DEG2RAD(rot.w());
+  Quaternion q(axis, angle);
+  for (int i=0; i<m_multiActive.count(); i++)
+    m_trisets[m_multiActive[i]]->setRotation(q);
+  
   emit updateGL();
 }
 

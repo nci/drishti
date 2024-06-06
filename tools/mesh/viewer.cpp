@@ -1796,16 +1796,16 @@ Viewer::mousePressEvent(QMouseEvent *event)
 void
 Viewer::mouseMoveEvent(QMouseEvent *event)
 {
-  if (m_lengthMode)
-    {
-      if (event->buttons() == Qt::NoButton &&
-	  m_gotPoint0)
-	{
-	  checkPointSelected(event);
-	  update();
-	  return;
-	}
-    }
+//  if (m_lengthMode)
+//    {
+//      if (event->buttons() == Qt::NoButton &&
+//	  m_gotPoint0)
+//	{
+//	  checkPointSelected(event);
+//	  update();
+//	  return;
+//	}
+//    }
 
   
   if (!Global::updateViewer())
@@ -1860,22 +1860,22 @@ Viewer::mouseMoveEvent(QMouseEvent *event)
 void
 Viewer::mouseReleaseEvent(QMouseEvent *event)
 {
-  if (m_lengthMode)
-    {
-      if (m_gotPoint0)
-	m_lengthMode = false;
-      else
-	{
-	  checkPointSelected(event);
-	  //update();
-	  //return;
-	}
-
-      m_mouseDrag = false;
-      QGLViewer::mouseReleaseEvent(event);      
-      m_undo.append(camera()->position(), camera()->orientation());
-      return;
-    }
+//  if (m_lengthMode)
+//    {
+//      if (m_gotPoint0)
+//	m_lengthMode = false;
+//      else
+//	{
+//	  checkPointSelected(event);
+//	  //update();
+//	  //return;
+//	}
+//
+//      m_mouseDrag = false;
+//      QGLViewer::mouseReleaseEvent(event);      
+//      m_undo.append(camera()->position(), camera()->orientation());
+//      return;
+//    }
 
   
   m_mouseDrag = false;
@@ -1984,8 +1984,8 @@ Viewer::undoParameters()
 void
 Viewer::measureLength()
 {
-  m_lengthMode = true;
-  m_gotPoint0 = false;
+//  m_lengthMode = true;
+//  m_gotPoint0 = false;
 }
 
 void

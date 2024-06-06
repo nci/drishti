@@ -7,6 +7,7 @@
 #include <QCheckBox>
 #include <QVBoxLayout>
 #include <QVector3D>
+#include <QVector4D>
 #include <QIcon>
 
 #include "imglistdialog.h"
@@ -41,6 +42,7 @@ class MeshInfoWidget : public QWidget
     void saveMesh();
     void duplicateMesh();
     void positionChanged();
+    void rotationChanged();
     void scaleChanged();
   
   signals :
@@ -62,6 +64,7 @@ class MeshInfoWidget : public QWidget
     void glowChanged(int);
     void darkenChanged(int);
     void positionChanged(QVector3D);
+    void rotationChanged(QVector4D);
     void scaleChanged(QVector3D);
     void colorChanged(QColor);
     void colorChanged(QList<int>, QColor);

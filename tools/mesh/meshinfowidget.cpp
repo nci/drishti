@@ -38,6 +38,7 @@ MeshInfoWidget::MeshInfoWidget(QWidget *parent) :
 
 
   m_meshList = new QTableWidget();
+  m_meshList->horizontalHeader()->setFont(QFont("MS Reference Sans Serif", 14));
   m_meshList->setSelectionBehavior(QAbstractItemView::SelectRows);
   m_meshList->setShowGrid(false);
   m_meshList->setColumnCount(7);
@@ -115,6 +116,7 @@ MeshInfoWidget::MeshInfoWidget(QWidget *parent) :
   connect(ui.scale, SIGNAL(editingFinished()),
 	  this, SLOT(scaleChanged()));
 
+  ui.MeshParamBox->setFont(QFont("MS Reference Sans Serif", 12));
   ui.MeshParamBox->hide();
 
   m_totVertices = 0;
@@ -187,7 +189,7 @@ MeshInfoWidget::selectMeshes(QList<int> indices)
   if (indices.count() > 1)
     ui.MeshParamBox->setStyleSheet("QWidget{background:beige;}");
   else
-    ui.MeshParamBox->setStyleSheet("QWidget{background:gainsboro;}");
+    ui.MeshParamBox->setStyleSheet("QWidget{background:#f2f3f4;}");
 }
 
 void
@@ -617,7 +619,7 @@ MeshInfoWidget::cellClicked(int row, int col)
       ui.MeshParamBox->setStyleSheet("QWidget{background:beige;}");
     }
   else
-    ui.MeshParamBox->setStyleSheet("QWidget{background:gainsboro;}");
+    ui.MeshParamBox->setStyleSheet("QWidget{background:#f2f3f4;}");
 
   
   emit multiSelection(selIdx);

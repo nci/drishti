@@ -67,6 +67,11 @@ class NrrdPlugin : public QObject, VolInterface
   void findMinMaxandGenerateHistogram();
 
   template <class T> void readSlice(int[3], int[3], int, uchar*);
+
+
+  uchar *m_entireVolume;
+  template <class T> void readEntireVolume();
+  
 };
 
 #endif

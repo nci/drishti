@@ -34,6 +34,8 @@ NrrdPlugin::init()
   m_rawMin = m_rawMax = 0;
   m_histogram.clear();
   m_4dvol = false;
+
+  m_entireVolume = 0;
 }
 
 void
@@ -50,6 +52,10 @@ NrrdPlugin::clear()
   m_rawMin = m_rawMax = 0;
   m_histogram.clear();
   m_4dvol = false;
+
+  if (m_entireVolume)
+    delete [] m_entireVolume;
+  m_entireVolume = 0;
 }
 
 void
@@ -108,6 +114,58 @@ void
 NrrdPlugin::readSlice(int idx[3], int sz[3],
 		       int nbytes, uchar *slice)
 {
+  //-----------------
+  qint64 offset = m_bytesPerVoxel;
+  offset = offset * idx[2] * m_width * m_height;
+  memcpy(slice,
+	 m_entireVolume + offset,
+	 m_bytesPerVoxel*m_width*m_height);
+  return;
+  //-----------------
+
+  
+//  typedef itk::Image<T, 3> ImageType;
+//
+//  typedef itk::ImageFileReader<ImageType> ReaderType;
+//  ReaderType::Pointer reader = ReaderType::New();
+//  reader->SetFileName(m_fileName[0].toUtf8().data());
+//  typedef itk::NrrdImageIO NrrdIOType;
+//  NrrdIOType::Pointer nrrdIO = NrrdIOType::New();
+//  reader->SetImageIO(nrrdIO);
+//
+//  typedef itk::RegionOfInterestImageFilter<ImageType,ImageType> RegionExtractor;
+//
+//  ImageType::RegionType region;
+//  ImageType::SizeType size;
+//  ImageType::IndexType index;
+//  index[2] = idx[2];
+//  index[1] = idx[1];
+//  index[0] = idx[0];
+//  size[2] = sz[2];
+//  size[1] = sz[1];
+//  size[0] = sz[0];
+//  region.SetIndex(index);
+//  region.SetSize(size);
+//  
+//  // Extract the relevant sub-region.
+//  RegionExtractor::Pointer extractor = RegionExtractor::New();
+//  extractor->SetInput(reader->GetOutput());
+//  extractor->SetRegionOfInterest(region);
+//  extractor->Update();
+//  ImageType *dimg = extractor->GetOutput();
+//  char *tdata = (char*)(dimg->GetBufferPointer());
+//  memcpy(slice, tdata, nbytes);
+}
+
+template <class T>
+void
+NrrdPlugin::readEntireVolume()
+{
+  qint64 nbytes = m_bytesPerVoxel;
+  nbytes = nbytes * m_depth * m_width * m_height;
+
+  m_entireVolume = new uchar[nbytes];
+  
   typedef itk::Image<T, 3> ImageType;
 
   typedef itk::ImageFileReader<ImageType> ReaderType;
@@ -122,12 +180,12 @@ NrrdPlugin::readSlice(int idx[3], int sz[3],
   ImageType::RegionType region;
   ImageType::SizeType size;
   ImageType::IndexType index;
-  index[2] = idx[2];
-  index[1] = idx[1];
-  index[0] = idx[0];
-  size[2] = sz[2];
-  size[1] = sz[1];
-  size[0] = sz[0];
+  index[2] = 0;
+  index[1] = 0;
+  index[0] = 0;
+  size[2] = m_depth;
+  size[1] = m_width;
+  size[0] = m_height;
   region.SetIndex(index);
   region.SetSize(size);
   
@@ -138,7 +196,11 @@ NrrdPlugin::readSlice(int idx[3], int sz[3],
   extractor->Update();
   ImageType *dimg = extractor->GetOutput();
   char *tdata = (char*)(dimg->GetBufferPointer());
-  memcpy(slice, tdata, nbytes);
+  //memcpy(slice, tdata, nbytes);
+
+  memcpy((char*)m_entireVolume, tdata, nbytes);
+
+  //QMessageBox::information(0, "", "read entire volume");
 }
 
 bool
@@ -162,6 +224,10 @@ NrrdPlugin::setFile(QStringList files)
   m_width = imageIO->GetDimensions(1);
   m_depth = imageIO->GetDimensions(2);
 
+//  QMessageBox::information(0, "", QString("%1 %2 %3").		\
+//  	   arg(m_height).arg(m_width).arg(m_depth));
+  
+
   m_voxelSizeX = imageIO->GetSpacing(0);
   m_voxelSizeY = imageIO->GetSpacing(1);
   m_voxelSizeZ = imageIO->GetSpacing(2);
@@ -183,6 +249,23 @@ NrrdPlugin::setFile(QStringList files)
   else if (m_voxelType == _Short) m_bytesPerVoxel = 2;
   else if (m_voxelType == _Int) m_bytesPerVoxel = 4;
   else if (m_voxelType == _Float) m_bytesPerVoxel = 4;
+
+
+  if (m_voxelType == _UChar)
+    readEntireVolume<unsigned char>();
+  else if (m_voxelType == _Char)
+    readEntireVolume<char>();
+  else if (m_voxelType == _UShort)
+    readEntireVolume<unsigned short>();
+  else if (m_voxelType == _Short)
+    readEntireVolume<short>();
+  else if (m_voxelType == _Int)
+    readEntireVolume<int>();
+  else if (m_voxelType == _Float)
+    readEntireVolume<float>();
+
+      
+//  QMessageBox::information(0, "", QString("%1 : %2").arg(m_voxelType).arg(m_bytesPerVoxel));
 
   if (m_4dvol) // do not perform further calculations.
     return true;
@@ -260,6 +343,13 @@ NrrdPlugin::findMinMaxandGenerateHistogram()
 //    {
 //      m_rawMin = 0;
 //      m_rawMax = 255;
+//      progress.setValue(100);
+//      return;
+//    }
+//  if (m_voxelType == _UShort)
+//    {
+//      m_rawMin = 0;
+//      m_rawMax = 65535;
 //      progress.setValue(100);
 //      return;
 //    }

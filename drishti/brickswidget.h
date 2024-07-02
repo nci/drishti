@@ -12,17 +12,21 @@ class BricksWidget : public QWidget
  public :
   BricksWidget(QWidget *parent=NULL,
 	       Bricks *bricks=NULL);
+  float getAngle();
+  bool angleFromMouse() { return ui.angleFromMouse->isChecked(); }
   
  signals :
   void updateGL();
   void showMessage(QString, bool);
+  void brickAngleFromMouse(bool);
 
  public slots :
   void refresh();
   void setTFSets(int);
   void setBrickZeroRotation(int, float);
   void keyPressEvent(QKeyEvent*);
-
+  void setAngle(float);
+				
  private slots :
   void addClipper();
   void removeClipper(int);
@@ -45,6 +49,7 @@ class BricksWidget : public QWidget
   void on_m_scale_editingFinished();
   void on_m_brickMinEdit_editingFinished();
   void on_m_brickMaxEdit_editingFinished();
+  void on_angleFromMouse_toggled(bool);
 
   void fillInformation(int);
   void updateBrickInformation();

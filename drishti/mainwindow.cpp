@@ -286,7 +286,9 @@ MainWindow::MainWindow(QWidget *parent) :
 
   createHiresLowresWindows();
 
+  m_Viewer->setBricksWidget(m_bricksWidget);
 
+  
   #include "connectbricks.h"
   #include "connectbrickswidget.h"
   #include "connectclipplanes.h"

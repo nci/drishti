@@ -147,6 +147,12 @@ BricksWidget::refresh()
 }
 
 void
+BricksWidget::on_angleFromMouse_toggled(bool flag)
+{
+  emit brickAngleFromMouse(flag);
+}
+
+void
 BricksWidget::on_m_linkBrick_activated(int index)
 {
   if (m_selected < 0 || m_selected >= ui.m_brickList->count())
@@ -205,6 +211,8 @@ BricksWidget::on_m_tfSet_activated(int index)
 void
 BricksWidget::on_m_new_pressed()
 {
+  ui.angleFromMouse->setChecked(false);
+  
   int nitems = ui.m_brickList->count();
   ui.m_brickList->clear();
   ui.m_linkBrick->clear();
@@ -232,6 +240,8 @@ BricksWidget::on_m_new_pressed()
 void
 BricksWidget::on_m_remove_pressed()
 {
+  ui.angleFromMouse->setChecked(false);
+  
   if (m_selected < 0)
     {
       emit showMessage("Select brick for removal", true);
@@ -409,10 +419,30 @@ BricksWidget::fillInformation(int bno)
 
   updateClipTable(bno);
 }
+void
+BricksWidget::setAngle(float angle)
+{
+  ui.m_angle->setValue(angle);
+  on_m_angle_editingFinished();
+}
+float
+BricksWidget::getAngle()
+{
+ // remove the degree symbol at the end of angle value
+  QString astr = ui.m_angle->text();
+  astr.chop(1);
+  if (astr.contains(","))
+    {
+      astr = astr.replace(',','.');
+    }
+  return(astr.toFloat());
+}
 
 void
 BricksWidget::on_m_brickList_itemClicked(QListWidgetItem *item)
 {
+  ui.angleFromMouse->setChecked(false);
+  
   m_selected = ui.m_brickList->row(item);
   m_bricks->setSelected(m_selected);
   fillInformation(m_selected);

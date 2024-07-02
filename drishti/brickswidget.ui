@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>419</width>
-    <height>464</height>
+    <width>416</width>
+    <height>447</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -520,6 +520,50 @@ p, li { white-space: pre-wrap; }
          </property>
          <property name="maximum">
           <double>2147483647.000000000000000</double>
+         </property>
+        </widget>
+       </item>
+       <item row="5" column="2">
+        <widget class="QCheckBox" name="angleFromMouse">
+         <property name="minimumSize">
+          <size>
+           <width>40</width>
+           <height>20</height>
+          </size>
+         </property>
+         <property name="toolTip">
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt;Switch toggle on (Red) and drag mouse to change the angle.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         </property>
+         <property name="layoutDirection">
+          <enum>Qt::LeftToRight</enum>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">QCheckBox::indicator {
+     background-color: cyan;
+     border-style: solid;
+     border-color: gray;
+     border-width:1px;
+     border-radius: 5px;
+     width: 38px;
+     height:18px;
+}
+QCheckBox::indicator::checked {
+     background-color: red;
+     border-color: white;
+     border-width:2px;
+     border-radius: 10px;
+     width: 36px;
+     height:16px;
+}</string>
+         </property>
+         <property name="text">
+          <string/>
+         </property>
+         <property name="iconSize">
+          <size>
+           <width>32</width>
+           <height>32</height>
+          </size>
          </property>
         </widget>
        </item>

@@ -13,6 +13,8 @@ using namespace qglviewer;
 #include "drawhiresvolume.h"
 #include "drawlowresvolume.h"
 #include "keyframe.h"
+#include "brickswidget.h"
+
 #ifdef USE_GLMEDIA
 #include "glmedia.h"
 #endif // USE_GLMEDIA
@@ -66,7 +68,8 @@ class Viewer : public QGLViewer
   void setHiresVolume(DrawHiresVolume*);
   void setLowresVolume(DrawLowresVolume*);
   void setKeyFrame(KeyFrame*);
-
+  void setBricksWidget(BricksWidget*);
+  
   QImage histogramImage1D();
   QImage histogramImage2D();
 
@@ -113,7 +116,9 @@ class Viewer : public QGLViewer
    virtual void mouseReleaseEvent(QMouseEvent*);
    virtual void mouseMoveEvent(QMouseEvent*);
    virtual void closeEvent(QCloseEvent*);
-   
+
+   void brickAngleFromMouse(bool);
+  
    void updateLookFrom(Vec, Quaternion, float, float);
    
    void resetLookupTable();
@@ -222,6 +227,7 @@ class Viewer : public QGLViewer
 
  private :
   QWidget *m_parent;
+  BricksWidget *m_bricksWidget;
 
 
   ViewerUndo m_undo;
@@ -291,6 +297,7 @@ class Viewer : public QGLViewer
 
   QWidget *m_paintMenuWidget;
 
+  bool m_brickAngleFromMouse;
   
   bool m_paintMode;
   Vec m_paintColor;

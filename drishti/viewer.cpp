@@ -118,6 +118,7 @@ void Viewer::setVolume(Volume *vol) { m_Volume = vol; }
 void Viewer::setHiresVolume(DrawHiresVolume *vol) { m_hiresVolume = vol; }
 void Viewer::setLowresVolume(DrawLowresVolume *vol) { m_lowresVolume = vol; }
 void Viewer::setKeyFrame(KeyFrame *keyframe) { m_keyFrame = keyframe; }
+void Viewer::setBricksWidget(BricksWidget *bw) { m_bricksWidget = bw; }
 void Viewer::setImageMode(int im) { m_imageMode = im; }
 void Viewer::setCurrentFrame(int fno)
 {
@@ -636,8 +637,15 @@ Viewer::Viewer(QWidget *parent) :
   connect(m_radSpinBox, SIGNAL(valueChanged(int)),
 	  this, SLOT(setCarveRadius(int)));
   m_radSpinBox->hide();
+
+  m_brickAngleFromMouse = false;
 }
 
+void
+Viewer::brickAngleFromMouse(bool flag)
+{
+  m_brickAngleFromMouse = flag;
+}
 
 void
 Viewer::initSocket()
@@ -3274,6 +3282,20 @@ Viewer::mouseMoveEvent(QMouseEvent *event)
   if (m_mouseDrag && GeometryObjects::imageCaptions()->isActive())
     GeometryObjects::imageCaptions()->setActive(false);
 
+
+  if (m_brickAngleFromMouse && m_mouseDrag)
+    {
+      float angle = m_bricksWidget->getAngle();
+      float len = m_mousePrevPos.x() - event->pos().x();
+      angle += 0.1f*len; 
+      m_bricksWidget->setAngle(angle);
+
+      updateGL();     
+      m_mousePrevPos = event->pos();
+      return;
+    }
+
+  
   QGLViewer::mouseMoveEvent(event);
   m_mousePrevPos = event->pos();
 }

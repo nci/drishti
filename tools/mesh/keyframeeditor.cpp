@@ -139,8 +139,8 @@ KeyFrameEditor::KeyFrameEditor(QWidget *parent):
    m_minus->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
    m_lock->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 
-  m_set->setMaximumSize(100, 30);
-  m_remove->setMaximumSize(150, 30);
+  m_set->setMaximumSize(130, 30);
+  m_remove->setMaximumSize(170, 30);
   m_plus->setMaximumSize(30, 30);
   m_minus->setMaximumSize(30, 30);
   m_lock->setMaximumSize(30, 30);
@@ -149,7 +149,7 @@ KeyFrameEditor::KeyFrameEditor(QWidget *parent):
   m_reset->setMaximumSize(30, 30);
 
   m_set->setMinimumSize(120, 30);
-  m_remove->setMinimumSize(150, 30);
+  m_remove->setMinimumSize(170, 30);
   m_plus->setMinimumSize(30, 30);
   m_minus->setMinimumSize(30, 30);
   m_lock->setMinimumSize(30, 30);
@@ -748,7 +748,7 @@ KeyFrameEditor::drawCurrentFrame(QPainter *p)
       m_currFrame > m_maxFrame)
     return;
 
-  p->setFont(QFont("Helvetica", 10));
+  p->setFont(QFont("Helvetica", 12));
   p->setPen(QPen(QColor(30, 100, 60),2));
   
   int tick = m_p0.x() + (m_currFrame-m_minFrame)*m_tickStep/(m_frameStep);
@@ -762,9 +762,9 @@ KeyFrameEditor::drawCurrentFrame(QPainter *p)
   else if (m_currFrame < 100)
     tk = tick-20;
   else if (m_currFrame < 1000)
-    tk = tick-25;
-  else
     tk = tick-30;
+  else
+    tk = tick-40;
   p->drawText(tk, m_lineHeight+m_tickHeight+5,
 	      QString("%1").arg(m_currFrame));
 

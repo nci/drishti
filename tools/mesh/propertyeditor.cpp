@@ -21,7 +21,7 @@ PropertyEditor::PropertyEditor(QWidget *parent) :
 {
   ui.setupUi(this);
   resize(400, 600);
-
+ 
   m_signalMapper = new QSignalMapper(this);
 
 
@@ -38,10 +38,6 @@ PropertyEditor::PropertyEditor(QWidget *parent) :
   m_helpLabel->setReadOnly(true);
   m_prevRow = -1;
   
-  m_helpList->setFont(QFont("Century Gothic", 12));
-  m_helpLabel->setFont(QFont("Century Gothic", 10));
-  ui.lineEdit->setFont(QFont("Century Gothic", 12));
-  ui.messageLabel->setFont(QFont("Century Gothic", 12));
 
   splitter->addWidget(m_helpList);
   splitter->addWidget(m_helpLabel);
@@ -204,7 +200,6 @@ PropertyEditor::set(QString title,
 	  ui.splitter_2->setSizes(ss);
 
 	  QLabel *lbl = new QLabel(keys[i]);
-	  lbl->setFont(QFont("Century Gothic", 12));
 
 	  if (icons.count() > i)
 	    {
@@ -272,7 +267,6 @@ PropertyEditor::set(QString title,
 			{
 			  QString txt = "<font color='#999999'> " + slst[1] + "</font>";
 			  sl = new QLabel(txt);
-			  sl->setFont(QFont("Helvetica", 10));
 			  if (slst[0] == "L") hl->addWidget(sl, 0, Qt::AlignBottom|Qt::AlignLeft);
 			  if (slst[0] == "C") hl->addWidget(sl, 0, Qt::AlignBottom|Qt::AlignHCenter);
 			  if (slst[0] == "R") hl->addWidget(sl, 0, Qt::AlignBottom|Qt::AlignRight);
@@ -281,7 +275,6 @@ PropertyEditor::set(QString title,
 			{
 			  QString txt = "<font color='#999999'> " + vlist[ii].toString() + "</font>";
 			  sl = new QLabel(txt);
-			  sl->setFont(QFont("Helvetica", 10));
 			  hl->addWidget(sl, 0, Qt::AlignBottom|Qt::AlignHCenter);
 			}
 		    }
@@ -309,7 +302,6 @@ PropertyEditor::set(QString title,
 	  else if (vlist[0] == "string")
 	    {
 	      QLineEdit *ledit = new QLineEdit();
-	      ledit->setFont(QFont("Century Gothic", 12));
 	      if (vlist.count() > 1)
 		ledit->setText(vlist[1].toString());
 	      
@@ -326,7 +318,6 @@ PropertyEditor::set(QString title,
 	                     QString("</a>");
 
 	      QLabel *txt = new QLabel(clbl);
-	      txt->setFont(QFont("Helvetica", 12));
 	      txt->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Fixed);
 	      txt->setTextInteractionFlags(Qt::LinksAccessibleByMouse);
 	      gridLayout->addWidget(txt, i, 1);
@@ -339,6 +330,7 @@ PropertyEditor::set(QString title,
 	  else if (vlist[0] == "combobox")
 	    {
 	      QComboBox *combo = new QComboBox();
+
 	      QStringList slist;
 	      for(int j=0; j<vlist.count()-2; j++)
 		slist << vlist[j+2].toString();

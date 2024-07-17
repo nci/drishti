@@ -925,6 +925,8 @@ KeyFrame::editFrameInterpolation(int kfn)
 	}
     }
 
+
+  propertyEditor.setFont(QFont("Helvetica", 12));
   propertyEditor.set("Keyframe Interpolation Parameters",
 		     plist, keys);
   propertyEditor.resize(300, 500);
@@ -1290,6 +1292,7 @@ KeyFrame::copyProperties(QString title)
   keys << "surface labels only";
 
 
+  propertyEditor.setFont(QFont("Helvetica", 12));
   propertyEditor.set(title,
 		     plist, keys);
   propertyEditor.resize(300, 500);

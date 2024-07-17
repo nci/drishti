@@ -114,6 +114,7 @@ MainWindow::createHiresLowresWindows()
 MainWindow::MainWindow(QWidget *parent) :
   QMainWindow(parent)
 {
+
   QTranslator translator;
   if (translator.load(qApp->applicationDirPath() + QDir::separator() + "chinese"))
     QCoreApplication::installTranslator(&translator);
@@ -122,6 +123,9 @@ MainWindow::MainWindow(QWidget *parent) :
   
   
   ui.setupUi(this);
+
+  qApp->setFont(QFont("MS Reference Sans Serif", 12));
+
   ui.actionRedBlue->setVisible(false);
   ui.actionRedCyan->setVisible(false);
   // hide stereo menu
@@ -220,7 +224,7 @@ MainWindow::MainWindow(QWidget *parent) :
   QVBoxLayout *vbox = new QVBoxLayout();
   vbox->setSpacing(0);
   QTabWidget *tabW = new QTabWidget();
-  tabW->setStyleSheet("QWidget{ font-size: 10pt; }");
+  tabW->setStyleSheet("QWidget{ font-size: 12pt; }");
   tabW->addTab(m_lightingWidget, "Shading");
   tabW->addTab(m_bricksWidget, "Transform");
   tabW->addTab(m_globalWidget, "Parameters");
@@ -2499,7 +2503,7 @@ MainWindow::createPaintMenu()
     dlg->setDoubleValue(r);
     dlg->setDoubleRange(0.1, 50.0);
     dlg->setDoubleDecimals(1);
-    dlg->setFont(QFont("MS Reference Sans Serif", 10));
+    dlg->setFont(QFont("MS Reference Sans Serif", 12));
     dlg->setOptions(QInputDialog::NoButtons);
     dlg->setWindowFlags(Qt::Tool);
     connect(dlg, SIGNAL(doubleValueChanged(double)),
@@ -2517,7 +2521,7 @@ MainWindow::createPaintMenu()
     dlg->setDoubleRange(0.01, 1.0);
     dlg->setDoubleDecimals(2);
     dlg->setDoubleStep(0.01);
-    dlg->setFont(QFont("MS Reference Sans Serif", 10));
+    dlg->setFont(QFont("MS Reference Sans Serif", 12));
     dlg->setOptions(QInputDialog::NoButtons);
     dlg->setWindowFlags(Qt::Tool);
     connect(dlg, SIGNAL(doubleValueChanged(double)),
@@ -2534,7 +2538,7 @@ MainWindow::createPaintMenu()
     dlg->setComboBoxItems(items);
     dlg->setTextValue(items[0]);
     dlg->setComboBoxEditable(false);
-    dlg->setFont(QFont("MS Reference Sans Serif", 10));
+    dlg->setFont(QFont("MS Reference Sans Serif", 12));
     dlg->setOptions(QInputDialog::NoButtons);
     dlg->setWindowFlags(Qt::Tool);
     connect(dlg, SIGNAL(textValueChanged(QString)),
@@ -2550,7 +2554,7 @@ MainWindow::createPaintMenu()
     dlg->setIntValue(r);
     dlg->setIntRange(1, 10);
     dlg->setIntStep(1);
-    dlg->setFont(QFont("MS Reference Sans Serif", 10));
+    dlg->setFont(QFont("MS Reference Sans Serif", 12));
     dlg->setOptions(QInputDialog::NoButtons);
     dlg->setWindowFlags(Qt::Tool);
     connect(dlg, SIGNAL(intValueChanged(int)),

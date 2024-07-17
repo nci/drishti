@@ -166,7 +166,16 @@ class TrisetObject
   void clearHitPoints() { m_hitpoints.clear(); }
   QList<Vec> hitPoints() { return m_hitpoints; }
   void drawHitPoints();
-
+  void setHitPointHovered(int p) { m_hoveredHitPoint = p; }
+  void removeHoveredHitPoint()
+  {
+    if (m_hoveredHitPoint > -1)
+      {
+	m_hitpoints.removeAt(m_hoveredHitPoint);
+	m_hoveredHitPoint = -1;
+      }
+  } ;
+  
   void copyToOrigVcolor();
   void copyFromOrigVcolor();  
   void smoothVertexColors(int);
@@ -230,6 +239,7 @@ private :
   
   float m_featherSize;  
 
+  int m_hoveredHitPoint;
   QList<Vec> m_hitpoints;
 
   QDialog *m_dialog;

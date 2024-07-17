@@ -118,6 +118,8 @@ TrisetObject::enclosingBox(Vec &boxMin,
 void
 TrisetObject::clear()
 {
+  m_hoveredHitPoint = -1;
+  
   if (m_dialog)
     {
       m_dialog->close();
@@ -1147,6 +1149,18 @@ TrisetObject::drawHitPoints()
   glTexEnvf( GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE );
   glHint(GL_POINT_SMOOTH_HINT, GL_NICEST);
   glEnable(GL_POINT_SMOOTH);    
+
+  if (m_hoveredHitPoint > -1)
+    {
+      glColor3f(1, 0.4, 0.8);
+      glPointSize(25);
+      glBegin(GL_POINTS);
+      Vec v = m_hitpoints[m_hoveredHitPoint] - m_centroid;
+      v = m_q.inverseRotate(v) + m_centroid + m_position;
+      glVertex3fv(v);
+      glEnd();
+    }
+
   glColor3f(0.8, 0.4, 1);
   glPointSize(20);
   glBegin(GL_POINTS);
@@ -1157,6 +1171,7 @@ TrisetObject::drawHitPoints()
       glVertex3fv(v);
     }
   glEnd();
+
   glPointSize(1);
   glDisable(GL_POINT_SPRITE);
   glActiveTexture(GL_TEXTURE0);

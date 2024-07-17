@@ -75,6 +75,7 @@ class Trisets : public QObject
 
   void setShapeEnhancements(float, float, float, float, float);
 
+  void checkHitPointsHover(QGLViewer*);
   void checkMouseHover(QGLViewer*);
 
   void setLightDirection(Vec);
@@ -88,6 +89,7 @@ class Trisets : public QObject
 
   bool addHitPoint(Vec);
   void drawHitPoints();
+  void removeHoveredHitPoint();
 
  public slots :
   void setShow(int, bool);

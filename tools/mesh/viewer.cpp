@@ -2217,6 +2217,14 @@ Viewer::keyPressEvent(QKeyEvent *event)
       (event->modifiers() & Qt::ControlModifier ||
        event->modifiers() & Qt::MetaModifier) )
     QMessageBox::information(0, "", tr("Image copied to clipboard."));
+
+  if (event->key() == Qt::Key_Delete ||
+      event->key() == Qt::Key_Backspace ||
+      event->key() == Qt::Key_Backtab)
+    {
+      GeometryObjects::trisets()->removeHoveredHitPoint(); 
+    }
+
 }
 
 void

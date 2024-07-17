@@ -495,12 +495,49 @@ Trisets::addMesh(QString flnm)
 }
 
 void
+Trisets::checkHitPointsHover(QGLViewer *viewer)
+{
+  QPoint scr = viewer->mapFromGlobal(QCursor::pos());
+
+  // reset hovered hit point
+  for(int i=0; i<m_trisets.count(); i++)
+    m_trisets[i]->setHitPointHovered(-1);
+
+  for(int i=0; i<m_trisets.count(); i++)
+    {
+      Vec tcen = m_trisets[i]->centroid();
+      Vec tpos = m_trisets[i]->position();
+      Quaternion tq = m_trisets[i]->rotation();
+      QList<Vec> hpts;
+      hpts = m_trisets[i]->hitPoints();
+      for(int p=0; p<hpts.count(); p++)
+	{
+	  Vec pos = hpts[p];
+	  pos = pos - tcen;
+	  pos = tq.inverseRotate(pos) + tcen + tpos;
+	  pos = viewer->camera()->projectedCoordinatesOf(pos);
+	  QPoint hp(pos.x, pos.y);
+	  if ((hp-scr).manhattanLength() < 10)
+	    {
+	      m_trisets[i]->setHitPointHovered(p);
+	      return;
+	    }
+	}
+    }
+  
+}
+
+void
 Trisets::checkMouseHover(QGLViewer *viewer)
 {
   // using checkMouseHover instead of checkIfGrabsMouse
   
   if (m_trisets.count() == 0)
     return;
+
+  // check for hitpoint hover
+  checkHitPointsHover(viewer);
+
   
   QPoint scr = viewer->mapFromGlobal(QCursor::pos());
   int x = scr.x();
@@ -2009,6 +2046,17 @@ Trisets::duplicateMesh(int i)
   emit updateGL();
 }
 
+
+void
+Trisets::removeHoveredHitPoint()
+{
+  for (int ma=0; ma<m_multiActive.count(); ma++)
+    {
+      QMessageBox::information(0, "", "delete");
+      m_trisets[m_multiActive[ma]]->removeHoveredHitPoint();
+    }
+}
+
 bool
 Trisets::keyPressEvent(QKeyEvent *event)
 {
@@ -2024,7 +2072,6 @@ Trisets::keyPressEvent(QKeyEvent *event)
 
   if (idx == -1)
     return false;
-
 
 
   if (m_trisets[idx]->labelGrabbed() > -1)

@@ -132,7 +132,7 @@ class TrisetObject
   QVector<float> tangents() { return m_tangents; }
   
   bool load(QString);
-  void save();
+  void save(int, float*, float*);
 
   bool set(TrisetInformation);
   TrisetInformation get();

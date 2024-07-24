@@ -10,6 +10,9 @@
     connect(GeometryObjects::trisets(), SIGNAL(updateGL()),
 	    m_Viewer, SLOT(updateGL()));
 
+    connect(GeometryObjects::trisets(), SIGNAL(updateScaling()),
+	    m_Viewer, SLOT(updateScaling()));
+
     connect(GeometryObjects::trisets(), SIGNAL(clearScene()),
 	    this, SLOT(clearScene()));
 

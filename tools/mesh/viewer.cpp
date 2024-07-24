@@ -426,7 +426,7 @@ Viewer::setPaintMode(bool b)
 //    QMessageBox::information(0, "", "Paint Mode Ended");
   
   if (m_paintMode)
-    {	  
+    { 
       Vec bmin, bmax;
       GeometryObjects::trisets()->makeReadyForPainting();
       GeometryObjects::trisets()->allEnclosingBox(bmin, bmax);

@@ -17,6 +17,7 @@
 Trisets::Trisets()
 {
   m_trisets.clear();
+  m_nclip = 0;
   m_cpos = new float[100];
   m_cnormal = new float[100];
 
@@ -357,6 +358,8 @@ Trisets::clear()
 
   m_active = -1;
   m_multiActive.clear();
+
+  m_nclip = 0;
 }
 
 void
@@ -391,12 +394,18 @@ Trisets::allEnclosingBox(Vec& boxMin,
 //  boxMin = Vec(0,0,0);
 //  boxMax = Vec(0,0,0);
 
-  m_trisets[0]->enclosingBox(boxMin, boxMax);
-
+//  m_trisets[0]->enclosingBox(boxMin, boxMax);
+  m_trisets[0]->tenclosingBox(boxMin, boxMax);
+  if ((boxMax-boxMin).squaredNorm() < 0.00000001f)
+    m_trisets[0]->enclosingBox(boxMin, boxMax);
+  
   for(int i=1; i<m_trisets.count();i++)
     {
       Vec bmin, bmax;
-      m_trisets[i]->enclosingBox(bmin, bmax);
+      //m_trisets[i]->enclosingBox(bmin, bmax);
+      m_trisets[i]->tenclosingBox(bmin, bmax);
+      if ((bmax-bmin).squaredNorm() < 0.00000001f)
+	m_trisets[i]->enclosingBox(bmin, bmax);
       boxMin = StaticFunctions::minVec(boxMin, bmin);
       boxMax = StaticFunctions::maxVec(boxMax, bmax);
     }
@@ -857,16 +866,16 @@ Trisets::draw(QGLViewer *viewer,
   
   
   //--------------------------
-  int nclip = cpos.count();
-  if (nclip > 0)
+  m_nclip = cpos.count();
+  if (m_nclip > 0)
     {
-      for(int c=0; c<nclip; c++)
+      for(int c=0; c<m_nclip; c++)
 	{
 	  m_cpos[3*c+0] = cpos[c].x;
 	  m_cpos[3*c+1] = cpos[c].y;
 	  m_cpos[3*c+2] = cpos[c].z;
 	}
-      for(int c=0; c<nclip; c++)
+      for(int c=0; c<m_nclip; c++)
 	{
 	  m_cnormal[3*c+0] = cnormal[c].x;
 	  m_cnormal[3*c+1] = cnormal[c].y;
@@ -970,7 +979,7 @@ Trisets::draw(QGLViewer *viewer,
       glUniform1i(meshShaderParm[22], true); // shadowRender  
       
       renderFromShadowCamera(shadowMVP, shadowViewDir,
-			     scrW, scrH, nclip);
+			     scrW, scrH, m_nclip);
       //--------------------------------------------
       
 
@@ -981,7 +990,7 @@ Trisets::draw(QGLViewer *viewer,
 	glUniform1i(meshShaderParm[22], false); // shadowRender  
 	
 	renderFromCameraClearView(MVP, viewDir,
-				  scrW, scrH, nclip);
+				  scrW, scrH, m_nclip);
 
 
 	dilateClearViewBuffer(viewer, scrW, scrH);
@@ -1006,7 +1015,7 @@ Trisets::draw(QGLViewer *viewer,
 	
       
 	renderFromCamera(MVP, viewDir,
-			 scrW, scrH, nclip);
+			 scrW, scrH, m_nclip);
 	
 	glActiveTexture(GL_TEXTURE3);
 	glDisable(GL_TEXTURE_RECTANGLE);
@@ -1038,7 +1047,7 @@ Trisets::draw(QGLViewer *viewer,
   // draw transparent surfaces if any
   renderTransparent(drawFboId,
 		    MVP, MV, viewDir, shadowViewDir, scrW, scrH,
-		    nclip, sceneRadius);
+		    m_nclip, sceneRadius);
   //--------------------------------------------
 
   
@@ -1046,7 +1055,7 @@ Trisets::draw(QGLViewer *viewer,
   // draw surface outlines if any
   renderOutline(drawFboId,
 		  MVP, viewDir, scrW, scrH,
-		  nclip, sceneRadius);
+		  m_nclip, sceneRadius);
   //--------------------------------------------
 
   //--------------------------------------------
@@ -2052,7 +2061,6 @@ Trisets::removeHoveredHitPoint()
 {
   for (int ma=0; ma<m_multiActive.count(); ma++)
     {
-      QMessageBox::information(0, "", "delete");
       m_trisets[m_multiActive[ma]]->removeHoveredHitPoint();
     }
 }
@@ -2207,7 +2215,7 @@ Trisets::removeMesh(QList<int> indices)
 void
 Trisets::saveMesh(int idx)
 {
-  m_trisets[idx]->save();
+  m_trisets[idx]->save(m_nclip, m_cpos, m_cnormal);
 }
 
 // Single Mesh Command
@@ -3626,7 +3634,8 @@ Trisets::scaleChanged(QVector3D scl)
     m_trisets[m_multiActive[i]]->setScale(Vec(scl.x(),
 					      scl.y(),
 					      scl.z()));
-  emit updateGL();
+  emit updateScaling();
+  //emit updateGL();
 }
 
 void

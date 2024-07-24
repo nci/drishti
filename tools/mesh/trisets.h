@@ -136,6 +136,7 @@ class Trisets : public QObject
   
  signals :
   void updateGL();
+  void updateScaling();
   void resetBoundingBox();
   void updateMeshList(QStringList);
   void setParameters(QMap<QString, QVariantList>);
@@ -160,6 +161,7 @@ class Trisets : public QObject
   GLfloat m_mvpShadow[16];
   Vec m_lightDir;
   
+  int m_nclip;
   float *m_cpos;
   float *m_cnormal;
 

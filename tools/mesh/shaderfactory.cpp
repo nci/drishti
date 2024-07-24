@@ -249,7 +249,7 @@ ShaderFactory::genSmoothDilatedShaderString()
   shader += "  {\n";
   shader += "    s += step(0.0, texture2DRect(blurTex, spos.xy + vec2(i,j)).b);\n";
   shader += "  }\n";
-  shader += "  if (s > 0.4*(2*bs+1)*(2*bs+1)) color = 0.0;\n";
+  shader += "  if (s > 0.4*(2*bs+1)*(2*bs+1)) color = vec4(0.0);\n";
   shader += "  gl_FragColor = color;\n";
   shader += "}\n";
 
@@ -282,7 +282,7 @@ ShaderFactory::genRectBlurShaderString(int filter)
       shader += "  color += texture2DRect(blurTex, spos.xy + vec2( 1.0,-1.0));\n";
       shader += "  color += texture2DRect(blurTex, spos.xy + vec2(-1.0, 1.0));\n";
       shader += "  color += texture2DRect(blurTex, spos.xy + vec2(-1.0,-1.0));\n";
-      shader += "  gl_FragColor.rgba = color/16.0;\n";
+      shader += "  gl_FragColor.rgba = color/vec4(16.0);\n";
     }
   else if (filter == Global::_SharpnessFilter)
     { // sharpness filter
@@ -314,7 +314,7 @@ ShaderFactory::genRectBlurShaderString(int filter)
       shader += "  color -= texture2DRect(blurTex, spos.xy + vec2( 0.0,-2.0));\n";
       shader += "  color -= texture2DRect(blurTex, spos.xy + vec2( 1.0,-2.0));\n";
 
-      shader += "  gl_FragColor.rgba = color/8.0;\n";
+      shader += "  gl_FragColor.rgba = color/vec4(8.0);\n";
     }
   else
     shader += "  color = texture2DRect(blurTex, spos.xy);\n";

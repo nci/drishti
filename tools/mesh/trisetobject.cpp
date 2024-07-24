@@ -2045,7 +2045,7 @@ TrisetObject::captionOffset(int cpid)
 //---------------------------------
 //---------------------------------
 void
-TrisetObject::save()
+TrisetObject::save(int nclip, float *cpos, float *cnormal)
 {
   // if the mesh has been painted
   // get colors back from gpu
@@ -2088,156 +2088,129 @@ TrisetObject::save()
 
   QString prevDir = Global::previousDirectory();
 
-  return StaticFunctions::savePLY(m_vertices,
-				  m_normals,
-				  m_vcolor,
-				  m_triangles,
-				  &s[0],
-				  prevDir);
-//  //---------------
-//  //---------------
-//  
-//  bool has_normals = (m_normals.count() > 0);
-//  bool per_vertex_color = (m_vcolor.count() > 0);
-//
-//  QString flnm = QFileDialog::getSaveFileName(0,
-//					      "Export mesh to file",
-//					      Global::previousDirectory(),
-//					      "*.ply");
-//  if (flnm.size() == 0)
-//    return;
-//
-//  typedef struct PlyFace
-//  {
-//    unsigned char nverts;    /* number of Vertex indices in list */
-//    int *verts;              /* Vertex index list */
-//  } PlyFace;
-//
-//  typedef struct
-//  {
-//    float  x,  y,  z;  /**< Vertex coordinates */
-//    float nx, ny, nz;  /**< Vertex normal */
-//    uchar r, g, b;
-//  } myVertex ;
-//
-//
-//  PlyProperty vert_props[] = { /* list of property information for a vertex */
-//    {plyStrings[0], Float32, Float32, offsetof(myVertex,x), 0, 0, 0, 0},
-//    {plyStrings[1], Float32, Float32, offsetof(myVertex,y), 0, 0, 0, 0},
-//    {plyStrings[2], Float32, Float32, offsetof(myVertex,z), 0, 0, 0, 0},
-//    {plyStrings[3], Float32, Float32, offsetof(myVertex,nx), 0, 0, 0, 0},
-//    {plyStrings[4], Float32, Float32, offsetof(myVertex,ny), 0, 0, 0, 0},
-//    {plyStrings[5], Float32, Float32, offsetof(myVertex,nz), 0, 0, 0, 0},
-//    {plyStrings[6], Uint8, Uint8, offsetof(myVertex,r), 0, 0, 0, 0},
-//    {plyStrings[7], Uint8, Uint8, offsetof(myVertex,g), 0, 0, 0, 0},
-//    {plyStrings[8], Uint8, Uint8, offsetof(myVertex,b), 0, 0, 0, 0},
-//  };
-//
-//  PlyProperty face_props[] = { /* list of property information for a face */
-//    {plyStrings[9], Int32, Int32, offsetof(PlyFace,verts),
-//     1, Uint8, Uint8, offsetof(PlyFace,nverts)},
-//  };
-//
-//  PlyFile    *ply;
-//  FILE       *fp = fopen(flnm.toLatin1().data(), bin ? "wb" : "w");
-//
-//  PlyFace     face ;
-//  int         verts[3] ;
-//  char       *elem_names[]  = {plyStrings[10], plyStrings[11]};
-//  ply = write_ply (fp,
-//		   2,
-//		   elem_names,
-//		   bin ? PLY_BINARY_LE : PLY_ASCII );
-//
-//  int nvertices = m_vertices.count()/3;
-//  /* describe what properties go into the PlyVertex elements */
-//  describe_element_ply ( ply, plyStrings[10], nvertices );
-//  describe_property_ply ( ply, &vert_props[0] );
-//  describe_property_ply ( ply, &vert_props[1] );
-//  describe_property_ply ( ply, &vert_props[2] );
-//  describe_property_ply ( ply, &vert_props[3] );
-//  describe_property_ply ( ply, &vert_props[4] );
-//  describe_property_ply ( ply, &vert_props[5] );
-//  describe_property_ply ( ply, &vert_props[6] );
-//  describe_property_ply ( ply, &vert_props[7] );
-//  describe_property_ply ( ply, &vert_props[8] );
-//
-//  /* describe PlyFace properties (just list of PlyVertex indices) */
-//  int ntriangles = m_triangles.count()/3;
-//  describe_element_ply ( ply, plyStrings[11], ntriangles );
-//  describe_property_ply ( ply, &face_props[0] );
-//
-//  header_complete_ply ( ply );
-//
-//
-//  /* set up and write the PlyVertex elements */
-//  put_element_setup_ply ( ply, plyStrings[10] );
-//
-////  // regenerate local transfromation so we don't have scaling due to surface being selected(active)
-////  genLocalXform();    
-////  // use the transpose for transformation
-////  double s[16];
-////  s[0] = m_localXform[0];
-////  s[1] = m_localXform[4];
-////  s[2] = m_localXform[8];
-////  s[3] = m_localXform[12];
-////  s[4] = m_localXform[1];
-////  s[5] = m_localXform[5];
-////  s[6] = m_localXform[9];
-////  s[7] = m_localXform[13];
-////  s[8] = m_localXform[2];
-////  s[9] = m_localXform[6];
-////  s[10] = m_localXform[10];
-////  s[11] = m_localXform[14];
-////  s[12] = m_localXform[3];
-////  s[13] = m_localXform[7];
-////  s[14] = m_localXform[11];
-////  s[15] = m_localXform[15];
-//     
-//  for(int i=0; i<m_vertices.count()/3; i++)
-//    {
-//      myVertex vertex;
-//      Vec v = Matrix::xformVec(s,Vec(m_vertices[3*i+0],m_vertices[3*i+1],m_vertices[3*i+2]));
-//      vertex.x = v.x;
-//      vertex.y = v.y;
-//      vertex.z = v.z;
-//      if (has_normals)
-//	{
-//	  Vec vn = Matrix::rotateVec(s,Vec(m_normals[3*i+0],m_normals[3*i+1],m_normals[3*i+2]));
-//	  vertex.nx = vn.x;
-//	  vertex.ny = vn.y;
-//	  vertex.nz = vn.z;
-//	}
-//      if (per_vertex_color)
-//	{
-//	  vertex.r = 255*m_vcolor[3*i+0];
-//	  vertex.g = 255*m_vcolor[3*i+1];
-//	  vertex.b = 255*m_vcolor[3*i+2];
-//	}
-//      put_element_ply ( ply, ( void * ) &vertex );
-//    }
-//
-//  put_element_setup_ply ( ply, plyStrings[11] );
-//  face.nverts = 3 ;
-//  face.verts  = verts ;
-//  for(int i=0; i<m_triangles.count()/3; i++)
-//    {
-//      int v0 = m_triangles[3*i];
-//      int v1 = m_triangles[3*i+1];
-//      int v2 = m_triangles[3*i+2];
-//
-//      face.verts[0] = v0;
-//      face.verts[1] = v1;
-//      face.verts[2] = v2;
-//
-//      put_element_ply ( ply, ( void * ) &face );
-//    }
-//
-//  close_ply ( ply );
-//  free_ply ( ply );
-//  fclose( fp ) ;
-//
-//  QMessageBox::information(0, "Save Mesh", "done");
+
+
+  bool keepBlack = true;
+
+  // we have black, so check to remove black coloured faces from the mesh    
+  if (haveBlack())
+    {
+      bool ok;
+      QStringList vlist;
+      vlist << "No";
+      vlist << "Yes";
+      QString vstr = QInputDialog::getItem(0,
+					   QWidget::tr("Remove Black Colored Faces"),
+					   QWidget::tr("Remove Faces"),
+					   vlist, 0, false,
+					   &ok);
+      if (ok && !vstr.isEmpty())
+	{
+	  if (vstr == "Yes")
+	    keepBlack = false;
+	}
+    }
+
+  //-------------------------------------------
+  //-------------------------------------------
+  // no clipping and no blacks
+  if (nclip == 0 && keepBlack)
+    return StaticFunctions::savePLY(m_vertices,
+				    m_normals,
+				    m_vcolor,
+				    m_triangles,
+				    &s[0],
+				    prevDir);
+  //-------------------------------------------
+  //-------------------------------------------
+
+
+
+
+  
+  // -----------------------  
+  // -----------------------
+  bool anyremovals = false;
+  
+  int nvert = m_vertices.count()/3;
+  QVector<bool> keepit;
+  keepit.resize(nvert);
+  keepit.fill(true);
+
+
+  // remove clipped faces
+  if (nclip > 0)
+    {
+      for(int i=0; i<nvert; i++)
+	{
+	  Vec v = Vec(m_vertices[3*i+0],m_vertices[3*i+1],m_vertices[3*i+2]);
+	  for(int nc=0; nc<nclip; nc++)
+	    {
+	      Vec cp = Vec(cpos[3*nc+1], cpos[3*nc+1], cpos[3*nc+2]);
+	      Vec cn = Vec(cnormal[3*nc+1], cnormal[3*nc+1], cnormal[3*nc+2]);
+	      if ((v-cp)*cn > 0)	      
+		{
+		  keepit[i] = false;
+		  anyremovals = true;
+		  break;
+		}
+	    }
+	}
+    }
+
+  // remove black faces
+  if (!keepBlack)
+    {
+      for(int i=0; i<nvert; i++)
+	{
+	  if (m_vcolor[3*i+0]+m_vcolor[3*i+1]+m_vcolor[3*i+2] < 0.0001)
+	    {
+	      keepit[i] = false;
+	      anyremovals = true;
+	    }
+	}
+    }
+
+  
+  if (anyremovals)
+    {
+      // create new triangles
+      QVector<uint> new_triangles;
+      int ni = m_triangles.count();
+      for(int i=0; i<ni/3; i++)
+	{
+	  if (keepit[m_triangles[3*i+0]] &&
+	      keepit[m_triangles[3*i+1]] &&
+	      keepit[m_triangles[3*i+2]])
+	    {
+	      new_triangles.append(m_triangles[3*i+0]);
+	      new_triangles.append(m_triangles[3*i+1]);
+	      new_triangles.append(m_triangles[3*i+2]);
+	    }
+	}
+      return StaticFunctions::savePLY(m_vertices,
+				      m_normals,
+				      m_vcolor,
+				      new_triangles,
+				      &s[0],
+				      prevDir);
+    }  
+  // -----------------------  
+  // -----------------------
+
+
+
+  
+//  // -----------------------
+//  // -----------------------
+//  return StaticFunctions::savePLY(m_vertices,
+//				  m_normals,
+//				  m_vcolor,
+//				  m_triangles,
+//				  &s[0],
+//				  prevDir);
+//  // -----------------------
+//  // -----------------------
 }
 
 // load binary STL files
@@ -2444,6 +2417,7 @@ TrisetObject::loadAssimpModel(QString flnm)
       sfile.close();
     }
 
+
   //----------------------
   bool possibleNormalMap = false;
   scene = importer.ReadFile( flnm.toLatin1().data(), aiProcess_SortByPType);
@@ -2469,7 +2443,6 @@ TrisetObject::loadAssimpModel(QString flnm)
   //----------------------
 
 
-  
   if (possibleNormalMap)
     scene = importer.ReadFile( flnm.toLatin1().data(), 
 			       aiProcess_Triangulate            |
@@ -2494,7 +2467,6 @@ TrisetObject::loadAssimpModel(QString flnm)
   m_diffuseMat.clear();
   m_normalMat.clear();
   
-  //QMessageBox::information(0, "", QString("%1").arg(scene->mNumMeshes));
 
   int nvert = 0;
   //--------------

@@ -260,6 +260,9 @@ private :
   void genLocalXform();
 
   void postdrawInteractionWidget(QGLViewer*);
+
+  void saveWithRemovals(double*, bool, int, float*, float*);
+
 };
 
 #endif

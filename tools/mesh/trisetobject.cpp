@@ -2086,10 +2086,6 @@ TrisetObject::save(int nclip, float *cpos, float *cnormal)
   s[14] = m_localXform[11];
   s[15] = m_localXform[15];
 
-  QString prevDir = Global::previousDirectory();
-
-
-
   bool keepBlack = true;
 
   // we have black, so check to remove black coloured faces from the mesh    
@@ -2101,7 +2097,7 @@ TrisetObject::save(int nclip, float *cpos, float *cnormal)
       vlist << "Yes";
       QString vstr = QInputDialog::getItem(0,
 					   QWidget::tr("Remove Black Colored Faces"),
-					   QWidget::tr("Remove Faces"),
+					   QWidget::tr("Remove Black Colored Faces"),
 					   vlist, 0, false,
 					   &ok);
       if (ok && !vstr.isEmpty())
@@ -2111,8 +2107,6 @@ TrisetObject::save(int nclip, float *cpos, float *cnormal)
 	}
     }
 
-  //-------------------------------------------
-  //-------------------------------------------
   // no clipping and no blacks
   if (nclip == 0 && keepBlack)
     return StaticFunctions::savePLY(m_vertices,
@@ -2120,16 +2114,16 @@ TrisetObject::save(int nclip, float *cpos, float *cnormal)
 				    m_vcolor,
 				    m_triangles,
 				    &s[0],
-				    prevDir);
-  //-------------------------------------------
-  //-------------------------------------------
+				    Global::previousDirectory());
 
+  // otherwise remove clipped/black vertices and faces before saving 
+  saveWithRemovals(s, keepBlack, nclip, cpos, cnormal);
+}
 
-
-
-  
-  // -----------------------  
-  // -----------------------
+void
+TrisetObject::saveWithRemovals(double *s, bool keepBlack,
+			       int nclip, float *cpos, float *cnormal)
+{
   bool anyremovals = false;
   
   int nvert = m_vertices.count()/3;
@@ -2174,44 +2168,59 @@ TrisetObject::save(int nclip, float *cpos, float *cnormal)
   
   if (anyremovals)
     {
+      QVector<float> new_vertices;
+      QVector<float> new_normals;
+      QVector<float> new_vcolor;
+      
+      QVector<uint> vid;
+      vid.resize(nvert);
+      vid.fill(0);
+      int ix = 0;
+      for(int i=0; i<nvert; i++)
+	{
+	  if (keepit[i])
+	    {
+	      new_vertices.append(m_vertices[3*i+0]);
+	      new_vertices.append(m_vertices[3*i+1]);
+	      new_vertices.append(m_vertices[3*i+2]);
+
+	      new_normals.append(m_normals[3*i+0]);
+	      new_normals.append(m_normals[3*i+1]);
+	      new_normals.append(m_normals[3*i+2]);
+
+	      new_vcolor.append(m_vcolor[3*i+0]);
+	      new_vcolor.append(m_vcolor[3*i+1]);
+	      new_vcolor.append(m_vcolor[3*i+2]);
+
+	      vid[i] = ix;
+	      ix ++;
+	    }
+	}      
+
+
       // create new triangles
       QVector<uint> new_triangles;
-      int ni = m_triangles.count();
-      for(int i=0; i<ni/3; i++)
+      int ntri = m_triangles.count();
+      for(int i=0; i<ntri/3; i++)
 	{
 	  if (keepit[m_triangles[3*i+0]] &&
 	      keepit[m_triangles[3*i+1]] &&
 	      keepit[m_triangles[3*i+2]])
 	    {
-	      new_triangles.append(m_triangles[3*i+0]);
-	      new_triangles.append(m_triangles[3*i+1]);
-	      new_triangles.append(m_triangles[3*i+2]);
+	      new_triangles.append(vid[m_triangles[3*i+0]]);
+	      new_triangles.append(vid[m_triangles[3*i+1]]);
+	      new_triangles.append(vid[m_triangles[3*i+2]]);
 	    }
 	}
-      return StaticFunctions::savePLY(m_vertices,
-				      m_normals,
-				      m_vcolor,
+      return StaticFunctions::savePLY(new_vertices,
+				      new_normals,
+				      new_vcolor,
 				      new_triangles,
 				      &s[0],
-				      prevDir);
+				      Global::previousDirectory());
     }  
-  // -----------------------  
-  // -----------------------
-
-
-
-  
-//  // -----------------------
-//  // -----------------------
-//  return StaticFunctions::savePLY(m_vertices,
-//				  m_normals,
-//				  m_vcolor,
-//				  m_triangles,
-//				  &s[0],
-//				  prevDir);
-//  // -----------------------
-//  // -----------------------
 }
+
 
 // load binary STL files
 bool

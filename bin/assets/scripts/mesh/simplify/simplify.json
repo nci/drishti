@@ -1,0 +1,8 @@
+{
+    "executable" :"",    
+    "interpreter" : "python",
+    "script" : "simplify.py",
+    "description" : "Simplify",
+    "menu_hierarchy" : "Filters",
+    "packages" : ["PyQt5", "pyvista", "pyvistaqt", "pyacvd"]
+}

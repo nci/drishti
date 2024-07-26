@@ -1,0 +1,7 @@
+{
+    "executable" :"",    
+    "interpreter" : "python",
+    "script" : "curvature.py",
+    "description" : "Curvature",
+    "menu_hierarchy" : "Filters"
+}

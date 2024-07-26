@@ -1,0 +1,8 @@
+{
+    "executable" :"",    
+    "interpreter" : "python",
+    "script" : "smooth.py",
+    "description" : "Smooth",
+    "menu_hierarchy" : "Filters",
+    "packages" : ["PyQt5", "pyvista", "pyvistaqt"]
+}

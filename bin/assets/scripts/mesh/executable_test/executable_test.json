@@ -1,0 +1,7 @@
+{
+    "executable" :"C:/Program Files/Audacity/Audacity.exe",    
+    "interpreter" : "",
+    "script" : "",
+    "description" : "Audacity",
+    "menu_hierarchy" : "Filters->Executables"
+}

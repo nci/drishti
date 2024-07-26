@@ -1,0 +1,7 @@
+{
+    "executable" :"",    
+    "interpreter" : "python",
+    "script" : "smooth_simplify.py",
+    "description" : "Smooth+Simplify",
+    "menu_hierarchy" : "Filters->Composite"
+}

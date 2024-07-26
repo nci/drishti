@@ -2936,7 +2936,7 @@ MainWindow::runScript(int idx, bool batchMode)
   QString cmd;
   
   if (!executable.isEmpty())
-    cmd = executable+" "+meshes;
+    cmd = QString("\"%1\"").arg(executable)+" "+meshes;
   else if (!interpreter.isEmpty() &&
 	   !script.isEmpty())
     cmd = interpreter+" "+script+" "+meshes;

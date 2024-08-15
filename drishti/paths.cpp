@@ -34,6 +34,14 @@ Paths::clear()
   m_paths.clear();
 }
 
+
+void
+Paths::setBrick0Xform(double xf[16], double xfI[16])
+{
+  for(int i=0; i<m_paths.count(); i++)
+    m_paths[i]->setXform(xf, xfI);
+}
+
 bool
 Paths::isInMouseGrabberPool(int i)
 {

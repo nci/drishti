@@ -73,7 +73,7 @@ class ClipPlanes : public QObject
   void drawOtherSlicesInViewport(QGLViewer*, int);
   void drawPoints(int, QList<Vec>);
 
-  void  setBrick0Xform(double[16]);
+  void  setBrick0Xform(double[16], double[16]);
   
  signals :
   void showMessage(QString, bool);
@@ -96,8 +96,6 @@ class ClipPlanes : public QObject
   Vec m_dataMin, m_dataMax;
 
   QList<ClipGrabber*> m_clips;
-
-  double m_Xform[16];
 
   void makeClipConnections();
   void processCommand(int, QString);

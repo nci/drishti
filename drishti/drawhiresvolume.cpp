@@ -1384,7 +1384,10 @@ DrawHiresVolume::collectBrickInformation(bool force)
 {
   double bxform[16];
   memcpy(bxform, m_bricks->getMatrix(), 16*sizeof(double));
-  GeometryObjects::clipplanes()->setBrick0Xform(bxform);
+  double bxformI[16];
+  memcpy(bxformI, m_bricks->getMatrixInv(), 16*sizeof(double));
+  GeometryObjects::clipplanes()->setBrick0Xform(bxform, bxformI);
+  GeometryObjects::paths()->setBrick0Xform(bxform, bxformI);
 
   if (force == false &&
       m_bricks->updateFlag() == false)
@@ -2146,7 +2149,7 @@ void
 DrawHiresVolume::getGeoSliceBound(int s, int layers,
 				  Vec po, Vec pn, Vec step,
 				  float &pstart, float &pend)
-{
+{  
   if (m_backlit)
     {
       if (s > 0 && s < layers-1)
@@ -2188,6 +2191,7 @@ DrawHiresVolume::getGeoSliceBound(int s, int layers,
 void
 DrawHiresVolume::renderGeometry(int s, int layers,
 				Vec po, Vec pn, Vec step,
+				Vec b0_po, Vec b0_pn, Vec b0_step,
 				bool shadow, bool shadowshader, Vec eyepos,
 				bool offset)
 {
@@ -2199,20 +2203,21 @@ DrawHiresVolume::renderGeometry(int s, int layers,
       preDrawGeometry(s, layers,
 		      po, pn, step);
       
-      float pstart, pend;
+      float b0_pstart, b0_pend;
       getGeoSliceBound(s, layers,
-		       po, pn, step,
-		       pstart, pend);
+		       b0_po, b0_pn, b0_step,
+		       b0_pstart, b0_pend);
 
-      Vec pstep = Vec(0,0,0);
+
+      Vec b0_pstep = Vec(0,0,0);
       if (offset)
 	{
-	  if (m_backlit) pstep = -step;
-	  else pstep = step;
-	  pstep *= 1.0f/Global::geoRenderSteps();
+	  if (m_backlit) b0_pstep = -b0_step;
+	  else b0_pstep = b0_step;
+	  b0_pstep *= 1.0f/Global::geoRenderSteps();
 	}
       
-      drawGeometry(pn, pstart, pend, pstep,
+      drawGeometry(b0_pn, b0_pstart, b0_pend, b0_pstep,
 		   shadow, shadowshader, eyepos);
       
       postDrawGeometry();
@@ -2222,21 +2227,21 @@ DrawHiresVolume::renderGeometry(int s, int layers,
 }
 
 void
-DrawHiresVolume::drawGeometry(Vec pn, float pnear, float pfar, Vec step,
+DrawHiresVolume::drawGeometry(Vec b0_pn, float b0_pnear, float b0_pfar, Vec b0_step,
 			      bool applyShadows, bool applyshadowShader,
 			      Vec eyepos)
 {
   if (Global::volumeType() == Global::DummyVolume)
     GeometryObjects::trisets()->draw(m_Viewer,
 				     m_lightPosition,
-				     pnear, pfar,
-				     step,
+				     b0_pnear, b0_pfar,
+				     b0_step,
 				     m_useScreenShadows,
 				     eyepos,
 				     m_clipPos, m_clipNormal);
 
   GeometryObjects::networks()->draw(m_Viewer,
-				    pnear, pfar,
+				    b0_pnear, b0_pfar,
 				    m_backlit);
 
   glLineWidth(1.5);
@@ -2268,9 +2273,6 @@ DrawHiresVolume::drawGeometry(Vec pn, float pnear, float pfar, Vec step,
 
   //-----------------------------------------
 
-  // draw clipplanes before applying brick0 transformations
-  GeometryObjects::clipplanes()->draw(m_Viewer, m_backlit);
-
   //----- apply brick0 transformation -------
   Vec voxelScaling = Global::voxelScaling();
   Vec pos = VECPRODUCT(m_bricks->getTranslation(0), voxelScaling);
@@ -2278,20 +2280,22 @@ DrawHiresVolume::drawGeometry(Vec pn, float pnear, float pfar, Vec step,
   Vec axis = m_bricks->getAxis(0);
   float angle = m_bricks->getAngle(0);
 
+  glMatrixMode(GL_MODELVIEW);
   glPushMatrix();
-
+  
   glTranslatef(pos.x, pos.y, pos.z);
       
   glTranslatef(pivot.x, pivot.y, pivot.z);
   glRotatef(angle,
-	    axis.x,
-	    axis.y,
-	    axis.z);
+  	    axis.x,
+  	    axis.y,
+  	    axis.z);
   glTranslatef(-pivot.x, -pivot.y, -pivot.z);
-  //-----------------------------------------
+//-----------------------------------------
 
+  GeometryObjects::clipplanes()->draw(m_Viewer, m_backlit);
+  GeometryObjects::paths()->draw(m_Viewer, b0_pn, b0_pnear, b0_pfar, m_backlit, m_lightPosition);
   GeometryObjects::crops()->draw(m_Viewer, m_backlit);
-  GeometryObjects::paths()->draw(m_Viewer, pn, pnear, pfar, m_backlit, m_lightPosition);
   GeometryObjects::grids()->draw(m_Viewer, m_backlit, m_lightPosition);
   GeometryObjects::pathgroups()->draw(m_Viewer, m_backlit, m_lightPosition, false);
   GeometryObjects::hitpoints()->draw(m_Viewer, m_backlit);
@@ -2899,7 +2903,7 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
   //--
 
   emptySpaceSkip();
-
+  
   //-------------------------------
   //-- for depthcue calculation --
   Vec cpos = m_Viewer->camera()->position();
@@ -3030,12 +3034,26 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
       allcPos[c] = pos;
       allcNorm[c]= nrm;
     }
+
+
   
+  //-------------------------
+  Vec b0_pn = pn;
+  Vec b0_pnDir = pnDir;
+  Vec b0_po = poStart;
+  Vec b0_step = step;
+  b0_po = Matrix::xformVec(XformInv, po);
+  b0_pn = Matrix::rotateVec(XformInv, pn);
+  b0_pnDir = Matrix::rotateVec(XformInv, pnDir);
+  b0_step = Matrix::rotateVec(XformInv, step);
+  //-------------------------
+
   for(int s=0; s<layers; s++)
     {
 
       po += pnDir;
-
+      b0_po += b0_pnDir;
+      
       int SlcXMin, SlcXMax, SlcYMin, SlcYMax;
       SlcXMin = SlcYMin = 100000;
       SlcXMax = SlcYMax = 0;
@@ -3101,7 +3119,7 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 				 GL_TEXTURE_RECTANGLE_ARB,
 				 m_dofTex[0],
 				 0);
-	  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);  
+	  glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
 	  glClear(GL_COLOR_BUFFER_BIT);
 	}
       //---------------------
@@ -3111,6 +3129,7 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 	{
 	  renderGeometry(s, layers,
 			 po, pn, Global::geoRenderSteps()*step,
+			 b0_po, b0_pn, Global::geoRenderSteps()*b0_step,
 			 false, false, Vec(0,0,0),
 			 false);
 	  glBlendFunc(GL_ONE_MINUS_DST_ALPHA, GL_ONE);

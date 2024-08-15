@@ -64,6 +64,10 @@ class PathObject
 				       float);
 
 
+  void setXform(double[16], double[16]);
+  double m_xform[16];
+  double m_xformI[16];
+
   void undo();
   void redo();
   void updateUndo();
@@ -254,6 +258,8 @@ class PathObject
 
  private :
   PathObjectUndo m_undo;
+
+  double m_xformT[16];
 
   int m_useType;
   bool m_keepInside;

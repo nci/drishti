@@ -590,13 +590,13 @@ ClipObject::drawGrid()
   Vec tang = m_tang;
   Vec xaxis = m_xaxis;
   Vec yaxis = m_yaxis;
-  tang = Matrix::rotateVec(m_xform, tang);
-  xaxis = Matrix::rotateVec(m_xform, xaxis);
-  yaxis = Matrix::rotateVec(m_xform, yaxis);
+//  tang = Matrix::rotateVec(m_xform, tang);
+//  xaxis = Matrix::rotateVec(m_xform, xaxis);
+//  yaxis = Matrix::rotateVec(m_xform, yaxis);
 
   Vec voxelScaling = Global::voxelScaling();
   Vec opt = VECPRODUCT(m_position, voxelScaling);
-  opt = Matrix::xformVec(m_xform, opt);
+  //  opt = Matrix::xformVec(m_xform, opt);
   Vec c0, c1, c2, c3;
   c0 = opt - s1*xaxis + s2*yaxis;
   c1 = opt - s1*xaxis - s2*yaxis;
@@ -648,13 +648,13 @@ ClipObject::drawCaptionImage()
   Vec tang = m_tang;
   Vec xaxis = m_xaxis;
   Vec yaxis = m_yaxis;
-  tang = Matrix::rotateVec(m_xform, tang);
-  xaxis = Matrix::rotateVec(m_xform, xaxis);
-  yaxis = Matrix::rotateVec(m_xform, yaxis);
+//  tang = Matrix::rotateVec(m_xform, tang);
+//  xaxis = Matrix::rotateVec(m_xform, xaxis);
+//  yaxis = Matrix::rotateVec(m_xform, yaxis);
 
   Vec voxelScaling = Global::voxelScaling();
   Vec opt = VECPRODUCT(m_position, voxelScaling);
-  opt = Matrix::xformVec(m_xform, opt);
+  //  opt = Matrix::xformVec(m_xform, opt);
   Vec c0, c1, c2, c3;
   c0 = opt - s1*xaxis + s2*yaxis;
   c1 = opt - s1*xaxis - s2*yaxis;
@@ -806,7 +806,7 @@ ClipObject::drawLines(QGLViewer *viewer,
 
   Vec voxelScaling = Global::voxelScaling();
   Vec opt = VECPRODUCT(m_position, voxelScaling);
-  opt = Matrix::xformVec(m_xform, opt);
+  //  opt = Matrix::xformVec(m_xform, opt);
 
   float r = m_size;
   float s1 = m_tscale1;
@@ -816,9 +816,9 @@ ClipObject::drawLines(QGLViewer *viewer,
   Vec xaxis = m_xaxis;
   Vec yaxis = m_yaxis;
 
-  tang = Matrix::rotateVec(m_xform, tang);
-  xaxis = Matrix::rotateVec(m_xform, xaxis);
-  yaxis = Matrix::rotateVec(m_xform, yaxis);
+//  tang = Matrix::rotateVec(m_xform, tang);
+//  xaxis = Matrix::rotateVec(m_xform, xaxis);
+//  yaxis = Matrix::rotateVec(m_xform, yaxis);
 
   if (backToFront)
     {

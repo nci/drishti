@@ -210,9 +210,9 @@ ClipGrabber::mouseMoveEvent(QMouseEvent* const event,
   Vec tang = m_tang;
   Vec xaxis = m_xaxis;
   Vec yaxis = m_yaxis;
-  tang = Matrix::rotateVec(m_xform, tang);
-  xaxis = Matrix::rotateVec(m_xform, xaxis);
-  yaxis = Matrix::rotateVec(m_xform, yaxis);
+  //tang = Matrix::rotateVec(m_xform, tang);
+  //xaxis = Matrix::rotateVec(m_xform, xaxis);
+  //yaxis = Matrix::rotateVec(m_xform, yaxis);
 
   if (event->buttons() != Qt::LeftButton)
     {
@@ -229,6 +229,8 @@ ClipGrabber::mouseMoveEvent(QMouseEvent* const event,
 
       // Transform to world coordinate system.
       trans = camera->frame()->orientation().rotate(trans);
+
+      trans = Matrix::rotateVec(m_xformI, trans);
 
       Vec voxelScaling = Global::voxelScaling();
       trans = VECDIVIDE(trans, voxelScaling);

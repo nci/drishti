@@ -1,6 +1,7 @@
 #include "global.h"
 #include "pathgrabber.h"
 #include "staticfunctions.h"
+#include "matrix.h"
 
 PathGrabber::PathGrabber()
 {
@@ -40,6 +41,10 @@ PathGrabber::checkIfGrabsMouse(int x, int y,
   if (tube()) sz = 30;
 
   QList<Vec> pts = pathPoints();
+
+  // apply brick0 transform 
+  for(int i=0; i<pts.count(); i++)
+    pts[i] = Matrix::xformVec(m_xform, pts[i]);
 
   //--------
   if (captionPresent() && captionLabel())
@@ -110,6 +115,12 @@ PathGrabber::mousePressEvent(QMouseEvent* const event,
   //Vec voxelScaling = Global::voxelScaling();
   int nseg = segments();
   QList<Vec> pts = points();
+
+  // apply brick0 transform 
+  for(int i=0; i<pts.count(); i++)
+    pts[i] = Matrix::xformVec(m_xform, pts[i]);
+
+
   for(int i=0; i<pts.count(); i++)
     {
       Vec v = VECPRODUCT(pts[i], voxelScaling);
@@ -193,6 +204,7 @@ PathGrabber::mouseMoveEvent(QMouseEvent* const event,
   else if (m_moveAxis == MoveZ)
     trans = Vec(0,0,trans.z);
   
+  trans = Matrix::rotateVec(m_xformI, trans);
 
   //Vec voxelScaling = Vec(1,1,1);
   //Vec voxelScaling = Global::voxelScaling();

@@ -337,6 +337,7 @@ signals :
 			float&, float&);
   void renderGeometry(int, int,
 		      Vec, Vec, Vec,
+		      Vec, Vec, Vec,
 		      bool, bool, Vec,
 		      bool);
   void renderDragSlice(ViewAlignedPolygon*, bool, Vec);

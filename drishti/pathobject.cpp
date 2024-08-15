@@ -2,6 +2,7 @@
 #include "pathobject.h"
 #include "staticfunctions.h"
 #include "volumeinformation.h"
+#include "matrix.h"
 
 #include <QFileDialog>
 
@@ -685,6 +686,9 @@ PathObject::PathObject()
   m_glVertBufferT = 0;
   m_glVertArrayC = 0;
   m_glVertArrayT = 0;
+
+  Matrix::identity(m_xform);
+  Matrix::identity(m_xformT);
 }
 
 PathObject::~PathObject()
@@ -723,6 +727,19 @@ PathObject::~PathObject()
   m_glVertBufferC = 0;
   m_glVertArrayT = 0;
   m_glVertBufferT = 0;
+}
+
+void
+PathObject::setXform(double xf[16], double xfI[16])
+{
+  memcpy(m_xform, xf, 16*sizeof(double));
+  memcpy(m_xformI, xfI, 16*sizeof(double));
+
+  for(int i=0; i<4; i++)
+    for(int j=0; j<4; j++)
+      {
+	m_xformT[i+4*j] = xf[4*i+j];
+      }
 }
 
 void
@@ -1898,6 +1915,31 @@ PathObject::drawTube(QGLViewer *viewer,
 		     GLint* pnShaderParm)
 
 {
+  GLdouble pm[16];
+  GLdouble mv[16];
+  GLdouble mb0[16];
+  GLdouble mvpd[16];
+  viewer->camera()->getProjectionMatrix(pm);
+  viewer->camera()->getModelViewMatrix(mv);
+  
+  // apply brick0 transform
+  Matrix::matmult(m_xformT, mv, mb0);
+  
+  // apply projection
+  Matrix::matmult(mb0, pm, mvpd);
+  
+  GLfloat mvp[16];
+  for(int i=0; i<16; i++) mvp[i] = mvpd[i];
+  
+  
+//  GLfloat pm[16];
+//  GLfloat mv[16];
+//  GLdouble mvpd[16];
+//  GLfloat mvp[16];
+//  glGetFloatv(GL_MODELVIEW_MATRIX, mv);
+//  glGetFloatv(GL_PROJECTION_MATRIX, pm);
+//  Matrix::matmult(mv, pm, mvp);
+
   if (m_imageTex &&
       (m_imagePresent ||
        (m_captionPresent && !m_captionLabel)))
@@ -1907,14 +1949,8 @@ PathObject::drawTube(QGLViewer *viewer,
       
       if (m_glVertArrayC)
 	{
-	  // model-view-projection matrix
-	  GLdouble m[16];
-	  GLfloat mvp[16];
-	  viewer->camera()->getModelViewProjectionMatrix(m);
-	  for(int i=0; i<16; i++) mvp[i] = m[i];
-
 	  glUseProgram(ptShader);
-  
+  	  
 	  glUniformMatrix4fv(ptShaderParm[0], 1, GL_FALSE, mvp);
 	  glUniform1i(ptShaderParm[1], 0);
 	  glUniform3f(ptShaderParm[2], pn.x, pn.y, pn.z);
@@ -1935,16 +1971,10 @@ PathObject::drawTube(QGLViewer *viewer,
     {      
       if (m_glVertArrayT)
 	{
-	  // model-view-projection matrix
-	  GLdouble m[16];
-	  GLfloat mvp[16];
-	  viewer->camera()->getModelViewProjectionMatrix(m);
-	  for(int i=0; i<16; i++) mvp[i] = m[i];
-
-	  glUseProgram(pnShader);
-
 	  lightVec.normalize();
 	    
+	  glUseProgram(pnShader);
+	  
 	  glUniformMatrix4fv(pnShaderParm[0], 1, GL_FALSE, mvp);
 	  glUniform3f(pnShaderParm[1], pn.x, pn.y, pn.z);
 	  glUniform1f(pnShaderParm[2], pnear);
@@ -1955,7 +1985,7 @@ PathObject::drawTube(QGLViewer *viewer,
 	    col.x = 0.8 + 0.2*col.x;	  
 	    glUniform3f(pnShaderParm[5], col.x, col.y, col.z);
 	  glUniform3f(pnShaderParm[6], lightVec.x, lightVec.y, lightVec.z);
-	  
+		    
 	  glBindVertexArray( m_glVertArrayT );
 
 	  glDrawArrays(GL_TRIANGLE_STRIP,
@@ -1975,14 +2005,6 @@ PathObject::drawTube(QGLViewer *viewer,
 	  glUseProgram(0);
 	}
     }
-
-
-  { // reset emissivity
-    float emiss[] = { 0.0, 0.0, 0.0, 1.0 };
-    glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, emiss);
-  }
-
-  glDisable(GL_LIGHTING);
 }
 
 void
@@ -2009,7 +2031,13 @@ PathObject::drawLines(QGLViewer *viewer,
 
       glBegin(GL_LINE_STRIP);
       for(int i=0; i<m_path.count(); i++)
-	glVertex3fv(m_path[i]);
+	{
+	  //Vec p = m_path[i];	  
+	  //p = Matrix::xformVec(m_xform, m_path[i]);
+	  //glVertex3fv(p);
+
+	  glVertex3fv(m_path[i]);
+	}
       glEnd();
     }
 
@@ -2035,6 +2063,10 @@ PathObject::drawLines(QGLViewer *viewer,
       glBegin(GL_POINTS);
       for(int i=0; i<m_points.count();i++)
 	{
+	  //Vec p = m_points[i];	  
+	  //p = Matrix::xformVec(m_xform, m_points[i]);
+	  //Vec pt = VECPRODUCT(p, voxelScaling);
+
 	  Vec pt = VECPRODUCT(m_points[i], voxelScaling);
 	  glVertex3fv(pt);
 	}
@@ -2117,7 +2149,13 @@ PathObject::drawLines(QGLViewer *viewer,
 
   glBegin(GL_LINE_STRIP);
   for(int i=0; i<m_path.count(); i++)
-    glVertex3fv(m_path[i]);
+    {
+      //Vec p = m_path[i];	  
+      //p = Matrix::xformVec(m_xform, m_path[i]);
+      //glVertex3fv(p);
+      
+      glVertex3fv(m_path[i]);
+    }
   glEnd();
 
   if (!backToFront)
@@ -2134,7 +2172,13 @@ PathObject::drawLines(QGLViewer *viewer,
 
       glBegin(GL_LINE_STRIP);
       for(int i=0; i<m_path.count(); i++)
-	glVertex3fv(m_path[i]);
+	{
+	  //Vec p = m_path[i];	  
+	  //p = Matrix::xformVec(m_xform, m_path[i]);
+	  //glVertex3fv(p);
+
+	  glVertex3fv(m_path[i]);
+	}
       glEnd();
     }
 

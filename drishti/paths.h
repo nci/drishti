@@ -67,6 +67,8 @@ class Paths : public QObject
   void rotate(int, int,
 		 QPoint, Vec, int, int);
 
+  void  setBrick0Xform(double[16], double[16]);
+
  signals :
   void showMessage(QString, bool);
   void updateGL();

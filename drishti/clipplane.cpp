@@ -6,11 +6,10 @@
 int ClipPlanes::count() { return m_clips.count(); }
 
 void
-ClipPlanes::setBrick0Xform(double xf[16])
+ClipPlanes::setBrick0Xform(double xf[16], double xfI[16])
 {
-  memcpy(m_Xform, xf, 16*sizeof(double));
   for(int i=0; i<m_clips.count(); i++)
-    m_clips[i]->setXform(xf);
+    m_clips[i]->setXform(xf, xfI);
 }
 
 void

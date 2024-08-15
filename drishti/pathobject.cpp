@@ -175,7 +175,7 @@ PathObject::resetCaption()
   m_captionPresent = false;
   m_captionLabel = true;
   m_captionText.clear();
-  m_captionFont = QFont("Helvetica", 12);
+  m_captionFont = QFont("Helvetica", 28);
   m_captionColor = Qt::white;
   m_captionHaloColor = Qt::black;
 
@@ -668,7 +668,7 @@ PathObject::PathObject()
   m_captionPresent = false;
   m_captionLabel = true;
   m_captionText.clear();
-  m_captionFont = QFont("Helvetica", 12);
+  m_captionFont = QFont("Helvetica", 28);
   m_captionColor = Qt::white;
   m_captionHaloColor = Qt::black;
 
@@ -2031,13 +2031,7 @@ PathObject::drawLines(QGLViewer *viewer,
 
       glBegin(GL_LINE_STRIP);
       for(int i=0; i<m_path.count(); i++)
-	{
-	  //Vec p = m_path[i];	  
-	  //p = Matrix::xformVec(m_xform, m_path[i]);
-	  //glVertex3fv(p);
-
 	  glVertex3fv(m_path[i]);
-	}
       glEnd();
     }
 
@@ -2063,10 +2057,6 @@ PathObject::drawLines(QGLViewer *viewer,
       glBegin(GL_POINTS);
       for(int i=0; i<m_points.count();i++)
 	{
-	  //Vec p = m_points[i];	  
-	  //p = Matrix::xformVec(m_xform, m_points[i]);
-	  //Vec pt = VECPRODUCT(p, voxelScaling);
-
 	  Vec pt = VECPRODUCT(m_points[i], voxelScaling);
 	  glVertex3fv(pt);
 	}
@@ -2149,13 +2139,7 @@ PathObject::drawLines(QGLViewer *viewer,
 
   glBegin(GL_LINE_STRIP);
   for(int i=0; i<m_path.count(); i++)
-    {
-      //Vec p = m_path[i];	  
-      //p = Matrix::xformVec(m_xform, m_path[i]);
-      //glVertex3fv(p);
-      
-      glVertex3fv(m_path[i]);
-    }
+    glVertex3fv(m_path[i]);
   glEnd();
 
   if (!backToFront)
@@ -2172,13 +2156,7 @@ PathObject::drawLines(QGLViewer *viewer,
 
       glBegin(GL_LINE_STRIP);
       for(int i=0; i<m_path.count(); i++)
-	{
-	  //Vec p = m_path[i];	  
-	  //p = Matrix::xformVec(m_xform, m_path[i]);
-	  //glVertex3fv(p);
-
-	  glVertex3fv(m_path[i]);
-	}
+	glVertex3fv(m_path[i]);
       glEnd();
     }
 
@@ -2962,9 +2940,13 @@ PathObject::postdrawCaption(QGLViewer *viewer)
 
   Vec voxelScaling = Vec(1,1,1);
   //Vec voxelScaling = Global::voxelScaling();
+  
   Vec pt = VECPRODUCT(m_path[0], voxelScaling);
+  pt = Matrix::xformVec(m_xform, pt);
   Vec pp0 = viewer->camera()->projectedCoordinatesOf(pt);
+
   pt = VECPRODUCT(m_path[m_path.count()-1], voxelScaling);
+  pt = Matrix::xformVec(m_xform, pt);
   Vec pp1 = viewer->camera()->projectedCoordinatesOf(pt);
 
   pp0.x /= frcw;

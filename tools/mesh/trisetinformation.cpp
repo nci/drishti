@@ -104,16 +104,16 @@ TrisetInformation::interpolate(const TrisetInformation tinfo1,
   tinfo.opacity = 0.1*qFloor((1-frc)*qFloor(10*tinfo1.opacity) + frc*qFloor(10*tinfo2.opacity));
   tinfo.materialMix = (1-frc)*tinfo1.materialMix + frc*tinfo2.materialMix;
 
-  int nt = qMin(tinfo1.captionPosition.count(), tinfo2.captionPosition.count());			   
-
-  for(int i=0; i<nt; i++)
-    tinfo.captionPosition[i] = (1-frc)*tinfo1.captionPosition[i] + frc*tinfo2.captionPosition[i];
-
-  for(int i=0; i<nt; i++)
-    tinfo.cpDx[i] = (1-frc)*tinfo1.cpDx[i] + frc*tinfo2.cpDx[i];
-
-  for(int i=0; i<nt; i++)
-    tinfo.cpDy[i] = (1-frc)*tinfo1.cpDy[i] + frc*tinfo2.cpDy[i];
+//  int nt = qMin(tinfo1.captionPosition.count(), tinfo2.captionPosition.count());			   
+//
+//  for(int i=0; i<nt; i++)
+//    tinfo.captionPosition[i] = (1-frc)*tinfo1.captionPosition[i] + frc*tinfo2.captionPosition[i];
+//
+//  for(int i=0; i<nt; i++)
+//    tinfo.cpDx[i] = (1-frc)*tinfo1.cpDx[i] + frc*tinfo2.cpDx[i];
+//
+//  for(int i=0; i<nt; i++)
+//    tinfo.cpDy[i] = (1-frc)*tinfo1.cpDy[i] + frc*tinfo2.cpDy[i];
 
   
   // non interpolated ones

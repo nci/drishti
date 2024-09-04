@@ -57,6 +57,12 @@ Hide Black - to hide the black painted regions (to punch holes or clear certain 
 #end
 
 #begin
+Grabbing
+
+Press "g" to toggle surface grabbing.  Users can select and move labels and surfaces when surface grabbing is enabled.
+#end
+
+#begin
 Clipping
 
 

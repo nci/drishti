@@ -301,8 +301,84 @@ HitPoints::addBarePoints(QString flnm)
 }
 
 
+//void
+//HitPoints::addPoints(QString flnm)
+//{
+//  QList<Vec> pts;
+//
+//  QFile fpoints(flnm);
+//  fpoints.open(QFile::ReadOnly);
+//  QTextStream fd(&fpoints);
+//  while (! fd.atEnd())
+//    {
+//      QString line = fd.readLine();
+//      QStringList list = line.split(" ", QString::SkipEmptyParts);
+//      if (list.count() == 1)
+//	{
+//	  int npts = list[0].toInt();
+//	  for(int i=0; i<npts; i++)
+//	    {
+//	      if (fd.atEnd())
+//		break;
+//	      else
+//		{
+//		  QString line = fd.readLine();
+//		  QStringList list = line.split(" ", QString::SkipEmptyParts);
+//		  if (list.count() == 3)
+//		    {
+//		      float x = list[0].toFloat();
+//		      float y = list[1].toFloat();
+//		      float z = list[2].toFloat();
+//		      pts.append(Vec(x,y,z));
+//		    }
+//		}
+//	    }
+//	}
+//    }
+//
+//  if (pts.count() > 0)
+//    {
+//      for(int i=0; i<pts.count(); i++)
+//	{
+//	  HitPointGrabber *hpg = new HitPointGrabber(pts[i]);
+//	  m_points.append(hpg);
+//	}
+//    }
+//
+//  QMessageBox::information(0, "", QString("No. of points in the scene : %1").\
+//			   arg(m_points.count()));
+//
+//  removeFromMouseGrabberPool();
+//  if (m_grab)
+//    addInMouseGrabberPool();
+//}
+
 void
 HitPoints::addPoints(QString flnm)
+{
+  QList<Vec> pts;
+
+  pts = readPointsFromFile(flnm);
+  
+  if (pts.count() > 0)
+    {
+      for(int i=0; i<pts.count(); i++)
+	{
+	  HitPointGrabber *hpg = new HitPointGrabber(pts[i]);
+	  m_points.append(hpg);
+	}
+    }
+
+  QMessageBox::information(0, "", QString("No. of points in the scene : %1").\
+			   arg(m_points.count()));
+
+  removeFromMouseGrabberPool();
+  if (m_grab)
+    addInMouseGrabberPool();
+}
+
+QList<Vec>
+HitPoints::readPointsFromFile(QString flnm)
 {
   QList<Vec> pts;
 
@@ -336,21 +412,7 @@ HitPoints::addPoints(QString flnm)
 	}
     }
 
-  if (pts.count() > 0)
-    {
-      for(int i=0; i<pts.count(); i++)
-	{
-	  HitPointGrabber *hpg = new HitPointGrabber(pts[i]);
-	  m_points.append(hpg);
-	}
-    }
-
-  QMessageBox::information(0, "", QString("No. of points in the scene : %1").\
-			   arg(m_points.count()));
-
-  removeFromMouseGrabberPool();
-  if (m_grab)
-    addInMouseGrabberPool();
+  return pts;
 }
 
 void HitPoints::ignore(bool i) { m_ignore = i; }

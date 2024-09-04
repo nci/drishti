@@ -1152,7 +1152,7 @@ TrisetObject::drawHitPoints()
 
   if (m_hoveredHitPoint > -1)
     {
-      glColor3f(1, 0.4, 0.8);
+      glColor3f(1, 0, 1);
       glPointSize(25);
       glBegin(GL_POINTS);
       Vec v = m_hitpoints[m_hoveredHitPoint] - m_centroid;
@@ -1162,7 +1162,7 @@ TrisetObject::drawHitPoints()
     }
 
   glColor3f(0.8, 0.4, 1);
-  glPointSize(20);
+  glPointSize(15);
   glBegin(GL_POINTS);
   for (int i=0; i<m_hitpoints.count(); i++)
     {

@@ -52,6 +52,8 @@ class HitPoints : public QObject
   void mouseMoveEvent(QMouseEvent*, Camera*);
   void mouseReleaseEvent(QMouseEvent*, Camera*);
 
+  QList<Vec> readPointsFromFile(QString);
+
  public slots :
   void add(Vec);
   void setPoints(QList<Vec>);

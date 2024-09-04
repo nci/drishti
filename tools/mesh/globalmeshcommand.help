@@ -19,7 +19,7 @@ Bakein painted colors for all meshes.
 savepoints
 savepoints
 
-Save point coordinates to a text file.
+Save all points that are not attached to any surface mesh to a text file.
 
 #end
 
@@ -37,6 +37,23 @@ clearScene
 clearScene
 
 Delete all meshes from the scene.
+#end
+
+
+#begin
+clearpoints
+clearpoints
+
+Remove all points that are not attached to any surface mesh.
+#end
+
+
+#begin
+loadpoints
+loadpoints
+
+Load unattached points from a text file.
+
 #end
 
 

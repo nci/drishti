@@ -2223,6 +2223,7 @@ Viewer::keyPressEvent(QKeyEvent *event)
       event->key() == Qt::Key_Backtab)
     {
       GeometryObjects::trisets()->removeHoveredHitPoint(); 
+      emit updateGL();
     }
 
 }

@@ -203,6 +203,9 @@ class Trisets : public QObject
 
   void mergeSurfaces(QList<int>);
   void saveHitPoints();
+  void saveHitPoints(int);
+  void loadHitPoints();
+  void loadHitPoints(int);
 
 
   void renderFromCameraClearView(GLdouble*, Vec, int, int, int);

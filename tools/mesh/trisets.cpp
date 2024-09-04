@@ -509,8 +509,14 @@ Trisets::checkHitPointsHover(QGLViewer *viewer)
   QPoint scr = viewer->mapFromGlobal(QCursor::pos());
 
   // reset hovered hit point
+  bool prevHovered = false;
   for(int i=0; i<m_trisets.count(); i++)
-    m_trisets[i]->setHitPointHovered(-1);
+    {
+      if (m_trisets[i]->hitPointHovered() > -1)
+	prevHovered = true;
+      
+      m_trisets[i]->setHitPointHovered(-1);
+    }
 
   for(int i=0; i<m_trisets.count(); i++)
     {
@@ -529,11 +535,15 @@ Trisets::checkHitPointsHover(QGLViewer *viewer)
 	  if ((hp-scr).manhattanLength() < 10)
 	    {
 	      m_trisets[i]->setHitPointHovered(p);
+	      emit updateGL();
 	      return;
 	    }
 	}
     }
-  
+
+  // just so that the previously hovered point is not shown still hovered
+  if (prevHovered)
+    emit updateGL();  
 }
 
 void
@@ -2227,6 +2237,19 @@ Trisets::processCommand(int idx, QString cmd)
   QStringList list = cmd.split(" ", QString::SkipEmptyParts);
 
 
+  
+  if (list[0] == "savepoints")
+    {
+      saveHitPoints(idx);
+      return;
+    }
+
+  if (list[0] == "loadpoints")
+    {
+      loadHitPoints(idx);
+      return;
+    }
+
   if (list[0] == "clearpoints")
     {
       m_trisets[idx]->clearHitPoints();
@@ -2638,9 +2661,22 @@ Trisets::processCommand(QString cmd)
   cmd = cmd.toLower();
   QStringList list = cmd.split(" ", QString::SkipEmptyParts);
 
+  if (list[0] == "clearpoints") // remove all not attached points
+    {
+      m_hitpoints->clear();
+      emit updateGL();
+      return;
+    }
+  
   if (list[0] == "savepoints")
     {
       saveHitPoints();
+      return;
+    }
+  
+  if (list[0] == "loadpoints")
+    {
+      loadHitPoints();
       return;
     }
   
@@ -3788,14 +3824,79 @@ Trisets::saveHitPoints()
 {
   QString flnm;
   flnm = QFileDialog::getSaveFileName(0,
-				      "Save points to text file",
+				      "Save non-attached points to text file",
 				      Global::previousDirectory(),
-				      "Files (*.*)");
+				      "Files (*.txt)");
   
   if (flnm.isEmpty())
     return;
   
   m_hitpoints->savePoints(flnm);
+}
+
+void
+Trisets::loadHitPoints()
+{
+  QString flnm;
+      flnm = QFileDialog::getOpenFileName(0,
+					  "Load non-attached points from text file",
+					  Global::previousDirectory(),
+					  "Files (*.txt)");  
+  if (flnm.isEmpty())
+    return;
+  
+  m_hitpoints->addPoints(flnm);
+
+  emit updateGL();
+}
+
+void
+Trisets::saveHitPoints(int idx)
+{
+  QString flnm;
+  flnm = QFileDialog::getSaveFileName(0,
+				      "Save attached points to text file",
+				      Global::previousDirectory(),
+				      "Files (*.txt)");
+  
+  if (flnm.isEmpty())
+    return;
+
+  QList<Vec> hpts;
+  hpts = m_trisets[idx]->hitPoints();
+  
+  int npts = hpts.count();
+  fstream fp(flnm.toLatin1().data(), ios::out);
+  fp << npts << "\n";
+  for(int i=0; i<npts; i++)
+    {
+      Vec pt = hpts[i];
+      fp << pt.x << " " << pt.y << " " << pt.z << "\n";
+    }
+  fp.close();
+
+  QMessageBox::information(0, "Save attached points", "Saved attached points to "+flnm);
+}
+
+void
+Trisets::loadHitPoints(int idx)
+{
+  QString flnm;
+      flnm = QFileDialog::getOpenFileName(0,
+					  "Load attached points from text file",
+					  Global::previousDirectory(),
+					  "Files (*.txt)");  
+  if (flnm.isEmpty())
+    return;
+  
+  QList<Vec> pts = m_hitpoints->readPointsFromFile(flnm);
+  for (int i=0; i<pts.count(); i++)
+    m_trisets[idx]->addHitPoint(pts[i]);
+
+
+  QMessageBox::information(0, "", "Loaded attached points");
+  
+  emit updateGL();
 }
 
 void

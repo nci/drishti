@@ -25,6 +25,25 @@ Smooth vertex colors for the selected surface mesh.
 
 #end
 
+
+#begin
+savepoints
+savepoints
+
+Save all points that are attached to this surface mesh to a text file.
+
+#end
+
+
+#begin
+loadpoints
+loadpoints
+
+Load points from a text file and attach them to this surface mesh .
+
+#end
+
+
 #begin
 clearpoints
 clearpoints

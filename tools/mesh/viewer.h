@@ -87,11 +87,10 @@ class Viewer : public QGLViewer
    void displayMessage(QString, bool);
    void showFullScene();
    void updateScaling();
+
    virtual void resizeGL(int, int);
-   virtual void paintGL();
-  
-   virtual void keyPressEvent(QKeyEvent*);
-   
+   virtual void paintGL();  
+   virtual void keyPressEvent(QKeyEvent*);   
    virtual void enterEvent(QEvent*);
    virtual void leaveEvent(QEvent*);
    virtual void wheelEvent(QWheelEvent*);

@@ -167,6 +167,7 @@ class TrisetObject
   QList<Vec> hitPoints() { return m_hitpoints; }
   void drawHitPoints();
   void setHitPointHovered(int p) { m_hoveredHitPoint = p; }
+  int hitPointHovered() { return m_hoveredHitPoint; }
   void removeHoveredHitPoint()
   {
     if (m_hoveredHitPoint > -1)

@@ -49,6 +49,8 @@ Trisets::Trisets()
 
   m_grab = false;
 
+  m_clipPartial = true;
+  
   m_renderingClearView = false;
 }
 
@@ -742,8 +744,11 @@ Trisets::render(GLdouble *MVP, Vec viewDir,
 //	continue;
       
       if (m_renderingClearView && !m_trisets[i]->clearView())
-	continue;      
+	continue;
 
+      if (m_trisets[i]->clipped())
+	continue;
+      
       
       bool draw = false;
       if (!outline)
@@ -792,10 +797,10 @@ Trisets::render(GLdouble *MVP, Vec viewDir,
 	  glUniform1f(meshShaderParm[17], i+1);
 	  
 	  int matId = m_trisets[i]->material();
-	  float matMix = m_trisets[i]->materialMix();
 	  glUniform1i(meshShaderParm[18], matId);
 	  if (matId > 0)
 	    {
+	      float matMix = m_trisets[i]->materialMix();
 	      glActiveTexture(GL_TEXTURE1);
 	      glEnable(GL_TEXTURE_2D);
 	      glBindTexture(GL_TEXTURE_2D, m_solidTex[matId-1]);
@@ -873,28 +878,62 @@ Trisets::draw(QGLViewer *viewer,
     trisetExtent = (viewer->camera()->position()-viewer->camera()->sceneCenter()).norm();
   }
   //--------------------------
-  
-  
+
+      
   //--------------------------
-  m_nclip = cpos.count();
-  if (m_nclip > 0)
+  for(int i=0; i<m_trisets.count();i++)
+    m_trisets[i]->setClipped(false);
+  
+  m_nclip = 0;
+  if (m_clipPartial == false && cpos.count() > 0)
     {
-      for(int c=0; c<m_nclip; c++)
+      //identify clipped trisets - if entire triset clipping enabled
+      for(int i=0; i<m_trisets.count();i++)
 	{
-	  m_cpos[3*c+0] = cpos[c].x;
-	  m_cpos[3*c+1] = cpos[c].y;
-	  m_cpos[3*c+2] = cpos[c].z;
-	}
-      for(int c=0; c<m_nclip; c++)
-	{
-	  m_cnormal[3*c+0] = cnormal[c].x;
-	  m_cnormal[3*c+1] = cnormal[c].y;
-	  m_cnormal[3*c+2] = cnormal[c].z;
+	  if (m_trisets[i]->clip())
+	    {
+	      bool clipped = false;
+	      Vec bmin, bmax, bcen;
+	      m_trisets[i]->tenclosingBox(bmin, bmax);			    
+	      bcen = (bmax+bmin)*0.5;
+	      for (int c=0; c<cpos.count(); c++)
+		{
+		  if ((bcen - cpos[c])*cnormal[c] > 0)
+		    {
+		      m_trisets[i]->setClipped(true);
+		      break;
+		    }
+		}
+	    }
 	}
     }
   //--------------------------
 
-    
+  
+  //--------------------------
+  if (m_clipPartial == true)
+    {
+      m_nclip = cpos.count();
+      if (m_nclip > 0)
+	{
+	  for(int c=0; c<m_nclip; c++)
+	    {
+	      m_cpos[3*c+0] = cpos[c].x;
+	      m_cpos[3*c+1] = cpos[c].y;
+	      m_cpos[3*c+2] = cpos[c].z;
+	    }
+	  for(int c=0; c<m_nclip; c++)
+	    {
+	      m_cnormal[3*c+0] = cnormal[c].x;
+	      m_cnormal[3*c+1] = cnormal[c].y;
+	      m_cnormal[3*c+2] = cnormal[c].z;
+	    }
+	}
+    }
+  //--------------------------
+
+
+
   
 
   float sceneRadius = trisetExtent;
@@ -1630,7 +1669,10 @@ Trisets::renderGrabbedOutline(GLint drawFboId,
 //    otln = 0.2;
   
   for(int i=0; i<m_trisets.count();i++)
-    {      
+    {
+      if (m_trisets[i]->clipped())
+	continue;
+      
       int actv = i==m_active ? 1 : 0;
       if (m_multiActive.count() > 1)
 	actv += m_multiActive.contains(i) ? 1 : 0;
@@ -1645,10 +1687,10 @@ Trisets::renderGrabbedOutline(GLint drawFboId,
 
 
 	  int matId = m_trisets[i]->material();
-	  float matMix = m_trisets[i]->materialMix();
 	  glUniform1i(meshShaderParm[18], matId);
 	  if (matId > 0)
 	    {
+	      float matMix = m_trisets[i]->materialMix();
 	      glActiveTexture(GL_TEXTURE1);
 	      glEnable(GL_TEXTURE_2D);
 	      glBindTexture(GL_TEXTURE_2D, m_solidTex[matId-1]);
@@ -1862,10 +1904,10 @@ Trisets::renderTransparent(GLint drawFboId,
 	  glUniform1f(oitShaderParm[17], i+1);
 	  
 	  int matId = m_trisets[i]->material();
-	  float matMix = m_trisets[i]->materialMix();
 	  glUniform1i(oitShaderParm[18], matId);
 	  if (matId > 0)
 	    {
+	      float matMix = m_trisets[i]->materialMix();
 	      glActiveTexture(GL_TEXTURE1);
 	      glEnable(GL_TEXTURE_2D);
 	      glBindTexture(GL_TEXTURE_2D, m_solidTex[matId-1]);
@@ -3482,6 +3524,14 @@ Trisets::sendParametersToMenu()
   vlist.clear();
   vlist << QVariant(m_active);
   plist["idx"] = vlist;
+
+  vlist.clear();
+  vlist << QVariant(m_trisets[m_active]->lineMode());
+  plist["linemode"] = vlist;
+  
+  vlist.clear();
+  vlist << QVariant(m_trisets[m_active]->lineWidth());
+  plist["linewidth"] = vlist;
   
   Vec pos = m_trisets[m_active]->position();
   vlist.clear();
@@ -3522,6 +3572,24 @@ Trisets::sendParametersToMenu()
   plist["darken"] = vlist;
 
   emit setParameters(plist);
+}
+
+void
+Trisets::lineModeChanged(bool b)
+{
+  for (int i=0; i<m_multiActive.count(); i++)
+    m_trisets[m_multiActive[i]]->setLineMode(b);
+
+  emit updateGL();
+}
+
+void
+Trisets::lineWidthChanged(int f)
+{
+  for (int i=0; i<m_multiActive.count(); i++)
+    m_trisets[m_multiActive[i]]->setLineWidth(f);
+
+  emit updateGL();
 }
 
 void

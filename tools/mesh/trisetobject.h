@@ -20,8 +20,13 @@ class TrisetObject
   bool show() { return m_show; }
   void setShow(bool s) { m_show = s; }
 
+  // for clipping triset partially
   bool clip() { return m_clip; }
   void setClip(bool s) { m_clip = s; }
+
+  // for clipping entire triset
+  bool clipped() { return m_clipped; }
+  void setClipped(bool s) { m_clipped = s; }
 
   bool clearView() { return m_clearView; }
   void setClearView(bool s) { m_clearView = s; }
@@ -42,6 +47,12 @@ class TrisetObject
 
   float opacity() { return m_opacity; }
   void setOpacity(float o) { m_opacity = o; }
+
+  bool lineMode() { return m_lineMode; }
+  void setLineMode(bool b) { m_lineMode = b; }
+  
+  float lineWidth() { return m_lineWidth; }
+  void setLineWidth(float f) { m_lineWidth = f; }
   
   Vec color() { return m_color; }
   void setColor(Vec, bool ignoreBlack = false);
@@ -182,8 +193,11 @@ class TrisetObject
   void smoothVertexColors(int);
   
 private :
-  bool m_show, m_clip, m_clearView;
-
+  bool m_show;
+  bool m_clearView;
+  bool m_clip; // for clipping triset partially
+  bool m_clipped; // for clipping entire triset
+  
   QString m_fileName;
 
   bool m_updateFlag;
@@ -207,6 +221,8 @@ private :
   float m_diffuse;
   float m_ambient;
   float m_opacity;
+  bool m_lineMode;
+  float m_lineWidth;
   QVector<float> m_vertices;
   QVector<float> m_normals;
   QVector<uint> m_triangles;

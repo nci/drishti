@@ -58,6 +58,8 @@ class MeshInfoWidget : public QWidget
     void removeMesh(QList<int>);
     void saveMesh(int);
     void duplicateMesh(int);
+    void lineModeChanged(bool);
+    void lineWidthChanged(int);
     void transparencyChanged(int);
     void revealChanged(int);
     void outlineChanged(int);

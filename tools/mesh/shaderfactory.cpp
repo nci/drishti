@@ -655,7 +655,7 @@ ShaderFactory::oitShaderF()
   // apply matcap texture
   shader += "  float dx = dot(rightDir,v3Normal)*0.5+0.5;\n";
   shader += "  float dy = dot(upDir,v3Normal)*0.5+0.5;\n";
-  shader += "  outputColor.rgb = mix(outputColor.rgb, texture(matcapTex, vec2(dx, 1.0-dy)).rgb, matMix*vec3(step(0, applyMaterial)));\n"; 
+  shader += "  outputColor.rgb = mix(outputColor.rgb, texture(matcapTex, vec2(dx, 1.0-dy)).rgb, matMix*vec3(step(1, applyMaterial)));\n"; 
   //---------------------------------------------------------
   //---------------------------------------------------------
   

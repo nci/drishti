@@ -80,6 +80,7 @@ class MainWindow : public QMainWindow
 
    void on_actionSplitBinarySTL_triggered();
   
+   void on_actionClipPartial_triggered();
    void on_actionPaintMode_triggered();
    void on_actionHideBlack_triggered();
    void setPaintColor(QColor);

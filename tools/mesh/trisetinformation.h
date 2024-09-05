@@ -49,7 +49,9 @@ class TrisetInformation
   float dark;
   Vec pattern;
   float opacity;
-
+  bool lineMode;
+  float lineWidth;
+  
   QList<QString> captionText;
   QList<QColor> captionColor;
   QList<QFont> captionFont;

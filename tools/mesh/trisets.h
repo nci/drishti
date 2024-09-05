@@ -91,6 +91,8 @@ class Trisets : public QObject
   void drawHitPoints();
   void removeHoveredHitPoint();
 
+  void setClipPartial(bool b) { m_clipPartial = b; }
+
  public slots :
   void setShow(int, bool);
   void setShow(QList<bool>);
@@ -113,6 +115,8 @@ class Trisets : public QObject
   void materialChanged(QList<int>, int);
   void materialMixChanged(float);
   void materialMixChanged(QList<int>, float);
+  void lineModeChanged(bool);
+  void lineWidthChanged(int);
   void transparencyChanged(int);
   void revealChanged(int);
   void outlineChanged(int);
@@ -157,6 +161,8 @@ class Trisets : public QObject
   QList<int> m_multiActive;
   Vec m_prevActivePos;
   bool m_grab;
+
+  bool m_clipPartial;
   
   GLfloat m_mvpShadow[16];
   Vec m_lightDir;

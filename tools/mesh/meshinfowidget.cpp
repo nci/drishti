@@ -99,6 +99,10 @@ MeshInfoWidget::MeshInfoWidget(QWidget *parent) :
 	  this, SLOT(meshListContextMenu(const QPoint&)));
 			     
 
+  connect(ui.linemode, SIGNAL(toggled(bool)),
+	  this, SIGNAL(lineModeChanged(bool)));
+  connect(ui.linewidth, SIGNAL(valueChanged(int)),
+	  this, SIGNAL(lineWidthChanged(int)));
   connect(ui.transparency, SIGNAL(valueChanged(int)),
 	  this, SIGNAL(transparencyChanged(int)));
   connect(ui.reveal, SIGNAL(valueChanged(int)),
@@ -1083,7 +1087,15 @@ MeshInfoWidget::setParameters(QMap<QString, QVariantList> plist)
 
       vlist = plist.value(pkeys[i]);
       
-      if (pkeys[i] == "position")
+      if (pkeys[i] == "linemode")
+	{	  
+	  ui.linemode->setChecked(vlist[0].toBool());
+	}
+      else if (pkeys[i] == "linewidth")
+	{	  
+	  ui.linewidth->setValue(vlist[0].toInt());
+	}
+      else if (pkeys[i] == "position")
 	{	  
 	  ui.position->setText(vlist[0].toString());
 	}

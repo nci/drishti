@@ -2434,6 +2434,15 @@ MainWindow::updateMeshList()
   m_meshInfoWidget->setMeshes(GeometryObjects::trisets()->getMeshList());
 }
 
+
+void
+MainWindow::on_actionClipPartial_triggered()
+{
+  GeometryObjects::trisets()->setClipPartial(ui.actionClipPartial->isChecked());
+  m_Viewer->updateGL();
+}
+
+
 void
 MainWindow::on_actionHideBlack_triggered()
 {

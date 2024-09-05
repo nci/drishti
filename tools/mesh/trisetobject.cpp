@@ -129,6 +129,7 @@ TrisetObject::clear()
 
   m_show = true;
   m_clip = true;
+  m_clipped = false;
   m_clearView = false;
   m_activeScale = 1.0;
   
@@ -155,6 +156,8 @@ TrisetObject::clear()
   m_diffuse = 1.0f;
   m_ambient = 0.0f;
   m_opacity = 0.7;
+  m_lineMode = false;
+  m_lineWidth = 1;
   m_vertices.clear();
   m_normals.clear();
   m_triangles.clear();
@@ -550,6 +553,13 @@ TrisetObject::drawTrisetBuffer(GLdouble *MVP,
 			       GLint *meshShaderParm,
 			       bool oit)
 {
+  if (m_lineMode)
+    {
+      glPolygonMode (GL_FRONT_AND_BACK, GL_LINE);
+      glEnable(GL_LINE_SMOOTH);
+      glLineWidth(m_lineWidth);
+    }
+  
   glUseProgram(meshShader);
 
   int ni = m_triangles.count();
@@ -650,6 +660,8 @@ TrisetObject::drawTrisetBuffer(GLdouble *MVP,
   glBindVertexArray(0);
   
   glUseProgram(0);
+
+  glPolygonMode (GL_FRONT_AND_BACK, GL_FILL);
 }
 
 
@@ -1774,6 +1786,8 @@ TrisetObject::get()
   ti.dark = m_dark;
   ti.pattern = m_pattern;
   ti.opacity = m_opacity;
+  ti.lineMode = m_lineMode;
+  ti.lineWidth = m_lineWidth;
 
   for(int i=0; i<m_captionPosition.count(); i++)
     {
@@ -1825,6 +1839,8 @@ TrisetObject::set(TrisetInformation ti)
   m_dark = ti.dark;
   m_pattern = ti.pattern;
   m_opacity = ti.opacity;
+  m_lineMode = ti.lineMode;
+  m_lineWidth = ti.lineWidth;
       
   if (reloadColor)
     setColor(m_color);

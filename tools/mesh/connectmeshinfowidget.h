@@ -52,6 +52,10 @@
 	  GeometryObjects::trisets(), SLOT(materialMixChanged(float)));
   connect(m_meshInfoWidget, SIGNAL(materialMixChanged(QList<int>, float)),
 	  GeometryObjects::trisets(), SLOT(materialMixChanged(QList<int>, float)));
+  connect(m_meshInfoWidget, SIGNAL(lineModeChanged(bool)),
+	  GeometryObjects::trisets(), SLOT(lineModeChanged(bool)));
+  connect(m_meshInfoWidget, SIGNAL(lineWidthChanged(int)),
+	  GeometryObjects::trisets(), SLOT(lineWidthChanged(int)));
   connect(m_meshInfoWidget, SIGNAL(transparencyChanged(int)),
 	  GeometryObjects::trisets(), SLOT(transparencyChanged(int)));
   connect(m_meshInfoWidget, SIGNAL(revealChanged(int)),

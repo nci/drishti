@@ -29,7 +29,9 @@ TrisetInformation::clear()
   dark = 0.5;
   pattern = Vec(0,10,0.5);
   opacity = 0.7;
-
+  lineMode = false;
+  lineWidth = 1;
+  
   captionText.clear();
   captionColor.clear();
   captionFont.clear();
@@ -63,7 +65,9 @@ TrisetInformation::operator=(const TrisetInformation& ti)
   dark = ti.dark;
   pattern = ti.pattern;
   opacity = ti.opacity;
-
+  lineMode = ti.lineMode;
+  lineWidth = ti.lineWidth;
+  
   captionText = ti.captionText;
   captionColor = ti.captionColor;
   captionFont = ti.captionFont;
@@ -104,6 +108,10 @@ TrisetInformation::interpolate(const TrisetInformation tinfo1,
   tinfo.opacity = 0.1*qFloor((1-frc)*qFloor(10*tinfo1.opacity) + frc*qFloor(10*tinfo2.opacity));
   tinfo.materialMix = (1-frc)*tinfo1.materialMix + frc*tinfo2.materialMix;
 
+  tinfo.lineMode = tinfo1.lineMode;
+  tinfo.lineWidth = (1-frc)*tinfo1.lineWidth + frc*tinfo2.lineWidth;
+
+  
 //  int nt = qMin(tinfo1.captionPosition.count(), tinfo2.captionPosition.count());			   
 //
 //  for(int i=0; i<nt; i++)
@@ -360,6 +368,16 @@ TrisetInformation::save(fstream &fout)
   fout.write((char*)&opacity, sizeof(float));
 
   memset(keyword, 0, 100);
+  sprintf(keyword, "linemode");
+  fout.write((char*)keyword, strlen(keyword)+1);
+  fout.write((char*)&lineMode, sizeof(bool));
+
+  memset(keyword, 0, 100);
+  sprintf(keyword, "linewidth");
+  fout.write((char*)keyword, strlen(keyword)+1);
+  fout.write((char*)&lineWidth, sizeof(float));
+
+  memset(keyword, 0, 100);
   sprintf(keyword, "end");
   fout.write((char*)keyword, strlen(keyword)+1);
 }
@@ -496,5 +514,9 @@ TrisetInformation::load(fstream &fin)
 	}
       else if (strcmp(keyword, "opacity") == 0)
 	fin.read((char*)&opacity, sizeof(float));
+      else if (strcmp(keyword, "linemode") == 0)
+	fin.read((char*)&lineMode, sizeof(bool));
+      else if (strcmp(keyword, "linewidth") == 0)
+	fin.read((char*)&lineWidth, sizeof(float));
     }
 }

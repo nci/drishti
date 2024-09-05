@@ -46,6 +46,9 @@ Camera Type - Perspective porjection (default) or Orthographic (i.e. parallel) p
 
 Bounding Box (b) - toggle display of bounding box.
 
+Clip Partial - When switch on - Partial clipping of surface mesh 
+               When switch off - Clip entire surface mesh when centroid of the mesh is clipped by clip plane.
+
 Status Bar - toggle progress bar at the bottom.
 
 Spline Position Interpolation - toggle between spline-based and linear interpolation for camera positions while animating camera positions.

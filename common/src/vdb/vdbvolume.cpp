@@ -103,16 +103,29 @@ VdbVolume::convertToLevelSet(float isovalue, int type)
   openvdb::FloatGrid::Ptr grid2 = openvdb::FloatGrid::create();
   grid2 = m_vdbGrid;
 
+  // Visit and update all of the grid's active values, which correspond to
+  // voxels on the narrow band.
   if (type == 1)
     {
-      
-      // Visit and update all of the grid's active values, which correspond to
-      // voxels on the narrow band.
-      for (openvdb::FloatGrid::ValueOnIter iter = grid2->beginValueOn(); iter; ++iter)
-	iter.setValue(2*isovalue - iter.getValue());
+      if (fabs(isovalue) < 0.0000000001) // special condition for 0 isovalue (usually background/empty space for CT data)
+	{
+	  for (openvdb::FloatGrid::ValueOnIter iter = grid2->beginValueOn(); iter; ++iter)
+	    {
+	      if (fabs(iter.getValue()) > 0)
+		iter.setValue(0);
+	      else
+		iter.setValue(1);
+	    }
+	  m_vdbGrid = openvdb::tools::levelSetRebuild(*grid2, 1);
+	}
+      else
+	{
+	  for (openvdb::FloatGrid::ValueOnIter iter = grid2->beginValueOn(); iter; ++iter)
+	    iter.setValue(2*isovalue - iter.getValue());
+	  m_vdbGrid = openvdb::tools::levelSetRebuild(*grid2, isovalue);
+	}
     }
   
-  m_vdbGrid = openvdb::tools::levelSetRebuild(*grid2, isovalue);
 }
 
 void

@@ -3980,7 +3980,7 @@ Raw2Pvl::getValues(int& ivType, float& isoValue,
 	    {
 	      bType = 4;
 	      bValue1 = list[0].mid(2).toInt();
-	      QMessageBox::information(0, "", QString("%1").arg(bValue1));
+	      //QMessageBox::information(0, "", QString("%1").arg(bValue1));
 	    }
 	  if (list[0].left(1) == ">")
 	    {

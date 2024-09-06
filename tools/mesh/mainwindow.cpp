@@ -126,11 +126,6 @@ MainWindow::MainWindow(QWidget *parent) :
 
   qApp->setFont(QFont("MS Reference Sans Serif", 12));
 
-  ui.actionRedBlue->setVisible(false);
-  ui.actionRedCyan->setVisible(false);
-  // hide stereo menu
-  ui.menuToggle->removeAction(ui.menuAnaglyph_Stereo_2->menuAction());
-
 
   //--------
   // Chinese Help
@@ -147,11 +142,7 @@ MainWindow::MainWindow(QWidget *parent) :
   
   MainWindowUI::setMainWindowUI(&ui);
 
-  ui.actionPointMode->setIcon(QIcon(":/images/sizegrip.png"));
-  ui.actionDistanceMode->setIcon(QIcon(":/images/distTool.png"));
   ui.actionGrabMode->setIcon(QIcon(":/images/grab.png"));
-  ui.actionAddClip->setIcon(QIcon(":/images/clipTool.png"));
-  ui.toolBar->setStyleSheet("QWidget{background:ghostwhite;}");
 
   
   setWindowIcon(QPixmap(":/images/logo.png"));
@@ -179,9 +170,6 @@ MainWindow::MainWindow(QWidget *parent) :
 
   ui.actionStatusBar->setChecked(true);
   ui.actionBoundingBox->setChecked(false);
-  ui.actionAxes->setChecked(false);
-  ui.actionVisibility->setChecked(true);
-  ui.actionBottom_Text->setChecked(Global::bottomText());
 
   StaticFunctions::initQColorDialog();
 
@@ -327,12 +315,6 @@ MainWindow::MainWindow(QWidget *parent) :
   //-----------
   // currently disabling all plugins and toolbar
   delete ui.menuPlugins;
-  delete ui.toolBar;
-
-  delete ui.actionAxes;
-  delete ui.actionMouse_Grab;
-  delete ui.actionVisibility;
-
 
   createPaintMenu();
   
@@ -357,7 +339,6 @@ MainWindow::MainWindow(QWidget *parent) :
 	  Global::setPrayogMode(true);
 	  m_keyFrameEditor->setPrayogMode(true);
 	  ui.menubar->hide();
-	  ui.toolBar->hide();
 	  ui.statusBar->hide();
 	  setWindowFlags(Qt::FramelessWindowHint);
 	  dock2->hide();
@@ -772,8 +753,6 @@ MainWindow::GlewInit()
 
   ui.actionPaintMode->setChecked(false);
   m_Viewer->setPaintMode(false);
-  ui.actionFor3DTV->setChecked(false);
-  ui.actionCrosseye->setChecked(false);
   
   // Prayog Mode
   if (!m_projectFileName.isEmpty())
@@ -948,10 +927,11 @@ MainWindow::on_actionAddClip_triggered()
 void
 MainWindow::on_actionGrabMode_triggered(bool b)
 {
+  GeometryObjects::inPool = b;
+  ui.actionGrabMode->setChecked(b);
   GeometryObjects::trisets()->setGrab(b);
   m_meshInfoWidget->changeSelectionMode(b);
 }
-
 
 void
 MainWindow::on_actionSave_Image_triggered()
@@ -1156,8 +1136,6 @@ MainWindow::on_actionTriset_triggered()
   
   ui.actionPaintMode->setChecked(false);
   m_Viewer->setPaintMode(false);
-  ui.actionFor3DTV->setChecked(false);
-  ui.actionCrosseye->setChecked(false);
 
   
   Global::addRecentFile(flnms[0]);
@@ -1259,8 +1237,6 @@ MainWindow::openRecentFile()
 
   ui.actionPaintMode->setChecked(false);
   m_Viewer->setPaintMode(false);
-  ui.actionFor3DTV->setChecked(false);
-  ui.actionCrosseye->setChecked(false);
 
 }
 
@@ -1331,8 +1307,6 @@ MainWindow::dropEvent(QDropEvent *event)
 
   ui.actionPaintMode->setChecked(false);
   m_Viewer->setPaintMode(false);
-  ui.actionFor3DTV->setChecked(false);
-  ui.actionCrosseye->setChecked(false);
 
 }
 
@@ -1857,19 +1831,10 @@ MainWindow::updateParameters(bool drawBox, bool drawAxis,
   if (m_Viewer->paintMode())
     GeometryObjects::trisets()->makeReadyForPainting();
 
-//  //----------------
-//  // bgimage file is assumed to be relative to .pvl.nc file
-//  // get the absolute path
-//  //VolumeInformation pvlInfo = VolumeInformation::volumeInformation();
-//  //QFileInfo fileInfo(pvlInfo.pvlFile);
-//  //Global::setBackgroundImageFile(bgImage, fileInfo.absolutePath());
-//  //----------------
 
   Global::setDrawBox(drawBox);
   ui.actionBoundingBox->setChecked(Global::drawBox());
 
-//  Global::setDrawAxis(drawAxis);
-//  //ui.actionAxes->setChecked(Global::drawAxis());
 
   // remove all geometry from mousegrab pool
   GeometryObjects::removeFromMouseGrabberPool();
@@ -1929,19 +1894,6 @@ MainWindow::saveKeyFrames(const char* flnm)
 }
 
 
-
-void
-MainWindow::on_actionAxes_triggered()
-{
-//  Global::setDrawAxis(ui.actionAxes->isChecked());
-//  m_Viewer->update();
-}
-void
-MainWindow::switchAxis()
-{
-//  Global::setDrawAxis(!Global::drawAxis());
-//  ui.actionAxes->setChecked(Global::drawAxis());
-}
 
 void
 MainWindow::on_actionBoundingBox_triggered()
@@ -2128,115 +2080,6 @@ MainWindow::on_actionOrthographic_triggered()
   m_Viewer->updateGL();
 }
 
-void
-MainWindow::on_actionRedBlue_triggered()
-{
-  MainWindowUI::mainWindowUI()->actionFor3DTV->setChecked(false);
-  MainWindowUI::mainWindowUI()->actionCrosseye->setChecked(false);
-  MainWindowUI::mainWindowUI()->actionRedCyan->setChecked(false);
-
-  m_Viewer->updateGL();
-}
-
-void
-MainWindow::on_actionRedCyan_triggered()
-{
-  MainWindowUI::mainWindowUI()->actionFor3DTV->setChecked(false);
-  MainWindowUI::mainWindowUI()->actionCrosseye->setChecked(false);
-  MainWindowUI::mainWindowUI()->actionRedBlue->setChecked(false);
-
-  m_Viewer->updateGL();
-}
-
-void
-MainWindow::on_actionCrosseye_triggered()
-{
-  MainWindowUI::mainWindowUI()->actionFor3DTV->setChecked(false);
-  MainWindowUI::mainWindowUI()->actionRedBlue->setChecked(false);
-  MainWindowUI::mainWindowUI()->actionRedCyan->setChecked(false);
-
-  m_Viewer->updateGL();
-}
-
-void
-MainWindow::on_actionFor3DTV_triggered()
-{
-  MainWindowUI::mainWindowUI()->actionCrosseye->setChecked(false);
-  MainWindowUI::mainWindowUI()->actionRedBlue->setChecked(false);
-  MainWindowUI::mainWindowUI()->actionRedCyan->setChecked(false);
-
-  m_Viewer->updateGL();
-}
-
-
-void
-MainWindow::on_actionVisibility_triggered()
-{
-  PropertyEditor propertyEditor;
-  QMap<QString, QVariantList> plist;
-
-  QVariantList vlist;
-
-  QStringList keys;
-
-  for(int i=0; i<GeometryObjects::trisets()->count(); i++)
-    {
-      bool flag = GeometryObjects::trisets()->show(i);
-      QString name = QString("mesh %1").arg(i);
-      name += QString(" (%1)").arg(QFileInfo(GeometryObjects::trisets()->filename(i)).fileName());
-      vlist.clear();
-      vlist << QVariant("checkbox");
-      vlist << QVariant(flag);
-      plist[name] = vlist;
-
-      keys << name;
-    }
-  if (GeometryObjects::trisets()->count())
-    keys << "gap";
-
-  for(int i=0; i<GeometryObjects::clipplanes()->count(); i++)
-    {
-      bool flag = GeometryObjects::clipplanes()->show(i);
-      QString name = QString("clipplane %1").arg(i);
-      vlist.clear();
-      vlist << QVariant("checkbox");
-      vlist << QVariant(flag);
-      plist[name] = vlist;
-
-      keys << name;
-    }
-  if (GeometryObjects::clipplanes()->count())
-    keys << "gap";
-
-
-  propertyEditor.set("Visibility Settings", plist, keys);
-  propertyEditor.resize(200, 200);
-
-  QMap<QString, QPair<QVariant, bool> > vmap;
-
-  if (propertyEditor.exec() == QDialog::Accepted)
-    vmap = propertyEditor.get();
-  else
-    return;
-
-  keys = vmap.keys();
-
-  for(int ik=0; ik<keys.count(); ik++)
-    {
-      QPair<QVariant, bool> pair = vmap.value(keys[ik]);
-      
-      QStringList slist = keys[ik].split(" ");
-      QString name = slist[0];
-      int idx = slist[1].toInt();
-      if (pair.second)
-	{	  
-	  if (name == "mesh")
-	    GeometryObjects::trisets()->setShow(idx, pair.first.toBool());
-	  else if (name == "clipplane")
-	    GeometryObjects::clipplanes()->setShow(idx, pair.first.toBool());
-	}
-    }
-}
 
 void
 MainWindow::on_actionClipping_triggered()
@@ -2287,108 +2130,6 @@ MainWindow::on_actionClipping_triggered()
 	{	  
 	  if (name == "mesh")
 	    GeometryObjects::trisets()->setClip(idx, pair.first.toBool());
-	}
-    }
-}
-
-void
-MainWindow::on_actionMouse_Grab_triggered()
-{
-  PropertyEditor propertyEditor;
-  QMap<QString, QVariantList> plist;
-
-  QVariantList vlist;
-
-  QStringList keys;
-
-  for(int i=0; i<GeometryObjects::trisets()->count(); i++)
-    {
-      bool flag = GeometryObjects::trisets()->isInMouseGrabberPool(i);
-      QString name = QString("mesh %1").arg(i);
-      name += QString(" (%1)").arg(QFileInfo(GeometryObjects::trisets()->filename(i)).fileName());
-      vlist.clear();
-      vlist << QVariant("checkbox");
-      vlist << QVariant(flag);
-      plist[name] = vlist;
-
-      keys << name;
-    }
-  if (GeometryObjects::trisets()->count())
-    keys << "gap";
-
-  for(int i=0; i<GeometryObjects::paths()->count(); i++)
-    {
-      bool flag = GeometryObjects::paths()->isInMouseGrabberPool(i);
-      QString name = QString("path %1").arg(i);
-      vlist.clear();
-      vlist << QVariant("checkbox");
-      vlist << QVariant(flag);
-      plist[name] = vlist;
-
-      keys << name;
-    }
-
-  if (GeometryObjects::paths()->count())
-    keys << "gap";
-
-  for(int i=0; i<GeometryObjects::clipplanes()->count(); i++)
-    {
-      bool flag = GeometryObjects::clipplanes()->isInMouseGrabberPool(i);
-      QString name = QString("clipplane %1").arg(i);
-      vlist.clear();
-      vlist << QVariant("checkbox");
-      vlist << QVariant(flag);
-      plist[name] = vlist;
-
-      keys << name;
-    }
-  if (GeometryObjects::clipplanes()->count())
-    keys << "gap";
-
-
-
-  propertyEditor.set("Mouse Grabbers", plist, keys);
-  propertyEditor.resize(200, 200);
-
-  QMap<QString, QPair<QVariant, bool> > vmap;
-
-  if (propertyEditor.exec() == QDialog::Accepted)
-    vmap = propertyEditor.get();
-  else
-    return;
-
-  keys = vmap.keys();
-
-  for(int ik=0; ik<keys.count(); ik++)
-    {
-      QPair<QVariant, bool> pair = vmap.value(keys[ik]);
-      
-      QStringList slist = keys[ik].split(" ");
-      QString name = slist[0];
-      int idx = slist[1].toInt();
-      if (pair.second)
-	{	  
-	  if (name == "mesh")
-	    {
-	      if (pair.first.toBool())
-		GeometryObjects::trisets()->addInMouseGrabberPool(idx);
-	      else
-		GeometryObjects::trisets()->removeFromMouseGrabberPool(idx);
-	    }
-	  else if (name == "path")
-	    {
-	      if (pair.first.toBool())
-		GeometryObjects::paths()->addInMouseGrabberPool(idx);
-	      else
-		GeometryObjects::paths()->removeFromMouseGrabberPool(idx);
-	    }
-	  else if (name == "clipplane")
-	    {
-	      if (pair.first.toBool())
-		GeometryObjects::clipplanes()->addInMouseGrabberPool(idx);
-	      else
-		GeometryObjects::clipplanes()->removeFromMouseGrabberPool(idx);
-	    }
 	}
     }
 }
@@ -2453,9 +2194,6 @@ MainWindow::on_actionHideBlack_triggered()
 void
 MainWindow::on_actionPaintMode_triggered()
 {
-  ui.actionFor3DTV->setChecked(false);
-  ui.actionCrosseye->setChecked(false);
-
   m_Viewer->setPaintMode(ui.actionPaintMode->isChecked());
 
   if (ui.actionPaintMode->isChecked())

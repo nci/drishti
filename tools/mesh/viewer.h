@@ -161,7 +161,8 @@ class Viewer : public QGLViewer
 
 
   void loadSurfaceMesh(QString);
-  
+
+  void changeSelectionMode(bool);
   
  protected :  
   virtual void draw();

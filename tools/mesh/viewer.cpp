@@ -166,8 +166,6 @@ Viewer::switchDrawVolume()
   MainWindowUI::changeDrishtiIcon(true);
   showFullScene();
   
-  MainWindowUI::mainWindowUI()->actionHiresMode->setChecked(true);
-
   emit updateGL();
   qApp->processEvents();
 
@@ -746,9 +744,6 @@ Viewer::bindFBOs(int imagequality)
       if (Global::imageQuality() != Global::_NormalQuality)
 	{
 	  Global::setImageQuality(Global::_NormalQuality);
-	  MainWindowUI::mainWindowUI()->actionNormal->setChecked(true);
-	  MainWindowUI::mainWindowUI()->actionLow->setChecked(false);
-	  MainWindowUI::mainWindowUI()->actionVeryLow->setChecked(false);
 	}
       return false;
     }
@@ -893,78 +888,7 @@ Viewer::renderVolume(int imagequality)
 
   glClear(GL_COLOR_BUFFER_BIT);
   
-  if (! MainWindowUI::mainWindowUI()->actionRedBlue->isChecked() &&
-      ! MainWindowUI::mainWindowUI()->actionRedCyan->isChecked() &&
-      ! MainWindowUI::mainWindowUI()->actionCrosseye->isChecked() &&
-      ! MainWindowUI::mainWindowUI()->actionFor3DTV->isChecked())
-    drawInHires(imagequality);
-  else if (MainWindowUI::mainWindowUI()->actionCrosseye->isChecked() ||
-	   MainWindowUI::mainWindowUI()->actionFor3DTV->isChecked())
-    {
-      int sit = Global::saveImageType();
-      
-      int camW = camera()->screenWidth();
-      int camH = camera()->screenHeight();
-
-      camera()->setScreenWidthAndHeight(camW/2,camH);
-//      if (MainWindowUI::mainWindowUI()->actionCrosseye->isChecked())
-//	camera()->setScreenWidthAndHeight(camW/2,camH);
-//      else
-//	camera()->setScreenWidthAndHeight(camW,camH);
-
-      camera()->loadProjectionMatrixStereo(false);
-      camera()->loadModelViewMatrixStereo(false);
-      glViewport(0,0, camW/2, camH);
-
-      if (MainWindowUI::mainWindowUI()->actionCrosseye->isChecked())
-	Global::setSaveImageType(Global::RightImage);
-      else
-	Global::setSaveImageType(Global::LeftImage);
-
-      drawInHires(imagequality);
-
-
-      camera()->setScreenWidthAndHeight(camW/2,camH);
-//      if (MainWindowUI::mainWindowUI()->actionCrosseye->isChecked())
-//	camera()->setScreenWidthAndHeight(camW/2,camH);
-//      else
-//	camera()->setScreenWidthAndHeight(camW,camH);
-
-      camera()->loadProjectionMatrixStereo(true);
-      camera()->loadModelViewMatrixStereo(true);
-      glViewport(camW/2,0, camW/2, camH);
-
-      if (MainWindowUI::mainWindowUI()->actionCrosseye->isChecked())
-	Global::setSaveImageType(Global::LeftImage);
-      else
-	Global::setSaveImageType(Global::RightImage);
-
-      drawInHires(imagequality);
-
-      // restore camera parameters
-      camera()->setScreenWidthAndHeight(camW,camH);
-      camera()->loadProjectionMatrix(true);
-      camera()->loadModelViewMatrix(true);
-      glViewport(0,0, camW, camH);
-      
-      Global::setSaveImageType(sit);
-      glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    }
-  else if (MainWindowUI::mainWindowUI()->actionRedBlue->isChecked() ||
-	   MainWindowUI::mainWindowUI()->actionRedCyan->isChecked())
-    {
-      int sit = Global::saveImageType();
-      
-      Global::setSaveImageType(Global::LeftImageAnaglyph);
-      drawInHires(imagequality);
-
-      Global::setSaveImageType(Global::RightImageAnaglyph);
-      drawInHires(imagequality);
-
-      Global::setSaveImageType(sit);
-      glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    }
-
+  drawInHires(imagequality);
   
   if (m_saveSnapshots || m_saveMovie)
     releaseFBOs(imagequality);
@@ -2062,10 +1986,8 @@ Viewer::keyPressEvent(QKeyEvent *event)
     {
       // toggle mouse grabs for geometry objects
       GeometryObjects::inPool = ! GeometryObjects::inPool;
-      if (GeometryObjects::inPool)
-	GeometryObjects::addInMouseGrabberPool();
-      else
-	GeometryObjects::removeFromMouseGrabberPool();
+
+      emit changeSelectionMode(GeometryObjects::inPool);
     }
   
 	    

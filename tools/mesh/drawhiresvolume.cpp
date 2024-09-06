@@ -255,42 +255,6 @@ DrawHiresVolume::draw(bool stillimage)
   loadCameraMatrices();
 
   
-
-  //----------------------
-  if (m_Viewer->imageBuffer()->isBound() &&
-      (MainWindowUI::mainWindowUI()->actionFor3DTV->isChecked() ||
-       MainWindowUI::mainWindowUI()->actionCrosseye->isChecked()))
-    {
-      if (MainWindowUI::mainWindowUI()->actionFor3DTV->isChecked())
-	{
-	  if (Global::saveImageType() == Global::LeftImage)
-	    {
-	      glClear(GL_DEPTH_BUFFER_BIT);
-	      glClearColor(0, 0, 0, 0);
-	      glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
-	      glClear(GL_COLOR_BUFFER_BIT);
-	    }
-	  else
-	    {
-	    }
-	}
-      else
-	{
-	  if (MainWindowUI::mainWindowUI()->actionCrosseye->isChecked() &&
-	      Global::saveImageType() == Global::LeftImage)
-	    {
-	    }
-	  else
-	    {
-	      glClear(GL_DEPTH_BUFFER_BIT);
-	      glClearColor(0, 0, 0, 0);
-	      glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
-	      glClear(GL_COLOR_BUFFER_BIT);
-	    }
-	}
-    }
-  //----------------------
-      
   if (Global::visualizationMode() == Global::Surfaces)
     drawGeometryOnly();
 }
@@ -692,22 +656,7 @@ DrawHiresVolume::drawBackground()
   int width = m_Viewer->camera()->screenWidth();
   int height = m_Viewer->camera()->screenHeight();
 
-  if (MainWindowUI::mainWindowUI()->actionFor3DTV->isChecked())
-    {
-      //width /= 2;
-      if (Global::saveImageType() == Global::LeftImage)
-	StaticFunctions::pushOrthoView(0,0, width, height);
-      else
-	StaticFunctions::pushOrthoView(width, 0, width, height);
-    }
-  else
-    {
-      if (MainWindowUI::mainWindowUI()->actionCrosseye->isChecked() &&
-	  Global::saveImageType() == Global::LeftImage)
-	StaticFunctions::pushOrthoView(width, 0, width, height);
-      else
-	StaticFunctions::pushOrthoView(0,0, width, height);
-    }
+  StaticFunctions::pushOrthoView(0,0, width, height);
 
   glEnable(GL_DEPTH_TEST);
   glDepthFunc(GL_LEQUAL);

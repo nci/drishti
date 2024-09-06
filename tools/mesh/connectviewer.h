@@ -1,6 +1,9 @@
 #ifndef CONNECTVIEWER_H
 #define CONNECTVIEWER_H
 
+  connect(m_Viewer, SIGNAL(changeSelectionMode(bool)),
+	  this, SLOT(on_actionGrabMode_triggered(bool)));
+
   connect(m_Viewer, SIGNAL(loadSurfaceMesh(QString)),
 	  this, SLOT(loadSurfaceMesh(QString)));
 

@@ -158,6 +158,7 @@ TrisetObject::clear()
   m_opacity = 0.7;
   m_lineMode = false;
   m_lineWidth = 1;
+  m_drawPointNumbers = false;
   m_vertices.clear();
   m_normals.clear();
   m_triangles.clear();
@@ -1067,7 +1068,7 @@ TrisetObject::postdraw(QGLViewer *viewer,
     glUseProgram(0);
     StaticFunctions::drawEnclosingCube(m_tenclosingBox, lineColor);          
 
-    if (grabMode)
+    if (!grabMode)
       {
 	glLineWidth(5);
 	postdrawInteractionWidget(viewer);
@@ -1082,39 +1083,30 @@ TrisetObject::postdraw(QGLViewer *viewer,
   viewer->startScreenCoordinatesSystem();
 
   //------------------
-//  if (grabMode)
-//  {
-//    glBlendFunc(GL_ONE, GL_ONE);
-//    // draw centroid
-//    Vec vc = (m_tenclosingBox[0] + m_tenclosingBox[6])*0.5;
-//    Vec cppos = viewer->camera()->projectedCoordinatesOf(vc);
-//    glEnable(GL_POINT_SPRITE);
-//    glActiveTexture(GL_TEXTURE0);
-//    glEnable(GL_TEXTURE_2D);
-//    glBindTexture(GL_TEXTURE_2D, Global::hollowSpriteTexture());
-//    glTexEnvf( GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE );
-//    glHint(GL_POINT_SMOOTH_HINT, GL_NICEST);
-//    glEnable(GL_POINT_SMOOTH);    
-//    glColor3f(1,1,1);
-//    glPointSize(20);
-//    glBegin(GL_POINTS);
-//    glVertex3fv(cppos);
-//    glEnd();
-//    glPointSize(1);
-//    glDisable(GL_POINT_SPRITE);
-//    glActiveTexture(GL_TEXTURE0);
-//    glDisable(GL_TEXTURE_2D);  
-//    glDisable(GL_POINT_SMOOTH);
-//
-////    QString str = QString("%1").arg(idx);
-////    QFont font = QFont("MS Reference Sans Serif", 10);
-////    QFontMetrics metric(font);
-////    int ht = metric.height();
-////    int wd = metric.width(str);
-////    
-////    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); // blend on top
-////    StaticFunctions::renderText(cppos.x-wd/2, cppos.y+30, str, font, QColor("darkslategray"), Qt::white);
-//  }
+  if (grabMode)
+  {
+    glBlendFunc(GL_ONE, GL_ONE);
+    // draw centroid
+    Vec vc = (m_tenclosingBox[0] + m_tenclosingBox[6])*0.5;
+    Vec cppos = viewer->camera()->projectedCoordinatesOf(vc);
+    glEnable(GL_POINT_SPRITE);
+    glActiveTexture(GL_TEXTURE0);
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, Global::hollowSpriteTexture());
+    glTexEnvf( GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE );
+    glHint(GL_POINT_SMOOTH_HINT, GL_NICEST);
+    glEnable(GL_POINT_SMOOTH);    
+    glColor3f(1,1,1);
+    glPointSize(20);
+    glBegin(GL_POINTS);
+    glVertex3fv(cppos);
+    glEnd();
+    glPointSize(1);
+    glDisable(GL_POINT_SPRITE);
+    glActiveTexture(GL_TEXTURE0);
+    glDisable(GL_TEXTURE_2D);  
+    glDisable(GL_POINT_SMOOTH);
+  }
   //------------------
   
   glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); // blend on top
@@ -1126,18 +1118,40 @@ TrisetObject::postdraw(QGLViewer *viewer,
   if (displayName)
     {
       QString str = QString("%1").arg(idx);
-
-//      str += QString(" (  %1 %2  )  ").				\
-//	arg(m_interactive_mode).arg(m_interactive_axis);
-	
       str += QString(" (%1)").arg(QFileInfo(m_fileName).fileName());
-      //QFont font = QFont();
-      QFont font = QFont("MS Reference Sans Serif", 10);
+      QFont font = QFont("MS Reference Sans Serif", 12);
       QFontMetrics metric(font);
       int ht = metric.height();
       int wd = metric.width(str);
 
       StaticFunctions::renderText(x-wd/2, y+40, str, font, QColor("darkslategray"), Qt::white);
+    }
+
+  // draw hitpoint numbers
+  if (m_drawPointNumbers)
+    {
+      QFont font = QFont("MS Reference Sans Serif", 12);
+      QFontMetrics metric(font);
+      for (int i=0; i<m_hitpoints.count(); i++)
+	{
+	  QString str = QString(" %1 ").arg(i+1);
+	  Vec v = m_hitpoints[i] - m_centroid;
+	  v = m_q.inverseRotate(v) + m_centroid + m_position;
+	  Vec scr = viewer->camera()->projectedCoordinatesOf(v);
+	  int x = scr.x;
+	  int y = scr.y;
+	  int ht = metric.height();
+	  int wd = metric.width(str);
+	  
+	  //---------------------
+	  x *= viewer->size().width()/viewer->camera()->screenWidth();
+	  y *= viewer->size().height()/viewer->camera()->screenHeight();
+	  //---------------------
+	  
+	  y += ht/2;
+	  
+	  StaticFunctions::renderText(x+10, y, str, font,  QColor(0,0,0,150), Qt::white);
+	}
     }
   
   glEnable(GL_DEPTH_TEST);

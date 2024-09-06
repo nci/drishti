@@ -53,6 +53,8 @@ class TrisetObject
   
   float lineWidth() { return m_lineWidth; }
   void setLineWidth(float f) { m_lineWidth = f; }
+
+  void setDrawPointNumbers(bool b) { m_drawPointNumbers = b; }
   
   Vec color() { return m_color; }
   void setColor(Vec, bool ignoreBlack = false);
@@ -223,6 +225,7 @@ private :
   float m_opacity;
   bool m_lineMode;
   float m_lineWidth;
+  bool m_drawPointNumbers;
   QVector<float> m_vertices;
   QVector<float> m_normals;
   QVector<uint> m_triangles;

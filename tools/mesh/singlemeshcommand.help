@@ -53,6 +53,20 @@ Remove all points attached to the surface mesh.
 
 
 #begin
+drawpointnumbers
+drawpointnumbers
+drawpointnumbers <off>
+
+
+Display point numbers for the attached points for the surface mesh.
+
+drawpointsnumbers off
+Disable point number display
+
+#end
+
+
+#begin
 label
 label
 label <fixed/moving>

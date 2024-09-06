@@ -88,28 +88,25 @@ void
 Trisets::setGrab(bool flag)
 {
   m_grab = flag;
+  if (m_grab)
+    {
+      addInMouseGrabberPool();
+      for (int i=0; i<m_trisets.count(); i++)
+	{
+	  m_trisets[i]->setGrabMode(m_grab);
+	}
+    }
+  else
+    {
+      removeFromMouseGrabberPool();
+      for (int i=0; i<m_trisets.count(); i++)
+	{
+	  m_trisets[i]->setGrabMode(m_grab);
+	}
 
-  removeFromMouseGrabberPool();
-  
-  if (m_grab && m_active > -1)
-    addInMouseGrabberPool(m_active);
-
-
-//  if (m_grab)
-//    {
-//      addInMouseGrabberPool();
-//      for (int i=0; i<m_trisets.count(); i++)
-//  	m_trisets[i]->setGrabMode(m_grab);
-//    }
-//  else
-//    {
-//      removeFromMouseGrabberPool();
-//      for (int i=0; i<m_trisets.count(); i++)
-//  	m_trisets[i]->setGrabMode(m_grab);
-//  
-//      if (m_active > -1)
-//  	addInMouseGrabberPool(m_active);
-//    }
+      if (m_active > -1)
+	addInMouseGrabberPool(m_active);	
+    }
 
   emit updateGL();
 }
@@ -135,16 +132,14 @@ Trisets::posChanged()
 void
 Trisets::meshGrabbed()
 {
-  return;
-  
-//  for (int i=0; i<m_trisets.count(); i++)
-//    {
-//      if (m_trisets[i]->mousePressed())
-//	{
-//	  emit meshGrabbed(i);
-//	  return;
-//	}
-//    }
+  for (int i=0; i<m_trisets.count(); i++)
+    {
+      if (m_trisets[i]->mousePressed())
+	{
+	  emit meshGrabbed(i);
+	  return;
+	}
+    }
 }
 
 void
@@ -157,11 +152,7 @@ Trisets::multiSelection(QList<int> indices)
       removeFromMouseGrabberPool();
       if (m_active > -1)
 	addInMouseGrabberPool(m_active);
-//for (int i=0; i<m_multiActive.count(); i++)
-//	addInMouseGrabberPool(m_multiActive[i]);
     }
-
-  //emit updateGL();
 }
 
 void
@@ -170,7 +161,7 @@ Trisets::setActive(int idx, bool flag)
   if (flag)
     {
       m_active = idx;
-      removeFromMouseGrabberPool();
+      addInMouseGrabberPool(idx);
       sendParametersToMenu();
       if (m_grab)
 	{
@@ -186,8 +177,6 @@ Trisets::setActive(int idx, bool flag)
       if (!m_grab)
 	removeFromMouseGrabberPool(idx);
     }
-
-  //emit updateGL();
 }
 
 bool
@@ -213,7 +202,6 @@ Trisets::drawHitPoints()
   for (int i=0; i<m_trisets.count(); i++)
     m_trisets[i]->drawHitPoints();
 }
-
 
 void
 Trisets::setLightDirection(Vec ldir)
@@ -425,10 +413,7 @@ void
 Trisets::addInMouseGrabberPool(int i)
 {
   if (i >= 0 && i < m_trisets.count())
-    {
       m_trisets[i]->addInMouseGrabberPool();
-      //m_trisets[i]->setGrabMode(true);
-    }
 }
 void
 Trisets::addInMouseGrabberPool()
@@ -449,10 +434,7 @@ void
 Trisets::removeFromMouseGrabberPool()
 {
   for(int i=0; i<m_trisets.count(); i++)
-    {
-      m_trisets[i]->removeFromMouseGrabberPool();
-      m_trisets[i]->setGrabMode(false);
-    }
+    m_trisets[i]->removeFromMouseGrabberPool();
 }
 
 
@@ -2111,10 +2093,15 @@ Trisets::duplicateMesh(int i)
 void
 Trisets::removeHoveredHitPoint()
 {
-  for (int ma=0; ma<m_multiActive.count(); ma++)
+  for (int i=0; i<m_trisets.count(); i++)
     {
-      m_trisets[m_multiActive[ma]]->removeHoveredHitPoint();
+      m_trisets[i]->removeHoveredHitPoint();
     }
+
+//  for (int ma=0; ma<m_multiActive.count(); ma++)
+//    {
+//      m_trisets[m_multiActive[ma]]->removeHoveredHitPoint();
+//    }
 }
 
 bool
@@ -2295,6 +2282,16 @@ Trisets::processCommand(int idx, QString cmd)
   if (list[0] == "clearpoints")
     {
       m_trisets[idx]->clearHitPoints();
+      return;
+    }
+
+  if (list[0] == "drawpointnumbers")
+    {
+      if (list.count() == 2 && list[1] == "off")
+	m_trisets[idx]->setDrawPointNumbers(false);
+      else
+	m_trisets[idx]->setDrawPointNumbers(true);
+      emit updateGL();
       return;
     }
 
@@ -3894,7 +3891,7 @@ Trisets::saveHitPoints()
   flnm = QFileDialog::getSaveFileName(0,
 				      "Save non-attached points to text file",
 				      Global::previousDirectory(),
-				      "Files (*.txt)");
+				      "Files (*.txt *.pts)");
   
   if (flnm.isEmpty())
     return;
@@ -3909,7 +3906,7 @@ Trisets::loadHitPoints()
       flnm = QFileDialog::getOpenFileName(0,
 					  "Load non-attached points from text file",
 					  Global::previousDirectory(),
-					  "Files (*.txt)");  
+					  "Files (*.txt *.pts)");  
   if (flnm.isEmpty())
     return;
   
@@ -3925,7 +3922,7 @@ Trisets::saveHitPoints(int idx)
   flnm = QFileDialog::getSaveFileName(0,
 				      "Save attached points to text file",
 				      Global::previousDirectory(),
-				      "Files (*.txt)");
+				      "Files (*.txt *.pts)");
   
   if (flnm.isEmpty())
     return;
@@ -3953,7 +3950,7 @@ Trisets::loadHitPoints(int idx)
       flnm = QFileDialog::getOpenFileName(0,
 					  "Load attached points from text file",
 					  Global::previousDirectory(),
-					  "Files (*.txt)");  
+					  "Files (*.txt *.pts)");  
   if (flnm.isEmpty())
     return;
   

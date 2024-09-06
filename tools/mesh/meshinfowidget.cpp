@@ -216,14 +216,6 @@ MeshInfoWidget::selectMesh(int idx)
 	  wi->setSelected(true);
       }
 
-      //---------------
-      //QList<int> selIdx;
-      //for(int i=0; i<m_meshList->rowCount(); i++)
-      //	{
-      //	  QTableWidgetItem *wi = m_meshList->item(i, 0);
-      //	  if (wi->isSelected())
-      //	    selIdx << i;
-      //	}
       QList<int> selIdx = getSelectedMeshes();
       emit multiSelection(selIdx);
       //---------------
@@ -444,16 +436,6 @@ MeshInfoWidget::sectionClicked(int col)
   //--------------------------------------
   if (col >= 4) // colormap/material/blend
     {
-      //QList<int> selIdx;
-      //for(int i=0; i<m_meshList->rowCount(); i++)
-      //	{
-      //	  QTableWidgetItem *wi = m_meshList->item(i, 0);
-      //	  if (wi->isSelected())
-      //	    {
-      //	      selIdx << i;
-      //	    }
-      //	}
-      
       QList<int> selIdx = getSelectedMeshes();
       if (selIdx.count() == 0)
 	{
@@ -600,22 +582,6 @@ void
 MeshInfoWidget::cellClicked(int row, int col)
 {
   QList<int> selIdx = getSelectedMeshes();
-  //QList<int> selIdx;
-  //for(int i=0; i<m_meshList->rowCount(); i++)
-  //  {
-  //    QTableWidgetItem *wi = m_meshList->item(i, 0);
-  //    if (wi->isSelected())
-  //	{
-  //	  selIdx << i;
-  //	}
-  //  }
-
-////  if (selIdx.count() > 1)
-////    {
-////      emit setActive(-1, false);
-////      ui.MeshParamBox->hide();
-////      return;
-////    }
 
   if (selIdx.count() > 1)
     {
@@ -1025,13 +991,6 @@ void
 MeshInfoWidget::removeMesh()
 {
   QList<int> selIdx = getSelectedMeshes();
-  //QList<int> selIdx;
-  //for(int i=0; i<m_meshList->rowCount(); i++)
-  //  {
-  //    QTableWidgetItem *wi = m_meshList->item(i, 0);
-  //    if (wi->isSelected())
-  //	selIdx << i;
-  //  }
 
   int row = -1;
 
@@ -1044,12 +1003,6 @@ MeshInfoWidget::removeMesh()
     }
   else    
       emit removeMesh(row);
-
-//  int idx = m_meshList->currentRow();
-//  if (idx > -1)
-//    {
-//      emit removeMesh(idx);
-//    }
 }
 
 void
@@ -1194,15 +1147,7 @@ MeshInfoWidget::scaleChanged()
 void
 MeshInfoWidget::on_Command_pressed()
 {
-  QList<int> selIdx = getSelectedMeshes();
-  //QList<int> selIdx;
-  //for(int i=0; i<m_meshList->rowCount(); i++)
-  //  {
-  //    QTableWidgetItem *wi = m_meshList->item(i, 0);
-  //    if (wi->isSelected())
-  //	selIdx << i;
-  //  }
-  
+  QList<int> selIdx = getSelectedMeshes();  
   
   int row = -1;
 

@@ -61,16 +61,9 @@ class MainWindow : public QMainWindow
    void on_actionImage_Size_triggered();
    void on_actionPerspective_triggered();
    void on_actionOrthographic_triggered();
-   void on_actionRedBlue_triggered();
-   void on_actionRedCyan_triggered();
-   void on_actionCrosseye_triggered();
-   void on_actionFor3DTV_triggered();
    void on_actionStatusBar_triggered();
-   void on_actionMouse_Grab_triggered();
    void on_actionSpline_PositionInterpolation_triggered();
-   void on_actionVisibility_triggered();
    void on_actionClipping_triggered();
-   void on_actionAxes_triggered();
    void on_actionBoundingBox_triggered();
 
    void on_actionPointMode_triggered(bool);
@@ -102,7 +95,6 @@ class MainWindow : public QMainWindow
    void moveToKeyframe(int);
    void updateParameters(bool, bool, bool, Vec, QString);
    void switchBB();
-   void switchAxis();
 
    void addToCameraPath(QList<Vec>,QList<Vec>,QList<Vec>,QList<Vec>);
 

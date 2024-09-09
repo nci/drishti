@@ -16,13 +16,13 @@
 #include <QFileDialog>
 #include <QVBoxLayout>
 #include <QInputDialog>
-#include <QNetworkReply>
+//#include <QNetworkReply>
 #include <QTabWidget>
 #include <QUdpSocket>
 
-#include <qt_windows.h>
-#include <netlistmgr.h>
-#include <atlcomcli.h>
+//#include <qt_windows.h>
+//#include <netlistmgr.h>
+//#include <atlcomcli.h>
 
 #include <QTranslator>
 

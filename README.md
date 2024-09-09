@@ -53,9 +53,9 @@ http://nci.org.au/systems-services/scientific-visualisation/visualisation-servic
 ## Drishti Tutorials
 [ANU OneDrive](https://anu365-my.sharepoint.com/:f:/g/personal/u9707062_anu_edu_au/EoX_P6zZy_ZCkpfNluTEZu8B7oHskm0YnAGErIVDTqjEgw?e=ZVUd25)
 
-## Help slides
+<!-- ## Help slides
 by Julia Behnsen, University of Liverpool 
-https://datanywhere.liv.ac.uk/?linkid=KZi4zr6VWWV/R+cA7OjSmYRTYv/iF7PSuIDODS6ncAGbVD1en/7ZcA
+https://datanywhere.liv.ac.uk/?linkid=KZi4zr6VWWV/R+cA7OjSmYRTYv/iF7PSuIDODS6ncAGbVD1en/7ZcA -->
 
 ## Basics of Drishti
 by Bailey Lovett<br>

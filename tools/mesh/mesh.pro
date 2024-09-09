@@ -63,6 +63,20 @@ win32 {
 }
 
 
+unix {
+!macx {
+  DEFINES += NO_GLMEDIA
+
+  INCLUDEPATH +=  /home/acl900/drishtilib/assimp-5.0.1/include \
+                  /home/acl900/drishtilib/assimp-5.0.1/build/include
+
+
+  QMAKE_LIBDIR += /home/acl900/drishtilib/assimp-5.0.1/libs 
+
+  LIBS += -lGLU
+  }
+}
+
 
 
 # Input

@@ -77,7 +77,6 @@ class MeshInfoWidget : public QWidget
     void processCommand(QList<int>, QString);
     void processCommand(int, QString);
     void processCommand(QString);
-    void rotationMode(bool);
     void grabMesh(bool);
     void multiSelection(QList<int>);
   

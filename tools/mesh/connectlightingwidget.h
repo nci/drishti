@@ -15,9 +15,6 @@
 	  SIGNAL(edges(float)),
 	  this, SLOT(edges(float)));
   connect(m_lightingWidget,
-	  SIGNAL(edgeIntensity(float)),
-	  this, SLOT(edgeIntensity(float)));
-  connect(m_lightingWidget,
 	  SIGNAL(shadowIntensity(float)),
 	  this, SLOT(shadowIntensity(float)));
   connect(m_lightingWidget,

@@ -127,17 +127,6 @@ MeshInfoWidget::MeshInfoWidget(QWidget *parent) :
   m_totTriangles = 0;
 
 
-//  connect(ui.rotationMode, SIGNAL(clicked(bool)),
-//	  this, SIGNAL(rotationMode(bool)));
-//
-//  connect(ui.grabMode, SIGNAL(clicked(bool)),
-//	  this, SIGNAL(grabMesh(bool)));
-//  connect(ui.grabMode, SIGNAL(clicked(bool)),
-//	  this, SLOT(changeSelectionMode(bool)));
-//	  
-//  ui.rotationMode->setIcon(QIcon(QString::fromUtf8(":/images/rot.png")));
-//  ui.grabMode->setIcon(QIcon(QString::fromUtf8(":/images/grab.png")));
-
   m_propIcons << QIcon(); // empty icon
   m_propIcons << QIcon(":/images/eye.png"); // visibility icon
   m_propIcons << QIcon(":/images/clipTool.png"); // clip icon

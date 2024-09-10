@@ -242,14 +242,14 @@ ShaderFactory::genSmoothDilatedShaderString()
   shader += "  vec4 spos = gl_TexCoord[0];\n";
   shader += "\n";
   shader += "  color = texture2DRect(blurTex, spos.xy);\n";
-  shader += "  float s = 0;\n";
+  shader += "  float s = 0.0;\n";
   shader += "  int bs = 1;\n";
   shader += "  for (int i=-bs; i<=bs; i++)\n";
   shader += "  for (int j=bs; j<=bs; j++)\n";
   shader += "  {\n";
   shader += "    s += step(0.0, texture2DRect(blurTex, spos.xy + vec2(i,j)).b);\n";
   shader += "  }\n";
-  shader += "  if (s > 0.4*(2*bs+1)*(2*bs+1)) color = vec4(0.0);\n";
+  shader += "  if (s > 0.4*(2.0*bs+1.0)*(2.0*bs+1.0)) color = vec4(0.0);\n";
   shader += "  gl_FragColor = color;\n";
   shader += "}\n";
 

@@ -63,12 +63,8 @@ class MainWindow : public QMainWindow
    void on_actionOrthographic_triggered();
    void on_actionStatusBar_triggered();
    void on_actionSpline_PositionInterpolation_triggered();
-   void on_actionClipping_triggered();
    void on_actionBoundingBox_triggered();
 
-   void on_actionPointMode_triggered(bool);
-   void on_actionDistanceMode_triggered();
-   void on_actionAddClip_triggered();
    void on_actionGrabMode_triggered(bool);
 
    void on_actionSplitBinarySTL_triggered();

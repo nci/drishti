@@ -1914,31 +1914,7 @@ Viewer::measureLength()
 
 void
 Viewer::keyPressEvent(QKeyEvent *event)
-{
-//  if (GeometryObjects::trisets()->count() == 0)
-//    {
-//      if (event->key() != Qt::Key_Return)
-//	m_zeroEventKeys << event->key();
-//      else if (m_zeroEventKeys.count() > 4)
-//	{
-//	  QDate dcd = QDate::currentDate();
-//	  int day = dcd.day();
-//	  int month = dcd.month();
-//	  int d0 = day/10;
-//	  int d1 = day%10;
-//	  int m0 = month/10;
-//	  int m1 = month%10;
-//	  bool ok = true;
-//	  ok = ok && (m_zeroEventKeys[0] == (Qt::Key_0 + d0));
-//	  ok = ok && (m_zeroEventKeys[1] == (Qt::Key_0 + d1));
-//	  ok = ok && (m_zeroEventKeys[2] == (Qt::Key_0 + m0));
-//	  ok = ok && (m_zeroEventKeys[3] == (Qt::Key_0 + m1));
-//	  if (ok)
-//	    emit allGood(true);
-//	}
-//      return;
-//    }
-  
+{  
   // Toggle FullScreen - hide menubar on fullscreen
   if (event->key() == Qt::Key_Return &&
       event->modifiers() & Qt::AltModifier)
@@ -2105,14 +2081,6 @@ Viewer::keyPressEvent(QKeyEvent *event)
       updateGL();
       return;
     }
-
-//  if (event->key() == Qt::Key_A)
-//    {
-//      emit switchAxis();
-//      updateGL();
-//      return;
-//    }
-
 
 
   if (event->key() == Qt::Key_Escape)

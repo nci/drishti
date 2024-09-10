@@ -29,8 +29,4 @@
 	    m_Viewer, SLOT(updateGL()));
 
 
-    connect(GeometryObjects::clipplanes(), SIGNAL(reorientCameraUsingClipPlane(int)),
-	    this, SLOT(reorientCameraUsingClipPlane(int)));
-
-
 #endif

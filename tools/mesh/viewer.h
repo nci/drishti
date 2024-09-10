@@ -146,13 +146,11 @@ class Viewer : public QGLViewer
   
  signals:
   void quitDrishti();
-  void allGood(bool);
   void showMessage(QString, bool);
   void setHiresMode(bool);
   void setKeyFrame(Vec, Quaternion, int, QImage);
   void replaceKeyFrameImage(int, QImage);
   void switchBB();
-  void switchAxis();
 
   void addRotationAnimation(int, float, int);
   void moveToKeyframe(int);

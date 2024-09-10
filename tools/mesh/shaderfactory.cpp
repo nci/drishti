@@ -249,7 +249,7 @@ ShaderFactory::genSmoothDilatedShaderString()
   shader += "  {\n";
   shader += "    s += step(0.0, texture2DRect(blurTex, spos.xy + vec2(i,j)).b);\n";
   shader += "  }\n";
-  shader += "  if (s > 0.4*(2.0*bs+1.0)*(2.0*bs+1.0)) color = vec4(0.0);\n";
+  shader += "  if (s > 0.4*float((2*bs+1)*(2*bs+1))) color = vec4(0.0);\n";
   shader += "  gl_FragColor = color;\n";
   shader += "}\n";
 
@@ -357,19 +357,19 @@ ShaderFactory::genDilateShaderString()
   shader += "  vec2 spos = gl_TexCoord[0].xy;\n";
   shader += "  gl_FragColor.rgba = texture2DRect(tex, spos);\n";
 
-  shader += "  float maxd = 0;\n";
-  shader += "  float d = 0;\n";
-  shader += "  float twt = 0;\n";
+  shader += "  float maxd = 0.0;\n";
+  shader += "  float d = 0.0;\n";
+  shader += "  float twt = 0.0;\n";
   shader += "  for(int i=-radius; i<=radius; i++)\n";
   shader += "  {\n";
-  shader += "    vec2 xz = texture2DRect(tex, spos + i*direc).xz;\n";
+  shader += "    vec2 xz = texture2DRect(tex, spos + float(i)*direc).xz;\n";
   shader += "    maxd = max(maxd, xz.r);\n";
-  shader += "    float wt = radius+1 - abs(float(i));\n";
+  shader += "    float wt = float(radius+1) - abs(float(i));\n";
   shader += "    d += wt*xz.g;\n";
   shader += "    twt += wt;\n";
   shader += "  }\n";
 
-  shader += "  gl_FragColor = vec4(maxd, 0, d/twt, 0.5);\n";
+  shader += "  gl_FragColor = vec4(maxd, 0.0, d/twt, 0.5);\n";
   shader += "}\n";
 
   return shader;

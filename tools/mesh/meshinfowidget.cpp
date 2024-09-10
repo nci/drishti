@@ -239,17 +239,24 @@ MeshInfoWidget::addMesh(QString meshName, bool show,
   // 0 Name
   {
     QTableWidgetItem *wi = m_meshList->item(m_prevRow, 0);
-    if (!wi) wi = new QTableWidgetItem("");
+    if (!wi)
+      {
+	wi = new QTableWidgetItem("");
+	m_meshList->setItem(m_prevRow, 0, wi);
+      }
     wi->setFont(QFont("MS Reference Sans Serif", 12));
     wi->setText(meshName);
     wi->setFlags(wi->flags() & ~Qt::ItemIsUserCheckable & ~Qt::ItemIsEditable);
-    m_meshList->setItem(m_prevRow, 0, wi);
   }
 
   // 1 Visibility
   {
     QTableWidgetItem *wi = m_meshList->item(m_prevRow, 1);
-    if (!wi) wi = new QTableWidgetItem("");
+    if (!wi)
+      {
+	wi = new QTableWidgetItem("");
+	m_meshList->setItem(m_prevRow, 1, wi);
+      }
 
     wi->setFlags(wi->flags() & ~Qt::ItemIsUserCheckable & ~Qt::ItemIsEditable & ~Qt::ItemIsSelectable);
     wi->setTextAlignment(Qt::AlignCenter);
@@ -266,13 +273,16 @@ MeshInfoWidget::addMesh(QString meshName, bool show,
 	wi->setIcon(m_propIcons[0]);
       }
 
-    m_meshList->setItem(m_prevRow, 1, wi);
   }
 
   // 2 Clip
   {
     QTableWidgetItem *wi = m_meshList->item(m_prevRow, 2);
-    if (!wi) wi = new QTableWidgetItem("");
+    if (!wi)
+      {
+	wi = new QTableWidgetItem("");
+	m_meshList->setItem(m_prevRow, 2, wi);
+      }
 
     wi->setFlags(wi->flags() & ~Qt::ItemIsUserCheckable & ~Qt::ItemIsEditable & ~Qt::ItemIsSelectable);
     if (clip)
@@ -286,13 +296,16 @@ MeshInfoWidget::addMesh(QString meshName, bool show,
 	wi->setIcon(m_propIcons[0]);
       }
 
-    m_meshList->setItem(m_prevRow, 2, wi);
   }
 
   // 3 ClearView
   {
     QTableWidgetItem *wi = m_meshList->item(m_prevRow, 3);
-    if (!wi) wi = new QTableWidgetItem("");
+    if (!wi)
+      {
+	wi = new QTableWidgetItem("");
+	m_meshList->setItem(m_prevRow, 3, wi);
+      }
 
     wi->setFlags(wi->flags() & ~Qt::ItemIsUserCheckable & ~Qt::ItemIsEditable & ~Qt::ItemIsSelectable);
     wi->setTextAlignment(Qt::AlignCenter);
@@ -309,16 +322,18 @@ MeshInfoWidget::addMesh(QString meshName, bool show,
 	wi->setIcon(m_propIcons[0]);
       }
 
-    m_meshList->setItem(m_prevRow, 3, wi);
   }
 
   // 4 Color
   {
     QTableWidgetItem *wi = m_meshList->item(m_prevRow, 4);
-    if (!wi) wi = new QTableWidgetItem("");
+    if (!wi)
+      {
+	wi = new QTableWidgetItem("");
+	m_meshList->setItem(m_prevRow, 4, wi);
+      }
 
     wi->setFlags(wi->flags() & ~Qt::ItemIsUserCheckable & ~Qt::ItemIsEditable & ~Qt::ItemIsSelectable);
-    m_meshList->setItem(m_prevRow, 4, wi);
     wi->setBackground(QBrush(QColor(color)));
     wi->setForeground(QBrush(QColor(color)));
   }
@@ -326,10 +341,13 @@ MeshInfoWidget::addMesh(QString meshName, bool show,
   // 5 Material Id
   {
     QTableWidgetItem *wi = m_meshList->item(m_prevRow, 5);
-    if (!wi) wi = new QTableWidgetItem("");
+    if (!wi)
+      {
+	wi = new QTableWidgetItem("");
+	m_meshList->setItem(m_prevRow, 5, wi);
+      }
 
     wi->setFlags(wi->flags() & ~Qt::ItemIsUserCheckable & ~Qt::ItemIsEditable & ~Qt::ItemIsSelectable);
-    m_meshList->setItem(m_prevRow, 5, wi);
     wi->setTextAlignment(Qt::AlignCenter);
     wi->setText(QString("%1").arg(matId));
   }
@@ -337,10 +355,13 @@ MeshInfoWidget::addMesh(QString meshName, bool show,
   // 6 Blend
   {
     QTableWidgetItem *wi = m_meshList->item(m_prevRow, 6);
-    if (!wi) wi = new QTableWidgetItem("");
+    if (!wi)
+      {
+	wi = new QTableWidgetItem("");
+	m_meshList->setItem(m_prevRow, 6, wi);
+      }
     wi->setText(QString("%1").arg(matMix));
     wi->setTextAlignment(Qt::AlignCenter);
-    m_meshList->setItem(m_prevRow, 6, wi);
   }
 }
 

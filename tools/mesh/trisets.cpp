@@ -3197,6 +3197,8 @@ Trisets::loadMatCapTextures()
   emit matcapFiles(m_solidTexName);
 
   MainWindowUI::mainWindowUI()->statusBar->showMessage("Ready");  
+  Global::progressBar()->setValue(0);
+  qApp->processEvents();
 }
 
 

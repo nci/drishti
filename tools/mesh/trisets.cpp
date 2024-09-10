@@ -396,6 +396,7 @@ Trisets::allEnclosingBox(Vec& boxMin,
       m_trisets[i]->tenclosingBox(bmin, bmax);
       if ((bmax-bmin).squaredNorm() < 0.00000001f)
 	m_trisets[i]->enclosingBox(bmin, bmax);
+      
       boxMin = StaticFunctions::minVec(boxMin, bmin);
       boxMax = StaticFunctions::maxVec(boxMax, bmax);
     }
@@ -447,24 +448,6 @@ Trisets::grabsMouse()
 	return true;
    }
  return false;
-}
-
-void
-Trisets::addTriset(QString flnm)
-{
-  TrisetGrabber *tg = new TrisetGrabber();
-  if (tg->load(flnm))
-    {
-      m_trisets.append(tg);
-      connect(tg, SIGNAL(updateParam()),
-	      this, SLOT(sendParametersToMenu()));
-      connect(tg, SIGNAL(meshGrabbed()),
-	      this, SLOT(meshGrabbed()));
-      connect(tg, SIGNAL(posChanged()),
-	      this, SLOT(posChanged()));
-    }
-  else
-    delete tg;
 }
 
 void
@@ -3168,9 +3151,14 @@ Trisets::loadMatCapTextures()
   
   QRandomGenerator::global()->bounded(0,list.size()-1);
 
+  MainWindowUI::mainWindowUI()->statusBar->showMessage("Loading MatCap Textures");
+
   int texSize;
   for (int i=0; i<list.size(); i++)
     {
+      Global::progressBar()->setValue((int)(100.0*(float)(i)/(float)(list.size())));
+      qApp->processEvents();
+
       QString flnm = list.at(i).absoluteFilePath();
       m_solidTexName << flnm;
       
@@ -3207,6 +3195,8 @@ Trisets::loadMatCapTextures()
     }
 
   emit matcapFiles(m_solidTexName);
+
+  MainWindowUI::mainWindowUI()->statusBar->showMessage("Ready");  
 }
 
 
@@ -3736,7 +3726,6 @@ Trisets::scaleChanged(QVector3D scl)
 					      scl.y(),
 					      scl.z()));
   emit updateScaling();
-  //emit updateGL();
 }
 
 void

@@ -348,6 +348,7 @@ MainWindow::MainWindow(QWidget *parent) :
 	}
     }
   //----------------------------------------------------------------------
+
 }
 
 void
@@ -698,6 +699,8 @@ MainWindow::GlewInit()
   //glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, &textureSize);
   Global::setTextureSizeLimit(textureSize);
 
+  // load material capture textures
+  GeometryObjects::trisets()->loadMatCapTextures();
 
   // load program 
   QStringList arguments = qApp->arguments();

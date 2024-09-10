@@ -2329,8 +2329,8 @@ TrisetObject::loadSTLModel(QString flnm)
   m_centroid = Vec(0,0,0);
 //  int istep = 10;
 //  if (m_vertices.count() < 300)
-//    istep = 1;
-  int istep = qMax(1, m_vertices.count()/300);
+  int istep = 1;
+//  int istep = qMax(1, m_vertices.count()/300);
   int vc = 0;
   for(int i=0; i<m_vertices.count()/3; i+=istep)
     {
@@ -2339,8 +2339,10 @@ TrisetObject::loadSTLModel(QString flnm)
 
       minX = qMin(minX, m_vertices[3*i+0]);
       maxX = qMax(maxX, m_vertices[3*i+0]);
+      
       minY = qMin(minY, m_vertices[3*i+1]);
       maxY = qMax(maxY, m_vertices[3*i+1]);
+
       minZ = qMin(minZ, m_vertices[3*i+2]);
       maxZ = qMax(maxZ, m_vertices[3*i+2]);
     }
@@ -2727,8 +2729,8 @@ TrisetObject::loadAssimpModel(QString flnm)
   m_centroid = Vec(0,0,0);
 //  int istep = 10;
 //  if (m_vertices.count() < 300)
-//    istep = 1;
-  int istep = qMax(1, m_vertices.count()/300);
+  int istep = 1;
+//  int istep = qMax(1, m_vertices.count()/300);
 
   int vc = 0;
   for(int i=0; i<m_vertices.count()/3; i+=istep)

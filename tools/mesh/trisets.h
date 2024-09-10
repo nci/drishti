@@ -48,7 +48,6 @@ class Trisets : public QObject
 
   void clear();
 
-  void addTriset(QString);
   void addMesh(QString);
 
   
@@ -92,6 +91,8 @@ class Trisets : public QObject
   void removeHoveredHitPoint();
 
   void setClipPartial(bool b) { m_clipPartial = b; }
+
+  void loadMatCapTextures();
 
  public slots :
   void setShow(int, bool);
@@ -192,7 +193,6 @@ class Trisets : public QObject
   QStringList m_solidTexName;
   QList<uchar*> m_solidTexData;
   GLuint* m_solidTex;
-  void loadMatCapTextures();
 
 
   void renderFromCamera(GLdouble*, Vec, int, int, int);

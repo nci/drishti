@@ -6,6 +6,27 @@ Set colors for all meshes to colors obtained from preset color map.
 
 #end
 
+
+#begin
+colorUsingArea
+colorUsingArea <sort>
+
+Set colors for all selected meshes to colors obtained from preset color map using surface area as attribute.
+If sort is specified the meshes are sorted based on surface area.
+
+#end
+
+
+#begin
+colorUsingVolume
+colorUsingVolume <sort>
+
+Set colors for all selected meshes to colors obtained from preset color map using volume as attribute.
+If sort is specified the meshes are sorted based on volume.
+
+#end
+
+
 #begin
 bakecolors
 bakecolors

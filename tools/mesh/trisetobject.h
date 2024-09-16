@@ -193,6 +193,10 @@ class TrisetObject
   void copyToOrigVcolor();
   void copyFromOrigVcolor();  
   void smoothVertexColors(int);
+
+  float surfaceArea();
+  float volume();
+
   
 private :
   bool m_show;

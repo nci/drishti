@@ -206,7 +206,8 @@ class Trisets : public QObject
   void drawOITTextures(int, int);
 
   void askGradientChoice(QList<int>);
-
+  void colorUsingAttribute(QList<int>, int, bool);
+  
   void mergeSurfaces(QList<int>);
   void saveHitPoints();
   void saveHitPoints(int);

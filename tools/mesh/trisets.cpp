@@ -9,6 +9,7 @@
 #include "matrix.h"
 #include "mainwindowui.h"
 
+#include <QMultiMap>
 #include <QFileDialog>
 #include <QInputDialog>
 #include "popupslider.h"
@@ -2499,6 +2500,31 @@ Trisets::processCommand(QList<int> indices, QString cmd)
       askGradientChoice(indices);
       return;
     }
+        
+  if (list[0] == "colorusingarea")
+    {
+      QList<int> indices;
+      for (int i=0; i<m_trisets.count(); i++)
+	indices << i;
+
+      bool attribSort = (list.count() == 2 && list[1] == "sort");
+      colorUsingAttribute(indices, 0, attribSort);
+
+      return;
+    }
+        
+  if (list[0] == "colorusingvolume")
+    {
+      QList<int> indices;
+      for (int i=0; i<m_trisets.count(); i++)
+	indices << i;
+
+      bool attribSort = (list.count() == 2 && list[1] == "sort");
+      colorUsingAttribute(indices, 1, attribSort);
+
+      return;
+    }
+        
 
   
   if (list[0] == "merge")
@@ -2708,6 +2734,30 @@ Trisets::processCommand(QString cmd)
       for (int i=0; i<m_trisets.count(); i++)
 	indices << i;
       askGradientChoice(indices);
+      return;
+    }
+        
+  if (list[0] == "colorusingarea")
+    {
+      QList<int> indices;
+      for (int i=0; i<m_trisets.count(); i++)
+	indices << i;
+
+      bool attribSort = (list.count() == 2 && list[1] == "sort");
+      colorUsingAttribute(indices, 0, attribSort);
+
+      return;
+    }
+        
+  if (list[0] == "colorusingvolume")
+    {
+      QList<int> indices;
+      for (int i=0; i<m_trisets.count(); i++)
+	indices << i;
+
+      bool attribSort = (list.count() == 2 && list[1] == "sort");
+      colorUsingAttribute(indices, 1, attribSort);
+
       return;
     }
         
@@ -3496,6 +3546,162 @@ Trisets::askGradientChoice(QList<int> indices)
 		    color.blueF());
       m_trisets[indices[i]]->setColor(clr);
     }
+
+  emit updateMeshList(getMeshList());
+}
+
+
+
+void
+Trisets::colorUsingAttribute(QList<int> indices, int attribType, bool attribSort)
+{
+  QString homePath = QDir::homePath();
+  QFileInfo sfi(homePath, ".drishtigradients.xml");
+
+  QString stopsflnm = sfi.absoluteFilePath();
+  if (!sfi.exists())
+    StaticFunctions::copyGradientFile(stopsflnm);
+
+  QDomDocument document;
+  QFile f(stopsflnm);
+  if (f.open(QIODevice::ReadOnly))
+    {
+      document.setContent(&f);
+      f.close();
+    }
+
+  QStringList glist;
+
+  QDomElement main = document.documentElement();
+  QDomNodeList dlist = main.childNodes();
+  for(int i=0; i<dlist.count(); i++)
+    {
+      if (dlist.at(i).nodeName() == "gradient")
+	{
+	  QDomNodeList cnode = dlist.at(i).childNodes();
+	  for(int j=0; j<cnode.count(); j++)
+	    {
+	      QDomElement dnode = cnode.at(j).toElement();
+	      if (dnode.nodeName() == "name")
+		glist << dnode.text();
+	    }
+	}
+    }
+
+  bool ok;
+  QFont font;
+  font.setPointSize(12);
+  QInputDialog* dialog = new QInputDialog(0, Qt::Popup);
+  dialog->setFont(font);
+  dialog->setWindowTitle("Color Gradient");
+  dialog->setLabelText("Color Gradient");
+  dialog->setComboBoxItems(glist);
+  dialog->setTextValue(glist[0]);
+  dialog->setComboBoxEditable(false);
+  int cdW = dialog->width();
+  int cdH = dialog->height();
+  dialog->move(QCursor::pos()-QPoint(100,0));
+  int ret = dialog->exec();
+  if (!ret)
+    return;
+
+  QString gstr = dialog->textValue();
+
+  int cno = -1;
+  for(int i=0; i<dlist.count(); i++)
+    {
+      if (dlist.at(i).nodeName() == "gradient")
+	{
+	  QDomNodeList cnode = dlist.at(i).childNodes();
+	  for(int j=0; j<cnode.count(); j++)
+	    {
+	      QDomElement dnode = cnode.at(j).toElement();
+	      if (dnode.tagName() == "name" && dnode.text() == gstr)
+		{
+		  cno = i;
+		  break;
+		}
+	    }
+	}
+    }
+	
+  if (cno < 0)
+    return;
+
+  QGradientStops stops;
+  QDomNodeList cnode = dlist.at(cno).childNodes();
+  for(int j=0; j<cnode.count(); j++)
+    {
+      QDomElement de = cnode.at(j).toElement();
+      if (de.tagName() == "gradientstops")
+	{
+	  QString str = de.text();
+	  QStringList strlist = str.split(" ", QString::SkipEmptyParts);
+	  for(int j=0; j<strlist.count()/5; j++)
+	    {
+	      float pos, r,g,b,a;
+	      pos = strlist[5*j].toFloat();
+	        r = strlist[5*j+1].toInt();
+	        g = strlist[5*j+2].toInt();
+	        b = strlist[5*j+3].toInt();
+		a = strlist[5*j+4].toInt();
+	      stops << QGradientStop(pos, QColor(r,g,b,255));
+	    }
+	}
+    }
+
+  
+  QGradientStops gstops;
+  gstops = StaticFunctions::resampleGradientStops(stops, m_trisets.count());
+
+
+  //------------------------
+  QMultiMap<float, int> attrib;
+
+  if (attribType == 0) // color using surface areas
+    {
+      for(int i=0; i<indices.count(); i++)
+	attrib.insert(m_trisets[indices[i]]->surfaceArea(), indices[i]);
+    }
+  else if (attribType == 1) // color using volume
+    {
+      for(int i=0; i<indices.count(); i++)
+	attrib.insert(m_trisets[indices[i]]->volume(), indices[i]);
+    }
+  
+
+  QList<int> idx = attrib.values();    
+  
+  uchar *colors = Global::tagColors();  
+  for(int i=0; i<idx.count(); i++)
+    {
+      float pos = gstops[i].first;
+      QColor color = gstops[i].second;
+      Vec clr = Vec(color.redF(),
+		    color.greenF(),
+		    color.blueF());
+      m_trisets[idx[i]]->setColor(clr);
+    }
+
+
+  //-----------
+  // sort mesh based on attribute
+  if (attribSort)
+    {
+      QList<TrisetGrabber*> oldT = m_trisets;
+      int pl = -1;
+      for (int i=0; i<idx.count(); i++)
+	{
+	  m_trisets[++pl] = oldT[idx[i]];
+	}
+      for (int i=0; i<m_trisets.count(); i++)
+	{
+	  if (!idx.contains(i))
+	    m_trisets[++pl] = oldT[i];
+	}
+    }
+  //-----------
+  
 
   emit updateMeshList(getMeshList());
 }

@@ -2871,3 +2871,65 @@ TrisetObject::smoothVertexColors(int niter)
 
   loadVertexBufferData();
 }
+
+float
+TrisetObject::surfaceArea()
+{
+  float area = 0;
+  
+  int ntri = m_triangles.count()/3;
+  for (int t=0; t<ntri; t++)
+    {
+      int i0 = m_triangles[3*t];
+      int i1 = m_triangles[3*t+1];
+      int i2 = m_triangles[3*t+2];
+
+      Vec v0 = Vec(m_vertices[3*i0+0], m_vertices[3*i0+1], m_vertices[3*i0+2]);
+      Vec v1 = Vec(m_vertices[3*i1+0], m_vertices[3*i1+1], m_vertices[3*i1+2]);
+      Vec v2 = Vec(m_vertices[3*i2+0], m_vertices[3*i2+1], m_vertices[3*i2+2]);
+
+      Vec va = v1-v0;
+      Vec vb = v2-v0;      
+
+      area += (va ^ vb).norm();
+    }
+
+  return area;
+}
+
+float
+TrisetObject::volume()
+{
+  float vol = 0;
+
+  // amp.ece.cmu.edu/Publication/Cha/icip01_Cha.pdf
+  // calculate volume using signed volume for each elementary tetrahedron
+  // the signed volume for elementary tetrahedron -
+  // The magnitude of its value is the volume of the tetrahedron
+  // and the sign of the value is determined by checking if the
+  // origin is at the same side as the normal with respect
+  // to the triangle.
+    
+  int ntri = m_triangles.count()/3;
+  for (int t=0; t<ntri; t++)
+    {
+      int i1 = m_triangles[3*t];
+      int i2 = m_triangles[3*t+1];
+      int i3 = m_triangles[3*t+2];
+      
+      Vec v1 = Vec(m_vertices[3*i1+0], m_vertices[3*i1+1], m_vertices[3*i1+2]);
+      Vec v2 = Vec(m_vertices[3*i2+0], m_vertices[3*i2+1], m_vertices[3*i2+2]);
+      Vec v3 = Vec(m_vertices[3*i3+0], m_vertices[3*i3+1], m_vertices[3*i3+2]);
+      
+      float v321 = v3.x * v2.y * v1.z;
+      float v231 = v2.x * v3.y * v1.z;
+      float v312 = v3.x * v1.y * v2.z;
+      float v132 = v1.x * v3.y * v2.z;
+      float v213 = v2.x * v1.y * v3.z;
+      float v123 = v1.x * v2.y * v3.z;
+
+      vol += (1.0f/6.0f)*(-v321 + v231 + v312 - v132 - v213 + v123);
+    }
+
+  return qAbs(vol);
+}

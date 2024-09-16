@@ -57,20 +57,18 @@ Set colors for all selected meshes to colors obtained from preset color map.
 
 #begin
 colorUsingArea
-colorUsingArea sort
+colorUsingArea
 
 Set colors for all selected meshes to colors obtained from preset color map using surface area as attribute.
-If sort is specified the meshes are sorted based on surface area.
 
 #end
 
 
 #begin
 colorUsingVolume
-colorUsingVolume sort
+colorUsingVolume
 
 Set colors for all selected meshes to colors obtained from preset color map using volume as attribute.
-If sort is specified the meshes are sorted based on volume.
 
 #end
 

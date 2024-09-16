@@ -2503,24 +2503,14 @@ Trisets::processCommand(QList<int> indices, QString cmd)
         
   if (list[0] == "colorusingarea")
     {
-      QList<int> indices;
-      for (int i=0; i<m_trisets.count(); i++)
-	indices << i;
-
-      bool attribSort = (list.count() == 2 && list[1] == "sort");
-      colorUsingAttribute(indices, 0, attribSort);
+      colorUsingAttribute(indices, 0, false);
 
       return;
     }
         
   if (list[0] == "colorusingvolume")
     {
-      QList<int> indices;
-      for (int i=0; i<m_trisets.count(); i++)
-	indices << i;
-
-      bool attribSort = (list.count() == 2 && list[1] == "sort");
-      colorUsingAttribute(indices, 1, attribSort);
+      colorUsingAttribute(indices, 1, false);
 
       return;
     }
@@ -3271,6 +3261,7 @@ Trisets::askGradientChoice(QList<int> indices)
     }
 
   QStringList glist;
+  glist << "reverse-color-order";
   glist << "random";
   glist << "random-hue-pastel";
   glist << "random-hue-vibrant";
@@ -3313,6 +3304,21 @@ Trisets::askGradientChoice(QList<int> indices)
   QString gstr = dialog->textValue();
 
   //--------------------
+  if (gstr == "reverse-color-order")
+    {
+      QList<Vec> colors;
+
+      int count = indices.count();
+      for(int i=0; i<count; i++)
+	colors << m_trisets[indices[i]]->color();
+	  
+      for(int i=0; i<count; i++)
+	m_trisets[indices[i]]->setColor(colors[count-1-i]);
+      
+
+      emit updateMeshList(getMeshList());
+      return;
+    }
   if (gstr == "random")
     {
       for(int i=0; i<indices.count(); i++)
@@ -3335,6 +3341,7 @@ Trisets::askGradientChoice(QList<int> indices)
 	}
 
       emit updateMeshList(getMeshList());
+      return;
     }
   if (gstr == "random-pastel")
     {
@@ -3358,6 +3365,7 @@ Trisets::askGradientChoice(QList<int> indices)
 	}
 
       emit updateMeshList(getMeshList());
+      return;
     }
   if (gstr == "random-vibrant")
     {
@@ -3381,6 +3389,7 @@ Trisets::askGradientChoice(QList<int> indices)
 	}
 
       emit updateMeshList(getMeshList());
+      return;
     }
   if (gstr.contains("random-hue"))
     {
@@ -3485,6 +3494,7 @@ Trisets::askGradientChoice(QList<int> indices)
 	}
 
       emit updateMeshList(getMeshList());
+      return;
     }
   //--------------------
 

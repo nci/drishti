@@ -112,6 +112,8 @@ class MainWindow : public QMainWindow
   void updateMeshList(QStringList);
   void updateMeshList();
 
+  void updateVoxelUnit();
+  void updateVoxelSize();
 
   
  private :

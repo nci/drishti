@@ -1641,3 +1641,10 @@ Paths::viewportsVisible()
 {
   return false;
 }
+
+void
+Paths::updateVoxelSize()
+{
+  for(int i=0; i<m_paths.count(); i++)
+    m_paths[i]->computePathLength();
+}

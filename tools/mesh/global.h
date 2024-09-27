@@ -44,6 +44,15 @@ class Global
       _SharpnessFilter
     };
 
+    enum VoxelUnit {
+    Nounit = 0,
+    Micron,
+    Millimeter,
+    Centimeter,
+    Meter
+  };
+
+
   static QString DrishtiVersion();
 
   static void setPrayogMode(bool);
@@ -276,9 +285,14 @@ class Global
 
   static int dpi();
 
-  static void setPvlVoxelType(int);
-  static int pvlVoxelType();
+  static void setVoxelUnit(int);
+  static int voxelUnit();
+  static QString voxelUnitString();
+  static QString voxelUnitStringShort();  
 
+  static void setVoxelSize(Vec);
+  static Vec voxelSize();
+  
   static void setRelDataPos(Vec);
   static Vec relDataPos();
 
@@ -397,6 +411,12 @@ private :
   static bool m_shadowBox;
 
   static int m_bytesPerVoxel;
+
+  static int m_voxelUnit;
+  static Vec m_voxelSize;
+
+  static QStringList m_voxelUnitStrings;
+  static QStringList m_voxelUnitStringsShort;
 };
 
 #endif

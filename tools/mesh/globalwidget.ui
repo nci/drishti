@@ -50,6 +50,86 @@
        </widget>
       </item>
       <item>
+       <layout class="QGridLayout" name="gridLayout">
+        <property name="leftMargin">
+         <number>5</number>
+        </property>
+        <property name="topMargin">
+         <number>5</number>
+        </property>
+        <property name="rightMargin">
+         <number>5</number>
+        </property>
+        <property name="bottomMargin">
+         <number>5</number>
+        </property>
+        <item row="9" column="0">
+         <widget class="QLabel" name="label">
+          <property name="maximumSize">
+           <size>
+            <width>100</width>
+            <height>16777215</height>
+           </size>
+          </property>
+          <property name="text">
+           <string>Voxel Unit</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item row="9" column="1">
+         <widget class="QComboBox" name="voxelUnit">
+          <property name="maximumSize">
+           <size>
+            <width>150</width>
+            <height>16777215</height>
+           </size>
+          </property>
+          <item>
+           <property name="text">
+            <string>No Unit</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Micron</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Millimeter</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Centimeter</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Meter</string>
+           </property>
+          </item>
+         </widget>
+        </item>
+        <item row="10" column="0">
+         <widget class="QLabel" name="label_2">
+          <property name="text">
+           <string>Voxel Size</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item row="10" column="1">
+         <widget class="QLineEdit" name="voxelSize"/>
+        </item>
+       </layout>
+      </item>
+      <item>
        <spacer name="verticalSpacer">
         <property name="orientation">
          <enum>Qt::Vertical</enum>

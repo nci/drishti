@@ -28,6 +28,14 @@ If sort is specified the meshes are sorted based on volume.
 
 
 #begin
+saveAreaVolume
+saveAreaVolume
+
+Save surface area and volume information for all meshes to a text file.
+#end
+
+
+#begin
 bakecolors
 bakecolors
 

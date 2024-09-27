@@ -2717,7 +2717,13 @@ Trisets::processCommand(QString cmd)
       loadHitPoints();
       return;
     }
-  
+
+  if (list[0] == "saveareavolume")
+    {
+      saveAreaVolume();
+      return;
+    }
+    
   if (list[0] == "colormap")
     {
       QList<int> indices;
@@ -4302,3 +4308,41 @@ Trisets::applyVertexColorSmoothing(int niter)
       emit updateGL();
     }
 }
+
+void
+Trisets::saveAreaVolume()
+{
+  QString flnm;
+  flnm = QFileDialog::getSaveFileName(0,
+				      "Save area and volume information for all meshes to text file",
+				      Global::previousDirectory(),
+				      "Files (*.txt)");
+  
+  if (flnm.isEmpty())
+    return;
+
+  QString areaUnit, volUnit;
+  areaUnit = "(" + Global::voxelUnitStringShort() + "2)";
+  volUnit = "(" + Global::voxelUnitStringShort() + "3)";
+  
+  fstream fp(flnm.toLatin1().data(), ios::out);
+  fp << "    Mesh ,  SurfaceArea" << areaUnit.toLatin1().data() <<
+        "  , Volume" << volUnit.toLatin1().data() << "\n";
+  fp << "------------------------------------\n";
+  
+  for(int i=0; i<m_trisets.count(); i++)
+    {
+      float area = m_trisets[i]->surfaceArea();
+      float volume = m_trisets[i]->volume();
+
+      QString tflnm;
+      tflnm = QString("%1").arg(QFileInfo(m_trisets[i]->filename()).fileName());
+
+      fp << tflnm.toLatin1().data() << " , " << area << " , " << volume << "\n";
+    }
+
+  fp.close();
+
+  QMessageBox::information(0, "Save", "Done");
+}
+

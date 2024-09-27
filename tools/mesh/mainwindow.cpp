@@ -296,6 +296,10 @@ MainWindow::MainWindow(QWidget *parent) :
 	  this, SLOT(setBackgroundColor()));
   connect(m_globalWidget, SIGNAL(shadowBox(bool)),
 	  this, SLOT(setShadowBox(bool)));
+  connect(m_globalWidget, SIGNAL(newVoxelUnit()),
+	  this, SLOT(updateVoxelUnit()));
+  connect(m_globalWidget, SIGNAL(newVoxelSize()),
+	  this, SLOT(updateVoxelSize()));
 
 
   connect(GeometryObjects::trisets(), SIGNAL(updateMeshList(QStringList)),
@@ -2656,5 +2660,21 @@ MainWindow::runScript(int idx, bool batchMode)
   QMessageBox::information(0, "CMD", cmd);
   
   m_scriptProcess->write(cmd.toLatin1() + "\n");
+  qApp->processEvents();
+}
+
+
+void
+MainWindow::updateVoxelUnit()
+{
+  m_Viewer->updateGL();
+  qApp->processEvents();
+}
+
+void
+MainWindow::updateVoxelSize()
+{
+  GeometryObjects::paths()->updateVoxelSize();
+  m_Viewer->updateGL();
   qApp->processEvents();
 }

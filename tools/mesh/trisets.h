@@ -138,6 +138,7 @@ class Trisets : public QObject
 
   void deleteDialog(int);
   void applyVertexColorSmoothing(int);
+
   
  signals :
   void updateGL();
@@ -221,6 +222,9 @@ class Trisets : public QObject
 
   QDialog *m_dialog;
   void smoothVertexColors(int);
+
+  void saveAreaVolume();
+
 };
 
 

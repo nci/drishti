@@ -17,11 +17,15 @@ class GlobalWidget : public QWidget
  private slots :
   void on_bgColor_pressed();  
   void on_shadowBox_clicked(bool);
+  void on_voxelUnit_currentIndexChanged(int);
+  void on_voxelSize_editingFinished();
   
  signals :
   void bgColor();
   void shadowBox(bool);
-
+  void newVoxelUnit();
+  void newVoxelSize();
+  
  private :
   Ui::GlobalWidget ui;
 

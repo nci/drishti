@@ -2876,7 +2876,8 @@ float
 TrisetObject::surfaceArea()
 {
   float area = 0;
-  
+    
+  Vec vsize = Global::voxelSize();
   int ntri = m_triangles.count()/3;
   for (int t=0; t<ntri; t++)
     {
@@ -2891,6 +2892,9 @@ TrisetObject::surfaceArea()
       Vec va = v1-v0;
       Vec vb = v2-v0;      
 
+      va = VECPRODUCT(va, vsize);
+      vb = VECPRODUCT(vb, vsize);
+
       area += (va ^ vb).norm();
     }
 
@@ -2900,8 +2904,6 @@ TrisetObject::surfaceArea()
 float
 TrisetObject::volume()
 {
-  float vol = 0;
-
   // amp.ece.cmu.edu/Publication/Cha/icip01_Cha.pdf
   // calculate volume using signed volume for each elementary tetrahedron
   // the signed volume for elementary tetrahedron -
@@ -2909,7 +2911,11 @@ TrisetObject::volume()
   // and the sign of the value is determined by checking if the
   // origin is at the same side as the normal with respect
   // to the triangle.
-    
+  
+  Vec vsize = Global::voxelSize();
+  
+  float vol = 0;
+
   int ntri = m_triangles.count()/3;
   for (int t=0; t<ntri; t++)
     {
@@ -2920,6 +2926,10 @@ TrisetObject::volume()
       Vec v1 = Vec(m_vertices[3*i1+0], m_vertices[3*i1+1], m_vertices[3*i1+2]);
       Vec v2 = Vec(m_vertices[3*i2+0], m_vertices[3*i2+1], m_vertices[3*i2+2]);
       Vec v3 = Vec(m_vertices[3*i3+0], m_vertices[3*i3+1], m_vertices[3*i3+2]);
+
+      v1 = VECPRODUCT(v1, vsize);
+      v2 = VECPRODUCT(v2, vsize);
+      v3 = VECPRODUCT(v3, vsize);
       
       float v321 = v3.x * v2.y * v1.z;
       float v231 = v2.x * v3.y * v1.z;

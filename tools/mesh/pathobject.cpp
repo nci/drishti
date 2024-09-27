@@ -1405,9 +1405,19 @@ PathObject::computePathLength()
 void
 PathObject::computeLength(QList<Vec> points)
 {
+  Vec vsize = Global::voxelSize();
+  
   m_length = 0;
   for(int i=1; i<points.count(); i++)
-    m_length += (points[i]-points[i-1]).norm();
+    {
+      Vec v0 = points[i];
+      Vec v1 = points[i-1];
+
+      v0 = VECPRODUCT(v0, vsize);
+      v1 = VECPRODUCT(v1, vsize);
+      
+      m_length += (v0-v1).norm();
+    }
 }
 
 void
@@ -2853,7 +2863,8 @@ PathObject::postdrawLength(QGLViewer *viewer)
 //                         arg(length(), 0, 'f', Global::floatPrecision()).\
 //                         arg(pvlInfo.voxelUnitStringShort()); 
   
-  QString str = QString("%1").arg(length(), 0, 'f', Global::floatPrecision());
+  QString str = QString("%1 %2").arg(length(), 0, 'f', Global::floatPrecision()).\
+                                 arg(Global::voxelUnitStringShort());
 
   glPushMatrix();
   glLoadIdentity();

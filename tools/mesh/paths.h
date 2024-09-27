@@ -69,12 +69,15 @@ class Paths : public QObject
   void rotate(int, int,
 		 QPoint, Vec, int, int);
 
+  void updateVoxelSize();
+  
  signals :
   void showMessage(QString, bool);
   void updateGL();
 
   void addToCameraPath(QList<Vec>,QList<Vec>,QList<Vec>,QList<Vec>);
-
+  
+								   
  private slots :
   void selectForEditing(int, int);
   void deselectForEditing();

@@ -811,3 +811,52 @@ int Global::m_bytesPerVoxel = 1;
 void Global::setBytesPerVoxel(int b) { m_bytesPerVoxel = b; }
 int Global::bytesPerVoxel() { return (m_bytesPerVoxel); }
 
+
+int Global::m_voxelUnit = 0;
+QStringList Global::m_voxelUnitStrings;
+QStringList Global::m_voxelUnitStringsShort;
+
+void Global::setVoxelUnit(int i) { m_voxelUnit = i; }
+int Global::voxelUnit() { return m_voxelUnit; }
+QString
+Global::voxelUnitString()
+{
+  if (m_voxelUnitStrings.count() == 0)
+    {
+      m_voxelUnitStrings << "Nounit";
+      m_voxelUnitStrings << "Micron";
+      m_voxelUnitStrings << "Millimeter";
+      m_voxelUnitStrings << "Centimeter";
+      m_voxelUnitStrings << "Meter";
+    }
+  
+  if (m_voxelUnit >= 0 &&
+      m_voxelUnit < m_voxelUnitStrings.size())
+    return m_voxelUnitStrings[m_voxelUnit];
+  else
+    return m_voxelUnitStrings[0];
+}
+
+QString
+Global::voxelUnitStringShort()
+{
+  if (m_voxelUnitStrings.count() == 0)
+    {
+      m_voxelUnitStringsShort << "";
+      //m_voxelUnitStringsShort << QString("%1m").arg(QChar(0xB5));
+      m_voxelUnitStringsShort << "um";
+      m_voxelUnitStringsShort << "mm";
+      m_voxelUnitStringsShort << "cm";
+      m_voxelUnitStringsShort << "m";
+    }
+  
+  if (m_voxelUnit >= 0 &&
+      m_voxelUnit < m_voxelUnitStringsShort.size())
+    return m_voxelUnitStringsShort[m_voxelUnit];
+  else
+    return m_voxelUnitStringsShort[0];
+}
+
+Vec Global::m_voxelSize = Vec(1,1,1);
+void Global::setVoxelSize(Vec v) { m_voxelSize = v; }
+Vec Global::voxelSize() { return m_voxelSize; }

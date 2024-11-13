@@ -4322,8 +4322,11 @@ Trisets::saveAreaVolume()
     return;
 
   QString areaUnit, volUnit;
-  areaUnit = "(" + Global::voxelUnitStringShort() + "2)";
-  volUnit = "(" + Global::voxelUnitStringShort() + "3)";
+  if (Global::voxelUnitStringShort().size() > 0)
+    {
+      areaUnit = "(" + Global::voxelUnitStringShort() + "2)";
+      volUnit = "(" + Global::voxelUnitStringShort() + "3)";
+    }
   
   fstream fp(flnm.toLatin1().data(), ios::out);
   fp << "    Mesh ,  SurfaceArea" << areaUnit.toLatin1().data() <<

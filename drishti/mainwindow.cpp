@@ -5064,9 +5064,15 @@ void
 MainWindow::on_actionShadowRender_triggered()
 {
   if (ui.actionShadowRender->isChecked())
-    m_Hires->setRenderQuality(Enums::RenderHighQuality);
+    {
+      m_Hires->setRenderQuality(Enums::RenderHighQuality);
+      m_Hires->applyShadows(true);
+    }
   else
-    m_Hires->setRenderQuality(Enums::RenderDefault);
+    {
+      m_Hires->setRenderQuality(Enums::RenderDefault);
+      m_Hires->applyShadows(false);
+    }
 }
 
 void

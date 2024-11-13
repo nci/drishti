@@ -1025,6 +1025,7 @@ PruneShaderFactory::clip()
   shader += "int oy = int(gl_TexCoord[0].y) - orow*gridy;\n";
   shader += "int oz = orow*ncols + ocol;\n";
 
+  
   shader += "vec4 fc = texture2DRect(pruneTex, gl_TexCoord[0].xy);\n";
   shader += "gl_FragColor = fc;\n";
 
@@ -1032,11 +1033,16 @@ PruneShaderFactory::clip()
 //  shader += "if (gl_FragColor.y > 0.0) return;\n";
 
  // modify only x value
-  shader += "vec3 v = vec3(ox,oy,oz)-pos;\n";
-  shader += "float l = dot(v, normal);\n";
-  shader += "float sval = -1.0/float(lod) - max(float(ox)/float(gridx), float(oy)/float(gridy))/float(lod);\n";
-  shader += "l = smoothstep(sval, 1.0/float(lod), l);\n";
-  shader += "gl_FragColor.x = mix(gl_FragColor.x, 0.0, l);\n";
+  //shader += "vec3 v = vec3(ox,oy,oz)-pos;\n";
+  //shader += "float l = dot(v, normal);\n";
+  //shader += "float sval = -1.0/float(lod) - max(float(ox)/float(gridx), float(oy)/float(gridy))/float(lod);\n";
+  //shader += "l = smoothstep(sval, 1.0/float(lod), l);\n";
+  //shader += "gl_FragColor.x = mix(gl_FragColor.x, 0.0, l);\n";
+
+  shader += "vec3 ov = vec3(ox,oy,oz);\n";
+  shader += "vec3 v = normalize(ov-pos);\n";
+  shader += "float l = step(0.0, dot(v, normal));\n";
+  shader += "gl_FragColor.x *= (1.0 - l);\n";
 
   shader += "}\n";
 

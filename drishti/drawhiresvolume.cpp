@@ -128,15 +128,17 @@ DrawHiresVolume::setRenderQuality(int rq)
 {
   m_renderQuality = rq;
   if (m_renderQuality == Enums::RenderDefault)
-    m_bricks->activateBounds();
+    {
+      m_lightInfo.applyShadows = false;
+      m_bricks->activateBounds();
+    }
   else
-    m_bricks->deactivateBounds();
+    {
+      m_lightInfo.applyShadows = true;
+      m_bricks->deactivateBounds();
+    }
 
-
-  if (m_renderQuality == Enums::RenderDefault)
-    MainWindowUI::mainWindowUI()->actionShadowRender->setChecked(false);
-  else
-    MainWindowUI::mainWindowUI()->actionShadowRender->setChecked(true);
+  MainWindowUI::mainWindowUI()->actionShadowRender->setChecked(m_lightInfo.applyShadows);
 }
 
 void
@@ -1846,6 +1848,7 @@ DrawHiresVolume::draw(float stepsize,
       drawDefault(pn, minvert, maxvert, layers, stepsize);
     }
 
+  
   drawBackground();
   
   disableTextureUnits();
@@ -4855,8 +4858,14 @@ DrawHiresVolume::setLightInfo(LightingInformation lightInfo)
 
 
   m_lightInfo = lightInfo;
-
-
+			   
+  //---
+  if (m_lightInfo.applyShadows)
+    setRenderQuality(Enums::RenderHighQuality);
+  else
+    setRenderQuality(Enums::RenderDefault);
+  //---
+  
   if (doISB) initShadowBuffers();
   if (doDS) createDefaultShader();
   if (doBPS) createBackplaneShader(m_lightInfo.backplaneIntensity);
@@ -5060,7 +5069,7 @@ DrawHiresVolume::keyPressEvent(QKeyEvent *event)
 	setRenderQuality(Enums::RenderHighQuality);
       else
 	setRenderQuality(Enums::RenderDefault);
-
+      
       return true;
     }
 

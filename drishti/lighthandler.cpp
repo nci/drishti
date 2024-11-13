@@ -1478,15 +1478,15 @@ LightHandler::genBuffers()
 	  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_lightTex[i]);
 	  glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,
 		       0,
-		       GL_RGBA,
+		       //GL_RGBA,
 		       //GL_R16F,
-		       //GL_RGBA32F,
+		       GL_RGBA32F,
 		       sX, sY,
 		       0,
 		       GL_RGBA,
 		       //GL_RED,
-		       //GL_FLOAT,
-		       GL_UNSIGNED_BYTE,
+		       GL_FLOAT,
+		       //GL_UNSIGNED_BYTE,
 		       0);
 	}
 
@@ -1498,11 +1498,13 @@ LightHandler::genBuffers()
 	  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_emisTex[i]);
 	  glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,
 		       0,
-		       GL_RGBA,
+		       //GL_RGBA,
+		       GL_RGBA32F,
 		       sX, sY,
 		       0,
 		       GL_RGBA,
-		       GL_UNSIGNED_BYTE,
+		       GL_FLOAT,
+		       //GL_UNSIGNED_BYTE,
 		       0);
 	}
     }
@@ -1606,6 +1608,12 @@ LightHandler::applyClipping(int ct)
       p /= lod;
 
       Vec n = VECPRODUCT(m_clipNorm[i], voxelScaling);
+
+      n.normalize();
+      
+      //------
+      p -= 2*n;
+      //------
 
       glUniform3fARB(m_clipParm[6], p.x,p.y,p.z);
       glUniform3fARB(m_clipParm[7], n.x,n.y,n.z);

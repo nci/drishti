@@ -1200,18 +1200,17 @@ MeshGenerator::generateMesh(int nSlabs, int isoval,
 		      -1, 1, 0, // values less than 1 are background
 		      m_meshProgress);
       
-
       // convert to levelset
-      vdb.convertToLevelSet(128);
+      vdb.convertToLevelSet(128, 0);
       
       if (smoothOpacity > 0)
 	{
 	  m_meshLog->moveCursor(QTextCursor::End);
 	  m_meshLog->insertPlainText("Smoothing volume ...\n");
 	  vdb.offset(0.1);
-	  vdb.gaussian(0.1, smoothOpacity);
+	  vdb.gaussian(1, smoothOpacity);
 	}
-
+      
       m_meshLog->moveCursor(QTextCursor::End);
       m_meshLog->insertPlainText(QString("Generating mesh with adaptivity %1 ...\n").arg(adaptivity));
       QVector<QVector3D> V;

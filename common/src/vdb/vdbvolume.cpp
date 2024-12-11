@@ -70,10 +70,6 @@ VdbVolume::mean(int width, int iterations)
 {
   openvdb::tools::Filter<openvdb::FloatGrid> filter(*m_vdbGrid);
   filter.mean(width, iterations);
-
-//  openvdb::tools::LevelSetFilter<openvdb::FloatGrid> lsf(*m_vdbGrid);
-//  for(int i=0; i<iterations; i++)
-//    lsf.mean(width);
 }
 
 
@@ -82,10 +78,6 @@ VdbVolume::gaussian(int width, int iterations)
 {
   openvdb::tools::Filter<openvdb::FloatGrid> filter(*m_vdbGrid);
   filter.gaussian(width, iterations);
-
-//  openvdb::tools::LevelSetFilter<openvdb::FloatGrid> lsf(*m_vdbGrid);
-//  for(int i=0; i<iterations; i++)
-//    lsf.gaussian(width);
 }
 
 
@@ -94,6 +86,7 @@ VdbVolume::offset(float offset)
 {
   openvdb::tools::LevelSetFilter<openvdb::FloatGrid> lsf(*m_vdbGrid);
   lsf.offset(offset);
+
 }
 
 
@@ -122,10 +115,12 @@ VdbVolume::convertToLevelSet(float isovalue, int type)
 	{
 	  for (openvdb::FloatGrid::ValueOnIter iter = grid2->beginValueOn(); iter; ++iter)
 	    iter.setValue(2*isovalue - iter.getValue());
+
 	  m_vdbGrid = openvdb::tools::levelSetRebuild(*grid2, isovalue);
 	}
-    }
-  
+    }  
+  else
+    m_vdbGrid = openvdb::tools::levelSetRebuild(*grid2, isovalue);
 }
 
 void

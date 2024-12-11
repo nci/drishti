@@ -1997,6 +1997,7 @@ CropObject::checkCropped(Vec v)
   
       Vec v0 = v - p0;
       float pvlen = pvec*v0;
+      bool ends = (pvlen < 0.0 || pvlen > plen);
 
       float c = 2*(pvlen/plen - 0.5);
       float c2 = c*c;
@@ -2020,7 +2021,6 @@ CropObject::checkCropped(Vec v)
 
       s = sr; t = tr;
 
-      bool ends = (pvlen < 0.0 || pvlen > plen);
       if (!m_keepEnds && ends)
 	return hatched(c, s, t, m_hatch, m_hatchGrid,
 		       m_hxn,m_hxd, m_hyn,m_hyd, m_hzn,m_hzd);

@@ -1969,7 +1969,7 @@ CropObject::hatched(float c, float s, float t,
 
 bool
 CropObject::checkCropped(Vec v)
-{
+{  
   QList<Vec> pts;
   QList<float> radX;
   QList<float> radY;

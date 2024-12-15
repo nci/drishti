@@ -23,8 +23,8 @@ win32 {
           opengl32.lib \
           glu32.lib \
           vdb.lib
-
- contains(Windows_Setup, Win64) {
+          
+  contains(Windows_Setup, Win64) {
      message(drishti.exe : Win64 setup)
      INCLUDEPATH += ../../ \
                     ../../../common/src/vdb \
@@ -33,6 +33,9 @@ win32 {
      DEFINES += _CRT_SECURE_NO_WARNINGS
      QMAKE_LIBDIR += ..\common \
                      ..\..\..\common\lib     
+
+     PRE_TARGETDEPS +=..\common\common.lib \
+                     ..\..\..\common\lib\vdb.lib     
 
      INCLUDEPATH += C:\cygwin64\home\acl900\vcpkg\vcpkg\installed\x64-windows\include
      QMAKE_LIBDIR += C:\cygwin64\home\acl900\vcpkg\vcpkg\installed\x64-windows\lib

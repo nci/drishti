@@ -366,6 +366,19 @@ addrotationanimation
 addrotationanimation y 90 400
 #end
 
+
+#begin
+spreadrotationangle
+spreadrotationangle [x/y/z] [startangle] [endangle]
+A way to set rotation axis and angle across keyframes.  Only axis and angle settings for Brick 0 for the existing keyframes will be changed.  No additional keyframes are added.  First frame will have Brick 0 with rotation angle <startangle> and the last frame will have Brick 0 with rotation angle <endangle>.
+
+Default value for axis is x-axis, angle is 360 degrees and frames is also 360.
+
+Examples :
+spreadrotationangle z 0 360
+#end
+
+
 #begin
 mix
 mix [0|1|2] [no|color|opacity|color opacity|tag|tag no]

@@ -134,6 +134,26 @@ KeyFrame::reorder(QList<int> sorted)
 }
 
 void
+KeyFrame::spreadRotationAngle(int axisType, float startangle, float endangle)
+{
+  Vec axis;
+  if (axisType == 0) axis = Vec(1,0,0);
+  if (axisType == 1) axis = Vec(0,1,0);
+  if (axisType == 2) axis = Vec(0,0,1);
+
+  int nkey = m_keyFrameInfo.count();
+  float startframe = m_keyFrameInfo[0]->frameNumber();
+  float endframe = m_keyFrameInfo[nkey-1]->frameNumber();
+  float nframes = endframe - startframe;
+  for(int i=0; i<nkey; i++)
+    {
+      float frc = (m_keyFrameInfo[i]->frameNumber() - startframe)/nframes;
+      float angle = (1.0-frc)*startangle + frc*endangle;
+      m_keyFrameInfo[i]->setAxisAngle(axis, angle);
+    }
+}
+
+void
 KeyFrame::saveProject(Vec pos, Quaternion rot,
 		      float focusDistance,
 		      float eyeSeparation,

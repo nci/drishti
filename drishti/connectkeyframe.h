@@ -5,8 +5,6 @@
 	  m_bricks, SLOT(setBricks(QList<BrickInformation>)));
 
 
-
-
   connect(m_keyFrame, SIGNAL(addKeyFrameNumbers(QList<int>)),
 	  m_keyFrameEditor, SLOT(addKeyFrameNumbers(QList<int>)));
 

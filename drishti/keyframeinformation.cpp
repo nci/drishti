@@ -198,6 +198,13 @@ KeyFrameInformation::hasCaption(QStringList str)
   return false;
 }
 
+void
+KeyFrameInformation::setAxisAngle(Vec axis, float angle)
+{
+  m_brickInfo[0].axis = axis;
+  m_brickInfo[0].angle = angle;
+}
+
 KeyFrameInformation::KeyFrameInformation()
 {
   m_title.clear();

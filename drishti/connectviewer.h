@@ -63,6 +63,9 @@
   connect(m_Viewer, SIGNAL(replaceKeyFrameImage(int, QImage)),
 	  m_keyFrame, SLOT(replaceKeyFrameImage(int, QImage)));
 
+  connect(m_Viewer, SIGNAL(spreadRotationAngle(int, float, float)),
+	  m_keyFrame, SLOT(spreadRotationAngle(int, float, float)));
+
   connect(m_Viewer, SIGNAL(histogramUpdated(QImage, QImage)),
 	  m_tfEditor, SLOT(setHistogramImage(QImage, QImage)));
 

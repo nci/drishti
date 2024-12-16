@@ -212,6 +212,7 @@ class Viewer : public QGLViewer
   void countIsolatedRegions();
 
   void searchCaption(QStringList);
+  void spreadRotationAngle(int, float, float);
   void addRotationAnimation(int, float, int);
   void generateMesh(bool);
   void processMops();

@@ -4287,6 +4287,21 @@ Viewer::processCommand(QString cmd)
       if (list.size() > 2) b = list[2].toInt(&ok);
       m_hiresVolume->setDOF(b, fp);
     }
+  else if (list[0] == "spreadrotationangle")
+    {
+      int axis = 2;
+      float startangle = 0;
+      int endangle = 360;
+      if (list.size() > 1)
+	{
+	  if (list[1] == "x") axis = 0;
+	  if (list[1] == "y") axis = 1;
+	  if (list[1] == "z") axis = 2;
+	}
+      if (list.size() > 2) startangle = list[2].toFloat(&ok);
+      if (list.size() > 3) endangle = list[3].toFloat(&ok);
+      emit spreadRotationAngle(axis, startangle, endangle);
+    }
   else if (list[0] == "addrotationanimation")
     {
       int axis = 0;

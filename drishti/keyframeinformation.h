@@ -167,6 +167,8 @@ class KeyFrameInformation
   int interpCrop();
   int interpMop();
 
+  void setAxisAngle(Vec, float);
+
  private :
   QString m_title;
   int m_frameNumber;

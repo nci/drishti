@@ -76,8 +76,10 @@ class KeyFrame : public QObject
   void replaceKeyFrameImage(int, QImage);
   void playSavedKeyFrame();
   void checkKeyFrameNumbers();
-
+  void spreadRotationAngle(int, float, float);
+  
  signals :
+  void refreshBricksWidget();
   void updateLightBuffers();
   void updateParameters(bool, bool, Vec, QString,
 			int, int, QString, QString, QString,

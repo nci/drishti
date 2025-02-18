@@ -119,7 +119,6 @@ NcPlugin::listAllVariables()
       return varNames; // empty
     }
 
-
   multimap<string, NcVar> groupMap;
   groupMap = dataFile.getVars();
   for (const auto &p : groupMap)
@@ -210,16 +209,20 @@ NcPlugin::setFile(QStringList files)
   else
     m_fileName = files;
 
+  
 
   
   QList<QString> varNames;
   QList<QString> allVars = listAllVariables();
-
   
   if (allVars.size() == 0)
-    return false;
+    {
+      QMessageBox::information(0, "Error", "No variables found");
+      return false;
+    }
 
   QList<QString> allAtts = listAllAttributes();
+
 
   NcFile dataFile;
   try
@@ -275,7 +278,7 @@ NcPlugin::setFile(QStringList files)
 	}
     }
   //---------------------------------------------------------
-
+  
   NcVar ncvar;
   ncvar = dataFile.getVar(m_varName.toStdString());
 
@@ -439,13 +442,12 @@ NcPlugin::getSlice(int sliceType, int a, int b, NcVar ncvar, int slc, uchar *tmp
       count[0] = a;
       count[1] = b;
       count[2] = 1;
-    }
+    }  
   
-	  
   if (ncvar.getType() == ncUbyte)
     ncvar.getVar(start, count, (unsigned char*)tmp);
   else if (ncvar.getType() == ncByte || ncvar.getType() == ncChar)
-    ncvar.getVar(start, count, (uchar*)tmp);
+    ncvar.getVar(start, count, (signed char*)tmp);
   else if (ncvar.getType() == ncShort)
     ncvar.getVar(start, count, (short*)tmp);
   else if (ncvar.getType() == ncInt)
@@ -498,9 +500,11 @@ NcPlugin::findMinMaxandGenerateHistogram()
   nY = m_width;
   nZ = m_height;
 
+
   int nbytes = nY*nZ*m_bytesPerVoxel;
   uchar *tmp = new uchar[nbytes];
 
+  
   m_rawMin = 10000000;
   m_rawMax = -10000000;
 

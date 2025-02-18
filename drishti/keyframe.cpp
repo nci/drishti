@@ -2477,7 +2477,7 @@ KeyFrame::import(QString flnm)
 		}
 	      else if (keys[ik] == "brightness")
 		{
-		  kfi->setGamma(m_copyKeyFrame.gamma());
+		  kfi->setGamma(ckf->gamma());
 		}
 	    }
 	}

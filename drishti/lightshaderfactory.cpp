@@ -79,8 +79,8 @@ LightShaderFactory::genOpacityShader(int nvol, bool bit16, bool amrData)
   shader += "  float y = tc.y - float(lrow*lgridy);\n";
   shader += "  float z = float(lrow*lncols + lcol);\n";
 
-  //-----------------------------------------
-  // set every border voxel to 0
+//  //-----------------------------------------
+//  // set every border voxel to 0
 //  {
 //    shader += "  vec3 pos = vec3(x,y,z);\n";
 //    shader += "  bvec3 pless = lessThan(pos, vec3(1.5,1.5,1.5));\n";
@@ -88,10 +88,10 @@ LightShaderFactory::genOpacityShader(int nvol, bool bit16, bool amrData)
 //    shader += "  if (any(pless) || any(pgret)) \n";
 //    shader += "    { glFragColor = vec4(0.0,0.0,0.0,0.0); return; }\n";
 //  }
-  shader += "  vec3 pos = vec3(x,y,z);\n";
-  shader += "  pos += step(pos, vec3(llod));\n";
-  shader += "  pos -= step(vec3(lgridx,lgridy,lgridz)-vec3(llod), pos);\n";
-  //-----------------------------------------
+//  shader += "  vec3 pos = vec3(x,y,z);\n";
+//  shader += "  pos += step(pos, vec3(llod));\n";
+//  shader += "  pos -= step(vec3(lgridx,lgridy,lgridz)-vec3(llod), pos);\n";
+//  //-----------------------------------------
 
   shader += "  x *= float(llod);\n";
   shader += "  y *= float(llod);\n";
@@ -230,16 +230,16 @@ LightShaderFactory::genOpacityShaderRGB()
   shader += "  float y = tc.y - float(lrow*lgridy);\n";
   shader += "  float z = float(lrow*lncols + lcol);\n";
 
-  //-----------------------------------------
-  // set every border voxel to 0
-  {
-    shader += "  vec3 pos = vec3(x,y,z);\n";
-    shader += "  bvec3 pless = lessThan(pos, vec3(1.5,1.5,1.5));\n";
-    shader += "  bvec3 pgret = greaterThan(pos, vec3(float(lgridx)-2.5,float(lgridy)-2.5,float(lgridz)-2.5));\n";
-    shader += "  if (any(pless) || any(pgret)) \n";
-    shader += "    { glFragColor = vec4(0.0,0.0,0.0,0.0); return; }\n";
-  }
-  //-----------------------------------------
+//  //-----------------------------------------
+//  // set every border voxel to 0
+//  {
+//    shader += "  vec3 pos = vec3(x,y,z);\n";
+//    shader += "  bvec3 pless = lessThan(pos, vec3(1.5,1.5,1.5));\n";
+//    shader += "  bvec3 pgret = greaterThan(pos, vec3(float(lgridx)-2.5,float(lgridy)-2.5,float(lgridz)-2.5));\n";
+//    shader += "  if (any(pless) || any(pgret)) \n";
+//    shader += "    { glFragColor = vec4(0.0,0.0,0.0,0.0); return; }\n";
+//  }
+//  //-----------------------------------------
 
 
   shader += "  x *= float(llod);\n";
@@ -787,9 +787,9 @@ LightShaderFactory::genInitTubeLightShader() // point shader
   // ----- ambient occlusion ----
   shader += "  if (lradius < 1.0)\n";
   shader += "     {\n";
-  shader += "       vec3 ig = vec3(2.5);\n";
+  shader += "       vec3 ig = vec3(2.0);\n";
   shader += "       bvec3 spless = lessThan(p, ig);\n";
-  shader += "       bvec3 spgret = greaterThan(p, vec3(gridx,gridy,gridz)-ig-vec3(1.0));\n";
+  shader += "       bvec3 spgret = greaterThan(p, vec3(gridx,gridy,gridz)-ig);\n";
   shader += "       if (any(spless) || any(spgret))\n";
   shader += "          gl_FragColor = vec4(1.0,op,opmod,1.0);\n";
   shader += "       return;\n";
@@ -901,66 +901,12 @@ LightShaderFactory::genTubeLightShader() // point shader
   shader += "     float lit = 0.0;\n";
   shader += "     float maxlit = 0.0;\n";
 
-//  // -- take contributions from all faces
-//  shader += "     int row = z/ncols;\n";
-//  shader += "     int col = z - row*ncols;\n";
-//  shader += "     row *= gridy;\n";
-//  shader += "     col *= gridx;\n";
-
-  shader += "     int i,j,k;\n";
-
-
-  //  take contributions for i
-  shader += "     for(i=0; i<9; i++)\n";
+  shader += "     for(int i=0; i<27; i+=2)\n";
   shader += "     {\n";
   shader += "        nlit += step(0.001, illum[i]);\n";
   shader += "        lit += illum[i];\n";
   shader += "        maxlit = max(illum[i], maxlit);\n";
   shader += "     }\n";
-  shader += "     for(i=18; i<27; i++)\n";
-  shader += "     {\n";
-  shader += "        nlit += step(0.001, illum[i]);\n";
-  shader += "        lit += illum[i];\n";
-  shader += "        maxlit = max(illum[i], maxlit);\n";
-  shader += "     }\n";
-  
-  //  take contributions for j
-  shader += "     for(i=0; i<9; i++)\n";
-  shader += "     {\n";  
-  shader += "        idx = 3*i;\n";  
-  shader += "        nlit += step(0.001, illum[idx]);\n";
-  shader += "        lit += illum[idx];\n";
-  shader += "        maxlit = max(illum[idx], maxlit);\n";
-  shader += "     }\n";
-  shader += "     for(i=0; i<9; i++)\n";
-  shader += "     {\n";  
-  shader += "        idx = 2+3*i;\n";  
-  shader += "        nlit += step(0.001, illum[idx]);\n";
-  shader += "        lit += illum[idx];\n";
-  shader += "        maxlit = max(illum[idx], maxlit);\n";
-  shader += "     }\n";
-
-//  //  take contributions for k
-//  shader += "     for(i=0; i<3; i+=6)\n";
-//  shader += "     {\n";  
-//  shader += "       for(j=0; j<3; j++)\n";
-//  shader += "       {\n";  
-//  shader += "          idx = 9*i + j;\n";  
-//  shader += "          nlit += step(0.001, illum[idx]);\n";
-//  shader += "          lit += illum[idx];\n";
-//  shader += "          maxlit = max(illum[idx], maxlit);\n";
-//  shader += "       }\n";
-//  shader += "     }\n";
-//  shader += "     for(i=0; i<3; i+=6)\n";
-//  shader += "     {\n";  
-//  shader += "       for(j=0; j<3; j++)\n";
-//  shader += "       {\n";  
-//  shader += "          idx = 6 + 9*i + j;\n";  
-//  shader += "          nlit += step(0.001, illum[idx]);\n";
-//  shader += "          lit += illum[idx];\n";
-//  shader += "          maxlit = max(illum[idx], maxlit);\n";
-//  shader += "       }\n";
-//  shader += "     }\n";
 
   // -- merge all contributions
   shader += "     nlit = max(1.0, nlit);\n";

@@ -1069,6 +1069,8 @@ LightHandler::generateOpacityTexture()
   glBindTexture(GL_TEXTURE_2D_ARRAY, m_dataTex);
   glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
   glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
+  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
 
 
@@ -1125,8 +1127,8 @@ LightHandler::generateOpacityTexture()
   glActiveTexture(GL_TEXTURE6);
   glBindTexture(GL_TEXTURE_RECTANGLE_ARB, PruneHandler::texture());  
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
-  glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glUniform1iARB(m_opacityParm[18], 6); // PruneHandler::pruneTex
 
   
@@ -1467,8 +1469,8 @@ LightHandler::genBuffers()
       glActiveTexture(GL_TEXTURE7);
       m_finalLightBuffer = newFBO(sX, sY);
       glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_finalLightBuffer->texture());
-      glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-      glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+      glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
       m_finalLightBuffer->release();
 
       glGenFramebuffers(1, &m_lightBuffer);
@@ -1594,6 +1596,8 @@ LightHandler::applyClipping(int ct)
   glActiveTexture(GL_TEXTURE2);
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_lightBuffer);
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
   int lod = m_dragInfo.z;
   lod *= m_lightLod;
@@ -1627,6 +1631,8 @@ LightHandler::applyClipping(int ct)
       //glActiveTexture(GL_TEXTURE2);
       //glEnable(GL_TEXTURE_RECTANGLE_ARB);
       glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_lightTex[ct]);      
+      glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+      glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
       
       StaticFunctions::pushOrthoView(0, 0, sX, sY);
       StaticFunctions::drawQuad(0, 0, sX, sY, 1.0);
@@ -1686,6 +1692,8 @@ LightHandler::applyCropping(int ct)
   glActiveTexture(GL_TEXTURE2);
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
   glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_lightTex[ct]);      
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   
   StaticFunctions::pushOrthoView(0, 0, sX, sY);
   StaticFunctions::drawQuad(0, 0, sX, sY, 1.0);
@@ -1722,12 +1730,16 @@ LightHandler::mergeOpPruneBuffers(int ct)
   glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_lightTex[ct]);      
   glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
   glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
       
   glActiveTexture(GL_TEXTURE1);
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
   glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_opacityBuffer->texture());
   glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
   glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
       
   glUniform1iARB(m_mergeOpPruneParm[0], 2); // lightTex
   glUniform1iARB(m_mergeOpPruneParm[1], 1); // opTex
@@ -1922,6 +1934,8 @@ LightHandler::updateAmbientOcclusionLightBuffer(int orad, float ofrac,
   glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_pruneBuffer->texture());
   glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
   glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
   int sX = m_opacityBuffer->width();
   int sY = m_opacityBuffer->height();
@@ -2040,6 +2054,8 @@ LightHandler::updateDirectionalLightBuffer(Vec ldir, float cangle, Vec lcol,
   glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_pruneBuffer->texture());
   glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
   glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_lightBuffer);
   glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
@@ -2221,6 +2237,8 @@ LightHandler::updatePointLightBuffer(QList<Vec> olpos, float lradius,
   glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_pruneBuffer->texture());
   glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
   glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_lightBuffer);
   glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
@@ -2323,10 +2341,7 @@ LightHandler::updatePointLightBuffer(QList<Vec> olpos, float lradius,
   glActiveTexture(GL_TEXTURE2);
   glDisable(GL_TEXTURE_RECTANGLE_ARB);
 
-  if (opmod < 1.0 || (lradius < 0.1 && cangle < 0.1))
-    updateFinalLightBuffer(ct, lcol);
-  else
-    updateFinalLightBuffer(ct, opmod*lcol);
+  updateFinalLightBuffer(ct, lcol);
 }
 
 void
@@ -2790,6 +2805,8 @@ LightHandler::lightBufferCalculations(int ntimes, int lct, int lX, int lY)
       glActiveTexture(GL_TEXTURE2);
       glEnable(GL_TEXTURE_RECTANGLE_ARB);
       glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_lightTex[ct]);      
+      glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+      glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
       
       StaticFunctions::pushOrthoView(0, 0, sX, sY);
       StaticFunctions::drawQuad(0, 0, sX, sY, 1.0);
@@ -2832,6 +2849,8 @@ LightHandler::invertLightBuffer(int lct, int lX, int lY)
   glActiveTexture(GL_TEXTURE2);
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
   glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_lightTex[ct]);      
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   
   StaticFunctions::pushOrthoView(0, 0, sX, sY);
   StaticFunctions::drawQuad(0, 0, sX, sY, 1.0);

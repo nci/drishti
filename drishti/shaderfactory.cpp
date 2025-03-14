@@ -1313,12 +1313,12 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
   shader += "  {\n";
   shader += "     float sa = texture2DRect(shdTex, gl_FragCoord.xy*vec2(dofscale)/vec2(shdlod)).a;\n";
   shader += "     sa = 1.0-smoothstep(0.0, shdIntensity, sa);\n";
-  shader += "     sa = clamp(0.1, pow(sa, 1.0/gamma), 1.0);\n";
+  shader += "     sa = clamp(0.1, pow(sa, gamma), 1.0);\n";
   shader += "     lightcol *= sa;\n";
   shader += "  }\n";
 
   // gamma affects light
-  shader += "  lightcol = pow(lightcol, vec3(1.0/gamma));\n";
+  shader += "  lightcol = pow(lightcol, vec3(gamma));\n";
 
   //----------------------------------
 

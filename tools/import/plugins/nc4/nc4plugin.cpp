@@ -273,8 +273,6 @@ NcPlugin::setFile(QStringList files)
       else
 	{
 	  m_varName = varNames[0];
-	  QMessageBox::information(0, "Variable",
-				   QString("extracting %1").arg(m_varName));
 	}
     }
   //---------------------------------------------------------

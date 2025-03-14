@@ -568,7 +568,7 @@ CurvesWidget::setMaskImage(uchar *mask)
 
 void
 CurvesWidget::applyGradLimits()
-{
+{  
   if (m_minGrad < 0.0001 && m_maxGrad > 0.999)
     return;
 
@@ -576,9 +576,9 @@ CurvesWidget::applyGradLimits()
   if (Global::bytesPerVoxel() == 2)
     volPtrUS = (ushort*)m_volPtr;
 
-  int D = m_Depth+1;
-  int W = m_Width+1;
-  int H = m_Height+1;
+  qint64 D = m_Depth+1;
+  qint64 W = m_Width+1;
+  qint64 H = m_Height+1;
     
   int dstart = 0;
   int dend = m_Depth;

@@ -115,6 +115,8 @@ class VolumeOperations
   static QList<Vec> m_cPos;
   static QList<Vec> m_cNorm;
 
+  static float calcGrad(int, qint64, qint64, qint64);
+
   static void getConnectedRegion(int, int, int,
 				 int, int, int,
 				 int, int, int,

@@ -424,56 +424,110 @@ ShaderFactory::getGrad(bool nearest)
 }
 
 QString
-ShaderFactory::getGrad2(bool nearest)
+ShaderFactory::getGrad2(bool nearest) // Sobel operator
 {
   QString shader;
+
+  shader += " vec3 gx, gy, gz;\n";
+  shader += " float h[9] = float[](1, 2, 1, 2, 4, 2, 1, 2, 1);\n";
+
+  shader += " gx = vec3(1.0/vsize.x,0,0);\n";
+  shader += " gy = vec3(0,1.0/vsize.y,0);\n";
+  shader += " gz = vec3(0,0,1.0/vsize.z);\n";
 
   shader += " float a[3] = float[](-1.0/vsize.x,0.0,1.0/vsize.x);\n";
   shader += " float b[3] = float[](-1.0/vsize.y,0.0,1.0/vsize.y);\n";
   shader += " float c[3] = float[](-1.0/vsize.z,0.0,1.0/vsize.z);\n";
   shader += " float sum = 0.0;\n";
-  shader += " for(int i=0; i<=2; i++)\n";
+
+  shader += " float vx = 0.0;\n";
   shader += " for(int j=0; j<=2; j++)\n";
   shader += " for(int k=0; k<=2; k++)\n";
   shader += " {\n";
-  shader += "   vec3 g = vec3(a[i],b[j],c[k]);\n";
-
+  shader += "   vec3 g0 = vec3(a[0],b[j],c[k]);\n";
+  shader += "   vec3 g1 = vec3(a[2],b[j],c[k]);\n";
+  shader += "   int i = 3*j+k;\n";
   if (nearest)
-    shader += "   sum += texture(dataTex, vC+g).x;\n";
+    {
+      shader += "   vx -= h[i]*texture(dataTex, vC+g0).x;\n";
+      shader += "   vx += h[i]*texture(dataTex, vC+g1).x;\n";
+    }
   else
-    shader += "   sum += texture(dataTex, voxelCoord+g).x;\n";
-
+    {
+      shader += "   vx -= h[i]*texture(dataTex, voxelCoord+g0).x;\n";
+      shader += "   vx += h[i]*texture(dataTex, voxelCoord+g1).x;\n";
+    }
   shader += " }\n";
-  shader += " sum = (sum-val)/10.0;\n";
-  shader += " float gradMag = abs(sum-val);\n";
+
+  shader += " float vy = 0.0;\n";
+  shader += " for(int j=0; j<=2; j++)\n";
+  shader += " for(int k=0; k<=2; k++)\n";
+  shader += " {\n";
+  shader += "   vec3 g0 = vec3(a[j],b[0],c[k]);\n";
+  shader += "   vec3 g1 = vec3(a[j],b[2],c[k]);\n";
+  shader += "   int i = 3*j+k;\n";
+  if (nearest)
+    {
+      shader += "   vy -= h[i]*texture(dataTex, vC+g0).x;\n";
+      shader += "   vy += h[i]*texture(dataTex, vC+g1).x;\n";
+    }
+  else
+    {
+      shader += "   vy -= h[i]*texture(dataTex, voxelCoord+g0).x;\n";
+      shader += "   vy += h[i]*texture(dataTex, voxelCoord+g1).x;\n";
+    }
+  shader += " }\n";
+
+  shader += " float vz = 0.0;\n";
+  shader += " for(int j=0; j<=2; j++)\n";
+  shader += " for(int k=0; k<=2; k++)\n";
+  shader += " {\n";
+  shader += "   vec3 g0 = vec3(a[j],b[k],c[0]);\n";
+  shader += "   vec3 g1 = vec3(a[j],b[k],c[2]);\n";
+  shader += "   int i = 3*j+k;\n";
+  if (nearest)
+    {
+      shader += "   vz -= h[i]*texture(dataTex, vC+g0).x;\n";
+      shader += "   vz += h[i]*texture(dataTex, vC+g1).x;\n";
+    }
+  else
+    {
+      shader += "   vz -= h[i]*texture(dataTex, voxelCoord+g0).x;\n";
+      shader += "   vz += h[i]*texture(dataTex, voxelCoord+g1).x;\n";
+    }
+  shader += " }\n";
+
+  shader += " vec3 grad = vec3(vx, vy, vz);\n";
+  shader += " float gradMag = length(grad);\n";
   shader += " gradMag = clamp(gradMag, 0.0, 1.0);\n";
   
   return shader;
 }
 
 QString
-ShaderFactory::getGrad3(bool nearest)
+ShaderFactory::getGrad3(bool nearest)  // Laplacian
 {
   QString shader;
-
-  shader += " float a[5] = float[](-2.0/vsize.x,-1.0/vsize.x,0.0,1.0/vsize.x,2.0/vsize.x);\n";
-  shader += " float b[5] = float[](-2.0/vsize.y,-1.0/vsize.y,0.0,1.0/vsize.y,2.0/vsize.y);\n";
-  shader += " float c[5] = float[](-2.0/vsize.z,-1.0/vsize.z,0.0,1.0/vsize.z,2.0/vsize.z);\n";
+  
+  shader += " float h[27] = float[](2,3,2, 3,6,3, 2,3,2,   3,6,3, 6,-88,6, 3,6,3,   2,3,2, 3,6,3, 2,3,2);\n";
+  shader += " float a[3] = float[](-1.0/vsize.x,0.0,1.0/vsize.x);\n";
+  shader += " float b[3] = float[](-1.0/vsize.y,0.0,1.0/vsize.y);\n";
+  shader += " float c[3] = float[](-1.0/vsize.z,0.0,1.0/vsize.z);\n";
   shader += " float sum = 0.0;\n";
-  shader += " for(int i=0; i<=4; i++)\n";
-  shader += " for(int j=0; j<=4; j++)\n";
-  shader += " for(int k=0; k<=4; k++)\n";
+  shader += " int m = -1;\n";
+  shader += " for(int i=0; i<=2; i++)\n";
+  shader += " for(int j=0; j<=2; j++)\n";
+  shader += " for(int k=0; k<=2; k++)\n";
   shader += " {\n";
   shader += "   vec3 g = vec3(a[i],b[j],c[k]);\n";
-
+  shader += "   m++;\n";
   if (nearest)
-    shader += "   sum += texture(dataTex, vC+g).x;\n";
+    shader += "   sum += h[m]*texture(dataTex, vC+g).x;\n";
   else
-    shader += "   sum += texture(dataTex, voxelCoord+g).x;\n";
-
+    shader += "   sum += h[m]*texture(dataTex, voxelCoord+g).x;\n";
   shader += " }\n";
-  shader += " sum = (sum-val)/70.0;\n";
-  shader += " float gradMag = abs(sum-val);\n";
+  shader += " float gradMag = sum/26.0;\n";
+  shader += " gradMag += 0.5;\n";
   shader += " gradMag = clamp(gradMag, 0.0, 1.0);\n";
   
   return shader;

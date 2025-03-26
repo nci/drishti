@@ -1335,7 +1335,7 @@ VolumeFileManager::loadMemFile()
       int slast = (m_depth-1-d);
 
       progress.setLabelText(QString("%1 : %2 %3").arg(m_filename).\
-			    arg(d).arg(d+slast));
+			    arg(d+1).arg(d+1+slast));
 
       for(int s=0; s<qMin(m_slabSize, (qint64)slast); s++)
 	{

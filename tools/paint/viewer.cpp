@@ -3240,7 +3240,7 @@ Viewer::saveSnapshot(QString imgFile)
       imgbuf[4*i+3] = ma;
     }
 
-  if (imgFile.endsWith(".png"))
+  if (StaticFunctions::checkExtension(imgFile, "png"))
     {
       QImage bimg(imgbuf, wd, ht, QImage::Format_ARGB32_Premultiplied);
       StaticFunctions::convertFromGLImage(bimg, wd, ht);

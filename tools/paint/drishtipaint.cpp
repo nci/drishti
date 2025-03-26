@@ -1880,8 +1880,6 @@ DrishtiPaint::setFile(QString filename)
   viewerUi.sketchPad->setChecked(false);
   m_viewer->showSketchPad(false);
 
-
-
   VolumeOperations::setVolData(m_volume->memVolDataPtr());
   VolumeOperations::setMaskData(m_volume->memMaskDataPtr());
   VolumeOperations::setGridSize(d, w, h);
@@ -3522,9 +3520,13 @@ DrishtiPaint::on_actionExtractTag_triggered()
   if (tflnm.isEmpty())
     return;
 
-  if (!tflnm.endsWith(".pvl.nc"))
-    tflnm += ".pvl.nc";
+  if (StaticFunctions::checkExtension(tflnm, ".pvl.nc.pvl.nc"))
+    tflnm = tflnm.chopped(7);
 
+  QMessageBox::information(0, "", tflnm);
+  if (!StaticFunctions::checkExtension(tflnm, ".pvl.nc"))
+    tflnm += ".pvl.nc";
+  
   savePvlHeader(m_volume->fileName(),
 		tflnm,
 		tdepth, twidth, theight,
@@ -6614,8 +6616,8 @@ DrishtiPaint::extractFromAnotherVolume(QList<int> tags)
       int tag = tags[tt];
       
       QString tflnm = tagflnm;
-      if (tflnm.endsWith(".pvl.nc"))
-	tflnm = tflnm.left(7);
+      if (StaticFunctions::checkExtension(tflnm, ".pvl.nc"))
+	tflnm = tflnm.chopped(7);
       tflnm += QString("-%1.pvl.nc").arg(tag);
 
       progress.setLabelText(QString("Extracting tag %1 to %2").	\

@@ -1701,6 +1701,161 @@ VolumeOperations::mergeTags(Vec bmin, Vec bmax,
 }
 
 void
+VolumeOperations::dilateAll(Vec bmin, Vec bmax, int tag,
+			    int nDilate,
+			    int& minD, int& maxD,
+			    int& minW, int& maxW,
+			    int& minH, int& maxH,
+			    bool allVisible,
+			    int gradType, float minGrad, float maxGrad)
+{
+  minD = minW = minH = maxD = maxW = maxH = -1;
+
+  uchar *lut = Global::lut();
+
+  QProgressDialog progress("Updating voxel structure",
+			   QString(),
+			   0, 100,
+			   0,
+			   Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);
+
+  int ds = qMax(0, (int)bmin.z);
+  int ws = qMax(0, (int)bmin.y);
+  int hs = qMax(0, (int)bmin.x);
+
+  int de = qMin((int)bmax.z, m_depth-1);
+  int we = qMin((int)bmax.y, m_width-1);
+  int he = qMin((int)bmax.x, m_height-1);
+
+  qint64 mx = he-hs+1;
+  qint64 my = we-ws+1;
+  qint64 mz = de-ds+1;
+
+  MyBitArray bitmask;
+  bitmask.resize(mx*my*mz);
+  bitmask.fill(false);
+
+  for(int d2=ds; d2<=de; d2++)
+    {
+      progress.setValue(100*(d2-ds)/(mz));
+      qApp->processEvents();
+      for(int w2=ws; w2<=we; w2++)
+	for(int h2=hs; h2<=he; h2++)
+	  {
+	    bool clipped = false;
+	    for(int i=0; i<m_cPos.count(); i++)
+	      {
+		Vec p = Vec(h2, w2, d2) - m_cPos[i];
+		if (m_cNorm[i]*p > 0)
+		  {
+		    clipped = true;
+		    break;
+		  }
+	      }
+	    if (!clipped)
+	      {
+		qint64 idx = d2*m_width*m_height + w2*m_height + h2;
+		int val = m_volData[idx];
+		if (m_volDataUS) val = m_volDataUS[idx];	
+		uchar mtag = m_maskData[idx];
+		bool opaque =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);
+		opaque &= mtag == tag;
+		
+		//-------
+		if (opaque)
+		  {
+		    float gradMag = calcGrad(gradType, d2, w2, h2);
+		    
+		    if (gradMag < minGrad || gradMag > maxGrad)
+		      opaque = false;
+		  }
+		//-------
+		
+		if (opaque)
+		  {
+		    qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
+		    bitmask.setBit(bidx, true);
+		  }
+	      }
+	  }
+    }
+
+  progress.setLabelText("Dilate");
+  qApp->processEvents();
+
+
+
+
+  dilateBitmaskUsingVDB(nDilate, true, // dilate opaque region
+			mx, my, mz,
+			bitmask);
+
+
+  
+  progress.setLabelText("writing to mask");
+  for(int d2=ds; d2<=de; d2++)
+    {
+      progress.setValue(100*(d2-ds)/(mz));
+      qApp->processEvents();
+      for(int w2=ws; w2<=we; w2++)
+	for(int h2=hs; h2<=he; h2++)
+	  {
+	    qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
+	    if (bitmask.testBit(bidx))
+	      {
+		bool clipped = false;
+		for(int i=0; i<m_cPos.count(); i++)
+		  {
+		    Vec p = Vec(h2, w2, d2) - m_cPos[i];
+		    if (m_cNorm[i]*p > 0)
+		      {
+			clipped = true;
+			break;
+		      }
+		  }
+		if (!clipped)
+		  {
+		    qint64 idx = d2*m_width*m_height + w2*m_height + h2;
+		    int val = m_volData[idx];
+		    if (m_volDataUS) val = m_volDataUS[idx];
+		    
+		    uchar mtag = m_maskData[idx];
+		    bool opaque =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);
+		    opaque &= (mtag == 0 || allVisible);
+			  
+		    //-------
+		    if (opaque && (minGrad >=0.01 || maxGrad <= 0.99))
+		      {
+			float gradMag = calcGrad(gradType, d2, w2, h2);
+	
+			if (gradMag < minGrad || gradMag > maxGrad)
+			  opaque = false;
+		      }
+		    //-------
+		    
+		    if (opaque) // dilate only in connected opaque region
+		      {			
+			qint64 idx = d2*m_width*m_height + w2*m_height + h2;
+			m_maskData[idx] = tag;
+		      }
+		  } // if (!clipped)
+	      } // test bitmask 
+	  } // loop over h
+    } // loop over d
+
+  minD = ds;
+  maxD = de;
+  minW = ws;
+  maxW = we;
+  minH = hs;
+  maxH = he;
+
+  return;
+}
+
+
+void
 VolumeOperations::dilateConnected(int dr, int wr, int hr,
 				  Vec bmin, Vec bmax, int tag,
 				  int nDilate,
@@ -1933,6 +2088,130 @@ VolumeOperations::dilateConnected(int dr, int wr, int hr,
 }
 
 void
+VolumeOperations::erodeAll(Vec bmin, Vec bmax, int tag,
+			   int nErode,
+			   int& minD, int& maxD,
+			   int& minW, int& maxW,
+			   int& minH, int& maxH,
+			   int gradType, float minGrad, float maxGrad)
+{
+  minD = minW = minH = maxD = maxW = maxH = -1;
+
+  uchar *lut = Global::lut();
+    
+  QProgressDialog progress("Updating voxel structure",
+			   QString(),
+			   0, 100,
+			   0,
+			   Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);
+
+
+  int ds = qMax(0, (int)bmin.z);
+  int ws = qMax(0, (int)bmin.y);
+  int hs = qMax(0, (int)bmin.x);
+
+  int de = qMin((int)bmax.z, m_depth-1);
+  int we = qMin((int)bmax.y, m_width-1);
+  int he = qMin((int)bmax.x, m_height-1);
+
+  qint64 mx = he-hs+1;
+  qint64 my = we-ws+1;
+  qint64 mz = de-ds+1;
+
+  MyBitArray bitmask;
+  bitmask.resize(mx*my*mz);
+  bitmask.fill(false);
+
+
+  for(int d2=ds; d2<=de; d2++)
+    {
+      progress.setValue(100*(d2-ds)/(mz));
+      qApp->processEvents();
+      for(int w2=ws; w2<=we; w2++)
+	for(int h2=hs; h2<=he; h2++)
+	  {
+	    bool clipped = false;
+	    for(int i=0; i<m_cPos.count(); i++)
+	      {
+		Vec p = Vec(h2, w2, d2) - m_cPos[i];
+		if (m_cNorm[i]*p > 0)
+		  {
+		    clipped = true;
+		    break;
+		  }
+	      }
+	    if (!clipped)
+	      {
+		qint64 idx = d2*m_width*m_height + w2*m_height + h2;
+		int val = m_volData[idx];
+		if (m_volDataUS) val = m_volDataUS[idx];	
+		uchar mtag = m_maskData[idx];
+		bool opaque =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);
+		opaque &= mtag == tag;
+		
+		//-------
+		if (opaque)
+		  {
+		    float gradMag = calcGrad(gradType, d2, w2, h2);
+		    
+		    if (gradMag < minGrad || gradMag > maxGrad)
+		      opaque = false;
+		  }
+		//-------
+		
+		if (opaque)
+		  {
+		    qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
+		    bitmask.setBit(bidx, true);
+		  }
+	      }
+	  }
+    }
+
+
+  progress.setLabelText("Erode");
+  qApp->processEvents();
+
+
+  //========================
+
+  // copy bitmask into cbitmask
+  MyBitArray cbitmask;
+  cbitmask = bitmask;
+
+  dilateBitmaskUsingVDB(nErode, false, // dilate transparent region
+			mx, my, mz,
+			bitmask);
+
+  
+  progress.setLabelText("writing to mask");
+  for(int d2=ds; d2<=de; d2++)
+    {
+      progress.setValue(100*(d2-ds)/(mz));
+      qApp->processEvents();
+      for(int w2=ws; w2<=we; w2++)
+	for(int h2=hs; h2<=he; h2++)
+	  {
+	    qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
+	    if (!bitmask.testBit(bidx) && cbitmask.testBit(bidx))
+	      {
+		qint64 idx = d2*m_width*m_height + w2*m_height + h2;
+		m_maskData[idx] = 0;
+	      } // test bitmask 
+	  } // loop over h
+    } // loop over d
+  
+  minD = ds;
+  maxD = de;
+  minW = ws;
+  maxW = we;
+  minH = hs;
+  maxH = he;
+}
+
+
+void
 VolumeOperations::erodeConnected(int dr, int wr, int hr,
 				 Vec bmin, Vec bmax, int tag,
 				 int nErode,
@@ -2134,7 +2413,6 @@ VolumeOperations::erodeConnected(int dr, int wr, int hr,
   minH = hs;
   maxH = he;
 }
-
 
 void
 VolumeOperations::modifyOriginalVolume(Vec bmin, Vec bmax,

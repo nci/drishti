@@ -35,6 +35,12 @@
   connect(m_viewer, SIGNAL(erodeConnected(int,int,int,Vec,Vec,int)),
 	  this, SLOT(erodeConnected(int,int,int,Vec,Vec,int)));
 
+  connect(m_viewer, SIGNAL(dilateAll(Vec,Vec,int,bool)),
+	  this, SLOT(dilateAl(Vec,Vec,int,bool)));
+
+  connect(m_viewer, SIGNAL(erodeAll(Vec,Vec,int)),
+	  this, SLOT(erodeAll(Vec,Vec,int)));
+
   connect(m_viewer, SIGNAL(tagUsingSketchPad(Vec,Vec)),
 	  this, SLOT(tagUsingSketchPad(Vec,Vec)));
 

@@ -167,6 +167,7 @@ void KeyFrameInformation::setInterpGiLightInfo(int i) {m_interpGiLightInfo = i;}
 void KeyFrameInformation::setInterpTF(int i) {m_interpTF = i;}
 void KeyFrameInformation::setInterpCrop(int i) {m_interpCrop = i;}
 void KeyFrameInformation::setInterpMop(int i) {m_interpMop = i;}
+void KeyFrameInformation::setSplinePos(bool b) {m_splinePos = b;}
 
 int KeyFrameInformation::interpBGColor() { return m_interpBGColor; }
 int KeyFrameInformation::interpCaptions() { return m_interpCaptions; }
@@ -183,6 +184,7 @@ int KeyFrameInformation::interpGiLightInfo() { return m_interpGiLightInfo; }
 int KeyFrameInformation::interpTF() { return m_interpTF; }
 int KeyFrameInformation::interpCrop() { return m_interpCrop; }
 int KeyFrameInformation::interpMop() { return m_interpMop; }
+bool KeyFrameInformation::splinePos() { return m_splinePos; }
 
 bool
 KeyFrameInformation::hasCaption(QStringList str)
@@ -276,6 +278,7 @@ KeyFrameInformation::KeyFrameInformation()
   m_interpTF = Enums::KFIT_None;
   m_interpCrop = Enums::KFIT_Linear;
   m_interpMop = Enums::KFIT_None;
+  m_splinePos = true; //spline
 }
 
 void
@@ -355,6 +358,7 @@ KeyFrameInformation::clear()
   m_interpTF = Enums::KFIT_None;
   m_interpCrop = Enums::KFIT_Linear;
   m_interpMop = Enums::KFIT_None;
+  m_splinePos = true; // spline
 }
 
 KeyFrameInformation::KeyFrameInformation(const KeyFrameInformation& kfi)
@@ -455,6 +459,7 @@ KeyFrameInformation::KeyFrameInformation(const KeyFrameInformation& kfi)
   m_interpTF = kfi.m_interpTF;
   m_interpCrop = kfi.m_interpCrop;
   m_interpMop = kfi.m_interpMop;
+  m_splinePos = kfi.m_splinePos;
 }
 
 KeyFrameInformation::~KeyFrameInformation()
@@ -585,6 +590,7 @@ KeyFrameInformation::operator=(const KeyFrameInformation& kfi)
   m_interpTF = kfi.m_interpTF;
   m_interpCrop = kfi.m_interpCrop;
   m_interpMop = kfi.m_interpMop;
+  m_splinePos = kfi.m_splinePos;
 
   return *this;
 }
@@ -626,6 +632,7 @@ KeyFrameInformation::load(fstream &fin)
   m_interpTF = Enums::KFIT_None;
   m_interpCrop = Enums::KFIT_Linear;
   m_interpMop = Enums::KFIT_None;
+  m_splinePos = true;
 
   while (!done)
     {
@@ -954,6 +961,8 @@ KeyFrameInformation::load(fstream &fin)
 	fin.read((char*)&m_interpCrop, sizeof(int));
       else if (strcmp(keyword, "interpmop") == 0)
 	fin.read((char*)&m_interpMop, sizeof(int));
+      else if (strcmp(keyword, "splinepos") == 0)
+	fin.read((char*)&m_splinePos, sizeof(bool));
     }
 
   if(pbcompressed)
@@ -1367,6 +1376,11 @@ KeyFrameInformation::save(fstream &fout)
   sprintf(keyword, "interpmop");
   fout.write((char*)keyword, strlen(keyword)+1);
   fout.write((char*)&m_interpMop, sizeof(int));
+
+  memset(keyword, 0, 100);
+  sprintf(keyword, "splinepos");
+  fout.write((char*)keyword, strlen(keyword)+1);
+  fout.write((char*)&m_splinePos, sizeof(bool));
 
   //------------------------------------------------------
 

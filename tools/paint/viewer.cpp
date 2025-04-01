@@ -799,7 +799,9 @@ Viewer::keyPressEvent(QKeyEvent *event)
 
   if (event->key() == Qt::Key_D)
     {  
-      if (event->modifiers() & Qt::ShiftModifier)
+      if (event->modifiers() & Qt::ControlModifier)
+	regionDilationAll(true);
+      else if (event->modifiers() & Qt::ShiftModifier)
 	regionDilation(true);
       else
 	regionDilation(false);
@@ -809,7 +811,10 @@ Viewer::keyPressEvent(QKeyEvent *event)
 
   if (event->key() == Qt::Key_E)
     {  
-      regionErosion();
+      if (event->modifiers() & Qt::ControlModifier)
+	regionErosionAll();
+      else
+	regionErosion();
       update();
       return;
     }
@@ -2940,6 +2945,52 @@ Viewer::regionErosion()
   bmax = VECDIVIDE(bmax, voxelScaling);
 
   emit erodeConnected(d, w, h, bmin, bmax, Global::tag());
+}
+
+void
+Viewer::regionDilationAll(bool allVisible)
+{
+  if (!m_useMask)
+    {
+      QMessageBox::information(0, "Error", "Switch on Load Tags before applying the operation.");
+      return;
+    }
+
+  int d, w, h;
+  bool gothit = getCoordUnderPointer(d, w, h);
+  if (!gothit) return;
+
+  Vec bmin, bmax;
+  m_boundingBox.bounds(bmin, bmax);
+
+  Vec voxelScaling = Global::relativeVoxelScaling();
+  bmin = VECDIVIDE(bmin, voxelScaling);
+  bmax = VECDIVIDE(bmax, voxelScaling);
+
+  emit dilateAll(bmin, bmax, Global::tag(), allVisible);
+}
+
+void
+Viewer::regionErosionAll()
+{
+  if (!m_useMask)
+    {
+      QMessageBox::information(0, "Error", "Switch on Load Tags before applying the operation.");
+      return;
+    }
+
+  int d, w, h;
+  bool gothit = getCoordUnderPointer(d, w, h);
+  if (!gothit) return;
+
+  Vec bmin, bmax;
+  m_boundingBox.bounds(bmin, bmax);
+
+  Vec voxelScaling = Global::relativeVoxelScaling();
+  bmin = VECDIVIDE(bmin, voxelScaling);
+  bmax = VECDIVIDE(bmax, voxelScaling);
+
+  emit erodeAll(bmin, bmax, Global::tag());
 }
 
 void

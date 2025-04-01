@@ -31,19 +31,21 @@
   connect(m_keyFrame, SIGNAL(updateMorph(bool)),
 	  this, SLOT(updateMorph(bool)));
 
-connect(m_keyFrame, SIGNAL(updateFocus(float, float)),
-	this, SLOT(updateFocus(float, float)));
+  connect(m_keyFrame, SIGNAL(updateFocus(float, float)),
+	  this, SLOT(updateFocus(float, float)));
 
   connect(m_keyFrame, SIGNAL(updateParameters(bool, bool, Vec, QString,
 					      int, int, QString, QString, QString,
 					      int, bool, bool, float, bool, bool,
 					      float, float,
-					      int, float)),
+					      int, float,
+					      bool)),
 	  this, SLOT(updateParameters(bool, bool, Vec, QString,
 				      int, int, QString, QString, QString,
 				      int, bool, bool, float, bool, bool,
 				      float, float,
-				      int, float)));
+				      int, float,
+				      bool)));
 
 
 

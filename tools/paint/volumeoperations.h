@@ -76,6 +76,12 @@ class VolumeOperations
 			int&, int&,
 			int&, int&);
 
+  static void erodeAll(Vec, Vec, int,
+		       int,
+		       int&, int&,
+		       int&, int&,
+		       int&, int&,
+		       int, float, float);  
   static void erodeConnected(int, int, int,
 			     Vec, Vec, int,
 			     int,
@@ -84,6 +90,13 @@ class VolumeOperations
 			     int&, int&,
 			     int, float, float);
 
+  static void dilateAll(Vec, Vec, int,
+			int,
+			int&, int&,
+			int&, int&,
+			int&, int&,
+			bool,
+			int, float, float);
   static void dilateConnected(int, int, int,
 			      Vec, Vec, int,
 			      int,

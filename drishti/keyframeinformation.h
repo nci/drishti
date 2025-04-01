@@ -150,6 +150,7 @@ class KeyFrameInformation
   void setInterpTF(int);
   void setInterpCrop(int);
   void setInterpMop(int);
+  void setSplinePos(bool);
 
   int interpBGColor();
   int interpCaptions();
@@ -166,7 +167,8 @@ class KeyFrameInformation
   int interpTF();
   int interpCrop();
   int interpMop();
-
+  bool splinePos();
+  
   void setAxisAngle(Vec, float);
 
  private :
@@ -235,6 +237,7 @@ class KeyFrameInformation
   int m_interpTF;
   int m_interpCrop;
   int m_interpMop;
+  bool m_splinePos;
 };
 
 #endif

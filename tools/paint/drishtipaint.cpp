@@ -6234,6 +6234,34 @@ DrishtiPaint::erodeConnected(int dr, int wr, int hr,
 }
 
 void
+DrishtiPaint::erodeAll(Vec bmin, Vec bmax, int tag)
+{
+  int minD,maxD, minW,maxW, minH,maxH;
+
+  float minGrad = m_viewer->minGrad();
+  float maxGrad = m_viewer->maxGrad();
+  int gradType = m_viewer->gradType();
+
+  QList<Vec> cPos =  m_viewer->clipPos();
+  QList<Vec> cNorm = m_viewer->clipNorm();
+
+  VolumeOperations::setClip(cPos, cNorm);
+  VolumeOperations::erodeAll(bmin, bmax, tag,
+			     viewerUi.dilateRad->value(),
+			     minD, maxD,
+			     minW, maxW,
+			     minH, maxH,
+			     gradType, minGrad, maxGrad);
+
+  if (minD < 0)
+    return;
+
+  updateModifiedRegion(minD, maxD,
+		       minW, maxW,
+		       minH, maxH);
+}
+
+void
 DrishtiPaint::dilateConnected(int dr, int wr, int hr,
 			      Vec bmin, Vec bmax, int tag,
 			      bool allVisible)
@@ -6256,6 +6284,36 @@ DrishtiPaint::dilateConnected(int dr, int wr, int hr,
 				    minH, maxH,
 				    allVisible,
 				    gradType, minGrad, maxGrad);
+  
+  if (minD < 0)
+    return;
+
+  updateModifiedRegion(minD, maxD,
+		       minW, maxW,
+		       minH, maxH);
+}
+
+void
+DrishtiPaint::dilateAll(Vec bmin, Vec bmax, int tag,
+			bool allVisible)
+{
+  int minD,maxD, minW,maxW, minH,maxH;
+
+  QList<Vec> cPos =  m_viewer->clipPos();
+  QList<Vec> cNorm = m_viewer->clipNorm();
+
+  float minGrad = m_viewer->minGrad();
+  float maxGrad = m_viewer->maxGrad();
+  int gradType = m_viewer->gradType();
+
+  VolumeOperations::setClip(cPos, cNorm);
+  VolumeOperations::dilateAll(bmin, bmax, tag,
+			      viewerUi.dilateRad->value()+1,
+			      minD, maxD,
+			      minW, maxW,
+			      minH, maxH,
+			      allVisible,
+			      gradType, minGrad, maxGrad);
   
   if (minD < 0)
     return;

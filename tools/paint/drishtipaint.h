@@ -150,6 +150,11 @@ class DrishtiPaint : public QMainWindow
 
   void dilateConnected(int, int, int, Vec, Vec, int, bool);
   void erodeConnected(int, int, int, Vec, Vec, int);
+
+  void dilateAll(Vec, Vec, int, bool);
+  void erodeAll(Vec, Vec, int);
+
+  
   void tagUsingSketchPad(Vec, Vec);
   void mergeTags(Vec, Vec, int, int, bool);
   void stepTags(Vec, Vec, int, int);

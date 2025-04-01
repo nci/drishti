@@ -216,6 +216,7 @@ KeyFrame::saveProject(Vec pos, Quaternion rot,
   m_savedKeyFrame.setOpMod(fop, bop);
   m_savedKeyFrame.setDOF(dofBlur, dofNF);
   m_savedKeyFrame.setGamma(Global::gamma());
+  m_savedKeyFrame.setSplinePos(Global::interpolationType(Global::CameraPositionInterpolation) > 0);
 
   // not saving splineInfo for savedKeyFrame
   //m_savedKeyFrame.setSplineInfo(splineInfo);
@@ -361,9 +362,9 @@ KeyFrame::setKeyFrame(Vec pos, Quaternion rot,
   kfi->setPruneBuffer(pb);
   kfi->setPruneBlend(PruneHandler::blend());
   kfi->setOpMod(fop, bop);
-
   kfi->setDOF(dofBlur, dofNF);
   kfi->setGamma(Global::gamma());
+  kfi->setSplinePos(Global::interpolationType(Global::CameraPositionInterpolation) > 0);
 
   emit setImage(kfn, image);  
   
@@ -440,8 +441,8 @@ KeyFrame::interpolateAt(int kf, float frc,
 
   if (kf < numberOfKeyFrames()-1)
     {
-      rfrc = StaticFunctions::remapKeyframe(m_keyFrameInfo[kf]->interpCameraPosition(), frc);
-      pos = interpolatePosition(kf, kf+1, rfrc);
+      rfrc = StaticFunctions::remapKeyframe(m_keyFrameInfo[kf]->interpCameraPosition(), frc);      
+      pos = interpolatePosition(kf, kf+1, rfrc, m_keyFrameInfo[kf]->splinePos());
 
       rfrc = StaticFunctions::remapKeyframe(m_keyFrameInfo[kf]->interpCameraOrientation(), frc);
       rot = interpolateOrientation(kf, kf+1, rfrc);
@@ -992,7 +993,8 @@ KeyFrame::playSavedKeyFrame()
 			mv, mc, mo, 0.0f, mt,
 			m_savedKeyFrame.pruneBlend(),
 			fop, bop,
-			blur, nf);
+			blur, nf,
+			m_savedKeyFrame.splinePos());
 
   QByteArray pb = m_savedKeyFrame.pruneBuffer();
   if (! pb.isEmpty())
@@ -1157,7 +1159,8 @@ KeyFrame::playFrameNumber(int fno)
 				mv, mc, mo, 0.0f, mt,
 				m_keyFrameInfo[kf]->pruneBlend(),
 				fop, bop,
-				blur, nf);
+				blur, nf,
+				m_keyFrameInfo[kf]->splinePos());
 
 	  QByteArray pb = m_keyFrameInfo[kf]->pruneBuffer();
 	  if (! pb.isEmpty())
@@ -1328,7 +1331,8 @@ KeyFrame::playFrameNumber(int fno)
 			mv, mc, mo, volInterp, mt,
 			keyFrameInfo.pruneBlend(),
 			fop, bop,
-			blur, nf);
+			blur, nf,
+			keyFrameInfo.splinePos());
 
   QByteArray pb = keyFrameInfo.pruneBuffer();
   if (! pb.isEmpty())
@@ -1493,7 +1497,7 @@ KeyFrame::computeTangents()
 }
 
 Vec
-KeyFrame::interpolatePosition(int kf1, int kf2, float frc)
+KeyFrame::interpolatePosition(int kf1, int kf2, float frc, bool splineInterp)
 {
   Vec pos = m_keyFrameInfo[kf1]->position();
 
@@ -1503,7 +1507,8 @@ KeyFrame::interpolatePosition(int kf1, int kf2, float frc)
   float len = diff.squaredNorm();
   if (len > 0.1)
     {
-      if (Global::interpolationType(Global::CameraPositionInterpolation))
+      //if (Global::interpolationType(Global::CameraPositionInterpolation))
+      if (splineInterp)
 	{ // spline interpolation of position
 	  Vec v1 = 3*diff - 2*m_tgP[kf1] - m_tgP[kf2];
 	  Vec v2 = -2*diff + m_tgP[kf1] + m_tgP[kf2];

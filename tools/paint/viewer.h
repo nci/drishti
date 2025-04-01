@@ -144,7 +144,10 @@ class Viewer : public QGLViewer
     void dilateConnected(int, int, int, Vec, Vec, int, bool);
     void erodeConnected(int, int, int, Vec, Vec, int);
 
-    void tagUsingSketchPad(Vec, Vec);
+    void dilateAll(Vec, Vec, int, bool);
+    void erodeAll(Vec, Vec, int);
+
+  void tagUsingSketchPad(Vec, Vec);
 
     void mergeTags(Vec, Vec, int, int, bool);
     void stepTag(Vec, Vec, int, int);
@@ -338,6 +341,8 @@ class Viewer : public QGLViewer
   void regionGrowing(bool);
   void regionDilation(bool);
   void regionErosion();
+  void regionDilationAll(bool);
+  void regionErosionAll();
   void tagUsingScreenSketch();
 
   void commandEditor();

@@ -3820,8 +3820,16 @@ MainWindow::updateParameters(bool drawBox, bool drawAxis,
 			     int mv, bool mc, bool mo, float iv, bool mt,
 			     bool pruneblend,
 			     float fop, float bop,
-			     int dofblur, float dofnf)
+			     int dofblur, float dofnf,
+			     bool splinePos)
 {
+  ui.actionSpline_PositionInterpolation->setChecked(splinePos);
+  if (splinePos)
+    Global::setInterpolationType(Global::CameraPositionInterpolation, 1);
+  else
+    Global::setInterpolationType(Global::CameraPositionInterpolation, 0);
+  
+  
   m_preferencesWidget->setTick(sz, st, xl, yl, zl);
   Global::setBackgroundColor(bgColor);
 

@@ -84,7 +84,8 @@ class KeyFrame : public QObject
   void updateParameters(bool, bool, Vec, QString,
 			int, int, QString, QString, QString,
 			int, bool, bool, float, bool, bool,
-			float, float, int, float);
+			float, float, int, float,
+			bool);
   void loadKeyframes(QList<int>, QList<QImage>);
   void updateVolInfo(int);
   void updateVolInfo(int, int);
@@ -118,7 +119,7 @@ class KeyFrame : public QObject
   QList<Vec> m_tgP;
   QList<Quaternion> m_tgQ;
   void computeTangents();
-  Vec interpolatePosition(int, int, float);
+  Vec interpolatePosition(int, int, float, bool);
   Quaternion interpolateOrientation(int, int, float);
 
   void updateCameraPath();

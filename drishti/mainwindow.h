@@ -164,7 +164,8 @@ class MainWindow : public QMainWindow
    void updateParameters(bool, bool, Vec, QString,
 			 int, int, QString, QString, QString,
 			 int, bool, bool, float, bool, bool,
-			 float, float, int, float);
+			 float, float, int, float,
+			 bool);
    void changeHistogram(int);
    void resetFlipImage();
    void switchBB();

@@ -301,6 +301,7 @@ class CurvesWidget : public QWidget
 
   void doAnother(int);
 
+  void applyClipping();
   void applyGradLimits();
 
   void onlyImageScaled();

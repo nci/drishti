@@ -1,3 +1,4 @@
+#include "geometryobjects.h"
 #include "curveswidget.h"
 #include "global.h"
 #include "staticfunctions.h"
@@ -567,6 +568,42 @@ CurvesWidget::setMaskImage(uchar *mask)
 }
 
 void
+CurvesWidget::applyClipping()
+{
+  qint64 D = m_Depth+1;
+  qint64 W = m_Width+1;
+  qint64 H = m_Height+1;
+    
+  int dstart = 0;
+  int dend = m_Depth;
+  int wstart = 0;
+  int wend = m_Width;
+  int hstart = 0;
+  int hend = m_Height;
+
+  if (m_sliceType == DSlice) { dstart = dend = m_currSlice; }
+  if (m_sliceType == WSlice) { wstart = wend = m_currSlice; }
+  if (m_sliceType == HSlice) { hstart = hend = m_currSlice; }
+
+  qint64 idx = 0;
+
+  for(qint64 d0=dstart; d0<=dend; d0++)
+  for(qint64 w0=wstart; w0<=wend; w0++)
+  for(qint64 h0=hstart; h0<=hend; h0++)
+    {
+      if (GeometryObjects::clipplanes()->checkClipped(Vec(h0, w0, d0)) ||
+	  GeometryObjects::crops()->checkCrop(Vec(h0, w0, d0)))
+	{
+	  m_sliceImage[4*idx+0] = 0;
+	  m_sliceImage[4*idx+1] = 0;
+	  m_sliceImage[4*idx+2] = 0;
+	  m_sliceImage[4*idx+3] = 0;
+	}
+      idx ++;
+    }
+}
+
+void
 CurvesWidget::applyGradLimits()
 {  
   if (m_minGrad < 0.0001 && m_maxGrad > 0.999)
@@ -827,6 +864,7 @@ CurvesWidget::recolorImage()
 	}
     }
 
+  applyClipping();
   applyGradLimits();
   
   //-----

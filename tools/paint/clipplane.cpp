@@ -10,6 +10,27 @@ ClipPlanes::setBrick0Xform(double xf[16])
 {
 }
 
+bool
+ClipPlanes::checkClipped(Vec p0)
+{
+  bool clipped = false;
+
+  Vec RvoxelScaling = Global::relativeVoxelScaling();
+  for(int i=0; i<m_clips.count(); i++)
+    {
+      Vec p = p0 - VECDIVIDE(m_clips[i]->position(), RvoxelScaling);
+      Vec cn = VECPRODUCT(m_clips[i]->m_tang, RvoxelScaling);
+      cn.normalize();
+      if (cn*p > 0)
+	{
+	  clipped = true;
+	  break;
+	}
+    }
+
+  return clipped;
+}
+
 void
 ClipPlanes::reset()
 {

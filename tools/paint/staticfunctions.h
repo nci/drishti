@@ -20,9 +20,13 @@ using namespace qglviewer;
 class StaticFunctions
 {
  public :
+  static Vec getVec(QString);
+
   static Vec clampVec(Vec, Vec, Vec);
   static Vec maxVec(Vec, Vec);
   static Vec minVec(Vec, Vec);
+
+  static void getRotationBetweenVectors(Vec, Vec, Vec&, float&);
 
   static QGradientStops resampleGradientStops(QGradientStops, int mapSize = 100);
   static void initQColorDialog();
@@ -82,6 +86,12 @@ class StaticFunctions
   static QList<Vec> line3d(Vec, Vec);
 
   static QList<int> dda2D(int, int, int, int);
+
+  static float easeIn(float);
+  static float easeOut(float);
+  static float smoothstep(float);
+  static float smoothstep(float, float, float);
+
 };
 
 #endif

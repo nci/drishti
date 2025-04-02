@@ -150,6 +150,9 @@ class VolumeOperations
   static void dilateBitmaskUsingVDB(int, bool,
 				    qint64, qint64, qint64,
 				    MyBitArray&);
+
+  static bool checkClipped(Vec);
+
 };
 
 #endif

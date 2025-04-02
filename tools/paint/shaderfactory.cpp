@@ -4,6 +4,7 @@
 #include <QVBoxLayout>
 #include <QMessageBox>
 
+#include "cropshaderfactory.h"
 
 bool
 ShaderFactory::loadShader(GLhandleARB &progObj,
@@ -557,8 +558,14 @@ QString
 ShaderFactory::genIsoRaycastShader(bool nearest,
 				   bool useMask,
 				   bool bit16,
-				   int gradType)
+				   int gradType,
+				   QList<CropObject> crops)
 {
+  bool cropPresent = false;
+  for(int i=0; i<crops.count(); i++)
+    if (crops[i].cropType() < CropObject::Tear_Tear)
+      cropPresent = true;
+
   QString shader;
   shader  = "#version 420 core\n";
   shader += "#extension GL_ARB_texture_rectangle : enable\n";
@@ -615,6 +622,10 @@ ShaderFactory::genIsoRaycastShader(bool nearest,
   shader += "}\n";
   //---------------------
 
+
+  if (cropPresent) shader += CropShaderFactory::generateCropping(crops);
+
+  
   shader += "void main(void)\n";
   shader += "{\n";
 
@@ -668,6 +679,10 @@ ShaderFactory::genIsoRaycastShader(bool nearest,
 
   // -- get exact texture coordinate so we don't get tag interpolation --
   shader += "  vec3 vC = voxelCoord*vsize;\n";
+
+  
+  if (cropPresent) shader += "float feather = 1.0 - crop(vC, false);\n";
+  
   shader += "  bvec3 vclt = lessThan(floor(vC+0.5), vC);\n";
   shader += "  vC += vec3(vclt)*vec3(0.5);\n";
   shader += "  vC -= vec3(not(vclt))*vec3(0.5);\n";
@@ -693,6 +708,11 @@ ShaderFactory::genIsoRaycastShader(bool nearest,
       shader += "  colorSample = texture(lutTex, vec2(fh0,fh1));\n";
     }
 
+  //crop
+  if (cropPresent)
+    shader += "  colorSample.a *= feather;\n";
+
+  
   shader += "  if (colorSample.a > 0.0)\n";
   shader += " {\n";
   if (gradType == 0)
@@ -720,7 +740,7 @@ ShaderFactory::genIsoRaycastShader(bool nearest,
     }
   else
     shader += "  float tag = 0;\n";
-
+  
 
   //shader += "  if (!gotFirstHit && colorSample.a > 0.001) gotFirstHit = true;\n";  
   shader += "  if (!gotFirstHit && colorSample.a > 0.001)\n";  

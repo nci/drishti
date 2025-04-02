@@ -105,6 +105,10 @@ HEADERS += connectviewer.h \
         commonqtclasses.h \
 	boundingbox.h \
 	drishtipaint.h \
+        crops.h \
+        cropobject.h \
+        cropgrabber.h \
+        cropshaderfactory.h \
 	curvegroup.h \
         clipinformation.h \
         clipplane.h \
@@ -139,7 +143,8 @@ HEADERS += connectviewer.h \
 	volumefilemanager.h \
 	volumeinformation.h \
 	volumemask.h \
-	volumeoperations.h \
+        volumeoperations.h \
+        geometryobjects.h \
 	graphcut/graph.h \
 	graphcut/graphcut.h \
 	graphcut/block.h \
@@ -167,6 +172,10 @@ HEADERS += connectviewer.h \
 SOURCES += drishtipaint.cpp \
 	main.cpp \
 	boundingbox.cpp \
+        crops.cpp \
+        cropobject.cpp \
+        cropgrabber.cpp \
+        cropshaderfactory.cpp \
 	curvegroup.cpp \
         clipinformation.cpp \
         clipplane.cpp \
@@ -202,6 +211,7 @@ SOURCES += drishtipaint.cpp \
 	volumeinformation.cpp \
 	volumemask.cpp \
 	volumeoperations.cpp \
+        geometryobjects.cpp \
 	graphcut/graph.cpp \
 	graphcut/graphcut.cpp \
 	showhelp.cpp \

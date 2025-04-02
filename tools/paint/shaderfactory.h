@@ -2,6 +2,7 @@
 #define SHADERFACTORY_H
 
 #include <GL/glew.h>
+#include "cropobject.h"
 #include "commonqtclasses.h"
 
 class ShaderFactory
@@ -22,7 +23,7 @@ class ShaderFactory
 
   static QString genShadowBlurShader();
 
-  static QString genIsoRaycastShader(bool, bool, bool, int);
+  static QString genIsoRaycastShader(bool, bool, bool, int, QList<CropObject>);
 
   static QString genEdgeEnhanceShader(bool);
 

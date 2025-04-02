@@ -10,6 +10,8 @@ using namespace qglviewer;
 #include "ui_viewermenu.h"
 
 #include "clipplane.h"
+#include "crops.h"
+
 #include "boundingbox.h"
 #include "mybitarray.h"
 
@@ -125,7 +127,9 @@ class Viewer : public QGLViewer
     void stopDrawing();
     void startDrawing();
 
-    
+ private slots :
+      void createRaycastShader();
+
  signals :
     void checkFileSave();
     void showBoxChanged(bool);
@@ -255,7 +259,8 @@ class Viewer : public QGLViewer
   Vec m_corner, m_vsize;
 
   ClipPlanes* m_clipPlanes;
-
+  Crops* m_crops;
+  
   GLhandleARB m_depthShader;
   GLint m_depthParm[20];
 
@@ -322,7 +327,6 @@ class Viewer : public QGLViewer
 
   bool clip(int, int, int);
 
-  void createRaycastShader();
   void createShaders();
   void createFBO();
 

@@ -13,7 +13,7 @@ class ClipPlanes : public QObject
   ~ClipPlanes();
 
   ClipInformation clipInfo();
-
+  
   QList<int> tfset();
   QList<QVector4D> viewport();
   QList<bool> viewportType();
@@ -26,6 +26,8 @@ class ClipPlanes : public QObject
   QList<Vec> yaxis();
   QList<bool> showSlice();
   QList<bool> showOtherSlice();
+
+  bool checkClipped(Vec);
 
   void reset();
   void setBounds(Vec, Vec);

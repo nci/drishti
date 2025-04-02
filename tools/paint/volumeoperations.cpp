@@ -5,6 +5,7 @@
 #include "mybitarray.h"
 #include "morphslice.h"
 #include "vdbvolume.h"
+#include "geometryobjects.h"
 
 
 uchar* VolumeOperations::m_volData = 0;
@@ -207,6 +208,24 @@ VolumeOperations::calcGrad(int gradType,
   return gradMag;
 }
 
+bool
+VolumeOperations::checkClipped(Vec p0)
+{
+//  for(int i=0; i<m_cPos.count(); i++)
+//    {
+//      Vec p = p0 - m_cPos[i];
+//      if (m_cNorm[i]*p > 0)
+//	{
+//	  clipped = true;
+//	  break;
+//	}
+//    }
+  
+  bool clipped = GeometryObjects::clipplanes()->checkClipped(p0);
+  clipped |= GeometryObjects::crops()->checkCrop(p0);
+
+  return clipped;
+}
 
 void VolumeOperations::getVolume(Vec bmin, Vec bmax, int tag)
 {
@@ -237,16 +256,7 @@ void VolumeOperations::getVolume(Vec bmin, Vec bmax, int tag)
       for(qint64 w=ws; w<=we; w++)
 	for(qint64 h=hs; h<=he; h++)
 	  {
-	    bool clipped = false;
-	    for(int i=0; i<m_cPos.count(); i++)
-	      {
-		Vec p = Vec(h, w, d) - m_cPos[i];
-		if (m_cNorm[i]*p > 0)
-		  {
-		    clipped = true;
-		    break;
-		  }
-	      }
+	    bool clipped = checkClipped(Vec(h, w, d));
 	    
 	    if (!clipped)
 	      {
@@ -316,16 +326,7 @@ VolumeOperations::resetTag(Vec bmin, Vec bmax, int tag,
       for(qint64 w=ws; w<=we; w++)
 	for(qint64 h=hs; h<=he; h++)
 	  {
-	    bool clipped = false;
-	    for(int i=0; i<m_cPos.count(); i++)
-	      {
-		Vec p = Vec(h, w, d) - m_cPos[i];
-		if (m_cNorm[i]*p > 0)
-		  {
-		    clipped = true;
-		    break;
-		  }
-	      }
+	    bool clipped = checkClipped(Vec(h, w, d));
 	    
 	    if (!clipped)
 	      {
@@ -576,16 +577,7 @@ VolumeOperations::getConnectedRegion(int dr, int wr, int hr,
     for(qint64 w2=ws; w2<=we; w2++)
     for(qint64 h2=hs; h2<=he; h2++)
     {
-      bool clipped = false;
-      for(int i=0; i<m_cPos.count(); i++)
-	{
-	  Vec p = Vec(h2, w2, d2) - m_cPos[i];
-	  if (m_cNorm[i]*p > 0)
-	    {
-	      clipped = true;
-	      break;
-	    }
-	}
+      bool clipped = checkClipped(Vec(h2, w2, d2));
       
       qint64 idx = d2*m_width*m_height + w2*m_height + h2;
       int val = m_volData[idx];
@@ -744,16 +736,7 @@ VolumeOperations::getTransparentRegion(int ds, int ws, int hs,
     for(qint64 w2=ws; w2<=we; w2++)
     for(qint64 h2=hs; h2<=he; h2++)
     {
-      bool clipped = false;
-      for(int i=0; i<m_cPos.count(); i++)
-	{
-	  Vec p = Vec(h2, w2, d2) - m_cPos[i];
-	  if (m_cNorm[i]*p > 0)
-	    {
-	      clipped = true;
-	      break;
-	    }
-	}
+      bool clipped = checkClipped(Vec(h2, w2, d2));
       
       qint64 idx = d2*m_width*m_height + w2*m_height + h2;
       int val = m_volData[idx];
@@ -872,7 +855,7 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
       for(w=ws; w<=we; w++)
       for(h=hs; h<=he; h++)
 	{
-	  qint64 bidx = (d-ds)*mx*my+(w-ws)*mx+(h-hs);
+	  qint64 bidx = ((qint64)(d-ds))*mx*my+(w-ws)*mx+(h-hs);
 	  if (!cbitmask.testBit(bidx))
 	    accessor.setValue(ijk, 255);
 	}
@@ -898,7 +881,7 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
 	  {
 	    if (accessor.getValue(ijk) <= 0)
 	      {
-		qint64 bidx = (d-ds)*mx*my+(w-ws)*mx+(h-hs);
+		qint64 bidx = ((qint64)(d-ds))*mx*my+(w-ws)*mx+(h-hs);
 		cbitmask.setBit(bidx, false);
 	      }
 	  }
@@ -1257,7 +1240,7 @@ VolumeOperations::dilateBitmaskUsingVDB(int nDilate, bool htype,
   for(w=0; w<my; w++)
   for(h=0; h<mx; h++)
     {
-      qint64 bidx = d*mx*my+w*mx+h;
+      qint64 bidx = ((qint64)d)*mx*my+w*mx+h;
       if (bitmask.testBit(bidx))
 	accessor.setValue(ijk, 255);
     }
@@ -1288,7 +1271,7 @@ VolumeOperations::dilateBitmaskUsingVDB(int nDilate, bool htype,
       {
 	if (accessor.getValue(ijk) <= 0)
 	  {
-	    qint64 bidx = d*mx*my+w*mx+h;
+	    qint64 bidx = ((qint64)d)*mx*my+w*mx+h;
 	    bitmask.setBit(bidx, true);
 	  }
       }
@@ -1456,16 +1439,7 @@ VolumeOperations::setVisible(Vec bmin, Vec bmax,
       for(qint64 w=ws; w<=we; w++)
 	for(qint64 h=hs; h<=he; h++)
 	  {
-	    bool clipped = false;
-	    for(int i=0; i<m_cPos.count(); i++)
-	      {
-		Vec p = Vec(h, w, d) - m_cPos[i];
-		if (m_cNorm[i]*p > 0)
-		  {
-		    clipped = true;
-		    break;
-		  }
-	      }
+	    bool clipped = checkClipped(Vec(h, w, d));
 	    
 	    if (!clipped)
 	      {
@@ -1557,6 +1531,8 @@ VolumeOperations::stepTags(Vec bmin, Vec bmax,
 //		    break;
 //		  }
 //	      }
+//
+//	    clipped |= GeometryObjects::crops()->checkCrop(Vec(h,w,d));
 	    
 	    if (!clipped)
 	      {
@@ -1608,16 +1584,7 @@ VolumeOperations::mergeTags(Vec bmin, Vec bmax,
 	  for(qint64 w=ws; w<=we; w++)
 	    for(qint64 h=hs; h<=he; h++)
 	      {
-		bool clipped = false;
-		for(int i=0; i<m_cPos.count(); i++)
-		  {
-		    Vec p = Vec(h, w, d) - m_cPos[i];
-		    if (m_cNorm[i]*p > 0)
-		      {
-			clipped = true;
-			break;
-		      }
-		  }
+		bool clipped = checkClipped(Vec(h, w, d));
 		
 		if (!clipped)
 		  {
@@ -1661,17 +1628,8 @@ VolumeOperations::mergeTags(Vec bmin, Vec bmax,
 	  for(qint64 w=ws; w<=we; w++)
 	    for(qint64 h=hs; h<=he; h++)
 	      {
-		bool clipped = false;
-		for(int i=0; i<m_cPos.count(); i++)
-		  {
-		    Vec p = Vec(h, w, d) - m_cPos[i];
-		    if (m_cNorm[i]*p > 0)
-		      {
-			clipped = true;
-			break;
-		      }
-		  }
-		
+		bool clipped = checkClipped(Vec(h, w, d));
+	    
 		if (!clipped)
 		  {
 		    qint64 idx = d*m_width*m_height + w*m_height + h;
@@ -1736,23 +1694,15 @@ VolumeOperations::dilateAll(Vec bmin, Vec bmax, int tag,
   bitmask.resize(mx*my*mz);
   bitmask.fill(false);
 
-  for(int d2=ds; d2<=de; d2++)
+  for(qint64 d2=ds; d2<=de; d2++)
     {
       progress.setValue(100*(d2-ds)/(mz));
       qApp->processEvents();
-      for(int w2=ws; w2<=we; w2++)
-	for(int h2=hs; h2<=he; h2++)
+      for(qint64 w2=ws; w2<=we; w2++)
+	for(qint64 h2=hs; h2<=he; h2++)
 	  {
-	    bool clipped = false;
-	    for(int i=0; i<m_cPos.count(); i++)
-	      {
-		Vec p = Vec(h2, w2, d2) - m_cPos[i];
-		if (m_cNorm[i]*p > 0)
-		  {
-		    clipped = true;
-		    break;
-		  }
-	      }
+	    bool clipped = checkClipped(Vec(h2, w2, d2));
+
 	    if (!clipped)
 	      {
 		qint64 idx = d2*m_width*m_height + w2*m_height + h2;
@@ -1794,26 +1744,18 @@ VolumeOperations::dilateAll(Vec bmin, Vec bmax, int tag,
 
   
   progress.setLabelText("writing to mask");
-  for(int d2=ds; d2<=de; d2++)
+  for(qint64 d2=ds; d2<=de; d2++)
     {
       progress.setValue(100*(d2-ds)/(mz));
       qApp->processEvents();
-      for(int w2=ws; w2<=we; w2++)
-	for(int h2=hs; h2<=he; h2++)
+      for(qint64 w2=ws; w2<=we; w2++)
+	for(qint64 h2=hs; h2<=he; h2++)
 	  {
 	    qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
 	    if (bitmask.testBit(bidx))
 	      {
-		bool clipped = false;
-		for(int i=0; i<m_cPos.count(); i++)
-		  {
-		    Vec p = Vec(h2, w2, d2) - m_cPos[i];
-		    if (m_cNorm[i]*p > 0)
-		      {
-			clipped = true;
-			break;
-		      }
-		  }
+		bool clipped = checkClipped(Vec(h2, w2, d2));
+		
 		if (!clipped)
 		  {
 		    qint64 idx = d2*m_width*m_height + w2*m_height + h2;
@@ -1975,16 +1917,8 @@ VolumeOperations::dilateConnected(int dr, int wr, int hr,
 	    {
 	      cbitmask.setBit(bidx, true);
 
-	      bool clipped = false;
-	      for(int i=0; i<m_cPos.count(); i++)
-		{
-		  Vec p = Vec(h2, w2, d2) - m_cPos[i];
-		  if (m_cNorm[i]*p > 0)
-		    {
-		      clipped = true;
-		      break;
-		    }
-		}
+	      bool clipped = checkClipped(Vec(h2, w2, d2));
+
 	      if (!clipped)
 		{
 		  qint64 idx = d2*m_width*m_height + w2*m_height + h2;
@@ -2027,26 +1961,18 @@ VolumeOperations::dilateConnected(int dr, int wr, int hr,
 
   
   progress.setLabelText("writing to mask");
-  for(int d2=ds; d2<=de; d2++)
+  for(qint64 d2=ds; d2<=de; d2++)
     {
       progress.setValue(100*(d2-ds)/(mz));
       qApp->processEvents();
-      for(int w2=ws; w2<=we; w2++)
-	for(int h2=hs; h2<=he; h2++)
+      for(qint64 w2=ws; w2<=we; w2++)
+	for(qint64 h2=hs; h2<=he; h2++)
 	  {
 	    qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
 	    if (bitmask.testBit(bidx))
 	      {
-		bool clipped = false;
-		for(int i=0; i<m_cPos.count(); i++)
-		  {
-		    Vec p = Vec(h2, w2, d2) - m_cPos[i];
-		    if (m_cNorm[i]*p > 0)
-		      {
-			clipped = true;
-			break;
-		      }
-		  }
+		bool clipped = checkClipped(Vec(h2, w2, d2));
+
 		if (!clipped)
 		  {
 		    qint64 idx = d2*m_width*m_height + w2*m_height + h2;
@@ -2124,23 +2050,15 @@ VolumeOperations::erodeAll(Vec bmin, Vec bmax, int tag,
   bitmask.fill(false);
 
 
-  for(int d2=ds; d2<=de; d2++)
+  for(qint64 d2=ds; d2<=de; d2++)
     {
       progress.setValue(100*(d2-ds)/(mz));
       qApp->processEvents();
-      for(int w2=ws; w2<=we; w2++)
-	for(int h2=hs; h2<=he; h2++)
+      for(qint64 w2=ws; w2<=we; w2++)
+	for(qint64 h2=hs; h2<=he; h2++)
 	  {
-	    bool clipped = false;
-	    for(int i=0; i<m_cPos.count(); i++)
-	      {
-		Vec p = Vec(h2, w2, d2) - m_cPos[i];
-		if (m_cNorm[i]*p > 0)
-		  {
-		    clipped = true;
-		    break;
-		  }
-	      }
+	    bool clipped = checkClipped(Vec(h2, w2, d2));
+	    
 	    if (!clipped)
 	      {
 		qint64 idx = d2*m_width*m_height + w2*m_height + h2;
@@ -2186,12 +2104,12 @@ VolumeOperations::erodeAll(Vec bmin, Vec bmax, int tag,
 
   
   progress.setLabelText("writing to mask");
-  for(int d2=ds; d2<=de; d2++)
+  for(qint64 d2=ds; d2<=de; d2++)
     {
       progress.setValue(100*(d2-ds)/(mz));
       qApp->processEvents();
-      for(int w2=ws; w2<=we; w2++)
-	for(int h2=hs; h2<=he; h2++)
+      for(qint64 w2=ws; w2<=we; w2++)
+	for(qint64 h2=hs; h2<=he; h2++)
 	  {
 	    qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
 	    if (!bitmask.testBit(bidx) && cbitmask.testBit(bidx))
@@ -2339,24 +2257,16 @@ VolumeOperations::erodeConnected(int dr, int wr, int hr,
 
 	      //-------
 	      bool opaque = true;
-	      bool clipped = false;
-	      for(int i=0; i<m_cPos.count(); i++)
-		{
-		  Vec p = Vec(h2, w2, d2) - m_cPos[i];
-		  if (m_cNorm[i]*p > 0)
-		    {
-		      clipped = true;
-		      opaque = false;
-		      break;
-		    }
-		}
+
+	      bool clipped = checkClipped(Vec(h2, w2, d2));
+	      
 	      if (!clipped)
-	      {
-		float gradMag = calcGrad(gradType, d2, w2, h2);		    
-		
-		if (gradMag < minGrad || gradMag > maxGrad)
-		  opaque = false;
-	      }
+		{
+		  float gradMag = calcGrad(gradType, d2, w2, h2);		    
+		  
+		  if (gradMag < minGrad || gradMag > maxGrad)
+		    opaque = false;
+		}
 	      //-------
 	      
 	      if (opaque && lut[4*val+3] > 0 && m_maskData[idx] == tag)
@@ -2390,12 +2300,12 @@ VolumeOperations::erodeConnected(int dr, int wr, int hr,
 
   
   progress.setLabelText("writing to mask");
-  for(int d2=ds; d2<=de; d2++)
+  for(qint64 d2=ds; d2<=de; d2++)
     {
       progress.setValue(100*(d2-ds)/(mz));
       qApp->processEvents();
-      for(int w2=ws; w2<=we; w2++)
-	for(int h2=hs; h2<=he; h2++)
+      for(qint64 w2=ws; w2<=we; w2++)
+	for(qint64 h2=hs; h2<=he; h2++)
 	  {
 	    qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
 	    if (!bitmask.testBit(bidx) && cbitmask.testBit(bidx))
@@ -2450,16 +2360,7 @@ VolumeOperations::modifyOriginalVolume(Vec bmin, Vec bmax,
       for(qint64 w=ws; w<=we; w++)
 	for(qint64 h=hs; h<=he; h++)
 	  {
-	    bool clipped = false;
-	    for(int i=0; i<m_cPos.count(); i++)
-	      {
-		Vec p = Vec(h, w, d) - m_cPos[i];
-		if (m_cNorm[i]*p > 0)
-		  {
-		    clipped = true;
-		    break;
-		  }
-	      }
+	    bool clipped = checkClipped(Vec(h, w, d));
 	    
 	    qint64 idx = d*m_width*m_height + w*m_height + h;
 	    int vox = m_volData[idx];
@@ -2653,16 +2554,7 @@ VolumeOperations::bakeCurves(uchar *curveMask,
       for(qint64 w2=minWSlice; w2<=maxWSlice; w2++)
 	for(qint64 h2=minHSlice; h2<=maxHSlice; h2++)
 	  {
-	    bool clipped = false;
-	    for(int i=0; i<m_cPos.count(); i++)
-	      {
-	    	Vec p = Vec(h2, w2, d2) - m_cPos[i];
-	    	if (m_cNorm[i]*p > 0)
-	    	  {
-	    	    clipped = true;
-	    	    break;
-	    	  }
-	      }
+	    bool clipped = checkClipped(Vec(h2, w2, d2));
 	    
 	    if (!clipped)
 	      {

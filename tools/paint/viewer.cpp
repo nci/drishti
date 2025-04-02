@@ -15,6 +15,8 @@
 #include <QPainter>
 #include <QFileDialog>
 
+#include "geometryobjects.h"
+
 #include "ui_viewermenu.h"
 
 Viewer::Viewer(QWidget *parent) :
@@ -28,8 +30,11 @@ Viewer::Viewer(QWidget *parent) :
 
   m_memSize = 1000; // size in MB
 
-  m_clipPlanes = new ClipPlanes();
-
+  m_clipPlanes = GeometryObjects::clipplanes();
+  m_crops = GeometryObjects::crops();
+  connect(m_crops, SIGNAL(updateShaders()),
+	  this, SLOT(createRaycastShader()));
+  
   m_gradType = 0;
   
   m_depth = 0;
@@ -518,9 +523,9 @@ Viewer::createRaycastShader()
   maxSteps *= 1.0/m_stillStep;
 
   if (Global::bytesPerVoxel() == 1)
-    shaderString = ShaderFactory::genIsoRaycastShader(m_exactCoord, m_useMask, false, m_gradType);
+    shaderString = ShaderFactory::genIsoRaycastShader(m_exactCoord, m_useMask, false, m_gradType, m_crops->crops());
   else
-    shaderString = ShaderFactory::genIsoRaycastShader(m_exactCoord, m_useMask, true, m_gradType);
+    shaderString = ShaderFactory::genIsoRaycastShader(m_exactCoord, m_useMask, true, m_gradType, m_crops->crops());
   
   if (m_rcShader)
     glDeleteObjectARB(m_rcShader);
@@ -755,6 +760,15 @@ Viewer::keyPressEvent(QKeyEvent *event)
       return;
     }
 
+  if (GeometryObjects::grabsMouse())
+    {
+      if (GeometryObjects::keyPressEvent(event))
+	{
+	  updateGL();
+	  return;
+	}
+    }
+
 //  if (event->key() == Qt::Key_Z)
 //    {  
 //      if (event->modifiers() & Qt::ControlModifier)
@@ -872,17 +886,23 @@ Viewer::keyPressEvent(QKeyEvent *event)
 
   if (event->key() == Qt::Key_V)
     {
-      if (m_clipPlanes->count() > 0)
-	{
-	  bool show = m_clipPlanes->show(0);
-	  if (show)
-	    m_clipPlanes->hide();
-	  else
-	    m_clipPlanes->show();
-	}
+      GeometryObjects::showGeometry = ! GeometryObjects::showGeometry;
+      if (GeometryObjects::showGeometry)
+	GeometryObjects::show();
+      else
+	GeometryObjects::hide();
+      //      if (m_clipPlanes->count() > 0)
+      //	{
+      //	  bool show = m_clipPlanes->show(0);
+      //	  if (show)
+      //	    m_clipPlanes->hide();
+      //	  else
+      //	    m_clipPlanes->show();
+      //	}
+      update();
       return;
     }
-
+  
   if (event->key() == Qt::Key_Space)
     {
       commandEditor();
@@ -1003,6 +1023,16 @@ Viewer::processCommand(QString cmd)
   bmin = VECDIVIDE(bmin, voxelScaling);
   bmax = VECDIVIDE(bmax, voxelScaling);
 
+  if (list[0].contains("crop"))
+    {
+      QList<Vec> pts;
+      pts << bmin;
+      pts << bmax;
+      GeometryObjects::crops()->addCrop(pts);
+      return;
+    }
+    
+  
   if (list[0].contains("tagsused"))
     {
       QList<int> ut = usedTags();
@@ -1587,6 +1617,8 @@ Viewer::raycasting()
   glEnable(GL_DEPTH_TEST);
   glDisable(GL_BLEND);
 
+  if (m_crops->updated()) // recreate shader with new crop parameters
+    createRaycastShader();
 
   volumeRaycast(minZ, maxZ, false); // run full raycast process
 
@@ -1596,6 +1628,8 @@ Viewer::raycasting()
   glBlendFunc(GL_ONE, GL_ONE);
       
   m_clipPlanes->draw(this, false);
+  m_crops->draw(this, false);
+  m_crops->postdraw(this);
 
   if (m_showPosition)
     drawCurrentPosition();
@@ -2956,10 +2990,6 @@ Viewer::regionDilationAll(bool allVisible)
       return;
     }
 
-  int d, w, h;
-  bool gothit = getCoordUnderPointer(d, w, h);
-  if (!gothit) return;
-
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
 
@@ -2978,10 +3008,6 @@ Viewer::regionErosionAll()
       QMessageBox::information(0, "Error", "Switch on Load Tags before applying the operation.");
       return;
     }
-
-  int d, w, h;
-  bool gothit = getCoordUnderPointer(d, w, h);
-  if (!gothit) return;
 
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);

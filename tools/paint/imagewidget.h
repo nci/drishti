@@ -281,6 +281,7 @@ class ImageWidget : public QWidget
 
   void getSlice();
 
+  void applyClipping();
   void applyGradLimits();
 
   void onlyImageScaled();

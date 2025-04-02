@@ -4,6 +4,21 @@
 #include <QMessageBox>
 
 Vec
+StaticFunctions::getVec(QString str)
+{
+  QStringList xyz = str.split(" ", QString::SkipEmptyParts);
+  bool ok;
+  float x=0,y=0,z=0;
+  if (xyz.size() > 0) x = xyz[0].toFloat(&ok);
+  if (xyz.size() > 1) y = xyz[1].toFloat(&ok);
+  if (xyz.size() > 2) z = xyz[2].toFloat(&ok);
+
+  Vec val;
+  val = Vec(x,y,z);
+  return val;
+}
+
+Vec
 StaticFunctions::clampVec(Vec minv, Vec maxv, Vec v)
 {
   Vec cv;
@@ -34,6 +49,26 @@ StaticFunctions::minVec(Vec a, Vec b)
   cv.z = qMin(a.z, b.z);
 
   return cv;
+}
+
+void
+StaticFunctions::getRotationBetweenVectors(Vec p, Vec q,
+					   Vec &axis, float &angle)
+{
+  axis = p^q;
+
+  if (axis.norm() == 0) // parallel vectors
+    {
+      axis = p;
+      angle = 0;
+      return;
+    }
+
+  axis.normalize();
+
+  float cost = (p*q)/(p.norm()*q.norm());
+  cost = qMax(-1.0f, qMin(1.0f, cost));
+  angle = acos(cost);
 }
 
 QGradientStops
@@ -1053,4 +1088,32 @@ StaticFunctions::dda2D(int xa, int ya, int xb, int yb)
       xy << x << y;
     }
   return xy;
+}
+
+float
+StaticFunctions::easeIn(float a)
+{
+  return a*a;
+}
+
+float
+StaticFunctions::easeOut(float a)
+{
+  float b = (1-a);
+  return 1.0f-b*b;
+}
+
+float
+StaticFunctions::smoothstep(float a)
+{
+  return a*a*(3.0f-2.0f*a);
+}
+
+float
+StaticFunctions::smoothstep(float min, float max, float v)
+{
+  if (v <= min) return 0.0f;
+  if (v >= max) return 1.0f;
+  float a = (v-min)/(max-min);
+  return a*a*(3.0f-2.0f*a);
 }

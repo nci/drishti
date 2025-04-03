@@ -3319,6 +3319,7 @@ DrishtiPaint::on_actionLoadMask_triggered()
   QMessageBox::information(0, "", "Transfer Done.\n  Check 2D slice view.\n  Update 3D viewer.\n  If everything looks alright Save Work using File menu to save this change to mask file.");
 }
 
+
 void
 DrishtiPaint::on_actionExtractTag_triggered()
 {
@@ -3793,16 +3794,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
 	      for(int w=minWSlice; w<=maxWSlice; w++)
 	      for(int h=minHSlice; h<=maxHSlice; h++)
 		{
-		  bool clipped = false;
-		  for(int ci=0; ci<cPos.count(); ci++)
-		    {
-		      Vec p = Vec(h, w, d) - cPos[ci];
-		      if (cNorm[ci]*p > 0)
-			{
-			  clipped = true;
-			  break;
-			}
-		    }
+		  bool clipped = VolumeOperations::checkClipped(Vec(h,w,d));
 		  
 		  if (Global::bytesPerVoxel() == 1)
 		    {
@@ -3835,16 +3827,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
 	      for(int w=minWSlice; w<=maxWSlice; w++)
 	      for(int h=minHSlice; h<=maxHSlice; h++)
 		{
-		  bool clipped = false;
-		  for(int ci=0; ci<cPos.count(); ci++)
-		    {
-		      Vec p = Vec(h, w, d) - cPos[ci];
-		      if (cNorm[ci]*p > 0)
-			{
-			  clipped = true;
-			  break;
-			}
-		    }
+		  bool clipped = VolumeOperations::checkClipped(Vec(h,w,d));
 		  
 		  if (Global::bytesPerVoxel() == 1)
 		    {
@@ -3872,16 +3855,8 @@ DrishtiPaint::on_actionExtractTag_triggered()
 	      for(int w=minWSlice; w<=maxWSlice; w++)
 	      for(int h=minHSlice; h<=maxHSlice; h++)
 		{
-		  bool clipped = false;
-		  for(int ci=0; ci<cPos.count(); ci++)
-		    {
-		      Vec p = Vec(h, w, d) - cPos[ci];
-		      if (cNorm[ci]*p > 0)
-			{
-			  clipped = true;
-			  break;
-			}
-		    }
+		  bool clipped = VolumeOperations::checkClipped(Vec(h,w,d));
+
 		  if (Global::bytesPerVoxel() == 1)
 		    {
 		      if (!clipped)
@@ -3912,16 +3887,8 @@ DrishtiPaint::on_actionExtractTag_triggered()
 	      for(int w=minWSlice; w<=maxWSlice; w++)
 	      for(int h=minHSlice; h<=maxHSlice; h++)
 		{
-		  bool clipped = false;
-		  for(int ci=0; ci<cPos.count(); ci++)
-		    {
-		      Vec p = Vec(h, w, d) - cPos[ci];
-		      if (cNorm[ci]*p > 0)
-			{
-			  clipped = true;
-			  break;
-			}
-		    }
+		  bool clipped = VolumeOperations::checkClipped(Vec(h,w,d));
+
 		  if (Global::bytesPerVoxel() == 1)
 		    {
 		      if (!clipped)
@@ -4709,16 +4676,8 @@ DrishtiPaint::on_actionMeshTag_triggered()
 	  for(int w=minWSlice; w<=maxWSlice; w++)
 	    for(int h=minHSlice; h<=maxHSlice; h++)
 	      {
-		bool clipped = false;
-		for(int ci=0; ci<cPos.count(); ci++)
-		  {
-		    Vec p = Vec(h, w, d) - cPos[ci];
-		    if (cNorm[ci]*p > 0)
-		      {
-			clipped = true;
-			break;
-		      }
-		  }	    
+		bool clipped = VolumeOperations::checkClipped(Vec(h,w,d));
+
 		if (!clipped)
 		  {
 		    if (Global::bytesPerVoxel() == 1)
@@ -4746,16 +4705,8 @@ DrishtiPaint::on_actionMeshTag_triggered()
 	  for(int w=minWSlice; w<=maxWSlice; w++)
 	    for(int h=minHSlice; h<=maxHSlice; h++)
 	      {
-		bool clipped = false;
-		for(int ci=0; ci<cPos.count(); ci++)
-		  {
-		    Vec p = Vec(h, w, d) - cPos[ci];
-		    if (cNorm[ci]*p > 0)
-		      {
-			clipped = true;
-			break;
-		      }
-		  }	    
+		bool clipped = VolumeOperations::checkClipped(Vec(h,w,d));
+
 		if (!clipped)
 		  {
 		    if (lut[4*slice[i]+3]*Global::tagColors()[4*mask[i]+3] == 0)
@@ -5204,8 +5155,6 @@ DrishtiPaint::paint3D(Vec bmin, Vec bmax,
   float maxGrad = m_viewer->maxGrad();
   int gradType = m_viewer->gradType();
 
-  float gradMag;
-  Vec dv;
   
   for(int i=0; i<seeds.count(); i++)
     {
@@ -5219,99 +5168,10 @@ DrishtiPaint::paint3D(Vec bmin, Vec bmax,
       int hs0 = qMax(minHSlice, h0-rad0);
       int he0 = qMin(maxHSlice, h0+rad0);
 
-      //--------
-      // get surface normal
-      //if (gradType == 0)
-	{
-	  float gx,gy,gz;
-	  qint64 d3 = qBound(0, d0+1, m_depth-1);
-	  qint64 d4 = qBound(0, d0-1, m_depth-1);
-	  qint64 w3 = qBound(0, w0+1, m_width-1);
-	  qint64 w4 = qBound(0, w0-1, m_width-1);
-	  qint64 h3 = qBound(0, h0+1, m_height-1);
-	  qint64 h4 = qBound(0, h0-1, m_height-1);
-	  if (!volDataUS)
-	    {
-	      gz = (volData[qint64(d3)*m_width*m_height + w0*m_height + h0] -
-		    volData[qint64(d4)*m_width*m_height + w0*m_height + h0]);
-	      gy = (volData[qint64(d0)*m_width*m_height + w3*m_height + h0] -
-		    volData[qint64(d0)*m_width*m_height + w4*m_height + h0]);
-	      gx = (volData[qint64(d0)*m_width*m_height + w0*m_height + h3] -
-		    volData[qint64(d0)*m_width*m_height + w0*m_height + h4]);
-	      gx/=255.0;
-	      gy/=255.0;
-	      gz/=255.0;
-	    }
-	  else
-	    {
-	      gz = (volDataUS[qint64(d3)*m_width*m_height + w0*m_height + h0] -
-		    volDataUS[qint64(d4)*m_width*m_height + w0*m_height + h0]);
-	      gy = (volDataUS[qint64(d0)*m_width*m_height + w3*m_height + h0] -
-		    volDataUS[qint64(d0)*m_width*m_height + w4*m_height + h0]);
-	      gx = (volDataUS[qint64(d0)*m_width*m_height + w0*m_height + h3] -
-		    volDataUS[qint64(d0)*m_width*m_height + w0*m_height + h4]);
-	      gx/=65535.0;
-	      gy/=65535.0;
-	      gz/=65535.0;
-	    }
-	  
-	  dv = Vec(gx, gy, gz); // surface gradient
-	  gradMag = dv.norm();
-	  if (gradMag > 0)
-	    dv.normalize();
-	  else
-	    {
-	      dv = viewD;
-	      if (persp)
-		dv = Vec(h0-camPos.x, w0-camPos.y, d0-camPos.z).unit();
-	    }
-	}
-	
-      if (gradType > 0)
-	{
-	  int sz = 1;
-	  float divisor = 10.0;
-	  if (gradType == 2)
-	    {
-	      sz = 2;
-	      divisor = 70.0;
-	    }
-	  if (!volDataUS)
-	    {	      
-	      float sum = 0;
-	      float vval = volData[d0*m_width*m_height + w0*m_height + h0];
-	      for(int a=d0-sz; a<=d0+sz; a++)
-	      for(int b=w0-sz; b<=w0+sz; b++)
-	      for(int c=h0-sz; c<=h0+sz; c++)
-		{
-		  qint64 a0 = qBound(0, a, m_depth-1);
-		  qint64 b0 = qBound(0, b, m_width-1);
-		  qint64 c0 = qBound(0, c, m_height-1);
-		  sum += volData[a0*m_width*m_height + b0*m_height + c0];
-		}
-
-	      sum = (sum-vval)/divisor;
-	      gradMag = fabs(sum-vval)/255.0;
-	    }
-	  else
-	    {
-	      float sum = 0;
-	      float vval = volDataUS[d0*m_width*m_height + w0*m_height + h0];
-	      for(int a=d0-sz; a<=d0+sz; a++)
-	      for(int b=w0-sz; b<=w0+sz; b++)
-	      for(int c=h0-sz; c<=h0+sz; c++)
-		{
-		  qint64 a0 = qBound(0, a, m_depth-1);
-		  qint64 b0 = qBound(0, b, m_width-1);
-		  qint64 c0 = qBound(0, c, m_height-1);
-		  sum += volDataUS[a0*m_width*m_height + b0*m_height + c0];
-		}
-
-	      sum = (sum-vval)/divisor;
-	      gradMag = fabs(sum-vval)/65535.0;
-	    }
-	} // gradType > 0
-      
+      float gradMag = VolumeOperations::calcGrad(gradType, d0, w0, h0,
+						 m_depth, m_width, m_height,
+						 volData, volDataUS);
+            
       gradMag = qBound(0.0f, gradMag, 1.0f);
 
       //--------
@@ -5324,10 +5184,11 @@ DrishtiPaint::paint3D(Vec bmin, Vec bmax,
 		  Vec v0 = Vec(hh-h0,ww-w0,dd-d0);
 		  //Vec dv = viewD;
 		  //if (persp)
-		  //  dv = Vec(hh-camPos.x, ww-camPos.y, dd-camPos.z).unit();
+		  Vec dv = Vec(hh-camPos.x, ww-camPos.y, dd-camPos.z).unit();
 		  
 		  float pr = v0*viewR;
 		  float pu = v0*viewU;
+		  //float pvd= v0*viewD;
 		  float pvd = v0*dv;
 		  if (qAbs(pvd) <= vrad2 && qSqrt(pr*pr +pu*pu) <= vrad1)
 		    {
@@ -5342,88 +5203,10 @@ DrishtiPaint::paint3D(Vec bmin, Vec bmax,
 		      //-----------
 		      if (opaque)
 			{
-			  float gradMag;
-			  if (gradType == 0)
-			    {
-			      float gx,gy,gz;
-			      qint64 d3 = qBound(0, (int)dd+1, m_depth-1);
-			      qint64 d4 = qBound(0, (int)dd-1, m_depth-1);
-			      qint64 w3 = qBound(0, (int)ww+1, m_width-1);
-			      qint64 w4 = qBound(0, (int)ww-1, m_width-1);
-			      qint64 h3 = qBound(0, (int)hh+1, m_height-1);
-			      qint64 h4 = qBound(0, (int)hh-1, m_height-1);
-			      if (!volDataUS)
-				{
-				  gz = (volData[d3*m_width*m_height + ww*m_height + hh] -
-					volData[d4*m_width*m_height + ww*m_height + hh]);
-				  gy = (volData[dd*m_width*m_height + w3*m_height + hh] -
-					volData[dd*m_width*m_height + w4*m_height + hh]);
-				  gx = (volData[dd*m_width*m_height + ww*m_height + h3] -
-					volData[dd*m_width*m_height + ww*m_height + h4]);
-				  gx/=255.0;
-				  gy/=255.0;
-				  gz/=255.0;
-				}
-			      else
-				{
-				  gz = (volDataUS[d3*m_width*m_height + ww*m_height + hh] -
-					volDataUS[d4*m_width*m_height + ww*m_height + hh]);
-				  gy = (volDataUS[dd*m_width*m_height + w3*m_height + hh] -
-					volDataUS[dd*m_width*m_height + w4*m_height + hh]);
-				  gx = (volDataUS[dd*m_width*m_height + ww*m_height + h3] -
-					volDataUS[dd*m_width*m_height + ww*m_height + h4]);
-				  gx/=65535.0;
-				  gy/=65535.0;
-				  gz/=65535.0;
-				}
-			      gradMag = Vec(gx, gy, gz).norm();
-			    } // gradType == 0
-
-			  if (gradType > 0)
-			    {
-			      int sz = 1;
-			      float divisor = 10.0;
-			      if (gradType == 2)
-				{
-				  sz = 2;
-				  divisor = 70.0;
-				}
-			      if (!volDataUS)
-				{	      
-				  float sum = 0;
-				  float vval = volData[dd*m_width*m_height + ww*m_height + hh];
-				  for(int a=dd-sz; a<=dd+sz; a++)
-				  for(int b=ww-sz; b<=ww+sz; b++)
-				  for(int c=hh-sz; c<=hh+sz; c++)
-				    {
-				      qint64 a0 = qBound(0, a, m_depth-1);
-				      qint64 b0 = qBound(0, b, m_width-1);
-				      qint64 c0 = qBound(0, c, m_height-1);
-				      sum += volData[a0*m_width*m_height + b0*m_height + c0];
-				    }
-				  
-				  sum = (sum-vval)/divisor;
-				  gradMag = fabs(sum-vval)/255.0;
-				}
-			      else
-				{
-				  float sum = 0;
-				  float vval = volDataUS[dd*m_width*m_height + ww*m_height + hh];
-				  for(int a=dd-sz; a<=dd+sz; a++)
-				  for(int b=ww-sz; b<=ww+sz; b++)
-				  for(int c=hh-sz; c<=hh+sz; c++)
-				    {
-				      qint64 a0 = qBound(0, a, m_depth-1);
-				      qint64 b0 = qBound(0, b, m_width-1);
-				      qint64 c0 = qBound(0, c, m_height-1);
-				      sum += volDataUS[a0*m_width*m_height + b0*m_height + c0];
-				    }
-				  
-				  sum = (sum-vval)/divisor;
-				  gradMag = fabs(sum-vval)/65535.0;
-				}
-			    } // gradType > 0
-			  
+			  float gradMag = VolumeOperations::calcGrad(gradType, dd, ww, hh,
+								     m_depth, m_width, m_height,
+								     volData, volDataUS);
+            			  
 			  gradMag = qBound(0.0f, gradMag, 1.0f);
 			  if (gradMag < minGrad || gradMag > maxGrad)
 			    opaque = false;
@@ -5687,7 +5470,6 @@ DrishtiPaint::tagUsingSketchPad(Vec bmin, Vec bmax, int tag)
   float maxGrad = m_viewer->maxGrad();
   int gradType = m_viewer->gradType();
 
-  float gradMag;
 
   progress.setLabelText("Region growing");
   qApp->processEvents();
@@ -5757,86 +5539,9 @@ DrishtiPaint::tagUsingSketchPad(Vec bmin, Vec bmax, int tag)
 		      //-----------
 		      if (visible)
 			{
-			  if (gradType == 0)
-			    {
-			      float gx,gy,gz;
-			      qint64 d3 = qBound(0, (int)d2+1, m_depth-1);
-			      qint64 d4 = qBound(0, (int)d2-1, m_depth-1);
-			      qint64 w3 = qBound(0, (int)w2+1, m_width-1);
-			      qint64 w4 = qBound(0, (int)w2-1, m_width-1);
-			      qint64 h3 = qBound(0, (int)h2+1, m_height-1);
-			      qint64 h4 = qBound(0, (int)h2-1, m_height-1);
-			      if (!volDataUS)
-				{
-				  gz = (volData[d3*m_width*m_height + w2*m_height + h2] -
-					volData[d4*m_width*m_height + w2*m_height + h2]);
-				  gy = (volData[d2*m_width*m_height + w3*m_height + h2] -
-					volData[d2*m_width*m_height + w4*m_height + h2]);
-				  gx = (volData[d2*m_width*m_height + w2*m_height + h3] -
-					volData[d2*m_width*m_height + w2*m_height + h4]);
-				  gx/=255.0;
-				  gy/=255.0;
-				  gz/=255.0;
-				}
-			      else
-				{
-				  gz = (volDataUS[d3*m_width*m_height + w2*m_height + h2] -
-					volDataUS[d4*m_width*m_height + w2*m_height + h2]);
-				  gy = (volDataUS[d2*m_width*m_height + w3*m_height + h2] -
-					volDataUS[d2*m_width*m_height + w4*m_height + h2]);
-				  gx = (volDataUS[d2*m_width*m_height + w2*m_height + h3] -
-					volDataUS[d2*m_width*m_height + w2*m_height + h4]);
-				  gx/=65535.0;
-				  gy/=65535.0;
-				  gz/=65535.0;
-				}
-			      gradMag = Vec(gx, gy, gz).norm();
-			    } // gradType == 0
-			  
-			  if (gradType > 0)
-			    {
-			      int sz = 1;
-			      float divisor = 10.0;
-			      if (gradType == 2)
-				{
-				  sz = 2;
-				  divisor = 70.0;
-				}
-			      if (!volDataUS)
-				{	      
-				  float sum = 0;
-				  float vval = volData[d2*m_width*m_height + w2*m_height + h2];
-				  for(int a=d2-sz; a<=d2+sz; a++)
-				    for(int b=w2-sz; b<=w2+sz; b++)
-				      for(int c=h2-sz; c<=h2+sz; c++)
-					{
-					  qint64 a0 = qBound(0, a, m_depth-1);
-					  qint64 b0 = qBound(0, b, m_width-1);
-					  qint64 c0 = qBound(0, c, m_height-1);
-					  sum += volData[a0*m_width*m_height + b0*m_height + c0];
-					}
-				  
-				  sum = (sum-vval)/divisor;
-				  gradMag = fabs(sum-vval)/255.0;
-				}
-			      else
-				{
-				  float sum = 0;
-				  float vval = volDataUS[d2*m_width*m_height + w2*m_height + h2];
-				  for(int a=d2-sz; a<=d2+sz; a++)
-				    for(int b=w2-sz; b<=w2+sz; b++)
-				      for(int c=h2-sz; c<=h2+sz; c++)
-					{
-					  qint64 a0 = qBound(0, a, m_depth-1);
-					  qint64 b0 = qBound(0, b, m_width-1);
-					  qint64 c0 = qBound(0, c, m_height-1);
-					  sum += volDataUS[a0*m_width*m_height + b0*m_height + c0];
-					}
-				  
-				  sum = (sum-vval)/divisor;
-				  gradMag = fabs(sum-vval)/65535.0;
-				}
-			    } // gradType > 0
+			  float gradMag = VolumeOperations::calcGrad(gradType, d2, w2, h2,
+								     m_depth, m_width, m_height,
+								     volData, volDataUS);
 
 			  gradMag = qBound(0.0f, gradMag, 1.0f);
 			  if (gradMag < minGrad || gradMag > maxGrad)

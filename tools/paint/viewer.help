@@ -1,4 +1,10 @@
 #begin
+crop
+
+Add crop gizmo.
+#end
+
+#begin
 tagsused
 
 Show the tags that are in use.

@@ -559,6 +559,7 @@ Viewer::createRaycastShader()
   m_rcParm[20] = glGetUniformLocationARB(m_rcShader, "voxelScale");
   m_rcParm[21] = glGetUniformLocationARB(m_rcShader, "minGrad");
   m_rcParm[22] = glGetUniformLocationARB(m_rcShader, "maxGrad");
+  m_rcParm[23] = glGetUniformLocationARB(m_rcShader, "voxelSize");
 }
 
 void
@@ -961,6 +962,14 @@ Viewer::commandEditor()
     arg(m_minHSlice).arg(m_minWSlice).arg(m_minDSlice).		\
     arg(m_maxHSlice).arg(m_maxWSlice).arg(m_maxDSlice);
 
+  Vec vs = Global::voxelScaling();
+  mesg += QString("Voxel Size (%1) : %2 %3 %4\n").	\
+    arg(Global::voxelUnit()).arg(vs.x).arg(vs.y).arg(vs.z);
+
+  vs = Global::relativeVoxelScaling();
+  mesg += QString("Relative Voxel Scaling : %1 %2 %3\n").	\
+    arg(vs.x).arg(vs.y).arg(vs.z);
+    
   int d, w, h;
   bool gothit = getCoordUnderPointer(d, w, h);
   if (gothit)
@@ -1025,9 +1034,10 @@ Viewer::processCommand(QString cmd)
 
   if (list[0].contains("crop"))
     {
+      Vec bmid = 0.5 * (bmax + bmin);
       QList<Vec> pts;
-      pts << bmin;
-      pts << bmax;
+      pts << Vec(bmid.x, bmid.y, bmin.z);
+      pts << Vec(bmid.x, bmid.y, bmax.z);
       GeometryObjects::crops()->addCrop(pts);
       return;
     }
@@ -2479,6 +2489,7 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
   stepsize /= qMax(m_vsize.x,qMax(m_vsize.y,m_vsize.z));
 
   Vec voxelScaling = Global::relativeVoxelScaling();
+  Vec voxelSize = Global::voxelScaling();
 
   glUseProgramObjectARB(m_rcShader);
   glUniform1iARB(m_rcParm[0], 2); // dataTex
@@ -2503,6 +2514,7 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
 
   glUniform1fARB(m_rcParm[21],m_minGrad-0.0001); // reduce for step function
   glUniform1fARB(m_rcParm[22],m_maxGrad+0.0001); // increase for step function
+  glUniform3fARB(m_rcParm[23], voxelSize.x, voxelSize.y, voxelSize.z);
 
   { // apply clip planes to modify entry and exit points
     QList<Vec> cPos =  m_clipPlanes->positions();

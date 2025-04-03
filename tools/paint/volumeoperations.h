@@ -119,6 +119,13 @@ class VolumeOperations
 			 int,
 			 int, float, float);
 			 
+
+  static float calcGrad(int, qint64, qint64, qint64,
+			int, int, int,
+			uchar*, ushort*);
+
+  static bool checkClipped(Vec);
+
  private :
   static int m_depth, m_width, m_height;
   static uchar *m_volData;
@@ -127,8 +134,6 @@ class VolumeOperations
 
   static QList<Vec> m_cPos;
   static QList<Vec> m_cNorm;
-
-  static float calcGrad(int, qint64, qint64, qint64);
 
   static void getConnectedRegion(int, int, int,
 				 int, int, int,
@@ -150,8 +155,6 @@ class VolumeOperations
   static void dilateBitmaskUsingVDB(int, bool,
 				    qint64, qint64, qint64,
 				    MyBitArray&);
-
-  static bool checkClipped(Vec);
 
 };
 

@@ -590,6 +590,7 @@ ShaderFactory::genIsoRaycastShader(bool nearest,
   shader += "uniform vec3 clipNormal[15];\n";
   shader += "uniform float minGrad;\n";
   shader += "uniform float maxGrad;\n";
+  shader += "uniform vec3 voxelSize;\n";
 
 
   shader += "layout (location=0) out vec4 glFragData;\n";
@@ -681,7 +682,12 @@ ShaderFactory::genIsoRaycastShader(bool nearest,
   shader += "  vec3 vC = voxelCoord*vsize;\n";
 
   
-  if (cropPresent) shader += "float feather = 1.0 - crop(vC, false);\n";
+  //------------
+  //------------
+  if (cropPresent) shader += "float feather = 1.0 - crop(vcorner + vC/voxelSize, false);\n";
+  //------------
+  //------------
+  
   
   shader += "  bvec3 vclt = lessThan(floor(vC+0.5), vC);\n";
   shader += "  vC += vec3(vclt)*vec3(0.5);\n";

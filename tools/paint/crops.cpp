@@ -508,20 +508,20 @@ Crops::keyPressEvent(QKeyEvent *event)
 		  return true;
 		}
 	    }
-	  else if (event->key() == Qt::Key_L)
-	    {
-	      int idx = m_crops[i]->pointPressed();
-	      if (idx > -1)
-		{
-		  int lift = m_crops[i]->getLift(idx);
-		  if (event->modifiers() & Qt::ShiftModifier)
-		    lift--;
-		  else
-		    lift++;
-		  m_crops[i]->setLift(idx, lift, false);
-		  return true;
-		}
-	    }
+	  //else if (event->key() == Qt::Key_L)
+	  //  {
+	  //    int idx = m_crops[i]->pointPressed();
+	  //    if (idx > -1)
+	  //	{
+	  //	  int lift = m_crops[i]->getLift(idx);
+	  //	  if (event->modifiers() & Qt::ShiftModifier)
+	  //	    lift--;
+	  //	  else
+	  //	    lift++;
+	  //	  m_crops[i]->setLift(idx, lift, false);
+	  //	  return true;
+	  //	}
+	  //  }
 	  else if (event->key() == Qt::Key_Delete ||
 		   event->key() == Qt::Key_Backspace ||
 		   event->key() == Qt::Key_Backtab)
@@ -563,7 +563,6 @@ Crops::keyPressEvent(QKeyEvent *event)
 		      vlist << QVariant("Dissect eye");
 		      vlist << QVariant("Dissect hole");
 		      vlist << QVariant("Dissect wedge");
-		      //vlist << QVariant("Dissect curl");
 		    }
 		  else
 		    {
@@ -690,39 +689,39 @@ Crops::keyPressEvent(QKeyEvent *event)
 		  vlist << QVariant(m_crops[i]->halfSection());
 		  plist["half section"] = vlist;
 
-		  bool hatch;
-		  hatch = m_crops[i]->hatch();
-		  vlist.clear();
-		  vlist << QVariant("checkbox");
-		  vlist << QVariant(hatch);
-		  plist["hatch"] = vlist;
-
-		  bool grid;
-		  int xn, xd, yn, yd, zn, zd;
-		  m_crops[i]->hatchParameters(grid, xn,xd,yn,yd,zn,zd);
-		  vlist.clear();
-		  vlist << QVariant("string");
-		  QString str;
-		  if (grid)
-		    str += QString("grid %1 %2 %3 %4 %5 %6").\
-		      arg(xn).arg(xd).arg(yn).arg(yd).arg(zn).arg(zd);
-		  else
-		    str += QString("box %1 %2 %3 %4 %5 %6").\
-		      arg(xn).arg(xd).arg(yn).arg(yd).arg(zn).arg(zd);
-		  vlist << QVariant(str);
-		  plist["hatch parameters"] = vlist;
+		  //bool hatch;
+		  //hatch = m_crops[i]->hatch();
+		  //vlist.clear();
+		  //vlist << QVariant("checkbox");
+		  //vlist << QVariant(hatch);
+		  //plist["hatch"] = vlist;
+		  //
+		  //bool grid;
+		  //int xn, xd, yn, yd, zn, zd;
+		  //m_crops[i]->hatchParameters(grid, xn,xd,yn,yd,zn,zd);
+		  //vlist.clear();
+		  //vlist << QVariant("string");
+		  //QString str;
+		  //if (grid)
+		  //  str += QString("grid %1 %2 %3 %4 %5 %6").\
+		  //    arg(xn).arg(xd).arg(yn).arg(yd).arg(zn).arg(zd);
+		  //else
+		  //  str += QString("box %1 %2 %3 %4 %5 %6").\
+		  //    arg(xn).arg(xd).arg(yn).arg(yd).arg(zn).arg(zd);
+		  //vlist << QVariant(str);
+		  //plist["hatch parameters"] = vlist;
 		}
 
-	      vlist.clear();
-	      vlist << QVariant("combobox");
-	      vlist << QVariant(0);
-	      vlist << QVariant("");
-	      vlist << QVariant("Crop");
-	      vlist << QVariant("Blend");
-	      vlist << QVariant("Dissect");
-	      vlist << QVariant("Glow");
-	      vlist << QVariant("Displace");
-	      plist["morph into"] = vlist;
+	      //vlist.clear();
+	      //vlist << QVariant("combobox");
+	      //vlist << QVariant(0);
+	      //vlist << QVariant("");
+	      //vlist << QVariant("Crop");
+	      //vlist << QVariant("Blend");
+	      //vlist << QVariant("Dissect");
+	      //vlist << QVariant("Glow");
+	      //vlist << QVariant("Displace");
+	      //plist["morph into"] = vlist;
 
 	      vlist.clear();
 	      plist["command"] = vlist;
@@ -761,13 +760,13 @@ Crops::keyPressEvent(QKeyEvent *event)
 	      QList<Vec> pts = m_crops[i]->points();
 	      QList<float> radx = m_crops[i]->radX();
 	      QList<float> rady = m_crops[i]->radY();
-	      QList<int> lift = m_crops[i]->lift();
+	      //QList<int> lift = m_crops[i]->lift();
 	      str += QString("pt0 : %1 %2 %3\n").arg(pts[0].x).arg(pts[0].y).arg(pts[0].z);
 	      str += QString("pt1 : %1 %2 %3\n").arg(pts[1].x).arg(pts[1].y).arg(pts[1].z);
 	      str += QString("rads : %1 %2\n").arg(radx[0]).arg(radx[1]);
 	      str += QString("radt : %1 %2\n").arg(rady[0]).arg(rady[1]);
 	      str += QString("angle : %1\n").arg(m_crops[i]->getAngle());
-	      str += QString("lift : %1 %2\n").arg(lift[0]).arg(lift[1]);
+	      //str += QString("lift : %1 %2\n").arg(lift[0]).arg(lift[1]);
 	      vlist << str;
 	      plist["message"] = vlist;
 
@@ -807,13 +806,13 @@ Crops::keyPressEvent(QKeyEvent *event)
 		  keys << "keep inside";
 		  keys << "keep ends";
 		  keys << "half section";
-		  keys << "hatch";
-		  keys << "hatch parameters";
+		  //keys << "hatch";
+		  //keys << "hatch parameters";
 		}
 	      
-	      keys << "gap";
-	      keys << "gap";
-	      keys << "morph into";
+	      //keys << "gap";
+	      //keys << "gap";
+	      //keys << "morph into";
 
 	      keys << "command";
 	      keys << "commandhelp";

@@ -8,7 +8,7 @@ TARGET =
 DEPENDPATH += .
 
 QT += opengl network
-QT += widgets core gui xml
+QT += widgets core gui xml concurrent
 
 CONFIG += release
 

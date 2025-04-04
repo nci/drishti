@@ -156,6 +156,15 @@ class VolumeOperations
 				    qint64, qint64, qint64,
 				    MyBitArray&);
 
+  static void getVisibleRegion(int, int, int,
+			       int, int, int,
+			       qint64, qint64, qint64,
+			       int, bool,
+			       int, float, float,
+			       MyBitArray&);
+  
+  static void parVisibleRegionGeneration(QList<QVariant>);
+  static void parTransparentRegionGeneration(QList<QVariant>);  
 };
 
 #endif

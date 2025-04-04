@@ -12,6 +12,7 @@ class Crops : public QObject
   ~Crops();
 
   bool checkCrop(Vec);
+  bool checkCropped(Vec, CropGrabber*);
   
   bool show(int);
   void setShow(int, bool);

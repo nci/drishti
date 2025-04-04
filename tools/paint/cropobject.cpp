@@ -1934,7 +1934,7 @@ bool
 CropObject::hatched(float c, float s, float t,
 		    bool hatch, bool hatchGrid,
 		    int xn, int xd, int yn, int yd, int zn, int zd)
-{
+{  
   float myfeather;
   if (!hatch)
     return false;
@@ -1968,19 +1968,19 @@ CropObject::hatched(float c, float s, float t,
 
 bool
 CropObject::checkCropped(Vec v)
-{  
+{
   QList<Vec> pts;
   QList<float> radX;
   QList<float> radY;
-  QList<int> lift;
+  QList<int> lift;  
 
-  float srad1 = m_pointRadX[0];
+  float srad1 = m_pointRadX[0];  
   float srad2 = m_pointRadX[1];
   float trad1 = m_pointRadY[0];
   float trad2 = m_pointRadY[1];
   float lift1 = m_lift[0];
   float lift2 = m_lift[1];
-
+  
   pts = m_points;
   radX = m_pointRadX;
   radY = m_pointRadY;

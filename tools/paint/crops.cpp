@@ -7,34 +7,57 @@
 
 int Crops::count() { return m_crops.count(); }
 
-bool
-Crops::checkCropped(Vec v, CropGrabber *cg)
+void
+Crops::collectCropInfoBeforeCheckCropped()
 {
-  QList<Vec> pts;
-  QList<float> radX;
-  QList<float> radY;
-  QList<int> lift;  
+  for(int i=0; i<m_crops.count(); i++)
+    {
+      QList<Vec> pts = m_crops[i]->points();
+      cc_pts[2*i+0] = pts[0];
+      cc_pts[2*i+1] = pts[1];
+      cc_plen[i] = (pts[1]-pts[0]).norm();
+      cc_radX[2*i+0] = m_crops[i]->radX()[0];
+      cc_radX[2*i+1] = m_crops[i]->radX()[1];
+      cc_radY[2*i+0] = m_crops[i]->radY()[0];
+      cc_radY[2*i+1] = m_crops[i]->radY()[1];
+      cc_tang[i] = m_crops[i]->m_tang;
+      cc_xaxis[i] = m_crops[i]->m_xaxis;
+      cc_yaxis[i] = m_crops[i]->m_yaxis;
+      cc_cropType[i] = m_crops[i]->cropType();
+      cc_keepEnds[i] = m_crops[i]->keepEnds();
+      cc_keepInside[i] = m_crops[i]->keepInside();
+    }
+}
+
+bool
+Crops::checkCropped(Vec v, int cidx)
+{
+  Vec pts[2];
+  float radX[2];
+  float radY[2];
   
-  pts = cg->points();
-  radX = cg->radX();
-  radY = cg->radY();
-  lift = cg->lift();
+  pts[0] = cc_pts[2*cidx+0];
+  pts[1] = cc_pts[2*cidx+1];
+
+  radX[0] = cc_radX[2*cidx+0];
+  radX[1] = cc_radX[2*cidx+1];
+
+  radY[0] = cc_radY[2*cidx+0];
+  radY[1] = cc_radY[2*cidx+1];
   
   float srad1 = radX[0];  
   float srad2 = radX[1];
   float trad1 = radY[0];
   float trad2 = radY[1];
-  float lift1 = lift[0];
-  float lift2 = lift[1];
   
-  Vec pvec = cg->m_tang;
-  Vec saxis = cg->m_xaxis;
-  Vec taxis = cg->m_yaxis;
+  Vec pvec = cc_tang[cidx];
+  Vec saxis = cc_xaxis[cidx];
+  Vec taxis = cc_yaxis[cidx];
 
-  if (cg->cropType() == 0)
+  if (cc_cropType[cidx] == 0)  // Tube
     {
       Vec p0 = pts[0];
-      float plen = (pts[1]-pts[0]).norm();
+      float plen = cc_plen[cidx];
   
       Vec v0 = v - p0;
       float pvlen = pvec*v0;
@@ -46,12 +69,6 @@ Crops::checkCropped(Vec v, CropGrabber *cg)
       Vec pv = v - (p0 + pvlen*pvec);
       pvlen /= plen;
 
-      if (lift1 != 0 || lift2 != 0)
-	{
-	  Vec sc2 = (1.0-c2)*saxis;
-	  pv -= sc2*((1.0-pvlen)*lift1 + pvlen*lift2);
-	}
-
       float s = pv*saxis;
       float t = pv*taxis;
 
@@ -62,63 +79,35 @@ Crops::checkCropped(Vec v, CropGrabber *cg)
 
       s = sr; t = tr;
 
-      if (!cg->keepEnds() && ends) return false;
+      if (!cc_keepEnds[cidx] && ends) return false;
       
-      if (cg->keepEnds())
+      if (cc_keepEnds[cidx])
 	{
-	  if (cg->keepInside())
+	  if (cc_keepInside[cidx])
 	    {
-	      if (cg->halfSection())
-		{
-		  if (c2<1.0 && t>0.0 && pvlen>1.0) return false;
-		}
-	      else
-		{
-		  if (c2<1.0 && pvlen>1.0) return false;
-		}
+	      if (c2<1.0 && pvlen>1.0) return false;
 	    }
 	  else
 	    {
-	      if (cg->halfSection())
-		{
-		  if (c2<1.0 && (t<0.0 || pvlen<1.0)) return false;
-		}
-	      else
-		{
-		  if (c2<1.0 && pvlen<1.0) return false;
-		}
+	      if (c2<1.0 && pvlen<1.0) return false;
 	    }
 	}
       else // do not keep ends
 	{
-	  if (cg->keepInside())
+	  if (cc_keepInside[cidx])
 	    {
-	      if (cg->halfSection())
-		{
-		  if (t>0.0 && pvlen>1.0) return false;
-		}
-	      else
-		{
-		  if (pvlen>1.0) return false;
-		}
+	      if (pvlen>1.0) return false;
 	    }
 	  else
 	    {
-	      if (cg->halfSection())
-		{
-		  if (t<0.0 || (t>0.0 && pvlen<1.0)) return false;
-		}
-	      else
-		{
-		  if (pvlen<1.0) return false;
-		}
+	      if (pvlen<1.0) return false;
 	    }
 	}      
     }
-  else if (cg->cropType() == 1)
+  else if (cc_cropType[cidx] == 1) // Box
     {
       Vec p0 = (pts[0] + pts[1])/2;
-      float plen = (pts[1]-pts[0]).norm()/2;
+      float plen = cc_plen[cidx]/2;
 
       Vec w0 = p0 - plen*pvec;
       Vec v0 = v - w0;
@@ -131,76 +120,40 @@ Crops::checkCropped(Vec v, CropGrabber *cg)
 
       float c = v0*pvec/plen;
 
-      if (lift1 != 0 || lift2 != 0)
-	{
-	  float cplen = c;
-	  pvlen = 0.5*(cplen + 1.0);
-	  Vec scplen = (1.0 - cplen*cplen)*saxis;
-	  v0 -= scplen*((1.0-pvlen)*lift1 + pvlen*lift2);
-	}
-
       float s = (v0*saxis)/sr;
       float t = (v0*taxis)/tr;
       float c2 = c*c;
       float s2 = s*s;
       float t2 = t*t;
 
-      if (!cg->keepEnds())
+      if (!cc_keepEnds[cidx])
 	{
 	  if (c2 > 1.0) return false;
-	  if (cg->keepInside())
+	  if (cc_keepInside[cidx])
 	    {
-	      if (cg->halfSection())
-		{
-		  if (t>0.0 && (s2>1.0 || t2>1.0)) return false;
-		}
-	      else
-		{
-		  if (s2>1.0 || t2>1.0) return false;
-		}
+	      if (s2>1.0 || t2>1.0) return false;
 	    }
 	  else
 	    {
-	      if (cg->halfSection())
-		{
-		  if (t<0.0 || (s2<1.0 && t2<1.0)) return false;
-		}
-	      else
-		{
-		  if (s2<1.0 && t2<1.0) return false;
-		}
+	      if (s2<1.0 && t2<1.0) return false;
 	    }
 	}
       else
 	{
-	  if (cg->keepInside())
+	  if (cc_keepInside[cidx])
 	    {
-	      if (cg->halfSection())
-		{
-		  if (c2<=1.0 && (t>0.0 && (s2>1.0 || t2>1.0))) return false;
-		}
-	      else
-		{
-		  if (c2<=1.0 && (s2>1.0 || t2>1.0)) return false;
-		}
+	      if (c2<=1.0 && (s2>1.0 || t2>1.0)) return false;
 	    }
 	  else
 	    {
-	      if (cg->halfSection())
-		{
-		  if (c2<=1.0 && (t<0.0 || (s2<1.0 && t2<1.0))) return false;
-		}
-	      else
-		{
-		  if (c2<=1.0 && (s2<1.0 && t2<1.0)) return false;
-		}
+	      if (c2<=1.0 && (s2<1.0 && t2<1.0)) return false;
 	    }
 	}
     }
-  else if (cg->cropType() == 2)
+  else if (cc_cropType[cidx] == 2) // Ellipsoid
     {
       Vec p0 = (pts[0] + pts[1])/2;
-      float plen = (pts[1]-pts[0]).norm()/2;
+      float plen = cc_plen[cidx]/2;
 
       float srad = (srad1+srad2)/2;
       float trad = (trad1+trad2)/2;
@@ -210,12 +163,6 @@ Crops::checkCropped(Vec v, CropGrabber *cg)
       float c2 = c*c;
 
       float pvlen;
-      if (lift1 != 0 || lift2 != 0)
-	{
-	  pvlen = 0.5*(c + 1.0);
-	  Vec scplen = (1.0 - c2)*saxis;
-	  v0 -= scplen*((1.0-pvlen)*lift1 + pvlen*lift2);
-	}
 
       float a = (v0*saxis)/srad;
       float b = (v0*taxis)/trad;
@@ -224,56 +171,28 @@ Crops::checkCropped(Vec v, CropGrabber *cg)
 
       pvlen = a2 + b2 + c2;
 
-      if (!cg->keepEnds())
+      if (!cc_keepEnds[cidx])
 	{
 	  if (c2 > 1.0) return false;
 
-	  if (cg->keepInside())
+	  if (cc_keepInside[cidx])
 	    {
-	      if (cg->halfSection())
-		{
-		  if (b>0.0 && pvlen>1.0) return false;
-		}
-	      else
-		{
-		  if (pvlen > 1.0) return false;
-		}
+	      if (pvlen > 1.0) return false;
 	    }
 	  else
 	    {
-	      if (cg->halfSection())
-		{
-		  if (b<0.0 || pvlen<1.0) return false;
-		}
-	      else
-		{
-		  if (pvlen < 1.0) return false;
-		}
+	      if (pvlen < 1.0) return false;
 	    }
 	}
       else
 	{
-	  if (cg->keepInside())
+	  if (cc_keepInside[cidx])
 	    {
-	      if (cg->halfSection())
-		{
-		  if (b>0.0 && pvlen>1.0) return false;
-		}
-	      else
-		{
-		  if (c2 < 1.0 && pvlen > 1.0) return false;
-		}
+	      if (c2 < 1.0 && pvlen > 1.0) return false;
 	    }
 	  else
 	    {
-	      if (cg->halfSection())
-		{
-		  if (b<0.0 || pvlen<1.0) return false;
-		}
-	      else
-		{
-		  if (pvlen < 1.0) return false;
-		}
+	      if (pvlen < 1.0) return false;
 	    }
 	}
     }
@@ -287,7 +206,8 @@ Crops::checkCrop(Vec po)
   bool cropped = false;
   for(int i=0; i<m_crops.count(); i++)
     {
-      cropped |= (!checkCropped(po, m_crops[i]));
+      cropped |= (!checkCropped(po, i));
+      //cropped |= (!checkCropped(po, m_crops[i]));
 //      if (m_crops[i]->cropType() < CropObject::Tear_Tear)
 //	{
 //	  // take union

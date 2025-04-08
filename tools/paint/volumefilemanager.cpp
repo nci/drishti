@@ -1585,7 +1585,7 @@ VolumeFileManager::saveBlock()
     {
       if (!m_fileHandlerBusy) // fileHandler is not busy, so push the write
 	{
-	  m_handler->genUndo();	  
+	  //m_handler->genUndo();	  
 	  emit saveFile();
 	  m_fileHandlerBusy = true;
 	  m_waitingOnFileHandler = false;

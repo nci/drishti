@@ -11,8 +11,9 @@ class Crops : public QObject
   Crops();
   ~Crops();
 
+  void collectCropInfoBeforeCheckCropped();
   bool checkCrop(Vec);
-  bool checkCropped(Vec, CropGrabber*);
+  bool checkCropped(Vec, int);
   
   bool show(int);
   void setShow(int, bool);
@@ -69,6 +70,18 @@ class Crops : public QObject
   QList<CropGrabber*> m_crops;
   bool m_sameForAll;
 
+  Vec cc_pts[10];
+  float cc_plen[5];
+  float cc_radX[10];
+  float cc_radY[10];
+  Vec cc_tang[5];
+  Vec cc_xaxis[5];
+  Vec cc_yaxis[5];
+  int cc_cropType[5];
+  int cc_keepEnds[5];
+  int cc_keepInside[5];
+
+  
   void makeCropConnections();
   void processCommand(int, QString);
 };

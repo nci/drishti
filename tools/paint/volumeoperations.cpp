@@ -13,6 +13,8 @@
 uchar* VolumeOperations::m_volData = 0;
 ushort* VolumeOperations::m_volDataUS = 0;
 uchar* VolumeOperations::m_maskData = 0;
+MyBitArray VolumeOperations::m_visibilityMap;
+
 
 void VolumeOperations::setVolData(uchar *v)
 {
@@ -32,6 +34,21 @@ void VolumeOperations::setGridSize(int d, int w, int h)
   m_depth = d;
   m_width = w;
   m_height = h;
+
+  m_visibilityMap.clear();
+  m_visibilityMap.resize((qint64)d*(qint64)w*(qint64)h);
+  m_visibilityMap.fill(false); 
+}
+
+void
+VolumeOperations::genVisibilityMap(int gradType, float minGrad, float maxGrad)
+{
+  m_visibilityMap.fill(false);
+  getVisibleRegion(0, 0, 0,
+		   m_depth-1, m_width-1, m_height-1,
+		   -1, false,
+		   gradType, minGrad, maxGrad,
+		   m_visibilityMap);
 }
 
 QList<Vec> VolumeOperations::m_cPos;
@@ -288,70 +305,115 @@ void VolumeOperations::getVolume(Vec bmin, Vec bmax, int tag)
   QMessageBox::information(0, "", mesg);
 }
 
+
+
+
+
+//---------//---------//---------//
+//---------//---------//---------//
 void
-VolumeOperations::resetTag(Vec bmin, Vec bmax, int tag,
-			   int& minD, int& maxD,
-			   int& minW, int& maxW,
-			   int& minH, int& maxH)
+VolumeOperations::resetT(int ds, int ws, int hs,
+			 int de, int we, int he,
+			 int tag)
 {
-  int ds = bmin.z;
-  int ws = bmin.y;
-  int hs = bmin.x;
+  GeometryObjects::crops()->collectCropInfoBeforeCheckCropped();
 
-  int de = bmax.z;
-  int we = bmax.y;
-  int he = bmax.x;
-
-  QProgressDialog progress("Updating voxel structure",
+  QProgressDialog progress("Identifying visible region",
 			   QString(),
 			   0, 100,
 			   0,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
-  minD = maxD = -1;
-  minW = maxW = -1;
-  minH = maxH = -1;
-
-  for(qint64 d=ds; d<=de; d++)
+  // collect stuff for parallel processing
+  QList<QList<QVariant>> param;
+  for(int d2=ds; d2<=de; d2++)
     {
-      progress.setValue(90*(d-ds)/((de-ds+1)));
-      if (d%10 == 0)
-	qApp->processEvents();
-      for(qint64 w=ws; w<=we; w++)
-	for(qint64 h=hs; h<=he; h++)
-	  {
-	    bool clipped = checkClipped(Vec(h, w, d));
-	    
-	    if (!clipped)
-	      {
-		qint64 idx = d*m_width*m_height + w*m_height + h;
-		m_maskData[idx] = tag;
-		if (minD > -1)
-		  {
-		    minD = qMin(minD, (int)d);
-		    maxD = qMax(maxD, (int)d);
-		    minW = qMin(minW, (int)w);
-		    maxW = qMax(maxW, (int)w);
-		    minH = qMin(minH, (int)h);
-		    maxH = qMax(maxH, (int)h);
-		  }
-		else
-		  {
-		    minD = maxD = d;
-		    minW = maxW = w;
-		    minH = maxH = h;
-		  }
-	      } // clipped
-	  }
+      QList<QVariant> plist;
+      plist << QVariant(ds);
+      plist << QVariant(de);
+      plist << QVariant(ws);
+      plist << QVariant(we);
+      plist << QVariant(hs);
+      plist << QVariant(he);
+      plist << QVariant(d2);
+      plist << QVariant(tag);
+      //plist << QVariant::fromValue(static_cast<void*>(m_maskData));
+      
+      param << plist;
     }
+
+  int nThreads = qMax(1, (int)(QThread::idealThreadCount()));
+  //QThreadPool::globalInstance()->setMaxThreadCount(nThreads);
+						   
+  // Create a QFutureWatcher and connect signals and slots.
+  progress.setLabelText(QString("Identifying visible region using %1 thread(s)...").arg(nThreads));
+  QFutureWatcher<void> futureWatcher;
+  QObject::connect(&futureWatcher, &QFutureWatcher<void>::finished, &progress, &QProgressDialog::reset);
+  QObject::connect(&progress, &QProgressDialog::canceled, &futureWatcher, &QFutureWatcher<void>::cancel);
+  QObject::connect(&futureWatcher,  &QFutureWatcher<void>::progressRangeChanged, &progress, &QProgressDialog::setRange);
+  QObject::connect(&futureWatcher, &QFutureWatcher<void>::progressValueChanged,  &progress, &QProgressDialog::setValue);
   
-  minD = qMax(minD-1, 0);
-  minW = qMax(minW-1, 0);
-  minH = qMax(minH-1, 0);
-  maxD = qMin(maxD+1, m_depth);
-  maxW = qMin(maxW+1, m_width);
-  maxH = qMin(maxH+1, m_height);
+  // Start generation of isosurface for all values within the range
+  futureWatcher.setFuture(QtConcurrent::map(param, VolumeOperations::parResetTag));
+  
+  // Display the dialog and start the event loop.
+  progress.exec();
+  
+  futureWatcher.waitForFinished();
+}
+
+void
+VolumeOperations::parResetTag(QList<QVariant> plist)
+{
+  int ds = plist[0].toInt();
+  int de = plist[1].toInt();
+  int ws = plist[2].toInt();
+  int we = plist[3].toInt();
+  int hs = plist[4].toInt();
+  int he = plist[5].toInt();
+  qint64 d2 = plist[6].toInt();
+  int tag = plist[7].toInt();
+  //uchar* m_maskData = static_cast<uchar*>(plist[8].value<void*>());
+
+  uchar *lut = Global::lut();
+
+  qint64 mx = he-hs+1;
+  qint64 my = we-ws+1;
+  qint64 mz = de-ds+1;
+  
+  for(qint64 w2=ws; w2<=we; w2++)
+    for(qint64 h2=hs; h2<=he; h2++)
+      {
+	bool clipped = VolumeOperations::checkClipped(Vec(h2, w2, d2));
+	
+	if (!clipped)
+	  {      
+	    qint64 idx = d2*m_width*m_height + w2*m_height + h2;
+	    m_maskData[idx] = tag;
+	  }
+      }
+}
+//---------//---------//---------//
+//---------//---------//---------//
+
+
+void
+VolumeOperations::resetTag(Vec bmin, Vec bmax,
+			   int tag,
+			   int& minD, int& maxD,
+			   int& minW, int& maxW,
+			   int& minH, int& maxH)
+{
+  resetT(bmin.z, bmin.y, bmin.x,
+	 bmax.z, bmax.y, bmax.x,
+	 tag);
+  minD = 0;
+  minW = 0;
+  minH = 0;
+  maxD = m_depth;
+  maxW = m_width;
+  maxH = m_height;
 }
 
 void
@@ -537,11 +599,12 @@ VolumeOperations::connectedRegion(int dr, int wr, int hr,
 void
 VolumeOperations::getVisibleRegion(int ds, int ws, int hs,
 				   int de, int we, int he,
-				   qint64 mx, qint64 my, qint64 mz,
-				   int tag, bool zero,
+				   int tag, bool checkZero,
 				   int gradType, float minGrad, float maxGrad,
 				   MyBitArray& cbitmask)
 {
+  GeometryObjects::crops()->collectCropInfoBeforeCheckCropped();
+
   QProgressDialog progress("Identifying visible region",
 			   QString(),
 			   0, 100,
@@ -565,20 +628,17 @@ VolumeOperations::getVisibleRegion(int ds, int ws, int hs,
       plist << QVariant(minGrad);
       plist << QVariant(maxGrad);
       plist << QVariant(tag);
-      plist << QVariant(mx);
-      plist << QVariant(my);
-      plist << QVariant(mz);
-      plist << QVariant(zero);
-      plist << QVariant::fromValue(static_cast<void*>(m_volData));
-      plist << QVariant::fromValue(static_cast<void*>(m_volDataUS));
-      plist << QVariant::fromValue(static_cast<void*>(m_maskData));
+      plist << QVariant(checkZero);
+//      plist << QVariant::fromValue(static_cast<void*>(m_volData));
+//      plist << QVariant::fromValue(static_cast<void*>(m_volDataUS));
+//      plist << QVariant::fromValue(static_cast<void*>(m_maskData));
       plist << QVariant::fromValue(static_cast<void*>(&cbitmask));
       
       param << plist;
     }
 
-  int nThreads = qMax(1, (int)(0.9*QThread::idealThreadCount()));
-  QThreadPool::globalInstance()->setMaxThreadCount(nThreads);
+  int nThreads = qMax(1, (int)(QThread::idealThreadCount()));
+  //QThreadPool::globalInstance()->setMaxThreadCount(nThreads);
 						   
   // Create a QFutureWatcher and connect signals and slots.
   progress.setLabelText(QString("Identifying visible region using %1 thread(s)...").arg(nThreads));
@@ -611,17 +671,17 @@ VolumeOperations::parVisibleRegionGeneration(QList<QVariant> plist)
   float minGrad = plist[8].toFloat();
   float maxGrad = plist[9].toFloat();
   int tag = plist[10].toInt();
-  qint64 mx = plist[11].toLongLong();
-  qint64 my = plist[12].toLongLong();
-  qint64 mz = plist[13].toLongLong();
-  bool zero = plist[14].toBool();
-  uchar* m_volData = static_cast<uchar*>(plist[15].value<void*>());
-  ushort* m_volDataUS = static_cast<ushort*>(plist[16].value<void*>());
-  uchar* m_maskData = static_cast<uchar*>(plist[17].value<void*>());
-  MyBitArray *cbitmask = static_cast<MyBitArray*>(plist[18].value<void*>());
+  bool checkZero = plist[11].toBool();
+//  uchar* m_volData = static_cast<uchar*>(plist[12].value<void*>());
+//  ushort* m_volDataUS = static_cast<ushort*>(plist[13].value<void*>());
+//  uchar* m_maskData = static_cast<uchar*>(plist[14].value<void*>());
+  MyBitArray *cbitmask = static_cast<MyBitArray*>(plist[12].value<void*>());
 
   uchar *lut = Global::lut();
 
+  qint64 mx = he-hs+1;
+  qint64 my = we-ws+1;
+  qint64 mz = de-ds+1;
   
   for(qint64 w2=ws; w2<=we; w2++)
     for(qint64 h2=hs; h2<=he; h2++)
@@ -639,7 +699,8 @@ VolumeOperations::parVisibleRegionGeneration(QList<QVariant> plist)
 	    opaque =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);      
 	    
 	    //-------
-	    if (opaque)
+	    if (opaque &&
+		(minGrad > 0.0 || maxGrad < 1.0))
 	      {
 		float gradMag = VolumeOperations::calcGrad(gradType, d2, w2, h2,
 							   m_depth, m_width, m_height,
@@ -652,7 +713,7 @@ VolumeOperations::parVisibleRegionGeneration(QList<QVariant> plist)
 	    
 	    if (tag > -1)
 	      {
-		if (zero)
+		if (checkZero)
 		  opaque &= (mtag == 0 || mtag == tag);
 		else
 		  opaque &= (mtag == tag);
@@ -675,7 +736,7 @@ void
 VolumeOperations::getConnectedRegion(int dr, int wr, int hr,
 				     int ds, int ws, int hs,
 				     int de, int we, int he,
-				     int tag, bool zero,
+				     int tag, bool checkZero,
 				     MyBitArray& cbitmask,
 				     int gradType, float minGrad, float maxGrad)
 {  
@@ -699,68 +760,11 @@ VolumeOperations::getConnectedRegion(int dr, int wr, int hr,
 
   cbitmask.fill(false);
 
-
   getVisibleRegion(ds, ws, hs,
 		   de, we, he,
-		   mx, my, mz,
-		   tag, zero,
+		   tag, checkZero,
 		   gradType, minGrad, maxGrad,
 		   cbitmask);
-
-//-------------------------------------------------
-// sequential
-//-------------------------------------------------
-//  uchar *lut = Global::lut();      
-//  for(qint64 d2=ds; d2<=de; d2++)
-//    {
-//      progress.setLabelText(QString("Identifying visible region %1 of %2").arg(d2-ds).arg(mz));
-//      progress.setValue(90*(float)(d2-ds)/(float)mz);
-//      qApp->processEvents();
-//      for(qint64 w2=ws; w2<=we; w2++)
-//	for(qint64 h2=hs; h2<=he; h2++)
-//	  {
-//	    bool clipped = checkClipped(Vec(h2, w2, d2));
-//	    bool opaque = false;
-//	    
-//	    if (!clipped)
-//	      {      
-//		qint64 idx = d2*m_width*m_height + w2*m_height + h2;
-//		int val = m_volData[idx];
-//		if (m_volDataUS) val = m_volDataUS[idx];
-//		uchar mtag = m_maskData[idx];
-//		opaque =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);      
-//		
-//		//-------
-//		if (opaque)
-//		  {
-//		    float gradMag = VolumeOperations::calcGrad(gradType, d2, w2, h2,
-//							       m_depth, m_width, m_height,
-//							       m_volData, m_volDataUS);
-//		    
-//		    if (gradMag < minGrad || gradMag > maxGrad)
-//		      opaque = false;
-//		  }
-//		//-------      
-//		
-//		if (tag > -1)
-//		  {
-//		    if (zero)
-//		      opaque &= (mtag == 0 || mtag == tag);
-//		    else
-//		      opaque &= (mtag == tag);
-//		  }
-//	      }
-//	    
-//	    // grow only in zero or same tagged region
-//	    // or if tag is 0 then grow in all visible regions
-//	    if (!clipped && opaque)
-//	      {
-//		qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
-//		cbitmask.setBit(bidx, true);
-//	      }  // visible voxel
-//	  }
-//    }
-//-------------------------------------------------
 
     
   MyBitArray bitmask;
@@ -836,91 +840,18 @@ VolumeOperations::getConnectedRegion(int dr, int wr, int hr,
   cbitmask = bitmask;
 }
 
-void
-VolumeOperations::shrinkwrapSlice(uchar *swvr, int mx, int my)
-{
-  memset(swvr, 0, my*mx);
 
-  MorphSlice ms;
-  QList<QPolygonF> poly = ms.boundaryCurves(swvr, mx, my, true);
 
-  QImage pimg = QImage(mx, my, QImage::Format_RGB32);
-  pimg.fill(0);
-  QPainter p(&pimg);
-  p.setPen(QPen(Qt::white, 1));
-  p.setBrush(Qt::white);
-
-  for (int npc=0; npc<poly.count(); npc++)
-    p.drawPolygon(poly[npc]);
-
-  QRgb *rgb = (QRgb*)(pimg.bits());
-  for(int i=0; i<my*mx; i++)
-    swvr[i] = (swvr[i]>0 || qRed(rgb[i])>0 ? 255 : 0);  
-}
-
-void
-VolumeOperations::parTransparentRegionGeneration(QList<QVariant> plist)
-{
-  int ds = plist[0].toInt();
-  int de = plist[1].toInt();
-  int ws = plist[2].toInt();
-  int we = plist[3].toInt();
-  int hs = plist[4].toInt();
-  int he = plist[5].toInt();
-  qint64 d2 = plist[6].toLongLong();
-  int gradType = plist[7].toInt();
-  float minGrad = plist[8].toFloat();
-  float maxGrad = plist[9].toFloat();
-  qint64 mx = plist[10].toLongLong();
-  qint64 my = plist[11].toLongLong();
-  qint64 mz = plist[12].toLongLong();
-  uchar* m_volData = static_cast<uchar*>(plist[13].value<void*>());
-  ushort* m_volDataUS = static_cast<ushort*>(plist[14].value<void*>());
-  uchar* m_maskData = static_cast<uchar*>(plist[15].value<void*>());
-  MyBitArray *cbitmask = static_cast<MyBitArray*>(plist[16].value<void*>());
-  uchar *lut = Global::lut();
-
-  for(qint64 w2=ws; w2<=we; w2++)
-    for(qint64 h2=hs; h2<=he; h2++)
-    {
-      bool clipped = VolumeOperations::checkClipped(Vec(h2, w2, d2));
-      bool transparent = false;
-      
-      if (!clipped)
-	{
-	  qint64 idx = d2*m_width*m_height + w2*m_height + h2;
-	  int val = m_volData[idx];
-	  if (m_volDataUS) val = m_volDataUS[idx];
-	  uchar mtag = m_maskData[idx];
-	  transparent =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] == 0);
-
-	  //-------
-	  if (!transparent)
-	    {
-	      float gradMag = VolumeOperations::calcGrad(gradType, d2, w2, h2,
-							 m_depth, m_width, m_height,
-							 m_volData, m_volDataUS);
-	      
-	      if (gradMag < minGrad || gradMag > maxGrad)
-		transparent = true;
-	    }
-	  //-------
-	}
-      
-      if (clipped || transparent)
-	{
-	  qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
-	  cbitmask->setBit(bidx, true);
-	}  // transparent voxel
-    }
-}
-
+//---------//---------//---------//
+//---------//---------//---------//
 void
 VolumeOperations::getTransparentRegion(int ds, int ws, int hs,
 				       int de, int we, int he,
 				       MyBitArray& cbitmask,
 				       int gradType, float minGrad, float maxGrad)
 {
+  GeometryObjects::crops()->collectCropInfoBeforeCheckCropped();
+
   QProgressDialog progress("Identifying transparent region",
 			   QString(),
 			   0, 100,
@@ -951,17 +882,17 @@ VolumeOperations::getTransparentRegion(int ds, int ws, int hs,
       plist << QVariant(mx);
       plist << QVariant(my);
       plist << QVariant(mz);
-      plist << QVariant::fromValue(static_cast<void*>(m_volData));
-      plist << QVariant::fromValue(static_cast<void*>(m_volDataUS));
-      plist << QVariant::fromValue(static_cast<void*>(m_maskData));
+//      plist << QVariant::fromValue(static_cast<void*>(m_volData));
+//      plist << QVariant::fromValue(static_cast<void*>(m_volDataUS));
+//      plist << QVariant::fromValue(static_cast<void*>(m_maskData));
       plist << QVariant::fromValue(static_cast<void*>(&cbitmask));      
       
       param << plist;
   }
 
 
-  int nThreads = qMax(1, (int)(0.9*QThread::idealThreadCount()));
-  QThreadPool::globalInstance()->setMaxThreadCount(nThreads);
+  int nThreads = qMax(1, (int)(QThread::idealThreadCount()));
+  //QThreadPool::globalInstance()->setMaxThreadCount(nThreads);
 
   // Create a QFutureWatcher and connect signals and slots.
   progress.setLabelText(QString("Identifying transparent region using %1 thread(s)...").arg(nThreads));
@@ -979,53 +910,94 @@ VolumeOperations::getTransparentRegion(int ds, int ws, int hs,
   
   futureWatcher.waitForFinished();
   
-
-//------------------------------------------------------
-// sequential
-//------------------------------------------------------
-//  for(qint64 d2=ds; d2<=de; d2++)
-//  {
-//    progress.setValue(90*(float)(d2-ds)/(float)mz);
-//    qApp->processEvents();
-//    for(qint64 w2=ws; w2<=we; w2++)
-//    for(qint64 h2=hs; h2<=he; h2++)
-//    {
-//      bool clipped = checkClipped(Vec(h2, w2, d2));
-//      bool transparent = false;
-//      
-//      if (!clipped)
-//	{
-//	  qint64 idx = d2*m_width*m_height + w2*m_height + h2;
-//	  int val = m_volData[idx];
-//	  if (m_volDataUS) val = m_volDataUS[idx];
-//	  uchar mtag = m_maskData[idx];
-//	  transparent =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] == 0);
-//
-//	  //-------
-//	  if (!transparent)
-//	    {
-//	      float gradMag = VolumeOperations::calcGrad(gradType, d2, w2, h2,
-//							 m_depth, m_width, m_height,
-//							 m_volData, m_volDataUS);
-//	      
-//	      if (gradMag < minGrad || gradMag > maxGrad)
-//		transparent = true;
-//	    }
-//	  //-------
-//	}
-//      
-//      if (clipped || transparent)
-//	{
-//	  qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
-//	  cbitmask.setBit(bidx, true);
-//	}  // transparent voxel
-//    }
-//  }
-//------------------------------------------------------
   
   progress.setValue(100);
 }
 
+void
+VolumeOperations::parTransparentRegionGeneration(QList<QVariant> plist)
+{
+  int ds = plist[0].toInt();
+  int de = plist[1].toInt();
+  int ws = plist[2].toInt();
+  int we = plist[3].toInt();
+  int hs = plist[4].toInt();
+  int he = plist[5].toInt();
+  qint64 d2 = plist[6].toLongLong();
+  int gradType = plist[7].toInt();
+  float minGrad = plist[8].toFloat();
+  float maxGrad = plist[9].toFloat();
+  qint64 mx = plist[10].toLongLong();
+  qint64 my = plist[11].toLongLong();
+  qint64 mz = plist[12].toLongLong();
+//  uchar* m_volData = static_cast<uchar*>(plist[13].value<void*>());
+//  ushort* m_volDataUS = static_cast<ushort*>(plist[14].value<void*>());
+//  uchar* m_maskData = static_cast<uchar*>(plist[15].value<void*>());
+  MyBitArray *cbitmask = static_cast<MyBitArray*>(plist[13].value<void*>());
+  uchar *lut = Global::lut();
+
+  for(qint64 w2=ws; w2<=we; w2++)
+    for(qint64 h2=hs; h2<=he; h2++)
+    {
+      bool clipped = VolumeOperations::checkClipped(Vec(h2, w2, d2));
+      bool transparent = false;
+      
+      if (!clipped)
+	{
+	  qint64 idx = d2*m_width*m_height + w2*m_height + h2;
+	  int val = m_volData[idx];
+	  if (m_volDataUS) val = m_volDataUS[idx];
+	  uchar mtag = m_maskData[idx];
+	  transparent =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] == 0);
+
+	  //-------
+	  if (!transparent &&
+	      (minGrad > 0.0 || maxGrad < 1.0))
+
+	    {
+	      float gradMag = VolumeOperations::calcGrad(gradType, d2, w2, h2,
+							 m_depth, m_width, m_height,
+							 m_volData, m_volDataUS);
+	      
+	      if (gradMag < minGrad || gradMag > maxGrad)
+		transparent = true;
+	    }
+	  //-------
+	}
+      
+      if (clipped || transparent)
+	{
+	  qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
+	  cbitmask->setBit(bidx, true);
+	}  // transparent voxel
+    }
+}
+//---------//---------//---------//
+//---------//---------//---------//
+
+
+
+void
+VolumeOperations::shrinkwrapSlice(uchar *swvr, int mx, int my)
+{
+  memset(swvr, 0, my*mx);
+
+  MorphSlice ms;
+  QList<QPolygonF> poly = ms.boundaryCurves(swvr, mx, my, true);
+
+  QImage pimg = QImage(mx, my, QImage::Format_RGB32);
+  pimg.fill(0);
+  QPainter p(&pimg);
+  p.setPen(QPen(Qt::white, 1));
+  p.setBrush(Qt::white);
+
+  for (int npc=0; npc<poly.count(); npc++)
+    p.drawPolygon(poly[npc]);
+
+  QRgb *rgb = (QRgb*)(pimg.bits());
+  for(int i=0; i<my*mx; i++)
+    swvr[i] = (swvr[i]>0 || qRed(rgb[i])>0 ? 255 : 0);  
+}
 
 void
 VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
@@ -1124,7 +1096,7 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
       progress.setLabelText("Shrinkwrap - converting to levelset");
       progress.setValue(10);
       qApp->processEvents();
-      vdb.convertToLevelSet(1,0);
+      vdb.convertToLevelSet(1, 0);
       progress.setLabelText("Shrinkwrap - dilate");
       progress.setValue(25);
       qApp->processEvents();
@@ -1200,7 +1172,7 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
   edges.clear();
 
   //----------------------------
-  // set all size faces
+  // set all side faces
   //------------------------------------------------------
   { // handle depth slices
     uchar *swvr = new uchar[my*mx];
@@ -1512,7 +1484,7 @@ VolumeOperations::dilateBitmaskUsingVDB(int nDilate, bool htype,
   progress.setValue(10);
   qApp->processEvents();
 
-  vdb.convertToLevelSet(1,0);
+  vdb.convertToLevelSet(1, 0);
   progress.setValue(25);
   qApp->processEvents();
   
@@ -1715,7 +1687,8 @@ VolumeOperations::setVisible(Vec bmin, Vec bmax,
 		bool alpha =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);
 
 		//-------
-		if (alpha)
+		if (alpha &&
+		    (minGrad > 0.0 || maxGrad < 1.0))
 		{		  
 		  float gradMag = VolumeOperations::calcGrad(gradType, d, w, h,
 							     m_depth, m_width, m_height,
@@ -1963,53 +1936,14 @@ VolumeOperations::dilateAll(Vec bmin, Vec bmax, int tag,
 
   getVisibleRegion(ds, ws, hs,
 		   de, we, he,
-		   mx, my, mz,
 		   tag, false,
 		   gradType, minGrad, maxGrad,
 		   bitmask);
   
-//  for(qint64 d2=ds; d2<=de; d2++)
-//    {
-//      progress.setValue(100*(d2-ds)/(mz));
-//      qApp->processEvents();
-//      for(qint64 w2=ws; w2<=we; w2++)
-//	for(qint64 h2=hs; h2<=he; h2++)
-//	  {
-//	    bool clipped = checkClipped(Vec(h2, w2, d2));
-//
-//	    if (!clipped)
-//	      {
-//		qint64 idx = d2*m_width*m_height + w2*m_height + h2;
-//		int val = m_volData[idx];
-//		if (m_volDataUS) val = m_volDataUS[idx];	
-//		uchar mtag = m_maskData[idx];
-//		bool opaque =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);
-//		opaque &= mtag == tag;
-//		
-//		//-------
-//		if (opaque)
-//		  {
-//		    float gradMag = VolumeOperations::calcGrad(gradType, d2, w2, h2,
-//							       m_depth, m_width, m_height,
-//							       m_volData, m_volDataUS);		    
-//
-//		    if (gradMag < minGrad || gradMag > maxGrad)
-//		      opaque = false;
-//		  }
-//		//-------
-//		
-//		if (opaque)
-//		  {
-//		    qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
-//		    bitmask.setBit(bidx, true);
-//		  }
-//	      }
-//	  }
-//    }
 
+  
   progress.setLabelText("Dilate");
   qApp->processEvents();
-
 
 
 
@@ -2043,7 +1977,8 @@ VolumeOperations::dilateAll(Vec bmin, Vec bmax, int tag,
 		    opaque &= (mtag == 0 || allVisible);
 			  
 		    //-------
-		    if (opaque && (minGrad >=0.01 || maxGrad <= 0.99))
+		    if (opaque &&
+			(minGrad > 0 || maxGrad < 1))
 		      {
 			float gradMag = VolumeOperations::calcGrad(gradType, d2, w2, h2,
 								   m_depth, m_width, m_height,
@@ -2073,6 +2008,138 @@ VolumeOperations::dilateAll(Vec bmin, Vec bmax, int tag,
 
   return;
 }
+
+
+//---------//---------//---------//
+//---------//---------//---------//
+void
+VolumeOperations::writeToMask(int ds, int ws, int hs,
+			      int de, int we, int he,
+			      int tag,
+			      int gradType, float minGrad, float maxGrad,
+			      bool allVisible,
+			      MyBitArray& bitmask)
+{
+  GeometryObjects::crops()->collectCropInfoBeforeCheckCropped();
+
+  QProgressDialog progress("Identifying visible region",
+			   QString(),
+			   0, 100,
+			   0,
+			   Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);
+
+  // collect stuff for parallel processing
+  QList<QList<QVariant>> param;
+  for(int d2=ds; d2<=de; d2++)
+    {
+      QList<QVariant> plist;
+      plist << QVariant(ds);
+      plist << QVariant(de);
+      plist << QVariant(ws);
+      plist << QVariant(we);
+      plist << QVariant(hs);
+      plist << QVariant(he);
+      plist << QVariant(d2);
+      plist << QVariant(gradType);
+      plist << QVariant(minGrad);
+      plist << QVariant(maxGrad);
+      plist << QVariant(tag);
+      plist << QVariant(allVisible);
+//      plist << QVariant::fromValue(static_cast<void*>(m_volData));
+//      plist << QVariant::fromValue(static_cast<void*>(m_volDataUS));
+//      plist << QVariant::fromValue(static_cast<void*>(m_maskData));
+      plist << QVariant::fromValue(static_cast<void*>(&bitmask));
+      
+      param << plist;
+    }
+
+  int nThreads = qMax(1, (int)(QThread::idealThreadCount()));
+  //QThreadPool::globalInstance()->setMaxThreadCount(nThreads);
+						   
+  // Create a QFutureWatcher and connect signals and slots.
+  progress.setLabelText(QString("Identifying visible region using %1 thread(s)...").arg(nThreads));
+  QFutureWatcher<void> futureWatcher;
+  QObject::connect(&futureWatcher, &QFutureWatcher<void>::finished, &progress, &QProgressDialog::reset);
+  QObject::connect(&progress, &QProgressDialog::canceled, &futureWatcher, &QFutureWatcher<void>::cancel);
+  QObject::connect(&futureWatcher,  &QFutureWatcher<void>::progressRangeChanged, &progress, &QProgressDialog::setRange);
+  QObject::connect(&futureWatcher, &QFutureWatcher<void>::progressValueChanged,  &progress, &QProgressDialog::setValue);
+  
+  // Start generation of isosurface for all values within the range
+  futureWatcher.setFuture(QtConcurrent::map(param, VolumeOperations::parWriteToMask));
+  
+  // Display the dialog and start the event loop.
+  progress.exec();
+  
+  futureWatcher.waitForFinished();
+}
+
+void
+VolumeOperations::parWriteToMask(QList<QVariant> plist)
+{
+  int ds = plist[0].toInt();
+  int de = plist[1].toInt();
+  int ws = plist[2].toInt();
+  int we = plist[3].toInt();
+  int hs = plist[4].toInt();
+  int he = plist[5].toInt();
+  qint64 d2 = plist[6].toInt();
+  int gradType = plist[7].toInt();
+  float minGrad = plist[8].toFloat();
+  float maxGrad = plist[9].toFloat();
+  int tag = plist[10].toInt();
+  bool allVisible = plist[11].toBool();
+//  uchar* m_volData = static_cast<uchar*>(plist[12].value<void*>());
+//  ushort* m_volDataUS = static_cast<ushort*>(plist[13].value<void*>());
+//  uchar* m_maskData = static_cast<uchar*>(plist[14].value<void*>());
+  MyBitArray *bitmask = static_cast<MyBitArray*>(plist[12].value<void*>());
+
+  uchar *lut = Global::lut();
+
+  qint64 mx = he-hs+1;
+  qint64 my = we-ws+1;
+  qint64 mz = de-ds+1;
+  
+  for(qint64 w2=ws; w2<=we; w2++)
+    for(qint64 h2=hs; h2<=he; h2++)
+      {
+	qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
+	if (bitmask->testBit(bidx))
+	      {
+		bool clipped = VolumeOperations::checkClipped(Vec(h2, w2, d2));
+		
+		if (!clipped)
+		  {      
+		    qint64 idx = d2*m_width*m_height + w2*m_height + h2;
+		    int val = m_volData[idx];
+		    if (m_volDataUS) val = m_volDataUS[idx];
+		    uchar mtag = m_maskData[idx];
+		    bool opaque =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);
+		    opaque &= (mtag == 0 || allVisible);
+		    
+		    //-------
+		    if (opaque &&
+			(minGrad > 0.0 || maxGrad < 1.0))
+		      {
+			float gradMag = VolumeOperations::calcGrad(gradType, d2, w2, h2,
+								   m_depth, m_width, m_height,
+								   m_volData, m_volDataUS);
+			
+			if (gradMag < minGrad || gradMag > maxGrad)
+			  opaque = false;
+		      }
+		    //-------      
+		
+		    // grow only in zero or same tagged region
+		    // or if tag is 0 then grow in all visible regions
+		    if (opaque)
+		      m_maskData[idx] = tag;
+		  } // if (!clipped)
+	      } // test bitmask
+      }
+}
+//---------//---------//---------//
+//---------//---------//---------//
 
 
 void
@@ -2147,8 +2214,10 @@ VolumeOperations::dilateConnected(int dr, int wr, int hr,
 		    0, 0,-1,
 		    0, 0, 1};
 
-  // find connected region before dilation
 
+  //-------------------------------
+  //-------------------------------
+  // find connected region before dilation
   QQueue<Vec> que;
   que.enqueue(Vec(dr,wr,hr));
 
@@ -2207,7 +2276,8 @@ VolumeOperations::dilateConnected(int dr, int wr, int hr,
 		  opaque &= mtag == tag;
 
 		  //-------
-		  if (opaque)
+		  if (opaque &&
+		      (minGrad > 0.0 || maxGrad < 1.0))
 		    {
 		      float gradMag = VolumeOperations::calcGrad(gradType, d2, w2, h2,
 								 m_depth, m_width, m_height,
@@ -2227,7 +2297,10 @@ VolumeOperations::dilateConnected(int dr, int wr, int hr,
 	    }
 	}
     }
+  //-------------------------------
+  //-------------------------------
 
+  
   progress.setLabelText("Dilate");
   qApp->processEvents();
 
@@ -2239,51 +2312,14 @@ VolumeOperations::dilateConnected(int dr, int wr, int hr,
 			bitmask);
 
 
-  
-  progress.setLabelText("writing to mask");
-  for(qint64 d2=ds; d2<=de; d2++)
-    {
-      progress.setValue(100*(d2-ds)/(mz));
-      qApp->processEvents();
-      for(qint64 w2=ws; w2<=we; w2++)
-	for(qint64 h2=hs; h2<=he; h2++)
-	  {
-	    qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
-	    if (bitmask.testBit(bidx))
-	      {
-		bool clipped = checkClipped(Vec(h2, w2, d2));
 
-		if (!clipped)
-		  {
-		    qint64 idx = d2*m_width*m_height + w2*m_height + h2;
-		    int val = m_volData[idx];
-		    if (m_volDataUS) val = m_volDataUS[idx];
-		    
-		    uchar mtag = m_maskData[idx];
-		    bool opaque =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);
-		    opaque &= (mtag == 0 || allVisible);
-			  
-		    //-------
-		    if (opaque && (minGrad >=0.01 || maxGrad <= 0.99))
-		      {
-			float gradMag = VolumeOperations::calcGrad(gradType, d2, w2, h2,
-								   m_depth, m_width, m_height,
-								   m_volData, m_volDataUS);
-	
-			if (gradMag < minGrad || gradMag > maxGrad)
-			  opaque = false;
-		      }
-		    //-------
-		    
-		    if (opaque) // dilate only in connected opaque region
-		      {			
-			qint64 idx = d2*m_width*m_height + w2*m_height + h2;
-			m_maskData[idx] = tag;
-		      }
-		  } // if (!clipped)
-	      } // test bitmask 
-	  } // loop over h
-    } // loop over d
+  writeToMask(ds, ws, hs,
+	      de, we, he,
+	      tag,
+	      gradType, minGrad, maxGrad,
+	      allVisible,
+	      bitmask);
+
 
   minD = ds;
   maxD = de;
@@ -2333,52 +2369,12 @@ VolumeOperations::erodeAll(Vec bmin, Vec bmax, int tag,
 
   getVisibleRegion(ds, ws, hs,
 		   de, we, he,
-		   mx, my, mz,
 		   tag, false,
 		   gradType, minGrad, maxGrad,
 		   bitmask);
+
+
   
-
-//  for(qint64 d2=ds; d2<=de; d2++)
-//    {
-//      progress.setValue(100*(d2-ds)/(mz));
-//      qApp->processEvents();
-//      for(qint64 w2=ws; w2<=we; w2++)
-//	for(qint64 h2=hs; h2<=he; h2++)
-//	  {
-//	    bool clipped = checkClipped(Vec(h2, w2, d2));
-//	    
-//	    if (!clipped)
-//	      {
-//		qint64 idx = d2*m_width*m_height + w2*m_height + h2;
-//		int val = m_volData[idx];
-//		if (m_volDataUS) val = m_volDataUS[idx];	
-//		uchar mtag = m_maskData[idx];
-//		bool opaque =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);
-//		opaque &= mtag == tag;
-//		
-//		//-------
-//		if (opaque)
-//		  {
-//		    float gradMag = VolumeOperations::calcGrad(gradType, d2, w2, h2,
-//							       m_depth, m_width, m_height,
-//							       m_volData, m_volDataUS);
-//		    
-//		    if (gradMag < minGrad || gradMag > maxGrad)
-//		      opaque = false;
-//		  }
-//		//-------
-//		
-//		if (opaque)
-//		  {
-//		    qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
-//		    bitmask.setBit(bidx, true);
-//		  }
-//	      }
-//	  }
-//    }
-
-
   progress.setLabelText("Erode");
   qApp->processEvents();
 
@@ -2523,9 +2519,6 @@ VolumeOperations::erodeConnected(int dr, int wr, int hr,
       prevpgv = pgval;
       
       Vec dwh = que.dequeue();
-//      int dx = qCeil(dwh.x);
-//      int wx = qCeil(dwh.y);
-//      int hx = qCeil(dwh.z);
       int dx = qBound(ds, qCeil(dwh.x), de);
       int wx = qBound(ws, qCeil(dwh.y), we);
       int hx = qBound(hs, qCeil(dwh.z), he);
@@ -2553,7 +2546,8 @@ VolumeOperations::erodeConnected(int dr, int wr, int hr,
 
 	      bool clipped = checkClipped(Vec(h2, w2, d2));
 	      
-	      if (!clipped)
+	      if (!clipped &&
+		  (minGrad > 0.0 || maxGrad < 1.0))
 		{
 		  float gradMag = VolumeOperations::calcGrad(gradType, d2, w2, h2,
 							     m_depth, m_width, m_height,
@@ -2819,6 +2813,132 @@ VolumeOperations::tagTubes(Vec bmin, Vec bmax, int tag,
   minH = hs;  maxH = he;
 }
 
+
+
+
+//---------//---------//---------//
+//---------//---------//---------//
+void
+VolumeOperations::bakeC(int ds, int ws, int hs,
+			int de, int we, int he,
+			int tag,
+			int gradType, float minGrad, float maxGrad,
+			uchar *curveMask)
+{
+  GeometryObjects::crops()->collectCropInfoBeforeCheckCropped();
+
+  QProgressDialog progress("Bake Curves",
+			   QString(),
+			   0, 100,
+			   0,
+			   Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);
+
+  // collect stuff for parallel processing
+  QList<QList<QVariant>> param;
+  for(int d2=ds; d2<=de; d2++)
+    {
+      QList<QVariant> plist;
+      plist << QVariant(ds);
+      plist << QVariant(de);
+      plist << QVariant(ws);
+      plist << QVariant(we);
+      plist << QVariant(hs);
+      plist << QVariant(he);
+      plist << QVariant(d2);
+      plist << QVariant(gradType);
+      plist << QVariant(minGrad);
+      plist << QVariant(maxGrad);
+      plist << QVariant(tag);
+//      plist << QVariant::fromValue(static_cast<void*>(m_volData));
+//      plist << QVariant::fromValue(static_cast<void*>(m_volDataUS));
+//      plist << QVariant::fromValue(static_cast<void*>(m_maskData));
+      plist << QVariant::fromValue(static_cast<void*>(curveMask));
+      
+      param << plist;
+    }
+
+  int nThreads = qMax(1, (int)(QThread::idealThreadCount()));
+  //QThreadPool::globalInstance()->setMaxThreadCount(nThreads);
+						   
+  // Create a QFutureWatcher and connect signals and slots.
+  progress.setLabelText(QString("Baking Curves using %1 thread(s)...").arg(nThreads));
+  QFutureWatcher<void> futureWatcher;
+  QObject::connect(&futureWatcher, &QFutureWatcher<void>::finished, &progress, &QProgressDialog::reset);
+  QObject::connect(&progress, &QProgressDialog::canceled, &futureWatcher, &QFutureWatcher<void>::cancel);
+  QObject::connect(&futureWatcher,  &QFutureWatcher<void>::progressRangeChanged, &progress, &QProgressDialog::setRange);
+  QObject::connect(&futureWatcher, &QFutureWatcher<void>::progressValueChanged,  &progress, &QProgressDialog::setValue);
+  
+  // Start generation of isosurface for all values within the range
+  futureWatcher.setFuture(QtConcurrent::map(param, VolumeOperations::parBakeCurves));
+  
+  // Display the dialog and start the event loop.
+  progress.exec();
+  
+  futureWatcher.waitForFinished();
+}
+
+void
+VolumeOperations::parBakeCurves(QList<QVariant> plist)
+{
+  int ds = plist[0].toInt();
+  int de = plist[1].toInt();
+  int ws = plist[2].toInt();
+  int we = plist[3].toInt();
+  int hs = plist[4].toInt();
+  int he = plist[5].toInt();
+  qint64 d2 = plist[6].toInt();
+  int gradType = plist[7].toInt();
+  float minGrad = plist[8].toFloat();
+  float maxGrad = plist[9].toFloat();
+  int tag = plist[10].toInt();
+//  uchar* m_volData = static_cast<uchar*>(plist[11].value<void*>());
+//  ushort* m_volDataUS = static_cast<ushort*>(plist[12].value<void*>());
+//  uchar* m_maskData = static_cast<uchar*>(plist[13].value<void*>());
+  uchar* curveMask = static_cast<uchar*>(plist[12].value<void*>());
+
+  uchar *lut = Global::lut();
+
+  qint64 mx = he-hs+1;
+  qint64 my = we-ws+1;
+  qint64 mz = de-ds+1;
+  
+  for(qint64 w2=ws; w2<=we; w2++)
+    for(qint64 h2=hs; h2<=he; h2++)
+      {
+	bool clipped = VolumeOperations::checkClipped(Vec(h2, w2, d2));
+	
+	if (!clipped)
+	  {      
+	    uchar cm = curveMask[d2*mx*my + (w2-ws)*mx + (h2-hs)];
+	    if (cm > 0)
+	      {
+		qint64 idx = d2*m_width*m_height + w2*m_height + h2;
+		int val = m_volData[idx];
+		if (m_volDataUS) val = m_volDataUS[idx];
+		uchar mtag = m_maskData[idx];
+		bool opaque =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);      
+	    
+		if (opaque &&
+		    (minGrad > 0.0 || maxGrad < 1.0))
+		  {
+		    float gradMag = VolumeOperations::calcGrad(gradType, d2, w2, h2,
+							       m_depth, m_width, m_height,
+							       m_volData, m_volDataUS);
+		    
+		    if (gradMag < minGrad || gradMag > maxGrad)
+		      opaque = false;
+		  }
+
+		if (opaque)
+		  m_maskData[idx] = tag;
+	      } // cm > 0
+	  } // !clipped
+      } // h2
+}
+//---------//---------//---------//
+//---------//---------//---------//
+
 void
 VolumeOperations::bakeCurves(uchar *curveMask,
 			     int minDSlice, int maxDSlice,
@@ -2827,59 +2947,9 @@ VolumeOperations::bakeCurves(uchar *curveMask,
 			     int tag,
 			     int gradType, float minGrad, float maxGrad)
 {
-  qint64 tdepth = maxDSlice-minDSlice+1;
-  qint64 twidth = maxWSlice-minWSlice+1;
-  qint64 theight= maxHSlice-minHSlice+1;
-
-  QProgressDialog progress("Updating Label Volume",
-			   QString(),
-			   0, 100,
-			   0,
-			   Qt::WindowStaysOnTopHint);
-  progress.setMinimumDuration(0);
-
-  uchar *lut = Global::lut();
-
-  for(qint64 d2=minDSlice; d2<=maxDSlice; d2++)
-    {
-      int slc = d2-minDSlice;
-      progress.setValue((int)(100*(float)slc/(float)tdepth));
-      qApp->processEvents();
-
-      for(qint64 w2=minWSlice; w2<=maxWSlice; w2++)
-	for(qint64 h2=minHSlice; h2<=maxHSlice; h2++)
-	  {
-	    bool clipped = checkClipped(Vec(h2, w2, d2));
-	    
-	    if (!clipped)
-	      {
-		uchar cm = curveMask[slc*twidth*theight +
-				     (w2-minWSlice)*theight +
-				     (h2-minHSlice)];
-		if (cm > 0)
-		  {
-		    qint64 idx = d2*m_width*m_height + w2*m_height + h2;
-		    int val = m_volData[idx];
-		    if (m_volDataUS) val = m_volDataUS[idx];
-		    uchar mtag = m_maskData[idx];
-		    bool opaque =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);
-
-		    //-------
-		    if (opaque)
-		      {
-			float gradMag = VolumeOperations::calcGrad(gradType, d2, w2, h2,
-								   m_depth, m_width, m_height,
-								   m_volData, m_volDataUS);
-		    	
-		    	if (gradMag < minGrad || gradMag > maxGrad)
-		    	  opaque = false;
-		     } // if (opaque)
-		    //-------
-
-		    if (opaque)
-		      m_maskData[idx] = tag;
-		  } // cm > 0
-	      } //  !clipped
-	  } // h2
-    } //d2
+  bakeC(minDSlice, minWSlice, minHSlice,
+	maxDSlice, maxWSlice, maxHSlice,
+	tag,
+	gradType, minGrad, maxGrad,
+	curveMask);  
 }

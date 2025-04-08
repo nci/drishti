@@ -366,6 +366,10 @@ class Viewer : public QGLViewer
 
   void drawBoxes2D();
   void drawBoxes3D();
+
+  void markValidBoxes();
+  static void parMarkValidBoxes(QList<QVariant>);
+  
 };
 
 #endif

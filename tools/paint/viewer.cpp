@@ -19,6 +19,8 @@
 
 #include "ui_viewermenu.h"
 
+#include <QtConcurrentMap>
+
 Viewer::Viewer(QWidget *parent) :
   QGLViewer(parent)
 {
@@ -976,11 +978,11 @@ Viewer::commandEditor()
     {
       int val;
       if (Global::bytesPerVoxel() == 1)
-	val = m_volPtr[d*m_width*m_height + w*m_height + h];
+	val = m_volPtr[((qint64)d)*m_width*m_height + w*m_height + h];
       else
-	val = m_volPtrUS[d*m_width*m_height + w*m_height + h];
+	val = m_volPtrUS[((qint64)d)*m_width*m_height + w*m_height + h];
 
-      int tag = m_maskPtr[d*m_width*m_height + w*m_height + h];
+      int tag = m_maskPtr[((qint64)d)*m_width*m_height + w*m_height + h];
       mesg += "\nPoint Information\n";
       mesg += QString("Coordinate : %1 %2 %3\n").arg(h).arg(w).arg(d);
       mesg += QString("Voxel value : %1\n").arg(val);
@@ -1032,6 +1034,12 @@ Viewer::processCommand(QString cmd)
   bmin = VECDIVIDE(bmin, voxelScaling);
   bmax = VECDIVIDE(bmax, voxelScaling);
 
+  if (list[0].contains("vmap"))
+    {
+      VolumeOperations::genVisibilityMap(m_gradType, m_minGrad, m_maxGrad);
+      return;
+    }
+  
   if (list[0].contains("crop"))
     {
       Vec bmid = 0.5 * (bmax + bmin);
@@ -1628,7 +1636,10 @@ Viewer::raycasting()
   glDisable(GL_BLEND);
 
   if (m_crops->updated()) // recreate shader with new crop parameters
-    createRaycastShader();
+    {
+      m_crops->collectCropInfoBeforeCheckCropped();
+      createRaycastShader();
+    }
 
   volumeRaycast(minZ, maxZ, false); // run full raycast process
 
@@ -1877,9 +1888,9 @@ Viewer::updateVoxelsForRaycast()
   if (Global::bytesPerVoxel() == 1)
     {
       int i = 0;
-      for(int d=m_minDSlice; d<m_maxDSlice; d+=m_sslevel)
-	for(int w=m_minWSlice; w<m_maxWSlice; w+=m_sslevel)
-	  for(int h=m_minHSlice; h<m_maxHSlice; h+=m_sslevel)
+      for(qint64 d=m_minDSlice; d<m_maxDSlice; d+=m_sslevel)
+	for(qint64 w=m_minWSlice; w<m_maxWSlice; w+=m_sslevel)
+	  for(qint64 h=m_minHSlice; h<m_maxHSlice; h+=m_sslevel)
 	    {
 	      voxelVol[i] = m_volPtr[d*m_width*m_height + w*m_height + h];
 	      i++;
@@ -1888,9 +1899,9 @@ Viewer::updateVoxelsForRaycast()
   else
     {
       int i = 0;
-      for(int d=m_minDSlice; d<m_maxDSlice; d+=m_sslevel)
-	for(int w=m_minWSlice; w<m_maxWSlice; w+=m_sslevel)
-	  for(int h=m_minHSlice; h<m_maxHSlice; h+=m_sslevel)
+      for(qint64 d=m_minDSlice; d<m_maxDSlice; d+=m_sslevel)
+	for(qint64 w=m_minWSlice; w<m_maxWSlice; w+=m_sslevel)
+	  for(qint64 h=m_minHSlice; h<m_maxHSlice; h+=m_sslevel)
 	    {
 	      ((ushort*)voxelVol)[i] = m_volPtrUS[d*m_width*m_height + w*m_height + h];
 	      i++;
@@ -1940,9 +1951,9 @@ Viewer::updateVoxelsForRaycast()
       progress.setValue(60);
       qApp->processEvents();
       int i = 0;
-      for(int d=m_minDSlice; d<m_maxDSlice; d+=m_sslevel)
-	for(int w=m_minWSlice; w<m_maxWSlice; w+=m_sslevel)
-	  for(int h=m_minHSlice; h<m_maxHSlice; h+=m_sslevel)
+      for(qint64 d=m_minDSlice; d<m_maxDSlice; d+=m_sslevel)
+	for(qint64 w=m_minWSlice; w<m_maxWSlice; w+=m_sslevel)
+	  for(qint64 h=m_minHSlice; h<m_maxHSlice; h+=m_sslevel)
 	    {
 	      voxelVol[i] = m_maskPtr[d*m_width*m_height + w*m_height + h];
 	      i++;
@@ -2753,12 +2764,12 @@ Viewer::uploadMask(int dst, int wst, int hst, int ded, int wed, int hed)
   qint64 tsz = dsz*wsz*hsz;      
   uchar *voxelVol = new uchar[tsz];
   int i = 0;
-  for(int d=ds; d<de; d+=m_sslevel)
+  for(qint64 d=ds; d<de; d+=m_sslevel)
     {
 //      progress.setValue(100*d/de);
 //      qApp->processEvents();
-      for(int w=ws; w<we; w+=m_sslevel)
-      for(int h=hs; h<he; h+=m_sslevel)
+      for(qint64 w=ws; w<we; w+=m_sslevel)
+      for(qint64 h=hs; h<he; h+=m_sslevel)
 	{
 	  voxelVol[i] = m_maskPtr[d*m_width*m_height + w*m_height + h];
 	  i++;
@@ -3464,9 +3475,9 @@ Viewer::generateBoxMinMax()
 	    int hmax = qMin((h+1)*m_boxSize, (int)m_height);
 	    if (Global::bytesPerVoxel() == 1)
 	      {
-		for(int dm=dmin; dm<dmax; dm++)
-		  for(int wm=wmin; wm<wmax; wm++)
-		    for(int hm=hmin; hm<hmax; hm++)
+		for(qint64 dm=dmin; dm<dmax; dm++)
+		  for(qint64 wm=wmin; wm<wmax; wm++)
+		    for(qint64 hm=hmin; hm<hmax; hm++)
 		      {
 			int v = m_volPtr[dm*m_width*m_height + wm*m_height + hm];
 			vmin = qMin(vmin, v);
@@ -3475,9 +3486,9 @@ Viewer::generateBoxMinMax()
 	      }
 	    else
 	      {
-		for(int dm=dmin; dm<dmax; dm++)
-		  for(int wm=wmin; wm<wmax; wm++)
-		    for(int hm=hmin; hm<hmax; hm++)
+		for(qint64 dm=dmin; dm<dmax; dm++)
+		  for(qint64 wm=wmin; wm<wmax; wm++)
+		    for(qint64 hm=hmin; hm<hmax; hm++)
 		      {
 			int v = m_volPtrUS[dm*m_width*m_height + wm*m_height + hm];
 			vmin = qMin(vmin, v);
@@ -3561,12 +3572,13 @@ Viewer::updateTF()
       updateFilledBoxes();
     }
 }
+
+
+//------------------------//------------------------
+//------------------------//------------------------
 void
-Viewer::updateFilledBoxes()
-{
-  if (m_boxMinMax.count() == 0)
-    return;
-  
+Viewer::markValidBoxes()
+{  
   QProgressDialog progress("Marking valid boxes - (1/2)",
 			   QString(),
 			   0, 100,
@@ -3574,12 +3586,83 @@ Viewer::updateFilledBoxes()
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
+  m_filledBoxes.fill(true);
 
-  progress.setValue(10);
-  qApp->processEvents();
+  // collect stuff for parallel processing
+  QList<QList<QVariant>> param;
+  for(int d=0; d<m_dbox; d++)
+    {
+      QList<QVariant> plist;
+      plist << QVariant(d);
+      plist << QVariant(m_depth);
+      plist << QVariant(m_width);
+      plist << QVariant(m_height);
+      plist << QVariant(m_wbox);
+      plist << QVariant(m_hbox);
+      plist << QVariant(m_boxSize);
+      plist << QVariant(m_lmin);
+      plist << QVariant(m_lmax);
+      plist << QVariant(m_minDSlice);
+      plist << QVariant(m_minWSlice);
+      plist << QVariant(m_minHSlice);
+      plist << QVariant(m_maxDSlice);
+      plist << QVariant(m_maxWSlice);
+      plist << QVariant(m_maxHSlice);
+      
+      plist << QVariant::fromValue(static_cast<void*>(&m_boxMinMax));
+      plist << QVariant::fromValue(static_cast<void*>(&m_boundingBox));
+      plist << QVariant::fromValue(static_cast<void*>(m_maskPtr));
+      plist << QVariant::fromValue(static_cast<void*>(&m_filledBoxes));
+      
+      param << plist;
+    }
 
+  int nThreads = qMax(1, (int)(QThread::idealThreadCount()));
+  //QThreadPool::globalInstance()->setMaxThreadCount(nThreads);
+						   
+  // Create a QFutureWatcher and connect signals and slots.
+  progress.setLabelText(QString("Marking valid boxes - (1/2) - using %1 thread(s)...").arg(nThreads));
+  QFutureWatcher<void> futureWatcher;
+  QObject::connect(&futureWatcher, &QFutureWatcher<void>::finished, &progress, &QProgressDialog::reset);
+  QObject::connect(&progress, &QProgressDialog::canceled, &futureWatcher, &QFutureWatcher<void>::cancel);
+  QObject::connect(&futureWatcher,  &QFutureWatcher<void>::progressRangeChanged, &progress, &QProgressDialog::setRange);
+  QObject::connect(&futureWatcher, &QFutureWatcher<void>::progressValueChanged,  &progress, &QProgressDialog::setValue);
+  
+  // Start generation of isosurface for all values within the range
+  futureWatcher.setFuture(QtConcurrent::map(param, Viewer::parMarkValidBoxes));
+  
+  // Display the dialog and start the event loop.
+  progress.exec();
+  
+  futureWatcher.waitForFinished();
+}
+
+
+void
+Viewer::parMarkValidBoxes(QList<QVariant> plist)
+{
+  int d = plist[0].toInt();
+  int m_depth = plist[1].toInt();
+  int m_width = plist[2].toInt();
+  int m_height = plist[3].toInt();
+  int m_wbox = plist[4].toInt();
+  int m_hbox = plist[5].toInt();
+  int m_boxSize = plist[6].toInt();
+  int m_lmin = plist[7].toInt();
+  int m_lmax = plist[8].toInt();
+  int m_minDSlice = plist[9].toInt();
+  int m_minWSlice = plist[10].toInt();
+  int m_minHSlice = plist[11].toInt();
+  int m_maxDSlice = plist[12].toInt();
+  int m_maxWSlice = plist[13].toInt();
+  int m_maxHSlice = plist[14].toInt();
+  QList<int>* m_boxMinMax = static_cast<QList<int>*>(plist[15].value<void*>());
+  BoundingBox* m_boundingBox = static_cast<BoundingBox*>(plist[16].value<void*>());
+  uchar* m_maskPtr = static_cast<uchar*>(plist[17].value<void*>());
+  MyBitArray* m_filledBoxes = static_cast<MyBitArray*>(plist[18].value<void*>());
+  
   Vec bminO, bmaxO;
-  m_boundingBox.bounds(bminO, bmaxO);
+  m_boundingBox->bounds(bminO, bmaxO);
 
   Vec voxelScaling = Global::relativeVoxelScaling();
   bminO = VECDIVIDE(bminO, voxelScaling);
@@ -3588,75 +3671,165 @@ Viewer::updateFilledBoxes()
   bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
   bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
 
-  progress.setValue(20);
-  qApp->processEvents();
+  for(int w=0; w<m_wbox; w++)
+    for(int h=0; h<m_hbox; h++)
+      {
+	bool ok = true;
+	// consider only current bounding box	 
+	if ((d*m_boxSize < bminO.z && (d+1)*m_boxSize < bminO.z) ||
+	    (d*m_boxSize > bmaxO.z && (d+1)*m_boxSize > bmaxO.z) ||
+	    (w*m_boxSize < bminO.y && (w+1)*m_boxSize < bminO.y) ||
+	    (w*m_boxSize > bmaxO.y && (w+1)*m_boxSize > bmaxO.y) ||
+	    (h*m_boxSize < bminO.x && (h+1)*m_boxSize < bminO.x) ||
+	    (h*m_boxSize > bmaxO.x && (h+1)*m_boxSize > bmaxO.x))
+	  ok = false;
+	
+	
+	//-------------------------------
+	//-------------------------------
+	//-------------------------------
+	// handle tag visibility	  
+	if (ok)
+	  {
+	    bool visibleTag = false;
+	    int dmin = d*m_boxSize;
+	    int wmin = w*m_boxSize;
+	    int hmin = h*m_boxSize;
+	    int dmax = qMin((d+1)*m_boxSize, (int)m_depth);
+	    int wmax = qMin((w+1)*m_boxSize, (int)m_width);
+	    int hmax = qMin((h+1)*m_boxSize, (int)m_height);
+	    for(qint64 dm=dmin; dm<dmax; dm++)
+	      for(qint64 wm=wmin; wm<wmax; wm++)
+		for(qint64 hm=hmin; hm<hmax; hm++)
+		  {
+		    int tag = m_maskPtr[dm*m_width*m_height + wm*m_height + hm];
+		    if (Global::tagColors()[4*tag+3] > 200)
+		      {
+			visibleTag = true;
+			break;
+		      }
+		  }
+	    ok = visibleTag;
+	  }
+	//-------------------------------
+	//-------------------------------
+	//-------------------------------
+	
+	
+	int idx = d*m_wbox*m_hbox+w*m_hbox+h;
+	if (ok)
+	  {
+            int bmin = (*m_boxMinMax)[2*idx+0];
+            int bmax = (*m_boxMinMax)[2*idx+1];
+	    if ((bmin < m_lmin && bmax < m_lmin) || 
+		(bmin > m_lmax && bmax > m_lmax))
+	      m_filledBoxes->setBit(idx, false);
+	  }
+	else
+	  m_filledBoxes->setBit(idx, false);
+      }
+}
+//------------------------//------------------------
+//------------------------//------------------------
+void
+Viewer::updateFilledBoxes()
+{
+  if (m_boxMinMax.count() == 0)
+    return;
+
+  markValidBoxes();
+
   
-  m_filledBoxes.fill(true);
-  for(int d=0; d<m_dbox; d++)
-    {
-      progress.setValue(100*d/m_dbox);
-      qApp->processEvents();
-  
-    for(int w=0; w<m_wbox; w++)
-      for(int h=0; h<m_hbox; h++)
-	{
-	  bool ok = true;
-	  // consider only current bounding box	 
-	  if ((d*m_boxSize < bminO.z && (d+1)*m_boxSize < bminO.z) ||
-	      (d*m_boxSize > bmaxO.z && (d+1)*m_boxSize > bmaxO.z) ||
-	      (w*m_boxSize < bminO.y && (w+1)*m_boxSize < bminO.y) ||
-	      (w*m_boxSize > bmaxO.y && (w+1)*m_boxSize > bmaxO.y) ||
-	      (h*m_boxSize < bminO.x && (h+1)*m_boxSize < bminO.x) ||
-	      (h*m_boxSize > bmaxO.x && (h+1)*m_boxSize > bmaxO.x))
-	    ok = false;
-
-
-	  //-------------------------------
-	  //-------------------------------
-	  //-------------------------------
-	  // handle tag visibility	  
-	  if (ok)
-	    {
-	      bool visibleTag = false;
-	      int dmin = d*m_boxSize;
-	      int wmin = w*m_boxSize;
-	      int hmin = h*m_boxSize;
-	      int dmax = qMin((d+1)*m_boxSize, (int)m_depth);
-	      int wmax = qMin((w+1)*m_boxSize, (int)m_width);
-	      int hmax = qMin((h+1)*m_boxSize, (int)m_height);
-	      for(int dm=dmin; dm<dmax; dm++)
-		for(int wm=wmin; wm<wmax; wm++)
-		  for(int hm=hmin; hm<hmax; hm++)
-		    {
-		      int tag = m_maskPtr[dm*m_width*m_height + wm*m_height + hm];
-		      if (Global::tagColors()[4*tag+3] > 200)
-			{
-			  visibleTag = true;
-			  break;
-			}
-		    }
-	      ok = visibleTag;
-	    }
-	  //-------------------------------
-	  //-------------------------------
-	  //-------------------------------
-
-	  
-	  int idx = d*m_wbox*m_hbox+w*m_hbox+h;
-	  if (ok)
-	    {
-	      int bmin = m_boxMinMax[2*idx+0];
-	      int bmax = m_boxMinMax[2*idx+1];
-	      if ((bmin < m_lmin && bmax < m_lmin) || 
-		  (bmin > m_lmax && bmax > m_lmax))
-		m_filledBoxes.setBit(idx, false);
-	    }
-	  else
-	    m_filledBoxes.setBit(idx, false);
-	}
-    }
-  progress.setValue(100);
-  qApp->processEvents();
+//  QProgressDialog progress("Marking valid boxes - (1/2)",
+//			   QString(),
+//			   0, 100,
+//			   0,
+//			   Qt::WindowStaysOnTopHint);
+//  progress.setMinimumDuration(0);
+//
+//
+//  progress.setValue(10);
+//  qApp->processEvents();
+//
+//  Vec bminO, bmaxO;
+//  m_boundingBox.bounds(bminO, bmaxO);
+//
+//  Vec voxelScaling = Global::relativeVoxelScaling();
+//  bminO = VECDIVIDE(bminO, voxelScaling);
+//  bmaxO = VECDIVIDE(bmaxO, voxelScaling);
+//
+//  bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
+//  bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
+//
+//  progress.setValue(20);
+//  qApp->processEvents();
+//  
+//  m_filledBoxes.fill(true);
+//  for(int d=0; d<m_dbox; d++)
+//    {
+//      progress.setValue(100*d/m_dbox);
+//      qApp->processEvents();
+//  
+//    for(int w=0; w<m_wbox; w++)
+//      for(int h=0; h<m_hbox; h++)
+//	{
+//	  bool ok = true;
+//	  // consider only current bounding box	 
+//	  if ((d*m_boxSize < bminO.z && (d+1)*m_boxSize < bminO.z) ||
+//	      (d*m_boxSize > bmaxO.z && (d+1)*m_boxSize > bmaxO.z) ||
+//	      (w*m_boxSize < bminO.y && (w+1)*m_boxSize < bminO.y) ||
+//	      (w*m_boxSize > bmaxO.y && (w+1)*m_boxSize > bmaxO.y) ||
+//	      (h*m_boxSize < bminO.x && (h+1)*m_boxSize < bminO.x) ||
+//	      (h*m_boxSize > bmaxO.x && (h+1)*m_boxSize > bmaxO.x))
+//	    ok = false;
+//
+//
+//	  //-------------------------------
+//	  //-------------------------------
+//	  //-------------------------------
+//	  // handle tag visibility	  
+//	  if (ok)
+//	    {
+//	      bool visibleTag = false;
+//	      int dmin = d*m_boxSize;
+//	      int wmin = w*m_boxSize;
+//	      int hmin = h*m_boxSize;
+//	      int dmax = qMin((d+1)*m_boxSize, (int)m_depth);
+//	      int wmax = qMin((w+1)*m_boxSize, (int)m_width);
+//	      int hmax = qMin((h+1)*m_boxSize, (int)m_height);
+//	      for(qint64 dm=dmin; dm<dmax; dm++)
+//		for(qint64 wm=wmin; wm<wmax; wm++)
+//		  for(qint64 hm=hmin; hm<hmax; hm++)
+//		    {
+//		      int tag = m_maskPtr[dm*m_width*m_height + wm*m_height + hm];
+//		      if (Global::tagColors()[4*tag+3] > 200)
+//			{
+//			  visibleTag = true;
+//			  break;
+//			}
+//		    }
+//	      ok = visibleTag;
+//	    }
+//	  //-------------------------------
+//	  //-------------------------------
+//	  //-------------------------------
+//
+//	  
+//	  int idx = d*m_wbox*m_hbox+w*m_hbox+h;
+//	  if (ok)
+//	    {
+//	      int bmin = m_boxMinMax[2*idx+0];
+//	      int bmax = m_boxMinMax[2*idx+1];
+//	      if ((bmin < m_lmin && bmax < m_lmin) || 
+//		  (bmin > m_lmax && bmax > m_lmax))
+//		m_filledBoxes.setBit(idx, false);
+//	    }
+//	  else
+//	    m_filledBoxes.setBit(idx, false);
+//	}
+//    }
+//  progress.setValue(100);
+//  qApp->processEvents();
 
   generateDrawBoxes();
 }

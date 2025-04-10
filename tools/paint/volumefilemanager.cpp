@@ -1336,7 +1336,11 @@ VolumeFileManager::loadMemFile()
 
       progress.setLabelText(QString("%1 : %2 %3").arg(m_filename).\
 			    arg(d+1).arg(d+1+slast));
+      qApp->processEvents();
 
+      // memory mapped file
+      //m_volData = m_qfile.map(m_header, m_depth*bps);
+      
       for(int s=0; s<qMin(m_slabSize, (qint64)slast); s++)
 	{
 	  d++;

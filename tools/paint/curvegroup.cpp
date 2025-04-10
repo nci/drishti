@@ -102,6 +102,8 @@ CurveGroup::polygonLevels()
 void
 CurveGroup::removePolygonAt(int key, int v0, int v1, bool all)
 {
+  m_pointsDirtyBit = true;
+
   int ic = getActiveCurve(key, v0, v1);
   if (ic >= 0)
     {
@@ -113,8 +115,6 @@ CurveGroup::removePolygonAt(int key, int v0, int v1, bool all)
 	  if (j != ic)
 	    m_cg.insert(key, curves[j]);
 	}      
-
-      m_pointsDirtyBit = true;
     }
 
   // remove all morphes curves

@@ -1117,3 +1117,25 @@ StaticFunctions::smoothstep(float min, float max, float v)
   float a = (v-min)/(max-min);
   return a*a*(3.0f-2.0f*a);
 }
+
+void
+StaticFunctions::smooth2DArray(float* in, float* out, int nW, int nH)
+{
+  float *b = new float[nW*nH];
+  memset(b, 0, nW*nH*sizeof(float));
+  
+  for (int i=0; i<nW; i++)
+    for (int j=0; j<nH; j++)
+      {
+	b[i*nH + j] = (in[i*nH + qMax(0,j-1)] +in[i*nH + j] + in[i*nH + qMin(nH-1,j+1)]);
+      }
+    
+  
+  for (int j=0; j<nH; j++)
+    for (int i=0; i<nW; i++)
+      {
+	out[i*nH + j] = (b[qMax(0,i-1)*nH + j] +b[i*nH + j] + b[qMin(nW-1,i+1)*nH + j])/9;
+      }
+
+  delete [] b;
+}

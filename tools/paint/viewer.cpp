@@ -2733,12 +2733,6 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
 void
 Viewer::uploadMask(int dst, int wst, int hst, int ded, int wed, int hed)
 {
-//  QProgressDialog progress("Updating the mask",
-//			   QString(),
-//			   0, 100,
-//			   0);
-//  progress.setMinimumDuration(0);
-
   int ds = m_minDSlice + m_sslevel*qFloor((dst-m_minDSlice)/m_sslevel);
   int ws = m_minWSlice + m_sslevel*qFloor((wst-m_minWSlice)/m_sslevel);
   int hs = m_minHSlice + m_sslevel*qFloor((hst-m_minHSlice)/m_sslevel);
@@ -2766,8 +2760,6 @@ Viewer::uploadMask(int dst, int wst, int hst, int ded, int wed, int hed)
   int i = 0;
   for(qint64 d=ds; d<de; d+=m_sslevel)
     {
-//      progress.setValue(100*d/de);
-//      qApp->processEvents();
       for(qint64 w=ws; w<we; w+=m_sslevel)
       for(qint64 h=hs; h<he; h+=m_sslevel)
 	{
@@ -2775,9 +2767,6 @@ Viewer::uploadMask(int dst, int wst, int hst, int ded, int wed, int hed)
 	  i++;
 	}
     }
-  
-//  progress.setValue(90);
-//  qApp->processEvents();
 
   int doff = (ds-m_minDSlice)/m_sslevel;
   int woff = (ws-m_minWSlice)/m_sslevel;
@@ -2799,9 +2788,6 @@ Viewer::uploadMask(int dst, int wst, int hst, int ded, int wed, int hed)
   update();
 
   delete [] voxelVol;
-
-//  progress.setValue(100);
-//  qApp->processEvents();
 }
 
 void
@@ -3738,98 +3724,6 @@ Viewer::updateFilledBoxes()
     return;
 
   markValidBoxes();
-
-  
-//  QProgressDialog progress("Marking valid boxes - (1/2)",
-//			   QString(),
-//			   0, 100,
-//			   0,
-//			   Qt::WindowStaysOnTopHint);
-//  progress.setMinimumDuration(0);
-//
-//
-//  progress.setValue(10);
-//  qApp->processEvents();
-//
-//  Vec bminO, bmaxO;
-//  m_boundingBox.bounds(bminO, bmaxO);
-//
-//  Vec voxelScaling = Global::relativeVoxelScaling();
-//  bminO = VECDIVIDE(bminO, voxelScaling);
-//  bmaxO = VECDIVIDE(bmaxO, voxelScaling);
-//
-//  bminO = StaticFunctions::maxVec(bminO, Vec(m_minHSlice, m_minWSlice, m_minDSlice));
-//  bmaxO = StaticFunctions::minVec(bmaxO, Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice));
-//
-//  progress.setValue(20);
-//  qApp->processEvents();
-//  
-//  m_filledBoxes.fill(true);
-//  for(int d=0; d<m_dbox; d++)
-//    {
-//      progress.setValue(100*d/m_dbox);
-//      qApp->processEvents();
-//  
-//    for(int w=0; w<m_wbox; w++)
-//      for(int h=0; h<m_hbox; h++)
-//	{
-//	  bool ok = true;
-//	  // consider only current bounding box	 
-//	  if ((d*m_boxSize < bminO.z && (d+1)*m_boxSize < bminO.z) ||
-//	      (d*m_boxSize > bmaxO.z && (d+1)*m_boxSize > bmaxO.z) ||
-//	      (w*m_boxSize < bminO.y && (w+1)*m_boxSize < bminO.y) ||
-//	      (w*m_boxSize > bmaxO.y && (w+1)*m_boxSize > bmaxO.y) ||
-//	      (h*m_boxSize < bminO.x && (h+1)*m_boxSize < bminO.x) ||
-//	      (h*m_boxSize > bmaxO.x && (h+1)*m_boxSize > bmaxO.x))
-//	    ok = false;
-//
-//
-//	  //-------------------------------
-//	  //-------------------------------
-//	  //-------------------------------
-//	  // handle tag visibility	  
-//	  if (ok)
-//	    {
-//	      bool visibleTag = false;
-//	      int dmin = d*m_boxSize;
-//	      int wmin = w*m_boxSize;
-//	      int hmin = h*m_boxSize;
-//	      int dmax = qMin((d+1)*m_boxSize, (int)m_depth);
-//	      int wmax = qMin((w+1)*m_boxSize, (int)m_width);
-//	      int hmax = qMin((h+1)*m_boxSize, (int)m_height);
-//	      for(qint64 dm=dmin; dm<dmax; dm++)
-//		for(qint64 wm=wmin; wm<wmax; wm++)
-//		  for(qint64 hm=hmin; hm<hmax; hm++)
-//		    {
-//		      int tag = m_maskPtr[dm*m_width*m_height + wm*m_height + hm];
-//		      if (Global::tagColors()[4*tag+3] > 200)
-//			{
-//			  visibleTag = true;
-//			  break;
-//			}
-//		    }
-//	      ok = visibleTag;
-//	    }
-//	  //-------------------------------
-//	  //-------------------------------
-//	  //-------------------------------
-//
-//	  
-//	  int idx = d*m_wbox*m_hbox+w*m_hbox+h;
-//	  if (ok)
-//	    {
-//	      int bmin = m_boxMinMax[2*idx+0];
-//	      int bmax = m_boxMinMax[2*idx+1];
-//	      if ((bmin < m_lmin && bmax < m_lmin) || 
-//		  (bmin > m_lmax && bmax > m_lmax))
-//		m_filledBoxes.setBit(idx, false);
-//	    }
-//	  else
-//	    m_filledBoxes.setBit(idx, false);
-//	}
-//    }
-//  progress.setValue(100);
-//  qApp->processEvents();
 
   generateDrawBoxes();
 }

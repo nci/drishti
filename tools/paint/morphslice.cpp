@@ -1,4 +1,6 @@
 #include "morphslice.h"
+#include "staticfunctions.h"
+
 #include <QPainter>
 #include <QLabel>
 #include <QImage>
@@ -205,15 +207,32 @@ MorphSlice::mergeSlices(int nSlices)
   distanceTransform(fstartSlice, m_startSlice, m_nY, m_nX, false);
   distanceTransform(fslice, m_startSlice, m_nY, m_nX, true);
   for(int s=0; s<m_nX*m_nY; s++)
-    fstartSlice[s] -= fslice[s];
-  
+    {
+      fstartSlice[s] -= fslice[s];
+    }
+
   // calculate signed distance transform using difference of two distance transforms
   distanceTransform(fendSlice, m_endSlice, m_nY, m_nX, false);
   distanceTransform(fslice, m_endSlice, m_nY, m_nX, true);
   for(int s=0; s<m_nX*m_nY; s++)
-    fendSlice[s] -= fslice[s];
-
+    {
+      fendSlice[s] -= fslice[s];
+    }
   
+//  ///-----
+//  ///-----
+//  uchar *imgslice = new uchar[m_nX*m_nY];
+//  for (int i=0; i<m_nX*m_nY; i++)
+//    {
+//      imgslice[i] = qBound(0.0f, (float)qAbs(fstartSlice[i]), 255.0f);
+//    }
+//
+//  showSliceImage(imgslice, m_nX, m_nY);
+//  delete [] imgslice;
+//  ///-----
+//  ///-----
+  
+
   QMap<int, QList<QPolygonF> > allcurves;
   for (int i=1; i<=nSlices; i++)
     {

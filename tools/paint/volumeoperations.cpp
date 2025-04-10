@@ -374,7 +374,6 @@ VolumeOperations::parResetTag(QList<QVariant> plist)
   int he = plist[5].toInt();
   qint64 d2 = plist[6].toInt();
   int tag = plist[7].toInt();
-  //uchar* m_maskData = static_cast<uchar*>(plist[8].value<void*>());
 
   uchar *lut = Global::lut();
 
@@ -629,9 +628,6 @@ VolumeOperations::getVisibleRegion(int ds, int ws, int hs,
       plist << QVariant(maxGrad);
       plist << QVariant(tag);
       plist << QVariant(checkZero);
-//      plist << QVariant::fromValue(static_cast<void*>(m_volData));
-//      plist << QVariant::fromValue(static_cast<void*>(m_volDataUS));
-//      plist << QVariant::fromValue(static_cast<void*>(m_maskData));
       plist << QVariant::fromValue(static_cast<void*>(&cbitmask));
       
       param << plist;
@@ -672,9 +668,6 @@ VolumeOperations::parVisibleRegionGeneration(QList<QVariant> plist)
   float maxGrad = plist[9].toFloat();
   int tag = plist[10].toInt();
   bool checkZero = plist[11].toBool();
-//  uchar* m_volData = static_cast<uchar*>(plist[12].value<void*>());
-//  ushort* m_volDataUS = static_cast<ushort*>(plist[13].value<void*>());
-//  uchar* m_maskData = static_cast<uchar*>(plist[14].value<void*>());
   MyBitArray *cbitmask = static_cast<MyBitArray*>(plist[12].value<void*>());
 
   uchar *lut = Global::lut();
@@ -882,9 +875,6 @@ VolumeOperations::getTransparentRegion(int ds, int ws, int hs,
       plist << QVariant(mx);
       plist << QVariant(my);
       plist << QVariant(mz);
-//      plist << QVariant::fromValue(static_cast<void*>(m_volData));
-//      plist << QVariant::fromValue(static_cast<void*>(m_volDataUS));
-//      plist << QVariant::fromValue(static_cast<void*>(m_maskData));
       plist << QVariant::fromValue(static_cast<void*>(&cbitmask));      
       
       param << plist;
@@ -930,9 +920,6 @@ VolumeOperations::parTransparentRegionGeneration(QList<QVariant> plist)
   qint64 mx = plist[10].toLongLong();
   qint64 my = plist[11].toLongLong();
   qint64 mz = plist[12].toLongLong();
-//  uchar* m_volData = static_cast<uchar*>(plist[13].value<void*>());
-//  ushort* m_volDataUS = static_cast<ushort*>(plist[14].value<void*>());
-//  uchar* m_maskData = static_cast<uchar*>(plist[15].value<void*>());
   MyBitArray *cbitmask = static_cast<MyBitArray*>(plist[13].value<void*>());
   uchar *lut = Global::lut();
 
@@ -2046,9 +2033,6 @@ VolumeOperations::writeToMask(int ds, int ws, int hs,
       plist << QVariant(maxGrad);
       plist << QVariant(tag);
       plist << QVariant(allVisible);
-//      plist << QVariant::fromValue(static_cast<void*>(m_volData));
-//      plist << QVariant::fromValue(static_cast<void*>(m_volDataUS));
-//      plist << QVariant::fromValue(static_cast<void*>(m_maskData));
       plist << QVariant::fromValue(static_cast<void*>(&bitmask));
       
       param << plist;
@@ -2089,9 +2073,6 @@ VolumeOperations::parWriteToMask(QList<QVariant> plist)
   float maxGrad = plist[9].toFloat();
   int tag = plist[10].toInt();
   bool allVisible = plist[11].toBool();
-//  uchar* m_volData = static_cast<uchar*>(plist[12].value<void*>());
-//  ushort* m_volDataUS = static_cast<ushort*>(plist[13].value<void*>());
-//  uchar* m_maskData = static_cast<uchar*>(plist[14].value<void*>());
   MyBitArray *bitmask = static_cast<MyBitArray*>(plist[12].value<void*>());
 
   uchar *lut = Global::lut();
@@ -2850,9 +2831,6 @@ VolumeOperations::bakeC(int ds, int ws, int hs,
       plist << QVariant(minGrad);
       plist << QVariant(maxGrad);
       plist << QVariant(tag);
-//      plist << QVariant::fromValue(static_cast<void*>(m_volData));
-//      plist << QVariant::fromValue(static_cast<void*>(m_volDataUS));
-//      plist << QVariant::fromValue(static_cast<void*>(m_maskData));
       plist << QVariant::fromValue(static_cast<void*>(curveMask));
       
       param << plist;
@@ -2892,10 +2870,7 @@ VolumeOperations::parBakeCurves(QList<QVariant> plist)
   float minGrad = plist[8].toFloat();
   float maxGrad = plist[9].toFloat();
   int tag = plist[10].toInt();
-//  uchar* m_volData = static_cast<uchar*>(plist[11].value<void*>());
-//  ushort* m_volDataUS = static_cast<ushort*>(plist[12].value<void*>());
-//  uchar* m_maskData = static_cast<uchar*>(plist[13].value<void*>());
-  uchar* curveMask = static_cast<uchar*>(plist[12].value<void*>());
+  uchar* curveMask = static_cast<uchar*>(plist[11].value<void*>());
 
   uchar *lut = Global::lut();
 

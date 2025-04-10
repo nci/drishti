@@ -92,6 +92,8 @@ class StaticFunctions
   static float smoothstep(float);
   static float smoothstep(float, float, float);
 
+  static void smooth2DArray(float*, float*, int, int);
+  
 };
 
 #endif

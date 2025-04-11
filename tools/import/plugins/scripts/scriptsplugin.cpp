@@ -192,11 +192,11 @@ ScriptsPlugin::setMinMax(float rmin, float rmax)
   m_rawMin = rmin;
   m_rawMax = rmax;
 
-  if (m_voxelType == _UChar ||
-      m_voxelType == _Char ||
-      m_voxelType == _UShort ||
-      m_voxelType == _Short)
-    return;
+//  if (m_voxelType == _UChar ||
+//      m_voxelType == _Char ||
+//      m_voxelType == _UShort ||
+//      m_voxelType == _Short)
+//    return;
 }
 float ScriptsPlugin::rawMin() { return m_rawMin; }
 float ScriptsPlugin::rawMax() { return m_rawMax; }
@@ -212,12 +212,15 @@ ScriptsPlugin::histogram()
       for(int i=0; i<256; i++)
 	m_histogram.append(0);
     }
-  else if (m_voxelType == _UShort ||
-	   m_voxelType == _Short)
-    {
-      for(int i=0; i<65536; i++)
-	m_histogram.append(0);
-    }
+  else
+    for(int i=0; i<65536; i++)
+      m_histogram.append(0);
+//  else if (m_voxelType == _UShort ||
+//	   m_voxelType == _Short)
+//    {
+//      for(int i=0; i<65536; i++)
+//	m_histogram.append(0);
+//    }
   
   //-----------------------------------
     
@@ -339,13 +342,15 @@ ScriptsPlugin::setFile(QStringList files)
   else if (m_voxelType == _Int) m_bytesPerVoxel = 4;
   else if (m_voxelType == _Float) m_bytesPerVoxel = 4;
   
-  //QString mesg;
-  //mesg = QString("voxeltype : %1\n").arg(m_voxelType);
-  //mesg += QString("bytes per voxel : %1\n").arg(m_bytesPerVoxel);
-  //mesg += QString("header : %1\n").arg(m_headerBytes);
-  //mesg += QString("dim : %1 %2 %3\n").arg(m_depth).arg(m_width).arg(m_height);		    
-  //mesg += QString("raw min max : %1 %2\n").arg(m_rawMin).arg(m_rawMax);		      
-  //QMessageBox::information(0, "Volume Data Information", mesg);
+//  {
+//    QString mesg;
+//    mesg = QString("voxeltype : %1\n").arg(m_voxelType);
+//    mesg += QString("bytes per voxel : %1\n").arg(m_bytesPerVoxel);
+//    mesg += QString("header : %1\n").arg(m_headerBytes);
+//    mesg += QString("dim : %1 %2 %3\n").arg(m_depth).arg(m_width).arg(m_height);		    
+//    mesg += QString("raw min max : %1 %2\n").arg(m_rawMin).arg(m_rawMax);		      
+//    QMessageBox::information(0, "Volume Data Information", mesg);
+//  }
 
   //----------------------------------- 
     
@@ -382,7 +387,7 @@ ScriptsPlugin::getDepthSlice(int slc,
   m_sharedFile.open(QFile::ReadWrite);
   int len;
   m_sharedFile.read((char*)&len, 4);
-  m_sharedFile.read((char*)slice, len*m_bytesPerVoxel);
+  m_sharedFile.read((char*)slice, nbytes);
   m_sharedFile.close();
 }
 

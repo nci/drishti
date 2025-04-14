@@ -34,12 +34,21 @@ MorphSlice::clearSlices()
   m_startSlice = 0;
   m_endSlice = 0;
 
+  for(int k=0; k<m_slicesV.count(); k++)
+    {
+      delete [] m_slicesV[k];
+      delete [] m_slicesT[k];
+    }
+
+  m_slicesV.clear();
+  m_slicesT.clear();
+  
   m_nX = 0;
   m_nY = 0;
 }
 
 void
-MorphSlice::showSliceImage(uchar *slice, int nX, int nY)
+MorphSlice::showSliceImage(uchar *slice,  int nX, int nY)
 {
   if (!m_layout)
     {
@@ -195,6 +204,7 @@ MorphSlice::setPaths(QMap<int, QList<QPolygonF> > paths)
   return finalCurves;
 }
 
+
 QMap<int, QList<QPolygonF> >
 MorphSlice::mergeSlices(int nSlices)
 {
@@ -255,6 +265,209 @@ MorphSlice::mergeSlices(int nSlices)
   
   return allcurves;
 }
+
+
+
+//------------------------------------
+//------------------------------------
+void
+MorphSlice::setAllPaths(QMap<int, QList<QPolygonF> > paths)
+{
+  clearSlices();
+
+  QList<int> keys = paths.keys();
+
+  //---------------
+  for(int k=0; k<keys.count(); k++)
+  {
+    QList<QPolygonF> pf = paths.value(keys[k]);	  
+    for(int ii=0; ii<pf.count(); ii++)
+      for(int p=0; p<pf[ii].count(); p++)
+	{
+	  m_nX = qMax(m_nX, (int)qRound(pf[ii][p].x()));
+	  m_nY = qMax(m_nY, (int)qRound(pf[ii][p].y()));
+	}
+  }
+
+  // add margin for interpolation
+  m_nX += 25;
+  m_nY += 25;
+  //----------
+
+  
+  //----------
+  // Value and Tangent info
+  for(int k=0; k<keys.count(); k++)
+    {
+      m_slicesV <<  new float[m_nX*m_nY];
+      m_slicesT <<  new float[m_nX*m_nY];
+      memset(m_slicesV[k], 0, m_nX*m_nY);
+      memset(m_slicesT[k], 0, m_nX*m_nY);
+    }
+  //----------
+
+  
+  //----------
+  // fill curves into slices
+  for(int k=0; k<keys.count(); k++)
+  {
+    QImage pimg = QImage(m_nX, m_nY, QImage::Format_RGB32);
+    pimg.fill(0);
+
+    QPainter p(&pimg);
+
+    QList<QPolygonF> pf = paths.value(keys[k]);
+	  
+    for(int ii=0; ii<pf.count(); ii++)
+      {
+	p.setPen(QPen(QColor(255, 255, 255), 1));
+        p.setBrush(QColor(255, 255, 255));
+	p.drawPolygon(pf[ii]);
+      }  
+    
+    QRgb *rgb = (QRgb*)(pimg.bits());
+    for(int i=0; i<m_nX*m_nY; i++)
+      m_slicesV[k][i] = qRed(rgb[i]);
+  }
+  //----------
+
+  
+  //----------
+  // compute distance transforms
+  float *sliceOuter = new float[m_nX*m_nY];
+  float *sliceInner = new float[m_nX*m_nY];
+  m_startSlice = new uchar[m_nX*m_nY];
+  for(int k=0; k<m_slicesV.count(); k++)
+  {
+    for(int s=0; s<m_nX*m_nY; s++)
+      m_startSlice[s] = m_slicesV[k][s];
+    
+    distanceTransform(sliceInner, m_startSlice, m_nY, m_nX, false);
+    distanceTransform(sliceOuter, m_startSlice, m_nY, m_nX, true);
+
+    for(int s=0; s<m_nX*m_nY; s++)
+      m_slicesV[k][s] = sliceInner[s] - sliceOuter[s];
+  }
+  
+  delete [] sliceOuter;
+  delete [] sliceInner;
+  delete [] m_startSlice;
+  m_startSlice = 0;
+  //----------
+
+  
+  computeTangent(keys);
+}
+
+
+void
+MorphSlice::computeTangent(QList<int> keys)
+{
+  int nslices = m_slicesV.count();
+  for (int k=0; k<nslices; k++)
+    {
+      if (k == 0)
+	{
+	  for (int i=0; i<m_nX*m_nY; i++)
+	    m_slicesT[k][i] = (m_slicesV[k+1][i] - m_slicesV[k][i])/(keys[k+1]-keys[k]);
+	}
+      else if (k == nslices-1)
+	{
+	  for (int i=0; i<m_nX*m_nY; i++)
+	    m_slicesT[k][i] = (m_slicesV[k][i] - m_slicesV[k-1][i])/(keys[k]-keys[k-1]);
+	}
+      else
+	{
+	  for (int i=0; i<m_nX*m_nY; i++)
+	    m_slicesT[k][i] = (m_slicesV[k+1][i] - m_slicesV[k-1][i])/(keys[k+1]-keys[k-1]);
+	}
+    }
+}
+
+
+QMap<int, QList<QPolygonF> >
+MorphSlice::computeIntermediates(int k, int nSlices)
+{
+  QMap<int, QList<QPolygonF> > allcurves;
+  allcurves = splineInterpolateSlices(k, nSlices);
+
+  QMap<int, QList<QPolygonF> > finalCurves;
+  {
+    QList<int> keys = allcurves.keys();
+    int nperi = keys.count();
+    for(int n=0; n<nperi; n++)
+      {
+	int zv = keys[n];
+	QList<QPolygonF> poly = allcurves[zv];	
+	finalCurves.insert(zv, poly);
+      }
+  }
+
+  return finalCurves;
+}
+
+
+
+QMap<int, QList<QPolygonF> >
+MorphSlice::splineInterpolateSlices(int k, int nSlices)
+{
+  QMap<int, QList<QPolygonF> > allcurves;
+
+  uchar *slice = new uchar[m_nX*m_nY];
+
+  /////-----
+  /////-----
+  //{
+  //  uchar *imgslice = new uchar[m_nX*m_nY];
+  //  for(int i=0; i<m_nX*m_nY; i++)
+  //    imgslice[i] = qBound(0.0f, m_slicesV[k][i], 255.0f);      
+  //  showSliceImage(imgslice, m_nX, m_nY);
+  //  delete [] imgslice;
+  //}
+  /////-----
+  /////-----
+  
+  for (int i=1; i<=nSlices; i++)
+    {
+      float frc = (float)i/(float)(nSlices+1);
+      memset(slice, 0, m_nX*m_nY);
+      for(int s=0; s<m_nX*m_nY; s++)
+	{
+	  float diff = m_slicesV[k+1][s] - m_slicesV[k][s];
+
+	  // spline interpolation
+	  float v1 = 3*diff - 2*m_slicesT[k][s] - m_slicesT[k+1][s];
+	  float v2 =-2*diff +   m_slicesT[k][s] + m_slicesT[k+1][s];	  
+	  float v = m_slicesV[k][s] + frc*m_slicesT[k][s] + frc*frc*v1 + frc*frc*frc*v2;
+
+	  // linear interpolation
+	  //float v = m_slicesV[k][s] + frc*diff;
+	  //float v = (m_slicesV[k][s]*(1.0-frc) + m_slicesV[k+1][s]*frc);
+	  
+	  if (v > 0)
+	    slice[s] = 255;
+	}
+
+      QList<QPolygonF> curves = boundaryCurves(slice, m_nX, m_nY);
+      allcurves.insert(i, curves);
+
+      
+      //if (i == 10)
+      //{
+      //  QMessageBox::information(0, "", QString("%1").arg(curves.count()));
+      //  uchar *imgslice = new uchar[m_nX*m_nY];
+      //  for(int s=0; s<m_nX*m_nY; s++)
+      //    imgslice[s] = qBound(0, (int)slice[s], 255);      
+      //  showSliceImage(imgslice, m_nX, m_nY);
+      //  delete [] imgslice;
+      //}
+    }
+
+  delete [] slice;
+
+  return allcurves;
+}
+
 
 QList<QPolygonF>
 MorphSlice::boundaryCurves(uchar *slice, int nX, int nY, bool shrinkwrap)

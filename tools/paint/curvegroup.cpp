@@ -975,7 +975,7 @@ void CurveGroup::addShrinkwrapBlock(QMultiMap<int, Curve*> mb) { m_swcg << mb; }
 void
 CurveGroup::morphCurves(int minS, int maxS)
 {
-  clearMorphedCurves();
+  //clearMorphedCurves();
 
   QMap<int, Curve> cg;
   QList<int> cgkeys = m_cg.uniqueKeys();
@@ -1058,9 +1058,114 @@ CurveGroup::morphCurves(int minS, int maxS)
   m_pointsDirtyBit = true;
 }
 
+//void
+//CurveGroup::morphSlices(int minS, int maxS)
+//{
+//  //clearMorphedCurves();
+//
+//  QMultiMap<int, Curve> cg;
+//  QList<int> cgkeys = m_cg.uniqueKeys();
+//  for(int i=0; i<cgkeys.count(); i++)
+//    {
+//      if (cgkeys[i] >= minS &&
+//	  cgkeys[i] <= maxS)
+//	{
+//	  QList<Curve*> curves = m_cg.values(cgkeys[i]);
+//	  for(int j=0; j<curves.count(); j++)
+//	    {
+//	      //if (curves[j]->selected)
+//		cg.insert(cgkeys[i], *curves[j]);
+//	    }
+//	}
+//    }
+//  if (cg.count() <= 1)
+//    {
+//      QMessageBox::information(0, "", "Atleast two curves required.  Not enough curves selected to interpolate");
+//      return;
+//    }
+//
+//  QList<int> keys = cg.uniqueKeys();
+//  for (int ncg=0; ncg<keys.count()-1; ncg++)
+//    {
+//      int zmin = keys[ncg];
+//
+//      QMap<int, QList<QPolygonF> > gmcg;
+//
+//      bool is_closed;
+//      int thick0, thick1, mtag;
+//
+//      {
+//	QList<QPolygonF> pf;
+//	QList<Curve> curves = cg.values(keys[ncg]);
+//	is_closed = curves[0].closed;
+//	thick0 = curves[0].thickness;
+//	mtag = curves[0].tag;
+//	for(int j=0; j<curves.count(); j++)
+//	  pf << QPolygonF(curves[j].pts);
+//	gmcg.insert(keys[ncg], pf);
+//      }
+//      {
+//	QList<QPolygonF> pf;
+//	QList<Curve> curves = cg.values(keys[ncg+1]);
+//	thick1 = curves[0].thickness;	
+//	for(int j=0; j<curves.count(); j++)
+//	  pf << QPolygonF(curves[j].pts);
+//	gmcg.insert(keys[ncg+1], pf);
+//      }
+//      
+//      MorphSlice mc;
+//      QMap< int, QList<QPolygonF> > allcurves = mc.setPaths(gmcg);
+//
+//      QList<int> keys = allcurves.keys();
+//      int nperi = keys.count();
+//      
+//      for(int npc=0; npc<10; npc++)
+//	{
+//	  bool over = true;
+//	  QMap<int, Curve> morphedCurves;
+//	  for(int i=0; i<nperi; i++)
+//	    {
+//	      int zv = keys[i];
+//	      QList<QPolygonF> poly = allcurves[zv];
+//	      
+//	      if (poly.count() > npc)
+//		{
+//		  QVector<QPointF> a;	  
+//		  for (int j=0; j<poly[npc].count(); j++)
+//		    {
+//		      QPointF p = poly[npc][j];
+//		      a << QPointF(p.x(),p.y());
+//		    }
+//		  a = smooth(a, is_closed);
+//		  
+//		  Curve c;
+//		  c.tag = mtag;
+//		  c.pts = a;
+//		  c.closed = is_closed;
+//		  c.thickness = thick0 + (thick1-thick0)*((float)i/(float)(nperi-1));
+//		  
+//		  morphedCurves.insert(zmin+zv, c);
+//
+//		  over = false;
+//		}
+//	    }
+//
+//	  if (!over)
+//	    m_mcg << morphedCurves;
+//	  else
+//	    break;
+//	}
+//    }
+//  
+//  QMessageBox::information(0, "", "morphed intermediate slices");
+//}
+
+
 void
 CurveGroup::morphSlices(int minS, int maxS)
 {
+  //clearMorphedCurves();
+
   QMultiMap<int, Curve> cg;
   QList<int> cgkeys = m_cg.uniqueKeys();
   for(int i=0; i<cgkeys.count(); i++)
@@ -1082,50 +1187,53 @@ CurveGroup::morphSlices(int minS, int maxS)
       return;
     }
 
-  QList<int> keys = cg.uniqueKeys();
-  for (int ncg=0; ncg<keys.count()-1; ncg++)
+  QMap<int, QList<QPolygonF> > gmcg;
+
+  // --- collect all curves on slices --
+  for (int k=0; k<cgkeys.count(); k++)
     {
-      int zmin = keys[ncg];
-
-      QMap<int, QList<QPolygonF> > gmcg;
-
-      bool is_closed;
-      int thick0, thick1, mtag;
-
+      int z = cgkeys[k];
       {
 	QList<QPolygonF> pf;
-	QList<Curve> curves = cg.values(keys[ncg]);
-	is_closed = curves[0].closed;
-	thick0 = curves[0].thickness;
-	mtag = curves[0].tag;
+	QList<Curve> curves = cg.values(z);
 	for(int j=0; j<curves.count(); j++)
 	  pf << QPolygonF(curves[j].pts);
-	gmcg.insert(keys[ncg], pf);
+	gmcg.insert(z, pf);
       }
-      {
-	QList<QPolygonF> pf;
-	QList<Curve> curves = cg.values(keys[ncg+1]);
-	thick1 = curves[0].thickness;	
-	for(int j=0; j<curves.count(); j++)
-	  pf << QPolygonF(curves[j].pts);
-	gmcg.insert(keys[ncg+1], pf);
-      }
-      
-      MorphSlice mc;
-      QMap< int, QList<QPolygonF> > allcurves = mc.setPaths(gmcg);
+    }
+  //------------------------
 
-      QList<int> keys = allcurves.keys();
-      int nperi = keys.count();
-      
+  
+  //------------------------
+  // -- convert curves into distance maps on slices
+  MorphSlice mc;
+  mc.setAllPaths(gmcg);
+  //------------------------
+
+  //------------------------
+  // interpolate the distance maps
+  for (int k=0; k<cgkeys.count()-1; k++)
+    {
+      int zmin = cgkeys[k];
+      int nSlices = cgkeys[k+1]-zmin-1;
+      QMap< int, QList<QPolygonF> > allcurves = mc.computeIntermediates(k, nSlices);
+	
+      QList<int> ackeys = allcurves.keys();
+      int nperi = ackeys.count();
+
+      QList<Curve> curves = cg.values(zmin);
+      int thick = curves[0].thickness;
+      int mtag = curves[0].tag;
+
+      // I don't expect more than 10 curves within a slice
       for(int npc=0; npc<10; npc++)
 	{
 	  bool over = true;
 	  QMap<int, Curve> morphedCurves;
 	  for(int i=0; i<nperi; i++)
 	    {
-	      int zv = keys[i];
+	      int zv = ackeys[i];
 	      QList<QPolygonF> poly = allcurves[zv];
-	      
 	      if (poly.count() > npc)
 		{
 		  QVector<QPointF> a;	  
@@ -1134,26 +1242,25 @@ CurveGroup::morphSlices(int minS, int maxS)
 		      QPointF p = poly[npc][j];
 		      a << QPointF(p.x(),p.y());
 		    }
-		  a = smooth(a, is_closed);
+		  a = smooth(a, true);
 		  
 		  Curve c;
 		  c.tag = mtag;
 		  c.pts = a;
-		  c.closed = is_closed;
-		  c.thickness = thick0 + (thick1-thick0)*((float)i/(float)(nperi-1));
+		  c.closed = true;
+		  c.thickness = thick;
 		  
 		  morphedCurves.insert(zmin+zv, c);
-
 		  over = false;
 		}
 	    }
-
 	  if (!over)
 	    m_mcg << morphedCurves;
 	  else
 	    break;
 	}
     }
+  //------------------------
   
   QMessageBox::information(0, "", "morphed intermediate slices");
 }

@@ -1195,7 +1195,8 @@ DrishtiPaint::on_saveWork_triggered()
       m_sagitalCurves->saveCurves(curvesfile);
       m_coronalCurves->saveCurves(curvesfile);
       
-      m_volume->saveIntermediateResults(true);
+      //m_volume->saveIntermediateResults(true);
+      m_volume->exiting();
 
       QMessageBox::information(0, "Save Work", "Saved");
     }
@@ -6088,6 +6089,69 @@ DrishtiPaint::connectedRegion(int dr, int wr, int hr,
 		       minW, maxW,
 		       minH, maxH);
 }
+
+void
+DrishtiPaint::smoothConnectedRegion(int dr, int wr, int hr,
+				    Vec bmin, Vec bmax,
+				    int ctag, int filterWidth)
+{
+  int minD,maxD, minW,maxW, minH,maxH;
+  
+  QList<Vec> cPos =  m_viewer->clipPos();
+  QList<Vec> cNorm = m_viewer->clipNorm();
+
+  float minGrad = m_viewer->minGrad();
+  float maxGrad = m_viewer->maxGrad();
+  int gradType = m_viewer->gradType();
+  
+  VolumeOperations::setClip(cPos, cNorm);
+  VolumeOperations::smoothConnectedRegion(dr, wr, hr,
+					  bmin, bmax,
+					  ctag,
+					  minD, maxD,
+					  minW, maxW,
+					  minH, maxH,
+					  gradType, minGrad, maxGrad,
+					  filterWidth);
+
+  if (minD < 0)
+    return;
+
+  updateModifiedRegion(minD, maxD,
+		       minW, maxW,
+		       minH, maxH);
+}
+
+void
+DrishtiPaint::smoothAllRegion(Vec bmin, Vec bmax,
+			      int tag, int filterWidth)
+{
+  int minD,maxD, minW,maxW, minH,maxH;
+  
+  QList<Vec> cPos =  m_viewer->clipPos();
+  QList<Vec> cNorm = m_viewer->clipNorm();
+
+  float minGrad = m_viewer->minGrad();
+  float maxGrad = m_viewer->maxGrad();
+  int gradType = m_viewer->gradType();
+  
+  VolumeOperations::setClip(cPos, cNorm);
+  VolumeOperations::smoothAllRegion(bmin, bmax,
+				    tag,
+				    minD, maxD,
+				    minW, maxW,
+				    minH, maxH,
+				    gradType, minGrad, maxGrad,
+				    filterWidth);
+
+  if (minD < 0)
+    return;
+
+  updateModifiedRegion(minD, maxD,
+		       minW, maxW,
+		       minH, maxH);
+}
+
 
 void
 DrishtiPaint::setVisible(Vec bmin, Vec bmax, int tag, bool visible)

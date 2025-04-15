@@ -36,6 +36,8 @@ class VolumeFileManager : public QObject
   QString fileName();
   bool exists();
 
+  void exiting();
+  
   QString exportMask();
   void checkPoint();
   bool loadCheckPoint();

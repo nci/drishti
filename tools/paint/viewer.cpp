@@ -807,6 +807,16 @@ Viewer::keyPressEvent(QKeyEvent *event)
       return;
     }
 
+  if (event->key() == Qt::Key_S)
+    {  
+      if (event->modifiers() & Qt::ControlModifier)
+	smoothRegion(false);
+      else
+	smoothRegion(true);
+      update();
+      return;
+    }
+
   if (event->key() == Qt::Key_H)
     {  
       hatch();
@@ -2852,6 +2862,57 @@ Viewer::hatch()
 			    bmin, bmax,
 			    Global::tag(), ctag,
 			    thickness, interval);
+}
+
+void
+Viewer::smoothRegion(bool flag)
+{
+  int d, w, h;
+  if (flag)
+    {
+      bool gothit = getCoordUnderPointer(d, w, h);
+      if (!gothit) return;
+    }
+
+
+  Vec bmin, bmax;
+  m_boundingBox.bounds(bmin, bmax);
+
+  Vec voxelScaling = Global::relativeVoxelScaling();
+  bmin = VECDIVIDE(bmin, voxelScaling);
+  bmax = VECDIVIDE(bmax, voxelScaling);
+
+  QString mesg;
+  if (flag) // only connected part
+    mesg = "Connected region with specified tag value will be smoothed.\nSpecify tag value of connected region (-1 for connected visible region).";
+  else // all region with specified tag
+    mesg = "All visible region with specified tag value will be smoothed.\nSpecify tag value.";
+    
+
+  bool ok;
+  int tag = -1;
+  tag = QInputDialog::getInt(0,
+			     "Smooth Region",
+			     mesg,
+			     -1, -1, 255, 1,
+			     &ok);
+  if (!ok)
+    return;
+
+  int filterWidth = 1;
+  filterWidth = QInputDialog::getInt(0,
+				     "Gaussian Filter Width",
+				     "filter width",
+				     1, 1, 5, 1,
+				     &ok);
+  if (!ok)
+    return;
+
+
+  if (flag) // only connected part
+    emit smoothConnectedRegion(d, w, h, bmin, bmax, tag, filterWidth);
+  else // all regions with specified tag
+    emit smoothAllRegion(bmin, bmax, tag, filterWidth);
 }
 
 void

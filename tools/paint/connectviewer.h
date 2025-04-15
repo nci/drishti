@@ -23,6 +23,12 @@
   connect(m_viewer, SIGNAL(connectedRegion(int,int,int,Vec,Vec,int,int)),
 	  this, SLOT(connectedRegion(int,int,int,Vec,Vec,int,int)));
 
+connect(m_viewer, SIGNAL(smoothConnectedRegion(int,int,int,Vec,Vec,int,int)),
+	  this, SLOT(smoothConnectedRegion(int,int,int,Vec,Vec,int,int)));
+
+connect(m_viewer, SIGNAL(smoothAllRegion(Vec,Vec,int,int)),
+	this, SLOT(smoothAllRegion(Vec,Vec,int,int)));
+
   connect(m_viewer, SIGNAL(mergeTags(Vec, Vec, int, int, bool)),
 	  this, SLOT(mergeTags(Vec, Vec, int, int, bool)));
 

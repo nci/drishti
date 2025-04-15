@@ -167,34 +167,61 @@ Bring up command input dialog.
 #end
 
 #begin
-o
-Set camera to orthographic mode.
+a
+Toggle visibility of axes.
 #end
 
-#begin
-p
-Set camera to perspective mode.
-#end
-
-#begin
-c
-Add a clip plane.
-#end
-
-#begin
-v
-Toggle visibility of clip planes.
-#end
 
 #begin
 b
 Toggle visibility of bounding box.
 #end
 
+
 #begin
-a
-Toggle visibility of axes.
+o
+Set camera to orthographic mode.
 #end
+
+
+#begin
+p
+Set camera to perspective mode.
+#end
+
+
+#begin
+c
+Add a clip plane.
+#end
+
+
+#begin
+s
+Smooth connected region.
+
+Move the mouse over to the region you want to smooth before pressing "s".
+Region that is connected to the voxel under the mouse cursor and that has specified tag value will be smoothed.
+
+Clipping planes are obeyed - clipped region is not taken into account.
+#end
+
+
+#begin
+Ctrl+s
+Smooth all region with specified tag value.
+
+This will smooth all visible region that has specified tag value.
+
+Clipping planes are obeyed - clipped region is not taken into account.
+#end
+
+
+#begin
+v
+Toggle visibility of clip planes.
+#end
+
 
 #begin
 f
@@ -205,6 +232,7 @@ Region that is connected to the voxel under the mouse cursor and that has either
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end
+
 
 #begin
 Shift+f
@@ -221,6 +249,7 @@ If you have chosen to create shell surrounding the connected region, a dialog bo
 Clipping planes are obeyed - clipped region is not taken into account.
 #end
 
+
 #begin
 h
 Hatch (generate cross bars, useful for 3d printing) the connected region with current tag value.
@@ -233,34 +262,59 @@ You will be asked for interval and thickness values.  Both the values are in ter
 Clipping planes are obeyed - clipped region is not taken into account.
 #end
 
+
 #begin
 d
 Dilate the current tag by "Dilate/Erode" parameter value into connected untagged (i.e. 0 tag) region.
 
-Move the mouse over to the region you want to dilate before pressing "d".
+Move the mouse over to the region you want to dilate before pressing "d".  Only the connected region under the mouse cursor will be dilated.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end
+
 
 #begin
 Shift+d
 Dilate the current tag by "Dilate/Erode" parameter value into all connected visible region (even if it has non-zero tag).
 
-Move the mouse over to the region you want to dilate before pressing "Shift+d".
+Move the mouse over to the region you want to dilate before pressing "Shift+d".  Only the connected region under the mouse cursor will be dilated.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end
 
+
+#begin
+Ctrl+d
+Dilate the current tag by "Dilate/Erode" parameter value into all connected visible region (even if it has non-zero tag).
+
+This will dilate all the voxels that have the specified tag.
+
+Clipping planes are obeyed - clipped region is not taken into account.
+#end
+
+
 #begin
 e
-Erode the current tag by "Extent" parameter value.
-Move the mouse over to the region you want to erode before pressing "e".
+Erode the current tag by "Dilate/Erode" parameter value.
+Move the mouse over to the region you want to erode before pressing "e".  Only the connected region under the mouse cursor will be eroded.
 #end
+
+
+#begin
+Ctrl+e
+Erode the current tag by "Dilate/Erode" parameter value.
+
+This will erode all the voxels that have the specified tag.
+
+Clipping planes are obeyed - clipped region is not taken into account.
+#end
+
 
 #begin
 t
 When in Sketch Pad Mode - tag with current tag value all visible region under by the curve drawn in sketch pad.
 #end
+
 
 #begin
 m

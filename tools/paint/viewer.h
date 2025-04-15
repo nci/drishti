@@ -175,6 +175,11 @@ class Viewer : public QGLViewer
     void connectedRegion(int, int, int,
 			 Vec, Vec,
 			 int, int);
+    void smoothConnectedRegion(int, int, int,
+			       Vec, Vec,
+			       int, int);
+  void smoothAllRegion(Vec, Vec,
+		       int, int);
     void hatchConnectedRegion(int, int, int,
 			      Vec, Vec,
 			      int, int,
@@ -342,6 +347,7 @@ class Viewer : public QGLViewer
   void setTextureMemorySize();
 
   void hatch();
+  void smoothRegion(bool);
   void regionGrowing(bool);
   void regionDilation(bool);
   void regionErosion();

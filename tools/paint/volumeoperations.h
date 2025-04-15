@@ -35,6 +35,23 @@ class VolumeOperations
 			      int&, int&,
 			      int, float, float);
 
+  static void smoothConnectedRegion(int, int, int,
+				    Vec, Vec,
+				    int,
+				    int&, int&,
+				    int&, int&,
+				    int&, int&,
+				    int, float, float,
+				    int);
+
+  static void smoothAllRegion(Vec, Vec,
+			      int,
+			      int&, int&,
+			      int&, int&,
+			      int&, int&,
+			      int, float, float,
+			      int);
+  
   static void resetTag(Vec, Vec, int,
 		       int&, int&,
 		       int&, int&,
@@ -192,6 +209,12 @@ class VolumeOperations
 			  bool,
 			  MyBitArray&);
   static void parWriteToMask(QList<QVariant>);
+
+  
+  static void convertToVDBandSmooth(int, int, int,
+				    int, int, int,
+				    MyBitArray&,
+				    int);
   
 };
 

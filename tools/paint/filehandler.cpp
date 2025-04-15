@@ -70,7 +70,7 @@ FileHandler::loadMemFile(QString flnm)
   int mb100, nblocks;
   char chkver[10];
   memset(chkver, 0, 10);
-
+  
   m_qfile.setFileName(flnm);
   m_qfile.open(QFile::ReadOnly);
   m_qfile.read((char*)chkver, 6);
@@ -96,11 +96,18 @@ FileHandler::loadMemFile(QString flnm)
     {
       int vbsize;
       m_qfile.read((char*)&vbsize, 4);
+      if (vbsize < 0)
+	{
+	  QMessageBox::information(0, "", "Error in reading : .mask.sc file corrupted");
+	  m_qfile.close();
+	  return;
+	}
+
       m_qfile.read((char*)vBuf, vbsize);
       int bufsize = blosc_decompress(vBuf, m_volData+i*mb100, mb100);
       if (bufsize < 0)
 	{
-	  QMessageBox::information(0, "", "Error in decompression : .mask.sc file not read");
+	  QMessageBox::information(0, "", "Error in decompression : .mask.sc file corrupted");
 	  m_qfile.close();
 	  return;
 	}
@@ -180,6 +187,7 @@ FileHandler::saveMemFile()
   // file size will change based on compression achieved
   m_qfile.resize(m_qfile.pos());
 
+  m_qfile.flush();
   m_qfile.close();  
   // -----
 

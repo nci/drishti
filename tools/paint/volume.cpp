@@ -10,6 +10,12 @@ Volume::checkFileSave()
 }
 
 void
+Volume::exiting()
+{
+  m_mask.exiting();
+}
+
+void
 Volume::saveIntermediateResults(bool forceSave)
 {
   m_mask.saveIntermediateResults(forceSave);
@@ -186,7 +192,7 @@ Volume::setFile(QString volfile)
   memSize/=1024;
   memSize/=1024;
   memSize/=1024;
-//  QMessageBox::information(0, "", QString("Physical Memory : %1 GB").arg(memSize));
+  //QMessageBox::information(0, "", QString("Physical Memory : %1 GB").arg(memSize));
   float inmemGB = 0.3+((float)m_depth*(float)m_width*(float)m_height*bpv*2.5)/((float)1024*1024*1024);
   bool inMem = true;
   if (inmemGB > memSize) // ask when memory requirements greater than physical memory detected
@@ -210,7 +216,7 @@ Volume::setFile(QString volfile)
 
 
   m_pvlFileManager.loadMemFile();
-
+  
   QString mfile = m_fileName;
   mfile.chop(6);
   mfile += QString("mask");

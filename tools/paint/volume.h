@@ -14,6 +14,7 @@ class Volume : public QObject
 
   bool isValid();
   void reset();
+  void exiting();
 
   void undo() { m_mask.undo(); }
 

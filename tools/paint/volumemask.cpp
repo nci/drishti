@@ -81,6 +81,12 @@ VolumeMask::checkFileSave()
 }
 
 void
+VolumeMask::exiting()
+{
+  m_maskFileManager.exiting();
+}
+
+void
 VolumeMask::saveIntermediateResults(bool forceSave)
 {
   if (forceSave)

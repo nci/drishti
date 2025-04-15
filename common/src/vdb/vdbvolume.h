@@ -37,7 +37,7 @@ class VdbVolume
   void save(QString);
 
   openvdb::FloatGrid::Accessor getAccessor() { return m_vdbGrid->getAccessor(); }
-
+  openvdb::FloatGrid::Ptr getGrid() { return m_vdbGrid; }
   
   uint64_t activeVoxels();
   

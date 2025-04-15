@@ -184,6 +184,11 @@ class DrishtiPaint : public QMainWindow
   void connectedRegion(int, int, int,
 		       Vec, Vec,
 		       int, int);
+  void smoothConnectedRegion(int, int, int,
+			     Vec, Vec,
+			     int, int);
+  void smoothAllRegion(Vec, Vec,
+		       int, int);
   void hatchConnectedRegion(int, int, int,
 			    Vec, Vec,
 			    int, int,

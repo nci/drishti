@@ -1151,6 +1151,13 @@ VolumeFileManager::saveSlicesToFile()
 }
 
 void
+VolumeFileManager::exiting()
+{
+  // called from volumemask
+  m_handler->saveMemFile();  
+}
+
+void
 VolumeFileManager::saveMemFile()
 {
   if (!m_memChanged)
@@ -1379,6 +1386,7 @@ VolumeFileManager::createMemFile()
 
   qint64 vsize = m_width*m_height*m_bytesPerVoxel;
   vsize *= m_depth;
+
   m_volData = new uchar[vsize];
   memset(m_volData, 0, vsize);
 

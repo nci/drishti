@@ -1642,72 +1642,102 @@ VolumeOperations::setVisible(Vec bmin, Vec bmax,
   int we = bmax.y;
   int he = bmax.x;
 
-  QProgressDialog progress("Updating voxel structure",
-			   QString(),
-			   0, 100,
-			   0,
-			   Qt::WindowStaysOnTopHint);
-  progress.setMinimumDuration(0);
+  qint64 mx = he-hs+1;
+  qint64 my = we-ws+1;
+  qint64 mz = de-ds+1;
 
-  minD = maxD = -1;
-  minW = maxW = -1;
-  minH = maxH = -1;
-
-  uchar *lut = Global::lut();
+  MyBitArray bitmask;
+  bitmask.resize(mx*my*mz);
+  bitmask.fill(false);
+  getVisibleRegion(ds, ws, hs,
+		   de, we, he,
+		   -1, false,
+		   gradType, minGrad, maxGrad,
+		   bitmask);
 
   for(qint64 d=ds; d<=de; d++)
-    {
-      progress.setValue(90*(d-ds)/((de-ds+1)));
-      if (d%10 == 0)
-	qApp->processEvents();
-      for(qint64 w=ws; w<=we; w++)
-	for(qint64 h=hs; h<=he; h++)
-	  {
-	    bool clipped = checkClipped(Vec(h, w, d));
-	    
-	    if (!clipped)
-	      {
-		qint64 idx = d*m_width*m_height + w*m_height + h;
-		int val = m_volData[idx];
-		if (m_volDataUS) val = m_volDataUS[idx];
-		uchar mtag = m_maskData[idx];
-		bool alpha =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);
+    for(qint64 w=ws; w<=we; w++)
+      for(qint64 h=hs; h<=he; h++)
+	{
+	  qint64 idx = d*m_width*m_height + w*m_height + h;
+	  if (bitmask.testBit(idx) == visible && m_maskData[idx] != tag)
+	    m_maskData[idx] = tag;
+	}
+  minD = ds;
+  maxD = de;
+  minW = ws;
+  maxW = we;
+  minH = hs;
+  maxH = he;
 
-		//-------
-		if (alpha &&
-		    (minGrad > 0.0 || maxGrad < 1.0))
-		{		  
-		  float gradMag = VolumeOperations::calcGrad(gradType, d, w, h,
-							     m_depth, m_width, m_height,
-							     m_volData, m_volDataUS);
-	
-		  if (gradMag < minGrad || gradMag > maxGrad)
-		    alpha = false;
-		}
-		//-------
-
-		if (alpha == visible && m_maskData[idx] != tag)
-		  {
-		    m_maskData[idx] = tag;
-		    if (minD > -1)
-		      {
-			minD = qMin(minD, (int)d);
-			maxD = qMax(maxD, (int)d);
-			minW = qMin(minW, (int)w);
-			maxW = qMax(maxW, (int)w);
-			minH = qMin(minH, (int)h);
-			maxH = qMax(maxH, (int)h);
-		      }
-		    else
-		      {
-			minD = maxD = d;
-			minW = maxW = w;
-			minH = maxH = h;
-		      }
-		  }
-	      } // clipped
-	  }
-    }
+  
+  
+//  QProgressDialog progress("Updating voxel structure",
+//			   QString(),
+//			   0, 100,
+//			   0,
+//			   Qt::WindowStaysOnTopHint);
+//  progress.setMinimumDuration(0);
+//
+//  minD = maxD = -1;
+//  minW = maxW = -1;
+//  minH = maxH = -1;
+//
+//  uchar *lut = Global::lut();
+//
+//  for(qint64 d=ds; d<=de; d++)
+//    {
+//      progress.setValue(90*(d-ds)/((de-ds+1)));
+//      if (d%10 == 0)
+//	qApp->processEvents();
+//      for(qint64 w=ws; w<=we; w++)
+//	for(qint64 h=hs; h<=he; h++)
+//	  {
+//	    bool clipped = checkClipped(Vec(h, w, d));
+//	    
+//	    if (!clipped)
+//	      {
+//		qint64 idx = d*m_width*m_height + w*m_height + h;
+//		int val = m_volData[idx];
+//		if (m_volDataUS) val = m_volDataUS[idx];
+//		uchar mtag = m_maskData[idx];
+//		bool alpha =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);
+//
+//		//-------
+//		if (alpha &&
+//		    (minGrad > 0.0 || maxGrad < 1.0))
+//		{		  
+//		  float gradMag = VolumeOperations::calcGrad(gradType, d, w, h,
+//							     m_depth, m_width, m_height,
+//							     m_volData, m_volDataUS);
+//	
+//		  if (gradMag < minGrad || gradMag > maxGrad)
+//		    alpha = false;
+//		}
+//		//-------
+//
+//		if (alpha == visible && m_maskData[idx] != tag)
+//		  {
+//		    m_maskData[idx] = tag;
+//		    if (minD > -1)
+//		      {
+//			minD = qMin(minD, (int)d);
+//			maxD = qMax(maxD, (int)d);
+//			minW = qMin(minW, (int)w);
+//			maxW = qMax(maxW, (int)w);
+//			minH = qMin(minH, (int)h);
+//			maxH = qMax(maxH, (int)h);
+//		      }
+//		    else
+//		      {
+//			minD = maxD = d;
+//			minW = maxW = w;
+//			minH = maxH = h;
+//		      }
+//		  }
+//	      } // clipped
+//	  }
+//    }
 }
 
 void
@@ -2927,4 +2957,183 @@ VolumeOperations::bakeCurves(uchar *curveMask,
 	tag,
 	gradType, minGrad, maxGrad,
 	curveMask);  
+}
+
+
+void
+VolumeOperations::smoothConnectedRegion(int dr, int wr, int hr,
+					Vec bmin, Vec bmax,
+					int ctag,
+					int& minD, int& maxD,
+					int& minW, int& maxW,
+					int& minH, int& maxH,
+					int gradType, float minGrad, float maxGrad,
+					int filterWidth)
+{
+  minD = maxD = minW = maxW = minH = maxH = -1;
+
+  if (dr < 0 || wr < 0 || hr < 0 ||
+      dr > m_depth-1 ||
+      wr > m_width-1 ||
+      hr > m_height-1)
+    {
+      QMessageBox::information(0, "", "No painted region found");
+      return;
+    }
+
+  int ds = bmin.z;
+  int ws = bmin.y;
+  int hs = bmin.x;
+
+  int de = bmax.z;
+  int we = bmax.y;
+  int he = bmax.x;
+
+  qint64 mx = he-hs+1;
+  qint64 my = we-ws+1;
+  qint64 mz = de-ds+1;
+
+  MyBitArray bitmask;
+  bitmask.resize(mx*my*mz);
+  bitmask.fill(false);
+
+  getConnectedRegion(dr, wr, hr,
+		     ds, ws, hs,
+		     de, we, he,
+		     ctag, true,
+		     bitmask,
+		     gradType, minGrad, maxGrad);
+
+  
+  
+  convertToVDBandSmooth(ds, ws, hs,
+			de, we, he,
+			bitmask,
+			filterWidth);
+  
+  minD = ds;
+  minW = ws;
+  minH = hs;
+  maxD = de;
+  maxW = we;
+  maxH = he;
+}
+
+void
+VolumeOperations::smoothAllRegion(Vec bmin, Vec bmax,
+				  int tag,
+				  int& minD, int& maxD,
+				  int& minW, int& maxW,
+				  int& minH, int& maxH,
+				  int gradType, float minGrad, float maxGrad,
+				  int filterWidth)
+{
+  minD = maxD = minW = maxW = minH = maxH = -1;
+
+  int ds = bmin.z;
+  int ws = bmin.y;
+  int hs = bmin.x;
+
+  int de = bmax.z;
+  int we = bmax.y;
+  int he = bmax.x;
+
+  qint64 mx = he-hs+1;
+  qint64 my = we-ws+1;
+  qint64 mz = de-ds+1;
+
+  MyBitArray bitmask;
+  bitmask.resize(mx*my*mz);
+  bitmask.fill(false);
+
+
+  getVisibleRegion(ds, ws, hs,
+		   de, we, he,
+		   tag, false,
+		   gradType, minGrad, maxGrad,
+		   bitmask);
+
+  
+  convertToVDBandSmooth(ds, ws, hs,
+			de, we, he,
+			bitmask,
+			filterWidth);
+
+  minD = ds;
+  minW = ws;
+  minH = hs;
+  maxD = de;
+  maxW = we;
+  maxH = he;
+}
+
+void
+VolumeOperations::convertToVDBandSmooth(int ds, int ws, int hs,
+					int de, int we, int he,
+					MyBitArray &bitmask,
+					int filterWidth)
+{
+  qint64 mx = he-hs+1;
+  qint64 my = we-ws+1;
+  qint64 mz = de-ds+1;
+
+  QProgressDialog progress("Updating voxel structure",
+			   QString(),
+			   0, 100,
+			   0,
+			   Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);  
+  qApp->processEvents();
+
+  VdbVolume vdb;
+
+  openvdb::FloatGrid::Accessor accessor = vdb.getAccessor();
+  openvdb::Coord ijk;
+  int &d = ijk[0];
+  int &w = ijk[1];
+  int &h = ijk[2];
+  for(d=ds; d<=de; d++)
+    for(w=ws; w<=we; w++)
+      for(h=hs; h<=he; h++)
+	{
+	  qint64 bidx = ((qint64)(d-ds))*mx*my+(w-ws)*mx+(h-hs);
+	  if (bitmask.testBit(bidx))
+	    accessor.setValue(ijk, 255);
+	}
+
+  progress.setLabelText("Smoothing - converting to levelset");
+  progress.setValue(10);
+  qApp->processEvents();
+  vdb.convertToLevelSet(1, 0);
+  progress.setLabelText("Smooth - gaussian");
+  progress.setValue(25);
+  qApp->processEvents();
+  vdb.gaussian(filterWidth, 1); // gaussian filter
+  progress.setValue(50);
+  qApp->processEvents();
+
+  {
+    openvdb::FloatGrid::Accessor accessor = vdb.getAccessor();
+    openvdb::Coord ijk;
+    int &d = ijk[0];
+    int &w = ijk[1];
+    int &h = ijk[2];
+    for(d=ds; d<=de; d++)
+      for(w=ws; w<=we; w++)
+	for(h=hs; h<=he; h++)
+	  {
+	    if (accessor.getValue(ijk) > 0)
+	      {
+		qint64 bidx = ((qint64)(d-ds))*mx*my+(w-ws)*mx+(h-hs);
+		if (bitmask.testBit(bidx))
+		  {
+		    qint64 idx = d*m_width*m_height + w*m_height + h;
+		    m_maskData[idx] = 0;
+		  }
+	      }
+	  }
+  }
+
+  progress.setValue(100);
+  qApp->processEvents();
 }

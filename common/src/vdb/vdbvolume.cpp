@@ -76,7 +76,14 @@ VdbVolume::mean(int width, int iterations)
 void
 VdbVolume::gaussian(int width, int iterations)
 {
-  //openvdb::tools::Filter<openvdb::FloatGrid> filter(*m_vdbGrid);
+  openvdb::tools::Filter<openvdb::FloatGrid> filter(*m_vdbGrid);
+  filter.gaussian(width, iterations);
+}
+
+
+void
+VdbVolume::gaussian(int width)
+{
   openvdb::tools::LevelSetFilter<openvdb::FloatGrid> filter(*m_vdbGrid);
   filter.gaussian(width);
 }

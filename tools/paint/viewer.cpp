@@ -274,6 +274,8 @@ Viewer::GlewInit()
 
   // turn off autospin
   camera()->frame()->setSpinningSensitivity(100.0);
+
+  //QMessageBox::information(0, "", QString("%1").arg((char*)glGetString(GL_VERSION)));
 }
 
 void
@@ -809,10 +811,7 @@ Viewer::keyPressEvent(QKeyEvent *event)
 
   if (event->key() == Qt::Key_S)
     {  
-      if (event->modifiers() & Qt::ControlModifier)
-	smoothRegion(false);
-      else
-	smoothRegion(true);
+      smoothRegion(true, -1, -1);
       update();
       return;
     }
@@ -826,9 +825,7 @@ Viewer::keyPressEvent(QKeyEvent *event)
 
   if (event->key() == Qt::Key_D)
     {  
-      if (event->modifiers() & Qt::ControlModifier)
-	regionDilationAll(true);
-      else if (event->modifiers() & Qt::ShiftModifier)
+      if (event->modifiers() & Qt::ShiftModifier)
 	regionDilation(true);
       else
 	regionDilation(false);
@@ -838,10 +835,7 @@ Viewer::keyPressEvent(QKeyEvent *event)
 
   if (event->key() == Qt::Key_E)
     {  
-      if (event->modifiers() & Qt::ControlModifier)
-	regionErosionAll();
-      else
-	regionErosion();
+      regionErosion();
       update();
       return;
     }
@@ -1044,6 +1038,67 @@ Viewer::processCommand(QString cmd)
   bmin = VECDIVIDE(bmin, voxelScaling);
   bmax = VECDIVIDE(bmax, voxelScaling);
 
+  if (list[0].contains("smooth"))
+    {
+      int tag = -1;
+      int filterWidth = -1;
+      if (list.size() == 3)
+	{
+	  tag = list[1].toInt(&ok);
+	  filterWidth = list[2].toInt(&ok);
+	  if (tag > 0 && filterWidth > 0)
+	    {
+	      smoothRegion(false, tag, filterWidth);
+	      return;
+	    }
+	}
+
+      QMessageBox::information(0, "Smooth", "Expecting - smooth <tag> <filterWidth>");
+      
+      return;
+    }
+
+    if (list[0].contains("dilate"))
+    {
+      int tag = -1;
+      int size = -1;
+      if (list.size() == 3)
+	{
+	  tag = list[1].toInt(&ok);
+	  size = list[2].toInt(&ok);
+	  if (tag > 0 && size > 0)
+	    {
+	      regionDilationAll(tag, size);
+	      return;
+	    }
+	}
+
+      QMessageBox::information(0, "Dilate", "Expecting - dilate <tag> <size>");
+      
+      return;
+    }
+
+    if (list[0].contains("erode"))
+    {
+      int tag = -1;
+      int size = -1;
+      if (list.size() == 3)
+	{
+	  tag = list[1].toInt(&ok);
+	  size = list[2].toInt(&ok);
+	  if (tag > 0 && size > 0)
+	    {
+	      regionErosionAll(tag, size);
+	      return;
+	    }
+	}
+
+      QMessageBox::information(0, "Erode", "Expecting - erode <tag> <size>");
+      
+      return;
+    }
+
+  
   if (list[0].contains("vmap"))
     {
       VolumeOperations::genVisibilityMap(m_gradType, m_minGrad, m_maxGrad);
@@ -1538,7 +1593,7 @@ Viewer::draw()
 {
   if (!m_dataTex)
     return;
-
+  
   if (!m_draw)
     {
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -1606,6 +1661,7 @@ Viewer::draw()
 	saveImageFrame();
       return;
     }
+
 
   raycasting();
 
@@ -1762,6 +1818,7 @@ Viewer::drawInfo()
   StaticFunctions::renderText(10,30, mesg, tfont, Qt::black, Qt::lightGray);
 
   int sh = camera()->screenHeight();  
+  tfont = QFont("Helvetica", 14); 
   StaticFunctions::renderText(10,sh-30, QString("Current Tag : %1").arg(Global::tag()),
 			      tfont, Qt::black, Qt::lightGray);
 
@@ -2865,7 +2922,7 @@ Viewer::hatch()
 }
 
 void
-Viewer::smoothRegion(bool flag)
+Viewer::smoothRegion(bool flag, int tag, int filterWidth)
 {
   int d, w, h;
   if (flag)
@@ -2890,21 +2947,21 @@ Viewer::smoothRegion(bool flag)
     
 
   bool ok;
-  int tag = -1;
-  tag = QInputDialog::getInt(0,
-			     "Smooth Region",
-			     mesg,
-			     -1, -1, 255, 1,
-			     &ok);
+  if (tag == -1)
+    tag = QInputDialog::getInt(0,
+			       "Smooth Region",
+			       mesg,
+			       -1, -1, 255, 1,
+			       &ok);
   if (!ok)
     return;
 
-  int filterWidth = 1;
-  filterWidth = QInputDialog::getInt(0,
-				     "Gaussian Filter Width",
-				     "filter width",
-				     1, 1, 5, 1,
-				     &ok);
+  if (filterWidth == -1)
+    filterWidth = QInputDialog::getInt(0,
+				       "Gaussian Filter Width",
+				       "filter width",
+				       1, 1, 5, 1,
+				       &ok);
   if (!ok)
     return;
 
@@ -3052,7 +3109,7 @@ Viewer::regionErosion()
 }
 
 void
-Viewer::regionDilationAll(bool allVisible)
+Viewer::regionDilationAll(int tag, int size)
 {
   if (!m_useMask)
     {
@@ -3067,11 +3124,11 @@ Viewer::regionDilationAll(bool allVisible)
   bmin = VECDIVIDE(bmin, voxelScaling);
   bmax = VECDIVIDE(bmax, voxelScaling);
 
-  emit dilateAll(bmin, bmax, Global::tag(), allVisible);
+  emit dilateAll(bmin, bmax, tag, size);
 }
 
 void
-Viewer::regionErosionAll()
+Viewer::regionErosionAll(int tag, int size)
 {
   if (!m_useMask)
     {
@@ -3086,7 +3143,7 @@ Viewer::regionErosionAll()
   bmin = VECDIVIDE(bmin, voxelScaling);
   bmax = VECDIVIDE(bmax, voxelScaling);
 
-  emit erodeAll(bmin, bmax, Global::tag());
+  emit erodeAll(bmin, bmax, tag, size);
 }
 
 void
@@ -3995,6 +4052,7 @@ Viewer::drawVBOBox(GLenum glFaces)
   GLint *boxShaderParm = ShaderFactory::boxShaderParm();  
 
   glUniformMatrix4fv(boxShaderParm[0], 1, GL_FALSE, mvp);
+
 
   glMultiDrawArrays(GL_TRIANGLES, m_mdIndices, m_mdCount, m_mdEle);  
   

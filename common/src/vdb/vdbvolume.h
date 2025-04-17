@@ -45,6 +45,7 @@ class VdbVolume
 
   void mean(int, int);
   void gaussian(int, int);
+  void gaussian(int);
   void offset(float);
   void resample(float);
 

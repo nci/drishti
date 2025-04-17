@@ -148,10 +148,10 @@ class Viewer : public QGLViewer
     void dilateConnected(int, int, int, Vec, Vec, int, bool);
     void erodeConnected(int, int, int, Vec, Vec, int);
 
-    void dilateAll(Vec, Vec, int, bool);
-    void erodeAll(Vec, Vec, int);
+    void dilateAll(Vec, Vec, int, int);
+    void erodeAll(Vec, Vec, int, int);
 
-  void tagUsingSketchPad(Vec, Vec);
+    void tagUsingSketchPad(Vec, Vec);
 
     void mergeTags(Vec, Vec, int, int, bool);
     void stepTag(Vec, Vec, int, int);
@@ -347,12 +347,12 @@ class Viewer : public QGLViewer
   void setTextureMemorySize();
 
   void hatch();
-  void smoothRegion(bool);
+  void smoothRegion(bool, int, int);
   void regionGrowing(bool);
   void regionDilation(bool);
   void regionErosion();
-  void regionDilationAll(bool);
-  void regionErosionAll();
+  void regionDilationAll(int, int);
+  void regionErosionAll(int, int);
   void tagUsingScreenSketch();
 
   void commandEditor();

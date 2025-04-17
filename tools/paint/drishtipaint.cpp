@@ -6257,7 +6257,7 @@ DrishtiPaint::erodeConnected(int dr, int wr, int hr,
 }
 
 void
-DrishtiPaint::erodeAll(Vec bmin, Vec bmax, int tag)
+DrishtiPaint::erodeAll(Vec bmin, Vec bmax, int tag, int size)
 {
   int minD,maxD, minW,maxW, minH,maxH;
 
@@ -6270,7 +6270,7 @@ DrishtiPaint::erodeAll(Vec bmin, Vec bmax, int tag)
 
   VolumeOperations::setClip(cPos, cNorm);
   VolumeOperations::erodeAll(bmin, bmax, tag,
-			     viewerUi.dilateRad->value(),
+			     size,
 			     minD, maxD,
 			     minW, maxW,
 			     minH, maxH,
@@ -6318,7 +6318,7 @@ DrishtiPaint::dilateConnected(int dr, int wr, int hr,
 
 void
 DrishtiPaint::dilateAll(Vec bmin, Vec bmax, int tag,
-			bool allVisible)
+			int size)
 {
   int minD,maxD, minW,maxW, minH,maxH;
 
@@ -6331,11 +6331,11 @@ DrishtiPaint::dilateAll(Vec bmin, Vec bmax, int tag,
 
   VolumeOperations::setClip(cPos, cNorm);
   VolumeOperations::dilateAll(bmin, bmax, tag,
-			      viewerUi.dilateRad->value()+1,
+			      size,
 			      minD, maxD,
 			      minW, maxW,
 			      minH, maxH,
-			      allVisible,
+			      true,
 			      gradType, minGrad, maxGrad);
   
   if (minD < 0)

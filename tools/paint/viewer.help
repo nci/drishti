@@ -111,6 +111,40 @@ Set invisible region to tag1.  Invisible portion is that region where opacity is
 Clipping planes are obeyed - clipped region is not taken into account.
 #end
 
+
+#begin
+smooth
+smooth <tag> <filterWidth>
+Smooth all region with specified tag value by gaussian filter with <filterWidth>
+
+This will smooth all visible region that has specified tag value.
+
+Clipping planes are obeyed - clipped region is not taken into account.
+#end
+
+
+#begin
+dilate
+dilate <tag> <size>
+Dilate all region with specified tag value by <size> into connected visible region (even if it has non-zero tag).
+
+This will dilate all visible region that has specified tag value.
+
+Clipping planes are obeyed - clipped region is not taken into account.
+#end
+
+
+#begin
+erode
+erode <tag> <size>
+Erode all region with specified tag value by <size>
+
+This will erode all visible region that has specified tag value.
+
+Clipping planes are obeyed - clipped region is not taken into account.
+#end
+
+
 #begin
 modifyoriginalvolume
 modifyoriginalvolume
@@ -208,16 +242,6 @@ Clipping planes are obeyed - clipped region is not taken into account.
 
 
 #begin
-Ctrl+s
-Smooth all region with specified tag value.
-
-This will smooth all visible region that has specified tag value.
-
-Clipping planes are obeyed - clipped region is not taken into account.
-#end
-
-
-#begin
 v
 Toggle visibility of clip planes.
 #end
@@ -284,29 +308,9 @@ Clipping planes are obeyed - clipped region is not taken into account.
 
 
 #begin
-Ctrl+d
-Dilate the current tag by "Dilate/Erode" parameter value into all connected visible region (even if it has non-zero tag).
-
-This will dilate all the voxels that have the specified tag.
-
-Clipping planes are obeyed - clipped region is not taken into account.
-#end
-
-
-#begin
 e
 Erode the current tag by "Dilate/Erode" parameter value.
 Move the mouse over to the region you want to erode before pressing "e".  Only the connected region under the mouse cursor will be eroded.
-#end
-
-
-#begin
-Ctrl+e
-Erode the current tag by "Dilate/Erode" parameter value.
-
-This will erode all the voxels that have the specified tag.
-
-Clipping planes are obeyed - clipped region is not taken into account.
 #end
 
 

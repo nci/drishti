@@ -40,7 +40,7 @@ class VdbVolume
   openvdb::FloatGrid::Ptr getGrid() { return m_vdbGrid; }
   
   uint64_t activeVoxels();
-  
+
   void convertToLevelSet(float, int type=0);
 
   void mean(int, int);
@@ -48,6 +48,10 @@ class VdbVolume
   void gaussian(int);
   void offset(float);
   void resample(float);
+
+  std::vector<openvdb::FloatGrid::Ptr> connectedComponents();
+
+  openvdb::FloatGrid::Ptr convertToSDF();
 
   template <class T>
   void addSliceToVDB(T* data,

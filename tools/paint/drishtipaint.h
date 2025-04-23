@@ -151,6 +151,7 @@ class DrishtiPaint : public QMainWindow
   void dilateConnected(int, int, int, Vec, Vec, int, bool);
   void erodeConnected(int, int, int, Vec, Vec, int);
 
+  void dilateAllTags(Vec, Vec, int);
   void dilateAll(Vec, Vec, int, int);
   void erodeAll(Vec, Vec, int, int);
 
@@ -189,6 +190,9 @@ class DrishtiPaint : public QMainWindow
 			     int, int);
   void smoothAllRegion(Vec, Vec,
 		       int, int);
+
+  void connectedComponents(Vec, Vec, int);
+  
   void hatchConnectedRegion(int, int, int,
 			    Vec, Vec,
 			    int, int,

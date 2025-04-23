@@ -51,6 +51,13 @@ class VolumeOperations
 			      int&, int&,
 			      int, float, float,
 			      int);
+
+  static void connectedComponents(Vec, Vec,
+				  int,
+				  int&, int&,
+				  int&, int&,
+				  int&, int&,
+				  int, float, float);
   
   static void resetTag(Vec, Vec, int,
 		       int&, int&,
@@ -107,13 +114,20 @@ class VolumeOperations
 			     int&, int&,
 			     int, float, float);
 
+  static void dilateAllTags(Vec, Vec,
+			    int,
+			    int&, int&,
+			    int&, int&,
+			    int&, int&,
+			    int, float, float);
   static void dilateAll(Vec, Vec, int,
 			int,
 			int&, int&,
 			int&, int&,
 			int&, int&,
 			bool,
-			int, float, float);
+			int, float, float,
+			bool showProgress = true);
   static void dilateConnected(int, int, int,
 			      Vec, Vec, int,
 			      int,
@@ -171,7 +185,8 @@ class VolumeOperations
 			    MyBitArray&);
   static void dilateBitmaskUsingVDB(int, bool,
 				    qint64, qint64, qint64,
-				    MyBitArray&);
+				    MyBitArray&,
+				    bool showProgress = true);
 
   static void getVisibleRegion(int, int, int,
 			       int, int, int,

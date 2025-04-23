@@ -6154,6 +6154,35 @@ DrishtiPaint::smoothAllRegion(Vec bmin, Vec bmax,
 
 
 void
+DrishtiPaint::connectedComponents(Vec bmin, Vec bmax, int tag)
+{
+  int minD,maxD, minW,maxW, minH,maxH;
+
+  QList<Vec> cPos =  m_viewer->clipPos();
+  QList<Vec> cNorm = m_viewer->clipNorm();
+
+  float minGrad = m_viewer->minGrad();
+  float maxGrad = m_viewer->maxGrad();
+  int gradType = m_viewer->gradType();
+
+  VolumeOperations::setClip(cPos, cNorm);
+  VolumeOperations::connectedComponents(bmin, bmax,
+					tag,
+					minD, maxD,
+					minW, maxW,
+					minH, maxH,
+					gradType, minGrad, maxGrad);
+
+  if (minD < 0)
+    return;
+
+  updateModifiedRegion(minD, maxD,
+		       minW, maxW,
+		       minH, maxH);
+}
+
+
+void
 DrishtiPaint::setVisible(Vec bmin, Vec bmax, int tag, bool visible)
 {
   int minD,maxD, minW,maxW, minH,maxH;
@@ -6180,6 +6209,8 @@ DrishtiPaint::setVisible(Vec bmin, Vec bmax, int tag, bool visible)
 		       minW, maxW,
 		       minH, maxH);
 }
+
+
 void
 DrishtiPaint::stepTags(Vec bmin, Vec bmax, int tagStep, int tagVal)
 {
@@ -6307,6 +6338,35 @@ DrishtiPaint::dilateConnected(int dr, int wr, int hr,
 				    minH, maxH,
 				    allVisible,
 				    gradType, minGrad, maxGrad);
+  
+  if (minD < 0)
+    return;
+
+  updateModifiedRegion(minD, maxD,
+		       minW, maxW,
+		       minH, maxH);
+}
+
+void
+DrishtiPaint::dilateAllTags(Vec bmin, Vec bmax,
+			    int size)
+{
+  int minD,maxD, minW,maxW, minH,maxH;
+  
+  QList<Vec> cPos =  m_viewer->clipPos();
+  QList<Vec> cNorm = m_viewer->clipNorm();
+  
+  float minGrad = m_viewer->minGrad();
+  float maxGrad = m_viewer->maxGrad();
+  int gradType = m_viewer->gradType();
+
+  VolumeOperations::setClip(cPos, cNorm);
+  VolumeOperations::dilateAllTags(bmin, bmax,
+				  size,
+				  minD, maxD,
+				  minW, maxW,
+				  minH, maxH,
+				  gradType, minGrad, maxGrad);
   
   if (minD < 0)
     return;
@@ -6916,13 +6976,37 @@ DrishtiPaint::tagsUsed(QList<int> ut)
 {
   QStringList tagNames = m_tagColorEditor->tagNames();
 
-  QString tmesg;  
+  QString tmesg;
+  int x=0;
   for(int ti=0; ti<ut.count(); ti++)
     {
       if (ut[ti] > 0)
-	tmesg += QString("(%1) %2\n").arg(ut[ti]).arg(tagNames[ut[ti]]);
+	{
+	  if (x%5 == 0)
+	    tmesg += "\n";
+	  tmesg += QString("(%1) %2  :  ").arg(ut[ti]).arg(tagNames[ut[ti]]);      
+	  x++;
+	}
     }
-  QMessageBox::information(0, "Tags Used", tmesg);
+
+
+  //-----
+  //-----
+  QTextEdit *tedit = new QTextEdit();
+  tedit->setPlainText(tmesg);
+  tedit->setReadOnly(true);
+  
+  QVBoxLayout *layout = new QVBoxLayout();
+  layout->addWidget(tedit);
+	
+  QDialog *info = new QDialog();
+  info->setWindowTitle("Labels Used");
+  info->setSizeGripEnabled(true);
+  info->setModal(true);
+  info->setLayout(layout);
+  info->exec();
+  //-----
+  //-----
 }
 //---------------------
 

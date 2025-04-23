@@ -1038,6 +1038,16 @@ Viewer::processCommand(QString cmd)
   bmin = VECDIVIDE(bmin, voxelScaling);
   bmax = VECDIVIDE(bmax, voxelScaling);
 
+  if (list[0].contains("connectedcomponents"))
+    {
+      int tag = -1;
+      if (list.size() == 2)
+	tag = list[1].toInt(&ok);
+
+      connectedComponents(tag);      
+      return;
+    }
+
   if (list[0].contains("smooth"))
     {
       int tag = -1;
@@ -1058,6 +1068,25 @@ Viewer::processCommand(QString cmd)
       return;
     }
 
+
+    if (list[0].contains("dilateall"))
+    {
+      int size = 1;
+      if (list.size() == 2)
+	{
+	  size = list[1].toInt(&ok);
+	  if (size > 0)
+	    {
+	      regionDilationAll(size);
+	      return;
+	    }
+	}
+
+      QMessageBox::information(0, "Dilate", "Expecting - dilateall <size>");
+      
+      return;
+    }
+
     if (list[0].contains("dilate"))
     {
       int tag = -1;
@@ -1068,7 +1097,7 @@ Viewer::processCommand(QString cmd)
 	  size = list[2].toInt(&ok);
 	  if (tag > 0 && size > 0)
 	    {
-	      regionDilationAll(tag, size);
+	      regionDilationAll(size, tag);
 	      return;
 	    }
 	}
@@ -2922,6 +2951,19 @@ Viewer::hatch()
 }
 
 void
+Viewer::connectedComponents(int tag)
+{
+  Vec bmin, bmax;
+  m_boundingBox.bounds(bmin, bmax);
+
+  Vec voxelScaling = Global::relativeVoxelScaling();
+  bmin = VECDIVIDE(bmin, voxelScaling);
+  bmax = VECDIVIDE(bmax, voxelScaling);
+
+  emit connectedComponents(bmin, bmax, tag);
+}
+
+void
 Viewer::smoothRegion(bool flag, int tag, int filterWidth)
 {
   int d, w, h;
@@ -3109,7 +3151,7 @@ Viewer::regionErosion()
 }
 
 void
-Viewer::regionDilationAll(int tag, int size)
+Viewer::regionDilationAll(int size, int tag)
 {
   if (!m_useMask)
     {
@@ -3124,7 +3166,10 @@ Viewer::regionDilationAll(int tag, int size)
   bmin = VECDIVIDE(bmin, voxelScaling);
   bmax = VECDIVIDE(bmax, voxelScaling);
 
-  emit dilateAll(bmin, bmax, tag, size);
+  if (tag > 0)
+    emit dilateAll(bmin, bmax, tag, size);
+  else
+    emit dilateAllTags(bmin, bmax, size);
 }
 
 void
@@ -3628,7 +3673,7 @@ Viewer::usedTags()
 	  qApp->processEvents();
 	}
       if (!ut.contains(m_maskPtr[i]))
-	ut << m_maskPtr[i];      
+	ut << m_maskPtr[i]; 
     }
   qSort(ut);
   return ut;

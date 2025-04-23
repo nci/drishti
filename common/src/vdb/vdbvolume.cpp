@@ -6,6 +6,8 @@
 #include <openvdb/tools/LevelSetUtil.h>
 #include <openvdb/tools/Morphology.h>
 #include <openvdb/tools/VolumeToMesh.h>
+#include <openvdb/tools/TopologyToLevelSet.h>
+#include <openvdb/tools/FastSweeping.h>
 
 #include <QMessageBox>
 #include <QProgressDialog>
@@ -97,6 +99,36 @@ VdbVolume::offset(float offset)
 
 }
 
+openvdb::FloatGrid::Ptr
+VdbVolume::convertToSDF()
+{
+  openvdb::FloatGrid::Ptr sdf;
+  sdf = openvdb::tools::fogToSdf<openvdb::FloatGrid>(*m_vdbGrid, 0.1);
+
+  //openvdb::tools::LevelSetFilter<openvdb::FloatGrid> filter(*m_vdbGrid);
+  //filter.resize(10);
+  //sdf = openvdb::tools::topologyToLevelSet<openvdb::FloatGrid>(*m_vdbGrid);
+  
+  return sdf;
+}
+
+
+std::vector<openvdb::FloatGrid::Ptr>
+VdbVolume::connectedComponents()
+{
+  std::vector<openvdb::FloatGrid::Ptr> segments;
+
+  openvdb::FloatGrid::Ptr sdf;
+  sdf = openvdb::tools::fogToSdf<openvdb::FloatGrid>(*m_vdbGrid, 0.5);
+
+  //openvdb::tools::LevelSetFilter<openvdb::FloatGrid> lsf(*m_vdbGrid);
+  //lsf.offset(1);
+  
+  //openvdb::tools::segmentActiveVoxels<openvdb::FloatGrid>(*m_vdbGrid, segments);
+  openvdb::tools::segmentSDF<openvdb::FloatGrid>(*sdf, segments);
+
+  return segments;
+}
 
 void
 VdbVolume::convertToLevelSet(float isovalue, int type)

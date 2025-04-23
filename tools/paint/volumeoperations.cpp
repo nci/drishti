@@ -9,6 +9,9 @@
 
 #include <QtConcurrentMap>
 
+#include "cc3d.h"
+
+
 
 uchar* VolumeOperations::m_volData = 0;
 ushort* VolumeOperations::m_volDataUS = 0;
@@ -1443,7 +1446,8 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
 void
 VolumeOperations::dilateBitmaskUsingVDB(int nDilate, bool htype,
 					qint64 mx, qint64 my, qint64 mz,
-					MyBitArray &bitmask)
+					MyBitArray &bitmask,
+					bool showProgress)
 {
   // convert to vdb levelset and dilate
   QProgressDialog progress(htype?"Dilate LevelSet":"Erode LevelSet",
@@ -1451,8 +1455,13 @@ VolumeOperations::dilateBitmaskUsingVDB(int nDilate, bool htype,
 			   0, 100,
 			   0,
 			   Qt::WindowStaysOnTopHint);
-  progress.setMinimumDuration(0);
-  qApp->processEvents();
+  if (showProgress)
+    {
+      progress.setMinimumDuration(0);
+      qApp->processEvents();
+    }
+  else
+    progress.done(1);
 
   VdbVolume vdb;
   openvdb::FloatGrid::Accessor accessor = vdb.getAccessor();
@@ -1468,19 +1477,30 @@ VolumeOperations::dilateBitmaskUsingVDB(int nDilate, bool htype,
       if (bitmask.testBit(bidx))
 	accessor.setValue(ijk, 255);
     }
-  progress.setValue(10);
-  qApp->processEvents();
+  if (showProgress)
+    {
+      progress.setValue(10);
+      qApp->processEvents();
+    }
 
   vdb.convertToLevelSet(1, 0);
-  progress.setValue(25);
-  qApp->processEvents();
+
+  if (showProgress)
+    {
+      progress.setValue(25);
+      qApp->processEvents();
+    }
   
   if (htype)
     vdb.offset(-nDilate); // dilate
   else
     vdb.offset(nDilate); // erode
-  progress.setValue(50);
-  qApp->processEvents();
+
+  if (showProgress)
+    {
+      progress.setValue(50);
+      qApp->processEvents();
+    }
 
   {
     bitmask.fill(false);
@@ -1500,8 +1520,11 @@ VolumeOperations::dilateBitmaskUsingVDB(int nDilate, bool htype,
 	  }
       }
   }
-  progress.setValue(100);
-  qApp->processEvents();
+  if (showProgress)
+    {
+      progress.setValue(100);
+      qApp->processEvents();
+    }
 }
 
 void
@@ -1916,13 +1939,71 @@ VolumeOperations::mergeTags(Vec bmin, Vec bmax,
 }
 
 void
+VolumeOperations::dilateAllTags(Vec bmin, Vec bmax,
+				int nDilate,
+				int& minD, int& maxD,
+				int& minW, int& maxW,
+				int& minH, int& maxH,
+				int gradType, float minGrad, float maxGrad)
+{
+  QProgressDialog progress("Dilating all labels",
+			   QString(),
+			   0, 100,
+			   0,
+			   Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);
+
+  
+  int ds = qMax(0, (int)bmin.z);
+  int ws = qMax(0, (int)bmin.y);
+  int hs = qMax(0, (int)bmin.x);
+
+  int de = qMin((int)bmax.z, m_depth-1);
+  int we = qMin((int)bmax.y, m_width-1);
+  int he = qMin((int)bmax.x, m_height-1);
+
+  qint64 mx = he-hs+1;
+  qint64 my = we-ws+1;
+  qint64 mz = de-ds+1;
+
+  QList<int> ut;
+  for(qint64 d=ds; d<=de; d++)
+    for(qint64 w=ws; w<=we; w++)
+      for(qint64 h=hs; h<=he; h++)
+	{
+	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
+	  if (!ut.contains(m_maskData[idx]))
+	    ut << m_maskData[idx]; 
+	}
+
+  QMessageBox::information(0, "Labels", QString("Total labels : %1").arg(ut.count()));
+  for(int u=0; u<nDilate; u++)
+    {
+      for(int i=0; i<ut.count(); i++)
+	{
+	  progress.setValue(100*(float)i/(float)ut.count());
+	  qApp->processEvents();
+	  dilateAll(bmin, bmax, ut[i],
+		    1,
+		    minD, maxD,
+		    minW, maxW,
+		    minH, maxH,
+		    false,
+		    gradType, minGrad, maxGrad,
+		    false);
+	}
+    }
+}
+
+void
 VolumeOperations::dilateAll(Vec bmin, Vec bmax, int tag,
 			    int nDilate,
 			    int& minD, int& maxD,
 			    int& minW, int& maxW,
 			    int& minH, int& maxH,
 			    bool allVisible,
-			    int gradType, float minGrad, float maxGrad)
+			    int gradType, float minGrad, float maxGrad,
+			    bool showProgress)
 {
   minD = minW = minH = maxD = maxW = maxH = -1;
 
@@ -1933,7 +2014,12 @@ VolumeOperations::dilateAll(Vec bmin, Vec bmax, int tag,
 			   0, 100,
 			   0,
 			   Qt::WindowStaysOnTopHint);
-  progress.setMinimumDuration(0);
+  if (showProgress)
+    {
+      progress.setMinimumDuration(0);
+    }
+  else
+    progress.done(1);
 
   int ds = qMax(0, (int)bmin.z);
   int ws = qMax(0, (int)bmin.y);
@@ -1959,22 +2045,32 @@ VolumeOperations::dilateAll(Vec bmin, Vec bmax, int tag,
   
 
   
-  progress.setLabelText("Dilate");
-  qApp->processEvents();
+  if (showProgress)
+    {
+      progress.setLabelText("Dilate");
+      qApp->processEvents();
+    }
 
 
 
   dilateBitmaskUsingVDB(nDilate, true, // dilate opaque region
 			mx, my, mz,
-			bitmask);
+			bitmask,
+			showProgress);
 
 
   
-  progress.setLabelText("writing to mask");
+  if (showProgress)
+    {
+      progress.setLabelText("writing to mask");
+    }
   for(qint64 d2=ds; d2<=de; d2++)
     {
-      progress.setValue(100*(d2-ds)/(mz));
-      qApp->processEvents();
+      if (showProgress)
+	{
+	  progress.setValue(100*(d2-ds)/(mz));
+	  qApp->processEvents();
+	}
       for(qint64 w2=ws; w2<=we; w2++)
 	for(qint64 h2=hs; h2<=he; h2++)
 	  {
@@ -3067,6 +3163,7 @@ VolumeOperations::smoothAllRegion(Vec bmin, Vec bmax,
   maxH = he;
 }
 
+
 void
 VolumeOperations::convertToVDBandSmooth(int ds, int ws, int hs,
 					int de, int we, int he,
@@ -3122,7 +3219,7 @@ VolumeOperations::convertToVDBandSmooth(int ds, int ws, int hs,
       for(w=ws; w<=we; w++)
 	for(h=hs; h<=he; h++)
 	  {
-	    if (accessor.getValue(ijk) > 0)
+	    if (accessor.getValue(ijk) > 1)
 	      {
 		qint64 bidx = ((qint64)(d-ds))*mx*my+(w-ws)*mx+(h-hs);
 		if (bitmask.testBit(bidx))
@@ -3137,3 +3234,97 @@ VolumeOperations::convertToVDBandSmooth(int ds, int ws, int hs,
   progress.setValue(100);
   qApp->processEvents();
 }
+
+
+
+
+void
+VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
+				      int tag,
+				      int& minD, int& maxD,
+				      int& minW, int& maxW,
+				      int& minH, int& maxH,
+				      int gradType, float minGrad, float maxGrad)
+{
+  minD = maxD = minW = maxW = minH = maxH = -1;
+
+  int ds = bmin.z;
+  int ws = bmin.y;
+  int hs = bmin.x;
+
+  int de = bmax.z;
+  int we = bmax.y;
+  int he = bmax.x;
+
+  qint64 mx = he-hs+1;
+  qint64 my = we-ws+1;
+  qint64 mz = de-ds+1;
+
+  MyBitArray bitmask;
+  bitmask.resize(mx*my*mz);
+  bitmask.fill(false);
+
+
+  getVisibleRegion(ds, ws, hs,
+		   de, we, he,
+		   tag, false,
+		   gradType, minGrad, maxGrad,
+		   bitmask);
+
+
+
+  uchar *vol = new uchar[mx*my*mz];
+  memset(vol, 0, mx*my*mz);
+  for(qint64 d=ds; d<=de; d++)
+    for(qint64 w=ws; w<=we; w++)
+      for(qint64 h=hs; h<=he; h++)
+	{
+	  qint64 bidx = ((qint64)(d-ds))*mx*my+((qint64)(w-ws))*mx+(h-hs);
+	  if (bitmask.testBit(bidx))
+	    vol[bidx] = 255;
+	}
+
+  int connectivity = 6;
+  QStringList dtypes;
+  dtypes << "6"
+	 << "18"
+	 << "26";
+
+  bool ok;
+  QString option = QInputDialog::getItem(0,
+					 "Slice Direction",
+					 "Apply operation in which direction ?",
+					 dtypes,
+					 0,
+					 false,
+					 &ok);
+
+  if (ok)
+    {
+      if (option == "18") connectivity = 18;
+      if (option == "26") connectivity = 26;
+    }
+  
+  uint32_t* labels = cc3d::connected_components3d(vol,
+						  mx, my, mz,
+						  connectivity);
+						       
+  for(qint64 d=ds; d<=de; d++)
+    for(qint64 w=ws; w<=we; w++)
+      for(qint64 h=hs; h<=he; h++)
+	{
+	  qint64 bidx = ((qint64)(d-ds))*mx*my+((qint64)(w-ws))*mx+(h-hs);
+	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
+	  m_maskData[idx] = labels[bidx];
+	}
+
+
+  minD = ds;
+  minW = ws;
+  minH = hs;
+  maxD = de;
+  maxW = we;
+  maxH = he;
+}
+
+

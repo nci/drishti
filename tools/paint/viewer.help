@@ -20,9 +20,9 @@ Reload tags from the mask file.
 
 #begin
 reset
-reset <tag1>
+reset <tag>
 
-Set all voxels in the region to tag1.  Default value for tag1 is 0.
+Set all voxels in the region to tag.  Default value for tag is 0.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end
@@ -85,32 +85,43 @@ Clipping planes are obeyed - clipped region is not taken into account.
 
 #begin
 getvolume
-getvolume <tag1>
+getvolume <tag>
 
-Calculate the volume occupied by visible voxels marked with tag1.
-Default value for tag1 is -1 : consider all visible voxels.
+Calculate the volume occupied by visible voxels marked with tag.
+Default value for tag is -1 : consider all visible voxels.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end
 
 #begin
 setvisible
-setvisible <tag1>
+setvisible <tag>
 
-Set visible region to tag1.  Visible portion is that region where opacity is greater than 0 as defined by transfer functions and visible tags.
+Set visible region to tag.  Visible portion is that region where opacity is greater than 0 as defined by transfer functions and visible tags.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end
 
 #begin
 setinvisible
-setinvisible <tag1>
+setinvisible <tag>
 
-Set invisible region to tag1.  Invisible portion is that region where opacity is equal to 0 as defined by transfer functions and hidden tags.
+Set invisible region to tag.  Invisible portion is that region where opacity is equal to 0 as defined by transfer functions and hidden tags.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end
 
+
+#begin
+connectedcomponents
+connectedcomponents
+connectedcomponents <tag>
+
+
+Segment connected components for the given visible <tag> region.
+If no <tag> is specified connected components for all visible region is found.
+
+#end
 
 #begin
 smooth
@@ -118,6 +129,15 @@ smooth <tag> <filterWidth>
 Smooth all region with specified tag value by gaussian filter with <filterWidth>
 
 This will smooth all visible region that has specified tag value.
+
+Clipping planes are obeyed - clipped region is not taken into account.
+#end
+
+
+#begin
+dilateall
+dilateall  <size>
+Dilate all label values by <size> into connected visible region which is not labelled.  The labels will not dilate into another label's region.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end

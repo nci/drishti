@@ -16,6 +16,8 @@ DESTDIR = ../../bin
 
 TARGET = drishtipaint
 
+PRE_TARGETDEPS = ../../common/lib/vdb.lib
+
 INCLUDEPATH += graphcut
 
 include( ../../drishti.pri )
@@ -91,7 +93,8 @@ macx {
 HEADERS += connectviewer.h \
         commonqtclasses.h \
 	boundingbox.h \
-	drishtipaint.h \
+        drishtipaint.h \
+        cc3d.h \
         crops.h \
         cropobject.h \
         cropgrabber.h \

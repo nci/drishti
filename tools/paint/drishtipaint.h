@@ -155,6 +155,7 @@ class DrishtiPaint : public QMainWindow
   void dilateAll(Vec, Vec, int, int);
   void erodeAll(Vec, Vec, int, int);
 
+  void sortLabels(Vec, Vec);
   
   void tagUsingSketchPad(Vec, Vec);
   void mergeTags(Vec, Vec, int, int, bool);

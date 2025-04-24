@@ -2,6 +2,9 @@
 #include <math.h>
 
 #include <QMessageBox>
+#include <QDialog>
+#include <QTextEdit>
+#include <QVBoxLayout>
 
 Vec
 StaticFunctions::getVec(QString str)
@@ -1138,4 +1141,23 @@ StaticFunctions::smooth2DArray(float* in, float* out, int nW, int nH)
       }
 
   delete [] b;
+}
+
+
+void
+StaticFunctions::showMessage(QString title, QString mesg)
+{
+  QTextEdit *tedit = new QTextEdit();
+  tedit->setPlainText(mesg);
+  tedit->setReadOnly(true);
+  
+  QVBoxLayout *layout = new QVBoxLayout();
+  layout->addWidget(tedit);
+	
+  QDialog *info = new QDialog();
+  info->setWindowTitle(title);
+  info->setSizeGripEnabled(true);
+  info->setModal(true);
+  info->setLayout(layout);
+  info->exec();
 }

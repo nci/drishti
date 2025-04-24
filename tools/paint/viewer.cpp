@@ -1068,8 +1068,13 @@ Viewer::processCommand(QString cmd)
       return;
     }
 
-
-    if (list[0].contains("dilateall"))
+  if (list[0].contains("sortlabels"))
+    {
+      sortLabels();
+      return;
+    }
+      
+  if (list[0].contains("dilateall"))
     {
       int size = 1;
       if (list.size() == 2)
@@ -1148,18 +1153,6 @@ Viewer::processCommand(QString cmd)
   if (list[0].contains("tagsused"))
     {
       QList<int> ut = usedTags();
-//      QString tmesg;  
-//      tmesg += "Tags Used\n";
-//      for(int ti=0; ti<ut.count(); ti++)
-//	{
-//	  if (ut[ti] > 0)
-//	    tmesg += QString("%1 ").arg(ut[ti]);
-//
-//	  if (ti%10 == 9)
-//	    tmesg += "\n";
-//	}
-//      QMessageBox::information(0, "Tags Used", tmesg);
-
       emit tagsUsed(ut);
       return;
     }
@@ -3103,6 +3096,20 @@ Viewer::regionGrowing(bool sw)
 
     } // shrinkwrap/shell/tubes
 }
+
+void
+Viewer::sortLabels()
+{
+  Vec bmin, bmax;
+  m_boundingBox.bounds(bmin, bmax);
+
+  Vec voxelScaling = Global::relativeVoxelScaling();
+  bmin = VECDIVIDE(bmin, voxelScaling);
+  bmax = VECDIVIDE(bmax, voxelScaling);
+
+  emit sortLabels(bmin, bmax);
+}
+
 
 void
 Viewer::regionDilation(bool allVisible)

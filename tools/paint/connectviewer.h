@@ -38,6 +38,9 @@
   connect(m_viewer, SIGNAL(stepTag(Vec, Vec, int, int)),
 	  this, SLOT(stepTags(Vec, Vec, int, int)));
 
+  connect(m_viewer, SIGNAL(sortLabels(Vec, Vec)),
+	  this, SLOT(sortLabels(Vec, Vec)));
+
   connect(m_viewer, SIGNAL(dilateConnected(int,int,int,Vec,Vec,int,bool)),
 	  this, SLOT(dilateConnected(int,int,int,Vec,Vec,int,bool)));
 

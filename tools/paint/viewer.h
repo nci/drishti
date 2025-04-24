@@ -156,6 +156,8 @@ class Viewer : public QGLViewer
 
     void mergeTags(Vec, Vec, int, int, bool);
     void stepTag(Vec, Vec, int, int);
+
+    void sortLabels(Vec, Vec);
   
     void updateSliceBounds(Vec, Vec);
     void renderNextFrame();
@@ -359,7 +361,9 @@ class Viewer : public QGLViewer
   void regionDilationAll(int, int tag=-1);
   void regionErosionAll(int, int);
   void tagUsingScreenSketch();
+  void sortLabels();
 
+  
   void commandEditor();
   void processCommand(QString);
 

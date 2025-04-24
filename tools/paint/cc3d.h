@@ -64,14 +64,14 @@ static int64_t _dummy_row_end;
 class DisjointSet {
 public:
   uint32_t *ids;
-  unsigned long length;
+  size_t length;
 
   DisjointSet () {
     length = 65536; // 2^16, some "reasonable" starting size
     ids = new uint32_t[length]();
   }
 
-  DisjointSet (unsigned long len) {
+  DisjointSet (size_t len) {
     length = len;
     ids = new uint32_t[length]();
   }
@@ -105,7 +105,7 @@ public:
 
   void add(uint32_t p) {
     if (p >= length) {
-      printf("Connected Components Error: Label %lli cannot be mapped to union-find array of length %lu.\n", static_cast<long long int>(p), length);
+      //printf("Connected Components Error: Label %lli cannot be mapped to union-find array of length %lu.\n", static_cast<long long int>(p), length);
       throw std::runtime_error("maximum length exception");
     }
 

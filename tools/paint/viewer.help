@@ -121,7 +121,11 @@ connectedcomponents <tag>
 Segment connected components for the given visible <tag> region.
 If no <tag> is specified connected components for all visible region is found.
 
+User is asked for a volume threshold (minimum number of voxels) above which a component is considered for labeling.
+
+Clipping planes are obeyed - clipped region is not taken into account.
 #end
+
 
 #begin
 smooth
@@ -129,6 +133,16 @@ smooth <tag> <filterWidth>
 Smooth all region with specified tag value by gaussian filter with <filterWidth>
 
 This will smooth all visible region that has specified tag value.
+
+Clipping planes are obeyed - clipped region is not taken into account.
+#end
+
+
+#begin
+sortlabels
+sortlabels
+
+Sort the labels in the visible region in an ascending/descending order by volume (i.e. number of voxels) in each label.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end

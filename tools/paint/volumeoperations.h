@@ -159,6 +159,9 @@ class VolumeOperations
 
   static void genVisibilityMap(int, float, float);
   static MyBitArray* getVisibilityMap() { return &m_visibilityMap; }
+
+  static void sortLabels(Vec, Vec,
+			 int, float, float);
   
  private :
   static int m_depth, m_width, m_height;
@@ -230,7 +233,6 @@ class VolumeOperations
 				    int, int, int,
 				    MyBitArray&,
 				    int);
-  
 };
 
 #endif

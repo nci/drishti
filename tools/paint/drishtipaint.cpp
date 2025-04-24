@@ -6406,6 +6406,33 @@ DrishtiPaint::dilateAll(Vec bmin, Vec bmax, int tag,
 		       minH, maxH);
 }
 
+
+void
+DrishtiPaint::sortLabels(Vec bmin, Vec bmax)
+{
+  int minD,maxD, minW,maxW, minH,maxH;
+
+  QList<Vec> cPos =  m_viewer->clipPos();
+  QList<Vec> cNorm = m_viewer->clipNorm();
+
+  float minGrad = m_viewer->minGrad();
+  float maxGrad = m_viewer->maxGrad();
+  int gradType = m_viewer->gradType();
+
+  VolumeOperations::setClip(cPos, cNorm);
+  VolumeOperations::sortLabels(bmin, bmax,
+			       gradType, minGrad, maxGrad);
+
+  minD = bmin.z;     maxD = bmax.z;
+  minW = bmin.y;     maxW = bmax.y;
+  minH = bmin.x;     maxH = bmax.x;
+
+  updateModifiedRegion(minD, maxD,
+		       minW, maxW,
+		       minH, maxH);
+}
+
+
 void
 DrishtiPaint::modifyOriginalVolume(Vec bmin, Vec bmax, int val)
 {
@@ -6976,37 +7003,37 @@ DrishtiPaint::tagsUsed(QList<int> ut)
 {
   QStringList tagNames = m_tagColorEditor->tagNames();
 
-  QString tmesg;
+  QString mesg;
   int x=0;
   for(int ti=0; ti<ut.count(); ti++)
     {
       if (ut[ti] > 0)
 	{
 	  if (x%5 == 0)
-	    tmesg += "\n";
-	  tmesg += QString("(%1) %2  :  ").arg(ut[ti]).arg(tagNames[ut[ti]]);      
+	    mesg += "\n";
+	  mesg += QString("(%1) %2  :  ").arg(ut[ti]).arg(tagNames[ut[ti]]);      
 	  x++;
 	}
     }
 
-
-  //-----
-  //-----
-  QTextEdit *tedit = new QTextEdit();
-  tedit->setPlainText(tmesg);
-  tedit->setReadOnly(true);
-  
-  QVBoxLayout *layout = new QVBoxLayout();
-  layout->addWidget(tedit);
-	
-  QDialog *info = new QDialog();
-  info->setWindowTitle("Labels Used");
-  info->setSizeGripEnabled(true);
-  info->setModal(true);
-  info->setLayout(layout);
-  info->exec();
-  //-----
-  //-----
+  StaticFunctions::showMessage("Labels Used", mesg);
+//  //-----
+//  //-----
+//  QTextEdit *tedit = new QTextEdit();
+//  tedit->setPlainText(tmesg);
+//  tedit->setReadOnly(true);
+//  
+//  QVBoxLayout *layout = new QVBoxLayout();
+//  layout->addWidget(tedit);
+//	
+//  QDialog *info = new QDialog();
+//  info->setWindowTitle("Labels Used");
+//  info->setSizeGripEnabled(true);
+//  info->setModal(true);
+//  info->setLayout(layout);
+//  info->exec();
+//  //-----
+//  //-----
 }
 //---------------------
 

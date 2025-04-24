@@ -6,8 +6,10 @@
 #include "morphslice.h"
 #include "vdbvolume.h"
 #include "geometryobjects.h"
+#include "staticfunctions.h"
 
 #include <QtConcurrentMap>
+#include <QMap>
 
 #include "cc3d.h"
 
@@ -3284,31 +3286,80 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
 	    vol[bidx] = 255;
 	}
 
-  int connectivity = 6;
-  QStringList dtypes;
-  dtypes << "6"
-	 << "18"
-	 << "26";
-
-  bool ok;
-  QString option = QInputDialog::getItem(0,
-					 "Slice Direction",
-					 "Apply operation in which direction ?",
-					 dtypes,
-					 0,
-					 false,
-					 &ok);
-
-  if (ok)
-    {
-      if (option == "18") connectivity = 18;
-      if (option == "26") connectivity = 26;
-    }
   
+  //------------------
+  int connectivity = 6;
+  {
+    QStringList dtypes;
+    dtypes << "6"
+	   << "18"
+	   << "26";
+    
+    bool ok;
+    QString option = QInputDialog::getItem(0,
+					   "Connectivity Choice",
+					   "3D neighbourhood connectivity",
+					   dtypes,
+					   0,
+					   false,
+					   &ok);
+    
+    if (ok)
+      {
+	if (option == "18") connectivity = 18;
+	if (option == "26") connectivity = 26;
+      }
+  }
+  //------------------
+  
+
+  //------------------
+  // ignore all components below componentThreshold
+  int componentThreshold = 1000;
+  componentThreshold = QInputDialog::getInt(0,
+					    "Component Threshold",
+					    "Minimum number of voxels per labeled component",
+					    1000);
+  //------------------
+  
+
+  //------------------
+  bool ascending = true;  
+  {
+    QStringList dtypes;
+    dtypes << "lowest first"
+	   << "highest first";
+    
+    bool ok;
+    QString option = QInputDialog::getItem(0,
+					   "Sort based on Volume",
+					   "Ascending/Descending ?",
+					   dtypes,
+					   0,
+					   false,
+					   &ok);
+    
+    if (ok)
+      {
+	if (option == "highest first")
+	  ascending = false;
+      }
+  }
+  //------------------
+
+
+  //------------------
+  // find connected components
   uint32_t* labels = cc3d::connected_components3d(vol,
 						  mx, my, mz,
 						  connectivity);
-						       
+
+  //------------------
+
+  
+  //------------------
+  // calculate volume (no. of voxels) per component
+  QMap<int, int> labelMap; // contains (number of voxels) volume for each label
   for(qint64 d=ds; d<=de; d++)
     for(qint64 w=ws; w<=we; w++)
       for(qint64 h=hs; h<=he; h++)
@@ -3316,9 +3367,81 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
 	  qint64 bidx = ((qint64)(d-ds))*mx*my+((qint64)(w-ws))*mx+(h-hs);
 	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
 	  m_maskData[idx] = labels[bidx];
+
+	  if (m_maskData[idx] > 0)
+	    labelMap[m_maskData[idx]] = labelMap[m_maskData[idx]] + 1;
 	}
+  //------------------
 
 
+  //------------------
+  // remove components with volume less than componentThreshold
+  for(qint64 d=ds; d<=de; d++)
+    for(qint64 w=ws; w<=we; w++)
+      for(qint64 h=hs; h<=he; h++)
+	{
+	  qint64 bidx = ((qint64)(d-ds))*mx*my+((qint64)(w-ws))*mx+(h-hs);
+	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
+	  if (labelMap[m_maskData[idx]] <= componentThreshold)
+	    m_maskData[idx] = 0;
+	}
+  //------------------
+  
+
+  //------------------
+  // update labelMap to reflect removal of small components
+  {
+    QList<int> oldkeys = labelMap.keys();  // component labels
+    int nLabels = oldkeys.count();
+    for(int i=0; i<nLabels; i++)
+      if (labelMap[oldkeys[i]] <= componentThreshold)
+	labelMap.remove(oldkeys[i]);
+  }
+  //------------------
+
+
+  //------------------
+  // just remap in sequential order
+  QString mesg;
+  {
+    QList<int> oldkeys = labelMap.keys();  // component labels
+    int nLabels = oldkeys.count();
+    if (ascending)  // lowest volume first
+      {
+	for(int i=0; i<nLabels; i++)
+	  {
+	    mesg += QString("%1 : %2\n").arg(i+1).arg(labelMap[oldkeys[i]]);
+	    labelMap[oldkeys[i]] = i+1;
+	  }
+      }
+    else  // highest volume first
+      {
+	int l=0;
+	for(int i=nLabels-1; i>=0; i--)
+	  {
+	    l++;
+	    mesg += QString("%1 : %2\n").arg(l).arg(labelMap[oldkeys[i]]);
+	    labelMap[oldkeys[i]] = l;
+	  }
+      }
+  }
+  
+  //-------
+  // displace labels and respective volumes
+  StaticFunctions::showMessage("Label Volumes", mesg);
+  //-------
+  //------------------
+
+  for(qint64 d=ds; d<=de; d++)
+    for(qint64 w=ws; w<=we; w++)
+      for(qint64 h=hs; h<=he; h++)
+	{
+	  qint64 bidx = ((qint64)(d-ds))*mx*my+((qint64)(w-ws))*mx+(h-hs);
+	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
+	  m_maskData[idx] = labelMap[m_maskData[idx]];
+	}
+  
+  
   minD = ds;
   minW = ws;
   minH = hs;
@@ -3328,3 +3451,140 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
 }
 
 
+void
+VolumeOperations::sortLabels(Vec bmin, Vec bmax,
+			     int gradType, float minGrad, float maxGrad)
+{
+  int ds = bmin.z;
+  int ws = bmin.y;
+  int hs = bmin.x;
+
+  int de = bmax.z;
+  int we = bmax.y;
+  int he = bmax.x;
+
+  qint64 mx = he-hs+1;
+  qint64 my = we-ws+1;
+  qint64 mz = de-ds+1;
+
+  
+  bool ascending = true;
+  
+  QStringList dtypes;
+  dtypes << "lowest first"
+	 << "highest first";
+
+  bool ok;
+  QString option = QInputDialog::getItem(0,
+					 "Sort based on Volume",
+					 "Ascending/Descending ?",
+					 dtypes,
+					 0,
+					 false,
+					 &ok);
+
+  if (ok)
+    {
+      if (option == "highest first")
+	ascending = false;
+    }
+
+  
+  QMap<int, int> labelMap; // contains (number of voxels) volume for each label
+
+  //-------
+  uchar *lut = Global::lut();
+
+  for(qint64 d=ds; d<=de; d++)
+    for(qint64 w=ws; w<=we; w++)
+      for(qint64 h=hs; h<=he; h++)
+	{
+	  bool clipped = checkClipped(Vec(h, w, d));
+	  if (!clipped)
+	    {
+	      qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
+	      int val = m_volData[idx];
+	      if (m_volDataUS) val = m_volDataUS[idx];
+	      uchar mtag = m_maskData[idx];
+	      bool opaque =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);      
+	      
+	      if (opaque &&
+		  (minGrad > 0.0 || maxGrad < 1.0))
+		{
+		  float gradMag = VolumeOperations::calcGrad(gradType, d, w, h,
+							     m_depth, m_width, m_height,
+							     m_volData, m_volDataUS);
+		  
+		  if (gradMag < minGrad || gradMag > maxGrad)
+		    opaque = false;
+		}
+	      
+	      if (opaque && mtag > 0)
+		labelMap[mtag] = labelMap[mtag] + 1;
+	    }
+	}
+  //-------
+  
+  QList<int> oldkeys = labelMap.keys();  // label
+  QList<int> values = labelMap.values(); // volume
+  int nLabels = oldkeys.count();
+  
+//  //-------
+//  // display labels and respective volumes
+//  {
+//    QString mesg;
+//    for (int i=0; i<values.count(); i++)
+//      mesg += QString("%1 : %2\n").arg(oldkeys[i]).arg(labelMap[oldkeys[i]]);
+//
+//    StaticFunctions::showMessage("Original", mesg);
+//  }
+  
+  //-------
+  // do this to sort on volume
+  QMap<int, int> remapLabel; // contains remapping info
+  for (int i=0; i<nLabels; i++)
+    remapLabel[values[i]] = oldkeys[i];
+  //-------
+
+  QList<int> newkeys = remapLabel.values();  // labels sorted on volume
+  
+  //-------
+  remapLabel.clear();
+  if (ascending)
+    {
+      for (int i=0; i<nLabels; i++)
+	remapLabel[oldkeys[i]] = newkeys[i];
+    }
+  else
+    {
+      for (int i=0; i<nLabels; i++)
+	remapLabel[oldkeys[i]] = newkeys[nLabels-1-i];
+    }
+  //-------
+
+
+  //-------
+  // relabel
+  for(qint64 d=ds; d<=de; d++)
+    for(qint64 w=ws; w<=we; w++)
+      for(qint64 h=hs; h<=he; h++)
+	{
+	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
+	  if (m_maskData[idx] > 0)
+	    m_maskData[idx] = remapLabel[m_maskData[idx]];
+	}
+  //-------
+
+  
+//  //-------
+//  // display labels and respective volumes
+//  {
+//    QString mesg;
+//    for (int i=0; i<values.count(); i++)
+//      mesg += QString("%1 : %2\n").arg(oldkeys[i]).arg(labelMap[remapLabel[oldkeys[i]]]);
+//
+//    StaticFunctions::showMessage("Remapped", mesg);
+//  }
+//  //-------
+
+}

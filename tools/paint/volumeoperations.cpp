@@ -264,6 +264,7 @@ void VolumeOperations::getVolume(Vec bmin, Vec bmax, int tag)
   uchar *lut = Global::lut();
   uchar *tagColors = Global::tagColors();
 
+  QMap<int, int> labelMap; // contains (number of voxels) volume for each label
   qint64 nvoxels = 0;
   for(qint64 d=ds; d<=de; d++)
     {
@@ -286,7 +287,10 @@ void VolumeOperations::getVolume(Vec bmin, Vec bmax, int tag)
 		  opaque &= (mtag == tag);
 
 		if (opaque)
-		  nvoxels ++;
+		  {
+		    nvoxels ++;
+		    labelMap[mtag] = labelMap[mtag] + 1;
+		  }
 	      }
 	  }
     }
@@ -307,7 +311,22 @@ void VolumeOperations::getVolume(Vec bmin, Vec bmax, int tag)
                   arg(voxvol).\
                   arg(pvlInfo.voxelUnitStringShort());
 
-  QMessageBox::information(0, "", mesg);
+  if (tag == -1)
+    {	       
+      mesg += "------------------------------\n";
+      mesg += " Label : Voxel Count : Volume \n";
+      mesg += "------------------------------\n";
+      QList<int> key = labelMap.keys();
+      QList<int> value = labelMap.values();
+      for(int i=0; i<key.count(); i++)
+	{
+	  float vol = value[i]*voxelSize.x*voxelSize.y*voxelSize.z;
+	  mesg += QString("  %1 : %2 : %3 %4^3\n").arg(key[i], 6).arg(value[i], 12).\
+	                                         arg(vol).arg(pvlInfo.voxelUnitStringShort());
+	}
+    }
+  
+  StaticFunctions::showMessage("Volume", mesg);
 }
 
 
@@ -3332,7 +3351,7 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
     
     bool ok;
     QString option = QInputDialog::getItem(0,
-					   "Sort based on Volume",
+					   "Sort based on voxel count",
 					   "Ascending/Descending ?",
 					   dtypes,
 					   0,
@@ -3373,14 +3392,13 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
 	}
   //------------------
 
-
+  
   //------------------
   // remove components with volume less than componentThreshold
   for(qint64 d=ds; d<=de; d++)
     for(qint64 w=ws; w<=we; w++)
       for(qint64 h=hs; h<=he; h++)
 	{
-	  qint64 bidx = ((qint64)(d-ds))*mx*my+((qint64)(w-ws))*mx+(h-hs);
 	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
 	  if (labelMap[m_maskData[idx]] <= componentThreshold)
 	    m_maskData[idx] = 0;
@@ -3391,27 +3409,45 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
   //------------------
   // update labelMap to reflect removal of small components
   {
-    QList<int> oldkeys = labelMap.keys();  // component labels
-    int nLabels = oldkeys.count();
+    QList<int> keys = labelMap.keys();  // component labels
+    int nLabels = keys.count();
     for(int i=0; i<nLabels; i++)
-      if (labelMap[oldkeys[i]] <= componentThreshold)
-	labelMap.remove(oldkeys[i]);
+      if (labelMap[keys[i]] <= componentThreshold)
+	labelMap.remove(keys[i]);
   }
   //------------------
 
 
   //------------------
-  // just remap in sequential order
+  // new remap in sequential order
   QString mesg;
   {
-    QList<int> oldkeys = labelMap.keys();  // component labels
-    int nLabels = oldkeys.count();
+    QList<int> oldLabel = labelMap.keys();  // component labels
+    QList<int> compVol = labelMap.values(); // volume
+    int nLabels = oldLabel.count();
+
+    //-------
+    // do this to sort on volume
+    QMultiMap<int, int> remapLabel; // contains remapping info
+    for (int i=0; i<nLabels; i++)
+      remapLabel.insert(compVol[i], oldLabel[i]);
+    //-------
+
+    QList<int> newLabel = remapLabel.values();  // labels sorted on volume
+    QList<int> sortedVol = remapLabel.keys();  // sorted component volume
+
+
+    mesg  = "---------------------\n";
+    mesg += " Label : Voxel Count \n";
+    mesg += "---------------------\n";
+    
+    labelMap.clear();
     if (ascending)  // lowest volume first
       {
 	for(int i=0; i<nLabels; i++)
 	  {
-	    mesg += QString("%1 : %2\n").arg(i+1).arg(labelMap[oldkeys[i]]);
-	    labelMap[oldkeys[i]] = i+1;
+	    labelMap[newLabel[i]] = i+1;
+	    mesg += QString("  %1 : %2\n").arg(i+1, 6).arg(sortedVol[i]);
 	  }
       }
     else  // highest volume first
@@ -3420,18 +3456,22 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
 	for(int i=nLabels-1; i>=0; i--)
 	  {
 	    l++;
-	    mesg += QString("%1 : %2\n").arg(l).arg(labelMap[oldkeys[i]]);
-	    labelMap[oldkeys[i]] = l;
+	    labelMap[newLabel[i]] = l;
+	    mesg += QString("  %1 : %2\n").arg(l, 6).arg(sortedVol[i]);
 	  }
       }
   }
-  
-  //-------
-  // displace labels and respective volumes
-  StaticFunctions::showMessage("Label Volumes", mesg);
-  //-------
   //------------------
 
+
+  //-------
+  // displace labels and respective volumes
+  StaticFunctions::showMessage("Labeled Component Volumes", mesg);
+  //-------
+
+
+  //------------------
+  // apply remapping of labels to reflect sorted component volumes
   for(qint64 d=ds; d<=de; d++)
     for(qint64 w=ws; w<=we; w++)
       for(qint64 h=hs; h<=he; h++)
@@ -3440,6 +3480,7 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
 	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
 	  m_maskData[idx] = labelMap[m_maskData[idx]];
 	}
+  //------------------
   
   
   minD = ds;
@@ -3476,7 +3517,7 @@ VolumeOperations::sortLabels(Vec bmin, Vec bmax,
 
   bool ok;
   QString option = QInputDialog::getItem(0,
-					 "Sort based on Volume",
+					 "Sort based on voxel count",
 					 "Ascending/Descending ?",
 					 dtypes,
 					 0,
@@ -3528,37 +3569,27 @@ VolumeOperations::sortLabels(Vec bmin, Vec bmax,
   QList<int> oldkeys = labelMap.keys();  // label
   QList<int> values = labelMap.values(); // volume
   int nLabels = oldkeys.count();
-  
-//  //-------
-//  // display labels and respective volumes
-//  {
-//    QString mesg;
-//    for (int i=0; i<values.count(); i++)
-//      mesg += QString("%1 : %2\n").arg(oldkeys[i]).arg(labelMap[oldkeys[i]]);
-//
-//    StaticFunctions::showMessage("Original", mesg);
-//  }
-  
+    
   //-------
   // do this to sort on volume
-  QMap<int, int> remapLabel; // contains remapping info
+  QMultiMap<int, int> remapLabel; // contains remapping info
   for (int i=0; i<nLabels; i++)
-    remapLabel[values[i]] = oldkeys[i];
+    remapLabel.insert(values[i], oldkeys[i]);
   //-------
 
   QList<int> newkeys = remapLabel.values();  // labels sorted on volume
   
   //-------
-  remapLabel.clear();
+  labelMap.clear();
   if (ascending)
     {
       for (int i=0; i<nLabels; i++)
-	remapLabel[oldkeys[i]] = newkeys[i];
+	labelMap[newkeys[i]] = oldkeys[i];
     }
   else
     {
       for (int i=0; i<nLabels; i++)
-	remapLabel[oldkeys[i]] = newkeys[nLabels-1-i];
+	labelMap[newkeys[i]] = oldkeys[nLabels-1-i];
     }
   //-------
 
@@ -3571,20 +3602,9 @@ VolumeOperations::sortLabels(Vec bmin, Vec bmax,
 	{
 	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
 	  if (m_maskData[idx] > 0)
-	    m_maskData[idx] = remapLabel[m_maskData[idx]];
+	    m_maskData[idx] = labelMap[m_maskData[idx]];
 	}
   //-------
 
-  
-//  //-------
-//  // display labels and respective volumes
-//  {
-//    QString mesg;
-//    for (int i=0; i<values.count(); i++)
-//      mesg += QString("%1 : %2\n").arg(oldkeys[i]).arg(labelMap[remapLabel[oldkeys[i]]]);
-//
-//    StaticFunctions::showMessage("Remapped", mesg);
-//  }
-//  //-------
-
+  QMessageBox::information(0, "Sort on voxel count", "Done sort on voxel count");
 }

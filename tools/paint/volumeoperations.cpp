@@ -2271,6 +2271,178 @@ VolumeOperations::parWriteToMask(QList<QVariant> plist)
 
 
 void
+VolumeOperations::openAll(Vec bmin, Vec bmax, int tag,
+			  int nErode, int nDilate,
+			  int& minD, int& maxD,
+			  int& minW, int& maxW,
+			  int& minH, int& maxH,
+			  int gradType, float minGrad, float maxGrad)
+{
+  minD = minW = minH = maxD = maxW = maxH = -1;
+
+  uchar *lut = Global::lut();
+
+  QProgressDialog progress("Open : Updating voxel structure",
+			   QString(),
+			   0, 100,
+			   0,
+			   Qt::WindowStaysOnTopHint);
+
+  
+  int ds = qMax(0, (int)bmin.z);
+  int ws = qMax(0, (int)bmin.y);
+  int hs = qMax(0, (int)bmin.x);
+
+  int de = qMin((int)bmax.z, m_depth-1);
+  int we = qMin((int)bmax.y, m_width-1);
+  int he = qMin((int)bmax.x, m_height-1);
+
+  qint64 mx = he-hs+1;
+  qint64 my = we-ws+1;
+  qint64 mz = de-ds+1;
+
+  MyBitArray bitmask;
+  bitmask.resize(mx*my*mz);
+  bitmask.fill(false);
+
+  getVisibleRegion(ds, ws, hs,
+		   de, we, he,
+		   tag, false,
+		   gradType, minGrad, maxGrad,
+		   bitmask);
+  
+
+  // copy bitmask into cbitmask
+  MyBitArray cbitmask;
+  cbitmask = bitmask;
+
+
+  dilateBitmaskUsingVDB(nErode, false, // dilate transparent region
+			mx, my, mz,
+			bitmask);
+
+  
+  dilateBitmaskUsingVDB(nDilate, true, // dilate opaque region
+			mx, my, mz,
+			bitmask);
+
+
+  
+  progress.setLabelText("writing to mask");
+  for(qint64 d2=ds; d2<=de; d2++)
+    {
+      progress.setValue(100*(d2-ds)/(mz));
+      qApp->processEvents();
+      for(qint64 w2=ws; w2<=we; w2++)
+	for(qint64 h2=hs; h2<=he; h2++)
+	  {
+	    qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
+	    if (!bitmask.testBit(bidx) && cbitmask.testBit(bidx))
+	      {
+		qint64 idx = d2*m_width*m_height + w2*m_height + h2;
+		m_maskData[idx] = 0;
+	      } // test bitmask 
+	  } // loop over h
+    } // loop over d
+
+  
+  minD = ds;
+  maxD = de;
+  minW = ws;
+  maxW = we;
+  minH = hs;
+  maxH = he;
+}
+
+
+void
+VolumeOperations::closeAll(Vec bmin, Vec bmax, int tag,
+			   int nDilate, int nErode,
+			   int& minD, int& maxD,
+			   int& minW, int& maxW,
+			   int& minH, int& maxH,
+			   int gradType, float minGrad, float maxGrad)
+{
+  minD = minW = minH = maxD = maxW = maxH = -1;
+
+  uchar *lut = Global::lut();
+
+  QProgressDialog progress("Close : Updating voxel structure",
+			   QString(),
+			   0, 100,
+			   0,
+			   Qt::WindowStaysOnTopHint);
+
+  
+  int ds = qMax(0, (int)bmin.z);
+  int ws = qMax(0, (int)bmin.y);
+  int hs = qMax(0, (int)bmin.x);
+
+  int de = qMin((int)bmax.z, m_depth-1);
+  int we = qMin((int)bmax.y, m_width-1);
+  int he = qMin((int)bmax.x, m_height-1);
+
+  qint64 mx = he-hs+1;
+  qint64 my = we-ws+1;
+  qint64 mz = de-ds+1;
+
+  MyBitArray bitmask;
+  bitmask.resize(mx*my*mz);
+  bitmask.fill(false);
+
+  getVisibleRegion(ds, ws, hs,
+		   de, we, he,
+		   tag, false,
+		   gradType, minGrad, maxGrad,
+		   bitmask);
+  
+
+  
+  dilateBitmaskUsingVDB(nDilate, true, // dilate opaque region
+			mx, my, mz,
+			bitmask);
+
+  dilateBitmaskUsingVDB(nErode, false, // dilate transparent region
+			mx, my, mz,
+			bitmask);
+
+
+
+  
+  progress.setLabelText("writing to mask");
+  for(qint64 d2=ds; d2<=de; d2++)
+    {
+      progress.setValue(100*(d2-ds)/(mz));
+      qApp->processEvents();
+      for(qint64 w2=ws; w2<=we; w2++)
+	for(qint64 h2=hs; h2<=he; h2++)
+	  {
+	    qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
+	    if (bitmask.testBit(bidx))
+	      {
+		qint64 idx = d2*m_width*m_height + w2*m_height + h2;
+		m_maskData[idx] = tag;
+	      } // test bitmask 
+	  } // loop over h
+    } // loop over d
+
+  
+  minD = ds;
+  maxD = de;
+  minW = ws;
+  maxW = we;
+  minH = hs;
+  maxH = he;
+}
+
+
+
+
+
+
+
+
+void
 VolumeOperations::dilateConnected(int dr, int wr, int hr,
 				  Vec bmin, Vec bmax, int tag,
 				  int nDilate,
@@ -3226,7 +3398,7 @@ VolumeOperations::convertToVDBandSmooth(int ds, int ws, int hs,
   progress.setLabelText("Smooth - gaussian");
   progress.setValue(25);
   qApp->processEvents();
-  vdb.gaussian(filterWidth, 1); // gaussian filter
+  vdb.gaussian(filterWidth); // one iteration of gaussian filter
   progress.setValue(50);
   qApp->processEvents();
 
@@ -3240,7 +3412,7 @@ VolumeOperations::convertToVDBandSmooth(int ds, int ws, int hs,
       for(w=ws; w<=we; w++)
 	for(h=hs; h<=he; h++)
 	  {
-	    if (accessor.getValue(ijk) > 1)
+	    if (accessor.getValue(ijk) > 2)
 	      {
 		qint64 bidx = ((qint64)(d-ds))*mx*my+(w-ws)*mx+(h-hs);
 		if (bitmask.testBit(bidx))
@@ -3257,6 +3429,115 @@ VolumeOperations::convertToVDBandSmooth(int ds, int ws, int hs,
 }
 
 
+
+void
+VolumeOperations::removeComponents(Vec bmin, Vec bmax,
+				   int tag,
+				   int& minD, int& maxD,
+				   int& minW, int& maxW,
+				   int& minH, int& maxH,
+				   int gradType, float minGrad, float maxGrad)
+{
+  minD = maxD = minW = maxW = minH = maxH = -1;
+
+  int ds = bmin.z;
+  int ws = bmin.y;
+  int hs = bmin.x;
+
+  int de = bmax.z;
+  int we = bmax.y;
+  int he = bmax.x;
+
+  qint64 mx = he-hs+1;
+  qint64 my = we-ws+1;
+  qint64 mz = de-ds+1;
+
+  MyBitArray bitmask;
+  bitmask.resize(mx*my*mz);
+  bitmask.fill(false);
+
+
+  getVisibleRegion(ds, ws, hs,
+		   de, we, he,
+		   tag, false,
+		   gradType, minGrad, maxGrad,
+		   bitmask);
+
+
+
+  uchar *vol = new uchar[mx*my*mz];
+  memset(vol, 0, mx*my*mz);
+  for(qint64 d=ds; d<=de; d++)
+    for(qint64 w=ws; w<=we; w++)
+      for(qint64 h=hs; h<=he; h++)
+	{
+	  qint64 bidx = ((qint64)(d-ds))*mx*my+((qint64)(w-ws))*mx+(h-hs);
+	  if (bitmask.testBit(bidx))
+	    vol[bidx] = 255;
+	}
+
+  
+
+  //------------------
+  // ignore all components below componentThreshold
+  int componentThreshold = 1000;
+  componentThreshold = QInputDialog::getInt(0,
+					    "Component Threshold",
+					    "Minimum number of voxels per labeled component",
+					    1000);
+  //------------------
+  
+
+
+  //------------------
+  // find connected components
+  int connectivity = 6;
+  uint32_t* labels = cc3d::connected_components3d(vol,
+						  mx, my, mz,
+						  connectivity);
+
+  //------------------
+
+  
+  //------------------
+  // calculate volume (no. of voxels) per component
+  QMap<int, int> labelMap; // contains (number of voxels) volume for each label
+  for(qint64 d=ds; d<=de; d++)
+    for(qint64 w=ws; w<=we; w++)
+      for(qint64 h=hs; h<=he; h++)
+	{
+	  qint64 bidx = ((qint64)(d-ds))*mx*my+((qint64)(w-ws))*mx+(h-hs);
+	  vol[bidx] = labels[bidx];
+
+	  if (vol[bidx] > 0)
+	    labelMap[vol[bidx]] = labelMap[vol[bidx]] + 1;
+	}
+  //------------------
+
+  
+  //------------------
+  // remove components with volume less than componentThreshold
+  for(qint64 d=ds; d<=de; d++)
+    for(qint64 w=ws; w<=we; w++)
+      for(qint64 h=hs; h<=he; h++)
+	{
+	  qint64 bidx = ((qint64)(d-ds))*mx*my+((qint64)(w-ws))*mx+(h-hs);
+	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
+	  if (labelMap[vol[bidx]] <= componentThreshold)
+	    m_maskData[idx] = 0;
+	}
+  //------------------
+  
+  delete [] vol;
+  delete [] labels;
+  
+  minD = ds;
+  minW = ws;
+  minH = hs;
+  maxD = de;
+  maxW = we;
+  maxH = he;  
+}
 
 
 void
@@ -3372,7 +3653,8 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
   uint32_t* labels = cc3d::connected_components3d(vol,
 						  mx, my, mz,
 						  connectivity);
-
+  
+  delete [] vol;
   //------------------
 
   
@@ -3390,6 +3672,7 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
 	  if (m_maskData[idx] > 0)
 	    labelMap[m_maskData[idx]] = labelMap[m_maskData[idx]] + 1;
 	}
+  delete [] labels;
   //------------------
 
   

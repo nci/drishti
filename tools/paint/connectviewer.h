@@ -32,6 +32,9 @@
   connect(m_viewer, SIGNAL(connectedComponents(Vec,Vec,int)),
 	  this, SLOT(connectedComponents(Vec,Vec,int)));
 
+  connect(m_viewer, SIGNAL(removeComponents(Vec,Vec,int)),
+	  this, SLOT(removeComponents(Vec,Vec,int)));
+
   connect(m_viewer, SIGNAL(mergeTags(Vec, Vec, int, int, bool)),
 	  this, SLOT(mergeTags(Vec, Vec, int, int, bool)));
 
@@ -55,6 +58,12 @@
 
   connect(m_viewer, SIGNAL(erodeAll(Vec,Vec,int,int)),
 	  this, SLOT(erodeAll(Vec,Vec,int,int)));
+
+  connect(m_viewer, SIGNAL(openAll(Vec,Vec,int,int,int)),
+	  this, SLOT(openAll(Vec,Vec,int,int,int)));
+
+  connect(m_viewer, SIGNAL(closeAll(Vec,Vec,int,int,int)),
+	  this, SLOT(closeAll(Vec,Vec,int,int,int)));
 
   connect(m_viewer, SIGNAL(tagUsingSketchPad(Vec,Vec)),
 	  this, SLOT(tagUsingSketchPad(Vec,Vec)));

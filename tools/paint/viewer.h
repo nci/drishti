@@ -151,7 +151,9 @@ class Viewer : public QGLViewer
     void dilateAllTags(Vec, Vec, int);
     void dilateAll(Vec, Vec, int, int);
     void erodeAll(Vec, Vec, int, int);
-
+    void openAll(Vec, Vec, int, int, int);
+    void closeAll(Vec, Vec, int, int, int);
+  
     void tagUsingSketchPad(Vec, Vec);
 
     void mergeTags(Vec, Vec, int, int, bool);
@@ -185,6 +187,7 @@ class Viewer : public QGLViewer
 		       int, int);
 
     void connectedComponents(Vec, Vec, int);
+    void removeComponents(Vec, Vec, int);
   
     void hatchConnectedRegion(int, int, int,
 			      Vec, Vec,
@@ -354,6 +357,7 @@ class Viewer : public QGLViewer
 
   void hatch();
   void connectedComponents(int);
+  void removeComponents(int);
   void smoothRegion(bool, int, int);
   void regionGrowing(bool);
   void regionDilation(bool);
@@ -363,6 +367,8 @@ class Viewer : public QGLViewer
   void tagUsingScreenSketch();
   void sortLabels();
 
+  void openRegion(int, int, int);
+  void closeRegion(int, int, int);
   
   void commandEditor();
   void processCommand(QString);

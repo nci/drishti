@@ -1044,7 +1044,21 @@ Viewer::processCommand(QString cmd)
       if (list.size() == 2)
 	tag = list[1].toInt(&ok);
 
-      connectedComponents(tag);      
+      connectedComponents(tag);
+      return;
+    }
+
+  if (list[0].contains("removecomponents"))
+    {
+      int tag = -1;
+      if (list.size() == 2)
+	tag = list[1].toInt(&ok);
+
+      if (tag > 0)
+	removeComponents(tag);      
+      else
+	QMessageBox::information(0, "", "Expecting <tag> for connected components");
+      
       return;
     }
 
@@ -1092,7 +1106,7 @@ Viewer::processCommand(QString cmd)
       return;
     }
 
-    if (list[0].contains("dilate"))
+  if (list[0].contains("dilate"))
     {
       int tag = -1;
       int size = -1;
@@ -1128,6 +1142,57 @@ Viewer::processCommand(QString cmd)
 	}
 
       QMessageBox::information(0, "Erode", "Expecting - erode <tag> <size>");
+      
+      return;
+    }
+
+      
+  if (list[0].contains("open"))
+    {
+      int tag = -1;
+      int nErode = 1;
+      int nDilate = 1;
+      if (list.size() > 2)
+	{
+	  tag = list[1].toInt(&ok);
+	  nErode = list[2].toInt(&ok);
+	  nDilate = nErode;
+	  if (list.size() > 3)
+	    nDilate = list[3].toInt(&ok);
+	}
+
+      if (tag > -1 && nErode > 0 && nDilate > 0)
+	{
+	  openRegion(tag, nErode, nDilate);
+	  return;
+	}
+      
+      QMessageBox::information(0, "Open", "Expecting - open <tag> <size>");
+      
+      return;
+    }
+      
+  if (list[0].contains("close"))
+    {
+      int tag = -1;
+      int nDilate = 1;
+      int nErode = 1;
+      if (list.size() > 2)
+	{
+	  tag = list[1].toInt(&ok);
+	  nDilate = list[2].toInt(&ok);
+	  nErode = nDilate;
+	  if (list.size() > 3)
+	    nErode = list[3].toInt(&ok);
+	}
+
+      if (tag > -1 && nDilate > 0 && nErode > 0)
+	{
+	  closeRegion(tag, nDilate, nErode);
+	  return;
+	}
+      
+      QMessageBox::information(0, "Open", "Expecting - open <size>");
       
       return;
     }
@@ -2957,6 +3022,19 @@ Viewer::connectedComponents(int tag)
 }
 
 void
+Viewer::removeComponents(int tag)
+{
+  Vec bmin, bmax;
+  m_boundingBox.bounds(bmin, bmax);
+
+  Vec voxelScaling = Global::relativeVoxelScaling();
+  bmin = VECDIVIDE(bmin, voxelScaling);
+  bmax = VECDIVIDE(bmax, voxelScaling);
+
+  emit removeComponents(bmin, bmax, tag);
+}
+
+void
 Viewer::smoothRegion(bool flag, int tag, int filterWidth)
 {
   int d, w, h;
@@ -3108,6 +3186,32 @@ Viewer::sortLabels()
   bmax = VECDIVIDE(bmax, voxelScaling);
 
   emit sortLabels(bmin, bmax);
+}
+
+void
+Viewer::openRegion(int tag, int nErode, int nDilate)
+{
+  Vec bmin, bmax;
+  m_boundingBox.bounds(bmin, bmax);
+
+  Vec voxelScaling = Global::relativeVoxelScaling();
+  bmin = VECDIVIDE(bmin, voxelScaling);
+  bmax = VECDIVIDE(bmax, voxelScaling);
+
+  emit openAll(bmin, bmax, tag, nErode, nDilate);
+}
+
+void
+Viewer::closeRegion(int tag, int nDilate, int nErode)
+{
+  Vec bmin, bmax;
+  m_boundingBox.bounds(bmin, bmax);
+
+  Vec voxelScaling = Global::relativeVoxelScaling();
+  bmin = VECDIVIDE(bmin, voxelScaling);
+  bmax = VECDIVIDE(bmax, voxelScaling);
+
+  emit closeAll(bmin, bmax, tag, nDilate, nErode);
 }
 
 

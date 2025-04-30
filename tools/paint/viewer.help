@@ -117,11 +117,23 @@ connectedcomponents
 connectedcomponents
 connectedcomponents <tag>
 
-
 Segment connected components for the given visible <tag> region.
 If no <tag> is specified connected components for all visible region is found.
 
 User is asked for a volume threshold (minimum number of voxels) above which a component is considered for labeling.
+
+Clipping planes are obeyed - clipped region is not taken into account.
+#end
+
+
+#begin
+removecomponents
+removecomponents <tag>
+
+
+Remove components that are smaller than threshold for the given visible labelled (i.e. non-zero) <tag> region.
+
+User is asked for a volume threshold (minimum number of voxels) below which a component is delabeled (i.e. set to 0).
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end
@@ -145,6 +157,26 @@ sortlabels
 Sort the labels in the visible region in an ascending/descending order by volume (i.e. number of voxels) in each label.
 
 Clipping planes are obeyed - clipped region is not taken into account.
+#end
+
+
+#begin
+open
+open <tag> <size>
+open <tag> <erode> <dilate>
+
+Apply morphological Open (erosion followed by dilation) to the region with specified tag value.
+
+#end
+
+
+#begin
+close
+close <tag> <size>
+close <tag> <dilate> <erode>
+
+Apply morphological Close (dilation followed by erosion) to the region with specified tag value.
+
 #end
 
 

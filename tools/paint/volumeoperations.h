@@ -52,6 +52,12 @@ class VolumeOperations
 			      int, float, float,
 			      int);
 
+  static void removeComponents(Vec, Vec,
+			       int,
+			       int&, int&,
+			       int&, int&,
+			       int&, int&,
+			       int, float, float);
   static void connectedComponents(Vec, Vec,
 				  int,
 				  int&, int&,
@@ -137,6 +143,21 @@ class VolumeOperations
 			      bool,
 			      int, float, float);
 
+  static void openAll(Vec, Vec, int,
+		      int, int,
+		      int&, int&,
+		      int&, int&,
+		      int&, int&,
+		      int, float, float);
+
+  static void closeAll(Vec, Vec, int,
+		       int, int,
+		       int&, int&,
+		       int&, int&,
+		       int&, int&,
+		       int, float, float);
+
+  
   static void modifyOriginalVolume(Vec, Vec, int,
 				   int&, int&,
 				   int&, int&,

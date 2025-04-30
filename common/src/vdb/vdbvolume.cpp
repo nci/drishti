@@ -92,6 +92,13 @@ VdbVolume::gaussian(int width)
 
 
 void
+VdbVolume::laplacian()
+{
+  openvdb::tools::LevelSetFilter<openvdb::FloatGrid> filter(*m_vdbGrid);
+  filter.laplacian();
+}
+
+void
 VdbVolume::offset(float offset)
 {
   openvdb::tools::LevelSetFilter<openvdb::FloatGrid> lsf(*m_vdbGrid);

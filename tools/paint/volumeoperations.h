@@ -221,7 +221,8 @@ class VolumeOperations
 			       int, int, int,
 			       int, bool,
 			       int, float, float,
-			       MyBitArray&);  
+			       MyBitArray&,
+			       bool showProgress = true);
   static void parVisibleRegionGeneration(QList<QVariant>);
 
   

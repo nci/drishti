@@ -624,16 +624,20 @@ VolumeOperations::getVisibleRegion(int ds, int ws, int hs,
 				   int de, int we, int he,
 				   int tag, bool checkZero,
 				   int gradType, float minGrad, float maxGrad,
-				   MyBitArray& cbitmask)
+				   MyBitArray& cbitmask,
+				   bool showProgress)
 {
   GeometryObjects::crops()->collectCropInfoBeforeCheckCropped();
 
-  QProgressDialog progress("Identifying visible region",
-			   QString(),
-			   0, 100,
-			   0,
-			   Qt::WindowStaysOnTopHint);
-  progress.setMinimumDuration(0);
+  QProgressDialog progress;
+
+  if (showProgress)
+    {
+      progress.setLabelText("Identifying visible region");
+      progress.setCancelButton(NULL);
+      progress.setWindowFlags(Qt::WindowStaysOnTopHint);
+      progress.setMinimumDuration(0);
+    }
 
   // collect stuff for parallel processing
   QList<QList<QVariant>> param;
@@ -659,20 +663,27 @@ VolumeOperations::getVisibleRegion(int ds, int ws, int hs,
 
   int nThreads = qMax(1, (int)(QThread::idealThreadCount()));
   //QThreadPool::globalInstance()->setMaxThreadCount(nThreads);
-						   
+
   // Create a QFutureWatcher and connect signals and slots.
-  progress.setLabelText(QString("Identifying visible region using %1 thread(s)...").arg(nThreads));
   QFutureWatcher<void> futureWatcher;
-  QObject::connect(&futureWatcher, &QFutureWatcher<void>::finished, &progress, &QProgressDialog::reset);
-  QObject::connect(&progress, &QProgressDialog::canceled, &futureWatcher, &QFutureWatcher<void>::cancel);
-  QObject::connect(&futureWatcher,  &QFutureWatcher<void>::progressRangeChanged, &progress, &QProgressDialog::setRange);
-  QObject::connect(&futureWatcher, &QFutureWatcher<void>::progressValueChanged,  &progress, &QProgressDialog::setValue);
+
+  if (showProgress)
+    {
+      progress.setLabelText(QString("Identifying visible region using %1 thread(s)...").arg(nThreads));
+      QObject::connect(&futureWatcher, &QFutureWatcher<void>::finished, &progress, &QProgressDialog::reset);
+      QObject::connect(&progress, &QProgressDialog::canceled, &futureWatcher, &QFutureWatcher<void>::cancel);
+      QObject::connect(&futureWatcher,  &QFutureWatcher<void>::progressRangeChanged, &progress, &QProgressDialog::setRange);
+      QObject::connect(&futureWatcher, &QFutureWatcher<void>::progressValueChanged,  &progress, &QProgressDialog::setValue);
+    }
   
-  // Start generation of isosurface for all values within the range
+  // Start generation for all values within the range
   futureWatcher.setFuture(QtConcurrent::map(param, VolumeOperations::parVisibleRegionGeneration));
   
-  // Display the dialog and start the event loop.
-  progress.exec();
+  if (showProgress)
+    {
+      // Display the dialog and start the event loop.
+      progress.exec();
+    }
   
   futureWatcher.waitForFinished();
 }
@@ -2029,6 +2040,8 @@ VolumeOperations::mergeTags(Vec bmin, Vec bmax,
     }
 }
 
+
+
 void
 VolumeOperations::dilateAllTags(Vec bmin, Vec bmax,
 				int nDilate,
@@ -2036,15 +2049,7 @@ VolumeOperations::dilateAllTags(Vec bmin, Vec bmax,
 				int& minW, int& maxW,
 				int& minH, int& maxH,
 				int gradType, float minGrad, float maxGrad)
-{
-  QProgressDialog progress("Dilating all labels",
-			   QString(),
-			   0, 100,
-			   0,
-			   Qt::WindowStaysOnTopHint);
-  progress.setMinimumDuration(0);
-
-  
+{  
   int ds = qMax(0, (int)bmin.z);
   int ws = qMax(0, (int)bmin.y);
   int hs = qMax(0, (int)bmin.x);
@@ -2063,28 +2068,182 @@ VolumeOperations::dilateAllTags(Vec bmin, Vec bmax,
       for(qint64 h=hs; h<=he; h++)
 	{
 	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
-	  if (!ut.contains(m_maskData[idx]))
+	  if (m_maskData[idx] > 0 && !ut.contains(m_maskData[idx]))
 	    ut << m_maskData[idx]; 
 	}
 
   QMessageBox::information(0, "Labels", QString("Total labels : %1").arg(ut.count()));
+
+
+  //----------------------------
+  // identify expandZone - visible zero
+  MyBitArray expandZone;
+  expandZone.resize(mx*my*mz);
+  expandZone.fill(false);
+
+  getVisibleRegion(ds, ws, hs,
+		   de, we, he,
+		   0, false,
+		   gradType, minGrad, maxGrad,
+		   expandZone);  
+  //----------------------------
+
+
+  QProgressDialog progress("Growing all labels",
+			   QString(),
+			   0, 100,
+			   0,
+			   Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);
+  qApp->processEvents();
+
+  //----------------------------
+  // identify tag regions
+  QList<MyBitArray> tagZone;
+  QList<VdbVolume*> tagVdb;
+  for(int i=0; i<ut.count(); i++)
+    {
+      progress.setValue(100*(float)i/(float)ut.count());
+      qApp->processEvents();
+
+      MyBitArray bitmask;
+      tagZone << bitmask;
+
+      tagZone[i].resize(mx*my*mz);
+      tagZone[i].fill(false);
+      
+      getVisibleRegion(ds, ws, hs,
+		       de, we, he,
+		       ut[i], false,  // no tag zero checking
+		       gradType, minGrad, maxGrad,
+		       tagZone[i],
+		       false);  
+
+      VdbVolume *vdb;
+      vdb = new VdbVolume;
+      openvdb::FloatGrid::Accessor accessor = vdb->getAccessor();
+      openvdb::Coord ijk;
+      int &d = ijk[0];
+      int &w = ijk[1];
+      int &h = ijk[2];
+      for(d=0; d<mz; d++)
+	for(w=0; w<my; w++)
+	  for(h=0; h<mx; h++)
+	    {
+	      qint64 bidx = ((qint64)d)*mx*my+w*mx+h;
+	      if (tagZone[i].testBit(bidx))
+		accessor.setValue(ijk, 255);
+	    }      
+
+      //vdb->convertToLevelSet(1, 0);
+      tagVdb << vdb;
+    }
+  
+  
   for(int u=0; u<nDilate; u++)
     {
+      progress.setLabelText(QString("Growing : %1 of %2").arg(u+1).arg(nDilate));
       for(int i=0; i<ut.count(); i++)
 	{
 	  progress.setValue(100*(float)i/(float)ut.count());
 	  qApp->processEvents();
-	  dilateAll(bmin, bmax, ut[i],
-		    1,
-		    minD, maxD,
-		    minW, maxW,
-		    minH, maxH,
-		    false,
-		    gradType, minGrad, maxGrad,
-		    false);
+	 
+	  tagVdb[i]->convertToLevelSet(1, 0);
+	  tagVdb[i]->offset(-1); // dilate
+
+	  tagZone[i].fill(false);
+	  openvdb::FloatGrid::Accessor accessor = tagVdb[i]->getAccessor();
+	  openvdb::Coord ijk;
+	  int &d = ijk[0];
+	  int &w = ijk[1];
+	  int &h = ijk[2];
+	  for(d=0; d<mz; d++)
+	    for(w=0; w<my; w++)
+	      for(h=0; h<mx; h++)
+		{
+		  if (accessor.getValue(ijk) <= 0)
+		    {
+		      qint64 bidx = ((qint64)d)*mx*my+w*mx+h;
+		      tagZone[i].setBit(bidx, true);
+
+		      qint64 d2 = ds + d;
+		      qint64 w2 = ws + w;
+		      qint64 h2 = hs + h;
+		      qint64 idx = d2*m_width*m_height + w2*m_height + h2;
+		      if (m_maskData[idx] == 0) // expand into unlabelled region
+			m_maskData[idx] = ut[i];
+		      else if (m_maskData[idx] != ut[i]) // encroaching another label
+			accessor.setValue(ijk, 0);
+		    }
+		}	  
 	}
     }
+
+  minD = ds;
+  maxD = de;
+  minW = ws;
+  maxW = we;
+  minH = hs;
+  maxH = he;
 }
+
+
+//void
+//VolumeOperations::dilateAllTags(Vec bmin, Vec bmax,
+//				int nDilate,
+//				int& minD, int& maxD,
+//				int& minW, int& maxW,
+//				int& minH, int& maxH,
+//				int gradType, float minGrad, float maxGrad)
+//{
+//  QProgressDialog progress("Dilating all labels",
+//			   QString(),
+//			   0, 100,
+//			   0,
+//			   Qt::WindowStaysOnTopHint);
+//  progress.setMinimumDuration(0);
+//
+//  
+//  int ds = qMax(0, (int)bmin.z);
+//  int ws = qMax(0, (int)bmin.y);
+//  int hs = qMax(0, (int)bmin.x);
+//
+//  int de = qMin((int)bmax.z, m_depth-1);
+//  int we = qMin((int)bmax.y, m_width-1);
+//  int he = qMin((int)bmax.x, m_height-1);
+//
+//  qint64 mx = he-hs+1;
+//  qint64 my = we-ws+1;
+//  qint64 mz = de-ds+1;
+//
+//  QList<int> ut;
+//  for(qint64 d=ds; d<=de; d++)
+//    for(qint64 w=ws; w<=we; w++)
+//      for(qint64 h=hs; h<=he; h++)
+//	{
+//	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
+//	  if (m_maskData[idx] > 0 && !ut.contains(m_maskData[idx]))
+//	    ut << m_maskData[idx]; 
+//	}
+//
+//  QMessageBox::information(0, "Labels", QString("Total labels : %1").arg(ut.count()));
+//  for(int u=0; u<nDilate; u++)
+//    {
+//      for(int i=0; i<ut.count(); i++)
+//	{
+//	  progress.setValue(100*(float)i/(float)ut.count());
+//	  qApp->processEvents();
+//	  dilateAll(bmin, bmax, ut[i],
+//		    1,
+//		    minD, maxD,
+//		    minW, maxW,
+//		    minH, maxH,
+//		    false,
+//		    gradType, minGrad, maxGrad,
+//		    false);
+//	}
+//    }
+//}
 
 void
 VolumeOperations::dilateAll(Vec bmin, Vec bmax, int tag,

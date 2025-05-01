@@ -166,6 +166,12 @@ open <tag> <size>
 open <tag> <erode> <dilate>
 
 Apply morphological Open (erosion followed by dilation) to the region with specified tag value.
+If only one value is specified after <tag> value, then erosion and dilation operations will have the same offset.
+If two values are specified after <tag> value, then erosion and dilation operations will have respective offsets.
+
+Example :
+open 1 10 - erosion with offset 10 followed by dilation with offset 10.
+open 1 10 7 - erodion with offset 10 followed by dilation with offset 7.
 
 #end
 
@@ -176,6 +182,12 @@ close <tag> <size>
 close <tag> <dilate> <erode>
 
 Apply morphological Close (dilation followed by erosion) to the region with specified tag value.
+If only one value is specified after <tag> value, then dilation and erosion operations will have the same offset.
+If two values are specified after <tag> value, then dilation and erosion operations will have respective offsets.
+
+Example :
+close 1 10 - dilation with offset 10 followed by erosion with offset 10.
+close 1 10 7 - dilation with offset 10 followed by erosion with offset 7.
 
 #end
 

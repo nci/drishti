@@ -1465,24 +1465,94 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
 }
 
 void
+VolumeOperations::openCloseBitmaskUsingVDB(int offset1, int offset2,
+					   bool htype,
+					   qint64 mx, qint64 my, qint64 mz,
+					   MyBitArray &bitmask)
+{
+  // convert to vdb levelset and dilate
+  QProgressDialog progress(htype?"Open LevelSet":"Close LevelSet",
+			   QString(),
+			   0, 100,
+			   0,
+			   Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);
+  qApp->processEvents();
+
+  VdbVolume vdb;
+  openvdb::FloatGrid::Accessor accessor = vdb.getAccessor();
+  openvdb::Coord ijk;
+  int &d = ijk[0];
+  int &w = ijk[1];
+  int &h = ijk[2];
+  for(d=0; d<mz; d++)
+  for(w=0; w<my; w++)
+  for(h=0; h<mx; h++)
+    {
+      qint64 bidx = ((qint64)d)*mx*my+w*mx+h;
+      if (bitmask.testBit(bidx))
+	accessor.setValue(ijk, 255);
+    }
+
+  progress.setValue(10);
+  qApp->processEvents();
+
+  vdb.convertToLevelSet(1, 0);
+
+  progress.setValue(25);
+  qApp->processEvents();
+  
+  if (htype) // Open
+    vdb.open(offset1, -offset2); // open - erode followed by dilate
+  else // Close
+    vdb.close(-offset1, offset2); // close - dilate followed by erode
+
+  progress.setValue(75);
+  qApp->processEvents();
+
+
+  bitmask.fill(false);
+  {
+    openvdb::FloatGrid::Accessor accessor = vdb.getAccessor();
+    openvdb::Coord ijk;
+    int &d = ijk[0];
+    int &w = ijk[1];
+    int &h = ijk[2];
+    for(d=0; d<=mz; d++)
+      for(w=0; w<=my; w++)
+	for(h=0; h<=mx; h++)
+	  {
+	    if (accessor.getValue(ijk) <= 0)
+	      {
+		qint64 bidx = ((qint64)d)*mx*my+w*mx+h;
+		bitmask.setBit(bidx, true);
+	      }
+	  }
+  }
+
+
+  progress.setValue(100);
+  qApp->processEvents();
+}
+
+
+void
 VolumeOperations::dilateBitmaskUsingVDB(int nDilate, bool htype,
 					qint64 mx, qint64 my, qint64 mz,
 					MyBitArray &bitmask,
 					bool showProgress)
 {
   // convert to vdb levelset and dilate
-  QProgressDialog progress(htype?"Dilate LevelSet":"Erode LevelSet",
-			   QString(),
-			   0, 100,
-			   0,
-			   Qt::WindowStaysOnTopHint);
+  QProgressDialog progress;
+
   if (showProgress)
     {
+      progress.setLabelText(htype?"Dilate LevelSet":"Erode LevelSet");
+      progress.setCancelButton(NULL);
+      progress.setWindowFlags(Qt::WindowStaysOnTopHint);
       progress.setMinimumDuration(0);
       qApp->processEvents();
     }
-  else
-    progress.done(1);
 
   VdbVolume vdb;
   openvdb::FloatGrid::Accessor accessor = vdb.getAccessor();
@@ -2030,17 +2100,15 @@ VolumeOperations::dilateAll(Vec bmin, Vec bmax, int tag,
 
   uchar *lut = Global::lut();
 
-  QProgressDialog progress("Updating voxel structure",
-			   QString(),
-			   0, 100,
-			   0,
-			   Qt::WindowStaysOnTopHint);
+  QProgressDialog progress;
+
   if (showProgress)
     {
+      progress.setLabelText("Updating voxel structure");
+      progress.setCancelButton(NULL);
+      progress.setWindowFlags(Qt::WindowStaysOnTopHint);
       progress.setMinimumDuration(0);
     }
-  else
-    progress.done(1);
 
   int ds = qMax(0, (int)bmin.z);
   int ws = qMax(0, (int)bmin.y);
@@ -2317,18 +2385,14 @@ VolumeOperations::openAll(Vec bmin, Vec bmax, int tag,
   cbitmask = bitmask;
 
 
-  dilateBitmaskUsingVDB(nErode, false, // dilate transparent region
-			mx, my, mz,
-			bitmask);
-
+  openCloseBitmaskUsingVDB(nErode, nDilate,
+			   true, // open operation
+			   mx, my, mz,
+			   bitmask);
   
-  dilateBitmaskUsingVDB(nDilate, true, // dilate opaque region
-			mx, my, mz,
-			bitmask);
-
-
   
   progress.setLabelText("writing to mask");
+  qApp->processEvents();
   for(qint64 d2=ds; d2<=de; d2++)
     {
       progress.setValue(100*(d2-ds)/(mz));
@@ -2396,20 +2460,19 @@ VolumeOperations::closeAll(Vec bmin, Vec bmax, int tag,
 		   gradType, minGrad, maxGrad,
 		   bitmask);
   
-
+  // copy bitmask into cbitmask
+  MyBitArray cbitmask;
+  cbitmask = bitmask;
   
-  dilateBitmaskUsingVDB(nDilate, true, // dilate opaque region
-			mx, my, mz,
-			bitmask);
-
-  dilateBitmaskUsingVDB(nErode, false, // dilate transparent region
-			mx, my, mz,
-			bitmask);
-
-
+  openCloseBitmaskUsingVDB(nDilate, nErode,
+			   false, // close operation
+			   mx, my, mz,
+			   bitmask);
+  
 
   
   progress.setLabelText("writing to mask");
+  qApp->processEvents();
   for(qint64 d2=ds; d2<=de; d2++)
     {
       progress.setValue(100*(d2-ds)/(mz));
@@ -2418,7 +2481,7 @@ VolumeOperations::closeAll(Vec bmin, Vec bmax, int tag,
 	for(qint64 h2=hs; h2<=he; h2++)
 	  {
 	    qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
-	    if (bitmask.testBit(bidx))
+	    if (bitmask.testBit(bidx) && !cbitmask.testBit(bidx))
 	      {
 		qint64 idx = d2*m_width*m_height + w2*m_height + h2;
 		m_maskData[idx] = tag;

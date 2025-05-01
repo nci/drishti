@@ -106,6 +106,22 @@ VdbVolume::offset(float offset)
 
 }
 
+void
+VdbVolume::open(float erode, float dilate)
+{
+  openvdb::tools::LevelSetFilter<openvdb::FloatGrid> lsf(*m_vdbGrid);
+  lsf.offset(erode);
+  lsf.offset(dilate);
+}
+
+void
+VdbVolume::close(float dilate, float erode)
+{
+  openvdb::tools::LevelSetFilter<openvdb::FloatGrid> lsf(*m_vdbGrid);
+  lsf.offset(dilate);
+  lsf.offset(erode);
+}
+
 openvdb::FloatGrid::Ptr
 VdbVolume::convertToSDF()
 {

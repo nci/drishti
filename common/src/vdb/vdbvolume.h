@@ -48,6 +48,8 @@ class VdbVolume
   void gaussian(int);
   void laplacian();
   void offset(float);
+  void open(float, float);
+  void close(float, float);
   void resample(float);
 
   std::vector<openvdb::FloatGrid::Ptr> connectedComponents();

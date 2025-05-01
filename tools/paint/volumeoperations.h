@@ -212,6 +212,11 @@ class VolumeOperations
 				    MyBitArray&,
 				    bool showProgress = true);
 
+  static void openCloseBitmaskUsingVDB(int, int,
+				       bool,
+				       qint64, qint64, qint64,
+				       MyBitArray&);
+
   static void getVisibleRegion(int, int, int,
 			       int, int, int,
 			       int, bool,

@@ -1054,10 +1054,11 @@ Viewer::processCommand(QString cmd)
       if (list.size() == 2)
 	tag = list[1].toInt(&ok);
 
-      if (tag > 0)
-	removeComponents(tag);      
-      else
-	QMessageBox::information(0, "", "Expecting <tag> for connected components");
+      removeComponents(tag);      
+      //if (tag > 0)
+      //	removeComponents(tag);      
+      //else
+      //	QMessageBox::information(0, "", "Expecting <tag> for connected components");
       
       return;
     }
@@ -1088,7 +1089,7 @@ Viewer::processCommand(QString cmd)
       return;
     }
       
-  if (list[0].contains("dilateall"))
+  if (list[0].contains("growseeds"))
     {
       int size = 1;
       if (list.size() == 2)
@@ -1101,7 +1102,7 @@ Viewer::processCommand(QString cmd)
 	    }
 	}
 
-      QMessageBox::information(0, "Dilate", "Expecting - dilateall <size>");
+      QMessageBox::information(0, "Grow", "Expecting - growseeds <size>");
       
       return;
     }

@@ -2075,20 +2075,6 @@ VolumeOperations::dilateAllTags(Vec bmin, Vec bmax,
   QMessageBox::information(0, "Labels", QString("Total labels : %1").arg(ut.count()));
 
 
-  //----------------------------
-  // identify expandZone - visible zero
-  MyBitArray expandZone;
-  expandZone.resize(mx*my*mz);
-  expandZone.fill(false);
-
-  getVisibleRegion(ds, ws, hs,
-		   de, we, he,
-		   0, false,
-		   gradType, minGrad, maxGrad,
-		   expandZone);  
-  //----------------------------
-
-
   QProgressDialog progress("Growing all labels",
 			   QString(),
 			   0, 100,
@@ -2097,28 +2083,36 @@ VolumeOperations::dilateAllTags(Vec bmin, Vec bmax,
   progress.setMinimumDuration(0);
   qApp->processEvents();
 
+
+  MyBitArray zbitmask;
+  zbitmask.resize(mx*my*mz);
+  getVisibleRegion(ds, ws, hs,
+		   de, we, he,
+		   -1, false,
+		   gradType, minGrad, maxGrad,
+		   zbitmask);
+
+
+  MyBitArray bitmask;
+  bitmask.resize(mx*my*mz);
+
   //----------------------------
   // identify tag regions
-  QList<MyBitArray> tagZone;
   QList<VdbVolume*> tagVdb;
   for(int i=0; i<ut.count(); i++)
     {
       progress.setValue(100*(float)i/(float)ut.count());
       qApp->processEvents();
-
-      MyBitArray bitmask;
-      tagZone << bitmask;
-
-      tagZone[i].resize(mx*my*mz);
-      tagZone[i].fill(false);
+      
+      bitmask.fill(false);
       
       getVisibleRegion(ds, ws, hs,
 		       de, we, he,
 		       ut[i], false,  // no tag zero checking
 		       gradType, minGrad, maxGrad,
-		       tagZone[i],
+		       bitmask,
 		       false);  
-
+      
       VdbVolume *vdb;
       vdb = new VdbVolume;
       openvdb::FloatGrid::Accessor accessor = vdb->getAccessor();
@@ -2131,11 +2125,10 @@ VolumeOperations::dilateAllTags(Vec bmin, Vec bmax,
 	  for(h=0; h<mx; h++)
 	    {
 	      qint64 bidx = ((qint64)d)*mx*my+w*mx+h;
-	      if (tagZone[i].testBit(bidx))
+	      if (bitmask.testBit(bidx))
 		accessor.setValue(ijk, 255);
 	    }      
-
-      //vdb->convertToLevelSet(1, 0);
+      
       tagVdb << vdb;
     }
   
@@ -2151,7 +2144,6 @@ VolumeOperations::dilateAllTags(Vec bmin, Vec bmax,
 	  tagVdb[i]->convertToLevelSet(1, 0);
 	  tagVdb[i]->offset(-1); // dilate
 
-	  tagZone[i].fill(false);
 	  openvdb::FloatGrid::Accessor accessor = tagVdb[i]->getAccessor();
 	  openvdb::Coord ijk;
 	  int &d = ijk[0];
@@ -2164,20 +2156,29 @@ VolumeOperations::dilateAllTags(Vec bmin, Vec bmax,
 		  if (accessor.getValue(ijk) <= 0)
 		    {
 		      qint64 bidx = ((qint64)d)*mx*my+w*mx+h;
-		      tagZone[i].setBit(bidx, true);
-
-		      qint64 d2 = ds + d;
-		      qint64 w2 = ws + w;
-		      qint64 h2 = hs + h;
-		      qint64 idx = d2*m_width*m_height + w2*m_height + h2;
-		      if (m_maskData[idx] == 0) // expand into unlabelled region
-			m_maskData[idx] = ut[i];
-		      else if (m_maskData[idx] != ut[i]) // encroaching another label
-			accessor.setValue(ijk, 0);
+		      if (zbitmask.testBit(bidx))
+			{
+			  qint64 d2 = ds + d;
+			  qint64 w2 = ws + w;
+			  qint64 h2 = hs + h;
+			  qint64 idx = d2*m_width*m_height + w2*m_height + h2;
+			  if (m_maskData[idx] == 0) // expand into unlabelled region
+			    m_maskData[idx] = ut[i];
+			  else if (m_maskData[idx] != ut[i]) // encroaching another label
+			    accessor.setValue(ijk, 0);
+			}
+			else // do not venture into invisible region
+			  accessor.setValue(ijk, 0);
 		    }
 		}	  
 	}
     }
+
+  
+  for(int i=0; i<ut.count(); i++)
+    delete tagVdb[i];
+
+  tagVdb.clear();
 
   minD = ds;
   maxD = de;
@@ -3758,7 +3759,9 @@ VolumeOperations::removeComponents(Vec bmin, Vec bmax,
   minH = hs;
   maxD = de;
   maxW = we;
-  maxH = he;  
+  maxH = he;
+
+  QMessageBox::information(0, "", "Done");
 }
 
 
@@ -3994,6 +3997,8 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
   maxD = de;
   maxW = we;
   maxH = he;
+
+  QMessageBox::information(0, "", "Done");
 }
 
 

@@ -130,8 +130,9 @@ Clipping planes are obeyed - clipped region is not taken into account.
 removecomponents
 removecomponents <tag>
 
+Remove components that are smaller than threshold for the given visible labeled (i.e. non-zero) <tag> region.
 
-Remove components that are smaller than threshold for the given visible labelled (i.e. non-zero) <tag> region.
+If <tag> is not specified then small components for all the labels will be reset to 0 (i.e. unlabeled).
 
 User is asked for a volume threshold (minimum number of voxels) below which a component is delabeled (i.e. set to 0).
 
@@ -193,9 +194,10 @@ close 1 10 7 - dilation with offset 10 followed by erosion with offset 7.
 
 
 #begin
-dilateall
-dilateall  <size>
-Dilate all label values by <size> into connected visible region which is not labelled.  The labels will not dilate into another label's region.
+growseeds
+growseeds  <size>
+
+Dilate all label values by <size> into connected visible region which is not labeled.  The labels will not dilate into another label's region.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end

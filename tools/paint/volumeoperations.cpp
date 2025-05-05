@@ -244,6 +244,92 @@ VolumeOperations::checkClipped(Vec p0)
   return clipped;
 }
 
+//void VolumeOperations::getVolume(Vec bmin, Vec bmax, int tag)
+//{
+//  QProgressDialog progress("Calculating Volume",
+//			   QString(),
+//			   0, 100,
+//			   0,
+//			   Qt::WindowStaysOnTopHint);
+//  progress.setMinimumDuration(0);
+//
+//  int ds = bmin.z;
+//  int ws = bmin.y;
+//  int hs = bmin.x;
+//
+//  int de = bmax.z;
+//  int we = bmax.y;
+//  int he = bmax.x;
+//
+//  uchar *lut = Global::lut();
+//  uchar *tagColors = Global::tagColors();
+//
+//  QMap<int, int> labelMap; // contains (number of voxels) volume for each label
+//  qint64 nvoxels = 0;
+//  for(qint64 d=ds; d<=de; d++)
+//    {
+//      progress.setValue(90*(d-ds)/((de-ds+1)));
+//      if (d%10 == 0)
+//	qApp->processEvents();
+//      for(qint64 w=ws; w<=we; w++)
+//	for(qint64 h=hs; h<=he; h++)
+//	  {
+//	    bool clipped = checkClipped(Vec(h, w, d));
+//	    
+//	    if (!clipped)
+//	      {
+//		qint64 idx = d*m_width*m_height + w*m_height + h;
+//		int val = m_volData[idx];
+//		if (m_volDataUS) val = m_volDataUS[idx];
+//		uchar mtag = m_maskData[idx];
+//		bool opaque = (lut[4*val+3]*tagColors[4*mtag+3] > 0);      
+//		if (tag > -1)
+//		  opaque &= (mtag == tag);
+//
+//		if (opaque)
+//		  {
+//		    nvoxels ++;
+//		    labelMap[mtag] = labelMap[mtag] + 1;
+//		  }
+//	      }
+//	  }
+//    }
+//
+//  progress.setValue(100);
+//
+//  VolumeInformation pvlInfo;
+//  pvlInfo = VolumeInformation::volumeInformation();
+//  Vec voxelSize = pvlInfo.voxelSize;
+//  float voxvol = nvoxels*voxelSize.x*voxelSize.y*voxelSize.z;
+//
+//  QString mesg;
+//  mesg += QString("Visible Voxels : %1\n").arg(nvoxels);
+//  mesg += QString("Voxel Size : %1, %2, %3 %4\n").\
+//                  arg(voxelSize.x).arg(voxelSize.y).arg(voxelSize.z).
+//                  arg(pvlInfo.voxelUnitStringShort());
+//  mesg += QString("Volume : %1 %2^3\n").	\
+//                  arg(voxvol).\
+//                  arg(pvlInfo.voxelUnitStringShort());
+//
+//  if (tag == -1)
+//    {	       
+//      mesg += "------------------------------\n";
+//      mesg += " Label : Voxel Count : Volume \n";
+//      mesg += "------------------------------\n";
+//      QList<int> key = labelMap.keys();
+//      QList<int> value = labelMap.values();
+//      for(int i=0; i<key.count(); i++)
+//	{
+//	  float vol = value[i]*voxelSize.x*voxelSize.y*voxelSize.z;
+//	  mesg += QString("  %1 : %2 : %3 %4^3\n").arg(key[i], 6).arg(value[i], 12).\
+//	                                         arg(vol).arg(pvlInfo.voxelUnitStringShort());
+//	}
+//    }
+//  
+//  StaticFunctions::showMessage("Volume", mesg);
+//}
+
+
 void VolumeOperations::getVolume(Vec bmin, Vec bmax, int tag)
 {
   QProgressDialog progress("Calculating Volume",
@@ -261,9 +347,65 @@ void VolumeOperations::getVolume(Vec bmin, Vec bmax, int tag)
   int we = bmax.y;
   int he = bmax.x;
 
+  qint64 mx = he-hs+1;
+  qint64 my = we-ws+1;
+  qint64 mz = de-ds+1;
+
   uchar *lut = Global::lut();
   uchar *tagColors = Global::tagColors();
 
+  //----------------------------
+  //----------------------------
+  QList<int> ut;
+  for(qint64 d=ds; d<=de; d++)
+    for(qint64 w=ws; w<=we; w++)
+      for(qint64 h=hs; h<=he; h++)
+	{
+	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
+	  if (m_maskData[idx] > 0 && !ut.contains(m_maskData[idx]))
+	    ut << m_maskData[idx]; 
+	}
+
+
+  MyBitArray bitmask;
+  bitmask.resize(mx*my*mz);
+  QMap<int, float> vdbVolume;
+  for(int i=0; i<ut.count(); i++)
+    {
+      progress.setValue(100*(float)i/(float)ut.count());
+      qApp->processEvents();
+      
+      bitmask.fill(false);
+      
+      getVisibleRegion(ds, ws, hs,
+		       de, we, he,
+		       ut[i], false,  // no tag zero checking
+		       0, 0, 1,
+		       bitmask,
+		       false);  
+      
+      VdbVolume vdb;
+      openvdb::FloatGrid::Accessor accessor = vdb.getAccessor();
+      openvdb::Coord ijk;
+      int &d = ijk[0];
+      int &w = ijk[1];
+      int &h = ijk[2];
+      for(d=0; d<mz; d++)
+	for(w=0; w<my; w++)
+	  for(h=0; h<mx; h++)
+	    {
+	      qint64 bidx = ((qint64)d)*mx*my+w*mx+h;
+	      if (bitmask.testBit(bidx))
+		accessor.setValue(ijk, 255);
+	    }
+
+      vdb.convertToLevelSet(128);
+      vdbVolume[ut[i]] = vdb.volume();
+    }
+  //----------------------------
+  //----------------------------
+  
+  
   QMap<int, int> labelMap; // contains (number of voxels) volume for each label
   qint64 nvoxels = 0;
   for(qint64 d=ds; d<=de; d++)
@@ -321,13 +463,15 @@ void VolumeOperations::getVolume(Vec bmin, Vec bmax, int tag)
       for(int i=0; i<key.count(); i++)
 	{
 	  float vol = value[i]*voxelSize.x*voxelSize.y*voxelSize.z;
-	  mesg += QString("  %1 : %2 : %3 %4^3\n").arg(key[i], 6).arg(value[i], 12).\
-	                                         arg(vol).arg(pvlInfo.voxelUnitStringShort());
+	  mesg += QString("  %1 : %2 : %3 %4^3  %5\n").arg(key[i], 6).arg(value[i], 12).\
+	                                               arg(vol).arg(pvlInfo.voxelUnitStringShort()).
+	                                               arg(vdbVolume[key[i]]);
 	}
     }
   
   StaticFunctions::showMessage("Volume", mesg);
 }
+
 
 
 
@@ -1118,7 +1262,7 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
       progress.setLabelText("Shrinkwrap - converting to levelset");
       progress.setValue(10);
       qApp->processEvents();
-      vdb.convertToLevelSet(1, 0);
+      vdb.convertToLevelSet(128, 0);
       progress.setLabelText("Shrinkwrap - dilate");
       progress.setValue(25);
       qApp->processEvents();
@@ -1508,7 +1652,7 @@ VolumeOperations::openCloseBitmaskUsingVDB(int offset1, int offset2,
   progress.setValue(10);
   qApp->processEvents();
 
-  vdb.convertToLevelSet(1, 0);
+  vdb.convertToLevelSet(128, 0);
 
   progress.setValue(25);
   qApp->processEvents();
@@ -1585,7 +1729,7 @@ VolumeOperations::dilateBitmaskUsingVDB(int nDilate, bool htype,
       qApp->processEvents();
     }
 
-  vdb.convertToLevelSet(1, 0);
+  vdb.convertToLevelSet(128, 0);
 
   if (showProgress)
     {
@@ -2039,7 +2183,6 @@ VolumeOperations::mergeTags(Vec bmin, Vec bmax,
 	}
     }
 }
-
 
 
 void
@@ -3617,7 +3760,7 @@ VolumeOperations::convertToVDBandSmooth(int ds, int ws, int hs,
   progress.setLabelText("Smoothing - converting to levelset");
   progress.setValue(10);
   qApp->processEvents();
-  vdb.convertToLevelSet(1, 0);
+  vdb.convertToLevelSet(128, 0);
   progress.setLabelText("Smooth - gaussian");
   progress.setValue(25);
   qApp->processEvents();

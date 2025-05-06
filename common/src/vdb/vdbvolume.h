@@ -41,8 +41,10 @@ class VdbVolume
   
   uint64_t activeVoxels();
 
+  void setVoxelSize(float, float, float);
+  
   void convertToLevelSet(float, int type=0);
-
+  
   void mean(int, int);
   void gaussian(int, int);
   void gaussian(int);
@@ -51,7 +53,9 @@ class VdbVolume
   void open(float, float);
   void close(float, float);
   void resample(float);
-
+  float volume();
+  float area();
+  
   std::vector<openvdb::FloatGrid::Ptr> connectedComponents();
 
   openvdb::FloatGrid::Ptr convertToSDF();

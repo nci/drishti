@@ -3,11 +3,13 @@
 #include <openvdb/tools/GridTransformer.h>
 #include <openvdb/tools/Filter.h>
 #include <openvdb/tools/LevelSetFilter.h>
+#include <openvdb/tools/LevelSetMeasure.h>
 #include <openvdb/tools/LevelSetUtil.h>
 #include <openvdb/tools/Morphology.h>
 #include <openvdb/tools/VolumeToMesh.h>
 #include <openvdb/tools/TopologyToLevelSet.h>
 #include <openvdb/tools/FastSweeping.h>
+#include <openvdb/math/Mat3.h>
 
 #include <QMessageBox>
 #include <QProgressDialog>
@@ -46,6 +48,18 @@ VdbVolume::operator=(const VdbVolume& vv)
   m_vdbGrid = vv.m_vdbGrid;
 
   return *this;
+}
+
+void
+VdbVolume::setVoxelSize(float vx, float vy, float vz)
+{
+  openvdb::math::Mat4d mat = openvdb::math::Mat4d::identity();
+  mat.preScale(openvdb::math::Vec3d(vx, vy, vz));
+  
+  openvdb::math::Transform::Ptr xform =
+    openvdb::math::Transform::createLinearTransform(mat);
+
+  m_vdbGrid->setTransform(xform);
 }
 
 
@@ -98,6 +112,20 @@ VdbVolume::laplacian()
   filter.laplacian();
 }
 
+float
+VdbVolume::volume()
+{
+  openvdb::tools::LevelSetMeasure<openvdb::FloatGrid> filter(*m_vdbGrid);
+  return filter.volume();
+}
+
+float
+VdbVolume::area()
+{
+  openvdb::tools::LevelSetMeasure<openvdb::FloatGrid> filter(*m_vdbGrid);
+  return filter.area();
+}
+
 void
 VdbVolume::offset(float offset)
 {
@@ -126,7 +154,7 @@ openvdb::FloatGrid::Ptr
 VdbVolume::convertToSDF()
 {
   openvdb::FloatGrid::Ptr sdf;
-  sdf = openvdb::tools::fogToSdf<openvdb::FloatGrid>(*m_vdbGrid, 0.1);
+  sdf = openvdb::tools::fogToSdf<openvdb::FloatGrid>(*m_vdbGrid, 0.1f);
 
   //openvdb::tools::LevelSetFilter<openvdb::FloatGrid> filter(*m_vdbGrid);
   //filter.resize(10);

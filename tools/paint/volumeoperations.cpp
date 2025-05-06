@@ -332,6 +332,12 @@ VolumeOperations::checkClipped(Vec p0)
 
 void VolumeOperations::getVolume(Vec bmin, Vec bmax, int tag)
 {
+  VolumeInformation pvlInfo;
+  pvlInfo = VolumeInformation::volumeInformation();
+  Vec voxelSize = pvlInfo.voxelSize;
+
+  
+  
   QProgressDialog progress("Calculating Volume",
 			   QString(),
 			   0, 100,
@@ -351,22 +357,32 @@ void VolumeOperations::getVolume(Vec bmin, Vec bmax, int tag)
   qint64 my = we-ws+1;
   qint64 mz = de-ds+1;
 
-  uchar *lut = Global::lut();
-  uchar *tagColors = Global::tagColors();
 
-  //----------------------------
-  //----------------------------
   QList<int> ut;
   for(qint64 d=ds; d<=de; d++)
     for(qint64 w=ws; w<=we; w++)
       for(qint64 h=hs; h<=he; h++)
 	{
 	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
-	  if (m_maskData[idx] > 0 && !ut.contains(m_maskData[idx]))
-	    ut << m_maskData[idx]; 
+	  //if (m_maskData[idx] > 0 && !ut.contains(m_maskData[idx]))
+	  if (!ut.contains(m_maskData[idx]))
+	    {
+	      if (tag == -1 || tag == m_maskData[idx])
+		ut << m_maskData[idx];
+	    }
 	}
 
+  if (tag == -1)
+    ut << -1;
 
+  if (ut.count() == 0)
+    {
+      QMessageBox::information(0, "Error", QString("No voxel found with label %1").arg(tag));
+      return;
+    }
+  
+  qSort(ut);
+  
   MyBitArray bitmask;
   bitmask.resize(mx*my*mz);
   QMap<int, float> vdbVolume;
@@ -385,6 +401,7 @@ void VolumeOperations::getVolume(Vec bmin, Vec bmax, int tag)
 		       false);  
       
       VdbVolume vdb;
+      vdb.setVoxelSize(voxelSize.x, voxelSize.y, voxelSize.z);
       openvdb::FloatGrid::Accessor accessor = vdb.getAccessor();
       openvdb::Coord ijk;
       int &d = ijk[0];
@@ -402,70 +419,32 @@ void VolumeOperations::getVolume(Vec bmin, Vec bmax, int tag)
       vdb.convertToLevelSet(128);
       vdbVolume[ut[i]] = vdb.volume();
     }
-  //----------------------------
-  //----------------------------
-  
-  
-  QMap<int, int> labelMap; // contains (number of voxels) volume for each label
-  qint64 nvoxels = 0;
-  for(qint64 d=ds; d<=de; d++)
-    {
-      progress.setValue(90*(d-ds)/((de-ds+1)));
-      if (d%10 == 0)
-	qApp->processEvents();
-      for(qint64 w=ws; w<=we; w++)
-	for(qint64 h=hs; h<=he; h++)
-	  {
-	    bool clipped = checkClipped(Vec(h, w, d));
-	    
-	    if (!clipped)
-	      {
-		qint64 idx = d*m_width*m_height + w*m_height + h;
-		int val = m_volData[idx];
-		if (m_volDataUS) val = m_volDataUS[idx];
-		uchar mtag = m_maskData[idx];
-		bool opaque = (lut[4*val+3]*tagColors[4*mtag+3] > 0);      
-		if (tag > -1)
-		  opaque &= (mtag == tag);
-
-		if (opaque)
-		  {
-		    nvoxels ++;
-		    labelMap[mtag] = labelMap[mtag] + 1;
-		  }
-	      }
-	  }
-    }
-
   progress.setValue(100);
 
-  VolumeInformation pvlInfo;
-  pvlInfo = VolumeInformation::volumeInformation();
-  Vec voxelSize = pvlInfo.voxelSize;
-  float voxvol = nvoxels*voxelSize.x*voxelSize.y*voxelSize.z;
 
   QString mesg;
-  mesg += QString("Visible Voxels : %1\n").arg(nvoxels);
   mesg += QString("Voxel Size : %1, %2, %3 %4\n").\
-                  arg(voxelSize.x).arg(voxelSize.y).arg(voxelSize.z).
-                  arg(pvlInfo.voxelUnitStringShort());
-  mesg += QString("Volume : %1 %2^3\n").	\
-                  arg(voxvol).\
-                  arg(pvlInfo.voxelUnitStringShort());
-
+                                arg(voxelSize.x).arg(voxelSize.y).arg(voxelSize.z).\
+                                arg(pvlInfo.voxelUnitStringShort());
   if (tag == -1)
-    {	       
+    {
       mesg += "------------------------------\n";
-      mesg += " Label : Voxel Count : Volume \n";
+      mesg += QString(" All Visible : %1%2^3\n").\
+	                              arg(vdbVolume[-1]).\
+	                              arg(pvlInfo.voxelUnitStringShort());
       mesg += "------------------------------\n";
-      QList<int> key = labelMap.keys();
-      QList<int> value = labelMap.values();
-      for(int i=0; i<key.count(); i++)
+      ut.removeAt(0);
+    }
+  if (ut.count() > 0)
+    {
+      mesg += "------------------------------\n";
+      mesg += " Label : Volume \n";
+      mesg += "------------------------------\n";
+      for(int i=0; i<ut.count(); i++)
 	{
-	  float vol = value[i]*voxelSize.x*voxelSize.y*voxelSize.z;
-	  mesg += QString("  %1 : %2 : %3 %4^3  %5\n").arg(key[i], 6).arg(value[i], 12).\
-	                                               arg(vol).arg(pvlInfo.voxelUnitStringShort()).
-	                                               arg(vdbVolume[key[i]]);
+	  mesg += QString("  %1 : %2%3^3\n").arg(ut[i], 6).\
+	                                     arg(vdbVolume[ut[i]]).\
+	                                     arg(pvlInfo.voxelUnitStringShort());
 	}
     }
   

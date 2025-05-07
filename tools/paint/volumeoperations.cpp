@@ -358,17 +358,155 @@ void VolumeOperations::getVolume(Vec bmin, Vec bmax, int tag)
   qint64 mz = de-ds+1;
 
 
+  uchar *lut = Global::lut();
+  uchar *tagColors = Global::tagColors();
+
   QList<int> ut;
   for(qint64 d=ds; d<=de; d++)
     for(qint64 w=ws; w<=we; w++)
       for(qint64 h=hs; h<=he; h++)
 	{
 	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
-	  //if (m_maskData[idx] > 0 && !ut.contains(m_maskData[idx]))
-	  if (!ut.contains(m_maskData[idx]))
+	  int val = m_volData[idx];
+	  if (m_volDataUS) val = m_volDataUS[idx];
+	  uchar mtag = m_maskData[idx];
+	  bool opaque = (lut[4*val+3]*tagColors[4*mtag+3] > 0);      
+
+	  if (opaque && !ut.contains(mtag))
 	    {
-	      if (tag == -1 || tag == m_maskData[idx])
-		ut << m_maskData[idx];
+	      if (tag == -1 || tag == mtag)
+		ut << mtag;
+	    }
+	}
+
+  // compute total visible volume as well for finding percentages
+  ut << -1;
+
+  if (ut.count() == 0)
+    {
+      QMessageBox::information(0, "Error", QString("No voxel found with label %1").arg(tag));
+      return;
+    }
+  
+  qSort(ut);
+
+    
+  MyBitArray bitmask;
+  bitmask.resize(mx*my*mz);
+  QMap<int, float> vdbVolume;
+  for(int i=0; i<ut.count(); i++)
+    {
+      progress.setValue(100*(float)i/(float)ut.count());
+      qApp->processEvents();
+      
+      bitmask.fill(false);
+      
+      getVisibleRegion(ds, ws, hs,
+		       de, we, he,
+		       ut[i], false,  // no tag zero checking
+		       0, 0, 1,
+		       bitmask,
+		       false);  
+      
+      VdbVolume vdb;
+      vdb.setVoxelSize(voxelSize.x, voxelSize.y, voxelSize.z);
+      openvdb::FloatGrid::Accessor accessor = vdb.getAccessor();
+      openvdb::Coord ijk;
+      int &d = ijk[0];
+      int &w = ijk[1];
+      int &h = ijk[2];
+      for(d=0; d<mz; d++)
+	for(w=0; w<my; w++)
+	  for(h=0; h<mx; h++)
+	    {
+	      qint64 bidx = ((qint64)d)*mx*my+w*mx+h;
+	      if (bitmask.testBit(bidx))
+		accessor.setValue(ijk, 255);
+	    }
+
+      vdb.convertToLevelSet(128);
+      vdbVolume[ut[i]] = vdb.volume();
+    }
+  progress.setValue(100);
+
+
+  QString mesg;
+  mesg += QString("Voxel Size : %1, %2, %3 %4\n").\
+                                arg(voxelSize.x).arg(voxelSize.y).arg(voxelSize.z).\
+                                arg(pvlInfo.voxelUnitStringShort());
+  //if (tag == -1)
+    {
+      mesg += "------------------------------\n";
+      mesg += QString("Total Visible Volume : %1%2^3\n").\
+	                              arg(vdbVolume[-1]).\
+	                              arg(pvlInfo.voxelUnitStringShort());
+      mesg += "------------------------------\n";
+      ut.removeAt(0);
+    }
+  if (ut.count() > 0)
+    {
+      mesg += "------------------------------\n";
+      mesg += " Label : Volume : % of total\n";
+      mesg += "------------------------------\n";
+      for(int i=0; i<ut.count(); i++)
+	{
+	  float p = 100.0*vdbVolume[ut[i]]/vdbVolume[-1];
+	  mesg += QString("  %1 : %2%3^3 : %4\n").arg(ut[i], 6).\
+	                                     arg(vdbVolume[ut[i]]).\
+	                                     arg(pvlInfo.voxelUnitStringShort()).\
+	                                     arg(p, 0, 'f', 2);
+	}
+    }
+  
+  StaticFunctions::showMessage("Volume", mesg);
+}
+
+
+void VolumeOperations::getSurfaceArea(Vec bmin, Vec bmax, int tag)
+{
+  VolumeInformation pvlInfo;
+  pvlInfo = VolumeInformation::volumeInformation();
+  Vec voxelSize = pvlInfo.voxelSize;
+
+  
+  
+  QProgressDialog progress("Calculating Volume",
+			   QString(),
+			   0, 100,
+			   0,
+			   Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);
+
+  int ds = bmin.z;
+  int ws = bmin.y;
+  int hs = bmin.x;
+
+  int de = bmax.z;
+  int we = bmax.y;
+  int he = bmax.x;
+
+  qint64 mx = he-hs+1;
+  qint64 my = we-ws+1;
+  qint64 mz = de-ds+1;
+
+  uchar *lut = Global::lut();
+  uchar *tagColors = Global::tagColors();
+
+  QList<int> ut;
+  for(qint64 d=ds; d<=de; d++)
+    for(qint64 w=ws; w<=we; w++)
+      for(qint64 h=hs; h<=he; h++)
+	{
+	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
+	  int val = m_volData[idx];
+	  if (m_volDataUS) val = m_volDataUS[idx];
+	  uchar mtag = m_maskData[idx];
+	  bool opaque = (lut[4*val+3]*tagColors[4*mtag+3] > 0);      
+
+	  if (opaque && !ut.contains(mtag))
+	    {
+	      if (tag == -1 || tag == mtag)
+		ut << mtag;
 	    }
 	}
 
@@ -417,7 +555,7 @@ void VolumeOperations::getVolume(Vec bmin, Vec bmax, int tag)
 	    }
 
       vdb.convertToLevelSet(128);
-      vdbVolume[ut[i]] = vdb.volume();
+      vdbVolume[ut[i]] = vdb.area();
     }
   progress.setValue(100);
 
@@ -429,7 +567,7 @@ void VolumeOperations::getVolume(Vec bmin, Vec bmax, int tag)
   if (tag == -1)
     {
       mesg += "------------------------------\n";
-      mesg += QString(" All Visible : %1%2^3\n").\
+      mesg += QString("Total Visible Surface Area : %1%2^2\n").\
 	                              arg(vdbVolume[-1]).\
 	                              arg(pvlInfo.voxelUnitStringShort());
       mesg += "------------------------------\n";
@@ -438,20 +576,19 @@ void VolumeOperations::getVolume(Vec bmin, Vec bmax, int tag)
   if (ut.count() > 0)
     {
       mesg += "------------------------------\n";
-      mesg += " Label : Volume \n";
+      mesg += " Label : Surface Area\n";
       mesg += "------------------------------\n";
       for(int i=0; i<ut.count(); i++)
 	{
-	  mesg += QString("  %1 : %2%3^3\n").arg(ut[i], 6).\
+	  float p = 100.0*vdbVolume[ut[i]]/vdbVolume[-1];
+	  mesg += QString("  %1 : %2%3^2\n").arg(ut[i], 6).\
 	                                     arg(vdbVolume[ut[i]]).\
 	                                     arg(pvlInfo.voxelUnitStringShort());
 	}
     }
   
-  StaticFunctions::showMessage("Volume", mesg);
+  StaticFunctions::showMessage("Surface Area", mesg);
 }
-
-
 
 
 

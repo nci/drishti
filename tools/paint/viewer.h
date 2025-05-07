@@ -194,6 +194,7 @@ class Viewer : public QGLViewer
 			      int, int,
 			      int, int);
     void getVolume(Vec, Vec, int);
+    void getSurfaceArea(Vec, Vec, int);
 
     void modifyOriginalVolume(Vec, Vec, int);
  private :

@@ -18,6 +18,7 @@ class VolumeOperations
   static void setClip(QList<Vec>, QList<Vec>);
 
   static void getVolume(Vec, Vec, int);
+  static void getSurfaceArea(Vec, Vec, int);
 
   static void hatchConnectedRegion(int, int, int,
 				   Vec, Vec,

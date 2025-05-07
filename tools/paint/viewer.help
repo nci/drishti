@@ -93,6 +93,18 @@ Default value for tag is -1 : consider all visible voxels.
 Clipping planes are obeyed - clipped region is not taken into account.
 #end
 
+
+#begin
+getsurfacearea
+getsurfacearea <tag>
+
+Calculate the surface area occupied by visible voxels marked with tag.
+Default value for tag is -1 : consider all visible voxels.
+
+Clipping planes are obeyed - clipped region is not taken into account.
+#end
+
+
 #begin
 setvisible
 setvisible <tag>

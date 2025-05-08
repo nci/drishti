@@ -10,7 +10,7 @@
 #include "staticfunctions.h"
 
 #include <QtConcurrentMap>
-#include <QMap>
+#include <QFileDialog>
 
 
 
@@ -125,14 +125,17 @@ void VolumeMeasure::setGridSize(int d, int w, int h)
 //}
 
 
-void VolumeMeasure::getVolume(Vec bmin, Vec bmax, int tag)
+//------
+//------
+QMap<int, float>
+VolumeMeasure::volume(Vec bmin, Vec bmax, int tag)
 {
+  QMap<int, float> vdbVolume;
+
   VolumeInformation pvlInfo;
   pvlInfo = VolumeInformation::volumeInformation();
   Vec voxelSize = pvlInfo.voxelSize;
 
-  
-  
   QProgressDialog progress("Calculating Volume",
 			   QString(),
 			   0, 100,
@@ -174,21 +177,21 @@ void VolumeMeasure::getVolume(Vec bmin, Vec bmax, int tag)
 	    }
 	}
 
-  // compute total visible volume as well for finding percentages
-  ut << -1;
 
   if (ut.count() == 0)
     {
-      QMessageBox::information(0, "Error", QString("No voxel found with label %1").arg(tag));
-      return;
+      QMessageBox::information(0, "Error", QString("No voxel found with label %1\nComputing total visible volume").arg(tag));
     }
+
+  // compute total visible volume as well for finding percentages
+  ut << -1;
   
   qSort(ut);
 
     
   MyBitArray bitmask;
   bitmask.resize(mx*my*mz);
-  QMap<int, float> vdbVolume;
+
   for(int i=0; i<ut.count(); i++)
     {
       progress.setValue(100*(float)i/(float)ut.count());
@@ -222,8 +225,25 @@ void VolumeMeasure::getVolume(Vec bmin, Vec bmax, int tag)
       vdb.convertToLevelSet(128);
       vdbVolume[ut[i]] = vdb.volume();
     }
+
   progress.setValue(100);
 
+  return vdbVolume;
+}
+
+
+void VolumeMeasure::getVolume(Vec bmin, Vec bmax, int tag)
+{
+  VolumeInformation pvlInfo;
+  pvlInfo = VolumeInformation::volumeInformation();
+  Vec voxelSize = pvlInfo.voxelSize;
+
+  
+  QMap<int, float> vdbVolume = volume(bmin, bmax, tag);
+  QList<int> ut = vdbVolume.keys();
+
+  if (ut.count() == 0)
+    return;
 
   QString mesg;
   mesg += QString("Voxel Size : %1, %2, %3 %4\n").\
@@ -241,30 +261,53 @@ void VolumeMeasure::getVolume(Vec bmin, Vec bmax, int tag)
   if (ut.count() > 0)
     {
       mesg += "------------------------------\n";
-      mesg += " Label : Volume : % of total\n";
+      mesg += QString(" Label : Volume %1^3: % of total\n").\
+	                              arg(pvlInfo.voxelUnitStringShort());
       mesg += "------------------------------\n";
       for(int i=0; i<ut.count(); i++)
 	{
 	  float p = 100.0*vdbVolume[ut[i]]/vdbVolume[-1];
-	  mesg += QString("  %1 : %2%3^3 : %4\n").arg(ut[i], 6).\
-	                                     arg(vdbVolume[ut[i]]).\
-	                                     arg(pvlInfo.voxelUnitStringShort()).\
-	                                     arg(p, 0, 'f', 2);
+	  mesg += QString("%1 : %2 : %3\n").arg(ut[i], 6).\
+	                                    arg(vdbVolume[ut[i]]).\
+	                                    arg(p, 0, 'f', 2);
 	}
     }
   
   StaticFunctions::showMessage("Volume", mesg);
+
+  QString tflnm = QFileDialog::getSaveFileName(0,
+					       "Save Information",
+					       Global::previousDirectory(),
+					       "Files (*.txt)",
+					       0);
+  if (tflnm.isEmpty())
+    return;
+
+  QFile txtfile(tflnm);
+  if (txtfile.open(QIODevice::WriteOnly | QIODevice::Text))
+    {
+      QTextStream out(&txtfile);
+      out << mesg;
+      QMessageBox::information(0, "Save", QString("Saved to %1").arg(tflnm));
+    }
+  else
+    QMessageBox::information(0, "Error", QString("Cannot write to %1").arg(tflnm));
 }
+//------
+//------
 
 
-void VolumeMeasure::getSurfaceArea(Vec bmin, Vec bmax, int tag)
+//------
+//------
+QMap<int, float>
+VolumeMeasure::surfaceArea(Vec bmin, Vec bmax, int tag)
 {
+  QMap<int, float> vdbArea;
+  
   VolumeInformation pvlInfo;
   pvlInfo = VolumeInformation::volumeInformation();
   Vec voxelSize = pvlInfo.voxelSize;
 
-  
-  
   QProgressDialog progress("Calculating Volume",
 			   QString(),
 			   0, 100,
@@ -311,14 +354,14 @@ void VolumeMeasure::getSurfaceArea(Vec bmin, Vec bmax, int tag)
   if (ut.count() == 0)
     {
       QMessageBox::information(0, "Error", QString("No voxel found with label %1").arg(tag));
-      return;
+      return vdbArea;
     }
   
   qSort(ut);
   
   MyBitArray bitmask;
   bitmask.resize(mx*my*mz);
-  QMap<int, float> vdbVolume;
+
   for(int i=0; i<ut.count(); i++)
     {
       progress.setValue(100*(float)i/(float)ut.count());
@@ -350,9 +393,27 @@ void VolumeMeasure::getSurfaceArea(Vec bmin, Vec bmax, int tag)
 	    }
 
       vdb.convertToLevelSet(128);
-      vdbVolume[ut[i]] = vdb.area();
+      vdbArea[ut[i]] = vdb.area();
     }
   progress.setValue(100);
+
+  return vdbArea;
+}
+
+void
+VolumeMeasure::getSurfaceArea(Vec bmin, Vec bmax, int tag)
+{
+  VolumeInformation pvlInfo;
+  pvlInfo = VolumeInformation::volumeInformation();
+  Vec voxelSize = pvlInfo.voxelSize;
+
+  
+  QMap<int, float> vdbArea = surfaceArea(bmin, bmax, tag);
+  QList<int> ut = vdbArea.keys();
+
+  if (ut.count() == 0)
+    return;
+
 
 
   QString mesg;
@@ -363,7 +424,7 @@ void VolumeMeasure::getSurfaceArea(Vec bmin, Vec bmax, int tag)
     {
       mesg += "------------------------------\n";
       mesg += QString("Total Visible Surface Area : %1%2^2\n").\
-	                              arg(vdbVolume[-1]).\
+	                              arg(vdbArea[-1]).\
 	                              arg(pvlInfo.voxelUnitStringShort());
       mesg += "------------------------------\n";
       ut.removeAt(0);
@@ -371,18 +432,36 @@ void VolumeMeasure::getSurfaceArea(Vec bmin, Vec bmax, int tag)
   if (ut.count() > 0)
     {
       mesg += "------------------------------\n";
-      mesg += " Label : Surface Area\n";
+      mesg += QString(" Label : Surface Area %1^2\n").arg(pvlInfo.voxelUnitStringShort());
+
       mesg += "------------------------------\n";
       for(int i=0; i<ut.count(); i++)
 	{
-	  float p = 100.0*vdbVolume[ut[i]]/vdbVolume[-1];
-	  mesg += QString("  %1 : %2%3^2\n").arg(ut[i], 6).\
-	                                     arg(vdbVolume[ut[i]]).\
-	                                     arg(pvlInfo.voxelUnitStringShort());
+	  mesg += QString("%1 : %2\n").arg(ut[i], 6).\
+	                               arg(vdbArea[ut[i]]);
 	}
     }
   
   StaticFunctions::showMessage("Surface Area", mesg);
+
+  
+  QString tflnm = QFileDialog::getSaveFileName(0,
+					       "Save Information",
+					       Global::previousDirectory(),
+					       "Files (*.txt)",
+					       0);
+  if (tflnm.isEmpty())
+    return;
+
+  QFile txtfile(tflnm);
+  if (txtfile.open(QIODevice::WriteOnly | QIODevice::Text))
+    {
+      QTextStream out(&txtfile);
+      out << mesg;      
+      QMessageBox::information(0, "Save", QString("Saved to %1").arg(tflnm));
+    }
+  else
+    QMessageBox::information(0, "Error", QString("Cannot write to %1").arg(tflnm));
 }
 
 

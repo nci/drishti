@@ -3,6 +3,7 @@
 
 #include "commonqtclasses.h"
 #include <QProgressDialog>
+#include <QMap>
 
 #include <QGLViewer/vec.h>
 using namespace qglviewer;
@@ -25,6 +26,9 @@ class VolumeMeasure
   static ushort *m_volDataUS;
   static uchar *m_maskData;
 
+  static QMap<int, float> volume(Vec, Vec, int);
+  static QMap<int, float> surfaceArea(Vec, Vec, int);
+  
 };
 
 #endif

@@ -17,6 +17,9 @@ class VolumeOperations
   static void setGridSize(int, int, int);
   static void setClip(QList<Vec>, QList<Vec>);
 
+  static QList<Vec> getSurfaceVoxels(qint64, qint64, qint64,
+				     MyBitArray&);
+  
   static void hatchConnectedRegion(int, int, int,
 				   Vec, Vec,
 				   int, int,

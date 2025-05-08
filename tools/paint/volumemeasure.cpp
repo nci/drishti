@@ -466,3 +466,185 @@ VolumeMeasure::getSurfaceArea(Vec bmin, Vec bmax, int tag)
 
 
 
+float
+VolumeMeasure::feretDiameter(int mx, int my, int mz, MyBitArray& bitarray)
+{
+  
+  VolumeInformation pvlInfo;
+  pvlInfo = VolumeInformation::volumeInformation();
+  Vec voxelSize = pvlInfo.voxelSize;
+
+  QList<Vec> svox = VolumeOperations::getSurfaceVoxels(mx, my, mz, bitarray);
+
+  if (svox.count() == 0)
+    return 0;
+
+  // apply voxelSize
+  for(int i=0; i<svox.count(); i++)
+    svox[i] = VECPRODUCT(svox[i], voxelSize);
+
+
+  float feret = 0;
+  for(int i=0; i<svox.count()-1; i++)
+    {
+      Vec v0 = svox[i];
+      for(int j=i+1; j<svox.count(); j++)
+      {
+	Vec v1 = svox[j];
+	float len = (v1-v0).norm();
+	feret = qMax(feret, len);
+      }
+    }
+
+  return feret;
+}
+
+void
+VolumeMeasure::parFeret(QList<QVariant> plist)
+{
+  int ds = plist[0].toInt();
+  int de = plist[1].toInt();
+  int ws = plist[2].toInt();
+  int we = plist[3].toInt();
+  int hs = plist[4].toInt();
+  int he = plist[5].toInt();
+  int tag = plist[6].toInt();
+  //float *feret = static_cast<float*>(plist[7].value<void*>());
+
+  qint64 mx = he-hs+1;
+  qint64 my = we-ws+1;
+  qint64 mz = de-ds+1;
+
+  MyBitArray bitmask;
+  bitmask.resize(mx*my*mz);
+  bitmask.fill(false);
+      
+  VolumeOperations::getVisibleRegion(ds, ws, hs,
+				     de, we, he,
+				     tag, false,  // no tag zero checking
+				     0, 0, 1,
+				     bitmask,
+				     false);
+      
+  float feretD = feretDiameter(mx, my, mz, bitmask);
+}
+
+
+void
+VolumeMeasure::getFeretDiameter(Vec bmin, Vec bmax, int tag)
+{
+  int ds = bmin.z;
+  int ws = bmin.y;
+  int hs = bmin.x;
+
+  int de = bmax.z;
+  int we = bmax.y;
+  int he = bmax.x;
+
+  qint64 mx = he-hs+1;
+  qint64 my = we-ws+1;
+  qint64 mz = de-ds+1;
+
+
+  uchar *lut = Global::lut();
+  uchar *tagColors = Global::tagColors();
+
+  QProgressDialog progress("Calculating Feret Diameter",
+			   QString(),
+			   0, 100,
+			   0,
+			   Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);
+
+  QList<int> ut;
+  for(qint64 d=ds; d<=de; d++)
+    for(qint64 w=ws; w<=we; w++)
+      for(qint64 h=hs; h<=he; h++)
+	{
+	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
+	  int val = m_volData[idx];
+	  if (m_volDataUS) val = m_volDataUS[idx];
+	  uchar mtag = m_maskData[idx];
+	  bool opaque = (lut[4*val+3]*tagColors[4*mtag+3] > 0);      
+
+	  if (opaque && !ut.contains(mtag))
+	    {
+	      if (tag == -1 || tag == mtag)
+		ut << mtag;
+	    }
+	}
+
+  if (ut.count() == 0)
+    {
+      QMessageBox::information(0, "Error", QString("No voxel found with label %1\nComputing total visible volume").arg(tag));
+    }
+
+  qSort(ut);
+
+  
+  QList<float> feret;
+
+  
+  MyBitArray bitmask;
+  bitmask.resize(mx*my*mz);
+
+  for(int i=0; i<ut.count(); i++)
+    {
+      progress.setValue(100*(float)i/(float)ut.count());
+      qApp->processEvents();
+      
+      bitmask.fill(false);
+      
+      VolumeOperations::getVisibleRegion(ds, ws, hs,
+					 de, we, he,
+					 ut[i], false,  // no tag zero checking
+					 0, 0, 1,
+					 bitmask,
+					 false);
+      
+      feret << feretDiameter(mx, my, mz, bitmask);
+    }
+  progress.setValue(100);
+
+  
+  VolumeInformation pvlInfo;
+  pvlInfo = VolumeInformation::volumeInformation();
+  Vec voxelSize = pvlInfo.voxelSize;
+
+  QString mesg;
+  mesg += QString("Voxel Size : %1, %2, %3 %4\n").\
+                                arg(voxelSize.x).arg(voxelSize.y).arg(voxelSize.z).\
+                                arg(pvlInfo.voxelUnitStringShort());
+
+  mesg += "------------------------------\n";
+  mesg += QString(" Label : Max Feret Diameter (%1)\n").arg(pvlInfo.voxelUnitStringShort());
+  
+  mesg += "------------------------------\n";
+  for(int i=0; i<ut.count(); i++)
+    {
+      mesg += QString("%1 : %2\n").arg(ut[i], 6).arg(feret[i]);
+    }
+  
+  StaticFunctions::showMessage("Max Feret Diameter", mesg);
+
+  
+    
+  QString tflnm = QFileDialog::getSaveFileName(0,
+					       "Save Information",
+					       Global::previousDirectory(),
+					       "Files (*.txt)",
+					       0);
+  if (tflnm.isEmpty())
+    return;
+
+  QFile txtfile(tflnm);
+  if (txtfile.open(QIODevice::WriteOnly | QIODevice::Text))
+    {
+      QTextStream out(&txtfile);
+      out << mesg;      
+      QMessageBox::information(0, "Save", QString("Saved to %1").arg(tflnm));
+    }
+  else
+    QMessageBox::information(0, "Error", QString("Cannot write to %1").arg(tflnm));
+
+}

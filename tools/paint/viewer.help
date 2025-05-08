@@ -5,42 +5,42 @@ Add crop gizmo.
 #end
 
 #begin
-tagsused
+labelsused
 
-Show the tags that are in use.
+Show the labels that are in use.
 
 #end
 
 #begin
 reload
 
-Reload tags from the mask file.
+Reload labels from the mask file.
 
 #end
 
 #begin
 reset
-reset <tag>
+reset <label>
 
-Set all voxels in the region to tag.  Default value for tag is 0.
+Set all voxels in the region to label.  Default value for label is 0.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end
 
 #begin
 merge
-merge <tag1> <tag2>
+merge <label1> <label2>
 
-Merge tag2 into tag1 when two parameters are specified.  Replace tag2 with tag1 in the selected subvolume.  If tag2 value is -1, then all the tags (even 0) are replaced with tag1 within the selected subvolume.
+Merge label2 into label1 when two parameters are specified.  Replace label2 with label1 in the selected subvolume.  If label2 value is -1, then all the labels (even 0) are replaced with label1 within the selected subvolume.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end
 
 #begin
 mergetf
-mergetf <tag1> <tag2>
+mergetf <label1> <label2>
 
-Similar to merge, except the operation is carried out only within the visible portion of the selected subvolume.  Visible portion is that region where opacity is greater than 0 as defined by transfer functions and visible tags.
+Similar to merge, except the operation is carried out only within the visible portion of the selected subvolume.  Visible portion is that region where opacity is greater than 0 as defined by transfer functions and visible labels.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end
@@ -48,11 +48,11 @@ Clipping planes are obeyed - clipped region is not taken into account.
 
 #begin
 tubes
-tubes <tag>
+tubes <label>
 
-Tag tube-like and sheet-like structures in visible region.  Visible portion is that region where opacity is greater than 0 as defined by transfer functions and visible tags.
+Label tube-like and sheet-like structures in visible region.  Visible portion is that region where opacity is greater than 0 as defined by transfer functions and visible labels.
 
-If <tag> is not specified then current tag value is used.
+If <label> is not specified then current label value is used.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end
@@ -60,11 +60,11 @@ Clipping planes are obeyed - clipped region is not taken into account.
 
 #begin
 shrinkwrap
-shrinkwrap <tag>
+shrinkwrap <label>
 
-Shrinkwrap the visible region with tag.  Visible portion is that region where opacity is greater than 0 as defined by transfer functions and visible tags.
+Shrinkwrap the visible region with label.  Visible portion is that region where opacity is greater than 0 as defined by transfer functions and visible labels.
 
-If <tag> is not specified then current tag value is used.
+If <label> is not specified then current label value is used.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end
@@ -72,11 +72,11 @@ Clipping planes are obeyed - clipped region is not taken into account.
 
 #begin
 shell
-shell <tag> <thickness>
+shell <label> <thickness>
 
-Tag the boundary of shrinkwrapped visible region.  The visible region is first identified by shrinkwrap and boundary of this region is tagged.  The width of boundary is decided by the thickness value. Visible portion is that region where opacity is greater than 0 as defined by transfer functions and visible tags.
+Label the boundary of shrinkwrapped visible region.  The visible region is first identified by shrinkwrap and boundary of this region is labelged.  The width of boundary is decided by the thickness value. Visible portion is that region where opacity is greater than 0 as defined by transfer functions and visible labels.
 
-If <tag> is not specified then current tag value is used.
+If <label> is not specified then current label value is used.
 If <width> is not specified then default value of 1 is used.
 
 Clipping planes are obeyed - clipped region is not taken into account.
@@ -84,22 +84,33 @@ Clipping planes are obeyed - clipped region is not taken into account.
 
 
 #begin
-getvolume
-getvolume <tag>
+volume
+volume <label>
 
-Calculate the volume occupied by visible voxels marked with tag.
-Default value for tag is -1 : consider all visible voxels.
+Calculate the volume occupied by visible voxels marked with label.
+Default value for label is -1 : consider all visible voxels.  Volume for each label will be calculated.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end
 
 
 #begin
-getsurfacearea
-getsurfacearea <tag>
+surfacearea
+surfacearea <label>
 
-Calculate the surface area occupied by visible voxels marked with tag.
-Default value for tag is -1 : consider all visible voxels.
+Calculate the surface area occupied by visible voxels marked with label.
+Default value for label is -1 : consider all visible voxels.  Surface area for each label will be calculated.
+
+Clipping planes are obeyed - clipped region is not taken into account.
+#end
+
+
+#begin
+feret
+feret <label>
+
+Calculate the max feret diameter for visible voxels marked with label.
+Default value for label is -1 : consider all visible voxels.  Feret diameter for each label will be calculated.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end
@@ -107,18 +118,18 @@ Clipping planes are obeyed - clipped region is not taken into account.
 
 #begin
 setvisible
-setvisible <tag>
+setvisible <label>
 
-Set visible region to tag.  Visible portion is that region where opacity is greater than 0 as defined by transfer functions and visible tags.
+Set visible region to label.  Visible portion is that region where opacity is greater than 0 as defined by transfer functions and visible labels.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end
 
 #begin
 setinvisible
-setinvisible <tag>
+setinvisible <label>
 
-Set invisible region to tag.  Invisible portion is that region where opacity is equal to 0 as defined by transfer functions and hidden tags.
+Set invisible region to label.  Invisible portion is that region where opacity is equal to 0 as defined by transfer functions and hidden labels.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end
@@ -127,10 +138,10 @@ Clipping planes are obeyed - clipped region is not taken into account.
 #begin
 connectedcomponents
 connectedcomponents
-connectedcomponents <tag>
+connectedcomponents <label>
 
-Segment connected components for the given visible <tag> region.
-If no <tag> is specified connected components for all visible region is found.
+Segment connected components for the given visible <label> region.
+If no <label> is specified connected components for all visible region is found.
 
 User is asked for a volume threshold (minimum number of voxels) above which a component is considered for labeling.
 
@@ -140,11 +151,11 @@ Clipping planes are obeyed - clipped region is not taken into account.
 
 #begin
 removecomponents
-removecomponents <tag>
+removecomponents <label>
 
-Remove components that are smaller than threshold for the given visible labeled (i.e. non-zero) <tag> region.
+Remove components that are smaller than threshold for the given visible labeled (i.e. non-zero) <label> region.
 
-If <tag> is not specified then small components for all the labels will be reset to 0 (i.e. unlabeled).
+If <label> is not specified then small components for all the labels will be reset to 0 (i.e. unlabeled).
 
 User is asked for a volume threshold (minimum number of voxels) below which a component is delabeled (i.e. set to 0).
 
@@ -154,10 +165,10 @@ Clipping planes are obeyed - clipped region is not taken into account.
 
 #begin
 smooth
-smooth <tag> <filterWidth>
-Smooth all region with specified tag value by gaussian filter with <filterWidth>
+smooth <label> <filterWidth>
+Smooth all region with specified label value by gaussian filter with <filterWidth>
 
-This will smooth all visible region that has specified tag value.
+This will smooth all visible region that has specified label value.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end
@@ -175,12 +186,12 @@ Clipping planes are obeyed - clipped region is not taken into account.
 
 #begin
 open
-open <tag> <size>
-open <tag> <erode> <dilate>
+open <label> <size>
+open <label> <erode> <dilate>
 
-Apply morphological Open (erosion followed by dilation) to the region with specified tag value.
-If only one value is specified after <tag> value, then erosion and dilation operations will have the same offset.
-If two values are specified after <tag> value, then erosion and dilation operations will have respective offsets.
+Apply morphological Open (erosion followed by dilation) to the region with specified label value.
+If only one value is specified after <label> value, then erosion and dilation operations will have the same offset.
+If two values are specified after <label> value, then erosion and dilation operations will have respective offsets.
 
 Example :
 open 1 10 - erosion with offset 10 followed by dilation with offset 10.
@@ -191,12 +202,12 @@ open 1 10 7 - erodion with offset 10 followed by dilation with offset 7.
 
 #begin
 close
-close <tag> <size>
-close <tag> <dilate> <erode>
+close <label> <size>
+close <label> <dilate> <erode>
 
-Apply morphological Close (dilation followed by erosion) to the region with specified tag value.
-If only one value is specified after <tag> value, then dilation and erosion operations will have the same offset.
-If two values are specified after <tag> value, then dilation and erosion operations will have respective offsets.
+Apply morphological Close (dilation followed by erosion) to the region with specified label value.
+If only one value is specified after <label> value, then dilation and erosion operations will have the same offset.
+If two values are specified after <label> value, then dilation and erosion operations will have respective offsets.
 
 Example :
 close 1 10 - dilation with offset 10 followed by erosion with offset 10.
@@ -217,10 +228,10 @@ Clipping planes are obeyed - clipped region is not taken into account.
 
 #begin
 dilate
-dilate <tag> <size>
-Dilate all region with specified tag value by <size> into connected visible region (even if it has non-zero tag).
+dilate <label> <size>
+Dilate all region with specified label value by <size> into connected visible region (even if it has non-zero label).
 
-This will dilate all visible region that has specified tag value.
+This will dilate all visible region that has specified label value.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end
@@ -228,10 +239,10 @@ Clipping planes are obeyed - clipped region is not taken into account.
 
 #begin
 erode
-erode <tag> <size>
-Erode all region with specified tag value by <size>
+erode <label> <size>
+Erode all region with specified label value by <size>
 
-This will erode all visible region that has specified tag value.
+This will erode all visible region that has specified label value.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end
@@ -327,7 +338,7 @@ s
 Smooth connected region.
 
 Move the mouse over to the region you want to smooth before pressing "s".
-Region that is connected to the voxel under the mouse cursor and that has specified tag value will be smoothed.
+Region that is connected to the voxel under the mouse cursor and that has specified label value will be smoothed.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end
@@ -341,10 +352,10 @@ Toggle visibility of clip planes.
 
 #begin
 f
-Region growing with current tag value.
+Region growing with current label value.
 
 Move the mouse over to the region you want to fill/region grow before pressing "f".
-Region that is connected to the voxel under the mouse cursor and that has either tag value 0 or current tag value will be filled.
+Region that is connected to the voxel under the mouse cursor and that has either label value 0 or current label value will be filled.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end
@@ -352,13 +363,13 @@ Clipping planes are obeyed - clipped region is not taken into account.
 
 #begin
 Shift+f
-Shrinkwrap/create shell around the connected region under the mouse cursor with current tag value.
+Shrinkwrap/create shell around the connected region under the mouse cursor with current label value.
 
 Move the mouse over to the region you want to shrinkwrap/shell before pressing "Shift+f".
 
 You will be asked whether to shrinkwrap or shell the connected region.
 
-Next you will be asked the tag of the connected region - meaning only the connected voxels having that specified tag value will be considered for shrinkwrap/shell operation.  Value of -1 means select all connected visible voxels.  Any other value means only the voxels that are visible, connected and having that particular tag value will be considered.
+Next you will be asked the label of the connected region - meaning only the connected voxels having that specified label value will be considered for shrinkwrap/shell operation.  Value of -1 means select all connected visible voxels.  Any other value means only the voxels that are visible, connected and having that particular label value will be considered.
 
 If you have chosen to create shell surrounding the connected region, a dialog box will pop up to ask for the thickness of the shell.
 
@@ -368,10 +379,10 @@ Clipping planes are obeyed - clipped region is not taken into account.
 
 #begin
 h
-Hatch (generate cross bars, useful for 3d printing) the connected region with current tag value.
+Hatch (generate cross bars, useful for 3d printing) the connected region with current label value.
 
 Move the mouse over to the region you want to hatch before pressing "f".
-Region that is connected to the voxel under the mouse cursor and that has either tag value 0 or current tag value will be hatched.
+Region that is connected to the voxel under the mouse cursor and that has either label value 0 or current label value will be hatched.
 
 You will be asked for interval and thickness values.  Both the values are in terms of number of voxels and should be greater than 0.  Also thickness must be less than interval value.
 
@@ -381,7 +392,7 @@ Clipping planes are obeyed - clipped region is not taken into account.
 
 #begin
 d
-Dilate the current tag by "Dilate/Erode" parameter value into connected untagged (i.e. 0 tag) region.
+Dilate the current label by "Dilate/Erode" parameter value into connected unlabelged (i.e. 0 label) region.
 
 Move the mouse over to the region you want to dilate before pressing "d".  Only the connected region under the mouse cursor will be dilated.
 
@@ -391,7 +402,7 @@ Clipping planes are obeyed - clipped region is not taken into account.
 
 #begin
 Shift+d
-Dilate the current tag by "Dilate/Erode" parameter value into all connected visible region (even if it has non-zero tag).
+Dilate the current label by "Dilate/Erode" parameter value into all connected visible region (even if it has non-zero label).
 
 Move the mouse over to the region you want to dilate before pressing "Shift+d".  Only the connected region under the mouse cursor will be dilated.
 
@@ -401,18 +412,18 @@ Clipping planes are obeyed - clipped region is not taken into account.
 
 #begin
 e
-Erode the current tag by "Dilate/Erode" parameter value.
+Erode the current label by "Dilate/Erode" parameter value.
 Move the mouse over to the region you want to erode before pressing "e".  Only the connected region under the mouse cursor will be eroded.
 #end
 
 
 #begin
 t
-When in Sketch Pad Mode - tag with current tag value all visible region under by the curve drawn in sketch pad.
+When in Sketch Pad Mode - label with current label value all visible region under by the curve drawn in sketch pad.
 #end
 
 
 #begin
 m
-Repeat last merge/mergetf operation using previously used tag parameters.
+Repeat last merge/mergetf operation using previously used label parameters.
 #end

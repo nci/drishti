@@ -19,7 +19,8 @@ class VolumeMeasure
 
   static void getVolume(Vec, Vec, int);
   static void getSurfaceArea(Vec, Vec, int);
-
+  static void getFeretDiameter(Vec, Vec, int);
+  
  private :
   static int m_depth, m_width, m_height;
   static uchar *m_volData;
@@ -28,7 +29,9 @@ class VolumeMeasure
 
   static QMap<int, float> volume(Vec, Vec, int);
   static QMap<int, float> surfaceArea(Vec, Vec, int);
-  
+  static float feretDiameter(int, int, int, MyBitArray&);
+
+  static void parFeret(QList<QVariant>);
 };
 
 #endif

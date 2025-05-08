@@ -244,6 +244,46 @@ VolumeOperations::checkClipped(Vec p0)
   return clipped;
 }
 
+
+QList<Vec>
+VolumeOperations::getSurfaceVoxels(qint64 mx, qint64 my, qint64 mz,
+				   MyBitArray &bitmask)
+{
+  QList<Vec> svox;
+  for(int d=0; d<mz; d++)
+  for(int w=0; w<my; w++)
+  for(int h=0; h<mx; h++)
+    {
+      qint64 bidx = d*mx*my + w*mx + h;
+      if (bitmask.testBit(bidx))
+	{
+	  qint64 d2s = qBound(0, (int)d-1, (int)mz-1);
+	  qint64 w2s = qBound(0, (int)w-1, (int)my-1);
+	  qint64 h2s = qBound(0, (int)h-1, (int)mx-1);
+	  qint64 d2e = qBound(0, (int)d+1, (int)mz-1);
+	  qint64 w2e = qBound(0, (int)w+1, (int)my-1);
+	  qint64 h2e = qBound(0, (int)h+1, (int)mx-1);
+	  
+	  bool ok = true;
+	  for(qint64 d2=d2s; ok && d2<=d2e; d2++)
+	  for(qint64 w2=w2s; ok && w2<=w2e; w2++)
+	  for(qint64 h2=h2s; ok && h2<=h2e; h2++)
+	    {
+	      qint64 idx = d2*mx*my + w2*mx + h2;
+	      if (!bitmask.testBit(idx))
+		{
+		  ok = false;
+		  svox << Vec(d, w, h);
+		  break;
+		}
+	    }
+	}
+    }
+
+  return svox;
+}
+
+
 //---------//---------//---------//
 //---------//---------//---------//
 void

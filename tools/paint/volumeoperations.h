@@ -17,9 +17,6 @@ class VolumeOperations
   static void setGridSize(int, int, int);
   static void setClip(QList<Vec>, QList<Vec>);
 
-  static void getVolume(Vec, Vec, int);
-  static void getSurfaceArea(Vec, Vec, int);
-
   static void hatchConnectedRegion(int, int, int,
 				   Vec, Vec,
 				   int, int,
@@ -185,6 +182,13 @@ class VolumeOperations
   static void sortLabels(Vec, Vec,
 			 int, float, float);
   
+  static void getVisibleRegion(int, int, int,
+			       int, int, int,
+			       int, bool,
+			       int, float, float,
+			       MyBitArray&,
+			       bool showProgress = true);
+
  private :
   static int m_depth, m_width, m_height;
   static uchar *m_volData;
@@ -218,12 +222,6 @@ class VolumeOperations
 				       qint64, qint64, qint64,
 				       MyBitArray&);
 
-  static void getVisibleRegion(int, int, int,
-			       int, int, int,
-			       int, bool,
-			       int, float, float,
-			       MyBitArray&,
-			       bool showProgress = true);
   static void parVisibleRegionGeneration(QList<QVariant>);
 
   

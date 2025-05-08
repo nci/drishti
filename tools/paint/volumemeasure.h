@@ -1,0 +1,30 @@
+#ifndef VOLUMEMEASURE_H
+#define VOLUMEMEASURE_H
+
+#include "commonqtclasses.h"
+#include <QProgressDialog>
+
+#include <QGLViewer/vec.h>
+using namespace qglviewer;
+
+#include "mybitarray.h"
+
+class VolumeMeasure
+{
+ public :
+  static void setVolData(uchar*);
+  static void setMaskData(uchar*);
+  static void setGridSize(int, int, int);
+
+  static void getVolume(Vec, Vec, int);
+  static void getSurfaceArea(Vec, Vec, int);
+
+ private :
+  static int m_depth, m_width, m_height;
+  static uchar *m_volData;
+  static ushort *m_volDataUS;
+  static uchar *m_maskData;
+
+};
+
+#endif

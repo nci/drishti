@@ -133,6 +133,7 @@ HEADERS += connectviewer.h \
 	volumefilemanager.h \
 	volumeinformation.h \
 	volumemask.h \
+        volumemeasure.h \
         volumeoperations.h \
         geometryobjects.h \
 	graphcut/graph.h \
@@ -200,6 +201,7 @@ SOURCES += drishtipaint.cpp \
 	volumefilemanager.cpp \
 	volumeinformation.cpp \
 	volumemask.cpp \
+        volumemeasure.cpp \
 	volumeoperations.cpp \
         geometryobjects.cpp \
 	graphcut/graph.cpp \

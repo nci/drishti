@@ -6,6 +6,7 @@
 #include "staticfunctions.h"
 #include "propertyeditor.h"
 #include "volumeoperations.h"
+#include "volumemeasure.h"
 
 #include <QDockWidget>
 #include <QInputDialog>
@@ -1340,7 +1341,7 @@ Viewer::processCommand(QString cmd)
       QList<Vec> cPos =  clipPos();
       QList<Vec> cNorm = clipNorm();
       VolumeOperations::setClip(cPos, cNorm);
-      VolumeOperations::getVolume(bmin, bmax, tag1);
+      VolumeMeasure::getVolume(bmin, bmax, tag1);
       return;
     }
 
@@ -1360,7 +1361,7 @@ Viewer::processCommand(QString cmd)
       QList<Vec> cPos =  clipPos();
       QList<Vec> cNorm = clipNorm();
       VolumeOperations::setClip(cPos, cNorm);
-      VolumeOperations::getSurfaceArea(bmin, bmax, tag1);
+      VolumeMeasure::getSurfaceArea(bmin, bmax, tag1);
       return;
     }
 

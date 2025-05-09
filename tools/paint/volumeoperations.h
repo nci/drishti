@@ -59,6 +59,12 @@ class VolumeOperations
 			       int&, int&,
 			       int&, int&,
 			       int, float, float);
+  static void removeLargestComponents(Vec, Vec,
+				      int,
+				      int&, int&,
+				      int&, int&,
+				      int&, int&,
+				      int, float, float);
   static void connectedComponents(Vec, Vec,
 				  int,
 				  int&, int&,

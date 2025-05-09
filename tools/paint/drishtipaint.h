@@ -197,6 +197,7 @@ class DrishtiPaint : public QMainWindow
 
   void connectedComponents(Vec, Vec, int);
   void removeComponents(Vec, Vec, int);  
+  void removeLargestComponents(Vec, Vec, int);  
   
   void hatchConnectedRegion(int, int, int,
 			    Vec, Vec,

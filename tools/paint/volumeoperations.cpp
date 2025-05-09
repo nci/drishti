@@ -410,13 +410,13 @@ VolumeOperations::hatchConnectedRegion(int dr, int wr, int hr,
       return;
     }
 
-  int ds = bmin.z;
-  int ws = bmin.y;
-  int hs = bmin.x;
+  int ds = qFloor(bmin.z);
+  int ws = qFloor(bmin.y);
+  int hs = qFloor(bmin.x);
 
-  int de = bmax.z;
-  int we = bmax.y;
-  int he = bmax.x;
+  int de = qCeil(bmax.z);
+  int we = qCeil(bmax.y);
+  int he = qCeil(bmax.x);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -503,13 +503,13 @@ VolumeOperations::connectedRegion(int dr, int wr, int hr,
       return;
     }
 
-  int ds = bmin.z;
-  int ws = bmin.y;
-  int hs = bmin.x;
+  int ds = qFloor(bmin.z);
+  int ws = qFloor(bmin.y);
+  int hs = qFloor(bmin.x);
 
-  int de = bmax.z;
-  int we = bmax.y;
-  int he = bmax.x;
+  int de = qCeil(bmax.z);
+  int we = qCeil(bmax.y);
+  int he = qCeil(bmax.x);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -699,8 +699,6 @@ VolumeOperations::parVisibleRegionGeneration(QList<QVariant> plist)
 	      }
 	  }
 	
-	// grow only in zero or same tagged region
-	// or if tag is 0 then grow in all visible regions
 	if (!clipped && opaque)
 	  {
 	    qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
@@ -990,13 +988,13 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
 				  0, 0, 100, 1);
   //-------------------------
 
-  int ds = bmin.z;
-  int ws = bmin.y;
-  int hs = bmin.x;
+  int ds = qFloor(bmin.z);
+  int ws = qFloor(bmin.y);
+  int hs = qFloor(bmin.x);
 
-  int de = bmax.z;
-  int we = bmax.y;
-  int he = bmax.x;
+  int de = qCeil(bmax.z);
+  int we = qCeil(bmax.y);
+  int he = qCeil(bmax.x);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -1070,14 +1068,13 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
       progress.setValue(10);
       qApp->processEvents();
       vdb.convertToLevelSet(128, 0);
-      progress.setLabelText("Shrinkwrap - dilate");
+      progress.setLabelText("Shrinkwrap - close holes");
       progress.setValue(25);
       qApp->processEvents();
-      vdb.offset(-holeSize); // dilate
-      progress.setLabelText("Shrinkwrap - erode");
+      vdb.close(-holeSize, holeSize); // close - dilate followed by erode
+      progress.setLabelText("Shrinkwrap - holes closed");
       progress.setValue(50);
       qApp->processEvents();
-      vdb.offset(holeSize); // erode
       {
 	cbitmask.fill(true);
 	openvdb::FloatGrid::Accessor accessor = vdb.getAccessor();
@@ -1710,13 +1707,13 @@ VolumeOperations::setVisible(Vec bmin, Vec bmax,
 			     int& minH, int& maxH,
 			     int gradType, float minGrad, float maxGrad)
 {
-  int ds = bmin.z;
-  int ws = bmin.y;
-  int hs = bmin.x;
+  int ds = qFloor(bmin.z);
+  int ws = qFloor(bmin.y);
+  int hs = qFloor(bmin.x);
 
-  int de = bmax.z;
-  int we = bmax.y;
-  int he = bmax.x;
+  int de = qCeil(bmax.z);
+  int we = qCeil(bmax.y);
+  int he = qCeil(bmax.x);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -1736,7 +1733,8 @@ VolumeOperations::setVisible(Vec bmin, Vec bmax,
       for(qint64 h=hs; h<=he; h++)
 	{
 	  qint64 idx = d*m_width*m_height + w*m_height + h;
-	  if (bitmask.testBit(idx) == visible && m_maskData[idx] != tag)
+	  qint64 bidx = (d-ds)*mx*my + (w-ws)*mx + (h-hs);
+	  if (bitmask.testBit(bidx) == visible)
 	    m_maskData[idx] = tag;
 	}
   minD = ds;
@@ -1745,75 +1743,6 @@ VolumeOperations::setVisible(Vec bmin, Vec bmax,
   maxW = we;
   minH = hs;
   maxH = he;
-
-  
-  
-//  QProgressDialog progress("Updating voxel structure",
-//			   QString(),
-//			   0, 100,
-//			   0,
-//			   Qt::WindowStaysOnTopHint);
-//  progress.setMinimumDuration(0);
-//
-//  minD = maxD = -1;
-//  minW = maxW = -1;
-//  minH = maxH = -1;
-//
-//  uchar *lut = Global::lut();
-//
-//  for(qint64 d=ds; d<=de; d++)
-//    {
-//      progress.setValue(90*(d-ds)/((de-ds+1)));
-//      if (d%10 == 0)
-//	qApp->processEvents();
-//      for(qint64 w=ws; w<=we; w++)
-//	for(qint64 h=hs; h<=he; h++)
-//	  {
-//	    bool clipped = checkClipped(Vec(h, w, d));
-//	    
-//	    if (!clipped)
-//	      {
-//		qint64 idx = d*m_width*m_height + w*m_height + h;
-//		int val = m_volData[idx];
-//		if (m_volDataUS) val = m_volDataUS[idx];
-//		uchar mtag = m_maskData[idx];
-//		bool alpha =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);
-//
-//		//-------
-//		if (alpha &&
-//		    (minGrad > 0.0 || maxGrad < 1.0))
-//		{		  
-//		  float gradMag = VolumeOperations::calcGrad(gradType, d, w, h,
-//							     m_depth, m_width, m_height,
-//							     m_volData, m_volDataUS);
-//	
-//		  if (gradMag < minGrad || gradMag > maxGrad)
-//		    alpha = false;
-//		}
-//		//-------
-//
-//		if (alpha == visible && m_maskData[idx] != tag)
-//		  {
-//		    m_maskData[idx] = tag;
-//		    if (minD > -1)
-//		      {
-//			minD = qMin(minD, (int)d);
-//			maxD = qMax(maxD, (int)d);
-//			minW = qMin(minW, (int)w);
-//			maxW = qMax(maxW, (int)w);
-//			minH = qMin(minH, (int)h);
-//			maxH = qMax(maxH, (int)h);
-//		      }
-//		    else
-//		      {
-//			minD = maxD = d;
-//			minW = maxW = w;
-//			minH = maxH = h;
-//		      }
-//		  }
-//	      } // clipped
-//	  }
-//    }
 }
 
 void
@@ -1824,13 +1753,13 @@ VolumeOperations::stepTags(Vec bmin, Vec bmax,
 			   int& minH, int& maxH)
   
 {    
-  int ds = bmin.z;
-  int ws = bmin.y;
-  int hs = bmin.x;
+  int ds = qFloor(bmin.z);
+  int ws = qFloor(bmin.y);
+  int hs = qFloor(bmin.x);
 
-  int de = bmax.z;
-  int we = bmax.y;
-  int he = bmax.x;
+  int de = qCeil(bmax.z);
+  int we = qCeil(bmax.y);
+  int he = qCeil(bmax.x);
 
   minD = ds;
   maxD = de;
@@ -1887,13 +1816,13 @@ VolumeOperations::mergeTags(Vec bmin, Vec bmax,
 			    int& minH, int& maxH)
 
 {
-  int ds = bmin.z;
-  int ws = bmin.y;
-  int hs = bmin.x;
+  int ds = qFloor(bmin.z);
+  int ws = qFloor(bmin.y);
+  int hs = qFloor(bmin.x);
 
-  int de = bmax.z;
-  int we = bmax.y;
-  int he = bmax.x;
+  int de = qCeil(bmax.z);
+  int we = qCeil(bmax.y);
+  int he = qCeil(bmax.x);
 
   minD = maxD = -1;
   minW = maxW = -1;
@@ -2936,13 +2865,13 @@ VolumeOperations::erodeConnected(int dr, int wr, int hr,
   progress.setMinimumDuration(0);
 
 
-  int ds = bmin.z;
-  int ws = bmin.y;
-  int hs = bmin.x;
+  int ds = qFloor(bmin.z);
+  int ws = qFloor(bmin.y);
+  int hs = qFloor(bmin.x);
 
-  int de = bmax.z;
-  int we = bmax.y;
-  int he = bmax.x;
+  int de = qCeil(bmax.z);
+  int we = qCeil(bmax.y);
+  int he = qCeil(bmax.x);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -3093,13 +3022,13 @@ VolumeOperations::modifyOriginalVolume(Vec bmin, Vec bmax,
 				       int& minW, int& maxW,
 				       int& minH, int& maxH)
 {
-  int ds = bmin.z;
-  int ws = bmin.y;
-  int hs = bmin.x;
+  int ds = qFloor(bmin.z);
+  int ws = qFloor(bmin.y);
+  int hs = qFloor(bmin.x);
 
-  int de = bmax.z;
-  int we = bmax.y;
-  int he = bmax.x;
+  int de = qCeil(bmax.z);
+  int we = qCeil(bmax.y);
+  int he = qCeil(bmax.x);
 
   QProgressDialog progress("Updating Original Volume",
 			   QString(),
@@ -3178,13 +3107,13 @@ VolumeOperations::tagTubes(Vec bmin, Vec bmax, int tag,
     }
   //-------------------------
 
-  int ds = bmin.z;
-  int ws = bmin.y;
-  int hs = bmin.x;
+  int ds = qFloor(bmin.z);
+  int ws = qFloor(bmin.y);
+  int hs = qFloor(bmin.x);
 
-  int de = bmax.z;
-  int we = bmax.y;
-  int he = bmax.x;
+  int de = qCeil(bmax.z);
+  int we = qCeil(bmax.y);
+  int he = qCeil(bmax.x);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -3443,13 +3372,13 @@ VolumeOperations::smoothConnectedRegion(int dr, int wr, int hr,
       return;
     }
 
-  int ds = bmin.z;
-  int ws = bmin.y;
-  int hs = bmin.x;
+  int ds = qFloor(bmin.z);
+  int ws = qFloor(bmin.y);
+  int hs = qFloor(bmin.x);
 
-  int de = bmax.z;
-  int we = bmax.y;
-  int he = bmax.x;
+  int de = qCeil(bmax.z);
+  int we = qCeil(bmax.y);
+  int he = qCeil(bmax.x);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -3492,13 +3421,13 @@ VolumeOperations::smoothAllRegion(Vec bmin, Vec bmax,
 {
   minD = maxD = minW = maxW = minH = maxH = -1;
 
-  int ds = bmin.z;
-  int ws = bmin.y;
-  int hs = bmin.x;
+  int ds = qFloor(bmin.z);
+  int ws = qFloor(bmin.y);
+  int hs = qFloor(bmin.x);
 
-  int de = bmax.z;
-  int we = bmax.y;
-  int he = bmax.x;
+  int de = qCeil(bmax.z);
+  int we = qCeil(bmax.y);
+  int he = qCeil(bmax.x);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -3613,13 +3542,13 @@ VolumeOperations::removeComponents(Vec bmin, Vec bmax,
 {
   minD = maxD = minW = maxW = minH = maxH = -1;
 
-  int ds = bmin.z;
-  int ws = bmin.y;
-  int hs = bmin.x;
+  int ds = qFloor(bmin.z);
+  int ws = qFloor(bmin.y);
+  int hs = qFloor(bmin.x);
 
-  int de = bmax.z;
-  int we = bmax.y;
-  int he = bmax.x;
+  int de = qCeil(bmax.z);
+  int we = qCeil(bmax.y);
+  int he = qCeil(bmax.x);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -3671,7 +3600,7 @@ VolumeOperations::removeComponents(Vec bmin, Vec bmax,
 
   //------------------
 
-  
+ 
   //------------------
   // calculate volume (no. of voxels) per component
   QMap<int, int> labelMap; // contains (number of voxels) volume for each label
@@ -3682,12 +3611,12 @@ VolumeOperations::removeComponents(Vec bmin, Vec bmax,
 	  qint64 bidx = ((qint64)(d-ds))*mx*my+((qint64)(w-ws))*mx+(h-hs);
 	  vol[bidx] = labels[bidx];
 
-	  if (vol[bidx] > 0)
+ 	  if (vol[bidx] > 0)
 	    labelMap[vol[bidx]] = labelMap[vol[bidx]] + 1;
 	}
   //------------------
 
-  
+   
   //------------------
   // remove components with volume less than componentThreshold
   for(qint64 d=ds; d<=de; d++)
@@ -3697,6 +3626,137 @@ VolumeOperations::removeComponents(Vec bmin, Vec bmax,
 	  qint64 bidx = ((qint64)(d-ds))*mx*my+((qint64)(w-ws))*mx+(h-hs);
 	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
 	  if (labelMap[vol[bidx]] <= componentThreshold)
+	    m_maskData[idx] = 0;
+	}
+  //------------------
+  
+  delete [] vol;
+  delete [] labels;
+  
+  minD = ds;
+  minW = ws;
+  minH = hs;
+  maxD = de;
+  maxW = we;
+  maxH = he;
+
+  QMessageBox::information(0, "", "Done");
+}
+
+void
+VolumeOperations::removeLargestComponents(Vec bmin, Vec bmax,
+					  int tag,
+					  int& minD, int& maxD,
+					  int& minW, int& maxW,
+					  int& minH, int& maxH,
+					  int gradType, float minGrad, float maxGrad)
+{
+  minD = maxD = minW = maxW = minH = maxH = -1;
+
+  int ds = qFloor(bmin.z);
+  int ws = qFloor(bmin.y);
+  int hs = qFloor(bmin.x);
+
+  int de = qCeil(bmax.z);
+  int we = qCeil(bmax.y);
+  int he = qCeil(bmax.x);
+
+  qint64 mx = he-hs+1;
+  qint64 my = we-ws+1;
+  qint64 mz = de-ds+1;
+
+  MyBitArray bitmask;
+  bitmask.resize(mx*my*mz);
+  bitmask.fill(false);
+
+
+  getVisibleRegion(ds, ws, hs,
+		   de, we, he,
+		   tag, false,
+		   gradType, minGrad, maxGrad,
+		   bitmask);
+
+
+
+  uchar *vol = new uchar[mx*my*mz];
+  memset(vol, 0, mx*my*mz);
+  for(qint64 d=ds; d<=de; d++)
+    for(qint64 w=ws; w<=we; w++)
+      for(qint64 h=hs; h<=he; h++)
+	{
+	  qint64 bidx = ((qint64)(d-ds))*mx*my+((qint64)(w-ws))*mx+(h-hs);
+	  if (bitmask.testBit(bidx))
+	    vol[bidx] = 255;
+	}
+
+  
+
+  //------------------
+  // ignore all components below componentThreshold
+  int largestComponents = 1;
+  largestComponents = QInputDialog::getInt(0,
+					   "Largest Components",
+					   "Remove how many first largest components.\n1 = remove only the largest component",
+					   1);
+  if (largestComponents < 1)
+    return;
+  //------------------
+  
+
+
+  //------------------
+  // find connected components
+  int connectivity = 6;
+  uint32_t* labels = cc3d::connected_components3d(vol,
+						  mx, my, mz,
+						  connectivity);
+
+  //------------------
+
+ 
+  //------------------
+  // calculate volume (no. of voxels) per component
+  QMap<int, int> labelMap; // contains (number of voxels) volume for each label
+  for(qint64 d=ds; d<=de; d++)
+    for(qint64 w=ws; w<=we; w++)
+      for(qint64 h=hs; h<=he; h++)
+	{
+	  qint64 bidx = ((qint64)(d-ds))*mx*my+((qint64)(w-ws))*mx+(h-hs);
+	  vol[bidx] = labels[bidx];
+
+ 	  if (vol[bidx] > 0)
+	    labelMap[vol[bidx]] = labelMap[vol[bidx]] + 1;
+	}
+  //------------------
+
+
+  //------------------
+  // new remap in sequential order
+  QList<int> oldLabel = labelMap.keys();  // component labels
+  QList<int> compVol = labelMap.values(); // volume
+  int nLabels = oldLabel.count();
+  
+  //-------
+  // do this to sort on volume
+  QMultiMap<int, int> remapLabel; // contains remapping info
+  for (int i=0; i<nLabels; i++)
+    remapLabel.insert(compVol[i], oldLabel[i]);
+  //-------
+
+  QList<int> largest = remapLabel.values();
+  QList<int> removeComponents;
+  for(int i=0; i<largestComponents; i++)
+    removeComponents << largest[nLabels-1-i];
+  
+  //------------------
+  // remove components with volume less than componentThreshold
+  for(qint64 d=ds; d<=de; d++)
+    for(qint64 w=ws; w<=we; w++)
+      for(qint64 h=hs; h<=he; h++)
+	{
+	  qint64 bidx = ((qint64)(d-ds))*mx*my+((qint64)(w-ws))*mx+(h-hs);
+	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
+	  if (removeComponents.contains(vol[bidx]))
 	    m_maskData[idx] = 0;
 	}
   //------------------
@@ -3725,13 +3785,13 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
 {
   minD = maxD = minW = maxW = minH = maxH = -1;
 
-  int ds = bmin.z;
-  int ws = bmin.y;
-  int hs = bmin.x;
+  int ds = qFloor(bmin.z);
+  int ws = qFloor(bmin.y);
+  int hs = qFloor(bmin.x);
 
-  int de = bmax.z;
-  int we = bmax.y;
-  int he = bmax.x;
+  int de = qCeil(bmax.z);
+  int we = qCeil(bmax.y);
+  int he = qCeil(bmax.x);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -3833,37 +3893,36 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
   //------------------
 
   
+  
+  QMap<int, int> labelMap; // contains (number of voxels) volume for each label
+  
   //------------------
   // calculate volume (no. of voxels) per component
-  QMap<int, int> labelMap; // contains (number of voxels) volume for each label
   for(qint64 d=ds; d<=de; d++)
     for(qint64 w=ws; w<=we; w++)
       for(qint64 h=hs; h<=he; h++)
 	{
 	  qint64 bidx = ((qint64)(d-ds))*mx*my+((qint64)(w-ws))*mx+(h-hs);
-	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
-	  m_maskData[idx] = labels[bidx];
-
-	  if (m_maskData[idx] > 0)
-	    labelMap[m_maskData[idx]] = labelMap[m_maskData[idx]] + 1;
+	  if (labels[bidx] > 0)
+	    labelMap[labels[bidx]] = labelMap[labels[bidx]] + 1;
 	}
-  delete [] labels;
   //------------------
 
-  
   //------------------
   // remove components with volume less than componentThreshold
   for(qint64 d=ds; d<=de; d++)
     for(qint64 w=ws; w<=we; w++)
       for(qint64 h=hs; h<=he; h++)
 	{
-	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
-	  if (labelMap[m_maskData[idx]] <= componentThreshold)
-	    m_maskData[idx] = 0;
+	  qint64 bidx = ((qint64)(d-ds))*mx*my+((qint64)(w-ws))*mx+(h-hs);
+	  if (labels[bidx] > 0)
+	    {
+	      if (labelMap[labels[bidx]] <= componentThreshold)
+		labels[bidx] = 0;
+	    }
 	}
   //------------------
   
-
   //------------------
   // update labelMap to reflect removal of small components
   {
@@ -3874,7 +3933,9 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
 	labelMap.remove(keys[i]);
   }
   //------------------
+   
 
+  //QMessageBox::information(0, "", QString("%1").arg(labelMap.keys().count()));
 
   //------------------
   // new remap in sequential order
@@ -3893,7 +3954,7 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
 
     QList<int> newLabel = remapLabel.values();  // labels sorted on volume
     QList<int> sortedVol = remapLabel.keys();  // sorted component volume
-
+    
 
     mesg  = "---------------------\n";
     mesg += " Label : Voxel Count \n";
@@ -3935,9 +3996,13 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
       for(qint64 h=hs; h<=he; h++)
 	{
 	  qint64 bidx = ((qint64)(d-ds))*mx*my+((qint64)(w-ws))*mx+(h-hs);
-	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
-	  m_maskData[idx] = labelMap[m_maskData[idx]];
+	  if (labels[bidx] > 0)
+	    {
+	      qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
+	      m_maskData[idx] = labelMap[labels[bidx]];
+	    }
 	}
+  delete [] labels;
   //------------------
   
   
@@ -3956,13 +4021,13 @@ void
 VolumeOperations::sortLabels(Vec bmin, Vec bmax,
 			     int gradType, float minGrad, float maxGrad)
 {
-  int ds = bmin.z;
-  int ws = bmin.y;
-  int hs = bmin.x;
+  int ds = qFloor(bmin.z);
+  int ws = qFloor(bmin.y);
+  int hs = qFloor(bmin.x);
 
-  int de = bmax.z;
-  int we = bmax.y;
-  int he = bmax.x;
+  int de = qCeil(bmax.z);
+  int we = qCeil(bmax.y);
+  int he = qCeil(bmax.x);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;

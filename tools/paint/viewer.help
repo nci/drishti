@@ -164,6 +164,20 @@ Clipping planes are obeyed - clipped region is not taken into account.
 
 
 #begin
+removelargestcomponents
+removelargestcomponents <label>
+
+Remove largest components for the given visible labeled (i.e. non-zero) <label> region.
+
+If <label> is not specified then largest components for all the labels will be reset to 0 (i.e. unlabeled).
+
+User is asked for a the numer for largests components to be delabeled (i.e. set to 0).
+
+Clipping planes are obeyed - clipped region is not taken into account.
+#end
+
+
+#begin
 smooth
 smooth <label> <filterWidth>
 Smooth all region with specified label value by gaussian filter with <filterWidth>

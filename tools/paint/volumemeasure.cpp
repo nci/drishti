@@ -143,13 +143,13 @@ VolumeMeasure::volume(Vec bmin, Vec bmax, int tag)
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
-  int ds = bmin.z;
-  int ws = bmin.y;
-  int hs = bmin.x;
+  int ds = qFloor(bmin.z);
+  int ws = qFloor(bmin.y);
+  int hs = qFloor(bmin.x);
 
-  int de = bmax.z;
-  int we = bmax.y;
-  int he = bmax.x;
+  int de = qCeil(bmax.z);
+  int we = qCeil(bmax.y);
+  int he = qCeil(bmax.x);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -315,13 +315,13 @@ VolumeMeasure::surfaceArea(Vec bmin, Vec bmax, int tag)
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
-  int ds = bmin.z;
-  int ws = bmin.y;
-  int hs = bmin.x;
+  int ds = qFloor(bmin.z);
+  int ws = qFloor(bmin.y);
+  int hs = qFloor(bmin.x);
 
-  int de = bmax.z;
-  int we = bmax.y;
-  int he = bmax.x;
+  int de = qCeil(bmax.z);
+  int we = qCeil(bmax.y);
+  int he = qCeil(bmax.x);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -533,13 +533,13 @@ VolumeMeasure::parFeret(QList<QVariant> plist)
 void
 VolumeMeasure::getFeretDiameter(Vec bmin, Vec bmax, int tag)
 {
-  int ds = bmin.z;
-  int ws = bmin.y;
-  int hs = bmin.x;
+  int ds = qFloor(bmin.z);
+  int ws = qFloor(bmin.y);
+  int hs = qFloor(bmin.x);
 
-  int de = bmax.z;
-  int we = bmax.y;
-  int he = bmax.x;
+  int de = qCeil(bmax.z);
+  int we = qCeil(bmax.y);
+  int he = qCeil(bmax.x);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;

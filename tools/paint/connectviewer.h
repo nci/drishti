@@ -35,6 +35,9 @@
   connect(m_viewer, SIGNAL(removeComponents(Vec,Vec,int)),
 	  this, SLOT(removeComponents(Vec,Vec,int)));
 
+  connect(m_viewer, SIGNAL(removeLargestComponents(Vec,Vec,int)),
+	  this, SLOT(removeLargestComponents(Vec,Vec,int)));
+
   connect(m_viewer, SIGNAL(mergeTags(Vec, Vec, int, int, bool)),
 	  this, SLOT(mergeTags(Vec, Vec, int, int, bool)));
 

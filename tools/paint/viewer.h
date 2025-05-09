@@ -188,6 +188,7 @@ class Viewer : public QGLViewer
 
     void connectedComponents(Vec, Vec, int);
     void removeComponents(Vec, Vec, int);
+    void removeLargestComponents(Vec, Vec, int);
   
     void hatchConnectedRegion(int, int, int,
 			      Vec, Vec,
@@ -359,6 +360,7 @@ class Viewer : public QGLViewer
   void hatch();
   void connectedComponents(int);
   void removeComponents(int);
+  void removeLargestComponents(int);
   void smoothRegion(bool, int, int);
   void regionGrowing(bool);
   void regionDilation(bool);

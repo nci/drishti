@@ -682,8 +682,10 @@ Viewer::updateViewerBox(int minD, int maxD, int minW, int maxW, int minH, int ma
 
   Vec bmin = Vec(m_minHSlice, m_minWSlice, m_minDSlice);
   Vec bmax = Vec(m_maxHSlice, m_maxWSlice, m_maxDSlice);
+
   bmin = VECPRODUCT(bmin, voxelScaling);
   bmax = VECPRODUCT(bmax, voxelScaling);
+
 
   setSceneCenter((bmin+bmax)/2);
   
@@ -1056,10 +1058,16 @@ Viewer::processCommand(QString cmd)
 	tag = list[1].toInt(&ok);
 
       removeComponents(tag);      
-      //if (tag > 0)
-      //	removeComponents(tag);      
-      //else
-      //	QMessageBox::information(0, "", "Expecting <tag> for connected components");
+      
+      return;
+    }
+  if (list[0].contains("removelargestcomponents"))
+    {
+      int tag = -1;
+      if (list.size() == 2)
+	tag = list[1].toInt(&ok);
+
+      removeLargestComponents(tag);
       
       return;
     }
@@ -3074,6 +3082,19 @@ Viewer::removeComponents(int tag)
   bmax = VECDIVIDE(bmax, voxelScaling);
 
   emit removeComponents(bmin, bmax, tag);
+}
+
+void
+Viewer::removeLargestComponents(int tag)
+{
+  Vec bmin, bmax;
+  m_boundingBox.bounds(bmin, bmax);
+
+  Vec voxelScaling = Global::relativeVoxelScaling();
+  bmin = VECDIVIDE(bmin, voxelScaling);
+  bmax = VECDIVIDE(bmax, voxelScaling);
+
+  emit removeLargestComponents(bmin, bmax, tag);
 }
 
 void

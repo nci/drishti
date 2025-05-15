@@ -5098,8 +5098,12 @@ DrishtiPaint::paint3D(Vec bmin, Vec bmax,
   ushort *volDataUS = 0;
   if (Global::bytesPerVoxel() == 2)
     volDataUS = (ushort*)volData;
+  
   uchar *maskData = m_volume->memMaskDataPtr();
-
+  ushort *maskDataUS = 0;
+  if (Global::bytesPerMask() == 2)
+    maskDataUS = (ushort*)maskData;
+  
 
   //----------------
   QList<Vec> seeds;
@@ -5208,7 +5212,13 @@ DrishtiPaint::paint3D(Vec bmin, Vec bmax,
 			val = volData[dd*m_width*m_height + ww*m_height + hh];
 		      else
 			val = volDataUS[dd*m_width*m_height + ww*m_height + hh];
-		      uchar mtag = maskData[dd*m_width*m_height + ww*m_height + hh];
+
+		      int mtag;
+		      if (!maskDataUS)
+			mtag = maskData[dd*m_width*m_height + ww*m_height + hh];
+		      else
+			mtag = maskDataUS[dd*m_width*m_height + ww*m_height + hh];
+
 		      bool opaque =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);
 
 		      //-----------
@@ -5247,7 +5257,11 @@ DrishtiPaint::paint3D(Vec bmin, Vec bmax,
 	    {
 	      if (bitmask.testBit((dd-ds)*dm2 + (ww-ws)*dm + (hh-hs)))
 		{
-		  maskData[dd*m_width*m_height + ww*m_height + hh] = tag;
+		  if (!maskDataUS)
+		    maskData[dd*m_width*m_height + ww*m_height + hh] = tag;
+		  else
+		    maskDataUS[dd*m_width*m_height + ww*m_height + hh] = tag;
+
 		  minD = qMin(minD, (int)dd);
 		  maxD = qMax(maxD, (int)dd);
 		  minW = qMin(minW, (int)ww);
@@ -5275,7 +5289,12 @@ DrishtiPaint::paint3D(Vec bmin, Vec bmax,
 	  qint64 h0 = seeds[i].x;
 	  qint64 w0 = seeds[i].y;
 	  qint64 d0 = seeds[i].z;
-	  maskData[d0*m_width*m_height + w0*m_height + h0] = tag;
+
+	  if (!maskDataUS)
+	    maskData[d0*m_width*m_height + w0*m_height + h0] = tag;
+	  else
+	    maskDataUS[d0*m_width*m_height + w0*m_height + h0] = tag;
+
 	  bitmask.setBit((d0-ds)*dm2 + (w0-ws)*dm + (h0-hs), false);
 	  stack.push(Vec(d0, w0, h0));
 	}
@@ -5301,7 +5320,12 @@ DrishtiPaint::paint3D(Vec bmin, Vec bmax,
 	      if (bitmask.testBit(bidx))
 		{
 		  bitmask.setBit(bidx, false);
-		  maskData[d2*m_width*m_height + w2*m_height + h2] = tag;
+
+		  if (!maskDataUS)
+		    maskData[d2*m_width*m_height + w2*m_height + h2] = tag;
+		  else
+		    maskDataUS[d2*m_width*m_height + w2*m_height + h2] = tag;
+
 		  stack.push(Vec(d2,w2,h2));
 		  
 		  minD = qMin(minD, (int)d2);
@@ -5405,7 +5429,7 @@ DrishtiPaint::tagUsingSketchPad(Vec bmin, Vec bmax, int tag)
   int ds = bmin.z;
   int ws = bmin.y;
   int hs = bmin.x;
-
+  
   int de = bmax.z;
   int we = bmax.y;
   int he = bmax.x;
@@ -5421,9 +5445,12 @@ DrishtiPaint::tagUsingSketchPad(Vec bmin, Vec bmax, int tag)
   uchar *volData = m_volume->memVolDataPtr();
   ushort *volDataUS = 0;
   if (Global::bytesPerVoxel() == 2)
-    volDataUS = (ushort*)(m_volume->memVolDataPtr());
+    volDataUS = m_volume->memVolDataPtrUS();
 
   uchar *maskData = m_volume->memMaskDataPtr();
+  ushort *maskDataUS = 0;
+  if (Global::bytesPerMask() == 2)
+    maskDataUS = m_volume->memMaskDataPtrUS();
 
   int indices[] = {-1, 0, 0,
 		    1, 0, 0,
@@ -5490,7 +5517,10 @@ DrishtiPaint::tagUsingSketchPad(Vec bmin, Vec bmax, int tag)
   stack.push(Vec(dr,wr,hr));
 
   qint64 idx = ((qint64)dr)*m_width*m_height + (qint64)wr*m_height + hr;
-  maskData[idx] = tag;
+  if (!maskDataUS)
+    maskData[idx] = tag;
+  else
+    maskDataUS[idx] = tag;
 
   qint64 bidx = (dr-ds)*mx*my+(wr-ws)*mx+(hr-hs);
   bitmask.setBit(bidx);
@@ -5545,7 +5575,10 @@ DrishtiPaint::tagUsingSketchPad(Vec bmin, Vec bmax, int tag)
 		      qint64 idx = d2*m_width*m_height + w2*m_height + h2;
 		      int val = volData[idx];
 		      if (volDataUS) val = volDataUS[idx];
-		      uchar mtag = maskData[idx];
+
+		      int mtag = maskData[idx];
+		      if (maskDataUS) mtag = maskDataUS[idx];
+			
 		      bool visible = (lut[4*val+3] > 0) && (Global::tagColors()[4*mtag+3] > 0);
 
 		      //-----------
@@ -5564,7 +5597,11 @@ DrishtiPaint::tagUsingSketchPad(Vec bmin, Vec bmax, int tag)
 
 		      if (visible) // tag only visible region
 			{
-			  maskData[idx] = tag;	      
+			  if (!maskDataUS)
+			    maskData[idx] = tag;
+			  else
+			    maskDataUS[idx] = tag;
+			  
 			  minD = qMin(minD, (int)d2);
 			  maxD = qMax(maxD, (int)d2);
 			  minW = qMin(minW, (int)w2);
@@ -5756,6 +5793,12 @@ DrishtiPaint::loadRawMask(QString flnm)
 void
 DrishtiPaint::reloadMask()
 {
+  m_volume->offloadMaskFile();
+  if (Global::bytesPerMask() == 1)
+    m_volume->setMaskVoxelType(0);
+  else
+    m_volume->setMaskVoxelType(2);
+			     
   m_volume->reloadMask();
 
   m_viewer->setMaskDataPtr(m_volume->memMaskDataPtr());
@@ -6388,7 +6431,7 @@ DrishtiPaint::bakeCurves_clicked()
   catch (std::exception &e)
     {
       QMessageBox::information(0, "", "Not enough memory : Cannot create curve mask.\nOffloading volume data and mask.");
-      m_volume->offLoadMemFile();
+      m_volume->offloadMemFile();
       
       curveMask = new uchar[tdepth*twidth*theight];
     };
@@ -6885,7 +6928,10 @@ DrishtiPaint::tagsUsed(QList<int> ut)
 	{
 	  if (x%5 == 0)
 	    mesg += "\n";
-	  mesg += QString("(%1) %2  :  ").arg(ut[ti]).arg(tagNames[ut[ti]]);      
+	  if (Global::bytesPerMask()==1)
+	    mesg += QString("(%1) %2  :  ").arg(ut[ti]).arg(tagNames[ut[ti]]);
+	  else
+	    mesg += QString("%1 :  ").arg(ut[ti]);
 	  x++;
 	}
     }

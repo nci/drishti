@@ -16,7 +16,9 @@
 
 uchar* VolumeMeasure::m_volData = 0;
 ushort* VolumeMeasure::m_volDataUS = 0;
+
 uchar* VolumeMeasure::m_maskData = 0;
+ushort* VolumeMeasure::m_maskDataUS = 0;
 
 
 void VolumeMeasure::setVolData(uchar *v)
@@ -26,7 +28,13 @@ void VolumeMeasure::setVolData(uchar *v)
   if (Global::bytesPerVoxel() == 2)
     m_volDataUS = (ushort*) m_volData;
 }
-void VolumeMeasure::setMaskData(uchar *v) { m_maskData = v; }
+void VolumeMeasure::setMaskData(uchar *v)
+{
+  m_maskData = v;
+  m_maskDataUS = 0;
+  if (Global::bytesPerMask() == 2)
+    m_maskDataUS = (ushort*) m_maskData;
+}
 
 
 int VolumeMeasure::m_depth = 0;
@@ -167,7 +175,10 @@ VolumeMeasure::volume(Vec bmin, Vec bmax, int tag)
 	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
 	  int val = m_volData[idx];
 	  if (m_volDataUS) val = m_volDataUS[idx];
-	  uchar mtag = m_maskData[idx];
+
+	  int mtag = m_maskData[idx];
+	  if (m_maskDataUS) mtag = m_maskDataUS[idx];
+
 	  bool opaque = (lut[4*val+3]*tagColors[4*mtag+3] > 0);      
 
 	  if (opaque && !ut.contains(mtag))
@@ -338,7 +349,10 @@ VolumeMeasure::surfaceArea(Vec bmin, Vec bmax, int tag)
 	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
 	  int val = m_volData[idx];
 	  if (m_volDataUS) val = m_volDataUS[idx];
-	  uchar mtag = m_maskData[idx];
+
+	  int mtag = m_maskData[idx];
+	  if (m_maskDataUS) mtag = m_maskDataUS[idx];
+
 	  bool opaque = (lut[4*val+3]*tagColors[4*mtag+3] > 0);      
 
 	  if (opaque && !ut.contains(mtag))
@@ -564,7 +578,10 @@ VolumeMeasure::getFeretDiameter(Vec bmin, Vec bmax, int tag)
 	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
 	  int val = m_volData[idx];
 	  if (m_volDataUS) val = m_volDataUS[idx];
-	  uchar mtag = m_maskData[idx];
+
+	  int mtag = m_maskData[idx];
+	  if (m_maskDataUS) mtag = m_maskDataUS[idx];
+
 	  bool opaque = (lut[4*val+3]*tagColors[4*mtag+3] > 0);      
 
 	  if (opaque && !ut.contains(mtag))

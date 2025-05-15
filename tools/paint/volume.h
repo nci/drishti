@@ -24,6 +24,9 @@ class Volume : public QObject
   bool setFile(QString);
   QString fileName() { return m_fileName; }
 
+  void setMaskVoxelType(int vt) { m_mask.setVoxelType(vt); }
+  
+  
   void saveTagNames(QStringList);
   QStringList loadTagNames();
 
@@ -33,7 +36,8 @@ class Volume : public QObject
   bool loadCheckPoint(QString);
   bool deleteCheckPoint();
 
-  void offLoadMemFile();
+  void offloadMaskFile() { m_mask.offloadMemFile(); }
+  void offloadMemFile();
   void loadMemFile();
 
   void setSaveFrequency(int t) { m_mask.setSaveFrequency(t); }
@@ -61,7 +65,10 @@ class Volume : public QObject
   void tagHSlice(int, uchar*);
   
   uchar* memVolDataPtr() {return m_pvlFileManager.memVolDataPtr();};
+  ushort* memVolDataPtrUS() {return m_pvlFileManager.memVolDataPtrUS();};
+
   uchar* memMaskDataPtr() {return m_mask.memMaskDataPtr();};
+  ushort* memMaskDataPtrUS() {return m_mask.memMaskDataPtrUS();};
 
   void checkFileSave();
   void saveIntermediateResults(bool forceSave=false);

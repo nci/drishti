@@ -51,9 +51,9 @@ Volume::saveMaskBlock(QList< QList<int> > bl)
 }
 
 void
-Volume::offLoadMemFile()
+Volume::offloadMemFile()
 {
-  m_mask.offLoadMemFile();
+  m_mask.offloadMemFile();
   m_pvlFileManager.setMemMapped(false);
 }
 
@@ -221,6 +221,7 @@ Volume::setFile(QString volfile)
   mfile.chop(6);
   mfile += QString("mask");
   m_mask.setFile(mfile, inMem);
+  m_mask.setVoxelType(Global::bytesPerMask());
   m_mask.setGridSize(m_depth, m_width, m_height, slabSize);
 
   genHistogram(false);

@@ -20,14 +20,15 @@ class VolumeMask : public QObject
   void reset();
   void setFile(QString, bool);
   void setGridSize(int, int, int, int);
-
+  void setVoxelType(int vt) { m_maskFileManager.setVoxelType(vt); }
+  
   void exportMask();
   void checkPoint();
   bool loadCheckPoint();
   bool loadCheckPoint(QString);
   bool deleteCheckPoint();
   
-  void offLoadMemFile();
+  void offloadMemFile();
   void loadMemFile();
   void loadRawFile(QString);
   
@@ -51,6 +52,7 @@ class VolumeMask : public QObject
   void tagHSlice(int, uchar*);
 
   uchar* memMaskDataPtr() {return m_maskFileManager.memVolDataPtr();};
+  ushort* memMaskDataPtrUS() {return m_maskFileManager.memVolDataPtrUS();};
 
  private:
   VolumeFileManager m_maskFileManager;

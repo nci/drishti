@@ -17,7 +17,10 @@
 
 uchar* VolumeOperations::m_volData = 0;
 ushort* VolumeOperations::m_volDataUS = 0;
+
 uchar* VolumeOperations::m_maskData = 0;
+ushort* VolumeOperations::m_maskDataUS = 0;
+
 MyBitArray VolumeOperations::m_visibilityMap;
 
 
@@ -28,7 +31,13 @@ void VolumeOperations::setVolData(uchar *v)
   if (Global::bytesPerVoxel() == 2)
     m_volDataUS = (ushort*) m_volData;
 }
-void VolumeOperations::setMaskData(uchar *v) { m_maskData = v; }
+void VolumeOperations::setMaskData(uchar *v)
+{
+  m_maskData = v;
+  m_maskDataUS = 0;
+  if (Global::bytesPerMask() == 2)
+    m_maskDataUS = (ushort*) m_maskData;
+}
 
 
 int VolumeOperations::m_depth = 0;
@@ -364,7 +373,10 @@ VolumeOperations::parResetTag(QList<QVariant> plist)
 	if (!clipped)
 	  {      
 	    qint64 idx = d2*m_width*m_height + w2*m_height + h2;
-	    m_maskData[idx] = tag;
+	    if (!m_maskDataUS)
+	      m_maskData[idx] = tag;
+	    else
+	      m_maskDataUS[idx] = tag;
 	  }
       }
 }
@@ -461,7 +473,10 @@ VolumeOperations::hatchConnectedRegion(int dr, int wr, int hr,
 	  if (bitmask.testBit(bidx))
 	    {
 	      qint64 idx = d2*m_width*m_height + w2*m_height + h2;
-	      m_maskData[idx] = tag;
+	      if (!m_maskDataUS)
+		m_maskData[idx] = tag;
+	      else
+		m_maskDataUS[idx] = tag;
 	      minD = qMin(minD, (int)d2);
 	      maxD = qMax(maxD, (int)d2);
 	      minW = qMin(minW, (int)w2);
@@ -546,7 +561,10 @@ VolumeOperations::connectedRegion(int dr, int wr, int hr,
       if (bitmask.testBit(bidx))
 	{
 	  qint64 idx = d2*m_width*m_height + w2*m_height + h2;
-	  m_maskData[idx] = tag;
+	  if (!m_maskDataUS)
+	    m_maskData[idx] = tag;
+	  else
+	    m_maskDataUS[idx] = tag;
 	  minD = qMin(minD, (int)d2);
 	  maxD = qMax(maxD, (int)d2);
 	  minW = qMin(minW, (int)w2);
@@ -674,7 +692,10 @@ VolumeOperations::parVisibleRegionGeneration(QList<QVariant> plist)
 	    qint64 idx = d2*m_width*m_height + w2*m_height + h2;
 	    int val = m_volData[idx];
 	    if (m_volDataUS) val = m_volDataUS[idx];
-	    uchar mtag = m_maskData[idx];
+
+	    int mtag = m_maskData[idx];
+	    if (m_maskDataUS) mtag = m_maskDataUS[idx];
+
 	    opaque =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);      
 	    
 	    //-------
@@ -918,7 +939,8 @@ VolumeOperations::parTransparentRegionGeneration(QList<QVariant> plist)
 	  qint64 idx = d2*m_width*m_height + w2*m_height + h2;
 	  int val = m_volData[idx];
 	  if (m_volDataUS) val = m_volDataUS[idx];
-	  uchar mtag = m_maskData[idx];
+	  int mtag = m_maskData[idx];
+	  if (m_maskDataUS) mtag = m_maskDataUS[idx];
 	  transparent =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] == 0);
 
 	  //-------
@@ -1413,7 +1435,10 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
       if (bitmask.testBit(bidx))
 	{
 	  qint64 idx = d2*m_width*m_height + w2*m_height + h2;
-	  m_maskData[idx] = tag;
+	  if (!m_maskDataUS)
+	    m_maskData[idx] = tag;
+	  else
+	    m_maskDataUS[idx] = tag;
 	}
     }
   //----------------------------  
@@ -1735,7 +1760,12 @@ VolumeOperations::setVisible(Vec bmin, Vec bmax,
 	  qint64 idx = d*m_width*m_height + w*m_height + h;
 	  qint64 bidx = (d-ds)*mx*my + (w-ws)*mx + (h-hs);
 	  if (bitmask.testBit(bidx) == visible)
-	    m_maskData[idx] = tag;
+	    {
+	      if (!m_maskDataUS)
+		m_maskData[idx] = tag;
+	      else
+		m_maskDataUS[idx] = tag;
+	    }
 	}
   minD = ds;
   maxD = de;
@@ -1799,10 +1829,21 @@ VolumeOperations::stepTags(Vec bmin, Vec bmax,
 	    if (!clipped)
 	      {
 		qint64 idx = d*m_width*m_height + w*m_height + h;
-		if (m_maskData[idx] < tagStep)
-		  m_maskData[idx] = 0;
+		if (!m_maskDataUS)
+		  {
+		    if (m_maskData[idx] < tagStep)
+		      m_maskData[idx] = 0;
+		    else
+		      m_maskData[idx] = tagVal;
+		  }
 		else
-		  m_maskData[idx] = tagVal;
+		  {
+		    if (m_maskDataUS[idx] < tagStep)
+		      m_maskDataUS[idx] = 0;
+		    else
+		      m_maskDataUS[idx] = tagVal;
+		  }
+		
 	      }
 	  }
     }
@@ -1851,14 +1892,20 @@ VolumeOperations::mergeTags(Vec bmin, Vec bmax,
 		if (!clipped)
 		  {
 		    qint64 idx = d*m_width*m_height + w*m_height + h;
-		    if (tag2 == -1 || m_maskData[idx] == tag2)
+		    int mtag = m_maskData[idx];
+		    if (m_maskDataUS) mtag = m_maskDataUS[idx];
+		    if (tag2 == -1 || mtag == tag2)
 		      {
 			int val = m_volData[idx];
 			if (m_volDataUS) val = m_volDataUS[idx];
 			int a =  lut[4*val+3];
 			if (a > 0)
 			  {
-			    m_maskData[idx] = tag1;
+			    if (!m_maskDataUS)
+			      m_maskData[idx] = tag1;
+			    else
+			      m_maskDataUS[idx] = tag1;
+
 			    if (minD > -1)
 			      {
 				minD = qMin(minD, (int)d);
@@ -1895,9 +1942,15 @@ VolumeOperations::mergeTags(Vec bmin, Vec bmax,
 		if (!clipped)
 		  {
 		    qint64 idx = d*m_width*m_height + w*m_height + h;
-		    if (tag2 == -1 || m_maskData[idx] == tag2)
+		    int mtag = m_maskData[idx];
+		    if (m_maskDataUS) mtag = m_maskDataUS[idx];
+		    if (tag2 == -1 || mtag == tag2)
 		      {
-			m_maskData[idx] = tag1;
+			if (!m_maskDataUS)
+			  m_maskData[idx] = tag1;
+			else
+			  m_maskDataUS[idx] = tag1;
+
 			if (minD > -1)
 			  {
 			    minD = qMin(minD, (int)d);
@@ -1947,8 +2000,16 @@ VolumeOperations::dilateAllTags(Vec bmin, Vec bmax,
       for(qint64 h=hs; h<=he; h++)
 	{
 	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
-	  if (m_maskData[idx] > 0 && !ut.contains(m_maskData[idx]))
-	    ut << m_maskData[idx]; 
+	  if (!m_maskDataUS)
+	    {
+	      if (m_maskData[idx] > 0 && !ut.contains(m_maskData[idx]))
+		ut << m_maskData[idx];
+	    }
+	  else
+	    {
+	      if (m_maskDataUS[idx] > 0 && !ut.contains(m_maskDataUS[idx]))
+		ut << m_maskDataUS[idx];
+	    }
 	}
 
   QMessageBox::information(0, "Labels", QString("Total labels : %1").arg(ut.count()));
@@ -2041,14 +2102,25 @@ VolumeOperations::dilateAllTags(Vec bmin, Vec bmax,
 			  qint64 w2 = ws + w;
 			  qint64 h2 = hs + h;
 			  qint64 idx = d2*m_width*m_height + w2*m_height + h2;
-			  if (m_maskData[idx] == 0) // expand into unlabelled region
-			    m_maskData[idx] = ut[i];
-			  else if (m_maskData[idx] != ut[i]) // encroaching another label
-			    accessor.setValue(ijk, 0);
+			  if (!m_maskDataUS)
+			    {
+			      if (m_maskData[idx] == 0) // expand into unlabelled region
+				m_maskData[idx] = ut[i];
+			      else if (m_maskData[idx] != ut[i]) // encroaching another label
+				accessor.setValue(ijk, 0);
+			    }
+			  else
+			    {
+			      if (m_maskDataUS[idx] == 0) // expand into unlabelled region
+				m_maskDataUS[idx] = ut[i];
+			      else if (m_maskDataUS[idx] != ut[i]) // encroaching another label
+				accessor.setValue(ijk, 0);
+			    }
 			}
-			else // do not venture into invisible region
-			  accessor.setValue(ijk, 0);
+		      else // do not venture into invisible region
+			accessor.setValue(ijk, 0);
 		    }
+		  
 		}	  
 	}
     }
@@ -2213,7 +2285,9 @@ VolumeOperations::dilateAll(Vec bmin, Vec bmax, int tag,
 		    int val = m_volData[idx];
 		    if (m_volDataUS) val = m_volDataUS[idx];
 		    
-		    uchar mtag = m_maskData[idx];
+		    int mtag = m_maskData[idx];
+		    if (m_maskDataUS) mtag = m_maskDataUS[idx];
+		    
 		    bool opaque =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);
 		    opaque &= (mtag == 0 || allVisible);
 			  
@@ -2233,7 +2307,10 @@ VolumeOperations::dilateAll(Vec bmin, Vec bmax, int tag,
 		    if (opaque) // dilate only in connected opaque region
 		      {			
 			qint64 idx = d2*m_width*m_height + w2*m_height + h2;
-			m_maskData[idx] = tag;
+			if (!m_maskDataUS)
+			  m_maskData[idx] = tag;
+			else
+			  m_maskDataUS[idx] = tag;
 		      }
 		  } // if (!clipped)
 	      } // test bitmask 
@@ -2348,7 +2425,10 @@ VolumeOperations::parWriteToMask(QList<QVariant> plist)
 		    qint64 idx = d2*m_width*m_height + w2*m_height + h2;
 		    int val = m_volData[idx];
 		    if (m_volDataUS) val = m_volDataUS[idx];
-		    uchar mtag = m_maskData[idx];
+
+		    int mtag = m_maskData[idx];
+		    if (m_maskDataUS) mtag = m_maskDataUS[idx];
+
 		    bool opaque =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);
 		    opaque &= (mtag == 0 || allVisible);
 		    
@@ -2368,7 +2448,12 @@ VolumeOperations::parWriteToMask(QList<QVariant> plist)
 		    // grow only in zero or same tagged region
 		    // or if tag is 0 then grow in all visible regions
 		    if (opaque)
-		      m_maskData[idx] = tag;
+		      {
+			if (!m_maskDataUS)
+			  m_maskData[idx] = tag;
+			else
+			  m_maskDataUS[idx] = tag;
+		      }
 		  } // if (!clipped)
 	      } // test bitmask
       }
@@ -2443,7 +2528,10 @@ VolumeOperations::openAll(Vec bmin, Vec bmax, int tag,
 	    if (!bitmask.testBit(bidx) && cbitmask.testBit(bidx))
 	      {
 		qint64 idx = d2*m_width*m_height + w2*m_height + h2;
-		m_maskData[idx] = 0;
+		if (!m_maskDataUS)
+		  m_maskData[idx] = 0;
+		else
+		  m_maskDataUS[idx] = 0;
 	      } // test bitmask 
 	  } // loop over h
     } // loop over d
@@ -2523,7 +2611,10 @@ VolumeOperations::closeAll(Vec bmin, Vec bmax, int tag,
 	    if (bitmask.testBit(bidx) && !cbitmask.testBit(bidx))
 	      {
 		qint64 idx = d2*m_width*m_height + w2*m_height + h2;
-		m_maskData[idx] = tag;
+		if (!m_maskDataUS)
+		  m_maskData[idx] = tag;
+		else
+		  m_maskDataUS[idx] = tag;
 	      } // test bitmask 
 	  } // loop over h
     } // loop over d
@@ -2574,10 +2665,14 @@ VolumeOperations::dilateConnected(int dr, int wr, int hr,
     qint64 idx = (qint64)dr*m_width*m_height + (qint64)wr*m_height + (qint64)hr;
     int val = m_volData[idx];
     if (m_volDataUS) val = m_volDataUS[idx];
-    if (lut[4*val+3] == 0 || m_maskData[idx] != tag)
+
+    int mtag = m_maskData[idx];
+    if (m_maskDataUS) mtag = m_maskDataUS[idx];
+
+    if (lut[4*val+3] == 0 || mtag != tag)
       {
 	QMessageBox::information(0, "Dilate",
-				 QString("Cannot dilate.\nYou are on voxel with tag %1, was expecting tag %2").arg(m_maskData[idx]).arg(tag));
+				 QString("Cannot dilate.\nYou are on voxel with tag %1, was expecting tag %2").arg(mtag).arg(tag));
 	return;
       }
   }
@@ -2673,7 +2768,10 @@ VolumeOperations::dilateConnected(int dr, int wr, int hr,
 		  qint64 idx = d2*m_width*m_height + w2*m_height + h2;
 		  int val = m_volData[idx];
 		  if (m_volDataUS) val = m_volDataUS[idx];
-		  uchar mtag = m_maskData[idx];
+		    
+		  int mtag = m_maskData[idx];
+		  if (m_maskDataUS) mtag = m_maskDataUS[idx];
+
 		  bool opaque =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);
 		  opaque &= mtag == tag;
 
@@ -2806,7 +2904,10 @@ VolumeOperations::erodeAll(Vec bmin, Vec bmax, int tag,
 	    if (!bitmask.testBit(bidx) && cbitmask.testBit(bidx))
 	      {
 		qint64 idx = d2*m_width*m_height + w2*m_height + h2;
-		m_maskData[idx] = 0;
+		if (!m_maskDataUS)
+		  m_maskData[idx] = 0;
+		else
+		  m_maskDataUS[idx] = 0;
 	      } // test bitmask 
 	  } // loop over h
     } // loop over d
@@ -2848,10 +2949,14 @@ VolumeOperations::erodeConnected(int dr, int wr, int hr,
     qint64 idx = (qint64)dr*m_width*m_height + (qint64)wr*m_height + (qint64)hr;
     int val = m_volData[idx];
     if (m_volDataUS) val = m_volDataUS[idx];
-    if (lut[4*val+3] == 0 || m_maskData[idx] != tag)
+		    
+    int mtag = m_maskData[idx];
+    if (m_maskDataUS) mtag = m_maskDataUS[idx];
+		    
+    if (lut[4*val+3] == 0 || mtag != tag)
       {
 	QMessageBox::information(0, "Erode",
-				 QString("Cannot erode.\nYou are on voxel with tag %1, was expecting tag %2").arg(m_maskData[idx]).arg(tag));
+				 QString("Cannot erode.\nYou are on voxel with tag %1, was expecting tag %2").arg(mtag).arg(tag));
 	return;
       }
   }
@@ -2960,7 +3065,9 @@ VolumeOperations::erodeConnected(int dr, int wr, int hr,
 		}
 	      //-------
 	      
-	      if (opaque && lut[4*val+3] > 0 && m_maskData[idx] == tag)
+	      int mtag = m_maskData[idx];
+	      if (m_maskDataUS) mtag = m_maskDataUS[idx];
+	      if (opaque && lut[4*val+3] > 0 && mtag == tag)
 		{
 		  bitmask.setBit(bidx, true);
 		  que.enqueue(Vec(d2,w2,h2)); 
@@ -3002,7 +3109,10 @@ VolumeOperations::erodeConnected(int dr, int wr, int hr,
 	    if (!bitmask.testBit(bidx) && cbitmask.testBit(bidx))
 	      {
 		qint64 idx = d2*m_width*m_height + w2*m_height + h2;
-		m_maskData[idx] = 0;
+		if (!m_maskDataUS)
+		  m_maskData[idx] = 0;
+		else
+		  m_maskDataUS[idx] = 0;
 	      } // test bitmask 
 	  } // loop over h
     } // loop over d
@@ -3056,7 +3166,10 @@ VolumeOperations::modifyOriginalVolume(Vec bmin, Vec bmax,
 	    qint64 idx = d*m_width*m_height + w*m_height + h;
 	    int vox = m_volData[idx];
 	    if (m_volDataUS) vox = m_volDataUS[idx];
-	    uchar mtag = m_maskData[idx];
+		    
+	    int mtag = m_maskData[idx];
+	    if (m_maskDataUS) mtag = m_maskDataUS[idx];
+
 	    bool visible =  (lut[4*vox+3]*Global::tagColors()[4*mtag+3] > 0);
 	    if (clipped || !visible)
 	      {
@@ -3205,7 +3318,11 @@ VolumeOperations::tagTubes(Vec bmin, Vec bmax, int tag,
       if (cbitmask.testBit(bidx))
 	{
 	  qint64 idx = d2*m_width*m_height + w2*m_height + h2;
-	  m_maskData[idx] = tag;
+
+	  if (!m_maskDataUS)
+	    m_maskData[idx] = tag;
+	  else
+	    m_maskDataUS[idx] = tag;
 	}
     }
   //----------------------------  
@@ -3312,7 +3429,10 @@ VolumeOperations::parBakeCurves(QList<QVariant> plist)
 		qint64 idx = d2*m_width*m_height + w2*m_height + h2;
 		int val = m_volData[idx];
 		if (m_volDataUS) val = m_volDataUS[idx];
-		uchar mtag = m_maskData[idx];
+		    
+		int mtag = m_maskData[idx];
+		if (m_maskDataUS) mtag = m_maskDataUS[idx];
+
 		bool opaque =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);      
 	    
 		if (opaque &&
@@ -3327,7 +3447,12 @@ VolumeOperations::parBakeCurves(QList<QVariant> plist)
 		  }
 
 		if (opaque)
-		  m_maskData[idx] = tag;
+		  {
+		    if (!m_maskDataUS)
+		      m_maskData[idx] = tag;
+		    else
+		      m_maskDataUS[idx] = tag;
+		  }
 	      } // cm > 0
 	  } // !clipped
       } // h2
@@ -3520,7 +3645,10 @@ VolumeOperations::convertToVDBandSmooth(int ds, int ws, int hs,
 		if (bitmask.testBit(bidx))
 		  {
 		    qint64 idx = d*m_width*m_height + w*m_height + h;
-		    m_maskData[idx] = 0;
+		    if (!m_maskDataUS)
+		      m_maskData[idx] = 0;
+		    else
+		      m_maskDataUS[idx] = 0;
 		  }
 	      }
 	  }
@@ -3626,7 +3754,10 @@ VolumeOperations::removeComponents(Vec bmin, Vec bmax,
 	  qint64 bidx = ((qint64)(d-ds))*mx*my+((qint64)(w-ws))*mx+(h-hs);
 	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
 	  if (labelMap[vol[bidx]] <= componentThreshold)
-	    m_maskData[idx] = 0;
+	    if (!m_maskDataUS)
+	      m_maskData[idx] = 0;
+	    else
+	      m_maskDataUS[idx] = 0;
 	}
   //------------------
   
@@ -3757,7 +3888,12 @@ VolumeOperations::removeLargestComponents(Vec bmin, Vec bmax,
 	  qint64 bidx = ((qint64)(d-ds))*mx*my+((qint64)(w-ws))*mx+(h-hs);
 	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
 	  if (removeComponents.contains(vol[bidx]))
-	    m_maskData[idx] = 0;
+	    {
+	      if (!m_maskDataUS)
+		m_maskData[idx] = 0;
+	      else
+		m_maskDataUS[idx] = 0;
+	    }
 	}
   //------------------
   
@@ -3999,7 +4135,10 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
 	  if (labels[bidx] > 0)
 	    {
 	      qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
-	      m_maskData[idx] = labelMap[labels[bidx]];
+	      if (!m_maskDataUS)
+		m_maskData[idx] = labelMap[labels[bidx]];
+	      else
+		m_maskDataUS[idx] = labelMap[labels[bidx]];
 	    }
 	}
   delete [] labels;
@@ -4071,7 +4210,10 @@ VolumeOperations::sortLabels(Vec bmin, Vec bmax,
 	      qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
 	      int val = m_volData[idx];
 	      if (m_volDataUS) val = m_volDataUS[idx];
-	      uchar mtag = m_maskData[idx];
+		    
+	      int mtag = m_maskData[idx];
+	      if (m_maskDataUS) mtag = m_maskDataUS[idx];
+		    
 	      bool opaque =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);      
 	      
 	      if (opaque &&
@@ -4126,8 +4268,16 @@ VolumeOperations::sortLabels(Vec bmin, Vec bmax,
       for(qint64 h=hs; h<=he; h++)
 	{
 	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
-	  if (m_maskData[idx] > 0)
-	    m_maskData[idx] = labelMap[m_maskData[idx]];
+	  if (!m_maskDataUS)
+	    {
+	      if (m_maskData[idx] > 0)
+		m_maskData[idx] = labelMap[m_maskData[idx]];
+	    }
+	  else
+	    {
+	      if (m_maskDataUS[idx] > 0)
+		m_maskDataUS[idx] = labelMap[m_maskDataUS[idx]];
+	    }
 	}
   //-------
 

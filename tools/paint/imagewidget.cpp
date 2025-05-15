@@ -575,7 +575,10 @@ ImageWidget::getSlice()
   if (m_sliceType == DSlice)
     {
       memcpy(m_slice, m_volPtr+m_currSlice*bps*m_bytesPerVoxel, bps*m_bytesPerVoxel);
-      memcpy(m_maskslice, m_maskPtr+m_currSlice*bps, bps);
+      if (Global::bytesPerMask() == 1)
+	memcpy(m_maskslice, m_maskPtr+m_currSlice*bps, bps);
+      else
+	memset(m_maskslice, 0, m_Width*m_Height);
     }
 
   if (m_sliceType == WSlice)
@@ -585,10 +588,15 @@ ImageWidget::getSlice()
 	       m_volPtr + (d*bps + m_currSlice*m_Height)*m_bytesPerVoxel,
 	       m_Height*m_bytesPerVoxel);
 
-      for(qint64 d=0; d<m_Depth; d++)
-	memcpy(m_maskslice + d*m_Height,
-	       m_maskPtr + d*bps + m_currSlice*m_Height,
-	       m_Height);
+      if (Global::bytesPerMask() == 1)
+	{
+	  for(qint64 d=0; d<m_Depth; d++)
+	    memcpy(m_maskslice + d*m_Height,
+		   m_maskPtr + d*bps + m_currSlice*m_Height,
+		   m_Height);
+	}
+      else
+	memset(m_maskslice, 0, m_Depth*m_Height);
     }
 
   if (m_sliceType == HSlice)
@@ -602,14 +610,19 @@ ImageWidget::getSlice()
 		   m_bytesPerVoxel);
 	}
 
-      it = 0;
-      for(qint64 d=0; d<m_Depth; d++)
+      if (Global::bytesPerMask() == 1)
 	{
-	  for(qint64 j=0; j<m_Width; j++, it++)
-	    memcpy(m_maskslice + it,
-		   m_maskPtr + d*bps + (j*m_Height + m_currSlice),
-		   1);
+	  it = 0;
+	  for(qint64 d=0; d<m_Depth; d++)
+	    {
+	      for(qint64 j=0; j<m_Width; j++, it++)
+		memcpy(m_maskslice + it,
+		       m_maskPtr + d*bps + (j*m_Height + m_currSlice),
+		       1);
+	    }
 	}
+      else
+	memset(m_maskslice, 0, m_Depth*m_Width);
     }
   
   //applyFilters();

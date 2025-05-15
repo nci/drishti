@@ -121,7 +121,6 @@ class Viewer : public QGLViewer
     int shadowOffsetX() { return m_shdX; }
     int shadowOffsetY() { return m_shdY; }
 
-    void setUseMask(bool);
     void setBoxSize(int);
 
     void stopDrawing();
@@ -203,7 +202,6 @@ class Viewer : public QGLViewer
 
   bool m_glewInitdone;
   bool m_draw;
-  bool m_useMask;
 
   BoundingBox m_boundingBox;
   QList<Vec> m_bclipPos;
@@ -241,8 +239,9 @@ class Viewer : public QGLViewer
   bool m_showBox;
 
   uchar *m_volPtr;
-  uchar *m_maskPtr;
   ushort *m_volPtrUS;
+  uchar *m_maskPtr;
+  ushort *m_maskPtrUS;
 
   int m_pointSkip;
   int m_pointSize;

@@ -77,10 +77,11 @@ StaticFunctions::getRotationBetweenVectors(Vec p, Vec q,
 QGradientStops
 StaticFunctions::resampleGradientStops(QGradientStops stops, int mapSize)
 {
-  QColor colorMap[1001];
+  QColor *colorMap;
+  colorMap = new QColor[65536];
 
-  mapSize = qMin(1000, mapSize);
-
+  mapSize = qMin(65536, mapSize);
+  
   int startj, endj;
   for(int i=0; i<stops.size(); i++)
     {
@@ -123,6 +124,8 @@ StaticFunctions::resampleGradientStops(QGradientStops stops, int mapSize)
       newStops << QGradientStop(pos, colorMap[i]);
     }
 
+  delete [] colorMap;
+  
   return newStops;
 }
 

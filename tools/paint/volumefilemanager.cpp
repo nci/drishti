@@ -1387,6 +1387,10 @@ VolumeFileManager::createMemFile()
   qint64 vsize = m_width*m_height*m_bytesPerVoxel;
   vsize *= m_depth;
 
+  QMessageBox::information(0, "", QString("%1 %2 %3 : %4").\
+			   arg(m_depth).arg(m_width).arg(m_height).arg(m_bytesPerVoxel));
+					  
+  
   m_volData = new uchar[vsize];
   memset(m_volData, 0, vsize);
 

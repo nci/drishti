@@ -29,7 +29,6 @@ Viewer::Viewer(QWidget *parent) :
   setMouseTracking(true);
 
   m_draw = true;
-  m_useMask = true;
 
   m_memSize = 1000; // size in MB
 
@@ -182,22 +181,6 @@ QList<Vec> Viewer::clipNorm()
   return cNorm;
 }
 
-void
-Viewer::setUseMask(bool b)
-{
-  m_useMask = b;
-
-  m_UI->sketchPad->setVisible(m_useMask);
-
-  createRaycastShader();
-  updateVoxels();
-
-  if (m_sketchPadMode)
-    {
-      m_UI->sketchPad->setChecked(false);
-      showSketchPad(false);
-    }
-}
 
 float Viewer::stillStep() { return m_stillStep;}
 float Viewer::dragStep() { return m_dragStep;}
@@ -327,6 +310,8 @@ Viewer::init()
   m_height = 0;
 
   m_maskPtr = 0;
+  m_maskPtrUS = 0;
+
   m_volPtr = 0;
   m_volPtrUS = 0;
 
@@ -527,10 +512,11 @@ Viewer::createRaycastShader()
 		       m_vsize.z*m_vsize.z);
   maxSteps *= 1.0/m_stillStep;
 
-  if (Global::bytesPerVoxel() == 1)
-    shaderString = ShaderFactory::genIsoRaycastShader(m_exactCoord, m_useMask, false, m_gradType, m_crops->crops());
-  else
-    shaderString = ShaderFactory::genIsoRaycastShader(m_exactCoord, m_useMask, true, m_gradType, m_crops->crops());
+  shaderString = ShaderFactory::genIsoRaycastShader(m_exactCoord,
+						    Global::bytesPerVoxel()==2,
+						    Global::bytesPerMask()==2,
+						    m_gradType,
+						    m_crops->crops());
   
   if (m_rcShader)
     glDeleteObjectARB(m_rcShader);
@@ -576,10 +562,8 @@ Viewer::createShaders()
 
 
   //----------------------
-  if (Global::bytesPerVoxel() == 1)
-    shaderString = ShaderFactory::genEdgeEnhanceShader(false);
-  else
-    shaderString = ShaderFactory::genEdgeEnhanceShader(true);
+  shaderString = ShaderFactory::genEdgeEnhanceShader(Global::bytesPerVoxel()==2,
+						     Global::bytesPerMask()==2);
 
   if (m_eeShader)
     glDeleteObjectARB(m_eeShader);
@@ -632,11 +616,18 @@ Viewer::createShaders()
 void Viewer::setShowPosition(bool b) { m_showPosition = b; update(); }
 
 
-void Viewer::setMaskDataPtr(uchar *ptr) { m_maskPtr = ptr; }
+void Viewer::setMaskDataPtr(uchar *ptr)
+{
+  m_maskPtr = ptr;
+  m_maskPtrUS = 0;
+  if (Global::bytesPerMask() == 2)
+    m_maskPtrUS = (ushort*)ptr;
+    
+}
 void Viewer::setVolDataPtr(uchar *ptr)
 {
   m_volPtr = ptr;
-
+  m_volPtrUS = 0;
   if (Global::bytesPerVoxel() == 2)
     m_volPtrUS = (ushort*)ptr;
 }
@@ -989,7 +980,12 @@ Viewer::commandEditor()
       else
 	val = m_volPtrUS[((qint64)d)*m_width*m_height + w*m_height + h];
 
-      int tag = m_maskPtr[((qint64)d)*m_width*m_height + w*m_height + h];
+      int tag;
+      if (Global::bytesPerMask() == 1)
+	tag = m_maskPtr[((qint64)d)*m_width*m_height + w*m_height + h];
+      else
+	tag = m_maskPtrUS[((qint64)d)*m_width*m_height + w*m_height + h];
+      
       mesg += "\nPoint Information\n";
       mesg += QString("Coordinate : %1 %2 %3\n").arg(h).arg(w).arg(d);
       mesg += QString("Voxel value : %1\n").arg(val);
@@ -1040,6 +1036,23 @@ Viewer::processCommand(QString cmd)
   m_boundingBox.bounds(bmin, bmax);
   bmin = VECDIVIDE(bmin, voxelScaling);
   bmax = VECDIVIDE(bmax, voxelScaling);
+
+  if (list[0] == "mask16bit")
+    {
+      Global::setBytesPerMask(2);
+      emit reloadMask();
+      return;
+    }
+   
+  if (list[0].contains("tag"))
+    {
+      int tag = 0;
+      if (list.size() == 2)
+	tag = list[1].toInt(&ok);
+
+      Global::setTag(tag);
+      return;
+    }
 
   if (list[0].contains("connectedcomponents"))
     {
@@ -1398,7 +1411,9 @@ Viewer::processCommand(QString cmd)
       if (list.size() == 2)
 	{
 	  int tag1 = list[1].toInt(&ok);
-	  if (tag1 < 0 || tag1 > 255)
+	  int maxLevel = 255;
+	  if (Global::bytesPerMask() == 2) maxLevel = 65535;
+	  if (tag1 < 0 || tag1 > maxLevel)
 	    {
 	      QMessageBox::information(0, "", QString("Incorrect label specified : %1").\
 				       arg(tag1));
@@ -1414,7 +1429,9 @@ Viewer::processCommand(QString cmd)
       if (list.size() == 2)
 	{
 	  int tag1 = list[1].toInt(&ok);
-	  if (tag1 < 0 || tag1 > 255)
+	  int maxLevel = 255;
+	  if (Global::bytesPerMask() == 2) maxLevel = 65535;
+	  if (tag1 < 0 || tag1 > maxLevel)
 	    {
 	      QMessageBox::information(0, "", QString("Incorrect label specified : %1").\
 				       arg(tag1));
@@ -2029,6 +2046,8 @@ Viewer::updateVoxelsForRaycast()
 
   if (!m_lutTex) glGenTextures(1, &m_lutTex);
   if (!m_tagTex) glGenTextures(1, &m_tagTex);
+  if (!m_maskTex) glGenTextures(1, &m_maskTex);
+  if (!m_dataTex) glGenTextures(1, &m_dataTex);
 
   qint64 dsz = (m_maxDSlice-m_minDSlice);
   qint64 wsz = (m_maxWSlice-m_minWSlice);
@@ -2091,7 +2110,7 @@ Viewer::updateVoxelsForRaycast()
   qApp->processEvents();
   if (Global::bytesPerVoxel() == 1)
     {
-      int i = 0;
+      qint64 i = 0;
       for(qint64 d=m_minDSlice; d<m_maxDSlice; d+=m_sslevel)
 	for(qint64 w=m_minWSlice; w<m_maxWSlice; w+=m_sslevel)
 	  for(qint64 h=m_minHSlice; h<m_maxHSlice; h+=m_sslevel)
@@ -2102,7 +2121,7 @@ Viewer::updateVoxelsForRaycast()
     }
   else
     {
-      int i = 0;
+      qint64 i = 0;
       for(qint64 d=m_minDSlice; d<m_maxDSlice; d+=m_sslevel)
 	for(qint64 w=m_minWSlice; w<m_maxWSlice; w+=m_sslevel)
 	  for(qint64 h=m_minHSlice; h<m_maxHSlice; h+=m_sslevel)
@@ -2113,8 +2132,8 @@ Viewer::updateVoxelsForRaycast()
     }
   progress.setValue(50);
   qApp->processEvents();
-
-  if (!m_dataTex) glGenTextures(1, &m_dataTex);
+  
+  
   glActiveTexture(GL_TEXTURE2);
   glEnable(GL_TEXTURE_3D);
   glBindTexture(GL_TEXTURE_3D, m_dataTex);	 
@@ -2130,31 +2149,30 @@ Viewer::updateVoxelsForRaycast()
 		 1,
 		 hsz, wsz, dsz,
 		 0, // no border
-		 GL_LUMINANCE,
+		 GL_RED,
 		 GL_UNSIGNED_BYTE,
 		 voxelVol);
   else
     glTexImage3D(GL_TEXTURE_3D,
 		 0, // single resolution
-		 1,
+		 GL_R16,
 		 hsz, wsz, dsz,
 		 0, // no border
-		 GL_LUMINANCE,
+		 GL_RED,
 		 GL_UNSIGNED_SHORT,
 		 voxelVol);
   glDisable(GL_TEXTURE_3D);
   //----------------------------
 
 
-  if (!m_maskTex) glGenTextures(1, &m_maskTex);
 
   //----------------------------
   // load mask volume
-  if (m_useMask)
+  progress.setValue(60);
+  qApp->processEvents();
+  if (Global::bytesPerMask() == 1)
     {
-      progress.setValue(60);
-      qApp->processEvents();
-      int i = 0;
+      qint64 i = 0;
       for(qint64 d=m_minDSlice; d<m_maxDSlice; d+=m_sslevel)
 	for(qint64 w=m_minWSlice; w<m_maxWSlice; w+=m_sslevel)
 	  for(qint64 h=m_minHSlice; h<m_maxHSlice; h+=m_sslevel)
@@ -2162,34 +2180,52 @@ Viewer::updateVoxelsForRaycast()
 	      voxelVol[i] = m_maskPtr[d*m_width*m_height + w*m_height + h];
 	      i++;
 	    }
-      progress.setValue(80);
-      qApp->processEvents();
-      
-      //if (!m_maskTex) glGenTextures(1, &m_maskTex);
-      glActiveTexture(GL_TEXTURE4);
-      glEnable(GL_TEXTURE_3D);
-      glBindTexture(GL_TEXTURE_3D, m_maskTex);	 
-      glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
-      glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
-      glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE); 
-      glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-      glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-      progress.setValue(70);
-      glTexImage3D(GL_TEXTURE_3D,
-		   0, // single resolution
-		   1,
-		   hsz, wsz, dsz,
-		   0, // no border
-		   GL_LUMINANCE,
-		   GL_UNSIGNED_BYTE,
-		   voxelVol);
-      glDisable(GL_TEXTURE_3D);
     }
   else
     {
-      if (m_maskTex) glDeleteTextures(1, &m_maskTex);
-      m_maskTex = 0;
+      delete [] voxelVol;
+      tsz = dsz*wsz*hsz*2;
+      voxelVol = new uchar[tsz];
+      qint64 i = 0;
+      for(qint64 d=m_minDSlice; d<m_maxDSlice; d+=m_sslevel)
+	for(qint64 w=m_minWSlice; w<m_maxWSlice; w+=m_sslevel)
+	  for(qint64 h=m_minHSlice; h<m_maxHSlice; h+=m_sslevel)
+	    {
+	      ((ushort*)voxelVol)[i] = m_maskPtrUS[d*m_width*m_height + w*m_height + h];
+	      i++;
+	    }
     }
+  progress.setValue(80);
+  qApp->processEvents();
+      
+  glActiveTexture(GL_TEXTURE4);
+  glEnable(GL_TEXTURE_3D);
+  glBindTexture(GL_TEXTURE_3D, m_maskTex);	 
+  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
+  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE); 
+  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  progress.setValue(70);
+  if (Global::bytesPerMask() == 1)
+    glTexImage3D(GL_TEXTURE_3D,
+		 0, // single resolution
+		 1,
+		 hsz, wsz, dsz,
+		 0, // no border
+		 GL_RED,
+		 GL_UNSIGNED_BYTE,
+		 voxelVol);
+  else
+    glTexImage3D(GL_TEXTURE_3D,
+		 0, // single resolution
+		 GL_R16,
+		 hsz, wsz, dsz,
+		 0, // no border
+		 GL_RED,
+		 GL_UNSIGNED_SHORT,
+		 voxelVol);
+  glDisable(GL_TEXTURE_3D);
   //----------------------------
 
 
@@ -2247,14 +2283,6 @@ Viewer::getHit(QMouseEvent *event)
   // paint
   if (found)
     {
-      if (!m_useMask)
-	{
-	  QMessageBox::information(0, "Error", "Switch on Load labels before applying the operation.");
-	  m_paintHit = false;
-	  m_target = Vec(-1,-1,-1);
-	  return;
-	}
-
       int d, w, h;
       d = m_target.z;
       w = m_target.y;
@@ -2827,20 +2855,33 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
 	       lut);
 
   uchar *tagColors = Global::tagColors();
+  int nColors = 256;
+  if (Global::bytesPerMask() == 2)
+    nColors = 65536;
   glActiveTexture(GL_TEXTURE5);
-  glEnable(GL_TEXTURE_1D);
-  glBindTexture(GL_TEXTURE_1D, m_tagTex);
-  glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
-  glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER,GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER,GL_NEAREST);
-  glTexImage1D(GL_TEXTURE_1D,
-	       0, // single resolution
-	       GL_RGBA,
-	       256,
-	       0, // no border
-	       GL_RGBA,
-	       GL_UNSIGNED_BYTE,
-	       tagColors);
+  glEnable(GL_TEXTURE_2D);
+  glBindTexture(GL_TEXTURE_2D, m_tagTex);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,GL_NEAREST);
+  if (nColors == 256)
+    glTexImage2D(GL_TEXTURE_2D,
+		 0, // single resolution
+		 GL_RGBA,
+		 256, 1,
+		 0, // no border
+		 GL_RGBA,
+		 GL_UNSIGNED_BYTE,
+		 tagColors);
+  else
+    glTexImage2D(GL_TEXTURE_2D,
+		 0, // single resolution
+		 GL_RGBA,
+		 256, 256,
+		 0, // no border
+		 GL_RGBA,
+		 GL_UNSIGNED_BYTE,
+		 tagColors);
 
 
   int wd = camera()->screenWidth();
@@ -2886,8 +2927,8 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
   
 //  uchar *tagColors = Global::tagColors();
   glActiveTexture(GL_TEXTURE5);
-  glEnable(GL_TEXTURE_1D);
-  glBindTexture(GL_TEXTURE_1D, m_tagTex);
+  glEnable(GL_TEXTURE_2D);
+  glBindTexture(GL_TEXTURE_2D, m_tagTex);
   
   glUniform1f(m_eeParm[1], minZ); // minZ
   glUniform1f(m_eeParm[2], maxZ); // maxZ
@@ -2922,7 +2963,7 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
   glDisable(GL_TEXTURE_RECTANGLE_ARB);
 
   glActiveTexture(GL_TEXTURE5);
-  glDisable(GL_TEXTURE_1D);
+  glDisable(GL_TEXTURE_2D);
 
   glActiveTexture(GL_TEXTURE3);
   glDisable(GL_TEXTURE_2D);
@@ -2959,17 +3000,30 @@ Viewer::uploadMask(int dst, int wst, int hst, int ded, int wed, int hed)
   if (dsz*m_sslevel < de-ds) dsz++;
   if (wsz*m_sslevel < we-ws) wsz++;
   if (hsz*m_sslevel < he-hs) hsz++;
-  qint64 tsz = dsz*wsz*hsz;      
+  qint64 tsz = dsz*wsz*hsz*Global::bytesPerMask();      
+
   uchar *voxelVol = new uchar[tsz];
-  int i = 0;
-  for(qint64 d=ds; d<de; d+=m_sslevel)
+  
+  qint64 i = 0;
+  if (!m_maskPtrUS)
     {
-      for(qint64 w=ws; w<we; w+=m_sslevel)
-      for(qint64 h=hs; h<he; h+=m_sslevel)
-	{
-	  voxelVol[i] = m_maskPtr[d*m_width*m_height + w*m_height + h];
-	  i++;
-	}
+      for(qint64 d=ds; d<de; d+=m_sslevel)
+	for(qint64 w=ws; w<we; w+=m_sslevel)
+	  for(qint64 h=hs; h<he; h+=m_sslevel)
+	    {
+	      voxelVol[i] = m_maskPtr[d*m_width*m_height + w*m_height + h];
+	      i++;
+	    }	  
+    }
+  else
+    {
+      for(qint64 d=ds; d<de; d+=m_sslevel)
+	for(qint64 w=ws; w<we; w+=m_sslevel)
+	  for(qint64 h=hs; h<he; h+=m_sslevel)
+	    {
+	      ((ushort*)voxelVol)[i] = m_maskPtrUS[d*m_width*m_height + w*m_height + h];
+	      i++;
+	    }	  
     }
 
   int doff = (ds-m_minDSlice)/m_sslevel;
@@ -2979,13 +3033,22 @@ Viewer::uploadMask(int dst, int wst, int hst, int ded, int wed, int hed)
   glActiveTexture(GL_TEXTURE4);
   glEnable(GL_TEXTURE_3D);
   glBindTexture(GL_TEXTURE_3D, m_maskTex);	 
-  glTexSubImage3D(GL_TEXTURE_3D,
-		  0, // level
-		  hoff, woff, doff, // offset
-		  hsz, wsz, dsz,
-		  GL_LUMINANCE,
-		  GL_UNSIGNED_BYTE,
-		  voxelVol);
+  if (!m_maskPtrUS)
+    glTexSubImage3D(GL_TEXTURE_3D,
+		    0, // level
+		    hoff, woff, doff, // offset
+		    hsz, wsz, dsz,
+		    GL_RED,
+		    GL_UNSIGNED_BYTE,
+		    voxelVol);
+  else
+    glTexSubImage3D(GL_TEXTURE_3D,
+		    0, // level
+		    hoff, woff, doff, // offset
+		    hsz, wsz, dsz,
+		    GL_RED,
+		    GL_UNSIGNED_SHORT,
+		    voxelVol);
   glDisable(GL_TEXTURE_3D);
 
   
@@ -2997,12 +3060,6 @@ Viewer::uploadMask(int dst, int wst, int hst, int ded, int wed, int hed)
 void
 Viewer::hatch()
 {
-  if (!m_useMask)
-    {
-      QMessageBox::information(0, "Error", "Switch on Load labels before applying the operation.");
-      return;
-    }
-
   int d, w, h;
   bool gothit = getCoordUnderPointer(d, w, h);
   if (!gothit) return;
@@ -3151,12 +3208,6 @@ Viewer::smoothRegion(bool flag, int tag, int filterWidth)
 void
 Viewer::regionGrowing(bool sw)
 {
-  if (!m_useMask)
-    {
-      QMessageBox::information(0, "Error", "Switch on Load labels before applying the operation.");
-      return;
-    }
-
   int d, w, h;
   bool gothit = getCoordUnderPointer(d, w, h);
   if (!gothit) return;
@@ -3281,12 +3332,6 @@ Viewer::closeRegion(int tag, int nDilate, int nErode)
 void
 Viewer::regionDilation(bool allVisible)
 {
-  if (!m_useMask)
-    {
-      QMessageBox::information(0, "Error", "Switch on Load labels before applying the operation.");
-      return;
-    }
-
   int d, w, h;
   bool gothit = getCoordUnderPointer(d, w, h);
   if (!gothit) return;
@@ -3304,12 +3349,6 @@ Viewer::regionDilation(bool allVisible)
 void
 Viewer::regionErosion()
 {
-  if (!m_useMask)
-    {
-      QMessageBox::information(0, "Error", "Switch on Load labels before applying the operation.");
-      return;
-    }
-
   int d, w, h;
   bool gothit = getCoordUnderPointer(d, w, h);
   if (!gothit) return;
@@ -3327,12 +3366,6 @@ Viewer::regionErosion()
 void
 Viewer::regionDilationAll(int size, int tag)
 {
-  if (!m_useMask)
-    {
-      QMessageBox::information(0, "Error", "Switch on Load labels before applying the operation.");
-      return;
-    }
-
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
 
@@ -3349,12 +3382,6 @@ Viewer::regionDilationAll(int size, int tag)
 void
 Viewer::regionErosionAll(int tag, int size)
 {
-  if (!m_useMask)
-    {
-      QMessageBox::information(0, "Error", "Switch on Load labels before applying the operation.");
-      return;
-    }
-
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
 
@@ -3368,12 +3395,6 @@ Viewer::regionErosionAll(int tag, int size)
 void
 Viewer::tagUsingScreenSketch()
 {
-  if (!m_useMask)
-    {
-      QMessageBox::information(0, "Error", "Switch on Load labels before applying the operation.");
-      return;
-    }
-
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
 
@@ -3846,9 +3867,20 @@ Viewer::usedTags()
 	  progress.setValue(100*(float)i/(float)tvox);
 	  qApp->processEvents();
 	}
-      if (!ut.contains(m_maskPtr[i]))
-	ut << m_maskPtr[i]; 
+      if (!m_maskPtrUS)
+	{
+	  if (!ut.contains(m_maskPtr[i]))
+	    ut << m_maskPtr[i];
+	}
+      else
+	{
+	  if (!ut.contains(m_maskPtrUS[i]))
+	    ut << m_maskPtrUS[i];
+	}
+
     }
+  QMessageBox::information(0, "", QString("%1").arg(ut.count()));
+  
   qSort(ut);
   return ut;
 }
@@ -3982,6 +4014,10 @@ Viewer::parMarkValidBoxes(QList<QVariant> plist)
   QList<int>* m_boxMinMax = static_cast<QList<int>*>(plist[15].value<void*>());
   BoundingBox* m_boundingBox = static_cast<BoundingBox*>(plist[16].value<void*>());
   uchar* m_maskPtr = static_cast<uchar*>(plist[17].value<void*>());
+  ushort *m_maskPtrUS = 0;
+  if (Global::bytesPerMask() == 2)
+    m_maskPtrUS = (ushort*)m_maskPtr;
+      
   MyBitArray* m_filledBoxes = static_cast<MyBitArray*>(plist[18].value<void*>());
   
   Vec bminO, bmaxO;
@@ -4026,6 +4062,8 @@ Viewer::parMarkValidBoxes(QList<QVariant> plist)
 		for(qint64 hm=hmin; hm<hmax; hm++)
 		  {
 		    int tag = m_maskPtr[dm*m_width*m_height + wm*m_height + hm];
+		    if (m_maskPtrUS)
+		      tag = m_maskPtrUS[dm*m_width*m_height + wm*m_height + hm];
 		    if (Global::tagColors()[4*tag+3] > 200)
 		      {
 			visibleTag = true;

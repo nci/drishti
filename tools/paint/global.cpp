@@ -102,8 +102,10 @@ uchar* Global::tagColors()
 {
   if (!m_tagColors)
     {
-      m_tagColors = new uchar[1024];
-      memset(m_tagColors, 255, 1024);
+      //m_tagColors = new uchar[1024];
+      //memset(m_tagColors, 255, 1024);
+      m_tagColors = new uchar[65536*4];
+      memset(m_tagColors, 255, 65536*4);
     }
   return m_tagColors;
 }
@@ -111,8 +113,10 @@ void Global::setTagColors(uchar *colors)
 {
   if (!m_tagColors)
     {
-      m_tagColors = new uchar[1024];
-      memset(m_tagColors, 255, 1024);
+      m_tagColors = new uchar[65536*4];
+      memset(m_tagColors, 255, 65536*4);
+      //m_tagColors = new uchar[1024];
+      //memset(m_tagColors, 255, 1024);
     }
   memcpy(m_tagColors, colors, 1024);
 }
@@ -197,6 +201,10 @@ void Global::setSelectionPrecision(int s) { m_selpres = s; }
 int Global::m_bytesPerVoxel = 1;
 void Global::setBytesPerVoxel(int b) { m_bytesPerVoxel = b; }
 int Global::bytesPerVoxel() { return (m_bytesPerVoxel); }
+
+int Global::m_bytesPerMask = 1;
+void Global::setBytesPerMask(int b) { m_bytesPerMask = b; }
+int Global::bytesPerMask() { return (m_bytesPerMask); }
 
 Vec Global::m_voxelScaling = Vec(1,1,1);
 Vec Global::m_relativeVoxelScaling = Vec(1,1,1);

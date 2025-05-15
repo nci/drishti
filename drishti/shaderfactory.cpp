@@ -324,7 +324,7 @@ ShaderFactory::genDefaultShaderString(bool bit16,
 	  else if (i == 3) c = "z";
 	  else if (i == 4) c = "w";
 	  
-	  shader += QString("h0 = int(65535.0*vg.%1);\n").arg(c);
+	  shader += QString("h0 = int(65536.0*vg.%1);\n").arg(c);
 	  shader += "h1 = h0 / 256;\n";
 	  shader += "h0 = int(mod(float(h0),256.0));\n";
 	  shader += "fh0 = float(h0)/256.0;\n";
@@ -651,7 +651,7 @@ ShaderFactory::genLutShaderString(bool bit16)
     {
       shader += "  int h0, h1;\n";
       shader += "  float fh0, fh1;\n";
-      shader += "  h0 = int(65535.0*vg.x);\n";
+      shader += "  h0 = int(65536.0*vg.x);\n";
       shader += "  h1 = h0 / 256;\n";
       shader += "  h0 = int(mod(float(h0),256.0));\n";
       shader += "  fh0 = float(h0)/256.0;\n";
@@ -676,7 +676,7 @@ ShaderFactory::genLutShaderString(bool bit16)
     {
       shader += "  int h0, h1;\n";
       shader += "  float fh0, fh1;\n";
-      shader += "  h0 = int(65535.0*vg.x);\n";
+      shader += "  h0 = int(65536.0*vg.x);\n";
       shader += "  h1 = h0 / 256;\n";
       shader += "  h0 = int(mod(float(h0),256.0));\n";
       shader += "  fh0 = float(h0)/256.0;\n";
@@ -1333,7 +1333,7 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
 
   if (bit16)
     {
-      shader += "  int h0 = int(65535.0*vg.x);\n";
+      shader += "  int h0 = int(65536.0*vg.x);\n";
       shader += "  int h1 = h0 / 256;\n";
       shader += "  h0 = int(mod(float(h0),256.0));\n";
       shader += "  float fh0 = float(h0)/256.0;\n";

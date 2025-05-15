@@ -152,7 +152,7 @@ ShaderFactory::genSliceShader(bool bit16)
   shader += "uniform sampler3D dataTex;\n";
   shader += "uniform sampler2D lutTex;\n";
   shader += "uniform sampler3D maskTex;\n";
-  shader += "uniform sampler1D tagTex;\n";
+  shader += "uniform sampler2D tagTex;\n";
   shader += "void main(void)\n";
   shader += "{\n";
 
@@ -180,8 +180,8 @@ ShaderFactory::genSliceShader(bool bit16)
   shader += "  if (color.a < 0.001) discard;\n";
 
   shader += "  float tag = texture(maskTex, gl_TexCoord[0].xyz).x;\n";
-  shader += "  vec4 tagcolor = texture(tagTex, tag);\n";
-  shader += "  if (tag < 0.001) tagcolor.rgb = color.rgb;\n";
+  shader += "  vec4 tagcolor = texture(tagTex, vec2(tag, 0));\n";
+  shader += "  if (tag < 0.0000001) tagcolor.rgb = color.rgb;\n";
   
   shader += "  color.rgb = mix(color.rgb, tagcolor.rgb, 0.8);\n";
   
@@ -556,8 +556,8 @@ ShaderFactory::addLighting()
 
 QString
 ShaderFactory::genIsoRaycastShader(bool nearest,
-				   bool useMask,
-				   bool bit16,
+				   bool val16,
+				   bool mask16,
 				   int gradType,
 				   QList<CropObject> crops)
 {
@@ -569,10 +569,10 @@ ShaderFactory::genIsoRaycastShader(bool nearest,
   QString shader;
   shader  = "#version 420 core\n";
   shader += "#extension GL_ARB_texture_rectangle : enable\n";
-  shader += "uniform sampler3D maskTex;\n";
-  shader += "uniform sampler1D tagTex;\n";
-  shader += "uniform sampler3D dataTex;\n";
+  shader += "uniform sampler2D tagTex;\n";
   shader += "uniform sampler2D lutTex;\n";
+  shader += "uniform sampler3D dataTex;\n";
+  shader += "uniform sampler3D maskTex;\n";
   shader += "uniform sampler2DRect exitTex;\n";
   shader += "uniform float stepSize;\n";
   shader += "uniform vec3 eyepos;\n";
@@ -702,16 +702,18 @@ ShaderFactory::genIsoRaycastShader(bool nearest,
   shader += "  vec4 colorSample = vec4(0.0);\n";
   
   
-  if (!bit16)
+  if (!val16)
     shader += "  colorSample = texture(lutTex, vec2(val,0.0));\n";
   else
     {
-      shader += "  int h0 = int(65535.0*val);\n";
+      shader += "{\n";
+      shader += "  int h0 = int(65536.0*val);\n";
       shader += "  int h1 = h0 / 256;\n";
       shader += "  h0 = int(mod(float(h0),256.0));\n";
       shader += "  float fh0 = float(h0)/256.0;\n";
       shader += "  float fh1 = float(h1)/256.0;\n";
       shader += "  colorSample = texture(lutTex, vec2(fh0,fh1));\n";
+      shader += "}\n";
     }
 
   //crop
@@ -732,20 +734,30 @@ ShaderFactory::genIsoRaycastShader(bool nearest,
   shader += " }\n";
 
   
-  if (useMask)
-    {
-      shader += "  float tag = texture(maskTex, vC).x;\n";
-      shader += "  vec4 tagcolor = texture(tagTex, tag);\n";
-      shader += "  if (tag < 0.001) tagcolor.rgb = colorSample.rgb;\n";
-
-      shader += "  colorSample.rgb = mix(colorSample.rgb, tagcolor.rgb, 0.5);\n";
-
-      // so that we can use tag opacity to hide certain tagged regions
-      // tagcolor.a should either 0 or 1
-      shader += "  colorSample *= tagcolor.a;\n";
-    }
+  shader += "  float tag = texture(maskTex, vC).x;\n";
+  //shader += "  vec4 tagcolor = texture(tagTex, vec2(tag, 0));\n";
+  shader += "  vec4 tagcolor;\n";
+  if (!mask16)
+    shader += "  tagcolor = texture(tagTex, vec2(tag, 0));\n";
   else
-    shader += "  float tag = 0;\n";
+    {
+      shader += "{\n";
+      shader += "  int h0 = int(65536.0*tag);\n";
+      shader += "  int h1 = h0 / 256;\n";
+      shader += "  h0 = int(mod(float(h0),256.0));\n";
+      shader += "  float fh0 = float(h0)/256.0;\n";
+      shader += "  float fh1 = float(h1)/256.0;\n";
+      shader += "  tagcolor = texture(tagTex, vec2(fh0, fh1));\n";
+      shader += "}\n";
+    }
+
+  shader += "  if (tag < 0.0000001) tagcolor.rgb = colorSample.rgb;\n";
+  
+  shader += "  colorSample.rgb = mix(colorSample.rgb, tagcolor.rgb, 0.5);\n";
+  
+  // so that we can use tag opacity to hide certain tagged regions
+  // tagcolor.a should either 0 or 1
+  shader += "  colorSample *= tagcolor.a;\n";
   
 
   //shader += "  if (!gotFirstHit && colorSample.a > 0.001) gotFirstHit = true;\n";  
@@ -814,13 +826,13 @@ ShaderFactory::genIsoRaycastShader(bool nearest,
 
 
 QString
-ShaderFactory::genEdgeEnhanceShader(bool bit16)
+ShaderFactory::genEdgeEnhanceShader(bool val16, bool mask16)
 {
   QString shader;
 
   shader = "#version 420 core\n";
   shader += "out vec4 glFragColor;\n";
-  shader += "uniform sampler1D tagTex;\n";
+  shader += "uniform sampler2D tagTex;\n";
   shader += "uniform float minZ;\n";
   shader += "uniform float maxZ;\n";
   shader += "uniform vec3 eyepos;\n";
@@ -855,21 +867,33 @@ ShaderFactory::genEdgeEnhanceShader(bool bit16)
 
   //---------------------
   shader += "  vec4 color = vec4(0.0);\n";
-  //shader += "  color = texture(tagTex, tag);\n";
-  shader += "  color = texture(tagTex, tag);\n";
+  //shader += "  color = texture(tagTex, vec2(tag, 0));\n";
+  if (!mask16)
+    shader += "  color = texture(tagTex, vec2(tag, 0));\n";
+  else
+    {
+      shader += "{\n";
+      shader += "  int h0 = int(65536.0*tag);\n";
+      shader += "  int h1 = h0 / 256;\n";
+      shader += "  h0 = int(mod(float(h0),256.0));\n";
+      shader += "  float fh0 = float(h0)/256.0;\n";
+      shader += "  float fh1 = float(h1)/256.0;\n";
+      shader += "  color = texture(tagTex, vec2(fh0, fh1));\n";
+      shader += "}\n";
+    }
   // so that we can use tag opacity to hide certain tagged regions
   // tagcolor.a should either 0 or 1
   shader += "  if (color.a < 0.001) discard;\n";
   //---------------------
 
-  shader += "  if (tag < 0.001)\n";
+  shader += "  if (tag < 0.0000001)\n";
   shader += "   {\n";
   shader += "    val = texture2DRect(pvtTex, spos0).y;\n";
-  if (!bit16)
+  if (!val16)
     shader += "   color = texture(lutTex, vec2(val,0.0));\n";
   else
     {
-      shader += "    int h0 = int(65535.0*val);\n";
+      shader += "    int h0 = int(65536.0*val);\n";
       shader += "    int h1 = h0 / 256;\n";
       shader += "    h0 = int(mod(float(h0),256.0));\n";
       shader += "    float fh0 = float(h0)/256.0;\n";

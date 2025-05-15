@@ -108,7 +108,11 @@ void
 TagColorEditor::showTagsClicked()
 {
   uchar *colors = Global::tagColors();
-  for(int i=0; i<256; i++)
+  int nColors = 256;
+  if (Global::bytesPerMask() == 2)
+    nColors = 65536;
+      
+  for(int i=0; i<nColors; i++)
     colors[4*i+3] = 255;
 
   setColors();
@@ -118,8 +122,12 @@ void
 TagColorEditor::hideTagsClicked()
 {
   uchar *colors = Global::tagColors();
-  for(int i=0; i<256; i++)
-    colors[4*i+3] = 0;
+  int nColors = 256;
+  if (Global::bytesPerMask() == 2)
+    nColors = 65536;
+  
+  for(int i=0; i<nColors; i++)
+      colors[4*i+3] = 0;
 
   setColors();
 }
@@ -288,8 +296,11 @@ TagColorEditor::newColorSet(int h)
   qsrand(h);
 
   uchar *colors = Global::tagColors();
-
-  for(int i=1; i<255; i++)
+  int nColors = 255;
+  if (Global::bytesPerMask() == 2)
+    nColors = 65536;
+  
+  for(int i=1; i<nColors; i++)
     {
       float r,g,b;
       r = (float)qrand()/(float)RAND_MAX;
@@ -445,10 +456,14 @@ TagColorEditor::askGradientChoice()
 	}
     }
 
+  int nColors = 255;
+  if (Global::bytesPerMask() == 2)
+    nColors = 65536;
+
   int mapSize = QInputDialog::getInt(0,
 				     "Number of Colors",
 				     "Number of Colors",
-				     50, 2, 255, 1, &ok);
+				     50, 2, nColors, 1, &ok);
   if (!ok)
     mapSize = 50;
 

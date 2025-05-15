@@ -203,6 +203,7 @@ class VolumeOperations
   static uchar *m_volData;
   static ushort *m_volDataUS;
   static uchar *m_maskData;
+  static ushort *m_maskDataUS;
 
   static MyBitArray m_visibilityMap;
   

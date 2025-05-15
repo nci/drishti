@@ -57,7 +57,7 @@ VolumeMask::deleteCheckPoint()
 }
 
 void
-VolumeMask::offLoadMemFile()
+VolumeMask::offloadMemFile()
 {
   m_maskFileManager.setMemMapped(false);
 }
@@ -143,7 +143,6 @@ VolumeMask::setGridSize(int d, int w, int h, int slabsize)
   else
     checkMaskFile();
 }
-
 
 QStringList
 VolumeMask::loadTagNames()

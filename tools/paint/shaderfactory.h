@@ -25,7 +25,7 @@ class ShaderFactory
 
   static QString genIsoRaycastShader(bool, bool, bool, int, QList<CropObject>);
 
-  static QString genEdgeEnhanceShader(bool);
+  static QString genEdgeEnhanceShader(bool, bool);
 
   static GLuint boxShader();
   static GLint* boxShaderParm();

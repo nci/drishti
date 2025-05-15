@@ -91,6 +91,9 @@ class Global
   static void setBytesPerVoxel(int);
   static int bytesPerVoxel();
 
+  static void setBytesPerMask(int);
+  static int bytesPerMask();
+
   static QWidget* mainWindow();
   static void setMainWindow(QWidget*);
 
@@ -139,6 +142,7 @@ class Global
   static Vec m_relativeVoxelScaling;
   static QString m_voxelUnit;
   static int m_bytesPerVoxel;
+  static int m_bytesPerMask;
 
   static GLuint m_spriteTexture;
   static GLuint m_hollowSpriteTexture;

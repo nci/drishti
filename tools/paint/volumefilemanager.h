@@ -103,6 +103,7 @@ class VolumeFileManager : public QObject
   uchar* rawValueMem(int, int, int);
 
   uchar* memVolDataPtr() { return m_volData; }
+  ushort* memVolDataPtrUS() { return (ushort*)m_volData; }
 
   void saveBlock();
 

@@ -42,6 +42,7 @@ class DrishtiPaint : public QMainWindow
   void tagsUsed(QList<int>);
   void showVolumeInformation();
   void openRecentFile();   
+  void switchLabelBits(bool);
 
   void on_actionScriptFolder_triggered();
   void on_actionCommand_triggered();

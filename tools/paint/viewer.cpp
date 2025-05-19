@@ -622,7 +622,6 @@ void Viewer::setMaskDataPtr(uchar *ptr)
   m_maskPtrUS = 0;
   if (Global::bytesPerMask() == 2)
     m_maskPtrUS = (ushort*)ptr;
-    
 }
 void Viewer::setVolDataPtr(uchar *ptr)
 {
@@ -1036,13 +1035,6 @@ Viewer::processCommand(QString cmd)
   m_boundingBox.bounds(bmin, bmax);
   bmin = VECDIVIDE(bmin, voxelScaling);
   bmax = VECDIVIDE(bmax, voxelScaling);
-
-  if (list[0] == "mask16bit")
-    {
-      Global::setBytesPerMask(2);
-      emit reloadMask();
-      return;
-    }
    
   if (list[0].contains("tag"))
     {
@@ -3005,7 +2997,7 @@ Viewer::uploadMask(int dst, int wst, int hst, int ded, int wed, int hed)
   uchar *voxelVol = new uchar[tsz];
   
   qint64 i = 0;
-  if (!m_maskPtrUS)
+  if (Global::bytesPerMask() == 1)
     {
       for(qint64 d=ds; d<de; d+=m_sslevel)
 	for(qint64 w=ws; w<we; w+=m_sslevel)
@@ -3023,7 +3015,7 @@ Viewer::uploadMask(int dst, int wst, int hst, int ded, int wed, int hed)
 	    {
 	      ((ushort*)voxelVol)[i] = m_maskPtrUS[d*m_width*m_height + w*m_height + h];
 	      i++;
-	    }	  
+	    }
     }
 
   int doff = (ds-m_minDSlice)/m_sslevel;

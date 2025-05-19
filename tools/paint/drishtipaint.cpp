@@ -35,25 +35,45 @@ void
 DrishtiPaint::initTagColors()
 {
   uchar *colors;
-  colors = new uchar[1024];
-  memset(colors, 255, 1024);
+  colors = new uchar[65536*4];
+  memset(colors, 255, 65536*4);
 
   qsrand(1);
 
-  for(int i=1; i<256; i++)
+  for(int i=1; i<65536; i++)
     {
       float r,g,b,a;
-      if (i < 255)
+      r = (float)qrand()/(float)RAND_MAX;
+      g = (float)qrand()/(float)RAND_MAX;
+      b = (float)qrand()/(float)RAND_MAX;
+      a = 1.0f;
+
+      float mm = qMax(r,qMax(g,b));
+      if (mm < 0.8) // don't want too dark
 	{
-	  r = (float)qrand()/(float)RAND_MAX;
-	  g = (float)qrand()/(float)RAND_MAX;
-	  b = (float)qrand()/(float)RAND_MAX;
-	  a = 1.0f;
+	  if (mm < 0.1)
+	    {
+	      r = g = b = 1.0;
+	    }
+	  else if (mm < 0.3)
+	    {
+	      r = 1 - r;
+	      g = 1 - g;
+	      b = 1 - b;
+	    }
+	  else
+	    {
+	      r *= 0.8/mm;
+	      g *= 0.8/mm;
+	      b *= 0.8/mm;
+	    }
 	}
-      else
+      
+      if (i > 250)
 	{
 	  r = 0.9f; g = 0.3f; b = 0.2f; a = 1.0f;
 	}
+      
       colors[4*i+0] = 255*r;
       colors[4*i+1] = 255*g;
       colors[4*i+2] = 255*b;
@@ -132,6 +152,17 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 	    this, SLOT(showVolumeInformation()));
     ui.menuCommands->addAction(action);
   }
+  { // add 8/16bit mask option to menuCommands
+    QAction *action = new QAction(this);
+    action->setText("16-bit Labels");
+    action->setVisible(true);
+    action->setCheckable(true);
+    action->setChecked(false);
+    connect(action, SIGNAL(toggled(bool)),
+	    this, SLOT(switchLabelBits(bool)));
+    ui.menuCommands->addAction(action);
+  }
+
 
   setAcceptDrops(true);
 
@@ -5793,7 +5824,9 @@ DrishtiPaint::loadRawMask(QString flnm)
 void
 DrishtiPaint::reloadMask()
 {
-  m_volume->offloadMaskFile();
+  if (!m_volume->isValid())
+    return;
+    
   if (Global::bytesPerMask() == 1)
     m_volume->setMaskVoxelType(0);
   else
@@ -5802,10 +5835,18 @@ DrishtiPaint::reloadMask()
   m_volume->reloadMask();
 
   m_viewer->setMaskDataPtr(m_volume->memMaskDataPtr());
+  m_axialImage->setMaskPtr(m_volume->memMaskDataPtr());
+  m_sagitalImage->setMaskPtr(m_volume->memMaskDataPtr());
+  m_coronalImage->setMaskPtr(m_volume->memMaskDataPtr());
 
+  VolumeOperations::setMaskData(m_volume->memMaskDataPtr());
+  VolumeMeasure::setMaskData(m_volume->memMaskDataPtr());
+
+  
   int m_depth, m_width, m_height;
   m_volume->gridSize(m_depth, m_width, m_height);
   m_viewer->uploadMask(0,0,0, m_depth-1,m_width-1,m_height-1);
+
   QMessageBox::information(0, "", "done");
 }
 
@@ -6569,6 +6610,23 @@ DrishtiPaint::on_changeSliceOrdering_triggered()
 
   m_volume->saveModifiedOriginalVolume();
   m_volume->saveIntermediateResults(true);
+}
+
+void
+DrishtiPaint::switchLabelBits(bool checked)
+{
+  if (checked)
+    {
+      QMessageBox::information(0, "", " Switching to 16 bit labels.\n Previous label information will be erased.");
+      Global::setBytesPerMask(2);
+    }
+  else
+    {
+      QMessageBox::information(0, "", " Switching to 8 bit labels.\n Previous label information will be erased.");
+      Global::setBytesPerMask(1);
+    }
+
+  reloadMask();
 }
 
 void

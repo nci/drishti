@@ -71,6 +71,7 @@ VolumeMask::loadRawFile(QString flnm)
 void
 VolumeMask::loadMemFile()
 {
+  m_maskFileManager.setMemMapped(true);
   m_maskFileManager.loadMemFile();
 }
 

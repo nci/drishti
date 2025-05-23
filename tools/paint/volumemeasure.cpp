@@ -17,7 +17,6 @@
 uchar* VolumeMeasure::m_volData = 0;
 ushort* VolumeMeasure::m_volDataUS = 0;
 
-uchar* VolumeMeasure::m_maskData = 0;
 ushort* VolumeMeasure::m_maskDataUS = 0;
 
 
@@ -30,10 +29,7 @@ void VolumeMeasure::setVolData(uchar *v)
 }
 void VolumeMeasure::setMaskData(uchar *v)
 {
-  m_maskData = v;
-  m_maskDataUS = 0;
-  if (Global::bytesPerMask() == 2)
-    m_maskDataUS = (ushort*) m_maskData;
+  m_maskDataUS = (ushort*)v;
 }
 
 
@@ -176,8 +172,7 @@ VolumeMeasure::volume(Vec bmin, Vec bmax, int tag)
 	  int val = m_volData[idx];
 	  if (m_volDataUS) val = m_volDataUS[idx];
 
-	  int mtag = m_maskData[idx];
-	  if (m_maskDataUS) mtag = m_maskDataUS[idx];
+	  int mtag = m_maskDataUS[idx];
 
 	  bool opaque = (lut[4*val+3]*tagColors[4*mtag+3] > 0);      
 
@@ -350,8 +345,7 @@ VolumeMeasure::surfaceArea(Vec bmin, Vec bmax, int tag)
 	  int val = m_volData[idx];
 	  if (m_volDataUS) val = m_volDataUS[idx];
 
-	  int mtag = m_maskData[idx];
-	  if (m_maskDataUS) mtag = m_maskDataUS[idx];
+	  int mtag = m_maskDataUS[idx];
 
 	  bool opaque = (lut[4*val+3]*tagColors[4*mtag+3] > 0);      
 
@@ -579,8 +573,7 @@ VolumeMeasure::getFeretDiameter(Vec bmin, Vec bmax, int tag)
 	  int val = m_volData[idx];
 	  if (m_volDataUS) val = m_volDataUS[idx];
 
-	  int mtag = m_maskData[idx];
-	  if (m_maskDataUS) mtag = m_maskDataUS[idx];
+	  int mtag = m_maskDataUS[idx];
 
 	  bool opaque = (lut[4*val+3]*tagColors[4*mtag+3] > 0);      
 

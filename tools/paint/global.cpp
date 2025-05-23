@@ -202,7 +202,7 @@ int Global::m_bytesPerVoxel = 1;
 void Global::setBytesPerVoxel(int b) { m_bytesPerVoxel = b; }
 int Global::bytesPerVoxel() { return (m_bytesPerVoxel); }
 
-int Global::m_bytesPerMask = 1;
+int Global::m_bytesPerMask = 2;
 void Global::setBytesPerMask(int b) { m_bytesPerMask = b; }
 int Global::bytesPerMask() { return (m_bytesPerMask); }
 

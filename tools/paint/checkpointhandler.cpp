@@ -27,6 +27,7 @@ CheckpointHandler::saveCheckpoint(QString flnm,
   qint64 vsz = depth;
   vsz *= width;
   vsz *= height;
+  vsz *= 2; // 16 bit labeled data
 
   
   // -----

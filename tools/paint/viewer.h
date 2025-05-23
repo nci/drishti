@@ -240,7 +240,6 @@ class Viewer : public QGLViewer
 
   uchar *m_volPtr;
   ushort *m_volPtrUS;
-  uchar *m_maskPtr;
   ushort *m_maskPtrUS;
 
   int m_pointSkip;

@@ -42,7 +42,6 @@ class DrishtiPaint : public QMainWindow
   void tagsUsed(QList<int>);
   void showVolumeInformation();
   void openRecentFile();   
-  void switchLabelBits(bool);
 
   void on_actionScriptFolder_triggered();
   void on_actionCommand_triggered();
@@ -298,12 +297,12 @@ class DrishtiPaint : public QMainWindow
   void sliceSmooth(int, int, uchar*, uchar*, int, int, int);
   void smooth(int, int, uchar**, uchar*, int, int, int);
 
-  void savePvlHeader(QString, QString, int, int, int, bool, int);
+  void savePvlHeader(QString, QString, int, int, int, int);
 
   void colorMesh(QVector<QVector3D>&,
 		 QVector<QVector3D>,
 		 QVector<QVector3D>,
-		 int, uchar*,
+		 int, ushort*,
 		 int, int, int,
 		 int, int, int, int,
 		 int);
@@ -328,7 +327,6 @@ class DrishtiPaint : public QMainWindow
   void dilateAndSmooth(uchar*, int, int, int, int);
   void smoothData(uchar*, int, int, int, int);
 
-  void processHoles(uchar*, int, int, int, int);
 
   bool tagUsingSketchPad(Vec, Vec, int);
 

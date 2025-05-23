@@ -152,16 +152,6 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 	    this, SLOT(showVolumeInformation()));
     ui.menuCommands->addAction(action);
   }
-  { // add 8/16bit mask option to menuCommands
-    QAction *action = new QAction(this);
-    action->setText("16-bit Labels");
-    action->setVisible(true);
-    action->setCheckable(true);
-    action->setChecked(false);
-    connect(action, SIGNAL(toggled(bool)),
-	    this, SLOT(switchLabelBits(bool)));
-    ui.menuCommands->addAction(action);
-  }
 
 
   setAcceptDrops(true);
@@ -2391,7 +2381,6 @@ void
 DrishtiPaint::savePvlHeader(QString volfile,
 			    QString pvlfile,
 			    int d, int w, int h,
-			    bool saveImageData,
 			    int bpv)
 {  
   QString rawFile;
@@ -2430,17 +2419,7 @@ DrishtiPaint::savePvlHeader(QString volfile,
     }
 
   voxelType = "unsigned char";
-  if (!saveImageData)
-    {
-      rawFile = "";
-      description = "tag data";
-      voxelType = "unsigned char";
-      voxelUnit = "no units";
-      rawmap = "1 255";
-      pvlmap = "1 255";
-    }
-  else if (bpv == 2)
-    voxelType = "unsigned short";
+  if (bpv == 2) voxelType = "unsigned short";
   
   
   QDomDocument doc("Drishti_Header");
@@ -3223,7 +3202,10 @@ DrishtiPaint::sliceZeroAtTop()
 
   return save0attop;
 }
+//-----------------------------
 
+
+//-----------------------------
 void
 DrishtiPaint::on_actionLoadMask_triggered()
 {
@@ -3355,8 +3337,10 @@ DrishtiPaint::on_actionLoadMask_triggered()
 
   QMessageBox::information(0, "", "Transfer Done.\n  Check 2D slice view.\n  Update 3D viewer.\n  If everything looks alright Save Work using File menu to save this change to mask file.");
 }
+//-----------------------------
 
 
+//-----------------------------
 void
 DrishtiPaint::on_actionExtractTag_triggered()
 {
@@ -3365,8 +3349,8 @@ DrishtiPaint::on_actionExtractTag_triggered()
 
   bool ok;
   //----------------
-  QString tagstr = QInputDialog::getText(0, "Extract volume data for Tag",
-	    "Tag Numbers (tags should be separated by space.\n-3 extract whatever is visible with voxel values derived from transfer function.\n-2 extract whatever is visible.\n-1 for all tags;\nFor e.g. 1 2 5 will extract tags 1, 2 and 5\n2-5 is same as specifying  2 3 4 5)",
+  QString tagstr = QInputDialog::getText(0, "Extract volume data for given label",
+	    "Label Numbers (labels should be separated by space.\n\n-1 for all labels;\nFor e.g. 1 2 5 will extract labels 1, 2 and 5\n2-5 is same as specifying  2 3 4 5)",
 					 QLineEdit::Normal,
 					 "-1",
 					 &ok);
@@ -3425,111 +3409,43 @@ DrishtiPaint::on_actionExtractTag_triggered()
 
   //  QMessageBox::information(0, "", QString("%1 : %2").arg(tag.count()).arg(tag[0]));
 
-  bool saveImageData = true;
-  int shiftVox = 128;
-  float scaleVox = 0.5;
-  int tagWidth = 10;
-
   //----------------
-  int extractType = 1; // extract using tag
-  if (tag[0] == -2)
-    {
-      scaleVox = 0.9;
-      shiftVox = 25;
-      bool ok;
-      QString tagstr = QInputDialog::getText(0, "Scale and Shift Tomogram",
-					     "Scale and shift tomogram values before extracting visible region.\nUser defined value will be used for invisible voxels, that is why shifting may be needed.\nSpecify two numbers - for e.g. 0.9 25 -> this means 0.9*tomoval + 25\nFirst value is scaling factor between 0.0 and 1.0, and second value is shift factor between 0 and 255.\n1.0 0 -> means no scaling and shifting of tomogram values",
-					     QLineEdit::Normal,
-					     "0.9 25",
-					     &ok);
-      if (ok && !tagstr.isEmpty())
-	{
-	  QStringList tglist = tagstr.split(" ", QString::SkipEmptyParts);
-	  if (tglist.count() == 3)
-	    {
-	      scaleVox = tglist[0].toFloat();
-	      shiftVox = tglist[1].toInt();
-	    }
-	}
-    }
-  else if (tag[0] > -2)
-    {
-      dtypes.clear();
-      dtypes << "Tag Only"
-	     << "Tag + Transfer Function";
-      dtypes << "Tomogram + Tags";
-      dtypes << "Tags From Another Volume";
+  int extractType = 1; // extract using label
 
-      QString option = QInputDialog::getItem(0,
-					     "Extract Data",
-					     "Extract Using Tag + Transfer Function",
-					     dtypes,
-					     0,
-					     false,
-					     &ok);
-      if (!ok)
-	return;
-      
-      if (option == "Tag Only") extractType = 1;
-      else if (option == "Tag + Transfer Function") extractType = 2;
-      else if (option == "Tomogram + Tags")
-	{
-	  extractType = 9;
-	  bool ok;
-	  QString tagstr = QInputDialog::getText(0, "Merge Tag values with Tomogram",
-						 "Scale and shift non tagged tomogram values before merging tag values.\nSpecify two numbers - for e.g. 0.5 128 -> this means 0.5*tomoval + 128\nFirst value is scaling factor between 0.0 and 1.0, and second value is shift factor between 0 and 255.\n1.0 0 -> means no scaling and shifting of tomogram values",
-						 QLineEdit::Normal,
-						 "0.5 128",
-						 &ok);
-	  if (ok && !tagstr.isEmpty())
-	    {
-	      QStringList tglist = tagstr.split(" ", QString::SkipEmptyParts);
-	      if (tglist.count() == 2)
-		{
-		  scaleVox = tglist[0].toFloat();
-		  shiftVox = tglist[1].toInt();
-		}
-	    }
-	  
-	  tagstr = QInputDialog::getText(0, "Merge Tag values with Tomogram",
-					 "Sepcify tagwidth\nValues for voxels that are tagged will be scaled according to tagwidth and shifted by tag value.\nFirst minimum and maximum voxel values are calculated for the voxels that are tagged.\nThen appropriate scaling factor is calculated for every tag so that the min and max voxel values fit within the given tagwidth interval.\nThe voxel values are then shifted by the individual tag value.\nThis results in appropriate shifting of tagged voxel values while maintaining some grayscale information depending on the size tagwidth.\nfor e.g. value of 10 will give : tag + tagwidth*(voxval-minvox)/(maxvox-minvox)",
-					 QLineEdit::Normal,
-					 QString("%1").arg(tagWidth),
+  dtypes.clear();
+  dtypes << "Label Only"
+	 << "Label + Transfer Function";
+  //dtypes << "Labels From Another Volume";
+
+  QString option = QInputDialog::getItem(0,
+					 "Extract Volume Data",
+					 "Extract Using Label + Transfer Function",
+					 dtypes,
+					 0,
+					 false,
 					 &ok);
-	  if (ok && !tagstr.isEmpty())
-	    {
-	      QStringList tglist = tagstr.split(" ", QString::SkipEmptyParts);
-	      if (tglist.count() == 1)
-		tagWidth = tglist[0].toInt();
-	    }
-	}
-      else if (option == "Tags From Another Volume")
-	{
-	  extractFromAnotherVolume(tag);
-	  return;
-	}
-
-    }
+  if (!ok)
+    return;
+      
+  if (option == "Label Only") extractType = 1;
+  else if (option == "Label + Transfer Function") extractType = 2;
+//  else if (option == "Labels From Another Volume")
+//    {
+//      extractFromAnotherVolume(tag);
+//      return;
+//    }
   //----------------
 
   //----------------
   int outsideVal = 0;
-  if (Global::bytesPerVoxel() == 1)
-    {
-      if (saveImageData && extractType != 9)
-	outsideVal = QInputDialog::getInt(0,
-					  "Outside value",
-					  "Set outside value (0-255) to",
-					  0, 0, 255, 1);
-    }
-  else
-    {
-      if (saveImageData && extractType != 9)
-	outsideVal = QInputDialog::getInt(0,
-					  "Outside value",
-					  "Set outside value (0-65535) to",
-					  0, 0, 65535, 1);
-    }
+  int maxVal = 255;
+  if (Global::bytesPerVoxel() == 2)
+    maxVal = 65535;
+
+  outsideVal = QInputDialog::getInt(0,
+				    "Outside value",
+				    QString("Set outside value (0-%1) to").arg(maxVal),
+				    0, 0, maxVal, 1);
 
   //----------------
 
@@ -3568,7 +3484,6 @@ DrishtiPaint::on_actionExtractTag_triggered()
   savePvlHeader(m_volume->fileName(),
 		tflnm,
 		tdepth, twidth, theight,
-		saveImageData,
 		Global::bytesPerVoxel());
 
   QStringList tflnms;
@@ -3586,7 +3501,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
   tFile.setSlabSize(tdepth+1);
   tFile.createFile(true, false);
 
-  QProgressDialog progress("Extracting tagged region from volume data",
+  QProgressDialog progress("Extracting labeled region from volume data",
 			   QString(),
 			   0, 100,
 			   0,
@@ -3595,73 +3510,14 @@ DrishtiPaint::on_actionExtractTag_triggered()
 
   uchar *lut = Global::lut();
   int nbytes = width*height*Global::bytesPerVoxel();
-  int nbytesRAW = width*height;
+  int nbytesRAW = width*height*2; // 16 bit mask
   uchar *raw = new uchar[nbytesRAW];
   
   QList<Vec> cPos =  m_viewer->clipPos();
   QList<Vec> cNorm = m_viewer->clipNorm();
   //----------------------------------
 
-
-  //----------------------------------
-  // find min and max of voxel values for each tag
-  int vtmin[65536];
-  int vtmax[65536];
-  float vtdif[65536];
-  if (Global::bytesPerVoxel() == 1)
-    {
-      memset(vtmin, 255, 256);
-      memset(vtmax, 0, 256);
-      memset(vtdif, 1, 256);
-    }
-  else
-    {
-      memset(vtmin, 65535, 65536);
-      memset(vtmax, 0, 65536);
-      memset(vtdif, 1, 65536);
-    }
-  if (extractType == 9)
-    {
-      uchar *volData = m_volume->memVolDataPtr();
-      ushort *volDataUS = 0;
-      if (Global::bytesPerVoxel() == 2)
-	volDataUS = (ushort*)(m_volume->memVolDataPtr());
-
-      uchar *maskData = m_volume->memMaskDataPtr();
-      if (!volDataUS)
-	{
-	  for(int d=minDSlice; d<=maxDSlice; d++)
-	    for(int w=minWSlice; w<=maxWSlice; w++)
-	      for(int h=minHSlice; h<=maxHSlice; h++)
-		{
-		  int vox = volData[d*width*height + w*height + h];
-		  uchar mtag = maskData[d*width*height + w*height + h];
-		  vtmin[mtag] = qMin(vtmin[mtag], vox);
-		  vtmax[mtag] = qMax(vtmax[mtag], vox);
-		}
-	  for (int u=0; u<256; u++)
-	    vtdif[u] = vtmax[u]-vtmin[u];
-	}
-      else
-	{
-	  for(int d=minDSlice; d<=maxDSlice; d++)
-	    for(int w=minWSlice; w<=maxWSlice; w++)
-	      for(int h=minHSlice; h<=maxHSlice; h++)
-		{
-		  int vox = volDataUS[d*width*height + w*height + h];
-		  uchar mtag = maskData[d*width*height + w*height + h];
-		  vtmin[mtag] = qMin(vtmin[mtag], vox);
-		  vtmax[mtag] = qMax(vtmax[mtag], vox);
-		}
-	  for (int u=0; u<65536; u++)
-	    vtdif[u] = vtmax[u]-vtmin[u];
-	}
-
-    }
-  //----------------------------------
-
   
-  bool reloadData = false;
 
   for(int d=minDSlice; d<=maxDSlice; d++)
     {
@@ -3674,99 +3530,53 @@ DrishtiPaint::on_actionExtractTag_triggered()
       if (Global::bytesPerVoxel() == 2)
 	sliceUS = (ushort*)slice;
       
-      if (extractType < 7 || extractType == 9)
+      // we get value+grad from volume
+      // we need only value part
+      if (Global::bytesPerVoxel() == 1)
 	{
-	  // we get value+grad from volume
-	  // we need only value part
-	  if (Global::bytesPerVoxel() == 1)
-	    {
-	      int i=0;
-	      for(int w=minWSlice; w<=maxWSlice; w++)
-		for(int h=minHSlice; h<=maxHSlice; h++)
-		  {
-		    slice[i] = slice[w*height+h];
-		    i++;
-		  }
-	    }
-	  else
-	    {
-	      int i=0;
-	      for(int w=minWSlice; w<=maxWSlice; w++)
-		for(int h=minHSlice; h<=maxHSlice; h++)
-		  {
-		    sliceUS[i] = sliceUS[w*height+h];
-		    i++;
-		  }
-	    }
-	}
-      
-	  
-      if (tag[0] <= -2)
-	memcpy(raw, m_volume->getMaskDepthSliceImage(d), nbytesRAW);
-      else if (extractType < 7)
-	{
-	  memcpy(raw, m_volume->getMaskDepthSliceImage(d), nbytesRAW);
-
-	  if (tag[0] == -1)
-	    {
-	      for(int w=minWSlice; w<=maxWSlice; w++)
-		for(int h=minHSlice; h<=maxHSlice; h++)
-		  raw[w*height+h] = (raw[w*height+h] > 0 ? 255 : 0);
-
-//	      // apply curve mask
-//	      for(int w=minWSlice; w<=maxWSlice; w++)
-//		for(int h=minHSlice; h<=maxHSlice; h++)
-//		  {
-//		    if (curveMask[slc*twidth*theight +
-//				  (w-minWSlice)*theight +
-//				  (h-minHSlice)] > 0)
-//		      raw[w*height+h] = 255;
-//		  }
-	    }
-	  else if (tag[0] == 0)
-	    {
-	      for(int w=minWSlice; w<=maxWSlice; w++)
-		for(int h=minHSlice; h<=maxHSlice; h++)
-		  raw[w*height+h] = (raw[w*height+h] == 0 ? 255 : 0);
-	      
-//	      // apply curve mask
-//	      for(int w=minWSlice; w<=maxWSlice; w++)
-//		for(int h=minHSlice; h<=maxHSlice; h++)
-//		  {
-//		    if (curveMask[slc*twidth*theight +
-//				  (w-minWSlice)*theight +
-//				  (h-minHSlice)] > 0)
-//		      raw[w*height+h] = 0;
-//		  }
-	    }
-	  else
-	    {
-	      for(int w=minWSlice; w<=maxWSlice; w++)
-		for(int h=minHSlice; h<=maxHSlice; h++)
-		  raw[w*height+h] = (tag.contains(raw[w*height+h]) ? 255 : 0);
-	      
-//	      // apply curve mask
-//	      for(int w=minWSlice; w<=maxWSlice; w++)
-//		for(int h=minHSlice; h<=maxHSlice; h++)
-//		  {
-//		    if (tag.contains(curveMask[slc*twidth*theight +
-//					       (w-minWSlice)*theight +
-//					       (h-minHSlice)]))
-//		      raw[w*height+h] = 255;
-//		  }
-	    }
+	  int i=0;
+	  for(int w=minWSlice; w<=maxWSlice; w++)
+	    for(int h=minHSlice; h<=maxHSlice; h++)
+	      {
+		slice[i] = slice[w*height+h];
+		i++;
+	      }
 	}
       else
 	{
-	  if (extractType == 7 || extractType == 9)
-	    memcpy(raw, m_volume->getMaskDepthSliceImage(d), nbytesRAW);
-	  else
-	    memset(raw, 0, nbytesRAW);
-
+	  int i=0;
+	  for(int w=minWSlice; w<=maxWSlice; w++)
+	    for(int h=minHSlice; h<=maxHSlice; h++)
+	      {
+		sliceUS[i] = sliceUS[w*height+h];
+		i++;
+	      }
 	}
-
+      	  
+      memcpy(raw, m_volume->getMaskDepthSliceImage(d), nbytesRAW);
 
       //-----------------------------
+      {
+	// convert 16bit labels into 8bit mask
+	if (tag[0] == -1)
+	  {
+	    for(int w=minWSlice; w<=maxWSlice; w++)
+	      for(int h=minHSlice; h<=maxHSlice; h++)
+		raw[w*height+h] = (((ushort*)raw)[w*height+h] > 0 ? 255 : 0);
+	  }
+	else if (tag[0] == 0)
+	  {
+	    for(int w=minWSlice; w<=maxWSlice; w++)
+	      for(int h=minHSlice; h<=maxHSlice; h++)
+		raw[w*height+h] = (((ushort*)raw)[w*height+h] == 0 ? 255 : 0);
+	  }
+	else
+	  {
+	    for(int w=minWSlice; w<=maxWSlice; w++)
+	      for(int h=minHSlice; h<=maxHSlice; h++)
+		raw[w*height+h] = (tag.contains(((ushort*)raw)[w*height+h]) ? 255 : 0);
+	  }
+      }
       //-----------------------------
 
 
@@ -3785,7 +3595,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
 
       //-----------------------------
       // use tag mask + transfer function to extract volume data
-      if (extractType == 2 || extractType == 4 || extractType == 6)
+      if (extractType == 2)
 	{
 	  int sval = 0;
 	  if (tag[0] == -1) sval = 0;
@@ -3822,151 +3632,36 @@ DrishtiPaint::on_actionExtractTag_triggered()
       //-----------------------------
 
       
-      // now mask data with tag
-      if (saveImageData)
-	{
-	  if (tag[0] == -3)
-	    {
-	      int i=0;
-	      for(int w=minWSlice; w<=maxWSlice; w++)
-	      for(int h=minHSlice; h<=maxHSlice; h++)
-		{
-		  bool clipped = VolumeOperations::checkClipped(Vec(h,w,d));
-		  
-		  if (Global::bytesPerVoxel() == 1)
-		    {
-		      if (clipped ||
-			  lut[4*slice[i]+3]*Global::tagColors()[4*raw[i]+3] == 0)
-			slice[i] = outsideVal;
-		      else
-			{
-			  int li = 4*slice[i];
-			  slice[i] = 0.299*lut[li + 0] + 0.587*lut[li+1] + 0.114*lut[li+2];
-			}
-		    }
-		  else
-		    {
-		      if (clipped ||
-			  lut[4*slice[i]+3]*Global::tagColors()[4*raw[i]+3] == 0)
-			sliceUS[i] = outsideVal;
-		      else
-			{
-			  int li = 4*sliceUS[i];
-			  sliceUS[i] = 0.299*lut[li + 0] + 0.587*lut[li+1] + 0.114*lut[li+2];
-			}
-		    }		  
-		  i++;
-		}
-	    }
-	  else if (tag[0] == -2)
-	    {
-	      int i=0;
-	      for(int w=minWSlice; w<=maxWSlice; w++)
-	      for(int h=minHSlice; h<=maxHSlice; h++)
-		{
-		  bool clipped = VolumeOperations::checkClipped(Vec(h,w,d));
-		  
-		  if (Global::bytesPerVoxel() == 1)
-		    {
-		      if (clipped ||
-			  lut[4*slice[i]+3]*Global::tagColors()[4*raw[i]+3] == 0)
-			slice[i] = outsideVal;
-		      else
-			slice[i] = qBound(0, (int)(scaleVox*slice[i] + shiftVox), 255);
-		    }
-		  else
-		    {
-		      if (clipped ||
-			  lut[4*slice[i]+3]*Global::tagColors()[4*raw[i]+3] == 0)
-			sliceUS[i] = outsideVal;
-		      else
-			sliceUS[i] = qBound(0, (int)(scaleVox*sliceUS[i] + shiftVox), 65535);
-		}
-
-		  i++;
-		}
-	    }
-	  else if (extractType != 9)
-	    {			      
-	      int i=0;
-	      for(int w=minWSlice; w<=maxWSlice; w++)
-	      for(int h=minHSlice; h<=maxHSlice; h++)
-		{
-		  bool clipped = VolumeOperations::checkClipped(Vec(h,w,d));
-
-		  if (Global::bytesPerVoxel() == 1)
-		    {
-		      if (!clipped)
-			{
-			  if (raw[i] != 255)
-			    slice[i] = outsideVal;
-			}
-		    }
-		  else
-		    {
-		      if (!clipped)
-			{
-			  if (raw[i] != 255)
-			    sliceUS[i] = outsideVal;
-			}
-		    }
-		  i++;
-		}
-	    }
-	  else // extract Tomogram + Tags
-	    {
-	      // scale and shift tomogram
-	      // clamp between (0,255)
-//	      for(int i=0; i<twidth*theight; i++)
-//		slice[i] = qMin(qMax((int)(scaleVox*slice[i] + shiftVox), 0), 255);
-	      // merge in tag values
-	      int i=0;
-	      for(int w=minWSlice; w<=maxWSlice; w++)
-	      for(int h=minHSlice; h<=maxHSlice; h++)
-		{
-		  bool clipped = VolumeOperations::checkClipped(Vec(h,w,d));
-
-		  if (Global::bytesPerVoxel() == 1)
-		    {
-		      if (!clipped)
-			{
-			  if ( (tag[0] == -1 && raw[i] != 0) ||
-			       tag.contains(raw[i]) )
-			    slice[i] = raw[i] + tagWidth*(float)(slice[i]-vtmin[raw[i]])/vtdif[raw[i]];
-			  else
-			    slice[i] = qBound(0, (int)(scaleVox*slice[i] + shiftVox), 255);
-			}
-		      else
-			slice[i] = 0;
-		    }
-		  else
-		    {
-		      if (!clipped)
-			{
-			  if ( (tag[0] == -1 && raw[i] != 0) ||
-			       tag.contains(raw[i]) )
-			    sliceUS[i] = raw[i] + tagWidth*(float)(sliceUS[i]-vtmin[raw[i]])/vtdif[raw[i]];
-			  else
-			    sliceUS[i] = qBound(0, (int)(scaleVox*sliceUS[i] + shiftVox), 65535);
-			}
-		      else
-			sliceUS[i] = 0;
-		    }
-		  i++;
-		}
-	    }
-
-	  tFile.setSlice(slc, slice);
-	}
-      else
-	tFile.setSlice(slc, raw);
+      // now mask data with labels
+      int i=0;
+      for(int w=minWSlice; w<=maxWSlice; w++)
+	for(int h=minHSlice; h<=maxHSlice; h++)
+	  {
+	    bool clipped = VolumeOperations::checkClipped(Vec(h,w,d));
+	    
+	    if (Global::bytesPerVoxel() == 1)
+	      {
+		if (!clipped)
+		  {
+		    if (raw[i] != 255)
+		      slice[i] = outsideVal;
+		  }
+	      }
+	    else
+	      {
+		if (!clipped)
+		  {
+		    if (raw[i] != 255)
+		      sliceUS[i] = outsideVal;
+		  }
+	      }
+	    i++;
+	  }	  
+      tFile.setSlice(slc, slice);
     }
 
   delete [] raw;
-//  delete [] curveMask;
 
-  if (reloadData)
-    m_volume->loadMemFile();
   
   progress.setValue(100);  
   QMessageBox::information(0, "Save", "-----Done-----");
@@ -4057,184 +3752,12 @@ DrishtiPaint::updateCurveMask(uchar *curveMask,
   progress.setValue(100);
 }
 
-void
-DrishtiPaint::processHoles(uchar* data,
-			  int d, int w, int h,
-			  int holeSize)
-{
-  QProgressDialog progress("Closing holes",
-			   QString(),
-			   0, 100,
-			   0,
-			   Qt::WindowStaysOnTopHint);
-  if (holeSize < 0)
-    progress.setLabelText("Opening holes");
-
-  progress.setMinimumDuration(0);
-
-
-  QList<Vec> voxels;
-  
-  for(int nc=0; nc < 2; nc++)
-    {
-      int aval, bval;
-      if (holeSize > 0)
-	{
-	  aval = (nc==0) ? 0 : 255;
-	  bval = (nc==0) ? 255 : 0;
-	}
-      else
-	{
-	  aval = (nc>0) ? 0 : 255;
-	  bval = (nc>0) ? 255 : 0;
-	}
-
-      // find edge voxels
-      progress.setLabelText("Identifying boundary voxels ... ");
-      voxels.clear();
-      for(int i=1; i<d-1; i++)
-	{
-	  progress.setValue((int)(100.0*(float)i/(float)(d)));
-	  qApp->processEvents();
-	  for(int j=1; j<w-1; j++)
-	    for(int k=1; k<h-1; k++)
-	      {
-		if (data[i*w*h + j*h + k] == aval)
-		  {
-		    int is = qMax(0, i-1);
-		    int js = qMax(0, j-1);
-		    int ks = qMax(0, k-1);
-		    int ie = qMin(d-1, i+1);
-		    int je = qMin(w-1, j+1);
-		    int ke = qMin(h-1, k+1);
-		    for(int ii=is; ii<=ie; ii++)
-		      for(int jj=js; jj<=je; jj++)
-			for(int kk=ks; kk<=ke; kk++)
-			  if (data[ii*w*h + jj*h + kk] == bval)
-			    {
-			      voxels << Vec(i,j,k);
-			      break;
-			    }
-		  }
-	      }
-	}
-
-      // now dilate
-      if (nc)
-	progress.setLabelText("Eroding boundary ... ");
-      else
-	progress.setLabelText("Dilating boundary ... ");
-
-      int nv = voxels.count();
-      for(int v=0; v<nv; v++)
-	{
-	  progress.setValue((int)(100.0*(float)v/(float)(nv)));
-	  qApp->processEvents();
-
-	  int i = voxels[v].x;
-	  int j = voxels[v].y;
-	  int k = voxels[v].z;
-	  int is = qBound(0, i-holeSize, d-1);
-	  int js = qBound(0, j-holeSize, w-1);
-	  int ks = qBound(0, k-holeSize, h-1);
-	  int ie = qBound(0, i+holeSize, d-1);
-	  int je = qBound(0, j+holeSize, w-1);
-	  int ke = qBound(0, k+holeSize, h-1);
-	  for(int ii=is; ii<=ie; ii++)
-	    for(int jj=js; jj<=je; jj++)
-	      for(int kk=ks; kk<=ke; kk++)
-		{
-		  float p = ((i-ii)*(i-ii)+
-			     (j-jj)*(j-jj)+
-			     (k-kk)*(k-kk));
-		  if (p <= holeSize*holeSize)
-		    data[ii*w*h + jj*h + kk] = aval;
-		}
-	}
-    }
-
-  progress.setValue(100);
-}
 
 void
 DrishtiPaint::dilateAndSmooth(uchar* data,
 			      int d, int w, int h,
 			      int spread)
 {
-//  QProgressDialog progress("Dilating before smoothing",
-//			   QString(),
-//			   0, 100,
-//			   0,
-//			   Qt::WindowStaysOnTopHint);
-//  progress.setMinimumDuration(0);
-//
-//  // dilate spread times before applying smoothing
-//  QList<uchar*> slc;
-//  for(int diter=0; diter<=spread; diter++)
-//    slc << new uchar[w*h];
-//
-//  for(int diter=0; diter<=spread; diter++)
-//    memcpy(slc[diter], data+(diter+1)*w*h, w*h);
-//
-//  for(int i=1; i<d-1; i++)
-//    {
-//      progress.setValue((int)(100.0*(float)i/(float)(d)));
-//      qApp->processEvents();
-//
-//      for(int j=1; j<w-1; j++)
-//	for(int k=1; k<h-1; k++)
-//	  {
-//	    int val = slc[0][j*h + k];
-//	    if (val == 0)
-//	      {
-//		int is = qMax(0, i-spread);
-//		int js = qMax(0, j-spread);
-//		int ks = qMax(0, k-spread);
-//		int ie = qMin(d-1, i+spread);
-//		int je = qMin(w-1, j+spread);
-//		int ke = qMin(h-1, k+spread);
-//		for(int ii=is; ii<=ie; ii++)
-//		  for(int jj=js; jj<=je; jj++)
-//		    for(int kk=ks; kk<=ke; kk++)
-//		      {
-//			float p = ((i-ii)*(i-ii)+
-//				   (j-jj)*(j-jj)+
-//				   (k-kk)*(k-kk));
-//			if (p < spread*spread)
-//			  data[ii*w*h + jj*h + kk] = 0;
-//		      }
-//	      }
-//	  }
-//      
-//      uchar *tmp = slc[0];
-//      for(int diter=0; diter<=spread; diter++)
-//	{
-//	  if (diter<spread)
-//	    slc[diter] = slc[diter+1];
-//	  else
-//	    slc[diter] = tmp;
-//	}
-//      if (i < d-spread-1)
-//	memcpy(slc[spread], data+(i+spread+1)*w*h, w*h);
-//    }
-//
-//  for(int diter=0; diter<=spread; diter++)
-//    delete [] slc[diter];
-//
-//  progress.setValue(100);
-
-//  // dilate 0s via smoothing followed by saturation
-//  smoothData(data, d, w, h, qMax(1,spread-1));
-//  qint64 dwh = d;
-//  dwh *= w;
-//  dwh *= h;
-//  int val = 255.0/qPow(spread, 3.0);
-//  for(qint64 i=0; i<dwh; i++)
-//    {
-//      data[i] = (data[i] < val ? 0 : data[i]);
-//    }
-//
-
   // now apply final smoothing
   smoothData(data, d, w, h, qMax(1,spread-1));
 
@@ -4268,15 +3791,6 @@ DrishtiPaint::dilateAndSmooth(uchar* data,
   for(int i=0; i<d; i++)
     for(int j=0; j<w; j++)
       data[i*w*h + j*h + (h-1)] = 255;
-  
-//  // invert
-//  {
-//    qint64 dwh = d;
-//    dwh *= w;
-//    dwh *= h;
-//    for(qint64 i=0; i<dwh; i++)
-//      data[i] = 255 - data[i];
-//  }
 }
 
 void
@@ -4409,8 +3923,8 @@ DrishtiPaint::on_actionMeshTag_triggered()
   QList<int> tag;
 
   bool ok;
-  QString tagstr = QInputDialog::getText(0, "Save Mesh for Tag",
-	    "Tag Numbers\ntags should be separated by space.\n-2 mesh whatever is visible.\n-1 mesh all tagged region.\n 0 mesh region that is not tagged.\n 1-254 for individual tags.\nFor e.g. 1 2 5 will mesh region tagged with tags 1, 2 and 5)",
+  QString tagstr = QInputDialog::getText(0, "Save Mesh for Label",
+	    "Label Numbers\nlabels should be separated by space.\n-2 mesh whatever is visible.\n-1 mesh all labeled region.\n 0 mesh region that is not labeled.\n 1-254 for individual labels.\nFor e.g. 1 2 5 will mesh region labeled with labels 1, 2 and 5)",
 					 QLineEdit::Normal,
 					 "-2",
 					 &ok);
@@ -4461,9 +3975,9 @@ DrishtiPaint::on_actionMeshTag_triggered()
       if (tag[0] == -2)
 	{
 	  dtypes << "User Color"
-		 << "Tag Color"
+		 << "Label Color"
 		 << "Transfer Function"
-		 << "Tag Color + Transfer Function";
+		 << "Label Color + Transfer Function";
 	  
 	  QString option = QInputDialog::getItem(0,
 						 "Mesh Color",
@@ -4476,17 +3990,17 @@ DrishtiPaint::on_actionMeshTag_triggered()
 	    return;
       
 	  colorType = 0;
-	  if (option == "Tag Color") colorType = 1;
-	  else if (option == "Tag Color + Transfer Function") colorType = 3;
+	  if (option == "Label Color") colorType = 1;
+	  else if (option == "Label Color + Transfer Function") colorType = 3;
 	  else if (option == "Transfer Function") colorType = 5;
 	}
 
       if (tag[0] > -2)
 	{
-	  dtypes << "Tag Color"
+	  dtypes << "Label Color"
 		 << "Transfer Function"
-		 << "Tag Color + Transfer Function"
-		 << "Tag Mask + Transfer Function"
+		 << "Label Color + Transfer Function"
+		 << "Label Mask + Transfer Function"
 		 << "User Color";
 
 	  QString option = QInputDialog::getItem(0,
@@ -4499,10 +4013,10 @@ DrishtiPaint::on_actionMeshTag_triggered()
 	  if (!ok)
 	    return;
       
-	  if (option == "Tag Color") colorType = 1;
+	  if (option == "Label Color") colorType = 1;
 	  else if (option == "Transfer Function") colorType = 2;
-	  else if (option == "Tag Color + Transfer Function") colorType = 3;
-	  else if (option == "Tag Mask + Transfer Function") colorType = 4;
+	  else if (option == "Label Color + Transfer Function") colorType = 3;
+	  else if (option == "Label Mask + Transfer Function") colorType = 4;
 	  else colorType = 0;
 	}
       
@@ -4560,9 +4074,9 @@ DrishtiPaint::on_actionMeshTag_triggered()
   progress.setMinimumDuration(0);
 
   //----------------------------------
-  uchar *curveMask;
-  curveMask = new uchar[tdepth*twidth*theight];
-  memset(curveMask, 0, tdepth*twidth*theight);
+  ushort *curveMask;
+  curveMask = new ushort[tdepth*twidth*theight];
+  memset(curveMask, 0, 2*tdepth*twidth*theight);
   
   uchar *lut = Global::lut();
 
@@ -4570,9 +4084,9 @@ DrishtiPaint::on_actionMeshTag_triggered()
   QList<Vec> cNorm = m_viewer->clipNorm();
   
 
-  int nbytes = width*height;
-  uchar *raw = new uchar[width*height];
-  uchar *mask = new uchar[width*height]; 
+  int nbytes = width*height*2;
+  uchar *raw = new uchar[nbytes];
+  ushort *mask = new ushort[nbytes]; 
   for(int dsn=0; dsn<tdepth; dsn++)
     {
       int d = minDSlice + dsn;
@@ -4610,7 +4124,7 @@ DrishtiPaint::on_actionMeshTag_triggered()
 		mask[i] = mask[w*height+h];
 		i++;
 	      }
-	  memcpy(curveMask+slc*twidth*theight, mask, twidth*theight);
+	  memcpy(curveMask+slc*twidth*theight, mask, 2*twidth*theight);
 	}
       else
 	{
@@ -4621,48 +4135,18 @@ DrishtiPaint::on_actionMeshTag_triggered()
 	      for(int w=minWSlice; w<=maxWSlice; w++)
 		for(int h=minHSlice; h<=maxHSlice; h++)
 		  raw[w*height+h] = (mask[w*height+h] > 0 ? 0 : 255);
-	      
-//	      // apply curve mask
-//	      for(int w=minWSlice; w<=maxWSlice; w++)
-//		for(int h=minHSlice; h<=maxHSlice; h++)
-//		  {
-//		    if (curveMask[slc*twidth*theight +
-//				  (w-minWSlice)*theight +
-//				  (h-minHSlice)] > 0)
-//		      raw[w*height+h] = 0;
-//		  }
 	    }
 	  else if (tag[0] == 0)
 	    {
 	      for(int w=minWSlice; w<=maxWSlice; w++)
 		for(int h=minHSlice; h<=maxHSlice; h++)
 		  raw[w*height+h] = (mask[w*height+h] > 0 ? 255 : 0);
-	      
-//	      // apply curve mask
-//	      for(int w=minWSlice; w<=maxWSlice; w++)
-//		for(int h=minHSlice; h<=maxHSlice; h++)
-//		  {
-//		    if (curveMask[slc*twidth*theight +
-//				  (w-minWSlice)*theight +
-//				  (h-minHSlice)] > 0)
-//		      raw[w*height+h] = 255;
-//		  }
 	    }
 	  else
 	    {
 	      for(int w=minWSlice; w<=maxWSlice; w++)
 		for(int h=minHSlice; h<=maxHSlice; h++)
 		  raw[w*height+h] = (tag.contains(mask[w*height+h]) ? 0 : 255);
-	      
-//	      // apply curve mask
-//	      for(int w=minWSlice; w<=maxWSlice; w++)
-//		for(int h=minHSlice; h<=maxHSlice; h++)
-//		  {
-//		    if (tag.contains(curveMask[slc*twidth*theight +
-//					       (w-minWSlice)*theight +
-//					       (h-minHSlice)]))
-//		      raw[w*height+h] = 0;
-//		  }
 	    }
 
 	  //-----------------------------
@@ -4795,14 +4279,16 @@ DrishtiPaint::on_actionMeshTag_triggered()
       if (morphoType == 3)
 	{
 	  progress.setLabelText("Applying Morphological Closing");
-	  vdb.offset(-offset); // dilate
-	  vdb.offset(offset); // erode
+	  vdb.close(-offset, offset);
+	  //vdb.offset(-offset); // dilate
+	  //vdb.offset(offset); // erode
 	}
       if (morphoType == 4)
 	{
 	  progress.setLabelText("Applying Morphological Opening");
-	  vdb.offset(offset); // erode
-	  vdb.offset(-offset); // dilate
+	  vdb.open(offset, -offset);
+	  //vdb.offset(offset); // erode
+	  //vdb.offset(-offset); // dilate
 	}
       
       progress.setValue(60);  
@@ -4922,35 +4408,6 @@ DrishtiPaint::on_actionMeshTag_triggered()
 
   return;
 //==========================================================================
-
-
-  
-//  //----------------------------------
-//  if (holeSize != 0)
-//    processHoles(meshingData,
-//		mtdepth, mtwidth, mtheight,
-//		holeSize);
-//  //----------------------------------
-//
-//  //----------------------------------
-//  // add a border to make a watertight mesh when the isosurface
-//  // touches the border
-//  for(int i=0; i<mtdepth; i++)
-//    for(int j=0;j<mtwidth; j++)
-//      for(int k=0;k<mtheight; k++)
-//	{
-//	  if (i==0 || i == mtdepth-1 ||
-//	      j==0 || j == mtwidth-1 ||
-//	      k==0 || k == mtheight-1)
-//	    if (meshingData[i*mtwidth*mtheight+j*mtheight+k] < 255)
-//	      meshingData[i*mtwidth*mtheight+j*mtheight+k] = 255;
-//	}
-//  //----------------------------------
-
-
-//  delete [] curveMask;
-//
-//  QMessageBox::information(0, "Save", "-----Done-----");
 }
 
 
@@ -4959,7 +4416,7 @@ DrishtiPaint::colorMesh(QVector<QVector3D>& C,
 			QVector<QVector3D> V,
 			QVector<QVector3D> N,
 			int colorType,
-			uchar *tagdata,
+			ushort *tagdata,
 			int minHSlice, int minWSlice, int minDSlice,
 			int theight, int twidth, int tdepth,
 			int spread, int lod)
@@ -5130,10 +4587,7 @@ DrishtiPaint::paint3D(Vec bmin, Vec bmax,
   if (Global::bytesPerVoxel() == 2)
     volDataUS = (ushort*)volData;
   
-  uchar *maskData = m_volume->memMaskDataPtr();
-  ushort *maskDataUS = 0;
-  if (Global::bytesPerMask() == 2)
-    maskDataUS = (ushort*)maskData;
+  ushort *maskDataUS = m_volume->memMaskDataPtrUS();
   
 
   //----------------
@@ -5244,11 +4698,7 @@ DrishtiPaint::paint3D(Vec bmin, Vec bmax,
 		      else
 			val = volDataUS[dd*m_width*m_height + ww*m_height + hh];
 
-		      int mtag;
-		      if (!maskDataUS)
-			mtag = maskData[dd*m_width*m_height + ww*m_height + hh];
-		      else
-			mtag = maskDataUS[dd*m_width*m_height + ww*m_height + hh];
+		      int mtag = maskDataUS[dd*m_width*m_height + ww*m_height + hh];
 
 		      bool opaque =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);
 
@@ -5288,10 +4738,7 @@ DrishtiPaint::paint3D(Vec bmin, Vec bmax,
 	    {
 	      if (bitmask.testBit((dd-ds)*dm2 + (ww-ws)*dm + (hh-hs)))
 		{
-		  if (!maskDataUS)
-		    maskData[dd*m_width*m_height + ww*m_height + hh] = tag;
-		  else
-		    maskDataUS[dd*m_width*m_height + ww*m_height + hh] = tag;
+		  maskDataUS[dd*m_width*m_height + ww*m_height + hh] = tag;
 
 		  minD = qMin(minD, (int)dd);
 		  maxD = qMax(maxD, (int)dd);
@@ -5321,10 +4768,7 @@ DrishtiPaint::paint3D(Vec bmin, Vec bmax,
 	  qint64 w0 = seeds[i].y;
 	  qint64 d0 = seeds[i].z;
 
-	  if (!maskDataUS)
-	    maskData[d0*m_width*m_height + w0*m_height + h0] = tag;
-	  else
-	    maskDataUS[d0*m_width*m_height + w0*m_height + h0] = tag;
+	  maskDataUS[d0*m_width*m_height + w0*m_height + h0] = tag;
 
 	  bitmask.setBit((d0-ds)*dm2 + (w0-ws)*dm + (h0-hs), false);
 	  stack.push(Vec(d0, w0, h0));
@@ -5352,10 +4796,7 @@ DrishtiPaint::paint3D(Vec bmin, Vec bmax,
 		{
 		  bitmask.setBit(bidx, false);
 
-		  if (!maskDataUS)
-		    maskData[d2*m_width*m_height + w2*m_height + h2] = tag;
-		  else
-		    maskDataUS[d2*m_width*m_height + w2*m_height + h2] = tag;
+		  maskDataUS[d2*m_width*m_height + w2*m_height + h2] = tag;
 
 		  stack.push(Vec(d2,w2,h2));
 		  
@@ -5478,10 +4919,7 @@ DrishtiPaint::tagUsingSketchPad(Vec bmin, Vec bmax, int tag)
   if (Global::bytesPerVoxel() == 2)
     volDataUS = m_volume->memVolDataPtrUS();
 
-  uchar *maskData = m_volume->memMaskDataPtr();
-  ushort *maskDataUS = 0;
-  if (Global::bytesPerMask() == 2)
-    maskDataUS = m_volume->memMaskDataPtrUS();
+  ushort *maskDataUS = m_volume->memMaskDataPtrUS();
 
   int indices[] = {-1, 0, 0,
 		    1, 0, 0,
@@ -5548,10 +4986,7 @@ DrishtiPaint::tagUsingSketchPad(Vec bmin, Vec bmax, int tag)
   stack.push(Vec(dr,wr,hr));
 
   qint64 idx = ((qint64)dr)*m_width*m_height + (qint64)wr*m_height + hr;
-  if (!maskDataUS)
-    maskData[idx] = tag;
-  else
-    maskDataUS[idx] = tag;
+  maskDataUS[idx] = tag;
 
   qint64 bidx = (dr-ds)*mx*my+(wr-ws)*mx+(hr-hs);
   bitmask.setBit(bidx);
@@ -5607,8 +5042,7 @@ DrishtiPaint::tagUsingSketchPad(Vec bmin, Vec bmax, int tag)
 		      int val = volData[idx];
 		      if (volDataUS) val = volDataUS[idx];
 
-		      int mtag = maskData[idx];
-		      if (maskDataUS) mtag = maskDataUS[idx];
+		      int mtag = maskDataUS[idx];
 			
 		      bool visible = (lut[4*val+3] > 0) && (Global::tagColors()[4*mtag+3] > 0);
 
@@ -5628,10 +5062,7 @@ DrishtiPaint::tagUsingSketchPad(Vec bmin, Vec bmax, int tag)
 
 		      if (visible) // tag only visible region
 			{
-			  if (!maskDataUS)
-			    maskData[idx] = tag;
-			  else
-			    maskDataUS[idx] = tag;
+			  maskDataUS[idx] = tag;
 			  
 			  minD = qMin(minD, (int)d2);
 			  maxD = qMax(maxD, (int)d2);
@@ -5827,10 +5258,7 @@ DrishtiPaint::reloadMask()
   if (!m_volume->isValid())
     return;
     
-  if (Global::bytesPerMask() == 1)
-    m_volume->setMaskVoxelType(0);
-  else
-    m_volume->setMaskVoxelType(2);
+  m_volume->setMaskVoxelType(2);
 			     
   m_volume->reloadMask();
 
@@ -6498,29 +5926,6 @@ DrishtiPaint::bakeCurves_clicked()
 			       minHSlice, maxHSlice,
 			       tag,
 			       gradType, minGrad, maxGrad);
-			       
-//  uchar *maskData = m_volume->memMaskDataPtr();
-//
-//  for(int d=minDSlice; d<=maxDSlice; d++)
-//    {
-//      int slc = d-minDSlice;
-//      progress.setValue((int)(100*(float)slc/(float)tdepth));
-//      qApp->processEvents();
-//
-//      for(int w=minWSlice; w<=maxWSlice; w++)
-//	for(int h=minHSlice; h<=maxHSlice; h++)
-//	  {
-//	    uchar cm = curveMask[slc*twidth*theight +
-//				 (w-minWSlice)*theight +
-//				 (h-minHSlice)];
-//	    if (cm > 0)
-//	      {
-//		qint64 idx = d*width*height + w*height + h;
-//		maskData[idx] = cm;
-//	      }
-//	  }
-//      
-//    }
 
   delete [] curveMask;
 
@@ -6565,37 +5970,41 @@ DrishtiPaint::on_changeSliceOrdering_triggered()
   int depth, width, height;
   m_volume->gridSize(depth, width, height);
 
-  int nbytes = width*height*Global::bytesPerVoxel();
-  uchar *tmp = new uchar[nbytes];
-  if (!volUS)
-    {
-      for(int d=0; d<depth/2; d++)
-	{
-	  memcpy(tmp, vol+d*nbytes, nbytes);
-	  memcpy(vol+d*nbytes, vol+(depth-1-d)*nbytes, nbytes);
-	  memcpy(vol+(depth-1-d)*nbytes, tmp, nbytes);
-	}
-    }
-  else
-    {
-      for(int d=0; d<depth/2; d++)
-	{
-	  memcpy(tmp, volUS+d*nbytes, nbytes);
-	  memcpy(volUS+d*nbytes, volUS+(depth-1-d)*nbytes, nbytes);
-	  memcpy(volUS+(depth-1-d)*nbytes, tmp, nbytes);
-	}
-    }
+  {
+    int nbytes = width*height*Global::bytesPerVoxel();
+    uchar *tmp = new uchar[nbytes];
+    if (!volUS)
+      {
+	for(int d=0; d<depth/2; d++)
+	  {
+	    memcpy(tmp, vol+d*nbytes, nbytes);
+	    memcpy(vol+d*nbytes, vol+(depth-1-d)*nbytes, nbytes);
+	    memcpy(vol+(depth-1-d)*nbytes, tmp, nbytes);
+	  }
+      }
+    else
+      {
+	for(int d=0; d<depth/2; d++)
+	  {
+	    memcpy(tmp, volUS+d*nbytes, nbytes);
+	    memcpy(volUS+d*nbytes, volUS+(depth-1-d)*nbytes, nbytes);
+	    memcpy(volUS+(depth-1-d)*nbytes, tmp, nbytes);
+	  }
+      }
+    delete [] tmp;
+  }
+  {
+    int nbytes = 2*width*height;    // mask is 16bit per voxel
+    uchar *tmp = new uchar[nbytes];
+    for(int d=0; d<depth/2; d++)
+      {
+	memcpy(tmp, mask+d*nbytes, nbytes);
+	memcpy(mask+d*nbytes, mask+(depth-1-d)*nbytes, nbytes);
+	memcpy(mask+(depth-1-d)*nbytes, tmp, nbytes);
+      }
 
-  // masks are currently single byte per voxel
-  nbytes = width*height;
-  for(int d=0; d<depth/2; d++)
-    {
-      memcpy(tmp, mask+d*nbytes, nbytes);
-      memcpy(mask+d*nbytes, mask+(depth-1-d)*nbytes, nbytes);
-      memcpy(mask+(depth-1-d)*nbytes, tmp, nbytes);
-    }
-
-  delete [] tmp;
+    delete [] tmp;
+  }
 
   m_viewer->generateBoxMinMax();
   m_viewer->updateVoxels();
@@ -6610,23 +6019,6 @@ DrishtiPaint::on_changeSliceOrdering_triggered()
 
   m_volume->saveModifiedOriginalVolume();
   m_volume->saveIntermediateResults(true);
-}
-
-void
-DrishtiPaint::switchLabelBits(bool checked)
-{
-  if (checked)
-    {
-      QMessageBox::information(0, "", " Switching to 16 bit labels.\n Previous label information will be erased.");
-      Global::setBytesPerMask(2);
-    }
-  else
-    {
-      QMessageBox::information(0, "", " Switching to 8 bit labels.\n Previous label information will be erased.");
-      Global::setBytesPerMask(1);
-    }
-
-  reloadMask();
 }
 
 void
@@ -6804,7 +6196,6 @@ DrishtiPaint::extractFromAnotherVolume(QList<int> tags)
       savePvlHeader(m_volume->fileName(),
 		    tflnm,
 		    atdepth, atwidth, atheight,
-		    true,
 		    bpv);
       
       QStringList tflnms;
@@ -6984,34 +6375,13 @@ DrishtiPaint::tagsUsed(QList<int> ut)
     {
       if (ut[ti] > 0)
 	{
-	  if (x%5 == 0)
-	    mesg += "\n";
-	  if (Global::bytesPerMask()==1)
-	    mesg += QString("(%1) %2  :  ").arg(ut[ti]).arg(tagNames[ut[ti]]);
-	  else
-	    mesg += QString("%1 :  ").arg(ut[ti]);
+	  if (x%5 == 0) mesg += "\n";
+	  mesg += QString("%1 :  ").arg(ut[ti]);
 	  x++;
 	}
     }
 
   StaticFunctions::showMessage("Labels Used", mesg);
-//  //-----
-//  //-----
-//  QTextEdit *tedit = new QTextEdit();
-//  tedit->setPlainText(tmesg);
-//  tedit->setReadOnly(true);
-//  
-//  QVBoxLayout *layout = new QVBoxLayout();
-//  layout->addWidget(tedit);
-//	
-//  QDialog *info = new QDialog();
-//  info->setWindowTitle("Labels Used");
-//  info->setSizeGripEnabled(true);
-//  info->setModal(true);
-//  info->setLayout(layout);
-//  info->exec();
-//  //-----
-//  //-----
 }
 //---------------------
 

@@ -136,6 +136,7 @@ FileHandler::saveMemFile()
   qint64 vsz = m_depth;
   vsz *= m_width;
   vsz *= m_height;
+  vsz *= 2; // 16bit mask
 
 
   // -----

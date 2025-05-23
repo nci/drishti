@@ -309,7 +309,6 @@ Viewer::init()
   m_width = 0;
   m_height = 0;
 
-  m_maskPtr = 0;
   m_maskPtrUS = 0;
 
   m_volPtr = 0;
@@ -618,10 +617,7 @@ void Viewer::setShowPosition(bool b) { m_showPosition = b; update(); }
 
 void Viewer::setMaskDataPtr(uchar *ptr)
 {
-  m_maskPtr = ptr;
-  m_maskPtrUS = 0;
-  if (Global::bytesPerMask() == 2)
-    m_maskPtrUS = (ushort*)ptr;
+  m_maskPtrUS = (ushort*)ptr;
 }
 void Viewer::setVolDataPtr(uchar *ptr)
 {
@@ -979,11 +975,7 @@ Viewer::commandEditor()
       else
 	val = m_volPtrUS[((qint64)d)*m_width*m_height + w*m_height + h];
 
-      int tag;
-      if (Global::bytesPerMask() == 1)
-	tag = m_maskPtr[((qint64)d)*m_width*m_height + w*m_height + h];
-      else
-	tag = m_maskPtrUS[((qint64)d)*m_width*m_height + w*m_height + h];
+      int tag = m_maskPtrUS[((qint64)d)*m_width*m_height + w*m_height + h];
       
       mesg += "\nPoint Information\n";
       mesg += QString("Coordinate : %1 %2 %3\n").arg(h).arg(w).arg(d);
@@ -1792,7 +1784,7 @@ Viewer::draw()
 
   glDisable(GL_LIGHTING);
 
-  if ((!m_volPtr || !m_maskPtr) && m_showBox)
+  if ((!m_volPtr || !m_maskPtrUS) && m_showBox)
     {
       m_boundingBox.draw();
       drawWireframeBox();
@@ -1801,7 +1793,7 @@ Viewer::draw()
       drawBoxes3D();
     }
 
-  if (!m_volPtr || !m_maskPtr)
+  if (!m_volPtr || !m_maskPtrUS)
     {
       if (m_savingImages > 0)
 	saveImageFrame();
@@ -1997,7 +1989,7 @@ Viewer::clip(int d, int w, int h)
 void
 Viewer::updateVoxels()
 {  
-  if (!m_volPtr || !m_maskPtr)
+  if (!m_volPtr || !m_maskPtrUS)
     {
       QMessageBox::information(0, "",
 			       "Data not loaded into memory, therefore cannot show the voxels");
@@ -2031,7 +2023,7 @@ Viewer::updateVoxels()
 void
 Viewer::updateVoxelsForRaycast()
 {  
-  if (!m_volPtr || !m_maskPtr)
+  if (!m_volPtr || !m_maskPtrUS)
     return;
 
   uchar *lut = Global::lut();
@@ -2138,7 +2130,7 @@ Viewer::updateVoxelsForRaycast()
   if (Global::bytesPerVoxel() == 1)
     glTexImage3D(GL_TEXTURE_3D,
 		 0, // single resolution
-		 1,
+		 GL_RED,
 		 hsz, wsz, dsz,
 		 0, // no border
 		 GL_RED,
@@ -2154,6 +2146,7 @@ Viewer::updateVoxelsForRaycast()
 		 GL_UNSIGNED_SHORT,
 		 voxelVol);
   glDisable(GL_TEXTURE_3D);
+  delete [] voxelVol;
   //----------------------------
 
 
@@ -2162,31 +2155,18 @@ Viewer::updateVoxelsForRaycast()
   // load mask volume
   progress.setValue(60);
   qApp->processEvents();
-  if (Global::bytesPerMask() == 1)
-    {
-      qint64 i = 0;
-      for(qint64 d=m_minDSlice; d<m_maxDSlice; d+=m_sslevel)
-	for(qint64 w=m_minWSlice; w<m_maxWSlice; w+=m_sslevel)
-	  for(qint64 h=m_minHSlice; h<m_maxHSlice; h+=m_sslevel)
-	    {
-	      voxelVol[i] = m_maskPtr[d*m_width*m_height + w*m_height + h];
-	      i++;
-	    }
-    }
-  else
-    {
-      delete [] voxelVol;
-      tsz = dsz*wsz*hsz*2;
-      voxelVol = new uchar[tsz];
-      qint64 i = 0;
-      for(qint64 d=m_minDSlice; d<m_maxDSlice; d+=m_sslevel)
-	for(qint64 w=m_minWSlice; w<m_maxWSlice; w+=m_sslevel)
-	  for(qint64 h=m_minHSlice; h<m_maxHSlice; h+=m_sslevel)
-	    {
-	      ((ushort*)voxelVol)[i] = m_maskPtrUS[d*m_width*m_height + w*m_height + h];
-	      i++;
-	    }
-    }
+  
+  tsz = dsz*wsz*hsz*2; // 16bit label data
+  voxelVol = new uchar[tsz];
+  qint64 i = 0;
+  for(qint64 d=m_minDSlice; d<m_maxDSlice; d+=m_sslevel)
+    for(qint64 w=m_minWSlice; w<m_maxWSlice; w+=m_sslevel)
+      for(qint64 h=m_minHSlice; h<m_maxHSlice; h+=m_sslevel)
+	{
+	  ((ushort*)voxelVol)[i] = m_maskPtrUS[d*m_width*m_height + w*m_height + h];
+	  i++;
+	}
+
   progress.setValue(80);
   qApp->processEvents();
       
@@ -2199,24 +2179,14 @@ Viewer::updateVoxelsForRaycast()
   glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   progress.setValue(70);
-  if (Global::bytesPerMask() == 1)
-    glTexImage3D(GL_TEXTURE_3D,
-		 0, // single resolution
-		 1,
-		 hsz, wsz, dsz,
-		 0, // no border
-		 GL_RED,
-		 GL_UNSIGNED_BYTE,
-		 voxelVol);
-  else
-    glTexImage3D(GL_TEXTURE_3D,
-		 0, // single resolution
-		 GL_R16,
-		 hsz, wsz, dsz,
-		 0, // no border
-		 GL_RED,
-		 GL_UNSIGNED_SHORT,
-		 voxelVol);
+  glTexImage3D(GL_TEXTURE_3D,
+	       0, // single resolution
+	       GL_R16,
+	       hsz, wsz, dsz,
+	       0, // no border
+	       GL_RED,
+	       GL_UNSIGNED_SHORT,
+	       voxelVol);
   glDisable(GL_TEXTURE_3D);
   //----------------------------
 
@@ -2357,33 +2327,6 @@ Viewer::pointUnderPixel_RC(QPoint scr, bool& found)
       pos = Vec(d4[0], d4[1], d4[2]);
       Vec vsz = m_sslevel*m_vsize;
       pos = m_corner + VECPRODUCT(pos, vsz);
-      ////-----------
-      //{
-      //	int v;
-      //	if (Global::bytesPerVoxel() == 1)
-      //	  v = m_volPtr[(int)pos.z*m_width*m_height + (int)pos.y*m_height + (int)pos.x];
-      //	else
-      //	  v = m_volPtrUS[(int)pos.z*m_width*m_height + (int)pos.y*m_height + (int)pos.x];
-      //
-      //	int tg = m_maskPtr[(int)pos.z*m_width*m_height + (int)pos.y*m_height + (int)pos.x];
-      //
-      //	uchar *lut = Global::lut();
-      //
-      //	int a = Global::tagColors()[4*tg+3];
-      //
-      //	if (lut[4*v+3]*a == 0) // if we have hit transparent region go a voxel deep
-      //	  {
-      //	    pos += 2*camera()->viewDirection();
-      //	    int ax = pos.x;
-      //	    int ay = pos.y;
-      //	    int az = pos.z;
-      //	    ax = qBound(m_minHSlice, ax, m_maxHSlice);
-      //	    ay = qBound(m_minWSlice, ay, m_maxWSlice);
-      //	    az = qBound(m_minDSlice, az, m_maxDSlice);
-      //	    pos = Vec(ax, ay, az);
-      //	  }
-      //}
-      ////-----------
 
       found = true;
     }
@@ -2992,31 +2935,19 @@ Viewer::uploadMask(int dst, int wst, int hst, int ded, int wed, int hed)
   if (dsz*m_sslevel < de-ds) dsz++;
   if (wsz*m_sslevel < we-ws) wsz++;
   if (hsz*m_sslevel < he-hs) hsz++;
-  qint64 tsz = dsz*wsz*hsz*Global::bytesPerMask();      
+  qint64 tsz = dsz*wsz*hsz*2; // 16bit mask
 
   uchar *voxelVol = new uchar[tsz];
   
   qint64 i = 0;
-  if (Global::bytesPerMask() == 1)
-    {
-      for(qint64 d=ds; d<de; d+=m_sslevel)
-	for(qint64 w=ws; w<we; w+=m_sslevel)
-	  for(qint64 h=hs; h<he; h+=m_sslevel)
-	    {
-	      voxelVol[i] = m_maskPtr[d*m_width*m_height + w*m_height + h];
-	      i++;
-	    }	  
-    }
-  else
-    {
-      for(qint64 d=ds; d<de; d+=m_sslevel)
-	for(qint64 w=ws; w<we; w+=m_sslevel)
-	  for(qint64 h=hs; h<he; h+=m_sslevel)
-	    {
-	      ((ushort*)voxelVol)[i] = m_maskPtrUS[d*m_width*m_height + w*m_height + h];
-	      i++;
-	    }
-    }
+  for(qint64 d=ds; d<de; d+=m_sslevel)
+    for(qint64 w=ws; w<we; w+=m_sslevel)
+      for(qint64 h=hs; h<he; h+=m_sslevel)
+	{
+	  ((ushort*)voxelVol)[i] = m_maskPtrUS[d*m_width*m_height + w*m_height + h];
+	  i++;
+	}
+  
 
   int doff = (ds-m_minDSlice)/m_sslevel;
   int woff = (ws-m_minWSlice)/m_sslevel;
@@ -3025,22 +2956,13 @@ Viewer::uploadMask(int dst, int wst, int hst, int ded, int wed, int hed)
   glActiveTexture(GL_TEXTURE4);
   glEnable(GL_TEXTURE_3D);
   glBindTexture(GL_TEXTURE_3D, m_maskTex);	 
-  if (!m_maskPtrUS)
-    glTexSubImage3D(GL_TEXTURE_3D,
-		    0, // level
-		    hoff, woff, doff, // offset
-		    hsz, wsz, dsz,
-		    GL_RED,
-		    GL_UNSIGNED_BYTE,
-		    voxelVol);
-  else
-    glTexSubImage3D(GL_TEXTURE_3D,
-		    0, // level
-		    hoff, woff, doff, // offset
-		    hsz, wsz, dsz,
-		    GL_RED,
-		    GL_UNSIGNED_SHORT,
-		    voxelVol);
+  glTexSubImage3D(GL_TEXTURE_3D,
+		  0, // level
+		  hoff, woff, doff, // offset
+		  hsz, wsz, dsz,
+		  GL_RED,
+		  GL_UNSIGNED_SHORT,
+		  voxelVol);
   glDisable(GL_TEXTURE_3D);
 
   
@@ -3859,17 +3781,8 @@ Viewer::usedTags()
 	  progress.setValue(100*(float)i/(float)tvox);
 	  qApp->processEvents();
 	}
-      if (!m_maskPtrUS)
-	{
-	  if (!ut.contains(m_maskPtr[i]))
-	    ut << m_maskPtr[i];
-	}
-      else
-	{
-	  if (!ut.contains(m_maskPtrUS[i]))
-	    ut << m_maskPtrUS[i];
-	}
-
+      if (!ut.contains(m_maskPtrUS[i]))
+	ut << m_maskPtrUS[i];      
     }
   QMessageBox::information(0, "", QString("%1").arg(ut.count()));
   
@@ -3958,7 +3871,7 @@ Viewer::markValidBoxes()
       
       plist << QVariant::fromValue(static_cast<void*>(&m_boxMinMax));
       plist << QVariant::fromValue(static_cast<void*>(&m_boundingBox));
-      plist << QVariant::fromValue(static_cast<void*>(m_maskPtr));
+      plist << QVariant::fromValue(static_cast<void*>(m_maskPtrUS));
       plist << QVariant::fromValue(static_cast<void*>(&m_filledBoxes));
       
       param << plist;
@@ -4005,10 +3918,7 @@ Viewer::parMarkValidBoxes(QList<QVariant> plist)
   int m_maxHSlice = plist[14].toInt();
   QList<int>* m_boxMinMax = static_cast<QList<int>*>(plist[15].value<void*>());
   BoundingBox* m_boundingBox = static_cast<BoundingBox*>(plist[16].value<void*>());
-  uchar* m_maskPtr = static_cast<uchar*>(plist[17].value<void*>());
-  ushort *m_maskPtrUS = 0;
-  if (Global::bytesPerMask() == 2)
-    m_maskPtrUS = (ushort*)m_maskPtr;
+  ushort* m_maskPtrUS = static_cast<ushort*>(plist[17].value<void*>());
       
   MyBitArray* m_filledBoxes = static_cast<MyBitArray*>(plist[18].value<void*>());
   
@@ -4053,9 +3963,7 @@ Viewer::parMarkValidBoxes(QList<QVariant> plist)
 	      for(qint64 wm=wmin; wm<wmax; wm++)
 		for(qint64 hm=hmin; hm<hmax; hm++)
 		  {
-		    int tag = m_maskPtr[dm*m_width*m_height + wm*m_height + hm];
-		    if (m_maskPtrUS)
-		      tag = m_maskPtrUS[dm*m_width*m_height + wm*m_height + hm];
+		    int tag = m_maskPtrUS[dm*m_width*m_height + wm*m_height + hm];
 		    if (Global::tagColors()[4*tag+3] > 200)
 		      {
 			visibleTag = true;

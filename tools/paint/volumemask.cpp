@@ -34,6 +34,7 @@ VolumeMask::exportMask()
   QString maskfile = m_maskFileManager.exportMask();
   if (!maskfile.isEmpty())
     createPvlNc(maskfile);
+  QMessageBox::information(0, "Export", QString("Exported labeled data to %1").arg(maskfile));
 }
 void
 VolumeMask::checkPoint()
@@ -270,7 +271,14 @@ VolumeMask::createPvlNc(QString maskfile)
       {      
 	QDomElement de0 = doc.createElement("voxeltype");
 	QDomText tn0;
-	tn0 = doc.createTextNode("unsigned char");
+	tn0 = doc.createTextNode("unsigned short");
+	de0.appendChild(tn0);
+	topElement.appendChild(de0);
+      }
+      {      
+	QDomElement de0 = doc.createElement("pvlvoxeltype");
+	QDomText tn0;
+	tn0 = doc.createTextNode("unsigned short");
 	de0.appendChild(tn0);
 	topElement.appendChild(de0);
       }
@@ -352,15 +360,7 @@ VolumeMask::getMaskDepthSliceImage(int slc)
 {
   checkMaskFile();
 
-  if (m_maskslice) delete [] m_maskslice;
-
-  int nbytes = m_width*m_height;
-  m_maskslice = new uchar[nbytes];
-
-  uchar *mslice = m_maskFileManager.getDepthSliceMem(slc);
-  memcpy(m_maskslice, mslice, nbytes);
-
-  return m_maskslice;
+  return m_maskFileManager.getDepthSliceMem(slc);
 }
 
 uchar*
@@ -368,15 +368,7 @@ VolumeMask::getMaskWidthSliceImage(int slc)
 {
   checkMaskFile();
 
-  if (m_maskslice) delete [] m_maskslice;
-
-  int nbytes = m_depth*m_height;
-  m_maskslice = new uchar[nbytes];
-
-  uchar *mslice = m_maskFileManager.getWidthSliceMem(slc);
-  memcpy(m_maskslice, mslice, nbytes);
-
-  return m_maskslice;
+  return m_maskFileManager.getWidthSliceMem(slc);
 }
 
 uchar*
@@ -384,15 +376,7 @@ VolumeMask::getMaskHeightSliceImage(int slc)
 {
   checkMaskFile();
 
-  if (m_maskslice) delete [] m_maskslice;
-
-  int nbytes = m_depth*m_width;
-  m_maskslice = new uchar[nbytes];
-
-  uchar *mslice = m_maskFileManager.getHeightSliceMem(slc);
-  memcpy(m_maskslice, mslice, nbytes);
-
-  return m_maskslice;
+  return m_maskFileManager.getHeightSliceMem(slc);
 }
 
 uchar

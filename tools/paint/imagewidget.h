@@ -34,13 +34,13 @@ class ImageWidget : public QWidget
   void setScrollArea(QScrollArea *sa) { m_scrollArea = sa; }
 
   void setVolPtr(uchar *vp) {m_volPtr = vp;}
-  void setMaskPtr(uchar *mp) {m_maskPtr = mp;}
+  void setMaskPtr(uchar *mp) {m_maskPtrUS = (ushort*)mp;}
   
   void setGridSize(int, int, int);
   void setSliceType(int);
   int sliceType() { return m_sliceType; }
   void resetSliceType();
-  void setMaskImage(uchar*);
+  void setMaskImage(ushort*);
 
   void setRawValue(QList<int>);
 
@@ -150,7 +150,7 @@ class ImageWidget : public QWidget
   QScrollArea *m_scrollArea;
 
   uchar *m_volPtr;
-  uchar *m_maskPtr;
+  ushort *m_maskPtrUS;
 
   //modeType 
   // 0 - graphcut
@@ -163,8 +163,8 @@ class ImageWidget : public QWidget
   float m_minGrad, m_maxGrad;
   int m_gradType;
   
-  QVector<QRgb> m_tagColors;
-  QVector<QRgb> m_prevslicetagColors;
+  uchar *m_tagColors;
+  uchar *m_prevslicetagColors;
 
   int m_sliceType;
   int m_minDSlice, m_maxDSlice;
@@ -200,7 +200,7 @@ class ImageWidget : public QWidget
   uchar *m_sliceFiltered;
   uchar *m_sliceImage;
 
-  uchar *m_maskslice;
+  ushort *m_maskslice;
 
   uchar *m_lut;
 
@@ -220,11 +220,11 @@ class ImageWidget : public QWidget
   bool m_rubberYmax;
   bool m_rubberNew;
 
-  uchar *m_prevtags;
-  uchar *m_usertags;
-  uchar *m_prevslicetags;
-  uchar *m_tags;
-  uchar *m_tmptags;
+  ushort *m_prevtags;
+  ushort *m_usertags;
+  ushort *m_prevslicetags;
+  ushort *m_tags;
+  ushort *m_tmptags;
 
   bool m_applyRecursive;
   bool m_extraPressed;
@@ -288,6 +288,8 @@ class ImageWidget : public QWidget
 
   void update3DBox(bool);
   void update2DBox(bool);
+
+  void imageFromDataAndColor(QImage&, ushort*, uchar*);
 };
 
 

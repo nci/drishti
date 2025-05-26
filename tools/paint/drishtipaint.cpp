@@ -2850,12 +2850,6 @@ DrishtiPaint::connectImageWidget()
   connect(m_coronalImage, SIGNAL(tagHSlice(int, uchar*)),
 	  this, SLOT(tagHSlice(int, uchar*)));  
 
-//  connect(m_axialImage, SIGNAL(updateViewerBox(int, int, int, int, int, int)),
-//	  m_viewer, SLOT(updateViewerBox(int, int, int, int, int, int)));
-//  connect(m_sagitalImage, SIGNAL(updateViewerBox(int, int, int, int, int, int)),
-//	  m_viewer, SLOT(updateViewerBox(int, int, int, int, int, int)));
-//  connect(m_coronalImage, SIGNAL(updateViewerBox(int, int, int, int, int, int)),
-//	  m_viewer, SLOT(updateViewerBox(int, int, int, int, int, int)));
 
   connect(m_axialImage, SIGNAL(viewerUpdate()),
 	  m_viewer, SLOT(update()));

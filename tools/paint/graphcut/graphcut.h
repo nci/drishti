@@ -18,7 +18,7 @@ class MaxFlowMinCut
 
   int run(int, int,
 	  int, float, bool,
-	  uchar*, uchar*, int, uchar*);
+	  uchar*, ushort*, int, ushort*);
 
  private :
   void compute_sigmas(uchar*, int, int, double*, int, float);

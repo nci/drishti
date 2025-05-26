@@ -5,6 +5,18 @@ Add crop gizmo.
 #end
 
 #begin
+label
+label <label>
+
+Select label specified by <label>.
+Labels below 255 can also be selected from Transfer Function panel.
+Labels about 255 can only be selected via this command, because these are not visible in the Transfer Function panel.
+
+Currently active label is always displayed on the top left of the 3D viewer panel.
+
+#end
+
+#begin
 labelsused
 
 Show the labels that are in use.

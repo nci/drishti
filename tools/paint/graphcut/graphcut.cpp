@@ -121,8 +121,8 @@ MaxFlowMinCut::run(int w, int h,
 		   int boxSize, float lambda,
 		   bool tagSimilar,
 		   uchar *image,
-		   uchar *mask,
-		   int tag, uchar *tags)
+		   ushort *mask,
+		   int tag, ushort *tags)
 {
   //cout << "boxSize=" << boxSize << endl;
   //QMessageBox::information(0, "", "run");
@@ -167,7 +167,7 @@ MaxFlowMinCut::run(int w, int h,
   for (int i=0; i<w; ++i)
     for (int j=0; j<h; ++j)
       {
-	if (mask[j*w+i] == 255) // background
+	if (mask[j*w+i] == 65535) // background
 	  G.add_tweights(j*w+i, INF, 0);
 	else if (mask[j*w+i] == tag) // object
 	  G.add_tweights(j*w+i, 0, INF);
@@ -193,7 +193,7 @@ MaxFlowMinCut::run(int w, int h,
       for (int i=0;i<w*h;i++)
 	{
 	  uchar v = image[i];
-	  if (mask[i] == 255) bg[v]++;
+	  if (mask[i] == 65535) bg[v]++;
 	  if (mask[i] == tag) obj[v]++;
 	}
       //---------------------------
@@ -225,7 +225,7 @@ MaxFlowMinCut::run(int w, int h,
 	for (int j=0;j<h;j++)
 	  {
 	    if (image[j*w+i] != 0 &&
-		mask[j*w+i] != 255 &&
+		mask[j*w+i] != 65535 &&
 		mask[j*w+i] != tag)
 	      {
 		uchar v = image[j*w+i];

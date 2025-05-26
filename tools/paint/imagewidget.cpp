@@ -50,7 +50,7 @@ ImageWidget::ImageWidget(QWidget *parent) :
   m_simgWidth = 100;
 
   m_volPtr = 0;
-  m_maskPtr = 0;
+  m_maskPtrUS = 0;
 
   m_minGrad = 0;
   m_maxGrad = 1;
@@ -68,12 +68,12 @@ ImageWidget::ImageWidget(QWidget *parent) :
 
   m_image = QImage(100, 100, QImage::Format_RGB32);
   m_imageScaled = QImage(100, 100, QImage::Format_RGB32);
-  m_maskimage = QImage(100, 100, QImage::Format_Indexed8);
-  m_maskimageScaled = QImage(100, 100, QImage::Format_Indexed8);
-  m_prevslicetagimage = QImage(100, 100, QImage::Format_Indexed8);
-  m_prevslicetagimageScaled = QImage(100, 100, QImage::Format_Indexed8);
-  m_userimage = QImage(100, 100, QImage::Format_Indexed8);
-  m_userimageScaled = QImage(100, 100, QImage::Format_Indexed8);
+  m_userimage = QImage(100, 100, QImage::Format_ARGB32);
+  m_maskimage = QImage(100, 100, QImage::Format_ARGB32);
+  m_prevslicetagimage = QImage(100, 100, QImage::Format_ARGB32);
+  m_userimageScaled = QImage(100, 100, QImage::Format_ARGB32);
+  m_maskimageScaled = QImage(100, 100, QImage::Format_ARGB32);
+  m_prevslicetagimageScaled = QImage(100, 100, QImage::Format_ARGB32);
 
   m_image.fill(0);
   m_imageScaled.fill(0);
@@ -131,11 +131,16 @@ ImageWidget::ImageWidget(QWidget *parent) :
   m_showTags.clear();
   m_showTags << -1;
 
-  m_prevslicetagColors.clear();
-  m_prevslicetagColors.resize(256);
-  m_prevslicetagColors[0] = qRgba(0,0,0,0);
-  for(int i=1; i<256; i++)
-    m_prevslicetagColors[i] = qRgba(0, 0, 127, 127);
+  m_tagColors = new uchar[65536*4];
+  memset(m_tagColors, 0, 65536*4);
+
+  m_prevslicetagColors = new uchar[65536*4];
+  memset(m_prevslicetagColors, 0, 65536*4);
+  for(int i=1; i<65536; i++)
+    {
+      m_prevslicetagColors[4*i+3] = 127;
+      m_prevslicetagColors[4*i+4] = 127;
+    }
 
   updateTagColors();
 }
@@ -269,6 +274,33 @@ ImageWidget::saveImageSequence()
   QMessageBox::information(0, "Save All Image Slices", "Done");
 }
 
+void
+ImageWidget::imageFromDataAndColor(QImage &img, ushort *data, uchar *tagColors)
+{
+  if (data == 0)
+    return;
+  
+  uchar *cbit = img.bits();
+  int idx = 0;
+  for(int h=0; h<m_imgHeight; h++)
+    for(int w=0; w<m_imgWidth; w++)
+      {
+	int tag = data[idx];
+
+	int r = tagColors[4*tag+0];
+	int g = tagColors[4*tag+1];
+	int b = tagColors[4*tag+2];
+	int a = tagColors[4*tag+3];
+	
+	cbit[4*idx+0] = b;
+	cbit[4*idx+1] = g;
+	cbit[4*idx+2] = r;
+	cbit[4*idx+3] = a;
+
+	idx++;
+      }
+}
+
 
 void ImageWidget::zoom0Clicked() { setZoom(1); }
 void ImageWidget::zoom9Clicked() { setZoom(-1); }
@@ -331,7 +363,7 @@ void
 ImageWidget::setSlice(int s)
 {
   m_currSlice = qBound(0, s, m_maxSlice-1);
-
+  
   getSlice();
 }
 
@@ -575,10 +607,7 @@ ImageWidget::getSlice()
   if (m_sliceType == DSlice)
     {
       memcpy(m_slice, m_volPtr+m_currSlice*bps*m_bytesPerVoxel, bps*m_bytesPerVoxel);
-      if (Global::bytesPerMask() == 1)
-	memcpy(m_maskslice, m_maskPtr+m_currSlice*bps, bps);
-      else
-	memset(m_maskslice, 0, m_Width*m_Height);
+      memcpy(m_maskslice, m_maskPtrUS+m_currSlice*bps, bps*2);
     }
 
   if (m_sliceType == WSlice)
@@ -588,15 +617,10 @@ ImageWidget::getSlice()
 	       m_volPtr + (d*bps + m_currSlice*m_Height)*m_bytesPerVoxel,
 	       m_Height*m_bytesPerVoxel);
 
-      if (Global::bytesPerMask() == 1)
-	{
-	  for(qint64 d=0; d<m_Depth; d++)
-	    memcpy(m_maskslice + d*m_Height,
-		   m_maskPtr + d*bps + m_currSlice*m_Height,
-		   m_Height);
-	}
-      else
-	memset(m_maskslice, 0, m_Depth*m_Height);
+      for(qint64 d=0; d<m_Depth; d++)
+	memcpy(m_maskslice + d*m_Height,
+	       m_maskPtrUS + d*bps + m_currSlice*m_Height,
+	       m_Height*2);
     }
 
   if (m_sliceType == HSlice)
@@ -610,27 +634,20 @@ ImageWidget::getSlice()
 		   m_bytesPerVoxel);
 	}
 
-      if (Global::bytesPerMask() == 1)
+      it = 0;
+      for(qint64 d=0; d<m_Depth; d++)
 	{
-	  it = 0;
-	  for(qint64 d=0; d<m_Depth; d++)
-	    {
-	      for(qint64 j=0; j<m_Width; j++, it++)
-		memcpy(m_maskslice + it,
-		       m_maskPtr + d*bps + (j*m_Height + m_currSlice),
-		       1);
-	    }
+	  for(qint64 j=0; j<m_Width; j++, it++)
+	    memcpy(m_maskslice + it,
+		   m_maskPtrUS + d*bps + (j*m_Height + m_currSlice),
+		   2);
 	}
-      else
-	memset(m_maskslice, 0, m_Depth*m_Width);
     }
-  
-  //applyFilters();
 
-  memcpy(m_prevslicetags, m_prevtags, m_imgWidth*m_imgHeight);
+  memcpy(m_prevslicetags, m_prevtags, 2*m_imgWidth*m_imgHeight);
   processPrevSliceTags();
 
-  memcpy(m_prevtags, m_maskslice, m_imgWidth*m_imgHeight);
+  memcpy(m_prevtags, m_maskslice, 2*m_imgWidth*m_imgHeight);
 
   recolorImage();
 
@@ -766,36 +783,43 @@ ImageWidget::resetSliceType()
     }
 
   if (m_tags) delete [] m_tags;
-  m_tags = new uchar[wd*ht];
-  memset(m_tags, 0, wd*ht);
+  m_tags = new ushort[wd*ht];
+  memset(m_tags, 0, 2*wd*ht);
 
   if (m_prevtags) delete [] m_prevtags;
-  m_prevtags = new uchar[wd*ht];
-  memset(m_prevtags, 0, wd*ht);
+  m_prevtags = new ushort[wd*ht];
+  memset(m_prevtags, 0, 2*wd*ht);
 
   if (m_prevslicetags) delete [] m_prevslicetags;
-  m_prevslicetags = new uchar[wd*ht];
-  memset(m_prevslicetags, 0, wd*ht);
+  m_prevslicetags = new ushort[wd*ht];
+  memset(m_prevslicetags, 0, 2*wd*ht);
 
   if (m_tmptags) delete [] m_tmptags;
-  m_tmptags = new uchar[wd*ht];
-  memset(m_tmptags, 0, wd*ht);
+  m_tmptags = new ushort[wd*ht];
+  memset(m_tmptags, 0, 2*wd*ht);
 
   if (m_usertags) delete [] m_usertags;
-  m_usertags = new uchar[wd*ht];
-  memset(m_usertags, 0, wd*ht);
+  m_usertags = new ushort[wd*ht];
+  memset(m_usertags, 0, 2*wd*ht);
+
+  if (m_maskslice) delete [] m_maskslice;
+  m_maskslice = new ushort[wd*ht];
 
   if (m_slice) delete [] m_slice;
   m_slice = new uchar[wd*ht*m_bytesPerVoxel];
 
   if (m_sliceFiltered) delete [] m_sliceFiltered;
   m_sliceFiltered = new uchar[wd*ht*m_bytesPerVoxel];
-
-  if (m_maskslice) delete [] m_maskslice;
-  m_maskslice = new uchar[wd*ht];
   
   if (m_sliceImage) delete [] m_sliceImage;
   m_sliceImage = new uchar[4*wd*ht];
+
+  m_userimage = QImage(m_imgWidth, m_imgHeight, QImage::Format_ARGB32);
+  m_maskimage = QImage(m_imgWidth, m_imgHeight, QImage::Format_ARGB32);
+  m_prevslicetagimage = QImage(m_imgWidth, m_imgHeight, QImage::Format_ARGB32);
+  m_userimageScaled = QImage(m_imgWidth, m_imgHeight, QImage::Format_ARGB32);
+  m_maskimageScaled = QImage(m_imgWidth, m_imgHeight, QImage::Format_ARGB32);
+  m_prevslicetagimageScaled = QImage(m_imgWidth, m_imgHeight, QImage::Format_ARGB32);
   //---------------------------------
 
 
@@ -866,38 +890,36 @@ ImageWidget::updateTagColors()
 {
   uchar *tagColors = Global::tagColors();
 
-  m_tagColors.clear();
-  m_tagColors.resize(256);
-
-  m_tagColors[0] = qRgba(0,0,0,0);
-  for(int i=1; i<256; i++)
+  m_tagColors[0] = 0;
+  m_tagColors[1] = 0;
+  m_tagColors[2] = 0;
+  m_tagColors[3] = 0;
+  for(int i=1; i<65536; i++)
     {
-      uchar r = tagColors[4*i+0];
-      uchar g = tagColors[4*i+1];
-      uchar b = tagColors[4*i+2];
-      uchar a = tagColors[4*i+3];
-      if (a > 2)
-	m_tagColors[i] = qRgba(r, g, b, 127);
-      else
-	m_tagColors[i] = qRgba(r, g, b, 50);
+      m_tagColors[4*i+0] = tagColors[4*i+0];
+      m_tagColors[4*i+1] = tagColors[4*i+1];
+      m_tagColors[4*i+2] = tagColors[4*i+2];
+      m_tagColors[4*i+3] = (tagColors[4*i+3] > 2 ? 150 : 50);
 
-      m_prevslicetagColors[i] = qRgba(g*0.5, r*0.5, (g+b)*0.3, 127);
+      m_prevslicetagColors[4*i+2] = 0.5*m_tagColors[4*i+1];
+      m_prevslicetagColors[4*i+1] = 0.5*m_tagColors[4*i+0];
+      m_prevslicetagColors[4*i+0] = 0.3*(m_tagColors[4*i+1] + m_tagColors[4*i+2]);
+      m_prevslicetagColors[4*i+3] = 127;
     }
 
-
-  m_maskimage.setColorTable(m_tagColors);
+  imageFromDataAndColor(m_maskimage, m_tags, m_tagColors);
   m_maskimageScaled = m_maskimage.scaled(m_simgWidth,
 					 m_simgHeight,
 					 Qt::IgnoreAspectRatio,
 					 Qt::FastTransformation);  
 
-  m_userimage.setColorTable(m_tagColors);
+  imageFromDataAndColor(m_userimage, m_usertags, m_tagColors);
   m_userimageScaled = m_userimage.scaled(m_simgWidth,
 					 m_simgHeight,
 					 Qt::IgnoreAspectRatio,
 					 Qt::FastTransformation);  
 
-  m_prevslicetagimage.setColorTable(m_prevslicetagColors);
+  imageFromDataAndColor(m_prevslicetagimage, m_prevslicetags, m_prevslicetagColors);
   m_prevslicetagimageScaled = m_prevslicetagimage.scaled(m_simgWidth,
 							 m_simgHeight,
 							 Qt::IgnoreAspectRatio,
@@ -906,13 +928,13 @@ ImageWidget::updateTagColors()
 }
 
 void
-ImageWidget::setMaskImage(uchar *mask)
+ImageWidget::setMaskImage(ushort *mask)
 {
-  memcpy(m_prevslicetags, m_prevtags, m_imgWidth*m_imgHeight);
+  memcpy(m_prevslicetags, m_prevtags, 2*m_imgWidth*m_imgHeight);
   processPrevSliceTags();
 
-  memcpy(m_maskslice, mask, m_imgWidth*m_imgHeight);
-  memcpy(m_prevtags, mask, m_imgWidth*m_imgHeight);
+  memcpy(m_maskslice, mask, 2*m_imgWidth*m_imgHeight);
+  memcpy(m_prevtags, mask, 2*m_imgWidth*m_imgHeight);
 
   updateMaskImage();
   update();
@@ -939,7 +961,7 @@ ImageWidget::processPrevSliceTags()
 
   if (!ok)
     {
-      memset(m_prevslicetags, 0, m_imgHeight*m_imgWidth); // reset any other tags 
+      memset(m_prevslicetags, 0, 2*m_imgHeight*m_imgWidth); // reset any other tags 
       return; // no need to continue
     }
 
@@ -950,11 +972,11 @@ ImageWidget::processPrevSliceTags()
   int nb = Global::prevErode();
 
 
-  uchar *t1 = m_prevslicetags;
-  uchar *t2 = m_tmptags;
+  ushort *t1 = m_prevslicetags;
+  ushort *t2 = m_tmptags;
   for(int n=0; n<nb; n++)
     {
-      memset(t2, 0, m_imgWidth*m_imgHeight);
+      memset(t2, 0, 2*m_imgWidth*m_imgHeight);
       for(int j=0; j<m_imgHeight; j++)
 	for(int i=0; i<m_imgWidth; i++)
 	  {
@@ -968,7 +990,7 @@ ImageWidget::processPrevSliceTags()
 	      }
 	  }
 
-      uchar *tmp = t1;
+      ushort *tmp = t1;
       t1 = t2;
       t2 = tmp;
     }
@@ -989,9 +1011,6 @@ ImageWidget::recolorImage()
       int idx = m_slice[i];
       if (m_bytesPerVoxel == 2)
 	idx = ((ushort*)m_slice)[i];
-//      int idx = m_sliceFiltered[i];
-//      if (m_bytesPerVoxel == 2)
-//	idx = ((ushort*)m_sliceFiltered)[i];
 
       m_sliceImage[4*i+0] = m_lut[4*idx+0];
       m_sliceImage[4*i+1] = m_lut[4*idx+1];
@@ -1622,7 +1641,7 @@ ImageWidget::graphcutModeKeyPressEvent(QKeyEvent *event)
 	  ctag = QInputDialog::getInt(0,
 				      "Shrinkwrap/Shell",
 				      QString("Connected region will be shrinkwrapped/shelled with current tag value (%1).\nSpecify tag value of connected region (-1 for connected visible region).").arg(Global::tag()),
-				      -1, -1, 255, 1);
+				      -1, -1, 65535, 1);
 	  
 	  int thickness = 1;
 	  if (shell)
@@ -1745,8 +1764,8 @@ ImageWidget::graphcutModeKeyPressEvent(QKeyEvent *event)
 	}
       else
 	{
-	  memset(m_usertags, 0, m_imgWidth*m_imgHeight);
-	  memcpy(m_prevtags, m_maskslice, m_imgWidth*m_imgHeight);
+	  memset(m_usertags, 0, 2*m_imgWidth*m_imgHeight);
+	  memcpy(m_prevtags, m_maskslice, 2*m_imgWidth*m_imgHeight);
 	  updateMaskImage();
 	  update();
 	}
@@ -2460,7 +2479,7 @@ ImageWidget::dotImage(int x, int y, bool backgroundTag)
 
   int tg = Global::tag();
   if (backgroundTag)
-    tg = 255;
+    tg = 65535;
   uchar r = Global::tagColors()[4*tg+0];
   uchar g = Global::tagColors()[4*tg+1];
   uchar b = Global::tagColors()[4*tg+2];
@@ -2486,18 +2505,12 @@ ImageWidget::dotImage(int x, int y, bool backgroundTag)
 
   if (redo)
     {
-      m_userimage = QImage(m_usertags,
-			   m_imgWidth,
-			   m_imgHeight,
-			   m_imgWidth,
-			   QImage::Format_Indexed8);
-      m_userimage.setColorTable(m_tagColors);
+      imageFromDataAndColor(m_userimage, m_usertags, m_tagColors);
       m_userimageScaled = m_userimage.scaled(m_simgWidth,
 					     m_simgHeight,
 					     Qt::IgnoreAspectRatio,
 					     Qt::FastTransformation);
     }
-  //updateMaskImage();
 }
 
 void
@@ -2532,18 +2545,12 @@ ImageWidget::removeDotImage(int x, int y)
 
   if (redo)
     {
-      m_userimage = QImage(m_usertags,
-			   m_imgWidth,
-			   m_imgHeight,
-			   m_imgWidth,
-			   QImage::Format_Indexed8);
-      m_userimage.setColorTable(m_tagColors);
+      imageFromDataAndColor(m_userimage, m_usertags, m_tagColors);
       m_userimageScaled = m_userimage.scaled(m_simgWidth,
 					     m_simgHeight,
 					     Qt::IgnoreAspectRatio,
 					     Qt::FastTransformation);
     }
-//  updateMaskImage();
 }
 
 void
@@ -2585,18 +2592,18 @@ void
 ImageWidget::applyGraphCut()
 {
   uchar *imageData = new uchar[m_imgWidth*m_imgHeight];
-  uchar *maskData = new uchar[m_imgWidth*m_imgHeight];
+  ushort *maskData = new ushort[m_imgWidth*m_imgHeight];
 
 
   for(int i=0; i<m_imgWidth*m_imgHeight; i++)
     imageData[i] = m_sliceImage[4*i+0];
 
 
-  memset(maskData, 0, m_imgWidth*m_imgHeight);
+  memset(maskData, 0, 2*m_imgWidth*m_imgHeight);
   for(int i=0; i<m_imgWidth*m_imgHeight; i++)
     {
       if (m_prevtags[i] > 0) // set as background so that we don't overwrite it
-	maskData[i] = 255;
+	maskData[i] = 65535;
 
       if (m_prevtags[i] == Global::tag()) // add seed points
 	maskData[i] = Global::tag();
@@ -2637,7 +2644,7 @@ ImageWidget::applyGraphCut()
       }
 
   MaxFlowMinCut mfmc;
-  memset(m_tags, 0, size1*size2);
+  memset(m_tags, 0, 2*size1*size2);
   int tagged = mfmc.run(size1, size2,
 			Global::boxSize(),
 			Global::lambda()*0.1,
@@ -2645,8 +2652,8 @@ ImageWidget::applyGraphCut()
 			imageData, maskData,
 			Global::tag(), m_tags);
 
-  memcpy(maskData, m_tags, size1*size2);
-  memset(m_tags, 0, m_imgWidth*m_imgHeight);
+  memcpy(maskData, m_tags, 2*size1*size2);
+  memset(m_tags, 0, 2*m_imgWidth*m_imgHeight);
 
   idx=0;
   for(int i=imin; i<=imax; i++)
@@ -2668,11 +2675,11 @@ ImageWidget::applyGraphCut()
 
   
   if (m_sliceType == DSlice)
-    emit tagDSlice(m_currSlice, m_tags);
+    emit tagDSlice(m_currSlice, (uchar*)m_tags);
   else if (m_sliceType == WSlice)
-    emit tagWSlice(m_currSlice, m_tags);
+    emit tagWSlice(m_currSlice, (uchar*)m_tags);
   else if (m_sliceType == HSlice)
-    emit tagHSlice(m_currSlice, m_tags);
+    emit tagHSlice(m_currSlice, (uchar*)m_tags);
 
   setMaskImage(m_tags);
 
@@ -2698,12 +2705,13 @@ ImageWidget::smooth(int thresh, bool smooth, bool morecoming)
   for(int i=imin; i<=imax; i++)
     for(int j=jmin; j<=jmax; j++)
       {
-	maskData[idx] = m_prevtags[i*m_imgWidth+j];
+	//maskData[idx] = m_prevtags[i*m_imgWidth+j];
+	maskData[idx] = (m_prevtags[i*m_imgWidth+j] == Global::tag() ? 255 : 0);  
 	idx++;
       }
 
-  for(int i=0; i<size1*size2; i++)
-    maskData[i] = (maskData[i] == Global::tag() ? 255 : 0);  
+  //for(int i=0; i<size1*size2; i++)
+  //  maskData[i] = (maskData[i] == Global::tag() ? 255 : 0);  
 
   //--------------------------
   // smooth row
@@ -2786,11 +2794,11 @@ ImageWidget::smooth(int thresh, bool smooth, bool morecoming)
   if (!morecoming)
     {
       if (m_sliceType == DSlice)
-	emit tagDSlice(m_currSlice, m_tags);
+	emit tagDSlice(m_currSlice, (uchar*)m_tags);
       else if (m_sliceType == WSlice)
-	emit tagWSlice(m_currSlice, m_tags);
+	emit tagWSlice(m_currSlice, (uchar*)m_tags);
       else if (m_sliceType == HSlice)
-	emit tagHSlice(m_currSlice, m_tags);
+	emit tagHSlice(m_currSlice, (uchar*)m_tags);
       
       setMaskImage(m_tags);
 
@@ -2805,14 +2813,14 @@ ImageWidget::applyPaint(bool keepTags)
   int imin, imax, jmin, jmax;
   getSliceLimits(size1, size2, imin, imax, jmin, jmax);
 
-  memcpy(m_tags, m_prevtags, m_imgWidth*m_imgHeight);
+  memcpy(m_tags, m_prevtags, 2*m_imgWidth*m_imgHeight);
 
   if (Global::copyPrev())
     {
       for (int i=0; i<m_imgHeight*m_imgWidth; i++)
 	if (m_sliceImage[4*i] > 0 &&
 	    m_tags[i] == 0 &&
-	    m_prevslicetags[i] > 0 && m_prevslicetags[i] < 255)
+	    m_prevslicetags[i] > 0 && m_prevslicetags[i] < 65535)
 	  m_tags[i] = m_prevslicetags[i];
     }
 
@@ -2822,7 +2830,7 @@ ImageWidget::applyPaint(bool keepTags)
       {
 	if (m_sliceImage[4*(i*m_imgWidth+j)] > 0)
 	  {
-	    if (m_usertags[i*m_imgWidth+j] == 255)
+	    if (m_usertags[i*m_imgWidth+j] == 65535)
 	      m_tags[i*m_imgWidth+j] = 0;
 	    else if (m_usertags[i*m_imgWidth+j] > 0)
 	      m_tags[i*m_imgWidth+j] = m_usertags[i*m_imgWidth+j];
@@ -2830,17 +2838,17 @@ ImageWidget::applyPaint(bool keepTags)
       }
   
   if (m_sliceType == DSlice)
-    emit tagDSlice(m_currSlice, m_tags);
+    emit tagDSlice(m_currSlice, (uchar*)m_tags);
   else if (m_sliceType == WSlice)
-    emit tagWSlice(m_currSlice, m_tags);
+    emit tagWSlice(m_currSlice, (uchar*)m_tags);
   else if (m_sliceType == HSlice)
-    emit tagHSlice(m_currSlice, m_tags);
+    emit tagHSlice(m_currSlice, (uchar*)m_tags);
 
   setMaskImage(m_tags);
 
   if (!keepTags)
     {
-      memset(m_usertags, 0, m_imgWidth*m_imgHeight);
+      memset(m_usertags, 0, 2*m_imgWidth*m_imgHeight);
     }
   
   checkRecursive();
@@ -2872,11 +2880,11 @@ ImageWidget::applyReset()
     }
      
   if (m_sliceType == DSlice)
-    emit tagDSlice(m_currSlice, m_tags);
+    emit tagDSlice(m_currSlice, (uchar*)m_tags);
   else if (m_sliceType == WSlice)
-    emit tagWSlice(m_currSlice, m_tags);
+    emit tagWSlice(m_currSlice, (uchar*)m_tags);
   else if (m_sliceType == HSlice)
-    emit tagHSlice(m_currSlice, m_tags);
+    emit tagHSlice(m_currSlice, (uchar*)m_tags);
 
   setMaskImage(m_tags);
 
@@ -2886,38 +2894,24 @@ ImageWidget::applyReset()
 void
 ImageWidget::updateMaskImage()
 {
-  memcpy(m_tags, m_prevtags, m_imgWidth*m_imgHeight);
+  memcpy(m_tags, m_prevtags, 2*m_imgWidth*m_imgHeight);
 
-  m_maskimage = QImage(m_tags,
-		       m_imgWidth,
-		       m_imgHeight,
-		       m_imgWidth,
-		       QImage::Format_Indexed8);
-  m_maskimage.setColorTable(m_tagColors);
+  imageFromDataAndColor(m_maskimage, m_tags, m_tagColors);
   m_maskimageScaled = m_maskimage.scaled(m_simgWidth,
 					 m_simgHeight,
 					 Qt::IgnoreAspectRatio,
 					 Qt::FastTransformation);
 
 
-  m_userimage = QImage(m_usertags,
-		       m_imgWidth,
-		       m_imgHeight,
-		       m_imgWidth,
-		       QImage::Format_Indexed8);
-  m_userimage.setColorTable(m_tagColors);
+
+  imageFromDataAndColor(m_userimage, m_usertags, m_tagColors);
   m_userimageScaled = m_userimage.scaled(m_simgWidth,
 					 m_simgHeight,
 					 Qt::IgnoreAspectRatio,
 					 Qt::FastTransformation);
 
   
-  m_prevslicetagimage = QImage(m_prevslicetags,
-			       m_imgWidth,
-			       m_imgHeight,
-			       m_imgWidth,
-			       QImage::Format_Indexed8);
-  m_prevslicetagimage.setColorTable(m_prevslicetagColors);
+  imageFromDataAndColor(m_prevslicetagimage, m_prevslicetags, m_prevslicetagColors);
   m_prevslicetagimageScaled = m_prevslicetagimage.scaled(m_simgWidth,
 							 m_simgHeight,
 							 Qt::IgnoreAspectRatio,
@@ -2938,12 +2932,13 @@ ImageWidget::shrinkwrapPaintedRegion()
   for(int i=imin; i<=imax; i++)
     for(int j=jmin; j<=jmax; j++)
       {
-	maskData[idx] = m_prevtags[i*m_imgWidth+j];
+	//maskData[idx] = m_prevtags[i*m_imgWidth+j];
+	maskData[idx] = (m_prevtags[i*m_imgWidth+j] == Global::tag() ? 255 : 0);  
 	idx++;
       }
 
-  for(int i=0; i<size1*size2; i++)
-    maskData[i] = (maskData[i] == Global::tag() ? 255 : 0);  
+//  for(int i=0; i<size1*size2; i++)
+//    maskData[i] = (maskData[i] == Global::tag() ? 255 : 0);  
 
   MorphSlice ms;
   QList<QPolygonF> poly = ms.boundaryCurves(maskData, size1, size2, true);
@@ -2973,11 +2968,11 @@ ImageWidget::shrinkwrapPaintedRegion()
   memcpy(m_tags, m_prevtags, m_imgWidth*m_imgHeight);
 
   if (m_sliceType == DSlice)
-    emit tagDSlice(m_currSlice, m_tags);
+    emit tagDSlice(m_currSlice, (uchar*)m_tags);
   else if (m_sliceType == WSlice)
-    emit tagWSlice(m_currSlice, m_tags);
+    emit tagWSlice(m_currSlice, (uchar*)m_tags);
   else if (m_sliceType == HSlice)
-    emit tagHSlice(m_currSlice, m_tags);
+    emit tagHSlice(m_currSlice, (uchar*)m_tags);
 
   setMaskImage(m_tags);
 
@@ -3033,11 +3028,11 @@ ImageWidget::shrinkwrapVisibleRegion()
   memcpy(m_tags, m_prevtags, m_imgWidth*m_imgHeight);
 
   if (m_sliceType == DSlice)
-    emit tagDSlice(m_currSlice, m_tags);
+    emit tagDSlice(m_currSlice, (uchar*)m_tags);
   else if (m_sliceType == WSlice)
-    emit tagWSlice(m_currSlice, m_tags);
+    emit tagWSlice(m_currSlice, (uchar*)m_tags);
   else if (m_sliceType == HSlice)
-    emit tagHSlice(m_currSlice, m_tags);
+    emit tagHSlice(m_currSlice, (uchar*)m_tags);
 
   setMaskImage(m_tags);
 
@@ -3276,95 +3271,3 @@ ImageWidget::update2DBox(bool reset)
   
   update();
 }
-
-//void
-//ImageWidget::update3DBox(bool reset)
-//{
-//  float xpos = m_cursorPos.x();
-//  float ypos = m_cursorPos.y();
-//  if (!validPickPoint(xpos, ypos))
-//    return;
-//
-//  int minD, maxD, minW, maxW, minH, maxH;
-//  if (reset)
-//    {
-//      minD = minW = minH = 0;
-//      maxD = m_Depth;
-//      maxW = m_Width;
-//      maxH = m_Height;
-//    }
-//  else
-//    {
-//      int cs = m_currSlice;
-//      Vec bsz = Global::boxSize3D();
-//      if (m_sliceType == DSlice)
-//	{
-//	  minD = (int)bsz.x*(int)(cs/(int)bsz.x);
-//	  minH = (int)bsz.z*(int)(m_pickHeight/(int)bsz.z);
-//	  minW = (int)bsz.y*(int)(m_pickWidth/(int)bsz.y);
-//	  
-//	  maxD = qMin(m_Depth, minD+(int)bsz.x-1);
-//	  maxH = qMin(m_Height,minH+(int)bsz.z-1);
-// 	  maxW = qMin(m_Width, minW+(int)bsz.y-1);
-//	}
-//      else if (m_sliceType == WSlice)
-//	{
-//	  minW = (int)bsz.y*(int)(cs/(int)bsz.y);
-// 	  minH = (int)bsz.z*(int)(m_pickHeight/(int)bsz.z);
-// 	  minD = (int)bsz.x*(int)(m_pickDepth/(int)bsz.x);
-//
-//	  maxW = qMin(m_Width, minW+(int)bsz.y-1);
-//	  maxH = qMin(m_Height,minH+(int)bsz.z-1);
-//	  maxD = qMin(m_Depth, minD+(int)bsz.x-1);
-//	}
-//      else
-//	{
-//	  minH = (int)bsz.z*(int)(cs/(int)bsz.z);	  
-//	  minW = (int)bsz.y*(int)(m_pickWidth/(int)bsz.y);
-// 	  minD = (int)bsz.x*(int)(m_pickDepth/(int)bsz.x);
-//
-//	  maxH = qMin(m_Height,minH+(int)bsz.z-1);
-// 	  maxW = qMin(m_Width, minW+(int)bsz.y-1);
-//	  maxD = qMin(m_Depth, minD+(int)bsz.x-1);
-//	}
-//    }
-//
-//  setBox(minD, maxD, minW, maxW, minH, maxH);
-//
-//  // update the rubberband
-//  float left, right, top, bottom;
-//  if (m_sliceType == DSlice)
-//    {
-//      left = (float)minH/(float)m_Height;
-//      right = (float)maxH/(float)m_Height;
-//      top = (float)minW/(float)m_Width;
-//      bottom = (float)maxW/(float)m_Width;
-//    }
-//  else if (m_sliceType == WSlice)
-//    {
-//      left = (float)minH/(float)m_Height;
-//      right = (float)maxH/(float)m_Height;
-//      top = (float)minD/(float)m_Depth;
-//      bottom = (float)maxD/(float)m_Depth;	  
-//    }
-//  else
-//    {
-//      left = (float)minW/(float)m_Width;
-//      right = (float)maxW/(float)m_Width;
-//      top = (float)minD/(float)m_Depth;
-//      bottom = (float)maxD/(float)m_Depth;
-//    }
-//  
-//  left = qBound(0.0f, left, 1.0f);
-//  top = qBound(0.0f, top, 1.0f);
-//  right = qBound(0.0f, right, 1.0f);
-//  bottom = qBound(0.0f, bottom, 1.0f);
-//      
-//  m_rubberBand.setLeft(left);
-//  m_rubberBand.setTop(top);
-//  m_rubberBand.setRight(right);
-//  m_rubberBand.setBottom(bottom);
-//  
-//  update();
-//}
-//

@@ -1028,7 +1028,7 @@ Viewer::processCommand(QString cmd)
   bmin = VECDIVIDE(bmin, voxelScaling);
   bmax = VECDIVIDE(bmax, voxelScaling);
    
-  if (list[0].contains("tag"))
+  if (list[0].contains("label"))
     {
       int tag = 0;
       if (list.size() == 2)

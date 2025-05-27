@@ -34,8 +34,7 @@
 void
 DrishtiPaint::initTagColors()
 {
-  uchar *colors;
-  colors = new uchar[65536*4];
+  uchar *colors = Global::tagColors();
   memset(colors, 255, 65536*4);
 
   qsrand(1);
@@ -69,7 +68,7 @@ DrishtiPaint::initTagColors()
 	    }
 	}
       
-      if (i > 250)
+      if (i > 65534)
 	{
 	  r = 0.9f; g = 0.3f; b = 0.2f; a = 1.0f;
 	}
@@ -79,9 +78,6 @@ DrishtiPaint::initTagColors()
       colors[4*i+2] = 255*b;
       colors[4*i+3] = 255*a;
     }
-  
-  Global::setTagColors(colors);
-  delete [] colors;
 }
 
 void
@@ -1962,17 +1958,15 @@ DrishtiPaint::loadSettings()
 	  QStringList col = str.split("\n",
 				      QString::SkipEmptyParts);
 	  uchar *colors = Global::tagColors();
-	  for(int i=0; i<qMin(256, col.size()); i++)
+	  for(int i=0; i<qMin(65536, col.size()); i++)
 	    {
 	      QStringList clr = col[i].split(" ",
 					     QString::SkipEmptyParts);
 	      colors[4*i+0] = clr[0].toInt();
 	      colors[4*i+1] = clr[1].toInt();
 	      colors[4*i+2] = clr[2].toInt();
-	      //colors[4*i+3] = clr[3].toInt();
 	      colors[4*i+3] = 255;
 	    }
-	  Global::setTagColors(colors);
 	  m_tagColorEditor->setColors();
 	}
     }
@@ -2030,7 +2024,7 @@ DrishtiPaint::saveSettings()
     QDomElement de0 = doc.createElement("tagcolors");
     QString str;
     uchar *colors = Global::tagColors();
-    for(int i=0; i<256; i++)
+    for(int i=0; i<65536; i++)
       {
 	if (i > 0) str += "               ";
 	str += QString(" %1 %2 %3 %4\n").\
@@ -6364,13 +6358,18 @@ DrishtiPaint::tagsUsed(QList<int> ut)
   QStringList tagNames = m_tagColorEditor->tagNames();
 
   QString mesg;
+  mesg = "Number of non-zero labels used : ";
+  if (ut.contains(0))
+    mesg += QString("%1\n").arg(ut.count()-1);
+  else
+    mesg += QString("%1\n").arg(ut.count());
   int x=0;
   for(int ti=0; ti<ut.count(); ti++)
     {
       if (ut[ti] > 0)
 	{
 	  if (x%5 == 0) mesg += "\n";
-	  mesg += QString("%1 :  ").arg(ut[ti]);
+	  mesg += QString("%1   ").arg(ut[ti]);
 	  x++;
 	}
     }

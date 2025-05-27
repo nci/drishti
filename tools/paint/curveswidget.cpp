@@ -92,8 +92,8 @@ CurvesWidget::CurvesWidget(QWidget *parent, QStatusBar *sb) :
   
   m_image = QImage(100, 100, QImage::Format_RGB32);
   m_imageScaled = QImage(100, 100, QImage::Format_RGB32);
-  m_maskimage = QImage(100, 100, QImage::Format_Indexed8);
-  m_maskimageScaled = QImage(100, 100, QImage::Format_Indexed8);
+  m_maskimage = QImage(100, 100, QImage::Format_ARGB32);
+  m_maskimageScaled = QImage(100, 100, QImage::Format_ARGB32);
 
   m_image.fill(0);
   m_imageScaled.fill(0);
@@ -138,6 +138,8 @@ CurvesWidget::CurvesWidget(QWidget *parent, QStatusBar *sb) :
 
   m_vgt.clear();
 
+  m_tagColors = new uchar[65536*4];
+  memset(m_tagColors, 0, 65536*4);
   updateTagColors();
 
   m_pointSize = 5;
@@ -404,20 +406,21 @@ CurvesWidget::resetSliceType()
       ht = m_Depth+1;
       m_maxSlice = m_Height-1;
     }
-
-  if (m_tags) delete [] m_tags;
-  m_tags = new uchar[wd*ht];
-  memset(m_tags, 0, wd*ht);
-
   if (m_slice) delete [] m_slice;
   m_slice = new uchar[Global::bytesPerVoxel()*wd*ht];
-
-  if (m_maskslice) delete [] m_maskslice;
-  m_maskslice = new uchar[wd*ht];
-  memset(m_maskslice, 0, wd*ht);
   
   if (m_sliceImage) delete [] m_sliceImage;
   m_sliceImage = new uchar[4*wd*ht];
+
+  if (m_tags) delete [] m_tags;
+  m_tags = new ushort[wd*ht];
+  memset(m_tags, 0, 2*wd*ht);
+
+  if (m_maskslice) delete [] m_maskslice;
+  m_maskslice = new ushort[wd*ht];
+  memset(m_maskslice, 0, 2*wd*ht);
+
+  m_maskimage = QImage(m_imgWidth, m_imgHeight, QImage::Format_ARGB32);
   //---------------------------------
 
 
@@ -488,21 +491,16 @@ CurvesWidget::updateTagColors()
 {
   uchar *tagColors = Global::tagColors();
 
-  m_tagColors.clear();
-  m_tagColors.resize(256);
-
-  m_tagColors[0] = qRgba(0,0,0,0);
-  for(int i=1; i<256; i++)
+  m_tagColors[0] = 0;
+  m_tagColors[1] = 0;
+  m_tagColors[2] = 0;
+  m_tagColors[3] = 0;
+  for(int i=1; i<65536; i++)
     {
-      uchar r = tagColors[4*i+0];
-      uchar g = tagColors[4*i+1];
-      uchar b = tagColors[4*i+2];
-
-      uchar a = tagColors[4*i+3];
-      if (a > 2)
-	m_tagColors[i] = qRgba(r, g, b, 127);
-      else
-	m_tagColors[i] = qRgba(r, g, b, 0);
+      m_tagColors[4*i+0] = tagColors[4*i+0];
+      m_tagColors[4*i+1] = tagColors[4*i+1];
+      m_tagColors[4*i+2] = tagColors[4*i+2];
+      m_tagColors[4*i+3] = (tagColors[4*i+3] > 2 ? 127 : 0);
     }
 
 
@@ -537,7 +535,7 @@ CurvesWidget::setImage(uchar *slice, uchar *mask)
     }
 
   memcpy(m_slice, slice, Global::bytesPerVoxel()*m_imgWidth*m_imgHeight);
-  memcpy(m_maskslice, mask, m_imgWidth*m_imgHeight);
+  memcpy(m_maskslice, mask, 2*m_imgWidth*m_imgHeight);
 
   recolorImage();
 
@@ -558,7 +556,7 @@ CurvesWidget::setImage(uchar *slice, uchar *mask)
 void
 CurvesWidget::setMaskImage(uchar *mask)
 {
-  memcpy(m_maskslice, mask, m_imgWidth*m_imgHeight);
+  memcpy(m_maskslice, mask, 2*m_imgWidth*m_imgHeight);
 
   updateMaskImage();
   update();
@@ -1099,9 +1097,6 @@ CurvesWidget::drawCurves(QPainter *p)
   for(int l=0; l<curves.count(); l++)
     {
       int tag = curves[l]->tag;
-      //uchar r = Global::tagColors()[4*tag+0];
-      //uchar g = Global::tagColors()[4*tag+1];
-      //uchar b = Global::tagColors()[4*tag+2];
       uchar r = 20;
       uchar g = 220;
       uchar b = 150;
@@ -1280,9 +1275,6 @@ CurvesWidget::drawMorphedCurves(QPainter *p)
   for(int l=0; l<curves.count(); l++)
     {
       int tag = curves[l].tag;
-      //uchar r = Global::tagColors()[4*tag+0];
-      //uchar g = Global::tagColors()[4*tag+1];
-      //uchar b = Global::tagColors()[4*tag+2];
       uchar r = 120;
       uchar g = 200;
       uchar b = 150;
@@ -2921,18 +2913,24 @@ CurvesWidget::paintUsingCurves(uchar *maskData)
 void
 CurvesWidget::updateMaskImage()
 {
-  memcpy(m_tags, m_maskslice, m_imgWidth*m_imgHeight);
+  memcpy(m_tags, m_maskslice, 2*m_imgWidth*m_imgHeight);
 
-  m_maskimage = QImage(m_tags,  //data
-		       m_imgWidth, // width
-		       m_imgHeight, // height
-		       m_imgWidth, // bytesperline
-		       QImage::Format_Indexed8);
-  m_maskimage.setColorTable(m_tagColors);
+  StaticFunctions::imageFromDataAndColor(m_maskimage, m_tags, m_tagColors);
   m_maskimageScaled = m_maskimage.scaled(m_simgWidth,
 					 m_simgHeight,
 					 Qt::IgnoreAspectRatio,
 					 Qt::FastTransformation);
+
+//  m_maskimage = QImage(m_tags,  //data
+//		       m_imgWidth, // width
+//		       m_imgHeight, // height
+//		       m_imgWidth, // bytesperline
+//		       QImage::Format_Indexed8);
+//  m_maskimage.setColorTable(m_tagColors);
+//  m_maskimageScaled = m_maskimage.scaled(m_simgWidth,
+//					 m_simgHeight,
+//					 Qt::IgnoreAspectRatio,
+//					 Qt::FastTransformation);
 
 }
 

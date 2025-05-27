@@ -1164,3 +1164,33 @@ StaticFunctions::showMessage(QString title, QString mesg)
   info->setLayout(layout);
   info->exec();
 }
+
+
+void
+StaticFunctions::imageFromDataAndColor(QImage &img, ushort *data, uchar *tagColors)
+{
+  if (data == 0)
+    return;
+  
+  uchar *cbit = img.bits();
+  int idx = 0;
+//  for(int h=0; h<m_imgHeight; h++)
+//    for(int w=0; w<m_imgWidth; w++)
+  for(int h=0; h<img.height(); h++)
+    for(int w=0; w<img.width(); w++)
+      {
+	int tag = data[idx];
+
+	int r = tagColors[4*tag+0];
+	int g = tagColors[4*tag+1];
+	int b = tagColors[4*tag+2];
+	int a = tagColors[4*tag+3];
+	
+	cbit[4*idx+0] = b;
+	cbit[4*idx+1] = g;
+	cbit[4*idx+2] = r;
+	cbit[4*idx+3] = a;
+
+	idx++;
+      }
+}

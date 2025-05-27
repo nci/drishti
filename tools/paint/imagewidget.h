@@ -288,8 +288,6 @@ class ImageWidget : public QWidget
 
   void update3DBox(bool);
   void update2DBox(bool);
-
-  void imageFromDataAndColor(QImage&, ushort*, uchar*);
 };
 
 

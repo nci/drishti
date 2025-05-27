@@ -45,7 +45,7 @@ class VolumeMask : public QObject
 
   void setMaskDepthSlice(int, uchar*);
 
-  uchar maskValue(int, int, int);
+  ushort maskValue(int, int, int);
 
   void tagDSlice(int, uchar*);
   void tagWSlice(int, uchar*);

@@ -95,6 +95,8 @@ class StaticFunctions
   static void smooth2DArray(float*, float*, int, int);
 
   static void showMessage(QString, QString);
+
+  static void imageFromDataAndColor(QImage&, ushort*, uchar*);
 };
 
 #endif

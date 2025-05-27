@@ -379,7 +379,7 @@ VolumeMask::getMaskHeightSliceImage(int slc)
   return m_maskFileManager.getHeightSliceMem(slc);
 }
 
-uchar
+ushort
 VolumeMask::maskValue(int d, int w, int h)
 {
   checkMaskFile();
@@ -389,10 +389,10 @@ VolumeMask::maskValue(int d, int w, int h)
       h < 0 || h >= m_height)
     return 0;
   
-  uchar tmp = 0;
+  ushort tmp = 0;
   uchar *mslice = m_maskFileManager.rawValueMem(d, w, h);
   if (mslice)
-    tmp = mslice[0];
+    tmp = ((ushort*)mslice)[0];
 
   return tmp;
 }

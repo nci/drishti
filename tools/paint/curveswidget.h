@@ -170,7 +170,7 @@ class CurvesWidget : public QWidget
   CurveGroup m_Curves;
 
 
-  QVector<QRgb> m_tagColors;
+  uchar *m_tagColors;
 
   int m_sliceType;
   int m_minDSlice, m_maxDSlice;
@@ -199,7 +199,8 @@ class CurvesWidget : public QWidget
   uchar *m_slice;
   uchar *m_sliceImage;
 
-  uchar *m_maskslice;
+  ushort *m_tags;
+  ushort *m_maskslice;
 
   uchar *m_lut;
 
@@ -218,8 +219,6 @@ class CurvesWidget : public QWidget
   bool m_rubberXmax;
   bool m_rubberYmax;
   bool m_rubberNew;
-
-  uchar *m_tags;
 
   bool m_applyRecursive;
   bool m_extraPressed;

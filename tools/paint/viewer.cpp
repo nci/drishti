@@ -1028,7 +1028,7 @@ Viewer::processCommand(QString cmd)
   bmin = VECDIVIDE(bmin, voxelScaling);
   bmax = VECDIVIDE(bmax, voxelScaling);
    
-  if (list[0].contains("label"))
+  if (list[0] == "label")
     {
       int tag = 0;
       if (list.size() == 2)
@@ -1037,8 +1037,15 @@ Viewer::processCommand(QString cmd)
       Global::setTag(tag);
       return;
     }
+  
+  if (list[0] == "labelsused")
+    {
+      QList<int> ut = usedTags();
+      emit tagsUsed(ut);
+      return;
+    }
 
-  if (list[0].contains("connectedcomponents"))
+  if (list[0] == "connectedcomponents")
     {
       int tag = -1;
       if (list.size() == 2)
@@ -1048,7 +1055,7 @@ Viewer::processCommand(QString cmd)
       return;
     }
 
-  if (list[0].contains("removecomponents"))
+  if (list[0] == "removecomponents")
     {
       int tag = -1;
       if (list.size() == 2)
@@ -1058,7 +1065,7 @@ Viewer::processCommand(QString cmd)
       
       return;
     }
-  if (list[0].contains("removelargestcomponents"))
+  if (list[0] == "removelargestcomponents")
     {
       int tag = -1;
       if (list.size() == 2)
@@ -1069,7 +1076,7 @@ Viewer::processCommand(QString cmd)
       return;
     }
 
-  if (list[0].contains("smooth"))
+  if (list[0] == "smooth")
     {
       int tag = -1;
       int filterWidth = -1;
@@ -1089,13 +1096,13 @@ Viewer::processCommand(QString cmd)
       return;
     }
 
-  if (list[0].contains("sortlabels"))
+  if (list[0] == "sortlabels")
     {
       sortLabels();
       return;
     }
       
-  if (list[0].contains("growseeds"))
+  if (list[0] == "growseeds")
     {
       int size = 1;
       if (list.size() == 2)
@@ -1113,7 +1120,7 @@ Viewer::processCommand(QString cmd)
       return;
     }
 
-  if (list[0].contains("dilate"))
+  if (list[0] == "dilate")
     {
       int tag = -1;
       int size = -1;
@@ -1133,7 +1140,7 @@ Viewer::processCommand(QString cmd)
       return;
     }
 
-    if (list[0].contains("erode"))
+    if (list[0] == "erode")
     {
       int tag = -1;
       int size = -1;
@@ -1154,7 +1161,7 @@ Viewer::processCommand(QString cmd)
     }
 
       
-  if (list[0].contains("open"))
+  if (list[0] == "open")
     {
       int tag = -1;
       int nErode = 1;
@@ -1179,7 +1186,7 @@ Viewer::processCommand(QString cmd)
       return;
     }
       
-  if (list[0].contains("close"))
+  if (list[0] == "close")
     {
       int tag = -1;
       int nDilate = 1;
@@ -1204,14 +1211,8 @@ Viewer::processCommand(QString cmd)
       return;
     }
 
-  
-  if (list[0].contains("vmap"))
-    {
-      VolumeOperations::genVisibilityMap(m_gradType, m_minGrad, m_maxGrad);
-      return;
-    }
-  
-  if (list[0].contains("crop"))
+    
+  if (list[0] == "crop")
     {
       Vec bmid = 0.5 * (bmax + bmin);
       QList<Vec> pts;
@@ -1221,22 +1222,15 @@ Viewer::processCommand(QString cmd)
       return;
     }
     
-  
-  if (list[0].contains("labelsused"))
-    {
-      QList<int> ut = usedTags();
-      emit tagsUsed(ut);
-      return;
-    }
 
   
-  if (list[0].contains("shrinkwrap"))
+  if (list[0] == "shrinkwrap")
     {
       int tag1 = Global::tag();
       if (list.size() == 2)
 	{
 	  tag1 = list[1].toInt(&ok);
-	  if (tag1 < 0 || tag1 > 255)
+	  if (tag1 < 0 || tag1 > 65535)
 	    {
 	      QMessageBox::information(0, "", QString("Incorrect label specified : %1").\
 				       arg(tag1));
@@ -1248,14 +1242,14 @@ Viewer::processCommand(QString cmd)
     }
 
 
-  if (list[0].contains("shell"))
+  if (list[0] == "shell")
     {
       int tag1 = Global::tag();
       int width = 1;
       if (list.size() >= 2)
 	{
 	  tag1 = list[1].toInt(&ok);
-	  if (tag1 < 0 || tag1 > 255)
+	  if (tag1 < 0 || tag1 > 65535)
 	    {
 	      QMessageBox::information(0, "", QString("Incorrect label specified : %1").\
 				       arg(tag1));
@@ -1277,13 +1271,13 @@ Viewer::processCommand(QString cmd)
     }
 
   
-  if (list[0].contains("tube"))
+  if (list[0] == "tube")
     {
       int tag1 = Global::tag();
       if (list.size() >= 2)
 	{
 	  tag1 = list[1].toInt(&ok);
-	  if (tag1 < 0 || tag1 > 255)
+	  if (tag1 < 0 || tag1 > 65535)
 	    {
 	      QMessageBox::information(0, "", QString("Incorrect label specified : %1").\
 				       arg(tag1));
@@ -1295,13 +1289,13 @@ Viewer::processCommand(QString cmd)
     }
 
 
-  if (list[0].contains("reset"))
+  if (list[0] == "reset")
     {
       int tag1 = 0;
       if (list.size() == 2)
 	{
 	  tag1 = list[1].toInt(&ok);
-	  if (tag1 < 0 || tag1 > 255)
+	  if (tag1 < 0 || tag1 > 65535)
 	    {
 	      QMessageBox::information(0, "", QString("Incorrect label specified : %1").\
 				       arg(tag1));
@@ -1312,12 +1306,12 @@ Viewer::processCommand(QString cmd)
       return;
     }
 
-  if (list[0].contains("reload"))
+  if (list[0] == "reload")
     {
       emit reloadMask();
       return;
     }
-  if (list[0].contains("loadmask"))
+  if (list[0] == "loadmask")
     {
       QString flnm;
       flnm = QFileDialog::getOpenFileName(0,
@@ -1330,13 +1324,13 @@ Viewer::processCommand(QString cmd)
       emit loadRawMask(flnm);
     }
   
-  if (list[0].contains("volume"))
+  if (list[0] == "volume")
     {
       int tag1 = -1;
       if (list.size() == 2)
 	{
 	  tag1 = list[1].toInt(&ok);
-	  if (tag1 < -1 || tag1 > 255)
+	  if (tag1 < -1 || tag1 > 65535)
 	    {
 	      QMessageBox::information(0, "", QString("Incorrect label specified : %1").\
 				       arg(tag1));
@@ -1350,13 +1344,13 @@ Viewer::processCommand(QString cmd)
       return;
     }
 
-  if (list[0].contains("surfacearea"))
+  if (list[0] == "surfacearea")
     {
       int tag1 = -1;
       if (list.size() == 2)
 	{
 	  tag1 = list[1].toInt(&ok);
-	  if (tag1 < -1 || tag1 > 255)
+	  if (tag1 < -1 || tag1 > 65535)
 	    {
 	      QMessageBox::information(0, "", QString("Incorrect label specified : %1").\
 				       arg(tag1));
@@ -1370,13 +1364,13 @@ Viewer::processCommand(QString cmd)
       return;
     }
 
-  if (list[0].contains("feret"))
+  if (list[0] == "feret")
     {
       int tag1 = -1;
       if (list.size() == 2)
 	{
 	  tag1 = list[1].toInt(&ok);
-	  if (tag1 < -1 || tag1 > 255)
+	  if (tag1 < -1 || tag1 > 65535)
 	    {
 	      QMessageBox::information(0, "", QString("Incorrect label specified : %1").\
 				       arg(tag1));
@@ -1390,14 +1384,12 @@ Viewer::processCommand(QString cmd)
       return;
     }
 
-  if (list[0].contains("setvisible"))
+  if (list[0] == "setvisible")
     {
       if (list.size() == 2)
 	{
 	  int tag1 = list[1].toInt(&ok);
-	  int maxLevel = 255;
-	  if (Global::bytesPerMask() == 2) maxLevel = 65535;
-	  if (tag1 < 0 || tag1 > maxLevel)
+	  if (tag1 < 0 || tag1 > 65535)
 	    {
 	      QMessageBox::information(0, "", QString("Incorrect label specified : %1").\
 				       arg(tag1));
@@ -1408,14 +1400,12 @@ Viewer::processCommand(QString cmd)
       return;
     }
 
-  if (list[0].contains("setinvisible"))
+  if (list[0] == "setinvisible")
     {
       if (list.size() == 2)
 	{
 	  int tag1 = list[1].toInt(&ok);
-	  int maxLevel = 255;
-	  if (Global::bytesPerMask() == 2) maxLevel = 65535;
-	  if (tag1 < 0 || tag1 > maxLevel)
+	  if (tag1 < 0 || tag1 > 65535)
 	    {
 	      QMessageBox::information(0, "", QString("Incorrect label specified : %1").\
 				       arg(tag1));
@@ -1426,14 +1416,14 @@ Viewer::processCommand(QString cmd)
       return;
     }
 
-  if (list[0].contains("mergetf"))
+  if (list[0] == "mergetf")
     {
       if (list.size() == 3)
 	{
 	  int tag1 = list[1].toInt(&ok);
 	  int tag2 = list[2].toInt(&ok);
-	  if (tag1 < 0 || tag1 > 255 ||
-	      tag2 < -1 || tag2 > 255) // tag2 can be -1
+	  if (tag1 < 0 || tag1 > 65535 ||
+	      tag2 < -1 || tag2 > 65535) // tag2 can be -1
 	    {
 	      QMessageBox::information(0, "", QString("Incorrect labels specified : %1 %2").\
 				       arg(tag1).arg(tag2));
@@ -1450,7 +1440,7 @@ Viewer::processCommand(QString cmd)
       return;
     }
 
-  if (list[0].contains("labelstep"))
+  if (list[0] == "labelstep")
     {
       if (list.size() > 1)
 	{
@@ -1475,14 +1465,14 @@ Viewer::processCommand(QString cmd)
       return;
     }
   
-  if (list[0].contains("merge"))
+  if (list[0] == "merge")
     {
       if (list.size() == 3)
 	{
 	  int tag1 = list[1].toInt(&ok);
 	  int tag2 = list[2].toInt(&ok);
-	  if (tag1 < 0 || tag1 > 255 ||
-	      tag2 < -1 || tag2 > 255) // tag2 can be -1
+	  if (tag1 < 0 || tag1 > 65535 ||
+	      tag2 < -1 || tag2 > 65535) // tag2 can be -1
 	    {
 	      QMessageBox::information(0, "", QString("Incorrect labels specified : %1 %2").\
 				       arg(tag1).arg(tag2));
@@ -1499,7 +1489,7 @@ Viewer::processCommand(QString cmd)
       return;
     }
 
-  if (list[0].contains("modifyoriginalvolume"))
+  if (list[0] == "modifyoriginalvolume")
     {
       QStringList dtypes;
       dtypes << "No";
@@ -1520,10 +1510,11 @@ Viewer::processCommand(QString cmd)
 	return;
       
       int val = 0;
+      int maxlevel = (Global::bytesPerVoxel() == 1 ? 255 : 65535);
       val = QInputDialog::getInt(0,
 				  "Modify Original Volume",
 				  "Please specify value for voxels in the transparent region.",
-				  0, 0, 255, 1);
+				 0, 0, maxlevel, 1);
 
       
       emit modifyOriginalVolume(bmin, bmax, val);
@@ -2991,7 +2982,7 @@ Viewer::hatch()
   ctag = QInputDialog::getInt(0,
 			      "Hatch Region",
 			      QString("Region will be hatched with current label value (%1).\nSpecify label value of connected region (-1 for connected visible region).").arg(Global::tag()),
-			      -1, -1, 255, 1,
+			      -1, -1, 65535, 1,
 			      &ok);
   if (!ok)
     return;
@@ -3098,7 +3089,7 @@ Viewer::smoothRegion(bool flag, int tag, int filterWidth)
     tag = QInputDialog::getInt(0,
 			       "Smooth Region",
 			       mesg,
-			       -1, -1, 255, 1,
+			       -1, -1, 65535, 1,
 			       &ok);
   if (!ok)
     return;
@@ -3141,7 +3132,7 @@ Viewer::regionGrowing(bool sw)
       ctag = QInputDialog::getInt(0,
 				  "Fill",
 				  QString("Connected region will be filled with current label value (%1).\nSpecify label value of connected region (-1 for connected visible region).").arg(Global::tag()),
-				  -1, -1, 255, 1,
+				  -1, -1, 65535, 1,
 				  &ok);
       if (!ok)
 	return;
@@ -3181,7 +3172,7 @@ Viewer::regionGrowing(bool sw)
 				  QString("%1 connected region with current label value (%2).\nSpecify label value of connected region (-1 for connected visible region).").\
 				  arg(mesg).\
 				  arg(Global::tag()),
-				  -1, -1, 255, 1);
+				  -1, -1, 65535, 1);
 
       if (tubes)
 	{
@@ -3337,7 +3328,7 @@ Viewer::tagUsingScreenSketch()
       {
 	int rp = xp + yp*m_spW;
 	if (qRed(rgb[rp]) > 0)
-	  m_sketchPad[rp] = 255;
+	  m_sketchPad[rp] = 65535;
       }
 
   emit tagUsingSketchPad(bmin, bmax);
@@ -3784,7 +3775,7 @@ Viewer::usedTags()
       if (!ut.contains(m_maskPtrUS[i]))
 	ut << m_maskPtrUS[i];      
     }
-  QMessageBox::information(0, "", QString("%1").arg(ut.count()));
+  //QMessageBox::information(0, "", QString("%1").arg(ut.count()));
   
   qSort(ut);
   return ut;

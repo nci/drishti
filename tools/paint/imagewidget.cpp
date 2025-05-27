@@ -274,34 +274,6 @@ ImageWidget::saveImageSequence()
   QMessageBox::information(0, "Save All Image Slices", "Done");
 }
 
-void
-ImageWidget::imageFromDataAndColor(QImage &img, ushort *data, uchar *tagColors)
-{
-  if (data == 0)
-    return;
-  
-  uchar *cbit = img.bits();
-  int idx = 0;
-  for(int h=0; h<m_imgHeight; h++)
-    for(int w=0; w<m_imgWidth; w++)
-      {
-	int tag = data[idx];
-
-	int r = tagColors[4*tag+0];
-	int g = tagColors[4*tag+1];
-	int b = tagColors[4*tag+2];
-	int a = tagColors[4*tag+3];
-	
-	cbit[4*idx+0] = b;
-	cbit[4*idx+1] = g;
-	cbit[4*idx+2] = r;
-	cbit[4*idx+3] = a;
-
-	idx++;
-      }
-}
-
-
 void ImageWidget::zoom0Clicked() { setZoom(1); }
 void ImageWidget::zoom9Clicked() { setZoom(-1); }
 void ImageWidget::zoomUpClicked() { setZoom(m_zoom+0.1); }
@@ -907,23 +879,12 @@ ImageWidget::updateTagColors()
       m_prevslicetagColors[4*i+3] = 127;
     }
 
-  imageFromDataAndColor(m_maskimage, m_tags, m_tagColors);
-  m_maskimageScaled = m_maskimage.scaled(m_simgWidth,
-					 m_simgHeight,
-					 Qt::IgnoreAspectRatio,
-					 Qt::FastTransformation);  
+  if (m_sliceImage == 0)
+    return;
+  
+  recolorImage();
+  onlyImageScaled();
 
-  imageFromDataAndColor(m_userimage, m_usertags, m_tagColors);
-  m_userimageScaled = m_userimage.scaled(m_simgWidth,
-					 m_simgHeight,
-					 Qt::IgnoreAspectRatio,
-					 Qt::FastTransformation);  
-
-  imageFromDataAndColor(m_prevslicetagimage, m_prevslicetags, m_prevslicetagColors);
-  m_prevslicetagimageScaled = m_prevslicetagimage.scaled(m_simgWidth,
-							 m_simgHeight,
-							 Qt::IgnoreAspectRatio,
-							 Qt::FastTransformation);  
   update();
 }
 
@@ -1006,6 +967,8 @@ ImageWidget::processPrevSliceTags()
 void
 ImageWidget::recolorImage()
 {
+  uchar *tagColors = Global::tagColors();
+
   for(qint64 i=0; i<m_imgHeight*m_imgWidth; i++)
     {
       int idx = m_slice[i];
@@ -1016,6 +979,14 @@ ImageWidget::recolorImage()
       m_sliceImage[4*i+1] = m_lut[4*idx+1];
       m_sliceImage[4*i+2] = m_lut[4*idx+2];
       m_sliceImage[4*i+3] = m_lut[4*idx+3];
+
+      if (tagColors[4*m_prevtags[i]+3] == 0)
+	{
+	  m_sliceImage[4*i+0] = 0;
+	  m_sliceImage[4*i+1] = 0;
+	  m_sliceImage[4*i+2] = 0;
+	  m_sliceImage[4*i+3] = 0;
+	}
     }
 
   applyClipping();
@@ -1362,18 +1333,17 @@ ImageWidget::drawRawValue(QPainter *p)
           arg(m_pickWidth).\
           arg(m_pickDepth);
     
-  str += QString(" val(%1) tag(%2)").\
+  str += QString(" val(%1) tag(%2)  ").\
 	     arg(m_vgt[0]).\
 	     arg(m_vgt[2]);
 
-  QFont pfont = QFont("Helvetica", 10);
+  QFont pfont = QFont("Courier", 10);
   QPainterPath pp;
   pp.addText(QPointF(0,0), 
 	     pfont,
 	     str);
-  QRectF br = pp.boundingRect();
-  float by = br.height()/2;      
-  float bw = br.width();      
+  float by = QFontMetrics(pfont).height()/2;
+  float bw = QFontMetrics(pfont).horizontalAdvance(str);
 
   int x = xp-bw-30;
   int xe = xp-20;
@@ -2505,7 +2475,7 @@ ImageWidget::dotImage(int x, int y, bool backgroundTag)
 
   if (redo)
     {
-      imageFromDataAndColor(m_userimage, m_usertags, m_tagColors);
+      StaticFunctions::imageFromDataAndColor(m_userimage, m_usertags, m_tagColors);
       m_userimageScaled = m_userimage.scaled(m_simgWidth,
 					     m_simgHeight,
 					     Qt::IgnoreAspectRatio,
@@ -2545,7 +2515,7 @@ ImageWidget::removeDotImage(int x, int y)
 
   if (redo)
     {
-      imageFromDataAndColor(m_userimage, m_usertags, m_tagColors);
+      StaticFunctions::imageFromDataAndColor(m_userimage, m_usertags, m_tagColors);
       m_userimageScaled = m_userimage.scaled(m_simgWidth,
 					     m_simgHeight,
 					     Qt::IgnoreAspectRatio,
@@ -2896,7 +2866,7 @@ ImageWidget::updateMaskImage()
 {
   memcpy(m_tags, m_prevtags, 2*m_imgWidth*m_imgHeight);
 
-  imageFromDataAndColor(m_maskimage, m_tags, m_tagColors);
+  StaticFunctions::imageFromDataAndColor(m_maskimage, m_tags, m_tagColors);
   m_maskimageScaled = m_maskimage.scaled(m_simgWidth,
 					 m_simgHeight,
 					 Qt::IgnoreAspectRatio,
@@ -2904,14 +2874,14 @@ ImageWidget::updateMaskImage()
 
 
 
-  imageFromDataAndColor(m_userimage, m_usertags, m_tagColors);
+  StaticFunctions::imageFromDataAndColor(m_userimage, m_usertags, m_tagColors);
   m_userimageScaled = m_userimage.scaled(m_simgWidth,
 					 m_simgHeight,
 					 Qt::IgnoreAspectRatio,
 					 Qt::FastTransformation);
 
   
-  imageFromDataAndColor(m_prevslicetagimage, m_prevslicetags, m_prevslicetagColors);
+  StaticFunctions::imageFromDataAndColor(m_prevslicetagimage, m_prevslicetags, m_prevslicetagColors);
   m_prevslicetagimageScaled = m_prevslicetagimage.scaled(m_simgWidth,
 							 m_simgHeight,
 							 Qt::IgnoreAspectRatio,

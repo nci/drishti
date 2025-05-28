@@ -288,14 +288,8 @@ class DrishtiPaint : public QMainWindow
 
   void reloadSlices();
 
-  void sliceDilate(int, int, uchar*, uchar*, int, int);
-  void dilate(int, int, uchar**, uchar*, int, int);
-
-  void sliceErode(int, int, uchar*, uchar*, int, int);
-  void erode(int, int, uchar**, uchar*, int, int);
-
-  void sliceSmooth(int, int, uchar*, uchar*, int, int, int);
-  void smooth(int, int, uchar**, uchar*, int, int, int);
+  void sliceSmooth(int, int, ushort*, ushort*, int, int, int);
+  void smooth(int, int, ushort**, ushort*, int, int, int);
 
   void savePvlHeader(QString, QString, int, int, int, int);
 

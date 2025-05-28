@@ -2914,7 +2914,7 @@ void
 CurvesWidget::updateMaskImage()
 {
   memcpy(m_tags, m_maskslice, 2*m_imgWidth*m_imgHeight);
-
+  
   StaticFunctions::imageFromDataAndColor(m_maskimage, m_tags, m_tagColors);
   m_maskimageScaled = m_maskimage.scaled(m_simgWidth,
 					 m_simgHeight,

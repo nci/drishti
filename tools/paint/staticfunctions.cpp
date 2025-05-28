@@ -1174,8 +1174,6 @@ StaticFunctions::imageFromDataAndColor(QImage &img, ushort *data, uchar *tagColo
   
   uchar *cbit = img.bits();
   int idx = 0;
-//  for(int h=0; h<m_imgHeight; h++)
-//    for(int w=0; w<m_imgWidth; w++)
   for(int h=0; h<img.height(); h++)
     for(int w=0; w<img.width(); w++)
       {

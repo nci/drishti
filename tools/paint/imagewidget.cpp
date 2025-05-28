@@ -1674,7 +1674,7 @@ ImageWidget::graphcutModeKeyPressEvent(QKeyEvent *event)
 	  if (shiftModifier) // apply smoothing for multiple slices
 	    applyRecursive(event->key());
 	  
-	  smooth(192, true, false);
+	  smooth(128, false, false);
 	}
     }
   else if (event->key() == Qt::Key_T) // apply graphcut
@@ -2680,8 +2680,6 @@ ImageWidget::smooth(int thresh, bool smooth, bool morecoming)
 	idx++;
       }
 
-  //for(int i=0; i<size1*size2; i++)
-  //  maskData[i] = (maskData[i] == Global::tag() ? 255 : 0);  
 
   //--------------------------
   // smooth row
@@ -2709,46 +2707,15 @@ ImageWidget::smooth(int thresh, bool smooth, bool morecoming)
   memcpy(m_tags, maskData, size1*size2);
   //--------------------------
 
-  if (smooth) // dilate first and then erode
-    {
-      for(int i=0; i<size1*size2; i++)
-	maskData[i] = (m_tags[i] > 64  ? 255 : 0);  
-
-      //--------------------------
-      // smooth row
-      for(int j=0; j<size2; j++)
-	{
-	  for(int i=0; i<size1; i++)
-	    {
-	      float sum = 0;
-	      for(int x=-nb; x<=nb; x++)
-		sum += maskData[j*size1+qBound(0, i+x, size1-1)];
-	      m_tags[j*size1+i] = sum/(2*nb+1);
-	    }
-	}
-      // followed by smooth column
-      for(int i=0; i<size1; i++)
-	{
-	  for(int j=0; j<size2; j++)
-	    {
-	      float sum = 0;
-	      for(int y=-nb; y<=nb; y++)
-		sum += m_tags[qBound(0, j+y, size2-1)*size1+i];
-	      maskData[j*size1+i] = sum/(2*nb+1);
-	    }
-	}
-      memcpy(m_tags, maskData, size1*size2);
-      //--------------------------
-    }
+  memcpy(maskData, m_tags, size1*size2);
+  for(int i=0; i<size1*size2; i++)
+    m_tags[i] = (maskData[i] > thresh  ? Global::tag() : 0);  
 
   delete [] maskData;
 
-  for(int i=0; i<size1*size2; i++)
-    m_tags[i] = (m_tags[i] > thresh  ? Global::tag() : 0);  
-
   idx=0;
   for(int i=imin; i<=imax; i++)
-    for(int j=jmin; j<=jmax; j++)
+    for(int j=jmin; j<=jmax; j++, idx++)
       {
 	if (m_sliceImage[4*(i*m_imgWidth+j)] > 0)
 	  {
@@ -2756,10 +2723,9 @@ ImageWidget::smooth(int thresh, bool smooth, bool morecoming)
 		m_prevtags[i*m_imgWidth+j] == Global::tag())
 	      m_prevtags[i*m_imgWidth+j] = m_tags[idx];
 	  }
-	idx++;
       }
 
-  memcpy(m_tags, m_prevtags, m_imgWidth*m_imgHeight);
+  memcpy(m_tags, m_prevtags, 2*m_imgWidth*m_imgHeight);
 
   if (!morecoming)
     {
@@ -2902,13 +2868,9 @@ ImageWidget::shrinkwrapPaintedRegion()
   for(int i=imin; i<=imax; i++)
     for(int j=jmin; j<=jmax; j++)
       {
-	//maskData[idx] = m_prevtags[i*m_imgWidth+j];
 	maskData[idx] = (m_prevtags[i*m_imgWidth+j] == Global::tag() ? 255 : 0);  
 	idx++;
       }
-
-//  for(int i=0; i<size1*size2; i++)
-//    maskData[i] = (maskData[i] == Global::tag() ? 255 : 0);  
 
   MorphSlice ms;
   QList<QPolygonF> poly = ms.boundaryCurves(maskData, size1, size2, true);
@@ -2935,7 +2897,7 @@ ImageWidget::shrinkwrapPaintedRegion()
 	idx++;
       }
 
-  memcpy(m_tags, m_prevtags, m_imgWidth*m_imgHeight);
+  memcpy(m_tags, m_prevtags, 2*m_imgWidth*m_imgHeight);
 
   if (m_sliceType == DSlice)
     emit tagDSlice(m_currSlice, (uchar*)m_tags);
@@ -2995,7 +2957,7 @@ ImageWidget::shrinkwrapVisibleRegion()
 	idx++;
       }
 
-  memcpy(m_tags, m_prevtags, m_imgWidth*m_imgHeight);
+  memcpy(m_tags, m_prevtags, 2*m_imgWidth*m_imgHeight);
 
   if (m_sliceType == DSlice)
     emit tagDSlice(m_currSlice, (uchar*)m_tags);

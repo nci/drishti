@@ -2145,7 +2145,7 @@ DrishtiPaint::loadVolumeFromProject(const char *flnm)
 // smooth dilate/erode based on threshold
 void
 DrishtiPaint::sliceSmooth(int tag, int spread,
-			  uchar *pv, uchar *p,
+			  ushort *pv, ushort *p,
 			  int width, int height,
 			  int thresh)
 { 
@@ -2198,7 +2198,7 @@ DrishtiPaint::sliceSmooth(int tag, int spread,
 // smooth dilate/erode based on threshold
 void
 DrishtiPaint::smooth(int tag, int spread,
-		     uchar **pv, uchar *p,
+		     ushort **pv, ushort *p,
 		     int width, int height,
 		     int thresh)
 { 
@@ -2223,153 +2223,7 @@ DrishtiPaint::smooth(int tag, int spread,
       } 
 }
 
-void
-DrishtiPaint::sliceDilate(int tag, int spread,
-			  uchar *pv, uchar *p,
-			  int width, int height)
-{ 
-  int a;
-  for(int i=0; i<height; i++)				  
-    for(int j=0; j<width; j++)			  
-      {						  
-	int pj = 0;					  
-	int jst = qMax(0, j-spread);			  
-	int jed = qMin(width-1, j+spread);			  
-	for(int j1=jst; j1<=jed; j1++)		  
-	  {						  
-	    int idx = qBound(0, j1, width-1)*height+i;  
-	    if (tag > -1)
-	      a = (pv[idx]==tag ? 1 : 0);
-	    else
-	      a = (pv[idx]>tag ? 1 : 0);
-	    pj = qMax(a,pj);
-	  }
-	if (tag > -1)
-	  p[j*height+i] = tag*pj;
-	else
-	  p[j*height+i] = 255*pj;
-      }						  
-  
-  for(int j=0; j<width; j++)				  
-    for(int i=0; i<height; i++)			  
-      {						  
-	int pi = 0;					  
-	int ist = qMax(0, i-spread);			  
-	int ied = qMin(height-1, i+spread);		  
-	for(int i1=ist; i1<=ied; i1++)		  
-	  {						  
-	    int idx = j*height+qBound(0, i1, height-1); 
-	    if (tag > -1)
-	      a = (p[idx]==tag ? 1 : 0);
-	    else
-	      a = (p[idx]>tag ? 1 : 0);
-	    pi = qMax(a,pi);		  
-	  }						  
-	if (tag > -1)
-	  pv[j*height+i] = tag*pi;
-	else
-	  pv[j*height+i] = 255*pi;
-      }						  
-}
 
-void
-DrishtiPaint::dilate(int tag, int spread,
-		     uchar **pv, uchar *p,
-		     int width, int height)
-{ 
-  int a;
-  for(int j=0; j<width; j++) 
-    for(int k=0; k<height; k++) 
-      {
-	int avg = 0; 
-	for(int i=0; i<2*spread+1; i++) 
-	  {
-	    if (tag > -1)
-	      a = (pv[i][j*height+k]==tag ? 1 : 0);
-	    else
-	      a = (pv[i][j*height+k]>tag ? 1 : 0);
-	    avg = qMax(avg,a); 
-	  }
-	if (tag > -1)
-	  p[j*height + k] = tag*avg;
-	else
-	  p[j*height + k] = 255*avg;
-      } 
-}
-
-void
-DrishtiPaint::sliceErode(int tag, int spread,
-			 uchar *pv, uchar *p,
-			 int width, int height)
-{ 
-  int a;
-  for(int i=0; i<height; i++)				  
-    for(int j=0; j<width; j++)			  
-      {						  
-	int pj = 1;					  
-	int jst = qMax(0, j-spread);			  
-	int jed = qMin(width-1, j+spread);			  
-	for(int j1=jst; j1<=jed; j1++)		  
-	  {						  
-	    int idx = qBound(0, j1, width-1)*height+i;  
-	    if (tag > -1)
-	      a = (pv[idx]==tag ? 1 : 0);
-	    else
-	      a = (pv[idx]>tag ? 1 : 0);
-	    pj = qMin(a,pj);
-	  }
-	if (tag > -1)
-	  p[j*height+i] = tag*pj;
-	else
-	  p[j*height+i] = 255*pj;
-      }						  
-  
-  for(int j=0; j<width; j++)				  
-    for(int i=0; i<height; i++)			  
-      {						  
-	int pi = 1;					  
-	int ist = qMax(0, i-spread);			  
-	int ied = qMin(height-1, i+spread);		  
-	for(int i1=ist; i1<=ied; i1++)		  
-	  {						  
-	    int idx = j*height+qBound(0, i1, height-1); 
-	    if (tag > -1)
-	      a = (p[idx]==tag ? 1 : 0);
-	    else
-	      a = (p[idx]>tag ? 1 : 0);
-	    pi = qMin(a,pi);		  
-	  }						  
-	if (tag > -1)
-	  pv[j*height+i] = tag*pi;
-	else
-	  pv[j*height+i] = 255*pi;
-      }						  
-}
-
-void
-DrishtiPaint::erode(int tag, int spread,
-		    uchar **pv, uchar *p,
-		    int width, int height)
-{ 
-  int a;
-  for(int j=0; j<width; j++) 
-    for(int k=0; k<height; k++) 
-      {
-	int avg = 1; 
-	for(int i=0; i<2*spread+1; i++) 
-	  {
-	    if (tag > -1)
-	      a = (pv[i][j*height+k]==tag ? 1 : 0);
-	    else
-	      a = (pv[i][j*height+k]>tag ? 1 : 0);
-	    avg = qMin(avg,a); 
-	  }
-	if (tag > -1)
-	  p[j*height + k] = tag*avg;
-	else
-	  p[j*height + k] = 255*avg;
-      } 
-}
 
 void
 DrishtiPaint::savePvlHeader(QString volfile,
@@ -2541,12 +2395,12 @@ DrishtiPaint::applyMaskOperation(int tag,
   progress.setMinimumDuration(0);
 
   int nbytes = width*height;
-  uchar *tagData = new uchar[nbytes];
-  uchar *raw = new uchar[nbytes];
-  uchar **val;
-  val = new uchar*[2*spread+1];
+  ushort *tagData = new ushort[nbytes];
+  ushort *raw = new ushort[nbytes];
+  ushort **val;
+  val = new ushort*[2*spread+1];
   for (int i=0; i<2*spread+1; i++)
-    val[i] = new uchar[nbytes];
+    val[i] = new ushort[nbytes];
 
   for(int d=minDSlice; d<=maxDSlice; d++)
     {
@@ -2554,23 +2408,12 @@ DrishtiPaint::applyMaskOperation(int tag,
       progress.setValue((int)(100*(float)slc/(float)tdepth));
       qApp->processEvents();
 
-//      uchar *slice = m_volume->getDepthSliceImage(d);
-//      // we get value+grad from volume
-//      // we need only value part
-//      int i=0;
-//      for(int w=minWSlice; w<=maxWSlice; w++)
-//	for(int h=minHSlice; h<=maxHSlice; h++)
-//	  {
-//	    slice[i] = slice[2*(w*height+h)];
-//	    i++;
-//	  }
-
-      memcpy(tagData, m_volume->getMaskDepthSliceImage(d), nbytes);
+      memcpy(tagData, m_volume->getMaskDepthSliceImage(d), 2*nbytes);
 
       
       if (slc == 0)
 	{
-	  memcpy(val[spread], m_volume->getMaskDepthSliceImage(d), nbytes);
+	  memcpy(val[spread], m_volume->getMaskDepthSliceImage(d), 2*nbytes);
 
 	  if (smoothType == 0 || smoothType == 3)
 	    {
@@ -2605,9 +2448,9 @@ DrishtiPaint::applyMaskOperation(int tag,
 	  for(int i=-spread; i<0; i++)
 	    {
 	      if (d+i >= 0)
-		memcpy(val[spread+i], m_volume->getMaskDepthSliceImage(d+i), nbytes);
+		memcpy(val[spread+i], m_volume->getMaskDepthSliceImage(d+i), 2*nbytes);
 	      else
-		memcpy(val[spread+i], m_volume->getMaskDepthSliceImage(0), nbytes);
+		memcpy(val[spread+i], m_volume->getMaskDepthSliceImage(0), 2*nbytes);
 	      
 	      if (smoothType == 0 || smoothType == 3)
 		{
@@ -2642,9 +2485,9 @@ DrishtiPaint::applyMaskOperation(int tag,
 	  for(int i=1; i<=spread; i++)
 	    {
 	      if (d+i < depth)
-		memcpy(val[spread+i], m_volume->getMaskDepthSliceImage(d+i), nbytes);
+		memcpy(val[spread+i], m_volume->getMaskDepthSliceImage(d+i), 2*nbytes);
 	      else
-		memcpy(val[spread+i], m_volume->getMaskDepthSliceImage(depth-1), nbytes);
+		memcpy(val[spread+i], m_volume->getMaskDepthSliceImage(depth-1), 2*nbytes);
 	      
 	      if (smoothType == 0 || smoothType == 3)
 		{
@@ -2677,7 +2520,7 @@ DrishtiPaint::applyMaskOperation(int tag,
 	} // slc == 0
       else if (d < depth-spread)
 	{
-	  memcpy(val[2*spread], m_volume->getMaskDepthSliceImage(d+spread), nbytes);
+	  memcpy(val[2*spread], m_volume->getMaskDepthSliceImage(d+spread), 2*nbytes);
 	  
 	  if (smoothType == 0 || smoothType == 3)
 	    {
@@ -2710,7 +2553,7 @@ DrishtiPaint::applyMaskOperation(int tag,
 	} // d < depth-spread 
       else
 	{
-	  memcpy(val[2*spread], m_volume->getMaskDepthSliceImage(depth-1), nbytes);
+	  memcpy(val[2*spread], m_volume->getMaskDepthSliceImage(depth-1), 2*nbytes);
 	  
 
 	  if (smoothType == 0 || smoothType == 3)
@@ -2775,7 +2618,7 @@ DrishtiPaint::applyMaskOperation(int tag,
       
       
       // now shift the planes
-      uchar *tmp = val[0];
+      ushort *tmp = val[0];
       for(int i=0; i<2*spread; i++)
 	val[i] = val[i+1];
       val[2*spread] = tmp;
@@ -2787,7 +2630,7 @@ DrishtiPaint::applyMaskOperation(int tag,
 	      tagData[w*height+h] = raw[w*height+h];
 	  }
       
-      m_volume->setMaskDepthSlice(d, tagData);
+      m_volume->setMaskDepthSlice(d, (uchar*)tagData);
     }
   
   delete [] raw;

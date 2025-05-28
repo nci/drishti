@@ -387,38 +387,38 @@ CurvesWidget::resetSliceType()
 
   
   //---------------------------------
-  int wd, ht;
   if (m_sliceType == DSlice)
     {
-      wd = m_Height+1;
-      ht = m_Width+1;
+      m_imgWidth = m_Height+1;
+      m_imgHeight = m_Width+1;
       m_maxSlice = m_Depth-1;
     }
   else if (m_sliceType == WSlice)
     {
-      wd = m_Height+1;
-      ht = m_Depth+1;
+      m_imgWidth = m_Height+1;
+      m_imgHeight = m_Depth+1;
       m_maxSlice = m_Width-1;
     }
   else
     {
-      wd = m_Width+1;
-      ht = m_Depth+1;
+      m_imgWidth = m_Width+1;
+      m_imgHeight = m_Depth+1;
       m_maxSlice = m_Height-1;
     }
+  
   if (m_slice) delete [] m_slice;
-  m_slice = new uchar[Global::bytesPerVoxel()*wd*ht];
+  m_slice = new uchar[Global::bytesPerVoxel()*m_imgWidth*m_imgHeight];
   
   if (m_sliceImage) delete [] m_sliceImage;
-  m_sliceImage = new uchar[4*wd*ht];
+  m_sliceImage = new uchar[4*m_imgWidth*m_imgHeight];
 
   if (m_tags) delete [] m_tags;
-  m_tags = new ushort[wd*ht];
-  memset(m_tags, 0, 2*wd*ht);
+  m_tags = new ushort[m_imgWidth*m_imgHeight];
+  memset(m_tags, 0, 2*m_imgWidth*m_imgHeight);
 
   if (m_maskslice) delete [] m_maskslice;
-  m_maskslice = new ushort[wd*ht];
-  memset(m_maskslice, 0, 2*wd*ht);
+  m_maskslice = new ushort[m_imgWidth*m_imgHeight];
+  memset(m_maskslice, 0, 2*m_imgWidth*m_imgHeight);
 
   m_maskimage = QImage(m_imgWidth, m_imgHeight, QImage::Format_ARGB32);
   //---------------------------------
@@ -518,24 +518,8 @@ CurvesWidget::setImage(uchar *slice, uchar *mask)
 {
   m_livewire.resetPoly();
 
-  if (m_sliceType == DSlice)
-    {
-      m_imgWidth = m_Height+1;
-      m_imgHeight = m_Width+1;
-    }
-  else if (m_sliceType == WSlice)
-    {
-      m_imgWidth = m_Height+1;
-      m_imgHeight = m_Depth+1;
-    }
-  else
-    {
-      m_imgWidth = m_Width+1;
-      m_imgHeight = m_Depth+1;
-    }
-
   memcpy(m_slice, slice, Global::bytesPerVoxel()*m_imgWidth*m_imgHeight);
-  memcpy(m_maskslice, mask, 2*m_imgWidth*m_imgHeight);
+  memcpy(m_maskslice, mask, 2*m_imgWidth*m_imgHeight);  
 
   recolorImage();
 
@@ -556,13 +540,25 @@ CurvesWidget::setImage(uchar *slice, uchar *mask)
 void
 CurvesWidget::setMaskImage(uchar *mask)
 {
-  memcpy(m_maskslice, mask, 2*m_imgWidth*m_imgHeight);
-
+  memcpy(m_maskslice, mask, 2*m_imgWidth*m_imgHeight);  
+  
   updateMaskImage();
   update();
 
   if (m_applyRecursive)
     repaint();
+}
+
+void
+CurvesWidget::updateMaskImage()
+{
+  memcpy(m_tags, m_maskslice, 2*m_imgWidth*m_imgHeight);
+
+  StaticFunctions::imageFromDataAndColor(m_maskimage, m_tags, m_tagColors);
+  m_maskimageScaled = m_maskimage.scaled(m_simgWidth,
+					 m_simgHeight,
+					 Qt::IgnoreAspectRatio,
+					 Qt::FastTransformation);
 }
 
 void
@@ -1373,7 +1369,6 @@ CurvesWidget::paintEvent(QPaintEvent *event)
 	}
     }
 
-  //if (hasFocus())
   if (m_hasFocus)
     {
       p.setPen(QPen(QColor(50, 250, 100), 10));
@@ -1602,7 +1597,6 @@ CurvesWidget::freezeLivewire(bool select)
 {
   if (!m_livewireMode)
     {
-      //QMessageBox::information(0, "Error", "No livewire found to be transferred to curve");
       return;
     }
 
@@ -1629,12 +1623,6 @@ CurvesWidget::freezeLivewire(bool select)
   emit polygonLevels(m_Curves.polygonLevels());
 
   m_livewire.resetPoly();
-
-//
-//
-//
-//
-// show it via the Show Tags parameter").arg(Global::tag()));
   
   update(); 
 }
@@ -1848,12 +1836,6 @@ CurvesWidget::setSliceLOD(int lod)
 void
 CurvesWidget::curveModeKeyPressEvent(QKeyEvent *event)
 {
-//  if (m_applyRecursive && event->key() == Qt::Key_Escape)
-//    {
-//      m_applyRecursive = false;
-//      return;
-//    }
-
   {
     QPoint pp = mapFromGlobal(QCursor::pos());
     float ypos = pp.y();
@@ -1891,7 +1873,6 @@ CurvesWidget::curveModeKeyPressEvent(QKeyEvent *event)
 	  if (m_addingCurvePoints)
 	    update();
 	  newCurve(false);
-	  //emit saveWork();
 	  return;
 	}    
       else if (ctrlModifier)	
@@ -1921,24 +1902,6 @@ CurvesWidget::curveModeKeyPressEvent(QKeyEvent *event)
       return;
     }
 
-//  if (shiftModifier && event->key() == Qt::Key_Q)
-//    {
-//      morphCurves();
-//      return;
-//    }
-//
-//  if (event->key() == Qt::Key_I)
-//    {
-//      int ic = -1;
-//      if (m_sliceType == DSlice)
-//	ic = m_Curves.showPolygonInfo(0, m_currSlice, m_pickHeight, m_pickWidth);
-//      else if (m_sliceType == WSlice)
-//	ic = m_Curves.showPolygonInfo(1, m_currSlice, m_pickHeight, m_pickDepth);
-//      else
-//	ic = m_Curves.showPolygonInfo(2, m_currSlice, m_pickWidth,  m_pickDepth);
-//      
-//      return;
-//    }
 
   if (event->key() == Qt::Key_G) // shrink wrap 
     {
@@ -2227,35 +2190,6 @@ CurvesWidget::curveMousePressEvent(QMouseEvent *event)
 	      else
 		m_Curves.addPoint(m_currSlice, m_pickWidth,  m_pickDepth);
 	    }
-//	  else if (shiftModifier)
-//	    {
-//	      if (m_sliceType == DSlice)
-//		{
-//		  int a = m_pickHeight-m_lastPickHeight;
-//		  int b = m_pickWidth-m_lastPickWidth;
-//		  int rad = qBound(Global::selectionPrecision(),
-//				   (int)qSqrt(a*a + b*b), 100);
-//		  m_dCurves.startPush(m_currSlice, m_pickHeight, m_pickWidth, rad);
-//		}
-//	      else if (m_sliceType == WSlice)
-//		{
-//		  int a = m_pickHeight-m_lastPickHeight;
-//		  int b = m_pickDepth-m_lastPickDepth;
-//		  int rad = qBound(Global::selectionPrecision(),
-//				   (int)qSqrt(a*a + b*b), 100);
-//		  m_wCurves.startPush(m_currSlice, m_pickHeight, m_pickDepth, rad);
-//		}
-//	      else
-//		{
-//		  int a = m_pickWidth-m_lastPickWidth;
-//		  int b = m_pickDepth-m_lastPickDepth;
-//		  int rad = qBound(Global::selectionPrecision(),
-//				   (int)qSqrt(a*a + b*b), 100);
-//		  m_hCurves.startPush(m_currSlice, m_pickWidth,  m_pickDepth, rad);
-//		}
-//	      update();
-//	      return;
-//	    }
 	}
     }
   else if (m_button == Qt::MiddleButton &&
@@ -2354,49 +2288,20 @@ CurvesWidget::curveMouseMoveEvent(QMouseEvent *event)
       // carry on only if Alt key is not pressed
       if (validPickPoint(xpos, ypos))
 	{
-//	  if (!m_livewireMode && shiftModifier)
-//	    {
-//	      if (m_sliceType == DSlice)
-//		{
-//		  int a = m_pickHeight-m_lastPickHeight;
-//		  int b = m_pickWidth-m_lastPickWidth;
-//		  int rad = qBound(5, (int)qSqrt(a*a + b*b), 100);
-//		  m_dCurves.push(m_currSlice, m_pickHeight, m_pickWidth, rad);
-//		}
-//	      else if (m_sliceType == WSlice)
-//		{
-//		  int a = m_pickHeight-m_lastPickHeight;
-//		  int b = m_pickDepth-m_lastPickDepth;
-//		  int rad = qBound(5, (int)qSqrt(a*a + b*b), 100);
-//		  m_wCurves.push(m_currSlice, m_pickHeight, m_pickDepth, rad);
-//		}
-//	      else
-//		{
-//		  int a = m_pickWidth-m_lastPickWidth;
-//		  int b = m_pickDepth-m_lastPickDepth;
-//		  int rad = qBound(5, (int)qSqrt(a*a + b*b), 100);
-//		  m_hCurves.push(m_currSlice, m_pickWidth,  m_pickDepth, rad);
-//		}
-//	      update();
-//	      return;
-//	    }
-//	  else
+	  m_lastPickDepth = m_pickDepth;
+	  m_lastPickWidth = m_pickWidth;
+	  m_lastPickHeight= m_pickHeight;
+	    
+	  if(!m_livewireMode &&
+	     m_addingCurvePoints)
 	    {
-	      m_lastPickDepth = m_pickDepth;
-	      m_lastPickWidth = m_pickWidth;
-	      m_lastPickHeight= m_pickHeight;
-	      
-	      if(!m_livewireMode &&
-		 m_addingCurvePoints)
-		{
-		  if (m_sliceType == DSlice)
-		    m_Curves.addPoint(m_currSlice, m_pickHeight, m_pickWidth);
-		  else if (m_sliceType == WSlice)
-		    m_Curves.addPoint(m_currSlice, m_pickHeight, m_pickDepth);
-		  else
-		    m_Curves.addPoint(m_currSlice, m_pickWidth,  m_pickDepth);
-		  update();
-		}
+	      if (m_sliceType == DSlice)
+		m_Curves.addPoint(m_currSlice, m_pickHeight, m_pickWidth);
+	      else if (m_sliceType == WSlice)
+		m_Curves.addPoint(m_currSlice, m_pickHeight, m_pickDepth);
+	      else
+		m_Curves.addPoint(m_currSlice, m_pickWidth,  m_pickDepth);
+	      update();
 	    }
 	}
     }
@@ -2465,8 +2370,6 @@ CurvesWidget::mouseReleaseEvent(QMouseEvent *event)
 
   m_livewire.mouseReleaseEvent(event);
   m_Curves.resetMoveCurve();
-  //m_wCurves.resetMoveCurve();
-  //m_hCurves.resetMoveCurve();
 
   if (m_curveMode || m_livewireMode)
     {
@@ -2833,7 +2736,6 @@ CurvesWidget::paintUsingCurves(CurveGroup* cg,
       {
 	for(int l=0; l<curves.count(); l++)
 	  {
-	    //int tag = curves[l]->tag;
 	    int tag = 255;
 	    p.setBrush(QColor(tag, 255, 255)); 
 	    if (curves[l]->closed)
@@ -2859,7 +2761,6 @@ CurvesWidget::paintUsingCurves(CurveGroup* cg,
       {
 	for(int l=0; l<curves.count(); l++)
 	  {
-	    //int tag = curves[l].tag;
 	    int tag = 255;
 	    p.setBrush(QColor(tag, 255, 255)); 
 	    if (curves[l].closed)
@@ -2876,10 +2777,6 @@ CurvesWidget::paintUsingCurves(CurveGroup* cg,
 	  }
       }
   }
-
-//  QLabel *lbl = new QLabel();
-//  lbl->setPixmap(QPixmap::fromImage(pimg));
-//  lbl->show();
 
   QRgb *rgb = (QRgb*)(pimg.bits());
   for(int i=0; i<wd*ht; i++)
@@ -2908,30 +2805,6 @@ CurvesWidget::paintUsingCurves(uchar *maskData)
   paintUsingCurves(&m_Curves,
 		   m_currSlice, m_imgWidth, m_imgHeight,
 		   maskData);
-}
-
-void
-CurvesWidget::updateMaskImage()
-{
-  memcpy(m_tags, m_maskslice, 2*m_imgWidth*m_imgHeight);
-  
-  StaticFunctions::imageFromDataAndColor(m_maskimage, m_tags, m_tagColors);
-  m_maskimageScaled = m_maskimage.scaled(m_simgWidth,
-					 m_simgHeight,
-					 Qt::IgnoreAspectRatio,
-					 Qt::FastTransformation);
-
-//  m_maskimage = QImage(m_tags,  //data
-//		       m_imgWidth, // width
-//		       m_imgHeight, // height
-//		       m_imgWidth, // bytesperline
-//		       QImage::Format_Indexed8);
-//  m_maskimage.setColorTable(m_tagColors);
-//  m_maskimageScaled = m_maskimage.scaled(m_simgWidth,
-//					 m_simgHeight,
-//					 Qt::IgnoreAspectRatio,
-//					 Qt::FastTransformation);
-
 }
 
 void
@@ -3496,8 +3369,6 @@ CurvesWidget::shrinkwrapCurve()
   else
     memset(imageData, 255, m_imgWidth*m_imgHeight);
 
-//  for(int i=0; i<m_imgWidth*m_imgHeight; i++)
-//    imageData[i] = (m_sliceImage[4*i+0]>0 && imageData[i]>0 ? 255 : 0);
 
   uchar *tagColors = Global::tagColors();
   for(int i=0; i<m_imgWidth*m_imgHeight; i++)

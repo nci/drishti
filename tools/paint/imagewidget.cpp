@@ -1635,13 +1635,6 @@ ImageWidget::graphcutModeKeyPressEvent(QKeyEvent *event)
 			  m_pickWidth,
 			  m_pickHeight,
 			  ctag);
-
-//	  emit connectedRegion(m_pickDepth,
-//			       m_pickWidth,
-//			       m_pickHeight,
-//			       bmin, bmax,
-//			       Global::tag(),
-//			       ctag);
 	  return;
 	}
 
@@ -1752,13 +1745,6 @@ void
 ImageWidget::keyPressEvent(QKeyEvent *event)
 {
   bool processed = false;
-
-//  if (event->key() == Qt::Key_S &&
-//      (event->modifiers() & Qt::ControlModifier) )
-//    {
-//      emit saveWork();
-//      return;
-//    }
 
   graphcutModeKeyPressEvent(event);
 }
@@ -1987,10 +1973,6 @@ ImageWidget::graphcutMouseMoveEvent(QMouseEvent *event)
       // carry on only if Alt key is not pressed
       if (validPickPoint(xpos, ypos))
 	{
-	  //m_lastPickDepth = m_pickDepth;
-	  //m_lastPickWidth = m_pickWidth;
-	  //m_lastPickHeight= m_pickHeight;
-
 	  if (m_sliceType == DSlice)
 	    dotImage(m_pickHeight,
 		     m_pickWidth,
@@ -2046,9 +2028,6 @@ ImageWidget::graphcutMouseMoveEvent(QMouseEvent *event)
 void
 ImageWidget::mouseMoveEvent(QMouseEvent *event)
 {
-//  if (!hasFocus())
-//    setFocus();
-
   QPoint pp = event->pos();
   float ypos = pp.y();
   float xpos = pp.x();
@@ -2675,7 +2654,6 @@ ImageWidget::smooth(int thresh, bool smooth, bool morecoming)
   for(int i=imin; i<=imax; i++)
     for(int j=jmin; j<=jmax; j++)
       {
-	//maskData[idx] = m_prevtags[i*m_imgWidth+j];
 	maskData[idx] = (m_prevtags[i*m_imgWidth+j] == Global::tag() ? 255 : 0);  
 	idx++;
       }

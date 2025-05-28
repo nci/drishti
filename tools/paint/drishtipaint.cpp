@@ -5693,8 +5693,8 @@ DrishtiPaint::bakeCurves_clicked()
   bool ok;
   int tag = QInputDialog::getInt(0,
 				 "Bake curves for Label",
-				 "Value (0-255)\n Everything visible inside the interpolated\n curves will be labelled with given label value.",
-				 0, 0, 255, 1,
+				 "Value (0-65535)\n Everything visible inside the interpolated\n curves will be labelled with given label value.",
+				 0, 0, 65535, 1,
 				 &ok);
 
   if (!ok)

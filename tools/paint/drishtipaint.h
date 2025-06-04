@@ -37,6 +37,8 @@ class DrishtiPaint : public QMainWindow
   void closeEvent(QCloseEvent*);
 
  private slots :
+  void reloadSlices();
+
   void saveTagNames();
   void loadTagNames();
   void tagsUsed(QList<int>);
@@ -196,6 +198,8 @@ class DrishtiPaint : public QMainWindow
 		       int, int);
 
   void connectedComponents(Vec, Vec, int);
+  void watershed(Vec, Vec, int, int);
+
   void removeComponents(Vec, Vec, int);  
   void removeLargestComponents(Vec, Vec, int);  
   
@@ -285,8 +289,6 @@ class DrishtiPaint : public QMainWindow
 
   void updateRecentFileAction();
   QString loadVolumeFromProject(const char*);
-
-  void reloadSlices();
 
   void sliceSmooth(int, int, ushort*, ushort*, int, int, int);
   void smooth(int, int, ushort**, ushort*, int, int, int);

@@ -72,6 +72,13 @@ class VolumeOperations
 				  int&, int&,
 				  int, float, float);
   
+  static void watershed(Vec, Vec, int,
+			int,
+			int&, int&,
+			int&, int&,
+			int&, int&,
+			int, float, float);
+
   static void resetTag(Vec, Vec, int,
 		       int&, int&,
 		       int&, int&,
@@ -164,6 +171,7 @@ class VolumeOperations
 		       int&, int&,
 		       int, float, float);
 
+  
   
   static void modifyOriginalVolume(Vec, Vec, int,
 				   int&, int&,

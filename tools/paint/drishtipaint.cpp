@@ -5283,6 +5283,34 @@ DrishtiPaint::connectedComponents(Vec bmin, Vec bmax, int tag)
 }
 
 void
+DrishtiPaint::watershed(Vec bmin, Vec bmax, int tag, int size)
+{
+  int minD,maxD, minW,maxW, minH,maxH;
+
+  QList<Vec> cPos =  m_viewer->clipPos();
+  QList<Vec> cNorm = m_viewer->clipNorm();
+
+  float minGrad = m_viewer->minGrad();
+  float maxGrad = m_viewer->maxGrad();
+  int gradType = m_viewer->gradType();
+
+  VolumeOperations::setClip(cPos, cNorm);
+  VolumeOperations::watershed(bmin, bmax, tag,
+			      size,
+			      minD, maxD,
+			      minW, maxW,
+			      minH, maxH,
+			      gradType, minGrad, maxGrad);
+
+  if (minD < 0)
+    return;
+
+  updateModifiedRegion(minD, maxD,
+		       minW, maxW,
+		       minH, maxH);
+}
+
+void
 DrishtiPaint::removeComponents(Vec bmin, Vec bmax, int tag)
 {
   int minD,maxD, minW,maxW, minH,maxH;

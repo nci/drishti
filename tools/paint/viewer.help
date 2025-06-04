@@ -175,6 +175,25 @@ Clipping planes are obeyed - clipped region is not taken into account.
 
 
 #begin
+watershed
+watershed
+watershed <label> <size>
+
+Watershed segmentation for the given visible <label> region.
+If no <label> is specified (i.e. only 1 value is specified, it is taken as <size>) then watershed segmentation for all visible region is found.
+
+The algorithm consists of following steps :
+1. Erode region by <size> parameter
+2. Identify markers using connected components
+3. Flood using markers
+
+User is asked for a volume threshold (minimum number of voxels) above which a component is considered for labeling.
+
+Clipping planes are obeyed - clipped region is not taken into account.
+#end
+
+
+#begin
 removecomponents
 removecomponents <label>
 

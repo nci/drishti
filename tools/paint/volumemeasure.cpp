@@ -128,6 +128,37 @@ void VolumeMeasure::setGridSize(int d, int w, int h)
 //  StaticFunctions::showMessage("Volume", mesg);
 //}
 
+QList<int>
+VolumeMeasure::getLabels(int ds, int ws, int hs,
+			 int de, int we, int he,
+			 int tag)
+{
+  QList<int> ut;
+
+  uchar *lut = Global::lut();
+  uchar *tagColors = Global::tagColors();
+
+  for(qint64 d=ds; d<=de; d++)
+    for(qint64 w=ws; w<=we; w++)
+      for(qint64 h=hs; h<=he; h++)
+	{
+	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
+	  int val = m_volData[idx];
+	  if (m_volDataUS) val = m_volDataUS[idx];
+
+	  int mtag = m_maskDataUS[idx];
+
+	  bool opaque = (lut[4*val+3]*tagColors[4*mtag+3] > 0);      
+
+	  if (opaque && !ut.contains(mtag))
+	    {
+	      if (tag == -1 || tag == mtag)
+		ut << mtag;
+	    }
+	}
+
+  return ut;
+}
 
 //------
 //------
@@ -160,29 +191,7 @@ VolumeMeasure::volume(Vec bmin, Vec bmax, int tag)
   qint64 mz = de-ds+1;
 
 
-  uchar *lut = Global::lut();
-  uchar *tagColors = Global::tagColors();
-
-  QList<int> ut;
-  for(qint64 d=ds; d<=de; d++)
-    for(qint64 w=ws; w<=we; w++)
-      for(qint64 h=hs; h<=he; h++)
-	{
-	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
-	  int val = m_volData[idx];
-	  if (m_volDataUS) val = m_volDataUS[idx];
-
-	  int mtag = m_maskDataUS[idx];
-
-	  bool opaque = (lut[4*val+3]*tagColors[4*mtag+3] > 0);      
-
-	  if (opaque && !ut.contains(mtag))
-	    {
-	      if (tag == -1 || tag == mtag)
-		ut << mtag;
-	    }
-	}
-
+  QList<int> ut = getLabels(ds,ws,hs,de,we,he,tag);
 
   if (ut.count() == 0)
     {
@@ -238,7 +247,8 @@ VolumeMeasure::volume(Vec bmin, Vec bmax, int tag)
 }
 
 
-void VolumeMeasure::getVolume(Vec bmin, Vec bmax, int tag)
+void
+VolumeMeasure::getVolume(Vec bmin, Vec bmax, int tag)
 {
   VolumeInformation pvlInfo;
   pvlInfo = VolumeInformation::volumeInformation();
@@ -314,7 +324,7 @@ VolumeMeasure::surfaceArea(Vec bmin, Vec bmax, int tag)
   pvlInfo = VolumeInformation::volumeInformation();
   Vec voxelSize = pvlInfo.voxelSize;
 
-  QProgressDialog progress("Calculating Volume",
+  QProgressDialog progress("Calculating Surface Area",
 			   QString(),
 			   0, 100,
 			   0,
@@ -333,28 +343,7 @@ VolumeMeasure::surfaceArea(Vec bmin, Vec bmax, int tag)
   qint64 my = we-ws+1;
   qint64 mz = de-ds+1;
 
-  uchar *lut = Global::lut();
-  uchar *tagColors = Global::tagColors();
-
-  QList<int> ut;
-  for(qint64 d=ds; d<=de; d++)
-    for(qint64 w=ws; w<=we; w++)
-      for(qint64 h=hs; h<=he; h++)
-	{
-	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
-	  int val = m_volData[idx];
-	  if (m_volDataUS) val = m_volDataUS[idx];
-
-	  int mtag = m_maskDataUS[idx];
-
-	  bool opaque = (lut[4*val+3]*tagColors[4*mtag+3] > 0);      
-
-	  if (opaque && !ut.contains(mtag))
-	    {
-	      if (tag == -1 || tag == mtag)
-		ut << mtag;
-	    }
-	}
+  QList<int> ut = getLabels(ds,ws,hs,de,we,he,tag);
 
   if (tag == -1)
     ut << -1;
@@ -508,37 +497,6 @@ VolumeMeasure::feretDiameter(int mx, int my, int mz, MyBitArray& bitarray)
 }
 
 void
-VolumeMeasure::parFeret(QList<QVariant> plist)
-{
-  int ds = plist[0].toInt();
-  int de = plist[1].toInt();
-  int ws = plist[2].toInt();
-  int we = plist[3].toInt();
-  int hs = plist[4].toInt();
-  int he = plist[5].toInt();
-  int tag = plist[6].toInt();
-  //float *feret = static_cast<float*>(plist[7].value<void*>());
-
-  qint64 mx = he-hs+1;
-  qint64 my = we-ws+1;
-  qint64 mz = de-ds+1;
-
-  MyBitArray bitmask;
-  bitmask.resize(mx*my*mz);
-  bitmask.fill(false);
-      
-  VolumeOperations::getVisibleRegion(ds, ws, hs,
-				     de, we, he,
-				     tag, false,  // no tag zero checking
-				     0, 0, 1,
-				     bitmask,
-				     false);
-      
-  float feretD = feretDiameter(mx, my, mz, bitmask);
-}
-
-
-void
 VolumeMeasure::getFeretDiameter(Vec bmin, Vec bmax, int tag)
 {
   int ds = qFloor(bmin.z);
@@ -554,9 +512,6 @@ VolumeMeasure::getFeretDiameter(Vec bmin, Vec bmax, int tag)
   qint64 mz = de-ds+1;
 
 
-  uchar *lut = Global::lut();
-  uchar *tagColors = Global::tagColors();
-
   QProgressDialog progress("Calculating Feret Diameter",
 			   QString(),
 			   0, 100,
@@ -564,25 +519,8 @@ VolumeMeasure::getFeretDiameter(Vec bmin, Vec bmax, int tag)
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
-  QList<int> ut;
-  for(qint64 d=ds; d<=de; d++)
-    for(qint64 w=ws; w<=we; w++)
-      for(qint64 h=hs; h<=he; h++)
-	{
-	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
-	  int val = m_volData[idx];
-	  if (m_volDataUS) val = m_volDataUS[idx];
 
-	  int mtag = m_maskDataUS[idx];
-
-	  bool opaque = (lut[4*val+3]*tagColors[4*mtag+3] > 0);      
-
-	  if (opaque && !ut.contains(mtag))
-	    {
-	      if (tag == -1 || tag == mtag)
-		ut << mtag;
-	    }
-	}
+  QList<int> ut = getLabels(ds,ws,hs,de,we,he,tag);
 
   if (ut.count() == 0)
     {
@@ -657,4 +595,84 @@ VolumeMeasure::getFeretDiameter(Vec bmin, Vec bmax, int tag)
   else
     QMessageBox::information(0, "Error", QString("Cannot write to %1").arg(tflnm));
 
+}
+
+
+
+void
+VolumeMeasure::getSphericity(Vec bmin, Vec bmax, int tag)
+{
+  int ds = qFloor(bmin.z);
+  int ws = qFloor(bmin.y);
+  int hs = qFloor(bmin.x);
+
+  int de = qCeil(bmax.z);
+  int we = qCeil(bmax.y);
+  int he = qCeil(bmax.x);
+
+  qint64 mx = he-hs+1;
+  qint64 my = we-ws+1;
+  qint64 mz = de-ds+1;
+
+
+  QProgressDialog progress("Calculating Sphericity",
+			   QString(),
+			   0, 100,
+			   0,
+			   Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);
+
+  
+  QList<int> ut = getLabels(ds,ws,hs,de,we,he,tag);
+
+  if (ut.count() == 0)
+    {
+      QMessageBox::information(0, "Error", QString("No voxel found with label %1\nComputing total visible volume").arg(tag));
+    }
+
+  qSort(ut);
+
+  QMap<int, float> vdbVolume = volume(bmin, bmax, tag);
+  QMap<int, float> vdbArea = surfaceArea(bmin, bmax, tag);
+  QMap<int, float> sphericity;
+  for(int i=0; i<ut.count(); i++)
+    {
+      float V = vdbVolume[ut[i]];
+      float A = vdbArea[ut[i]];
+
+      float S = (qPow(M_PI, 1.0/3.0) * qPow(6*V, 2.0/3.0))/A;
+
+      sphericity[ut[i]] = S;
+    }
+
+  QString mesg;
+  mesg += "--------------------\n";
+  mesg += " Label : Sphericity \n";
+  mesg += "--------------------\n";
+  for(int i=0; i<ut.count(); i++)
+    {
+      mesg += QString("%1 : %2\n").arg(ut[i], 6).arg(sphericity[ut[i]]);
+    }
+  
+  StaticFunctions::showMessage("Sphericity", mesg);
+
+  
+    
+  QString tflnm = QFileDialog::getSaveFileName(0,
+					       "Save Information",
+					       Global::previousDirectory(),
+					       "Files (*.txt)",
+					       0);
+  if (tflnm.isEmpty())
+    return;
+
+  QFile txtfile(tflnm);
+  if (txtfile.open(QIODevice::WriteOnly | QIODevice::Text))
+    {
+      QTextStream out(&txtfile);
+      out << mesg;      
+      QMessageBox::information(0, "Save", QString("Saved to %1").arg(tflnm));
+    }
+  else
+    QMessageBox::information(0, "Error", QString("Cannot write to %1").arg(tflnm));
 }

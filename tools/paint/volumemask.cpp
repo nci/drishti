@@ -34,7 +34,7 @@ VolumeMask::exportMask()
   QString maskfile = m_maskFileManager.exportMask();
   if (!maskfile.isEmpty())
     createPvlNc(maskfile);
-  QMessageBox::information(0, "Export", QString("Exported labeled data to %1").arg(maskfile));
+  QMessageBox::information(0, "Export", QString("Exported labeled data to %1 and associated pvl.nc file").arg(maskfile));
 }
 void
 VolumeMask::checkPoint()

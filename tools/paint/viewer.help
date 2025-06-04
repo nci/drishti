@@ -129,6 +129,19 @@ Clipping planes are obeyed - clipped region is not taken into account.
 
 
 #begin
+sphericity
+sphericity <label>
+
+Calculate the sphericity occupied by visible voxels marked with label.
+Default value for label is -1 : consider all visible voxels.  Sphericity for each label will be calculated.
+Formula for sphericity used is  (pi**1/3 * (6*V)**2/3)/A
+where V and A are the volume and surface area occupied by the label under consideration.
+
+Clipping planes are obeyed - clipped region is not taken into account.
+#end
+
+
+#begin
 setvisible
 setvisible <label>
 

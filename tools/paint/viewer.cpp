@@ -1383,6 +1383,27 @@ Viewer::processCommand(QString cmd)
       VolumeMeasure::getFeretDiameter(bmin, bmax, tag1);
       return;
     }
+  
+  if (list[0] == "sphericity")
+    {
+      int tag1 = -1;
+      if (list.size() == 2)
+	{
+	  tag1 = list[1].toInt(&ok);
+	  if (tag1 < -1 || tag1 > 65535)
+	    {
+	      QMessageBox::information(0, "", QString("Incorrect label specified : %1").\
+				       arg(tag1));
+	      return;
+	    }
+	}
+      QList<Vec> cPos =  clipPos();
+      QList<Vec> cNorm = clipNorm();
+      VolumeOperations::setClip(cPos, cNorm);
+      VolumeMeasure::getSphericity(bmin, bmax, tag1);
+      return;
+    }
+
 
   if (list[0] == "setvisible")
     {

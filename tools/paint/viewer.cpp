@@ -1055,6 +1055,25 @@ Viewer::processCommand(QString cmd)
       return;
     }
 
+  if (list[0] == "dt")
+    {
+      int tag = -1;
+      int size = -1;
+      if (list.size() == 2)
+	{
+	  size = list[1].toInt(&ok);
+	  if (size > 0)
+	    {
+	      distanceTransform(tag, size);
+	      return;
+	    }
+	}
+
+      QMessageBox::information(0, "DistanceTransform", "Expecting - dt <size>");
+      
+      return;
+    }
+
   if (list[0] == "watershed")
     {
       int tag = -1;
@@ -3094,6 +3113,19 @@ Viewer::watershed(int tag, int size)
   bmax = VECDIVIDE(bmax, voxelScaling);
 
   emit watershed(bmin, bmax, tag, size);
+}
+
+void
+Viewer::distanceTransform(int tag, int size)
+{
+  Vec bmin, bmax;
+  m_boundingBox.bounds(bmin, bmax);
+
+  Vec voxelScaling = Global::relativeVoxelScaling();
+  bmin = VECDIVIDE(bmin, voxelScaling);
+  bmax = VECDIVIDE(bmax, voxelScaling);
+
+  emit distanceTransform(bmin, bmax, tag, size);
 }
 
 void

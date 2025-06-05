@@ -3852,6 +3852,18 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
 	    vol[bidx] = 255;
 	}
 
+
+  //------------------
+  // starting label number
+  int startLabel = 0;
+  startLabel = QInputDialog::getInt(0,
+				    "Starting Label",
+				    "Starting label number (label numbers will be offset by this value)",
+				    startLabel);
+
+  startLabel = qBound(0, startLabel, 65530);
+  //------------------
+  
   
   //------------------
   int connectivity = 6;
@@ -3996,8 +4008,8 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
       {
 	for(int i=0; i<nLabels; i++)
 	  {
-	    labelMap[newLabel[i]] = i+1;
-	    mesg += QString("  %1 : %2\n").arg(i+1, 6).arg(sortedVol[i]);
+	    labelMap[newLabel[i]] = i+1 + startLabel;
+	    mesg += QString("  %1 : %2\n").arg(labelMap[newLabel[i]], 6).arg(sortedVol[i]);
 	  }
       }
     else  // highest volume first
@@ -4006,8 +4018,8 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
 	for(int i=nLabels-1; i>=0; i--)
 	  {
 	    l++;
-	    labelMap[newLabel[i]] = l;
-	    mesg += QString("  %1 : %2\n").arg(l, 6).arg(sortedVol[i]);
+	    labelMap[newLabel[i]] = l + startLabel;
+	    mesg += QString("  %1 : %2\n").arg(labelMap[newLabel[i]], 6).arg(sortedVol[i]);
 	  }
       }
   }
@@ -4176,6 +4188,17 @@ VolumeOperations::watershed(Vec bmin, Vec bmax, int tag,
 			    int gradType, float minGrad, float maxGrad)
 {  
   //------------------
+  // starting label number
+  int startLabel = 0;
+  startLabel = QInputDialog::getInt(0,
+				    "Starting Label",
+				    "Starting label number (label numbers will be offset by this value)",
+				    startLabel);
+
+  startLabel = qBound(0, startLabel, 65530);
+  //------------------
+
+  //------------------
   // ignore all components below componentThreshold
   int componentThreshold = 1000;
   componentThreshold = QInputDialog::getInt(0,
@@ -4221,7 +4244,20 @@ VolumeOperations::watershed(Vec bmin, Vec bmax, int tag,
 		   gradType, minGrad, maxGrad,
 		   visibleMask);
 
-  // ebitmask
+  
+  //------------------
+  // just reset the visible portion - it will be labeled in subsequent phases
+  for(qint64 d=ds; d<=de; d++)
+    for(qint64 w=ws; w<=we; w++)
+      for(qint64 h=hs; h<=he; h++)
+	{
+	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
+	  m_maskDataUS[idx] = 0;
+	}
+  //------------------
+
+  
+  // bitmask
   MyBitArray bitmask;
   bitmask = visibleMask;
 
@@ -4253,14 +4289,10 @@ VolumeOperations::watershed(Vec bmin, Vec bmax, int tag,
 	{
 	  qint64 bidx = ((qint64)(d-ds))*mx*my+((qint64)(w-ws))*mx+(h-hs);
 	  if (bitmask.testBit(bidx))
-	    {
-	      vol[bidx] = 255;
-	      // just reset the visible portion - it will be labeled in subsequent phases
-	      qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
-	      m_maskDataUS[idx] = 0;
-	    }
+	    vol[bidx] = 255;
 	}  
 
+  
   progress.setLabelText("Generating markers");
   progress.setValue(20);
   qApp->processEvents();
@@ -4341,7 +4373,7 @@ VolumeOperations::watershed(Vec bmin, Vec bmax, int tag,
     
     labelMap.clear();
     for(int i=0; i<nLabels; i++)
-      labelMap[newLabel[i]] = i+1;
+      labelMap[newLabel[i]] = i+1 + startLabel;
   }
   //------------------
 
@@ -4477,6 +4509,121 @@ VolumeOperations::watershed(Vec bmin, Vec bmax, int tag,
 
   tagVdb.clear();
 
+  minD = ds;
+  minW = ws;
+  minH = hs;
+  maxD = de;
+  maxW = we;
+  maxH = he;
+
+  QMessageBox::information(0, "", "Done");
+}
+
+void
+VolumeOperations::distanceTransform(Vec bmin, Vec bmax, int tag,
+				    int nErode,
+				    int& minD, int& maxD,
+				    int& minW, int& maxW,
+				    int& minH, int& maxH,
+				    int gradType, float minGrad, float maxGrad)
+{
+  QProgressDialog progress("Distance Transform",
+			   QString(),
+			   0, 100,
+			   0,
+			   Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);  
+  qApp->processEvents();
+
+  
+  minD = maxD = minW = maxW = minH = maxH = -1;
+
+  uchar *lut = Global::lut();
+
+  int ds = qFloor(bmin.z);
+  int ws = qFloor(bmin.y);
+  int hs = qFloor(bmin.x);
+
+  int de = qCeil(bmax.z);
+  int we = qCeil(bmax.y);
+  int he = qCeil(bmax.x);
+
+  qint64 mx = he-hs+1;
+  qint64 my = we-ws+1;
+  qint64 mz = de-ds+1;
+
+  MyBitArray visibleMask;
+  visibleMask.resize(mx*my*mz);
+  visibleMask.fill(false);
+
+
+  getVisibleRegion(ds, ws, hs,
+		   de, we, he,
+		   tag, false,
+		   gradType, minGrad, maxGrad,
+		   visibleMask);
+
+  // bitmask
+  MyBitArray bitmask;
+  bitmask = visibleMask;
+
+  //--------------------------------------------------------------------
+  VdbVolume *vdb;
+  vdb = new VdbVolume;
+
+  //------------------
+  openvdb::FloatGrid::Accessor accessor = vdb->getAccessor();
+  openvdb::Coord ijk;
+  int &d = ijk[0];
+  int &w = ijk[1];
+  int &h = ijk[2];
+  for(d=0; d<mz; d++)
+    for(w=0; w<my; w++)
+      for(h=0; h<mx; h++)
+	{
+	  qint64 bidx = ((qint64)d)*mx*my+w*mx+h;
+	  if (bitmask.testBit(bidx))
+	    {
+	      accessor.setValue(ijk, 255);
+	      qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
+	      m_maskDataUS[idx] = 1;
+	    }
+	}
+  //------------------
+  
+  
+  //------------------
+  vdb->convertToLevelSet(1, 0);
+  for (int i=0; i<nErode; i++)
+    {
+      progress.setValue(100*(float)i/(float)nErode);
+      qApp->processEvents();
+	 
+      vdb->offset(1); // erode
+
+      openvdb::FloatGrid::Accessor accessor = vdb->getAccessor();
+      openvdb::Coord ijk;
+      int &d = ijk[0];
+      int &w = ijk[1];
+      int &h = ijk[2];
+      for(d=0; d<mz; d++)
+	for(w=0; w<my; w++)
+	  for(h=0; h<mx; h++)
+	    {
+	      if (accessor.getValue(ijk) <= 0)
+		{
+		  qint64 idx = ((qint64)(d+ds))*m_width*m_height+((qint64)(w+ws))*m_height+(h+hs);
+		  m_maskDataUS[idx] += 1;
+		}
+	    }
+    }
+  //------------------
+  //--------------------------------------------------------------------
+
+  delete vdb;
+
+  progress.setValue(100);
+  
   minD = ds;
   minW = ws;
   minH = hs;

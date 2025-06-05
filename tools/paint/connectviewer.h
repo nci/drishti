@@ -35,6 +35,9 @@
   connect(m_viewer, SIGNAL(watershed(Vec,Vec,int,int)),
 	  this, SLOT(watershed(Vec,Vec,int,int)));
 
+  connect(m_viewer, SIGNAL(distanceTransform(Vec,Vec,int,int)),
+	  this, SLOT(distanceTransform(Vec,Vec,int,int)));
+
   connect(m_viewer, SIGNAL(removeComponents(Vec,Vec,int)),
 	  this, SLOT(removeComponents(Vec,Vec,int)));
 

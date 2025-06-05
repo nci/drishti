@@ -3755,7 +3755,7 @@ DrishtiPaint::on_actionMeshTag_triggered()
 
   bool ok;
   QString tagstr = QInputDialog::getText(0, "Save Mesh for Label",
-	    "Label Numbers\nlabels should be separated by space.\n-2 mesh whatever is visible.\n-1 mesh all labeled region.\n 0 mesh region that is not labeled.\n 1-254 for individual labels.\nFor e.g. 1 2 5 will mesh region labeled with labels 1, 2 and 5)",
+	    "Label Numbers\nlabels should be separated by space.\n-2 mesh whatever is visible.\n-1 mesh all labeled region.\n 0 mesh region that is not labeled.\n 1-254 for consecutive labels.\nFor e.g. 1 2 5 will mesh region labeled with labels 1, 2 and 5)",
 					 QLineEdit::Normal,
 					 "-2",
 					 &ok);
@@ -3765,34 +3765,67 @@ DrishtiPaint::on_actionMeshTag_triggered()
       QStringList tglist = tagstr.split(" ", QString::SkipEmptyParts);
       for(int i=0; i<tglist.count(); i++)
 	{
-	  int t = tglist[i].toInt();
-	  if (t == -2)
+	  QStringList parts = tglist[i].split("-", QString::SkipEmptyParts);
+	  if (parts.count() == 2)
 	    {
-	      tag.clear();
-	      tag << -2;
-	      break;
-	    }
-	  else if (t == -1)
-	    {
-	      tag.clear();
-	      tag << -1;
-	      break;
-	    }
-	  else if (t == 0)
-	    {
-	      tag.clear();
-	      tag << 0;
-	      break;
+	      int tag1 = parts[0].toInt();
+	      int tag2 = parts[1].toInt();
+	      for(int t=tag1; t<=tag2; t++)
+		tag << t;
 	    }
 	  else
-	    tag << t;
+	    {
+	      int t = tglist[i].toInt();
+	      if (t == -2)
+		{
+		  tag.clear();
+		  tag << -2;
+		  break;
+		}
+	      else if (t == -1)
+		{
+		  tag.clear();
+		  tag << -1;
+		  break;
+		}
+	      else if (t == 0)
+		{
+		  tag.clear();
+		  tag << 0;
+		  break;
+		}
+	      else
+		tag << t;
+	    }
 	}
     }
   else
     tag << -2;  
   //----------------
 
-
+  //----------------
+  // check whether user wants to save each label in its own separate mesh file.
+  bool saveIndividual = false;
+  QList<int> labels = tag;
+  if (tag.count() > 1)
+    {
+      dtypes << "No"
+	     << "Yes";
+      
+      QString option = QInputDialog::getItem(0,
+					     "Save Mesh",
+					     "Save each label independently.\nEach label will be saved in a different mesh.",
+					     dtypes,
+					     0,
+					     false,
+					     &ok);
+      if (!ok)
+	return;
+      
+      if (option == "Yes") saveIndividual = true;
+    }
+  //----------------
+  
   
   //----------------
   int colorType = 1; // apply tag colors 
@@ -3893,9 +3926,6 @@ DrishtiPaint::on_actionMeshTag_triggered()
 	    meshSmooth,
 	    applyVoxelScaling);
 
-
-  VdbVolume vdb;
-
   
   QProgressDialog progress("Meshing tagged region from volume data",
 			   "",
@@ -3917,308 +3947,330 @@ DrishtiPaint::on_actionMeshTag_triggered()
 
   int nbytes = width*height*2;
   uchar *raw = new uchar[nbytes];
-  ushort *mask = new ushort[nbytes]; 
-  for(int dsn=0; dsn<tdepth; dsn++)
+  ushort *mask = new ushort[nbytes];
+
+  int startLabel = 0;
+  int endLabel = 1;
+  if (saveIndividual)
+    endLabel = labels.count();
+  QString labelflnm = tflnm;
+  QString extension = tflnm.right(4);
+  for(int lbl=startLabel; lbl<endLabel; lbl++)
     {
-      int d = minDSlice + dsn;
-      int slc = dsn;
+      VdbVolume vdb;
+      if (saveIndividual)
+	{
+	  tag.clear();
+	  tag << labels[lbl];
+	  
+	  tflnm = labelflnm.chopped(4) + QString("_%1").arg(tag[0],4,10,QChar('0')) + extension;
+	}
       
-      //int slc = d-minDSlice;
-      progress.setValue((int)(100*(float)slc/(float)tdepth));
-      qApp->processEvents();
-
-      uchar *slice = 0;
-      if (tag[0] == -2 || colorType == 4) // using tag mask + transfer function to extract mesh
+      for(int dsn=0; dsn<tdepth; dsn++)
 	{
-	  slice = m_volume->getDepthSliceImage(d);
-	  int i=0;
-	  for(int w=minWSlice; w<=maxWSlice; w++)
-	    for(int h=minHSlice; h<=maxHSlice; h++)
-	      {
-		if (Global::bytesPerVoxel() == 1)
-		  slice[i] = slice[(w*height+h)];
-		else
-		  ((ushort*)slice)[i] = ((ushort*)slice)[(w*height+h)];
-		i++;
-	      }
-	}
-
-      if (tag[0] == -2)
-	{
-	  memset(raw, 0, width*height);
-
-	  memcpy(mask, m_volume->getMaskDepthSliceImage(d), nbytes);
-	  int i=0;
-	  for(int w=minWSlice; w<=maxWSlice; w++)
-	    for(int h=minHSlice; h<=maxHSlice; h++)
-	      {
-		mask[i] = mask[w*height+h];
-		i++;
-	      }
-	  memcpy(curveMask+slc*twidth*theight, mask, 2*twidth*theight);
-	}
-      else
-	{
-	  memcpy(mask, m_volume->getMaskDepthSliceImage(d), nbytes);
-            
-	  if (tag[0] == -1)
+	  int d = minDSlice + dsn;
+	  int slc = dsn;
+	  
+	  //int slc = d-minDSlice;
+	  progress.setValue((int)(100*(float)slc/(float)tdepth));
+	  qApp->processEvents();
+	  
+	  uchar *slice = 0;
+	  if (tag[0] == -2 || colorType == 4) // using tag mask + transfer function to extract mesh
 	    {
+	      slice = m_volume->getDepthSliceImage(d);
+	      int i=0;
 	      for(int w=minWSlice; w<=maxWSlice; w++)
 		for(int h=minHSlice; h<=maxHSlice; h++)
-		  raw[w*height+h] = (mask[w*height+h] > 0 ? 0 : 255);
+		  {
+		    if (Global::bytesPerVoxel() == 1)
+		      slice[i] = slice[(w*height+h)];
+		    else
+		      ((ushort*)slice)[i] = ((ushort*)slice)[(w*height+h)];
+		    i++;
+		  }
 	    }
-	  else if (tag[0] == 0)
+	  
+	  if (tag[0] == -2)
 	    {
+	      memset(raw, 0, width*height);
+	      
+	      memcpy(mask, m_volume->getMaskDepthSliceImage(d), nbytes);
+	      int i=0;
 	      for(int w=minWSlice; w<=maxWSlice; w++)
 		for(int h=minHSlice; h<=maxHSlice; h++)
-		  raw[w*height+h] = (mask[w*height+h] > 0 ? 255 : 0);
+		  {
+		    mask[i] = mask[w*height+h];
+		    i++;
+		  }
+	      memcpy(curveMask+slc*twidth*theight, mask, 2*twidth*theight);
 	    }
 	  else
 	    {
-	      for(int w=minWSlice; w<=maxWSlice; w++)
-		for(int h=minHSlice; h<=maxHSlice; h++)
-		  raw[w*height+h] = (tag.contains(mask[w*height+h]) ? 0 : 255);
+	      memcpy(mask, m_volume->getMaskDepthSliceImage(d), nbytes);
+	      
+	      if (tag[0] == -1)
+		{
+		  for(int w=minWSlice; w<=maxWSlice; w++)
+		    for(int h=minHSlice; h<=maxHSlice; h++)
+		      raw[w*height+h] = (mask[w*height+h] > 0 ? 0 : 255);
+		}
+	      else if (tag[0] == 0)
+		{
+		  for(int w=minWSlice; w<=maxWSlice; w++)
+		    for(int h=minHSlice; h<=maxHSlice; h++)
+		      raw[w*height+h] = (mask[w*height+h] > 0 ? 255 : 0);
+		}
+	      else
+		{
+		  for(int w=minWSlice; w<=maxWSlice; w++)
+		    for(int h=minHSlice; h<=maxHSlice; h++)
+		      raw[w*height+h] = (tag.contains(mask[w*height+h]) ? 0 : 255);
+		}
+	      
+	      //-----------------------------
+	      // update curveMask using painted mask data
+	      if (tag[0] == -1 || tag[0] == 0)
+		{
+		  for(int w=minWSlice; w<=maxWSlice; w++)
+		    for(int h=minHSlice; h<=maxHSlice; h++)
+		      {	    
+			if (curveMask[slc*twidth*theight +
+				      (w-minWSlice)*theight +
+				      (h-minHSlice)] == 0)
+			  curveMask[slc*twidth*theight +
+				    (w-minWSlice)*theight +
+				    (h-minHSlice)] = mask[w*height+h];	    
+		      }
+		}
+	      else // only copy selected tags
+		{
+		  for(int w=minWSlice; w<=maxWSlice; w++)
+		    for(int h=minHSlice; h<=maxHSlice; h++)
+		      {	    
+			if (curveMask[slc*twidth*theight +
+				      (w-minWSlice)*theight +
+				      (h-minHSlice)] == 0 &&
+			    tag.contains(mask[w*height+h]))
+			  curveMask[slc*twidth*theight +
+				    (w-minWSlice)*theight +
+				    (h-minHSlice)] = mask[w*height+h];	    
+		      }
+		}
+	      //-----------------------------
 	    }
-
-	  //-----------------------------
-	  // update curveMask using painted mask data
-	  if (tag[0] == -1 || tag[0] == 0)
-	    {
-	      for(int w=minWSlice; w<=maxWSlice; w++)
-		for(int h=minHSlice; h<=maxHSlice; h++)
-		  {	    
-		    if (curveMask[slc*twidth*theight +
-				  (w-minWSlice)*theight +
-				  (h-minHSlice)] == 0)
-		      curveMask[slc*twidth*theight +
-				(w-minWSlice)*theight +
-				(h-minHSlice)] = mask[w*height+h];	    
-		  }
-	    }
-	  else // only copy selected tags
-	    {
-	      for(int w=minWSlice; w<=maxWSlice; w++)
-		for(int h=minHSlice; h<=maxHSlice; h++)
-		  {	    
-		    if (curveMask[slc*twidth*theight +
-				  (w-minWSlice)*theight +
-				  (h-minHSlice)] == 0 &&
-			tag.contains(mask[w*height+h]))
-		      curveMask[slc*twidth*theight +
-				(w-minWSlice)*theight +
-				(h-minHSlice)] = mask[w*height+h];	    
-		  }
-	    }
-	  //-----------------------------
-	}
-
-      int i=0;
-      for(int w=minWSlice; w<=maxWSlice; w++)
-	for(int h=minHSlice; h<=maxHSlice; h++)
-	  {
-	    raw[i] = raw[w*height+h];
-	    i++;
-	  }
-
-      //-----------------------------
-      // use tag mask + transfer function to generate mesh
-      if (tag[0] == -2 || colorType == 4)
-	{
+	  
 	  int i=0;
 	  for(int w=minWSlice; w<=maxWSlice; w++)
 	    for(int h=minHSlice; h<=maxHSlice; h++)
 	      {
-		bool clipped = VolumeOperations::checkClipped(Vec(h,w,d));
-
-		if (!clipped)
+		raw[i] = raw[w*height+h];
+		i++;
+	      }
+	  
+	  //-----------------------------
+	  // use tag mask + transfer function to generate mesh
+	  if (tag[0] == -2 || colorType == 4)
+	    {
+	      int i=0;
+	      for(int w=minWSlice; w<=maxWSlice; w++)
+		for(int h=minHSlice; h<=maxHSlice; h++)
 		  {
-		    if (Global::bytesPerVoxel() == 1)
+		    bool clipped = VolumeOperations::checkClipped(Vec(h,w,d));
+		    
+		    if (!clipped)
 		      {
-			if (raw[i] != 255 &&
-			    lut[4*slice[i]+3] < 5)
+			if (Global::bytesPerVoxel() == 1)
+			  {
+			    if (raw[i] != 255 &&
+				lut[4*slice[i]+3] < 5)
+			      raw[i] = 255;
+			  }
+			else
+			  {
+			    if (raw[i] != 255 &&
+				lut[4*((ushort*)slice)[i]+3] < 5)
+			      raw[i] = 255;
+			  }
+		      }
+		    else
+		      raw[i] = 255;
+		    
+		    i++;
+		  }
+	    }
+	  if (tag[0] == -2)
+	    {
+	      int i=0;
+	      for(int w=minWSlice; w<=maxWSlice; w++)
+		for(int h=minHSlice; h<=maxHSlice; h++)
+		  {
+		    bool clipped = VolumeOperations::checkClipped(Vec(h,w,d));
+		    
+		    if (!clipped)
+		      {
+			if (lut[4*slice[i]+3]*Global::tagColors()[4*mask[i]+3] == 0)
 			  raw[i] = 255;
 		      }
 		    else
-		      {
-			if (raw[i] != 255 &&
-			    lut[4*((ushort*)slice)[i]+3] < 5)
-			  raw[i] = 255;
-		      }
-		  }
-		else
-		  raw[i] = 255;
-
-		i++;
-	      }
-	}
-      if (tag[0] == -2)
-	{
-	  int i=0;
-	  for(int w=minWSlice; w<=maxWSlice; w++)
-	    for(int h=minHSlice; h<=maxHSlice; h++)
-	      {
-		bool clipped = VolumeOperations::checkClipped(Vec(h,w,d));
-
-		if (!clipped)
-		  {
-		    if (lut[4*slice[i]+3]*Global::tagColors()[4*mask[i]+3] == 0)
 		      raw[i] = 255;
+		    
+		    i++;
 		  }
-		else
-		  raw[i] = 255;
-
-		i++;
-	      }
+	    }
+	  //-----------------------------
+	  
+	  // flip 0 and 255 so that isosurface is generated properly
+	  for(int i=0; i<twidth*theight; i++)
+	    raw[i] = ~raw[i];
+	  
+	  vdb.addSliceToVDB(raw,
+			    slc, twidth, theight,
+			    -1, 1);  // values less than 1 are background
+	  
 	}
-      //-----------------------------
 
-      // flip 0 and 255 so that isosurface is generated properly
-      for(int i=0; i<twidth*theight; i++)
-	raw[i] = ~raw[i];
-
-      vdb.addSliceToVDB(raw,
-			slc, twidth, theight,
-			-1, 1);  // values less than 1 are background
-
-    }
-
-  delete [] raw;
-  delete [] mask;
-
-  progress.setValue(90);  
-
-
-//==========================================================================
-
-  // convert to levelset
-  vdb.convertToLevelSet(isoValue);
-
-  // Apply Morphological Operations
-  if (morphoType > 0 && morphoRadius > 0)
-    {
-      float offset = morphoRadius;
-      if (morphoType == 1)
+      if (!saveIndividual)
 	{
-	  progress.setLabelText("Applying Morphological Dilation");
-	  vdb.offset(-offset); // dilate
-	}
-      if (morphoType == 2)
-	{
-	  progress.setLabelText("Applying Morphological Erosion");
-	  vdb.offset(offset); // erode
-	}
-      if (morphoType == 3)
-	{
-	  progress.setLabelText("Applying Morphological Closing");
-	  vdb.close(-offset, offset);
-	  //vdb.offset(-offset); // dilate
-	  //vdb.offset(offset); // erode
-	}
-      if (morphoType == 4)
-	{
-	  progress.setLabelText("Applying Morphological Opening");
-	  vdb.open(offset, -offset);
-	  //vdb.offset(offset); // erode
-	  //vdb.offset(-offset); // dilate
+	  delete [] raw;
+	  delete [] mask;
 	}
       
-      progress.setValue(60);  
+      progress.setValue(90);  
+      
+      
+      //==========================================================================
+      
+      // convert to levelset
+      vdb.convertToLevelSet(isoValue);
+      
+      // Apply Morphological Operations
+      if (morphoType > 0 && morphoRadius > 0)
+	{
+	  float offset = morphoRadius;
+	  if (morphoType == 1)
+	    {
+	      progress.setLabelText("Applying Morphological Dilation");
+	      vdb.offset(-offset); // dilate
+	    }
+	  if (morphoType == 2)
+	    {
+	      progress.setLabelText("Applying Morphological Erosion");
+	      vdb.offset(offset); // erode
+	    }
+	  if (morphoType == 3)
+	    {
+	      progress.setLabelText("Applying Morphological Closing");
+	      vdb.close(-offset, offset);
+	      //vdb.offset(-offset); // dilate
+	      //vdb.offset(offset); // erode
+	    }
+	  if (morphoType == 4)
+	    {
+	      progress.setLabelText("Applying Morphological Opening");
+	      vdb.open(offset, -offset);
+	      //vdb.offset(offset); // erode
+	      //vdb.offset(-offset); // dilate
+	    }
+	  
+	  progress.setValue(60);  
+	  qApp->processEvents();      
+	}
+      
+      // smoothing  
+      if (dataSmooth > 0)
+	{
+	  progress.setLabelText("Smoothing volume before meshing");
+	  progress.setValue(70);  
+	  qApp->processEvents();      
+	  
+	  float gwd;
+	  gwd = 1.0/(float)qMax(depth, qMax(width,height));
+	  vdb.mean(gwd, dataSmooth); // width, iterations
+	}
+      
+      // resample
+      if (qAbs(resample-1.0) > 0.001)
+	{
+	  progress.setLabelText("Downsampling volume before meshing");
+	  progress.setValue(80);  
+	  qApp->processEvents();      
+	  
+	  vdb.resample(resample);
+	}
+      
+      
+      progress.setLabelText("Generating Mesh");
+      progress.setValue(90);  
       qApp->processEvents();      
-    }
+      
+      // extract surface mesh
+      QVector<QVector3D> V;
+      QVector<QVector3D> N;
+      QVector<QVector3D> C;
+      QVector<int> T;
+      
+      // generating isosurface from level set therefore using 0 as isoValue
+      // isoValue < 0.5 result in dilated surface
+      // isoValue > 0.5 result in eroded surface
+      vdb.generateMesh(0, 3*(0.5-isoValue), adaptivity, V, N, T);
+      
+      
+      // mesh smoothing
+      if (meshSmooth > 0)
+	MeshTools::smoothMesh(V, N, T, 5*meshSmooth);
+      
+      
+      // if saving ply/obj apply color
+      // for colorType 0 and 4 apply user defined color
+      if (tflnm.right(3).toLower() == "ply" ||
+	  tflnm.right(3).toLower() == "obj")
+	{
+	  C.resize(V.count());
+	  C.fill(QVector3D(userColor.x, userColor.y, userColor.z));
+	  if (colorType != 0 && colorType != 4)
+	    colorMesh(C, V, N,
+		      colorType, curveMask,
+		      minHSlice, minWSlice, minDSlice,
+		      theight, twidth, tdepth, meshSmooth,
+		      resample);
+	}
+      
+      
+      // shift vertices
+      {
+	int minDSlice, maxDSlice;
+	int minWSlice, maxWSlice;
+	int minHSlice, maxHSlice;
+	m_viewer->getBox(minDSlice, maxDSlice,
+			 minWSlice, maxWSlice,
+			 minHSlice, maxHSlice);
+	
+	for(int i=0; i<V.count(); i++)
+	  V[i] += QVector3D(minHSlice, minWSlice, minDSlice);
+      }
+      
+      
+      //apply voxel size to vertices
+      if (applyVoxelScaling)
+	{
+	  Vec vs = Global::voxelScaling();
+	  QVector3D voxelScaling(vs.x, vs.y, vs.z);
+	  for(int i=0; i<V.count(); i++)
+	    V[i] *= voxelScaling;
+	}
+      
+      
+      // save mesh
+      if (tflnm.right(3).toLower() == "obj")
+	MeshTools::saveToOBJ(tflnm, V, N, C, T);
+      else if (tflnm.right(3).toLower() == "ply")
+	MeshTools::saveToPLY(tflnm, V, N, C, T);
+      else if (tflnm.right(3).toLower() == "stl")
+	MeshTools::saveToSTL(tflnm, V, N, T);
+      
+    } // End Label
   
-  // smoothing  
-  if (dataSmooth > 0)
-    {
-      progress.setLabelText("Smoothing volume before meshing");
-      progress.setValue(70);  
-      qApp->processEvents();      
-
-      float gwd;
-      gwd = 1.0/(float)qMax(depth, qMax(width,height));
-      vdb.mean(gwd, dataSmooth); // width, iterations
-    }
-  
-  // resample
-  if (qAbs(resample-1.0) > 0.001)
-    {
-      progress.setLabelText("Downsampling volume before meshing");
-      progress.setValue(80);  
-      qApp->processEvents();      
-
-      vdb.resample(resample);
-    }
-
-  
-  progress.setLabelText("Generating Mesh");
-  progress.setValue(90);  
-  qApp->processEvents();      
-
-  // extract surface mesh
-  QVector<QVector3D> V;
-  QVector<QVector3D> N;
-  QVector<QVector3D> C;
-  QVector<int> T;
-
-  // generating isosurface from level set therefore using 0 as isoValue
-  // isoValue < 0.5 result in dilated surface
-  // isoValue > 0.5 result in eroded surface
-  vdb.generateMesh(0, 3*(0.5-isoValue), adaptivity, V, N, T);
-
-
-  // mesh smoothing
-  if (meshSmooth > 0)
-    MeshTools::smoothMesh(V, N, T, 5*meshSmooth);
-
-  
-  // if saving ply/obj apply color
-  // for colorType 0 and 4 apply user defined color
-  if (tflnm.right(3).toLower() == "ply" ||
-      tflnm.right(3).toLower() == "obj")
-    {
-      C.resize(V.count());
-      C.fill(QVector3D(userColor.x, userColor.y, userColor.z));
-      if (colorType != 0 && colorType != 4)
-	colorMesh(C, V, N,
-		  colorType, curveMask,
-		  minHSlice, minWSlice, minDSlice,
-		  theight, twidth, tdepth, meshSmooth,
-		  resample);
-    }
-
-
-  // shift vertices
-  {
-    int minDSlice, maxDSlice;
-    int minWSlice, maxWSlice;
-    int minHSlice, maxHSlice;
-    m_viewer->getBox(minDSlice, maxDSlice,
-		     minWSlice, maxWSlice,
-		     minHSlice, maxHSlice);
-    
-    for(int i=0; i<V.count(); i++)
-      V[i] += QVector3D(minHSlice, minWSlice, minDSlice);
-  }
-  
-
-  //apply voxel size to vertices
-  if (applyVoxelScaling)
-    {
-      Vec vs = Global::voxelScaling();
-      QVector3D voxelScaling(vs.x, vs.y, vs.z);
-      for(int i=0; i<V.count(); i++)
-	V[i] *= voxelScaling;
-    }
-
-
-  // save mesh
-  if (tflnm.right(3).toLower() == "obj")
-    MeshTools::saveToOBJ(tflnm, V, N, C, T);
-  else if (tflnm.right(3).toLower() == "ply")
-    MeshTools::saveToPLY(tflnm, V, N, C, T);
-  else if (tflnm.right(3).toLower() == "stl")
-    MeshTools::saveToSTL(tflnm, V, N, T);
-
-
   //QMessageBox::information(0, "Save", "-----Done-----");
   QMessageBox mb;
   mb.setWindowTitle("Save");
@@ -4227,6 +4279,11 @@ DrishtiPaint::on_actionMeshTag_triggered()
   mb.exec();
   
 
+  if (saveIndividual)
+    {
+      delete [] raw;
+      delete [] mask;
+    }
   delete [] curveMask;
 
   
@@ -5301,6 +5358,34 @@ DrishtiPaint::watershed(Vec bmin, Vec bmax, int tag, int size)
 			      minW, maxW,
 			      minH, maxH,
 			      gradType, minGrad, maxGrad);
+
+  if (minD < 0)
+    return;
+
+  updateModifiedRegion(minD, maxD,
+		       minW, maxW,
+		       minH, maxH);
+}
+
+void
+DrishtiPaint::distanceTransform(Vec bmin, Vec bmax, int tag, int size)
+{
+  int minD,maxD, minW,maxW, minH,maxH;
+
+  QList<Vec> cPos =  m_viewer->clipPos();
+  QList<Vec> cNorm = m_viewer->clipNorm();
+
+  float minGrad = m_viewer->minGrad();
+  float maxGrad = m_viewer->maxGrad();
+  int gradType = m_viewer->gradType();
+
+  VolumeOperations::setClip(cPos, cNorm);
+  VolumeOperations::distanceTransform(bmin, bmax, tag,
+				      size,
+				      minD, maxD,
+				      minW, maxW,
+				      minH, maxH,
+				      gradType, minGrad, maxGrad);
 
   if (minD < 0)
     return;

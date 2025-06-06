@@ -72,12 +72,12 @@ class VolumeOperations
 				  int&, int&,
 				  int, float, float);
   
-  static void watershed(Vec, Vec, int,
-			int,
-			int&, int&,
-			int&, int&,
-			int&, int&,
-			int, float, float);
+  static void connectedComponentsPlus(Vec, Vec, int,
+				      int,
+				      int&, int&,
+				      int&, int&,
+				      int&, int&,
+				      int, float, float);
 
   static void distanceTransform(Vec, Vec, int,
 				int,

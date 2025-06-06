@@ -389,13 +389,13 @@ SplineTransferFunction::updateColorMapImageFor16bit()
   int val0, val1;
   if (Global::bytesPerVoxel() == 1)
     {
-      val0 = m_leftNormals[0].x()*255;
-      val1 = m_rightNormals[0].x()*255;
+      val0 = m_leftNormals[0].x()*256;
+      val1 = m_rightNormals[0].x()*256;
     }
   else
     {
-      val0 = m_leftNormals[0].x()*65535;
-      val1 = m_rightNormals[0].x()*65535;
+      val0 = m_leftNormals[0].x()*65536;
+      val1 = m_rightNormals[0].x()*65536;
     }
   if (val1 < val0)
     {
@@ -406,19 +406,6 @@ SplineTransferFunction::updateColorMapImageFor16bit()
   
   QGradientStops gstops;
 
-//  // limit opacity to 252 to avoid overflow
-//  for(int i=0; i<m_gradientStops.size(); i++)
-//    {
-//      float pos = m_gradientStops[i].first;
-//      QColor color = m_gradientStops[i].second;
-//      int r = color.red();
-//      int g = color.green();
-//      int b = color.blue();
-//      int a = color.alpha();
-//      a = qMin(252, a);
-//      gstops << QGradientStop(pos, QColor(r,g,b,a));
-//    }
-//  gstops = StaticFunctions::resampleGradientStops(gstops, 101);
 
   gstops = StaticFunctions::resampleGradientStops(m_gradientStops, 101);
   

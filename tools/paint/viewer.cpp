@@ -1045,7 +1045,7 @@ Viewer::processCommand(QString cmd)
       return;
     }
 
-  if (list[0] == "connectedcomponents")
+  if (list[0] == "cc")
     {
       int tag = -1;
       if (list.size() == 2)
@@ -1074,7 +1074,7 @@ Viewer::processCommand(QString cmd)
       return;
     }
 
-  if (list[0] == "watershed")
+  if (list[0] == "cc+")
     {
       int tag = -1;
       int size = -1;
@@ -1083,7 +1083,7 @@ Viewer::processCommand(QString cmd)
 	  size = list[1].toInt(&ok);
 	  if (size > 0)
 	    {
-	      watershed(tag, size);
+	      connectedComponentsPlus(tag, size);
 	      return;
 	    }
 	}
@@ -1093,12 +1093,12 @@ Viewer::processCommand(QString cmd)
 	  size = list[2].toInt(&ok);
 	  if (tag > 0 && size > 0)
 	    {
-	      watershed(tag, size);
+	      connectedComponentsPlus(tag, size);
 	      return;
 	    }
 	}
 
-      QMessageBox::information(0, "Watershed", "Expecting - watershed <tag> <size>");
+      QMessageBox::information(0, "Connected Components Plus", "Expecting - cc+ <tag> <size>");
       
       return;
     }
@@ -3103,7 +3103,7 @@ Viewer::connectedComponents(int tag)
 }
 
 void
-Viewer::watershed(int tag, int size)
+Viewer::connectedComponentsPlus(int tag, int size)
 {
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
@@ -3112,7 +3112,7 @@ Viewer::watershed(int tag, int size)
   bmin = VECDIVIDE(bmin, voxelScaling);
   bmax = VECDIVIDE(bmax, voxelScaling);
 
-  emit watershed(bmin, bmax, tag, size);
+  emit connectedComponentsPlus(bmin, bmax, tag, size);
 }
 
 void

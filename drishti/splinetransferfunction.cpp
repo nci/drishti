@@ -603,8 +603,8 @@ SplineTransferFunction::updateColorMapImageFor16bit()
 {
   m_colorMapImage.fill(0);
 
-  int val0 = m_leftNormals[0].x()*65535;
-  int val1 = m_rightNormals[0].x()*65535;
+  int val0 = m_leftNormals[0].x()*65536;
+  int val1 = m_rightNormals[0].x()*65536;
   if (val1 < val0)
     {
       int vtmp = val0;

@@ -179,96 +179,6 @@ RemapHistogramLine::mousePress(int xpos, int button, float scale)
       m_activeTick = keys[nearest];
   }
 
-//  frc = ((xpos-15)-m_start)/(float)m_width;
-//  tk1 = m_tickMinKey + frc*(m_tickMaxKey-m_tickMinKey);
-//
-//  frc = ((xpos+15)-m_start)/(float)m_width;
-//  tk2 = m_tickMinKey + frc*(m_tickMaxKey-m_tickMinKey);
-//
-//  QList<uint> keys = m_ticks.keys();
-//  for(uint i=0; i<m_ticks.size(); i++)
-//    {
-//      int v = keys[i];
-//      if (v >= tk1 && v <= tk2)
-//	{
-//	  m_activeTick = keys[i];
-//	  break;
-//	}
-//    }
-
-//  bool deletedTick = false;
-//  bool addedTick = false;
-//  int tickNumber = -1;
-//  if (button == Qt::RightButton)
-//    {
-//      if (m_activeTick != -1)
-//	{ // we need to delete this tick
-//	  int tkn = -1;
-//	  QList<uint> keys = m_ticks.keys();
-//	  for(int k=0; k<keys.size(); k++)
-//	    if (keys[k] == m_activeTick)
-//	      {
-//		tkn = k;
-//		break;
-//	      }
-//	  if (tkn == 0 || tkn == m_ticks.size()-1)
-//	    {
-//	      QMessageBox::information(0, "Error",
-//				       "End markers cannot be removed");
-//	      return;
-//	    }
-//	  m_ticks.remove(m_activeTick);
-//	  m_ticksOriginal.remove(m_ticksOriginal.keys()[tkn]);
-//	  m_activeTick = -1;
-//
-//	  deletedTick = true;
-//	  tickNumber = tkn;
-//	}
-//    }
-//  else if (m_activeTick == -1)
-//    { // we need to add one tick here
-//      QList<uint> keys = m_ticks.keys();
-//
-//      frc = (xpos-m_start)/(float)m_width;
-//      uint tk = m_tickMinKey + frc*(m_tickMaxKey-m_tickMinKey);
-//      int tkn = -1;
-//
-//      if (m_ticksOriginal.contains(tk))
-//	{
-//	  QMessageBox::information(0, "Error",
-//				   "A marker already exists at this place");
-//	  return;
-//	}
-//
-//
-//      if (tk <= keys[0] ||
-//	  tk >= keys[keys.size()-1])
-//	{
-//	  QMessageBox::information(0, "Error",
-//				   "Cannot add point beyond the ends");
-//	  return;
-//	}
-//
-//      // add the tick
-//      m_ticks[tk] = tk;
-//      m_ticksOriginal[tk] = tk;
-//      m_activeTick = tk;
-//      
-//
-//      // now get the previous tick and relative proportions
-//      for(int k=0; k<keys.size(); k++)
-//	{
-//	  if (keys[k] < tk)
-//	    tkn = k;
-//	  else
-//	    break;
-//	}
-//      frc = ( ((float)tk-(float)keys[tkn]) /
-//	      ((float)keys[tkn+1]-(float)keys[tkn]) );
-//      addedTick = true;
-//      tickNumber = tkn+1;
-//    }
-
   m_activeB1 = m_tickMinKey;
   m_activeB2 = m_tickMaxKey;
   if (m_activeTick > -1)
@@ -300,11 +210,6 @@ RemapHistogramLine::mousePress(int xpos, int button, float scale)
     m_activeB1 += delta;
   if (m_activeTickNumber < m_ticks.size()-1)
     m_activeB2 -= delta;
-
-//  if (deletedTick)
-//    emit removeTick();
-//  else if (addedTick)
-//    emit addTick(tickNumber);
 
   if (m_activeTick < 0)
     {
@@ -352,7 +257,6 @@ RemapHistogramLine::mouseMove(int xpos)
     }
 
   float frc = (xpos-m_start)/(float)m_width;
-  //uint tk = m_tickMinKey + frc*(m_tickMaxKey-m_tickMinKey);
   int tk = m_tickMinKey + frc*(m_tickMaxKey-m_tickMinKey);
 
   // make sure ticks do not go outside the limits

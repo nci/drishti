@@ -4180,7 +4180,7 @@ VolumeOperations::sortLabels(Vec bmin, Vec bmax,
 }
 
 void
-VolumeOperations::watershed(Vec bmin, Vec bmax, int tag,
+VolumeOperations::connectedComponentsPlus(Vec bmin, Vec bmax, int tag,
 			    int nErode,
 			    int& minD, int& maxD,
 			    int& minW, int& maxW,
@@ -4208,7 +4208,7 @@ VolumeOperations::watershed(Vec bmin, Vec bmax, int tag,
   //------------------
 
 
-  QProgressDialog progress("Watershed",
+  QProgressDialog progress("Connected Components Plus",
 			   QString(),
 			   0, 100,
 			   0,

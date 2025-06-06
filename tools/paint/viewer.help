@@ -161,9 +161,9 @@ Clipping planes are obeyed - clipped region is not taken into account.
 
 
 #begin
-connectedcomponents
-connectedcomponents
-connectedcomponents <label>
+cc
+cc
+cc <label>
 
 Segment connected components for the given visible <label> region.
 If no <label> is specified connected components for all visible region is found.
@@ -175,9 +175,9 @@ Clipping planes are obeyed - clipped region is not taken into account.
 
 
 #begin
-watershed
-watershed
-watershed <label> <size>
+cc+
+cc+
+cc+ <label> <size>
 
 Watershed segmentation for the given visible <label> region.
 If no <label> is specified (i.e. only 1 value is specified, it is taken as <size>) then watershed segmentation for all visible region is found.

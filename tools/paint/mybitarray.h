@@ -11,6 +11,10 @@ class MyBitArray
 
   MyBitArray& operator=(const MyBitArray&);
 
+  MyBitArray& operator&=(const MyBitArray&);
+  MyBitArray& operator|=(const MyBitArray&);
+  MyBitArray& operator~();
+
   void clear();
   qint64 resize(qint64);
   bool testBit(qint64);
@@ -27,5 +31,9 @@ class MyBitArray
   uchar *m_bits;
   qint64 m_size;
 };
+
+// these operators have to be declared out of the class declaration
+MyBitArray operator&(const MyBitArray&, const MyBitArray&);
+MyBitArray operator|(const MyBitArray&, const MyBitArray&);
 
 #endif

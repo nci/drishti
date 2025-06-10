@@ -3,11 +3,14 @@
 
 #include "commonqtclasses.h"
 #include <QProgressDialog>
+#include <QMap>
+#include <QString>
 
 #include <QGLViewer/vec.h>
 using namespace qglviewer;
 
 #include "mybitarray.h"
+
 
 class VolumeOperations
 {
@@ -213,6 +216,20 @@ class VolumeOperations
 			       MyBitArray&,
 			       bool showProgress = true);
 
+  static bool saveToMask(Vec, Vec,
+			 int,
+			 int&, int&,
+			 int&, int&,
+			 int&, int&,
+			 int, float, float);
+  static bool maskOperation(Vec, Vec,
+			    int,
+			    int&, int&,
+			    int&, int&,
+			    int&, int&,
+			    int, float, float);
+  static void deleteMask();
+  
  private :
   static int m_depth, m_width, m_height;
   static uchar *m_volData;
@@ -224,6 +241,8 @@ class VolumeOperations
   static QList<Vec> m_cPos;
   static QList<Vec> m_cNorm;
 
+  static QMap<QString, MyBitArray> m_mask;
+  
   static void getConnectedRegion(int, int, int,
 				 int, int, int,
 				 int, int, int,

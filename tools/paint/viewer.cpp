@@ -1045,6 +1045,32 @@ Viewer::processCommand(QString cmd)
       return;
     }
 
+  if (list[0] == "savetomask")
+    {
+      int tag = -1;
+      if (list.size() == 2)
+	tag = list[1].toInt(&ok);
+
+      saveToMask(tag);
+      return;
+    }
+
+  if (list[0] == "mop")
+    {
+      int tag = -1;
+      if (list.size() == 2)
+	tag = list[1].toInt(&ok);
+
+      maskOperation(tag);
+      return;
+    }
+
+  if (list[0] == "deletemask")
+    {
+      VolumeOperations::deleteMask();
+      return;     
+    }
+       
   if (list[0] == "cc")
     {
       int tag = -1;
@@ -3088,6 +3114,33 @@ Viewer::hatch()
 			    Global::tag(), ctag,
 			    thickness, interval);
 }
+
+void
+Viewer::saveToMask(int tag)
+{
+  Vec bmin, bmax;
+  m_boundingBox.bounds(bmin, bmax);
+
+  Vec voxelScaling = Global::relativeVoxelScaling();
+  bmin = VECDIVIDE(bmin, voxelScaling);
+  bmax = VECDIVIDE(bmax, voxelScaling);
+
+  emit saveToMask(bmin, bmax, tag);
+}
+
+void
+Viewer::maskOperation(int tag)
+{
+  Vec bmin, bmax;
+  m_boundingBox.bounds(bmin, bmax);
+
+  Vec voxelScaling = Global::relativeVoxelScaling();
+  bmin = VECDIVIDE(bmin, voxelScaling);
+  bmax = VECDIVIDE(bmax, voxelScaling);
+
+  emit maskOperation(bmin, bmax, tag);
+}
+
 
 void
 Viewer::connectedComponents(int tag)

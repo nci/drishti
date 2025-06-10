@@ -39,6 +39,40 @@ Set all voxels in the region to label.  Default value for label is 0.
 Clipping planes are obeyed - clipped region is not taken into account.
 #end
 
+
+#begin
+savetomask
+savetomask <label>
+
+Save the visible portion of region labeled with <label> is saved to a mask buffer.  User is asked to name the buffer.
+If no <label> is specified, all the visible region is saved to the buffer.
+
+Currently mask buffers are not saved at the end of the session.
+#end
+
+
+#begin
+deletemask
+deletemask
+
+User is asked for the name of the mask buffer to remove.
+
+Currently mask buffers are not saved at the end of the session.
+#end
+
+
+#begin
+mop
+mop <label>
+
+Apply mask operation to the given visible portion of the <label> labeled region.  User is asked for the mask buffer and operation type (intersection/union/A-B/B-A) to use.  User is asked for the label number to save the result into.
+
+If no <label> is specified, all the visible region is considered for mask operation.
+
+Currently mask buffers are not saved at the end of the session.
+#end
+
+
 #begin
 merge
 merge <label1> <label2>

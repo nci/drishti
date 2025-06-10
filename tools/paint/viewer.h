@@ -143,7 +143,7 @@ class Viewer : public QGLViewer
 		 int, int, bool);
 
     void changeImageSlice(int, int, int);
-
+  
     void dilateConnected(int, int, int, Vec, Vec, int, bool);
     void erodeConnected(int, int, int, Vec, Vec, int);
 
@@ -185,6 +185,8 @@ class Viewer : public QGLViewer
     void smoothAllRegion(Vec, Vec,
 		       int, int);
 
+    void saveToMask(Vec, Vec, int);
+    void maskOperation(Vec, Vec, int);
     void connectedComponents(Vec, Vec, int);
     void connectedComponentsPlus(Vec, Vec, int, int);
     void distanceTransform(Vec, Vec, int, int);
@@ -359,6 +361,8 @@ class Viewer : public QGLViewer
   void setTextureMemorySize();
 
   void hatch();
+  void saveToMask(int);
+  void maskOperation(int);
   void connectedComponents(int);
   void connectedComponentsPlus(int, int);
   void distanceTransform(int, int);

@@ -142,7 +142,8 @@ HEADERS += connectviewer.h \
 	graphcut/point.h \
 	lookuptable.h \
 	showhelp.h \
-	getmemorysize.h \
+        structuringelement.h\
+        getmemorysize.h \
 	popupslider.h \
 	shaderfactory.h \
 	remaphistogramline.h \
@@ -207,6 +208,7 @@ SOURCES += drishtipaint.cpp \
 	graphcut/graph.cpp \
 	graphcut/graphcut.cpp \
 	showhelp.cpp \
+        structuringelement.cpp\
 	getmemorysize.cpp \
 	popupslider.cpp \
 	shaderfactory.cpp \

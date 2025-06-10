@@ -5310,6 +5310,63 @@ DrishtiPaint::smoothAllRegion(Vec bmin, Vec bmax,
 		       minH, maxH);
 }
 
+void
+DrishtiPaint::saveToMask(Vec bmin, Vec bmax, int tag)
+{
+  int minD,maxD, minW,maxW, minH,maxH;
+
+  QList<Vec> cPos =  m_viewer->clipPos();
+  QList<Vec> cNorm = m_viewer->clipNorm();
+
+  float minGrad = m_viewer->minGrad();
+  float maxGrad = m_viewer->maxGrad();
+  int gradType = m_viewer->gradType();
+
+  VolumeOperations::setClip(cPos, cNorm);
+  if (VolumeOperations::saveToMask(bmin, bmax,
+				   tag,
+				   minD, maxD,
+				   minW, maxW,
+				   minH, maxH,
+				   gradType, minGrad, maxGrad))
+    {
+      int m_depth, m_width, m_height;
+      m_volume->gridSize(m_depth, m_width, m_height);
+      
+      updateModifiedRegion(0, m_depth,
+			   0, m_width,
+			   0, m_height);
+    }
+}
+
+void
+DrishtiPaint::maskOperation(Vec bmin, Vec bmax, int tag)
+{
+  int minD,maxD, minW,maxW, minH,maxH;
+
+  QList<Vec> cPos =  m_viewer->clipPos();
+  QList<Vec> cNorm = m_viewer->clipNorm();
+
+  float minGrad = m_viewer->minGrad();
+  float maxGrad = m_viewer->maxGrad();
+  int gradType = m_viewer->gradType();
+
+  VolumeOperations::setClip(cPos, cNorm);
+  if (VolumeOperations::maskOperation(bmin, bmax,
+				      tag,
+				      minD, maxD,
+				      minW, maxW,
+				      minH, maxH,
+				      gradType, minGrad, maxGrad))
+    {
+      int m_depth, m_width, m_height;
+      m_volume->gridSize(m_depth, m_width, m_height);
+      
+      updateModifiedRegion(0, m_depth,
+			   0, m_width,
+			   0, m_height);
+    }
+}
 
 void
 DrishtiPaint::connectedComponents(Vec bmin, Vec bmax, int tag)

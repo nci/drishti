@@ -109,3 +109,74 @@ MyBitArray::operator=(const MyBitArray& mba)
 
   return *this;
 }
+
+MyBitArray&
+MyBitArray::operator&=(const MyBitArray& mba)
+{  
+  qint64 size0 = (1 + (m_size+7)/8); // allocate 1 extra byte
+  qint64 size1 = (1 + (mba.m_size+7)/8); // allocate 1 extra byte
+
+  if (size0 > size1)
+    {
+      for(int i=0; i<size1; i++)
+	m_bits[i] &= mba.m_bits[i];
+      for(int i=size1; i<size0; i++) // set rest of the bits to 0
+	m_bits[i] = 0;
+    }
+  else
+    {
+      for(int i=0; i<size0; i++)
+	m_bits[i] &= mba.m_bits[i];
+    }
+
+  return *this;
+}
+
+MyBitArray&
+MyBitArray::operator|=(const MyBitArray& mba)
+{  
+  qint64 size0 = (1 + (m_size+7)/8); // allocate 1 extra byte
+  qint64 size1 = (1 + (mba.m_size+7)/8); // allocate 1 extra byte
+
+  if (size0 > size1)
+    {
+      for(int i=0; i<size1; i++)
+	m_bits[i] |= mba.m_bits[i];
+      for(int i=size1; i<size0; i++) // set rest of the bits to 0
+	m_bits[i] = 0;
+    }
+  else
+    {
+      for(int i=0; i<size0; i++)
+	m_bits[i] |= mba.m_bits[i];
+    }
+
+  return *this;
+}
+
+MyBitArray
+operator&(const MyBitArray& a1, const MyBitArray& a2)
+{  
+  MyBitArray tmp = a1;
+  tmp &= a2;
+  return tmp;
+}
+
+MyBitArray
+operator|(const MyBitArray& a1, const MyBitArray& a2)
+{  
+  MyBitArray tmp = a1;
+  tmp |= a2;
+  return tmp;
+}
+
+MyBitArray&
+MyBitArray::operator~()
+{  
+  qint64 size0 = (1 + (m_size+7)/8); // allocate 1 extra byte
+  for(int i=0; i<size0; i++)
+    m_bits[i] = ~m_bits[i];
+
+  
+  return *this;
+}

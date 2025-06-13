@@ -92,6 +92,7 @@ macx {
 
 HEADERS += connectviewer.h \
         commonqtclasses.h \
+        binarydistancetransform.h \
 	boundingbox.h \
         drishtipaint.h \
         cc3d.h \
@@ -159,10 +160,10 @@ HEADERS += connectviewer.h \
         ../../common/src/widgets/gradienteditorwidget.h \
         ../../common/src/mesh/meshtools.h \
         ../../common/src/mesh/ply.h
-
-
+        
 SOURCES += drishtipaint.cpp \
 	main.cpp \
+        binarydistancetransform.cpp \
 	boundingbox.cpp \
         crops.cpp \
         cropobject.cpp \

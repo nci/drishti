@@ -83,7 +83,6 @@ class VolumeOperations
 				      int, float, float);
 
   static void distanceTransform(Vec, Vec, int,
-				int,
 				int&, int&,
 				int&, int&,
 				int&, int&,
@@ -255,15 +254,15 @@ class VolumeOperations
   static void dilateBitmask(int, bool,
 			    qint64, qint64, qint64,
 			    MyBitArray&);
-  static void dilateBitmaskUsingVDB(int, bool,
-				    qint64, qint64, qint64,
-				    MyBitArray&,
-				    bool showProgress = true);
+  static void _dilatebitmask(int, bool,
+			     qint64, qint64, qint64,
+			     MyBitArray&,
+			     bool showProgress = true);
 
-  static void openCloseBitmaskUsingVDB(int, int,
-				       bool,
-				       qint64, qint64, qint64,
-				       MyBitArray&);
+  static void openCloseBitmask(int, int,
+			       bool,
+			       qint64, qint64, qint64,
+			       MyBitArray&);
 
   static void parVisibleRegionGeneration(QList<QVariant>);
 

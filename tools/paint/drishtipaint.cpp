@@ -5438,7 +5438,7 @@ DrishtiPaint::distanceTransform(Vec bmin, Vec bmax, int tag, int size)
 
   VolumeOperations::setClip(cPos, cNorm);
   VolumeOperations::distanceTransform(bmin, bmax, tag,
-				      size,
+				      //size,
 				      minD, maxD,
 				      minW, maxW,
 				      minH, maxH,

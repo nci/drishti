@@ -5615,7 +5615,7 @@ DrishtiPaint::erodeConnected(int dr, int wr, int hr,
 }
 
 void
-DrishtiPaint::erodeAll(Vec bmin, Vec bmax, int tag, int size)
+DrishtiPaint::erodeAll(Vec bmin, Vec bmax, int tag, int size, int tag2)
 {
   int minD,maxD, minW,maxW, minH,maxH;
 
@@ -5627,7 +5627,8 @@ DrishtiPaint::erodeAll(Vec bmin, Vec bmax, int tag, int size)
   QList<Vec> cNorm = m_viewer->clipNorm();
 
   VolumeOperations::setClip(cPos, cNorm);
-  VolumeOperations::erodeAll(bmin, bmax, tag,
+  VolumeOperations::erodeAll(bmin, bmax,
+			     tag, tag2,
 			     size,
 			     minD, maxD,
 			     minW, maxW,

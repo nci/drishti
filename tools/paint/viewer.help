@@ -331,10 +331,11 @@ Clipping planes are obeyed - clipped region is not taken into account.
 
 #begin
 erode
-erode <label> <size>
-Erode all region with specified label value by <size>
+erode <label> <size> <label2>
+Erode all region with specified <label> value by <size>.
+If <label2> is specified, the eroded region will be labeled with <label2>.  This is one way of generating a shell.
 
-This will erode all visible region that has specified label value.
+This will erode all visible region that has specified <label> value.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end

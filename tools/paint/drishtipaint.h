@@ -155,7 +155,7 @@ class DrishtiPaint : public QMainWindow
 
   void dilateAllTags(Vec, Vec, int);
   void dilateAll(Vec, Vec, int, int);
-  void erodeAll(Vec, Vec, int, int);
+  void erodeAll(Vec, Vec, int, int, int);
 
   void openAll(Vec, Vec, int, int, int);
   void closeAll(Vec, Vec, int, int, int);

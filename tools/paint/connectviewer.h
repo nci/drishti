@@ -71,8 +71,8 @@
   connect(m_viewer, SIGNAL(dilateAll(Vec,Vec,int,int)),
 	  this, SLOT(dilateAll(Vec,Vec,int,int)));
 
-  connect(m_viewer, SIGNAL(erodeAll(Vec,Vec,int,int)),
-	  this, SLOT(erodeAll(Vec,Vec,int,int)));
+  connect(m_viewer, SIGNAL(erodeAll(Vec,Vec,int,int,int)),
+	  this, SLOT(erodeAll(Vec,Vec,int,int,int)));
 
   connect(m_viewer, SIGNAL(openAll(Vec,Vec,int,int,int)),
 	  this, SLOT(openAll(Vec,Vec,int,int,int)));

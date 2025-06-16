@@ -70,13 +70,13 @@ VolumeOperations::saveToMask(Vec bmin, Vec bmax,
 {
   minD = maxD = minW = maxW = minH = maxH = -1;
 
-  int ds = qFloor(bmin.z);
-  int ws = qFloor(bmin.y);
-  int hs = qFloor(bmin.x);
+  int ds = qMax(0, qFloor(bmin.z));
+  int ws = qMax(0, qFloor(bmin.y));
+  int hs = qMax(0, qFloor(bmin.x));
 
-  int de = qCeil(bmax.z);
-  int we = qCeil(bmax.y);
-  int he = qCeil(bmax.x);
+  int de = qMin(qCeil(bmax.z), m_depth-1);
+  int we = qMin(qCeil(bmax.y), m_width-1);
+  int he = qMin(qCeil(bmax.x), m_height-1);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -119,30 +119,44 @@ VolumeOperations::saveToMask(Vec bmin, Vec bmax,
   return true;
 }
 
+QString
+VolumeOperations::getMaskName()
+{
+  QString mask;
+  
+  QStringList records = m_mask.keys();
+
+  bool ok;
+  mask = QInputDialog::getItem(0,
+			       "Mask Operation",
+			       "Select mask to use",
+			       records,
+			       0,
+			       false,
+			       &ok);
+  if (!ok)
+    return QString();
+
+  return mask;
+}
+
 void
 VolumeOperations::deleteMask()
 {
   QStringList records = m_mask.keys();
 
-  bool ok;
-  QString item = QInputDialog::getItem(0,
-				       "Mask Operation",
-				       "Select mask to delete",
-				       records,
-				       0,
-				       false,
-				       &ok);
-  if (!ok)
+  QString maskName = getMaskName();
+  if (maskName.isEmpty())
     return;
   
-  int rid = records.indexOf(item);
+  int rid = records.indexOf(maskName);
   if (rid < 0)
     {
-      QMessageBox::information(0, "Mask Operation Error", "Cannot find mask : "+item);
+      QMessageBox::information(0, "Mask Operation Error", "Cannot find mask : "+maskName);
       return;
     }
   
-  m_mask.remove(item);
+  m_mask.remove(maskName);
 
   QMessageBox::information(0, "Mask Delete", "Done");	
 }
@@ -157,20 +171,18 @@ VolumeOperations::maskOperation(Vec bmin, Vec bmax,
 {
   minD = maxD = minW = maxW = minH = maxH = -1;
 
-  int ds = qFloor(bmin.z);
-  int ws = qFloor(bmin.y);
-  int hs = qFloor(bmin.x);
+  int ds = qMax(0, qFloor(bmin.z));
+  int ws = qMax(0, qFloor(bmin.y));
+  int hs = qMax(0, qFloor(bmin.x));
 
-  int de = qCeil(bmax.z);
-  int we = qCeil(bmax.y);
-  int he = qCeil(bmax.x);
+  int de = qMin(qCeil(bmax.z), m_depth-1);
+  int we = qMin(qCeil(bmax.y), m_width-1);
+  int he = qMin(qCeil(bmax.x), m_height-1);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
   qint64 mz = de-ds+1;
 
-  
-  QStringList records = m_mask.keys();
 
   qint64 msize;
   msize = mx*my*mz;
@@ -188,26 +200,20 @@ VolumeOperations::maskOperation(Vec bmin, Vec bmax,
 
   //--------------------
   // select mask to operate on
-  {
-    bool ok;
-    QString item = QInputDialog::getItem(0,
-					 "Mask Operation",
-					 "Select mask to use",
-					 records,
-					 0,
-					 false,
-					 &ok);
-    if (!ok)
+  {  
+    QStringList records = m_mask.keys();
+    QString maskName = getMaskName();
+    if (maskName.isEmpty())
       return false;
     
-    int rid = records.indexOf(item);
+    int rid = records.indexOf(maskName);
     if (rid < 0)
       {
-	QMessageBox::information(0, "Mask Operation Error", "Cannot find mask : "+item);
+	QMessageBox::information(0, "Mask Operation Error", "Cannot find mask : "+maskName);
 	return false;
       }
 
-    maskbitmask = m_mask[item];
+    maskbitmask = m_mask[maskName];
   }
   //--------------------
 
@@ -219,7 +225,8 @@ VolumeOperations::maskOperation(Vec bmin, Vec bmax,
     dtypes << "intersection"
 	   << "union"
 	   << "mask - label"
-	   << "label - mask";
+	   << "label - mask"
+	   << "connected to mask";
     
     bool ok;
     QString option = QInputDialog::getItem(0,
@@ -236,6 +243,7 @@ VolumeOperations::maskOperation(Vec bmin, Vec bmax,
 	if (option == "union") opType = 1;
 	if (option == "mask - label") opType = 2;
 	if (option == "label - mask") opType = 3;
+	if (option == "connected to mask") opType = 4;
       }
     else
       {
@@ -297,6 +305,14 @@ VolumeOperations::maskOperation(Vec bmin, Vec bmax,
     {
       maskbitmask = ~maskbitmask;
       tagbitmask &= maskbitmask;
+    }
+
+  if (opType == 4) // get labeled region that is connected to mask
+    {
+      getRegionConnectedToMask(ds, ws, hs,
+			       de, we, he,
+			       tagbitmask,
+			       maskbitmask);
     }
   //--------------------
 
@@ -581,7 +597,7 @@ VolumeOperations::resetT(int ds, int ws, int hs,
 			 int tag)
 {
   GeometryObjects::crops()->collectCropInfoBeforeCheckCropped();
-
+  
   QProgressDialog progress("Identifying visible region",
 			   QString(),
 			   0, 100,
@@ -668,8 +684,17 @@ VolumeOperations::resetTag(Vec bmin, Vec bmax,
 			   int& minW, int& maxW,
 			   int& minH, int& maxH)
 {
-  resetT(bmin.z, bmin.y, bmin.x,
-	 bmax.z, bmax.y, bmax.x,
+  int ds = qMax(0, qFloor(bmin.z));
+  int ws = qMax(0, qFloor(bmin.y));
+  int hs = qMax(0, qFloor(bmin.x));
+
+  int de = qMin(qCeil(bmax.z), m_depth-1);
+  int we = qMin(qCeil(bmax.y), m_width-1);
+  int he = qMin(qCeil(bmax.x), m_height-1);
+
+
+  resetT(ds, ws, hs,
+	 de, we, he,
 	 tag);
   minD = 0;
   minW = 0;
@@ -699,13 +724,13 @@ VolumeOperations::hatchConnectedRegion(int dr, int wr, int hr,
       return;
     }
 
-  int ds = qFloor(bmin.z);
-  int ws = qFloor(bmin.y);
-  int hs = qFloor(bmin.x);
+  int ds = qMax(0, qFloor(bmin.z));
+  int ws = qMax(0, qFloor(bmin.y));
+  int hs = qMax(0, qFloor(bmin.x));
 
-  int de = qCeil(bmax.z);
-  int we = qCeil(bmax.y);
-  int he = qCeil(bmax.x);
+  int de = qMin(qCeil(bmax.z), m_depth-1);
+  int we = qMin(qCeil(bmax.y), m_width-1);
+  int he = qMin(qCeil(bmax.x), m_height-1);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -772,89 +797,6 @@ VolumeOperations::hatchConnectedRegion(int dr, int wr, int hr,
   progress.setValue(100);
 }
 
-void
-VolumeOperations::connectedRegion(int dr, int wr, int hr,
-				  Vec bmin, Vec bmax,
-				  int tag, int ctag,
-				  int& minD, int& maxD,
-				  int& minW, int& maxW,
-				  int& minH, int& maxH,
-				  int gradType, float minGrad, float maxGrad)
-{
-  minD = maxD = minW = maxW = minH = maxH = -1;
-
-  if (dr < 0 || wr < 0 || hr < 0 ||
-      dr > m_depth-1 ||
-      wr > m_width-1 ||
-      hr > m_height-1)
-    {
-      QMessageBox::information(0, "", "No painted region found");
-      return;
-    }
-
-  int ds = qFloor(bmin.z);
-  int ws = qFloor(bmin.y);
-  int hs = qFloor(bmin.x);
-
-  int de = qCeil(bmax.z);
-  int we = qCeil(bmax.y);
-  int he = qCeil(bmax.x);
-
-  qint64 mx = he-hs+1;
-  qint64 my = we-ws+1;
-  qint64 mz = de-ds+1;
-
-  MyBitArray bitmask;
-  bitmask.resize(mx*my*mz);
-  bitmask.fill(false);
-
-  getConnectedRegion(dr, wr, hr,
-		     ds, ws, hs,
-		     de, we, he,
-		     ctag, true,
-		     bitmask,
-		     gradType, minGrad, maxGrad);
-
-  QProgressDialog progress("Updating voxel structure",
-			   QString(),
-			   0, 100,
-			   0,
-			   Qt::WindowStaysOnTopHint);
-  progress.setMinimumDuration(0);  
-  
-  //----------------------------  
-  // set the maskData
-  minD = maxD = dr;
-  minW = maxW = wr;
-  minH = maxH = hr;
-  for(qint64 d2=ds; d2<=de; d2++)
-  for(qint64 w2=ws; w2<=we; w2++)
-  for(qint64 h2=hs; h2<=he; h2++)
-    {
-      qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
-      if (bitmask.testBit(bidx))
-	{
-	  qint64 idx = d2*m_width*m_height + w2*m_height + h2;
-	  m_maskDataUS[idx] = tag;
-	  minD = qMin(minD, (int)d2);
-	  maxD = qMax(maxD, (int)d2);
-	  minW = qMin(minW, (int)w2);
-	  maxW = qMax(maxW, (int)w2);
-	  minH = qMin(minH, (int)h2);
-	  maxH = qMax(maxH, (int)h2);
-	}
-    }
-  //----------------------------  
-  
-  minD = qMax(minD-1, 0);
-  minW = qMax(minW-1, 0);
-  minH = qMax(minH-1, 0);
-  maxD = qMin(maxD+1, m_depth);
-  maxW = qMin(maxW+1, m_width);
-  maxH = qMin(maxH+1, m_height);
-
-  progress.setValue(100);
-}
 
 
 //---------//---------//---------//
@@ -1000,6 +942,94 @@ VolumeOperations::parVisibleRegionGeneration(QList<QVariant> plist)
 //---------//---------//---------//
 //---------//---------//---------//
 
+
+
+//---------//---------//---------//
+//---------//---------//---------//
+void
+VolumeOperations::connectedRegion(int dr, int wr, int hr,
+				  Vec bmin, Vec bmax,
+				  int tag, int ctag,
+				  int& minD, int& maxD,
+				  int& minW, int& maxW,
+				  int& minH, int& maxH,
+				  int gradType, float minGrad, float maxGrad)
+{
+  minD = maxD = minW = maxW = minH = maxH = -1;
+
+  if (dr < 0 || wr < 0 || hr < 0 ||
+      dr > m_depth-1 ||
+      wr > m_width-1 ||
+      hr > m_height-1)
+    {
+      QMessageBox::information(0, "", "No painted region found");
+      return;
+    }
+
+  int ds = qMax(0, qFloor(bmin.z));
+  int ws = qMax(0, qFloor(bmin.y));
+  int hs = qMax(0, qFloor(bmin.x));
+
+  int de = qMin(qCeil(bmax.z), m_depth-1);
+  int we = qMin(qCeil(bmax.y), m_width-1);
+  int he = qMin(qCeil(bmax.x), m_height-1);
+
+  qint64 mx = he-hs+1;
+  qint64 my = we-ws+1;
+  qint64 mz = de-ds+1;
+
+  MyBitArray bitmask;
+  bitmask.resize(mx*my*mz);
+  bitmask.fill(false);
+
+  getConnectedRegion(dr, wr, hr,
+		     ds, ws, hs,
+		     de, we, he,
+		     ctag, true,
+		     bitmask,
+		     gradType, minGrad, maxGrad);
+
+  QProgressDialog progress("Updating voxel structure",
+			   QString(),
+			   0, 100,
+			   0,
+			   Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);  
+  
+  //----------------------------  
+  // set the maskData
+  minD = maxD = dr;
+  minW = maxW = wr;
+  minH = maxH = hr;
+  for(qint64 d2=ds; d2<=de; d2++)
+  for(qint64 w2=ws; w2<=we; w2++)
+  for(qint64 h2=hs; h2<=he; h2++)
+    {
+      qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
+      if (bitmask.testBit(bidx))
+	{
+	  qint64 idx = d2*m_width*m_height + w2*m_height + h2;
+	  m_maskDataUS[idx] = tag;
+	  minD = qMin(minD, (int)d2);
+	  maxD = qMax(maxD, (int)d2);
+	  minW = qMin(minW, (int)w2);
+	  maxW = qMax(maxW, (int)w2);
+	  minH = qMin(minH, (int)h2);
+	  maxH = qMax(maxH, (int)h2);
+	}
+    }
+  //----------------------------  
+  
+  minD = qMax(minD-1, 0);
+  minW = qMax(minW-1, 0);
+  minH = qMax(minH-1, 0);
+  maxD = qMin(maxD+1, m_depth);
+  maxW = qMin(maxW+1, m_width);
+  maxH = qMin(maxH+1, m_height);
+
+  progress.setValue(100);
+}
+
 void
 VolumeOperations::getConnectedRegion(int dr, int wr, int hr,
 				     int ds, int ws, int hs,
@@ -1107,6 +1137,120 @@ VolumeOperations::getConnectedRegion(int dr, int wr, int hr,
   // copy bitmask into cbitmask
   cbitmask = bitmask;
 }
+//---------//---------//---------//
+//---------//---------//---------//
+
+
+
+//---------//---------//---------//
+//---------//---------//---------//
+void
+VolumeOperations::getRegionConnectedToMask(int ds, int ws, int hs,
+					   int de, int we, int he,
+					   MyBitArray& tagbitmask,
+					   MyBitArray& maskbitmask)
+{
+  QProgressDialog progress("Identifying connected region",
+			   QString(),
+			   0, 100,
+			   0,
+			   Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);
+
+  qint64 mx = he-hs+1;
+  qint64 my = we-ws+1;
+  qint64 mz = de-ds+1;
+
+  int indices[] = {-1, 0, 0,
+		    1, 0, 0,
+		    0,-1, 0,
+		    0, 1, 0,
+		    0, 0,-1,
+		    0, 0, 1};
+
+    
+  MyBitArray bitmask;
+  bitmask.resize(mx*my*mz);
+  bitmask.fill(false);
+
+  QList<Vec> seeds;
+  seeds.clear();
+  for(qint64 d2=ds; d2<=de; d2++)
+  for(qint64 w2=ws; w2<=we; w2++)
+  for(qint64 h2=hs; h2<=he; h2++)
+    {
+      qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
+      if (maskbitmask.testBit(bidx))
+	seeds << Vec(d2,w2,h2);
+    }
+
+  bitmask = maskbitmask;
+
+  
+
+  //------------------------------------------------------
+  // dilate from seeds
+  bool done = false;
+  int nd = 0;
+  int pvnd = 0;
+  while(!done)
+    {
+      nd = (nd + 1)%100;
+      int pnd = 90*(float)nd/(float)100;
+      progress.setValue(pnd);
+      if (pnd != pvnd)
+	qApp->processEvents();
+      pvnd = pnd;
+
+      QList<Vec> tseeds;
+      tseeds.clear();
+
+      progress.setLabelText(QString("Flooding %1").arg(seeds.count()));
+      qApp->processEvents();
+
+            
+      // find outer boundary to fill
+      for(int e=0; e<seeds.count(); e++)
+	{
+	  int dx = seeds[e].x;
+	  int wx = seeds[e].y;
+	  int hx = seeds[e].z;
+	  	  
+	  for(int i=0; i<6; i++)
+	    {
+	      int da = indices[3*i+0];
+	      int wa = indices[3*i+1];
+	      int ha = indices[3*i+2];
+	      
+	      qint64 d2 = qBound(ds, dx+da, de);
+	      qint64 w2 = qBound(ws, wx+wa, we);
+	      qint64 h2 = qBound(hs, hx+ha, he);
+	      
+	      qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
+	      if (tagbitmask.testBit(bidx) &&
+		  !bitmask.testBit(bidx))
+		{
+		  bitmask.setBit(bidx, true);
+		  tseeds << Vec(d2,w2,h2);		  
+		}
+	    }
+	}
+
+      seeds.clear();
+
+      if (tseeds.count() > 0)
+	seeds = tseeds;
+      else
+	done = true;
+
+      tseeds.clear();
+    }
+  //------------------------------------------------------
+
+  tagbitmask &= bitmask;
+}
+//---------//---------//---------//
+//---------//---------//---------//
 
 
 
@@ -1282,13 +1426,13 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
 				  0, 0, 100, 1);
   //-------------------------
 
-  int ds = qFloor(bmin.z);
-  int ws = qFloor(bmin.y);
-  int hs = qFloor(bmin.x);
+  int ds = qMax(0, qFloor(bmin.z));
+  int ws = qMax(0, qFloor(bmin.y));
+  int hs = qMax(0, qFloor(bmin.x));
 
-  int de = qCeil(bmax.z);
-  int we = qCeil(bmax.y);
-  int he = qCeil(bmax.x);
+  int de = qMin(qCeil(bmax.z), m_depth-1);
+  int we = qMin(qCeil(bmax.y), m_width-1);
+  int he = qMin(qCeil(bmax.x), m_height-1);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -1329,6 +1473,11 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
     }
   //----------------------------  
 
+  //----------------------------  
+  // cbitmask is true for transparent region
+  // cbitmask is false for opaque region
+  //----------------------------  
+  
 
   QProgressDialog progress("Shrinkwrap",
 			   QString(),
@@ -1339,54 +1488,17 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
 
   //----------------------------
   //----------------------------
-  // fill the holes before shrinkwrapping the region
-  // use vdb levelsets to dilate and shrinkwrap the region
-  // before applying shrinkwrap operation 
+  // apply open operation to transparent region
+  // to fill the holes before shrinkwrapping the region
   if (holeSize > 0)
     {
-      VdbVolume vdb;
-      openvdb::FloatGrid::Accessor accessor = vdb.getAccessor();
-      openvdb::Coord ijk;
-      int &d = ijk[0];
-      int &w = ijk[1];
-      int &h = ijk[2];
-      for(d=ds; d<=de; d++)
-      for(w=ws; w<=we; w++)
-      for(h=hs; h<=he; h++)
-	{
-	  qint64 bidx = ((qint64)(d-ds))*mx*my+(w-ws)*mx+(h-hs);
-	  if (!cbitmask.testBit(bidx))
-	    accessor.setValue(ijk, 255);
-	}
-      progress.setLabelText("Shrinkwrap - converting to levelset");
-      progress.setValue(10);
-      qApp->processEvents();
-      vdb.convertToLevelSet(128, 0);
-      progress.setLabelText("Shrinkwrap - close holes");
-      progress.setValue(25);
-      qApp->processEvents();
-      vdb.close(-holeSize, holeSize); // close - dilate followed by erode
-      progress.setLabelText("Shrinkwrap - holes closed");
       progress.setValue(50);
       qApp->processEvents();
-      {
-	cbitmask.fill(true);
-	openvdb::FloatGrid::Accessor accessor = vdb.getAccessor();
-	openvdb::Coord ijk;
-	int &d = ijk[0];
-	int &w = ijk[1];
-	int &h = ijk[2];
-	for(d=ds; d<=de; d++)
-        for(w=ws; w<=we; w++)
-        for(h=hs; h<=he; h++)
-	  {
-	    if (accessor.getValue(ijk) <= 0)
-	      {
-		qint64 bidx = ((qint64)(d-ds))*mx*my+(w-ws)*mx+(h-hs);
-		cbitmask.setBit(bidx, false);
-	      }
-	  }
-      }
+      openCloseBitmask(holeSize, holeSize,		       
+		       true, // open transparent region
+		       mx, my, mz,
+		       cbitmask); // cbitmask contains transparent region
+      progress.setLabelText("Shrinkwrap - holes closed");
       progress.setValue(75);
       qApp->processEvents();
     }
@@ -1779,9 +1891,6 @@ VolumeOperations::_dilatebitmask(int nDilate, bool htype,
       qApp->processEvents();
     }
 
-  if (htype) // Dilate
-    bitmask = ~bitmask;
-
   
   uchar *labels3d = new uchar[mx*my*mz];
   memset(labels3d, 0, mx*my*mz);
@@ -1789,7 +1898,7 @@ VolumeOperations::_dilatebitmask(int nDilate, bool htype,
   // populate labels3d
   for(qint64 idx=0; idx<mx*my*mz; idx++)
     {
-      if (bitmask.testBit(idx))
+      if (bitmask.testBit(idx) != htype)
 	labels3d[idx] = 1;
     }
 
@@ -1807,12 +1916,10 @@ VolumeOperations::_dilatebitmask(int nDilate, bool htype,
   // check distance transform
   for(qint64 idx=0; idx<mx*my*mz; idx++)
     {
-      if (qCeil(sqrt(dt[idx])) <= nDilate)
-	bitmask.setBit(idx, false);
+      //m_maskDataUS[idx] = qFloor(sqrt(dt[idx]));
+      if (qFloor(sqrt(dt[idx])) <= nDilate)
+	bitmask.setBit(idx, htype);
     }
-    
-  if (htype) // Dilate
-    bitmask = ~bitmask;  
   
   delete [] labels3d;
   delete [] dt;
@@ -1949,13 +2056,13 @@ VolumeOperations::setVisible(Vec bmin, Vec bmax,
 			     int& minH, int& maxH,
 			     int gradType, float minGrad, float maxGrad)
 {
-  int ds = qFloor(bmin.z);
-  int ws = qFloor(bmin.y);
-  int hs = qFloor(bmin.x);
+  int ds = qMax(0, qFloor(bmin.z));
+  int ws = qMax(0, qFloor(bmin.y));
+  int hs = qMax(0, qFloor(bmin.x));
 
-  int de = qCeil(bmax.z);
-  int we = qCeil(bmax.y);
-  int he = qCeil(bmax.x);
+  int de = qMin(qCeil(bmax.z), m_depth-1);
+  int we = qMin(qCeil(bmax.y), m_width-1);
+  int he = qMin(qCeil(bmax.x), m_height-1);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -1995,13 +2102,13 @@ VolumeOperations::stepTags(Vec bmin, Vec bmax,
 			   int& minH, int& maxH)
   
 {    
-  int ds = qFloor(bmin.z);
-  int ws = qFloor(bmin.y);
-  int hs = qFloor(bmin.x);
+  int ds = qMax(0, qFloor(bmin.z));
+  int ws = qMax(0, qFloor(bmin.y));
+  int hs = qMax(0, qFloor(bmin.x));
 
-  int de = qCeil(bmax.z);
-  int we = qCeil(bmax.y);
-  int he = qCeil(bmax.x);
+  int de = qMin(qCeil(bmax.z), m_depth-1);
+  int we = qMin(qCeil(bmax.y), m_width-1);
+  int he = qMin(qCeil(bmax.x), m_height-1);
 
   minD = ds;
   maxD = de;
@@ -2058,13 +2165,13 @@ VolumeOperations::mergeTags(Vec bmin, Vec bmax,
 			    int& minH, int& maxH)
 
 {
-  int ds = qFloor(bmin.z);
-  int ws = qFloor(bmin.y);
-  int hs = qFloor(bmin.x);
+  int ds = qMax(0, qFloor(bmin.z));
+  int ws = qMax(0, qFloor(bmin.y));
+  int hs = qMax(0, qFloor(bmin.x));
 
-  int de = qCeil(bmax.z);
-  int we = qCeil(bmax.y);
-  int he = qCeil(bmax.x);
+  int de = qMin(qCeil(bmax.z), m_depth-1);
+  int we = qMin(qCeil(bmax.y), m_width-1);
+  int he = qMin(qCeil(bmax.x), m_height-1);
 
   minD = maxD = -1;
   minW = maxW = -1;
@@ -2396,13 +2503,14 @@ VolumeOperations::dilateAll(Vec bmin, Vec bmax, int tag,
       progress.setMinimumDuration(0);
     }
 
-  int ds = qMax(0, (int)bmin.z);
-  int ws = qMax(0, (int)bmin.y);
-  int hs = qMax(0, (int)bmin.x);
+  int ds = qMax(0, qFloor(bmin.z));
+  int ws = qMax(0, qFloor(bmin.y));
+  int hs = qMax(0, qFloor(bmin.x));
 
-  int de = qMin((int)bmax.z, m_depth-1);
-  int we = qMin((int)bmax.y, m_width-1);
-  int he = qMin((int)bmax.x, m_height-1);
+  int de = qMin(qCeil(bmax.z), m_depth-1);
+  int we = qMin(qCeil(bmax.y), m_width-1);
+  int he = qMin(qCeil(bmax.x), m_height-1);
+
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -2479,10 +2587,7 @@ VolumeOperations::dilateAll(Vec bmin, Vec bmax, int tag,
 		    //-------
 		    
 		    if (opaque) // dilate only in connected opaque region
-		      {			
-			qint64 idx = d2*m_width*m_height + w2*m_height + h2;
-			m_maskDataUS[idx] = tag;
-		      }
+		      m_maskDataUS[idx] = tag;
 		  } // if (!clipped)
 	      } // test bitmask 
 	  } // loop over h
@@ -2646,13 +2751,13 @@ VolumeOperations::openAll(Vec bmin, Vec bmax, int tag,
 			   Qt::WindowStaysOnTopHint);
 
   
-  int ds = qMax(0, (int)bmin.z);
-  int ws = qMax(0, (int)bmin.y);
-  int hs = qMax(0, (int)bmin.x);
+  int ds = qMax(0, qFloor(bmin.z));
+  int ws = qMax(0, qFloor(bmin.y));
+  int hs = qMax(0, qFloor(bmin.x));
 
-  int de = qMin((int)bmax.z, m_depth-1);
-  int we = qMin((int)bmax.y, m_width-1);
-  int he = qMin((int)bmax.x, m_height-1);
+  int de = qMin(qCeil(bmax.z), m_depth-1);
+  int we = qMin(qCeil(bmax.y), m_width-1);
+  int he = qMin(qCeil(bmax.x), m_height-1);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -2727,13 +2832,13 @@ VolumeOperations::closeAll(Vec bmin, Vec bmax, int tag,
 			   Qt::WindowStaysOnTopHint);
 
   
-  int ds = qMax(0, (int)bmin.z);
-  int ws = qMax(0, (int)bmin.y);
-  int hs = qMax(0, (int)bmin.x);
+  int ds = qMax(0, qFloor(bmin.z));
+  int ws = qMax(0, qFloor(bmin.y));
+  int hs = qMax(0, qFloor(bmin.x));
 
-  int de = qMin((int)bmax.z, m_depth-1);
-  int we = qMin((int)bmax.y, m_width-1);
-  int he = qMin((int)bmax.x, m_height-1);
+  int de = qMin(qCeil(bmax.z), m_depth-1);
+  int we = qMin(qCeil(bmax.y), m_width-1);
+  int he = qMin(qCeil(bmax.x), m_height-1);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -2842,13 +2947,13 @@ VolumeOperations::dilateConnected(int dr, int wr, int hr,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
-  int ds = qMax(0, (int)bmin.z);
-  int ws = qMax(0, (int)bmin.y);
-  int hs = qMax(0, (int)bmin.x);
+  int ds = qMax(0, qFloor(bmin.z));
+  int ws = qMax(0, qFloor(bmin.y));
+  int hs = qMax(0, qFloor(bmin.x));
 
-  int de = qMin((int)bmax.z, m_depth-1);
-  int we = qMin((int)bmax.y, m_width-1);
-  int he = qMin((int)bmax.x, m_height-1);
+  int de = qMin(qCeil(bmax.z), m_depth-1);
+  int we = qMin(qCeil(bmax.y), m_width-1);
+  int he = qMin(qCeil(bmax.x), m_height-1);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -2989,7 +3094,8 @@ VolumeOperations::dilateConnected(int dr, int wr, int hr,
 }
 
 void
-VolumeOperations::erodeAll(Vec bmin, Vec bmax, int tag,
+VolumeOperations::erodeAll(Vec bmin, Vec bmax,
+			   int tag, int tag2,
 			   int nErode,
 			   int& minD, int& maxD,
 			   int& minW, int& maxW,
@@ -3007,14 +3113,13 @@ VolumeOperations::erodeAll(Vec bmin, Vec bmax, int tag,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
+  int ds = qMax(0, qFloor(bmin.z));
+  int ws = qMax(0, qFloor(bmin.y));
+  int hs = qMax(0, qFloor(bmin.x));
 
-  int ds = qMax(0, (int)bmin.z);
-  int ws = qMax(0, (int)bmin.y);
-  int hs = qMax(0, (int)bmin.x);
-
-  int de = qMin((int)bmax.z, m_depth-1);
-  int we = qMin((int)bmax.y, m_width-1);
-  int he = qMin((int)bmax.x, m_height-1);
+  int de = qMin(qCeil(bmax.z), m_depth-1);
+  int we = qMin(qCeil(bmax.y), m_width-1);
+  int he = qMin(qCeil(bmax.x), m_height-1);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -3061,7 +3166,7 @@ VolumeOperations::erodeAll(Vec bmin, Vec bmax, int tag,
 	    if (!bitmask.testBit(bidx) && cbitmask.testBit(bidx))
 	      {
 		qint64 idx = d2*m_width*m_height + w2*m_height + h2;
-		m_maskDataUS[idx] = 0;
+		m_maskDataUS[idx] = tag2;
 	      } // test bitmask 
 	  } // loop over h
     } // loop over d
@@ -3123,13 +3228,13 @@ VolumeOperations::erodeConnected(int dr, int wr, int hr,
   progress.setMinimumDuration(0);
 
 
-  int ds = qFloor(bmin.z);
-  int ws = qFloor(bmin.y);
-  int hs = qFloor(bmin.x);
+  int ds = qMax(0, qFloor(bmin.z));
+  int ws = qMax(0, qFloor(bmin.y));
+  int hs = qMax(0, qFloor(bmin.x));
 
-  int de = qCeil(bmax.z);
-  int we = qCeil(bmax.y);
-  int he = qCeil(bmax.x);
+  int de = qMin(qCeil(bmax.z), m_depth-1);
+  int we = qMin(qCeil(bmax.y), m_width-1);
+  int he = qMin(qCeil(bmax.x), m_height-1);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -3281,13 +3386,13 @@ VolumeOperations::modifyOriginalVolume(Vec bmin, Vec bmax,
 				       int& minW, int& maxW,
 				       int& minH, int& maxH)
 {
-  int ds = qFloor(bmin.z);
-  int ws = qFloor(bmin.y);
-  int hs = qFloor(bmin.x);
+  int ds = qMax(0, qFloor(bmin.z));
+  int ws = qMax(0, qFloor(bmin.y));
+  int hs = qMax(0, qFloor(bmin.x));
 
-  int de = qCeil(bmax.z);
-  int we = qCeil(bmax.y);
-  int he = qCeil(bmax.x);
+  int de = qMin(qCeil(bmax.z), m_depth-1);
+  int we = qMin(qCeil(bmax.y), m_width-1);
+  int he = qMin(qCeil(bmax.x), m_height-1);
 
   QProgressDialog progress("Updating Original Volume",
 			   QString(),
@@ -3368,13 +3473,13 @@ VolumeOperations::tagTubes(Vec bmin, Vec bmax, int tag,
     }
   //-------------------------
 
-  int ds = qFloor(bmin.z);
-  int ws = qFloor(bmin.y);
-  int hs = qFloor(bmin.x);
+  int ds = qMax(0, qFloor(bmin.z));
+  int ws = qMax(0, qFloor(bmin.y));
+  int hs = qMax(0, qFloor(bmin.x));
 
-  int de = qCeil(bmax.z);
-  int we = qCeil(bmax.y);
-  int he = qCeil(bmax.x);
+  int de = qMin(qCeil(bmax.z), m_depth-1);
+  int we = qMin(qCeil(bmax.y), m_width-1);
+  int he = qMin(qCeil(bmax.x), m_height-1);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -3625,13 +3730,13 @@ VolumeOperations::smoothConnectedRegion(int dr, int wr, int hr,
       return;
     }
 
-  int ds = qFloor(bmin.z);
-  int ws = qFloor(bmin.y);
-  int hs = qFloor(bmin.x);
+  int ds = qMax(0, qFloor(bmin.z));
+  int ws = qMax(0, qFloor(bmin.y));
+  int hs = qMax(0, qFloor(bmin.x));
 
-  int de = qCeil(bmax.z);
-  int we = qCeil(bmax.y);
-  int he = qCeil(bmax.x);
+  int de = qMin(qCeil(bmax.z), m_depth-1);
+  int we = qMin(qCeil(bmax.y), m_width-1);
+  int he = qMin(qCeil(bmax.x), m_height-1);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -3674,13 +3779,13 @@ VolumeOperations::smoothAllRegion(Vec bmin, Vec bmax,
 {
   minD = maxD = minW = maxW = minH = maxH = -1;
 
-  int ds = qFloor(bmin.z);
-  int ws = qFloor(bmin.y);
-  int hs = qFloor(bmin.x);
+  int ds = qMax(0, qFloor(bmin.z));
+  int ws = qMax(0, qFloor(bmin.y));
+  int hs = qMax(0, qFloor(bmin.x));
 
-  int de = qCeil(bmax.z);
-  int we = qCeil(bmax.y);
-  int he = qCeil(bmax.x);
+  int de = qMin(qCeil(bmax.z), m_depth-1);
+  int we = qMin(qCeil(bmax.y), m_width-1);
+  int he = qMin(qCeil(bmax.x), m_height-1);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -3795,13 +3900,13 @@ VolumeOperations::removeComponents(Vec bmin, Vec bmax,
 {
   minD = maxD = minW = maxW = minH = maxH = -1;
 
-  int ds = qFloor(bmin.z);
-  int ws = qFloor(bmin.y);
-  int hs = qFloor(bmin.x);
+  int ds = qMax(0, qFloor(bmin.z));
+  int ws = qMax(0, qFloor(bmin.y));
+  int hs = qMax(0, qFloor(bmin.x));
 
-  int de = qCeil(bmax.z);
-  int we = qCeil(bmax.y);
-  int he = qCeil(bmax.x);
+  int de = qMin(qCeil(bmax.z), m_depth-1);
+  int we = qMin(qCeil(bmax.y), m_width-1);
+  int he = qMin(qCeil(bmax.x), m_height-1);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -3906,13 +4011,13 @@ VolumeOperations::removeLargestComponents(Vec bmin, Vec bmax,
 {
   minD = maxD = minW = maxW = minH = maxH = -1;
 
-  int ds = qFloor(bmin.z);
-  int ws = qFloor(bmin.y);
-  int hs = qFloor(bmin.x);
+  int ds = qMax(0, qFloor(bmin.z));
+  int ws = qMax(0, qFloor(bmin.y));
+  int hs = qMax(0, qFloor(bmin.x));
 
-  int de = qCeil(bmax.z);
-  int we = qCeil(bmax.y);
-  int he = qCeil(bmax.x);
+  int de = qMin(qCeil(bmax.z), m_depth-1);
+  int we = qMin(qCeil(bmax.y), m_width-1);
+  int he = qMin(qCeil(bmax.x), m_height-1);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -4038,13 +4143,13 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
 {
   minD = maxD = minW = maxW = minH = maxH = -1;
 
-  int ds = qFloor(bmin.z);
-  int ws = qFloor(bmin.y);
-  int hs = qFloor(bmin.x);
+  int ds = qMax(0, qFloor(bmin.z));
+  int ws = qMax(0, qFloor(bmin.y));
+  int hs = qMax(0, qFloor(bmin.x));
 
-  int de = qCeil(bmax.z);
-  int we = qCeil(bmax.y);
-  int he = qCeil(bmax.x);
+  int de = qMin(qCeil(bmax.z), m_depth-1);
+  int we = qMin(qCeil(bmax.y), m_width-1);
+  int he = qMin(qCeil(bmax.x), m_height-1);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -4286,13 +4391,13 @@ void
 VolumeOperations::sortLabels(Vec bmin, Vec bmax,
 			     int gradType, float minGrad, float maxGrad)
 {
-  int ds = qFloor(bmin.z);
-  int ws = qFloor(bmin.y);
-  int hs = qFloor(bmin.x);
+  int ds = qMax(0, qFloor(bmin.z));
+  int ws = qMax(0, qFloor(bmin.y));
+  int hs = qMax(0, qFloor(bmin.x));
 
-  int de = qCeil(bmax.z);
-  int we = qCeil(bmax.y);
-  int he = qCeil(bmax.x);
+  int de = qMin(qCeil(bmax.z), m_depth-1);
+  int we = qMin(qCeil(bmax.y), m_width-1);
+  int he = qMin(qCeil(bmax.x), m_height-1);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -4443,13 +4548,13 @@ VolumeOperations::connectedComponentsPlus(Vec bmin, Vec bmax, int tag,
 
   uchar *lut = Global::lut();
 
-  int ds = qFloor(bmin.z);
-  int ws = qFloor(bmin.y);
-  int hs = qFloor(bmin.x);
+  int ds = qMax(0, qFloor(bmin.z));
+  int ws = qMax(0, qFloor(bmin.y));
+  int hs = qMax(0, qFloor(bmin.x));
 
-  int de = qCeil(bmax.z);
-  int we = qCeil(bmax.y);
-  int he = qCeil(bmax.x);
+  int de = qMin(qCeil(bmax.z), m_depth-1);
+  int we = qMin(qCeil(bmax.y), m_width-1);
+  int he = qMin(qCeil(bmax.x), m_height-1);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -4798,13 +4903,13 @@ VolumeOperations::distanceTransform(Vec bmin, Vec bmax, int tag,
 
   uchar *lut = Global::lut();
 
-  int ds = qFloor(bmin.z);
-  int ws = qFloor(bmin.y);
-  int hs = qFloor(bmin.x);
+  int ds = qMax(0, qFloor(bmin.z));
+  int ws = qMax(0, qFloor(bmin.y));
+  int hs = qMax(0, qFloor(bmin.x));
 
-  int de = qCeil(bmax.z);
-  int we = qCeil(bmax.y);
-  int he = qCeil(bmax.x);
+  int de = qMin(qCeil(bmax.z), m_depth-1);
+  int we = qMin(qCeil(bmax.y), m_width-1);
+  int he = qMin(qCeil(bmax.x), m_height-1);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -4853,14 +4958,11 @@ VolumeOperations::distanceTransform(Vec bmin, Vec bmax, int tag,
   for(qint64 h=0; h<mx; h++)
     {
       qint64 bidx = ((qint64)(d+ds))*m_width*m_height+((qint64)(w+ws))*m_height+(h+hs);
-      m_maskDataUS[bidx] = qCeil(sqrt(dt[idx]));
+      m_maskDataUS[bidx] = qFloor(sqrt(dt[idx]));
 //      if (dt[idx] > 0)
-//	{
-//	  m_maskDataUS[bidx] = dt[idx];
-//	  //m_maskDataUS[bidx] = qCeil(sqrt(dt[idx]));
-//	}
+//	  m_maskDataUS[bidx] = qCeil(sqrt(dt[idx]));
 //      else
-//	m_maskDataUS[bidx] = 0;
+//	  m_maskDataUS[bidx] = 0;
 
       idx++;
     }

@@ -129,7 +129,8 @@ class VolumeOperations
 			int&, int&,
 			int&, int&);
 
-  static void erodeAll(Vec, Vec, int,
+  static void erodeAll(Vec, Vec,
+		       int, int,
 		       int,
 		       int&, int&,
 		       int&, int&,
@@ -249,6 +250,11 @@ class VolumeOperations
 				 MyBitArray&,
 				 int, float, float);
 
+  static void getRegionConnectedToMask(int, int, int,
+				       int, int, int,
+				       MyBitArray&,
+				       MyBitArray&);
+
   static void shrinkwrapSlice(uchar*, int, int);
 
   static void dilateBitmask(int, bool,
@@ -301,6 +307,8 @@ class VolumeOperations
 				    int, int, int,
 				    MyBitArray&,
 				    int);
+
+  static QString getMaskName();
 };
 
 #endif

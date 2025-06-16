@@ -149,7 +149,7 @@ class Viewer : public QGLViewer
 
     void dilateAllTags(Vec, Vec, int);
     void dilateAll(Vec, Vec, int, int);
-    void erodeAll(Vec, Vec, int, int);
+    void erodeAll(Vec, Vec, int, int, int);
     void openAll(Vec, Vec, int, int, int);
     void closeAll(Vec, Vec, int, int, int);
   
@@ -373,7 +373,7 @@ class Viewer : public QGLViewer
   void regionDilation(bool);
   void regionErosion();
   void regionDilationAll(int, int tag=-1);
-  void regionErosionAll(int, int);
+  void regionErosionAll(int, int, int);
   void tagUsingScreenSketch();
   void sortLabels();
 

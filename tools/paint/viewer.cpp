@@ -1064,7 +1064,7 @@ Viewer::processCommand(QString cmd)
       maskOperation(tag);
       return;
     }
-
+  
   if (list[0] == "deletemask")
     {
       VolumeOperations::deleteMask();
@@ -1218,13 +1218,16 @@ Viewer::processCommand(QString cmd)
     {
       int tag = -1;
       int size = -1;
-      if (list.size() == 3)
+      int tag2 = 0;
+      if (list.size() > 2)
 	{
 	  tag = list[1].toInt(&ok);
 	  size = list[2].toInt(&ok);
+	  if (list.size() == 4)
+	    tag2 = qBound(0, list[3].toInt(&ok), 65535);
 	  if (tag > 0 && size > 0)
 	    {
-	      regionErosionAll(tag, size);
+	      regionErosionAll(tag, size, tag2);
 	      return;
 	    }
 	}
@@ -3433,7 +3436,7 @@ Viewer::regionDilationAll(int size, int tag)
 }
 
 void
-Viewer::regionErosionAll(int tag, int size)
+Viewer::regionErosionAll(int tag, int size, int tag2)
 {
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
@@ -3442,7 +3445,7 @@ Viewer::regionErosionAll(int tag, int size)
   bmin = VECDIVIDE(bmin, voxelScaling);
   bmax = VECDIVIDE(bmax, voxelScaling);
 
-  emit erodeAll(bmin, bmax, tag, size);
+  emit erodeAll(bmin, bmax, tag, size, tag2);
 }
 
 void
@@ -3921,9 +3924,10 @@ Viewer::usedTags()
 	  qApp->processEvents();
 	}
       if (!ut.contains(m_maskPtrUS[i]))
-	ut << m_maskPtrUS[i];      
+	{
+	  ut << m_maskPtrUS[i];
+	}
     }
-  //QMessageBox::information(0, "", QString("%1").arg(ut.count()));
   
   qSort(ut);
   return ut;

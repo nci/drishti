@@ -22,6 +22,8 @@ class VolumeMeasure
   static void getFeretDiameter(Vec, Vec, int);
   static void getSphericity(Vec, Vec, int);
   
+  static void getDistanceToSurface(Vec, Vec, int);
+
  private :
   static int m_depth, m_width, m_height;
   static uchar *m_volData;

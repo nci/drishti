@@ -1907,7 +1907,8 @@ VolumeOperations::_dilatebitmask(int nDilate, bool htype,
 
   // generate squared distance transform
   float *dt = BinaryDistanceTransform::binaryEDTsq(labels3d,
-						   mx, my, mz);
+						   mx, my, mz,
+						   true);
   
   progress.setValue(75);
   qApp->processEvents();
@@ -4846,42 +4847,6 @@ VolumeOperations::connectedComponentsPlus(Vec bmin, Vec bmax, int tag,
   QMessageBox::information(0, "", "Done");
 }
 
-//void
-//VolumeOperations::dtForwardPass(float *F, int mx, int my, int mz)
-//{
-//  float CDT[3][3][3] = {
-//    { {1.65849, 1.34065, 1.65849},
-//      {1.34065, 0.92644, 1.34065},
-//      {1.65849, 1.34065, 1.65849} },
-//    { {1.34065, 0.92644, 1.34065},
-//      {0.92644, 0, 0},
-//      {0, 0, 0} },
-//    { {0, 0, 0},
-//      {0, 0, 0},
-//      {0, 0, 0} } );
-//    
-//  for(qint64 d=0; d<mz; d++)
-//  for(qint64 w=0; w<my; w++)
-//  for(qint64 h=0; h<mx; h++)
-//    {
-//      qint64 fidx = d*mx*my + w*mx + h;      
-//	  
-//      for(qint64 d2=d-1; d2<=d+1; d2++)
-//      for(qint64 w2=w-1; w2<=w+1; w2++)
-//      for(qint64 h2=h-1; h2<=h+1; h2++)
-//	{
-//	  qint64 d2s = qBound(0, (int)d2, (int)mz-1);
-//	  qint64 w2s = qBound(0, (int)w2, (int)my-1);
-//	  qint64 h2s = qBound(0, (int)h2, (int)mx-1);
-//
-//	  qint64 idx = d2s*mx*my + w2s*mx + h2s;
-//	  
-//	  F[fidx] = F[idx] + CDT[d2+1][w2+1][h2+1];
-//    }
-//
-//}
-
-
 
 void
 VolumeOperations::distanceTransform(Vec bmin, Vec bmax, int tag,
@@ -4945,7 +4910,8 @@ VolumeOperations::distanceTransform(Vec bmin, Vec bmax, int tag,
 
   // generate squared distance transform
   float *dt = BinaryDistanceTransform::binaryEDTsq(labels3d,
-						   mx, my, mz);
+						   mx, my, mz,
+						   true);
   
   progress.setValue(75);
   qApp->processEvents();
@@ -4958,12 +4924,7 @@ VolumeOperations::distanceTransform(Vec bmin, Vec bmax, int tag,
   for(qint64 h=0; h<mx; h++)
     {
       qint64 bidx = ((qint64)(d+ds))*m_width*m_height+((qint64)(w+ws))*m_height+(h+hs);
-      m_maskDataUS[bidx] = qFloor(sqrt(dt[idx]));
-//      if (dt[idx] > 0)
-//	  m_maskDataUS[bidx] = qCeil(sqrt(dt[idx]));
-//      else
-//	  m_maskDataUS[bidx] = 0;
-
+      m_maskDataUS[bidx] = qRound(sqrt(dt[idx]));
       idx++;
     }
   
@@ -4984,3 +4945,4 @@ VolumeOperations::distanceTransform(Vec bmin, Vec bmax, int tag,
   QMessageBox::information(0, "", "Done");
   
 }
+

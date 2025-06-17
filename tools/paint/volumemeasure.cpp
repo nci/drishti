@@ -8,6 +8,7 @@
 #include "vdbvolume.h"
 #include "geometryobjects.h"
 #include "staticfunctions.h"
+#include "binarydistancetransform.h"
 
 #include <QtConcurrentMap>
 #include <QFileDialog>
@@ -178,13 +179,13 @@ VolumeMeasure::volume(Vec bmin, Vec bmax, int tag)
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
-  int ds = qFloor(bmin.z);
-  int ws = qFloor(bmin.y);
-  int hs = qFloor(bmin.x);
+  int ds = qMax(0, qFloor(bmin.z));
+  int ws = qMax(0, qFloor(bmin.y));
+  int hs = qMax(0, qFloor(bmin.x));
 
-  int de = qCeil(bmax.z);
-  int we = qCeil(bmax.y);
-  int he = qCeil(bmax.x);
+  int de = qMin(qCeil(bmax.z), m_depth-1);
+  int we = qMin(qCeil(bmax.y), m_width-1);
+  int he = qMin(qCeil(bmax.x), m_height-1);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -331,13 +332,13 @@ VolumeMeasure::surfaceArea(Vec bmin, Vec bmax, int tag)
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
-  int ds = qFloor(bmin.z);
-  int ws = qFloor(bmin.y);
-  int hs = qFloor(bmin.x);
+  int ds = qMax(0, qFloor(bmin.z));
+  int ws = qMax(0, qFloor(bmin.y));
+  int hs = qMax(0, qFloor(bmin.x));
 
-  int de = qCeil(bmax.z);
-  int we = qCeil(bmax.y);
-  int he = qCeil(bmax.x);
+  int de = qMin(qCeil(bmax.z), m_depth-1);
+  int we = qMin(qCeil(bmax.y), m_width-1);
+  int he = qMin(qCeil(bmax.x), m_height-1);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -499,13 +500,13 @@ VolumeMeasure::feretDiameter(int mx, int my, int mz, MyBitArray& bitarray)
 void
 VolumeMeasure::getFeretDiameter(Vec bmin, Vec bmax, int tag)
 {
-  int ds = qFloor(bmin.z);
-  int ws = qFloor(bmin.y);
-  int hs = qFloor(bmin.x);
+  int ds = qMax(0, qFloor(bmin.z));
+  int ws = qMax(0, qFloor(bmin.y));
+  int hs = qMax(0, qFloor(bmin.x));
 
-  int de = qCeil(bmax.z);
-  int we = qCeil(bmax.y);
-  int he = qCeil(bmax.x);
+  int de = qMin(qCeil(bmax.z), m_depth-1);
+  int we = qMin(qCeil(bmax.y), m_width-1);
+  int he = qMin(qCeil(bmax.x), m_height-1);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -602,13 +603,13 @@ VolumeMeasure::getFeretDiameter(Vec bmin, Vec bmax, int tag)
 void
 VolumeMeasure::getSphericity(Vec bmin, Vec bmax, int tag)
 {
-  int ds = qFloor(bmin.z);
-  int ws = qFloor(bmin.y);
-  int hs = qFloor(bmin.x);
+  int ds = qMax(0, qFloor(bmin.z));
+  int ws = qMax(0, qFloor(bmin.y));
+  int hs = qMax(0, qFloor(bmin.x));
 
-  int de = qCeil(bmax.z);
-  int we = qCeil(bmax.y);
-  int he = qCeil(bmax.x);
+  int de = qMin(qCeil(bmax.z), m_depth-1);
+  int we = qMin(qCeil(bmax.y), m_width-1);
+  int he = qMin(qCeil(bmax.x), m_height-1);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -675,4 +676,171 @@ VolumeMeasure::getSphericity(Vec bmin, Vec bmax, int tag)
     }
   else
     QMessageBox::information(0, "Error", QString("Cannot write to %1").arg(tflnm));
+}
+
+
+
+
+void
+VolumeMeasure::getDistanceToSurface(Vec bmin, Vec bmax, int tag)
+{
+  QProgressDialog progress("Distance Transform",
+			   QString(),
+			   0, 100,
+			   0,
+			   Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);  
+  qApp->processEvents();
+
+  
+  uchar *lut = Global::lut();
+
+  int ds = qMax(0, qFloor(bmin.z));
+  int ws = qMax(0, qFloor(bmin.y));
+  int hs = qMax(0, qFloor(bmin.x));
+
+  int de = qMin(qCeil(bmax.z), m_depth-1);
+  int we = qMin(qCeil(bmax.y), m_width-1);
+  int he = qMin(qCeil(bmax.x), m_height-1);
+
+  qint64 mx = he-hs+1;
+  qint64 my = we-ws+1;
+  qint64 mz = de-ds+1;
+
+
+  //---------------
+  QList<int> ut = getLabels(ds,ws,hs,de,we,he,tag);
+
+  ut.removeAll(0); // remove zero label
+  
+  if (ut.count() == 0)
+    {
+      QMessageBox::information(0, "Error", "No voxel found with non-zero label");
+      return;
+    }
+
+  qSort(ut);
+  //---------------
+  
+  
+  //---------------
+  // get entire visible region includes all non-zero visible labels
+  MyBitArray visibleMask;
+  visibleMask.resize(mx*my*mz);
+  visibleMask.fill(false);
+
+  VolumeOperations::getVisibleRegion(ds, ws, hs,
+				     de, we, he,
+				     -1, false,
+				     0, 0, 1,
+				     visibleMask);
+  //---------------
+
+  
+  
+  //---------------
+  // find distance tranform for entire visible region
+  uchar *labels3d = new uchar[mx*my*mz];
+  memset(labels3d, 0, mx*my*mz);
+
+  
+  // populate labels3d
+  qint64 idx=0;
+  for(qint64 d=0; d<mz; d++)
+  for(qint64 w=0; w<my; w++)
+  for(qint64 h=0; h<mx; h++)
+    {
+      if (visibleMask.testBit(idx))
+	labels3d[idx] = 1;
+      idx ++;
+    }
+
+  progress.setValue(50);
+  qApp->processEvents();
+
+  // generate squared distance transform
+  float *dt = BinaryDistanceTransform::binaryEDTsq(labels3d,
+						   mx, my, mz,
+						   true);
+  //---------------
+
+  
+  progress.setValue(75);
+  qApp->processEvents();
+
+  
+  //---------------
+  // find distance to surface for all labels
+  QMap<int, float> distToSurface;
+  for(int u=0; u<ut.count(); u++)
+    distToSurface[ut[u]] = 10000000;
+      
+  idx = 0;
+  for(qint64 d=0; d<mz; d++)
+    {
+      progress.setValue(100*(float)d/(float)mz);
+      qApp->processEvents();
+      
+      for(qint64 w=0; w<my; w++)
+      for(qint64 h=0; h<mx; h++)
+	{
+	  qint64 bidx = ((qint64)(d+ds))*m_width*m_height+((qint64)(w+ws))*m_height+(h+hs);
+	  
+	  int lbl = m_maskDataUS[bidx];
+	  if (ut.contains(lbl))
+	    distToSurface[lbl] = qMin(distToSurface[lbl], (float)qFloor(sqrt(dt[idx])));
+	  
+	  idx++;
+	}
+    }
+  //---------------
+
+  
+  delete [] labels3d;
+  delete [] dt;
+
+
+  progress.setValue(100);
+
+
+  VolumeInformation pvlInfo;
+  pvlInfo = VolumeInformation::volumeInformation();
+  Vec voxelSize = pvlInfo.voxelSize;
+
+  QString mesg;
+  mesg += QString("Voxel Size : %1, %2, %3 %4\n").\
+                                arg(voxelSize.x).arg(voxelSize.y).arg(voxelSize.z).\
+                                arg(pvlInfo.voxelUnitStringShort());
+
+  mesg += "------------------------------\n";
+  mesg += QString(" Label : Dist To Surface (%1)\n").		\
+	                        arg(pvlInfo.voxelUnitStringShort());
+  mesg += "------------------------------\n";
+  for(int i=0; i<ut.count(); i++)
+    {
+      mesg += QString("%1 : %2\n").arg(ut[i], 6).\
+	                           arg(distToSurface[ut[i]]*voxelSize.x);
+    }
+
+  
+  StaticFunctions::showMessage("Distance To Surface", mesg);
+
+  QString tflnm = QFileDialog::getSaveFileName(0,
+					       "Save Information",
+					       Global::previousDirectory(),
+					       "Files (*.txt)",
+					       0);
+  if (tflnm.isEmpty())
+    return;
+
+  QFile txtfile(tflnm);
+  if (txtfile.open(QIODevice::WriteOnly | QIODevice::Text))
+    {
+      QTextStream out(&txtfile);
+      out << mesg;
+      QMessageBox::information(0, "Save", QString("Saved to %1").arg(tflnm));
+    }
+  else
+    QMessageBox::information(0, "Error", QString("Cannot write to %1").arg(tflnm));
+  
 }

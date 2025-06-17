@@ -46,13 +46,17 @@ BinaryDistanceTransform::squared_edt_1d_multi_seg(unsigned char* segids,
 						  float *d,
 						  const int n, 
 						  const long int stride,
-						  const float anistropy)
+						  const float anistropy,
+						  const bool black_border)
 {  
   long int i;
   
   unsigned char working_segid = segids[0];
 
-  d[0] = working_segid == 0 ? 0 : INFINITY;
+  if (black_border)
+    d[0] = static_cast<float>(working_segid != 0) * anistropy; // 0 or 1
+  else
+    d[0] = working_segid == 0 ? 0 : INFINITY;
 
   for (i = stride; i < n * stride; i += stride)
     {
@@ -73,6 +77,12 @@ BinaryDistanceTransform::squared_edt_1d_multi_seg(unsigned char* segids,
     }
 
   long int min_bound = 0;
+
+  if (black_border)
+    {
+      d[n - stride] = static_cast<float>(segids[n - stride] != 0) * anistropy;
+      min_bound = stride;
+    }
 
   for (i = (n - 2) * stride; i >= min_bound; i -= stride)
     {
@@ -275,7 +285,8 @@ void BinaryDistanceTransform::_squared_edt_1d_parabolic(float* f,
 //---------------------------
 float*
 BinaryDistanceTransform::binaryEDTsq(unsigned char* binaryimg, 
-				     const size_t sx, const size_t sy, const size_t sz, 
+				     const size_t sx, const size_t sy, const size_t sz,
+				     const bool black_border,
 				     float* workspace)
 {
   const size_t sxy = sx * sy;
@@ -293,7 +304,8 @@ BinaryDistanceTransform::binaryEDTsq(unsigned char* binaryimg,
     { 
       squared_edt_1d_multi_seg((binaryimg + sx * y + sxy * z), 
 			       (workspace + sx * y + sxy * z), 
-			       sx, 1, 1); 
+			       sx, 1, 1,
+			       black_border); 
     }
   
   toFinite(workspace, voxels);
@@ -314,8 +326,8 @@ BinaryDistanceTransform::binaryEDTsq(unsigned char* binaryimg,
 	    }
 
 	  _squared_edt_1d_parabolic((workspace + offset + sx * y),
-				    sy - y, sx, 1, 
-				    (y > 0), false);
+				    sy - y, sx, 1,
+				    black_border || (y > 0), black_border);
 	}
     }
 
@@ -335,7 +347,7 @@ BinaryDistanceTransform::binaryEDTsq(unsigned char* binaryimg,
 	    }
 	  _squared_edt_1d_parabolic((workspace + offset + sxy * z), 
 				    sz - z, sxy, 1, 
-				    (z > 0), false);
+				    black_border || (z > 0), black_border);
 	}
     }
 

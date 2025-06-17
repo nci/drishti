@@ -1083,19 +1083,21 @@ Viewer::processCommand(QString cmd)
 
   if (list[0] == "dt")
     {
-      int tag = -1;
-      int size = -1;
-      if (list.size() == 2)
-	{
-	  size = list[1].toInt(&ok);
-	  if (size > 0)
-	    {
-	      distanceTransform(tag, size);
-	      return;
-	    }
-	}
-
-      QMessageBox::information(0, "DistanceTransform", "Expecting - dt <size>");
+      distanceTransform(-1, 0);
+      
+//      int tag = -1;
+//      int size = -1;
+//      if (list.size() == 2)
+//	{
+//	  size = list[1].toInt(&ok);
+//	  if (size > 0)
+//	    {
+//	      distanceTransform(tag, size);
+//	      return;
+//	    }
+//	}
+//
+//      QMessageBox::information(0, "DistanceTransform", "Expecting - dt <size>");
       
       return;
     }
@@ -1480,6 +1482,27 @@ Viewer::processCommand(QString cmd)
       VolumeMeasure::getSphericity(bmin, bmax, tag1);
       return;
     }
+  
+  if (list[0] == "d2s")
+    {
+      int tag1 = -1;
+      if (list.size() == 2)
+	{
+	  tag1 = list[1].toInt(&ok);
+	  if (tag1 < -1 || tag1 > 65535)
+	    {
+	      QMessageBox::information(0, "", QString("Incorrect label specified : %1").\
+				       arg(tag1));
+	      return;
+	    }
+	}
+      QList<Vec> cPos =  clipPos();
+      QList<Vec> cNorm = clipNorm();
+      VolumeOperations::setClip(cPos, cNorm);
+      VolumeMeasure::getDistanceToSurface(bmin, bmax, tag1);
+      return;
+    }
+
 
 
   if (list[0] == "setvisible")

@@ -175,6 +175,16 @@ Clipping planes are obeyed - clipped region is not taken into account.
 #end
 
 
+
+#begin
+d2s
+d2s
+
+Distance to surface - find closest distance to surface for all visible non-zero labels.
+
+#end
+
+
 #begin
 setvisible
 setvisible <label>

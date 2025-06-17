@@ -11,7 +11,8 @@ class BinaryDistanceTransform
 {
  public :
   static float* binaryEDTsq(unsigned char*,
-			    const size_t, const size_t, const size_t, 
+			    const size_t, const size_t, const size_t,
+			    const bool black_border=false,
 			    float* workspace=NULL);
 
  private :
@@ -22,7 +23,8 @@ class BinaryDistanceTransform
 				       float*,
 				       const int, 
 				       const long int,
-				       const float);
+				       const float,
+				       const bool);
   
   static void squared_edt_1d_parabolic(float*,
 				       const int, 

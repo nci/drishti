@@ -44,90 +44,6 @@ void VolumeMeasure::setGridSize(int d, int w, int h)
   m_height = h;
 }
 
-//void VolumeMeasure::getVolume(Vec bmin, Vec bmax, int tag)
-//{
-//  QProgressDialog progress("Calculating Volume",
-//			   QString(),
-//			   0, 100,
-//			   0,
-//			   Qt::WindowStaysOnTopHint);
-//  progress.setMinimumDuration(0);
-//
-//  int ds = bmin.z;
-//  int ws = bmin.y;
-//  int hs = bmin.x;
-//
-//  int de = bmax.z;
-//  int we = bmax.y;
-//  int he = bmax.x;
-//
-//  uchar *lut = Global::lut();
-//  uchar *tagColors = Global::tagColors();
-//
-//  QMap<int, int> labelMap; // contains (number of voxels) volume for each label
-//  qint64 nvoxels = 0;
-//  for(qint64 d=ds; d<=de; d++)
-//    {
-//      progress.setValue(90*(d-ds)/((de-ds+1)));
-//      if (d%10 == 0)
-//	qApp->processEvents();
-//      for(qint64 w=ws; w<=we; w++)
-//	for(qint64 h=hs; h<=he; h++)
-//	  {
-//	    bool clipped = VolumeOperations::checkClipped(Vec(h, w, d));
-//	    
-//	    if (!clipped)
-//	      {
-//		qint64 idx = d*m_width*m_height + w*m_height + h;
-//		int val = m_volData[idx];
-//		if (m_volDataUS) val = m_volDataUS[idx];
-//		uchar mtag = m_maskData[idx];
-//		bool opaque = (lut[4*val+3]*tagColors[4*mtag+3] > 0);      
-//		if (tag > -1)
-//		  opaque &= (mtag == tag);
-//
-//		if (opaque)
-//		  {
-//		    nvoxels ++;
-//		    labelMap[mtag] = labelMap[mtag] + 1;
-//		  }
-//	      }
-//	  }
-//    }
-//
-//  progress.setValue(100);
-//
-//  VolumeInformation pvlInfo;
-//  pvlInfo = VolumeInformation::volumeInformation();
-//  Vec voxelSize = pvlInfo.voxelSize;
-//  float voxvol = nvoxels*voxelSize.x*voxelSize.y*voxelSize.z;
-//
-//  QString mesg;
-//  mesg += QString("Visible Voxels : %1\n").arg(nvoxels);
-//  mesg += QString("Voxel Size : %1, %2, %3 %4\n").\
-//                  arg(voxelSize.x).arg(voxelSize.y).arg(voxelSize.z).
-//                  arg(pvlInfo.voxelUnitStringShort());
-//  mesg += QString("Volume : %1 %2^3\n").	\
-//                  arg(voxvol).\
-//                  arg(pvlInfo.voxelUnitStringShort());
-//
-//  if (tag == -1)
-//    {	       
-//      mesg += "------------------------------\n";
-//      mesg += " Label : Voxel Count : Volume \n";
-//      mesg += "------------------------------\n";
-//      QList<int> key = labelMap.keys();
-//      QList<int> value = labelMap.values();
-//      for(int i=0; i<key.count(); i++)
-//	{
-//	  float vol = value[i]*voxelSize.x*voxelSize.y*voxelSize.z;
-//	  mesg += QString("  %1 : %2 : %3 %4^3\n").arg(key[i], 6).arg(value[i], 12).\
-//	                                         arg(vol).arg(pvlInfo.voxelUnitStringShort());
-//	}
-//    }
-//  
-//  StaticFunctions::showMessage("Volume", mesg);
-//}
 
 QList<int>
 VolumeMeasure::getLabels(int ds, int ws, int hs,
@@ -292,23 +208,7 @@ VolumeMeasure::getVolume(Vec bmin, Vec bmax, int tag)
   
   StaticFunctions::showMessage("Volume", mesg);
 
-  QString tflnm = QFileDialog::getSaveFileName(0,
-					       "Save Information",
-					       Global::previousDirectory(),
-					       "Files (*.txt)",
-					       0);
-  if (tflnm.isEmpty())
-    return;
-
-  QFile txtfile(tflnm);
-  if (txtfile.open(QIODevice::WriteOnly | QIODevice::Text))
-    {
-      QTextStream out(&txtfile);
-      out << mesg;
-      QMessageBox::information(0, "Save", QString("Saved to %1").arg(tflnm));
-    }
-  else
-    QMessageBox::information(0, "Error", QString("Cannot write to %1").arg(tflnm));
+  StaticFunctions::saveMesgToFile(Global::previousDirectory(), mesg);
 }
 //------
 //------
@@ -442,24 +342,7 @@ VolumeMeasure::getSurfaceArea(Vec bmin, Vec bmax, int tag)
   
   StaticFunctions::showMessage("Surface Area", mesg);
 
-  
-  QString tflnm = QFileDialog::getSaveFileName(0,
-					       "Save Information",
-					       Global::previousDirectory(),
-					       "Files (*.txt)",
-					       0);
-  if (tflnm.isEmpty())
-    return;
-
-  QFile txtfile(tflnm);
-  if (txtfile.open(QIODevice::WriteOnly | QIODevice::Text))
-    {
-      QTextStream out(&txtfile);
-      out << mesg;      
-      QMessageBox::information(0, "Save", QString("Saved to %1").arg(tflnm));
-    }
-  else
-    QMessageBox::information(0, "Error", QString("Cannot write to %1").arg(tflnm));
+  StaticFunctions::saveMesgToFile(Global::previousDirectory(), mesg);
 }
 
 
@@ -576,26 +459,7 @@ VolumeMeasure::getFeretDiameter(Vec bmin, Vec bmax, int tag)
   
   StaticFunctions::showMessage("Max Feret Diameter", mesg);
 
-  
-    
-  QString tflnm = QFileDialog::getSaveFileName(0,
-					       "Save Information",
-					       Global::previousDirectory(),
-					       "Files (*.txt)",
-					       0);
-  if (tflnm.isEmpty())
-    return;
-
-  QFile txtfile(tflnm);
-  if (txtfile.open(QIODevice::WriteOnly | QIODevice::Text))
-    {
-      QTextStream out(&txtfile);
-      out << mesg;      
-      QMessageBox::information(0, "Save", QString("Saved to %1").arg(tflnm));
-    }
-  else
-    QMessageBox::information(0, "Error", QString("Cannot write to %1").arg(tflnm));
-
+  StaticFunctions::saveMesgToFile(Global::previousDirectory(), mesg);
 }
 
 
@@ -657,25 +521,7 @@ VolumeMeasure::getSphericity(Vec bmin, Vec bmax, int tag)
   
   StaticFunctions::showMessage("Sphericity", mesg);
 
-  
-    
-  QString tflnm = QFileDialog::getSaveFileName(0,
-					       "Save Information",
-					       Global::previousDirectory(),
-					       "Files (*.txt)",
-					       0);
-  if (tflnm.isEmpty())
-    return;
-
-  QFile txtfile(tflnm);
-  if (txtfile.open(QIODevice::WriteOnly | QIODevice::Text))
-    {
-      QTextStream out(&txtfile);
-      out << mesg;      
-      QMessageBox::information(0, "Save", QString("Saved to %1").arg(tflnm));
-    }
-  else
-    QMessageBox::information(0, "Error", QString("Cannot write to %1").arg(tflnm));
+  StaticFunctions::saveMesgToFile(Global::previousDirectory(), mesg);
 }
 
 
@@ -825,22 +671,92 @@ VolumeMeasure::getDistanceToSurface(Vec bmin, Vec bmax, int tag)
   
   StaticFunctions::showMessage("Distance To Surface", mesg);
 
-  QString tflnm = QFileDialog::getSaveFileName(0,
-					       "Save Information",
-					       Global::previousDirectory(),
-					       "Files (*.txt)",
-					       0);
-  if (tflnm.isEmpty())
-    return;
+  StaticFunctions::saveMesgToFile(Global::previousDirectory(), mesg);  
+}
 
-  QFile txtfile(tflnm);
-  if (txtfile.open(QIODevice::WriteOnly | QIODevice::Text))
+
+void
+VolumeMeasure::getVoxelCount(Vec bmin, Vec bmax, int tag)
+{
+  QProgressDialog progress("Calculating Voxel Count",
+			   QString(),
+			   0, 100,
+			   0,
+			   Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);
+
+  int ds = bmin.z;
+  int ws = bmin.y;
+  int hs = bmin.x;
+
+  int de = bmax.z;
+  int we = bmax.y;
+  int he = bmax.x;
+
+  uchar *lut = Global::lut();
+  uchar *tagColors = Global::tagColors();
+
+  QMap<int, int> labelMap; // contains (number of voxels) volume for each label
+  qint64 nvoxels = 0;
+  for(qint64 d=ds; d<=de; d++)
     {
-      QTextStream out(&txtfile);
-      out << mesg;
-      QMessageBox::information(0, "Save", QString("Saved to %1").arg(tflnm));
+      progress.setValue(90*(d-ds)/((de-ds+1)));
+      if (d%10 == 0)
+	qApp->processEvents();
+      for(qint64 w=ws; w<=we; w++)
+	for(qint64 h=hs; h<=he; h++)
+	  {
+	    bool clipped = VolumeOperations::checkClipped(Vec(h, w, d));
+	    
+	    if (!clipped)
+	      {
+		qint64 idx = d*m_width*m_height + w*m_height + h;
+		int val = m_volData[idx];
+		if (m_volDataUS) val = m_volDataUS[idx];
+		
+		int mtag = m_maskDataUS[idx];
+
+		bool opaque = (lut[4*val+3]*tagColors[4*mtag+3] > 0);      
+
+		if (tag > -1)
+		  opaque &= (mtag == tag);
+
+		if (opaque)
+		  {
+		    nvoxels ++;
+		    labelMap[mtag] = labelMap[mtag] + 1;
+		  }
+	      }
+	  }
     }
-  else
-    QMessageBox::information(0, "Error", QString("Cannot write to %1").arg(tflnm));
+
+  progress.setValue(100);
+
+  VolumeInformation pvlInfo;
+  pvlInfo = VolumeInformation::volumeInformation();
+  Vec voxelSize = pvlInfo.voxelSize;
+
+  QString mesg;
+  mesg += QString("Visible Voxels : %1\n").arg(nvoxels);
+  mesg += QString("Voxel Size : %1, %2, %3 %4\n").\
+                  arg(voxelSize.x).arg(voxelSize.y).arg(voxelSize.z).
+                  arg(pvlInfo.voxelUnitStringShort());
+
+  if (tag == -1)
+    {	       
+      mesg += "------------------------------\n";
+      mesg += " Label : Voxel Count \n";
+      mesg += "------------------------------\n";
+      QList<int> key = labelMap.keys();
+      QList<int> value = labelMap.values();
+      for(int i=0; i<key.count(); i++)
+	{
+	  float vol = value[i]*voxelSize.x*voxelSize.y*voxelSize.z;
+	  mesg += QString("  %1 : %2\n").arg(key[i], 6).arg(value[i], 12);
+	}
+    }
   
+  StaticFunctions::showMessage("Voxel Count", mesg);
+  
+  StaticFunctions::saveMesgToFile(Global::previousDirectory(), mesg);
 }

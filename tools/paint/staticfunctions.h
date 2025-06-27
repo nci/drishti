@@ -97,6 +97,9 @@ class StaticFunctions
   static void showMessage(QString, QString);
 
   static void imageFromDataAndColor(QImage&, ushort*, uchar*);
+
+  static void saveMesgToFile(QString, QString);
+
 };
 
 #endif

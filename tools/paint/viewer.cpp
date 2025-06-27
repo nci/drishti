@@ -1403,103 +1403,123 @@ Viewer::processCommand(QString cmd)
       emit loadRawMask(flnm);
     }
   
-  if (list[0] == "volume")
+  if (list[0] == "voxelcount")
     {
-      int tag1 = -1;
+      int label = -1;
       if (list.size() == 2)
 	{
-	  tag1 = list[1].toInt(&ok);
-	  if (tag1 < -1 || tag1 > 65535)
+	  label = list[1].toInt(&ok);
+	  if (label < -1 || label > 65535)
 	    {
 	      QMessageBox::information(0, "", QString("Incorrect label specified : %1").\
-				       arg(tag1));
+				       arg(label));
 	      return;
 	    }
 	}
       QList<Vec> cPos =  clipPos();
       QList<Vec> cNorm = clipNorm();
       VolumeOperations::setClip(cPos, cNorm);
-      VolumeMeasure::getVolume(bmin, bmax, tag1);
+      VolumeMeasure::getVoxelCount(bmin, bmax, label);
+      return;
+    }
+
+  if (list[0] == "volume")
+    {
+      int label = -1;
+      if (list.size() == 2)
+	{
+	  label = list[1].toInt(&ok);
+	  if (label < -1 || label > 65535)
+	    {
+	      QMessageBox::information(0, "", QString("Incorrect label specified : %1").\
+				       arg(label));
+	      return;
+	    }
+	}
+      QList<Vec> cPos =  clipPos();
+      QList<Vec> cNorm = clipNorm();
+      VolumeOperations::setClip(cPos, cNorm);
+      VolumeMeasure::getVolume(bmin, bmax, label);
       return;
     }
 
   if (list[0] == "surfacearea")
     {
-      int tag1 = -1;
+      int label = -1;
       if (list.size() == 2)
 	{
-	  tag1 = list[1].toInt(&ok);
-	  if (tag1 < -1 || tag1 > 65535)
+	  label = list[1].toInt(&ok);
+	  if (label < -1 || label > 65535)
 	    {
 	      QMessageBox::information(0, "", QString("Incorrect label specified : %1").\
-				       arg(tag1));
+				       arg(label));
 	      return;
 	    }
 	}
       QList<Vec> cPos =  clipPos();
       QList<Vec> cNorm = clipNorm();
       VolumeOperations::setClip(cPos, cNorm);
-      VolumeMeasure::getSurfaceArea(bmin, bmax, tag1);
+      VolumeMeasure::getSurfaceArea(bmin, bmax, label);
       return;
     }
 
   if (list[0] == "feret")
     {
-      int tag1 = -1;
+      int label = -1;
       if (list.size() == 2)
 	{
-	  tag1 = list[1].toInt(&ok);
-	  if (tag1 < -1 || tag1 > 65535)
+	  label = list[1].toInt(&ok);
+	  if (label < -1 || label > 65535)
 	    {
 	      QMessageBox::information(0, "", QString("Incorrect label specified : %1").\
-				       arg(tag1));
+				       arg(label));
 	      return;
 	    }
 	}
       QList<Vec> cPos =  clipPos();
       QList<Vec> cNorm = clipNorm();
       VolumeOperations::setClip(cPos, cNorm);
-      VolumeMeasure::getFeretDiameter(bmin, bmax, tag1);
+      VolumeMeasure::getFeretDiameter(bmin, bmax, label);
       return;
     }
   
   if (list[0] == "sphericity")
     {
-      int tag1 = -1;
+      int label = -1;
       if (list.size() == 2)
 	{
-	  tag1 = list[1].toInt(&ok);
-	  if (tag1 < -1 || tag1 > 65535)
+	  label = list[1].toInt(&ok);
+	  if (label < -1 || label > 65535)
 	    {
 	      QMessageBox::information(0, "", QString("Incorrect label specified : %1").\
-				       arg(tag1));
+				       arg(label));
 	      return;
 	    }
 	}
       QList<Vec> cPos =  clipPos();
       QList<Vec> cNorm = clipNorm();
       VolumeOperations::setClip(cPos, cNorm);
-      VolumeMeasure::getSphericity(bmin, bmax, tag1);
+      VolumeMeasure::getSphericity(bmin, bmax, label);
       return;
     }
   
   if (list[0] == "d2s")
     {
-      int tag1 = -1;
+      int label = -1;
       if (list.size() == 2)
 	{
-	  tag1 = list[1].toInt(&ok);
-	  if (tag1 < -1 || tag1 > 65535)
+	  label = list[1].toInt(&ok);
+	  if (label < -1 || label > 65535)
 	    {
 	      QMessageBox::information(0, "", QString("Incorrect label specified : %1").\
-				       arg(tag1));
+				       arg(label));
 	      return;
 	    }
 	}
       QList<Vec> cPos =  clipPos();
       QList<Vec> cNorm = clipNorm();
       VolumeOperations::setClip(cPos, cNorm);
-      VolumeMeasure::getDistanceToSurface(bmin, bmax, tag1);
+      VolumeMeasure::getDistanceToSurface(bmin, bmax, label);
       return;
     }
 

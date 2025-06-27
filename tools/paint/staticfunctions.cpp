@@ -3,6 +3,7 @@
 
 #include <QMessageBox>
 #include <QDialog>
+#include <QFileDialog>
 #include <QTextEdit>
 #include <QVBoxLayout>
 
@@ -1192,3 +1193,28 @@ StaticFunctions::imageFromDataAndColor(QImage &img, ushort *data, uchar *tagColo
 	idx++;
       }
 }
+
+
+void
+StaticFunctions::saveMesgToFile(QString prevDir, QString mesg)
+{
+  QString tflnm = QFileDialog::getSaveFileName(0,
+					       "Save Information",
+					       prevDir,
+					       "Files (*.txt)",
+					       0);
+  if (tflnm.isEmpty())
+    return;
+
+  QFile txtfile(tflnm);
+  if (txtfile.open(QIODevice::WriteOnly | QIODevice::Text))
+    {
+      QTextStream out(&txtfile);
+      out << mesg;
+      QMessageBox::information(0, "Save", QString("Saved to %1").arg(tflnm));
+    }
+  else
+    QMessageBox::information(0, "Error", QString("Cannot write to %1").arg(tflnm));
+}
+
+

@@ -705,23 +705,25 @@ KeyFrame::interpolateAt(int kf, float frc,
   //-------------------------------
 
   //-------------------------------  
+  //-------------------------------  
   rfrc = StaticFunctions::remapKeyframe(m_keyFrameInfo[kf]->interpLightInfo(), frc);
   LightingInformation lightInfo;
   LightingInformation lightInfo1 = m_keyFrameInfo[kf]->lightInfo();
   LightingInformation lightInfo2 = m_keyFrameInfo[kf+1]->lightInfo();
   lightInfo = LightingInformation::interpolate(lightInfo1, lightInfo2, rfrc);
   kfi.setLightInfo(lightInfo);
-  //-------------------------------  
 
-  //-------------------------------  
-  rfrc = StaticFunctions::remapKeyframe(m_keyFrameInfo[kf]->interpGiLightInfo(), frc);
+  //rfrc = StaticFunctions::remapKeyframe(m_keyFrameInfo[kf]->interpGiLightInfo(), frc);
+  // use interpLightInfo
   GiLightInfo giLightInfo;
   GiLightInfo giLightInfo1 = m_keyFrameInfo[kf]->giLightInfo();
   GiLightInfo giLightInfo2 = m_keyFrameInfo[kf+1]->giLightInfo();
   giLightInfo = GiLightInfo::interpolate(giLightInfo1, giLightInfo2, rfrc);
   kfi.setGiLightInfo(giLightInfo);
   //-------------------------------  
+  //-------------------------------  
 
+  
   //-------------------------------  
   rfrc = StaticFunctions::remapKeyframe(m_keyFrameInfo[kf]->interpClipInfo(), frc);
   ClipInformation clipInfo;
@@ -1607,7 +1609,7 @@ KeyFrame::editFrameInterpolation(int kfn)
   keys << "brick information";
   keys << "clip planes";
   keys << "lighting";
-  keys << "gi lighting";
+  //keys << "gi lighting";
   keys << "transfer functions";
   keys << "crop/dissect/blend/displace";
   keys << "mop";
@@ -1638,7 +1640,7 @@ KeyFrame::editFrameInterpolation(int kfn)
 	      else if (keys[ik] == "brick information") vlist << kfi->interpBrickInfo();
 	      else if (keys[ik] == "clip planes") vlist << kfi->interpClipInfo();
 	      else if (keys[ik] == "lighting") vlist << kfi->interpLightInfo();
-	      else if (keys[ik] == "gi lighting") vlist << kfi->interpGiLightInfo();
+	      //else if (keys[ik] == "gi lighting") vlist << kfi->interpGiLightInfo();
 	      else if (keys[ik] == "transfer functions") vlist << kfi->interpTF();
 	      else if (keys[ik] == "crop/dissect/blend/displace") vlist << kfi->interpCrop();
 	      else if (keys[ik] == "mop") vlist << kfi->interpMop();
@@ -1699,7 +1701,7 @@ KeyFrame::editFrameInterpolation(int kfn)
 	      else if (keys[ik] == "brick information") kfi->setInterpBrickInfo(flag);
 	      else if (keys[ik] == "clip planes") kfi->setInterpClipInfo(flag);
 	      else if (keys[ik] == "lighting") kfi->setInterpLightInfo(flag);
-	      else if (keys[ik] == "gi lighting") kfi->setInterpGiLightInfo(flag);
+	      //else if (keys[ik] == "gi lighting") kfi->setInterpGiLightInfo(flag);
 	      else if (keys[ik] == "transfer functions") kfi->setInterpTF(flag);
 	      else if (keys[ik] == "crop/dissect/blend/displace") kfi->setInterpCrop(flag);
 	      else if (keys[ik] == "mop") kfi->setInterpMop(flag);
@@ -1777,9 +1779,13 @@ KeyFrame::pasteFrameOnTop(int keyFrameNumber)
 	  else if (keys[ik] == "landmarks")
 	    kfi->setLandmarkInfo(m_copyKeyFrame.landmarkInfo());  
 	  else if (keys[ik] == "lighting")
-	    kfi->setLightInfo(m_copyKeyFrame.lightInfo());  
-	  else if (keys[ik] == "gi lighting")
-	    kfi->setGiLightInfo(m_copyKeyFrame.giLightInfo());  
+	    {
+	      kfi->setLightInfo(m_copyKeyFrame.lightInfo());  
+	      kfi->setGiLightInfo(m_copyKeyFrame.giLightInfo());  
+	      kfi->setGamma(m_copyKeyFrame.gamma());
+	    }
+//	  else if (keys[ik] == "gi lighting")
+//	    kfi->setGiLightInfo(m_copyKeyFrame.giLightInfo());  
 	  else if (keys[ik] == "paths")
 	    {
 	      kfi->setPaths(m_copyKeyFrame.paths());  
@@ -1840,10 +1846,10 @@ KeyFrame::pasteFrameOnTop(int keyFrameNumber)
 	      m_copyKeyFrame.getDOF(blur, nf);
 	      kfi->setDOF(blur, nf);
 	    }
-	  else if (keys[ik] == "brightness")
-	    {
-	      kfi->setGamma(m_copyKeyFrame.gamma());
-	    }
+//	  else if (keys[ik] == "brightness")
+//	    {
+//	      kfi->setGamma(m_copyKeyFrame.gamma());
+//	    }
 	}
     }
 
@@ -1914,9 +1920,13 @@ KeyFrame::pasteFrameOnTop(int startKF, int endKF)
 	      else if (keys[ik] == "landmarks")
 		kfi->setLandmarkInfo(m_copyKeyFrame.landmarkInfo());  
 	      else if (keys[ik] == "lighting")
-		kfi->setLightInfo(m_copyKeyFrame.lightInfo());  
-	      else if (keys[ik] == "gi lighting")
-		kfi->setGiLightInfo(m_copyKeyFrame.giLightInfo());  
+		{
+		  kfi->setLightInfo(m_copyKeyFrame.lightInfo());  
+		  kfi->setGiLightInfo(m_copyKeyFrame.giLightInfo());  
+		  kfi->setGamma(m_copyKeyFrame.gamma());
+		}
+//	      else if (keys[ik] == "gi lighting")
+//		kfi->setGiLightInfo(m_copyKeyFrame.giLightInfo());  
 	      else if (keys[ik] == "paths")
 		{
 		  kfi->setPaths(m_copyKeyFrame.paths());  
@@ -1977,10 +1987,10 @@ KeyFrame::pasteFrameOnTop(int startKF, int endKF)
 		  m_copyKeyFrame.getDOF(blur, nf);
 		  kfi->setDOF(blur, nf);
 		}
-	      else if (keys[ik] == "brightness")
-		{
-		  kfi->setGamma(m_copyKeyFrame.gamma());
-		}
+//	      else if (keys[ik] == "brightness")
+//		{
+//		  kfi->setGamma(m_copyKeyFrame.gamma());
+//		}
 	    }
 	}
       
@@ -2076,10 +2086,10 @@ KeyFrame::copyProperties(QString title)
   vlist << QVariant(false);
   plist["lighting"] = vlist;
 
-  vlist.clear();
-  vlist << QVariant("checkbox");
-  vlist << QVariant(false);
-  plist["gi lighting"] = vlist;
+//  vlist.clear();
+//  vlist << QVariant("checkbox");
+//  vlist << QVariant(false);
+//  plist["gi lighting"] = vlist;
 
   vlist.clear();
   vlist << QVariant("checkbox");
@@ -2146,10 +2156,10 @@ KeyFrame::copyProperties(QString title)
   vlist << QVariant(false);
   plist["depth of field"] = vlist;
 
-  vlist.clear();
-  vlist << QVariant("checkbox");
-  vlist << QVariant(false);
-  plist["brightness"] = vlist;
+//  vlist.clear();
+//  vlist << QVariant("checkbox");
+//  vlist << QVariant(false);
+//  plist["brightness"] = vlist;
 
 
   QStringList keys;
@@ -2157,7 +2167,7 @@ KeyFrame::copyProperties(QString title)
   keys << "axis";
   keys << "background color";
   keys << "bounding box";
-  keys << "brightness";
+  //keys << "brightness";
   keys << "captions";
   keys << "image captions";
   keys << "colorbars";
@@ -2175,7 +2185,7 @@ KeyFrame::copyProperties(QString title)
   keys << "clip planes";
   keys << "landmarks";
   keys << "lighting";
-  keys << "gi lighting";
+  //keys << "gi lighting";
   keys << "transfer functions";
   keys << "separator";
   keys << "paths";
@@ -2407,12 +2417,17 @@ KeyFrame::import(QString flnm)
 		{
 		  kfi->setLightInfo(ckf->lightInfo());  
 		  kfi->setInterpLightInfo(ckf->interpLightInfo());
-		}
-	      else if (keys[ik] == "gi lighting")
-		{
+
 		  kfi->setGiLightInfo(ckf->giLightInfo());  
 		  kfi->setInterpGiLightInfo(ckf->interpGiLightInfo());
+
+		  kfi->setGamma(ckf->gamma());
 		}
+//	      else if (keys[ik] == "gi lighting")
+//		{
+//		  kfi->setGiLightInfo(ckf->giLightInfo());  
+//		  kfi->setInterpGiLightInfo(ckf->interpGiLightInfo());
+//		}
 	      else if (keys[ik] == "paths")
 		{
 		  kfi->setPaths(ckf->paths());  
@@ -2480,10 +2495,10 @@ KeyFrame::import(QString flnm)
 		  ckf->getDOF(blur, nf);
 		  kfi->setDOF(blur, nf);
 		}
-	      else if (keys[ik] == "brightness")
-		{
-		  kfi->setGamma(ckf->gamma());
-		}
+//	      else if (keys[ik] == "brightness")
+//		{
+//		  kfi->setGamma(ckf->gamma());
+//		}
 	    }
 	}
     }

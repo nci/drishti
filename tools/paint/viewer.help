@@ -130,11 +130,22 @@ Clipping planes are obeyed - clipped region is not taken into account.
 
 
 #begin
+voxelcount
+voxelcount <label>
+
+Find the number of visible voxels marked with specified <label>.
+Default value for <label> is -1 : consider all visible voxels.  Visible voxel count for each label will be calculated.
+
+Clipping planes are obeyed - clipped region is not taken into account.
+#end
+
+
+#begin
 volume
 volume <label>
 
-Calculate the volume occupied by visible voxels marked with label.
-Default value for label is -1 : consider all visible voxels.  Volume for each label will be calculated.
+Calculate the volume occupied by visible voxels marked with <label>.
+Default value for <label> is -1 : consider all visible voxels.  Volume for each label will be calculated.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end
@@ -144,8 +155,8 @@ Clipping planes are obeyed - clipped region is not taken into account.
 surfacearea
 surfacearea <label>
 
-Calculate the surface area occupied by visible voxels marked with label.
-Default value for label is -1 : consider all visible voxels.  Surface area for each label will be calculated.
+Calculate the surface area occupied by visible voxels marked with <label>.
+Default value for <label> is -1 : consider all visible voxels.  Surface area for each label will be calculated.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end
@@ -155,8 +166,8 @@ Clipping planes are obeyed - clipped region is not taken into account.
 feret
 feret <label>
 
-Calculate the max feret diameter for visible voxels marked with label.
-Default value for label is -1 : consider all visible voxels.  Feret diameter for each label will be calculated.
+Calculate the max feret diameter for visible voxels marked with <label>.
+Default value for <label> is -1 : consider all visible voxels.  Feret diameter for each label will be calculated.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end

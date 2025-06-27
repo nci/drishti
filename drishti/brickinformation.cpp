@@ -163,7 +163,7 @@ BrickInformation::reset()
   brickMax = Vec(1,1,1);
   position = Vec(0,0,0);
   pivot = Vec(0.5,0.5,0.5);
-  axis = Vec(1,0,0);
+  axis = Vec(0,0,1);
   angle = 0;
   scalepivot = Vec(0.5,0.5,0.5);
   scale = Vec(1,1,1);

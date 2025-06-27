@@ -23,6 +23,7 @@ class VolumeMeasure
   static void getSphericity(Vec, Vec, int);
   
   static void getDistanceToSurface(Vec, Vec, int);
+  static void getVoxelCount(Vec, Vec, int);
 
  private :
   static int m_depth, m_width, m_height;
@@ -37,6 +38,7 @@ class VolumeMeasure
   static QList<int> getLabels(int, int, int,
 			      int, int, int,
 			      int);
+
 };
 
 #endif

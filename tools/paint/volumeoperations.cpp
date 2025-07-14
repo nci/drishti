@@ -4946,3 +4946,213 @@ VolumeOperations::distanceTransform(Vec bmin, Vec bmax, int tag,
   
 }
 
+
+void
+VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
+				 int& minD, int& maxD,
+				 int& minW, int& maxW,
+				 int& minH, int& maxH,
+				 int gradType, float minGrad, float maxGrad)
+{
+
+  QProgressDialog progress("Local Thickness",
+			   QString(),
+			   0, 100,
+			   0,
+			   Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);  
+  qApp->processEvents();
+
+  
+  minD = maxD = minW = maxW = minH = maxH = -1;
+
+  uchar *lut = Global::lut();
+
+  int ds = qMax(0, qFloor(bmin.z));
+  int ws = qMax(0, qFloor(bmin.y));
+  int hs = qMax(0, qFloor(bmin.x));
+
+  int de = qMin(qCeil(bmax.z), m_depth-1);
+  int we = qMin(qCeil(bmax.y), m_width-1);
+  int he = qMin(qCeil(bmax.x), m_height-1);
+
+  qint64 mx = he-hs+1;
+  qint64 my = we-ws+1;
+  qint64 mz = de-ds+1;
+
+  MyBitArray visibleMask;
+  visibleMask.resize(mx*my*mz);
+  visibleMask.fill(false);
+
+  getVisibleRegion(ds, ws, hs,
+		   de, we, he,
+		   tag, false,
+		   gradType, minGrad, maxGrad,
+		   visibleMask);
+
+  
+  uchar *labels3d = new uchar[mx*my*mz];
+  memset(labels3d, 0, mx*my*mz);
+  
+  // populate labels3d
+  qint64 idx=0;
+  for(qint64 d=0; d<mz; d++)
+  for(qint64 w=0; w<my; w++)
+  for(qint64 h=0; h<mx; h++)
+    {
+      if (visibleMask.testBit(idx))
+	labels3d[idx] = 1;
+      idx ++;
+    }
+
+  progress.setValue(50);
+  qApp->processEvents();
+
+  // generate squared distance transform
+  float *dt = BinaryDistanceTransform::binaryEDTsq(labels3d,
+						   mx, my, mz,
+						   true);
+  delete [] labels3d;
+
+  //----------------------------
+  // find max distance
+  float maxDT = 0;
+  for(qint64 i=0; i<mx*my*mz; i++)
+    {
+      dt[i] = qSqrt(dt[i]);
+      maxDT = qMax(maxDT, dt[i]);
+    }
+  //----------------------------
+
+  
+  //----------------------------
+  // find local thickness as described in
+  // https://github.com/vedranaa/local-thickness
+  float *out = new float[mx*my*mz];
+  for(int r=0; r<(int)maxDT; r++)
+    {
+      progress.setLabelText(QString("%1 of %2").arg(r).arg((int)maxDT));
+      progress.setValue(100*float(r)/maxDT);
+      qApp->processEvents();
+
+      // dilate distance
+      distDilate(dt, out, mx, my, mz);
+      
+      for(qint64 i=0; i<mx*my*mz; i++)
+	{
+	  if (dt[i] > r)
+	    dt[i] = out[i];
+	}
+    }
+  //----------------------------
+    
+
+  //----------------------------
+  // set the local thickness as labels
+  maxDT = 0;
+  idx = 0;
+  for(qint64 d=0; d<mz; d++)
+  for(qint64 w=0; w<my; w++)
+  for(qint64 h=0; h<mx; h++)
+    {
+      qint64 bidx = ((qint64)(d+ds))*m_width*m_height+((qint64)(w+ws))*m_height+(h+hs);
+      m_maskDataUS[bidx] = qRound(dt[idx]);
+      maxDT = qMax(maxDT, dt[idx]);
+      idx++;
+    }
+  //----------------------------
+
+  progress.setValue(100);
+  qApp->processEvents();
+
+  
+
+  QMessageBox::information(0, "Max Local Thickness", QString("%1").arg(maxDT));
+  
+  
+  delete [] dt;
+  delete [] out;
+  
+  
+  minD = ds;
+  minW = ws;
+  minH = hs;
+  maxD = de;
+  maxW = we;
+  maxH = he;
+
+  QMessageBox::information(0, "", "Done");  
+}
+
+
+void
+VolumeOperations::distDilate(float *vol, float *out,
+			     qint64 mx, qint64 my, qint64 mz )
+{
+  // displacement indices
+  float index[26][3] = {{ 0, -1,  0},
+			{ 0,  1,  0},
+			{-1,  0,  0},
+			{ 1,  0,  0},
+			{ 0,  0, -1},
+			{ 0,  0,  1},
+			
+			{ 0, -1, -1},
+			{ 0, -1,  1},
+			{ 0,  1, -1},
+			{ 0,  1,  1},
+			{-1,  0, -1},
+			{-1,  0,  1},
+			{ 1,  0, -1},
+			{ 1,  0,  1},
+			{-1, -1,  0},
+			{-1,  1,  0},
+			{ 1, -1,  0},
+			{ 1,  1,  0},
+			
+			{ 1,  1,  1},
+			{ 1, -1,  1},
+			{ 1, -1, -1},
+			{ 1,  1, -1},
+			{-1,  1,  1},
+			{-1, -1,  1},
+			{-1, -1, -1},
+			{-1,  1, -1}};
+ 		      
+
+  // weights
+  float q632 = qSqrt(6)+qSqrt(3)+qSqrt(2);
+  float W[3] = {qSqrt(6)/q632, qSqrt(3)/q632, qSqrt(2)/q632};
+  
+
+  int ise[4] = {0, 6, 18, 26};
+    
+  memset(out, 0, mx*my*mz*sizeof(float));
+
+  for(int iter=0; iter<3; iter++)
+    {
+      for(int d=0; d<mz-1; d++)
+	for(int w=0; w<my-1; w++)
+	  for(int h=0; h<mx-1; h++)
+	    {
+	      qint64 idx = d*mx*my + w*mx + h;
+	      float v = vol[idx];
+	      for (int i=ise[iter]; i<ise[iter+1]; i++)
+		{
+		  int d1 = d + index[i][0];
+		  int w1 = w + index[i][1];
+		  int h1 = h + index[i][2];
+
+		  d1 = qBound(0, d1, (int)mz-1);
+		  w1 = qBound(0, w1, (int)my-1);
+		  h1 = qBound(0, h1, (int)mx-1);
+		  
+		  qint64 idx1 = d1*mx*my + w1*mx + h1;
+		  
+		  v = qMax(v, vol[idx1]);
+		}
+	      out[idx] += W[iter] * v;
+	    }
+    }
+}
+    

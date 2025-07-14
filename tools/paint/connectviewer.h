@@ -44,6 +44,9 @@
   connect(m_viewer, SIGNAL(distanceTransform(Vec,Vec,int,int)),
 	  this, SLOT(distanceTransform(Vec,Vec,int,int)));
 
+  connect(m_viewer, SIGNAL(localThickness(Vec,Vec,int)),
+	  this, SLOT(localThickness(Vec,Vec,int)));
+
   connect(m_viewer, SIGNAL(removeComponents(Vec,Vec,int)),
 	  this, SLOT(removeComponents(Vec,Vec,int)));
 

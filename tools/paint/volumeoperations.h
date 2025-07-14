@@ -88,6 +88,12 @@ class VolumeOperations
 				int&, int&,
 				int, float, float);
 
+  static void localThickness(Vec, Vec, int,
+			     int&, int&,
+			     int&, int&,
+			     int&, int&,
+			     int, float, float);
+
   static void resetTag(Vec, Vec, int,
 		       int&, int&,
 		       int&, int&,
@@ -309,6 +315,8 @@ class VolumeOperations
 				    int);
 
   static QString getMaskName();
+
+  static void distDilate(float*, float*, qint64, qint64, qint64);
 };
 
 #endif

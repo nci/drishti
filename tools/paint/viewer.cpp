@@ -1102,6 +1102,17 @@ Viewer::processCommand(QString cmd)
       return;
     }
 
+
+  if (list[0] == "lt")
+    {
+      int label = -1;
+      if (list.size() == 2)
+	label = list[1].toInt(&ok);
+
+      localThickness(label);
+      return;
+    }
+
   if (list[0] == "cc+")
     {
       int tag = -1;
@@ -3225,6 +3236,19 @@ Viewer::distanceTransform(int tag, int size)
   bmax = VECDIVIDE(bmax, voxelScaling);
 
   emit distanceTransform(bmin, bmax, tag, size);
+}
+
+void
+Viewer::localThickness(int label)
+{
+  Vec bmin, bmax;
+  m_boundingBox.bounds(bmin, bmax);
+
+  Vec voxelScaling = Global::relativeVoxelScaling();
+  bmin = VECDIVIDE(bmin, voxelScaling);
+  bmax = VECDIVIDE(bmax, voxelScaling);
+
+  emit localThickness(bmin, bmax, label);
 }
 
 void

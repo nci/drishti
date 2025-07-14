@@ -1,3 +1,4 @@
+
 #begin
 crop
 
@@ -192,6 +193,15 @@ d2s
 d2s
 
 Distance to surface - find closest distance to surface for all visible non-zero labels.
+
+#end
+
+
+#begin
+lt
+lt <label>
+
+Generate local thickness profile for the given label.
 
 #end
 

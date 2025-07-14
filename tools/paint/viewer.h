@@ -190,6 +190,7 @@ class Viewer : public QGLViewer
     void connectedComponents(Vec, Vec, int);
     void connectedComponentsPlus(Vec, Vec, int, int);
     void distanceTransform(Vec, Vec, int, int);
+    void localThickness(Vec, Vec, int);
 
     void removeComponents(Vec, Vec, int);
     void removeLargestComponents(Vec, Vec, int);
@@ -366,6 +367,7 @@ class Viewer : public QGLViewer
   void connectedComponents(int);
   void connectedComponentsPlus(int, int);
   void distanceTransform(int, int);
+  void localThickness(int);
   void removeComponents(int);
   void removeLargestComponents(int);
   void smoothRegion(bool, int, int);

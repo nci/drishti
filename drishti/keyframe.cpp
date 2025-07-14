@@ -713,8 +713,7 @@ KeyFrame::interpolateAt(int kf, float frc,
   lightInfo = LightingInformation::interpolate(lightInfo1, lightInfo2, rfrc);
   kfi.setLightInfo(lightInfo);
 
-  //rfrc = StaticFunctions::remapKeyframe(m_keyFrameInfo[kf]->interpGiLightInfo(), frc);
-  // use interpLightInfo
+  rfrc = StaticFunctions::remapKeyframe(m_keyFrameInfo[kf]->interpGiLightInfo(), frc);
   GiLightInfo giLightInfo;
   GiLightInfo giLightInfo1 = m_keyFrameInfo[kf]->giLightInfo();
   GiLightInfo giLightInfo2 = m_keyFrameInfo[kf+1]->giLightInfo();
@@ -1609,7 +1608,7 @@ KeyFrame::editFrameInterpolation(int kfn)
   keys << "brick information";
   keys << "clip planes";
   keys << "lighting";
-  //keys << "gi lighting";
+  keys << "gi lighting";
   keys << "transfer functions";
   keys << "crop/dissect/blend/displace";
   keys << "mop";
@@ -1640,7 +1639,7 @@ KeyFrame::editFrameInterpolation(int kfn)
 	      else if (keys[ik] == "brick information") vlist << kfi->interpBrickInfo();
 	      else if (keys[ik] == "clip planes") vlist << kfi->interpClipInfo();
 	      else if (keys[ik] == "lighting") vlist << kfi->interpLightInfo();
-	      //else if (keys[ik] == "gi lighting") vlist << kfi->interpGiLightInfo();
+	      else if (keys[ik] == "gi lighting") vlist << kfi->interpGiLightInfo();
 	      else if (keys[ik] == "transfer functions") vlist << kfi->interpTF();
 	      else if (keys[ik] == "crop/dissect/blend/displace") vlist << kfi->interpCrop();
 	      else if (keys[ik] == "mop") vlist << kfi->interpMop();
@@ -1701,7 +1700,7 @@ KeyFrame::editFrameInterpolation(int kfn)
 	      else if (keys[ik] == "brick information") kfi->setInterpBrickInfo(flag);
 	      else if (keys[ik] == "clip planes") kfi->setInterpClipInfo(flag);
 	      else if (keys[ik] == "lighting") kfi->setInterpLightInfo(flag);
-	      //else if (keys[ik] == "gi lighting") kfi->setInterpGiLightInfo(flag);
+	      else if (keys[ik] == "gi lighting") kfi->setInterpGiLightInfo(flag);
 	      else if (keys[ik] == "transfer functions") kfi->setInterpTF(flag);
 	      else if (keys[ik] == "crop/dissect/blend/displace") kfi->setInterpCrop(flag);
 	      else if (keys[ik] == "mop") kfi->setInterpMop(flag);

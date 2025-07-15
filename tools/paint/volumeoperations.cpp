@@ -5005,22 +5005,23 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
       idx ++;
     }
 
+  progress.setLabelText("Distance transform generation for local thickness");
   progress.setValue(50);
   qApp->processEvents();
 
   // generate squared distance transform
-  float *dt = BinaryDistanceTransform::binaryEDTsq(labels3d,
+  float *lt = BinaryDistanceTransform::binaryEDTsq(labels3d,
 						   mx, my, mz,
 						   true);
   delete [] labels3d;
 
   //----------------------------
   // find max distance
-  float maxDT = 0;
+  float maxLT = 0;
   for(qint64 i=0; i<mx*my*mz; i++)
     {
-      dt[i] = qSqrt(dt[i]);
-      maxDT = qMax(maxDT, dt[i]);
+      lt[i] = qSqrt(lt[i]);
+      maxLT = qMax(maxLT, lt[i]);
     }
   //----------------------------
 
@@ -5029,35 +5030,54 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
   // find local thickness as described in
   // https://github.com/vedranaa/local-thickness
   float *out = new float[mx*my*mz];
-  for(int r=0; r<(int)maxDT; r++)
+  for(int r=0; r<(int)maxLT; r++)
     {
-      progress.setLabelText(QString("%1 of %2").arg(r).arg((int)maxDT));
-      progress.setValue(100*float(r)/maxDT);
+      progress.setLabelText(QString("%1 of %2").arg(r).arg((int)maxLT));
+      progress.setValue(100*float(r)/maxLT);
       qApp->processEvents();
 
       // dilate distance
-      distDilate(dt, out, mx, my, mz);
+      distDilate(lt, out, mx, my, mz);
       
       for(qint64 i=0; i<mx*my*mz; i++)
 	{
-	  if (dt[i] > r)
-	    dt[i] = out[i];
+	  if (lt[i] > r)
+	    lt[i] = out[i];
 	}
     }
+  delete [] out;
   //----------------------------
-    
 
+
+  
+  //----------------------------
+  // find maximum local thickness
+  VolumeInformation pvlInfo;
+  pvlInfo = VolumeInformation::volumeInformation();
+  Vec voxelSize = pvlInfo.voxelSize;
+
+  maxLT = 0;
+  for(qint64 i=0; i<mx*my*mz; i++)
+    {
+      lt[i] *= voxelSize.x;  // assuming isotropic voxel
+      maxLT = qMax(maxLT, lt[i]);
+    }
+  //----------------------------
+
+  
   //----------------------------
   // set the local thickness as labels
-  maxDT = 0;
+  // from 64000 to 64999
   idx = 0;
   for(qint64 d=0; d<mz; d++)
   for(qint64 w=0; w<my; w++)
   for(qint64 h=0; h<mx; h++)
     {
       qint64 bidx = ((qint64)(d+ds))*m_width*m_height+((qint64)(w+ws))*m_height+(h+hs);
-      m_maskDataUS[bidx] = qRound(dt[idx]);
-      maxDT = qMax(maxDT, dt[idx]);
+      if (lt[idx] > 0)
+	m_maskDataUS[bidx] = 64000 + 999*lt[idx]/maxLT;
+      else
+	m_maskDataUS[bidx] = 0;
       idx++;
     }
   //----------------------------
@@ -5067,11 +5087,17 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
 
   
 
-  QMessageBox::information(0, "Max Local Thickness", QString("%1").arg(maxDT));
+  QMessageBox::information(0, "Max Local Thickness", QString("%1").arg(maxLT));
+
+  //------------------------------
+  // save local thickness to file
+  StaticFunctions::saveFloatVolumeToFile("Save Local Thickness To RAW File",
+					 Global::previousDirectory(),
+					 lt,
+					 mx, my, mz);
+
   
-  
-  delete [] dt;
-  delete [] out;
+  delete [] lt;
   
   
   minD = ds;
@@ -5084,10 +5110,58 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
   QMessageBox::information(0, "", "Done");  
 }
 
-
 void
 VolumeOperations::distDilate(float *vol, float *out,
-			     qint64 mx, qint64 my, qint64 mz )
+			     qint64 mx, qint64 my, qint64 mz)
+{
+  memset(out, 0, mx*my*mz*sizeof(float));
+
+  // collect stuff for parallel processing
+  QList<QList<QVariant>> param;
+  for(int d=0; d<mz; d++)
+    {
+      QList<QVariant> plist;
+      plist << QVariant(d);
+      plist << QVariant(mx);
+      plist << QVariant(my);
+      plist << QVariant(mz);
+      plist << QVariant::fromValue(static_cast<void*>(vol));
+      plist << QVariant::fromValue(static_cast<void*>(out));
+      
+      param << plist;
+    }
+
+  //int nThreads = qMax(1, (int)(QThread::idealThreadCount()));
+  //QThreadPool::globalInstance()->setMaxThreadCount(nThreads/2);
+						     
+  QFutureWatcher<void> futureWatcher;
+
+  QProgressDialog progress("Distance dilation",
+			   QString(),
+			   0, 100,
+			   0,
+			   Qt::WindowStaysOnTopHint);
+  if (mz > 300)
+    {
+      progress.setMinimumDuration(0);
+      QObject::connect(&futureWatcher, &QFutureWatcher<void>::finished, &progress, &QProgressDialog::reset);
+      QObject::connect(&progress, &QProgressDialog::canceled, &futureWatcher, &QFutureWatcher<void>::cancel);
+      QObject::connect(&futureWatcher,  &QFutureWatcher<void>::progressRangeChanged, &progress, &QProgressDialog::setRange);
+      QObject::connect(&futureWatcher, &QFutureWatcher<void>::progressValueChanged,  &progress, &QProgressDialog::setValue);
+    }
+  
+  futureWatcher.setFuture(QtConcurrent::map(param, VolumeOperations::parDistDilate));
+  
+  
+  // Display the dialog and start the event loop.
+  if (mz > 300)
+    progress.exec();
+  
+  futureWatcher.waitForFinished();
+}
+
+void
+VolumeOperations::parDistDilate(QList<QVariant> plist)
 {
   // displacement indices
   float index[26][3] = {{ 0, -1,  0},
@@ -5122,37 +5196,111 @@ VolumeOperations::distDilate(float *vol, float *out,
 
   // weights
   float q632 = qSqrt(6)+qSqrt(3)+qSqrt(2);
-  float W[3] = {qSqrt(6)/q632, qSqrt(3)/q632, qSqrt(2)/q632};
-  
+  float W[3] = {qSqrt(6)/q632, qSqrt(3)/q632, qSqrt(2)/q632}; 
 
   int ise[4] = {0, 6, 18, 26};
+
+  int d = plist[0].toInt();
+  qint64 mx = plist[1].toInt();
+  qint64 my = plist[2].toInt();
+  qint64 mz = plist[3].toInt();
+  float *vol = static_cast<float*>(plist[4].value<void*>());
+  float *out = static_cast<float*>(plist[5].value<void*>());
     
-  memset(out, 0, mx*my*mz*sizeof(float));
-
-  for(int iter=0; iter<3; iter++)
-    {
-      for(int d=0; d<mz-1; d++)
-	for(int w=0; w<my-1; w++)
-	  for(int h=0; h<mx-1; h++)
-	    {
-	      qint64 idx = d*mx*my + w*mx + h;
-	      float v = vol[idx];
-	      for (int i=ise[iter]; i<ise[iter+1]; i++)
-		{
-		  int d1 = d + index[i][0];
-		  int w1 = w + index[i][1];
-		  int h1 = h + index[i][2];
-
-		  d1 = qBound(0, d1, (int)mz-1);
-		  w1 = qBound(0, w1, (int)my-1);
-		  h1 = qBound(0, h1, (int)mx-1);
-		  
-		  qint64 idx1 = d1*mx*my + w1*mx + h1;
-		  
-		  v = qMax(v, vol[idx1]);
-		}
-	      out[idx] += W[iter] * v;
-	    }
-    }
+  for(int w=0; w<my; w++)
+    for(int h=0; h<mx; h++)
+      {
+	qint64 idx = d*mx*my + w*mx + h;
+	float v = vol[idx];
+	for(int iter=0; iter<3; iter++)
+	  {
+	    for (int i=ise[iter]; i<ise[iter+1]; i++)
+	      {
+		int d1 = d + index[i][0];
+		int w1 = w + index[i][1];
+		int h1 = h + index[i][2];
+		
+		d1 = qBound(0, d1, (int)mz-1);
+		w1 = qBound(0, w1, (int)my-1);
+		h1 = qBound(0, h1, (int)mx-1);
+		
+		qint64 idx1 = d1*mx*my + w1*mx + h1;
+		
+		v = qMax(v, vol[idx1]);
+	      }
+	    out[idx] += W[iter] * v;
+	  }
+      }
 }
     
+
+
+//void
+//VolumeOperations::seqDistDilate(float *vol, float *out,
+//			     qint64 mx, qint64 my, qint64 mz )
+//{
+//  // displacement indices
+//  float index[26][3] = {{ 0, -1,  0},
+//			{ 0,  1,  0},
+//			{-1,  0,  0},
+//			{ 1,  0,  0},
+//			{ 0,  0, -1},
+//			{ 0,  0,  1},
+//			
+//			{ 0, -1, -1},
+//			{ 0, -1,  1},
+//			{ 0,  1, -1},
+//			{ 0,  1,  1},
+//			{-1,  0, -1},
+//			{-1,  0,  1},
+//			{ 1,  0, -1},
+//			{ 1,  0,  1},
+//			{-1, -1,  0},
+//			{-1,  1,  0},
+//			{ 1, -1,  0},
+//			{ 1,  1,  0},
+//			
+//			{ 1,  1,  1},
+//			{ 1, -1,  1},
+//			{ 1, -1, -1},
+//			{ 1,  1, -1},
+//			{-1,  1,  1},
+//			{-1, -1,  1},
+//			{-1, -1, -1},
+//			{-1,  1, -1}};
+// 		      
+//
+//  // weights
+//  float q632 = qSqrt(6)+qSqrt(3)+qSqrt(2);
+//  float W[3] = {qSqrt(6)/q632, qSqrt(3)/q632, qSqrt(2)/q632};
+//  
+//
+//  int ise[4] = {0, 6, 18, 26};
+//    
+//  memset(out, 0, mx*my*mz*sizeof(float));
+//
+//  for(int d=0; d<mz-1; d++)
+//    for(int w=0; w<my-1; w++)
+//      for(int h=0; h<mx-1; h++)
+//	for(int iter=0; iter<3; iter++)
+//	  {
+//	    qint64 idx = d*mx*my + w*mx + h;
+//	    float v = vol[idx];
+//	    for (int i=ise[iter]; i<ise[iter+1]; i++)
+//	      {
+//		int d1 = d + index[i][0];
+//		int w1 = w + index[i][1];
+//		int h1 = h + index[i][2];
+//		
+//		d1 = qBound(0, d1, (int)mz-1);
+//		w1 = qBound(0, w1, (int)my-1);
+//		h1 = qBound(0, h1, (int)mx-1);
+//		
+//		qint64 idx1 = d1*mx*my + w1*mx + h1;
+//		
+//		v = qMax(v, vol[idx1]);
+//	      }
+//	    out[idx] += W[iter] * v;
+//	  }
+//
+//}

@@ -456,6 +456,7 @@ TagColorEditor::askGradientChoice()
 	}
     }
 
+  //---------
   int nColors = 255;
   if (Global::bytesPerMask() == 2)
     nColors = 65536;
@@ -466,7 +467,19 @@ TagColorEditor::askGradientChoice()
 				     50, 2, nColors, 1, &ok);
   if (!ok)
     mapSize = 50;
+  //---------
 
+
+  //---------
+  int startIndex = QInputDialog::getInt(0,
+					"Starting Label Index",
+					QString("Starting Label Index between 1 and %1").arg(65534-mapSize),
+					1, 1, 65534-mapSize, 1, &ok);
+  if (!ok)
+    startIndex = 1;
+  //---------
+
+  
   QGradientStops gstops;
   gstops = StaticFunctions::resampleGradientStops(stops, mapSize);
 
@@ -478,14 +491,16 @@ TagColorEditor::askGradientChoice()
       int r = color.red();
       int g = color.green();
       int b = color.blue();
-      colors[4*i+0] = r;
-      colors[4*i+1] = g;
-      colors[4*i+2] = b;
+
+      int cidx = startIndex + i;
+      colors[4*cidx+0] = r;
+      colors[4*cidx+1] = g;
+      colors[4*cidx+2] = b;
     }
+  
   colors[0] = 255;
   colors[1] = 255;
   colors[2] = 255;
-  //colors[3] = 255;
   
   setColors();
 }

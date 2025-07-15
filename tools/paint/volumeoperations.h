@@ -317,6 +317,7 @@ class VolumeOperations
   static QString getMaskName();
 
   static void distDilate(float*, float*, qint64, qint64, qint64);
+  static void parDistDilate(QList<QVariant>);
 };
 
 #endif

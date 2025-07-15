@@ -1218,3 +1218,31 @@ StaticFunctions::saveMesgToFile(QString prevDir, QString mesg)
 }
 
 
+void
+StaticFunctions::saveFloatVolumeToFile(QString title,
+				       QString prevDir,
+				       float *vol,
+				       int mx, int my, int mz)
+{
+  QString tflnm = QFileDialog::getSaveFileName(0,
+					       title,
+					       prevDir,
+					       "Files (*.raw)",
+					       0);
+  if (tflnm.isEmpty())
+    return;
+
+  
+  QFile qfile;
+  qfile.setFileName(tflnm);
+  qfile.open(QFile::WriteOnly);  
+  uchar vt = 8; // float
+  qfile.write((char*)&vt, 1);
+  qfile.write((char*)&mz, 4);
+  qfile.write((char*)&my, 4);
+  qfile.write((char*)&mx, 4);
+  qfile.write((char*)vol, (qint64)mx*(qint64)my*(qint64)mz*sizeof(float));
+  qfile.close();
+
+  QMessageBox::information(0, "Save", QString("Saved to %1").arg(tflnm));
+}

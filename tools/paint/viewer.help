@@ -42,35 +42,35 @@ Clipping planes are obeyed - clipped region is not taken into account.
 
 
 #begin
-savetomask
-savetomask <label>
+savetoroi
+savetoroi <label>
 
-Save the visible portion of region labeled with <label> is saved to a mask buffer.  User is asked to name the buffer.
+Save the visible portion of region labeled with <label> is saved to a ROI (region of interest) buffer.  User is asked to name the buffer.
 If no <label> is specified, all the visible region is saved to the buffer.
 
-Currently mask buffers are not saved at the end of the session.
+Currently ROI buffers are not saved at the end of the session.
 #end
 
 
 #begin
-deletemask
-deletemask
+deleteroi
+deleteroi
 
-User is asked for the name of the mask buffer to remove.
+User is asked for the name of the ROI (region of interest) buffer to remove.
 
-Currently mask buffers are not saved at the end of the session.
+Currently ROI buffers are not saved at the end of the session.
 #end
 
 
 #begin
-mop
-mop <label>
+roi
+roi <label>
 
-Apply mask operation to the given visible portion of the <label> labeled region.  User is asked for the mask buffer and operation type (intersection/union/A-B/B-A) to use.  User is asked for the label number to save the result into.
+Apply ROI (region of interest) operation to the given visible portion of the <label> labeled region.  User is asked for the ROI buffer and operation type (intersection/union/A-B/B-A) to use.  User is asked for the label number to save the result into.
 
-If no <label> is specified, all the visible region is considered for mask operation.
+If no <label> is specified, all the visible region is considered for ROI operation.
 
-Currently mask buffers are not saved at the end of the session.
+Currently ROI buffers are not saved at the end of the session.
 #end
 
 

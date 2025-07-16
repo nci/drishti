@@ -185,8 +185,8 @@ class Viewer : public QGLViewer
     void smoothAllRegion(Vec, Vec,
 		       int, int);
 
-    void saveToMask(Vec, Vec, int);
-    void maskOperation(Vec, Vec, int);
+    void saveToROI(Vec, Vec, int);
+    void roiOperation(Vec, Vec, int);
     void connectedComponents(Vec, Vec, int);
     void connectedComponentsPlus(Vec, Vec, int, int);
     void distanceTransform(Vec, Vec, int, int);
@@ -362,8 +362,8 @@ class Viewer : public QGLViewer
   void setTextureMemorySize();
 
   void hatch();
-  void saveToMask(int);
-  void maskOperation(int);
+  void saveToROI(int);
+  void roiOperation(int);
   void connectedComponents(int);
   void connectedComponentsPlus(int, int);
   void distanceTransform(int, int);

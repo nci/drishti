@@ -197,8 +197,8 @@ class DrishtiPaint : public QMainWindow
   void smoothAllRegion(Vec, Vec,
 		       int, int);
 
-  void saveToMask(Vec, Vec, int);
-  void maskOperation(Vec, Vec, int);
+  void saveToROI(Vec, Vec, int);
+  void roiOperation(Vec, Vec, int);
   void connectedComponents(Vec, Vec, int);
   void connectedComponentsPlus(Vec, Vec, int, int);
   void distanceTransform(Vec, Vec, int, int);

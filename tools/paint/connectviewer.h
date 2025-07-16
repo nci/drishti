@@ -29,11 +29,11 @@
   connect(m_viewer, SIGNAL(smoothAllRegion(Vec,Vec,int,int)),
 	  this, SLOT(smoothAllRegion(Vec,Vec,int,int)));
 
-  connect(m_viewer, SIGNAL(saveToMask(Vec,Vec,int)),
-	  this, SLOT(saveToMask(Vec,Vec,int)));
+  connect(m_viewer, SIGNAL(saveToROI(Vec,Vec,int)),
+	  this, SLOT(saveToROI(Vec,Vec,int)));
 
-  connect(m_viewer, SIGNAL(maskOperation(Vec,Vec,int)),
-	  this, SLOT(maskOperation(Vec,Vec,int)));
+  connect(m_viewer, SIGNAL(roiOperation(Vec,Vec,int)),
+	  this, SLOT(roiOperation(Vec,Vec,int)));
 
   connect(m_viewer, SIGNAL(connectedComponents(Vec,Vec,int)),
 	  this, SLOT(connectedComponents(Vec,Vec,int)));

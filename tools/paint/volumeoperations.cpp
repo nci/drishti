@@ -27,7 +27,7 @@ ushort* VolumeOperations::m_maskDataUS = 0;
 
 MyBitArray VolumeOperations::m_visibilityMap;
 
-QMap<QString, MyBitArray> VolumeOperations::m_mask;
+QMap<QString, MyBitArray> VolumeOperations::m_roi;
 
 
 void VolumeOperations::setVolData(uchar *v)
@@ -61,12 +61,12 @@ void VolumeOperations::setGridSize(int d, int w, int h)
 
 
 bool
-VolumeOperations::saveToMask(Vec bmin, Vec bmax,
-			     int tag,
-			     int& minD, int& maxD,
-			     int& minW, int& maxW,
-			     int& minH, int& maxH,
-			     int gradType, float minGrad, float maxGrad)
+VolumeOperations::saveToROI(Vec bmin, Vec bmax,
+			    int tag,
+			    int& minD, int& maxD,
+			    int& minW, int& maxW,
+			    int& minH, int& maxH,
+			    int gradType, float minGrad, float maxGrad)
 {
   minD = maxD = minW = maxW = minH = maxH = -1;
 
@@ -84,15 +84,15 @@ VolumeOperations::saveToMask(Vec bmin, Vec bmax,
 
   bool ok;
   QString name = QInputDialog::getText(0,
-				       "Save to mask",
-				       "Mask Name",
+				       "Save to ROI",
+				       "ROI Name",
 				       QLineEdit::Normal,
 				       "",
 				       &ok);
   name = name.trimmed();
   if (!ok || name.isEmpty())
     {
-      QMessageBox::information(0, "Save To Mask", "Empty Name not allowed - mask not saved\nPlease try again.");
+      QMessageBox::information(0, "Save To ROI", "Empty Name not allowed - ROI not saved\nPlease try again.");
       return false;
     }
   
@@ -106,7 +106,7 @@ VolumeOperations::saveToMask(Vec bmin, Vec bmax,
 		   gradType, minGrad, maxGrad,
 		   bitmask);
 
-  m_mask[name] = bitmask;
+  m_roi[name] = bitmask;
   
   minD = ds;
   minW = ws;
@@ -115,21 +115,21 @@ VolumeOperations::saveToMask(Vec bmin, Vec bmax,
   maxW = we;
   maxH = he;
 
-  QMessageBox::information(0, "Save To Mask", "Done");
+  QMessageBox::information(0, "Save To ROI", "Done");
   return true;
 }
 
 QString
-VolumeOperations::getMaskName()
+VolumeOperations::getROIName()
 {
   QString mask;
   
-  QStringList records = m_mask.keys();
+  QStringList records = m_roi.keys();
 
   bool ok;
   mask = QInputDialog::getItem(0,
-			       "Mask Operation",
-			       "Select mask to use",
+			       "ROI Operation",
+			       "Select ROI to use",
 			       records,
 			       0,
 			       false,
@@ -141,33 +141,33 @@ VolumeOperations::getMaskName()
 }
 
 void
-VolumeOperations::deleteMask()
+VolumeOperations::deleteROI()
 {
-  QStringList records = m_mask.keys();
+  QStringList records = m_roi.keys();
 
-  QString maskName = getMaskName();
-  if (maskName.isEmpty())
+  QString roiName = getROIName();
+  if (roiName.isEmpty())
     return;
   
-  int rid = records.indexOf(maskName);
+  int rid = records.indexOf(roiName);
   if (rid < 0)
     {
-      QMessageBox::information(0, "Mask Operation Error", "Cannot find mask : "+maskName);
+      QMessageBox::information(0, "ROI Operation Error", "Cannot find ROI : "+roiName);
       return;
     }
   
-  m_mask.remove(maskName);
+  m_roi.remove(roiName);
 
-  QMessageBox::information(0, "Mask Delete", "Done");	
+  QMessageBox::information(0, "ROI Delete", "Done");	
 }
 
 bool
-VolumeOperations::maskOperation(Vec bmin, Vec bmax,
-				int tag,
-				int& minD, int& maxD,
-				int& minW, int& maxW,
-				int& minH, int& maxH,
-				int gradType, float minGrad, float maxGrad)
+VolumeOperations::roiOperation(Vec bmin, Vec bmax,
+			       int tag,
+			       int& minD, int& maxD,
+			       int& minW, int& maxW,
+			       int& minH, int& maxH,
+			       int gradType, float minGrad, float maxGrad)
 {
   minD = maxD = minW = maxW = minH = maxH = -1;
 
@@ -187,33 +187,33 @@ VolumeOperations::maskOperation(Vec bmin, Vec bmax,
   qint64 msize;
   msize = mx*my*mz;
   
-  MyBitArray maskbitmask;
+  MyBitArray roibitmask;
   MyBitArray tagbitmask;
   int opType = 0;
   int resultTag = -1;
   
-  maskbitmask.resize(msize);
+  roibitmask.resize(msize);
   tagbitmask.resize(msize);
 
-  maskbitmask.fill(false);
+  roibitmask.fill(false);
   tagbitmask.fill(false);
 
   //--------------------
   // select mask to operate on
   {  
-    QStringList records = m_mask.keys();
-    QString maskName = getMaskName();
-    if (maskName.isEmpty())
+    QStringList records = m_roi.keys();
+    QString roiName = getROIName();
+    if (roiName.isEmpty())
       return false;
     
-    int rid = records.indexOf(maskName);
+    int rid = records.indexOf(roiName);
     if (rid < 0)
       {
-	QMessageBox::information(0, "Mask Operation Error", "Cannot find mask : "+maskName);
+	QMessageBox::information(0, "ROI Operation Error", "Cannot find ROI : "+roiName);
 	return false;
       }
 
-    maskbitmask = m_mask[maskName];
+    roibitmask = m_roi[roiName];
   }
   //--------------------
 
@@ -224,13 +224,13 @@ VolumeOperations::maskOperation(Vec bmin, Vec bmax,
     QStringList dtypes;
     dtypes << "intersection"
 	   << "union"
-	   << "mask - label"
-	   << "label - mask"
-	   << "connected to mask";
+	   << "ROI - label"
+	   << "label - ROI"
+	   << "connected to ROI";
     
     bool ok;
     QString option = QInputDialog::getItem(0,
-					   "Mask Operation",
+					   "ROI Operation",
 					   "Select operation type",
 					   dtypes,
 					   0,
@@ -241,13 +241,13 @@ VolumeOperations::maskOperation(Vec bmin, Vec bmax,
       {
 	if (option == "intersection") opType = 0;
 	if (option == "union") opType = 1;
-	if (option == "mask - label") opType = 2;
-	if (option == "label - mask") opType = 3;
-	if (option == "connected to mask") opType = 4;
+	if (option == "ROI - label") opType = 2;
+	if (option == "label - ROI") opType = 3;
+	if (option == "connected to ROI") opType = 4;
       }
     else
       {
-	QMessageBox::information(0, "Mask Operation", "Operation not performed");	
+	QMessageBox::information(0, "ROI Operation", "Operation not performed");	
 	return false;
       }	
   }
@@ -265,7 +265,7 @@ VolumeOperations::maskOperation(Vec bmin, Vec bmax,
       return false;
   }
 
-  QProgressDialog progress("Mask Operation",
+  QProgressDialog progress("ROI Operation",
 			   QString(),
 			   0, 100,
 			   0,
@@ -290,29 +290,29 @@ VolumeOperations::maskOperation(Vec bmin, Vec bmax,
   
   //--------------------
   if (opType == 0) // intersection
-    tagbitmask &= maskbitmask;
+    tagbitmask &= roibitmask;
 
   if (opType == 1) // union
-    tagbitmask |= maskbitmask;
+    tagbitmask |= roibitmask;
 
   if (opType == 2) // mask - label 
     {
       tagbitmask = ~tagbitmask;
-      tagbitmask &= maskbitmask;
+      tagbitmask &= roibitmask;
     }
   
   if (opType == 3) // mask - label
     {
-      maskbitmask = ~maskbitmask;
-      tagbitmask &= maskbitmask;
+      roibitmask = ~roibitmask;
+      tagbitmask &= roibitmask;
     }
 
-  if (opType == 4) // get labeled region that is connected to mask
+  if (opType == 4) // get labeled region that is connected to ROI
     {
-      getRegionConnectedToMask(ds, ws, hs,
-			       de, we, he,
-			       tagbitmask,
-			       maskbitmask);
+      getRegionConnectedToROI(ds, ws, hs,
+			      de, we, he,
+			      tagbitmask,
+			      roibitmask);
     }
   //--------------------
 
@@ -345,7 +345,7 @@ VolumeOperations::maskOperation(Vec bmin, Vec bmax,
   maxW = we;
   maxH = he;
 
-  QMessageBox::information(0, "Mask Operation", "Done");	
+  QMessageBox::information(0, "ROI Operation", "Done");	
   return true;
 }
 
@@ -1145,10 +1145,10 @@ VolumeOperations::getConnectedRegion(int dr, int wr, int hr,
 //---------//---------//---------//
 //---------//---------//---------//
 void
-VolumeOperations::getRegionConnectedToMask(int ds, int ws, int hs,
-					   int de, int we, int he,
-					   MyBitArray& tagbitmask,
-					   MyBitArray& maskbitmask)
+VolumeOperations::getRegionConnectedToROI(int ds, int ws, int hs,
+					  int de, int we, int he,
+					  MyBitArray& tagbitmask,
+					  MyBitArray& maskbitmask)
 {
   QProgressDialog progress("Identifying connected region",
 			   QString(),

@@ -1045,29 +1045,29 @@ Viewer::processCommand(QString cmd)
       return;
     }
 
-  if (list[0] == "savetomask")
+  if (list[0] == "savetoroi")
     {
       int tag = -1;
       if (list.size() == 2)
 	tag = list[1].toInt(&ok);
 
-      saveToMask(tag);
+      saveToROI(tag);
       return;
     }
 
-  if (list[0] == "mop")
+  if (list[0] == "roi")
     {
       int tag = -1;
       if (list.size() == 2)
 	tag = list[1].toInt(&ok);
 
-      maskOperation(tag);
+      roiOperation(tag);
       return;
     }
   
-  if (list[0] == "deletemask")
+  if (list[0] == "deleteroi")
     {
-      VolumeOperations::deleteMask();
+      VolumeOperations::deleteROI();
       return;     
     }
        
@@ -3173,7 +3173,7 @@ Viewer::hatch()
 }
 
 void
-Viewer::saveToMask(int tag)
+Viewer::saveToROI(int tag)
 {
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
@@ -3182,11 +3182,11 @@ Viewer::saveToMask(int tag)
   bmin = VECDIVIDE(bmin, voxelScaling);
   bmax = VECDIVIDE(bmax, voxelScaling);
 
-  emit saveToMask(bmin, bmax, tag);
+  emit saveToROI(bmin, bmax, tag);
 }
 
 void
-Viewer::maskOperation(int tag)
+Viewer::roiOperation(int tag)
 {
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
@@ -3195,7 +3195,7 @@ Viewer::maskOperation(int tag)
   bmin = VECDIVIDE(bmin, voxelScaling);
   bmax = VECDIVIDE(bmax, voxelScaling);
 
-  emit maskOperation(bmin, bmax, tag);
+  emit roiOperation(bmin, bmax, tag);
 }
 
 

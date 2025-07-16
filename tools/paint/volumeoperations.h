@@ -222,19 +222,19 @@ class VolumeOperations
 			       MyBitArray&,
 			       bool showProgress = true);
 
-  static bool saveToMask(Vec, Vec,
-			 int,
-			 int&, int&,
-			 int&, int&,
-			 int&, int&,
-			 int, float, float);
-  static bool maskOperation(Vec, Vec,
-			    int,
-			    int&, int&,
-			    int&, int&,
-			    int&, int&,
-			    int, float, float);
-  static void deleteMask();
+  static bool saveToROI(Vec, Vec,
+			int,
+			int&, int&,
+			int&, int&,
+			int&, int&,
+			int, float, float);
+  static bool roiOperation(Vec, Vec,
+			   int,
+			   int&, int&,
+			   int&, int&,
+			   int&, int&,
+			   int, float, float);
+  static void deleteROI();
   
  private :
   static int m_depth, m_width, m_height;
@@ -247,7 +247,7 @@ class VolumeOperations
   static QList<Vec> m_cPos;
   static QList<Vec> m_cNorm;
 
-  static QMap<QString, MyBitArray> m_mask;
+  static QMap<QString, MyBitArray> m_roi;
   
   static void getConnectedRegion(int, int, int,
 				 int, int, int,
@@ -256,10 +256,10 @@ class VolumeOperations
 				 MyBitArray&,
 				 int, float, float);
 
-  static void getRegionConnectedToMask(int, int, int,
-				       int, int, int,
-				       MyBitArray&,
-				       MyBitArray&);
+  static void getRegionConnectedToROI(int, int, int,
+				      int, int, int,
+				      MyBitArray&,
+				      MyBitArray&);
 
   static void shrinkwrapSlice(uchar*, int, int);
 
@@ -314,7 +314,7 @@ class VolumeOperations
 				    MyBitArray&,
 				    int);
 
-  static QString getMaskName();
+  static QString getROIName();
 
   static void distDilate(float*, float*, qint64, qint64, qint64);
   static void parDistDilate(QList<QVariant>);

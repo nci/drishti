@@ -5311,7 +5311,7 @@ DrishtiPaint::smoothAllRegion(Vec bmin, Vec bmax,
 }
 
 void
-DrishtiPaint::saveToMask(Vec bmin, Vec bmax, int tag)
+DrishtiPaint::saveToROI(Vec bmin, Vec bmax, int tag)
 {
   int minD,maxD, minW,maxW, minH,maxH;
 
@@ -5323,12 +5323,12 @@ DrishtiPaint::saveToMask(Vec bmin, Vec bmax, int tag)
   int gradType = m_viewer->gradType();
 
   VolumeOperations::setClip(cPos, cNorm);
-  if (VolumeOperations::saveToMask(bmin, bmax,
-				   tag,
-				   minD, maxD,
-				   minW, maxW,
-				   minH, maxH,
-				   gradType, minGrad, maxGrad))
+  if (VolumeOperations::saveToROI(bmin, bmax,
+				  tag,
+				  minD, maxD,
+				  minW, maxW,
+				  minH, maxH,
+				  gradType, minGrad, maxGrad))
     {
       int m_depth, m_width, m_height;
       m_volume->gridSize(m_depth, m_width, m_height);
@@ -5340,7 +5340,7 @@ DrishtiPaint::saveToMask(Vec bmin, Vec bmax, int tag)
 }
 
 void
-DrishtiPaint::maskOperation(Vec bmin, Vec bmax, int tag)
+DrishtiPaint::roiOperation(Vec bmin, Vec bmax, int tag)
 {
   int minD,maxD, minW,maxW, minH,maxH;
 
@@ -5352,12 +5352,12 @@ DrishtiPaint::maskOperation(Vec bmin, Vec bmax, int tag)
   int gradType = m_viewer->gradType();
 
   VolumeOperations::setClip(cPos, cNorm);
-  if (VolumeOperations::maskOperation(bmin, bmax,
-				      tag,
-				      minD, maxD,
-				      minW, maxW,
-				      minH, maxH,
-				      gradType, minGrad, maxGrad))
+  if (VolumeOperations::roiOperation(bmin, bmax,
+				     tag,
+				     minD, maxD,
+				     minW, maxW,
+				     minH, maxH,
+				     gradType, minGrad, maxGrad))
     {
       int m_depth, m_width, m_height;
       m_volume->gridSize(m_depth, m_width, m_height);

@@ -5028,6 +5028,7 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
   
   //----------------------------
   // find local thickness as described in
+  // V. A. Dahl and A. B. Dahl, "Fast Local Thickness",
   // https://github.com/vedranaa/local-thickness
   float *out = new float[mx*my*mz];
   for(int r=0; r<(int)maxLT; r++)
@@ -5089,12 +5090,67 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
 
   QMessageBox::information(0, "Max Local Thickness", QString("%1").arg(maxLT));
 
+
+  
+  //------------------------------
   //------------------------------
   // save local thickness to file
-  StaticFunctions::saveFloatVolumeToFile("Save Local Thickness To RAW File",
-					 Global::previousDirectory(),
-					 lt,
-					 mx, my, mz);
+  QString rawflnm = QFileDialog::getSaveFileName(0,
+						 "Save Local Thickness To RAW File",
+						 Global::previousDirectory(),
+						 "Files (*.raw)",
+						 0);
+  if (!rawflnm.isEmpty())
+    {
+      //----------
+      // save raw local thickness file
+      StaticFunctions::saveVolumeToFile(rawflnm,
+				    8, (char*)lt,
+				    mx, my, mz);
+      //----------
+  
+
+      //----------
+      // save pvl.nc file
+      QString pvlflnm = rawflnm;
+      pvlflnm.chop(3);
+      pvlflnm += "pvl.nc";
+      
+      QList<float> rawMap;
+      rawMap << 0.0;
+      rawMap << maxLT;
+      
+      QList<int> pvlMap;
+      pvlMap << 0;
+      pvlMap << 255;
+      
+      StaticFunctions::savePvlHeader(pvlflnm,
+				     true,
+				     rawflnm,
+				     0, 0, pvlInfo.voxelUnit,
+				     mz, my, mx,
+				     voxelSize.x, voxelSize.y, voxelSize.z,
+				     rawMap, pvlMap,
+				     "Local Thickness",
+				     mz+1);
+      //----------
+      
+      
+      //----------
+      // map float local thickness (lt) to uchar (ltUC) using the same array
+      // and save pvl.nc.001 file
+      uchar *ltUC = (uchar *)lt;
+      for(qint64 i=0; i<mx*my*mz; i++)
+	ltUC[i] = 255*lt[i]/maxLT;
+      StaticFunctions::saveVolumeToFile(pvlflnm + ".001",
+					0, (char*)ltUC,
+					mx, my, mz);
+      //----------
+
+      QMessageBox::information(0, "Local Thickness", "Saved raw, pvl.nc and pvl.nc.001 files");
+    }
+  //------------------------------
+  //------------------------------
 
   
   delete [] lt;
@@ -5107,7 +5163,8 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
   maxW = we;
   maxH = he;
 
-  QMessageBox::information(0, "", "Done");  
+  if (rawflnm.isEmpty())
+    QMessageBox::information(0, "", "Done");  
 }
 
 void

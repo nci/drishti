@@ -99,11 +99,18 @@ class StaticFunctions
   static void imageFromDataAndColor(QImage&, ushort*, uchar*);
 
   static void saveMesgToFile(QString, QString);
-  static void saveFloatVolumeToFile(QString,
-				    QString,
-				    float*,
-				    int, int, int);
+  static void saveVolumeToFile(QString,
+			       uchar, char*,
+			       int, int, int);
 
+  static void savePvlHeader(QString,
+			    bool, QString,
+			    int, int, int,
+			    int, int, int,
+			    float, float, float,
+			    QList<float>, QList<int>,
+			    QString,
+			    int);
 };
 
 #endif

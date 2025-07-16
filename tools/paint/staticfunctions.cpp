@@ -1219,30 +1219,184 @@ StaticFunctions::saveMesgToFile(QString prevDir, QString mesg)
 
 
 void
-StaticFunctions::saveFloatVolumeToFile(QString title,
-				       QString prevDir,
-				       float *vol,
-				       int mx, int my, int mz)
+StaticFunctions::saveVolumeToFile(QString vflnm,
+				  uchar vt, char *vol,
+				  int mx, int my, int mz)
 {
-  QString tflnm = QFileDialog::getSaveFileName(0,
-					       title,
-					       prevDir,
-					       "Files (*.raw)",
-					       0);
-  if (tflnm.isEmpty())
-    return;
-
+  int bpv = 1;
+  if (vt < 2)
+    bpv = 1;
+  else if (vt < 4)
+    bpv = 2;
+  else
+    bpv = 4;
   
   QFile qfile;
-  qfile.setFileName(tflnm);
+  qfile.setFileName(vflnm);
   qfile.open(QFile::WriteOnly);  
-  uchar vt = 8; // float
   qfile.write((char*)&vt, 1);
   qfile.write((char*)&mz, 4);
   qfile.write((char*)&my, 4);
   qfile.write((char*)&mx, 4);
-  qfile.write((char*)vol, (qint64)mx*(qint64)my*(qint64)mz*sizeof(float));
+  qfile.write((char*)vol, (qint64)mx*(qint64)my*(qint64)mz*bpv);
   qfile.close();
 
-  QMessageBox::information(0, "Save", QString("Saved to %1").arg(tflnm));
+  QMessageBox::information(0, "Save", QString("Saved to %1").arg(vflnm));
+}
+
+
+void
+StaticFunctions::savePvlHeader(QString pvlFilename,
+			       bool saveRawFile, QString rawfile,
+			       int voxelType, int pvlVoxelType, int voxelUnit,
+			       int d, int w, int h,
+			       float vx, float vy, float vz,
+			       QList<float> rawMap, QList<int> pvlMap,
+			       QString description,
+			       int slabSize)
+{
+  QString xmlfile = pvlFilename;
+
+  QDomDocument doc("Drishti_Header");
+
+  QDomElement topElement = doc.createElement("PvlDotNcFileHeader");
+  doc.appendChild(topElement);
+
+  {      
+    QString vstr;
+    if (saveRawFile)
+      {
+	// save relative path for the rawfile
+	QFileInfo fileInfo(pvlFilename);
+	QDir direc = fileInfo.absoluteDir();
+	vstr = direc.relativeFilePath(rawfile);
+      }
+    else
+      vstr = "";
+
+    QDomElement de0 = doc.createElement("rawfile");
+    QDomText tn0;
+    tn0 = doc.createTextNode(QString("%1").arg(vstr));
+    de0.appendChild(tn0);
+    topElement.appendChild(de0);
+  }
+      
+  {      
+    QString vstr;
+    if (voxelType == 0)      vstr = "unsigned char";
+    else if (voxelType == 1)  vstr = "char";
+    else if (voxelType == 2)vstr = "unsigned short";
+    else if (voxelType == 3) vstr = "short";
+    else if (voxelType == 4)   vstr = "int";
+    else if (voxelType == 5) vstr = "float";
+    
+    QDomElement de0 = doc.createElement("voxeltype");
+    QDomText tn0;
+    tn0 = doc.createTextNode(QString("%1").arg(vstr));
+    de0.appendChild(tn0);
+    topElement.appendChild(de0);
+  }
+
+
+  {      
+    QString vstr;
+    if (pvlVoxelType == 0)      vstr = "unsigned char";
+    else if (pvlVoxelType == 1)  vstr = "char";
+    else if (pvlVoxelType == 2)vstr = "unsigned short";
+    else if (pvlVoxelType == 3) vstr = "short";
+    else if (pvlVoxelType == 4)   vstr = "int";
+    else if (pvlVoxelType == 5) vstr = "float";
+    
+    QDomElement de0 = doc.createElement("pvlvoxeltype");
+    QDomText tn0;
+    tn0 = doc.createTextNode(QString("%1").arg(vstr));
+    de0.appendChild(tn0);
+    topElement.appendChild(de0);
+  }
+
+
+  {      
+    QDomElement de0 = doc.createElement("gridsize");
+    QDomText tn0;
+    tn0 = doc.createTextNode(QString("%1 %2 %3").arg(d).arg(w).arg(h));
+    de0.appendChild(tn0);
+    topElement.appendChild(de0);
+  }
+
+  {      
+    QString vstr;
+    if (voxelUnit == 0)      vstr = "no units";
+    else if (voxelUnit == 1) vstr = "angstrom";
+    else if (voxelUnit == 2) vstr = "nanometer";
+    else if (voxelUnit == 3) vstr = "micron";
+    else if (voxelUnit == 4) vstr = "millimeter";
+    else if (voxelUnit == 5) vstr = "centimeter";
+    else if (voxelUnit == 6) vstr = "meter";
+    else if (voxelUnit == 7) vstr = "kilometer";
+    else if (voxelUnit == 8) vstr = "parsec";
+    else if (voxelUnit == 9) vstr = "kiloparsec";
+    
+    QDomElement de0 = doc.createElement("voxelunit");
+    QDomText tn0;
+    tn0 = doc.createTextNode(QString("%1").arg(vstr));
+    de0.appendChild(tn0);
+    topElement.appendChild(de0);
+  }
+
+  {      
+    QDomElement de0 = doc.createElement("voxelsize");
+    QDomText tn0;
+    tn0 = doc.createTextNode(QString("%1 %2 %3").arg(vx).arg(vy).arg(vz));
+    de0.appendChild(tn0);
+    topElement.appendChild(de0);
+  }
+  
+  {
+    QString vstr = description.trimmed();
+    QDomElement de0 = doc.createElement("description");
+    QDomText tn0;
+    tn0 = doc.createTextNode(QString("%1").arg(vstr));
+    de0.appendChild(tn0);
+    topElement.appendChild(de0);
+  }
+
+  {      
+    QDomElement de0 = doc.createElement("slabsize");
+    QDomText tn0;
+    tn0 = doc.createTextNode(QString("%1").arg(slabSize));
+    de0.appendChild(tn0);
+    topElement.appendChild(de0);
+  }
+  
+  {      
+    QString vstr;
+    for(int i=0; i<rawMap.size(); i++)
+      vstr += QString("%1 ").arg(rawMap[i]);
+    
+    QDomElement de0 = doc.createElement("rawmap");
+    QDomText tn0;
+    tn0 = doc.createTextNode(QString("%1").arg(vstr));
+    de0.appendChild(tn0);
+    topElement.appendChild(de0);
+  }
+
+  {      
+    QString vstr;
+    for(int i=0; i<pvlMap.size(); i++)
+      vstr += QString("%1 ").arg(pvlMap[i]);
+    
+    QDomElement de0 = doc.createElement("pvlmap");
+    QDomText tn0;
+    tn0 = doc.createTextNode(QString("%1").arg(vstr));
+    de0.appendChild(tn0);
+    topElement.appendChild(de0);
+  }
+  
+  QFile f(xmlfile.toUtf8().data());
+  if (f.open(QIODevice::WriteOnly))
+    {
+      QTextStream out(&f);
+      doc.save(out, 2);
+      f.close();
+    }
 }

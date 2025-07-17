@@ -10,7 +10,6 @@
 #include "structuringelement.h"
 #include "binarydistancetransform.h"
 
-
 #include <QInputDialog>
 #include <QtConcurrentMap>
 
@@ -5089,7 +5088,6 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
   
 
   QMessageBox::information(0, "Max Local Thickness", QString("%1").arg(maxLT));
-
 
   
   //------------------------------

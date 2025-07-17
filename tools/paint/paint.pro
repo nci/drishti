@@ -104,7 +104,8 @@ HEADERS += connectviewer.h \
         clipinformation.h \
         clipplane.h \
 	clipobject.h \
-	clipgrabber.h \
+        clipgrabber.h \
+        colormaps.h \
 	slices.h \
 	imagewidget.h \
         curves.h \
@@ -174,6 +175,7 @@ SOURCES += drishtipaint.cpp \
         clipplane.cpp \
 	clipobject.cpp \
 	clipgrabber.cpp \
+        colormaps.cpp \
 	slices.cpp \
 	imagewidget.cpp \
         curves.cpp \

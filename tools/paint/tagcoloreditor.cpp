@@ -504,3 +504,41 @@ TagColorEditor::askGradientChoice()
   
   setColors();
 }
+
+void
+TagColorEditor::setColorGradient(QList<QColor> cmap,
+				 int startIndex,
+				 int mapSize)
+{
+  QGradientStops stops;
+  int csz = cmap.count();
+  for(int i=0; i<csz; i++)
+    {
+      float pos = (float)i/(float)(csz-1);
+      stops << QGradientStop(pos, cmap[i]);
+    }
+
+  
+  QGradientStops gstops;
+  gstops = StaticFunctions::resampleGradientStops(stops, mapSize);
+  uchar *colors = Global::tagColors();  
+  for(int i=0; i<gstops.size(); i++)
+    {
+      float pos = gstops[i].first;
+      QColor color = gstops[i].second;
+      int r = color.red();
+      int g = color.green();
+      int b = color.blue();
+
+      int cidx = startIndex + i;
+      colors[4*cidx+0] = r;
+      colors[4*cidx+1] = g;
+      colors[4*cidx+2] = b;
+    }
+  
+  colors[0] = 255;
+  colors[1] = 255;
+  colors[2] = 255;
+  
+  setColors();
+}

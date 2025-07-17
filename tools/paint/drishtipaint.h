@@ -12,6 +12,7 @@
 #include "ui_graphcutmenu.h"
 #include "ui_curvesmenu.h"
 
+#include "colormaps.h"
 #include "tagcoloreditor.h"
 #include "transferfunctionmanager.h"
 #include "transferfunctioneditorwidget.h"
@@ -235,6 +236,7 @@ class DrishtiPaint : public QMainWindow
   QProcess m_meshViewer;
   
   
+  ColorMaps m_colorMaps;
   TagColorEditor *m_tagColorEditor;
 
   TransferFunctionContainer *m_tfContainer;

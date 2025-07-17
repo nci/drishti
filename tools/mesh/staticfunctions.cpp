@@ -192,7 +192,7 @@ StaticFunctions::resampleGradientStops(QGradientStops stops, int mapSize)
   QGradientStops newStops;
   for (int i=0; i<mapSize; i++)
     {
-      float pos = (float)i/(float)mapSize;
+      float pos = (float)i/(float)(mapSize-1);
       newStops << QGradientStop(pos, colorMap[i]);
     }
 

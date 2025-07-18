@@ -3,14 +3,16 @@
 #include "coloreditor.h"
 #include "dcolordialog.h"
 #include "staticfunctions.h"
-#include <QTime>
 
+#include <QTime>
 #include <QInputDialog>
 #include <QItemEditorFactory>
 #include <QItemEditorCreatorBase>
 #include <QItemDelegate>
 #include <QVBoxLayout>
 #include <QHeaderView>
+
+#include <algorithm>
 
 TagColorEditor::TagColorEditor()
 {
@@ -193,7 +195,9 @@ TagColorEditor::newTagsClicked()
   items << "Random";
   items << "Qualitative";
   items << "Sequential";
+  items << "Sequential_r";
   items << "Local Thickness";
+  items << "Local Thickness_r";
 
   QString text(items.value(0));  
   QInputDialog dialog(this, 0);
@@ -215,8 +219,12 @@ TagColorEditor::newTagsClicked()
     newColorSet(1);
   else if (str == "Sequential")    
     newColorSet(2);
-  else if (str == "Local Thickness")    
+  else if (str == "Sequential_r")    
     newColorSet(3);
+  else if (str == "Local Thickness")    
+    newColorSet(4);
+  else if (str == "Local Thickness_r")    
+    newColorSet(5);
   else
     newColorSet(QTime::currentTime().msec());
 
@@ -293,19 +301,29 @@ TagColorEditor::cellDoubleClicked(int row, int col)
 void
 TagColorEditor::newColorSet(int h)
 {
-  if (h == 1)
+  if (h == 1) // qualitative
     {
-      askGradientChoice(-2, -1);
+      askGradientChoice(-2, -1, false);
       return;
     }
-  else if (h == 2)
+  else if (h == 2) // sequential
     {
-      askGradientChoice(-1, -1);
+      askGradientChoice(-1, -1, false);
       return;
     }
-  else if (h == 3)
+  if (h == 3) // sequential reversed
     {
-      askGradientChoice(64000, 1000);
+      askGradientChoice(-1, -1, true);
+      return;
+    }
+  else if (h == 4) // local thickness
+    {
+      askGradientChoice(64000, 1000, false);
+      return;
+    }
+  else if (h == 5) // local thickness reversed
+    {
+      askGradientChoice(64000, 1000, true);
       return;
     }
 
@@ -314,7 +332,8 @@ TagColorEditor::newColorSet(int h)
   uchar *colors = Global::tagColors();
   int nColors = 255;
   if (Global::bytesPerMask() == 2)
-    nColors = 65536;
+    //nColors = 65536;
+    nColors = 64000;  // beyond 64000 is for other purposes such as local thickness etc.
   
   for(int i=1; i<nColors; i++)
     {
@@ -386,7 +405,7 @@ TagColorEditor::copyGradientFile(QString stopsflnm)
 }
 
 void
-TagColorEditor::askGradientChoice(int startIndex, int mapSize)
+TagColorEditor::askGradientChoice(int startIndex, int mapSize, bool reversed)
 {
   bool ok;
 
@@ -398,7 +417,12 @@ TagColorEditor::askGradientChoice(int startIndex, int mapSize)
 
   if (cmap.count() == 0)
     return;
+
   
+  if (reversed)
+    std::reverse(cmap.begin(), cmap.end());
+
+
   //---------
   int nColors = 255;
   if (Global::bytesPerMask() == 2)

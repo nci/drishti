@@ -39,7 +39,7 @@ class TagColorEditor : public QWidget
     void createGUI();
 
     void copyGradientFile(QString);
-    void askGradientChoice(int, int);
+  void askGradientChoice(int, int, bool);
 };
 
 #endif

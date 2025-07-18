@@ -14,13 +14,14 @@ class ColorMaps : public QObject
  public :
   ColorMaps();
   
-  QList<QColor> getColorMap();
+  QList<QColor> getColorMap(int);
   
  private :
   QMap<QString, QList<QColor>> m_colorMap;
   QMap<QString, QImage> m_colorImage;
 
   QComboBox* m_comboBox;
+  QComboBox* m_comboBoxQualitative;
 
   void loadColorMaps();
 };

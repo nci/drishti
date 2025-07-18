@@ -4,6 +4,7 @@
 #include "commonqtclasses.h"
 #include <QTableWidget>
 #include <QTableWidgetItem>
+#include "colormaps.h"
 
 class TagColorEditor : public QWidget
 {
@@ -32,12 +33,13 @@ class TagColorEditor : public QWidget
     void hideTagsClicked();
 
  private:
+    QTableWidget *table;
+    ColorMaps m_colorMaps;
+
     void createGUI();
 
-    QTableWidget *table;
-
     void copyGradientFile(QString);
-    void askGradientChoice();
+    void askGradientChoice(int, int);
 };
 
 #endif

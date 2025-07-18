@@ -5477,21 +5477,6 @@ DrishtiPaint::localThickness(Vec bmin, Vec bmax, int tag)
   updateModifiedRegion(minD, maxD,
 		       minW, maxW,
 		       minH, maxH);
-
-  
-  //----------
-  QList<QColor> cmap = m_colorMaps.getColorMap();
-  m_tagColorEditor->setColorGradient(cmap, 64000, 1000);
-
-  m_axialImage->updateTagColors();
-  m_sagitalImage->updateTagColors();
-  m_coronalImage->updateTagColors();
-
-  m_axialCurves->updateTagColors();
-  m_sagitalCurves->updateTagColors();
-  m_coronalCurves->updateTagColors();
-  //----------
-
 }
 
 void

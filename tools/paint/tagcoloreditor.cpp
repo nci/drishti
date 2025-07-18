@@ -191,7 +191,9 @@ TagColorEditor::newTagsClicked()
 {
   QStringList items;
   items << "Random";
-  items << "Library";
+  items << "Qualitative";
+  items << "Sequential";
+  items << "Local Thickness";
 
   QString text(items.value(0));  
   QInputDialog dialog(this, 0);
@@ -209,8 +211,12 @@ TagColorEditor::newTagsClicked()
   QString str = dialog.textValue();
 
 
-  if (str == "Library")    
+  if (str == "Qualitative")    
     newColorSet(1);
+  else if (str == "Sequential")    
+    newColorSet(2);
+  else if (str == "Local Thickness")    
+    newColorSet(3);
   else
     newColorSet(QTime::currentTime().msec());
 
@@ -289,7 +295,17 @@ TagColorEditor::newColorSet(int h)
 {
   if (h == 1)
     {
-      askGradientChoice();
+      askGradientChoice(-2, -1);
+      return;
+    }
+  else if (h == 2)
+    {
+      askGradientChoice(-1, -1);
+      return;
+    }
+  else if (h == 3)
+    {
+      askGradientChoice(64000, 1000);
       return;
     }
 
@@ -370,139 +386,46 @@ TagColorEditor::copyGradientFile(QString stopsflnm)
 }
 
 void
-TagColorEditor::askGradientChoice()
+TagColorEditor::askGradientChoice(int startIndex, int mapSize)
 {
-  QString homePath = QDir::homePath();
-  QFileInfo sfi(homePath, ".drishtigradients.xml");
-  QString stopsflnm = sfi.absoluteFilePath();
-  if (!sfi.exists())
-    copyGradientFile(stopsflnm);
-
-  QDomDocument document;
-  QFile f(stopsflnm);
-  if (f.open(QIODevice::ReadOnly))
-    {
-      document.setContent(&f);
-      f.close();
-    }
-
-  QStringList glist;
-
-  QDomElement main = document.documentElement();
-  QDomNodeList dlist = main.childNodes();
-  for(int i=0; i<dlist.count(); i++)
-    {
-      if (dlist.at(i).nodeName() == "gradient")
-	{
-	  QDomNodeList cnode = dlist.at(i).childNodes();
-	  for(int j=0; j<cnode.count(); j++)
-	    {
-	      QDomElement dnode = cnode.at(j).toElement();
-	      if (dnode.nodeName() == "name")
-		glist << dnode.text();
-	    }
-	}
-    }
-
   bool ok;
-  QString gstr = QInputDialog::getItem(0,
-				       "Color Gradient",
-				       "Color Gradient",
-				       glist, 0, false,
-				       &ok);
-  if (!ok)
+
+  QList<QColor> cmap;
+  if (startIndex == -2)
+    cmap = m_colorMaps.getColorMap(0); // qualitative color map
+  else
+    cmap = m_colorMaps.getColorMap(1); // sequential color map
+
+  if (cmap.count() == 0)
     return;
-
-  int cno = -1;
-  for(int i=0; i<dlist.count(); i++)
-    {
-      if (dlist.at(i).nodeName() == "gradient")
-	{
-	  QDomNodeList cnode = dlist.at(i).childNodes();
-	  for(int j=0; j<cnode.count(); j++)
-	    {
-	      QDomElement dnode = cnode.at(j).toElement();
-	      if (dnode.tagName() == "name" && dnode.text() == gstr)
-		{
-		  cno = i;
-		  break;
-		}
-	    }
-	}
-    }
-	
-  if (cno < 0)
-    return;
-
-  QGradientStops stops;
-  QDomNodeList cnode = dlist.at(cno).childNodes();
-  for(int j=0; j<cnode.count(); j++)
-    {
-      QDomElement de = cnode.at(j).toElement();
-      if (de.tagName() == "gradientstops")
-	{
-	  QString str = de.text();
-	  QStringList strlist = str.split(" ", QString::SkipEmptyParts);
-	  for(int j=0; j<strlist.count()/5; j++)
-	    {
-	      float pos, r,g,b,a;
-	      pos = strlist[5*j].toFloat();
-	      r = strlist[5*j+1].toInt();
-	      g = strlist[5*j+2].toInt();
-	      b = strlist[5*j+3].toInt();
-	      a = strlist[5*j+4].toInt();
-	      stops << QGradientStop(pos, QColor(r,g,b,a));
-	    }
-	}
-    }
-
+  
   //---------
   int nColors = 255;
   if (Global::bytesPerMask() == 2)
     nColors = 65536;
 
-  int mapSize = QInputDialog::getInt(0,
+  if (mapSize < 0)
+    {
+      mapSize = QInputDialog::getInt(0,
 				     "Number of Colors",
 				     "Number of Colors",
 				     50, 2, nColors, 1, &ok);
-  if (!ok)
-    mapSize = 50;
-  //---------
+      if (!ok)
+	mapSize = 50;
+      //---------
 
 
-  //---------
-  int startIndex = QInputDialog::getInt(0,
+      //---------
+      startIndex = QInputDialog::getInt(0,
 					"Starting Label Index",
 					QString("Starting Label Index between 1 and %1").arg(65534-mapSize),
 					1, 1, 65534-mapSize, 1, &ok);
-  if (!ok)
-    startIndex = 1;
+      if (!ok)
+	startIndex = 1;
+    }  
   //---------
 
-  
-  QGradientStops gstops;
-  gstops = StaticFunctions::resampleGradientStops(stops, mapSize);
-
-  uchar *colors = Global::tagColors();  
-  for(int i=0; i<gstops.size(); i++)
-    {
-      float pos = gstops[i].first;
-      QColor color = gstops[i].second;
-      int r = color.red();
-      int g = color.green();
-      int b = color.blue();
-
-      int cidx = startIndex + i;
-      colors[4*cidx+0] = r;
-      colors[4*cidx+1] = g;
-      colors[4*cidx+2] = b;
-    }
-  
-  colors[0] = 255;
-  colors[1] = 255;
-  colors[2] = 255;
-  
-  setColors();
+  setColorGradient(cmap, startIndex, mapSize);
 }
 
 void
@@ -539,6 +462,10 @@ TagColorEditor::setColorGradient(QList<QColor> cmap,
   colors[0] = 255;
   colors[1] = 255;
   colors[2] = 255;
+  
+  colors[4*65535 + 0] = 255;
+  colors[4*65535 + 1] = 0;
+  colors[4*65535 + 2] = 0;
   
   setColors();
 }

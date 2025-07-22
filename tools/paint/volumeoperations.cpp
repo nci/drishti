@@ -4953,7 +4953,6 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
 				 int& minH, int& maxH,
 				 int gradType, float minGrad, float maxGrad)
 {
-
   QProgressDialog progress("Local Thickness",
 			   QString(),
 			   0, 100,
@@ -5014,6 +5013,8 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
 						   true);
   delete [] labels3d;
 
+
+  
   //----------------------------
   // find max distance
   float maxLT = 0;
@@ -5038,16 +5039,17 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
 
       // dilate distance
       distDilate(lt, out, mx, my, mz);
-      
+     
       for(qint64 i=0; i<mx*my*mz; i++)
 	{
 	  if (lt[i] > r)
 	    lt[i] = out[i];
 	}
     }
-  delete [] out;
   //----------------------------
-
+  
+  
+  delete [] out;
 
   
   //----------------------------
@@ -5267,23 +5269,26 @@ VolumeOperations::parDistDilate(QList<QVariant> plist)
       {
 	qint64 idx = d*mx*my + w*mx + h;
 	float v = vol[idx];
-	for(int iter=0; iter<3; iter++)
+	if (v > 0.0)
 	  {
-	    for (int i=ise[iter]; i<ise[iter+1]; i++)
+	    for(int iter=0; iter<3; iter++)
 	      {
-		int d1 = d + index[i][0];
-		int w1 = w + index[i][1];
-		int h1 = h + index[i][2];
-		
-		d1 = qBound(0, d1, (int)mz-1);
-		w1 = qBound(0, w1, (int)my-1);
-		h1 = qBound(0, h1, (int)mx-1);
-		
-		qint64 idx1 = d1*mx*my + w1*mx + h1;
-		
-		v = qMax(v, vol[idx1]);
+		for (int i=ise[iter]; i<ise[iter+1]; i++)
+		  {
+		    int d1 = d + index[i][0];
+		    int w1 = w + index[i][1];
+		    int h1 = h + index[i][2];
+		    
+		    d1 = qBound(0, d1, (int)mz-1);
+		    w1 = qBound(0, w1, (int)my-1);
+		    h1 = qBound(0, h1, (int)mx-1);
+		    
+		    qint64 idx1 = d1*mx*my + w1*mx + h1;
+		    
+		    v = qMax(v, vol[idx1]);
+		  }
+		out[idx] += W[iter] * v;
 	      }
-	    out[idx] += W[iter] * v;
 	  }
       }
 }

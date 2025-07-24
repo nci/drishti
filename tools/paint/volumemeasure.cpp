@@ -586,26 +586,11 @@ VolumeMeasure::getDistanceToSurface(Vec bmin, Vec bmax, int tag)
   
   //---------------
   // find distance tranform for entire visible region
-  uchar *labels3d = new uchar[mx*my*mz];
-  memset(labels3d, 0, mx*my*mz);
-
-  
-  // populate labels3d
-  qint64 idx=0;
-  for(qint64 d=0; d<mz; d++)
-  for(qint64 w=0; w<my; w++)
-  for(qint64 h=0; h<mx; h++)
-    {
-      if (visibleMask.testBit(idx))
-	labels3d[idx] = 1;
-      idx ++;
-    }
-
   progress.setValue(50);
   qApp->processEvents();
 
   // generate squared distance transform
-  float *dt = BinaryDistanceTransform::binaryEDTsq(labels3d,
+  float *dt = BinaryDistanceTransform::binaryEDTsq(visibleMask,
 						   mx, my, mz,
 						   true);
   //---------------
@@ -621,7 +606,7 @@ VolumeMeasure::getDistanceToSurface(Vec bmin, Vec bmax, int tag)
   for(int u=0; u<ut.count(); u++)
     distToSurface[ut[u]] = 10000000;
       
-  idx = 0;
+  qint64 idx = 0;
   for(qint64 d=0; d<mz; d++)
     {
       progress.setValue(100*(float)d/(float)mz);
@@ -642,7 +627,6 @@ VolumeMeasure::getDistanceToSurface(Vec bmin, Vec bmax, int tag)
   //---------------
 
   
-  delete [] labels3d;
   delete [] dt;
 
 

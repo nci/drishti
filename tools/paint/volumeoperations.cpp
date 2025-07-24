@@ -1891,21 +1891,11 @@ VolumeOperations::_dilatebitmask(int nDilate, bool htype,
     }
 
   
-  uchar *labels3d = new uchar[mx*my*mz];
-  memset(labels3d, 0, mx*my*mz);
-  
-  // populate labels3d
-  for(qint64 idx=0; idx<mx*my*mz; idx++)
-    {
-      if (bitmask.testBit(idx) != htype)
-	labels3d[idx] = 1;
-    }
-
   progress.setValue(50);
   qApp->processEvents();
 
   // generate squared distance transform
-  float *dt = BinaryDistanceTransform::binaryEDTsq(labels3d,
+  float *dt = BinaryDistanceTransform::binaryEDTsq(bitmask,
 						   mx, my, mz,
 						   true);
   
@@ -1921,7 +1911,6 @@ VolumeOperations::_dilatebitmask(int nDilate, bool htype,
 	bitmask.setBit(idx, htype);
     }
   
-  delete [] labels3d;
   delete [] dt;
 }
 
@@ -4890,25 +4879,11 @@ VolumeOperations::distanceTransform(Vec bmin, Vec bmax, int tag,
 		   visibleMask);
 
   
-  uchar *labels3d = new uchar[mx*my*mz];
-  memset(labels3d, 0, mx*my*mz);
-  
-  // populate labels3d
-  qint64 idx=0;
-  for(qint64 d=0; d<mz; d++)
-  for(qint64 w=0; w<my; w++)
-  for(qint64 h=0; h<mx; h++)
-    {
-      if (visibleMask.testBit(idx))
-	labels3d[idx] = 1;
-      idx ++;
-    }
-
   progress.setValue(50);
   qApp->processEvents();
 
   // generate squared distance transform
-  float *dt = BinaryDistanceTransform::binaryEDTsq(labels3d,
+  float *dt = BinaryDistanceTransform::binaryEDTsq(visibleMask,
 						   mx, my, mz,
 						   true);
   
@@ -4917,7 +4892,7 @@ VolumeOperations::distanceTransform(Vec bmin, Vec bmax, int tag,
 
   
   // check distance transform
-  idx = 0;
+  qint64 idx = 0;
   for(qint64 d=0; d<mz; d++)
   for(qint64 w=0; w<my; w++)
   for(qint64 h=0; h<mx; h++)
@@ -4928,7 +4903,6 @@ VolumeOperations::distanceTransform(Vec bmin, Vec bmax, int tag,
     }
   
   
-  delete [] labels3d;
   delete [] dt;
 
 
@@ -4961,7 +4935,7 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
   progress.setMinimumDuration(0);  
   qApp->processEvents();
 
-  
+
   minD = maxD = minW = maxW = minH = maxH = -1;
 
   uchar *lut = Global::lut();
@@ -4989,30 +4963,14 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
 		   visibleMask);
 
   
-  uchar *labels3d = new uchar[mx*my*mz];
-  memset(labels3d, 0, mx*my*mz);
-  
-  // populate labels3d
-  qint64 idx=0;
-  for(qint64 d=0; d<mz; d++)
-  for(qint64 w=0; w<my; w++)
-  for(qint64 h=0; h<mx; h++)
-    {
-      if (visibleMask.testBit(idx))
-	labels3d[idx] = 1;
-      idx ++;
-    }
-
-  progress.setLabelText("Distance transform generation for local thickness");
-  progress.setValue(50);
+  progress.setValue(10);
   qApp->processEvents();
 
+  
   // generate squared distance transform
-  float *lt = BinaryDistanceTransform::binaryEDTsq(labels3d,
+  float *lt = BinaryDistanceTransform::binaryEDTsq(visibleMask,
 						   mx, my, mz,
 						   true);
-  delete [] labels3d;
-
 
   
   //----------------------------
@@ -5024,6 +4982,7 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
       maxLT = qMax(maxLT, lt[i]);
     }
   //----------------------------
+
 
   
   //----------------------------
@@ -5038,7 +4997,9 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
       qApp->processEvents();
 
       // dilate distance
-      distDilate(lt, out, mx, my, mz);
+      distDilate(lt, out,
+		 mx, my, mz,
+		 r, (int)maxLT); // this is just for progress dialog
      
       for(qint64 i=0; i<mx*my*mz; i++)
 	{
@@ -5070,7 +5031,7 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
   //----------------------------
   // set the local thickness as labels
   // from 64000 to 64999
-  idx = 0;
+  qint64 idx = 0;
   for(qint64 d=0; d<mz; d++)
   for(qint64 w=0; w<my; w++)
   for(qint64 h=0; h<mx; h++)
@@ -5169,7 +5130,8 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
 
 void
 VolumeOperations::distDilate(float *vol, float *out,
-			     qint64 mx, qint64 my, qint64 mz)
+			     qint64 mx, qint64 my, qint64 mz,
+			     int r, int maxLT)
 {
   memset(out, 0, mx*my*mz*sizeof(float));
 
@@ -5187,13 +5149,10 @@ VolumeOperations::distDilate(float *vol, float *out,
       
       param << plist;
     }
-
-  //int nThreads = qMax(1, (int)(QThread::idealThreadCount()));
-  //QThreadPool::globalInstance()->setMaxThreadCount(nThreads/2);
 						     
   QFutureWatcher<void> futureWatcher;
 
-  QProgressDialog progress("Distance dilation",
+  QProgressDialog progress(QString("Distance dilation %1 of %2").arg(r).arg(maxLT),
 			   QString(),
 			   0, 100,
 			   0,

@@ -6059,12 +6059,18 @@ DrishtiPaint::showVolumeInformation()
       return;
     }
 
+  VolumeInformation pvlInfo;
+  pvlInfo = VolumeInformation::volumeInformation();
+  Vec voxelSize = pvlInfo.voxelSize;
+
   QString mesg;
   mesg += "File : " + m_volume->fileName() + "\n";
   
   int d, w, h;
   m_volume->gridSize(d, w, h);
   mesg += QString("Size : %1 %2 %3\n").arg(h).arg(w).arg(d);
+  mesg += QString("Voxel Size : %1 %2 %3\n").arg(voxelSize.x).arg(voxelSize.y).arg(voxelSize.z);
+  mesg += QString("Voxel Unit : %1\n").arg(pvlInfo.voxelUnitStringShort());
 
   QMessageBox::information(0, "Volume Information", mesg);
 }

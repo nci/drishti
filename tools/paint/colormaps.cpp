@@ -15,6 +15,7 @@
 #include <QPushButton>
 #include <QMessageBox>
 #include <QGridLayout>
+#include <QStyleFactory>
 
 
 ColorMaps::ColorMaps() : QObject()
@@ -52,11 +53,12 @@ ColorMaps::loadColorMaps()
   if (!m_comboBox)
     {
       m_comboBox = new QComboBox();
+      m_comboBox->setFixedHeight(30);
       m_comboBox->setPlaceholderText("Select ColorMap");
-      m_comboBox->setIconSize(QSize(100, 50));
+      m_comboBox->setIconSize(QSize(100, 30));
       m_comboBoxQualitative = new QComboBox();
       m_comboBoxQualitative->setPlaceholderText("Select ColorMap");
-      m_comboBoxQualitative->setIconSize(QSize(100, 50));
+      m_comboBoxQualitative->setIconSize(QSize(100, 30));
     }
   else
     {
@@ -66,7 +68,7 @@ ColorMaps::loadColorMaps()
 
   
   QString colormap_path = app.absolutePath();
-
+  
   QStringList filters;
   filters << "*.rgb";
 
@@ -95,7 +97,7 @@ ColorMaps::loadColorMaps()
 	}
 
       // generate image for the color map
-      QImage img(255,50, QImage::Format_ARGB32_Premultiplied);
+      QImage img(255, 45, QImage::Format_ARGB32_Premultiplied);
       QPainter painter(&img);
       img.fill(Qt::transparent);
       QLinearGradient grd(0, 0, 255, 0);
@@ -126,16 +128,17 @@ ColorMaps::getColorMap(int flag)
 
   
   // use QMessageBox to display the combobox
-  QMessageBox *box = new QMessageBox(QMessageBox::Question,
+  QMessageBox *box = new QMessageBox(QMessageBox::NoIcon,
 				     "Color Map Selection",
 				     "Select Color Map",
 				     QMessageBox::Ok | QMessageBox::Cancel);
   QLayout *layout = box->layout();
   if (flag == 0) // qualitative color scheme
-    ((QGridLayout*)layout)->addWidget(m_comboBoxQualitative, 1, 2);
+    ((QGridLayout*)layout)->addWidget(m_comboBoxQualitative, 1, 1);
   else
-    ((QGridLayout*)layout)->addWidget(m_comboBox, 1, 2);
+    ((QGridLayout*)layout)->addWidget(m_comboBox, 1, 1);
 
+  box->move(QCursor::pos());
   int ret = box->exec();
 
   if (ret != QMessageBox::Cancel)

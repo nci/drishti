@@ -7,10 +7,12 @@
 #include <limits>
 #include <memory>
 
+#include "mybitarray.h"
+
 class BinaryDistanceTransform
 {
  public :
-  static float* binaryEDTsq(unsigned char*,
+  static float* binaryEDTsq(MyBitArray&,
 			    const size_t, const size_t, const size_t,
 			    const bool black_border=false,
 			    float* workspace=NULL);
@@ -19,7 +21,7 @@ class BinaryDistanceTransform
   static void toFinite(float*, const size_t);
   static void toInfinite(float*, const size_t);
   
-  static void squared_edt_1d_multi_seg(unsigned char*,
+  static void squared_edt_1d_multi_seg(MyBitArray&, size_t,
 				       float*,
 				       const int, 
 				       const long int,
@@ -44,7 +46,9 @@ class BinaryDistanceTransform
 					const float,
 					const bool,
 					const bool);
-  
+
+  static void par_squared_edt_1d_parabolic_z(QList<QVariant>);
+  static void par_squared_edt_1d_parabolic_y(QList<QVariant>);
 
 };
 

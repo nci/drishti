@@ -316,7 +316,9 @@ class VolumeOperations
 
   static QString getROIName();
 
-  static void distDilate(float*, float*, qint64, qint64, qint64);
+  static void distDilate(float*, float*,
+			 qint64, qint64, qint64,
+			 int, int);
   static void parDistDilate(QList<QVariant>);
 };
 

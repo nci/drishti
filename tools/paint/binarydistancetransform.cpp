@@ -6,6 +6,9 @@
 //https://github.com/seung-lab/euclidean-distance-transform-3d
 //-------------------------
 
+#include <QProgressDialog>
+#include <QtConcurrentMap>
+
 #include "binarydistancetransform.h"
 
 #define sq(x) (static_cast<float>(x) * static_cast<float>(x))
@@ -42,7 +45,8 @@ BinaryDistanceTransform::toInfinite(float *f, const size_t voxels)
 
 //---------------------------
 void
-BinaryDistanceTransform::squared_edt_1d_multi_seg(unsigned char* segids,
+BinaryDistanceTransform::squared_edt_1d_multi_seg(MyBitArray& bitmask,
+						  size_t bidx,
 						  float *d,
 						  const int n, 
 						  const long int stride,
@@ -51,28 +55,28 @@ BinaryDistanceTransform::squared_edt_1d_multi_seg(unsigned char* segids,
 {  
   long int i;
   
-  unsigned char working_segid = segids[0];
+  bool working_segid = bitmask.testBit(bidx);
 
   if (black_border)
-    d[0] = static_cast<float>(working_segid != 0) * anistropy; // 0 or 1
+    d[0] = working_segid != false ? anistropy : 0; // 0 or 1
   else
-    d[0] = working_segid == 0 ? 0 : INFINITY;
+    d[0] = working_segid == false ? 0 : INFINITY;
 
   for (i = stride; i < n * stride; i += stride)
     {
-      if (segids[i] == 0)
+      if (bitmask.testBit(bidx + i) == false)
 	{
 	  d[i] = 0.0;
 	}
-    else if (segids[i] == working_segid)
+    else if (bitmask.testBit(bidx + i) == working_segid)
       {
 	d[i] = d[i - stride] + anistropy;
       }
     else
       {
 	d[i] = anistropy;
-	d[i - stride] = static_cast<float>(segids[i - stride] != 0) * anistropy;
-	working_segid = segids[i];
+	d[i - stride] = bitmask.testBit(bidx + i - stride) != 0 ? anistropy : 0;
+	working_segid = bitmask.testBit(bidx + i);
       }
     }
 
@@ -80,7 +84,7 @@ BinaryDistanceTransform::squared_edt_1d_multi_seg(unsigned char* segids,
 
   if (black_border)
     {
-      d[n - stride] = static_cast<float>(segids[n - stride] != 0) * anistropy;
+      d[n - stride] = bitmask.testBit(bidx + n - stride) != 0 ? anistropy : 0;
       min_bound = stride;
     }
 
@@ -261,12 +265,13 @@ BinaryDistanceTransform::squared_edt_1d_parabolic(float* f,
 
 
 //---------------------------
-void BinaryDistanceTransform::_squared_edt_1d_parabolic(float* f, 
-							const int n, 
-							const long int stride, 
-							const float anisotropy, 
-							const bool black_border_left,
-							const bool black_border_right)
+void
+BinaryDistanceTransform::_squared_edt_1d_parabolic(float* f, 
+						   const int n, 
+						   const long int stride, 
+						   const float anisotropy, 
+						   const bool black_border_left,
+						   const bool black_border_right)
 {
   
   if (black_border_left && black_border_right)
@@ -281,10 +286,72 @@ void BinaryDistanceTransform::_squared_edt_1d_parabolic(float* f,
 //---------------------------
 
 
+//---------------------------
+//---------------------------
+void BinaryDistanceTransform::par_squared_edt_1d_parabolic_z(QList<QVariant> plist)
+{
+  size_t z = plist[0].toInt();
+  size_t sx = plist[1].toInt();
+  size_t sy = plist[2].toInt();
+  size_t sz = plist[3].toInt();
+  size_t sxy = plist[4].toInt();
+  bool black_border = plist[5].toBool();
+  float *workspace = static_cast<float*>(plist[6].value<void*>());
+
+  size_t offset;
+  for (size_t x = 0; x < sx; x++)
+    {
+      offset = x + sxy * z;
+      size_t y = 0;
+      for (y = 0; y < sy; y++)
+	{
+	  if (workspace[offset + sx*y])
+	    {
+	      break;
+	    }
+	}
+      
+      _squared_edt_1d_parabolic((workspace + offset + sx * y),
+				sy - y, sx, 1,
+				black_border || (y > 0), black_border);
+    }
+}
+
+void BinaryDistanceTransform::par_squared_edt_1d_parabolic_y(QList<QVariant> plist)
+{
+  size_t y = plist[0].toInt();
+  size_t sx = plist[1].toInt();
+  size_t sy = plist[2].toInt();
+  size_t sz = plist[3].toInt();
+  size_t sxy = plist[4].toInt();
+  bool black_border = plist[5].toBool();
+  float *workspace = static_cast<float*>(plist[6].value<void*>());
+
+  size_t offset;
+  for (size_t x = 0; x < sx; x++)
+    {
+      offset = x + sx * y;
+      size_t z = 0;
+      for (z = 0; z < sz; z++)
+	{
+	  if (workspace[offset + sxy*z])
+	    {
+	      break;
+	    }
+	}
+      _squared_edt_1d_parabolic((workspace + offset + sxy * z), 
+				sz - z, sxy, 1, 
+				black_border || (z > 0), black_border);
+    }
+}
+
+//---------------------------
+//---------------------------
+
 
 //---------------------------
 float*
-BinaryDistanceTransform::binaryEDTsq(unsigned char* binaryimg, 
+BinaryDistanceTransform::binaryEDTsq(MyBitArray& bitmask, 
 				     const size_t sx, const size_t sy, const size_t sz,
 				     const bool black_border,
 				     float* workspace)
@@ -294,6 +361,7 @@ BinaryDistanceTransform::binaryEDTsq(unsigned char* binaryimg,
   
   size_t x,y,z;
 
+  
   if (workspace == NULL)
     {
       workspace = new float[sx*sy*sz]();
@@ -302,7 +370,8 @@ BinaryDistanceTransform::binaryEDTsq(unsigned char* binaryimg,
   for (z = 0; z < sz; z++)
   for (y = 0; y < sy; y++)
     { 
-      squared_edt_1d_multi_seg((binaryimg + sx * y + sxy * z), 
+      squared_edt_1d_multi_seg(bitmask,
+			       sx * y + sxy * z,
 			       (workspace + sx * y + sxy * z), 
 			       sx, 1, 1,
 			       black_border); 
@@ -311,48 +380,148 @@ BinaryDistanceTransform::binaryEDTsq(unsigned char* binaryimg,
   toFinite(workspace, voxels);
 
 
-  size_t offset;
-  for (z = 0; z < sz; z++)
-    {
-      for (x = 0; x < sx; x++)
-	{
-	  offset = x + sxy * z;
-	  for (y = 0; y < sy; y++)
-	    {
-	      if (workspace[offset + sx*y])
-		{
-		  break;
-		}
-	    }
+  //----------------------------
+  // multihtreaded
+  {
+    QList<QList<QVariant>> param;
+    for(z=0; z<sz; z++)
+      {
+	QList<QVariant> plist;
+	plist << QVariant(z);
+	plist << QVariant(sx);
+	plist << QVariant(sy);
+	plist << QVariant(sz);
+	plist << QVariant(sxy);
+	plist << QVariant(black_border);
+	plist << QVariant::fromValue(static_cast<void*>(workspace));
+	
+	param << plist;
+      }
+    
+    QFutureWatcher<void> futureWatcher;
+    
+    QProgressDialog progress(QString("distance transform z : %1").arg(sz),
+			     QString(),
+			     0, 100,
+			     0,
+			     Qt::WindowStaysOnTopHint);
+    if (sz > 300)
+      {
+	progress.setMinimumDuration(0);
+	QObject::connect(&futureWatcher, &QFutureWatcher<void>::finished, &progress, &QProgressDialog::reset);
+	QObject::connect(&progress, &QProgressDialog::canceled, &futureWatcher, &QFutureWatcher<void>::cancel);
+	QObject::connect(&futureWatcher,  &QFutureWatcher<void>::progressRangeChanged, &progress, &QProgressDialog::setRange);
+	QObject::connect(&futureWatcher, &QFutureWatcher<void>::progressValueChanged,  &progress, &QProgressDialog::setValue);
+      }
 
-	  _squared_edt_1d_parabolic((workspace + offset + sx * y),
-				    sy - y, sx, 1,
-				    black_border || (y > 0), black_border);
-	}
-    }
+    futureWatcher.setFuture(QtConcurrent::map(param, par_squared_edt_1d_parabolic_z)); 
 
+    if (sz > 300)
+      progress.exec();
 
-  for (y = 0; y < sy; y++)
-    {
-      for (x = 0; x < sx; x++)
-	{
-	  offset = x + sx * y;
-	  size_t z = 0;
-	  for (z = 0; z < sz; z++)
-	    {
-	      if (workspace[offset + sxy*z])
-		{
-		  break;
-		}
-	    }
-	  _squared_edt_1d_parabolic((workspace + offset + sxy * z), 
-				    sz - z, sxy, 1, 
-				    black_border || (z > 0), black_border);
-	}
-    }
+    futureWatcher.waitForFinished();
+  }
+  //----------------------------
+  
 
+  //----------------------------
+  // multihtreaded
+  {
+    QList<QList<QVariant>> param;
+    for(y=0; y<sy; y++)
+      {
+	QList<QVariant> plist;
+	plist << QVariant(y);
+	plist << QVariant(sx);
+	plist << QVariant(sy);
+	plist << QVariant(sz);
+	plist << QVariant(sxy);
+	plist << QVariant(black_border);
+	plist << QVariant::fromValue(static_cast<void*>(workspace));
+	
+	param << plist;
+      }
+    
+    QFutureWatcher<void> futureWatcher;
+    
+    QProgressDialog progress(QString("distance transform y : %1").arg(sy),
+			     QString(),
+			     0, 100,
+			     0,
+			     Qt::WindowStaysOnTopHint);
+    if (sy > 300)
+      {
+	progress.setMinimumDuration(0);
+	QObject::connect(&futureWatcher, &QFutureWatcher<void>::finished, &progress, &QProgressDialog::reset);
+	QObject::connect(&progress, &QProgressDialog::canceled, &futureWatcher, &QFutureWatcher<void>::cancel);
+	QObject::connect(&futureWatcher,  &QFutureWatcher<void>::progressRangeChanged, &progress, &QProgressDialog::setRange);
+	QObject::connect(&futureWatcher, &QFutureWatcher<void>::progressValueChanged,  &progress, &QProgressDialog::setValue);
+      }
+
+    futureWatcher.setFuture(QtConcurrent::map(param, par_squared_edt_1d_parabolic_y)); 
+
+    if (sy > 300)
+      progress.exec();
+
+    futureWatcher.waitForFinished();
+  }
+  //----------------------------
 
   toInfinite(workspace, voxels);
 
   return workspace; 
+
+  
+  
+//////----------------------------
+////// Sequential run
+//////----------------------------
+//  size_t offset;
+//
+//  for (z = 0; z < sz; z++)
+//    {
+//      for (x = 0; x < sx; x++)
+//	{
+//	  offset = x + sxy * z;
+//	  for (y = 0; y < sy; y++)
+//	    {
+//	      if (workspace[offset + sx*y])
+//		{
+//		  break;
+//		}
+//	    }
+//
+//	  _squared_edt_1d_parabolic((workspace + offset + sx * y),
+//				    sy - y, sx, 1,
+//				    black_border || (y > 0), black_border);
+//	}
+//    }
+//
+//  progress.setValue(75);
+//  qApp->processEvents();
+//
+//  for (y = 0; y < sy; y++)
+//    {
+//      for (x = 0; x < sx; x++)
+//	{
+//	  offset = x + sx * y;
+//	  size_t z = 0;
+//	  for (z = 0; z < sz; z++)
+//	    {
+//	      if (workspace[offset + sxy*z])
+//		{
+//		  break;
+//		}
+//	    }
+//	  _squared_edt_1d_parabolic((workspace + offset + sxy * z), 
+//				    sz - z, sxy, 1, 
+//				    black_border || (z > 0), black_border);
+//	}
+//    }
+//////----------------------------
+//////----------------------------
+//
+//  toInfinite(workspace, voxels);
+//
+//  return workspace; 
 }

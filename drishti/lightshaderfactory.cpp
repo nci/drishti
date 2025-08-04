@@ -153,7 +153,6 @@ LightShaderFactory::genOpacityShader(int nvol, bool bit16, bool amrData)
 	  shader += "val."+c+" += float(h0)/256.0;\n";
 	  shader += "g = float(h1)/256.0;\n";
 	}
-      //shader += QString("  g = (float(%1) + g)/float(%2);\n").arg(i-1).arg(nvol);
       shader += QString("  g = tfSet + (float(%1) + g)/float(%2);\n").arg(i-1).arg(Global::lutSize());
       shader += "  color = texture(lutTex, vec2(val."+c+",g));\n";
       shader += "  rgb += color.rgb;\n";
@@ -787,7 +786,7 @@ LightShaderFactory::genInitTubeLightShader() // point shader
   // ----- ambient occlusion ----
   shader += "  if (lradius < 1.0)\n";
   shader += "     {\n";
-  shader += "       vec3 ig = vec3(2.0);\n";
+  shader += "       vec3 ig = vec3(2.5);\n";
   shader += "       bvec3 spless = lessThan(p, ig);\n";
   shader += "       bvec3 spgret = greaterThan(p, vec3(gridx,gridy,gridz)-ig);\n";
   shader += "       if (any(spless) || any(spgret))\n";

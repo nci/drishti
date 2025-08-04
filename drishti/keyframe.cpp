@@ -505,13 +505,6 @@ KeyFrame::interpolateAt(int kf, float frc,
   //-------------------------------  
 
   //-------------------------------  
-  float bt0 = m_keyFrameInfo[kf]->gamma();
-  float bt1 = m_keyFrameInfo[kf+1]->gamma();
-  float bt = bt0 + frc*(bt1-bt0);
-  kfi.setGamma(bt);
-  //-------------------------------  
-
-  //-------------------------------  
   if (frc < 0.5)
     kfi.setBackgroundImageFile(m_keyFrameInfo[kf]->backgroundImageFile());
   else
@@ -712,6 +705,11 @@ KeyFrame::interpolateAt(int kf, float frc,
   LightingInformation lightInfo2 = m_keyFrameInfo[kf+1]->lightInfo();
   lightInfo = LightingInformation::interpolate(lightInfo1, lightInfo2, rfrc);
   kfi.setLightInfo(lightInfo);
+
+  float bt0 = m_keyFrameInfo[kf]->gamma();
+  float bt1 = m_keyFrameInfo[kf+1]->gamma();
+  float bt = bt0 + rfrc*(bt1-bt0);
+  kfi.setGamma(bt);
 
   rfrc = StaticFunctions::remapKeyframe(m_keyFrameInfo[kf]->interpGiLightInfo(), frc);
   GiLightInfo giLightInfo;

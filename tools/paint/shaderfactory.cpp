@@ -169,7 +169,7 @@ ShaderFactory::genSliceShader(bool bit16)
     shader += "  color = texture(lutTex, vec2(val,0.0));\n";
   else
     {
-      shader += "  int h0 = int(65535.0*val);\n";
+      shader += "  int h0 = int(65536.0*val);\n";
       shader += "  int h1 = h0 / 256;\n";
       shader += "  h0 = int(mod(float(h0),256.0));\n";
       shader += "  float fh0 = float(h0)/256.0;\n";
@@ -867,7 +867,6 @@ ShaderFactory::genEdgeEnhanceShader(bool val16, bool mask16)
 
   //---------------------
   shader += "  vec4 color = vec4(0.0);\n";
-  //shader += "  color = texture(tagTex, vec2(tag, 0));\n";
   if (!mask16)
     shader += "  color = texture(tagTex, vec2(tag, 0));\n";
   else
@@ -883,7 +882,7 @@ ShaderFactory::genEdgeEnhanceShader(bool val16, bool mask16)
     }
   // so that we can use tag opacity to hide certain tagged regions
   // tagcolor.a should either 0 or 1
-  shader += "  if (color.a < 0.001) discard;\n";
+  shader += "  if (color.a < 0.1) discard;\n";
   //---------------------
 
   shader += "  if (tag < 0.0000001)\n";

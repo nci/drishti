@@ -22,6 +22,7 @@ using namespace qglviewer;
 #include "volume.h"
 #include "popupslider.h"
 
+
 typedef void (Viewer::*MenuViewerFncPtr)();
 
 class ViewerUndo
@@ -262,6 +263,7 @@ class Viewer : public QGLViewer
 #endif // USE_GLMEDIA
   unsigned char *m_movieFrame;
 
+  
   MessageDisplayer *m_messageDisplayer;
 
   bool m_imageSizeFlag;

@@ -1881,7 +1881,7 @@ bool
 Viewer::startMovie(QString flnm,
 		   int ofps, int quality,
 		   bool checkfps)
-{
+{  
 #ifdef USE_GLMEDIA
   int fps = ofps;
 
@@ -1965,7 +1965,6 @@ Viewer::startMovie(QString flnm,
       }
     }
   //---------------------------------------------------------
-
 
 
   if (m_movieFrame)

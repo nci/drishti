@@ -10,7 +10,10 @@
 #include <QItemEditorCreatorBase>
 #include <QItemDelegate>
 #include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QGridLayout>
 #include <QHeaderView>
+#include <QCursor>
 
 #include <algorithm>
 
@@ -106,32 +109,90 @@ TagColorEditor::setColors()
     }
 }
 
+bool
+TagColorEditor::getLowHighRange(int &low, int &high)
+{
+  // use QMessageBox to display the low and high range
+  QMessageBox *box = new QMessageBox(QMessageBox::NoIcon,
+				     "Label Range Selection",
+				     "Select Low and High",
+				     QMessageBox::Ok | QMessageBox::Cancel);
+  QLayout *layout = box->layout();
+  QWidget *widget = new QWidget();
+  QHBoxLayout *hbox = new QHBoxLayout();
+  hbox->addWidget(&m_low);
+  hbox->addWidget(&m_high);
+  widget->setLayout(hbox);
+  ((QGridLayout*)layout)->addWidget(widget, 1, 0, 1, 2);
+
+  m_low.setMaximum(65534);
+  m_high.setMaximum(65534);
+  
+  m_low.setValue(0);
+  m_high.setValue(65534);
+  
+  box->move(QCursor::pos());
+  box->setMinimumWidth(300);
+  int ret = box->exec();
+
+  if (ret != QMessageBox::Cancel)
+    {
+      low = m_low.value();
+      high = m_high.value();
+      return true;
+    }
+  
+  return false;
+}
+
 void
 TagColorEditor::showTagsClicked()
 {
-  uchar *colors = Global::tagColors();
-  int nColors = 256;
-  if (Global::bytesPerMask() == 2)
-    nColors = 65536;
-      
-  for(int i=0; i<nColors; i++)
-    colors[4*i+3] = 255;
+//  uchar *colors = Global::tagColors();
+//  int nColors = 256;
+//  if (Global::bytesPerMask() == 2)
+//    nColors = 65536;
+//  
+//  for(int i=0; i<nColors; i++)
+//    colors[4*i+3] = 255;
+//
+//  setColors();
 
-  setColors();
+  int low, high;
+  if (getLowHighRange(low, high))
+    {
+      uchar *colors = Global::tagColors();      
+
+      for(size_t i=low; i<=high; i++)
+	colors[4*i+3] = 255;
+      
+      setColors();
+    }
 }
 
 void
 TagColorEditor::hideTagsClicked()
 {
-  uchar *colors = Global::tagColors();
-  int nColors = 256;
-  if (Global::bytesPerMask() == 2)
-    nColors = 65536;
-  
-  for(int i=0; i<nColors; i++)
-      colors[4*i+3] = 0;
+//  uchar *colors = Global::tagColors();
+//  int nColors = 256;
+//  if (Global::bytesPerMask() == 2)
+//    nColors = 65536;
+//  
+//  for(int i=0; i<nColors; i++)
+//      colors[4*i+3] = 0;
+//
+//  setColors();
 
-  setColors();
+  int low, high;
+  if (getLowHighRange(low, high))
+    {
+      uchar *colors = Global::tagColors();      
+
+      for(size_t i=low; i<=high; i++)
+	colors[4*i+3] = 0;
+      
+      setColors();
+    }
 }
 
 void
@@ -154,8 +215,8 @@ TagColorEditor::createGUI()
     table->setColumnWidth(i, 100);
 
   QPushButton *newTags = new QPushButton("New Label Colors");
-  QPushButton *showTags = new QPushButton("Show All Labels");
-  QPushButton *hideTags = new QPushButton("Hide All Labels");
+  QPushButton *showTags = new QPushButton("Show Labels");
+  QPushButton *hideTags = new QPushButton("Hide Labels");
 
   QHBoxLayout *hlayout = new QHBoxLayout;
   hlayout->addWidget(newTags);

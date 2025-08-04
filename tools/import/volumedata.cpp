@@ -565,6 +565,7 @@ VolumeData::rawValue(int d, int w, int h)
 
   QVariant v = m_volInterface->rawValue(d, w, h);
 
+
   if (v.type() == QVariant::String)
     {
       pair.first = v;

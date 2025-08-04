@@ -905,7 +905,6 @@ NcPlugin::rawValue(int d, int w, int h)
       return v;
     }
 
-
   //------ cater for multiple netCDF files ------
   int nf = 0;
   int slcno = d;
@@ -933,43 +932,47 @@ NcPlugin::rawValue(int d, int w, int h)
 
   NcVar ncvar;
   ncvar = dataFile.getVar(m_varName.toStdString());
-  
-  if (m_voxelType == _UChar)
+
+
+  std::vector<size_t> count(3);
+  count[0] = 1;
+  count[1] = 1;
+  count[2] = 1;
+
+  uchar a[8];
+  memset(a, 0, 8);
+  uchar *tmp = &a[0];
+  if (ncvar.getType() == ncUbyte)
     {
-      unsigned char a;
-      ncvar.getVar(index, (unsigned char*)&a);
-      v = QVariant((uint)a);
+      ncvar.getVar(index, count, (unsigned char*)tmp);            
+      v = QVariant((uint)tmp);      
     }
-  else if (m_voxelType == _Char)
+  else if (ncvar.getType() == ncByte || ncvar.getType() == ncChar)
     {
-      char a;
-      ncvar.getVar(index, (char*)&a);
-      v = QVariant((int)a);
+      ncvar.getVar(index, count, (signed char*)tmp);
+      v = QVariant((int)tmp);
     }
-  else if (m_voxelType == _UShort)
+  else if (ncvar.getType() == ncShort)
     {
-      unsigned short a;
-      ncvar.getVar(index, (unsigned short*)&a);
-      v = QVariant((uint)a);
+      ncvar.getVar(index, count, (short*)tmp);
+      v = QVariant((uint)*tmp);
     }
-  else if (m_voxelType == _Short)
+  else if (ncvar.getType() == ncInt)
     {
-      short a;
-      ncvar.getVar(index, (short*)&a);
-      v = QVariant((int)a);
+      ncvar.getVar(index, count, (int*)tmp);
+      v = QVariant((int)*tmp);
     }
-  else if (m_voxelType == _Int)
+  else if (ncvar.getType() == ncFloat)
     {
-      int a;
-      ncvar.getVar(index, (int*)&a);
-      v = QVariant((int)a);
+      ncvar.getVar(index, count, (float*)tmp);
+      v = QVariant((double)*tmp);
     }
-  else if (m_voxelType == _Float)
+  else if (ncvar.getType() == ncDouble)
     {
-      float a;
-      ncvar.getVar(index, (float*)&a);
-      v = QVariant((double)a);
+      ncvar.getVar(index, count, (double*)tmp);
+      v = QVariant((double)*tmp);
     }
+
   dataFile.close();
 
   return v;

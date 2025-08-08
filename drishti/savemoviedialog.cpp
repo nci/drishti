@@ -38,7 +38,7 @@ SaveMovieDialog::on_m_file_pressed()
   flnm = QFileDialog::getSaveFileName(0,
 				      "Save Movie",
 				      m_dir,
-				      "Movie Files (*.wmv)");
+				      "Movie Files (*.mp4)");
 #elif defined(Q_OS_OSX)
   flnm = QFileDialog::getSaveFileName(0,
 				      "Save Movie",

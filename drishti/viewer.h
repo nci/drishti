@@ -15,12 +15,11 @@ using namespace qglviewer;
 #include "keyframe.h"
 #include "brickswidget.h"
 
-#ifdef USE_GLMEDIA
-#include "glmedia.h"
-#endif // USE_GLMEDIA
 #include "messagedisplayer.h"
 #include "volume.h"
 #include "popupslider.h"
+
+#include"videoencoder.h"
 
 
 typedef void (Viewer::*MenuViewerFncPtr)();
@@ -257,12 +256,11 @@ class Viewer : public QGLViewer
 
   int m_imageMode;
   bool m_saveMovie;
-#ifdef USE_GLMEDIA
-  glmedia_movie_writer_t m_movieWriterLeft;
-  glmedia_movie_writer_t m_movieWriterRight;
-#endif // USE_GLMEDIA
   unsigned char *m_movieFrame;
 
+  VideoEncoder m_videoEncoder;
+  VideoEncoder m_videoEncoderR;
+  
   
   MessageDisplayer *m_messageDisplayer;
 

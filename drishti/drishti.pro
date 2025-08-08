@@ -40,32 +40,38 @@ include( ../drishti.pri )
 win32 {
   RC_ICONS += images/drishti-256.ico
 
-  DEFINES += USE_GLMEDIA
-
   contains(Windows_Setup, Win64) {
     message(drishti.exe : Win64 setup)
     DEFINES += _CRT_SECURE_NO_WARNINGS
 
-    INCLUDEPATH += ..\glmedia-64 \
-                   16bit \
+    INCLUDEPATH += 16bit \
                    c:/cygwin64/home/acl900/drishtilib/assimp-5.0.1/include \
                    c:/cygwin64/home/acl900/drishtilib/assimp-5.0.1/build/include \
-                   C:\cygwin64\home\acl900\vcpkg\vcpkg\installed\x64-windows\include
-                   
-    QMAKE_LIBDIR += ..\glmedia-64 \
-                   c:/cygwin64/home/acl900/drishtilib/assimp-5.0.1/libs \
-                   C:\cygwin64\home\acl900\vcpkg\vcpkg\installed\x64-windows\lib
+                   C:\cygwin64\home\acl900\vcpkg\vcpkg\installed\x64-windows\include \
+                   C:\cygwin64\home\acl900\git-drishti\common\src\videoencoder
 
+    INCLUDEPATH += $$FFMPEG_INCLUDE_PATH
+                   
+    QMAKE_LIBDIR += c:/cygwin64/home/acl900/drishtilib/assimp-5.0.1/libs \
+                    C:\cygwin64\home\acl900\vcpkg\vcpkg\installed\x64-windows\lib
+	
+    QMAKE_LIBDIR += $$FFMPEG_LIBRARY_PATH
                    
     LIBS += QGLViewer2.lib \
             netcdf-cxx4.lib \
             netcdf.lib \
   	    glew32.lib \
   	    freeglut.lib \
-  	    glmedia.lib \
             opengl32.lib \
             glu32.lib \
             assimp-vc142-mt.lib
+
+     # Set list of required FFmpeg libraries
+     LIBS += -lavutil \
+             -lavcodec \
+             -lavformat \
+             -lswresample \
+             -lswscale 
   }
 }
 
@@ -251,7 +257,8 @@ HEADERS += launcher.h \
 	   gilightobjectinfo.h \
 	   videoplayer.h \
 	   mybitarray.h \
-           popupslider.h
+           popupslider.h \
+           ../common/src/videoencoder/videoencoder.h
 
 
  SOURCES +=launcher.cpp \
@@ -387,4 +394,5 @@ HEADERS += launcher.h \
 	   gilightobjectinfo.cpp \
 	   videoplayer.cpp \
 	   mybitarray.cpp \
-	   popupslider.cpp
+	   popupslider.cpp \
+           ../common/src/videoencoder/videoencoder.cpp

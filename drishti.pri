@@ -12,6 +12,9 @@ contains(Windows_Setup, Win64) {
   win32 {
     message(Win64 setup)
 
+    FFMPEG_LIBRARY_PATH = c:/Apps/ffmpeg-6.1/lib
+    FFMPEG_INCLUDE_PATH = c:/Apps/ffmpeg-6.1/include
+
     contains(DRISHTI_DEFINES, RENDERER) {
       INCLUDEPATH += c:\Qt\Qt-5.15.2\libQGLViewer\libQGLViewer-2.6.4 \
   	c:\cygwin64\home\acl900\drishtilib\freeglut\include \
@@ -21,7 +24,7 @@ contains(Windows_Setup, Win64) {
   	c:\cygwin64\home\acl900\drishtilib\freeglut\lib\x64 \
 	c:\cygwin64\home\acl900\drishtilib\glew-2.1.0\build\lib\Release
     }
-  
+  	
     contains(DRISHTI_DEFINES, ITK) {
       ITKVer = 5.0
       InsightToolkit = C:\InsightToolkit-$${ITKVer}.1

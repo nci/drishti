@@ -1408,16 +1408,25 @@ MainWindow::on_actionSave_Movie_triggered()
 
   m_Viewer->setImageSize(imgSize.width(), imgSize.height());
 
-#if defined(Q_OS_WIN32)
-  if (imgSize.width()%16 > 0)
-    //imgSize.height()%16 > 0)
+  if (imgSize.width()%2 > 0 ||
+      imgSize.height()%2 > 0)
     {
-      emit showMessage(QString("For wmv movies, the image width must be multiple of 16. Current size is %1 x %2"). \
+      emit showMessage(QString("Image dimensions must be even numbers. Current size is %1 x %2"). \
 		       arg(imgSize.width()).
 		       arg(imgSize.height()), true);
       return;
     }
-#endif
+
+//#if defined(Q_OS_WIN32)
+//  if (imgSize.width()%16 > 0)
+//    //imgSize.height()%16 > 0)
+//    {
+//      emit showMessage(QString("For wmv movies, the image width must be multiple of 16. Current size is %1 x %2"). \
+//		       arg(imgSize.width()).
+//		       arg(imgSize.height()), true);
+//      return;
+//    }
+//#endif
 
   SaveMovieDialog saveImg(0,
 			  Global::previousDirectory(),

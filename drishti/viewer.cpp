@@ -577,10 +577,6 @@ Viewer::Viewer(QWidget *parent) :
   m_prevLut = new unsigned char[Global::lutSize()*256*256*4];
   memset(m_prevLut, 0, Global::lutSize()*256*256*4);
 
-#ifdef USE_GLMEDIA
-  m_movieWriterLeft = 0;
-  m_movieWriterRight = 0;
-#endif // USE_GLMEDIA
   m_movieFrame = 0;
 
   m_messageDisplayer = new MessageDisplayer(this);
@@ -639,6 +635,7 @@ Viewer::Viewer(QWidget *parent) :
   m_radSpinBox->hide();
 
   m_brickAngleFromMouse = false;
+
 }
 
 void
@@ -1882,7 +1879,8 @@ Viewer::startMovie(QString flnm,
 		   int ofps, int quality,
 		   bool checkfps)
 {  
-#ifdef USE_GLMEDIA
+  m_videoEncoder.init();
+  
   int fps = ofps;
 
   if (checkfps)
@@ -1903,6 +1901,11 @@ Viewer::startMovie(QString flnm,
 	fps = 25;
     }
 
+  int gop = fps;
+  //int bitrate = m_imageWidth * m_imageHeight * fps * 0.07 * 2;
+  int bitrate = m_imageWidth * m_imageHeight * fps;
+  
+
   //---------------------------------------------------------
   // mono movie or left-eye movie
   QString movieFile;
@@ -1917,25 +1920,9 @@ Viewer::startMovie(QString flnm,
 	f.completeSuffix();
     }
 
-  m_movieWriterLeft = glmedia_movie_writer_create();
-  if (m_movieWriterLeft == NULL) {
-    QMessageBox::critical(0, "Movie",
-			  "Failed to create writer");
-    return false;
-  }
-
-  if (glmedia_movie_writer_start(m_movieWriterLeft,
-				 movieFile.toLatin1().data(),
-				 m_imageWidth,
-				 m_imageHeight,
-				 fps,
-				 quality) < 0) {
-    QMessageBox::critical(0, "Movie",
-			  "Failed to start movie");
-    return false;
-  }
+  m_videoEncoder.createFile(movieFile, m_imageWidth, m_imageHeight, bitrate, gop, fps);
   //---------------------------------------------------------
-
+  
   //---------------------------------------------------------
   // right-eye movie
   if (m_imageMode != Enums::MonoImageMode)
@@ -1946,23 +1933,7 @@ Viewer::startMovie(QString flnm,
 	          f.baseName() + QString("_right.") +
 	          f.completeSuffix();
 
-      m_movieWriterRight = glmedia_movie_writer_create();
-      if (m_movieWriterRight == NULL) {
-	QMessageBox::critical(0, "Movie",
-			      "Failed to create writer");
-	return false;
-      }
-      
-      if (glmedia_movie_writer_start(m_movieWriterRight,
-				     movieFile.toLatin1().data(),
-				     m_imageWidth,
-				     m_imageHeight,
-				     fps,
-				     quality) < 0) {
-	QMessageBox::critical(0, "Movie",
-			      "Failed to start movie");
-	return false;
-      }
+      m_videoEncoderR.createFile(movieFile, m_imageWidth, m_imageHeight, bitrate, gop, fps);
     }
   //---------------------------------------------------------
 
@@ -1974,33 +1945,15 @@ Viewer::startMovie(QString flnm,
   // change the widget size
   setWidgetSizeToImageSize();
 
-#endif // USE_GLMEDIA
   return true;
 }
 
 bool
 Viewer::endMovie()
 {
-#ifdef USE_GLMEDIA
-  if (glmedia_movie_writer_end(m_movieWriterLeft) < 0)
-    {
-      QMessageBox::critical(0, "Movie",
-			       "Failed to end movie");
-      return false;
-    }
-  glmedia_movie_writer_free(m_movieWriterLeft);
 
-  if (m_imageMode != Enums::MonoImageMode)
-    {
-      if (glmedia_movie_writer_end(m_movieWriterRight) < 0)
-	{
-	  QMessageBox::critical(0, "Movie",
-				   "Failed to end movie");
-	  return false;
-	}
-      glmedia_movie_writer_free(m_movieWriterRight);
-    }
-#endif // USE_GLMEDIA
+  m_videoEncoder.close();
+  
   return true;
 }
 
@@ -2030,8 +1983,8 @@ void
 Viewer::fboToMovieFrame()
 {
   QImage bimg = m_imageBuffer->toImage();
-  bimg = bimg.mirrored();
-  bimg = bimg.rgbSwapped();
+  //bimg = bimg.mirrored();
+  //bimg = bimg.rgbSwapped();
 
   memcpy(m_movieFrame, bimg.bits(),
 	 4*bimg.width()*bimg.height());     
@@ -2040,7 +1993,6 @@ Viewer::fboToMovieFrame()
 void
 Viewer::saveMovie()
 {
-#ifdef USE_GLMEDIA
   if (m_imageMode == Enums::MonoImageMode)
     {
       Global::setSaveImageType(Global::MonoImage);
@@ -2052,7 +2004,8 @@ Viewer::saveMovie()
       else
 	screenToMovieFrame();
 
-      glmedia_movie_writer_add(m_movieWriterLeft, m_movieFrame);
+      QImage bimg = QImage(m_movieFrame, m_imageWidth, m_imageHeight, m_imageWidth*4, QImage::Format_ARGB32);          
+      m_videoEncoder.encodeImage(bimg);
     }
   else if (m_imageMode == Enums::StereoImageMode)
     {
@@ -2066,7 +2019,8 @@ Viewer::saveMovie()
       else
 	screenToMovieFrame();
 
-      glmedia_movie_writer_add(m_movieWriterLeft, m_movieFrame);
+      QImage bimg = QImage(m_movieFrame, m_imageWidth, m_imageHeight, m_imageWidth*4, QImage::Format_ARGB32);          
+      m_videoEncoder.encodeImage(bimg);
 
       // --- right image
       Global::setSaveImageType(Global::RightImage);
@@ -2078,14 +2032,9 @@ Viewer::saveMovie()
       else
 	screenToMovieFrame();
 
-      glmedia_movie_writer_add(m_movieWriterRight, m_movieFrame);
+      bimg = QImage(m_movieFrame, m_imageWidth, m_imageHeight, m_imageWidth*4, QImage::Format_ARGB32);          
+      m_videoEncoderR.encodeImage(bimg);
     }
-
-  //      having problem with the last movie frame ??
-  //if (glmedia_movie_writer_add(m_movieWriter, m_movieFrame) < 0)
-  //  QMessageBox::critical(0, "Movie",
-  //  			 "Failed to add frame to movie");
-#endif // USE_GLMEDIA
 }
 
 uint PREMUL(uint x)

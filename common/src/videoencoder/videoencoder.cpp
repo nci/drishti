@@ -98,20 +98,12 @@ VideoEncoder::add_stream(OutputStream *ost, AVFormatContext *oc,
   ost->st->time_base = AVRational{1, FrameRate};
   c->time_base       = ost->st->time_base;
   
-  c->gop_size      = Gop; /* emit one intra frame every twelve frames at most */
+  c->gop_size      = Gop; /* emit one intra frame every Gop at most */
   c->pix_fmt       = AV_PIX_FMT_YUV420P;
-//  if (c->codec_id == AV_CODEC_ID_MPEG2VIDEO) {
-//    /* just for testing, we also add B-frames */
-//    c->max_b_frames = 2;
-//  }
-//  if (c->codec_id == AV_CODEC_ID_MPEG1VIDEO) {
-//    /* Needed to avoid using macroblocks in which some coeffs overflow.
-//     * This does not happen with normal video, it just happens here as
-//     * the motion of the chroma plane does not match the luma plane. */
-//    c->mb_decision = 2;
-//  }
   //------------
   //------------
+
+  ost->st->avg_frame_rate = AVRational{FrameRate, 1};
   
   /* Some formats want stream headers to be separate. */
   if (oc->oformat->flags & AVFMT_GLOBALHEADER)

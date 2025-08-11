@@ -48,7 +48,7 @@ win32 {
                    c:/cygwin64/home/acl900/drishtilib/assimp-5.0.1/include \
                    c:/cygwin64/home/acl900/drishtilib/assimp-5.0.1/build/include \
                    C:\cygwin64\home\acl900\vcpkg\vcpkg\installed\x64-windows\include \
-                   C:\cygwin64\home\acl900\git-drishti\common\src\videoencoder
+                   ..\common\src\videoencoder
 
     INCLUDEPATH += $$FFMPEG_INCLUDE_PATH
                    
@@ -57,14 +57,14 @@ win32 {
 	
     QMAKE_LIBDIR += $$FFMPEG_LIBRARY_PATH
                    
-    LIBS += QGLViewer2.lib \
-            netcdf-cxx4.lib \
-            netcdf.lib \
-  	    glew32.lib \
-  	    freeglut.lib \
-            opengl32.lib \
-            glu32.lib \
-            assimp-vc142-mt.lib
+    LIBS += -lQGLViewer2 \
+            -lnetcdf-cxx4 \
+            -lnetcdf \
+  	    -lglew32 \
+  	    -lfreeglut \
+            -lopengl32 \
+            -lglu32 \
+            -lassimp-vc142-mt
 
      # Set list of required FFmpeg libraries
      LIBS += -lavutil \
@@ -81,8 +81,6 @@ unix {
 
 TARGET = drishti
 
-DEFINES += NO_GLMEDIA
-
 INCLUDEPATH += 16bit
 
 LIBS += -lGLU
@@ -98,8 +96,6 @@ LIBS += -lGLU
 
 
 macx {
-
-DEFINES += NO_GLMEDIA
 
 INCLUDEPATH += 16bit
 

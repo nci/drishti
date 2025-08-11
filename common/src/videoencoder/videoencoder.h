@@ -1,5 +1,5 @@
-#ifndef VideoEncoder_H
-#define VideoEncoder_H
+#ifndef VIDEOENCODER_H
+#define VIDEOENCODER_H
 
 
 #include <QIODevice>
@@ -42,24 +42,26 @@ public:
   bool close();
   
   void encodeImage(const QImage &);
+  void encodeImage(uchar*, int, int, int, int);
 
 private:
-  QString fileName;
-  int FrameRate;
-  unsigned Width,Height;
-  unsigned Bitrate;
-  unsigned Gop;
+  int m_frameRate;
+  unsigned m_width,m_height;
+  unsigned m_bitrate;
+  unsigned m_gop;
   
-  AVFormatContext *avFormatCtx;
-  const AVOutputFormat *avOutputFormat;
-  const AVCodec *avCodec;
-  AVDictionary *avDict;
-  OutputStream video_st = {0};  
+  AVFormatContext *m_avFormatCtx;
+  const AVOutputFormat *m_avOutputFormat;
+  const AVCodec *m_avCodec;
+  AVDictionary *m_avDict;
+  OutputStream m_videoStream = {0};  
   
   
   // Frame conversion
   bool convertImage(OutputStream*, const QImage&);
-  
+  bool convertImage(OutputStream*,
+		    uchar*, int, int, int, int);
+
   void close_stream(AVFormatContext*, OutputStream*);
   void add_stream(OutputStream*, AVFormatContext*,
 		  const AVCodec**, enum AVCodecID);

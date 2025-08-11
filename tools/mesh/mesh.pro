@@ -32,7 +32,6 @@ include( ../../drishti.pri )
 win32 {
   RC_ICONS += images/drishtimesh.ico
 
-  DEFINES += USE_GLMEDIA
   OPENVR_VERSION = 1.14.15
 
   contains(Windows_Setup, Win64) {
@@ -44,36 +43,51 @@ win32 {
 
     QMAKE_LFLAGS += /OPT:ICF /LTCG
     
-    INCLUDEPATH += ..\..\glmedia-64 \
-                   c:/cygwin64/home/acl900/drishtilib/assimp-5.0.1/include \
-                   c:/cygwin64/home/acl900/drishtilib/assimp-5.0.1/build/include
+    INCLUDEPATH += c:/cygwin64/home/acl900/drishtilib/assimp-5.0.1/include \
+                   c:/cygwin64/home/acl900/drishtilib/assimp-5.0.1/build/include \
+                   ..\..\common\src\videoencoder
+
+    INCLUDEPATH += $$FFMPEG_INCLUDE_PATH
                    
-    QMAKE_LIBDIR += ..\..\glmedia-64 \
-                    c:/cygwin64/home/acl900/drishtilib/assimp-5.0.1/libs
+    QMAKE_LIBDIR += c:/cygwin64/home/acl900/drishtilib/assimp-5.0.1/libs
+	
+    QMAKE_LIBDIR += $$FFMPEG_LIBRARY_PATH
 
                    
-    LIBS += QGLViewer2.lib \
-            glew32.lib \
-            glmedia.lib \
-            opengl32.lib \
-            glu32.lib \
-            assimp-vc142-mt.lib \
-            iphlpapi.lib
+    LIBS += -lQGLViewer2 \
+            -lglew32 \
+            -lopengl32 \
+            -lglu32 \
+            -lassimp-vc142-mt \
+            -liphlpapi
+
+    # Set list of required FFmpeg libraries
+    LIBS += -lavutil \
+            -lavcodec \
+            -lavformat \
+            -lswresample \
+            -lswscale 
   }
 }
 
 
 unix {
 !macx {
-  DEFINES += NO_GLMEDIA
-
   INCLUDEPATH +=  /home/acl900/drishtilib/assimp-5.0.1/include \
-                  /home/acl900/drishtilib/assimp-5.0.1/build/include
+                  /home/acl900/drishtilib/assimp-5.0.1/build/include \
+                  ..\..\common\src\videoencoder
 
 
   QMAKE_LIBDIR += /home/acl900/drishtilib/assimp-5.0.1/libs 
 
   LIBS += -lGLU
+
+  # Set list of required FFmpeg libraries
+  LIBS += -lavutil \
+          -lavcodec \
+          -lavformat \
+          -lswresample \
+          -lswscale 
   }
 }
 
@@ -157,7 +171,8 @@ HEADERS += boundingbox.h \
            viewer.h \
            xmlheaderfunctions.h \
            popupslider.h \
-           captionwidget.h
+           captionwidget.h \
+           ../../common/src/videoencoder/videoencoder.h
 
 SOURCES += boundingbox.cpp \
 	   brickinformation.cpp \
@@ -226,3 +241,4 @@ SOURCES += boundingbox.cpp \
 	   xmlheaderfunctions.cpp \
            popupslider.cpp \
            captionwidget.cpp \
+           ../../common/src/videoencoder/videoencoder.cpp

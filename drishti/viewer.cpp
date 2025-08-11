@@ -1880,6 +1880,7 @@ Viewer::startMovie(QString flnm,
 		   bool checkfps)
 {  
   m_videoEncoder.init();
+  m_videoEncoderR.init();
   
   int fps = ofps;
 
@@ -1953,6 +1954,7 @@ Viewer::endMovie()
 {
 
   m_videoEncoder.close();
+  m_videoEncoderR.close();
   
   return true;
 }
@@ -2004,8 +2006,9 @@ Viewer::saveMovie()
       else
 	screenToMovieFrame();
 
-      QImage bimg = QImage(m_movieFrame, m_imageWidth, m_imageHeight, m_imageWidth*4, QImage::Format_ARGB32);          
-      m_videoEncoder.encodeImage(bimg);
+      //QImage bimg = QImage(m_movieFrame, m_imageWidth, m_imageHeight, m_imageWidth*4, QImage::Format_ARGB32);          
+      //m_videoEncoder.encodeImage(bimg);
+      m_videoEncoder.encodeImage(m_movieFrame, m_imageWidth, m_imageHeight, m_imageWidth*4, QImage::Format_ARGB32);
     }
   else if (m_imageMode == Enums::StereoImageMode)
     {
@@ -2019,8 +2022,9 @@ Viewer::saveMovie()
       else
 	screenToMovieFrame();
 
-      QImage bimg = QImage(m_movieFrame, m_imageWidth, m_imageHeight, m_imageWidth*4, QImage::Format_ARGB32);          
-      m_videoEncoder.encodeImage(bimg);
+      //QImage bimg = QImage(m_movieFrame, m_imageWidth, m_imageHeight, m_imageWidth*4, QImage::Format_ARGB32);          
+      //m_videoEncoder.encodeImage(bimg);
+      m_videoEncoder.encodeImage(m_movieFrame, m_imageWidth, m_imageHeight, m_imageWidth*4, QImage::Format_ARGB32);
 
       // --- right image
       Global::setSaveImageType(Global::RightImage);
@@ -2032,8 +2036,9 @@ Viewer::saveMovie()
       else
 	screenToMovieFrame();
 
-      bimg = QImage(m_movieFrame, m_imageWidth, m_imageHeight, m_imageWidth*4, QImage::Format_ARGB32);          
-      m_videoEncoderR.encodeImage(bimg);
+      //bimg = QImage(m_movieFrame, m_imageWidth, m_imageHeight, m_imageWidth*4, QImage::Format_ARGB32);          
+      //m_videoEncoderR.encodeImage(bimg);
+      m_videoEncoderR.encodeImage(m_movieFrame, m_imageWidth, m_imageHeight, m_imageWidth*4, QImage::Format_ARGB32);
     }
 }
 

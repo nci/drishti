@@ -22,10 +22,10 @@ av_always_inline std::string av_err2string(int errnum) {
 **/
 VideoEncoder::VideoEncoder()
 {
-  avFormatCtx=0;
-  avOutputFormat=0;
-  avCodec=0;
-  avDict = NULL;
+  m_avFormatCtx=0;
+  m_avOutputFormat=0;
+  m_avCodec=0;
+  m_avDict = NULL;
 }
 
 VideoEncoder::~VideoEncoder()
@@ -36,10 +36,10 @@ VideoEncoder::~VideoEncoder()
 void
 VideoEncoder::init()
 {
-  avFormatCtx=0;
-  avOutputFormat=0;
-  avCodec=0;
-  avDict = NULL;
+  m_avFormatCtx=0;
+  m_avOutputFormat=0;
+  m_avCodec=0;
+  m_avDict = NULL;
 }
 
 
@@ -87,23 +87,23 @@ VideoEncoder::add_stream(OutputStream *ost, AVFormatContext *oc,
     
   //------------
   //------------
-  c->bit_rate = Bitrate;
+  c->bit_rate = m_bitrate;
   /* Resolution must be a multiple of two. */
-  c->width    = Width;
-  c->height   = Height;
+  c->width    = m_width;
+  c->height   = m_height;
   /* timebase: This is the fundamental unit of time (in seconds) in terms
    * of which frame timestamps are represented. For fixed-fps content,
    * timebase should be 1/framerate and timestamp increments should be
    * identical to 1. */
-  ost->st->time_base = AVRational{1, FrameRate};
+  ost->st->time_base = AVRational{1, m_frameRate};
   c->time_base       = ost->st->time_base;
   
-  c->gop_size      = Gop; /* emit one intra frame every Gop at most */
+  c->gop_size      = m_gop; /* emit one intra frame every gop at most */
   c->pix_fmt       = AV_PIX_FMT_YUV420P;
   //------------
   //------------
 
-  ost->st->avg_frame_rate = AVRational{FrameRate, 1};
+  ost->st->avg_frame_rate = AVRational{m_frameRate, 1};
   
   /* Some formats want stream headers to be separate. */
   if (oc->oformat->flags & AVFMT_GLOBALHEADER)
@@ -185,48 +185,43 @@ VideoEncoder::open_video(AVFormatContext *oc, const AVCodec *codec,
 }
 
 bool VideoEncoder::createFile(QString fileName,
-			       unsigned width,unsigned height,
-			       unsigned bitrate,unsigned gop,unsigned fps)
+			      unsigned width,unsigned height,
+			      unsigned bitrate,unsigned gop,unsigned fps)
 {
   int ret;
   
-  Width=width;
-  Height=height;
-  Gop=gop;
-  Bitrate=bitrate;
-  FrameRate=fps;
+  m_width=width;
+  m_height=height;
+  m_gop=gop;
+  m_bitrate=bitrate;
+  m_frameRate=fps;
 
   
-  avformat_alloc_output_context2(&avFormatCtx, NULL, NULL, fileName.toStdString().c_str());
-  if (!avFormatCtx) {
+  avformat_alloc_output_context2(&m_avFormatCtx, NULL, NULL, fileName.toStdString().c_str());
+  if (!m_avFormatCtx) {
     printf("Could not deduce output format from file extension: using MP4.\n");
-    avformat_alloc_output_context2(&avFormatCtx, NULL, "mp4", fileName.toStdString().c_str());
+    avformat_alloc_output_context2(&m_avFormatCtx, NULL, "mp4", fileName.toStdString().c_str());
   }
-  if (!avFormatCtx)
+  if (!m_avFormatCtx)
     return false;
   
-  avOutputFormat = avFormatCtx->oformat;
+  m_avOutputFormat = m_avFormatCtx->oformat;
   
   /* Add video stream using the default format codecs
    * and initialize the codecs. */
-//  if (avOutputFormat->video_codec != AV_CODEC_ID_NONE) {
-//    add_stream(&video_st, avFormatCtx, &avCodec, avOutputFormat->video_codec);
+//  if (m_avOutputFormat->video_codec != AV_CODEC_ID_NONE) {
+//    add_stream(&m_videoStream, m_avFormatCtx, &m_avCodec, m_avOutputFormat->video_codec);
 //  }
-  add_stream(&video_st, avFormatCtx, &avCodec, AV_CODEC_ID_H264);
+  add_stream(&m_videoStream, m_avFormatCtx, &m_avCodec, AV_CODEC_ID_H264);
   
   /* Now that all the parameters are set, we can open the audio and
    * video codecs and allocate the necessary encode buffers. */
-  avDict = NULL;
-  open_video(avFormatCtx, avCodec, &video_st, avDict);
+  open_video(m_avFormatCtx, m_avCodec, &m_videoStream, m_avDict);
   
-  //----
-  // print output format to screen
-  //av_dump_format(oc, 0, fileName.toStdString().c_str(), 1);
-  //----
   
   /* open the output file, if needed */
-  if (!(avOutputFormat->flags & AVFMT_NOFILE)) {
-    ret = avio_open(&avFormatCtx->pb, fileName.toStdString().c_str(), AVIO_FLAG_WRITE);
+  if (!(m_avOutputFormat->flags & AVFMT_NOFILE)) {
+    ret = avio_open(&m_avFormatCtx->pb, fileName.toStdString().c_str(), AVIO_FLAG_WRITE);
     if (ret < 0)
       {
 	QMessageBox::information(0, "Error", QString("Could not open '%1': %2"). \
@@ -236,7 +231,7 @@ bool VideoEncoder::createFile(QString fileName,
   }
   
   /* Write the stream header, if any. */
-  ret = avformat_write_header(avFormatCtx, &avDict);
+  ret = avformat_write_header(m_avFormatCtx, &m_avDict);
   if (ret < 0)
     {
       QMessageBox::information(0, "Error",
@@ -245,8 +240,6 @@ bool VideoEncoder::createFile(QString fileName,
       return 1;
     }
   
-  //QMessageBox::information(0, "", QString("File created : %1 : %2 %3").arg(fileName).arg(Width).arg(Height));
-
   return true;
 }
 
@@ -267,27 +260,27 @@ VideoEncoder::close_stream(AVFormatContext *oc, OutputStream *ost)
 **/
 bool VideoEncoder::close()
 {
-  if (avFormatCtx == 0)
+  if (m_avFormatCtx == 0)
     return false;
   
-  write_frame(avFormatCtx, video_st.enc, video_st.st, NULL, video_st.tmp_pkt);
+  write_frame(m_avFormatCtx, m_videoStream.enc, m_videoStream.st, NULL, m_videoStream.tmp_pkt);
   
-  av_write_trailer(avFormatCtx);
+  av_write_trailer(m_avFormatCtx);
   
-  close_stream(avFormatCtx, &video_st);
+  close_stream(m_avFormatCtx, &m_videoStream);
   
   // Close file
-  avio_closep(&avFormatCtx->pb);
+  avio_closep(&m_avFormatCtx->pb);
   
   // Free the stream
-  avformat_free_context(avFormatCtx);
+  avformat_free_context(m_avFormatCtx);
   
   return true;
 }
 
 int
 VideoEncoder::write_frame(AVFormatContext *fmt_ctx, AVCodecContext *c,
-			   AVStream *st, AVFrame *frame, AVPacket *pkt)
+			  AVStream *st, AVFrame *frame, AVPacket *pkt)
 {
     int ret;
  
@@ -339,10 +332,19 @@ VideoEncoder::write_frame(AVFormatContext *fmt_ctx, AVCodecContext *c,
 void
 VideoEncoder::encodeImage(const QImage &img)
 {
-  convertImage(&video_st, img);
-  video_st.frame->pts = video_st.next_pts++;
+  convertImage(&m_videoStream, img);
+  m_videoStream.frame->pts = m_videoStream.next_pts++;
 
-  write_frame(avFormatCtx, video_st.enc, video_st.st, video_st.frame, video_st.tmp_pkt);
+  write_frame(m_avFormatCtx, m_videoStream.enc, m_videoStream.st, m_videoStream.frame, m_videoStream.tmp_pkt);
+}
+void
+VideoEncoder::encodeImage(uchar *img, int width, int height, int bytesperline, int format)
+{
+  convertImage(&m_videoStream,
+	       img, width, height, bytesperline, format);
+  m_videoStream.frame->pts = m_videoStream.next_pts++;
+
+  write_frame(m_avFormatCtx, m_videoStream.enc, m_videoStream.st, m_videoStream.frame, m_videoStream.tmp_pkt);
 }
 
 
@@ -358,31 +360,32 @@ VideoEncoder::encodeImage(const QImage &img)
 
 **/
 
-bool VideoEncoder::convertImage(OutputStream *ost, const QImage &img)
+bool
+VideoEncoder::convertImage(OutputStream *ost, const QImage &img)
 {
    // Check if the image matches the size
-   if(img.width()!= Width || img.height()!= Height)
+   if(img.width()!= m_width || img.height()!= m_height)
    {
-      printf("Wrong image size!\n");
-      return false;
+     QMessageBox::information(0, "Error", "Wrong image size!");
+     return false;
    } 
    if(img.format()!=QImage::Format_RGB32 && img.format() != QImage::Format_ARGB32)
    {
-      printf("Wrong image format\n");
-      return false;
+     QMessageBox::information(0, "Error", "Wrong image format!");
+     return false;
    }
 
-   ost->sws_ctx = sws_getContext(Width, Height,
+   ost->sws_ctx = sws_getContext(m_width, m_height,
 				 AV_PIX_FMT_BGRA,
-				 Width, Height,
+				 m_width, m_height,
 				 AV_PIX_FMT_YUV420P,
 				 SWS_BICUBIC,
 				 NULL, NULL, NULL);
 
    if (ost->sws_ctx == NULL)
    {
-      printf("Cannot initialize the conversion context\n");
-      return false;
+     QMessageBox::information(0, "Error", "Cannot initialize the conversion context");
+     return false;
    }
 
    uint8_t *srcplanes[3];
@@ -398,7 +401,55 @@ bool VideoEncoder::convertImage(OutputStream *ost, const QImage &img)
 
    sws_scale(ost->sws_ctx,
 	     srcplanes,
-	     srcstride, 0, Height,
+	     srcstride, 0, m_height,
+	     ost->frame->data, ost->frame->linesize);
+
+   return true;
+}
+
+bool
+VideoEncoder::convertImage(OutputStream *ost,
+			   uchar *img, int width, int height, int bytesperline, int format)
+{
+   // Check if the image matches the size
+   if(width!= m_width || height!= m_height)
+   {
+     QMessageBox::information(0, "Error", "Wrong image size!");
+     return false;
+   } 
+   if(format!=QImage::Format_RGB32 && format != QImage::Format_ARGB32)
+   {
+     QMessageBox::information(0, "Error", "Wrong image format!");
+     return false;
+   }
+
+   ost->sws_ctx = sws_getContext(m_width, m_height,
+				 AV_PIX_FMT_BGRA,
+				 m_width, m_height,
+				 AV_PIX_FMT_YUV420P,
+				 SWS_BICUBIC,
+				 NULL, NULL, NULL);
+
+   if (ost->sws_ctx == NULL)
+   {
+     QMessageBox::information(0, "Error", "Cannot initialize the conversion context");
+     return false;
+   }
+
+   uint8_t *srcplanes[3];
+   srcplanes[0]=(uint8_t*)img;
+   srcplanes[1]=0;
+   srcplanes[2]=0;
+
+   int srcstride[3];
+   srcstride[0]=bytesperline;
+   srcstride[1]=0;
+   srcstride[2]=0;
+
+
+   sws_scale(ost->sws_ctx,
+	     srcplanes,
+	     srcstride, 0, m_height,
 	     ost->frame->data, ost->frame->linesize);
 
    return true;

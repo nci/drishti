@@ -1,5 +1,5 @@
 #include "captiondialog.h"
-#include "dcolordialog.h"
+#include "../../common/src/widgets/dcolordialog.h"
 #include <QFontDialog>
 
 float CaptionDialog::angle() { return ui.angle->value(); }

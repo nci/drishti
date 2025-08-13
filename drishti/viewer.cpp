@@ -1875,33 +1875,11 @@ Viewer::renderVolume(int imagequality)
 }
 
 bool
-Viewer::startMovie(QString flnm,
-		   int ofps, int quality,
-		   bool checkfps)
+Viewer::startMovie(QString flnm, int fps)
 {  
   m_videoEncoder.init();
   m_videoEncoderR.init();
   
-  int fps = ofps;
-
-  if (checkfps)
-    {
-      bool ok;
-      QString text;
-      text = QInputDialog::getText(this,
-				   "Set Frame Rate",
-				   "Frame Rate",
-				   QLineEdit::Normal,
-				   "25",
-				   &ok);
-      
-      if (ok && !text.isEmpty())
-	fps = text.toInt();
-      
-      if (fps <=0 || fps >= 100)
-	fps = 25;
-    }
-
   int gop = fps;
   //int bitrate = m_imageWidth * m_imageHeight * fps * 0.07 * 2;
   int bitrate = m_imageWidth * m_imageHeight * fps;

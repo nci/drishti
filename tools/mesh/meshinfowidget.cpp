@@ -12,7 +12,7 @@
 #include <QItemDelegate>
 #include <QInputDialog>
 
-#include "dcolordialog.h"
+#include "../../common/src/widgets/dcolordialog.h"
 #include "propertyeditor.h"
 #include "opacityeditor.h"
 

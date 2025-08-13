@@ -6,8 +6,8 @@
 #include "dialogs.h"
 #include "staticfunctions.h"
 #include "rawvolume.h"
-#include "saveimageseqdialog.h"
-#include "savemoviedialog.h"
+#include "../../common/src/widgets/saveimageseqdialog.h"
+#include "../../common/src/widgets/savemoviedialog.h"
 #include "fileslistdialog.h"
 #include "load2volumes.h"
 #include "load3volumes.h"
@@ -1085,8 +1085,7 @@ MainWindow::loadProjectRunKeyframesAndExit()
 	  if (bj.movie)
 	    {
 	      if (m_Viewer->startMovie(bj.movieFilename,
-				       bj.frameRate, 100,
-				       false) == false)
+				       bj.frameRate) == false)
 		return;
 	      m_Viewer->setSaveSnapshots(false);
 	      m_Viewer->setSaveMovie(true);
@@ -1417,29 +1416,20 @@ MainWindow::on_actionSave_Movie_triggered()
       return;
     }
 
-//#if defined(Q_OS_WIN32)
-//  if (imgSize.width()%16 > 0)
-//    //imgSize.height()%16 > 0)
-//    {
-//      emit showMessage(QString("For wmv movies, the image width must be multiple of 16. Current size is %1 x %2"). \
-//		       arg(imgSize.width()).
-//		       arg(imgSize.height()), true);
-//      return;
-//    }
-//#endif
+  SaveMovieDialog saveMovDiag(0,
+			      Global::previousDirectory(),
+			      m_keyFrameEditor->startFrame(),
+			      m_keyFrameEditor->endFrame(),
+			      1);
 
-  SaveMovieDialog saveImg(0,
-			  Global::previousDirectory(),
-			  m_keyFrameEditor->startFrame(),
-			  m_keyFrameEditor->endFrame(),
-			  1);
+  int cdW = saveMovDiag.width();
+  int cdH = saveMovDiag.height();
+  saveMovDiag.move(QCursor::pos() - QPoint(cdW/2, cdH/2));
 
-  saveImg.move(QCursor::pos());
-
-  if (saveImg.exec() == QDialog::Accepted)
+  if (saveMovDiag.exec() == QDialog::Accepted)
     {
-      QString flnm = saveImg.fileName();
-      bool movieMode = saveImg.movieMode();
+      QString flnm = saveMovDiag.fileName();        
+      bool movieMode = saveMovDiag.movieMode();
       QFileInfo f(flnm);
       Global::setPreviousDirectory(f.absolutePath());
 
@@ -1448,7 +1438,7 @@ MainWindow::on_actionSave_Movie_triggered()
       else
 	m_Viewer->setImageMode(Enums::StereoImageMode);
 
-      if (m_Viewer->startMovie(flnm, 25, 100, true) == false)
+      if (m_Viewer->startMovie(flnm, saveMovDiag.frameRate()) == false)
 	return;
 
       m_Viewer->setSaveSnapshots(false);
@@ -1458,9 +1448,9 @@ MainWindow::on_actionSave_Movie_triggered()
 
       connect(this, SIGNAL(playKeyFrames(int,int,int)),
 	      m_keyFrameEditor, SLOT(playKeyFrames(int,int,int)));
-      emit playKeyFrames(saveImg.startFrame(),
-			 saveImg.endFrame(),
-			 saveImg.stepFrame());
+      emit playKeyFrames(saveMovDiag.startFrame(),
+			 saveMovDiag.endFrame(),
+			 saveMovDiag.stepFrame());
       qApp->processEvents();
       disconnect(this, SIGNAL(playKeyFrames(int,int,int)),
 		 m_keyFrameEditor, SLOT(playKeyFrames(int,int,int)));

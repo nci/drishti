@@ -112,7 +112,7 @@ class Viewer : public QGLViewer
    void endPlay();
    void setImageFileName(QString);
    
-   bool startMovie(QString, int, int, bool);
+   bool startMovie(QString, int);
    bool endMovie();
    
    

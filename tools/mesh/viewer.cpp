@@ -7,7 +7,7 @@
 #include "enums.h"
 #include "shaderfactory.h"
 #include "propertyeditor.h"
-#include "dcolordialog.h"
+#include "../../common/src/widgets/dcolordialog.h"
 #include "mainwindowui.h"
 
 #include "cube2sphere.h"
@@ -891,32 +891,10 @@ Viewer::renderVolume(int imagequality)
 }
 
 bool
-Viewer::startMovie(QString flnm,
-		   int ofps, int quality,
-		   bool checkfps)
+Viewer::startMovie(QString flnm, int fps)
 {
   m_videoEncoder.init();
   m_videoEncoderR.init();
-
-  int fps = ofps;
-
-  if (checkfps)
-    {
-      bool ok;
-      QString text;
-      text = QInputDialog::getText(this,
-				   tr("Set Frame Rate"),
-				   tr("Frame Rate"),
-				   QLineEdit::Normal,
-				   "25",
-				   &ok);
-      
-      if (ok && !text.isEmpty())
-	fps = text.toInt();
-      
-      if (fps <=0 || fps >= 100)
-	fps = 25;
-    }
 
   int gop = fps;
   //int bitrate = m_imageWidth * m_imageHeight * fps * 0.07 * 2;
@@ -1000,8 +978,8 @@ void
 Viewer::fboToMovieFrame()
 {
   QImage bimg = m_imageBuffer->toImage();
-  bimg = bimg.mirrored();
-  bimg = bimg.rgbSwapped();
+  //bimg = bimg.mirrored();
+  //bimg = bimg.rgbSwapped();
 
   memcpy(m_movieFrame, bimg.bits(),
 	 4*bimg.width()*bimg.height());     

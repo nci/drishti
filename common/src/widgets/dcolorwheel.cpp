@@ -11,6 +11,8 @@ DColorWheel::DColorWheel(QWidget *parent, int margin) :
 
   m_margin = margin;
 
+  m_colorGridSize = 7;
+ 
   m_wheelSize = QRectF(5,5, 10, 10);
   m_wheelCenter = QPointF(m_wheelSize.x()+m_wheelSize.width()/2,
 			  m_wheelSize.y()+m_wheelSize.height()/2);
@@ -31,6 +33,14 @@ DColorWheel::DColorWheel(QWidget *parent, int margin) :
 
   m_currFlag = 0;
 }
+
+void
+DColorWheel::setColorGridSize(int s)
+{
+  m_colorGridSize = qBound(4, s, 15);
+  emit(update());
+}
+
 
 void
 DColorWheel::setColor(QColor col)
@@ -287,6 +297,9 @@ DColorWheel::eventFilter(QObject *object, QEvent *event)
 	    QPointF clickPos = me->pos();
 	    calculateHsv(clickPos);
 	    emit colorChanged();
+	    
+	    QColor col = getColor();
+	    emit colorChanged(col);
 	    break;
 	  }
 	case QEvent::MouseButtonRelease :
@@ -303,6 +316,9 @@ DColorWheel::eventFilter(QObject *object, QEvent *event)
 		QPointF clickPos = me->pos();
 		calculateHsv(clickPos);
 		emit colorChanged();
+
+		QColor col = getColor();
+		emit colorChanged(col);
 	      }
 	    break;
 	  }

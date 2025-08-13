@@ -19,10 +19,13 @@ class SaveMovieDialog : public QDialog
   int endFrame();
   int stepFrame();
   bool movieMode();
-
+  int frameRate();
+		  
  private slots :
   void on_m_file_pressed();
-
+  void on_m_fileName_editingFinished();
+  void keyPressEvent(QKeyEvent*);
+  
  private :
   Ui::SaveMovieDialog ui; 
 

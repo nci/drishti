@@ -2,7 +2,7 @@
 #include "staticfunctions.h"
 #include "clipobject.h"
 #include "captiondialog.h"
-#include "dcolordialog.h"
+#include "../../common/src/widgets/dcolordialog.h"
 #include "propertyeditor.h"
 #include "enums.h"
 #include "matrix.h"

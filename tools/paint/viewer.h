@@ -15,9 +15,7 @@ using namespace qglviewer;
 #include "boundingbox.h"
 #include "mybitarray.h"
 
-#ifdef USE_GLMEDIA
-#include "glmedia.h"
-#endif // USE_GLMEDIA
+#include"videoencoder.h"
 
 class Viewer : public QGLViewer
 {
@@ -161,7 +159,6 @@ class Viewer : public QGLViewer
     void sortLabels(Vec, Vec);
   
     void updateSliceBounds(Vec, Vec);
-    void renderNextFrame();
 
     void setVisible(Vec, Vec, int, bool);
     void resetTag(Vec, Vec, int);
@@ -330,9 +327,7 @@ class Viewer : public QGLViewer
   //-------------
   
   
-#ifdef USE_GLMEDIA
-  glmedia_movie_writer_t m_movieWriter;
-#endif // USE_GLMEDIA
+  VideoEncoder m_videoEncoder;
 
   void grabScreenImage();
   void drawScreenImage();

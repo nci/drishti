@@ -4,13 +4,13 @@
 #include "geometryobjects.h"
 #include "dialogs.h"
 #include "staticfunctions.h"
-#include "saveimageseqdialog.h"
-#include "savemoviedialog.h"
+#include "../../common/src/widgets/saveimageseqdialog.h"
+#include "../../common/src/widgets/savemoviedialog.h"
 #include "propertyeditor.h"
 #include "enums.h"
 #include "pluginthread.h"
 #include "xmlheaderfunctions.h"
-#include "dcolordialog.h"
+#include "../../common/src/widgets/dcolordialog.h"
 
 #include <QDockWidget>
 #include <QFileDialog>
@@ -1008,31 +1008,40 @@ MainWindow::on_actionSave_Movie_triggered()
 
   m_Viewer->setImageSize(imgSize.width(), imgSize.height());
 
-#if defined(Q_OS_WIN32)
-  if (imgSize.width()%16 > 0)
-//    imgSize.height()%16 > 0)
+  if (imgSize.width()%2 > 0 ||
+      imgSize.height()%2 > 0)
     {
-      emit showMessage(QString(tr("For wmv movies, the image width must be multiple of 16. Current size is %1 x %2")). \
+      emit showMessage(QString("Image dimensions must be even numbers. Current size is %1 x %2"). \
 		       arg(imgSize.width()).
 		       arg(imgSize.height()), true);
       return;
     }
-#endif
 
-  SaveMovieDialog saveImg(0,
-			  Global::previousDirectory(),
-			  m_keyFrameEditor->startFrame(),
-			  m_keyFrameEditor->endFrame(),
-			  1);
+//#if defined(Q_OS_WIN32)
+//  if (imgSize.width()%16 > 0)
+////    imgSize.height()%16 > 0)
+//    {
+//      emit showMessage(QString(tr("For wmv movies, the image width must be multiple of 16. Current size is %1 x %2")). \
+//		       arg(imgSize.width()).
+//		       arg(imgSize.height()), true);
+//      return;
+//    }
+//#endif
 
-  int cdW = saveImg.width();
-  int cdH = saveImg.height();
-  saveImg.move(QCursor::pos() - QPoint(cdW/2, cdH/2));
+  SaveMovieDialog saveMovDiag(0,
+			      Global::previousDirectory(),
+			      m_keyFrameEditor->startFrame(),
+			      m_keyFrameEditor->endFrame(),
+			      1);
 
-  if (saveImg.exec() == QDialog::Accepted)
+  int cdW = saveMovDiag.width();
+  int cdH = saveMovDiag.height();
+  saveMovDiag.move(QCursor::pos() - QPoint(cdW/2, cdH/2));
+
+  if (saveMovDiag.exec() == QDialog::Accepted)
     {
-      QString flnm = saveImg.fileName();
-      bool movieMode = saveImg.movieMode();
+      QString flnm = saveMovDiag.fileName();        
+      bool movieMode = saveMovDiag.movieMode();
       QFileInfo f(flnm);
       Global::setPreviousDirectory(f.absolutePath());
 
@@ -1041,7 +1050,7 @@ MainWindow::on_actionSave_Movie_triggered()
       else
 	m_Viewer->setImageMode(Enums::StereoImageMode);
 
-      if (m_Viewer->startMovie(flnm, 25, 100, true) == false)
+      if (m_Viewer->startMovie(flnm, saveMovDiag.frameRate()) == false)
 	return;
 
       m_Viewer->setSaveSnapshots(false);
@@ -1051,9 +1060,9 @@ MainWindow::on_actionSave_Movie_triggered()
 
       connect(this, SIGNAL(playKeyFrames(int,int,int)),
 	      m_keyFrameEditor, SLOT(playKeyFrames(int,int,int)));
-      emit playKeyFrames(saveImg.startFrame(),
-			 saveImg.endFrame(),
-			 saveImg.stepFrame());
+      emit playKeyFrames(saveMovDiag.startFrame(),
+			 saveMovDiag.endFrame(),
+			 saveMovDiag.stepFrame());
       qApp->processEvents();
       disconnect(this, SIGNAL(playKeyFrames(int,int,int)),
 		 m_keyFrameEditor, SLOT(playKeyFrames(int,int,int)));

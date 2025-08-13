@@ -26,6 +26,11 @@ VideoEncoder::VideoEncoder()
   m_avOutputFormat=0;
   m_avCodec=0;
   m_avDict = NULL;
+  m_videoStream = {0};
+  
+  m_frameRate = 0;
+  m_bitrate = 0;
+  m_width = m_height = 0;
 }
 
 VideoEncoder::~VideoEncoder()
@@ -40,6 +45,11 @@ VideoEncoder::init()
   m_avOutputFormat=0;
   m_avCodec=0;
   m_avDict = NULL;
+  m_videoStream = {0};
+  
+  m_frameRate = 0;
+  m_bitrate = 0;
+  m_width = m_height = 0;
 }
 
 
@@ -96,10 +106,11 @@ VideoEncoder::add_stream(OutputStream *ost, AVFormatContext *oc,
    * timebase should be 1/framerate and timestamp increments should be
    * identical to 1. */
   ost->st->time_base = AVRational{1, m_frameRate};
-  c->time_base       = ost->st->time_base;
+  c->framerate = AVRational{m_frameRate, 1};
+  c->time_base = ost->st->time_base;
   
-  c->gop_size      = m_gop; /* emit one intra frame every gop at most */
-  c->pix_fmt       = AV_PIX_FMT_YUV420P;
+  c->gop_size = m_gop; /* emit one intra frame every gop at most */
+  c->pix_fmt = AV_PIX_FMT_YUV420P;
   //------------
   //------------
 
@@ -255,9 +266,6 @@ VideoEncoder::close_stream(AVFormatContext *oc, OutputStream *ost)
 }
  
 
-/**
-   \brief Completes writing the stream, closes it, release resources.
-**/
 bool VideoEncoder::close()
 {
   if (m_avFormatCtx == 0)
@@ -320,15 +328,6 @@ VideoEncoder::write_frame(AVFormatContext *fmt_ctx, AVCodecContext *c,
     return ret == AVERROR_EOF ? 1 : 0;
 }
  
-/**
-   \brief Encode one frame
-
-   The frame must be of the same size as specified in the createFile call.
-
-   This is the standard method to encode videos with fixed frame rates.
-   Each call to encodeImage adds a frame, which will be played back at the frame rate
-   specified in the createFile call.
-**/
 void
 VideoEncoder::encodeImage(const QImage &img)
 {
@@ -343,22 +342,10 @@ VideoEncoder::encodeImage(uchar *img, int width, int height, int bytesperline, i
   convertImage(&m_videoStream,
 	       img, width, height, bytesperline, format);
   m_videoStream.frame->pts = m_videoStream.next_pts++;
+  m_videoStream.frame->time_base = AVRational{1, m_frameRate};
 
   write_frame(m_avFormatCtx, m_videoStream.enc, m_videoStream.st, m_videoStream.frame, m_videoStream.tmp_pkt);
 }
-
-
-/**
-  \brief Convert the QImage to the internal YUV format
-
-  SWS conversion
-
-   Caution: the QImage is allocated by QT without guarantee about the alignment and bytes per lines.
-   It *should* be okay as we make sure the image is a multiple of many bytes (8 or 16)...
-   ... however it is not guaranteed that sws_scale won't at some point require more bytes per line.
-   We keep the custom conversion for that case.
-
-**/
 
 bool
 VideoEncoder::convertImage(OutputStream *ost, const QImage &img)
@@ -366,21 +353,25 @@ VideoEncoder::convertImage(OutputStream *ost, const QImage &img)
    // Check if the image matches the size
    if(img.width()!= m_width || img.height()!= m_height)
    {
-     QMessageBox::information(0, "Error", "Wrong image size!");
+     QMessageBox::information(0, "Error", QString("Wrong image size! %1x%2 vs %3x%4").\
+			      arg(m_width).arg(m_height).arg(img.width()).arg(img.height()));
      return false;
    } 
-   if(img.format()!=QImage::Format_RGB32 && img.format() != QImage::Format_ARGB32)
-   {
-     QMessageBox::information(0, "Error", "Wrong image format!");
-     return false;
-   }
 
-   ost->sws_ctx = sws_getContext(m_width, m_height,
-				 AV_PIX_FMT_BGRA,
-				 m_width, m_height,
-				 AV_PIX_FMT_YUV420P,
-				 SWS_BICUBIC,
-				 NULL, NULL, NULL);
+   if(img.format() == QImage::Format_ARGB32)
+     ost->sws_ctx = sws_getContext(m_width, m_height,
+				   AV_PIX_FMT_BGRA,
+				   m_width, m_height,
+				   AV_PIX_FMT_YUV420P,
+				   SWS_BICUBIC,
+				   NULL, NULL, NULL);
+   else if(img.format() == QImage::Format_RGB32)
+     ost->sws_ctx = sws_getContext(m_width, m_height,
+				   AV_PIX_FMT_RGBA,
+				   m_width, m_height,
+				   AV_PIX_FMT_YUV420P,
+				   SWS_BICUBIC,
+				   NULL, NULL, NULL);
 
    if (ost->sws_ctx == NULL)
    {
@@ -414,22 +405,31 @@ VideoEncoder::convertImage(OutputStream *ost,
    // Check if the image matches the size
    if(width!= m_width || height!= m_height)
    {
-     QMessageBox::information(0, "Error", "Wrong image size!");
+     QMessageBox::information(0, "Error", QString("Wrong image size! %1x%2 vs %3x%4").\
+			      arg(m_width).arg(m_height).arg(width).arg(height));
      return false;
-   } 
-   if(format!=QImage::Format_RGB32 && format != QImage::Format_ARGB32)
+   }
+   
+   if(format == QImage::Format_ARGB32)
+     ost->sws_ctx = sws_getContext(m_width, m_height,
+				   AV_PIX_FMT_BGRA,
+				   m_width, m_height,
+				   AV_PIX_FMT_YUV420P,
+				   SWS_BICUBIC,
+				   NULL, NULL, NULL);
+   else if(format == QImage::Format_RGB32)
+     ost->sws_ctx = sws_getContext(m_width, m_height,
+				   AV_PIX_FMT_RGBA,
+				   m_width, m_height,
+				   AV_PIX_FMT_YUV420P,
+				   SWS_BICUBIC,
+				   NULL, NULL, NULL);
+   else
    {
      QMessageBox::information(0, "Error", "Wrong image format!");
      return false;
    }
-
-   ost->sws_ctx = sws_getContext(m_width, m_height,
-				 AV_PIX_FMT_BGRA,
-				 m_width, m_height,
-				 AV_PIX_FMT_YUV420P,
-				 SWS_BICUBIC,
-				 NULL, NULL, NULL);
-
+   
    if (ost->sws_ctx == NULL)
    {
      QMessageBox::information(0, "Error", "Cannot initialize the conversion context");

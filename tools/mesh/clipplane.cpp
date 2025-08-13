@@ -1,7 +1,7 @@
 #include "global.h"
 #include "clipplane.h"
 #include "staticfunctions.h"
-#include "dcolordialog.h"
+#include "../../common/src/widgets/dcolordialog.h"
 #include <QMessageBox>
 #include <QInputDialog>
 

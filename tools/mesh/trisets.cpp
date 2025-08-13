@@ -2,7 +2,6 @@
 #include "shaderfactory.h"
 #include "computeshaderfactory.h"
 #include "staticfunctions.h"
-#include "dcolordialog.h"
 #include "trisets.h"
 #include "propertyeditor.h"
 #include "captiondialog.h"

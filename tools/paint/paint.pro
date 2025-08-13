@@ -34,23 +34,31 @@ FORMS += drishtipaint.ui viewermenu.ui \
   win32 {
          RC_ICONS += images/drishtipaint.ico
 
-         DEFINES += USE_GLMEDIA
-
-         INCLUDEPATH += ..\..\glmedia-64 \
-                        C:\cygwin64\home\acl900\drishtilib\c-blosc-1.14.3\blosc \
+         INCLUDEPATH += C:\cygwin64\home\acl900\drishtilib\c-blosc-1.14.3\blosc \
                         C:\cygwin64\home\acl900\vcpkg\vcpkg\installed\x64-windows\include \
                         ../../common/src/vdb \
                         ../../common/src/widgets \
-                        ../../common/src/mesh
+                        ../../common/src/mesh \
+                        ..\..\common\src\videoencoder
 
-         QMAKE_LIBDIR += ..\..\glmedia-64 \
-                         C:\cygwin64\home\acl900\drishtilib\c-blosc-1.14.3\libs \
+         INCLUDEPATH += $$FFMPEG_INCLUDE_PATH
+
+         QMAKE_LIBDIR += C:\cygwin64\home\acl900\drishtilib\c-blosc-1.14.3\libs \
                          C:\cygwin64\home\acl900\vcpkg\vcpkg\installed\x64-windows\lib \
                          ..\..\common\lib     
+	
+         QMAKE_LIBDIR += $$FFMPEG_LIBRARY_PATH
 
 
-         LIBS += QGLViewer2.lib glew32.lib glmedia.lib blosc.lib opengl32.lib glu32.lib
+         LIBS += QGLViewer2.lib glew32.lib blosc.lib opengl32.lib glu32.lib
          LIBS += Imath-3_1.lib openvdb.lib vdb.lib
+
+         # Set list of required FFmpeg libraries
+         LIBS += -lavutil \
+                 -lavcodec \
+                 -lavformat \
+                 -lswresample \
+                 -lswscale 
          
 
          ## /std:c++17 added because openvdb requires this
@@ -60,8 +68,6 @@ FORMS += drishtipaint.ui viewermenu.ui \
 
 unix {
  !macx {
-    DEFINES += NO_GLMEDIA
-
     INCLUDEPATH += /home/acl900/drishtilib/c-blosc/blosc
                         
     QMAKE_LIBDIR += /home/acl900/drishtilib/c-blosc/build/blosc
@@ -72,7 +78,8 @@ unix {
                    /home/acl900/drishtilib/openvdb/openvdb \
                    /home/acl900/drishtilib/openvdb/build/openvdb/openvdb \
                    /home/acl900/drishtilib/openvdb/build/openvdb/openvdb/openvdb \
-                   /home/acl900/drishtilib/oneTBB/include
+                   /home/acl900/drishtilib/oneTBB/include \
+                  ..\..\common\src\videoencoder
 
     QMAKE_LIBDIR += ../../common/lib \
                    /home/acl900/drishtilib/openvdb/build/openvdb/openvdb \
@@ -80,6 +87,13 @@ unix {
 
     
     LIBS += -lblosc -lvdb -lopenvdb -ltbb -lImath
+
+    # Set list of required FFmpeg libraries
+    LIBS += -lavutil \
+            -lavcodec \
+            -lavformat \
+            -lswresample \
+            -lswscale 
     }
  }
 
@@ -160,7 +174,8 @@ HEADERS += connectviewer.h \
 	../../common/src/widgets/gradienteditor.h \
         ../../common/src/widgets/gradienteditorwidget.h \
         ../../common/src/mesh/meshtools.h \
-        ../../common/src/mesh/ply.h
+        ../../common/src/mesh/ply.h \
+           ../../common/src/videoencoder/videoencoder.h
         
 SOURCES += drishtipaint.cpp \
 	main.cpp \
@@ -227,4 +242,5 @@ SOURCES += drishtipaint.cpp \
 	../../common/src/widgets/gradienteditor.cpp \
 	../../common/src/widgets/gradienteditorwidget.cpp \
         ../../common/src/mesh/meshtools.cpp \
-        ../../common/src/mesh/ply.c
+        ../../common/src/mesh/ply.c \
+        ../../common/src/videoencoder/videoencoder.cpp

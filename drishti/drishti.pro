@@ -6,13 +6,12 @@ QT += opengl xml network
 QT += multimedia multimediawidgets
 
 CONFIG += release
+CONFIG += no_batch
 
 TRANSLATIONS = drishtitr_ch.ts
 
 FORMS += launcher.ui \
          mainwindow.ui \
-	 saveimgseq.ui \
-	 savemovie.ui \
 	 brickswidget.ui \
 	 captiondialog.ui \
 	 directionvectorwidget.ui \
@@ -25,7 +24,9 @@ FORMS += launcher.ui \
 	 propertyeditor.ui \
 	 profileviewer.ui \
 	 volumeinformation.ui \
-         raycastmenu.ui
+         raycastmenu.ui \
+	 ../common/src/widgets/saveimgseq.ui \
+	 ../common/src/widgets/savemovie.ui
 
 
 TEMPLATE = app
@@ -207,8 +208,6 @@ HEADERS += launcher.h \
            prunehandler.h \
            pruneshaderfactory.h \
 	   rawvolume.h \
-	   saveimageseqdialog.h \
-	   savemoviedialog.h \
 	   scalebar.h \
 	   scalebargrabber.h \
 	   scalebarobject.h \
@@ -254,6 +253,8 @@ HEADERS += launcher.h \
 	   videoplayer.h \
 	   mybitarray.h \
            popupslider.h \
+	   ../common/src/widgets/saveimageseqdialog.h \
+           ../common/src/widgets/savemoviedialog.h \
            ../common/src/videoencoder/videoencoder.h
 
 
@@ -345,8 +346,6 @@ HEADERS += launcher.h \
            prunehandler.cpp \
            pruneshaderfactory.cpp \
 	   rawvolume.cpp \
-	   saveimageseqdialog.cpp \
-	   savemoviedialog.cpp \
 	   scalebar.cpp \
 	   scalebargrabber.cpp \
 	   scalebarobject.cpp \
@@ -391,4 +390,6 @@ HEADERS += launcher.h \
 	   videoplayer.cpp \
 	   mybitarray.cpp \
 	   popupslider.cpp \
+	   ../common/src/widgets/saveimageseqdialog.cpp \
+           ../common/src/widgets/savemoviedialog.cpp \
            ../common/src/videoencoder/videoencoder.cpp

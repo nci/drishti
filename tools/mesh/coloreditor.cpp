@@ -1,4 +1,4 @@
-#include "dcolordialog.h"
+#include "../../common/src/widgets/dcolordialog.h"
 #include "coloreditor.h"
 
 ColorEditor::ColorEditor(QWidget *widget) : QLabel(widget)

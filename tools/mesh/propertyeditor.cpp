@@ -1,9 +1,9 @@
 #include "propertyeditor.h"
-#include "dcolordialog.h"
+#include "../../common/src/widgets/dcolordialog.h"
 #include "gradienteditorwidget.h"
 
-#include <QGLViewer/vec.h>
-using namespace qglviewer;
+//#include <QGLViewer/vec.h>
+//using namespace qglviewer;
 
 #include <QMessageBox>
 #include <QComboBox>

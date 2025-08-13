@@ -6,18 +6,19 @@ QT += opengl widgets core gui xml network
 QT += multimedia multimediawidgets
 
 CONFIG += release
+CONFIG += no_batch
 
 TRANSLATIONS = chinese.ts
 
 FORMS += mainwindow.ui \
-	 saveimgseq.ui \
-	 savemovie.ui \
 	 brickswidget.ui \
 	 captiondialog.ui \
 	 lightingwidget.ui \
 	 globalwidget.ui \
          propertyeditor.ui \
-         meshinfowidget.ui
+         meshinfowidget.ui \
+	 ../../common/src/widgets/saveimgseq.ui \
+	 ../../common/src/widgets/savemovie.ui
 
 
 TEMPLATE = app
@@ -121,8 +122,6 @@ HEADERS += boundingbox.h \
 	   connectviewer.h \
 	   connectmeshinfowidget.h \
            cube2sphere.h \
-           dcolordialog.h \
-           dcolorwheel.h \
 	   doublespinboxdelegate.h \
 	   dialogs.h \
            drawhiresvolume.h \
@@ -157,8 +156,6 @@ HEADERS += boundingbox.h \
 	   ply.h \
 	   plugininterface.h \
 	   pluginthread.h \
-	   saveimageseqdialog.h \
-	   savemoviedialog.h \
 	   scalebar.h \
 	   scalebargrabber.h \
 	   scalebarobject.h \
@@ -172,6 +169,10 @@ HEADERS += boundingbox.h \
            xmlheaderfunctions.h \
            popupslider.h \
            captionwidget.h \
+           ../../common/src/widgets/dcolordialog.h \
+           ../../common/src/widgets/dcolorwheel.h \
+	   ../../common/src/widgets/saveimageseqdialog.h \
+           ../../common/src/widgets/savemoviedialog.h \
            ../../common/src/videoencoder/videoencoder.h
 
 SOURCES += boundingbox.cpp \
@@ -190,8 +191,6 @@ SOURCES += boundingbox.cpp \
 	   coloreditor.cpp \
            computeshaderfactory.cpp \
            cube2sphere.cpp \
-           dcolordialog.cpp \
-           dcolorwheel.cpp \
 	   doublespinboxdelegate.cpp \
 	   dialogs.cpp \
            drawhiresvolume.cpp \
@@ -226,8 +225,6 @@ SOURCES += boundingbox.cpp \
 	   pathshaderfactory.cpp \
 	   ply.c \
 	   pluginthread.cpp \
-	   saveimageseqdialog.cpp \
-	   savemoviedialog.cpp \
 	   scalebar.cpp \
 	   scalebargrabber.cpp \
 	   scalebarobject.cpp \
@@ -241,4 +238,8 @@ SOURCES += boundingbox.cpp \
 	   xmlheaderfunctions.cpp \
            popupslider.cpp \
            captionwidget.cpp \
+           ../../common/src/widgets/dcolordialog.cpp \
+           ../../common/src/widgets/dcolorwheel.cpp \
+	   ../../common/src/widgets/saveimageseqdialog.cpp \
+           ../../common/src/widgets/savemoviedialog.cpp \
            ../../common/src/videoencoder/videoencoder.cpp

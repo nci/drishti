@@ -35,6 +35,8 @@ public:
   ~VideoEncoder();
   
   void init();
+
+  bool isOk() { return m_frameRate > 0; }
   
   bool createFile(QString filename,
 		  unsigned width, unsigned height,

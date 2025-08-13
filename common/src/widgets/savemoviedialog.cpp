@@ -1,5 +1,7 @@
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QByteArray>
+
 #include "savemoviedialog.h"
 
 SaveMovieDialog::SaveMovieDialog(QWidget *parent,
@@ -27,6 +29,8 @@ QString SaveMovieDialog::fileName() { return ui.m_fileName->text(); }
 int SaveMovieDialog::startFrame() { return ui.m_startFrame->value();}
 int SaveMovieDialog::endFrame() { return ui.m_endFrame->value();}
 int SaveMovieDialog::stepFrame() { return ui.m_stepFrame->value();}
+int SaveMovieDialog::frameRate() { return ui.m_frameRate->value();}
+
 bool SaveMovieDialog::movieMode()
 {
   if (ui.m_movieMode->currentIndex() == 0)
@@ -44,6 +48,11 @@ SaveMovieDialog::on_m_fileName_editingFinished()
     {
       QFileInfo finfo(m_dir, flnm);
       flnm = finfo.absoluteFilePath();
+
+      QByteArray exten = flnm.toLatin1().right(4).toLower();
+      if (exten != ".mp4")
+	flnm += ".mp4";
+      
       ui.m_fileName->setText(flnm);
       if (QFileInfo::exists(flnm))
 	on_m_file_pressed();
@@ -55,25 +64,17 @@ void
 SaveMovieDialog::on_m_file_pressed()
 {
   QString flnm;
-#if defined(Q_OS_WIN)
-  flnm = QFileDialog::getSaveFileName(0,
-				      "Save Movie",
-				      m_dir,
-				      "Movie Files (*.wmv)");
-#elif defined(Q_OS_OSX)
-  flnm = QFileDialog::getSaveFileName(0,
-				      "Save Movie",
-				      m_dir,
-				      "Movie Files (*.mov)");
-#else
   flnm = QFileDialog::getSaveFileName(0,
 				      "Save Movie",
 				      m_dir,
 				      "Movie Files (*.mp4)");
-#endif 
-
+  
   if (flnm.isEmpty())
     return;
+
+  QByteArray exten = flnm.toLatin1().right(4).toLower();
+  if (exten != ".mp4")
+    flnm += ".mp4";
 
   ui.m_fileName->setText(flnm);
 }

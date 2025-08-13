@@ -1,6 +1,6 @@
 #include "global.h"
 #include "gradienteditor.h"
-#include "dcolordialog.h"
+#include "../../common/src/widgets/dcolordialog.h"
 #include "propertyeditor.h"
 #include "mainwindowui.h"
 

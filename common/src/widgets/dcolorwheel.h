@@ -21,18 +21,23 @@ class DColorWheel : public QWidget
   void setColor(QColor);
   QColor getColor();
 
+  void setColorGridSize(int);
+  int getColorGridSize() { return m_colorGridSize; }
+
  public slots :
   void moreShades();
   void lessShades();
 
  signals :
   void colorChanged();
+  void colorChanged(QColor);
 
  private :
   QWidget *m_parent;
 
   int m_margin;
-
+  int m_colorGridSize;
+  
   QPushButton *m_more, *m_less;
 
   QRectF m_wheelSize;

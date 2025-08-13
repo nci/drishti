@@ -175,7 +175,7 @@ HEADERS += connectviewer.h \
         ../../common/src/widgets/gradienteditorwidget.h \
         ../../common/src/mesh/meshtools.h \
         ../../common/src/mesh/ply.h \
-           ../../common/src/videoencoder/videoencoder.h
+        ../../common/src/videoencoder/videoencoder.h
         
 SOURCES += drishtipaint.cpp \
 	main.cpp \

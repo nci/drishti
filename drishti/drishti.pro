@@ -49,6 +49,7 @@ win32 {
                    c:/cygwin64/home/acl900/drishtilib/assimp-5.0.1/include \
                    c:/cygwin64/home/acl900/drishtilib/assimp-5.0.1/build/include \
                    C:\cygwin64\home\acl900\vcpkg\vcpkg\installed\x64-windows\include \
+                   ..\common\src\widgets \
                    ..\common\src\videoencoder
 
     INCLUDEPATH += $$FFMPEG_INCLUDE_PATH
@@ -145,8 +146,6 @@ HEADERS += launcher.h \
 	   cropgrabber.h \
            cropshaderfactory.h \
            cube2sphere.h \
-           dcolordialog.h \
-           dcolorwheel.h \
 	   doublespinboxdelegate.h \
 	   dialogs.h \
 	   directionvectorwidget.h \
@@ -253,6 +252,8 @@ HEADERS += launcher.h \
 	   videoplayer.h \
 	   mybitarray.h \
            popupslider.h \
+           ../common/src/widgets/dcolordialog.h \
+           ../common/src/widgets/dcolorwheel.h \
 	   ../common/src/widgets/saveimageseqdialog.h \
            ../common/src/widgets/savemoviedialog.h \
            ../common/src/videoencoder/videoencoder.h
@@ -283,8 +284,6 @@ HEADERS += launcher.h \
 	   cropgrabber.cpp \
            cropshaderfactory.cpp \
            cube2sphere.cpp \
-           dcolordialog.cpp \
-           dcolorwheel.cpp \
 	   doublespinboxdelegate.cpp \
 	   dialogs.cpp \
 	   directionvectorwidget.cpp \
@@ -390,6 +389,8 @@ HEADERS += launcher.h \
 	   videoplayer.cpp \
 	   mybitarray.cpp \
 	   popupslider.cpp \
+           ../common/src/widgets/dcolordialog.cpp \
+           ../common/src/widgets/dcolorwheel.cpp \
 	   ../common/src/widgets/saveimageseqdialog.cpp \
            ../common/src/widgets/savemoviedialog.cpp \
            ../common/src/videoencoder/videoencoder.cpp

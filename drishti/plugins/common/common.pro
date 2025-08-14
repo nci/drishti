@@ -6,6 +6,7 @@ include( ../../../drishti.pri )
 QT += opengl xml network
 
 CONFIG += release staticlib
+CONFIG += no_batch
 
 TARGET = common
 
@@ -17,12 +18,11 @@ win32 {
  contains(Windows_Setup, Win64) {
   message(drishti.exe : Win64 setup)
   DEFINES += _CRT_SECURE_NO_WARNINGS
-  INCLUDEPATH += ../../  ..\..\..\glmedia-64
-  QMAKE_LIBDIR += ..\..\..\glmedia-64
+  INCLUDEPATH += ../../ \
+                 ..\..\..\common\src\widgets
   LIBS += QGLViewer2.lib \
 	  netcdfcpp.lib \
-	  glew32.lib \
-	  glmedia.lib
+	  glew32.lib
  }
 }
 
@@ -31,7 +31,8 @@ unix {
 
   DESTDIR = ../common
 
-  INCLUDEPATH += ../../
+  INCLUDEPATH += ../../ \
+                 ..\..\..\common\src\widgets
 
   QMAKE_LIBDIR += /home/ajay/drishtilib/libQGLViewer-2.6.4/QGLViewer \
                   /home/ajay/drishtilib/glew-2.1.0/lib \
@@ -58,8 +59,8 @@ macx {
 HEADERS = ..\..\mainwindowui.h \
 	..\..\cropobject.h \	 
 	..\..\pathobject.h \	 
-	..\..\dcolordialog.h \
-	..\..\dcolorwheel.h \
+	..\..\..\common\src\widgets\dcolordialog.h \
+	..\..\..\common\src\widgets\dcolorwheel.h \
 	..\..\propertyeditor.h \
 	..\..\staticfunctions.h \
 	..\..\volumefilemanager.h \
@@ -75,8 +76,8 @@ HEADERS = ..\..\mainwindowui.h \
 SOURCES = ../../mainwindowui.cpp \
 	../../cropobject.cpp \	 
 	../../pathobject.cpp \	 
-	../../dcolordialog.cpp \
-	../../dcolorwheel.cpp \
+	../../../common/src/widgets/dcolordialog.cpp \
+	../../../common/src/widgets/dcolorwheel.cpp \
 	../../propertyeditor.cpp \
 	../../staticfunctions.cpp \
 	../../volumefilemanager.cpp \

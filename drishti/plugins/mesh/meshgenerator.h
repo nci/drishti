@@ -3,7 +3,6 @@
 
 #include "volumefilemanager.h"
 #include "ply.h"
-#include "dcolordialog.h"
 #include "propertyeditor.h"
 #include "cropobject.h"
 #include "pathobject.h"

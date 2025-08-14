@@ -58,7 +58,8 @@ INCLUDEPATH += ../../ \
                 /home/acl900/drishtilib/openvdb/build/openvdb/openvdb/openvdb \
                 /home/acl900/drishtilib/oneTBB/include \
                 ../../../common/src/vdb \
-                ../../../common/src/mesh
+                ../../../common/src/mesh \
+                ../../../common/src/widgets
 
 QMAKE_LIBDIR += ../common \
                 ../../../common/lib \

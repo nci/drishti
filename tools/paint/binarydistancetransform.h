@@ -13,36 +13,36 @@ class BinaryDistanceTransform
 {
  public :
   static float* binaryEDTsq(MyBitArray&,
-			    const size_t, const size_t, const size_t,
+			    const qint64, const qint64, const qint64,
 			    const bool black_border=false,
 			    float* workspace=NULL);
 
  private :
-  static void toFinite(float*, const size_t);
-  static void toInfinite(float*, const size_t);
+  static void toFinite(float*, const qint64);
+  static void toInfinite(float*, const qint64);
   
-  static void squared_edt_1d_multi_seg(MyBitArray&, size_t,
+  static void squared_edt_1d_multi_seg(MyBitArray&, qint64,
 				       float*,
 				       const int, 
-				       const long int,
+				       const qint64,
 				       const float,
 				       const bool);
   
   static void squared_edt_1d_parabolic(float*,
 				       const int, 
-				       const long int, 
+				       const qint64, 
 				       const float);
   
   static void squared_edt_1d_parabolic(float*, 
-				       const long int, 
-				       const long int, 
+				       const qint64, 
+				       const qint64, 
 				       const float,
 				       const bool,
 				       const bool);
 
   static void _squared_edt_1d_parabolic(float*, 
 					const int, 
-					const long int, 
+					const qint64, 
 					const float,
 					const bool,
 					const bool);

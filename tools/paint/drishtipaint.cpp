@@ -5480,7 +5480,7 @@ DrishtiPaint::localThickness(Vec bmin, Vec bmax, int tag)
 }
 
 void
-DrishtiPaint::removeComponents(Vec bmin, Vec bmax, int tag)
+DrishtiPaint::removeSmallerComponents(Vec bmin, Vec bmax, int tag)
 {
   int minD,maxD, minW,maxW, minH,maxH;
 
@@ -5492,12 +5492,12 @@ DrishtiPaint::removeComponents(Vec bmin, Vec bmax, int tag)
   int gradType = m_viewer->gradType();
 
   VolumeOperations::setClip(cPos, cNorm);
-  VolumeOperations::removeComponents(bmin, bmax,
-				     tag,
-				     minD, maxD,
-				     minW, maxW,
-				     minH, maxH,
-				     gradType, minGrad, maxGrad);
+  VolumeOperations::removeSmallerComponents(bmin, bmax,
+					    tag,
+					    minD, maxD,
+					    minW, maxW,
+					    minH, maxH,
+					    gradType, minGrad, maxGrad);
 
   if (minD < 0)
     return;

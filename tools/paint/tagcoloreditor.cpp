@@ -131,7 +131,14 @@ TagColorEditor::getLowHighRange(int &low, int &high)
   m_low.setValue(0);
   m_high.setValue(65534);
   
-  box->move(QCursor::pos());
+  QScreen *scr = qGuiApp->screenAt(QCursor::pos());
+  QRect geo = scr->geometry();
+  int x = QCursor::pos().x() - 150;
+  int y = QCursor::pos().y();
+  x = qMin(x, geo.right()-250);
+  y = qMin(y, geo.bottom()-200);
+  
+  box->move(QPoint(x,y));
   box->setMinimumWidth(300);
   int ret = box->exec();
 
@@ -148,16 +155,6 @@ TagColorEditor::getLowHighRange(int &low, int &high)
 void
 TagColorEditor::showTagsClicked()
 {
-//  uchar *colors = Global::tagColors();
-//  int nColors = 256;
-//  if (Global::bytesPerMask() == 2)
-//    nColors = 65536;
-//  
-//  for(int i=0; i<nColors; i++)
-//    colors[4*i+3] = 255;
-//
-//  setColors();
-
   int low, high;
   if (getLowHighRange(low, high))
     {
@@ -173,16 +170,6 @@ TagColorEditor::showTagsClicked()
 void
 TagColorEditor::hideTagsClicked()
 {
-//  uchar *colors = Global::tagColors();
-//  int nColors = 256;
-//  if (Global::bytesPerMask() == 2)
-//    nColors = 65536;
-//  
-//  for(int i=0; i<nColors; i++)
-//      colors[4*i+3] = 0;
-//
-//  setColors();
-
   int low, high;
   if (getLowHighRange(low, high))
     {

@@ -15,9 +15,9 @@
 
 //---------------------------
 void
-BinaryDistanceTransform::toFinite(float *f, const size_t voxels)
+BinaryDistanceTransform::toFinite(float *f, const qint64 voxels)
 {
-  for (size_t i = 0; i < voxels; i++)
+  for (qint64 i = 0; i < voxels; i++)
     {
       if (f[i] == INFINITY)
 	{
@@ -30,9 +30,9 @@ BinaryDistanceTransform::toFinite(float *f, const size_t voxels)
 
 //---------------------------
 void
-BinaryDistanceTransform::toInfinite(float *f, const size_t voxels)
+BinaryDistanceTransform::toInfinite(float *f, const qint64 voxels)
 {
-  for (size_t i = 0; i < voxels; i++)
+  for (qint64 i = 0; i < voxels; i++)
     {
       if (f[i] >= std::numeric_limits<float>::max() - 1)
 	{
@@ -46,14 +46,14 @@ BinaryDistanceTransform::toInfinite(float *f, const size_t voxels)
 //---------------------------
 void
 BinaryDistanceTransform::squared_edt_1d_multi_seg(MyBitArray& bitmask,
-						  size_t bidx,
+						  qint64 bidx,
 						  float *d,
 						  const int n, 
-						  const long int stride,
+						  const qint64 stride,
 						  const float anistropy,
 						  const bool black_border)
 {  
-  long int i;
+  qint64 i;
   
   bool working_segid = bitmask.testBit(bidx);
 
@@ -80,7 +80,7 @@ BinaryDistanceTransform::squared_edt_1d_multi_seg(MyBitArray& bitmask,
       }
     }
 
-  long int min_bound = 0;
+  qint64 min_bound = 0;
 
   if (black_border)
     {
@@ -104,8 +104,8 @@ BinaryDistanceTransform::squared_edt_1d_multi_seg(MyBitArray& bitmask,
 //---------------------------
 void
 BinaryDistanceTransform::squared_edt_1d_parabolic(float* f,
-						  const long int n, 
-						  const long int stride, 
+						  const qint64 n, 
+						  const qint64 stride, 
 						  const float anisotropy, 
 						  const bool black_border_left,
 						  const bool black_border_right)
@@ -120,7 +120,7 @@ BinaryDistanceTransform::squared_edt_1d_parabolic(float* f,
   int k = 0;
   std::unique_ptr<int[]> v(new int[n]());
   std::unique_ptr<float[]> ff(new float[n]());
-  for (long int i = 0; i < n; i++)
+  for (qint64 i = 0; i < n; i++)
     {
       ff[i] = f[i * stride];
     }
@@ -138,7 +138,7 @@ BinaryDistanceTransform::squared_edt_1d_parabolic(float* f,
    */
   float s;
   float factor1, factor2;
-  for (long int i = 1; i < n; i++)
+  for (qint64 i = 1; i < n; i++)
     {
       factor1 = (i - v[k]) * w2;
       factor2 =  i + v[k];
@@ -160,7 +160,7 @@ BinaryDistanceTransform::squared_edt_1d_parabolic(float* f,
 
   k = 0;
   float envelope;
-  for (long int i = 0; i < n; i++)
+  for (qint64 i = 0; i < n; i++)
     {
       while (ranges[k + 1] < i)
 	{ 
@@ -193,7 +193,7 @@ BinaryDistanceTransform::squared_edt_1d_parabolic(float* f,
 void
 BinaryDistanceTransform::squared_edt_1d_parabolic(float* f,
 						  const int n, 
-						  const long int stride, 
+						  const qint64 stride, 
 						  const float anisotropy)
 {
   if (n == 0)
@@ -206,7 +206,7 @@ BinaryDistanceTransform::squared_edt_1d_parabolic(float* f,
   int k = 0;
   std::unique_ptr<int[]> v(new int[n]());
   std::unique_ptr<float[]> ff(new float[n]());
-  for (long int i = 0; i < n; i++)
+  for (qint64 i = 0; i < n; i++)
     {
       ff[i] = f[i * stride];
     }
@@ -224,7 +224,7 @@ BinaryDistanceTransform::squared_edt_1d_parabolic(float* f,
    */
   float s;
   float factor1, factor2;
-  for (long int i = 1; i < n; i++)
+  for (qint64 i = 1; i < n; i++)
     {
       factor1 = (i - v[k]) * w2;
       factor2 = i + v[k];
@@ -246,7 +246,7 @@ BinaryDistanceTransform::squared_edt_1d_parabolic(float* f,
 
   k = 0;
   float envelope;
-  for (long int i = 0; i < n; i++)
+  for (qint64 i = 0; i < n; i++)
     {
       while (ranges[k + 1] < i)
 	{ 
@@ -268,7 +268,7 @@ BinaryDistanceTransform::squared_edt_1d_parabolic(float* f,
 void
 BinaryDistanceTransform::_squared_edt_1d_parabolic(float* f, 
 						   const int n, 
-						   const long int stride, 
+						   const qint64 stride, 
 						   const float anisotropy, 
 						   const bool black_border_left,
 						   const bool black_border_right)
@@ -290,22 +290,22 @@ BinaryDistanceTransform::_squared_edt_1d_parabolic(float* f,
 //---------------------------
 void BinaryDistanceTransform::par_squared_edt_1d_parabolic_z(QList<QVariant> plist)
 {
-  size_t z = plist[0].toInt();
-  size_t sx = plist[1].toInt();
-  size_t sy = plist[2].toInt();
-  size_t sz = plist[3].toInt();
-  size_t sxy = plist[4].toInt();
+  qint64 z = plist[0].toInt();
+  qint64 sx = plist[1].toInt();
+  qint64 sy = plist[2].toInt();
+  qint64 sz = plist[3].toInt();
+  qint64 sxy = plist[4].toInt();
   bool black_border = plist[5].toBool();
   float *workspace = static_cast<float*>(plist[6].value<void*>());
 
-  size_t offset;
-  for (size_t x = 0; x < sx; x++)
+  qint64 offset;
+  for (qint64 x = 0; x < sx; x++)
     {
       offset = x + sxy * z;
-      size_t y = 0;
+      qint64 y = 0;
       for (y = 0; y < sy; y++)
 	{
-	  if (workspace[offset + sx*y])
+	  if (workspace[offset + sx*y] > 0)
 	    {
 	      break;
 	    }
@@ -319,27 +319,27 @@ void BinaryDistanceTransform::par_squared_edt_1d_parabolic_z(QList<QVariant> pli
 
 void BinaryDistanceTransform::par_squared_edt_1d_parabolic_y(QList<QVariant> plist)
 {
-  size_t y = plist[0].toInt();
-  size_t sx = plist[1].toInt();
-  size_t sy = plist[2].toInt();
-  size_t sz = plist[3].toInt();
-  size_t sxy = plist[4].toInt();
+  qint64 y = plist[0].toInt();
+  qint64 sx = plist[1].toInt();
+  qint64 sy = plist[2].toInt();
+  qint64 sz = plist[3].toInt();
+  qint64 sxy = plist[4].toInt();
   bool black_border = plist[5].toBool();
   float *workspace = static_cast<float*>(plist[6].value<void*>());
 
-  size_t offset;
-  for (size_t x = 0; x < sx; x++)
+  qint64 offset;
+  for (qint64 x = 0; x < sx; x++)
     {
       offset = x + sx * y;
-      size_t z = 0;
+      qint64 z = 0;
       for (z = 0; z < sz; z++)
 	{
-	  if (workspace[offset + sxy*z])
+	  if (workspace[offset + sxy*z] > 0)
 	    {
 	      break;
 	    }
 	}
-      _squared_edt_1d_parabolic((workspace + offset + sxy * z), 
+      _squared_edt_1d_parabolic((workspace + offset + sxy*z), 
 				sz - z, sxy, 1, 
 				black_border || (z > 0), black_border);
     }
@@ -352,14 +352,14 @@ void BinaryDistanceTransform::par_squared_edt_1d_parabolic_y(QList<QVariant> pli
 //---------------------------
 float*
 BinaryDistanceTransform::binaryEDTsq(MyBitArray& bitmask, 
-				     const size_t sx, const size_t sy, const size_t sz,
+				     const qint64 sx, const qint64 sy, const qint64 sz,
 				     const bool black_border,
 				     float* workspace)
 {
-  const size_t sxy = sx * sy;
-  const size_t voxels = sz * sxy;
+  const qint64 sxy = sx * sy;
+  const qint64 voxels = sz * sxy;
   
-  size_t x,y,z;
+  qint64 x,y,z;
 
   
   if (workspace == NULL)
@@ -476,7 +476,7 @@ BinaryDistanceTransform::binaryEDTsq(MyBitArray& bitmask,
 //////----------------------------
 ////// Sequential run
 //////----------------------------
-//  size_t offset;
+//  qint64 offset;
 //
 //  for (z = 0; z < sz; z++)
 //    {
@@ -505,7 +505,7 @@ BinaryDistanceTransform::binaryEDTsq(MyBitArray& bitmask,
 //      for (x = 0; x < sx; x++)
 //	{
 //	  offset = x + sx * y;
-//	  size_t z = 0;
+//	  qint64 z = 0;
 //	  for (z = 0; z < sz; z++)
 //	    {
 //	      if (workspace[offset + sxy*z])

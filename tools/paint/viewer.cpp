@@ -1143,7 +1143,7 @@ Viewer::processCommand(QString cmd)
       if (list.size() == 2)
 	tag = list[1].toInt(&ok);
 
-      removeComponents(tag);      
+      removeSmallerComponents(tag);      
       
       return;
     }
@@ -2018,7 +2018,7 @@ Viewer::drawInfo()
 
   glDisable(GL_DEPTH_TEST);
 
-  QFont tfont = QFont("Helvetica", 12);  
+  QFont tfont = QFont("Helvetica", 14);  
   QString mesg;
 
   mesg += QString("LOD(%1) Vol(%2 %3 %4) ").				\
@@ -2064,9 +2064,11 @@ Viewer::drawInfo()
   int wd = camera()->screenWidth();
   int ht = camera()->screenHeight();
   StaticFunctions::pushOrthoView(0, 0, wd, ht);
-  StaticFunctions::renderText(10,10, mesg, tfont, Qt::black, Qt::lightGray);
+  StaticFunctions::renderText(10,10,
+			      mesg,
+			      tfont, Qt::black, Qt::lightGray);
 
-  tfont = QFont("Helvetica", 10); 
+  //tfont = QFont("Helvetica", 12); 
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
   bmin = VECDIVIDE(bmin, voxelScaling);
@@ -2091,11 +2093,14 @@ Viewer::drawInfo()
     mesg += QString("mb(%1 @ %2)").arg(vszgb).arg(m_sslevel);
   else
     mesg += QString("gb(%1 @ %2)").arg(vszgb/1024).arg(m_sslevel);
-  StaticFunctions::renderText(10,30, mesg, tfont, Qt::black, Qt::lightGray);
+  StaticFunctions::renderText(10,30,
+			      mesg,
+			      tfont, Qt::black, Qt::lightGray);
 
   int sh = camera()->screenHeight();  
   tfont = QFont("Helvetica", 14); 
-  StaticFunctions::renderText(10,sh-30, QString("Current Label : %1").arg(Global::tag()),
+  StaticFunctions::renderText(10,sh-30,
+			      QString("Current Label : %1").arg(Global::tag()),
 			      tfont, Qt::black, Qt::lightGray);
 
   StaticFunctions::popOrthoView();
@@ -3247,7 +3252,7 @@ Viewer::localThickness(int label)
 }
 
 void
-Viewer::removeComponents(int tag)
+Viewer::removeSmallerComponents(int tag)
 {
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
@@ -3256,7 +3261,7 @@ Viewer::removeComponents(int tag)
   bmin = VECDIVIDE(bmin, voxelScaling);
   bmax = VECDIVIDE(bmax, voxelScaling);
 
-  emit removeComponents(bmin, bmax, tag);
+  emit removeSmallerComponents(bmin, bmax, tag);
 }
 
 void

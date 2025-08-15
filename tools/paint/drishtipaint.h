@@ -205,7 +205,7 @@ class DrishtiPaint : public QMainWindow
   void distanceTransform(Vec, Vec, int, int);
   void localThickness(Vec, Vec, int);
 
-  void removeComponents(Vec, Vec, int);  
+  void removeSmallerComponents(Vec, Vec, int);  
   void removeLargestComponents(Vec, Vec, int);  
   
   void hatchConnectedRegion(int, int, int,

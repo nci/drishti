@@ -1504,6 +1504,29 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
   //----------------------------
   //----------------------------
 
+  //----------------------------
+  {
+    // now set the maskData
+    for(qint64 d2=ds; d2<=de; d2++)
+      for(qint64 w2=ws; w2<=we; w2++)
+	for(qint64 h2=hs; h2<=he; h2++)
+	  {
+	    qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
+	    if (cbitmask.testBit(bidx))
+	      {
+		qint64 idx = d2*m_width*m_height + w2*m_height + h2;
+		m_maskDataUS[idx] = tag;
+	      }
+	  }
+
+    minD = ds;  maxD = de;
+    minW = ws;  maxW = we;
+    minH = hs;  maxH = he;
+    return;
+  }
+  //----------------------------  
+
+  
   int startd = de;
   int startw = we;
   int starth = he;
@@ -1531,6 +1554,10 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
   }
   //----------------------------  
 
+  QMessageBox::information(0, "", QString("%1 %2 %3\n%4 %5 %6").\
+			   arg(startd).arg(startw).arg(starth).\
+			   arg(endd).arg(endw).arg(endh));
+  
   //----------------------------  
   // set the non-transparent block
   for(qint64 d2=startd; d2<=endd; d2++)
@@ -1853,15 +1880,19 @@ VolumeOperations::openCloseBitmask(int offset1, int offset2,
       _dilatebitmask(offset1, false, // erode
 		     mx, my, mz,
 		     bitmask);
+      bitmask.invert();
       _dilatebitmask(offset2, true, // dilate
 		     mx, my, mz,
 		     bitmask);
+      bitmask.invert();
     }
   else // Close
     {
+      bitmask.invert();
       _dilatebitmask(offset1, true, // dilate
 		     mx, my, mz,
 		     bitmask);
+      bitmask.invert();
       _dilatebitmask(offset2, false, // erode
 		     mx, my, mz,
 		     bitmask);
@@ -1906,9 +1937,8 @@ VolumeOperations::_dilatebitmask(int nDilate, bool htype,
   // check distance transform
   for(qint64 idx=0; idx<mx*my*mz; idx++)
     {
-      //m_maskDataUS[idx] = qFloor(sqrt(dt[idx]));
       if (qFloor(sqrt(dt[idx])) <= nDilate)
-	bitmask.setBit(idx, htype);
+	bitmask.setBit(idx, false);
     }
   
   delete [] dt;
@@ -2524,11 +2554,12 @@ VolumeOperations::dilateAll(Vec bmin, Vec bmax, int tag,
     }
 
 
-
+  bitmask.invert();
   _dilatebitmask(nDilate, true, // dilate opaque region
 		 mx, my, mz,
 		 bitmask,
 		 showProgress);
+  bitmask.invert();
 
 
   
@@ -2882,12 +2913,6 @@ VolumeOperations::closeAll(Vec bmin, Vec bmax, int tag,
 }
 
 
-
-
-
-
-
-
 void
 VolumeOperations::dilateConnected(int dr, int wr, int hr,
 				  Vec bmin, Vec bmax, int tag,
@@ -3057,10 +3082,11 @@ VolumeOperations::dilateConnected(int dr, int wr, int hr,
 
 
 
-
+  bitmask.invert();
   _dilatebitmask(nDilate, true, // dilate opaque region
 		 mx, my, mz,
 		 bitmask);
+  bitmask.invert();
   
 
 
@@ -3880,12 +3906,12 @@ VolumeOperations::convertToVDBandSmooth(int ds, int ws, int hs,
 
 
 void
-VolumeOperations::removeComponents(Vec bmin, Vec bmax,
-				   int tag,
-				   int& minD, int& maxD,
-				   int& minW, int& maxW,
-				   int& minH, int& maxH,
-				   int gradType, float minGrad, float maxGrad)
+VolumeOperations::removeSmallerComponents(Vec bmin, Vec bmax,
+					  int tag,
+					  int& minD, int& maxD,
+					  int& minW, int& maxW,
+					  int& minH, int& maxH,
+					  int gradType, float minGrad, float maxGrad)
 {
   minD = maxD = minW = maxW = minH = maxH = -1;
 
@@ -3933,7 +3959,7 @@ VolumeOperations::removeComponents(Vec bmin, Vec bmax,
   componentThreshold = QInputDialog::getInt(0,
 					    "Component Threshold",
 					    "Minimum number of voxels per labeled component",
-					    1000);
+					    1000);  
   //------------------
   
 
@@ -3947,12 +3973,23 @@ VolumeOperations::removeComponents(Vec bmin, Vec bmax,
 
   //------------------
 
+
+  QProgressDialog progress("Calculating voxelcount per component",
+			   QString(),
+			   0, 100,
+			   0,
+			   Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);  
+  qApp->processEvents();
  
   //------------------
   // calculate volume (no. of voxels) per component
   QMap<int, int> labelMap; // contains (number of voxels) volume for each label
   for(qint64 d=ds; d<=de; d++)
-    for(qint64 w=ws; w<=we; w++)
+    {
+      progress.setValue(100*(float)(d-ds)/(float)(de-ds+1));
+      qApp->processEvents();
+      for(qint64 w=ws; w<=we; w++)
       for(qint64 h=hs; h<=he; h++)
 	{
 	  qint64 bidx = ((qint64)(d-ds))*mx*my+((qint64)(w-ws))*mx+(h-hs);
@@ -3961,13 +3998,18 @@ VolumeOperations::removeComponents(Vec bmin, Vec bmax,
  	  if (vol[bidx] > 0)
 	    labelMap[vol[bidx]] = labelMap[vol[bidx]] + 1;
 	}
+    }
   //------------------
 
    
   //------------------
   // remove components with volume less than componentThreshold
+  progress.setLabelText(QString("Removing components containing less than %1 voxels").arg(componentThreshold));
   for(qint64 d=ds; d<=de; d++)
-    for(qint64 w=ws; w<=we; w++)
+    {
+      progress.setValue(100*(float)(d-ds)/(float)(de-ds+1));
+      qApp->processEvents();
+      for(qint64 w=ws; w<=we; w++)
       for(qint64 h=hs; h<=he; h++)
 	{
 	  qint64 bidx = ((qint64)(d-ds))*mx*my+((qint64)(w-ws))*mx+(h-hs);
@@ -3975,6 +4017,7 @@ VolumeOperations::removeComponents(Vec bmin, Vec bmax,
 	  if (labelMap[vol[bidx]] <= componentThreshold)
 	    m_maskDataUS[idx] = 0;
 	}
+    }
   //------------------
   
   delete [] vol;
@@ -4039,11 +4082,11 @@ VolumeOperations::removeLargestComponents(Vec bmin, Vec bmax,
   
 
   //------------------
-  // ignore all components below componentThreshold
+  // ignore all components above componentThreshold
   int largestComponents = 1;
   largestComponents = QInputDialog::getInt(0,
 					   "Largest Components",
-					   "Remove how many first largest components.\n1 = remove only the largest component",
+					   "How many top largest components to remove.\n1 = remove only the largest component",
 					   1);
   if (largestComponents < 1)
     return;
@@ -5050,7 +5093,7 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
 
   
 
-  QMessageBox::information(0, "Max Local Thickness", QString("%1").arg(maxLT));
+  QMessageBox::information(0, "Max Local Thickness", QString("%1 %2").arg(maxLT).arg(pvlInfo.voxelUnitString()));
 
   
   //------------------------------
@@ -5152,26 +5195,26 @@ VolumeOperations::distDilate(float *vol, float *out,
 						     
   QFutureWatcher<void> futureWatcher;
 
-  QProgressDialog progress(QString("Distance dilation %1 of %2").arg(r).arg(maxLT),
-			   QString(),
-			   0, 100,
-			   0,
-			   Qt::WindowStaysOnTopHint);
-  if (mz > 300)
-    {
-      progress.setMinimumDuration(0);
-      QObject::connect(&futureWatcher, &QFutureWatcher<void>::finished, &progress, &QProgressDialog::reset);
-      QObject::connect(&progress, &QProgressDialog::canceled, &futureWatcher, &QFutureWatcher<void>::cancel);
-      QObject::connect(&futureWatcher,  &QFutureWatcher<void>::progressRangeChanged, &progress, &QProgressDialog::setRange);
-      QObject::connect(&futureWatcher, &QFutureWatcher<void>::progressValueChanged,  &progress, &QProgressDialog::setValue);
-    }
+//  QProgressDialog progress(QString("Distance dilation %1 of %2").arg(r).arg(maxLT),
+//			   QString(),
+//			   0, 100,
+//			   0,
+//			   Qt::WindowStaysOnTopHint);
+//  if (mz > 300)
+//    {
+//      progress.setMinimumDuration(0);
+//      QObject::connect(&futureWatcher, &QFutureWatcher<void>::finished, &progress, &QProgressDialog::reset);
+//      QObject::connect(&progress, &QProgressDialog::canceled, &futureWatcher, &QFutureWatcher<void>::cancel);
+//      QObject::connect(&futureWatcher,  &QFutureWatcher<void>::progressRangeChanged, &progress, &QProgressDialog::setRange);
+//      QObject::connect(&futureWatcher, &QFutureWatcher<void>::progressValueChanged,  &progress, &QProgressDialog::setValue);
+//    }
   
   futureWatcher.setFuture(QtConcurrent::map(param, VolumeOperations::parDistDilate));
   
   
-  // Display the dialog and start the event loop.
-  if (mz > 300)
-    progress.exec();
+//  // Display the dialog and start the event loop.
+//  if (mz > 300)
+//    progress.exec();
   
   futureWatcher.waitForFinished();
 }

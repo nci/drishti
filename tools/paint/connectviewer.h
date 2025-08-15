@@ -47,8 +47,8 @@
   connect(m_viewer, SIGNAL(localThickness(Vec,Vec,int)),
 	  this, SLOT(localThickness(Vec,Vec,int)));
 
-  connect(m_viewer, SIGNAL(removeComponents(Vec,Vec,int)),
-	  this, SLOT(removeComponents(Vec,Vec,int)));
+  connect(m_viewer, SIGNAL(removeSmallerComponents(Vec,Vec,int)),
+	  this, SLOT(removeSmallerComponents(Vec,Vec,int)));
 
   connect(m_viewer, SIGNAL(removeLargestComponents(Vec,Vec,int)),
 	  this, SLOT(removeLargestComponents(Vec,Vec,int)));

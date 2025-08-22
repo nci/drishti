@@ -252,8 +252,6 @@ Bricks::setBounds(Vec datamin, Vec datamax)
   m_dataMin = datamin;
   m_dataMax = datamax;
   m_dataSize = m_dataMax - m_dataMin;
-
-  //QMessageBox::information(0, "", QString("%1 %2 %3").arg(datamin.x).arg(datamin.y).arg(datamin.z));
   
   Vec voxelScaling = Global::voxelScaling();
 
@@ -523,6 +521,7 @@ Bricks::drawAxisAngle(double *xform, int bno)
     return;
 
   Vec voxelScaling = Global::voxelScaling();
+  Vec pivot0 = getPivot(bno);
   Vec pivot = VECPRODUCT(getPivot(bno),voxelScaling);
   Vec axis = getAxis(bno);
   float len = (m_dataSize.x+m_dataSize.y+m_dataSize.z)/6;
@@ -638,6 +637,7 @@ Bricks::draw()
 void
 Bricks::update()
 {
+  //QMessageBox::information(0,"Bricks update", "bricks update");
   QList<BrickBounds> gbrick1;
   Vec voxelScaling = Global::voxelScaling();
 

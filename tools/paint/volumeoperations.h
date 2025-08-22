@@ -255,6 +255,11 @@ class VolumeOperations
 				 int, bool,
 				 MyBitArray&,
 				 int, float, float);
+  static void getConnectedRegionFromBitmask(int, int, int,
+					    int, int, int,
+					    int, int, int,
+					    MyBitArray&,
+					    MyBitArray&);
 
   static void getRegionConnectedToROI(int, int, int,
 				      int, int, int,

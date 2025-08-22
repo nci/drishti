@@ -26,6 +26,7 @@ class BricksWidget : public QWidget
   void setBrickZeroRotation(int, float);
   void keyPressEvent(QKeyEvent*);
   void setAngle(float);
+  void updateBrickInformation();
 				
  private slots :
   void addClipper();
@@ -52,7 +53,6 @@ class BricksWidget : public QWidget
   void on_angleFromMouse_toggled(bool);
 
   void fillInformation(int);
-  void updateBrickInformation();
   void cellClicked(int, int);
 
  private :

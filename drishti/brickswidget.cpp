@@ -486,9 +486,9 @@ BricksWidget::updateBrickInformation()
   binfo.scalepivot = StaticFunctions::getVec(ui.m_scalepivot->text());
   binfo.scale = StaticFunctions::getVec(ui.m_scale->text());
 
-  Vec voxelScaling = Global::voxelScaling();
-  binfo.brickMin = VECPRODUCT(binfo.brickMin, voxelScaling);
-  binfo.brickMax = VECPRODUCT(binfo.brickMax, voxelScaling);
+//  Vec voxelScaling = Global::voxelScaling();
+//  binfo.brickMin = VECPRODUCT(binfo.brickMin, voxelScaling);
+//  binfo.brickMax = VECPRODUCT(binfo.brickMax, voxelScaling);
 
   m_bricks->setBrick(m_selected, binfo);
 
@@ -567,8 +567,11 @@ BricksWidget::getHitpoint(Vec& hitpt)
   Global::bounds(dataMin, dataMax);
   dataSize = dataMax-dataMin;
   BrickInformation binfo = m_bricks->brickInformation(m_selected);
-  Vec bmin = dataMin + VECPRODUCT(binfo.brickMin, dataSize);
-  Vec bmax = dataMin + VECPRODUCT(binfo.brickMax, dataSize);
+  Vec voxelScaling = Global::voxelScaling();
+  Vec brickMin = VECPRODUCT(binfo.brickMin, voxelScaling);
+  Vec brickMax = VECPRODUCT(binfo.brickMax, voxelScaling);
+  Vec bmin = dataMin + VECPRODUCT(brickMin, dataSize);
+  Vec bmax = dataMin + VECPRODUCT(brickMax, dataSize);
   
   // take the last active hitpoint
   Vec p = pts[pts.count()-1];
@@ -607,8 +610,11 @@ BricksWidget::on_m_axisFromHitpoint_pressed()
   Global::bounds(dataMin, dataMax);
   dataSize = dataMax-dataMin;
   BrickInformation binfo = m_bricks->brickInformation(m_selected);
-  Vec bmin = dataMin + VECPRODUCT(binfo.brickMin, dataSize);
-  Vec bmax = dataMin + VECPRODUCT(binfo.brickMax, dataSize);
+  Vec voxelScaling = Global::voxelScaling();
+  Vec brickMin = VECPRODUCT(binfo.brickMin, voxelScaling);
+  Vec brickMax = VECPRODUCT(binfo.brickMax, voxelScaling);
+  Vec bmin = dataMin + VECPRODUCT(brickMin, dataSize);
+  Vec bmax = dataMin + VECPRODUCT(brickMax, dataSize);
   //-----
   Vec d = bmax-bmin;
   p0 = bmin + VECPRODUCT(p0,d);

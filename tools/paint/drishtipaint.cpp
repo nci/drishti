@@ -5044,6 +5044,37 @@ DrishtiPaint::updateModifiedRegion(int minD, int maxD,
 }
 
 void
+DrishtiPaint::poreId(Vec bmin, Vec bmax, int tag1, int tag2, int fringe)
+{
+  int minD,maxD, minW,maxW, minH,maxH;
+
+  QList<Vec> cPos =  m_viewer->clipPos();
+  QList<Vec> cNorm = m_viewer->clipNorm();
+  
+  float minGrad = m_viewer->minGrad();
+  float maxGrad = m_viewer->maxGrad();
+  int gradType = m_viewer->gradType();
+  
+  VolumeOperations::setClip(cPos, cNorm);
+  VolumeOperations::poreIdentification(bmin, bmax,
+				       tag1, tag2, fringe,
+				       true, 0, 0, 0, 0,
+				       minD, maxD,
+				       minW, maxW,
+				       minH, maxH,
+				       gradType, minGrad, maxGrad);
+
+  if (minD < 0)
+    return;
+
+  updateModifiedRegion(minD, maxD,
+		       minW, maxW,
+		       minH, maxH);
+
+  QMessageBox::information(0, "", "Pore Identification done");
+}
+
+void
 DrishtiPaint::shrinkwrap(Vec bmin, Vec bmax, int tag,
 			 bool shellOnly, int shellThickness)
 {

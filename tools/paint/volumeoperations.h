@@ -108,6 +108,15 @@ class VolumeOperations
 			 int&, int&,
 			 int, float, float);
 
+  static void poreIdentification(Vec, Vec,
+				 int, int, int,
+				 bool,
+				 int, int, int, int,
+				 int&, int&,
+				 int&, int&,
+				 int&, int&,
+				 int, float, float);
+
   static void tagTubes(Vec, Vec, int,
 		       bool,
 		       int, int, int, int,
@@ -325,6 +334,11 @@ class VolumeOperations
 			 qint64, qint64, qint64,
 			 int, int);
   static void parDistDilate(QList<QVariant>);
+
+  static void padBitmask(MyBitArray&,
+			 MyBitArray&,
+			 qint64, qint64, qint64,
+			 bool, int);
 };
 
 #endif

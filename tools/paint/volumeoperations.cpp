@@ -1589,6 +1589,193 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
   minH = hs;  maxH = he;
 }
 
+
+void
+VolumeOperations::poreIdentification(Vec bmin, Vec bmax,
+				     int tag1, int tag2, int fringe,
+				     bool all,
+				     int dr, int wr, int hr, int ctag,
+				     int& minD, int& maxD,
+				     int& minW, int& maxW,
+				     int& minH, int& maxH,
+				     int gradType, float minGrad, float maxGrad)
+{
+  //-------------------------
+  int holeSize = 0;
+  holeSize = QInputDialog::getInt(0,
+				  "Fill Holes",
+				  "Size of holes to fill",
+				  0, 0, 100, 1);
+  //-------------------------
+
+  int ds = qMax(0, qFloor(bmin.z));
+  int ws = qMax(0, qFloor(bmin.y));
+  int hs = qMax(0, qFloor(bmin.x));
+
+  int de = qMin(qCeil(bmax.z), m_depth-1);
+  int we = qMin(qCeil(bmax.y), m_width-1);
+  int he = qMin(qCeil(bmax.x), m_height-1);
+
+  qint64 mx = he-hs+1;
+  qint64 my = we-ws+1;
+  qint64 mz = de-ds+1;
+
+  MyBitArray cbitmask;
+  cbitmask.resize(mx*my*mz);
+  cbitmask.fill(false);
+
+
+  int indices[] = {-1, 0, 0,
+		    1, 0, 0,
+		    0,-1, 0,
+		    0, 1, 0,
+		    0, 0,-1,
+		    0, 0, 1};
+  
+  //----------------------------  
+  if (all) // identify transparent region  
+    getTransparentRegion(ds, ws, hs,
+			 de, we, he,
+			 cbitmask,
+			 gradType, minGrad, maxGrad);
+  else // identify connected region
+    {
+      getConnectedRegion(dr, wr, hr,
+			 ds, ws, hs,
+			 de, we, he,
+			 ctag, false,
+			 cbitmask,
+			 gradType, minGrad, maxGrad);
+      // invert all values in cbitmask
+      cbitmask.invert();
+    }
+  //----------------------------  
+
+
+  //----------------------------  
+  // cbitmask is true for transparent region
+  // cbitmask is false for opaque region
+  //----------------------------  
+
+  MyBitArray allPores;
+  MyBitArray externalPores;
+
+  // padded region with all pores set to true in allPores
+  padBitmask(allPores, cbitmask,
+	     mx, my, mz,
+	     true, 1);
+    
+  externalPores = allPores;
+  
+  //--------------------------------
+  // locate outer region
+  // externally connected pores along with outer region set to true in externalPores
+  getConnectedRegionFromBitmask(0, 0, 0,
+				0, 0, 0,
+				mz+1, my+1, mx+1,
+				allPores,
+				externalPores);
+  //--------------------------------
+
+
+  QProgressDialog progress("Pore Identification",
+			   QString(),
+			   0, 100,
+			   0,
+			   Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);
+
+  //----------------------------
+  // apply open operation to transparent region
+  // to fill the holes before identifying outer region
+  if (holeSize > 0)
+    {
+      progress.setValue(50);
+      qApp->processEvents();
+      openCloseBitmask(holeSize, holeSize, 
+		       true, // open transparent region
+		       mx, my, mz,
+		       cbitmask); // cbitmask contains transparent region
+      progress.setLabelText("Shrinkwrap - holes closed");
+      progress.setValue(75);
+      qApp->processEvents();
+    }
+  //----------------------------
+
+
+  //--------------------------------
+  // add border so that identifying outer region becomes easier
+  MyBitArray bitmask;
+  padBitmask(bitmask, cbitmask,
+	     mx, my, mz,
+	     true, 1);
+  cbitmask = bitmask; // need to reflect padding in cbitmask as well
+  //--------------------------------
+
+  
+  //--------------------------------
+  // locate outer region
+  getConnectedRegionFromBitmask(0, 0, 0,
+				0, 0, 0,
+				mz+1, my+1, mx+1,
+				bitmask,
+				cbitmask);
+  // dilate the outer region so that we remove the fringe
+  cbitmask.invert();
+  _dilatebitmask(fringe, false, // erode shrinkwrapped region
+		 mx+2, my+2, mz+2,
+		 cbitmask);
+  cbitmask.invert();
+  //--------------------------------
+
+
+  //----------------------------
+  // now set the maskData
+  for(qint64 d2=0; d2<mz; d2++)
+    for(qint64 w2=0; w2<my; w2++)
+      for(qint64 h2=0; h2<mx; h2++)
+	{
+	  qint64 bidx = (d2+1)*(mx+2)*(my+2)+(w2+1)*(mx+2)+(h2+1);
+	  if (!cbitmask.testBit(bidx))
+	    {
+	      if (externalPores.testBit(bidx)) // external pores
+		{
+		  qint64 idx = (d2+ds)*m_width*m_height + (w2+ws)*m_height + (h2+hs);
+		  m_maskDataUS[idx] = tag1;
+		}
+	      else if (allPores.testBit(bidx)) // internal pores
+		{
+		  qint64 idx = (d2+ds)*m_width*m_height + (w2+ws)*m_height + (h2+hs);
+		  m_maskDataUS[idx] = tag2;
+		}
+	    }
+	}
+  //----------------------------  
+
+  minD = ds;  maxD = de;
+  minW = ws;  maxW = we;
+  minH = hs;  maxH = he;
+}
+
+void
+VolumeOperations::padBitmask(MyBitArray& dest,
+			     MyBitArray& src,
+			     qint64 mx, qint64 my, qint64 mz,
+			     bool initValue, int padSize)
+{
+  dest.resize((mx+2*padSize)*(my+2*padSize)*(mz+2*padSize));
+  dest.fill(initValue);
+  for(int d=0; d<mz; d++)
+  for(int w=0; w<my; w++)
+  for(int h=0; h<mx; h++)
+    {
+      qint64 bidx = d*mx*my + w*mx + h;
+      qint64 bidx2 = (d+padSize)*(mx+2*padSize)*(my+2*padSize) + (w+padSize)*(mx+2*padSize) + (h+padSize);
+      dest.setBit(bidx2, src.testBit(bidx));
+    }
+}
+
+
 void
 VolumeOperations::openCloseBitmask(int offset1, int offset2,
 				   bool htype,

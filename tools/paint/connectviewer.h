@@ -104,6 +104,9 @@
   connect(m_viewer, SIGNAL(shrinkwrap(Vec, Vec, int, bool, int)),
 	  this, SLOT(shrinkwrap(Vec, Vec, int, bool, int)));
 
+connect(m_viewer, SIGNAL(poreId(Vec, Vec, int, int, int)),
+	this, SLOT(poreId(Vec, Vec, int, int, int)));
+
   connect(m_viewer, SIGNAL(shrinkwrap(Vec, Vec, int, bool, int,
 				      bool, int, int, int, int)),
 	  this, SLOT(shrinkwrap(Vec, Vec, int, bool, int,

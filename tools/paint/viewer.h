@@ -166,6 +166,7 @@ class Viewer : public QGLViewer
     void loadRawMask(QString);
 
     void shrinkwrap(Vec, Vec, int, bool, int);
+  void poreId(Vec, Vec, int, int, int);
     void shrinkwrap(Vec, Vec, int, bool, int,
 		    bool, int, int, int, int);
 

@@ -1327,6 +1327,35 @@ Viewer::processCommand(QString cmd)
     }
 
 
+  if (list[0] == "poreid")
+    {
+      int fringe = 1;
+      int tag1 = Global::tag();
+      int tag2 = Global::tag()+1;
+      if (list.size() == 4)
+	{
+	  fringe = qBound(0, list[1].toInt(&ok), 10);
+	  tag1 = list[2].toInt(&ok);
+	  tag2 = list[3].toInt(&ok);
+	  if (tag1 < 0 || tag1 > 65535 ||
+	      tag2 < 0 || tag2 > 65535)
+	    {
+	      QMessageBox::information(0, "", QString("Incorrect pore labels specified : external (%1) , internal (%2)").\
+				       arg(tag1).arg(tag2));
+	      return;
+	    }
+	}
+      else
+	{
+	  QMessageBox::information(0, "", "Expect <fringe> <label1> <label2>");
+	  return;
+	}
+      
+      emit poreId(bmin, bmax, tag1, tag2, fringe);
+      return;
+    }
+
+
   if (list[0] == "shell")
     {
       int tag1 = Global::tag();

@@ -1329,14 +1329,16 @@ Viewer::processCommand(QString cmd)
 
   if (list[0] == "poreid")
     {
-      int fringe = 1;
       int tag1 = Global::tag();
       int tag2 = Global::tag()+1;
-      if (list.size() == 4)
+      int holeSize = 0;
+      int fringe = 1;
+      if (list.size() == 5)
 	{
-	  fringe = qBound(0, list[1].toInt(&ok), 10);
-	  tag1 = list[2].toInt(&ok);
-	  tag2 = list[3].toInt(&ok);
+	  tag1 = list[1].toInt(&ok);
+	  tag2 = list[2].toInt(&ok);
+	  holeSize = qBound(0, list[3].toInt(&ok), 100);
+	  fringe = qBound(0, list[4].toInt(&ok), 10);
 	  if (tag1 < 0 || tag1 > 65535 ||
 	      tag2 < 0 || tag2 > 65535)
 	    {
@@ -1347,11 +1349,11 @@ Viewer::processCommand(QString cmd)
 	}
       else
 	{
-	  QMessageBox::information(0, "", "Expect <fringe> <label1> <label2>");
+	  QMessageBox::information(0, "", "Expect <label1> <label2> <holeSize> <fringe>");
 	  return;
 	}
       
-      emit poreId(bmin, bmax, tag1, tag2, fringe);
+      emit poreId(bmin, bmax, tag1, tag2, holeSize, fringe);
       return;
     }
 

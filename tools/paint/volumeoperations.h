@@ -108,14 +108,14 @@ class VolumeOperations
 			 int&, int&,
 			 int, float, float);
 
-  static void poreIdentification(Vec, Vec,
-				 int, int, int,
-				 bool,
-				 int, int, int, int,
-				 int&, int&,
-				 int&, int&,
-				 int&, int&,
-				 int, float, float);
+  static void poreCharacterization(Vec, Vec,
+				   int, int, int, int,
+				   bool,
+				   int, int, int, int,
+				   int&, int&,
+				   int&, int&,
+				   int&, int&,
+				   int, float, float);
 
   static void tagTubes(Vec, Vec, int,
 		       bool,
@@ -339,6 +339,10 @@ class VolumeOperations
 			 MyBitArray&,
 			 qint64, qint64, qint64,
 			 bool, int);
+  static void unpadBitmask(MyBitArray&,
+			   MyBitArray&,
+			   qint64, qint64, qint64,
+			   int);
 };
 
 #endif

@@ -1591,23 +1591,15 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
 
 
 void
-VolumeOperations::poreIdentification(Vec bmin, Vec bmax,
-				     int tag1, int tag2, int fringe,
-				     bool all,
-				     int dr, int wr, int hr, int ctag,
-				     int& minD, int& maxD,
-				     int& minW, int& maxW,
-				     int& minH, int& maxH,
-				     int gradType, float minGrad, float maxGrad)
+VolumeOperations::poreCharacterization(Vec bmin, Vec bmax,
+				       int tag1, int tag2, int holeSize, int fringe,
+				       bool all,
+				       int dr, int wr, int hr, int ctag,
+				       int& minD, int& maxD,
+				       int& minW, int& maxW,
+				       int& minH, int& maxH,
+				       int gradType, float minGrad, float maxGrad)
 {
-  //-------------------------
-  int holeSize = 0;
-  holeSize = QInputDialog::getInt(0,
-				  "Fill Holes",
-				  "Size of holes to fill",
-				  0, 0, 100, 1);
-  //-------------------------
-
   int ds = qMax(0, qFloor(bmin.z));
   int ws = qMax(0, qFloor(bmin.y));
   int hs = qMax(0, qFloor(bmin.x));
@@ -1775,6 +1767,23 @@ VolumeOperations::padBitmask(MyBitArray& dest,
     }
 }
 
+void
+VolumeOperations::unpadBitmask(MyBitArray& dest,
+			       MyBitArray& src,
+			       qint64 mx, qint64 my, qint64 mz,
+			       int padSize)
+{
+  dest.resize(mx*my*mz);
+  for(int d=0; d<mz; d++)
+  for(int w=0; w<my; w++)
+  for(int h=0; h<mx; h++)
+    {
+      qint64 bidx = d*mx*my + w*mx + h;
+      qint64 bidx2 = (d+padSize)*(mx+2*padSize)*(my+2*padSize) + (w+padSize)*(mx+2*padSize) + (h+padSize);
+      dest.setBit(bidx, src.testBit(bidx2));
+    }
+}
+
 
 void
 VolumeOperations::openCloseBitmask(int offset1, int offset2,
@@ -1795,29 +1804,39 @@ VolumeOperations::openCloseBitmask(int offset1, int offset2,
 
   progress.setValue(25);
   qApp->processEvents();
+
+  MyBitArray paddedBitmask;
+  int padding = qMax(offset1, offset2);
+  int mxP = mx + 2*padding;
+  int myP = my + 2*padding;
+  int mzP = mz + 2*padding;
   
+  padBitmask(paddedBitmask, bitmask, mx, my, mz, true, padding);
+
   if (htype) // Open
     {
       _dilatebitmask(offset1, false, // erode
-		     mx, my, mz,
-		     bitmask);
-      bitmask.invert();
+		     mxP, myP, mzP,
+		     paddedBitmask);
+      paddedBitmask.invert();
       _dilatebitmask(offset2, true, // dilate
-		     mx, my, mz,
-		     bitmask);
-      bitmask.invert();
+		     mxP, myP, mzP,
+		     paddedBitmask);
+      paddedBitmask.invert();
     }
   else // Close
     {
-      bitmask.invert();
+      paddedBitmask.invert();
       _dilatebitmask(offset1, true, // dilate
-		     mx, my, mz,
-		     bitmask);
-      bitmask.invert();
+		     mxP, myP, mzP,
+		     paddedBitmask);
+      paddedBitmask.invert();
       _dilatebitmask(offset2, false, // erode
-		     mx, my, mz,
-		     bitmask);
+		     mxP, myP, mzP,
+		     paddedBitmask);
     }
+
+  unpadBitmask(bitmask, paddedBitmask, mx, my, mz, padding);
 
   progress.setValue(100);
   qApp->processEvents();
@@ -1849,7 +1868,7 @@ VolumeOperations::_dilatebitmask(int nDilate, bool htype,
   // generate squared distance transform
   float *dt = BinaryDistanceTransform::binaryEDTsq(bitmask,
 						   mx, my, mz,
-						   true);
+						   false);
   
   progress.setValue(75);
   qApp->processEvents();

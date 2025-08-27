@@ -5044,7 +5044,7 @@ DrishtiPaint::updateModifiedRegion(int minD, int maxD,
 }
 
 void
-DrishtiPaint::poreId(Vec bmin, Vec bmax, int tag1, int tag2, int fringe)
+DrishtiPaint::poreId(Vec bmin, Vec bmax, int tag1, int tag2, int holeSize, int fringe)
 {
   int minD,maxD, minW,maxW, minH,maxH;
 
@@ -5056,13 +5056,13 @@ DrishtiPaint::poreId(Vec bmin, Vec bmax, int tag1, int tag2, int fringe)
   int gradType = m_viewer->gradType();
   
   VolumeOperations::setClip(cPos, cNorm);
-  VolumeOperations::poreIdentification(bmin, bmax,
-				       tag1, tag2, fringe,
-				       true, 0, 0, 0, 0,
-				       minD, maxD,
-				       minW, maxW,
-				       minH, maxH,
-				       gradType, minGrad, maxGrad);
+  VolumeOperations::poreCharacterization(bmin, bmax,
+					 tag1, tag2, holeSize, fringe,
+					 true, 0, 0, 0, 0,
+					 minD, maxD,
+					 minW, maxW,
+					 minH, maxH,
+					 gradType, minGrad, maxGrad);
 
   if (minD < 0)
     return;

@@ -132,13 +132,15 @@ Clipping planes are obeyed - clipped region is not taken into account.
 
 #begin
 poreid
-poreid <fringe> <label1> <label2>
+poreid <label1> <label2> <holeSize> <fringe>
 
-External and internal pore identification.  External pores are voids that connect to the outside, while the internal pores are voids that do not.
+External and internal pore characterization.  External pores are voids that connect to the outside, while the internal pores are voids that do not.
+
 External voids are labelled as <label1> and internal voids are labelled as <label2>.
-Visible region is shrinkwrapped after closing holes in order to differentiate the voids.  User is asked for size of holes to close.
 
-<fringe> parameter (between 0 and 10) is then used to erode this shrinkwrapped visible region, after which pore identification is performed.  This shrinking reduces mislabelling of voxels near the surface as external voids.
+<holeSize> parameter (between 0 and 100) specifies the size of holes to be closed during shrinkwrap process.
+
+<fringe> parameter (between 0 and 10) is then used to erode the shrinkwrapped visible region, after which pore identification is performed.  This shrinking reduces mislabelling of voxels near the surface as external voids.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end

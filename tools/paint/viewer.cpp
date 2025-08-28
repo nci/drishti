@@ -1337,7 +1337,7 @@ Viewer::processCommand(QString cmd)
 	{
 	  tag1 = list[1].toInt(&ok);
 	  tag2 = list[2].toInt(&ok);
-	  holeSize = qBound(0, list[3].toInt(&ok), 100);
+	  holeSize = qBound(0, list[3].toInt(&ok), 500);
 	  fringe = qBound(0, list[4].toInt(&ok), 10);
 	  if (tag1 < 0 || tag1 > 65535 ||
 	      tag2 < 0 || tag2 > 65535)

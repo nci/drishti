@@ -120,7 +120,7 @@ HEADERS += connectviewer.h \
 	clipobject.h \
         clipgrabber.h \
         colormaps.h \
-	slices.h \
+        slices.h \
 	imagewidget.h \
         curves.h \
         curveswidget.h \

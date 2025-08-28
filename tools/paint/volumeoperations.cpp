@@ -15,8 +15,6 @@
 
 #include "cc3d.h"
 
-//#include "edt.hpp"
-//using namespace edt;
 
 
 uchar* VolumeOperations::m_volData = 0;
@@ -1069,7 +1067,7 @@ VolumeOperations::getConnectedRegionFromBitmask(int dr, int wr, int hr,
 						MyBitArray& vbitmask,
 						MyBitArray& cbitmask)
 {  
-  QProgressDialog progress("Identifying connected region",
+  QProgressDialog progress("Identifying connected region from bitmask",
 			   QString(),
 			   0, 100,
 			   0,
@@ -1080,6 +1078,18 @@ VolumeOperations::getConnectedRegionFromBitmask(int dr, int wr, int hr,
   qint64 my = we-ws+1;
   qint64 mz = de-ds+1;
 
+
+  auto idx = [=](int x,int y,int z)
+  {
+    return (z-ds)*mx*my + (y-ws)*mx + (x-hs);
+  };
+  
+  auto in  = [=](int x,int y,int z)
+  {
+    return x>=hs && x<=he && y>=ws &&y<=we && z>=ds && z<=de;
+  };
+  
+    
   int indices[] = {-1, 0, 0,
 		    1, 0, 0,
 		    0,-1, 0,
@@ -1103,11 +1113,13 @@ VolumeOperations::getConnectedRegionFromBitmask(int dr, int wr, int hr,
   QList<Vec> tedges;
   while(!done)
     {
-      nd = (nd + 1)%100;
-      int pnd = 90*(float)nd/(float)100;
-      progress.setValue(pnd);
+      nd = (nd + 1)%1000;
+      int pnd = 90*(float)nd/(float)1000;
       if (pnd != pvnd)
-	qApp->processEvents();
+	{
+	  progress.setValue(pnd);
+	  qApp->processEvents();
+	}
       pvnd = pnd;
 
       tedges.clear();
@@ -1129,11 +1141,14 @@ VolumeOperations::getConnectedRegionFromBitmask(int dr, int wr, int hr,
 	      int wa = indices[3*i+1];
 	      int ha = indices[3*i+2];
 	      
-	      qint64 d2 = qBound(ds, dx+da, de);
-	      qint64 w2 = qBound(ws, wx+wa, we);
-	      qint64 h2 = qBound(hs, hx+ha, he);
+	      int d2 = dx+da;
+	      int w2 = wx+wa;
+	      int h2 = hx+ha;
 	      
-	      qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
+	      if (!in(h2, w2, d2)) continue;
+	      
+	      qint64 bidx = idx(h2, w2, d2);
+	      
 	      if (vbitmask.testBit(bidx) &&
 		 !cbitmask.testBit(bidx))
 		{
@@ -1438,7 +1453,7 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
   holeSize = QInputDialog::getInt(0,
 				  "Fill Holes",
 				  "Size of holes to fill",
-				  0, 0, 100, 1);
+				  0, 0, 500, 1);
   //-------------------------
 
   int ds = qMax(0, qFloor(bmin.z));

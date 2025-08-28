@@ -138,7 +138,7 @@ External and internal pore characterization.  External pores are voids that conn
 
 External voids are labelled as <label1> and internal voids are labelled as <label2>.
 
-<holeSize> parameter (between 0 and 100) specifies the size of holes to be closed during shrinkwrap process.
+<holeSize> parameter (between 0 and 500) specifies the size of holes to be closed during shrinkwrap process.
 
 <fringe> parameter (between 0 and 10) is then used to erode the shrinkwrapped visible region, after which pore identification is performed.  This shrinking reduces mislabelling of voxels near the surface as external voids.
 

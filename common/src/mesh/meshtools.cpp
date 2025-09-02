@@ -8,6 +8,9 @@
 #include <QFile>
 #include <QTextStream>
 #include <QtMath>
+#include <QMessageBox>
+
+#include "gmsh.h_cwrap"
 
 
 void
@@ -494,4 +497,245 @@ MeshTools::saveToSTL(QString flnm,
 
   if (showProgress)
     progress.setValue(100);
+}
+
+void
+MeshTools::saveToTetrahedralMesh(QString flnm,
+				 QVector<QVector3D> V,
+				 QVector<QVector3D> N,
+				 QVector<int> T,
+				 bool showProgress)
+{
+  QString stl_flnm = flnm.chopped(3)+"stl";
+  saveToSTL(stl_flnm, V, N, T);
+  
+//  QProgressDialog progress("Saving tetrahedral mesh ...",
+//			   QString(),
+//			   0, 100,
+//			   0,
+//			   Qt::WindowStaysOnTopHint);
+//  if (showProgress)
+//    progress.setMinimumDuration(0);
+//  else
+//    progress.close();
+
+  QMessageBox::information(0, "", QString("Using gmsh %1").arg(GMSH_API_VERSION));
+  gmsh::initialize();
+
+// Set Gmsh options
+  gmsh::option::setNumber("General.NumThreads", 30);   // multithreading
+  //gmsh::option::setNumber("Mesh.Algorithm3D", 1); // Delaunay for 3D
+  gmsh::option::setNumber("Mesh.Algorithm3D", 10); // HXT for 3D
+  gmsh::option::setNumber("Mesh.Optimize", 1);    // Optimize mesh
+  //gmsh::option::setNumber("Mesh.OptimizeNetgen", 1); // Use Netgen for optimization
+
+  try
+      {
+        // Merge the STL file
+        gmsh::model::add("tetrahedral_model");
+	gmsh::merge(stl_flnm.toLatin1().data());
+	QMessageBox::information(0, "", "merge "+stl_flnm);
+	
+	// Create a volume from all the surfaces
+	gmsh::vectorpair s;
+	gmsh::model::getEntities(s, 2);
+	std::vector<int> sl;
+	for(auto surf : s) sl.push_back(surf.second);
+	int l = gmsh::model::geo::addSurfaceLoop(sl);
+	gmsh::model::geo::addVolume({l});
+
+
+	// Synchronize the geometry
+	QMessageBox::information(0, "", "mesh synchronize");
+        gmsh::model::geo::synchronize();
+
+        // Generate 3D mesh (tetrahedral)
+	QMessageBox::information(0, "", "3D mesh generation");
+        gmsh::model::mesh::generate(3);
+	QMessageBox::information(0, "", "Mesh generation done");
+
+	
+//	// Optimize the mesh
+//	QMessageBox::information(0, "", "optimizing tetrahedral mesh");
+//      gmsh::model::mesh::optimize("Netgen");
+
+
+	// Save the mesh to a file
+	gmsh::write(flnm.toLatin1().data());
+
+      }
+    catch (const std::exception &e)
+      {
+	QMessageBox::information(0, "Error", e.what());
+      }
+
+    // Finalize Gmsh
+    gmsh::finalize();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+//  gmsh::initialize();
+//  gmsh::model::add("tetmesh");
+//
+//  gmsh::merge(stl_flnm.toLatin1().data());
+//
+//  // 2.  Clean-up & close surface
+//  //gmsh::model::remove_duplicate_entities();
+//  //gmsh::model::remove_small_edges(1e-6);
+//  
+//    // 3.  Create volume from closed surface
+//  std::vector<std::pair<int, int>> surfaces;
+//  gmsh::model::getEntities(surfaces, 2);          // get all 2-D entities
+//  if (surfaces.empty())
+//    {
+//      QMessageBox::information(0, "Error", "No surface found");
+//      return;
+//    }
+//  
+//  //std::vector<int> surfaceTags;
+//  //for (auto& surf : surfaces) surfaceTags.push_back(surf.second);
+//
+//  gmsh::model::geo::addVolume({1}, 1);            // use surface tag 1
+//  gmsh::model::geo::synchronize();
+//  if (showProgress)
+//    {
+//      progress.setLabelText("Mesh loaded ...");
+//      progress.setValue(50);
+//      qApp->processEvents();
+//    }
+//
+//  // 4.  Mesh parameters (tweak as needed)
+//  gmsh::option::setNumber("Mesh.MeshSizeMin", 0.1);
+//  gmsh::option::setNumber("Mesh.MeshSizeMax", 1.0);
+//  gmsh::option::setNumber("Mesh.Algorithm3D", 1); // Delaunay tetrahedra
+//  gmsh::option::setNumber("Mesh.Optimize", 1);
+//  
+//  // 5.  Generate and export
+//  if (showProgress)
+//    {
+//      progress.setLabelText("Generating tetrahedral mesh ...");
+//      progress.setValue(80);
+//      qApp->processEvents();
+//    }
+//  gmsh::model::mesh::generate(3);
+//
+//  if (showProgress)
+//    {
+//      progress.setLabelText("Saving tetrahedral mesh ...");
+//      progress.setValue(90);
+//      qApp->processEvents();
+//    }
+//  gmsh::write(flnm.toLatin1().data());
+//
+
+  
+//  int nverts = V.count();
+//  // add points
+//  for (int i=0; i<nverts; i++)
+//    {
+//      if (showProgress)
+//	{
+//	  if (i%10000 == 0)
+//	    {
+//	      progress.setValue((int)(100.0*(float)i/(float)(nverts)));
+//	      qApp->processEvents();
+//	    }
+//	}
+//
+//      gmsh::model::geo::addPoint(V[i].x(), V[i].y(), V[i].z(),
+//				 1.0, // meshing constraint (adjust as needed)
+//				 i+1); // tag (Gmsh uses 1-based indexing)
+//    }
+//
+//  int ntri = T.count()/3;
+//  // add curves
+//  QVector<int> curveTags;
+//  for (int i=0; i<ntri; i++)
+//    {
+//      if (showProgress)
+//	{
+//	  if (i%10000 == 0)
+//	    {
+//	      progress.setValue((int)(100.0*(float)i/(float)(ntri)));
+//	      qApp->processEvents();
+//	    }
+//	}
+//
+//      int tag1 = gmsh::model::geo::addLine(T[3*i+0] + 1, T[3*i+1] + 1);
+//      int tag2 = gmsh::model::geo::addLine(T[3*i+1] + 1, T[3*i+2] + 1);
+//      int tag3 = gmsh::model::geo::addLine(T[3*i+2] + 1, T[3*i+0] + 1);
+//      curveTags.append(tag1);
+//      curveTags.append(tag2);
+//      curveTags.append(tag3);
+//    }
+//
+//  // add curve loops and surfaces
+//  std::vector<int> surfaceTags;
+//  for (int i=0; i<ntri; i++)
+//    {
+//      if (showProgress)
+//	{
+//	  if (i%10000 == 0)
+//	    {
+//	      progress.setValue((int)(100.0*(float)i/(float)(ntri)));
+//	      qApp->processEvents();
+//	    }
+//	}
+//
+//      std::vector<int> curves = {curveTags[3*i+0],
+//				 curveTags[3*i+1],
+//				 curveTags[3*i+2]};
+//      int loopTag = gmsh::model::geo::addCurveLoop(curves);
+//      int surfaceTag = gmsh::model::geo::addPlaneSurface({loopTag});
+//      surfaceTags.push_back(surfaceTag);
+//    }
+//
+//  // create volume from surfaces
+//  int volumeTag = gmsh::model::geo::addSurfaceLoop(surfaceTags);
+//  gmsh::model::geo::addVolume({volumeTag});
+//
+//  gmsh::model::geo::synchronize();
+//  if (showProgress)
+//    {
+//      progress.setLabelText("Generating tetrahedral mesh ...");
+//      progress.setValue(80);
+//      qApp->processEvents();
+//    }
+//  
+//  gmsh::model::mesh::generate(3); // 3D tetrahedral mesh
+//  if (showProgress)
+//    {
+//      progress.setValue(95);
+//      qApp->processEvents();
+//    }
+//
+//  gmsh::write(flnm.toLatin1().data());
+//
+//
+//  if (showProgress)
+//    progress.setValue(100);
 }

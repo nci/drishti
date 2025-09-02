@@ -15,6 +15,12 @@ contains(Windows_Setup, Win64) {
     FFMPEG_LIBRARY_PATH = c:/Apps/ffmpeg-6.1/lib
     FFMPEG_INCLUDE_PATH = c:/Apps/ffmpeg-6.1/include
 
+    VCPKG_INCLUDE_PATH = C:\cygwin64\home\acl900\vcpkg\vcpkg\installed\x64-windows\include
+    VCPKG_LIBRARY_PATH = C:\cygwin64\home\acl900\vcpkg\vcpkg\installed\x64-windows\lib
+
+    GMSH_INCLUDE_PATH = C:\cygwin64\home\acl900\drishtilib\gmsh-4.14.0-Windows64-sdk\include
+    GMSH_LIBRARY_PATH = C:\cygwin64\home\acl900\drishtilib\gmsh-4.14.0-Windows64-sdk\lib
+
     contains(DRISHTI_DEFINES, RENDERER) {
       INCLUDEPATH += c:\Qt\Qt-5.15.2\libQGLViewer\libQGLViewer-2.6.4 \
   	c:\cygwin64\home\acl900\drishtilib\freeglut\include \

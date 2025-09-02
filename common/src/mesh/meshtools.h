@@ -44,6 +44,13 @@ class MeshTools
 			QVector<QVector3D>,
 			QVector<int>,
 			bool showProgress=true);
+
+  static void saveToTetrahedralMesh(QString,
+			QVector<QVector3D>,
+			QVector<QVector3D>,
+			QVector<int>,
+			bool showProgress=true);
+
 };
 
 #endif

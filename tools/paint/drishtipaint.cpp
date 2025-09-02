@@ -3738,7 +3738,7 @@ DrishtiPaint::on_actionMeshTag_triggered()
   QString tflnm = QFileDialog::getSaveFileName(0,
 					       "Save mesh",
 					       QFileInfo(pvlFilename).absolutePath(),
-					       "*.ply ;; *.obj ;; *.stl");
+					       "*.ply ;; *.obj ;; *.stl ;; *.msh");
 					       //QFileDialog::DontUseNativeDialog);
   
   if (tflnm.isEmpty())
@@ -3746,7 +3746,8 @@ DrishtiPaint::on_actionMeshTag_triggered()
 
   if (!StaticFunctions::checkExtension(tflnm, ".ply") &&
       !StaticFunctions::checkExtension(tflnm, ".obj") &&
-      !StaticFunctions::checkExtension(tflnm, ".stl"))
+      !StaticFunctions::checkExtension(tflnm, ".stl") &&
+      !StaticFunctions::checkExtension(tflnm, ".msh"))
     tflnm += ".ply";
 
 
@@ -4260,6 +4261,8 @@ DrishtiPaint::on_actionMeshTag_triggered()
 	    V[i] *= voxelScaling;
 	}
       
+      progress.setValue(100);  
+      qApp->processEvents();      
       
       // save mesh
       if (tflnm.right(3).toLower() == "obj")
@@ -4268,6 +4271,8 @@ DrishtiPaint::on_actionMeshTag_triggered()
 	MeshTools::saveToPLY(tflnm, V, N, C, T);
       else if (tflnm.right(3).toLower() == "stl")
 	MeshTools::saveToSTL(tflnm, V, N, T);
+      else if (tflnm.right(3).toLower() == "msh")
+	MeshTools::saveToTetrahedralMesh(tflnm, V, N, T);
       
     } // End Label
   

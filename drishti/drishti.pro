@@ -48,16 +48,16 @@ win32 {
     INCLUDEPATH += 16bit \
                    c:/cygwin64/home/acl900/drishtilib/assimp-5.0.1/include \
                    c:/cygwin64/home/acl900/drishtilib/assimp-5.0.1/build/include \
-                   C:\cygwin64\home\acl900\vcpkg\vcpkg\installed\x64-windows\include \
                    ..\common\src\widgets \
                    ..\common\src\videoencoder
 
     INCLUDEPATH += $$FFMPEG_INCLUDE_PATH
+    INCLUDEPATH += $$VCKG_INCLUDE_PATH
                    
-    QMAKE_LIBDIR += c:/cygwin64/home/acl900/drishtilib/assimp-5.0.1/libs \
-                    C:\cygwin64\home\acl900\vcpkg\vcpkg\installed\x64-windows\lib
+    QMAKE_LIBDIR += c:/cygwin64/home/acl900/drishtilib/assimp-5.0.1/libs
 	
     QMAKE_LIBDIR += $$FFMPEG_LIBRARY_PATH
+    QMAKE_LIBDIR += $$VCPKG_LIBRARY_PATH
                    
     LIBS += -lQGLViewer2 \
             -lnetcdf-cxx4 \

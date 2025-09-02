@@ -35,23 +35,26 @@ FORMS += drishtipaint.ui viewermenu.ui \
          RC_ICONS += images/drishtipaint.ico
 
          INCLUDEPATH += C:\cygwin64\home\acl900\drishtilib\c-blosc-1.14.3\blosc \
-                        C:\cygwin64\home\acl900\vcpkg\vcpkg\installed\x64-windows\include \
                         ../../common/src/vdb \
                         ../../common/src/widgets \
                         ../../common/src/mesh \
                         ..\..\common\src\videoencoder
 
          INCLUDEPATH += $$FFMPEG_INCLUDE_PATH
+         INCLUDEPATH += $$GMSH_INCLUDE_PATH
+         INCLUDEPATH += $$VCPKG_INCLUDE_PATH
 
          QMAKE_LIBDIR += C:\cygwin64\home\acl900\drishtilib\c-blosc-1.14.3\libs \
-                         C:\cygwin64\home\acl900\vcpkg\vcpkg\installed\x64-windows\lib \
                          ..\..\common\lib     
 	
          QMAKE_LIBDIR += $$FFMPEG_LIBRARY_PATH
+         QMAKE_LIBDIR += $$GMSH_LIBRARY_PATH
+         QMAKE_LIBDIR += $$VCPKG_LIBRARY_PATH
 
 
          LIBS += QGLViewer2.lib glew32.lib blosc.lib opengl32.lib glu32.lib
          LIBS += Imath-3_1.lib openvdb.lib vdb.lib
+         LIBS += gmsh.lib
 
          # Set list of required FFmpeg libraries
          LIBS += -lavutil \

@@ -3738,7 +3738,7 @@ DrishtiPaint::on_actionMeshTag_triggered()
   QString tflnm = QFileDialog::getSaveFileName(0,
 					       "Save mesh",
 					       QFileInfo(pvlFilename).absolutePath(),
-					       "*.ply ;; *.obj ;; *.stl ;; *.msh");
+					       "Surface Mesh (*.ply *.obj *.stl) ;; Tetrahedral Mesh (*.msh)");
 					       //QFileDialog::DontUseNativeDialog);
   
   if (tflnm.isEmpty())
@@ -3750,7 +3750,14 @@ DrishtiPaint::on_actionMeshTag_triggered()
       !StaticFunctions::checkExtension(tflnm, ".msh"))
     tflnm += ".ply";
 
-
+  //------------------
+  bool tetMesh = false;
+  if (StaticFunctions::checkExtension(tflnm, ".msh"))
+    tetMesh = true;
+  //------------------
+    
+    
+  
   QStringList dtypes;
   QList<int> tag;
 
@@ -3925,7 +3932,8 @@ DrishtiPaint::on_actionMeshTag_triggered()
 	    morphoType, morphoRadius,
 	    dataSmooth,
 	    meshSmooth,
-	    applyVoxelScaling);
+	    applyVoxelScaling,
+	    tetMesh);
 
   
   QProgressDialog progress("Meshing tagged region from volume data",
@@ -4214,7 +4222,10 @@ DrishtiPaint::on_actionMeshTag_triggered()
       // generating isosurface from level set therefore using 0 as isoValue
       // isoValue < 0.5 result in dilated surface
       // isoValue > 0.5 result in eroded surface
-      vdb.generateMesh(0, 3*(0.5-isoValue), adaptivity, V, N, T);
+      if (!tetMesh)
+	vdb.generateMesh(0, 3*(0.5-isoValue), adaptivity, V, N, T);
+      else // set adaptivity to 0.0 for tetrahedral mesh generation
+	vdb.generateMesh(0, 3*(0.5-isoValue), 0.0, V, N, T);
       
       
       // mesh smoothing
@@ -4263,16 +4274,22 @@ DrishtiPaint::on_actionMeshTag_triggered()
       
       progress.setValue(100);  
       qApp->processEvents();      
+
       
       // save mesh
-      if (tflnm.right(3).toLower() == "obj")
-	MeshTools::saveToOBJ(tflnm, V, N, C, T);
-      else if (tflnm.right(3).toLower() == "ply")
-	MeshTools::saveToPLY(tflnm, V, N, C, T);
-      else if (tflnm.right(3).toLower() == "stl")
-	MeshTools::saveToSTL(tflnm, V, N, T);
-      else if (tflnm.right(3).toLower() == "msh")
-	MeshTools::saveToTetrahedralMesh(tflnm, V, N, T);
+      if (tetMesh)
+	{
+	  MeshTools::saveToTetrahedralMesh(tflnm, V, N, T);
+	}
+      else
+	{
+	  if (tflnm.right(3).toLower() == "obj")
+	    MeshTools::saveToOBJ(tflnm, V, N, C, T);
+	  else if (tflnm.right(3).toLower() == "ply")
+	    MeshTools::saveToPLY(tflnm, V, N, C, T);
+	  else if (tflnm.right(3).toLower() == "stl")
+	    MeshTools::saveToSTL(tflnm, V, N, T);
+	}
       
     } // End Label
   
@@ -6830,7 +6847,8 @@ DrishtiPaint::getValues(float& isoValue,
 			int& morphoType, int& morphoRadius,
 			int& dataSmooth,
 			int& meshSmooth,
-			bool& applyVoxelScaling)  
+			bool& applyVoxelScaling,
+			bool tetMesh)  
 {
   isoValue = 0.5;
   adaptivity = 0.1;
@@ -6855,14 +6873,17 @@ DrishtiPaint::getValues(float& isoValue,
   vlist << QVariant(3); // decimals
   plist["isosurface value"] = vlist;
 
-  vlist.clear();
-  vlist << QVariant("float");
-  vlist << QVariant(adaptivity);
-  vlist << QVariant(0.0);
-  vlist << QVariant(1.0);
-  vlist << QVariant(0.01); // singlestep
-  vlist << QVariant(3); // decimals
-  plist["adaptivity"] = vlist;
+  if (!tetMesh)
+    {
+      vlist.clear();
+      vlist << QVariant("float");
+      vlist << QVariant(adaptivity);
+      vlist << QVariant(0.0);
+      vlist << QVariant(1.0);
+      vlist << QVariant(0.01); // singlestep
+      vlist << QVariant(3); // decimals
+      plist["adaptivity"] = vlist;
+    }
   
   vlist.clear();
   vlist << QVariant("float");
@@ -6880,12 +6901,15 @@ DrishtiPaint::getValues(float& isoValue,
   vlist << QVariant(10);
   plist["smooth data"] = vlist;
 
-  vlist.clear();
-  vlist << QVariant("int");
-  vlist << QVariant(meshSmooth);
-  vlist << QVariant(0);
-  vlist << QVariant(10);
-  plist["mesh smoothing"] = vlist;
+  if (!tetMesh)
+    {
+      vlist.clear();
+      vlist << QVariant("int");
+      vlist << QVariant(meshSmooth);
+      vlist << QVariant(0);
+      vlist << QVariant(10);
+      plist["mesh smoothing"] = vlist;
+    }
 
   
   vlist.clear();
@@ -6947,10 +6971,12 @@ DrishtiPaint::getValues(float& isoValue,
 
   QStringList keys;
   keys << "isosurface value";
-  keys << "adaptivity";
+  if (!tetMesh)
+    keys << "adaptivity";
   keys << "downsample";
   keys << "smooth data";
-  keys << "mesh smoothing";
+  if (!tetMesh)
+    keys << "mesh smoothing";
   keys << "morpho operator";
   keys << "morpho radius";
   keys << "apply voxel size";

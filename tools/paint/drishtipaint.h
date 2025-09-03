@@ -346,7 +346,7 @@ class DrishtiPaint : public QMainWindow
 
   void loadCheckPoint(QString);
 
-  bool getValues(float&, float&, float&, int&, int&, int&, int&, bool&);
+  bool getValues(float&, float&, float&, int&, int&, int&, int&, bool&, bool);
 };
 
 #endif

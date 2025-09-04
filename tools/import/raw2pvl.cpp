@@ -2951,8 +2951,8 @@ Raw2Pvl::saveIsosurface(VolumeData* volData,
   bool ok;
   QString meshFilename = QFileDialog::getSaveFileName(0,
 						     "Export Mesh to file",
-						     Global::previousDirectory(),
- 						     "*.ply ;; *.obj ;; *.stl");
+						      Global::previousDirectory(),
+						      "Surface Mesh (*.ply *.obj *.stl) ;; Tetrahedral Mesh (*.msh)");
   if (meshFilename.isEmpty())
     {
       QMessageBox::information(0, "Error", "No OBJ filename specified");
@@ -2962,9 +2962,14 @@ Raw2Pvl::saveIsosurface(VolumeData* volData,
   
   if (!StaticFunctions::checkExtension(meshFilename, ".ply") &&
       !StaticFunctions::checkExtension(meshFilename, ".obj") &&
-      !StaticFunctions::checkExtension(meshFilename, ".stl"))
+      !StaticFunctions::checkExtension(meshFilename, ".stl") &&
+      !StaticFunctions::checkExtension(meshFilename, ".msh"))
     meshFilename += ".ply";
 
+  
+  bool tetMesh = false;
+  if (StaticFunctions::checkExtension(meshFilename, ".msh"))
+    tetMesh = true;    
 
   bool save0AtTop = saveSliceZeroAtTop();;
   
@@ -2984,7 +2989,8 @@ Raw2Pvl::saveIsosurface(VolumeData* volData,
 		 adaptivity, resample,
 		 morphoType, morphoRadius,
 		 dataSmooth, meshSmooth,
-		 meshColor, applyVoxelScaling))
+		 meshColor, applyVoxelScaling,
+		 tetMesh))
     return;
   // return if the parameters are not correct
 
@@ -3226,7 +3232,10 @@ Raw2Pvl::saveIsosurface(VolumeData* volData,
       QVector<QVector3D> V;
       QVector<QVector3D> VN;
       QVector<int> T;
-      vdb.generateMesh(0, 0, adaptivity, V, VN, T);
+      if (!tetMesh)
+	vdb.generateMesh(0, 0, adaptivity, V, VN, T);
+      else
+	vdb.generateMesh(0, 0, 0, V, VN, T);
 
       progress.setLabelText("Saving Mesh to "+QFileInfo(meshflnm).fileName());
       Global::statusBar()->showMessage("Saving Mesh to "+QFileInfo(meshflnm).fileName());
@@ -3243,7 +3252,11 @@ Raw2Pvl::saveIsosurface(VolumeData* volData,
       if (meshSmooth > 0)  
 	MeshTools::smoothMesh(V, VN, T, 5*meshSmooth);
 
-      if (meshflnm.right(3).toLower() == "obj")
+      if (tetMesh)
+	{
+	  MeshTools::saveToTetrahedralMesh(meshflnm, V, T);
+	}
+      else if (meshflnm.right(3).toLower() == "obj")
 	{
 	  QVector<QVector3D> C;
 	  C.resize(V.count());
@@ -3770,7 +3783,8 @@ Raw2Pvl::getValues(int& ivType, float& isoValue,
 		   float& adaptivity, float& resample,
 		   int& morphoType, int& morphoRadius,
 		   int& dataSmooth, int& meshSmooth,
-		   QColor &color, bool& applyVoxelScaling)
+		   QColor &color, bool& applyVoxelScaling,
+		   bool tetMesh)
 {
   isoValue = 0;
   adaptivity = 0.1;
@@ -3800,14 +3814,17 @@ Raw2Pvl::getValues(int& ivType, float& isoValue,
   vlist << text;
   plist["isosurface value"] = vlist;
   
-  vlist.clear();
-  vlist << QVariant("float");
-  vlist << QVariant(adaptivity);
-  vlist << QVariant(0.0);
-  vlist << QVariant(1.0);
-  vlist << QVariant(0.01); // singlestep
-  vlist << QVariant(3); // decimals
-  plist["adaptivity"] = vlist;
+  if (!tetMesh)
+    {
+      vlist.clear();
+      vlist << QVariant("float");
+      vlist << QVariant(adaptivity);
+      vlist << QVariant(0.0);
+      vlist << QVariant(1.0);
+      vlist << QVariant(0.01); // singlestep
+      vlist << QVariant(3); // decimals
+      plist["adaptivity"] = vlist;
+    }
   
   vlist.clear();
   vlist << QVariant("float");
@@ -3850,10 +3867,13 @@ Raw2Pvl::getValues(int& ivType, float& isoValue,
   vlist << QVariant(100);
   plist["morpho radius"] = vlist;
 
-  vlist.clear();
-  vlist << QVariant("color");
-  vlist << color;
-  plist["color"] = vlist;
+  if (!tetMesh)
+    {
+      vlist.clear();
+      vlist << QVariant("color");
+      vlist << color;
+      plist["color"] = vlist;
+    }
 
   vlist.clear();
   vlist << QVariant("checkbox");
@@ -3893,13 +3913,15 @@ Raw2Pvl::getValues(int& ivType, float& isoValue,
   QStringList keys;
   keys << "background value";
   keys << "isosurface value";
-  keys << "adaptivity";
+  if (!tetMesh)
+    keys << "adaptivity";
   keys << "downsample";
   keys << "smooth data";
   keys << "mesh smoothing";
   keys << "morpho operator";
   keys << "morpho radius";
-  keys << "color";
+  if (!tetMesh)
+    keys << "color";
   keys << "apply voxel size";
   keys << "commandhelp";
   //keys << "message";

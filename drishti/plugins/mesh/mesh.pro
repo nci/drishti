@@ -26,24 +26,30 @@ win32 {
           
   contains(Windows_Setup, Win64) {
      message(drishti.exe : Win64 setup)
+
+     DEFINES += _CRT_SECURE_NO_WARNINGS
+
      INCLUDEPATH += ../../ \
                     ../../../common/src/vdb \
                     ../../../common/src/mesh
+     INCLUDEPATH += $$GMSH_INCLUDE_PATH
+     INCLUDEPATH += $$VCPKG_INCLUDE_PATH
 
-     DEFINES += _CRT_SECURE_NO_WARNINGS
+                    
      QMAKE_LIBDIR += ..\common \
                      ..\..\..\common\lib     
+     QMAKE_LIBDIR += $$GMSH_LIBRARY_PATH
+     QMAKE_LIBDIR += $$VCPKG_LIBRARY_PATH
 
+                     
      PRE_TARGETDEPS +=..\common\common.lib \
                      ..\..\..\common\lib\vdb.lib     
 
-     INCLUDEPATH += C:\cygwin64\home\acl900\vcpkg\vcpkg\installed\x64-windows\include
-     QMAKE_LIBDIR += C:\cygwin64\home\acl900\vcpkg\vcpkg\installed\x64-windows\lib
 
      ### /std:c++17 added because openvdb requires this
      QMAKE_CXXFLAGS*=/std:c++17
   
-     LIBS += Imath-3_1.lib openvdb.lib  
+     LIBS += Imath-3_1.lib openvdb.lib gmsh.lib
  }
 }
 

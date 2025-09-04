@@ -114,7 +114,8 @@ class Raw2Pvl
 			float&, float&,
 			int&, int&,
 			int&, int&,
-			QColor&, bool&);
+			QColor&, bool&,
+			bool);
 
   static void getBackgroundValues(int&, float&, float&);
 

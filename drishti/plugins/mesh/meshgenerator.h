@@ -89,19 +89,16 @@ class MeshGenerator
 		    QList<PathObject>,
 		    int,
 		    uchar*,
-		    int, bool, float);
-
-
-  void saveMeshToPLY(QString, int, int, int, bool);
-  void saveMeshToSTL(QString, int, int, int);
-  void saveMeshToOBJ(QString, int, int, int);
+		    int, bool, float,
+		    bool);
 
   bool getValues(int&, float&,
 		 int&, int&, int&,
 		 int&,
 		 QGradientStops&,
 		 int&, bool&,
-		 float&);
+		 float&,
+		 bool);
 
   QColor getLutColor(uchar*,	  
 		     int, int, int,

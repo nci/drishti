@@ -93,7 +93,8 @@ MeshGenerator::getValues(int &isoval, float &isovalf,
 			 QGradientStops &stops,
 			 int &chan,
 			 bool &avgColor,
-			 float &adaptivity)
+			 float &adaptivity,
+			 bool tetMesh)
 {  
   chan = 0;
   isoval = 128;
@@ -128,16 +129,22 @@ MeshGenerator::getValues(int &isoval, float &isovalf,
       vlist << QVariant(10);
       plist["smooth opacity"] = vlist;
 
-      vlist.clear();
-      vlist << QVariant("checkbox");
-      vlist << QVariant(avgColor);
-      plist["average color"] = vlist;
+      if (!tetMesh)
+	{
+	  vlist.clear();
+	  vlist << QVariant("checkbox");
+	  vlist << QVariant(avgColor);
+	  plist["average color"] = vlist;
+	}
     }
 
-  vlist.clear();
-  vlist << QVariant("checkbox");
-  vlist << QVariant(m_useTagColors);
-  plist["apply tag colors"] = vlist;
+  if (!tetMesh)
+    {
+      vlist.clear();
+      vlist << QVariant("checkbox");
+      vlist << QVariant(m_useTagColors);
+      plist["apply tag colors"] = vlist;
+    }
 
   vlist.clear();
   vlist << QVariant("int");
@@ -155,29 +162,32 @@ MeshGenerator::getValues(int &isoval, float &isovalf,
   vlist << QVariant(3); // decimals
   plist["isosurface value"] = vlist;
 
-  vlist.clear();
-  vlist << QVariant("float");
-  vlist << QVariant(adaptivity);
-  vlist << QVariant(0.0);
-  vlist << QVariant(1.0);
-  vlist << QVariant(0.01); // singlestep
-  vlist << QVariant(3); // decimals
-  plist["adaptivity"] = vlist;
+  if (!tetMesh)
+    {
+      vlist.clear();
+      vlist << QVariant("float");
+      vlist << QVariant(adaptivity);
+      vlist << QVariant(0.0);
+      vlist << QVariant(1.0);
+      vlist << QVariant(0.01); // singlestep
+      vlist << QVariant(3); // decimals
+      plist["adaptivity"] = vlist;
 
-  vlist.clear();
-  vlist << QVariant("int");
-  vlist << QVariant(spread);
-  vlist << QVariant(0);
-  vlist << QVariant(10);
-  plist["mesh smoothing"] = vlist;
+      vlist.clear();
+      vlist << QVariant("int");
+      vlist << QVariant(spread);
+      vlist << QVariant(0);
+      vlist << QVariant(10);
+      plist["mesh smoothing"] = vlist;
 
-  vlist.clear();
-  vlist << QVariant("int");
-  vlist << QVariant(depth);
-  vlist << QVariant(0);
-  vlist << QVariant(200);
-  plist["depth"] = vlist;
-
+      vlist.clear();
+      vlist << QVariant("int");
+      vlist << QVariant(depth);
+      vlist << QVariant(0);
+      vlist << QVariant(200);
+      plist["depth"] = vlist;
+    }
+  
   vlist.clear();
   vlist << QVariant("float");
   vlist << QVariant(m_scaleModel);
@@ -187,21 +197,23 @@ MeshGenerator::getValues(int &isoval, float &isovalf,
   vlist << QVariant(3); // decimals
   plist["scale"] = vlist;
 
-  vlist.clear();
-  vlist << QVariant("color");
-  vlist << QColor(Qt::white);
-  plist["color"] = vlist;
+  if (!tetMesh)
+    {
+      vlist.clear();
+      vlist << QVariant("color");
+      vlist << QColor(Qt::white);
+      plist["color"] = vlist;
   
-  vlist.clear();
-  vlist << QVariant("combobox");
-  vlist << "1";
-  vlist << "Fixed Color";
-  vlist << "Lut Color";
-  plist["color type"] = vlist;
-  QStringList colortypes;
-  colortypes << "Fixed Color";
-  colortypes << "Lut Color";
-
+      vlist.clear();
+      vlist << QVariant("combobox");
+      vlist << "1";
+      vlist << "Fixed Color";
+      vlist << "Lut Color";
+      plist["color type"] = vlist;
+      QStringList colortypes;
+      colortypes << "Fixed Color";
+      colortypes << "Lut Color";
+    }
 
   vlist.clear();
   QFile helpFile(":/meshgenerator.help");
@@ -251,16 +263,23 @@ MeshGenerator::getValues(int &isoval, float &isovalf,
   QStringList keys;
   keys << "use opacity";
   keys << "smooth opacity";
-  keys << "average color";
+  if (!tetMesh)
+    keys << "average color";
   keys << "apply tag colors";
   keys << "mop channel";
   keys << "isosurface value";
-  keys << "adaptivity";
-  keys << "mesh smoothing";
-  keys << "depth";
+  if (!tetMesh)
+    {
+      keys << "adaptivity";
+      keys << "mesh smoothing";
+      keys << "depth";
+    }
   keys << "scale";
-  keys << "color";
-  keys << "color type";
+  if (!tetMesh)
+    {
+      keys << "color";
+      keys << "color type";
+    }
   keys << "commandhelp";
   keys << "message";
 
@@ -369,7 +388,54 @@ MeshGenerator::start(VolumeFileManager *vfm,
 //			   arg(m_pruneZ).arg(m_pruneY).arg(m_pruneX).\
 //			   arg(m_pruneLod));
 
+  
+  m_meshLog = new QTextEdit;
+  m_meshProgress = new QProgressBar;
 
+  QVBoxLayout *meshLayout = new QVBoxLayout;
+  meshLayout->addWidget(m_meshLog);
+  meshLayout->addWidget(m_meshProgress);
+
+  QWidget *meshWindow = new QWidget;
+  meshWindow->setWindowTitle("Drishti - Mesh Generation Using Opacity Values");
+  meshWindow->setLayout(meshLayout);
+  meshWindow->show();
+  meshWindow->resize(700, 300);
+
+
+  //----------------------------
+  //---- export the grid ---
+  QString flnm;
+  if (!m_batchMode)
+    flnm = QFileDialog::getSaveFileName(0,
+					"Export mesh to file",
+					prevDir,
+					"Surface Mesh (*.ply *.obj *.stl) ;; Tetrahedral Mesh (*.msh)");
+  else
+    {
+      flnm = QDir(prevDir).filePath("mesh.ply");
+    }
+  
+  if (flnm.size() == 0)
+    {
+      meshWindow->close();
+      return "";
+    }
+
+  if (!StaticFunctions::checkExtension(flnm, ".ply") &&
+      !StaticFunctions::checkExtension(flnm, ".obj") &&
+      !StaticFunctions::checkExtension(flnm, ".stl") &&
+      !StaticFunctions::checkExtension(flnm, ".msh"))
+    flnm += ".ply";
+
+  bool tetMesh = false;
+  if (StaticFunctions::checkExtension(flnm, ".msh"))
+    tetMesh = true;    
+  //----------------------------
+
+
+
+  //----------------------------
   float isovalf;
   int isoval, spread, depth, useColor;
   int smoothOpacity;
@@ -383,21 +449,11 @@ MeshGenerator::start(VolumeFileManager *vfm,
 		  stops,
 		  chan,
 		  avgColor,
-		  adaptivity))
+		  adaptivity,
+		  tetMesh))
     return "";
+  //----------------------------
 
-  m_meshLog = new QTextEdit;
-  m_meshProgress = new QProgressBar;
-
-  QVBoxLayout *meshLayout = new QVBoxLayout;
-  meshLayout->addWidget(m_meshLog);
-  meshLayout->addWidget(m_meshProgress);
-
-  QWidget *meshWindow = new QWidget;
-  meshWindow->setWindowTitle("Drishti - Mesh Generation Using Opacity Values");
-  meshWindow->setLayout(meshLayout);
-  meshWindow->show();
-  meshWindow->resize(700, 300);
 
 
   float memGb = 8.0;
@@ -444,29 +500,6 @@ MeshGenerator::start(VolumeFileManager *vfm,
 			   arg(m_nX).arg(m_nY).arg(m_nZ));
   
 
-  //---- export the grid ---
-  QString flnm;
-  if (!m_batchMode)
-    flnm = QFileDialog::getSaveFileName(0,
-					"Export mesh to file",
-					prevDir,
-					"*.ply ;; *.obj ;; *.stl");
-  else
-    {
-      flnm = QDir(prevDir).filePath("mesh.ply");
-    }
-  
-  if (flnm.size() == 0)
-    {
-      meshWindow->close();
-      return "";
-    }
-
-  if (!StaticFunctions::checkExtension(flnm, ".ply") &&
-      !StaticFunctions::checkExtension(flnm, ".obj") &&
-      !StaticFunctions::checkExtension(flnm, ".stl"))
-    flnm += ".ply";
-  //----------------------------
 
   int nSlabs = 1;
   qint64 reqmem = m_nX;
@@ -487,7 +520,8 @@ MeshGenerator::start(VolumeFileManager *vfm,
 	       smoothOpacity, lut,
 	       chan,
 	       avgColor,
-	       adaptivity);
+	       adaptivity,
+	       tetMesh);
 
 
   meshWindow->close();
@@ -941,7 +975,8 @@ MeshGenerator::generateMesh(int nSlabs, int isoval,
 			    QList<PathObject> paths,
 			    int smoothOpacity, 
 			    uchar *lut,
-			    int chan, bool avgColor, float adaptivity)
+			    int chan, bool avgColor, float adaptivity,
+			    bool tetMesh)
 {
   VdbVolume vdb;
 
@@ -1199,6 +1234,7 @@ MeshGenerator::generateMesh(int nSlabs, int isoval,
 		      dlen, m_nY, m_nZ,
 		      -1, 1, 0, // values less than 1 are background
 		      m_meshProgress);
+
       
       // convert to levelset
       vdb.convertToLevelSet(128, 0);
@@ -1216,7 +1252,11 @@ MeshGenerator::generateMesh(int nSlabs, int isoval,
       QVector<QVector3D> V;
       QVector<QVector3D> VN;
       QVector<int> T;
-      vdb.generateMesh(0, 3*(128.0-isoval)/255.0, adaptivity, V, VN, T);
+      //vdb.generateMesh(0, 3*(128.0-isoval)/255.0, adaptivity, V, VN, T);
+      if (!tetMesh)
+	vdb.generateMesh(0, 3*(128.0-isoval)/255.0, adaptivity, V, VN, T);
+      else // set adaptivity to 0.0 for tetrahedral mesh generation
+	vdb.generateMesh(0, 3*(128.0-isoval)/255.0, 0.0, V, VN, T);
       
       QVector<QVector3D> E;
       for(int i=0; i<T.count()/3; i++)
@@ -1343,369 +1383,42 @@ MeshGenerator::generateMesh(int nSlabs, int isoval,
     } // loop over slabs
 
 
+
+  bool ok = true;
+  if (tetMesh)
+    {
+      ok = MeshTools::saveToTetrahedralMesh(flnm,
+					    nSlabs,
+					    nvertices, ntriangles);
+    }
+  else
+    {
+      if (saveType == 0) // PLY
+	MeshTools::saveToPLY(flnm,
+			     nSlabs,
+			     nvertices, ntriangles,
+			     true);
+      else if (saveType == 1) // OBJ	
+	MeshTools::saveToOBJ(flnm,
+			     nSlabs,
+			     nvertices, ntriangles);
+      else // STL
+	MeshTools::saveToSTL(flnm,
+			     nSlabs,
+			     nvertices, ntriangles);
+    }
   
-  if (saveType == 0) // PLY
-    saveMeshToPLY(flnm,
-		  nSlabs,
-		  nvertices, ntriangles,
-		  true);
-  else if (saveType == 1) // OBJ	
-    saveMeshToOBJ(flnm,
-		  nSlabs,
-		  nvertices, ntriangles);
-  else // STL
-    saveMeshToSTL(flnm,
-		  nSlabs,
-		  nvertices, ntriangles);
-
-  
-  
-  m_meshLog->moveCursor(QTextCursor::End);
-  m_meshLog->insertPlainText("Mesh saved in "+flnm);
-
-  if (!m_batchMode)
+  if (ok)
     {
-      QMessageBox dlg(QMessageBox::Information, "Surface Mesh Saved", QString("Mesh saved in "+flnm));
-      dlg.setWindowFlags(dlg.windowFlags() | Qt::WindowStaysOnTopHint);
-      dlg.exec();
+      m_meshLog->moveCursor(QTextCursor::End);
+      m_meshLog->insertPlainText("Mesh saved in "+flnm);
+      
+      if (!m_batchMode)
+	{
+	  QMessageBox dlg(QMessageBox::Information, "Surface Mesh Saved", QString("Mesh saved in "+flnm));
+	  dlg.setWindowFlags(dlg.windowFlags() | Qt::WindowStaysOnTopHint);
+	  dlg.exec();
+	}
     }
-
 
 }
-void
-MeshGenerator::saveMeshToPLY(QString flnm,
-			     int nSlabs,
-			     int nvertices, int ntriangles,
-			     bool bin)
-{
-  m_meshLog->moveCursor(QTextCursor::End);
-  m_meshLog->insertPlainText("Saving Mesh " + flnm);
-
-  typedef struct PlyFace
-  {
-    unsigned char nverts;    /* number of Vertex indices in list */
-    int *verts;              /* Vertex index list */
-  } PlyFace;
-
-  typedef struct
-  {
-    float  x,  y,  z ;  /**< Vertex coordinates */
-    float nx, ny, nz ;  /**< Vertex normal */
-    uchar r, g, b;
-  } myVertex ;
-
-  PlyProperty vert_props[] = { /* list of property information for a vertex */
-    {plyStrings[0], Float32, Float32, offsetof(myVertex,x), 0, 0, 0, 0},
-    {plyStrings[1], Float32, Float32, offsetof(myVertex,y), 0, 0, 0, 0},
-    {plyStrings[2], Float32, Float32, offsetof(myVertex,z), 0, 0, 0, 0},
-    {plyStrings[3], Float32, Float32, offsetof(myVertex,nx), 0, 0, 0, 0},
-    {plyStrings[4], Float32, Float32, offsetof(myVertex,ny), 0, 0, 0, 0},
-    {plyStrings[5], Float32, Float32, offsetof(myVertex,nz), 0, 0, 0, 0},
-    {plyStrings[6], Uint8, Uint8, offsetof(myVertex,r), 0, 0, 0, 0},
-    {plyStrings[7], Uint8, Uint8, offsetof(myVertex,g), 0, 0, 0, 0},
-    {plyStrings[8], Uint8, Uint8, offsetof(myVertex,b), 0, 0, 0, 0},
-  };
-
-  PlyProperty face_props[] = { /* list of property information for a face */
-    {plyStrings[9], Int32, Int32, offsetof(PlyFace,verts),
-     1, Uint8, Uint8, offsetof(PlyFace,nverts)},
-  };
-
-  PlyFile    *ply;
-  FILE       *fp = fopen(flnm.toLatin1().data(),
-			 bin ? "wb" : "w");
-
-  PlyFace     face ;
-  int         verts[3] ;
-  char       *elem_names[]  = {plyStrings[10], plyStrings[11]};
-  ply = write_ply (fp,
-		   2,
-		   elem_names,
-		   bin? PLY_BINARY_LE : PLY_ASCII );
-
-  /* describe what properties go into the PlyVertex elements */
-  describe_element_ply ( ply, plyStrings[10], nvertices );
-  describe_property_ply ( ply, &vert_props[0] );
-  describe_property_ply ( ply, &vert_props[1] );
-  describe_property_ply ( ply, &vert_props[2] );
-  describe_property_ply ( ply, &vert_props[3] );
-  describe_property_ply ( ply, &vert_props[4] );
-  describe_property_ply ( ply, &vert_props[5] );
-  describe_property_ply ( ply, &vert_props[6] );
-  describe_property_ply ( ply, &vert_props[7] );
-  describe_property_ply ( ply, &vert_props[8] );
-
-  /* describe PlyFace properties (just list of PlyVertex indices) */
-  describe_element_ply ( ply, plyStrings[11], ntriangles );
-  describe_property_ply ( ply, &face_props[0] );
-
-  header_complete_ply ( ply );
-
-
-  /* set up and write the PlyVertex elements */
-  put_element_setup_ply ( ply, plyStrings[10] );
-  for (int nb=0; nb<nSlabs; nb++)
-    {
-      m_meshProgress->setValue((int)(100.0*(float)nb/(float)nSlabs));
-      qApp->processEvents();
-
-      int nverts;
-      QString mflnm = flnm + QString(".%1.vert").arg(nb);
-
-      QFile fin(mflnm);
-      fin.open(QFile::ReadOnly);
-      fin.read((char*)&nverts, 4);
-      for(int ni=0; ni<nverts; ni++)
-	{
-	  myVertex vertex;
-	  float v[6];
-	  fin.read((char*)v, 24);
-	  vertex.x = v[0];
-	  vertex.y = v[1];
-	  vertex.z = v[2];
-	  vertex.nx = v[3];
-	  vertex.ny = v[4];
-	  vertex.nz = v[5];
-	  uchar c[3];
- 	  fin.read((char*)c, 3);
-	  vertex.r = c[0];
-	  vertex.g = c[1];
-	  vertex.b = c[2];
-	  
-	  put_element_ply ( ply, ( void * ) &vertex );
-	}
-      fin.close();
-      fin.remove();
-    }
-
-  /* set up and write the PlyFace elements */
-  put_element_setup_ply ( ply, plyStrings[11] );
-  face.nverts = 3 ;
-  face.verts  = verts ;
-  for (int nb=0; nb<nSlabs; nb++)
-    {
-      m_meshProgress->setValue((int)(100.0*(float)nb/(float)nSlabs));
-      qApp->processEvents();
-
-      int ntrigs;
-      QString mflnm = flnm + QString(".%1.tri").arg(nb);
-
-      QFile fin(mflnm);
-      fin.open(QFile::ReadOnly);
-      fin.read((char*)&ntrigs, 4);      
-      for(int ni=0; ni<ntrigs; ni++)
-	{
-	  int v[3];
-	  fin.read((char*)v, 12);
-
-	  face.verts[0] = v[0];
-	  face.verts[1] = v[1];
-	  face.verts[2] = v[2];
-
-	  put_element_ply ( ply, ( void * ) &face );
-	}
-      fin.close();
-      fin.remove();
-    }
-
-  close_ply ( ply );
-  free_ply ( ply );
-
-  //fclose( fp ) ; // done with close_ply(ply);
-  m_meshProgress->setValue(100);
-}
-
-void
-MeshGenerator::saveMeshToOBJ(QString objflnm,
-			     int nSlabs,
-			     int nvertices, int ntriangles)
-{
-  m_meshLog->moveCursor(QTextCursor::End);
-  m_meshLog->insertPlainText("Saving Mesh " + objflnm);
-
-//  // calculate number of triangles
-//  int ntri = 0;
-//  for (int nb=0; nb<nSlabs; nb++)
-//    {
-//      QString tflnm = objflnm + QString(".%1.tri").arg(nb);
-//      QFile tfin(tflnm);
-//      tfin.open(QFile::ReadOnly);
-//      int ntrigs;
-//      tfin.read((char*)&ntrigs, 4);
-//      tfin.close();
-//      ntri += ntrigs;
-//    }
-
-  QFile fobj(objflnm);
-  fobj.open(QFile::WriteOnly);
-  QTextStream out(&fobj);
-  out << "#\n";
-  out << "#  Wavefront OBJ generated by Drishti\n";
-  out << "#\n";
-  out << "#  https://github.com/nci/drishti\n";
-  out << "#\n";
-  out << QString("# %1 vertices\n").arg(nvertices);
-  out << QString("# %1 normals\n").arg(nvertices);
-  out << QString("# %1 triangles\n").arg(ntriangles);
-  out << "g\n";
-  for (int nb=0; nb<nSlabs; nb++)
-    {
-      m_meshProgress->setValue((int)(100.0*(float)nb/(float)nSlabs));
-      qApp->processEvents();
-
-      int nverts;
-      QString mflnm = objflnm + QString(".%1.vert").arg(nb);
-
-      QFile fin(mflnm);
-      fin.open(QFile::ReadOnly);
-      fin.read((char*)&nverts, 4);
-      for(int ni=0; ni<nverts; ni++)
-	{
-	  float v[6];
-	  fin.read((char*)v, 24);
-	  uchar c[3];
- 	  fin.read((char*)c, 3);
-
-	  out << "v " << QString("%1 %2 %3  %4 %5 %6\n").arg(v[0]).arg(v[1]).arg(v[2]).\
-	                                                arg((float)c[0]/255.0).\
-	                                                arg((float)c[1]/255.0).\
-	                                                arg((float)c[2]/255.0);
-	  out << "vn "<< QString("%1 %2 %3\n").arg(v[3]).arg(v[4]).arg(v[5]);
-	}
-      fin.close();
-      fin.remove();
-    }
-  out << "g\n";
-  for (int nb=0; nb<nSlabs; nb++)
-    {
-      m_meshProgress->setValue((int)(100.0*(float)nb/(float)nSlabs));
-      qApp->processEvents();
-
-      int ntrigs;
-      QString mflnm = objflnm + QString(".%1.tri").arg(nb);
-
-      QFile fin(mflnm);
-      fin.open(QFile::ReadOnly);
-      fin.read((char*)&ntrigs, 4);      
-      for(int ni=0; ni<ntrigs; ni++)
-	{
-	  int v[3];
-	  fin.read((char*)v, 12);
-	  out << "f " << QString("%1//%1 %2//%2 %3//%3\n").arg(v[0]+1).arg(v[1]+1).arg(v[2]+1);
-	}
-      fin.close();
-      fin.remove();
-    }
-
-  m_meshProgress->setValue(100);
-}
-
-
-void
-MeshGenerator::saveMeshToSTL(QString flnm,
-			     int nSlabs,
-			     int nvertices, int ntriangles)
-{
-  m_meshLog->moveCursor(QTextCursor::End);
-  m_meshLog->insertPlainText("Saving Mesh " + flnm);
-
-  // calculate number of triangles
-  int ntri = 0;
-  for (int nb=0; nb<nSlabs; nb++)
-    {
-      QString tflnm = flnm + QString(".%1.tri").arg(nb);
-      QFile tfin(tflnm);
-      tfin.open(QFile::ReadOnly);
-      int ntrigs;
-      tfin.read((char*)&ntrigs, 4);
-      tfin.close();
-      ntri += ntrigs;
-    }
-
-  char header[80];
-  sprintf(header, "Drishti generated STL file.");
-  QFile fstl(flnm);
-  fstl.open(QFile::WriteOnly);
-  fstl.write((char*)&header, 80); // 80 byte header
-  fstl.write((char*)&ntri, 4); // number of triangles
-
-  for (int nb=0; nb<nSlabs; nb++)
-    {
-      m_meshProgress->setValue((int)(100.0*(float)nb/(float)nSlabs));
-      qApp->processEvents();
-
-      int ntrigs;
-      QString tflnm = flnm + QString(".%1.tri").arg(nb);
-      QFile tfin(tflnm);
-      tfin.open(QFile::ReadOnly);
-      tfin.read((char*)&ntrigs, 4);      
-      int *tri;
-      tri = new int[3*ntrigs];
-      tfin.read((char*)tri, 4*3*ntrigs);
-
-      int nverts;
-      QString vflnm = flnm + QString(".%1.vert").arg(nb);
-      QFile vfin(vflnm);
-      vfin.open(QFile::ReadOnly);
-      vfin.read((char*)&nverts, 4);
-
-      float *vert;
-      vert = new float[6*nverts];
-      vfin.read((char*)vert, 4*6*nverts);
-
-      for(int ni=0; ni<ntrigs; ni++)
-	{
-	  float v[12];
-	  int k = tri[3*ni+0];
-	  int j = tri[3*ni+1];
-	  int i = tri[3*ni+2];
-
-	  v[0] = vert[6*i+3];
-	  v[1] = vert[6*i+4];
-	  v[2] = vert[6*i+5];
-	  v[0] += vert[6*j+3];
-	  v[1] += vert[6*j+4];
-	  v[2] += vert[6*j+5];
-	  v[0] += vert[6*k+3];
-	  v[1] += vert[6*k+4];
-	  v[2] += vert[6*k+5];
-	  float mag = sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
-	  v[0]/=mag;
-	  v[1]/=mag;
-	  v[2]/=mag;
-	  v[0] = -v[0];
-	  v[1] = -v[1];
-	  v[2] = -v[2];
-
-	  v[3] = vert[6*i+0];
-	  v[4] = vert[6*i+1];
-	  v[5] = vert[6*i+2];
-
-	  v[6] = vert[6*j+0];
-	  v[7] = vert[6*j+1];
-	  v[8] = vert[6*j+2];
-
-	  v[9]  = vert[6*k+0];
-	  v[10] = vert[6*k+1];
-	  v[11] = vert[6*k+2];
-
-	  fstl.write((char*)&v, 12*4);
-
-	  ushort abc = 0; // attribute byte count
-	  fstl.write((char*)&abc, 2);
-	}
-
-      vfin.close();
-      tfin.close();
-      vfin.remove();
-      tfin.remove();
-
-      delete [] vert;
-      delete [] tri;
-    }
-
-  fstl.close();
-  m_meshProgress->setValue(100);
-}
-
-

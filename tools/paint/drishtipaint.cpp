@@ -4279,7 +4279,7 @@ DrishtiPaint::on_actionMeshTag_triggered()
       // save mesh
       if (tetMesh)
 	{
-	  MeshTools::saveToTetrahedralMesh(tflnm, V, N, T);
+	  MeshTools::saveToTetrahedralMesh(tflnm, V, T);
 	}
       else
 	{

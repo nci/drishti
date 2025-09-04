@@ -2,7 +2,6 @@
 #include "staticfunctions.h"
 #include "networkobject.h"
 #include "matrix.h"
-#if defined(Q_OS_WIN32)
 #include <ncVar.h>
 #include <ncFile.h>
 #include <ncDim.h>
@@ -11,7 +10,6 @@
 #include <map>
 using namespace netCDF;
 using namespace netCDF::exceptions;
-#endif
 
 void NetworkObject::setScale(float s) { m_scaleV = m_scaleE = s; }
 float NetworkObject::scaleV() { return m_scaleV; }

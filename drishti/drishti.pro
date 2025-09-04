@@ -52,7 +52,7 @@ win32 {
                    ..\common\src\videoencoder
 
     INCLUDEPATH += $$FFMPEG_INCLUDE_PATH
-    INCLUDEPATH += $$VCKG_INCLUDE_PATH
+    INCLUDEPATH += $$VCPKG_INCLUDE_PATH
                    
     QMAKE_LIBDIR += c:/cygwin64/home/acl900/drishtilib/assimp-5.0.1/libs
 	

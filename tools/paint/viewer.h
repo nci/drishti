@@ -186,7 +186,7 @@ class Viewer : public QGLViewer
     void saveToROI(Vec, Vec, int);
     void roiOperation(Vec, Vec, int);
     void connectedComponents(Vec, Vec, int);
-    void connectedComponentsPlus(Vec, Vec, int, int);
+    void watershed(Vec, Vec, int, int);
     void distanceTransform(Vec, Vec, int, int);
     void localThickness(Vec, Vec, int);
 
@@ -361,7 +361,7 @@ class Viewer : public QGLViewer
   void saveToROI(int);
   void roiOperation(int);
   void connectedComponents(int);
-  void connectedComponentsPlus(int, int);
+  void watershed(int, int);
   void distanceTransform(int, int);
   void localThickness(int);
   void removeSmallerComponents(int);

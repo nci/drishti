@@ -5450,7 +5450,7 @@ DrishtiPaint::connectedComponents(Vec bmin, Vec bmax, int tag)
 }
 
 void
-DrishtiPaint::connectedComponentsPlus(Vec bmin, Vec bmax, int tag, int size)
+DrishtiPaint::watershed(Vec bmin, Vec bmax, int tag, int size)
 {
   int minD,maxD, minW,maxW, minH,maxH;
 
@@ -5462,12 +5462,12 @@ DrishtiPaint::connectedComponentsPlus(Vec bmin, Vec bmax, int tag, int size)
   int gradType = m_viewer->gradType();
 
   VolumeOperations::setClip(cPos, cNorm);
-  VolumeOperations::connectedComponentsPlus(bmin, bmax, tag,
-					    size,
-					    minD, maxD,
-					    minW, maxW,
-					    minH, maxH,
-					    gradType, minGrad, maxGrad);
+  VolumeOperations::watershed(bmin, bmax, tag,
+			      size,
+			      minD, maxD,
+			      minW, maxW,
+			      minH, maxH,
+			      gradType, minGrad, maxGrad);
   
   if (minD < 0)
     return;

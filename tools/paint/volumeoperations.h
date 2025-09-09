@@ -12,6 +12,13 @@ using namespace qglviewer;
 #include "mybitarray.h"
 
 
+struct VOXEL
+{
+  int x, y, z;
+  VOXEL() : x(0),y(0),z(0) {}
+  VOXEL(int x_, int y_, int z_) : x(x_), y(y_), z(z_) {}
+};
+
 class VolumeOperations
 {
  public :
@@ -75,12 +82,12 @@ class VolumeOperations
 				  int&, int&,
 				  int, float, float);
   
-  static void connectedComponentsPlus(Vec, Vec, int,
-				      int,
-				      int&, int&,
-				      int&, int&,
-				      int&, int&,
-				      int, float, float);
+  static void watershed(Vec, Vec, int,
+			int,
+			int&, int&,
+			int&, int&,
+			int&, int&,
+			int, float, float);
 
   static void distanceTransform(Vec, Vec, int,
 				int&, int&,
@@ -343,6 +350,11 @@ class VolumeOperations
 			   MyBitArray&,
 			   qint64, qint64, qint64,
 			   int);
+
+  static VOXEL findSteepestDescent(float*,
+				   int, int, int,
+				   qint64, qint64, qint64);
+
 };
 
 #endif

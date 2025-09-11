@@ -54,6 +54,7 @@
 #include <stdexcept>
 #include <unordered_set>
 #include <vector>
+#include "mybitarray.h"
 
 namespace cc3d {
 
@@ -153,80 +154,80 @@ public:
 // If literally none of the Z - 1 are filled, we can use a faster version
 // of this that uses copies.
 inline void unify2d(
-    const int64_t loc, const uchar cur,
+    const int64_t loc, const bool cur,
     const int64_t x, const int64_t y, 
     const int64_t sx, const int64_t sy, 
-    const uchar* in_labels, const uint32_t* out_labels,
+    MyBitArray& in_labels, const uint32_t* out_labels,
     DisjointSet &equivalences  
   ) {
 
-  if (y > 0 && cur == in_labels[loc - sx]) {
+  if (y > 0 && cur == in_labels.testBit(loc - sx)) {
     equivalences.unify(out_labels[loc], out_labels[loc - sx]);
   }
-  else if (x > 0 && cur == in_labels[loc - 1]) {
+  else if (x > 0 && cur == in_labels.testBit(loc - 1)) {
     equivalences.unify(out_labels[loc], out_labels[loc - 1]); 
 
-    if (x < sx - 1 && y > 0 && cur == in_labels[loc + 1 - sx]) {
+    if (x < sx - 1 && y > 0 && cur == in_labels.testBit(loc + 1 - sx)) {
       equivalences.unify(out_labels[loc], out_labels[loc + 1 - sx]); 
     }
   }
-  else if (x > 0 && y > 0 && cur == in_labels[loc - 1 - sx]) {
+  else if (x > 0 && y > 0 && cur == in_labels.testBit(loc - 1 - sx)) {
     equivalences.unify(out_labels[loc], out_labels[loc - 1 - sx]); 
 
-    if (x < sx - 1 && y > 0 && cur == in_labels[loc + 1 - sx]) {
+    if (x < sx - 1 && y > 0 && cur == in_labels.testBit(loc + 1 - sx)) {
       equivalences.unify(out_labels[loc], out_labels[loc + 1 - sx]); 
     }
   }
-  else if (x < sx - 1 && y > 0 && cur == in_labels[loc + 1 - sx]) {
+  else if (x < sx - 1 && y > 0 && cur == in_labels.testBit(loc + 1 - sx)) {
     equivalences.unify(out_labels[loc], out_labels[loc + 1 - sx]);
   }
 }
 
 inline void unify2d_ac(
-    const int64_t loc, const uchar cur,
+    const int64_t loc, const bool cur,
     const int64_t x, const int64_t y, 
     const int64_t sx, const int64_t sy, 
-    const uchar* in_labels, const uint32_t* out_labels,
+    MyBitArray& in_labels, const uint32_t* out_labels,
     DisjointSet &equivalences  
   ) {
 
-  if (x > 0 && y > 0 && cur == in_labels[loc - 1 - sx]) {
+  if (x > 0 && y > 0 && cur == in_labels.testBit(loc - 1 - sx)) {
     equivalences.unify(out_labels[loc], out_labels[loc - 1 - sx]); 
 
-    if (x < sx - 1 && y > 0 && cur == in_labels[loc + 1 - sx] && !(y > 1 && cur == in_labels[loc - sx - sx])) {
+    if (x < sx - 1 && y > 0 && cur == in_labels.testBit(loc + 1 - sx) && !(y > 1 && cur == in_labels.testBit(loc - sx - sx))) {
       equivalences.unify(out_labels[loc], out_labels[loc + 1 - sx]); 
     }
   }
-  else if (x < sx - 1 && y > 0 && cur == in_labels[loc + 1 - sx]) {
+  else if (x < sx - 1 && y > 0 && cur == in_labels.testBit(loc + 1 - sx)) {
     equivalences.unify(out_labels[loc], out_labels[loc + 1 - sx]);
   }
 }
 
 inline void unify2d_rt(
-    const int64_t loc, const uchar cur,
+    const int64_t loc, const bool cur,
     const int64_t x, const int64_t y, 
     const int64_t sx, const int64_t sy, 
-    const uchar* in_labels, const uint32_t* out_labels,
+    MyBitArray& in_labels, const uint32_t* out_labels,
     DisjointSet &equivalences  
   ) {
 
-  if (x < sx - 1 && y > 0 && cur == in_labels[loc + 1 - sx]) {
+  if (x < sx - 1 && y > 0 && cur == in_labels.testBit(loc + 1 - sx)) {
     equivalences.unify(out_labels[loc], out_labels[loc + 1 - sx]);
   }
 }
 
 inline void unify2d_lt(
-    const int64_t loc, const uchar cur,
+    const int64_t loc, const bool cur,
     const int64_t x, const int64_t y, 
     const int64_t sx, const int64_t sy, 
-    const uchar* in_labels, const uint32_t* out_labels,
+    MyBitArray& in_labels, const uint32_t* out_labels,
     DisjointSet &equivalences  
   ) {
 
-  if (x > 0 && cur == in_labels[loc - 1]) {
+  if (x > 0 && cur == in_labels.testBit(loc - 1)) {
     equivalences.unify(out_labels[loc], out_labels[loc - 1]);
   }
-  else if (x > 0 && y > 0 && cur == in_labels[loc - 1 - sx]) {
+  else if (x > 0 && y > 0 && cur == in_labels.testBit(loc - 1 - sx)) {
     equivalences.unify(out_labels[loc], out_labels[loc - 1 - sx]);
   }
 }
@@ -279,7 +280,7 @@ uint32_t* relabel(
 }
 
 size_t estimate_provisional_label_count(
-  uchar* in_labels, const int64_t sx, const int64_t voxels,
+  MyBitArray& in_labels, const int64_t sx, const int64_t voxels,
   int64_t &first_foreground_row = _dummy_row_start, 
   int64_t &last_foreground_row = _dummy_row_end
 ) {
@@ -290,9 +291,9 @@ size_t estimate_provisional_label_count(
   size_t row_count = 0; // per row
 
   for (int64_t row = 0, loc = 0; loc < voxels; loc += sx, row++) {
-    row_count = (in_labels[loc] != 0);
+    row_count = (in_labels.testBit(loc) != false);
     for (int64_t x = 1; x < sx; x++) {
-      row_count += static_cast<size_t>(in_labels[loc + x] != in_labels[loc + x - 1] && in_labels[loc + x] != 0);
+      row_count += static_cast<size_t>(in_labels.testBit(loc + x) != in_labels.testBit(loc + x - 1) && in_labels.testBit(loc + x) != false);
     }
     count += row_count;
     
@@ -308,7 +309,7 @@ size_t estimate_provisional_label_count(
 }
 
 uint32_t* compute_foreground_index(
-  uchar* in_labels, const int64_t sx, const int64_t sy, const int64_t sz
+  MyBitArray& in_labels, const int64_t sx, const int64_t sy, const int64_t sz
 ) {
   const int64_t voxels = sx * sy * sz;
   uint32_t* runs = new uint32_t[2*sy*sz]();
@@ -316,16 +317,16 @@ uint32_t* compute_foreground_index(
   size_t count = 0; // number of transitions between labels
   int64_t row = 0;
   for (int64_t loc = 0; loc < voxels; loc += sx, row++) {
-    count += (in_labels[loc] != 0);
+    count += (in_labels.testBit(loc) != false);
     size_t index = (row << 1);
     for (int64_t x = 0; x < sx; x++) {
-      if (in_labels[loc + x]) {
+      if (in_labels.testBit(loc + x)) {
           runs[index] = static_cast<uint32_t>(x);
           break;
       }
     }
     for (int64_t x = sx - 1; x >= runs[index]; x--) {
-      if (in_labels[loc + x]) {
+      if (in_labels.testBit(loc + x)) {
         runs[index+1] = static_cast<uint32_t>(x + 1);
         break;
       }
@@ -336,7 +337,7 @@ uint32_t* compute_foreground_index(
 }
 
 uint32_t* connected_components3d_26(
-    uchar* in_labels, 
+    MyBitArray &in_labels, 
     const int64_t sx, const int64_t sy, const int64_t sz,
     size_t max_labels, uint32_t *out_labels = NULL, size_t &N = _dummy_N
   ) {
@@ -404,175 +405,175 @@ uint32_t* connected_components3d_26(
 
       for (int64_t x = xstart; x < xend; x++) {
         loc = x + sx * y + sxy * z;
-        const uchar cur = in_labels[loc];
+        const bool cur = in_labels.testBit(loc);
 
-        if (cur == 0) {
+        if (cur == false) {
           continue;
         }
 
-        if (z > 0 && cur == in_labels[loc + E]) {
+        if (z > 0 && cur == in_labels.testBit(loc + E)) {
           out_labels[loc] = out_labels[loc + E];
         }
-        else if (y > 0 && cur == in_labels[loc + K]) {
+        else if (y > 0 && cur == in_labels.testBit(loc + K)) {
           out_labels[loc] = out_labels[loc + K];
 
-          if (y < sy - 1 && z > 0 && cur == in_labels[loc + H]) {
+          if (y < sy - 1 && z > 0 && cur == in_labels.testBit(loc + H)) {
             equivalences.unify(out_labels[loc], out_labels[loc + H]);
           }
-          else if (x > 0 && y < sy - 1 && z > 0 && cur == in_labels[loc + G]) {
+          else if (x > 0 && y < sy - 1 && z > 0 && cur == in_labels.testBit(loc + G)) {
             equivalences.unify(out_labels[loc], out_labels[loc + G]);
             
-            if (x < sx - 1 && y < sy - 1 && z > 0 && cur == in_labels[loc + I]) {
+            if (x < sx - 1 && y < sy - 1 && z > 0 && cur == in_labels.testBit(loc + I)) {
               equivalences.unify(out_labels[loc], out_labels[loc + I]);
             }
           }
-          else if (x < sx - 1 && y < sy - 1 && z > 0 && cur == in_labels[loc + I]) {
+          else if (x < sx - 1 && y < sy - 1 && z > 0 && cur == in_labels.testBit(loc + I)) {
             equivalences.unify(out_labels[loc], out_labels[loc + I]);
           }
         }
-        else if (z > 0 && y > 0 && cur == in_labels[loc + B]) {
+        else if (z > 0 && y > 0 && cur == in_labels.testBit(loc + B)) {
           out_labels[loc] = out_labels[loc + B];
 
-          if (y < sy - 1 && z > 0 && cur == in_labels[loc + H]) {
+          if (y < sy - 1 && z > 0 && cur == in_labels.testBit(loc + H)) {
             equivalences.unify(out_labels[loc], out_labels[loc + H]);
           }
-          else if (x > 0 && y < sy - 1 && z > 0 && cur == in_labels[loc + G]) {
+          else if (x > 0 && y < sy - 1 && z > 0 && cur == in_labels.testBit(loc + G)) {
             equivalences.unify(out_labels[loc], out_labels[loc + G]);
             
-            if (x < sx - 1 && y < sy - 1 && z > 0 && cur == in_labels[loc + I]) {
+            if (x < sx - 1 && y < sy - 1 && z > 0 && cur == in_labels.testBit(loc + I)) {
               equivalences.unify(out_labels[loc], out_labels[loc + I]);
             }
           }
-          else if (x < sx - 1 && y < sy - 1 && z > 0 && cur == in_labels[loc + I]) {
+          else if (x < sx - 1 && y < sy - 1 && z > 0 && cur == in_labels.testBit(loc + I)) {
             equivalences.unify(out_labels[loc], out_labels[loc + I]);
           }
         }
-        else if (x > 0 && cur == in_labels[loc + M]) {
+        else if (x > 0 && cur == in_labels.testBit(loc + M)) {
           out_labels[loc] = out_labels[loc + M];
 
-          if (x < sx - 1 && z > 0 && cur == in_labels[loc + F]) {
+          if (x < sx - 1 && z > 0 && cur == in_labels.testBit(loc + F)) {
             equivalences.unify(out_labels[loc], out_labels[loc + F]);
           }
-          else if (x < sx - 1 && y > 0 && cur == in_labels[loc + L]) {
+          else if (x < sx - 1 && y > 0 && cur == in_labels.testBit(loc + L)) {
             equivalences.unify(out_labels[loc], out_labels[loc + L]);
 
-            if (x < sx - 1 && y < sy - 1 && z > 0 && cur == in_labels[loc + I]) {
+            if (x < sx - 1 && y < sy - 1 && z > 0 && cur == in_labels.testBit(loc + I)) {
               equivalences.unify(out_labels[loc], out_labels[loc + I]);
             }
           }
-          else if (x < sx - 1 && y > 0 && z > 0 && cur == in_labels[loc + C]) {
+          else if (x < sx - 1 && y > 0 && z > 0 && cur == in_labels.testBit(loc + C)) {
             equivalences.unify(out_labels[loc], out_labels[loc + C]);
 
-            if (x < sx - 1 && y < sy - 1 && z > 0 && cur == in_labels[loc + I]) {
+            if (x < sx - 1 && y < sy - 1 && z > 0 && cur == in_labels.testBit(loc + I)) {
               equivalences.unify(out_labels[loc], out_labels[loc + I]);
             }
           }
-          else if (x < sx - 1 && y < sy - 1 && z > 0 && cur == in_labels[loc + I]) {
+          else if (x < sx - 1 && y < sy - 1 && z > 0 && cur == in_labels.testBit(loc + I)) {
             equivalences.unify(out_labels[loc], out_labels[loc + I]);
           }
         }
-        else if (x > 0 && z > 0 && cur == in_labels[loc + D]) {
+        else if (x > 0 && z > 0 && cur == in_labels.testBit(loc + D)) {
           out_labels[loc] = out_labels[loc + D];
 
-          if (x < sx - 1 && z > 0 && cur == in_labels[loc + F]) {
+          if (x < sx - 1 && z > 0 && cur == in_labels.testBit(loc + F)) {
             equivalences.unify(out_labels[loc], out_labels[loc + F]);
           }
-          else if (x < sx - 1 && y > 0 && cur == in_labels[loc + L]) {
+          else if (x < sx - 1 && y > 0 && cur == in_labels.testBit(loc + L)) {
             equivalences.unify(out_labels[loc], out_labels[loc + L]);
 
-            if (x < sx - 1 && y < sy - 1 && z > 0 && cur == in_labels[loc + I]) {
+            if (x < sx - 1 && y < sy - 1 && z > 0 && cur == in_labels.testBit(loc + I)) {
               equivalences.unify(out_labels[loc], out_labels[loc + I]);
             }
           }
-          else if (x < sx - 1 && y > 0 && z > 0 && cur == in_labels[loc + C]) {
+          else if (x < sx - 1 && y > 0 && z > 0 && cur == in_labels.testBit(loc + C)) {
             equivalences.unify(out_labels[loc], out_labels[loc + C]);
 
-            if (x < sx - 1 && y < sy - 1 && z > 0 && cur == in_labels[loc + I]) {
+            if (x < sx - 1 && y < sy - 1 && z > 0 && cur == in_labels.testBit(loc + I)) {
               equivalences.unify(out_labels[loc], out_labels[loc + I]);
             }
           }
-          else if (x < sx - 1 && y < sy - 1 && z > 0 && cur == in_labels[loc + I]) {
+          else if (x < sx - 1 && y < sy - 1 && z > 0 && cur == in_labels.testBit(loc + I)) {
             equivalences.unify(out_labels[loc], out_labels[loc + I]);
           }
         }
-        else if (y < sy - 1 && z > 0 && cur == in_labels[loc + H]) {
+        else if (y < sy - 1 && z > 0 && cur == in_labels.testBit(loc + H)) {
           out_labels[loc] = out_labels[loc + H];
           unify2d_ac(loc, cur, x, y, sx, sy, in_labels, out_labels, equivalences);
 
-          if (x > 0 && y > 0 && z > 0 && cur == in_labels[loc + A]) {
+          if (x > 0 && y > 0 && z > 0 && cur == in_labels.testBit(loc + A)) {
             equivalences.unify(out_labels[loc], out_labels[loc + A]);
           }
-          if (x < sx - 1 && y > 0 && z > 0 && cur == in_labels[loc + C]) {
+          if (x < sx - 1 && y > 0 && z > 0 && cur == in_labels.testBit(loc + C)) {
             equivalences.unify(out_labels[loc], out_labels[loc + C]);
           }
         }
-        else if (x < sx - 1 && z > 0 && cur == in_labels[loc + F]) {
+        else if (x < sx - 1 && z > 0 && cur == in_labels.testBit(loc + F)) {
           out_labels[loc] = out_labels[loc + F];
           unify2d_lt(loc, cur, x, y, sx, sy, in_labels, out_labels, equivalences);
 
-          if (x > 0 && y > 0 && z > 0 && cur == in_labels[loc + A]) {
+          if (x > 0 && y > 0 && z > 0 && cur == in_labels.testBit(loc + A)) {
             equivalences.unify(out_labels[loc], out_labels[loc + A]);
           }
-          if (x > 0 && y < sy - 1 && z > 0 && cur == in_labels[loc + G]) {
+          if (x > 0 && y < sy - 1 && z > 0 && cur == in_labels.testBit(loc + G)) {
             equivalences.unify(out_labels[loc], out_labels[loc + G]);
           }
         }
-        else if (x > 0 && y > 0 && z > 0 && cur == in_labels[loc + A]) {
+        else if (x > 0 && y > 0 && z > 0 && cur == in_labels.testBit(loc + A)) {
           out_labels[loc] = out_labels[loc + A];
           unify2d_rt(loc, cur, x, y, sx, sy, in_labels, out_labels, equivalences);
 
-          if (x < sx - 1 && y > 0 && z > 0 && cur == in_labels[loc + C]) {
+          if (x < sx - 1 && y > 0 && z > 0 && cur == in_labels.testBit(loc + C)) {
             equivalences.unify(out_labels[loc], out_labels[loc + C]);
           }
-          if (x > 0 && y < sy - 1 && z > 0 && cur == in_labels[loc + G]) {
+          if (x > 0 && y < sy - 1 && z > 0 && cur == in_labels.testBit(loc + G)) {
             equivalences.unify(out_labels[loc], out_labels[loc + G]);
           }      
-          if (x < sx - 1 && y < sy - 1 && z > 0 && cur == in_labels[loc + I]) {
+          if (x < sx - 1 && y < sy - 1 && z > 0 && cur == in_labels.testBit(loc + I)) {
             equivalences.unify(out_labels[loc], out_labels[loc + I]);
           }
         }
-        else if (x < sx - 1 && y > 0 && z > 0 && cur == in_labels[loc + C]) {
+        else if (x < sx - 1 && y > 0 && z > 0 && cur == in_labels.testBit(loc + C)) {
           out_labels[loc] = out_labels[loc + C];
           unify2d_lt(loc, cur, x, y, sx, sy, in_labels, out_labels, equivalences);
 
-          if (x > 0 && y < sy - 1 && z > 0 && cur == in_labels[loc + G]) {
+          if (x > 0 && y < sy - 1 && z > 0 && cur == in_labels.testBit(loc + G)) {
             equivalences.unify(out_labels[loc], out_labels[loc + G]);
           }
-          if (x < sx - 1 && y < sy - 1 && z > 0 && cur == in_labels[loc + I]) {
+          if (x < sx - 1 && y < sy - 1 && z > 0 && cur == in_labels.testBit(loc + I)) {
             equivalences.unify(out_labels[loc], out_labels[loc + I]);
           }
         }
-        else if (x > 0 && y < sy - 1 && z > 0 && cur == in_labels[loc + G]) {
+        else if (x > 0 && y < sy - 1 && z > 0 && cur == in_labels.testBit(loc + G)) {
           out_labels[loc] = out_labels[loc + G];
           unify2d_ac(loc, cur, x, y, sx, sy, in_labels, out_labels, equivalences);
 
-          if (x < sx - 1 && y < sy - 1 && z > 0 && cur == in_labels[loc + I]) {
+          if (x < sx - 1 && y < sy - 1 && z > 0 && cur == in_labels.testBit(loc + I)) {
             equivalences.unify(out_labels[loc], out_labels[loc + I]);
           }
         }
-        else if (x < sx - 1 && y < sy - 1 && z > 0 && cur == in_labels[loc + I]) {
+        else if (x < sx - 1 && y < sy - 1 && z > 0 && cur == in_labels.testBit(loc + I)) {
           out_labels[loc] = out_labels[loc + I];
           unify2d_ac(loc, cur, x, y, sx, sy, in_labels, out_labels, equivalences);
         }
         // It's the original 2D problem now
-        else if (y > 0 && cur == in_labels[loc + K]) {
+        else if (y > 0 && cur == in_labels.testBit(loc + K)) {
           out_labels[loc] = out_labels[loc + K];
         }
-        else if (x > 0 && cur == in_labels[loc + M]) {
+        else if (x > 0 && cur == in_labels.testBit(loc + M)) {
           out_labels[loc] = out_labels[loc + M];
 
-          if (x < sx - 1 && y > 0 && cur == in_labels[loc + L]) {
+          if (x < sx - 1 && y > 0 && cur == in_labels.testBit(loc + L)) {
             equivalences.unify(out_labels[loc], out_labels[loc + L]); 
           }
         }
-        else if (x > 0 && y > 0 && cur == in_labels[loc + J]) {
+        else if (x > 0 && y > 0 && cur == in_labels.testBit(loc + J)) {
           out_labels[loc] = out_labels[loc + J];
 
-          if (x < sx - 1 && y > 0 && cur == in_labels[loc + L]) {
+          if (x < sx - 1 && y > 0 && cur == in_labels.testBit(loc + L)) {
             equivalences.unify(out_labels[loc], out_labels[loc + L]); 
           }
         }
-        else if (x < sx - 1 && y > 0 && cur == in_labels[loc + L]) {
+        else if (x < sx - 1 && y > 0 && cur == in_labels.testBit(loc + L)) {
           out_labels[loc] = out_labels[loc + L];
         }
         else {
@@ -588,7 +589,7 @@ uint32_t* connected_components3d_26(
 }
 
 uint32_t* connected_components3d_18(
-    uchar* in_labels, 
+    MyBitArray& in_labels, 
     const int64_t sx, const int64_t sy, const int64_t sz,
     size_t max_labels, 
     uint32_t *out_labels = NULL, size_t &N = _dummy_N
@@ -653,85 +654,85 @@ uint32_t* connected_components3d_18(
 
       for (int64_t x = xstart; x < xend; x++) {
         loc = x + sx * (y + sy * z);
-        const uchar cur = in_labels[loc];
+        const bool cur = in_labels.testBit(loc);
 
         if (cur == 0) {
           continue;
         }
 
-        if (z > 0 && cur == in_labels[loc + E]) {
+        if (z > 0 && cur == in_labels.testBit(loc + E)) {
           out_labels[loc] = out_labels[loc + E];
 
-          if (x > 0 && y > 0 && cur == in_labels[loc + J]) {
+          if (x > 0 && y > 0 && cur == in_labels.testBit(loc + J)) {
             equivalences.unify(out_labels[loc], out_labels[loc + J]);
           }
-          if (x < sx - 1 && y > 0 && cur == in_labels[loc + L]) {
+          if (x < sx - 1 && y > 0 && cur == in_labels.testBit(loc + L)) {
             equivalences.unify(out_labels[loc], out_labels[loc + L]); 
           }
         }
-        else if (y > 0 && z > 0 && cur == in_labels[loc + B]) {
+        else if (y > 0 && z > 0 && cur == in_labels.testBit(loc + B)) {
           out_labels[loc] = out_labels[loc + B];
 
-          if (x > 0 && cur == in_labels[loc + M]) {
+          if (x > 0 && cur == in_labels.testBit(loc + M)) {
             equivalences.unify(out_labels[loc], out_labels[loc + M]);
           }
-          if (y < sy - 1 && z > 0 && cur == in_labels[loc + H]) {
+          if (y < sy - 1 && z > 0 && cur == in_labels.testBit(loc + H)) {
             equivalences.unify(out_labels[loc], out_labels[loc + H]); 
           }
         }
-        else if (x > 0 && z > 0 && cur == in_labels[loc + D]) {
+        else if (x > 0 && z > 0 && cur == in_labels.testBit(loc + D)) {
           out_labels[loc] = out_labels[loc + D];
 
-          if (x < sx - 1 && y > 0 && cur == in_labels[loc + L]) {
+          if (x < sx - 1 && y > 0 && cur == in_labels.testBit(loc + L)) {
             equivalences.unify(out_labels[loc], out_labels[loc + L]); 
           }
           else {
-            if (y > 0 && cur == in_labels[loc + K]) {
+            if (y > 0 && cur == in_labels.testBit(loc + K)) {
               equivalences.unify(out_labels[loc], out_labels[loc + K]); 
             }
-            if (x < sx - 1 && z > 0 && cur == in_labels[loc + F]) {
+            if (x < sx - 1 && z > 0 && cur == in_labels.testBit(loc + F)) {
               equivalences.unify(out_labels[loc], out_labels[loc + F]); 
             }
           }
         }
-        else if (x < sx - 1 && z > 0 && cur == in_labels[loc + F]) {
+        else if (x < sx - 1 && z > 0 && cur == in_labels.testBit(loc + F)) {
           out_labels[loc] = out_labels[loc + F];
 
-          if (x > 0 && y > 0 && cur == in_labels[loc + J]) {
+          if (x > 0 && y > 0 && cur == in_labels.testBit(loc + J)) {
             equivalences.unify(out_labels[loc], out_labels[loc + J]);
           }
           else {
-            if (x > 0 && cur == in_labels[loc + M]) {
+            if (x > 0 && cur == in_labels.testBit(loc + M)) {
               equivalences.unify(out_labels[loc], out_labels[loc + M]); 
             }
-            if (y > 0 && cur == in_labels[loc + K]) {
+            if (y > 0 && cur == in_labels.testBit(loc + K)) {
               equivalences.unify(out_labels[loc], out_labels[loc + K]); 
             }            
           }
         }
-        else if (y < sy - 1 && z > 0 && cur == in_labels[loc + H]) {
+        else if (y < sy - 1 && z > 0 && cur == in_labels.testBit(loc + H)) {
           out_labels[loc] = out_labels[loc + H];
           unify2d(loc, cur, x, y, sx, sy, in_labels, out_labels, equivalences);
         }
         // It's the original 2D problem now
-        else if (y > 0 && cur == in_labels[loc + K]) {
+        else if (y > 0 && cur == in_labels.testBit(loc + K)) {
           out_labels[loc] = out_labels[loc + K];
         }
-        else if (x > 0 && cur == in_labels[loc + M]) {
+        else if (x > 0 && cur == in_labels.testBit(loc + M)) {
           out_labels[loc] = out_labels[loc + M];
 
-          if (x < sx - 1 && y > 0 && cur == in_labels[loc + L]) {
+          if (x < sx - 1 && y > 0 && cur == in_labels.testBit(loc + L)) {
             equivalences.unify(out_labels[loc], out_labels[loc + L]); 
           }
         }
-        else if (x > 0 && y > 0 && cur == in_labels[loc + J]) {
+        else if (x > 0 && y > 0 && cur == in_labels.testBit(loc + J)) {
           out_labels[loc] = out_labels[loc + J];
 
-          if (x < sx - 1 && y > 0 && cur == in_labels[loc + L]) {
+          if (x < sx - 1 && y > 0 && cur == in_labels.testBit(loc + L)) {
             equivalences.unify(out_labels[loc], out_labels[loc + L]); 
           }
         }
-        else if (x < sx - 1 && y > 0 && cur == in_labels[loc + L]) {
+        else if (x < sx - 1 && y > 0 && cur == in_labels.testBit(loc + L)) {
           out_labels[loc] = out_labels[loc + L];
         }
         else {
@@ -747,7 +748,7 @@ uint32_t* connected_components3d_18(
 }
 
 uint32_t* connected_components3d_6(
-    uchar* in_labels, 
+    MyBitArray& in_labels, 
     const int64_t sx, const int64_t sy, const int64_t sz,
     size_t max_labels, 
     uint32_t *out_labels = NULL, size_t &N = _dummy_N,
@@ -812,35 +813,35 @@ uint32_t* connected_components3d_6(
       for (int64_t x = xstart; x < xend; x++) {
         loc = x + sx * (y + sy * z);
 
-        const uchar cur = in_labels[loc];
+        const bool cur = in_labels.testBit(loc);
 
         if (cur == 0) {
           continue;
         }
 
-        if (x > 0 && cur == in_labels[loc + M]) {
+        if (x > 0 && cur == in_labels.testBit(loc + M)) {
           out_labels[loc] = out_labels[loc + M];
 
-          if (y > 0 && cur == in_labels[loc + K] && cur != in_labels[loc + J]) {
+          if (y > 0 && cur == in_labels.testBit(loc + K) && cur != in_labels.testBit(loc + J)) {
             equivalences.unify(out_labels[loc], out_labels[loc + K]); 
-            if (z > 0 && cur == in_labels[loc + E]) {
-              if (cur != in_labels[loc + D] && cur != in_labels[loc + B]) {
+            if (z > 0 && cur == in_labels.testBit(loc + E)) {
+              if (cur != in_labels.testBit(loc + D) && cur != in_labels.testBit(loc + B)) {
                 equivalences.unify(out_labels[loc], out_labels[loc + E]);
               }
             }
           }
-          else if (z > 0 && cur == in_labels[loc + E] && cur != in_labels[loc + D]) {
+          else if (z > 0 && cur == in_labels.testBit(loc + E) && cur != in_labels.testBit(loc + D)) {
             equivalences.unify(out_labels[loc], out_labels[loc + E]); 
           }
         }
-        else if (y > 0 && cur == in_labels[loc + K]) {
+        else if (y > 0 && cur == in_labels.testBit(loc + K)) {
           out_labels[loc] = out_labels[loc + K];
 
-          if (z > 0 && cur == in_labels[loc + E] && cur != in_labels[loc + B]) {
+          if (z > 0 && cur == in_labels.testBit(loc + E) && cur != in_labels.testBit(loc + B)) {
             equivalences.unify(out_labels[loc], out_labels[loc + E]); 
           }
         }
-        else if (z > 0 && cur == in_labels[loc + E]) {
+        else if (z > 0 && cur == in_labels.testBit(loc + E)) {
           out_labels[loc] = out_labels[loc + E];
         }
         else {
@@ -856,7 +857,7 @@ uint32_t* connected_components3d_6(
     for (int64_t z = 0; z < sz; z++) {
       for (int64_t y = 0; y < sy; y++) {
         loc = sx * (y + sy * z);
-        if (in_labels[loc] != 0 && in_labels[loc] == in_labels[loc + sx - 1]) {
+        if (in_labels.testBit(loc) != false && in_labels.testBit(loc) == in_labels.testBit(loc + sx - 1)) {
           equivalences.unify(out_labels[loc], out_labels[loc + sx - 1]);
         }
       }
@@ -864,7 +865,7 @@ uint32_t* connected_components3d_6(
     for (int64_t z = 0; z < sz; z++) {
       for (int64_t x = 0; x < sx; x++) {
         loc = x + sxy * z;
-        if (in_labels[loc] != 0 && in_labels[loc] == in_labels[loc + sx * (sy - 1)]) {
+        if (in_labels.testBit(loc) != false && in_labels.testBit(loc) == in_labels.testBit(loc + sx * (sy - 1))) {
           equivalences.unify(out_labels[loc], out_labels[loc + sx * (sy - 1)]);
         }
       }
@@ -872,7 +873,7 @@ uint32_t* connected_components3d_6(
     for (int64_t y = 0; y < sy; y++) {
       for (int64_t x = 0; x < sx; x++) {
         loc = x + sx * y;
-        if (in_labels[loc] != 0 && in_labels[loc] == in_labels[loc + sxy * (sz - 1)]) {
+        if (in_labels.testBit(loc) != false && in_labels.testBit(loc) == in_labels.testBit(loc + sxy * (sz - 1))) {
           equivalences.unify(out_labels[loc], out_labels[loc + sxy * (sz - 1)]);
         }
       }
@@ -888,7 +889,7 @@ uint32_t* connected_components3d_6(
 // skip a unify on every other voxel in the horizontal and
 // vertical directions.
 uint32_t* connected_components2d_4(
-    uchar* in_labels, 
+    MyBitArray& in_labels, 
     const int64_t sx, const int64_t sy, 
     size_t max_labels, 
     uint32_t *out_labels = NULL, size_t &N = _dummy_N,
@@ -934,26 +935,26 @@ uint32_t* connected_components2d_4(
   // Raster Scan 1: Set temporary labels and 
   // record equivalences in a disjoint set.
 
-  uchar cur = 0;
+  bool cur = false;
   for (int64_t y = 0; y < sy; y++, row++) {
     const int64_t xstart = runs[row << 1];
     const int64_t xend = runs[(row << 1) + 1];
 
     for (int64_t x = xstart; x < xend; x++) {
       loc = x + sx * y;
-      cur = in_labels[loc];
+      cur = in_labels.testBit(loc);
 
       if (cur == 0) {
         continue;
       }
 
-      if (x > 0 && cur == in_labels[loc + B]) {
+      if (x > 0 && cur == in_labels.testBit(loc + B)) {
         out_labels[loc + A] = out_labels[loc + B];
-        if (y > 0 && cur != in_labels[loc + D] && cur == in_labels[loc + C]) {
+        if (y > 0 && cur != in_labels.testBit(loc + D) && cur == in_labels.testBit(loc + C)) {
           equivalences.unify(out_labels[loc + A], out_labels[loc + C]);
         }
       }
-      else if (y > 0 && cur == in_labels[loc + C]) {
+      else if (y > 0 && cur == in_labels.testBit(loc + C)) {
         out_labels[loc + A] = out_labels[loc + C];
       }
       else {
@@ -966,13 +967,13 @@ uint32_t* connected_components2d_4(
 
   if (periodic_boundary) {
     for (int64_t x = 0; x < sx; x++) {
-      if (in_labels[x] != 0 && in_labels[x] == in_labels[x + sx * (sy - 1)]) {
+      if (in_labels.testBit(x) != 0 && in_labels.testBit(x) == in_labels.testBit(x + sx * (sy - 1))) {
         equivalences.unify(out_labels[x], out_labels[x + sx * (sy - 1)]);
       }
     }
     for (int64_t y = 0; y < sy; y++) {
       loc = sx * y;
-      if (in_labels[loc] != 0 && in_labels[loc] == in_labels[loc + (sx - 1)]) {
+      if (in_labels.testBit(loc) != 0 && in_labels.testBit(loc) == in_labels.testBit(loc + (sx - 1))) {
         equivalences.unify(out_labels[loc], out_labels[loc + (sx - 1)]);
       }
     }
@@ -987,7 +988,7 @@ uint32_t* connected_components2d_4(
 // It seems to give up to about 1.18x improvement on some data. No improvement on binary
 // vs 18 connected (from 3D).
 uint32_t* connected_components2d_8(
-    uchar* in_labels, 
+    MyBitArray& in_labels, 
     const int64_t sx, const int64_t sy,
     size_t max_labels, 
     uint32_t *out_labels = NULL, size_t &N = _dummy_N,
@@ -1041,30 +1042,30 @@ uint32_t* connected_components2d_8(
     for (int64_t x = xstart; x < xend; x++) {
       loc = x + sx * y;
 
-      const uchar cur = in_labels[loc];
+      const bool cur = in_labels.testBit(loc);
 
       if (cur == 0) {
         continue;
       }
 
-      if (y > 0 && cur == in_labels[loc + B]) {
+      if (y > 0 && cur == in_labels.testBit(loc + B)) {
         out_labels[loc] = out_labels[loc + B];
       }
-      else if (x > 0 && y > 0 && cur == in_labels[loc + A]) {
+      else if (x > 0 && y > 0 && cur == in_labels.testBit(loc + A)) {
         out_labels[loc] = out_labels[loc + A];
-        if (x < sx - 1 && y > 0 && cur == in_labels[loc + C] 
-            && !(y > 1 && cur == in_labels[loc + P])) {
+        if (x < sx - 1 && y > 0 && cur == in_labels.testBit(loc + C) 
+            && !(y > 1 && cur == in_labels.testBit(loc + P))) {
 
             equivalences.unify(out_labels[loc], out_labels[loc + C]);
         }
       }
-      else if (x > 0 && cur == in_labels[loc + D]) {
+      else if (x > 0 && cur == in_labels.testBit(loc + D)) {
         out_labels[loc] = out_labels[loc + D];
-        if (x < sx - 1 && y > 0 && cur == in_labels[loc + C]) {
+        if (x < sx - 1 && y > 0 && cur == in_labels.testBit(loc + C)) {
           equivalences.unify(out_labels[loc], out_labels[loc + C]);
         }
       }
-      else if (x < sx - 1 && y > 0 && cur == in_labels[loc + C]) {
+      else if (x < sx - 1 && y > 0 && cur == in_labels.testBit(loc + C)) {
         out_labels[loc] = out_labels[loc + C];
       }
       else {
@@ -1077,31 +1078,31 @@ uint32_t* connected_components2d_8(
 
   if (periodic_boundary) {
     for (int64_t x = 0; x < sx; x++) {
-      if (in_labels[x] == 0) {
+      if (in_labels.testBit(x) == false) {
         continue;
       }
 
-      if (x > 0 && in_labels[x] == in_labels[x - 1 + sx * (sy - 1)]) {
+      if (x > 0 && in_labels.testBit(x) == in_labels.testBit(x - 1 + sx * (sy - 1))) {
         equivalences.unify(out_labels[x], out_labels[x - 1 + sx * (sy - 1)]);
       }
-      if (in_labels[x] == in_labels[x + sx * (sy - 1)]) {
+      if (in_labels.testBit(x) == in_labels.testBit(x + sx * (sy - 1))) {
         equivalences.unify(out_labels[x], out_labels[x + sx * (sy - 1)]);
       }
-      if (x < sx - 1 && in_labels[x] == in_labels[x + 1 + sx * (sy - 1)]) {
+      if (x < sx - 1 && in_labels.testBit(x) == in_labels.testBit(x + 1 + sx * (sy - 1))) {
         equivalences.unify(out_labels[x], out_labels[x + 1 + sx * (sy - 1)]);
       }
     }
 
-    if (in_labels[0] == in_labels[voxels - 1]) {
+    if (in_labels.testBit(0) == in_labels.testBit(voxels - 1)) {
       equivalences.unify(out_labels[0], out_labels[voxels - 1]);
     }
-    if (in_labels[sx - 1] == in_labels[sx * (sy - 1)]) {
+    if (in_labels.testBit(sx - 1) == in_labels.testBit(sx * (sy - 1))) {
       equivalences.unify(out_labels[sx - 1], out_labels[sx * (sy - 1)]);
     }
 
     for (int64_t y = 0; y < sy; y++) {
       loc = sx * y;
-      if (in_labels[loc] != 0 && in_labels[loc] == in_labels[loc + (sx - 1)]) {
+      if (in_labels.testBit(loc) != false && in_labels.testBit(loc) == in_labels.testBit(loc + (sx - 1))) {
         equivalences.unify(out_labels[loc], out_labels[loc + (sx - 1)]);
       }
     }
@@ -1111,7 +1112,7 @@ uint32_t* connected_components2d_8(
 }
 
 uint32_t* connected_components3d(
-    uchar* in_labels, 
+    MyBitArray& in_labels, 
     const int64_t sx, const int64_t sy, const int64_t sz,
     size_t max_labels, const int64_t connectivity,
     uint32_t *out_labels = NULL, size_t &N = _dummy_N, 
@@ -1160,7 +1161,7 @@ uint32_t* connected_components3d(
 }
 
 uint32_t* connected_components3d(
-    uchar* in_labels, 
+    MyBitArray& in_labels, 
     const int64_t sx, const int64_t sy, const int64_t sz,
     const int64_t connectivity=26, size_t &N = _dummy_N,
     const bool periodic_boundary = false

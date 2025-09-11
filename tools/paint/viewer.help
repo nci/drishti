@@ -274,9 +274,19 @@ If no <label> is specified (i.e. only 1 value is specified, it is taken as <size
 The algorithm consists of following steps :
 1. Erode region by <size> parameter
 2. Identify markers using connected components
-3. Flood using markers
+3. Watersed using markers
 
-User is asked for a volume threshold (minimum number of voxels) above which a component is considered for labeling.
+Clipping planes are obeyed - clipped region is not taken into account.
+#end
+
+
+#begin
+ws+
+ws+
+
+Watershed segmentation for the visible region using user provided markers.
+Non-zero regions are assumed as markers for watershed segmentation.
+
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end

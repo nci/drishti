@@ -203,6 +203,7 @@ class DrishtiPaint : public QMainWindow
   void roiOperation(Vec, Vec, int);
   void connectedComponents(Vec, Vec, int);
   void watershed(Vec, Vec, int, int);
+  void watershedPlus(Vec, Vec);
   void distanceTransform(Vec, Vec, int, int);
   void localThickness(Vec, Vec, int);
 

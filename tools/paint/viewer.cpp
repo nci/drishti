@@ -1137,6 +1137,12 @@ Viewer::processCommand(QString cmd)
       return;
     }
 
+  if (list[0] == "ws+")
+    {
+      watershedPlus();
+      return;
+    }
+
   if (list[0] == "removecomponents")
     {
       int tag = -1;
@@ -3254,6 +3260,19 @@ Viewer::watershed(int tag, int size)
   bmax = VECDIVIDE(bmax, voxelScaling);
 
   emit watershed(bmin, bmax, tag, size);
+}
+
+void
+Viewer::watershedPlus()
+{
+  Vec bmin, bmax;
+  m_boundingBox.bounds(bmin, bmax);
+
+  Vec voxelScaling = Global::relativeVoxelScaling();
+  bmin = VECDIVIDE(bmin, voxelScaling);
+  bmax = VECDIVIDE(bmax, voxelScaling);
+
+  emit watershedPlus(bmin, bmax);
 }
 
 void

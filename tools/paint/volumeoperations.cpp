@@ -5202,12 +5202,6 @@ VolumeOperations::watershed(Vec bmin, Vec bmax, int tag,
   //--------------------------------------------------------------------
 
 
-
-  progress.setLabelText("Flooding");
-  progress.setValue(50);
-  qApp->processEvents();
-
-  
   //--------------------------------------------------------------------
   //----------------------------
   // Growing seeds phase
@@ -5231,11 +5225,10 @@ VolumeOperations::watershed(Vec bmin, Vec bmax, int tag,
   float *dt = BinaryDistanceTransform::binaryEDTsq(visibleMask,
 						   mx, my, mz,
 						   false);
-  for(qint64 idx=0; idx<mx*my*mz; idx++)
-    dt[idx] = sqrt(dt[idx]);
+//  for(qint64 idx=0; idx<mx*my*mz; idx++)
+//    dt[idx] = sqrt(dt[idx]);
   //--------------------------------------------------------------------
   
-
 
 //  auto in = [=](int d,int w,int h){ return ds<=d && d<=de && ws<=w && w<=we && hs<=h && h<=he; };
 //
@@ -5351,6 +5344,10 @@ VolumeOperations::watershed(Vec bmin, Vec bmax, int tag,
 
 
 
+  progress.setLabelText("Watershed");
+  progress.setValue(50);
+  qApp->processEvents();
+  
 
   //------------------------------------------------------
   // Step 2: Process each voxel in a single pass
@@ -5370,6 +5367,8 @@ VolumeOperations::watershed(Vec bmin, Vec bmax, int tag,
 
 
   int label = startLabel + labelMap.count();
+
+  progress.setLabelText(QString("number of components : %1").arg(labelMap.count()));
   
   for (int z = 0; z < mz; ++z)
     {
@@ -5433,32 +5432,31 @@ VolumeOperations::watershed(Vec bmin, Vec bmax, int tag,
 			  m_maskDataUS[gidx] = klabel;		      
 			}
 		      path.clear();
-		      stack.clear();
 		      done = true; // done with the path
 		    }
 		}
-	      else if (kheight == jheight) // plateau
+	      else if (qAbs(kheight-jheight)<0.001) // plateau
 		{
 		  // Check 26-connected neighbors of next_idx including next_idx
 		  for (int dz = -1; dz <= 1; ++dz)
 		  for (int dy = -1; dy <= 1; ++dy)
 		  for (int dx = -1; dx <= 1; ++dx)
 		    {
-		      qint64 n_idx = getIndex(next.x+dx, next.y+dy, next.z+dz);
-		      if (n_idx != -1)
+		      qint64 n_idx = getIndex(current.x+dx, current.y+dy, current.z+dz);
+		      if (dx!=0 && dy!=0 && dz!= 0 && n_idx != -1)
 			{
-			  if (kheight == dt[n_idx])
+			  if (qAbs(jheight-dt[n_idx]) < 0.001)
 			    {
-			      qint64 gidx = getGlobalIndex(next.x+dx + hs, next.y+dy + ws, next.z+dz + ds);
+			      qint64 gidx = getGlobalIndex(current.x+dx + hs, current.y+dy + ws, current.z+dz + ds);
 			      int llabel = m_maskDataUS[gidx];
 			      if (llabel == 0) // unassigned watershed
 				{
 				  m_maskDataUS[gidx] = jlabel; // set watershed to current watershed
-				  VOXEL p = VOXEL(next.x+dx, next.y+dy, next.z+dz);
+				  VOXEL p = VOXEL(current.x+dx, current.y+dy, current.z+dz);
 				  path << p;
 				  stack.push(p);
 				}
-			      else if (llabel != klabel) // set all voxels in path to l's watershed
+			      else if (llabel != jlabel) // set all voxels in path to l's watershed
 				{
 				  for(int pi=0; pi<path.count(); pi++)
 				    {
@@ -5467,10 +5465,14 @@ VolumeOperations::watershed(Vec bmin, Vec bmax, int tag,
 				      m_maskDataUS[gidx] = llabel;		      
 				    }
 				  path.clear();
-				  stack.clear();
 				  done = true;  // done with the path
 				}
-			    } // same height
+			      else // llabel == jlabel
+				{
+				  VOXEL p = VOXEL(current.x+dx, current.y+dy, current.z+dz);
+				  path << p;
+				}
+			    } // same as jheight
 			} // valid coordinate
 		    } //  x/y/z
 		  done = true;
@@ -5488,6 +5490,23 @@ VolumeOperations::watershed(Vec bmin, Vec bmax, int tag,
 	} // loop over x/y
     } // loop over z
   //------------------------------------------------------
+
+
+  int maxLabel = labelMap.count();
+  for (int z = 0; z < mz; ++z)
+  for (int y = 0; y < my; ++y)
+  for (int x = 0; x < mx; ++x)
+    {
+      qint64 gidx = getGlobalIndex(x+hs, y+ws, z+ds);
+      if (m_maskDataUS[gidx] > maxLabel)
+	{
+	  qint64 bidx = getIndex(x, y, z);
+	  m_maskDataUS[gidx] = maxLabel + 10*dt[bidx];
+	}
+    }
+
+  
+
 
   
   progress.setValue(100);

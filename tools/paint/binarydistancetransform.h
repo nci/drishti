@@ -47,6 +47,7 @@ class BinaryDistanceTransform
 					const bool,
 					const bool);
 
+  static void par_squared_edt_1d_multi_seg(QList<QVariant>);
   static void par_squared_edt_1d_parabolic_z(QList<QVariant>);
   static void par_squared_edt_1d_parabolic_y(QList<QVariant>);
 

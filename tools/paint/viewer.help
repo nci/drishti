@@ -256,7 +256,15 @@ Clipping planes are obeyed - clipped region is not taken into account.
 
 
 #begin
-ws+
+dt
+dt
+
+Distance Transform
+#end
+
+
+#begin
+ws
 ws
 ws <label> <size>
 

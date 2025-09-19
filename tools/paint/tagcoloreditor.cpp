@@ -164,6 +164,8 @@ TagColorEditor::showTagsClicked()
 	colors[4*i+3] = 255;
       
       setColors();
+
+      emit tagColorChanged();
     }
 }
 

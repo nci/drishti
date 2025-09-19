@@ -10,6 +10,7 @@
 
 #include <QFileDialog>
 #include <QInputDialog>
+#include <QtConcurrentMap>
 
 void VolumeSingle::closePvlFileManager() { m_pvlFileManager.closeQFile(); }
 VolumeFileManager* VolumeSingle::pvlFileManager() { return &m_pvlFileManager; }
@@ -2831,4 +2832,462 @@ VolumeSingle::countIsolatedRegions(uchar *lut,
 
   MainWindowUI::mainWindowUI()->menubar->parentWidget()->	\
     setWindowTitle(QString("Drishti"));
+}
+
+
+
+
+//----------------------------
+// for loading texture in slabs
+//----------------------------
+void
+VolumeSingle::allocSlabs(int nZSlices)
+{
+  int bpv = 1;
+  if (m_pvlVoxelType > 0) bpv = 2;
+
+  int minx = m_dataMin.x;
+  int miny = m_dataMin.y;
+  int minz = m_dataMin.z;
+  
+  int maxx = m_dataMax.x;
+  int maxy = m_dataMax.y;
+  int maxz = m_dataMax.z;
+
+  int lenx = m_subvolumeSize.x;
+  int leny = m_subvolumeSize.y;
+  int lenz = m_subvolumeSize.z;
+
+  qint64 lenx2 = m_subvolumeTextureSize.x;
+  qint64 leny2 = m_subvolumeTextureSize.y;
+  qint64 lenz2 = m_subvolumeTextureSize.z;
+
+  //-------- for dragTexure ---------------
+  int dtlod = m_dragTextureInfo.z;
+  int dtlenx2 = lenx/dtlod;
+  int dtleny2 = leny/dtlod;
+  int dtlenz2 = lenz/dtlod;
+  //---------------------------------------
+
+  m_dragSubvolumeSubsamplingLevel = dtlod;
+  m_dragSubvolumeTextureSize = Vec(dtlenx2, dtleny2, dtlenz2); 
+
+  if (m_dragSubvolumeTexture) delete [] m_dragSubvolumeTexture;
+  m_dragSubvolumeTexture = new uchar[bpv*dtlenx2*dtleny2*dtlenz2];
+
+  if (m_subvolumeTexture) delete [] m_subvolumeTexture;
+  m_subvolumeTexture = new uchar[bpv*nZSlices*leny2*lenx2];
+}
+
+uchar*
+VolumeSingle::getSlab(int startZSlice, int endZSlice)
+{
+  MainWindowUI::mainWindowUI()->statusBar->showMessage(QString("Loading %1 to %2").arg(startZSlice).arg(endZSlice));
+  Global::progressBar()->show();
+
+  int bpv = 1;
+  if (m_pvlVoxelType > 0) bpv = 2;
+
+  int minx = m_dataMin.x;
+  int miny = m_dataMin.y;
+  int minz = m_dataMin.z;
+  
+  int maxx = m_dataMax.x;
+  int maxy = m_dataMax.y;
+  int maxz = m_dataMax.z;
+
+  int lenx = m_subvolumeSize.x;
+  int leny = m_subvolumeSize.y;
+  int lenz = m_subvolumeSize.z;
+
+  qint64 lenx2 = m_subvolumeTextureSize.x;
+  qint64 leny2 = m_subvolumeTextureSize.y;
+  qint64 lenz2 = m_subvolumeTextureSize.z;
+
+  //-------- for dragTexure ---------------
+  int dtlod = m_dragTextureInfo.z;
+  int dtlenx2 = lenx/dtlod;
+  int dtleny2 = leny/dtlod;
+  int dtlenz2 = lenz/dtlod;
+  float stp = (float)dtlod/(float)m_subvolumeSubsamplingLevel;
+  uchar *tmp = new uchar[bpv*dtlenx2*dtleny2];
+  //---------------------------------------
+
+    
+  //---------------------------------------------------------
+  if (m_subvolumeSubsamplingLevel > 1)
+    {
+      //int kmin = minz/m_subvolumeSubsamplingLevel;
+      //int kmax = maxz/m_subvolumeSubsamplingLevel;
+
+      int leni2 = m_height/m_subvolumeSubsamplingLevel;
+      int lenj2 = m_width/m_subvolumeSubsamplingLevel;
+      int lenk2 = m_depth/m_subvolumeSubsamplingLevel;
+
+      int imin = minx/m_subvolumeSubsamplingLevel;
+      int jmin = miny/m_subvolumeSubsamplingLevel;
+
+      int kbytes = bpv*leni2*lenj2;
+
+      int kslc = 0;
+
+      int offD = m_offD/m_subvolumeSubsamplingLevel;
+      int offW = m_offW/m_subvolumeSubsamplingLevel;
+      int offH = m_offH/m_subvolumeSubsamplingLevel;
+
+      int maxHsl = m_maxHeight/m_subvolumeSubsamplingLevel;
+      int maxWsl = m_maxWidth/m_subvolumeSubsamplingLevel;
+
+      Vec relDataPos = Global::relDataPos();
+      if (relDataPos.x < -0.5) offH = 0;
+      if (relDataPos.y < -0.5) offW = 0;
+      if (relDataPos.z < -0.5) offD = 0;
+
+      if (relDataPos.x > 0.5) offH = (m_maxHeight-m_height)/m_subvolumeSubsamplingLevel;
+      if (relDataPos.y > 0.5) offW = (m_maxWidth-m_width)/m_subvolumeSubsamplingLevel;
+      if (relDataPos.z > 0.5) offD = (m_maxDepth-m_depth)/m_subvolumeSubsamplingLevel;
+      
+      uchar *sliceTemp1 = new uchar [bpv*maxWsl*maxHsl];
+
+      int kmin = startZSlice/m_subvolumeSubsamplingLevel;
+      int kmax = endZSlice/m_subvolumeSubsamplingLevel;
+      for(int k0=kmin; k0<=kmax; k0++)
+	{
+	  Global::progressBar()->setValue((int)(100.0*(float)(k0-kmin)/(float)(kmax-kmin+1)));
+	  if (kslc%100==0) qApp->processEvents();
+
+	  int k = k0 - offD; // shift slice by given depth offset
+
+	  if (k >= 0 && k<lenk2)
+	    {
+	      uchar *vslice = m_lodFileManager.getSlice(k);
+	      memcpy(m_sliceTemp, vslice, kbytes);
+	    }
+	  else
+	    {
+	      memset(m_sliceTemp, 0, kbytes);
+	    }
+
+	  //---
+	  memset(sliceTemp1, 0, bpv*maxWsl*maxHsl);
+	  for(int j=0; j<lenj2; j++)
+	    memcpy(sliceTemp1 + bpv*((j+offW)*maxHsl + offH),
+		   m_sliceTemp + bpv*j*leni2,
+		   bpv*leni2);
+	  
+	  for(int j=0; j<leny2; j++)
+	    memcpy(m_sliceTemp + bpv*j*lenx2,
+		   sliceTemp1 + bpv*((j+jmin)*maxHsl + imin),
+		   bpv*lenx2);
+
+	  // copy into array texture
+	  memcpy(m_subvolumeTexture + bpv*kslc*lenx2*leny2,
+		 m_sliceTemp,
+		 bpv*lenx2*leny2);
+	  //---
+
+
+	  memset(tmp, 0, bpv*dtlenx2*dtleny2);
+
+	  //-------- form dragSubvolumeTexure ---------------
+	  if (k >= (int)(m_dataMin.z/m_subvolumeSubsamplingLevel) &&
+	      k <= (int)(m_dataMax.z/m_subvolumeSubsamplingLevel))
+	    {
+	      int ji=0;
+	      if (bpv == 1)
+		{
+		  for(int j=0; j<dtleny2; j++)
+		    { 
+		      int y = j*stp;
+		      for(int i=0; i<dtlenx2; i++) 
+			{ 
+			  int x = i*stp; 
+			  tmp[ji] = m_sliceTemp[y*lenx2+x];
+			  ji++;
+			}
+		    }
+		}
+	      else
+		{
+		  for(int j=0; j<dtleny2; j++)
+		    { 
+		      int y = j*stp;
+		    for(int i=0; i<dtlenx2; i++) 
+		      { 
+			int x = i*stp; 
+			((ushort*)tmp)[ji] = ((ushort*)m_sliceTemp)[y*lenx2+x];
+			ji++;
+		      }
+		  }
+		}
+
+	      // copy into array texture
+	      int dtkslc = qBound(0, (int)((kslc+kmin)/stp), dtlenz2-1);
+	      memcpy(m_dragSubvolumeTexture + bpv*dtkslc*dtlenx2*dtleny2,
+		     tmp,
+		     bpv*dtlenx2*dtleny2);
+	    }
+	  //---------------------------------------
+
+	  kslc ++;
+	}
+
+      delete [] tmp;
+      delete [] sliceTemp1;
+
+  
+      if (!Global::histogramDisabled())
+	generateHistograms(kmax-kmin+1, leny2, lenx2);
+      
+      Global::progressBar()->setValue(100);
+      return m_subvolumeTexture;
+    }
+  //---------------------------------------------------------
+
+
+  //---------------------------------------------------------
+  //m_subvolumeSubsamplingLevel == 1
+  //---------------------------------------------------------
+  int nbytes = bpv*m_width*m_height;
+  int kslc = 0;
+
+  int offD = m_offD;
+  int offW = m_offW;
+  int offH = m_offH;
+
+  Vec relDataPos = Global::relDataPos();
+  if (relDataPos.x < -0.5) offH = 0;
+  if (relDataPos.y < -0.5) offW = 0;
+  if (relDataPos.z < -0.5) offD = 0;
+  
+  if (relDataPos.x > 0.5) offH = m_maxHeight- m_height;
+  if (relDataPos.y > 0.5) offW = m_maxWidth - m_width;
+  if (relDataPos.z > 0.5) offD = m_maxDepth - m_depth;
+
+
+  bool quick;
+  quick = (offH == 0) && (offW==0);
+  quick = quick && (lenx2==m_height);
+  quick = quick && (leny2==m_width);
+  quick = quick && (m_maxHeight==m_height);
+  quick = quick && (m_maxWidth==m_width);
+
+  
+  uchar *sliceTemp1 = new uchar [bpv*m_maxWidth*m_maxHeight];
+
+  //-------------------------------------------------------
+  for(int k0=startZSlice; k0<=endZSlice; k0++)
+    {
+      Global::progressBar()->setValue((int)(100.0*(float)(k0-startZSlice)/(float)(endZSlice-startZSlice+1)));
+      if (kslc%100==0) qApp->processEvents();
+      qApp->processEvents();
+
+
+      int k = k0 - offD; // shift slice by given depth offset
+      
+      if (k >= 0 && k < m_depth)
+	{
+	  uchar *vslice = m_pvlFileManager.getSlice(k);
+	  memcpy(m_sliceTemp, vslice, nbytes);
+	}
+      else
+	{
+	  memset(m_sliceTemp, 0, nbytes);
+	}
+      
+
+      if (quick)
+	{
+	  // copy into array texture
+	  memcpy(m_subvolumeTexture + kslc*bpv*lenx2*leny2,
+		 m_sliceTemp,
+		 bpv*lenx2*leny2);
+	}
+      else
+	{
+	  //---
+	  memset(sliceTemp1, 0, bpv*m_maxWidth*m_maxHeight);
+	  for(int j=0; j<m_width; j++)
+	    memcpy(sliceTemp1 + bpv*((j+offW)*m_maxHeight + offH),
+		   m_sliceTemp + bpv*j*m_height,
+		   bpv*m_height);
+	  
+	  for(int j=0; j<leny2; j++)
+	    memcpy(m_sliceTemp + bpv*j*lenx2,
+		   sliceTemp1 + bpv*((j+miny)*m_maxHeight + minx),
+		   bpv*lenx2);
+	  
+	  // copy into array texture
+	  memcpy(m_subvolumeTexture + kslc*bpv*lenx2*leny2,
+		 m_sliceTemp,
+		 bpv*lenx2*leny2);
+	  //---
+	}
+
+      //-------- form dragTexure ---------------
+      if (k >= (int)m_dataMin.z && k <= (int)m_dataMax.z)
+	{
+	  int ji=0;
+	  if (bpv == 1)
+	    {
+	      for(int j=0; j<dtleny2; j++)
+		{ 
+		  int y = j*stp;
+		  for(int i=0; i<dtlenx2; i++) 
+		    { 
+		      int x = i*stp; 
+		      tmp[ji] = m_sliceTemp[y*lenx2+x];
+		      ji++;
+		    }
+		}
+	    }
+	  else
+	    {
+	      for(int j=0; j<dtleny2; j++)
+		{ 
+		  int y = j*stp;
+		  for(int i=0; i<dtlenx2; i++) 
+		    { 
+		      int x = i*stp; 
+		      ((ushort*)tmp)[ji] = ((ushort*)m_sliceTemp)[y*lenx2+x];
+		      ji++;
+		    }
+		}
+	    }
+	  
+	  // copy into array texture
+	  int dtkslc = qBound(0, (int)((kslc+startZSlice)/stp), dtlenz2-1);
+	  memcpy(m_dragSubvolumeTexture + bpv*dtkslc*dtlenx2*dtleny2,
+		 tmp,
+		 bpv*dtlenx2*dtleny2);
+	}
+      //---------------------------------------
+
+      kslc ++;
+    }
+
+  delete [] tmp;
+  delete [] sliceTemp1;
+  
+  if (!Global::histogramDisabled())
+    generateHistograms(endZSlice-startZSlice+1, leny2, lenx2);
+
+  Global::progressBar()->setValue(100);
+  MainWindowUI::mainWindowUI()->statusBar->showMessage("Ready");
+
+  return m_subvolumeTexture;
+}
+
+void
+parHistogramGeneration(QList<QVariant> plist)
+{
+  int bpv = plist[0].toInt();
+  int startZ = plist[1].toInt();
+  int endZ = plist[2].toInt();
+  int leny2 = plist[3].toInt();
+  int lenx2 = plist[4].toInt();
+  uchar *tex = static_cast<uchar*>(plist[5].value<void*>());
+  float *flhist1D = static_cast<float*>(plist[6].value<void*>());
+  float *flhist2D = static_cast<float*>(plist[7].value<void*>());
+  
+  if (bpv == 1)
+    {
+      for(int z=startZ+1; z<endZ; z++)
+	{
+	  uchar *g0 = tex + (z-1)*bpv*lenx2*leny2;
+	  uchar *g1 = tex +     z*bpv*lenx2*leny2;
+	  uchar *g2 = tex + (z+1)*bpv*lenx2*leny2;
+	  
+	  for(int j=0; j<lenx2*leny2; j++)
+	    flhist1D[g2[j]]++;
+	  
+	  for(int j=1; j<leny2-1; j++)
+	    for(int i=1; i<lenx2-1; i++)
+	      {
+		int gx = g1[j*lenx2+(i+1)] - g1[j*lenx2+(i-1)];
+		int gy = g1[(j+1)*lenx2+i] - g1[(j-1)*lenx2+i];
+		int gz = g2[j*lenx2+i] - g0[j*lenx2+i];
+		int gsum = sqrtf(gx*gx+gy*gy+gz*gz);
+		gsum = qBound(0, gsum, 255);
+		int v = g1[j*lenx2+i];
+		flhist2D[gsum*256 + v]++;
+	      }	  
+	}
+    }
+  else
+    {
+      for(int z=startZ+1; z<endZ; z++)
+	{
+	  uchar *g0 = tex + (z-1)*bpv*lenx2*leny2;
+	  uchar *g1 = tex +     z*bpv*lenx2*leny2;
+	  uchar *g2 = tex + (z+1)*bpv*lenx2*leny2;
+	  
+	  for(int j=0; j<lenx2*leny2; j++)
+	    flhist1D[((ushort*)g2)[j]/256]++;
+	  
+	  for(int j=0; j<lenx2*leny2; j++)
+	    flhist2D[((ushort*)g2)[j]]++;
+	}
+    }
+  
+}
+
+void
+VolumeSingle::generateHistograms(int nslices, int leny2, int lenx2)
+{
+  int bpv = 1;
+  if (m_pvlVoxelType > 0) bpv = 2;
+
+  int nThreads = qMax(1, (int)(QThread::idealThreadCount()));
+
+  int chunkSize = nslices / nThreads;
+  
+  float *hist1D = new float[nThreads*256];
+  float *hist2D = new float[nThreads*256*256];
+  memset(hist1D, 0, nThreads*256*4);
+  memset(hist2D, 0, nThreads*256*256*4);
+  
+  
+  // collect stuff for parallel processing
+  QList<QList<QVariant>> param;
+  for(int d=0; d<nThreads; d++)
+    {
+      int startZ = d*chunkSize;
+      int endZ = (d+1)*chunkSize;
+      if (d == nThreads-1)
+	endZ = nslices;
+     
+      QList<QVariant> plist;
+      plist << QVariant(bpv);
+      plist << QVariant(startZ);
+      plist << QVariant(endZ);
+      plist << QVariant(leny2);
+      plist << QVariant(lenx2);
+      plist << QVariant::fromValue(static_cast<void*>(m_subvolumeTexture));
+      plist << QVariant::fromValue(static_cast<void*>(hist1D + d*256));
+      plist << QVariant::fromValue(static_cast<void*>(hist2D + d*256*256));
+      
+      param << plist;
+    }
+
+  
+  // Create a QFutureWatcher and connect signals and slots.
+  QFutureWatcher<void> futureWatcher;
+
+  // Start generation for all values within the range
+  futureWatcher.setFuture(QtConcurrent::map(param, parHistogramGeneration));
+  
+  futureWatcher.waitForFinished();
+
+  for(int d=0; d<nThreads; d++)
+    {
+      for(int j=0; j<256; j++)
+	m_flhist1D[j] += hist1D[d*256 + j];
+      
+      for(int j=0; j<256*256; j++)
+	m_flhist2D[j] += hist2D[d*256*256 + j];
+    }
+
+  delete [] hist1D;
+  delete [] hist2D;
 }

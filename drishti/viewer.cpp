@@ -150,6 +150,7 @@ void Viewer::endPlay()
   m_saveMovie = false;
 
   Global::setSaveImageType(Global::NoImage);
+  Global::setAllowInterruption(true);  
 }
 void Viewer::setImageFileName(QString imgfl)
 {
@@ -162,7 +163,10 @@ void Viewer::setSaveSnapshots(bool flag)
   if (flag)
     {
       if (m_hiresVolume->raised())
-	m_saveSnapshots = flag;
+	{
+	  m_saveSnapshots = flag;
+	  Global::setAllowInterruption(false);
+	}
       else
 	emit showMessage("Cannot save image sequence in Lowres mode", true);
     }
@@ -170,7 +174,10 @@ void Viewer::setSaveSnapshots(bool flag)
 void Viewer::setSaveMovie(bool flag)
 {
   if (flag && m_hiresVolume->raised())
-    m_saveMovie = flag;
+    {
+      m_saveMovie = flag;
+      Global::setAllowInterruption(false);
+    }
   else if (flag)
     emit showMessage("Cannot save movie in Lowres mode", true);
 }
@@ -1703,10 +1710,14 @@ Viewer::drawCarveCircle()
 void
 Viewer::drawInHires(int imagequality)
 {
+  Global::setRendering(true);
+
   if (imagequality == Enums::DragImage)
     m_hiresVolume->drawDragImage(Global::stepsizeDrag());
   else
     m_hiresVolume->drawStillImage(Global::stepsizeStill());
+
+  Global::setRendering(false);
   
 
   glEnable(GL_BLEND);
@@ -2940,6 +2951,9 @@ Viewer::mouseMoveEventInPathViewport(int ip, QMouseEvent *event)
 void
 Viewer::mousePressEvent(QMouseEvent *event)
 {
+  if (Global::rendering() && Global::allowInterruption())
+    Global::setInterruptRendering(true);
+
   m_mouseDrag = true;
   m_mousePressPos = event->pos();
   m_mousePrevPos = event->pos();
@@ -3824,6 +3838,8 @@ Viewer::keyPressEvent(QKeyEvent *event)
 void
 Viewer::grabScreenShot()
 {
+  Global::setAllowInterruption(false);
+  
   QSize imgSize = StaticFunctions::getImageSize(size().width(),size().height());
   //setImageSize(imgSize.width(), imgSize.height());
 
@@ -3874,6 +3890,8 @@ Viewer::grabScreenShot()
   draw();
   endPlay();
   emit showMessage("Snapshot saved", false);
+
+  Global::setAllowInterruption(true);
 }
 
 void
@@ -4310,16 +4328,41 @@ Viewer::processCommand(QString cmd)
       m_hiresVolume->setInterpolateVolumes(iv);
 
     }
-//  else if (list[0] == "texsizereducefraction")
-//    {
-//      float rlod = list[1].toFloat(&ok);
-//      Global::setTexSizeReduceFraction(rlod);
-//      reloadData();
-//    }
+  else if (list[0] == "maxslabsize")
+    {
+      if (list.size() > 1)
+	{
+	  float mss = list[1].toFloat(&ok);
+	  Global::setMaxSlabSize(mss);
+	  reloadData();
+	}
+      else
+	{
+	  QMessageBox::information(0, "Error", "maxslabsize <float> ; no parameter specified");
+	  return;
+	}
+    }
+  else if (list[0] == "texsizereducefraction")
+    {
+      if (list.size() > 1)
+	{
+	  float rlod = list[1].toFloat(&ok);
+	  Global::setTexSizeReduceFraction(rlod);
+	  reloadData();
+	}
+      else
+	{
+	  QMessageBox::information(0, "Error", "texsizereducefraction <float> ; no parameter specified");
+	  return;
+	}
+    }
   else if (list[0] == "imagesize")
     {
-      m_imageWidth = list[1].toInt(&ok);
-      m_imageHeight = list[2].toInt(&ok);
+      if (list.size() > 2)
+	{
+	  m_imageWidth = list[1].toInt(&ok);
+	  m_imageHeight = list[2].toInt(&ok);
+	}
     }
   else if (list[0] == "viewfilter")
     {
@@ -5221,18 +5264,29 @@ Viewer::commandEditor()
       mesg += QString("drag Volume Size : (max)%1MB  (actual)%2MB\n").	\
 	arg(Global::maxDragVolSize()).arg(nbytes*Global::actualDragVolSize());
 
-      mesg += QString("array texture slabs : %1\n").
+      mesg += "--------------------\n";
+    
+      mesg += QString("number of texture slabs : %1\n").
 	arg(m_hiresVolume->dataTexSize());
     }
-
+    
+    mesg += QString("maxslabsize : %1GB\n").	\
+      arg(Global::maxSlabSize());
+    mesg += QString("maxarraytexturelayers : %1\n").	\
+      arg(Global::maxArrayTextureLayers());
+    mesg += QString("texsizereducefraction : %1\n").	\
+      arg(Global::texSizeReduceFraction());
+    mesg += QString("max 2d texture Size : %1\n").	\
+      arg(Global::max2dTextureSize());
+    
     if (PruneHandler::pruneBuffer())
       {
-	mesg += QString("max 2d Texture Size : %1\n").arg(Global::max2dTextureSize());
-	mesg += QString("EmptySpaceSkip Buffer Size : %1 x %2\n\n").	\
+	mesg += QString("EmptySpaceSkip Buffer Size : %1 x %2\n").	\
 	  arg(PruneHandler::pruneBuffer()->width()).			\
 	  arg(PruneHandler::pruneBuffer()->height());
       }
-    
+
+    mesg += "--------------------\n";
 
 
     Vec cpos = camera()->position();
@@ -5271,9 +5325,6 @@ Viewer::commandEditor()
     mesg += "dragonly : ";
     if (Global::loadDragOnly()) mesg += "yes\n";
     else mesg += "no\n";
-
-//    mesg += QString("texsizereducefraction : %1\n").	\
-//      arg(Global::texSizeReduceFraction());
 
     if (m_hiresVolume->subvolumeUpdates())
       mesg += "subvolume updates : true\n";

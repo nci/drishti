@@ -2954,6 +2954,14 @@ MainWindow::saveSettings()
   }
   
   {
+    QDomElement de0 = doc.createElement("maxslabsize");
+    QDomText tn0;
+    tn0 = doc.createTextNode(QString("%1").arg(Global::maxSlabSize()));
+    de0.appendChild(tn0);
+    topElement.appendChild(de0);
+  }
+  
+  {
     QDomElement de0 = doc.createElement("texturesizelimit");
     QDomText tn0;
     tn0 = doc.createTextNode(QString("%1").arg(Global::maxArrayTextureLayers()));
@@ -3080,6 +3088,11 @@ MainWindow::loadSettings()
 	{
 	  QString str = dlist.at(i).toElement().text();
 	  Global::setTexSizeReduceFraction(str.toFloat());
+	}
+      else if (dlist.at(i).nodeName() == "maxslabsize")
+	{
+	  QString str = dlist.at(i).toElement().text();
+	  Global::setMaxSlabSize(str.toFloat());
 	}
       else if (dlist.at(i).nodeName() == "texturesizelimit")
 	{

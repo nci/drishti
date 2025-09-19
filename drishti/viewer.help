@@ -11,6 +11,30 @@ Press DEL while hovering over the light source to remove it.
 Light sources are animatable.
 #end
 
+
+#begin
+texsizereducefraction
+texsizereducefraction
+texsizereducefraction <fraction>
+
+Change 2D texture size by given multiple (values between 0.1 and 2.0).
+
+#end
+
+
+#begin
+maxslabsize
+maxslabsize
+maxslabsize <float>
+
+Volume data is uploaded to texture memory in slabs, because of single resource allocation limit imposed by graphics drivers or OS.
+Set maximum slab size in GB (values between 0.25 and 16.0).
+
+Default is 4GB.
+
+#end
+
+
 #begin
 opmod
 opmod

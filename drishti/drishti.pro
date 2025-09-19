@@ -2,7 +2,7 @@ DRISHTI_DEFINES = RENDERER NETCDF
 
 RESOURCES = drishti.qrc
 
-QT += opengl xml network
+QT += opengl xml network concurrent
 QT += multimedia multimediawidgets
 
 CONFIG += release

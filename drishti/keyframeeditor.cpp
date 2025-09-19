@@ -215,9 +215,15 @@ KeyFrameEditor::setPlayFrames(bool flag)
   update();
 
   if (m_playFrames)
-    emit startPlay();
+    {
+      Global::setAllowInterruption(false);        
+      emit startPlay();
+    }
   else
-    emit endPlay();
+    {
+      Global::setAllowInterruption(true);        
+      emit endPlay();
+    }
 
   qApp->processEvents();
 }

@@ -880,7 +880,7 @@ Volume::setSubvolume(Vec boxMin, Vec boxMax,
     {
       int bpv = 1;
 
-      int tms = Global::textureMemorySize()-25*Global::actualDragVolSize(); // in Mb
+      int tms = Global::textureMemorySize()-10*Global::actualDragVolSize(); // in Mb
       int sslevel = StaticFunctions::getSubsamplingLevel(tms,
 							 Global::maxArrayTextureLayers(),
 							 bpv,
@@ -1180,8 +1180,11 @@ uchar* Volume::getDragSubvolumeTexture()
   return m_dragSubvolumeTexture;
 }
 
-uchar* Volume::getSubvolumeTexture()
+uchar*
+Volume::getSubvolumeTexture()
 {
+  QMessageBox::information(0, "", "getSubvolumeTexture ????");
+  
   if (Global::volumeType() == Global::DummyVolume)
     return 0;
 
@@ -1220,6 +1223,121 @@ uchar* Volume::getSubvolumeTexture()
       uchar *tex = m_volume[v]->getSubvolume();
       for (qint64 i=0; i<nx*ny*nz; i++)
 	m_subvolumeTexture[i*nvol+v] = tex[i];
+    }
+  
+  return m_subvolumeTexture;
+}
+
+void
+Volume::allocSlabs(int nZSlices)
+{
+  if (Global::volumeType() == Global::DummyVolume)
+    return;
+
+  int nvol = 0;
+  if (Global::volumeType() < Global::RGBAVolume)
+    {
+      nvol = 1;
+      m_volume[0]->allocSlabs(nZSlices);
+    }
+  
+  if (Global::volumeType() > Global::SingleVolume)
+    {
+      nvol = 2;
+      m_volume[1]->allocSlabs(nZSlices);
+    }  
+  if (Global::volumeType() > Global::DoubleVolume)
+    {
+      nvol = 3;
+      m_volume[2]->allocSlabs(nZSlices);
+    }
+  if (Global::volumeType() == Global::QuadVolume &&
+      Global::volumeType() == Global::RGBAVolume)
+    {
+      nvol = 4;
+      m_volume[3]->allocSlabs(nZSlices);
+    }
+  
+  Vec vsize;
+  vsize = m_volume[0]->getSubvolumeTextureSize();
+
+  qint64 nx,ny,nz;
+  nx = vsize.x;
+  ny = vsize.y;
+  nz = vsize.z;
+
+  int bpv = 1;
+  if (m_volume[0]->pvlVoxelType() > 0)
+    bpv = 2;
+
+  if (m_subvolumeTexture) delete [] m_subvolumeTexture;
+  m_subvolumeTexture = new uchar[bpv*nvol*nx*ny*nZSlices];
+  memset(m_subvolumeTexture, 0, bpv*nvol*nx*ny*nZSlices);
+}
+
+uchar*
+Volume::getSubvolumeTextureSlab(int startZSlice, int endZSlice)
+{
+  if (Global::volumeType() == Global::DummyVolume)
+    return 0;
+
+    
+  Vec vsize;
+  vsize = m_volume[0]->getSubvolumeTextureSize();
+  
+  // single volume
+  if (Global::volumeType() == Global::SingleVolume)
+    return m_volume[0]->getSlab(startZSlice, endZSlice);
+
+  // rgb volume
+  if (Global::volumeType() == Global::RGBVolume ||
+      Global::volumeType() == Global::RGBAVolume)
+    return m_volumeRGB->getSubvolume();
+
+  // multiple volumes
+  int nvol = 0;
+  if (Global::volumeType() == Global::DoubleVolume) nvol = 2;
+  if (Global::volumeType() == Global::TripleVolume) nvol = 3;
+  if (Global::volumeType() == Global::QuadVolume) nvol = 4;
+
+  if (nvol < 1) return 0;
+
+
+  qint64 nx,ny,nz;
+  nx = vsize.x;
+  ny = vsize.y;
+  nz = vsize.z;
+
+  int bpv = 1;
+  if (m_volume[0]->pvlVoxelType() > 0)
+    bpv = 2;
+  
+  int nslices = endZSlice-startZSlice+1;
+  if (nvol == 1)
+    {
+      uchar *tex = m_volume[0]->getSlab(startZSlice, endZSlice);
+      memcpy(m_subvolumeTexture, tex, nx*ny*nslices*bpv);
+    }
+  else
+    {
+      if (bpv == 1)
+	{
+	 for (int v=0; v<nvol; v++)
+	   {
+	     uchar *tex = m_volume[v]->getSlab(startZSlice, endZSlice);
+	     for (qint64 i=0; i<nx*ny*nslices; i++)
+	       m_subvolumeTexture[i*nvol+v] = tex[i];
+	   }
+	}
+      else // for 16-bit data
+	{
+	 for (int v=0; v<nvol; v++)
+	   {
+	     uchar *tex = m_volume[v]->getSlab(startZSlice, endZSlice);
+	     for (qint64 i=0; i<nx*ny*nslices; i++)
+	       ((ushort*)m_subvolumeTexture)[i*nvol+v] = ((ushort*)tex)[i];
+	   }
+	}
     }
   
   return m_subvolumeTexture;
@@ -1308,39 +1426,73 @@ uchar* Volume::getLowresTextureVolume()
 
   Vec glowvol = getLowresVolumeSize();
 
+  int bpv = 1;
+  if (m_volume[0]->pvlVoxelType() > 0) bpv = 2;
+
   if (m_lowresTexture) delete [] m_lowresTexture;
-  m_lowresTexture = new uchar[nvol*nsubX*nsubY*nsubZ];
-  memset(m_lowresTexture, 0, nvol*nsubX*nsubY*nsubZ);
+  m_lowresTexture = new uchar[bpv*nvol*nsubX*nsubY*nsubZ];
+  memset(m_lowresTexture, 0, bpv*nvol*nsubX*nsubY*nsubZ);
 
   int glss = 1;
   for(int v=0; v<nvol; v++)
     glss = qMax(glss, m_volume[v]->getLowresSubsamplingLevel());
 
-  for(int v=0; v<nvol; v++)
+
+  if (m_volume[0]->pvlVoxelType() == 0)
     {
-      uchar *tex = m_volume[v]->getLowresTextureVolume();
-      Vec tSize = m_volume[v]->getLowresTextureVolumeSize();
+      for(int v=0; v<nvol; v++)
+	{
+	  uchar *tex = m_volume[v]->getLowresTextureVolume();
+	  Vec tSize = m_volume[v]->getLowresTextureVolumeSize();
+	  
+	  int lss = 1;
 
-      int lss = 1;
-//      int lss = glss/m_volume[v]->getLowresSubsamplingLevel();
-
-      Vec vlowvol = m_volume[v]->getLowresVolumeSize();
-      int offX = (nsubX-tSize.x/lss)/2;
-      int offY = (nsubY-tSize.y/lss)/2;
-      int offZ = (glowvol.z-vlowvol.z/lss)/2;
-      int i=0;
-      for(qint64 z=0; z<(int)vlowvol.z/lss; z++)
-	for(qint64 y=0; y<(int)tSize.y/lss; y++)
-	  for(qint64 x=0; x<(int)tSize.x/lss; x++)
-	    {
-	      qint64 idx = (z+offZ)*nsubY*nsubX + (y+offY)*nsubX + (x+offX);
-	      qint64 tdx = (z*tSize.y*tSize.x + y*tSize.x + x)*lss;
-
-	      m_lowresTexture[nvol*idx+v] = tex[tdx];
-	      
-	      i++;
-	    }
+	  Vec vlowvol = m_volume[v]->getLowresVolumeSize();
+	  int offX = (nsubX-tSize.x/lss)/2;
+	  int offY = (nsubY-tSize.y/lss)/2;
+	  int offZ = (glowvol.z-vlowvol.z/lss)/2;
+	  int i=0;
+	  for(qint64 z=0; z<(int)vlowvol.z/lss; z++)
+	    for(qint64 y=0; y<(int)tSize.y/lss; y++)
+	      for(qint64 x=0; x<(int)tSize.x/lss; x++)
+		{
+		  qint64 idx = (z+offZ)*nsubY*nsubX + (y+offY)*nsubX + (x+offX);
+		  qint64 tdx = (z*tSize.y*tSize.x + y*tSize.x + x)*lss;
+		  
+		  m_lowresTexture[nvol*idx+v] = tex[tdx];
+		  
+		  i++;
+		}
+	}
     }
+  else // for 16-bit data
+    {
+      for(int v=0; v<nvol; v++)
+	{
+	  uchar *tex = m_volume[v]->getLowresTextureVolume();
+	  Vec tSize = m_volume[v]->getLowresTextureVolumeSize();
+	  
+	  int lss = 1;
+	  
+	  Vec vlowvol = m_volume[v]->getLowresVolumeSize();
+	  int offX = (nsubX-tSize.x/lss)/2;
+	  int offY = (nsubY-tSize.y/lss)/2;
+	  int offZ = (glowvol.z-vlowvol.z/lss)/2;
+	  int i=0;
+	  for(qint64 z=0; z<(int)vlowvol.z/lss; z++)
+	    for(qint64 y=0; y<(int)tSize.y/lss; y++)
+	      for(qint64 x=0; x<(int)tSize.x/lss; x++)
+		{
+		  qint64 idx = (z+offZ)*nsubY*nsubX + (y+offY)*nsubX + (x+offX);
+		  qint64 tdx = (z*tSize.y*tSize.x + y*tSize.x + x)*lss;
+		  
+		  ((ushort*)m_lowresTexture)[nvol*idx+v] = ((ushort*)tex)[tdx];
+		  
+		  i++;
+		}
+	}
+    }
+
 
   return m_lowresTexture;
 }

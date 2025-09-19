@@ -75,6 +75,9 @@ class Volume : public QObject
   int getSubvolumeSubsamplingLevel();
   unsigned char* getSubvolumeTexture();
 
+  void allocSlabs(int);
+  unsigned char* getSubvolumeTextureSlab(int, int);
+
   int* getLowres1dHistogram(int vol=0);
   int* getLowres2dHistogram(int vol=0);
 

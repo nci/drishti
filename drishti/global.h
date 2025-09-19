@@ -93,6 +93,9 @@ class Global
   static int textureSize();
   static void setTextureSize(int);
 
+  static void setMaxSlabSize(float);
+  static float maxSlabSize();
+  
   static int textureMemorySize();
   static void setTextureMemorySize(int);
 
@@ -315,14 +318,26 @@ class Global
   static bool histogramDisabled();
   static void setDisableHistogram(bool);
 
+
+  static bool allowInterruption();
+  static void setAllowInterruption(bool);
+  static bool rendering();
+  static void setRendering(bool);
+  static bool interruptRendering();
+  static void setInterruptRendering(bool);
   
  private :
+  static bool m_allowInterruption;
+  static bool m_rendering;
+  static bool m_interruptRendering;
+  
   static float m_gamma;
   static QString m_documentationPath;
   static bool m_useFBO;
   static bool m_drawBox;
   static bool m_drawAxis;
   static float m_texSizeReduceFraction;
+  static float m_maxSlabSize;
   static int m_textureSize;
   static int m_textureMemorySize;
   static qint64 m_maxDragVolSize;

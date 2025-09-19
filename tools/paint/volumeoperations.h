@@ -19,6 +19,14 @@ struct VOXEL
   VOXEL(int x_, int y_, int z_) : x(x_), y(y_), z(z_) {}
 };
 
+struct VOXEL_H
+{
+  int x, y, z, h;
+  VOXEL_H() : x(0),y(0),z(0),h(0) {}
+  VOXEL_H(int x_, int y_, int z_, float h_) : x(x_), y(y_), z(z_), h(h_) {}
+  bool operator>(const VOXEL_H& o) const { return h < o.h; } // higher priority means larger value 
+};
+
 class VolumeOperations
 {
  public :
@@ -82,6 +90,7 @@ class VolumeOperations
 				  int&, int&,
 				  int, float, float);
   
+
   static void watershed(Vec, Vec, int,
 			int,
 			int&, int&,
@@ -94,6 +103,14 @@ class VolumeOperations
 			    int&, int&,
 			    int&, int&,
 			    int, float, float);
+
+  static void watershedPriorityQueue(Vec, Vec, int,
+				     int,
+				     int&, int&,
+				     int&, int&,
+				     int&, int&,
+				     int, float, float);
+
 
   static void distanceTransform(Vec, Vec, int,
 				int&, int&,

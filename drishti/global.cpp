@@ -9,6 +9,16 @@ bool Global::m_playFrames = false;
 bool Global::playFrames() { return m_playFrames; }
 void Global::setPlayFrames(bool pf) { m_playFrames = pf; }
 
+bool Global::m_allowInterruption = true;
+bool Global::allowInterruption() { return m_allowInterruption; }
+void Global::setAllowInterruption(bool a) { m_allowInterruption = a; }
+bool Global::m_rendering = false;
+bool Global::rendering() { return m_rendering; }
+void Global::setRendering(bool r) { m_rendering = r; }
+bool Global::m_interruptRendering = false;
+bool Global::interruptRendering() { return m_interruptRendering; }
+void Global::setInterruptRendering(bool f) { m_interruptRendering = f; }
+
 float Global::m_gamma = 1.0;
 void Global::setGamma(float g) { m_gamma = g; }
 float Global::gamma() { return m_gamma; }
@@ -136,6 +146,10 @@ bool Global::flipImageZ() { return m_flipImageZ; }
 void Global::setFlipImageX(bool flag) { m_flipImageX = flag; }
 void Global::setFlipImageY(bool flag) { m_flipImageY = flag; }
 void Global::setFlipImageZ(bool flag) { m_flipImageZ = flag; }
+
+float Global::m_maxSlabSize = 4.0; // 4Gb
+void Global::setMaxSlabSize(float mss) { m_maxSlabSize = qBound(0.25f, mss, 32.0f); }
+float Global::maxSlabSize() { return m_maxSlabSize; }
 
 float Global::m_texSizeReduceFraction = 1.0f;
 void Global::setTexSizeReduceFraction(float rf) { m_texSizeReduceFraction = qBound(0.1f, rf, 2.0f); }
@@ -924,6 +938,12 @@ Global::getSlabs(int samplingLevel,
   bool done = false;
   int slc = 0;
   int tSL = maxArrayTextureLayers();
+
+  // we want to keep size below given limit
+  float sliceSize = lenx2*leny2*bytesPerVoxel;
+  sliceSize /= (1024*1024); // sliceSize in Mb;
+  tSL = qMin((float)tSL, maxSlabSize()*1024/sliceSize);
+
   while(slc*(tSL-1) < (lenz2-1))
     {
       int zmin = slc*(tSL-1);
@@ -931,6 +951,9 @@ Global::getSlabs(int samplingLevel,
       int dmin = m_dataMin.z + samplingLevel*zmin;
       int dmax = m_dataMin.z + samplingLevel*zmax;
       dmax = qMin((int)m_dataMax.z , dmax);
+
+      QMessageBox::information(0, "", QString("%1 : %2 %3").arg(samplingLevel).arg(dmin).arg(dmax));
+      
       slabinfo.append(Vec(zmax-zmin+1,  // no. of slices in the slab
 			  dmin, dmax));
       slc ++;

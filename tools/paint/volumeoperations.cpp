@@ -14,6 +14,8 @@
 #include <QtConcurrentMap>
 #include <QStack>
 
+#include <queue>
+
 #include "cc3d.h"
 
 
@@ -1114,8 +1116,8 @@ VolumeOperations::getConnectedRegionFromBitmask(int dr, int wr, int hr,
   QList<Vec> tedges;
   while(!done)
     {
-      nd = (nd + 1)%1000;
-      int pnd = 90*(float)nd/(float)1000;
+      nd = (nd + 1)%100000;
+      int pnd = 90*(float)nd/(float)100000;
       if (pnd != pvnd)
 	{
 	  progress.setValue(pnd);
@@ -1226,8 +1228,8 @@ VolumeOperations::getRegionConnectedToROI(int ds, int ws, int hs,
   int pvnd = 0;
   while(!done)
     {
-      nd = (nd + 1)%100;
-      int pnd = 90*(float)nd/(float)100;
+      nd = (nd + 1)%100000;
+      int pnd = 90*(float)nd/(float)100000;
       progress.setValue(pnd);
       if (pnd != pvnd)
 	qApp->processEvents();
@@ -4123,17 +4125,6 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
 
 
 
-//  uchar *vol = new uchar[mx*my*mz];
-//  memset(vol, 0, mx*my*mz);
-//  for(qint64 d=ds; d<=de; d++)
-//    for(qint64 w=ws; w<=we; w++)
-//      for(qint64 h=hs; h<=he; h++)
-//	{
-//	  qint64 bidx = ((qint64)(d-ds))*mx*my+((qint64)(w-ws))*mx+(h-hs);
-//	  if (bitmask.testBit(bidx))
-//	    vol[bidx] = 255;
-//	}
-
 
   //------------------
   // starting label number
@@ -4175,11 +4166,11 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
 
   //------------------
   // ignore all components below componentThreshold
-  int componentThreshold = 1000;
+  int componentThreshold = 100;
   componentThreshold = QInputDialog::getInt(0,
 					    "Component Threshold",
 					    "Minimum number of voxels per labeled component",
-					    1000);
+					    100);
   //------------------
   
 
@@ -4234,17 +4225,20 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
 
   //------------------
   // remove components with volume less than componentThreshold
-  for(qint64 d=ds; d<=de; d++)
-    for(qint64 w=ws; w<=we; w++)
-      for(qint64 h=hs; h<=he; h++)
-	{
-	  qint64 bidx = ((qint64)(d-ds))*mx*my+((qint64)(w-ws))*mx+(h-hs);
-	  if (labels[bidx] > 0)
+  if (componentThreshold > 0)
+    {
+      for(qint64 d=ds; d<=de; d++)
+	for(qint64 w=ws; w<=we; w++)
+	  for(qint64 h=hs; h<=he; h++)
 	    {
-	      if (labelMap[labels[bidx]] <= componentThreshold)
-		labels[bidx] = 0;
+	      qint64 bidx = ((qint64)(d-ds))*mx*my+((qint64)(w-ws))*mx+(h-hs);
+	      if (labels[bidx] > 0)
+		{
+		  if (labelMap[labels[bidx]] <= componentThreshold)
+		    labels[bidx] = 0;
+		}
 	    }
-	}
+    }
   //------------------
   
   //------------------
@@ -4281,6 +4275,7 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
     
 
     mesg  = "---------------------\n";
+    mesg += QString(" Components : %1\n").arg(nLabels);
     mesg += " Label : Voxel Count \n";
     mesg += "---------------------\n";
     
@@ -4958,6 +4953,22 @@ VolumeOperations::watershed(Vec bmin, Vec bmax, int tag,
 			    int& minH, int& maxH,
 			    int gradType, float minGrad, float maxGrad)
 {  
+
+//  //------------------
+//  //------------------
+//  //------------------
+//  watershedPriorityQueue(bmin, bmax, tag,
+//			 nErode,
+//			 minD, maxD,
+//			 minW, maxW,
+//			 minH, maxH,
+//			 gradType, minGrad, maxGrad);
+//  return;
+//  //------------------
+//  //------------------
+//  //------------------
+
+  
   //------------------
   // starting label number
   int startLabel = 0;
@@ -5016,18 +5027,6 @@ VolumeOperations::watershed(Vec bmin, Vec bmax, int tag,
 		   visibleMask);
 
   
-  //------------------
-  // just reset the visible portion - it will be labeled in subsequent phases
-  for(qint64 d=ds; d<=de; d++)
-    for(qint64 w=ws; w<=we; w++)
-      for(qint64 h=hs; h<=he; h++)
-	{
-	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
-	  m_maskDataUS[idx] = 0;
-	}
-  //------------------
-
-  
   // bitmask
   MyBitArray bitmask;
   bitmask = visibleMask;
@@ -5054,6 +5053,7 @@ VolumeOperations::watershed(Vec bmin, Vec bmax, int tag,
 
   //------------------
   // find connected components
+  //int connectivity = 6;
   int connectivity = 26;
   uint32_t* labels = cc3d::connected_components3d(bitmask,
 						  mx, my, mz,
@@ -5064,6 +5064,23 @@ VolumeOperations::watershed(Vec bmin, Vec bmax, int tag,
   progress.setValue(30);
   qApp->processEvents();
 
+  
+  QList<int> ut;
+
+
+  //------------------
+  // just reset the visible portion - it will be labeled in subsequent phases
+  for(qint64 d=ds; d<=de; d++)
+    for(qint64 w=ws; w<=we; w++)
+      for(qint64 h=hs; h<=he; h++)
+	{
+	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
+	  m_maskDataUS[idx] = 0;
+	}
+  //------------------
+
+  
+
   //------------------
   // apply remapping of labels to reflect sorted component volumes
   for(qint64 d=ds; d<=de; d++)
@@ -5073,26 +5090,15 @@ VolumeOperations::watershed(Vec bmin, Vec bmax, int tag,
 	  qint64 bidx = ((qint64)(d-ds))*mx*my+((qint64)(w-ws))*mx+(h-hs);
 	  if (labels[bidx] > 0)
 	    {
+	      if (!ut.contains(labels[bidx]))
+		ut << labels[bidx];
+	      
 	      qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
 	      m_maskDataUS[idx] = startLabel + labels[bidx];
 	    }
 	}
   delete [] labels;
   //------------------
-
-
-  //----------------------------
-  // figure out all the labels
-  QList<int> ut;
-  for(qint64 d=ds; d<=de; d++)
-    for(qint64 w=ws; w<=we; w++)
-      for(qint64 h=hs; h<=he; h++)
-	{
-	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
-	  if (m_maskDataUS[idx] > 0 && !ut.contains(m_maskDataUS[idx]))
-	    ut << m_maskDataUS[idx];
-	}
-  //----------------------------
 
 
   //--------------------------------------------------------------------
@@ -5128,9 +5134,9 @@ VolumeOperations::watershed(Vec bmin, Vec bmax, int tag,
   };
 
 
-  int label = startLabel + ut.count();
+  int labelMax = startLabel + ut.count() + 1;
 
-  progress.setLabelText(QString("number of components : %1").arg(ut.count()));
+  progress.setLabelText(QString("Watershed : number of components : %1").arg(ut.count()));
   
   for (int z = 0; z < mz; ++z)
     {
@@ -5152,7 +5158,8 @@ VolumeOperations::watershed(Vec bmin, Vec bmax, int tag,
 	  if (m_maskDataUS[gidx] > 0)
 	    continue;
 
-	  m_maskDataUS[gidx] = ++label;
+	  //m_maskDataUS[gidx] = ++labelMax;
+	  m_maskDataUS[gidx] = labelMax;
 	  int jlabel = m_maskDataUS[gidx];
 
 	  qint64 idx = getIndex(x, y, z);
@@ -5204,21 +5211,22 @@ VolumeOperations::watershed(Vec bmin, Vec bmax, int tag,
 		  for (int dy = -1; dy <= 1; ++dy)
 		  for (int dx = -1; dx <= 1; ++dx)
 		    {
-		      qint64 n_idx = getIndex(current.x+dx, current.y+dy, current.z+dz);
-		      if (dx!=0 && dy!=0 && dz!= 0 && n_idx != -1)
+		      qint64 bidx = getIndex(next.x+dx, next.y+dy, next.z+dz);
+		      //if (dx!=0 && dy!=0 && dz!= 0 && bidx != -1)
+		      if (bidx != -1)
 			{
-			  if (qAbs(jheight-dt[n_idx]) < 0.001)
+			  if (qAbs(kheight-dt[bidx]) < 0.001) // on plataeu
 			    {
-			      qint64 gidx = getGlobalIndex(current.x+dx + hs, current.y+dy + ws, current.z+dz + ds);
+			      qint64 gidx = getGlobalIndex(next.x+dx + hs, next.y+dy + ws, next.z+dz + ds);
 			      int llabel = m_maskDataUS[gidx];
 			      if (llabel == 0) // unassigned watershed
 				{
-				  m_maskDataUS[gidx] = jlabel; // set watershed to current watershed
-				  VOXEL p = VOXEL(current.x+dx, current.y+dy, current.z+dz);
+				  m_maskDataUS[gidx] = jlabel; // set watershed to next watershed
+				  VOXEL p = VOXEL(next.x+dx, next.y+dy, next.z+dz);
 				  path << p;
 				  stack.push(p);
 				}
-			      else if (llabel != jlabel) // set all voxels in path to l's watershed
+			      else if (llabel != klabel) // set all voxels in path to l's watershed
 				{
 				  for(int pi=0; pi<path.count(); pi++)
 				    {
@@ -5227,12 +5235,6 @@ VolumeOperations::watershed(Vec bmin, Vec bmax, int tag,
 				      m_maskDataUS[gidx] = llabel;		      
 				    }
 				  path.clear();
-				  done = true;  // done with the path
-				}
-			      else // llabel == jlabel
-				{
-				  VOXEL p = VOXEL(current.x+dx, current.y+dy, current.z+dz);
-				  path << p;
 				}
 			    } // same as jheight
 			} // valid coordinate
@@ -5254,18 +5256,18 @@ VolumeOperations::watershed(Vec bmin, Vec bmax, int tag,
   //------------------------------------------------------
 
 
-  int maxLabel = ut.count();
-  for (int z = 0; z < mz; ++z)
-  for (int y = 0; y < my; ++y)
-  for (int x = 0; x < mx; ++x)
-    {
-      qint64 gidx = getGlobalIndex(x+hs, y+ws, z+ds);
-      if (m_maskDataUS[gidx] > maxLabel)
-	{
-	  qint64 bidx = getIndex(x, y, z);
-	  m_maskDataUS[gidx] = maxLabel + 10*dt[bidx];
-	}
-    }
+//  int maxLabel = ut.count();
+//  for (int z = 0; z < mz; ++z)
+//  for (int y = 0; y < my; ++y)
+//  for (int x = 0; x < mx; ++x)
+//    {
+//      qint64 gidx = getGlobalIndex(x+hs, y+ws, z+ds);
+//      if (m_maskDataUS[gidx] > maxLabel)
+//	{
+//	  qint64 bidx = getIndex(x, y, z);
+//	  m_maskDataUS[gidx] = maxLabel + 10*dt[bidx];
+//	}
+//    }
 
   
 
@@ -5388,9 +5390,10 @@ VolumeOperations::watershedPlus(Vec bmin, Vec bmax,
   };
 
 
-  int label = startLabel + ut.count();
 
-  progress.setLabelText(QString("Watershed (components : %1)").arg(ut.count()));
+  int labelMax = startLabel + ut.count() + 1;
+
+  progress.setLabelText(QString("Watershed : number of components : %1").arg(ut.count()));
   
   for (int z = 0; z < mz; ++z)
     {
@@ -5412,7 +5415,8 @@ VolumeOperations::watershedPlus(Vec bmin, Vec bmax,
 	  if (m_maskDataUS[gidx] > 0)
 	    continue;
 
-	  m_maskDataUS[gidx] = ++label;
+	  //m_maskDataUS[gidx] = ++labelMax;
+	  m_maskDataUS[gidx] = labelMax;
 	  int jlabel = m_maskDataUS[gidx];
 
 	  qint64 idx = getIndex(x, y, z);
@@ -5464,21 +5468,22 @@ VolumeOperations::watershedPlus(Vec bmin, Vec bmax,
 		  for (int dy = -1; dy <= 1; ++dy)
 		  for (int dx = -1; dx <= 1; ++dx)
 		    {
-		      qint64 n_idx = getIndex(current.x+dx, current.y+dy, current.z+dz);
-		      if (dx!=0 && dy!=0 && dz!= 0 && n_idx != -1)
+		      qint64 bidx = getIndex(next.x+dx, next.y+dy, next.z+dz);
+		      //if (dx!=0 && dy!=0 && dz!= 0 && bidx != -1)
+		      if (bidx != -1)
 			{
-			  if (qAbs(jheight-dt[n_idx]) < 0.001)
+			  if (qAbs(kheight-dt[bidx]) < 0.001)
 			    {
-			      qint64 gidx = getGlobalIndex(current.x+dx + hs, current.y+dy + ws, current.z+dz + ds);
+			      qint64 gidx = getGlobalIndex(next.x+dx + hs, next.y+dy + ws, next.z+dz + ds);
 			      int llabel = m_maskDataUS[gidx];
 			      if (llabel == 0) // unassigned watershed
 				{
-				  m_maskDataUS[gidx] = jlabel; // set watershed to current watershed
-				  VOXEL p = VOXEL(current.x+dx, current.y+dy, current.z+dz);
+				  m_maskDataUS[gidx] = jlabel; // set watershed to next watershed
+				  VOXEL p = VOXEL(next.x+dx, next.y+dy, next.z+dz);
 				  path << p;
 				  stack.push(p);
 				}
-			      else if (llabel != jlabel) // set all voxels in path to l's watershed
+			      else if (llabel != klabel) // set all voxels in path to l's watershed
 				{
 				  for(int pi=0; pi<path.count(); pi++)
 				    {
@@ -5487,12 +5492,6 @@ VolumeOperations::watershedPlus(Vec bmin, Vec bmax,
 				      m_maskDataUS[gidx] = llabel;		      
 				    }
 				  path.clear();
-				  done = true;  // done with the path
-				}
-			      else // llabel == jlabel
-				{
-				  VOXEL p = VOXEL(current.x+dx, current.y+dy, current.z+dz);
-				  path << p;
 				}
 			    } // same as jheight
 			} // valid coordinate
@@ -5514,18 +5513,18 @@ VolumeOperations::watershedPlus(Vec bmin, Vec bmax,
   //------------------------------------------------------
 
 
-  int maxLabel = ut.count();
-  for (int z = 0; z < mz; ++z)
-  for (int y = 0; y < my; ++y)
-  for (int x = 0; x < mx; ++x)
-    {
-      qint64 gidx = getGlobalIndex(x+hs, y+ws, z+ds);
-      if (m_maskDataUS[gidx] > maxLabel)
-	{
-	  qint64 bidx = getIndex(x, y, z);
-	  m_maskDataUS[gidx] = maxLabel + 10*dt[bidx];
-	}
-    }
+//  int maxLabel = ut.count();
+//  for (int z = 0; z < mz; ++z)
+//  for (int y = 0; y < my; ++y)
+//  for (int x = 0; x < mx; ++x)
+//    {
+//      qint64 gidx = getGlobalIndex(x+hs, y+ws, z+ds);
+//      if (m_maskDataUS[gidx] > maxLabel)
+//	{
+//	  qint64 bidx = getIndex(x, y, z);
+//	  m_maskDataUS[gidx] = maxLabel + 10*dt[bidx];
+//	}
+//    }
 
   
 
@@ -5598,4 +5597,395 @@ VolumeOperations::findSteepestDescent(float* dt,
   
   return steepest; // Returns (-1, -1, -1) if no descent possible (local minimum)
 }
+
+
+void
+VolumeOperations::watershedPriorityQueue(Vec bmin, Vec bmax, int tag,
+					 int nErode,
+					 int& minD, int& maxD,
+					 int& minW, int& maxW,
+					 int& minH, int& maxH,
+					 int gradType, float minGrad, float maxGrad)
+{  
+  //------------------
+  // starting label number
+  int startLabel = 0;
+  startLabel = QInputDialog::getInt(0,
+				    "Starting Label",
+				    "Starting label number (label numbers will be offset by this value)",
+				    startLabel);
+
+  startLabel = qBound(0, startLabel, 65530);
+  //------------------
+
+//  //------------------
+//  // ignore all components below componentThreshold
+//  int componentThreshold = 1000;
+//  componentThreshold = QInputDialog::getInt(0,
+//					    "Component Threshold",
+//					    "Minimum number of voxels per labeled component",
+//					    1000);
+//  //------------------
+
+
+  QProgressDialog progress("Watershed",
+			   QString(),
+			   0, 100,
+			   0,
+			   Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);  
+  qApp->processEvents();
+
+  
+  minD = maxD = minW = maxW = minH = maxH = -1;
+
+  uchar *lut = Global::lut();
+
+  int ds = qMax(0, qFloor(bmin.z));
+  int ws = qMax(0, qFloor(bmin.y));
+  int hs = qMax(0, qFloor(bmin.x));
+
+  int de = qMin(qCeil(bmax.z), m_depth-1);
+  int we = qMin(qCeil(bmax.y), m_width-1);
+  int he = qMin(qCeil(bmax.x), m_height-1);
+
+  qint64 mx = he-hs+1;
+  qint64 my = we-ws+1;
+  qint64 mz = de-ds+1;
+
+  MyBitArray visibleMask;
+  visibleMask.resize(mx*my*mz);
+  visibleMask.fill(false);
+
+
+  getVisibleRegion(ds, ws, hs,
+		   de, we, he,
+		   tag, false,
+		   gradType, minGrad, maxGrad,
+		   visibleMask);
+
+  
+  //------------------
+  // just reset the visible portion - it will be labeled in subsequent phases
+  for(qint64 d=ds; d<=de; d++)
+    for(qint64 w=ws; w<=we; w++)
+      for(qint64 h=hs; h<=he; h++)
+	{
+	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
+	  m_maskDataUS[idx] = 0;
+	}
+  //------------------
+
+  
+  // bitmask
+  MyBitArray bitmask;
+  bitmask = visibleMask;
+
+
+  //------------------
+  // Erode to generate markers
+  _dilatebitmask(nErode, false, // dilate transparent region (i.e. erode solid region)
+		 mx, my, mz,
+		 bitmask);
+  //------------------
+
+  
+  progress.setLabelText("Generating markers");
+  progress.setValue(10);
+  qApp->processEvents();
+
+  
+  //------------------  
+  // Connected components to label individual markers
+
+  progress.setValue(20);
+  qApp->processEvents();
+
+  //------------------
+  // find connected components
+  int connectivity = 26;
+  uint32_t* labels = cc3d::connected_components3d(bitmask,
+						  mx, my, mz,
+						  connectivity);  
+  //------------------
+
+
+  progress.setValue(30);
+  qApp->processEvents();
+
+  //------------------
+  for(qint64 d=ds; d<=de; d++)
+    for(qint64 w=ws; w<=we; w++)
+      for(qint64 h=hs; h<=he; h++)
+	{
+	  qint64 bidx = ((qint64)(d-ds))*mx*my+((qint64)(w-ws))*mx+(h-hs);
+	  if (labels[bidx] > 0)
+	    {
+	      qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
+	      m_maskDataUS[idx] = startLabel + labels[bidx];
+	    }
+	}
+  delete [] labels;
+  //------------------
+
+
+  //----------------------------
+  // figure out all the labels
+  QList<int> ut;
+  for(qint64 d=ds; d<=de; d++)
+    for(qint64 w=ws; w<=we; w++)
+      for(qint64 h=hs; h<=he; h++)
+	{
+	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
+	  if (m_maskDataUS[idx] > 0 && !ut.contains(m_maskDataUS[idx]))
+	    ut << m_maskDataUS[idx];
+	}
+  //----------------------------
+
+
+  //--------------------------------------------------------------------
+  // distance transform
+  float *dt = BinaryDistanceTransform::binaryEDTsq(visibleMask,
+						   mx, my, mz,
+						   false);
+//  for(qint64 idx=0; idx<mx*my*mz; idx++)
+//    dt[idx] = sqrt(dt[idx]);
+  //--------------------------------------------------------------------
+  
+
+
+  progress.setLabelText("Watershed");
+  progress.setValue(50);
+  qApp->processEvents();
+  
+  
+  int labelMax = startLabel + ut.count() + 1;
+
+  progress.setLabelText(QString("number of components : %1").arg(ut.count()));
+
+  
+  //------------------------------------------------------
+  // Watershed using priority queue
+  auto getIndex = [=](int x,int y,int z)
+  {
+    if (x < 0 || x >= mx || y < 0 || y >= my || z < 0 || z >= mz)
+      return (qint64)-1;
+    return ((qint64)z)*mx*my + ((qint64)y)*mx + (qint64)x;
+  };
+
+  auto getGlobalIndex = [=](int x,int y,int z)
+  {
+    if (x < 0 || x >= m_height || y < 0 || y >= m_width || z < 0 || z >= m_depth)
+      return (qint64)-1;
+    return ((qint64)z)*m_width*m_height + ((qint64)y)*m_height + (qint64)x;
+  };
+
+
+
+  bitmask.fill(false);
+
+  
+  //--------------------------------
+  std::priority_queue<VOXEL_H, std::vector<VOXEL_H>, std::greater<VOXEL_H>> pq;
+  
+
+  //--------------------------------
+  // helper: push 26 neighbours
+  auto pushNeighbours = [&](int x, int y, int z)
+  {
+    for (int dz = -1; dz <= 1; ++dz)
+    for (int dy = -1; dy <= 1; ++dy)
+    for (int dx = -1; dx <= 1; ++dx)
+      {
+	if (dx == 0 && dy == 0 && dz == 0) continue; // skip self
+	
+	qint64 bidx = getIndex(x+dx, y+dy, z+dz);
+		  
+	if (bidx == -1 ||            // skip if not within bounds
+	    bitmask.testBit(bidx) || // skip if already in queue or processed
+	    dt[bidx] < 0.001)        // skip transparent region
+	  continue;
+
+	
+	qint64 gidx = getGlobalIndex(x+dx, y+dy, z+dz);
+	
+	if (m_maskDataUS[gidx] == 0) // only untagged
+	  {
+	    bitmask.setBit(bidx, true);
+	    pq.push(VOXEL_H(x+dx, y+dy, z+dz, dt[bidx]));
+	  }
+      }
+  };
+  //--------------------------------
+
+  
+  //--------------------------------
+  // initialize pq with neighbors of seeds
+  for (int z = 0; z < mz; ++z)
+  for (int y = 0; y < my; ++y)
+  for (int x = 0; x < mx; ++x)
+    {
+      qint64 gidx = getGlobalIndex(x, y, z);
+      if (m_maskDataUS[gidx] > 0)
+	{
+	  qint64 bidx = getIndex(x, y, z);
+	  bitmask.setBit(bidx, true);
+	  pushNeighbours(x, y, z);  // get untagged neighbors of the seeds
+	}
+    }
+  //--------------------------------
+
+  
+  //--------------------------------
+  // start immersion process
+  //---
+  int nd = 0;
+  int pvnd = 0;
+  //---
+  while (!pq.empty())
+    {
+      //---
+      nd = (nd + 1)%1000000;
+      int pnd = 90*(float)nd/(float)1000000;
+      if (pnd != pvnd)
+	{
+	  progress.setLabelText(QString("Watershed %1 : %2").arg(labelMax-1).arg(pq.size()));
+	  qApp->processEvents();
+	  progress.setValue(pnd);
+	  qApp->processEvents();
+	}
+      pvnd = pnd;
+      //---
+      
+
+      VOXEL_H vh = pq.top();
+      pq.pop();
+
+      QList<VOXEL_H> neighbors;
+      QList<int> neighbor_labels;
+
+      int labelWithMaxHeight = 0;
+      float maxHeight = 0;
+      
+      //-------------------
+      // look at all 26 neighbors
+      for (int dz = -1; dz <= 1; ++dz)
+      for (int dy = -1; dy <= 1; ++dy)
+      for (int dx = -1; dx <= 1; ++dx)
+	{
+	  if (dx == 0 && dy == 0 && dz == 0) continue; // skip self
+	  
+	  qint64 bidx = getIndex(vh.x+dx, vh.y+dy, vh.z+dz);
+	  
+	  if (bidx == -1 ||            // skip if not within bounds
+	      dt[bidx] < 0.001)        // skip transparent region
+	    continue;
+	  
+	  
+	  qint64 gidx = getGlobalIndex(vh.x+dx, vh.y+dy, vh.z+dz);
+	  int lbl = m_maskDataUS[gidx];
+
+	  if (lbl == 0) // unlabeled neighbor : add to neighbor list 
+	    {
+	      if (!bitmask.testBit(bidx)) // skip if already in queue or processed
+		{
+		  float neighbor_height = dt[bidx];
+		  neighbors << VOXEL_H(vh.x+dx, vh.y+dy, vh.z+dz, neighbor_height);
+		}
+	    }
+	  else if (!neighbor_labels.contains(lbl)) // labeled neighbor
+	    {
+	      neighbor_labels << lbl;
+	      if (maxHeight < dt[bidx])
+		{
+		  maxHeight = dt[bidx];
+		  labelWithMaxHeight = lbl;
+		}
+	    }
+	} // all 26 neighbors
+      //-------------------
+      
+      //-------------------
+      // without watershed lines
+      // if any neighbors of the extracted voxel has been labeled
+      // then the voxel is labeled with the first label it encountered
+      qint64 gidx = getGlobalIndex(vh.x, vh.y, vh.z);
+      if (neighbor_labels.count() > 0)
+	{
+	  m_maskDataUS[gidx] = labelWithMaxHeight;
+	  
+	  // now that we know the voxel is labeled, add neighbors to priority queue
+	  for (int i=0; i<neighbors.count(); i++)
+	    {
+	      VOXEL_H vn = neighbors[i];
+	      pq.push(vn);
+	      qint64 bidx = getIndex(vn.x, vn.y, vn.z);		  
+	      bitmask.setBit(bidx, true);
+	    }	      
+	}
+      else
+	{
+	  QMessageBox::information(0, "", QString("NO NEIGHBOR LABELED !!!!\nWE SHOULD NOT BE HERE : %1 %2 %3").\
+				   arg(vh.x).arg(vh.y).arg(vh.z));
+	}
+
+      
+//      //-------------------
+//      // for watershed lines
+//      // if the neighbors of the extracted voxel that have been labeled
+//      // all have the same label, then the voxel is labeled with their label
+//      qint64 gidx = getGlobalIndex(vh.x, vh.y, vh.z);
+//      if (neighbor_labels.count() == 1)
+//	{
+//	  m_maskDataUS[gidx] = neighbor_labels[0];
+//	  
+//	  // now that we know the voxel is labeled, add neighbors to priority queue
+//	  for (int i=0; i<neighbors.count(); i++)
+//	    {
+//	      VOXEL_H vn = neighbors[i];
+//	      pq.push(vn);
+//	      qint64 bidx = getIndex(vn.x, vn.y, vn.z);		  
+//	      bitmask.setBit(bidx, true);
+//	    }	      
+//	}
+//      else if (neighbor_labels.count() > 1) // watershed line
+//	{
+//	  m_maskDataUS[gidx] = labelMax; // watershed marker
+//	}
+//      else
+//	{
+//	  QMessageBox::information(0, "", QString("WE SHOULD NOT BE HERE : %1 %2 %3").arg(vh.x).arg(vh.y).arg(vh.z));
+//	}
+//      //-------------------
+
+    } // loop over elements in priority queue
+  //------------------------------------------------------
+
+
+//  //------------------------------------------------------
+//  // remove watershed marker
+//  for (int z = 0; z < mz; ++z)
+//  for (int y = 0; y < my; ++y)
+//  for (int x = 0; x < mx; ++x)
+//    {
+//      qint64 gidx = getGlobalIndex(x, y, z);
+//      if (m_maskDataUS[gidx] == labelMax)
+//	m_maskDataUS[gidx] = 0;
+//    }
+//  //------------------------------------------------------
+
+
+  
+  progress.setValue(100);
+  
+  minD = ds;
+  minW = ws;
+  minH = hs;
+  maxD = de;
+  maxW = we;
+  maxH = he;
+
+  QMessageBox::information(0, "", "Done");
+}
+
 

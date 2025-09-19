@@ -44,6 +44,9 @@ class VolumeSingle : public VolumeBase
   uchar* getSliceTextureSlab(int, int);
   void deleteTextureSlab();
 
+  void allocSlabs(int);
+  uchar* getSlab(int, int);
+  
   uchar* getSubvolume();
   uchar* getDragSubvolumeTexture();
   Vec getDragSubvolumeTextureSize();
@@ -188,6 +191,9 @@ class VolumeSingle : public VolumeBase
   void calculateGradientsForDragTexture();
 
   void setBasicInformation(int);
+
+  void generateHistograms(int, int, int);
+
 };
 
 #endif

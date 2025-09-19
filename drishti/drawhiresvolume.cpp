@@ -770,7 +770,6 @@ DrawHiresVolume::loadTextureMemory()
   if (Global::volumeType() == Global::RGBVolume) nvol = 3;
   if (Global::volumeType() == Global::RGBAVolume) nvol = 4;
 
-  //int format = GL_LUMINANCE;
   int format = GL_RED;
   if (nvol == 2) format = GL_LUMINANCE_ALPHA;
   else if (nvol == 3) format = GL_RGB;
@@ -799,12 +798,6 @@ DrawHiresVolume::loadTextureMemory()
   m_textureSlab = m_Volume->getSliceTextureSizeSlabs();
 
 
-//  int textureX, textureY;
-//  m_Volume->getSliceTextureSize(textureX, textureY);
-//
-//  int dtextureX, dtextureY;
-//  m_Volume->getDragTextureSize(dtextureX, dtextureY);
-
   if (m_dataTexSize > 0)
     {
       glDeleteTextures(m_dataTexSize, m_dataTex);
@@ -826,65 +819,37 @@ DrawHiresVolume::loadTextureMemory()
   m_dataTex = new GLuint[m_dataTexSize];
   glGenTextures(m_dataTexSize, m_dataTex);
 
-//  {
-//    QString mesg;
-//    mesg += QString("%1\n").arg(m_dataTexSize);
-//    for (int m=0; m<m_dataTexSize; m++)
-//      {
-//	mesg += QString("%1 %2 %3\n").\
-//	  arg(m_textureSlab[m].x).\
-//	  arg(m_textureSlab[m].y).\
-//	  arg(m_textureSlab[m].z);
-//      }
-//    QMessageBox::information(0, "", mesg);
-//  }
-
   
   MainWindowUI::mainWindowUI()->menubar->parentWidget()->\
     setWindowTitle(QString("Uploading slices"));
   Global::progressBar()->show();
 
-//  {      
-//    uchar *voxelVol = NULL;
-//    if (!Global::loadDragOnly())
-//      voxelVol = m_Volume->getSubvolumeTexture();
-//    
-//    Vec vsz = m_Volume->getSubvolumeTextureSize();
-//    int hsz = vsz.x;
-//    int wsz = vsz.y;
-//    int dsz = vsz.z;
-//    
-//    glActiveTexture(GL_TEXTURE1);
-//    glEnable(GL_TEXTURE_2D_ARRAY);
-//    glBindTexture(GL_TEXTURE_2D_ARRAY, m_dataTex[1]);
-//    glTexImage3D(GL_TEXTURE_2D_ARRAY,
-//		 0, // single resolution
-//		 internalFormat,
-//		 hsz, wsz, dsz,
-//		 0, // no border
-//		 format,
-//		 vtype,
-//		 voxelVol);
-//    glTexParameterf(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
-//    glTexParameterf(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
-//    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-//    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-//    glDisable(GL_TEXTURE_2D_ARRAY);
-//  }
   
   {
-    uchar *voxelVol = m_Volume->getSubvolumeTexture();
+    //uchar *voxelVol = m_Volume->getSubvolumeTexture();
     
     Vec vsz = m_Volume->getSubvolumeTextureSize();
     int hsz = vsz.x;
     int wsz = vsz.y;
     int dsz = vsz.z;
 
+    m_Volume->allocSlabs(m_textureSlab[1].x+1);
+    
+    int zslc = 0;
     for(int i=1; i<m_dataTexSize; i++)
       {
-	int zslc = (i-1)*(Global::maxArrayTextureLayers()-1);
-	qint64 zoffset = (qint64)zslc*(qint64)hsz*(qint64)wsz*(qint64)nbytes;
-	int zslices = qMin(dsz-zslc, Global::maxArrayTextureLayers());
+	//int zslc = (i-1)*(Global::maxArrayTextureLayers()-1);
+	//qint64 zoffset = (qint64)zslc*(qint64)hsz*(qint64)wsz*(qint64)nbytes;
+	//int zslices = qMin(dsz-zslc, Global::maxArrayTextureLayers());
+
+	int startZSlice = m_textureSlab[i].y;
+	int endZSlice = m_textureSlab[i].z;
+	int zslices = endZSlice - startZSlice + 1;
+	uchar *voxelVol = m_Volume->getSubvolumeTextureSlab(startZSlice, endZSlice);
+
+//	qint64 zoffset = (qint64)zslc*(qint64)hsz*(qint64)wsz*(qint64)nbytes;
+//	int zslices = m_textureSlab[i].x-1;	
+//	zslc += zslices;
 	
 	glActiveTexture(GL_TEXTURE1);
 	glEnable(GL_TEXTURE_2D_ARRAY);
@@ -896,7 +861,8 @@ DrawHiresVolume::loadTextureMemory()
 		     0, // no border
 		     format,
 		     vtype,
-		     (voxelVol+zoffset));
+		     voxelVol);
+		     //(voxelVol+zoffset));
 	glTexParameterf(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
 	glTexParameterf(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
 	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -3053,7 +3019,18 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 
   for(int s=0; s<layers; s++)
     {
-
+//      //-----------------------
+//      if (Global::allowInterruption() && s%100 == 99)
+//	{
+//	  qApp->processEvents();
+//	  if (Global::interruptRendering())
+//	    {
+//	      Global::setInterruptRendering(false);
+//	      break;
+//	    }
+//	}
+//      //-----------------------
+      
       po += pnDir;
       b0_po += b0_pnDir;
       

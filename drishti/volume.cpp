@@ -1271,8 +1271,12 @@ Volume::allocSlabs(int nZSlices)
     bpv = 2;
 
   if (m_subvolumeTexture) delete [] m_subvolumeTexture;
-  m_subvolumeTexture = new uchar[bpv*nvol*nx*ny*nZSlices];
-  memset(m_subvolumeTexture, 0, bpv*nvol*nx*ny*nZSlices);
+
+  if (nvol > 1)
+    {
+      m_subvolumeTexture = new uchar[bpv*nvol*nx*ny*nZSlices];
+      memset(m_subvolumeTexture, 0, bpv*nvol*nx*ny*nZSlices);
+    }
 }
 
 uchar*
@@ -1313,30 +1317,23 @@ Volume::getSubvolumeTextureSlab(int startZSlice, int endZSlice)
     bpv = 2;
   
   int nslices = endZSlice-startZSlice+1;
-  if (nvol == 1)
+
+  if (bpv == 1)
     {
-      uchar *tex = m_volume[0]->getSlab(startZSlice, endZSlice);
-      memcpy(m_subvolumeTexture, tex, nx*ny*nslices*bpv);
-    }
-  else
-    {
-      if (bpv == 1)
+      for (int v=0; v<nvol; v++)
 	{
-	 for (int v=0; v<nvol; v++)
-	   {
-	     uchar *tex = m_volume[v]->getSlab(startZSlice, endZSlice);
-	     for (qint64 i=0; i<nx*ny*nslices; i++)
-	       m_subvolumeTexture[i*nvol+v] = tex[i];
-	   }
+	  uchar *tex = m_volume[v]->getSlab(startZSlice, endZSlice);
+	  for (qint64 i=0; i<nx*ny*nslices; i++)
+	    m_subvolumeTexture[i*nvol+v] = tex[i];
 	}
-      else // for 16-bit data
+    }
+  else // for 16-bit data
+    {
+      for (int v=0; v<nvol; v++)
 	{
-	 for (int v=0; v<nvol; v++)
-	   {
-	     uchar *tex = m_volume[v]->getSlab(startZSlice, endZSlice);
-	     for (qint64 i=0; i<nx*ny*nslices; i++)
-	       ((ushort*)m_subvolumeTexture)[i*nvol+v] = ((ushort*)tex)[i];
-	   }
+	  uchar *tex = m_volume[v]->getSlab(startZSlice, endZSlice);
+	  for (qint64 i=0; i<nx*ny*nslices; i++)
+	    ((ushort*)m_subvolumeTexture)[i*nvol+v] = ((ushort*)tex)[i];
 	}
     }
   

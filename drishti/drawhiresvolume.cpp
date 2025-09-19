@@ -826,38 +826,30 @@ DrawHiresVolume::loadTextureMemory()
 
   
   {
-    //uchar *voxelVol = m_Volume->getSubvolumeTexture();
-    
     Vec vsz = m_Volume->getSubvolumeTextureSize();
     int hsz = vsz.x;
     int wsz = vsz.y;
     int dsz = vsz.z;
 
+    float lod = m_Volume->getSubvolumeSubsamplingLevel();
+    
     m_Volume->allocSlabs(m_textureSlab[1].x+1);
     
     int zslc = 0;
     for(int i=1; i<m_dataTexSize; i++)
       {
-	//int zslc = (i-1)*(Global::maxArrayTextureLayers()-1);
-	//qint64 zoffset = (qint64)zslc*(qint64)hsz*(qint64)wsz*(qint64)nbytes;
-	//int zslices = qMin(dsz-zslc, Global::maxArrayTextureLayers());
-
 	int startZSlice = m_textureSlab[i].y;
 	int endZSlice = m_textureSlab[i].z;
 	int zslices = endZSlice - startZSlice + 1;
 	uchar *voxelVol = m_Volume->getSubvolumeTextureSlab(startZSlice, endZSlice);
 
-//	qint64 zoffset = (qint64)zslc*(qint64)hsz*(qint64)wsz*(qint64)nbytes;
-//	int zslices = m_textureSlab[i].x-1;	
-//	zslc += zslices;
-	
 	glActiveTexture(GL_TEXTURE1);
 	glEnable(GL_TEXTURE_2D_ARRAY);
 	glBindTexture(GL_TEXTURE_2D_ARRAY, m_dataTex[i]);
 	glTexImage3D(GL_TEXTURE_2D_ARRAY,
 		     0, // single resolution
 		     internalFormat,
-		     hsz, wsz, zslices,
+		     hsz, wsz, zslices/lod,
 		     0, // no border
 		     format,
 		     vtype,
@@ -3780,6 +3772,7 @@ DrawHiresVolume::getSlices(Vec poStart,
 	  drawpoly(po, pn,
 		   bsubvol, btexture,
 		   vap);
+
 	  m_polygon.append(vap);
 	}
     }

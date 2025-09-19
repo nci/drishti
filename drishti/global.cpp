@@ -906,7 +906,6 @@ Global::getDragInfo(int bytesPerVoxel, Vec dataMin, Vec dataMax, int lod0)
 
   // actual drag volume size in MB
   m_actualDragVolSize = qRound(lenx2*leny2*lenz2/1024.0/1024.0);
-  //m_actualDragVolSize = qRound(dgridx*lenx2*dgridy*leny2/1024.0/1024.0);
   
   
   return Vec(dgridx, dgridy, lod);
@@ -951,8 +950,6 @@ Global::getSlabs(int samplingLevel,
       int dmin = m_dataMin.z + samplingLevel*zmin;
       int dmax = m_dataMin.z + samplingLevel*zmax;
       dmax = qMin((int)m_dataMax.z , dmax);
-
-      QMessageBox::information(0, "", QString("%1 : %2 %3").arg(samplingLevel).arg(dmin).arg(dmax));
       
       slabinfo.append(Vec(zmax-zmin+1,  // no. of slices in the slab
 			  dmin, dmax));
@@ -965,78 +962,6 @@ Global::getSlabs(int samplingLevel,
 
   return slabinfo;
 }
-
-//QList<Vec>
-//Global::getSlabs(int samplingLevel,
-//		 Vec dataMin, Vec dataMax,
-//		 int &nrows, int &ncols)
-//{
-//  QList<Vec> slabinfo;
-//
-//  int texSize = max2dTextureSize();
-//  int lenx = dataMax.x - dataMin.x + 1;
-//  int leny = dataMax.y - dataMin.y + 1;
-//  int lenz = dataMax.z - dataMin.z + 1;
-//
-//  Vec draginfo = getDragInfo(dataMin, dataMax, 1);
-//  slabinfo.append(draginfo);
-//
-//  int lenx2 = lenx/samplingLevel;
-//  int leny2 = leny/samplingLevel;
-//  int lenz2 = lenz/samplingLevel;
-//
-//  int gridx = texSize/lenx2;
-//  int gridy = texSize/leny2;
-//  
-//  bool done = false;
-//  int slc = 0;
-//  while(!done)
-//    {
-//      int pslc = slc;
-//      //slc += (gridx*gridy-1);
-//
-//      // -2 for additional slice at top & bottom
-//      slc += (gridx*gridy-1) - 2;
-//
-//      if (slc >= lenz2)
-//	{
-//	  done = true;
-//	  slc = lenz2;
-//	}
-//      int ntex = slc-pslc+1;
-//      slabinfo.append(Vec(ntex,
-//			  (int)m_dataMin.z+(samplingLevel*pslc),
-//			  (int)m_dataMin.z+(samplingLevel*slc)));
-//
-//////for array texture
-//      done = true;
-//    }
-//
-//
-//  int endslab = slabinfo.count()-1;
-//  slabinfo[endslab].x--; // number of slices in the slab
-//  slabinfo[endslab].z--; // last slice number
-//
-//  // taking rectangular textures
-//  ncols = gridx;
-//  nrows = gridy;
-//
-////----------------------------  
-//////removed for array texture
-//////we will return slabinfo which contains atleast 2 elements
-//////ensuring that there will always be dragVol and subVol
-////  if (slabinfo.count() == 2)
-////    {
-////      nrows = (lenz2+2)/ncols;
-////      if (nrows*ncols <= (lenz2+2)) nrows++;
-////      if ((lenz2+2) < ncols) ncols = (lenz2+2);
-////
-////      //slabinfo.removeFirst(); // we don't need any drag volume
-////    }
-////----------------------------  
-//
-//  return slabinfo;
-//}
 
 QStatusBar* Global::m_statusBar = 0;
 QAction* Global::m_actionStatusBar = 0;

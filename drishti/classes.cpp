@@ -9,10 +9,10 @@ ViewAlignedPolygon&
 ViewAlignedPolygon::operator=(const ViewAlignedPolygon& vap)
 {
   edges = vap.edges;
-  memcpy(vertex, vap.vertex, 100*sizeof(Vec));
-  memcpy(texcoord, vap.texcoord, 100*sizeof(Vec));
-  memcpy(tx, vap.tx, 100*sizeof(float));
-  memcpy(ty, vap.ty, 100*sizeof(float));
+  memcpy(vertex, vap.vertex, 20*sizeof(Vec));
+  memcpy(texcoord, vap.texcoord, 20*sizeof(Vec));
+  memcpy(tx, vap.tx, 20*sizeof(float));
+  memcpy(ty, vap.ty, 20*sizeof(float));
 
   return *this;
 }

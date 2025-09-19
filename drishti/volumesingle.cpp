@@ -2917,9 +2917,6 @@ VolumeSingle::getSlab(int startZSlice, int endZSlice)
   //---------------------------------------------------------
   if (m_subvolumeSubsamplingLevel > 1)
     {
-      //int kmin = minz/m_subvolumeSubsamplingLevel;
-      //int kmax = maxz/m_subvolumeSubsamplingLevel;
-
       int leni2 = m_height/m_subvolumeSubsamplingLevel;
       int lenj2 = m_width/m_subvolumeSubsamplingLevel;
       int lenk2 = m_depth/m_subvolumeSubsamplingLevel;

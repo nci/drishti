@@ -15,9 +15,9 @@ class ViewAlignedPolygon
   void scale(float);
 
   int edges;
-  Vec vertex[100];
-  Vec texcoord[100];
-  float tx[100], ty[100];
+  Vec vertex[20];
+  Vec texcoord[20];
+  float tx[20], ty[20];
 };
 
 

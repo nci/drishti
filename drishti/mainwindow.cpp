@@ -155,6 +155,7 @@ MainWindow::MainWindow(QWidget *parent) :
   ui.actionSave_Movie->setEnabled(false);
 #endif
 
+  ui.actionInterruptRendering->setChecked(Global::allowInterruption());
   ui.actionStatusBar->setChecked(true);
   ui.actionBoundingBox->setChecked(true);
   ui.actionAxes->setChecked(false);
@@ -5153,6 +5154,12 @@ void
 MainWindow::on_actionMIP_triggered()
 {
   m_Viewer->updateGL();
+}
+
+void
+MainWindow::on_actionInterruptRendering_triggered()
+{
+  Global::setAllowInterruption(!Global::allowInterruption());  
 }
 
 void

@@ -9,7 +9,10 @@ bool Global::m_playFrames = false;
 bool Global::playFrames() { return m_playFrames; }
 void Global::setPlayFrames(bool pf) { m_playFrames = pf; }
 
-bool Global::m_allowInterruption = true;
+int Global::m_interruptInterval = 100;
+int Global::interruptInterval() { return m_interruptInterval; }
+void Global::setInterruptInterval(int i) { m_interruptInterval = i; }
+bool Global::m_allowInterruption = false;
 bool Global::allowInterruption() { return m_allowInterruption; }
 void Global::setAllowInterruption(bool a) { m_allowInterruption = a; }
 bool Global::m_rendering = false;

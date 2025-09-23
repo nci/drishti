@@ -123,6 +123,7 @@
     <addaction name="actionHiresMode"/>
     <addaction name="actionRaycastMode"/>
     <addaction name="separator"/>
+    <addaction name="actionInterruptRendering"/>
     <addaction name="actionShadowRender"/>
     <addaction name="actionMIP"/>
     <addaction name="menuCamera_Type"/>
@@ -622,6 +623,14 @@
    </property>
    <property name="text">
     <string>Raycast Mode (F3)</string>
+   </property>
+  </action>
+  <action name="actionInterruptRendering">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Interruptible Rendering</string>
    </property>
   </action>
  </widget>

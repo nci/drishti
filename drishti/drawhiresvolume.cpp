@@ -854,12 +854,12 @@ DrawHiresVolume::loadTextureMemory()
 		     format,
 		     vtype,
 		     voxelVol);
-		     //(voxelVol+zoffset));
 	glTexParameterf(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
 	glTexParameterf(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
 	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glDisable(GL_TEXTURE_2D_ARRAY);
+	glFlush();
       }
   }
   
@@ -2925,31 +2925,6 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
   //-------------------------------
 
 
-//  bool validTF = false;
-//  for (int bno=0; bno<m_numBricks; bno++)
-//    validTF |= (tfSet[bno] < Global::lutSize());
-//
-//
-//  if (!validTF)
-//    {
-//      renderGeometry(0, layers,
-//		     poStart, pn, layers*step,
-//		     false, false, Vec(0,0,0),
-//		     false);
-//
-//      enableTextureUnits();
-//      glUseProgramObjectARB(m_defaultShader);
-//      drawClipPlaneDefault(0, layers,
-//			   poStart, pn, layers*step,
-//			   m_numBricks*layers,
-//			   lpos[0],
-//			   1.0,
-//			   slabstart, slabend,
-//			   lenx2, leny2, lod,
-//			   dragTexsize);
-//      layers = 0;
-//    }
-
 
   int ScreenXMin, ScreenXMax, ScreenYMin, ScreenYMax;
   ScreenXMin = ScreenYMin = 100000;
@@ -3011,17 +2986,19 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 
   for(int s=0; s<layers; s++)
     {
-//      //-----------------------
-//      if (Global::allowInterruption() && s%100 == 99)
-//	{
-//	  qApp->processEvents();
-//	  if (Global::interruptRendering())
-//	    {
-//	      Global::setInterruptRendering(false);
-//	      break;
-//	    }
-//	}
-//      //-----------------------
+      //-----------------------
+      if (Global::allowInterruption() && (s+1)%Global::interruptInterval() == 0)
+	{
+	  qApp->processEvents();
+	  if (Global::interruptRendering())
+	    {
+	      Global::setInterruptRendering(false);
+	      glUseProgramObjectARB(0);
+	      disableTextureUnits();	  
+	      return;
+	    }
+	}
+      //-----------------------
       
       po += pnDir;
       b0_po += b0_pnDir;
@@ -3301,6 +3278,7 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 	}
       //-------------------------------------------
 
+      glFlush();
     } // loop over s
 
 

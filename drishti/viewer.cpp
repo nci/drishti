@@ -150,7 +150,6 @@ void Viewer::endPlay()
   m_saveMovie = false;
 
   Global::setSaveImageType(Global::NoImage);
-  Global::setAllowInterruption(true);  
 }
 void Viewer::setImageFileName(QString imgfl)
 {
@@ -165,7 +164,6 @@ void Viewer::setSaveSnapshots(bool flag)
       if (m_hiresVolume->raised())
 	{
 	  m_saveSnapshots = flag;
-	  Global::setAllowInterruption(false);
 	}
       else
 	emit showMessage("Cannot save image sequence in Lowres mode", true);
@@ -176,7 +174,6 @@ void Viewer::setSaveMovie(bool flag)
   if (flag && m_hiresVolume->raised())
     {
       m_saveMovie = flag;
-      Global::setAllowInterruption(false);
     }
   else if (flag)
     emit showMessage("Cannot save movie in Lowres mode", true);
@@ -1445,7 +1442,7 @@ Viewer::drawInfoString(int imagequality,
 
   if (!Global::updatePruneTexture())
     msg = QString("(update:off) ");
-
+  
   if (PruneHandler::carve())
     {
       float r,d;
@@ -1467,8 +1464,10 @@ Viewer::drawInfoString(int imagequality,
     msg += " DRV";
 
   if (!msg.isEmpty())
+    msg = "mop "+msg;
+
+  if (!msg.isEmpty())
     {
-      msg = "mop "+msg;
       tfont.setPointSize(12*fscl);
       StaticFunctions::renderText(5, 40, msg, tfont, Qt::black, Qt::white);
     }
@@ -1515,6 +1514,11 @@ Viewer::drawInfoString(int imagequality,
 
   if (Global::emptySpaceSkip()) msg += "+skip";
   if (Global::useDragVolumeforShadows()) msg += "+dshadows";
+
+  if (Global::allowInterruption())
+    msg += QString(" (interrupt:on) ");
+  else
+    msg += QString(" (interrupt:off) ");
 
   tfont.setPointSize(8*fscl);
 
@@ -1710,14 +1714,15 @@ Viewer::drawCarveCircle()
 void
 Viewer::drawInHires(int imagequality)
 {
-  Global::setRendering(true);
 
   if (imagequality == Enums::DragImage)
     m_hiresVolume->drawDragImage(Global::stepsizeDrag());
   else
-    m_hiresVolume->drawStillImage(Global::stepsizeStill());
-
-  Global::setRendering(false);
+    {
+      Global::setRendering(true);
+      m_hiresVolume->drawStillImage(Global::stepsizeStill());     
+      Global::setRendering(false);
+    }
   
 
   glEnable(GL_BLEND);
@@ -2951,9 +2956,6 @@ Viewer::mouseMoveEventInPathViewport(int ip, QMouseEvent *event)
 void
 Viewer::mousePressEvent(QMouseEvent *event)
 {
-  if (Global::rendering() && Global::allowInterruption())
-    Global::setInterruptRendering(true);
-
   m_mouseDrag = true;
   m_mousePressPos = event->pos();
   m_mousePrevPos = event->pos();
@@ -2996,6 +2998,15 @@ Viewer::mousePressEvent(QMouseEvent *event)
 void
 Viewer::mouseMoveEvent(QMouseEvent *event)
 {
+  //----
+  // interrupt if required
+  if (event->buttons() != Qt::NoButton &&
+      Global::rendering() &&
+      Global::allowInterruption())
+    Global::setInterruptRendering(true);
+  //----
+  
+
   carveHitPointOK = false;
 
   if (!Global::updateViewer())
@@ -3374,6 +3385,9 @@ Viewer::undoParameters()
 void
 Viewer::keyPressEvent(QKeyEvent *event)
 {
+  if (Global::rendering() && Global::allowInterruption())
+    Global::setInterruptRendering(true);
+
   // Toggle FullScreen - hide menubar on fullscreen
   if (event->key() == Qt::Key_Return &&
       event->modifiers() & Qt::AltModifier)
@@ -3838,7 +3852,7 @@ Viewer::keyPressEvent(QKeyEvent *event)
 void
 Viewer::grabScreenShot()
 {
-  Global::setAllowInterruption(false);
+  //Global::setAllowInterruption(false);
   
   QSize imgSize = StaticFunctions::getImageSize(size().width(),size().height());
   //setImageSize(imgSize.width(), imgSize.height());
@@ -3890,8 +3904,6 @@ Viewer::grabScreenShot()
   draw();
   endPlay();
   emit showMessage("Snapshot saved", false);
-
-  Global::setAllowInterruption(true);
 }
 
 void
@@ -4035,6 +4047,17 @@ Viewer::processCommand(QString cmd)
   cmd = cmd.toLower();
   QStringList list = cmd.split(" ", QString::SkipEmptyParts);
 
+  if (list[0] == "interrupt")
+    {
+      if (list.size() > 1)
+	{
+	  int interval = list[1].toInt(&ok);
+	  if (interval > 0)
+	    Global::setInterruptInterval(interval);
+	}
+      return;
+    }
+  
   if (list[0] == "histogram")
     {
       bool flag = false;

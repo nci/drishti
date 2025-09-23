@@ -2163,6 +2163,7 @@ VolumeSingle::saveSliceImage(Vec pos,
   QMessageBox::information(0, "", "done");
 
   delete [] slice;
+  slice = 0;
 }
 
 
@@ -2301,6 +2302,7 @@ VolumeSingle::resliceVolume(Vec pos,
   QMessageBox::information(0, "", "done");
 
   delete [] slice;
+  slice = 0;
 }
 
 QList<QVariant>
@@ -3032,6 +3034,9 @@ VolumeSingle::getSlab(int startZSlice, int endZSlice)
       delete [] tmp;
       delete [] sliceTemp1;
 
+      tmp = 0;
+      sliceTemp1 = 0;
+
   
       if (!Global::histogramDisabled())
 	generateHistograms(kmax-kmin+1, leny2, lenx2);
@@ -3165,6 +3170,9 @@ VolumeSingle::getSlab(int startZSlice, int endZSlice)
 
   delete [] tmp;
   delete [] sliceTemp1;
+
+  tmp = 0;
+  sliceTemp1 = 0;
   
   if (!Global::histogramDisabled())
     generateHistograms(endZSlice-startZSlice+1, leny2, lenx2);
@@ -3175,21 +3183,25 @@ VolumeSingle::getSlab(int startZSlice, int endZSlice)
   return m_subvolumeTexture;
 }
 
+
+//------------------
+// parallel histogram generation
+//------------------
 void
 parHistogramGeneration(QList<QVariant> plist)
-{
+{			   					  
   int bpv = plist[0].toInt();
   int startZ = plist[1].toInt();
   int endZ = plist[2].toInt();
-  int leny2 = plist[3].toInt();
-  int lenx2 = plist[4].toInt();
+  qint64 leny2 = plist[3].toInt();
+  qint64 lenx2 = plist[4].toInt();
   uchar *tex = static_cast<uchar*>(plist[5].value<void*>());
   float *flhist1D = static_cast<float*>(plist[6].value<void*>());
   float *flhist2D = static_cast<float*>(plist[7].value<void*>());
-  
+
   if (bpv == 1)
     {
-      for(int z=startZ+1; z<endZ; z++)
+      for(qint64 z=startZ+1; z<endZ; z++)
 	{
 	  uchar *g0 = tex + (z-1)*bpv*lenx2*leny2;
 	  uchar *g1 = tex +     z*bpv*lenx2*leny2;
@@ -3213,7 +3225,7 @@ parHistogramGeneration(QList<QVariant> plist)
     }
   else
     {
-      for(int z=startZ+1; z<endZ; z++)
+      for(qint64 z=startZ+1; z<endZ; z++)
 	{
 	  uchar *g0 = tex + (z-1)*bpv*lenx2*leny2;
 	  uchar *g1 = tex +     z*bpv*lenx2*leny2;
@@ -3247,13 +3259,14 @@ VolumeSingle::generateHistograms(int nslices, int leny2, int lenx2)
   
   // collect stuff for parallel processing
   QList<QList<QVariant>> param;
+  
   for(int d=0; d<nThreads; d++)
     {
-      int startZ = d*chunkSize;
+      int startZ = d*chunkSize;      
       int endZ = (d+1)*chunkSize;
       if (d == nThreads-1)
-	endZ = nslices;
-     
+	endZ = nslices-1;
+	
       QList<QVariant> plist;
       plist << QVariant(bpv);
       plist << QVariant(startZ);
@@ -3266,15 +3279,8 @@ VolumeSingle::generateHistograms(int nslices, int leny2, int lenx2)
       
       param << plist;
     }
-
   
-  // Create a QFutureWatcher and connect signals and slots.
-  QFutureWatcher<void> futureWatcher;
-
-  // Start generation for all values within the range
-  futureWatcher.setFuture(QtConcurrent::map(param, parHistogramGeneration));
-  
-  futureWatcher.waitForFinished();
+  QtConcurrent::blockingMap(param, parHistogramGeneration);
 
   for(int d=0; d<nThreads; d++)
     {
@@ -3287,4 +3293,7 @@ VolumeSingle::generateHistograms(int nslices, int leny2, int lenx2)
 
   delete [] hist1D;
   delete [] hist2D;
+  
+  hist1D = 0;
+  hist2D = 0;
 }

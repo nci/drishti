@@ -2987,16 +2987,16 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
   for(int s=0; s<layers; s++)
     {
       //-----------------------
-      if (Global::allowInterruption() && (s+1)%Global::interruptInterval() == 0)
+      if (Global::allowInterruption() && (s+1)%Global::interruptInterval() < 2)
 	{
 	  qApp->processEvents();
-	  if (Global::interruptRendering())
-	    {
-	      Global::setInterruptRendering(false);
-	      glUseProgramObjectARB(0);
-	      disableTextureUnits();	  
-	      return;
-	    }
+//	  if (Global::interruptRendering())
+//	    {
+//	      Global::setInterruptRendering(false);
+//	      glUseProgramObjectARB(0);
+//	      disableTextureUnits();	  
+//	      return;
+//	    }
 	}
       //-----------------------
       
@@ -3279,6 +3279,17 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
       //-------------------------------------------
 
       glFlush();
+
+      if (Global::allowInterruption() && (s+1)%Global::interruptInterval() < 2)
+	{
+	  if (Global::interruptRendering())
+	    {
+	      Global::setInterruptRendering(false);
+	      glUseProgramObjectARB(0);
+	      disableTextureUnits();	  
+	      return;
+	    }
+	}
     } // loop over s
 
 

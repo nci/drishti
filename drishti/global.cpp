@@ -150,8 +150,8 @@ void Global::setFlipImageX(bool flag) { m_flipImageX = flag; }
 void Global::setFlipImageY(bool flag) { m_flipImageY = flag; }
 void Global::setFlipImageZ(bool flag) { m_flipImageZ = flag; }
 
-float Global::m_maxSlabSize = 4.0; // 4Gb
-void Global::setMaxSlabSize(float mss) { m_maxSlabSize = qBound(0.25f, mss, 32.0f); }
+float Global::m_maxSlabSize = 1.0; // 4Gb
+void Global::setMaxSlabSize(float mss) { m_maxSlabSize = qBound(0.25f, mss, 4.0f); }
 float Global::maxSlabSize() { return m_maxSlabSize; }
 
 float Global::m_texSizeReduceFraction = 1.0f;

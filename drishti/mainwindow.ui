@@ -630,7 +630,7 @@
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>Interruptible Rendering</string>
+    <string>Responsive Rendering</string>
    </property>
   </action>
  </widget>

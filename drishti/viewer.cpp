@@ -1516,9 +1516,9 @@ Viewer::drawInfoString(int imagequality,
   if (Global::useDragVolumeforShadows()) msg += "+dshadows";
 
   if (Global::allowInterruption())
-    msg += QString(" (interrupt:on) ");
+    msg += QString(" (rr:on) ");
   else
-    msg += QString(" (interrupt:off) ");
+    msg += QString(" (rr:off) ");
 
   tfont.setPointSize(8*fscl);
 
@@ -2710,6 +2710,14 @@ Viewer::restoreOriginalWidgetSize()
 void
 Viewer::wheelEvent(QWheelEvent *event)
 {
+  //----
+  // interrupt if required
+  if (event->buttons() != Qt::NoButton &&
+      Global::rendering() &&
+      Global::allowInterruption())
+    Global::setInterruptRendering(true);
+  //----
+  
   if (!Global::updateViewer())
     {
       updateGL();

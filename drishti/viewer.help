@@ -28,9 +28,9 @@ maxslabsize
 maxslabsize <float>
 
 Volume data is uploaded to texture memory in slabs, because of single resource allocation limit imposed by graphics drivers or OS.
-Set maximum slab size in GB (values between 0.25 and 16.0).
+Set maximum slab size in GB (values between 0.25 and 4.0).
 
-Default is 4GB.
+Default is 1GB.
 
 #end
 

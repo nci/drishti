@@ -790,7 +790,15 @@ LightShaderFactory::genInitTubeLightShader() // point shader
   shader += "       bvec3 spless = lessThan(p, ig);\n";
   shader += "       bvec3 spgret = greaterThan(p, vec3(gridx,gridy,gridz)-ig);\n";
   shader += "       if (any(spless) || any(spgret))\n";
-  shader += "          gl_FragColor = vec4(1.0,op,opmod,1.0);\n";
+  shader += "       {\n";
+  shader += "         gl_FragColor = vec4(1.0,op,opmod,1.0);\n";
+//  shader += "         if (op > 0.01)\n";
+//  shader += "           gl_FragColor = vec4(0.5,op,opmod,1.0);\n";
+  shader += "         return;\n";
+  shader += "       }\n";
+  //shader += "       if (any(spless) || any(spgret) || op < 0.0001)\n";
+  shader += "       if (op < 0.0001)\n";
+  shader += "         gl_FragColor = vec4(1.0,op,opmod,1.0);\n";
   shader += "       return;\n";
   shader += "     }\n";
   //-----------------------------
@@ -841,7 +849,8 @@ LightShaderFactory::genTubeLightShader() // point shader
 {
   QString shader;
 
-  shader =  "#extension GL_ARB_texture_rectangle : enable\n";
+  shader += "#version 420\n";
+  shader += "#extension GL_ARB_texture_rectangle : enable\n";
   shader += "uniform sampler2DRect lightTex;\n";
   shader += "uniform int gridx;\n";
   shader += "uniform int gridy;\n";
@@ -853,18 +862,74 @@ LightShaderFactory::genTubeLightShader() // point shader
   shader += "uniform float ldecay;\n";
   shader += "uniform float cangle;\n";
   
+  shader += "in vec3 glTexCoord0;\n";
+  shader += "out vec4 glFragColor;\n";
   shader += "void main(void)\n";
   shader += "{\n";
-  shader += "  vec2 tc = gl_TexCoord[0].xy;\n";
+  //shader += "  vec2 tc = gl_TexCoord[0].xy;\n";
+  shader += "  vec2 tc = glTexCoord0.xy;\n";
   shader += "  int col = int(tc.x)/gridx;\n";
   shader += "  int row = int(tc.y)/gridy;\n";
   shader += "  int x = int(tc.x) - col*gridx;\n";
   shader += "  int y = int(tc.y) - row*gridy;\n";
   shader += "  int z = row*ncols + col;\n";
 
-  shader += "     gl_FragColor = texture2DRect(lightTex, tc.xy);\n";
+  shader += "  glFragColor = texture2DRect(lightTex, tc.xy);\n";
+
+ 
+  //----------------------------------------------
+  //----------------------------------------------
+  //-------- ambient occlusion ----
+  shader += "  if (lradius < 1.0)\n";
+  shader += "   {\n";
+  shader += "     vec3 p = vec3(x,y,z);\n";
+  shader += "     vec3 ig = vec3(1.1);\n";
+  shader += "     bvec3 spless = lessThan(p, ig);\n";
+  shader += "     bvec3 spgret = greaterThan(p, vec3(gridx,gridy,gridz)-ig-vec3(1.0));\n";
+  shader += "     if (any(spless) || any(spgret)) return;\n";
+  // -- not border, compute illumination
+  shader += "     float nlit = 0.0;\n";
+  shader += "     float lit = 0.0;\n";
+  shader += "     float maxlit = 0.0;\n";
+  shader += "     const ivec3 indices[14] = ivec3[14] (\n";
+  shader += "                ivec3( 1, 0, 0), ivec3(-1, 0, 0),\n";
+  shader += "                ivec3( 0, 1, 0), ivec3( 0,-1, 0),\n";
+  shader += "                ivec3( 0, 0, 1), ivec3( 0, 0,-1),\n";
+  shader += "                ivec3(-1,-1,-1), ivec3(-1, 1,-1),\n";
+  shader += "                ivec3( 1,-1,-1), ivec3( 1, 1,-1),\n";
+  shader += "                ivec3(-1,-1, 1), ivec3(-1, 1, 1),\n";
+  shader += "                ivec3( 1,-1, 1), ivec3( 1, 1, 1));\n";
+  shader += "     for(int i=0; i<14; i++)\n";
+  shader += "     {\n";
+  shader += "        int z1 = z+indices[i].z;\n";
+  shader += "        int row = z1/ncols;\n";
+  shader += "        int col = z1 - row*ncols;\n";
+  shader += "        row *= gridy;\n";
+  shader += "        col *= gridx;\n";
+  shader += "        float x1 = float(col+x+indices[i].x)+0.5;\n";
+  shader += "        float y1 = float(row+y+indices[i].y)+0.5;\n";
+  shader += "        vec2 ldop = texture2DRect(lightTex, vec2(x1,y1)).xy;\n";
+  shader += "        float illumination = (1.0-ldop.y)*ldop.x;\n";
+  shader += "        nlit += step(0.001, illumination);\n";
+  shader += "        lit += illumination;\n";
+  shader += "        maxlit = max(illumination, maxlit);\n";
+  shader += "     }\n";
+  // -- merge all contributions
+  shader += "     nlit = max(1.0, nlit);\n";
+  shader += "     lit /= nlit;\n";
+  shader += "     lit = mix(maxlit, lit, ldecay);\n";
+  shader += "     glFragColor.x = clamp(lit, 0.0, 1.0);\n";
+  shader += "     return;\n";
+  shader += "   }\n";
+  //----------------------------------------------
+  //----------------------------------------------
 
 
+
+
+  //----------------------------------------------
+  //----------------------------------------------
+  // ---- point/tube light -------------
   // cache the illumination around current voxel
   shader += "  float illum[27];\n";
   shader += "  int idx = 0;\n";
@@ -885,44 +950,6 @@ LightShaderFactory::genTubeLightShader() // point shader
   shader += "  }\n";
   
 
-
-  //-------- ambient occlusion ----
-  shader += "  if (lradius < 1.0)\n";
-  shader += "   {\n";
-
-  shader += "     vec3 p = vec3(x,y,z);\n";
-  shader += "     vec3 ig = vec3(1.1);\n";
-  shader += "     bvec3 spless = lessThan(p, ig);\n";
-  shader += "     bvec3 spgret = greaterThan(p, vec3(gridx,gridy,gridz)-ig-vec3(1.0));\n";
-  shader += "     if (any(spless) || any(spgret)) return;\n";
-
-  shader += "     float nlit = 0.0;\n";
-  shader += "     float lit = 0.0;\n";
-  shader += "     float maxlit = 0.0;\n";
-
-  shader += "     for(int i=0; i<27; i+=2)\n";
-  shader += "     {\n";
-  shader += "        nlit += step(0.001, illum[i]);\n";
-  shader += "        lit += illum[i];\n";
-  shader += "        maxlit = max(illum[i], maxlit);\n";
-  shader += "     }\n";
-
-  // -- merge all contributions
-  shader += "     nlit = max(1.0, nlit);\n";
-  shader += "     lit /= nlit;\n";
-  shader += "     lit = mix(maxlit, lit, ldecay);\n";
-  shader += "     gl_FragColor.x = clamp(lit, 0.0, 1.0);\n";
-  shader += "     return;\n";
-  shader += "   }\n";
-  //----------------------------------------------
-  //----------------------------------------------
-
-
-
-
-  //----------------------------------------------
-  //----------------------------------------------
-  // ---- point/tube light -------------
   shader += "  vec2 dop = texture2DRect(lightTex, tc.xy).xy;\n";
   shader += "  if (dop.x > 0.98) return;\n";
 
@@ -953,7 +980,7 @@ LightShaderFactory::genTubeLightShader() // point shader
   shader += "      dop.x = max(dop.x, (ldecay*fop.y/fop.x));\n";
   shader += "   }\n"; // pl loop
   shader += "  dop.x = clamp(dop.x, 2.0/255.0, 1.0);\n";
-  shader += "  gl_FragColor.x = dop.x;\n";
+  shader += "  glFragColor.x = dop.x;\n";
   //----------------------------------------------
   //----------------------------------------------
 

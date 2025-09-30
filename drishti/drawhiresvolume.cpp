@@ -859,7 +859,7 @@ DrawHiresVolume::loadTextureMemory()
 	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glDisable(GL_TEXTURE_2D_ARRAY);
-	glFlush();
+	glFinish();
       }
   }
   
@@ -2988,16 +2988,7 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
     {
       //-----------------------
       if (Global::allowInterruption() && (s+1)%Global::interruptInterval() < 2)
-	{
-	  qApp->processEvents();
-//	  if (Global::interruptRendering())
-//	    {
-//	      Global::setInterruptRendering(false);
-//	      glUseProgramObjectARB(0);
-//	      disableTextureUnits();	  
-//	      return;
-//	    }
-	}
+	qApp->processEvents();
       //-----------------------
       
       po += pnDir;
@@ -3278,17 +3269,13 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 	}
       //-------------------------------------------
 
-      glFlush();
-
-      if (Global::allowInterruption() && (s+1)%Global::interruptInterval() < 2)
+      if (Global::allowInterruption() &&
+	  (s+1)%Global::interruptInterval() < 2 &&
+	  Global::interruptRendering())
 	{
-	  if (Global::interruptRendering())
-	    {
-	      Global::setInterruptRendering(false);
-	      glUseProgramObjectARB(0);
-	      disableTextureUnits();	  
-	      return;
-	    }
+	  glUseProgramObjectARB(0);
+	  disableTextureUnits();	  
+	  return;
 	}
     } // loop over s
 
@@ -3420,7 +3407,7 @@ DrawHiresVolume::depthOfFieldBlur(int xmin, int xmax, int ymin, int ymax,
 	  glTexCoord2f(xmax, ymax); glVertex2f(xmax, ymax);
 	  glTexCoord2f(xmin, ymax); glVertex2f(xmin, ymax);
 	  glEnd();
-	  glFinish();
+	  glFlush();
 	}
     }
   glUseProgramObjectARB(0); // disable shaders 

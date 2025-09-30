@@ -440,24 +440,26 @@ Viewer::resizeGL(int width, int height)
 void
 Viewer::createImageBuffers()
 {
+  MainWindowUI::mainWindowUI()->menubar->parentWidget()->\
+    setWindowTitle("----------Updating image buffers----------");
+
   int ibw = m_origWidth;
   int ibh = m_origHeight;
 
   if (Global::imageQuality() == Global::_LowQuality)
    {
-     ibw = m_origWidth/2;
-     ibh = m_origHeight/2;
+     ibw = m_origWidth/3;
+     ibh = m_origHeight/3;
    }
   else if (Global::imageQuality() == Global::_VeryLowQuality)
    {
-     ibw = m_origWidth/4;
-     ibh = m_origHeight/4;
+     ibw = m_origWidth/6;
+     ibh = m_origHeight/6;
    }
 
   QGLFramebufferObjectFormat fbFormat;
   fbFormat.setInternalTextureFormat(GL_RGBA16F_ARB);
   fbFormat.setAttachment(QGLFramebufferObject::Depth);
-  //fbFormat.setSamples(2);
   fbFormat.setTextureTarget(GL_TEXTURE_RECTANGLE_EXT);
 
   if (m_imageBuffer) delete m_imageBuffer;
@@ -470,7 +472,6 @@ Viewer::createImageBuffers()
   m_lowresBuffer = new QGLFramebufferObject(m_origWidth/4,
 					    m_origHeight/4,
 					    fbFormat);
-					    //GL_TEXTURE_RECTANGLE_EXT);
   if (! m_lowresBuffer->isValid())
     QMessageBox::information(0, "", "invalid lowresBuffer");
 
@@ -481,6 +482,9 @@ Viewer::createImageBuffers()
   if (m_movieFrame)
     delete [] m_movieFrame;
   m_movieFrame = new unsigned char[4*m_imageWidth*m_imageHeight];
+
+  MainWindowUI::mainWindowUI()->menubar->parentWidget()->\
+    setWindowTitle(Global::DrishtiVersion());
 }
 
 void
@@ -1888,6 +1892,8 @@ Viewer::renderVolume(int imagequality)
 	drawInfoString(imagequality,
 		       Global::stepsizeStill());
     }
+
+  Global::setInterruptRendering(false);
 }
 
 bool
@@ -2715,7 +2721,10 @@ Viewer::wheelEvent(QWheelEvent *event)
   if (event->buttons() != Qt::NoButton &&
       Global::rendering() &&
       Global::allowInterruption())
-    Global::setInterruptRendering(true);
+    {
+      Global::setInterruptRendering(true);
+      return;
+    }
   //----
   
   if (!Global::updateViewer())
@@ -3011,7 +3020,10 @@ Viewer::mouseMoveEvent(QMouseEvent *event)
   if (event->buttons() != Qt::NoButton &&
       Global::rendering() &&
       Global::allowInterruption())
-    Global::setInterruptRendering(true);
+    {
+      Global::setInterruptRendering(true);
+      return;
+    }
   //----
   
 

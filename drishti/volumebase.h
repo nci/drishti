@@ -44,6 +44,9 @@ class VolumeBase : public QObject
   unsigned char *m_lowresTextureVolume;
 
   void createLowresVolume(bool);
+
+  void generateHistograms();
+  
 };
 
 #endif

@@ -1628,8 +1628,6 @@ LightHandler::applyClipping(int ct)
 			     m_lightTex[(ct+1)%2],
 			     0);
 
-      //glActiveTexture(GL_TEXTURE2);
-      //glEnable(GL_TEXTURE_RECTANGLE_ARB);
       glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_lightTex[ct]);      
       glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
       glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -2219,9 +2217,9 @@ LightHandler::updatePointLightBuffer(QList<Vec> olpos, float lradius,
   else
     {
       if (doshadows)
-        glUniform1fARB(m_pLightParm[8], qPow(ldecay, 0.5f)); // light decay
+        glUniform1fARB(m_initpLightParm[8], qPow(ldecay, 0.5f)); // light decay
       else // change decay value
-	glUniform1fARB(m_pLightParm[8], qPow(ldecay, 0.1f)); // light decay
+	glUniform1fARB(m_initpLightParm[8], qPow(ldecay, 0.1f)); // light decay
     }
 
   glUniform1fARB(m_initpLightParm[9], llod); // oplod
@@ -2294,8 +2292,9 @@ LightHandler::updatePointLightBuffer(QList<Vec> olpos, float lradius,
       int maxtimes = qMax(lgridx, qMax(lgridy, lgridz));
       int ntimes = maxtimes;
 
-      //int ntimes = qSqrt(lgridx*lgridx + lgridy*lgridy + lgridz*lgridz);
-      
+      if (lradius < 1.0 && cangle < 1.0) // ambient occulusion
+	ntimes*=0.5;
+            
       glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_lightBuffer);
       ct = lightBufferCalculations(ntimes, 1, ltexX, ltexY);
       glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);

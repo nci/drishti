@@ -165,29 +165,8 @@ VolumeBase::createLowresVolume(bool redo)
   kend = depth;
 
   unsigned char *tmp;
-  tmp = new unsigned char [bpv*jend*iend];
-  memset(tmp, 0, bpv*jend*iend);
+  tmp = new unsigned char [bpv*m_width*m_height];
   
-  //-----------
-  uchar *g0, *g1, *g2;
-  g0 = new unsigned char [bpv*m_width*m_height];
-  g1 = new unsigned char [bpv*m_width*m_height];
-  g2 = new unsigned char [bpv*m_width*m_height];
-  
-  if (m_1dHistogram) delete [] m_1dHistogram;
-  if (m_2dHistogram) delete [] m_2dHistogram;
-  
-  m_1dHistogram = new int[256];
-  memset(m_1dHistogram, 0, 256*4);
-  
-  m_2dHistogram = new int[256*256];
-  memset(m_2dHistogram, 0, 256*256*4);
-  
-  float *flhist1D = new float[256];
-  memset(flhist1D, 0, 256*4);
-  float *flhist2D = new float[256*256];
-  memset(flhist2D, 0, 256*256*4);
-  //-----------
   
   VolumeFileManager pvlFileManager;
   int slabSize = XmlHeaderFunctions::getSlabsizeFromHeader(m_volumeFile);
@@ -220,54 +199,7 @@ VolumeBase::createLowresVolume(bool redo)
       if (k%10==0) qApp->processEvents();
 
       uchar *vslice = pvlFileManager.getSlice(k);
-      memcpy(g2, vslice, nbytes);
-
-      if (bpv == 1) // uchar
-	{
-	  for(int j=0; j<m_width*m_height; j++)
-	    flhist1D[g2[j]]++;
-      
-	  if (kslc >= 2)
-	    {
-	      for(int j=1; j<m_width-1; j++)
-		for(int i=1; i<m_height-1; i++)
-		  {
-		    int gx = (g1[j*m_height+(i+1)] - g1[j*m_height+(i-1)]);
-		    int gy = (g1[(j+1)*m_height+i] - g1[(j-1)*m_height+i]);
-		    int gz = (g2[j*m_height+i] - g0[j*m_height+i]);
-		    int gsum = sqrtf(gx*gx+gy*gy+gz*gz);
-		    gsum = qBound(0, gsum, 255);
-		    int v = g1[j*m_height+i];
-		    flhist2D[gsum*256 + v]++;
-		  }
-	    }
-	}
-      else // ushort
-	{
-	  for(int j=0; j<m_width*m_height; j++)
-	    flhist1D[((ushort*)g2)[j]/256]++;
-      
-	  for(int j=0; j<m_width*m_height; j++)
-	    flhist2D[((ushort*)g2)[j]]++;
-
-//	  if (kslc >= 2)
-//	    {
-//	      for(int j=1; j<m_width-1; j++)
-//		for(int i=1; i<m_height-1; i++)
-//		  {
-//		    int v = ((ushort*)g1)[j*m_height+i];
-//		    //flhist2D[v]++;
-//		    int gsum = v/256;
-//		    int vg = v-gsum*256;
-//		    flhist2D[gsum*256 + vg]++;
-//		  }
-//	    }
-	}
-      
-      uchar *gt = g0;
-      g0 = g1;
-      g1 = g2;
-      g2 = gt;
+      memcpy(tmp, vslice, nbytes);
 
 	
       if (m_subSamplingLevel > 1)
@@ -281,7 +213,7 @@ VolumeBase::createLowresVolume(bool redo)
 		  for(int i=0; i<iend; i++) 
 		    { 
 		      int x = i*m_subSamplingLevel; 
-		      tmp[ji] = g2[y*m_height+x];
+		      tmp[ji] = tmp[y*m_height+x];
 		      ji++;
 		    } 
 		}
@@ -294,7 +226,7 @@ VolumeBase::createLowresVolume(bool redo)
 		  for(int i=0; i<iend; i++) 
 		    { 
 		      int x = i*m_subSamplingLevel; 
-		      ((ushort*)tmp)[ji] = ((ushort*)g2)[y*m_height+x];
+		      ((ushort*)tmp)[ji] = ((ushort*)tmp)[y*m_height+x];
 		      ji++;
 		    } 
 		}
@@ -305,24 +237,78 @@ VolumeBase::createLowresVolume(bool redo)
 	}	  
       else
 	memcpy(m_lowresVolume + bpv*kslc*jend*iend,
-	       g2,
+	       tmp,
 	       bpv*jend*iend);
     }
 
-//  int actualdepth = StaticFunctions::getScaledown(m_subSamplingLevel, m_depth);
-//  if (actualdepth < depth)
-//    {
-//      // replicate the data
-//      for (int dd=actualdepth; dd<depth; dd++)
-//	memcpy(m_lowresVolume + bpv*dd*jend*iend,
-//	       m_lowresVolume + bpv*(dd-1)*jend*iend,
-//	       bpv*jend*iend);
-//    }
-
-  delete [] g0;
-  delete [] g1;
-  delete [] g2;
   delete [] tmp;
+
+
+  generateHistograms();
+   
+  MainWindowUI::mainWindowUI()->statusBar->showMessage("");
+  Global::progressBar()->setValue(100);
+  Global::hideProgressBar();
+  qApp->processEvents();
+}
+
+void
+VolumeBase::generateHistograms()
+{
+  int bpv = 1;
+  if (m_pvlVoxelType > 0) bpv = 2;
+
+  qint64 height= m_lowresVolumeSize.x;
+  qint64 width = m_lowresVolumeSize.y;
+  qint64 depth = m_lowresVolumeSize.z;
+							  
+  if (m_1dHistogram) delete [] m_1dHistogram;
+  if (m_2dHistogram) delete [] m_2dHistogram;
+  
+  m_1dHistogram = new int[256];
+  memset(m_1dHistogram, 0, 256*4);
+  
+  m_2dHistogram = new int[256*256];
+  memset(m_2dHistogram, 0, 256*256*4);
+  
+  float *flhist1D = new float[256];
+  memset(flhist1D, 0, 256*4);
+  float *flhist2D = new float[256*256];
+  memset(flhist2D, 0, 256*256*4);
+
+  if (bpv == 1) // uchar
+    {
+      for(int k=1; k<depth-1; k++)
+	{
+	  uchar *g0 = m_lowresVolume + (k-1)*width*height;
+	  uchar *g1 = m_lowresVolume + k*width*height;
+	  uchar *g2 = m_lowresVolume + (k+1)*width*height;
+	
+	  for(int j=0; j<width*height; j++)
+	    flhist1D[g1[j]]++;
+      
+	  for(int j=1; j<width; j++)
+	    for(int i=1; i<height; i++)
+	      {
+		int gx = (g1[j*height+(i+1)] - g1[j*height+(i-1)]);
+		int gy = (g1[(j+1)*height+i] - g1[(j-1)*height+i]);
+		int gz = (g2[j*height+i] - g0[j*height+i]);
+		int gsum = sqrtf(gx*gx+gy*gy+gz*gz);
+		gsum = qBound(0, gsum, 255);
+		int v = g1[j*height+i];
+		flhist2D[gsum*256 + v]++;
+	      }
+	}
+    }
+  else // ushort
+    {
+      for(qint64 k=0; k<depth*width*height; k++)
+	flhist1D[((ushort*)(m_lowresVolume))[k]/256]++;
+
+      for(qint64 k=0; k<depth*width*height; k++)
+	flhist2D[((ushort*)(m_lowresVolume))[k]]++;
+    }
+
   
   if (m_pvlVoxelType == 0)
     StaticFunctions::generateHistograms(flhist1D, flhist2D,
@@ -337,12 +323,8 @@ VolumeBase::createLowresVolume(bool redo)
 
   delete [] flhist1D;
   delete [] flhist2D;
-  
-  MainWindowUI::mainWindowUI()->statusBar->showMessage("");
-  Global::progressBar()->setValue(100);
-  Global::hideProgressBar();
-  qApp->processEvents();
 }
+
 
 void
 VolumeBase::createLowresTextureVolume()

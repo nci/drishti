@@ -816,6 +816,13 @@ keyboard
 Start Keyboard help
 #end
 
+
+#begin
+u
+Disable/Enable rendering.  Useful for large volumes while changing lighting or transfer functions.
+#end
+
+
 #begin
 F2
 Toggle between Hires and Lowres modes.

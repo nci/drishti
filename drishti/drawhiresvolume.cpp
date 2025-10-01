@@ -2987,7 +2987,8 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
   for(int s=0; s<layers; s++)
     {
       //-----------------------
-      if (Global::allowInterruption() && (s+1)%Global::interruptInterval() < 2)
+      if (m_drawImageType != Enums::DragImage &&
+	  Global::allowInterruption())
 	qApp->processEvents();
       //-----------------------
       
@@ -3269,8 +3270,8 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 	}
       //-------------------------------------------
 
-      if (Global::allowInterruption() &&
-	  (s+1)%Global::interruptInterval() < 2 &&
+      if (m_drawImageType != Enums::DragImage &&
+	  Global::allowInterruption() &&
 	  Global::interruptRendering())
 	{
 	  glUseProgramObjectARB(0);
@@ -5833,7 +5834,6 @@ DrawHiresVolume::resliceVolume(Vec pos,
   // delete shadow buffer
   if (m_shadowBuffer)  delete m_shadowBuffer;
   m_shadowBuffer = 0;
-  //initShadowBuffers(true);
 
   glEnable(GL_DEPTH_TEST);
 
@@ -6220,7 +6220,6 @@ DrawHiresVolume::resliceUsingPath(int pathIdx, bool fullThickness,
   // delete shadow buffer
   if (m_shadowBuffer)  delete m_shadowBuffer;
   m_shadowBuffer = 0;
-  //initShadowBuffers(true);
 
   glEnable(GL_DEPTH_TEST);
 
@@ -6528,7 +6527,6 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
   // delete shadow buffer
   if (m_shadowBuffer)  delete m_shadowBuffer;
   m_shadowBuffer = 0;
-  //  initShadowBuffers(true);
 
   glEnable(GL_DEPTH_TEST);
 

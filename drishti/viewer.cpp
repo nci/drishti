@@ -280,7 +280,6 @@ void
 Viewer::switchDrawVolume()
 {
   qApp->setOverrideCursor(QCursor(Qt::WaitCursor));
-  //updateLookupTable(); 
 
   if (m_lowresVolume->raised())
     {
@@ -313,7 +312,6 @@ Viewer::switchDrawVolume()
 
       PruneHandler::setCarve(false);
       PruneHandler::setPaint(false);
-      //GeometryObjects::hitpoints()->ignore(false);
 
       GeometryObjects::removeFromMouseGrabberPool();
       LightHandler::removeFromMouseGrabberPool();
@@ -996,8 +994,6 @@ Viewer::loadLookupTable(unsigned char *lut)
 	       GL_RGBA,
 	       GL_UNSIGNED_BYTE,
 	       lut);
-
-  //LightHandler::setLutTex(m_lutTex);
 }
 
 void
@@ -1091,15 +1087,18 @@ Viewer::updateLookupTable()
     }
 
   loadLookupTable(lut);
-  
-  if (m_hiresVolume->raised() &&
-      (gilite || LightHandler::willUpdateLightBuffers()))
+
+  if (Global::updateViewer())
     {
-      m_hiresVolume->updateAndLoadPruneTexture();
-      LightHandler::setLut(m_lut);
-      m_hiresVolume->initShadowBuffers(true);
-      bool fboBound = bindFBOs(Enums::StillImage);
-      releaseFBOs(Enums::StillImage);
+      if (m_hiresVolume->raised() &&
+	  (gilite || LightHandler::willUpdateLightBuffers()))
+	{
+	  m_hiresVolume->updateAndLoadPruneTexture();
+	  LightHandler::setLut(m_lut);
+	  m_hiresVolume->initShadowBuffers(true);
+	  bool fboBound = bindFBOs(Enums::StillImage);
+	  releaseFBOs(Enums::StillImage);
+	}
     }
 
 
@@ -1314,7 +1313,9 @@ Viewer::releaseFBOs(int imagequality)
 
   if (!m_lowresBuffer->isBound() &&
       !m_imageBuffer->isBound())
-    return;
+    {
+      return;
+    }
 
   bool imgBound = m_imageBuffer->isBound();
   bool lowBound = m_lowresBuffer->isBound();
@@ -1408,6 +1409,26 @@ Viewer::drawInfoString(int imagequality,
   glEnable(GL_BLEND);
   glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); // blend on top
 
+  QFont tfont = QFont("Helvetica", 8);
+  tfont.setStyleStrategy(QFont::PreferAntialias);  
+
+  // calculate font scale based on dpi
+  float fscl = 120.0/Global::dpi();
+  
+
+  //-------------------------
+  if (!Global::updateViewer())
+    {
+      tfont.setPointSize(15*fscl);
+      StaticFunctions::renderText(10, 40,
+				  "Viewer Update Disabled",
+				  tfont, QColor(0,0,0,64), Qt::white);
+      stopScreenCoordinatesSystem();
+      return;
+    }
+  //-------------------------
+  
+  
   if (Global::bottomText())
     {
       glColor4f(0, 0, 0, 0.8f);
@@ -1419,8 +1440,6 @@ Viewer::drawInfoString(int imagequality,
       glEnd();
     }
 
-  QFont tfont = QFont("Helvetica", 8);
-  tfont.setStyleStrategy(QFont::PreferAntialias);  
 
   Vec dataMin = m_hiresVolume->volumeMin();
   Vec dataMax = m_hiresVolume->volumeMax();
@@ -1436,11 +1455,6 @@ Viewer::drawInfoString(int imagequality,
   int dragvolume = (Global::loadDragOnly() ||
 		    Global::useDragVolume() ||
 		    imagequality == Enums::DragImage);
-
-  //-------------
-  // calculate font scale based on dpi
-  float fscl = 120.0/Global::dpi();
-  //-------------
 
   QString msg;
 
@@ -2553,6 +2567,9 @@ Viewer::updateLightBuffers()
   if (Global::volumeType() == Global::DummyVolume)
     return;
 
+  if (!Global::updateViewer())
+    return;
+
   QList<Vec> cpos, cnorm;
   m_hiresVolume->getClipForMask(cpos, cnorm);
 
@@ -2571,14 +2588,6 @@ Viewer::updateLightBuffers()
 
   LightHandler::generateOpacityTexture();
   
-  //QList<Vec> cpos, cnorm;
-  //m_hiresVolume->getClipForMask(cpos, cnorm);
-  //
-  //bool redolighting = LightHandler::checkClips(cpos, cnorm);
-  //redolighting = redolighting || LightHandler::checkCrops();
-  //redolighting = redolighting || LightHandler::updateOnlyLightBuffers();
-  //redolighting = redolighting || !m_updatePruneBuffer;
-
   if (redolighting)
     {
       LightHandler::updateLightBuffers();
@@ -2615,9 +2624,16 @@ Viewer::draw()
   if (!Global::updateViewer())
     {
       if (!Global::playFrames())
-	showBackBufferImage();
+	{
+	  m_imageBuffer->bind(); // dummy binding of image buffer so that releaseFBOx does not return empty handed
+	  releaseFBOs(Enums::StillImage);
+	  drawInfoString(0,0);
+	}
       return;
     }
+
+  MainWindowUI::mainWindowUI()->menubar->parentWidget()->\
+    setWindowTitle("----------Rendering----------");
 
   //-----------------
   // update lightbuffer
@@ -2677,6 +2693,9 @@ Viewer::draw()
   Global::setPlayFrames(false);
 
   grabBackBufferImage();
+
+  MainWindowUI::mainWindowUI()->menubar->parentWidget()->\
+    setWindowTitle(Global::DrishtiVersion());
 }
 
 void
@@ -2723,7 +2742,6 @@ Viewer::wheelEvent(QWheelEvent *event)
       Global::allowInterruption())
     {
       Global::setInterruptRendering(true);
-      return;
     }
   //----
   
@@ -3021,8 +3039,7 @@ Viewer::mouseMoveEvent(QMouseEvent *event)
       Global::rendering() &&
       Global::allowInterruption())
     {
-      Global::setInterruptRendering(true);
-      return;
+      Global::setInterruptRendering(true);  
     }
   //----
   
@@ -3406,7 +3423,9 @@ void
 Viewer::keyPressEvent(QKeyEvent *event)
 {
   if (Global::rendering() && Global::allowInterruption())
-    Global::setInterruptRendering(true);
+    {
+      Global::setInterruptRendering(true);
+    }
 
   // Toggle FullScreen - hide menubar on fullscreen
   if (event->key() == Qt::Key_Return &&
@@ -3633,22 +3652,24 @@ Viewer::keyPressEvent(QKeyEvent *event)
       return;
     }
 
-//  if (event->key() == Qt::Key_U)
-//    {
-//      if (Global::updateViewer())
-//	{
-//	  grabBackBufferImage();
-//	  Global::disableViewerUpdate();
-//        MainWindowUI::changeDrishtiIcon(false);
-//	}
-//      else
-//	{
-//	  Global::enableViewerUpdate();
-//        MainWindowUI::changeDrishtiIcon(true);
-//	  updateGL();
-//	}
-//      return;
-//    }
+  // enable disable rendering
+  if (event->key() == Qt::Key_U)
+    {
+      if (Global::updateViewer())
+	{
+	  Global::disableViewerUpdate();
+	  MainWindowUI::changeDrishtiIcon(false);
+	}
+      else
+	{
+	  Global::enableViewerUpdate();
+	  MainWindowUI::changeDrishtiIcon(true);
+	  LightHandler::setLut(m_lut);
+	  updateLightBuffers();
+	  updateGL();
+	}
+      return;
+    }
 	    
   if (event->key() == Qt::Key_F2)
     {
@@ -3871,11 +3892,8 @@ Viewer::keyPressEvent(QKeyEvent *event)
 
 void
 Viewer::grabScreenShot()
-{
-  //Global::setAllowInterruption(false);
-  
+{  
   QSize imgSize = StaticFunctions::getImageSize(size().width(),size().height());
-  //setImageSize(imgSize.width(), imgSize.height());
 
   QString flnm;
   flnm = QFileDialog::getSaveFileName(0,
@@ -4067,16 +4085,6 @@ Viewer::processCommand(QString cmd)
   cmd = cmd.toLower();
   QStringList list = cmd.split(" ", QString::SkipEmptyParts);
 
-  if (list[0] == "interrupt")
-    {
-      if (list.size() > 1)
-	{
-	  int interval = list[1].toInt(&ok);
-	  if (interval > 0)
-	    Global::setInterruptInterval(interval);
-	}
-      return;
-    }
   
   if (list[0] == "histogram")
     {

@@ -331,8 +331,8 @@ GradientEditor::mouseDoubleClickEvent(QMouseEvent *event)
 	  m_colors[index] = color;
 	  emit gradientChanged();
 	}
-      Global::enableViewerUpdate();
-      MainWindowUI::changeDrishtiIcon(true);
+      //Global::enableViewerUpdate();
+      //MainWindowUI::changeDrishtiIcon(true);
     }
 }
 

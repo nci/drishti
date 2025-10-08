@@ -1334,6 +1334,8 @@ MainWindow::on_actionSave_ImageSequence_triggered()
       return;
     }
 
+  Global::disableViewerUpdate();
+
   QSize imgSize = StaticFunctions::getImageSize(m_Viewer->size().width(),
 						m_Viewer->size().height());
 
@@ -1346,6 +1348,8 @@ MainWindow::on_actionSave_ImageSequence_triggered()
 			     1);
 
   saveImg.move(QCursor::pos());
+
+  Global::enableViewerUpdate();
 
   if (saveImg.exec() == QDialog::Accepted)
     {
@@ -1403,6 +1407,8 @@ MainWindow::on_actionSave_Movie_triggered()
       return;
     }
 
+  Global::disableViewerUpdate();
+
   QSize imgSize = StaticFunctions::getImageSize(m_Viewer->size().width(),
 						m_Viewer->size().height());
 
@@ -1414,6 +1420,7 @@ MainWindow::on_actionSave_Movie_triggered()
       emit showMessage(QString("Image dimensions must be even numbers. Current size is %1 x %2"). \
 		       arg(imgSize.width()).
 		       arg(imgSize.height()), true);
+      Global::enableViewerUpdate();
       return;
     }
 
@@ -1427,6 +1434,8 @@ MainWindow::on_actionSave_Movie_triggered()
   int cdH = saveMovDiag.height();
   saveMovDiag.move(QCursor::pos() - QPoint(cdW/2, cdH/2));
 
+  Global::enableViewerUpdate();
+  
   if (saveMovDiag.exec() == QDialog::Accepted)
     {
       QString flnm = saveMovDiag.fileName();        

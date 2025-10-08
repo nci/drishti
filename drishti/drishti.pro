@@ -73,8 +73,8 @@ win32 {
              -lavcodec \
              -lavformat \
              -lswresample \
-             -lswscale 
-  }
+             -lswscale              
+     }
 }
 
 

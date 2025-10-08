@@ -27,6 +27,55 @@ struct VOXEL_H
   bool operator>(const VOXEL_H& o) const { return h < o.h; } // higher priority means larger value 
 };
 
+struct VisibilityMapDirtyStruct
+{
+  int ds, ws, hs;
+  int de, we, he;
+  int tag;
+  bool checkZero;
+  int gradType;
+  float minGrad, maxGrad;
+  bool dirtyBit;
+  
+  void setBit(bool flag) { dirtyBit = flag; }
+  void set(int ods, int ows, int ohs,
+	   int ode, int owe, int ohe,
+	   int otag, bool ocheckZero,
+	   int ogradType, float ominGrad, float omaxGrad)
+  {
+    ds = ods;
+    de = ode;
+    ws = ows;
+    we = owe;
+    hs = ohs;
+    he = ohe;
+    tag = otag;
+    checkZero = ocheckZero;
+    gradType = ogradType;
+    minGrad = ominGrad;
+    maxGrad = omaxGrad;
+    dirtyBit = false;
+  }
+  bool dirty() { return dirtyBit; }
+  bool check(int ods, int ows, int ohs,
+	     int ode, int owe, int ohe,
+	     int otag, bool ocheckZero,
+	     int ogradType, float ominGrad, float omaxGrad)
+  {
+    if (ds == ods && de == ode &&
+	ws == ows && we == owe &&
+	hs == ohs && he == ohe &&
+	tag == otag &&
+	checkZero == ocheckZero &&
+	gradType == ogradType &&
+	minGrad == ominGrad &&
+	maxGrad == omaxGrad)
+      return true;
+
+    return false;
+  }
+};
+
 class VolumeOperations
 {
  public :
@@ -248,6 +297,7 @@ class VolumeOperations
 
   static bool checkClipped(Vec);
 
+  static void setVisibilityMapDirtyBit(bool);
   static void genVisibilityMap(int, float, float);
   static MyBitArray* getVisibilityMap() { return &m_visibilityMap; }
 
@@ -281,6 +331,7 @@ class VolumeOperations
   static ushort *m_volDataUS;
   static ushort *m_maskDataUS;
 
+  static VisibilityMapDirtyStruct m_vmDirty;
   static MyBitArray m_visibilityMap;
   
   static QList<Vec> m_cPos;

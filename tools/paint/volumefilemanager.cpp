@@ -1262,6 +1262,12 @@ VolumeFileManager::undo()
 void
 VolumeFileManager::loadRawFile(QString flnm)
 {
+  if (m_bytesPerVoxel == 1)
+    {
+      QMessageBox::information(0, "Error", "Cannot proceed to replace 8bit label data");
+      return;
+    }
+  
   QProgressDialog progress(QString("Loading %1").\
 			   arg(flnm),
 			   "Cancel",
@@ -1271,14 +1277,78 @@ VolumeFileManager::loadRawFile(QString flnm)
   progress.setMinimumDuration(0);
   progress.setCancelButton(0);
 
-  qint64 bps = m_width*m_height*m_bytesPerVoxel;
-  int d = -1;
+  int bpl = 0;
+  int ldepth, lwidth, lheight;
+  
   m_qfile.setFileName(flnm);
   m_qfile.open(QFile::ReadOnly);
-  m_qfile.seek((qint64)13);
-  m_qfile.read((char*)m_volData, (qint64)m_depth*(qint64)m_width*(qint64)m_height);
+  uchar vt = 0;
+  m_qfile.read((char*)&vt, 1);
+  if (vt == 0) bpl = 1; // 1-byte per label
+  if (vt == 2) bpl = 2; // 2-bytes per label
+
+  m_qfile.read((char*)&ldepth, 4);
+  m_qfile.read((char*)&lwidth, 4);
+  m_qfile.read((char*)&lheight, 4);
+
+  qint64 lvsz = bpl*(qint64)ldepth*(qint64)lwidth*(qint64)lheight;
+  uchar *lvolData = new uchar[lvsz];
+  m_qfile.read((char*)lvolData, lvsz);
   m_qfile.close();
 
+
+  ushort* volData = (ushort*)m_volData;    
+  if (bpl == 0)
+    {
+      float dfrc = (float)ldepth/(float)m_depth;
+      float wfrc = (float)lwidth/(float)m_width;
+      float hfrc = (float)lheight/(float)m_height;
+      qint64 idx = 0;
+      for(int d=0; d<m_depth; d++)
+	{
+	  if (d%20 == 0)
+	    {
+	      progress.setValue((int)(100*(float)d/(float)m_depth));
+	      qApp->processEvents();
+	    }
+	  for(int w=0; w<m_width; w++)
+	    for(int h=0; h<m_height; h++)
+	      {
+		qint64 ld = d * dfrc;
+		qint64 lw = w * wfrc;
+		qint64 lh = h * hfrc;
+		volData[idx] = lvolData[ld*lwidth*lheight + lw*lheight + lh];
+		idx ++;
+	      }
+	}
+    }
+  else
+    {
+      ushort *lvolDataUS = (ushort*)lvolData;
+      float dfrc = (float)ldepth/(float)m_depth;
+      float wfrc = (float)lwidth/(float)m_width;
+      float hfrc = (float)lheight/(float)m_height;
+      qint64 idx = 0;
+      for(int d=0; d<m_depth; d++)
+	{
+	  if (d%20 == 0)
+	    {
+	      progress.setValue((int)(100*(float)d/(float)m_depth));
+	      qApp->processEvents();
+	    }
+	  for(int w=0; w<m_width; w++)
+	    for(int h=0; h<m_height; h++)
+	      {
+		qint64 ld = d * dfrc;
+		qint64 lw = w * wfrc;
+		qint64 lh = h * hfrc;
+		volData[idx] = lvolDataUS[ld*lwidth*lheight + lw*lheight + lh];
+		idx ++;
+	      }
+	}
+    }
+
+  delete [] lvolData;
   progress.setValue(100);
 }
 

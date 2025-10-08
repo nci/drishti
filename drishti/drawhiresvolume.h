@@ -341,8 +341,7 @@ signals :
 		      bool, bool, Vec,
 		      bool);
   void renderDragSlice(ViewAlignedPolygon*, bool, Vec);
-  void renderSlicedSlice(int,
-			 ViewAlignedPolygon*, bool,
+  void renderSlicedSlice(ViewAlignedPolygon*, bool,
 			 int, int, int, int);
 
   void emptySpaceSkip();
@@ -383,6 +382,9 @@ signals :
   void check_MIP();
 
   void depthOfFieldBlur(int,int,int,int,int);
+
+  void restoreViewport(float);
+
 };
 
 #endif

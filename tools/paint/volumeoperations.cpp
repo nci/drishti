@@ -25,6 +25,7 @@ ushort* VolumeOperations::m_volDataUS = 0;
 
 ushort* VolumeOperations::m_maskDataUS = 0;
 
+VisibilityMapDirtyStruct VolumeOperations::m_vmDirty;
 MyBitArray VolumeOperations::m_visibilityMap;
 
 QMap<QString, MyBitArray> VolumeOperations::m_roi;
@@ -54,6 +55,7 @@ void VolumeOperations::setGridSize(int d, int w, int h)
   m_width = w;
   m_height = h;
 
+  m_vmDirty.setBit(true);
   m_visibilityMap.clear();
   m_visibilityMap.resize((qint64)d*(qint64)w*(qint64)h);
   m_visibilityMap.fill(false); 
@@ -349,6 +351,10 @@ VolumeOperations::roiOperation(Vec bmin, Vec bmax,
   return true;
 }
 
+void VolumeOperations::setVisibilityMapDirtyBit(bool flag)
+{
+  m_vmDirty.setBit(flag);
+}
 
 void
 VolumeOperations::genVisibilityMap(int gradType, float minGrad, float maxGrad)
@@ -809,6 +815,18 @@ VolumeOperations::getVisibleRegion(int ds, int ws, int hs,
 				   MyBitArray& cbitmask,
 				   bool showProgress)
 {
+  if (!m_vmDirty.dirty())
+    {
+      if (m_vmDirty.check(ds, ws, hs,
+			  de, we, he,
+			  tag, checkZero,
+			  gradType, minGrad, maxGrad))
+	{
+	  cbitmask = m_visibilityMap;
+	  return;
+	}
+    }
+  
   GeometryObjects::crops()->collectCropInfoBeforeCheckCropped();
 
   QProgressDialog progress;
@@ -868,6 +886,12 @@ VolumeOperations::getVisibleRegion(int ds, int ws, int hs,
     }
   
   futureWatcher.waitForFinished();
+
+  m_visibilityMap = cbitmask;
+  m_vmDirty.set(ds, ws, hs,
+		de, we, he,
+		tag, checkZero,
+		gradType, minGrad, maxGrad);
 }
 
 void

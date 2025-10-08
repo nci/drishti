@@ -1187,13 +1187,15 @@ StaticFunctions::getImageSize(int width, int height)
   items << "800 600 (SVGA)";
   items << "1024 600 (WSVGA)";
   items << "1024 768 (XGA)";
-  items << "1280 720 (720p 16:9)";
+  items << "1280 720 (HD)";
   items << "1280 768 (WXGA)";
   items << "1280 1024 (SXGA)";
   items << "1400 1050 (SXGA+)";
   items << "1600 1200 (UXGA)";
-  items << "1920 1080 (1080p 16:9)";
+  items << "1920 1080 (FHD)";
   items << "1920 1200 (WUXGA)";
+  items << "2048 1080 (DCI 2K)";
+  items << "3840 2160 (4K UHD)";
 
   bool ok;
   QString str;

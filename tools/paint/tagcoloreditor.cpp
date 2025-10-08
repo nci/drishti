@@ -3,6 +3,7 @@
 #include "coloreditor.h"
 #include "dcolordialog.h"
 #include "staticfunctions.h"
+#include "volumeoperations.h"
 
 #include <QTime>
 #include <QInputDialog>
@@ -302,6 +303,10 @@ TagColorEditor::cellClicked(int row, int col)
     }
 
   emit tagSelected(index, checkBoxClicked);
+
+  if (col == 0)
+    VolumeOperations::setVisibilityMapDirtyBit(true);
+  
 }
 
 void

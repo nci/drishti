@@ -1535,8 +1535,8 @@ Viewer::drawInfoString(int imagequality,
 
   if (Global::allowInterruption())
     msg += QString(" (rr:on) ");
-  else
-    msg += QString(" (rr:off) ");
+//  else
+//    msg += QString(" (rr:off) ");
 
   tfont.setPointSize(8*fscl);
 
@@ -2737,8 +2737,7 @@ Viewer::wheelEvent(QWheelEvent *event)
 {
   //----
   // interrupt if required
-  if (event->buttons() != Qt::NoButton &&
-      Global::rendering() &&
+  if (Global::rendering() &&
       Global::allowInterruption())
     {
       Global::setInterruptRendering(true);
@@ -2991,6 +2990,15 @@ Viewer::mouseMoveEventInPathViewport(int ip, QMouseEvent *event)
 void
 Viewer::mousePressEvent(QMouseEvent *event)
 {
+  //----
+  // interrupt if required
+  if (Global::rendering() &&
+      Global::allowInterruption())
+    {
+      Global::setInterruptRendering(true);  
+    }
+  //----
+  
   m_mouseDrag = true;
   m_mousePressPos = event->pos();
   m_mousePrevPos = event->pos();

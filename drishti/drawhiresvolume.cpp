@@ -19,6 +19,7 @@
 #include <QFileDialog>
 #include <QDataStream>
 
+
 double* DrawHiresVolume::brick0Xform() { return m_bricks->getMatrix(); }
 
 void
@@ -2989,7 +2990,15 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
       //-----------------------
       if (m_drawImageType != Enums::DragImage &&
 	  Global::allowInterruption())
-	qApp->processEvents();
+	{
+	  QApplication::processEvents();
+	  if (Global::interruptRendering())
+	    {
+	      glUseProgramObjectARB(0);
+	      disableTextureUnits();	  
+	      return;
+	    }
+	}
       //-----------------------
       
       po += pnDir;
@@ -3027,31 +3036,8 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 
       if (m_drawImageType != Enums::DragImage)
 	{
-	  if (tap > 0)
-	    glViewport(0,0, m_shadowWidth/tap, m_shadowHeight/tap);
-	  else
-	    {
-	      //-------------------------------------------
-	      // restore viewport
-	      if (MainWindowUI::mainWindowUI()->actionFor3DTV->isChecked() ||
-		  MainWindowUI::mainWindowUI()->actionCrosseye->isChecked())
-		{
-		  if (MainWindowUI::mainWindowUI()->actionFor3DTV->isChecked())
-		    {
-		      if (Global::saveImageType() == Global::LeftImage)
-			glViewport(0,0, m_shadowWidth/2, m_shadowHeight);
-		      else
-			glViewport(m_shadowWidth/2,0, m_shadowWidth/2, m_shadowHeight);
-		}
-		  else
-		    {
-		      if (Global::saveImageType() == Global::LeftImage)
-			glViewport(m_shadowWidth/2,0, m_shadowWidth/2, m_shadowHeight);
-		      else
-			glViewport(0,0, m_shadowWidth/2, m_shadowHeight);
-		    }
-		}
-	    }
+	  restoreViewport(tap);
+	  
 	  //-------------------------------------------
 	  
 	  glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_dofBuffer);
@@ -3167,34 +3153,32 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 
 		  for(int b=slabstart; b<slabend; b++)
 		  {
-		      float tminz = m_dataMin.z;
-		      float tmaxz = m_dataMax.z;
-		      if (slabend > 1)
-			{
-			  tminz = m_textureSlab[b].y;
-			  tmaxz = m_textureSlab[b].z;
-			}			
-		      glUniform3fARB(m_defaultParm[42], m_dataMin.x, m_dataMin.y, tminz);
-		      glUniform3fARB(m_defaultParm[43], m_dataMax.x, m_dataMax.y, tmaxz);
-
-		      glUniform3fARB(m_defaultParm[53], m_dataMin.x, m_dataMin.y, tminz);
-
-		      bindDataTextures(b);
-		      
-		      //-------------------------
+		    float tminz = m_dataMin.z;
+		    float tmaxz = m_dataMax.z;
+		    if (slabend > 1)
+		      {
+			tminz = m_textureSlab[b].y;
+			tmaxz = m_textureSlab[b].z;
+		      }			
+		    glUniform3fARB(m_defaultParm[42], m_dataMin.x, m_dataMin.y, tminz);
+		    glUniform3fARB(m_defaultParm[43], m_dataMax.x, m_dataMax.y, tmaxz);
+		    
+		    glUniform3fARB(m_defaultParm[53], m_dataMin.x, m_dataMin.y, tminz);
+		    
+		    bindDataTextures(b);
+		    
+		    //-------------------------
 		      if (b == 0)
 			renderDragSlice(vap, false, dragTexsize);
 		      else
-			renderSlicedSlice(0,
-					  vap,
+			renderSlicedSlice(vap,
 					  false,
 					  lenx2, leny2, b, lod);
-			
-		      
+		      		      
 		      releaseDataTextures(b);
 		      //-------------------------
 		      
-		    } // loop over b
+		  } // loop over b
 		}
 	    } // loop over bricks
 
@@ -3327,6 +3311,31 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 
   glUseProgramObjectARB(0);
   disableTextureUnits();	  
+}
+
+void
+DrawHiresVolume::restoreViewport(float tap)
+{
+  if (tap > 0)
+    glViewport(0,0, m_shadowWidth/tap, m_shadowHeight/tap);
+  else if (MainWindowUI::mainWindowUI()->actionFor3DTV->isChecked() ||
+	   MainWindowUI::mainWindowUI()->actionCrosseye->isChecked())
+    {
+      if (MainWindowUI::mainWindowUI()->actionFor3DTV->isChecked())
+	{
+	  if (Global::saveImageType() == Global::LeftImage)
+	    glViewport(0,0, m_shadowWidth/2, m_shadowHeight);
+	  else
+	    glViewport(m_shadowWidth/2,0, m_shadowWidth/2, m_shadowHeight);
+	}
+      else
+	{
+	  if (Global::saveImageType() == Global::LeftImage)
+	    glViewport(m_shadowWidth/2,0, m_shadowWidth/2, m_shadowHeight);
+	  else
+	    glViewport(0,0, m_shadowWidth/2, m_shadowHeight);
+	}
+    }
 }
 
 void
@@ -3878,8 +3887,7 @@ DrawHiresVolume::renderDragSlice(ViewAlignedPolygon *vap,
 }
 
 void
-DrawHiresVolume::renderSlicedSlice(int type, 
-				   ViewAlignedPolygon *vap,
+DrawHiresVolume::renderSlicedSlice(ViewAlignedPolygon *vap,
 				   bool shadow,
 				   int lenx2, int leny2, int b, int lod)
 {
@@ -4443,8 +4451,7 @@ DrawHiresVolume::drawClipPlaneInViewport(int clipOffset, Vec lpos, float depthcu
 				      GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		    }
 		  
-		    renderSlicedSlice((defaultShader ? 0 : 1),
-				      vap, false,
+		    renderSlicedSlice(vap, false,
 				      lenx2, leny2, b, lod);
 		} // loop over b
 	    } // loop over clip slab
@@ -4633,17 +4640,8 @@ DrawHiresVolume::drawClipPlaneDefault(int s, int layers,
 	      if (b == 0)
 		renderDragSlice(vap, false, dragTexsize);		  
 	      else
-		renderSlicedSlice(0,
-				  vap, false,
-				  lenx2, leny2, b, lod);
-	      
-//	      if (m_drawImageType != Enums::DragImage ||
-//		  m_dataTexSize == 1)
-//		renderSlicedSlice(0,
-//				  vap, false,
-//				  lenx2, leny2, b, lod);
-//	      else
-//		renderDragSlice(vap, false, dragTexsize);		  
+		renderSlicedSlice(vap, false,
+				  lenx2, leny2, b, lod);	      
 	    } // loop over b
 	} // valid tfset
     } // loop over clipplanes

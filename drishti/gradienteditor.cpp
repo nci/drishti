@@ -323,6 +323,7 @@ GradientEditor::mouseDoubleClickEvent(QMouseEvent *event)
     }
   if (index != -1)
     {
+      bool guv = Global::updateViewer();
       Global::disableViewerUpdate();
       MainWindowUI::changeDrishtiIcon(false);
       QColor color = DColorDialog::getColor(m_colors[index]);
@@ -331,8 +332,11 @@ GradientEditor::mouseDoubleClickEvent(QMouseEvent *event)
 	  m_colors[index] = color;
 	  emit gradientChanged();
 	}
-      //Global::enableViewerUpdate();
-      //MainWindowUI::changeDrishtiIcon(true);
+      if (guv)
+	{
+	  Global::enableViewerUpdate();
+	  MainWindowUI::changeDrishtiIcon(true);
+	}
     }
 }
 

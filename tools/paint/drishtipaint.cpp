@@ -6421,7 +6421,13 @@ DrishtiPaint::on_actionImportMask_triggered()
   int m_depth, m_width, m_height;
   m_volume->gridSize(m_depth, m_width, m_height);
   m_viewer->uploadMask(0,0,0, m_depth-1,m_width-1,m_height-1);
-  QMessageBox::information(0, "", "done");
+
+  // update all windows
+  m_axialImage->reloadSlice();
+  m_sagitalImage->reloadSlice();
+  m_coronalImage->reloadSlice();
+
+  QMessageBox::information(0, "", "If you are happy with the restore,\nplease save it to the mask file using Save Work");
 }
 
 void

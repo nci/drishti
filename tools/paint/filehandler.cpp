@@ -114,6 +114,23 @@ FileHandler::loadMemFile(QString flnm)
     }
   m_qfile.close();
   delete [] vBuf;
+
+
+  // Convert 8bit labels to 16bit
+  if (vt == 0)
+    {
+      QMessageBox::information(0, "Convert", "Converting 8bit labels to 16bit labels");
+      qint64 vsize = m_depth;
+      vsize *= m_width;
+      vsize *= m_height;
+      ushort* vDataUS = (ushort*)m_volData;
+      qint64 g1 = 0;
+      for(qint64 i=vsize-1; i>=0; i--)
+	{
+	  if (m_volData[i] > 0) g1++;
+	  vDataUS[i] = m_volData[i];
+	}
+    }
 }
 
 

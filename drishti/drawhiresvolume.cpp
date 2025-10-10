@@ -1778,11 +1778,14 @@ DrawHiresVolume::draw(float stepsize,
 //------------------------------------
 //  change stepsize based on lod
 //------------------------------------
-  if (m_drawImageType == Enums::DragImage)
+  if (m_drawImageType == Enums::DragImage ||
+      Global::allowInterruption())
     {
       Vec draginfo = m_Volume->getDragTextureInfo();
       float lod = draginfo.z;
       stepsize *= lod;
+      if (Global::allowInterruption())
+	stepsize *= 2;
     }
   else
     {
@@ -2469,6 +2472,10 @@ DrawHiresVolume::setRenderDefault()
       Global::volumeType() == Global::RGBAVolume)
     {
       float frc = Global::stepsizeStill();
+
+      if (Global::allowInterruption())
+	frc = Global::stepsizeDrag() * 2;
+
       glUniform1fARB(m_defaultParm[3], frc);
     }  
 
@@ -2485,7 +2492,13 @@ DrawHiresVolume::setRenderDefault()
 
   glUniform3fARB(m_defaultParm[53], m_dataMin.x, m_dataMin.y, m_dataMin.z);
 
-  glUniform1fARB(m_defaultParm[58], Global::gamma()); // gamma
+  if (Global::allowInterruption() && 
+      m_drawImageType != Enums::DragImage)
+    {
+      glUniform1fARB(m_defaultParm[58], 0.9*Global::gamma()); // gamma
+    }
+  else
+    glUniform1fARB(m_defaultParm[58], Global::gamma()); // gamma
 
 
   glUniform1i(m_defaultParm[59], Global::matId()); // matId
@@ -2986,27 +2999,9 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
   //-------------------------
 
   for(int s=0; s<layers; s++)
-    {
-      //-----------------------
-      if (m_drawImageType != Enums::DragImage &&
-	  Global::allowInterruption())
-	{
-	  QApplication::processEvents();
-	  if (Global::interruptRendering())
-	    {
-	      glUseProgramObjectARB(0);
-	      disableTextureUnits();	  
-	      return;
-	    }
-	}
-      //-----------------------
-      
+    {      
       po += pnDir;
       b0_po += b0_pnDir;
-      
-      int SlcXMin, SlcXMax, SlcYMin, SlcYMax;
-      SlcXMin = SlcYMin = 100000;
-      SlcXMax = SlcYMax = 0;
 
       // set depth of field
       float tap = 0;
@@ -3123,23 +3118,17 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 	      pno++;
 	  
 	      //---------------------------------
-	      for(int pi=0; pi<vap->edges; pi++)
-		{  
-		  Vec scr = m_Viewer->camera()->projectedCoordinatesOf(vap->vertex[pi]);
-		  scr.y = m_shadowHeight - scr.y;
-		  SlcXMin = qMin(SlcXMin, (int)scr.x);
-		  SlcXMax = qMax(SlcXMax, (int)scr.x);
-		  SlcYMin = qMin(SlcYMin, (int)scr.y);
-		  SlcYMax = qMax(SlcYMax, (int)scr.y);
-		}
-	      for(int pi=0; pi<vap->edges; pi++)
-		{  
-		  Vec scr = m_Viewer->camera()->projectedCoordinatesOf(vap->vertex[pi]);
-		  scr.y = m_shadowHeight - scr.y;
-		  ScreenXMin = qMin(ScreenXMin, (int)scr.x);
-		  ScreenXMax = qMax(ScreenXMax, (int)scr.x);
-		  ScreenYMin = qMin(ScreenYMin, (int)scr.y);
-		  ScreenYMax = qMax(ScreenYMax, (int)scr.y);
+	      if (m_useScreenShadows)
+		{
+		  for(int pi=0; pi<vap->edges; pi++)
+		    {  
+		      Vec scr = m_Viewer->camera()->projectedCoordinatesOf(vap->vertex[pi]);
+		      scr.y = m_shadowHeight - scr.y;
+		      ScreenXMin = qMin(ScreenXMin, (int)scr.x);
+		      ScreenXMax = qMax(ScreenXMax, (int)scr.x);
+		      ScreenYMin = qMin(ScreenYMin, (int)scr.y);
+		      ScreenYMax = qMax(ScreenYMax, (int)scr.y);
+		    }
 		}
 	      //--------------------------------
 
@@ -3253,15 +3242,6 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 	  glEnable(GL_BLEND);
 	}
       //-------------------------------------------
-
-      if (m_drawImageType != Enums::DragImage &&
-	  Global::allowInterruption() &&
-	  Global::interruptRendering())
-	{
-	  glUseProgramObjectARB(0);
-	  disableTextureUnits();	  
-	  return;
-	}
     } // loop over s
 
 

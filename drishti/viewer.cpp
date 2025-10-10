@@ -3655,7 +3655,9 @@ Viewer::keyPressEvent(QKeyEvent *event)
 	  return;
 	}
 
-      reloadData();
+      Global::setAllowInterruption(!Global::allowInterruption());
+      MainWindowUI::mainWindowUI()->actionInterruptRendering->setChecked(Global::allowInterruption());
+      //reloadData();
       updateGL();
       return;
     }

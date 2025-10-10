@@ -866,11 +866,11 @@ Clip plane is always added in the center of the volume.
 
 #begin
 r
-Reload subvolume or toggle Carve/Paint Radius box.
+Toggle responsive rendering or toggle Carve/Paint Radius box.
+
+When mouse cursor is not in a clip plane viewport or user is not in paint mode then pressing r will trigger toggle Responsive Rendering mode.  This is useful for lare volumes, when rendering high resolution version takes quite a bit of time.  Responsive rendering speeds up image generation by increasing the step size.
 
 When mouse cursor is in a clip plane viewport or user is in paint/carve mode, pressing r will toggle the Carve/Paint Radius box.  Users can change carve/paint region radius via this box.
-
-When mouse cursor is not in a clip plane viewport or user is not in paint mode then pressing r will trigger reloading the subvolume.  This is useful when the volume data file has changed and the subvolume needs to be reloaded.  Helpful in volume file is changing in realtime and one wants to view the changed data.
 
 #end
 

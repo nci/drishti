@@ -1349,8 +1349,6 @@ MainWindow::on_actionSave_ImageSequence_triggered()
 
   saveImg.move(QCursor::pos());
 
-  Global::enableViewerUpdate();
-
   if (saveImg.exec() == QDialog::Accepted)
     {
       QString flnm = saveImg.fileName();
@@ -1365,9 +1363,12 @@ MainWindow::on_actionSave_ImageSequence_triggered()
 				    QString("Current image size is %1x%2.\nSquare image size required for cubic images.").\
 				    arg(imgSize.width()).\
 				    arg(imgSize.height()));
+	      Global::enableViewerUpdate();
 	      return;
 	    }
 	}
+
+      Global::enableViewerUpdate();
 
       QFileInfo f(flnm);
       Global::setPreviousDirectory(f.absolutePath());
@@ -1433,12 +1434,10 @@ MainWindow::on_actionSave_Movie_triggered()
   int cdW = saveMovDiag.width();
   int cdH = saveMovDiag.height();
   saveMovDiag.move(QCursor::pos() - QPoint(cdW/2, cdH/2));
-
-  Global::enableViewerUpdate();
   
   if (saveMovDiag.exec() == QDialog::Accepted)
     {
-      QString flnm = saveMovDiag.fileName();        
+      QString flnm = saveMovDiag.fileName();
       bool movieMode = saveMovDiag.movieMode();
       QFileInfo f(flnm);
       Global::setPreviousDirectory(f.absolutePath());
@@ -1447,6 +1446,8 @@ MainWindow::on_actionSave_Movie_triggered()
 	m_Viewer->setImageMode(Enums::MonoImageMode);
       else
 	m_Viewer->setImageMode(Enums::StereoImageMode);
+
+      Global::enableViewerUpdate();
 
       if (m_Viewer->startMovie(flnm, saveMovDiag.frameRate()) == false)
 	return;

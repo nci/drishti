@@ -2216,7 +2216,7 @@ Viewer::updateVoxelsForRaycast()
   qint64 dsz = (m_maxDSlice-m_minDSlice);
   qint64 wsz = (m_maxWSlice-m_minWSlice);
   qint64 hsz = (m_maxHSlice-m_minHSlice);
-  qint64 tsz = dsz*wsz*hsz*Global::bytesPerVoxel();
+  qint64 tsz = dsz*wsz*hsz*(Global::bytesPerVoxel()+2);
 
 //  if ((m_vsize-Vec(hsz, wsz, dsz)).squaredNorm() > 1)
     {
@@ -2235,7 +2235,7 @@ Viewer::updateVoxelsForRaycast()
 	  if (wsz*m_sslevel < m_maxWSlice-m_minWSlice) wsz++;
 	  if (hsz*m_sslevel < m_maxHSlice-m_minHSlice) hsz++;
 	  
-	  tsz = dsz*wsz*hsz*Global::bytesPerVoxel();
+	  tsz = dsz*wsz*hsz*(Global::bytesPerVoxel()+2);
 	}
 
       //-------------------------
@@ -2250,7 +2250,7 @@ Viewer::updateVoxelsForRaycast()
       if (dsz*m_sslevel < m_maxDSlice-m_minDSlice) dsz++;
       if (wsz*m_sslevel < m_maxWSlice-m_minWSlice) wsz++;
       if (hsz*m_sslevel < m_maxHSlice-m_minHSlice) hsz++;
-      tsz = dsz*wsz*hsz*Global::bytesPerVoxel();      
+      tsz = dsz*wsz*hsz*(Global::bytesPerVoxel()+2);
       //-------------------------
     }
   

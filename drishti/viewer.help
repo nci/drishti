@@ -1,4 +1,14 @@
 #begin
+rrstep
+Stepsize factor to be used during responsive rendering.
+rrstep <int>
+
+Typically the factor values between 1 and 5.  Higher value lead to faster response, but, lower quality.
+Default value is 2.
+
+#end
+
+#begin
 addplight
 Add point/string light source.
 

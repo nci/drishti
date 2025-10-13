@@ -1006,7 +1006,7 @@ Viewer::updateLookupTable(unsigned char *kflut)
 
 void
 Viewer::updateLookupTable()
-{
+{  
   //--------------
   // check whether emptyspaceskip data structure
   // needs to be reevaluated
@@ -1078,6 +1078,7 @@ Viewer::updateLookupTable()
     }
   else 
     memcpy(lut, m_lut, Global::lutSize()*4*256*256);
+
 
   if (Global::emptySpaceSkip() &&
       m_hiresVolume->raised() &&
@@ -1534,13 +1535,11 @@ Viewer::drawInfoString(int imagequality,
   if (Global::useDragVolumeforShadows()) msg += "+dshadows";
 
   if (Global::allowInterruption())
-    msg += QString(" (rr:on) ");
-//  else
-//    msg += QString(" (rr:off) ");
+    msg += QString("+rr:%1").arg(Global::rrStep());
 
-  tfont.setPointSize(8*fscl);
+  tfont.setPointSize(9*fscl);
 
-  StaticFunctions::renderText(posx, posy-24*fscl,
+  StaticFunctions::renderText(posx, posy-30*fscl,
 			      QString("HiRes : image (%1) : step(%2)"). \
 			      arg(msg).arg(stepsize),
 			      tfont,
@@ -1550,7 +1549,7 @@ Viewer::drawInfoString(int imagequality,
 
   tfont.setPointSize(10*fscl);
 
-  StaticFunctions::renderText(posx, posy-13*fscl,
+  StaticFunctions::renderText(posx, posy-15*fscl,
 			      QString("Bounds : %1-%2, %3-%4, %5-%6").	\
 			      arg(minX).arg(maxX).arg(minY).		\
 			      arg(maxY).arg(minZ).arg(maxZ),
@@ -1558,7 +1557,7 @@ Viewer::drawInfoString(int imagequality,
 			      Qt::transparent,
 			      Qt::lightGray);
 
-  tfont.setPointSize(12*fscl);
+  tfont.setPointSize(11*fscl);
   glColor3f(1,1,1);
 
   int lod, textureX, textureY, ntex;
@@ -4095,6 +4094,17 @@ Viewer::processCommand(QString cmd)
   cmd = cmd.toLower();
   QStringList list = cmd.split(" ", QString::SkipEmptyParts);
 
+
+  if (list[0] == "rrstep")
+    {
+      int rrstep = 1;
+      if (list.size() > 1)
+	{
+	  rrstep = qMax(rrstep, list[1].toInt(&ok));
+	  Global::setRRstep(rrstep);
+	}      
+      return;
+    }
   
   if (list[0] == "histogram")
     {

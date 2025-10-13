@@ -1785,7 +1785,7 @@ DrawHiresVolume::draw(float stepsize,
       float lod = draginfo.z;
       stepsize *= lod;
       if (Global::allowInterruption())
-	stepsize *= 2;
+	stepsize *= Global::rrStep();
     }
   else
     {
@@ -2474,7 +2474,7 @@ DrawHiresVolume::setRenderDefault()
       float frc = Global::stepsizeStill();
 
       if (Global::allowInterruption())
-	frc = Global::stepsizeDrag() * 2;
+	frc = Global::stepsizeDrag() * Global::rrStep();
 
       glUniform1fARB(m_defaultParm[3], frc);
     }  
@@ -3013,7 +3013,6 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 	  if (tap < 1.0) tap = 0;
 	}
       glUniform1fARB(m_defaultParm[51], qMax(1.0f, tap));
-
       
       // generate opacity modulation
       float sdist = qAbs((maxvert - po)*pn);

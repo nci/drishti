@@ -1363,7 +1363,7 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
 	shader += tagVolume();
     }
 
-
+  
   if (tearPresent || cropPresent || pathCropPresent)
     shader += "  glFragColor.rgba = mix(glFragColor.rgba, vec4(0.0,0.0,0.0,0.0), feather);\n";
 

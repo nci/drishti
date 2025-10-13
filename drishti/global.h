@@ -319,8 +319,8 @@ class Global
   static void setDisableHistogram(bool);
 
 
-  static int interruptInterval();
-  static void setInterruptInterval(int);
+  static int rrStep();
+  static void setRRstep(int);
   static bool allowInterruption();
   static void setAllowInterruption(bool);
   static bool rendering();
@@ -329,7 +329,7 @@ class Global
   static void setInterruptRendering(bool);
   
  private :
-  static int m_interruptInterval;
+  static int m_rrStep;
   static bool m_allowInterruption;
   static bool m_rendering;
   static bool m_interruptRendering;

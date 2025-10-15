@@ -77,8 +77,7 @@ VolumeMeasure::getLabels(int ds, int ws, int hs,
   return ut;
 }
 
-//------
-//------
+
 QMap<int, float>
 VolumeMeasure::volume(Vec bmin, Vec bmax, int tag)
 {
@@ -163,7 +162,6 @@ VolumeMeasure::volume(Vec bmin, Vec bmax, int tag)
   return vdbVolume;
 }
 
-
 void
 VolumeMeasure::getVolume(Vec bmin, Vec bmax, int tag)
 {
@@ -210,12 +208,9 @@ VolumeMeasure::getVolume(Vec bmin, Vec bmax, int tag)
 
   StaticFunctions::saveMesgToFile(Global::previousDirectory(), mesg);
 }
-//------
-//------
 
 
-//------
-//------
+
 QMap<int, float>
 VolumeMeasure::surfaceArea(Vec bmin, Vec bmax, int tag)
 {
@@ -479,14 +474,6 @@ VolumeMeasure::getSphericity(Vec bmin, Vec bmax, int tag)
   qint64 my = we-ws+1;
   qint64 mz = de-ds+1;
 
-
-  QProgressDialog progress("Calculating Sphericity",
-			   QString(),
-			   0, 100,
-			   0,
-			   Qt::WindowStaysOnTopHint);
-  progress.setMinimumDuration(0);
-
   
   QList<int> ut = getLabels(ds,ws,hs,de,we,he,tag);
 
@@ -505,7 +492,7 @@ VolumeMeasure::getSphericity(Vec bmin, Vec bmax, int tag)
       float V = vdbVolume[ut[i]];
       float A = vdbArea[ut[i]];
 
-      float S = (qPow(M_PI, 1.0/3.0) * qPow(6*V, 2.0/3.0))/A;
+      float S = qPow(6*qSqrt(M_PI)*V, 2.0/3.0)/A;
 
       sphericity[ut[i]] = S;
     }
@@ -524,6 +511,60 @@ VolumeMeasure::getSphericity(Vec bmin, Vec bmax, int tag)
   StaticFunctions::saveMesgToFile(Global::previousDirectory(), mesg);
 }
 
+
+
+void
+VolumeMeasure::getEquivalentSphericalDiameter(Vec bmin, Vec bmax, int tag)
+{
+  int ds = qMax(0, qFloor(bmin.z));
+  int ws = qMax(0, qFloor(bmin.y));
+  int hs = qMax(0, qFloor(bmin.x));
+
+  int de = qMin(qCeil(bmax.z), m_depth-1);
+  int we = qMin(qCeil(bmax.y), m_width-1);
+  int he = qMin(qCeil(bmax.x), m_height-1);
+
+  qint64 mx = he-hs+1;
+  qint64 my = we-ws+1;
+  qint64 mz = de-ds+1;
+
+  
+  QList<int> ut = getLabels(ds,ws,hs,de,we,he,tag);
+
+  if (ut.count() == 0)
+    {
+      QMessageBox::information(0, "Error", QString("No voxel found with label %1\nComputing total visible volume").arg(tag));
+    }
+
+  qSort(ut);
+
+  QMap<int, float> vdbVolume = volume(bmin, bmax, tag);
+  QMap<int, float> sphereDiameter;
+  for(int i=0; i<ut.count(); i++)
+    {
+      float V = vdbVolume[ut[i]];
+
+      float D = 2*qPow(3*V/4*M_PI, 1.0/3.0);
+
+      sphereDiameter[ut[i]] = D;
+    }
+  
+  VolumeInformation pvlInfo;
+  pvlInfo = VolumeInformation::volumeInformation();
+  QString mesg;
+  mesg += "------------------------------\n";
+  mesg += QString(" Label : Sphere Diameter (%1)\n").	\
+		  arg(pvlInfo.voxelUnitStringShort());
+  mesg += "------------------------------\n";
+  for(int i=0; i<ut.count(); i++)
+    {
+      mesg += QString("%1 : %2\n").arg(ut[i], 6).arg(sphereDiameter[ut[i]]);
+    }
+  
+  StaticFunctions::showMessage("Equivalent Spherical Diamater", mesg);
+
+  StaticFunctions::saveMesgToFile(Global::previousDirectory(), mesg);
+}
 
 
 
@@ -659,9 +700,12 @@ VolumeMeasure::getDistanceToSurface(Vec bmin, Vec bmax, int tag)
 }
 
 
-void
-VolumeMeasure::getVoxelCount(Vec bmin, Vec bmax, int tag)
+
+QMap<int, int>
+VolumeMeasure::voxelCount(Vec bmin, Vec bmax, int tag)
 {
+  QMap<int, int> voxels; // contains (number of voxels) volume for each label
+
   QProgressDialog progress("Calculating Voxel Count",
 			   QString(),
 			   0, 100,
@@ -680,7 +724,6 @@ VolumeMeasure::getVoxelCount(Vec bmin, Vec bmax, int tag)
   uchar *lut = Global::lut();
   uchar *tagColors = Global::tagColors();
 
-  QMap<int, int> labelMap; // contains (number of voxels) volume for each label
   qint64 nvoxels = 0;
   for(qint64 d=ds; d<=de; d++)
     {
@@ -708,35 +751,54 @@ VolumeMeasure::getVoxelCount(Vec bmin, Vec bmax, int tag)
 		if (opaque)
 		  {
 		    nvoxels ++;
-		    labelMap[mtag] = labelMap[mtag] + 1;
+		    voxels[mtag] = voxels[mtag] + 1;
 		  }
 	      }
 	  }
     }
 
+  // total visible voxels
+  voxels[-1] = nvoxels;
+  
   progress.setValue(100);
+
+  return voxels;
+}
+
+void
+VolumeMeasure::getVoxelCount(Vec bmin, Vec bmax, int tag)
+{
+  int ds = bmin.z;
+  int ws = bmin.y;
+  int hs = bmin.x;
+
+  int de = bmax.z;
+  int we = bmax.y;
+  int he = bmax.x;
+
+  QList<int> ut = getLabels(ds,ws,hs,de,we,he,tag);
+
+  QMap<int, int> voxels = voxelCount(bmin, bmax, tag);
 
   VolumeInformation pvlInfo;
   pvlInfo = VolumeInformation::volumeInformation();
   Vec voxelSize = pvlInfo.voxelSize;
 
   QString mesg;
-  mesg += QString("Visible Voxels : %1\n").arg(nvoxels);
+  mesg += QString("Visible Voxels : %1\n").arg(voxels[-1]);
   mesg += QString("Voxel Size : %1, %2, %3 %4\n").\
                   arg(voxelSize.x).arg(voxelSize.y).arg(voxelSize.z).
                   arg(pvlInfo.voxelUnitStringShort());
 
-  if (tag == -1)
+  if (ut.count() > 0)
     {	       
       mesg += "------------------------------\n";
       mesg += " Label : Voxel Count \n";
       mesg += "------------------------------\n";
-      QList<int> key = labelMap.keys();
-      QList<int> value = labelMap.values();
-      for(int i=0; i<key.count(); i++)
+      for(int i=0; i<ut.count(); i++)
 	{
-	  float vol = value[i]*voxelSize.x*voxelSize.y*voxelSize.z;
-	  mesg += QString("  %1 : %2\n").arg(key[i], 6).arg(value[i], 12);
+	  float vol = voxels[ut[i]]*voxelSize.x*voxelSize.y*voxelSize.z;
+	  mesg += QString("  %1 : %2\n").arg(ut[i], 6).arg(voxels[ut[i]], 12);
 	}
     }
   
@@ -746,3 +808,225 @@ VolumeMeasure::getVoxelCount(Vec bmin, Vec bmax, int tag)
 }
 //------
 //------
+
+
+void
+VolumeMeasure::allMeasures(Vec bmin, Vec bmax, int tag,
+			   QMap<QString, bool> flags)
+{
+  if (flags.count() < 6)
+    {
+      QMessageBox::information(0, "Error", "No Measures to measure");
+      return;
+    }
+
+  bool voxelsFlag = flags["Voxel Count"];
+  bool volFlag = flags["Volume"];
+  bool areaFlag = flags["Surface Area"];
+  bool feretFlag = flags["Max Feret Distance"];
+  bool sphericityFlag = flags["Sphericity"];
+  bool diameterFlag = flags["Equivalent Sphere Diameter"];
+
+  
+  bool vdbFlag = volFlag || areaFlag || sphericityFlag || diameterFlag;
+  
+  
+  QMap<int, float> vdbVolume;
+  QMap<int, float> vdbArea;
+  QMap<int, float> feret;
+  QMap<int, float> sphericity;
+  QMap<int, float> sphereDiameter;
+  
+  QMap<int, int> voxels = voxelCount(bmin, bmax, tag);
+
+  VolumeInformation pvlInfo;
+  pvlInfo = VolumeInformation::volumeInformation();
+  Vec voxelSize = pvlInfo.voxelSize;
+
+  QProgressDialog progress("Calculating Measures",
+			   QString(),
+			   0, 100,
+			   0,
+			   Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);
+
+  int ds = qMax(0, qFloor(bmin.z));
+  int ws = qMax(0, qFloor(bmin.y));
+  int hs = qMax(0, qFloor(bmin.x));
+
+  int de = qMin(qCeil(bmax.z), m_depth-1);
+  int we = qMin(qCeil(bmax.y), m_width-1);
+  int he = qMin(qCeil(bmax.x), m_height-1);
+
+  qint64 mx = he-hs+1;
+  qint64 my = we-ws+1;
+  qint64 mz = de-ds+1;
+
+
+  QList<int> ut = getLabels(ds,ws,hs,de,we,he,tag);
+
+//  if (ut.count() == 0)
+//    {
+//      QMessageBox::information(0, "Error", QString("No voxel found with label %1\nComputing total visible volume").arg(tag));
+//    }
+
+  // compute total visible volume as well for finding percentages
+  ut << -1;
+  
+  qSort(ut);
+
+    
+  MyBitArray bitmask;
+  bitmask.resize(mx*my*mz);
+
+  for(int i=0; i<ut.count(); i++)
+    {
+      progress.setLabelText(QString("Calculating Measures %1 : %2").arg(i).arg(ut[i]));
+      progress.setValue(100*(float)i/(float)ut.count());
+      qApp->processEvents();
+      
+      bitmask.fill(false);
+      
+      VolumeOperations::getVisibleRegion(ds, ws, hs,
+					 de, we, he,
+					 ut[i], false,  // no tag zero checking
+					 0, 0, 1,
+					 bitmask,
+					 false);
+
+      if (feretFlag && ut[i] != -1)
+	feret[ut[i]] = feretDiameter(mx, my, mz, bitmask);
+
+      VdbVolume vdb;
+      if (vdbFlag)
+	{
+	  vdb.setVoxelSize(voxelSize.x, voxelSize.y, voxelSize.z);
+	  openvdb::FloatGrid::Accessor accessor = vdb.getAccessor();
+	  openvdb::Coord ijk;
+	  int &d = ijk[0];
+	  int &w = ijk[1];
+	  int &h = ijk[2];
+	  for(d=0; d<mz; d++)
+	    for(w=0; w<my; w++)
+	      for(h=0; h<mx; h++)
+		{
+		  qint64 bidx = ((qint64)d)*mx*my+w*mx+h;
+		  if (bitmask.testBit(bidx))
+		    accessor.setValue(ijk, 255);
+		}
+	  
+	  vdb.convertToLevelSet(128);
+	}
+      if (volFlag || sphericityFlag || diameterFlag)
+	vdbVolume[ut[i]] = vdb.volume();
+
+      if (areaFlag || sphericityFlag)
+	vdbArea[ut[i]] = vdb.area();
+    }
+
+  if (sphericityFlag)
+    {
+      for(int i=0; i<ut.count(); i++)
+	{
+	  float V = vdbVolume[ut[i]];
+	  float D = 2*qPow(3*V/4*M_PI, 1.0/3.0);
+	  sphereDiameter[ut[i]] = D;
+	}
+    }
+
+  if (diameterFlag)
+    {
+      for(int i=0; i<ut.count(); i++)
+	{
+	  float V = vdbVolume[ut[i]];
+	  float A = vdbArea[ut[i]];
+	  
+	  float S = qPow(6*qSqrt(M_PI)*V, 2.0/3.0)/A;
+	  
+	  sphericity[ut[i]] = S;
+	}
+    }
+
+  progress.setValue(100);
+
+
+  
+  QString mesg;
+  mesg += QString("Voxel Size : %1, %2, %3 %4\n").\
+                                arg(voxelSize.x).arg(voxelSize.y).arg(voxelSize.z).\
+                                arg(pvlInfo.voxelUnitStringShort());
+  if (voxelsFlag)
+    mesg += QString("Visible Voxels : %1\n").arg(voxels[-1]);
+
+  if (volFlag)
+    {
+      mesg += QString("Total Visible Volume : %1%2^3\n").\
+	                              arg(vdbVolume[-1]).\
+	                              arg(pvlInfo.voxelUnitStringShort());
+      ut.removeAt(0);
+    }
+  
+  if (areaFlag && tag == -1)
+    {
+      mesg += QString("Total Visible Surface Area : %1%2^2\n").	\
+	                              arg(vdbArea[-1]).\
+	                              arg(pvlInfo.voxelUnitStringShort());
+    }
+
+  mesg += "------------------------------\n";
+  mesg += " Label : ";
+
+  if (voxelsFlag)
+    mesg += "Voxels : ";
+
+  if (volFlag)
+    mesg += QString("Volume %1^3: % of total Volume : ").\
+	                 arg(pvlInfo.voxelUnitStringShort());
+  if (areaFlag)
+      mesg += QString("SurfaceArea %1^2 : ").arg(pvlInfo.voxelUnitStringShort());
+    
+  if (sphericityFlag)
+    mesg += "Sphericity : ";
+    
+  if (diameterFlag)
+    mesg += "EquiSphereDiameter : ";
+    
+  if (feretFlag)
+    mesg += "MaxFeret : ";
+
+  mesg += "\n------------------------------\n";
+  
+  if (ut.count() > 0)
+    {
+      for(int i=0; i<ut.count(); i++)
+	{
+	  mesg += QString("%1 : ").arg(ut[i], 6); // label
+
+	  if (voxelsFlag)
+	    mesg += QString("%1 : ").arg(voxels[ut[i]]);
+
+	    
+	  float p = 100.0*vdbVolume[ut[i]]/vdbVolume[-1];
+	  if (volFlag)
+	    mesg += QString("%1 : %2 : ").arg(vdbVolume[ut[i]]).\
+	                                  arg(p, 0, 'f', 2);
+	  if (areaFlag)
+	    mesg += QString("%1 : ").arg(vdbArea[ut[i]]);
+
+	  if (sphericityFlag)
+	    mesg += QString("%1 : ").arg(sphericity[ut[i]]);
+
+	  if (diameterFlag)
+	    mesg += QString("%1 : ").arg(sphereDiameter[ut[i]]);
+
+	  if (feretFlag)
+	    mesg += QString("%1 : ").arg(feret[ut[i]]);
+
+	  mesg += "\n";
+	}
+    }
+  
+  StaticFunctions::showMessage("Volume Measures", mesg);
+
+  StaticFunctions::saveMesgToFile(Global::previousDirectory(), mesg);
+}

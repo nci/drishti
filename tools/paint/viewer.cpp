@@ -1446,6 +1446,26 @@ Viewer::processCommand(QString cmd)
       emit loadRawMask(flnm);
     }
   
+  if (list[0] == "measures")
+    {
+      int label = -1;
+      if (list.size() == 2)
+	{
+	  label = list[1].toInt(&ok);
+	  if (label < -1 || label > 65535)
+	    {
+	      QMessageBox::information(0, "", QString("Incorrect label specified : %1").\
+				       arg(label));
+	      return;
+	    }
+	}
+      QList<Vec> cPos =  clipPos();
+      QList<Vec> cNorm = clipNorm();
+      VolumeOperations::setClip(cPos, cNorm);
+      allMeasures(label);
+      return;
+    }
+  
   if (list[0] == "voxelcount")
     {
       int label = -1;
@@ -1543,6 +1563,26 @@ Viewer::processCommand(QString cmd)
       QList<Vec> cNorm = clipNorm();
       VolumeOperations::setClip(cPos, cNorm);
       VolumeMeasure::getSphericity(bmin, bmax, label);
+      return;
+    }
+  
+  if (list[0] == "spherediameter")
+    {
+      int label = -1;
+      if (list.size() == 2)
+	{
+	  label = list[1].toInt(&ok);
+	  if (label < -1 || label > 65535)
+	    {
+	      QMessageBox::information(0, "", QString("Incorrect label specified : %1").\
+				       arg(label));
+	      return;
+	    }
+	}
+      QList<Vec> cPos =  clipPos();
+      QList<Vec> cNorm = clipNorm();
+      VolumeOperations::setClip(cPos, cNorm);
+      VolumeMeasure::getEquivalentSphericalDiameter(bmin, bmax, label);
       return;
     }
   
@@ -4452,4 +4492,60 @@ Viewer::drawVBOBox(GLenum glFaces)
   glUseProgram(0);
 
   glDisable(GL_CULL_FACE);
+}
+
+void
+Viewer::allMeasures(int label)
+{
+  QMap<QString, bool> flags;
+  
+  PropertyEditor propertyEditor;
+  QMap<QString, QVariantList> plist;
+
+  QStringList keys;
+
+  keys << "Voxel Count";
+  keys << "Volume";
+  keys << "Surface Area";
+  keys << "Sphericity";
+  keys << "Equivalent Sphere Diameter";
+  keys << "Max Feret Distance";
+
+  for (int i=0; i<keys.count(); i++)
+    {
+      QVariantList vlist;
+      vlist.clear();
+      vlist << QVariant("checkbox");
+      vlist << QVariant(false);
+      plist[keys[i]] = vlist;
+    }
+  
+  propertyEditor.set("Volume Measures",
+		     plist, keys,
+		     false); // do not add reset buttons
+  propertyEditor.resize(350, 300);
+
+	      
+  QMap<QString, QPair<QVariant, bool> > vmap;
+
+  if (propertyEditor.exec() == QDialog::Accepted)
+    {
+      vmap = propertyEditor.get();
+
+      for (int i=0; i<keys.count(); i++)
+	{
+	  QPair<QVariant, bool> pair = vmap.value(keys[i]);
+
+	  flags[keys[i]] = pair.second;
+	}      
+    }
+
+  
+  Vec voxelScaling = Global::relativeVoxelScaling();
+  Vec bmin, bmax;
+  m_boundingBox.bounds(bmin, bmax);
+  bmin = VECDIVIDE(bmin, voxelScaling);
+  bmax = VECDIVIDE(bmax, voxelScaling);
+
+  VolumeMeasure::allMeasures(bmin, bmax, label, flags);
 }

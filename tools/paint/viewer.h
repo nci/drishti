@@ -400,6 +400,8 @@ class Viewer : public QGLViewer
 
   void markValidBoxes();
   static void parMarkValidBoxes(QList<QVariant>);
+
+  void allMeasures(int);
   
 };
 

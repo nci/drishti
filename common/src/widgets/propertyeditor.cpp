@@ -309,6 +309,14 @@ PropertyEditor::set(QString title,
       sz << 1;
       ui.splitter_2->setSizes(sz);
     }
+
+  if (!ui.propertyBox->isHidden())
+    {
+      QSpacerItem *spacer = new QSpacerItem(10, 10,
+					    QSizePolicy::Minimum,
+					    QSizePolicy::Expanding);
+      gridLayout->addItem(spacer, keys.count(), 0, 1, 2);
+    }
 }
 
 QString PropertyEditor::getCommandString() { return ui.lineEdit->text(); }

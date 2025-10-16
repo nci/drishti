@@ -2659,7 +2659,7 @@ LightHandler::openPropertyEditor()
   
   
   propertyEditor.set("GI Light Parameters", plist, keys);
-  propertyEditor.resize(300, 500);  
+  propertyEditor.resize(300, 600);  
   
   QMap<QString, QPair<QVariant, bool> > vmap;
   

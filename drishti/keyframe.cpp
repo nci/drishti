@@ -1656,7 +1656,7 @@ KeyFrame::editFrameInterpolation(int kfn)
   propertyEditor.set("Keyframe Interpolation Parameters",
 		     plist, keys,
 		     false); // do not add reset buttons
-  propertyEditor.resize(300, 500);
+  propertyEditor.resize(500, 500);
 	      
   QMap<QString, QPair<QVariant, bool> > vmap;
 
@@ -2199,7 +2199,7 @@ KeyFrame::copyProperties(QString title)
   propertyEditor.set(title,
 		     plist, keys,
 		     false); // do not add reset buttons
-  propertyEditor.resize(300, 500);
+  propertyEditor.resize(400, 600);
 
 	      
   QMap<QString, QPair<QVariant, bool> > vmap;

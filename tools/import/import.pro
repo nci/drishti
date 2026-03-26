@@ -19,17 +19,15 @@ win32 {
   INCLUDEPATH += ../../common/src/vdb \
                  ../../common/src/widgets \
                  ../../common/src/mesh
-  INCLUDEPATH += $$GMSH_INCLUDE_PATH
   INCLUDEPATH += $$VCPKG_INCLUDE_PATH
 
   QMAKE_LIBDIR += ..\..\common\lib     
-  QMAKE_LIBDIR += $$GMSH_LIBRARY_PATH
   QMAKE_LIBDIR += $$VCPKG_LIBRARY_PATH
 
   # /std:c++17 added because openvdb requires this
   QMAKE_CXXFLAGS*=/std:c++17
   
-  LIBS += Imath-3_1.lib openvdb.lib vdb.lib gmsh.lib
+  LIBS += Imath-3_2.lib openvdb.lib vdb.lib gmsh.dll.lib
   
   RC_ICONS += images/drishtiimport.ico
 }

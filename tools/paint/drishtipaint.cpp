@@ -1319,6 +1319,12 @@ DrishtiPaint::reloadSlices()
 }
 
 void
+DrishtiPaint::viewerUpdate()
+{
+  m_viewer->update();
+}
+
+void
 DrishtiPaint::tagSelected(int t, bool checkBoxClicked)
 {
   Global::setTag(t);
@@ -2902,6 +2908,8 @@ DrishtiPaint::miscConnections()
   
   connect(m_tagColorEditor, SIGNAL(tagSelected(int, bool)),
 	  this, SLOT(tagSelected(int, bool)));
+  connect(m_tagColorEditor, SIGNAL(viewerUpdate()),
+	  this, SLOT(viewerUpdate()));
 
   connect(m_tagColorEditor, SIGNAL(tagColorChanged()),
 	  m_axialCurves, SLOT(updateTagColors()));

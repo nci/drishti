@@ -302,8 +302,15 @@ TagColorEditor::cellClicked(int row, int col)
       colors[4*index+3] = 0;
     }
 
-  emit tagSelected(index, checkBoxClicked);
-
+  if (col == 0)
+    emit tagSelected(index, checkBoxClicked);
+  else
+    {
+      Global::setTag(index);
+      emit viewerUpdate();
+    }
+ 
+  
   if (col == 0)
     VolumeOperations::setVisibilityMapDirtyBit(true);
   
@@ -336,6 +343,8 @@ TagColorEditor::cellDoubleClicked(int row, int col)
   uchar *colors = Global::tagColors();
 
   int index = row;
+
+  Global::setTag(index);
 
   QColor clr = QColor(colors[4*index+0],
 		      colors[4*index+1],

@@ -10,13 +10,12 @@ TARGET = jp2plugin
 include(../plugins.pri)
 
 win32 {
-  INCLUDEPATH += ./ ../../
-
   SOURCES = jp2plugin.cpp
 
-  INCLUDEPATH += ../../
-  INCLUDEPATH += C:\cygwin64\home\acl900\vcpkg\vcpkg\installed\x64-windows\include
-  QMAKE_LIBDIR += C:\cygwin64\home\acl900\vcpkg\vcpkg\installed\x64-windows\lib
+  INCLUDEPATH += ./ ../../
+
+  INCLUDEPATH += $$VCPKG_INCLUDE_PATH
+  QMAKE_LIBDIR += $$VCPKG_LIBRARY_PATH
 
   LIBS += openjp2.lib
 

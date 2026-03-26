@@ -21,7 +21,8 @@ class TagColorEditor : public QWidget
   void tagColorChanged();
   void tagSelected(int, bool);
   void tagNamesChanged();
-    
+  void viewerUpdate();
+			
  public slots :
   void setColors();
   void setColorGradient(QList<QColor>, int, int);

@@ -44,22 +44,18 @@ win32 {
 
     QMAKE_LFLAGS += /OPT:ICF /LTCG
     
-    INCLUDEPATH += c:/cygwin64/home/acl900/drishtilib/assimp-5.0.1/include \
-                   c:/cygwin64/home/acl900/drishtilib/assimp-5.0.1/build/include \
-                   ..\..\common\src\videoencoder
+    INCLUDEPATH += ..\..\common\src\videoencoder
 
-    INCLUDEPATH += $$FFMPEG_INCLUDE_PATH
-                   
-    QMAKE_LIBDIR += c:/cygwin64/home/acl900/drishtilib/assimp-5.0.1/libs
-	
-    QMAKE_LIBDIR += $$FFMPEG_LIBRARY_PATH
+    INCLUDEPATH += $$VCPKG_INCLUDE_PATH
+
+    QMAKE_LIBDIR += $$VCPKG_LIBRARY_PATH
 
                    
     LIBS += -lQGLViewer2 \
             -lglew32 \
             -lopengl32 \
             -lglu32 \
-            -lassimp-vc142-mt \
+            -lassimp-vc145-mt \
             -liphlpapi
 
     # Set list of required FFmpeg libraries

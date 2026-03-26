@@ -1480,7 +1480,7 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
   holeSize = QInputDialog::getInt(0,
 				  "Fill Holes",
 				  "Size of holes to fill",
-				  0, 0, 500, 1);
+				  0, 0, 5000, 1);
   //-------------------------
 
   int ds = qMax(0, qFloor(bmin.z));
@@ -1561,18 +1561,21 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
 
   //--------------------------------
   // add border so that identifying outer region becomes easier
-  MyBitArray bitmask;
-  bitmask.resize((mx+2)*(my+2)*(mz+2));
-  bitmask.fill(true);
-  for(int d=0; d<mz; d++)
-  for(int w=0; w<my; w++)
-  for(int h=0; h<mx; h++)
-    {
-      qint64 bidx = d*mx*my + w*mx + h;
-      qint64 bidx2 = (d+1)*(mx+2)*(my+2) + (w+1)*(mx+2) + (h+1);
-      if (!cbitmask.testBit(bidx))
-	bitmask.setBit(bidx2, false);
-    }
+  MyBitArray bitmask;    
+//  bitmask.resize((mx+2)*(my+2)*(mz+2));
+//  bitmask.fill(true);
+//  for(int d=0; d<mz; d++)
+//  for(int w=0; w<my; w++)
+//  for(int h=0; h<mx; h++)
+//    {
+//      qint64 bidx = d*mx*my + w*mx + h;
+//      qint64 bidx2 = (d+1)*(mx+2)*(my+2) + (w+1)*(mx+2) + (h+1);
+//      if (!cbitmask.testBit(bidx))
+//	bitmask.setBit(bidx2, false);
+//    }
+  padBitmask(bitmask, cbitmask,
+	     mx, my, mz,
+	     true, 1);
   cbitmask = bitmask; // need to reflect padding in cbitmask as well
   //--------------------------------
 
@@ -1754,12 +1757,15 @@ VolumeOperations::poreCharacterization(Vec bmin, Vec bmax,
 				mz+1, my+1, mx+1,
 				bitmask,
 				cbitmask);
-  // dilate the outer region so that we remove the fringe
-  cbitmask.invert();
-  _dilatebitmask(fringe, false, // erode shrinkwrapped region
-		 mx+2, my+2, mz+2,
-		 cbitmask);
-  cbitmask.invert();
+  if (fringe > 0)
+    {
+      // dilate the outer region so that we remove the fringe
+      cbitmask.invert();
+      _dilatebitmask(fringe, false, // erode shrinkwrapped region
+		     mx+2, my+2, mz+2,
+		     cbitmask);
+      cbitmask.invert();
+    }
   //--------------------------------
 
 

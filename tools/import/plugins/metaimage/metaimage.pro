@@ -9,7 +9,6 @@ TARGET = metaimageplugin
 
 include(../plugins.pri)
 
-
 include(../plugins.itk)
 
 

@@ -128,6 +128,7 @@ class DrishtiPaint : public QMainWindow
   void changeTransferFunctionDisplay(int, QList<bool>);
   void checkStateChanged(int, int, bool);
   void updateComposite();
+  void viewerUpdate();
   void tagSelected(int, bool);
 
   void getAxialSlice(int);

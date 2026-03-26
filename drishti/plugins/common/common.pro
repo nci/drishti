@@ -21,8 +21,8 @@ win32 {
   INCLUDEPATH += ../../ \
                  ..\..\..\common\src\widgets
   LIBS += QGLViewer2.lib \
-	  netcdfcpp.lib \
-	  glew32.lib
+			netcdfcpp.lib \
+	  		glew32.lib
  }
 }
 

@@ -12,23 +12,17 @@ contains(Windows_Setup, Win64) {
   win32 {
     message(Win64 setup)
 
-    FFMPEG_LIBRARY_PATH = c:/Apps/ffmpeg-6.1/lib
-    FFMPEG_INCLUDE_PATH = c:/Apps/ffmpeg-6.1/include
-
-    VCPKG_INCLUDE_PATH = C:\cygwin64\home\acl900\vcpkg\vcpkg\installed\x64-windows\include
-    VCPKG_LIBRARY_PATH = C:\cygwin64\home\acl900\vcpkg\vcpkg\installed\x64-windows\lib
-
-    GMSH_INCLUDE_PATH = C:\cygwin64\home\acl900\drishtilib\gmsh-4.14.0-Windows64-sdk\include
-    GMSH_LIBRARY_PATH = C:\cygwin64\home\acl900\drishtilib\gmsh-4.14.0-Windows64-sdk\lib
+    VCPKG_INCLUDE_PATH = C:\cygwin64\home\acl900\vcpkg\installed\x64-windows\include
+    VCPKG_LIBRARY_PATH = C:\cygwin64\home\acl900\vcpkg\installed\x64-windows\lib
 
     contains(DRISHTI_DEFINES, RENDERER) {
       INCLUDEPATH += c:\Qt\Qt-5.15.2\libQGLViewer\libQGLViewer-2.6.4 \
-  	c:\cygwin64\home\acl900\drishtilib\freeglut\include \
- 	c:\cygwin64\home\acl900\drishtilib\glew-2.1.0\include
+  	                 c:\cygwin64\home\acl900\drishtilib\freeglut\include \
+ 	                   c:\cygwin64\home\acl900\drishtilib\glew-2.1.0\include
   
       QMAKE_LIBDIR += c:\Qt\Qt-5.15.2\libQGLViewer\libQGLViewer-2.6.4\lib \
-  	c:\cygwin64\home\acl900\drishtilib\freeglut\lib\x64 \
-	c:\cygwin64\home\acl900\drishtilib\glew-2.1.0\build\lib\Release
+  	                  c:\cygwin64\home\acl900\drishtilib\freeglut\lib\x64 \
+	                    c:\cygwin64\home\acl900\drishtilib\glew-2.1.0\build\lib\Release
     }
   	
     contains(DRISHTI_DEFINES, ITK) {

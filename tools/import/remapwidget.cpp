@@ -1,7 +1,7 @@
+#include "remapwidget.h"
 #include "global.h"
 #include "staticfunctions.h"
 #include "common.h"
-#include "remapwidget.h"
 #include "raw2pvl.h"
 #include "savepvldialog.h"
 #include "fileslistdialog.h"

@@ -1,28 +1,29 @@
-#ifndef RAWPLUGIN_H
-#define RAWPLUGIN_H
+#ifndef SCRIPTSPLUGIN_H
+#define SCRIPTSPLUGIN_H
 
-#include <QObject>
-#include "volinterface.h"
-#include <QProcess>
-#include <QUdpSocket>
-#include <QTcpSocket>
-#include <QProcess>
-#include <QFile>
+#include "pythonengine.h"
 
-class ScriptsPlugin : public QObject, VolInterface
+#include <pybind11/embed.h>
+#include <pybind11/numpy.h>
+
+#include "commonqtclasses.h"
+
+namespace py = pybind11;
+
+
+class ScriptsPlugin
 {
-  Q_OBJECT
-  Q_PLUGIN_METADATA(IID "drishti.import.Plugin.VolInterface/1.0")
-  Q_INTERFACES(VolInterface)
-
-  public :  
+  public :
+    ScriptsPlugin();
     ~ScriptsPlugin();
     
     QStringList registerPlugin();
     
+    bool start(QString);
+
     void init();
     void clear();
-    
+
     void setValue(QString, float);
     void setValue(QString, QString);
       
@@ -49,12 +50,8 @@ class ScriptsPlugin : public QObject, VolInterface
     QVariant rawValue(int, int, int);
     
   private :
-    QProcess m_process;
-    QUdpSocket m_sendingSocket;
-    QUdpSocket m_listeningSocket;
-    QFile m_sharedFile;
-  
-  
+    //PythonEngine& m_engine;
+
     QString m_jsonflnm;
     QString m_script;
     QString m_executable;
@@ -76,6 +73,8 @@ class ScriptsPlugin : public QObject, VolInterface
     
     int m_skipBytes;
     int m_bytesPerVoxel;
+
+    py::object m_pyModule;
 };
 
 #endif

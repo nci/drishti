@@ -48,10 +48,6 @@ win32 {
     INCLUDEPATH += 16bit \
                    ..\common\src\widgets \
                    ..\common\src\videoencoder
-
-    INCLUDEPATH += $$VCPKG_INCLUDE_PATH	
-    
-	QMAKE_LIBDIR += $$VCPKG_LIBRARY_PATH
 	               
     LIBS += -lQGLViewer2 \
             -lnetcdf-cxx4 \

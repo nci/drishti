@@ -1,8 +1,8 @@
 #ifndef REMAPWIDGET_H
 #define REMAPWIDGET_H
 
-#include "ui_remapwidget.h"
 #include "volumedata.h"
+#include "ui_remapwidget.h"
 #include "remaphistogramwidget.h"
 #include "remapimage.h"
 #include "gradienteditorwidget.h"

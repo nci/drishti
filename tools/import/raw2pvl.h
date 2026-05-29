@@ -1,8 +1,8 @@
 #ifndef RAW2PVL_H
 #define RAW2PVL_H
 
-#include "vdbvolume.h"
 #include "volumedata.h"
+#include "vdbvolume.h"
 
 class Raw2Pvl
 {

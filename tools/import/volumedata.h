@@ -1,6 +1,7 @@
 #ifndef VOLUMEDATA_H
 #define VOLUMEDATA_H
 
+#include "scriptsplugin.h"
 #include "volinterface.h"
 
 class VolumeData : public QObject
@@ -49,6 +50,9 @@ class VolumeData : public QObject
 
  private :
   VolInterface *m_volInterface;
+
+  bool m_scriptsPluginActive;
+  ScriptsPlugin m_scriptsPlugin;
 
   QStringList m_fileName;
   int m_depth, m_width, m_height;

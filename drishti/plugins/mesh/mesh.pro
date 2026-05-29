@@ -18,8 +18,8 @@ win32 {
   DESTDIR = ../../../bin/renderplugins
 
   LIBS += common.lib \
-	  QGLViewer2.lib \
-	  glew32.lib \
+	        QGLViewer2.lib \
+	        glew32.lib \
           opengl32.lib \
           glu32.lib \
           vdb.lib
@@ -32,13 +32,9 @@ win32 {
      INCLUDEPATH += ../../ \
                     ../../../common/src/vdb \
                     ../../../common/src/mesh
-     INCLUDEPATH += $$VCPKG_INCLUDE_PATH
-
                     
      QMAKE_LIBDIR += ..\common \
                      ..\..\..\common\lib     
-     QMAKE_LIBDIR += $$VCPKG_LIBRARY_PATH
-
                      
      PRE_TARGETDEPS +=..\common\common.lib \
                      ..\..\..\common\lib\vdb.lib     

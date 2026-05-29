@@ -19,6 +19,8 @@ VolumeData::clear()
   if (m_volInterface)
     delete m_volInterface;
 
+  m_scriptsPluginActive = false;
+
   m_fileName.clear();
   m_description.clear();
   m_depth = m_width = m_height = 0;
@@ -56,9 +58,27 @@ VolumeData::voxelSize(float& vx, float& vy, float& vz)
     vy = m_voxelSizeY;
     vz = m_voxelSizeZ;
   }
-QString VolumeData::description() { return m_volInterface->description(); }
-int VolumeData::voxelType() { return m_volInterface->voxelType(); }
-int VolumeData::voxelUnit() { return m_volInterface->voxelUnit(); }
+QString VolumeData::description()
+{ 
+  if (m_scriptsPluginActive)
+    return m_scriptsPlugin.description();
+  else
+    return m_volInterface->description(); 
+}
+int VolumeData::voxelType()
+{
+  if (m_scriptsPluginActive)
+    return m_scriptsPlugin.voxelType();
+  else
+    return m_volInterface->voxelType(); 
+}
+int VolumeData::voxelUnit() 
+{ 
+  if (m_scriptsPluginActive)
+    return m_scriptsPlugin.voxelUnit();
+  else
+    return m_volInterface->voxelUnit(); 
+}
 int VolumeData::headerBytes() { return m_headerBytes; }
 int VolumeData::bytesPerVoxel() { return m_bytesPerVoxel; }
 
@@ -68,8 +88,16 @@ VolumeData::setMinMax(float rmin, float rmax)
   m_rawMin = rmin;
   m_rawMax = rmax;
   
-  m_volInterface->setMinMax(m_rawMin, m_rawMax);
-  m_histogram = m_volInterface->histogram();
+  if (m_scriptsPluginActive)
+    {
+      m_scriptsPlugin.setMinMax(rmin, rmax);
+      m_histogram = m_scriptsPlugin.histogram();
+    }
+  else
+    {
+      m_volInterface->setMinMax(m_rawMin, m_rawMax);
+      m_histogram = m_volInterface->histogram();
+    }
 }
 float VolumeData::rawMin() { return m_rawMin; }
 float VolumeData::rawMax() { return m_rawMax; }
@@ -98,9 +126,10 @@ VolumeData::gridSize(int& d, int& w, int& h)
 void
 VolumeData::replaceFile(QString flnm)
 {
-//  m_fileName.clear();
-//  m_fileName << flnm;
-  m_volInterface->replaceFile(flnm);
+  if (m_scriptsPluginActive)
+    m_scriptsPlugin.replaceFile(flnm);
+  else
+    m_volInterface->replaceFile(flnm);
 }
 
 bool
@@ -109,24 +138,17 @@ VolumeData::loadPlugin(QString pluginflnm)
   QStringList s = pluginflnm.split(" : ");
   if (s[0] == "script")
     {
-      QString scriptPluginflnm = s[1];
       QString jsonflnm = s[2];
       
-      QPluginLoader pluginLoader(scriptPluginflnm);
-      QObject *plugin = pluginLoader.instance();
-      
-      if (plugin)
-	{
-	  m_volInterface = qobject_cast<VolInterface *>(plugin);
-	  if (m_volInterface)
-	    {
-	      m_volInterface->setValue("start", jsonflnm);
-	      return true;
-	    }
-	}
+      if (m_scriptsPlugin.start(jsonflnm))
+      { 
+        m_scriptsPluginActive = true;
+        //QMessageBox::information(0, "Script Plugin Loaded", "Successfully loaded script plugin");
+        return true;
+      }
 
       QMessageBox::information(0, "Error", "Cannot load script plugin");
-
+      m_scriptsPluginActive = false;
       return false;
     }
   
@@ -138,7 +160,7 @@ VolumeData::loadPlugin(QString pluginflnm)
     {
       m_volInterface = qobject_cast<VolInterface *>(plugin);
       if (m_volInterface)
-	return true;
+	      return true;
     }
 
   QMessageBox::information(0, "Error", "Cannot load plugin");
@@ -148,7 +170,7 @@ VolumeData::loadPlugin(QString pluginflnm)
 
 bool
 VolumeData::setFile(QStringList files,
-		    QString voltype)
+		                QString voltype)
 {
   clear();
 
@@ -156,15 +178,27 @@ VolumeData::setFile(QStringList files,
 
   if (!loadPlugin(voltype))
     return false;
+    
+  if (m_scriptsPluginActive)
+    {
+      m_scriptsPlugin.init();
+      m_scriptsPlugin.set4DVolume(false);
+      if (! m_scriptsPlugin.setFile(m_fileName))
+        return false;
 
-  m_volInterface->init();
-  m_volInterface->set4DVolume(false);
+      m_scriptsPlugin.gridSize(m_depth, m_width, m_height);
+      m_voxelType = m_scriptsPlugin.voxelType();
+    }
+  else
+    {
+      m_volInterface->init();
+      m_volInterface->set4DVolume(false);
+      if (! m_volInterface->setFile(m_fileName))
+        return false;
 
-  if (! m_volInterface->setFile(m_fileName))
-    return false;
-
-  m_volInterface->gridSize(m_depth, m_width, m_height);
-  m_voxelType = m_volInterface->voxelType();
+      m_volInterface->gridSize(m_depth, m_width, m_height);
+      m_voxelType = m_volInterface->voxelType();
+      } 
 
   m_bytesPerVoxel = 1;
   if (m_voxelType == _UChar) m_bytesPerVoxel = 1;
@@ -175,14 +209,26 @@ VolumeData::setFile(QStringList files,
   else if (m_voxelType == _Float) m_bytesPerVoxel = 4;
 
   float vx, vy, vz;
-  m_volInterface->voxelSize(vx, vy, vz);
+  if (m_scriptsPluginActive)
+    m_scriptsPlugin.voxelSize(vx, vy, vz);
+  else
+    m_volInterface->voxelSize(vx, vy, vz);
   m_voxelSizeX = vx;
   m_voxelSizeY = vy;
   m_voxelSizeZ = vz;
   
-  m_rawMin = m_volInterface->rawMin();
-  m_rawMax = m_volInterface->rawMax();
-  m_histogram = m_volInterface->histogram();
+  if (m_scriptsPluginActive)
+    {
+      m_rawMin = m_scriptsPlugin.rawMin();
+      m_rawMax = m_scriptsPlugin.rawMax();
+      m_histogram = m_scriptsPlugin.histogram();
+    }
+  else
+    {
+      m_rawMin = m_volInterface->rawMin();
+      m_rawMax = m_volInterface->rawMax();
+      m_histogram = m_volInterface->histogram();
+    }
 
   m_rawMap.append(m_rawMin);
   m_rawMap.append(m_rawMax);
@@ -205,17 +251,31 @@ VolumeData::setFile(QStringList files,
   if (!loadPlugin(voltype))
     return false;
 
-  m_volInterface->init();
-  m_volInterface->set4DVolume(vol4d);
+  if (m_scriptsPluginActive)
+    {
+      m_scriptsPlugin.init();
+      m_scriptsPlugin.set4DVolume(vol4d);
 
-  if (skipRawDialog)
-    m_volInterface->setValue("skiprawdialog", skipRawDialog);
+      if (! m_scriptsPlugin.setFile(m_fileName))
+        return false;
 
-  if (! m_volInterface->setFile(m_fileName))
-    return false;
+      m_scriptsPlugin.gridSize(m_depth, m_width, m_height);
+      m_voxelType = m_scriptsPlugin.voxelType();
+    }
+  else
+    {
+      m_volInterface->init();
+      m_volInterface->set4DVolume(vol4d);
 
-  m_volInterface->gridSize(m_depth, m_width, m_height);
-  m_voxelType = m_volInterface->voxelType();
+      if (skipRawDialog)
+        m_volInterface->setValue("skiprawdialog", skipRawDialog);
+
+      if (! m_volInterface->setFile(m_fileName))
+        return false;
+
+      m_volInterface->gridSize(m_depth, m_width, m_height);
+      m_voxelType = m_volInterface->voxelType();
+    }
 
   m_bytesPerVoxel = 1;
   if (m_voxelType == _UChar) m_bytesPerVoxel = 1;
@@ -226,15 +286,27 @@ VolumeData::setFile(QStringList files,
   else if (m_voxelType == _Float) m_bytesPerVoxel = 4;
 
   float vx, vy, vz;
-  m_volInterface->voxelSize(vx, vy, vz);
+  if (m_scriptsPluginActive)
+    m_scriptsPlugin.voxelSize(vx, vy, vz);
+  else
+    m_volInterface->voxelSize(vx, vy, vz);
   m_voxelSizeX = vx;
   m_voxelSizeY = vy;
   m_voxelSizeZ = vz;
   
 
-  m_rawMin = m_volInterface->rawMin();
-  m_rawMax = m_volInterface->rawMax();
-  m_histogram = m_volInterface->histogram();
+  if (m_scriptsPluginActive)
+    {
+      m_rawMin = m_scriptsPlugin.rawMin();
+      m_rawMax = m_scriptsPlugin.rawMax();
+      m_histogram = m_scriptsPlugin.histogram();
+    }
+  else
+    {
+      m_rawMin = m_volInterface->rawMin();
+      m_rawMax = m_volInterface->rawMax();
+      m_histogram = m_volInterface->histogram();
+    }
 
   m_rawMap.append(m_rawMin);
   m_rawMap.append(m_rawMax);
@@ -245,10 +317,12 @@ VolumeData::setFile(QStringList files,
 }
 
 void
-VolumeData::getDepthSlice(int slc,
-			  uchar *slice)
+VolumeData::getDepthSlice(int slc, uchar *slice)
 {
-  m_volInterface->getDepthSlice(slc, slice);
+  if (m_scriptsPluginActive)
+    m_scriptsPlugin.getDepthSlice(slc, slice);
+  else
+    m_volInterface->getDepthSlice(slc, slice);
 }
 
 QImage
@@ -277,7 +351,10 @@ VolumeData::getDepthSliceImage(int slc)
 
   uchar *tmp = new uchar[nbytes];
 
-  m_volInterface->getDepthSlice(slc, tmp);
+  if (m_scriptsPluginActive)
+    m_scriptsPlugin.getDepthSlice(slc, tmp);
+  else
+    m_volInterface->getDepthSlice(slc, tmp);
 
   if (m_voxelType == _Rgb || m_voxelType == _Rgba)
     {  
@@ -299,45 +376,45 @@ VolumeData::getDepthSliceImage(int slc)
       float v;
 
       if (m_voxelType == _UChar)
-	v = ((uchar *)tmp)[i];
+	        v = ((uchar *)tmp)[i];
       else if (m_voxelType == _Char)
-	v = ((char *)tmp)[i];
+	        v = ((char *)tmp)[i];
       else if (m_voxelType == _UShort)
-	v = ((ushort *)tmp)[i];
+	        v = ((ushort *)tmp)[i];
       else if (m_voxelType == _Short)
-	v = ((short *)tmp)[i];
+	        v = ((short *)tmp)[i];
       else if (m_voxelType == _Int)
-	v = ((int *)tmp)[i];
+	        v = ((int *)tmp)[i];
       else if (m_voxelType == _Float)
-	v = ((float *)tmp)[i];
+	        v = ((float *)tmp)[i];
 
       if (v < m_rawMap[0])
-	{
-	  idx = 0;
-	  frc = 0;
-	}
-      else if (v > m_rawMap[rawSize])
-	{
-	  idx = rawSize-1;
-	  frc = 1;
-	}
-      else
-	{
-	  for(int m=0; m<rawSize; m++)
 	    {
-	      if (v >= m_rawMap[m] &&
-		  v <= m_rawMap[m+1])
-		{
-		  idx = m;
-		  frc = ((float)v-(float)m_rawMap[m])/
-		    ((float)m_rawMap[m+1]-(float)m_rawMap[m]);
-		}
+	      idx = 0;
+	      frc = 0;
 	    }
-	}
+      else if (v > m_rawMap[rawSize])
+	    {
+	      idx = rawSize-1;
+	      frc = 1;
+	    }
+      else
+	    {
+	      for(int m=0; m<rawSize; m++)
+	        {
+	          if (v >= m_rawMap[m] &&
+	    	  v <= m_rawMap[m+1])
+	    	{
+	    	  idx = m;
+	    	  frc = ((float)v-(float)m_rawMap[m])/
+	    	    ((float)m_rawMap[m+1]-(float)m_rawMap[m]);
+	    	}
+	        }
+	    }
 
       int pv = m_pvlMap[idx] + frc*(m_pvlMap[idx+1]-m_pvlMap[idx]);
       if (m_pvlMapMax > 255)
-	pv/=256;
+	      pv/=256;
       m_image[i] = pv;
     }
   QImage img = QImage(m_image, nZ, nY, nZ, QImage::Format_Indexed8);
@@ -400,45 +477,45 @@ VolumeData::getWidthSliceImage(int slc)
       float v;
 
       if (m_voxelType == _UChar)
-	v = ((uchar *)tmp)[i];
+	      v = ((uchar *)tmp)[i];
       else if (m_voxelType == _Char)
-	v = ((char *)tmp)[i];
+	      v = ((char *)tmp)[i];
       else if (m_voxelType == _UShort)
-	v = ((ushort *)tmp)[i];
+	      v = ((ushort *)tmp)[i];
       else if (m_voxelType == _Short)
-	v = ((short *)tmp)[i];
+	      v = ((short *)tmp)[i];
       else if (m_voxelType == _Int)
-	v = ((int *)tmp)[i];
+      	v = ((int *)tmp)[i];
       else if (m_voxelType == _Float)
-	v = ((float *)tmp)[i];
+      	v = ((float *)tmp)[i];
 
       if (v < m_rawMap[0])
-	{
-	  idx = 0;
-	  frc = 0;
-	}
-      else if (v > m_rawMap[rawSize])
-	{
-	  idx = rawSize-1;
-	  frc = 1;
-	}
-      else
-	{
-	  for(int m=0; m<rawSize; m++)
 	    {
-	      if (v >= m_rawMap[m] &&
-		  v <= m_rawMap[m+1])
-		{
-		  idx = m;
-		  frc = ((float)v-(float)m_rawMap[m])/
-		    ((float)m_rawMap[m+1]-(float)m_rawMap[m]);
-		}
+	      idx = 0;
+	      frc = 0;
 	    }
-	}
+      else if (v > m_rawMap[rawSize])
+	    {
+	      idx = rawSize-1;
+	      frc = 1;
+	    }
+      else
+	    {
+	      for(int m=0; m<rawSize; m++)
+	        {
+	          if (v >= m_rawMap[m] &&
+	    	  v <= m_rawMap[m+1])
+	    	{
+	    	  idx = m;
+	    	  frc = ((float)v-(float)m_rawMap[m])/
+	    	    ((float)m_rawMap[m+1]-(float)m_rawMap[m]);
+	    	}
+	        }
+	    }
 
       int pv = m_pvlMap[idx] + frc*(m_pvlMap[idx+1]-m_pvlMap[idx]);
       if (m_pvlMapMax > 255)
-	pv/=256;
+	      pv/=256;
       m_image[i] = pv;
     }
   QImage img = QImage(m_image, nZ, nX, nZ, QImage::Format_Indexed8);
@@ -501,45 +578,45 @@ VolumeData::getHeightSliceImage(int slc)
       float v;
 
       if (m_voxelType == _UChar)
-	v = ((uchar *)tmp)[i];
+	      v = ((uchar *)tmp)[i];
       else if (m_voxelType == _Char)
-	v = ((char *)tmp)[i];
+      	v = ((char *)tmp)[i];
       else if (m_voxelType == _UShort)
-	v = ((ushort *)tmp)[i];
+      	v = ((ushort *)tmp)[i];
       else if (m_voxelType == _Short)
-	v = ((short *)tmp)[i];
+      	v = ((short *)tmp)[i];
       else if (m_voxelType == _Int)
-	v = ((int *)tmp)[i];
+      	v = ((int *)tmp)[i];
       else if (m_voxelType == _Float)
-	v = ((float *)tmp)[i];
+      	v = ((float *)tmp)[i];
 
       if (v < m_rawMap[0])
-	{
-	  idx = 0;
-	  frc = 0;
-	}
-      else if (v > m_rawMap[rawSize])
-	{
-	  idx = rawSize-1;
-	  frc = 1;
-	}
-      else
-	{
-	  for(int m=0; m<rawSize; m++)
 	    {
-	      if (v >= m_rawMap[m] &&
-		  v <= m_rawMap[m+1])
-		{
-		  idx = m;
-		  frc = ((float)v-(float)m_rawMap[m])/
-		    ((float)m_rawMap[m+1]-(float)m_rawMap[m]);
-		}
+	      idx = 0;
+	      frc = 0;
 	    }
-	}
+      else if (v > m_rawMap[rawSize])
+	    {
+	      idx = rawSize-1;
+	      frc = 1;
+	    }
+      else
+	    {
+	      for(int m=0; m<rawSize; m++)
+	        {
+	          if (v >= m_rawMap[m] &&
+	    	  v <= m_rawMap[m+1])
+	    	{
+	    	  idx = m;
+	    	  frc = ((float)v-(float)m_rawMap[m])/
+	    	    ((float)m_rawMap[m+1]-(float)m_rawMap[m]);
+	    	}
+	        }
+	    }
 
       int pv = m_pvlMap[idx] + frc*(m_pvlMap[idx+1]-m_pvlMap[idx]);
       if (m_pvlMapMax > 255)
-	pv/=256;
+	      pv/=256;
       m_image[i] = pv;
     }
   QImage img = QImage(m_image, nY, nX, nY, QImage::Format_Indexed8);
@@ -563,7 +640,11 @@ VolumeData::rawValue(int d, int w, int h)
       return pair;
     }
 
-  QVariant v = m_volInterface->rawValue(d, w, h);
+  QVariant v;
+  if (m_scriptsPluginActive)
+    v = m_scriptsPlugin.rawValue(d, w, h);
+  else
+    v = m_volInterface->rawValue(d, w, h);
 
 
   if (v.type() == QVariant::String)
@@ -572,9 +653,9 @@ VolumeData::rawValue(int d, int w, int h)
 
       QString str = v.toString();
       if (str == "OutOfBounds")
-	pair.second = QVariant("OutOfBounds");
+	      pair.second = QVariant("OutOfBounds");
       else
-	pair.second = QVariant("rgba");
+	      pair.second = QVariant("rgba");
       return pair;
     }
 
@@ -603,15 +684,15 @@ VolumeData::rawValue(int d, int w, int h)
   else
     {
       for(int m=0; m<rawSize; m++)
-	{
-	  if (val >= m_rawMap[m] &&
-	      val <= m_rawMap[m+1])
 	    {
-	      idx = m;
-	      frc = ((float)val-(float)m_rawMap[m])/
-		((float)m_rawMap[m+1]-(float)m_rawMap[m]);
+	      if (val >= m_rawMap[m] &&
+	          val <= m_rawMap[m+1])
+	        {
+	          idx = m;
+	          frc = ((float)val-(float)m_rawMap[m])/
+	    	          ((float)m_rawMap[m+1]-(float)m_rawMap[m]);
+	        }
 	    }
-	}
     }
   
   int pv = m_pvlMap[idx] + frc*(m_pvlMap[idx+1]-m_pvlMap[idx]);

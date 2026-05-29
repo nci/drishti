@@ -2,6 +2,8 @@ TEMPLATE = lib
 
 DRISHTI_DEFINES = RENDERER
 
+include(../../../drishti.pri )
+
 QT += opengl xml network
 
 CONFIG += release staticlib
@@ -11,14 +13,14 @@ TARGET = vdb
 DESTDIR = ..\..\lib
   
 win32 {
-     INCLUDEPATH += ..\..\..\drishti
-     INCLUDEPATH += C:\cygwin64\home\acl900\vcpkg\installed\x64-windows\include
-     QMAKE_LIBDIR += C:\cygwin64\home\acl900\vcpkg\installed\x64-windows\lib
+      INCLUDEPATH += ..\..\..\drishti
+      INCLUDEPATH += $$VCPKG_INCLUDE_PATH
+      QMAKE_LIBDIR += $$VCPKG_LIBRARY_PATH
 
      ### /std:c++17 added because openvdb requires this
      QMAKE_CXXFLAGS*=/std:c++17 /bigobj
   
-     LIBS += Imath-3_1.lib openvdb.lib  
+     LIBS += Imath-3_2.lib openvdb.lib  
 }
 
 

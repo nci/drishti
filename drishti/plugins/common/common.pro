@@ -16,11 +16,16 @@ win32 {
   DESTDIR = ../common
 
  contains(Windows_Setup, Win64) {
-  message(drishti.exe : Win64 setup)
-  DEFINES += _CRT_SECURE_NO_WARNINGS
-  INCLUDEPATH += ../../ \
-                 ..\..\..\common\src\widgets
-  LIBS += QGLViewer2.lib \
+	message(drishti.exe : Win64 setup)
+	
+	DEFINES += _CRT_SECURE_NO_WARNINGS
+	INCLUDEPATH +=../../ \
+                  ..\..\..\common\src\widgets	
+				 
+	INCLUDEPATH += $$VCPKG_INCLUDE_PATH	
+	QMAKE_LIBDIR += $$VCPKG_LIBRARY_PATH
+
+  	LIBS += QGLViewer2.lib \
 			netcdfcpp.lib \
 	  		glew32.lib
  }

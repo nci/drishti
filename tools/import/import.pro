@@ -9,7 +9,7 @@ DEPENDPATH += .
 
 QT += widgets core gui xml concurrent
 
-CONFIG += release
+CONFIG += release console
 
 TARGET = drishtiimport
 
@@ -21,14 +21,20 @@ win32 {
                  ../../common/src/mesh
   INCLUDEPATH += $$VCPKG_INCLUDE_PATH
 
-  QMAKE_LIBDIR += ..\..\common\lib     
+  QMAKE_LIBDIR += ..\..\common\lib
   QMAKE_LIBDIR += $$VCPKG_LIBRARY_PATH
 
   # /std:c++17 added because openvdb requires this
   QMAKE_CXXFLAGS*=/std:c++17
   
   LIBS += Imath-3_2.lib openvdb.lib vdb.lib gmsh.dll.lib
+
   
+  INCLUDEPATH += C:\Apps\Python314\include
+  QMAKE_LIBDIR += C:\Apps\Python314\libs
+  LIBS += python314.lib
+  
+
   RC_ICONS += images/drishtiimport.ico
 }
 
@@ -60,48 +66,52 @@ FORMS += remapwidget.ui \
 
 # Input
 HEADERS += global.h \
-	   common.h \
-	   staticfunctions.h \
-	   fileslistdialog.h \
-	   remapwidget.h \
-           remaphistogramline.h \
-           remaphistogramwidget.h \
-	   remapimage.h \
-	   drishtiimport.h \
-	   myslider.h \
-	   raw2pvl.h \
-	   savepvldialog.h \
-	   volumefilemanager.h \
-	   volumedata.h \
-	   volinterface.h \
- 	   lookuptable.h \
-           ../../common/src/widgets/propertyeditor.h \
-           ../../common/src/widgets/dcolordialog.h \
-           ../../common/src/widgets/dcolorwheel.h \
-	   ../../common/src/widgets/gradienteditor.h \
-	   ../../common/src/widgets/gradienteditorwidget.h \
-           ../../common/src/mesh/meshtools.h \
-           ../../common/src/mesh/ply.h
+	    common.h \
+	    staticfunctions.h \
+	    fileslistdialog.h \
+	    remapwidget.h \
+      remaphistogramline.h \
+      remaphistogramwidget.h \
+	    remapimage.h \
+	    drishtiimport.h \
+	    myslider.h \
+	    raw2pvl.h \
+	    savepvldialog.h \
+	    volumefilemanager.h \
+	    volumedata.h \ 
+	    volinterface.h \
+ 	    lookuptable.h \
+      pythonengine.h \
+      scriptsplugin.h \
+      ../../common/src/widgets/propertyeditor.h \
+      ../../common/src/widgets/dcolordialog.h \
+      ../../common/src/widgets/dcolorwheel.h \
+	    ../../common/src/widgets/gradienteditor.h \
+	    ../../common/src/widgets/gradienteditorwidget.h \
+      ../../common/src/mesh/meshtools.h \
+      ../../common/src/mesh/ply.h
 
 SOURCES += global.cpp \
-	   staticfunctions.cpp \
-	   fileslistdialog.cpp \
-	   main.cpp \
-           remapwidget.cpp \
-           remaphistogramline.cpp \
-           remaphistogramwidget.cpp \
-	   remapimage.cpp \
-	   drishtiimport.cpp \
-	   myslider.cpp \
-	   raw2pvl.cpp \
-	   savepvldialog.cpp \
-	   volumedata.cpp \
-	   volumefilemanager.cpp \
-           ../../common/src/widgets/propertyeditor.cpp \
-           ../../common/src/widgets/dcolordialog.cpp \
-	   ../../common/src/widgets/dcolorwheel.cpp \
-	   ../../common/src/widgets/gradienteditor.cpp \
-	   ../../common/src/widgets/gradienteditorwidget.cpp \
-           ../../common/src/mesh/meshtools.cpp \
-           ../../common/src/mesh/ply.c
+	    staticfunctions.cpp \
+	    fileslistdialog.cpp \
+	    main.cpp \
+      remapwidget.cpp \
+      remaphistogramline.cpp \
+      remaphistogramwidget.cpp \
+	    remapimage.cpp \
+	    drishtiimport.cpp \
+	    myslider.cpp \
+	    raw2pvl.cpp \
+	    savepvldialog.cpp \
+	    volumedata.cpp \
+	    volumefilemanager.cpp \
+      pythonengine.cpp \
+      scriptsplugin.cpp \
+      ../../common/src/widgets/propertyeditor.cpp \
+      ../../common/src/widgets/dcolordialog.cpp \
+	    ../../common/src/widgets/dcolorwheel.cpp \
+	    ../../common/src/widgets/gradienteditor.cpp \
+	    ../../common/src/widgets/gradienteditorwidget.cpp \
+      ../../common/src/mesh/meshtools.cpp \
+      ../../common/src/mesh/ply.c
 

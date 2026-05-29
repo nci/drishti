@@ -1,3 +1,5 @@
+#include <pybind11/pybind11.h>
+
 #include "global.h"
 #include "staticfunctions.h"
 #include "drishtiimport.h"
@@ -11,10 +13,15 @@
 #include <QTreeView>
 #include <QTableWidget>
 
+
+namespace py = pybind11;
+
 DrishtiImport::DrishtiImport(QWidget *parent) :
   QMainWindow(parent)
 {
   ui.setupUi(this);
+  
+  py::print("Hello from embedded Python!"); // test the embedded Python environment
 
   resize(1280, 1024);
   qApp->setFont(QFont("MS Reference Sans Serif", 12));
@@ -41,7 +48,6 @@ void
 DrishtiImport::registerPlugins()
 {
   m_pluginFileTypes.clear();
-  m_pluginFileDLib.clear();
   m_pluginDirTypes.clear();
   m_pluginDirDLib.clear();
 

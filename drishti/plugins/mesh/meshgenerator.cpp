@@ -978,6 +978,7 @@ MeshGenerator::generateMesh(int nSlabs, int isoval,
 			    int chan, bool avgColor, float adaptivity,
 			    bool tetMesh)
 {
+
   VdbVolume vdb;
 
   int saveType = 0; // default .ply
@@ -1025,6 +1026,7 @@ MeshGenerator::generateMesh(int nSlabs, int isoval,
     {
       m_meshLog->moveCursor(QTextCursor::End);
       m_meshLog->insertPlainText(QString("Processing slab %1 of %2\n").arg(nb+1).arg(nSlabs));
+
       int d0 = nb*blockStep;
       int d1 = qMin(m_nX-1, (nb+1)*blockStep);
       int dlen = d1-d0+1;

@@ -30,8 +30,8 @@ public:
 private:
     static std::unique_ptr<PythonEngine> m_instance;
 
-    //PythonEngine(const PythonEngine&) = delete;
-    //PythonEngine& operator=(const PythonEngine&) = delete;
+    PythonEngine(const PythonEngine&) = delete;
+    PythonEngine& operator=(const PythonEngine&) = delete;
 
     std::unique_ptr<pybind11::scoped_interpreter> m_guard;
 };

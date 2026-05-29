@@ -15,6 +15,7 @@ namespace fs = std::filesystem;
 
 #include "drishtiimport.h"
 #include <QMessageBox>
+#include <QDockWidget>
 
 // Custom Qt message handler to redirect python output, cout, cerr, qDebug, qWarning, etc. to a QTextEdit
 #include "streamredirect.h" 
@@ -33,42 +34,28 @@ int main(int argc, char **argv)
   QApplication app(argc, argv);   
 #endif
 
+  // Embedded Python interpreter 
+  PythonEngine &pythonGuard = PythonEngine::instance();
 
-//-----------------------------------------
-// Create a simple message window with a QTextEdit to display logs
-  QMainWindow mesgWindow;
-  QWidget centralWidget; 
-  QVBoxLayout layout;
-  QTextEdit logView;
-  logView.setReadOnly(true);
-  
-  g_logWidget = &logView; // Set the global pointer to the QTextEdit for logging
-
-  layout.addWidget(&logView);
-  centralWidget.setLayout(&layout);
-  mesgWindow.setCentralWidget(&centralWidget);
-  mesgWindow.setWindowTitle("Messages");
-  mesgWindow.resize(1280, 1024);
-  mesgWindow.show();
+  //-----------------------------------------
+  QDockWidget *dock = new QDockWidget("Messages", nullptr, Qt::Widget);
+  dock->setAllowedAreas(Qt::AllDockWidgetAreas);
 
   // Redirect std::cout and std::cerr
-  static QtStreamRedirect coutRedirect(&logView, Qt::black);
-  static QtStreamRedirect cerrRedirect(&logView, Qt::red);
+  static QtStreamRedirect coutRedirect(QtStreamRedirect::logWidget(), Qt::black);
+  static QtStreamRedirect cerrRedirect(QtStreamRedirect::logWidget(), Qt::red);
   std::cout.rdbuf(&coutRedirect);
   std::cerr.rdbuf(&cerrRedirect);
   
   // Install Qt message handler
-  qInstallMessageHandler(qtMessageHandler);
-//-----------------------------------------
+  qInstallMessageHandler(QtStreamRedirect::qtMessageHandler);
 
+  dock->setWidget(QtStreamRedirect::logWidget());
+  //-----------------------------------------
 
-  // Embedded Python interpreter 
-  PythonEngine &pythonGuard = PythonEngine::instance();
-
-  
   DrishtiImport mainWindow;
+  mainWindow.addDockWidget(Qt::BottomDockWidgetArea, dock);
   mainWindow.show();
-
-  
+    
   return app.exec();
 }

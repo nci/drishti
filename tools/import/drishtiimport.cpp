@@ -21,7 +21,7 @@ DrishtiImport::DrishtiImport(QWidget *parent) :
 {
   ui.setupUi(this);
   
-  py::print("Hello from embedded Python!"); // test the embedded Python environment
+  py::print("Import Volume"); // test the embedded Python environment
 
   resize(1280, 1024);
   qApp->setFont(QFont("MS Reference Sans Serif", 12));

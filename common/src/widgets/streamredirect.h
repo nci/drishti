@@ -10,6 +10,42 @@
 // Custom stream buffer to redirect std::cout / std::cerr
 class QtStreamRedirect : public std::streambuf {
 public:
+
+    static QTextEdit* logWidget()
+    {
+        if (!m_logWidget) {
+            m_logWidget = new QTextEdit();
+            m_logWidget->setReadOnly(true);
+        }
+        return m_logWidget;
+    }
+
+    
+    // Qt message handler for qDebug, qWarning, etc.
+    static void qtMessageHandler(QtMsgType type, const QMessageLogContext&, const QString& msg) {
+        QString prefix;
+        QColor color = Qt::black;
+
+        switch (type) {
+            case QtDebugMsg:    prefix = "[DEBUG] "; color = Qt::darkGreen; break;
+            case QtWarningMsg:  prefix = "[WARNING] "; color = Qt::darkYellow; break;
+            case QtCriticalMsg: prefix = "[CRITICAL] "; color = Qt::red; break;
+            case QtFatalMsg:    prefix = "[FATAL] "; color = Qt::red; break;
+        }
+
+        // Append to QTextEdit (global pointer)
+        extern QTextEdit* g_logWidget;
+        if (m_logWidget) {
+            m_logWidget->setTextColor(color);
+            m_logWidget->append(prefix + msg);
+        }
+
+        if (type == QtFatalMsg) {
+            abort();
+        }
+    }
+
+    
     QtStreamRedirect(QTextEdit* textEdit, QColor color = Qt::black)
         : m_textEdit(textEdit), m_color(color) {}
 
@@ -56,36 +92,13 @@ protected:
     }
 
 private:
+    static QTextEdit *m_logWidget; // Global pointer to the QTextEdit for logging
     QTextEdit* m_textEdit;
     QColor m_color;
     std::string m_buffer;
 };
 
+QTextEdit* QtStreamRedirect::m_logWidget = nullptr;
 
-QTextEdit *g_logWidget = nullptr; // Global pointer to the QTextEdit for logging
-
-// Qt message handler for qDebug, qWarning, etc.
-void qtMessageHandler(QtMsgType type, const QMessageLogContext&, const QString& msg) {
-    QString prefix;
-    QColor color = Qt::black;
-
-    switch (type) {
-        case QtDebugMsg:    prefix = "[DEBUG] "; color = Qt::darkGreen; break;
-        case QtWarningMsg:  prefix = "[WARNING] "; color = Qt::darkYellow; break;
-        case QtCriticalMsg: prefix = "[CRITICAL] "; color = Qt::red; break;
-        case QtFatalMsg:    prefix = "[FATAL] "; color = Qt::red; break;
-    }
-
-    // Append to QTextEdit (global pointer)
-    extern QTextEdit* g_logWidget;
-    if (g_logWidget) {
-        g_logWidget->setTextColor(color);
-        g_logWidget->append(prefix + msg);
-    }
-
-    if (type == QtFatalMsg) {
-        abort();
-    }
-}
 
 #endif // QTSTREAMREDIRECT_H

@@ -5,12 +5,12 @@
 //    3. Create the Qt application + main window
 //    4. Run the Qt event loop
 //    5. ~scoped_interpreter() finalises Python on exit
-#include <pybind11/embed.h>
+#include "pythonengine.h"
 
 #include <filesystem>
 #include <iostream>
 
-namespace py = pybind11;
+//namespace py = pybind11;
 namespace fs = std::filesystem;
 
 #include "drishtiimport.h"
@@ -18,7 +18,7 @@ namespace fs = std::filesystem;
 
 // Custom Qt message handler to redirect python output, cout, cerr, qDebug, qWarning, etc. to a QTextEdit
 #include "streamredirect.h" 
-#include "pythonengine.h"
+
 
 
 int main(int argc, char **argv)
@@ -62,42 +62,8 @@ int main(int argc, char **argv)
 //-----------------------------------------
 
 
-//-----------------------------------------
   // Embedded Python interpreter 
-  // Must live longer than the QApplication so Python is alive during
-  // the entire event loop.
-  PythonEngine &pythonGuard = PythonEngine::instance(); // wrapper for py::scoped_interpreter
-
-//  py::scoped_interpreter pythonGuard{};
-//  
-//  // Determine the path to the extracted Python library
-//  fs::path exePath = fs::current_path(); // Adjust if needed
-//  //fs::path pythonLibDir = exePath / "python314";
-//  fs::path pythonLibDir = exePath; // Assuming the Python library is in the same directory as the executable";
-//
-//  // Set the Python path to include the directory
-//  py::module sys = py::module::import("sys");
-//  py::object path = sys.attr("path");
-//  path.attr("insert")(0, pythonLibDir.string());
-//
-//  // Example Python code execution
-//  try
-//  {
-//      py::exec(R"(
-//          import sys
-//          import pyredir
-//          
-//          # Redirect Python stdout/stderr to C++ streams
-//          sys.stdout = pyredir.CoutRedirect()
-//          sys.stderr = pyredir.CerrRedirect()
-//      )");
-//  }
-//  catch (const std::exception &e)
-//  {
-//    QMessageBox::critical(nullptr, "Python Error", e.what());
-//  }
-//-----------------------------------------
-
+  PythonEngine &pythonGuard = PythonEngine::instance();
 
   
   DrishtiImport mainWindow;

@@ -18,6 +18,7 @@ DESTDIR = ../../bin
 win32 {
   INCLUDEPATH += ../../common/src/vdb \
                  ../../common/src/widgets \
+                 ../../common/src/pybind \                 
                  ../../common/src/mesh
   INCLUDEPATH += $$VCPKG_INCLUDE_PATH
 
@@ -42,6 +43,7 @@ unix {
 !macx {
   INCLUDEPATH += ../../common/src/vdb \
                  ../../common/src/widgets \
+                 ../../common/src/pybind \
                  ../../common/src/mesh \
                  /home/acl900/drishtilib/openvdb/openvdb \
                  /home/acl900/drishtilib/openvdb/build/openvdb/openvdb \
@@ -81,8 +83,9 @@ HEADERS += global.h \
 	    volumedata.h \ 
 	    volinterface.h \
  	    lookuptable.h \
-      pythonengine.h \
       scriptsplugin.h \
+      ../../common/src/pybind/pythonengine.h \
+      ../../common/src/widgets/streamredirect.h \
       ../../common/src/widgets/propertyeditor.h \
       ../../common/src/widgets/dcolordialog.h \
       ../../common/src/widgets/dcolorwheel.h \
@@ -105,8 +108,8 @@ SOURCES += global.cpp \
 	    savepvldialog.cpp \
 	    volumedata.cpp \
 	    volumefilemanager.cpp \
-      pythonengine.cpp \
       scriptsplugin.cpp \
+      ../../common/src/pybind/pythonengine.cpp \
       ../../common/src/widgets/propertyeditor.cpp \
       ../../common/src/widgets/dcolordialog.cpp \
 	    ../../common/src/widgets/dcolorwheel.cpp \

@@ -1,10 +1,6 @@
-//#include "pythonengine.h"
-#include <pybind11/embed.h>
-#include <pybind11/numpy.h>
-#include <pybind11/stl.h>
+#include "scriptsplugin.h"
 #include <cstdint>
 
-#include "scriptsplugin.h"
 
 #include <QtGui>
 #include "common.h"

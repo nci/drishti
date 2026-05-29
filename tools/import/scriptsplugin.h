@@ -3,9 +3,6 @@
 
 #include "pythonengine.h"
 
-#include <pybind11/embed.h>
-#include <pybind11/numpy.h>
-
 #include "commonqtclasses.h"
 
 namespace py = pybind11;

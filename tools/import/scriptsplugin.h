@@ -47,11 +47,8 @@ class ScriptsPlugin
     QVariant rawValue(int, int, int);
     
   private :
-    //PythonEngine& m_engine;
-
     QString m_jsonflnm;
     QString m_script;
-    QString m_executable;
     QString m_interpreter;
     
     QStringList m_fileName;

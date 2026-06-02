@@ -1,6 +1,10 @@
 #include "common.h"
 #include "volumedata.h"
 
+#include <iostream>
+
+using namespace std;
+
 VolumeData::VolumeData()
 {
   m_image = 0;
@@ -79,7 +83,13 @@ int VolumeData::voxelUnit()
   else
     return m_volInterface->voxelUnit(); 
 }
-int VolumeData::headerBytes() { return m_headerBytes; }
+int VolumeData::headerBytes()
+{
+  if (m_scriptsPluginActive)
+    return m_scriptsPlugin.headerBytes();
+  else
+    return m_volInterface->headerBytes(); 
+}
 int VolumeData::bytesPerVoxel() { return m_bytesPerVoxel; }
 
 void
@@ -240,9 +250,9 @@ VolumeData::setFile(QStringList files,
 
 bool
 VolumeData::setFile(QStringList files,
-		    QString voltype,
-		    bool vol4d,
-		    bool skipRawDialog)
+		                QString voltype,
+		                bool vol4d,
+		                bool skipRawDialog)
 {
   clear();
 
@@ -250,6 +260,10 @@ VolumeData::setFile(QStringList files,
 
   if (!loadPlugin(voltype))
     return false;
+
+  std::cout << std::endl << std::endl << std::endl;
+  std::cout << "--------------------------------------------------------------" << std::endl;
+  std::cout << std::endl << "Loading files: " << files.join(", ").toStdString() << std::endl;
 
   if (m_scriptsPluginActive)
     {
@@ -313,7 +327,60 @@ VolumeData::setFile(QStringList files,
   m_pvlMap.append(0);
   m_pvlMap.append(m_pvlMapMax);
 
+  printVolumeInfo();
+
   return true;
+}
+
+void
+VolumeData::printVolumeInfo()
+{
+    QString vstr;
+    if (m_voxelUnit == _Nanometer)
+      vstr = "nanometer";
+    else if (m_voxelUnit == _Micron)
+      vstr = "micron";
+    else if (m_voxelUnit == _Millimeter)
+      vstr = "millimeter";
+    else if (m_voxelUnit == _Centimeter)
+      vstr = "centimeter";
+    else if (m_voxelUnit == _Meter)
+      vstr = "meter";
+    else
+      vstr = QString::number(m_voxelUnit);
+
+    QString vtstr;
+    if (m_voxelType == _UChar)
+      vtstr = "Unsigned Char";
+    else if (m_voxelType == _Char)
+      vtstr = "Signed Char";
+    else if (m_voxelType == _UShort)
+      vtstr = "Unsigned Short";
+    else if (m_voxelType == _Short)
+      vtstr = "Signed Short";
+    else if (m_voxelType == _Int)
+      vtstr = "Integer";
+    else if (m_voxelType == _Float)
+      vtstr = "Float";
+    else if (m_voxelType == _Rgb)
+      vtstr = "RGB";
+    else if (m_voxelType == _Rgba)
+      vtstr = "RGBA";
+    else
+      vtstr = QString::number(m_voxelType);
+
+    QString mesg;
+    mesg = QString("description : %1\n").arg(description());
+    mesg += QString("voxelunit : %1\n").arg(vstr);
+    mesg += QString("voxeltype : %1\n").arg(vtstr);
+    mesg += QString("voxel size : %1 %2 %3\n").arg(m_voxelSizeX).arg(m_voxelSizeY).arg(m_voxelSizeZ);
+    mesg += QString("bytes per voxel : %1\n").arg(m_bytesPerVoxel);
+    mesg += QString("header : %1\n").arg(headerBytes());
+    mesg += QString("dim : %1 %2 %3\n").arg(m_depth).arg(m_width).arg(m_height);		    
+    mesg += QString("raw min max : %1 %2\n").arg(m_rawMin).arg(m_rawMax);		      
+
+    cout << "\nVolume Data Information:" << endl;
+    cout << mesg.toStdString() << endl;
 }
 
 void

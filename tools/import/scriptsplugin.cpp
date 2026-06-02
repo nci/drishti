@@ -65,9 +65,7 @@ ScriptsPlugin::start(QString jsonflnm)
 	      for (auto key : keys)
 		    {
 		      auto value = jsonObj.take(key);
-
-		      if (key == "executable")
-		        m_executable = value.toString();		
+	
 		      if (key == "interpreter")
 		        m_interpreter = value.toString();
 		      if (key == "script")
@@ -80,20 +78,27 @@ ScriptsPlugin::start(QString jsonflnm)
 	      return false;
 	    }
 
-    //mesg = QString("Executable: {%1}\nInterpreter: %2\nScript: %3").arg(m_executable).arg(m_interpreter).arg(m_script);
-    //py::print(mesg.toStdString());
+    if (m_interpreter.isEmpty() || m_script.isEmpty())
+      {
+        QMessageBox::information(0, "Error", "Interpreter or script not specified in JSON file.");
+        return false;
+      }
+    if (m_interpreter != "python")
+      {
+        QMessageBox::information(0, "Error", "Only Python interpreter is supported currently.");
+        return false;
+      } 
 
     try {
       QString spath = QFileInfo(m_script).absolutePath();
       py::print("Script path:", spath.toStdString());
       QString ps = "import sys\nsys.path.insert(0, r\"" + spath + "\")";
-      py::print("Executing Python code:\n", ps.toStdString());
+      //py::print("Executing Python code:\n", ps.toStdString());
       py::exec(ps.toStdString());
       QString scriptName = QFileInfo(m_script).baseName();
       py::print("Importing module:", scriptName.toStdString());
       m_pyModule = py::module_::import(scriptName.toStdString().c_str());
       ps = "import "+scriptName+" as testmod\nprint('Available functions :', dir(testmod))";
-      //py::print("Executing Python code:\n", ps.toStdString());
       py::exec(ps.toStdString());
 
       //QMessageBox::information(0, "Success", "Successfully imported module: " + scriptName);
@@ -278,24 +283,6 @@ ScriptsPlugin::setFile(QStringList files)
   else if (m_voxelType == _Short) m_bytesPerVoxel = 2;
   else if (m_voxelType == _Int) m_bytesPerVoxel = 4;
   else if (m_voxelType == _Float) m_bytesPerVoxel = 4;
-  
-  {
-    QString mesg;
-    mesg = QString("description : %1\n").arg(m_description);
-    mesg += QString("voxelunit : %1\n").arg(m_voxelUnit);
-    mesg += QString("voxeltype : %1\n").arg(m_voxelType);
-    mesg += QString("voxel size : %1 %2 %3\n").arg(m_voxelSizeX).arg(m_voxelSizeY).arg(m_voxelSizeZ);
-    mesg += QString("bytes per voxel : %1\n").arg(m_bytesPerVoxel);
-    mesg += QString("header : %1\n").arg(m_headerBytes);
-    mesg += QString("dim : %1 %2 %3\n").arg(m_depth).arg(m_width).arg(m_height);		    
-    mesg += QString("raw min max : %1 %2\n").arg(m_rawMin).arg(m_rawMax);		      
-
-    py::print("\nVolume Data Information:");
-    py::print(mesg.toStdString());
-
-    //QMessageBox::information(0, "Volume Data Information", mesg);
-  }
-
   //----------------------------------- 
 
   m_fileName = files;

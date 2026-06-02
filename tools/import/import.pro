@@ -9,7 +9,7 @@ DEPENDPATH += .
 
 QT += widgets core gui xml concurrent
 
-CONFIG += release console
+CONFIG += release
 
 TARGET = drishtiimport
 

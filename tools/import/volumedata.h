@@ -77,6 +77,8 @@ class VolumeData : public QObject
     
   void clear();
   bool loadPlugin(QString);
+
+  void printVolumeInfo();
 };
 
 #endif

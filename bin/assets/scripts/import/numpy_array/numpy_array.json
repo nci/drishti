@@ -1,5 +1,4 @@
 {
-    "executable" :"",    
     "interpreter" : "python",
     "script" : "numpy_array.py",
     "filetype" : ".npy/.npz files",

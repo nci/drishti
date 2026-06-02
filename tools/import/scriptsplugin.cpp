@@ -37,7 +37,7 @@ bool
 ScriptsPlugin::start(QString jsonflnm)
 {
   QString mesg = QString("Script Plugin', 'Received JSON file: %1").arg(jsonflnm);
-  py::print(mesg.toStdString());
+  //py::print(mesg.toStdString());
 
   m_jsonflnm = jsonflnm;
   QString m_scriptDir = QFileInfo(m_jsonflnm).absolutePath();
@@ -80,21 +80,23 @@ ScriptsPlugin::start(QString jsonflnm)
 	      return false;
 	    }
 
-    mesg = QString("Executable: {%1}\nInterpreter: %2\nScript: %3").arg(m_executable).arg(m_interpreter).arg(m_script);
-    py::print(mesg.toStdString());
+    //mesg = QString("Executable: {%1}\nInterpreter: %2\nScript: %3").arg(m_executable).arg(m_interpreter).arg(m_script);
+    //py::print(mesg.toStdString());
 
     try {
       QString spath = QFileInfo(m_script).absolutePath();
       py::print("Script path:", spath.toStdString());
       QString ps = "import sys\nsys.path.insert(0, r\"" + spath + "\")";
-      //py::print("Executing Python code:\n", ps.toStdString());
+      py::print("Executing Python code:\n", ps.toStdString());
       py::exec(ps.toStdString());
       QString scriptName = QFileInfo(m_script).baseName();
       py::print("Importing module:", scriptName.toStdString());
       m_pyModule = py::module_::import(scriptName.toStdString().c_str());
-      ps = "import "+scriptName+" as testmod\nprint('functions in testmod:', dir(testmod))";
+      ps = "import "+scriptName+" as testmod\nprint('Available functions :', dir(testmod))";
       //py::print("Executing Python code:\n", ps.toStdString());
       py::exec(ps.toStdString());
+
+      //QMessageBox::information(0, "Success", "Successfully imported module: " + scriptName);
     }
     catch (const std::exception& e) {
       QMessageBox::information(0, "Error", "Failed to import module: " + QString(e.what()));
@@ -171,17 +173,16 @@ float ScriptsPlugin::rawMax() { return m_rawMax; }
 QList<uint>
 ScriptsPlugin::histogram()
 {
-  uint32_t hist[65536] = {0};
+  uint hist[65536] = {0};
   
  // Wrap C++ array as a NumPy array (no copy, shared memory)
-  py::array_t<uint32_t> pyHist(
+  py::array_t<uint> pyHist(
     {65536},                 // shape
-    {sizeof(uint32_t)},      // stride
+    {sizeof(uint)},      // stride
     hist,                    // pointer to data
     py::cast(nullptr)        // no base object, raw memory
   );
     
-  
   // Call Python function
   m_pyModule.attr("get_histogram")(pyHist);
   
@@ -225,10 +226,11 @@ ScriptsPlugin::setFile(QStringList files)
   std::vector<std::string> files_vec;
   files_vec.reserve(files.size());
   for (auto& f : files) files_vec.push_back(f.toStdString());
+  
   m_pyModule.attr("set_files")(files_vec);
 
   m_description = m_pyModule.attr("get_description")().cast<std::string>().c_str();
-  
+
   std::string vu = m_pyModule.attr("get_voxel_unit")().cast<std::string>();
   if (vu == "angstrom")
     m_voxelUnit = _Angstrom;
@@ -290,6 +292,8 @@ ScriptsPlugin::setFile(QStringList files)
 
     py::print("\nVolume Data Information:");
     py::print(mesg.toStdString());
+
+    //QMessageBox::information(0, "Volume Data Information", mesg);
   }
 
   //----------------------------------- 
@@ -309,7 +313,8 @@ ScriptsPlugin::getDepthSlice(int slc, uchar *slice)
       return;
     }
 
-    
+  //QMessageBox::information(0, "Info", QString("Getting depth slice %1").arg(slc));
+
   // Wrap C++ array as a NumPy array (no copy, shared memory)
   // [slice] is modified in-place by Python function and takes care of data type conversion if needed
   // On return, `slice` contains Python-modified data
@@ -374,6 +379,7 @@ ScriptsPlugin::getDepthSlice(int slc, uchar *slice)
     m_pyModule.attr("get_depth_slice")(slc, pySlice);
   }
 
+  //QMessageBox::information(0, "Info", QString("Depth slice %1 retrieved successfully").arg(slc));
 }
 
 
@@ -398,12 +404,36 @@ ScriptsPlugin::rawValue(int d, int w, int h)
       return QVariant(QString::fromStdString(s));
   }
 
-  if (m_voxelType == _UChar) return QVariant(result.cast<uchar>());
-  else if (m_voxelType == _Char) return QVariant(result.cast<char>());
-  else if (m_voxelType == _UShort) return QVariant(result.cast<ushort>());
-  else if (m_voxelType == _Short) return QVariant(result.cast<short>());
-  else if (m_voxelType == _Int) return QVariant(result.cast<int>());
-  else if (m_voxelType == _Float) return QVariant(result.cast<float>());
+  if (m_voxelType == _UChar) 
+  {
+    uint val = result.cast<uchar>();
+    return QVariant(val);
+  }
+  else if (m_voxelType == _Char)
+  {
+    int val = result.cast<char>();
+    return QVariant(val);
+  }
+  else if (m_voxelType == _UShort) 
+  {
+    uint val = result.cast<ushort>();
+    return QVariant(val);
+  }
+  else if (m_voxelType == _Short) 
+  {
+    int val = result.cast<short>();
+    return QVariant(val);
+  }
+  else if (m_voxelType == _Int) 
+  {
+    int val = result.cast<int>();
+    return QVariant(val);
+  }
+  else if (m_voxelType == _Float)
+  { 
+    float val = result.cast<float>();
+    return QVariant(val);
+  }
 
   return v;
 }

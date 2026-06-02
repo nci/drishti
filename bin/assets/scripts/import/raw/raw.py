@@ -2,13 +2,13 @@ import os
 import sys
 import numpy
 
-print('---- raw.py ----')
+print('---- raw_reader.py ----')
 
-class RawVolume :
+class Volume :
     def __init__(self) :
         self.flnms = ""
         self.description = "RAW volume"
-        self.voxelUnit = "microns"
+        self.voxelUnit = "micron"
         self.voxelSize = (1.0, 1.0, 1.0)
         self.voxelType = 0
         self.bytesPerVoxel = 1
@@ -97,7 +97,7 @@ class RawVolume :
 #------------------------------------------------------------------
 
 
-vol = RawVolume()
+vol = Volume()
 
 def init() :
     print('\nInit from raw.py\n')

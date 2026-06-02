@@ -2,219 +2,141 @@ import os
 import sys
 import numpy
 
-from PyQt5.QtCore import (
-    QByteArray,
-    QDataStream,
-    QFile
-)
+print('---- numpy_array_reader.py ----')
 
-from PyQt5.QtNetwork import (
-    QLocalSocket,
-    QLocalServer,
-    QTcpSocket,
-    QUdpSocket,
-    QHostAddress
-)
-    
-from PyQt5.QtWidgets import (
-    QApplication,
-    QMainWindow,
-    QWidget,
-    QMessageBox,
-    QProgressDialog,
-    QPlainTextEdit,
-    QVBoxLayout
-)
-
-import select
-import socket
-
-
-class MainWindow(QMainWindow) :
-
+class Volume :
+    def __init__(self) :
+        self.flnms = ""
+        self.description = "NumpyArray volume"
+        self.voxelUnit = "micron"
+        self.voxelSize = (1.0, 1.0, 1.0)
+        self.voxelType = 0
+        self.bytesPerVoxel = 1
+        self.depth = 0
+        self.width = 0
+        self.height = 0
+        self.dim = (0, 0, 0)
+        self.headerBytes = 0
+        self.data = None
+        self.dataMin = 0
+        self.dataMax = 0
+        self.rawMin = 0
+        self.rawMax = 0
+        self.histogram = None
+        print('\nNumpyArray Reader Initialized\n')
     #--------------------
-    def __init__(self, app):
-        super().__init__()
-        
-        self.title = 'Numpy Handler'
-        centralWidget = QWidget(self)
-        mainLayout = QVBoxLayout(centralWidget)
-        self.plainTextEdit = QPlainTextEdit()
-        self.plainTextEdit.appendPlainText('NumPy Handler started')
-        mainLayout.addWidget(self.plainTextEdit)
-        self.setCentralWidget(centralWidget)
-        self.resize(500,300)
-        self.show()
-
-        self.listeningSocket = QUdpSocket()
-        res = self.listeningSocket.bind(QHostAddress.LocalHost, 7760)
-        self.listeningSocket.readyRead.connect(self.readyRead)
-
-        self.sendingPort = 7761
-        self.sendingSocket = QUdpSocket()
-    #--------------------
-        
-    
-    #--------------------
-    #--------------------
-        
-        
-    #--------------------
-    def readyRead(self) :
-        while self.listeningSocket.hasPendingDatagrams() :
-            datagram = self.listeningSocket.receiveDatagram()                       
-            data = bytes(datagram.data()).decode()
-
-            if data.find(':') != -1 :
-                cmd, payload = data.split(' : ')
-            else :
-                cmd = data
-            
-            self.plainTextEdit.appendPlainText(cmd)
-
-            if cmd == 'exit' :
-                sys.exit()
-
-            if cmd == 'mmap' :
-                self.mmap_flnm = payload
-                
-            if cmd == 'setfiles' :
-                flnms = payload.split(' , ')
-                self.setFiles(flnms)
-            
-            if cmd == 'histogram' :
-                self.send_data('histogram', self.histogram)
-            
-            if cmd == 'depthslice' :
-                slc = int(payload) # slice number expected
-                self.send_depth_slice(slc)
-
-            if cmd == 'rawvalue' :
-                d, w, h = payload.split(' , ')
-                d = int(d)
-                w = int(w)
-                h = int(h)
-                self.send_rawvalue(d,w,h)
 
 
     #--------------------
     def setFiles(self, flnms) :
         self.Filenames = flnms
-        for fl in self.Filenames :
-            self.plainTextEdit.appendPlainText(fl)
             
         flnm = self.Filenames[0]
-        self.plainTextEdit.appendPlainText(flnm)
     
-        self.headerBytes = 0
-        self.plainTextEdit.appendPlainText('headerBytes = '+str(self.headerBytes))        
+        self.headerBytes = 0       
 
+        print('read numpy array from file: ', flnm)
+        sys.stdout.flush()
         self.data = numpy.load(flnm, mmap_mode='r')
+        print('data shape: ', self.data.shape)
+        sys.stdout.flush()
 
         self.voxelType = 0
         if self.data[0,0,0].dtype == numpy.dtype('B') :
-            self.voxelType = 0
+            self.voxelType = 0 # UCHAR
         if self.data[0,0,0].dtype == numpy.dtype('b') :
-            self.voxelType = 1
+            self.voxelType = 1 # CHAR
         if self.data[0,0,0].dtype == numpy.dtype('u2') :
-            self.voxelType = 2
+            self.voxelType = 2 # USHORT
         if self.data[0,0,0].dtype == numpy.dtype('i2') :
-            self.voxelType = 3
+            self.voxelType = 3 # SHORT
         if self.data[0,0,0].dtype == numpy.dtype('i4') :
-            self.voxelType = 4
+            self.voxelType = 4 # INT
         if self.data[0,0,0].dtype == numpy.dtype('f4') :
-            self.voxelType = 5
-
-        self.plainTextEdit.appendPlainText('voxelType = '+str(self.voxelType))        
+            self.voxelType = 5 # FLOAT
 
         (self.depth, self.width, self.height) = self.data.shape
-        self.plainTextEdit.appendPlainText('dimensions = '+str(self.depth)+' '+
-                                           str(self.width)+' '+str(self.height))
-        
-
-        self.calculate_min_max()        
-        self.plainTextEdit.appendPlainText('data min max = '+str(self.dataMin)+' '+str(self.dataMax))
-        
-        mesg = 'voxeltype : ' + str(self.voxelType)
-        mesg = QByteArray(mesg.encode())
-        res = self.sendingSocket.writeDatagram(mesg, QHostAddress.LocalHost, self.sendingPort)
-        
-        
-        mesg = 'header : '+str(self.headerBytes)
-        mesg = QByteArray(mesg.encode())
-        res = self.sendingSocket.writeDatagram(mesg, QHostAddress.LocalHost, self.sendingPort)
-        
-        mesg = 'dim : '+str(self.depth)+' , '+str(self.width)+' , '+str(self.height)
-        mesg = QByteArray(mesg.encode())
-        res = self.sendingSocket.writeDatagram(mesg, QHostAddress.LocalHost, self.sendingPort)
-        
-        mesg = 'rawminmax : '+str(self.rawMin)+' , '+str(self.rawMax)
-        mesg = QByteArray(mesg.encode())
-        res = self.sendingSocket.writeDatagram(mesg, QHostAddress.LocalHost, self.sendingPort)
-    
-        self.gen_histogram()
-
+        self.dim = (self.height, self.width, self.depth)    
     #--------------------
 
         
     #--------------------
     def calculate_min_max(self) :
-        self.plainTextEdit.appendPlainText('calculate min max')
         self.dataMin = numpy.min(self.data)
         self.dataMax = numpy.max(self.data)
         self.rawMin = self.dataMin
         self.rawMax = self.dataMax
-        self.plainTextEdit.appendPlainText('min max calculated')
     #--------------------
 
 
     #--------------------
     def gen_histogram(self):
-        self.plainTextEdit.appendPlainText('calculate histogram')
         if self.voxelType < 2 :
             self.histogram, b = numpy.histogram(self.data, bins=256)
         else :
             self.histogram, b = numpy.histogram(self.data, bins=65536)
-        self.histogram.astype(numpy.int64)
-        self.plainTextEdit.appendPlainText('histogram size : '+str(len(self.histogram)))
-        self.plainTextEdit.appendPlainText('histogram calculated')
+        self.histogram.astype(numpy.uint32)
     #--------------------
 
     
     #--------------------
-    def send_depth_slice(self, d):
+    def get_depth_slice(self, d):
         depth_slice = self.data[d, :]
-        self.send_data('depthslice', depth_slice)
+        return depth_slice
     #--------------------
 
     
     #--------------------
-    def send_rawvalue(self, d, w, h):
+    def get_rawvalue(self, d, w, h):
         val = self.data[d, w, h]
-        self.send_data('rawvalue', val)
+        return val
     #--------------------
+#------------------------------------------------------------------
+#------------------------------------------------------------------
 
 
+vol = Volume()
 
-    #--------------------
-    # id_str is string identifying data
-    # data is numpy array
-    def send_data(self, id_str, data) :
-        f = QFile(self.mmap_flnm)
-        f.open(QFile.ReadWrite) 
-        nele = len(data)
-        f.write(nele.to_bytes(4, 'little'))
-        f.write(bytes(data))
-        f.close()
-        
-        id = QByteArray(id_str.encode())
-        self.sendingSocket.writeDatagram(id, QHostAddress.LocalHost, self.sendingPort)
-    #--------------------
+def init() :
+    print('\nInit from numpy_array.py\n')
+    sys.stdout.flush()
 
-    
-#--------------------
-if __name__ == '__main__' :
-    app = QApplication(sys.argv)
-    ex = MainWindow(app)
-    sys.exit(app.exec())
-    
+def set_files(flnms) :
+    print(flnms)
+    sys.stdout.flush()
+    vol.setFiles(flnms)    
+    vol.calculate_min_max()
+    vol.gen_histogram()
+
+def get_description() :
+    return vol.description
+
+def get_voxel_unit() :
+    return vol.voxelUnit
+
+def get_voxel_size() :
+    return vol.voxelSize
+
+def get_voxel_type() :
+    return vol.voxelType
+
+def get_header_bytes() :
+    return vol.headerBytes
+
+def get_grid_size() :
+    return vol.dim
+
+def get_raw_min_max() :
+    return (vol.rawMin, vol.rawMax)
+
+def get_histogram(hist : numpy.ndarray) :
+    ln = len(vol.histogram)
+    hist[:ln] = vol.histogram[:]
+
+def get_depth_slice(slc, slice : numpy.ndarray) :
+    depth_slice = vol.get_depth_slice(slc)
+    slice[:] = depth_slice.flatten()[:] # flatten to 1D array
+
+def get_rawvalue(d, w, h) :
+    val = vol.get_rawvalue(d, w, h).item() # convert numpy scalar to Python scalar
+    return val

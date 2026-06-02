@@ -637,11 +637,12 @@ RemapImage::drawRawValue(QPainter *p)
   else
     {
       if (vr.type() == QVariant::UInt)
-	str += QString("-ui(%1)").arg(vr.toUInt());
+	      str += QString("-ui(%1)").arg(vr.toUInt());
       else if (vr.type() == QVariant::Int)
-	str += QString("-u(%1)").arg(vr.toInt());
-      else if (vr.type() == QVariant::Double)
-	str += QString("-f(%1)").arg(vr.toDouble());
+	      str += QString("-u(%1)").arg(vr.toInt());
+      else if (vr.type() == QVariant::Double ||
+               vr.type() == QMetaType::Float)
+	      str += QString("-f(%1)").arg(vr.toFloat());
 
       str += QString("--(%1)").arg(vp.toUInt());
     }

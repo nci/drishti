@@ -668,8 +668,9 @@ VolumeData::rawValue(int d, int w, int h)
     val = v.toUInt();
   else if (v.type() == QVariant::Int)
     val = v.toInt();
-  else if (v.type() == QVariant::Double)
-    val = v.toDouble();
+  else if (v.type() == QVariant::Double ||
+          v.type() == QMetaType::Float)
+    val = v.toFloat();
 
   if (val <= m_rawMap[0])
     {

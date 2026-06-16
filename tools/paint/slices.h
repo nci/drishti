@@ -52,6 +52,7 @@ class Slices : public QWidget
   void setGradType(int g) { m_imageWidget->setGradType(g); }
 
  signals :
+  void processSlice(int);
   void changeLayout();
   void sliceChanged(int);
   void xPos(int);
@@ -59,7 +60,6 @@ class Slices : public QWidget
   void saveWork();
 
   void getRawValue(int, int, int);
-  void viewerUpdate();
   void tagDSlice(int, uchar*);
   void tagWSlice(int, uchar*);
   void tagHSlice(int, uchar*);

@@ -1,8 +1,7 @@
+#include <GL/glew.h>
+#include "drishtipaint.h"
 #include "vdbvolume.h"
 
-#include <GL/glew.h>
-
-#include "drishtipaint.h"
 #include "global.h"
 #include "staticfunctions.h"
 #include "showhelp.h"
@@ -25,11 +24,8 @@
 
 #include <exception>
 
+namespace py = pybind11;
 
-//#pragma push_macro("slots")
-//#undef slots
-//#include "Python.h"
-//#pragma pop_macro("slots")
 
 void
 DrishtiPaint::initTagColors()
@@ -118,6 +114,11 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   ui.statusbar->setEnabled(true);
   ui.statusbar->setSizeGripEnabled(true);
   //ui.statusbar->hide();
+  
+  {
+    py::gil_scoped_acquire gil;
+    py::print("Drishti Paint - Segmentation Tool\n"); // test the embedded Python environment
+  }
 
   m_meshViewerSocket = 0;
   m_CMDport = 7760;
@@ -819,6 +820,7 @@ DrishtiPaint::createImageWindows()
   connect(m_sagitalImage, SIGNAL(sliceChanged(int)), m_viewer, SLOT(setWSlice(int)));
   connect(m_coronalImage, SIGNAL(sliceChanged(int)), m_viewer, SLOT(setHSlice(int)));
 
+  
   return splitter_0;
 }
 
@@ -1325,6 +1327,15 @@ DrishtiPaint::viewerUpdate()
 }
 
 void
+DrishtiPaint::reloadAllMask()
+{
+  int m_depth, m_width, m_height;
+  m_volume->gridSize(m_depth, m_width, m_height);
+  m_viewer->uploadMask(0,0,0, m_depth-1,m_width-1,m_height-1);
+}
+
+
+void
 DrishtiPaint::tagSelected(int t, bool checkBoxClicked)
 {
   Global::setTag(t);
@@ -1643,6 +1654,7 @@ DrishtiPaint::closeEvent(QCloseEvent *)
 {
   if (m_pyWidget)
     m_pyWidget->close();
+
   on_actionExit_triggered();
 }
 
@@ -1829,7 +1841,7 @@ DrishtiPaint::setFile(QString filename)
 
   ((QMainWindow *)Global::mainWindow())->statusBar()->showMessage(QString("%1").arg(flnm));
 
-  
+
   m_viewer->setVolDataPtr(m_volume->memVolDataPtr());
   m_viewer->setMaskDataPtr(m_volume->memMaskDataPtr());
 
@@ -1849,6 +1861,7 @@ DrishtiPaint::setFile(QString filename)
   int d, w, h;
   m_volume->gridSize(d, w, h);
 
+  
   m_axialImage->setGridSize(d, w, h);
   m_sagitalImage->setGridSize(d, w, h);
   m_coronalImage->setGridSize(d, w, h);
@@ -1915,6 +1928,14 @@ DrishtiPaint::setFile(QString filename)
   
   m_viewer->setShowBox(viewerUi.box->isChecked());
   m_viewer->updateVoxels();
+
+  QString mesg;
+  mesg = QString("Volume loaded : %1\n").arg(filename.toUtf8().data());
+  mesg += QString("Volume size : %1 x %2 x %3\n").arg(d).arg(w).arg(h);
+  mesg += QString("bytes per voxel : %1\n\n").arg(Global::bytesPerVoxel());
+
+  py::gil_scoped_acquire gil;
+  py::print(mesg.toStdString());
 }
 
 void
@@ -2692,14 +2713,6 @@ DrishtiPaint::connectImageWidget()
 
   connect(m_coronalImage, SIGNAL(tagHSlice(int, uchar*)),
 	  this, SLOT(tagHSlice(int, uchar*)));  
-
-
-  connect(m_axialImage, SIGNAL(viewerUpdate()),
-	  m_viewer, SLOT(update()));
-  connect(m_sagitalImage, SIGNAL(viewerUpdate()),
-	  m_viewer, SLOT(update()));
-  connect(m_coronalImage, SIGNAL(viewerUpdate()),
-	  m_viewer, SLOT(update()));
 
 
   connect(m_axialImage, SIGNAL(shrinkwrap(Vec, Vec, int, bool, int,
@@ -5195,9 +5208,10 @@ DrishtiPaint::loadRawMask(QString flnm)
 
   m_viewer->setMaskDataPtr(m_volume->memMaskDataPtr());
 
-  int m_depth, m_width, m_height;
-  m_volume->gridSize(m_depth, m_width, m_height);
-  m_viewer->uploadMask(0,0,0, m_depth-1,m_width-1,m_height-1);
+  reloadAllMask();
+  //int m_depth, m_width, m_height;
+  //m_volume->gridSize(m_depth, m_width, m_height);
+  //m_viewer->uploadMask(0,0,0, m_depth-1,m_width-1,m_height-1);
   QMessageBox::information(0, "", "done");
 }
 
@@ -5219,10 +5233,10 @@ DrishtiPaint::reloadMask()
   VolumeOperations::setMaskData(m_volume->memMaskDataPtr());
   VolumeMeasure::setMaskData(m_volume->memMaskDataPtr());
 
-  
-  int m_depth, m_width, m_height;
-  m_volume->gridSize(m_depth, m_width, m_height);
-  m_viewer->uploadMask(0,0,0, m_depth-1,m_width-1,m_height-1);
+  reloadAllMask();
+  //int m_depth, m_width, m_height;
+  //m_volume->gridSize(m_depth, m_width, m_height);
+  //m_viewer->uploadMask(0,0,0, m_depth-1,m_width-1,m_height-1);
 
   QMessageBox::information(0, "", "done");
 }
@@ -6326,9 +6340,9 @@ DrishtiPaint::extractFromAnotherVolume(QList<int> tags)
       VolumeFileManager tFile;
       tFile.setFilenameList(tflnms);
       if (bpv == 1)
-	tFile.setVoxelType(VolumeFileManager::_UChar);
+	      tFile.setVoxelType(VolumeFileManager::_UChar);
       else
-	tFile.setVoxelType(VolumeFileManager::_UShort);
+	      tFile.setVoxelType(VolumeFileManager::_UShort);
       tFile.setDepth(atdepth);
       tFile.setWidth(atwidth);
       tFile.setHeight(atheight);
@@ -6486,9 +6500,10 @@ DrishtiPaint::undoPaint3D()
 {
   m_volume->undo();
 
-  int m_depth, m_width, m_height;
-  m_volume->gridSize(m_depth, m_width, m_height);
-  m_viewer->uploadMask(0,0,0, m_depth-1,m_width-1,m_height-1);
+  reloadAllMask();
+  //int m_depth, m_width, m_height;
+  //m_volume->gridSize(m_depth, m_width, m_height);
+  //m_viewer->uploadMask(0,0,0, m_depth-1,m_width-1,m_height-1);
 
   QMessageBox::information(0, "", "done");    
 }
@@ -6542,20 +6557,42 @@ DrishtiPaint::on_actionCommand_triggered()
     {
       m_pyWidget->close();
     }
-
+  
   m_pyWidget = new PyWidget();
 
-  connect(m_pyWidget, &PyWidget::pyWidgetClosed,
-	  [=]() {m_pyWidget = 0;});
-  
   int d, w, h;
   m_volume->gridSize(d, w, h);
   m_pyWidget->setSize(d, w, h);
   m_pyWidget->setFilename(m_volume->fileName());
   m_pyWidget->setVolPtr(m_volume->memVolDataPtr());
   m_pyWidget->setMaskPtr(m_volume->memMaskDataPtr());
+  
+  connect(m_axialImage, SIGNAL(processSlice(int)), m_pyWidget, SLOT(processSlice(int)));
+
+  //----------------------------
+  // set global pointers for volume and mask data
+  if (!PaintVolMask::global_paint_vol_mask)
+    {
+      PaintVolMask::global_paint_vol_mask = new PaintVolMask();
+      connect(PaintVolMask::global_paint_vol_mask, 
+              &PaintVolMask::viewerUpdate,
+              this, 
+              &DrishtiPaint::reloadAllMask);
+      connect(PaintVolMask::global_paint_vol_mask, 
+              &PaintVolMask::reloadSlices,
+              this, 
+              &DrishtiPaint::reloadSlices);
+    }
+
+  PaintVolMask::global_paint_vol_mask->volume = m_volume->memVolDataPtr();
+  PaintVolMask::global_paint_vol_mask->mask = m_volume->memMaskDataPtrUS();
+  PaintVolMask::global_paint_vol_mask->lut = Global::lut();
+  PaintVolMask::global_paint_vol_mask->depth = d;
+  PaintVolMask::global_paint_vol_mask->width = w;
+  PaintVolMask::global_paint_vol_mask->height = h;
 }
 //---------------------
+
 
 //---------------------
 void

@@ -32,35 +32,36 @@ FORMS += drishtipaint.ui viewermenu.ui \
 # Windows setup for 64-bit system
 #contains(Windows_Setup, Win64) {
   win32 {
-         RC_ICONS += images/drishtipaint.ico
+        RC_ICONS += images/drishtipaint.ico
 
-         INCLUDEPATH += ../../common/src/vdb \
-                        ../../common/src/widgets \
-                        ../../common/src/mesh \
-                        ..\..\common\src\videoencoder
+        INCLUDEPATH += ../../common/src/vdb \
+                       ../../common/src/widgets \
+                       ../../common/src/pybind \                 
+                       ../../common/src/mesh \
+                       ..\..\common\src\videoencoder
+        INCLUDEPATH += $$VCPKG_INCLUDE_PATH
 
-         INCLUDEPATH += $$VCPKG_INCLUDE_PATH
+        QMAKE_LIBDIR += ..\..\common\lib     
+        QMAKE_LIBDIR += $$VCPKG_LIBRARY_PATH
 
-         QMAKE_LIBDIR += ..\..\common\lib     
-	
-         QMAKE_LIBDIR += $$VCPKG_LIBRARY_PATH
+        INCLUDEPATH += C:\Apps\Python314\include
+        QMAKE_LIBDIR += C:\Apps\Python314\libs
+
+        LIBS += QGLViewer2.lib glew32.lib blosc.lib opengl32.lib glu32.lib
+        LIBS += Imath-3_2.lib openvdb.lib vdb.lib
+        LIBS += gmsh.dll.lib python314.lib
+
+        # Set list of required FFmpeg libraries
+        LIBS += -lavutil \
+                -lavcodec \
+                -lavformat \
+                -lswresample \
+                -lswscale 
 
 
-         LIBS += QGLViewer2.lib glew32.lib blosc.lib opengl32.lib glu32.lib
-         LIBS += Imath-3_2.lib openvdb.lib vdb.lib
-         LIBS += gmsh.dll.lib
-
-         # Set list of required FFmpeg libraries
-         LIBS += -lavutil \
-                 -lavcodec \
-                 -lavformat \
-                 -lswresample \
-                 -lswscale 
-         
-
-         ## /std:c++17 added because openvdb requires this
-         QMAKE_CXXFLAGS*=/std:c++17
-         }
+        ## /std:c++17 added because openvdb requires this
+        QMAKE_CXXFLAGS*=/std:c++17
+        }
 #}
 
 unix {
@@ -163,8 +164,10 @@ HEADERS += connectviewer.h \
 	remaphistogramwidget.h \
         filehandler.h \
         checkpointhandler.h \
+        pybridge.h \
         pywidget.h \
         pywidgetmenu.h \
+        ../../common/src/pybind/pythonengine.h \
         ../../common/src/widgets/propertyeditor.h \
         ../../common/src/widgets/dcolordialog.h \
         ../../common/src/widgets/dcolorwheel.h \
@@ -231,8 +234,10 @@ SOURCES += drishtipaint.cpp \
 	remaphistogramwidget.cpp \
         filehandler.cpp \
         checkpointhandler.cpp \
+        pybridge.cpp \
         pywidget.cpp \
         pywidgetmenu.cpp \
+        ../../common/src/pybind/pythonengine.cpp \
         ../../common/src/widgets/propertyeditor.cpp \
         ../../common/src/widgets/dcolordialog.cpp \
 	../../common/src/widgets/dcolorwheel.cpp \

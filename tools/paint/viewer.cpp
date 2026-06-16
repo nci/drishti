@@ -1,3 +1,5 @@
+#include <pybind11/pybind11.h>
+
 #include <GL/glew.h>
 
 #include "shaderfactory.h"
@@ -21,6 +23,8 @@
 #include "ui_viewermenu.h"
 
 #include <QtConcurrentMap>
+
+namespace py = pybind11;
 
 Viewer::Viewer(QWidget *parent) :
   QGLViewer(parent)
@@ -786,9 +790,9 @@ Viewer::keyPressEvent(QKeyEvent *event)
   if (event->key() == Qt::Key_F)
     {  
       if (event->modifiers() & Qt::ShiftModifier)
-	regionGrowing(true); // shrinkwrap
+	      regionGrowing(true); // shrinkwrap
       else
-	regionGrowing(false);
+	      regionGrowing(false);
       update();
       return;
     }
@@ -1002,7 +1006,7 @@ Viewer::commandEditor()
     {
       QString cmd = propertyEditor.getCommandString();
       if (!cmd.isEmpty())
-	processCommand(cmd);
+	      processCommand(cmd);
     }
   else
     return;
@@ -1011,6 +1015,8 @@ Viewer::commandEditor()
 void
 Viewer::processCommand(QString cmd)
 {
+  cout << "Processing command - " << cmd.toLatin1().data() << "\n";
+
   bool ok;
   QString ocmd = cmd;
   cmd = cmd.toLower();
@@ -2265,18 +2271,18 @@ Viewer::updateVoxelsForRaycast()
 	     dsz > m_max3DTexSize ||
 	     wsz > m_max3DTexSize ||
 	     hsz > m_max3DTexSize)
-	{
-	  m_sslevel++;
-	  dsz = (m_maxDSlice-m_minDSlice)/m_sslevel;
-	  wsz = (m_maxWSlice-m_minWSlice)/m_sslevel;
-	  hsz = (m_maxHSlice-m_minHSlice)/m_sslevel;
-	  
-	  if (dsz*m_sslevel < m_maxDSlice-m_minDSlice) dsz++;
-	  if (wsz*m_sslevel < m_maxWSlice-m_minWSlice) wsz++;
-	  if (hsz*m_sslevel < m_maxHSlice-m_minHSlice) hsz++;
-	  
-	  tsz = dsz*wsz*hsz*(Global::bytesPerVoxel()+2);
-	}
+	    {
+	      m_sslevel++;
+	      dsz = (m_maxDSlice-m_minDSlice)/m_sslevel;
+	      wsz = (m_maxWSlice-m_minWSlice)/m_sslevel;
+	      hsz = (m_maxHSlice-m_minHSlice)/m_sslevel;
+      
+	      if (dsz*m_sslevel < m_maxDSlice-m_minDSlice) dsz++;
+	      if (wsz*m_sslevel < m_maxWSlice-m_minWSlice) wsz++;
+	      if (hsz*m_sslevel < m_maxHSlice-m_minHSlice) hsz++;
+      
+	      tsz = dsz*wsz*hsz*(Global::bytesPerVoxel()+2);
+	    }
 
       //-------------------------
       m_sslevel = QInputDialog::getInt(this,
@@ -3194,6 +3200,8 @@ Viewer::uploadMask(int dst, int wst, int hst, int ded, int wed, int hed)
 void
 Viewer::hatch()
 {
+  cout << "hatch region" << endl;
+
   int d, w, h;
   bool gothit = getCoordUnderPointer(d, w, h);
   if (!gothit) return;
@@ -3252,6 +3260,8 @@ Viewer::hatch()
 void
 Viewer::saveToROI(int tag)
 {
+  cout << "save to ROI" << endl;
+
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
 
@@ -3265,6 +3275,7 @@ Viewer::saveToROI(int tag)
 void
 Viewer::roiOperation(int tag)
 {
+  cout << "ROI operation" << endl;
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
 
@@ -3279,6 +3290,7 @@ Viewer::roiOperation(int tag)
 void
 Viewer::connectedComponents(int tag)
 {
+  cout << "connected components" << endl;
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
 
@@ -3292,6 +3304,7 @@ Viewer::connectedComponents(int tag)
 void
 Viewer::watershed(int tag, int size)
 {
+  cout << "watershed" << endl;
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
 
@@ -3305,6 +3318,7 @@ Viewer::watershed(int tag, int size)
 void
 Viewer::watershedPlus()
 {
+  cout << "watershed plus" << endl;
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
 
@@ -3318,6 +3332,7 @@ Viewer::watershedPlus()
 void
 Viewer::distanceTransform(int tag, int size)
 {
+  cout << "distance transform" << endl;
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
 
@@ -3331,6 +3346,7 @@ Viewer::distanceTransform(int tag, int size)
 void
 Viewer::localThickness(int label)
 {
+  cout << "local thickness" << endl;
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
 
@@ -3344,6 +3360,7 @@ Viewer::localThickness(int label)
 void
 Viewer::removeSmallerComponents(int tag)
 {
+  cout << "remove smaller components" << endl;
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
 
@@ -3357,6 +3374,7 @@ Viewer::removeSmallerComponents(int tag)
 void
 Viewer::removeLargestComponents(int tag)
 {
+  cout << "remove largest components" << endl;
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
 
@@ -3377,7 +3395,8 @@ Viewer::smoothRegion(bool flag, int tag, int filterWidth)
       if (!gothit) return;
     }
 
-
+  cout << "smooth region" << endl;
+  
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
 
@@ -3435,6 +3454,7 @@ Viewer::regionGrowing(bool sw)
 
   if (!sw)
     {
+      cout << "fill region" << endl;
       bool ok;
       int ctag = -1;
       ctag = QInputDialog::getInt(0,
@@ -3462,17 +3482,18 @@ Viewer::regionGrowing(bool sw)
 					     false,
 					     &ok);
       if (!ok)
-	return;
+	      return;
 
-      
       bool tubes = (option == "Tubes");
       bool shell = (option == "Shell");
 
+      cout << option.toLatin1().data() << endl;
+
       QString mesg = "Shrinkwrap ";
       if (shell)
-	mesg = "Generate shell surrounding ";
+	      mesg = "Generate shell surrounding ";
       if (tubes)
-	mesg = "Identify tubes in ";
+	      mesg = "Identify tubes in ";
 
       int ctag = -1;
       ctag = QInputDialog::getInt(0,
@@ -3483,15 +3504,16 @@ Viewer::regionGrowing(bool sw)
 				  -1, -1, 65535, 1);
 
       if (tubes)
-	{
-	  emit tagTubes(bmin, bmax, Global::tag(),
-			false, d, w, h, ctag);
-	  return;
-	}
+	    {
+	      cout << "Identifying tubes" << endl;
+	      emit tagTubes(bmin, bmax, Global::tag(),
+	    		false, d, w, h, ctag);
+	      return;
+	    }
 
       int thickness = 1;
       if (shell)
-	thickness = QInputDialog::getInt(0,
+	        thickness = QInputDialog::getInt(0,
 					 "Shell thickness",
 					 "Shell thickness",
 					 1, 1, 50, 1);
@@ -3505,6 +3527,7 @@ Viewer::regionGrowing(bool sw)
 void
 Viewer::sortLabels()
 {
+  cout << "sort labels" << endl;
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
 
@@ -3518,6 +3541,7 @@ Viewer::sortLabels()
 void
 Viewer::openRegion(int tag, int nErode, int nDilate)
 {
+  cout << "open region" << endl;
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
 
@@ -3531,6 +3555,7 @@ Viewer::openRegion(int tag, int nErode, int nDilate)
 void
 Viewer::closeRegion(int tag, int nDilate, int nErode)
 {
+  cout << "close region" << endl;
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
 
@@ -3549,6 +3574,8 @@ Viewer::regionDilation(bool allVisible)
   bool gothit = getCoordUnderPointer(d, w, h);
   if (!gothit) return;
 
+  cout << "dilate region" << endl;
+
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
 
@@ -3566,6 +3593,7 @@ Viewer::regionErosion()
   bool gothit = getCoordUnderPointer(d, w, h);
   if (!gothit) return;
 
+  cout << "erode region" << endl;
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
 
@@ -3579,6 +3607,8 @@ Viewer::regionErosion()
 void
 Viewer::regionDilationAll(int size, int tag)
 {
+  cout << "dilate all regions with tag " << tag << endl;
+
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
 
@@ -3595,6 +3625,8 @@ Viewer::regionDilationAll(int size, int tag)
 void
 Viewer::regionErosionAll(int tag, int size, int tag2)
 {
+  cout << "erode all regions with tag " << tag << endl;
+  
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
 
@@ -3608,6 +3640,8 @@ Viewer::regionErosionAll(int tag, int size, int tag2)
 void
 Viewer::tagUsingScreenSketch()
 {
+  cout << "tag using screen sketch" << endl;
+  
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
 

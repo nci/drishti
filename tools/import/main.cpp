@@ -10,16 +10,14 @@
 #include <filesystem>
 #include <iostream>
 
-//namespace py = pybind11;
+// Custom Qt message handler to redirect python output, cout, cerr, qDebug, qWarning, etc. to a QTextEdit
+#include "streamredirect.h" 
+
 namespace fs = std::filesystem;
 
 #include "drishtiimport.h"
 #include <QMessageBox>
 #include <QDockWidget>
-
-// Custom Qt message handler to redirect python output, cout, cerr, qDebug, qWarning, etc. to a QTextEdit
-#include "streamredirect.h" 
-
 
 
 int main(int argc, char **argv)

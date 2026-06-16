@@ -5,7 +5,6 @@
 #include <QMessageBox>
 #include <QDir>
 
-
 PyWidgetMenu::PyWidgetMenu(QWidget *parent) :
   QWidget(parent)
 {
@@ -58,44 +57,44 @@ PyWidgetMenu::on_scriptChanged(int idx)
       QJsonParseError jsonError;
       QJsonDocument document = QJsonDocument::fromJson( bytes, &jsonError );
       if (jsonError.error != QJsonParseError::NoError )
-	{
-	  QMessageBox::information(0, "Error",
-				   QString("fromJson failed: %1").	\
-				   arg(jsonError.errorString()));
-	  return;
-	}
+	    {
+	      QMessageBox::information(0, "Error",
+	    			   QString("fromJson failed: %1").	\
+	    			   arg(jsonError.errorString()));
+	      return;
+	    }
 
       if (document.isObject() )
-	{
-	  QJsonObject jsonObj = document.object(); 
-	  QStringList keys = jsonObj.keys();
-	  for (auto key : keys)
 	    {
-	      auto value = jsonObj.take(key);
-
-	      if (key == "arguments")
-		{
-		  QJsonObject obj = value.toObject();
-		  QStringList keys = obj.keys();
-		  for (auto key : keys)
-		    {
-		      auto value = obj.take(key);
-		      if (value.isString())
-			addRow(key, value.toString());
-		      else
-			addRow(key, QString("%1").arg(value.toDouble()));
-		    }
-		}
-	      if (key == "executable")
-		m_executable = value.toString();		
-	      if (key == "interpreter")
-		m_interpreter = value.toString();
-	      if (key == "script")
-		m_script = m_scriptDir + QDir::separator() +
-		           ui.scriptList->currentText() + QDir::separator() +
-		           value.toString();  
-	    }	  
-	}
+	      QJsonObject jsonObj = document.object(); 
+	      QStringList keys = jsonObj.keys();
+	      for (auto key : keys)
+	        {
+	          auto value = jsonObj.take(key);
+          
+	          if (key == "arguments")
+	    	    {
+	    	      QJsonObject obj = value.toObject();
+	    	      QStringList keys = obj.keys();
+	    	      for (auto key : keys)
+	    	        {
+	    	          auto value = obj.take(key);
+	    	          if (value.isString())
+	    	    	addRow(key, value.toString());
+	    	          else
+	    	    	addRow(key, QString("%1").arg(value.toDouble()));
+	    	        }
+	    	    }
+	          if (key == "executable")
+	    	      m_executable = value.toString();		
+	          if (key == "interpreter")
+	    	      m_interpreter = value.toString();
+	          if (key == "script")
+	    	      m_script = m_scriptDir + QDir::separator() +
+	    	           ui.scriptList->currentText() + QDir::separator() +
+	    	           value.toString();  
+	        }	  
+	    }
     }
 }
 
@@ -176,8 +175,6 @@ PyWidgetMenu::addRow(QString key, QString value)
   wKey->setFlags(wKey->flags() & ~Qt::ItemIsUserCheckable);
   wVal->setFlags(wVal->flags() & ~Qt::ItemIsUserCheckable);
 
-//  wKey->setFont(QFont("MS Reference Sans Serif", 10));
-//  wVal->setFont(QFont("MS Reference Sans Serif", 10));
   wKey->setText(key);
   wVal->setText(value);
   
@@ -193,7 +190,6 @@ PyWidgetMenu::addRow(QString key, QString value)
     }
   
   ui.tableWidget->resizeColumnsToContents();
-  //ui.tableWidget->resizeRowsToContents();
 }
 
 void
@@ -219,7 +215,8 @@ PyWidgetMenu::on_runScript_pressed()
 	   !m_script.isEmpty())
     cmd = m_interpreter+" "+m_script+" "+cmd;
 
-  emit runCommand(cmd);
+  emit runCommand(m_script);
+  //emit runCommand(cmd);
 }
 
 QStringList

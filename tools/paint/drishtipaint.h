@@ -1,6 +1,8 @@
 #ifndef DRISHTIPAINT_H
 #define DRISHTIPAINT_H
 
+#include "pybridge.h"
+
 #include <QScrollArea>
 #include <QSplitter>
 #include <QTextEdit>
@@ -179,6 +181,7 @@ class DrishtiPaint : public QMainWindow
   void setVisible(Vec, Vec, int, bool);
   void resetTag(Vec, Vec, int);
   void reloadMask();
+  void reloadAllMask();
   void loadRawMask(QString);
   void modifyOriginalVolume(Vec, Vec, int);
 

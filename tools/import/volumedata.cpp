@@ -301,9 +301,15 @@ VolumeData::setFile(QStringList files,
 
   float vx, vy, vz;
   if (m_scriptsPluginActive)
-    m_scriptsPlugin.voxelSize(vx, vy, vz);
+    {
+      m_scriptsPlugin.voxelSize(vx, vy, vz);
+      m_voxelUnit = m_scriptsPlugin.voxelUnit();
+    }
   else
-    m_volInterface->voxelSize(vx, vy, vz);
+    {
+      m_volInterface->voxelSize(vx, vy, vz);
+      m_voxelUnit = m_volInterface->voxelUnit();
+    }
   m_voxelSizeX = vx;
   m_voxelSizeY = vy;
   m_voxelSizeZ = vz;
@@ -337,15 +343,15 @@ VolumeData::printVolumeInfo()
 {
     QString vstr;
     if (m_voxelUnit == _Nanometer)
-      vstr = "nanometer";
+      vstr = "Nanometer";
     else if (m_voxelUnit == _Micron)
-      vstr = "micron";
+      vstr = "Micron";
     else if (m_voxelUnit == _Millimeter)
-      vstr = "millimeter";
+      vstr = "Millimeter";
     else if (m_voxelUnit == _Centimeter)
-      vstr = "centimeter";
+      vstr = "Centimeter";
     else if (m_voxelUnit == _Meter)
-      vstr = "meter";
+      vstr = "Meter";
     else
       vstr = QString::number(m_voxelUnit);
 

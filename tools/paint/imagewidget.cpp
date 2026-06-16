@@ -851,7 +851,7 @@ ImageWidget::resetSliceType()
   m_zoom = qMin(rH, rW);
 
 
-  m_currSlice = m_maxSlice/2-1;
+  m_currSlice = (m_maxSlice+1)/2;
   
   if (m_volPtr)
     getSlice();
@@ -1486,32 +1486,39 @@ ImageWidget::graphcutModeKeyPressEvent(QKeyEvent *event)
   bool altModifier = event->modifiers() & Qt::AltModifier;
 
 
+  if (event->key() == Qt::Key_1)
     {
-      if (event->key() == Qt::Key_3)
-	{
-	  emit updateSliderLimits();
-	  update3DBox(false);
-	  return;
-	}
-      if (event->key() == Qt::Key_NumberSign)
-	{
-	  emit resetSliderLimits();
-	  update3DBox(true);
-	  return;
-	}
+      emit processSlice(m_currSlice);
+      return;
     }
-    {
-      if (event->key() == Qt::Key_2)
-	{
-	  update2DBox(false);
-	  return;
-	}
-      if (event->key() == Qt::Key_At)
-	{
-	  update2DBox(true);
-	  return;
-	}
-    }
+
+  {
+    if (event->key() == Qt::Key_3)
+	  {
+	    emit updateSliderLimits();
+	    update3DBox(false);
+	    return;
+	  }
+    if (event->key() == Qt::Key_NumberSign)
+	  {
+	    emit resetSliderLimits();
+	    update3DBox(true);
+	    return;
+	  }
+  }
+
+  {
+    if (event->key() == Qt::Key_2)
+	  {
+	    update2DBox(false);
+	    return;
+  	}
+    if (event->key() == Qt::Key_At)
+	  {
+	    update2DBox(true);
+	    return;
+	  }
+  }
 
   if (event->key() == Qt::Key_S &&
       (event->modifiers() & Qt::AltModifier) )

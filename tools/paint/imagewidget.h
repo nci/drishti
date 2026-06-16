@@ -106,6 +106,7 @@ class ImageWidget : public QWidget
   void yPos(int);
   void sliceChanged(int);
   void setSliceNumber(int);
+  void processSlice(int);
 
   void updateSliderLimits();
   void resetSliderLimits();
@@ -114,7 +115,6 @@ class ImageWidget : public QWidget
   void reconnectSlider();
   
   void saveWork();
-  void viewerUpdate();
   void getRawValue(int, int, int);
   void newMinMax(float, float);
   void tagDSlice(int, QImage);

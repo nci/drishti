@@ -1,3 +1,6 @@
+#include "pythonengine.h"
+
+#include "pybridge.h"
 
 #include "pywidget.h"
 #include "global.h"
@@ -9,13 +12,7 @@
 #include <QMessageBox>
 #include <QFileDialog>
 
-//#pragma push_macro("slots")
-//#undef slots
-//#include "Python.h"
-//#pragma pop_macro("slots")
-//
-//#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
-//#include "numpy/arrayobject.h"
+#include <QtConcurrent/QtConcurrent>
 
 void
 PyWidget::setFilename(QString volfile)
@@ -70,7 +67,10 @@ PyWidget::PyWidget(QWidget *parent)
   connect(m_menu, SIGNAL(runCommand(QString)),
 	  this, SLOT(runCommand(QString)));
   
-  
+
+  m_worker = 0;
+  m_thread = 0;
+
   m_d = m_w = m_h = 0;
   m_volPtr = m_maskPtr = 0;
   
@@ -128,8 +128,6 @@ PyWidget::PyWidget(QWidget *parent)
 #endif
 
   resize(600, 500);
-  
-  //initPy();
 
   loadScripts(); 
 }
@@ -147,9 +145,15 @@ PyWidget::closeEvent(QCloseEvent *event)
   m_menu->close();
   delete m_menu;
  
-  m_process->close();
+  if (m_thread)
+  {
+    m_thread->quit();
+    m_thread->terminate();
+    m_thread->wait();
+    m_thread = 0;
+  }
 
-  //Py_Finalize();
+  m_process->close();
 
   emit pyWidgetClosed();  
 
@@ -161,90 +165,6 @@ PyWidget::~PyWidget()
 { 
 }
 
-//int
-//PyWidget::initPy()
-//{
-//  Py_Initialize();
-//
-//  import_array(); // used by numpy
-//}
-//
-//
-//int
-//PyWidget::runPythonCode(QString moduleName, QString funcName)
-//{
-//  const int ND = 3;
-//  npy_intp dims[3] {m_d, m_w, m_h};
-//      
-//  // Convert it to a NumPy array.
-//  PyObject *volArray = PyArray_SimpleNewFromData(ND,
-//						 dims,
-//						 NPY_INT8,
-//						 reinterpret_cast<void*>(m_volPtr));
-//
-//  PyObject *maskArray = PyArray_SimpleNewFromData(ND,
-//						  dims,
-//						  NPY_INT8,
-//						  reinterpret_cast<void*>(m_maskPtr));
-//  if (!volArray || !maskArray)
-//    {
-//      QMessageBox::information(0,"", "Some problem with PyArray point creation");
-//      return -1;
-//    }
-//  
-//
-//  //PyArrayObject *vol_arr = reinterpret_cast<PyArrayObject*>(volArray);
-//  //PyArrayObject *mask_arr = reinterpret_cast<PyArrayObject*>(maskArray);
-//
-//  // import moduleName.funcName
-//  const char *module_name = moduleName.toLatin1().data();
-//  PyObject *pName = PyUnicode_FromString(module_name);
-//  if (!pName)
-//    {
-//      QMessageBox::information(0, "", moduleName+" not found");
-//      Py_DECREF(volArray);
-//      Py_DECREF(maskArray);
-//      return -1;
-//    }
-//
-//  PyObject *pModule = PyImport_Import(pName);
-//  Py_DECREF(pName);
-//  if (!pModule)
-//    {
-//      QMessageBox::information(0, "", "failed to import "+moduleName);
-//      Py_DECREF(volArray);
-//      Py_DECREF(maskArray);
-//      return -1;
-//    }
-//
-//  const char *func_name = funcName.toLatin1().data();
-//  PyObject *pFunc = PyObject_GetAttrString(pModule, func_name);
-//  if (!pFunc)
-//    {
-//      QMessageBox::information(0, "", funcName+" not found");
-//      Py_DECREF(pModule);
-//      return -1;
-//    }
-//
-//  if (!PyCallable_Check(pFunc))
-//    {
-//      QMessageBox::information(0, "", moduleName + "." + funcName + " is not callable.");
-//      Py_DECREF(pFunc);
-//      return -1;
-//  }
-//
-//  PyObject *pReturn = PyObject_CallFunctionObjArgs(pFunc, volArray, maskArray, NULL);
-//  if (!pReturn)
-//    {
-//      QMessageBox::information(0, "", "Call to " + funcName +" failed");
-//      Py_DECREF(pFunc);
-//      return -1;
-//    }
-//
-//  QMessageBox::information(0, "", "done");
-//
-//  return 0;
-//}
 
 void
 PyWidget::readOutput()
@@ -271,14 +191,6 @@ PyWidget::processLine()
       return;
     }
   
-  
-//  if (sl[0] == QString("run") && sl.count() == 3)
-//    {
-//      QString scriptdir = Global::scriptFolder();
-//      QString script = scriptdir + QDir::separator() + sl[1];
-//      runPythonCode(script, sl[2]);
-//      return;
-//    }
   if (sl.count() >= 2 && StaticFunctions::checkExtension(sl[0], ".py"))
     {
       QString scriptdir = Global::scriptFolder();
@@ -287,50 +199,156 @@ PyWidget::processLine()
       QString volflnm = m_fileName;
       QStringList result = sl.filter("volume=");
       if (result.count() >= 1)
-	volflnm = QFileInfo(m_fileName).absolutePath() + QDir::separator() + result[0].split("=")[1];
+	      volflnm = QFileInfo(m_fileName).absolutePath() + QDir::separator() + result[0].split("=")[1];
 
       QString tagflnm;
       result = sl.filter("output=");
       if (result.count() >= 1)
-	tagflnm = QFileInfo(m_fileName).absolutePath() + QDir::separator() + result[0].split("=")[1];
+	      tagflnm = QFileInfo(m_fileName).absolutePath() + QDir::separator() + result[0].split("=")[1];
       
       QString  boxflnm;
       result = sl.filter("boxlist=");
       if (result.count() >= 1)
-	boxflnm = QFileInfo(m_fileName).absolutePath() + QDir::separator() + result[0].split("=")[1];
+	      boxflnm = QFileInfo(m_fileName).absolutePath() + QDir::separator() + result[0].split("=")[1];
       
       
       QString cmd = "python "+script+" volume="+volflnm+" mask="+m_maskName;
 
       if (!tagflnm.isEmpty())
-	cmd +=" output="+tagflnm;
+	      cmd +=" output="+tagflnm;
 
       if (!boxflnm.isEmpty())
-	cmd += " boxlist="+boxflnm;
+	      cmd += " boxlist="+boxflnm;
 	
       if (sl.count() > 1)
-	{
-	  for (int s=1; s<sl.count(); s++)
 	    {
-	      if (!sl[s].contains("volume=", Qt::CaseInsensitive) &&
-		  !sl[s].contains("output=", Qt::CaseInsensitive) &&
-		  !sl[s].contains("boxlist=",Qt::CaseInsensitive))
-		cmd += " "+sl[s];
+	      for (int s=1; s<sl.count(); s++)
+	        {
+	          if (!sl[s].contains("volume=", Qt::CaseInsensitive) &&
+	    	        !sl[s].contains("output=", Qt::CaseInsensitive) &&
+	    	        !sl[s].contains("boxlist=",Qt::CaseInsensitive))
+	    	      cmd += " "+sl[s];
+	        }
 	    }
-	}
       m_process->write(cmd.toUtf8() + "\n");
 
-      //m_lineEdit->clear();
       return;
     }  
   
 
   m_process->write(command.toUtf8() + "\n");
-  //m_lineEdit->clear();
 }
 
 void
-PyWidget::runCommand(QString cmd)
+PyWidget::processSlice(int slice)
 {
-  m_process->write(cmd.toUtf8() + "\n");
+  emit process_slice(slice);
+
+  //QFuture<void> future = QtConcurrent::run([slice] {
+  //  QMessageBox::information(0, "", "process Slice");
+  //  py::gil_scoped_acquire acquire;
+  //  PaintVolMask::global_pyModule.attr("process_slice")(slice);
+  //});
+  //PaintVolMask::global_pyModule.attr("process_slice")(slice);
+  //emit process_slice(slice);
+}
+
+
+//--------------------------------------------
+//--------------------------------------------
+PyWorker::PyWorker(QString script) : m_script(script) {}
+
+void 
+PyWorker::initScript()
+{
+  py::gil_scoped_acquire gil;
+
+  try {
+    QString spath = QFileInfo(m_script).absolutePath();
+    QString ps = "import sys\nsys.path.insert(0, r\"" + spath + "\")";
+    py::exec(ps.toStdString());
+
+    QString scriptName = QFileInfo(m_script).baseName();
+    py::print("Importing module:", scriptName.toStdString());
+    PaintVolMask::global_pyModule = py::module_::import(scriptName.toStdString().c_str());
+    ps = "import "+scriptName+" as testmod\nprint('Available functions :', dir(testmod))";
+    py::exec(ps.toStdString());
+    py::print("Successfully imported module: ", scriptName.toStdString());
+    py::object py_paintvolmask = py::cast(PaintVolMask::global_paint_vol_mask);
+      
+    py::print("Setting paint data in Python module...");
+    PaintVolMask::global_pyModule.attr("set_paint_data")(py_paintvolmask);
+    PaintVolMask::global_pyModule.attr("init_sam")();
+  }
+  catch (const std::exception& e) {
+    QMessageBox::information(0, "Error", "Failed to import module: " + QString(e.what()));
+  }
+}
+
+void
+PyWorker::process_slice(int slice)
+{
+  py::gil_scoped_acquire gil;
+  
+  PaintVolMask::global_pyModule.attr("process_slice")(slice);
+}
+//--------------------------------------------
+//--------------------------------------------
+
+
+
+void
+PyWidget::runCommand(QString script)
+{
+  if (m_worker)
+  {
+    delete m_worker;
+    m_worker = 0;
+  }
+  if (m_thread)
+  {
+    m_thread->quit();
+    m_thread->terminate();
+    m_thread->wait();
+    m_thread = 0;
+  }
+
+  m_thread = new MyThread;
+  m_worker = new PyWorker(script);
+  m_worker->moveToThread(m_thread);
+  
+  connect(this, &PyWidget::process_slice, m_worker, &PyWorker::process_slice);
+  
+  connect(m_thread, &QThread::started, m_worker, &PyWorker::initScript);
+  //connect(m_worker, &PyWorker::finished, m_thread, &QThread::quit);
+  //connect(m_thread, &QThread::finished, m_thread, &QThread::deleteLater);
+
+  m_thread->start();
+  
+  return;
+
+  try {
+    QString spath = QFileInfo(script).absolutePath();
+    py::print("Script path:", spath.toStdString());
+    QString ps = "import sys\nsys.path.insert(0, r\"" + spath + "\")";
+    py::exec(ps.toStdString());
+    QString scriptName = QFileInfo(script).baseName();
+    py::print("Importing module:", scriptName.toStdString());
+    PaintVolMask::global_pyModule = py::module_::import(scriptName.toStdString().c_str());
+    ps = "import "+scriptName+" as testmod\nprint('Available functions :', dir(testmod))";
+    py::exec(ps.toStdString());
+    py::print("Successfully imported module: ", scriptName.toStdString());
+
+    py::object py_paintvolmask = py::cast(PaintVolMask::global_paint_vol_mask);
+    PaintVolMask::global_pyModule.attr("set_paint_data") (py_paintvolmask);
+    PaintVolMask::global_pyModule.attr("init_sam")();
+  }
+  catch (const std::exception& e) {
+    QMessageBox::information(0, "Error", "Failed to import module: " + QString(e.what()));
+    return;
+  }
+  
+  QMessageBox::information(0, "Info", "Successfully imported module: " + QFileInfo(script).baseName());
+
+  //m_process->write(cmd.toUtf8() + "\n");
 }

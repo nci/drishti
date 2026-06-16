@@ -94,6 +94,8 @@ Slices::createMenu(QHBoxLayout *hl,
   connect(m_imageWidget, SIGNAL(yPos(int)), this, SIGNAL(yPos(int)));
   connect(m_imageWidget, SIGNAL(sliceChanged(int)), this, SIGNAL(sliceChanged(int)));
 
+  connect(m_imageWidget, SIGNAL(processSlice(int)), this, SIGNAL(processSlice(int)));
+  
   connect(m_imageWidget, SIGNAL(sliceChanged(int)),
 	  this, SLOT(setSlice(int)));
   connect(m_imageWidget, SIGNAL(setSliceNumber(int)),
@@ -123,8 +125,6 @@ Slices::createMenu(QHBoxLayout *hl,
 
   connect(m_imageWidget, SIGNAL(updateViewerBox(int, int, int, int, int, int)),
 	  this, SIGNAL(updateViewerBox(int, int, int, int, int, int)));
-
-  connect(m_imageWidget, SIGNAL(viewerUpdate()), this, SIGNAL(viewerUpdate()));
 
   connect(m_imageWidget, SIGNAL(shrinkwrap(Vec, Vec, int, bool, int,
 					   bool, int, int, int, int)),

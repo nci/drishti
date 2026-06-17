@@ -33,12 +33,20 @@ class PyWorker : public QObject
   public slots :
     void initScript();
     void process_slice(int);
+    void process_volume();
 
   signals :
+    void initDone();
+    void sliceProcessed();
+    void volumeProcessed();
     void finished();
 
   private :
     QString m_script;
+    bool m_hasInit;
+    bool m_hasDataAllocator;
+    bool m_hasSliceProcessor;
+    bool m_hasVolumeProcessor;
 };
 
 class PyWidget : public QWidget
@@ -56,15 +64,16 @@ class PyWidget : public QWidget
 
  public slots :
   void processSlice(int);
+  void initDone();
+  void sliceProcessed();
+  void volumeProcessed();
 
  signals :
   void pyWidgetClosed();
   void process_slice(int);
+  void process_volume();
     
  private slots :
-   void readOutput();
-   void readError();
-   void processLine();
    void closeEvent(QCloseEvent*);
    void runCommand(QString);
   
@@ -75,10 +84,6 @@ class PyWidget : public QWidget
    int m_d, m_w, m_h;
    uchar *m_volPtr;
    uchar *m_maskPtr;
-   
-   QProcess *m_process;
-   QPlainTextEdit *m_plainTextEdit;
-   QLineEdit *m_lineEdit;
 
    PyWidgetMenu *m_menu;
   

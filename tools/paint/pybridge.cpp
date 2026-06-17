@@ -68,8 +68,5 @@ PaintVolMask::update_3d_view()
 void
 PaintVolMask::process_slice(int slice)
 {
-    // This slot can be called from the PyWidget when a slice is processed
-    // You can add any additional processing here if needed
-    // For now, it simply emits a signal to update the viewer
     PaintVolMask::global_pyModule.attr("process_slice")(slice);
 }

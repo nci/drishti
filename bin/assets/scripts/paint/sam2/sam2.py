@@ -55,7 +55,7 @@ pd = paint_data()
 sam = sam_data()
 
 def set_paint_data(py_obj) :
-    print('unpacking the data')
+    #print('unpacking the data')
     pd.paint_obj = py_obj
     pd.volume = py_obj.get_volume_view()
     pd.mask = py_obj.get_mask_view()
@@ -66,9 +66,9 @@ def set_paint_data(py_obj) :
     print(pd.depth*pd.width*pd.height)
     print(pd.depth, pd.width, pd.height)
     print(pd.volume.shape)
-    print('transfer complete')    
+    #print('transfer complete')    
 
-def init_sam() :
+def init() :
     print('init sam')
     sam.mask_generator = SamAutomaticMaskGenerator(model=sam_model,
                                                    points_per_side = sam.points_per_side,

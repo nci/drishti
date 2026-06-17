@@ -1630,6 +1630,12 @@ DrishtiPaint::on_actionLoad_triggered()
 void
 DrishtiPaint::on_actionExit_triggered()
 {
+  if (m_pyWidget)
+    m_pyWidget->close();
+
+  delete PaintVolMask::global_paint_vol_mask;
+
+
   if (m_volume->isValid())
     {
       QString curvesfile = m_pvlFile;
@@ -1648,13 +1654,12 @@ DrishtiPaint::on_actionExit_triggered()
 
   saveSettings();
   close();
+
+  qApp->exit();
 }
 void
 DrishtiPaint::closeEvent(QCloseEvent *)
 {
-  if (m_pyWidget)
-    m_pyWidget->close();
-
   on_actionExit_triggered();
 }
 
@@ -6550,6 +6555,7 @@ DrishtiPaint::on_actionScriptFolder_triggered()
     }
   
 }
+
 void
 DrishtiPaint::on_actionCommand_triggered()
 {
@@ -6559,6 +6565,8 @@ DrishtiPaint::on_actionCommand_triggered()
     }
   
   m_pyWidget = new PyWidget();
+
+  connect(m_pyWidget, &PyWidget::pyWidgetClosed, [=](){m_pyWidget=0;});
 
   int d, w, h;
   m_volume->gridSize(d, w, h);

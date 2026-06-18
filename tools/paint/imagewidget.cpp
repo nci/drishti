@@ -1486,7 +1486,7 @@ ImageWidget::graphcutModeKeyPressEvent(QKeyEvent *event)
   bool altModifier = event->modifiers() & Qt::AltModifier;
 
 
-  if (event->key() == Qt::Key_1)
+  if (event->key() == Qt::Key_At)
     {
       emit processSlice(m_currSlice);
       return;

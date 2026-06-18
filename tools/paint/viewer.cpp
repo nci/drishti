@@ -1,4 +1,5 @@
 #include <pybind11/pybind11.h>
+#include "pybridge.h"
 
 #include <GL/glew.h>
 
@@ -903,6 +904,12 @@ Viewer::keyPressEvent(QKeyEvent *event)
       commandEditor();
       return;
     }
+
+  if (event->key() == Qt::Key_At)
+  {
+    emit processVolumeFromScript();
+    return;
+  }
 
   if (event->key() != Qt::Key_H)
     QGLViewer::keyPressEvent(event);
@@ -2185,6 +2192,14 @@ Viewer::drawInfo()
   StaticFunctions::renderText(10,sh-30,
 			      QString("Current Label : %1").arg(Global::tag()),
 			      tfont, Qt::black, Qt::lightGray);
+
+  if (PaintVolMask::global_paint_vol_mask &&
+      PaintVolMask::global_paint_vol_mask->scriptActive == true)
+    StaticFunctions::renderText(200,sh-30,
+			      "Script active : "+PaintVolMask::global_paint_vol_mask->scriptName,
+			      tfont, Qt::black, Qt::green);
+    
+
 
   StaticFunctions::popOrthoView();
 

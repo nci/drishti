@@ -166,7 +166,7 @@ class Viewer : public QGLViewer
     void loadRawMask(QString);
 
     void shrinkwrap(Vec, Vec, int, bool, int);
-  void poreId(Vec, Vec, int, int, int, int);
+    void poreId(Vec, Vec, int, int, int, int);
     void shrinkwrap(Vec, Vec, int, bool, int,
 		    bool, int, int, int, int);
 
@@ -202,6 +202,8 @@ class Viewer : public QGLViewer
     void getSurfaceArea(Vec, Vec, int);
 
     void modifyOriginalVolume(Vec, Vec, int);
+    void processVolumeFromScript();
+
  private :
   Ui::ViewerMenu *m_UI;
 

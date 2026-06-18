@@ -17,7 +17,9 @@ public:
     static PaintVolMask *global_paint_vol_mask;    
     static py::module global_pyModule;
 
-    PaintVolMask() : volume(nullptr), mask(nullptr), lut(nullptr), depth(0), width(0), height(0) {}
+    PaintVolMask() : volume(nullptr), mask(nullptr), lut(nullptr), 
+                     depth(0), width(0), height(0),
+                     scriptActive(false) {}
 
     py::array_t<uint8_t> get_volume_view();
     py::array_t<uint8_t> get_lut_view();
@@ -30,8 +32,8 @@ public:
     uint8_t *lut;
     int depth, width, height;
 
-public slots:
-    void process_slice(int slice);
+    bool scriptActive;
+    QString scriptName;
 
 signals :
     void viewerUpdate();

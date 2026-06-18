@@ -21,8 +21,7 @@ Key 's' - To save the results
 '''
 
 # Python 2/3 compatibility
-from __future__ import print_function
-
+import paintmod
 import numpy as np
 import cv2
 import sys
@@ -46,8 +45,9 @@ rectangle = False       # flag for drawing rect
 rect_over = False       # flag to check if rect drawn
 rect_or_mask = 100      # flag for selecting rect or mask mode
 value = DRAW_FG         # drawing initialized to FG
-thickness = 3           # brush thickness
+thickness = 1           # brush thickness
 
+labelValue = 1
 sliceNum = 0
 prevSlice = -1
 img = cv2.cvtColor(np.zeros((100,100), np.uint8), cv2.COLOR_GRAY2BGR)
@@ -57,7 +57,6 @@ output = np.zeros((100,100), np.uint8)
 ix = 0
 iy = 0
 dim = np.zeros(3,np.int32)
-imgdata = np.zeros((3,3,3), np.float32)
 
 
 UINT8 = 1
@@ -65,28 +64,43 @@ MAXVALUE = 255
 DTYPE = np.uint8
 
 
+class paint_data :
+    def __init__(self) :
+        self.paint_obj = 0
+        self.volume = 0
+        self.mask = 0
+        self.lut = 0
+        self.depth = 0
+        self.width = 0
+        self.height = 0
 
-#-------
-def loadPVLData(pvl) :    
-    imgfile = open(pvl, 'rb')
-    vtype = imgfile.read(1)
-    if vtype == b'\0' :
-        DTYPE = np.uint8
-        UINT8 = 1
-        MAXVALUE = 255        
-    if vtype == b'\2' :
-        DTYPE = np.uint16
-        UINT8 = 0
-        MAXVALUE = 65555
-    dim = np.fromfile(imgfile, dtype=np.int32, count=3)
+print('paint_data declared')
+pd = paint_data()
 
-    imgdata = np.fromfile(imgfile, dtype=DTYPE, count=dim[0]*dim[1]*dim[2])
 
-    imgfile.close()
-    imgdata = imgdata.reshape(dim)    
-    return (dim, imgdata)
-#-------
+def set_paint_data(py_obj) :
+    pd.paint_obj = py_obj
+    pd.volume = py_obj.get_volume_view()
+    pd.mask = py_obj.get_mask_view()
+    pd.lut = py_obj.get_lut_view()
+    pd.depth = py_obj.depth
+    pd.width = py_obj.width
+    pd.height = py_obj.height
+    dim[0] = pd.depth
+    dim[1] = pd.width
+    dim[2] = pd.height
+    print(pd.depth*pd.width*pd.height)
+    print(pd.depth, pd.width, pd.height)
+    print(pd.volume.shape)
+    
+def init() :
+    print('init grabcut')
+    pd.volume = pd.volume.reshape(dim)  
 
+    
+def process_volume() :
+    grabCut()
+    
 
 
 def onmouse(event,x,y,flags,param):
@@ -100,14 +114,14 @@ def onmouse(event,x,y,flags,param):
     elif event == cv2.EVENT_MOUSEMOVE:
         if rectangle == True:
             img = img2.copy()
-            cv2.rectangle(img,(ix,iy),(x,y),BLUE,2)
+            cv2.rectangle(img,(ix,iy),(x,y),BLUE,1)
             rect = (min(ix,x),min(iy,y),abs(ix-x),abs(iy-y))
             rect_or_mask = 0
 
     elif event == cv2.EVENT_RBUTTONUP:
         rectangle = False
         rect_over = True
-        cv2.rectangle(img,(ix,iy),(x,y),BLUE,2)
+        cv2.rectangle(img,(ix,iy),(x,y),BLUE,1)
         rect = (min(ix,x),min(iy,y),abs(ix-x),abs(iy-y))
         rect_or_mask = 0
         print(" Now press the key 'n' a few times until no further change \n")
@@ -151,10 +165,14 @@ def on_press(k) :
     elif k == ord('3'): # PR_FG drawing
         value = DRAW_PR_FG
     elif k == ord('s'): # save image
-        bar = np.zeros((img.shape[0],5,3),np.uint8)
-        res = np.hstack((img2,bar,img,bar,output))
-        cv2.imwrite('grabcut_output.png',res)
-        print(" Result saved as image \n")
+        mask2 = np.where((mask==1) + (mask==3),labelValue,0).astype('uint16')
+        print(mask2.shape)
+        slc_size = dim[1]*dim[2]
+        slc_start = sliceNum * slc_size
+        pd.mask[slc_start:slc_start+slc_size] = np.reshape(mask2,-1)
+        pd.paint_obj.update_slice_view()
+        pd.paint_obj.update_3d_view()
+        print('processed slice')
     elif k == ord('r'): # reset everything
         print("resetting \n")
         rect = (0,0,1,1)
@@ -184,7 +202,7 @@ def on_press(k) :
 def on_change(val):
     global sliceNum, img, img2
     sliceNum = val
-    img = cv2.resize(imgdata[sliceNum,:,:], (dim[1],dim[2]))
+    img = cv2.resize(pd.volume[sliceNum,:,:], (dim[1],dim[2]))
     img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
     img2 = img.copy()                               # a copy of original image
     
@@ -192,7 +210,7 @@ def on_change(val):
 def grabCut() :
     global img,img2,mask,output,drawing,value,rectangle,rect,rect_or_mask,ix,iy,rect_over,imgdata,sliceNum,prevSlice
 
-    img = cv2.resize(imgdata[sliceNum,:,:], (dim[1],dim[2]))
+    img = cv2.resize(pd.volume[sliceNum,:,:], (dim[1],dim[2]))
     img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
     img2 = img.copy()                               # a copy of original image
     mask = np.zeros(img.shape[:2],dtype = np.uint8) # mask initialized to PR_BG
@@ -231,39 +249,11 @@ def grabCut() :
 
         mask2 = np.where((mask==1) + (mask==3),255,0).astype('uint8')
         output = cv2.bitwise_and(img2,img2,mask=mask2)
+        output[:,:,1] = mask2
 
     cv2.destroyAllWindows()
 
-    
-
-def mainModule(args) :
-    global dim, imgdata, sliceNum
-    
-    print('------------')
-    print('Arguments :')
-    for kw in kwargs:
-        print(kw, '-', kwargs[kw])
-    print('------------')
-        
-    pvlfile = kwargs['volume']
-    segfile = kwargs['output']
-
-    dim, imgdata = loadPVLData(pvlfile)
-    print(dim)
-    print(imgdata.shape)
-
-    grabCut()
-    
-    
 
 if __name__ == '__main__':
     # print documentation
     print(__doc__)
-
-    
-    kwargs = {}
-    for a in sys.argv[1:] :
-        (k,v) = a.split("=")
-        kwargs[k] = v
-    
-    mainModule(kwargs)

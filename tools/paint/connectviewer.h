@@ -126,4 +126,6 @@ connect(m_viewer, SIGNAL(poreId(Vec, Vec, int, int, int, int)),
   connect(m_viewer, SIGNAL(modifyOriginalVolume(Vec, Vec, int)),
 	  this, SLOT(modifyOriginalVolume(Vec, Vec, int)));
 
+  connect(m_viewer, SIGNAL(processVolumeFromScript()),
+	  this, SLOT(processVolumeFromScript()));
 #endif

@@ -30,13 +30,18 @@ class PyWorker : public QObject
     PyWorker(QString);
     ~PyWorker() {}
 
+    bool hasInit() {return m_hasInit;}
+    bool hasDataAllocator() {return m_hasDataAllocator;}
+    bool hasSliceProcessor() {return m_hasSliceProcessor;}
+    bool hasVolumeProcessor() {return m_hasVolumeProcessor;}
+
   public slots :
     void initScript();
     void process_slice(int);
     void process_volume();
 
   signals :
-    void initDone();
+    void initDone(QString);
     void sliceProcessed();
     void volumeProcessed();
     void finished();
@@ -64,7 +69,8 @@ class PyWidget : public QWidget
 
  public slots :
   void processSlice(int);
-  void initDone();
+  void processVolume();
+  void initDone(QString);
   void sliceProcessed();
   void volumeProcessed();
 

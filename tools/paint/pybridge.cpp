@@ -64,9 +64,3 @@ PaintVolMask::update_3d_view()
 {
     emit viewerUpdate();
 }
-
-void
-PaintVolMask::process_slice(int slice)
-{
-    PaintVolMask::global_pyModule.attr("process_slice")(slice);
-}

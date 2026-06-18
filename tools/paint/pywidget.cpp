@@ -37,6 +37,7 @@ PyWorker::initScript()
     QString scriptName = QFileInfo(m_script).baseName();
     std::cout << "Importing module:" << scriptName.toStdString() << "\n";
     PaintVolMask::global_pyModule = py::module_::import(scriptName.toStdString().c_str());
+    PaintVolMask::global_paint_vol_mask->scriptName = scriptName;
 
     if (py::hasattr(PaintVolMask::global_pyModule, "init"))
       m_hasInit = true;
@@ -68,10 +69,12 @@ PyWorker::initScript()
 
     std::cout << "done.\n";
 
-    emit initDone();
+    emit initDone("true");
   }
   catch (const std::exception& e) {
-    QMessageBox::information(0, "Error", "Failed to import module: " + QString(e.what()));
+    std::cout << "*** Error ***\n";
+    std::cout << "Failed to import module: " + QString(e.what()).toStdString();
+    emit initDone(QString(e.what()));
   }
 }
 
@@ -86,7 +89,9 @@ PyWorker::process_slice(int slice)
       emit sliceProcessed();
     }
   else
-    std::cout << "** NO SLICE PROCESSOR FOUND\n";
+    {
+      std::cout << "** NO SLICE PROCESSOR FOUND\n";
+    }
 }
 
 void
@@ -151,6 +156,8 @@ PyWidget::closeEvent(QCloseEvent *)
     m_worker = 0;
   }
 
+  PaintVolMask::global_paint_vol_mask->scriptActive = false;
+
   emit pyWidgetClosed();  
 }
 
@@ -210,13 +217,38 @@ PyWidget::loadScripts()
 void
 PyWidget::processSlice(int slice)
 {
+  if (!m_worker->hasSliceProcessor())
+    QMessageBox::information(0, "Error", 
+      "No Slice Processor found in script "+ 
+      PaintVolMask::global_paint_vol_mask->scriptName);
+  
   emit process_slice(slice);
 }
 
 void
-PyWidget::initDone() 
+PyWidget::processVolume()
 {
-  std::cout << "\n** Script initialization completed\n";
+  if (!m_worker->hasVolumeProcessor())
+    QMessageBox::information(0, "Error", 
+      "No Volume Processor found in script "+ 
+      PaintVolMask::global_paint_vol_mask->scriptName);
+
+  emit process_volume();
+}
+
+void
+PyWidget::initDone(QString mesg) 
+{
+  if (mesg != "true")
+  {
+    QMessageBox::information(0, "Error", "Failed to import module: " + mesg);
+    PaintVolMask::global_paint_vol_mask->scriptActive = false;
+  }
+  else
+  {
+    std::cout << "\n** Script initialization completed\n";
+    PaintVolMask::global_paint_vol_mask->scriptActive = true;
+  }
 }
 
 void
@@ -234,6 +266,8 @@ PyWidget::volumeProcessed()
 void
 PyWidget::runCommand(QString script)
 {
+  PaintVolMask::global_paint_vol_mask->scriptActive = false;
+
   if (m_thread)
   {
     m_thread->quit();
@@ -252,6 +286,8 @@ PyWidget::runCommand(QString script)
   m_worker->moveToThread(m_thread);
   
   connect(this, &PyWidget::process_slice, m_worker, &PyWorker::process_slice);
+  connect(this, &PyWidget::process_volume, m_worker, &PyWorker::process_volume);
+
   connect(m_worker, &PyWorker::sliceProcessed, this, &PyWidget::sliceProcessed);
   connect(m_worker, &PyWorker::volumeProcessed, this, &PyWidget::volumeProcessed);
   connect(m_worker, &PyWorker::initDone, this, &PyWidget::initDone);

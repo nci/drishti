@@ -214,7 +214,7 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 
 
   //----------------------------------------------------------
-  QDockWidget *dock1 = new QDockWidget("Transfer Functions", this);
+  m_dock1 = new QDockWidget("Transfer Functions", this);
   {
     m_minGrad = new PopUpSlider(m_viewer, Qt::Horizontal);
     m_maxGrad = new PopUpSlider(m_viewer, Qt::Horizontal);
@@ -246,9 +246,9 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
     gframe->setLayout(glayout);
 
     
-    dock1->setAllowedAreas(Qt::LeftDockWidgetArea | 
+    m_dock1->setAllowedAreas(Qt::LeftDockWidgetArea | 
 			   Qt::RightDockWidgetArea);
-    QSplitter *splitter = new QSplitter(Qt::Vertical, dock1);
+    QSplitter *splitter = new QSplitter(Qt::Vertical, m_dock1);
     splitter->addWidget(m_tagColorEditor);
     splitter->addWidget(m_tfManager);
     splitter->addWidget(gframe);
@@ -261,14 +261,14 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
     QVBoxLayout *layout = new QVBoxLayout();
     dframe->setLayout(layout);
     dframe->layout()->addWidget(splitter);
-    dock1->setWidget(dframe);
+    m_dock1->setWidget(dframe);
   }
   //----------------------------------------------------------
 
   //----------------------------------------------------------
-  QDockWidget *dock2 = new QDockWidget("Seg Param", this);
+  m_dock2 = new QDockWidget("Seg Param", this);
   {
-    dock2->setAllowedAreas(Qt::LeftDockWidgetArea | 
+    m_dock2->setAllowedAreas(Qt::LeftDockWidgetArea | 
 			   Qt::RightDockWidgetArea);
 
     QFrame *dframe = new QFrame();
@@ -281,15 +281,15 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
     scrollArea->setWidgetResizable(true);
     scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
-    dock2->setWidget(scrollArea);
-    dock2->setMaximumWidth(210);
+    m_dock2->setWidget(scrollArea);
+    m_dock2->setMaximumWidth(210);
   }
   //----------------------------------------------------------
 
   //----------------------------------------------------------
-    QDockWidget *dock3 = new QDockWidget("3D Preview", this);
+    m_dock3 = new QDockWidget("3D Preview", this);
   {
-    dock3->setAllowedAreas(Qt::LeftDockWidgetArea | 
+    m_dock3->setAllowedAreas(Qt::LeftDockWidgetArea | 
 			   Qt::RightDockWidgetArea);
 
     QFrame *dframe = new QFrame();
@@ -302,15 +302,15 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
     scrollArea->setWidgetResizable(true);
     scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
-    dock3->setWidget(scrollArea);
-    dock3->setMaximumWidth(210);
+    m_dock3->setWidget(scrollArea);
+    m_dock3->setMaximumWidth(210);
   }
   //----------------------------------------------------------
   //----------------------------------------------------------
 
-  addDockWidget(Qt::LeftDockWidgetArea, dock2);
-  addDockWidget(Qt::LeftDockWidgetArea, dock3, Qt::Vertical);
-  addDockWidget(Qt::RightDockWidgetArea, dock1, Qt::Horizontal);
+  addDockWidget(Qt::LeftDockWidgetArea, m_dock2);
+  addDockWidget(Qt::LeftDockWidgetArea, m_dock3, Qt::Vertical);
+  addDockWidget(Qt::RightDockWidgetArea, m_dock1, Qt::Horizontal);
 
 
   m_volume = new Volume();
@@ -329,9 +329,9 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   ui.imageFrame->layout()->addWidget(m_curvesArea);
 
 
-  ui.menuView->addAction(dock1->toggleViewAction());
-  ui.menuView->addAction(dock2->toggleViewAction());
-  ui.menuView->addAction(dock3->toggleViewAction());
+  ui.menuView->addAction(m_dock1->toggleViewAction());
+  ui.menuView->addAction(m_dock2->toggleViewAction());
+  ui.menuView->addAction(m_dock3->toggleViewAction());
   
   on_actionGraphCut_triggered();
 
@@ -6557,14 +6557,36 @@ DrishtiPaint::on_actionScriptFolder_triggered()
 }
 
 void
+DrishtiPaint::processVolumeFromScript()
+{
+  if (!PaintVolMask::global_paint_vol_mask ||
+       PaintVolMask::global_paint_vol_mask->scriptActive == false)
+  {
+    QMessageBox::information(0, "Error", "No active script detected");
+    return;
+  }
+
+  m_pyWidget->processVolume();
+}
+
+void
 DrishtiPaint::on_actionCommand_triggered()
 {
   if (m_pyWidget)
     {
       m_pyWidget->close();
+      m_dock4->close();
     }
   
   m_pyWidget = new PyWidget();
+  
+  m_dock4 = new QDockWidget("Script", this);
+  m_dock4->setAllowedAreas(Qt::LeftDockWidgetArea | 
+			                     Qt::RightDockWidgetArea);
+
+  m_dock4->setWidget(m_pyWidget);
+  addDockWidget(Qt::RightDockWidgetArea, m_dock4, Qt::Vertical);
+  ui.menuView->addAction(m_dock4->toggleViewAction());
 
   connect(m_pyWidget, &PyWidget::pyWidgetClosed, [=](){m_pyWidget=0;});
 

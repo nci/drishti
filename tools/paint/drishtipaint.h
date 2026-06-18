@@ -225,6 +225,7 @@ class DrishtiPaint : public QMainWindow
 
   void createMeshViewerSocket();
 
+  void processVolumeFromScript();
   
  private :
   Ui::DrishtiPaint ui;
@@ -234,7 +235,11 @@ class DrishtiPaint : public QMainWindow
   QFrame *m_curvesMenu;
   QFrame *m_graphcutMenu;
 
-  
+  QDockWidget *m_dock1;
+  QDockWidget *m_dock2;
+  QDockWidget *m_dock3;
+  QDockWidget *m_dock4;
+
   HandleExternalCMD *m_handleExternalCMD;
 
 

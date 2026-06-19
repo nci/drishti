@@ -2003,7 +2003,7 @@ Viewer::draw()
 
   //Vec bmin, bmax;
   //m_boundingBox.bounds(bmin, bmax);
-  //camera()->setRevolveAroundPoint((bmax+bmin)/2);
+  //camera()->setPivotPoint((bmax+bmin)/2);
 
 
   glClearColor(0, 0, 0, 1);
@@ -2469,12 +2469,12 @@ Viewer::getHit(QMouseEvent *event)
 	{
 	  Vec voxelScaling = Global::relativeVoxelScaling();
 	  Vec pivot = VECPRODUCT(m_target, voxelScaling);
-	  camera()->setRevolveAroundPoint(pivot);
+	  camera()->setPivotPoint(pivot);
 	  QMessageBox::information(0, "", "Rotation pivot changed");
 	}
       else // reset rotation pivot
 	{
-	  camera()->setRevolveAroundPoint(sceneCenter());
+	  camera()->setPivotPoint(sceneCenter());
 	  QMessageBox::information(0, "", "Rotation pivot reset to scene center");
 	}
       return;

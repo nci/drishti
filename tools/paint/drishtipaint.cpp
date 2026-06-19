@@ -1215,7 +1215,9 @@ DrishtiPaint::on_saveWork_triggered()
       m_sagitalCurves->saveCurves(curvesfile);
       m_coronalCurves->saveCurves(curvesfile);
       
+      // don't use threaded version
       //m_volume->saveIntermediateResults(true);
+
       m_volume->exiting();
 
       QMessageBox::information(0, "Save Work", "Saved");
@@ -1232,6 +1234,7 @@ DrishtiPaint::saveWork()
       m_sagitalCurves->saveCurves(curvesfile);
       m_coronalCurves->saveCurves(curvesfile);
       
+      // use threaded version
       m_volume->saveIntermediateResults();
     }
 }
@@ -1644,11 +1647,11 @@ DrishtiPaint::on_actionExit_triggered()
       m_sagitalCurves->saveCurves(curvesfile);
       m_coronalCurves->saveCurves(curvesfile);
 
-      m_volume->saveIntermediateResults(true);
+      // don't use threaded version
+      //m_volume->saveIntermediateResults(true); 
+      
+      m_volume->exiting();
     }
-
-//  m_viewer->init();
-//  m_volume->reset();
 
   m_viewer->close();
 

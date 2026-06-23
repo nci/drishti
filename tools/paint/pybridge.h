@@ -27,6 +27,8 @@ public:
     void update_slice_view();
     void update_3d_view();
 
+    bool processSlice(uchar*, ushort*, int, int, int);
+
     uint8_t *volume;
     uint16_t *mask;
     uint8_t *lut;

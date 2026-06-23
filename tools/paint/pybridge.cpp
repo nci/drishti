@@ -1,5 +1,5 @@
 #include "pybridge.h"
-
+#include <iostream>
 
 PaintVolMask* PaintVolMask::global_paint_vol_mask = 0;
 py::module PaintVolMask::global_pyModule;
@@ -63,4 +63,35 @@ void
 PaintVolMask::update_3d_view()
 {
     emit viewerUpdate();
+}
+
+bool
+PaintVolMask::processSlice(uchar *img, ushort *mask, 
+                          int width, int height,
+                          int tag)
+{
+    py::gil_scoped_acquire gil;
+
+    if (py::hasattr(PaintVolMask::global_pyModule, "process_slice") == false)
+    {
+        std::cout << "** process_slice NOT FOUND\n";
+        return false;
+    }
+
+    int64_t size = width * height;
+    py::array_t<uint8_t> py_img = py::array_t<uint8_t>({size}, 
+                                                        {sizeof(uint8_t)},
+                                                        img, 
+                                                        py::cast(nullptr));                             
+    py::array_t<uint16_t> py_mask = py::array_t<uint16_t>({size}, 
+                                                        {sizeof(uint16_t)},
+                                                        mask, 
+                                                        py::cast(nullptr));
+    
+    PaintVolMask::global_pyModule.attr("process_slice")(py_img, py_mask, 
+                                                        width, height,
+                                                        tag);
+    
+    // mask updated inside script
+    return true;
 }

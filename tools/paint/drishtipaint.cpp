@@ -6600,8 +6600,6 @@ DrishtiPaint::on_actionCommand_triggered()
   m_pyWidget->setVolPtr(m_volume->memVolDataPtr());
   m_pyWidget->setMaskPtr(m_volume->memMaskDataPtr());
   
-  connect(m_axialImage, SIGNAL(processSlice(int)), m_pyWidget, SLOT(processSlice(int)));
-
   //----------------------------
   // set global pointers for volume and mask data
   if (!PaintVolMask::global_paint_vol_mask)

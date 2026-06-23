@@ -30,6 +30,7 @@ class PyWorker : public QObject
     PyWorker(QString);
     ~PyWorker() {}
 
+    
     bool hasInit() {return m_hasInit;}
     bool hasDataAllocator() {return m_hasDataAllocator;}
     bool hasSliceProcessor() {return m_hasSliceProcessor;}
@@ -37,9 +38,9 @@ class PyWorker : public QObject
 
   public slots :
     void initScript();
-    void process_slice(int);
     void process_volume();
-
+    void process_slice(uchar*, ushort*, int, int, int);
+    
   signals :
     void initDone(QString);
     void sliceProcessed();
@@ -68,7 +69,7 @@ class PyWidget : public QWidget
   void setMaskPtr(uchar*);
 
  public slots :
-  void processSlice(int);
+  void processSlice(uchar*, ushort*, int, int, int);
   void processVolume();
   void initDone(QString);
   void sliceProcessed();
@@ -76,8 +77,9 @@ class PyWidget : public QWidget
 
  signals :
   void pyWidgetClosed();
-  void process_slice(int);
+  void initScript();
   void process_volume();
+  void process_slice(uchar*, ushort*, int, int, int);
     
  private slots :
    void closeEvent(QCloseEvent*);

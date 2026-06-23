@@ -1,0 +1,8 @@
+{
+    "executable" :"",    
+    "interpreter" : "python",
+    "script" : "watershed.py",
+    "arguments" : {
+	"output" : "%DIR%/text.raw"
+    }
+}

@@ -1,3 +1,6 @@
+#include <pybind11/pybind11.h>
+#include "pybridge.h"
+
 #include "geometryobjects.h"
 #include "imagewidget.h"
 #include "global.h"
@@ -1488,7 +1491,7 @@ ImageWidget::graphcutModeKeyPressEvent(QKeyEvent *event)
 
   if (event->key() == Qt::Key_At)
     {
-      emit processSlice(m_currSlice);
+      processInScript();
       return;
     }
 
@@ -2543,6 +2546,118 @@ ImageWidget::getSliceLimits(int &size1, int &size2,
     }
 
 }
+void
+ImageWidget::processInScript()
+{
+  uint8_t *imageData = new uchar[m_imgWidth*m_imgHeight];
+  ushort *maskData = new ushort[m_imgWidth*m_imgHeight];
+
+  for(int i=0; i<m_imgWidth*m_imgHeight; i++)
+    imageData[i] = m_sliceImage[4*i+0];
+
+  memset(maskData, 0, 2*m_imgWidth*m_imgHeight);
+
+  for(int i=0; i<m_imgWidth*m_imgHeight; i++)
+    {
+      if (m_prevtags[i] > 0) // set as background so that we don't overwrite it
+	      maskData[i] = 65535;
+
+      if (m_prevtags[i] == Global::tag()) // add seed points
+	      maskData[i] = 1;
+    }
+
+  for(int i=0; i<m_imgWidth*m_imgHeight; i++) // overwrite with usertags
+    {
+      if (m_usertags[i] == Global::tag())
+	      maskData[i] = 1;
+      else if (m_usertags[i] == 65535) // do not overwrite
+        maskData[i] = 65535;
+      else if (m_usertags[i] > 0) // do not overwite
+        maskData[i] = 65535;
+    }
+  
+  if (Global::copyPrev())
+    {
+      for(int i=0; i<m_imgWidth*m_imgHeight; i++) // apply prevslicetags
+	    {
+	      if (maskData[i] == 0)
+        {
+          if (m_prevslicetags[i] == Global::tag())
+            maskData[i] = 1;
+          else if (m_prevslicetags[i] == 65535)
+            maskData[i] = 65535; // do not overwrite
+          else if (m_prevslicetags[i] > 0)
+            maskData[i] = 65535; // do not overwrite
+        }
+	    }
+    }
+
+  int size1, size2;
+  int imin, imax, jmin, jmax;
+  getSliceLimits(size1, size2, imin, imax, jmin, jmax);
+
+  
+  int idx=0;
+  for(int i=imin; i<=imax; i++)
+    for(int j=jmin; j<=jmax; j++)
+      {
+	      maskData[idx] = maskData[i*m_imgWidth+j];
+	      idx++;
+      }
+
+  idx=0;
+  for(int i=imin; i<=imax; i++)
+    for(int j=jmin; j<=jmax; j++)
+      {
+	      imageData[idx] = imageData[i*m_imgWidth+j];
+	      idx++;
+      }
+  
+
+
+  if (PaintVolMask::global_paint_vol_mask->processSlice(imageData, maskData, 
+                                                        size2, size1,
+                                                        Global::tag()) == false)
+    {
+      delete [] imageData;
+      delete [] maskData;
+      return;
+    }
+
+
+  
+  memset(m_tags, 0, 2*m_imgWidth*m_imgHeight);
+  
+  idx=0;
+  for(int i=imin; i<=imax; i++)
+    for(int j=jmin; j<=jmax; j++)
+      {
+        if (maskData[idx] > 0)
+          m_tags[i*m_imgWidth+j] = maskData[idx];
+	      idx++;
+      }
+  
+  
+  for(int i=0; i<m_imgWidth*m_imgHeight; i++)
+    {
+      if (m_tags[i] == 0)
+	      m_tags[i] = m_prevtags[i];
+    }
+    
+  
+  if (m_sliceType == DSlice)
+    emit tagDSlice(m_currSlice, (uchar*)m_tags);
+  else if (m_sliceType == WSlice)
+    emit tagWSlice(m_currSlice, (uchar*)m_tags);
+  else if (m_sliceType == HSlice)
+    emit tagHSlice(m_currSlice, (uchar*)m_tags);
+  
+  setMaskImage(m_tags);
+
+  delete [] imageData;
+  delete [] maskData;
+  std::cout << "slice mask updated\n";
+}
 
 void
 ImageWidget::applyGraphCut()
@@ -2559,15 +2674,15 @@ ImageWidget::applyGraphCut()
   for(int i=0; i<m_imgWidth*m_imgHeight; i++)
     {
       if (m_prevtags[i] > 0) // set as background so that we don't overwrite it
-	maskData[i] = 65535;
+	      maskData[i] = 65535;
 
       if (m_prevtags[i] == Global::tag()) // add seed points
-	maskData[i] = Global::tag();
+	      maskData[i] = Global::tag();
     }
   for(int i=0; i<m_imgWidth*m_imgHeight; i++) // overwrite with usertags
     {
       if (m_usertags[i] > 0)
-	maskData[i] = m_usertags[i];
+	      maskData[i] = m_usertags[i];
     }
 
   if (Global::copyPrev())
@@ -2587,16 +2702,16 @@ ImageWidget::applyGraphCut()
   for(int i=imin; i<=imax; i++)
     for(int j=jmin; j<=jmax; j++)
       {
-	maskData[idx] = maskData[i*m_imgWidth+j];
-	idx++;
+	      maskData[idx] = maskData[i*m_imgWidth+j];
+	      idx++;
       }
 
   idx=0;
   for(int i=imin; i<=imax; i++)
     for(int j=jmin; j<=jmax; j++)
       {
-	imageData[idx] = imageData[i*m_imgWidth+j];
-	idx++;
+	      imageData[idx] = imageData[i*m_imgWidth+j];
+	      idx++;
       }
 
   MaxFlowMinCut mfmc;
@@ -2615,15 +2730,15 @@ ImageWidget::applyGraphCut()
   for(int i=imin; i<=imax; i++)
     for(int j=jmin; j<=jmax; j++)
       {
-	m_tags[i*m_imgWidth+j] = maskData[idx];
-	idx++;
+	      m_tags[i*m_imgWidth+j] = maskData[idx];
+	      idx++;
       }
 
   
   for(int i=0; i<m_imgWidth*m_imgHeight; i++)
     {
       if (m_tags[i] == 0)
-	m_tags[i] = m_prevtags[i];
+	      m_tags[i] = m_prevtags[i];
     }
 
   delete [] imageData;

@@ -12,9 +12,6 @@
 #include <QMessageBox>
 #include <QFileDialog>
 
-#include <QtConcurrent/QtConcurrent>
-
-
 //--------------------------------------------
 //--------------------------------------------
 PyWorker::PyWorker(QString script) : m_script(script) {}
@@ -79,19 +76,30 @@ PyWorker::initScript()
 }
 
 void
-PyWorker::process_slice(int slice)
+PyWorker::process_slice(uchar *image, ushort *mask, int width, int height, int tag)
 {
-  py::gil_scoped_acquire gil;
-  
-  if (m_hasSliceProcessor)
-    {
-      PaintVolMask::global_pyModule.attr("process_slice")(slice);
-      emit sliceProcessed();
-    }
-  else
+  if (!m_hasSliceProcessor)
     {
       std::cout << "** NO SLICE PROCESSOR FOUND\n";
+      return;
     }
+
+  py::gil_scoped_acquire gil;
+  int size = width* height;
+  py::array_t<uint8_t> py_img = py::array_t<uint8_t>({size}, 
+                                                     {sizeof(uint8_t)},
+                                                     image, 
+                                                     py::cast(nullptr));
+  py::array_t<uint16_t> py_mask = py::array_t<uint16_t>({size}, 
+                                                      {sizeof(uint16_t)},
+                                                      mask, 
+                                                      py::cast(nullptr));
+
+  PaintVolMask::global_pyModule.attr("process_slice")(py_img, py_mask, 
+                                                      width, height,
+                                                      tag);
+  
+  emit sliceProcessed();
 }
 
 void
@@ -99,13 +107,14 @@ PyWorker::process_volume()
 {
   py::gil_scoped_acquire gil;
   
-  if (m_hasVolumeProcessor)
+  if (!m_hasVolumeProcessor)
     {
-      PaintVolMask::global_pyModule.attr("process_volume")();
-      emit volumeProcessed();
+      std::cout << "** NO VOLUME PROCESSOR FOUND\n";
+      return;
     }
-  else
-    std::cout << "** NO VOLUME PROCESSOR FOUND\n";
+  
+  PaintVolMask::global_pyModule.attr("process_volume")();
+  emit volumeProcessed();
 }
 //--------------------------------------------
 //--------------------------------------------
@@ -215,23 +224,30 @@ PyWidget::loadScripts()
 }
 
 void
-PyWidget::processSlice(int slice)
+PyWidget::processSlice(uchar* image, ushort* mask, int width, int height, int tag)
 {
   if (!m_worker->hasSliceProcessor())
+  {
     QMessageBox::information(0, "Error", 
       "No Slice Processor found in script "+ 
       PaintVolMask::global_paint_vol_mask->scriptName);
-  
-  emit process_slice(slice);
-}
+      return;
+  }
 
+  //emit process_slice(image, mask, width, height, tag);
+  m_worker->process_slice(image, mask, width, height, tag);
+}
+  
 void
 PyWidget::processVolume()
 {
   if (!m_worker->hasVolumeProcessor())
+  {
     QMessageBox::information(0, "Error", 
       "No Volume Processor found in script "+ 
       PaintVolMask::global_paint_vol_mask->scriptName);
+    return;
+  }
 
   emit process_volume();
 }
@@ -268,39 +284,55 @@ PyWidget::runCommand(QString script)
 {
   PaintVolMask::global_paint_vol_mask->scriptActive = false;
 
-  if (m_thread)
-  {
-    m_thread->quit();
-    m_thread->wait();
-    m_thread = 0;
-  }
+  //if (m_thread)
+  //{
+  //  m_thread->quit();
+  //  m_thread->wait();
+  //  m_thread = 0;
+  //}
+  //
+  //if (m_worker)
+  //{
+  //  delete m_worker;
+  //  m_worker = 0;
+  //}
+  //
+  //m_thread = new MyThread;
+  //m_worker = new PyWorker(script);
+  //m_worker->moveToThread(m_thread);
+  //
+  //connect(this, &PyWidget::initScript, m_worker, &PyWorker::initScript);
+  //connect(this, &PyWidget::process_slice, m_worker, &PyWorker::process_slice);
+  //connect(this, &PyWidget::process_volume, m_worker, &PyWorker::process_volume);
+  //
+  //connect(m_worker, &PyWorker::sliceProcessed, this, &PyWidget::sliceProcessed);
+  //connect(m_worker, &PyWorker::volumeProcessed, this, &PyWidget::volumeProcessed);
+  //connect(m_worker, &PyWorker::initDone, this, &PyWidget::initDone);
+  //
+  //connect(m_thread, &QThread::finished, m_thread, &QThread::deleteLater);
+  //
+  //m_thread->start();
+  //
+  //emit initScript();
+  //
+  //return;
 
+  //-----------------
+  // single thread
   if (m_worker)
   {
     delete m_worker;
     m_worker = 0;
   }
-
-  m_thread = new MyThread;
   m_worker = new PyWorker(script);
-  m_worker->moveToThread(m_thread);
   
+  connect(this, &PyWidget::initScript, m_worker, &PyWorker::initScript);
   connect(this, &PyWidget::process_slice, m_worker, &PyWorker::process_slice);
   connect(this, &PyWidget::process_volume, m_worker, &PyWorker::process_volume);
 
   connect(m_worker, &PyWorker::sliceProcessed, this, &PyWidget::sliceProcessed);
   connect(m_worker, &PyWorker::volumeProcessed, this, &PyWidget::volumeProcessed);
   connect(m_worker, &PyWorker::initDone, this, &PyWidget::initDone);
-  
 
-  connect(m_thread, &QThread::started, m_worker, &PyWorker::initScript);
-  connect(m_thread, &QThread::finished, m_thread, &QThread::deleteLater);
-
-  m_thread->start();
-  
-  return;
-
-//  //-----------------
-//  // single thread
-//  m_worker->initScript();
+  emit initScript();
 }

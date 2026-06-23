@@ -73,7 +73,7 @@ def init() :
     sam.mask_generator = SamAutomaticMaskGenerator(model=sam_model,
                                                    points_per_side = sam.points_per_side,
                                                    pred_iou_thresh = sam.pred_iou_thresh,
-                                                   stability_score_thresh =sam.stability_score_thresh,
+                                                   stability_score_thresh = sam.stability_score_thresh,
                                                    crop_n_layers = sam.crop_n_layers,
                                                    crop_n_points_downscale_factor = sam.crop_n_points_downscale_factor,
                                                    min_mask_region_area = sam.min_mask_region_area)
@@ -86,8 +86,10 @@ def init() :
     #                             sam.min_mask_region_area)
     print('mask_generator created')
     
-def process_slice(slc_no) :
-    print('process slice ',slc_no)
+def process_slice(img, mask, width, height, tag) :
+    mask = mask.reshape((width, height))
+    img = img.reshape((width, height))
+    
     lut = pd.lut
     lut = lut.reshape(256,4)
     print(lut.shape)
@@ -96,19 +98,8 @@ def process_slice(slc_no) :
     lut = np.transpose(lut, axes=(1,0))
     lut = lut.reshape(-1).tolist()
 
-    slc_size = pd.width*pd.height
-    slc_start = slc_no*slc_size
-    slice = pd.volume[slc_start:slc_start+slc_size]
-    gray_array = slice.reshape(pd.width, pd.height)
-    gray_img = Image.fromarray(gray_array).convert('RGB')
+    gray_img = Image.fromarray(img).convert('RGB')
     rgb_img = gray_img.point(lut)
-
-    #fig, axes = plt.subplots(1, 2, figsize=(10,5))
-    #axes[0].imshow(rgb_img)
-    #axes[1].imshow(gray_img)
-    #plt.axis('off')
-    #plt.tight_layout()
-    #plt.show()
 
     print('prediction ....')
     rgb_array = np.asarray(rgb_img)
@@ -130,8 +121,6 @@ def process_slice(slc_no) :
         a[setm] = maskId
         pd.mask[slc_start:slc_start+slc_size] = a.reshape(pd.width*pd.height);
 
-    pd.paint_obj.update_slice_view()
     pd.paint_obj.update_3d_view()
-    print('processing done')
     
     

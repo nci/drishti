@@ -106,7 +106,6 @@ class ImageWidget : public QWidget
   void yPos(int);
   void sliceChanged(int);
   void setSliceNumber(int);
-  void processSlice(int);
 
   void updateSliderLimits();
   void resetSliderLimits();
@@ -226,6 +225,9 @@ class ImageWidget : public QWidget
   ushort *m_tags;
   ushort *m_tmptags;
 
+  uchar *m_imageForScript;
+  uchar *m_maskForScript;
+
   bool m_applyRecursive;
   bool m_extraPressed;
   int m_cslc, m_maxslc;
@@ -288,6 +290,8 @@ class ImageWidget : public QWidget
 
   void update3DBox(bool);
   void update2DBox(bool);
+
+  void processInScript();
 };
 
 

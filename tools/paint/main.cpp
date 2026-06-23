@@ -68,6 +68,7 @@ int main(int argc, char **argv)
   mainWindow.addDockWidget(Qt::BottomDockWidgetArea, dock);
   mainWindow.show();
   
+  
   py::gil_scoped_release gil;
   return app.exec();
 }

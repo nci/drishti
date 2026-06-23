@@ -52,7 +52,6 @@ class Slices : public QWidget
   void setGradType(int g) { m_imageWidget->setGradType(g); }
 
  signals :
-  void processSlice(int);
   void changeLayout();
   void sliceChanged(int);
   void xPos(int);

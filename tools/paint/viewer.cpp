@@ -3206,8 +3206,9 @@ Viewer::uploadMask(int dst, int wst, int hst, int ded, int wed, int hed)
 		  voxelVol);
   glDisable(GL_TEXTURE_3D);
 
-  
+
   update();
+  std::cout << "labels updated in 3d view\n";
 
   delete [] voxelVol;
 }

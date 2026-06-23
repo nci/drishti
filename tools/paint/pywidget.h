@@ -64,9 +64,6 @@ class PyWidget : public QWidget
   ~PyWidget();
 
   void setFilename(QString);
-  void setSize(int, int, int);
-  void setVolPtr(uchar*);
-  void setMaskPtr(uchar*);
 
  public slots :
   void processSlice(uchar*, ushort*, int, int, int);
@@ -88,10 +85,6 @@ class PyWidget : public QWidget
  private :
    QString m_fileName;
    QString m_maskName;
-   
-   int m_d, m_w, m_h;
-   uchar *m_volPtr;
-   uchar *m_maskPtr;
 
    PyWidgetMenu *m_menu;
   

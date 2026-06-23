@@ -5,7 +5,6 @@ import numpy as np
 
 from PIL import Image
 import cv2
-import matplotlib.pyplot as plt
 
 import torch
 import torchvision
@@ -89,7 +88,7 @@ def init() :
 def process_slice(img, mask, width, height, tag) :
     mask = mask.reshape((width, height))
     img = img.reshape((width, height))
-    
+
     lut = pd.lut
     lut = lut.reshape(256,4)
     print(lut.shape)
@@ -100,7 +99,7 @@ def process_slice(img, mask, width, height, tag) :
 
     gray_img = Image.fromarray(img).convert('RGB')
     rgb_img = gray_img.point(lut)
-
+    
     print('prediction ....')
     rgb_array = np.asarray(rgb_img)
     masks = sam.mask_generator.generate(rgb_array)
@@ -110,17 +109,17 @@ def process_slice(img, mask, width, height, tag) :
         return
     else :
         print('Number of segmentations : ',len(masks))
-    
+
+
     sorted_masks = sorted(masks, key=(lambda x: x['area']), reverse=True)
     maskId = 1
-    for mask in masks :
+    for m in masks :
         maskId = maskId + 1
-        m = mask['segmentation']
-        setm = m!=0 # boolean mask where mask != 0
-        a = pd.mask[slc_start:slc_start+slc_size].reshape(pd.width, pd.height)
-        a[setm] = maskId
-        pd.mask[slc_start:slc_start+slc_size] = a.reshape(pd.width*pd.height);
+        seg = m['segmentation']
+        mask[seg!=0] = maskId # set maskId where seg is not 0
 
-    pd.paint_obj.update_3d_view()
-    
+def process_volume() :
+    print('volume processing not implemented')
+    #pd.paint_obj.update_3d_view()
+
     

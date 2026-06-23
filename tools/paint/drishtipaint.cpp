@@ -5241,10 +5241,10 @@ DrishtiPaint::reloadMask()
   VolumeOperations::setMaskData(m_volume->memMaskDataPtr());
   VolumeMeasure::setMaskData(m_volume->memMaskDataPtr());
 
+  if (!PaintVolMask::global_paint_vol_mask)
+    PaintVolMask::global_paint_vol_mask->mask = m_volume->memMaskDataPtrUS();
+
   reloadAllMask();
-  //int m_depth, m_width, m_height;
-  //m_volume->gridSize(m_depth, m_width, m_height);
-  //m_viewer->uploadMask(0,0,0, m_depth-1,m_width-1,m_height-1);
 
   QMessageBox::information(0, "", "done");
 }
@@ -6509,9 +6509,6 @@ DrishtiPaint::undoPaint3D()
   m_volume->undo();
 
   reloadAllMask();
-  //int m_depth, m_width, m_height;
-  //m_volume->gridSize(m_depth, m_width, m_height);
-  //m_viewer->uploadMask(0,0,0, m_depth-1,m_width-1,m_height-1);
 
   QMessageBox::information(0, "", "done");    
 }
@@ -6593,12 +6590,9 @@ DrishtiPaint::on_actionCommand_triggered()
 
   connect(m_pyWidget, &PyWidget::pyWidgetClosed, [=](){m_pyWidget=0;});
 
-  int d, w, h;
-  m_volume->gridSize(d, w, h);
-  m_pyWidget->setSize(d, w, h);
+
   m_pyWidget->setFilename(m_volume->fileName());
-  m_pyWidget->setVolPtr(m_volume->memVolDataPtr());
-  m_pyWidget->setMaskPtr(m_volume->memMaskDataPtr());
+
   
   //----------------------------
   // set global pointers for volume and mask data
@@ -6615,6 +6609,8 @@ DrishtiPaint::on_actionCommand_triggered()
               &DrishtiPaint::reloadSlices);
     }
 
+  int d, w, h;
+  m_volume->gridSize(d, w, h);
   PaintVolMask::global_paint_vol_mask->volume = m_volume->memVolDataPtr();
   PaintVolMask::global_paint_vol_mask->mask = m_volume->memMaskDataPtrUS();
   PaintVolMask::global_paint_vol_mask->lut = Global::lut();

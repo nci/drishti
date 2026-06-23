@@ -137,9 +137,6 @@ PyWidget::PyWidget(QWidget *parent)
   m_worker = 0;
   m_thread = 0;
 
-  m_d = m_w = m_h = 0;
-  m_volPtr = m_maskPtr = 0;
-  
   resize(600, 500);
 
   show();
@@ -194,26 +191,6 @@ PyWidget::setFilename(QString volfile)
   m_menu->addRow("%DIR%", QFileInfo(m_fileName).absolutePath());
   m_menu->addRow("volume", "%DIR%/"+QFileInfo(m_fileName).fileName());
   m_menu->addRow("mask", "%DIR%/"+QFileInfo(m_maskName).fileName());
-}
-
-void
-PyWidget::setSize(int d, int w, int h)
-{
-  m_d = d;
-  m_w = w;
-  m_h = h;
-}
-
-void
-PyWidget::setVolPtr(uchar* v)
-{
-  m_volPtr = v;
-}
-
-void
-PyWidget::setMaskPtr(uchar* m)
-{
-  m_maskPtr = m;
 }
 
 void

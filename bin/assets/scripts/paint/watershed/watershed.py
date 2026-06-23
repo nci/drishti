@@ -40,6 +40,7 @@ def init() :
     
 def process_volume() :
     print('3D watershed not implemented')
+    #pd.paint_obj.update_3d_view()
 
 def process_slice(img, mask, width, height, tag) :
     print('process slice image mask .. ')

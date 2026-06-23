@@ -39,7 +39,8 @@ def init() :
 
     
 def process_volume() :
-    grabCut()
+    print('volume processing not implemented')
+    #pd.paint_obj.update_3d_view()
     
 
 def process_slice(img, mask, width, height, tag) :

@@ -13,15 +13,19 @@ PyWidgetMenu::PyWidgetMenu(QWidget *parent) :
   ui.tableWidget->setSelectionBehavior(QAbstractItemView::SelectRows);
   ui.tableWidget->setFont(QFont("MS Reference Sans Serif", 12));
   ui.scriptList->setFont(QFont("MS Reference Sans Serif", 12));
-
+  ui.textEdit->setFont(QFont("MS Reference Sans Serif", 12));
+  
   connect(ui.scriptList, SIGNAL(currentIndexChanged(int)),
 	  this, SLOT(on_scriptChanged(int)));
 
   m_scriptDir.clear();
   m_jsonFileList.clear();
   m_script.clear();
-  m_executable.clear();
-  m_interpreter.clear();
+
+  // hide the tableWidget for the time being
+  ui.tableWidget->hide();
+  ui.addRow->hide();
+  ui.removeRow->hide();
 }
 
 PyWidgetMenu::~PyWidgetMenu()
@@ -33,9 +37,8 @@ void
 PyWidgetMenu::on_scriptChanged(int idx)
 {
   m_script.clear();
-  m_executable.clear();
-  m_interpreter.clear();
-			   
+	ui.textEdit->clear();
+
   // clear all rows beyond the third row
   for(int i=ui.tableWidget->rowCount()-1; i>=3; i--)
     {
@@ -85,14 +88,13 @@ PyWidgetMenu::on_scriptChanged(int idx)
 	    	    	addRow(key, QString("%1").arg(value.toDouble()));
 	    	        }
 	    	    }
-	          if (key == "executable")
-	    	      m_executable = value.toString();		
-	          if (key == "interpreter")
-	    	      m_interpreter = value.toString();
 	          if (key == "script")
 	    	      m_script = m_scriptDir + QDir::separator() +
 	    	           ui.scriptList->currentText() + QDir::separator() +
 	    	           value.toString();  
+            if (key == "doc")
+              //m_doc = value.toString();
+              ui.textEdit->append(value.toString());
 	        }	  
 	    }
     }
@@ -143,8 +145,6 @@ PyWidgetMenu::loadScripts(QString scriptdir)
 		      QString value = jsonObj.take(key).toString();
 		      if (!value.isEmpty())
 			{
-			  if (key == "executable")
-			    skrpt = scriptD[i].fileName();
 			  if (key == "script")
 			    skrpt = scriptD[i].fileName();
 			}
@@ -195,28 +195,7 @@ PyWidgetMenu::addRow(QString key, QString value)
 void
 PyWidgetMenu::on_runScript_pressed()
 {
-  QStringList kv = getData();
-
-  QString ldir;
-  if (kv[0] == "%DIR%")
-    ldir = kv[1];
-
-  QString cmd;
-  for(int i=1; i<kv.count()/2; i++)
-    {
-      QString val = kv[2*i+1].replace("%DIR%", ldir);
-      cmd += kv[2*i]+"="+"\""+val+"\"";
-      cmd += " ";
-    }
-
-  if (!m_executable.isEmpty())
-    cmd = m_executable+" "+cmd;
-  else if (!m_interpreter.isEmpty() &&
-	   !m_script.isEmpty())
-    cmd = m_interpreter+" "+m_script+" "+cmd;
-
   emit runCommand(m_script);
-  //emit runCommand(cmd);
 }
 
 QStringList
@@ -245,6 +224,6 @@ PyWidgetMenu::on_removeRow_pressed()
     {
       QTableWidgetItem *wi = ui.tableWidget->item(i, 1);
       if (wi->isSelected())
-	ui.tableWidget->removeRow(i);
+	      ui.tableWidget->removeRow(i);
     }
 }

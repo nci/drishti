@@ -32,9 +32,8 @@ class PyWidgetMenu : public QWidget
 
     QString m_scriptDir;
     QStringList m_jsonFileList;
-    QString m_executable;
-    QString m_interpreter;
     QString m_script;
+    QString m_doc;
     
 };
 

@@ -1,7 +1,9 @@
 {
-    "executable" :"",    
-    "interpreter" : "python",
     "script" : "grabcut.py",
+    "doc" :
+"This script uses grabCut routine from OpenCV2.
+Works on 2D slices.
+Currently 3D version is not implemented",
     "arguments" : {
 	"output" : "%DIR%/text.raw"
     }

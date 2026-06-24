@@ -1,4 +1,7 @@
 {
-    "interpreter" : "python",
-    "script" : "sam2.py"
+    "script" : "sam2.py",
+    "doc" :
+"This script uses Segment Anything Model from Meta.
+Works on 2D slices.
+Currently 3D version is not implemented"
 }

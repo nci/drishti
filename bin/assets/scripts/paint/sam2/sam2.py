@@ -89,20 +89,22 @@ def process_slice(img, mask, width, height, tag) :
     mask = mask.reshape((width, height))
     img = img.reshape((width, height))
 
-    lut = pd.lut
-    lut = lut.reshape(256,4)
-    print(lut.shape)
-    lut = np.delete(lut, 3, axis=1)
-    lut[:,[0,2]] = lut[:,[2,0]]
-    lut = np.transpose(lut, axes=(1,0))
-    lut = lut.reshape(-1).tolist()
-
     gray_img = np.where(mask == 65535, 0, img)  # set masked background pixels to 0
     gray_img = Image.fromarray(gray_img).convert('RGB')
-    rgb_img = gray_img.point(lut)
+
+    #lut = pd.lut
+    #lut = lut.reshape(256,4)
+    #print(lut.shape)
+    #lut = np.delete(lut, 3, axis=1)
+    #lut[:,[0,2]] = lut[:,[2,0]]
+    #lut = np.transpose(lut, axes=(1,0))
+    #lut = lut.reshape(-1).tolist()
+    #rgb_img = gray_img.point(lut) # apply lookup table
+    #rgb_array = np.asarray(rgb_img)
+
+    rgb_array = np.asarray(gray_img)
     
     print('prediction ....')
-    rgb_array = np.asarray(rgb_img)
     masks = sam.mask_generator.generate(rgb_array)
     
     if len(masks) == 0 :

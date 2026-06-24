@@ -1440,33 +1440,33 @@ ImageWidget::checkRecursive()
     {
       m_slcBlock ++;
       if (m_slcBlock == 10)
-	{
-	  m_slcBlock = 0;
-	  emit saveWork();
-	  QTimer::singleShot(100, this, SLOT(restartRecursive()));
-	  qApp->processEvents();
-	  return;
-	}
+	    {
+	      m_slcBlock = 0;
+	      emit saveWork();
+	      QTimer::singleShot(100, this, SLOT(restartRecursive()));
+	      qApp->processEvents();
+	      return;
+	    }
       
       m_cslc++;	
 	
       if (m_cslc >= m_maxslc)
-	{
-	  m_applyRecursive = false;
-	  emit saveWork();
-	  QMessageBox::information(0, "", "Reached the end");
-	  emit reconnectSlider();
-	  emit sliceChanged(m_currSlice);
-	  emit setSliceNumber(m_currSlice);
-	  qApp->processEvents();
-	}
+	    {
+	      m_applyRecursive = false;
+	      emit saveWork();
+	      QMessageBox::information(0, "", "Reached the end");
+	      emit reconnectSlider();
+	      emit sliceChanged(m_currSlice);
+	      emit setSliceNumber(m_currSlice);
+	      qApp->processEvents();
+	    }
       else
-	{
-	  if (m_forward)
-	    doAnother(1);
-	  else
-	    doAnother(-1);
-	}
+	    {
+	      if (m_forward)
+	        doAnother(1);
+	      else
+	        doAnother(-1);
+	    }
     }
 }
 
@@ -1488,11 +1488,14 @@ ImageWidget::graphcutModeKeyPressEvent(QKeyEvent *event)
   int ctrlModifier = event->modifiers() & Qt::ControlModifier;
   bool altModifier = event->modifiers() & Qt::AltModifier;
 
-
-  if (event->key() == Qt::Key_At)
+  
+  if (event->key() == Qt::Key_A)
     {
+ 	    if (shiftModifier)// apply processInScript for multiple slices
+	      applyRecursive(event->key());
+
       processInScript();
-      return;
+      checkRecursive();
     }
 
   {
@@ -1532,222 +1535,233 @@ ImageWidget::graphcutModeKeyPressEvent(QKeyEvent *event)
   else if (event->key() == Qt::Key_D) // apply dilate
     {
       if (ctrlModifier)
-	{
-	  emit applyMaskOperation(Global::tag(),
-				  1, // smoothType dilate
-				  Global::smooth());
-	}
+	    {
+	      emit applyMaskOperation(Global::tag(),
+	    			  1, // smoothType dilate
+	    			  Global::smooth());
+	    }
       else
-	{
-	  if (shiftModifier) // apply dilation for multiple slices
-	    applyRecursive(event->key());
-	  
-	  smooth(64, false, false);
-	}
+	    {
+	      if (shiftModifier) // apply dilation for multiple slices
+	        applyRecursive(event->key());
+      
+	      smooth(64, false, false);
+        checkRecursive();
+	    }
     }
   else if (event->key() == Qt::Key_E) // apply erode
     {
       if (ctrlModifier)
-	{
-	  emit applyMaskOperation(Global::tag(),
-				  2, // smoothType erode
-				  Global::smooth());
-	}
+	    {
+	      emit applyMaskOperation(Global::tag(),
+	    			  2, // smoothType erode
+	    			  Global::smooth());
+	    }
       else
-	{
-	  if (shiftModifier) // apply erosion for multiple slices
-	    applyRecursive(event->key());
-
-	  smooth(192, false, false);
-	}
+	    {
+	      if (shiftModifier) // apply erosion for multiple slices
+	        applyRecursive(event->key());
+      
+	      smooth(192, false, false);
+        checkRecursive();
+	    }
     }
   else if (event->key() == Qt::Key_C) // apply close operation
     {
       if (ctrlModifier)
-	{
-	  emit applyMaskOperation(Global::tag(),
-				  3, // smoothType close
-				  Global::smooth());
-	}
+	    {
+	      emit applyMaskOperation(Global::tag(),
+	    			  3, // smoothType close
+	    			  Global::smooth());
+	    }
       else
-	{
-	  if (shiftModifier) // apply close for multiple slices
-	    applyRecursive(event->key());
-	  
-	  smooth(64, false, true); // first dilate
-	  smooth(192, false, false); // then erode
-	}
+	    {
+	      if (shiftModifier) // apply close for multiple slices
+	        applyRecursive(event->key());
+      
+	      smooth(64, false, true); // first dilate
+	      smooth(192, false, false); // then erode
+        checkRecursive();
+	    }
     }
   else if (event->key() == Qt::Key_O) // apply open operation
     {
       if (ctrlModifier)
-	{
-	  emit applyMaskOperation(Global::tag(),
-				  4, // smoothType open
-				  Global::smooth());
-	}
+	    {
+	      emit applyMaskOperation(Global::tag(),
+	    			  4, // smoothType open
+	    			  Global::smooth());
+	    }
       else
-	{
-	  if (shiftModifier) // apply open for multiple slices
-	    applyRecursive(event->key());
-	  
-	  smooth(192, false, true); // first erode
-	  smooth(64, false, false); // then dilate
-	}
+	    {
+	      if (shiftModifier) // apply open for multiple slices
+	        applyRecursive(event->key());
+      
+	      smooth(192, false, true); // first erode
+	      smooth(64, false, false); // then dilate
+        checkRecursive();
+	    }
     }
   if (event->key() == Qt::Key_F)
     {
       if (ctrlModifier)
-	{
-	  QStringList dtypes;
-	  dtypes << "Shrinkwrap";
-	  dtypes << "Shell";
-	  bool ok;
-	  QString option = QInputDialog::getItem(0,
-						 "Shrinkwrap",
-						 "Shrinkwrap or Shell",
-						 dtypes,
-						 0,
-						 false,
-						 &ok);
-	  if (!ok)
-	    return;
-	  
-	  bool shell = false;
-	  if (option == "Shell")
-	    shell = true;
-	  
-	  int ctag = -1;
-	  ctag = QInputDialog::getInt(0,
-				      "Shrinkwrap/Shell",
-				      QString("Connected region will be shrinkwrapped/shelled with current tag value (%1).\nSpecify tag value of connected region (-1 for connected visible region).").arg(Global::tag()),
-				      -1, -1, 65535, 1);
-	  
-	  int thickness = 1;
-	  if (shell)
-	    thickness = QInputDialog::getInt(0,
-					     "Shell thickness",
-					     "Shell thickness",
-					     1, 1, 50, 1);
-
-	  Vec bmin = Vec(m_minHSlice,
-			 m_minWSlice,
-			 m_minDSlice);
-	  
-	  Vec bmax = Vec(m_maxHSlice,
-			 m_maxWSlice,
-			 m_maxDSlice);
-
-	  emit shrinkwrap(bmin, bmax,
-			  Global::tag(), shell, thickness,
-			  false,
-			  m_pickDepth,
-			  m_pickWidth,
-			  m_pickHeight,
-			  ctag);
-	  return;
-	}
+	    {
+	      QStringList dtypes;
+	      dtypes << "Shrinkwrap";
+	      dtypes << "Shell";
+	      bool ok;
+	      QString option = QInputDialog::getItem(0,
+	    					 "Shrinkwrap",
+	    					 "Shrinkwrap or Shell",
+	    					 dtypes,
+	    					 0,
+	    					 false,
+	    					 &ok);
+	      if (!ok)
+	        return;
+        
+	      bool shell = false;
+	      if (option == "Shell")
+	        shell = true;
+        
+	      int ctag = -1;
+	      ctag = QInputDialog::getInt(0,
+	    			      "Shrinkwrap/Shell",
+	    			      QString("Connected region will be shrinkwrapped/shelled with current tag value (%1).\nSpecify tag value of connected region (-1 for connected visible region).").arg(Global::tag()),
+	    			      -1, -1, 65535, 1);
+        
+	      int thickness = 1;
+	      if (shell)
+	        thickness = QInputDialog::getInt(0,
+	    				     "Shell thickness",
+	    				     "Shell thickness",
+	    				     1, 1, 50, 1);
+          
+	      Vec bmin = Vec(m_minHSlice,
+	    		 m_minWSlice,
+	    		 m_minDSlice);
+        
+	      Vec bmax = Vec(m_maxHSlice,
+	    		 m_maxWSlice,
+	    		 m_maxDSlice);
+        
+	      emit shrinkwrap(bmin, bmax,
+	    		  Global::tag(), shell, thickness,
+	    		  false,
+	    		  m_pickDepth,
+	    		  m_pickWidth,
+	    		  m_pickHeight,
+	    		  ctag);
+	      return;
+	    }
 
       if (!m_applyRecursive) m_extraPressed = false;
       
       if (shiftModifier) // apply paint for multiple slices
-	applyRecursive(event->key());
+	      applyRecursive(event->key());
       
-	shrinkwrapPaintedRegion();
+	      shrinkwrapPaintedRegion();
+        checkRecursive();
     }
   else if (event->key() == Qt::Key_V)
     {
       if (!m_applyRecursive) m_extraPressed = false;
       
       if (shiftModifier) // apply paint for multiple slices
-	applyRecursive(event->key());
+	      applyRecursive(event->key());
       
       shrinkwrapVisibleRegion();
+      checkRecursive();
     }
   else if (event->key() == Qt::Key_S) // apply smoothing
     {
       if (ctrlModifier)
-	{
-	  emit applyMaskOperation(Global::tag(),
-				  0, // smoothType smooth
-				  Global::smooth());
-	}
+	    {
+	      emit applyMaskOperation(Global::tag(),
+	    			  0, // smoothType smooth
+	    			  Global::smooth());
+	    }
       else
-	{
-	  if (shiftModifier) // apply smoothing for multiple slices
-	    applyRecursive(event->key());
-	  
-	  smooth(128, false, false);
-	}
+	    {
+	      if (shiftModifier) // apply smoothing for multiple slices
+	        applyRecursive(event->key());
+      
+	      smooth(128, false, false);
+        checkRecursive();
+	    }
     }
   else if (event->key() == Qt::Key_T) // apply graphcut
     {
       if (shiftModifier) // apply graphcut for multiple slices
-	applyRecursive(event->key());
+	      applyRecursive(event->key());
 
       if (ctrlModifier) // apply paint for non-selected areas
-	m_extraPressed = true;
+	      m_extraPressed = true;
 
-      if (m_modeType == 0) applyGraphCut();
+      if (m_modeType == 0)
+        applyGraphCut();
+      checkRecursive();
     }
   else if (event->key() == Qt::Key_P) // apply paint
     {
       if (!m_applyRecursive) m_extraPressed = false;
 
       if (shiftModifier) // apply paint for multiple slices
-	applyRecursive(event->key());
+	      applyRecursive(event->key());
 
       if (ctrlModifier) // apply paint for non-selected areas
-	m_extraPressed = true;
+	      m_extraPressed = true;
 
       if (altModifier)
-	applyPaint(true);
+	      applyPaint(true);
       else
-	applyPaint(false);
+	      applyPaint(false);
+      checkRecursive();
     }
   else if (event->key() == Qt::Key_R) // reset slice tags to 0
     {
       if (!m_applyRecursive) m_extraPressed = false;
 
       if (shiftModifier) // apply reset for multiple slices
-	applyRecursive(event->key());
+	      applyRecursive(event->key());
 
       if (ctrlModifier) // apply paint for non-selected areas
-	m_extraPressed = true;
+	      m_extraPressed = true;
 
       applyReset();
+      checkRecursive();
     }
   else if (event->key() == Qt::Key_Escape)
     {
       if (m_applyRecursive) // stop the recursive process
-	{
-	  emit saveWork();
-
-	  m_applyRecursive = false;
-	  m_extraPressed = false;
-	  m_cslc = 0;
-	  m_maxslc = 0;
-	  m_key = 0;
-	  m_forward = true;
-	  QMessageBox::information(0, "", "Repeat process stopped");
-	  emit reconnectSlider();
-	  emit sliceChanged(m_currSlice);
-	  emit setSliceNumber(m_currSlice);
-	  qApp->processEvents();
-	}
+	    {
+	      emit saveWork();
+      
+	      m_applyRecursive = false;
+	      m_extraPressed = false;
+	      m_cslc = 0;
+	      m_maxslc = 0;
+	      m_key = 0;
+	      m_forward = true;
+	      QMessageBox::information(0, "", "Repeat process stopped");
+	      emit reconnectSlider();
+	      emit sliceChanged(m_currSlice);
+	      emit setSliceNumber(m_currSlice);
+	      qApp->processEvents();
+	    }
       else
-	{
-	  memset(m_usertags, 0, 2*m_imgWidth*m_imgHeight);
-	  memcpy(m_prevtags, m_maskslice, 2*m_imgWidth*m_imgHeight);
-	  updateMaskImage();
-	  update();
-	}
+	    {
+	      memset(m_usertags, 0, 2*m_imgWidth*m_imgHeight);
+	      memcpy(m_prevtags, m_maskslice, 2*m_imgWidth*m_imgHeight);
+	      updateMaskImage();
+	      update();
+	    }
     }
   else if (event->key() == Qt::Key_Right ||
-	   event->key() == Qt::Key_Up)
+	         event->key() == Qt::Key_Up)
     doAnother(1);
   else if (event->key() == Qt::Key_Left ||
-	   event->key() == Qt::Key_Down)
+	         event->key() == Qt::Key_Down)
     doAnother(-1);
 }
 
@@ -2559,11 +2573,10 @@ ImageWidget::processInScript()
 
   for(int i=0; i<m_imgWidth*m_imgHeight; i++)
     {
-      if (m_prevtags[i] > 0) // set as background so that we don't overwrite it
-	      maskData[i] = 65535;
-
       if (m_prevtags[i] == Global::tag()) // add seed points
 	      maskData[i] = 1;
+      else if (m_prevtags[i] > 0) // set as background so that we don't overwrite it
+        maskData[i] = 65535;
     }
 
   for(int i=0; i<m_imgWidth*m_imgHeight; i++) // overwrite with usertags
@@ -2591,6 +2604,9 @@ ImageWidget::processInScript()
         }
 	    }
     }
+
+  memcpy(m_tags, maskData, 2*m_imgWidth*m_imgHeight);
+
 
   int size1, size2;
   int imin, imax, jmin, jmax;
@@ -2626,7 +2642,7 @@ ImageWidget::processInScript()
 
 
   
-  memset(m_tags, 0, 2*m_imgWidth*m_imgHeight);
+  memcpy(m_tags, m_prevtags, 2*m_imgWidth*m_imgHeight);
   
   idx=0;
   for(int i=imin; i<=imax; i++)
@@ -2637,13 +2653,6 @@ ImageWidget::processInScript()
 	      idx++;
       }
   
-  
-  for(int i=0; i<m_imgWidth*m_imgHeight; i++)
-    {
-      if (m_tags[i] == 0)
-	      m_tags[i] = m_prevtags[i];
-    }
-    
   
   if (m_sliceType == DSlice)
     emit tagDSlice(m_currSlice, (uchar*)m_tags);
@@ -2753,8 +2762,6 @@ ImageWidget::applyGraphCut()
     emit tagHSlice(m_currSlice, (uchar*)m_tags);
 
   setMaskImage(m_tags);
-
-  checkRecursive();
 }
 
 void
@@ -2776,8 +2783,8 @@ ImageWidget::smooth(int thresh, bool smooth, bool morecoming)
   for(int i=imin; i<=imax; i++)
     for(int j=jmin; j<=jmax; j++)
       {
-	maskData[idx] = (m_prevtags[i*m_imgWidth+j] == Global::tag() ? 255 : 0);  
-	idx++;
+	      maskData[idx] = (m_prevtags[i*m_imgWidth+j] == Global::tag() ? 255 : 0);  
+	      idx++;
       }
 
 
@@ -2786,28 +2793,26 @@ ImageWidget::smooth(int thresh, bool smooth, bool morecoming)
   for(int j=0; j<size2; j++)
     {
       for(int i=0; i<size1; i++)
-	{
-	  float sum = 0;
-	  for(int x=-nb; x<=nb; x++)
-	    sum += maskData[j*size1+qBound(0, i+x, size1-1)];
-	  m_tags[j*size1+i] = sum/(2*nb+1);
-	}
+	    {
+	      float sum = 0;
+	      for(int x=-nb; x<=nb; x++)
+	        sum += maskData[j*size1+qBound(0, i+x, size1-1)];
+	      m_tags[j*size1+i] = sum/(2*nb+1);
+	    }
     }
   // followed by smooth column
   for(int i=0; i<size1; i++)
     {
       for(int j=0; j<size2; j++)
-	{
-	  float sum = 0;
-	  for(int y=-nb; y<=nb; y++)
-	    sum += m_tags[qBound(0, j+y, size2-1)*size1+i];
-	  maskData[j*size1+i] = sum/(2*nb+1);
-	}
+	    {
+	      float sum = 0;
+	      for(int y=-nb; y<=nb; y++)
+	        sum += m_tags[qBound(0, j+y, size2-1)*size1+i];
+	      maskData[j*size1+i] = sum/(2*nb+1);
+	    }
     }
-  memcpy(m_tags, maskData, size1*size2);
   //--------------------------
 
-  memcpy(maskData, m_tags, size1*size2);
   for(int i=0; i<size1*size2; i++)
     m_tags[i] = (maskData[i] > thresh  ? Global::tag() : 0);  
 
@@ -2817,12 +2822,12 @@ ImageWidget::smooth(int thresh, bool smooth, bool morecoming)
   for(int i=imin; i<=imax; i++)
     for(int j=jmin; j<=jmax; j++, idx++)
       {
-	if (m_sliceImage[4*(i*m_imgWidth+j)] > 0)
-	  {
-	    if (m_prevtags[i*m_imgWidth+j] == 0 ||
-		m_prevtags[i*m_imgWidth+j] == Global::tag())
-	      m_prevtags[i*m_imgWidth+j] = m_tags[idx];
-	  }
+	      if (m_sliceImage[4*(i*m_imgWidth+j)] > 0)
+	        {
+	          if (m_prevtags[i*m_imgWidth+j] == 0 ||
+	      	      m_prevtags[i*m_imgWidth+j] == Global::tag())
+	            m_prevtags[i*m_imgWidth+j] = m_tags[idx];
+	        }
       }
 
   memcpy(m_tags, m_prevtags, 2*m_imgWidth*m_imgHeight);
@@ -2830,15 +2835,13 @@ ImageWidget::smooth(int thresh, bool smooth, bool morecoming)
   if (!morecoming)
     {
       if (m_sliceType == DSlice)
-	emit tagDSlice(m_currSlice, (uchar*)m_tags);
+	      emit tagDSlice(m_currSlice, (uchar*)m_tags);
       else if (m_sliceType == WSlice)
-	emit tagWSlice(m_currSlice, (uchar*)m_tags);
+	      emit tagWSlice(m_currSlice, (uchar*)m_tags);
       else if (m_sliceType == HSlice)
-	emit tagHSlice(m_currSlice, (uchar*)m_tags);
+	      emit tagHSlice(m_currSlice, (uchar*)m_tags);
       
       setMaskImage(m_tags);
-
-      checkRecursive();
     }
 }
 
@@ -2886,8 +2889,6 @@ ImageWidget::applyPaint(bool keepTags)
     {
       memset(m_usertags, 0, 2*m_imgWidth*m_imgHeight);
     }
-  
-  checkRecursive();
 }
 
 void
@@ -2923,8 +2924,6 @@ ImageWidget::applyReset()
     emit tagHSlice(m_currSlice, (uchar*)m_tags);
 
   setMaskImage(m_tags);
-
-  checkRecursive();
 }
 
 void
@@ -3007,8 +3006,6 @@ ImageWidget::shrinkwrapPaintedRegion()
     emit tagHSlice(m_currSlice, (uchar*)m_tags);
 
   setMaskImage(m_tags);
-
-  checkRecursive();
 }
 
 void
@@ -3067,8 +3064,6 @@ ImageWidget::shrinkwrapVisibleRegion()
     emit tagHSlice(m_currSlice, (uchar*)m_tags);
 
   setMaskImage(m_tags);
-
-  checkRecursive();
 }
 
 void

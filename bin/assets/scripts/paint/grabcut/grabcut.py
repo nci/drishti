@@ -44,8 +44,9 @@ def process_volume() :
     
 
 def process_slice(img, mask, width, height, tag) :
+    t_img = np.where(mask==65535, 0, img) # set masked background pixels to 0
     mask = mask.reshape((width, height))
-    t_img = img.reshape(width,height)
+    t_img = t_img.reshape(width,height)
     image = cv2.cvtColor(t_img, cv2.COLOR_GRAY2BGR)
     bgdModel = np.zeros((1, 65), np.float64) # Background model
     fgdModel = np.zeros((1, 65), np.float64) # Foreground model

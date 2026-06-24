@@ -62,9 +62,9 @@ def set_paint_data(py_obj) :
     pd.depth = py_obj.depth
     pd.width = py_obj.width
     pd.height = py_obj.height
-    print(pd.depth*pd.width*pd.height)
-    print(pd.depth, pd.width, pd.height)
-    print(pd.volume.shape)
+    #print(pd.depth*pd.width*pd.height)
+    #print(pd.depth, pd.width, pd.height)
+    #print(pd.volume.shape)
     #print('transfer complete')    
 
 def init() :
@@ -97,7 +97,8 @@ def process_slice(img, mask, width, height, tag) :
     lut = np.transpose(lut, axes=(1,0))
     lut = lut.reshape(-1).tolist()
 
-    gray_img = Image.fromarray(img).convert('RGB')
+    gray_img = np.where(mask == 65535, 0, img)  # set masked background pixels to 0
+    gray_img = Image.fromarray(gray_img).convert('RGB')
     rgb_img = gray_img.point(lut)
     
     print('prediction ....')

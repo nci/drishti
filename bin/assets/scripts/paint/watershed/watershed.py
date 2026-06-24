@@ -44,12 +44,11 @@ def process_volume() :
 
 def process_slice(img, mask, width, height, tag) :
     print('process slice image mask .. ')
-    gray = img
-    gray = np.where(mask == 65535, 0, gray)
+    gray = np.where(mask == 65535, 0, img)  # set masked background pixels to 0
     gray = gray.reshape(width,height)
 
     timg = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
-    cv2.imshow('img', timg)
+    #cv2.imshow('img', timg)
 
     
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))

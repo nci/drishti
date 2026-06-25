@@ -20,8 +20,6 @@ DrishtiImport::DrishtiImport(QWidget *parent) :
   QMainWindow(parent)
 {
   ui.setupUi(this);
-  
-  py::print("Import Volume"); // test the embedded Python environment
 
   resize(1280, 1024);
   qApp->setFont(QFont("MS Reference Sans Serif", 12));
@@ -38,6 +36,34 @@ DrishtiImport::DrishtiImport(QWidget *parent) :
   StaticFunctions::initQColorDialog();
 
   loadSettings();
+
+  //-------------------------------------------------------------
+  //-------------------------------------------------------------
+  // Embedded Python interpreter 
+  PythonEngine &pythonGuard = PythonEngine::instance();
+
+  QByteArray path = qgetenv("path");
+  if (path.toLower().contains("python"))
+      Global::setPythonInstalled(true);
+  else
+    {
+      Global::setPythonInstalled(false);
+      std::cout << path.toLower().toStdString();
+    }
+  
+  (&pythonGuard)->init(Global::pythonInstalled());
+  
+  std::cout << "Drishti Import v" << DRISHTI_VERSION << " - Import Tool\n";
+
+  // disable running scripts if python not found
+  if (!Global::pythonInstalled())
+    {
+      std::cout<<"\n*******************************************\n";
+      std::cout << "** PYTHON NOT FOUND ** DISABLING SCRIPTS **";
+      std::cout<<"\n*******************************************\n";
+    }
+  //-------------------------------------------------------------
+  //-------------------------------------------------------------
 
   registerPlugins();
 
@@ -141,7 +167,8 @@ DrishtiImport::registerPlugins()
 
   //---------------------
   // load external scripts if any
-  registerExternalScripts();
+  if (Global::pythonInstalled())
+    registerExternalScripts();
   //---------------------
 
   

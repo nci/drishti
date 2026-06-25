@@ -24,11 +24,16 @@ class Global
   static QStatusBar *statusBar();
   static void setStatusBar(QStatusBar*);
 
+  static void setPythonInstalled(bool);
+  static bool pythonInstalled();
+
  private :
   static QString m_previousDirectory;
   static QString m_documentationPath;
   static bool m_rgbVolume;
   static QStatusBar *m_statusBar;
+
+  static bool m_pythonInstalled;
 };
 
 #endif

@@ -380,3 +380,7 @@ void Global::clearBoxList3D() { m_boxList3D.clear(); }
 QString Global::m_scriptFolder = "";
 void Global::setScriptFolder(QString f) { m_scriptFolder = f; }
 QString Global::scriptFolder() { return m_scriptFolder; }
+
+bool Global::m_pythonInstalled = false;
+void Global::setPythonInstalled(bool flag) { m_pythonInstalled = flag;}
+bool Global::pythonInstalled() { return m_pythonInstalled; }

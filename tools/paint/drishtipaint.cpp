@@ -1,4 +1,6 @@
 #include <GL/glew.h>
+#include "pythonengine.h"
+
 #include "drishtipaint.h"
 #include "vdbvolume.h"
 
@@ -25,7 +27,6 @@
 #include <exception>
 
 namespace py = pybind11;
-
 
 void
 DrishtiPaint::initTagColors()
@@ -106,26 +107,18 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   QMainWindow(parent)
 {
   Global::setMainWindow(this);
-    
+
   ui.setupUi(this);
   
   qApp->setFont(QFont("MS Reference Sans Serif", 12));
   
   ui.statusbar->setEnabled(true);
   ui.statusbar->setSizeGripEnabled(true);
-  //ui.statusbar->hide();
-  
-  {
-    py::gil_scoped_acquire gil;
-    py::print("Drishti Paint - Segmentation Tool\n"); // test the embedded Python environment
-  }
+
 
   m_meshViewerSocket = 0;
   m_CMDport = 7760;
-  
-//  QFont font;
-//  font.setPointSize(10);
-//  setFont(font);
+
 
   setWindowIcon(QPixmap(":/images/drishti_paint_32.png"));
   setWindowTitle(QString("DrishtiPaint v") + QString(DRISHTI_VERSION));
@@ -391,6 +384,36 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 
   connect(m_handleExternalCMD, SIGNAL(loadRAW(QString)),
 	  this, SLOT(loadRawMask(QString)));
+
+
+  //-------------------------------------------------------------
+  //-------------------------------------------------------------
+  // Embedded Python interpreter 
+  PythonEngine &pythonGuard = PythonEngine::instance();
+
+  QByteArray path = qgetenv("path");
+  if (path.toLower().contains("python"))
+      Global::setPythonInstalled(true);
+  else
+    {
+      Global::setPythonInstalled(false);
+      std::cout << path.toLower().toStdString();
+    }
+  
+  (&pythonGuard)->init(Global::pythonInstalled());
+  
+  std::cout << "Drishti Paint v" << DRISHTI_VERSION << " - Segmentation Tool\n";
+
+  // disable running scripts if python not found
+  if (!Global::pythonInstalled())
+    {
+      ui.actionCommand->setDisabled(true);
+      std::cout<<"\n*******************************************\n";
+      std::cout << "** PYTHON NOT FOUND ** DISABLING SCRIPTS **";
+      std::cout<<"\n*******************************************\n";
+    }
+  //-------------------------------------------------------------
+  //-------------------------------------------------------------
 }
 
 
@@ -1942,8 +1965,7 @@ DrishtiPaint::setFile(QString filename)
   mesg += QString("Volume size : %1 x %2 x %3\n").arg(d).arg(w).arg(h);
   mesg += QString("bytes per voxel : %1\n\n").arg(Global::bytesPerVoxel());
 
-  py::gil_scoped_acquire gil;
-  py::print(mesg.toStdString());
+  std::cout << mesg.toStdString();
 }
 
 void
@@ -1969,41 +1991,41 @@ DrishtiPaint::loadSettings()
   for(int i=0; i<dlist.count(); i++)
     {
       if (dlist.at(i).nodeName() == "port")
-	{
-	  m_CMDport = dlist.at(i).toElement().text().toInt();
-	}
-      else if (dlist.at(i).nodeName() == "previousdirectory")
-	{
-	  QString str = dlist.at(i).toElement().text();
-	  Global::setPreviousDirectory(str);
-	}
-      else if (dlist.at(i).nodeName() == "scriptfolder")
-	{
-	  QString str = dlist.at(i).toElement().text();
-	  Global::setScriptFolder(str);
-	}
-      else if (dlist.at(i).nodeName() == "recentfile")
-	{
-	  QString str = dlist.at(i).toElement().text();
-	  Global::addRecentFile(str);
-	}
-      else if (dlist.at(i).nodeName() == "tagcolors")
-	{
-	  QString str = dlist.at(i).toElement().text();
-	  QStringList col = str.split("\n",
-				      QString::SkipEmptyParts);
-	  uchar *colors = Global::tagColors();
-	  for(int i=0; i<qMin(65536, col.size()); i++)
 	    {
-	      QStringList clr = col[i].split(" ",
-					     QString::SkipEmptyParts);
-	      colors[4*i+0] = clr[0].toInt();
-	      colors[4*i+1] = clr[1].toInt();
-	      colors[4*i+2] = clr[2].toInt();
-	      colors[4*i+3] = 255;
+	      m_CMDport = dlist.at(i).toElement().text().toInt();
 	    }
-	  m_tagColorEditor->setColors();
-	}
+      else if (dlist.at(i).nodeName() == "previousdirectory")
+	    {
+	      QString str = dlist.at(i).toElement().text();
+	      Global::setPreviousDirectory(str);
+	    }
+      else if (dlist.at(i).nodeName() == "scriptfolder")
+	    {
+	      QString str = dlist.at(i).toElement().text();
+	      Global::setScriptFolder(str);   
+	    }
+      else if (dlist.at(i).nodeName() == "recentfile")
+	    {
+	      QString str = dlist.at(i).toElement().text();
+	      Global::addRecentFile(str);
+	    }
+      else if (dlist.at(i).nodeName() == "tagcolors")
+	    {
+	      QString str = dlist.at(i).toElement().text();
+	      QStringList col = str.split("\n",
+	    			      QString::SkipEmptyParts);
+	      uchar *colors = Global::tagColors();
+	      for(int i=0; i<qMin(65536, col.size()); i++)
+	        {
+	          QStringList clr = col[i].split(" ",
+	    				     QString::SkipEmptyParts);
+	          colors[4*i+0] = clr[0].toInt();
+	          colors[4*i+1] = clr[1].toInt();
+	          colors[4*i+2] = clr[2].toInt();
+	          colors[4*i+3] = 255;
+	        }
+	      m_tagColorEditor->setColors();
+	    }
     }
 
   updateRecentFileAction();
@@ -2047,11 +2069,11 @@ DrishtiPaint::saveSettings()
     QStringList rf = Global::recentFiles();
     for (int i=0; i<rf.count(); i++)
       {
-	QDomElement de0 = doc.createElement("recentfile");
-	QDomText tn0;
-	tn0 = doc.createTextNode(rf[i]);
-	de0.appendChild(tn0);
-	topElement.appendChild(de0);
+	      QDomElement de0 = doc.createElement("recentfile");
+	      QDomText tn0;
+	      tn0 = doc.createTextNode(rf[i]);
+	      de0.appendChild(tn0);
+	      topElement.appendChild(de0);
       }
   }
 
@@ -2061,12 +2083,12 @@ DrishtiPaint::saveSettings()
     uchar *colors = Global::tagColors();
     for(int i=0; i<65536; i++)
       {
-	if (i > 0) str += "               ";
-	str += QString(" %1 %2 %3 %4\n").\
-	              arg(colors[4*i+0]).\
-	              arg(colors[4*i+1]).\
-	              arg(colors[4*i+2]).\
-	              arg(colors[4*i+3]);
+	      if (i > 0) str += "               ";
+	      str += QString(" %1 %2 %3 %4\n").\
+	                    arg(colors[4*i+0]).\
+	                    arg(colors[4*i+1]).\
+	                    arg(colors[4*i+2]).\
+	                    arg(colors[4*i+3]);
       }
     QDomText tn0 = doc.createTextNode(str);
     de0.appendChild(tn0);
@@ -6560,7 +6582,6 @@ DrishtiPaint::on_actionScriptFolder_triggered()
     {
       Global::setScriptFolder(folder);
     }
-  
 }
 
 void

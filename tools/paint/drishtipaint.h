@@ -33,7 +33,8 @@ class DrishtiPaint : public QMainWindow
 
  public :
   DrishtiPaint(QWidget *parent=0);
-
+  void loadSettings();
+  
  protected :
   void dragEnterEvent(QDragEnterEvent*);
   void dropEvent(QDropEvent*);
@@ -300,7 +301,6 @@ class DrishtiPaint : public QMainWindow
   void setFile(QString);
   void initTagColors();
 
-  void loadSettings();
   void saveSettings();
 
   void updateRecentFileAction();

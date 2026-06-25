@@ -59,7 +59,22 @@ PythonEngine& PythonEngine::instance()
 
 PythonEngine::PythonEngine()
 {
-    m_guard = std::make_unique<py::scoped_interpreter>();
+    m_pythonInstalled = false;
+
+    m_guard = nullptr;
+}
+
+void
+PythonEngine::init(bool flag)
+{
+    m_pythonInstalled = flag;
+
+    m_guard = nullptr;
+
+    if (m_pythonInstalled)
+        m_guard = std::make_unique<py::scoped_interpreter>();
+    else
+        return;
 
     // Determine the path to the extracted Python library
     fs::path exePath = fs::current_path(); // Adjust if needed

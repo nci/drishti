@@ -7,7 +7,10 @@
 //    3. Create the Qt application + main window
 //    4. Run the Qt event loop
 //    5. ~scoped_interpreter() finalises Python on exit
-#include "pythonengine.h"
+//#include "pythonengine.h"
+#include <pybind11/pybind11.h>
+
+#include "global.h"
 
 #include <filesystem>
 #include <iostream>
@@ -16,8 +19,6 @@
 #include "streamredirect.h" 
 
 namespace fs = std::filesystem;
-
-
 
 #include <QApplication>
 #include <QDockWidget>
@@ -44,8 +45,10 @@ int main(int argc, char **argv)
   QGLFormat::setDefaultFormat(glFormat);
 
 
-  // Embedded Python interpreter 
-  PythonEngine &pythonGuard = PythonEngine::instance();
+  //// Embedded Python interpreter 
+  //PythonEngine &pythonGuard = PythonEngine::instance();
+  //(&pythonGuard)->init(true);
+  //Global::setPythonInstalled(true);
 
   //-----------------------------------------
   QDockWidget *dock = new QDockWidget("Messages", nullptr, Qt::Widget);
@@ -68,7 +71,8 @@ int main(int argc, char **argv)
   mainWindow.addDockWidget(Qt::BottomDockWidgetArea, dock);
   mainWindow.show();
   
-  
-  py::gil_scoped_release gil;
+  if (Global::pythonInstalled())
+    py::gil_scoped_release gil;
+
   return app.exec();
 }

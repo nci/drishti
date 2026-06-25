@@ -115,7 +115,10 @@ class Global
 
   static void setScriptFolder(QString);
   static QString scriptFolder();
-  
+
+  static void setPythonInstalled(bool);
+  static bool pythonInstalled();
+
  private :
   static QWidget* m_mainWindow;
   static QString m_documentationPath;
@@ -156,6 +159,7 @@ class Global
   static QList<Vec> m_boxList3D;
 
   static QString m_scriptFolder;
+  static bool m_pythonInstalled;
 };
 
 #endif

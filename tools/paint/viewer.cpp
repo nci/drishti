@@ -905,10 +905,17 @@ Viewer::keyPressEvent(QKeyEvent *event)
       return;
     }
 
-  if (event->key() == Qt::Key_At)
+  if (Global::pythonInstalled())
   {
-    emit processVolumeFromScript();
-    return;
+    if (event->key() == Qt::Key_At)
+      {
+        emit processVolumeFromScript();
+        return;
+    }
+  }
+  else
+  {
+    QMessageBox::information(0, "Error", "Python Script not activated.  Python not found");
   }
 
   if (event->key() != Qt::Key_H)

@@ -1489,15 +1489,24 @@ ImageWidget::graphcutModeKeyPressEvent(QKeyEvent *event)
   int ctrlModifier = event->modifiers() & Qt::ControlModifier;
   bool altModifier = event->modifiers() & Qt::AltModifier;
 
-  
-  if (event->key() == Qt::Key_A)
-    {
- 	    if (shiftModifier)// apply processInScript for multiple slices
-	      applyRecursive(event->key());
 
-      processInScript();
-      checkRecursive();
-    }
+  //----
+  if (Global::pythonInstalled())
+  {
+    if (event->key() == Qt::Key_A)
+      {
+ 	      if (shiftModifier)// apply processInScript for multiple slices
+	        applyRecursive(event->key());
+
+        processInScript();
+        checkRecursive();
+      }
+  }
+  else
+  {
+    QMessageBox::information(0, "Error", "Python Script not activated.  Python not found");
+  }
+//----
 
   {
     if (event->key() == Qt::Key_3)

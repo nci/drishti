@@ -74,7 +74,7 @@
          </size>
         </property>
         <property name="frameShape">
-         <enum>QFrame::NoFrame</enum>
+         <enum>QFrame::Shape::NoFrame</enum>
         </property>
         <property name="lineWidth">
          <number>1</number>
@@ -87,7 +87,7 @@
           <number>5</number>
          </property>
          <property name="sizeConstraint">
-          <enum>QLayout::SetMaximumSize</enum>
+          <enum>QLayout::SizeConstraint::SetMaximumSize</enum>
          </property>
          <property name="leftMargin">
           <number>1</number>
@@ -138,7 +138,7 @@
            <item>
             <spacer name="horizontalSpacer_4">
              <property name="orientation">
-              <enum>Qt::Horizontal</enum>
+              <enum>Qt::Orientation::Horizontal</enum>
              </property>
              <property name="sizeHint" stdset="0">
               <size>
@@ -164,10 +164,10 @@
            <item>
             <widget class="QFrame" name="spreadframe">
              <property name="frameShape">
-              <enum>QFrame::StyledPanel</enum>
+              <enum>QFrame::Shape::StyledPanel</enum>
              </property>
              <property name="frameShadow">
-              <enum>QFrame::Raised</enum>
+              <enum>QFrame::Shadow::Raised</enum>
              </property>
              <layout class="QVBoxLayout" name="verticalLayout_2">
               <property name="spacing">
@@ -202,7 +202,7 @@
                    <string>Radius</string>
                   </property>
                   <property name="alignment">
-                   <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                   <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
                   </property>
                  </widget>
                 </item>
@@ -215,7 +215,7 @@
                    </sizepolicy>
                   </property>
                   <property name="layoutDirection">
-                   <enum>Qt::LeftToRight</enum>
+                   <enum>Qt::LayoutDirection::LeftToRight</enum>
                   </property>
                   <property name="minimum">
                    <number>1</number>
@@ -231,7 +231,7 @@
                 <item>
                  <spacer name="horizontalSpacer_2">
                   <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
+                   <enum>Qt::Orientation::Horizontal</enum>
                   </property>
                   <property name="sizeHint" stdset="0">
                    <size>
@@ -285,7 +285,7 @@
             </size>
            </property>
            <property name="frameShadow">
-            <enum>QFrame::Plain</enum>
+            <enum>QFrame::Shadow::Plain</enum>
            </property>
            <property name="lineWidth">
             <number>1</number>
@@ -294,7 +294,7 @@
             <number>0</number>
            </property>
            <property name="orientation">
-            <enum>Qt::Horizontal</enum>
+            <enum>Qt::Orientation::Horizontal</enum>
            </property>
           </widget>
          </item>
@@ -321,7 +321,7 @@
      <x>0</x>
      <y>0</y>
      <width>491</width>
-     <height>22</height>
+     <height>33</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -752,6 +752,11 @@
   <action name="actionPort">
    <property name="text">
     <string>Port</string>
+   </property>
+  </action>
+  <action name="actionPython_Installation">
+   <property name="text">
+    <string>Python Installation</string>
    </property>
   </action>
  </widget>

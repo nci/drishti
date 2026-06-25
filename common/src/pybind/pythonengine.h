@@ -16,6 +16,9 @@ public:
     PythonEngine();
     ~PythonEngine();
 
+    void init(bool);
+    bool pythonInstalled() {return m_pythonInstalled;}
+
     // Import a Python module
     pybind11::object import(const std::string& name);
 
@@ -28,6 +31,7 @@ public:
     void print(const std::string& code);
 
 private:
+    bool m_pythonInstalled;
     static std::unique_ptr<PythonEngine> m_instance;
 
     PythonEngine(const PythonEngine&) = delete;

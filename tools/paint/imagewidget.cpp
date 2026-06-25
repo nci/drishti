@@ -1458,6 +1458,7 @@ ImageWidget::checkRecursive()
 	      emit reconnectSlider();
 	      emit sliceChanged(m_currSlice);
 	      emit setSliceNumber(m_currSlice);
+        emit reloadAllMask();
 	      qApp->processEvents();
 	    }
       else

@@ -105,6 +105,7 @@ Slices::createMenu(QHBoxLayout *hl,
 	  this, SLOT(reconnectSlider()));
 
   connect(m_imageWidget, SIGNAL(saveWork()), this, SIGNAL(saveWork()));
+  connect(m_imageWidget, SIGNAL(reloadAllMask()), this, SIGNAL(reloadAllMask()));
 
   connect(m_imageWidget, SIGNAL(getRawValue(int, int, int)),
 	  this, SIGNAL(getRawValue(int, int, int)));

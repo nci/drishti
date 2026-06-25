@@ -3,7 +3,10 @@
     "doc" :
 "This script uses grabCut routine from OpenCV2.
 Works on 2D slices.
-Currently 3D version is not implemented",
+Currently 3D version is not implemented
+
+Modules Required : cv2",
+    
     "arguments" : {
 	"output" : "%DIR%/text.raw"
     }

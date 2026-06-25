@@ -106,6 +106,7 @@ class ImageWidget : public QWidget
   void yPos(int);
   void sliceChanged(int);
   void setSliceNumber(int);
+  void reloadAllMask();
 
   void updateSliderLimits();
   void resetSliderLimits();

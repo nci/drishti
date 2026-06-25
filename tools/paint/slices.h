@@ -57,6 +57,7 @@ class Slices : public QWidget
   void xPos(int);
   void yPos(int);
   void saveWork();
+  void reloadAllMask();
 
   void getRawValue(int, int, int);
   void tagDSlice(int, uchar*);

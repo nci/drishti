@@ -2698,6 +2698,13 @@ DrishtiPaint::connectImageWidget()
   connect(m_coronalImage, SIGNAL(saveWork()),
 	  this, SLOT(saveWork()));  
 
+  connect(m_axialImage, SIGNAL(reloadAllMask()),
+	  this, SLOT(reloadAllMask()));  
+  connect(m_sagitalImage, SIGNAL(reloadAllMask()),
+	  this, SLOT(reloadAllMask()));  
+  connect(m_coronalImage, SIGNAL(reloadAllMask()),
+	  this, SLOT(reloadAllMask()));  
+
   connect(m_axialImage, SIGNAL(getRawValue(int, int, int)),
 	  this, SLOT(getRawValue(int, int, int)));
   connect(m_coronalImage, SIGNAL(getRawValue(int, int, int)),

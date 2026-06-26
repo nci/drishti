@@ -47,7 +47,6 @@ class VolumeSingle : public VolumeBase
   void allocSlabs(int);
   uchar* getSlab(int, int);
   
-  uchar* getSubvolume();
   uchar* getDragSubvolumeTexture();
   Vec getDragSubvolumeTextureSize();
   int getDragSubvolumeSubsamplingLevel();

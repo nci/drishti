@@ -73,7 +73,6 @@ class Volume : public QObject
   Vec getSubvolumeSize();
   Vec getSubvolumeTextureSize();
   int getSubvolumeSubsamplingLevel();
-  unsigned char* getSubvolumeTexture();
 
   void allocSlabs(int);
   unsigned char* getSubvolumeTextureSlab(int, int);

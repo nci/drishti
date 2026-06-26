@@ -1180,53 +1180,6 @@ uchar* Volume::getDragSubvolumeTexture()
   return m_dragSubvolumeTexture;
 }
 
-uchar*
-Volume::getSubvolumeTexture()
-{
-  QMessageBox::information(0, "", "getSubvolumeTexture ????");
-  
-  if (Global::volumeType() == Global::DummyVolume)
-    return 0;
-
-  // single volume
-  if (Global::volumeType() == Global::SingleVolume)
-    return m_volume[0]->getSubvolume();
-
-  // rgb volume
-  if (Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
-    return m_volumeRGB->getSubvolume();
-
-  // multiple volumes
-  int nvol = 0;
-  if (Global::volumeType() == Global::DoubleVolume) nvol = 2;
-  if (Global::volumeType() == Global::TripleVolume) nvol = 3;
-  if (Global::volumeType() == Global::QuadVolume) nvol = 4;
-
-  if (nvol < 1) return 0;
-
-  
-  Vec vsize;
-  vsize = m_volume[0]->getSubvolumeTextureSize();
-
-  qint64 nx,ny,nz;
-  nx = vsize.x;
-  ny = vsize.y;
-  nz = vsize.z;
-
-  if (m_subvolumeTexture) delete [] m_subvolumeTexture;
-  m_subvolumeTexture = new uchar[nvol*nx*ny*nz];
-  memset(m_subvolumeTexture, 0, nvol*nx*ny*nz);
-
-  for (int v=0; v<nvol; v++)
-    {
-      uchar *tex = m_volume[v]->getSubvolume();
-      for (qint64 i=0; i<nx*ny*nz; i++)
-	m_subvolumeTexture[i*nvol+v] = tex[i];
-    }
-  
-  return m_subvolumeTexture;
-}
 
 void
 Volume::allocSlabs(int nZSlices)

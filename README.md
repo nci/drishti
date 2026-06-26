@@ -44,16 +44,16 @@ Download the version of Drishti (v2.7) for<br>
 
 ## Drishti Prayog
 http://nci.org.au/systems-services/scientific-visualisation/visualisation-services/drishti-prayog/
-<br>Updated version and help available on [ANU OneDrive](https://anu365-my.sharepoint.com/:f:/g/personal/u9707062_anu_edu_au/Ep0RmQB54BZNvzLoXv6vQFcB9s2vQLIDLthIMWBg-63Xow?e=I9nkyn)
+<br>Updated version and help available on [Dropbox](https://www.dropbox.com/scl/fo/igb5op0c49k0r14cbxris/AKzZpf-DpuhcgkMaEwc8X2g?rlkey=7cgv9z93k8yntyc5x8z4l7818&st=vjvu9oc8&dl=0)
 <br>Drishti Prayog [guide](https://www.ccpi.ac.uk/sites/www.ccpi.ac.uk/files/uploaded_documents/Drishti%20Prayog%20User%20Guide.pdf) on [CCPi](https://www.ccpi.ac.uk/) website 
 
 ## Drishti VR
-[ANU OneDrive](https://www.dropbox.com/scl/fo/bqh0223oanq3a6sgrw3d6/AFVYAfVRMIr4bapOB_lkbLI?rlkey=5n4rxxkrym0mssqzhwl410thp&st=y38lpgc9&dl=0)
+[Dropbox](https://www.dropbox.com/scl/fo/bqh0223oanq3a6sgrw3d6/AFVYAfVRMIr4bapOB_lkbLI?rlkey=5n4rxxkrym0mssqzhwl410thp&st=y38lpgc9&dl=0)
                    
 ## Drishti Tutorials
-[ANU OneDrive](https://www.dropbox.com/scl/fo/l7ntfywpl2ovi3r7m0q9a/ACtPLPkvEJb5b_GNT9tQUfQ?rlkey=8nwux3wssjs6r3ajwv79z9h06&st=s9r4qpwq&dl=0)
+[Dropbox](https://www.dropbox.com/scl/fo/l7ntfywpl2ovi3r7m0q9a/ACtPLPkvEJb5b_GNT9tQUfQ?rlkey=8nwux3wssjs6r3ajwv79z9h06&st=s9r4qpwq&dl=0)
 
-<!-- ## Help slides
+<!-- ## Help slides 
 by Julia Behnsen, University of Liverpool 
 https://datanywhere.liv.ac.uk/?linkid=KZi4zr6VWWV/R+cA7OjSmYRTYv/iF7PSuIDODS6ncAGbVD1en/7ZcA -->
 

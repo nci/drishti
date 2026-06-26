@@ -48,10 +48,10 @@ http://nci.org.au/systems-services/scientific-visualisation/visualisation-servic
 <br>Drishti Prayog [guide](https://www.ccpi.ac.uk/sites/www.ccpi.ac.uk/files/uploaded_documents/Drishti%20Prayog%20User%20Guide.pdf) on [CCPi](https://www.ccpi.ac.uk/) website 
 
 ## Drishti VR
-[ANU OneDrive](https://anu365-my.sharepoint.com/:f:/g/personal/u9707062_anu_edu_au/Ehl3mTWGuS1ElhdVFCkkpSwBRwe8byvb07OajeA2582lVA?e=ybq79F)
+[ANU OneDrive](https://www.dropbox.com/scl/fo/bqh0223oanq3a6sgrw3d6/AFVYAfVRMIr4bapOB_lkbLI?rlkey=5n4rxxkrym0mssqzhwl410thp&st=y38lpgc9&dl=0)
                    
 ## Drishti Tutorials
-[ANU OneDrive](https://anu365-my.sharepoint.com/:f:/g/personal/u9707062_anu_edu_au/EoX_P6zZy_ZCkpfNluTEZu8B7oHskm0YnAGErIVDTqjEgw?e=ZVUd25)
+[ANU OneDrive](https://www.dropbox.com/scl/fo/l7ntfywpl2ovi3r7m0q9a/ACtPLPkvEJb5b_GNT9tQUfQ?rlkey=8nwux3wssjs6r3ajwv79z9h06&st=s9r4qpwq&dl=0)
 
 <!-- ## Help slides
 by Julia Behnsen, University of Liverpool 

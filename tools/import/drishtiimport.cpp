@@ -16,6 +16,12 @@
 
 namespace py = pybind11;
 
+void 
+DrishtiImport::addMessageWindow(QDockWidget* dock)
+  {
+    ui.menuView->addAction(dock->toggleViewAction());
+  }
+
 DrishtiImport::DrishtiImport(QWidget *parent) :
   QMainWindow(parent)
 {

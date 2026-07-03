@@ -53,6 +53,7 @@ int main(int argc, char **argv)
 
   DrishtiImport mainWindow;
   mainWindow.addDockWidget(Qt::BottomDockWidgetArea, dock);
+  mainWindow.addMessageWindow(dock);
   mainWindow.show();
     
   return app.exec();

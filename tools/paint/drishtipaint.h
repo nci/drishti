@@ -34,6 +34,7 @@ class DrishtiPaint : public QMainWindow
  public :
   DrishtiPaint(QWidget *parent=0);
   void loadSettings();
+  void addMessageWindow(QDockWidget*);
   
  protected :
   void dragEnterEvent(QDragEnterEvent*);

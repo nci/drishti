@@ -109,45 +109,18 @@ PyWorker::process_slice(uchar *image, ushort *mask, int width, int height, int t
 void
 PyWorker::process_volume()
 {
-//  py::gil_scoped_acquire gil;
-//  
-//  if (!m_hasVolumeProcessor)
-//    {
-//      std::cout << "** NO VOLUME PROCESSOR FOUND\n";
-//      return;
-//    }
-//  
-//  PaintVolMask::global_pyModule.attr("process_volume")();
-//
-//  emit volumeProcessed();
-//----------------------
+  py::gil_scoped_acquire gil;
+  
+  if (!m_hasVolumeProcessor)
+    {
+      std::cout << "** NO VOLUME PROCESSOR FOUND\n";
+      return;
+    }
 
-
-// run volume processing in a thread, 
-// so that main gui thread is still interactive
-
-  QFutureWatcher<void> *watcher = new QFutureWatcher<void>();
-
-  // When the background work finishes, this runs in the main thread
-  QObject::connect(watcher, &QFutureWatcher<int>::finished, [=]() {
-        emit volumeProcessed();
-        watcher->deleteLater();
-    });
-
-  QFuture<void> future = QtConcurrent::run([=]()
-  {
-     py::gil_scoped_acquire gil;
-    
-    if (!m_hasVolumeProcessor)
-      {
-        std::cout << "** NO VOLUME PROCESSOR FOUND\n";
-        return;
-      }
-    
-    PaintVolMask::global_pyModule.attr("process_volume")(); 
-  });
-
-  watcher->setFuture(future);
+  PaintVolMask::global_pyModule.attr("process_volume")();
+  
+  emit volumeProcessed();
+  return;
 }
 //--------------------------------------------
 //--------------------------------------------

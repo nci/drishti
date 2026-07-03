@@ -3,6 +3,8 @@
 
 #include "commonqtclasses.h"
 #include "ui_drishtiimport.h"
+#include <QDockWidget>
+
 
 class RemapWidget;
 
@@ -12,6 +14,7 @@ class DrishtiImport : public QMainWindow
 
  public :
   DrishtiImport(QWidget *parent=0);
+  void addMessageWindow(QDockWidget*);
 
  protected :
   void dragEnterEvent(QDragEnterEvent*);

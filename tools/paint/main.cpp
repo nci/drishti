@@ -45,11 +45,6 @@ int main(int argc, char **argv)
   QGLFormat::setDefaultFormat(glFormat);
 
 
-  //// Embedded Python interpreter 
-  //PythonEngine &pythonGuard = PythonEngine::instance();
-  //(&pythonGuard)->init(true);
-  //Global::setPythonInstalled(true);
-
   //-----------------------------------------
   QDockWidget *dock = new QDockWidget("Messages", nullptr, Qt::Widget);
   dock->setAllowedAreas(Qt::AllDockWidgetAreas);
@@ -69,8 +64,11 @@ int main(int argc, char **argv)
 
   DrishtiPaint mainWindow;
   mainWindow.addDockWidget(Qt::BottomDockWidgetArea, dock);
+  mainWindow.addMessageWindow(dock);
   mainWindow.show();
+
   
+
   if (Global::pythonInstalled())
     py::gil_scoped_release gil;
 

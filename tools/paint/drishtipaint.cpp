@@ -103,6 +103,12 @@ DrishtiPaint::changeImageSlice(int d, int w, int h)
   m_coronalImage->setSlice(h);
 }
 
+void 
+DrishtiPaint::addMessageWindow(QDockWidget* dock)
+  {
+    ui.menuView->addAction(dock->toggleViewAction());
+  }
+
 DrishtiPaint::DrishtiPaint(QWidget *parent) :
   QMainWindow(parent)
 {
@@ -325,6 +331,7 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   ui.menuView->addAction(m_dock1->toggleViewAction());
   ui.menuView->addAction(m_dock2->toggleViewAction());
   ui.menuView->addAction(m_dock3->toggleViewAction());
+
   
   on_actionGraphCut_triggered();
 

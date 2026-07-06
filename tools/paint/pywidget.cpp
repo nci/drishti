@@ -136,8 +136,8 @@ PyWidget::PyWidget(QWidget *parent)
   layout->addWidget(m_menu);
   setLayout(layout);
 
-  connect(m_menu, SIGNAL(runCommand(QString)),
-	  this, SLOT(runCommand(QString)));
+  connect(m_menu, SIGNAL(runCommand(QString, QHash<QString, QVariant>)),
+	          this, SLOT(runCommand(QString, QHash<QString, QVariant>)));
   
 
   m_worker = 0;
@@ -193,10 +193,6 @@ PyWidget::setFilename(QString volfile)
   m_maskName += QString("mask.sc");
 
   m_fileName += ".001";
-
-  m_menu->addRow("%DIR%", QFileInfo(m_fileName).absolutePath());
-  m_menu->addRow("volume", "%DIR%/"+QFileInfo(m_fileName).fileName());
-  m_menu->addRow("mask", "%DIR%/"+QFileInfo(m_maskName).fileName());
 }
 
 void
@@ -217,6 +213,8 @@ PyWidget::processSlice(uchar* image, ushort* mask, int width, int height, int ta
       return;
   }
 
+  populateArguments();
+
   //emit process_slice(image, mask, width, height, tag);
   m_worker->process_slice(image, mask, width, height, tag);
 }
@@ -231,6 +229,8 @@ PyWidget::processVolume()
       PaintVolMask::global_paint_vol_mask->scriptName);
     return;
   }
+
+  populateArguments();
 
   emit process_volume();
 }
@@ -263,9 +263,60 @@ PyWidget::volumeProcessed()
 }
 
 void
-PyWidget::runCommand(QString script)
+PyWidget::populateArguments()
+{
+  // population the arguments dictionary in the global paint vol mask object
+  PaintVolMask::global_paint_vol_mask->pyDict.clear();
+
+  m_menu->genArgumentsFromTable();
+
+  QHash<QString, QVariant> arguments = m_menu->getArguments();
+  for (auto it = arguments.begin(); it != arguments.end(); ++it)
+  {
+    if (it.value().type() == QVariant::Int)
+      PaintVolMask::global_paint_vol_mask->pyDict[py::str(it.key().toLatin1().data())] = 
+                                                                    py::int_(it.value().toInt());
+    else if (it.value().type() == QVariant::Double)
+      PaintVolMask::global_paint_vol_mask->pyDict[py::str(it.key().toLatin1().data())] = 
+                                                                py::float_(it.value().toDouble());
+    else if (it.value().type() == QVariant::Bool)
+      PaintVolMask::global_paint_vol_mask->pyDict[py::str(it.key().toLatin1().data())] = 
+                                                                  py::bool_(it.value().toBool());
+    else
+      PaintVolMask::global_paint_vol_mask->pyDict[py::str(it.key().toLatin1().data())] = 
+                                                py::str(it.value().toString().toLatin1().data());
+  }
+}
+
+void
+PyWidget::runCommand(QString script, QHash<QString, QVariant> arguments)
 {
   PaintVolMask::global_paint_vol_mask->scriptActive = false;
+
+  PaintVolMask::global_paint_vol_mask->scriptName = QFileInfo(script).baseName();
+
+  populateArguments();
+
+  //-----------------
+  // single thread
+  if (m_worker)
+  {
+    delete m_worker;
+    m_worker = 0;
+  }
+  m_worker = new PyWorker(script);
+  
+  connect(this, &PyWidget::initScript, m_worker, &PyWorker::initScript);
+  connect(this, &PyWidget::process_slice, m_worker, &PyWorker::process_slice);
+  connect(this, &PyWidget::process_volume, m_worker, &PyWorker::process_volume);
+
+  connect(m_worker, &PyWorker::sliceProcessed, this, &PyWidget::sliceProcessed);
+  connect(m_worker, &PyWorker::volumeProcessed, this, &PyWidget::volumeProcessed);
+  connect(m_worker, &PyWorker::initDone, this, &PyWidget::initDone);
+
+  emit initScript();
+  //-----------------
+
 
   //if (m_thread)
   //{
@@ -299,23 +350,4 @@ PyWidget::runCommand(QString script)
   //emit initScript();
   //
   //return;
-
-  //-----------------
-  // single thread
-  if (m_worker)
-  {
-    delete m_worker;
-    m_worker = 0;
-  }
-  m_worker = new PyWorker(script);
-  
-  connect(this, &PyWidget::initScript, m_worker, &PyWorker::initScript);
-  connect(this, &PyWidget::process_slice, m_worker, &PyWorker::process_slice);
-  connect(this, &PyWidget::process_volume, m_worker, &PyWorker::process_volume);
-
-  connect(m_worker, &PyWorker::sliceProcessed, this, &PyWidget::sliceProcessed);
-  connect(m_worker, &PyWorker::volumeProcessed, this, &PyWidget::volumeProcessed);
-  connect(m_worker, &PyWorker::initDone, this, &PyWidget::initDone);
-
-  emit initScript();
 }

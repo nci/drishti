@@ -13,6 +13,7 @@ PYBIND11_EMBEDDED_MODULE(paintmod, m) {
         .def_readwrite("depth", &PaintVolMask::depth)
         .def_readwrite("width", &PaintVolMask::width)
         .def_readwrite("height", &PaintVolMask::height)
+        .def_readwrite("script_args", &PaintVolMask::pyDict)
 
         .def("get_volume_view", &PaintVolMask::get_volume_view)
         .def("get_mask_view", &PaintVolMask::get_mask_view)

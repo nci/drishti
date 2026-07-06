@@ -4,6 +4,8 @@
 #include "ui_pywidgetmenu.h"
 
 #include <QLineEdit>
+#include <QHash>
+#include <QVariant>
 
 class PyWidgetMenu : public QWidget
 {
@@ -13,13 +15,14 @@ class PyWidgetMenu : public QWidget
   PyWidgetMenu(QWidget *parent=NULL);
   ~PyWidgetMenu();
 
-  void addRow(QString, QString);
-  QStringList getData();
+  void addRow(QString, QString, QString);
 
-  void loadScripts(QString);  
-
+  void loadScripts(QString);    
+  void genArgumentsFromTable();
+  QHash<QString, QVariant> getArguments() { return m_arguments; }
+  
   signals :
-    void runCommand(QString);
+    void runCommand(QString, QHash<QString, QVariant>);
   
   public slots:
     void on_addRow_pressed();
@@ -34,7 +37,8 @@ class PyWidgetMenu : public QWidget
     QStringList m_jsonFileList;
     QString m_script;
     QString m_doc;
-    
+    QHash<QString, QVariant> m_arguments;
+
 };
 
 #endif

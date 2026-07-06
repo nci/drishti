@@ -80,7 +80,7 @@ class PyWidget : public QWidget
     
  private slots :
    void closeEvent(QCloseEvent*);
-   void runCommand(QString);
+   void runCommand(QString, QHash<QString, QVariant>);
   
  private :
    QString m_fileName;
@@ -94,6 +94,7 @@ class PyWidget : public QWidget
    PyWorker* m_worker;
 
   void loadScripts();
+  void populateArguments();
 };
 
 #endif

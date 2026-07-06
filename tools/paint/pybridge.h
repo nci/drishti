@@ -7,6 +7,7 @@
 #include <QObject>
 #include <QMessageBox>
 
+
 namespace py = pybind11;
 
 class PaintVolMask : public QObject
@@ -24,6 +25,7 @@ public:
     py::array_t<uint8_t> get_volume_view();
     py::array_t<uint8_t> get_lut_view();
     py::array_t<uint16_t> get_mask_view();
+
     void update_slice_view();
     void update_3d_view();
 
@@ -33,6 +35,8 @@ public:
     uint16_t *mask;
     uint8_t *lut;
     int depth, width, height;
+
+    py::dict pyDict;
 
     bool scriptActive;
     QString scriptName;

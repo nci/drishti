@@ -23,7 +23,7 @@ PyWidgetMenu::PyWidgetMenu(QWidget *parent) :
   m_script.clear();
 
   // hide the tableWidget for the time being
-  ui.tableWidget->hide();
+  //ui.tableWidget->hide();
   ui.addRow->hide();
   ui.removeRow->hide();
 }
@@ -39,17 +39,17 @@ PyWidgetMenu::on_scriptChanged(int idx)
   m_script.clear();
 	ui.textEdit->clear();
 
-  // clear all rows beyond the third row
-  for(int i=ui.tableWidget->rowCount()-1; i>=3; i--)
+  // clear all rows
+  for(int i=ui.tableWidget->rowCount()-1; i>=0; i--)
     {
       QTableWidgetItem *wi = ui.tableWidget->item(i, 1);
       ui.tableWidget->removeRow(i);
     }
-  
-  if (ui.tableWidget->rowCount() == 0 || idx == -1)
+
+  if (idx == -1)
     return;
 
-  
+
   QString jsonfile = m_jsonFileList[idx];
   QFile fl(jsonfile);
   if (fl.open(QIODevice::ReadOnly))
@@ -77,15 +77,44 @@ PyWidgetMenu::on_scriptChanged(int idx)
           
 	          if (key == "arguments")
 	    	    {
+              m_arguments.clear();
+
 	    	      QJsonObject obj = value.toObject();
 	    	      QStringList keys = obj.keys();
 	    	      for (auto key : keys)
 	    	        {
+                  QString keystring = key.trimmed();
+                  if (keystring.isEmpty())
+                    continue;
+
+                  QStringList words = keystring.split(" ");
+                  if (words.count() != 2)
+                    continue;
+                  words[0] = words[0].trimmed();
+                  words[1] = words[1].trimmed().toLower();
+
 	    	          auto value = obj.take(key);
-	    	          if (value.isString())
-	    	    	addRow(key, value.toString());
-	    	          else
-	    	    	addRow(key, QString("%1").arg(value.toDouble()));
+
+	    	          if (words[1] == "int")
+                  {
+	    	    	      addRow(words[0], "INT", QString("%1").arg(value.toInt()));
+                    m_arguments.insert(words[0], value.toInt());
+                  }
+                  else if (words[1] == "float" || words[1] == "double")
+                  {
+	    	    	      addRow(words[0], "FLOAT", QString("%1").arg(value.toDouble()));
+                    m_arguments.insert(words[0], value.toDouble());
+                  }
+                  else if (words[1] == "bool")
+                  {
+      	    	      addRow(words[0], "BOOL", QString("%1").arg(value.toBool()));
+                    m_arguments.insert(words[0], value.toBool());
+                  }
+                  else
+                  {
+                    addRow(words[0], "STRING", value.toString());
+                    m_arguments.insert(words[0], value.toString());
+                  }
 	    	        }
 	    	    }
 	          if (key == "script")
@@ -93,12 +122,12 @@ PyWidgetMenu::on_scriptChanged(int idx)
 	    	           ui.scriptList->currentText() + QDir::separator() +
 	    	           value.toString();  
             if (key == "doc")
-              //m_doc = value.toString();
               ui.textEdit->append(value.toString());
 	        }	  
 	    }
     }
 }
+
 
 void
 PyWidgetMenu::loadScripts(QString scriptdir)
@@ -167,53 +196,40 @@ PyWidgetMenu::loadScripts(QString scriptdir)
 }
 
 void
-PyWidgetMenu::addRow(QString key, QString value)
+PyWidgetMenu::addRow(QString key, QString type, QString value)
 {
   QTableWidgetItem *wKey = new QTableWidgetItem("");
+  QTableWidgetItem *wType = new QTableWidgetItem("");
   QTableWidgetItem *wVal = new QTableWidgetItem("");
 
-  wKey->setFlags(wKey->flags() & ~Qt::ItemIsUserCheckable);
+  wKey->setFlags(wKey->flags() & ~Qt::ItemIsUserCheckable & ~Qt::ItemIsEditable);
+  wType->setFlags(wType->flags() & ~Qt::ItemIsUserCheckable & ~Qt::ItemIsEditable);
   wVal->setFlags(wVal->flags() & ~Qt::ItemIsUserCheckable);
 
   wKey->setText(key);
+  wType->setText(type);
   wVal->setText(value);
   
   int row = ui.tableWidget->rowCount();
   ui.tableWidget->insertRow(row);
   ui.tableWidget->setItem(row, 0, wKey);
-  ui.tableWidget->setItem(row, 1, wVal);
+  ui.tableWidget->setItem(row, 1, wType);
+  ui.tableWidget->setItem(row, 2, wVal);
 
-  if (row == 0)
+  if (row%2 == 0)
     {
-      wKey->setBackground(QBrush(Qt::darkGray));
-      wVal->setBackground(QBrush(Qt::darkGray));
+      wKey->setBackground(QBrush(Qt::lightGray));
+      wType->setBackground(QBrush(Qt::lightGray));
+      wVal->setBackground(QBrush(Qt::lightGray));
     }
   
   ui.tableWidget->resizeColumnsToContents();
 }
 
 void
-PyWidgetMenu::on_runScript_pressed()
-{
-  emit runCommand(m_script);
-}
-
-QStringList
-PyWidgetMenu::getData()
-{
-  QStringList kv;
-  for (int i=0; i<ui.tableWidget->rowCount(); i++)
-    {
-      kv << ui.tableWidget->item(i,0)->text();
-      kv << ui.tableWidget->item(i,1)->text(); 
-    }
-  return kv;
-}
-
-void
 PyWidgetMenu::on_addRow_pressed()
 {
-  addRow("", "");
+  addRow("", "", "");
 }
 
 void
@@ -227,3 +243,45 @@ PyWidgetMenu::on_removeRow_pressed()
 	      ui.tableWidget->removeRow(i);
     }
 }
+void
+PyWidgetMenu::genArgumentsFromTable()
+{
+  for (int i=0; i<ui.tableWidget->rowCount(); i++)
+    {
+      QTableWidgetItem *keyItem = ui.tableWidget->item(i, 0);
+      QTableWidgetItem *typeItem = ui.tableWidget->item(i, 1);
+      QTableWidgetItem *valItem = ui.tableWidget->item(i, 2);
+
+      if (!keyItem || !typeItem || !valItem)
+        continue;
+
+      QString key = keyItem->text().trimmed();
+      if (key.isEmpty())
+        continue;
+
+      QString type = typeItem->text().trimmed().toLower();
+      QString value = valItem->text().trimmed();
+
+      if (type == "int")
+        m_arguments.insert(key, value.toInt());
+      else if (type == "float" || type == "double")
+        m_arguments.insert(key, value.toDouble());
+      else if (type == "bool")
+      {
+        if (value.toLower() == "true" || value == "1")
+          m_arguments.insert(key, true);
+        else
+          m_arguments.insert(key, false);
+      }
+      else
+        m_arguments.insert(key, value);
+    }
+}
+
+void
+PyWidgetMenu::on_runScript_pressed()
+{
+  genArgumentsFromTable();
+  emit runCommand(m_script, m_arguments);
+}
+

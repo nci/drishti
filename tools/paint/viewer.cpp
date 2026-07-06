@@ -1,6 +1,3 @@
-#include <pybind11/pybind11.h>
-#include "pybridge.h"
-
 #include <GL/glew.h>
 
 #include "shaderfactory.h"
@@ -25,7 +22,6 @@
 
 #include <QtConcurrentMap>
 
-namespace py = pybind11;
 
 Viewer::Viewer(QWidget *parent) :
   QGLViewer(parent)
@@ -2200,10 +2196,9 @@ Viewer::drawInfo()
 			      QString("Current Label : %1").arg(Global::tag()),
 			      tfont, Qt::black, Qt::lightGray);
 
-  if (PaintVolMask::global_paint_vol_mask &&
-      PaintVolMask::global_paint_vol_mask->scriptActive == true)
+  if (Global::scriptActive())
     StaticFunctions::renderText(200,sh-30,
-			      "Script active : "+PaintVolMask::global_paint_vol_mask->scriptName,
+			      "Script active : "+Global::scriptName(),
 			      tfont, Qt::black, Qt::green);
     
 

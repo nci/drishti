@@ -1,7 +1,7 @@
 #ifndef DRISHTIPAINT_H
 #define DRISHTIPAINT_H
 
-#include "pybridge.h"
+#include "pywidget.h"
 
 #include <QScrollArea>
 #include <QSplitter>
@@ -23,7 +23,6 @@
 #include "volume.h"
 #include "viewer3d.h"
 #include "popupslider.h"
-#include "pywidget.h"
 
 #include "handleexternal.h"
 

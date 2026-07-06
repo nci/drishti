@@ -119,6 +119,12 @@ class Global
   static void setPythonInstalled(bool);
   static bool pythonInstalled();
 
+  static void setScriptActive(bool);
+  static bool scriptActive();
+
+  static void setScriptName(QString);
+  static QString scriptName();
+
  private :
   static QWidget* m_mainWindow;
   static QString m_documentationPath;
@@ -160,6 +166,8 @@ class Global
 
   static QString m_scriptFolder;
   static bool m_pythonInstalled;
+  static bool m_scriptActive;
+  static QString m_scriptName;
 };
 
 #endif

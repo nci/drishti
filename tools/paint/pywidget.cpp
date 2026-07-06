@@ -1,7 +1,3 @@
-#include "pythonengine.h"
-
-#include "pybridge.h"
-
 #include "pywidget.h"
 #include "global.h"
 #include "staticfunctions.h"
@@ -163,9 +159,16 @@ void
 PyWidget::initDone(QString mesg) 
 {
   if (mesg != "true")
-    QMessageBox::information(0, "Error", "Failed to import module: " + mesg);
+    {
+      QMessageBox::information(0, "Error", "Failed to import module: " + mesg);
+      Global::setScriptActive(true);
+      Global::setScriptName(m_worker->scriptName());
+    }
   else
-    std::cout << "\n** Script initialization completed\n";
+    {  
+      std::cout << "\n** Script initialization completed\n";
+      Global::setScriptActive(false);
+    }
 }
 
 void
@@ -214,7 +217,7 @@ PyWidget::runCommand(QString script, QHash<QString, QVariant> arguments)
   emit initScript();
   //-----------------
 
-  
+
   //if (m_thread)
   //{
   //  m_thread->quit();

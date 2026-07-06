@@ -384,3 +384,11 @@ QString Global::scriptFolder() { return m_scriptFolder; }
 bool Global::m_pythonInstalled = false;
 void Global::setPythonInstalled(bool flag) { m_pythonInstalled = flag;}
 bool Global::pythonInstalled() { return m_pythonInstalled; }
+
+bool Global::m_scriptActive = false;
+void Global::setScriptActive(bool flag) { m_scriptActive = flag;}
+bool Global::scriptActive() { return m_scriptActive; }
+
+QString Global::m_scriptName = "";
+void Global::setScriptName(QString s) { m_scriptName = s; }
+QString Global::scriptName() { return m_scriptName; }

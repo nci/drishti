@@ -2,7 +2,6 @@
 #define PYWIDGET_H
 
 #include <pyworker.h>
-//#include <pybind11/embed.h> // Everything needed for embedding
 
 #include <QWidget>
 #include <QProcess>
@@ -30,7 +29,7 @@ class PyWidget : public QWidget
  public :
     PyWidget(QWidget *parent=0);
     ~PyWidget();
-  
+
     void setFilename(QString);
     void init(uchar*, ushort*, uchar*, int, int, int);
     void setMask(ushort*);

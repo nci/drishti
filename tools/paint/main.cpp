@@ -1,7 +1,5 @@
 #include <GL/glew.h>
-
-#include <pybind11/pybind11.h>
-
+#include "drishtipaint.h"
 #include "global.h"
 
 #include <filesystem>
@@ -14,7 +12,7 @@ namespace fs = std::filesystem;
 
 #include <QApplication>
 #include <QDockWidget>
-#include "drishtipaint.h"
+
 
 int main(int argc, char **argv)
 {

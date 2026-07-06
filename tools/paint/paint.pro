@@ -167,6 +167,7 @@ HEADERS += connectviewer.h \
         pybridge.h \
         pywidget.h \
         pywidgetmenu.h \
+        pyworker.h \
         ../../common/src/pybind/pythonengine.h \
         ../../common/src/widgets/propertyeditor.h \
         ../../common/src/widgets/dcolordialog.h \
@@ -237,6 +238,7 @@ SOURCES += drishtipaint.cpp \
         pybridge.cpp \
         pywidget.cpp \
         pywidgetmenu.cpp \
+        pyworker.cpp \
         ../../common/src/pybind/pythonengine.cpp \
         ../../common/src/widgets/propertyeditor.cpp \
         ../../common/src/widgets/dcolordialog.cpp \

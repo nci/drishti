@@ -1,5 +1,4 @@
 #include <GL/glew.h>
-#include "pythonengine.h"
 
 #include "drishtipaint.h"
 #include "vdbvolume.h"
@@ -393,34 +392,34 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 	  this, SLOT(loadRawMask(QString)));
 
 
-  //-------------------------------------------------------------
-  //-------------------------------------------------------------
-  // Embedded Python interpreter 
-  PythonEngine &pythonGuard = PythonEngine::instance();
-
-  QByteArray path = qgetenv("path");
-  if (path.toLower().contains("python"))
-      Global::setPythonInstalled(true);
-  else
-    {
-      Global::setPythonInstalled(false);
-      std::cout << path.toLower().toStdString();
-    }
-  
-  (&pythonGuard)->init(Global::pythonInstalled());
-  
-  std::cout << "Drishti Paint v" << DRISHTI_VERSION << " - Segmentation Tool\n";
-
-  // disable running scripts if python not found
-  if (!Global::pythonInstalled())
-    {
-      ui.actionCommand->setDisabled(true);
-      std::cout<<"\n*******************************************\n";
-      std::cout << "** PYTHON NOT FOUND ** DISABLING SCRIPTS **";
-      std::cout<<"\n*******************************************\n";
-    }
-  //-------------------------------------------------------------
-  //-------------------------------------------------------------
+  ////-------------------------------------------------------------
+  ////-------------------------------------------------------------
+  //// Embedded Python interpreter 
+  //PythonEngine &pythonGuard = PythonEngine::instance();
+  //
+  //QByteArray path = qgetenv("path");
+  //if (path.toLower().contains("python"))
+  //    Global::setPythonInstalled(true);
+  //else
+  //  {
+  //    Global::setPythonInstalled(false);
+  //    std::cout << path.toLower().toStdString();
+  //  }
+  //
+  //(&pythonGuard)->init(Global::pythonInstalled());
+  //
+  //std::cout << "Drishti Paint v" << DRISHTI_VERSION << " - Segmentation Tool\n";
+  //
+  //// disable running scripts if python not found
+  //if (!Global::pythonInstalled())
+  //  {
+  //    ui.actionCommand->setDisabled(true);
+  //    std::cout<<"\n*******************************************\n";
+  //    std::cout << "** PYTHON NOT FOUND ** DISABLING SCRIPTS **";
+  //    std::cout<<"\n*******************************************\n";
+  //  }
+  ////-------------------------------------------------------------
+  ////-------------------------------------------------------------
 }
 
 
@@ -1665,9 +1664,6 @@ DrishtiPaint::on_actionExit_triggered()
 {
   if (m_pyWidget)
     m_pyWidget->close();
-
-  delete PaintVolMask::global_paint_vol_mask;
-
 
   if (m_volume->isValid())
     {
@@ -5277,8 +5273,8 @@ DrishtiPaint::reloadMask()
   VolumeOperations::setMaskData(m_volume->memMaskDataPtr());
   VolumeMeasure::setMaskData(m_volume->memMaskDataPtr());
 
-  if (!PaintVolMask::global_paint_vol_mask)
-    PaintVolMask::global_paint_vol_mask->mask = m_volume->memMaskDataPtrUS();
+  if (m_pyWidget)
+    m_pyWidget->setMask(m_volume->memMaskDataPtrUS());
 
   reloadAllMask();
 
@@ -6594,13 +6590,6 @@ DrishtiPaint::on_actionScriptFolder_triggered()
 void
 DrishtiPaint::processVolumeFromScript()
 {
-  if (!PaintVolMask::global_paint_vol_mask ||
-       PaintVolMask::global_paint_vol_mask->scriptActive == false)
-  {
-    QMessageBox::information(0, "Error", "No active script detected");
-    return;
-  }
-
   m_pyWidget->processVolume();
 }
 
@@ -6625,33 +6614,20 @@ DrishtiPaint::on_actionCommand_triggered()
 
   connect(m_pyWidget, &PyWidget::pyWidgetClosed, [=](){m_pyWidget=0;});
 
+  connect(m_pyWidget, &PyWidget::volumeProcessingDone, 
+          this, &DrishtiPaint::reloadAllMask);
+  connect(m_pyWidget, &PyWidget::sliceProcessingDone, 
+          this, &DrishtiPaint::reloadSlices);
 
   m_pyWidget->setFilename(m_volume->fileName());
 
-  
-  //----------------------------
-  // set global pointers for volume and mask data
-  if (!PaintVolMask::global_paint_vol_mask)
-    {
-      PaintVolMask::global_paint_vol_mask = new PaintVolMask();
-      connect(PaintVolMask::global_paint_vol_mask, 
-              &PaintVolMask::viewerUpdate,
-              this, 
-              &DrishtiPaint::reloadAllMask);
-      connect(PaintVolMask::global_paint_vol_mask, 
-              &PaintVolMask::reloadSlices,
-              this, 
-              &DrishtiPaint::reloadSlices);
-    }
 
   int d, w, h;
   m_volume->gridSize(d, w, h);
-  PaintVolMask::global_paint_vol_mask->volume = m_volume->memVolDataPtr();
-  PaintVolMask::global_paint_vol_mask->mask = m_volume->memMaskDataPtrUS();
-  PaintVolMask::global_paint_vol_mask->lut = Global::lut();
-  PaintVolMask::global_paint_vol_mask->depth = d;
-  PaintVolMask::global_paint_vol_mask->width = w;
-  PaintVolMask::global_paint_vol_mask->height = h;
+  m_pyWidget->init(m_volume->memVolDataPtr(),
+                    m_volume->memMaskDataPtrUS(),
+                    Global::lut(),
+                    d, w, h);
 }
 //---------------------
 

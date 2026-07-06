@@ -18,110 +18,7 @@
 
 //--------------------------------------------
 //--------------------------------------------
-PyWorker::PyWorker(QString script) : m_script(script) {}
 
-void 
-PyWorker::initScript()
-{
-  m_hasInit = false;
-  m_hasDataAllocator = false;
-  m_hasSliceProcessor = false;
-  m_hasVolumeProcessor = false;
-
-  py::gil_scoped_acquire gil;
-
-  try {
-    QString spath = QFileInfo(m_script).absolutePath();
-    QString ps = "import sys\nsys.path.insert(0, r\"" + spath + "\")";
-    py::exec(ps.toStdString());
-
-    QString scriptName = QFileInfo(m_script).baseName();
-    std::cout << "Importing module:" << scriptName.toStdString() << "\n";
-    PaintVolMask::global_pyModule = py::module_::import(scriptName.toStdString().c_str());
-    PaintVolMask::global_paint_vol_mask->scriptName = scriptName;
-
-    if (py::hasattr(PaintVolMask::global_pyModule, "init"))
-      m_hasInit = true;
-
-    if (py::hasattr(PaintVolMask::global_pyModule, "set_paint_data"))
-      m_hasDataAllocator = true;
-
-    if (py::hasattr(PaintVolMask::global_pyModule, "process_slice"))
-      m_hasSliceProcessor = true;
-
-    if (py::hasattr(PaintVolMask::global_pyModule, "process_volume"))
-      m_hasVolumeProcessor = true;
-
-    std::cout << "** init " << (m_hasInit?"found":"not found") << "\n";
-    std::cout << "** set_paint_data " << (m_hasDataAllocator?"found":"not found") << "\n";
-    std::cout << "** process_slice " << (m_hasSliceProcessor?"found":"not found") << "\n";
-    std::cout << "** process_volume " << (m_hasVolumeProcessor?"found":"not found") << "\n";
-
-    //ps = "import "+scriptName+" as testmod\nprint('Available functions :', dir(testmod))";
-    //py::exec(ps.toStdString());
-    std::cout << "** Successfully imported module: " << scriptName.toStdString() << "\n";
-    py::object py_paintvolmask = py::cast(PaintVolMask::global_paint_vol_mask);
-      
-    std::cout << "** Setting paint data in Python module... ";
-    PaintVolMask::global_pyModule.attr("set_paint_data")(py_paintvolmask);
-    
-    if (m_hasInit)
-      PaintVolMask::global_pyModule.attr("init")();
-
-    std::cout << "done.\n";
-
-    emit initDone("true");
-  }
-  catch (const std::exception& e) {
-    std::cout << "*** Error ***\n";
-    std::cout << "Failed to import module: " + QString(e.what()).toStdString();
-    emit initDone(QString(e.what()));
-  }
-}
-
-void
-PyWorker::process_slice(uchar *image, ushort *mask, int width, int height, int tag)
-{
-  if (!m_hasSliceProcessor)
-    {
-      std::cout << "** NO SLICE PROCESSOR FOUND\n";
-      return;
-    }
-
-  py::gil_scoped_acquire gil;
-  int size = width* height;
-  py::array_t<uint8_t> py_img = py::array_t<uint8_t>({size}, 
-                                                     {sizeof(uint8_t)},
-                                                     image, 
-                                                     py::cast(nullptr));
-  py::array_t<uint16_t> py_mask = py::array_t<uint16_t>({size}, 
-                                                      {sizeof(uint16_t)},
-                                                      mask, 
-                                                      py::cast(nullptr));
-
-  PaintVolMask::global_pyModule.attr("process_slice")(py_img, py_mask, 
-                                                      width, height,
-                                                      tag);
-  
-  emit sliceProcessed();
-}
-
-void
-PyWorker::process_volume()
-{
-  py::gil_scoped_acquire gil;
-  
-  if (!m_hasVolumeProcessor)
-    {
-      std::cout << "** NO VOLUME PROCESSOR FOUND\n";
-      return;
-    }
-
-  PaintVolMask::global_pyModule.attr("process_volume")();
-  
-  emit volumeProcessed();
-  return;
-}
 //--------------------------------------------
 //--------------------------------------------
 
@@ -168,14 +65,34 @@ PyWidget::closeEvent(QCloseEvent *)
     m_worker = 0;
   }
 
-  PaintVolMask::global_paint_vol_mask->scriptActive = false;
-
   emit pyWidgetClosed();  
 }
 
+void
+PyWidget::init(uchar *vol, ushort *mask, uchar *lut, int depth, int width, int height)
+{
+  m_volume = vol;
+  m_mask = mask;
+  m_lut = lut;
+  m_depth = depth;
+  m_width = width;
+  m_height = height;
+}
+
+void
+PyWidget::setMask(ushort *mask)
+{
+  if (m_worker)
+    m_worker->setMask(mask);
+}
 
 PyWidget::~PyWidget()
 { 
+  if (m_worker)
+  {
+    delete m_worker;
+    m_worker = 0;
+  }
 }
 
 void
@@ -209,7 +126,7 @@ PyWidget::processSlice(uchar* image, ushort* mask, int width, int height, int ta
   {
     QMessageBox::information(0, "Error", 
       "No Slice Processor found in script "+ 
-      PaintVolMask::global_paint_vol_mask->scriptName);
+      m_worker->scriptName());
       return;
   }
 
@@ -222,32 +139,33 @@ PyWidget::processSlice(uchar* image, ushort* mask, int width, int height, int ta
 void
 PyWidget::processVolume()
 {
+  if (m_worker == 0)
+  {
+    QMessageBox::information(0, "Error", "No active script detected");
+    return;
+  }
+
   if (!m_worker->hasVolumeProcessor())
   {
     QMessageBox::information(0, "Error", 
-      "No Volume Processor found in script "+ 
-      PaintVolMask::global_paint_vol_mask->scriptName);
+              "No Volume Processor found in script "+ 
+              m_worker->scriptName());
     return;
   }
 
   populateArguments();
 
-  emit process_volume();
+  //emit process_volume();
+  m_worker->process_volume();
 }
 
 void
 PyWidget::initDone(QString mesg) 
 {
   if (mesg != "true")
-  {
     QMessageBox::information(0, "Error", "Failed to import module: " + mesg);
-    PaintVolMask::global_paint_vol_mask->scriptActive = false;
-  }
   else
-  {
     std::cout << "\n** Script initialization completed\n";
-    PaintVolMask::global_paint_vol_mask->scriptActive = true;
-  }
 }
 
 void
@@ -265,59 +183,38 @@ PyWidget::volumeProcessed()
 void
 PyWidget::populateArguments()
 {
-  // population the arguments dictionary in the global paint vol mask object
-  PaintVolMask::global_paint_vol_mask->pyDict.clear();
-
   m_menu->genArgumentsFromTable();
-
-  QHash<QString, QVariant> arguments = m_menu->getArguments();
-  for (auto it = arguments.begin(); it != arguments.end(); ++it)
-  {
-    if (it.value().type() == QVariant::Int)
-      PaintVolMask::global_paint_vol_mask->pyDict[py::str(it.key().toLatin1().data())] = 
-                                                                    py::int_(it.value().toInt());
-    else if (it.value().type() == QVariant::Double)
-      PaintVolMask::global_paint_vol_mask->pyDict[py::str(it.key().toLatin1().data())] = 
-                                                                py::float_(it.value().toDouble());
-    else if (it.value().type() == QVariant::Bool)
-      PaintVolMask::global_paint_vol_mask->pyDict[py::str(it.key().toLatin1().data())] = 
-                                                                  py::bool_(it.value().toBool());
-    else
-      PaintVolMask::global_paint_vol_mask->pyDict[py::str(it.key().toLatin1().data())] = 
-                                                py::str(it.value().toString().toLatin1().data());
-  }
+  m_worker->populateArguments(m_menu->getArguments());
 }
 
 void
 PyWidget::runCommand(QString script, QHash<QString, QVariant> arguments)
 {
-  PaintVolMask::global_paint_vol_mask->scriptActive = false;
-
-  PaintVolMask::global_paint_vol_mask->scriptName = QFileInfo(script).baseName();
-
-  populateArguments();
-
-  //-----------------
-  // single thread
   if (m_worker)
   {
     delete m_worker;
     m_worker = 0;
   }
   m_worker = new PyWorker(script);
-  
+
+  m_worker->init(m_volume, m_mask, m_lut, m_depth, m_width, m_height);
+
+  populateArguments();
+
   connect(this, &PyWidget::initScript, m_worker, &PyWorker::initScript);
   connect(this, &PyWidget::process_slice, m_worker, &PyWorker::process_slice);
   connect(this, &PyWidget::process_volume, m_worker, &PyWorker::process_volume);
 
   connect(m_worker, &PyWorker::sliceProcessed, this, &PyWidget::sliceProcessed);
   connect(m_worker, &PyWorker::volumeProcessed, this, &PyWidget::volumeProcessed);
+  connect(m_worker, &PyWorker::sliceProcessingDone, this, &PyWidget::sliceProcessingDone);
+  connect(m_worker, &PyWorker::volumeProcessingDone, this, &PyWidget::volumeProcessingDone);
   connect(m_worker, &PyWorker::initDone, this, &PyWidget::initDone);
 
   emit initScript();
   //-----------------
 
-
+  
   //if (m_thread)
   //{
   //  m_thread->quit();

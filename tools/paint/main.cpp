@@ -1,13 +1,5 @@
 #include <GL/glew.h>
 
-//  Boot order is important:
-//    1. Initialise pybind11 interpreter (scoped_interpreter owns lifetime)
-//    2. Import the embedded 'vsgbox' module (defined in PyModule.cpp via
-//       PYBIND11_EMBEDDED_MODULE) and wire up the global SceneController ptr
-//    3. Create the Qt application + main window
-//    4. Run the Qt event loop
-//    5. ~scoped_interpreter() finalises Python on exit
-//#include "pythonengine.h"
 #include <pybind11/pybind11.h>
 
 #include "global.h"
@@ -69,8 +61,8 @@ int main(int argc, char **argv)
 
   
 
-  if (Global::pythonInstalled())
-    py::gil_scoped_release gil;
+  //if (Global::pythonInstalled())
+  //  py::gil_scoped_release gil;
 
   return app.exec();
 }

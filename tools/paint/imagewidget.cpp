@@ -2675,7 +2675,7 @@ ImageWidget::processInScript()
 
   delete [] imageData;
   delete [] maskData;
-  std::cout << "slice mask updated\n";
+  //std::cout << "mask updated for " << m_currSlice << "\n";
 }
 
 void

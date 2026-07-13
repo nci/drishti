@@ -201,6 +201,7 @@ PyWidget::runCommand(QString script, QHash<QString, QVariant> arguments)
   m_worker = new PyWorker(script);
 
   m_worker->init(m_volume, m_mask, m_lut, m_depth, m_width, m_height);
+  Global::setPythonInstalled(true);
 
   populateArguments();
 

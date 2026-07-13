@@ -3210,7 +3210,6 @@ Viewer::uploadMask(int dst, int wst, int hst, int ded, int wed, int hed)
 
 
   update();
-  //std::cout << "labels updated in 3d view\n";
 
   delete [] voxelVol;
 }

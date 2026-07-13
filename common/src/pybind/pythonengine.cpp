@@ -67,6 +67,9 @@ PythonEngine::PythonEngine()
 void
 PythonEngine::init(bool flag)
 {
+    if (m_pythonInstalled) // already initialized
+      return;
+  
     m_pythonInstalled = flag;
 
     m_guard = nullptr;

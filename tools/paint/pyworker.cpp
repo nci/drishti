@@ -16,7 +16,6 @@ PyWorker::~PyWorker()
     delete PaintVolMask::global_paint_vol_mask;
     PaintVolMask::global_paint_vol_mask = 0;
   }
-  //std::cout << "** PyWorker destroyed\n";
 }
 
 QString
@@ -26,15 +25,13 @@ PyWorker::scriptName()
 }
 
 void
-PyWorker::init(uchar *vol, ushort *mask, uchar *lut, int depth, int width, int height)
+PyWorker::init(uchar *vol, ushort *mask, uchar *lut, 
+               int depth, int width, int height)
 {    
-  if (Global::pythonInstalled() == false)
-  {
-    PythonEngine &pythonGuard = PythonEngine::instance();
-    Global::setPythonInstalled(true);
-    (&pythonGuard)->init(Global::pythonInstalled());
-  }
-
+  PythonEngine &pythonGuard = PythonEngine::instance();
+  (&pythonGuard)->init(true);
+  
+  
   if (!PaintVolMask::global_paint_vol_mask)
   {
       PaintVolMask::global_paint_vol_mask = new PaintVolMask();
@@ -57,8 +54,7 @@ PyWorker::init(uchar *vol, ushort *mask, uchar *lut, int depth, int width, int h
   PaintVolMask::global_paint_vol_mask->width = width;
   PaintVolMask::global_paint_vol_mask->height = height;
     
-  //if (Global::pythonInstalled())
-  //  py::gil_scoped_release gil;
+  //py::gil_scoped_release gil;
 }
 void
 PyWorker::setMask(ushort *mask)

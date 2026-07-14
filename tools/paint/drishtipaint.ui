@@ -412,7 +412,7 @@
     <addaction name="actionScriptFolder"/>
     <addaction name="actionCommand"/>
     <addaction name="separator"/>
-    <addaction name="actionPort"/>
+    <addaction name="actionPyVer"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuView"/>
@@ -749,14 +749,9 @@
     <string>Mesh Viewer</string>
    </property>
   </action>
-  <action name="actionPort">
+  <action name="actionPyVer">
    <property name="text">
-    <string>Port</string>
-   </property>
-  </action>
-  <action name="actionPython_Installation">
-   <property name="text">
-    <string>Python Installation</string>
+    <string>Python Version</string>
    </property>
   </action>
  </widget>

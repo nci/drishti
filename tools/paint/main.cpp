@@ -58,9 +58,5 @@ int main(int argc, char **argv)
   mainWindow.show();
 
   
-
-  //if (Global::pythonInstalled())
-  //  py::gil_scoped_release gil;
-
   return app.exec();
 }

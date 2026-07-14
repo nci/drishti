@@ -24,6 +24,7 @@ PyWidget::PyWidget(QWidget *parent)
 {
   QVBoxLayout *layout = new QVBoxLayout();
 
+  m_plugin = 0;
   m_menu = new PyWidgetMenu(parent);
 
   layout->addWidget(m_menu);
@@ -33,8 +34,6 @@ PyWidget::PyWidget(QWidget *parent)
 	          this, SLOT(runCommand(QString, QHash<QString, QVariant>)));
   
 
-  m_worker = 0;
-  m_thread = 0;
 
   resize(600, 500);
 
@@ -48,21 +47,18 @@ PyWidget::closeEvent(QCloseEvent *)
 {
   m_menu->close();
   delete m_menu;
- 
-  if (m_thread)
+
+  if (m_plugin)
   {
-    m_thread->quit();
-    m_thread->wait();
-    m_thread = 0;
-  }
-  if (m_worker)
-  {
-    delete m_worker;
-    m_worker = 0;
+    m_plugin->clear();
+    delete m_plugin;
+    m_plugin = 0;
   }
 
   emit pyWidgetClosed();  
 }
+
+void PyWidget::setPyVersion(QString flnm) { m_pyversionflnm = flnm; }
 
 void
 PyWidget::init(uchar *vol, ushort *mask, uchar *lut, int depth, int width, int height)
@@ -78,16 +74,16 @@ PyWidget::init(uchar *vol, ushort *mask, uchar *lut, int depth, int width, int h
 void
 PyWidget::setMask(ushort *mask)
 {
-  if (m_worker)
-    m_worker->setMask(mask);
+  if (m_plugin)
+    m_plugin->setMask(mask);
 }
 
 PyWidget::~PyWidget()
 { 
-  if (m_worker)
+  if (m_plugin)
   {
-    delete m_worker;
-    m_worker = 0;
+    delete m_plugin;
+    m_plugin = 0;
   }
 }
 
@@ -115,44 +111,67 @@ PyWidget::loadScripts()
   m_menu->loadScripts(scriptdir);
 }
 
-void
-PyWidget::processSlice(uchar* image, ushort* mask, int width, int height, int tag)
+bool
+PyWidget::processSlice(uchar* image, ushort* mask, 
+                      int width, int height, int tag,
+                      bool applyRecursive)
 {
-  if (!m_worker->hasSliceProcessor())
-  {
-    QMessageBox::information(0, "Error", 
-      "No Slice Processor found in script "+ 
-      m_worker->scriptName());
-      return;
-  }
-
-  populateArguments();
-
-  //emit process_slice(image, mask, width, height, tag);
-  m_worker->process_slice(image, mask, width, height, tag);
-}
-  
-void
-PyWidget::processVolume()
-{
-  if (m_worker == 0)
+  if (m_plugin == 0)
   {
     QMessageBox::information(0, "Error", "No active script detected");
-    return;
+    return false;
   }
 
-  if (!m_worker->hasVolumeProcessor())
+  if (!m_plugin->hasSliceProcessor())
   {
     QMessageBox::information(0, "Error", 
-              "No Volume Processor found in script "+ 
-              m_worker->scriptName());
-    return;
+              QString("No Slice Processor found in script [%1]").\
+              arg(m_plugin->scriptName()));
+      return false;
+  }
+
+  populateArguments();
+  
+  bool result = m_plugin->process_slice(image, mask, width, height, tag);
+  
+  // sliceProcessingDone reloads the same slice hence avoiding it for recursive setup
+  if (result && !applyRecursive) 
+    {
+      std::cout << "\n** slice processed\n";
+      emit sliceProcessingDone();
+    }
+
+  return result;
+}
+  
+bool
+PyWidget::processVolume()
+{
+  if (m_plugin == 0)
+  {
+    QMessageBox::information(0, "Error", "No active script detected");
+    return false;
+  }
+
+  if (!m_plugin->hasVolumeProcessor())
+  {
+    QMessageBox::information(0, "Error", 
+              QString("No Volume Processor found in script [%1]").\
+              arg(m_plugin->scriptName()));
+    return false;
   }
 
   populateArguments();
 
-  //emit process_volume();
-  m_worker->process_volume();
+  bool result = m_plugin->process_volume();
+
+  if (result)
+    {  
+      std::cout << "\n** volume processed\n";
+      emit volumeProcessingDone();
+    }
+  
+  return result;
 }
 
 void
@@ -161,94 +180,58 @@ PyWidget::initDone(QString mesg)
   if (mesg != "true")
     {
       QMessageBox::information(0, "Error", "Failed to import module: " + mesg);
-      Global::setScriptActive(true);
-      Global::setScriptName(m_worker->scriptName());
+      Global::setScriptActive(false);
     }
   else
     {  
-      std::cout << "\n** Script initialization completed\n";
-      Global::setScriptActive(false);
+      std::cout << "\n** Script initialization completed : " 
+                << (m_plugin->scriptName()).toStdString()
+                << "\n";
+      Global::setScriptName(m_plugin->scriptName());
+      Global::setScriptActive(true);
     }
-}
-
-void
-PyWidget::sliceProcessed() 
-{
-  std::cout << "\n** slice processed\n";
-}
-
-void
-PyWidget::volumeProcessed() 
-{
-  std::cout << "\n** volume processed\n";
 }
 
 void
 PyWidget::populateArguments()
 {
   m_menu->genArgumentsFromTable();
-  m_worker->populateArguments(m_menu->getArguments());
+  m_plugin->populateArguments(m_menu->getArguments());
 }
 
 void
 PyWidget::runCommand(QString script, QHash<QString, QVariant> arguments)
 {
-  if (m_worker)
+  if (m_plugin)
   {
-    delete m_worker;
-    m_worker = 0;
+    m_plugin->clear();
+    delete m_plugin;
+    m_plugin = 0;
   }
-  m_worker = new PyWorker(script);
 
-  m_worker->init(m_volume, m_mask, m_lut, m_depth, m_width, m_height);
-  Global::setPythonInstalled(true);
+  m_plugin = new PyPlugin();
+  
+  if (m_plugin->init(m_pyversionflnm, script, 
+                 m_volume, m_mask, m_lut, 
+                 m_depth, m_width, m_height))
+    Global::setPythonInstalled(true);
+  else
+  {
+    Global::setPythonInstalled(false);
+    delete m_plugin;
+    m_plugin = 0;
+    return;
+  }
 
   populateArguments();
 
-  connect(this, &PyWidget::initScript, m_worker, &PyWorker::initScript);
-  connect(this, &PyWidget::process_slice, m_worker, &PyWorker::process_slice);
-  connect(this, &PyWidget::process_volume, m_worker, &PyWorker::process_volume);
+  connect(this, &PyWidget::initScript, m_plugin, &PyPlugin::initScript);
+  connect(this, &PyWidget::process_slice, m_plugin, &PyPlugin::process_slice);
+  connect(this, &PyWidget::process_volume, m_plugin, &PyPlugin::process_volume);
 
-  connect(m_worker, &PyWorker::sliceProcessed, this, &PyWidget::sliceProcessed);
-  connect(m_worker, &PyWorker::volumeProcessed, this, &PyWidget::volumeProcessed);
-  connect(m_worker, &PyWorker::sliceProcessingDone, this, &PyWidget::sliceProcessingDone);
-  connect(m_worker, &PyWorker::volumeProcessingDone, this, &PyWidget::volumeProcessingDone);
-  connect(m_worker, &PyWorker::initDone, this, &PyWidget::initDone);
+  connect(m_plugin, &PyPlugin::sliceProcessingDone, this, &PyWidget::sliceProcessingDone);
+  connect(m_plugin, &PyPlugin::volumeProcessingDone, this, &PyWidget::volumeProcessingDone);
+  connect(m_plugin, &PyPlugin::initDone, this, &PyWidget::initDone);
 
   emit initScript();
-  //-----------------
-
-
-  //if (m_thread)
-  //{
-  //  m_thread->quit();
-  //  m_thread->wait();
-  //  m_thread = 0;
-  //}
-  //
-  //if (m_worker)
-  //{
-  //  delete m_worker;
-  //  m_worker = 0;
-  //}
-  //
-  //m_thread = new MyThread;
-  //m_worker = new PyWorker(script);
-  //m_worker->moveToThread(m_thread);
-  //
-  //connect(this, &PyWidget::initScript, m_worker, &PyWorker::initScript);
-  //connect(this, &PyWidget::process_slice, m_worker, &PyWorker::process_slice);
-  //connect(this, &PyWidget::process_volume, m_worker, &PyWorker::process_volume);
-  //
-  //connect(m_worker, &PyWorker::sliceProcessed, this, &PyWidget::sliceProcessed);
-  //connect(m_worker, &PyWorker::volumeProcessed, this, &PyWidget::volumeProcessed);
-  //connect(m_worker, &PyWorker::initDone, this, &PyWidget::initDone);
-  //
-  //connect(m_thread, &QThread::finished, m_thread, &QThread::deleteLater);
-  //
-  //m_thread->start();
-  //
-  //emit initScript();
-  //
-  //return;
 }

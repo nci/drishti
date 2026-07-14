@@ -69,7 +69,7 @@ class DrishtiPaint : public QMainWindow
   void on_actionLoad2DList_triggered();
   void on_actionClear2DList_triggered();
 
-  void on_actionPort_triggered();
+  void on_actionPyVer_triggered();
 
   void on_actionAbout_triggered();
   void on_actionHelp_triggered();
@@ -296,7 +296,7 @@ class DrishtiPaint : public QMainWindow
 
   PyWidget *m_pyWidget;
 
-  int m_CMDport;
+  //int m_CMDport;
   
   void setFile(QString);
   void initTagColors();

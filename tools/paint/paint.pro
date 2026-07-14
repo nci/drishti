@@ -36,7 +36,6 @@ FORMS += drishtipaint.ui viewermenu.ui \
 
         INCLUDEPATH += ../../common/src/vdb \
                        ../../common/src/widgets \
-                       ../../common/src/pybind \                 
                        ../../common/src/mesh \
                        ..\..\common\src\videoencoder
         INCLUDEPATH += $$VCPKG_INCLUDE_PATH
@@ -44,12 +43,10 @@ FORMS += drishtipaint.ui viewermenu.ui \
         QMAKE_LIBDIR += ..\..\common\lib     
         QMAKE_LIBDIR += $$VCPKG_LIBRARY_PATH
 
-        INCLUDEPATH += C:\Apps\Python314\include
-        QMAKE_LIBDIR += C:\Apps\Python314\libs
 
         LIBS += QGLViewer2.lib glew32.lib blosc.lib opengl32.lib glu32.lib
         LIBS += Imath-3_2.lib openvdb.lib vdb.lib
-        LIBS += gmsh.dll.lib python314.lib
+        LIBS += gmsh.dll.lib
 
         # Set list of required FFmpeg libraries
         LIBS += -lavutil \
@@ -164,11 +161,10 @@ HEADERS += connectviewer.h \
 	remaphistogramwidget.h \
         filehandler.h \
         checkpointhandler.h \
-        pybridge.h \
         pywidget.h \
         pywidgetmenu.h \
-        pyworker.h \
-        ../../common/src/pybind/pythonengine.h \
+        pyplugin.h \
+        pyplugininterface.h \
         ../../common/src/widgets/propertyeditor.h \
         ../../common/src/widgets/dcolordialog.h \
         ../../common/src/widgets/dcolorwheel.h \
@@ -235,11 +231,9 @@ SOURCES += drishtipaint.cpp \
 	remaphistogramwidget.cpp \
         filehandler.cpp \
         checkpointhandler.cpp \
-        pybridge.cpp \
         pywidget.cpp \
         pywidgetmenu.cpp \
-        pyworker.cpp \
-        ../../common/src/pybind/pythonengine.cpp \
+        pyplugin.cpp \
         ../../common/src/widgets/propertyeditor.cpp \
         ../../common/src/widgets/dcolordialog.cpp \
 	../../common/src/widgets/dcolorwheel.cpp \

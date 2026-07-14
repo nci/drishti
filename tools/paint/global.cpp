@@ -392,3 +392,11 @@ bool Global::scriptActive() { return m_scriptActive; }
 QString Global::m_scriptName = "";
 void Global::setScriptName(QString s) { m_scriptName = s; }
 QString Global::scriptName() { return m_scriptName; }
+
+PyWidget* Global::m_pywidget = 0;
+void Global::setPyWidget(PyWidget* w) { m_pywidget = w; }
+PyWidget* Global::pywidget() { return m_pywidget; }
+
+QString Global::m_pythonVersion;
+void Global::setPythonVersion(QString s) { m_pythonVersion = s; }
+QString Global::pythonVersion() { return m_pythonVersion; }

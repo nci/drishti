@@ -1,6 +1,3 @@
-#include <pybind11/pybind11.h>
-#include "pybridge.h"
-
 #include "geometryobjects.h"
 #include "imagewidget.h"
 #include "global.h"
@@ -8,6 +5,7 @@
 #include <math.h>
 #include "graphcut.h"
 #include "morphslice.h"
+
 
 #include <QFile>
 #include <QLabel>
@@ -1401,27 +1399,27 @@ ImageWidget::applyRecursive(int key)
       int maxD = m_maxDSlice;
       int minD = m_minDSlice;
       if (m_forward)
-	m_maxslc = maxD - m_currSlice + 1;
+	      m_maxslc = maxD - m_currSlice + 1;
       else
-	m_maxslc = m_currSlice - minD + 1;
+	      m_maxslc = m_currSlice - minD + 1;
     }
   else if (m_sliceType == WSlice)
     {
       int maxW = m_maxWSlice;
       int minW = m_minWSlice;
       if (m_forward)
-	m_maxslc = maxW - m_currSlice + 1;
+	      m_maxslc = maxW - m_currSlice + 1;
       else
-	m_maxslc = m_currSlice - minW + 1;
+	      m_maxslc = m_currSlice - minW + 1;
     }
   else if (m_sliceType == HSlice)
     {
       int maxH = m_maxHSlice;
       int minH = m_minHSlice;
       if (m_forward)
-	m_maxslc = maxH - m_currSlice + 1;
+	      m_maxslc = maxH - m_currSlice + 1;
       else
-	m_maxslc = m_currSlice - minH + 1;
+	      m_maxslc = m_currSlice - minH + 1;
     }
 
   emit disconnectSlider();
@@ -1491,22 +1489,6 @@ ImageWidget::graphcutModeKeyPressEvent(QKeyEvent *event)
 
 
   //----
-  if (Global::pythonInstalled())
-  {
-    if (event->key() == Qt::Key_A)
-      {
- 	      if (shiftModifier)// apply processInScript for multiple slices
-	        applyRecursive(event->key());
-
-        processInScript();
-        checkRecursive();
-      }
-  }
-  else
-  {
-    QMessageBox::information(0, "Error", "Python Script not activated.  Python not found");
-  }
-//----
 
   {
     if (event->key() == Qt::Key_3)
@@ -1536,7 +1518,22 @@ ImageWidget::graphcutModeKeyPressEvent(QKeyEvent *event)
 	  }
   }
 
-  if (event->key() == Qt::Key_S &&
+  if (event->key() == Qt::Key_A)
+  {
+    if (Global::pythonInstalled())
+    {
+ 	    if (shiftModifier)// apply processInScript for multiple slices
+	      applyRecursive(event->key());
+
+      processInScript();
+      checkRecursive();
+    }
+    else
+    {
+      QMessageBox::information(0, "Error", "Python Script not activated.  Python not found");
+    }
+  }
+  else if (event->key() == Qt::Key_S &&
       (event->modifiers() & Qt::AltModifier) )
     {
       saveImage();
@@ -1757,6 +1754,7 @@ ImageWidget::graphcutModeKeyPressEvent(QKeyEvent *event)
 	      emit reconnectSlider();
 	      emit sliceChanged(m_currSlice);
 	      emit setSliceNumber(m_currSlice);
+        emit reloadAllMask();
 	      qApp->processEvents();
 	    }
       else
@@ -2639,17 +2637,16 @@ ImageWidget::processInScript()
 	      idx++;
       }
   
-
-
-  if (PaintVolMask::global_paint_vol_mask->processSlice(imageData, maskData, 
-                                                        size2, size1,
-                                                        Global::tag()) == false)
+  
+  if (Global::pywidget()->processSlice(imageData, maskData, 
+                                      size2, size1,
+                                      Global::tag(),
+                                      m_applyRecursive) == false)
     {
       delete [] imageData;
       delete [] maskData;
       return;
     }
-
 
   
   memcpy(m_tags, m_prevtags, 2*m_imgWidth*m_imgHeight);

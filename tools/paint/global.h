@@ -9,6 +9,7 @@ using namespace qglviewer;
 #include <QProgressBar>
 #include <QProgressDialog>
 #include <QMessageBox>
+#include "pywidget.h"
 
 class Global
 {
@@ -125,6 +126,12 @@ class Global
   static void setScriptName(QString);
   static QString scriptName();
 
+  static void setPyWidget(PyWidget*);
+  static PyWidget* pywidget();
+
+  static void setPythonVersion(QString);
+  static QString pythonVersion();
+  
  private :
   static QWidget* m_mainWindow;
   static QString m_documentationPath;
@@ -168,6 +175,9 @@ class Global
   static bool m_pythonInstalled;
   static bool m_scriptActive;
   static QString m_scriptName;
+
+  static PyWidget* m_pywidget;
+  static QString m_pythonVersion;
 };
 
 #endif

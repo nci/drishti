@@ -25,8 +25,6 @@
 
 #include <exception>
 
-namespace py = pybind11;
-
 void
 DrishtiPaint::initTagColors()
 {
@@ -122,7 +120,6 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
 
 
   m_meshViewerSocket = 0;
-  m_CMDport = 7760;
 
 
   setWindowIcon(QPixmap(":/images/drishti_paint_32.png"));
@@ -384,42 +381,6 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   m_pyWidget = 0;
 
   resize(1600, 1024);
-
-  
-  m_handleExternalCMD = new HandleExternalCMD(m_CMDport);
-
-  connect(m_handleExternalCMD, SIGNAL(loadRAW(QString)),
-	  this, SLOT(loadRawMask(QString)));
-
-
-  ////-------------------------------------------------------------
-  ////-------------------------------------------------------------
-  //// Embedded Python interpreter 
-  //PythonEngine &pythonGuard = PythonEngine::instance();
-  //
-  //QByteArray path = qgetenv("path");
-  //if (path.toLower().contains("python"))
-  //    Global::setPythonInstalled(true);
-  //else
-  //  {
-  //    Global::setPythonInstalled(false);
-  //    std::cout << path.toLower().toStdString();
-  //  }
-  //
-  //(&pythonGuard)->init(Global::pythonInstalled());
-  //
-  //std::cout << "Drishti Paint v" << DRISHTI_VERSION << " - Segmentation Tool\n";
-  //
-  //// disable running scripts if python not found
-  //if (!Global::pythonInstalled())
-  //  {
-  //    ui.actionCommand->setDisabled(true);
-  //    std::cout<<"\n*******************************************\n";
-  //    std::cout << "** PYTHON NOT FOUND ** DISABLING SCRIPTS **";
-  //    std::cout<<"\n*******************************************\n";
-  //  }
-  ////-------------------------------------------------------------
-  ////-------------------------------------------------------------
 }
 
 
@@ -1125,16 +1086,60 @@ DrishtiPaint::on_action3dView_triggered()
 //------------------
 
 void
-DrishtiPaint::on_actionPort_triggered()
+DrishtiPaint::on_actionPyVer_triggered()
 {
-  bool ok;
-  m_CMDport = QInputDialog::getInt(0,
-				   "Port",
-				   "Set port for socket communication with Drishti Paint",
-				   m_CMDport, 7000, 8000, 1, &ok);
-  if (ok)
-    QMessageBox::information(0, "Drishti Paint",
-			     QString("Port %1 will be used for receiving communication next time you start the program").arg(m_CMDport));
+  QString plugindir = qApp->applicationDirPath() + QDir::separator() + "pyversion";
+  QStringList filters;
+
+#if defined(Q_OS_WIN32)
+  filters << "*.dll";
+#endif
+#ifdef Q_OS_MACX
+  // look in drishti.app/pyversion
+  QString sep = QDir::separator();
+  plugindir = qApp->applicationDirPath()+sep+".."+sep+".."+sep+"pyversion";
+  filters << "*.dylib";
+#endif
+#if defined(Q_OS_LINUX)
+  filters << "*.so";
+#endif
+
+  QDir dir(plugindir);
+  dir.setFilter(QDir::Files);
+
+  dir.setNameFilters(filters);
+  QFileInfoList list = dir.entryInfoList();
+
+  if (list.size() == 0)
+    {
+      QMessageBox::information(0, "Error", QString("No python versions found in %1").arg(plugindir));
+      close();
+    }
+
+  QStringList ver;
+  
+  for (int i=0; i<list.size(); i++)
+    {
+      QString flnm = list.at(i).fileName();
+      flnm = flnm.remove("py",Qt::CaseInsensitive);
+      flnm = flnm.remove(".dll",Qt::CaseInsensitive);
+      flnm = flnm.remove(".so",Qt::CaseInsensitive);
+      flnm = flnm.remove(".dylib",Qt::CaseInsensitive);
+      ver << flnm;
+    }
+
+  bool ok = false;
+  QString item = QInputDialog::getItem(this, "Python Version",
+                                       "Version", ver, 0, false, &ok);
+  if (ok && !item.isEmpty())
+    Global::setPythonVersion(item);
+  
+  if (m_pyWidget)
+  {
+    QString plugindir = qApp->applicationDirPath() + QDir::separator() + "pyversion";
+    QString pyver = "/py"+Global::pythonVersion()+".dll";
+    m_pyWidget->setPyVersion(plugindir + pyver);
+  }
 }
 
 void
@@ -1993,11 +1998,7 @@ DrishtiPaint::loadSettings()
   QDomNodeList dlist = main.childNodes();
   for(int i=0; i<dlist.count(); i++)
     {
-      if (dlist.at(i).nodeName() == "port")
-	    {
-	      m_CMDport = dlist.at(i).toElement().text().toInt();
-	    }
-      else if (dlist.at(i).nodeName() == "previousdirectory")
+      if (dlist.at(i).nodeName() == "previousdirectory")
 	    {
 	      QString str = dlist.at(i).toElement().text();
 	      Global::setPreviousDirectory(str);
@@ -2043,14 +2044,6 @@ DrishtiPaint::saveSettings()
 
   QDomElement topElement = doc.createElement("DrishtiPaintSettings");
   doc.appendChild(topElement);
-
-  {
-    QDomElement de0 = doc.createElement("port");
-    QDomText tn0;
-    tn0 = doc.createTextNode(QString("%1").arg(m_CMDport));
-    de0.appendChild(tn0);
-    topElement.appendChild(de0);
-  }
 
   {
     QDomElement de0 = doc.createElement("previousdirectory");
@@ -6603,7 +6596,13 @@ DrishtiPaint::on_actionCommand_triggered()
     }
   
   m_pyWidget = new PyWidget();
-  
+  Global::setPyWidget(m_pyWidget);
+
+
+  QString plugindir = qApp->applicationDirPath() + QDir::separator() + "pyversion";
+  QString pyver = "/py"+Global::pythonVersion()+".dll";
+  m_pyWidget->setPyVersion(plugindir + pyver);
+
   m_dock4 = new QDockWidget("Script", this);
   m_dock4->setAllowedAreas(Qt::LeftDockWidgetArea | 
 			                     Qt::RightDockWidgetArea);

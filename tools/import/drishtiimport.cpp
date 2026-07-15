@@ -1,5 +1,3 @@
-#include <pybind11/pybind11.h>
-
 #include "global.h"
 #include "staticfunctions.h"
 #include "drishtiimport.h"
@@ -12,9 +10,6 @@
 #include <QDomDocument>
 #include <QTreeView>
 #include <QTableWidget>
-
-
-namespace py = pybind11;
 
 void 
 DrishtiImport::addMessageWindow(QDockWidget* dock)
@@ -42,34 +37,6 @@ DrishtiImport::DrishtiImport(QWidget *parent) :
   StaticFunctions::initQColorDialog();
 
   loadSettings();
-
-  //-------------------------------------------------------------
-  //-------------------------------------------------------------
-  // Embedded Python interpreter 
-  PythonEngine &pythonGuard = PythonEngine::instance();
-
-  QByteArray path = qgetenv("path");
-  if (path.toLower().contains("python"))
-      Global::setPythonInstalled(true);
-  else
-    {
-      Global::setPythonInstalled(false);
-      std::cout << path.toLower().toStdString();
-    }
-  
-  (&pythonGuard)->init(Global::pythonInstalled());
-  
-  std::cout << "Drishti Import v" << DRISHTI_VERSION << " - Import Tool\n";
-
-  // disable running scripts if python not found
-  if (!Global::pythonInstalled())
-    {
-      std::cout<<"\n*******************************************\n";
-      std::cout << "** PYTHON NOT FOUND ** DISABLING SCRIPTS **";
-      std::cout<<"\n*******************************************\n";
-    }
-  //-------------------------------------------------------------
-  //-------------------------------------------------------------
 
   registerPlugins();
 
@@ -173,8 +140,7 @@ DrishtiImport::registerPlugins()
 
   //---------------------
   // load external scripts if any
-  if (Global::pythonInstalled())
-    registerExternalScripts();
+  registerExternalScripts();
   //---------------------
 
   
@@ -563,11 +529,7 @@ void
 DrishtiImport::on_actionMergeVolumes_triggered()
 {
   QStringList ftypes;
-//  for(int i=0; i<m_pluginDirTypes.size(); i++)
-//    {
-//      ftypes << QString("%1 : %2").		\
-//	arg(i+1).arg(m_pluginDirTypes[i]);
-//    }
+
   for(int i=0; i<m_pluginFileTypes.size(); i++)
     {
       ftypes << QString("%1 : %2").		\
@@ -591,19 +553,7 @@ DrishtiImport::on_actionMergeVolumes_triggered()
 
   m_remapWidget->handleMergeVolumes(m_pluginFileTypes[idx],
 				    m_pluginFileDLib[idx]);
-
-//  if (idx >= m_pluginDirTypes.size())
-//    {
-//      idx -= m_pluginDirTypes.size();
-//      m_remapWidget->handleTimeSeries(m_pluginFileTypes[idx],
-//				      m_pluginFileDLib[idx]);
-//    }
-//  else
-//    {
-//      m_remapWidget->handleTimeSeries(m_pluginDirTypes[idx],
-//				      m_pluginDirDLib[idx]);
-//    }
-//  
+  
 }
 
 void
@@ -924,3 +874,52 @@ DrishtiImport::on_actionExport_Mesh_triggered()
   m_remapWidget->saveIsosurfaceAs();
 }
 
+void
+DrishtiImport::on_actionPyVer_triggered()
+{
+  QString plugindir = qApp->applicationDirPath() + QDir::separator() + "pyversion";
+  QStringList filters;
+
+#if defined(Q_OS_WIN32)
+  filters << "pyi*.dll";
+#endif
+#ifdef Q_OS_MACX
+  // look in drishti.app/pyversion
+  QString sep = QDir::separator();
+  plugindir = qApp->applicationDirPath()+sep+".."+sep+".."+sep+"pyversion";
+  filters << "pyi*.dylib";
+#endif
+#if defined(Q_OS_LINUX)
+  filters << "pyi*.so";
+#endif
+
+  QDir dir(plugindir);
+  dir.setFilter(QDir::Files);
+
+  dir.setNameFilters(filters);
+  QFileInfoList list = dir.entryInfoList();
+
+  if (list.size() == 0)
+    {
+      QMessageBox::information(0, "Error", QString("No python versions found in %1").arg(plugindir));
+      return;
+    }
+
+  QStringList ver;
+  
+  for (int i=0; i<list.size(); i++)
+    {
+      QString flnm = list.at(i).fileName();
+      flnm = flnm.remove("pyi",Qt::CaseInsensitive);
+      flnm = flnm.remove(".dll",Qt::CaseInsensitive);
+      flnm = flnm.remove(".so",Qt::CaseInsensitive);
+      flnm = flnm.remove(".dylib",Qt::CaseInsensitive);
+      ver << flnm;
+    }
+
+  bool ok = false;
+  QString item = QInputDialog::getItem(this, "Python Version",
+                                       "Version", ver, 0, false, &ok);
+  if (ok && !item.isEmpty())
+    Global::setPythonVersion(item);
+}

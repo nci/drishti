@@ -1092,16 +1092,16 @@ DrishtiPaint::on_actionPyVer_triggered()
   QStringList filters;
 
 #if defined(Q_OS_WIN32)
-  filters << "*.dll";
+  filters << "pyp*.dll";
 #endif
 #ifdef Q_OS_MACX
   // look in drishti.app/pyversion
   QString sep = QDir::separator();
   plugindir = qApp->applicationDirPath()+sep+".."+sep+".."+sep+"pyversion";
-  filters << "*.dylib";
+  filters << "pyp*.dylib";
 #endif
 #if defined(Q_OS_LINUX)
-  filters << "*.so";
+  filters << "pyp*.so";
 #endif
 
   QDir dir(plugindir);
@@ -1121,7 +1121,7 @@ DrishtiPaint::on_actionPyVer_triggered()
   for (int i=0; i<list.size(); i++)
     {
       QString flnm = list.at(i).fileName();
-      flnm = flnm.remove("py",Qt::CaseInsensitive);
+      flnm = flnm.remove("pyp",Qt::CaseInsensitive);
       flnm = flnm.remove(".dll",Qt::CaseInsensitive);
       flnm = flnm.remove(".so",Qt::CaseInsensitive);
       flnm = flnm.remove(".dylib",Qt::CaseInsensitive);
@@ -1137,7 +1137,7 @@ DrishtiPaint::on_actionPyVer_triggered()
   if (m_pyWidget)
   {
     QString plugindir = qApp->applicationDirPath() + QDir::separator() + "pyversion";
-    QString pyver = "/py"+Global::pythonVersion()+".dll";
+    QString pyver = "/pyp"+Global::pythonVersion()+".dll";
     m_pyWidget->setPyVersion(plugindir + pyver);
   }
 }
@@ -6595,12 +6595,18 @@ DrishtiPaint::on_actionCommand_triggered()
       m_dock4->close();
     }
   
+  if (Global::pythonVersion().isEmpty())
+     {
+       QMessageBox::information(0, "Error", "Python version not selected");
+       return;
+     }
+  
   m_pyWidget = new PyWidget();
   Global::setPyWidget(m_pyWidget);
 
 
   QString plugindir = qApp->applicationDirPath() + QDir::separator() + "pyversion";
-  QString pyver = "/py"+Global::pythonVersion()+".dll";
+  QString pyver = "/pyp"+Global::pythonVersion()+".dll";
   m_pyWidget->setPyVersion(plugindir + pyver);
 
   m_dock4 = new QDockWidget("Script", this);

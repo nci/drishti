@@ -6,7 +6,7 @@
 #include "common.h"
 
 #include <math.h>
-
+#include <iostream>
 #include <QThread>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -19,9 +19,18 @@
 #endif
 
 
-ScriptsPlugin::ScriptsPlugin() {}
+ScriptsPlugin::ScriptsPlugin() 
+{
+  m_plugin = nullptr;
+}
 
-ScriptsPlugin::~ScriptsPlugin(){}
+ScriptsPlugin::~ScriptsPlugin()
+{
+  if (m_plugin)
+    delete m_plugin;
+      
+  m_plugin = nullptr;
+}
 
 QStringList
 ScriptsPlugin::registerPlugin()
@@ -34,10 +43,10 @@ ScriptsPlugin::registerPlugin()
 }
 
 bool
-ScriptsPlugin::start(QString jsonflnm)
+ScriptsPlugin::start(QString pyver, QString jsonflnm)
 {
   QString mesg = QString("Script Plugin', 'Received JSON file: %1").arg(jsonflnm);
-  //py::print(mesg.toStdString());
+  //std::cout << mesg.toStdString() << "\n";
 
   m_jsonflnm = jsonflnm;
   QString m_scriptDir = QFileInfo(m_jsonflnm).absolutePath();
@@ -89,25 +98,54 @@ ScriptsPlugin::start(QString jsonflnm)
         return false;
       } 
 
-    try {
-      QString spath = QFileInfo(m_script).absolutePath();
-      py::print("Script path:", spath.toStdString());
-      QString ps = "import sys\nsys.path.insert(0, r\"" + spath + "\")";
-      //py::print("Executing Python code:\n", ps.toStdString());
-      py::exec(ps.toStdString());
-      QString scriptName = QFileInfo(m_script).baseName();
-      py::print("Importing module:", scriptName.toStdString());
-      m_pyModule = py::module_::import(scriptName.toStdString().c_str());
-      ps = "import "+scriptName+" as testmod\nprint('Available functions :', dir(testmod))";
-      py::exec(ps.toStdString());
+    
+    QPluginLoader loader(pyver);
+    QObject *plugin = loader.instance();
+    if (plugin)
+    {
+        m_plugin = qobject_cast<PyPluginInterface*>(plugin);
+        if (m_plugin)
+        {
+          QString mesg = m_plugin->init(m_script);
+          if (mesg != "true")
+            {
+              QMessageBox::information(0, "Error", "Failed to import module: " + mesg);
+              return false;
+            }
+          else
+            {  
+              std::cout << "\n** Script initialization completed : " 
+                        << m_script.toStdString()
+                        << "\n";
+              return true;
+            }
+        }
+    }
+    
+    QMessageBox::information(nullptr, "Plugin", "Failed to load python version : " + pyver + "\nfor script: " + m_script);
+    std::cout << "** Failed to load python version - " << pyver.toLatin1().data() << "\n";
 
-      //QMessageBox::information(0, "Success", "Successfully imported module: " + scriptName);
-    }
-    catch (const std::exception& e) {
-      QMessageBox::information(0, "Error", "Failed to import module: " + QString(e.what()));
-      return false;
-    }
-    return true;
+    return false;
+    
+    //try {
+    //  QString spath = QFileInfo(m_script).absolutePath();
+    //  py::print("Script path:", spath.toStdString());
+    //  QString ps = "import sys\nsys.path.insert(0, r\"" + spath + "\")";
+    //  //py::print("Executing Python code:\n", ps.toStdString());
+    //  py::exec(ps.toStdString());
+    //  QString scriptName = QFileInfo(m_script).baseName();
+    //  py::print("Importing module:", scriptName.toStdString());
+    //  m_pyModule = py::module_::import(scriptName.toStdString().c_str());
+    //  ps = "import "+scriptName+" as testmod\nprint('Available functions :', dir(testmod))";
+    //  py::exec(ps.toStdString());
+    //
+    //  //QMessageBox::information(0, "Success", "Successfully imported module: " + scriptName);
+    //}
+    //catch (const std::exception& e) {
+    //  QMessageBox::information(0, "Error", "Failed to import module: " + QString(e.what()));
+    //  return false;
+    //}
+    //return true;
   }
   return false;
 }
@@ -178,36 +216,39 @@ float ScriptsPlugin::rawMax() { return m_rawMax; }
 QList<uint>
 ScriptsPlugin::histogram()
 {
-  uint hist[65536] = {0};
-  
- // Wrap C++ array as a NumPy array (no copy, shared memory)
-  py::array_t<uint> pyHist(
-    {65536},                 // shape
-    {sizeof(uint)},      // stride
-    hist,                    // pointer to data
-    py::cast(nullptr)        // no base object, raw memory
-  );
-    
-  // Call Python function
-  m_pyModule.attr("get_histogram")(pyHist);
-  
-  // hist[] should now contain histogram
-  m_histogram.clear();
-  if (m_voxelType == _UChar ||
-      m_voxelType == _Char)
-    {
-      m_histogram.reserve(256);
-      for (int i=0; i<256; i++)
-        m_histogram.push_back(hist[i]);
-    }
-  else
-    {
-      m_histogram.reserve(65536);
-      for (int i=0; i<65536; i++)
-        m_histogram.push_back(hist[i]);
-    }
-  
-  return m_histogram;
+  return m_plugin->histogram();
+
+
+//  uint hist[65536] = {0};
+//  
+// // Wrap C++ array as a NumPy array (no copy, shared memory)
+//  py::array_t<uint> pyHist(
+//    {65536},                 // shape
+//    {sizeof(uint)},      // stride
+//    hist,                    // pointer to data
+//    py::cast(nullptr)        // no base object, raw memory
+//  );
+//    
+//  // Call Python function
+//  m_pyModule.attr("get_histogram")(pyHist);
+//  
+//  // hist[] should now contain histogram
+//  m_histogram.clear();
+//  if (m_voxelType == _UChar ||
+//      m_voxelType == _Char)
+//    {
+//      m_histogram.reserve(256);
+//      for (int i=0; i<256; i++)
+//        m_histogram.push_back(hist[i]);
+//    }
+//  else
+//    {
+//      m_histogram.reserve(65536);
+//      for (int i=0; i<65536; i++)
+//        m_histogram.push_back(hist[i]);
+//    }
+//  
+//  return m_histogram;
 }
 
 void
@@ -223,204 +264,244 @@ ScriptsPlugin::replaceFile(QString flnm)
 {
   m_fileName.clear();
   m_fileName << flnm;
+  m_plugin->replaceFile(flnm);
 }
 
 bool
 ScriptsPlugin::setFile(QStringList files)
 {
-  std::vector<std::string> files_vec;
-  files_vec.reserve(files.size());
-  for (auto& f : files) files_vec.push_back(f.toStdString());
-  
-  m_pyModule.attr("set_files")(files_vec);
+  m_plugin->setFile(files);
 
-  m_description = m_pyModule.attr("get_description")().cast<std::string>().c_str();
-
-  std::string vu = m_pyModule.attr("get_voxel_unit")().cast<std::string>();
-  if (vu == "angstrom")
-    m_voxelUnit = _Angstrom;
-  else if (vu == "nanometer")
-    m_voxelUnit = _Nanometer;
-  else if (vu == "micron")
-    m_voxelUnit = _Micron;
-  else if (vu == "millimeter")
-    m_voxelUnit = _Millimeter;
-  else if (vu == "centimeter")
-    m_voxelUnit = _Centimeter;
-  else if (vu == "meter")
-    m_voxelUnit = _Meter;
-  else if (vu == "kilometer")
-    m_voxelUnit = _Kilometer;
-  else if (vu == "parsec")
-    m_voxelUnit = _Parsec;
-  else if (vu == "kiloparsec")
-    m_voxelUnit = _Kiloparsec;
-  else
-    m_voxelUnit = _Nounit;
-
-
-  py::tuple voxel_size = m_pyModule.attr("get_voxel_size")();
-  m_voxelSizeX = voxel_size[0].cast<float>();
-  m_voxelSizeY = voxel_size[1].cast<float>();
-  m_voxelSizeZ = voxel_size[2].cast<float>();
-
-  m_voxelType = m_pyModule.attr("get_voxel_type")().cast<int>();
-  m_skipBytes = m_headerBytes = m_pyModule.attr("get_header_bytes")().cast<int>();
-
-  py::tuple grid_size = m_pyModule.attr("get_grid_size")();
-  m_height= grid_size[0].cast<int>();
-  m_width = grid_size[1].cast<int>();
-  m_depth = grid_size[2].cast<int>();
-
-  py::tuple rminmax = m_pyModule.attr("get_raw_min_max")();
-  m_rawMin = rminmax[0].cast<float>();
-  m_rawMax = rminmax[1].cast<float>();
-
-  m_bytesPerVoxel = 1;
-  if (m_voxelType == _UChar) m_bytesPerVoxel = 1;
-  else if (m_voxelType == _Char) m_bytesPerVoxel = 1;
-  else if (m_voxelType == _UShort) m_bytesPerVoxel = 2;
-  else if (m_voxelType == _Short) m_bytesPerVoxel = 2;
-  else if (m_voxelType == _Int) m_bytesPerVoxel = 4;
-  else if (m_voxelType == _Float) m_bytesPerVoxel = 4;
-  //----------------------------------- 
 
   m_fileName = files;
+  
+  m_description = m_plugin->description();
+
+  m_voxelUnit = m_plugin->voxelUnit();
+  m_voxelType = m_plugin->voxelType();
+
+
+  QList<float> vxyz = m_plugin->voxelSize();
+  m_voxelSizeX = vxyz[0];
+  m_voxelSizeY = vxyz[1];
+  m_voxelSizeZ = vxyz[2];
+
+
+  QList<int> nxyz = m_plugin->gridSize();
+  m_depth = nxyz[0];
+  m_width = nxyz[1];
+  m_height = nxyz[2];
+
+
+  QList<float> vxy = m_plugin->rawMinMax();
+  m_rawMin = vxy[0];
+  m_rawMax = vxy[1];
+
+
+  m_headerBytes = m_skipBytes = m_plugin->headerBytes();
+  m_bytesPerVoxel = m_plugin->bytesPerVoxel();
+
 
   return true;
+
+
+//  std::vector<std::string> files_vec;
+//  files_vec.reserve(files.size());
+//  for (auto& f : files) files_vec.push_back(f.toStdString());
+//  
+//  m_pyModule.attr("set_files")(files_vec);
+//
+//  m_description = m_pyModule.attr("get_description")().cast<std::string>().c_str();
+//
+//  std::string vu = m_pyModule.attr("get_voxel_unit")().cast<std::string>();
+//  if (vu == "angstrom")
+//    m_voxelUnit = _Angstrom;
+//  else if (vu == "nanometer")
+//    m_voxelUnit = _Nanometer;
+//  else if (vu == "micron")
+//    m_voxelUnit = _Micron;
+//  else if (vu == "millimeter")
+//    m_voxelUnit = _Millimeter;
+//  else if (vu == "centimeter")
+//    m_voxelUnit = _Centimeter;
+//  else if (vu == "meter")
+//    m_voxelUnit = _Meter;
+//  else if (vu == "kilometer")
+//    m_voxelUnit = _Kilometer;
+//  else if (vu == "parsec")
+//    m_voxelUnit = _Parsec;
+//  else if (vu == "kiloparsec")
+//    m_voxelUnit = _Kiloparsec;
+//  else
+//    m_voxelUnit = _Nounit;
+//
+//
+//  py::tuple voxel_size = m_pyModule.attr("get_voxel_size")();
+//  m_voxelSizeX = voxel_size[0].cast<float>();
+//  m_voxelSizeY = voxel_size[1].cast<float>();
+//  m_voxelSizeZ = voxel_size[2].cast<float>();
+//
+//  m_voxelType = m_pyModule.attr("get_voxel_type")().cast<int>();
+//  m_skipBytes = m_headerBytes = m_pyModule.attr("get_header_bytes")().cast<int>();
+//
+//  py::tuple grid_size = m_pyModule.attr("get_grid_size")();
+//  m_height= grid_size[0].cast<int>();
+//  m_width = grid_size[1].cast<int>();
+//  m_depth = grid_size[2].cast<int>();
+//
+//  py::tuple rminmax = m_pyModule.attr("get_raw_min_max")();
+//  m_rawMin = rminmax[0].cast<float>();
+//  m_rawMax = rminmax[1].cast<float>();
+//
+//  m_bytesPerVoxel = 1;
+//  if (m_voxelType == _UChar) m_bytesPerVoxel = 1;
+//  else if (m_voxelType == _Char) m_bytesPerVoxel = 1;
+//  else if (m_voxelType == _UShort) m_bytesPerVoxel = 2;
+//  else if (m_voxelType == _Short) m_bytesPerVoxel = 2;
+//  else if (m_voxelType == _Int) m_bytesPerVoxel = 4;
+//  else if (m_voxelType == _Float) m_bytesPerVoxel = 4;
+//  //----------------------------------- 
+//
+//  m_fileName = files;
+//
+//  return true;
 }
 
 void
 ScriptsPlugin::getDepthSlice(int slc, uchar *slice)
 {
-  qint64 N = m_width*m_height;
-  if (slc < 0 || slc >= m_depth)
-    {
-      memset(slice, 0, N*m_bytesPerVoxel);
-      return;
-    }
+  return m_plugin->depthSlice(slc, slice);
 
-  //QMessageBox::information(0, "Info", QString("Getting depth slice %1").arg(slc));
-
-  // Wrap C++ array as a NumPy array (no copy, shared memory)
-  // [slice] is modified in-place by Python function and takes care of data type conversion if needed
-  // On return, `slice` contains Python-modified data
-  if (m_voxelType == _UChar)
-  {
-    py::array_t<uint8_t> pySlice(
-      {N},               // shape
-      {sizeof(uint8_t)},      // stride
-      slice,                  // pointer to data
-      py::cast(nullptr)       // no base object, raw memory
-    );
-    m_pyModule.attr("get_depth_slice")(slc, pySlice);
-  }
-  else if (m_voxelType == _Char) 
-  {
-    py::array_t<char> pySlice(
-      {N},            // shape
-      {sizeof(char)},      // stride
-      (char*)slice,             // pointer to data
-      py::cast(nullptr)    // no base object, raw memory
-    );
-    m_pyModule.attr("get_depth_slice")(slc, pySlice);
-  }
-  else if (m_voxelType == _UShort)
-  {
-    py::array_t<ushort> pySlice(
-      {N},                  // shape
-      {sizeof(ushort)},   // stride
-      (ushort*)slice,     // pointer to data
-      py::cast(nullptr)     // no base object, raw memory
-    );
-    m_pyModule.attr("get_depth_slice")(slc, pySlice);
-  }
-  else if (m_voxelType == _Short)
-  {
-    py::array_t<short> pySlice(
-      {N},                // shape
-      {sizeof(short)},    // stride
-      (short*)slice,       // pointer to data
-      py::cast(nullptr)   // no base object, raw memory
-    );
-    m_pyModule.attr("get_depth_slice")(slc, pySlice);
-  }
-  else if (m_voxelType == _Int)
-  {
-    py::array_t<int> pySlice(
-      {N},                // shape
-      {sizeof(int)},      // stride
-      (int*)slice,        // pointer to data
-      py::cast(nullptr)   // no base object, raw memory
-    );
-    m_pyModule.attr("get_depth_slice")(slc, pySlice);
-  }
-  else if (m_voxelType == _Float)
-  {
-    py::array_t<float> pySlice(
-      {N},                  // shape
-      {sizeof(float)},      // stride
-      (float*)slice,        // pointer to data
-      py::cast(nullptr)     // no base object, raw memory
-    );
-    m_pyModule.attr("get_depth_slice")(slc, pySlice);
-  }
-
-  //QMessageBox::information(0, "Info", QString("Depth slice %1 retrieved successfully").arg(slc));
+//  qint64 N = m_width*m_height;
+//  if (slc < 0 || slc >= m_depth)
+//    {
+//      memset(slice, 0, N*m_bytesPerVoxel);
+//      return;
+//    }
+//
+//  //QMessageBox::information(0, "Info", QString("Getting depth slice %1").arg(slc));
+//
+//  // Wrap C++ array as a NumPy array (no copy, shared memory)
+//  // [slice] is modified in-place by Python function and takes care of data type conversion if needed
+//  // On return, `slice` contains Python-modified data
+//  if (m_voxelType == _UChar)
+//  {
+//    py::array_t<uint8_t> pySlice(
+//      {N},               // shape
+//      {sizeof(uint8_t)},      // stride
+//      slice,                  // pointer to data
+//      py::cast(nullptr)       // no base object, raw memory
+//    );
+//    m_pyModule.attr("get_depth_slice")(slc, pySlice);
+//  }
+//  else if (m_voxelType == _Char) 
+//  {
+//    py::array_t<char> pySlice(
+//      {N},            // shape
+//      {sizeof(char)},      // stride
+//      (char*)slice,             // pointer to data
+//      py::cast(nullptr)    // no base object, raw memory
+//    );
+//    m_pyModule.attr("get_depth_slice")(slc, pySlice);
+//  }
+//  else if (m_voxelType == _UShort)
+//  {
+//    py::array_t<ushort> pySlice(
+//      {N},                  // shape
+//      {sizeof(ushort)},   // stride
+//      (ushort*)slice,     // pointer to data
+//      py::cast(nullptr)     // no base object, raw memory
+//    );
+//    m_pyModule.attr("get_depth_slice")(slc, pySlice);
+//  }
+//  else if (m_voxelType == _Short)
+//  {
+//    py::array_t<short> pySlice(
+//      {N},                // shape
+//      {sizeof(short)},    // stride
+//      (short*)slice,       // pointer to data
+//      py::cast(nullptr)   // no base object, raw memory
+//    );
+//    m_pyModule.attr("get_depth_slice")(slc, pySlice);
+//  }
+//  else if (m_voxelType == _Int)
+//  {
+//    py::array_t<int> pySlice(
+//      {N},                // shape
+//      {sizeof(int)},      // stride
+//      (int*)slice,        // pointer to data
+//      py::cast(nullptr)   // no base object, raw memory
+//    );
+//    m_pyModule.attr("get_depth_slice")(slc, pySlice);
+//  }
+//  else if (m_voxelType == _Float)
+//  {
+//    py::array_t<float> pySlice(
+//      {N},                  // shape
+//      {sizeof(float)},      // stride
+//      (float*)slice,        // pointer to data
+//      py::cast(nullptr)     // no base object, raw memory
+//    );
+//    m_pyModule.attr("get_depth_slice")(slc, pySlice);
+//  }
+//
+//  //QMessageBox::information(0, "Info", QString("Depth slice %1 retrieved successfully").arg(slc));
 }
 
 
 QVariant
 ScriptsPlugin::rawValue(int d, int w, int h)
 {
-  QVariant v;
+  return m_plugin->rawValue(d,w,h);
 
-  if (d < 0 || d >= m_depth ||
-      w < 0 || w >= m_width ||
-      h < 0 || h >= m_height)
-    {
-      v = QVariant("OutOfBounds");
-      return v;
-    }
-
-  py::object result = m_pyModule.attr("get_rawvalue")(d, w, h);
-
-  if (py::isinstance<py::str>(result)) {
-      py::print("string");
-      std::string s = result.cast<std::string>();
-      return QVariant(QString::fromStdString(s));
-  }
-
-  if (m_voxelType == _UChar) 
-  {
-    uint val = result.cast<uchar>();
-    return QVariant(val);
-  }
-  else if (m_voxelType == _Char)
-  {
-    int val = result.cast<char>();
-    return QVariant(val);
-  }
-  else if (m_voxelType == _UShort) 
-  {
-    uint val = result.cast<ushort>();
-    return QVariant(val);
-  }
-  else if (m_voxelType == _Short) 
-  {
-    int val = result.cast<short>();
-    return QVariant(val);
-  }
-  else if (m_voxelType == _Int) 
-  {
-    int val = result.cast<int>();
-    return QVariant(val);
-  }
-  else if (m_voxelType == _Float)
-  { 
-    float val = result.cast<float>();
-    return QVariant(val);
-  }
-
-  return v;
+//  QVariant v;
+//
+//  if (d < 0 || d >= m_depth ||
+//      w < 0 || w >= m_width ||
+//      h < 0 || h >= m_height)
+//    {
+//      v = QVariant("OutOfBounds");
+//      return v;
+//    }
+//
+//  py::object result = m_pyModule.attr("get_rawvalue")(d, w, h);
+//
+//  if (py::isinstance<py::str>(result)) {
+//      py::print("string");
+//      std::string s = result.cast<std::string>();
+//      return QVariant(QString::fromStdString(s));
+//  }
+//
+//  if (m_voxelType == _UChar) 
+//  {
+//    uint val = result.cast<uchar>();
+//    return QVariant(val);
+//  }
+//  else if (m_voxelType == _Char)
+//  {
+//    int val = result.cast<char>();
+//    return QVariant(val);
+//  }
+//  else if (m_voxelType == _UShort) 
+//  {
+//    uint val = result.cast<ushort>();
+//    return QVariant(val);
+//  }
+//  else if (m_voxelType == _Short) 
+//  {
+//    int val = result.cast<short>();
+//    return QVariant(val);
+//  }
+//  else if (m_voxelType == _Int) 
+//  {
+//    int val = result.cast<int>();
+//    return QVariant(val);
+//  }
+//  else if (m_voxelType == _Float)
+//  { 
+//    float val = result.cast<float>();
+//    return QVariant(val);
+//  }
+//
+//  return v;
 }

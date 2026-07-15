@@ -24,8 +24,8 @@ class Global
   static QStatusBar *statusBar();
   static void setStatusBar(QStatusBar*);
 
-  static void setPythonInstalled(bool);
-  static bool pythonInstalled();
+  static void setPythonVersion(QString);
+  static QString pythonVersion();
 
  private :
   static QString m_previousDirectory;
@@ -33,7 +33,7 @@ class Global
   static bool m_rgbVolume;
   static QStatusBar *m_statusBar;
 
-  static bool m_pythonInstalled;
+  static QString m_pythonVersion;  
 };
 
 #endif

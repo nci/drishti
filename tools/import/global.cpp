@@ -73,6 +73,7 @@ QStatusBar* Global::m_statusBar = 0;
 QStatusBar* Global::statusBar() { return m_statusBar; }
 void Global::setStatusBar(QStatusBar *sb) { m_statusBar = sb; }
 
-bool Global::m_pythonInstalled = false;
-void Global::setPythonInstalled(bool flag) { m_pythonInstalled = flag;}
-bool Global::pythonInstalled() { return m_pythonInstalled; }
+QString Global::m_pythonVersion;
+void Global::setPythonVersion(QString s) { m_pythonVersion = s; }
+QString Global::pythonVersion() { return m_pythonVersion; }
+

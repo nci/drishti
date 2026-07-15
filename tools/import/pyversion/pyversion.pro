@@ -1,8 +1,8 @@
 TEMPLATE = lib
 
-RESOURCES = ../paint.qrc
+RESOURCES = ../import.qrc
 
-TARGET = pyp3.14
+TARGET = pyi3.14
 DEPENDPATH += .
 
 QT += widgets core gui
@@ -29,11 +29,8 @@ PYTHON_VERSION = 314
 
         INCLUDEPATH += C:\Apps\Python$${PYTHON_VERSION}\include
         QMAKE_LIBDIR += C:\Apps\Python$${PYTHON_VERSION}\libs
+
         LIBS += python$${PYTHON_VERSION}.lib
-        
-        #INCLUDEPATH += C:\Apps\Python314\include
-        #QMAKE_LIBDIR += C:\Apps\Python314\libs
-        #LIBS += python314.lib
 
         ## /std:c++17 added because openvdb requires this
         QMAKE_CXXFLAGS*=/std:c++17
@@ -55,10 +52,8 @@ macx {
 #----------------------------------------------------------------
 
 HEADERS += pyversion.h \
-           pybridge.h \
            ../pyplugininterface.h \
            ../../../common/src/pybind/pythonengine.h
 
 SOURCES += pyversion.cpp \
-           pybridge.cpp \
            ../../../common/src/pybind/pythonengine.cpp

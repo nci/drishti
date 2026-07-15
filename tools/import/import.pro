@@ -17,8 +17,7 @@ DESTDIR = ../../bin
 
 win32 {
   INCLUDEPATH += ../../common/src/vdb \
-                 ../../common/src/widgets \
-                 ../../common/src/pybind \                 
+                 ../../common/src/widgets \      
                  ../../common/src/mesh
   INCLUDEPATH += $$VCPKG_INCLUDE_PATH
 
@@ -30,11 +29,6 @@ win32 {
   
   LIBS += Imath-3_2.lib openvdb.lib vdb.lib gmsh.dll.lib
 
-  
-  INCLUDEPATH += C:\Apps\Python314\include
-  QMAKE_LIBDIR += C:\Apps\Python314\libs
-  LIBS += python314.lib
-  
 
   RC_ICONS += images/drishtiimport.ico
 }
@@ -43,7 +37,6 @@ unix {
 !macx {
   INCLUDEPATH += ../../common/src/vdb \
                  ../../common/src/widgets \
-                 ../../common/src/pybind \
                  ../../common/src/mesh \
                  /home/acl900/drishtilib/openvdb/openvdb \
                  /home/acl900/drishtilib/openvdb/build/openvdb/openvdb \
@@ -61,8 +54,8 @@ unix {
 
 
 FORMS += remapwidget.ui \
-	 savepvldialog.ui \
-	 drishtiimport.ui \
+	       savepvldialog.ui \
+	       drishtiimport.ui \
          fileslistdialog.ui \
          ../../common/src/widgets/propertyeditor.ui
 
@@ -84,7 +77,7 @@ HEADERS += global.h \
 	    volinterface.h \
  	    lookuptable.h \
       scriptsplugin.h \
-      ../../common/src/pybind/pythonengine.h \
+      pyplugininterface.h \
       ../../common/src/widgets/streamredirect.h \
       ../../common/src/widgets/propertyeditor.h \
       ../../common/src/widgets/dcolordialog.h \
@@ -109,7 +102,6 @@ SOURCES += global.cpp \
 	    volumedata.cpp \
 	    volumefilemanager.cpp \
       scriptsplugin.cpp \
-      ../../common/src/pybind/pythonengine.cpp \
       ../../common/src/widgets/propertyeditor.cpp \
       ../../common/src/widgets/dcolordialog.cpp \
 	    ../../common/src/widgets/dcolorwheel.cpp \

@@ -68,10 +68,17 @@
      <string>View</string>
     </property>
    </widget>
+   <widget class="QMenu" name="menuPython">
+    <property name="title">
+     <string>Python</string>
+    </property>
+    <addaction name="actionPyVer"/>
+   </widget>
    <addaction name="menuFiles"/>
    <addaction name="menuView"/>
    <addaction name="menuOutput_Type"/>
    <addaction name="menuProcess"/>
+   <addaction name="menuPython"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <action name="actionRAW">
@@ -234,6 +241,11 @@
   <action name="actionExport_Mesh">
    <property name="text">
     <string>Export Mesh</string>
+   </property>
+  </action>
+  <action name="actionPyVer">
+   <property name="text">
+    <string>Python Version</string>
    </property>
   </action>
  </widget>

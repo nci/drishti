@@ -1,11 +1,12 @@
 #ifndef SCRIPTSPLUGIN_H
 #define SCRIPTSPLUGIN_H
 
-#include "pythonengine.h"
+//#include "pythonengine.h"
+#include "pyplugininterface.h"
 
 #include "commonqtclasses.h"
 
-namespace py = pybind11;
+//namespace py = pybind11;
 
 
 class ScriptsPlugin
@@ -16,7 +17,7 @@ class ScriptsPlugin
     
     QStringList registerPlugin();
     
-    bool start(QString);
+    bool start(QString, QString);
 
     void init();
     void clear();
@@ -51,6 +52,8 @@ class ScriptsPlugin
     QString m_script;
     QString m_interpreter;
     
+    PyPluginInterface *m_plugin;
+
     QStringList m_fileName;
     bool m_4dvol;
     int m_depth, m_width, m_height;
@@ -68,7 +71,7 @@ class ScriptsPlugin
     int m_skipBytes;
     int m_bytesPerVoxel;
 
-    py::object m_pyModule;
+    //py::object m_pyModule;
 };
 
 #endif

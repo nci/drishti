@@ -1,12 +1,3 @@
-//  Boot order is important:
-//    1. Initialise pybind11 interpreter (scoped_interpreter owns lifetime)
-//    2. Import the embedded 'vsgbox' module (defined in PyModule.cpp via
-//       PYBIND11_EMBEDDED_MODULE) and wire up the global SceneController ptr
-//    3. Create the Qt application + main window
-//    4. Run the Qt event loop
-//    5. ~scoped_interpreter() finalises Python on exit
-#include "pythonengine.h"
-
 #include <filesystem>
 #include <iostream>
 
@@ -31,9 +22,6 @@ int main(int argc, char **argv)
   QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
   QApplication app(argc, argv);   
 #endif
-
-  // Embedded Python interpreter 
-  PythonEngine &pythonGuard = PythonEngine::instance();
 
   //-----------------------------------------
   QDockWidget *dock = new QDockWidget("Messages", nullptr, Qt::Widget);

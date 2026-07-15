@@ -1,5 +1,6 @@
 #include "common.h"
 #include "volumedata.h"
+#include "global.h"
 
 #include <iostream>
 
@@ -148,9 +149,19 @@ VolumeData::loadPlugin(QString pluginflnm)
   QStringList s = pluginflnm.split(" : ");
   if (s[0] == "script")
     {
+      if (Global::pythonVersion().isEmpty())
+      {
+        QMessageBox::information(0, "Error", "Python version not selected");
+        return false;
+      }
+      
       QString jsonflnm = s[2];
       
-      if (m_scriptsPlugin.start(jsonflnm))
+      QString plugindir = qApp->applicationDirPath() + QDir::separator() + "pyversion";
+      QString pyver = "/pyi"+Global::pythonVersion()+".dll";
+      pyver = plugindir + pyver;
+
+      if (m_scriptsPlugin.start(pyver, jsonflnm))
       { 
         m_scriptsPluginActive = true;
         //QMessageBox::information(0, "Script Plugin Loaded", "Successfully loaded script plugin");

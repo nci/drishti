@@ -1,0 +1,29 @@
+{
+    "script" : "interpolation.py",
+    "arguments" : {
+	"nbrw INT" : 10,
+	"sorw INT" : 4000,
+	"compression BOOL" : "True",
+	"allaxis BOOL" : "False",
+	"denoise BOOL" : "False",
+	"uncertainty BOOL" : "False",
+	"ignore STR" : "none",
+	"only STR" : "all",
+	"smooth INT" : 0,
+	"platform STR" : "None",
+	"return_hits BOOL" : "False",
+	"acwe BOOL" : "False",
+	"acwe_alpha FLOAT" : 1.0,
+	"acwe_smooth INT" : 1,
+	"acwe_steps INT" : 3,
+	"clean FLOAT" : "None",
+	"fill FLOAT" : 0.0
+    },
+    "doc" :
+"This script uses Biomedisa tool from https://biomedisa.info/
+Works on 3D data.
+
+Modules Required : biomedisa, torch, torchvision, scikit_image,
+                   medpy, simpleitkscipy, numba, importlib_metadata
+                   mpi4py, keras, pycuda/pyopencl (depending on your gpu)"
+}

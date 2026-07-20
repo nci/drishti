@@ -2612,7 +2612,7 @@ VolumeSingle::getSlab(int startZSlice, int endZSlice)
 	    	    }
           
 	          // copy into array texture
-	          int dtkslc = qBound(0, (int)((k0-kmin)/stp), dtlenz2-1);
+	          int dtkslc = qBound(0, (int)((k0*m_subvolumeSubsamplingLevel-minz)/dtlod), dtlenz2-1);
 	          memcpy(m_dragSubvolumeTexture + bpv*dtkslc*dtlenx2*dtleny2,
 	    	           tmp, bpv*dtlenx2*dtleny2);
 	        }
@@ -2747,7 +2747,7 @@ VolumeSingle::getSlab(int startZSlice, int endZSlice)
 	        }
         
 	      // copy into array texture
-	      int dtkslc = qBound(0, (int)((k0-startZSlice)/stp), dtlenz2-1);
+	      int dtkslc = qBound(0, (int)((k0-minz)/stp), dtlenz2-1);
 	      memcpy(m_dragSubvolumeTexture + bpv*dtkslc*dtlenx2*dtleny2,
 	    	       tmp, bpv*dtlenx2*dtleny2);
 	    }

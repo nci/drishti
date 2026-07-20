@@ -1,8 +1,5 @@
 import paintmod
 import numpy as np
-import cv2
-import sys
-from biomedisa.features.biomedisa_helper import load_data, save_data
 from biomedisa.interpolation import smart_interpolation
 import traceback
 
@@ -16,7 +13,7 @@ class paint_data :
         self.width = 0
         self.height = 0
         self.dim = np.zeros(3,np.int32)
-        self.arguments = 0
+        self.script_args = 0
 
 print('paint_data declared')
 pd = paint_data()

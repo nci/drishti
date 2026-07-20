@@ -245,7 +245,7 @@ DrishtiImport::registerExternalScripts()
 			}
 		      if (!dirDesc.isEmpty())
 			{
-			  m_pluginDirTypes << filesDesc;
+			  m_pluginDirTypes << dirDesc;
 			  m_pluginDirDLib << "script : "+m_scriptsPlugin+" : "+jsonfile;
 			}
 			

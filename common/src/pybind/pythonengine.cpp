@@ -16,6 +16,9 @@ public:
     void flush() {
         std::cout << std::flush;
     }
+    int isatty() {
+        return 0;
+    }
 };
 
 class CerrRedirect {
@@ -26,6 +29,9 @@ public:
     void flush() {
         std::cerr << std::flush;
     }
+    int isatty() {
+        return 0;
+    }
 };
 //------------------------------
 
@@ -35,12 +41,14 @@ PYBIND11_EMBEDDED_MODULE(pyredir, m) {
     py::class_<CoutRedirect>(m, "CoutRedirect")
         .def(py::init<>())
         .def("write", &CoutRedirect::write)
-        .def("flush", &CoutRedirect::flush);
+        .def("flush", &CoutRedirect::flush)
+        .def("isatty",&CoutRedirect::isatty);
 
     py::class_<CerrRedirect>(m, "CerrRedirect")
         .def(py::init<>())
         .def("write", &CerrRedirect::write)
-        .def("flush", &CerrRedirect::flush);
+        .def("flush", &CerrRedirect::flush)
+        .def("isatty",&CerrRedirect::isatty);
 }
 //------------------------------
 

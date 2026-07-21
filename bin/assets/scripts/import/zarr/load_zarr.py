@@ -133,8 +133,8 @@ class Volume :
         
     #--------------------
     def calculate_min_max(self) :
-        self.dataMin = numpy.min(self.data)
-        self.dataMax = numpy.max(self.data)
+        #self.dataMin = numpy.min(self.data)
+        #self.dataMax = numpy.max(self.data)
         # min and max values taken from json file
         self.rawMin = self.dataMin
         self.rawMax = self.dataMax
@@ -144,9 +144,11 @@ class Volume :
     #--------------------
     def gen_histogram(self):
         if self.voxelType < 2 :
-            self.histogram, b = numpy.histogram(self.data, bins=256)
+            self.histogram, b = numpy.histogram(self.data, bins=256,
+                                                range=(self.dataMin, self.dataMax))
         else :
-            self.histogram, b = numpy.histogram(self.data, bins=65536)
+            self.histogram, b = numpy.histogram(self.data, bins=65536,
+                                                range=(self.dataMin, self.dataMax))
         self.histogram.astype(numpy.uint32)
     #--------------------
 

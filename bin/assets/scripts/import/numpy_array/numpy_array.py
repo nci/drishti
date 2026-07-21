@@ -72,9 +72,11 @@ class Volume :
     #--------------------
     def gen_histogram(self):
         if self.voxelType < 2 :
-            self.histogram, b = numpy.histogram(self.data, bins=256)
+            self.histogram, b = numpy.histogram(self.data, bins=256,
+                                                range=(self.dataMin, self.dataMax))
         else :
-            self.histogram, b = numpy.histogram(self.data, bins=65536)
+            self.histogram, b = numpy.histogram(self.data, bins=65536,
+                                                range=(self.dataMin, self.dataMax))
         self.histogram.astype(numpy.uint32)
     #--------------------
 

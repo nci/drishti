@@ -75,7 +75,8 @@ class Volume :
     #--------------------
     def gen_histogram(self):
         bins = list(range(self.rawMin, self.rawMax+2))
-        self.histogram, b = numpy.histogram(self.data, bins)
+        self.histogram, b = numpy.histogram(self.data, bins,
+                                            range=(self.dataMin, self.dataMax))
         self.histogram.astype(numpy.int64)
     #--------------------
 

@@ -1,3 +1,6 @@
+#ifndef PYTHONENGINE_H
+#define PYTHONENGINE_H
+
 #pragma once
 #include <pybind11/embed.h>
 #include <pybind11/numpy.h>
@@ -39,3 +42,5 @@ private:
 
     std::unique_ptr<pybind11::scoped_interpreter> m_guard;
 };
+
+#endif // PYTHONENGINE_H

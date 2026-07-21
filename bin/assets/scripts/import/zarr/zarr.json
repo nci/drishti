@@ -1,0 +1,8 @@
+{
+    "interpreter" : "python",
+    "script" : "load_zarr.py",
+    "filetype" : "",
+    "dirtype" : "Zarr Directory",
+    "arguments" : {
+    }
+}

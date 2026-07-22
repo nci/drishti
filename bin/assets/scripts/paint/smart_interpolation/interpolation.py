@@ -9,6 +9,7 @@ class paint_data :
         self.volume = 0
         self.mask = 0
         self.lut = 0
+        self.label_color = 0
         self.depth = 0
         self.width = 0
         self.height = 0
@@ -24,6 +25,7 @@ def set_paint_data(py_obj) :
     pd.volume = py_obj.get_volume_view()
     pd.mask = py_obj.get_mask_view()
     pd.lut = py_obj.get_lut_view()
+    pd.label_color = py_obj.get_labelcolors_view()
     pd.depth = py_obj.depth
     pd.width = py_obj.width
     pd.height = py_obj.height

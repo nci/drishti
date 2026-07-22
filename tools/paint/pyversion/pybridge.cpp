@@ -18,6 +18,7 @@ PYBIND11_EMBEDDED_MODULE(paintmod, m) {
         .def("get_volume_view", &PaintVolMask::get_volume_view)
         .def("get_mask_view", &PaintVolMask::get_mask_view)
         .def("get_lut_view", &PaintVolMask::get_lut_view)
+        .def("get_labelcolors_view", &PaintVolMask::get_tag_view)
 
         .def("update_slice_view", &PaintVolMask::update_slice_view)
         .def("update_3d_view", &PaintVolMask::update_3d_view);
@@ -41,6 +42,16 @@ PaintVolMask::get_lut_view()
     return py::array_t<uint8_t>({size}, 
                                {sizeof(uint8_t)},
                                lut, 
+                               py::cast(nullptr));
+}
+
+py::array_t<uint8_t> 
+PaintVolMask::get_tag_view() 
+{
+    int64_t size = 65536*4; // Assuming 65536 entries with RGBA values
+    return py::array_t<uint8_t>({size}, 
+                               {sizeof(uint8_t)},
+                               label_colors, 
                                py::cast(nullptr));
 }
 

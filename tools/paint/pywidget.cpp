@@ -61,11 +61,14 @@ PyWidget::closeEvent(QCloseEvent *)
 void PyWidget::setPyVersion(QString flnm) { m_pyversionflnm = flnm; }
 
 void
-PyWidget::init(uchar *vol, ushort *mask, uchar *lut, int depth, int width, int height)
+PyWidget::init(uchar *vol, ushort *mask, 
+              uchar *lut, uchar *tag,
+              int depth, int width, int height)
 {
   m_volume = vol;
   m_mask = mask;
   m_lut = lut;
+  m_tag = tag;
   m_depth = depth;
   m_width = width;
   m_height = height;
@@ -213,8 +216,8 @@ PyWidget::runCommand(QString script, QHash<QString, QVariant> arguments)
   m_plugin = new PyPlugin();
   
   if (m_plugin->init(m_pyversionflnm, script, 
-                 m_volume, m_mask, m_lut, 
-                 m_depth, m_width, m_height))
+                    m_volume, m_mask, m_lut, m_tag,
+                    m_depth, m_width, m_height))
     Global::setPythonInstalled(true);
   else
   {

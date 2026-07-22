@@ -19,7 +19,7 @@ class PyWidget : public QWidget
    ~PyWidget();
    void setPyVersion(QString);
    void setFilename(QString);
-   void init(uchar*, ushort*, uchar*, int, int, int);
+   void init(uchar*, ushort*, uchar*, uchar*, int, int, int);
    void setMask(ushort*);
 
  public slots :
@@ -47,6 +47,7 @@ class PyWidget : public QWidget
    uchar *m_volume;
    ushort *m_mask;
    uchar *m_lut;
+   uchar *m_tag;
    int m_depth, m_width, m_height;
 
    PyWidgetMenu *m_menu;

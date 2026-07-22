@@ -12,7 +12,7 @@ class PyVersion : public QObject, public PyPluginInterface
   public :
     void clear();
 
-    void init(QString, uchar*, ushort*, uchar*, int, int, int);
+    void init(QString, uchar*, ushort*, uchar*, uchar*, int, int, int);
     QString scriptName();
 
     bool hasInit();

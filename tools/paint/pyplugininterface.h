@@ -12,7 +12,7 @@ class PyPluginInterface
     virtual ~PyPluginInterface() {}
 
     virtual void clear() = 0;
-    virtual void init(QString, uchar*, ushort*, uchar*, int, int, int) = 0;
+    virtual void init(QString, uchar*, ushort*, uchar*, uchar*, int, int, int) = 0;
     virtual QString scriptName() = 0;
 
     virtual bool hasInit() = 0;

@@ -6631,7 +6631,7 @@ DrishtiPaint::on_actionCommand_triggered()
   m_volume->gridSize(d, w, h);
   m_pyWidget->init(m_volume->memVolDataPtr(),
                     m_volume->memMaskDataPtrUS(),
-                    Global::lut(),
+                    Global::lut(), Global::tagColors(),
                     d, w, h);
 }
 //---------------------

@@ -29,7 +29,8 @@ bool PyVersion::hasVolumeProcessor() {return m_hasVolumeProcessor;}
 
 void
 PyVersion::init(QString script,
-                uchar *vol, ushort *mask, uchar *lut, 
+                uchar *vol, ushort *mask, 
+                uchar *lut, uchar *tag,
                 int depth, int width, int height)
 {    
   PythonEngine &pythonGuard = PythonEngine::instance();
@@ -43,6 +44,7 @@ PyVersion::init(QString script,
   PaintVolMask::global_paint_vol_mask->volume = vol;
   PaintVolMask::global_paint_vol_mask->mask = mask;
   PaintVolMask::global_paint_vol_mask->lut = lut;
+  PaintVolMask::global_paint_vol_mask->label_colors = tag;
   PaintVolMask::global_paint_vol_mask->depth = depth;
   PaintVolMask::global_paint_vol_mask->width = width;
   PaintVolMask::global_paint_vol_mask->height = height;

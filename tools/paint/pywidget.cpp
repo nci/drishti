@@ -168,6 +168,7 @@ PyWidget::processVolume()
   if (result)
     {  
       std::cout << "\n** volume processed\n";
+      emit sliceProcessingDone();
       emit volumeProcessingDone();
     }
   

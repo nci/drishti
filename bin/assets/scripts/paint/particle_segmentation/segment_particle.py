@@ -60,10 +60,17 @@ def process_volume() :
         downsample = pd.paint_obj.script_args["downsample"]
         model = pd.paint_obj.script_args["model"]
 
+        # define mask by visibility
+        lut = pd.lut[::4]
+        lut[lut > 0] = 1
+        mask = np.take(lut, pd.volume)
+        #mask[:] = pd.mask
+        
         #model='model_svl_step=2.h5'
         #model='sam_vit_l_0b3195.pth'
         results = deep_learning(pd.volume,
-                                mask_data=pd.mask,
+                                #mask_data=pd.mask,
+                                mask_data=mask,
                                 path_to_model=model,
                                 predict=True,
                                 epochs=epochs,

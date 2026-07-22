@@ -1,0 +1,23 @@
+{
+    "script" : "segment_particle.py",
+    "arguments" : {
+	"batch_size INT" : 512,
+	"epochs INT" : 10,
+	"min_particle_size INT" : 1000,
+	"separation BOOL" : "False",
+	"refinement BOOL" : "False",
+	"ignore_mask BOOL" : "False",
+	"normalization BOOL" : "False",
+	"downsample BOOL" : "False",
+	"model STR" : "model_svl_step=2.h5",
+	"network_filters STR" : "32-64-128-256-512",
+	"optimizer STR" : "sgd"
+    },
+    "doc" :
+"This script uses Biomedisa tool from https://biomedisa.info/
+Works on 3D data.
+
+Modules Required : biomedisa, torch, torchvision, scikit_image,
+                   medpy, simpleitkscipy, numba, importlib_metadata
+                   mpi4py, keras, pycuda/pyopencl (depending on your gpu)"
+}

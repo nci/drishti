@@ -94,7 +94,7 @@
       </font>
      </property>
      <property name="text">
-      <string>Run Script</string>
+      <string>Load Module</string>
      </property>
     </widget>
    </item>

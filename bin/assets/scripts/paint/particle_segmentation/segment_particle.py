@@ -20,6 +20,11 @@ class paint_data :
 print('paint_data declared')
 pd = paint_data()
 
+script_path = os.path.abspath(__file__)
+script_dir = os.path.dirname(script_path)
+pos = script_path.find('scripts'+os.sep+'paint')
+path_to_models = script_path[0:pos] + os.sep + 'models' + os.sep
+print(path_to_models)
 
 def set_paint_data(py_obj) :
     try :
@@ -51,8 +56,35 @@ def init() :
     print(pd.mask.shape, pd.mask.dtype)
 
 
-#def process_slice(img, mask, width, height, tag) :
-#    print('slice processing not implemented')
+def process_slice(img, mask, width, height, tag) :
+    t_img = np.where(mask==65535, 0, img) # set masked background pixels to 0
+    t_img = t_img.reshape(width,height,1)
+
+    # define mask by visibility
+    lut = pd.lut[::4]
+    lut[lut > 0] = 1
+    mask2 = np.take(lut, t_img)
+    
+    batch_size = pd.paint_obj.script_args["batch_size"]
+    epochs = pd.paint_obj.script_args["epochs"]
+    min_particle_size = pd.paint_obj.script_args["min_particle_size"]
+    downsample = pd.paint_obj.script_args["downsample"]
+    model = path_to_models + pd.paint_obj.script_args["model"]
+    try :
+        results = deep_learning(t_img,
+                                mask_data=mask2,
+                                path_to_model=model,
+                                predict=True,
+                                epochs=epochs,
+                                min_particle_size=min_particle_size,
+                                downsample=downsample,
+                                batch_size=512)
+        mask[:] = results['regular'].astype(np.uint16).reshape(width*height)
+    except Exception as e :
+        print('Error : ', str(e))
+        print('Full Error : ', repr(e))
+        traceback.print_exc()
+
     
     
 def process_volume() :
@@ -66,7 +98,7 @@ def process_volume() :
         epochs = pd.paint_obj.script_args["epochs"]
         min_particle_size = pd.paint_obj.script_args["min_particle_size"]
         downsample = pd.paint_obj.script_args["downsample"]
-        model = pd.paint_obj.script_args["model"]
+        model = path_to_models + pd.paint_obj.script_args["model"]
 
         # define mask by visibility
         lut = pd.lut[::4]

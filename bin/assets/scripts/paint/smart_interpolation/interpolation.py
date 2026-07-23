@@ -1,7 +1,9 @@
 import paintmod
+import os
 import numpy as np
 from biomedisa.interpolation import smart_interpolation
 import traceback
+
 
 class paint_data :
     def __init__(self) :
@@ -62,7 +64,7 @@ def process_volume() :
                                       sorw=sorw,
                                       allaxis=allaxis,
                                       smooth=smooth)
-        if 'smooth' in results : # opencl does not have smooth option yet
+        if 'smooth' in results :
             pd.mask[:] = results['smooth'].astype(np.uint16)
         else :
             pd.mask[:] = results['regular'].astype(np.uint16)

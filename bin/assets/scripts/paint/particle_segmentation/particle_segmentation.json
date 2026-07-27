@@ -17,7 +17,31 @@
 "This script uses Biomedisa tool from https://biomedisa.info/
 Works on 3D data.
 
-Modules Required : biomedisa, torch, torchvision, scikit_image,
-                   medpy, simpleitkscipy, numba, importlib_metadata
-                   mpi4py, keras, pycuda/pyopencl (depending on your gpu)"
+Modules Required : biomedisa, zarr, torch, torchvision, scikit_image,
+                   medpy, numba, importlib_metadata, cv2, matplotlib,
+                   mpi4py, keras, pycuda/pyopencl (depending on your gpu)
+
+To install biomedisa on Windows -
+Have a look at https://biomedisa.info/
+https://github.com/biomedisa/biomedisa/blob/master/README/windows.md
+
+Install Cuda (for nvidia gpu) and OpenCL (for other gpu)
+If you don't have Visual Studio - Install visual studio cpp build tools - https://visualstudio.microsoft.com/visual-cpp-build-tools/
+Install msmpisetup.exe from https://learn.microsoft.com/en-us/message-passing-interface/microsoft-mpi
+
+pip install zarr
+pip install numpy
+pip install pycuda (for nvidia)  pyopencl (otherwise)
+pip install mpi4py
+Install pytorch from https://pytorch.org/
+pip install keras
+pip install scikit_image
+pip install medpy
+pip install importlib_metadata
+pip install opencv-python
+pip install matplotlib
+
+Install Segment Anything Model (SAM) for instance segmentation
+pip install git+https://github.com/facebookresearch/segment-anything.git
+"
 }

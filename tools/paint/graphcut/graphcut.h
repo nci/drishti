@@ -1,3 +1,6 @@
+#ifndef GRAPHCUT_H
+#define GRAPHCUT_H
+
 #include "graph.h"
 #include "point.h"
 
@@ -29,3 +32,5 @@ class MaxFlowMinCut
 			     double*, double);
 
 };
+
+#endif // GRAPHCUT_H

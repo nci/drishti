@@ -901,18 +901,18 @@ Viewer::keyPressEvent(QKeyEvent *event)
       return;
     }
 
-  if (Global::pythonInstalled())
-  {
-    if (event->key() == Qt::Key_At)
-      {
-        emit processVolumeFromScript();
-        return;
+  if (event->key() == Qt::Key_At)
+    {
+      if (Global::pythonInstalled())
+	{
+	  emit processVolumeFromScript();
+	  return;
+	}
+      else
+	{
+	  QMessageBox::information(0, "Error", "Python Script not activated.  Python not found");
+	}
     }
-  }
-  else
-  {
-    QMessageBox::information(0, "Error", "Python Script not activated.  Python not found");
-  }
 
   if (event->key() != Qt::Key_H)
     QGLViewer::keyPressEvent(event);
@@ -3277,7 +3277,7 @@ Viewer::hatch()
 void
 Viewer::saveToROI(int tag)
 {
-  cout << "save to ROI" << endl;
+  cout << "save to ROI using label : " << tag << endl;
 
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
@@ -3292,7 +3292,7 @@ Viewer::saveToROI(int tag)
 void
 Viewer::roiOperation(int tag)
 {
-  cout << "ROI operation" << endl;
+  cout << "ROI operation using label " << tag << endl;
   Vec bmin, bmax;
   m_boundingBox.bounds(bmin, bmax);
 

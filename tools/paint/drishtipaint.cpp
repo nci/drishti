@@ -1133,6 +1133,8 @@ DrishtiPaint::on_actionPyVer_triggered()
                                        "Version", ver, 0, false, &ok);
   if (ok && !item.isEmpty())
     Global::setPythonVersion(item);
+
+  std::cout << "Using Python Version " << item.toStdString() << "\n";
   
   if (m_pyWidget)
   {
@@ -1938,7 +1940,6 @@ DrishtiPaint::setFile(QString filename)
   Global::addRecentFile(filename);
   updateRecentFileAction();
 
-
   
   loadTagNames();
 
@@ -1957,14 +1958,16 @@ DrishtiPaint::setFile(QString filename)
   viewerUi.sketchPad->setChecked(false);
   m_viewer->showSketchPad(false);
 
+  VolumeOperations::setFilename(m_pvlFile);
   VolumeOperations::setVolData(m_volume->memVolDataPtr());
   VolumeOperations::setMaskData(m_volume->memMaskDataPtr());
   VolumeOperations::setGridSize(d, w, h);
+  VolumeOperations::loadRoiFromFile();
 
   VolumeMeasure::setVolData(m_volume->memVolDataPtr());
   VolumeMeasure::setMaskData(m_volume->memMaskDataPtr());
   VolumeMeasure::setGridSize(d, w, h);
-  
+
   m_viewer->setShowBox(viewerUi.box->isChecked());
   m_viewer->updateVoxels();
 
@@ -6527,6 +6530,30 @@ DrishtiPaint::on_actionDeleteCheckpoint_triggered()
   m_volume->deleteCheckPoint();
 }
 
+
+void
+DrishtiPaint::on_actionROI_triggered()
+{
+  int tag = QInputDialog::getInt(0,
+				 "Save Visible/Label as Region Of Interest",
+				 "Save Visible region (-1) or Label to ROI",
+				 -1, -1, 65534, 1);
+  m_viewer->saveToROI(tag);
+}
+void
+DrishtiPaint::on_actionLoadROI_triggered()
+{
+  int tag = QInputDialog::getInt(0,
+				 "Load Region Of Interest",
+				 "Interact ROI with Visible(-1) or Labeled region",
+				 -1, -1, 65534, 1);
+  m_viewer->roiOperation(tag);
+}
+void
+DrishtiPaint::on_actionDeleteROI_triggered()
+{
+  VolumeOperations::deleteROI();
+}
 
 void
 DrishtiPaint::undoPaint3D()

@@ -1,5 +1,6 @@
 #include "mybitarray.h"
 #include <QMessageBox>
+#include "blosc.h"
 
 MyBitArray::MyBitArray()
 {
@@ -179,4 +180,90 @@ MyBitArray::operator~()
 
   
   return *this;
+}
+
+void
+MyBitArray::save(fstream &fout)
+{
+  qint64 nbytes = (1 + (m_size+7)/8); // allocate 1 extra byte
+  fout.write((char*)&m_size, 8);
+  //fout.write((char*)m_bits, nbytes);
+  
+  // compress and save
+  int nthreads, pnthreads;
+  nthreads = 4;
+  blosc_init();
+  // use nthreads for compression
+  // previous numofthreads returned in pnthreads
+  pnthreads = blosc_set_nthreads(nthreads);
+  
+  int mb100 = 100*1024*1024;
+  uchar *vBuf = new uchar[mb100];
+  int nblocks = nbytes/mb100;
+  if (nblocks * mb100 < nbytes) nblocks++;
+  fout.write((char*)&nblocks, 4);
+  fout.write((char*)&mb100, 4);
+  for(qint64 i=0; i<nblocks; i++)
+    {
+      int bsz = mb100;
+      if ((i+1)*mb100 > nbytes)
+	bsz = nbytes-(i*mb100);
+      int bufsize = blosc_compress(9, // compression level
+				   BLOSC_SHUFFLE, // bit/byte-wise shuffle
+				   8, // typesize
+				   bsz, // input size
+				   m_bits + i*mb100,
+				   vBuf,
+				   mb100); // destination size
+      
+      if (bufsize < 0)
+	{
+	  QMessageBox::information(0, "", "Error in compression : .roi file corrupted");
+	  delete [] vBuf;
+	  blosc_destroy();
+	  return;
+	}
+      fout.write((char*)&bufsize, 4);
+      fout.write((char*)vBuf, bufsize);
+    }
+  blosc_destroy();
+  
+  delete [] vBuf;
+}
+
+void
+MyBitArray::load(fstream &fin)
+{
+  clear();
+  fin.read((char*)&m_size, 8);
+  qint64 nbytes = (1 + (m_size+7)/8); // allocate 1 extra byte
+  m_bits = new uchar[nbytes];
+  //fin.read((char*)m_bits, nbytes);
+
+  // decompress and load
+  int mb100, nblocks;
+  fin.read((char*)&nblocks, 4);
+  fin.read((char*)&mb100, 4);
+  uchar *vBuf = new uchar[mb100];
+  for(qint64 i=0; i<nblocks; i++)
+    {
+      int vbsize;
+      fin.read((char*)&vbsize, 4);
+      if (vbsize < 0)
+	{
+	  QMessageBox::information(0, "", "Error in decompression : .roi file may be corrupted");
+	  delete [] vBuf;
+	  return;
+	}
+      fin.read((char*)vBuf, vbsize);
+      int bufsize = blosc_decompress(vBuf, m_bits+i*mb100, mb100);
+      if (bufsize < 0)
+	{
+	  QMessageBox::information(0, "", "Error in decompression : .roi file may be corrupted");
+	  delete [] vBuf;
+	  return;
+	}	
+    }
+  
+  delete [] vBuf;    
 }

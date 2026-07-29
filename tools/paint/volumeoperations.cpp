@@ -20,6 +20,15 @@
 
 
 
+QString VolumeOperations::m_filename;
+QString VolumeOperations::m_roifilename;
+void VolumeOperations::setFilename(QString flnm)
+{
+  m_filename = flnm;
+  m_roifilename = flnm;
+  m_roifilename.replace(".pvl.nc", ".roi");
+}
+
 uchar* VolumeOperations::m_volData = 0;
 ushort* VolumeOperations::m_volDataUS = 0;
 
@@ -61,6 +70,56 @@ void VolumeOperations::setGridSize(int d, int w, int h)
   m_visibilityMap.fill(false); 
 }
 
+void
+VolumeOperations::saveRoiToFile()
+{ 
+  QStringList records = m_roi.keys();
+  int nroi = records.count();
+  if (nroi == 0)
+    {
+      if (QFile::exists(m_roifilename))
+	QFile::remove(m_roifilename);
+    }
+
+  fstream fout(m_roifilename.toUtf8().data(), ios::binary|ios::out);
+  fout.write((char*)&nroi, 4);
+  for(int i=0; i<nroi; i++)
+    {
+      int len = records[i].size()+1;
+      fout.write((char*)&len, sizeof(int));
+      fout.write(records[i].toUtf8().data(), len*sizeof(char)); 
+      m_roi[records[i]].save(fout);
+    }
+  fout.close();  
+}
+
+void
+VolumeOperations::loadRoiFromFile()
+{
+  QFileInfo roifl(m_roifilename);
+  if (!roifl.exists())
+    return;
+  
+  fstream fin(m_roifilename.toUtf8().data(), ios::binary|ios::in);
+
+  m_roi.clear();
+  int nroi;
+  fin.read((char*)&nroi, 4);
+  for(int i=0; i<nroi; i++)
+    {
+      int len;
+      fin.read((char*)&len, sizeof(int));
+      char record[100];
+      fin.read((char*)record, len*sizeof(char));
+
+      QString name(record);
+			       
+      MyBitArray bitmask;
+      bitmask.load(fin);
+      m_roi[QString(record)] = bitmask;
+    }
+  fin.close();
+}
 
 bool
 VolumeOperations::saveToROI(Vec bmin, Vec bmax,
@@ -117,7 +176,8 @@ VolumeOperations::saveToROI(Vec bmin, Vec bmax,
   maxW = we;
   maxH = he;
 
-  QMessageBox::information(0, "Save To ROI", "Done");
+  saveRoiToFile();
+  //QMessageBox::information(0, "Save To ROI", "Done");  
   return true;
 }
 
@@ -159,6 +219,7 @@ VolumeOperations::deleteROI()
     }
   
   m_roi.remove(roiName);
+  saveRoiToFile();
 
   QMessageBox::information(0, "ROI Delete", "Done");	
 }
@@ -259,7 +320,7 @@ VolumeOperations::roiOperation(Vec bmin, Vec bmax,
     bool ok;
     resultTag = QInputDialog::getInt(0,
 				     "Save result to label",
-				     "Label (0-65535) to save the result\n.",
+				     "Apply label (0-65535) to the result\n",
 				     0, 0, 65535, 1,
 				     &ok);
     

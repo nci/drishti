@@ -66,9 +66,15 @@ Currently ROI buffers are not saved at the end of the session.
 roi
 roi <label>
 
-Apply ROI (region of interest) operation to the given visible portion of the <label> labeled region.  User is asked for the ROI buffer and operation type (intersection/union/A-B/B-A) to use.  User is asked for the label number to save the result into.
+Apply ROI (region of interest) operation to the given visible portion of the <label> labeled region.  User is asked for the ROI buffer and operation type (intersection/union/A-B/B-A/connected_to_roi) to use.  User is asked for the label number to save the result into.
 
 If no <label> is specified, all the visible region is considered for ROI operation.
+
+intersection - take intersection of <label>/visible region with roi and set its label to the selected label number.
+union - take union of <label>/visible region with roi and set its label to the selected label number.
+A-B - remove <label>/visible region from roi and set its label to the selected label number.
+B-A - remove roi from the <label>/visible region and set its label to the selected label number.
+connected_to_roi - consider all voxels of <label>/visible reion connected to roi and set their label to the selected label number.
 
 Currently ROI buffers are not saved at the end of the session.
 #end

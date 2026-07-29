@@ -79,11 +79,15 @@ struct VisibilityMapDirtyStruct
 class VolumeOperations
 {
  public :
+  static void setFilename(QString);
   static void setVolData(uchar*);
   static void setMaskData(uchar*);
   static void setGridSize(int, int, int);
   static void setClip(QList<Vec>, QList<Vec>);
 
+  static void loadRoiFromFile();
+  static void saveRoiToFile();
+  
   static QList<Vec> getSurfaceVoxels(qint64, qint64, qint64,
 				     MyBitArray&);
   
@@ -326,6 +330,8 @@ class VolumeOperations
   static void deleteROI();
   
  private :
+  static QString m_filename;
+  static QString m_roifilename;
   static int m_depth, m_width, m_height;
   static uchar *m_volData;
   static ushort *m_volDataUS;

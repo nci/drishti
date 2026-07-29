@@ -124,6 +124,9 @@ class Viewer : public QGLViewer
     void stopDrawing();
     void startDrawing();
 
+    void saveToROI(int);
+    void roiOperation(int);
+
  private slots :
       void createRaycastShader();
 
@@ -361,8 +364,6 @@ class Viewer : public QGLViewer
   void setTextureMemorySize();
 
   void hatch();
-  void saveToROI(int);
-  void roiOperation(int);
   void connectedComponents(int);
   void watershed(int, int);
   void watershedPlus();

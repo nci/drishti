@@ -2,6 +2,8 @@
 #define MYBITARRAY
 
 #include "commonqtclasses.h"
+#include <fstream>
+using namespace std;
 
 class MyBitArray
 {
@@ -24,9 +26,15 @@ class MyBitArray
   void fill(bool);
   void invert();
   
-  qint64 size() { return m_size; }
-  qint64 count() { return m_size; }
+  qint64 size() const { return m_size; }
+  qint64 count() const { return m_size; }
 
+  void load(fstream&);
+  void save(fstream&);
+
+  uchar *data() { return m_bits; }
+  uchar *constData() const { return m_bits; }
+  
  private :
   uchar *m_bits;
   qint64 m_size;

@@ -213,6 +213,28 @@ PyWidget::runCommand(QString script, QHash<QString, QVariant> arguments)
     m_plugin = 0;
   }
 
+  QString pythonDir, dllPath, libPath, scriptsPath;
+  QString newPath;
+  if (m_pyversionflnm.contains("3.10"))
+    pythonDir = "C:/Apps/Python310";
+  if (m_pyversionflnm.contains("3.11"))
+    pythonDir = "C:/Apps/Python311";
+  if (m_pyversionflnm.contains("3.12"))
+    pythonDir = "C:/Apps/Python312";
+  if (m_pyversionflnm.contains("3.14"))
+    pythonDir = "C:/Apps/Python314";
+  
+  
+  dllPath = pythonDir + "/DLLs";
+  libPath = pythonDir + "/Lib";
+  scriptsPath = pythonDir + "/Scripts";
+  newPath = pythonDir + ";" + dllPath + ";" + scriptsPath + QString::fromLocal8Bit(qgetenv("PATH"));
+  
+  qputenv("PATH", newPath.toLocal8Bit());
+  qputenv("PYTHONHOME", pythonDir.toLocal8Bit());
+  qputenv("PYTHONPATH", libPath.toLocal8Bit());
+  
+  
   m_plugin = new PyPlugin();
   
   if (m_plugin->init(m_pyversionflnm, script, 

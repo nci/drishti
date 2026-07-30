@@ -2,6 +2,7 @@ import paintmod
 import numpy as np
 import cv2
 import sys
+import traceback
 
 class paint_data :
     def __init__(self) :
@@ -13,29 +14,37 @@ class paint_data :
         self.width = 0
         self.height = 0
         self.dim = np.zeros(3,np.int32)
+        self.script_args = 0
 
 print('paint_data declared')
 pd = paint_data()
 
 
 def set_paint_data(py_obj) :
-    pd.paint_obj = py_obj
-    pd.volume = py_obj.get_volume_view()
-    pd.mask = py_obj.get_mask_view()
-    pd.lut = py_obj.get_lut_view()
-    pd.depth = py_obj.depth
-    pd.width = py_obj.width
-    pd.height = py_obj.height
-    pd.dim[0] = pd.depth
-    pd.dim[1] = pd.width
-    pd.dim[2] = pd.height
-    print(pd.depth*pd.width*pd.height)
-    print(pd.depth, pd.width, pd.height)
-    print(pd.volume.shape)
+    try :
+        pd.paint_obj = py_obj
+        pd.volume = py_obj.get_volume_view()
+        pd.mask = py_obj.get_mask_view()
+        pd.lut = py_obj.get_lut_view()
+        pd.label_color = py_obj.get_labelcolors_view()
+        pd.depth = py_obj.depth
+        pd.width = py_obj.width
+        pd.height = py_obj.height
+        pd.dim[0] = pd.depth
+        pd.dim[1] = pd.width
+        pd.dim[2] = pd.height
+        print(pd.depth*pd.width*pd.height)
+        print(pd.depth, pd.width, pd.height)
+        print(pd.volume.shape)
+    except Exception as e :
+        print('Error : ', str(e))
+        print('Full Error : ', repr(e))
+        traceback.print_exc()
     
 def init() :
     print('init grabcut')
     pd.volume = pd.volume.reshape(pd.dim)  
+    pd.mask = pd.mask.reshape(pd.dim)
 
     
 def process_volume() :

@@ -8,7 +8,7 @@ QT += widgets core gui
 
 CONFIG += release plugin
 
-DESTDIR = ../../../bin/pyversion
+DESTDIR = ../../../../bin/pyversion
 
 # Input
 #----------------------------------------------------------------

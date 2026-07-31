@@ -1,12 +1,9 @@
 #ifndef SCRIPTSPLUGIN_H
 #define SCRIPTSPLUGIN_H
 
-//#include "pythonengine.h"
 #include "pyplugininterface.h"
 
 #include "commonqtclasses.h"
-
-//namespace py = pybind11;
 
 
 class ScriptsPlugin
@@ -70,8 +67,6 @@ class ScriptsPlugin
     
     int m_skipBytes;
     int m_bytesPerVoxel;
-
-    //py::object m_pyModule;
 };
 
 #endif

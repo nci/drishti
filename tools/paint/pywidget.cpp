@@ -233,6 +233,10 @@ PyWidget::runCommand(QString script, QHash<QString, QVariant> arguments)
   qputenv("PATH", newPath.toLocal8Bit());
   qputenv("PYTHONHOME", pythonDir.toLocal8Bit());
   qputenv("PYTHONPATH", libPath.toLocal8Bit());
+
+  std::cout << "\n\n\n----------------\n";
+  std::cout << " Using Python : " << qgetenv("PYTHONHOME").data() << "\n";
+  std::cout << "----------------\n";
   
   
   m_plugin = new PyPlugin();

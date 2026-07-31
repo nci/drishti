@@ -1,7 +1,10 @@
 import os
 import sys
 import numpy
-
+import traceback
+import inspect
+    
+    
 print('---- raw_reader.py ----')
 
 class Volume :
@@ -61,7 +64,7 @@ class Volume :
             self.rawMax = 65535            
 
         fin.close()
-        print('data in memory')
+        print('data in memory')            
     #--------------------
 
         
@@ -105,10 +108,15 @@ def init() :
 
 def set_files(flnms) :
     print(flnms)
-    vol.setFiles(flnms)    
-    vol.load_entire_data()
-    vol.calculate_min_max()
-    vol.gen_histogram()
+    try :
+        vol.setFiles(flnms)    
+        vol.load_entire_data()
+        vol.calculate_min_max()
+        vol.gen_histogram()
+    except Exception as e :
+        print('Error : ', str(e))
+        print('Full Error : ', repr(e))
+        traceback.print_exc()
 
 def get_description() :
     return vol.description

@@ -43,7 +43,7 @@ ScriptsPlugin::registerPlugin()
 }
 
 bool
-ScriptsPlugin::start(QString pyver, QString jsonflnm)
+ScriptsPlugin::start(QString pyver, QString pydir, QString jsonflnm)
 {
   QString mesg = QString("Script Plugin', 'Received JSON file: %1").arg(jsonflnm);
   //std::cout << mesg.toStdString() << "\n";
@@ -102,14 +102,15 @@ ScriptsPlugin::start(QString pyver, QString jsonflnm)
     //-----------------------------------    
     QString pythonDir, dllPath, libPath, scriptsPath;
     QString newPath;
-    if (pyver.contains("3.10"))
-      pythonDir = "C:/Apps/Python310";
-    if (pyver.contains("3.11"))
-      pythonDir = "C:/Apps/Python311";
-    if (pyver.contains("3.12"))
-      pythonDir = "C:/Apps/Python312";
-    if (pyver.contains("3.14"))
-      pythonDir = "C:/Apps/Python314";
+    //if (pyver.contains("3.10"))
+    //  pythonDir = "C:/Apps/Python310";
+    //if (pyver.contains("3.11"))
+    //  pythonDir = "C:/Apps/Python311";
+    //if (pyver.contains("3.12"))
+    //  pythonDir = "C:/Apps/Python312";
+    //if (pyver.contains("3.14"))
+    //  pythonDir = "C:/Apps/Python314";
+    pythonDir = pydir;
         
     dllPath = pythonDir + "/DLLs";
     libPath = pythonDir + "/Lib";

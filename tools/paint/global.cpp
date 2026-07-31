@@ -400,3 +400,7 @@ PyWidget* Global::pywidget() { return m_pywidget; }
 QString Global::m_pythonVersion;
 void Global::setPythonVersion(QString s) { m_pythonVersion = s; }
 QString Global::pythonVersion() { return m_pythonVersion; }
+
+QString Global::m_pythonDirectory;
+void Global::setPythonDirectory(QString s) { m_pythonDirectory = s; }
+QString Global::pythonDirectory() { return m_pythonDirectory; }

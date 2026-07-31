@@ -41,6 +41,7 @@ class DrishtiImport : public QMainWindow
 
   void on_actionMimics_triggered();
   void on_actionPyVer_triggered();
+  void on_actionPyDir_triggered();
 
   void loadDirectory();
   void loadFiles();

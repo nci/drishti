@@ -462,6 +462,16 @@ DrishtiImport::loadSettings()
 	  QString str = dlist.at(i).toElement().text();
 	  Global::setPreviousDirectory(str);
 	}
+      if (dlist.at(i).nodeName() == "python_ver")
+	{
+	  QString str = dlist.at(i).toElement().text();
+	  Global::setPythonVersion(str);
+	}
+      if (dlist.at(i).nodeName() == "python_dir")
+	{
+	  QString str = dlist.at(i).toElement().text();
+	  Global::setPythonDirectory(str);
+	}
     }
 }
 
@@ -478,6 +488,20 @@ DrishtiImport::saveSettings()
     QDomElement de0 = doc.createElement("previousdirectory");
     QDomText tn0;
     tn0 = doc.createTextNode(Global::previousDirectory());
+    de0.appendChild(tn0);
+    topElement.appendChild(de0);
+  }
+  {
+    QDomElement de0 = doc.createElement("python_dir");
+    QDomText tn0;
+    tn0 = doc.createTextNode(Global::pythonDirectory());
+    de0.appendChild(tn0);
+    topElement.appendChild(de0);
+  }
+  {
+    QDomElement de0 = doc.createElement("python_ver");
+    QDomText tn0;
+    tn0 = doc.createTextNode(Global::pythonVersion());
     de0.appendChild(tn0);
     topElement.appendChild(de0);
   }
@@ -917,9 +941,24 @@ DrishtiImport::on_actionPyVer_triggered()
       ver << flnm;
     }
 
+  int cur = ver.indexOf(Global::pythonVersion());
   bool ok = false;
   QString item = QInputDialog::getItem(this, "Python Version",
-                                       "Version", ver, 0, false, &ok);
+                                       "Version", ver,
+				       qBound(0, cur, ver.count()-1),
+				       false, &ok);
   if (ok && !item.isEmpty())
     Global::setPythonVersion(item);
+}
+
+void
+DrishtiImport::on_actionPyDir_triggered()
+{
+  QString dirname = QFileDialog::getExistingDirectory(this,
+						      "Python Installation Directory",
+						      Global::pythonDirectory(),
+						      QFileDialog::ShowDirsOnly |
+						      QFileDialog::DontUseNativeDialog);
+  if (!dirname.isEmpty())
+    Global::setPythonDirectory(dirname);
 }

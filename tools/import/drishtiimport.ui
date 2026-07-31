@@ -73,6 +73,7 @@
      <string>Python</string>
     </property>
     <addaction name="actionPyVer"/>
+    <addaction name="actionPyDir"/>
    </widget>
    <addaction name="menuFiles"/>
    <addaction name="menuView"/>
@@ -246,6 +247,11 @@
   <action name="actionPyVer">
    <property name="text">
     <string>Python Version</string>
+   </property>
+  </action>
+  <action name="actionPyDir">
+   <property name="text">
+    <string>Python Directory</string>
    </property>
   </action>
  </widget>

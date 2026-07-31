@@ -417,6 +417,7 @@
     <addaction name="actionCommand"/>
     <addaction name="separator"/>
     <addaction name="actionPyVer"/>
+    <addaction name="actionPyDir"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuView"/>
@@ -771,6 +772,11 @@
   <action name="actionDeleteROI">
    <property name="text">
     <string>Delete ROI</string>
+   </property>
+  </action>
+  <action name="actionPyDir">
+   <property name="text">
+    <string>Python Directory</string>
    </property>
   </action>
  </widget>

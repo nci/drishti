@@ -1808,6 +1808,8 @@ Landmarks::setLandmarkInfo(LandmarkInformation li)
   setDistances(li.distance);
   setProjectOnLine(li.projectline);
   setProjectOnPlane(li.projectplane);
+
+  updateTable();
 }
 
 LandmarkInformation

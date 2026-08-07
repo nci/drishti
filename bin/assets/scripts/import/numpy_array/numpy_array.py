@@ -1,3 +1,4 @@
+from pywidget import widget
 import os
 import sys
 import numpy
@@ -104,9 +105,7 @@ def init() :
     sys.stdout.flush()
 
 def set_files(flnms) :
-    print(flnms)
-    sys.stdout.flush()
-    vol.setFiles(flnms)    
+    vol.setFiles(flnms)
     vol.calculate_min_max()
     vol.gen_histogram()
 

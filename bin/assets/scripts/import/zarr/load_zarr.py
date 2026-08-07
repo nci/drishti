@@ -175,8 +175,7 @@ def init() :
     print('\nInit from load_zarr.py\n')
 
 def set_files(flnms) :
-    print(flnms)
-    vol.setFiles(flnms)    
+    vol.setFiles(flnms)
     vol.calculate_min_max()
     vol.gen_histogram()
 

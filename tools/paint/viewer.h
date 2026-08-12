@@ -206,7 +206,8 @@ class Viewer : public QGLViewer
 
     void modifyOriginalVolume(Vec, Vec, int);
     void processVolumeFromScript();
-
+    void callFunctionFromScript(QString);
+  
  private :
   Ui::ViewerMenu *m_UI;
 

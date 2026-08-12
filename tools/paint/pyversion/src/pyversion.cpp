@@ -150,6 +150,24 @@ PyVersion::process_slice(uchar *image, ushort *mask, int width, int height, int 
 }
 
 bool
+PyVersion::call_function(QString fnc)
+{
+  if (!py::hasattr(PaintVolMask::global_pyModule, fnc.toUtf8().data()))
+    {
+      std::cout << "** FUNCTION NOT FOUND : " << fnc.toStdString() << "\n";
+      return false;
+    }
+
+  std::cout << "** Calling " << fnc.toStdString() << " in Python module...\n";
+  
+  py::gil_scoped_acquire gil;
+  
+  PaintVolMask::global_pyModule.attr(fnc.toUtf8().data())();
+  
+  return true;
+}
+
+bool
 PyVersion::process_volume()
 {
   if (!m_hasVolumeProcessor)

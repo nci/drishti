@@ -649,7 +649,7 @@
   </action>
   <action name="actionCommand">
    <property name="text">
-    <string>Command</string>
+    <string>Load Script</string>
    </property>
   </action>
   <action name="action3DBoxSize">

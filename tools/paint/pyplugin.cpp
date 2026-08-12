@@ -88,6 +88,15 @@ PyPlugin::process_volume()
 
     return false;
 }
+bool 
+PyPlugin::call_function(QString fnc)
+{
+    std::cout << "Calling function from python script : " << fnc.toStdString() << "\n";
+    if (m_plugin)
+        return m_plugin->call_function(fnc);
+
+    return false;
+}
 
 bool 
 PyPlugin::process_slice(uchar* data, ushort* mask, int width, int height, int depth)

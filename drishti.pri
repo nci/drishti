@@ -29,6 +29,9 @@ contains(Windows_Setup, Win64) {
       ITK = C:\ITK
   
       QMAKE_LIBDIR += C:\ITK\lib\Release
+
+      ##for parallel build with nmake
+      QMAKE_CXXFLAGS += /MP
     }
   }
 }

@@ -128,4 +128,6 @@ connect(m_viewer, SIGNAL(poreId(Vec, Vec, int, int, int, int)),
 
   connect(m_viewer, SIGNAL(processVolumeFromScript()),
 	  this, SLOT(processVolumeFromScript()));
+  connect(m_viewer, SIGNAL(callFunctionFromScript(QString)),
+	  this, SLOT(callFunctionFromScript(QString)));
 #endif

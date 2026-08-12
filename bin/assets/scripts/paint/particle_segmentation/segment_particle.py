@@ -61,9 +61,7 @@ def process_slice(img, mask, width, height, tag) :
     t_img = t_img.reshape(width,height,1)
 
     # define mask by visibility
-    lut = pd.lut[::4]
-    lut[lut > 0] = 1
-    mask2 = np.take(lut, t_img)
+    mask2 = t_img > 0
     
     batch_size = pd.paint_obj.script_args["batch_size"]
     epochs = pd.paint_obj.script_args["epochs"]
@@ -101,9 +99,7 @@ def process_volume() :
         model = path_to_models + pd.paint_obj.script_args["model"]
 
         # define mask by visibility
-        lut = pd.lut[::4]
-        lut[lut > 0] = 1
-        mask = np.take(lut, pd.volume)
+        mask = np.take(pd.lut[::4]>0, pd.volume)
         #mask[:] = pd.mask
         
         #model='model_svl_step=2.h5'

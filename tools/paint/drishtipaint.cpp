@@ -6652,6 +6652,11 @@ DrishtiPaint::processVolumeFromScript()
 {
   m_pyWidget->processVolume();
 }
+void
+DrishtiPaint::callFunctionFromScript(QString fnc)
+{
+  m_pyWidget->callFunctionFromScript(fnc);
+}
 
 void
 DrishtiPaint::on_actionCommand_triggered()

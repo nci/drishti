@@ -22,6 +22,7 @@ class PyVersion : public QObject, public PyPluginInterface
 
     QString initScript();
     bool process_volume();
+    bool call_function(QString);
     bool process_slice(uchar*, ushort*, int, int, int);
     void setMask(ushort*);
     void populateArguments(QHash<QString, QVariant>);

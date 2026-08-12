@@ -148,6 +148,37 @@ PyWidget::processSlice(uchar* image, ushort* mask,
 }
   
 bool
+PyWidget::callFunctionFromScript(QString fnc)
+{
+  if (m_plugin == 0)
+  {
+    QMessageBox::information(0, "Error", "No active script detected");
+    return false;
+  }
+
+//  if (!m_plugin->hasVolumeProcessor())
+//  {
+//    QMessageBox::information(0, "Error", 
+//              QString("No Volume Processor found in script [%1]").\
+//              arg(m_plugin->scriptName()));
+//    return false;
+//  }
+
+  populateArguments();
+
+  bool result = m_plugin->call_function(fnc);
+
+  if (result)
+    {  
+      std::cout << "\n** function " << fnc.toStdString() << " returned\n";
+      emit sliceProcessingDone();
+      emit volumeProcessingDone();
+    }
+  
+  return result;
+}
+
+bool
 PyWidget::processVolume()
 {
   if (m_plugin == 0)

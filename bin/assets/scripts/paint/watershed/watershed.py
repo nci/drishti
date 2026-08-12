@@ -1,7 +1,11 @@
 import paintmod
 import numpy as np
-import cv2
-import sys
+from skimage.filters import threshold_otsu
+from skimage.feature import peak_local_max
+from skimage.morphology import label
+from skimage.segmentation import watershed
+from scipy.ndimage import distance_transform_edt
+import traceback
 
 class paint_data :
     def __init__(self) :
@@ -37,53 +41,81 @@ def set_paint_data(py_obj) :
 def init() :
     print('init watershed')
     pd.volume = pd.volume.reshape(pd.dim)  
+    pd.mask = pd.mask.reshape(pd.dim)  
+
     
+def peaks_to_markers_3d(image, peaks):
+    """Returns watershed markers from peaks data."""
+    peaks_x, peaks_y, peaks_z = peaks.astype('int').T
+    seeds = np.zeros(image.shape, dtype=bool)
+    seeds[(peaks_x, peaks_y, peaks_z)] = 1
+    # Label the marker points
+    markers = label(seeds)    
+    return markers
+
 def process_volume() :
-    print('3D watershed not implemented')
-    #pd.paint_obj.update_3d_view()
+    print('perform 3d watershed')
+    try : 
+        # define foreground by visibility instead of otsu threshold
+        #foreground = pd.volume >= threshold_otsu(pd.volume)
+        foreground = np.take(pd.lut[::4]>0, pd.volume)
+        
+        distance_img = distance_transform_edt(foreground)
+        
+        peaks = peak_local_max(distance_img, labels=label(foreground), min_distance=5)
+        
+        # We do some minor tweaking to get the peaks data into the right format for watershed
+        markers = peaks_to_markers_3d(pd.volume, peaks)
+        
+        # Watershed segmentation
+        particle_labels = watershed(-distance_img, markers, mask=foreground)
+        particle_labels = np.where(np.isnan(particle_labels), 0, particle_labels)
+        pd.mask[:] = particle_labels.astype(np.uint16)
+        pd.paint_obj.update_3d_view()
+        pd.paint_obj.update_slice_view()
+        print('done')
+    except Exception as e :
+        print('Error : ', str(e))
+        print('Full Error : ', repr(e))
+        traceback.print_exc()
+
+    
+def peaks_to_markers_2d(image, peaks):
+    """Returns watershed markers from peaks data."""
+    peaks_x, peaks_y = peaks.astype('int').T
+    seeds = np.zeros(image.shape, dtype=bool)
+    seeds[(peaks_x, peaks_y)] = 1
+    # Label the marker points
+    markers = label(seeds)    
+    return markers
 
 def process_slice(img, mask, width, height, tag) :
     print('process slice image mask .. ')
-    gray = np.where(mask == 65535, 0, img)  # set masked background pixels to 0
-    gray = gray.reshape(width,height)
+    try : 
+        # define foreground by visibility instead of otsu threshold
+        #foreground = img >= threshold_otsu(img)
+        foreground = img > 0
+        foregound = np.where(mask == 65535, 0, foreground)  # set masked background pixels to 0
+        foreground = foreground.reshape(width, height)
 
-    timg = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
-    #cv2.imshow('img', timg)
-
-    
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-    
-    # threshold procession
-    ret, bin_img = cv2.threshold(gray,
-                                 0, 255, 
-                                 cv2.THRESH_OTSU)
-    
-    # noise removal - morphological gradient processing
-    bin_img = cv2.morphologyEx(bin_img, 
-                               cv2.MORPH_OPEN,
-                               kernel,
-                               iterations=2)
-
-    # distance transform
-    dist = cv2.distanceTransform(bin_img, cv2.DIST_L2, 5)
-
-    #foreground area
-    ret, sure_fg = cv2.threshold(dist, 0.25*dist.max(), 255, cv2.THRESH_BINARY)
-    sure_fg = sure_fg.astype(np.uint8)
-
-    #create markers
-    ret, markers = cv2.connectedComponents(sure_fg)
-
-    markers[dist == 0] = 65535
-    
-    ##watershed
-    rgb = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
-    markers = cv2.watershed(rgb, markers)
-
-    markers = markers.astype(np.uint16)
-    markers[markers==65535] = 0
-    mask[:] = markers.reshape(-1)
-    print('done')
+        distance_img = distance_transform_edt(foreground)
+        peaks = peak_local_max(distance_img, labels=label(foreground), min_distance=5)
+        
+        # We do some minor tweaking to get the peaks data into the right format for watershed
+        markers = peaks_to_markers_2d(foreground, peaks)
+        
+        # Watershed segmentation
+        particle_labels = watershed(-distance_img, markers, mask=foreground)
+        
+        markers = particle_labels.astype(np.uint16)
+        markers = np.where(np.isnan(markers), 0, markers) # set nan pixels to 0
+        mask[:] = markers.reshape(-1)
+        print('done')
+    except Exception as e :
+        print('Error : ', str(e))
+        print('Full Error : ', repr(e))
+        traceback.print_exc()
+        
 
 
 if __name__ == '__main__':

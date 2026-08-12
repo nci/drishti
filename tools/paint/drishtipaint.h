@@ -231,6 +231,7 @@ class DrishtiPaint : public QMainWindow
   void createMeshViewerSocket();
 
   void processVolumeFromScript();
+  void callFunctionFromScript(QString);
   
  private :
   Ui::DrishtiPaint ui;

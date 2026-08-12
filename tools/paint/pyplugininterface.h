@@ -22,6 +22,7 @@ class PyPluginInterface
 
     virtual QString initScript() = 0;
     virtual bool process_volume() = 0;
+    virtual bool call_function(QString) = 0;
     virtual bool process_slice(uchar*, ushort*, int, int, int) = 0;
     virtual void setMask(ushort*) = 0;
     virtual void populateArguments(QHash<QString, QVariant>) = 0;

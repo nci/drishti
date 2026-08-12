@@ -25,6 +25,7 @@ class PyWidget : public QWidget
  public slots :
    bool processSlice(uchar*, ushort*, int, int, int, bool);
    bool processVolume();
+   bool callFunctionFromScript(QString);
    void initDone(QString);
 
  signals :

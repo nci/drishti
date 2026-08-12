@@ -25,6 +25,7 @@ class PyPlugin : public QObject
   public slots :
     void initScript();
     bool process_volume();
+    bool call_function(QString);
     bool process_slice(uchar*, ushort*, int, int, int);
     void setMask(ushort*);
     void populateArguments(QHash<QString, QVariant>);

@@ -5,7 +5,7 @@
 Works on 2D slices.
 Currently 3D version is not implemented
 
-Modules Required : cv2",
+Modules Required : numpy, skimage, scipy",
     
     "arguments" : {
 	"output" : "%DIR%/text.raw"

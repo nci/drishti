@@ -901,18 +901,18 @@ Viewer::keyPressEvent(QKeyEvent *event)
       return;
     }
 
-  if (event->key() == Qt::Key_At)
-    {
-      if (Global::pythonInstalled())
-	{
-	  emit processVolumeFromScript();
-	  return;
-	}
-      else
-	{
-	  QMessageBox::information(0, "Error", "Python Script not activated.  Python not found");
-	}
-    }
+//  if (event->key() == Qt::Key_At)
+//    {
+//      if (Global::pythonInstalled())
+//	{
+//	  emit processVolumeFromScript();
+//	  return;
+//	}
+//      else
+//	{
+//	  QMessageBox::information(0, "Error", "Python Script not activated.  Python not found");
+//	}
+//    }
 
   if (event->key() != Qt::Key_H)
     QGLViewer::keyPressEvent(event);
@@ -1038,7 +1038,15 @@ Viewer::processCommand(QString cmd)
   m_boundingBox.bounds(bmin, bmax);
   bmin = VECDIVIDE(bmin, voxelScaling);
   bmax = VECDIVIDE(bmax, voxelScaling);
-   
+
+  if (list[0] == "script")
+    {
+      QStringList words = ocmd.split(" ", QString::SkipEmptyParts);
+      QString fnc = words[1];
+      emit callFunctionFromScript(fnc);
+      return;
+    }
+  
   if (list[0] == "label")
     {
       int tag = 0;
